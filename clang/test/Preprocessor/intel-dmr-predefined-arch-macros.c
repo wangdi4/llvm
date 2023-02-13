@@ -10,7 +10,7 @@
 // CHECK_DMR_M32: #define __AMXCOMPLEX__ 1
 // CHECK_DMR_M32: #define __AMXFP16__ 1
 // CHECK_DMR_M32: #define __AMXINT8__ 1
-// CHECK_DMR_M32: #define __AMXMEMADVISE__ 1
+// CHECK_DMR_M32: #define __AMXMOVRS__ 1
 // CHECK_DMR_M32: #define __AMXSPARSE__ 1
 // CHECK_DMR_M32: #define __AMXTF32__ 1
 // CHECK_DMR_M32: #define __AMXTILE2__ 1
@@ -113,7 +113,7 @@
 // CHECK_DMR_M64: #define __AMXCOMPLEX__ 1
 // CHECK_DMR_M64: #define __AMXFP16__ 1
 // CHECK_DMR_M64: #define __AMXINT8__ 1
-// CHECK_DMR_M64: #define __AMXMEMADVISE__ 1
+// CHECK_DMR_M64: #define __AMXMOVRS__ 1
 // CHECK_DMR_M64: #define __AMXSPARSE__ 1
 // CHECK_DMR_M64: #define __AMXTF32__ 1
 // CHECK_DMR_M64: #define __AMXTILE2__ 1

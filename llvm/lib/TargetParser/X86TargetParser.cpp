@@ -311,9 +311,9 @@ constexpr FeatureBitset FeaturesDiamondRapids = FeaturesLioncoveServer |
 #if INTEL_FEATURE_ISA_AMX_TILE2
     FeatureAMX_TILE2 |
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
-    FeatureAMX_MEMADVISE |
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
+    FeatureAMX_MOVRS |
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MOVRS
     FeatureAVX512MOVRS |
 #endif // INTEL_FEATURE_ISA_AVX512_MOVRS
@@ -854,9 +854,9 @@ constexpr FeatureBitset ImpliedFeaturesAMX_CONVERT = FeatureAMX_TILE;
 #if INTEL_FEATURE_ISA_AMX_TILE2
 constexpr FeatureBitset ImpliedFeaturesAMX_TILE2 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
-constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE = FeatureAMX_TILE;
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
+constexpr FeatureBitset ImpliedFeaturesAMX_MOVRS = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE_EVEX = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX

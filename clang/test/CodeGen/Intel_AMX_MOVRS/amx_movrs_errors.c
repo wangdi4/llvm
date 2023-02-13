@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_amx_memadvise
+// REQUIRES: intel_feature_isa_amx_movrs
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
 // RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-reduce -target-feature +amx-memory \
 // RUN: -target-feature +amx-format -target-feature +amx-element -emit-llvm -fsyntax-only -verify
