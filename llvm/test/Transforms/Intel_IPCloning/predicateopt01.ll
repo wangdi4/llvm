@@ -6,7 +6,9 @@
 
 ; CHECK: MRC Cloning: OK: GetVirtualPixelsFromNexus
 ; CHECK: Selected many recursive calls predicate opt
-; CHECK: MRC Predicate Opt: T
+; CHECK: MRC Predicate Opt: Loops: 5
+; CHECK: MRC Predicate Opt: LIRestrict: T
+; CHECK: MRC Predicate Opt: MultiLoop: T
 ; CHECK: MRC PredicateOpt: Loop Depth = 5
 ; CHECK: BaseF: GetVirtualPixelsFromNexus
 ; CHECK: WrapperF: GetOneCacheViewVirtualPixel
@@ -20,7 +22,10 @@
 ; CHECK: br {{.*}}!llvm.loop
 ; CHECK: br {{.*}}!llvm.loop
 ; CHECK: MRC Predicate Opt: Enclosing Function:
-; CHECK: define internal {{.*}} @MeanShiftImage(
+
+; Check the IR
+
+; CHECK-LABEL: define internal {{.*}} @MeanShiftImage(
 ; CHECK: br i1 true, label %[[L0:[A-Za-z0-9.]+]], label %[[L1:[A-Za-z0-9.]+]]
 ; CHECK: [[L1]]:
 ; CHECK: call void @MeanShiftImage.bb123
@@ -29,6 +34,10 @@
 ; CHECK: call void @MeanShiftImage.bb123
 ; CHECK: br label %[[L2]]
 ; CHECK: [[L2]]:
+
+; CHECK-LABEL: define internal {{.*}} @GetVirtualPixelsFromNexus(
+; CHECK: load ptr, ptr {{.*}} !predicate-opt-data ![[P0:[0-9]+]]
+; CHECK: ![[P0]] = !{!"predicate-opt-restrict"}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
