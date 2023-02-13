@@ -11,7 +11,7 @@
 
 // INTEL_CUSTOMIZATION
 // CMPLRLLVM-42769
-// XFAIL: windows
+// XFAIL: target={{.*windows.*}}
 // end INTEL_CUSTOMIZATION
 
 // CHECK-NEW-CLASS1-CPP: #include "{{.*}}new_helper_decls_test.h"
