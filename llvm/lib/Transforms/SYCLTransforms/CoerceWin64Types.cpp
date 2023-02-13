@@ -66,7 +66,8 @@ static bool isFunctionSupported(Function &F) {
   // Leave functions with users that are not supported yet (function pointer
   // related) unchanged
   for (User *U : F.users()) {
-    if (!isa<CallInst>(U))
+    auto *CI = dyn_cast<CallInst>(U);
+    if (!CI || CI->getCalledFunction() != &F)
       return false;
   }
   return true;
