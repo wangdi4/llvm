@@ -6805,6 +6805,8 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
         getOpenMPRuntime().registerTargetIndirectFn(
             getUniqueItaniumABIMangledName(GD), GV);
         Fn->addFnAttr("openmp-target-declare", "true");
+        if (getLangOpts().OpenMPIsDevice)
+          Fn->addFnAttr("referenced-indirectly");
       }
     }
   }
