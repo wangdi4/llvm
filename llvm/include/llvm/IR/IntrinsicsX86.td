@@ -6678,7 +6678,7 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
 //===----------------------------------------------------------------------===//
 let TargetPrefix = "x86" in {
   def int_x86_tmovadvise_load
@@ -6698,7 +6698,7 @@ let TargetPrefix = "x86" in {
         Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i32_ty],
         [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<3>>]>;
 }
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 let TargetPrefix = "x86" in {
