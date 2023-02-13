@@ -3,6 +3,7 @@
 ; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -disable-output -S %s 2>&1 | FileCheck %s
 
 ; Original code:
+;
 ; // extern void foo(void);
 ; void bar() {
 ;   void (*fptr)(void) ;// = foo;

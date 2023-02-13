@@ -3,6 +3,7 @@
 ; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -disable-output -S %s 2>&1 | FileCheck %s
 
 ; // C++ source
+;
 ; // #include <stdio.h>
 ; #include <omp.h>
 ; void __attribute__((nothrow,noinline))  foo_gpu(int aaa, omp_interop_t interop) {

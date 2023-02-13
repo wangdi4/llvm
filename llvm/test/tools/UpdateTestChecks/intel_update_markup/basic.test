@@ -1,3 +1,6 @@
+# RUN: cp -f %S/Inputs/empty %t.ll && %intel_update_markup --ref %S/Inputs/empty %t.ll
+# RUN: diff -u %S/Inputs/empty %t.ll
+#
 # RUN: cp -f %S/Inputs/x86-basic-exp.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/x86-basic-ref.ll
 # RUN: diff -u %S/Inputs/x86-basic-exp.ll.expected %t.ll
 #
@@ -16,9 +19,13 @@
 #
 # RUN: cp -f %S/Inputs/run-line-continue.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/empty --max 999
 # RUN: diff -u %S/Inputs/run-line-continue.ll.expected %t.ll
-
+#
 # RUN: cp -f %S/Inputs/run-check-line.mir %t.mir && %intel_update_markup %t.mir --ref %S/Inputs/empty.mir --max 999
 # RUN: diff -u %S/Inputs/run-check-line.mir.expected %t.mir
+#
+# RUN: cp -f %S/Inputs/number %t.ll && cp -f %S/Inputs/number %t.mir && %intel_update_markup %t.ll %t.mir --ref %S/Inputs/empty
+# RUN: diff -u %S/Inputs/number-vs-empty.ll.expected %t.ll
+# RUN: diff -u %S/Inputs/number-vs-empty.mir.expected %t.mir
 
 # FEATURE-NOT: INTEL
 # FEATURE: INTEL_CUSTOMIZATION

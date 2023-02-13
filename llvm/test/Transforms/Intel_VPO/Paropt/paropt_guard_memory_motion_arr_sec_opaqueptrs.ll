@@ -5,6 +5,7 @@
 ; passes on SIMD loop containing array section reduction idiom.
 
 ; C/C++ source
+;
 ; int foo(int b[1000][1000])
 ; {
 ;   int a[1000];

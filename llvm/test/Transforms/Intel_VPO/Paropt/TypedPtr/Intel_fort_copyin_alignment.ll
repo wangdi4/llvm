@@ -5,6 +5,7 @@
 @derpar_ = common unnamed_addr global [9 x i8] zeroinitializer, align 32
 @der_ = common unnamed_addr global [8 x i8] zeroinitializer, align 32
 
+
 ;1. C Code:
 ; int nder;
 ; #pragma omp threadprivate(nder)

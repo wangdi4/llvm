@@ -1,6 +1,5 @@
-# RUN: cp -f %S/Inputs/empty %t.ll && %intel_update_markup --ref %S/Inputs/empty %t.ll >%t.log
-# RUN: diff -u %S/Inputs/empty %t.log
-#
+# REQUIRES: system-linux
+
 # RUN: cp -f %S/Inputs/x86-basic-exp.ll %t.ll && %intel_update_markup %t.ll --log --comment --ref %S/Inputs/x86-basic-ref.ll >%t.log
 # RUN: FileCheck < %t.log %s --check-prefixes=LOG,COMMENT
 #
@@ -9,7 +8,18 @@
 #
 # RUN: cp -f %S/Inputs/run-check-line.mir %t.ll && %intel_update_markup %t.ll --log --ref %S/Inputs/empty >%t.log
 # RUN: FileCheck < %t.log %s --check-prefixes=LOG,RUN_CHECK
+#
+# RUN: cp -f %S/Inputs/number %t.ll && cp -f %S/Inputs/number %t.mir && %intel_update_markup --log %t.ll %t.mir --ref %S/Inputs/empty >%t.log
+# RUN: FileCheck < %t.log %s --check-prefixes=PARALLEL,PROCESS
+#
+# RUN: cp -f %S/Inputs/number %t.ll && cp -f %S/Inputs/number %t.mir && %intel_update_markup --log -j 3 %t.ll %t.mir --ref %S/Inputs/empty >%t.log
+# RUN: FileCheck < %t.log %s --check-prefixes=PARALLEL,PROCESS
+#
+# RUN: %intel_update_markup --log -j 1 %t.ll %t.mir --ref %S/Inputs/empty >%t.log
+# RUN: FileCheck < %t.log %s --check-prefixes=SERIAL,PROCESS
 
+# LOG: Running 1 job(s) in parallel ...
+# LOG: Processing file {{.*}} ...
 # LOG: Dropping markup and note ...
 # LOG-NEXT: SED script: {{.*}}
 
@@ -27,3 +37,8 @@
 
 # COMMENT: Adding note ...
 # COMMENT-NEXT: SED script: {{.*}}
+
+# PARALLEL: Running 2 job(s) in parallel ...
+# SERIAL: Running 1 job(s) in parallel ...
+# PROCESS: Processing file {{.*}} ...
+# PROCESS: Processing file {{.*}} ...
