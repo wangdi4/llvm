@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; xmain is in a state of transition to opaque pointers at the moment, with some
 ; tools enabled as opaque pointers, and other tools still using typed pointers
@@ -11,6 +12,12 @@
 ; RUN: opt -opaque-pointers=1 -module-summary -o %t2.o %s
 ; end INTEL_CUSTOMIZATION
 ; RUN: llvm-lto2 run -save-temps -o %t3 %t0.o %t1.o %t2.o -r %t1.o,a,px -r %t2.o,d,px -r %t1.o,h,x -r %t2.o,h,x -r %t1.o,j,px
+=======
+; RUN: opt -module-summary -o %t0.o %S/Inputs/type-mapping-bug4_0.ll
+; RUN: opt -module-summary -o %t1.o %S/Inputs/type-mapping-bug4_1.ll
+; RUN: opt -module-summary -o %t2.o %s
+; RUN: llvm-lto2 run -lto-opaque-pointers -save-temps -o %t3 %t0.o %t1.o %t2.o -r %t1.o,a,px -r %t2.o,d,px -r %t1.o,h,x -r %t2.o,h,x -r %t1.o,j,px
+>>>>>>> 442f45e4fe8d2a5161e68067387a7dd1a13384f5
 ; RUN: llvm-dis < %t3.0.0.preopt.bc | FileCheck %s
 
 ; stage0: linking t0.o

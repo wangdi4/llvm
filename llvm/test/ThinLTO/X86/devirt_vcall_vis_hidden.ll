@@ -6,10 +6,14 @@
 ; Index based WPD
 ; Generate unsplit module with summary for ThinLTO index-based WPD.
 ; RUN: opt -thinlto-bc -o %t2.o %s
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN: llvm-lto2 run %t2.o -opaque-pointers -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
+=======
+; RUN: llvm-lto2 run -lto-opaque-pointers %t2.o -opaque-pointers -save-temps -pass-remarks=. \
+>>>>>>> 442f45e4fe8d2a5161e68067387a7dd1a13384f5
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t2.o,test,px \
 ; RUN:   -r=%t2.o,_ZN1A1nEi,p \
@@ -24,11 +28,15 @@
 ; Hybrid WPD
 ; Generate split module with summary for hybrid Thin/Regular LTO WPD.
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
+<<<<<<< HEAD
 ; FIXME: Fix machine verifier issues and remove -verify-machineinstrs=0. PR39436.
 ; INTEL_CUSTOMIZATION
 ; RUN: llvm-lto2 run %t.o -opaque-pointers -save-temps -use-new-pm -pass-remarks=. \
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
+=======
+; RUN: llvm-lto2 run -lto-opaque-pointers %t.o -opaque-pointers -save-temps -pass-remarks=. \
+>>>>>>> 442f45e4fe8d2a5161e68067387a7dd1a13384f5
 ; RUN:   -o %t3 \
 ; RUN:   -r=%t.o,test,px \
 ; RUN:   -r=%t.o,_ZN1A1nEi,p \
@@ -49,7 +57,7 @@
 
 ; Regular LTO WPD
 ; RUN: opt -o %t4.o %s
-; RUN: llvm-lto2 run %t4.o -opaque-pointers -save-temps -pass-remarks=. \
+; RUN: llvm-lto2 run -lto-opaque-pointers %t4.o -opaque-pointers -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
