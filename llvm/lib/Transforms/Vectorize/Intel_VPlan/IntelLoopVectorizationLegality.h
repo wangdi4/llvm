@@ -329,10 +329,18 @@ private:
       if (!Type->isSingleValueType())
         return bailout(BailoutReason::ArrayReduction);
 
-      // Array sections with offsets is supported only for LLVM-IR path. Memory
-      // alises concept is missing for HIR.
-      if (Item->getIsArraySection() && IR == IRKind::HIR)
-        return bailout(BailoutReason::ArrayReduction);
+      // Bailouts from HIR path for cases where memory aliases concept is
+      // needed. So far, these include -
+      // 1. Non-alloca instruction being used in reduction clause.
+      // 2. Array sections with offsets.
+      if (IR == IRKind::HIR) {
+        bool OrigIsAllocaInst = false;
+        if (auto *OrigI = dyn_cast<Instruction>(Item->getOrig()))
+          OrigIsAllocaInst = isa<AllocaInst>(OrigI);
+
+        if (!OrigIsAllocaInst || Item->getIsArraySection())
+          return bailout(BailoutReason::ArrayReduction);
+      }
 
       // VPEntities framework can only handle single-element allocas. This check
       // works for both LLVM-IR and HIR.

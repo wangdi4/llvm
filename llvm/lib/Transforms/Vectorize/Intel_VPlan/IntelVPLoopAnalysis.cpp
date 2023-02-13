@@ -3070,9 +3070,21 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
         auto *CurrVal = Worklist.pop_back_val();
 
         for (auto *User : CurrVal->users()) {
-          // If we encounter a GEP operating on alloca, then add to worklist.
+          // If user is a memory alias, add the corresponding external def to
+          // the worklist.
+          if (auto *UserI = dyn_cast<VPInstruction>(User)) {
+            for (auto &KeyValPair : MemAliases) {
+              if (UserI == KeyValPair.second.first)
+                Worklist.push_back(KeyValPair.first);
+            }
+          }
+
+          // If we encounter a GEP/subscript operating on alloca, then add to
+          // worklist.
           if (auto *VPGEP = dyn_cast<VPGEPInstruction>(User))
             Worklist.push_back(VPGEP);
+          if (auto *VPSub = dyn_cast<VPSubscriptInst>(User))
+            Worklist.push_back(VPSub);
 
           auto *VPLS = dyn_cast<VPLoadStoreInst>(User);
           if (!VPLS)
