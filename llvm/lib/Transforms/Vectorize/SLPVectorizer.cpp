@@ -11086,13 +11086,7 @@ Value *BoUpSLP::createBuildVector(const TreeEntry *E) {
   inversePermutation(E->ReorderIndices, ReorderMask);
   if (!ReorderMask.empty())
     reorderScalars(VL, ReorderMask);
-<<<<<<< HEAD
   SmallVector<int> ReuseMask(VF, UndefMaskElem);
-  if (!allConstant(VL)) {
-    // For splats with can emit broadcasts instead of gathers, so try to find
-    // such sequences.
-    bool IsSplat = isSplat(VL) && (VL.size() > 2 || VL.front() == VL.back());
-=======
 #if INTEL_CUSTOMIZATION
   // Code below tries to replace where possible insertelement instructions with
   // shufflevector ones. For non-splat vectors on architectures with wide
@@ -11104,8 +11098,6 @@ Value *BoUpSLP::createBuildVector(const TreeEntry *E) {
 #endif // INTEL_CUSTOMIZATION
     // For splats with can emit broadcasts instead of gathers, so try to find
     // such sequences.
-    SmallVector<int> ReuseMask(VF, UndefMaskElem);
->>>>>>> 2786950f2a4191d1b6a229c3abc1cc066b2c3e01
     SmallVector<int> UndefPos;
     DenseMap<Value *, unsigned> UniquePositions;
     // Gather unique non-const values and all constant values.
