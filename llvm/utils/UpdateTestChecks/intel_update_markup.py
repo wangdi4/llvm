@@ -12,12 +12,29 @@ import subprocess
 from subprocess import PIPE
 import logging
 import sys
+from multiprocessing import Pool
+from functools import partial
+import re
+
+# REGEX copied from common
+RUN_LINE_RE = re.compile(r'^\s*(?://|[;#])\s*RUN:\s*(.*)$')
+CHECK_PREFIX_RE = re.compile(r'--?check-prefix(?:es)?[= ](\S+)')
+CHECK_RE = re.compile(r'^\s*(?://|[;#])\s*([^:]+?)(?:-NEXT|-NOT|-DAG|-LABEL|-SAME|-EMPTY)?:')
+
+# NOTE: Duplication of REGEX could be avoid by following statements, but it
+#       would trigger error on windows due to known issue
+#
+#       https://bugs.python.org/issue45914
+#
 # This script can be used either as part of the UpdateTestChecks module
 # or as the main module
-if __name__ == '__main__':
-    import common
-else:
-    from . import common
+# if __name__ == '__main__':
+#     import common
+# else:
+#     from . import common
+#
+# The error can be reproduced by on linux via
+#    multiprocessing.set_start_method('spawn')
 
 def check_ext(file_ext):
     if file_ext not in {'ll', 'mir', 's', 'txt', 'c', 'cpp', 'td', 'test', 'mm'}:
@@ -77,44 +94,78 @@ def get_markup(exp):
     return ss_markup, s_markup, m_markup_start, m_markup_end
 
 
-def get_dir():
-    return os.path.dirname(os.path.realpath(__file__))
+def get_dir(file=__file__):
+    return os.path.dirname(os.path.realpath(file))
 
 
-def has_git():
-    version = subprocess.run(['git', '--version'], stdout=PIPE, stderr=PIPE)
-    return version.returncode == 0
+def check_tool(exe, error=True):
+    version = subprocess.run([exe, '--version'], stdout=PIPE, stderr=PIPE)
+    if version.returncode:
+        msg = f'Not found {exe}'
+        if error:
+            raise EnvironmentError(msg)
+        else:
+            logging.debug(msg)
+            return False
+    return True
 
 
-def has_sed():
-    version = subprocess.run(['sed', '--version'], stdout=PIPE, stderr=PIPE)
-    return version.returncode == 0
+def check_git(error=True):
+    return check_tool('git', error)
 
 
-def get_llorg_ref(exp):
-    """Get the latest llorg version of the file"""
-    dir_path = get_dir()
-    ref_commit = subprocess.run(['git', 'merge-base', 'origin/main', 'HEAD'],
+def check_sed(error=True):
+    return check_tool('sed', error)
+
+
+def check_git_sed(error=True):
+    return check_git(error) and check_sed(error)
+
+
+def get_ref_branch():
+    return 'origin/main'
+
+
+def get_merge_base():
+    base = subprocess.run(['git', 'merge-base', f'{get_ref_branch()}', 'HEAD'],
                                 stdout=PIPE,
                                 stderr=PIPE,
-                                cwd=dir_path,
+                                cwd=get_dir(),
                                 check=True)
-    ref_commit = ref_commit.stdout.decode('utf-8').strip()
-    logging.debug(f'Merge base: {ref_commit}')
+    base = base.stdout.decode('utf-8').strip()
+    assert base, f'Expect a common ancestor with f{get_ref_branch()}'
+    logging.debug(f'Merge base: {base}')
+    return base
+
+
+def get_file_path_in_git(exp):
+    exp = subprocess.run(['git', 'ls-files', '--full-name', exp],
+                             stdout=PIPE,
+                             stderr=PIPE)
+    exp = exp.stdout.decode('utf-8').strip()
+    return exp
+
+
+# MODIFY THIS FUNCTION WITH CARE!
+# GIT is used for version control, so we don't test git history to avoid circular dependencies.
+def get_llorg_ref(exp, ref_commit=None):
+    """Get file from best common ancestor with llorg"""
+    if ref_commit == None:
+        ref_commit = get_merge_base()
 
     # Get the path of the file relative to git repository root, so that
     # we can run the script in any subdirectory.
-    exp_path = subprocess.run(['git', 'ls-files', '--full-name', exp],
-                             stdout=PIPE,
-                             stderr=PIPE)
-    exp = exp_path.stdout.decode('utf-8').strip()
+    exp_path = exp
+    exp = get_file_path_in_git(exp)
     if not exp:
+        logging.debug(f'File {exp_path} is no tracked by GIT')
         return None
     ref_str = subprocess.run(['git', 'show', f'{ref_commit}:{exp}'],
                              stdout=PIPE,
                              stderr=PIPE,
-                             cwd=dir_path)
+                             cwd=get_dir())
     if ref_str.returncode:
+        logging.debug(f'Commit {ref_commit} does not have file {exp}')
         return None
 
     logging.debug(f'Found llorg ref: {exp}')
@@ -132,10 +183,6 @@ def get_llorg_ref(exp):
 
 def drop(exp):
     """Remove existing intel markup and note"""
-    # No error and no ouput by intention b/c the API may be called by a test
-    if not has_sed():
-        logging.debug(f'Not found SED')
-        return
     ss_markup, s_markup, m_markup_start, m_markup_end = get_markup(exp)
     note = get_note(get_ext(exp))
     logging.debug(f'Dropping markup and note ...')
@@ -159,7 +206,7 @@ def find_interested_lines(exp, script):
 
 def find_run_lines(exp):
     with open(exp) as file:
-        run_lines = [i for i, l in enumerate(file, 1) if common.RUN_LINE_RE.match(l)]
+        run_lines = [i for i, l in enumerate(file, 1) if RUN_LINE_RE.match(l)]
     if run_lines:
         logging.debug(f'Found RUN lines: {run_lines}')
     return run_lines
@@ -174,7 +221,7 @@ def find_run_lines_with_line_continue(exp):
 
 
 def get_check_prefixes_from(filecheck_cmd):
-    check_prefixes = [item for m in common.CHECK_PREFIX_RE.finditer(filecheck_cmd)
+    check_prefixes = [item for m in CHECK_PREFIX_RE.finditer(filecheck_cmd)
                              for item in m.group(1).split(',')]
     if not check_prefixes:
         check_prefixes = ['CHECK']
@@ -205,7 +252,7 @@ def find_check_lines(exp, run_lines):
     check_lines = []
     with open(exp) as file:
         for i, l in enumerate(file, 1):
-            m = common.CHECK_RE.match(l)
+            m = CHECK_RE.match(l)
             if m and m.group(1) in prefix_set:
                 check_lines.append(i)
     if check_lines:
@@ -215,19 +262,9 @@ def find_check_lines(exp, run_lines):
 
 def add(exp, max_line, ref, comment):
     """Add intel markup and note for a clean file"""
-    # No error and no ouput by intention b/c the API may be called by a test
-    if not has_git() or not has_sed():
-        logging.debug(f'Not found GIT or SED')
-        return
+    assert ref, 'Expect a ref file'
 
     ss_markup, s_markup, m_markup_start, m_markup_end = get_markup(exp)
-
-    # Use the latest file from llorg by default
-    if not ref:
-        ref = get_llorg_ref(exp)
-    # ref does not exist (a intel-only file)
-    if not ref:
-        return
 
     # Format for output of git diff:
     #
@@ -317,14 +354,47 @@ def update(exp, max_line=3, ref=None, comment=True):
     markup = os.environ.get('INTEL_MARKUP', '1')
     if markup == '0':
         return
+    # No error b/c the API may be called by a LIT test
+    if not check_git_sed(False):
+        return
 
     drop(exp)
+    if not ref:
+        ref = get_llorg_ref(exp)
+    if not ref: # INTEL-only file
+        return
+    add(exp, max_line, ref, comment)
+
+
+def check_file(file):
+    if not os.path.isfile(file):
+        raise OSError(f'Non-existing file {file}')
+
+
+def check_file_and_ext(file):
+    check_file(file)
+    get_ext(file)
+
+
+def check_noneg(name, value):
+    if value < 0:
+        raise ValueError(f'{name} value {value} is less than 0')
+
+
+def drop_may_add(exp, max_line, ref, ref_commit, comment, drop_only):
+    logging.debug(f'Processing file {exp} ...')
+    drop(exp)
+    if drop_only:
+        return
+    ref = ref if ref else get_llorg_ref(exp, ref_commit)
+    if not ref:
+        return
     add(exp, max_line, ref, comment)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('exp', metavar='EXP', help='file to be updated')
+    parser.add_argument('exps', metavar='EXP', nargs='+', help='file to be updated')
     parser.add_argument(
         '--max',
         metavar='MAX',
@@ -340,27 +410,36 @@ def main():
     )
     parser.add_argument('--drop', help='drop markup and note', action='store_true')
     parser.add_argument('--comment', help='add a comment if markup is added', action='store_true')
-    parser.add_argument('--log', help='print the log', action='store_true')
+    parser.add_argument('--log', help='print the log (supported only on posix os)', action='store_true')
+    parser.add_argument('-j', metavar='N', dest='jobs', help=f'run N jobs in parallel (default={os.cpu_count()} on this system)', type=int, default=os.cpu_count())
     args = parser.parse_args()
 
-    # Argument checking
-    max_line = args.max
-    if max_line < 0:
-        raise ValueError(f'--max value {max_line} is less than 0')
-    exp = args.exp
-    if not os.path.isfile(exp):
-        raise OSError(f'Non-existing file {exp}')
-    ref = args.ref
-    if ref and not os.path.isfile(ref):
-        raise OSError(f'Non-existing file {ref}')
+    check_git_sed(True)
 
+    # Log utility
     log_level = logging.DEBUG if args.log else logging.WARNING
     logging.basicConfig(format='%(message)s', level=log_level, stream=sys.stdout)
-    drop(exp)
-    if args.drop:
-        return
 
-    add(exp, max_line, ref, args.comment)
+    # Argument checking
+    check_noneg('--max', args.max)
+    args.ref and check_file(args.ref)
+    if args.log and os.name != 'posix':
+        raise NotImplementedError('--log is supported on posix only') # Due to multiprocessing implementation
+    check_noneg('-j', args.jobs)
+    jobs = min(args.jobs, len(args.exps))
+    print(args.jobs, len(args.exps), jobs)
+    logging.debug(f'Running {jobs} job(s) in parallel ...')
+    with Pool(jobs) as p:
+        p.map(check_file_and_ext, args.exps)
+
+    # Look for the best common ancestor only once
+    ref_commit = None if args.ref or args.drop else get_merge_base()
+    assert not (args.ref and ref_commit), 'One at most'
+
+    # Process files
+    helper = partial(drop_may_add, max_line=args.max, ref=args.ref, ref_commit=ref_commit, comment=args.comment, drop_only=args.drop)
+    with Pool(jobs) as p:
+        p.map(helper, args.exps)
 
 
 if __name__ == '__main__':

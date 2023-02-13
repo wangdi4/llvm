@@ -7,8 +7,13 @@
 # RUN: cp -f %S/Inputs/empty %t.exe
 # RUN: not %intel_update_markup %t.exe 2>&1 | FileCheck --check-prefix=EXT %s
 
+# RUN: cp -f %S/Inputs/empty %t.ll
+# RUN: not %intel_update_markup -j -1 %t.ll 2>&1 | FileCheck --check-prefix=JOB %s
+
 # MAX: ValueError: --max value -1 is less than 0
 
 # FILE: OSError: Non-existing file no-such-file.ll
 
 # EXT: NotImplementedError: Unsupported file extension .exe
+
+# JOB: ValueError: -j value -1 is less than 0
