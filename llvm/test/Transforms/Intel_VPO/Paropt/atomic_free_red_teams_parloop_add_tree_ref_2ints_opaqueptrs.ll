@@ -143,6 +143,7 @@ entry:
     "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %sum1ref.map.ptr.tmp.ascast, ptr addrspace(4) null, i32 1),
     "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %sum2ref.map.ptr.tmp.ascast, ptr addrspace(4) null, i32 1),
     "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %tmp.ascast, i32 0, i32 1) ]
+
   store ptr addrspace(4) %2, ptr addrspace(4) %sum1ref.map.ptr.tmp.ascast, align 8
   store ptr addrspace(4) %3, ptr addrspace(4) %sum2ref.map.ptr.tmp.ascast, align 8
   %5 = load ptr addrspace(4), ptr addrspace(4) %sum1ref.map.ptr.tmp.ascast, align 8
@@ -155,6 +156,7 @@ entry:
     "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %.omp.lb.ascast, i32 0, i32 1),
     "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %.omp.ub.ascast, i32 0, i32 1),
     "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %tmp.ascast, i32 0, i32 1) ]
+
   %8 = load ptr addrspace(4), ptr addrspace(4) %sum1ref.map.ptr.tmp.ascast, align 8
   %9 = load ptr addrspace(4), ptr addrspace(4) %sum2ref.map.ptr.tmp.ascast, align 8
   %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(),
@@ -164,6 +166,7 @@ entry:
   "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr addrspace(4) %.omp.iv.ascast, i32 0),
   "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %.omp.lb.ascast, i32 0, i32 1),
   "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) %.omp.ub.ascast, i32 0) ]
+
   %11 = load i32, ptr addrspace(4) %.omp.lb.ascast, align 4
   store i32 %11, ptr addrspace(4) %.omp.iv.ascast, align 4
   br label %omp.inner.for.cond

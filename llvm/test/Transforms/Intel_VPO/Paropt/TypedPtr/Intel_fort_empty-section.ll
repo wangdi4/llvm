@@ -8,6 +8,7 @@
 ; LoopInfo must be updated after section-loop and switch creation.
 
 ; Test src:
+;
 ;       integer b,c
 ;
 ; !$omp sections

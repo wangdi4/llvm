@@ -1,6 +1,6 @@
 ; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
-;
+
 ; When generating the offload routine for the outlined target region, verify:
 ;   1. The module variable 'array_1' mapped to the device has debug info.
 ;   2. The module parameter module_1_mp_array_1 is homed to a stack location.
