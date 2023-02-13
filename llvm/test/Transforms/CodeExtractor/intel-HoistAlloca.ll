@@ -1,4 +1,4 @@
-; RUN: opt < %s -vpo-paropt -S | FileCheck  %s
+; RUN: opt < %s -opaque-pointers=0 -passes="vpo-paropt" -S | FileCheck  %s
 ; RUN: opt -opaque-pointers=0 -passes="vpo-paropt" -vpo-paropt-use-empty-code-extractor-analysis-cache=true -S %s | FileCheck %s --check-prefixes=EMPTY_CEAC_TRUE,CHECK
 ; RUN: opt -opaque-pointers=0 -passes="vpo-paropt" -vpo-paropt-use-empty-code-extractor-analysis-cache=false -S %s | FileCheck %s --check-prefixes=EMPTY_CEAC_FALSE,CHECK
 ;

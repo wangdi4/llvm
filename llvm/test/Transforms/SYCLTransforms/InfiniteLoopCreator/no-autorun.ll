@@ -8,7 +8,7 @@
 ;   opt -sycl-kernel-equalizer -sycl-kernel-analysis -S
 ; ----------------------------------------------------
 ; RUN: opt %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -verify %s -S > %t1.ll
+; RUN: opt -passes=verify %s -S > %t1.ll
 ; RUN: opt -passes=sycl-kernel-infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -passes=sycl-kernel-infinite-loop-creator %s -S > %t3.ll
 ; RUN: diff %t1.ll %t3.ll

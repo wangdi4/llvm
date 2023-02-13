@@ -1,5 +1,5 @@
 ; CMPLRLLVM-37804, recognize loop headers with freeze|sext|zext|trunc and prevent the threading in pre-loopopt.
-; RUN: opt -jump-threading -S < %s | FileCheck %s
+; RUN: opt -passes=jump-threading -S < %s | FileCheck %s
 
 declare void @f1()
 

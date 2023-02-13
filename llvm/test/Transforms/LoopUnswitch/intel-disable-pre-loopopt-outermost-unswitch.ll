@@ -1,5 +1,4 @@
-; RUN: opt < %s -enable-new-pm=0 -loop-unswitch -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -simple-loop-unswitch -enable-nontrivial-unswitch -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="simple-loop-unswitch" -enable-nontrivial-unswitch -S < %s 2>&1 | FileCheck %s
 
 ; Verify that we skip unswitching for conditional branches (%cmp1) even for
 ; outermost loops in externally visible function when "pre_loopopt" and

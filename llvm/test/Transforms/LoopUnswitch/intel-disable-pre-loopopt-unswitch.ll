@@ -1,5 +1,4 @@
-; RUN: opt < %s -enable-new-pm=0 -loop-unswitch -S < %s 2>&1 | FileCheck %s
-; RUN: opt < %s -simple-loop-unswitch -enable-nontrivial-unswitch -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=simple-loop-unswitch -enable-nontrivial-unswitch -S < %s 2>&1 | FileCheck %s
 
 ; Verify that we skip unswitching for conditional branches (%cmp1) that may affect
 ; perfect loopnest when "pre_loopopt" attribute is present.
