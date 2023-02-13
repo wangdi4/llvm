@@ -1,6 +1,6 @@
-// REQUIRES: intel_feature_isa_amx_memadvise
+// REQUIRES: intel_feature_isa_amx_movrs
 // RUN: %clang_cc1 -no-opaque-pointers %s -ffreestanding -triple=x86_64-unknown-unknown \
-// RUN: -target-feature +amx-memadvise  -emit-llvm -o - -Wall -Werror -pedantic \
+// RUN: -target-feature +amx-movrs  -emit-llvm -o - -Wall -Werror -pedantic \
 // RUN: -Wno-gnu-statement-expression| FileCheck %s
 
 #include <immintrin.h>

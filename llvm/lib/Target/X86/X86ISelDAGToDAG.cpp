@@ -5271,9 +5271,9 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       return;
     }
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
     case Intrinsic::x86_tmovadvise_load: {
-      if (!Subtarget->hasAMXMEMADVISE())
+      if (!Subtarget->hasAMXMOVRS())
         break;
       unsigned Opc;
       switch (IntNo) {
@@ -5297,7 +5297,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       return;
     }
     case Intrinsic::x86_tmovadvise_store: {
-      if (!Subtarget->hasAMXMEMADVISE())
+      if (!Subtarget->hasAMXMOVRS())
         break;
       unsigned Opc;
       switch (IntNo) {
@@ -5322,7 +5322,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     }
     case Intrinsic::x86_t2rpntlvwz0advise:
     case Intrinsic::x86_t2rpntlvwz1advise: {
-      if (!Subtarget->hasAMXMEMADVISE())
+      if (!Subtarget->hasAMXMOVRS())
         break;
       unsigned Opc;
       switch (IntNo) {
@@ -5351,7 +5351,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       ReplaceNode(Node, CNode);
       return;
     }
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
     case Intrinsic::x86_t2rpntlvwz0advisee:
     case Intrinsic::x86_t2rpntlvwz1advisee: {

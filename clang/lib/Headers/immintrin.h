@@ -1007,14 +1007,14 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_FP8 */
 
-/* INTEL_FEATURE_ISA_AMX_MEMADVISE */
-#if defined(__AMXMEMADVISE_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AMX_MOVRS */
+#if defined(__AMXMOVRS_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXMEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amxmemadviseintrin.h>
+    defined(__AMXMOVRS__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxmovrsintrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX_MEMADVISE */
+/* end INTEL_FEATURE_ISA_AMX_MOVRS */
 
 /* INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX */
 #if defined(__AMXMEMADVISEEVEX_SUPPORTED__)
