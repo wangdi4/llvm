@@ -52,7 +52,7 @@ static cl::opt<bool>
 
 // The threshold is for size of the memop in bytes.
 static cl::opt<int>
-    SmallMemsetMemcpyThreshold("small-memset-memcpy-threshold", cl::init(64),
+    SmallMemsetMemcpyThreshold("small-memset-memcpy-threshold", cl::init(800),
                                cl::Hidden,
                                cl::desc("Memset/memcpy size threshold."));
 
