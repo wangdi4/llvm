@@ -41187,7 +41187,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
   case X86::PTMOVADVISErmi:{
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
@@ -41244,7 +41244,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
   case X86::PT2RPNTLVWZ0ADVISEE:
   case X86::PT2RPNTLVWZ1ADVISEE: {

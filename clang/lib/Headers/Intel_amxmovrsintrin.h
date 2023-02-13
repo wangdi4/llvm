@@ -1,5 +1,5 @@
-/* INTEL_FEATURE_ISA_AMX_MEMADVISE */
-/*===-------- Intel_amxMEMADVISEintrin.h - AMX intrinsics -*- C++ -*---------===
+/* INTEL_FEATURE_ISA_AMX_MOVRS */
+/*===-------- Intel_amxmovrsintrin.h - AMX intrinsics -*- C++ -*---------===
 *
 * Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 *
@@ -10,11 +10,11 @@
 * ===---------------------------------------------------------------------=== */
 
 #ifndef __IMMINTRIN_H
-#error "Never use <Intel_amxmemadviseintrin.h> directly; include <immintrin.h> instead."
+#error "Never use <Intel_amxmovrsintrin.h> directly; include <immintrin.h> instead."
 #endif /* __IMMINTRIN_H */
 
-#ifndef __AMXMEMADVISEINTRIN_H
-#define __AMXMEMADVISEINTRIN_H
+#ifndef __AMXMOVRSINTRIN_H
+#define __AMXMOVRSINTRIN_H
 #ifdef __x86_64__
 
 #define _tile_movadvise_load __builtin_ia32_tmovadvise_load
@@ -25,5 +25,5 @@
   __builtin_ia32_t2rpntlvwz1advise(tdst, base, stride, Imm)
 
 #endif /* __x86_64__ */
-#endif /* __AMXMEMADVISEINTRIN_H */
-/* end INTEL_FEATURE_ISA_AMX_MEMADVISE */
+#endif /* __AMXMOVRSINTRIN_H */
+/* end INTEL_FEATURE_ISA_AMX_MOVRS */
