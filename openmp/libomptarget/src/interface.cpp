@@ -158,7 +158,15 @@ targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
   PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataEnterBegin(DeviceId));
+  bool IsBegin = strncmp(RegionName, "begin", 5) == 0;
+  bool IsEnd = strncmp(RegionName, "end", 3) == 0;
+  bool IsUpdate = strncmp(RegionName, "update", 6) == 0;
+  if (IsBegin)
+    OMPT_TRACE(targetDataEnterBegin(DeviceId));
+  else if (IsEnd)
+    OMPT_TRACE(targetDataExitBegin(DeviceId));
+  else if (IsUpdate)
+    OMPT_TRACE(targetDataUpdateBegin(DeviceId));
 #endif // INTEL_CUSTOMIZATION
 
   DeviceTy &Device = *PM->Devices[DeviceId];
@@ -176,7 +184,12 @@ targetDataMapper(ident_t *Loc, int64_t DeviceId, int32_t ArgNum,
   handleTargetOutcome(Rc == OFFLOAD_SUCCESS, Loc);
 
 #if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataEnterEnd(DeviceId));
+  if (IsBegin)
+    OMPT_TRACE(targetDataEnterEnd(DeviceId));
+  else if (IsEnd)
+    OMPT_TRACE(targetDataExitEnd(DeviceId));
+  else if (IsUpdate)
+    OMPT_TRACE(targetDataUpdateEnd(DeviceId));
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
@@ -222,25 +235,6 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *Loc, int64_t DeviceId,
                                          map_var_info_t *ArgNames,
                                          void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
-
-#if INTEL_CUSTOMIZATION
-  XPTIEventCacheTy XPTIEvt(Loc, __func__);
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_COLLAB
-  int64_t EncodedId = GetEncodedDeviceID(DeviceId);
-  PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
-#endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataExitBegin(DeviceId));
-  OMPT_TRACE(targetDataExitEnd(DeviceId));
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_COLLAB
-  if (EncodedId != DeviceId)
-    PM->Devices[DeviceId]->popSubDevice();
-#endif // INTEL_COLLAB
-
   targetDataMapper<AsyncInfoTy>(Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes,
                                 ArgTypes, ArgNames, ArgMappers, targetDataEnd,
                                 "Exiting OpenMP data region", "end");
@@ -264,26 +258,6 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *Loc, int64_t DeviceId,
                                             map_var_info_t *ArgNames,
                                             void **ArgMappers) {
   TIMESCOPE_WITH_IDENT(Loc);
-
-#if INTEL_CUSTOMIZATION
-  XPTIEventCacheTy XPTIEvt(Loc, __func__);
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_COLLAB
-  int64_t EncodedId = GetEncodedDeviceID(DeviceId);
-  PM->Devices[DeviceId]->pushSubDevice(EncodedId, DeviceId);
-#endif // INTEL_COLLAB
-
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetDataUpdateBegin(DeviceId));
-  OMPT_TRACE(targetDataUpdateEnd(DeviceId));
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_COLLAB
-  if (EncodedId != DeviceId)
-    PM->Devices[DeviceId]->popSubDevice();
-#endif // INTEL_COLLAB
-
   targetDataMapper<AsyncInfoTy>(
       Loc, DeviceId, ArgNum, ArgsBase, Args, ArgSizes, ArgTypes, ArgNames,
       ArgMappers, targetDataUpdate, "Updating OpenMP data", "update");

@@ -976,6 +976,10 @@ postProcessingTargetDataEnd(DeviceTy *Device,
     DeviceTy::HDTTMapAccessorTy HDTTMap =
         Device->HostDataToTargetMap.getExclusiveAccessor(!DelEntry);
 
+#if INTEL_CUSTOMIZATION
+    if (!TPR.Entry)
+      continue;
+#endif // INTEL_CUSTOMIZATION
     const bool IsNotLastUser = TPR.Entry->decDataEndThreadCount() != 0;
     if (DelEntry && (TPR.Entry->getTotalRefCount() != 0 || IsNotLastUser)) {
       // The thread is not in charge of deletion anymore. Give up access
@@ -1170,15 +1174,6 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
         return OFFLOAD_FAIL;
       }
 
-#if INTEL_CUSTOMIZATION
-      // In case of IsHostPtr, TPR.Entry refers to an entry that is not relevant
-      // to HstPtrBegin, and it can be used in apployToShadowMapEntries below
-      // even after TPR.Entry is destroyed.
-      // Runtime built with the current build compiler does not catch this,
-      // but runtime built with self-built compiler catches this error.
-      if (IsHostPtr)
-        TPR.Entry = nullptr;
-#endif // INTEL_CUSTOMIZATION
       // As we are expecting to delete the entry the d2h copy might race
       // with another one that also tries to delete the entry. This happens
       // as the entry can be reused and the reuse might happen after the
