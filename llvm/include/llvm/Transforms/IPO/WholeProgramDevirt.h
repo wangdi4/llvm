@@ -1,4 +1,21 @@
 //===- WholeProgramDevirt.h - Whole-program devirt pass ---------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -133,7 +150,7 @@ struct VirtualCallTarget {
 
   // When doing virtual constant propagation, this stores the return value for
   // the function when passed the currently considered argument list.
-  uint64_t RetVal;
+  uint64_t RetVal = 0; // INTEL
 
   // Whether the target is big endian.
   bool IsBigEndian;

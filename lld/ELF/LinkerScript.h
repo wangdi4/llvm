@@ -1,4 +1,21 @@
 //===- LinkerScript.h -------------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -112,11 +129,11 @@ struct SymbolAssignment : SectionCommand {
   std::string commandString;
 
   // Address of this assignment command.
-  uint64_t addr;
+  uint64_t addr = 0; // INTEL
 
   // Size of this assignment command. This is usually 0, but if
   // you move '.' this may be greater than 0.
-  uint64_t size;
+  uint64_t size = 0; // INTEL
 };
 
 // Linker scripts allow additional constraints to be put on output sections.
@@ -234,7 +251,7 @@ struct ByteCommand : SectionCommand {
   Expr expression;
 
   // This is just an offset of this assignment command in the output section.
-  unsigned offset;
+  unsigned offset = 0; // INTEL
 
   // Size of this data command.
   unsigned size;
@@ -299,9 +316,9 @@ class LinkerScript final {
   // LinkerScript.
   AddressState *state = nullptr;
 
-  OutputSection *aether;
+  OutputSection *aether = nullptr; // INTEL
 
-  uint64_t dot;
+  uint64_t dot = 0; // INTEL
 
 public:
   OutputDesc *createOutputSection(StringRef name, StringRef location);
