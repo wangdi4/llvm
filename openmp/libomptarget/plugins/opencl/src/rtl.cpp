@@ -778,6 +778,7 @@ class SpecConstantsTy {
 public:
   SpecConstantsTy() = default;
   SpecConstantsTy(const SpecConstantsTy &) = delete;
+  SpecConstantsTy &operator=(const SpecConstantsTy &) = delete;
   SpecConstantsTy(const SpecConstantsTy &&Other)
     : ConstantIds(std::move(Other.ConstantIds)),
       ConstantValueSizes(std::move(Other.ConstantValueSizes)),
