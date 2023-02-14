@@ -1591,10 +1591,15 @@ FuseGraph FuseGraph::create(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
   if (HLRegion *Region = dyn_cast<HLRegion>(ParentNode)) {
     DDG = DDA.getGraph(Region);
   } else if (HLLoop *Loop = dyn_cast<HLLoop>(ParentNode)) {
+    assert(!Loop->isInnermost() && "Fusion trying to analyze innermost loop's "
+                                   "children as fusion candidates!!");
     DDG = DDA.getGraph(Loop);
   } else {
     HLLoop *ParentLoop = ParentNode->getParentLoop();
     if (ParentLoop) {
+      assert(!ParentLoop->isInnermost() &&
+             "Fusion trying to analyze innermost loop's children as fusion "
+             "candidates!");
       DDG = DDA.getGraph(ParentLoop);
     } else {
       DDG = DDA.getGraph(ParentNode->getParentRegion());

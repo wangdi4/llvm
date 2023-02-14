@@ -5119,15 +5119,49 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     }
   }
 
-  if (!EqualBaseAndShape || (NoCommonNest && !ForFusion)) {
-    LLVM_DEBUG(dbgs() << "\nDiff dim,  base, or no common nests\n");
+  const HLLoop *SrcLoop = SrcDDRef->getHLDDNode()->getParentLoop();
+  const HLLoop *DstLoop = DstDDRef->getHLDDNode()->getParentLoop();
+
+  if (!EqualBaseAndShape) {
+    LLVM_DEBUG(dbgs() << "\nDiff base or shape\n");
+    // DV has been initialized as *
+    return std::make_unique<Dependences>(Result);
+
+  } else if (NoCommonNest && !ForFusion) {
+    assert(SrcRegDDRef->getHLDDNode()->getTopSortNum() <=
+               DstRegDDRef->getHLDDNode()->getTopSortNum() &&
+           "Src is not before Dst!");
+
+    // Return independant for cases where the distance between refs is bigger
+    // than the iteration space of SrcLoop.
+    //
+    // For example-
+    //
+    // DO i1 = 0, 99
+    //   A[i1] = // SrcRef
+    // END DO
+    //
+    // DO i1 = 0, 99
+    //   A[i1 + 100] = // DstRef
+    // END DO
+    //
+    uint64_t TC = 0;
+    int64_t Dist = 0;
+    if (SrcLoop && (SrcLoop->getNestingLevel() == 1) &&
+        SrcLoop->isConstTripLoop(&TC) && !SrcRegDDRef->isFake() &&
+        DDRefUtils::getConstByteDistance(DstRegDDRef, SrcRegDDRef, &Dist) &&
+        (Dist > 0) &&
+        ((uint64_t)Dist >= (TC * SrcRegDDRef->getDestTypeSizeInBytes()))) {
+      return nullptr;
+    }
+
+    LLVM_DEBUG(dbgs() << "\nNo common nest\n");
     // DV has been initialized as *
     return std::make_unique<Dependences>(Result);
   }
 
   // Same base subscripts with different types could cause a dependency
-  if (TestingMemRefs && EqualBaseAndShape &&
-      mayIntersectDueToTypeCast(SrcRegDDRef, DstRegDDRef))
+  if (EqualBaseAndShape && mayIntersectDueToTypeCast(SrcRegDDRef, DstRegDDRef))
     return std::make_unique<Dependences>(Result);
 
   unsigned Pairs = SrcRegDDRef->getNumDimensions();
@@ -5162,19 +5196,6 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   // Note: Couple of original functionality were skipped
   //  UnifyingSubscriptType due to different sign extension
-
-  const HLLoop *SrcLoop = nullptr;
-  const HLLoop *DstLoop = nullptr;
-
-  HLLoop *SrcParent = SrcDDRef->getHLDDNode()->getParentLoop();
-  HLLoop *DstParent = DstDDRef->getHLDDNode()->getParentLoop();
-
-  if (SrcParent) {
-    SrcLoop = SrcParent;
-  }
-  if (DstParent) {
-    DstLoop = DstParent;
-  }
 
   if (TestingMemRefs &&
       tryDelinearize(SrcRegDDRef, DstRegDDRef, InputDV, Pair, ForDDGBuild)) {
