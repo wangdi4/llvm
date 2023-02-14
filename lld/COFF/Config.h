@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -288,7 +288,7 @@ struct Configuration {
   uint32_t minorOSVersion = 0;
   uint32_t majorSubsystemVersion = 6;
   uint32_t minorSubsystemVersion = 0;
-  uint32_t timestamp = 0;
+  uint64_t timestamp = 0; // INTEL
   uint32_t functionPadMin = 0;
   bool dynamicBase = true;
   bool allowBind = true;

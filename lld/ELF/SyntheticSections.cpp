@@ -679,7 +679,7 @@ uint64_t GotSection::getGlobalDynAddr(const Symbol &b) const {
 }
 
 uint64_t GotSection::getGlobalDynOffset(const Symbol &b) const {
-  return b.getTlsGdIdx() * config->wordsize;
+  return b.getTlsGdIdx() * (uint64_t)config->wordsize; // INTEL
 }
 
 void GotSection::finalizeContents() {
