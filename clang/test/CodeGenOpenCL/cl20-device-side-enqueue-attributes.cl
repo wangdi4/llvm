@@ -22,7 +22,11 @@ kernel void device_side_enqueue(global float *a, global float *b, int i) {
 }
 // SPIR32: Function Attrs: convergent noinline norecurse nounwind optnone
 // SPIR32-LABEL: define {{[^@]+}}@device_side_enqueue
-// SPIR32-SAME: (ptr addrspace(1) align 4 [[A:%.*]], ptr addrspace(1) align 4 [[B:%.*]], i32 [[I:%.*]]) #[[ATTR0:[0-9]+]] !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 {
+// if INTEL_CUSTOMIZATION
+// kernel_arg_host_accessible, kernel_arg_pipe_depth, kernel_arg_pipe_io and
+// kernel_arg_buffer_location are added to opencl kernel functions
+// SPIR32-SAME: (ptr addrspace(1) align 4 [[A:%.*]], ptr addrspace(1) align 4 [[B:%.*]], i32 [[I:%.*]]) #[[ATTR0:[0-9]+]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} !kernel_arg_host_accessible !{{[0-9]+}} !kernel_arg_pipe_depth !{{[0-9]+}} !kernel_arg_pipe_io !{{[0-9]+}} !kernel_arg_buffer_location !{{[0-9]+}} {
+// endif INTEL_CUSTOMIZATION
 // SPIR32-NEXT:  entry:
 // SPIR32-NEXT:    [[A_ADDR:%.*]] = alloca ptr addrspace(1), align 4
 // SPIR32-NEXT:    [[B_ADDR:%.*]] = alloca ptr addrspace(1), align 4
@@ -93,7 +97,9 @@ kernel void device_side_enqueue(global float *a, global float *b, int i) {
 //
 // STRICTFP: Function Attrs: convergent noinline norecurse nounwind optnone strictfp
 // STRICTFP-LABEL: define {{[^@]+}}@device_side_enqueue
-// STRICTFP-SAME: (ptr addrspace(1) align 4 [[A:%.*]], ptr addrspace(1) align 4 [[B:%.*]], i32 [[I:%.*]]) #[[ATTR0:[0-9]+]] !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 {
+// if INTEL_CUSTOMIZATION
+// STRICTFP-SAME: (ptr addrspace(1) align 4 [[A:%.*]], ptr addrspace(1) align 4 [[B:%.*]], i32 [[I:%.*]]) #[[ATTR0:[0-9]+]] !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type !{{[0-9]+}} !kernel_arg_base_type !{{[0-9]+}} !kernel_arg_type_qual !{{[0-9]+}} !kernel_arg_host_accessible !{{[0-9]+}} !kernel_arg_pipe_depth !{{[0-9]+}} !kernel_arg_pipe_io !{{[0-9]+}} !kernel_arg_buffer_location !{{[0-9]+}} {
+// endif INTEL_CUSTOMIZATION
 // STRICTFP-NEXT:  entry:
 // STRICTFP-NEXT:    [[A_ADDR:%.*]] = alloca ptr addrspace(1), align 4
 // STRICTFP-NEXT:    [[B_ADDR:%.*]] = alloca ptr addrspace(1), align 4
@@ -175,15 +181,18 @@ kernel void device_side_enqueue(global float *a, global float *b, int i) {
 // STRICTFP: attributes #4 = { convergent nounwind "stack-protector-buffer-size"="8" }
 // STRICTFP: attributes #5 = { strictfp }
 //.
-// SPIR32: !0 = !{i32 1, !"wchar_size", i32 4}
-// SPIR32: !1 = !{i32 2, i32 0}
+// if INTEL_CUSTOMIZATION
+// wchar_size is not added to llvm.module.flags
+// SPIR32: !0 = !{i32 2, i32 0}
+// endif INTEL_CUSTOMIZATION
 // SPIR32: !2 = !{i32 1, i32 1, i32 0}
 // SPIR32: !3 = !{!"none", !"none", !"none"}
 // SPIR32: !4 = !{!"float*", !"float*", !"int"}
 // SPIR32: !5 = !{!"", !"", !""}
 //.
-// STRICTFP: !0 = !{i32 1, !"wchar_size", i32 4}
-// STRICTFP: !1 = !{i32 2, i32 0}
+// if INTEL_CUSTOMIZATION
+// STRICTFP: !0 = !{i32 2, i32 0}
+// endif INTEL_CUSTOMIZATION
 // STRICTFP: !2 = !{i32 1, i32 1, i32 0}
 // STRICTFP: !3 = !{!"none", !"none", !"none"}
 // STRICTFP: !4 = !{!"float*", !"float*", !"int"}
