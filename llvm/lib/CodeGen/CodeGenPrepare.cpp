@@ -440,6 +440,9 @@ private:
 
   void removeAllAssertingVHReferences(Value *V);
   bool eliminateAssumptions(Function &F);
+#if INTEL_COLLAB
+  bool hoistCatchPadAlloca(Function &F);
+#endif // INTEL_COLLAB
   bool eliminateFallThrough(Function &F);
   bool eliminateMostlyEmptyBlocks(Function &F);
   BasicBlock *findDestBlockOfMergeableEmptyBlock(BasicBlock *BB);
@@ -621,7 +624,11 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   // blocks, since there might be blocks that only contain @llvm.assume calls
   // (plus arguments that we can get rid of).
   EverMadeChange |= eliminateAssumptions(F);
-
+#if INTEL_COLLAB
+  // The frame allocator requires catchpad args to be allocated in the entry
+  // block.
+  EverMadeChange |= hoistCatchPadAlloca(F);
+#endif // INTEL_COLLAB
   // Eliminate blocks that contain only PHI nodes and an
   // unconditional branch.
   EverMadeChange |= eliminateMostlyEmptyBlocks(F);
@@ -770,6 +777,34 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   return EverMadeChange;
 }
 
+#if INTEL_COLLAB
+// If a catchpad has a local allocated arg which is not allocated in the
+// entry block, hoist it to the entry block.
+bool CodeGenPrepare::hoistCatchPadAlloca(Function &F) {
+  if (!F.hasPersonalityFn())
+    return false;
+  bool MadeChange = false;
+  auto *EntryBlock = &(F.getEntryBlock());
+  for (BasicBlock &BB : F) {
+    CurInstIterator = BB.begin();
+    while (CurInstIterator != BB.end()) {
+      Instruction *I = &*(CurInstIterator++);
+      if (auto *CatchPad = dyn_cast<CatchPadInst>(I)) {
+        for (auto &Arg : CatchPad->arg_operands()) {
+          if (auto *AI = dyn_cast<AllocaInst>(&Arg)) {
+            if (AI->getParent() != EntryBlock) {
+              AI->removeFromParent();
+              AI->insertBefore(&*(EntryBlock->getFirstInsertionPt()));
+              MadeChange = true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return MadeChange;
+}
+#endif // INTEL_COLLAB
 bool CodeGenPrepare::eliminateAssumptions(Function &F) {
   bool MadeChange = false;
   for (BasicBlock &BB : F) {
