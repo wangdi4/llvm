@@ -1,6 +1,9 @@
 ; INTEL_CUSTOMIZATION
 ; RUN: %lli -disable-iml-trans %s > /dev/null
 ; end INTEL_CUSTOMIZATION
+; LoongArch does not support mcjit.
+; UNSUPPORTED: target=loongarch{{.*}}
+
 ; RUN: %lli -jit-kind=mcjit %s > /dev/null
 ; RUN: %lli %s > /dev/null
 
