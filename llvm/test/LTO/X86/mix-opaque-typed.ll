@@ -1,5 +1,6 @@
 ; RUN: llvm-as -opaque-pointers=0 %s -o %t-typed.bc
 ; RUN: llvm-as -opaque-pointers=1 %S/Inputs/opaque-pointers.ll -o %t-opaque.bc
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; The test is modified by swapping the order of the input files to llvm-lto2,
 ; because commit '33e1af65481ef' has temporarily reenabled opaque pointer
@@ -9,6 +10,9 @@
 ; guarantee use of opaque pointer mode, which is the expected behavior for
 ; this test.
 ; RUN: llvm-lto2 run -o %t-lto.bc %t-opaque.bc %t-typed.bc -save-temps \
+=======
+; RUN: llvm-lto2 run -opaque-pointers -o %t-lto.bc %t-typed.bc %t-opaque.bc -save-temps \
+>>>>>>> 749199f76b1e3cd2842fa55aaaf14d2c03896bfe
 ; RUN:     -r %t-typed.bc,call_foo,px -r %t-typed.bc,foo,l \
 ; RUN:     -r %t-opaque.bc,foo,px
 ; end INTEL_CUSTOMIZATION
