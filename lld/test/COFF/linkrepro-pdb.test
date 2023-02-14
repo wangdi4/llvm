@@ -1,6 +1,8 @@
 REQUIRES: x86, gnutar
 
-UNSUPPORTED: windows
+// INTEL_CUSTOMIZATION
+UNSUPPORTED: system-windows
+// end INTEL_CUSTOMIZATION
 
 RUN: rm -rf %t && mkdir -p %t && cd %t
 RUN: yaml2obj %S/Inputs/pdb-type-server-simple-a.yaml -o a.obj
