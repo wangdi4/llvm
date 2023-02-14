@@ -50,6 +50,7 @@ using namespace llvm;
 // potentially pair up with old instructions and create new entries in the
 // tables that would be incorrect. The manual review process allows us a chance
 // to catch these before they become observable bugs.
+<<<<<<< HEAD
 static const X86MemoryFoldTableEntry MemoryFoldTable2Addr[] = {
   { X86::ADD16ri8_DB, X86::ADD16mi8,   TB_NO_REVERSE },
   { X86::ADD16ri_DB,  X86::ADD16mi,    TB_NO_REVERSE },
@@ -6325,6 +6326,9 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VXORPSZrrk,                X86::VXORPSZrmk,                0 },
 };
 
+=======
+#include "X86MemFoldTables.inc"
+>>>>>>> 4f4b2161ec3cc42890aa9a445588d5a9a67e9033
 static const X86MemoryFoldTableEntry BroadcastFoldTable2[] = {
   { X86::VADDPDZ128rr,   X86::VADDPDZ128rmb,   TB_BCAST_SD },
   { X86::VADDPDZ256rr,   X86::VADDPDZ256rmb,   TB_BCAST_SD },
