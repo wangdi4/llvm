@@ -1349,7 +1349,6 @@ void GVNPass::AnalyzeLoadAvailability(LoadInst *Load, LoadDepVect &Deps,
          "post condition violation");
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // We don't call into LTO here because ScalarOpt must build as a standalone
 // library with -slibs.
@@ -1510,62 +1509,6 @@ static bool isLoadPREProfitable(LoadInst *Load, DominatorTree *DT,
 }
 
 #endif // INTEL_CUSTOMIZATION
-
-/// Given the following code, v1 is partially available on some edges, but not
-/// available on the edge from PredBB. This function tries to find if there is
-/// another identical load in the other successor of PredBB.
-///
-///      v0 = load %addr
-///      br %LoadBB
-///
-///   LoadBB:
-///      v1 = load %addr
-///      ...
-///
-///   PredBB:
-///      ...
-///      br %cond, label %LoadBB, label %SuccBB
-///
-///   SuccBB:
-///      v2 = load %addr
-///      ...
-///
-LoadInst *GVNPass::findLoadToHoistIntoPred(BasicBlock *Pred, BasicBlock *LoadBB,
-                                           LoadInst *Load) {
-  // For simplicity we handle a Pred has 2 successors only.
-  auto *Term = Pred->getTerminator();
-  if (Term->getNumSuccessors() != 2 || Term->isExceptionalTerminator())
-    return nullptr;
-  auto *SuccBB = Term->getSuccessor(0);
-  if (SuccBB == LoadBB)
-    SuccBB = Term->getSuccessor(1);
-  if (!SuccBB->getSinglePredecessor())
-    return nullptr;
-
-  unsigned int NumInsts = MaxNumInsnsPerBlock;
-  for (Instruction &Inst : *SuccBB) {
-    if (--NumInsts == 0)
-      return nullptr;
-
-    if (!Inst.isIdenticalTo(Load))
-      continue;
-
-    MemDepResult Dep = MD->getDependency(&Inst);
-    // If an identical load doesn't depends on any local instructions, it can
-    // be safely moved to PredBB.
-    if (Dep.isNonLocal())
-      return cast<LoadInst>(&Inst);
-
-    // Otherwise there is something in the same BB clobbers the memory, we can't
-    // move this and later load to PredBB.
-    return nullptr;
-  }
-
-  return nullptr;
-}
-
-=======
->>>>>>> 43969af627aa01fa4b9a85ff5325fe24e854cb71
 void GVNPass::eliminatePartiallyRedundantLoad(
     LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
     MapVector<BasicBlock *, Value *> &AvailableLoads) {
@@ -1772,7 +1715,6 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
          "Fully available value should already be eliminated!");
   (void)NumUnavailablePreds;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Check for xz load pattern (described above).
   PHINode *PH = PREProfitableWithPaddedMalloc(Load);
@@ -1786,12 +1728,12 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
   // reload.
   if (PH) {
     if ((NumUnavailablePreds == 2 || NumUnavailablePreds == 3) &&
-      !CriticalEdgePredSplit.empty() && CriticalEdgePredSplit.size() <= 2) {
+      !CriticalEdgePred.empty() && CriticalEdgePred.size() <= 2) {
       // Make a vector containing the head blocks of the incoming critical
       // edges, and the blocks where the load is unavailable (PredLoads).
       // Duplication is OK.
       SmallVector<BasicBlock *, 2> BlocksToSplit;
-      BlocksToSplit.append(CriticalEdgePredSplit);
+      BlocksToSplit.append(CriticalEdgePred);
       for (auto &PredLoad : PredLoads)
         BlocksToSplit.push_back(PredLoad.first);
       // Insert a single empty block into all these edges.
@@ -1805,7 +1747,7 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
         // (the new block). Update the lists.
         // The PRE algorithm below is now free to move the loads into this
         // block.
-        CriticalEdgePredSplit.clear();
+        CriticalEdgePred.clear();
         PredLoads.clear();
         PredLoads[NewBB] = nullptr;
         NumUnavailablePreds = 1;
@@ -1817,10 +1759,6 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // If we need to insert new load in multiple predecessors, reject it.
-=======
-  // If this load is unavailable in multiple predecessors, reject it.
->>>>>>> 43969af627aa01fa4b9a85ff5325fe24e854cb71
   // FIXME: If we could restructure the CFG, we could make a common pred with
   // all the preds that don't have an available Load and insert a new load into
   // that one block.
