@@ -887,13 +887,8 @@ void RVAFlagTableChunk::writeTo(uint8_t *buf) const {
     uint8_t flag;
   };
   auto flags =
-<<<<<<< HEAD
       MutableArrayRef(reinterpret_cast<RVAFlag *>(buf), syms.size());
-  for (auto t : zip(syms, flags)) {
-=======
-      makeMutableArrayRef(reinterpret_cast<RVAFlag *>(buf), syms.size());
   for (const auto &t : zip(syms, flags)) { // INTEL
->>>>>>> e6c88e0b9c15496ef8bb6d5399741fbcce0b5f4a
     const auto &sym = std::get<0>(t);
     auto &flag = std::get<1>(t);
     flag.rva = sym.inputChunk->getRVA() + sym.offset;
