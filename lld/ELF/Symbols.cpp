@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -185,7 +185,7 @@ uint64_t Symbol::getGotVA() const {
 }
 
 uint64_t Symbol::getGotOffset() const {
-  return getGotIdx() * target->gotEntrySize;
+  return getGotIdx() * (uint64_t)target->gotEntrySize; // INTEL
 }
 
 uint64_t Symbol::getGotPltVA() const {
@@ -196,8 +196,11 @@ uint64_t Symbol::getGotPltVA() const {
 
 uint64_t Symbol::getGotPltOffset() const {
   if (isInIplt)
-    return getPltIdx() * target->gotEntrySize;
-  return (getPltIdx() + target->gotPltHeaderEntriesNum) * target->gotEntrySize;
+#if INTEL_CUSTOMIZATION
+    return getPltIdx() * (uint64_t)target->gotEntrySize;
+  return (getPltIdx() + target->gotPltHeaderEntriesNum) * 
+    (uint64_t)target->gotEntrySize;
+#endif
 }
 
 uint64_t Symbol::getPltVA() const {
