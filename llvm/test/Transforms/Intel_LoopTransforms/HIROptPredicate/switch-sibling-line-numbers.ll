@@ -49,7 +49,6 @@
 ; CHECK:      }
 ; CHECK: END REGION
 
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-opt-predicate -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter -disable-output 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low -disable-output 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 
 ; OPTREPORT: Global optimization report for : foo

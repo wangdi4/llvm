@@ -25,9 +25,7 @@
 ; CHECK: + END LOOP
 
 ; Check CG for liveout values.
-; RUN: opt -opaque-pointers=0 < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck -check-prefix=CHECK-CG %s
 ; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S 2>&1 | FileCheck %s -check-prefix=CHECK-CG
-
 
 ; CHECK-CG: %t.0.lcssa.ph = phi i32 [ %t.0.be, %for.cond.backedge ], [ %t.021.out, %for.body.split ], [ [[LIVEOUT1LOAD:.*]], %[[NORMALEXIT:.*]] ], [ [[LIVEOUT2LOAD:.*]], %[[EARLYEXIT:.*]] ]
 

@@ -84,7 +84,6 @@
 ; CHECK:     DO i3
 
 
-; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-conditional-temp-sinking -print-before=hir-conditional-temp-sinking -print-after=hir-conditional-temp-sinking < %s 2>&1 | FileCheck %s --check-prefix=TEMP-SINKING
 ; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-conditional-temp-sinking,print<hir>" < %s 2>&1 | FileCheck %s --check-prefix=TEMP-SINKING
 
 ; Dump Before-

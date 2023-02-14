@@ -25,7 +25,6 @@
 ; Verified the result when opt var predicate is done on the loops with simd intrinsic.
 ; Notice currently, intrinsics are added pre-loop/post-loop as the source were in pre/post-loop.
 
-; RUN: opt -hir-ssa-deconstruction -hir-opt-var-predicate -print-after=hir-opt-var-predicate -disable-output -hir-opt-var-predicate-bypass-simd=0 < %s 2>&1 | FileCheck %s --check-prefix SIMD
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -disable-output -hir-opt-var-predicate-bypass-simd=0 < %s 2>&1 | FileCheck %s --check-prefix SIMD
 
 ; SIMD:         BEGIN REGION { modified }

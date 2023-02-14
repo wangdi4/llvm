@@ -41,7 +41,6 @@
 ; CHECK:  END REGION
 ;
 ;
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-loop-collapse -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-collapse,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:    remark #25567: 3 loops have been collapsed
