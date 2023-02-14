@@ -2206,7 +2206,7 @@ public:
         MsgParam = 1;
       }
     } else {
-      if (const auto *FC = dyn_cast<CallExpr>(Operation)) {
+      if (isa<CallExpr>(Operation)) {
         MsgParam = 3;
       }
       Loc = Operation->getBeginLoc();
