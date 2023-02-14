@@ -3573,7 +3573,7 @@ def ReqdWorkGroupSize : InheritableAttr, LanguageOptionsSpecificAttr {
   let Args = [UnsignedArgument<"XDim">, UnsignedArgument<"YDim">,
               UnsignedArgument<"ZDim">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
-  let LangOpts = [NotSYCL];
+  let LangOpts = [NotSYCL, OpenCL]; // INTEL
   let Documentation = [ReqdWorkGroupSizeAttrDocs];
   let SupportsNonconformingLambdaSyntax = 1;
   let ParseKind = "ReqdWorkGroupSize";

@@ -3409,16 +3409,13 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
   }
 
-  if (auto *A = D->getAttr<SYCLReqdWorkGroupSizeAttr>()) {
+  // If the '__attribute__((reqd_work_group_size()))' attribute is specified on
+  // a declaration along with '__attribute__(autorun))' attribute, Autorun
+  // kernel functions must have reqd work group sizes that are divisors of 2^32.
+  if (auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
     long long int N = 1ll << 32ll;
-
-    Optional<llvm::APSInt> XDimVal = A->getXDimVal();
-    Optional<llvm::APSInt> YDimVal = A->getYDimVal();
-    Optional<llvm::APSInt> ZDimVal = A->getZDimVal();
-
-    if (N % XDimVal->getZExtValue() != 0 ||
-        N % YDimVal->getZExtValue() != 0 ||
-        N % ZDimVal->getZExtValue() != 0) {
+    if (N % A->getXDim() != 0 || N % A->getYDim() != 0 ||
+        N % A->getZDim() != 0) {
       S.Diag(A->getLocation(),
           diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
       S.Diag(Attr.getLoc(), diag::note_conflicting_attribute);
@@ -4063,6 +4060,78 @@ static void handleWorkGroupSize(Sema &S, Decl *D, const ParsedAttr &AL) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // If the '__attribute__((autorun))' attribute is specified on a declaration
+  // along with __attribute__((reqd_work_group_size()))' attribute, Autorun
+  // kernel functions must have reqd work group sizes that are divisors of 2^32.
+  if (const auto *A = D->getAttr<AutorunAttr>()) {
+    long long int N = 1ll << 32ll;
+    if (N % WGSize[0] != 0 || N % WGSize[1] != 0 || N % WGSize[2] != 0) {
+      S.Diag(AL.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size)
+          << AL << A;
+      S.Diag(A->getLocation(), diag::note_conflicting_attribute);
+      return;
+    }
+  }
+
+  // If the '__attribute__((max_global_work_dim()))' attribute is specified on
+  // a declaration along with __attribute__((reqd_work_group_size()))'
+  // attribute, check to see if 'reqd_work_group_size'attribute arguments hold
+  // equal values (1, 1, 1) in case the value of 'max_global_work_dim'
+  // attribute argument is equals to 0.
+  if (const auto *DeclAttr = D->getAttr<SYCLIntelMaxGlobalWorkDimAttr>()) {
+    if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+      if (DeclExpr->getResultAsAPSInt() == 0 &&
+          (WGSize[0] != 1 || WGSize[1] != 1 || WGSize[2] != 1)) {
+        S.Diag(AL.getLoc(), diag::err_sycl_x_y_z_arguments_must_be_one)
+            << AL << DeclAttr;
+        return;
+      }
+    }
+  }
+
+  // If the '__attribute__((max_work_group_size()))' attribute is specified on
+  // a declaration along with '__attribute__((reqd_work_group_size()))'
+  // attribute, check to see if values of 'reqd_work_group_size' attribute
+  // arguments are equal to or less than values of 'max_work_group_size'
+  // attribute arguments.
+  //
+  // We emit diagnostic if values of 'reqd_work_group_size' attribute arguments
+  // are greater than values of 'max_work_group_size' attribute arguments.
+  if (const auto *A = D->getAttr<SYCLIntelMaxWorkGroupSizeAttr>()) {
+    // If any of the operand is still value dependent, we can't test anything.
+    const auto *MWGSXDimExpr = dyn_cast<ConstantExpr>(A->getXDim());
+    const auto *MWGSYDimExpr = dyn_cast<ConstantExpr>(A->getYDim());
+    const auto *MWGSZDimExpr = dyn_cast<ConstantExpr>(A->getZDim());
+    if (!MWGSXDimExpr || !MWGSYDimExpr || !MWGSZDimExpr)
+      return;
+    // Test the attribute value.
+    if (WGSize[0] > MWGSXDimExpr->getResultAsAPSInt() ||
+        WGSize[1] > MWGSYDimExpr->getResultAsAPSInt() ||
+        WGSize[2] > MWGSZDimExpr->getResultAsAPSInt()) {
+      S.Diag(AL.getLoc(), diag::err_conflicting_sycl_function_attributes)
+          << AL << A;
+      S.Diag(A->getLocation(), diag::note_conflicting_attribute);
+    }
+  }
+
+  // If the '__attribute__((num_simd_work_items()))' attribute is specified on
+  // a declaration along with __attribute__((reqd_work_group_size()))'
+  // attribute, check to see if 'num_simd_work_items' attribute must evenly
+  // divide the work-group size for the 'reqd_work_group_size' attribute.
+  if (const auto *DeclAttr = D->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
+    if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+      if (WGSize[0] % DeclExpr->getResultAsAPSInt().getZExtValue()) {
+        S.Diag(DeclAttr->getLocation(),
+               diag::err_sycl_num_kernel_wrong_reqd_wg_size)
+            << DeclAttr << AL;
+        S.Diag(AL.getLoc(), diag::note_conflicting_attribute);
+        return;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   WorkGroupAttr *Existing = D->getAttr<WorkGroupAttr>();
   if (Existing && !(Existing->getXDim() == WGSize[0] &&
                     Existing->getYDim() == WGSize[1] &&
@@ -4388,6 +4457,34 @@ void Sema::AddSYCLIntelMaxWorkGroupSizeAttr(Decl *D,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // If the '__attribute__((reqd_work_group_size())' attribute is specified on
+  // a declaration along with '__attribute__((max_work_group_size())'
+  // attribute, check to see if values of 'reqd_work_group_size' attribute
+  // arguments are equal to or less than values of 'max_work_group_size'
+  // attribute arguments.
+  //
+  // We emit diagnostic if values of 'reqd_work_group_size' attribute arguments
+  // are greater than values of 'max_work_group_size' attribute arguments.
+  if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+    const auto *MWGSXDimExpr = dyn_cast<ConstantExpr>(XDim);
+    const auto *MWGSYDimExpr = dyn_cast<ConstantExpr>(YDim);
+    const auto *MWGSZDimExpr = dyn_cast<ConstantExpr>(ZDim);
+    // If the value is dependent, we can not test anything.
+    if (!MWGSXDimExpr || !MWGSYDimExpr || !MWGSZDimExpr)
+      return;
+    // Test the attribute values.
+    if (A->getXDim() > MWGSXDimExpr->getResultAsAPSInt().getZExtValue() ||
+        A->getYDim() > MWGSYDimExpr->getResultAsAPSInt().getZExtValue() ||
+        A->getZDim() > MWGSZDimExpr->getResultAsAPSInt().getZExtValue()) {
+      Diag(CI.getLoc(), diag::err_conflicting_sycl_function_attributes)
+          << CI << A;
+      Diag(A->getLoc(), diag::note_conflicting_attribute);
+    }
+  }
+
+#endif // INTEL_CUSTOMIZATION
+
   // If the declaration has a SYCLIntelMaxWorkGroupSizeAttr, check to see if
   // the attribute holds values equal to (1, 1, 1) in case the value of
   // SYCLIntelMaxGlobalWorkDimAttr equals to 0.
@@ -4541,29 +4638,6 @@ static bool CheckWorkGroupSize(Sema &S, const Expr *NSWIValue,
   return WorkGroupSize % NSWIValueExpr->getResultAsAPSInt().getZExtValue() != 0;
 }
 
-// If the 'reqd_work_group_size' attribute is specified on a declaration along
-// with 'Autorun' attribute, Autorun kernel functions must have reqd work group
-// sizes that are divisors of 2^32.
-static bool isValidAutorunWorkGroupSize(const Expr *RWGSXDim,
-                                        const Expr *RWGSYDim,
-					const Expr *RWGSZDim) {
-  // If any of the operand is still value dependent, we can't test anything.
-  const auto *RWGSXDimExpr = dyn_cast<ConstantExpr>(RWGSXDim);
-  const auto *RWGSYDimExpr = dyn_cast<ConstantExpr>(RWGSYDim);
-  const auto *RWGSZDimExpr = dyn_cast<ConstantExpr>(RWGSZDim);
-
-  if (!RWGSXDimExpr || !RWGSYDimExpr || !RWGSZDimExpr)
-    return false;
-
-  // Otherwise, check if Autorun kernel functions have reqd work group sizes
-  // that are divisors of 2^32.
-  constexpr long long int N = 1LL << 32LL;
-
-  return N % RWGSXDimExpr->getResultAsAPSInt().getZExtValue() != 0 ||
-	 N % RWGSYDimExpr->getResultAsAPSInt().getZExtValue() != 0 ||
-         N % RWGSZDimExpr->getResultAsAPSInt().getZExtValue() != 0;
-}
-
 void Sema::AddSYCLReqdWorkGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
                                         Expr *XDim, Expr *YDim, Expr *ZDim) {
   // Returns nullptr if diagnosing, otherwise returns the original expression
@@ -4640,17 +4714,6 @@ void Sema::AddSYCLReqdWorkGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
     }
   }
 
-  // If the 'reqd_work_group_size' attribute is specified on a declaration
-  // along with 'Autorun' attribute, Autorun kernel functions must have reqd
-  // work group sizes that are divisors of 2^32.
-  if (const auto *DeclAttr = D->getAttr<AutorunAttr>()) {
-    if (isValidAutorunWorkGroupSize(XDim, YDim, ZDim)) {
-      Diag(CI.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
-      Diag(DeclAttr->getLoc(), diag::note_conflicting_attribute);
-      return;
-    }
-  }
-
   // If the attribute was already applied with different arguments, then
   // diagnose the second attribute as a duplicate and don't add it.
   if (const auto *Existing = D->getAttr<SYCLReqdWorkGroupSizeAttr>()) {
@@ -4718,17 +4781,6 @@ Sema::MergeSYCLReqdWorkGroupSizeAttr(Decl *D,
       Diag(DeclAttr->getLoc(), diag::err_sycl_num_kernel_wrong_reqd_wg_size)
           << DeclAttr << &A;
       Diag(A.getLoc(), diag::note_conflicting_attribute);
-      return nullptr;
-    }
-  }
-
-  // If the 'reqd_work_group_size' attribute is specified on a declaration
-  // along with 'Autorun' attribute, Autorun kernel functions must have reqd
-  // work group sizes that are divisors of 2^32.
-  if (const auto *DeclAttr = D->getAttr<AutorunAttr>()) {
-    if (isValidAutorunWorkGroupSize(A.getXDim(), A.getYDim(), A.getZDim())) {
-      Diag(A.getLoc(), diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
-      Diag(DeclAttr->getLoc(), diag::note_conflicting_attribute);
       return nullptr;
     }
   }
@@ -4932,6 +4984,26 @@ void Sema::AddSYCLIntelNumSimdWorkItemsAttr(Decl *D,
         return;
       }
     }
+
+#if INTEL_CUSTOMIZATION
+    // If the '__attribute__((reqd_work_group_size()))' attribute is specified
+    // on a declaration along with __attribute__((num_simd_work_items()))'
+    // attribute, check to see if 'num_simd_work_items' attribute must evenly
+    // divide the work-group size for the 'reqd_work_group_size' attribute.
+    if (const auto *DeclAttr = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+      const auto *DeclExpr = dyn_cast<ConstantExpr>(E);
+      // If the value is dependent, we can not test anything.
+      if (!DeclExpr)
+        return;
+      // Test the attribute value.
+      if (DeclAttr->getXDim() % DeclExpr->getResultAsAPSInt().getZExtValue()) {
+        Diag(CI.getLoc(), diag::err_sycl_num_kernel_wrong_reqd_wg_size)
+            << CI << DeclAttr;
+        Diag(DeclAttr->getLoc(), diag::note_conflicting_attribute);
+        return;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // If the 'reqd_work_group_size' attribute is specified on a declaration
     // along with 'num_simd_work_items' attribute, the required work group size
@@ -5249,6 +5321,22 @@ void Sema::AddSYCLIntelMaxGlobalWorkDimAttr(Decl *D,
         return;
       }
     }
+
+#if INTEL_CUSTOMIZATION
+    // If the '__attribute__((reqd_work_group_size()))' attribute is specified
+    // on a declaration along with '__attribute__((max_global_work_dim()))'
+    // attribute, check to see if 'reqd_work_group_size'attribute arguments hold
+    // equal values (1, 1, 1) in case the value of 'max_global_work_dim'
+    // attribute argument is equals to 0.
+    if (const auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+      if (ArgVal == 0 &&
+          (A->getXDim() != 1 || A->getYDim() != 1 || A->getZDim() != 1)) {
+        Diag(A->getLocation(), diag::err_sycl_x_y_z_arguments_must_be_one)
+            << A << CI;
+        return;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // If the declaration has a SYCLIntelMaxWorkGroupSizeAttr or
     // SYCLReqdWorkGroupSizeAttr, check to see if the attribute holds values
