@@ -621,7 +621,8 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
   HLNodeUtils::visitRange<false>(LV, Range.begin(), Range.end());
 
   if (LV.getLoopCount() < 2) {
-    if (HLLoop *Loop = LV.getSingleLoop()) {
+    HLLoop *Loop = LV.getSingleLoop();
+    if (Loop && !Loop->isInnermost()) {
       // Run on the single loop.
       runOnNodeRange(Loop, make_range(Loop->child_begin(), Loop->child_end()));
     }
@@ -729,9 +730,9 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
   }
 
   if (WillFuseLoops) {
-    if (HLRegion *PerentRegion = dyn_cast<HLRegion>(ParentNode)) {
-      HIRInvalidationUtils::invalidateNonLoopRegion(PerentRegion);
-      PerentRegion->setGenCode();
+    if (HLRegion *ParentRegion = dyn_cast<HLRegion>(ParentNode)) {
+      HIRInvalidationUtils::invalidateNonLoopRegion(ParentRegion);
+      ParentRegion->setGenCode();
     } else {
       HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(ParentNode);
       ParentNode->getParentRegion()->setGenCode();
