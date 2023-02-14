@@ -721,7 +721,18 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
 
         InductionDescriptor ID;
         if (InductionDescriptor::isInductionPHI(Phi, TheLoop, PSE, ID, false,
-                                                false /* OnlyConstPtrStep */)) {
+                                                false /* OnlyConstPtrStep */) &&
+            // The induction auto-recognizer can produce an induction in a
+            // form that our framework doesn't handle when a variable-step
+            // add recurrence is bypassed by a uniform compare from the
+            // header to the latch.  In such cases when the comparison is
+            // less or greater, scalar evolution correctly identifies the
+            // step recurrence as one of the SCEVMinMaxExpr types.  The
+            // current framework doesn't know what to do with this.  Since
+            // it only happens for variable-step inductions, the problem
+            // isn't observed in the community vectorizer.  It's best for
+            // us to bail out in such cases.  See CMPLRLLVM-44206.
+            !isa<SCEVMinMaxExpr>(ID.getStep())) {
           addInductionPhi(Phi, ID, AllowedExit);
           continue;
         }
