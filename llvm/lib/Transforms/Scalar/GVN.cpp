@@ -1565,8 +1565,6 @@ LoadInst *GVNPass::findLoadToHoistIntoPred(BasicBlock *Pred, BasicBlock *LoadBB,
 
   unsigned int NumInsts = MaxNumInsnsPerBlock;
   for (Instruction &Inst : *SuccBB) {
-    if (Inst.isDebugOrPseudoInst())
-      continue;
     if (--NumInsts == 0)
       return nullptr;
 
