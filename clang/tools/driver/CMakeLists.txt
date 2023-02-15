@@ -31,7 +31,6 @@ set( LLVM_LINK_COMPONENTS
   ScalarOpts
   Support
   SYCLLowerIR
-  SYCLTransforms
   TransformUtils
   Vectorize
 # INTEL_CUSTOMIZATION
