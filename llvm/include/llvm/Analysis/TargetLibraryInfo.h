@@ -136,7 +136,6 @@ public:
 #endif
   };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 private:
   // Stores the vector math library the compiler is currently using.
@@ -147,7 +146,7 @@ private:
 
 public:
 #endif // INTEL_CUSTOMIZATION
-=======
+
   /// List of known alternate math libraries.
   ///
   /// The alternate math library provides a set of functions that can ve used
@@ -160,7 +159,6 @@ public:
     NoAltMathLibrary,  // Don't use any alternate math library
     TestAltMathLibrary // Use a fake alternate math library for testing
   };
->>>>>>> e613afad84353356627020a8b86b78da26e3d916
 
   TargetLibraryInfoImpl();
   explicit TargetLibraryInfoImpl(const Triple &T);
@@ -455,7 +453,6 @@ public:
   bool isFunctionVectorizable(StringRef F, bool IsMasked = false) const {
     return Impl->isFunctionVectorizable(F, IsMasked);
   }
-<<<<<<< HEAD
 
   /// True iff vector library is set to SVML.
   bool isSVMLEnabled(void) const {
@@ -469,17 +466,15 @@ public:
   }
 #endif // INTEL_CUSTOMIZATION
 
-  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
-                                  bool Masked=false) const { // INTEL
-    return Impl->getVectorizedFunction(F, VF, Masked); // INTEL
-=======
   StringRef selectFPBuiltinImplementation(FPBuiltinIntrinsic *Builtin) const {
     return Impl->selectFPBuiltinImplementation(Builtin);
   }
-  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF) const {
-    return Impl->getVectorizedFunction(F, VF);
->>>>>>> e613afad84353356627020a8b86b78da26e3d916
+
+  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
+                                  bool Masked=false) const { // INTEL
+    return Impl->getVectorizedFunction(F, VF, Masked); // INTEL
   }
+
 
   /// Tests if the function is both available and a candidate for optimized code
   /// generation.
