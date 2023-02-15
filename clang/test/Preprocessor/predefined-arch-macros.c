@@ -1718,9 +1718,9 @@
 // RUN:     -target i386-unknown-linux \
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_SPR_M32
 // CHECK_SPR_M32: #define __AES__ 1
-// CHECK_SPR_M32: #define __AMXBF16__ 1
-// CHECK_SPR_M32: #define __AMXINT8__ 1
-// CHECK_SPR_M32: #define __AMXTILE__ 1
+// CHECK_SPR_M32: #define __AMX_BF16__ 1
+// CHECK_SPR_M32: #define __AMX_INT8__ 1
+// CHECK_SPR_M32: #define __AMX_TILE__ 1
 // CHECK_SPR_M32: #define __AVX2__ 1
 // CHECK_SPR_M32: #define __AVX512BF16__ 1
 // CHECK_SPR_M32: #define __AVX512BITALG__ 1
@@ -1793,9 +1793,9 @@
 // RUN:     -target i386-unknown-linux \
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_SPR_M64
 // CHECK_SPR_M64: #define __AES__ 1
-// CHECK_SPR_M64: #define __AMXBF16__ 1
-// CHECK_SPR_M64: #define __AMXINT8__ 1
-// CHECK_SPR_M64: #define __AMXTILE__ 1
+// CHECK_SPR_M64: #define __AMX_BF16__ 1
+// CHECK_SPR_M64: #define __AMX_INT8__ 1
+// CHECK_SPR_M64: #define __AMX_TILE__ 1
 // CHECK_SPR_M64: #define __AVX2__ 1
 // CHECK_SPR_M64: #define __AVX512BF16__ 1
 // CHECK_SPR_M64: #define __AVX512BITALG__ 1
@@ -1866,10 +1866,10 @@
 // RUN:     --target=i386 \
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_GNR_M32
 // CHECK_GNR_M32: #define __AES__ 1
-// CHECK_GNR_M32: #define __AMXBF16__ 1
-// CHECK_GNR_M32: #define __AMXFP16__ 1
-// CHECK_GNR_M32: #define __AMXINT8__ 1
-// CHECK_GNR_M32: #define __AMXTILE__ 1
+// CHECK_GNR_M32: #define __AMX_BF16__ 1
+// CHECK_GNR_M32: #define __AMX_FP16__ 1
+// CHECK_GNR_M32: #define __AMX_INT8__ 1
+// CHECK_GNR_M32: #define __AMX_TILE__ 1
 // CHECK_GNR_M32: #define __AVX2__ 1
 // CHECK_GNR_M32: #define __AVX512BF16__ 1
 // CHECK_GNR_M32: #define __AVX512BITALG__ 1
@@ -1940,10 +1940,10 @@
 // RUN:     --target=x86_64 \
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_GNR_M64
 // CHECK_GNR_M64: #define __AES__ 1
-// CHECK_GNR_M64: #define __AMXBF16__ 1
-// CHECK_GNR_M64: #define __AMXFP16__ 1
-// CHECK_GNR_M64: #define __AMXINT8__ 1
-// CHECK_GNR_M64: #define __AMXTILE__ 1
+// CHECK_GNR_M64: #define __AMX_BF16__ 1
+// CHECK_GNR_M64: #define __AMX_FP16__ 1
+// CHECK_GNR_M64: #define __AMX_INT8__ 1
+// CHECK_GNR_M64: #define __AMX_TILE__ 1
 // CHECK_GNR_M64: #define __AVX2__ 1
 // CHECK_GNR_M64: #define __AVX512BF16__ 1
 // CHECK_GNR_M64: #define __AVX512BITALG__ 1
