@@ -48320,14 +48320,9 @@ static SDValue combinePredicateReduction(SDNode *Extract, SelectionDAG &DAG,
         Match = DAG.getNode(BinOp, DL, Lo.getValueType(), Lo, Hi);
         NumElts /= 2;
       }
-<<<<<<< HEAD
-      EVT MovmskVT = EVT::getIntegerVT(*DAG.getContext(), NumElts);
+      EVT MovmskVT = EVT::getIntegerVT(Ctx, NumElts);
       Movmsk = combineBitcastvxi1(DAG, MovmskVT, Match, DL, Subtarget, // INTEL
                                   /*UserIsSetcc*/ true); // INTEL
-=======
-      EVT MovmskVT = EVT::getIntegerVT(Ctx, NumElts);
-      Movmsk = combineBitcastvxi1(DAG, MovmskVT, Match, DL, Subtarget);
->>>>>>> 12ef0d31e0c815e74efa3f9ab57594cc0b22dd3c
     }
     if (!Movmsk)
       return SDValue();
