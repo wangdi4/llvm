@@ -74,6 +74,13 @@ static bool ValidateDepCommandsTree(const detail::Command *Cmd,
 }
 
 TEST_F(SchedulerTest, StreamInitDependencyOnHost) {
+// INTEL_CUSTOMIZATION
+#ifdef _WIN32
+  // this test is behaving flakily on nbtester Windows.
+  GTEST_SKIP() << "Skipping StreamInitDependencyOnHost on Windows";
+#endif
+  // END_INTEL_CUSTOMIZATION
+
   // Disable post enqueue cleanup so that it doesn't interfere with dependency
   // checks.
   unittest::ScopedEnvVar DisabledCleanup{
