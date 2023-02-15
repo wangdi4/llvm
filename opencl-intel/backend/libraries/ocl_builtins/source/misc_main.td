@@ -28,6 +28,6 @@ include "GENERIC/opencl-v1.2.td"
 include "GENERIC/opencl-v2.0.td"
 include "GENERIC/opencl-v2.0WG.td"
 include "GENERIC/sub_group_builtin.td"
-include "GENERIC/matrix_layout_transform.td"
 include "GENERIC/ll_intrinsics.td"
 include "GENERIC/sycl-spirv.td"
+include "GENERIC/intel-matrix_layout_transform.td" // INTEL

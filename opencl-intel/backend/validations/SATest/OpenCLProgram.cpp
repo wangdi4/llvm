@@ -94,13 +94,13 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration *oclProgramConfig,
     source[read] = '\0';
     indata.close();
     // building the CL code:
-    OCLBuilder &builder =
-        OCLBuilder::Instance()
-            .withSource(source)
-            .withBuildOptions(buildOptions.str().c_str())
-            .createCompiler()
-            .withFpgaEmulator(oclProgramConfig->GetDeviceMode() ==
-                              FPGA_EMU_DEVICE);
+    bool isFPGA = oclProgramConfig->GetDeviceMode() == FPGA_EMU_DEVICE;
+    OCLBuilder &builder = OCLBuilder::Instance()
+                              .withSource(source)
+                              .withBuildOptions(buildOptions.str().c_str())
+                              .withFpgaEmulator(isFPGA)
+                              .withExtensions(isFPGA)
+                              .createCompiler();
     IOCLFEBinaryResult *result = builder.build();
     delete[] source;
     //

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,9 +17,9 @@
 
 #include "compile_data.h"
 #include "link_data.h"
-#include "md5.h"
 #include "plugin_interface.h"
 #include "source_file.h"
+#include "llvm/Support/MD5.h"
 #include "llvm/Support/Mutex.h"
 #include <cstdlib>
 #include <map>
@@ -29,12 +29,13 @@
 namespace Validation {
 
 //
-// Functional class for MD5 code comparison, to be used by code map for partial
+// Functional class for MD5Result comparison, to be used by code map for partial
 // ordering.
 //
-struct CodeLess {
+struct MD5HashLess {
   // returns true id x < y, false otherwise
-  bool operator()(const MD5Code &x, const MD5Code &y) const;
+  bool operator()(const llvm::MD5::MD5Result &x,
+                  const llvm::MD5::MD5Result &y) const;
 };
 
 //
@@ -42,7 +43,8 @@ struct CodeLess {
 //
 typedef std::vector<Intel::OpenCL::Frontend::SourceFile> SourceFilesVector;
 
-typedef std::map<MD5Code, SourceFilesVector, CodeLess> SourceFileMap;
+typedef std::map<llvm::MD5::MD5Result, SourceFilesVector, MD5HashLess>
+    SourceFileMap;
 
 class OclSourceRecorder;
 //
@@ -78,7 +80,7 @@ private:
 // this class supplies call back methods for Link and Compile events. Those
 // callback methods builds an internal dependency graph between compilation
 // artifacts. The <code>begin</code> method can than be used to query all the
-// dependent artifacts of a given module (or more precisely, the MD5 code of a
+// dependent artifacts of a given module (or more precisely, the MD5Result of a
 // given module).
 //
 class OclSourceRecorder : public Intel::OpenCL::Frontend::ICLFrontendPlugin {
@@ -94,7 +96,7 @@ public:
   //
   // begin iterator for the files which need to be generated for a configuration
   // file
-  FileIter begin(const MD5Code &) const;
+  FileIter begin(const llvm::MD5::MD5Result &) const;
   //
   // end iterator for the files which need to be generated for a configuration
   // file

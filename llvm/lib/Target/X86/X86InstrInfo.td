@@ -3494,6 +3494,28 @@ defm : CMPCCXADD_Aliases<"le", 14>;
 defm : CMPCCXADD_Aliases<"g",  15>;
 defm : CMPCCXADD_Aliases<"nle",15>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_MOVRS_PREFETCHST2
+//===----------------------------------------------------------------------===//
+// MOVRS Instructions
+//
+let SchedRW = [WriteLoad] in {
+def MOVRS8rm  : I<0x8A, MRMSrcMem, (outs GR8 :$dst), (ins i8mem :$src),
+                "movrs{b}\t{$src, $dst|$dst, $src}",
+                []>, T8PS;
+def MOVRS16rm : I<0x8B, MRMSrcMem, (outs GR16:$dst), (ins i16mem:$src),
+                "movrs{w}\t{$src, $dst|$dst, $src}",
+                []>, OpSize16, T8PS;
+def MOVRS32rm : I<0x8B, MRMSrcMem, (outs GR32:$dst), (ins i32mem:$src),
+                "movrs{l}\t{$src, $dst|$dst, $src}",
+                []>, OpSize32, T8PS;
+def MOVRS64rm : RI<0x8B, MRMSrcMem, (outs GR64:$dst), (ins i64mem:$src),
+                "movrs{q}\t{$src, $dst|$dst, $src}",
+                []>, T8PS;
+}
+#endif // INTEL_FEATURE_ISA_MOVRS_PREFETCHST2
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 // Pattern fragments to auto generate TBM instructions.
 //===----------------------------------------------------------------------===//

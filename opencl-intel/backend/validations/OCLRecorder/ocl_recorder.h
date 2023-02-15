@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -225,14 +225,6 @@ private:
   static std::atomic<unsigned> s_counter;
 };
 
-class HashComparator {
-public:
-  bool operator()(const MD5Code &lhs, const MD5Code &rhs) const {
-    int result = memcmp(lhs.code(), rhs.code(), 16);
-    return (result < 0) ? true : false;
-  }
-};
-
 ///
 ///\brief OCL Recorder plug-in
 ///
@@ -297,7 +289,7 @@ private: // Internal method
   //
   bool IsRecordedFile(const std::string &) const;
 
-  const std::string *GetPathToInputData(const MD5Code &) const;
+  const std::string *GetPathToInputData(const llvm::MD5::MD5Result &) const;
 
 private: // Utility methods
   // XML configuration handling helper
@@ -327,7 +319,7 @@ private: // Utility methods
   //  configuration file. (valid pointer only if this method returns true).
   // Returns true, if we have a all the pre-requisits for source-level
   // recordings.
-  bool NeedSourceRecording(const MD5Code &code,
+  bool NeedSourceRecording(const llvm::MD5::MD5Result &code,
                            OUT Frontend::SourceFile *pSourceFile) const;
 
 private: // Data members
@@ -336,7 +328,7 @@ private: // Data members
 
   // files names that has been recorded in this session (avoid overruns)
   std::vector<std::string> m_recordedFiles;
-  std::map<MD5Code, std::string, HashComparator>
+  std::map<llvm::MD5::MD5Result, std::string, MD5HashLess>
       m_hashToPath;                // container for saved hash of used data
   RecorderContextMap m_contexts;   // container for program specific contexts
   llvm::sys::Mutex m_contextsLock; // synchronization for the contexts container

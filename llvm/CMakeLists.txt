@@ -1484,6 +1484,10 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VPMM)
 # end INTEL_FEATURE_ISA_AVX512_VPMM
+# INTEL_FEATURE_ISA_MOVRS_PREFETCHST2
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_MOVRS_PREFETCHST2)
+# end INTEL_FEATURE_ISA_MOVRS_PREFETCHST2
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
