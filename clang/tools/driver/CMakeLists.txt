@@ -32,6 +32,7 @@ set( LLVM_LINK_COMPONENTS
   Support
   SYCLLowerIR
   TargetParser
+  TransformUtils
   Vectorize
 # INTEL_CUSTOMIZATION
   Intel_LoopAnalysis
