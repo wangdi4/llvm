@@ -10,9 +10,14 @@
 ; CHECK-DAG: NoAlias: i8* %gep.inc4, i8* %gep.inc6
 ; CHECK-DAG: NoAlias: i8* %gep.inc5, i8* %gep.inc6
 ;; After limit:
-; CHECK-DAG: MayAlias: i8* %gep.add7, i8* %gep.inc7
-; CHECK-DAG: MayAlias: i8* %gep.inc5, i8* %gep.inc7
+; INTEL_CUSTOMIZATION
+; Xmain won't increase the counter when checking AddressOperators in
+; getUnderlyingObject and decomposing a GEP. This means that the source
+; object can change, and should identify more pointers that shouldn't alias.
+; CHECK-DAG: MustAlias:	i8* %gep.add7, i8* %gep.inc7
+; CHECK-DAG: NoAlias: i8* %gep.inc5, i8* %gep.inc7
 ; CHECK-DAG: NoAlias: i8* %gep.inc6, i8* %gep.inc7
+; end INTEL_CUSTOMIZATION
 
 define void @test(ptr %base) {
   %gep.add5 = getelementptr i8, ptr %base, i64 5

@@ -13,7 +13,14 @@ define i32 @caller(ptr %p) {
 ; CHECK-NEXT:    [[P_6_I:%.*]] = getelementptr i8, ptr [[P_5_I]], i64 1
 ; CHECK-NEXT:    [[P_7_I:%.*]] = getelementptr i8, ptr [[P_6_I]], i64 1
 ; CHECK-NEXT:    [[P_8_ALIAS_I:%.*]] = getelementptr i8, ptr [[P_7_I]], i64 1
-; CHECK-NEXT:    store i32 42, ptr [[P_8_ALIAS_I]], align 4
+; INTEL_CUSTOMIZATION
+; Xmain won't increase the counter when checking AddressOperators in
+; getUnderlyingObject during the alias analysis. This helps to identify more
+; cases where the pointers won't or will alias. In this case, the alias
+; analysis finds that there is an alias between %p.8 and %p in @callee.
+; Therefore, the load and store instructions will produce an alias.
+; CHECK-NEXT:    store i32 42, ptr [[P_8_ALIAS_I]], align 4, !alias.scope !0
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i32 [[V_I]]
 ;
   %v = call i32 @callee(ptr %p)
