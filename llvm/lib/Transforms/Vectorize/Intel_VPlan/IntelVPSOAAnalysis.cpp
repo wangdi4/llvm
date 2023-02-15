@@ -29,6 +29,13 @@ static cl::opt<bool, true> VPlanDisplaySOAAnalysisInformationOpt(
     cl::location(VPlanDisplaySOAAnalysisInformation),
     cl::desc("Display information about SOA Analysis on loop-entities."));
 
+// Flag to bailout on any phi-node.
+static cl::opt<bool> VPlanAllowSOAPhis(
+    "vplan-enable-soa-phis", cl::init(false), cl::Hidden,
+    cl::desc("Allow phi nodes for SOA pointers. I.e. if it's disabled the only "
+             "accesses like a[i] for SOA arrays are allowed, any constructions "
+             "like *a++ will bailout of SOA transformation."));
+
 namespace llvm {
 namespace vpo {
 bool VPlanDisplaySOAAnalysisInformation = false;
@@ -203,6 +210,11 @@ bool VPSOAAnalysis::isSafeUse(const VPInstruction *UseInst,
   case Instruction::Store:
     return isSafeLoadStore(cast<VPLoadStoreInst>(UseInst),
                            CurrentI, PrivElemSize);
+  case Instruction::PHI:
+    // Temporary until we fix the issues with incorrect handling of SOA pointers
+    // that are modified inside the loop, see CMPLRLLVM-41092.
+    return VPlanAllowSOAPhis;
+
   case VPInstruction::InductionInit:
     // Intentionally use isa<> to make assert non-trivial,
     // so LLVM_FALLTHROUGH can be used without compiler warning
