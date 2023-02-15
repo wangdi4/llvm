@@ -93,9 +93,26 @@ for_i.end:
 
 ; CHECK-LABEL: function 'f_deep'
 ; CHECK: for_j.body:
+; INTEL_CUSTOMIZATION
+; Xmain won't increase the counter when checking AddressOperators in
+; getUnderlyingObject. This means that the source object can change, which
+; affects the alias analysis. These changes are similar to D86669, but
+; the community don't have a limit, plus the patch is stuck.
+;
+; NOTE: The following lines with LLORG-CHECK-NEXT, including the FIXME,
+; are from the community.
+;
 ; FIXME: This is incorrect and is going to be fixed with D86669.
-; CHECK-NEXT: Memory dependences are safe with run-time checks
+; LLORG-CHECK-NEXT: Memory dependences are safe with run-time checks
+; LLORG-CHECK-NEXT: Dependences:
+
+; CHECK-NEXT: Report: unsafe dependent memory operations in loop
+; CHECK-NEXT: Unknown data dependence.
 ; CHECK-NEXT: Dependences:
+; CHECK-NEXT: Unknown:
+; CHECK-NEXT: %loadB = load i8, i8* %gepB9, align 1 ->
+; CHECK-NEXT: store i8 2, i8* %gepB_plus_one, align 1
+; end INTEL_CUSTOMIZATION
 
 define void @f_deep(i8** noalias %A, i8* noalias %B, i64 %N) {
 for_i.preheader:
