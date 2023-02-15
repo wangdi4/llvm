@@ -751,11 +751,22 @@ void Linux::addLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
       LibDir.str() + "/../include/g++",
   };
 
+  bool CXXIncludeAdded = false; // INTEL
   for (const auto &IncludePath : LibStdCXXIncludePathCandidates) {
     if (addLibStdCXXIncludePaths(IncludePath, TripleStr,
-                                 Multilib.includeSuffix(), DriverArgs, CC1Args))
+                                 Multilib.includeSuffix(), DriverArgs,
+                                 CC1Args)) {
+#if INTEL_CUSTOMIZATION
+      if (getDriver().getVFS().exists(IncludePath + "/iostream"))
+        CXXIncludeAdded = true;
+#endif // INTEL_CUSTOMIZATION
       break;
+    }
   }
+#if INTEL_CUSTOMIZATION
+  if (getDriver().CCCIsCXX() && !CXXIncludeAdded)
+    getDriver().Diag(diag::err_drv_cxx_header_not_found);
+#endif // INTEL_CUSTOMIZATION
 }
 
 void Linux::AddCudaIncludeArgs(const ArgList &DriverArgs,
