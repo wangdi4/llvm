@@ -1436,8 +1436,10 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
   LLVM_DEBUG(dumpFinalHIR());
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (PrintHIRAfterVPlan) {
-    dbgs() << "Handled loop after VPlan: in Function: " << Fn.getName() << "\n";
+  if (PrintHIRAfterVPlan && llvm::isFunctionInPrintList(Fn.getName())) {
+    dbgs() << "Handled loop after VPlan: in Function: " << Fn.getName()
+           << " VPlan# :" << LoopVectorizationPlanner::getVPlanOrderNumber()
+           << "\n";
     dumpFinalHIR();
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

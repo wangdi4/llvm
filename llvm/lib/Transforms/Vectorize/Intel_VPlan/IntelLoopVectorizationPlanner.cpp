@@ -191,6 +191,7 @@ static cl::opt<std::string> VecScenarioStr(
         "Format: peel-kindVF;main-kindVF;rem-kindVF[rem-kindVF]. kind=n,s,v,m, "
         "VF=number. E.g. n0;v4;v2s1 means no peel, main vector loop with VF=4, "
         "vector remainder with VF=2, scalar remainder"));
+
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace {
@@ -237,7 +238,73 @@ static cl::list<ForceVFTy, bool /* Use internal storage */, VPlanLoopVFParser>
             "compiler invocation though. Comma separated list of pairs isn't "
             "supported at this moment - use the option multiple times to force "
             "vector factors for multiple loops."));
-static int VPlanOrderNumber = 0;
+
+namespace {
+// Descriptor of vectorization range.
+struct VPlanVecRange {
+  int Start = 0;
+  int End = 0;
+  // True for an exclusion range. I.e. all loops except [Start:End] interval.
+  bool Inverse = false;
+  bool isInRange(int Num) const {
+    if (Inverse)
+      return Num < Start || Num > End;
+    else
+      return Num >= Start && Num <= End;
+  }
+
+  VPlanVecRange(int S, int E, bool I) : Start(S), End(E), Inverse(I) {
+    if (Start > End)
+      std::swap(Start, End);
+  }
+  VPlanVecRange(const VPlanVecRange &R) = default;
+  VPlanVecRange() = default;
+};
+
+struct VPlanVecRangeParser : public cl::parser<VPlanVecRange> {
+  VPlanVecRangeParser(cl::Option &O) : cl::parser<VPlanVecRange>(O) {}
+
+  bool parse(cl::Option &O, StringRef ArgName, StringRef Arg,
+             VPlanVecRange &Result) {
+    bool Inverse = Arg.consume_front("~");
+
+    std::pair<StringRef, StringRef> StartEndPair = Arg.split(':');
+    int Start = 0;
+    if (StartEndPair.first.getAsInteger(10, Start))
+      return O.error("Cannot parse Start for vplan range!");
+
+    int End = Start;
+    if (!StartEndPair.second.empty())
+      if (StartEndPair.second.getAsInteger(10, End))
+        return O.error("Cannot parse End for vplan range!");
+
+    Result = {Start, End, Inverse};
+    return false;
+  }
+};
+} // namespace
+
+static cl::list<VPlanVecRange, bool /* Use internal storage */,
+                VPlanVecRangeParser>
+    VecRange(
+        "vplan-vec-range", cl::Hidden, cl::ZeroOrMore,
+        cl::value_desc("Start:End, Inverse"),
+        cl::desc(
+            "Debug option to enable vectorization for select loops only. The "
+            "loops are selected by their internal number. This number is shown "
+            "in opt report when -vplan-report-loop-number is on. Syntax: a "
+            "loop range can be defined as a single number or a pair "
+            "'Start:End'. "
+            "In both cases the optional '~' prefix means reverting the range. "
+            "E.g. '2:3' means 'try vectorizing loop number 2 and 3, skipping "
+            "other loops'. '~2:3' means 'all loops except 2 and 3'. '20' means "
+            "'try vectorizing the loop number 20', '~20' means 'all loops "
+            "except the loop number 20'. Comma separated list of "
+            "vectorization ranges isn't supported at this moment - use the "
+            "option multiple times to define several vectorization ramges."
+            "In case when several ranges are defined the loop will be tried"
+            "to vectorize if it is in any range. This option is *NOT *thread "
+            "safe and might not have the production quality."));
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -252,12 +319,14 @@ bool EnableSOAAnalysisHIR = true;
 bool VPlanEnablePeeling = false;
 bool VPlanEnableGeneralPeeling = true;
 bool EnableIntDivRemBlendWithSafeValue = true;
+
+int LoopVectorizationPlanner::VPlanOrderNumber = 0;
 } // namespace vpo
 } // namespace llvm
 
 unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
   auto ForcedLoopVFIter = llvm::find_if(ForceLoopVF, [](const ForceVFTy &Pair) {
-    return Pair.first == VPlanOrderNumber;
+    return Pair.first == LoopVectorizationPlanner::getVPlanOrderNumber();
   });
   if (ForcedLoopVFIter != ForceLoopVF.end())
     return ForcedLoopVFIter->second;
@@ -389,7 +458,23 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
     LLVMContext *Context, const DataLayout *DL, std::string VPlanName,
     AssumptionCache &AC, VPAnalysesFactoryBase &VPAF, ScalarEvolution *SE,
     bool IsLegalToVec) {
+
   ++VPlanOrderNumber;
+
+  // Bail out if the loop is not in any selected vectorization range.
+  // TODO: add a message to opt report.
+  if (!VecRange.empty() && !llvm::any_of(VecRange, [](const VPlanVecRange &R) {
+        return R.isInRange(VPlanOrderNumber);
+      })) {
+    LLVM_DEBUG(dbgs() << "The loop is out of vplan-vec-range (#"
+                      << VPlanOrderNumber << ")\n";);
+    DEBUG_WITH_TYPE("LoopVectorizationPlanner_vec_range",
+                    for (const auto &R : VecRange)
+                      dbgs() << "vec range: " << R.Start << ":" << R.End << " "
+                             << R.Inverse << "\n";);
+    return 0;
+  }
+
   // Concatenate VPlan order number into VPlanName which allows to align
   // VPlans in all different VPlan internal dumps.
   VPlanName += ".#" + std::to_string(VPlanOrderNumber);
