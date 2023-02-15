@@ -133,10 +133,14 @@ endif()
 
 add_subdirectory(BLAKE3)
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 set (SUPPORT_SOURCES
 # end INTEL_CUSTOMIZATION
   AddressRanges.cpp
+=======
+add_llvm_component_library(LLVMSupport
+>>>>>>> 1e72920c8859771c03177623ad7519543d78eb7d
   ABIBreak.cpp
   AMDGPUMetadata.cpp
   APFixedPoint.cpp
