@@ -1187,8 +1187,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasAMXINT8)
     Builder.defineMacro("__AMX_INT8__");
   if (HasAMXBF16)
-<<<<<<< HEAD
-    Builder.defineMacro("__AMXBF16__");
+    Builder.defineMacro("__AMX_BF16__");
   Builder.defineMacro("__AMX_SUPPORTED__");
 #if INTEL_FEATURE_ISA_AMX_FP8
   if (HasAMXFP8)
@@ -1504,9 +1503,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (!Opts.OpenMPIsDevice) {
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-    Builder.defineMacro("__AMX_BF16__");
->>>>>>> 8998fa6c14f1e19957858aa0e4b592d62ae56041
   if (HasAMXFP16)
     Builder.defineMacro("__AMX_FP16__");
   if (HasCMPCCXADD)
