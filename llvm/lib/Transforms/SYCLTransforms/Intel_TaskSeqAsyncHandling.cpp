@@ -805,13 +805,8 @@ void Impl::createTaskFunctionInvokes() {
 
     auto *FTy = getBlockInvokeType();
     auto &DL = M.getDataLayout();
-<<<<<<< HEAD
     auto LiteralSize = DL.getTypeStoreSize(LiteralType).getFixedValue();
-    for (Function *AsyncFunc : AsyncFuncMap[F]) {
-=======
-    auto LiteralSize = DL.getTypeStoreSize(LiteralType).getFixedSize();
     for (Function *TaskFunc : AsyncBuiltinToTaskFuncMap[F]) {
->>>>>>> a377547c06fba58697da2d623909fb8e9ccf1298
       FunctionCallee FuncInvokeCallee =
           M.getOrInsertFunction(getInovkeName(TaskFunc), FTy);
       Function *FuncInvoke = cast<Function>(FuncInvokeCallee.getCallee());
