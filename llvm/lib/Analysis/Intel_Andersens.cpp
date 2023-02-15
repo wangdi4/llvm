@@ -1901,6 +1901,12 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallBase *CB,
   if (isa<DbgInfoIntrinsic>(CB))
     return true;
 
+  if (findNameInTable(F->getName(), Andersens_Alloc_Intrinsics)) {
+    unsigned ObjectIndex = getObject(CB);
+    GraphNodes[ObjectIndex].setValue(CB);
+    CreateConstraint(Constraint::AddressOf, getNode(CB), ObjectIndex);
+    return true;
+  }
   // Model wrappers of vsprintf as library function calls for points-to.
   if (VSPrintfWrappers.count(F) ||
       findNameInTable(F->getName(), Andersens_No_Side_Effects_Intrinsics))
@@ -2752,13 +2758,6 @@ void AndersensAAResult::checkCall(CallBase &CB) {
   }
 
   Function *F = CB.getCalledFunction();
-  if (F && findNameInTable(F->getName(), Andersens_Alloc_Intrinsics)) {
-      unsigned ObjectIndex = getObject(&CB);
-      GraphNodes[ObjectIndex].setValue(&CB);
-      CreateConstraint(Constraint::AddressOf, 
-                       getNodeValue(CB), ObjectIndex);
-      return;
-  }
   if (isTrackableType(CB.getType()))
     getNodeValue(CB);
 
