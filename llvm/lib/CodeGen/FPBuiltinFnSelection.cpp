@@ -142,7 +142,7 @@ public:
     return runImpl(*TLI, F);
   }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<TargetLibraryInfoWrapperPass>();
