@@ -37,7 +37,8 @@ CommonOCLBuilder &CommonOCLBuilder::withSource(const char *src) {
   return *this;
 }
 
-CommonOCLBuilder &CommonOCLBuilder::withExtensions(const char *extensions) {
+CommonOCLBuilder &
+CommonOCLBuilder::withExtensions(const std::string &extensions) {
   m_extensions = extensions;
   return *this;
 }

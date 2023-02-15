@@ -39,7 +39,7 @@ public:
   // sets the OCL source to be compiled
   OCLBuilder &withSource(const char *src);
 
-  OCLBuilder &withExtensions(const char *extentions);
+  OCLBuilder &withExtensions(bool IsFPGA);
 
   OCLBuilder &withFP16Support(bool);
   OCLBuilder &withFP64Support(bool);
