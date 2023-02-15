@@ -1,6 +1,6 @@
 //===- HIRLoopFusion.cpp - Implements Loop Fusion transformation ----------===//
 //
-// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -114,6 +114,7 @@ namespace {
 
 class HIRLoopFusion {
   class LoopVisitor;
+  class GotoFinder;
 
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
@@ -557,6 +558,24 @@ public:
   }
 };
 
+// This class is used to travers a node and it's children, except the inner
+// loops, and identify if there is a GOTO. This could affect the domination/
+// post-domination legality during the fusion.
+class HIRLoopFusion::GotoFinder : public HLNodeVisitorBase {
+  bool GotoOrMultiExitFound;
+
+public:
+  GotoFinder() : GotoOrMultiExitFound(false) {}
+
+  void visit(const HLNode *) {}
+  void postVisit(const HLNode *) {}
+  void visit(HLLoop *Loop) { GotoOrMultiExitFound = Loop->isMultiExit(); }
+  void visit(const HLGoto *Goto) { GotoOrMultiExitFound = true; }
+  bool isDone() { return GotoOrMultiExitFound; }
+
+  bool hasGotoOrMultiExit() const { return GotoOrMultiExitFound; }
+};
+
 static const FuseNode &getEffectiveLexicalFirstNode(const FuseGraph &FG) {
   const FuseNode *FirstFuseNode = nullptr;
   unsigned MinTopsortNum = std::numeric_limits<unsigned>::max();
@@ -625,6 +644,35 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
     if (Loop && !Loop->isInnermost()) {
       // Run on the single loop.
       runOnNodeRange(Loop, make_range(Loop->child_begin(), Loop->child_end()));
+    }
+
+    return;
+  }
+
+  // Check whether there is any GOTO that can break domination/post-domination
+  // relationship between loops
+  bool GotoOrMultiExitFound = false;
+  if (auto *ParentLoop = dyn_cast<HLLoop>(ParentNode)) {
+    if (!ParentLoop->isMultiExit()) {
+      auto LS = HLS.getSelfLoopStatistics(ParentLoop);
+      GotoOrMultiExitFound = LS.hasForwardGotos();
+    } else {
+      GotoOrMultiExitFound = true;
+    }
+  } else {
+    GotoFinder GF;
+    HLNodeUtils::visitRange<true, false /* RecurseIntoLoops */>(
+        GF, Range.begin(), Range.end());
+    GotoOrMultiExitFound = GF.hasGotoOrMultiExit();
+  }
+
+  if (GotoOrMultiExitFound) {
+    LLVM_DEBUG(dbgs() << "Skipping current parent node since it contains a "
+                         "GOTO or is a multi-exit loop\n");
+    for (auto &Child : LV.getLoopRange()) {
+      if (auto *Loop = dyn_cast<HLLoop>(&Child))
+        runOnNodeRange(Loop,
+                       make_range(Loop->child_begin(), Loop->child_end()));
     }
 
     return;
