@@ -136,7 +136,6 @@ add_subdirectory(BLAKE3)
 # INTEL_CUSTOMIZATION
 set (SUPPORT_SOURCES
 # end INTEL_CUSTOMIZATION
-  AddressRanges.cpp
   ABIBreak.cpp
   AMDGPUMetadata.cpp
   APFixedPoint.cpp
