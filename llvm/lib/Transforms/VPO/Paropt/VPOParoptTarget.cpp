@@ -1837,6 +1837,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   Constant *RegionId = nullptr;
   if (auto *WT = dyn_cast<WRNTargetNode>(W)) {
     assert(MT && "target region with no module transform");
+    assert(NewF && "target region was not outlined");
     RegionId = MT->registerTargetRegion(W, NewF);
 
     // Use weak linkage for x86_64 device compilation, which is needed for NewF
