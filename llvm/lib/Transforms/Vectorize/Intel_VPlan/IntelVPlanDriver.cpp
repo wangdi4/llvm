@@ -75,6 +75,10 @@ static cl::opt<bool> DisableCodeGen(
     cl::desc(
         "Disable VPO codegen, when true, the pass stops at VPlan creation"));
 
+static cl::opt<bool> ReportLoopNumber(
+    "vplan-report-loop-number", cl::init(false), cl::Hidden,
+    cl::desc("Print vectorizer's internal loop number in the opt report"));
+
 static cl::opt<bool> EnableOuterLoopHIR(
     "enable-vplan-outer-loop-hir", cl::init(true), cl::Hidden,
     cl::desc("Enable vectorization of outer loops in VPlan HIR path"));
@@ -949,6 +953,13 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
   else
     // Adds remark LOOP WAS VECTORIZED
     VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15300);
+
+  // Next print the loop number.
+  if (ReportLoopNumber)
+    VPORBuilder.addRemark(
+        MainLoop, OptReportVerbosity::Low, 15506,
+        Twine(LoopVectorizationPlanner::getVPlanOrderNumber()).str());
+
   // Add remark about VF
   VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15305,
                         Twine(VCodeGen->getVF()).str());
@@ -1000,6 +1011,13 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
   else
     // Adds remark LOOP WAS VECTORIZED
     OptRptStats.GeneralRemarks.emplace_back(15300u, OptReportVerbosity::Low);
+
+  // Next print the loop number.
+  if (ReportLoopNumber)
+    OptRptStats.GeneralRemarks.emplace_back(
+        15506, OptReportVerbosity::Low,
+        Twine(LoopVectorizationPlanner::getVPlanOrderNumber()).str());
+
   // Add remark about VF
   OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
                                           Twine(MainPlanDescr.getVF()).str());
@@ -1472,8 +1490,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   assert(HLoop->getParentRegion() && "Expected parent HLRegion.");
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (PrintHIRBeforeVPlan) {
-    dbgs() << "Candidate HLLoop before VPlan (" << Fn.getName() << "):\n";
+  if (PrintHIRBeforeVPlan && llvm::isFunctionInPrintList(Fn.getName())) {
+    dbgs() << "Candidate HLLoop before VPlan (" << Fn.getName()
+           << "), VPlan#=" << LoopVectorizationPlanner::getVPlanOrderNumber()
+           << "\n";
     HLoop->dump();
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

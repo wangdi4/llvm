@@ -508,6 +508,8 @@ public:
   /// Execute peephole optimizations before predicator.
   void runPeepholeBeforePredicator();
 
+  static int getVPlanOrderNumber() { return VPlanOrderNumber; }
+
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan
@@ -771,6 +773,10 @@ private:
   /// VF selection and kept in this member. Is not expected to be updated
   /// once calculated.
   VPInstructionCost ScalarIterationCost;
+
+  /// Internal loop number. The loops are numbered sequentially throughout
+  /// one compilation. The loop numbers can be used for debugging.
+  static int VPlanOrderNumber;
 };
 
 } // namespace vpo
