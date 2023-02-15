@@ -976,10 +976,6 @@ postProcessingTargetDataEnd(DeviceTy *Device,
     DeviceTy::HDTTMapAccessorTy HDTTMap =
         Device->HostDataToTargetMap.getExclusiveAccessor(!DelEntry);
 
-#if INTEL_CUSTOMIZATION
-    if (!TPR.Entry)
-      continue;
-#endif // INTEL_CUSTOMIZATION
     const bool IsNotLastUser = TPR.Entry->decDataEndThreadCount() != 0;
     if (DelEntry && (TPR.Entry->getTotalRefCount() != 0 || IsNotLastUser)) {
       // The thread is not in charge of deletion anymore. Give up access
@@ -1874,9 +1870,9 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
         auto FnPtrItr = Device.FnPtrMap.find((uint64_t)HstPtrBegin);
         if (FnPtrItr != Device.FnPtrMap.end()) {
           // Pass function pointer as literal kernel argument
-          TgtPtrBegin = HstPtrBegin;
           TgtBaseOffset = (std::numeric_limits<ptrdiff_t>::max)();
-        } else {
+        } else if (Device.requiresMapping(TgtPtrBegin, 0)) {
+          // Set target pointer to null if not accessible by device
           TgtPtrBegin = nullptr;
         }
       }

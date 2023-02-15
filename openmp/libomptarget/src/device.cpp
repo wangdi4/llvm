@@ -303,6 +303,7 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
     if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
       IsHostPtr = true;
     TargetPointer = HstPtrBegin;
+    IsPresent = false;
     // Lookup result becomes irrelevant in this case, and it should be ignored.
     Entry = nullptr;
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
@@ -494,6 +495,7 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
        " for device-accessible memory\n", DPxPTR(HstPtrBegin), Size);
     if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
       IsHostPtr = true;
+    IsPresent = false;
     TargetPointer = HstPtrBegin;
   } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
              !managedMemorySupported()) {
