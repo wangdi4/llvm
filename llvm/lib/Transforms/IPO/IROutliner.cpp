@@ -1352,7 +1352,7 @@ findExtractedOutputToOverallOutputMapping(Module &M, OutlinableRegion &Region,
 
     unsigned AggArgIdx = 0;
     for (unsigned Jdx = TypeIndex; Jdx < ArgumentSize; Jdx++) {
-      if (Group.ArgumentTypes[Jdx] != PointerType::getUnqual(Output->getType()))
+      if (!isa<PointerType>(Group.ArgumentTypes[Jdx]))
         continue;
 
       if (AggArgsUsed.contains(Jdx))
