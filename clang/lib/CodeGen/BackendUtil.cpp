@@ -63,6 +63,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/SYCLLowerIR/CompileTimePropertiesPass.h"
 #include "llvm/SYCLLowerIR/ESIMD/ESIMDVerifier.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
@@ -1399,6 +1400,9 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
       // Allocate static local memory in SYCL kernel scope for each allocation
       // call.
       MPM.addPass(SYCLLowerWGLocalMemoryPass());
+
+      // Process properties and annotations
+      MPM.addPass(CompileTimePropertiesPass());
     }
   }
 
