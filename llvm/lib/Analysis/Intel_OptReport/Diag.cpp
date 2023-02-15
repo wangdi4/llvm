@@ -304,7 +304,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15503, "--- end vector idiom recognition report ---"},
     {15504, "--- begin vectorizer fails report"},
     {15505, "--- end vectorizer fails report"},
-    {15506, "UNUSED DIAGNOSTIC ID"},
+    {15506, "vplan loop number: %s"},
     {15507, "Incorrect parameter type of vector variant '%s' of function '%s' "
             "at position %d.\n The correct prototype is: '%s'."},
     {15508, "Incorrect return type of vector variant '%s' of function '%s' at "
