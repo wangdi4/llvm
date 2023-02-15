@@ -139,6 +139,7 @@ add_llvm_component_library(LLVMipo
   Scalar
   Support
   TargetParser
+  TransformUtils
   Vectorize
   Instrumentation
 # INTEL_CUSTOMIZATION
