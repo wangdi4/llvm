@@ -145,14 +145,11 @@ public:
     /// This is a scope of some OpenMP directive with
     /// order clause which specifies concurrent
     OpenMPOrderClauseScope = 0x4000000,
-<<<<<<< HEAD
 #if INTEL_COLLAB
     /// This is the scope of OpenMP simd directive.
     /// This flag is propagated to children scopes.
     OpenMPSimdOnlyDirectiveScope = 0x80000000,
 #endif // INTEL_COLLAB
-=======
->>>>>>> 74ce297045bac4bc475b8e762d2a1ea19bb16d3c
   };
 
 private:
