@@ -1183,11 +1183,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasHRESET)
     Builder.defineMacro("__HRESET__");
   if (HasAMXTILE)
-    Builder.defineMacro("__AMXTILE__");
+    Builder.defineMacro("__AMX_TILE__");
   if (HasAMXINT8)
-    Builder.defineMacro("__AMXINT8__");
+    Builder.defineMacro("__AMX_INT8__");
   if (HasAMXBF16)
-    Builder.defineMacro("__AMXBF16__");
+    Builder.defineMacro("__AMX_BF16__");
   Builder.defineMacro("__AMX_SUPPORTED__");
 #if INTEL_FEATURE_ISA_AMX_FP8
   if (HasAMXFP8)
@@ -1504,7 +1504,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   if (HasAMXFP16)
-    Builder.defineMacro("__AMXFP16__");
+    Builder.defineMacro("__AMX_FP16__");
   if (HasCMPCCXADD)
     Builder.defineMacro("__CMPCCXADD__");
   if (HasRAOINT)
