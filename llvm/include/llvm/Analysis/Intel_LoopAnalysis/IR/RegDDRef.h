@@ -220,6 +220,9 @@ private:
     unsigned HighestDimNumElements;
     // Set to true for fake pointer DD ref which access type is known.
     bool CanUsePointeeSize;
+    // Fortran only. Set to true if one of the non-constant strides may be zero
+    // as a result of PRODUCT or SUM functions.
+    bool AnyVarDimStrideMayBeZero;
 
     // Stores trailing structure element offsets for each dimension of the ref.
     // Consider the following structure GEP as an example-
@@ -1362,6 +1365,15 @@ public:
   /// Returns true if any of the dimension indices are vector type.
   /// Only applicable to GEP refs.
   bool hasAnyVectorIndices() const;
+
+  /// Fortran only. Returns true if any of the dimension strides may be zero as
+  /// a result of PRODUCT or SUM function. Only applicable to GEP refs.
+  bool anyVarDimStrideMayBeZero() const;
+
+  void setAnyVarDimStrideMayBeZero(bool Val) {
+    assert(hasGEPInfo() && "Mem ref expected");
+    getGEPInfo()->AnyVarDimStrideMayBeZero = Val;
+  }
 
   /// Verifies RegDDRef integrity.
   virtual void verify() const override;

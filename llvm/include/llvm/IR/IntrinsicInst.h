@@ -1396,6 +1396,17 @@ public:
       return cast<Value>(const_cast<Value *>(getArgOperand(2)));
     }
 
+    // Fortran only. Expected to be called for Subcsript intrinsic.
+    // Returns true if subscript has a non-constant stride that may be zero
+    // as a result of PRODUCT or SUM functions.
+    bool canVarDimStrideBeZero() const {
+      if (isa<ConstantInt>(getStride()))
+        return false;
+
+      const AttributeList &CallAttrs = getAttributes();
+      return CallAttrs.hasFnAttr("stride-may-be-zero");
+    }
+
     Type *getElementType() const {
       return const_cast<Type *>(getAttributes().getParamElementType(3));
     }
