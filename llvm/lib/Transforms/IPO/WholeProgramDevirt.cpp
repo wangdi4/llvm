@@ -1992,6 +1992,12 @@ bool DevirtModule::tryVirtualConstProp(
     if (Res)
       ResByArg = &Res->ResByArg[CSByConstantArg.first];
 
+#if INTEL_CUSTOMIZATION
+    // ensure ResByArg won't be dereferenced if it's null
+    assert((CSByConstantArg.second.isExported() ? ResByArg != nullptr : true) &&
+           "ResByArg cannot be null if call site info is exported");
+#endif // INTEL_CUSTOMIZATION
+
     if (tryUniformRetValOpt(TargetsForSlot, CSByConstantArg.second, ResByArg))
       continue;
 
@@ -2568,7 +2574,6 @@ bool DevirtModule::run() {
                  .WPDRes[S.first.ByteOffset];
     if (tryFindVirtualCallTargets(TargetsForSlot, TypeMemberInfos,
                                   S.first.ByteOffset, ExportSummary)) {
-
       if (!trySingleImplDevirt(ExportSummary, TargetsForSlot, S.second, Res)) {
 
 #if INTEL_CUSTOMIZATION
@@ -2577,7 +2582,6 @@ bool DevirtModule::run() {
         if (!IntelDevirtMV.tryMultiVersionDevirt()) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-
         DidVirtualConstProp |=
             tryVirtualConstProp(TargetsForSlot, S.second, Res, S.first);
 
