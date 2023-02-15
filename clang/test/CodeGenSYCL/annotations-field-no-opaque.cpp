@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 // RUN: %clang_cc1 -O0 -fsycl-is-device -triple spir64-unknown-unknown -emit-llvm -no-opaque-pointers -o - %s | FileCheck %s ;INTEL
+=======
+// RUN: %clang_cc1 -fsycl-is-device -triple spir64-unknown-unknown -emit-llvm -no-opaque-pointers -o - %s | FileCheck %s
+>>>>>>> 56ef70570ca9690d4add5ec39c31d9568827fb85
 
 // This test checks that clang emits @llvm.ptr.annotation intrinsic correctly
 // when attribute annotate is applied to a struct field of integer type.
