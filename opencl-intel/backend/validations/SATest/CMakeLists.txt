@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -77,7 +77,6 @@ endif()
 add_opencl_executable(
   ${TARGET_NAME}
   EXCLUDE_FROM_ALL_BUILD
-  ${VALIDATIONS_ROOT}/Common/md5.cpp
   OpenCLArgsBuffer.cpp
   OpenCLBackendRunner.cpp
   OpenCLBackendWrapper.cpp

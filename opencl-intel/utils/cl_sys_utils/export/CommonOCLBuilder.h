@@ -41,7 +41,7 @@ public:
   // sets the OCL source to be compiled
   CommonOCLBuilder &withSource(const char *src);
 
-  CommonOCLBuilder &withExtensions(const char *extentions);
+  CommonOCLBuilder &withExtensions(const std::string &extentions);
 
   CommonOCLBuilder &withFP16Support(bool);
   CommonOCLBuilder &withFP64Support(bool);
