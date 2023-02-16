@@ -8968,8 +8968,7 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
     return;
   }
 
-  if (!NewVD->hasLocalStorage() && T->isSizelessType() &&
-      !T->isWebAssemblyReferenceType()) {
+  if (!NewVD->hasLocalStorage() && T->isSizelessType()) {
     Diag(NewVD->getLocation(), diag::err_sizeless_nonlocal) << T;
     NewVD->setInvalidDecl();
     return;

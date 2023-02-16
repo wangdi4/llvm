@@ -127,24 +127,23 @@ namespace {
 struct PromoteLegacyPass : public FunctionPass {
   // Pass identification, replacement for typeid
   static char ID;
-  bool ForcePass; /// If true, forces pass to execute, instead of skipping.
 
 #if INTEL_CUSTOMIZATION
+  bool Unskippable;
   bool AllBBs;
-  PromoteLegacyPass(bool IsForced = false, bool AllBBs = false)
-      : FunctionPass(ID), ForcePass(IsForced), AllBBs(AllBBs) {
+  PromoteLegacyPass(bool Unskippable = false, bool AllBBs = false)
+      : FunctionPass(ID), Unskippable(Unskippable), AllBBs(AllBBs) {
     initializePromoteLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 #endif // INTEL_CUSTOMIZATION
-  PromoteLegacyPass() : FunctionPass(ID), ForcePass(false) {
-    initializePromoteLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
 
   // runOnFunction - To run this pass, first we calculate the alloca
   // instructions that are safe for promotion, then we promote each one.
   bool runOnFunction(Function &F) override {
-    if (!ForcePass && skipFunction(F))
+#if INTEL_CUSTOMIZATION
+    if (!Unskippable && skipFunction(F))
       return false;
+#endif // INTEL_CUSTOMIZATION
 
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     AssumptionCache &AC =
@@ -165,7 +164,6 @@ struct PromoteLegacyPass : public FunctionPass {
     AU.addPreserved<GlobalsAAWrapperPass>();       // INTEL
     AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
   }
-
 };
 
 } // end anonymous namespace
@@ -183,8 +181,8 @@ INITIALIZE_PASS_END(PromoteLegacyPass, "mem2reg", "Promote Memory to Register",
 
 // createPromoteMemoryToRegister - Provide an entry point to create this pass.
 #if INTEL_CUSTOMIZATION
-FunctionPass *llvm::createPromoteMemoryToRegisterPass(bool IsForced,
+FunctionPass *llvm::createPromoteMemoryToRegisterPass(bool Unskippable,
                                                       bool AllBBs) {
-  return new PromoteLegacyPass(IsForced, AllBBs);
+  return new PromoteLegacyPass(Unskippable, AllBBs);
 }
 #endif // INTEL_CUSTOMIZATION
