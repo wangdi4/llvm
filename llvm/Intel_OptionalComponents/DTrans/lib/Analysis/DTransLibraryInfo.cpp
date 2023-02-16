@@ -1,6 +1,6 @@
 //===-------DTransLibraryInfo.cpp - Library function information-----------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -157,6 +157,16 @@ DTransLibraryInfo::getDTransFunctionTypeImpl(LibFunc TheLibFunc) const {
   switch (TheLibFunc) {
   default:
     break;
+
+  case LibFunc_atexit: {
+    //  i32 atexit(void (i8*)*)
+    DTransType *FnTy =
+        TM.getOrCreateFunctionType(DTransVoidType, {DTransI8PtrType},
+                                   /*IsVarArg=*/false);
+    DTransType *ArgTypes[] = {TM.getOrCreatePointerType(FnTy)};
+    return TM.getOrCreateFunctionType(DTransI32Type, ArgTypes,
+                                      /*IsVarArg=*/false);
+  }
 
   case LibFunc_bcmp: {
     //  i32 bcmp(i8*, i8*, size_t)
