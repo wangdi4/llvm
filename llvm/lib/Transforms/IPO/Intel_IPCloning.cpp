@@ -168,6 +168,11 @@ static cl::opt<unsigned>
     PredicateOptMinLoops("ip-manyreccalls-predicateopt-min-loops", cl::init(5),
                          cl::ReallyHidden);
 
+// Maximum descent depth for predicate opt hoisting algorithm
+static cl::opt<unsigned>
+    PredicateOptMaxDepth("ip-manyreccalls-predicateopt-max-depth", cl::init(6),
+                         cl::ReallyHidden);
+
 // Flag to set if we are doing LIT testing of just the splitting. In this
 // case, any other ip cloning will be skipped, and the compiler will attempt
 // to apply splitting to each Function for which we have IR.
@@ -4814,12 +4819,12 @@ private:
   // BranchProbabilityInfo getter
   std::function<BranchProbabilityInfo &(Function &)> *GetBPI{};
   // The call site which calls 'BaseF' in the wrapper function.
-  CallBase *WrapperCB;
+  CallBase *WrapperCB = nullptr;
   // The call site that calls the wrapper function and is enclosed
   // within a series of simple loops.
-  CallBase *BigLoopCB;
+  CallBase *BigLoopCB = nullptr;
   // The number of loops within which 'BigLoopCB' is enclosed.
-  unsigned SimpleLoopDepth;
+  unsigned SimpleLoopDepth = 0;
   // A loop info cache to store loop infos for functions being evaluated.
   InliningLoopInfoCache ILIC;
   // The loop that will be multiversioned, with the first version being the
@@ -4839,6 +4844,14 @@ private:
   // Return a LoadInst to a ptr that will be temporarily annotated with
   // "predicate-opt-restrict" metadata.
   LoadInst *annotateWithRestrictHack(Function *BaseF);
+  // Recursive version of findHoistableFields() with 'Depth".
+  bool findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
+                            std::set<unsigned> &HoistYes,
+                            std::set<unsigned> &HoistNo);
+  // Find the fields referenced by 'V'in 'F' that are hoistable and put their
+  // indices in 'HoistYes' and 'HoistNo'.
+  bool findHoistableFields(Function *F, Value *V, std::set<unsigned> &HoistYes,
+                           std::set<unsigned> &HoistNo);
 };
 
 //
@@ -4953,8 +4966,178 @@ LoadInst *PredicateOpt::annotateWithRestrictHack(Function *BaseF) {
 }
 
 //
+// Similar to findHoistableFields, but descent depth is limited to
+// 'Depth' to ensure termination and save compile time.
+//
+bool PredicateOpt::findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
+                                        std::set<unsigned> &HoistYes,
+                                        std::set<unsigned> &HoistNo) {
+
+  // Return 'true if 'U' is a GEPI(V,0,0)'.
+  auto IsGEPIV00 = [](Value *U, Value *V) -> bool {
+    if (auto GEPI0 = dyn_cast<GetElementPtrInst>(U))
+      if (GEPI0->getNumOperands() == 3)
+        if (GEPI0->getPointerOperand() == V)
+          if (auto CI1 = dyn_cast<ConstantInt>(GEPI0->getOperand(1)))
+            if (auto CI2 = dyn_cast<ConstantInt>(GEPI0->getOperand(2)))
+              if (CI1->isZero() && CI2->isZero())
+                return true;
+    return false;
+  };
+
+  // Return 'true' if 'GEPI' has the form 'GEPI(V,0,FldNo)' and set '*FldNo'.
+  auto IsValidGEPI = [](GetElementPtrInst *GEPI, Value *V,
+                        unsigned *FldNo) -> bool {
+    if (GEPI->getPointerOperand() != V)
+      return false;
+    if (GEPI->getNumOperands() != 3)
+      return false;
+    auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+    if (!CI1 || !CI1->isZero())
+      return false;
+    auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2));
+    if (!CI2)
+      return false;
+    *FldNo = CI2->getZExtValue();
+    return true;
+  };
+
+  // If 'Arg' is a unique actual argument of 'CB', return its index.
+  // If not, return CB->arg_size().
+  auto ArgNoFromCallBase = [](CallBase *CB, Value *Arg) -> unsigned {
+    unsigned Invalid = CB->arg_size();
+    unsigned AArgNo = Invalid;
+    for (unsigned I = 0; I < CB->arg_size(); ++I) {
+      if (CB->getArgOperand(I) == Arg) {
+        if (AArgNo < Invalid) {
+          AArgNo = Invalid;
+          break;
+        }
+        AArgNo = I;
+      }
+    }
+    return AArgNo;
+  };
+
+  // If 'U' is user of 'V', Check if 'U' is LoadInst *, StoreInst *,
+  // or CallBase *, and set 'HoistYes' and 'HoistNo' appropriately.
+  // Note that 'HoistNo' is set conservatively for calls. If 'U' is
+  // not any of the above types, set '*Done' to 'true'.
+  auto CheckUser = [](Value *V, User *U, unsigned FieldNo,
+                      std::set<unsigned> &HoistYes, std::set<unsigned> &HoistNo,
+                      bool *Done) -> bool {
+    *Done = true;
+    if (auto LI0 = dyn_cast<LoadInst>(U)) {
+      if (LI0->getPointerOperand() == V) {
+        HoistYes.insert(FieldNo);
+      } else {
+        return false;
+      }
+    } else if (auto SI0 = dyn_cast<StoreInst>(U)) {
+      if (SI0->getPointerOperand() == V) {
+        HoistNo.insert(FieldNo);
+      } else {
+        return false;
+      }
+    } else if (auto CB = dyn_cast<CallBase>(U)) {
+      HoistNo.insert(FieldNo);
+    } else {
+      *Done = false;
+    }
+    return true;
+  };
+
+  // Main code for findHoistableFieldsX().
+
+  // Test if we have hit the limit for the call chain depth.
+  if (Depth == 0)
+    return false;
+  // Check the hoistability of each GEPI user of V.
+  for (User *U : V->users()) {
+    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      bool Done = false;
+      unsigned FldNo = 0;
+      if (!IsValidGEPI(GEPI, V, &FldNo))
+        return false;
+      for (User *U0 : GEPI->users()) {
+        if (!CheckUser(GEPI, U0, FldNo, HoistYes, HoistNo, &Done))
+          return false;
+        if (Done)
+          continue;
+        if (IsGEPIV00(U0, GEPI)) {
+          for (User *U1 : U0->users())
+            if (!CheckUser(U0, U1, FldNo, HoistYes, HoistNo, &Done) || !Done)
+              return false;
+        } else {
+          return false;
+        }
+      }
+    } else if (auto CB = dyn_cast<CallBase>(U)) {
+      Function *Callee = CB->getCalledFunction();
+      if (!Callee) {
+        return false;
+      }
+      unsigned AArgNo = ArgNoFromCallBase(CB, V);
+      if (AArgNo < Callee->arg_size()) {
+        if (!findHoistableFieldsX(Callee, Callee->getArg(AArgNo), Depth - 1,
+                                  HoistYes, HoistNo))
+          return false;
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+//
+// Return 'true' if 'V' used in 'F' has dereferenced values through GEPs
+// the can be determined to be hoistable. In this case, set 'HoistYes'
+// to the indicies of the fields whose values can be hoisted and set
+// 'HoistNo' to the indicies of the fields whose values cannot be hoisted.
+// Indicies which do not appear in 'HoistYes' or 'HoistNo' are not
+// encountered in a depth-first search of the call chain starting with 'F'.
+//
+bool PredicateOpt::findHoistableFields(Function *F, Value *V,
+                                       std::set<unsigned> &HoistYes,
+                                       std::set<unsigned> &HoistNo) {
+  // Find which fields can and cannot be hoisted.
+  if (!findHoistableFieldsX(F, V, PredicateOptMaxDepth, HoistYes, HoistNo))
+    return false;
+  // Exclude non-hoistable fields from the list of hoistable fields.
+  for (auto &Int : HoistNo)
+    if (HoistYes.count(Int))
+      HoistYes.erase(Int);
+  // Trace output of 'HoistYes' and 'HoistNo'.
+  LLVM_DEBUG({
+    dbgs() << "MRC PredicateOpt: HoistYes: {";
+    bool First = true;
+    for (auto &Int : HoistYes) {
+      if (!First)
+        dbgs() << ",";
+      dbgs() << Int;
+      First = false;
+    }
+    dbgs() << "}\n";
+    dbgs() << "MRC PredicateOpt: HoistNo: {";
+    First = true;
+    for (auto &Int : HoistNo) {
+      if (!First)
+        dbgs() << ",";
+      dbgs() << Int;
+      First = false;
+    }
+    dbgs() << "}\n";
+  });
+  return true;
+}
+
+//
 // Return 'true' if the desired predicate opt can be performed.
-// NOTE: At this point, we are just checking if the hot path can be identified.
+// NOTE: At this point, we are just checking if the hot path can be identified
+// and that some basic checks can be performed.
 // More code will be added to check additional conditions.
 //
 bool PredicateOpt::canDoPredicateOpt() {
@@ -4987,6 +5170,12 @@ bool PredicateOpt::canDoPredicateOpt() {
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
                     << "LIRestrict: " << (LIRestrict ? "T" : "F") << "\n");
   if (!LIRestrict)
+    return false;
+  std::set<unsigned> HoistYes, HoistNo;
+  bool IsHoistable = findHoistableFields(BaseF, LIRestrict, HoistYes, HoistNo);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "Hoistable: " << (IsHoistable ? "T" : "F") << "\n");
+  if (!IsHoistable)
     return false;
   MultiLoop = findMultiLoop(BigLoopCB);
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
