@@ -232,6 +232,10 @@ static int initLibrary(DeviceTy &Device) {
               (uintptr_t)CurrDeviceEntry->addr /*TgtPtrBegin*/,
               false /*UseHoldRefCount*/, CurrHostEntry->name,
               true /*IsRefCountINF*/));
+
+          // Notify about the new mapping.
+          if (Device.notifyDataMapped(CurrHostEntry->addr, CurrHostEntry->size))
+            return OFFLOAD_FAIL;
         }
 #if INTEL_COLLAB
         if (CurrDeviceEntry->flags & OMP_DECLARE_TARGET_FPTR) {
