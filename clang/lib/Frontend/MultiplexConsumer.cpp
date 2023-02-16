@@ -112,6 +112,10 @@ public:
   void DeclarationMarkedOpenMPAllocate(const Decl *D, const Attr *A) override;
   void DeclarationMarkedOpenMPDeclareTarget(const Decl *D,
                                             const Attr *Attr) override;
+#if INTEL_COLLAB
+  void DeclarationMarkedOpenMPGroupPrivate(const Decl *D,
+                                           const Attr *Attr) override;
+#endif // INTEL_COLLAB
   void RedefinedHiddenDefinition(const NamedDecl *D, Module *M) override;
   void AddedAttributeToRecord(const Attr *Attr,
                               const RecordDecl *Record) override;
@@ -225,6 +229,13 @@ void MultiplexASTMutationListener::DeclarationMarkedOpenMPDeclareTarget(
   for (auto *L : Listeners)
     L->DeclarationMarkedOpenMPDeclareTarget(D, Attr);
 }
+#if INTEL_COLLAB
+void MultiplexASTMutationListener::DeclarationMarkedOpenMPGroupPrivate(
+    const Decl *D, const Attr *Attr) {
+  for (size_t i = 0, e = Listeners.size(); i != e; ++i)
+    Listeners[i]->DeclarationMarkedOpenMPGroupPrivate(D, Attr);
+}
+#endif // INTEL_COLLAB
 void MultiplexASTMutationListener::RedefinedHiddenDefinition(const NamedDecl *D,
                                                              Module *M) {
   for (auto *L : Listeners)

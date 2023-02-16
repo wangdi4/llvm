@@ -1486,6 +1486,11 @@ enum DeclCode {
   /// An OMPThreadPrivateDecl record.
   DECL_OMP_THREADPRIVATE,
 
+#if INTEL_COLLAB
+  /// An OMPGroupPrivateDecl record.
+  DECL_OMP_GROUPPRIVATE,
+#endif // INTEL_COLLAB
+
   /// An OMPRequiresDecl record.
   DECL_OMP_REQUIRES,
 
