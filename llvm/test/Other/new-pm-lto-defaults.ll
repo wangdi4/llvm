@@ -203,8 +203,8 @@
 ; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: OpenMPOptPass
-; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
+; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
 ; CHECK-O23SZ-NEXT: Running analysis: LazyCallGraphAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: TargetLibraryAnalysis
