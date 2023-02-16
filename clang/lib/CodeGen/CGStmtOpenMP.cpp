@@ -6652,9 +6652,6 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
 #endif // INTEL_COLLAB
     break;
   }
-<<<<<<< HEAD
-  default:
-=======
   case OMPC_if:
   case OMPC_final:
   case OMPC_num_threads:
@@ -6766,7 +6763,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_bind:
   case OMPC_align:
   case OMPC_cancellation_construct_type:
->>>>>>> 42bae843c65faccd94d92210251d2f384c73bbcc
+  default:
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
   }
 }
