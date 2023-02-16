@@ -31,7 +31,7 @@ define i32 @test01() {
   }
 
 ; CHECK-LABEL: i32 @test01()
-; CHECK: CE: ptr getelementptr inbounds (%test01.struct.anon, ptr @g_u01, i64 0, i32 1)
+; CHECK: CE: ptr getelementptr (%test01.struct.anon, ptr @g_u01, i64 0, i32 1)
 ; CHECK-NEXT:   LocalPointerInfo:
 ; CHECK-NEXT:     Aliased types:
 ; CHECK-NEXT:       i32*
