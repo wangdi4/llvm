@@ -456,6 +456,9 @@ namespace clang {
     void VisitObjCPropertyImplDecl(ObjCPropertyImplDecl *D);
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
     void VisitOMPAllocateDecl(OMPAllocateDecl *D);
+#if INTEL_COLLAB
+    void VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D);
+#endif // INTEL_COLLAB
     void VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D);
     void VisitOMPDeclareMapperDecl(OMPDeclareMapperDecl *D);
     void VisitOMPRequiresDecl(OMPRequiresDecl *D);
@@ -2898,6 +2901,13 @@ void ASTDeclReader::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
   VisitDecl(D);
 }
 
+#if INTEL_COLLAB
+void ASTDeclReader::VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D) {
+  Record.readOMPChildren(D->Data);
+  VisitDecl(D);
+}
+#endif // INTEL_COLLAB
+
 void ASTDeclReader::VisitOMPAllocateDecl(OMPAllocateDecl *D) {
   Record.readOMPChildren(D->Data);
   VisitDecl(D);
@@ -3061,8 +3071,13 @@ static bool isConsumerInterestedIn(ASTContext &Ctx, Decl *D, bool HasBody) {
   if (isa<FileScopeAsmDecl, TopLevelStmtDecl, ObjCProtocolDecl, ObjCImplDecl,
           ImportDecl, PragmaCommentDecl, PragmaDetectMismatchDecl>(D))
     return true;
+#if INTEL_COLLAB
+  if (isa<OMPThreadPrivateDecl, OMPDeclareReductionDecl, OMPDeclareMapperDecl,
+          OMPAllocateDecl, OMPRequiresDecl, OMPGroupPrivateDecl>(D))
+#else  // INTEL_COLLAB
   if (isa<OMPThreadPrivateDecl, OMPDeclareReductionDecl, OMPDeclareMapperDecl,
           OMPAllocateDecl, OMPRequiresDecl>(D))
+#endif // INTEL_COLLAB
     return !D->getDeclContext()->isFunctionOrMethod();
   if (const auto *Var = dyn_cast<VarDecl>(D))
     return Var->isFileVarDecl() &&
@@ -3904,6 +3919,15 @@ Decl *ASTReader::ReadDeclRecord(DeclID ID) {
     D = OMPThreadPrivateDecl::CreateDeserialized(Context, ID, NumChildren);
     break;
   }
+#if INTEL_COLLAB
+  case DECL_OMP_GROUPPRIVATE: {
+    Record.skipInts(1);
+    unsigned NumChildren = Record.readInt();
+    Record.skipInts(1);
+    D = OMPGroupPrivateDecl::CreateDeserialized(Context, ID, NumChildren);
+    break;
+  }
+#endif // INTEL_COLLAB
   case DECL_OMP_ALLOCATE: {
     unsigned NumClauses = Record.readInt();
     unsigned NumVars = Record.readInt();
@@ -4549,6 +4573,15 @@ void ASTDeclReader::UpdateDecl(Decl *D,
           Reader.getContext(), readSourceRange(),
           AttributeCommonInfo::AS_Pragma));
       break;
+
+#if INTEL_COLLAB
+    case UPD_DECL_MARKED_OPENMP_GROUPPRIVATE: {
+      auto DevType = Record.readEnum<OMPGroupPrivateDeclAttr::DevTypeTy>();
+      D->addAttr(OMPGroupPrivateDeclAttr::CreateImplicit(
+          Reader.getContext(), DevType, readSourceRange(),
+          AttributeCommonInfo::AS_Pragma));
+    } break;
+#endif // INTEL_COLLAB
 
     case UPD_DECL_MARKED_OPENMP_ALLOCATE: {
       auto AllocatorKind =

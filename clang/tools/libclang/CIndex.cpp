@@ -6812,6 +6812,9 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::CXXDeductionGuide:
   case Decl::Import:
   case Decl::OMPThreadPrivate:
+#if INTEL_COLLAB
+  case Decl::OMPGroupPrivate:
+#endif // INTEL_COLLAB
   case Decl::OMPAllocate:
   case Decl::OMPDeclareReduction:
   case Decl::OMPDeclareMapper:

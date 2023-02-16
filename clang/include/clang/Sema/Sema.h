@@ -234,6 +234,9 @@ namespace clang {
   class ObjCPropertyDecl;
   class ObjCProtocolDecl;
   class OMPThreadPrivateDecl;
+#if INTEL_COLLAB
+  class OMPGroupPrivateDecl;
+#endif // INTEL_COLLAB
   class OMPRequiresDecl;
   class OMPDeclareReductionDecl;
   class OMPDeclareSimdDecl;
@@ -11520,6 +11523,19 @@ private:
   /// Number of nested '#pragma omp declare target' directives.
   SmallVector<DeclareTargetContextInfo, 4> DeclareTargetNesting;
 
+#if INTEL_COLLAB
+  struct DeviceTypeContextInfo {
+    /// The 'device_type' as parsed from the clause.
+    OMPGroupPrivateDeclAttr::DevTypeTy DT = OMPGroupPrivateDeclAttr::DT_Any;
+
+    /// The device_type location.
+    SourceLocation DTLoc;
+    DeviceTypeContextInfo(OMPGroupPrivateDeclAttr::DevTypeTy DT,
+                          SourceLocation DTLoc)
+        : DT(DT), DTLoc(DTLoc) {}
+  };
+#endif // INTEL_COLLAB
+
   /// Initialization of data-sharing attributes stack.
   void InitDataSharingAttributesStack();
   void DestroyDataSharingAttributesStack();
@@ -11740,6 +11756,16 @@ public:
   /// Builds a new OpenMPThreadPrivateDecl and checks its correctness.
   OMPThreadPrivateDecl *CheckOMPThreadPrivateDecl(SourceLocation Loc,
                                                   ArrayRef<Expr *> VarList);
+#if INTEL_COLLAB
+  /// Called on well-formed '#pragma omp groupprivate'.
+  DeclGroupPtrTy ActOnOpenMPGroupprivateDirective(SourceLocation Loc,
+                                                  ArrayRef<Expr *> VarList,
+                                                  DeviceTypeContextInfo &DTCI);
+  /// Builds a new OpenMPGroupPrivateDecl and checks its correctness.
+  OMPGroupPrivateDecl *
+  CheckOMPGroupPrivateDecl(SourceLocation Loc, ArrayRef<Expr *> VarList,
+                           OMPGroupPrivateDeclAttr::DevTypeTy DT);
+#endif // INTEL_COLLAB
   /// Called on well-formed '#pragma omp allocate'.
   DeclGroupPtrTy ActOnOpenMPAllocateDirective(SourceLocation Loc,
                                               ArrayRef<Expr *> VarList,
