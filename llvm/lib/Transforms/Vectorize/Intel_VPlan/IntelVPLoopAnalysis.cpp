@@ -2790,12 +2790,23 @@ bool ReductionDescr::isDuplicate(const VPlanVector *Plan, const VPLoop *Loop) co
 
 VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
                                                    const VPLoop *Loop) {
+  // We follow phi-user chains that potentially lead us to the live-out
+  // instruction VPInst.  We skip the phis in the loop headers as they are
+  // usually not live-out, and the cases when they are used by other,
+  // live-out, phis are covered by finding non-header phis.
+  // TODO: Consider the cases when a header phi is live-out itself from
+  // an inner loop (e.g., when the inner loop is multi-exit).  See
+  // CMPLRLLVM-44940.
   SetVector<VPPHINode *> Worklist;
-  auto AddPHIUsersToWorklist = [&Worklist, Loop](VPInstruction *VPI) -> void {
+  SmallVector<VPBasicBlock *, 4> HeaderBBs;
+  for (auto *InnerLoop : Loop->getLoopsInPreorder())
+    HeaderBBs.push_back(InnerLoop->getHeader());
+  auto AddPHIUsersToWorklist = [&Worklist, Loop,
+                                &HeaderBBs](VPInstruction *VPI) -> void {
     for (auto *U : VPI->users()) {
       if (auto *PhiUser = dyn_cast<VPPHINode>(U))
         if (checkInstructionInLoop(PhiUser, Loop) &&
-            PhiUser->getParent() != Loop->getHeader())
+            llvm::count(HeaderBBs, PhiUser->getParent()) == 0)
           Worklist.insert(PhiUser);
     }
   };
