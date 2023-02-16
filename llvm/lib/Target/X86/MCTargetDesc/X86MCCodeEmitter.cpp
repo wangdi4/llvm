@@ -54,7 +54,13 @@ using namespace llvm;
 
 namespace {
 
-enum PrefixKind { None, REX, XOP, VEX2, VEX3, EVEX };
+#if INTEL_CUSTOMIZATION
+enum PrefixKind { None, REX,
+#if INTEL_FEATURE_ISA_APX_F
+  REX2,
+#endif // INTEL_FEATURE_ISA_APX_F
+  XOP, VEX2, VEX3, EVEX };
+#endif // INTEL_CUSTOMIZATION
 
 static void emitByte(uint8_t C, raw_ostream &OS) { OS << static_cast<char>(C); }
 
@@ -63,6 +69,15 @@ class X86OpcodePrefixHelper {
   // +-----+ +------+
   // | 40H | | WRXB |
   // +-----+ +------+
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  // REX2 (2 byte)
+  // +-----+ +------------------+
+  // | D5H | | M | R'X'B' | WRXB
+  // +-----+ +------------------+
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   // XOP (3-byte)
   // +-----+ +--------------+ +-------------------+
@@ -138,6 +153,16 @@ private:
   unsigned R : 1;
   unsigned X : 1;
   unsigned B : 1;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  unsigned M : 1;
+  // TODO: Rename EVEX_R2 to R2，EVEX_P10 to X2 and move the def here
+  // after APX is disclosed.
+  // unsigned R2 : 1;
+  // unsigned X2 : 1;
+  unsigned B2 : 1;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   unsigned VEX_4V : 4;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
@@ -165,6 +190,14 @@ private:
 
   void setR(unsigned Encoding) { R = Encoding >> 3 & 1; }
   void setR2(unsigned Encoding) { EVEX_R2 = Encoding >> 4 & 1; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  void setX(unsigned Encoding) { X = Encoding >> 3 & 1; }
+  void setX2(unsigned Encoding) { EVEX_P10 = Encoding >> 4 & 1; }
+  void setB(unsigned Encoding) { B = Encoding >> 3 & 1; }
+  void setB2(unsigned Encoding) { B2 = Encoding >> 4 & 1; }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   void set4V(unsigned Encoding) { VEX_4V = Encoding & 0xf; }
   void setV2(unsigned Encoding) { EVEX_V2 = Encoding >> 4 & 1; }
 
@@ -198,6 +231,21 @@ public:
     setR(Encoding);
     setR2(Encoding);
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  void setM(bool V) { M = V; }
+  void setXX2(const MCInst &MI, unsigned OpNum) {
+    unsigned Encoding = getRegEncoding(MI, OpNum);
+    setX(Encoding);
+    setX2(Encoding);
+  }
+  void setBB2(const MCInst &MI, unsigned OpNum) {
+    unsigned Encoding = getRegEncoding(MI, OpNum);
+    setB(Encoding);
+    setB2(Encoding);
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   void setZ(bool V) { EVEX_z = V; }
 #if INTEL_CUSTOMIZATION
   void setL2(bool V) {
@@ -227,17 +275,19 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  X86OpcodePrefixHelper(const MCRegisterInfo &MRI, const MCSubtargetInfo &STI)
+      : W(0), R(0), X(0), B(0),
+#if INTEL_FEATURE_ISA_APX_F
+        M(0),
+        B2(0),
+#endif // INTEL_FEATURE_ISA_APX_F
+        VEX_4V(0),
 #if INTEL_FEATURE_ISA_AVX256P
-  X86OpcodePrefixHelper(const MCRegisterInfo &MRI, const MCSubtargetInfo &STI)
-      : W(0), R(0), X(0), B(0), VEX_4V(0), EVEX_P10(0), VEX_L(0), VEX_PP(0), VEX_5M(0),
-        EVEX_R2(0), EVEX_z(0), EVEX_L2(0), EVEX_b(0), EVEX_V2(0), EVEX_aaa(0),
-        MRI(MRI), STI(STI) {}
-#else // INTEL_FEATURE_ISA_AVX256P
-  X86OpcodePrefixHelper(const MCRegisterInfo &MRI, const MCSubtargetInfo &STI)
-      : W(0), R(0), X(0), B(0), VEX_4V(0), VEX_L(0), VEX_PP(0), VEX_5M(0),
-        EVEX_R2(0), EVEX_z(0), EVEX_L2(0), EVEX_b(0), EVEX_V2(0), EVEX_aaa(0),
-        MRI(MRI), STI(STI) {}
+        EVEX_P10(0),
 #endif // INTEL_FEATURE_ISA_AVX256P
+        VEX_L(0), VEX_PP(0), VEX_5M(0),
+        EVEX_R2(0), EVEX_z(0), EVEX_L2(0), EVEX_b(0), EVEX_V2(0), EVEX_aaa(0),
+        MRI(MRI), STI(STI) {}
 #endif // INTEL_CUSTOMIZATION
 
   void setLowerBound(PrefixKind K) { Kind = K; }
@@ -245,9 +295,23 @@ public:
   PrefixKind determineOptimalKind() {
     switch (Kind) {
     case None:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      // Not M bit here by intention b/c
+      // 1. There is no guarantee that REX2 is supported by arch w/o explict EGPR
+      // 2. REX2 is longer than 0FH
+      Kind = (EVEX_R2 | EVEX_P10 | B2) ? REX2 : (W | R | X | B) ? REX : None;
+#else // INTEL_FEATURE_ISA_APX_F
       Kind = (W | R | X | B) ? REX : None;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       break;
     case REX:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case REX2:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case XOP:
     case VEX3:
     case EVEX:
@@ -269,6 +333,16 @@ public:
     case REX:
       emitByte(0x40 | W << 3 | R << 2 | X << 1 | B, OS);
       return;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case REX2:
+      emitByte(0xD5, OS);
+      emitByte(M << 7 | EVEX_R2 << 6 | EVEX_P10 << 5 | B2 << 4 | W << 3 |
+                   R << 2 | X << 1 | B,
+               OS);
+      return;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case VEX2:
       emitByte(0xC5, OS);
       emitByte(((~R) & 1) << 7 | LastPayload, OS);
@@ -1356,7 +1430,13 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
   case X86II::MRM5r:
   case X86II::MRM6r:
   case X86II::MRM7r:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    Prefix.setBB2(MI, CurOp++);
+#else // INTEL_FEATURE_ISA_APX_F
     Prefix.setB(MI, CurOp++);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   case X86II::MRMr0:
     Prefix.setR(MI, CurOp++);
@@ -1368,6 +1448,11 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
 #endif // INTEL_CUSTOMIZATION
     llvm_unreachable("FSIB format never need REX prefix!");
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  Prefix.setM(TSFlags & X86II::OpMapMask == X86II::TB);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   PrefixKind Kind = Prefix.determineOptimalKind();
   if (Kind && UsesHighByteReg)
     report_fatal_error(
@@ -1447,6 +1532,14 @@ PrefixKind X86MCCodeEmitter::emitOpcodePrefix(int MemOperand, const MCInst &MI,
   // 0x0F escape code must be emitted just before the opcode.
   switch (TSFlags & X86II::OpMapMask) {
   case X86II::TB:        // Two-byte opcode map
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    // Encoded by M bit in REX2
+    if (Kind == REX2)
+      break;
+    LLVM_FALLTHROUGH;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86II::T8:        // 0F 38
   case X86II::TA:        // 0F 3A
   case X86II::ThreeDNow: // 0F 0F, second 0F emitted by caller.
