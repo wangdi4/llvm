@@ -239,3 +239,58 @@ define <1 x i1> @ssub_sat_v1i1(<1 x i1> %x, <1 x i1> %y) nounwind {
 }
 declare <1 x i1> @llvm.usub.sat.v1i1(<1 x i1> %x, <1 x i1> %y)
 declare <1 x i1> @llvm.ssub.sat.v1i1(<1 x i1> %x, <1 x i1> %y)
+
+define void @masked_spill(ptr %dummy1, ptr %dummy2, ptr %dummy3, ptr %dummy4, ptr %dummy5, ptr %ptr, i1 %pred) {
+; CHECK-LABEL: masked_spill:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    pushq %rbx ## encoding: [0x53]
+; CHECK-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-NEXT:    subq $16, %rsp ## encoding: [0x48,0x83,0xec,0x10]
+; CHECK-NEXT:    .cfi_def_cfa_offset 32
+; CHECK-NEXT:    .cfi_offset %rbx, -16
+; CHECK-NEXT:    movq %r9, %rbx ## encoding: [0x4c,0x89,0xcb]
+; CHECK-NEXT:    kmovb {{[0-9]+}}(%rsp), %k1 ## encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x20]
+; CHECK-NEXT:    kmovd %k1, {{[-0-9]+}}(%r{{[sb]}}p) ## 4-byte Spill
+; CHECK-NEXT:    ## encoding: [0xc4,0xe1,0xf9,0x91,0x4c,0x24,0x0c]
+; CHECK-NEXT:    callq _dummy_call ## encoding: [0xe8,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 1, value: _dummy_call-4, kind: reloc_branch_4byte_pcrel
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1 ## EVEX TO VEX Compression encoding: [0xc5,0xf0,0x57,0xc9]
+; CHECK-NEXT:    kmovd {{[-0-9]+}}(%r{{[sb]}}p), %k1 ## 4-byte Reload
+; CHECK-NEXT:    ## encoding: [0xc4,0xe1,0xf9,0x90,0x4c,0x24,0x0c]
+; CHECK-NEXT:    vmovss %xmm1, %xmm0, %xmm0 {%k1} ## encoding: [0x62,0xf1,0x7e,0x09,0x10,0xc1]
+; CHECK-NEXT:    vmovss %xmm0, (%rbx) ## EVEX TO VEX Compression encoding: [0xc5,0xfa,0x11,0x03]
+; CHECK-NEXT:    addq $16, %rsp ## encoding: [0x48,0x83,0xc4,0x10]
+; CHECK-NEXT:    popq %rbx ## encoding: [0x5b]
+; CHECK-NEXT:    retq ## encoding: [0xc3]
+;
+; X86-LABEL: masked_spill:
+; X86:       ## %bb.0: ## %entry
+; X86-NEXT:    pushl %esi ## encoding: [0x56]
+; X86-NEXT:    .cfi_def_cfa_offset 8
+; X86-NEXT:    subl $8, %esp ## encoding: [0x83,0xec,0x08]
+; X86-NEXT:    .cfi_def_cfa_offset 16
+; X86-NEXT:    .cfi_offset %esi, -8
+; X86-NEXT:    movl {{[0-9]+}}(%esp), %esi ## encoding: [0x8b,0x74,0x24,0x24]
+; X86-NEXT:    kmovb {{[0-9]+}}(%esp), %k1 ## encoding: [0xc5,0xf9,0x90,0x4c,0x24,0x28]
+; X86-NEXT:    kmovd %k1, (%esp) ## 4-byte Spill
+; X86-NEXT:    ## encoding: [0xc4,0xe1,0xf9,0x91,0x0c,0x24]
+; X86-NEXT:    calll _dummy_call ## encoding: [0xe8,A,A,A,A]
+; X86-NEXT:    ## fixup A - offset: 1, value: _dummy_call-4, kind: FK_PCRel_4
+; X86-NEXT:    fstps {{[0-9]+}}(%esp) ## encoding: [0xd9,0x5c,0x24,0x04]
+; X86-NEXT:    vmovss {{[0-9]+}}(%esp), %xmm0 ## EVEX TO VEX Compression encoding: [0xc5,0xfa,0x10,0x44,0x24,0x04]
+; X86-NEXT:    ## xmm0 = mem[0],zero,zero,zero
+; X86-NEXT:    vxorps %xmm1, %xmm1, %xmm1 ## EVEX TO VEX Compression encoding: [0xc5,0xf0,0x57,0xc9]
+; X86-NEXT:    kmovd (%esp), %k1 ## 4-byte Reload
+; X86-NEXT:    ## encoding: [0xc4,0xe1,0xf9,0x90,0x0c,0x24]
+; X86-NEXT:    vmovss %xmm1, %xmm0, %xmm0 {%k1} ## encoding: [0x62,0xf1,0x7e,0x09,0x10,0xc1]
+; X86-NEXT:    vmovss %xmm0, (%esi) ## EVEX TO VEX Compression encoding: [0xc5,0xfa,0x11,0x06]
+; X86-NEXT:    addl $8, %esp ## encoding: [0x83,0xc4,0x08]
+; X86-NEXT:    popl %esi ## encoding: [0x5e]
+; X86-NEXT:    retl ## encoding: [0xc3]
+entry:
+  %result = call float () @dummy_call()
+  %select = select i1 %pred, float 0.000000e+00, float %result
+  store float %select, ptr %ptr, align 1
+  ret void
+}
+declare float @dummy_call()

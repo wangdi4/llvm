@@ -3809,7 +3809,14 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
     if (X86::RFP32RegClass.hasSubClassEq(RC))
       return Load ? X86::LD_Fp32m : X86::ST_Fp32m;
     if (X86::VK32RegClass.hasSubClassEq(RC)) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      assert((STI.hasBWI() || STI.hasAVX256P()) &&
+             "KMOVD requires BWI or AVX256P");
+#else  // INTEL_FEATURE_ISA_AVX256P
       assert(STI.hasBWI() && "KMOVD requires BWI");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return Load ? X86::KMOVDkm : X86::KMOVDmk;
     }
     // All of these mask pair classes have the same spill size, the same kind
@@ -7517,8 +7524,15 @@ static unsigned getBroadcastOpcode(const X86MemoryFoldTableEntry *I,
                                    const X86Subtarget &STI) {
   assert(STI.hasAVX512() && "Expected at least AVX512!");
   unsigned SpillSize = STI.getRegisterInfo()->getSpillSize(*RC);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  assert((SpillSize == 64 || STI.hasVLX() || STI.hasAVX256P()) &&
+         "Can't broadcast less than 64 bytes without AVX512VL or AVX256P!");
+#else  // INTEL_FEATURE_ISA_AVX256P
   assert((SpillSize == 64 || STI.hasVLX()) &&
          "Can't broadcast less than 64 bytes without AVX512VL!");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   switch (I->Flags & TB_BCAST_MASK) {
   default: llvm_unreachable("Unexpected broadcast type!");

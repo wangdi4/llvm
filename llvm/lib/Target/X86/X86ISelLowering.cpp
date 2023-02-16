@@ -20662,7 +20662,14 @@ static SDValue lower1BitShuffle(const SDLoc &DL, ArrayRef<int> Mask,
   case MVT::v32i1:
     // Take 512-bit type, unless we are avoiding 512-bit types and have the
     // 256-bit operation available.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    assert((Subtarget.hasBWI() || Subtarget.hasAVX256P()) &&
+           "Expected AVX512BW or AVX256P support");
+#else  // INTEL_FEATURE_ISA_AVX256P
     assert(Subtarget.hasBWI() && "Expected AVX512BW support");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     ExtVT = Subtarget.canExtendTo512BW() ? MVT::v32i16 : MVT::v32i8;
     break;
   case MVT::v64i1:
@@ -23757,8 +23764,16 @@ SDValue X86TargetLowering::LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const {
   if (!TLI.isTypeLegal(InVT)) {
     if ((InVT == MVT::v8i64 || InVT == MVT::v16i32 || InVT == MVT::v16i64) &&
         VT.is128BitVector()) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      assert((InVT == MVT::v16i64 || Subtarget.hasVLX() ||
+              Subtarget.hasAVX256P()) &&
+             "Unexpected subtarget!");
+#else  // INTEL_FEATURE_ISA_AVX256P
       assert((InVT == MVT::v16i64 || Subtarget.hasVLX()) &&
              "Unexpected subtarget!");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       // The default behavior is to truncate one step, concatenate, and then
       // truncate the remainder. We'd rather produce two 64-bit results and
       // concatenate those.
@@ -35112,8 +35127,16 @@ static SDValue LowerMGATHER(SDValue Op, const X86Subtarget &Subtarget,
   // If we don't have VLX and neither the passthru or index is 512-bits, we
   // need to widen until one is.
   MVT OrigVT = VT;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  bool HasVLX = Subtarget.hasVLX() || Subtarget.hasAVX256P();
+  if (Subtarget.hasAVX512() && !HasVLX && !VT.is512BitVector() &&
+      !IndexVT.is512BitVector()) {
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (Subtarget.hasAVX512() && !Subtarget.hasVLX() && !VT.is512BitVector() &&
       !IndexVT.is512BitVector()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     // Determine how much we need to widen by to get a 512-bit type.
     unsigned Factor = std::min(512/VT.getSizeInBits(),
                                512/IndexVT.getSizeInBits());
@@ -54232,7 +54255,14 @@ static SDValue combineTruncateWithSat(SDValue In, EVT VT, const SDLoc &DL,
       unsigned ResElts = VT.getVectorNumElements();
       // If the input type is less than 512 bits and we don't have VLX, we need
       // to widen to 512 bits.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if (!(Subtarget.hasVLX() || Subtarget.hasAVX256P()) &&
+          !InVT.is512BitVector()) {
+#else  // INTEL_FEATURE_ISA_AVX256P
       if (!Subtarget.hasVLX() && !InVT.is512BitVector()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
         unsigned NumConcats = 512 / InVT.getSizeInBits();
         ResElts *= NumConcats;
         SmallVector<SDValue, 4> ConcatOps(NumConcats, DAG.getUNDEF(InVT));

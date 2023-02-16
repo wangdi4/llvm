@@ -290,6 +290,24 @@ define <8 x i32> @test_int_x86_avx512_mask_gather3siv8_si(<8 x i32> %x0, ptr %x1
   ret <8 x i32> %res2
 }
 
+@arr = external constant [0 x i32]
+define dso_local <8 x i32> @test_int_masked_gather_v8i32_v8p0(<8 x i8> %offs) {
+; CHECK-LABEL: test_int_masked_gather_v8i32_v8p0:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq arr@GOTPCREL(%rip), %rax # encoding: [0x48,0x8b,0x05,A,A,A,A]
+; CHECK-NEXT:    # fixup A - offset: 3, value: arr@GOTPCREL-4, kind: reloc_riprel_4byte_movq_load
+; CHECK-NEXT:    vpmovzxbd %xmm0, %ymm1 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x7d,0x31,0xc8]
+; CHECK-NEXT:    # ymm1 = xmm0[0],zero,zero,zero,xmm0[1],zero,zero,zero,xmm0[2],zero,zero,zero,xmm0[3],zero,zero,zero,xmm0[4],zero,zero,zero,xmm0[5],zero,zero,zero,xmm0[6],zero,zero,zero,xmm0[7],zero,zero,zero
+; CHECK-NEXT:    kxnorw %k0, %k0, %k1 # encoding: [0xc5,0xfc,0x46,0xc8]
+; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0xef,0xc0]
+; CHECK-NEXT:    vpgatherdd (%rax,%ymm1,4), %ymm0 {%k1} # encoding: [0x62,0xf2,0x7d,0x29,0x90,0x04,0x88]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  %1 = zext <8 x i8> %offs to <8 x i64>
+  %2 = getelementptr inbounds [0 x i32], <8 x ptr> <ptr @arr, ptr @arr, ptr @arr, ptr @arr, ptr @arr, ptr @arr, ptr @arr, ptr @arr>, <8 x i64> zeroinitializer, <8 x i64> %1
+  %3 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> %2, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> poison)
+  ret <8 x i32> %3
+}
+
 define dso_local void@test_int_x86_avx512_scatterdiv2_df(ptr %x0, i8 %x1, <2 x i64> %x2, <2 x double> %x3) {
 ; CHECK-LABEL: test_int_x86_avx512_scatterdiv2_df:
 ; CHECK:       # %bb.0:
@@ -557,6 +575,7 @@ define dso_local void @scatter_mask_test(ptr %x0, <8 x i32> %x2, <8 x i32> %x3) 
   call void @llvm.x86.avx512.mask.scattersiv8.si(ptr %x0, <8 x i1> bitcast (<1 x i8> <i8 96> to <8 x i1>), <8 x i32> %x2, <8 x i32> %x3, i32 4)
   ret void
 }
+
 declare <2 x double> @llvm.x86.avx512.mask.gather3div2.df(<2 x double>, ptr, <2 x i64>, <2 x i1>, i32)
 declare <2 x i64> @llvm.x86.avx512.mask.gather3div2.di(<2 x i64>, ptr, <2 x i64>, <2 x i1>, i32)
 declare <4 x double> @llvm.x86.avx512.mask.gather3div4.df(<4 x double>, ptr, <4 x i64>, <4 x i1>, i32)
@@ -573,6 +592,7 @@ declare <4 x float> @llvm.x86.avx512.mask.gather3siv4.sf(<4 x float>, ptr, <4 x 
 declare <4 x i32> @llvm.x86.avx512.mask.gather3siv4.si(<4 x i32>, ptr, <4 x i32>, <4 x i1>, i32)
 declare <8 x float> @llvm.x86.avx512.mask.gather3siv8.sf(<8 x float>, ptr, <8 x i32>, <8 x i1>, i32)
 declare <8 x i32> @llvm.x86.avx512.mask.gather3siv8.si(<8 x i32>, ptr, <8 x i32>, <8 x i1>, i32)
+declare <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr>, i32 immarg, <8 x i1>, <8 x i32>)
 declare void @llvm.x86.avx512.mask.scatterdiv2.df(ptr, <2 x i1>, <2 x i64>, <2 x double>, i32)
 declare void @llvm.x86.avx512.mask.scatterdiv2.di(ptr, <2 x i1>, <2 x i64>, <2 x i64>, i32)
 declare void @llvm.x86.avx512.mask.scatterdiv4.df(ptr, <4 x i1>, <4 x i64>, <4 x double>, i32)
