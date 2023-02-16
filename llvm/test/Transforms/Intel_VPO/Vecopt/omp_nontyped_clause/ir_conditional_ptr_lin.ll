@@ -152,10 +152,10 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:   br label [[VPlannedBB2:%.*]]
 ; CHECK-EMPTY: 
 ; CHECK-NEXT: VPlannedBB2:                                      ; preds = %VPlannedBB1
-; CHECK-NEXT:   [[VP_K_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i64*> poison, i64* [[VP_K_IV_B]], i32 0
+; CHECK-NEXT:   [[VP_K_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i64*> poison, i64* [[VP_K_IV_B]], i64 0
 ; CHECK-NEXT:   [[VP_K_IV_BIND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x i64*> [[VP_K_IV_BIND_START_BCAST_SPLATINSERT:%.*]], <2 x i64*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VP_VECTOR_GEP:%.*]] = getelementptr inbounds i64, <2 x i64*> [[VP_K_IV_BIND_START_BCAST_SPLAT]], <2 x i64> <i64 0, i64 2>
-; CHECK-NEXT:   [[VP_K1_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i32*> poison, i32* [[VP_K1_IV_B]], i32 0
+; CHECK-NEXT:   [[VP_K1_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i32*> poison, i32* [[VP_K1_IV_B]], i64 0
 ; CHECK-NEXT:   [[VP_K1_IV_BIND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x i32*> [[VP_K1_IV_BIND_START_BCAST_SPLATINSERT:%.*]], <2 x i32*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VP_VECTOR_GEP3:%.*]] = getelementptr inbounds i32, <2 x i32*> [[VP_K1_IV_BIND_START_BCAST_SPLAT]], <2 x i64> <i64 0, i64 1>
 ; CHECK-NEXT:   %3 = and i64 %0, 4294967294

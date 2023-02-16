@@ -90,6 +90,7 @@ target_link_libraries(
   ImathLibd
   LLVMAsmParser
   LLVMInterpreterPluggable
+  LLVMTargetParser
   NEAT
   OCLBuilder
   OCLBuiltinsRef

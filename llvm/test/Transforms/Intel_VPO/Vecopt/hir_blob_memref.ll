@@ -38,18 +38,18 @@ define dso_local void @foo(i64* nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  loop.16:
 ; CHECK-NEXT:    [[I1_I64_00:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[NEXTIVLOOP_160:%.*]], [[LOOP_160]] ]
-; CHECK-NEXT:    [[DOTSPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[TMP0]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[TMP0]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT0:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT0]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP1:%.*]] = add <4 x i64> [[DOTSPLAT0]], <i64 0, i64 8, i64 16, i64 24>
 ; CHECK-NEXT:    [[TMP2:%.*]] = mul i64 8, [[I1_I64_00]]
-; CHECK-NEXT:    [[DOTSPLATINSERT10:%.*]] = insertelement <4 x i64> poison, i64 [[TMP2]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT10:%.*]] = insertelement <4 x i64> poison, i64 [[TMP2]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT20:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT10]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i64> [[TMP1]], [[DOTSPLAT20]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = add <4 x i64> [[TMP3]], <i64 8, i64 8, i64 8, i64 8>
 ; CHECK-NEXT:    [[TMP5:%.*]] = inttoptr <4 x i64> [[TMP4]] to <4 x i64*>
 ; CHECK-NEXT:    [[UNI_IDX30:%.*]] = extractelement <4 x i64*> [[TMP5]], i64 0
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i64* [[UNI_IDX30]] to <4 x i64>*
-; CHECK-NEXT:    [[DOTSPLATINSERT40:%.*]] = insertelement <4 x i64> poison, i64 [[I1_I64_00]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT40:%.*]] = insertelement <4 x i64> poison, i64 [[I1_I64_00]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT50:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT40]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP7:%.*]] = add <4 x i64> <i64 0, i64 1, i64 2, i64 3>, [[DOTSPLAT50]]
 ; CHECK-NEXT:    store <4 x i64> [[TMP7]], <4 x i64>* [[TMP6]], align 8

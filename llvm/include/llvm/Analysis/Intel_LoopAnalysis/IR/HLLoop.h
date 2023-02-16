@@ -1513,7 +1513,7 @@ template <> struct OptReportTraits<loopopt::HLLoop> {
     return Loop.getDebugLoc();
   }
 
-  static Optional<std::string> getOptReportTitle(const loopopt::HLLoop &Loop) {
+  static std::optional<std::string> getOptReportTitle(const loopopt::HLLoop &Loop) {
     return std::nullopt;
   }
 

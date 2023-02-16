@@ -4282,9 +4282,9 @@ public:
       llvm::Type *DestTy = I.getDestTy();
       llvm::Type *BCSourceTy = BC->getSrcTy();
 
-      uint64_t DestSize = DL.getTypeSizeInBits(DestTy).getFixedSize();
-      uint64_t LoadSize = DL.getTypeSizeInBits(LoadTy).getFixedSize();
-      uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedSize();
+      uint64_t DestSize = DL.getTypeSizeInBits(DestTy).getFixedValue();
+      uint64_t LoadSize = DL.getTypeSizeInBits(LoadTy).getFixedValue();
+      uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedValue();
 
       if (DestSize != LoadSize || LoadSize != BCSourceSize ||
           DestSize != BCSourceSize)
@@ -5898,10 +5898,10 @@ private:
         !BCDestTy->getElementType()->isIntegerTy())
       return false;
 
-    uint64_t BCDestSize = DL.getTypeSizeInBits(BCDestTy).getFixedSize();
-    uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedSize();
+    uint64_t BCDestSize = DL.getTypeSizeInBits(BCDestTy).getFixedValue();
+    uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedValue();
     uint64_t DestinationSize =
-        DL.getTypeSizeInBits(DestinationType).getFixedSize();
+        DL.getTypeSizeInBits(DestinationType).getFixedValue();
 
     // Make sure that the size of the pointers match
     if (BCSourceSize != BCDestSize || BCSourceSize != DestinationSize ||

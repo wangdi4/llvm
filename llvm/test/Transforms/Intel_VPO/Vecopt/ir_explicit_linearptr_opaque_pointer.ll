@@ -149,25 +149,25 @@ define dso_local void @foo(i64* %x, i32* %y, i16** %z) #0 {
 ; CHECK-NEXT: VPlannedBB1:                                      ; preds = %VPlannedBB
 ; CHECK:        %0 = load ptr, ptr [[X_LINEAR_PTR]], align 1
 ; CHECK-NEXT:   %1 = load ptr, ptr [[X_LINEAR_PTR]], align 1
-; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr %0, i32 0
+; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr %0, i64 0
 ; CHECK-NEXT:   [[IND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x ptr> [[IND_START_BCAST_SPLATINSERT]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VECTOR_GEP:%.*]] = getelementptr inbounds i8, <2 x ptr> [[IND_START_BCAST_SPLAT]], <2 x i64> <i64 0, i64 8>
 ; CHECK-NEXT:   store <2 x ptr> [[VECTOR_GEP]], ptr [[X_LINEAR_PTR_VEC]], align 1
 ; CHECK-NEXT:   %2 = load ptr, ptr [[Y_LINEAR_PTR]], align 1
 ; CHECK-NEXT:   %3 = load ptr, ptr [[Y_LINEAR_PTR]], align 1
-; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT2:%.*]] = insertelement <2 x ptr> poison, ptr %2, i32 0
+; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT2:%.*]] = insertelement <2 x ptr> poison, ptr %2, i64 0
 ; CHECK-NEXT:   [[IND_START_BCAST_SPLAT3:%.*]] = shufflevector <2 x ptr> [[IND_START_BCAST_SPLATINSERT2]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VECTOR_GEP4:%.*]] = getelementptr inbounds i8, <2 x ptr> [[IND_START_BCAST_SPLAT3]], <2 x i64> <i64 0, i64 4>
 ; CHECK-NEXT:   store <2 x ptr> [[VECTOR_GEP4]], ptr [[Y_LINEAR_PTR_VEC]], align 1
 ; CHECK-NEXT:   %4 = load ptr, ptr [[Z_LINEAR_PTR]], align 1
 ; CHECK-NEXT:   %5 = load ptr, ptr [[Z_LINEAR_PTR]], align 1
-; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT5:%.*]] = insertelement <2 x ptr> poison, ptr %4, i32 0
+; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT5:%.*]] = insertelement <2 x ptr> poison, ptr %4, i64 0
 ; CHECK-NEXT:   [[IND_START_BCAST_SPLAT6:%.*]] = shufflevector <2 x ptr> [[IND_START_BCAST_SPLATINSERT5]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VECTOR_GEP7:%.*]] = getelementptr inbounds i8, <2 x ptr> [[IND_START_BCAST_SPLAT6]], <2 x i64> <i64 0, i64 8>
 ; CHECK-NEXT:   store <2 x ptr> [[VECTOR_GEP7]], ptr [[Z_LINEAR_PTR_VEC]], align 1
 ; CHECK-NEXT:   %6 = load i32, ptr [[I_LINEAR_IV_PTR]], align 1
 ; CHECK-NEXT:   %7 = load i32, ptr [[I_LINEAR_IV_PTR]], align 1
-; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT8:%.*]] = insertelement <2 x i32> poison, i32 %6, i32 0
+; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT8:%.*]] = insertelement <2 x i32> poison, i32 %6, i64 0
 ; CHECK-NEXT:   [[IND_START_BCAST_SPLAT9:%.*]] = shufflevector <2 x i32> [[IND_START_BCAST_SPLATINSERT8]], <2 x i32> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   %8 = add <2 x i32> [[IND_START_BCAST_SPLAT9]], <i32 0, i32 1>
 ; CHECK-NEXT:   store <2 x i32> %8, ptr [[I_LINEAR_IV_PTR_VEC]], align 1

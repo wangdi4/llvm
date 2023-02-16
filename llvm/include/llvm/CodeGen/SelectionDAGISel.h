@@ -73,15 +73,12 @@ public:
   const TargetLowering *TLI;
   bool FastISelFailed;
   SmallPtrSet<const Instruction *, 4> ElidedArgCopyInstrs;
-  bool UseInstrRefDebugInfo = false;
 
   /// Current optimization remark emitter.
   /// Used to report things like combines and FastISel failures.
   std::unique_ptr<OptimizationRemarkEmitter> ORE;
 
-  static char ID;
-
-  explicit SelectionDAGISel(TargetMachine &tm,
+  explicit SelectionDAGISel(char &ID, TargetMachine &tm,
                             CodeGenOpt::Level OL = CodeGenOpt::Default);
   ~SelectionDAGISel() override;
 
@@ -347,6 +344,7 @@ private:
   void Select_PSEUDO_LOOP_HEADER(SDNode *N);
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
+  void Select_MEMBARRIER(SDNode *N);
 
   void pushStackMapLiveVariable(SmallVectorImpl<SDValue> &Ops, SDValue Operand,
                                 SDLoc DL);

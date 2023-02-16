@@ -39,6 +39,7 @@ add_definitions(-DSPIRV_TEST_FILE="${SPIRV_OUTPUT_FILE}")
 set(FRONTEND_DRIVER_TEST_TYPE_LINK_LIBS
   ${COMMON_CLANG_LIB}
   ${LLVM_MODULE_LIBS}
+  LLVMTargetParser
   CLElfLib
   CacheBinaryHandler
   OclPluginManager

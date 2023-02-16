@@ -39,6 +39,7 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
 #include "llvm/ADT/STLExtras.h"
+#include <optional>
 
 #if INTEL_CUSTOMIZATION
 #include "clang/AST/StmtCXX.h"
@@ -1566,7 +1567,7 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   Sema::ConditionResult Cond;
   SourceLocation LParen;
   SourceLocation RParen;
-  llvm::Optional<bool> ConstexprCondition;
+  std::optional<bool> ConstexprCondition;
   if (!IsConsteval) {
 
     if (ParseParenExprOrCondition(&InitStmt, Cond, IfLoc,

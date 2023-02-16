@@ -397,6 +397,7 @@ class OpenMPLateOutliner {
   void emitOMPUseClause(const OMPUseClause *);
   void emitOMPNovariantsClause(const OMPNovariantsClause *);
   void emitOMPNocontextClause(const OMPNocontextClause *);
+  void emitOMPXDynCGroupMemClause(const OMPXDynCGroupMemClause *);
 #if INTEL_CUSTOMIZATION
   void emitOMPOmpxAssertClause(const OMPOmpxAssertClause *);
 #if INTEL_FEATURE_CSA

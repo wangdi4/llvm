@@ -21,16 +21,16 @@
 ;
 ; CHECK:      define dso_local noundef i32 @_Z3fooPiii(i32* noundef %ptr, i32 noundef %step, i32 noundef %n) local_unnamed_addr {
 ; CHECK:      VPlannedBB1:                                      ; preds = %VPlannedBB
-; CHECK-NEXT:   [[VP_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i8> poison, i8 [[VP_STEP:%.*]], i32 0
+; CHECK-NEXT:   [[VP_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i8> poison, i8 [[VP_STEP:%.*]], i64 0
 ; CHECK-NEXT:   [[VP_BCAST_SPLAT:%.*]] = shufflevector <2 x i8> [[VP_BCAST_SPLATINSERT]], <2 x i8> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   br label %VPlannedBB2
 ; CHECK:      VPlannedBB2:                                      ; preds = %VPlannedBB1
-; CHECK:        [[VP_C_LINEAR_IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i8> poison, i8 [[VP_C_LINEAR_PROMOTED:%.*]], i32 0
+; CHECK:        [[VP_C_LINEAR_IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i8> poison, i8 [[VP_C_LINEAR_PROMOTED:%.*]], i64 0
 ; CHECK-NEXT:   [[VP_C_LINEAR_IND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x i8> [[VP_C_LINEAR_IND_START_BCAST_SPLATINSERT:%.*]], <2 x i8> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VP_BCAST_SPLAT_MUL:%.*]] = mul <2 x i8> [[VP_BCAST_SPLAT]], <i8 0, i8 1>
 ; CHECK-NEXT:   [[VP_C_LINEAR_NEXT:%.*]] = add <2 x i8> [[VP_C_LINEAR_IND_START_BCAST_SPLAT]], [[VP_BCAST_SPLAT_MUL]]
 ; CHECK-NEXT:   [[VP_STEP_NEXT:%.*]] = mul i8 [[VP_STEP:%.*]], 2
-; CHECK-NEXT:   [[VP_STEP_INIT_SPLATINSERT:%.*]] = insertelement <2 x i8> poison, i8 [[VP_STEP_NEXT]], i32 0
+; CHECK-NEXT:   [[VP_STEP_INIT_SPLATINSERT:%.*]] = insertelement <2 x i8> poison, i8 [[VP_STEP_NEXT]], i64 0
 ; CHECK-NEXT:   [[VP_STEP_INIT_SPLAT:%.*]] = shufflevector <2 x i8> [[VP_STEP_INIT_SPLATINSERT]], <2 x i8> poison, <2 x i32> zeroinitializer
 ; CHECK:      vector.body:                                      ; preds = %vector.body, %VPlannedBB2
 ; CHECK:        [[VP_VEC_PHI:%.*]] = phi <2 x i8> [ [[VP_C_LINEAR_NEXT]], %VPlannedBB2 ], [ [[VP_C_LINEAR:%.*]], %vector.body ]

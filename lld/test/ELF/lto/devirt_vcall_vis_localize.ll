@@ -17,7 +17,9 @@
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   --version-script=%t.ver -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
-; RUN: llvm-dis < %t1.o.4.opt.bc | FileCheck %s --check-prefix=CHECK-IR
+; INTEL_CUSTOMIZATION
+; RUN: llvm-dis -opaque-pointers < %t1.o.4.opt.bc | FileCheck %s --check-prefix=CHECK-IR
+; end INTEL_CUSTOMIZATION
 
 ; REMARK: single-impl: devirtualized a call to _ZN1A1nEi
 

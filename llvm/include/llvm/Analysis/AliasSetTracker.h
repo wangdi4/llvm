@@ -58,6 +58,7 @@ class AnyMemTransferInst;
 class BasicBlock;
 class BatchAAResults;
 class LoadInst;
+enum class ModRefInfo : uint8_t;
 class raw_ostream;
 class StoreInst;
 class VAArgInst;
@@ -336,7 +337,8 @@ public:
   /// Check if alias set aliases with another alias set.
   bool aliases(const AliasSet &AS, BatchAAResults &AA) const;
 #endif // INTEL_COLLAB
-  bool aliasesUnknownInst(const Instruction *Inst, BatchAAResults &AA) const;
+  ModRefInfo aliasesUnknownInst(const Instruction *Inst,
+                                BatchAAResults &AA) const;
 };
 
 inline raw_ostream& operator<<(raw_ostream &OS, const AliasSet &AS) {

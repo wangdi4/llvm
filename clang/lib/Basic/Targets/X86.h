@@ -37,6 +37,7 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/X86TargetParser.h"
+#include <optional>
 
 namespace clang {
 namespace targets {
@@ -444,7 +445,7 @@ public:
 
   StringRef getCPUSpecificTuneName(StringRef Name) const override;
 
-  Optional<unsigned> getCPUCacheLineSize() const override;
+  std::optional<unsigned> getCPUCacheLineSize() const override;
 
   bool validateAsmConstraint(const char *&Name,
                              TargetInfo::ConstraintInfo &info) const override;

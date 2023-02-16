@@ -243,7 +243,7 @@ bool WeakAlignImpl::analyzeModule(
   };
 
   auto IsSupportedAllocationFn = [](LibFunc LF) {
-    auto Fns = makeArrayRef(SupportedAllocFns);
+    auto Fns = ArrayRef(SupportedAllocFns);
     return std::any_of(Fns.begin(), Fns.end(),
                        [&LF](LibFunc Elem) { return Elem == LF; });
   };

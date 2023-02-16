@@ -78,7 +78,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:    br label %[[PEEL_CHECKZ0:.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  [[PEEL_CHECKZ0]]:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32*> poison, i32* [[A0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32*> poison, i32* [[A0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32*> [[BROADCAST_SPLATINSERT0]], <4 x i32*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP1]] = ptrtoint <4 x i32*> [[BROADCAST_SPLAT0]] to <4 x i64>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP1]], i32 0
@@ -113,7 +113,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    [[UNI_PHI1IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI10]], i32 0
+; CHECK-NEXT:    [[UNI_PHI1IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI10]], i64 0
 ; CHECK-NEXT:    [[UNI_PHI1IND_START_BCAST_SPLAT0:%.*]] = shufflevector <4 x i64> [[UNI_PHI1IND_START_BCAST_SPLATINSERT0]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP10:%.*]] = add <4 x i64> [[UNI_PHI1IND_START_BCAST_SPLAT0]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[N_ADJST0:%.*]] = sub nuw nsw i64 100, [[TMP4]]

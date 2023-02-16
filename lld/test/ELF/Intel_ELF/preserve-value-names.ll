@@ -7,8 +7,7 @@
 ;     '%3' when value names are preserved
 
 ; RUN: opt %s -o %t.bc
-; RUN: ld.lld -plugin-opt=new-pass-manager \
-; RUN:        -plugin-opt=fintel-preserve-value-names \
+; RUN: ld.lld -plugin-opt=fintel-preserve-value-names \
 ; RUN:        -mllvm -print-after-all %t.bc -o %t \
 ; RUN:        2>&1 | FileCheck %s --check-prefix=CHECK-PRSV
 
@@ -18,8 +17,7 @@
 ; CHECK-PRSV: ret i32 %call2
 
 ; RUN: opt %s -o %t.bc
-; RUN: ld.lld -plugin-opt=new-pass-manager \
-; RUN:        -mllvm -print-after-all %t.bc -o %t \
+; RUN: ld.lld -mllvm -print-after-all %t.bc -o %t \
 ; RUN:        2>&1 | FileCheck %s
 
 ; Check that value names are discarded

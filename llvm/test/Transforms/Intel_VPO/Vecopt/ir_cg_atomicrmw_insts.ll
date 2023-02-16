@@ -11,7 +11,7 @@ declare void @llvm.directive.region.exit(token) nounwind
 define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; LLVM-CG:  define void @test1(i64 [[N0:%.*]], i64 addrspace(4)* [[ARR0:%.*]]) {
 ; LLVM-CG:       VPlannedBB1:
-; LLVM-CG-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[ARR0]], i32 0
+; LLVM-CG-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[ARR0]], i64 0
 ; LLVM-CG-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[BROADCAST_SPLATINSERT0]], <2 x i64 addrspace(4)*> poison, <2 x i32> zeroinitializer
 ; LLVM-CG-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; LLVM-CG-EMPTY:

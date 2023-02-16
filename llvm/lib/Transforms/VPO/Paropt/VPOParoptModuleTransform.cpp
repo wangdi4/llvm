@@ -877,7 +877,7 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
           Instruction *Inst = &*I++;
           if (isInstructionTriviallyDead(Inst)) {
             salvageDebugInfo(*Inst);
-            BB.getInstList().erase(Inst);
+            Inst->eraseFromParent();
           }
         }
     }

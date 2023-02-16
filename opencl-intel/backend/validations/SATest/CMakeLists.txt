@@ -118,6 +118,7 @@ target_link_libraries(
   LLVMMCParser
   LLVMObject
   LLVMOrcTargetProcess
+  LLVMTargetParser
   LLVMVPOTransforms
   LLVMVectorize
   LoopUtils

@@ -2,4 +2,4 @@
 type = Library
 name = Intel_MapIntrinToIml
 parent = Transforms
-required_libraries = Analysis Core Scalar Support TransformUtils
+required_libraries = Analysis Core Scalar Support TargetParser TransformUtils

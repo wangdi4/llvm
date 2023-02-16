@@ -3,7 +3,7 @@
 
 // INTEL_CUSTOMIZATION
 // CMPLRLLVM-42767
-// XFAIL: windows
+// XFAIL: target={{.*}}windows{{.*}}
 // end INTEL_CUSTOMIZATION
 
 // CHECK: Testing on source file {{.*}}check-fail.test
@@ -12,7 +12,7 @@
 // CHECK: [pp_file_not_found] Line {{.*}}: 'missing.h' file not found
 // CHECK: Building AST...
 // CHECK: Testing features at each token
-// CHECK: tweak: ExpandAutoType ==> FAIL
+// CHECK: tweak: ExpandDeducedType ==> FAIL
 // CHECK: All checks completed, 2 errors
 
 #include "missing.h"

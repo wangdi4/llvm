@@ -406,10 +406,6 @@ static TargetMachine* GetTargetMachine(Triple TheTriple, StringRef CPUStr,
       codegen::getExplicitCodeModel(), GetCodeGenOptLevel());
 }
 
-#ifdef BUILD_EXAMPLES
-void initializeExampleIRTransforms(llvm::PassRegistry &Registry);
-#endif
-
 struct TimeTracerRAII {
   TimeTracerRAII(StringRef ProgramName) {
     if (TimeTrace)
@@ -458,24 +454,41 @@ static bool shouldPinPassToLegacyPM(StringRef Pass) {
       "amdgcn-", "polly-", "riscv-", "dxil-"};
   std::vector<StringRef> PassNameContain = {"ehprepare"};
   std::vector<StringRef> PassNameExact = {
-      "safe-stack",           "cost-model",
-      "codegenprepare",       "interleaved-load-combine",
-      "unreachableblockelim", "verify-safepoint-ir",
-      "atomic-expand",        "expandvp",
-      "hardware-loops",       "type-promotion",
-      "mve-tail-predication", "interleaved-access",
-      "global-merge",         "pre-isel-intrinsic-lowering",
-      "expand-reductions",    "indirectbr-expand",
-      "generic-to-nvvm",      "expandmemcmp",
-      "loop-reduce",          "lower-amx-type",
-      "pre-amx-config",       "lower-amx-intrinsics",
-      "polyhedral-info",      "print-polyhedral-info",
-      "replace-with-veclib",  "jmc-instrument",
-      "dot-regions",          "dot-regions-only",
-      "view-regions",         "view-regions-only",
-      "select-optimize",      "expand-large-div-rem",
-      "structurizecfg",       "fix-irreducible",
-      "expand-large-fp-convert"};
+      "safe-stack",
+      "cost-model",
+      "codegenprepare",
+      "interleaved-load-combine",
+      "unreachableblockelim",
+      "verify-safepoint-ir",
+      "atomic-expand",
+      "expandvp",
+      "hardware-loops",
+      "mve-tail-predication",
+      "interleaved-access",
+      "global-merge",
+      "pre-isel-intrinsic-lowering",
+      "expand-reductions",
+      "indirectbr-expand",
+      "generic-to-nvvm",
+      "expandmemcmp",
+      "loop-reduce",
+      "lower-amx-type",
+      "pre-amx-config",
+      "lower-amx-intrinsics",
+      "polyhedral-info",
+      "print-polyhedral-info",
+      "replace-with-veclib",
+      "jmc-instrument",
+      "dot-regions",
+      "dot-regions-only",
+      "view-regions",
+      "view-regions-only",
+      "select-optimize",
+      "expand-large-div-rem",
+      "structurizecfg",
+      "fix-irreducible",
+      "expand-large-fp-convert"
+  };
   for (const auto &P : PassNamePrefix)
     if (Pass.startswith(P))
       return true;
@@ -547,7 +560,6 @@ int main(int argc, char **argv) {
   initializeWasmEHPreparePass(Registry);
   initializeWriteBitcodePassPass(Registry);
   initializeHardwareLoopsPass(Registry);
-  initializeTypePromotionPass(Registry);
   initializeReplaceWithVeclibLegacyPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeIntel_LoopAnalysis(Registry);
@@ -579,10 +591,6 @@ int main(int argc, char **argv) {
   initializeSYCLLowerWGLocalMemoryLegacyPass(Registry);
   initializeSYCLMutatePrintfAddrspaceLegacyPassPass(Registry);
 
-#ifdef BUILD_EXAMPLES
-  initializeExampleIRTransforms(Registry);
-#endif
-
   SmallVector<PassPlugin, 1> PluginList;
   PassPlugins.setCallback([&](const std::string &PluginPath) {
     auto Plugin = PassPlugin::Load(PluginPath);
@@ -593,6 +601,9 @@ int main(int argc, char **argv) {
     }
     PluginList.emplace_back(Plugin.get());
   });
+
+  // Register the Target and CPU printer for --version.
+  cl::AddExtraVersionPrinter(sys::printDefaultTargetAndDetectedCPU);
 
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
@@ -646,7 +657,7 @@ int main(int argc, char **argv) {
   std::unique_ptr<ToolOutputFile> RemarksFile = std::move(*RemarksFileOrErr);
 
   // Load the input module...
-  auto SetDataLayout = [](StringRef) -> std::optional<std::string> {
+  auto SetDataLayout = [](StringRef, StringRef) -> std::optional<std::string> {
     if (ClDataLayout.empty())
       return std::nullopt;
     return ClDataLayout;
@@ -657,7 +668,8 @@ int main(int argc, char **argv) {
             InputFilename, Err, Context, nullptr, SetDataLayout)
             .Mod;
   else
-    M = parseIRFile(InputFilename, Err, Context, SetDataLayout);
+    M = parseIRFile(InputFilename, Err, Context,
+                    ParserCallbacks(SetDataLayout));
 
   if (!M) {
     Err.print(argv[0], errs());
@@ -855,7 +867,7 @@ int main(int argc, char **argv) {
                ? OK_OutputAssembly
                : (OutputThinLTOBC ? OK_OutputThinLTOBitcode : OK_OutputBitcode);
 
-    VerifierKind VK = VK_VerifyInAndOut;
+    VerifierKind VK = VK_VerifyOut;
     if (NoVerify)
       VK = VK_NoVerifier;
     else if (VerifyEach)

@@ -1,5 +1,9 @@
 # Contributing to DPC++
 
+## General guidelines
+
+Read [CONTRIBUTING.md](/CONTRIBUTING.md) first.
+
 ## Maintaining stable ABI/API
 
 All changes made to the DPC++ compiler and runtime library should generally
@@ -65,7 +69,7 @@ end-to-end or SYCL-CTS tests.
 
 #### General guidelines
 
-- Use `sycl::` namespace instead of `sycl::`
+- Use `sycl::` namespace instead of `cl::sycl::`
 
 - Add a helpful comment describing what the test does at the beginning and
   other comments throughout the test as necessary.

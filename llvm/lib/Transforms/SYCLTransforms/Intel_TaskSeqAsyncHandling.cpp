@@ -574,7 +574,7 @@ size_t getRetTypeSizeOfTaskFunction(Function *F) {
   if (RetType->isVoidTy())
     return 0;
   TypeSize RetTypeSize = DL.getTypeAllocSize(RetType);
-  return RetTypeSize.getFixedSize();
+  return RetTypeSize.getFixedValue();
 }
 
 FunctionCallee Impl::getBackendCreateTaskSeq() {
@@ -729,7 +729,7 @@ void Impl::generateAsyncBodies() {
     unsigned LiteralIdx = 0;
 
     auto &DL = M.getDataLayout();
-    auto LiteralSize = DL.getTypeStoreSize(LiteralType).getFixedSize();
+    auto LiteralSize = DL.getTypeStoreSize(LiteralType).getFixedValue();
     auto *SizePtr = IRB.CreateInBoundsGEP(
         LiteralType, Literal, {Zero, ConstantInt::get(Int32Ty, LiteralIdx)},
         "literal.size");
@@ -805,7 +805,7 @@ void Impl::createTaskFunctionInvokes() {
 
     auto *FTy = getBlockInvokeType();
     auto &DL = M.getDataLayout();
-    auto LiteralSize = DL.getTypeStoreSize(LiteralType).getFixedSize();
+    auto LiteralSize = DL.getTypeStoreSize(LiteralType).getFixedValue();
     for (Function *TaskFunc : AsyncBuiltinToTaskFuncMap[F]) {
       FunctionCallee FuncInvokeCallee =
           M.getOrInsertFunction(getInovkeName(TaskFunc), FTy);

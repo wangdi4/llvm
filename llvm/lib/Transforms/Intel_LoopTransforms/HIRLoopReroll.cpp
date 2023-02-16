@@ -420,10 +420,9 @@ bool SequenceChecker::areEqualBlobTyForReroll(const BlobTy &Blob1,
                                       NArySCEV2->getOperand(0)));
     }
 
-    for (auto I1 = NArySCEV1->op_begin(), I2 = NArySCEV2->op_begin(),
-              E1 = NArySCEV1->op_end(), E2 = NArySCEV2->op_end();
-         I1 != E1 && I2 != E2; ++I1, ++I2) {
-      if (!areEqualBlobTyForReroll(*I1, *I2)) {
+    for (auto const &Ops :
+         llvm::zip(NArySCEV1->operands(), NArySCEV2->operands())) {
+      if (!areEqualBlobTyForReroll(std::get<0>(Ops), std::get<1>(Ops))) {
         return false;
       }
     }
@@ -1298,8 +1297,7 @@ private:
       // Currently, only ADD reductions are covered.
       assert(NArySCEV->getSCEVType() == scAddExpr);
 
-      for (auto ChildBlob :
-           make_range(NArySCEV->op_begin(), NArySCEV->op_end())) {
+      for (auto &ChildBlob : NArySCEV->operands()) {
         // Nary-SCEV for the first-depth only
         // If not a reduction var
         if (ChildBlob == RedSCEV) {

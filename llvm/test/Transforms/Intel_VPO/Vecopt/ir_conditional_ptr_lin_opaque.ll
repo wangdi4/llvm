@@ -197,15 +197,15 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-EMPTY: 
 ; CHECK-NEXT: VPlannedBB2:                                      ; preds = %VPlannedBB1
 ; CHECK-NEXT:   call void @llvm.lifetime.start.p0(i64 16, ptr [[K2_VEC_BASEADDR_EXTRACT0]])
-; CHECK-NEXT:   [[VP_K_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr [[VP_K_IV_B]], i32 0
+; CHECK-NEXT:   [[VP_K_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr [[VP_K_IV_B]], i64 0
 ; CHECK-NEXT:   [[VP_K_IV_BIND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x ptr> [[VP_K_IV_BIND_START_BCAST_SPLATINSERT:%.*]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VP_VECTOR_GEP:%.*]] = getelementptr inbounds i8, <2 x ptr> [[VP_K_IV_BIND_START_BCAST_SPLAT]], <2 x i64> <i64 0, i64 16>
-; CHECK-NEXT:   [[VP_K1_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr [[VP_K1_IV_B]], i32 0
+; CHECK-NEXT:   [[VP_K1_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr [[VP_K1_IV_B]], i64 0
 ; CHECK-NEXT:   [[VP_K1_IV_BIND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x ptr> [[VP_K1_IV_BIND_START_BCAST_SPLATINSERT:%.*]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VP_VECTOR_GEP3:%.*]] = getelementptr inbounds i8, <2 x ptr> [[VP_K1_IV_BIND_START_BCAST_SPLAT]], <2 x i64> <i64 0, i64 4>
 ; CHECK-NEXT:   %3 = load ptr, ptr %k2, align 1
 ; CHECK-NEXT:   %4 = load ptr, ptr %k2, align 1
-; CHECK-NEXT:   [[VP_IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr %3, i32 0
+; CHECK-NEXT:   [[VP_IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr %3, i64 0
 ; CHECK-NEXT:   [[VP_IND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x ptr> [[VP_IND_START_BCAST_SPLATINSERT]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VECTOR_GEP4:%.*]] = getelementptr inbounds i8, <2 x ptr> [[VP_IND_START_BCAST_SPLAT]], <2 x i64> <i64 0, i64 4>
 ; CHECK-NEXT:   store <2 x ptr> [[VECTOR_GEP4]], ptr [[K2_VEC]], align 1

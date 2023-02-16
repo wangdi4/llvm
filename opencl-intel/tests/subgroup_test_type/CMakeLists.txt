@@ -7,6 +7,7 @@ link_directories(${TBB_LIB_DIR})
 
 set(TARGET_LIBS
   LLVMSupport
+  LLVMTargetParser
   test_utils
   intelocl${BUILD_PLATFORM}
   cl_hw_utils

@@ -501,19 +501,19 @@ void PrepareKernelArgsPass::createDummyRetWrappedKernel(Function *Wrapper,
 static Value *HandleByValArgument(Type *ByValType, Value *Arg,
                                   Instruction *TheCall,
                                   const Function *CalledFunc,
-                                  unsigned ByValAlignment) {
+                                  Align ByValAlignment) {
   assert(cast<PointerType>(Arg->getType())
              ->isOpaqueOrPointeeTypeMatches(ByValType));
   Function *Caller = TheCall->getFunction();
   const DataLayout &DL = Caller->getParent()->getDataLayout();
 
   // Create the alloca.  If we have DataLayout, use nice alignment.
-  Align Alignment(DL.getPrefTypeAlignment(ByValType));
+  Align Alignment(DL.getPrefTypeAlign(ByValType));
 
   // If the byval had an alignment specified, we *must* use at least that
   // alignment, as it is required by the byval argument (and uses of the
   // pointer inside the callee).
-  Alignment = std::max(Alignment, MaybeAlign(ByValAlignment).valueOrOne());
+  Alignment = std::max(Alignment, ByValAlignment);
 
   Value *NewAlloca = new AllocaInst(ByValType, DL.getAllocaAddrSpace(), nullptr,
                                     Alignment, Arg->getName() + Twine(".ptr"),
@@ -554,8 +554,7 @@ static void inlineWrappedKernel(CallInst *CI, AssumptionCache *AC) {
   Function *CalledFunc = CI->getCalledFunction();
 
   BasicBlock *FirstNewBlock = &CalledFunc->getEntryBlock();
-  Caller->getBasicBlockList().splice(Caller->end(),
-                                     CalledFunc->getBasicBlockList());
+  Caller->splice(Caller->end(), CalledFunc);
 
   ValueToValueMapTy VMap;
   struct ByValInit {
@@ -572,9 +571,9 @@ static void inlineWrappedKernel(CallInst *CI, AssumptionCache *AC) {
     // make a copy of byval argument.
     Value *ActualArg = *CIArgIt;
     if (CI->isByValArgument(ArgNo)) {
-      ActualArg =
-          HandleByValArgument(CI->getParamByValType(ArgNo), ActualArg, CI,
-                              CalledFunc, CalledFunc->getParamAlignment(ArgNo));
+      ActualArg = HandleByValArgument(
+          CI->getParamByValType(ArgNo), ActualArg, CI, CalledFunc,
+          CalledFunc->getParamAlign(ArgNo).valueOrOne());
       if (ActualArg != *CIArgIt)
         ByValInits.push_back(
             {ActualArg, (Value *)*CIArgIt, CI->getParamByValType(ArgNo)});
@@ -616,8 +615,8 @@ static void inlineWrappedKernel(CallInst *CI, AssumptionCache *AC) {
     auto *AI = dyn_cast<AllocaInst>(I++);
     if (!AI)
       continue;
-    Entry->getInstList().splice(InsertPoint, FirstNewBlock->getInstList(),
-                                AI->getIterator(), I);
+    AI->removeFromParent();
+    AI->insertInto(Entry, InsertPoint);
   }
 
   // Inject byval arguments initialization.

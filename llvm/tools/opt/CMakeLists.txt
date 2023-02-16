@@ -42,6 +42,7 @@ set(LLVM_LINK_COMPONENTS
   SYCLLowerIR
   SYCLTransforms
   Target
+  TargetParser
   TransformUtils
   Vectorize
   Passes
@@ -70,10 +71,6 @@ add_llvm_tool(opt
   SUPPORT_PLUGINS
   )
 export_executable_symbols_for_plugins(opt)
-
-if(LLVM_BUILD_EXAMPLES)
-    target_link_libraries(opt PRIVATE ExampleIRTransforms)
-endif(LLVM_BUILD_EXAMPLES)
 
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_SW_DTRANS

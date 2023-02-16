@@ -1386,7 +1386,7 @@ static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF,
   assert(NewFName.find(Suffix.str()) == std::string::npos &&
          "Invalid vectorized function name having suffix!");
 
-  Optional<VFInfo> Variant = VFABI::tryDemangleForVFABI(NewFName);
+  std::optional<VFInfo> Variant = VFABI::tryDemangleForVFABI(NewFName);
   assert(Variant.has_value() && "Expect vector variant but it's not.");
 
   Function *ScalarFunc = NewF->getParent()->getFunction(Variant->ScalarName);
@@ -1452,7 +1452,7 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old body of the function
   // empty.
-  NewF->getBasicBlockList().splice(NewF->begin(), F->getBasicBlockList());
+  NewF->splice(NewF->begin(), F);
   assert(F->isDeclaration() &&
          "splice does not work, original function body is not empty!");
 

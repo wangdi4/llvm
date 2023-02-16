@@ -1,4 +1,21 @@
 //===- LibDriver.cpp - lib.exe-compatible driver --------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -41,7 +58,10 @@ enum {
 #undef OPTION
 };
 
-#define PREFIX(NAME, VALUE) const char *const NAME[] = VALUE;
+#define PREFIX(NAME, VALUE)                                                    \
+  static constexpr StringLiteral NAME##_init[] = VALUE;                        \
+  static constexpr ArrayRef<StringLiteral> NAME(NAME##_init,                   \
+                                                std::size(NAME##_init) - 1);
 #include "Options.inc"
 #undef PREFIX
 
@@ -53,11 +73,10 @@ static constexpr opt::OptTable::Info InfoTable[] = {
 #undef OPTION
 };
 
-class LibOptTable : public opt::OptTable {
+class LibOptTable : public opt::GenericOptTable {
 public:
-  LibOptTable() : OptTable(InfoTable, true) {}
+  LibOptTable() : opt::GenericOptTable(InfoTable, true) {}
 };
-
 }
 
 static std::string getDefaultOutputPath(const NewArchiveMember &FirstMember) {
@@ -318,6 +337,13 @@ int llvm::libDriverMain(ArrayRef<const char *> ArgsArr) {
     return 0;
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  // handle -opaque-pointers
+  bool OpaquePointers = false;
+  if (Args.hasArg(OPT_opaque_pointers))
+    OpaquePointers = true;
+#endif // INTEL_CUSTOMIZATION
+
   std::vector<StringRef> SearchPaths = getSearchPaths(&Args, Saver);
 
   COFF::MachineTypes LibMachine = COFF::IMAGE_FILE_MACHINE_UNKNOWN;
@@ -389,6 +415,12 @@ int llvm::libDriverMain(ArrayRef<const char *> ArgsArr) {
         Member.MemberName = Saver.save(*PathOrErr);
     }
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  if (OpaquePointers)
+    for (NewArchiveMember &Nam : Members)
+      Nam.setOpaquePointers();
+#endif // INTEL_CUSTOMIZATION
 
   if (Error E =
           writeArchive(OutputPath, Members,

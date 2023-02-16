@@ -342,7 +342,7 @@ bool VPOUtils::renameOperandsUsingStoreThenLoad(WRegionNode *W,
       VPOAnalysisUtils::getClauseString(QUAL_OMP_OPERAND_ADDR);
   for (auto &OpndAddrPair : OpndAddrPairs)
     BundleOpndAddrs.emplace_back(OperandAddrClauseString,
-                                 makeArrayRef(OpndAddrPair));
+                                 ArrayRef(OpndAddrPair));
 
   CI = VPOUtils::addOperandBundlesInCall(CI, BundleOpndAddrs);
   W->setEntryDirective(CI);

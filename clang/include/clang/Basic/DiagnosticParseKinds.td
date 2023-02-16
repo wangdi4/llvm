@@ -1402,7 +1402,7 @@ def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<
   "incorrect map type modifier, expected one of: 'always', 'close', 'mapper'"
-  "%select{|, 'present'}0%select{|, 'ompx_hold'}1">;
+  "%select{|, 'present'|, 'present', 'iterator'}0%select{|, 'ompx_hold'}1">;
 #if INTEL_CUSTOMIZATION
 def err_omp_unknown_lastprivate_modifier : Error<
   "incorrect lastprivate modifier, expected 'conditional'">;
@@ -1678,6 +1678,11 @@ def err_import_in_wrong_fragment : Error<
 
 def err_export_empty : Error<"export declaration cannot be empty">;
 }
+
+def ext_offsetof_member_designator : Extension<
+  "using %select{a member access expression|an array subscript expression}0 "
+  "within '%select{__builtin_offsetof|offsetof}1' is a Clang extension">,
+  InGroup<GNUOffsetofExtensions>;
 
 let CategoryName = "Generics Issue" in {
 

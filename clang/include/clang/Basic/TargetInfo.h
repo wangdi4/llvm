@@ -43,7 +43,6 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
@@ -275,9 +274,9 @@ protected:
 
   unsigned MaxOpenCLWorkGroupSize;
 
-  Optional<unsigned> MaxBitIntWidth;
+  std::optional<unsigned> MaxBitIntWidth;
 
-  Optional<llvm::Triple> DarwinTargetVariantTriple;
+  std::optional<llvm::Triple> DarwinTargetVariantTriple;
 
   // TargetInfo Constructor.  Default initializes all fields.
   TargetInfo(const llvm::Triple &T);
@@ -973,7 +972,7 @@ public:
   virtual ArrayRef<Builtin::Info> getTargetBuiltins() const = 0;
 
   /// Returns target-specific min and max values VScale_Range.
-  virtual Optional<std::pair<unsigned, unsigned>>
+  virtual std::optional<std::pair<unsigned, unsigned>>
   getVScaleRange(const LangOptions &LangOpts) const {
     return std::nullopt;
   }
@@ -1199,7 +1198,7 @@ public:
 
   /// Replace some escaped characters with another string based on
   /// target-specific rules
-  virtual llvm::Optional<std::string> handleAsmEscapedChar(char C) const {
+  virtual std::optional<std::string> handleAsmEscapedChar(char C) const {
     return std::nullopt;
   }
 
@@ -1218,7 +1217,7 @@ public:
   }
 
   /// Returns the target ID if supported.
-  virtual llvm::Optional<std::string> getTargetID() const {
+  virtual std::optional<std::string> getTargetID() const {
     return std::nullopt;
   }
 
@@ -1358,6 +1357,13 @@ public:
     return true;
   }
 
+  /// Returns true if feature has an impact on target code
+  /// generation and get its dependent options in second argument.
+  virtual bool getFeatureDepOptions(StringRef Feature,
+                                    std::string &Options) const {
+    return true;
+  }
+
   struct BranchProtectionInfo {
     LangOptions::SignReturnAddressScopeKind SignReturnAddr =
         LangOptions::SignReturnAddressScopeKind::None;
@@ -1404,7 +1410,9 @@ public:
 
   /// Identify whether this target supports multiversioning of functions,
   /// which requires support for cpu_supports and cpu_is functionality.
-  bool supportsMultiVersioning() const { return getTriple().isX86(); }
+  bool supportsMultiVersioning() const {
+    return getTriple().isX86() || getTriple().isAArch64();
+  }
 
   /// Identify whether this target supports IFuncs.
   bool supportsIFunc() const {
@@ -1420,6 +1428,10 @@ public:
   virtual unsigned multiVersionSortPriority(StringRef Name) const {
     return 0;
   }
+
+  // Return the target-specific cost for feature
+  // that taken into account in priority sorting.
+  virtual unsigned multiVersionFeatureCost() const { return 0; }
 
   // Validate the contents of the __builtin_cpu_is(const char*)
   // argument.
@@ -1455,7 +1467,7 @@ public:
 
   // Get the cache line size of a given cpu. This method switches over
   // the given cpu and returns "std::nullopt" if the CPU is not found.
-  virtual Optional<unsigned> getCPUCacheLineSize() const {
+  virtual std::optional<unsigned> getCPUCacheLineSize() const {
     return std::nullopt;
   }
 
@@ -1532,7 +1544,7 @@ public:
   /// for constant global memory. It must be possible to convert pointers into
   /// this address space to LangAS::Default. If no such address space exists,
   /// this may return std::nullopt, and such optimizations will be disabled.
-  virtual llvm::Optional<LangAS> getConstantAddressSpace() const {
+  virtual std::optional<LangAS> getConstantAddressSpace() const {
     return LangAS::Default;
   }
 
@@ -1715,10 +1727,10 @@ public:
 
   /// Returns the version of the darwin target variant SDK which was used during
   /// the compilation if one was specified, or an empty version otherwise.
-  const Optional<VersionTuple> getDarwinTargetVariantSDKVersion() const {
+  const std::optional<VersionTuple> getDarwinTargetVariantSDKVersion() const {
     return !getTargetOpts().DarwinTargetVariantSDKVersion.empty()
                ? getTargetOpts().DarwinTargetVariantSDKVersion
-               : Optional<VersionTuple>();
+               : std::optional<VersionTuple>();
   }
 
 protected:

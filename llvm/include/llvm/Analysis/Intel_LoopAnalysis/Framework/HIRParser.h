@@ -714,7 +714,7 @@ class HIRParser {
 
   /// Return the dimension index with the new blob and coeff after blob with \p
   /// BlobIndex being mapped using \p DimSizes.
-  Optional<DelinearizedCoeffBlobIndex>
+  std::optional<DelinearizedCoeffBlobIndex>
   delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
                        SmallVectorImpl<BlobTy> &DimSizes);
 

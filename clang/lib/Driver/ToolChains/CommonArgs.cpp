@@ -440,25 +440,9 @@ std::string tools::getCPUName(const Driver &D, const ArgList &Args,
   case llvm::Triple::ppc:
   case llvm::Triple::ppcle:
   case llvm::Triple::ppc64:
-  case llvm::Triple::ppc64le: {
-    std::string TargetCPUName = ppc::getPPCTargetCPU(Args);
-    // LLVM may default to generating code for the native CPU,
-    // but, like gcc, we default to a more generic option for
-    // each architecture. (except on AIX)
-    if (!TargetCPUName.empty())
-      return TargetCPUName;
+  case llvm::Triple::ppc64le:
+    return ppc::getPPCTargetCPU(Args, T);
 
-    if (T.isOSAIX())
-      TargetCPUName = "pwr7";
-    else if (T.getArch() == llvm::Triple::ppc64le)
-      TargetCPUName = "ppc64le";
-    else if (T.getArch() == llvm::Triple::ppc64)
-      TargetCPUName = "ppc64";
-    else
-      TargetCPUName = "ppc";
-
-    return TargetCPUName;
-  }
   case llvm::Triple::csky:
     if (const Arg *A = Args.getLastArg(options::OPT_mcpu_EQ))
       return A->getValue();
@@ -1436,8 +1420,13 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
   if (IsOffloadingHost)
     CmdArgs.push_back("-lomptarget");
 
-  if (IsOffloadingHost && TC.getDriver().isUsingLTO(/* IsOffload */ true) &&
-      !Args.hasArg(options::OPT_nogpulib))
+#if INTEL_CUSTOMIZATION
+  // TODO: Attempted to use getUseNewOffloadingDriver() but the setting does not
+  // look to be working correctly - using the option directly instead.
+  if (IsOffloadingHost && !Args.hasArg(options::OPT_nogpulib) &&
+      Args.hasFlag(options::OPT_fopenmp_new_driver,
+                   options::OPT_no_offload_new_driver, false))
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lomptarget.devicertl");
 
   addArchSpecificRPath(TC, Args, CmdArgs);

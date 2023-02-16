@@ -37,6 +37,7 @@ set(LLVM_LINK_COMPONENTS
   SYCLLowerIR
   SYCLTransforms
   Target
+  TargetParser
   TransformUtils
   Vectorize
 # INTEL_CUSTOMIZATION

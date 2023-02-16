@@ -1469,18 +1469,18 @@ public:
   use_kernel_bundle(const kernel_bundle<bundle_state::executable> &ExecBundle);
 
   /// Requires access to the memory object associated with the placeholder
-  /// accessor.
+  /// accessor. Calling this function with a non-placeholder accessor has no
+  /// effect.
   ///
   /// The command group has a requirement to gain access to the given memory
   /// object before executing.
   ///
   /// \param Acc is a SYCL accessor describing required memory region.
   template <typename DataT, int Dims, access::mode AccMode,
-            access::target AccTarget>
-  void
-  require(accessor<DataT, Dims, AccMode, AccTarget, access::placeholder::true_t>
-              Acc) {
-    associateWithHandler(&Acc, AccTarget);
+            access::target AccTarget, access::placeholder isPlaceholder>
+  void require(accessor<DataT, Dims, AccMode, AccTarget, isPlaceholder> Acc) {
+    if (Acc.is_placeholder())
+      associateWithHandler(&Acc, AccTarget);
   }
 
   /// Registers event dependencies on this command group.
@@ -2386,8 +2386,9 @@ public:
   __SYCL2020_DEPRECATED("use 'ext_oneapi_barrier' instead")
   void barrier(const std::vector<event> &WaitList);
 
-  /// Copies data from one memory region to another, both pointed by
-  /// USM pointers.
+  /// Copies data from one memory region to another, each is either a host
+  /// pointer or a pointer within USM allocation accessible on this handler's
+  /// device.
   /// No operations is done if \param Count is zero. An exception is thrown
   /// if either \param Dest or \param Src is nullptr. The behavior is undefined
   /// if any of the pointer parameters is invalid.
@@ -2397,8 +2398,9 @@ public:
   /// \param Count is a number of bytes to copy.
   void memcpy(void *Dest, const void *Src, size_t Count);
 
-  /// Copies data from one memory region to another, both pointed by
-  /// USM pointers.
+  /// Copies data from one memory region to another, each is either a host
+  /// pointer or a pointer within USM allocation accessible on this handler's
+  /// device.
   /// No operations is done if \param Count is zero. An exception is thrown
   /// if either \param Dest or \param Src is nullptr. The behavior is undefined
   /// if any of the pointer parameters is invalid.

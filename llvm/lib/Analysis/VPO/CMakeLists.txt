@@ -55,6 +55,7 @@ add_llvm_component_library(LLVMVPOAnalysis
 # end INTEL_CUSTOMIZATION
   Scalar
   Support
+  TargetParser
   TransformUtils
 )
 # end INTEL_COLLAB

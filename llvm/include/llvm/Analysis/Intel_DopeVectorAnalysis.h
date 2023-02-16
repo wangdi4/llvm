@@ -80,13 +80,13 @@ using UplevelDVField = std::pair<Value *, uint64_t>;
 
 // Helper routine for checking and getting a constant integer from a GEP
 // operand. If the value is not a constant, returns an empty object.
-extern Optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
+extern std::optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
                                            unsigned int OpNum);
 
 // Helper routine to get the argument index corresponding to \p Val within the
 // call \p CI. If the operand is not passed to the function, or is in more than
 // one position, returns an empty object.
-extern Optional<unsigned int> getArgumentPosition(const CallBase &CI,
+extern std::optional<unsigned int> getArgumentPosition(const CallBase &CI,
                                                   const Value *Val);
 
 // Check if the type matches the signature for a dope vector.
@@ -130,8 +130,8 @@ extern bool
 isValidUseOfSubscriptCall(const SubscriptInst &Subs, const Value &Base,
                           uint32_t ArrayRank, uint32_t Rank,
                           bool CheckForTranspose,
-                          Optional<uint64_t> LowerBound = std::nullopt,
-                          Optional<uint64_t> Stride = std::nullopt);
+                          std::optional<uint64_t> LowerBound = std::nullopt,
+                          std::optional<uint64_t> Stride = std::nullopt);
 
 // This class is used to collect information about a single field address that
 // points to one of the dope vector fields. This is used during dope vector
@@ -172,7 +172,7 @@ public:
     return (*Stores.begin())->getValueOperand();
   }
   bool getIsSingleNonNullValue() const {
-    Optional<uint64_t> SIV = std::nullopt;
+    std::optional<uint64_t> SIV = std::nullopt;
     for (StoreInst *SI : stores()) {
       auto CI = dyn_cast<ConstantInt>(SI->getValueOperand());
       if (!CI)
@@ -1171,7 +1171,7 @@ CallBase *castingUsedForDataAllocation(Value *Val,
 // If 'Val' is a unique actual argument of 'CI', return its position,
 // otherwise, return std::nullopt.
 //
-extern Optional<unsigned int> getArgumentPosition(const CallBase &CI,
+extern std::optional<unsigned int> getArgumentPosition(const CallBase &CI,
                                                   const Value *Val);
 
 // If 'U' is a user of 'V' and is passed as an actual argument of a

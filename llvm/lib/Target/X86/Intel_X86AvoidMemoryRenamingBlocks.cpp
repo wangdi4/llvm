@@ -522,27 +522,27 @@ lookupFoldTableImpl(ArrayRef<X86MemoryExpandTableEntry> Table, unsigned RegOp) {
 }
 
 static const X86MemoryExpandTableEntry *lookupLoadTable(unsigned RegOp) {
-  if (auto Ret = lookupFoldTableImpl(makeArrayRef(LoadTable0), RegOp))
+  if (auto Ret = lookupFoldTableImpl(ArrayRef(LoadTable0), RegOp))
     return Ret;
 
-  if (auto Ret = lookupFoldTableImpl(makeArrayRef(LoadTable1), RegOp))
+  if (auto Ret = lookupFoldTableImpl(ArrayRef(LoadTable1), RegOp))
     return Ret;
 
-  if (auto Ret = lookupFoldTableImpl(makeArrayRef(LoadTable2), RegOp))
+  if (auto Ret = lookupFoldTableImpl(ArrayRef(LoadTable2), RegOp))
     return Ret;
 
   return nullptr;
 }
 
 static const X86MemoryExpandTableEntry *lookupStoreTable(unsigned RegOp) {
-  if (auto Ret = lookupFoldTableImpl(makeArrayRef(StoreTable), RegOp))
+  if (auto Ret = lookupFoldTableImpl(ArrayRef(StoreTable), RegOp))
     return Ret;
 
   return nullptr;
 }
 
 static const X86MemoryExpandTableEntry *lookupRMWTable(unsigned RegOp) {
-  if (auto Ret = lookupFoldTableImpl(makeArrayRef(RMWTable), RegOp))
+  if (auto Ret = lookupFoldTableImpl(ArrayRef(RMWTable), RegOp))
     return Ret;
 
   return nullptr;

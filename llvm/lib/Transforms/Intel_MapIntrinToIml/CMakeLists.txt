@@ -35,5 +35,6 @@ add_llvm_component_library(LLVMIntel_MapIntrinToIml
     Core
     Scalar
     Support
+    TargetParser
     TransformUtils
     )

@@ -14,7 +14,7 @@
 ; CHECK-NEXT:    br i1 [[NOT_AZ]], label %[[PRED_LOAD_IF:.*]], label %[[MERGE:.*]]
 ; CHECK:       [[PRED_LOAD_IF]]:
 ; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[GEP]], align 4
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[LOAD]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[LOAD]], i64 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
 ; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ poison, [[VECTOR_BODY:%.*]] ], [ [[BROADCAST_SPLATINSERT1]], %[[PRED_LOAD_IF]] ]

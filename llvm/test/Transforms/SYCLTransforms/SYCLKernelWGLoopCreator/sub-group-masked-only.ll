@@ -11,10 +11,10 @@ define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !vectorize
 entry:
 ; CHECK: masked_kernel_entry:
 ; CHECK-NEXT: %dim_0_vector_ind_var = phi i64 [ %init.gid.dim0, %dim_0_vector_pre_head ], [ %dim_0_vector_inc_ind_var, %pred.call.continue10 ]
-; CHECK-NEXT: %ind.var.splatinsert = insertelement <4 x i64> poison, i64 %dim_0_vector_ind_var, i32 0
+; CHECK-NEXT: %ind.var.splatinsert = insertelement <4 x i64> poison, i64 %dim_0_vector_ind_var, i64 0
 ; CHECK-NEXT: %ind.var.splat = shufflevector <4 x i64> %ind.var.splatinsert, <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT: %ind.var.vec = add nuw <4 x i64> %ind.var.splat, <i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT: %max.gid.splatinsert = insertelement <4 x i64> poison, i64 %max.gid.dim0, i32 0
+; CHECK-NEXT: %max.gid.splatinsert = insertelement <4 x i64> poison, i64 %max.gid.dim0, i64 0
 ; CHECK-NEXT: %max.gid.splat = shufflevector <4 x i64> %max.gid.splatinsert, <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT: %ind.var.mask.i1 = icmp ult <4 x i64> %ind.var.vec, %max.gid.splat
 ; CHECK-NEXT: %ind.var.mask = zext <4 x i1> %ind.var.mask.i1 to <4 x i32>

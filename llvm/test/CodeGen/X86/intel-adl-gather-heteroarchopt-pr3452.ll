@@ -3,7 +3,7 @@
 ; the legacy pass manager for now. Eventually, we should split the run line
 ; so that middle end passes use the new pass manager and the codegen pass
 ; (x86-hetero-arch-opt) uses the legacy pass manager.
-; RUN: opt < %s -enable-new-pm=0 -mtriple=x86_64-- -mcpu=alderlake --x86-hetero-arch-opt --verify -S | FileCheck %s
+; RUN: opt %s -enable-new-pm=0 -mtriple=x86_64-- -mcpu=alderlake --x86-hetero-arch-opt --verify -S -o - | FileCheck %s
 
 define double @test_clone_loop_with_outside_def(double *%src, i32 *%srcidx, double %ext) #0 {
 ; CHECK-LABEL: @test_clone_loop_with_outside_def(
@@ -24,13 +24,13 @@ define double @test_clone_loop_with_outside_def(double *%src, i32 *%srcidx, doub
 ; CHECK-NEXT:    [[TMP8]] = call fast double @llvm.vector.reduce.fadd.v16f64(double [[SUM]], <16 x double> [[TMP7]])
 ; CHECK-NEXT:    [[COND1:%.*]] = fcmp olt double [[TMP8]], 1.234000e+03
 ; CHECK-NEXT:    br i1 [[COND1]], label [[BODY2]], label [[EXIT:%.*]]
-; CHECK:       body2:
-; CHECK-NEXT:    [[NEXTI]] = add nuw nsw i32 [[I]], 16
-; CHECK-NEXT:    [[COND2:%.*]] = icmp ult i32 [[NEXTI]], 4096
-; CHECK-NEXT:    br i1 [[COND2]], label [[LOOP]], label [[EXIT]]
+; CHECK:       body2.clone:
+; CHECK-NEXT:    [[NEXTI_CLONE:%.*]] = add nuw nsw i32 [[I_CLONE:%.*]], 16
+; CHECK-NEXT:    [[COND2_CLONE:%.*]] = icmp ult i32 [[NEXTI_CLONE]], 4096
+; CHECK-NEXT:    br i1 [[COND2_CLONE]], label [[LOOP_CLONE]], label [[EXIT]]
 ; CHECK:       loop.clone:
 ; CHECK-NEXT:    [[SUM_CLONE:%.*]] = phi double [ 0.000000e+00, [[ENTRY]] ], [ [[TMP15:%.*]], [[BODY2_CLONE:%.*]] ]
-; CHECK-NEXT:    [[I_CLONE:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[NEXTI_CLONE:%.*]], [[BODY2_CLONE]] ]
+; CHECK-NEXT:    [[I_CLONE]] = phi i32 [ 0, [[ENTRY]] ], [ [[NEXTI_CLONE]], [[BODY2_CLONE]] ]
 ; CHECK-NEXT:    [[I64_CLONE:%.*]] = zext i32 [[I_CLONE]] to i64
 ; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[SRCIDX]], i64 [[I64_CLONE]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = bitcast i32* [[TMP9]] to <16 x i32>*
@@ -41,10 +41,10 @@ define double @test_clone_loop_with_outside_def(double *%src, i32 *%srcidx, doub
 ; CHECK-NEXT:    [[TMP15]] = call fast double @llvm.vector.reduce.fadd.v16f64(double [[SUM_CLONE]], <16 x double> [[TMP14]])
 ; CHECK-NEXT:    [[COND1_CLONE:%.*]] = fcmp olt double [[TMP15]], 1.234000e+03
 ; CHECK-NEXT:    br i1 [[COND1_CLONE]], label [[BODY2_CLONE]], label [[EXIT]]
-; CHECK:       body2.clone:
-; CHECK-NEXT:    [[NEXTI_CLONE]] = add nuw nsw i32 [[I_CLONE]], 16
-; CHECK-NEXT:    [[COND2_CLONE:%.*]] = icmp ult i32 [[NEXTI_CLONE]], 4096
-; CHECK-NEXT:    br i1 [[COND2_CLONE]], label [[LOOP_CLONE]], label [[EXIT]]
+; CHECK:       body2:
+; CHECK-NEXT:    [[NEXTI]] = add nuw nsw i32 [[I]], 16
+; CHECK-NEXT:    [[COND2:%.*]] = icmp ult i32 [[NEXTI]], 4096
+; CHECK-NEXT:    br i1 [[COND2]], label [[LOOP]], label [[EXIT]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    [[RESULT:%.*]] = phi double [ [[EXT:%.*]], [[LOOP]] ], [ [[SUM]], [[BODY2]] ], [ [[EXT]], [[LOOP_CLONE]] ], [ [[SUM_CLONE]], [[BODY2_CLONE]] ]
 ; CHECK-NEXT:    ret double [[RESULT]]

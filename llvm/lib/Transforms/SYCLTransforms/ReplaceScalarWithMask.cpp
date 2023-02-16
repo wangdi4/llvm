@@ -74,8 +74,7 @@ bool ReplaceScalarWithMaskPass::runImpl(Module &M) {
 
     // Replace the scalar kernel body with masked kernel body.
     ScalarKernel->deleteBody();
-    ScalarKernel->getBasicBlockList().splice(ScalarKernel->begin(),
-                                             MaskKernel->getBasicBlockList());
+    ScalarKernel->splice(ScalarKernel->begin(), MaskKernel);
 
     // Move the name and users of arguments to the new version.
     for (Function::arg_iterator I = ScalarKernel->arg_begin(),

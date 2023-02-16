@@ -31,7 +31,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10:%.*]] ], [ [[TMP21:%.*]], [[VPLANNEDBB110:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB10]] ], [ [[TMP20:%.*]], [[VPLANNEDBB110]] ]
 ; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi float [ [[TMP2]], [[VPLANNEDBB10]] ], [ [[EXTRACT_LAST_VECTOR_LANE0:%.*]], [[VPLANNEDBB110]] ]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x float> poison, float [[UNI_PHI30]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x float> poison, float [[UNI_PHI30]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x float> [[BROADCAST_SPLATINSERT0]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    store <4 x float> zeroinitializer, <4 x float>* [[X_RED_VEC0]], align 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]

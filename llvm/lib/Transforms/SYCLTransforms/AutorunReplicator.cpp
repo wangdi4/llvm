@@ -138,8 +138,7 @@ void AutorunReplicatorPass::resolveGetComputeID(CallInst *GetComputeIDCall) {
     BasicBlock::iterator II(GetComputeIDCall);
     IntegerType *ComputeIDTy = cast<IntegerType>(
         GetComputeIDCall->getCalledFunction()->getReturnType());
-    ReplaceInstWithValue(GetComputeIDCall->getParent()->getInstList(), II,
-                         ConstantInt::get(ComputeIDTy, Result));
+    ReplaceInstWithValue(II, ConstantInt::get(ComputeIDTy, Result));
   } else {
     llvm_unreachable("Non-constant arg passed to get_compute_id");
   }

@@ -281,11 +281,13 @@ static void getCLEnvVarOptions(std::string &EnvValue, llvm::StringSaver &Saver,
 template <class T>
 static T checkEnvVar(const char *EnvOptSet, const char *EnvOptFile,
                      std::string &OptFile) {
-  T OptVal = ::getenv(EnvOptSet);
-  if (OptVal) {
-    if (const char *Var = ::getenv(EnvOptFile))
-      OptFile = Var;
-  }
+  const char *Str = ::getenv(EnvOptSet);
+  if (!Str)
+    return T{};
+
+  T OptVal = Str;
+  if (const char *Var = ::getenv(EnvOptFile))
+    OptFile = Var;
   return OptVal;
 }
 
@@ -297,32 +299,37 @@ static bool SetBackdoorDriverOutputsFromEnvVars(Driver &TheDriver) {
                         TheDriver.CCPrintHeadersFilename)) {
     TheDriver.CCPrintHeadersFormat = HIFMT_Textual;
     TheDriver.CCPrintHeadersFiltering = HIFIL_None;
-  } else if (const char *EnvVar = checkEnvVar<const char *>(
-                 "CC_PRINT_HEADERS_FORMAT", "CC_PRINT_HEADERS_FILE",
-                 TheDriver.CCPrintHeadersFilename)) {
-    TheDriver.CCPrintHeadersFormat = stringToHeaderIncludeFormatKind(EnvVar);
-    if (!TheDriver.CCPrintHeadersFormat) {
-      TheDriver.Diag(clang::diag::err_drv_print_header_env_var) << 0 << EnvVar;
-      return false;
-    }
+  } else {
+    std::string EnvVar = checkEnvVar<std::string>(
+        "CC_PRINT_HEADERS_FORMAT", "CC_PRINT_HEADERS_FILE",
+        TheDriver.CCPrintHeadersFilename);
+    if (!EnvVar.empty()) {
+      TheDriver.CCPrintHeadersFormat =
+          stringToHeaderIncludeFormatKind(EnvVar.c_str());
+      if (!TheDriver.CCPrintHeadersFormat) {
+        TheDriver.Diag(clang::diag::err_drv_print_header_env_var)
+            << 0 << EnvVar;
+        return false;
+      }
 
-    const char *FilteringStr = ::getenv("CC_PRINT_HEADERS_FILTERING");
-    HeaderIncludeFilteringKind Filtering;
-    if (!stringToHeaderIncludeFiltering(FilteringStr, Filtering)) {
-      TheDriver.Diag(clang::diag::err_drv_print_header_env_var)
-          << 1 << FilteringStr;
-      return false;
-    }
+      const char *FilteringStr = ::getenv("CC_PRINT_HEADERS_FILTERING");
+      HeaderIncludeFilteringKind Filtering;
+      if (!stringToHeaderIncludeFiltering(FilteringStr, Filtering)) {
+        TheDriver.Diag(clang::diag::err_drv_print_header_env_var)
+            << 1 << FilteringStr;
+        return false;
+      }
 
-    if ((TheDriver.CCPrintHeadersFormat == HIFMT_Textual &&
-         Filtering != HIFIL_None) ||
-        (TheDriver.CCPrintHeadersFormat == HIFMT_JSON &&
-         Filtering != HIFIL_Only_Direct_System)) {
-      TheDriver.Diag(clang::diag::err_drv_print_header_env_var_combination)
-          << EnvVar << FilteringStr;
-      return false;
+      if ((TheDriver.CCPrintHeadersFormat == HIFMT_Textual &&
+           Filtering != HIFIL_None) ||
+          (TheDriver.CCPrintHeadersFormat == HIFMT_JSON &&
+           Filtering != HIFIL_Only_Direct_System)) {
+        TheDriver.Diag(clang::diag::err_drv_print_header_env_var_combination)
+            << EnvVar << FilteringStr;
+        return false;
+      }
+      TheDriver.CCPrintHeadersFiltering = Filtering;
     }
-    TheDriver.CCPrintHeadersFiltering = Filtering;
   }
 
   TheDriver.CCLogDiagnostics =
@@ -383,12 +390,11 @@ static int ExecuteCC1Tool(SmallVectorImpl<const char *> &ArgV) {
   StringRef Tool = ArgV[1];
   void *GetExecutablePathVP = (void *)(intptr_t)GetExecutablePath;
   if (Tool == "-cc1")
-    return cc1_main(makeArrayRef(ArgV).slice(1), ArgV[0], GetExecutablePathVP);
+    return cc1_main(ArrayRef(ArgV).slice(1), ArgV[0], GetExecutablePathVP);
   if (Tool == "-cc1as")
-    return cc1as_main(makeArrayRef(ArgV).slice(2), ArgV[0],
-                      GetExecutablePathVP);
+    return cc1as_main(ArrayRef(ArgV).slice(2), ArgV[0], GetExecutablePathVP);
   if (Tool == "-cc1gen-reproducer")
-    return cc1gen_reproducer_main(makeArrayRef(ArgV).slice(2), ArgV[0],
+    return cc1gen_reproducer_main(ArrayRef(ArgV).slice(2), ArgV[0],
                                   GetExecutablePathVP);
   // Reject unknown tools.
   llvm::errs() << "error: unknown integrated tool '" << Tool << "'. "
@@ -417,7 +423,7 @@ int clang_main(int Argc, char **Argv) {
   // Finally, our -cc1 tools don't care which tokenization mode we use because
   // response files written by clang will tokenize the same way in either mode.
   bool ClangCLMode =
-      IsClangCL(getDriverMode(Args[0], llvm::makeArrayRef(Args).slice(1)));
+      IsClangCL(getDriverMode(Args[0], llvm::ArrayRef(Args).slice(1)));
 #if INTEL_CUSTOMIZATION
   std::string Msg("PLEASE append the compiler options ");
   Msg += ClangCLMode ? "\"/Qsave-temps -v\"" : "\"-save-temps -v\"";
@@ -488,7 +494,7 @@ int clang_main(int Argc, char **Argv) {
     std::optional<std::string> OptCL = llvm::sys::Process::GetEnv("CL");
     if (OptCL) {
       SmallVector<const char *, 8> PrependedOpts;
-      getCLEnvVarOptions(OptCL.value(), Saver, PrependedOpts);
+      getCLEnvVarOptions(*OptCL, Saver, PrependedOpts);
 
       // Insert right after the program name to prepend to the argument list.
       Args.insert(Args.begin() + 1, PrependedOpts.begin(), PrependedOpts.end());
@@ -497,7 +503,7 @@ int clang_main(int Argc, char **Argv) {
     std::optional<std::string> Opt_CL_ = llvm::sys::Process::GetEnv("_CL_");
     if (Opt_CL_) {
       SmallVector<const char *, 8> AppendedOpts;
-      getCLEnvVarOptions(Opt_CL_.value(), Saver, AppendedOpts);
+      getCLEnvVarOptions(*Opt_CL_, Saver, AppendedOpts);
 
       // Insert at the end of the argument list to append.
       Args.append(AppendedOpts.begin(), AppendedOpts.end());
@@ -561,7 +567,7 @@ int clang_main(int Argc, char **Argv) {
 #if INTEL_CUSTOMIZATION
   if (HasIntelOption) {
     StringRef DrBasename(llvm::sys::path::stem(Args[0]));
-    auto DriverMode = getDriverMode(Args[0], llvm::makeArrayRef(Args).slice(1));
+    auto DriverMode = getDriverMode(Args[0], llvm::ArrayRef(Args).slice(1));
     bool HasICXOption = std::find(
         Args.begin(), Args.end(), StringRef("--icx")) != Args.end();
     if (DrBasename.str() == "clang" && DriverMode.equals_insensitive("g++")) {
@@ -598,12 +604,13 @@ int clang_main(int Argc, char **Argv) {
 
   Driver::ReproLevel ReproLevel = Driver::ReproLevel::OnCrash;
   if (Arg *A = C->getArgs().getLastArg(options::OPT_gen_reproducer_eq)) {
-    auto Level = llvm::StringSwitch<Optional<Driver::ReproLevel>>(A->getValue())
-                     .Case("off", Driver::ReproLevel::Off)
-                     .Case("crash", Driver::ReproLevel::OnCrash)
-                     .Case("error", Driver::ReproLevel::OnError)
-                     .Case("always", Driver::ReproLevel::Always)
-                     .Default(std::nullopt);
+    auto Level =
+        llvm::StringSwitch<std::optional<Driver::ReproLevel>>(A->getValue())
+            .Case("off", Driver::ReproLevel::Off)
+            .Case("crash", Driver::ReproLevel::OnCrash)
+            .Case("error", Driver::ReproLevel::OnError)
+            .Case("always", Driver::ReproLevel::Always)
+            .Default(std::nullopt);
     if (!Level) {
       llvm::errs() << "Unknown value for " << A->getSpelling() << ": '"
                    << A->getValue() << "'\n";

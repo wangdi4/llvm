@@ -253,7 +253,7 @@ VPlanRemainderEvaluator::calculatePumpingOverhead(VPlanMasked *MaskedModePlan) {
 
   unsigned MaxRegWidth =
       TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-          .getFixedSize();
+          .getFixedValue();
 
   for (auto &VPInstR : vpinstructions(MaskedModePlan)) {
     VPInstruction *VPInst = &VPInstR;

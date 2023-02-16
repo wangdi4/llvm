@@ -13,7 +13,9 @@
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
-; RUN: llvm-dis %t1a.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
+; INTEL_CUSTOMIZATION
+; RUN: llvm-dis -opaque-pointers %t1a.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
+; end INTEL_CUSTOMIZATION
 
 ;; Hybrid WPD
 ;; Generate split module with summary for hybrid Thin/Regular LTO WPD.
@@ -24,7 +26,9 @@
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
-; RUN: llvm-dis %t1b.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
+; INTEL_CUSTOMIZATION
+; RUN: llvm-dis -opaque-pointers %t1b.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
+; end INTEL_CUSTOMIZATION
 
 ;; Regular LTO WPD
 ; RUN: opt -o %t1c.o %s
@@ -34,7 +38,9 @@
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
-; RUN: llvm-dis %t3c.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
+; INTEL_CUSTOMIZATION
+; RUN: llvm-dis -opaque-pointers %t3c.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
+; end INTEL_CUSTOMIZATION
 
 ; REMARK-DAG: single-impl: devirtualized a call to _ZN1A1nEi
 

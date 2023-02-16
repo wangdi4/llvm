@@ -96,11 +96,12 @@ public:
 
   bool haveSameVectorStride(const ClientMemref &Mrf) const;
 
-  Optional<int64_t> getConstDistanceFrom(const OVLSMemref &Mrf) const override;
+  std::optional<int64_t>
+  getConstDistanceFrom(const OVLSMemref &Mrf) const override;
 
   bool canMoveTo(const OVLSMemref &MemRef) override { return true; }
 
-  Optional<int64_t> getConstStride() const override {
+  std::optional<int64_t> getConstStride() const override {
     if (ConstVStride)
       return VecStride;
     return std::nullopt;

@@ -30,6 +30,7 @@ link_directories(${TBB_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/bin/)
 
 target_link_libraries(${TARGET_NAME}
   LLVMSupport
+  LLVMTargetParser
   llvm_gtest
   cl_logger
   cl_hw_utils

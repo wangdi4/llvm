@@ -65,7 +65,7 @@ define dso_local void @test(i32 addrspace(1)* nocapture noundef writeonly %dst) 
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp ne i64 [[SCALAR_SIZE]], 0
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[MASK_GENERATE:%.*]], label [[RET:%.*]]
 ; CHECK:       mask_generate:
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <16 x i64> poison, i64 [[SCALAR_SIZE]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <16 x i64> poison, i64 [[SCALAR_SIZE]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <16 x i64> [[DOTSPLATINSERT]], <16 x i64> poison, <16 x i32> zeroinitializer
 ; CHECK-NEXT:    [[MASK_I1:%.*]] = icmp ult <16 x i64> <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>, [[DOTSPLAT]]
 ; CHECK-NEXT:    [[MASK_I32:%.*]] = sext <16 x i1> [[MASK_I1]] to <16 x i32>

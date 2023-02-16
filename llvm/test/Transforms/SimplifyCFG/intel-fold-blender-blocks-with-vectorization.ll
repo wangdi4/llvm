@@ -121,7 +121,7 @@ define hidden fastcc i32 @_ZL17bvh_node_hit_testI8VBVHNodeEiPT_P5Isect(%struct.V
 ; CHECK-NEXT:    [[CMP72_I:%.*]] = fcmp fast ule float [[MUL22_I]], [[TMP20]]
 ; CHECK-NEXT:    [[OR_COND134_I:%.*]] = select i1 [[CMP69_I]], i1 [[CMP72_I]], i1 false
 ; CHECK-NEXT:    [[CMP75_I:%.*]] = fcmp fast ule float [[MUL42_I]], [[TMP20]]
-; CHECK-NEXT:    [[SPLATDIST_SPLATINSERT:%.*]] = insertelement <8 x float> poison, float [[TMP20]], i32 0
+; CHECK-NEXT:    [[SPLATDIST_SPLATINSERT:%.*]] = insertelement <8 x float> poison, float [[TMP20]], i64 0
 ; CHECK-NEXT:    [[SPLATDIST_SPLAT:%.*]] = shufflevector <8 x float> [[SPLATDIST_SPLATINSERT]], <8 x float> poison, <8 x i32> zeroinitializer
 ; CHECK-NEXT:    [[T2ULEDIST:%.*]] = fcmp ule <8 x float> [[T1]], [[SPLATDIST_SPLAT]]
 ; CHECK-NEXT:    [[TMP21:%.*]] = call i1 @llvm.vector.reduce.and.v8i1(<8 x i1> [[T2ULEDIST]])

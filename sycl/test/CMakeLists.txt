@@ -1,3 +1,20 @@
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 set(LLVM_TOOLS_DIR "${LLVM_BINARY_DIR}/bin/")
 
 get_target_property(SYCL_BINARY_DIR sycl-toolchain BINARY_DIR)
@@ -12,6 +29,12 @@ set(DEPLOY_RT_TEST_ARGS ${DEPLOY_RT_TEST_ARGS} "-v -D SYCL_TOOLS_DIR=${CMAKE_INS
 
 find_package(Threads REQUIRED)
 set(SYCL_THREADS_LIB ${CMAKE_THREAD_LIBS_INIT})
+
+if (INTEL_CUSTOMIZATION)
+  if (DEFINED L0_INCLUDE_DIR)
+     set(LEVEL_ZERO_INCLUDE_DIR ${L0_INCLUDE_DIR}/level_zero)
+  endif()
+endif (INTEL_CUSTOMIZATION)
 
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
@@ -67,6 +90,14 @@ add_lit_testsuite(check-sycl-spirv "Running device-agnostic SYCL regression test
   ${SYCL_TEST_EXCLUDE}
   )
 
+add_lit_testsuite(check-sycl-dumps "Running ABI dump tests only"
+  ${CMAKE_CURRENT_BINARY_DIR}
+  ARGS ${RT_TEST_ARGS}
+  PARAMS "SYCL_LIB_DUMPS_ONLY=True"
+  DEPENDS sycl-runtime-libraries llvm-readobj
+  EXCLUDE_FROM_CHECK_ALL
+  )
+
 add_custom_target(check-sycl)
 add_dependencies(check-sycl check-sycl-spirv)
 set_target_properties(check-sycl PROPERTIES FOLDER "SYCL tests")
@@ -113,3 +144,7 @@ if(SYCL_BUILD_PI_HIP)
 
   add_dependencies(check-sycl check-sycl-hip)
 endif()
+
+if(SYCL_ENABLE_KERNEL_FUSION)
+  add_dependencies(check-sycl check-sycl-fusion)
+endif(SYCL_ENABLE_KERNEL_FUSION)

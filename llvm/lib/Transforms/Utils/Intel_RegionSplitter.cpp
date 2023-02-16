@@ -142,8 +142,8 @@ bool RegionSplitter::prepareRegionForSplit(const SplinterRegionT &Region) {
       if (!Region.count(*SI)) {
         // Only need to check the first instruction, since any PHI nodes must
         // be at the start of the basic block.
-        Instruction *I = &(*SI)->getInstList().front();
-        if (isa<PHINode>(*I))
+        Instruction *I = &(*SI)->front();
+        if (isa<PHINode>(I))
           SplitEdges.insert(std::make_pair(BB, *SI));
       }
     }

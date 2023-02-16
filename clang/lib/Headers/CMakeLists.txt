@@ -514,6 +514,7 @@ set(hip_files
   __clang_hip_libdevice_declares.h
   __clang_hip_cmath.h
   __clang_hip_math.h
+  __clang_hip_stdlib.h
   __clang_hip_runtime_wrapper.h
   )
 
@@ -706,6 +707,7 @@ set(files
 
 set(cuda_wrapper_files
   cuda_wrappers/algorithm
+  cuda_wrappers/cmath
   cuda_wrappers/complex
   cuda_wrappers/new
 )

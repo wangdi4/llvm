@@ -32,7 +32,6 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallVector.h"
@@ -1113,9 +1112,20 @@ static Instruction *foldCtpop(IntrinsicInst &II, InstCombinerImpl &IC) {
   // If all bits are zero except for exactly one fixed bit, then the result
   // must be 0 or 1, and we can get that answer by shifting to LSB:
   // ctpop (X & 32) --> (X & 32) >> 5
+  // TODO: Investigate removing this as its likely unnecessary given the below
+  // `isKnownToBeAPowerOfTwo` check.
   if ((~Known.Zero).isPowerOf2())
     return BinaryOperator::CreateLShr(
         Op0, ConstantInt::get(Ty, (~Known.Zero).exactLogBase2()));
+
+  // More generally we can also handle non-constant power of 2 patterns such as
+  // shl/shr(Pow2, X), (X & -X), etc... by transforming:
+  // ctpop(Pow2OrZero) --> icmp ne X, 0
+  if (IC.isKnownToBeAPowerOfTwo(Op0, /* OrZero */ true))
+    return CastInst::Create(Instruction::ZExt,
+                            IC.Builder.CreateICmp(ICmpInst::ICMP_NE, Op0,
+                                                  Constant::getNullValue(Ty)),
+                            Ty);
 
   // FIXME: Try to simplify vectors of integers.
   auto *IT = dyn_cast<IntegerType>(Ty);
@@ -1172,7 +1182,7 @@ static Value *simplifyNeonTbl1(const IntrinsicInst &II,
 
   auto *V1 = II.getArgOperand(0);
   auto *V2 = Constant::getNullValue(V1->getType());
-  return Builder.CreateShuffleVector(V1, V2, makeArrayRef(Indexes));
+  return Builder.CreateShuffleVector(V1, V2, ArrayRef(Indexes));
 }
 
 // Returns true iff the 2 intrinsics have the same operands, limiting the
@@ -1264,9 +1274,10 @@ InstCombinerImpl::foldIntrinsicWithOverflowCommon(IntrinsicInst *II) {
   return nullptr;
 }
 
-static Optional<bool> getKnownSign(Value *Op, Instruction *CxtI,
-                                   const DataLayout &DL, AssumptionCache *AC,
-                                   DominatorTree *DT) {
+static std::optional<bool> getKnownSign(Value *Op, Instruction *CxtI,
+                                        const DataLayout &DL,
+                                        AssumptionCache *AC,
+                                        DominatorTree *DT) {
   KnownBits Known = computeKnownBits(Op, DL, 0, AC, CxtI, DT);
   if (Known.isNonNegative())
     return false;
@@ -1858,7 +1869,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     if (match(IIOperand, m_Select(m_Value(), m_Neg(m_Value(X)), m_Deferred(X))))
       return replaceOperand(*II, 0, X);
 
-    if (Optional<bool> Sign = getKnownSign(IIOperand, II, DL, &AC, &DT)) {
+    if (std::optional<bool> Sign = getKnownSign(IIOperand, II, DL, &AC, &DT)) {
       // abs(x) -> x if x >= 0
       if (!*Sign)
         return replaceInstUsesWith(*II, IIOperand);
@@ -2023,6 +2034,18 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     if (Instruction *NewMinMax = factorizeMinMaxTree(II))
        return NewMinMax;
 
+    break;
+  }
+  case Intrinsic::bitreverse: {
+    // bitrev (zext i1 X to ?) --> X ? SignBitC : 0
+    Value *X;
+    if (match(II->getArgOperand(0), m_ZExt(m_Value(X))) &&
+        X->getType()->isIntOrIntVectorTy(1)) {
+      Type *Ty = II->getType();
+      APInt SignBit = APInt::getSignMask(Ty->getScalarSizeInBits());
+      return SelectInst::Create(X, ConstantInt::get(Ty, SignBit),
+                                ConstantInt::getNullValue(Ty));
+    }
     break;
   }
   case Intrinsic::bswap: {
@@ -3011,7 +3034,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
           llvm::getKnowledgeFromBundle(cast<AssumeInst>(*II), BOI);
         if (BOI.End - BOI.Begin > 2)
           continue; // Prevent reducing knowledge in an align with offset since
-                    // extracting a RetainedKnowledge form them looses offset
+                    // extracting a RetainedKnowledge from them looses offset
                     // information
         RetainedKnowledge CanonRK =
           llvm::simplifyRetainedKnowledge(cast<AssumeInst>(II), RK,
@@ -3422,7 +3445,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     // Handle target specific intrinsics
     std::optional<Instruction *> V = targetInstCombineIntrinsic(*II);
     if (V)
-      return V.value();
+      return *V;
     break;
   }
   }

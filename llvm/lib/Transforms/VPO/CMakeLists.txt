@@ -119,6 +119,7 @@ add_llvm_component_library(LLVMVPOTransforms
 # end INTEL_CUSTOMIZATION
   Scalar
   Support
+  TargetParser
   TransformUtils
   VPOAnalysis
 )

@@ -370,12 +370,12 @@ private:
   Function *Initializer = nullptr;
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
-  Optional<InscanReductionKind> InscanRedKind = std::nullopt;
+  std::optional<InscanReductionKind> InscanRedKind = std::nullopt;
 
 public:
   RedDescrUDR(Value *RegV, Function *Combiner, Function *Initializer,
               Function *Ctor, Function *Dtor,
-              Optional<InscanReductionKind> InscanRedKind = std::nullopt)
+              std::optional<InscanReductionKind> InscanRedKind = std::nullopt)
       : RedDescr<Value>(RegV, RecurKind::Udr, false /*Signed*/),
         Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor),
         InscanRedKind(InscanRedKind) {}
@@ -392,7 +392,7 @@ public:
   /// Get destructor function for UDR datatype.
   Function *getDtor() const { return Dtor; }
   /// Get inscan reduction type (optional).
-  Optional<InscanReductionKind> getInscanReductionKind() const {
+  std::optional<InscanReductionKind> getInscanReductionKind() const {
     return InscanRedKind;
   }
 

@@ -752,7 +752,7 @@ public:
         DataTypes.push_back(Int8PtrTy);
     }
 
-    return FunctionType::get(FuncRetTy, makeArrayRef(DataTypes), isVarArg());
+    return FunctionType::get(FuncRetTy, ArrayRef(DataTypes), isVarArg());
   }
 
   // Return a metadata node that describes the type.

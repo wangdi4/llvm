@@ -25,13 +25,13 @@ define void @f() {
 ; CHECK:       for.body2:
 ; CHECK-NEXT:    [[INC2:%.*]] = phi i16 [ undef, [[FOR_BODY]] ], [ [[INC:%.*]], [[FOR_BODY2]] ]
 ; CHECK-NEXT:    [[INC]] = add nuw nsw i16 [[INC2]], 1
-; CHECK-NEXT:    store i16 [[INC]], i16* undef, align 1
+; CHECK-NEXT:    store i16 [[INC]], ptr undef, align 1
 ; CHECK-NEXT:    br i1 true, label [[FOR_BODY2]], label [[CRIT_EDGE:%.*]]
 ; CHECK:       crit_edge:
 ; INTEL_CUSTOMIZATION
 ; xmain will store the loaded value, and llorg will use the lcssa live-out phi
 ; from the loop.
-; CHECK:    store i16 {{.*}}, i16* @a, align 1
+; CHECK:    store i16 {{.*}}, ptr @a, align 1
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    unreachable
 ; CHECK:       for.end4:
@@ -44,21 +44,21 @@ for.cond:                                         ; preds = %entry
   br i1 false, label %for.body, label %for.end4
 
 for.body:                                         ; preds = %for.cond
-  %c.promoted = load i16, i16* @c, align 1
+  %c.promoted = load i16, ptr @c, align 1
   br label %for.body2
 
 for.body2:                                        ; preds = %for.body2, %for.body
   %inc33 = phi i16 [ %c.promoted, %for.body ], [ %inc3, %for.body2 ]
   %inc2 = phi i16 [ undef, %for.body ], [ %inc, %for.body2 ]
   %inc = add nsw i16 %inc2, 1
-  store i16 %inc, i16* undef, align 1
+  store i16 %inc, ptr undef, align 1
   %inc3 = add nsw i16 %inc33, 1
   %tobool = icmp ne i16 %inc3, 0
   br i1 %tobool, label %for.body2, label %crit_edge
 
 crit_edge:                                        ; preds = %for.body2
   %inc.lcssa = phi i16 [ %inc, %for.body2 ]
-  store i16 %inc.lcssa, i16* @a, align 1
+  store i16 %inc.lcssa, ptr @a, align 1
   unreachable
 
 for.end4:                                         ; preds = %for.cond

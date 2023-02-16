@@ -243,6 +243,12 @@
 // RUN:  | FileCheck -check-prefixes=XGRANDRIDGE,ADV_OPT %s
 // XGRANDRIDGE: "-target-cpu" "grandridge"
 
+// RUN: %clang -### -c -xEMERALDRAPIDS %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XEMERALDRAPIDS,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxEMERALDRAPIDS %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XEMERALDRAPIDS,ADV_OPT %s
+// XEMERALDRAPIDS: "-target-cpu" "emeraldrapids"
+
 // RUN: %clang -### -c -xHOST %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XHOST,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxHOST %s 2>&1 \

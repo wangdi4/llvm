@@ -30,10 +30,10 @@ add_subdirectory(__support)
 add_subdirectory(ctype)
 add_subdirectory(errno)
 add_subdirectory(fenv)
-add_subdirectory(inttypes)
 add_subdirectory(math)
 add_subdirectory(string)
 add_subdirectory(stdlib)
+add_subdirectory(inttypes)
 add_subdirectory(stdio)
 
 if(${LIBC_TARGET_OS} STREQUAL "linux")
@@ -103,8 +103,8 @@ add_integration_test(
     libc-api-test
   SRCS
     ${public_test}
-  LOADER
-    libc.loader.linux.crt1
+  STARTUP
+    libc.startup.linux.crt1
   DEPENDS
     ${api-test-entrypoints}
 )

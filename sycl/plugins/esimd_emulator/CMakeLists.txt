@@ -135,6 +135,8 @@ add_sycl_plugin(esimd_emulator
     ${LIBIGFXCMRT_EMU}
     #TODO remove cyclic dependency
     sycl
+  HEADER
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/features.hpp
 )
 
 # INTEL_CUSTOMIZATION

@@ -20,7 +20,6 @@
 set(EXCLUDE_FROM_ALL ON)
 
 add_llvm_library(LLVMTestingSupport
-  Annotations.cpp
   Error.cpp
   SupportHelpers.cpp
 
@@ -36,7 +35,6 @@ add_llvm_library(LLVMTestingSupport
 # INTEL_CUSTOMIZATION
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   add_llvm_library(LLVMTestingSupport_stdcpp
-    Annotations.cpp
     Error.cpp
     SupportHelpers.cpp
 
@@ -60,7 +58,6 @@ if (WIN32)
     set(_STL_LIB "/MD")
   endif()
   add_llvm_library(LLVMTestingSupport_dyn
-    Annotations.cpp
     Error.cpp
     SupportHelpers.cpp
 

@@ -11,10 +11,10 @@
 define i32 @align_both_equal() local_unnamed_addr {
 ; CHECK-LABEL: @align_both_equal(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS:%.*]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, ptr getelementptr inbounds ([[STRUCT_COUNTERS:%.*]], ptr @counters, i64 0, i32 1), align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 1, i64 1>
-; CHECK-NEXT:    store <2 x i64> [[TMP1]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = load i64, i64* @m, align 8
+; CHECK-NEXT:    store <2 x i64> [[TMP1]], ptr getelementptr inbounds ([[STRUCT_COUNTERS]], ptr @counters, i64 0, i32 1), align 8
+; CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr @m, align 8
 ; CHECK-NEXT:    [[AND:%.*]] = and i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[AND]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 2, i64 2>
@@ -29,22 +29,22 @@ define i32 @align_both_equal() local_unnamed_addr {
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[TMP9:%.*]], label [[TMP10:%.*]]
 ; INTEL_CUSTOMIZATION
 ; The llorg test has hard-coded label numbers here, which can't be guaranteed.
-; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], ptr getelementptr inbounds ([[STRUCT_COUNTERS]], ptr @counters, i64 0, i32 1), align 8
 ; CHECK:    ret i32 0
 ; end INTEL_CUSTOMIZATION
 ;
 entry:
-  %0 = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+  %0 = load <2 x i64>, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
   %1 = add nsw <2 x i64> %0, <i64 1, i64 1>
-  store <2 x i64> %1, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-  %2 = load i64, i64* @m, align 8
+  store <2 x i64> %1, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
+  %2 = load i64, ptr @m, align 8
   %and = and i64 %2, 1
   %tobool = icmp eq i64 %and, 0
   br i1 %tobool, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
   %3 = add nsw <2 x i64> %0, <i64 2, i64 2>
-  store <2 x i64> %3, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+  store <2 x i64> %3, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
   br label %if.end
 
 if.end:                                           ; preds = %entry, %if.then
@@ -55,7 +55,7 @@ if.end:                                           ; preds = %entry, %if.then
 
 if.then6:                                         ; preds = %if.end
   %5 = add nsw <2 x i64> %4, <i64 1, i64 1>
-  store <2 x i64> %5, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+  store <2 x i64> %5, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
   br label %if.end9
 
 if.end9:                                          ; preds = %if.end, %if.then6
@@ -65,10 +65,10 @@ if.end9:                                          ; preds = %if.end, %if.then6
 define i32 @align_not_equal() local_unnamed_addr {
 ; CHECK-LABEL: @align_not_equal(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS:%.*]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, ptr getelementptr inbounds ([[STRUCT_COUNTERS:%.*]], ptr @counters, i64 0, i32 1), align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 1, i64 1>
-; CHECK-NEXT:    store <2 x i64> [[TMP1]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = load i64, i64* @m, align 8
+; CHECK-NEXT:    store <2 x i64> [[TMP1]], ptr getelementptr inbounds ([[STRUCT_COUNTERS]], ptr @counters, i64 0, i32 1), align 8
+; CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr @m, align 8
 ; CHECK-NEXT:    [[AND:%.*]] = and i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[AND]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 2, i64 2>
@@ -82,22 +82,22 @@ define i32 @align_not_equal() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[TMP9:%.*]], label [[TMP10:%.*]]
 ; INTEL_CUSTOMIZATION:
-; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], ptr getelementptr inbounds ([[STRUCT_COUNTERS]], ptr @counters, i64 0, i32 1), align 8
 ; CHECK:    ret i32 0
 ; end INTEL_CUSTOMIZATION
 ;
 entry:
-  %0 = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+  %0 = load <2 x i64>, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
   %1 = add nsw <2 x i64> %0, <i64 1, i64 1>
-  store <2 x i64> %1, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-  %2 = load i64, i64* @m, align 8
+  store <2 x i64> %1, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
+  %2 = load i64, ptr @m, align 8
   %and = and i64 %2, 1
   %tobool = icmp eq i64 %and, 0
   br i1 %tobool, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
   %3 = add nsw <2 x i64> %0, <i64 2, i64 2>
-  store <2 x i64> %3, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 16
+  store <2 x i64> %3, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 16
   br label %if.end
 
 if.end:                                           ; preds = %entry, %if.then
@@ -108,7 +108,7 @@ if.end:                                           ; preds = %entry, %if.then
 
 if.then6:                                         ; preds = %if.end
   %5 = add nsw <2 x i64> %4, <i64 1, i64 1>
-  store <2 x i64> %5, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+  store <2 x i64> %5, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
   br label %if.end9
 
 if.end9:                                          ; preds = %if.end, %if.then6
@@ -118,10 +118,10 @@ if.end9:                                          ; preds = %if.end, %if.then6
 define i32 @align_single_zero() local_unnamed_addr {
 ; CHECK-LABEL: @align_single_zero(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS:%.*]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, ptr getelementptr inbounds ([[STRUCT_COUNTERS:%.*]], ptr @counters, i64 0, i32 1), align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 1, i64 1>
-; CHECK-NEXT:    store <2 x i64> [[TMP1]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = load i64, i64* @m, align 8
+; CHECK-NEXT:    store <2 x i64> [[TMP1]], ptr getelementptr inbounds ([[STRUCT_COUNTERS]], ptr @counters, i64 0, i32 1), align 8
+; CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr @m, align 8
 ; CHECK-NEXT:    [[AND:%.*]] = and i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[AND]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 2, i64 2>
@@ -135,21 +135,21 @@ define i32 @align_single_zero() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[TMP9:%.*]], label [[TMP10:%.*]]
 ; INTEL_CUSTOMIZATION
-; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], ptr getelementptr inbounds ([[STRUCT_COUNTERS]], ptr @counters, i64 0, i32 1), align 8
 ; end INTEL_CUSTOMIZATION
 ;
 entry:
-  %0 = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+  %0 = load <2 x i64>, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
   %1 = add nsw <2 x i64> %0, <i64 1, i64 1>
-  store <2 x i64> %1, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-  %2 = load i64, i64* @m, align 8
+  store <2 x i64> %1, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
+  %2 = load i64, ptr @m, align 8
   %and = and i64 %2, 1
   %tobool = icmp eq i64 %and, 0
   br i1 %tobool, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
   %3 = add nsw <2 x i64> %0, <i64 2, i64 2>
-  store <2 x i64> %3, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*)
+  store <2 x i64> %3, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1)
   br label %if.end
 
 if.end:                                           ; preds = %entry, %if.then
@@ -160,7 +160,7 @@ if.end:                                           ; preds = %entry, %if.then
 
 if.then6:                                         ; preds = %if.end
   %5 = add nsw <2 x i64> %4, <i64 1, i64 1>
-  store <2 x i64> %5, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+  store <2 x i64> %5, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
   br label %if.end9
 
 if.end9:                                          ; preds = %if.end, %if.then6
@@ -170,10 +170,10 @@ if.end9:                                          ; preds = %if.end, %if.then6
 define i32 @align_single_zero_second_greater_default() local_unnamed_addr {
 ; CHECK-LABEL: @align_single_zero_second_greater_default(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS:%.*]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, ptr getelementptr inbounds ([[STRUCT_COUNTERS:%.*]], ptr @counters, i64 0, i32 1), align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 1, i64 1>
-; CHECK-NEXT:    store <2 x i64> [[TMP1]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = load i64, i64* @m, align 8
+; CHECK-NEXT:    store <2 x i64> [[TMP1]], ptr getelementptr inbounds ([[STRUCT_COUNTERS]], ptr @counters, i64 0, i32 1), align 8
+; CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr @m, align 8
 ; CHECK-NEXT:    [[AND:%.*]] = and i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[AND]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 2, i64 2>
@@ -187,22 +187,22 @@ define i32 @align_single_zero_second_greater_default() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[TMP9:%.*]], label [[TMP10:%.*]]
 ; INTEL_CUSTOMIZATION
-; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 16
+; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], ptr getelementptr inbounds ([[STRUCT_COUNTERS]], ptr @counters, i64 0, i32 1), align 16
 ; CHECK:    ret i32 0
 ; end INTEL_CUSTOMIZATION
 ;
 entry:
-  %0 = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+  %0 = load <2 x i64>, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
   %1 = add nsw <2 x i64> %0, <i64 1, i64 1>
-  store <2 x i64> %1, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-  %2 = load i64, i64* @m, align 8
+  store <2 x i64> %1, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
+  %2 = load i64, ptr @m, align 8
   %and = and i64 %2, 1
   %tobool = icmp eq i64 %and, 0
   br i1 %tobool, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
   %3 = add nsw <2 x i64> %0, <i64 2, i64 2>
-  store <2 x i64> %3, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 32
+  store <2 x i64> %3, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 32
   br label %if.end
 
 if.end:                                           ; preds = %entry, %if.then
@@ -213,7 +213,7 @@ if.end:                                           ; preds = %entry, %if.then
 
 if.then6:                                         ; preds = %if.end
   %5 = add nsw <2 x i64> %4, <i64 1, i64 1>
-  store <2 x i64> %5, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*)
+  store <2 x i64> %5, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1)
   br label %if.end9
 
 if.end9:                                          ; preds = %if.end, %if.then6
@@ -223,10 +223,10 @@ if.end9:                                          ; preds = %if.end, %if.then6
 define i32 @align_both_zero() local_unnamed_addr {
 ; CHECK-LABEL: @align_both_zero(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS:%.*]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, ptr getelementptr inbounds ([[STRUCT_COUNTERS:%.*]], ptr @counters, i64 0, i32 1), align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 1, i64 1>
-; CHECK-NEXT:    store <2 x i64> [[TMP1]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-; CHECK-NEXT:    [[TMP2:%.*]] = load i64, i64* @m, align 8
+; CHECK-NEXT:    store <2 x i64> [[TMP1]], ptr getelementptr inbounds ([[STRUCT_COUNTERS]], ptr @counters, i64 0, i32 1), align 8
+; CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr @m, align 8
 ; CHECK-NEXT:    [[AND:%.*]] = and i64 [[TMP2]], 1
 ; CHECK-NEXT:    [[TOBOOL:%.*]] = icmp eq i64 [[AND]], 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <2 x i64> [[TMP0]], <i64 2, i64 2>
@@ -240,22 +240,22 @@ define i32 @align_both_zero() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[TMP9:%.*]], label [[TMP10:%.*]]
 ; INTEL_CUSTOMIZATION
-; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], <2 x i64>* bitcast (i64* getelementptr inbounds ([[STRUCT_COUNTERS]], %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 16
+; CHECK:    store <2 x i64> [[SIMPLIFYCFG_MERGE]], ptr getelementptr inbounds ([[STRUCT_COUNTERS]], ptr @counters, i64 0, i32 1), align 16
 ; CHECK:    ret i32 0
 ; end INTEL_CUSTOMIZATION
 ;
 entry:
-  %0 = load <2 x i64>, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
+  %0 = load <2 x i64>, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
   %1 = add nsw <2 x i64> %0, <i64 1, i64 1>
-  store <2 x i64> %1, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*), align 8
-  %2 = load i64, i64* @m, align 8
+  store <2 x i64> %1, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1), align 8
+  %2 = load i64, ptr @m, align 8
   %and = and i64 %2, 1
   %tobool = icmp eq i64 %and, 0
   br i1 %tobool, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
   %3 = add nsw <2 x i64> %0, <i64 2, i64 2>
-  store <2 x i64> %3, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*)
+  store <2 x i64> %3, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1)
   br label %if.end
 
 if.end:                                           ; preds = %entry, %if.then
@@ -266,7 +266,7 @@ if.end:                                           ; preds = %entry, %if.then
 
 if.then6:                                         ; preds = %if.end
   %5 = add nsw <2 x i64> %4, <i64 1, i64 1>
-  store <2 x i64> %5, <2 x i64>* bitcast (i64* getelementptr inbounds (%struct.Counters, %struct.Counters* @counters, i64 0, i32 1) to <2 x i64>*)
+  store <2 x i64> %5, ptr getelementptr inbounds (%struct.Counters, ptr @counters, i64 0, i32 1)
   br label %if.end9
 
 if.end9:                                          ; preds = %if.end, %if.then6

@@ -1142,7 +1142,7 @@ bool AndersensAAResult::invalidate(Module &M, const PreservedAnalyses &PA,
 
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
                                      const MemoryLocation &LocB,
-                                     AAQueryInfo &AAQI)  {
+                                     AAQueryInfo &AAQI, const Instruction *) {
 
   // Returns true if V is global variable that represents "stdout".
   auto IsStdoutFilePtr = [this] (Value *V) {
@@ -1212,11 +1212,11 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
   };
 
   if (ValueNodes.size() == 0) {
-      return AAResultBase::alias(LocA, LocB, AAQI);
+      return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
   }
   NumAliasQuery++;
   if (NumAliasQuery > MaxAliasQuery) {
-      return AAResultBase::alias(LocA, LocB, AAQI);
+      return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
   }
 
   auto *V1 = const_cast<Value *>(LocA.Ptr);
@@ -1276,7 +1276,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
         dbgs() << " both of them are Universal \n";
           dbgs() << " Alias_End \n";
       }
-      return AAResultBase::alias(LocA, LocB, AAQI);
+      return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
   }
 
   // Using escape analysis to improve the precision
@@ -1303,7 +1303,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       dbgs() << " one of them is Universal and the other one escapes \n";
       dbgs() << " Alias_End \n";
     }
-    return AAResultBase::alias(LocA, LocB, AAQI);
+    return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
   }
   // Check to see if the two pointers are known to not alias. They don't alias
   // if their points-to sets do not intersect.
@@ -1319,8 +1319,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       dbgs() << " Can't determine using points-to \n";
       dbgs() << " Alias_End \n";
   }
-  return AAResultBase::alias(LocA, LocB, AAQI);
-
+  return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
 }
 
 bool AndersensAAResult::mayEscape(const MemoryLocation &Loc) {
@@ -6216,7 +6215,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
       MemoryLocation Loc2 = MemoryLocation(Object, LocationSize::beforeOrAfterPointer());
       AAResults AAR(TLI);
       SimpleAAQueryInfo AAQIP(AAR);
-      AliasResult AR = Ander->alias(Loc, Loc2, AAQIP);
+      AliasResult AR = Ander->alias(Loc, Loc2, AAQIP, nullptr);
       if (AR == AliasResult::NoAlias)
         continue;
 

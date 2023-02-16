@@ -92,10 +92,10 @@ define dso_local i32 @_Z3fooPiS_(i32* %b) local_unnamed_addr #0 {
 ; CHECK-EMPTY: 
 ; CHECK-NEXT: VPlannedBB2:                                      ; preds = %VPlannedBB1
 ; CHECK-NEXT:   call void @llvm.lifetime.start.p0(i64 16, ptr [[VP_V_LPRIV_VEC_BASE_ADDR_EXTRACT0:%.*]])
-; CHECK-NEXT:   [[B_ADDR_LINEAR_PROMOTEDIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x ptr> poison, ptr [[B_ADDR_LINEAR_PROMOTED]], i32 0
+; CHECK-NEXT:   [[B_ADDR_LINEAR_PROMOTEDIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x ptr> poison, ptr [[B_ADDR_LINEAR_PROMOTED]], i64 0
 ; CHECK-NEXT:   [[B_ADDR_LINEAR_PROMOTEDIND_START_BCAST_SPLAT:%.*]] = shufflevector <4 x ptr> [[B_ADDR_LINEAR_PROMOTEDIND_START_BCAST_SPLATINSERT]], <4 x ptr> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VECTOR_GEP:%.*]] = getelementptr inbounds i8, <4 x ptr> [[B_ADDR_LINEAR_PROMOTEDIND_START_BCAST_SPLAT]], <4 x i64> <i64 0, i64 12, i64 24, i64 36>
-; CHECK-NEXT:   [[C_ADDR_LINEAR_PROMOTEDIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x ptr> poison, ptr [[C_ADDR_LINEAR_PROMOTED]], i32 0
+; CHECK-NEXT:   [[C_ADDR_LINEAR_PROMOTEDIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x ptr> poison, ptr [[C_ADDR_LINEAR_PROMOTED]], i64 0
 ; CHECK-NEXT:   [[C_ADDR_LINEAR_PROMOTEDIND_START_BCAST_SPLAT:%.*]] = shufflevector <4 x ptr> [[C_ADDR_LINEAR_PROMOTEDIND_START_BCAST_SPLATINSERT]], <4 x ptr> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VECTOR_GEP3:%.*]] = getelementptr inbounds i8, <4 x ptr> [[C_ADDR_LINEAR_PROMOTEDIND_START_BCAST_SPLAT]], <4 x i64> <i64 0, i64 32, i64 64, i64 96>
 ; CHECK-NEXT:   br label [[VECTOR_BODY:%.*]]

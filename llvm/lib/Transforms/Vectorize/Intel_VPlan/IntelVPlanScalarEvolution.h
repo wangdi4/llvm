@@ -61,12 +61,12 @@ public:
 
   /// Check if \p Expr is a linear value. If we can prove that it is, return its
   /// components in the corresponding data structure.
-  virtual Optional<VPConstStepLinear>
+  virtual std::optional<VPConstStepLinear>
   asConstStepLinear(VPlanSCEV *Expr) const = 0;
 
   /// Check if \p Expr is an induction variable. If we can prove that it is,
   /// return its components in the corresponding data structure.
-  virtual Optional<VPConstStepInduction>
+  virtual std::optional<VPConstStepInduction>
   asConstStepInduction(VPlanSCEV *Expr) const = 0;
 
   // As of now, any access to private memory can be modified in-place without
@@ -87,9 +87,10 @@ public:
 
   VPlanSCEV *getMinusExpr(VPlanSCEV *LHS, VPlanSCEV *RHS) override;
 
-  Optional<VPConstStepLinear> asConstStepLinear(VPlanSCEV *Expr) const override;
+  std::optional<VPConstStepLinear>
+  asConstStepLinear(VPlanSCEV *Expr) const override;
 
-  Optional<VPConstStepInduction>
+  std::optional<VPConstStepInduction>
   asConstStepInduction(VPlanSCEV *Expr) const override;
 
   ScalarEvolution &getSE() { return *SE; }

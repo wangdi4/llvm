@@ -5,7 +5,6 @@
 
 ; RUN: opt %s -o %t.bc
 ; RUN: not ld.lld -e main --lto-O2 \
-; RUN:    -plugin-opt=new-pass-manager  \
 ; RUN:    -mllvm -debug-only=whole-program-analysis \
 ; RUN:    -mllvm -whole-program-assume-executable %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s

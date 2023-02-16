@@ -22,9 +22,9 @@ define void @foo(i1* %arri1, i7* %arri7 ) {
 ;
 ; LLVM-CHECK:  define void @foo(i1* [[ARRI10:%.*]], i7* [[ARRI70:%.*]]) {
 ; LLVM-CHECK:       VPlannedBB:
-; LLVM-CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i1*> poison, i1* [[ARRI10]], i32 0
+; LLVM-CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i1*> poison, i1* [[ARRI10]], i64 0
 ; LLVM-CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i1*> [[BROADCAST_SPLATINSERT0]], <4 x i1*> poison, <4 x i32> zeroinitializer
-; LLVM-CHECK-NEXT:    [[BROADCAST_SPLATINSERT30:%.*]] = insertelement <4 x i7*> poison, i7* [[ARRI70]], i32 0
+; LLVM-CHECK-NEXT:    [[BROADCAST_SPLATINSERT30:%.*]] = insertelement <4 x i7*> poison, i7* [[ARRI70]], i64 0
 ; LLVM-CHECK-NEXT:    [[BROADCAST_SPLAT40:%.*]] = shufflevector <4 x i7*> [[BROADCAST_SPLATINSERT30]], <4 x i7*> poison, <4 x i32> zeroinitializer
 ; LLVM-CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; LLVM-CHECK-EMPTY:

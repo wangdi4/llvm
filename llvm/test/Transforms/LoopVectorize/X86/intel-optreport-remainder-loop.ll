@@ -6,13 +6,13 @@
 ; CHECK: for.body:
 ; CHECK: br {{.*}} label %for.body, !llvm.loop [[scalar:![0-9]+]]
 
-; CHECK: [[vect]] = distinct !{[[vect]], [[dummy1:![0-9]+]], [[dummy2:![0-9]+]], [[optreport:![0-9]+]], [[width:![0-9]+]]}
+; CHECK: [[vect]] = distinct !{[[vect]], [[dummy1:![0-9]+]], [[dummy2:![0-9]+]], [[optreport:![0-9]+]], [[width:![0-9]+]], [[runtime_unroll:![0-9]+]]}
 ; CHECK: [[dummy1]] = !{!"DummyMetadata1"}
 ; CHECK: [[dummy2]] = !{!"DummyMetadata2"}
 ; CHECK  [[optreport]] = distinct !{!"intel.optreport.rootnode", {{.*}}}
 ; CHECK: [[width]] = !{!"llvm.loop.isvectorized", i32 1}
-; CHECK: [[scalar]] = distinct !{[[scalar]], [[dummy1]], [[dummy2]], [[runtime_unroll:![0-9]+]], [[width]]}
 ; CHECK: [[runtime_unroll]] = !{!"llvm.loop.unroll.runtime.disable"}
+; CHECK: [[scalar]] = distinct !{[[scalar]], [[dummy1]], [[dummy2]], [[runtime_unroll]], [[width]]}
 
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

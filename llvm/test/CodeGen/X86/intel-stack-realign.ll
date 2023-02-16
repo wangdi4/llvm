@@ -1,12 +1,12 @@
 ; RUN: llc < %s -mtriple=x86_64-- -mattr=avx512f -enable-intel-advanced-opts -O3 -debug-only=x86-stack-realign -o /dev/null 2>&1 | FileCheck %s --check-prefix=COST
-; RUN: llc < %s -mtriple=x86_64-- -mattr=avx512f -enable-intel-advanced-opts -O3 --x86-stack-realign-avg-cost-threshold=0.7 | FileCheck %s --check-prefix=REALIGN
+; RUN: llc < %s -mtriple=x86_64-- -mattr=avx512f -enable-intel-advanced-opts -O3 --x86-stack-realign-avg-cost-threshold=0.6 | FileCheck %s --check-prefix=REALIGN
 ; RUN: llc < %s -mtriple=x86_64-- -mattr=avx512f -enable-intel-advanced-opts -O3 --x86-stack-realign-avg-cost-threshold=1   | FileCheck %s --check-prefix=NOREALIGN
 
 define dso_local void @foo(double* %a0, double* %a1, double* %a2, double* %a3, double* %a4, double* %a5, double* %a6, double* %a7, double* %a8, double* %a9, double* %a10, double* %a11, double* %a12, double* %a13, double* %a14, double* %a15, double* %a16, double* %a17, double* %a18, double* %a19, double* %a20, double* %a21, double* %a22, double* %a23, double* %a24, double* %a25, double* %a26, double* %a27, double* %a28, double* %a29, double* %a30, double* %a31, double* %b, double* %c, i32 %n) {
 ; COST:     Unalign cost info of foo:
-; COST-NEXT:  Total cost = 9.8{{[0-9]*}}e+08
-; COST-NEXT:  InstRetired = 1.3{{[0-9]*}}e+09
-; COST-NEXT:  Avg cost = 7.2{{[0-9]*}}e-01
+; COST-NEXT:  Total cost = 8.{{[0-9]*}}e+08
+; COST-NEXT:  InstRetired = 1.{{[0-9]*}}e+09
+; COST-NEXT:  Avg cost = 6.{{[0-9]*}}e-01
 ;
 ; REALIGN:        andq $-64, %rsp
 ; NOREALIGN-NOT:  andq $-64, %rsp

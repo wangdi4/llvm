@@ -925,6 +925,13 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
     }
     break;
   }
+  case 'f':
+    if (Name.startswith("flt.rounds")) {
+      rename(F);
+      NewFn = Intrinsic::getDeclaration(F->getParent(), Intrinsic::get_rounding);
+      return true;
+    }
+    break;
   case 'i':
   case 'l': {
     bool IsLifetimeStart = Name.startswith("lifetime.start");
@@ -1249,7 +1256,7 @@ static Value *UpgradeX86PSLLDQIntrinsics(IRBuilder<> &Builder,
         Idxs[l + i] = Idx + l;
       }
 
-    Res = Builder.CreateShuffleVector(Res, Op, makeArrayRef(Idxs, NumElts));
+    Res = Builder.CreateShuffleVector(Res, Op, ArrayRef(Idxs, NumElts));
   }
 
   // Bitcast back to a 64-bit element type.
@@ -1283,7 +1290,7 @@ static Value *UpgradeX86PSRLDQIntrinsics(IRBuilder<> &Builder, Value *Op,
         Idxs[l + i] = Idx + l;
       }
 
-    Res = Builder.CreateShuffleVector(Op, Res, makeArrayRef(Idxs, NumElts));
+    Res = Builder.CreateShuffleVector(Op, Res, ArrayRef(Idxs, NumElts));
   }
 
   // Bitcast back to a 64-bit element type.
@@ -1303,8 +1310,8 @@ static Value *getX86MaskVec(IRBuilder<> &Builder, Value *Mask,
     int Indices[4];
     for (unsigned i = 0; i != NumElts; ++i)
       Indices[i] = i;
-    Mask = Builder.CreateShuffleVector(
-        Mask, Mask, makeArrayRef(Indices, NumElts), "extract");
+    Mask = Builder.CreateShuffleVector(Mask, Mask, ArrayRef(Indices, NumElts),
+                                       "extract");
   }
 
   return Mask;
@@ -1378,9 +1385,8 @@ static Value *UpgradeX86ALIGNIntrinsics(IRBuilder<> &Builder, Value *Op0,
     }
   }
 
-  Value *Align = Builder.CreateShuffleVector(Op1, Op0,
-                                             makeArrayRef(Indices, NumElts),
-                                             "palignr");
+  Value *Align = Builder.CreateShuffleVector(
+      Op1, Op0, ArrayRef(Indices, NumElts), "palignr");
 
   return EmitX86Select(Builder, Mask, Align, Passthru);
 }
@@ -1570,7 +1576,7 @@ static Value *UpgradeMaskedStore(IRBuilder<> &Builder,
                               llvm::PointerType::getUnqual(Data->getType()));
   const Align Alignment =
       Aligned
-          ? Align(Data->getType()->getPrimitiveSizeInBits().getFixedSize() / 8)
+          ? Align(Data->getType()->getPrimitiveSizeInBits().getFixedValue() / 8)
           : Align(1);
 
   // If the mask is all ones just emit a regular store.
@@ -1592,8 +1598,9 @@ static Value *UpgradeMaskedLoad(IRBuilder<> &Builder,
   Ptr = Builder.CreateBitCast(Ptr, llvm::PointerType::getUnqual(ValTy));
   const Align Alignment =
       Aligned
-          ? Align(Passthru->getType()->getPrimitiveSizeInBits().getFixedSize() /
-                  8)
+          ? Align(
+                Passthru->getType()->getPrimitiveSizeInBits().getFixedValue() /
+                8)
           : Align(1);
 
   // If the mask is all ones just emit a regular store.
@@ -2146,7 +2153,7 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
                                         "cast");
       StoreInst *SI = Builder.CreateAlignedStore(
           Arg1, BC,
-          Align(Arg1->getType()->getPrimitiveSizeInBits().getFixedSize() / 8));
+          Align(Arg1->getType()->getPrimitiveSizeInBits().getFixedValue() / 8));
       SI->setMetadata(M->getMDKindID("nontemporal"), Node);
 
       // Remove intrinsic.
@@ -2286,14 +2293,13 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
 
       // First extract half of each vector. This gives better codegen than
       // doing it in a single shuffle.
-      LHS = Builder.CreateShuffleVector(LHS, LHS,
-                                        makeArrayRef(Indices, NumElts / 2));
-      RHS = Builder.CreateShuffleVector(RHS, RHS,
-                                        makeArrayRef(Indices, NumElts / 2));
+      LHS =
+          Builder.CreateShuffleVector(LHS, LHS, ArrayRef(Indices, NumElts / 2));
+      RHS =
+          Builder.CreateShuffleVector(RHS, RHS, ArrayRef(Indices, NumElts / 2));
       // Concat the vectors.
       // NOTE: Operands have to be swapped to match intrinsic definition.
-      Rep = Builder.CreateShuffleVector(RHS, LHS,
-                                        makeArrayRef(Indices, NumElts));
+      Rep = Builder.CreateShuffleVector(RHS, LHS, ArrayRef(Indices, NumElts));
       Rep = Builder.CreateBitCast(Rep, CI->getType());
     } else if (IsX86 && Name == "avx512.kand.w") {
       Value *LHS = getX86MaskVec(Builder, CI->getArgOperand(0), 16);
@@ -3487,7 +3493,7 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
           Ptr, PointerType::getUnqual(CI->getType()), "cast");
       LoadInst *LI = Builder.CreateAlignedLoad(
           CI->getType(), BC,
-          Align(CI->getType()->getPrimitiveSizeInBits().getFixedSize() / 8));
+          Align(CI->getType()->getPrimitiveSizeInBits().getFixedValue() / 8));
       LI->setMetadata(M->getMDKindID("nontemporal"), Node);
       Rep = LI;
     } else if (IsX86 && (Name.startswith("fma.vfmadd.") ||

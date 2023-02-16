@@ -1050,7 +1050,7 @@ end:
 ; We can hoist blocks that contain an edge that exits the loop by ignoring that
 ; edge in the hoisted block.
 define void @triangle_phi_loopexit(i32 %x, ptr %p) {
-; CHECK-DISABLED-LABEL: define {{[^@]+}}@triangle_phi_loopexit(
+; CHECK-DISABLED-LABEL: @triangle_phi_loopexit(
 ; CHECK-DISABLED-NEXT:  entry:
 ; CHECK-DISABLED-NEXT:    [[ADD:%.*]] = add i32 [[X:%.*]], 1
 ; CHECK-DISABLED-NEXT:    [[CMP1:%.*]] = icmp sgt i32 [[X]], 0
@@ -1068,7 +1068,7 @@ define void @triangle_phi_loopexit(i32 %x, ptr %p) {
 ; CHECK-DISABLED:       end:
 ; CHECK-DISABLED-NEXT:    ret void
 ;
-; CHECK-ENABLED-LABEL: define {{[^@]+}}@triangle_phi_loopexit(
+; CHECK-ENABLED-LABEL: @triangle_phi_loopexit(
 ; CHECK-ENABLED-NEXT:  entry:
 ; CHECK-ENABLED-NEXT:    [[ADD:%.*]] = add i32 [[X:%.*]], 1
 ; CHECK-ENABLED-NEXT:    [[CMP1:%.*]] = icmp sgt i32 [[X]], 0

@@ -150,11 +150,10 @@ extern bool isUplevelVarType(Type *Ty) {
 }
 
 extern bool isValidUseOfSubscriptCall(const SubscriptInst &Subs,
-                                      const Value &Base,
-                                      uint32_t ArrayRank, uint32_t Rank,
-                                      bool CheckForTranspose,
-                                      Optional<uint64_t> LowerBound,
-                                      Optional<uint64_t> Stride) {
+                                      const Value &Base, uint32_t ArrayRank,
+                                      uint32_t Rank, bool CheckForTranspose,
+                                      std::optional<uint64_t> LowerBound,
+                                      std::optional<uint64_t> Stride) {
   LLVM_DEBUG({
     dbgs().indent((ArrayRank - Rank) * 2 + 4);
     dbgs() << "Checking call: " << Subs << "\n";
@@ -193,17 +192,17 @@ static bool isFieldInUplevelTypeVar(Value *V) {
   return isUplevelVarType(GEP->getSourceElementType());
 }
 
-Optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
-                                    unsigned int OpNum) {
+std::optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
+                                         unsigned int OpNum) {
   auto FieldIndex = dyn_cast<ConstantInt>(GEP.getOperand(OpNum));
   if (FieldIndex)
-    return Optional<uint64_t>(FieldIndex->getLimitedValue());
+    return std::optional<uint64_t>(FieldIndex->getLimitedValue());
   return std::nullopt;
 }
 
-Optional<unsigned int> getArgumentPosition(const CallBase &CI,
-                                           const Value *Val) {
-  Optional<unsigned int> Pos;
+std::optional<unsigned int> getArgumentPosition(const CallBase &CI,
+                                                const Value *Val) {
+  std::optional<unsigned int> Pos;
   unsigned int ArgCount = CI.arg_size();
   for (unsigned int ArgNum = 0; ArgNum < ArgCount; ++ArgNum)
     if (CI.getArgOperand(ArgNum) == Val) {
@@ -608,17 +607,17 @@ bool DopeVectorFieldUse::matches(const DopeVectorFieldUse& Other) const {
   // have multiple values. If not, set 'SIV' to the current single value.
   //
   auto CouldHaveMultipleValues = [](const DopeVectorFieldUse &DVFU,
-                                    Optional<uint64_t> &SIV) -> bool {
+                                    std::optional<uint64_t> &SIV) -> bool {
     for (StoreInst *SI : DVFU.stores()) {
-       auto CI = dyn_cast<ConstantInt>(SI->getValueOperand());
-       if (!CI)
-         return true;
-       if (CI->isZero())
-         continue;
-       if (!SIV)
-         SIV = CI->getZExtValue();
-       else if (SIV && (*SIV != CI->getZExtValue()))
-         return true;
+      auto CI = dyn_cast<ConstantInt>(SI->getValueOperand());
+      if (!CI)
+        return true;
+      if (CI->isZero())
+        continue;
+      if (!SIV)
+        SIV = CI->getZExtValue();
+      else if (SIV && (*SIV != CI->getZExtValue()))
+        return true;
     }
     return false;
   };
@@ -638,7 +637,7 @@ bool DopeVectorFieldUse::matches(const DopeVectorFieldUse& Other) const {
   // whether there is still only one written non-null value.
   //
   if (RequiresSingleNonNullValue) {
-    Optional<uint64_t> SIV = std::nullopt;
+    std::optional<uint64_t> SIV = std::nullopt;
     if (CouldHaveMultipleValues(*this, SIV))
       return false;
     if (CouldHaveMultipleValues(Other, SIV))
@@ -893,7 +892,7 @@ static bool analyzeUplevelVar(uint32_t ArrayRank,
                           << *CI << "\n");
         return false;
       }
-      Optional<unsigned int> ArgPos = getArgumentPosition(*CI, Var);
+      std::optional<unsigned int> ArgPos = getArgumentPosition(*CI, Var);
       if (!ArgPos) {
         LLVM_DEBUG(dbgs() << "Uplevel var argument not unique in call:\n"
                           << *CI << "\n");
@@ -1129,7 +1128,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
         return;
       }
 
-      Optional<unsigned int> ArgPos = getArgumentPosition(*CI, DVObject);
+      std::optional<unsigned int> ArgPos = getArgumentPosition(*CI, DVObject);
       if (!ArgPos) {
         LLVM_DEBUG(dbgs() << "Dope vector argument not unique in call:\n"
                           << *CI << "\n");
@@ -3663,7 +3662,7 @@ GlobalDopeVector::mergeNestedDopeVectors() {
   // The set will all have the same 'FieldNum' and a non-nullptr 'VBase'.
   //
   auto LoadNDVSubset = [this](NDVInfoVector &NDVSubset) {
-    Optional<uint64_t> FieldNum = std::nullopt;
+    std::optional<uint64_t> FieldNum = std::nullopt;
     NDVSubset.clear();
     for (auto *NestedDV : NestedDopeVectors) {
       if (NestedDV->getVBase()) {

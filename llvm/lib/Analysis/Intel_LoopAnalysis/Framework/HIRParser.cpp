@@ -1409,7 +1409,7 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
     OS << ")";
 
   } else if (auto NArySCEV = dyn_cast<SCEVNAryExpr>(Blob)) {
-    const char *OpStr;
+    const char *OpStr = nullptr;
 
     if (isa<SCEVAddExpr>(NArySCEV)) {
       OS << "(";
@@ -1436,12 +1436,10 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
       llvm_unreachable("Blob contains AddRec!");
     }
 
-    for (auto I = NArySCEV->op_begin(), E = NArySCEV->op_end(); I != E; ++I) {
-      printBlob(OS, *I);
-
-      if (std::next(I) != E) {
-        OS << OpStr;
-      }
+    ListSeparator LS(OpStr);
+    for (auto &I : NArySCEV->operands()) {
+      OS << LS;
+      printBlob(OS, I);
     }
     OS << ")";
 
@@ -1790,9 +1788,8 @@ bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
   if (auto *ConstOp = dyn_cast<SCEVConstant>(MulBlob->getOperand(0))) {
     SmallVector<BlobTy, 4> Ops;
 
-    for (auto I = MulBlob->op_begin() + 1, E = MulBlob->op_end(); I != E; ++I) {
-      Ops.push_back(*I);
-    }
+    for (unsigned I = 1, E = MulBlob->getNumOperands(); I < E; I++)
+      Ops.push_back(MulBlob->getOperand(I));
 
     *Multiplier = getSCEVConstantValue(ConstOp);
     *NewBlob = ScopedSE.getMulExpr(Ops, MulBlob->getNoWrapFlags());
@@ -1807,8 +1804,8 @@ bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
   SmallVector<BlobTy, 4> Ops;
   bool FoundMultiplier = false;
 
-  for (auto I = MulBlob->op_begin(), E = MulBlob->op_end(); I != E; ++I) {
-    BlobTy Op = *I;
+  for (auto &I : MulBlob->operands()) {
+    BlobTy Op = I;
 
     int64_t OpMultiplier;
     BlobTy NewOp;
@@ -1875,10 +1872,9 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
   SmallVector<BlobTy, 4> Ops;
   SmallVector<int64_t, 4> OpMultipliers;
 
-  for (auto I = CommutativeBlob->op_begin(), E = CommutativeBlob->op_end();
-       I != E; ++I) {
+  for (auto I : CommutativeBlob->operands()) {
 
-    BlobTy Op = *I;
+    BlobTy Op = I;
 
     BlobTy NewOp;
     int64_t OpMultiplier;
@@ -2234,8 +2230,8 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
       return parseBlob(AddSCEV, CE, Level, 0, IndicateFailure);
 
     } else {
-      for (auto I = AddSCEV->op_begin(), E = AddSCEV->op_end(); I != E; ++I) {
-        if (!parseRecursive(*I, CE, Level, false, UnderCast, IndicateFailure)) {
+      for (auto &I : AddSCEV->operands()) {
+        if (!parseRecursive(I, CE, Level, false, UnderCast, IndicateFailure)) {
           return false;
         }
       }
@@ -5079,7 +5075,7 @@ uint64_t HIRParser::getPossibleMaxPointerDimensionSize(const Value *Ptr) {
   return MaxSize;
 }
 
-Optional<HIRParser::DelinearizedCoeffBlobIndex>
+std::optional<HIRParser::DelinearizedCoeffBlobIndex>
 HIRParser::delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
                                 SmallVectorImpl<BlobTy> &DimSizes) {
 

@@ -470,8 +470,6 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
   ModulePassManager MPM;
-  if (VK > VK_NoVerifier)
-    MPM.addPass(VerifierPass());
   if (EnableDebugify)
     MPM.addPass(NewPMDebugifyPass());
   if (VerifyDIPreserve)
@@ -495,10 +493,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   // deprecated, i.e. when all lit tests running opt (and not using
   // -enable-new-pm=0) have been updated to use -passes.
   for (auto PassName : Passes) {
-    std::string ModifiedPassName(PassName.begin(), PassName.end());
-    if (PB.isAnalysisPassName(PassName))
-      ModifiedPassName = "require<" + ModifiedPassName + ">";
-    if (auto Err = PB.parsePassPipeline(MPM, ModifiedPassName)) {
+    if (auto Err = PB.parsePassPipeline(MPM, PassName)) {
       errs() << Arg0 << ": " << toString(std::move(Err)) << "\n";
       return false;
     }

@@ -94,7 +94,7 @@ bool CoerceTypesPass::runOnFunction(Function *F) {
       Changed = true;
       Type *ArgMemTy = Arg.getParamByValType();
       uint64_t MemSize = PDataLayout->getTypeAllocSize(ArgMemTy);
-      ValueMap[Arg.getArgNo()] = {Arg.getParamAlignment(), MemSize};
+      ValueMap[Arg.getArgNo()] = {Arg.getParamAlign()->value(), MemSize};
       TP = {Arg.getType(), nullptr};
     }
     Changed |= (Arg.getType() != TP.first);
@@ -541,7 +541,7 @@ void CoerceTypesPass::copyAttributesAndArgNames(
 void CoerceTypesPass::moveFunctionBody(Function *OldF, Function *NewF,
                                        ArrayRef<TypePair> NewArgTypePairs) {
   // Splice the body of the old function into the new one
-  NewF->getBasicBlockList().splice(NewF->begin(), OldF->getBasicBlockList());
+  NewF->splice(NewF->begin(), OldF);
 
   // Delete original function body - this is needed to remove linkage (if
   // exists)

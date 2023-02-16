@@ -354,7 +354,7 @@ DIType *ImplicitGIDImpl::getOrCreateIndDIType() const {
   // If the type wasn't found, create it now.
   Type *IndTy = LoopUtils::getIndTy(&M);
   uint64_t IndTySize =
-      M.getDataLayout().getTypeSizeInBits(IndTy).getFixedSize();
+      M.getDataLayout().getTypeSizeInBits(IndTy).getFixedValue();
   return DIB->createBasicType("ind type", IndTySize, dwarf::DW_ATE_unsigned);
 }
 

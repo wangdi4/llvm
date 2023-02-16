@@ -87,7 +87,7 @@ public:
 
   // Get the type and level of pointer indirection that exists in an annotation,
   // if one exists, for the instruction.
-  static Optional<std::pair<llvm::Type *, unsigned>>
+  static std::optional<std::pair<llvm::Type *, unsigned>>
   lookupDTransTypeAnnotation(Instruction &I);
 
   // Remove a type annotation from the instruction. Return 'true' if the
@@ -103,7 +103,7 @@ public:
 
   // Get the SOA-to-AOS transformation type and level of pointer indirection for
   // the Function, if one exists. Otherwise, nullptr
-  static Optional<std::pair<llvm::Type *, unsigned>>
+  static std::optional<std::pair<llvm::Type *, unsigned>>
   lookupDTransSOAToAOSTypeAnnotation(Function &F);
 
   // Return 'true' if the SOA-to-AOS transformation annotation is on the
@@ -124,7 +124,7 @@ public:
 
   // Get the type and level of pointer indirection for the Function that is
   // created by SOAToAOSPrepare, if one exists. Otherwise, nullptr.
-  static Optional<std::pair<llvm::Type *, unsigned>>
+  static std::optional<std::pair<llvm::Type *, unsigned>>
   lookupDTransSOAToAOSPrepareTypeAnnotation(Function &F);
 
   // Return 'true' if the SOAToAOSPrepare transformation annotation is on the
@@ -223,7 +223,7 @@ private:
   // Get the type that exists in an annotation, if one exists, for the
   // Annotatable object.
   template <typename Annotatable>
-  static Optional<std::pair<llvm::Type *, unsigned>>
+  static std::optional<std::pair<llvm::Type *, unsigned>>
   lookupDTransTypeAnnotationImpl(Annotatable &A, StringRef Name) {
     auto *MD = A.getMetadata(Name);
     if (!MD)

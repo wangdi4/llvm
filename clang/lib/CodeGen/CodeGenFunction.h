@@ -58,6 +58,7 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/SanitizerStats.h"
+#include <optional>
 
 namespace llvm {
 class BasicBlock;
@@ -828,7 +829,7 @@ public:
     FPOptions OldFPFeatures;
     llvm::fp::ExceptionBehavior OldExcept;
     llvm::RoundingMode OldRounding;
-    Optional<CGBuilderTy::FastMathFlagGuard> FMFGuard;
+    std::optional<CGBuilderTy::FastMathFlagGuard> FMFGuard;
   };
   FPOptions CurFPFeatures;
 
@@ -1960,19 +1961,19 @@ public:
     ~TerminateHandlerRAII() {
       if (CGF.TerminateHandler) {
         if (!CGF.TerminateHandler->use_empty())
-          CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateHandler);
+          CGF.CurFn->insert(CGF.CurFn->end(), CGF.TerminateHandler);
         else
           delete CGF.TerminateHandler;
       }
       if (CGF.TerminateLandingPad) {
         if (!CGF.TerminateLandingPad->use_empty())
-          CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateLandingPad);
+          CGF.CurFn->insert(CGF.CurFn->end(), CGF.TerminateLandingPad);
         else
           delete CGF.TerminateLandingPad;
       }
       if (CGF.UnreachableBlock) {
         if (!CGF.UnreachableBlock->use_empty())
-          CGF.CurFn->getBasicBlockList().push_back(CGF.UnreachableBlock);
+          CGF.CurFn->insert(CGF.CurFn->end(), CGF.UnreachableBlock);
         else
           delete CGF.UnreachableBlock;
       }
@@ -5455,8 +5456,17 @@ public:
   llvm::BasicBlock *EmitCpuFeaturesInit(llvm::Function *Func);
   static std::array<uint64_t, 2>
   GetCpuFeatureBitmap(ArrayRef<StringRef> FeatureStrs);
-
 #endif // INTEL_CUSTOMIZATION
+
+  void
+  EmitX86MultiVersionResolver(llvm::Function *Resolver,
+#if INTEL_CUSTOMIZATION
+                              ArrayRef<MultiVersionResolverOption> Options,
+                              bool IsCpuDispatch);
+#endif // INTEL_CUSTOMIZATION
+  void
+  EmitAArch64MultiVersionResolver(llvm::Function *Resolver,
+                                  ArrayRef<MultiVersionResolverOption> Options);
 
 private:
   QualType getVarArgType(const Expr *Arg);
@@ -5477,11 +5487,15 @@ private:
   llvm::Value *EmitX86CpuSupports(uint64_t Mask);
   llvm::Value *EmitX86CpuInit();
 #if INTEL_CUSTOMIZATION
-  llvm::Value *FormResolverCondition(const MultiVersionResolverOption &RO,
-                                     bool IsCpuDispatch);
+  llvm::Value *FormX86ResolverCondition(const MultiVersionResolverOption &RO,
+                                        bool IsCpuDispatch);
   llvm::Value *
   EmitX86CpuDispatchLibIrcFeaturesTest(ArrayRef<StringRef> FeaturStrs);
 #endif // INTEL_CUSTOMIZATION
+  llvm::Value *EmitAArch64CpuInit();
+  llvm::Value *
+  FormAArch64ResolverCondition(const MultiVersionResolverOption &RO);
+  llvm::Value *EmitAArch64CpuSupports(ArrayRef<StringRef> FeatureStrs);
 };
 
 
@@ -5491,9 +5505,9 @@ DominatingLLVMValue::save(CodeGenFunction &CGF, llvm::Value *value) {
 
   // Otherwise, we need an alloca.
   auto align = CharUnits::fromQuantity(
-            CGF.CGM.getDataLayout().getPrefTypeAlignment(value->getType()));
+      CGF.CGM.getDataLayout().getPrefTypeAlign(value->getType()));
   Address alloca =
-    CGF.CreateTempAlloca(value->getType(), align, "cond-cleanup.save");
+      CGF.CreateTempAlloca(value->getType(), align, "cond-cleanup.save");
   CGF.Builder.CreateStore(value, alloca);
 
   return saved_type(alloca.getPointer(), true);

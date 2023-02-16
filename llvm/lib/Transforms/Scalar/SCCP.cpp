@@ -129,8 +129,8 @@ static bool runSCCP(Function &F, const DataLayout &DL,
       continue;
     }
 
-    MadeChanges |= simplifyInstsInBlock(Solver, BB, InsertedValues,
-                                        NumInstRemoved, NumInstReplaced);
+    MadeChanges |= Solver.simplifyInstsInBlock(BB, InsertedValues,
+                                               NumInstRemoved, NumInstReplaced);
   }
 
   // Remove unreachable blocks and non-feasible edges.
@@ -140,7 +140,7 @@ static bool runSCCP(Function &F, const DataLayout &DL,
 
   BasicBlock *NewUnreachableBB = nullptr;
   for (BasicBlock &BB : F)
-    MadeChanges |= removeNonFeasibleEdges(Solver, &BB, DTU, NewUnreachableBB);
+    MadeChanges |= Solver.removeNonFeasibleEdges(&BB, DTU, NewUnreachableBB);
 
   for (BasicBlock *DeadBB : BlocksToErase)
     if (!DeadBB->hasAddressTaken())

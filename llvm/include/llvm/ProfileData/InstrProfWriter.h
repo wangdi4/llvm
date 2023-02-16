@@ -35,6 +35,7 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/GlobalValue.h"
+#include "llvm/Object/BuildID.h"
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/ProfileData/MemProf.h"
 #include "llvm/Support/Endian.h"
@@ -66,6 +67,9 @@ private:
   // convert IndexedMemProfRecord to MemProfRecords with frame information
   // inline.
   llvm::MapVector<memprof::FrameId, memprof::Frame> MemProfFrameData;
+
+  // List of binary ids.
+  std::vector<llvm::object::BuildID> BinaryIds;
 
   // An enum describing the attributes of the profile.
   InstrProfKind ProfileKind = InstrProfKind::Unknown;
@@ -99,6 +103,9 @@ public:
   /// \p FrameId.
   bool addMemProfFrame(const memprof::FrameId, const memprof::Frame &F,
                        function_ref<void(Error)> Warn);
+
+  // Add a binary id to the binary ids list.
+  void addBinaryIds(ArrayRef<llvm::object::BuildID> BIs);
 
   /// Merge existing function counts from the given writer.
   void mergeRecordsFromWriter(InstrProfWriter &&IPW,

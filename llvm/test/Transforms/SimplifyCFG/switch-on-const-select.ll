@@ -136,8 +136,8 @@ define i32 @xyzzy(i64 %x, i64 %y) {
 ; CHECK-NEXT:    [[EQ:%.*]] = icmp eq i64 [[X:%.*]], [[Y:%.*]]
 ; CHECK-NEXT:    [[LT:%.*]] = icmp slt i64 [[X]], [[Y]]
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[LT]], i32 -1, i32 1
-; CHECK-NEXT:    [[TMP0:%.*]] = select i1 [[EQ]], i32 0, i32 [[SPEC_SELECT]]
-; CHECK-NEXT:    ret i32 [[TMP0]]
+; CHECK-NEXT:    [[COMMON_RET_OP:%.*]] = select i1 [[EQ]], i32 0, i32 [[SPEC_SELECT]]
+; CHECK-NEXT:    ret i32 [[COMMON_RET_OP]]
 ;
 entry:
   %eq = icmp eq i64 %x, %y

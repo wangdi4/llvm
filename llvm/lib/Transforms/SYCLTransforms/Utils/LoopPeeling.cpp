@@ -62,7 +62,7 @@ static int computeMultiplierForPeeling(int Step, Align RequiredAlignment,
 
 namespace LoopDynamicPeeling {
 
-Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
+std::optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
                                    ArrayRef<Value *> InitGIDs,
                                    Value *MaxPeelSize) {
   // Search for load or store instruction with intel.preferred_alignment
@@ -151,7 +151,7 @@ Optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorEntry,
          "Peeling target is expected to be pointer to vector");
   Type *ETy = cast<VectorType>(VTy)->getElementType();
   const DataLayout &DL = M->getDataLayout();
-  uint64_t ElementSize = DL.getTypeAllocSize(ETy).getFixedSize();
+  uint64_t ElementSize = DL.getTypeAllocSize(ETy).getFixedValue();
   Align RequiredAlign(ElementSize);
 
   // Get target (preferred) alignment from metadata.

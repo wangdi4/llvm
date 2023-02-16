@@ -358,27 +358,28 @@ static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple,
 
   switch (CodeGenOpts.getVecLib()) {
   case CodeGenOptions::Accelerate:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::Accelerate);
+    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::Accelerate,
+                                             TargetTriple);
     break;
   case CodeGenOptions::LIBMVEC:
-    switch(TargetTriple.getArch()) {
-      default:
-        break;
-      case llvm::Triple::x86_64:
-        TLII->addVectorizableFunctionsFromVecLib
-                (TargetLibraryInfoImpl::LIBMVEC_X86);
-        break;
-    }
+    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::LIBMVEC_X86,
+                                             TargetTriple);
     break;
   case CodeGenOptions::MASSV:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::MASSV);
+    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::MASSV,
+                                             TargetTriple);
     break;
   case CodeGenOptions::SVML:
-    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::SVML);
+    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::SVML,
+                                             TargetTriple);
+    break;
+  case CodeGenOptions::SLEEF:
+    TLII->addVectorizableFunctionsFromVecLib(TargetLibraryInfoImpl::SLEEFGNUABI,
+                                             TargetTriple);
     break;
   case CodeGenOptions::Darwin_libsystem_m:
     TLII->addVectorizableFunctionsFromVecLib(
-        TargetLibraryInfoImpl::DarwinLibSystemM);
+        TargetLibraryInfoImpl::DarwinLibSystemM, TargetTriple);
     break;
   default:
     break;
@@ -398,21 +399,6 @@ static void addSymbolRewriterPass(const CodeGenOptions &Opts,
   MPM->add(createRewriteSymbolsPass(DL));
 }
 #endif // INTEL_CUSTOMIZATION
-
-static CodeGenOpt::Level getCGOptLevel(const CodeGenOptions &CodeGenOpts) {
-  switch (CodeGenOpts.OptimizationLevel) {
-  default:
-    llvm_unreachable("Invalid optimization level!");
-  case 0:
-    return CodeGenOpt::None;
-  case 1:
-    return CodeGenOpt::Less;
-  case 2:
-    return CodeGenOpt::Default; // O2/Os/Oz
-  case 3:
-    return CodeGenOpt::Aggressive;
-  }
-}
 
 static std::optional<llvm::CodeModel::Model>
 getCodeModel(const CodeGenOptions &CodeGenOpts) {
@@ -620,8 +606,8 @@ static bool initTargetOptions(DiagnosticsEngine &Diags,
   return true;
 }
 
-static Optional<GCOVOptions> getGCOVOptions(const CodeGenOptions &CodeGenOpts,
-                                            const LangOptions &LangOpts) {
+static std::optional<GCOVOptions>
+getGCOVOptions(const CodeGenOptions &CodeGenOpts, const LangOptions &LangOpts) {
   if (!CodeGenOpts.EmitGcovArcs && !CodeGenOpts.EmitGcovNotes)
     return std::nullopt;
   // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
@@ -637,7 +623,7 @@ static Optional<GCOVOptions> getGCOVOptions(const CodeGenOptions &CodeGenOpts,
   return Options;
 }
 
-static Optional<InstrProfOptions>
+static std::optional<InstrProfOptions>
 getInstrProfOptions(const CodeGenOptions &CodeGenOpts,
                     const LangOptions &LangOpts) {
   if (!CodeGenOpts.hasProfileClangInstr())
@@ -766,7 +752,10 @@ void EmitAssemblyHelper::CreateTargetMachine(bool MustCreateTM) {
   std::string FeaturesStr =
       llvm::join(TargetOpts.Features.begin(), TargetOpts.Features.end(), ",");
   llvm::Reloc::Model RM = CodeGenOpts.RelocationModel;
-  CodeGenOpt::Level OptLevel = getCGOptLevel(CodeGenOpts);
+  std::optional<CodeGenOpt::Level> OptLevelOrNone =
+      CodeGenOpt::getLevel(CodeGenOpts.OptimizationLevel);
+  assert(OptLevelOrNone && "Invalid optimization level!");
+  CodeGenOpt::Level OptLevel = *OptLevelOrNone;
 
   llvm::TargetOptions Options;
   if (!initTargetOptions(Diags, Options, CodeGenOpts, TargetOpts, LangOpts,
@@ -1268,11 +1257,6 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
 
   ModulePassManager MPM;
 
-  // FIXME: Change this when -fno-sycl-early-optimizations is not tied to
-  // -disable-llvm-passes.
-  if (CodeGenOpts.DisableLLVMPasses && LangOpts.SYCLIsDevice)
-    MPM.addPass(SYCLPropagateAspectsUsagePass());
-
   if (!CodeGenOpts.DisableLLVMPasses) {
     // Map our optimization levels into one of the distinct levels used to
     // configure the pipeline.
@@ -1361,19 +1345,23 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
       addKCFIPass(TargetTriple, LangOpts, PB);
     }
 
-    if (Optional<GCOVOptions> Options = getGCOVOptions(CodeGenOpts, LangOpts))
+    if (std::optional<GCOVOptions> Options =
+            getGCOVOptions(CodeGenOpts, LangOpts))
       PB.registerPipelineStartEPCallback(
           [Options](ModulePassManager &MPM, OptimizationLevel Level) {
             MPM.addPass(GCOVProfilerPass(*Options));
           });
-    if (Optional<InstrProfOptions> Options =
+    if (std::optional<InstrProfOptions> Options =
             getInstrProfOptions(CodeGenOpts, LangOpts))
       PB.registerPipelineStartEPCallback(
           [Options](ModulePassManager &MPM, OptimizationLevel Level) {
             MPM.addPass(InstrProfiling(*Options, false));
           });
 
-    if (CodeGenOpts.OptimizationLevel == 0) {
+    if (CodeGenOpts.DisableSYCLEarlyOpts) {
+      MPM =
+          PB.buildO0DefaultPipeline(OptimizationLevel::O0, IsLTO || IsThinLTO);
+    } else if (CodeGenOpts.OptimizationLevel == 0) {
       MPM = PB.buildO0DefaultPipeline(Level, IsLTO || IsThinLTO);
     } else if (IsThinLTO) {
       MPM = PB.buildThinLTOPreLinkDefaultPipeline(Level);
@@ -1387,31 +1375,26 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
       MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
       MPM.addPass(ModuleMemProfilerPass());
     }
-  }
-  if (LangOpts.SYCLIsDevice) {
-    MPM.addPass(SYCLMutatePrintfAddrspacePass());
-    if (!CodeGenOpts.DisableLLVMPasses && LangOpts.EnableDAEInSpirKernels)
-      MPM.addPass(DeadArgumentEliminationSYCLPass());
-  }
 
-  // Add SPIRITTAnnotations pass to the pass manager if
-  // -fsycl-instrument-device-code option was passed. This option can be used
-  // only with spir triple.
-  if (LangOpts.SYCLIsDevice && CodeGenOpts.SPIRITTAnnotations) {
-    assert(TargetTriple.isSPIR() &&
-           "ITT annotations can only be added to a module with spir target");
-    MPM.addPass(SPIRITTAnnotationsPass());
-  }
+    if (LangOpts.SYCLIsDevice) {
+      MPM.addPass(SYCLMutatePrintfAddrspacePass());
+      if (LangOpts.EnableDAEInSpirKernels)
+        MPM.addPass(DeadArgumentEliminationSYCLPass());
 
-  // Allocate static local memory in SYCL kernel scope for each allocation
-  // call. It should be called after inlining pass.
-  if (LangOpts.SYCLIsDevice) {
-    // Group local memory pass depends on inlining. Turn it on even in case if
-    // all llvm passes or SYCL early optimizations are disabled.
-    // FIXME: Remove this workaround when dependency on inlining is eliminated.
-    if (CodeGenOpts.DisableLLVMPasses)
-      MPM.addPass(AlwaysInlinerPass(false));
-    MPM.addPass(SYCLLowerWGLocalMemoryPass());
+      // Add SPIRITTAnnotations pass to the pass manager if
+      // -fsycl-instrument-device-code option was passed. This option can be
+      // used only with spir triple.
+      if (CodeGenOpts.SPIRITTAnnotations) {
+        assert(
+            TargetTriple.isSPIR() &&
+            "ITT annotations can only be added to a module with spir target");
+        MPM.addPass(SPIRITTAnnotationsPass());
+      }
+
+      // Allocate static local memory in SYCL kernel scope for each allocation
+      // call.
+      MPM.addPass(SYCLLowerWGLocalMemoryPass());
+    }
   }
 
   // Add a verifier pass if requested. We don't have to do this if the action
@@ -1565,7 +1548,10 @@ static void runThinLTOBackend(
   Conf.CodeModel = getCodeModel(CGOpts);
   Conf.MAttrs = TOpts.Features;
   Conf.RelocModel = CGOpts.RelocationModel;
-  Conf.CGOptLevel = getCGOptLevel(CGOpts);
+  std::optional<CodeGenOpt::Level> OptLevelOrNone =
+      CodeGenOpt::getLevel(CGOpts.OptimizationLevel);
+  assert(OptLevelOrNone && "Invalid optimization level!");
+  Conf.CGOptLevel = *OptLevelOrNone;
   Conf.OptLevel = CGOpts.OptimizationLevel;
   initTargetOptions(Diags, Conf.Options, CGOpts, TOpts, LOpts, HeaderOpts);
   Conf.SampleProfile = std::move(SampleProfile);

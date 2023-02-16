@@ -617,7 +617,7 @@ bool RecursiveASTVisitor<Derived>::TraverseConceptExprRequirement(
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::TraverseConceptNestedRequirement(
     concepts::NestedRequirement *R) {
-  if (!R->isSubstitutionFailure())
+  if (!R->hasInvalidConstraint())
     return getDerived().TraverseStmt(R->getConstraintExpr());
   return true;
 }
@@ -2900,6 +2900,7 @@ DEF_TRAVERSE_STMT(SubstNonTypeTemplateParmExpr, {})
 DEF_TRAVERSE_STMT(FunctionParmPackExpr, {})
 DEF_TRAVERSE_STMT(CXXFoldExpr, {})
 DEF_TRAVERSE_STMT(AtomicExpr, {})
+DEF_TRAVERSE_STMT(CXXParenListInitExpr, {})
 
 DEF_TRAVERSE_STMT(MaterializeTemporaryExpr, {
   if (S->getLifetimeExtendedTemporaryDecl()) {
@@ -3997,6 +3998,14 @@ bool RecursiveASTVisitor<Derived>::VisitOMPFilterClause(OMPFilterClause *C) {
 
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPBindClause(OMPBindClause *C) {
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPXDynCGroupMemClause(
+    OMPXDynCGroupMemClause *C) {
+  TRY_TO(VisitOMPClauseWithPreInit(C));
+  TRY_TO(TraverseStmt(C->getSize()));
   return true;
 }
 

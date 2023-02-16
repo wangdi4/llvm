@@ -71,7 +71,7 @@ define void @test_scalar(i32* nocapture readonly %iarr)  {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[TMP1]] to <4 x i32>*
 ; CHECK-NEXT:    [[GEPLOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    store <4 x i32> [[GEPLOAD]], <4 x i32>* [[PRIV_MEM]], align 4
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP0]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP0]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x i32*> [[DOTSPLATINSERT]], <4 x i32*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, <4 x i32*> [[DOTSPLAT]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <4 x i32*> [[TMP3]] to <4 x i8*>
@@ -127,10 +127,10 @@ define void @test_array(i32* nocapture readonly %ip)  {
 ; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i32, i32* [[IP:%.*]], i64 [[I1_I64_0]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[TMP1]] to <4 x i32>*
 ; CHECK-NEXT:    [[GEPLOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x [100 x i32]*> poison, [100 x i32]* [[TMP0]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <4 x [100 x i32]*> poison, [100 x i32]* [[TMP0]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <4 x [100 x i32]*> [[DOTSPLATINSERT]], <4 x [100 x i32]*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds [100 x i32], <4 x [100 x i32]*> [[DOTSPLAT]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:    [[DOTSPLATINSERT2:%.*]] = insertelement <4 x i64> poison, i64 [[I1_I64_0]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT2:%.*]] = insertelement <4 x i64> poison, i64 [[I1_I64_0]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT3:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT2]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP4:%.*]] = add <4 x i64> <i64 0, i64 1, i64 2, i64 3>, [[DOTSPLAT3]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds [100 x i32], <4 x [100 x i32]*> [[TMP3]], <4 x i64> zeroinitializer, <4 x i64> [[TMP4]]

@@ -126,7 +126,7 @@ void HandlePragmaVectorAligned::processAlignedLoop(const Loop *L) {
       if (AccessSize.isScalable())
         continue;
 
-      if (StepExpr->getAPInt() != AccessSize.getFixedSize())
+      if (StepExpr->getAPInt() != AccessSize.getFixedValue())
         continue;
 
       // Build an alignment assumption.

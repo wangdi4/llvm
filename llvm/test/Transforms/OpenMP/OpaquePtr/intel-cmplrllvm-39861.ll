@@ -1,9 +1,10 @@
 ; RUN: opt -S -opaque-pointers -passes='cgscc(openmp-opt-cgscc)' < %s 2>&1 | FileCheck %s
 
-; CMPLRLLVM-39892: Check that @printf is converted to a declare without triggering
-; an assertion.
+; The customized printf was being removed and replaced with an incompatible
+; version. With opaque pointers, the args don't strictly need to match,
+; so it is acceptable for the compiler to replace or not replace the printf.
 
-; CHECK: declare dso_local i32 @printf(
+; CHECK: @printf
 
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc19.30.30705"

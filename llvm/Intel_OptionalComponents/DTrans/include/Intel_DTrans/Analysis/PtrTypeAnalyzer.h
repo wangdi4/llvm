@@ -536,7 +536,7 @@ public:
 
   // If the GEP was identified as a flattened GEP during the type analysis,
   // return <structure type, field number, indexing multipler>.
-  llvm::Optional<FlattenedGEPInfoType>
+  std::optional<FlattenedGEPInfoType>
   getFlattenedGEPElement(GEPOperator *GEP) const;
 
   // If the call is to a function identified as returning allocated memory,

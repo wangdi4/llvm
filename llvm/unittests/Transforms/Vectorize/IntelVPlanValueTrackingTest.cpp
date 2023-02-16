@@ -25,7 +25,7 @@ protected:
   std::unique_ptr<VPlanVector> Plan;
 
   static BasicBlock *findBlockByName(Function *F, StringRef Name) {
-    for (BasicBlock &BB : F->getBasicBlockList())
+    for (BasicBlock &BB : *F)
       if (BB.getName() == Name)
         return &BB;
     return nullptr;

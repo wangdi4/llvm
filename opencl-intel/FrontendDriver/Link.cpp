@@ -54,14 +54,17 @@ enum LINK_OPT_ID {
 #undef PREFIX
 };
 
-#define PREFIX(NAME, VALUE) const char *const NAME[] = VALUE;
+#define PREFIX(NAME, VALUE)                                                    \
+  static constexpr llvm::StringLiteral NAME##_init[] = VALUE;                  \
+  static constexpr llvm::ArrayRef<llvm::StringLiteral> NAME(                   \
+      NAME##_init, std::size(NAME##_init) - 1);
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)
 #include "opencl_link_options.inc"
 #undef OPTION
 #undef PREFIX
 
-static const llvm::opt::OptTable::Info ClangOptionsInfoTable[] = {
+static constexpr llvm::opt::OptTable::Info ClangOptionsInfoTable[] = {
 #define PREFIX(NAME, VALUE)
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)                                      \
@@ -83,7 +86,7 @@ static const llvm::opt::OptTable::Info ClangOptionsInfoTable[] = {
 };
 
 OpenCLLinkOptTable::OpenCLLinkOptTable()
-    : llvm::opt::OptTable(ClangOptionsInfoTable) {}
+    : llvm::opt::GenericOptTable(ClangOptionsInfoTable) {}
 
 ClangLinkOptions::ClangLinkOptions(const char *pszOptions) {
   BumpPtrAllocator A;

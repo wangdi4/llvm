@@ -29,7 +29,7 @@ define float @foo(float* nocapture readonly %A, i32 %N) {
 ; Checks for generated LLVM-IR
 ; CHECK-LABEL: @foo(
 ; CHECK:  VPlannedBB1:
-; CHECK:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x float> poison, float [[TMP0:%.*]], i32 0
+; CHECK:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x float> poison, float [[TMP0:%.*]], i64 0
 ; CHECK:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x float> [[BROADCAST_SPLATINSERT0]], <4 x float> poison, <4 x i32> zeroinitializer
 
 ; CHECK:  vector.body:

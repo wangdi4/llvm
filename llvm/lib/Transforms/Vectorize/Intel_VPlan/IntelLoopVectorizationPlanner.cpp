@@ -399,7 +399,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
     const unsigned MinVectorWidth = TTI->getMinVectorRegisterBitWidth();
     const unsigned MaxVectorWidth =
         TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-            .getFixedSize();
+            .getFixedValue();
     MaxVF = MaxVectorWidth / MinWidthInBits;
     MinVF = std::max(MinVectorWidth / MaxWidthInBits, 1u);
 
@@ -588,7 +588,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   // intrinsic might not be available.
   unsigned MaxVecRegSize =
       TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-          .getFixedSize();
+          .getFixedValue();
 
   unsigned NumVConflictIdioms = 0;
   unsigned NumGathers = 0;
@@ -617,7 +617,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
       unsigned VConflictIndexSizeInBits = VPConflict->getConflictIndex()
                                               ->getType()
                                               ->getPrimitiveSizeInBits()
-                                              .getFixedSize();
+                                              .getFixedValue();
 
       unsigned MaxVF = MaxVecRegSize / VConflictIndexSizeInBits;
 
@@ -943,7 +943,7 @@ void LoopVectorizationPlanner::selectSimplestVecScenario(unsigned VF,
   VecScenario.setVectorMain(VF, UF);
 }
 
-Optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled() {
+std::optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled() {
   if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.vecremainder")) {
     DEBUG_WITH_TYPE("VPlan_pragma_metadata",
                      dbgs() << "Vector Remainder was set by the user's "

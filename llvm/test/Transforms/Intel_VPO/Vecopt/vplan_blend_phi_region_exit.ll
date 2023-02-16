@@ -48,7 +48,7 @@ inner.exit:
 ; CHECK:       [[VPLANNEDBB5]]:
 ; CHECK-NEXT:    [[UNI_PHI6:%.*]] = phi i64 [ [[TMP2:%.*]], %[[VPLANNEDBB5]] ], [ 0, %[[VPLANNEDBB4]] ]
 ; CHECK-NEXT:    [[TMP2]] = add i64 [[UNI_PHI6]], 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[TMP2]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[TMP2]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq <2 x i64> [[BROADCAST_SPLAT]], <i64 72, i64 72>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <2 x i1> [[TMP3]], i32 0

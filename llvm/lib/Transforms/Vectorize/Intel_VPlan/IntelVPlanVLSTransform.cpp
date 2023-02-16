@@ -107,7 +107,7 @@ private:
   const char *FailureReason = nullptr;
 
   // Rest of the state is inaccessible if the group itself isn't transformable.
-  Optional<int64_t> GroupStride; // In bytes.
+  std::optional<int64_t> GroupStride; // In bytes.
   /// Group-wide memop should be performed at that position.
   const VPVLSClientMemref *InsertPointMemref;
   /// VPInstruction associated with the insert point above.

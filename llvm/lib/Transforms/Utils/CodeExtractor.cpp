@@ -1388,7 +1388,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
 
     newFunction->addFnAttr(Attr);
   }
-  newFunction->getBasicBlockList().push_back(newRootNode);
+  newFunction->insert(newFunction->end(), newRootNode);
 
   // Create scalar and aggregate iterators to name all of the arguments we
   // inserted.
@@ -1654,7 +1654,7 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
         Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), i);
         GetElementPtrInst *GEP = GetElementPtrInst::Create(
             StructArgTy, Struct, Idx, "gep_" + StructValues[i]->getName());
-        GEP->insertAt(codeReplacer, codeReplacer->end());
+        GEP->insertInto(codeReplacer, codeReplacer->end());
         new StoreInst(StructValues[i], GEP, codeReplacer);
         NumAggregatedInputs++;
       }
@@ -1672,7 +1672,7 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
     if (auto DL = newFunction->getEntryBlock().getTerminator()->getDebugLoc())
       call->setDebugLoc(DL);
   }
-  call->insertAt(codeReplacer, codeReplacer->end());
+  call->insertInto(codeReplacer, codeReplacer->end());
 
   // Set swifterror parameter attributes.
   for (unsigned SwiftErrArgNo : SwiftErrorArgs) {
@@ -1692,7 +1692,7 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
       Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), aggIdx);
       GetElementPtrInst *GEP = GetElementPtrInst::Create(
           StructArgTy, Struct, Idx, "gep_reload_" + outputs[i]->getName());
-      GEP->insertAt(codeReplacer, codeReplacer->end());
+      GEP->insertInto(codeReplacer, codeReplacer->end());
       Output = GEP;
       ++aggIdx;
     } else {
@@ -1881,21 +1881,17 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
 }
 
 void CodeExtractor::moveCodeToFunction(Function *newFunction) {
-  Function *oldFunc = (*Blocks.begin())->getParent();
-  Function::BasicBlockListType &oldBlocks = oldFunc->getBasicBlockList();
-  Function::BasicBlockListType &newBlocks = newFunction->getBasicBlockList();
-
   auto newFuncIt = newFunction->front().getIterator();
   for (BasicBlock *Block : Blocks) {
     // Delete the basic block from the old function, and the list of blocks
-    oldBlocks.remove(Block);
+    Block->removeFromParent();
 
     // Insert this basic block into the new function
     // Insert the original blocks after the entry block created
     // for the new function. The entry block may be followed
     // by a set of exit blocks at this point, but these exit
     // blocks better be placed at the end of the new function.
-    newFuncIt = newBlocks.insertAfter(newFuncIt, Block);
+    newFuncIt = newFunction->insert(std::next(newFuncIt), Block);
   }
 }
 
@@ -2355,14 +2351,14 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     // Force assumptions in the old function to be rescanned on the next access.
     AC->clear();
 #else // INTEL_CUSTOMIZATION
-  // Remove @llvm.assume calls that will be moved to the new function from the
-  // old function's assumption cache.
+  // Remove CondGuardInsts that will be moved to the new function from the old
+  // function's assumption cache.
   for (BasicBlock *Block : Blocks) {
     for (Instruction &I : llvm::make_early_inc_range(*Block)) {
-      if (auto *AI = dyn_cast<AssumeInst>(&I)) {
+      if (auto *CI = dyn_cast<CondGuardInst>(&I)) {
         if (AC)
-          AC->unregisterAssumption(AI);
-        AI->eraseFromParent();
+          AC->unregisterAssumption(CI);
+        CI->eraseFromParent();
       }
     }
   }
@@ -2428,7 +2424,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
       });
     });
   }
-  BranchI->insertAt(newFuncRoot, newFuncRoot->end());
+  BranchI->insertInto(newFuncRoot, newFuncRoot->end());
 
   ValueSet SinkingCands, HoistingCands;
   BasicBlock *CommonExit = nullptr;
@@ -2520,7 +2516,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     auto Count = BFI->getProfileCountFromFreq(EntryFreq.getFrequency());
     if (Count)
       newFunction->setEntryCount(
-          ProfileCount(Count.value(), Function::PCT_Real)); // FIXME
+          ProfileCount(*Count, Function::PCT_Real)); // FIXME
     BFI->setBlockFreq(codeReplacer, EntryFreq.getFrequency());
   }
 
@@ -2657,7 +2653,7 @@ bool CodeExtractor::verifyAssumptionCache(const Function &OldFunc,
                                           const Function &NewFunc,
                                           AssumptionCache *AC) {
   for (auto AssumeVH : AC->assumptions()) {
-    auto *I = dyn_cast_or_null<CallInst>(AssumeVH);
+    auto *I = dyn_cast_or_null<CondGuardInst>(AssumeVH);
     if (!I)
       continue;
 
@@ -2669,7 +2665,7 @@ bool CodeExtractor::verifyAssumptionCache(const Function &OldFunc,
     // that were previously in the old function, but that have now been moved
     // to the new function.
     for (auto AffectedValVH : AC->assumptionsFor(I->getOperand(0))) {
-      auto *AffectedCI = dyn_cast_or_null<CallInst>(AffectedValVH);
+      auto *AffectedCI = dyn_cast_or_null<CondGuardInst>(AffectedValVH);
       if (!AffectedCI)
         continue;
       if (AffectedCI->getFunction() != &OldFunc)

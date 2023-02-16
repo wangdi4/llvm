@@ -5,7 +5,7 @@
 ; xmain unroll heuristics are very different than llorg.
 
 define void @mask-high(i64 %arg, ptr dereferenceable(4) %arg1) {
-; CHECK-LABEL: define {{[^@]+}}@mask-high(
+; CHECK-LABEL: @mask-high(
 ; CHECK-NEXT:  bb:
 ; CHECK-NEXT:    [[I:%.*]] = load i32, ptr [[ARG1:%.*]], align 4
 ; CHECK-NEXT:    [[I2:%.*]] = sext i32 [[I]] to i64
@@ -78,7 +78,7 @@ bb10:                                             ; preds = %bb6, %bb
 
 
 define void @mask-low(i64 %arg, ptr dereferenceable(4) %arg1) {
-; CHECK-LABEL: define {{[^@]+}}@mask-low(
+; CHECK-LABEL: @mask-low(
 ; CHECK-NEXT:  bb:
 ; CHECK-NEXT:    [[I:%.*]] = load i32, ptr [[ARG1:%.*]], align 4
 ; CHECK-NEXT:    [[I2:%.*]] = sext i32 [[I]] to i64

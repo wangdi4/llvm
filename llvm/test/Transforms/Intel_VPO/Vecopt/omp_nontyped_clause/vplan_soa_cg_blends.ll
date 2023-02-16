@@ -28,7 +28,7 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-NEXT:    br i1 [[TMP2]], label [[PRED_LOAD_IF:%.*]], label [[TMP4:%.*]]
 ; CHECK:       pred.load.if:
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i1, i1* [[UNIFORM_PTR:%.*]], align 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i1> poison, i1 [[TMP3]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i1> poison, i1 [[TMP3]], i64 0
 ; CHECK-NEXT:    br label [[TMP4]]
 ; CHECK:       5:
 ; CHECK-NEXT:    [[TMP5:%.*]] = phi <2 x i1> [ poison, [[VPLANNEDBB3]] ], [ [[BROADCAST_SPLATINSERT]], [[PRED_LOAD_IF]] ]
@@ -65,7 +65,7 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[PREDBLEND17]], i32 4, <2 x i1> [[TMP0]], <2 x i32> poison)
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER19:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[PREDBLEND18]], i32 4, <2 x i1> [[TMP0]], <2 x i32> poison)
 ; CHECK-NEXT:    [[TMP11:%.*]] = add i64 [[TMP10]], 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT22:%.*]] = insertelement <2 x i64> poison, i64 [[TMP11]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT22:%.*]] = insertelement <2 x i64> poison, i64 [[TMP11]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT23:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT22]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK:       VPlannedBB20:

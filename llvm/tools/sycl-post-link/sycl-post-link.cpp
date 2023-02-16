@@ -310,7 +310,7 @@ void writeToFile(const std::string &Filename, const std::string &Content) {
 // Optional.
 // Otherwise, it returns an Optional containing a list of reached
 // SPIR kernel function's names.
-Optional<std::vector<StringRef>>
+std::optional<std::vector<StringRef>>
 traverseCGToFindSPIRKernels(const Function *StartingFunction) {
   std::queue<const Function *> FunctionsToVisit;
   std::unordered_set<const Function *> VisitedFunctions;
@@ -651,6 +651,17 @@ std::string saveModuleProperties(module_split::ModuleDesc &MD,
         continue;
       MetadataNames.push_back(Func.getName().str() + "@reqd_work_group_size");
       ProgramMetadata.insert({MetadataNames.back(), KernelReqdWorkGroupSize});
+    }
+
+    // Add global_id_mapping information with mapping between device-global
+    // unique identifiers and the variable's name in the IR.
+    for (auto &GV : M.globals()) {
+      if (!isDeviceGlobalVariable(GV))
+        continue;
+
+      StringRef GlobalID = getGlobalVariableUniqueId(GV);
+      MetadataNames.push_back(GlobalID.str() + "@global_id_mapping");
+      ProgramMetadata.insert({MetadataNames.back(), GV.getName()});
     }
   }
   if (MD.isESIMD()) {

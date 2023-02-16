@@ -223,6 +223,13 @@ int32_t __tgt_rtl_run_target_team_region_async(
     int32_t NumTeams, int32_t ThreadLimit, uint64_t LoopTripcount,
     __tgt_async_info *AsyncInfo);
 
+#if INTEL_COLLAB
+EXTERN
+int32_t __tgt_rtl_launch_kernel(int32_t ID, void *Entry, void **Args,
+                                ptrdiff_t *Offsets, KernelArgsTy *KernelArgs,
+                                __tgt_async_info *AsyncInfo);
+#endif // INTEL_COLLAB
+
 // Device synchronization. In case of success, return zero. Otherwise, return an
 // error code.
 #if INTEL_COLLAB
@@ -397,6 +404,17 @@ EXTERN int __tgt_rtl_memcpy_rect_3d(
     const size_t *DstDims, const size_t *SrcDims);
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
+
+// Queries for the completion of asynchronous operations. Instead of blocking
+// the calling thread as __tgt_rtl_synchronize, the progress of the operations
+// stored in AsyncInfo->Queue is queried in a non-blocking manner, partially
+// advancing their execution. If all operations are completed, AsyncInfo->Queue
+// is set to nullptr. If there are still pending operations, AsyncInfo->Queue is
+// kept as a valid queue. In any case of success (i.e., successful query
+// with/without completing all operations), return zero. Otherwise, return an
+// error code.
+int32_t __tgt_rtl_query_async(int32_t ID, __tgt_async_info *AsyncInfo);
+
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);
 
@@ -432,6 +450,13 @@ int32_t __tgt_rtl_destroy_event(int32_t ID, void *Event);
 int32_t __tgt_rtl_init_async_info(int32_t ID, __tgt_async_info **AsyncInfoPtr);
 int32_t __tgt_rtl_init_device_info(int32_t ID, __tgt_device_info *DeviceInfoPtr,
                                    const char **ErrStr);
+
+// lock/pin host memory
+int32_t __tgt_rtl_data_lock(int32_t ID, void *HstPtr, int64_t Size,
+                            void **LockedPtr);
+
+// unlock/unpin host memory
+int32_t __tgt_rtl_data_unlock(int32_t ID, void *HstPtr);
 
 #ifdef __cplusplus
 }

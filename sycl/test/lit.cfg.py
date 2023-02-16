@@ -24,7 +24,11 @@ config.name = 'SYCL'
 config.test_format = lit.formats.ShTest()
 
 # suffixes: A list of file extensions to treat as test files.
-config.suffixes = ['.c', '.cpp', '.dump', '.test'] #add .spv. Currently not clear what to do with those
+dump_only_tests = bool(lit_config.params.get('SYCL_LIB_DUMPS_ONLY', False))
+if dump_only_tests:
+    config.suffixes = ['.dump'] # Only run dump testing
+else:
+    config.suffixes = ['.c', '.cpp', '.dump', '.test'] #add .spv. Currently not clear what to do with those
 
 # feature tests are considered not so lightweight, so, they are excluded by default
 config.excludes = ['Inputs', 'feature-tests']
@@ -61,6 +65,8 @@ def getAdditionalFlags():
 # Propagate some variables from the host environment.
 llvm_config.with_system_environment(['PATH', 'OCL_ICD_FILENAMES', 'SYCL_DEVICE_ALLOWLIST', 'SYCL_CONFIG_FILE_NAME'])
 llvm_config.with_system_environment(['TC_WRAPPER_PATH']) # INTEL_CUSTOMIZATION
+
+config.substitutions.append(('%python', '"%s"' % (sys.executable)))
 
 # Propagate extra environment variables
 if config.extra_environment:
@@ -109,6 +115,7 @@ config.substitutions.append( ('%sycl_libs_dir',  config.sycl_libs_dir ) )
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
 config.substitutions.append( ('%sycl_source_dir', config.sycl_source_dir) )
 config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
+config.substitutions.append( ('%level_zero_include_dir',  config.level_zero_include_dir) )
 config.substitutions.append( ('%opencl_include_dir',  config.opencl_include_dir) )
 config.substitutions.append( ('%cuda_toolkit_include',  config.cuda_toolkit_include) )
 config.substitutions.append( ('%sycl_tools_src_dir',  config.sycl_tools_src_dir ) )
@@ -119,9 +126,7 @@ config.substitutions.append( ('%llvm_build_bin_dir',  config.llvm_build_bin_dir 
 llvm_config.add_intel_features()
 # end INTEL_CUSTOMIZATION
 
-config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
-config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
-config.substitutions.append( ('%fsycl-host-only', '-std=c++17 -Xclang -fsycl-is-host -isystem %s -isystem %s -isystem %s' % (config.sycl_include, config.opencl_include_dir, config.sycl_include + '/sycl/') ) )
+config.substitutions.append( ('%fsycl-host-only', '-std=c++17 -Xclang -fsycl-is-host -isystem %s -isystem %s -isystem %s -isystem %s' % (config.sycl_include, config.level_zero_include_dir, config.opencl_include_dir, config.sycl_include + '/sycl/') ) )
 config.substitutions.append( ('%sycl_lib', ' -lsycl6' if platform.system() == "Windows" else '-lsycl') )
 
 llvm_config.add_tool_substitutions(['llvm-spirv'], [config.sycl_tools_dir])
@@ -157,7 +162,9 @@ if triple == 'amdgcn-amd-amdhsa':
         additional_flags += ['-Xsycl-target-backend=amdgcn-amd-amdhsa',
                             '--offload-arch=gfx906']
 
-llvm_config.use_clang(additional_flags=additional_flags)
+# Dump-only tests do not have clang available
+if not dump_only_tests:
+    llvm_config.use_clang(additional_flags=additional_flags)
 
 # INTEL_CUSTOMIZATION
 # Needed for disable some test in case of use of particular linker

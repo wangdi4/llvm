@@ -15,11 +15,11 @@ define void @test(i32 %a) !kernel_has_sub_groups !1 !sg_emu_size !2 {
 ; CHECK-NEXT:    store i32 1, i32* [[SG_LOOP_SRC_PTR]], align 4
 ; CHECK-NEXT:    br label [[SG_DUMMY_SPLIT_3:%.*]]
 ; CHECK:       sg.dummy.split.3:
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <16 x i32> poison, i32 [[A:%.*]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <16 x i32> poison, i32 [[A:%.*]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <16 x i32> [[DOTSPLATINSERT]], <16 x i32> poison, <16 x i32> zeroinitializer
 ; CHECK-NEXT:    [[SG_SIZE_:%.*]] = call i32 @_Z18get_sub_group_sizev()
 ; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[SG_SIZE_]] to i64
-; CHECK-NEXT:    [[DOTSPLATINSERT1:%.*]] = insertelement <16 x i64> poison, i64 [[TMP0]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT1:%.*]] = insertelement <16 x i64> poison, i64 [[TMP0]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT2:%.*]] = shufflevector <16 x i64> [[DOTSPLATINSERT1]], <16 x i64> poison, <16 x i32> zeroinitializer
 ; CHECK-NEXT:    [[MASK_I1:%.*]] = icmp ult <16 x i64> <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>, [[DOTSPLAT2]]
 ; CHECK-NEXT:    [[MASK_I32:%.*]] = sext <16 x i1> [[MASK_I1]] to <16 x i32>

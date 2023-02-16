@@ -122,6 +122,7 @@ def V_MOV_B64_PSEUDO : VPseudoInstSI <(outs VReg_64:$vdst),
   let isMoveImm = 1;
   let SchedRW = [Write64Bit];
   let Size = 16; // Needs maximum 2 v_mov_b32 instructions 8 byte long each.
+  let UseNamedOperandTable = 1;
 }
 
 // 64-bit vector move with dpp. Expanded post-RA.
@@ -2818,7 +2819,7 @@ def : GCNPat <
 >;
 }
 
-let SubtargetPredicate = isGFX90APlus in
+let OtherPredicates = [HasFmacF64Inst] in
 // Don't allow source modifiers. If there are any source modifiers then it's
 // better to select fma instead of fmac.
 def : GCNPat <
@@ -3139,7 +3140,7 @@ def IMMZeroBasedBitfieldMask : ImmLeaf <i32, [{
 }]>;
 
 def IMMPopCount : SDNodeXForm<imm, [{
-  return CurDAG->getTargetConstant(countPopulation(N->getZExtValue()), SDLoc(N),
+  return CurDAG->getTargetConstant(llvm::popcount(N->getZExtValue()), SDLoc(N),
                                    MVT::i32);
 }]>;
 

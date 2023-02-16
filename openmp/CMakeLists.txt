@@ -91,7 +91,8 @@ set(ENABLE_LIBOMPTARGET ON)
 # Currently libomptarget cannot be compiled on Windows or MacOS X.
 # Since the device plugins are only supported on Linux anyway,
 # there is no point in trying to compile libomptarget on other OSes.
-if (APPLE OR WIN32 OR NOT OPENMP_HAVE_STD_CPP17_FLAG)
+# 32-bit systems are not supported either.
+if (APPLE OR WIN32 OR NOT OPENMP_HAVE_STD_CPP17_FLAG OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(ENABLE_LIBOMPTARGET OFF)
 endif()
 
@@ -128,15 +129,14 @@ endif()
 # add_subdirectory(runtime)
 # end INTEL_CUSTOMIZATION
 
-# Build libompd.so
-add_subdirectory(libompd)
-
 if (OPENMP_ENABLE_LIBOMPTARGET)
   # Check that the library can actually be built.
   if (APPLE OR WIN32)
     message(FATAL_ERROR "libomptarget cannot be built on Windows and MacOS X!")
   elseif (NOT OPENMP_HAVE_STD_CPP17_FLAG)
-    message(FATAL_ERROR "Host compiler must support C++14 to build libomptarget!")
+    message(FATAL_ERROR "Host compiler must support C++17 to build libomptarget!")
+  elseif (NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+    message(FATAL_ERROR "libomptarget on 32-bit systems are not supported!")
   endif()
 
   add_subdirectory(libomptarget)
@@ -164,6 +164,9 @@ if (OPENMP_ENABLE_OMPT_TOOLS)
 endif()
 
 option(OPENMP_MSVC_NAME_SCHEME "Build dll with MSVC naming scheme." OFF)
+
+# Build libompd.so
+add_subdirectory(libompd)
 
 # Build documentation
 add_subdirectory(docs)

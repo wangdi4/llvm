@@ -1843,7 +1843,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
-  NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+  NF->splice(NF->begin(), F);
 
   // Loop over the argument list, transferring uses of the old arguments over to
   // the new arguments, also transferring over the names as well.
@@ -1873,7 +1873,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
         // value
         Value *RetVal = nullptr;
         ReturnInst::Create(F->getContext(), RetVal, RI);
-        BB.getInstList().erase(RI);
+        RI->eraseFromParent();
       }
 
   // Clone metadata from the old function, including debug info descriptor.

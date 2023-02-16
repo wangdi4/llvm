@@ -117,7 +117,7 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK-NEXT:    [[MIN_VEC_BCAST:%.*]] = bitcast <2 x i32>* [[MIN_VEC:%.*]] to i8* 
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[MIN_VEC_BCAST]])
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[MIN0]], align 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32> poison, i32 [[TMP2]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32> poison, i32 [[TMP2]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT0]], <2 x i32> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i32, i32* [[MIN0]], align 1
 ; CHECK-NEXT:    store <2 x i32> [[BROADCAST_SPLAT0]], <2 x i32>* [[MIN_VEC0:%.*]], align 1

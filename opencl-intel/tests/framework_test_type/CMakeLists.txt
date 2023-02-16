@@ -33,6 +33,7 @@ set(TARGET_LIBS
   LLVMMC
   LLVMObject
   LLVMSupport
+  LLVMTargetParser
   intelocl${BUILD_PLATFORM}
   cl_hw_utils
   cl_sys_utils

@@ -525,9 +525,9 @@ extern void intelFinalizeAnalysisForCall(CallBase &CB, bool IsSuccess) {
 //
 // Return a profile count for 'Call' using 'PSI' if one exists.
 //
-static Optional<uint64_t> profInstrumentCount(ProfileSummaryInfo *PSI,
-                                              CallBase &Call,
-                                              bool IsLibIRCAllowed) {
+static std::optional<uint64_t> profInstrumentCount(ProfileSummaryInfo *PSI,
+                                                   CallBase &Call,
+                                                   bool IsLibIRCAllowed) {
   if (!(DTransInlineHeuristics && IsLibIRCAllowed))
     return std::nullopt;
   if (!PSI || !PSI->hasInstrumentationProfile())
@@ -559,8 +559,8 @@ static uint64_t profInstrumentThreshold(ProfileSummaryInfo *PSI, Module *M,
       auto CB = dyn_cast<CallBase>(U);
       if (!CB)
         continue;
-      Optional<uint64_t> ProfCount = profInstrumentCount(PSI, *CB,
-                                                         IsLibIRCAllowed);
+      std::optional<uint64_t> ProfCount =
+          profInstrumentCount(PSI, *CB, IsLibIRCAllowed);
       if (ProfCount == std::nullopt)
         continue;
       uint64_t NewValue = ProfCount.value();
@@ -594,7 +594,8 @@ static bool isProfInstrumentHotCallSite(CallBase &CB, ProfileSummaryInfo *PSI,
     return false;
   Module *M = CB.getParent()->getParent()->getParent();
   uint64_t Threshold = profInstrumentThreshold(PSI, M, IsLibIRCAllowed);
-  Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CB, IsLibIRCAllowed);
+  std::optional<uint64_t> ProfCount =
+      profInstrumentCount(PSI, CB, IsLibIRCAllowed);
   if (ProfCount == std::nullopt)
     return false;
   return ProfCount.value() >= Threshold;
@@ -2150,7 +2151,7 @@ static bool preferNotToInlineEHIntoLoop(CallBase &CB,
   return hasLoopOptInhibitingEHInstOutsideLoop(Callee, ILIC);
 }
 
-extern Optional<InlineResult> intelWorthNotInlining(
+extern std::optional<InlineResult> intelWorthNotInlining(
     CallBase &CandidateCall, const InlineParams &Params, TargetLibraryInfo *TLI,
     const TargetTransformInfo &CalleeTTI, ProfileSummaryInfo *PSI,
     InliningLoopInfoCache *ILIC, SmallPtrSetImpl<Function *> *QueuedCallers,
@@ -2160,8 +2161,8 @@ extern Optional<InlineResult> intelWorthNotInlining(
   Function *Callee = CandidateCall.getCalledFunction();
   if (!Callee || !InlineForXmain)
     return std::nullopt;
-  Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CandidateCall,
-                                                     IsLibIRCAllowed);
+  std::optional<uint64_t> ProfCount =
+      profInstrumentCount(PSI, CandidateCall, IsLibIRCAllowed);
   if (ProfCount && ProfCount.value() == 0) {
     if (!Callee->hasLinkOnceODRLinkage())
       return InlineResult::failure("not profitable")

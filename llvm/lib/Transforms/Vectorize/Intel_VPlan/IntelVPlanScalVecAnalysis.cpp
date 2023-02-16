@@ -866,7 +866,7 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst) {
          "Specially processed instruction cannot reach here.");
 
   // Check if instruction's nature was already analyzed.
-  Optional<SVABits> InstBits = findSVABitsForInst(VPInst);
+  std::optional<SVABits> InstBits = findSVABitsForInst(VPInst);
   // Combined nature from all use sites of instruction.
   SVABits CombinedUseBits = getAllSetBitsFromUsers(VPInst);
 
@@ -1051,7 +1051,7 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
         continue;
       }
       auto *OpInst = cast<VPInstruction>(Op);
-      Optional<SVABits> CurrentOpSVABits = findSVABitsForInst(OpInst);
+      std::optional<SVABits> CurrentOpSVABits = findSVABitsForInst(OpInst);
 
       if (CurrentOpSVABits && CurrentOpSVABits.value() == SetBits) {
         // Nothing to do, operand already has same state as Inst.

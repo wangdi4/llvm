@@ -129,13 +129,14 @@ protected:
   bool HasImageInsts = false;
   bool HasExtendedImageInsts = false;
   bool HasR128A16 = false;
-  bool HasGFX10A16 = false;
+  bool HasA16 = false;
   bool HasG16 = false;
   bool HasNSAEncoding = false;
   unsigned NSAMaxSize = 0;
   bool GFX10_AEncoding = false;
   bool GFX10_BEncoding = false;
   bool HasDLInsts = false;
+  bool HasFmacF64Inst = false;
   bool HasDot1Insts = false;
   bool HasDot2Insts = false;
   bool HasDot3Insts = false;
@@ -144,6 +145,8 @@ protected:
   bool HasDot6Insts = false;
   bool HasDot7Insts = false;
   bool HasDot8Insts = false;
+  bool HasDot9Insts = false;
+  bool HasDot10Insts = false;
   bool HasMAIInsts = false;
   bool HasFP8Insts = false;
   bool HasPkFmacF16Inst = false;
@@ -195,6 +198,7 @@ protected:
   bool HasGFX11FullVGPRs = false;
   bool HasMADIntraFwdBug = false;
   bool HasVOPDInsts = false;
+  bool HasVALUTransUseHazard = false;
 
   // Dummy feature to use for assembler in tablegen.
   bool FeatureDisable = false;
@@ -297,6 +301,8 @@ public:
   /// a 32-bit register implicitly zeroes the high 16-bits, rather than preserve
   /// the original value.
   bool zeroesHigh16BitsOfDest(unsigned Opcode) const;
+
+  bool supportsWGP() const { return getGeneration() >= GFX10; }
 
   bool hasIntClamp() const {
     return HasIntClamp;
@@ -695,6 +701,8 @@ public:
     return HasDLInsts;
   }
 
+  bool hasFmacF64Inst() const { return HasFmacF64Inst; }
+
   bool hasDot1Insts() const {
     return HasDot1Insts;
   }
@@ -725,6 +733,14 @@ public:
 
   bool hasDot8Insts() const {
     return HasDot8Insts;
+  }
+
+  bool hasDot9Insts() const {
+    return HasDot9Insts;
+  }
+
+  bool hasDot10Insts() const {
+    return HasDot10Insts;
   }
 
   bool hasMAIInsts() const {
@@ -897,11 +913,7 @@ public:
     return HasR128A16;
   }
 
-  bool hasGFX10A16() const {
-    return HasGFX10A16;
-  }
-
-  bool hasA16() const { return hasR128A16() || hasGFX10A16(); }
+  bool hasA16() const { return HasA16; }
 
   bool hasG16() const { return HasG16; }
 
@@ -1061,7 +1073,7 @@ public:
     return getGeneration() >= GFX11;
   }
 
-  bool hasVALUTransUseHazard() const { return getGeneration() >= GFX11; }
+  bool hasVALUTransUseHazard() const { return HasVALUTransUseHazard; }
 
   bool hasVALUMaskWriteHazard() const { return getGeneration() >= GFX11; }
 

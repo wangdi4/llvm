@@ -2094,10 +2094,10 @@ for.end:                                          ; preds = %for.body.preheader,
 define <16 x i32> @pr52561(<16 x i32> %a, <16 x i32> %b) "min-legal-vector-width"="256" "prefer-vector-width"="256" nounwind {
 ; X64-LABEL: pr52561:
 ; X64:       # %bb.0:
-; X64-NEXT:    vpbroadcastd {{.*#+}} ymm4 = [112,112,112,112,112,112,112,112]
-; X64-NEXT:    vpaddd %ymm4, %ymm2, %ymm2
+; X64-NEXT:    vpaddd %ymm3, %ymm1, %ymm1
 ; X64-NEXT:    vpaddd %ymm2, %ymm0, %ymm0
-; X64-NEXT:    vpaddd %ymm4, %ymm3, %ymm2
+; X64-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [112,112,112,112,112,112,112,112]
+; X64-NEXT:    vpaddd %ymm2, %ymm0, %ymm0
 ; X64-NEXT:    vpaddd %ymm2, %ymm1, %ymm1
 ; X64-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm1, %ymm1
 ; X64-NEXT:    vpxor %xmm2, %xmm2, %xmm2
@@ -2110,11 +2110,11 @@ define <16 x i32> @pr52561(<16 x i32> %a, <16 x i32> %b) "min-legal-vector-width
 ; X86-NEXT:    movl %esp, %ebp
 ; X86-NEXT:    andl $-32, %esp
 ; X86-NEXT:    subl $32, %esp
-; X86-NEXT:    vpaddd 8(%ebp), %ymm1, %ymm1
-; X86-NEXT:    vpbroadcastd {{.*#+}} ymm3 = [112,112,112,112,112,112,112,112]
-; X86-NEXT:    vpaddd %ymm3, %ymm2, %ymm2
 ; X86-NEXT:    vpaddd %ymm2, %ymm0, %ymm0
-; X86-NEXT:    vpaddd %ymm3, %ymm1, %ymm1
+; X86-NEXT:    vpaddd 8(%ebp), %ymm1, %ymm1
+; X86-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [112,112,112,112,112,112,112,112]
+; X86-NEXT:    vpaddd %ymm2, %ymm0, %ymm0
+; X86-NEXT:    vpaddd %ymm2, %ymm1, %ymm1
 ; X86-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}, %ymm1, %ymm1
 ; X86-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; X86-NEXT:    vmovsh %xmm0, %xmm2, %xmm0
@@ -2125,4 +2125,28 @@ define <16 x i32> @pr52561(<16 x i32> %a, <16 x i32> %b) "min-legal-vector-width
   %2 = add <16 x i32> %1, %b
   %3 = and <16 x i32> %2, <i32 65535, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 65535>
   ret <16 x i32> %3
+}
+
+define <8 x i16> @pr59628_xmm(i16 %arg) {
+; X64-LABEL: pr59628_xmm:
+; X64:       # %bb.0:
+; X64-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; X64-NEXT:    vpbroadcastw %edi, %xmm1
+; X64-NEXT:    vmovsh %xmm1, %xmm0, %xmm0
+; X64-NEXT:    vpcmpneqw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1, %k1
+; X64-NEXT:    vmovdqu16 %xmm0, %xmm0 {%k1} {z}
+; X64-NEXT:    retq
+;
+; X86-LABEL: pr59628_xmm:
+; X86:       # %bb.0:
+; X86-NEXT:    movzwl {{[0-9]+}}(%esp), %eax
+; X86-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; X86-NEXT:    vpbroadcastw %eax, %xmm1
+; X86-NEXT:    vmovsh %xmm1, %xmm0, %xmm0
+; X86-NEXT:    vpcmpneqw {{\.?LCPI[0-9]+_[0-9]+}}, %xmm1, %k1
+; X86-NEXT:    vmovdqu16 %xmm0, %xmm0 {%k1} {z}
+; X86-NEXT:    retl
+  %I1 = insertelement <8 x i16> zeroinitializer, i16 %arg, i16 0
+  %I2 = insertelement <8 x i16> %I1, i16 0, i16 %arg
+  ret <8 x i16> %I2
 }

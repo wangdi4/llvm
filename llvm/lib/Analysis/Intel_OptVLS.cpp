@@ -1323,7 +1323,7 @@ static void splitMrfsStep(OVLSMemref *Memref,
     // Eg-Mrfs :int32 a[2*i+1] , a[2*i]
     //    FirstSeenMrf : a[2*i+1].
     //    Memref : a[2*i], Dist = -4.
-    Optional<int64_t> Dist = Memref->getConstDistanceFrom(*SetFirstMrf);
+    std::optional<int64_t> Dist = Memref->getConstDistanceFrom(*SetFirstMrf);
     if (!Dist)
       continue;
 
@@ -1341,7 +1341,8 @@ static void splitMrfsStep(OVLSMemref *Memref,
     if (SetFirstMrf->getConstStride()) {
       auto DistExceedsStride =
           find_if(*AdjMemrefSet, [Memref, SetFirstMrf](auto &x) {
-            Optional<int64_t> TDist = Memref->getConstDistanceFrom(*x.first);
+            std::optional<int64_t> TDist =
+                Memref->getConstDistanceFrom(*x.first);
             if (!TDist)
               return false;
 
@@ -1454,7 +1455,7 @@ static bool isSupported(const OVLSGroup &Group) {
     return false;
   }
 
-  Optional<int64_t> Stride = Group.getConstStride();
+  std::optional<int64_t> Stride = Group.getConstStride();
   if (!Stride) {
     OVLSDebug(
         OVLSdbgs() << "Optimized sequence is only supported for a group"
@@ -1507,7 +1508,7 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
   const uint32_t MaxNumElems = 256;
   assert(NumElems <= MaxNumElems && "Increase MaxNumElems");
 
-  Optional<int64_t> Stride = Mrf.getConstStride();
+  std::optional<int64_t> Stride = Mrf.getConstStride();
   assert(Stride && "Constant stride is expected");
 
   int32_t IntShuffleMask[MaxNumElems];
@@ -1532,7 +1533,7 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
 /// FIXME: Support masked gathers/scatters.
 static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
                              GraphNodeToOVLSMemrefMap &NodeToMemrefMap) {
-  Optional<int64_t> Stride = Group.getConstStride();
+  std::optional<int64_t> Stride = Group.getConstStride();
   assert(Stride && "Group with a variable stride is not supported");
 
   // If it's not a group of gathers that means it's a group of scatters.
@@ -1770,7 +1771,7 @@ APInt OVLSGroup::computeByteAccessMask() const {
   auto Mask = APInt::getNullValue(NBytes);
   for (OVLSMemref *Mrf : MemrefVec) {
     auto MrfSize = Mrf->getType().getElementSize() / 8;
-    Optional<int64_t> MrfOffset = Mrf->getConstDistanceFrom(*FirstMrf);
+    std::optional<int64_t> MrfOffset = Mrf->getConstDistanceFrom(*FirstMrf);
     Mask.setBits(*MrfOffset, *MrfOffset + MrfSize);
   }
 
@@ -2501,7 +2502,7 @@ bool OptVLSInterface::getSequencePredefined(
   // Memaccess is Strided Load.
   // No target specific information is needed here. The sequence is target
   // independent for now.
-  Optional<int64_t> Stride = Group.getConstStride();
+  std::optional<int64_t> Stride = Group.getConstStride();
   if (!Stride)
     return false;
 

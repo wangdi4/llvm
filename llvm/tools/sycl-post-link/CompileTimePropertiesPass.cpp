@@ -24,6 +24,7 @@ using namespace llvm;
 namespace {
 
 constexpr StringRef SYCL_HOST_ACCESS_ATTR = "sycl-host-access";
+constexpr StringRef SYCL_PIPELINED_ATTR = "sycl-pipelined";
 
 constexpr StringRef SPIRV_DECOR_MD_KIND = "spirv.Decorations";
 // The corresponding SPIR-V OpCode for the host_access property is documented
@@ -31,6 +32,9 @@ constexpr StringRef SPIRV_DECOR_MD_KIND = "spirv.Decorations";
 // https://github.com/intel/llvm/blob/sycl/sycl/doc/extensions/DeviceGlobal/SPV_INTEL_global_variable_decorations.asciidoc#decoration
 constexpr uint32_t SPIRV_HOST_ACCESS_DECOR = 6147;
 constexpr uint32_t SPIRV_HOST_ACCESS_DEFAULT_VALUE = 2; // Read/Write
+
+constexpr uint32_t SPIRV_INITIATION_INTERVAL_DECOR = 5917;
+constexpr uint32_t SPIRV_PIPELINE_ENABLE_DECOR = 5919;
 
 enum class DecorValueTy {
   uint32,
@@ -103,7 +107,7 @@ MDNode *buildSpirvDecorMetadata(LLVMContext &Ctx, uint32_t OpCode,
 /// @returns a \c StringRef with the string contained in \c StringV and \c None
 ///          if \c StringV is not a \c GlobalVariable or does not contain string
 ///          data.
-Optional<StringRef> getGlobalVariableString(const Value *StringV) {
+std::optional<StringRef> getGlobalVariableString(const Value *StringV) {
   if (const auto *StringGV = dyn_cast<GlobalVariable>(StringV))
     if (const auto *StringData =
             dyn_cast<ConstantDataSequential>(StringGV->getInitializer()))
@@ -151,7 +155,7 @@ MDNode *attributeToDecorateMetadata(LLVMContext &Ctx, const Attribute &Attr) {
 /// @returns a pair with the name of the resulting metadata and a pointer to
 ///          the metadata node with its values if the attribute has a
 ///          corresponding SPIR-V execution mode. Otherwise \c None is returned.
-Optional<std::pair<std::string, MDNode *>>
+std::optional<std::pair<std::string, MDNode *>>
 attributeToExecModeMetadata(Module &M, const Attribute &Attr) {
   LLVMContext &Ctx = M.getContext();
   const DataLayout &DLayout = M.getDataLayout();
@@ -185,8 +189,8 @@ attributeToExecModeMetadata(Module &M, const Attribute &Attr) {
     // Get the integers from the strings.
     SmallVector<Metadata *, 3> MDVals;
     for (StringRef ValStr : ValStrs)
-      MDVals.push_back(ConstantAsMetadata::get(Constant::getIntegerValue(
-          SizeTTy, APInt(SizeTBitSize, ValStr, 10))));
+      MDVals.push_back(ConstantAsMetadata::get(
+          Constant::getIntegerValue(SizeTTy, APInt(SizeTBitSize, ValStr, 10))));
 
     const char *MDName = (AttrKindStr == "sycl-work-group-size")
                              ? "reqd_work_group_size"
@@ -203,6 +207,26 @@ attributeToExecModeMetadata(Module &M, const Attribute &Attr) {
     return std::pair<std::string, MDNode *>("intel_reqd_sub_group_size",
                                             MDNode::get(Ctx, MD));
   }
+
+  auto getIpInterface = [](const char *Name, LLVMContext &Ctx,
+                           const Attribute &Attr) {
+    // generate either:
+    //   !N = !{!"<name>"} or
+    //   !N = !{!"<name>", !"stall_free_return"}
+    SmallVector<Metadata *, 2> MD;
+    MD.push_back(MDString::get(Ctx, Name));
+    if (getAttributeAsInteger<uint32_t>(Attr))
+      MD.push_back(MDString::get(Ctx, "stall_free_return"));
+    return MDNode::get(Ctx, MD);
+  };
+
+  if (AttrKindStr == "sycl-streaming-interface")
+    return std::pair<std::string, MDNode *>(
+        "ip_interface", getIpInterface("streaming", Ctx, Attr));
+
+  if (AttrKindStr == "sycl-register-map-interface")
+    return std::pair<std::string, MDNode *>("ip_interface",
+                                            getIpInterface("csr", Ctx, Attr));
 
   return std::nullopt;
 }
@@ -259,7 +283,32 @@ PreservedAnalyses CompileTimePropertiesPass::run(Module &M,
     SmallVector<Metadata *, 8> MDOps;
     SmallVector<std::pair<std::string, MDNode *>, 8> NamedMDOps;
     for (const Attribute &Attribute : F.getAttributes().getFnAttrs()) {
-      if (MDNode *SPIRVMetadata = attributeToDecorateMetadata(Ctx, Attribute))
+      // Handle pipelined attribute as a special case.
+      if (Attribute.isStringAttribute() &&
+          Attribute.getKindAsString() == SYCL_PIPELINED_ATTR) {
+        auto PipelineOrInitiationInterval =
+            getAttributeAsInteger<int32_t>(Attribute);
+        MDNode *SPIRVMetadata;
+        if (PipelineOrInitiationInterval < 0) {
+          // Default pipelining desired
+          SPIRVMetadata =
+              buildSpirvDecorMetadata(Ctx, SPIRV_PIPELINE_ENABLE_DECOR, 1);
+        } else if (PipelineOrInitiationInterval == 0) {
+          // No pipelining desired
+          SPIRVMetadata =
+              buildSpirvDecorMetadata(Ctx, SPIRV_PIPELINE_ENABLE_DECOR, 0);
+        } else {
+          // Pipelining desired, with specified Initiation Interval
+          SPIRVMetadata =
+              buildSpirvDecorMetadata(Ctx, SPIRV_PIPELINE_ENABLE_DECOR, 1);
+          MDOps.push_back(SPIRVMetadata);
+          SPIRVMetadata =
+              buildSpirvDecorMetadata(Ctx, SPIRV_INITIATION_INTERVAL_DECOR,
+                                      PipelineOrInitiationInterval);
+        }
+        MDOps.push_back(SPIRVMetadata);
+      } else if (MDNode *SPIRVMetadata =
+                     attributeToDecorateMetadata(Ctx, Attribute))
         MDOps.push_back(SPIRVMetadata);
       else if (auto NamedMetadata = attributeToExecModeMetadata(M, Attribute))
         NamedMDOps.push_back(*NamedMetadata);
@@ -322,7 +371,7 @@ bool CompileTimePropertiesPass::transformSYCLPropertiesAnnotation(
 
   // We only need to consider annotations with "sycl-properties" annotation
   // string.
-  Optional<StringRef> AnnotStr = getGlobalVariableString(AnnotStrArgGV);
+  std::optional<StringRef> AnnotStr = getGlobalVariableString(AnnotStrArgGV);
   if (!AnnotStr || AnnotStr->str() != "sycl-properties")
     return false;
 
@@ -341,9 +390,9 @@ bool CompileTimePropertiesPass::transformSYCLPropertiesAnnotation(
 
         // Iterate over the pairs of property meta-names and meta-values.
         for (size_t I = 0; I < AnnotValsAggr->getNumOperands(); I += 2) {
-          Optional<StringRef> PropMetaName =
+          std::optional<StringRef> PropMetaName =
               getGlobalVariableString(AnnotValsAggr->getOperand(I));
-          Optional<StringRef> PropMetaValue =
+          std::optional<StringRef> PropMetaValue =
               getGlobalVariableString(AnnotValsAggr->getOperand(I + 1));
 
           assert(PropMetaName &&

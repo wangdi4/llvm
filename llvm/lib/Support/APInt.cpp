@@ -15,7 +15,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/bit.h"
@@ -109,7 +108,7 @@ APInt::APInt(unsigned numBits, ArrayRef<uint64_t> bigVal) : BitWidth(numBits) {
 
 APInt::APInt(unsigned numBits, unsigned numWords, const uint64_t bigVal[])
     : BitWidth(numBits) {
-  initFromArray(makeArrayRef(bigVal, numWords));
+  initFromArray(ArrayRef(bigVal, numWords));
 }
 
 APInt::APInt(unsigned numbits, StringRef Str, uint8_t radix)
@@ -460,7 +459,7 @@ APInt APInt::extractBits(unsigned numBits, unsigned bitPosition) const {
   // Extracting bits that start on a source word boundary can be done
   // as a fast memory copy.
   if (loBit == 0)
-    return APInt(numBits, makeArrayRef(U.pVal + loWord, 1 + hiWord - loWord));
+    return APInt(numBits, ArrayRef(U.pVal + loWord, 1 + hiWord - loWord));
 
   // General case - shift + copy source words directly into place.
   APInt Result(numBits, 0);
@@ -685,7 +684,7 @@ unsigned APInt::countTrailingOnesSlowCase() const {
 unsigned APInt::countPopulationSlowCase() const {
   unsigned Count = 0;
   for (unsigned i = 0; i < getNumWords(); ++i)
-    Count += llvm::countPopulation(U.pVal[i]);
+    Count += llvm::popcount(U.pVal[i]);
   return Count;
 }
 
@@ -2291,18 +2290,6 @@ static inline APInt::WordType highHalf(APInt::WordType part) {
   return part >> (APInt::APINT_BITS_PER_WORD / 2);
 }
 
-/// Returns the bit number of the most significant set bit of a part.
-/// If the input number has no bits set -1U is returned.
-static unsigned partMSB(APInt::WordType value) {
-  return findLastSet(value, ZB_Max);
-}
-
-/// Returns the bit number of the least significant set bit of a part.  If the
-/// input number has no bits set -1U is returned.
-static unsigned partLSB(APInt::WordType value) {
-  return findFirstSet(value, ZB_Max);
-}
-
 /// Sets the least significant part of a bignum to the input value, and zeroes
 /// out higher parts.
 void APInt::tcSet(WordType *dst, WordType part, unsigned parts) {
@@ -2347,7 +2334,7 @@ void APInt::tcClearBit(WordType *parts, unsigned bit) {
 unsigned APInt::tcLSB(const WordType *parts, unsigned n) {
   for (unsigned i = 0; i < n; i++) {
     if (parts[i] != 0) {
-      unsigned lsb = partLSB(parts[i]);
+      unsigned lsb = llvm::countr_zero(parts[i]);
       return lsb + i * APINT_BITS_PER_WORD;
     }
   }
@@ -2362,7 +2349,8 @@ unsigned APInt::tcMSB(const WordType *parts, unsigned n) {
     --n;
 
     if (parts[n] != 0) {
-      unsigned msb = partMSB(parts[n]);
+      static_assert(sizeof(parts[n]) <= sizeof(uint64_t));
+      unsigned msb = llvm::Log2_64(parts[n]);
 
       return msb + n * APINT_BITS_PER_WORD;
     }

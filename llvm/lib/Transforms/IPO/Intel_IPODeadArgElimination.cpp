@@ -651,7 +651,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
   }
 
   // Move the basic blocks from function F to the new function
-  NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+  NF->splice(NF->begin(), F);
 
   // Replace the users of the old arguments list with the new arguments
   DeadArgI = 0;

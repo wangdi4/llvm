@@ -8,22 +8,23 @@
 define dso_local void @main() local_unnamed_addr {
 ; CHECK-LABEL: main:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    cmpw $0, {{.*}}(%rip)
+; CHECK-NEXT:    cmpw $0, a(%rip)
 ; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    vmovd %eax, %xmm0
 ; CHECK-NEXT:    vpbroadcastb %xmm0, %xmm0
 ; CHECK-NEXT:    vmovdqa {{.*#+}} xmm1 = <u,255,255,255,255,255,255,255,u,u,u,u,u,u,u,u>
-; CHECK-NEXT:    vpinsrb $0, {{.*}}(%rip), %xmm1, %xmm1
+; CHECK-NEXT:    vpinsrb $0, c(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vpand %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,1,1]
+; CHECK-NEXT:    vpshufb {{.*#+}} xmm1 = xmm0[4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
 ; CHECK-NEXT:    vpand %xmm1, %xmm0, %xmm0
-; CHECK-NEXT:    vpsrld $16, %xmm0, %xmm1
+; CHECK-NEXT:    vpunpcklbw {{.*#+}} xmm1 = xmm0[0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7]
+; CHECK-NEXT:    vpshufd {{.*#+}} xmm1 = xmm1[1,1,1,1]
 ; CHECK-NEXT:    vpand %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    vpsrlw $8, %xmm0, %xmm1
 ; CHECK-NEXT:    vpand %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    vmovd %xmm0, %ecx
 ; CHECK-NEXT:    andb %al, %cl
-; CHECK-NEXT:    movb %cl, {{.*}}(%rip)
+; CHECK-NEXT:    movb %cl, c(%rip)
 ; CHECK-NEXT:    retq
 entry:
   %0 = load i16, i16* @a, align 2

@@ -6,8 +6,8 @@
 
 ; CHECK-LABEL: @MagickRound(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    %0 = call fast double @llvm.rint.f64(double %x)
-; CHECK-NEXT:    ret double %0
+; CHECK-NEXT:    [[R:%.*]] = call fast double @llvm.rint.f64(double %x)
+; CHECK-NEXT:    ret double [[R]]
 
 define internal fastcc double @MagickRound(double %x) unnamed_addr #0 {
 entry:

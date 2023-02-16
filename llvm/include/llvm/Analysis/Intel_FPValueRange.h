@@ -207,7 +207,7 @@ public:
   /// Returns true if this range is guaranteed to be in the given bit range,
   /// false if it's guaranteed not to be in the range. Returns None if the range
   /// can't be determined.
-  Optional<bool> isInBitRange(unsigned BitRange) const;
+  std::optional<bool> isInBitRange(unsigned BitRange) const;
 
   bool operator==(const FPValueRange &Other) const {
     if (&getSemantics() != &Other.getSemantics())

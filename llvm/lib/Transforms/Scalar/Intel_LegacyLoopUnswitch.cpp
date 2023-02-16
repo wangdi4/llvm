@@ -1462,9 +1462,8 @@ void LoopUnswitch::unswitchNontrivialCondition(
 
   // Splice the newly inserted blocks into the function right before the
   // original preheader.
-  F->getBasicBlockList().splice(NewPreheader->getIterator(),
-                                F->getBasicBlockList(),
-                                NewBlocks[0]->getIterator(), F->end());
+  F->splice(NewPreheader->getIterator(), F, NewBlocks[0]->getIterator(),
+            F->end());
 
   // Now we create the new Loop object for the versioned loop.
   Loop *NewLoop = cloneLoop(L, L->getParentLoop(), VMap, LI, LPM);

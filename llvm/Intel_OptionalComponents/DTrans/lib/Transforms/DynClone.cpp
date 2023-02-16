@@ -2681,7 +2681,7 @@ void DynCloneImpl<InfoClass>::createShrunkenTypes(void) {
       if (isPackedBitFieldField(BField))
         continue;
       Type *ShrunkenTy = GetTypeInShrunkenStruct(StructT, I);
-      FieldData FD(DL.getABITypeAlignment(ShrunkenTy),
+      FieldData FD(DL.getABITypeAlign(ShrunkenTy).value(),
                    DL.getTypeStoreSize(ShrunkenTy), I);
       Fields.push_back(FD);
     }
@@ -3101,7 +3101,7 @@ void DynCloneImpl<InfoClass>::transformInitRoutine(void) {
     // Use Index to get position of the pointer in new layout.
     Type *NewTy = TransformedTypeMap[cast<StructType>(StTy)];
     Value *BC = IRB.CreateBitCast(RetPtr, NewTy->getPointerTo());
-    Value *NewPtr = IRB.CreateInBoundsGEP(NewTy, BC, makeArrayRef(Index));
+    Value *NewPtr = IRB.CreateInBoundsGEP(NewTy, BC, ArrayRef(Index));
     Value *NewBCPtr = IRB.CreateBitCast(NewPtr, StTy->getPointerTo());
     auto *UBI = IRB.CreateBr(MergeBB);
     (void)UBI;

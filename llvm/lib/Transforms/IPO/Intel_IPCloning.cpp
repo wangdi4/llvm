@@ -3183,7 +3183,7 @@ static void cloneSpecializationFunction(void) {
       BasicBlock *CallBB = BasicBlock::Create(
           CI->getContext(), ".clone.spec.call", OrigBB->getParent(), TailBB);
       CallInst *NewCI = cast<CallInst>(CI->clone());
-      CallBB->getInstList().push_back(NewCI);
+      NewCI->insertInto(CallBB, CallBB->end());
       NewClonedCalls.push_back(NewCI);
       // NewCondStmtBBs.push_back(CallBB);
       BranchInst *BI = BranchInst::Create(TailBB, CallBB);
@@ -3198,7 +3198,7 @@ static void cloneSpecializationFunction(void) {
       // NewCondStmtBBs.push_back(TailBB);
     }
     // Complete the BasicBlock to BasicBlock connections
-    OrigBB->getInstList().pop_back();
+    OrigBB->back().eraseFromParent();
     BranchInst::Create(NewCondStmtBBs[0], OrigBB);
     BasicBlock *F_BB;
     for (unsigned J = 0; J < NumConds; J++) {

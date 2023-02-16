@@ -333,13 +333,13 @@ ElementCount getECFromSignature(FunctionType *Signature) {
 VFInfo VFABI::demangleForVFABI(StringRef MangledName) {
   return VFABI::tryDemangleForVFABI(MangledName).value();
 }
-Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
-                                            const Module &M) {
+std::optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
+                                                 const Module &M) {
   return VFABI::tryDemangleForVFABI(MangledName, &M);
 }
 
-Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
-                                            const Module *M) {
+std::optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
+                                                 const Module *M) {
 #endif
   const StringRef OriginalName = MangledName;
   // Assume there is no custom name <redirection>, and therefore the

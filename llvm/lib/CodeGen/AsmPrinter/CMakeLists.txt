@@ -69,5 +69,6 @@ add_llvm_component_library(LLVMAsmPrinter
   Remarks
   Support
   Target
+  TargetParser
   )
 

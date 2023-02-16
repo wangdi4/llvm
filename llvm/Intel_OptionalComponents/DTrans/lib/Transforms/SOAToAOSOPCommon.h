@@ -454,8 +454,7 @@ inline void replaceOrigFuncBodyWithClonedFuncBody(Function &OrigFunc,
   // Delete original IR from OrigFunc.
   OrigFunc.deleteBody();
   // Move modified IR from Cloned to the OrigFunc.
-  OrigFunc.getBasicBlockList().splice(OrigFunc.begin(),
-                                      Cloned.getBasicBlockList());
+  OrigFunc.splice(OrigFunc.begin(), &Cloned);
 
   // Move users of arguments over to the OrigFunc.
   for (Function::arg_iterator I = Cloned.arg_begin(), E = Cloned.arg_end(),

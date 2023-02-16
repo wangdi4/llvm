@@ -277,7 +277,7 @@ Value *ResolveWICallPass::updateGetFunction(CallInst *CI,
   ICmpInst *CheckIndex = new ICmpInst(ICmpInst::ICMP_ULT, CI->getArgOperand(0),
                                       MaxWorkDimI32, "check.index.inbound");
   CheckIndex->setDebugLoc(CI->getDebugLoc());
-  BB->getInstList().push_back(CheckIndex);
+  CheckIndex->insertInto(BB, BB->end());
   BranchInst *CheckIndexBI = BranchInst::Create(getWIProperties, splitContinue, CheckIndex, BB);
   CheckIndexBI->setDebugLoc(CI->getDebugLoc());
 
@@ -462,7 +462,7 @@ Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
 
   auto CreateGEPCastStore = [&](unsigned Offset, Type *DestTy, StringRef Name,
                                 Value *V,
-                                Optional<Align> Alignment = std::nullopt) {
+                                std::optional<Align> Alignment = std::nullopt) {
     IndexArgs[1] = ConstantInt::get(I32Ty, Offset);
     auto *GEP = Builder.CreateInBoundsGEP(BufArrType, BufAI, IndexArgs);
     auto *Cast = Builder.CreatePointerCast(GEP, DestTy, Name);
@@ -538,9 +538,10 @@ void ResolveWICallPass::updatePrefetch(CallInst *CI) {
 
   assert(PT->getPrimitiveSizeInBits() &&
          "Not primitive type, not valid calculation");
-  unsigned int Size = M->getDataLayout().getPrefTypeAlignment(PT);
+  Align Size = M->getDataLayout().getPrefTypeAlign(PT);
 
-  Params.push_back(ConstantInt::get(IntegerType::get(*Ctx, SizeT), Size));
+  Params.push_back(
+      ConstantInt::get(IntegerType::get(*Ctx, SizeT), Size.value()));
   Function *Prefetch = M->getFunction("__lprefetch");
   assert(Prefetch && "Missing '__lprefetch' function");
   CallInst::Create(Prefetch, ArrayRef<Value *>(Params), "", CI);

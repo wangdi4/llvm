@@ -518,7 +518,7 @@ std::map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
     if (!FD)
       assert(false && toString(FD.takeError()).c_str());
     if (Expected<size_t> BytesRead = fs::readNativeFile(
-            *FD, makeMutableArrayRef(&*Buf.begin(), Buf.size())))
+            *FD, MutableArrayRef(&*Buf.begin(), Buf.size())))
       Buf = Buf.substr(0, *BytesRead);
     else
       assert(false && toString(BytesRead.takeError()).c_str());

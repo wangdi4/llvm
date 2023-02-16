@@ -1402,7 +1402,7 @@ Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
     }
 
     // Get function body for NF.
-    NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+    NF->splice(NF->begin(), F);
 
     // Fix argument usages since dead arg is moved at the end of param list,
     Pos = 0;
@@ -1920,7 +1920,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     Indices.push_back(IRB.getInt32(BaseArrayIdx));
     // Load base array of vector
     Value *GEP = IRB.CreateInBoundsGEP(NewElemTy, ThisPtr, Indices, "");
-    auto Align = MaybeAlign(DL.getABITypeAlignment(Elem->getType()));
+    auto Align = MaybeAlign(DL.getABITypeAlign(Elem->getType()));
     LoadInst *Load =
         IRB.CreateAlignedLoad(Elem->getType()->getPointerTo(0), GEP, Align, "");
     Value *NewIdx = IRB.CreateZExtOrTrunc(Idx, IRB.getInt64Ty());
@@ -2375,7 +2375,7 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
 
   updateCallBase(CB, NewPAL, NF, NewArgs);
 
-  NF->getBasicBlockList().splice(NF->begin(), AppendFunc->getBasicBlockList());
+  NF->splice(NF->begin(), AppendFunc);
 
   // Update argument uses.
   unsigned Pos = 0;

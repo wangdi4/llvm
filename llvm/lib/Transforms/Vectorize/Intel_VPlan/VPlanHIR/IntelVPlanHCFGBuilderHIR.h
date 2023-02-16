@@ -186,7 +186,7 @@ private:
   }
   /// Add an explicit reduction variable
   void addReduction(RegDDRef *V, RecurKind Kind,
-                    Optional<InscanReductionKind> InscanDescr) {
+                    std::optional<InscanReductionKind> InscanDescr) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
     assert(!InscanDescr && "TODO: Inscan for HIR is not supported!");
 
@@ -196,10 +196,10 @@ private:
   }
 
   /// Add an explicit user-defined reduction variable.
-  void
-  addReduction(RegDDRef *V, Function *Combiner, Function *Initializer,
-               Function *Constr, Function *Destr,
-               Optional<InscanReductionKind> InscanRedKind = std::nullopt) {
+  void addReduction(
+      RegDDRef *V, Function *Combiner, Function *Initializer, Function *Constr,
+      Function *Destr,
+      std::optional<InscanReductionKind> InscanRedKind = std::nullopt) {
     UDRList.emplace_back(V, Combiner, Initializer, Constr, Destr,
                          InscanRedKind);
   }

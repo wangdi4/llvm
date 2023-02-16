@@ -303,6 +303,7 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
     if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
       IsHostPtr = true;
     TargetPointer = HstPtrBegin;
+    IsPresent = false;
     // Lookup result becomes irrelevant in this case, and it should be ignored.
     Entry = nullptr;
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
@@ -430,13 +431,11 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
   return {{IsNew, IsHostPtr, IsPresent}, Entry, TargetPointer};
 }
 
-// Used by targetDataBegin, targetDataEnd, targetDataUpdate and target.
-// Return the target pointer begin (where the data will be moved).
-// Decrement the reference counter if called from targetDataEnd.
 TargetPointerResultTy
 DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
                          bool UpdateRefCount, bool UseHoldRefCount,
-                         bool &IsHostPtr, bool MustContain, bool ForceDelete) {
+                         bool &IsHostPtr, bool MustContain, bool ForceDelete,
+                         bool FromDataEnd) {
   HDTTMapAccessorTy HDTTMap = HostDataToTargetMap.getExclusiveAccessor();
 
   void *TargetPointer = NULL;
@@ -457,15 +456,18 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
              "expected correct IsLast prediction for reset");
     }
 
+    // Increment the number of threads that is using the entry on a
+    // targetDataEnd, tracking the number of possible "deleters". A thread may
+    // come to own the entry deletion even if it was not the last one querying
+    // for it. Thus, we must track every query on targetDataEnds to ensure only
+    // the last thread that holds a reference to an entry actually deletes it.
+    if (FromDataEnd)
+      HT.incDataEndThreadCount();
+
     const char *RefCountAction;
     if (!UpdateRefCount) {
       RefCountAction = " (update suppressed)";
     } else if (IsLast) {
-      // Mark the entry as to be deleted by this thread. Another thread might
-      // reuse the entry and take "ownership" for the deletion while this thread
-      // is waiting for data transfers. That is fine and the current thread will
-      // simply skip the deletion step then.
-      HT.setDeleteThreadId();
       HT.decRefCount(UseHoldRefCount);
       assert(HT.getTotalRefCount() == 0 &&
              "Expected zero reference count when deletion is scheduled");
@@ -493,6 +495,7 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
        " for device-accessible memory\n", DPxPTR(HstPtrBegin), Size);
     if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
       IsHostPtr = true;
+    IsPresent = false;
     TargetPointer = HstPtrBegin;
   } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
              !managedMemorySupported()) {
@@ -534,40 +537,41 @@ void *DeviceTy::getTgtPtrBegin(HDTTMapAccessorTy &HDTTMap, void *HstPtrBegin,
   return NULL;
 }
 
-int DeviceTy::deallocTgtPtr(HDTTMapAccessorTy &HDTTMap, LookupResult LR,
-                            int64_t Size) {
-  // Check if the pointer is contained in any sub-nodes.
-  if (!(LR.Flags.IsContained || LR.Flags.ExtendsBefore ||
-        LR.Flags.ExtendsAfter)) {
-    REPORT("Section to delete (hst addr " DPxMOD ") does not exist in the"
-           " allocated memory\n",
-           DPxPTR(LR.Entry->HstPtrBegin));
-    return OFFLOAD_FAIL;
-  }
-
-  auto &HT = *LR.Entry;
-  // Verify this thread is still in charge of deleting the entry.
-  assert(HT.getTotalRefCount() == 0 &&
-         HT.getDeleteThreadId() == std::this_thread::get_id() &&
+int DeviceTy::eraseMapEntry(HDTTMapAccessorTy &HDTTMap,
+                            HostDataToTargetTy *Entry, int64_t Size) {
+  assert(Entry && "Trying to delete a null entry from the HDTT map.");
+  assert(Entry->getTotalRefCount() == 0 && Entry->getDataEndThreadCount() == 0 &&
          "Trying to delete entry that is in use or owned by another thread.");
 
-  DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
-     DPxPTR(HT.TgtPtrBegin), Size);
-  deleteData((void *)HT.TgtPtrBegin);
   INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
        "Removing map entry with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
        ", Size=%" PRId64 ", Name=%s\n",
-       DPxPTR(HT.HstPtrBegin), DPxPTR(HT.TgtPtrBegin), Size,
-       (HT.HstPtrName) ? getNameFromMapping(HT.HstPtrName).c_str() : "unknown");
-  void *Event = LR.Entry->getEvent();
-  HDTTMap->erase(LR.Entry);
-  delete LR.Entry;
+       DPxPTR(Entry->HstPtrBegin), DPxPTR(Entry->TgtPtrBegin), Size,
+       (Entry->HstPtrName) ? getNameFromMapping(Entry->HstPtrName).c_str()
+                           : "unknown");
 
-  int Ret = OFFLOAD_SUCCESS;
+  if (HDTTMap->erase(Entry) == 0) {
+    REPORT("Trying to remove a non-existent map entry\n");
+    return OFFLOAD_FAIL;
+  }
+
+  return OFFLOAD_SUCCESS;
+}
+
+int DeviceTy::deallocTgtPtrAndEntry(HostDataToTargetTy *Entry, int64_t Size) {
+  assert(Entry && "Trying to deallocate a null entry.");
+
+  DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
+     DPxPTR(Entry->TgtPtrBegin), Size);
+
+  void *Event = Entry->getEvent();
   if (Event && destroyEvent(Event) != OFFLOAD_SUCCESS) {
     REPORT("Failed to destroy event " DPxMOD "\n", DPxPTR(Event));
-    Ret = OFFLOAD_FAIL;
+    return OFFLOAD_FAIL;
   }
+
+  int Ret = deleteData((void *)Entry->TgtPtrBegin);
+  delete Entry;
 
   return Ret;
 }
@@ -718,26 +722,19 @@ int32_t DeviceTy::dataExchange(void *SrcPtr, DeviceTy &DstDev, void *DstPtr,
 }
 
 // Run region on device
-int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
-                            ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                            AsyncInfoTy &AsyncInfo) {
+int32_t DeviceTy::launchKernel(void *TgtEntryPtr, void **TgtVarsPtr,
+                               ptrdiff_t *TgtOffsets,
+                               const KernelArgsTy &KernelArgs,
+                               AsyncInfoTy &AsyncInfo) {
 #if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
-  int32_t Ret;
-  if (!RTL->run_region_async || !RTL->synchronize)
-    Ret = RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-                          TgtVarsSize);
-  else
-    Ret = RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                TgtOffsets, TgtVarsSize, AsyncInfo);
-  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
+  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, KernelArgs.NumTeams[0]));
+  int32_t Ret = RTL->launch_kernel(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
+                                   TgtOffsets, &KernelArgs, AsyncInfo);
+  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, KernelArgs.NumTeams[0]));
   return Ret;
 #else // INTEL_CUSTOMIZATION
-  if (!RTL->run_region_async || !RTL->synchronize)
-    return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-                           TgtVarsSize);
-  return RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-                               TgtVarsSize, AsyncInfo);
+  return RTL->launch_kernel(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
+                            &KernelArgs, AsyncInfo);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -747,36 +744,6 @@ bool DeviceTy::printDeviceInfo(int32_t RTLDevId) {
     return false;
   RTL->print_device_info(RTLDevId);
   return true;
-}
-
-// Run team region on device.
-int32_t DeviceTy::runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
-                                ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                                int32_t NumTeams, int32_t ThreadLimit,
-                                uint64_t LoopTripCount,
-                                AsyncInfoTy &AsyncInfo) {
-#if INTEL_CUSTOMIZATION
-  OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
-  int32_t Ret;
-  if (!RTL->run_team_region_async || !RTL->synchronize)
-    Ret = RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
-                               TgtVarsSize, NumTeams, ThreadLimit,
-                               LoopTripCount);
-  else
-    Ret = RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                     TgtOffsets, TgtVarsSize, NumTeams,
-                                     ThreadLimit, LoopTripCount, AsyncInfo);
-  OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
-  return Ret;
-#else // INTEL_CUSTOMIZATION
-  if (!RTL->run_team_region_async || !RTL->synchronize)
-    return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
-                                LoopTripCount);
-  return RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                    TgtOffsets, TgtVarsSize, NumTeams,
-                                    ThreadLimit, LoopTripCount, AsyncInfo);
-#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_COLLAB
@@ -1226,6 +1193,13 @@ int32_t DeviceTy::synchronize(AsyncInfoTy &AsyncInfo) {
   if (RTL->synchronize)
     return RTL->synchronize(RTLDeviceID, AsyncInfo);
   return OFFLOAD_SUCCESS;
+}
+
+int32_t DeviceTy::queryAsync(AsyncInfoTy &AsyncInfo) {
+  if (RTL->query_async)
+    return RTL->query_async(RTLDeviceID, AsyncInfo);
+
+  return synchronize(AsyncInfo);
 }
 
 int32_t DeviceTy::createEvent(void **Event) {

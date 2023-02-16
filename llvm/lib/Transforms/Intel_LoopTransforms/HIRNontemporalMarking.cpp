@@ -169,7 +169,7 @@ static const DDEdge *hasConflictingAccess(DDEdgeRange &&Edges,
 /// This can be a constant trip count, or it can be marked with either of our
 /// max trip count metadata, llvm.loop.intel.loopcount_minimum or
 /// llvm.loop.intel.max.trip_count.
-static Optional<uint64_t> getKnownMaxTripCount(const HLLoop *Loop) {
+static std::optional<uint64_t> getKnownMaxTripCount(const HLLoop *Loop) {
   uint64_t ConstTripCount;
   if (Loop->isConstTripLoop(&ConstTripCount))
     return ConstTripCount;
@@ -217,8 +217,8 @@ bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
   // floor((A-1)/B) = floor(A/B) - 1 if A is divisible by B. Taken together,
   // ceil(A/B) = floor((A-1)/B) + 1 whether or not A is divisible by B, which is
   // where this pattern comes from.
-  const Optional<uint64_t> KnownMaxTripCount = getKnownMaxTripCount(Loop);
-  Optional<uint64_t> MinStoreSize;
+  const std::optional<uint64_t> KnownMaxTripCount = getKnownMaxTripCount(Loop);
+  std::optional<uint64_t> MinStoreSize;
   if (KnownMaxTripCount && StoreFootprintThreshold != 0) {
     assert(*KnownMaxTripCount != 0);
     MinStoreSize = (StoreFootprintThreshold - 1) / (*KnownMaxTripCount) + 1;

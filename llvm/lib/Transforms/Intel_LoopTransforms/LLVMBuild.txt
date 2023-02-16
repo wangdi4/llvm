@@ -22,4 +22,4 @@ type = Library
 name = Intel_LoopTransforms
 parent = Transforms
 
-required_libraries = Analysis Core Support TransformUtils Intel_LoopAnalysis Intel_OptReport
+required_libraries = Analysis Core Support TargetParser TransformUtils Intel_LoopAnalysis Intel_OptReport

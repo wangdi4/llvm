@@ -5971,6 +5971,8 @@ let Predicates = [HasFP16] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
   def : Pat<(v8f16 (X86vzmovl (v8f16 VR128X:$src))),
             (VMOVSHZrr (v8f16 (AVX512_128_SET0)), VR128X:$src)>;
+  def : Pat<(v8i16 (X86vzmovl (v8i16 VR128X:$src))),
+            (VMOVSHZrr (v8i16 (AVX512_128_SET0)), VR128X:$src)>;
 
   // FIXME we need better canonicalization in dag combine
   def : Pat<(v16f16 (X86vzmovl (v16f16 VR256X:$src))),
@@ -5998,6 +6000,10 @@ let Predicates = [HasFP16] in {
             (SUBREG_TO_REG (i32 0),
              (v8f16 (VMOVSHZrr (v8f16 (AVX512_128_SET0)),
               (v8f16 (EXTRACT_SUBREG (v32f16 VR512:$src), sub_xmm)))), sub_xmm)>;
+  def : Pat<(v32i16 (X86vzmovl (v32i16 VR512:$src))),
+            (SUBREG_TO_REG (i32 0),
+             (v8i16 (VMOVSHZrr (v8i16 (AVX512_128_SET0)),
+              (v8i16 (EXTRACT_SUBREG (v32i16 VR512:$src), sub_xmm)))), sub_xmm)>;
 
   def : Pat<(v8f16 (X86vzload16 addr:$src)),
             (VMOVSHZrm addr:$src)>;
@@ -6005,6 +6011,12 @@ let Predicates = [HasFP16] in {
   def : Pat<(v16f16 (X86vzload16 addr:$src)),
             (SUBREG_TO_REG (i32 0), (VMOVSHZrm addr:$src), sub_xmm)>;
 
+  def : Pat<(v16i16 (X86vzmovl (v16i16 VR256X:$src))),
+            (SUBREG_TO_REG (i32 0),
+             (v8i16 (VMOVSHZrr (v8i16 (AVX512_128_SET0)),
+              (v8i16 (EXTRACT_SUBREG (v16i16 VR256X:$src), sub_xmm)))), sub_xmm)>;
+
+  // FIXME we need better canonicalization in dag combine
   def : Pat<(v32f16 (X86vzload16 addr:$src)),
             (SUBREG_TO_REG (i32 0), (VMOVSHZrm addr:$src), sub_xmm)>;
 }

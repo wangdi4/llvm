@@ -336,8 +336,9 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
 }
 
 bool VecCloneImpl::vlaAllocasExist(Function &F) {
-  for (auto &Inst : F.front().getInstList()) {
-    if (auto *Alloca = dyn_cast<AllocaInst>(&Inst)) {
+  for (auto BBIt = F.front().begin(), BBEnd = F.front().end(); BBIt != BBEnd;
+       ++BBIt) {
+    if (auto *Alloca = dyn_cast<AllocaInst>(BBIt)) {
       if (Alloca->isArrayAllocation() &&
           !isa<ConstantInt>(Alloca->getArraySize()))
         return true;

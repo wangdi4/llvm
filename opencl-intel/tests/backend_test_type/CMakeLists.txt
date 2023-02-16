@@ -34,6 +34,7 @@ set(BACKEND_TEST_TYPE_LINK_LIBS
   LLVMMCParser
   LLVMObject
   LLVMOrcTargetProcess
+  LLVMTargetParser
   LLVMVPOTransforms
   LLVMVectorize
   LoopUtils

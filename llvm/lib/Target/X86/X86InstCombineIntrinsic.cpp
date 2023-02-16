@@ -858,7 +858,7 @@ static Value *simplifyX86pshufb(const IntrinsicInst &II,
 
   auto V1 = II.getArgOperand(0);
   auto V2 = Constant::getNullValue(VecTy);
-  return Builder.CreateShuffleVector(V1, V2, makeArrayRef(Indexes, NumElts));
+  return Builder.CreateShuffleVector(V1, V2, ArrayRef(Indexes, NumElts));
 }
 
 /// Attempt to convert vpermilvar* to shufflevector if the mask is constant.
@@ -905,7 +905,7 @@ static Value *simplifyX86vpermilvar(const IntrinsicInst &II,
   }
 
   auto V1 = II.getArgOperand(0);
-  return Builder.CreateShuffleVector(V1, makeArrayRef(Indexes, NumElts));
+  return Builder.CreateShuffleVector(V1, ArrayRef(Indexes, NumElts));
 }
 
 /// Attempt to convert vpermd/vpermps to shufflevector if the mask is constant.
@@ -939,7 +939,7 @@ static Value *simplifyX86vpermv(const IntrinsicInst &II,
   }
 
   auto V1 = II.getArgOperand(0);
-  return Builder.CreateShuffleVector(V1, makeArrayRef(Indexes, Size));
+  return Builder.CreateShuffleVector(V1, ArrayRef(Indexes, Size));
 }
 
 std::optional<Instruction *>

@@ -109,6 +109,8 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeMachineRegionInfoPassPass(Registry);
   initializeMachineSchedulerPass(Registry);
   initializeMachineSinkingPass(Registry);
+  initializeMachineUniformityAnalysisPassPass(Registry);
+  initializeMachineUniformityInfoPrinterPassPass(Registry);
   initializeMachineVerifierPassPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeObjCARCContractLegacyPassPass(Registry);
@@ -145,6 +147,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeSjLjEHPreparePass(Registry);
   initializeSlotIndexesPass(Registry);
   initializeStackColoringPass(Registry);
+  initializeStackFrameLayoutAnalysisPassPass(Registry);
   initializeStackMapLivenessPass(Registry);
   initializeStackProtectorPass(Registry);
   initializeStackSlotColoringPass(Registry);
@@ -152,7 +155,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeTailDuplicatePass(Registry);
   initializeTargetPassConfigPass(Registry);
   initializeTwoAddressInstructionPassPass(Registry);
-  initializeTypePromotionPass(Registry);
+  initializeTypePromotionLegacyPass(Registry);
   initializeUnpackMachineBundlesPass(Registry);
   initializeUnreachableBlockElimLegacyPassPass(Registry);
   initializeUnreachableMachineBlockElimPass(Registry);

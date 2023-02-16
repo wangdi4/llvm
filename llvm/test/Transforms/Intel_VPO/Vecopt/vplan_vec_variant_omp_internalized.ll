@@ -110,7 +110,7 @@ declare void @llvm.directive.region.exit(token)
 
 attributes #1 = { "vector-variants"="_ZGVbN4vvvvvvv__Z1fiPfS_iiii,_ZGVcN8vvvvvvv__Z1fiPfS_iiii,_ZGVdN8vvvvvvv__Z1fiPfS_iiii,_ZGVeN16vvvvvvv__Z1fiPfS_iiii,_ZGVbM4vvvvvvv__Z1fiPfS_iiii,_ZGVcM8vvvvvvv__Z1fiPfS_iiii,_ZGVdM8vvvvvvv__Z1fiPfS_iiii,_ZGVeM16vvvvvvv__Z1fiPfS_iiii" }
 
-; CHECK:      attributes #[[ATTR0]] = { "vector-variants"="_ZGVbN4vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVcN8vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVdN8vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVeN16vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVbM4vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVcM8vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVdM8vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVeM16vvvvvvv__Z1fiPfS_iiii.internalized" }
+; CHECK:      attributes #[[ATTR0]] = { nounwind "vector-variants"="_ZGVbN4vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVcN8vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVdN8vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVeN16vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVbM4vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVcM8vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVdM8vvvvvvv__Z1fiPfS_iiii.internalized,_ZGVeM16vvvvvvv__Z1fiPfS_iiii.internalized" }
 ; CHECK-NEXT: attributes #[[ATTR1]] = { "vector-variants"="_ZGVbN4vvvvvvv__Z1fiPfS_iiii,_ZGVcN8vvvvvvv__Z1fiPfS_iiii,_ZGVdN8vvvvvvv__Z1fiPfS_iiii,_ZGVeN16vvvvvvv__Z1fiPfS_iiii,_ZGVbM4vvvvvvv__Z1fiPfS_iiii,_ZGVcM8vvvvvvv__Z1fiPfS_iiii,_ZGVdM8vvvvvvv__Z1fiPfS_iiii,_ZGVeM16vvvvvvv__Z1fiPfS_iiii" }
 
 !llvm.module.flags = !{!0, !1, !2, !3, !4}

@@ -178,8 +178,8 @@ SYCLAAResult::ResolveResult SYCLAAResult::resolveAddressSpace(const Value *V,
 // Check aliasing using the fact that in openCL pointers from different
 // memory addresses do not alias.
 AliasResult SYCLAAResult::alias(const MemoryLocation &LocA,
-                                 const MemoryLocation &LocB,
-                                 AAQueryInfo &AAQI) {
+                                 const MemoryLocation &LocB, AAQueryInfo &AAQI,
+                                 const Instruction *) {
   const Value *A = LocA.Ptr;
   const Value *B = LocB.Ptr;
 
@@ -208,7 +208,7 @@ AliasResult SYCLAAResult::alias(const MemoryLocation &LocA,
     }
   }
 
-  return AAResultBase::alias(LocA, LocB, AAQI);
+  return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
 }
 
 ModRefInfo SYCLAAResult::getModRefInfoMask(const MemoryLocation &Loc,

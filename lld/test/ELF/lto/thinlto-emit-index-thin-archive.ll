@@ -6,7 +6,9 @@
 ; RUN: llvm-as %p/Inputs/thinlto.ll -o ./dir1/unused.o
 ; RUN: llvm-as %p/Inputs/thin1.ll -o ./dir1/thin.o
 ; RUN: llvm-as %p/Inputs/thin2.ll -o ./dir2/thin.o
-; RUN: llvm-ar crT ./dir2/lib.a dir1/unused.o dir1/thin.o dir2/thin.o
+; INTEL_CUSTOMIZATION
+; RUN: llvm-ar crT -opaque-pointers ./dir2/lib.a dir1/unused.o dir1/thin.o dir2/thin.o
+; end INTEL_CUSTOMIZATION
 
 ;; For a thin archive referencing object files in a different directory,
 ;; emit index files (lib.a($member at $offset).thinlto.bc) in the directory

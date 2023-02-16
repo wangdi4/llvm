@@ -30,10 +30,10 @@ endif()
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-    # Author: Gorban, Igor <igor.gorban@intel.com>
-    # Date:   Sun Dec 11 20:40:12 2022 +0000
-    # Fix llvm_tot: legacy pass manager
-    set(LLVMGenXIntrinsics_GIT_TAG 7596a83751934c538d809f336ee18bea6e8d1b44)
+    # Author: "Gorban, Igor" <igor.gorban@intel.com>
+    # Date: Wed, 21 Dec 2022 23:00:51 +0000
+    # Fix build against llvm tot
+    set(LLVMGenXIntrinsics_GIT_TAG dd72efa3b4aafdbbf599e6f3c6f8c55450e348de)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -45,9 +45,9 @@ if (NOT TARGET LLVMGenXIntrinsics)
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME vc-intrinsics.git)
       # Author: Gorban, Igor <igor.gorban@intel.com>
-      # Date:   Tue Dec 13 18:21:41 2022 +0000
-      # VCWrappers does not installing, we can't use them in headers
-      set(LLVMGenXIntrinsics_GIT_TAG 88083f819d2391f0a15ecdb6f7efeefaf02364e8)
+      # Date:   Wed Dec 21 23:00:51 2022 +0000
+      # Fix build against llvm tot
+      set(LLVMGenXIntrinsics_GIT_TAG dd72efa3b4aafdbbf599e6f3c6f8c55450e348de)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -58,9 +58,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
         # Author: Igor Gorban <igor.gorban@intel.com>
-        # Date:   Tue Dec 13 23:10:52 2022 +0100
-        # [BugFix] VCWrappers does not installing, we can't use them in headers (#241)
-        set(LLVMGenXIntrinsics_GIT_TAG 73019eb10802e9dcf1715fd5c210f9d7ab7cc864)
+        # Date:   Mon Jan 23 11:38:22 2023 +0100
+        # [BuildFix] Add option for fix parce opaque pointers
+        #            Fix ArrayRef initialization.
+        set(LLVMGenXIntrinsics_GIT_TAG c4269c3357600556bdd25e89bb4ecd4e81957ba6)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
@@ -126,17 +127,18 @@ endif (NOT WIN32)
 #end INTEL_CUSTOMIZATION
 
 add_llvm_component_library(LLVMSYCLLowerIR
-  ESIMD/LowerESIMD.cpp
-  ESIMD/LowerESIMDVLoadVStore.cpp
-  ESIMD/LowerESIMDVecArg.cpp
+  ESIMD/ESIMDOptimizeVecArgCallConv.cpp
   ESIMD/ESIMDUtils.cpp
   ESIMD/ESIMDVerifier.cpp
+  ESIMD/LowerESIMD.cpp
   ESIMD/LowerESIMDKernelAttrs.cpp
-  ESIMD/ESIMDOptimizeVecArgCallConv.cpp
+  ESIMD/LowerESIMDVecArg.cpp
+  ESIMD/LowerESIMDVLoadVStore.cpp
+  ESIMD/LowerESIMDSlmReservation.cpp
   LowerInvokeSimd.cpp
   LowerKernelProps.cpp
-  LowerWGScope.cpp
   LowerWGLocalMemory.cpp
+  LowerWGScope.cpp
   MutatePrintfAddrspace.cpp
   SYCLPropagateAspectsUsage.cpp
   SYCLUtils.cpp
@@ -159,11 +161,13 @@ add_llvm_component_library(LLVMSYCLLowerIR
   LINK_LIBS
   LLVMGenXIntrinsics
   LLVMDemangle
+  LLVMTargetParser
   LLVMTransformUtils
 
   LINK_COMPONENTS
   Analysis
   Core
+  TargetParser
   Support
   )
 

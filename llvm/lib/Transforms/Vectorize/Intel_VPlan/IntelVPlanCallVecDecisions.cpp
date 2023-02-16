@@ -242,7 +242,7 @@ void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
   }
 }
 
-llvm::Optional<std::pair<VFInfo, unsigned>>
+std::optional<std::pair<VFInfo, unsigned>>
 VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
                                           bool Masked, unsigned VF,
                                           const TargetTransformInfo *TTI) {

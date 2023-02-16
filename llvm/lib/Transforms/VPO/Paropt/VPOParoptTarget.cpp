@@ -628,7 +628,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
 
   Fn->getParent()->getFunctionList().insert(Fn->getIterator(), NFn);
   NFn->takeName(Fn);
-  NFn->getBasicBlockList().splice(NFn->begin(), Fn->getBasicBlockList());
+  NFn->splice(NFn->begin(), Fn);
 
   // Everything including the routine name has been moved to the new routine.
   // Do the same with the debug information.
@@ -1502,8 +1502,8 @@ void VPOParoptTransform::guardSideEffectStatements(
     Instruction *ElseInst = StopI->getNextNonDebugInstruction();
     BasicBlock *ElseBB = ElseInst->getParent();
     ElseBB->setName("master.thread.fallthru");
-    ThenBB->getInstList().splice(
-        ThenTerm->getIterator(), StartI->getParent()->getInstList(),
+    ThenBB->splice(
+        ThenTerm->getIterator(), StartI->getParent(),
         StartI->getIterator(), ElseInst->getIterator());
 
     Instruction *BarrierInsertPt = ElseBB->getFirstNonPHI();
@@ -2470,7 +2470,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
   }
   StructType *CLLoopParameterRecType =
       StructType::get(C,
-                      makeArrayRef(CLLoopParameterRecTypeArgs.begin(),
+                      ArrayRef(CLLoopParameterRecTypeArgs.begin(),
                                    CLLoopParameterRecTypeArgs.end()),
                       false);
   // FIXME: Use getInsertionPtForAllocas() for this alloca.
@@ -4648,7 +4648,7 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 #endif // INTEL_CUSTOMIZATION
 StringRef VPOParoptTransform::getVariantInfo(
     WRegionNode *W, CallInst *BaseCall, StringRef &MatchConstruct,
-    uint64_t &DeviceArchsOut, llvm::Optional<uint64_t> &InteropPositionOut,
+    uint64_t &DeviceArchsOut, std::optional<uint64_t> &InteropPositionOut,
     StringRef &NeedDevicePtrStrOut, StringRef &InteropStrOut) {
 
   assert(BaseCall && "BaseCall is null");
@@ -4861,7 +4861,7 @@ StringRef VPOParoptTransform::getVariantInfo(
 // NeedDevicePtrStr and InteropStr
 StringRef VPOParoptTransform::getVariantInfo(
     WRegionNode *W, CallInst *BaseCall, StringRef &MatchConstruct,
-    uint64_t &DeviceArchs, llvm::Optional<uint64_t> &InteropPositionOut) {
+    uint64_t &DeviceArchs, std::optional<uint64_t> &InteropPositionOut) {
 
   StringRef NeedDevicePtrStr; // unused
   StringRef InteropStr;       // unused
@@ -5368,8 +5368,8 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   StringRef MatchConstruct("target_variant_dispatch");
   StringRef VariantName;
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
-  llvm::Optional<uint64_t> InteropPosition =
-      std::nullopt;          // position of interop arg in variant call
+  std::optional<uint64_t> InteropPosition =
+      std::nullopt; // position of interop arg in variant call
 
   CallInst *BaseCall = nullptr;
 
@@ -5485,7 +5485,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   assert(BaseCall->use_empty());
 
   Function *WrapperFn = VPOParoptUtils::genOutlineFunction(
-      *W, DT, AC, makeArrayRef(BBSet), (VariantName + ".wrapper").str()); // (5)
+      *W, DT, AC, ArrayRef(BBSet), (VariantName + ".wrapper").str()); //    (5)
   CallInst *VariantWrapperCall = cast<CallInst>(WrapperFn->user_back());
 
   // BaseCall may have arguments with the ByVal attribute, with or without an
@@ -5805,8 +5805,8 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
 
   StringRef MatchConstruct("dispatch");
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
-  llvm::Optional<uint64_t> InteropPosition =
-      std::nullopt;          // position of interop arg in variant call
+  std::optional<uint64_t> InteropPosition =
+      std::nullopt; // position of interop arg in variant call
   StringRef NeedDevicePtrStr;
   StringRef InteropStr;
   StringRef VariantName =

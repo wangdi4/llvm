@@ -277,7 +277,7 @@ struct VPTransformState {
   /// Hold the indices to generate specific scalar instructions. Null indicates
   /// that all instances are to be generated, using either scalar or vector
   /// instructions.
-  Optional<VPIteration> Instance;
+  std::optional<VPIteration> Instance;
 
   struct DataState {
     /// A type for vectorized values in the new loop. Each value from the
@@ -1416,9 +1416,9 @@ public:
   }
 
   /// Return Optional index for a given basic block \p Block.
-  Optional<unsigned> getBlockIndexOrNone(const VPBasicBlock *BB) const {
+  std::optional<unsigned> getBlockIndexOrNone(const VPBasicBlock *BB) const {
     int Idx = getBlockIndex(BB);
-    return Idx != -1 ? Optional<unsigned>(Idx) : std::nullopt;
+    return Idx != -1 ? std::optional<unsigned>(Idx) : std::nullopt;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -2006,7 +2006,7 @@ private:
     unsigned VF = 0;
     std::unique_ptr<const VFInfo> MatchedVecVariant;
     unsigned MatchedVecVariantIndex = 0;
-    Optional<StringRef> VectorLibraryFn = std::nullopt;
+    std::optional<StringRef> VectorLibraryFn = std::nullopt;
     Intrinsic::ID VectorIntrinsic = Intrinsic::not_intrinsic;
     unsigned PumpFactor = 1;
     // Specifies if masked version of a vector variant should be used to
@@ -2465,7 +2465,7 @@ public:
 
   /// Returns the VPOperandBundle with the given \p Tag, if one is present.
   /// Asserts if more than one is present.
-  Optional<VPOperandBundle> getOperandBundle(StringRef Tag) const {
+  std::optional<VPOperandBundle> getOperandBundle(StringRef Tag) const {
     if (const CallInst *CI = getUnderlyingCallInst()) {
       assert(CI->countOperandBundlesOfType(Tag) < 2 &&
              "more than one tag present!");

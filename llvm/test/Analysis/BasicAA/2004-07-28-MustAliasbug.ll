@@ -1,13 +1,13 @@
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes=dse -S | FileCheck %s
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -dse -S | FileCheck %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -passes="dse" -aa-pipeline=basic-aa -S | FileCheck %s
 
-define void @test({i32,i32 }* %P) {
-; CHECK: store i32 0, i32* %X
-  %Q = getelementptr {i32,i32}, {i32,i32}* %P, i32 1
-  %X = getelementptr {i32,i32}, {i32,i32}* %Q, i32 0, i32 1
-  %Y = getelementptr {i32,i32}, {i32,i32}* %Q, i32 1, i32 1
-  store i32 0, i32* %X
-  store i32 1, i32* %Y
+define void @test(ptr %P) {
+; CHECK: store i32 0, ptr %X
+  %Q = getelementptr {i32,i32}, ptr %P, i32 1
+  %X = getelementptr {i32,i32}, ptr %Q, i32 0, i32 1
+  %Y = getelementptr {i32,i32}, ptr %Q, i32 1, i32 1
+  store i32 0, ptr %X
+  store i32 1, ptr %Y
   ret void
 }

@@ -16,7 +16,7 @@ header:
   %gep = getelementptr i32, ptr %p, i64 %iv
 ; VPLAN:  ptr [[VP_GEP:%.*]] = getelementptr i32, ptr [[VP_P:%.*]] i64 [[VP_IV:%.*]]
 
-; LLVM:         [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x ptr> poison, ptr [[TMP0:%.*]], i32 0
+; LLVM:         [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x ptr> poison, ptr [[TMP0:%.*]], i64 0
 ; LLVM-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x ptr> [[BROADCAST_SPLATINSERT]], <4 x ptr> poison, <4 x i32> zeroinitializer
 ; LLVM:         [[MM_VECTORGEP:%.*]] = getelementptr i32, <4 x ptr> [[BROADCAST_SPLAT]], <4 x i64> [[VEC_PHI:%.*]]
 

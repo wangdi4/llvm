@@ -375,7 +375,7 @@ public:
   ///      = a[3i+1] {stride: j(12)-bytes} accessing every jth byte
   ///      = a[3i+2] {stride: j(12)-bytes} accessing every jth byte
   ///
-  virtual Optional<int64_t>
+  virtual std::optional<int64_t>
   getConstDistanceFrom(const OVLSMemref &Memref) const = 0;
 
   /// \brief Returns true if this can move to the location of \p Memref. This
@@ -425,7 +425,7 @@ public:
   /// Otherwise, returns std::nullopt. Inverting the return value does not
   /// invert the functionality (std::nullopt does not mean that it has a
   /// variable stride).
-  virtual Optional<int64_t> getConstStride() const = 0;
+  virtual std::optional<int64_t> getConstStride() const = 0;
 
   /// Check if this memory reference dominates/postdominates another one. It is
   /// safe to form groups only at the location that dominates (in case of loads)
@@ -530,7 +530,7 @@ public:
   /// uniform distance in bytes between the vector elements of a OVLSMemref.
   /// Inverting the function return does not invert the functionality (e.g.
   /// std::nullopt does not mean the group has a variable stride).
-  Optional<int64_t> getConstStride() const {
+  std::optional<int64_t> getConstStride() const {
     // A group only comprises the memrefs that have the same matching strides.
     // Therefore, checking whether the first memref in the group has a
     // constant stride is sufficient.

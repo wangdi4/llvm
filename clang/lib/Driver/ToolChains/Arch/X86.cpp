@@ -90,12 +90,10 @@ std::string x86::getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CaseLower("graniterapids", "graniterapids")
               .CaseLower("sierraforest", "sierraforest")
               .CaseLower("grandridge", "grandridge")
+              .CaseLower("emeraldrapids", "emeraldrapids")
 #if INTEL_FEATURE_CPU_DMR
               .CaseLower("diamondrapids", "diamondrapids")
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_EMR
-              .CaseLower("emeraldrapids", "emeraldrapids")
-#endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_RYL
               .CaseLower("royal", "royal")
 #endif // INTEL_FEATURE_CPU_RYL

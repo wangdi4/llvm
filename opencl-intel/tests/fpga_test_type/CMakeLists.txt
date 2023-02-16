@@ -22,6 +22,7 @@ link_directories(${TBB_LIB_DIR})
 
 set(FPGA_TEST_TYPE_LINK_LIBS
   LLVMSupport
+  LLVMTargetParser
   cl_hw_utils
   cl_sys_utils
   test_utils

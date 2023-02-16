@@ -27,4 +27,8 @@ add_llvm_component_library(LLVMInstCombine
   Core
   Support
   TransformUtils
+# INTEL_CUSTOMIZATION
+  TargetParser
+# end INTEL_CUSTOMIZATION
   )
+

@@ -60,7 +60,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeCallSiteSplittingLegacyPassPass(Registry);
   initializeConstantHoistingLegacyPassPass(Registry);
   initializeConvertGEPToSubscriptIntrinsicLegacyPassPass(Registry); // INTEL
-  initializeConstraintEliminationPass(Registry);
   initializeCorrelatedValuePropagationPass(Registry);
   initializeDCELegacyPassPass(Registry);
   initializeDivRemPairsLegacyPassPass(Registry);

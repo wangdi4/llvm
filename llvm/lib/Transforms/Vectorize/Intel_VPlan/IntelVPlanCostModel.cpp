@@ -354,7 +354,8 @@ VPlanTTICostModel::getLoadStoreCost(const VPLoadStoreInst *LoadStore,
     // instructions and the code below should be removed.
     Cost += (Opcode == Instruction::Load) ?
       TTI.getShuffleCost(TTI::SK_Broadcast, cast<VectorType>(VecTy)) :
-      TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy, VF - 1);
+      TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                             TTI::TCK_RecipThroughput, VF - 1);
 
     return Cost;
   }
@@ -450,7 +451,8 @@ VPInstructionCost VPlanTTICostModel::getInsertExtractElementsCost(
   VPInstructionCost Cost = 0;
   Type *VecTy = getWidenedType(Ty, VF);
   for(unsigned Idx = 0; Idx < VF; Idx++)
-    Cost += TTI.getVectorInstrCost(Opcode, VecTy, Idx);
+    Cost += TTI.getVectorInstrCost(Opcode, VecTy,
+                                   TTI::TCK_RecipThroughput, Idx);
   return Cost;
 }
 
@@ -770,8 +772,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       if (StructType *STy = dyn_cast<StructType>(OpTy)) {
         // Cost of extracting cond from vec cond
         for(unsigned Idx = 0; Idx < VF; Idx++)
-          ExtractCost += TTI.getVectorInstrCost(
-            Instruction::ExtractElement, VecCondTy, Idx);
+          ExtractCost += TTI.getVectorInstrCost(Instruction::ExtractElement,
+            VecCondTy, TTI::TCK_RecipThroughput, Idx);
 
         /* Cost of single select instruction with struct type operands
          * Here the cost is calculated based on the assumption that all fields
@@ -1081,8 +1083,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
             TargetTransformInfo::TCK_RecipThroughput);
       else {
         for (unsigned Index = 0; Index < VF; Index++)
-          Cost += TTI.getVectorInstrCost(Instruction::InsertElement,
-                                         StepVecTy, Index);
+          Cost += TTI.getVectorInstrCost(Instruction::InsertElement, StepVecTy,
+                                         TTI::TCK_RecipThroughput, Index);
         Cost += (VF - 1) * TTI.getArithmeticInstrCost(
           Opc, StepScalTy, TargetTransformInfo::TCK_RecipThroughput);
       }
@@ -1297,8 +1299,10 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
           cast<VPLiveInValue>(StartVal)->getMergeId());
 
       // Predict constant folding.
-      if (!isa<VPConstant>(StartVal))
-        Cost += TTI.getVectorInstrCost(Instruction::InsertElement, VTy, 0);
+      if (!isa<VPConstant>(StartVal)) {
+        Cost += TTI.getVectorInstrCost(Instruction::InsertElement, VTy,
+                                       TTI::TCK_RecipThroughput, 0);
+      }
     }
     return Cost;
   }
@@ -1371,7 +1375,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
 
   case VPInstruction::CompressExpandIndexInit:
     return TTI.getVectorInstrCost(Instruction::InsertElement,
-                                  getWidenedType(VPInst->getType(), VF), 0);
+                                  getWidenedType(VPInst->getType(), VF),
+                                  TTI::TCK_RecipThroughput, 0);
 
   case VPInstruction::CompressExpandIndexInc: {
     Type *ElType = VPInst->getType();
@@ -1381,7 +1386,8 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
         IntrinsicCostAttributes(Intrinsic::vector_reduce_add, ElType,
                                 {VecType}),
         TTI::TCK_RecipThroughput);
-    Cost += TTI.getVectorInstrCost(Instruction::InsertElement, VecType, 0);
+    Cost += TTI.getVectorInstrCost(Instruction::InsertElement, VecType,
+                                   TTI::TCK_RecipThroughput, 0);
     return Cost;
   }
 
@@ -1437,6 +1443,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
                                 cast<FixedVectorType>(OpTy));
     else
       return TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                    TTI::TCK_RecipThroughput,
                                     VF - 1 /* Index */);
   }
 
@@ -1473,6 +1480,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
       IntrinsicCostAttributes(Intrinsic::ctlz, IntVFTy, {IntVFTy, Int1Ty}),
       TTI::TCK_RecipThroughput);
     Cost += TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                   TTI::TCK_RecipThroughput,
                                    -1U /* Non-immediate Index */);
     return Cost;
   }
@@ -1492,6 +1500,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
          TargetTransformInfo::OP_PowerOf2_PlusMinus1},
         {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
     Cost += TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                   TTI::TCK_RecipThroughput,
                                    -1U /* Non-immediate Index */);
     return Cost;
   }
@@ -1521,6 +1530,7 @@ VPInstructionCost VPlanTTICostModel::getTTICostForVF(
   case VPInstruction::ExtractLastVectorLane: {
     auto *VecTy = getWidenedType(VPInst->getOperand(0)->getType(), VF);
     return TTI.getVectorInstrCost(Instruction::ExtractElement, VecTy,
+                                  TTI::TCK_RecipThroughput,
                                   VF - 1 /* Index */);
   }
 

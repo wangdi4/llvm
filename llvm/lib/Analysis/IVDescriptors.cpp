@@ -985,7 +985,7 @@ bool RecurrenceDescriptor::isFixedOrderRecurrence(
     return false;
 
   // Get the previous value. The previous value comes from the latch edge while
-  // the initial value comes form the preheader edge.
+  // the initial value comes from the preheader edge.
   auto *Previous = dyn_cast<Instruction>(Phi->getIncomingValueForBlock(Latch));
 
   // If Previous is a phi in the header, go through incoming values from the
@@ -1663,7 +1663,7 @@ bool InductionDescriptor::isInductionPHI(
   // the scalable type.
   if (TySize.isZero() || TySize.isScalable())
     return false;
-  int64_t Size = static_cast<int64_t>(TySize.getFixedSize());
+  int64_t Size = static_cast<int64_t>(TySize.getFixedValue());
 
 #if INTEL_CUSTOMIZATION
   if (ConstStep) {

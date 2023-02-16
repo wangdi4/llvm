@@ -15,7 +15,7 @@
 # License.
 #
 # end INTEL_CUSTOMIZATION
-set(LLVM_LINK_COMPONENTS BitWriter Core Object Support TransformUtils)
+set(LLVM_LINK_COMPONENTS BitWriter Core Object Support TargetParser TransformUtils)
 
 if(INTEL_CUSTOMIZATION)
 list(APPEND LLVM_LINK_COMPONENTS ObjectYAML)

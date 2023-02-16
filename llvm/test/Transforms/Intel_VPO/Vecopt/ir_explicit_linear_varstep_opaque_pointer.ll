@@ -14,7 +14,7 @@
 ;
 ; CHECK:      define dso_local void @foo(i32 noundef %step) #0 {
 ; CHECK:      VPlannedBB:                                      ; preds = %omp.region.entry
-; CHECK-NEXT:   [[VP_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 %step, i32 0
+; CHECK-NEXT:   [[VP_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 %step, i64 0
 ; CHECK-NEXT:   [[VP_BCAST_SPLAT:%.*]] = shufflevector <2 x i32> [[VP_BCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   br label %VPlannedBB1
 ; CHECK:      VPlannedBB1:                                      ; preds = %VPlannedBB
@@ -23,7 +23,7 @@
 ; CHECK-NEXT:   [[VP_BCAST_SPLAT_ADD:%.*]] = add <2 x i32> [[VP_IND_START_BCAST_SPLAT:%.*]], [[VP_BCAST_SPLAT_MUL]]
 ; CHECK-NEXT:   store <2 x i32> [[VP_BCAST_SPLAT_ADD]], ptr [[VP_Y_LINEAR_PTR_VEC:%.*]], align 1
 ; CHECK-NEXT:   [[VP_STEP_MUL:%.*]] = mul i32 %step, 2
-; CHECK-NEXT:   [[VP_IND_STEP_INIT_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[VP_STEP_MUL]], i32 0
+; CHECK-NEXT:   [[VP_IND_STEP_INIT_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[VP_STEP_MUL]], i64 0
 ; CHECK-NEXT:   [[VP_IND_STEP_INIT_SPLAT:%.*]] = shufflevector <2 x i32> [[VP_IND_STEP_INIT_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
 ; CHECK:      vector.body:                                      ; preds = %vector.body, %VPlannedBB1
 ; CHECK:        [[VP_VEC_PHI:%.*]] = phi <2 x i32> [ [[VP_BCAST_SPLAT_ADD]], %VPlannedBB1 ], [ [[VP_PTR_NEXT:%.*]], %vector.body ]
