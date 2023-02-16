@@ -3493,6 +3493,9 @@ private:
       Decl *TagDecl = nullptr);
   /// Parse 'omp declare reduction' construct.
   DeclGroupPtrTy ParseOpenMPDeclareReductionDirective(AccessSpecifier AS);
+#if INTEL_COLLAB
+  DeclGroupPtrTy ParseOpenMPGroupPrivateDirective(SourceLocation Loc);
+#endif // INTEL_COLLAB
   /// Parses initializer for provided omp_priv declaration inside the reduction
   /// initializer.
   void ParseOpenMPReductionInitializerForDecl(VarDecl *OmpPrivParm);
