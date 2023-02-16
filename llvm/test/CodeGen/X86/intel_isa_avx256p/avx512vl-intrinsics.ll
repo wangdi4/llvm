@@ -6759,6 +6759,18 @@ define <4 x double> @test_mask_vfmadd256_pd_rmkz(<4 x double> %a0, <4 x double> 
   ret <4 x double> %1
 }
 
+define <8 x i16> @test_umin_truncated_v8i32(<8 x i32> %0) {
+; CHECK-LABEL: test_umin_truncated_v8i32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpmovusdw %ymm0, %xmm0 # encoding: [0x62,0xf2,0x7e,0x28,0x13,0xc0]
+; CHECK-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
+; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
+  %2 = call <8 x i32> @llvm.umin.v8i32(<8 x i32> %0, <8 x i32> <i32 65535, i32 65535, i32 65535, i32 65535, i32 65535, i32 65535, i32 65535, i32 65535>)
+  %3 = trunc <8 x i32> %2 to <8 x i16>
+  ret <8 x i16> %3
+}
+
+declare <8 x i32> @llvm.umin.v8i32(<8 x i32>, <8 x i32>)
 declare <8 x float> @llvm.fma.v8f32(<8 x float>, <8 x float>, <8 x float>)
 declare <4 x float> @llvm.fma.v4f32(<4 x float>, <4 x float>, <4 x float>)
 declare <4 x double> @llvm.fma.v4f64(<4 x double>, <4 x double>, <4 x double>)
