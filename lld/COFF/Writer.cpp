@@ -2040,11 +2040,9 @@ void Writer::sortCRTSectionChunks(std::vector<Chunk *> &chunks) {
 
   if (config->verbose) {
     for (auto &c : chunks) {
-#if INTEL_CUSTOMIZATION
-      if (auto sc = dyn_cast<SectionChunk>(c))
-        log("  " + sc->file->mb.getBufferIdentifier().str() +
-            ", SectionID: " + Twine(sc->getSectionNumber()));
-#endif
+      auto sc = cast<SectionChunk>(c); // INTEL
+      log("  " + sc->file->mb.getBufferIdentifier().str() +
+          ", SectionID: " + Twine(sc->getSectionNumber()));
     }
   }
 }
