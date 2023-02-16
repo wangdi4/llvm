@@ -49,7 +49,7 @@
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_ORIG]])
 
-; CHECK-LABEL: VPlannedBB19:
+; CHECK-LABEL: VPlannedBB18:
 ; CHECK-NEXT:    call ptr @_ZTS5Dummy.omp.def_constr(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
