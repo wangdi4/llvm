@@ -28,7 +28,6 @@
 
 #include "Cuda.h"
 #include "SYCL.h" // INTEL_CUSTOMIZATION
-#include "LazyDetector.h"
 #include "ROCm.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Driver/ToolChain.h"
@@ -337,8 +336,8 @@ public:
 
 protected:
   GCCInstallationDetector GCCInstallation;
-  LazyDetector<CudaInstallationDetector> CudaInstallation;
-  LazyDetector<RocmInstallationDetector> RocmInstallation;
+  CudaInstallationDetector CudaInstallation;
+  RocmInstallationDetector RocmInstallation;
 
 public:
   Generic_GCC(const Driver &D, const llvm::Triple &Triple,
