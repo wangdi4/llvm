@@ -111,7 +111,13 @@ STATISTIC(SearchTimes, "Number of times a GEP is decomposed");
 
 // The max limit of the search depth in DecomposeGEPExpression() and
 // getUnderlyingObject().
-static const unsigned MaxLookupSearchDepth = 6;
+#if INTEL_CUSTOMIZATION
+// static const unsigned MaxLookupSearchDepth = 6;
+static cl::opt<unsigned> MaxLookupSearchDepth(
+    "basic-aa-max-lookup-search-depth", cl::Hidden, cl::init(6),
+    cl::desc("Max limit of the search depth in DecomposeGEPExpression() and "
+             "getUnderlyingObject() for Basic-AA"));
+#endif // INTEL_CUSTOMIZATION
 
 bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
                                FunctionAnalysisManager::Invalidator &Inv) {
@@ -719,6 +725,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
   unsigned MaxIndexSize = DL.getMaxIndexSizeInBits();
   DecomposedGEP Decomposed;
   Decomposed.Offset = APInt(MaxIndexSize, 0);
+  SmallPtrSet<const Value *, 6> VisitedOp; // INTEL
   do {
     // See if this is a bitcast or GEP.
     const Operator *Op = dyn_cast<Operator>(V);
@@ -733,6 +740,18 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
       Decomposed.Base = V;
       return Decomposed;
     }
+
+#if INTEL_CUSTOMIZATION
+    if (isa<AddressOperator>(V)) {
+      // We need to track the visited AddressOperators in order to prevent
+      // an infinite loop
+      if (!VisitedOp.insert(V).second) {
+        Decomposed.Base = V;
+        return Decomposed;
+      }
+      ++MaxLookup;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (Op->getOpcode() == Instruction::BitCast ||
         Op->getOpcode() == Instruction::AddrSpaceCast) {
@@ -1522,13 +1541,6 @@ bool BasicAAResult::valueIsNotCapturedBeforeOrAt(const Value *O1,
   assert(O2 && "Trying to check if O2 will capture but value is null");
 
   if (!isIdentifiedFunctionLocal(O1))
-    return false;
-
-  // Calls to subscript intrinsics are a form of GEP.
-  // TODO: Subscript instructions shouldn't be here. The function isEscapeSource
-  // calls isIntrinsicReturningPointerAliasingArgumentWithoutCapturing, and it
-  // needs to be updated to consider subscript intrinsics (CMPLRLLVM-42509).
-  if(isa<SubscriptInst>(O2))
     return false;
 
   auto *Inst = dyn_cast<Instruction>(O2);

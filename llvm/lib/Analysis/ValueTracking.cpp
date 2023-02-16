@@ -4888,8 +4888,23 @@ static bool isSameUnderlyingObjectInLoop(const PHINode *PN,
 const Value *llvm::getUnderlyingObject(const Value *V, unsigned MaxLookup) {
   if (!V->getType()->isPointerTy())
     return V;
+
+  SmallPtrSet<const Value *, 8> AnalyzedValues; // INTEL
   for (unsigned Count = 0; MaxLookup == 0 || Count < MaxLookup; ++Count) {
-    if (auto *GEP = dyn_cast<AddressOperator>(V)) { // INTEL
+#if INTEL_CUSTOMIZATION
+    if (auto *GEP = dyn_cast<AddressOperator>(V)) {
+      // We need to catch any possible recursion since there is no counter when
+      // tracing AddressOperators.
+      if (!(AnalyzedValues.insert(V).second))
+        return V;
+      // Ideally, we would like to increase Count only if the other checks were
+      // reached. The counter's reduction was added intentionally to simplify
+      // gatekeeping. Also, this won't produce an issue since unsigned is
+      // allowed to wrap around. If Count is 0 at the beginning of the loop,
+      // the reduction will set it as UINT_MAX, but the increment will set the
+      // variable back to 0.
+      --Count;
+#endif // INTEL_CUSTOMIZATION
       V = GEP->getPointerOperand();
     } else if (Operator::getOpcode(V) == Instruction::BitCast ||
                Operator::getOpcode(V) == Instruction::AddrSpaceCast) {

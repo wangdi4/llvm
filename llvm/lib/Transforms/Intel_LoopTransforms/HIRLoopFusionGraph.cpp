@@ -1,6 +1,6 @@
 //===- HIRLoopFusionGraph.cpp - Implements Loop Fusion Graph --------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -322,14 +322,6 @@ static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
   }
 
   if (std::abs(UBDist) > 3) {
-    return 0;
-  }
-
-  if (!HLNodeUtils::dominates(Loop1, Loop2)) {
-    return 0;
-  }
-
-  if (!HLNodeUtils::postDominates(Loop2, Loop1)) {
     return 0;
   }
 
