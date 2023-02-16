@@ -10795,6 +10795,18 @@ def err_omp_reduction_in_task : Error<
 #if INTEL_COLLAB
 def err_omp_unsupported_region : Error<
   "region '%0' is not yet supported inside '%1' region">;
+def err_omp_groupprivate_incomplete_type
+    : Error<"groupprivate variable with incomplete type %0">;
+def warn_groupprivate_reference_ignore
+    : Warning<"groupprivate directive for variable %0 is ignored for "
+              "x86-64/host compilation">,
+      InGroup<SourceUsesOpenMP>;
+def err_omp_private_in_clause
+    : Error<"%0 variables are not allowed in '%1' clause">;
+def err_groupprivate_init
+    : Error<"initializer for groupprivate variable %0 is not allowed">;
+def note_groupprivate_reference
+    : Note<"'#pragma omp groupprivate' is specified here">;
 #endif // INTEL_COLLAB
 def err_omp_reduction_id_not_compatible : Error<
   "list item of type %0 is not valid for specified reduction operation: unable to provide default initialization value">;

@@ -457,6 +457,11 @@ def OMPC_ThreadPrivate : Clause<"threadprivate"> {
   let alternativeName = "threadprivate or thread local";
   let isImplicit = true;
 }
+#if INTEL_COLLAB
+def OMPC_GroupPrivate : Clause<"groupprivate"> {
+  let isImplicit = true;
+}
+#endif // INTEL_COLLAB
 def OMPC_Unknown : Clause<"unknown"> {
   let isImplicit = true;
   let isDefault = true;
@@ -485,6 +490,13 @@ def OMPC_Bind : Clause<"bind"> {
 //===----------------------------------------------------------------------===//
 
 def OMP_ThreadPrivate : Directive<"threadprivate"> {}
+#if INTEL_COLLAB
+def OMP_GroupPrivate : Directive<"groupprivate"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_DeviceType>
+  ];
+}
+#endif // INTEL_COLLAB
 def OMP_Parallel : Directive<"parallel"> {
   let allowedClauses = [
 #if INTEL_CUSTOMIZATION

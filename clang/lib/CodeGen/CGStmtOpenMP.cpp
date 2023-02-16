@@ -6685,6 +6685,9 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_nowait:
   case OMPC_untied:
   case OMPC_threadprivate:
+#if INTEL_COLLAB
+  case OMPC_groupprivate:
+#endif // INTEL_COLLAB
   case OMPC_depend:
   case OMPC_mergeable:
   case OMPC_device:

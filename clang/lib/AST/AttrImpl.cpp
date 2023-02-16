@@ -252,6 +252,36 @@ OMPDeclareTargetDeclAttr::getLocation(const ValueDecl *VD) {
   return std::nullopt;
 }
 
+#if INTEL_COLLAB
+llvm::Optional<OMPGroupPrivateDeclAttr *>
+OMPGroupPrivateDeclAttr::getGroupPrivateDeclAttr(const ValueDecl *VD) {
+  if (!VD->hasAttr<OMPGroupPrivateDeclAttr>())
+    return std::nullopt;
+  specific_attr_iterator<OMPGroupPrivateDeclAttr> ItB =
+      VD->specific_attr_begin<OMPGroupPrivateDeclAttr>();
+  OMPGroupPrivateDeclAttr *Attr = *ItB;
+  if (Attr)
+    return Attr;
+  return std::nullopt;
+}
+
+llvm::Optional<OMPGroupPrivateDeclAttr::DevTypeTy>
+OMPGroupPrivateDeclAttr::getDeviceType(const ValueDecl *VD) {
+  llvm::Optional<OMPGroupPrivateDeclAttr *> Attr = getGroupPrivateDeclAttr(VD);
+  if (Attr)
+    return Attr.value()->getDevType();
+  return std::nullopt;
+}
+
+llvm::Optional<SourceLocation>
+OMPGroupPrivateDeclAttr::getLocation(const ValueDecl *VD) {
+  llvm::Optional<OMPGroupPrivateDeclAttr *> Attr = getGroupPrivateDeclAttr(VD);
+  if (Attr)
+    return Attr.value()->getRange().getBegin();
+  return std::nullopt;
+}
+#endif // INTEL_COLLAB
+
 namespace clang {
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const OMPTraitInfo &TI);
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const OMPTraitInfo *TI);

@@ -505,6 +505,13 @@ public:
       Visit(E);
   }
 
+#if INTEL_COLLAB
+  void VisitOMPGroupPrivateDecl(const OMPGroupPrivateDecl *D) {
+    for (const auto *E : D->varlists())
+      Visit(E);
+  }
+#endif // INTEL_COLLAB
+
   void VisitOMPDeclareReductionDecl(const OMPDeclareReductionDecl *D) {
     Visit(D->getCombiner());
     if (const auto *Initializer = D->getInitializer())

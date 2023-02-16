@@ -154,6 +154,9 @@ namespace clang {
     void VisitObjCPropertyDecl(ObjCPropertyDecl *D);
     void VisitObjCPropertyImplDecl(ObjCPropertyImplDecl *D);
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
+#if INTEL_COLLAB
+    void VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D);
+#endif // INTEL_COLLAB
     void VisitOMPAllocateDecl(OMPAllocateDecl *D);
     void VisitOMPRequiresDecl(OMPRequiresDecl *D);
     void VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D);
@@ -1902,6 +1905,14 @@ void ASTDeclWriter::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
   VisitDecl(D);
   Code = serialization::DECL_OMP_THREADPRIVATE;
 }
+
+#if INTEL_COLLAB
+void ASTDeclWriter::VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D) {
+  Record.writeOMPChildren(D->Data);
+  VisitDecl(D);
+  Code = serialization::DECL_OMP_GROUPPRIVATE;
+}
+#endif // INTEL_COLLAB
 
 void ASTDeclWriter::VisitOMPAllocateDecl(OMPAllocateDecl *D) {
   Record.writeOMPChildren(D->Data);

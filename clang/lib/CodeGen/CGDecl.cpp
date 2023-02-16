@@ -146,6 +146,9 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   case Decl::TemplateParamObject:
   case Decl::OMPThreadPrivate:
   case Decl::OMPAllocate:
+#if INTEL_COLLAB
+  case Decl::OMPGroupPrivate:
+#endif // INTEL_COLLAB
   case Decl::OMPCapturedExpr:
   case Decl::OMPRequires:
   case Decl::Empty:

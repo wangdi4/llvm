@@ -462,6 +462,34 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
     return true;
   }
 
+#if INTEL_COLLAB
+  if (LangOpts.OpenMP || LangOpts.OpenMPSimd)
+    if (auto VD = dyn_cast<VarDecl>(D)) {
+      QualType QType = VD->getType();
+      if (QType->isDependentType() || QType->isInstantiationDependentType())
+        return false;
+      Optional<OMPDeclareTargetDeclAttr::DevTypeTy> TDevTy =
+          OMPDeclareTargetDeclAttr::getDeviceType(VD);
+      Optional<OMPGroupPrivateDeclAttr::DevTypeTy> GDevTy =
+          OMPGroupPrivateDeclAttr::getDeviceType(VD);
+      // Currently only DT_NoHost is parser thourgh.
+      if (GDevTy && *GDevTy == OMPGroupPrivateDeclAttr::DT_NoHost) {
+        if (TDevTy && *TDevTy == OMPDeclareTargetDeclAttr::DT_Host) {
+          Diag(Loc, diag::err_omp_device_type_mismatch)
+              << OMPDeclareTargetDeclAttr::ConvertDevTypeTyToStr(*TDevTy)
+              << OMPGroupPrivateDeclAttr::ConvertDevTypeTyToStr(*GDevTy);
+          return true;
+        }
+      }
+      if (!getLangOpts().OpenMPIsDevice && GDevTy &&
+          !isInOpenMPTargetExecutionDirective() && !TDevTy) {
+        Diag(Loc, diag::warn_groupprivate_reference_ignore) << VD;
+        Diag(*(OMPGroupPrivateDeclAttr::getLocation(VD)),
+             diag::note_groupprivate_reference);
+      }
+    }
+#endif // INTEL_COLLAB
+
   return false;
 }
 

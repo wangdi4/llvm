@@ -1766,6 +1766,14 @@ DEF_TRAVERSE_DECL(OMPThreadPrivateDecl, {
   }
  })
 
+#if INTEL_COLLAB
+DEF_TRAVERSE_DECL(OMPGroupPrivateDecl, {
+  for (auto *I : D->varlists()) {
+    TRY_TO(TraverseStmt(I));
+  }
+})
+#endif // INTEL_COLLAB
+
 DEF_TRAVERSE_DECL(OMPRequiresDecl, {
   for (auto *C : D->clauselists()) {
     TRY_TO(TraverseOMPClause(C));

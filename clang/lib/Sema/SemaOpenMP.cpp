@@ -242,6 +242,9 @@ private:
 
   /// Stack of used declaration and their data-sharing attributes.
   DeclSAMapTy Threadprivates;
+#if INTEL_COLLAB
+  DeclSAMapTy Groupprivates;
+#endif // INTEL_COLLAB
   const FunctionScopeInfo *CurrentNonCapturingFunctionScope = nullptr;
   SmallVector<std::pair<StackTy, const FunctionScopeInfo *>, 4> Stack;
   /// true, if check for DSA must be from parent directive, false, if
@@ -845,6 +848,12 @@ public:
     const DSAVarData DVar = getTopDSA(D, false);
     return isOpenMPThreadPrivate(DVar.CKind);
   }
+#if INTEL_COLLAB
+  bool isGroupPrivate(VarDecl *D) {
+    const DSAVarData DVar = getTopDSA(D, false);
+    return isOpenMPGroupPrivate(DVar.CKind);
+  }
+#endif // INTEL_COLLAB
 
   /// Marks current region as ordered (it has an 'ordered' clause).
   void setOrderedRegion(bool IsOrdered, const Expr *Param,
@@ -1494,6 +1503,14 @@ void DSAStackTy::addDSA(const ValueDecl *D, const Expr *E, OpenMPClauseKind A,
     Data.RefExpr.setPointer(E);
     Data.PrivateCopy = nullptr;
     Data.Modifier = Modifier;
+#if INTEL_COLLAB
+  } else if (A == OMPC_groupprivate) {
+    DSAInfo &Data = Groupprivates[D];
+    Data.Attributes = A;
+    Data.RefExpr.setPointer(E);
+    Data.PrivateCopy = nullptr;
+    Data.Modifier = Modifier;
+#endif // INTEL_COLLAB
   } else {
     DSAInfo &Data = getTopOfStack().SharingMap[D];
     assert(Data.Attributes == OMPC_unknown || (A == Data.Attributes) ||
@@ -1736,6 +1753,15 @@ const DSAStackTy::DSAVarData DSAStackTy::getTopDSA(ValueDecl *D,
     DVar.Modifier = TI->getSecond().Modifier;
     return DVar;
   }
+#if INTEL_COLLAB
+  auto GI = Groupprivates.find(D);
+  if (GI != Groupprivates.end()) {
+    DVar.RefExpr = GI->getSecond().RefExpr.getPointer();
+    DVar.CKind = OMPC_groupprivate;
+    DVar.Modifier = GI->getSecond().Modifier;
+    return DVar;
+  }
+#endif // INTEL_COLLAB
   if (VD && VD->hasAttr<OMPThreadPrivateDeclAttr>()) {
     DVar.RefExpr = buildDeclRefExpr(
         SemaRef, VD, D->getType().getNonReferenceType(),
@@ -3124,7 +3150,12 @@ ExprResult Sema::ActOnOpenMPIdExpression(Scope *CurScope,
 
   // OpenMP [2.9.2, Syntax, C/C++]
   //   Variables must be file-scope, namespace-scope, or static block-scope.
+#if INTEL_COLLAB
+  if ((Kind == OMPD_threadprivate || Kind == OMPD_groupprivate) &&
+      !VD->hasGlobalStorage()) {
+#else  // INTEL_COLLAB
   if (Kind == OMPD_threadprivate && !VD->hasGlobalStorage()) {
+#endif // INTEL_COLLAB
     Diag(Id.getLoc(), diag::err_omp_global_var_arg)
         << getOpenMPDirectiveName(Kind) << !VD->isStaticLocal();
     bool IsDecl =
@@ -3197,6 +3228,18 @@ ExprResult Sema::ActOnOpenMPIdExpression(Scope *CurScope,
     return ExprError();
   }
 
+#if INTEL_COLLAB
+  // OpenMP [5.12] Restrictions
+  // Each variable in the list of a groupprivate directive in block scope must
+  // have static storage duration and must refer to a variable declaration in
+  // the same scope that lexically precedes the directive.
+  if (Kind == OMPD_groupprivate && VD->isUsed() &&
+      !DSAStack->isGroupPrivate(VD)) {
+    Diag(Id.getLoc(), diag::err_omp_var_used)
+        << getOpenMPDirectiveName(Kind) << VD;
+    return ExprError();
+  }
+#endif // INTEL_COLLAB
   // OpenMP [2.9.2, Restrictions, C/C++, p.2-6]
   //   A threadprivate directive must lexically precede all references to any
   //   of the variables in its list.
@@ -3223,6 +3266,37 @@ Sema::ActOnOpenMPThreadprivateDirective(SourceLocation Loc,
   }
   return nullptr;
 }
+
+#if INTEL_COLLAB
+Sema::DeclGroupPtrTy Sema::ActOnOpenMPGroupprivateDirective(
+    SourceLocation Loc, ArrayRef<Expr *> VarList, DeviceTypeContextInfo &DTCI) {
+  for (Expr *RefExpr : VarList) {
+    auto *DE = cast<DeclRefExpr>(RefExpr);
+    auto *VD = cast<VarDecl>(DE->getDecl());
+    llvm::Optional<OMPGroupPrivateDeclAttr *> Attr =
+        OMPGroupPrivateDeclAttr::getGroupPrivateDeclAttr(VD);
+    if (Attr) {
+      if (Attr.value()->getDevType() != DTCI.DT) {
+        Diag(Loc, diag::err_omp_device_type_mismatch)
+            << OMPGroupPrivateDeclAttr::ConvertDevTypeTyToStr(DTCI.DT)
+            << OMPGroupPrivateDeclAttr::ConvertDevTypeTyToStr(
+                   Attr.value()->getDevType());
+        return nullptr;
+      }
+      continue;
+    }
+    VD->addAttr(OMPGroupPrivateDeclAttr::CreateImplicit(
+        this->getASTContext(), DTCI.DT, RefExpr->getSourceRange(),
+        AttributeCommonInfo::AS_Pragma));
+  }
+  if (OMPGroupPrivateDecl *D =
+          CheckOMPGroupPrivateDecl(Loc, VarList, DTCI.DT)) {
+    CurContext->addDecl(D);
+    return DeclGroupPtrTy::make(DeclGroupRef(D));
+  }
+  return nullptr;
+}
+#endif // INTEL_COLLAB
 
 namespace {
 class LocalVarRefChecker final
@@ -3253,6 +3327,65 @@ public:
   explicit LocalVarRefChecker(Sema &SemaRef) : SemaRef(SemaRef) {}
 };
 } // namespace
+
+#if INTEL_COLLAB
+OMPGroupPrivateDecl *
+Sema::CheckOMPGroupPrivateDecl(SourceLocation Loc, ArrayRef<Expr *> VarList,
+                               OMPGroupPrivateDeclAttr::DevTypeTy DT) {
+  SmallVector<Expr *, 8> Vars;
+  for (Expr *RefExpr : VarList) {
+    auto *DE = cast<DeclRefExpr>(RefExpr);
+    auto *VD = cast<VarDecl>(DE->getDecl());
+    SourceLocation ILoc = DE->getExprLoc();
+
+    // Mark variable as used.
+    VD->setReferenced();
+    VD->markUsed(Context);
+
+    QualType QType = VD->getType();
+    if (QType->isDependentType() || QType->isInstantiationDependentType()) {
+      // It will be analyzed later.
+      Vars.push_back(DE);
+      continue;
+    }
+    // A variable that is declared with an initializer must not appear in a
+    // groupprivate directive
+    if (const Expr *Init = VD->getAnyInitializer()) {
+      Diag(Init->getExprLoc(), diag::err_groupprivate_init) << VD;
+      Diag(Loc, diag::note_groupprivate_reference);
+      continue;
+    }
+    // A groupprivate variable must not have an incomplete type or a reference
+    // type
+    if (RequireCompleteType(ILoc, VD->getType(),
+                            diag::err_omp_groupprivate_incomplete_type)) {
+      continue;
+    }
+    if (VD->getType()->isReferenceType()) {
+      Diag(ILoc, diag::err_omp_ref_type_arg)
+          << getOpenMPDirectiveName(OMPD_groupprivate) << VD->getType();
+      bool IsDecl =
+          VD->isThisDeclarationADefinition(Context) == VarDecl::DeclarationOnly;
+      Diag(VD->getLocation(),
+           IsDecl ? diag::note_previous_decl : diag::note_defined_here)
+          << VD;
+      continue;
+    }
+
+    Vars.push_back(RefExpr);
+    auto *A = VD->getAttr<OMPGroupPrivateDeclAttr>();
+    DSAStack->addDSA(VD, DE, OMPC_groupprivate);
+    if (ASTMutationListener *ML = Context.getASTMutationListener())
+      ML->DeclarationMarkedOpenMPGroupPrivate(VD, A);
+  }
+  OMPGroupPrivateDecl *D = nullptr;
+  if (!Vars.empty()) {
+    D = OMPGroupPrivateDecl::Create(Context, getCurLexicalContext(), Loc, Vars);
+    D->setAccess(AS_public);
+  }
+  return D;
+}
+#endif // INTEL_COLLAB
 
 OMPThreadPrivateDecl *
 Sema::CheckOMPThreadPrivateDecl(SourceLocation Loc, ArrayRef<Expr *> VarList) {
@@ -23825,11 +23958,22 @@ static void checkMappableExpressionList(
     // threadprivate variables cannot appear in a map clause.
     // OpenMP 4.5 [2.10.5, target update Construct]
     // threadprivate variables cannot appear in a from clause.
+#if INTEL_COLLAB
+    if (VD && (DSAS->isThreadPrivate(VD) || DSAS->isGroupPrivate(VD))) {
+#else  // INTEL_COLLAB
     if (VD && DSAS->isThreadPrivate(VD)) {
+#endif // INTEL_COLLAB
       if (NoDiagnose)
         continue;
       DSAStackTy::DSAVarData DVar = DSAS->getTopDSA(VD, /*FromParent=*/false);
+#if INTEL_COLLAB
+      SemaRef.Diag(ELoc, diag::err_omp_private_in_clause)
+          << (DSAS->isThreadPrivate(VD)
+                  ? getOpenMPDirectiveName(OMPD_threadprivate)
+                  : getOpenMPDirectiveName(OMPD_groupprivate))
+#else  // INTEL_COLLAB
       SemaRef.Diag(ELoc, diag::err_omp_threadprivate_in_clause)
+#endif // INTEL_COLLAB
           << getOpenMPClauseName(CKind);
       reportOriginalDsa(SemaRef, DSAS, VD, DVar);
       continue;

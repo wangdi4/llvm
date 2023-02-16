@@ -5319,6 +5319,15 @@ void ASTWriter::WriteDeclUpdatesBlocks(RecordDataImpl &OffsetsRecord) {
             D->getAttr<OMPThreadPrivateDeclAttr>()->getRange());
         break;
 
+#if INTEL_COLLAB
+      case UPD_DECL_MARKED_OPENMP_GROUPPRIVATE: {
+        auto *A = D->getAttr<OMPGroupPrivateDeclAttr>();
+        Record.push_back(A->getDevType());
+        Record.AddSourceRange(A->getRange());
+        break;
+      }
+#endif // INTEL_COLLAB
+
       case UPD_DECL_MARKED_OPENMP_ALLOCATE: {
         auto *A = D->getAttr<OMPAllocateDeclAttr>();
         Record.push_back(A->getAllocatorType());
@@ -6321,6 +6330,20 @@ void ASTWriter::DeclarationMarkedOpenMPDeclareTarget(const Decl *D,
   DeclUpdates[D].push_back(
       DeclUpdate(UPD_DECL_MARKED_OPENMP_DECLARETARGET, Attr));
 }
+
+#if INTEL_COLLAB
+void ASTWriter::DeclarationMarkedOpenMPGroupPrivate(const Decl *D,
+                                                    const Attr *Attr) {
+  if (Chain && Chain->isProcessingUpdateRecords())
+    return;
+  assert(!WritingAST && "Already writing the AST!");
+  if (!D->isFromASTFile())
+    return;
+
+  DeclUpdates[D].push_back(
+      DeclUpdate(UPD_DECL_MARKED_OPENMP_GROUPPRIVATE, Attr));
+}
+#endif // INTEL_COLLAB
 
 void ASTWriter::RedefinedHiddenDefinition(const NamedDecl *D, Module *M) {
   if (Chain && Chain->isProcessingUpdateRecords()) return;
