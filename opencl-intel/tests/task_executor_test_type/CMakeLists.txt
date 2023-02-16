@@ -10,6 +10,7 @@ calculate_target_sources()
 
 set(TARGET_LIBS
   LLVMSupport
+  LLVMTargetParser
   LLVMIntelJITEvents
   cl_hw_utils
   cl_logger

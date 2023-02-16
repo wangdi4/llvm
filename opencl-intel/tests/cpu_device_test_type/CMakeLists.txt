@@ -23,6 +23,7 @@ set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
   LLVMOrcTargetProcess
   LLVMSPIRVLib
   LLVMSymbolize
+  LLVMTargetParser
   LLVMVPOTransforms
   LLVMVectorize
   LoopUtils
