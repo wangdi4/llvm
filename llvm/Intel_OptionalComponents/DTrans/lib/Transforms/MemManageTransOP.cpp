@@ -1,6 +1,6 @@
 //===------------ MemManageTransOP.cpp - DTransMemManageTransPass ---------===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -23,6 +23,7 @@
 #include "Intel_DTrans/Analysis/DTransAllocCollector.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
+#include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Transforms/MemManageInfoOPImpl.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -613,11 +614,18 @@ bool MemManageTransImpl::checkTypesEscaped(
     return GetStructType(DTy, AllocType);
   };
 
-  auto GetStructTypeForGlobal = [this, &GetStructType](GlobalValue *GV) {
-    DTransType *DTy = MDReader.getDTransTypeFromMD(GV);
-    llvm::Type *ValTy = GV->getValueType();
-    return GetStructType(DTy, ValTy);
-  };
+  auto GetStructTypeForGlobal =
+      [this, &GetStructType](GlobalValue *GV, PtrTypeAnalyzer &PtrAnalyzer) {
+        DTransType *DTy = MDReader.getDTransTypeFromMD(GV);
+        // Get type from PtrTypeAnalyzer if metadata doesn't help.
+        if (!DTy) {
+          ValueTypeInfo *Info = PtrAnalyzer.getValueTypeInfo(GV);
+          if (Info)
+            DTy = PtrAnalyzer.getDominantType(*Info, ValueTypeInfo::VAT_Decl);
+        }
+        llvm::Type *ValTy = GV->getValueType();
+        return GetStructType(DTy, ValTy);
+      };
 
   auto FunctionSignatureHasNoTypeOfInterestUses =
       [this, &DTransLibInfo, &IsCandidateRelatedType,
@@ -714,10 +722,14 @@ bool MemManageTransImpl::checkTypesEscaped(
     }
   }
 
+  PtrTypeAnalyzer Analyzer(M.getContext(), TM, MDReader, M.getDataLayout(),
+                           GetTLI);
+  Analyzer.run(M);
+
   // Check whether global variable instantiations use "ReusableArenaAllocator"
   // or any related type.
   for (auto &GV : M.globals()) {
-    MaybeStructType Ty = GetStructTypeForGlobal(&GV);
+    MaybeStructType Ty = GetStructTypeForGlobal(&GV, Analyzer);
     if (Ty.maybeUnknownStructType()) {
       DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
                       dbgs() << "    Unknown use by global: " << GV << "\n";);
