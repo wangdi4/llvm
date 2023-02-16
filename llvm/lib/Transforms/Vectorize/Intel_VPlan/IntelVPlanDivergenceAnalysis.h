@@ -468,6 +468,9 @@ private:
   /// by underlying IR.
   void improveStrideUsingIR();
 
+  /// Cache the VPInductionInit associated with induction memory pointers.
+  void cacheInductionInitPtrs();
+
   VPlanVector *Plan = nullptr;
 
   // If regionLoop != nullptr, analysis is only performed within \p RegionLoop.
@@ -505,6 +508,9 @@ private:
 
   // Disable DA recalculation.
   bool DARecomputationDisabled = false;
+
+  // Cache VPInductionInit associated with induction memory pointers.
+  DenseMap<const VPValue *, const VPInductionInit *> InductionInitPtrCache;
 };
 
 } // namespace vpo

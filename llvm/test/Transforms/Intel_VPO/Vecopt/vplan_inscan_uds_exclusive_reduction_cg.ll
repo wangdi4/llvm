@@ -38,7 +38,7 @@
 ; CHECK:         call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_1]], ptr [[RED_ORIG]])
 
-; CHECK-LABEL: VPlannedBB14:
+; CHECK-LABEL: VPlannedBB15:
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
 ; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]], ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
 ; CHECK-NEXT:    call void @.omp_initializer.(ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]], ptr [[RED_ORIG]])
@@ -51,7 +51,7 @@
 ; CHECK-NEXT:    call void @.omp_combiner.(ptr [[RED_ORIG]], ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]])
 ; CHECK-NEXT:    br label
 
-; CHECK-LABEL: VPlannedBB19:
+; CHECK-LABEL: VPlannedBB21:
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 8, ptr [[RED_VEC_TEMP_BASE_ADDR_EXTRACT_0]])
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 8, ptr [[RED_VEC_BASE_ADDR_EXTRACT_0]])
 
