@@ -3582,8 +3582,8 @@ Tool *Generic_GCC::buildBackendCompiler() const {
 void Generic_GCC::printVerboseInfo(raw_ostream &OS) const {
   // Print the information about how we detected the GCC installation.
   GCCInstallation.print(OS);
-  CudaInstallation->print(OS);
-  RocmInstallation->print(OS);
+  CudaInstallation.print(OS);
+  RocmInstallation.print(OS);
 }
 
 ToolChain::UnwindTableLevel
