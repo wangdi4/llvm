@@ -127,8 +127,8 @@ namespace {
 struct PromoteLegacyPass : public FunctionPass {
   // Pass identification, replacement for typeid
   static char ID;
-  bool ForcePass; /// If true, forces pass to execute, instead of skipping.
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool AllBBs;
   PromoteLegacyPass(bool IsForced = false, bool AllBBs = false)
@@ -137,13 +137,16 @@ struct PromoteLegacyPass : public FunctionPass {
   }
 #endif // INTEL_CUSTOMIZATION
   PromoteLegacyPass() : FunctionPass(ID), ForcePass(false) {
+=======
+  PromoteLegacyPass() : FunctionPass(ID) {
+>>>>>>> 259c5d705d025347a9dbae5095ae9fdf024b52c0
     initializePromoteLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
   // runOnFunction - To run this pass, first we calculate the alloca
   // instructions that are safe for promotion, then we promote each one.
   bool runOnFunction(Function &F) override {
-    if (!ForcePass && skipFunction(F))
+    if (skipFunction(F))
       return false;
 
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -165,7 +168,6 @@ struct PromoteLegacyPass : public FunctionPass {
     AU.addPreserved<GlobalsAAWrapperPass>();       // INTEL
     AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
   }
-
 };
 
 } // end anonymous namespace
@@ -182,9 +184,14 @@ INITIALIZE_PASS_END(PromoteLegacyPass, "mem2reg", "Promote Memory to Register",
                     false, false)
 
 // createPromoteMemoryToRegister - Provide an entry point to create this pass.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 FunctionPass *llvm::createPromoteMemoryToRegisterPass(bool IsForced,
                                                       bool AllBBs) {
   return new PromoteLegacyPass(IsForced, AllBBs);
+=======
+FunctionPass *llvm::createPromoteMemoryToRegisterPass() {
+  return new PromoteLegacyPass();
+>>>>>>> 259c5d705d025347a9dbae5095ae9fdf024b52c0
 }
 #endif // INTEL_CUSTOMIZATION
