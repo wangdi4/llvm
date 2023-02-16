@@ -2709,6 +2709,15 @@ void LoopVectorizationPlanner::disableNegOneStrideOptInMaskedModeVPlans() {
 void LoopVectorizationPlanner::runPeepholeBeforePredicator() {
 
   auto ProcessPlan = [](VPlan &Plan) -> void {
+    // Bailout of optimization for multi-exit outer loops. They are mostly idiom
+    // recognized as search loops.
+    // TODO: This should be removed when search loops are represented explicitly
+    // in VPlan.
+    if (auto *VecPlan = dyn_cast<VPlanVector>(&Plan)) {
+      if (VecPlan->getMainLoop(true)->getExitBlock() == nullptr)
+        return;
+    }
+
     SmallVector<VPInstruction *, 4> InstToRemove;
 
     auto ReplaceTruncZExtByAnd = [&InstToRemove,
