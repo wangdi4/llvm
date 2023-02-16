@@ -27,11 +27,7 @@
 #define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_GNU_H
 
 #include "Cuda.h"
-<<<<<<< HEAD
 #include "SYCL.h" // INTEL_CUSTOMIZATION
-#include "LazyDetector.h"
-=======
->>>>>>> b5ee4f755fcff56243f6ff0cea9e7a722259304a
 #include "ROCm.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Driver/ToolChain.h"
