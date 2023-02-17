@@ -14,7 +14,7 @@
 // INTEL_CUSTOMIZATION
 // This test would fail as-is because the 'which' command on Windows doesn't
 // give us the full path to the .dll.
-// UNSUPPORTED: x86_64
+// UNSUPPORTED: windows
 // end INTEL_CUSTOMIZATION
 
 extern "C" int puts(const char *);

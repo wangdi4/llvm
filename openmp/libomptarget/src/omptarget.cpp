@@ -1184,15 +1184,6 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
         return OFFLOAD_FAIL;
       }
 
-#if INTEL_CUSTOMIZATION
-      // In case of IsHostPtr, TPR.Entry refers to an entry that is not relevant
-      // to HstPtrBegin, and it can be used in apployToShadowMapEntries below
-      // even after TPR.Entry is destroyed.
-      // Runtime built with the current build compiler does not catch this,
-      // but runtime built with self-built compiler catches this error.
-      if (IsHostPtr)
-        TPR.Entry = nullptr;
-#endif // INTEL_CUSTOMIZATION
       // As we are expecting to delete the entry the d2h copy might race
       // with another one that also tries to delete the entry. This happens
       // as the entry can be reused and the reuse might happen after the
@@ -1893,9 +1884,9 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
         auto FnPtrItr = Device.FnPtrMap.find((uint64_t)HstPtrBegin);
         if (FnPtrItr != Device.FnPtrMap.end()) {
           // Pass function pointer as literal kernel argument
-          TgtPtrBegin = HstPtrBegin;
           TgtBaseOffset = (std::numeric_limits<ptrdiff_t>::max)();
-        } else {
+        } else if (Device.requiresMapping(TgtPtrBegin, 0)) {
+          // Set target pointer to null if not accessible by device
           TgtPtrBegin = nullptr;
         }
       }

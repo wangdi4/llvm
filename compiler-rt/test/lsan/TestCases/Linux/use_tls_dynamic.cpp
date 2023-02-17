@@ -16,7 +16,7 @@
 // Setting XFAIL doesn't work in this case, so we set it as UNSUPPORTED
 // for now pending further investigation.
 // CMPLRLLVM-42777
-// UNSUPPORTED: x86_64
+// UNSUPPORTED: linux
 // end INTEL_CUSTOMIZATION
 
 #ifndef BUILD_DSO
