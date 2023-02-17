@@ -40,6 +40,7 @@
 #include "clang/Basic/Visibility.h"
 #include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/ADT/StringRef.h"
+<<<<<<< HEAD
 #include "llvm/ADT/Triple.h"
 #if INTEL_CUSTOMIZATION
 #include "clang/Basic/Diagnostic.h"
@@ -50,6 +51,9 @@
 #include "llvm/ADT/StringSwitch.h"
 #include <array>
 #endif // INTEL_CUSTOMIZATION
+=======
+#include "llvm/TargetParser/Triple.h"
+>>>>>>> 797be7f0cb724261b2299683062417a0b37daa41
 #include <optional>
 #include <string>
 #include <vector>

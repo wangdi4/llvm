@@ -28,15 +28,18 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/IR/Operator.h"
 #endif // INTEL_CUSTOMIZATION
 
+=======
+#include "llvm/TargetParser/Triple.h"
+>>>>>>> 797be7f0cb724261b2299683062417a0b37daa41
 using namespace llvm;
 
 static cl::opt<TargetLibraryInfoImpl::AltMathLibrary> ClAltMathLibrary(

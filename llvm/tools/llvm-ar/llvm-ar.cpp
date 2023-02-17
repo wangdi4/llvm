@@ -30,7 +30,6 @@
 
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/BinaryFormat/Magic.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Object/Archive.h"
@@ -54,6 +53,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/ToolDrivers/llvm-dlltool/DlltoolDriver.h"
 #include "llvm/ToolDrivers/llvm-lib/LibDriver.h"
 

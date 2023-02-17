@@ -30,10 +30,13 @@
 
 #include "BreakpointPrinter.h"
 #include "NewPMDriver.h"
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #include "Intel_PassPrinters.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/Triple.h"
+=======
+>>>>>>> 797be7f0cb724261b2299683062417a0b37daa41
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -72,10 +75,14 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
 #include "llvm/Target/TargetMachine.h"
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif // INTEL_CUSTOMIZATION
+=======
+#include "llvm/TargetParser/Triple.h"
+>>>>>>> 797be7f0cb724261b2299683062417a0b37daa41
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Debugify.h"
