@@ -1861,6 +1861,76 @@ parseOpenMPSimpleClause(Parser &P, OpenMPClauseKind Kind) {
 }
 
 #if INTEL_COLLAB
+Parser::DeclGroupPtrTy
+Parser::ParseOpenMPGroupPrivateDirective(SourceLocation Loc) {
+  OpenMPDirectiveKind DKind = OMPD_groupprivate;
+  DeclDirectiveListParserHelper Helper(this, DKind);
+  if (!ParseOpenMPSimpleVarList(DKind, Helper,
+                                /*AllowScopeSpecifier=*/true)) {
+    SourceLocation DeviceTypeLoc = Tok.getLocation();
+    OMPGroupPrivateDeclAttr::DevTypeTy DT = OMPGroupPrivateDeclAttr::DT_Any;
+    if (Tok.isNot(tok::annot_pragma_openmp_end) && Tok.is(tok::identifier)) {
+      SmallVector<OMPClause *, 1> Clauses;
+      SourceLocation DTLoc = Tok.getLocation();
+      IdentifierInfo *II = Tok.getIdentifierInfo();
+      StringRef ClauseName = II->getName();
+      DeviceTypeLoc = DTLoc;
+      bool IsDeviceTypeClause =
+          getLangOpts().OpenMP >= 50 &&
+          getOpenMPClauseKind(ClauseName) == OMPC_device_type;
+      if (IsDeviceTypeClause) {
+        Optional<SimpleClauseData> DevTypeData =
+            parseOpenMPSimpleClause(*this, OMPC_device_type);
+        DeviceTypeLoc = DevTypeData.value().Loc;
+        if (DevTypeData) {
+          switch (static_cast<OpenMPDeviceType>(DevTypeData.value().Type)) {
+          case OMPC_DEVICE_TYPE_any:
+            Diag(DevTypeData.value().TypeLoc,
+                 diag::warn_omp_groupprivate_only_nohost);
+            skipUntilPragmaOpenMPEnd(DKind);
+            ConsumeAnnotationToken();
+            return DeclGroupPtrTy();
+          case OMPC_DEVICE_TYPE_host:
+            Diag(DevTypeData.value().TypeLoc,
+                 diag::warn_omp_groupprivate_only_nohost);
+            skipUntilPragmaOpenMPEnd(DKind);
+            ConsumeAnnotationToken();
+            return DeclGroupPtrTy();
+          case OMPC_DEVICE_TYPE_nohost:
+            DT = OMPGroupPrivateDeclAttr::DT_NoHost;
+            break;
+          case OMPC_DEVICE_TYPE_unknown:
+            Diag(DevTypeData.value().TypeLoc,
+                 diag::err_omp_unexpected_device_type);
+            skipUntilPragmaOpenMPEnd(DKind);
+            ConsumeAnnotationToken();
+            return DeclGroupPtrTy();
+          }
+        }
+      } else {
+        Diag(Tok, diag::err_omp_unexpected_device_type);
+        skipUntilPragmaOpenMPEnd(DKind);
+        ConsumeAnnotationToken();
+        return DeclGroupPtrTy();
+      }
+    }
+    if (Tok.is(tok::annot_pragma_openmp_end)) {
+      ConsumeAnnotationToken();
+      Sema::DeviceTypeContextInfo DTCI(DT, DeviceTypeLoc);
+      return Actions.ActOnOpenMPGroupprivateDirective(
+          Loc, Helper.getIdentifiers(), DTCI);
+    }
+    skipUntilPragmaOpenMPEnd(DKind);
+    ConsumeAnnotationToken();
+    return DeclGroupPtrTy();
+  }
+  skipUntilPragmaOpenMPEnd(DKind);
+  ConsumeAnnotationToken();
+  return DeclGroupPtrTy();
+}
+#endif // INTEL_COLLAB
+
+#if INTEL_COLLAB
 /// Parse clauses for '#pragma omp declare target function'.
 void Parser::ParseOMPXDeclareTargetFunctionClauses(
     Sema::DeclareTargetContextInfo &DTCI, CachedTokens &Toks) {
@@ -2152,6 +2222,12 @@ static bool checkOpenMPExtension(Parser &P, OpenMPDirectiveKind DKind,
 ///         annot_pragma_openmp 'threadprivate' simple-variable-list
 ///         annot_pragma_openmp_end
 ///
+///    // INTEL_COLLAB
+///       groupprivate-directive:
+///         annot_pragma_openmp 'groupprivate' simple-variable-list
+///         annot_pragma_openmp_end
+///    // INTEL_COLLAB
+///
 ///       allocate-directive:
 ///         annot_pragma_openmp 'allocate' simple-variable-list [<clause>]
 ///         annot_pragma_openmp_end
@@ -2252,6 +2328,12 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     }
     break;
   }
+#if INTEL_COLLAB
+  case OMPD_groupprivate: {
+    ConsumeToken();
+    return ParseOpenMPGroupPrivateDirective(Loc);
+  }
+#endif // INTEL_COLLAB
   case OMPD_allocate: {
     ConsumeToken();
     DeclDirectiveListParserHelper Helper(this, DKind);
@@ -3012,6 +3094,19 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     SkipUntil(tok::annot_pragma_openmp_end);
     break;
   }
+#if INTEL_COLLAB
+  case OMPD_groupprivate: {
+    if ((StmtCtx & ParsedStmtContext::AllowDeclarationsInC) ==
+        ParsedStmtContext()) {
+      Diag(Tok, diag::err_omp_immediate_directive)
+          << getOpenMPDirectiveName(DKind) << 0;
+    }
+    ConsumeToken();
+    DeclGroupPtrTy Res = ParseOpenMPGroupPrivateDirective(Loc);
+    Directive = Actions.ActOnDeclStmt(Res, Loc, Tok.getLocation());
+    break;
+  }
+#endif // INTEL_COLLAB
   case OMPD_allocate: {
     // FIXME: Should this be permitted in C++?
     if ((StmtCtx & ParsedStmtContext::AllowDeclarationsInC) ==

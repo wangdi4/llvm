@@ -450,6 +450,9 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::Import:
   case Decl::OMPThreadPrivate:
+#if INTEL_COLLAB
+  case Decl::OMPGroupPrivate:
+#endif // INTEL_COLLAB
   case Decl::OMPAllocate:
   case Decl::OMPRequires:
   case Decl::OMPCapturedExpr:
