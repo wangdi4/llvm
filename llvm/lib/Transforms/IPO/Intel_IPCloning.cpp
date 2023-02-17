@@ -4804,6 +4804,8 @@ public:
                std::function<BranchProbabilityInfo &(Function &)> *GetBPI)
       : BaseF(BaseF), GetDT(GetDT), GetBFI(GetBFI), GetBPI(GetBPI),
         WrapperCB(nullptr), BigLoopCB(nullptr), SimpleLoopDepth(0) {}
+  // Find 'WrapperCB' and 'BigLoopCB'.
+  bool findSpine();
   // Return 'true' if the desired predicate opt can be performed.
   bool canDoPredicateOpt();
   // Perform the desired predicate opt.
@@ -5135,12 +5137,11 @@ bool PredicateOpt::findHoistableFields(Function *F, Value *V,
 }
 
 //
-// Return 'true' if the desired predicate opt can be performed.
-// NOTE: At this point, we are just checking if the hot path can be identified
-// and that some basic checks can be performed.
-// More code will be added to check additional conditions.
+// Find the "spine" of the application on which we will perform predicate
+// optimization, returning 'true' if it is found. In this case, mark the
+// function with 'LocalBigLoopCB' as 'prefer-function-level-region'.
 //
-bool PredicateOpt::canDoPredicateOpt() {
+bool PredicateOpt::findSpine() {
   unsigned LocalSimpleLoopDepth = 0;
   CallBase *LocalWrapperCB = nullptr;
   CallBase *LocalBigLoopCB = nullptr;
@@ -5162,9 +5163,23 @@ bool PredicateOpt::canDoPredicateOpt() {
   SimpleLoopDepth = LocalSimpleLoopDepth;
   WrapperCB = LocalWrapperCB;
   BigLoopCB = LocalBigLoopCB;
-  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: Loops: " << LocalSimpleLoopDepth
-                    << "\n");
-  if (LocalSimpleLoopDepth < PredicateOptMinLoops)
+  if (BigLoopCB)
+    BigLoopCB->getCaller()->addFnAttr("prefer-function-level-region");
+  return BigLoopCB;
+}
+
+//
+// Return 'true' if the desired predicate opt can be performed.
+// NOTE: At this point, we are just checking if the hot path can be identified.
+// More code will be added to check additional conditions.
+//
+bool PredicateOpt::canDoPredicateOpt() {
+  if (!findSpine()) {
+    LLVM_DEBUG(dbgs() << "MRC Predicate Opt: Could not find spine\n");
+    return false;
+  }
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: Loops: " << SimpleLoopDepth << "\n");
+  if (SimpleLoopDepth < PredicateOptMinLoops)
     return false;
   LIRestrict = annotateWithRestrictHack(BaseF);
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
@@ -5992,6 +6007,8 @@ static bool analysisCallsCloneFunctions(
             if (MRCPO.canDoPredicateOpt())
               MRCPO.doPredicateOpt();
           } else if (EnableManyRecCallsSplitting) {
+            PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI);
+            MRCPO.findSpine();
             LLVM_DEBUG(dbgs() << "    Selected many recursive calls splitting "
                               << "\n");
             Splitter MRCS(&F);
