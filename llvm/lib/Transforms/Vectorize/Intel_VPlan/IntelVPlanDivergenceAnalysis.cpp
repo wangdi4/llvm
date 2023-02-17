@@ -567,6 +567,9 @@ void VPlanDivergenceAnalysis::propagateBranchDivergence(
 
 void VPlanDivergenceAnalysis::computeImpl() {
 
+  // Cache VPInductionInit associated with induction memory pointers.
+  cacheInductionInitPtrs();
+
   // propagate divergence
   while (const VPInstruction *NextI = popFromWorklist()) {
     const VPInstruction &I = *NextI;
@@ -1288,6 +1291,15 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForLoadInst(
     if (cast<LoadInst>(UI)->isVolatile())
       return getRandomVectorShape();
 
+  // Discover if stride information can be obtained through VPInductionInit
+  // stored into the memory in the Loop preheader.
+  if (InductionInitPtrCache.count(PtrOp)) {
+    const VPInductionInit *Init = InductionInitPtrCache[PtrOp];
+    VPVectorShape InitShape = getObservedShape(*Init->getParent(), *Init);
+    if (InitShape.isAnyStridedNonPtr() && InitShape.hasKnownStride())
+      return InitShape;
+  }
+
   if (PtrShape.isUniform())
     // FIXME: volatile load from uniform memory should still be marked as
     // divergent/random-shaped.
@@ -1769,6 +1781,35 @@ void VPlanDivergenceAnalysis::improveStrideUsingIR() {
   }
 }
 #endif // INTEL_CUSTOMIZATION
+
+void VPlanDivergenceAnalysis::cacheInductionInitPtrs() {
+  InductionInitPtrCache.clear();
+
+  if (!RegionLoop)
+    return;
+
+  const auto *Preheader = RegionLoop->getLoopPreheader();
+  if (!Preheader)
+    return;
+
+  for (const auto &I : *Preheader) {
+    if (!isa<VPInductionInit>(&I))
+      continue;
+    const auto *Init = cast<VPInductionInit>(&I);
+    // Look for a Store in Preheader that stores this VPInductionInit.
+    for (const auto *U : Init->users()) {
+      if (!isa<VPInstruction>(U))
+        continue;
+      const VPInstruction *VPInst = cast<VPInstruction>(U);
+      if (VPInst->getParent() != Preheader ||
+          VPInst->getOpcode() != Instruction::Store)
+        continue;
+      const VPValue *StorePtr = VPInst->getOperand(1);
+      InductionInitPtrCache[StorePtr] = Init;
+      break;
+    }
+  }
+}
 
 void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
                                       VPLoopInfo *VPLInfo,
