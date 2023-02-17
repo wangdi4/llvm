@@ -3,11 +3,7 @@
 ; RUN: split-file %s %t
 ; RUN: opt -module-summary %t/hide-me.ll -o %t/hide-me.bc
 ; RUN: opt -module-summary %t/ref.ll -o %t/ref.bc
-<<<<<<< HEAD
-; INTEL RUN: llvm-lto2 run -lto-opaque-pointers \
-=======
 ; RUN: llvm-lto2 run -opaque-pointers \
->>>>>>> 749199f76b1e3cd2842fa55aaaf14d2c03896bfe
 ; RUN:               -r %t/hide-me.bc,_hide_me,p \
 ; RUN:               -r %t/ref.bc,_main,plx  \
 ; RUN:               -r %t/ref.bc,_hide_me,l \
