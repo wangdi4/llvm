@@ -15,7 +15,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Intel_CPU_utils.h"
-#include "llvm/Support/X86TargetParser.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
@@ -242,7 +242,7 @@ Value *X86::emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr) {
   .Case(STR, {1u, static_cast<unsigned>(X86::ENUM)})
 #define X86_CPU_SUBTYPE(ENUM, STR)                                             \
   .Case(STR, {2u, static_cast<unsigned>(X86::ENUM)})
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
                              .Default({0, 0});
   assert(Val != 0 && "Invalid CPUStr passed to CpuIs");
 
