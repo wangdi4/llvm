@@ -171,7 +171,6 @@ namespace {
       (void) llvm::createCFGSimplificationPass();
       (void) llvm::createStructurizeCFGPass();
       (void) llvm::createLibCallsShrinkWrapPass();
-      (void) llvm::createCalledValuePropagationPass();
       (void) llvm::createConstantMergePass();
       (void) llvm::createCostModelAnalysisPass();
       (void) llvm::createDeadArgEliminationPass();
@@ -301,7 +300,6 @@ namespace {
       (void) llvm::createPrintModulePass(os);
       (void) llvm::createPrintFunctionPass(os);
       (void) llvm::createModuleDebugInfoPrinterPass();
-      (void) llvm::createPartialInliningPass();
       (void) llvm::createLintLegacyPassPass();
       (void) llvm::createSinkingPass();
       (void) llvm::createLowerAtomicPass();
