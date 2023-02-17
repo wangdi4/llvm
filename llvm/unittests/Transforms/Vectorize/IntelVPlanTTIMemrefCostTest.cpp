@@ -11,7 +11,7 @@
 
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.h"
 #include "IntelVPlanTestBase.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"

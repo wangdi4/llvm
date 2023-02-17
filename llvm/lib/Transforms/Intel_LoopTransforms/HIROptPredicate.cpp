@@ -51,7 +51,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #if INTEL_FEATURE_CSA
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #endif // INTEL_FEATURE_CSA
 
 #include "llvm/IR/Function.h"

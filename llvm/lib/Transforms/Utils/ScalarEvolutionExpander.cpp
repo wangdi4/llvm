@@ -52,7 +52,7 @@
 #endif
 
 #if INTEL_CUSTOMIZATION
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;

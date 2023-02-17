@@ -12,7 +12,7 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 

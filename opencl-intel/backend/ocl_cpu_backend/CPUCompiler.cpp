@@ -26,7 +26,7 @@
 #include "exceptions.h"
 // Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global
 // constructors are called
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/ExecutionEngine/MCJIT.h"
