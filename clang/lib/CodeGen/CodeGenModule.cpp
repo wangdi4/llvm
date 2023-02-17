@@ -85,8 +85,8 @@
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TimeProfiler.h"
-#include "llvm/Support/X86TargetParser.h"
 #include "llvm/Support/xxhash.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #include <optional>
 
 #if INTEL_CUSTOMIZATION
