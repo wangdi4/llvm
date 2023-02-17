@@ -14,7 +14,7 @@
 #include "SPIRVToOCL.h"
 #include "VectorizerUtils.h"
 
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Transforms/SYCLTransforms/SGRemapWICall.h"

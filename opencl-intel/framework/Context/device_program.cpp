@@ -22,7 +22,7 @@
 #include "fe_compiler.h"
 #include "framework_proxy.h"
 
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 
