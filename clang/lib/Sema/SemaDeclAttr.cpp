@@ -3414,19 +3414,8 @@ static void handleAutorunAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   // kernel functions must have reqd work group sizes that are divisors of 2^32.
   if (auto *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
     long long int N = 1ll << 32ll;
-<<<<<<< HEAD
-
-    std::optional<llvm::APSInt> XDimVal = A->getXDimVal();
-    std::optional<llvm::APSInt> YDimVal = A->getYDimVal();
-    std::optional<llvm::APSInt> ZDimVal = A->getZDimVal();
-
-    if (N % XDimVal->getZExtValue() != 0 ||
-        N % YDimVal->getZExtValue() != 0 ||
-        N % ZDimVal->getZExtValue() != 0) {
-=======
     if (N % A->getXDim() != 0 || N % A->getYDim() != 0 ||
         N % A->getZDim() != 0) {
->>>>>>> e43a195ec12b2fbce7719915b8324ccb3a1d6ec8
       S.Diag(A->getLocation(),
           diag::err_opencl_autorun_kernel_wrong_reqd_wg_size);
       S.Diag(Attr.getLoc(), diag::note_conflicting_attribute);

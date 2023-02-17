@@ -8,11 +8,7 @@
 
 ; Verify that %twp.addr.0162 is added as livein to i3 loop and %8/%9 are removed as liveins after sinking.
 
-<<<<<<< HEAD
 ; RUN: opt -opaque-pointers=0 -passes="function(hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>)" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LIVE
-=======
-; RUN: opt -passes="function(hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>)" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s -check-prefix=CHECK-LIVE
->>>>>>> e43a195ec12b2fbce7719915b8324ccb3a1d6ec8
 
 ; CHECK-LIVE: Function
 
