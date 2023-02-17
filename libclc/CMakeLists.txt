@@ -182,9 +182,12 @@ endif()
 
 enable_language( CLC LLAsm )
 
+<<<<<<< HEAD
 # Configure prepare_builtins
 add_subdirectory(utils)
 
+=======
+>>>>>>> 5b52f3f4963090a71e9b7cc1f95452e465b5ef00
 # Setup arch devices
 set( r600--_devices cedar cypress barts cayman )
 set( amdgcn--_devices tahiti )
