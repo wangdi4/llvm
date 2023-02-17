@@ -264,7 +264,7 @@ static int map_file(void) {
    * process in lock-after-open race condition). No need to mmap. */
 #if INTEL_CUSTOMIZATION
   /* A size of -1 means an error has occured. */
-  if (file_size <= 0)
+  if (file_size == 0 || file_size == (uint64_t)-1)
 #endif // INTEL_CUSTOMIZATION
     return -1;
 
