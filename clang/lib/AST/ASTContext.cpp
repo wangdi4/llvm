@@ -11939,6 +11939,10 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     return !D->getDeclContext()->isDependentContext();
   else if (isa<OMPAllocateDecl>(D))
     return !D->getDeclContext()->isDependentContext();
+#if INTEL_COLLAB
+  else if (isa<OMPGroupPrivateDecl>(D))
+    return !D->getDeclContext()->isDependentContext();
+#endif // INTEL_COLLAB
   else if (isa<OMPDeclareReductionDecl>(D) || isa<OMPDeclareMapperDecl>(D))
     return !D->getDeclContext()->isDependentContext();
   else if (isa<ImportDecl>(D))

@@ -4112,6 +4112,31 @@ Decl *TemplateDeclInstantiator::VisitOMPThreadPrivateDecl(
   return TD;
 }
 
+#if INTEL_COLLAB
+Decl *
+TemplateDeclInstantiator::VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D) {
+  SmallVector<Expr *, 5> Vars;
+  std::optional<OMPGroupPrivateDeclAttr::DevTypeTy> DevTy = std::nullopt;
+  for (auto *I : D->varlists()) {
+    Expr *Var = SemaRef.SubstExpr(I, TemplateArgs).get();
+    assert(isa<DeclRefExpr>(Var) && "groupprivate arg is not a DeclRefExpr");
+    Vars.push_back(Var);
+    if (!DevTy) {
+      auto *DE = cast<DeclRefExpr>(Var);
+      auto *VD = cast<VarDecl>(DE->getDecl());
+      DevTy = OMPGroupPrivateDeclAttr::getDeviceType(VD);
+    }
+  }
+  OMPGroupPrivateDecl *TD =
+      SemaRef.CheckOMPGroupPrivateDecl(D->getLocation(), Vars, *DevTy);
+
+  TD->setAccess(AS_public);
+  Owner->addDecl(TD);
+
+  return TD;
+}
+#endif // INTEL_COLLAB
+
 Decl *TemplateDeclInstantiator::VisitOMPAllocateDecl(OMPAllocateDecl *D) {
   SmallVector<Expr *, 5> Vars;
   for (auto *I : D->varlists()) {

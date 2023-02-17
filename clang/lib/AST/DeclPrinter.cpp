@@ -102,6 +102,9 @@ namespace {
     void VisitUsingEnumDecl(UsingEnumDecl *D);
     void VisitUsingShadowDecl(UsingShadowDecl *D);
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
+#if INTEL_COLLAB
+    void VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D);
+#endif // INTEL_COLLAB
     void VisitOMPAllocateDecl(OMPAllocateDecl *D);
     void VisitOMPRequiresDecl(OMPRequiresDecl *D);
     void VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D);
@@ -450,6 +453,9 @@ void DeclPrinter::VisitDeclContext(DeclContext *DC, bool Indent) {
     const char *Terminator = nullptr;
     if (isa<OMPThreadPrivateDecl>(*D) || isa<OMPDeclareReductionDecl>(*D) ||
         isa<OMPDeclareMapperDecl>(*D) || isa<OMPRequiresDecl>(*D) ||
+#if INTEL_COLLAB
+        isa<OMPGroupPrivateDecl>(*D) ||
+#endif // INTEL_COLLAB
         isa<OMPAllocateDecl>(*D))
       Terminator = nullptr;
     else if (isa<ObjCMethodDecl>(*D) && cast<ObjCMethodDecl>(*D)->hasBody())
@@ -1667,6 +1673,33 @@ void DeclPrinter::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
     Out << ")";
   }
 }
+
+#if INTEL_COLLAB
+void DeclPrinter::VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D) {
+  Out << "#pragma omp groupprivate";
+  if (!D->varlist_empty()) {
+    VarDecl *VD = nullptr;
+    for (OMPGroupPrivateDecl::varlist_iterator I = D->varlist_begin(),
+                                               E = D->varlist_end();
+         I != E; ++I) {
+      Out << (I == D->varlist_begin() ? '(' : ',');
+      NamedDecl *ND = cast<DeclRefExpr>(*I)->getDecl();
+      ND->printQualifiedName(Out);
+      if (!VD)
+        VD = cast<VarDecl>(cast<DeclRefExpr>(*I)->getDecl());
+    }
+    std::optional<OMPGroupPrivateDeclAttr *> Attr =
+        OMPGroupPrivateDeclAttr::getGroupPrivateDeclAttr(VD);
+    Out << ")";
+    if (Attr)
+      if (Attr.value()->getDevType() != OMPGroupPrivateDeclAttr::DT_Any)
+        Out << " device_type("
+            << OMPGroupPrivateDeclAttr::ConvertDevTypeTyToStr(
+                   Attr.value()->getDevType())
+            << ")";
+  }
+}
+#endif // INTEL_COLLAB
 
 void DeclPrinter::VisitHLSLBufferDecl(HLSLBufferDecl *D) {
   if (D->isCBuffer())
