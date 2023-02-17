@@ -15,7 +15,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Intel_CPU_utils.h"
-#include "llvm/Support/X86TargetParser.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h"
