@@ -35,11 +35,6 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x ptr> poison, ptr [[A0]], i64 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x ptr> [[BROADCAST_SPLATINSERT0]], <4 x ptr> poison, <4 x i32> zeroinitializer
-=======
->>>>>>> 649e2cbd4c26f1abcf62626b2d92c459e099baae
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:

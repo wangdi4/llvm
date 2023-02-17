@@ -32,11 +32,6 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK:       DIR.OMP.SIMD.127:
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
-<<<<<<< HEAD
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT18:%.*]] = insertelement <4 x ptr> poison, ptr [[B:%.*]], i64 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT19:%.*]] = shufflevector <4 x ptr> [[BROADCAST_SPLATINSERT18]], <4 x ptr> poison, <4 x i32> zeroinitializer
-=======
->>>>>>> 649e2cbd4c26f1abcf62626b2d92c459e099baae
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[I_LINEAR_IV_VEC_BASE_ADDR_EXTRACT_0_]])
