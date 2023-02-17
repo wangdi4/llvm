@@ -975,9 +975,23 @@ CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *HostAddr,
                                        Instruction *InsertPt) {
   assert(isa<WRNTargetNode>(W) && "Expected a WRNTargetNode");
   Value *DeviceID = W->getDevice();
-  CallInst *Call =
-      genTgtCall("__tgt_target", W, DeviceID, NumArgs, ArgsBase, Args, ArgsSize,
-                 ArgsMaptype, ArgsNames, ArgsMappers, InsertPt, HostAddr);
+  CallInst *Call = nullptr;
+
+  if (W->getThreadLimit()) {
+    Value *ThreadLimitPtr = W->getThreadLimit();
+    Type *ThreadLimitTy = W->getThreadLimitType();
+
+    Call =
+        genTgtCall("__tgt_target_teams", W, DeviceID, NumArgs, ArgsBase, Args,
+                   ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt,
+                   HostAddr, nullptr, nullptr, ThreadLimitPtr, ThreadLimitTy);
+  } else {
+    Call = genTgtCall("__tgt_target", W, DeviceID, NumArgs, ArgsBase, Args,
+                      ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt,
+                      HostAddr);
+  }
+
+  assert(Call && "Call is null");
   return Call;
 }
 
@@ -1185,10 +1199,25 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
     FnArgs.push_back(BitCast);
     FnArgTypes.push_back(BitCast->getType());
     if (FnName == "__tgt_target_teams") {
+      assert((isa<WRNTeamsNode>(W) || isa<WRNTargetNode>(W)) &&
+             "'tgt_target_teams' should only be emitted for 'teams' construct, "
+             "or 'target' constructs with 'thread_limit' clause.");
+      assert((W->getIsTeams() || ThreadLimitPtr) &&
+             "Thread limit is required for 'tgt_target_teams' calls made for "
+             "'target' constructs with 'thread_limit' clause.");
+
       // __tgt_target_teams has two more parms: "int32_t num_teams" and
-      // "int32_t thread_limit".  Initialize them here.
+      // "int32_t thread_limit", which we nitialize here. The
+      // "tgt_target[_mapper]" RTL functions, which have until now been used for
+      // "target" constructs, internally use "-1" as the default value of
+      // NumTeams/ThreadLimit, whereas the default value of NumTeams has, until
+      // now, been set by the compiler to 0 when calling the
+      // "tgt_tearget_teams[_mapper]" functions. So we are staying
+      // aligned with both of them, by continuing to use 0 for "teams"
+      // constructs, and "-1" for "target" constructs.
       if (NumTeamsPtr == nullptr)
-        NumTeams = Builder.getInt32(0);
+        NumTeams =
+            isa<WRNTeamsNode>(W) ? Builder.getInt32(0) : Builder.getInt32(-1);
       else
         NumTeams = getOrLoadClauseArgValueWithSext(NumTeamsPtr, NumTeamsTy,
                                                    Int32Ty, Builder);
@@ -1196,9 +1225,8 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
       if (ThreadLimitPtr == nullptr)
         ThreadLimit = Builder.getInt32(0);
       else
-        ThreadLimit = getOrLoadClauseArgValueWithSext(ThreadLimitPtr,
-                                                      ThreadLimitTy,
-                                                      Int32Ty, Builder);
+        ThreadLimit = getOrLoadClauseArgValueWithSext(
+            ThreadLimitPtr, ThreadLimitTy, Int32Ty, Builder);
     }
   } else {
     // HostAddr==null means FnName is not __tgt_target or __tgt_target_teams
