@@ -843,4 +843,4 @@ sycl-post-link/ @asudarsa
 /compiler-rt/test/profile/ @robertcox-github @pvbattin
 
 # Override ownership by gatekeeper
-* @intel-restricted/xmain-gatekeeper @vkurkov
+* @intel-restricted/xmain-gatekeeper
