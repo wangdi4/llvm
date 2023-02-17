@@ -69,9 +69,9 @@
 ; CHECK-NEXT:    [[VP_MM_VECTOR_GEP1_EXTRACT0:%.*]] = extractelement <2 x ptr> [[VP_MM_VECTOR_GEP1]], i32 0
 ; CHECK-NEXT:    [[VP_MM_VECTOR_GEP2]] = getelementptr inbounds i8, <2 x ptr> [[VP_VEC_PHI2:%.*]], <2 x i64> [[VP_IND_STEP_INIT_SPLAT2]]
 ; CHECK-NEXT:    [[VP_MM_VECTOR_GEP2_EXTRACT0:%.*]] = extractelement <2 x ptr> [[VP_MM_VECTOR_GEP2]], i32 0
-; CHECK:         br i1 %22, label %vector.body, label %VPlannedBB33, !llvm.loop !0
+; CHECK:         br i1 %22, label %vector.body, label %VPlannedBB32, !llvm.loop !0
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB33:                                     ; preds = %vector.body
+; CHECK-NEXT:  VPlannedBB32:                                     ; preds = %vector.body
 ; CHECK:        [[VP_MUL010:%.*]] = mul i64 [[VP_MUL0]], 10
 ; CHECK-NEXT:   [[VP_FINAL_GEP0:%.*]] = getelementptr inbounds i8, ptr [[VP_PTR0:%.*]], i64 [[VP_MUL010]]
 ; CHECK:        [[VP_MUL110:%.*]] = mul i64 [[VP_MUL1]], 10
