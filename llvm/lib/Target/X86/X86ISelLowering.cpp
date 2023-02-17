@@ -53662,7 +53662,6 @@ static SDValue combineScalarAndWithMaskSetcc(SDNode *N, SelectionDAG &DAG,
   return DAG.getZExtOrTrunc(DAG.getBitcast(IntVT, Concat), dl, VT);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Check if BitwiseSrc has the following pair:
 // and? (bitcast (src, iN), imm)
@@ -53785,7 +53784,6 @@ static SDValue combineBitwiseBitcastPair(SDNode *Bitwise, SelectionDAG &DAG,
 
 #endif // INTEL_CUSTOMIZATION
 
-=======
 static SDValue getBMIMatchingOp(unsigned Opc, SelectionDAG &DAG,
                                 SDValue OpMustEq, SDValue Op, unsigned Depth) {
   // We don't want to go crazy with the recursion here. This isn't a super
@@ -53850,7 +53848,6 @@ static SDValue combineBMILogicOp(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
->>>>>>> 3857d9decc4db2a0f14fd7cb7cd69be55f12cc4a
 static SDValue combineAnd(SDNode *N, SelectionDAG &DAG,
                           TargetLowering::DAGCombinerInfo &DCI,
                           const X86Subtarget &Subtarget) {
@@ -57412,7 +57409,6 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
     }
   }
 
-<<<<<<< HEAD
   if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, DCI, Subtarget))
     return FPLogic;
 
@@ -57423,10 +57419,9 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
   if (SDValue V = combineXorBlend(N, DAG))
     return V;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (SDValue R = combineBMILogicOp(N, DAG, Subtarget))
     return R;
->>>>>>> 3857d9decc4db2a0f14fd7cb7cd69be55f12cc4a
 
   return combineFneg(N, DAG, DCI, Subtarget);
 }
