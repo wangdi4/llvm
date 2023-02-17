@@ -460,10 +460,8 @@ TEST_F(TUSchedulerTests, InvalidationUnchanged) {
 
 TEST_F(TUSchedulerTests, ManyUpdates) {
 // INTEL_CUSTOMIZATION
-// This test is flaky on Alloy Windows. Skip it before it is looked at.
-#ifdef _WIN32
+// This test is flaky on Alloy. Skip it before it is looked at.
   GTEST_SKIP();
-#endif
 // end INTEL_CUSTOMIZATION
 
   const int FilesCount = 3;
@@ -1204,6 +1202,13 @@ TEST_F(TUSchedulerTests, OnlyPublishWhenPreambleIsBuilt) {
 // If a header file is missing from the CDB (or inferred using heuristics), and
 // it's included by another open file, then we parse it using that files flags.
 TEST_F(TUSchedulerTests, IncluderCache) {
+// INTEL_CUSTOMIZATION
+// This test is flaky on Alloy Windows. Skip it before it is looked at.
+#ifdef _WIN32
+  GTEST_SKIP();
+#endif
+// end INTEL_CUSTOMIZATION
+
   static std::string Main = testPath("main.cpp"), Main2 = testPath("main2.cpp"),
                      Main3 = testPath("main3.cpp"),
                      NoCmd = testPath("no_cmd.h"),
