@@ -196,6 +196,7 @@ ModulePass *createStripDeadPrototypesPass();
 Pass *createReversePostOrderFunctionAttrsPass();
 
 //===----------------------------------------------------------------------===//
+<<<<<<< HEAD
 /// createHotColdSplittingPass - This pass outlines cold blocks into a separate
 /// function(s).
 ModulePass *createHotColdSplittingPass();
@@ -214,13 +215,11 @@ ModulePass *createPartialInliningPass(bool RunLTOPartialInline = false,
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
+=======
+>>>>>>> cb5e48d1c2c4774ed9f17ff89412f1291b640172
 /// createBarrierNoopPass - This pass is purely a module pass barrier in a pass
 /// manager.
 ModulePass *createBarrierNoopPass();
-
-/// createCalledValuePropagationPass - Attach metadata to indirct call sites
-/// indicating the set of functions they may target at run-time.
-ModulePass *createCalledValuePropagationPass();
 
 /// What to do with the summary when running passes that operate on it.
 enum class PassSummaryAction {

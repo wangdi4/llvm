@@ -453,6 +453,7 @@ private:
                                   OptimizationRemarkEmitter &ORE) const;
 };
 
+<<<<<<< HEAD
 struct PartialInlinerLegacyPass : public ModulePass {
   static char ID; // Pass identification, replacement for typeid
 
@@ -520,6 +521,8 @@ struct PartialInlinerLegacyPass : public ModulePass {
   }
 };
 
+=======
+>>>>>>> cb5e48d1c2c4774ed9f17ff89412f1291b640172
 } // end anonymous namespace
 
 std::unique_ptr<FunctionOutliningMultiRegionInfo>
@@ -1825,6 +1828,7 @@ bool PartialInlinerImpl::run(Module &M) {
   return Changed;
 }
 
+<<<<<<< HEAD
 char PartialInlinerLegacyPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(PartialInlinerLegacyPass, "partial-inliner",
@@ -1844,6 +1848,8 @@ ModulePass *llvm::createPartialInliningPass(bool RunLTOPartialInline,
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> cb5e48d1c2c4774ed9f17ff89412f1291b640172
 PreservedAnalyses PartialInlinerPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
