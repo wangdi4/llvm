@@ -427,7 +427,6 @@ def main():
         raise NotImplementedError('--log is supported on posix only') # Due to multiprocessing implementation
     check_noneg('-j', args.jobs)
     jobs = min(args.jobs, len(args.exps))
-    print(args.jobs, len(args.exps), jobs)
     logging.debug(f'Running {jobs} job(s) in parallel ...')
     with Pool(jobs) as p:
         p.map(check_file_and_ext, args.exps)
