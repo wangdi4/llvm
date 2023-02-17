@@ -681,7 +681,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   // Loop interleaving in the loop vectorizer has historically been set to be
   // enabled when loop unrolling is enabled.
   PMBuilder.LoopsInterleaved = CodeGenOpts.UnrollLoops;
-  PMBuilder.MergeFunctions = CodeGenOpts.MergeFunctions;
 
   MPM.add(new TargetLibraryInfoWrapperPass(*TLII));
 

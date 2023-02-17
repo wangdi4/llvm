@@ -119,7 +119,6 @@ public:
   bool ForgetAllSCEVInLoopUnroll;
   bool VerifyInput;
   bool VerifyOutput;
-  bool MergeFunctions;
   bool DivergentTarget;
   unsigned LicmMssaOptCap;
   unsigned LicmMssaNoAccForPromotionCap;

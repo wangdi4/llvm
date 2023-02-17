@@ -359,7 +359,6 @@ PassManagerBuilder::PassManagerBuilder() {
     ForgetAllSCEVInLoopUnroll = ForgetSCEVInLoopUnroll;
     VerifyInput = false;
     VerifyOutput = false;
-    MergeFunctions = false;
     DivergentTarget = false;
 #if INTEL_CUSTOMIZATION
     DisableIntelProprietaryOpts = false;
@@ -856,14 +855,6 @@ void PassManagerBuilder::populateModulePassManager(
       Inliner = nullptr;
     }
 
-    // FIXME: The BarrierNoopPass is a HACK! The inliner pass above implicitly
-    // creates a CGSCC pass manager, but we don't want to add extensions into
-    // that pass manager. To prevent this we insert a no-op module pass to reset
-    // the pass manager to get the same behavior as EP_OptimizerLast in non-O0
-    // builds. The function merging pass is
-    if (MergeFunctions)
-      MPM.add(createMergeFunctionsPass());
-
 #if INTEL_COLLAB
     if (RunVPOOpt) {
       #if INTEL_CUSTOMIZATION
@@ -1078,9 +1069,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createGlobalDCEPass());         // Remove dead fns and globals.
     MPM.add(createConstantMergePass());     // Merge dup global constants
   }
-
-  if (MergeFunctions)
-    MPM.add(createMergeFunctionsPass());
 
   // LoopSink pass sinks instructions hoisted by LICM, which serves as a
   // canonicalization pass that enables other optimizations. As a result,
@@ -1550,11 +1538,6 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 
   // Now that we have optimized the program, discard unreachable functions.
   PM.add(createGlobalDCEPass());
-
-  // FIXME: this is profitable (for compiler time) to do at -O0 too, but
-  // currently it damages debug info.
-  if (MergeFunctions)
-    PM.add(createMergeFunctionsPass());
 }
 
 #if INTEL_COLLAB
