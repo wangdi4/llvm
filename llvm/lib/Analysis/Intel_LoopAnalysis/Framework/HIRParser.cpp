@@ -3175,6 +3175,7 @@ class DimInfo {
   Type *ElemTy = nullptr;
   Value *Stride = nullptr;
   bool IsExactMultiple = true;
+  bool CanVarDimStrideBeZero = false;
 
   SmallVector<Value *, 4> Indices;
   SmallVector<Value *, 4> IndicesLB;
@@ -3197,6 +3198,8 @@ public:
 
   bool isStrideExactMultiple() const { return IsExactMultiple; }
   void setStrideIsExactMultiple(bool Flag) { IsExactMultiple = Flag; }
+  bool canVarDimStrideBeZero() const { return CanVarDimStrideBeZero; }
+  void setVarDimStrideCanBeZero(bool Flag) { CanVarDimStrideBeZero = Flag; }
 
   // Adds an \p Idx to the dimension. Later these indices will be merged into a
   // single CanonExpr.
@@ -3470,6 +3473,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
   Dim.setStride(Sub->getStride());
   Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
   Dim.setStrideIsExactMultiple(Sub->isExact());
+  Dim.setVarDimStrideCanBeZero(Sub->canVarDimStrideBeZero());
   Dim.setExtent(Sub->getExtent());
 
   return {Arr};
@@ -3860,6 +3864,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
   GEPChain Chain(*this, GEPOp);
   auto *OffsetTy = Chain.getOffsetTy();
+  bool AnyVarDimStrideMayBeZero = false;
 
   // If Ref has existing dimensions we may have to start from merging in the
   // highest dimension, but only if the first dimension we just parsed does not
@@ -3924,6 +3929,8 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
                                Dim.getType(), Dim.getElementType(),
                                Dim.isStrideExactMultiple());
+      AnyVarDimStrideMayBeZero =
+          AnyVarDimStrideMayBeZero || Dim.canVarDimStrideBeZero();
     }
   }
 
@@ -3934,6 +3941,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
   auto *BaseGEPOp = Chain.getBase();
 
   Ref->setBasePtrElementType(getBasePtrElementType(BaseGEPOp));
+  Ref->setAnyVarDimStrideMayBeZero(AnyVarDimStrideMayBeZero);
 }
 
 void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,

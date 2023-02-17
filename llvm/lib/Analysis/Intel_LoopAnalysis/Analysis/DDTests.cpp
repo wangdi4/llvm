@@ -5094,6 +5094,15 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     Result.setDirection(1, DVKind::EQ);
   }
 
+  // Fortran only. Return all-star DV if Src or Dst ref have a variable for any
+  // dimention stride, and this variable may be zero.
+  if (HNU.getFunction().isFortran() && EqualBaseAndShape) {
+    if (SrcRegDDRef->anyVarDimStrideMayBeZero() ||
+        DstRegDDRef->anyVarDimStrideMayBeZero()) {
+      return std::make_unique<Dependences>(Result);
+    }
+  }
+
   // Earlier we tried to break the entire dependence using alias analysis, but
   // were not able to say anything conclusive. However, alias analysis may be
   // able to at least tell us that there's no dependence at some inner loop

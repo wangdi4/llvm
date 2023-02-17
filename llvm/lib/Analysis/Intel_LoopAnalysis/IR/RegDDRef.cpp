@@ -67,8 +67,8 @@ RegDDRef::GEPInfo::GEPInfo()
     : BaseCE(nullptr), BasePtrElementTy(nullptr),
       BitCastDestVecOrElemTy(nullptr), InBounds(false), AddressOf(false),
       IsCollapsed(false), MaxVecLenAllowed(0), Alignment(0),
-      HighestDimNumElements(0), CanUsePointeeSize(false), DummyGepLoc(nullptr) {
-}
+      HighestDimNumElements(0), CanUsePointeeSize(false),
+      AnyVarDimStrideMayBeZero(false), DummyGepLoc(nullptr) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BasePtrElementTy(Info.BasePtrElementTy),
@@ -78,6 +78,7 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
       Alignment(Info.Alignment),
       HighestDimNumElements(Info.HighestDimNumElements),
       CanUsePointeeSize(Info.CanUsePointeeSize),
+      AnyVarDimStrideMayBeZero(Info.AnyVarDimStrideMayBeZero),
       DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
       DimElementTypes(Info.DimElementTypes),
       StrideIsExactMultiple(Info.StrideIsExactMultiple), MDNodes(Info.MDNodes),
@@ -312,6 +313,9 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
           OS << "{canUsePointeeSize}";
         }
       }
+      if (Detailed && anyVarDimStrideMayBeZero()) {
+        OS << "{anyVarDimStrideMayBeZero}";
+      }
 
       if (auto *BitCastTy = getBitCastDestVecOrElemType()) {
         OS << "(";
@@ -470,6 +474,12 @@ bool RegDDRef::hasAnyVectorIndices() const {
   }
 
   return false;
+}
+
+bool RegDDRef::anyVarDimStrideMayBeZero() const {
+  assert(hasGEPInfo() && "GEP ref expected!");
+
+  return getGEPInfo()->AnyVarDimStrideMayBeZero;
 }
 
 Type *RegDDRef::getTypeImpl(bool IsSrc) const {
