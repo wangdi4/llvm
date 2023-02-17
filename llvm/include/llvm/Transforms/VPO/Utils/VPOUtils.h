@@ -111,9 +111,9 @@ public:
   static bool CFGRestructuring(Function &F, DominatorTree *DT = nullptr,
                                LoopInfo *LI = nullptr);
 
-  /// Create a pointer, store address of \p V to the pointer, and replace uses
-  /// of \p V with a load from that pointer.
-  static Value *replaceWithStoreThenLoad(
+  // Create a pointer, store address of V to the pointer, and replace uses
+  // of V with a load from that pointer.
+  static std::pair<Value *, LoadInst *> replaceWithStoreThenLoad(
       WRegionNode *W, Value *V, Instruction *InsertPtForStore,
       bool ReplaceUses = true, bool EmitLoadEvenIfNoUses = false,
       bool InsertLoadInBeginningOfEntryBB = false,
