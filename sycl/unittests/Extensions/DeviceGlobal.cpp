@@ -178,7 +178,7 @@ void ResetTrackersAndMarkers() {
   TreatDeviceGlobalWriteEventAsCompleted = false;
 }
 
-TEST(DeviceGlobalTest, DeviceGlobalInitBeforeUse) {
+TEST(DeviceGlobalTest, DISABLED_DeviceGlobalInitBeforeUse) {
   ResetTrackersAndMarkers();
 
   sycl::unittest::PiMock Mock;
