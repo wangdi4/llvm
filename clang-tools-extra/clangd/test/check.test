@@ -3,7 +3,7 @@
 
 // INTEL_CUSTOMIZATION
 // CMPLRLLVM-42767
-// XFAIL: windows
+// XFAIL: target={{.*}}windows{{.*}}
 // end INTEL_CUSTOMIZATION
 
 // CHECK: Testing on source file

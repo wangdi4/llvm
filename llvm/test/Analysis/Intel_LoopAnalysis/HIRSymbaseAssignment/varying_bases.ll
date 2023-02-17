@@ -14,7 +14,11 @@
 ;   }
 ; }
 
+<<<<<<< HEAD
 ; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -aa-pipeline=basic-aa -hir-details -disable-output 2>&1 | FileCheck %s
+=======
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -aa-pipeline=basic-aa -hir-details -disable-output 2>&1 | FileCheck %s
+>>>>>>> e43a195ec12b2fbce7719915b8324ccb3a1d6ec8
 
 ; CHECK-DAG: {{\(NON-LINEAR float\* %first.*\[i64 0\].*}} {sb:[[Base1:[0-9]+]]}
 ; CHECK-DAG: {{\(NON-LINEAR float\* %first.*\[i64 1\].*}} {sb:[[Base1]]}

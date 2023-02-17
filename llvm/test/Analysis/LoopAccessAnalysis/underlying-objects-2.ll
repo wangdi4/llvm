@@ -110,8 +110,8 @@ for_i.end:
 ; CHECK-NEXT: Unknown data dependence.
 ; CHECK-NEXT: Dependences:
 ; CHECK-NEXT: Unknown:
-; CHECK-NEXT: %loadB = load i8, i8* %gepB9, align 1 ->
-; CHECK-NEXT: store i8 2, i8* %gepB_plus_one, align 1
+; CHECK-NEXT: %loadB = load i8, ptr %gepB9, align 1 ->
+; CHECK-NEXT: store i8 2, ptr %gepB_plus_one, align 1
 ; end INTEL_CUSTOMIZATION
 
 define void @f_deep(ptr noalias %A, ptr noalias %B, i64 %N) {
