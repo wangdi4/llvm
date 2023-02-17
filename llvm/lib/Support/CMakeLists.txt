@@ -198,7 +198,6 @@ set (SUPPORT_SOURCES
   Intel_CPU_utils.cpp
 # end INTEL_CUSTOMIZATION
   IntervalMap.cpp
-  ItaniumManglingCanonicalizer.cpp
   JSON.cpp
   KnownBits.cpp
   LEB128.cpp
@@ -243,7 +242,6 @@ set (SUPPORT_SOURCES
   StringSaver.cpp
   StringRef.cpp
   SuffixTree.cpp
-  SymbolRemappingReader.cpp
   SystemUtils.cpp
   TarWriter.cpp
   ThreadPool.cpp
