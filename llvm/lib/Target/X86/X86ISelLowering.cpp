@@ -57094,7 +57094,6 @@ static SDValue foldXor1SetCC(SDNode *N, SelectionDAG &DAG) {
   return getSETCC(NewCC, LHS->getOperand(1), DL, DAG);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Look for (Y ^ ((X ^ Y) & M)) (equivalent to M ? X : Y) and turn it  into
 // VPTERNLOG.
@@ -57202,7 +57201,7 @@ static SDValue combineXorBlend(SDNode *N, SelectionDAG &DAG) {
   return SDValue();
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 static SDValue combineXorSubCTLZ(SDNode *N, SelectionDAG &DAG,
                                  const X86Subtarget &Subtarget) {
   assert((N->getOpcode() == ISD::XOR || N->getOpcode() == ISD::SUB) &&
@@ -57259,7 +57258,6 @@ static SDValue combineXorSubCTLZ(SDNode *N, SelectionDAG &DAG,
 
   return Op;
 }
->>>>>>> cf8fadcf9b9362bff30e31cce06b516aa1156ce1
 
 static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
                           TargetLowering::DAGCombinerInfo &DCI,
