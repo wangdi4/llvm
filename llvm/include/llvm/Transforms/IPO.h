@@ -196,27 +196,6 @@ ModulePass *createStripDeadPrototypesPass();
 Pass *createReversePostOrderFunctionAttrsPass();
 
 //===----------------------------------------------------------------------===//
-<<<<<<< HEAD
-/// createHotColdSplittingPass - This pass outlines cold blocks into a separate
-/// function(s).
-ModulePass *createHotColdSplittingPass();
-
-//===----------------------------------------------------------------------===//
-/// createIROutlinerPass - This pass finds similar code regions and factors
-/// those regions out into functions.
-ModulePass *createIROutlinerPass();
-
-//===----------------------------------------------------------------------===//
-/// createPartialInliningPass - This pass inlines parts of functions.
-///
-#if INTEL_CUSTOMIZATION
-ModulePass *createPartialInliningPass(bool RunLTOPartialInline = false,
-                                      bool EnableSpecialCases = false);
-#endif // INTEL_CUSTOMIZATION
-
-//===----------------------------------------------------------------------===//
-=======
->>>>>>> cb5e48d1c2c4774ed9f17ff89412f1291b640172
 /// createBarrierNoopPass - This pass is purely a module pass barrier in a pass
 /// manager.
 ModulePass *createBarrierNoopPass();

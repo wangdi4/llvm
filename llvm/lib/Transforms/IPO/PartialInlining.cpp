@@ -453,76 +453,6 @@ private:
                                   OptimizationRemarkEmitter &ORE) const;
 };
 
-<<<<<<< HEAD
-struct PartialInlinerLegacyPass : public ModulePass {
-  static char ID; // Pass identification, replacement for typeid
-
-  PartialInlinerLegacyPass() : ModulePass(ID) {
-    initializePartialInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-#if INTEL_CUSTOMIZATION
-  PartialInlinerLegacyPass(bool RunLTOPartialInline, bool EnableSpecialCases) :
-        ModulePass(ID), RunLTOPartialInline(RunLTOPartialInline),
-        EnableSpecialCases(EnableSpecialCases) {
-    initializePartialInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  // The partial inlining is being called from the LTO process
-  bool RunLTOPartialInline = false;
-  // Special cases of partial inlining should be handled
-  bool EnableSpecialCases = false;
-#endif // INTEL_CUSTOMIZATION
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AssumptionCacheTracker>();
-    AU.addRequired<ProfileSummaryInfoWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();             // INTEL
-    AU.addPreserved<WholeProgramWrapperPass>();            // INTEL
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    AssumptionCacheTracker *ACT = &getAnalysis<AssumptionCacheTracker>();
-    TargetTransformInfoWrapperPass *TTIWP =
-        &getAnalysis<TargetTransformInfoWrapperPass>();
-    ProfileSummaryInfo &PSI =
-        getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
-
-    auto GetAssumptionCache = [&ACT](Function &F) -> AssumptionCache & {
-      return ACT->getAssumptionCache(F);
-    };
-
-    auto LookupAssumptionCache = [ACT](Function &F) -> AssumptionCache * {
-      return ACT->lookupAssumptionCache(F);
-    };
-
-    auto GetTTI = [&TTIWP](Function &F) -> TargetTransformInfo & {
-      return TTIWP->getTTI(F);
-    };
-
-    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-#if INTEL_CUSTOMIZATION
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-    auto ILIC = std::make_unique<InliningLoopInfoCache>();
-    return PartialInlinerImpl(GetAssumptionCache, LookupAssumptionCache, GetTTI,
-                              GetTLI, PSI, nullptr, ILIC.get(),
-                              RunLTOPartialInline, EnableSpecialCases, WPInfo)
-        .run(M);
-#endif // INTEL_CUSTOMIZATION
-  }
-};
-
-=======
->>>>>>> cb5e48d1c2c4774ed9f17ff89412f1291b640172
 } // end anonymous namespace
 
 std::unique_ptr<FunctionOutliningMultiRegionInfo>
@@ -1828,28 +1758,6 @@ bool PartialInlinerImpl::run(Module &M) {
   return Changed;
 }
 
-<<<<<<< HEAD
-char PartialInlinerLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(PartialInlinerLegacyPass, "partial-inliner",
-                      "Partial Inliner", false, false)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)                  // INTEL
-INITIALIZE_PASS_END(PartialInlinerLegacyPass, "partial-inliner",
-                    "Partial Inliner", false, false)
-
-#if INTEL_CUSTOMIZATION
-ModulePass *llvm::createPartialInliningPass(bool RunLTOPartialInline,
-                                            bool EnableSpecialCases) {
-  return new PartialInlinerLegacyPass(RunLTOPartialInline, EnableSpecialCases);
-}
-#endif // INTEL_CUSTOMIZATION
-
-=======
->>>>>>> cb5e48d1c2c4774ed9f17ff89412f1291b640172
 PreservedAnalyses PartialInlinerPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();

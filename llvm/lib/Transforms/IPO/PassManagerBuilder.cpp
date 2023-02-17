@@ -1246,10 +1246,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     // opens opportunities for globalopt (and inlining) by substituting function
     // pointers passed as arguments to direct uses of functions.
     PM.add(createIPSCCPPass());
-
-    // Attach metadata to indirect call sites indicating the set of functions
-    // they may target at run-time. This should follow IPSCCP.
-    PM.add(createCalledValuePropagationPass());
   }
 
   // Infer attributes about definitions. The readnone attribute in particular is
@@ -1387,14 +1383,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
-  if (RunLTOPartialInlining)
-    PM.add(createPartialInliningPass(true /*RunLTOPartialInlining*/,
-#if INTEL_FEATURE_SW_DTRANS
-                                     DTransEnabled /*EnableSpecialCases*/));
-#else // INTEL_FEATURE_SW_DTRANS
-                                     false /*EnableSpecialCases*/));
-#endif // INTEL_FEATURE_SW_DTRANS
-
   if (
 #if INTEL_FEATURE_SW_ADVANCED
       EnableIPCloning ||
