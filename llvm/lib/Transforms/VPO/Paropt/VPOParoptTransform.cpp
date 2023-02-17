@@ -9856,19 +9856,17 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
   for (Value *ValToCapture : DirectlyUsedNonPointerVals) { //           (1)
     // Make the changes (2), (3), (4), (5)
     Value *CapturedValAddr = //                                         (2)
-        VPOUtils::replaceWithStoreThenLoad(
+        std::get<0>(VPOUtils::replaceWithStoreThenLoad(
             W, ValToCapture, InsertStoreBefore,
             true, // Replace uses in the region
-            // For target regions, insert the load even
-            // if ValToCapture has no use in the
-            // region, to avoid argument mismatch b/w
-            // host and device.
-            isa<WRNTargetNode>(W),
-            true,             // Insert (4) in beginning of NewEntryBB
-            true,             // Insert alloca based on parent WRegions
-            isTargetSPIRV()); // Add addrspace cast to
-                              // the captured addr for
-                              // target spirv.
+            isa<WRNTargetNode>(
+                W), // For target regions, insert the load (4) even if
+                    // ValToCapture has no use in the region, to avoid argument
+                    // mismatch b/w host and device.
+            true,   // Insert (4) in beginning of NewEntryBB
+            true,   // Insert alloca based on parent WRegions
+            isTargetSPIRV())); // Add addrspacecast to the captured addr for
+                               // target spirv
     if (!CapturedValAddr)
       continue;
 
