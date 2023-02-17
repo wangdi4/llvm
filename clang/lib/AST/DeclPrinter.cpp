@@ -1688,7 +1688,7 @@ void DeclPrinter::VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D) {
       if (!VD)
         VD = cast<VarDecl>(cast<DeclRefExpr>(*I)->getDecl());
     }
-    llvm::Optional<OMPGroupPrivateDeclAttr *> Attr =
+    std::optional<OMPGroupPrivateDeclAttr *> Attr =
         OMPGroupPrivateDeclAttr::getGroupPrivateDeclAttr(VD);
     Out << ")";
     if (Attr)

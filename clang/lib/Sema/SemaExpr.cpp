@@ -470,9 +470,9 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
       QualType QType = VD->getType();
       if (QType->isDependentType() || QType->isInstantiationDependentType())
         return false;
-      Optional<OMPDeclareTargetDeclAttr::DevTypeTy> TDevTy =
+      std::optional<OMPDeclareTargetDeclAttr::DevTypeTy> TDevTy =
           OMPDeclareTargetDeclAttr::getDeviceType(VD);
-      Optional<OMPGroupPrivateDeclAttr::DevTypeTy> GDevTy =
+      std::optional<OMPGroupPrivateDeclAttr::DevTypeTy> GDevTy =
           OMPGroupPrivateDeclAttr::getDeviceType(VD);
       // Currently only DT_NoHost is parser thourgh.
       if (GDevTy && *GDevTy == OMPGroupPrivateDeclAttr::DT_NoHost) {

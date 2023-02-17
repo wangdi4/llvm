@@ -254,7 +254,7 @@ OMPDeclareTargetDeclAttr::getLocation(const ValueDecl *VD) {
 }
 
 #if INTEL_COLLAB
-llvm::Optional<OMPGroupPrivateDeclAttr *>
+std::optional<OMPGroupPrivateDeclAttr *>
 OMPGroupPrivateDeclAttr::getGroupPrivateDeclAttr(const ValueDecl *VD) {
   if (!VD->hasAttr<OMPGroupPrivateDeclAttr>())
     return std::nullopt;
@@ -266,17 +266,17 @@ OMPGroupPrivateDeclAttr::getGroupPrivateDeclAttr(const ValueDecl *VD) {
   return std::nullopt;
 }
 
-llvm::Optional<OMPGroupPrivateDeclAttr::DevTypeTy>
+std::optional<OMPGroupPrivateDeclAttr::DevTypeTy>
 OMPGroupPrivateDeclAttr::getDeviceType(const ValueDecl *VD) {
-  llvm::Optional<OMPGroupPrivateDeclAttr *> Attr = getGroupPrivateDeclAttr(VD);
+  std::optional<OMPGroupPrivateDeclAttr *> Attr = getGroupPrivateDeclAttr(VD);
   if (Attr)
     return Attr.value()->getDevType();
   return std::nullopt;
 }
 
-llvm::Optional<SourceLocation>
+std::optional<SourceLocation>
 OMPGroupPrivateDeclAttr::getLocation(const ValueDecl *VD) {
-  llvm::Optional<OMPGroupPrivateDeclAttr *> Attr = getGroupPrivateDeclAttr(VD);
+  std::optional<OMPGroupPrivateDeclAttr *> Attr = getGroupPrivateDeclAttr(VD);
   if (Attr)
     return Attr.value()->getRange().getBegin();
   return std::nullopt;

@@ -4980,10 +4980,10 @@ def OMPGroupPrivateDecl : InheritableAttr {
                  [ "DT_Host", "DT_NoHost", "DT_Any" ]>
   ];
   let AdditionalMembers = [{
-    static llvm::Optional<OMPGroupPrivateDeclAttr *> getGroupPrivateDeclAttr(
+    static std::optional<OMPGroupPrivateDeclAttr *> getGroupPrivateDeclAttr(
         const ValueDecl *VD);
-    static llvm::Optional<DevTypeTy> getDeviceType(const ValueDecl *VD);
-    static llvm::Optional<SourceLocation> getLocation(const ValueDecl *VD);
+    static std::optional<DevTypeTy> getDeviceType(const ValueDecl *VD);
+    static std::optional<SourceLocation> getLocation(const ValueDecl *VD);
   }];
 }
 #endif // INTEL_COLLAB

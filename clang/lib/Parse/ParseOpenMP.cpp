@@ -1879,7 +1879,7 @@ Parser::ParseOpenMPGroupPrivateDirective(SourceLocation Loc) {
           getLangOpts().OpenMP >= 50 &&
           getOpenMPClauseKind(ClauseName) == OMPC_device_type;
       if (IsDeviceTypeClause) {
-        Optional<SimpleClauseData> DevTypeData =
+        std::optional<SimpleClauseData> DevTypeData =
             parseOpenMPSimpleClause(*this, OMPC_device_type);
         DeviceTypeLoc = DevTypeData.value().Loc;
         if (DevTypeData) {

@@ -3310,7 +3310,7 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPGroupprivateDirective(
   for (Expr *RefExpr : VarList) {
     auto *DE = cast<DeclRefExpr>(RefExpr);
     auto *VD = cast<VarDecl>(DE->getDecl());
-    llvm::Optional<OMPGroupPrivateDeclAttr *> Attr =
+    std::optional<OMPGroupPrivateDeclAttr *> Attr =
         OMPGroupPrivateDeclAttr::getGroupPrivateDeclAttr(VD);
     if (Attr) {
       if (Attr.value()->getDevType() != DTCI.DT) {
