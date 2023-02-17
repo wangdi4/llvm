@@ -4968,6 +4968,26 @@ def OMPThreadPrivateDecl : InheritableAttr {
   let Documentation = [InternalOnly];
 }
 
+#if INTEL_COLLAB
+def OMPGroupPrivateDecl : InheritableAttr {
+  // This attribute has no spellings as it is only ever created implicitly.
+  let Spellings = [];
+  let SemaHandler = 0;
+  let Documentation = [InternalOnly];
+  let Args = [
+    EnumArgument<"DevType", "DevTypeTy",
+                 [ "host", "nohost", "any" ],
+                 [ "DT_Host", "DT_NoHost", "DT_Any" ]>
+  ];
+  let AdditionalMembers = [{
+    static llvm::Optional<OMPGroupPrivateDeclAttr *> getGroupPrivateDeclAttr(
+        const ValueDecl *VD);
+    static llvm::Optional<DevTypeTy> getDeviceType(const ValueDecl *VD);
+    static llvm::Optional<SourceLocation> getLocation(const ValueDecl *VD);
+  }];
+}
+#endif // INTEL_COLLAB
+
 include "clang/Basic/intel/IntelAttr.td"
 
 def OMPCaptureNoInit : InheritableAttr {

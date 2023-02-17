@@ -379,6 +379,13 @@ bool isOpenMPPrivate(OpenMPClauseKind Kind);
 /// \return true - the clause is a threadprivate clause, otherwise - false.
 bool isOpenMPThreadPrivate(OpenMPClauseKind Kind);
 
+#if INTEL_COLLAB
+/// Checks if the specified clause is groupprivate
+/// \param Kind Clause kind.
+/// \return true - the clause is a groupprivate clause, otherwise - false.
+bool isOpenMPGroupPrivate(OpenMPClauseKind Kind);
+#endif // INTEL_COLLAB
+
 /// Checks if the specified directive kind is one of tasking directives - task,
 /// taskloop, taksloop simd, master taskloop, parallel master taskloop, master
 /// taskloop simd, or parallel master taskloop simd.
