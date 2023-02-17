@@ -88,7 +88,7 @@
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/Pass.h"

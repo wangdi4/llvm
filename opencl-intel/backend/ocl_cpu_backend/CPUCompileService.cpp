@@ -23,7 +23,7 @@
 #include "elf_binary.h"
 #include "exceptions.h"
 
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/IR/Module.h"
 
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;

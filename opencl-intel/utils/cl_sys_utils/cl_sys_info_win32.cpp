@@ -30,7 +30,7 @@ using namespace Intel::OpenCL::Utils;
 #include <powrprof.h>
 #include <windows.h>
 
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 
