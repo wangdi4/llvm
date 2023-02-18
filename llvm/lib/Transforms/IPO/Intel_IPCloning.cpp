@@ -160,6 +160,10 @@ static cl::opt<bool> EnableManyRecCallsSplitting("ip-manyreccalls-splitting",
                                                  cl::ReallyHidden);
 
 static cl::opt<bool>
+    EnablePreferFunctionRegion("ip-manyreccalls-preferfunctionlevelregion",
+                               cl::init(false), cl::ReallyHidden);
+
+static cl::opt<bool>
     EnableManyRecCallsPredicateOpt("ip-manyreccalls-predicateopt",
                                    cl::init(false), cl::ReallyHidden);
 
@@ -5163,7 +5167,7 @@ bool PredicateOpt::findSpine() {
   SimpleLoopDepth = LocalSimpleLoopDepth;
   WrapperCB = LocalWrapperCB;
   BigLoopCB = LocalBigLoopCB;
-  if (BigLoopCB)
+  if (BigLoopCB && EnablePreferFunctionRegion)
     BigLoopCB->getCaller()->addFnAttr("prefer-function-level-region");
   return BigLoopCB;
 }
