@@ -665,6 +665,12 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
     return;
   }
 
+  if (Lp->hasUnrollEnablingPragma()) {
+    LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop has unroll pragma!\n");
+    HUAJ.throttleRecursively(Lp);
+    return;
+  }
+
   const HLInst *SIMDEntryDir = Lp->getSIMDEntryIntrinsic();
   bool IsValidInnerLoop = !SIMDEntryDir;
 
@@ -721,13 +727,6 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
 
     if (Lp->hasVectorizeEnablingPragma()) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam of vector pragma loop!\n");
-      HUAJ.throttle(Lp);
-      return;
-    }
-
-    if (Lp->hasUnrollEnablingPragma()) {
-      LLVM_DEBUG(
-          dbgs() << "Skipping unroll & jam as loop has unroll pragma!\n");
       HUAJ.throttle(Lp);
       return;
     }
