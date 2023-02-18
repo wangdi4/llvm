@@ -5,6 +5,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; RUN: opt -xmain-opt-level=3 -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -hir-details-no-verbose-indent -disable-output < %s 2>&1 | FileCheck %s
 
+; Check that forcing an unroll factor does not cause the test to crash
+; RUN: opt -xmain-opt-level=3 -vplan-force-uf=2 -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -hir-details-no-verbose-indent -disable-output < %s 2>&1 | FileCheck %s
+
 ; The idiom being recognized looks like:
 
 ;  BEGIN REGION { modified }
