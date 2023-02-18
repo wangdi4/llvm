@@ -1,7 +1,10 @@
 // REQUIRES: linux
 // RUN: split-file %s %t
-// RUN: %clang_profgen -Wl,--build-id=0x12345678 -fcoverage-mapping -O2 -shared %t/foo.c -o %t/libfoo.so
+// INTEL_CUSTOMIZATION
+// Add -fPIC for when test is built with -m32 to avoid dynamic relocation error
+// RUN: %clang_profgen -Wl,--build-id=0x12345678 -fcoverage-mapping -O2 -fPIC -shared %t/foo.c -o %t/libfoo.so
 // RUN: %clang_profgen -Wl,--build-id=0xabcd1234 -fcoverage-mapping -O2 %t/main.c -L%t -lfoo -o %t.main
+// end INTEL_CUSTOMIZATION
 // RUN: rm -rf %t.profdir
 // RUN: env LLVM_PROFILE_FILE=%t.profdir/default_%m.profraw LD_LIBRARY_PATH=%t %run %t.main
 // RUN: mkdir -p %t/.build-id/12 %t/.build-id/ab
