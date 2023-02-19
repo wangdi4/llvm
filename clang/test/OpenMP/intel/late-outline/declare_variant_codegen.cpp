@@ -129,6 +129,7 @@ void caller2(int n, float* x, int dnum)
     }
   }
 }
+
 #endif // HEADER
 
 //TARG: define{{.*}}foo_targ
