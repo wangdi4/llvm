@@ -3998,7 +3998,7 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
         DeviceInfo->getMemAllocType(HstPtr) != ZE_MEMORY_TYPE_HOST &&
         // Check if host pointer is registered
         !DeviceInfo->getHostPointerBaseAddress(DeviceId, HstPtr)) {
-      DstPtr = IsAsync ? DstPtr = DeviceInfo->getStagingBuffer().getNext()
+      DstPtr = IsAsync ? DeviceInfo->getStagingBuffer().getNext()
                        : DeviceInfo->getStagingBuffer().get();
     }
     int32_t RC = IsAsync ? DeviceInfo->enqueueMemCopyAsync(DeviceId, DstPtr,
