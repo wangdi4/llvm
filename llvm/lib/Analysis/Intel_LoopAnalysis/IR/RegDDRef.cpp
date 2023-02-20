@@ -1493,7 +1493,7 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
     unsigned AuxNodeLevel = 0;
 
     if (DefLevel == NonLinearLevel && AuxNode && AuxNode->isAttached() &&
-        AuxRef->isLval() && AuxRef->isSelfBlob()) {
+        AuxRef->isSelfBlob()) {
 
       assert(Index == AuxRef->getSingleCanonExpr()->getSingleBlobIndex());
 

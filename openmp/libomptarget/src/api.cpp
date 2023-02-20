@@ -1012,6 +1012,9 @@ EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum) {
     REPORT("Device %d is not ready, returning nullptr.\n", DeviceNum);
     return nullptr;
   }
+#if INTEL_COLLAB
+  CHECK_DEVICE_AND_CTORS_RET(DeviceNum, nullptr);
+#endif // INTEL_COLLAB
 
   bool IsLast = false;
   bool IsHostPtr = false;

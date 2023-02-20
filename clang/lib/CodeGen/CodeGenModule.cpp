@@ -5225,6 +5225,13 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     }
   }
 
+#if INTEL_COLLAB
+  if (getLangOpts().OpenMPIsDevice && getLangOpts().OpenMPLateOutline)
+    if (auto *OldFn = dyn_cast_or_null<llvm::Function>(Entry))
+      if (OldFn->hasFnAttribute("openmp-target-declare"))
+        F->addFnAttr("openmp-target-declare", "true");
+#endif // INTEL_COLLAB
+
   // Make sure the result is of the requested type.
   if (!IsIncompleteFunction) {
     assert(F->getFunctionType() == Ty);

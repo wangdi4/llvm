@@ -1053,7 +1053,15 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   uint64_t OrigTripCount = OuterMostVPLoop->getTripCountInfo().TripCount;
   uint64_t TripCount =
       std::min(OrigTripCount, (uint64_t)std::numeric_limits<unsigned>::max());
-  unsigned BestUF = getLoopUnrollFactor();
+
+  // TODO - search loop representation needs to be made explicit before we
+  // can support unrolling such loops. Force unroll factor to 1 for search
+  // loops.
+  RegDDRef *PeelArrayRef = nullptr;
+  auto SearchIdiom = VPlanIdioms::isSearchLoop(ScalarPlan, true, PeelArrayRef);
+  unsigned BestUF =
+      VPlanIdioms::isAnySearchLoop(SearchIdiom) ? 1 : getLoopUnrollFactor();
+
   bool IsTripCountEstimated = OuterMostVPLoop->getTripCountInfo().IsEstimated;
   unsigned ForcedVF = getForcedVF(WRLp);
 
@@ -1088,28 +1096,26 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   // SearchLoopPreferredVF has to be visible to VF selection loop.
   unsigned SearchLoopPreferredVF = 0;
   if (ForcedVF == 0 && getPlannerType() != PlannerType::Base) {
-    RegDDRef *PeelArrayRef = nullptr;
+    switch (SearchIdiom) {
+    case VPlanIdioms::Unsafe:
+      SearchLoopPreferredVF = 1;
+      break;
+    case VPlanIdioms::SearchLoopStrEq:
+      SearchLoopPreferredVF = 32;
+      break;
+    case VPlanIdioms::SearchLoopPtrEq: {
+      // Use higher VF=16 for targets that have 2K or higher DSB size. Check
+      // CMPLRLLVM-38144 for more details.
+      if (TTI->has2KDSB())
+        VPlanSearchLpPtrEqForceVF = 16;
 
-    switch (VPlanIdioms::isSearchLoop(ScalarPlan, true, PeelArrayRef)) {
-      case VPlanIdioms::Unsafe:
-        SearchLoopPreferredVF = 1;
-        break;
-      case VPlanIdioms::SearchLoopStrEq:
-        SearchLoopPreferredVF = 32;
-        break;
-      case VPlanIdioms::SearchLoopPtrEq: {
-        // Use higher VF=16 for targets that have 2K or higher DSB size. Check
-        // CMPLRLLVM-38144 for more details.
-        if (TTI->has2KDSB())
-          VPlanSearchLpPtrEqForceVF = 16;
-
-        SearchLoopPreferredVF = VPlanSearchLpPtrEqForceVF;
-        break;
-      }
-      case VPlanIdioms::SearchLoopValueCmp:
-        // Intentional fall-through.
-      default:
-        break;
+      SearchLoopPreferredVF = VPlanSearchLpPtrEqForceVF;
+      break;
+    }
+    case VPlanIdioms::SearchLoopValueCmp:
+      // Intentional fall-through.
+    default:
+      break;
     }
 
     // Check the VPlan availability and remove VFs that are not preferred.
@@ -1284,6 +1290,12 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // 1 because VPlan's loop unroller is called after selecting the best VF.
     const decltype(TripCount) MainLoopTripCount =
         (TripCount - PeelEvaluator.getTripCount()) / (VF * BestUF);
+
+    // If the loop is going to be unrolled, scale up MainLoopIterationCost by
+    // BestUF as a starting approximation. We were not doing this before which
+    // artificially inflates benefit from unrolling. TODO - consider refining
+    // loop iteration cost by considering benefits of unrolling.
+    MainLoopIterationCost *= BestUF;
 
     // The total vector cost is calculated by adding the total cost of peel,
     // main and remainder loops.
