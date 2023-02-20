@@ -72,22 +72,6 @@ if (NOT DEFINED LEVEL_ZERO_LIBRARY OR NOT DEFINED LEVEL_ZERO_INCLUDE_DIR)
 endif()
 
 add_library (LevelZeroLoader INTERFACE)
-<<<<<<< HEAD
-if (INTEL_CUSTOMIZATION)
-  get_filename_component(LEVEL_ZERO_LIBRARY_SRC "${LEVEL_ZERO_LIBRARY}" DIRECTORY)
-  get_filename_component(LEVEL_ZERO_LIB_NAME "${LEVEL_ZERO_LIBRARY}" NAME)
-  target_link_directories(LevelZeroLoader
-    INTERFACE "${LEVEL_ZERO_LIBRARY_SRC}"
-  )
-  target_link_libraries(LevelZeroLoader
-    INTERFACE "${LEVEL_ZERO_LIB_NAME}"
-  )
-else()
-  target_link_libraries(LevelZeroLoader
-    INTERFACE "${LEVEL_ZERO_LIBRARY}"
-  )
-endif(INTEL_CUSTOMIZATION)
-=======
 # The MSVC linker does not like / at the start of a path, so to work around this
 # we split it into a link library and a library path, where the path is allowed
 # to have leading /.
@@ -99,7 +83,6 @@ target_link_directories(LevelZeroLoader
 target_link_libraries(LevelZeroLoader
   INTERFACE "${LEVEL_ZERO_LIB_NAME}"
 )
->>>>>>> 6863d4ad26e0948ab1fa184ad1997d09abcb6529
 
 add_library (LevelZeroLoader-Headers INTERFACE)
 target_include_directories(LevelZeroLoader-Headers
