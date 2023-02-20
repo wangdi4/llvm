@@ -30,9 +30,6 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::TaskExecutor;
 
-// no local atexit handler - only global
-USE_SHUTDOWN_HANDLER(nullptr);
-
 cl_monitor_init
 
     cl_icd_dispatch FrameworkProxy::ICDDispatchTable;
@@ -62,8 +59,6 @@ FrameworkProxy::FrameworkProxy() {
   m_pTaskList = nullptr;
   m_pTaskList_immediate = nullptr;
   m_uiTEActivationCount = 0;
-
-  RegisterGlobalAtExitNotification(this);
 
   Initialize();
 }
