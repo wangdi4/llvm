@@ -72,6 +72,16 @@ FrameworkProxy::FrameworkProxy() {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 FrameworkProxy::~FrameworkProxy() {}
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_WIN32) && !defined(_WIN64)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
 void FrameworkProxy::InitOCLEntryPoints() {
   OclEntryPoints.icdDispatch = &ICDDispatchTable;
   OclEntryPoints.crtDispatch = &CRTDispatchTable;
@@ -385,6 +395,13 @@ void FrameworkProxy::InitOCLEntryPoints() {
 
   /// Extra CPU specific functions
 }
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#elif defined(_WIN32) && !defined(_WIN64)
+#pragma warning(pop)
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Initialize()
