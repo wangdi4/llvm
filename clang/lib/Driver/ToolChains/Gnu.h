@@ -328,6 +328,10 @@ public:
                              const llvm::opt::ArgList &Args,
                              StringRef CandidateTriple,
                              bool NeedsBiarchSuffix = false);
+#if INTEL_CUSTOMIZATION
+    bool ScanForCxxPaths(const GCCVersion Version, StringRef TripleStr,
+                         StringRef LibDir, StringRef InstallDir);
+#endif // INTEL_CUSTOMIZATION
   };
 
 protected:

@@ -3279,6 +3279,65 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+bool Generic_GCC::GCCInstallationDetector::ScanForCxxPaths(
+    const GCCVersion Version, StringRef TripleStr, StringRef LibDir,
+    StringRef InstallDir) {
+  // By default, look for the C++ headers in an include directory adjacent to
+  // the lib directory of the GCC installation. Note that this is expect to be
+  // equivalent to '/usr/include/c++/X.Y' in almost all cases.
+
+  // Try /../<triple>/include/c++/<version>
+  if (D.getVFS().exists(LibDir.str() + "/../" + TripleStr + "/include/c++/" +
+                        Version.Text))
+    return true;
+
+  // Try /gcc/<triple>/<version>/include/c++
+  // Like above but for GCC built with --enable-version-specific-runtime-libs.
+  if (D.getVFS().exists(LibDir.str() + "/gcc/" + TripleStr + "/" +
+                        Version.Text + "/include/c++/"))
+    return true;
+
+  // Detect Debian g++-multiarch-incdir.diff.
+  std::string Dir(LibDir.str() + "/../include/c++/" + Version.Text);
+  StringRef IncludeDir =
+      llvm::sys::path::parent_path(llvm::sys::path::parent_path(Dir));
+  std::string MultiLibSuffix(getMultilib().includeSuffix());
+  std::string Path = (IncludeDir + "/" + TripleStr +
+                      Dir.substr(IncludeDir.size()) + MultiLibSuffix)
+                         .str();
+  if (D.getVFS().exists(Path))
+    return true;
+
+  // Try /../include/c++/<version>
+  if (D.getVFS().exists(LibDir.str() + "/../include/c++/" + Version.Text))
+    return true;
+
+  // Otherwise, fall back on a bunch of options which don't use multiarch
+  // layouts for simplicity.
+  const std::string LibStdCXXIncludePathCandidates[] = {
+      // Freescale SDK C++ headers are directly in <sysroot>/usr/include/c++,
+      // without a subdirectory corresponding to the gcc version.
+      InstallDir.str() + "/../include/c++",
+      // Cray's gcc installation puts headers under "g++" without a
+      // version suffix.
+      InstallDir.str() + "/../include/g++",
+      // Gentoo is weird and places its headers inside the GCC install,
+      // so if the first attempt to find the headers fails, try these patterns.
+      InstallDir.str() + "/include/g++-v" + Version.Text,
+      InstallDir.str() + "/include/g++-v" + Version.MajorStr + "." +
+          Version.MinorStr,
+      InstallDir.str() + "/include/g++-v" + Version.MajorStr,
+  };
+
+  for (const auto &IncludePath : LibStdCXXIncludePathCandidates) {
+    if (D.getVFS().exists(IncludePath + "/iostream"))
+      return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Generic_GCC::GCCInstallationDetector::ScanLibDirForGCCTriple(
     const llvm::Triple &TargetTriple, const ArgList &Args,
     const std::string &LibDir, StringRef CandidateTriple,
@@ -3312,6 +3371,7 @@ void Generic_GCC::GCCInstallationDetector::ScanLibDirForGCCTriple(
     if (!Suffix.Active)
       continue;
 
+    GCCVersion CxxCandidateVersion; // INTEL
     StringRef LibSuffix = Suffix.LibSuffix;
     std::error_code EC;
     for (llvm::vfs::directory_iterator
@@ -3325,6 +3385,19 @@ void Generic_GCC::GCCInstallationDetector::ScanLibDirForGCCTriple(
           continue; // Saw this path before; no need to look at it again.
       if (CandidateVersion.isOlderThan(4, 1, 1))
         continue;
+#if INTEL_CUSTOMIZATION
+      if (D.CCCIsCXX()) {
+        // Check for equivalent C++ headers for the current environment.
+        SmallString<128> InstallPath(LibDir);
+        llvm::sys::path::append(InstallPath, LibSuffix, VersionText);
+        SmallString<128> LibPath(InstallPath);
+        llvm::sys::path::append(LibPath, "..", Suffix.ReversePath);
+        if (ScanForCxxPaths(CandidateVersion, CandidateTriple, LibPath,
+                            InstallPath)) {
+          CxxCandidateVersion = CandidateVersion;
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
       if (CandidateVersion <= Version)
         continue;
 
@@ -3341,6 +3414,16 @@ void Generic_GCC::GCCInstallationDetector::ScanLibDirForGCCTriple(
       GCCParentLibPath = (GCCInstallPath + "/../" + Suffix.ReversePath).str();
       IsValid = true;
     }
+#if INTEL_CUSTOMIZATION
+    // We have gone through all of the candidates.  Check to see if the latest
+    // candidate matches the last true 'full' candidate (C and C++).
+    if (IsValid && !CxxCandidateVersion.Text.empty() &&
+        getVersion().Text != CxxCandidateVersion.Text) {
+      Version = CxxCandidateVersion;
+      GCCInstallPath = (LibDir + "/" + LibSuffix + "/" + Version.Text).str();
+      GCCParentLibPath = (GCCInstallPath + "/../" + Suffix.ReversePath).str();
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

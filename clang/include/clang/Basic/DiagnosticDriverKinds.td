@@ -714,6 +714,10 @@ def warn_drv_libstdcxx_not_found : Warning<
   "include path for libstdc++ headers not found; pass '-stdlib=libc++' on the "
   "command line to use the libc++ standard library instead">,
   InGroup<DiagGroup<"stdlibcxx-not-found">>;
+#if INTEL_CUSTOMIZATION
+def err_drv_cxx_header_not_found : Error<
+  "C++ header location not resolved; check installed C++ dependencies">;
+#endif // INTEL_CUSTOMIZATION
 
 def err_drv_cannot_mix_options : Error<"cannot specify '%1' along with '%0'">;
 
