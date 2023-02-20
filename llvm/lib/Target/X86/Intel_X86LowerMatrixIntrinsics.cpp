@@ -448,36 +448,57 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
   return true;
 }
 
+static AllocaInst *createAllocaInstAtEntry(IRBuilder<> &Builder, BasicBlock *BB,
+                                           Type *Ty) {
+  Function &F = *BB->getParent();
+  Module *M = BB->getModule();
+  const DataLayout &DL = M->getDataLayout();
+
+  LLVMContext &Ctx = Builder.getContext();
+  auto AllocaAlignment = DL.getPrefTypeAlign(Type::getX86_AMXTy(Ctx));
+  unsigned AllocaAS = DL.getAllocaAddrSpace();
+  AllocaInst *AllocaRes =
+      new AllocaInst(Ty, AllocaAS, "", &F.getEntryBlock().front());
+  AllocaRes->setAlignment(AllocaAlignment);
+  return AllocaRes;
+}
+
 bool X86LowerMatrixIntrinsicsPass::ProcessMatrixExtractRowSlice(
     IntrinsicInst *II) {
   // Transform
   // %slice = call <4 x i32>
   // @llvm.experimental.matrix.extract.row.slice.v8i32(<16 x i32> %mat,  i32 %x,
-  // i32 %y, i32 4, i32 4, i32 4, metadata !"matrix.rowmajor") into several
-  // extractelement from %mat and insertelement to %slice.
+  // i32 %y, i32 4, i32 4, i32 4, metadata !"matrix.rowmajor") into
+  // =>
+  // alloc <16 x i32>* %ptr
+  // store <16 x i32> %mat, <16 x i32>* %ptr
+  // %i32_base = bitcast <16 x i32>* %ptr to i32*
+  // %i32_ptr = GEP i32 i32* %i32_base offset
+  // %slice_ptr = bitcast i8* %i32_ptr to <4 x i32>*
+  // %slice = load <4 x i32>, <4 x i32>* slice_ptr;
   IRBuilder<> Builder(II);
-  int64_t ElemNum = cast<ConstantInt>(II->getOperand(3))->getSExtValue();
   FixedVectorType *SliceType = cast<FixedVectorType>(II->getType());
 
-  Metadata *MemLayout = cast<MetadataAsValue>(II->getOperand(6))->getMetadata();
-  if (!cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor")) {
-    errs() << "Unsuppoted Layout:" << cast<MDString>(MemLayout)->getString()
+  Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(6))->getMetadata();
+  if (!cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor")) {
+    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
            << "!\n"
            << "We support layout for slicing: matrix.rowmajor!\n";
     llvm_unreachable(nullptr);
   }
+  Value *AllocaAddr = createAllocaInstAtEntry(Builder, II->getParent(),
+                                              II->getOperand(0)->getType());
+  Builder.CreateStore(II->getOperand(0), AllocaAddr);
+  Value *Base = Builder.CreateBitCast(
+      AllocaAddr, PointerType::getUnqual(SliceType->getElementType()));
   // offset = which_row*num_of_cols+which_col
   Value *Offset =
       Builder.CreateAdd(Builder.CreateMul(II->getOperand(1), II->getOperand(5)),
                         II->getOperand(2));
-  Value *DstSlice = PoisonValue::get(SliceType);
-  for (int64_t ElemI = 0; ElemI < ElemNum; ++ElemI) {
-    Value *Elem = Builder.CreateExtractElement(II->getOperand(0), Offset);
-    DstSlice =
-        Builder.CreateInsertElement(DstSlice, Elem, Builder.getInt32(ElemI));
-    if (ElemI < ElemNum - 1)
-      Offset = Builder.CreateAdd(Offset, Builder.getInt32(1));
-  }
+  Value *ElemPtr = Builder.CreateGEP(SliceType->getElementType(), Base, Offset);
+  Value *SlicePtr =
+      Builder.CreateBitCast(ElemPtr, PointerType::getUnqual(SliceType));
+  Value *DstSlice = Builder.CreateLoad(SliceType, SlicePtr);
   II->replaceAllUsesWith(DstSlice);
   II->eraseFromParent();
   return true;
@@ -485,33 +506,44 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixExtractRowSlice(
 
 bool X86LowerMatrixIntrinsicsPass::ProcessMatrixInsertRowSlice(
     IntrinsicInst *II) {
-  // Transform %0 = call <16 x i32>
-  // @llvm.experimental.matrix.insert.row.slice.v8i32(<16 x i32> %mat, <4 x i32>
+  // Transform %resmat = call <16 x i32>
+  // @llvm.experimental.matrix.insert.row.slice.v8i32(<16 x i32> %src, <4 x i32>
   // %slice, i32 %x, i32 %y, i32 4, i32 4, i32 4, metadata !"matrix.rowmajor")
-  // into several extractelement from %slice and insertelement to %mat.
+  // =>
+  // alloc <16 x i32>* %ptr
+  // store <16 x i32> %src, <16 x i32>* %ptr
+  // %i32_base = bitcast <16 x i32>* %ptr to i32*
+  // %i32_ptr = GEP i32 i32* %i32_base offset
+  // %slice_ptr = bitcast i8* %i32_ptr to <4 x i32>*
+  // store <4 x i32> slice, <4 x i32>* slice_ptr;
   IRBuilder<> Builder(II);
-  int64_t ElemNum = cast<ConstantInt>(II->getOperand(4))->getSExtValue();
+  FixedVectorType *MatrixType = cast<FixedVectorType>(II->getType());
+  FixedVectorType *SliceType =
+      cast<FixedVectorType>(II->getOperand(1)->getType());
 
-  Metadata *MemLayout = cast<MetadataAsValue>(II->getOperand(7))->getMetadata();
-  if (!cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor")) {
-    errs() << "Unsuppoted Layout:" << cast<MDString>(MemLayout)->getString()
+  Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(7))->getMetadata();
+  if (!cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor")) {
+    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
            << "!\n"
            << "We support layout for slicing: matrix.rowmajor!\n";
     llvm_unreachable(nullptr);
   }
+
+  Value *AllocaAddr = createAllocaInstAtEntry(Builder, II->getParent(),
+                                              II->getOperand(0)->getType());
+  Builder.CreateStore(II->getOperand(0), AllocaAddr);
+  Value *Base = Builder.CreateBitCast(
+      AllocaAddr, PointerType::getUnqual(SliceType->getElementType()));
   // offset = which_row*num_of_cols+which_col
   Value *Offset =
       Builder.CreateAdd(Builder.CreateMul(II->getOperand(2), II->getOperand(6)),
                         II->getOperand(3));
-  Value *DstMatrix = II->getOperand(0);
-  for (int64_t ElemI = 0; ElemI < ElemNum; ++ElemI) {
-    Value *Elem = Builder.CreateExtractElement(II->getOperand(1),
-                                               Builder.getInt32(ElemI));
-    DstMatrix = Builder.CreateInsertElement(DstMatrix, Elem, Offset);
-    if (ElemI < ElemNum - 1)
-      Offset = Builder.CreateAdd(Offset, Builder.getInt32(1));
-  }
-  II->replaceAllUsesWith(DstMatrix);
+  Value *ElemPtr = Builder.CreateGEP(SliceType->getElementType(), Base, Offset);
+  Value *SlicePtr =
+      Builder.CreateBitCast(ElemPtr, PointerType::getUnqual(SliceType));
+  Builder.CreateStore(II->getOperand(1), SlicePtr);
+  Value *ResMat = Builder.CreateLoad(MatrixType, AllocaAddr);
+  II->replaceAllUsesWith(ResMat);
   II->eraseFromParent();
   return true;
 }
