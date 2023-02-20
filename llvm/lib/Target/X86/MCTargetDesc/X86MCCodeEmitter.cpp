@@ -811,10 +811,19 @@ void X86MCCodeEmitter::emitMemModRMByte(const MCInst &MI, unsigned Op,
       return;
     }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    // If the base is not EBP/ESP/R12/R13/R20/R21/R28/R29 and there is no displacement, use
+    // simple indirect register encoding, this handles addresses like [EAX].
+    // The encoding for [EBP], [R13], [R20], [R21], [R28] or [R29] with no displacement means [disp32] so we
+    // handle it by emitting a displacement of 0 later.
+#else // INTEL_FEATURE_ISA_APX_F
     // If the base is not EBP/ESP/R12/R13 and there is no displacement, use
     // simple indirect register encoding, this handles addresses like [EAX].
     // The encoding for [EBP] or[R13] with no displacement means [disp32] so we
     // handle it by emitting a displacement of 0 later.
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     if (BaseRegNo != N86::EBP) {
       if (Disp.isImm() && Disp.getImm() == 0 && AllowNoDisp) {
         emitByte(modRMByte(0, RegOpcodeField, BaseRegNo), OS);
@@ -836,7 +845,13 @@ void X86MCCodeEmitter::emitMemModRMByte(const MCInst &MI, unsigned Op,
 
     // Otherwise, if the displacement fits in a byte, encode as [REG+disp8].
     // Including a compressed disp8 for EVEX instructions that support it.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    // This also handles the 0 displacement for [EBP], [R13], [R21] or [R29]. We can't use
+#else // INTEL_FEATURE_ISA_APX_F
     // This also handles the 0 displacement for [EBP] or [R13]. We can't use
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     // disp8 if the {disp32} pseudo prefix is present.
     if (Disp.isImm() && AllowDisp8) {
       int ImmOffset = 0;
@@ -849,7 +864,13 @@ void X86MCCodeEmitter::emitMemModRMByte(const MCInst &MI, unsigned Op,
     }
 
     // Otherwise, emit the most general non-SIB encoding: [REG+disp32].
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    // Displacement may be 0 for [EBP], [R13], [R21], [R29] case if {disp32} pseudo prefix
+#else // INTEL_FEATURE_ISA_APX_F
     // Displacement may be 0 for [EBP] or [R13] case if {disp32} pseudo prefix
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     // prevented using disp8 above.
     emitByte(modRMByte(2, RegOpcodeField, BaseRegNo), OS);
     unsigned Opcode = MI.getOpcode();
@@ -874,7 +895,13 @@ void X86MCCodeEmitter::emitMemModRMByte(const MCInst &MI, unsigned Op,
     emitByte(modRMByte(0, RegOpcodeField, 4), OS);
     ForceDisp32 = true;
   } else if (Disp.isImm() && Disp.getImm() == 0 && AllowNoDisp &&
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+             // Base reg can't be EBP/RBP/R13/R21/R29 as that would end up with '5' as
+#else // INTEL_FEATURE_ISA_APX_F
              // Base reg can't be EBP/RBP/R13 as that would end up with '5' as
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
              // the base field, but that is the magic [*] nomenclature that
              // indicates no base when mod=0. For these cases we'll emit a 0
              // displacement instead.
@@ -1382,27 +1409,62 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
 
   switch (TSFlags & X86II::FormMask) {
   case X86II::AddRegFrm:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    Prefix.setBB2(MI, CurOp++);
+#else // INTEL_FEATURE_ISA_APX_F
     Prefix.setB(MI, CurOp++);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   case X86II::MRMSrcReg:
   case X86II::MRMSrcRegCC:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    Prefix.setRR2(MI, CurOp++);
+    Prefix.setBB2(MI, CurOp++);
+#else // INTEL_FEATURE_ISA_APX_F
     Prefix.setR(MI, CurOp++);
     Prefix.setB(MI, CurOp++);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   case X86II::MRMSrcMem:
   case X86II::MRMSrcMemCC:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    Prefix.setRR2(MI, CurOp++);
+    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
+    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
+#else // INTEL_FEATURE_ISA_APX_F
     Prefix.setR(MI, CurOp++);
     Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     CurOp += X86::AddrNumOperands;
     break;
   case X86II::MRMDestReg:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    Prefix.setBB2(MI, CurOp++);
+    Prefix.setRR2(MI, CurOp++);
+#else // INTEL_FEATURE_ISA_APX_F
     Prefix.setB(MI, CurOp++);
     Prefix.setR(MI, CurOp++);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   case X86II::MRMDestMem:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
+    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
+#else // INTEL_FEATURE_ISA_APX_F
     Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     CurOp += X86::AddrNumOperands;
     Prefix.setR(MI, CurOp++);
     break;
@@ -1416,9 +1478,15 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
   case X86II::MRM5m:
   case X86II::MRM6m:
   case X86II::MRM7m:
-  case X86II::MRMDestMemImm8: // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    Prefix.setBB2(MI, MemOperand + X86::AddrBaseReg);
+    Prefix.setXX2(MI, MemOperand + X86::AddrIndexReg);
+#else // INTEL_FEATURE_ISA_APX_F
     Prefix.setB(MI, MemOperand + X86::AddrBaseReg);
     Prefix.setX(MI, MemOperand + X86::AddrIndexReg);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   case X86II::MRMXrCC:
   case X86II::MRMXr:
@@ -1439,18 +1507,21 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
 #endif // INTEL_CUSTOMIZATION
     break;
   case X86II::MRMr0:
-    Prefix.setR(MI, CurOp++);
-    break;
+    llvm_unreachable("MRMr0 format never need REX prefix!");
   case X86II::MRMDestMemFSIB:
 #if INTEL_CUSTOMIZATION
   case X86II::MRMSrcMem4VOp3FSIB:
   case X86II::MRMDestMem4VOp2FSIB:
 #endif // INTEL_CUSTOMIZATION
     llvm_unreachable("FSIB format never need REX prefix!");
+#if INTEL_CUSTOMIZATION
+  case X86II::MRMDestMemImm8:
+    llvm_unreachable("MemImm8 format never need REX prefix!");
+#endif // INTEL_CUSTOMIZATION
   }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-  Prefix.setM(TSFlags & X86II::OpMapMask == X86II::TB);
+  Prefix.setM((TSFlags & X86II::OpMapMask) == X86II::TB);
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   PrefixKind Kind = Prefix.determineOptimalKind();

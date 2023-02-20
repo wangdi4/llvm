@@ -1445,6 +1445,9 @@ HIRIdiomAnalyzer::collectLoadsStores(const SetVector<HLInst *> &Increments) {
       if (UseMemRef->getNumDimensions() > 1)
         return Failure("Multidimensional arrays are not supported", UseMemRef);
 
+      if (UseMemRef->hasTrailingStructOffsets())
+        return Failure("Structures fields access is not supported", UseMemRef);
+
       CanonExpr *CE = UseMemRef->getDimensionIndex(1);
       if (CE->hasIV(Loop->getNestingLevel()))
         return Failure("IV found in UseMemRef", UseMemRef);
