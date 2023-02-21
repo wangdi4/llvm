@@ -20,9 +20,11 @@
 
 #ifndef _WIN32
 
-#define __CL_ENABLE_EXCEPTIONS
+#define CL_HPP_ENABLE_EXCEPTIONS
+#define CL_HPP_TARGET_OPENCL_VERSION 200
+
 #include "common_utils.h"
-#include <CL/cl.hpp>
+#include <CL/opencl.hpp>
 #include <cassert>
 #include <iostream>
 #include <string>

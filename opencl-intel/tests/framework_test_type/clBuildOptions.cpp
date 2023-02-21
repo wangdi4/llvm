@@ -18,8 +18,10 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#define __CL_ENABLE_EXCEPTIONS
-#include "CL/cl.hpp"
+#define CL_HPP_ENABLE_EXCEPTIONS
+#define CL_HPP_TARGET_OPENCL_VERSION 200
+
+#include "CL/opencl.hpp"
 #include "FrameworkTest.h"
 #include "cl_types.h"
 #include "gtest_wrapper.h"
