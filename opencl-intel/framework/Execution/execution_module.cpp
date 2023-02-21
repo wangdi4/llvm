@@ -99,9 +99,8 @@ void callbackForKernelEventMap(cl_event Evt, ExecutionModule *EM) {
  ******************************************************************/
 ExecutionModule::ExecutionModule(PlatformModule *pPlatformModule,
                                  ContextModule *pContextModule)
-    : m_pPlatfromModule(pPlatformModule), m_pContextModule(pContextModule),
-      m_pOclCommandQueueMap(NULL), m_pEventsManager(NULL),
-      m_pOclEntryPoints(NULL), m_pGPAData(NULL) {
+    : m_pContextModule(pContextModule), m_pOclCommandQueueMap(NULL),
+      m_pEventsManager(NULL), m_pOclEntryPoints(NULL), m_pGPAData(NULL) {
   INIT_LOGGER_CLIENT(TEXT("ExecutionModel"), LL_DEBUG);
 
   LOG_DEBUG(TEXT("%s"), TEXT("ExecutionModule created"));

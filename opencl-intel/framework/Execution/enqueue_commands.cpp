@@ -724,8 +724,7 @@ MapMemObjCommand::MapMemObjCommand(
       m_pszImageRowPitch(pszImageRowPitch),
       m_pszImageSlicePitch(pszImageSlicePitch), m_pMappedRegion(nullptr),
       m_pHostDataPtr(nullptr), m_pActualMappingDevice(nullptr),
-      m_ExecutionType(DEVICE_EXECUTION_TYPE),
-      m_pOclEntryPoints(pOclEntryPoints), m_pPostfixCommand(nullptr),
+      m_ExecutionType(DEVICE_EXECUTION_TYPE), m_pPostfixCommand(nullptr),
       m_bResourcesAllocated(false) {
   for (cl_uint i = 0; i < MAX_WORK_DIM; i++) {
     if (nullptr != pOrigin)
@@ -1046,8 +1045,7 @@ UnmapMemObjectCommand::UnmapMemObjectCommand(
     const SharedPtr<MemoryObject> &pMemObject, void *pMappedPtr)
     : Command(cmdQueue), m_pMappedPtr(pMappedPtr), m_pMappedRegion(nullptr),
       m_pActualMappingDevice(nullptr), m_ExecutionType(DEVICE_EXECUTION_TYPE),
-      m_pPrefixCommand(nullptr), m_pOclEntryPoints(pOclEntryPoints),
-      m_bResourcesAllocated(false) {
+      m_pPrefixCommand(nullptr), m_bResourcesAllocated(false) {
   m_commandType = CL_COMMAND_UNMAP_MEM_OBJECT;
   AddToMemoryObjectArgList(m_MemOclObjects, pMemObject,
                            MemoryObject::READ_WRITE);
