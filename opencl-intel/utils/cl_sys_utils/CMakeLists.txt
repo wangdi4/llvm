@@ -28,8 +28,8 @@ set_unicode_off()
 # Include the ASM sources
 if(BUILD_X64)
   if(WIN32)
-    create_asm_rules(UTILS_ASM_ADD_TO_SOURCES_LIST kernel_execute_64.asm
-                     chkstk_ms_64.asm)
+    create_asm_rules(UTILS_ASM_ADD_TO_SOURCES_LIST chkstk_ms_64.asm
+                                                   kernel_execute_64.asm)
   else(WIN32)
     create_asm_rules(UTILS_ASM_ADD_TO_SOURCES_LIST linux64_utils.s)
   endif(WIN32)
