@@ -698,6 +698,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     // across the loop nests.
     PM.add(createLoopUnrollPass(OptLevel, DisableUnrollLoops,
                                 ForgetAllSCEVInLoopUnroll));
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -706,6 +707,8 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 #endif  // INTEL_CUSTOMIZATION
 
     PM.add(createWarnMissedTransformationsPass());
+=======
+>>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
   }
 
   if (!IsFullLTO) {
@@ -770,6 +773,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   }
   INTEL_LIMIT_END // INTEL
 
+<<<<<<< HEAD
   // Enhance/cleanup vector code.
   PM.add(createVectorCombinePass());
 #if INTEL_CUSTOMIZATION
@@ -777,6 +781,8 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     PM.add(createEarlyCSEPass());
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
   if (!IsFullLTO) {
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
 
@@ -811,11 +817,14 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
                             /*AllowSpeculation=*/true));
       INTEL_LIMIT_END // INTEL
     }
+<<<<<<< HEAD
 
     // Postpone warnings to LTO link phase. Most transformations which process
     // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
     PM.add(createWarnMissedTransformationsPass());
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
   }
 
   // After vectorization and unrolling, assume intrinsics may tell us more
@@ -1058,9 +1067,6 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopDistributePass());
 
   addVectorPasses(MPM, /* IsFullLTO */ false);
-
-  // FIXME: We shouldn't bother with this anymore.
-  MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
 
   // GlobalOpt already deletes dead functions and globals, at -O2 try a
   // late pass of GlobalDCE.  It is capable of deleting dead cycles.

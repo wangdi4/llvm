@@ -160,6 +160,7 @@ bool vectorizeBasicBlock(Pass *P, BasicBlock &BB,
 //
 Pass *createLoadStoreVectorizerPass();
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -211,6 +212,8 @@ Pass *createVPlanPragmaOmpSimdIfPass();
 //
 Pass *createVectorCombinePass();
 
+=======
+>>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
 } // End llvm namespace
 
 #endif

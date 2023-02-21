@@ -2121,6 +2121,7 @@ bool VectorCombine::run() {
   return MadeChange;
 }
 
+<<<<<<< HEAD
 // Pass manager boilerplate below here.
 
 namespace {
@@ -2170,6 +2171,8 @@ Pass *llvm::createVectorCombinePass() {
   return new VectorCombineLegacyPass();
 }
 
+=======
+>>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
 PreservedAnalyses VectorCombinePass::run(Function &F,
                                          FunctionAnalysisManager &FAM) {
   auto &AC = FAM.getResult<AssumptionAnalysis>(F);

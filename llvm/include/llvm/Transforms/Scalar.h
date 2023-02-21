@@ -667,6 +667,7 @@ Pass *createLoopSimplifyCFGPass();
 
 //===----------------------------------------------------------------------===//
 //
+<<<<<<< HEAD
 // WarnMissedTransformations - This pass emits warnings for leftover forced
 // transformations.
 //
@@ -682,6 +683,8 @@ FunctionPass *createIVSplitLegacyPass();
 
 //===----------------------------------------------------------------------===//
 //
+=======
+>>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
 // This pass does instruction simplification on each
 // instruction in a function.
 //

@@ -62,7 +62,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeInlineReportSetupPass(Registry); // INTEL
   initializeSimpleInlinerPass(Registry);
   initializeInferFunctionAttrsLegacyPassPass(Registry);
-  initializeInternalizeLegacyPassPass(Registry);
   initializeLoopExtractorLegacyPassPass(Registry);
   initializeSingleLoopExtractorPass(Registry);
   initializeAttributorLegacyPassPass(Registry);
@@ -70,11 +69,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializePostOrderFunctionAttrsLegacyPassPass(Registry);
   initializeReversePostOrderFunctionAttrsLegacyPassPass(Registry);
   initializeIPSCCPLegacyPassPass(Registry);
-  initializeStripDeadPrototypesLegacyPassPass(Registry);
-  initializeStripSymbolsPass(Registry);
-  initializeStripDebugDeclarePass(Registry);
-  initializeStripDeadDebugInfoPass(Registry);
-  initializeStripNonDebugSymbolsPass(Registry);
   initializeBarrierNoopPass(Registry);
   initializeEliminateAvailableExternallyLegacyPassPass(Registry);
 #if INTEL_CUSTOMIZATION
@@ -154,6 +148,7 @@ void LLVMAddGlobalOptimizerPass(LLVMPassManagerRef PM) {
 void LLVMAddIPSCCPPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createIPSCCPPass());
 }
+<<<<<<< HEAD
 
 void LLVMAddInternalizePass(LLVMPassManagerRef PM, unsigned AllButMain) {
   auto PreserveMain = [=](const GlobalValue &GV) {
@@ -182,3 +177,5 @@ void LLVMAddStripDeadPrototypesPass(LLVMPassManagerRef PM) {
 void LLVMAddStripSymbolsPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createStripSymbolsPass());
 }
+=======
+>>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
