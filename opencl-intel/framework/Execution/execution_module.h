@@ -410,8 +410,6 @@ private:
       cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
       cl_event *event, ApiLogger *api_logger, cl_command_type cmdType);
 
-  PlatformModule *m_pPlatfromModule; // Pointer to the platform operation. This
-                                     // is the internal interface of the module.
   ContextModule *m_pContextModule; // Pointer to the context operation. This is
                                    // the internal interface of the module.
   OCLObjectsMap<_cl_command_queue_int, _cl_context_int>
