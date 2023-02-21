@@ -1,3 +1,4 @@
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
 kernel void convert(global uchar *ucData, global ushort *usData,
                     global uint *uiData, global ulong *ulData,
                     global char *cData, global short *sData, global int *iData,

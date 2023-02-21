@@ -1,3 +1,4 @@
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
 kernel void test(global TYPE *A, global TYPE *B, global TYPE *C,
                  global TYPE *dst, global TYPE *dst2, global int *dst3) {
   size_t i = get_global_id(0);

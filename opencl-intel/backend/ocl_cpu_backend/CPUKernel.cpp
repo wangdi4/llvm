@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,11 +16,10 @@
 #include "KernelProperties.h"
 
 #if defined(_M_X64) || defined(__LP64__)
-// defined in kernel_execute[att].asm
+// defined in kernel_execute64.asm
 extern "C" void Emit_VZeroUpper(void);
 #else
-
-#ifdef _WIN32
+#if defined(_WIN32)
 static void Emit_VZeroUpper(void) {
   __asm
   {
@@ -36,8 +35,8 @@ static void Emit_VZeroUpper(void) {
 }
 #else
 #error Unsupported target
-#endif
-#endif
+#endif // defined(_WIN32)
+#endif // defined(_M_X64) || defined(__LP64__)
 
 CPUKernel::CPUKernel() : Kernel(), m_hasAVX1(false), m_hasAVX2(false) {}
 

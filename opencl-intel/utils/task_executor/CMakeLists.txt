@@ -61,3 +61,19 @@ add_opencl_library(
   ${OCL_BINARY_DIR})
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME})
+
+if(WIN32)
+  # Copy TBB libraries to deploy and build folder. This is to support windows
+  # QA. TBB is used by task_executor.
+  set(TBB_BINARIES_BUILD_DIR
+      ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
+  add_custom_target(
+    copy_tbb
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${TBB_LIBRARY_DIR}
+            ${TBB_BINARIES_BUILD_DIR}
+    COMMENT "Copying tbb libraries from ${TBB_LIBRARY_DIR} to ${TBB_BINARIES_BUILD_DIR}")
+  add_dependencies(${TARGET_NAME} copy_tbb)
+
+  install_to(${TBB_LIBRARY_DIR}/ COMPONENT ocl-tbb DESTINATION
+             ${OCL_INSTALL_LIBRARY_DIR})
+endif()
