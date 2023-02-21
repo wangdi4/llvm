@@ -1065,11 +1065,7 @@ private:
           return MnfOrErr.takeError();
         MemoryBuffer *Mnf = *MnfOrErr;
         FMnf = addArrayToModule(
-<<<<<<< HEAD
-            ArrayRef(Mnf->getBufferStart(), Mnf->getBufferSize()),
-=======
             ArrayRef<char>(Mnf->getBufferStart(), Mnf->getBufferSize()),
->>>>>>> 4a94ceb46dbb12bac632fe17a4d3f403c9e31cb7
             Twine(OffloadKindTag) + Twine(ImgId) + Twine(".manifest"));
       }
 
@@ -1091,11 +1087,7 @@ private:
         Bin = addELFNotes(Bin, Img.File);
       }
       std::pair<Constant *, Constant *> Fbin = addDeviceImageToModule(
-<<<<<<< HEAD
-          ArrayRef(Bin->getBufferStart(), Bin->getBufferSize()),
-=======
           ArrayRef<char>(Bin->getBufferStart(), Bin->getBufferSize()),
->>>>>>> 4a94ceb46dbb12bac632fe17a4d3f403c9e31cb7
           Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"), Kind, Img.Tgt);
 
       if (Kind == OffloadKind::SYCL) {
