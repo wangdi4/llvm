@@ -3541,7 +3541,10 @@ void JumpThreadingPass::threadEdge(
   // up now.
   SSAUpdater SSAUpdate;
   SmallVector<Use*, 16> UsesToRename;
+  SmallVector<DbgValueInst *, 4> DbgValues;
 
+  // I am not sure exactly why we can't use updateSSA here, but now if there
+  // are any changes to that function, they need to be merged here.
   for (auto OldBB : RegionBlocks) {
     for (auto &I : *OldBB) {
       UsesToRename.clear();
@@ -3562,9 +3565,17 @@ void JumpThreadingPass::threadEdge(
         UsesToRename.push_back(&U);
       }
 
+      // Find debug values outside of the block
+      findDbgValues(DbgValues, &I);
+      DbgValues.erase(remove_if(DbgValues,
+                               [&](const DbgValueInst *DbgVal) {
+                                 return DbgVal->getParent() == OldBB;
+                               }),
+                      DbgValues.end());
+
       // If there are no uses outside the block, we're done with this
       // instruction.
-      if (UsesToRename.empty())
+      if (UsesToRename.empty() && DbgValues.empty())
         continue;
 
       LLVM_DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
@@ -3585,6 +3596,12 @@ void JumpThreadingPass::threadEdge(
 
       for (auto U : UsesToRename)
         SSAUpdate.RewriteUse(*U);
+
+      if (!DbgValues.empty()) {
+        SSAUpdate.UpdateDebugValues(&I, DbgValues);
+        DbgValues.clear();
+      }
+
       LLVM_DEBUG(dbgs() << "\n");
     }
   }
