@@ -744,11 +744,18 @@ public:
 ///      { 'uniform' '(' <argument_list> ')' }
 ///      { 'aligned '(' <argument_list> [ ':' <alignment> ] ')' }
 ///      { 'linear '(' <argument_list> [ ':' <step> ] ')' }
+#if INTEL_CUSTOMIZATION
+///      { 'ompx_processor' '(' <identifier> ')' }
+#endif // INTEL_CUSTOMIZATION
 static bool parseDeclareSimdClauses(
     Parser &P, OMPDeclareSimdDeclAttr::BranchStateTy &BS, ExprResult &SimdLen,
     SmallVectorImpl<Expr *> &Uniforms, SmallVectorImpl<Expr *> &Aligneds,
     SmallVectorImpl<Expr *> &Alignments, SmallVectorImpl<Expr *> &Linears,
-    SmallVectorImpl<unsigned> &LinModifiers, SmallVectorImpl<Expr *> &Steps) {
+#if INTEL_CUSTOMIZATION
+    SmallVectorImpl<unsigned> &LinModifiers, SmallVectorImpl<Expr *> &Steps,
+    SmallVectorImpl<IdentifierInfo *> &Processors,
+    SmallVectorImpl<SourceLocation> &ProcessorLocs) {
+#endif // INTEL_CUSTOMIZATION
   SourceRange BSRange;
   const Token &Tok = P.getCurToken();
   bool IsError = false;
@@ -780,6 +787,20 @@ static bool parseDeclareSimdClauses(
       SimdLen = P.ParseOpenMPParensExpr(ClauseName, RLoc);
       if (SimdLen.isInvalid())
         IsError = true;
+#if INTEL_CUSTOMIZATION
+    } else if (P.getLangOpts().OpenMPLateOutline &&
+               ClauseName.equals("ompx_processor")) {
+      P.ConsumeToken();
+      SourceLocation IdLoc;
+      if (IdentifierInfo *Processor =
+              P.ParseOpenMPParensIdentifier(ClauseName, IdLoc)) {
+        Processors.push_back(Processor);
+        ProcessorLocs.push_back(IdLoc);
+      } else {
+        P.Diag(IdLoc, diag::err_omp_expected_identifier_for_ompx_processor);
+        IsError = true;
+      }
+#endif // INTEL_CUSTOMIZATION
     } else {
       OpenMPClauseKind CKind = getOpenMPClauseKind(ClauseName);
       if (CKind == OMPC_uniform || CKind == OMPC_aligned ||
@@ -844,9 +865,16 @@ Parser::ParseOMPDeclareSimdClauses(Parser::DeclGroupPtrTy Ptr,
   SmallVector<Expr *, 4> Linears;
   SmallVector<unsigned, 4> LinModifiers;
   SmallVector<Expr *, 4> Steps;
+#if INTEL_CUSTOMIZATION
+  SmallVector<IdentifierInfo *, 4> Processors;
+  SmallVector<SourceLocation, 4> ProcessorLocs;
+#endif // INTEL_CUSTOMIZATION
   bool IsError =
       parseDeclareSimdClauses(*this, BS, Simdlen, Uniforms, Aligneds,
-                              Alignments, Linears, LinModifiers, Steps);
+#if INTEL_CUSTOMIZATION
+                              Alignments, Linears, LinModifiers, Steps,
+                              Processors, ProcessorLocs);
+#endif // INTEL_CUSTOMIZATION
   skipUntilPragmaOpenMPEnd(OMPD_declare_simd);
   // Skip the last annot_pragma_openmp_end.
   SourceLocation EndLoc = ConsumeAnnotationToken();
@@ -854,7 +882,9 @@ Parser::ParseOMPDeclareSimdClauses(Parser::DeclGroupPtrTy Ptr,
     return Ptr;
   return Actions.ActOnOpenMPDeclareSimdDirective(
       Ptr, BS, Simdlen.get(), Uniforms, Aligneds, Alignments, Linears,
-      LinModifiers, Steps, SourceRange(Loc, EndLoc));
+#if INTEL_CUSTOMIZATION
+      LinModifiers, Steps, Processors, ProcessorLocs, SourceRange(Loc, EndLoc));
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace {
@@ -4026,6 +4056,31 @@ ExprResult Parser::ParseOpenMPParensExpr(StringRef ClauseName,
 
   return Val;
 }
+
+#if INTEL_CUSTOMIZATION
+/// Parses simple identifier in parens for a single-identifier OpenMP clause.
+/// \param ClauseName Name of the OpenMP clause.
+/// \param IdLoc Returned location of right paren.
+IdentifierInfo *Parser::ParseOpenMPParensIdentifier(StringRef ClauseName,
+                                                    SourceLocation &IdLoc) {
+  IdLoc = Tok.getLocation();
+  BalancedDelimiterTracker T(*this, tok::l_paren, tok::annot_pragma_openmp_end);
+  if (T.expectAndConsume(diag::err_expected_lparen_after, ClauseName.data()))
+    return nullptr;
+
+  IdentifierInfo *II =
+      Tok.is(tok::identifier) ? Tok.getIdentifierInfo() : nullptr;
+  IdLoc = Tok.getLocation();
+
+  if (Tok.isNot(tok::r_paren) && Tok.isNot(tok::annot_pragma_openmp_end))
+    ConsumeToken();
+
+  // Parse ')'.
+  T.consumeClose();
+
+  return II;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Parsing of OpenMP clauses with single expressions like 'final',
 /// 'collapse', 'safelen', 'num_threads', 'simdlen', 'num_teams',

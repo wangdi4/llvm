@@ -3668,6 +3668,11 @@ public:
   ExprResult ParseOpenMPParensExpr(StringRef ClauseName, SourceLocation &RLoc,
                                    bool IsAddressOfOperand = false);
 
+#if INTEL_CUSTOMIZATION
+  IdentifierInfo *ParseOpenMPParensIdentifier(StringRef ClauseName,
+                                              SourceLocation &IdLoc);
+#endif // INTEL_CUSTOMIZATION
+
   /// Parses a reserved locator like 'omp_all_memory'.
   bool ParseOpenMPReservedLocator(OpenMPClauseKind Kind,
                                   Sema::OpenMPVarListDataTy &Data,

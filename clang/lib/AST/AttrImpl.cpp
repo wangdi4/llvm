@@ -194,6 +194,11 @@ void OMPDeclareSimdDeclAttr::printPrettyPragma(
     ++I;
     ++MI;
   }
+#if INTEL_CUSTOMIZATION
+  for (auto *P : processors()) {
+    OS << " ompx_processor(" << P->getName() << ")";
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void OMPDeclareTargetDeclAttr::printPrettyPragma(
