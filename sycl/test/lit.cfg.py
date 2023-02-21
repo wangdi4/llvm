@@ -122,14 +122,12 @@ config.substitutions.append( ('%sycl_tools_src_dir',  config.sycl_tools_src_dir 
 config.substitutions.append( ('%llvm_build_lib_dir',  config.llvm_build_lib_dir ) )
 config.substitutions.append( ('%llvm_build_bin_dir',  config.llvm_build_bin_dir ) )
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 llvm_config.add_intel_features()
 # end INTEL_CUSTOMIZATION
-=======
+
 llvm_symbolizer = os.path.join(config.llvm_build_bin_dir, 'llvm-symbolizer')
 llvm_config.with_environment('LLVM_SYMBOLIZER_PATH', llvm_symbolizer)
->>>>>>> b8d955cf9af395a6bf1f977caff2aa87099dd0da
 
 config.substitutions.append( ('%fsycl-host-only', '-std=c++17 -Xclang -fsycl-is-host -isystem %s -isystem %s -isystem %s -isystem %s' % (config.sycl_include, config.level_zero_include_dir, config.opencl_include_dir, config.sycl_include + '/sycl/') ) )
 config.substitutions.append( ('%sycl_lib', ' -lsycl6' if platform.system() == "Windows" else '-lsycl') )
