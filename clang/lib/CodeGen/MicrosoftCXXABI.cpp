@@ -3809,10 +3809,22 @@ static llvm::GlobalVariable *getTypeInfoVTable(CodeGenModule &CGM) {
   StringRef MangledName("??_7type_info@@6B@");
   if (auto VTable = CGM.getModule().getNamedGlobal(MangledName))
     return VTable;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  auto *GV = new llvm::GlobalVariable(CGM.getModule(), CGM.Int8PtrTy,
+                                      /*isConstant=*/true,
+                                      llvm::GlobalVariable::ExternalLinkage,
+                                      /*Initializer=*/nullptr, MangledName);
+  QualType ClangType = CGM.getContext().getPointerType(CGM.getContext().CharTy);
+  return CGM.addDTransInfoToGlobal(ClangType, /*Init=*/nullptr, GV,
+                                   GV->getType());
+#else  // INTEL_FEATURE_SW_DTRANS
   return new llvm::GlobalVariable(CGM.getModule(), CGM.Int8PtrTy,
                                   /*isConstant=*/true,
                                   llvm::GlobalVariable::ExternalLinkage,
                                   /*Initializer=*/nullptr, MangledName);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace {

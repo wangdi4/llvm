@@ -37,6 +37,8 @@ void use() {
   throw SystemErr(ErrCode{}, String{});
 }
 
+// CHECK: @"??_7type_info@@6B@" = external constant ptr, !intel_dtrans_type ![[CHAR_PTR:[0-9]+]]
+
 // CHECK: declare !intel.dtrans.func.type ![[STR_CTOR:[0-9]+]] {{.*}}"intel_dtrans_func_index"="1" ptr @"??0String@@QAE@XZ"(ptr{{.*}} "intel_dtrans_func_index"="2") 
 // CHECK: declare !intel.dtrans.func.type ![[ERR_CODE_CTOR:[0-9]+]] {{.*}}"intel_dtrans_func_index"="1" ptr @"??0ErrCode@@QAE@XZ"(ptr{{.*}} "intel_dtrans_func_index"="2")
 
@@ -52,6 +54,8 @@ void use() {
 
 // CHECK: !intel.dtrans.types = !{![[SYSERR:[0-9]+]], ![[STRING:[0-9]+]], ![[REPR:[0-9]+]], ![[ERRCODE:[0-9]+]], ![[RTTI:[0-9]+]], ![[THROWINFO:[0-9]+]]}
 
+
+// CHECK: ![[CHAR_PTR]] = !{i8 0, i32 1}
 // CHECK: ![[SYSERR]] = !{!"S", %"struct..?AUSystemErr@@.SystemErr" zeroinitializer, i32 1, ![[CHAR:[0-9]+]]}
 // CHECK: ![[CHAR]] = !{i8 0, i32 0}
 
@@ -60,9 +64,8 @@ void use() {
 
 // CHECK: ![[REPR]] = !{!"S", %"struct..?AURepr@@.Repr" zeroinitializer, i32 1, ![[CHAR]]}
 // CHECK: ![[ERRCODE]] = !{!"S", %"struct..?AUErrCode@@.ErrCode" zeroinitializer, i32 1, ![[CHAR]]}
-// CHECK: ![[RTTI]] = !{!"S", %rtti.TypeDescriptor15 zeroinitializer, i32 3, ![[CHAR_PTRPTR:[0-9]+]], ![[CHAR_PTR:[0-9]+]], ![[CHAR_ARR:[0-9]+]]}
+// CHECK: ![[RTTI]] = !{!"S", %rtti.TypeDescriptor15 zeroinitializer, i32 3, ![[CHAR_PTRPTR:[0-9]+]], ![[CHAR_PTR]], ![[CHAR_ARR:[0-9]+]]}
 // CHECK: ![[CHAR_PTRPTR]] = !{i8 0, i32 2}
-// CHECK: ![[CHAR_PTR]] = !{i8 0, i32 1}
 // CHECK: ![[CHAR_ARR]] = !{!"A", i32 16, ![[CHAR]]}
 
 // CHECK: ![[THROWINFO]] = !{!"S", %eh.ThrowInfo zeroinitializer, i32 4, ![[INT:[0-9]+]], ![[CHAR_PTR]], ![[CHAR_PTR]], ![[CHAR_PTR]]}
