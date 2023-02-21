@@ -704,8 +704,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     PM.add(createCSALowerParallelIntrinsicsWrapperPass());
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-
-    PM.add(createWarnMissedTransformationsPass());
   }
 
   if (!IsFullLTO) {
@@ -770,8 +768,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   }
   INTEL_LIMIT_END // INTEL
 
-  // Enhance/cleanup vector code.
-  PM.add(createVectorCombinePass());
 #if INTEL_CUSTOMIZATION
   if (!IsFullLTO)
     PM.add(createEarlyCSEPass());
@@ -811,10 +807,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
                             /*AllowSpeculation=*/true));
       INTEL_LIMIT_END // INTEL
     }
-
-    // Postpone warnings to LTO link phase. Most transformations which process
-    // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
-    PM.add(createWarnMissedTransformationsPass());
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1059,9 +1051,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   addVectorPasses(MPM, /* IsFullLTO */ false);
 
-  // FIXME: We shouldn't bother with this anymore.
-  MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
-
   // GlobalOpt already deletes dead functions and globals, at -O2 try a
   // late pass of GlobalDCE.  It is capable of deleting dead cycles.
   if (OptLevel > 1) {
@@ -1185,7 +1174,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
         // OK to internalize
         return false;
       };
-      PM.add(createInternalizePass(PreserveSymbol));
     }
     PM.add(createWholeProgramWrapperPassPass(WPUtils));
   }

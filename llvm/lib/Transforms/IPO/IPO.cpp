@@ -62,7 +62,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeInlineReportSetupPass(Registry); // INTEL
   initializeSimpleInlinerPass(Registry);
   initializeInferFunctionAttrsLegacyPassPass(Registry);
-  initializeInternalizeLegacyPassPass(Registry);
   initializeLoopExtractorLegacyPassPass(Registry);
   initializeSingleLoopExtractorPass(Registry);
   initializeAttributorLegacyPassPass(Registry);
@@ -70,11 +69,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializePostOrderFunctionAttrsLegacyPassPass(Registry);
   initializeReversePostOrderFunctionAttrsLegacyPassPass(Registry);
   initializeIPSCCPLegacyPassPass(Registry);
-  initializeStripDeadPrototypesLegacyPassPass(Registry);
-  initializeStripSymbolsPass(Registry);
-  initializeStripDebugDeclarePass(Registry);
-  initializeStripDeadDebugInfoPass(Registry);
-  initializeStripNonDebugSymbolsPass(Registry);
   initializeBarrierNoopPass(Registry);
   initializeEliminateAvailableExternallyLegacyPassPass(Registry);
 #if INTEL_CUSTOMIZATION
@@ -153,32 +147,4 @@ void LLVMAddGlobalOptimizerPass(LLVMPassManagerRef PM) {
 
 void LLVMAddIPSCCPPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createIPSCCPPass());
-}
-
-void LLVMAddInternalizePass(LLVMPassManagerRef PM, unsigned AllButMain) {
-  auto PreserveMain = [=](const GlobalValue &GV) {
-#if INTEL_CUSTOMIZATION
-    if (isa<Function>(GV) && cast<Function>(GV).hasMetadata("llvm.acd.clone"))
-      return AllButMain && GV.getName().startswith("main.");
-#endif // INTEL_CUSTOMIZATION
-    return AllButMain && GV.getName() == "main";
-  };
-  unwrap(PM)->add(createInternalizePass(PreserveMain));
-}
-
-void LLVMAddInternalizePassWithMustPreservePredicate(
-    LLVMPassManagerRef PM,
-    void *Context,
-    LLVMBool (*Pred)(LLVMValueRef, void *)) {
-  unwrap(PM)->add(createInternalizePass([=](const GlobalValue &GV) {
-    return Pred(wrap(&GV), Context) == 0 ? false : true;
-  }));
-}
-
-void LLVMAddStripDeadPrototypesPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createStripDeadPrototypesPass());
-}
-
-void LLVMAddStripSymbolsPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createStripSymbolsPass());
 }

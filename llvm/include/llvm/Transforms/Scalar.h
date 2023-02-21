@@ -665,13 +665,6 @@ FunctionPass *createLibCallsShrinkWrapPass();
 //
 Pass *createLoopSimplifyCFGPass();
 
-//===----------------------------------------------------------------------===//
-//
-// WarnMissedTransformations - This pass emits warnings for leftover forced
-// transformations.
-//
-Pass *createWarnMissedTransformationsPass();
-
 #if INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //

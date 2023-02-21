@@ -99,7 +99,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
 #if INTEL_CUSTOMIZATION
   initializeLoopUnswitchPass(Registry);
 #endif // INTEL_CUSTOMIZATION
-  initializeWarnMissedTransformationsLegacyPass(Registry);
   initializeLoopVersioningLICMLegacyPassPass(Registry);
   initializeLoopIdiomRecognizeLegacyPassPass(Registry);
   initializeLowerAtomicLegacyPassPass(Registry);
