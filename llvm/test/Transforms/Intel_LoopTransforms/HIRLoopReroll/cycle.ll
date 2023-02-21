@@ -7,7 +7,7 @@
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK:                %limm = (%i2)[0][2][1];
 ; CHECK:                %limm256 = (%cw)[0][1];
-; CHECK:                %limm319 = (%i2)[0][5][4];
+; CHECK:                %limm318 = (%i2)[0][5][4];
 ; CHECK:             + DO i1 = 0, 90, 1   <DO_LOOP>
 ; CHECK:             |   %add = i1 + 1  +  1;
 ; CHECK:             |   %11 = (%e)[0][i1 + 2];
@@ -24,41 +24,29 @@
 ; CHECK:             |   %y.promoted = ((%11 + %13) * %14)  +  %14;
 ; CHECK:             |   %21 = %limm256;
 ; CHECK:             |   %limm256 = %21 + 30;
-; CHECK:             |   %limm321 = %limm319;
+; CHECK:             |   %limm320 = %limm318;
 ; CHECK:             |   %y.promoted = ((%11 + %13) * %y.promoted)  +  %y.promoted;
 ; CHECK:             |   %21 = (%cw)[0][4];
 ; CHECK:             |   (%cw)[0][4] = %21 + 30;
-; CHECK:             |   %limm323 = %limm;
+; CHECK:             |   %limm322 = %limm;
 ; CHECK:             |   %y.promoted = ((%11 + %13) * %y.promoted)  +  %y.promoted;
 ; CHECK:             |   %21 = %limm256;
 ; CHECK:             |   %limm256 = %21 + 29;
-; CHECK:             |   %limm325 = %limm319;
+; CHECK:             |   %limm324 = %limm318;
 ; CHECK:             |   %y.promoted = ((%11 + %13) * %y.promoted)  +  %y.promoted;
 ; CHECK:             |   %21 = (%cw)[0][4];
 ; CHECK:             |   (%cw)[0][4] = %21 + 29;
-; CHECK:             |   %limm327 = %limm;
+; CHECK:             |   %limm326 = %limm;
 ;                    |   ...
-; CHECK:             |   %21 = (%cw)[0][4];
-; CHECK:             |   (%cw)[0][4] = %21;
+; CHECK:             |   (%cw)[0][4] = (%cw)[0][4];
 ; CHECK:             |   (%y)[0] = %y.promoted;
 ; CHECK:             |   %p4.0100 = &((%y)[0]);
 ; CHECK:             + END LOOP
-; CHECK:                (%i2)[0][3][4] = %limm439;
-; CHECK:                (%i2)[0][3][1] = %limm437;
-; CHECK:                (%i2)[0][4][4] = %limm435;
-; CHECK:                (%i2)[0][4][1] = %limm433;
-; CHECK:                (%i2)[0][5][1] = %limm431;
-; CHECK:                (%i2)[0][6][4] = %limm429;
-; CHECK:                (%i2)[0][6][1] = %limm427;
-; CHECK:                (%i2)[0][7][4] = %limm425;
-; CHECK:                (%i2)[0][7][1] = %limm423;
-; CHECK:                (%i2)[0][8][4] = %limm421;
-; CHECK:                (%i2)[0][8][1] = %limm419;
+; CHECK:                (%i2)[0][3][4] = %limm438;
+; CHECK:                (%i2)[0][3][1] = %limm436;
+; CHECK:                (%i2)[0][4][4] = %limm434;
+; CHECK:                (%i2)[0][4][1] = %limm432;
 ;                        ...
-; CHECK:                (%i2)[0][32][4] = %limm325;
-; CHECK:                (%i2)[0][32][1] = %limm323;
-; CHECK:                (%i2)[0][33][4] = %limm321;
-; CHECK:                (%i2)[0][5][4] = %limm319;
 ; CHECK:                (%cw)[0][1] = %limm256;
 ; CHECK:                (%i2)[0][33][1] = %limm255;
 ; CHECK:       END REGION
@@ -69,7 +57,7 @@
 ; CHECK:        BEGIN REGION { modified }
 ; CHECK:                %limm = (%i2)[0][2][1];
 ; CHECK:                %limm256 = (%cw)[0][1];
-; CHECK:                %limm319 = (%i2)[0][5][4];
+; CHECK:                %limm318 = (%i2)[0][5][4];
 ; CHECK:             + DO i1 = 0, 90, 1   <DO_LOOP>
 ; CHECK:             |   %add = i1 + 1  +  1;
 ; CHECK:             |   %11 = (%e)[0][i1 + 2];
@@ -86,18 +74,14 @@
 ; CHECK:             |   %y.promoted = ((%11 + %13) * %14)  +  %14;
 ; CHECK:             |   %21 = %limm256;
 ; CHECK:             |   %limm256 = %21 + 30;
-; CHECK:             |   %limm321 = %limm319;
+; CHECK:             |   %limm320 = %limm318;
 ; CHECK:             |   %y.promoted = ((%11 + %13) * %y.promoted)  +  %y.promoted;
-; CHECK:             |   %21 = (%cw)[0][4];
 ;                    |   ...
 ; CHECK:              + END LOOP
-; CHECK:                (%i2)[0][3][4] = %limm439;
-; CHECK:                (%i2)[0][3][1] = %limm437;
-; CHECK:                (%i2)[0][4][4] = %limm435;
-; CHECK:                (%i2)[0][4][1] = %limm433;
-; CHECK:                (%i2)[0][5][1] = %limm431;
-; CHECK:                (%i2)[0][6][4] = %limm429;
-; CHECK:                (%i2)[0][6][1] = %limm427;
+; CHECK:                (%i2)[0][3][4] = %limm438;
+; CHECK:                (%i2)[0][3][1] = %limm436;
+; CHECK:                (%i2)[0][4][4] = %limm434;
+; CHECK:                (%i2)[0][4][1] = %limm432;
 ;                        ...
 ; CHECK:                (%cw)[0][1] = %limm256;
 ; CHECK:                (%i2)[0][33][1] = %limm255;

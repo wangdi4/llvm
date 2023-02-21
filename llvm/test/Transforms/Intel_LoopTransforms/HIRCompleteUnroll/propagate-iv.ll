@@ -26,7 +26,6 @@
 ; CHECK-NEXT: |   (%A)[%t.018] = 2;
 ; CHECK-NEXT: |   %t.018 = (%B)[2];
 ; CHECK-NEXT: |   (%A)[%t.018] = 3;
-; CHECK-NEXT: |   %t.018 = (%B)[3];
 ; CHECK-NEXT: + END LOOP
 
 

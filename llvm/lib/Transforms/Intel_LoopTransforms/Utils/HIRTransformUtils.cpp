@@ -2302,3 +2302,273 @@ bool HIRTransformUtils::doSpecialSinkForPerfectLoopnest(HLLoop *OuterLp,
 
   return true;
 }
+
+// Stores info about load candidates found by SingleUseLoadPropagator.
+struct LoadTempInfo {
+  // Instruction defining the load temp.
+  HLInst *DefInst;
+  // Stores self-blob use of temp where the load can be legally propagated.
+  RegDDRef *SingleUseRef;
+  // True if temp is liveout of the parent loop.
+  bool IsLiveout;
+
+  LoadTempInfo(HLInst *DefInst, bool IsLiveout)
+      : DefInst(DefInst), SingleUseRef(nullptr), IsLiveout(IsLiveout) {}
+};
+
+class SingleUseLoadPropagator final : public HLNodeVisitorBase {
+  // Loop to be processed
+  HLLoop *CurLp;
+  // Maps temp blob index to its info.
+  DenseMap<unsigned, LoadTempInfo> LoadCandidates;
+  // Set to true if any changes were made.
+  bool Changed;
+
+public:
+  SingleUseLoadPropagator(HLLoop *Lp) : CurLp(Lp), Changed(false) {}
+
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
+
+  void visit(HLDDNode *Node);
+  void visit(HLInst *Inst);
+
+  // Refer to description in definition
+  void invalidateCandidatesUsingStore(unsigned StoreSymbase,
+                                      HLInst *StoreOrCallInst);
+
+  // Refer to description in definition
+  void processRemainingCandidates();
+
+  // Main entry function to traverse the loop and propagate loads.
+  bool propagateLoads() {
+    HLNodeUtils::visitRange(*this, CurLp->child_begin(), CurLp->child_end());
+
+    processRemainingCandidates();
+
+    if (Changed) {
+      HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(CurLp);
+      return true;
+    }
+
+    return false;
+  }
+};
+
+// Checks uses of collected load candidates and updates/invalidates them as
+// necessary.
+void SingleUseLoadPropagator::visit(HLDDNode *Node) {
+
+  if (LoadCandidates.empty()) {
+    return;
+  }
+
+  for (auto *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+    // Ignore self-blob lval temps.
+    if (Ref->isLval() && Ref->isSelfBlob()) {
+      continue;
+    }
+
+    // Note: iterator is erased inside the loop in some cases.
+    for (auto It = LoadCandidates.begin(); It != LoadCandidates.end(); It++) {
+      unsigned CandidateIndex = It->first;
+
+      bool IsSelfBlob = false;
+      if (!Ref->usesTempBlob(CandidateIndex, &IsSelfBlob)) {
+        continue;
+      }
+
+      // Invalidate candidate if-
+      // 1) We cannot substitute in use (non self-blob use), Or
+      // 2) It has multiple uses, Or
+      // 3) Definition does not dominate use.
+      //
+      if (!IsSelfBlob || It->second.SingleUseRef ||
+          !HLNodeUtils::dominates(It->second.DefInst, Node)) {
+
+        LLVM_DEBUG(dbgs() << "\n Invalidated candidate: ");
+        LLVM_DEBUG(It->second.DefInst->dump());
+        LLVM_DEBUG(dbgs() << "\n due to use in: ");
+        LLVM_DEBUG(Node->dump());
+
+        LoadCandidates.erase(It);
+        continue;
+      }
+
+      LLVM_DEBUG(dbgs() << "\n Found valid use of: ");
+      LLVM_DEBUG(It->second.DefInst->dump());
+      LLVM_DEBUG(dbgs() << "\n in: ");
+      LLVM_DEBUG(Node->dump());
+
+      It->second.SingleUseRef = Ref;
+      // Self-blob ref can only be a use for a single candidate so we can break
+      // out of the loop.
+      break;
+    }
+  }
+}
+
+// Invalidates all candidates whose single use has not been found and the load
+// ref's symbase is the same as \p StoreSymbase. If \p StoreSymbase is
+// InvalidSymbase we invalidate all applicable candidates.
+void SingleUseLoadPropagator::invalidateCandidatesUsingStore(
+    unsigned StoreSymbase, HLInst *StoreOrCallInst) {
+
+  // Note: iterator is erased inside the loop in some cases.
+  for (auto It = LoadCandidates.begin(); It != LoadCandidates.end(); It++) {
+    if (!It->second.SingleUseRef &&
+        ((StoreSymbase == InvalidSymbase) ||
+         (StoreSymbase == It->second.DefInst->getRvalDDRef()->getSymbase()))) {
+
+      LLVM_DEBUG(dbgs() << "\n Invalidated candidate: ");
+      LLVM_DEBUG(It->second.DefInst->dump());
+      LLVM_DEBUG(dbgs() << "\n due to call: ");
+      LLVM_DEBUG(StoreOrCallInst->dump());
+
+      LoadCandidates.erase(It);
+    }
+  }
+}
+
+// Adds new load candidate or updates/eliminates existing candidate referring to
+// the same temp, if applicable. Invalidates existing candidates if \p Inst
+// writes to memory.
+void SingleUseLoadPropagator::visit(HLInst *Inst) {
+  // Process rvals first
+  visit(static_cast<HLDDNode *>(Inst));
+
+  auto *LLVMInst = Inst->getLLVMInstruction();
+
+  auto *Call = dyn_cast<CallInst>(LLVMInst);
+
+  // Invalidate all candidates whose single use has not been found if this call
+  // can write to memory. Can be improved for ArgMemOnly calls.
+  if (Call && Call->mayWriteToMemory() &&
+      !Call->onlyAccessesInaccessibleMemory()) {
+    invalidateCandidatesUsingStore(InvalidSymbase, Inst);
+    return;
+  }
+
+  auto *LvalRef = Inst->getLvalDDRef();
+
+  if (!LvalRef) {
+    return;
+  }
+
+  unsigned Symbase = LvalRef->getSymbase();
+
+  // Invalidate all candidates whose single use has not been found and the load
+  // ref has the same symbase as the store.
+  if (LvalRef->isMemRef()) {
+    invalidateCandidatesUsingStore(Symbase, Inst);
+    return;
+  }
+
+  if (!isa<LoadInst>(LLVMInst)) {
+    return;
+  }
+
+  // Cannot propagate temp if it is livein or liveout.
+  // Livein temps can have backward uses.
+  if (CurLp->isLiveIn(Symbase)) {
+    return;
+  }
+
+  unsigned TempIndex = LvalRef->getSelfBlobIndex();
+  auto It = LoadCandidates.find(TempIndex);
+
+  if (It == LoadCandidates.end()) {
+    LLVM_DEBUG(dbgs() << "\n Collected candidate: ");
+    LLVM_DEBUG(Inst->dump());
+
+    // Liveout temps with post-dominating definition inside loop can be
+    // eliminated.
+    LoadCandidates.insert(std::make_pair(
+        TempIndex, LoadTempInfo(Inst, CurLp->isLiveOut(Symbase))));
+    return;
+  }
+
+  auto *PrevDefInst = It->second.DefInst;
+  auto *PrevSingleUseRef = It->second.SingleUseRef;
+
+  // If there is a previous entry for this temp in the map, we have following
+  // two possibilities:
+  //
+  // 1) Previous temp is unused.
+  // 2) Previous temp has single, replaceable use.
+  //
+  // In both cases, we can eliminate the previous definition if the current
+  // definition post-dominates it. If it had a single use, we also replace that
+  // use.
+  //
+  // If the current definition does not post-dominate, we simple overwrite the
+  // previous entry with the current one.
+  if (HLNodeUtils::postDominates(Inst, PrevDefInst)) {
+
+    if (PrevSingleUseRef) {
+      HIRTransformUtils::replaceOperand(PrevSingleUseRef,
+                                        PrevDefInst->removeRvalDDRef());
+    }
+
+    LLVM_DEBUG(dbgs() << "\n Eliminated candidate: ");
+    LLVM_DEBUG(PrevDefInst->dump());
+
+    HLNodeUtils::remove(PrevDefInst);
+    Changed = true;
+  }
+
+  It->second.DefInst = Inst;
+  It->second.SingleUseRef = nullptr;
+
+  LLVM_DEBUG(dbgs() << "\n Collected candidate: ");
+  LLVM_DEBUG(Inst->dump());
+}
+
+// Function to process candidates which survive till the end of the traversal.
+// These can be single definition temps with single or no use.
+//
+// 1) Unused load example
+//
+// DO i1
+//   t = A[i1]; // Can be eliminated as unused after traversal
+// END DO
+//
+// 2) Single use load example
+//
+// DO i1
+//   t = A[i1]; // Can be propagated and eliminated after traversal
+//   B[i1] = t;
+// END DO
+//
+void SingleUseLoadPropagator::processRemainingCandidates() {
+
+  for (auto &LoadCand : LoadCandidates) {
+
+    // Liveout temps cannot be eliminated.
+    if (LoadCand.second.IsLiveout) {
+      continue;
+    }
+
+    auto *DefInst = LoadCand.second.DefInst;
+    auto *SingleUseRef = LoadCand.second.SingleUseRef;
+
+    if (SingleUseRef) {
+      HIRTransformUtils::replaceOperand(SingleUseRef,
+                                        DefInst->removeRvalDDRef());
+    }
+
+    HLNodeUtils::remove(DefInst);
+    Changed = true;
+  }
+}
+
+bool HIRTransformUtils::propagateSingleUseLoads(HLLoop *Lp) {
+  // Only handles innermost loops for now.
+  if (!Lp->isInnermost()) {
+    return false;
+  }
+
+  SingleUseLoadPropagator SULP(Lp);
+
+  return SULP.propagateLoads();
+}
