@@ -31,10 +31,11 @@ add_header_library(
 add_header_library(
   common
   HDRS
-    macros/architectures.h
     common.h
-    macros/cpu_features.h
     endian.h
+    macros/architectures.h
+    macros/attributes.h
+    macros/cpu_features.h
 )
 
 add_header_library(
