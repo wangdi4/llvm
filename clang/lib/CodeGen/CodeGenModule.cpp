@@ -5865,6 +5865,9 @@ LangAS CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D) {
         // Allow overriding the address space, e.g.
         // with __attribute__((opencl_constant)).
         return D->getType().getAddressSpace();
+      if (D && D->hasAttr<OMPGroupPrivateDeclAttr>() &&
+          getTriple().getArch() == llvm::Triple::spir64)
+        return LangAS::sycl_local;
       return LangAS::sycl_global;
     }
 #endif // INTEL_COLLAB
@@ -8143,6 +8146,11 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
   case Decl::HLSLBuffer:
     getHLSLRuntime().addBuffer(cast<HLSLBufferDecl>(D));
     break;
+
+#if INTEL_COLLAB
+  case Decl::OMPGroupPrivate:
+    break;
+#endif // INTEL_COLLAB
 
   default:
     // Make sure we handled everything we should, every other kind is a
