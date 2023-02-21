@@ -7217,7 +7217,11 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareSimdDirective(
     DeclGroupPtrTy DG, OMPDeclareSimdDeclAttr::BranchStateTy BS, Expr *Simdlen,
     ArrayRef<Expr *> Uniforms, ArrayRef<Expr *> Aligneds,
     ArrayRef<Expr *> Alignments, ArrayRef<Expr *> Linears,
-    ArrayRef<unsigned> LinModifiers, ArrayRef<Expr *> Steps, SourceRange SR) {
+#if INTEL_CUSTOMIZATION
+    ArrayRef<unsigned> LinModifiers, ArrayRef<Expr *> Steps,
+    ArrayRef<IdentifierInfo *> Processors,
+    ArrayRef<SourceLocation> ProcessorLocs, SourceRange SR) {
+#endif // INTEL_CUSTOMIZATION
   assert(Aligneds.size() == Alignments.size());
   assert(Linears.size() == LinModifiers.size());
   assert(Linears.size() == Steps.size());
@@ -7470,13 +7474,28 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPDeclareSimdDirective(
     }
     NewSteps.push_back(NewStep);
   }
+#if INTEL_CUSTOMIZATION
+  SmallVector<IdentifierInfo *, 4> NewProcessors;
+  for (unsigned I = 0, E = Processors.size(); I < E; ++I) {
+    IdentifierInfo *Id = Processors[I];
+    SourceLocation IdLoc = ProcessorLocs[I];
+    if (Context.getTargetInfo().validateCPUSpecificCPUDispatch(Id->getName()))
+      NewProcessors.push_back(Id);
+    else
+      Diag(IdLoc, diag::err_invalid_ompx_processor) << Id->getName();
+  }
+#endif // INTEL_CUSTOMIZATION
   auto *NewAttr = OMPDeclareSimdDeclAttr::CreateImplicit(
       Context, BS, SL.get(), const_cast<Expr **>(Uniforms.data()),
       Uniforms.size(), const_cast<Expr **>(Aligneds.data()), Aligneds.size(),
       const_cast<Expr **>(NewAligns.data()), NewAligns.size(),
       const_cast<Expr **>(Linears.data()), Linears.size(),
       const_cast<unsigned *>(LinModifiers.data()), LinModifiers.size(),
-      NewSteps.data(), NewSteps.size(), SR);
+#if INTEL_CUSTOMIZATION
+      NewSteps.data(), NewSteps.size(),
+      const_cast<IdentifierInfo **>(NewProcessors.data()), NewProcessors.size(),
+      SR);
+#endif // INTEL_CUSTOMIZATION
   ADecl->addAttr(NewAttr);
   return DG;
 }

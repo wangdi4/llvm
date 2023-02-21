@@ -5032,6 +5032,9 @@ def OMPDeclareSimdDecl : Attr {
     VariadicExprArgument<"Aligneds">, VariadicExprArgument<"Alignments">,
     VariadicExprArgument<"Linears">, VariadicUnsignedArgument<"Modifiers">,
     VariadicExprArgument<"Steps">
+// INTEL_CUSTOMIZATION
+    , VariadicIdentifierArgument<"Processors">
+// end INTEL_CUSTOMIZATION
   ];
   let AdditionalMembers = [{
     void printPrettyPragma(raw_ostream & OS, const PrintingPolicy &Policy)

@@ -12322,7 +12322,11 @@ public:
       DeclGroupPtrTy DG, OMPDeclareSimdDeclAttr::BranchStateTy BS,
       Expr *Simdlen, ArrayRef<Expr *> Uniforms, ArrayRef<Expr *> Aligneds,
       ArrayRef<Expr *> Alignments, ArrayRef<Expr *> Linears,
-      ArrayRef<unsigned> LinModifiers, ArrayRef<Expr *> Steps, SourceRange SR);
+#if INTEL_CUSTOMIZATION
+      ArrayRef<unsigned> LinModifiers, ArrayRef<Expr *> Steps,
+      ArrayRef<IdentifierInfo *> Processors,
+      ArrayRef<SourceLocation> ProcessorLocs, SourceRange SR);
+#endif // INTEL_CUSTOMIZATION
 
   /// Checks '\#pragma omp declare variant' variant function and original
   /// functions after parsing of the associated method/function.
