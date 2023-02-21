@@ -430,6 +430,7 @@ def main():
     logging.debug(f'Running {jobs} job(s) in parallel ...')
     with Pool(jobs) as p:
         p.map(check_file_and_ext, args.exps)
+    p.join()
 
     # Look for the best common ancestor only once
     ref_commit = None if args.ref or args.drop else get_merge_base()
@@ -439,6 +440,7 @@ def main():
     helper = partial(drop_may_add, max_line=args.max, ref=args.ref, ref_commit=ref_commit, comment=args.comment, drop_only=args.drop)
     with Pool(jobs) as p:
         p.map(helper, args.exps)
+    p.join()
 
 
 if __name__ == '__main__':
