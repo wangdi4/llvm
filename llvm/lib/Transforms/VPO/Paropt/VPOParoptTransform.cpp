@@ -13905,7 +13905,8 @@ bool VPOParoptTransform::canonicalizeGlobalVariableReferences(WRegionNode *W) {
         if (CE->getOpcode() == Instruction::AddrSpaceCast) {
           GVar = dyn_cast<GlobalVariable>(CE->getOperand(0));
           assert(GVar &&
-                 GVar->getAddressSpace() == vpo::ADDRESS_SPACE_GLOBAL &&
+                 (GVar->getAddressSpace() == vpo::ADDRESS_SPACE_GLOBAL ||
+                  GVar->getAddressSpace() == vpo::ADDRESS_SPACE_LOCAL) &&
                  "Unexpected form of global variable item.");
         }
 
