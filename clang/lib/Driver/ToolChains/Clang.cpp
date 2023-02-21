@@ -10747,6 +10747,8 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_long_constant_composite"
         ",+SPV_INTEL_arithmetic_fence"
         ",+SPV_INTEL_global_variable_decorations"
+        ",+SPV_INTEL_fpga_buffer_location"
+        ",+SPV_INTEL_fpga_argument_interfaces"
         ",+SPV_INTEL_task_sequence"; // INTEL
 
 #if INTEL_CUSTOMIZATION
@@ -10755,7 +10757,6 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       INTELExtArg += ",+SPV_INTEL_optnone";
     }
 #endif // INTEL_CUSTOMIZATION
-
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
 #if INTEL_CUSTOMIZATION
     if (!C.getDriver().isFPGAEmulationMode()) {
@@ -10763,7 +10764,6 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       // Enable several extensions on FPGA H/W exclusively
       ExtArg += ",+SPV_INTEL_usm_storage_classes,+SPV_INTEL_runtime_aligned"
                 ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"
-                ",+SPV_INTEL_fpga_buffer_location"
                 ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
                 ",+SPV_INTEL_fpga_dsp_control,+SPV_INTEL_fpga_memory_accesses"
                 ",+SPV_INTEL_fpga_memory_attributes";
