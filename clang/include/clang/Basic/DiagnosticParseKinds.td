@@ -1406,6 +1406,8 @@ def err_omp_unknown_map_type_modifier : Error<
 #if INTEL_CUSTOMIZATION
 def err_omp_unknown_lastprivate_modifier : Error<
   "incorrect lastprivate modifier, expected 'conditional'">;
+def err_omp_expected_identifier_for_ompx_processor : Error<
+  "expected identifier in 'ompx_processor' clause">;
 #if INTEL_FEATURE_CSA
 def err_omp_unknown_dataflow_modifier : Error<"unexpected 'dataflow' modifier, expected 'static', 'num_workers' or 'pipeline'">;
 def err_omp_conflicting_dataflow_num_workers_modifier: Error<"'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads' clause">;

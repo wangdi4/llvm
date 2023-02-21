@@ -453,10 +453,20 @@ static void instantiateOMPDeclareSimdDeclAttr(
     ++SI;
   }
   LinModifiers.append(Attr.modifiers_begin(), Attr.modifiers_end());
+
+#if INTEL_CUSTOMIZATION
+  SmallVector<IdentifierInfo *, 4> Processors;
+  Processors.append(Attr.processors_begin(), Attr.processors_end());
+  SmallVector<SourceLocation, 4> ProcessorLocs;
+  ProcessorLocs.resize(Processors.size(), SourceLocation());
+#endif // INTEL_CUSTOMIZATION
+
   (void)S.ActOnOpenMPDeclareSimdDirective(
       S.ConvertDeclToDeclGroup(New), Attr.getBranchState(), Simdlen.get(),
       Uniforms, Aligneds, Alignments, Linears, LinModifiers, Steps,
-      Attr.getRange());
+#if INTEL_CUSTOMIZATION
+      Processors, ProcessorLocs, Attr.getRange());
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Instantiation of 'declare variant' attribute and its arguments.

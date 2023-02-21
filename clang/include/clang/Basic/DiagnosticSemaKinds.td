@@ -10631,6 +10631,7 @@ def err_omp_unexpected_clause_value : Error<
 // if INTEL_CUSTOMIZATION
 def err_omp_unexpected_lastprivate_conditional : Error<
   "expected 'scalar'%select{| or 'vector'}0 in OpenMP clause 'lastprivate' with conditional modifier">;
+def err_invalid_ompx_processor : Error<"invalid cpu name '%0' in 'ompx_processor' clause">;
 // endif INTEL_CUSTOMIZATION
 def err_omp_unexpected_call_to_omp_runtime_api
     : Error<"calls to OpenMP runtime API are not allowed within a region that "
