@@ -27,8 +27,8 @@ namespace Utils {
    libraries in the exit flow is undefined and objects in data segment might be
    destroyed before they are used in a shared library that has not yet been
    unloaded. */
-std::mutex *allocatedObjectsMapMutex;
-map<string, AllocatedObjectsMap> *allocatedObjectsMap;
+std::mutex *allocatedObjectsMapMutex = nullptr;
+std::map<string, AllocatedObjectsMap> *allocatedObjectsMap = nullptr;
 #endif
 
 void InitSharedPtrs() {
@@ -43,8 +43,20 @@ void InitSharedPtrs() {
 }
 
 void FiniSharedPts() {
-  // we don't delete the objects, because this method maybe be called during an
-  // non-clean shutdown, when some threads are still using them.
+#ifdef _DEBUG
+  // release std::mutex
+  if (allocatedObjectsMapMutex) {
+    delete allocatedObjectsMapMutex;
+    allocatedObjectsMapMutex = nullptr;
+  }
+
+  // we just release std::map, the elements const void * in std::map->second
+  // will be release in shutdown.
+  if (allocatedObjectsMap) {
+    allocatedObjectsMap->clear();
+    allocatedObjectsMap = nullptr;
+  }
+#endif
 }
 
 void ReferenceCountedObject::IncZombieCnt() const {
