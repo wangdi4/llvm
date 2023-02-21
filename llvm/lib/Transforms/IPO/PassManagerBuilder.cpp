@@ -698,17 +698,12 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     // across the loop nests.
     PM.add(createLoopUnrollPass(OptLevel, DisableUnrollLoops,
                                 ForgetAllSCEVInLoopUnroll));
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     PM.add(createCSALowerParallelIntrinsicsWrapperPass());
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-
-    PM.add(createWarnMissedTransformationsPass());
-=======
->>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
   }
 
   if (!IsFullLTO) {
@@ -773,16 +768,11 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   }
   INTEL_LIMIT_END // INTEL
 
-<<<<<<< HEAD
-  // Enhance/cleanup vector code.
-  PM.add(createVectorCombinePass());
 #if INTEL_CUSTOMIZATION
   if (!IsFullLTO)
     PM.add(createEarlyCSEPass());
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
   if (!IsFullLTO) {
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
 
@@ -817,14 +807,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
                             /*AllowSpeculation=*/true));
       INTEL_LIMIT_END // INTEL
     }
-<<<<<<< HEAD
-
-    // Postpone warnings to LTO link phase. Most transformations which process
-    // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
-    PM.add(createWarnMissedTransformationsPass());
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
   }
 
   // After vectorization and unrolling, assume intrinsics may tell us more
@@ -1191,7 +1174,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
         // OK to internalize
         return false;
       };
-      PM.add(createInternalizePass(PreserveSymbol));
     }
     PM.add(createWholeProgramWrapperPassPass(WPUtils));
   }

@@ -665,14 +665,6 @@ FunctionPass *createLibCallsShrinkWrapPass();
 //
 Pass *createLoopSimplifyCFGPass();
 
-//===----------------------------------------------------------------------===//
-//
-<<<<<<< HEAD
-// WarnMissedTransformations - This pass emits warnings for leftover forced
-// transformations.
-//
-Pass *createWarnMissedTransformationsPass();
-
 #if INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //
@@ -683,8 +675,6 @@ FunctionPass *createIVSplitLegacyPass();
 
 //===----------------------------------------------------------------------===//
 //
-=======
->>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
 // This pass does instruction simplification on each
 // instruction in a function.
 //

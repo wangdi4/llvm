@@ -698,8 +698,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
 
   if (std::optional<GCOVOptions> Options = getGCOVOptions(CodeGenOpts, LangOpts)) {
     MPM.add(createGCOVProfilerPass(*Options));
-    if (CodeGenOpts.getDebugInfo() == codegenoptions::NoDebugInfo)
-      MPM.add(createStripSymbolsPass(true));
   }
 
   PMBuilder.populateFunctionPassManager(FPM);

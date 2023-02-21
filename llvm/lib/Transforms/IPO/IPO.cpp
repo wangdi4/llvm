@@ -148,34 +148,3 @@ void LLVMAddGlobalOptimizerPass(LLVMPassManagerRef PM) {
 void LLVMAddIPSCCPPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createIPSCCPPass());
 }
-<<<<<<< HEAD
-
-void LLVMAddInternalizePass(LLVMPassManagerRef PM, unsigned AllButMain) {
-  auto PreserveMain = [=](const GlobalValue &GV) {
-#if INTEL_CUSTOMIZATION
-    if (isa<Function>(GV) && cast<Function>(GV).hasMetadata("llvm.acd.clone"))
-      return AllButMain && GV.getName().startswith("main.");
-#endif // INTEL_CUSTOMIZATION
-    return AllButMain && GV.getName() == "main";
-  };
-  unwrap(PM)->add(createInternalizePass(PreserveMain));
-}
-
-void LLVMAddInternalizePassWithMustPreservePredicate(
-    LLVMPassManagerRef PM,
-    void *Context,
-    LLVMBool (*Pred)(LLVMValueRef, void *)) {
-  unwrap(PM)->add(createInternalizePass([=](const GlobalValue &GV) {
-    return Pred(wrap(&GV), Context) == 0 ? false : true;
-  }));
-}
-
-void LLVMAddStripDeadPrototypesPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createStripDeadPrototypesPass());
-}
-
-void LLVMAddStripSymbolsPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createStripSymbolsPass());
-}
-=======
->>>>>>> a4b4f62beb0bf40123181e5f5bdf32ef54f87166
