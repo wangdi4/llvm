@@ -560,8 +560,34 @@ include_directories(BEFORE ${OCL_GLOBAL_INCLUDE})
 
 add_subdirectory(externals)
 
-# An umbrella target for all tests inside current folder.
+include(FetchContent)
+
 if(OPENCL_BE_INCLUDE_TESTS OR OPENCL_RT_INCLUDE_TESTS)
+  # Download opencl cpp headers for tests
+  if(INTEL_CUSTOMIZATION)
+    if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
+      STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
+    else()
+      set(GITSERVER "https://github.com/intel-innersource")
+    endif()
+    set(OPENCL_CPP_HEADER_REPO "${GITSERVER}/applications.compilers.source.opencl-clhpp.git")
+  endif(INTEL_CUSTOMIZATION)
+
+  set(OPENCL_CPP_HEADER_TAG 4a1157466afe72a87e8abc59537ef577534ccadf)
+
+  message(STATUS "Will fetch opencl c++ header from ${OPENCL_CPP_HEADER_REPO}")
+  FetchContent_Declare(
+    opencl-cpp-header
+    GIT_REPOSITORY ${OPENCL_CPP_HEADER_REPO}
+    GIT_TAG ${OPENCL_CPP_HEADER_TAG}
+    GIT_SUBMODULES "docs"
+  )
+  FetchContent_Populate(opencl-cpp-header)
+
+  if (NOT EXISTS ${opencl-cpp-header_SOURCE_DIR})
+    message(FATAL_ERROR "opencl cpp header is not fetched from ${OPENCL_CPP_HEADER_REPO}")
+  endif()
+  # An umbrella target for all tests inside current folder.
   umbrella_lit_testsuite_begin(check-ocl-all)
 endif()
 

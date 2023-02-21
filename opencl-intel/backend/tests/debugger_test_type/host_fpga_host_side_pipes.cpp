@@ -85,7 +85,7 @@ host_fpga_host_side_pipes_internal(cl::Context context, cl::Device device,
 
   DTT_LOG("[FPGA] Running application with host side pipes...");
 
-  queue.enqueueTask(kernel);
+  queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(1));
   queue.flush();
 
   for (cl_int i = 0; i < (cl_int)maxBufferSize; ++i) {

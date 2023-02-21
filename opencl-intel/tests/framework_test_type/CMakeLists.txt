@@ -15,6 +15,20 @@ endif(INCLUDE_MKL)
 
 set(TARGET framework_test_type)
 
+# Add opencl cpp header
+include_directories(${opencl-cpp-header_SOURCE_DIR}/include)
+
+set(nowarning_source_files
+  clBuildOptions.cpp
+  opencl_printf_floating_point_test.cpp
+  opencl_printf_test.cpp
+  TbbSetMaxThreads.cpp)
+set(nowarning_flags "-Wno-suggest-override -Wno-cast-qual -Wno-missing-field-initializers")
+check_cxx_compiler_flag("${nowarning_flags}" CXX_SUPPORTS_FLAGS)
+if(CXX_SUPPORTS_FLAGS)
+  set_source_files_properties(${nowarning_source_files} PROPERTIES COMPILE_FLAGS "${nowarning_flags}")
+endif()
+
 include_directories(
   ${OCL_SOURCE_DIR}/framework/export ${OCL_SOURCE_DIR}/framework/Tracing
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export)
