@@ -48,7 +48,7 @@ static void host_multi_ndrange_internal(cl::Context context, cl::Device device,
 
   // Create the second kernel
   //
-  cl::Program::Sources sources(1, make_pair(cl_code.c_str(), cl_code.size()));
+  cl::Program::Sources sources(1, cl_code);
   cl::Program prog = cl::Program(context, sources);
 
   // Build the program with debug arguments enabled.

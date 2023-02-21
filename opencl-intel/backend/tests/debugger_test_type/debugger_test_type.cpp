@@ -277,7 +277,7 @@ int main(int argc, char **argv) {
       return 0;
     }
 
-    cl::Program::Sources sources(1, make_pair(cl_code.c_str(), cl_code.size()));
+    cl::Program::Sources sources(1, cl_code);
     cl::Program prog = cl::Program(context, sources);
 
     // Build the program with debug arguments enabled.

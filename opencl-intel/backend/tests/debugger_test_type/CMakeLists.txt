@@ -2,6 +2,13 @@ set(TARGET debugger_test_type)
 
 find_sources()
 calculate_target_sources()
+include_directories(${opencl-cpp-header_SOURCE_DIR}/include)
+
+set(nowarning_flags "-Wno-suggest-override -Wno-cast-qual -Wno-missing-field-initializers")
+check_cxx_compiler_flag("${nowarning_flags}" CXX_SUPPORTS_FLAGS)
+if(CXX_SUPPORTS_FLAGS)
+  set_source_files_properties(${TARGET_SOURCES} PROPERTIES COMPILE_FLAGS "${nowarning_flags}")
+endif()
 
 add_opencl_executable(
   ${TARGET}

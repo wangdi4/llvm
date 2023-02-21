@@ -454,19 +454,6 @@ endif()
 if(WIN32)
   set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/vc14)
   set(TBB_LIBRARY_DIR ${TBB_ROOT_DIR}/redist/${TBB_ARCH}/vc14)
-
-  # Copy TBB libraries to deploy and build folder. This is to support windows
-  # QA. TBB is used by task_executor.
-  set(TBB_BINARIES_BUILD_DIR
-      ${CMAKE_CURRENT_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
-  add_custom_target(
-    tbb ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${TBB_LIBRARY_DIR}
-            ${TBB_BINARIES_BUILD_DIR}
-    COMMENT "Copying tbb libraries from ${TBB_LIBRARY_DIR} to ${TBB_BINARIES_BUILD_DIR}")
-
-  install_to(${TBB_LIBRARY_DIR}/ COMPONENT ocl-tbb DESTINATION
-             ${OCL_INSTALL_LIBRARY_DIR})
 else(WIN32)
   set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/gcc4.8)
   set(TBB_LIBRARY_DIR ${TBB_LIB_DIR})
@@ -560,8 +547,34 @@ include_directories(BEFORE ${OCL_GLOBAL_INCLUDE})
 
 add_subdirectory(externals)
 
-# An umbrella target for all tests inside current folder.
+include(FetchContent)
+
 if(OPENCL_BE_INCLUDE_TESTS OR OPENCL_RT_INCLUDE_TESTS)
+  # Download opencl cpp headers for tests
+  if(INTEL_CUSTOMIZATION)
+    if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
+      STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
+    else()
+      set(GITSERVER "https://github.com/intel-innersource")
+    endif()
+    set(OPENCL_CPP_HEADER_REPO "${GITSERVER}/applications.compilers.source.opencl-clhpp.git")
+  endif(INTEL_CUSTOMIZATION)
+
+  set(OPENCL_CPP_HEADER_TAG 4a1157466afe72a87e8abc59537ef577534ccadf)
+
+  message(STATUS "Will fetch opencl c++ header from ${OPENCL_CPP_HEADER_REPO}")
+  FetchContent_Declare(
+    opencl-cpp-header
+    GIT_REPOSITORY ${OPENCL_CPP_HEADER_REPO}
+    GIT_TAG ${OPENCL_CPP_HEADER_TAG}
+    GIT_SUBMODULES "docs"
+  )
+  FetchContent_Populate(opencl-cpp-header)
+
+  if (NOT EXISTS ${opencl-cpp-header_SOURCE_DIR})
+    message(FATAL_ERROR "opencl cpp header is not fetched from ${OPENCL_CPP_HEADER_REPO}")
+  endif()
+  # An umbrella target for all tests inside current folder.
   umbrella_lit_testsuite_begin(check-ocl-all)
 endif()
 
