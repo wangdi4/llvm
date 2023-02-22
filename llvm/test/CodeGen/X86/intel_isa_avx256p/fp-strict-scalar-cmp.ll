@@ -1368,19 +1368,15 @@ define void @foo(float %0, float %1) #0 {
 ; AVX256P-X86:       # %bb.0:
 ; AVX256P-X86-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; AVX256P-X86-NEXT:    vucomiss {{[0-9]+}}(%esp), %xmm0
-; AVX256P-X86-NEXT:    jbe .LBB56_1
-; AVX256P-X86-NEXT:  # %bb.2:
-; AVX256P-X86-NEXT:    jmp bar # TAILCALL
-; AVX256P-X86-NEXT:  .LBB56_1:
+; AVX256P-X86-NEXT:    ja bar # TAILCALL
+; AVX256P-X86-NEXT:  # %bb.1:
 ; AVX256P-X86-NEXT:    retl
 ;
 ; AVX256P-X64-LABEL: foo:
 ; AVX256P-X64:       # %bb.0:
 ; AVX256P-X64-NEXT:    vucomiss %xmm1, %xmm0
-; AVX256P-X64-NEXT:    jbe .LBB56_1
-; AVX256P-X64-NEXT:  # %bb.2:
-; AVX256P-X64-NEXT:    jmp bar # TAILCALL
-; AVX256P-X64-NEXT:  .LBB56_1:
+; AVX256P-X64-NEXT:    ja bar # TAILCALL
+; AVX256P-X64-NEXT:  # %bb.1:
 ; AVX256P-X64-NEXT:    retq
   %3 = call i1 @llvm.experimental.constrained.fcmp.f32( float %0, float %1, metadata !"ogt", metadata !"fpexcept.strict") #0
   br i1 %3, label %4, label %5
