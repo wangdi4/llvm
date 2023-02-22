@@ -12610,7 +12610,14 @@ defm : AVX512_pmovx_patterns<"VPMOVZX", zext, zext_invec>;
 // Without BWI we can't do a trunc from v16i16 to v16i8. DAG combine can merge
 // ext+trunc aggressively making it impossible to legalize the DAG to this
 // pattern directly.
-let Predicates = [HasAVX512, NoBWI] in {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+// AVX256P does not support intermediate 512 bit type.
+  let Predicates = [HasAVX512, NoAVX256P_And_NoBWI] in {
+#else // INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX512, NoBWI] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def: Pat<(v16i8 (trunc (v16i16 VR256X:$src))),
          (VPMOVDBZrr (v16i32 (VPMOVZXWDZrr VR256X:$src)))>;
 def: Pat<(v16i8 (trunc (loadv16i16 addr:$src))),
