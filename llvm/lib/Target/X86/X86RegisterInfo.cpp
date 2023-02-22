@@ -374,6 +374,7 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     if (!IsWin64 && Is64Bit)
       return CSR_64_Intel_OCL_BI_SaveList;
     break;
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::HHVM:
     return CSR_64_HHVM_SaveList;
@@ -424,6 +425,9 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     return Is64Bit ? CSR_64_Intel_Features_Init_SaveList
                    : CSR_32_Intel_Features_Init_SaveList;
 #endif // INTEL_CUSTOMIZATION
+=======
+  }
+>>>>>>> 782045e727b70d19c7fa70c388eddb65390060d9
   case CallingConv::X86_RegCall:
     if (Is64Bit) {
       if (IsWin64) {
@@ -548,6 +552,7 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
     if (!IsWin64 && Is64Bit)
       return CSR_64_Intel_OCL_BI_RegMask;
     break;
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::HHVM:
     return CSR_64_HHVM_RegMask;
@@ -601,6 +606,9 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
     return Is64Bit ? CSR_64_Intel_Features_Init_RegMask
                    : CSR_32_Intel_Features_Init_RegMask;
 #endif // INTEL_CUSTOMIZATION
+=======
+  }
+>>>>>>> 782045e727b70d19c7fa70c388eddb65390060d9
   case CallingConv::X86_RegCall:
     if (Is64Bit) {
       if (IsWin64) {
