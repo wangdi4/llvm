@@ -5031,7 +5031,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       return;
     }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
     case Intrinsic::x86_t2rpntlvwz0:
     case Intrinsic::x86_t2rpntlvwz0t1:
     case Intrinsic::x86_t2rpntlvwz1:
@@ -5099,7 +5099,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       ReplaceNode(Node, CNode);
       return;
     }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
     case Intrinsic::x86_tstorehd:
     case Intrinsic::x86_tstorehdt1:

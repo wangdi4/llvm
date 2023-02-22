@@ -283,12 +283,12 @@ constexpr FeatureBitset FeaturesLioncoveServer =
 #if INTEL_FEATURE_ISA_PREFETCHST2
     FeaturePREFETCHST2 |
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 // FIXME: according to latest EAS (lnc-rev52 and pnc-rev11), part of AMX_TRANSPOSE
 // is split into AMX_INTERLEAVE, which is introduced in pnc.
     FeatureAMX_TRANSPOSE |
     FeatureAMX_AVX512 |
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
     FeatureAMX_COMPLEX |
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
@@ -827,9 +827,9 @@ constexpr FeatureBitset ImpliedFeaturesAMX_MEMORY = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesAMX_FORMAT = FeatureAMX_TILE;
 constexpr FeatureBitset ImpliedFeaturesAMX_ELEMENT = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 constexpr FeatureBitset ImpliedFeaturesAMX_TRANSPOSE = FeatureAMX_TILE;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 constexpr FeatureBitset ImpliedFeaturesAMX_MEMORY2 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2

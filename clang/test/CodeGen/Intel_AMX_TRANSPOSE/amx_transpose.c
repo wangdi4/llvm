@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_amx_lnc
+// REQUIRES: intel_feature_isa_amx_transpose
 // RUN: %clang_cc1 -no-opaque-pointers %s -ffreestanding -triple=x86_64-unknown-unknown \
 // RUN: -target-feature +amx-int8 -target-feature +amx-bf16 -target-feature +amx-transpose -target-feature +amx-avx512 \
 // RUN: -target-feature +avx512f -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression| FileCheck %s

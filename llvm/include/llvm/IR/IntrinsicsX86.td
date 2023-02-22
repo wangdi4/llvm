@@ -6299,9 +6299,9 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
 
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 //===----------------------------------------------------------------------===//
-// AMX_LNC - Intel LNC AMX extensions
+// AMX_TRANSPOSE - Intel LNC AMX extensions
 let TargetPrefix = "x86" in {
 //AMX-AVX512
   def int_x86_tilemovei : ClangBuiltin<"__builtin_ia32_tilemovei">,
@@ -6416,7 +6416,7 @@ let TargetPrefix = "x86" in {
                         [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
                         []>;
 }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
 let TargetPrefix = "x86" in {
 // CMPCCXADD

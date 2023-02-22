@@ -904,7 +904,7 @@ static int readModRM(struct InternalInstruction *insn) {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #define TMM_TYPE(prefix)                                                       \
     case TYPE_TMM:                                                             \
       return prefix##_TMM0 + index;
@@ -915,7 +915,7 @@ static int readModRM(struct InternalInstruction *insn) {
 #define ZMM16_TYPE_TUPLES(prefix)                                              \
     case TYPE_ZMM16_TUPLES:                                                    \
       return prefix##_ZMM0 + (index / 16) * 16;
-#else // INTEL_FEATURE_ISA_AMX_LNC
+#else // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #define TMM_TYPE(prefix)                                                       \
     case TYPE_TMM:                                                             \
       if (index > 7)                                                           \
@@ -923,7 +923,7 @@ static int readModRM(struct InternalInstruction *insn) {
       return prefix##_TMM0 + index;
 #define TMM_TYPE_PAIR(prefix)
 #define ZMM16_TYPE_TUPLES(prefix)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
 #if INTEL_FEATURE_XISA_COMMON
 #define XMM_TYPE_PAIR(prefix)                                                  \
@@ -2518,10 +2518,10 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_YMM:
   case TYPE_ZMM:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   case TYPE_TMM_PAIR:
   case TYPE_ZMM16_TUPLES:
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   case TYPE_TMM_QUAD:
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2

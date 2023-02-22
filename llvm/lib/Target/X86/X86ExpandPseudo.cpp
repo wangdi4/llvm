@@ -671,10 +671,10 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     return true;
   }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   case X86::PTTDPBF16PSV:
   case X86::PTTDPFP16PSV:
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
   case X86::PTCMMIMFP16PSV:
   case X86::PTCMMRLFP16PSV:
@@ -708,10 +708,10 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     case X86::PTMMULTF32PSV:     Opc = X86::TMMULTF32PS; break;
     case X86::PTTMMULTF32PSV:    Opc = X86::TTMMULTF32PS; break;
 #endif // INTEL_FEATURE_ISA_AMX_TF32
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
     case X86::PTTDPBF16PSV:      Opc = X86::TTDPBF16PS; break;
     case X86::PTTDPFP16PSV:      Opc = X86::TTDPFP16PS; break;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
     case X86::PTDPBSSDV:   Opc = X86::TDPBSSD; break;
     case X86::PTDPBSUDV:   Opc = X86::TDPBSUD; break;
     case X86::PTDPBUSDV:   Opc = X86::TDPBUSD; break;
@@ -736,11 +736,11 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     MI.setDesc(TII->get(X86::TILEZERO));
     return true;
   }
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   case X86::PTILEMOVROWrreV:
   case X86::PTILEMOVROWrriV:
   case X86::PTTRANSPOSEDV:
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
   case X86::PTCONJTFP16V:
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
@@ -763,11 +763,11 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     unsigned Opc;
     switch (Opcode) {
 #endif // INTEL_FEATURE_XISA_COMMON
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
     case X86::PTILEMOVROWrreV:           Opc = X86::TILEMOVROWrre; break;
     case X86::PTILEMOVROWrriV:           Opc = X86::TILEMOVROWrri; break;
     case X86::PTTRANSPOSEDV:              Opc = X86::TTRANSPOSED; break;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
     case X86::PTCONJTFP16V:                Opc = X86::TCONJTFP16; break;
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX

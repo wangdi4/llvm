@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_amx_lnc
+// REQUIRES: intel_feature_isa_amx_transpose
 // RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding %s | FileCheck %s
 
 // CHECK:      tilemovrow %xmm24, %tmm14, %zmm22

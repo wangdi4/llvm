@@ -260,8 +260,8 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
   case Intrinsic::x86_ttcmmimfp16ps_internal:
   case Intrinsic::x86_ttcmmrlfp16ps_internal:
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_LNC
-  // Fixme: Here suppose feature amx_lnc is base of amx_tf32 and amx_complex.
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  // Fixme: Here suppose feature amx_transpose is base of amx_tf32 and amx_complex.
   case Intrinsic::x86_ttdpbf16ps_internal:
   case Intrinsic::x86_ttdpfp16ps_internal:
   {
@@ -287,11 +287,11 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     }
     break;
   }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
   case Intrinsic::x86_tconjtfp16_internal:
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   case Intrinsic::x86_ttransposed_internal:
   {
     assert((OpNo == 3 || OpNo == 4) && "Illegal Operand Number.");
@@ -311,7 +311,7 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
     }
     break;
   }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_AVX512
   case Intrinsic::x86_tcvtrowps2pbf16he_internal:
   case Intrinsic::x86_tcvtrowps2pbf16hi_internal:

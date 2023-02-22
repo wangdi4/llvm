@@ -39981,12 +39981,12 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return X86::TMM0 + Imm;
   };
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   auto TMMImmToTMMPair = [](unsigned Imm) {
     assert (Imm < 8 && "Illegal tmm pair index.");
     return X86::TMM0_TMM1 + Imm / 2;
   };
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   auto TMMImmToTMMPairX = [](unsigned Imm) {
     assert (Imm < 32 && "Illegal tmm pair index.");
@@ -40723,7 +40723,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   case X86::PT2RPNTLVWZ0:
   case X86::PT2RPNTLVWZ0T1:
   case X86::PT2RPNTLVWZ1:
@@ -40862,7 +40862,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
   case X86::PTILE16MOVE:{
     const DebugLoc &DL = MI.getDebugLoc();
