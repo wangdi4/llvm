@@ -61,7 +61,9 @@
 using namespace llvm;
 
 #if INTEL_PRODUCT_RELEASE
+#if INTEL_FEATURE_SW_DTRANS
 extern cl::opt<bool> EnableDTrans;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_PRODUCT_RELEASE
 
 cl::opt<bool> PreservedCFGCheckerInstrumentation::VerifyPreservedCFG(
@@ -949,9 +951,11 @@ bool OptNoneInstrumentation::shouldRun(StringRef PassID, Any IR) {
 
 bool OptPassGateInstrumentation::shouldRun(StringRef PassName, Any IR) {
 #if INTEL_PRODUCT_RELEASE
+#if INTEL_FEATURE_SW_DTRANS
   // opt-bisect is disabled when DTrans is enabled.
   if (EnableDTrans)
     return true;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_PRODUCT_RELEASE
 
   if (isIgnored(PassName))
