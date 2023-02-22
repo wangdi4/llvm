@@ -4,9 +4,9 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -451,7 +451,12 @@ void __esimd_emu_lsc_offset_write(
              VecIdx += vectorIndexIncrement<N, _Transposed>()) {
 
       if ((ByteDistance >= 0) && (ByteDistance < BufByteWidth)) {
-        *((StoreType *)(WriteBase + ByteDistance)) = vals[VecIdx];
+        if constexpr (std::is_floating_point<Ty>::value) {
+          *((StoreType *)(WriteBase + ByteDistance)) =
+              sycl::bit_cast<StoreType>(vals[VecIdx]);
+        } else {
+          *((StoreType *)(WriteBase + ByteDistance)) = vals[VecIdx];
+        }
       }
     }
   }
@@ -1167,7 +1172,12 @@ __ESIMD_INTRIN void __esimd_lsc_store_stateless(
     for (int ChanelIdx = 0, VecIdx = AddrIdx; ChanelIdx < ChanlCount;
          ChanelIdx += 1, ByteDistance += rawAddressIncrement<Ty, DS>(),
              VecIdx += vectorIndexIncrement<N, _Transposed>()) {
-      *((StoreType *)(BaseAddr + ByteDistance)) = vals[VecIdx];
+      if constexpr (std::is_floating_point<Ty>::value) {
+        *((StoreType *)(BaseAddr + ByteDistance)) =
+            sycl::bit_cast<StoreType>(vals[VecIdx]);
+      } else {
+        *((StoreType *)(BaseAddr + ByteDistance)) = vals[VecIdx];
+      }
     }
   }
 }
