@@ -15,7 +15,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Intel_CPU_utils.h"
-#include "llvm/Support/X86TargetParser.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h"
@@ -70,14 +70,14 @@ static std::string getTargetFeatures(StringRef TargetCpu) {
 static Twine getTargetSuffix(StringRef TargetCpu) {
   return Twine(StringSwitch<char>(TargetCpu)
 #define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, MANGLING)
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
                    .Default(0));
 }
 
 static StringRef getLibIRCDispatchFeatures(StringRef TargetCpu) {
   StringRef Features = StringSwitch<StringRef>(TargetCpu)
 #define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, FEATURES)
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
                             .Default("");
   return Features;
 }
@@ -86,7 +86,7 @@ static StringRef CPUSpecificCPUDispatchNameDealias(StringRef Name) {
   return llvm::StringSwitch<StringRef>(Name)
 #define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, NAME)
 #define CPU_SPECIFIC_ALIAS_ADDITIONAL(NEW_NAME, NAME) .Case(NEW_NAME, NAME)
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
       .Default(Name);
 }
 
@@ -358,14 +358,14 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       const StringRef TargetCpu =
           getTargetCPUFromMD(cast<MDNode>(TargetInfoIt.get()));
 
-      // Get llvm/Support/X86TargetParser.def friendly target name.
+      // Get llvm/TargetParser/X86TargetParser.def friendly target name.
       const StringRef TargetCpuDealiased =
           CPUSpecificCPUDispatchNameDealias(TargetCpu);
 
       const StringRef LibIRCDispatchFeatures =
           getLibIRCDispatchFeatures(TargetCpuDealiased);
       // Skip target if it is not recognized by
-      // llvm/Support/X86TargetParser.def.
+      // llvm/TargetParser/X86TargetParser.def.
       assert(LibIRCDispatchFeatures != "" && "A target is not recognized!");
       if (LibIRCDispatchFeatures == "")
         continue;
@@ -500,7 +500,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     for (auto& I : FnClones) {
       const StringRef TargetCpu = I.first;
 
-      // Get llvm/Support/X86TargetParser.def friendly target name.
+      // Get llvm/TargetParser/X86TargetParser.def friendly target name.
       const StringRef TargetCpuDealiased = CPUSpecificCPUDispatchNameDealias(TargetCpu);
 
       auto *NewGA =

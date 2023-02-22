@@ -18,7 +18,7 @@
 ; <0>     END REGION
 
 ; Fully VPValue-based HIR codegen
-; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
 ; CHECK-HIR-LABEL: Function: foo_float
 ; CHECK-HIR: [[RED_INIT:%.*]] = -0.000000e+00;
@@ -32,7 +32,7 @@
 
 
 ; Fully VPValue-based LLVM-IR codegen
-; RUN: opt -passes=vpo-cfg-restructuring,vplan-vec -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
+; RUN: opt -opaque-pointers=0 -passes=vpo-cfg-restructuring,vplan-vec -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
 
 ; CHECK-LLVMIR-LABEL: @foo_float
 ; CHECK-LLVMIR-LABEL: vector.body:

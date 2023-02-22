@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
 ;Verify cmp instructions are correctly generated
 ;          BEGIN REGION { }
 ;<29>         + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>

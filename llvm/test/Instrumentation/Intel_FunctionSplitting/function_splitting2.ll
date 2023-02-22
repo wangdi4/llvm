@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=false -function-splitting-cold-threshold-percentage=5 -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=false -function-splitting-cold-threshold-percentage=5 -S | FileCheck %s
 
 ; This is a basic test for the Intel Function Splitting pass to verify
 ; branch frequency count gets used for the threshold, and propagates to

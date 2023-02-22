@@ -162,7 +162,10 @@ static uptr TaggedSize(uptr size) {
 
 static void *HwasanAllocate(StackTrace *stack, uptr orig_size, uptr alignment,
                             bool zeroise) {
-  if (orig_size > kMaxAllowedMallocSize) {
+  // Keep this consistent with LSAN and ASAN behavior.
+  if (UNLIKELY(orig_size == 0))
+    orig_size = 1;
+  if (UNLIKELY(orig_size > kMaxAllowedMallocSize)) {
     if (AllocatorMayReturnNull()) {
       Report("WARNING: HWAddressSanitizer failed to allocate 0x%zx bytes\n",
              orig_size);
@@ -532,6 +535,13 @@ uptr GetUserBegin(uptr chunk) {
     return 0;
 
   return reinterpret_cast<uptr>(block);
+}
+
+uptr GetUserAddr(uptr chunk) {
+  tag_t mem_tag = *(tag_t *)__hwasan::MemToShadow(chunk);
+  if (!__hwasan::InTaggableRegion(chunk))
+    return chunk;
+  return AddTagToPointer(chunk, mem_tag);
 }
 
 LsanMetadata::LsanMetadata(uptr chunk) {

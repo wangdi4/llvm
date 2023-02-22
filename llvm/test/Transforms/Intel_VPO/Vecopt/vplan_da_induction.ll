@@ -3,7 +3,7 @@
 ; This test checks that DA correctly identifies strides for different
 ; inductions-types like integer, pointer for privates as well as non-privates.
 
-; RUN: opt -passes=vplan-vec -vplan-dump-plan-da -vplan-dump-soa-info -disable-output \
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-dump-plan-da -vplan-dump-soa-info -disable-output \
 ; RUN: -vplan-force-vf=2 %s 2>&1 | FileCheck %s
 
 define void @test_induction_strides(i64* %g.arr) {

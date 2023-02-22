@@ -17077,9 +17077,6 @@ ScalarEvolution::computeSymbolicMaxBackedgeTakenCount(const Loop *L) {
 /// A rewriter to replace SCEV expressions in Map with the corresponding entry
 /// in the map. It skips AddRecExpr because we cannot guarantee that the
 /// replacement is loop invariant in the loop of the AddRec.
-///
-/// At the moment only rewriting SCEVUnknown and SCEVZeroExtendExpr is
-/// supported.
 class SCEVLoopGuardRewriter : public SCEVRewriteVisitor<SCEVLoopGuardRewriter> {
   const DenseMap<const SCEV *, const SCEV *> &Map;
 
@@ -17101,6 +17098,14 @@ public:
     auto I = Map.find(Expr);
     if (I == Map.end())
       return SCEVRewriteVisitor<SCEVLoopGuardRewriter>::visitZeroExtendExpr(
+          Expr);
+    return I->second;
+  }
+
+  const SCEV *visitSignExtendExpr(const SCEVSignExtendExpr *Expr) {
+    auto I = Map.find(Expr);
+    if (I == Map.end())
+      return SCEVRewriteVisitor<SCEVLoopGuardRewriter>::visitSignExtendExpr(
           Expr);
     return I->second;
   }
@@ -17185,10 +17190,6 @@ const SCEV *ScalarEvolution::applyLoopGuards(const SCEV *Expr, const Loop *L) {
       Predicate = CmpInst::getSwappedPredicate(Predicate);
     }
 
-    // Limit to expressions that can be rewritten.
-    if (!isa<SCEVUnknown>(LHS) && !isa<SCEVZeroExtendExpr>(LHS))
-      return;
-
     // Check whether LHS has already been rewritten. In that case we want to
     // chain further rewrites onto the already rewritten value.
     auto I = RewriteMap.find(LHS);
@@ -17196,10 +17197,14 @@ const SCEV *ScalarEvolution::applyLoopGuards(const SCEV *Expr, const Loop *L) {
 
     const SCEV *RewrittenRHS = nullptr;
     switch (Predicate) {
-    case CmpInst::ICMP_ULT:
+    case CmpInst::ICMP_ULT: {
+      if (RHS->getType()->isPointerTy())
+        break;
+      const SCEV *One = getOne(RHS->getType());
       RewrittenRHS =
-          getUMinExpr(RewrittenLHS, getMinusSCEV(RHS, getOne(RHS->getType())));
+          getUMinExpr(RewrittenLHS, getMinusSCEV(getUMaxExpr(RHS, One), One));
       break;
+    }
     case CmpInst::ICMP_SLT:
       RewrittenRHS =
           getSMinExpr(RewrittenLHS, getMinusSCEV(RHS, getOne(RHS->getType())));

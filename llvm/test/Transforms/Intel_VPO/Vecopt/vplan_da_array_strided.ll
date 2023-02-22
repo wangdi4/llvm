@@ -21,7 +21,7 @@
 ; }
 ;
 ; REQUIRES: asserts
-; RUN: opt < %s -passes="vplan-vec" -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="vplan-vec" -vplan-dump-da -vplan-force-vf=4 -S 2>&1 | FileCheck %s
 ; Check DA results
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[IV:%vp.*]] = phi  [ i64 [[IV_ADD:%vp.*]], {{.*}} ],  [ i64 [[IND_INIT:%vp.*]], {{.*}} ]
 ; The first GEP from the GEP split should be unit strided and the next one should be strided.

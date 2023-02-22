@@ -1,4 +1,4 @@
-; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-blocking" -print-after=hir-loop-blocking -print-before=hir-loop-blocking -aa-pipeline="basic-aa" -hir-loop-blocking-skip-anti-pattern-check 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-blocking" -print-after=hir-loop-blocking -print-before=hir-loop-blocking -aa-pipeline="basic-aa" -hir-loop-blocking-skip-anti-pattern-check 2>&1 < %s | FileCheck %s
 
 ; Verify that the transformations end successfully
 

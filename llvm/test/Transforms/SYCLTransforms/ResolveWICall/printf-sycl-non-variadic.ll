@@ -1,5 +1,5 @@
-; RUN: opt -passes='debugify,sycl-kernel-resolve-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes='sycl-kernel-resolve-wi-call' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='debugify,sycl-kernel-resolve-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-resolve-wi-call' -S %s | FileCheck %s
 
 ; Check that arguments in sycl non-variadic printf are stored into argument
 ; buffer according to their actual size.

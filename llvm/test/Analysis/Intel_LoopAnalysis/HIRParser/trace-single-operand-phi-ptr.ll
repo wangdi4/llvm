@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -xmain-opt-level=3 -hir-framework-debug=parser 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir>" -xmain-opt-level=3 -hir-framework-debug=parser 2>&1 | FileCheck %s
 
 ; Verify that %incdec.ptr is parsed as linear in the loop bottom test by
 ; tracing through single operand phi %J.ptr.1.

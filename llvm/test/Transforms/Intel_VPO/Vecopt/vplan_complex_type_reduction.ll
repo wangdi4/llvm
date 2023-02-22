@@ -2,10 +2,10 @@
 ; reductions.
 
 ; REQUIRES: asserts
-; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -S -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s --check-prefix=LLVM-IR
-; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s --check-prefix=LLVM-IR
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -debug-only=HIRLegality -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-force-vf=2 -S -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s --check-prefix=LLVM-IR
+; RUN: opt -opaque-pointers=0 -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s --check-prefix=LLVM-IR
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -debug-only=HIRLegality -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 ; LLVM-IR: Complex type reductions are not supported
 ; LLVM-IR: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED"(%complex_64bit* %sum, %complex_64bit zeroinitializer, i32 1) ]

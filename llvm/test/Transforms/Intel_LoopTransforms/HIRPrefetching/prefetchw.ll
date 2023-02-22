@@ -1,7 +1,7 @@
 ; Check that RW type of prefetch intrinsic is 1(write) for the indirect store memref @A when
 ; prefetchw is enabled.
 ;
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-prefetchw=true 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-prefetchw=true 2>&1 < %s | FileCheck %s
 ;
 ; Source code
 ;#pragma  prefetch A:1:40

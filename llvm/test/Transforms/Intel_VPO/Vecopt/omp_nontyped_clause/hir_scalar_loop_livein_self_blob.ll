@@ -1,4 +1,4 @@
-; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -vplan-enable-general-peeling-hir -vplan-force-vf=4 -hir-details -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -vplan-enable-general-peeling-hir -vplan-force-vf=4 -hir-details -disable-output 2>&1 < %s | FileCheck %s
 ;
 ; When initializing required live-in temps before the scalar remainder loop,
 ; the initialized temps were not being converted to self blobs. As a result,

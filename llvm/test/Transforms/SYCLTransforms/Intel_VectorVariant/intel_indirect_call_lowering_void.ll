@@ -1,5 +1,5 @@
-; RUN: opt %s -passes=sycl-kernel-indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt %s -passes=sycl-kernel-indirect-call-lowering -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-indirect-call-lowering -S | FileCheck %s
 
 define void @foo() {
 simd.begin.region:

@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes="vplan-vec" -vplan-dump-da -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="vplan-vec" -vplan-dump-da -S 2>&1 | FileCheck %s
 
 ; Test stride for shl instruction. It should be stride of 2 and not random. 
 

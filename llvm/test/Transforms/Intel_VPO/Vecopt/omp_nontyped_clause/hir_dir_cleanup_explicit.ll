@@ -1,4 +1,4 @@
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' %s 2>&1 -disable-output | FileCheck %s
 
 ; CHECK: BEGIN REGION
 ; CHECK-NOT: llvm.directive.region.entry

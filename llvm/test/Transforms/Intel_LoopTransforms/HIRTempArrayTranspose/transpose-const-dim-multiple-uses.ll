@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose"  -print-after=hir-temp-array-transpose -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose"  -print-after=hir-temp-array-transpose -disable-output 2>&1 | FileCheck %s
 
 
 ; Check that we transpose the array with following dims: [i4][i3 + sext.i32.i64(%tmp1884) + -1].

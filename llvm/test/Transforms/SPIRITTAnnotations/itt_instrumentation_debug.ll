@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=SPIRITTAnnotations -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=SPIRITTAnnotations -S | FileCheck %s
 
 ; Verify that SPIRITTAnnotations pass inherits the debug information
 ; from the insertion points:

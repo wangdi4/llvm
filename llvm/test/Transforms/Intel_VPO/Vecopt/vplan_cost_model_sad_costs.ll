@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
+; RUN: opt -opaque-pointers=0 < %s -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -mattr=+avx2 -disable-output \
 ; RUN:     -vplan-cost-model-print-analysis-for-vf=4 | FileCheck %s
 

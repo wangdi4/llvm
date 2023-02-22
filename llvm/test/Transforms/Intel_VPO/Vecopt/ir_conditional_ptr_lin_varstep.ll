@@ -3,7 +3,7 @@
 ; Test for that induction which has updates under conditions is processed correctly
 ; (i.e. induction init/final are processed correctly).
 ; REQUIRES: asserts
-; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-induction-init-details -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-induction-init-details -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: VPlan after insertion of VPEntities instructions:
 ; CHECK:         i64 [[VP_STEP1:%.*]] = inv-scev-wrapper{ ((8 * %step) /u 8) }

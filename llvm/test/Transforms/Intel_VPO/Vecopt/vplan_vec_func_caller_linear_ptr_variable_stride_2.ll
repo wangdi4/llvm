@@ -1,5 +1,5 @@
-; RUN: opt -passes=vplan-vec -S < %s  | FileCheck %s
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg -S < %s  | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -S < %s  | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-cg -S < %s  | FileCheck %s
 
 ; Test to check that the vector variant is called for a parameter that is variable
 ; linear integer stride for pointer arg. i.e., the s encoding for vector variants.

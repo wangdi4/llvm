@@ -21,7 +21,7 @@
 ;   return b[0];
 ; }
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: i64 [[IVPhi:%.*]] = phi  [ i64 0, {{BB.*}} ],  [ i64 {{%.*}}, {{BB.*}} ]
 ; CHECK: i32 [[Phi:%.*]] = phi  [ i32 [[IfT1:%.*]], [[ThenBB:BB.*]] ],  [ i32 [[ElseT1:%.*]], [[ElseBB:BB.*]] ]

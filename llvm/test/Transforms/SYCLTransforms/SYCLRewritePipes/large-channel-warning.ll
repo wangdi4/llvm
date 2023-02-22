@@ -1,5 +1,5 @@
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-rewrite-pipes -disable-output -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -passes=sycl-kernel-rewrite-pipes -disable-output -S %s 2>&1 | FileCheck %s
 
 ; CHECK: warning: Large channel may lead to memory allocation failure:
 ; CHECK-NEXT: Channel name: _ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE

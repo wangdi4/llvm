@@ -1,4 +1,4 @@
-; RUN: opt -S -passes="vplan-vec" -vplan-print-after-plain-cfg -vplan-entities-dump %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="vplan-vec" -vplan-print-after-plain-cfg -vplan-entities-dump %s | FileCheck %s
 
 ; CHECK-LABEL: Private list
 ; CHECK-EMPTY:

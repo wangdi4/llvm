@@ -23,7 +23,7 @@
 ; END REGION
 
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

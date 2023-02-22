@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;   for (index = 0; index < 1024; index++)
 ;     ip[index] = index;
 ; }
-; RUN: opt -passes=vplan-vec -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -S %s | FileCheck %s
 
 ; This test checks that scalar IV steps are not generated in vector loop
 ; CHECK: VPlannedBB1:

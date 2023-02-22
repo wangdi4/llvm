@@ -8,8 +8,8 @@
 ;   }
 ; }
 
-; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-128 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-512 %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-128 %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec,verify -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-512 %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

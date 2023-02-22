@@ -1,6 +1,6 @@
-; RUN: opt < %s -mtriple=x86_64-pc-linux -mattr=+avx -interleaved-access -S | FileCheck %s
-; RUN: opt < %s -mtriple=x86_64-pc-linux -mattr=+avx2 -interleaved-access -S | FileCheck %s
-; RUN: opt < %s -mtriple=x86_64-pc-linux -mattr=+avx512f -mattr=+avx512bw -mattr=+avx512vl -interleaved-access -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -mtriple=x86_64-pc-linux -mattr=+avx -interleaved-access -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -mtriple=x86_64-pc-linux -mattr=+avx2 -interleaved-access -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -mtriple=x86_64-pc-linux -mattr=+avx512f -mattr=+avx512bw -mattr=+avx512vl -interleaved-access -S | FileCheck %s
 
 ; This test file is derived from interleaved-access_Intel.ll, but uses
 ; non-default address spaces. These tests used to crash the compiler.

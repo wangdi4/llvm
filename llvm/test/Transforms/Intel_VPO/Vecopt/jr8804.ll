@@ -1,7 +1,7 @@
 ; Regression test from CMPLRLLVM-8804. Test that the block predicate is placed at
 ; correct location before the store.
 ; REQUIRES: asserts
-; RUN: opt -S -passes="vplan-vec" %s -debug 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="vplan-vec" %s -debug 2>&1 | FileCheck %s
 ; CHECK: VPlan after predication
 ; CHECK-COUNT-5: BB{{[0-9]+}}:
 ; CHECK-NEXT: block-predicate

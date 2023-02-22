@@ -1,5 +1,5 @@
 ;
-; RUN: opt -passes='vplan-vec' -disable-output -disable-output -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='vplan-vec' -disable-output -disable-output -vplan-print-after-vpentity-instrs -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant < %s 2>&1 | FileCheck %s
 
 ; TODO: Enable test for HIR when vectors are supported by loopopt
 

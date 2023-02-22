@@ -14,7 +14,7 @@
 ;  return x.a;
 ; }
 
-; RUN: opt -S -passes=vplan-vec -vplan-force-vf=2 -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-vec-scenario="n0;v2;m2" -vplan-print-after-final-cond-transform -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-force-vf=2 -vplan-print-after-create-masked-vplan -vplan-enable-masked-variant -vplan-vec-scenario="n0;v2;m2" -vplan-print-after-final-cond-transform -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

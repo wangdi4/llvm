@@ -1,5 +1,5 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-force-vf=4 -debug-only=vplan-alignment-analysis < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-force-vf=4 -vplan-cm-store-cost-adjustment=10.0 -debug-only=vplan-alignment-analysis < %s 2>&1 | FileCheck %s --check-prefix=ADJCOST
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-force-vf=4 -debug-only=vplan-alignment-analysis < %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-force-vf=4 -vplan-cm-store-cost-adjustment=10.0 -debug-only=vplan-alignment-analysis < %s 2>&1 | FileCheck %s --check-prefix=ADJCOST
 ;
 ; LIT test to check cost model load/store adjustment options.
 ;

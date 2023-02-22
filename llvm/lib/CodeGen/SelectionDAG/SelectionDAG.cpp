@@ -1391,19 +1391,6 @@ SDNode *SelectionDAG::FindNodeOrInsertPos(const FoldingSetNodeID &ID,
   return N;
 }
 
-void SelectionDAG::addPCSections(
-    const SDNode *Node, MDNode *MD,
-    SmallPtrSet<const llvm::SDNode *, 32> &Visited) {
-  // If we've been here before, return now.
-  if (!Visited.insert(Node).second)
-    return;
-
-  SDEI[Node].PCSections = MD;
-
-  for (const SDValue &Op : Node->op_values())
-    addPCSections(Op.getNode(), MD, Visited);
-}
-
 void SelectionDAG::clear() {
   allnodes_clear();
   OperandRecycler.clear(OperandAllocator);
@@ -4980,9 +4967,21 @@ bool SelectionDAG::isKnownNeverZeroFloat(SDValue Op) const {
          "Floating point type expected");
 
   // If the value is a constant, we can obviously see if it is a zero or not.
-  // TODO: Add BuildVector support.
   if (const ConstantFPSDNode *C = dyn_cast<ConstantFPSDNode>(Op))
     return !C->isZero();
+
+  // Return false if we find any zero in a vector.
+  if (Op->getOpcode() == ISD::BUILD_VECTOR ||
+      Op->getOpcode() == ISD::SPLAT_VECTOR) {
+    for (const SDValue &OpVal : Op->op_values()) {
+      if (OpVal.isUndef())
+        return false;
+      if (auto *C = dyn_cast<ConstantFPSDNode>(OpVal))
+        if (C->isZero())
+          return false;
+    }
+    return true;
+  }
   return false;
 }
 
@@ -5780,6 +5779,10 @@ static std::optional<APInt> FoldValue(unsigned Opcode, const APInt &C1,
     APInt C2Ext = C2.zext(FullWidth);
     return (C1Ext + C2Ext + 1).extractBits(C1.getBitWidth(), 1);
   }
+  case ISD::ABDS:
+    return APIntOps::smax(C1, C2) - APIntOps::smin(C1, C2);
+  case ISD::ABDU:
+    return APIntOps::umax(C1, C2) - APIntOps::umin(C1, C2);
   }
   return std::nullopt;
 }

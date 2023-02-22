@@ -1,4 +1,4 @@
-; RUN: opt -disable-output -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-induction-init-details < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -disable-output -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-induction-init-details < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; This test makes sure iv range analyis during induction importing can handle ptr inductions.

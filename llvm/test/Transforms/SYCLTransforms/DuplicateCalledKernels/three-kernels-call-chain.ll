@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-duplicate-called-kernels %s -S | FileCheck %s
 
 ; Check the case kernel 'test' is used in kernel 'test2' and 'test2' is used in
 ; kernel 'test3'.

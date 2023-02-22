@@ -1,5 +1,5 @@
-; RUN: opt < %s -passes='require<anders-aa>,function(gvn)' -aa-pipeline=basic-aa,anders-aa -S | FileCheck %s
-; RUN: opt < %s -passes='require<anders-aa>,function(gvn)' -aa-pipeline=basic-aa,anders-aa -anders-mod-ref-before-inl=true -S | FileCheck %s --check-prefix=CHECK-BEFOREINL
+; RUN: opt -opaque-pointers=0 < %s -passes='require<anders-aa>,function(gvn)' -aa-pipeline=basic-aa,anders-aa -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes='require<anders-aa>,function(gvn)' -aa-pipeline=basic-aa,anders-aa -anders-mod-ref-before-inl=true -S | FileCheck %s --check-prefix=CHECK-BEFOREINL
 
 ; Test where static global is address taken, but can be determined to not be modified by the routine
 ; doesnotmodX, even though that routine modifies memory.

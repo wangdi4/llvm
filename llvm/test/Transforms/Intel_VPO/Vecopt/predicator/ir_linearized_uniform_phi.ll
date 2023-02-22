@@ -2,8 +2,8 @@
 ; RUN: opt -enable-new-pm=0 -vplan-vec -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-print-after-predicator -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPLAN
 ; RUN: opt -enable-new-pm=0 -vplan-vec -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CG
 
-; RUN: opt -passes='vplan-vec' -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-print-after-predicator -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPLAN
-; RUN: opt -passes='vplan-vec' -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CG
+; RUN: opt -opaque-pointers=0 -passes='vplan-vec' -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-print-after-predicator -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPLAN
+; RUN: opt -opaque-pointers=0 -passes='vplan-vec' -vplan-force-vf=2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CG
 
 define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; VPLAN-LABEL:  VPlan after predicator:

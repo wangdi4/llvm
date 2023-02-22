@@ -411,7 +411,7 @@ OpenMPLateOutliner::emitArraySectionData(const Expr *E, CodeGenFunction &CGF) {
         CGF.EmitScalarConversion(CGF.EmitScalarExpr(Length), Length->getType(),
                                  C.getSizeType(), Length->getExprLoc());
   } else {
-    Optional<llvm::APSInt> ConstLength;
+    std::optional<llvm::APSInt> ConstLength;
     if (auto *VAT = C.getAsVariableArrayType(BaseTy)) {
       Length = VAT->getSizeExpr();
       ConstLength = Length->getIntegerConstantExpr(C);

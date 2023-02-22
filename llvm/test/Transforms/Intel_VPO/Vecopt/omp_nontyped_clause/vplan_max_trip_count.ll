@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -S -passes=vplan-vec -debug-only=VPlanHCFGBuilder -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -debug-only=VPlanHCFGBuilder -disable-output < %s 2>&1 | FileCheck %s
 
 ;; Estimate max TC for the loop using ScalarEvolution.
 

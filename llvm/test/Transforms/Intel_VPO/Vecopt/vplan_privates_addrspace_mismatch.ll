@@ -4,7 +4,7 @@
 ; addrspace and an explicit addrspacecast if the addrspace of generated wide
 ; alloca does not match the private pointer's addrspace.
 
-; RUN: opt %s -passes=vplan-vec -vplan-force-vf=2 -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 %s -passes=vplan-vec -vplan-force-vf=2 -S | FileCheck %s
 
 define internal void @test_soa(i8** %arr) #3 {
 ; CHECK-LABEL: @test_soa(

@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=vplan-vec -disable-vplan-predicator %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -disable-vplan-predicator %s | FileCheck %s
 
 ;#define N 1024
 ;#define SIZE 1024*10

@@ -2,8 +2,8 @@
 ; FIXME: It is not supposed to be vectorized by default. Behavior changed after https://reviews.llvm.org/D135282.
 ;        Threshold 7 added to unblock pulldown process.
 ;        Increased threshold to 8 (presumably after https://reviews.llvm.org/D141512).
-; RUN: opt < %s -passes=slp-vectorizer -S -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake -slp-threshold=8 | FileCheck %s
-; RUN: opt < %s -passes=slp-vectorizer -slp-threshold=-3 -S -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake | FileCheck %s -check-prefix=FORCE-VECT
+; RUN: opt -opaque-pointers=0 < %s -passes=slp-vectorizer -S -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake -slp-threshold=8 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=slp-vectorizer -slp-threshold=-3 -S -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake | FileCheck %s -check-prefix=FORCE-VECT
 
 @input_buf = external constant [512 x i8], align 16
 

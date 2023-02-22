@@ -20,7 +20,7 @@
 ;<38>            + END LOOP
 ;<0>       END REGION
 
-; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="loop-simplify,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg" -S < %s | FileCheck %s
 ; CHECK: entry
 
 ; terminator of entry bblock should point to new unrolled region.
@@ -53,7 +53,7 @@
 
 ; Check that proper optreport order is emitted for deleted loops (Completely Unrolled).
 ; Emitted structure has one remark for completely unrolled loops assigned to the parent loop (because all inner loops are unrolled).
-; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s --check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s --check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     remark #25436: Loop completely unrolled by 2

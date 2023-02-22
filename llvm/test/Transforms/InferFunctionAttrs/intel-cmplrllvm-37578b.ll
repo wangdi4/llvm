@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -passes=inferattrs | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -S -passes=inferattrs | FileCheck %s
 
 ; Regression test for CMPLRLLVM-37578. This test is to verify that the external
 ; library function 'getopt_long' does not get marked with the 'argmemonly'

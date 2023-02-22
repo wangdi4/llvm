@@ -1,4 +1,4 @@
-; RUN: opt -implicit-gid-handle-barrier=false -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -implicit-gid-handle-barrier=false -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
 
 ; This test checks that implicit gids are added to non-inlined function.
 

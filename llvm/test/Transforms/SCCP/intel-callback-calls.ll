@@ -1,4 +1,4 @@
-; RUN: opt -passes=ipsccp -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=ipsccp -S %s | FileCheck %s
 ;
 ; Check that B = 5 is propagated to the callback function from bar().
 ;

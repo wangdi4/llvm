@@ -1,4 +1,4 @@
-; RUN: opt -S -aa-pipeline=basic-aa -passes='require<opt-remark-emit>,loop-mssa(licm)' < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -aa-pipeline=basic-aa -passes='require<opt-remark-emit>,loop-mssa(licm)' < %s | FileCheck %s
 
 ; Check that loads %A.03 and %s may be hoisted of the loop by LICM.
 ; Note: the %s load address is computed by @llvm.intel.subscript intrinsic.

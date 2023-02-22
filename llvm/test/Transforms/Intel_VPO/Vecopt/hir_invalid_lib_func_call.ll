@@ -4,7 +4,7 @@
 ; then we should serialize the call instead of vectorizing with vector
 ; library.
 
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vector-library=SVML -vplan-print-after-call-vec-decisions -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>' -vector-library=SVML -vplan-print-after-call-vec-decisions -disable-output %s 2>&1 | FileCheck %s
 
 ; CHECK: VPlan after CallVecDecisions analysis
 ; CHECK:   [DA: Div] float {{%.*}} = call float* {{%.*}} float (float*)* @cdfnormf [Serial]

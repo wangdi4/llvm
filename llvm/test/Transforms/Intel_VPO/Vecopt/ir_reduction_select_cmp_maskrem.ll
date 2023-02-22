@@ -1,4 +1,4 @@
-;RUN: opt -passes=vplan-vec -vplan-enable-masked-vectorized-remainder -vplan-masked-remainder-gain-threshold=0 -S %s | FileCheck %s
+;RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-enable-masked-vectorized-remainder -vplan-masked-remainder-gain-threshold=0 -S %s | FileCheck %s
 
 ; CHECK-LABEL: @reduc_select_icmp_var_maskrem
 ; CHECK: vector.body

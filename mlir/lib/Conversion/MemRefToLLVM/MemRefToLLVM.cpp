@@ -25,7 +25,7 @@
 #include <optional>
 
 namespace mlir {
-#define GEN_PASS_DEF_MEMREFTOLLVMCONVERSIONPASS
+#define GEN_PASS_DEF_FINALIZEMEMREFTOLLVMCONVERSIONPASS
 #include "mlir/Conversion/Passes.h.inc"
 } // namespace mlir
 
@@ -731,7 +731,8 @@ struct LoadOpLowering : public LoadStoreOpLowering<memref::LoadOp> {
     Value dataPtr =
         getStridedElementPtr(loadOp.getLoc(), type, adaptor.getMemref(),
                              adaptor.getIndices(), rewriter);
-    rewriter.replaceOpWithNewOp<LLVM::LoadOp>(loadOp, dataPtr);
+    rewriter.replaceOpWithNewOp<LLVM::LoadOp>(loadOp, dataPtr, 0, false,
+                                              loadOp.getNontemporal());
     return success();
   }
 };
@@ -748,7 +749,8 @@ struct StoreOpLowering : public LoadStoreOpLowering<memref::StoreOp> {
 
     Value dataPtr = getStridedElementPtr(op.getLoc(), type, adaptor.getMemref(),
                                          adaptor.getIndices(), rewriter);
-    rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(), dataPtr);
+    rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(), dataPtr,
+                                               0, false, op.getNontemporal());
     return success();
   }
 };
@@ -1703,8 +1705,8 @@ public:
 
 } // namespace
 
-void mlir::populateMemRefToLLVMConversionPatterns(LLVMTypeConverter &converter,
-                                                  RewritePatternSet &patterns) {
+void mlir::populateFinalizeMemRefToLLVMConversionPatterns(
+    LLVMTypeConverter &converter, RewritePatternSet &patterns) {
   // clang-format off
   patterns.add<
       AllocaOpLowering,
@@ -1741,9 +1743,11 @@ void mlir::populateMemRefToLLVMConversionPatterns(LLVMTypeConverter &converter,
 }
 
 namespace {
-struct MemRefToLLVMConversionPass
-    : public impl::MemRefToLLVMConversionPassBase<MemRefToLLVMConversionPass> {
-  using MemRefToLLVMConversionPassBase::MemRefToLLVMConversionPassBase;
+struct FinalizeMemRefToLLVMConversionPass
+    : public impl::FinalizeMemRefToLLVMConversionPassBase<
+          FinalizeMemRefToLLVMConversionPass> {
+  using FinalizeMemRefToLLVMConversionPassBase::
+      FinalizeMemRefToLLVMConversionPassBase;
 
   void runOnOperation() override {
     Operation *op = getOperation();
@@ -1762,7 +1766,7 @@ struct MemRefToLLVMConversionPass
     LLVMTypeConverter typeConverter(&getContext(), options,
                                     &dataLayoutAnalysis);
     RewritePatternSet patterns(&getContext());
-    populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
+    populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
     LLVMConversionTarget target(getContext());
     target.addLegalOp<func::FuncOp>();
     if (failed(applyPartialConversion(op, target, std::move(patterns))))

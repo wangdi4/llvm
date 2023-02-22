@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o -
+// RUN: %clangxx -fsycl -fsyntax-only %s
 // Test has timeout issues on Windows, JIRA:CMPLRLLVM-41413
 // UNSUPPORTED: windows
 

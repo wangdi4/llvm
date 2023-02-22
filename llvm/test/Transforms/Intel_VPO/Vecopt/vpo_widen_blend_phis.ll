@@ -1,7 +1,7 @@
 ; This tests check that we correctly widen non-induction phi's and the select
 ; instruction when their original operands are vector-types to begin with.
 
-; RUN: opt -S -passes=vplan-vec -vplan-enable-all-zero-bypass-loops=false -vplan-force-vf=2 %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-enable-all-zero-bypass-loops=false -vplan-force-vf=2 %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

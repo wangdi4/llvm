@@ -2,7 +2,7 @@
 ; Test to check that we make it obvious that vector loop backedge will never
 ; be taken when the scalar loop trip count is equal to VF.
 
-; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=8 -vplan-print-after-single-trip-count-opt -disable-output < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="vplan-vec" -vplan-force-vf=8 -vplan-print-after-single-trip-count-opt -disable-output < %s | FileCheck %s
 
 @arr = common dso_local local_unnamed_addr global i32* null, align 8
 

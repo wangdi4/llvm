@@ -32,8 +32,8 @@
 ; Compilation command:
 ; clang -cc1 -x cl -cl-std=CL2.0 -triple spir64 -emit-llvm -disable-llvm-passes -finclude-default-header set_block_size_metadata.cl -o set_block_size_metadata.ll
 
-; RUN: opt -passes=sycl-kernel-equalizer %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes=sycl-kernel-equalizer %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-equalizer %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-equalizer %s -S | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-lmm,print<hir>,print,hir-cg" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll,hir-lmm,print<hir>,print,hir-cg" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Check that by providing precise location info to basic-aa for region invariant
 ; refs, we are able to disambiguate between (%bc2)[1] (which is equivalent to

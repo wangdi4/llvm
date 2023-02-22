@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -passes=optimize-dyn-casts | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -S -passes=optimize-dyn-casts | FileCheck %s
 
 
 ; Test case with dlopen that loads dynamic library in runtime.

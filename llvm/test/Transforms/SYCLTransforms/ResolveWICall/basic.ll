@@ -1,5 +1,5 @@
-; RUN: opt -passes='sycl-kernel-add-implicit-args,debugify,sycl-kernel-resolve-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes='sycl-kernel-add-implicit-args,sycl-kernel-resolve-wi-call' -S %s | FileCheck %s --check-prefixes CHECK,CHECK-ARG
+; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-add-implicit-args,debugify,sycl-kernel-resolve-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-add-implicit-args,sycl-kernel-resolve-wi-call' -S %s | FileCheck %s --check-prefixes CHECK,CHECK-ARG
 ; RUN: opt -sycl-kernel-enable-tls-globals -passes='sycl-kernel-add-tls-globals,debugify,sycl-kernel-resolve-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -sycl-kernel-enable-tls-globals -passes='sycl-kernel-add-tls-globals,sycl-kernel-resolve-wi-call' -S %s | FileCheck %s --check-prefixes CHECK,CHECK-TLS
 

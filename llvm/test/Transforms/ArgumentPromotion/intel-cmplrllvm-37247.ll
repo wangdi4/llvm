@@ -1,4 +1,4 @@
-; RUN: opt -passes=argpromotion -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=argpromotion -S < %s | FileCheck %s
 
 ; Check that argument promotion was not performed on mutually recursive
 ; functions.

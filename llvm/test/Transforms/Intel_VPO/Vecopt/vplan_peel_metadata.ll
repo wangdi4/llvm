@@ -1,5 +1,5 @@
-; RUN: opt -S -mattr=avx2 -passes=vplan-vec -vplan-enable-peeling < %s | FileCheck %s
-; RUN: opt -S -mattr=avx2 -passes=vplan-vec -vplan-enable-peeling \
+; RUN: opt -opaque-pointers=0 -S -mattr=avx2 -passes=vplan-vec -vplan-enable-peeling < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -mattr=avx2 -passes=vplan-vec -vplan-enable-peeling \
 ; RUN:     -vplan-enable-general-peeling-cost-model=false < %s \
 ; RUN: | FileCheck %s
 

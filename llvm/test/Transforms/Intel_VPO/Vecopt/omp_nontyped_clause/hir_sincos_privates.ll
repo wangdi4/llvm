@@ -1,7 +1,7 @@
 ; Test to verify that VPlan HIR vectorizer correctly handles a loop with a call
 ; to 'sincos' with SIMD private arguments.
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vector-library=SVML -disable-output -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vector-library=SVML -disable-output -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck %s
 
 ; CHECK:             BEGIN REGION { modified }
 ; CHECK:                   + DO i1 = 0, 127, 4   <DO_LOOP> <simd-vectorized> <novectorize>

@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg" < %s -force-hir-cg -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg" < %s -force-hir-cg -S 2>&1 | FileCheck %s
 
 ; This run command verifies that code generation is successful without compfails for opaque pinters.
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg

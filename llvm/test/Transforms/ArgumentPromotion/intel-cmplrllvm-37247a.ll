@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -passes=argpromotion -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=argpromotion -S < %s | FileCheck %s
 
 ; Check that arg promotion did not happen on the single argument recursive
 ; function @_Z3fooR9_MYSTRUCT because it was inhibited by the attribute

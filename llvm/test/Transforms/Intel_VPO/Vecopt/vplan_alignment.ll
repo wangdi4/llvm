@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=vplan-vec -vplan-enable-peeling=false < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-enable-peeling=false < %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 

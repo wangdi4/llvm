@@ -1,4 +1,4 @@
-; RUN: opt -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the DataPerValue pass

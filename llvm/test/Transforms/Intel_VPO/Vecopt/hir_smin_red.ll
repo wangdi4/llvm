@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=8 -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=8 -vplan-print-after-vpentity-instrs -vplan-entities-dump -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that the reduction with the intrinsic llvm.smin
 ; was vectorized correctly. It was created from the following test case:

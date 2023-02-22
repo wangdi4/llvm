@@ -1,5 +1,5 @@
-; RUN: opt -passes='sycl-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes='sycl-kernel-prepare-args' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-prepare-args' -S %s | FileCheck %s
 
 ; This test checks that barrier special buffer size is rounded up to multiple of
 ; VF in vectorized masked kernel.

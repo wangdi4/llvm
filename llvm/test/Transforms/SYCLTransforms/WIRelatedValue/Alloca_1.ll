@@ -1,4 +1,4 @@
-; RUN: opt -disable-output 2>&1 -passes='print<sycl-kernel-barrier-wi-analysis>' %s -S -o - | FileCheck %s
+; RUN: opt -opaque-pointers=0 -disable-output 2>&1 -passes='print<sycl-kernel-barrier-wi-analysis>' %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the WIRelatedValue pass

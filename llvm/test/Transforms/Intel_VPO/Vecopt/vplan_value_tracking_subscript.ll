@@ -2,7 +2,7 @@
 ; This test checks that we compute correct known bits for subscript
 ; instructions.
 
-; RUN: opt -S < %s -passes='hir-ssa-deconstruction,hir-vplan-vec' -vplan-force-vf=2 -disable-output \
+; RUN: opt -opaque-pointers=0 -S < %s -passes='hir-ssa-deconstruction,hir-vplan-vec' -vplan-force-vf=2 -disable-output \
 ; RUN:   -vplan-print-after-init -vplan-dump-known-bits 2>&1 | FileCheck %s
 
 define void @foo(i64 *%array) {

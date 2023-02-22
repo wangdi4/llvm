@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=sccp -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=sccp -S | FileCheck %s
 
 ; Verify that @llvm.directive.region.entry() is also removed when we fold known
 ; true/false conditional branches making 'exit' block with

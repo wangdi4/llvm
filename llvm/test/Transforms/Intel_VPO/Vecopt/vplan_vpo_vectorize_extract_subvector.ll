@@ -1,7 +1,7 @@
 ; Test to check that extract-element instruction, in incoming IR is correctly handled.
 ; We want to check that the right reduce-shuffle is generated.
 
-; RUN: opt -S -passes=vplan-vec -vplan-force-vf=8 %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-force-vf=8 %s | FileCheck %s
 
 ; CHECK:      [[E7:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <2 x i32> <i32 14, i32 15>
 ; CHECK-NEXT: [[E6:%.*]] = shufflevector <16 x i32> [[VAR:%.*]], <16 x i32> undef, <2 x i32> <i32 12, i32 13>

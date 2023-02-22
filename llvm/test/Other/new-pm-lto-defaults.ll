@@ -200,8 +200,10 @@
 ; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: TargetIRAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
 ; END INTEL_CUSTOMIZATION
-; CHECK-O23SZ: Running pass: GlobalDCEPass
+; CHECK-O23SZ-NEXT: Running pass: OpenMPOptPass
+; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
 ; CHECK-O23SZ-NEXT: Running analysis: LazyCallGraphAnalysis
@@ -223,6 +225,7 @@
 ; CHECK-O23SZ-NEXT: Running analysis: StdContainerAA
 ; END INTEL_CUSTOMIZATION
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
+; CHECK-O23SZ-NEXT: Running pass: ConstraintEliminationPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
 ; INTEL_CUSTOMIZATION

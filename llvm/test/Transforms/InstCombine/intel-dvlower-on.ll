@@ -1,4 +1,4 @@
-; RUN: opt -passes=instcombine -instcombine-preserve-for-dtrans=false < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=instcombine -instcombine-preserve-for-dtrans=false < %s -S 2>&1 | FileCheck %s
 
 ; Check that when -instcombine-preserve-for-dtrans=false, a dope vector store is lowered into a series of field stores.
 

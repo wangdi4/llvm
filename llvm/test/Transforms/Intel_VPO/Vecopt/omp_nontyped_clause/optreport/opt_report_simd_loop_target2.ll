@@ -1,8 +1,8 @@
 ; Test to check the functionality of target check of vectorization opt-report for LLVM-IR based vectorizer.
 ; Test should fail if remark #15569(Compiler has chosen to target XMM/YMM vector) is emitted for code with #pragma omp simd
 
-; RUN: opt -S -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=high -disable-output 2>&1 < %s | FileCheck %s
-; RUN: opt -S -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=high -disable-output -enable-intel-advanced-opts -mcpu=skylake-avx512  2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=high -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=high -disable-output -enable-intel-advanced-opts -mcpu=skylake-avx512  2>&1 < %s | FileCheck %s
 
 ; CHECK-NOT:   remark #15569
 

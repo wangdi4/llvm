@@ -1,11 +1,11 @@
 ; Test that we can vectorize float, float version of mandelbrot kernel.
-; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-vec" -vector-library=SVML 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vplan-enable-soa=false -S %s -passes="vplan-vec" -vector-library=SVML 2>&1 | FileCheck %s
 ;
 ; The run lines below used to crash before CMPLRLLVM-22366 was fixed.
-; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-vec" -vector-library=SVML -vplan-enable-all-zero-bypass-loops=0 -disable-output
+; RUN: opt -opaque-pointers=0 -vplan-enable-soa=false -S %s -passes="vplan-vec" -vector-library=SVML -vplan-enable-all-zero-bypass-loops=0 -disable-output
 
 ; The run lines below used to crash w/o the fix to enable DA recalculation in clones
-; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-vec" -vector-library=SVML -vplan-enable-non-masked-vectorized-remainder 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vplan-enable-soa=false -S %s -passes="vplan-vec" -vector-library=SVML -vplan-enable-non-masked-vectorized-remainder 2>&1 | FileCheck %s
 ;
 ; CHECK: call afn svml_cc <16 x float> @__svml_sqrtf16(
 

@@ -3,7 +3,7 @@
 ; reduction variable inside the loop and a loop invariant load for starting value, while reduction
 ; is performed in register (using PHI node).
 
-; RUN: opt -passes=vplan-vec -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -S < %s | FileCheck %s
 
 define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-LABEL: @load_store_reduction_add(

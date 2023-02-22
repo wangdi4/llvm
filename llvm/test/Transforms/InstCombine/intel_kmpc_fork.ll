@@ -1,4 +1,4 @@
-; RUN: opt -passes="instcombine" %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="instcombine" %s -S | FileCheck %s
 ; CMPLRLLVM-24644: Instcombine should not remove any bitcasts that are
 ; used to match parameter types in callback functions
 ; These are identified by !callback MD on declare statements.

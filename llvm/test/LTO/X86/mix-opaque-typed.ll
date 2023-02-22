@@ -11,6 +11,7 @@
 ; RUN: llvm-lto2 run -o %t-lto.bc %t-opaque.bc %t-typed.bc -save-temps \
 ; RUN:     -r %t-typed.bc,call_foo,px -r %t-typed.bc,foo,l \
 ; RUN:     -r %t-opaque.bc,foo,px
+; end INTEL_CUSTOMIZATION
 ; RUN: opt -S -o - %t-lto.bc.0.4.opt.bc | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 

@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-prefetching" -hir-prefetching-num-cachelines-threshold=1 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-num-memory-streams-threshold=1 -hir-prefetching-skip-AVX2-check=true -hir-details -print-after=hir-prefetching 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-prefetching" -hir-prefetching-num-cachelines-threshold=1 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-num-memory-streams-threshold=1 -hir-prefetching-skip-AVX2-check=true -hir-details -print-after=hir-prefetching 2>&1 < %s | FileCheck %s
 
 ; Verify that we are able to conclude that (%A)[i1] with the IV truncation from
 ; i64 to i32 is linear due to LEGAL_MAX_TC of the loop which fits in i32.

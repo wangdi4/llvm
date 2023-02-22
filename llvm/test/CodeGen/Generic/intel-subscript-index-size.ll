@@ -1,4 +1,4 @@
-; RUN: opt -passes="lower-subscript" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="lower-subscript" -S < %s | FileCheck %s
 
 ; Verify that the index size of 32 bits specified in datalayout is used for
 ; GEP indices instead of ptr size of 40 bits.

@@ -1,5 +1,5 @@
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-loads-only 2>&1 < %s | FileCheck %s --check-prefix=CHECK-LOADS-ONLY
+; RUN: opt -opaque-pointers=0 -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-loads-only 2>&1 < %s | FileCheck %s --check-prefix=CHECK-LOADS-ONLY
 ;
 ; Source code
 ; float A[1000];

@@ -414,6 +414,10 @@ void ASTDeclWriter::VisitTypeAliasDecl(TypeAliasDecl *D) {
 }
 
 void ASTDeclWriter::VisitTagDecl(TagDecl *D) {
+  static_assert(DeclContext::NumTagDeclBits == 10,
+                "You need to update the serializer after you change the "
+                "TagDeclBits");
+
   VisitRedeclarable(D);
   VisitTypeDecl(D);
   Record.push_back(D->getIdentifierNamespace());
@@ -438,6 +442,10 @@ void ASTDeclWriter::VisitTagDecl(TagDecl *D) {
 }
 
 void ASTDeclWriter::VisitEnumDecl(EnumDecl *D) {
+  static_assert(DeclContext::NumEnumDeclBits == 20,
+                "You need to update the serializer after you change the "
+                "EnumDeclBits");
+
   VisitTagDecl(D);
   Record.AddTypeSourceInfo(D->getIntegerTypeSourceInfo());
   if (!D->getIntegerTypeSourceInfo())
@@ -481,6 +489,10 @@ void ASTDeclWriter::VisitEnumDecl(EnumDecl *D) {
 }
 
 void ASTDeclWriter::VisitRecordDecl(RecordDecl *D) {
+  static_assert(DeclContext::NumRecordDeclBits == 41,
+                "You need to update the serializer after you change the "
+                "RecordDeclBits");
+
   VisitTagDecl(D);
   Record.push_back(D->hasFlexibleArrayMember());
   Record.push_back(D->isAnonymousStructOrUnion());
@@ -549,6 +561,10 @@ void ASTDeclWriter::VisitDeclaratorDecl(DeclaratorDecl *D) {
 }
 
 void ASTDeclWriter::VisitFunctionDecl(FunctionDecl *D) {
+  static_assert(DeclContext::NumFunctionDeclBits == 29,
+                "You need to update the serializer after you change the "
+                "FunctionDeclBits");
+
   VisitRedeclarable(D);
 
   Record.push_back(D->getTemplatedKind());
@@ -700,6 +716,10 @@ void ASTDeclWriter::VisitCXXDeductionGuideDecl(CXXDeductionGuideDecl *D) {
 }
 
 void ASTDeclWriter::VisitObjCMethodDecl(ObjCMethodDecl *D) {
+  static_assert(DeclContext::NumObjCMethodDeclBits == 24,
+                "You need to update the serializer after you change the "
+                "ObjCMethodDeclBits");
+
   VisitNamedDecl(D);
   // FIXME: convert to LazyStmtPtr?
   // Unlike C/C++, method bodies will never be in header files.
@@ -758,6 +778,10 @@ void ASTDeclWriter::VisitObjCTypeParamDecl(ObjCTypeParamDecl *D) {
 }
 
 void ASTDeclWriter::VisitObjCContainerDecl(ObjCContainerDecl *D) {
+  static_assert(DeclContext::NumObjCContainerDeclBits == 51,
+                "You need to update the serializer after you change the "
+                "ObjCContainerDeclBits");
+
   VisitNamedDecl(D);
   Record.AddSourceLocation(D->getAtStartLoc());
   Record.AddSourceRange(D->getAtEndRange());
@@ -1244,6 +1268,10 @@ void ASTDeclWriter::VisitCapturedDecl(CapturedDecl *CD) {
 }
 
 void ASTDeclWriter::VisitLinkageSpecDecl(LinkageSpecDecl *D) {
+  static_assert(DeclContext::NumLinkageSpecDeclBits == 4,
+                "You need to update the serializer after you change the"
+                "LinkageSpecDeclBits");
+
   VisitDecl(D);
   Record.push_back(D->getLanguage());
   Record.AddSourceLocation(D->getExternLoc());
@@ -1439,6 +1467,10 @@ void ASTDeclWriter::VisitCXXMethodDecl(CXXMethodDecl *D) {
 }
 
 void ASTDeclWriter::VisitCXXConstructorDecl(CXXConstructorDecl *D) {
+  static_assert(DeclContext::NumCXXConstructorDeclBits == 22,
+                "You need to update the serializer after you change the "
+                "CXXConstructorDeclBits");
+
   Record.push_back(D->getTrailingAllocKind());
   addExplicitSpecifier(D->getExplicitSpecifier(), Record);
   if (auto Inherited = D->getInheritedConstructor()) {
@@ -1815,6 +1847,10 @@ void ASTDeclWriter::VisitStaticAssertDecl(StaticAssertDecl *D) {
 
 /// Emit the DeclContext part of a declaration context decl.
 void ASTDeclWriter::VisitDeclContext(DeclContext *DC) {
+  static_assert(DeclContext::NumDeclContextBits == 13,
+                "You need to update the serializer after you change the "
+                "DeclContextBits");
+
   Record.AddOffset(Writer.WriteDeclContextLexicalBlock(Context, DC));
   Record.AddOffset(Writer.WriteDeclContextVisibleBlock(Context, DC));
 }
@@ -1933,6 +1969,10 @@ void ASTDeclWriter::VisitOMPRequiresDecl(OMPRequiresDecl *D) {
 }
 
 void ASTDeclWriter::VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D) {
+  static_assert(DeclContext::NumOMPDeclareReductionDeclBits == 2,
+                "You need to update the serializer after you change the "
+                "NumOMPDeclareReductionDeclBits");
+
   VisitValueDecl(D);
   Record.AddSourceLocation(D->getBeginLoc());
   Record.AddStmt(D->getCombinerIn());

@@ -137,13 +137,11 @@ define <vscale x 1 x double> @test4(i64 %avl, i8 zeroext %cond, <vscale x 1 x do
 ; CHECK-NEXT:    vse64.v v10, (a1)
 ; CHECK-NEXT:    j .LBB3_3
 ; CHECK-NEXT:  .LBB3_2: # %if.else
-; CHECK-NEXT:    lui a1, %hi(.LCPI3_2)
-; CHECK-NEXT:    addi a1, a1, %lo(.LCPI3_2)
+; CHECK-NEXT:    lui a1, 260096
 ; CHECK-NEXT:    vsetvli zero, a0, e32, m1, ta, ma
-; CHECK-NEXT:    vlse32.v v10, (a1), zero
-; CHECK-NEXT:    lui a1, %hi(.LCPI3_3)
-; CHECK-NEXT:    addi a1, a1, %lo(.LCPI3_3)
-; CHECK-NEXT:    vlse32.v v11, (a1), zero
+; CHECK-NEXT:    vmv.v.x v10, a1
+; CHECK-NEXT:    lui a1, 262144
+; CHECK-NEXT:    vmv.v.x v11, a1
 ; CHECK-NEXT:    vfadd.vv v10, v10, v11
 ; CHECK-NEXT:    lui a1, %hi(scratch)
 ; CHECK-NEXT:    addi a1, a1, %lo(scratch)
@@ -263,12 +261,10 @@ define <vscale x 1 x double> @test6(i64 %avl, i8 zeroext %cond, <vscale x 1 x do
 ; CHECK-NEXT:    bnez a1, .LBB5_2
 ; CHECK-NEXT:  .LBB5_4: # %if.else5
 ; CHECK-NEXT:    vsetvli zero, a0, e32, m1, ta, mu
-; CHECK-NEXT:    lui a0, %hi(.LCPI5_2)
-; CHECK-NEXT:    addi a0, a0, %lo(.LCPI5_2)
-; CHECK-NEXT:    vlse32.v v9, (a0), zero
-; CHECK-NEXT:    lui a0, %hi(.LCPI5_3)
-; CHECK-NEXT:    addi a0, a0, %lo(.LCPI5_3)
-; CHECK-NEXT:    vlse32.v v10, (a0), zero
+; CHECK-NEXT:    lui a0, 260096
+; CHECK-NEXT:    vmv.v.x v9, a0
+; CHECK-NEXT:    lui a0, 262144
+; CHECK-NEXT:    vmv.v.x v10, a0
 ; CHECK-NEXT:    vfadd.vv v9, v9, v10
 ; CHECK-NEXT:    lui a0, %hi(scratch)
 ; CHECK-NEXT:    addi a0, a0, %lo(scratch)
@@ -838,15 +834,10 @@ fallthrough:
 define <vscale x 2 x i32> @pre_lmul(<vscale x 2 x i32> %x, <vscale x 2 x i32> %y, i1 %cond) nounwind {
 ; CHECK-LABEL: pre_lmul:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    andi a1, a0, 1
-; CHECK-NEXT:    vsetvli a0, zero, e64, m1, ta, mu
-; CHECK-NEXT:    vsetvli zero, a0, e32, m1, ta, ma
+; CHECK-NEXT:    andi a0, a0, 1
+; CHECK-NEXT:    vsetvli a1, zero, e64, m1, ta, mu
+; CHECK-NEXT:    vsetvli zero, a1, e32, m1, ta, ma
 ; CHECK-NEXT:    vadd.vv v8, v8, v9
-; CHECK-NEXT:    beqz a1, .LBB18_2
-; CHECK-NEXT:  # %bb.1: # %if
-; CHECK-NEXT:    vsetvli a1, zero, e32, m2, ta, mu
-; CHECK-NEXT:  .LBB18_2: # %if.end
-; CHECK-NEXT:    vsetvli zero, a0, e32, m1, ta, ma
 ; CHECK-NEXT:    vadd.vv v8, v8, v9
 ; CHECK-NEXT:    ret
 entry:
@@ -954,16 +945,15 @@ if.end:
   ret <vscale x 2 x i32> %e
 }
 
-; This case demonstrates a PRE oppurtunity where the first instruction
-; in the block doesn't require a state transition.  Essentially, we need
-; to FRE the transition to the start of the block, and *then* PRE it.
+; This case demonstrates a PRE case where the first instruction in the block
+; doesn't require a state transition.
 define void @pre_over_vle(ptr %A) {
 ; CHECK-LABEL: pre_over_vle:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    li a1, 100
+; CHECK-NEXT:    vsetivli zero, 2, e32, mf2, ta, ma
 ; CHECK-NEXT:  .LBB22_1: # %vector.body
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    vsetivli zero, 2, e32, mf2, ta, ma
 ; CHECK-NEXT:    vle8.v v8, (a0)
 ; CHECK-NEXT:    vsext.vf4 v9, v8
 ; CHECK-NEXT:    vse32.v v9, (a0)

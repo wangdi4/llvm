@@ -1,6 +1,6 @@
 ; This test checks that the operands of the 'select' instructions are correctly widened.
 
-;RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S %s | FileCheck %s
+;RUN: opt -opaque-pointers=0 -passes="vplan-vec" -vplan-force-vf=2 -S %s | FileCheck %s
 
 ;CHECK-LABEL: @getElement
 ;CHECK:  [[REP_VAL1:%.*]] = shufflevector <3 x float> %s1, <3 x float> undef, <6 x i32> <i32 0, i32 1, i32 2, i32 0, i32 1, i32 2>

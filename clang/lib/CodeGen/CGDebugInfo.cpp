@@ -2116,14 +2116,9 @@ CGDebugInfo::CollectTemplateParams(std::optional<TemplateArgs> OArgs,
   for (unsigned i = 0, e = Args.Args.size(); i != e; ++i) {
     const TemplateArgument &TA = Args.Args[i];
     StringRef Name;
-    bool defaultParameter = false;
-    if (Args.TList) {
+    const bool defaultParameter = TA.getIsDefaulted();
+    if (Args.TList)
       Name = Args.TList->getParam(i)->getName();
-
-      NamedDecl const *ND = Args.TList->getParam(i);
-      defaultParameter = clang::isSubstitutedDefaultArgument(
-          CGM.getContext(), TA, ND, Args.Args, Args.TList->getDepth());
-    }
 
     switch (TA.getKind()) {
     case TemplateArgument::Type: {
@@ -4990,9 +4985,10 @@ void CGDebugInfo::EmitDeclareOfBlockDeclRefVariable(
 
 llvm::DILocalVariable *
 CGDebugInfo::EmitDeclareOfArgVariable(const VarDecl *VD, llvm::Value *AI,
-                                      unsigned ArgNo, CGBuilderTy &Builder) {
+                                      unsigned ArgNo, CGBuilderTy &Builder,
+                                      bool UsePointerValue) {
   assert(CGM.getCodeGenOpts().hasReducedDebugInfo());
-  return EmitDeclare(VD, AI, ArgNo, Builder);
+  return EmitDeclare(VD, AI, ArgNo, Builder, UsePointerValue);
 }
 
 namespace {

@@ -1,4 +1,4 @@
-; RUN: opt -S < %s -passes="vec-clone,alignment-from-assumptions,vplan-vec" \
+; RUN: opt -opaque-pointers=0 -S < %s -passes="vec-clone,alignment-from-assumptions,vplan-vec" \
 ; RUN:   -vplan-print-after-init -vplan-print-after-align-assume-cleanup \
 ; RUN:   -debug-only=AlignAssumeCleanup -disable-output 2>&1 | FileCheck %s
 

@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; CMPLRLLVM-33537, case 2
 
-; RUN: opt -passes="loop-mssa(licm)" -enable-intel-advanced-opts=true -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="loop-mssa(licm)" -enable-intel-advanced-opts=true -S < %s | FileCheck %s
 
 target triple = "i686-pc-linux-gnu"
 

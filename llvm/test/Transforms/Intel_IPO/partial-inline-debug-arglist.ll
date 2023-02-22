@@ -1,4 +1,4 @@
-; RUN: opt -S -skip-partial-inlining-cost-analysis -passes=partial-inliner < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -skip-partial-inlining-cost-analysis -passes=partial-inliner < %s | FileCheck %s
 ;
 ; When the partial inliner code extracts a region containing debug information,
 ; make sure the debug emission is code extracted properly.

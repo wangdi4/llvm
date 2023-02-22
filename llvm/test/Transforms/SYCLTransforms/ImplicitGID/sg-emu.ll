@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
 
 ; This test checks whether implicit GIDs work with subgroup emulation.
 

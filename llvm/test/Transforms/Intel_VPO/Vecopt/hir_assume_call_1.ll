@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
 
 ; CHECK:                + DO i1 = 0, 1023, 4 <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:           |   [[VP_EXTRACT0:%.*]] = extractelement &((<4 x i8*>)(%this)[i1 + <i64 0, i64 1, i64 2, i64 3>].0.0[0]),  0;

@@ -502,6 +502,7 @@ cc_library(
         ":BinaryFormat",
         ":DebugInfoCodeView",
         ":Support",
+        ":TargetParser",
         ":config",
         ":ir_headers",
     ],
@@ -824,6 +825,7 @@ cc_library(
     textual_hdrs = glob(["include/llvm/IR/*.def"]),
     deps = [
         ":BinaryFormat",
+        ":Demangle",
         ":Remarks",
         ":Support",
         ":attributes_gen",
@@ -933,6 +935,7 @@ cc_library(
         ":MC",
         ":MCParser",
         ":Support",
+        ":TargetParser",
         ":TextAPI",
         ":config",
     ],
@@ -2205,6 +2208,7 @@ gentbl(
             ":MCParser",
             ":Support",
             ":Target",
+            ":TargetParser",
             ":" + target["name"] + "CodeGen",
             ":" + target["name"] + "CommonTableGen",
             ":" + target["name"] + "Info",
@@ -3189,6 +3193,7 @@ cc_binary(
     copts = llvm_copts,
     stamp = 0,
     deps = [
+        ":ProfileData",
         ":Support",
     ],
 )

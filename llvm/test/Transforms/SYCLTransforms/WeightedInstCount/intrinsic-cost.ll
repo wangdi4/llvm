@@ -1,4 +1,4 @@
-; RUN: opt -mcpu=skx -passes="require<sycl-kernel-weighted-inst-count-analysis>" -debug-only=sycl-kernel-weighted-inst-count-analysis -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -mcpu=skx -passes="require<sycl-kernel-weighted-inst-count-analysis>" -debug-only=sycl-kernel-weighted-inst-count-analysis -disable-output %s 2>&1 | FileCheck %s
 
 ; Check costs of intrinsic calls.
 

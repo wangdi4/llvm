@@ -1,4 +1,4 @@
-; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="instcombine" < %s -S | FileCheck %s
 
 ; This series of tests ensures that InstCombine can transform things like:
 ;   %t = getelementptr i8* bitcast (i32* %arr to i8*), %scale

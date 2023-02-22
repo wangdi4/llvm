@@ -959,6 +959,10 @@ static LogicalResult vectorizeDynamicLinalgOpPrecondition(linalg::LinalgOp op) {
   if (!isa<linalg::GenericOp>(op))
     return failure();
 
+  // TODO: Index vectorization assumes static shape.
+  if (op.hasIndexSemantics())
+    return failure();
+
   // TODO: 0-d vectors are not supported yet.
   if (llvm::any_of(op.getIndexingMapsArray(), [](AffineMap map) {
         return map.isEmpty() || map.getResults().empty();
@@ -973,22 +977,27 @@ LogicalResult
 mlir::linalg::vectorizeLinalgOpPrecondition(LinalgOp linalgOp,
                                             ArrayRef<int64_t> inputVectorSizes,
                                             bool vectorizeNDExtract) {
+  // tensor with dimension of 0 cannot be vectorized.
+  if (llvm::any_of(linalgOp.getStaticShape(),
+                   [](int64_t dim) { return dim == 0; }))
+    return failure();
   // Check API contract for input vector sizes.
   if (!inputVectorSizes.empty()) {
     assert(inputVectorSizes.size() == linalgOp.getNumLoops() &&
            "Input vector sizes don't match the number of loops");
     assert(!ShapedType::isDynamicShape(inputVectorSizes) &&
            "Input vector sizes can't have dynamic dimensions");
-    assert(llvm::all_of(
-               llvm::zip(linalgOp.getStaticLoopRanges(), inputVectorSizes),
-               [](std::tuple<int64_t, int64_t> sizePair) {
-                 int64_t staticSize = std::get<0>(sizePair);
-                 int64_t inputSize = std::get<1>(sizePair);
-                 return ShapedType::isDynamic(staticSize) ||
-                        staticSize <= inputSize;
-               }) &&
-           "Input vector sizes must be smaller or equal than iteration space "
-           "static sizes");
+    assert(
+        llvm::all_of(
+            llvm::zip(linalgOp.getStaticLoopRanges(), inputVectorSizes),
+            [](std::tuple<int64_t, int64_t> sizePair) {
+              int64_t staticSize = std::get<0>(sizePair);
+              int64_t inputSize = std::get<1>(sizePair);
+              return ShapedType::isDynamic(staticSize) ||
+                     staticSize <= inputSize;
+            }) &&
+        "Input vector sizes must be greater than or equal to iteration space "
+        "static sizes");
   }
 
   // TODO: Masking is only supported for dynamic shapes so input vector sizes
@@ -1050,8 +1059,8 @@ mlir::linalg::vectorizeLinalgOpPrecondition(LinalgOp linalgOp,
 
 /// Emit a suitable vector form for a Linalg op. If provided, `inputVectorSizes`
 /// are used to vectorize this operation. `inputVectorSizes` must match the rank
-/// of the iteration space of the operation and the sizes must be smaller or
-/// equal than their counterpart interation space sizes, if static.
+/// of the iteration space of the operation and the input vector sizes must be
+/// greater than or equal to their counterpart iteration space sizes, if static.
 /// `inputVectorShapes` also allows the vectorization of operations with dynamic
 /// shapes.
 LogicalResult mlir::linalg::vectorize(RewriterBase &rewriter, LinalgOp linalgOp,

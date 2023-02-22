@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-multi-exit-loop-reroll,print<hir>,hir-cg" -force-hir-cg -xmain-opt-level=3 -hir-framework-details 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-multi-exit-loop-reroll,print<hir>,hir-cg" -force-hir-cg -xmain-opt-level=3 -hir-framework-details 2>&1 | FileCheck %s
 
 ; Verify that we can successfully generate code after multi-exit loop reroll.
 ; We were compfailing in CG because multi-exit reroll removed %i757 as region

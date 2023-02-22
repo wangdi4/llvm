@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-details-dims -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -hir-details-dims -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
 ; Check that load of (%"sub_$W")[0:i1:8(%complex_64bit*:0)].1 has LB of 0 as incoming LB was merged into the index.
 

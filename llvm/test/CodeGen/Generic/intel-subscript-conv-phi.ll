@@ -1,10 +1,10 @@
-; RUN: opt -passes="convert-to-subscript" < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="convert-to-subscript" < %s -S | FileCheck %s
 ;
 ; CHECK: for.body.preheader:
 ; CHECK-NEXT: {{.*}} = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 200, i32* elementtype(i32) getelementptr inbounds ([50 x i32], [50 x i32]* @A, i64 0, i64 0), i64 0)
 ; CHECK-NEXT; {..*}} = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* elementtype(i32) {{.*}}, i64 10)
 
-; RUN: opt -passes="convert-to-subscript" < %s -S -opaque-pointers | FileCheck %s --check-prefix=OPAQUE
+; RUN: opt -opaque-pointers=0 -passes="convert-to-subscript" < %s -S -opaque-pointers | FileCheck %s --check-prefix=OPAQUE
 ;
 ; OPAQUE: for.body.preheader:
 ; OPAQUE-NEXT: {{.*}} = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 200, ptr elementtype(i32) {{.*}}, i64 0)

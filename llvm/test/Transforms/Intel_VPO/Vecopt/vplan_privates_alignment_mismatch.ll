@@ -4,7 +4,7 @@
 ; VF different allocas in this case to preserve original alignment which will be
 ; used for memory accesses inside vector loop.
 
-; RUN: opt -vplan-enable-soa=false -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vplan-enable-soa=false -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 -S < %s | FileCheck %s
 
 ; Check that original alloca's alignment is captured in VPlan.
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:

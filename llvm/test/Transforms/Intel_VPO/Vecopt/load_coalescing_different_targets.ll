@@ -1,5 +1,5 @@
-; RUN: opt -passes='default<O2>,load-coalescing' -mtriple=x86_64-unknown-linux-gnu -mcpu=haswell -load-coalescing-allow-scalars -S < %s 2>&1 | FileCheck %s --check-prefix=LC-HASWELL
-; RUN: opt -passes='default<O2>,load-coalescing' -mtriple=x86_64-unknown-linux-gnu -mcpu=silvermont -load-coalescing-allow-scalars -S < %s 2>&1 | FileCheck %s --check-prefix=LC-SILVERMONT
+; RUN: opt -opaque-pointers=0 -passes='default<O2>,load-coalescing' -mtriple=x86_64-unknown-linux-gnu -mcpu=haswell -load-coalescing-allow-scalars -S < %s 2>&1 | FileCheck %s --check-prefix=LC-HASWELL
+; RUN: opt -opaque-pointers=0 -passes='default<O2>,load-coalescing' -mtriple=x86_64-unknown-linux-gnu -mcpu=silvermont -load-coalescing-allow-scalars -S < %s 2>&1 | FileCheck %s --check-prefix=LC-SILVERMONT
 
 @B = common dso_local global [16384 x i32] zeroinitializer, align 16
 @A = common dso_local global [16384 x i32] zeroinitializer, align 16

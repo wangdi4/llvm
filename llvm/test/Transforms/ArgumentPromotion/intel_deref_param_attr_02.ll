@@ -3,7 +3,7 @@
 ; i64 and i32 arguments because %b is marked with "dereferenceable(16)"
 ; attribute.
 
-; RUN: opt < %s -passes=argpromotion -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=argpromotion -S | FileCheck %s
 
 %struct.ss = type { i64, i32 }
 

@@ -4,7 +4,7 @@
 ; end INTEL_FEATURE_ESIMD_EMBARGO
 ; end INTEL_CUSTOMIZATION
 ;
-; RUN: opt -passes=LowerESIMD -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=LowerESIMD -S < %s | FileCheck %s
 
 ; This test checks that LowerESIMD pass correctly interpretes the
 ; 'kernel_arg_accessor_ptr' metadata. Particularly, that it generates additional

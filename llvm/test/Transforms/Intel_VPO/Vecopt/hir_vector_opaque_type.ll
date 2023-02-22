@@ -1,6 +1,6 @@
 ; The test verifies that HIR vec codegen can handle memrefs with opaque types.
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -hir-details -vplan-force-vf=2 < %s 2>&1 | FileCheck %s --check-prefixes=VPVAL,CHECK
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -hir-details -vplan-force-vf=2 < %s 2>&1 | FileCheck %s --check-prefixes=VPVAL,CHECK
 
 
 ; HIR:

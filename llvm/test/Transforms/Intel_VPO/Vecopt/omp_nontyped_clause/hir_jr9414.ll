@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-vplan-vec,print<hir>,vplan-vec" -vplan-force-vf=2 -vplan-print-after-plain-cfg -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-vplan-vec,print<hir>,vplan-vec" -vplan-force-vf=2 -vplan-print-after-plain-cfg -S < %s 2>&1 | FileCheck %s
 
 ;
 ; Test checks that we do not crash during HIR decomposition. The test also

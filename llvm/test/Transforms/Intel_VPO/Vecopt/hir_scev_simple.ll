@@ -1,11 +1,11 @@
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -vplan-force-vf=4 \
 ; RUN:     -vplan-enable-peeling-hir -vplan-enable-general-peeling-hir \
 ; RUN:     -debug-only=vplan-scalar-evolution,vplan-alignment-analysis \
 ; RUN:     -print-before=hir-vplan-vec -disable-output < %s 2>&1 \
 ; RUN: | FileCheck %s
 ;
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' \
 ; RUN:     -vplan-force-vf=4 \
 ; RUN:     -vplan-enable-peeling-hir \
 ; RUN:     -debug-only=vplan-scalar-evolution,vplan-alignment-analysis \

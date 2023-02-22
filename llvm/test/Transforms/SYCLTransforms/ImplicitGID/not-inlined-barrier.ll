@@ -1,4 +1,4 @@
-; RUN: opt -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
 
 ; This test checks implicit gids are added to not-inlined function which is only
 ; used in kernel with barrier path.

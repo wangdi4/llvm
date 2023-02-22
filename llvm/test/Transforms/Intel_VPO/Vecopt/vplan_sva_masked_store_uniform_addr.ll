@@ -2,7 +2,7 @@
 ; Test to check VPlan SVA results and vector CG for masked stores to uniform
 ; address.
 
-; RUN: opt -S < %s -passes=vplan-vec -vplan-print-scalvec-results | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S < %s -passes=vplan-vec -vplan-print-scalvec-results | FileCheck %s
 
 define dso_local void @foo(i32 addrspace(4)** %uni.addr) {
 entry:

@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-add-function-attrs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-add-function-attrs -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-add-function-attrs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-add-function-attrs -S < %s | FileCheck %s
 
 %opencl.event_t.5 = type opaque
 ; Function Attrs: convergent

@@ -1,7 +1,7 @@
 ; Test to verify that structptreq search loop idiom is recognized on this loop, and correct vector code with peel loop and alignment is generated.
 
 ; Check if search loop was recognized
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -xmain-opt-level=3 -debug-only=vplan-idioms -disable-output < %s 2>&1 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -xmain-opt-level=3 -debug-only=vplan-idioms -disable-output < %s 2>&1 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
 
 
 ; Check final vectorized codegen

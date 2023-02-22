@@ -72,6 +72,6 @@ llvm_config.add_intel_features()
 # tools that might happen to be in the user's PATH.
 tool_dirs = [config.llvm_tools_dir]
 
-tools = [ 'opt', 'FileCheck', 'llvm-as', 'llvm-link', 'llvm-lto', 'llvm-profdata', ToolSubst('%lli', FindTool('lli'), extra_args=[]) ]
+tools = [ 'not', 'opt', 'FileCheck', 'llvm-as', 'llvm-link', 'llvm-lto', 'llvm-profdata', ToolSubst('%lli', FindTool('lli'), extra_args=[]) ]
 
 llvm_config.add_tool_substitutions(tools, tool_dirs)

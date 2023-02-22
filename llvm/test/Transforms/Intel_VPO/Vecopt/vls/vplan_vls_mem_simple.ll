@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=vplan-vec -debug-only=ovls -disable-output -print-after=vplan-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -debug-only=ovls -disable-output -print-after=vplan-vec < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Check that we don't optimize atomic nor volatile accesses.

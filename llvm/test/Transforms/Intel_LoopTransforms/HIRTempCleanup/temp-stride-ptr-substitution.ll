@@ -1,4 +1,4 @@
-; RUN: opt < %s -xmain-opt-level=3 -hir-details-dims -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -xmain-opt-level=3 -hir-details-dims -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Verify that we can substitute pointer load into self-address-of ref even though its stride is a temp.
 

@@ -1,4 +1,4 @@
-; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 ;
 ; Check that debug info is preserved.
 ; Specifically,

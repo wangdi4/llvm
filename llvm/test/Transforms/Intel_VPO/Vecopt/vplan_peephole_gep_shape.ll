@@ -1,5 +1,5 @@
 ;
-; RUN: opt -disable-output -passes=hir-vplan-vec -vplan-dump-da-shapes -vplan-print-after-early-peephole %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -disable-output -passes=hir-vplan-vec -vplan-dump-da-shapes -vplan-print-after-early-peephole %s 2>&1 | FileCheck %s
 ;
 ; Check that stride is maintained after trunc/zext ->and peephole optimization
 ;

@@ -2,7 +2,7 @@
 ; "malloc" call in "foo" routine even though the pointer is stored as
 ; integer value.
 
-; RUN: opt < %s -passes='require<anders-aa>' -print-anders-points-to -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes='require<anders-aa>' -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:  pr<mem>        --> ({{[0-9a-f]+}}): foo:call
 

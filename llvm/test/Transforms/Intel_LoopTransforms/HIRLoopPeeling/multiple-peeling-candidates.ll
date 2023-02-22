@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-peeling" -disable-output -print-before=hir-loop-peeling -print-after=hir-loop-peeling 2>&1 < %s  | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-peeling" -disable-output -print-before=hir-loop-peeling -print-after=hir-loop-peeling 2>&1 < %s  | FileCheck %s
 
 ; Verify that we can handle multiple peeling candidates in the same loop.
 

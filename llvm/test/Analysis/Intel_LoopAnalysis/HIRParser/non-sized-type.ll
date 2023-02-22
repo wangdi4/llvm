@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-create-function-level-region 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-create-function-level-region 2>&1 | FileCheck %s
 
 ; Verify that we successfully parse the load which is a bitcast of a function
 ; pointer.

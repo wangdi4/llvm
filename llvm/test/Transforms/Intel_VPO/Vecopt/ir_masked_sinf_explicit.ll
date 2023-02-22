@@ -8,10 +8,10 @@
 ;   }
 ; }
 
-; RUN: opt -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=8 %s | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
-; RUN: opt -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=32 %s | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-LT-512 %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=8 %s | FileCheck -DVL=8 --check-prefixes=CHECK,FLOAT-LT-512,DOUBLE-512 %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
+; RUN: opt -opaque-pointers=0 -vector-library=SVML -passes=vplan-vec -S -vplan-force-vf=32 %s | FileCheck -DVL=32 --check-prefixes=CHECK,FLOAT-512,DOUBLE-512 %s
 
 ; CHECK-LABEL: test_sinf
 ; FLOAT-LT-512:   [[MASK_EXT:%.*]] = sext <[[VL]] x i1> [[MASK:%.*]] to <[[VL]] x i32>

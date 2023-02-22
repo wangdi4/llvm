@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=argpromotion -argpro-force-remove-homed-arguments -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=argpromotion -argpro-force-remove-homed-arguments -S | FileCheck %s
 
 ; Check that the argument of @foo was not promoted because the unique load is bitcast to
 ; a different type.

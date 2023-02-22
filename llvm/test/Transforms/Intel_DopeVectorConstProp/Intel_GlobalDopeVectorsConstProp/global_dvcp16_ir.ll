@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -S -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; Check that dope vector constant propagation will happen for the loads
 ; indicated in the trace, but in particular within @myoutput, because it

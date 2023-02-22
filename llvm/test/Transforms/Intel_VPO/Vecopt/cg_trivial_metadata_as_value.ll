@@ -3,7 +3,7 @@
 ; represented via VPMetadataAsValue in VPlan CFG.
 
 ; RUN: opt < %s -S -passes=vplan-vec -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM-IR
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
 
 define void @mod_gauss_hermite_mp_derquadgausshermite_(double* %ptr, double %T_fetch, i64 %N) local_unnamed_addr {
 ; LLVM-IR-LABEL: @mod_gauss_hermite_mp_derquadgausshermite_(

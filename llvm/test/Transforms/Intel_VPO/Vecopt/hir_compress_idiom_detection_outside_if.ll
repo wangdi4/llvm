@@ -1,4 +1,4 @@
-; RUN: opt -mattr=+avx512f,+avx512vl -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>'  -disable-output -debug-only=parvec-analysis -hir-details-no-verbose-indent < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -mattr=+avx512f,+avx512vl -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,print<hir>,hir-vplan-vec,print<hir>'  -disable-output -debug-only=parvec-analysis -hir-details-no-verbose-indent < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to check that we recognize compress idiom when the increment and store are
 ; not under an if. This can happen if the HIR framework fails to build an if and uses

@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=vplan-vec -vplan-force-vf=2 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-force-vf=2 < %s | FileCheck %s
 
 ;CHECK:       vector.body:                                      ; preds = %vector.body, %VPlannedBB1
 ;CHECK-NEXT:      [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB0:%.*]] ], [ [[TMP28:%.*]], [[VECTOR_BODY:%.*]] ]

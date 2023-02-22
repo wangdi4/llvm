@@ -3,7 +3,7 @@
 ; EHPad terminator instruction in predecessor block when handling
 ; %i91 operand of %i424 (PHI node).
 
-; RUN: opt -passes=loop-reduce -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=loop-reduce -S < %s | FileCheck %s
 
 ; CHECK: define internal %"class.xercesc_2_7::BinInputStream"* @"?makeNewStream@XMLURL@xercesc_2_7@@QEBAPEAVBinInputStream@2@XZ"(
 

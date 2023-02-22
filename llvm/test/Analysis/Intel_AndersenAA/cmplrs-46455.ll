@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes='require<anders-aa>,cgscc(inline),module(globalopt),cgscc(function-attrs)' -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes='require<anders-aa>,cgscc(inline),module(globalopt),cgscc(function-attrs)' -S | FileCheck %s
 
 ;
 ; This is a regression test for the scenario in cmplrs-46455. The scenario

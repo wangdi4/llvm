@@ -11113,7 +11113,7 @@ bool CGOpenMPRuntime::emitTargetFunctionsForLateOutlining(GlobalDecl GD) {
       return false;
     }
 
-    Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
+    std::optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
         OMPDeclareTargetDeclAttr::getDeviceType(FD);
     // Do not emit device_type(nohost) functions for the host.
     if (DevTy && *DevTy == OMPDeclareTargetDeclAttr::DT_Host)

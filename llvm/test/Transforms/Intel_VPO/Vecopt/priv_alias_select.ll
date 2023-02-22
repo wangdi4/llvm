@@ -1,7 +1,7 @@
 ;
 ; Check for vectorizer does not fail on select with two private pointers in preheader.
 ;
-; RUN: opt  -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -disable-output %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -disable-output %s | FileCheck %s
 
 
 target triple = "x86_64-pc-linux"

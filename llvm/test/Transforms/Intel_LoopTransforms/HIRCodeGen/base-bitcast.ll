@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
 ; RUN: opt -opaque-pointers -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 ; Check that GEP DDRefs with bitcast in the base are CG'd properly.

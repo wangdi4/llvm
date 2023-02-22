@@ -48,6 +48,11 @@ class Pass;
 class TargetMachine;
 class raw_ostream;
 
+template <typename T> class IntrusiveRefCntPtr;
+namespace vfs {
+class FileSystem;
+} // namespace vfs
+
 } // End llvm namespace
 
 // List of target independent CodeGen pass IDs.
@@ -496,6 +501,10 @@ namespace llvm {
   /// evaluation.
   ModulePass *createPreISelIntrinsicLoweringPass();
 
+  /// This pass lowers the \@llvm.fpbuiltin.{operation} intrinsics to
+  /// matching library function calls based on call site attributes.
+  FunctionPass *createFPBuiltinFnSelectionPass();
+
   /// GlobalMerge - This pass merges internal (by default) globals into structs
   /// to enable reuse of a base pointer by indexed addressing modes.
   /// It can also be configured to focus on size optimizations only.
@@ -611,9 +620,10 @@ namespace llvm {
   createMIRAddFSDiscriminatorsPass(sampleprof::FSDiscriminatorPass P);
 
   /// Read Flow Sensitive Profile.
-  FunctionPass *createMIRProfileLoaderPass(std::string File,
-                                           std::string RemappingFile,
-                                           sampleprof::FSDiscriminatorPass P);
+  FunctionPass *
+  createMIRProfileLoaderPass(std::string File, std::string RemappingFile,
+                             sampleprof::FSDiscriminatorPass P,
+                             IntrusiveRefCntPtr<vfs::FileSystem> FS);
 
   /// Creates MIR Debugify pass. \see MachineDebugify.cpp
   ModulePass *createDebugifyMachineModulePass();

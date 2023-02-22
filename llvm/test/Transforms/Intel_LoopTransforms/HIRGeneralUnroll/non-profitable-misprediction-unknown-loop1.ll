@@ -1,4 +1,4 @@
-; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-general-unroll,print<hir>" < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-general-unroll,print<hir>" < %s 2>&1 | FileCheck %s
 
 ; Verify that the unknown loop with indirect call is not unrolled even though
 ; there is a reuse of a copy though the backedge because cloning indirect calls

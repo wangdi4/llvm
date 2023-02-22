@@ -272,6 +272,29 @@ mlir::Value hlfir::genVariableBoxChar(mlir::Location loc,
                                           lengths[0]);
 }
 
+hlfir::Entity hlfir::genVariableBox(mlir::Location loc,
+                                    fir::FirOpBuilder &builder,
+                                    hlfir::Entity var) {
+  assert(var.isVariable() && "must be a variable");
+  var = hlfir::derefPointersAndAllocatables(loc, builder, var);
+  if (var.getType().isa<fir::BaseBoxType>())
+    return var;
+  // Note: if the var is not a fir.box/fir.class at that point, it has default
+  // lower bounds and is not polymorphic.
+  mlir::Value shape =
+      var.isArray() ? hlfir::genShape(loc, builder, var) : mlir::Value{};
+  llvm::SmallVector<mlir::Value> typeParams;
+  auto maybeCharType =
+      var.getFortranElementType().dyn_cast<fir::CharacterType>();
+  if (!maybeCharType || maybeCharType.hasDynamicLen())
+    hlfir::genLengthParameters(loc, builder, var, typeParams);
+  mlir::Type boxType = fir::BoxType::get(var.getElementOrSequenceType());
+  auto embox =
+      builder.create<fir::EmboxOp>(loc, boxType, var, shape,
+                                   /*slice=*/mlir::Value{}, typeParams);
+  return hlfir::Entity{embox.getResult()};
+}
+
 hlfir::Entity hlfir::loadTrivialScalar(mlir::Location loc,
                                        fir::FirOpBuilder &builder,
                                        Entity entity) {
@@ -547,9 +570,9 @@ hlfir::Entity hlfir::derefPointersAndAllocatables(mlir::Location loc,
   if (entity.isMutableBox()) {
     hlfir::Entity boxLoad{builder.create<fir::LoadOp>(loc, entity)};
     if (entity.isScalar()) {
-      mlir::Type elementType = boxLoad.getFortranElementType();
-      if (fir::isa_trivial(elementType))
+      if (!entity.isPolymorphic() && !entity.hasLengthParameters())
         return hlfir::Entity{builder.create<fir::BoxAddrOp>(loc, boxLoad)};
+      mlir::Type elementType = boxLoad.getFortranElementType();
       if (auto charType = elementType.dyn_cast<fir::CharacterType>()) {
         mlir::Value base = builder.create<fir::BoxAddrOp>(loc, boxLoad);
         if (charType.hasConstantLen())
@@ -562,7 +585,10 @@ hlfir::Entity hlfir::derefPointersAndAllocatables(mlir::Location loc,
                 .getResult()};
       }
     }
-    // Keep the entity boxed for now.
+    // Otherwise, the entity is either an array, a polymorphic entity, or a
+    // derived type with length parameters. All these entities require a fir.box
+    // or fir.class to hold bounds, dynamic type or length parameter
+    // information. Keep them boxed.
     return boxLoad;
   }
   return entity;

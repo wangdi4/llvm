@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-identity-matrix-idiom-recognition,print<hir>" -enable-alt-identity-matrix-detection -debug-only=hir-hlnode-utils -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-identity-matrix-idiom-recognition,print<hir>" -enable-alt-identity-matrix-detection -debug-only=hir-hlnode-utils -S %s 2>&1 | FileCheck %s
 
 ; Verify that cases of invalid identity matrix are detected. We can accept false
 ; negatives, but not false positives

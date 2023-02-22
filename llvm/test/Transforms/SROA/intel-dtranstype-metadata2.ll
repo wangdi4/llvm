@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 
-; RUN: opt -S -passes=sroa %s 2>&1 | FileCheck %s --check-prefix=CHECK-TYPED --check-prefix=CHECK
+; RUN: opt -opaque-pointers=0 -S -passes=sroa %s 2>&1 | FileCheck %s --check-prefix=CHECK-TYPED --check-prefix=CHECK
 ; RUN: opt -opaque-pointers -S -passes=sroa %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE --check-prefix=CHECK
 
 ; Test that a literal structure created by SROA by extracting fields from a

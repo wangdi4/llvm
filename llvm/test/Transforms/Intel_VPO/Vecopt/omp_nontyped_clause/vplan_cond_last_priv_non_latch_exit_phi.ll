@@ -2,8 +2,8 @@
 ; index for conditional last private finalization by
 ; VPLoopEntities framework.
 
-; RUN: opt -disable-output %s -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -vplan-enable-inmemory-entities -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
-; RUN: opt -disable-output %s -passes=vplan-vec -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -disable-output %s -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -vplan-enable-inmemory-entities -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -disable-output %s -passes=vplan-vec -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
 
 define i1 @fuseki(i32 %0, i8* nocapture %board, i64* nocapture %A, i64 %idxprom11.i, i8 %1, i1* %priv) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:

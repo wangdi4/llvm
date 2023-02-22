@@ -4,7 +4,7 @@
 ; placement of block-predicate instruction in a block consisting of PHI nodes
 ; only.
 
-; RUN: opt -S -passes="vplan-func-vec" -print-after-vplan-func-vec-predicator < %s -disable-output | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="vplan-func-vec" -print-after-vplan-func-vec-predicator < %s -disable-output | FileCheck %s
 
 target datalayout = "e-m:e-i32:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

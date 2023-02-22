@@ -38,7 +38,7 @@
 
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Analysis/EHPersonalities.h"
+#include "llvm/IR/EHPersonalities.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DiagnosticInfo.h"

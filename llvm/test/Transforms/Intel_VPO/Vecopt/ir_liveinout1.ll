@@ -4,7 +4,7 @@
 ; live-out of the loop. Induction is not used outside of the loop but
 ; inductions have the descriptor always.
 ;
-; RUN: opt -passes=vplan-vec -vplan-print-after-live-inout-list -vplan-dump-live-inout -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-print-after-live-inout-list -vplan-dump-live-inout -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
 
 define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-LABEL:  VPlan after live in/out lists creation:

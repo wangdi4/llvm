@@ -1,5 +1,5 @@
-; RUN: opt -aa-pipeline="tbaa" -passes="aa-eval,gvn" < %s -evaluate-aa-metadata -print-may-aliases 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="tbaa" -passes="aa-eval,loop-mssa(licm)" < %s -evaluate-aa-metadata -print-may-aliases 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -aa-pipeline="tbaa" -passes="aa-eval,gvn" < %s -evaluate-aa-metadata -print-may-aliases 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -aa-pipeline="tbaa" -passes="aa-eval,loop-mssa(licm)" < %s -evaluate-aa-metadata -print-may-aliases 2>&1 | FileCheck %s
 
 
 %"struct.std::complex" = type { { float, float } }

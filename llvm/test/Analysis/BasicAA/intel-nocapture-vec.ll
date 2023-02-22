@@ -3,7 +3,7 @@
 ; pointer). The function call to "hoge" is not seen as a ref of "%tmp", even
 ; though %vecaddr aliases %tmp.
 
-; RUN: opt -passes="dse" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="dse" -S %s | FileCheck %s
 ; CHECK: store <16 x i32> <i32 777, i32 777, i32 777, i32 777, i32 777, i32 777, i32 777, i32 777, i32 777, i32 777, i32 777, i32 777, i32 777, i32 777, i32 777, i32 777>, <16 x i32>* %tmp
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

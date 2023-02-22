@@ -10,7 +10,6 @@
 #define LINALG_TRANSFORM_OPS
 
 include "mlir/Dialect/Transform/IR/TransformDialect.td"
-include "mlir/Dialect/Transform/IR/TransformEffects.td"
 include "mlir/Dialect/Transform/IR/TransformInterfaces.td"
 include "mlir/Dialect/Transform/IR/TransformTypes.td"
 include "mlir/Dialect/PDL/IR/PDLTypes.td"
@@ -89,7 +88,8 @@ def FuseOp : Op<Transform_Dialect, "structured.fuse",
 
 def FuseIntoContainingOp :
     Op<Transform_Dialect, "structured.fuse_into_containing_op",
-      [DeclareOpInterfaceMethods<TransformOpInterface>]> {
+      [DeclareOpInterfaceMethods<TransformOpInterface>,
+       DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "Fuse a producer into a containing operation.";
 
   let description = [{
@@ -125,14 +125,9 @@ def FuseIntoContainingOp :
     This operation reads the containing op handle.
   }];
 
-  let arguments = (ins Arg<PDL_Operation, "",
-                           [TransformMappingRead,
-                            TransformMappingFree]>:$producer_op,
-                       Arg<PDL_Operation, "",
-                           [TransformMappingRead]>:$containing_op);
-  let results = (outs Res<PDL_Operation, "",
-                          [TransformMappingAlloc,
-                           TransformMappingWrite]>:$fused_op);
+  let arguments = (ins PDL_Operation:$producer_op,
+                       PDL_Operation:$containing_op);
+  let results = (outs PDL_Operation:$fused_op);
   let assemblyFormat = "$producer_op `into` $containing_op attr-dict";
 
   let builders = [
@@ -211,6 +206,82 @@ def InterchangeOp : Op<Transform_Dialect, "structured.interchange",
     ::mlir::DiagnosedSilenceableFailure applyToOne(
         ::mlir::linalg::GenericOp target,
         ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// LowerPackOp
+//===----------------------------------------------------------------------===//
+def LowerPackOp : Op<Transform_Dialect, "structured.lower_pack", [
+                         FunctionalStyleTransformOpTrait,
+                         MemoryEffectsOpInterface,
+                         TransformEachOpTrait,
+                         TransformOpInterface]> {
+  let description = [{
+    Rewrite a tensor.pack into tensor.pad + tensor.expand_shape + linalg.transpose.
+
+    #### Return modes
+
+    This operation ignores non-pack ops and drops them in the return.
+    This operation produces a silenceableFailure if the rewrite fails for any
+    reason.
+    If all the operations referred to by the `target` are rewritten, the
+    transform succeeds.
+    Return handles to the newly produced pad, expand_shape and transpose ops.
+  }];
+
+  let arguments = (ins Transform_ConcreteOpType<"tensor.pack">:$target);
+  let results = (outs Transform_ConcreteOpType<"tensor.pad">:$pad_op,
+                      Transform_ConcreteOpType<"tensor.expand_shape">:$expand_shape_op,
+                      Transform_ConcreteOpType<"linalg.transpose">:$transpose_op);
+  let assemblyFormat = [{
+    $target attr-dict `:` functional-type(operands, results)
+  }];
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::tensor::PackOp target,
+        ::mlir::transform::ApplyToEachResultList &transformResults,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// LowerUnPackOp
+//===----------------------------------------------------------------------===//
+def LowerUnPackOp : Op<Transform_Dialect, "structured.lower_unpack", [
+                         FunctionalStyleTransformOpTrait,
+                         MemoryEffectsOpInterface,
+                         TransformEachOpTrait,
+                         TransformOpInterface]> {
+  let description = [{
+    Lower a tensor.unpack into empty + linalg.transpose + tensor.collapse_shape + 
+    tensor.extract_slice.
+
+    #### Return modes
+
+    This operation ignores non-unpack ops and drops them in the return.
+    This operation produces a silenceableFailure if the rewrite fails for any
+    reason.
+    If all the operations referred to by the `target` are rewritten, the
+    transform succeeds.
+    Return handles to the newly produced empty, transpose, collapse_shape and extract_slice ops.
+  }];
+
+  let arguments = (ins Transform_ConcreteOpType<"tensor.unpack">:$target);
+  let results = (outs Transform_ConcreteOpType<"tensor.empty">:$empty_op,
+                      Transform_ConcreteOpType<"linalg.transpose">:$transpose_op,
+                      Transform_ConcreteOpType<"tensor.collapse_shape">:$collapse_shape_op,
+                      Transform_ConcreteOpType<"tensor.extract_slice">:$extract_slice_op);
+  let assemblyFormat = [{ 
+    $target attr-dict `:` functional-type(operands, results)
+  }];
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::tensor::UnPackOp target,
+        ::mlir::transform::ApplyToEachResultList &transformResults,
         ::mlir::transform::TransformState &state);
   }];
 }
@@ -370,7 +441,7 @@ def MultiTileSizesOp : Op<Transform_Dialect, "structured.multitile_sizes",
 
 def PackOp : Op<Transform_Dialect, "structured.pack", [
                 DeclareOpInterfaceMethods<TransformOpInterface>,
-                DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,]> {
+                DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let description = [{
     Pack a LinalgOp by applying a data tiling transformation on the op and
     packing the operands according to the `packed_sizes` specification.
@@ -450,6 +521,84 @@ def PackOp : Op<Transform_Dialect, "structured.pack", [
 
   let extraClassDeclaration = [{
     ::llvm::SmallVector<::mlir::OpFoldResult> getMixedPackedSizes();
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// PackGreedilyOp
+//===----------------------------------------------------------------------===//
+def PackGreedilyOp : Op<Transform_Dialect, "structured.pack_greedily", [
+                        DeclareOpInterfaceMethods<TransformOpInterface>,
+                        DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
+  let description = [{
+    Target a Linalg op and rewrite it into packed LinalgOp form by trying to
+    infer whether a known suboperation is embedded
+
+    Different packing strategies are applied in order, when one applies
+    successfully, the transform returns:
+      1. Gemm packing: Try to infer a gemm operation embedded in the target op.
+         Specifically, this looks for 2 parallel dimensions that participate in
+         an outer-product and 1 reduction dimension.
+         These dimensions are referred as (m, n, k) to match canonical gemm
+         terminology.
+         The packed sizes for (m, n, k) are specified by `gemm_packed_sizes`.
+         The ordering of the packed dimensions (mm, nn, kk) is specified by the
+         `gemm_inner_dims_order` attribute.
+
+    Packing occurs as follows:
+      1. Find the dimensions to pack according to the strategy.
+      2. The target is converted to linalg.generic form.
+      3. An interchange transform is applied to isolate the dimensions to pack as
+         the most minor indexing dimensions of the linalg.generic. The most minor
+         dimensions are themselves ordered according to `inner_dims_order`.
+      4. Packing is performed by `packed_sizes` and following `inner_dims_order`.
+
+    By normalizing the most minor dimensions to `inner_dims_order`, the transform
+    guarantees that packing immediates generates inner dimensions in a desirable
+    layout.
+
+    Outer dimension layout permutations are not controlled by this transform op
+    at the moment and can be obtained by composing with the pack_transpose
+    transformation.
+
+    #### Return modes
+
+    This operation ignores non-Linalg ops and drops them in the return.
+    It returns the list of packed Linalg ops or the original op when all available
+    packing strategies failed to apply.
+  }];
+
+  // TODO: Transform_ConcreteOpType<linalg::LinalgOp> needs interface.
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                   Variadic<PDL_Operation>:$gemm_packed_sizes,
+                   DefaultValuedAttr<DenseI64ArrayAttr, "{}">
+                     :$static_gemm_packed_sizes,
+                   DefaultValuedAttr<DenseI64ArrayAttr, "{}">
+                     :$gemm_inner_dims_order);
+  let results = (outs Transform_ConcreteOpType<"linalg.generic">:$packed_op);
+
+  let builders = [
+    OpBuilder<(ins "Value":$target,
+                   "ArrayRef<OpFoldResult>":$mixedGemmPackedSizes,
+                   CArg<"ArrayRef<int64_t>", "{}">:$gemmDimsInnerDimsOrder)>
+  ];
+
+  let assemblyFormat = [{
+    $target
+    oilist(
+      `gemm_packed_sizes` `=` custom<DynamicIndexList>($gemm_packed_sizes,
+                                                       $static_gemm_packed_sizes)
+      `gemm_inner_dims_order` `=` $gemm_inner_dims_order
+    )
+    attr-dict
+    `:` functional-type($target, results)
+  }];
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    /// Returns the list of tile sizes, which may be static (Attribute) or
+    /// dynamic (Value).
+    SmallVector<OpFoldResult> getMixedGemmPackedSizes();
   }];
 }
 
@@ -1428,6 +1577,12 @@ def MaskedVectorizeOp : Op<Transform_Dialect, "structured.masked_vectorize",
     The vector sizes can be either static or dynamic (SSA values). In case of
     SSA values, the handle must be mapped to exactly one payload op with
     exactly one index-typed result.
+
+    Note: The input vector sizes must be bigger than or equal to their
+    counterpart iteration space sizes.
+
+    Typically this operator should be applied to linalg operations that have
+    already be tiled to the appropriate sizes.
 
     #### Return modes:
 

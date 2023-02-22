@@ -2,7 +2,7 @@
 ; This test checks that if ASC has the same element type as NewV, ASC is
 ; replaced with NewV instead of new bitcast from i16 pointer.
 
-; RUN: opt -passes="infer-address-spaces" -S -override-flat-addr-space=4 -o - %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="infer-address-spaces" -S -override-flat-addr-space=4 -o - %s | FileCheck %s
 ; CHECK: bitcast i32* %gep0 to i16*
 ; CHECK-NOT: bitcast
 

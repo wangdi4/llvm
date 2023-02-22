@@ -126,8 +126,18 @@ static void parseCodeGenArgs(Fortran::frontend::CodeGenOptions &opts,
                    clang::driver::options::OPT_fno_debug_pass_manager, false))
     opts.DebugPassManager = 1;
 
+  if (args.hasFlag(clang::driver::options::OPT_fstack_arrays,
+                   clang::driver::options::OPT_fno_stack_arrays, false)) {
+    opts.StackArrays = 1;
+  }
+
   for (auto *a : args.filtered(clang::driver::options::OPT_fpass_plugin_EQ))
     opts.LLVMPassPlugins.push_back(a->getValue());
+
+  // -fembed-offload-object option
+  for (auto *a :
+       args.filtered(clang::driver::options::OPT_fembed_offload_object_EQ))
+    opts.OffloadObjects.push_back(a->getValue());
 
   // -mrelocation-model option.
   if (const llvm::opt::Arg *A =

@@ -1,4 +1,4 @@
-;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg %s -S | FileCheck %s
+;RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg %s -S | FileCheck %s
 
 ;in cg for CE (-1 * %row.031 + umax((4 + %row.031), ((4 * sext.i32.i64(%n1))
 ;+ %row.031)) + -1)/u4

@@ -1,5 +1,5 @@
-; RUN: opt -passes="vplan-vec" -vplan-vec-scenario="n0;v2;m2" -vplan-enable-masked-variant -print-after=vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefixes=LLVM
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -vplan-vec-scenario="n0;v2;m2" -disable-output %s 2>&1 | FileCheck %s --check-prefixes=HIR
+; RUN: opt -opaque-pointers=0 -passes="vplan-vec" -vplan-vec-scenario="n0;v2;m2" -vplan-enable-masked-variant -print-after=vplan-vec -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s --check-prefixes=LLVM
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -vplan-vec-scenario="n0;v2;m2" -disable-output %s 2>&1 | FileCheck %s --check-prefixes=HIR
 
 ; Incomming HIR
 ; <24>   BEGIN REGION { }

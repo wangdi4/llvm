@@ -4,7 +4,7 @@
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-fieldmodref-analysis>,function(hir-ssa-deconstruction,print<hir>,hir-lmm,print<hir>)' -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -hir-lmm-loopnest-hoisting=true < %s 2>&1 | FileCheck %s
 
 ; This command verifies that we do not compfail in hir-lmm in the absence of FieldModRef results.
-; RUN: opt -passes='hir-ssa-deconstruction,hir-lmm,print<hir>' -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -hir-lmm-loopnest-hoisting=true < %s 2>&1 | FileCheck %s --check-prefix=NO-COMPFAIL
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-lmm,print<hir>' -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -hir-lmm-loopnest-hoisting=true < %s 2>&1 | FileCheck %s --check-prefix=NO-COMPFAIL
 
 ; NO-COMPFAIL: DO i1
 

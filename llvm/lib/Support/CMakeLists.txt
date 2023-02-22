@@ -136,7 +136,6 @@ add_subdirectory(BLAKE3)
 # INTEL_CUSTOMIZATION
 set (SUPPORT_SOURCES
 # end INTEL_CUSTOMIZATION
-  AddressRanges.cpp
   ABIBreak.cpp
   AMDGPUMetadata.cpp
   APFixedPoint.cpp
@@ -199,7 +198,6 @@ set (SUPPORT_SOURCES
   Intel_CPU_utils.cpp
 # end INTEL_CUSTOMIZATION
   IntervalMap.cpp
-  ItaniumManglingCanonicalizer.cpp
   JSON.cpp
   KnownBits.cpp
   LEB128.cpp
@@ -218,6 +216,7 @@ set (SUPPORT_SOURCES
   NativeFormatting.cpp
   OptimizedStructLayout.cpp
   Optional.cpp
+  PGOOptions.cpp
   Parallel.cpp
   PluginLoader.cpp
   PrettyStackTrace.cpp
@@ -243,7 +242,6 @@ set (SUPPORT_SOURCES
   StringSaver.cpp
   StringRef.cpp
   SuffixTree.cpp
-  SymbolRemappingReader.cpp
   SystemUtils.cpp
   TarWriter.cpp
   ThreadPool.cpp

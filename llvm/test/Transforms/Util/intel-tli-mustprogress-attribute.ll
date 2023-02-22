@@ -1,4 +1,4 @@
-; RUN: opt --passes='default<O2>' %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 --passes='default<O2>' %s -S 2>&1 | FileCheck %s
 
 ; This test case checks if the attribute "mustprogress" was added when
 ; the TargetLibraryInfo analysis runs.

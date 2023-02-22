@@ -1,4 +1,4 @@
-; RUN: opt -hir-idiom-small-trip-count=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-idiom,print<hir>,hir-scalarrepl-array,hir-cg" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -hir-idiom-small-trip-count=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-idiom,print<hir>,hir-scalarrepl-array,hir-cg" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
 ; Verify that we successfully pass through scalar replacement for this test case.
 ; It was failing because locality analysis formed a locality group out of fake refs (%A)[i1 + 1][undef] and (%A)[i1][undef] attached to memcpy instruction.

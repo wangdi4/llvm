@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=vplan-vec -S -vplan-force-vf=4 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=vplan-vec -S -vplan-force-vf=4 | FileCheck %s
 
 ; The test verifies that the compiler doesn't assert an internal error on
 ; trying to vectorize the direct call which is not to a Function but rather

@@ -1,6 +1,6 @@
 ; This test is checking if we correctly bailout vectorization for double nested SIMD loops.
 
-; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec -debug-only=LoopVectorizationPlannerHIR -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=hir-ssa-deconstruction,hir-vplan-vec -debug-only=LoopVectorizationPlannerHIR -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: LVP: unsupported nested begin directive. 
 

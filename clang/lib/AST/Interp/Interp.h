@@ -145,9 +145,57 @@ bool CheckFloatResult(InterpState &S, CodePtr OpPC, APFloat::opStatus Status);
 /// Interpreter entry point.
 bool Interpret(InterpState &S, APValue &Result);
 
-bool InterpretBuiltin(InterpState &S, CodePtr PC, unsigned BuiltinID);
+/// Interpret a builtin function.
+bool InterpretBuiltin(InterpState &S, CodePtr &PC, unsigned BuiltinID);
 
 enum class ArithOp { Add, Sub };
+
+//===----------------------------------------------------------------------===//
+// Returning values
+//===----------------------------------------------------------------------===//
+
+template <PrimType Name, bool Builtin = false,
+          class T = typename PrimConv<Name>::T>
+bool Ret(InterpState &S, CodePtr &PC, APValue &Result) {
+  S.CallStackDepth--;
+  const T &Ret = S.Stk.pop<T>();
+
+  assert(S.Current->getFrameOffset() == S.Stk.size() && "Invalid frame");
+  if (Builtin || !S.checkingPotentialConstantExpression())
+    S.Current->popArgs();
+
+  if (InterpFrame *Caller = S.Current->Caller) {
+    PC = S.Current->getRetPC();
+    delete S.Current;
+    S.Current = Caller;
+    S.Stk.push<T>(Ret);
+  } else {
+    delete S.Current;
+    S.Current = nullptr;
+    if (!ReturnValue<T>(Ret, Result))
+      return false;
+  }
+  return true;
+}
+
+template <bool Builtin = false>
+inline bool RetVoid(InterpState &S, CodePtr &PC, APValue &Result) {
+  S.CallStackDepth--;
+
+  assert(S.Current->getFrameOffset() == S.Stk.size() && "Invalid frame");
+  if (Builtin || !S.checkingPotentialConstantExpression())
+    S.Current->popArgs();
+
+  if (InterpFrame *Caller = S.Current->Caller) {
+    PC = S.Current->getRetPC();
+    delete S.Current;
+    S.Current = Caller;
+  } else {
+    delete S.Current;
+    S.Current = nullptr;
+  }
+  return true;
+}
 
 //===----------------------------------------------------------------------===//
 // Add, Sub, Mul
@@ -770,6 +818,22 @@ bool InitGlobal(InterpState &S, CodePtr OpPC, uint32_t I) {
   return true;
 }
 
+/// 1) Converts the value on top of the stack to an APValue
+/// 2) Sets that APValue on \Temp
+/// 3) Initialized global with index \I with that
+template <PrimType Name, class T = typename PrimConv<Name>::T>
+bool InitGlobalTemp(InterpState &S, CodePtr OpPC, uint32_t I,
+                    const LifetimeExtendedTemporaryDecl *Temp) {
+  assert(Temp);
+  const T Value = S.Stk.peek<T>();
+  APValue APV = Value.toAPValue();
+  APValue *Cached = Temp->getOrCreateValue(true);
+  *Cached = APV;
+
+  S.P.getGlobal(I)->deref<T>() = S.Stk.pop<T>();
+  return true;
+}
+
 template <PrimType Name, class T = typename PrimConv<Name>::T>
 bool InitThisField(InterpState &S, CodePtr OpPC, uint32_t I) {
   if (S.checkingPotentialConstantExpression())
@@ -918,6 +982,14 @@ inline bool GetPtrActiveThisField(InterpState &S, CodePtr OpPC, uint32_t Off) {
 }
 
 inline bool GetPtrBase(InterpState &S, CodePtr OpPC, uint32_t Off) {
+  const Pointer &Ptr = S.Stk.peek<Pointer>();
+  if (!CheckNull(S, OpPC, Ptr, CSK_Base))
+    return false;
+  S.Stk.push<Pointer>(Ptr.atField(Off));
+  return true;
+}
+
+inline bool GetPtrBasePop(InterpState &S, CodePtr OpPC, uint32_t Off) {
   const Pointer &Ptr = S.Stk.pop<Pointer>();
   if (!CheckNull(S, OpPC, Ptr, CSK_Base))
     return false;

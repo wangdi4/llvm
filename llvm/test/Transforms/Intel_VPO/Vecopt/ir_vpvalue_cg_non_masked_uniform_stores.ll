@@ -2,7 +2,7 @@
 ; Test to check that VPValue-based IR codegen generates optimal and correct scalar code for
 ; non-masked stores to uniform addresses.
 
-; RUN: opt -passes=vplan-vec -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=vplan-vec -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s
 
 define void @foo(i32* %src1, i32 %src2, i32* %dest1, i32* %dest2, i32* %dest3) {
 ; CHECK-LABEL: @foo(

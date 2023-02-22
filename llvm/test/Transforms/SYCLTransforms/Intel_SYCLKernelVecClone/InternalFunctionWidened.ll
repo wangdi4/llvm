@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-vec-clone -sycl-enable-direct-function-call-vectorization=true -sycl-enable-direct-subgroup-function-call-vectorization=true -sycl-vector-variant-isa-encoding-override=SSE42 -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
-; RUN: opt -passes=sycl-kernel-vec-clone -sycl-enable-direct-function-call-vectorization=true -sycl-enable-direct-subgroup-function-call-vectorization=true -sycl-vector-variant-isa-encoding-override=SSE42 -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-enable-direct-function-call-vectorization=true -sycl-enable-direct-subgroup-function-call-vectorization=true -sycl-vector-variant-isa-encoding-override=SSE42 -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -o - | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-enable-direct-function-call-vectorization=true -sycl-enable-direct-subgroup-function-call-vectorization=true -sycl-vector-variant-isa-encoding-override=SSE42 -sycl-vect-info=%p/../Inputs/VectInfo64.gen %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ;; Widened inner functions must have "widened-size" attribute so Barrier inserts
 ;; correct loop increments.

@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-locality-analysis>" -hir-spatial-locality -debug-only=hir-locality-analysis -hir-details-dims -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir-locality-analysis>" -hir-spatial-locality -debug-only=hir-locality-analysis -hir-details-dims -disable-output 2>&1 | FileCheck %s
 
 ; Verify that the two refs (%ptr)[i1] and (%ptr)[i1+1] are put into different
 ; spatial groups because of unknown stride.

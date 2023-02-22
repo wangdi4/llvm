@@ -1,4 +1,4 @@
-; RUN: opt -passes=instcombine -aa-pipeline=basic-aa -instcombine-preserve-for-dtrans=false < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=instcombine -aa-pipeline=basic-aa -instcombine-preserve-for-dtrans=false < %s -S 2>&1 | FileCheck %s
 
 ; Check that only one original GEPs is retained and one byte-flattened GEP
 ; is generated when -instcombine-preserve-for-dtrans=false.

@@ -14,7 +14,7 @@
 ; LLVM-IR-NEXT:    [[SERIAL_CALL_1:%.*]] = call float @logf(float [[ARG_EXTRACT_1]])
 ; LLVM-IR-NEXT:    [[CALL_INSERT_1:%.*]] = insertelement <2 x float> [[CALL_INSERT_0]], float [[SERIAL_CALL_1]], i32 1
 
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -tli-vectorize-non-readonly-libcalls=false -vector-library=SVML -disable-output  < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -tli-vectorize-non-readonly-libcalls=false -vector-library=SVML -disable-output  < %s 2>&1 | FileCheck %s --check-prefix=HIR
 ; Checks for HIR VPlan vectorizer
 ; HIR:           + DO i1 = 0, 1023, 2   <DO_LOOP> <simd-vectorized> <novectorize>
 ; HIR-NEXT:      |   %.vec = (<2 x float>*)(%a)[i1];

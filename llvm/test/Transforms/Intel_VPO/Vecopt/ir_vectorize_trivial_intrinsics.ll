@@ -1,6 +1,6 @@
 ; Test to check correctness of CallVecDecisions analysis and codegen for trivially vectorizable intrinsics.
 
-; RUN: opt < %s -passes=vplan-vec -vplan-force-vf=2 -vplan-print-after-call-vec-decisions -disable-output | FileCheck %s --check-prefix=VEC-PROP
+; RUN: opt -opaque-pointers=0 < %s -passes=vplan-vec -vplan-force-vf=2 -vplan-print-after-call-vec-decisions -disable-output | FileCheck %s --check-prefix=VEC-PROP
 ; RUNX: opt < %s -passes=vplan-vec -vplan-force-vf=2 -S | FileCheck %s --check-prefix=CG-CHECK
 
 declare double @llvm.powi.f64.i32(double %Val, i32 %power) nounwind readnone

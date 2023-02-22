@@ -1,4 +1,4 @@
-; RUN: opt -passes="instcombine" < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="instcombine" < %s -S 2>&1 | FileCheck %s
 
 ; Test the load/store instructions are not converted to use integer type as it
 ; would break DTrans. Originally, there was a transformation doing that which we

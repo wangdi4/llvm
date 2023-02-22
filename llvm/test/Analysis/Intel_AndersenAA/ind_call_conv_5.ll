@@ -10,7 +10,7 @@
 ; but is not added as possible target since the type of @add_fun is
 ; not same as @fptr.
 
-; RUN: opt < %s -intel-ind-call-force-andersen -debug-only=intel-ind-call-conv -passes='require<anders-aa>,indirectcallconv' 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -intel-ind-call-force-andersen -debug-only=intel-ind-call-conv -passes='require<anders-aa>,indirectcallconv' 2>&1 | FileCheck %s
 
 %struct.A = type { %struct.A* ()*, i32 }
 %struct.A.01 = type { {}*, i32 }

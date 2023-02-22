@@ -1,5 +1,5 @@
-; RUN: opt -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=SSE42 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=SSE42 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=SSE42 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=SSE42 -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "i686-pc-win32-msvc-elf"

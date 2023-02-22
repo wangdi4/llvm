@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=vplan-vec -debug-only=ovls -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -debug-only=ovls -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; This is a test for a group with stride greater than group size. When looking

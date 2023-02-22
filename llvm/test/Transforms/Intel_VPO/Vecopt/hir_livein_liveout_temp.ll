@@ -26,7 +26,7 @@
 ;      |   }
 ;      + END LOOP
 
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s
 
 @s = dso_local local_unnamed_addr global i32 0, align 4
 @q = dso_local local_unnamed_addr global [20 x i32] zeroinitializer, align 16

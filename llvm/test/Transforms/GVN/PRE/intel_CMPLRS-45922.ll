@@ -1,4 +1,4 @@
-; RUN: opt -aa-pipeline="tbaa" -passes="gvn" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -aa-pipeline="tbaa" -passes="gvn" -S < %s | FileCheck %s
 
 ; When a null pointer value is initialized by a non-ANSI compliant pointer
 ; store, TBAA reports the corresponding load and store as 'no alias'. When

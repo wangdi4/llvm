@@ -1,7 +1,7 @@
 ; This test case is to check that __cxa_atexit function call is removed
 ; by remove-atexit pass.
-; RUN: opt -passes=sycl-kernel-remove-atexit -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-remove-atexit -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-remove-atexit -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-remove-atexit -S %s | FileCheck %s
 
 ; CHECK: call void @_ZN4globC1Ei(%struct.glob* @globobj, i32 4)
 ; CHECK-NEXT:  ret void

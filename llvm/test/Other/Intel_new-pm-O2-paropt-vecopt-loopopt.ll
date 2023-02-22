@@ -10,7 +10,7 @@
 ;            Running pass: InferFunctionAttrsPass
 ;            Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module>
 ;            Running analysis: TargetLibraryAnalysis
-;CHECK:      Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis, llvm::Module>
+;CHECK:      Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis{{.*Module.*}}> on [module] ;INTEL
 ;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis
 ;            Running pass: InlineReportSetupPass  ;INTEL
 ;            Running pass: InlineListsPass        ;INTEL

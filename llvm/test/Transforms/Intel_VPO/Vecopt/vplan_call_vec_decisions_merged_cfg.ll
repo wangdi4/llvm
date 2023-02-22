@@ -2,7 +2,7 @@
 ; Test to check correctness of CallVecDecisions analysis for merged CFG containing
 ; VPPushVF and VPPopVF instructions.
 
-; RUN: opt < %s -passes=vplan-vec -disable-output -vplan-print-after-call-vec-decisions -vplan-enable-pushvf -vector-library=SVML | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=vplan-vec -disable-output -vplan-print-after-call-vec-decisions -vplan-enable-pushvf -vector-library=SVML | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

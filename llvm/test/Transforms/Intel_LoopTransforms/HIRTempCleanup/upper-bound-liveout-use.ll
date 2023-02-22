@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>" 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>" 2>&1 | FileCheck %s
 
 ; Verify that use of %t301.out in inner loop's upper bound is considered an
 ; inner loop use and is not replaced because the rval %t301 is redefined

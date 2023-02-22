@@ -1,6 +1,6 @@
 ;
 ; REQUIRES: asserts
-; RUN: opt -vplan-enable-soa=false -S %s -passes="vplan-vec" -vplan-print-after-predicator -disable-output | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vplan-enable-soa=false -S %s -passes="vplan-vec" -vplan-print-after-predicator -disable-output | FileCheck %s
 
 ;source code:
 ;void foo(float *a, float *b, int* n) {

@@ -27,7 +27,7 @@
 
 ; Compile options: clang -cc1 -O0 -fsycl-is-device -triple spir-unknown-unknown-intelfpga test.cpp -emit-llvm -o test.ll
 
-; RUN: opt -passes="transform-fpga-reg" -S %s -o %t.ll
+; RUN: opt -opaque-pointers=0 -passes="transform-fpga-reg" -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 %struct._ZTS2st.st = type { i32, float }

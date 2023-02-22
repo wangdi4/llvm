@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -hir-cost-model-throttling=0 -S -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -hir-cost-model-throttling=0 -S -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
 
 ; Verify that we are successfully able to generate vector code for the function pointer setting loop.
 

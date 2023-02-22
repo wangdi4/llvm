@@ -3,7 +3,7 @@
 ; with "dereferenceable(8)" attribute. %c will not be promoted because
 ; it is not marked with dereferenceable.
 
-; RUN: opt < %s -passes=argpromotion -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=argpromotion -S | FileCheck %s
 
 ; CHECK-LABEL: define {{[^@]+}}@f
 ; CHECK-SAME: (i64 [[B_0:%.*]], i32* %X, i32 %i)

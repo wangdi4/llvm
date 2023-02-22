@@ -4126,7 +4126,7 @@ Decl *TemplateDeclInstantiator::VisitOMPThreadPrivateDecl(
 Decl *
 TemplateDeclInstantiator::VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D) {
   SmallVector<Expr *, 5> Vars;
-  Optional<OMPGroupPrivateDeclAttr::DevTypeTy> DevTy = std::nullopt;
+  std::optional<OMPGroupPrivateDeclAttr::DevTypeTy> DevTy = std::nullopt;
   for (auto *I : D->varlists()) {
     Expr *Var = SemaRef.SubstExpr(I, TemplateArgs).get();
     assert(isa<DeclRefExpr>(Var) && "groupprivate arg is not a DeclRefExpr");

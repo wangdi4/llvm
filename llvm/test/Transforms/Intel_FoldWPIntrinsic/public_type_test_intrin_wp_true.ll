@@ -5,7 +5,7 @@
 ; into llvm.type.test with whole program safe.
 
 
-; RUN: opt < %s -passes='module(intel-fold-wp-intrinsic)' -whole-program-assume -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes='module(intel-fold-wp-intrinsic)' -whole-program-assume -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
 
