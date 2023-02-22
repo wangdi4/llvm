@@ -240,6 +240,14 @@ template <typename T> static bool consume(InternalInstruction *insn, T &ptr) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+static bool isREX2(struct InternalInstruction *insn, uint8_t prefix) {
+  return insn->mode == MODE_64BIT && prefix == 0xd5;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 static bool isREX(struct InternalInstruction *insn, uint8_t prefix) {
   return insn->mode == MODE_64BIT && prefix >= 0x40 && prefix <= 0x4f;
 }
@@ -577,6 +585,28 @@ static int readPrefixes(struct InternalInstruction *insn) {
                                   insn->vectorExtensionPrefix[1],
                                   insn->vectorExtensionPrefix[2]));
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  } else if (isREX2(insn, byte)) {
+    uint8_t byte1;
+    if (peek(insn, byte1)) {
+      LLVM_DEBUG(dbgs() << "Couldn't read second byte of REX2");
+      return -1;
+    }
+    insn->rex2ExtensionPrefix[0] = byte;
+    consume(insn, insn->rex2ExtensionPrefix[1]);
+
+    // We simulate the REX prefix for simplicity's sake
+    insn->rexPrefix = 0x40 | (wFromREX2(insn->rex2ExtensionPrefix[1]) << 3) |
+                      (rFromREX2(insn->rex2ExtensionPrefix[1]) << 2) |
+                      (xFromREX2(insn->rex2ExtensionPrefix[1]) << 1) |
+                      (bFromREX2(insn->rex2ExtensionPrefix[1]) << 0);
+    LLVM_DEBUG(dbgs() << format("Found REX2 prefix 0x%hhx 0x%hhx",
+                                insn->rex2ExtensionPrefix[0],
+                                insn->rex2ExtensionPrefix[1]));
+
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   } else if (isREX(insn, byte)) {
     if (peek(insn, nextByte))
       return -1;
@@ -635,7 +665,14 @@ static int readSIB(struct InternalInstruction *insn) {
   if (consume(insn, insn->sib))
     return -1;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  index = indexFromSIB(insn->sib) | (xFromREX(insn->rexPrefix) << 3) |
+          (x2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
+#else // INTEL_FEATURE_ISA_APX_F
   index = indexFromSIB(insn->sib) | (xFromREX(insn->rexPrefix) << 3);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   if (index == 0x4) {
     insn->sibIndex = SIB_INDEX_NONE;
@@ -645,7 +682,14 @@ static int readSIB(struct InternalInstruction *insn) {
 
   insn->sibScale = 1 << scaleFromSIB(insn->sib);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  base = baseFromSIB(insn->sib) | (bFromREX(insn->rexPrefix) << 3) |
+         (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
+#else // INTEL_FEATURE_ISA_APX_F
   base = baseFromSIB(insn->sib) | (bFromREX(insn->rexPrefix) << 3);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   switch (base) {
   case 0x5:
@@ -739,8 +783,17 @@ static int readModRM(struct InternalInstruction *insn) {
     break;
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  reg |= (rFromREX(insn->rexPrefix) << 3) |
+         (r2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
+  rm |= (bFromREX(insn->rexPrefix) << 3) |
+        (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4);
+#else // INTEL_FEATURE_ISA_APX_F
   reg |= rFromREX(insn->rexPrefix) << 3;
   rm |= bFromREX(insn->rexPrefix) << 3;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   evexrm = 0;
   if (insn->vectorExtensionType == TYPE_EVEX && insn->mode == MODE_64BIT) {
@@ -894,6 +947,16 @@ static int readModRM(struct InternalInstruction *insn) {
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// EVEX.X is ignored when modrm.rm encodes a GPR, so we can't
+// always use 0x1f here.
+#define MAX_GPR_NUM (0xf | !!insn->rex2ExtensionPrefix[0] << 4)
+#else // INTEL_FEATURE_ISA_APX_F
+#define MAX_GPR_NUM 0xf
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
 #define GENERIC_FIXUP_FUNC(name, base, prefix, mask)                           \
   static uint16_t name(struct InternalInstruction *insn, OperandType type,     \
                        uint8_t index, uint8_t *valid) {                        \
@@ -907,7 +970,7 @@ static int readModRM(struct InternalInstruction *insn) {
       return base + index;                                                     \
     case TYPE_R8:                                                              \
       index &= mask;                                                           \
-      if (index > 0xf)                                                         \
+      if (index > MAX_GPR_NUM)                                                 \
         *valid = 0;                                                            \
       if (insn->rexPrefix && index >= 4 && index <= 7) {                       \
         return prefix##_SPL + (index - 4);                                     \
@@ -916,17 +979,17 @@ static int readModRM(struct InternalInstruction *insn) {
       }                                                                        \
     case TYPE_R16:                                                             \
       index &= mask;                                                           \
-      if (index > 0xf)                                                         \
+      if (index > MAX_GPR_NUM)                                                 \
         *valid = 0;                                                            \
       return prefix##_AX + index;                                              \
     case TYPE_R32:                                                             \
       index &= mask;                                                           \
-      if (index > 0xf)                                                         \
+      if (index > MAX_GPR_NUM)                                                 \
         *valid = 0;                                                            \
       return prefix##_EAX + index;                                             \
     case TYPE_R64:                                                             \
       index &= mask;                                                           \
-      if (index > 0xf)                                                         \
+      if (index > MAX_GPR_NUM)                                                 \
         *valid = 0;                                                            \
       return prefix##_RAX + index;                                             \
     case TYPE_ZMM:                                                             \
@@ -982,7 +1045,9 @@ static int readModRM(struct InternalInstruction *insn) {
 //                field is valid for the register class; 0 if not.
 // @return      - The proper value.
 GENERIC_FIXUP_FUNC(fixupRegValue, insn->regBase, MODRM_REG, 0x1f)
-GENERIC_FIXUP_FUNC(fixupRMValue, insn->eaRegBase, EA_REG, 0xf)
+#if INTEL_CUSTOMIZATION
+GENERIC_FIXUP_FUNC(fixupRMValue, insn->eaRegBase, EA_REG, MAX_GPR_NUM)
+#endif // INTEL_CUSTOMIZATION
 
 // Consult an operand specifier to determine which of the fixup*Value functions
 // to use in correcting readModRM()'ss interpretation.
@@ -1105,6 +1170,16 @@ static bool readOpcode(struct InternalInstruction *insn) {
       return consume(insn, insn->opcode);
     }
   }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  if (mFromREX2(insn->rex2ExtensionPrefix[1])) {
+    // m bit indicates opcode map 1
+    insn->opcodeType = TWOBYTE;
+    return consume(insn, insn->opcode);
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   if (consume(insn, current))
     return true;
@@ -1584,8 +1659,17 @@ static int readOpcodeRegister(struct InternalInstruction *insn, uint8_t size) {
 
   switch (size) {
   case 1:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    insn->opcodeRegister =
+        (Reg)(MODRM_REG_AL + ((bFromREX(insn->rexPrefix) << 3) |
+                              (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
+                              (insn->opcode & 7)));
+#else // INTEL_FEATURE_ISA_APX_F
     insn->opcodeRegister = (Reg)(
         MODRM_REG_AL + ((bFromREX(insn->rexPrefix) << 3) | (insn->opcode & 7)));
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     if (insn->rexPrefix && insn->opcodeRegister >= MODRM_REG_AL + 0x4 &&
         insn->opcodeRegister < MODRM_REG_AL + 0x8) {
       insn->opcodeRegister =
@@ -1594,18 +1678,45 @@ static int readOpcodeRegister(struct InternalInstruction *insn, uint8_t size) {
 
     break;
   case 2:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    insn->opcodeRegister =
+        (Reg)(MODRM_REG_AX + ((bFromREX(insn->rexPrefix) << 3) |
+                              (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
+                              (insn->opcode & 7)));
+#else // INTEL_FEATURE_ISA_APX_F
     insn->opcodeRegister = (Reg)(
         MODRM_REG_AX + ((bFromREX(insn->rexPrefix) << 3) | (insn->opcode & 7)));
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   case 4:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    insn->opcodeRegister =
+        (Reg)(MODRM_REG_EAX + ((bFromREX(insn->rexPrefix) << 3) |
+                               (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
+                               (insn->opcode & 7)));
+#else // INTEL_FEATURE_ISA_APX_F
     insn->opcodeRegister =
         (Reg)(MODRM_REG_EAX +
               ((bFromREX(insn->rexPrefix) << 3) | (insn->opcode & 7)));
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   case 8:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    insn->opcodeRegister =
+        (Reg)(MODRM_REG_RAX + ((bFromREX(insn->rexPrefix) << 3) |
+                               (b2FromREX2(insn->rex2ExtensionPrefix[1]) << 4) |
+                               (insn->opcode & 7)));
+#else // INTEL_FEATURE_ISA_APX_F
     insn->opcodeRegister =
         (Reg)(MODRM_REG_RAX +
               ((bFromREX(insn->rexPrefix) << 3) | (insn->opcode & 7)));
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   }
 
