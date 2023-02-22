@@ -90,6 +90,7 @@ ModulePass *createGVExtractionPass(std::vector<GlobalValue*>& GVs, bool
                                   deleteFn = false, bool keepConstInit = false);
 
 //===----------------------------------------------------------------------===//
+<<<<<<< HEAD
 /// createFunctionInliningPass - Return a new pass object that uses a heuristic
 /// to inline direct function calls to small functions.
 ///
@@ -110,6 +111,8 @@ Pass *createFunctionInliningPass(unsigned OptLevel, unsigned SizeOptLevel,
 Pass *createFunctionInliningPass(InlineParams &Params);
 
 //===----------------------------------------------------------------------===//
+=======
+>>>>>>> 84728a3d75496ff3f48436f968a01ba2c05ee37e
 /// createDeadArgEliminationPass - This pass removes arguments from functions
 /// which are not used by the body of the function.
 ///

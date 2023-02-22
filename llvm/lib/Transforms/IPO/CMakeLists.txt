@@ -86,10 +86,13 @@ add_llvm_component_library(LLVMipo
   IPO.cpp
   IROutliner.cpp
   InferFunctionAttrs.cpp
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   ${INTEL_SOURCE_FILES_TO_BUILD}
 #endif // INTEL_CUSTOMIZATION
   InlineSimple.cpp
+=======
+>>>>>>> 84728a3d75496ff3f48436f968a01ba2c05ee37e
   Inliner.cpp
   Internalize.cpp
   LoopExtractor.cpp

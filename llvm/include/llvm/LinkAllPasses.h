@@ -185,12 +185,15 @@ namespace {
       (void) llvm::createDomPrinterWrapperPassPass();
       (void) llvm::createDomOnlyViewerWrapperPassPass();
       (void) llvm::createDomViewerWrapperPassPass();
+<<<<<<< HEAD
       (void) llvm::createFunctionInliningPass();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
       (void) llvm::createFunctionRecognizerLegacyPass();
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 84728a3d75496ff3f48436f968a01ba2c05ee37e
       (void) llvm::createAlwaysInlinerLegacyPass();
       (void) llvm::createGlobalDCEPass();
       (void) llvm::createGlobalOptimizerPass();
