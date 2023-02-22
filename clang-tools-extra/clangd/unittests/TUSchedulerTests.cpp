@@ -752,6 +752,13 @@ TEST_F(TUSchedulerTests, ASTSignalsSmokeTests) {
 }
 
 TEST_F(TUSchedulerTests, RunWaitsForPreamble) {
+// INTEL_CUSTOMIZATION
+// This test is flaky on Alloy Windows. Skip it before it is looked at.
+// See CMPLRLLVM-45017.
+#ifdef _WIN32
+  GTEST_SKIP();
+#endif
+// end INTEL_CUSTOMIZATION
   // Testing strategy: we update the file and schedule a few preamble reads at
   // the same time. All reads should get the same non-null preamble.
   TUScheduler S(CDB, optsForTest());
