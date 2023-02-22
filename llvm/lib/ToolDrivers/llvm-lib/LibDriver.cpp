@@ -418,16 +418,13 @@ int llvm::libDriverMain(ArrayRef<const char *> ArgsArr) {
     }
   }
 
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   if (OpaquePointers)
     for (NewArchiveMember &Nam : Members)
       Nam.setOpaquePointers();
 #endif // INTEL_CUSTOMIZATION
-=======
   // For compatibility with MSVC, reverse member vector after de-duplication.
   std::reverse(Members.begin(), Members.end());
->>>>>>> 350c89fa75a089060baea83a7ed88ed360f6e918
 
   if (Error E =
           writeArchive(OutputPath, Members,
