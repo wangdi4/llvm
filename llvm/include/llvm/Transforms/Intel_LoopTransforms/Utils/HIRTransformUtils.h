@@ -469,6 +469,25 @@ public:
   ///
   static bool doSpecialSinkForPerfectLoopnest(HLLoop *OuterLp, HLLoop *InnerLp,
                                               HIRDDAnalysis &HDDA);
+
+  /// Propagates single use load temps to their uses and eliminates them. This
+  /// helps memcpy recognition and can help compile time by reducing size of
+  /// HIR. Returns true and invalidates loop body if any changes were made.
+  ///
+  /// For example-
+  //
+  /// DO i1
+  ///   t = A[i1];
+  ///   B[i1] = t;
+  ///  END DO
+  ///
+  /// ==>
+  ///
+  /// DO i1
+  ///   B[i1] = A[i1];
+  /// END DO
+  ///
+  static bool propagateSingleUseLoads(HLLoop *Lp);
 };
 
 } // End namespace loopopt

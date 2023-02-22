@@ -1513,11 +1513,13 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
     return false;
   }
 
-  if (SubstitutedLoads) {
-    if (HIRTransformUtils::doConstantAndCopyPropagation(&Region)) {
-      HLNodeUtils::removeRedundantNodes(&Region, true);
-    }
-  }
+  // Flag indicates whether we performed cleanup after DSE. If so, we need to
+  // call removeRedundantNodes() at the very end to remove empty parent nodes.
+  // Note that we are conditionally calling constant/copy propagation utility
+  // here.
+  bool PerformedCleanup =
+      (SubstitutedLoads &&
+       HIRTransformUtils::doConstantAndCopyPropagation(&Region));
 
   OptReportBuilder &ORBuilder = HNU.getHIRFramework().getORBuilder();
 
@@ -1526,8 +1528,19 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
     ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25529u);
 
     if (Lp->isAttached()) {
-      HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
+
+      if (!HIRTransformUtils::propagateSingleUseLoads(Lp)) {
+        // propagateSingleUseLoads() invalidates loop body if it makes changes
+        // so we only need to invalidate if it doesn't kick in.
+        HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
+      } else {
+        PerformedCleanup = true;
+      }
     }
+  }
+
+  if (PerformedCleanup) {
+    HLNodeUtils::removeRedundantNodes(&Region, true);
   }
 
   Region.setGenCode();

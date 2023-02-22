@@ -3449,22 +3449,27 @@ void HIRCompleteUnroll::transformLoops() {
       continue;
     }
 
-    bool HasParentLoop = true;
-    HLNode *ParentNode = Loop->getParentLoop();
+    HLLoop *ParentLoop = Loop->getParentLoop();
+    HLNode *ParentNode = ParentLoop;
     if (!ParentNode) {
-      HasParentLoop = false;
       ParentNode = Loop->getParentRegion();
     }
 
     doUnroll(Loop);
 
-    if ((IsPreVec && HasParentLoop) || ForceConstantPropagation) {
+    bool HasParentLoop = (IsPreVec && ParentLoop);
+
+    if (HasParentLoop || ForceConstantPropagation) {
       HIRTransformUtils::doConstantAndCopyPropagation(ParentNode
 #if INTEL_FEATURE_SW_DTRANS
                                                       ,
                                                       DTII
 #endif // INTEL_FEATURE_SW_DTRANS
       );
+    }
+
+    if (HasParentLoop) {
+      HIRTransformUtils::propagateSingleUseLoads(ParentLoop);
     }
 
     HLNodeUtils::removeRedundantNodes(ParentNode);

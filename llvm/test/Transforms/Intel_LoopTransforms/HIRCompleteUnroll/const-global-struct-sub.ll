@@ -26,8 +26,7 @@
 ; CHECK:       |   (%A)[1] = %5 + 2;
 ; CHECK:       |   %2 = (%A)[2];
 ; CHECK:       |   (%A)[2] = %2 + 3;
-; CHECK:       |   %5 = (%A)[3];
-; CHECK:       |   (%A)[3] = %5;
+; CHECK:       |   (%A)[3] = (%A)[3];
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
