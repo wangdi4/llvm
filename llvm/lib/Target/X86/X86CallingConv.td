@@ -1556,7 +1556,6 @@ def CSR_Lin64_Unified_SVML_512 : CalleeSavedRegs<(add CSR_Lin64_Unified_SVML_GPR
                                                   (sequence "ZMM%u", 16, 31),
                                                   K4, K5, K6, K7)>;
 
-<<<<<<< HEAD
 // For intel_cpu_features_init functions, all GPRs (except RAX which is used
 // for return value, and potentially RCX if it has 2 arguments) and common
 // vector registers are callee-saved.
@@ -1566,12 +1565,6 @@ def CSR_64_Intel_Features_Init : CalleeSavedRegs<(add CSR_Win64_NoSSE, RCX, RDX,
                                                   R8, R9, R10, R11,
                                                   (sequence "XMM%u", 0, 15))>;
 // endif INTEL_CUSTOMIZATION
-
-// Only R12 is preserved for PHP calls in HHVM.
-def CSR_64_HHVM : CalleeSavedRegs<(add R12)>;
-
-=======
->>>>>>> 782045e727b70d19c7fa70c388eddb65390060d9
 // Register calling convention preserves few GPR and XMM8-15
 def CSR_32_RegCall_NoSSE : CalleeSavedRegs<(add ESI, EDI, EBX, EBP)>;
 def CSR_32_RegCall       : CalleeSavedRegs<(add CSR_32_RegCall_NoSSE,

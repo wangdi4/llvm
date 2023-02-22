@@ -1106,7 +1106,8 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
     // VecSpill alignment boundary is at least 16 bytes (XMM registers).
     Align Alignment(16);
     MaxAlign = std::max(MaxAlign, Alignment);
-    Offset = alignTo(Offset, Alignment, Skew);
+    // FIXME: 782045e was reverted by community, uncomment when relanded
+    // Offset = alignTo(Offset, Alignment, Skew);
   }
 #endif // INTEL_CUSTOMIZATION
   // Now walk the objects and actually assign base offsets to them.
