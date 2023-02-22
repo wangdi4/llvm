@@ -3798,13 +3798,10 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // For example, when they are used as return registers (preserve_* and X86's
   // regcall) or for argument passing (X86's regcall).
   bool ShouldDisableCalleeSavedRegister =
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
 #endif // INTEL_CUSTOMIZATION
-=======
       shouldDisableRetRegFromCSR(CallConv) ||
->>>>>>> 10629bb96aebfefaadfb0069bc7e276b868fcef9
       MF.getFunction().hasFnAttribute("no_caller_saved_registers");
 
   if (CallConv == CallingConv::X86_INTR && !Outs.empty())
@@ -4985,13 +4982,10 @@ SDValue X86TargetLowering::LowerFormalArguments(
     }
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (shouldDisableArgRegFromCSR(CallConv) ||
->>>>>>> 10629bb96aebfefaadfb0069bc7e276b868fcef9
+      shouldDisableArgRegFromCSR(CallConv) ||
       F.hasFnAttribute("no_caller_saved_registers")) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
     for (std::pair<Register, Register> Pair : MRI.liveins())
@@ -5557,18 +5551,15 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   uint32_t *RegMask = nullptr;
 
   // In some calling conventions we need to remove the used physical registers
-<<<<<<< HEAD
-  // from the reg mask.
-#if INTEL_CUSTOMIZATION
-  if (shouldDisableCalleeSavedRegisterForCallConv(CallConv) || HasNCSR) {
-#endif // INTEL_CUSTOMIZATION
-=======
   // from the reg mask. Create a new RegMask for such calling conventions.
   // RegMask for calling conventions that disable only return registers (e.g.
   // preserve_most) will be modified later in LowerCallResult.
-  bool ShouldDisableArgRegs = shouldDisableArgRegFromCSR(CallConv) || HasNCSR;
+#if INTEL_CUSTOMIZATION
+  bool ShouldDisableArgRegs =
+      shouldDisableArgRegFromCSR(CallConv) ||
+      shouldDisableCalleeSavedRegisterForCallConv(CallConv) || HasNCSR;
+#endif // INTEL_CUSTOMIZATION
   if (ShouldDisableArgRegs || shouldDisableRetRegFromCSR(CallConv)) {
->>>>>>> 10629bb96aebfefaadfb0069bc7e276b868fcef9
     const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
 
     // Allocate a new Reg Mask and copy Mask.
