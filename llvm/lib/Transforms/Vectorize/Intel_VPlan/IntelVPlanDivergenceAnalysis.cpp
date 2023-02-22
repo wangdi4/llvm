@@ -1005,8 +1005,7 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCastInst(
             // If stride is negative, swap lower/upper
             if (Lower > Upper)
               std::swap(Lower, Upper);
-            if ((Lower >= 0 && Upper <= UINT_MAX) ||
-                (Lower >= INT_MIN && Upper <= INT_MAX))
+            if (Lower >= INT_MIN && Upper <= INT_MAX)
               return Shape0;
           }
         }
