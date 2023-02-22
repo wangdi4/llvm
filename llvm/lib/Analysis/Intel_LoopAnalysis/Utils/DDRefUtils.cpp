@@ -317,6 +317,12 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
     return false;
   }
 
+  // It is not safe to treat collapsed and non-collapsed refs as having same
+  // shape as the indices of collapsed refs are out of range.
+  if (Ref1->isCollapsed() != Ref2->isCollapsed()) {
+    return false;
+  }
+
   // Check that dimension lowers and strides are the same.
   for (unsigned DimI = 1; DimI <= NumDims; ++DimI) {
     if (!CanonExprUtils::areEqual(Ref1->getDimensionLower(DimI),
