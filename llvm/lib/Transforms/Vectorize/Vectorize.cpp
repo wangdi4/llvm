@@ -52,6 +52,7 @@ void llvm::initializeVectorization(PassRegistry &Registry) {
   initializeVPlanDriverHIRPass(Registry);
   initializeVPlanFunctionVectorizerLegacyPassPass(Registry);
 #endif
+  initializeVectorCombineLegacyPassPass(Registry);
 }
 
 void LLVMInitializeVectorization(LLVMPassRegistryRef R) {
