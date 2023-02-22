@@ -117,7 +117,13 @@ using namespace llvm::X86Disassembler;
 // this information is known, we have narrowed down to a single instruction.
 struct ModRMDecision {
   uint8_t modrm_type;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XISA_COMMON
+  unsigned instructionIDs;
+#else // INTEL_FEATURE_XISA_COMMON
   uint16_t instructionIDs;
+#endif // INTEL_FEATURE_XISA_COMMON
+#endif // INTEL_CUSTOMIZATION
 };
 
 // Specifies which set of ModR/M->instruction tables to look at
