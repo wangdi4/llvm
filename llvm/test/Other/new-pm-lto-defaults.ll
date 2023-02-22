@@ -94,7 +94,6 @@
 ; CHECK-O-NEXT: Running analysis: StdContainerAA ;INTEL
 ; COM: CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
-; CHECK-O-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-O-NEXT: Running pass: OptimizeDynamicCastsPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: InstSimplifyPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass ;INTEL
@@ -106,7 +105,6 @@
 ; CHECK-O1-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-O1-NEXT: Invalidating analysis: LazyCallGraphAnalysis
 ; CHECK-O1-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
-; CHECK-O1-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-O1-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O1-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O1-NEXT: Running analysis: TargetLibraryAnalysis
@@ -184,6 +182,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA ;INTEL
 ; CHECK-O23SZ-NEXT: Running analysis: AndersensAA ;INTEL
+; CHECK-O23SZ-NEXT: Running analysis: CallGraphAnalysis on [module]
 ; CHECK-O23SZ-NEXT: Running pass: IndirectCallConvPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: AggInlinerPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: ModuleInlinerWrapperPass
