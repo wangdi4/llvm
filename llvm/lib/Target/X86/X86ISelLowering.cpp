@@ -2020,6 +2020,8 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::ROTL,             VT, Custom);
       setOperationAction(ISD::ROTR,             VT, Custom);
       setOperationAction(ISD::SETCC,            VT, Custom);
+      setOperationAction(ISD::ABDS,             VT, Custom);
+      setOperationAction(ISD::ABDU,             VT, Custom);
 
       // The condition codes aren't legal in SSE/AVX and under AVX512 we use
       // setcc all the way to isel and prefer SETGT in some isel patterns.
@@ -2032,8 +2034,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::SMIN,             VT, Legal);
       setOperationAction(ISD::UMIN,             VT, Legal);
       setOperationAction(ISD::ABS,              VT, Legal);
-      setOperationAction(ISD::ABDS,             VT, Custom);
-      setOperationAction(ISD::ABDU,             VT, Custom);
       setOperationAction(ISD::CTPOP,            VT, Custom);
       setOperationAction(ISD::STRICT_FSETCC,    VT, Custom);
       setOperationAction(ISD::STRICT_FSETCCS,   VT, Custom);
@@ -2041,8 +2041,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
     for (auto VT : { MVT::v64i8, MVT::v32i16 }) {
       setOperationAction(ISD::ABS,     VT, HasBWI ? Legal : Custom);
-      setOperationAction(ISD::ABDS,    VT, Custom);
-      setOperationAction(ISD::ABDU,    VT, Custom);
       setOperationAction(ISD::CTPOP,   VT, Subtarget.hasBITALG() ? Legal : Custom);
       setOperationAction(ISD::CTLZ,    VT, Custom);
       setOperationAction(ISD::SMAX,    VT, HasBWI ? Legal : Custom);
