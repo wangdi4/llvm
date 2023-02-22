@@ -1237,7 +1237,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Infer attributes about definitions. The readnone attribute in particular is
   // required for virtual constant propagation.
   PM.add(createPostOrderFunctionAttrsLegacyPass());
-  PM.add(createReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
   // Simplify the graph before devirtualization

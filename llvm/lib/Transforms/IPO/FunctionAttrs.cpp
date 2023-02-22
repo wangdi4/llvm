@@ -2011,47 +2011,6 @@ bool PostOrderFunctionAttrsLegacyPass::runOnSCC(CallGraphSCC &SCC) {
   return runImpl(SCC, LegacyAARGetter(*this), WPA);              // INTEL
 }
 
-<<<<<<< HEAD
-namespace {
-
-struct ReversePostOrderFunctionAttrsLegacyPass : public ModulePass {
-  // Pass identification, replacement for typeid
-  static char ID;
-
-  ReversePostOrderFunctionAttrsLegacyPass() : ModulePass(ID) {
-    initializeReversePostOrderFunctionAttrsLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-    AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
-    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
-    AU.addRequired<CallGraphWrapperPass>();
-    AU.addPreserved<CallGraphWrapperPass>();
-  }
-};
-
-} // end anonymous namespace
-
-char ReversePostOrderFunctionAttrsLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(ReversePostOrderFunctionAttrsLegacyPass,
-                      "rpo-function-attrs", "Deduce function attributes in RPO",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_END(ReversePostOrderFunctionAttrsLegacyPass,
-                    "rpo-function-attrs", "Deduce function attributes in RPO",
-                    false, false)
-
-Pass *llvm::createReversePostOrderFunctionAttrsPass() {
-  return new ReversePostOrderFunctionAttrsLegacyPass();
-}
-
-=======
->>>>>>> 4e3aae1b91c9371fd5f76ac4d64a69083e212c28
 static bool addNoRecurseAttrsTopDown(Function &F) {
   // We check the preconditions for the function prior to calling this to avoid
   // the cost of building up a reversible post-order list. We assert them here
@@ -2119,12 +2078,8 @@ ReversePostOrderFunctionAttrsPass::run(Module &M, ModuleAnalysisManager &AM) {
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
-<<<<<<< HEAD
-  PA.preserve<CallGraphAnalysis>();
+  PA.preserve<LazyCallGraphAnalysis>();
   PA.preserve<AndersensAA>();              // INTEL
   PA.preserve<WholeProgramAnalysis>();     // INTEL
-=======
-  PA.preserve<LazyCallGraphAnalysis>();
->>>>>>> 4e3aae1b91c9371fd5f76ac4d64a69083e212c28
   return PA;
 }
