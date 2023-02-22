@@ -152,6 +152,27 @@ static void errorUnsupported(SelectionDAG &DAG, const SDLoc &dl,
       DiagnosticInfoUnsupported(MF.getFunction(), Msg, dl.getDebugLoc()));
 }
 
+/// Returns true if a CC can dynamically exclude a register from the list of
+/// callee-saved-registers (TargetRegistryInfo::getCalleeSavedRegs()) based on
+/// the return registers.
+static bool shouldDisableRetRegFromCSR(CallingConv::ID CC) {
+  switch (CC) {
+  default:
+    return false;
+  case CallingConv::X86_RegCall:
+  case CallingConv::PreserveMost:
+  case CallingConv::PreserveAll:
+    return true;
+  }
+}
+
+/// Returns true if a CC can dynamically exclude a register from the list of
+/// callee-saved-registers (TargetRegistryInfo::getCalleeSavedRegs()) based on
+/// the parameters.
+static bool shouldDisableArgRegFromCSR(CallingConv::ID CC) {
+  return CC == CallingConv::X86_RegCall;
+}
+
 X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
                                      const X86Subtarget &STI)
     : TargetLowering(TM), Subtarget(STI) {
@@ -3774,11 +3795,16 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   X86MachineFunctionInfo *FuncInfo = MF.getInfo<X86MachineFunctionInfo>();
 
   // In some cases we need to disable registers from the default CSR list.
-  // For example, when they are used for argument passing.
+  // For example, when they are used as return registers (preserve_* and X86's
+  // regcall) or for argument passing (X86's regcall).
   bool ShouldDisableCalleeSavedRegister =
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
 #endif // INTEL_CUSTOMIZATION
+=======
+      shouldDisableRetRegFromCSR(CallConv) ||
+>>>>>>> 10629bb96aebfefaadfb0069bc7e276b868fcef9
       MF.getFunction().hasFnAttribute("no_caller_saved_registers");
 
   if (CallConv == CallingConv::X86_INTR && !Outs.empty())
@@ -3941,8 +3967,12 @@ X86TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
     RetOps.push_back(
         DAG.getRegister(RetValReg, getPointerTy(DAG.getDataLayout())));
 
-    // Add the returned register to the CalleeSaveDisableRegs list.
-    if (ShouldDisableCalleeSavedRegister)
+    // Add the returned register to the CalleeSaveDisableRegs list. Don't do
+    // this however for preserve_most/preserve_all to minimize the number of
+    // callee-saved registers for these CCs.
+    if (ShouldDisableCalleeSavedRegister &&
+        CallConv != CallingConv::PreserveAll &&
+        CallConv != CallingConv::PreserveMost)
       MF.getRegInfo().disableCalleeSavedRegister(RetValReg);
   }
 
@@ -4955,9 +4985,13 @@ SDValue X86TargetLowering::LowerFormalArguments(
     }
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (shouldDisableCalleeSavedRegisterForCallConv(CallConv) ||
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (shouldDisableArgRegFromCSR(CallConv) ||
+>>>>>>> 10629bb96aebfefaadfb0069bc7e276b868fcef9
       F.hasFnAttribute("no_caller_saved_registers")) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
     for (std::pair<Register, Register> Pair : MRI.liveins())
@@ -5523,10 +5557,18 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   uint32_t *RegMask = nullptr;
 
   // In some calling conventions we need to remove the used physical registers
+<<<<<<< HEAD
   // from the reg mask.
 #if INTEL_CUSTOMIZATION
   if (shouldDisableCalleeSavedRegisterForCallConv(CallConv) || HasNCSR) {
 #endif // INTEL_CUSTOMIZATION
+=======
+  // from the reg mask. Create a new RegMask for such calling conventions.
+  // RegMask for calling conventions that disable only return registers (e.g.
+  // preserve_most) will be modified later in LowerCallResult.
+  bool ShouldDisableArgRegs = shouldDisableArgRegFromCSR(CallConv) || HasNCSR;
+  if (ShouldDisableArgRegs || shouldDisableRetRegFromCSR(CallConv)) {
+>>>>>>> 10629bb96aebfefaadfb0069bc7e276b868fcef9
     const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
 
     // Allocate a new Reg Mask and copy Mask.
@@ -5536,10 +5578,12 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
     // Make sure all sub registers of the argument registers are reset
     // in the RegMask.
-    for (auto const &RegPair : RegsToPass)
-      for (MCSubRegIterator SubRegs(RegPair.first, TRI, /*IncludeSelf=*/true);
-           SubRegs.isValid(); ++SubRegs)
-        RegMask[*SubRegs / 32] &= ~(1u << (*SubRegs % 32));
+    if (ShouldDisableArgRegs) {
+      for (auto const &RegPair : RegsToPass)
+        for (MCSubRegIterator SubRegs(RegPair.first, TRI, /*IncludeSelf=*/true);
+             SubRegs.isValid(); ++SubRegs)
+          RegMask[*SubRegs / 32] &= ~(1u << (*SubRegs % 32));
+    }
 
     // Create the RegMask Operand according to our updated mask.
     Ops.push_back(DAG.getRegisterMask(RegMask));
