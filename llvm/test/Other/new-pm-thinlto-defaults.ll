@@ -116,6 +116,8 @@
 ; CHECK-O-NEXT: Running analysis: PostDominatorTreeAnalysis
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
+; CHECK-O-NEXT: Running pass: AlwaysInlinerPass
+; CHECK-PRELINK-O-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O-NEXT: Running pass: ModuleInlinerWrapperPass
 ; CHECK-O-NEXT: Running analysis: InlineAdvisorAnalysis
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
@@ -124,13 +126,11 @@
 ; CHECK-O-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
 ; CHECK-O-NEXT: Invalidating analysis: AAManager
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}ProfileSummaryAnalysis
-; CHECK-PRELINK-O-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
 ; CHECK-O-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
 ; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-O-NEXT: Running pass: DevirtSCCRepeatedPass
-; CHECK-O-NEXT: Running pass: InlinerPass
 ; CHECK-O-NEXT: Running pass: InlinerPass
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SROA                  ;INTEL

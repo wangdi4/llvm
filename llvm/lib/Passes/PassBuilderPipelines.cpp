@@ -500,7 +500,7 @@ static cl::opt<bool> EnableModuleInliner("enable-module-inliner",
                                          cl::desc("Enable module inliner"));
 
 static cl::opt<bool> PerformMandatoryInliningsFirst(
-    "mandatory-inlining-first", cl::init(true), cl::Hidden,
+    "mandatory-inlining-first", cl::init(false), cl::Hidden,
     cl::desc("Perform mandatory inlinings module-wide, before performing "
              "inlining"));
 
@@ -1757,6 +1757,9 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 // FIXME: addVPOPasses needs to be called if EnableModuleInliner is true. This
 // needs to be fixed before the flag is made true by default.
 #endif // INTEL_COLLAB
+  MPM.addPass(AlwaysInlinerPass(
+      /*InsertLifetimeIntrinsics=*/Level != OptimizationLevel::O0));
+
   if (EnableModuleInliner)
     MPM.addPass(buildModuleInlinerPipeline(Level, Phase));
   else
