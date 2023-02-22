@@ -308,16 +308,13 @@ namespace {
       (void) llvm::createLoopVectorizePass();
       (void) llvm::createSLPVectorizerPass();
       (void) llvm::createLoadStoreVectorizerPass();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       (void) llvm::createVPlanPragmaOmpOrderedSimdExtractPass();
       (void) llvm::createVPlanDriverPass();
       (void) llvm::createVPlanDriverHIRPass(false);
       (void) llvm::createVPlanFunctionVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
-=======
       (void) llvm::createVectorCombinePass();
->>>>>>> 1b254022b25d2f2318cf779e32027ecf1c6e826e
       (void) llvm::createPartiallyInlineLibCallsPass();
       (void) llvm::createScalarizerPass();
       (void) llvm::createSeparateConstOffsetFromGEPPass();
