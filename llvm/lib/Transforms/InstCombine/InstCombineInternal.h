@@ -714,9 +714,13 @@ public:
   Instruction *foldICmpEqIntrinsicWithConstant(ICmpInst &ICI, IntrinsicInst *II,
                                                const APInt &C);
   Instruction *foldICmpBitCast(ICmpInst &Cmp);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   Instruction *foldNotCmpOverTwoSelects(ICmpInst &I, const SimplifyQuery &Q);
 #endif // INTEL_CUSTOMIZATION
+=======
+  Instruction *foldICmpWithTrunc(ICmpInst &Cmp);
+>>>>>>> 6f149a17d4b1a254dd41a3b910021481c564a691
 
   // Helpers of visitSelectInst().
   Instruction *foldSelectOfBools(SelectInst &SI);
