@@ -364,9 +364,7 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   Builder.OptLevel = OptLevel;
   Builder.SizeLevel = SizeLevel;
 
-  if (OptLevel > 1) {
-    Builder.Inliner = createFunctionInliningPass(OptLevel, SizeLevel, false);
-  } else {
+  if (OptLevel <= 1) {
     Builder.Inliner = createAlwaysInlinerLegacyPass();
   }
   Builder.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;

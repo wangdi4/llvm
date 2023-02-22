@@ -242,7 +242,6 @@ int main(int argc, char **argv) {
 #ifdef INTEL_CUSTOMIZATION
   if (StandardLinkOpts) {
     PassManagerBuilder Builder;
-    Builder.Inliner = createFunctionInliningPass();
     Builder.populateLTOPassManager(PM);
   }
 #endif // INTEL_CUSTOMIZATION
