@@ -60,7 +60,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeInlineListsPass(Registry); // INTEL
   initializeInlineReportEmitterPass(Registry); // INTEL
   initializeInlineReportSetupPass(Registry); // INTEL
-  initializeSimpleInlinerPass(Registry);
   initializeInferFunctionAttrsLegacyPassPass(Registry);
   initializeLoopExtractorLegacyPassPass(Registry);
   initializeSingleLoopExtractorPass(Registry);
@@ -126,10 +125,6 @@ void LLVMAddInlineReportEmitterPass(LLVMPassManagerRef PM) {
 
 void LLVMAddFunctionAttrsPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createPostOrderFunctionAttrsLegacyPass());
-}
-
-void LLVMAddFunctionInliningPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createFunctionInliningPass());
 }
 
 void LLVMAddAlwaysInlinerPass(LLVMPassManagerRef PM) {

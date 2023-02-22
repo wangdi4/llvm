@@ -89,7 +89,6 @@ add_llvm_component_library(LLVMipo
 # INTEL_CUSTOMIZATION
   ${INTEL_SOURCE_FILES_TO_BUILD}
 #endif // INTEL_CUSTOMIZATION
-  InlineSimple.cpp
   Inliner.cpp
   Internalize.cpp
   LoopExtractor.cpp

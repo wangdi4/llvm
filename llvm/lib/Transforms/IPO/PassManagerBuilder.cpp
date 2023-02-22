@@ -1970,11 +1970,6 @@ void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
   PassManagerBuilder *Builder = unwrap(PMB);
   legacy::PassManagerBase *LPM = unwrap(PM);
 
-  // A small backwards compatibility hack. populateLTOPassManager used to take
-  // an RunInliner option.
-  if (RunInliner && !Builder->Inliner)
-    Builder->Inliner = createFunctionInliningPass();
-
   Builder->populateLTOPassManager(*LPM);
 }
 
@@ -2026,8 +2021,7 @@ LLVMPassManagerBuilderSetDisableSimplifyLibCalls(LLVMPassManagerBuilderRef PMB,
 void
 LLVMPassManagerBuilderUseInlinerWithThreshold(LLVMPassManagerBuilderRef PMB,
                                               unsigned Threshold) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  Builder->Inliner = createFunctionInliningPass(Threshold);
+  // TODO: remove this
 }
 
 void
