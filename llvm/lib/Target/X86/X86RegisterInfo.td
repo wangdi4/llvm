@@ -48,12 +48,12 @@ let Namespace = "X86" in {
   def sub_mask_0   : SubRegIndex<-1>;
   def sub_mask_1   : SubRegIndex<-1, -1>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   def sub_t0   : SubRegIndex<-1>;
   def sub_t1   : SubRegIndex<-1, -1>;
   def sub_t2   : SubRegIndex<-1, -1>;
   def sub_t3   : SubRegIndex<-1, -1>;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
 #if INTEL_FEATURE_XISA_COMMON
   def sub_x0   : SubRegIndex<128>;
@@ -949,7 +949,7 @@ let CopyCost = -1 in // Don't allow copying of tile registers
 def TILE : RegisterClass<"X86", [x86amx], 8192,
                          (sequence "TMM%u", 0, 7)> {let Size = 8192;}
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 // TMM register pairs
 def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
                             [(add TMM0, TMM2, TMM4, TMM6),
@@ -973,7 +973,7 @@ def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, 
 
 // Need check alignment 3rd operand size=512*16
 def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Size = 8196;}
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 // Tiles
 let isAllocatable = 1 in

@@ -1,4 +1,4 @@
-; REQUIRES: intel_feature_isa_amx_lnc
+; REQUIRES: intel_feature_isa_amx_transpose
 ; RUN: llc < %s -O0 -mtriple=x86_64-unknown-unknown -mattr=+avx512f,+amx-tile,+amx-bf16,+amx-int8,+amx-transpose,+amx-avx512,+amx-memory | FileCheck %s
 
 ; CHECK-LABEL: test_amx:

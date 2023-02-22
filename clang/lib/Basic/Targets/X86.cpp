@@ -105,12 +105,12 @@ static const char *const GCCRegNames[] = {
     "bnd0",  "bnd1",  "bnd2",  "bnd3",
     "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
     // Just align with ICC for tmm8-15
     "tmm8",  "tmm9",  "tmm10", "tmm11", "tmm12",   "tmm13", "tmm14", "tmm15",
     "tmm16", "tmm17", "tmm18", "tmm19", "tmm20",   "tmm21", "tmm22", "tmm23",
     "tmm24", "tmm25", "tmm26", "tmm27", "tmm28",   "tmm29", "tmm30", "tmm31",
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -432,10 +432,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-element") {
       HasAMXELEMENT = true;
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
     } else if (Feature == "+amx-transpose") {
       HasAMXTRANSPOSE = true;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
     } else if (Feature == "+amx-memory2") {
       HasAMXMEMORY2 = true;
@@ -1245,11 +1245,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXELEMENT__");
   Builder.defineMacro("__AMXFUTURE_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   if (HasAMXTRANSPOSE)
     Builder.defineMacro("__AMXTRANSPOSE__");
-  Builder.defineMacro("__AMXLNC_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+  Builder.defineMacro("__AMXTRANSPOSE_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_CONVERT
   if (HasAMXCONVERT)
     Builder.defineMacro("__AMXCONVERT__");
@@ -1649,9 +1649,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("amx-format", true)
       .Case("amx-element", true)
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
       .Case("amx-transpose", true)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
       .Case("amx-memory2", true)
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2
@@ -1962,9 +1962,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-format", HasAMXFORMAT)
       .Case("amx-element", HasAMXELEMENT)
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
       .Case("amx-transpose", HasAMXTRANSPOSE)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
       .Case("amx-memory2", HasAMXMEMORY)
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2

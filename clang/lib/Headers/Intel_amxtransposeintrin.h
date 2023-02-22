@@ -1,5 +1,5 @@
-/* INTEL_FEATURE_ISA_AMX_LNC */
-/*===---------- Intel_amxlncintrin.h - AMX_LNC intrinsics -*- C++ -*---------===
+/* INTEL_FEATURE_ISA_AMX_TRANSPOSE */
+/*===---------- Intel_amxtransposeintrin.h - AMX_TRANSPOSE intrinsics -*- C++ -*---------===
 *
 * Copyright (C) 2019 Intel Corporation. All rights reserved.
 *
@@ -10,11 +10,11 @@
 * ===---------------------------------------------------------------------=== */
 
 #ifndef __IMMINTRIN_H
-#error "Never use <Intel_amxlncintrin.h> directly; use <immintrin.h> instead."
+#error "Never use <Intel_amxtransposeintrin.h> directly; use <immintrin.h> instead."
 #endif /* __IMMINTRIN_H */
 
-#ifndef __AMX_LNCINTRIN_H
-#define __AMX_LNCINTRIN_H
+#ifndef __AMX_TRANSPOSEINTRIN_H
+#define __AMX_TRANSPOSEINTRIN_H
 #ifdef __x86_64__
 
 #define __DEFAULT_FN_ATTRS_TRANSPOSE                                           \
@@ -191,7 +191,7 @@
 #define _tile_tilemove(tdst, tsrc)  __builtin_ia32_tilemove(tdst, tsrc)
 #define _tile_zeroe(tile)       __builtin_ia32_tilezeroe(tile)
 
-//AMX_LNC ELEMENTEVEX
+//AMX_TRANSPOSE ELEMENTEVEX
 #define _tile_cvtd2pse(base, stride, tsrc)                                    \
   __builtin_ia32_tcvtd2pse(base, stride, tsrc)
 
@@ -283,5 +283,5 @@ static void __tile_tdpfp16ps(__tile1024i *dst, __tile1024i src0,
 }
 
 #endif /* __x86_64__ */
-#endif /* __AMX_LNCINTRIN_H */
-/* end INTEL_FEATURE_ISA_AMX_LNC */
+#endif /* __AMX_TRANSPOSEINTRIN_H */
+/* end INTEL_FEATURE_ISA_AMX_TRANSPOSE */

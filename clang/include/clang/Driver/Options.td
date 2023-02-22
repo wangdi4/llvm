@@ -5499,11 +5499,11 @@ def mamx_element : Flag<["-"], "mamx-element">, Group<m_x86_Features_Group>;
 def mno_amx_element : Flag<["-"], "mno-amx-element">, Group<m_x86_Features_Group>;
 
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 def mamx_transpose : Flag<["-"], "mamx-transpose">, Group<m_x86_Features_Group>;
 def mno_amx_transpose : Flag<["-"], "mno-amx-transpose">, Group<m_x86_Features_Group>;
 
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
 #if INTEL_FEATURE_ISA_AMX_TF32
 def mamx_tf32 : Flag<["-"], "mamx-tf32">, Group<m_x86_Features_Group>;
@@ -8499,10 +8499,10 @@ def : CLFlag<"Qmno-amx-format">, Alias<mno_amx_format>;
 def : CLFlag<"Qmamx-element">, Alias<mamx_element>;
 def : CLFlag<"Qmno-amx-element">, Alias<mno_amx_element>;
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 def : CLFlag<"Qmamx-transpose">, Alias<mamx_transpose>;
 def : CLFlag<"Qmno-amx-transpose">, Alias<mno_amx_transpose>;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 def : CLFlag<"Qmamx-fp16">, Alias<mamx_fp16>;
 def : CLFlag<"Qmno-amx-fp16">, Alias<mno_amx_fp16>;
 #if INTEL_FEATURE_ISA_AMX_TF32

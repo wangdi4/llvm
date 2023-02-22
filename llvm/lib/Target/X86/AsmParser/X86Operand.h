@@ -606,7 +606,7 @@ struct X86Operand final : public MCParsedAsmOperand {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   bool isTILEPair() const {
     return Kind == Register &&
       X86MCRegisterClasses[X86::TILERegClassID].contains(getReg());
@@ -729,7 +729,7 @@ struct X86Operand final : public MCParsedAsmOperand {
     unsigned Reg = (((getReg() - X86::ZMM0) / 16) * 16) + X86::ZMM0;
     Inst.addOperand(MCOperand::createReg(Reg));
   }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
 #if INTEL_FEATURE_XISA_COMMON
   bool isXMMPair() const {

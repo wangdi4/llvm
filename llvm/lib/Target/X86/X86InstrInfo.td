@@ -853,7 +853,7 @@ def VK16Pair : RegisterOperand<VK16PAIR, "printVKPair"> {
 
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 let RenderMethod = "addTILEPairOperands" in {
   def TILEPairAsmOperand : AsmOperandClass { let Name = "TILEPair"; }
 }
@@ -869,7 +869,7 @@ let RenderMethod = "addZMM16TuplesOperands" in {
 def ZMM16Tuples : RegisterOperand<VR512> {
   let ParserMatchClass = ZMM16TuplesAsmOperand;
 }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
 #if INTEL_FEATURE_XISA_COMMON
 let RenderMethod = "addXMMPairOperands" in {
@@ -1159,9 +1159,9 @@ def HasAMXREDUCE    : Predicate<"Subtarget->hasAMXREDUCE()">;
 def HasAMXFORMAT    : Predicate<"Subtarget->hasAMXFORMAT()">;
 def HasAMXMEMORY    : Predicate<"Subtarget->hasAMXMEMORY()">;
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 def HasAMXTRANSPOSE : Predicate<"Subtarget->hasAMXTRANSPOSE()">;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 def HasAMXMEMORY2    : Predicate<"Subtarget->hasAMXMEMORY2()">;
@@ -3703,10 +3703,10 @@ include "X86InstrKL.td"
 // AMX instructions
 #if INTEL_CUSTOMIZATION
 include "X86InstrAMX.td"
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 // FIXME merge with X86InstrAMX.td
 include "Intel_X86InstrAMX.td"
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_GPR_MOVGET
 include "Intel_X86InstrMOVGET.td"
 #endif // INTEL_FEATURE_ISA_GPR_MOVGET

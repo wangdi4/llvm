@@ -1,5 +1,5 @@
-#if INTEL_FEATURE_ISA_AMX_LNC
-// REQUIRES: intel_feature_isa_amx_lnc
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+// REQUIRES: intel_feature_isa_amx_transpose
 
 // RUN: %clang -target i386-unknown-linux-gnu -march=i386 -mamx-transpose %s \
 // RUN: -### -o %t.o 2>&1 | FileCheck -check-prefix=AMX-TRANSPOSE %s
@@ -15,4 +15,4 @@
 // AMX-AVX512: "-target-feature" "+amx-avx512"
 // NO-AMX-AVX512: "-target-feature" "-amx-avx512"
 
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE

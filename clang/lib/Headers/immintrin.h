@@ -1036,15 +1036,15 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_FUTURE */
 
-/* INTEL_FEATURE_ISA_AMX_LNC */
-#if defined(__AMXLNC_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AMX_TRANSPOSE */
+#if defined(__AMXTRANSPOSE_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMXTRANSPOSE__) || defined(__AMXAVX512__) ||                     \
     defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amxlncintrin.h>
+#include <Intel_amxtransposeintrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX_LNC */
+/* end INTEL_FEATURE_ISA_AMX_TRANSPOSE */
 
 /* INTEL_FEATURE_ISA_AMX_TRANSPOSE2 */
 #if defined(__AMXTRANSPOSE2_SUPPORTED__)

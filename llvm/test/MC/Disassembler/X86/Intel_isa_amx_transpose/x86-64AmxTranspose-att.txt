@@ -1,4 +1,4 @@
-# REQUIRES: intel_feature_isa_amx_lnc
+# REQUIRES: intel_feature_isa_amx_transpose
 # RUN: llvm-mc --disassemble %s -triple=x86_64 | FileCheck %s
 # CHECK:      t2rpntlvw %r9, 268435456(%rbp,%r14,8), %tmm6
 0xc4,0xa5,0x30,0xe9,0xb4,0xf5,0x00,0x00,0x00,0x10

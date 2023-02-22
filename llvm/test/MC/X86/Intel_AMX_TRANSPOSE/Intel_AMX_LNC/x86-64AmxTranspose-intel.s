@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_amx_lnc
+// REQUIRES: intel_feature_isa_amx_transpose
 // RUN: llvm-mc -triple x86_64-unknown-unknown -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 // CHECK:      t2rpntlvw tmm6, [rbp + 8*r14 + 268435456], r9
 // CHECK: encoding: [0xc4,0xa5,0x30,0xe9,0xb4,0xf5,0x00,0x00,0x00,0x10]
