@@ -1017,16 +1017,35 @@
 // CHECK-LD64-SHARED-EXPFULL:     "-lm"
 // CHECK-LD64-SHARED-EXPFULL:     "-lc"
 
-// Check powerpc-ibm-aix7.1.0.0. -fopenmp to use default OpenMP runtime libomp.
+// Check powerpc-ibm-aix7.1.0.0. -fopenmp=libomp to specify libomp explicitly.
 // INTEL_CUSTOMIZATION
 // RUN: %clang %s -### 2>&1 \
 // RUN:        -resource-dir=%S/Inputs/resource_dir \
 // RUN:        --target=powerpc-ibm-aix7.1.0.0 \
 // RUN:        --sysroot %S/Inputs/aix_ppc_tree \
 // RUN:        --unwindlib=libunwind \
-// RUN:        -fopenmp \
+// RUN:        -fopenmp=libomp \
 // RUN:   | FileCheck --check-prefixes=CHECK-FOPENMP,CHECK-FOPENMP-IOMP5 %s
 // end INTEL_CUSTOMIZATION
+
+// Check powerpc-ibm-aix7.1.0.0. -fopenmp=libiomp5 to specify libgomp explicitly.
+// RUN: %clang %s -### 2>&1 \
+// RUN:        -resource-dir=%S/Inputs/resource_dir \
+// RUN:        --target=powerpc-ibm-aix7.1.0.0 \
+// RUN:        --sysroot %S/Inputs/aix_ppc_tree \
+// RUN:        --unwindlib=libunwind \
+// RUN:        -fopenmp=libiomp5 \
+// RUN:   | FileCheck --check-prefixes=CHECK-FOPENMP,CHECK-FOPENMP-IOMP5 %s
+
+// Check powerpc-ibm-aix7.1.0.0. -fopenmp=libgomp to specify libgomp explicitly.
+// RUN: %clang %s -### 2>&1 \
+// RUN:        -resource-dir=%S/Inputs/resource_dir \
+// RUN:        --target=powerpc-ibm-aix7.1.0.0 \
+// RUN:        --sysroot %S/Inputs/aix_ppc_tree \
+// RUN:        --unwindlib=libunwind \
+// RUN:        -fopenmp=libgomp \
+// RUN:   | FileCheck --check-prefixes=CHECK-FOPENMP,CHECK-FOPENMP-GOMP %s
+
 // CHECK-FOPENMP-NOT: warning:
 // CHECK-FOPENMP:     "-cc1" "-triple" "powerpc-ibm-aix7.1.0.0"
 // CHECK-FOPENMP:     "-resource-dir" "[[RESOURCE_DIR:[^"]+]]"
@@ -1048,33 +1067,6 @@
 // CHECK-FOPENMP-IOMP5:   "-liomp5"
 // CHECK-FOPENMP-GOMP:    "-lgomp"
 // CHECK-FOPENMP:     "-lc"
-
-// Check powerpc-ibm-aix7.1.0.0. -fopenmp=libomp to specify libomp explicitly.
-// RUN: %clang %s -### 2>&1 \
-// RUN:        -resource-dir=%S/Inputs/resource_dir \
-// RUN:        --target=powerpc-ibm-aix7.1.0.0 \
-// RUN:        --sysroot %S/Inputs/aix_ppc_tree \
-// RUN:        --unwindlib=libunwind \
-// RUN:        -fopenmp=libomp \
-// RUN:   | FileCheck --check-prefixes=CHECK-FOPENMP,CHECK-FOPENMP-OMP %s
-
-// Check powerpc-ibm-aix7.1.0.0. -fopenmp=libiomp5 to specify libgomp explicitly.
-// RUN: %clang %s -### 2>&1 \
-// RUN:        -resource-dir=%S/Inputs/resource_dir \
-// RUN:        --target=powerpc-ibm-aix7.1.0.0 \
-// RUN:        --sysroot %S/Inputs/aix_ppc_tree \
-// RUN:        --unwindlib=libunwind \
-// RUN:        -fopenmp=libiomp5 \
-// RUN:   | FileCheck --check-prefixes=CHECK-FOPENMP,CHECK-FOPENMP-IOMP5 %s
-
-// Check powerpc-ibm-aix7.1.0.0. -fopenmp=libgomp to specify libgomp explicitly.
-// RUN: %clang %s -### 2>&1 \
-// RUN:        -resource-dir=%S/Inputs/resource_dir \
-// RUN:        --target=powerpc-ibm-aix7.1.0.0 \
-// RUN:        --sysroot %S/Inputs/aix_ppc_tree \
-// RUN:        --unwindlib=libunwind \
-// RUN:        -fopenmp=libgomp \
-// RUN:   | FileCheck --check-prefixes=CHECK-FOPENMP,CHECK-FOPENMP-GOMP %s
 
 // Check powerpc-ibm-aix7.1.0.0, 32-bit. -fopenmp=libfoo results an error.
 // RUN: %clang %s 2>&1 -### \
