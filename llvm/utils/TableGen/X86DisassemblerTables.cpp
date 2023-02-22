@@ -806,9 +806,17 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
       break;
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XISA_COMMON
+  // We assume that the index can fit into unsigned int.
+  assert(sEntryNumber < -1U &&
+         "Index into ModRMDecision is too large for unsigned int!");
+#else // INTEL_FEATURE_XISA_COMMON
   // We assume that the index can fit into uint16_t.
   assert(sEntryNumber < 65536U &&
          "Index into ModRMDecision is too large for uint16_t!");
+#endif // INTEL_FEATURE_XISA_COMMON
+#endif // INTEL_CUSTOMIZATION
   (void)sEntryNumber;
 }
 
