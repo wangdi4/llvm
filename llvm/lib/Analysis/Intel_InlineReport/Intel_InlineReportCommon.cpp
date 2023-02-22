@@ -43,7 +43,9 @@ void llvm::getOpVal(Metadata *Node, StringRef Front, int64_t *Val) {
   assert(Val && "Empty value storage");
   StringRef Res = getOpStr(Node, Front);
   assert(!Res.empty() && "Incomplete inlining report metadata");
-  Res.getAsInteger(10, *Val);
+  bool Failed = Res.getAsInteger(10, *Val);
+  (void)Failed;
+  assert(!Failed && "Expecting integer value");
 }
 
 // Print the inlining option values
