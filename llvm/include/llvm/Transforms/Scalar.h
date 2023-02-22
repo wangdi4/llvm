@@ -675,13 +675,6 @@ FunctionPass *createIVSplitLegacyPass();
 
 //===----------------------------------------------------------------------===//
 //
-// WarnMissedTransformations - This pass emits warnings for leftover forced
-// transformations.
-//
-Pass *createWarnMissedTransformationsPass();
-
-//===----------------------------------------------------------------------===//
-//
 // This pass does instruction simplification on each
 // instruction in a function.
 //
