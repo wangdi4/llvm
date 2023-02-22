@@ -94,10 +94,13 @@
 ; CHECK-O-NEXT: Running analysis: StdContainerAA ;INTEL
 ; COM: CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
+<<<<<<< HEAD
 ; CHECK-O-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-O-NEXT: Running pass: OptimizeDynamicCastsPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: InstSimplifyPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass ;INTEL
+=======
+>>>>>>> 4e3aae1b91c9371fd5f76ac4d64a69083e212c28
 ; CHECK-O-NEXT: Running pass: GlobalSplitPass
 ; CHECK-O-NEXT: Running pass: WholeProgramDevirtPass
 ; INTEL_CUSTOMIZATION
@@ -255,6 +258,7 @@
 ; CHECK-O23SZ: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: GlobalsAA on [module]
+; CHECK-O23SZ-NEXT: Running analysis: CallGraphAnalysis on [module]
 ; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module]

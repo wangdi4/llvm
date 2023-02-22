@@ -276,7 +276,6 @@ namespace {
       (void) llvm::createAttributorLegacyPass();
       (void) llvm::createAttributorCGSCCLegacyPass();
       (void) llvm::createPostOrderFunctionAttrsLegacyPass();
-      (void) llvm::createReversePostOrderFunctionAttrsPass();
       (void) llvm::createMergeICmpsLegacyPass();
       (void) llvm::createExpandLargeDivRemPass();
       (void) llvm::createExpandMemCmpPass();
