@@ -102,27 +102,69 @@ libIRCMVResolverOptionComparator(const MultiVersionResolverOption &LHS,
 }
 
 static void
+emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
+                           Function*& Dispatcher) {
+
+  // Create the dispatcher function through cloning Fn.
+  // This will make sure all attributes and properties of Fn are cloned/copied
+  // over to the dispatcher function.
+  ValueToValueMapTy VMap;
+  Dispatcher = CloneFunction(&Fn, VMap);
+  // Delete the body of Dispatcher function.
+  Dispatcher->deleteBody();
+  Dispatcher->setName(OrigName);
+  // Call to deleteBody() set Dispatcher's linkage to ExternalLinkage.
+  // Reset the linkage back to that of Fn's.
+  Dispatcher->setLinkage(Fn.getLinkage());
+
+  // Now, create the body for the Dispatcher.
+  LLVMContext &Ctx = Fn.getContext();
+  BasicBlock *CurBlock = BasicBlock::Create(Ctx, "", Dispatcher);
+  IRBuilder<> Builder(CurBlock, CurBlock->begin());
+
+  // Get the function pointer that stores the address of the clone at runtime.
+  Module *M = Fn.getParent();
+  std::string ResolverPtrName = OrigName + ".ptr";
+  GlobalValue *ResolverPtr = M->getNamedValue(ResolverPtrName);
+
+  // Create a load of the function pointer.
+  Type *ResolverPtrType = Fn.getFunctionType()->getPointerTo();
+  auto ResolverPtrVal = Builder.CreateAlignedLoad(ResolverPtrType, ResolverPtr,
+                                                  MaybeAlign(8));
+
+  // Create an indirect call through the function pointer.
+  SmallVector<Value *, 10> Args;
+  for_each(Dispatcher->args(), [&](Argument &Arg) { Args.push_back(&Arg); });
+  CallInst *Result =
+      Builder.CreateCall(FunctionCallee(Fn.getFunctionType(), ResolverPtrVal),
+                         Args);
+  Result->setCallingConv(Fn.getCallingConv());
+  Result->setAttributes(Fn.getAttributes());
+
+  // Create a return.
+  if (Fn.getReturnType()->isVoidTy())
+    Builder.CreateRetVoid();
+  else
+    Builder.CreateRet(Result);
+}
+
+static void
 emitWrapperBasedResolver(Function &Fn, std::string OrigName,
                          SmallVector<MultiVersionResolverOption> &MVOptions,
                          Function*& Resolver, GlobalValue*& Dispatcher) {
 
-  ValueToValueMapTy VMap;
-  // Create the resolver function through cloning Fn.
-  // This will make sure all attributes and properties of Fn are cloned/copied
-  // over to the resolver function.
-  Resolver = CloneFunction(&Fn, VMap);
-  // Delete the body of Resolver function. The implementation of the resolver
-  // will be generated later by emitMultiVersionResolver() function.
-  Resolver->deleteBody();
-  Resolver->setName(OrigName);
-  // Call to deleteBody() set Resolver's linkage to ExternalLinkage.
-  // Reset the linkage of Resolver back to that of Fn's.
-  Resolver->setLinkage(Fn.getLinkage());
-
-  Dispatcher = Resolver;
+  Module *M = Fn.getParent();
+  LLVMContext &Ctx = Fn.getContext();
+  FunctionType *ResolverTy = FunctionType::get(Type::getVoidTy(Ctx), false);
+  Resolver = Function::Create(ResolverTy, GlobalValue::InternalLinkage,
+                              OrigName + ".resolver", M);
+  Resolver->setDSOLocal(true);
+  appendToGlobalCtors(*M, Resolver, 500 /* Some number > 0 */);
 
   emitMultiVersionResolver(Resolver, MVOptions, false /*UseIFunc*/,
                            true /*UseLibIRC*/);
+
+  emitWrapperBasedDispatcher(Fn, OrigName, (Function*&)Dispatcher);
 }
 
 static void

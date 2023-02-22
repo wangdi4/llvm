@@ -409,23 +409,29 @@ cl_dev_err_code CPUDevice::QueryHWInfo() {
 ///   This function returns [0,56,1,67,...,27,83,  28,84,29,85,...,55,111]
 static std::vector<unsigned> getProcessorIndexMap(unsigned long numCores,
                                                   bool HTEnabled) {
-  std::vector<unsigned> processorMap(numCores);
+  const unsigned numNodes = GetMaxNumaNode();
+  std::vector<cl_uint> index;
+  bool res = GetProcessorIndexFromNumaNode(0, index);
+  if (numNodes <= 1 || !res) {
+    std::vector<unsigned> processorMap(numCores);
+    std::iota(processorMap.begin(), processorMap.end(), 0);
+    return processorMap;
+  }
+
+  const unsigned numCoresPerNode = (unsigned)index.size();
+  std::vector<unsigned> processorMap(numCoresPerNode * numNodes);
   std::iota(processorMap.begin(), processorMap.end(), 0);
 
-  const unsigned numNodes = GetMaxNumaNode();
-  if (numNodes <= 1)
-    return processorMap;
-
-  const unsigned numCoresPerNode = numCores / numNodes;
   for (unsigned s = 0; s < numNodes; ++s) {
-    std::vector<cl_uint> index;
-    bool res = GetProcessorIndexFromNumaNode(s, index);
-    // TODO replace res check with assert once GetProcessorIndexFromNumaNode
-    // supports windows.
-    // numCoresPerNode could be smaller than index size if custom CPU affinity
-    // mask is set, e.g. by sched_setaffinity.
-    if (!res || index.size() != numCoresPerNode)
-      break;
+    if (s != 0) {
+      bool res = GetProcessorIndexFromNumaNode(s, index);
+      // TODO replace res check with assert once GetProcessorIndexFromNumaNode
+      // supports windows.
+      if (!res)
+        break;
+      assert(numCoresPerNode == index.size() &&
+             "node has different number of cores");
+    }
     if (HTEnabled) {
       for (unsigned i = 0; i < numCoresPerNode; ++i)
         processorMap[s * numCoresPerNode + i] =
@@ -451,6 +457,12 @@ void CPUDevice::calculateComputeUnitMap() {
   threadid_t myParentId = clMyParentThreadId();
   clGetThreadAffinityMask(&myParentMask, myParentId);
   clTranslateAffinityMask(&myParentMask, m_pComputeUnitMap, m_numCores);
+  // Bail out if either taskset or sched_setaffinity forces an application
+  // to run on a reduced set of CPU cores, since it is difficult to assure
+  // SYCL_CPU_CU_AFFINITY and SYCL_CPU_PLACES are working as expected.
+  for (unsigned int i = 0; i < m_numCores; i++)
+    if (m_pComputeUnitMap[i] != i)
+      return;
 #endif
 
   const unsigned numSockets = GetNumberOfCpuSockets();
