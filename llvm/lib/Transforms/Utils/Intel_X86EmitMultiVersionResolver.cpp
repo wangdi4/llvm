@@ -58,63 +58,20 @@ static void CreateMultiVersionResolverReturn(Function *Resolver,
   }
 
   Module *M = Resolver->getParent();
-  std::string ResolverPtrName = Resolver->getName().str() + ".ptr";
+  auto NameTargetPair = FuncToReturn->getName().rsplit('.');
+  assert(!NameTargetPair.second.empty());
+  std::string ResolverPtrName = NameTargetPair.first.str() + ".ptr";
   GlobalValue *ResolverPtr = M->getNamedValue(ResolverPtrName);
+  if (!ResolverPtr) {
+    Type *ResolverPtrType = FuncToReturn->getFunctionType()->getPointerTo();
+    ResolverPtr =
+        new GlobalVariable(*M, ResolverPtrType, false, GlobalValue::InternalLinkage,
+                           Constant::getNullValue(ResolverPtrType), ResolverPtrName);
+    ResolverPtr->setDSOLocal(true);
+  }
+
   Builder.CreateAlignedStore(FuncToReturn, ResolverPtr, MaybeAlign(8));
-
-  SmallVector<Value *, 10> Args;
-  for_each(Resolver->args(), [&](Argument &Arg) { Args.push_back(&Arg); });
-
-  CallInst *Result = Builder.CreateCall(FuncToReturn, Args);
-  Result->setTailCall();
-  Result->setCallingConv(FuncToReturn->getCallingConv());
-  Result->setAttributes(FuncToReturn->getAttributes());
-
-  if (Resolver->getReturnType()->isVoidTy())
-    Builder.CreateRetVoid();
-  else
-    Builder.CreateRet(Result);
-}
-
-static void emitResolverPtrTest(Function *Resolver, IRBuilderBase &Builder) {
-
-  Module *M = Resolver->getParent();
-  std::string ResolverPtrName = Resolver->getName().str() + ".ptr";
-
-  Type *ResolverPtrType = Resolver->getFunctionType()->getPointerTo();
-  GlobalVariable *ResolverPtr =
-      new GlobalVariable(*M, ResolverPtrType, false, GlobalValue::InternalLinkage,
-                         Constant::getNullValue(ResolverPtrType), ResolverPtrName);
-  ResolverPtr->setDSOLocal(true);
-
-  auto ResolverPtrVal = Builder.CreateAlignedLoad(ResolverPtrType, ResolverPtr, MaybeAlign(8));
-
-  Value *CmpResult = Builder.CreateICmpNE(ResolverPtrVal, Constant::getNullValue(ResolverPtrType),
-                                          "ptr_compare");
-
-  auto &Ctx = Resolver->getContext();
-  BasicBlock *ThenBlock = BasicBlock::Create(Ctx, "resolver_then", Resolver);
-  BasicBlock *ElseBlock = BasicBlock::Create(Ctx, "resolver_else", Resolver);
-
-  Builder.CreateCondBr(CmpResult, ThenBlock, ElseBlock);
-
-  Builder.SetInsertPoint(ThenBlock);
-
-  SmallVector<Value *, 10> Args;
-  for_each(Resolver->args(), [&](Argument &Arg) { Args.push_back(&Arg); });
-
-  CallInst *Result =
-      Builder.CreateCall(FunctionCallee(Resolver->getFunctionType(), ResolverPtrVal), Args);
-  Result->setTailCall();
-  Result->setCallingConv(Resolver->getCallingConv());
-  Result->setAttributes(Resolver->getAttributes());
-
-  if (Resolver->getReturnType()->isVoidTy())
-    Builder.CreateRetVoid();
-  else
-    Builder.CreateRet(Result);
-
-  Builder.SetInsertPoint(ElseBlock);
+  Builder.CreateRetVoid();
 }
 
 void llvm::emitMultiVersionResolver(Function *Resolver,
@@ -125,14 +82,9 @@ void llvm::emitMultiVersionResolver(Function *Resolver,
          "Only implemented for x86 targets");
 
   auto &Ctx = Resolver->getContext();
-  // Main function's basic block.
   BasicBlock *CurBlock = BasicBlock::Create(Ctx, "resolver_entry", Resolver);
 
   IRBuilder<> Builder(CurBlock, CurBlock->begin());
-  if (!UseIFunc) {
-    emitResolverPtrTest(Resolver, Builder);
-    CurBlock = Builder.GetInsertBlock();
-  }
 
   if (UseLibIRC)
     X86::emitCpuFeaturesInit(Builder, UseIFunc);
