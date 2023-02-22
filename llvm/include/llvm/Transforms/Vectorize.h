@@ -160,7 +160,6 @@ bool vectorizeBasicBlock(Pass *P, BasicBlock &BB,
 //
 Pass *createLoadStoreVectorizerPass();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -205,14 +204,6 @@ Pass *createVPlanPragmaOmpOrderedSimdExtractPass();
 Pass *createVPlanPragmaOmpSimdIfPass();
 
 #endif // INTEL_CUSTOMIZATION
-//===----------------------------------------------------------------------===//
-//
-// Optimize partial vector operations using target cost models.
-//
-Pass *createVectorCombinePass();
-
-=======
->>>>>>> 15977742d3ebba05a33a8eac3201ebba9c9f10e3
 } // End llvm namespace
 
 #endif

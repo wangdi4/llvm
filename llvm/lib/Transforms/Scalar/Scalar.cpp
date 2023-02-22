@@ -96,13 +96,9 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopRerollLegacyPassPass(Registry);
   initializeLoopUnrollPass(Registry);
   initializeLoopUnrollAndJamPass(Registry);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   initializeLoopUnswitchPass(Registry);
 #endif // INTEL_CUSTOMIZATION
-  initializeWarnMissedTransformationsLegacyPass(Registry);
-=======
->>>>>>> 15977742d3ebba05a33a8eac3201ebba9c9f10e3
   initializeLoopVersioningLICMLegacyPassPass(Registry);
   initializeLoopIdiomRecognizeLegacyPassPass(Registry);
   initializeLowerAtomicLegacyPassPass(Registry);

@@ -698,16 +698,12 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     // across the loop nests.
     PM.add(createLoopUnrollPass(OptLevel, DisableUnrollLoops,
                                 ForgetAllSCEVInLoopUnroll));
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     PM.add(createCSALowerParallelIntrinsicsWrapperPass());
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-    PM.add(createWarnMissedTransformationsPass());
-=======
->>>>>>> 15977742d3ebba05a33a8eac3201ebba9c9f10e3
   }
 
   if (!IsFullLTO) {
@@ -811,12 +807,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
                             /*AllowSpeculation=*/true));
       INTEL_LIMIT_END // INTEL
     }
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-
-    PM.add(createWarnMissedTransformationsPass());
-=======
->>>>>>> 15977742d3ebba05a33a8eac3201ebba9c9f10e3
   }
 
   // After vectorization and unrolling, assume intrinsics may tell us more
