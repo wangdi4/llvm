@@ -109,12 +109,12 @@ private:
           OrigInnerLoop(OuterLp) {}
   };
 
-  unsigned InnerDimSize;
-  unsigned OuterDimSize;
+  unsigned Dim1Size;
+  unsigned Dim2Size;
   SmallVector<UseCand, 4> Uses;
 
 public:
-  ArrayTransposeAnalyzer() : InnerDimSize(0), OuterDimSize(0) {}
+  ArrayTransposeAnalyzer() : Dim1Size(0), Dim2Size(0) {}
 
   // TS Nums are set after we finalize all candidates. We could have pruned
   // original candidates due to DDEdges.
@@ -661,18 +661,20 @@ bool ArrayTransposeAnalyzer::hasUnsafeCalls(HIRLoopStatistics &HLS,
 bool ArrayTransposeAnalyzer::checkLoopLegality() {
   // Check that all Uses have equivalent strides and ParentLoop TCs
   UseCand &FirstUse = Uses.front();
-  InnerDimSize = FirstUse.DelinearRef->getNumDimensionElements(1);
-  OuterDimSize = FirstUse.DelinearRef->getNumDimensionElements(2);
+
+  // Note: InnerDim corresponds to the original outer loop
+  Dim1Size = FirstUse.DelinearRef->getNumDimensionElements(1);
+  Dim2Size = FirstUse.DelinearRef->getNumDimensionElements(2);
 
   // Check that the Inner and OuterLoops are equal among all Uses
   for (auto &Use : make_range(std::next(Uses.begin()), Uses.end())) {
-    if (InnerDimSize != Use.DelinearRef->getNumDimensionElements(1) ||
-        OuterDimSize != Use.DelinearRef->getNumDimensionElements(2)) {
+    if (Dim1Size != Use.DelinearRef->getNumDimensionElements(1) ||
+        Dim2Size != Use.DelinearRef->getNumDimensionElements(2)) {
       return false;
     }
 
     // If dimsize is known we can skip checking of loop bounds
-    if (InnerDimSize != 0 && OuterDimSize != 0) {
+    if (Dim1Size != 0 && Dim2Size != 0) {
       LLVM_DEBUG(dbgs() << "[Legality]: DimSizes are const\n";);
       continue;
     }
@@ -736,8 +738,8 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
   }
 
   // Bail out if constant dimsize is greater than threshold
-  if (InnerDimSize > MaxAllocaSizeThreshold ||
-      OuterDimSize > MaxAllocaSizeThreshold) {
+  if (Dim1Size > MaxAllocaSizeThreshold ||
+      Dim2Size > MaxAllocaSizeThreshold) {
     LLVM_DEBUG(
         dbgs() << "[Profit] DimSize surpasses Alloca Size threshold!\n";);
     return false;
@@ -759,42 +761,14 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
   }
 
   SmallPtrSet<const HLNode *, 2> IgnoreNodes;
+  const HLLoop *InnerLp = FirstUse.OrigInnerLoop;
+  const HLLoop *OuterLp = FirstUse.OrigOuterLoop;
+  const CanonExpr *InnerUpperCE = InnerLp->getUpperCanonExpr();
+  const CanonExpr *OuterUpperCE = OuterLp->getUpperCanonExpr();
 
   // Check that the UBRefs can be legally hoisted out; otherwise it is
   // not legal to create the copy loop. Skip if dimsize known.
-  if (!InnerDimSize) {
-    const HLLoop *InnerLp = FirstUse.OrigInnerLoop;
-    const RegDDRef *InnerUBRef = InnerLp->getUpperDDRef();
-
-    bool BadZtt =
-        InnerLp->hasZtt() &&
-        std::any_of(InnerLp->ztt_ddref_begin(), InnerLp->ztt_ddref_end(),
-                    [&](const RegDDRef *Ref) {
-                      return !Ref->isStructurallyInvariantAtLevel(1);
-                    });
-
-    if (!InnerUBRef->isStructurallyInvariantAtLevel(1) || BadZtt) {
-      LLVM_DEBUG(
-          dbgs() << "[Illegal] InnerLoop cannot be used for copy loop.\n";);
-      return false;
-    }
-
-    const CanonExpr *InnerUBCE = InnerUBRef->getSingleCanonExpr();
-    if (!InnerUBCE->canConvertToStandAloneBlobOrConstant()) {
-      LLVM_DEBUG(dbgs() << "[Illegal] Invalid inner TC arithmetic!\n";);
-      return false;
-    }
-
-    // Used to check for unconditional execution
-    if (InnerLp->hasZtt()) {
-      IgnoreNodes.insert(InnerLp);
-    }
-  }
-
-  if (!OuterDimSize) {
-    const HLLoop *OuterLp = FirstUse.OrigOuterLoop;
-    const RegDDRef *OuterUBRef = OuterLp->getUpperDDRef();
-
+  if (!Dim1Size) {
     bool BadZtt =
         OuterLp->hasZtt() &&
         std::any_of(OuterLp->ztt_ddref_begin(), OuterLp->ztt_ddref_end(),
@@ -802,37 +776,102 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
                       return !Ref->isStructurallyInvariantAtLevel(1);
                     });
 
-    if (!OuterUBRef->isStructurallyInvariantAtLevel(1) || BadZtt) {
+    if (!OuterLp->getUpperDDRef()->isStructurallyInvariantAtLevel(1) ||
+        BadZtt) {
       LLVM_DEBUG(
           dbgs() << "[Illegal] OuterLoop cannot be used for copy loop.\n";);
       return false;
     }
 
+    if (!OuterUpperCE->canConvertToStandAloneBlobOrConstant()) {
+      LLVM_DEBUG(dbgs() << "[Illegal] Invalid outer TC arithmetic!\n";);
+      return false;
+    }
+
+    // Used to check for unconditional execution
     if (OuterLp->hasZtt()) {
       IgnoreNodes.insert(OuterLp);
     }
-  }
 
-  // Check that Loop CEs are compatible for multiplication for creating
-  // our alloca.
-  if (!InnerDimSize && !OuterDimSize) {
-    const CanonExpr *OuterTCCE =
-        FirstUse.OrigOuterLoop->getTripCountCanonExpr();
-    const CanonExpr *InnerTCCE =
-        FirstUse.OrigInnerLoop->getTripCountCanonExpr();
+    if (Dim2Size && !OuterUpperCE->canMultiplyByConstant(Dim2Size)) {
+      LLVM_DEBUG(dbgs() << "[Illegal] Bad OuterUBCE multiplication.\n";);
+      return false;
+    }
 
-    if (!CanonExprUtils::isTypeEqual(OuterTCCE, InnerTCCE)) {
+    // Check LoopTC and Dimstrides are consistent types. When we transpose,
+    // the stride of our new ref will be based on the loopUBCE for the outer
+    // dim. E.g:     a[0:i2:432(ptr:0)]   [0:i1:8(ptr:54)] becomes
+    //         a_trans[0:i1:8 * %2(ptr:0)][0:i2:8(ptr:0)]
+    // In this example %2 is the trip count of the outer loop which becomes
+    // the stride factor for the outer dim.
+    if (!CanonExprUtils::isTypeEqual(
+            OuterUpperCE, FirstUse.DelinearRef->getDimensionStride(1))) {
+      LLVM_DEBUG(dbgs() << "[Illegal] Type Mismatch between OuterLoop CE and Dim1.\n";);
       return false;
     }
   }
 
-  // Check that the program must access the baseptr and/or loop bounds.
-  // If normal execution could skip the accesses due to control flow,
-  // we should abandon the transformation, as creating the alloca would
-  // be illegal.
-  if (!InnerDimSize && !OuterDimSize &&
-      !FirstUse.UseRef->getHLDDNode()->isUnconditionallyExecutedinRegion(
-          IgnoreNodes)) {
+  if (!Dim2Size) {
+    // Dim2 corresponds to InnerLp
+    bool BadZtt =
+        InnerLp->hasZtt() &&
+        std::any_of(InnerLp->ztt_ddref_begin(), InnerLp->ztt_ddref_end(),
+                    [&](const RegDDRef *Ref) {
+                      return !Ref->isStructurallyInvariantAtLevel(1);
+                    });
+
+    if (!InnerLp->getUpperDDRef()->isStructurallyInvariantAtLevel(1) ||
+        BadZtt) {
+      LLVM_DEBUG(
+          dbgs() << "[Illegal] InnerLoop cannot be used for copy loop.\n";);
+      return false;
+    }
+
+    if (InnerLp->hasZtt()) {
+      IgnoreNodes.insert(InnerLp);
+    }
+
+    if (Dim1Size && !InnerUpperCE->canMultiplyByConstant(Dim1Size)) {
+      LLVM_DEBUG(dbgs() << "[Illegal] Bad InnerUBCE multiplication.\n";);
+      return false;
+    }
+
+    if (!CanonExprUtils::isTypeEqual(
+            InnerUpperCE, FirstUse.DelinearRef->getDimensionStride(2))) {
+      LLVM_DEBUG(dbgs() << "[Illegal] Type Mismatch between InnerLoop CE and Dim2.\n";);
+      return false;
+    }
+  }
+
+  // Check that Loop CEs are consistent and compatible for multiplication.
+  // The alloca multiplication will assert otherwise.
+  if (!Dim1Size && !Dim2Size) {
+    if (!CanonExprUtils::isTypeEqual(OuterUpperCE, InnerUpperCE)) {
+      LLVM_DEBUG(dbgs() << "[Illegal] Type Mismatch between LoopUB CEs.\n";);
+      return false;
+    }
+  }
+
+  // Check that the program must access the baseptr and/or loop bounds. If
+  // normal execution could skip the accesses due to control flow, we should
+  // abandon the transformation, as creating the alloca would be illegal.
+  bool SafeToExecute = Dim2Size && Dim1Size;
+  if (!SafeToExecute) {
+    for (auto &Use : Uses) {
+      if (!Dim1Size &&
+          Use.OrigOuterLoop->isUnconditionallyExecutedinRegion(IgnoreNodes)) {
+        SafeToExecute = true;
+        break;
+      } else if (!Dim2Size &&
+                 Use.OrigInnerLoop->isUnconditionallyExecutedinRegion(
+                     IgnoreNodes)) {
+        SafeToExecute = true;
+        break;
+      }
+    }
+  }
+
+  if (!SafeToExecute) {
     LLVM_DEBUG(dbgs() << "Use may not execute.\n");
     return false;
   }
@@ -876,19 +915,19 @@ HLLoop *ArrayTransposeAnalyzer::createArrayCopyLoop(HLNode *InsertionNode) {
   HLLoop *InnerLoop, *OuterLoop;
   Type *Ty;
 
-  if (OuterDimSize) {
+  if (Dim2Size) {
     Ty = Uses.front().OrigInnerLoop->getIVType();
     InnerLoop = HNU.createHLLoop(nullptr, DDRU.createConstDDRef(Ty, 0),
-                                 DDRU.createConstDDRef(Ty, OuterDimSize - 1),
+                                 DDRU.createConstDDRef(Ty, Dim2Size - 1),
                                  DDRU.createConstDDRef(Ty, 1));
   } else {
     InnerLoop = Uses.front().OrigInnerLoop->cloneEmpty();
   }
 
-  if (InnerDimSize) {
+  if (Dim1Size) {
     Ty = Uses.front().OrigOuterLoop->getIVType();
     OuterLoop = HNU.createHLLoop(nullptr, DDRU.createConstDDRef(Ty, 0),
-                                 DDRU.createConstDDRef(Ty, InnerDimSize - 1),
+                                 DDRU.createConstDDRef(Ty, Dim1Size - 1),
                                  DDRU.createConstDDRef(Ty, 1));
   } else {
     OuterLoop = Uses.front().OrigOuterLoop->cloneEmpty();
@@ -912,21 +951,31 @@ HLInst *ArrayTransposeAnalyzer::createTempArrayAlloca(UseCand &UseCandidate,
 
   HLInst *Alloca;
   RegDDRef *ArraySize;
+  auto &DDRU = UseCandidate.UseRef->getDDRefUtils();
   // Known dimsizes means we can copy exact sizes
-  if (InnerDimSize && OuterDimSize) {
-    auto &DDRU = UseCandidate.UseRef->getDDRefUtils();
-
+  if (Dim1Size && Dim2Size) {
     // ConstDDRefs must be integer type
     Type *IntType = Type::getInt32Ty(HNU.getContext());
-    ArraySize = DDRU.createConstDDRef(IntType, InnerDimSize * OuterDimSize *
+    ArraySize = DDRU.createConstDDRef(IntType, Dim1Size * Dim2Size *
                                                    ElemSizeinBytes);
+  } else if (Dim1Size) {
+    // Note: OrigOuterLoop corresponds to Inner Dim of pre-transposed ref.
+    // Orig[i4][i2] <- i2 is the original outerloop
+    ArraySize = UseCandidate.OrigInnerLoop->getTripCountDDRef();
+    ArraySize->getSingleCanonExpr()->multiplyByConstant(Dim1Size *
+                                                        ElemSizeinBytes);
+  } else if (Dim2Size) {
+    ArraySize = UseCandidate.OrigOuterLoop->getTripCountDDRef();
+    ArraySize->getSingleCanonExpr()->multiplyByConstant(Dim2Size *
+                                                        ElemSizeinBytes);
+
   } else {
     ArraySize = UseCandidate.OrigOuterLoop->getTripCountDDRef();
     assert(ArraySize->isSingleDimension() && "TCRef is not single CE!\n");
     CanonExpr *ArraySizeCE = ArraySize->getSingleCanonExpr();
 
-    // TCCE is the IV Stride for the outer IV. This corresponds to the original
-    // UseCandidate's OrigInnerLoop TripCountCE.
+    // TCCE is the IV Stride for the outer IV. This corresponds to the
+    // original UseCandidate's OrigInnerLoop TripCountCE.
     CanonExpr *InnerTCCE = const_cast<CanonExpr *>(
         UseCandidate.OrigInnerLoop->getTripCountCanonExpr());
     assert(InnerTCCE->getDestType() == ArraySizeCE->getDestType() &&
@@ -994,8 +1043,8 @@ void ArrayTransposeAnalyzer::createTempArrayDims(RegDDRef *ArrayRef,
   auto *OuterStrideCE = UseRef->getDimensionStride(1)->clone();
 
   // Note Inner/Outer Dimsizes correspond to original UseRef
-  if (OuterDimSize) {
-    OuterStrideCE->multiplyByConstant(OuterDimSize);
+  if (Dim2Size) {
+    OuterStrideCE->multiplyByConstant(Dim2Size);
   } else {
     // If dimsize is not available we use LoopTC. LoopTC was checked previously
     // in checkLegality(). Set Outer dimstride as the new InnerLoopTC.
@@ -1054,22 +1103,26 @@ RegDDRef *ArrayTransposeAnalyzer::createTempArrayCopy(UseCand &UseCandidate,
 
   RegDDRef *UseClone = UseRef->clone();
   unsigned UseInnerLevel = UseCandidate.OrigInnerLoop->getNestingLevel();
+  unsigned UseOuterLevel = UseCandidate.OrigOuterLoop->getNestingLevel();
   // If the Old Ref was at a different level, normalize it. For example,
-  // OldRef could be (%4)[i4][i3] but our copy loop will always be i1/i2
+  // OldRef could be (%4)[i4][i2] but our copy loop will always be i1/i2
   if (UseInnerLevel != InnerLevel) {
-    CanonExpr *CEIndex;
-    CEIndex = UseClone->getDimensionIndex(2);
+    auto *CEIndex = UseClone->getDimensionIndex(2);
     CEIndex->replaceIV(UseInnerLevel, InnerLevel);
-    CEIndex = UseClone->getDimensionIndex(1);
-    CEIndex->replaceIV(UseInnerLevel - 1, InnerLevel - 1);
   }
 
-  if (InnerDimSize) {
+  // Outerlevel Normalization
+  if (UseOuterLevel != InnerLevel - 1) {
+    auto *CEIndex = UseClone->getDimensionIndex(1);
+    CEIndex->replaceIV(UseOuterLevel, InnerLevel - 1);
+  }
+
+  if (Dim1Size) {
     UseClone->getDimensionIndex(2)->clearBlobs();
     UseClone->getDimensionIndex(2)->setConstant(0);
   }
 
-  if (OuterDimSize) {
+  if (Dim2Size) {
     UseClone->getDimensionIndex(1)->clearBlobs();
     UseClone->getDimensionIndex(1)->setConstant(0);
   }

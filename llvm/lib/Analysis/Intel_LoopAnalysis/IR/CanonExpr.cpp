@@ -1361,6 +1361,11 @@ void CanonExpr::multiplyNumeratorByConstant(int64_t Val, bool Simplify) {
   setConstant(getConstant() * Val);
 }
 
+bool CanonExpr::canMultiplyByConstant(int64_t Val) const {
+  return (canMultiplyNumeratorByConstant(Val) ||
+          canConvertToStandAloneBlobOrConstant());
+}
+
 bool CanonExpr::multiplyByConstant(int64_t Val) {
   if (!canMultiplyNumeratorByConstant(Val) &&
       !convertToStandAloneBlobOrConstant()) {
