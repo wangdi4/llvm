@@ -1757,8 +1757,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 // FIXME: addVPOPasses needs to be called if EnableModuleInliner is true. This
 // needs to be fixed before the flag is made true by default.
 #endif // INTEL_COLLAB
-  MPM.addPass(AlwaysInlinerPass(
-      /*InsertLifetimeIntrinsics=*/Level != OptimizationLevel::O0));
+  MPM.addPass(AlwaysInlinerPass(/*InsertLifetimeIntrinsics=*/true));
 
   if (EnableModuleInliner)
     MPM.addPass(buildModuleInlinerPipeline(Level, Phase));
