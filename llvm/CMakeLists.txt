@@ -1164,6 +1164,20 @@ if(INTEL_CUSTOMIZATION)
   if (features_enabled_by_default)
     list(REMOVE_DUPLICATES features_enabled_by_default)
 
+# INTEL_FEATURE_XISA_COMMON
+    if (";${features_enabled_by_default};" MATCHES
+        ";${LLVM_INTELFEATURE_PREFIX}_XISA_EXTRA;")
+      # Expand XISA_EXTRA into a list of top secret ISA features, and also
+      # delete XISA_EXTRA from the list.  Note that XISA_EXTRA is a "macro"
+      # feature and it must never be used to guard any code.
+      list(REMOVE_ITEM features_enabled_by_default
+           "${LLVM_INTELFEATURE_PREFIX}_XISA_EXTRA")
+
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_XUCC)
+    endif()
+#end INTEL_FEATURE_XISA_COMMON
+
     if (";${features_enabled_by_default};" MATCHES
         ";${LLVM_INTELFEATURE_PREFIX}_XISA;")
       # Expand XISA into a list of new non-public ISA features, and also
