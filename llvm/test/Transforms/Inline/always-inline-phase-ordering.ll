@@ -1,4 +1,6 @@
-; RUN: opt --Os -pass-remarks=inline -S < %s 2>&1 | FileCheck %s
+; INTEL
+; RUN: opt -Os -pass-remarks=inline -inline-for-xmain=false -S < %s 2>&1 | FileCheck %s
+; end INTEL
 target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
 target triple = "arm64e-apple-macosx13"
 
