@@ -2596,6 +2596,12 @@ struct AAExecutionDomainFunction : public AAExecutionDomain {
   AAExecutionDomainFunction(const IRPosition &IRP, Attributor &A)
       : AAExecutionDomain(IRP, A) {}
 
+#if INTEL_CUSTOMIZATION
+  AAExecutionDomainFunction(const AAExecutionDomainFunction &) = delete;
+  AAExecutionDomainFunction &
+  operator=(const AAExecutionDomainFunction &) = delete;
+#endif // INTEL_CUSTOMIZATION
+
   ~AAExecutionDomainFunction() { delete RPOT; }
 
   void initialize(Attributor &A) override {
