@@ -15023,17 +15023,40 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   // When using tree-pattern local reduction with a global reduction buffer
   // ND-range should be dropped because local buffer ptr calculations rely
   // on not having ND-range parallelization.
+  // Below we check for corresponding loop/parloop presence:
+  // DISTRIBUTE:    W
+  // LOOP/PARLOOP:  Child
+  //   OR
+  // DISTRIBUTE:    W
+  // PARALLEL:      Child
+  // LOOP:          NextChild
   for (auto *Child : W->Children) {
     bool CanHaveLocalBuffer =
         VPOParoptUtils::isAtomicFreeReductionLocalEnabled() &&
         WRegionUtils::supportsLocalAtomicFreeReduction(Child) &&
         !AtomicFreeReductionUseSLM && AtomicFreeRedLocalBufSize;
-    if (CanHaveLocalBuffer &&
-        std::any_of(Child->getRed().begin(), Child->getRed().end(),
+
+    if (CanHaveLocalBuffer) {
+      SmallVector<WRegionNode *, 2> WRNsToCheck;
+      if (isa<WRNParallelNode>(Child)) {
+        for (auto *NextChild : Child->Children)
+          if (NextChild->getIsOmpLoop())
+            WRNsToCheck.push_back(NextChild);
+      } else {
+        assert(Child->getIsOmpLoop());
+        WRNsToCheck.push_back(Child);
+      }
+      if (std::any_of(
+              WRNsToCheck.begin(), WRNsToCheck.end(),
+              [](const WRegionNode *WRN) {
+                return (std::any_of(
+                    WRN->getRed().begin(), WRN->getRed().end(),
                     [](const ReductionItem *RedI) {
                       return VPOParoptUtils::supportsAtomicFreeReduction(RedI);
-                    }))
-      return true;
+                    }));
+              }))
+        return true;
+    }
   }
 
   // Detect cases that do not imply "distribute" behavior.
