@@ -57,6 +57,11 @@ void SYCLInstallationDetector::getSYCLDeviceLibPath(
     llvm::SmallString<128> InstallLibPath(IC.str());
     InstallLibPath.append("/lib");
     DeviceLibPaths.emplace_back(InstallLibPath);
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+    llvm::SmallString<128> InstallLibPathUnified(IC.str());
+    llvm::sys::path::append(InstallLibPathUnified, "opt", "compiler", "lib");
+    DeviceLibPaths.emplace_back(InstallLibPathUnified);
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   }
 
   DeviceLibPaths.emplace_back(D.SysRoot + "/lib");
