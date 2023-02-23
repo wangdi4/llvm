@@ -1832,14 +1832,6 @@ struct RTLOptionTy {
             for (auto &I : PoolInfo)
               MemPoolInfo.emplace(I.first, I.second);
           }
-          // Set total pool size large enough (2 * AllocMax * Capacity)
-          for (auto &I : MemPoolInfo) {
-            int32_t PoolSize = 2 * I.second[0] * I.second[1];
-            if (PoolSize > I.second[2]) {
-              I.second[2] = PoolSize;
-              DP("Adjusted memory pool size to %" PRId32 "MB\n", PoolSize);
-            }
-          }
         } else {
           DP("Ignoring incorrect memory pool configuration "
              "LIBOMPTARGET_LEVEL0_MEMORY_POOL=%s\n", Env);
@@ -2325,6 +2317,13 @@ class MemAllocatorTy {
     /// Maximum allowed pool size. Allocation falls back to GPU RT allocation if
     /// when PoolSize reaches PoolSizeMax.
     size_t PoolSizeMax = 0;
+    /// Small allocation size allowed in the pool even if pool size is over the
+    /// pool size limit
+    size_t SmallAllocMax = 1024;
+    /// Small allocation pool size
+    size_t SmallPoolSize = 0;
+    /// Small allocation pool size max (4MB)
+    size_t SmallPoolSizeMax = (4 << 20);
     /// List of buckets
     std::vector<std::vector<BlockTy *>> Buckets;
     /// List of bucket parameters
@@ -2397,7 +2396,7 @@ class MemAllocatorTy {
         DP("Warning: Adjusting pool's AllocMax to %zu for %s due to device "
            "requirements.\n", AllocMax, ALLOC_KIND_TO_STR(AllocKind));
       }
-      assert(AllocMin < AllocMax && AllocMax < PoolSizeMax &&
+      assert(AllocMin < AllocMax &&
              "Invalid parameters while initializing memory pool");
       auto MinSize = getBucketId(AllocMin);
       auto MaxSize = getBucketId(AllocMax);
@@ -2528,7 +2527,7 @@ class MemAllocatorTy {
     /// Allocate the requested size of memory from this pool.
     /// AllocSize is the chunk size internally used for the returned memory.
     void *alloc(size_t Size, size_t &AllocSize) {
-      if (Size == 0 || Size > AllocMax || PoolSize > PoolSizeMax)
+      if (Size == 0 || Size > AllocMax)
         return nullptr;
 
       uint32_t BucketId = getBucketId(Size);
@@ -2545,6 +2544,11 @@ class MemAllocatorTy {
       }
 
       if (Mem == nullptr) {
+        bool IsSmallAllocatable =
+            (Size <= SmallAllocMax && SmallPoolSize <= SmallPoolSizeMax);
+        bool IsFull = (PoolSize > PoolSizeMax);
+        if (IsFull && !IsSmallAllocatable)
+          return nullptr;
         // Bucket is empty or all blocks in the bucket are full
         auto ChunkSize = BucketParams[BucketId].first;
         auto BlockSize = BucketParams[BucketId].second;
@@ -2563,7 +2567,10 @@ class MemAllocatorTy {
         Blocks.push_back(Block);
         Mem = Block->alloc();
         PtrToBlock.emplace(Mem, Block);
-        PoolSize += BlockSize;
+        if (IsFull)
+          SmallPoolSize += BlockSize;
+        else
+          PoolSize += BlockSize;
         DP("New block allocation for %s pool: base = " DPxMOD
            ", size = %zu, pool size = %zu\n", ALLOC_KIND_TO_STR(AllocKind),
            DPxPTR(Base), BlockSize, PoolSize);
@@ -2878,8 +2885,9 @@ public:
       return OFFLOAD_FAIL;
     }
     if (Info.InPool) {
-      assert(Pools.count(Info.Kind) > 0 && "Inconsistent memory information\n");
-      size_t DeallocSize = Pools[Info.Kind].dealloc(Info.Base);
+      size_t DeallocSize = 0;
+      if (Pools.count(Info.Kind) > 0)
+        DeallocSize = Pools.at(Info.Kind).dealloc(Info.Base);
       if (DeallocSize == 0) {
         // Try reduction scratch pool
         DeallocSize = ReductionPool->dealloc(Info.Base);

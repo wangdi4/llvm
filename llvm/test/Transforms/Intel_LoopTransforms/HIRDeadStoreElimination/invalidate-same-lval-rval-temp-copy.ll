@@ -43,29 +43,17 @@
 
 ; CHECK: Dump After
 
-; Note that unused temps %temp24, %temp21 etc are not eliminated due to current
-; limitation of the copy propagation utility.
-
 ; CHECK: %ld = (@abm)[0][9][9][9];
-; CHECK: %temp26 = %ld + 1;
-; CHECK: %ld = %ld + 1;
-; CHECK: %temp23 = %ld + 1;
-; CHECK: %ld = %ld + 1;
-; CHECK: %temp20 = %ld + 1;
-; CHECK: %ld = %ld + 1;
-; CHECK: %temp17 = %ld + 1;
-; CHECK: %ld = %ld + 1;
-; CHECK: %temp14 = %ld + 1;
-; CHECK: %ld = %ld + 1;
-; CHECK: %temp11 = %ld + 1;
-; CHECK: %ld = %ld + 1;
-; CHECK: %temp8 = %ld + 1;
-; CHECK: %ld = %ld + 1;
-; CHECK: %temp5 = %ld + 1;
-; CHECK: %ld = %ld + 1;
-; CHECK: %temp = %ld + 1;
-; CHECK: %ld = %ld + 1;
-; CHECK: (@abm)[0][9][9][9] = %ld + 1;
+; CHECK-NEXT: %ld = %ld + 1;
+; CHECK-NEXT: %ld = %ld + 1;
+; CHECK-NEXT: %ld = %ld + 1;
+; CHECK-NEXT: %ld = %ld + 1;
+; CHECK-NEXT: %ld = %ld + 1;
+; CHECK-NEXT: %ld = %ld + 1;
+; CHECK-NEXT: %ld = %ld + 1;
+; CHECK-NEXT: %ld = %ld + 1;
+; CHECK-NEXT: %ld = %ld + 1;
+; CHECK-NEXT: (@abm)[0][9][9][9] = %ld + 1;
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

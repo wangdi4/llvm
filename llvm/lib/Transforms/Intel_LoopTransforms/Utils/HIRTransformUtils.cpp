@@ -1310,6 +1310,17 @@ bool HIRTransformUtils::doIdentityMatrixSubstitution(
   return true;
 }
 
+// Stores information about candidates for constant/copy propagation.
+struct CopyCandidateInfo {
+  // Rval ref of the candidate being propagated.
+  RegDDRef *RvalRef;
+  // Is set to true if rval has been redefined.
+  bool IsRvalInvalidated;
+
+  CopyCandidateInfo(RegDDRef *RvalRef)
+      : RvalRef(RvalRef), IsRvalInvalidated(false) {}
+};
+
 struct ConstantAndCopyPropagater final : public HLNodeVisitorBase {
 private:
   unsigned NumPropagated;
@@ -1331,7 +1342,7 @@ private:
 
   // Maps lval blobindex to its RvalRef. The Ref is used to check domination
   // when we find a propagation candidate
-  DenseMap<unsigned, RegDDRef *> CopyCandidates;
+  DenseMap<unsigned, CopyCandidateInfo> CopyCandidates;
 
   // Maps rval blob indices of copy candidates to their lval blob indices.
   // All lval blob indices need to be invalidated if rval blob is defined.
@@ -1381,7 +1392,7 @@ private:
     }
   }
 
-  // Try to delete constant definitions that have not been invalidated,
+  // Try to delete copies that have not been invalidated,
   // meaning they have all been legally propagated. Do this only for the
   // Node that was called by the visitor.
   void cleanupDefs(HLNode *Node) {
@@ -1390,14 +1401,11 @@ private:
     }
 
     for (auto &Pair : CopyCandidates) {
-      auto *DefRef = Pair.second;
-      if (!DefRef) { // Invalidated when a use does not postdominate
-        continue;
-      }
+      auto *RvalRef = Pair.second.RvalRef;
 
       doInvalidate();
       NumInstsRemoved++;
-      HLNodeUtils::remove(DefRef->getHLDDNode());
+      HLNodeUtils::remove(RvalRef->getHLDDNode());
     }
   }
 
@@ -1531,9 +1539,7 @@ public:
         continue;
       }
 
-      auto *Ref = It->second;
-
-      if (Ref && (Ref->getLexicalParentLoop() == Loop)) {
+      if (It->second.RvalRef->getLexicalParentLoop() == Loop) {
         CopyCandidates.erase(It);
       }
     }
@@ -1614,22 +1620,20 @@ void ConstantAndCopyPropagater::removeConstOrCopyPropIndex(HLInst *CurInst) {
   auto It = CopyCandidates.find(LvalBlobIndex);
 
   if (It != CopyCandidates.end()) {
-    if (auto *Ref = It->second) {
 
-      auto RefParentNode = Ref->getHLDDNode();
-      if (HLNodeUtils::strictlyPostDominates(CurInst, RefParentNode)) {
-        doInvalidate();
-        NumInstsRemoved++;
-        HLNodeUtils::remove(RefParentNode);
-      }
+    auto *RefParentNode = It->second.RvalRef->getHLDDNode();
+    if (HLNodeUtils::strictlyPostDominates(CurInst, RefParentNode)) {
+      doInvalidate();
+      NumInstsRemoved++;
+      HLNodeUtils::remove(RefParentNode);
     }
 
     CopyCandidates.erase(It);
   }
 
-  // If the rval blob of copy candidate(s) is redefined, invalidate the
-  // candidates. For example, we will invalidate %a and %b as candidates when we
-  // encounter %c's definition here-
+  // If the rval blob of copy candidate(s) is redefined, set the
+  // IsRvalInvalidated flag. For example, we will set the flagfor %a and %b
+  // candidates when we encounter %c's definition here-
   //
   // %a = %c    // candidate 1
   // %b = %c + 1 // candidate 2
@@ -1638,9 +1642,8 @@ void ConstantAndCopyPropagater::removeConstOrCopyPropIndex(HLInst *CurInst) {
   // %c = A[i1]  // invalidate candidate 1 and 2
   //    = %b
   //
-  // This invalidation is somewhat conservative because we should be able to
-  // eliminate %a as it has no use after %c's definition.
-  // TODO: Improve logic to eliminate %a.
+  // We can still eliminate definition of %a as it isn't used after %c's
+  // definition.
   auto RvalToLvalIter = RvalBlobToLvalBlobMap.find(LvalBlobIndex);
 
   if (RvalToLvalIter == RvalBlobToLvalBlobMap.end()) {
@@ -1648,7 +1651,11 @@ void ConstantAndCopyPropagater::removeConstOrCopyPropIndex(HLInst *CurInst) {
   }
 
   for (unsigned DependantLvalIndex : RvalToLvalIter->second) {
-    CopyCandidates.erase(DependantLvalIndex);
+    auto It = CopyCandidates.find(DependantLvalIndex);
+
+    if (It != CopyCandidates.end()) {
+      It->second.IsRvalInvalidated = true;
+    }
   }
 
   RvalBlobToLvalBlobMap.erase(RvalToLvalIter);
@@ -1685,7 +1692,10 @@ void ConstantAndCopyPropagater::addConstOrCopyPropDef(HLInst *CopyInst) {
     }
   }
 
-  CopyCandidates[LvalBlobIndex] = RvalRef;
+  auto Res = CopyCandidates.insert(
+      std::make_pair(LvalBlobIndex, CopyCandidateInfo(RvalRef)));
+  (void)Res;
+  assert(Res.second && "Unexpected existing entry in map!");
 
   for (unsigned RvalBlobIndex : RvalBlobIndices) {
     RvalBlobToLvalBlobMap[RvalBlobIndex].insert(LvalBlobIndex);
@@ -1747,26 +1757,34 @@ void ConstantAndCopyPropagater::propagateConstOrCopyUse(RegDDRef *Ref) {
   }
 
   unsigned SB = Ref->getSymbase();
-  for (auto &Pair : CopyCandidates) {
-    if (!Pair.second || !Ref->usesTempBlob(Pair.first)) {
+  for (auto It = CopyCandidates.begin(); It != CopyCandidates.end(); It++) {
+    unsigned DefIndex = It->first;
+
+    if (!Ref->usesTempBlob(DefIndex)) {
       continue;
     }
 
-    unsigned DefIndex = Pair.first;
-    RegDDRef *ConstOrCopyRef = Pair.second;
-
-    // Skip constant blob definition
+    // Skip if this ref redefines the candidate temp, it will be used to
+    // eliminate the temp definition.
     if (IsLvalTerminalRef &&
         (Ref->getBlobUtils().getTempBlobSymbase(DefIndex) == SB)) {
       continue;
     }
 
+    // Use of temp found after rval was invalidated. Since we cannot substitute
+    // the temp, the entry has to be removed.
+    if (It->second.IsRvalInvalidated) {
+      CopyCandidates.erase(It);
+      continue;
+    }
+
+    RegDDRef *ConstOrCopyRef = It->second.RvalRef;
     auto *CopyNode = ConstOrCopyRef->getHLDDNode();
     auto *CurNode = Ref->getHLDDNode();
+
+    // Erase candidate if we cannot perform substitution.
     if (!HLNodeUtils::strictlyDominates(CopyNode, CurNode)) {
-      // Invalidate entry so substitution cannot be performed and original
-      // definition will not be eliminated
-      Pair.second = nullptr;
+      CopyCandidates.erase(It);
       continue;
     }
 
@@ -1823,10 +1841,10 @@ void ConstantAndCopyPropagater::propagateConstOrCopyUse(RegDDRef *Ref) {
         Ref->makeConsistent(ConstOrCopyRef);
       }
 
-      // If we could not replace copy in the use, invalidate the entry so we
-      // don't eliminate the definition.
+      // Erase candidate if we failed to replace it so its definition is not
+      // eliminated.
       if (Ref->usesTempBlob(DefIndex)) {
-        Pair.second = nullptr;
+        CopyCandidates.erase(It);
         continue;
       }
     }
