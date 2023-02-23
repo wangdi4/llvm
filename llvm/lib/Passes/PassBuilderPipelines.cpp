@@ -1753,16 +1753,11 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (EnableSyntheticCounts && !PGOOpt)
     MPM.addPass(SyntheticCountsPropagation());
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 // FIXME: addVPOPasses needs to be called if EnableModuleInliner is true. This
 // needs to be fixed before the flag is made true by default.
 #endif // INTEL_COLLAB
-  MPM.addPass(AlwaysInlinerPass(
-      /*InsertLifetimeIntrinsics=*/Level != OptimizationLevel::O0));
-=======
   MPM.addPass(AlwaysInlinerPass(/*InsertLifetimeIntrinsics=*/true));
->>>>>>> 8e33c41e72ad42e4c27f8cbc3ad2e02b169637a1
 
   if (EnableModuleInliner)
     MPM.addPass(buildModuleInlinerPipeline(Level, Phase));
