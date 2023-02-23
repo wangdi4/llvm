@@ -36,4 +36,7 @@
 // path with "\\" on windows. getPresumedLoc is failing with Literal String
 // parser returning erroneous filename.
 // XFAIL: target=x86_64-pc-windows-msvc
+<<<<<<< HEAD
 
+=======
+>>>>>>> 14bf9d9a9a456f665f2d5c26cf586bc56b4e06f7
