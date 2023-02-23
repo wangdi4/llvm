@@ -114,7 +114,7 @@ namespace {
 
 class HIRLoopFusion {
   class LoopVisitor;
-  class GotoFinder;
+  class GotoOrLabelFinder;
 
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
@@ -559,21 +559,22 @@ public:
 };
 
 // This class is used to travers a node and it's children, except the inner
-// loops, and identify if there is a GOTO. This could affect the domination/
-// post-domination legality during the fusion.
-class HIRLoopFusion::GotoFinder : public HLNodeVisitorBase {
-  bool GotoOrMultiExitFound;
+// loops, and identify if there is a GOTO or a Label. This could affect the
+// domination/post-domination legality during the fusion.
+class HIRLoopFusion::GotoOrLabelFinder : public HLNodeVisitorBase {
+  bool GotoLabelOrMultiExitFound;
 
 public:
-  GotoFinder() : GotoOrMultiExitFound(false) {}
+  GotoOrLabelFinder() : GotoLabelOrMultiExitFound(false) {}
 
   void visit(const HLNode *) {}
   void postVisit(const HLNode *) {}
-  void visit(HLLoop *Loop) { GotoOrMultiExitFound = Loop->isMultiExit(); }
-  void visit(const HLGoto *Goto) { GotoOrMultiExitFound = true; }
-  bool isDone() { return GotoOrMultiExitFound; }
+  void visit(HLLoop *Loop) { GotoLabelOrMultiExitFound = Loop->isMultiExit(); }
+  void visit(const HLGoto *Goto) { GotoLabelOrMultiExitFound = true; }
+  void visit(const HLLabel *Label) { GotoLabelOrMultiExitFound = true; }
+  bool isDone() { return GotoLabelOrMultiExitFound; }
 
-  bool hasGotoOrMultiExit() const { return GotoOrMultiExitFound; }
+  bool hasGotoLabelOrMultiExit() const { return GotoLabelOrMultiExitFound; }
 };
 
 static const FuseNode &getEffectiveLexicalFirstNode(const FuseGraph &FG) {
@@ -649,26 +650,55 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
     return;
   }
 
-  // Check whether there is any GOTO that can break domination/post-domination
-  // relationship between loops
-  bool GotoOrMultiExitFound = false;
-  if (auto *ParentLoop = dyn_cast<HLLoop>(ParentNode)) {
-    if (!ParentLoop->isMultiExit()) {
-      auto LS = HLS.getSelfLoopStatistics(ParentLoop);
-      GotoOrMultiExitFound = LS.hasForwardGotos();
-    } else {
-      GotoOrMultiExitFound = true;
-    }
-  } else {
-    GotoFinder GF;
-    HLNodeUtils::visitRange<true, false /* RecurseIntoLoops */>(
-        GF, Range.begin(), Range.end());
-    GotoOrMultiExitFound = GF.hasGotoOrMultiExit();
-  }
+  // Check whether there is any GOTO or Label that can break domination/
+  // post-domination relationship between loops. In other words, this will
+  // check if there is any GOTO or Label in the parent node, if not then
+  // we can proceed with the loop fusion for the loops in the current level.
+  // Else, loop fusion will recurse, and will try to fuse the inner loops.
+  //
+  // TODO: There still potential to do fusion even if we find a multi-exit
+  // loop. For example:
+  //
+  //   BEGIN REGION { }
+  //         + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>
+  //         |   + DO i2 = 0, zext.i32.i64(%n) + -1, 1   <DO_MULTI_EXIT_LOOP>
+  //         |   |   if ((%a)[i1] == (%c)[i2])
+  //         |   |   {
+  //         |   |      goto for.inc38.loopexit83;
+  //         |   |   }
+  //         |   |   (%b)[i2] = i2 + 1;
+  //         |   + END LOOP
+  //         |
+  //         |
+  //         |   + DO i2 = 0, 9, 1   <DO_LOOP>
+  //         |   |   (%a)[i1 + i2] = (%b)[i2];
+  //         |   + END LOOP
+  //         |
+  //         |
+  //         |   + DO i2 = 0, 9, 1   <DO_LOOP>
+  //         |   |   (%c)[i1 + i2] = (%a)[i2];
+  //         |   + END LOOP
+  //         |
+  //         |   for.inc38.loopexit83:
+  //         + END LOOP
+  //
+  //         ret ;
+  //   END REGION
+  //
+  // The first loop is a multi-exit loop that jumps after the other two loops.
+  // In this case we can fuse these two loops. Another case would be when
+  // there are a group of loops that could be fused, then a node that breaks
+  // the domination/post-domination relationship, followed by another group of
+  // loops that could be fused. In this case we can split the loops in the
+  // LoopVisitor range into smaller ranges and try to run runOnNodeRange on
+  // these smaller groups.
+  GotoOrLabelFinder GF;
+  HLNodeUtils::visitRange<true, false /* RecurseIntoLoops */>(
+      GF, LV.getLoopRange().begin(), LV.getLoopRange().end());
 
-  if (GotoOrMultiExitFound) {
+  if (GF.hasGotoLabelOrMultiExit()) {
     LLVM_DEBUG(dbgs() << "Skipping current parent node since it contains a "
-                         "GOTO or is a multi-exit loop\n");
+                         "GOTO, a Label, or is a multi-exit loop\n");
     for (auto &Child : LV.getLoopRange()) {
       if (auto *Loop = dyn_cast<HLLoop>(&Child))
         runOnNodeRange(Loop,
