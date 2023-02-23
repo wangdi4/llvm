@@ -4672,9 +4672,25 @@ bool VPOParoptTransform::genReductionScalarFini(
           .count(W);
   if (isTargetSPIRV() &&
       ((UseLocalUpdates && !UseExistingLocalLoop) ||
-       (UseGlobalUpdates && !UseExistingGlobalLoop)) &&
-      !Builder.GetInsertBlock()->front().isTerminator() &&
+       (UseGlobalUpdates && !UseExistingGlobalLoop) ||
+       (!UseLocalUpdates && !UseGlobalUpdates &&
+        !RedI->getIsF90DopeVector())) &&
       !IsArrayOrArraySection) {
+    // Since zero-offset TYPED.ARRSECT clauses are not treated
+    // as an actual array sections, ScalarTy doesn't match
+    // ReductionVar's pointee type (which is an array).
+    // But as it may only happen for zero-offset items, we can
+    // just generate a corresponding bitcast.
+    // Obviously that's not an issue for opaque pointers.
+    if (!ReductionVar->getType()->isOpaquePointerTy() &&
+        ReductionVar->getType()->getPointerElementType()->isArrayTy()) {
+      assert(RedI->getIsTyped() &&
+             "Unexpected type mismatch for non-typed reduction item");
+      ReductionVar = Builder.CreateBitOrPointerCast(
+          ReductionVar,
+          PointerType::get(ScalarTy,
+                           ReductionVar->getType()->getPointerAddressSpace()));
+    }
     // The reduction generation code below assumes that BB which Builder
     // is inserting instruction into doesn't have any code that isn't supposed
     // to be within the newly generated reduction loop, that's why
