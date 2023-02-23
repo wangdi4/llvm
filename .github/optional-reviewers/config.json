@@ -3,7 +3,7 @@
     "ids": [
       "jsji"
     ],
-    "match": ".*optional-reviewers.*"
+    "match": ".*Target.*/X86.*"
   },
   {
     "ids": [
