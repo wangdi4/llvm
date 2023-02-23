@@ -18,11 +18,16 @@
 
 set(LLVM_LINK_COMPONENTS
   Core
+  Option
   Support
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   TargetParser
   Option
 # end INTEL_CUSTOMIZATION
+=======
+  TargetParser
+>>>>>>> 2db83b1b311bae3d14067970edf15c69999a1d37
   )
 
 add_clang_tool(clang-scan-deps
