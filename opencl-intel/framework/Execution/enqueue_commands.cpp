@@ -2346,9 +2346,8 @@ cl_err_code WriteMemObjCommand::Init() {
       sCpyParam.vRegion[dim] = m_szRegion[dim];
     }
 
-    // nmeraey: changing this allocation alignment from 64 to 128 to fix
-    // CSSD100016136
-    //          anyway, couldn't know why 128 would fix it!
+    // change this allocation alignment from 64 to 128 but don't know why 128
+    // would fix issue!
     m_pTempBuffer = ALIGNED_MALLOC(sizeToAlloc, WRITE_MEM_OBJ_ALLOC_ALIGNMENT);
     if (nullptr == m_pTempBuffer) {
       LOG_ERROR("Can't allocate temporary storage for blockng command (%s)\n",

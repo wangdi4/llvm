@@ -97,7 +97,6 @@ private:
 // Sanity test for the plugin mechanism
 //
 TEST(FEPluginTest, DISABLED_sanity) {
-// failes, turned off until CSSD100013413 will be fixed
 #if defined(_WIN32)
   SetEnvironmentVariableA("OCLBACKEND_PLUGINS", "FePluginMock.dll");
 #else
@@ -119,7 +118,6 @@ TEST(FEPluginTest, DISABLED_sanity) {
 // that a compiled module is 'connected' to itself.
 //
 TEST(OCLSourceRecorder1_1, DISABLED_sorce_recorder_basic) {
-  // disabled until CSSD100013816 will be fixed
   const char *kernelName = "k.cl";
   ;
   const char *kernelContents =
@@ -146,7 +144,6 @@ TEST(OCLSourceRecorder1_1, DISABLED_sorce_recorder_basic) {
 // File iterator test
 //
 TEST(OCLSourceRecorder1_1, DISABLED_iterator_test) {
-  // disabled until CSSD100013816 will be fixed
   const char *kernelName = "k.cl";
   ;
   const char *kernelContents =
@@ -242,7 +239,6 @@ static void *addCompile(void *args) {
 }
 
 TEST(OCLSourceRecorder1_1, DISABLED_source_recoder_thread_safety) {
-  // disabled until CSSD100013816 will be fixed
   const int THREAD_NUM = 2;
   CompileData *compileData[THREAD_NUM];
   unsigned char b1[16] = {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
@@ -311,7 +307,6 @@ TEST(OCLSourceRecorder1_1, DISABLED_source_recoder_thread_safety) {
 // Checks the dependency between a source file and its headers
 //
 TEST(OCLSourceRecorder1_1, DISABLED_header_source_connection) {
-  // disabled until CSSD100013816 will be fixed
   const char *contents = "veni vidi vichi";
   const char *h1 = "h1";
   const char *h2 = "h2";
@@ -375,7 +370,6 @@ TEST(OCLSourceRecorder1_1, DISABLED_header_source_connection) {
 }
 
 TEST(OCLSourceRecorder1_1, DISABLED_referenceContension) {
-  // disabled until CSSD100013816 will be fixed
 #if defined(_WIN32)
   SetEnvironmentVariableA("OCLBACKEND_PLUGINS", "OclRecorder.dll");
 #else

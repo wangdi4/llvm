@@ -146,7 +146,6 @@ StreamOutputAccumulator::StreamOutputAccumulator(FILE *
 
 void StreamOutputAccumulator::append(char c) {
 #if (defined(_WIN32) || defined(_WIN64))
-  // Windows 64 crash fix, ticket no. CSSD100006413
   if (!hStdout) {
     hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
     if (INVALID_HANDLE_VALUE == hStdout) {

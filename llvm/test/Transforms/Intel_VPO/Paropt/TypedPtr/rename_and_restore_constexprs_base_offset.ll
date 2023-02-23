@@ -1,10 +1,10 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S -o %t1.ll <%s &&  FileCheck --input-file=%t1.ll %s -check-prefix=PREPR
-; RUN: opt -enable-new-pm=0 -early-cse -instcombine -vpo-restore-operands -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s -check-prefix=RESTR
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -S %t2.ll | FileCheck %s -check-prefix=TFORM
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S -o %t1.ll <%s &&  FileCheck --input-file=%t1.ll %s -check-prefix=PREPR
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -early-cse -instcombine -vpo-restore-operands -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s -check-prefix=RESTR
+; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -S %t2.ll | FileCheck %s -check-prefix=TFORM
 
-; RUN: opt -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare)" -S -o %t1.ll <%s &&  FileCheck --input-file=%t1.ll %s -check-prefix=PREPR
-; RUN: opt -passes="function(early-cse,instcombine,vpo-restore-operands)" -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s -check-prefix=RESTR
-; RUN: opt -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %t2.ll | FileCheck %s -check-prefix=TFORM
+; RUN: opt -opaque-pointers=0 -passes="function(vpo-cfg-restructuring,vpo-paropt-prepare)" -S -o %t1.ll <%s &&  FileCheck --input-file=%t1.ll %s -check-prefix=PREPR
+; RUN: opt -opaque-pointers=0 -passes="function(early-cse,instcombine,vpo-restore-operands)" -S %t1.ll -o %t2.ll && FileCheck --input-file=%t2.ll %s -check-prefix=RESTR
+; RUN: opt -opaque-pointers=0 -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %t2.ll | FileCheck %s -check-prefix=TFORM
 
 ; The test IR was hand-generated to simulate uses of constexprs offsets into an
 ; array as clause operands. A source program equivalent of the IR

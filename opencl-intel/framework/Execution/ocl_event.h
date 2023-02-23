@@ -60,7 +60,7 @@ typedef enum {
 
 #if OCL_EVENT_WAIT_STRATEGY != OCL_EVENT_WAIT_OS_DEPENDENT
 #error "Data race in OclEvent::SetEventState, waiters on queue event are "
-"released before the queue reference is dropped. See: CSSD100014359"
+"released before the queue reference is dropped."
 #endif
 
     /*******************************************************************************

@@ -136,7 +136,7 @@ class GlobalIdTest(DebuggerTestCase):
     #   5. Minimum and maximum number of total number of global work-items (1 and 1024*1024*1024)
     #   6. Minimum and maximum size of work-group (1 and 1024)
     #       Note: for now, the maximum number of total number of global
-    #           work-items is (256*256*256) (CSSD100007249)
+    #           work-items is (256*256*256)
 #
     # For each test we generate a random global_work_offset (global_ffset_x,
     #   global_offset_y, global_offset_z) and a global_id (global_id_x, global_id_y, global_id_z).

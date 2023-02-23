@@ -58,12 +58,14 @@ set(ADD_C_FLAGS_RELWITHDEBINFO "-O2 -ggdb3 -U _DEBUG")
 # Linker switches
 set(ADD_CMAKE_EXE_LINKER_FLAGS "-z noexecstack -z relro -z now")
 
+# INTEL_CUSTOMIZATION
 # INTEL_PRODUCT_RELEASE for release build
 if(CMAKE_C_FLAGS MATCHES "-DINTEL_PRODUCT_RELEASE=1")
   # There is unused command argument warning with -pie option, so remove it from
   # linker flags.
   ocl_replace_compiler_option(CMAKE_EXE_LINKER_FLAGS "-pie" "")
 endif()
+# end INTEL_CUSTOMIZATION
 
 # C switches
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}                         ${ADD_C_FLAGS}")

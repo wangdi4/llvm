@@ -28,7 +28,7 @@ include(embed.rpath)
 if(WIN32 AND NOT BUILD_X64)
   # the /Ob1 flag is set instead of /Ob2 flag in order to prevent aggressive
   # inlining optimizations in Visual Studio due to a bug discovered in device
-  # fission: CSSD100013570
+  # fission
   string(REPLACE /Ob2 "/Ob1" CMAKE_C_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
   string(REPLACE /Ob2 "/Ob1" CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
 endif(WIN32 AND NOT BUILD_X64)

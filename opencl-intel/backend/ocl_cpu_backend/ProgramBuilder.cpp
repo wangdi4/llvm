@@ -581,7 +581,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     pProps->EnableVectorizedWithTail();
 
   pProps->SetBarrierBufferSize(barrierBufferSize);
-  // CSSD100016517 workaround:
+  // workaround:
   //   GetPrivateMemorySize returns the min. required private memory
   //   size per work-item even if there are no work-group level built-ins.
   pProps->SetPrivateMemorySize(privateMemorySize);

@@ -566,7 +566,9 @@ function(add_ocl_unittest_artifacts)
   endforeach(filename)
 endfunction()
 
-# Get ICS build type: debug | prod | release TODO: support self-build type
+# INTEL_CUSTOMIZATION
+# TODO: support self-build type
+# Get ICS build type: debug | prod | release
 # detection Usage: GET_ICS_BUILD_TYPE(result)
 function(GET_ICS_BUILD_TYPE result)
   # INTEL_PRODUCT_RELEASE for release build
@@ -586,6 +588,7 @@ function(GET_ICS_BUILD_TYPE result)
     endif()
   endif()
 endfunction()
+# end INTEL_CUSTOMIZATION
 
 # A handy helper function to link target with tbb library
 function(link_target_with_tbb_library target)

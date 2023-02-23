@@ -1,12 +1,11 @@
 from testlib.debuggertestcase import DebuggerTestCase, expectedFailureCDB
 
 
-# Reproducer for CQ issue CSSD100007031
 #
-class CSSD100007031(DebuggerTestCase):
+class 100007031(DebuggerTestCase):
     @expectedFailureCDB
-    def test_CSSD100007031(self):
-        CLNAME = 'cssd100007031.cl'
+    def test_100007031(self):
+        CLNAME = '100007031.cl'
 
         # use printf_tester to eat stdout but ask it to skip verification
         self.client.execute_debuggee(

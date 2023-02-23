@@ -378,7 +378,7 @@ size_t KernelProperties::GetMaxWorkGroupSize(
     // Private memory requirements exceed available resources.
     maxWorkGroupSize = 0;
   } else if (GetBarrierBufferSize() > 0) {
-    // TODO: CSSD100016517 workaround:
+    // TODO: workaround
     //       At the moment GetPrivateMemorySize() returns here the same value as
     //       GetBarrierBufferSize(). It is not what it must to do. See the
     //       declaration.

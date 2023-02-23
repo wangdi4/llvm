@@ -220,7 +220,7 @@ public:
 
   bool isOverlodable() const;
   // BUGBUG: isBrokenNameMangling() is a temporary w/around for name mangling
-  // in-compat with SPIR (CQ CSSD100017714)
+  // in-compat with SPIR
   bool isBrokenNameMangling() const {
     return strstr(m_Name.c_str(), "work_group_") != NULL;
   }

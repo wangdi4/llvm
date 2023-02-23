@@ -33,7 +33,6 @@ static std::string buildLibName(const char *s) {
 }
 
 TEST(ClangStadalone, DISABLED_instance_creation) {
-  // this test crashes, so it is disabled until CSSD100013412 will be fixed
   const char *source = "__kernel void add (__global const int *a, __global "
                        "const int *b, __global int *c){"
                        "int tid = get_global_id(0);"
