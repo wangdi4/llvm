@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2021 Intel Corporation
+# Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -220,6 +220,13 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
   )
 
   set(install_dest lib${LIBOMPTARGET_LIBDIR_SUFFIX})
+
+  if (INTEL_CUSTOMIZATION)
+    if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+      # If building the new unified layout, deploy in the component-private area.
+      string(PREPEND install_dest "opt/${INTEL_DEPLOY_PKGCOMP_NAME}/")
+    endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  endif(INTEL_CUSTOMIZATION)
 
   # FIXME: remove this from install, when IFX driver switches to
   #        the object file linking.
