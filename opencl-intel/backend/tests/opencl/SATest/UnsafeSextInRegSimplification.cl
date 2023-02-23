@@ -1,6 +1,4 @@
 /*
-  Test following ticket CSSD100020163
-
   The following function contains two select instructions of different
   scalar types that depend on the same mask (the two assignments under
   the if). This combination was being lowered incorrectly to X86, causing

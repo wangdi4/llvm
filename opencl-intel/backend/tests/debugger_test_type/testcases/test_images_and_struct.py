@@ -13,7 +13,6 @@ class TestImagesAndStruct(DebuggerTestCase):
             cl_name=self.CLNAME)
         #####################################################################################################
         #   ERROR WHEN USING COMMANDS READ_IMAGE IN DEBUG MODE                                              #
-        #   clearQuest ticket number - CSSD100007385                                                        #
         #   NOTE THE LINE: options={'debug_build': 'off'},                                                  #
         #   after fixing bug this line should be removed                                                    #
         #####################################################################################################

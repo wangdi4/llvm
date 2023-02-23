@@ -36,9 +36,7 @@ namespace {
 // should detect following function names:
 // "__enqueue_simple_block_block_invoke"
 // "globalBlock_block_invoke"
-// TODO: revisit when issue below is fixed
-// CSSD100018605 [OpenCL2.0] Clang should provide reliable way to detect block
-// functions and compute block context size
+// TODO: revisit
 llvm::Regex s_IsBlockRegex("_block_invoke(_[0-9]+)?$");
 } // namespace
 

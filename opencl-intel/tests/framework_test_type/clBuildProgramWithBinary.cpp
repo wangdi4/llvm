@@ -165,8 +165,7 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc) {
   }
 
   // a test for garbage binary file
-  // TODO: once bugs num' CSSD100004920 , CSSD100004921 , fixed , uncomment and
-  // check
+  // TODO: uncomment and check
   //   struct stat IRstatus;
   //   stat("test.bc",&IRstatus);
   //   iRet=fopen_s(&pIRfile,"test.bc", "rb");  //without all the headers so

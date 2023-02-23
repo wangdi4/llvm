@@ -903,7 +903,6 @@ void TestCompareSingleImage(ImageTypeVal imageType, const uint64_t &width,
 class ComparatorImageTest : public ALUTest {};
 
 /// @brief Tests accurate mode of Comparator on Images
-// disabled due to fail on linux. CSSD100013779
 TEST(ComparatorImageTest, DISABLED_ImagesAccurate1D) {
   uint64_t width = 99;
   ImageTypeVal imageType = OpenCL_MEM_OBJECT_IMAGE1D;
@@ -920,7 +919,6 @@ TEST(ComparatorImageTest, DISABLED_ImagesAccurate1D) {
   TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width,
                                                              0, 0, 0);
 }
-// disabled due to fail on linux. CSSD100013779
 TEST(ComparatorImageTest, DISABLED_ImagesAccurate1D_arr) {
   const uint64_t width = 99;
   const uint64_t arrSize = 7;
@@ -941,7 +939,6 @@ TEST(ComparatorImageTest, DISABLED_ImagesAccurate1D_arr) {
   TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width,
                                                              0, 0, arrSize);
 }
-// disabled due to fail on linux. CSSD100013779
 TEST(ComparatorImageTest, DISABLED_ImagesAccurate2D) {
   const uint64_t width = 99;
   const uint64_t height = 11;
@@ -962,7 +959,6 @@ TEST(ComparatorImageTest, DISABLED_ImagesAccurate2D) {
   TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(imageType, width,
                                                              height, 0, 0);
 }
-// disabled due to fail on linux. CSSD100013779
 TEST(ComparatorImageTest, DISABLED_ImagesAccurate2D_arr) {
   const uint64_t width = 99;
   const uint64_t height = 11;
@@ -984,7 +980,6 @@ TEST(ComparatorImageTest, DISABLED_ImagesAccurate2D_arr) {
   TestCompareSingleImage<OpenCL_UNORM_SHORT_565, OpenCL_RGB>(
       imageType, width, height, 0, arrSize);
 }
-// disabled due to fail on linux. CSSD100013779
 TEST(ComparatorImageTest, DISABLED_ImagesAccurate3D) {
   const uint64_t width = 99;
   const uint64_t height = 11;
@@ -1127,31 +1122,26 @@ TYPED_TEST_SUITE(ComparatorImageTestNEATRun, FloatTypes, );
 bool ComparatorImageTestNEATRun_should_be_disabled = true;
 // we can't add DISABLE_ to typed tests, so disable them manually
 
-// disabled due to fail on linux. CSSD100013779
 TYPED_TEST(ComparatorImageTestNEATRun, DISABLED_Test1d) {
   ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE1D, 99, 0, 0,
                                           0);
   test.test();
 }
-// disabled due to fail on linux. CSSD100013779
 TYPED_TEST(ComparatorImageTestNEATRun, DISABLED_Test1dArr) {
   ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE1D_ARRAY, 99,
                                           0, 0, 11);
   test.test();
 }
-// disabled due to fail on linux. CSSD100013779
 TYPED_TEST(ComparatorImageTestNEATRun, DISABLED_Test2d) {
   ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE2D, 99, 33, 0,
                                           0);
   test.test();
 }
-// disabled due to fail on linux. CSSD100013779
 TYPED_TEST(ComparatorImageTestNEATRun, DISABLED_Test2dArr) {
   ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE2D_ARRAY, 99,
                                           33, 0, 7);
   test.test();
 }
-// disabled due to fail on linux. CSSD100013779
 TYPED_TEST(ComparatorImageTestNEATRun, DISABLED_Test3d) {
   ComparatorImageTestNEAT<TypeParam> test(OpenCL_MEM_OBJECT_IMAGE3D, 99, 33, 7,
                                           0);

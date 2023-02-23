@@ -8813,8 +8813,7 @@ TYPED_TEST(NEATAluTypedMath, half_rsqrt) {
   }
 }
 
-TYPED_TEST(NEATAluTypedMath, DISABLED_dot) // disabled, see CSSD100017468
-{
+TYPED_TEST(NEATAluTypedMath, DISABLED_dot) {
   typedef typename TypeParam::Type TypeP;
   typedef typename superT<TypeP>::type SuperT;
 

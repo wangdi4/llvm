@@ -8,7 +8,7 @@ extern cl_device_type gDeviceType;
 
 /******************************************************************************
  * Multiple Execution test: test running several ND-Ranges in the same process,
- * with the host thread participating Intended as regression for CSSD100016390
+ * with the host thread participating Intended
  *
  * This test will deadlock if for some reason we don't get enough worker threads
  ** Not composable with anything else *

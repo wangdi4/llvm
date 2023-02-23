@@ -1564,7 +1564,7 @@ cl_err_code ExecutionModule::EnqueueCopyBufferRect(
  * Convert void* to PROPERLY aligned CL vector type.
  * It is required, since the void* input may not be aligned at all, and CL
  * vectors are aligned by definition. This may cause runtime errors -
- * see CSSD100013698 - where the compiler called movdqa on CL vector that was
+ * where the compiler called movdqa on CL vector that was
  * C-style casted from a non-aligned void*.
  * @param in non-aligned pointer
  * @param out the target CL vector.

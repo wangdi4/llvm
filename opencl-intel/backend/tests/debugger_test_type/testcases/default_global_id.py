@@ -101,7 +101,7 @@ class DefaultGlobalIdTest(DebuggerTestCase):
     #   5. Minimum and maximum number of total number of global work-items
     #       (1 and 1024*1024*1024)
     #       Note: for now, the maximum number of total number of global
-    #           work-items is (256*256*256) (CSSD100007249)
+    #           work-items is (256*256*256)
     #   6. Minimum and maximum size of work-group (1 and 1024)
     #
     def DISABLED_test_3D_default_global_id(self):

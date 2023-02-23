@@ -25,7 +25,6 @@ class TestAsyncCopy(DebuggerTestCase):
     #                                            #
     #    THE NEXT VALUE QUERYS DOESN'T MATCH CURRENTLY                    #
     #    not sure if it is a bug or an incorrect use of "async_work_group_copy" function #
-    #    clearQuest ticket CSSD100007403                          #
     #    after fixing the problem the following lines shouldn't be on remark        #
     #                                            #
     #########################################################################################

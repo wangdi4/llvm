@@ -232,10 +232,9 @@ public:
       memcpy(pMap, (void *)WriteImg, getSize());
 
       /* clEnqueueUnmapMemObject is not implemented for now for array of images,
-since it is not clear whether to unmap all mapped 2D images, or there is a bug
-in the spec and we need a special API call to unmap a specific 2D image. Bug
-CSSD100006480 is opened on this issue. */
-
+       * since it is not clear whether to unmap all mapped 2D images, or there
+       * is a bug in the spec and we need a special API call to unmap a specific
+       * 2D image. */
       DISABLE_PARTLY_LOOP_IMAGE_TEST("image2d_array_t",
                                      index) { // TODO: remove once bug is fixed
         err = clEnqueueUnmapMemObject(cmd_queue, clImageArray, pMap, 0, NULL,

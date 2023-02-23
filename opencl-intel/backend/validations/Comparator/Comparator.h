@@ -204,7 +204,6 @@ protected:
       return res;
 
     // we need to swap _Act and _Ref in case of first arg is zero
-    // it is fix for CSSD100015527
     // By default ulpsDiffSamePrecision(called by eq_tol) calls
     // CompareScalarAccurateFloatingPoint which takes ULPs value from argument
     // Act. If Act is zero it cannot calculate ULP value since zero does not

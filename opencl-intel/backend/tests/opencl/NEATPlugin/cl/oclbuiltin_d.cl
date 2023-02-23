@@ -643,7 +643,6 @@ cross_d(__global double *input, __global int *input_int,
 KERNEL_BI_GEOM_ONEARG(length)
 KERNEL_BI_GEOM_TWOARGS(distance)
 /*
-disabled until CSSD100014650 will be fixed
 __kernel void convert_double_ulong_d(__global double * input, __global int *
 input_int,
                                    __global double * output, __global double *

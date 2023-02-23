@@ -705,7 +705,6 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
     }
   }
 
-  // FIXME: CSSD1000?????: add a check for OpenCL 2.0
   if (true) { // ocl20
     pKernelUniformImplicitArgs->Block2KernelMapper =
         m_RuntimeService->GetBlockToKernelMapper();

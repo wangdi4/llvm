@@ -459,7 +459,6 @@ cl_int PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
   }
 
   // The size should be return only if successful copy was completed
-  // (CSSD100011955)
   if (nullptr != pszParamValueSizeRet) {
     *pszParamValueSizeRet = szParamSize;
   }
