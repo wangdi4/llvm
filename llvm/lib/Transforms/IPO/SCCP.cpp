@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -394,14 +394,6 @@ static bool runIPSCCP(
                   return cast<IntrinsicInst>(UserUser)->isAssumeLikeIntrinsic();
                 })));
         continue;
-#if INTEL_CUSTOMIZATION
-      // The function may be used in a dead ConstantExpr which will get
-      // removed later. Since there is no call site possible we can skip it.
-      // These may appear after 0a67e771.
-      if (auto *BCE = dyn_cast<ConstantExpr>(U.getUser()))
-        if (BCE->user_empty())
-          continue;
-#endif // INTEL_CUSTOMIZATION
       }
 
       for (Use &Arg : CB->args())
