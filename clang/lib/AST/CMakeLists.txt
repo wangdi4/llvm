@@ -158,4 +158,5 @@ add_clang_library(clangAST
   ClangAttrDocTable
   Opcodes
   omp_gen
+  intrinsics_gen
   )
