@@ -72,7 +72,7 @@ void *&AsyncInfoTy::getVoidPtrLocation() {
 }
 
 bool AsyncInfoTy::isDone() {
-  synchronize();
+  (void)synchronize(); // INTEL
   // The async info operations are completed when the internal queue is empty.
   return isQueueEmpty();
 }
