@@ -94,10 +94,12 @@ else()
   include(CMake_linux_tools)
 endif()
 
+# INTEL_CUSTOMIZATION
 # Common defines
 if(INTEL_PRODUCT_RELEASE)
   add_definitions(-DINTEL_PRODUCT_RELEASE)
 endif(INTEL_PRODUCT_RELEASE)
+# end INTEL_CUSTOMIZATION
 
 if((NOT WIN32) AND USE_HARD_TRAPPING)
   add_definitions(-D__HARD_TRAPPING__)

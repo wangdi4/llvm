@@ -331,7 +331,7 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const {
   default:
     break;
   }
-#endif // NDEBUG
+#endif // INTEL_PRODUCT_RELEASE
 
   if (FPGA_EMU_DEVICE == GetDeviceMode()) {
     s_ver = OPENCL_VERSION_1_2;
