@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -323,44 +323,174 @@ void GlobalDCEPass::AddVirtualFunctionDependencies(Module &M) {
 static bool PreprocessDispatcherFunctions(Module &M) {
   bool Changed = false;
 
-  // After Inliner is run, ACD generated multi-versioned functions may have
-  // direct calls to other multi-versioned functions in the same module through
-  // dispatcher functions (IFunc's on Linux). Such direct calls should instead be
-  // to the appropriate target-specific callees matching the caller's target.
-  // This routine transforms the below call to bar():
-  //      define foo.A
-  //        call bar()    // bar is a dispather function
-  // to a call to bar.A():
-  //      define foo.A
-  //        call bar.A()
-  // This transformation may create dead dispatchers for GlobalDCE to remove them.
-  // Linux implementation uses IFunc based dispatchers, thus here we preprocess IFuncs.
-  for (GlobalIFunc &GIF : M.ifuncs()) {
+  // After IPO passes are run, ACD generated multi-versioned functions may have
+  // direct calls to other multi-versioned functions, defined in the same
+  // module, through dispatcher functions (IFunc's on Linux, wrapper-based
+  // dispatchers on Windows). Such calls can instead be made directly to the
+  // appropriate target-specific callees matching thecaller's target.
+  bool IterChanged = true;
+  while (IterChanged) {
+    IterChanged = false;
 
-    Function *Resolver = GIF.getResolverFunction();
-    if (!Resolver || !Resolver->getName().endswith(".resolver"))
-      continue;
+    // Here, we're going to transform the call below to bar():
+    //      define foo.A
+    //        call bar()    // bar() is a dispatcher function
+    // to call to bar.A():
+    //      define foo.A
+    //        call bar.A()
+    // This transformation may create dead dispatcher symbols/functions
+    // for GlobalDCE to remove them.
 
-    for (auto It = GIF.use_begin(), End = GIF.use_end(); It != End;) {
-      Use &IFUse = *It;
-      ++It;
+    // Linux implementation uses IFunc dispatchers, thus here we preprocess them.
+    for (GlobalIFunc &GIF : M.ifuncs()) {
 
-      auto *CInst = dyn_cast<CallBase>(IFUse.getUser());
-      if (CInst && CInst->isCallee(&IFUse)) {
-        Function *Caller = CInst->getFunction();
-        if (!Caller->hasMetadata("llvm.acd.clone"))
-          continue;
-        auto NameTargetPair = Caller->getName().rsplit('.');
-        if (NameTargetPair.second.empty())
-          continue;
-        auto ReplacementName = GIF.getName().str() + "." + NameTargetPair.second.str();
-        Function *Replacement = M.getFunction(ReplacementName);
-        if (Replacement && Replacement->hasMetadata("llvm.acd.clone")) {
-          CInst->setCalledFunction(Replacement);
-          Changed = true;
+      Function *Resolver = GIF.getResolverFunction();
+      if (!Resolver || !Resolver->getName().endswith(".resolver"))
+        continue;
+
+      for (auto It = GIF.use_begin(), End = GIF.use_end(); It != End;) {
+        Use &IFUse = *It;
+        ++It;
+
+        auto *CInst = dyn_cast<CallBase>(IFUse.getUser());
+        if (CInst && CInst->isCallee(&IFUse)) {
+          Function *Caller = CInst->getFunction();
+          if (!Caller->hasMetadata("llvm.acd.clone"))
+            continue;
+          auto NameTargetPair = Caller->getName().rsplit('.');
+          if (NameTargetPair.second.empty())
+            continue;
+          auto ReplacementName =
+              GIF.getName().str() + "." + NameTargetPair.second.str();
+          Function *Replacement = M.getFunction(ReplacementName);
+          if (Replacement && Replacement->hasMetadata("llvm.acd.clone")) {
+            CInst->setCalledFunction(Replacement);
+            IterChanged = true;
+          }
         }
       }
     }
+
+    // Windows implementation uses wrapper-based dispatchers,
+    // hence, we preprocess functions that carry llvm.acd.dispatcher metadata.
+    for (Function &Dispatcher : M.functions()) {
+
+      if (!Dispatcher.hasMetadata("llvm.acd.dispatcher"))
+        continue;
+
+      auto End = Dispatcher.use_end();
+      for (auto It = Dispatcher.use_begin(); It != End;) {
+        Use &DUse = *It;
+        ++It;
+
+        auto *CInst = dyn_cast<CallBase>(DUse.getUser());
+        if (CInst && CInst->isCallee(&DUse)) {
+          Function *Caller = CInst->getFunction();
+          if (!Caller->hasMetadata("llvm.acd.clone"))
+            continue;
+          auto NameTargetPair = Caller->getName().rsplit('.');
+          if (NameTargetPair.second.empty())
+            continue;
+          auto ReplacementName = Dispatcher.getName().str() + "." +
+                                 NameTargetPair.second.str();
+          Function *Replacement = M.getFunction(ReplacementName);
+          if (Replacement && Replacement->hasMetadata("llvm.acd.clone")) {
+            CInst->setCalledFunction(Replacement);
+            IterChanged = true;
+          }
+        }
+      }
+
+      // If Dispatcher has local linkage and no remaining uses in IR,
+      // drop all its references.
+      if (Dispatcher.hasLocalLinkage() && Dispatcher.hasZeroLiveUses()) {
+        Dispatcher.dropAllReferences();
+      }
+    }
+
+    // Windows implementation uses wrapper-based dispatchers.
+    // IPO passes may also inline wrapper-based dispatchers at callsites,
+    // creating indirect calls to bar() as shown below:
+    //      define foo.A
+    //        %0 = load bar.ptr
+    //        call %0()          // call to bar.A() through bar.ptr
+    // Hence, transform such indirect calls to bar.A() to direct calls to bar.A():
+    //      define foo.A
+    //        call bar.A()
+    // Process global function pointers that carry llvm.acd.dispatcher metadata.
+    for (GlobalVariable &DispatchPtr : M.globals()) {
+
+      if (!DispatchPtr.hasMetadata("llvm.acd.dispatcher"))
+        continue;
+
+      assert(DispatchPtr.getName().endswith(".ptr"));
+
+      StringRef FnName = DispatchPtr.getName().drop_back(4);
+      std::string ResolverName = FnName.str() + ".resolver";
+      Function *ResolverFn = M.getFunction(ResolverName);
+
+      bool AllUsesAreInResolverFn = true;
+      auto End = DispatchPtr.use_end();
+      for (auto It = DispatchPtr.use_begin(); It != End;) {
+        Use &PtrUse = *It;
+        ++It;
+
+        // Check if the function pointer is used in the resolver function.
+        auto *Inst = dyn_cast<Instruction>(PtrUse.getUser());
+        if (Inst && Inst->getFunction() == ResolverFn)
+          continue;
+
+        AllUsesAreInResolverFn = false;
+
+        // Check if the use is a load instructions
+        auto *LI = dyn_cast<LoadInst>(PtrUse.getUser());
+        if (!LI)
+          continue;
+
+        // Iterate over the uses of the load instruction.
+        auto End2 = LI->use_end();
+        for (auto It2 = LI->use_begin(); It2 != End2;) {
+          Use &LUse = *It2;
+          ++It2;
+
+          // If the use is the callee of a callsite, transform it to a direct call.
+          auto *CInst = dyn_cast<CallBase>(LUse.getUser());
+          if (CInst && CInst->isCallee(&LUse)) {
+            Function *Caller = CInst->getFunction();
+            if (!Caller->hasMetadata("llvm.acd.clone"))
+              continue;
+            auto NameTargetPair = Caller->getName().rsplit('.');
+            if (NameTargetPair.second.empty())
+              continue;
+            auto ReplacementName = FnName.str() + "." + NameTargetPair.second.str();
+            Function *Replacement = M.getFunction(ReplacementName);
+            if (Replacement && Replacement->hasMetadata("llvm.acd.clone")) {
+              CInst->setCalledFunction(Replacement);
+              IterChanged = true;
+            }
+          }
+        }
+
+        // Remove load instruction, if it has no remaining uses in IR.
+        if (LI->hasNUses(0)) {
+          LI->eraseFromParent();
+        }
+      }
+
+      // If all remaining uses of DispatchPtr are inside the resolver,
+      // delete them as well in order to get rid of the dispatch pointer later.
+      if (AllUsesAreInResolverFn) {
+        for (auto It = DispatchPtr.use_begin(); It != End;) {
+          Use &PtrUse = *It;
+          ++It;
+          auto *Inst = dyn_cast<Instruction>(PtrUse.getUser());
+          // Assert that DispatchPtr use is in the resolver function.
+          assert(Inst && Inst->getFunction() == ResolverFn);
+          Inst->eraseFromParent();
+        }
+      }
+    }
+    Changed |= IterChanged;
   }
   return Changed;
 }

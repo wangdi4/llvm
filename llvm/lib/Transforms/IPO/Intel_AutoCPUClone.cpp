@@ -125,7 +125,8 @@ emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
   // Get the function pointer that stores the address of the clone at runtime.
   Module *M = Fn.getParent();
   std::string ResolverPtrName = OrigName + ".ptr";
-  GlobalValue *ResolverPtr = M->getNamedValue(ResolverPtrName);
+  GlobalVariable *ResolverPtr =
+      dyn_cast<GlobalVariable>(M->getNamedValue(ResolverPtrName));
 
   // Create a load of the function pointer.
   Type *ResolverPtrType = Fn.getFunctionType()->getPointerTo();
@@ -140,6 +141,9 @@ emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
                          Args);
   Result->setCallingConv(Fn.getCallingConv());
   Result->setAttributes(Fn.getAttributes());
+
+  Dispatcher->setMetadata("llvm.acd.dispatcher", MDNode::get(Ctx, {}));
+  ResolverPtr->setMetadata("llvm.acd.dispatcher", MDNode::get(Ctx, {}));
 
   // Create a return.
   if (Fn.getReturnType()->isVoidTy())
