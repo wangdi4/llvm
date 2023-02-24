@@ -116,11 +116,10 @@ struct BinOptRptScnData {
 SmallVector<BinOptRptScnData, 4> ParsedSubScns;
 } // anonymous namespace
 
-static const SectionRef *getBinOptReportSection(ObjectFile *Obj) {
+static section_iterator getBinOptReportSection(ObjectFile *Obj) {
   // Loop through all sections in the object file until first binary opt-report
   // section is encountered. TODO: Handle multiple such sections (COMDAT
   // functions?).
-  const SectionRef *BORScn = nullptr;
   for (const SectionRef &Section : Obj->sections()) {
     Expected<StringRef> NameOrErr = Section.getName();
     if (!NameOrErr)
@@ -131,21 +130,20 @@ static const SectionRef *getBinOptReportSection(ObjectFile *Obj) {
 
     if (ScnName == BinOptRptScnName) {
       LLVM_DEBUG(dbgs() << BinOptRptScnName << " section found\n");
-      BORScn = &Section;
-      break;
+      return {Section};
     }
   }
 
-  return BORScn;
+  return Obj->section_end();
 }
 
-static void parseSection(const SectionRef *Scn) {
+static void parseSection(section_iterator ScnIt) {
   ParsedSubScns.clear();
-  Expected<StringRef> ContentOrErr = Scn->getContents();
+  Expected<StringRef> ContentOrErr = ScnIt->getContents();
   if (!ContentOrErr)
     error(ContentOrErr.takeError(), InputFileName);
   ArrayRef<uint8_t> Bytes = arrayRefFromStringRef(ContentOrErr.get());
-  LLVM_DEBUG(dbgs() << "Section size: " << Scn->getSize() << "\n");
+  LLVM_DEBUG(dbgs() << "Section size: " << ScnIt->getSize() << "\n");
   LLVM_DEBUG(dbgs() << "Num bytes: " << Bytes.size() << "\n");
   unsigned BinOptRptScnSize = Bytes.size();
 
@@ -348,11 +346,11 @@ int main(int argc, const char **argv) {
   if (!Obj)
     error("unsupported object file format");
 
-  const SectionRef *BORScn = getBinOptReportSection(Obj);
-  if (!BORScn)
+  section_iterator BORScnIt = getBinOptReportSection(Obj);
+  if (BORScnIt == Obj->section_end())
     error(BinOptRptScnName + " section was not found in input");
 
-  parseSection(BORScn);
+  parseSection(BORScnIt);
   if (ParsedSubScns.empty())
     error("Unable to parse .debug_opt_report section");
 

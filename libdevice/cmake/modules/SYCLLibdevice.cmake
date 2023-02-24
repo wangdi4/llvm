@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2022 Intel Corporation
+# Modifications, Copyright (C) 2022-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -29,6 +29,14 @@ else()
   set(devicelib_host_static libsycl-devicelib-host.a)
 endif()
 set(install_dest_lib lib${LLVM_LIBDIR_SUFFIX})
+
+if (INTEL_CUSTOMIZATION)
+  if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+    # If building the new unified layout, deploy in the component-private area.
+    string(PREPEND install_dest_lib "opt/${INTEL_DEPLOY_PKGCOMP_NAME}/")
+    string(PREPEND install_dest_spv "opt/${INTEL_DEPLOY_PKGCOMP_NAME}/")
+  endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
+endif(INTEL_CUSTOMIZATION)
 
 set(clang $<TARGET_FILE:clang>)
 set(llvm-ar $<TARGET_FILE:llvm-ar>)

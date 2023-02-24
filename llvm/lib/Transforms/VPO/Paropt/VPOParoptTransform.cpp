@@ -4672,9 +4672,25 @@ bool VPOParoptTransform::genReductionScalarFini(
           .count(W);
   if (isTargetSPIRV() &&
       ((UseLocalUpdates && !UseExistingLocalLoop) ||
-       (UseGlobalUpdates && !UseExistingGlobalLoop)) &&
-      !Builder.GetInsertBlock()->front().isTerminator() &&
+       (UseGlobalUpdates && !UseExistingGlobalLoop) ||
+       (!UseLocalUpdates && !UseGlobalUpdates &&
+        !RedI->getIsF90DopeVector())) &&
       !IsArrayOrArraySection) {
+    // Since zero-offset TYPED.ARRSECT clauses are not treated
+    // as an actual array sections, ScalarTy doesn't match
+    // ReductionVar's pointee type (which is an array).
+    // But as it may only happen for zero-offset items, we can
+    // just generate a corresponding bitcast.
+    // Obviously that's not an issue for opaque pointers.
+    if (!ReductionVar->getType()->isOpaquePointerTy() &&
+        ReductionVar->getType()->getPointerElementType()->isArrayTy()) {
+      assert(RedI->getIsTyped() &&
+             "Unexpected type mismatch for non-typed reduction item");
+      ReductionVar = Builder.CreateBitOrPointerCast(
+          ReductionVar,
+          PointerType::get(ScalarTy,
+                           ReductionVar->getType()->getPointerAddressSpace()));
+    }
     // The reduction generation code below assumes that BB which Builder
     // is inserting instruction into doesn't have any code that isn't supposed
     // to be within the newly generated reduction loop, that's why
@@ -15007,17 +15023,40 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   // When using tree-pattern local reduction with a global reduction buffer
   // ND-range should be dropped because local buffer ptr calculations rely
   // on not having ND-range parallelization.
+  // Below we check for corresponding loop/parloop presence:
+  // DISTRIBUTE:    W
+  // LOOP/PARLOOP:  Child
+  //   OR
+  // DISTRIBUTE:    W
+  // PARALLEL:      Child
+  // LOOP:          NextChild
   for (auto *Child : W->Children) {
     bool CanHaveLocalBuffer =
         VPOParoptUtils::isAtomicFreeReductionLocalEnabled() &&
         WRegionUtils::supportsLocalAtomicFreeReduction(Child) &&
         !AtomicFreeReductionUseSLM && AtomicFreeRedLocalBufSize;
-    if (CanHaveLocalBuffer &&
-        std::any_of(Child->getRed().begin(), Child->getRed().end(),
+
+    if (CanHaveLocalBuffer) {
+      SmallVector<WRegionNode *, 2> WRNsToCheck;
+      if (isa<WRNParallelNode>(Child)) {
+        for (auto *NextChild : Child->Children)
+          if (NextChild->getIsOmpLoop())
+            WRNsToCheck.push_back(NextChild);
+      } else {
+        assert(Child->getIsOmpLoop());
+        WRNsToCheck.push_back(Child);
+      }
+      if (std::any_of(
+              WRNsToCheck.begin(), WRNsToCheck.end(),
+              [](const WRegionNode *WRN) {
+                return (std::any_of(
+                    WRN->getRed().begin(), WRN->getRed().end(),
                     [](const ReductionItem *RedI) {
                       return VPOParoptUtils::supportsAtomicFreeReduction(RedI);
-                    }))
-      return true;
+                    }));
+              }))
+        return true;
+    }
   }
 
   // Detect cases that do not imply "distribute" behavior.

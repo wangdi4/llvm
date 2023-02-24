@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2021 Intel Corporation
+# Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -252,12 +252,25 @@ add_custom_target(libompdevice DEPENDS libompdevice-obj libompdevice-spv)
 
 set(install_dest lib${LLVM_LIBDIR_SUFFIX})
 
+if (INTEL_CUSTOMIZATION)
+  if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+    # If building the new unified layout, deploy in the component-private area.
+    string(PREPEND install_dest "opt/${INTEL_DEPLOY_PKGCOMP_NAME}/")
+  endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
+endif(INTEL_CUSTOMIZATION)
+
 install(FILES ${omplib_objs}
         DESTINATION ${install_dest}
         COMPONENT libompdevice)
 
 if (WIN32)
   set(install_dest bin)
+  if (INTEL_CUSTOMIZATION)
+    if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+      # If building the new unified layout, deploy in the component-private area.
+      string(PREPEND install_dest "opt/${INTEL_DEPLOY_PKGCOMP_NAME}/")
+    endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  endif(INTEL_CUSTOMIZATION)
 endif(WIN32)
 
 install(FILES ${omplib_spvs}
