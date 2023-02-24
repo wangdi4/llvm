@@ -192,8 +192,9 @@ bool CoerceTypesPass::runOnFunction(Function *F) {
           // %3 = getelementptr %struct.coerced, ptr %0, i32 0, i32 1
           // %4 = load double, ptr %3
           // call void @foo(i64 %2, double %4)
-          Type *PointeeTy =
-              getCombinedCoercedType(NewArgTypePair, OldStructT->getName());
+          Type *PointeeTy = getCombinedCoercedType(
+              NewArgTypePair,
+              OldStructT->hasName() ? OldStructT->getName() : "");
           Value *BC = Builder.CreateBitCast(
               CI->getArgOperand(I),
               PointerType::get(PointeeTy, OldArgT->getAddressSpace()));
@@ -584,8 +585,8 @@ void CoerceTypesPass::moveFunctionBody(Function *OldF, Function *NewF,
       return AllocaRes;
     }();
     auto *OldStructT = cast<StructType>(OldArgI->getParamByValType());
-    Type *PointeeTy =
-        getCombinedCoercedType(NewArgTypePair, OldStructT->getName());
+    Type *PointeeTy = getCombinedCoercedType(
+        NewArgTypePair, OldStructT->hasName() ? OldStructT->getName() : "");
     Value *BC = Builder.CreateBitCast(
         Alloca, PointerType::get(PointeeTy, OldArgT->getAddressSpace()));
 
