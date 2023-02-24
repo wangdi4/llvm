@@ -52,6 +52,7 @@ STATISTIC(NumTypeIds, "Number of unique type identifiers");
 
 namespace {
 
+<<<<<<< HEAD
 struct CrossDSOCFI : public ModulePass {
   static char ID;
   CrossDSOCFI() : ModulePass(ID) {
@@ -59,20 +60,17 @@ struct CrossDSOCFI : public ModulePass {
   }
 
   MDNode *VeryLikelyWeights = nullptr; // INTEL
+=======
+struct CrossDSOCFI {
+  MDNode *VeryLikelyWeights;
+>>>>>>> c8b8d6baddf9a744594a69e9fb266b724e2e99b2
 
   ConstantInt *extractNumericTypeId(MDNode *MD);
   void buildCFICheck(Module &M);
-  bool runOnModule(Module &M) override;
+  bool runOnModule(Module &M);
 };
 
 } // anonymous namespace
-
-INITIALIZE_PASS_BEGIN(CrossDSOCFI, "cross-dso-cfi", "Cross-DSO CFI", false,
-                      false)
-INITIALIZE_PASS_END(CrossDSOCFI, "cross-dso-cfi", "Cross-DSO CFI", false, false)
-char CrossDSOCFI::ID = 0;
-
-ModulePass *llvm::createCrossDSOCFIPass() { return new CrossDSOCFI; }
 
 /// Extracts a numeric type identifier from an MDNode containing type metadata.
 ConstantInt *CrossDSOCFI::extractNumericTypeId(MDNode *MD) {

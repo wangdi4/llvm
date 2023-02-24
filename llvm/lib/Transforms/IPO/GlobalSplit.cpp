@@ -221,6 +221,7 @@ static bool splitGlobals(Module &M) {
   return Changed;
 }
 
+<<<<<<< HEAD
 namespace {
 
 struct GlobalSplit : public ModulePass {
@@ -254,6 +255,8 @@ ModulePass *llvm::createGlobalSplitPass() {
   return new GlobalSplit;
 }
 
+=======
+>>>>>>> c8b8d6baddf9a744594a69e9fb266b724e2e99b2
 PreservedAnalyses GlobalSplitPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (!splitGlobals(M))
     return PreservedAnalyses::all();

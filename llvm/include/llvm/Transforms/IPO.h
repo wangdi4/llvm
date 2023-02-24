@@ -134,6 +134,7 @@ enum class PassSummaryAction {
   Export, ///< Export information to summary.
 };
 
+<<<<<<< HEAD
 /// This pass export CFI checks for use by external modules.
 ModulePass *createCrossDSOCFIPass();
 
@@ -242,6 +243,8 @@ ModulePass *createArgNoAliasPropPass(void);
 ModulePass *createIntelVTableFixupPass(void);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> c8b8d6baddf9a744594a69e9fb266b724e2e99b2
 } // End llvm namespace
 
 #endif
