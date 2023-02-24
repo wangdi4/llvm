@@ -3464,17 +3464,10 @@ template <typename ToTy> struct ReachabilityQueryInfo {
   }
 
   ReachabilityQueryInfo(const ReachabilityQueryInfo &RQI)
-<<<<<<< HEAD
-      : From(RQI.From), To(RQI.To), ExclusionSet(RQI.ExclusionSet) {
-    assert(RQI.Result == Reachable::No &&
-           "Didn't expect to copy an explored RQI!");
-  }
+      : From(RQI.From), To(RQI.To), ExclusionSet(RQI.ExclusionSet) {}
 #if INTEL_CUSTOMIZATION
   ReachabilityQueryInfo &operator=(const ReachabilityQueryInfo &RQI) = delete;
 #endif // INTEL_CUSTOMIZATION
-=======
-      : From(RQI.From), To(RQI.To), ExclusionSet(RQI.ExclusionSet) {}
->>>>>>> a9557aacd1a9a7ffb75dfb54cdc23398f69a4e36
 };
 
 namespace llvm {
