@@ -8331,6 +8331,8 @@ def _SLASH_fsycl_max_parallel_jobs_COL : CLJoined<"fsycl-max-parallel-link-jobs:
   Alias<fsycl_max_parallel_jobs_EQ>;
 def _SLASH_fsycl_max_parallel_jobs_EQ : CLJoined<"fsycl-max-parallel-link-jobs=">,
   Alias<fsycl_max_parallel_jobs_EQ>;
+def _SLASH_fsycl_rdc : CLFlag<"fsycl-rdc">, Alias<fgpu_rdc>;
+def _SLASH_fno_sycl_rdc : CLFlag<"fno-sycl-rdc">, Alias<fno_gpu_rdc>;
 def _SLASH_fsycl_targets_EQ : CLCommaJoined<"fsycl-targets=">, Alias<fsycl_targets_EQ>;
 def _SLASH_fsycl_unnamed_lambda : CLFlag<"fsycl-unnamed-lambda">, Alias<fsycl_unnamed_lambda>;
 def _SLASH_fno_sycl_unnamed_lambda : CLFlag<"fno-sycl-unnamed-lambda">,
