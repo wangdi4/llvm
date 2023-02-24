@@ -108,12 +108,18 @@ public:
   // default pipelines.
   bool EagerlyInvalidateAnalyses;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Disable Intel proprietary optimizations.
   bool DisableIntelProprietaryOpts;
   /// Enable Auto CPU Dispatch transformation.
   bool EnableAutoCPUDispatch;
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// Tuning option to enable a subset of optimizations in O0 optimization
+  /// mode for non-user SYCL code.
+  bool OptimizeSYCLFramework = false;
+>>>>>>> f1c68fb934f9136bce2e7e5a4a0c9e10778586d7
 };
 
 /// This class provides access to building LLVM's passes.
@@ -339,6 +345,10 @@ public:
   /// This should only be used for non-LTO and LTO pre-link pipelines.
   ModulePassManager buildO0DefaultPipeline(OptimizationLevel Level,
                                            bool LTOPreLink = false);
+
+  /// Constructs a optimization pipeline of a SYCL framework part of code
+  /// and appends it to the given MPM.
+  void addDefaultSYCLFrameworkOptimizationPipeline(ModulePassManager &MPM);
 
   /// Build the default `AAManager` with the default alias analysis pipeline
   /// registered.
