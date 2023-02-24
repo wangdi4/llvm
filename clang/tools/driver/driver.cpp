@@ -54,6 +54,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/InitLLVM.h"
+#include "llvm/Support/LLVMDriver.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Process.h"
@@ -402,7 +403,7 @@ static int ExecuteCC1Tool(SmallVectorImpl<const char *> &ArgV) {
   return 1;
 }
 
-int clang_main(int Argc, char **Argv) {
+int clang_main(int Argc, char **Argv, const llvm::ToolContext &) {
   noteBottomOfStack();
   llvm::InitLLVM X(Argc, Argv);
   SmallVector<const char *, 256> Args(Argv, Argv + Argc);
