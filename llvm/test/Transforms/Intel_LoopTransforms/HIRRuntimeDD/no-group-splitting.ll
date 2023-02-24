@@ -1,18 +1,10 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
-; Spliting group does not happen in this lit test case. If we split group 0 into two groups which group 0 contains
-; (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + 3] and group 2 contains (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3]
-; and (@vrow)[0][i1][i1 + sext.i32.i64(%other_channels) * i2], we need to skip splitting because the refs in group2
-; do not have constant distance, this group will not pass sort refs in groups check. If we continue to split group2, it
-; will not pass refs existing in difference parent loop check, so it needs an early exit of the group spilting function.
+; Spliting group does not help in this case because @vrow refs in innermost
+; loop, (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3] and 
+; (@vrow)[0][i1][i1 + sext.i32.i64(%other_channels) * i2] do not have constant
+; distance so we cannot create sorted group with identifiable min and max ref.
 ;
-; Group 0 contains (3) refs:
-;(@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + 3]
-;(@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3]
-;(@vrow)[0][i1][i1 + sext.i32.i64(%other_channels) * i2]
-;Group 1 contains (2) refs:
-;(%prow)[i1 + sext.i32.i64(%channels) * i2 + i3]
-;(%prow)[i1 + sext.i32.i64(%channels) * i2 + i3]
 ;
 ;*** IR Dump Before HIR RuntimeDD Multiversioning (hir-runtime-dd) ***
 ;Function: _Z19composite_referenceiiiiPvPhj
@@ -21,15 +13,12 @@
 ;<66>               + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>
 ;<67>               |   + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;<14>               |   |   %2 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + 3];
-;<17>               |   |   if (%channels > 0)
-;<17>               |   |   {
-;<68>               |   |      + DO i3 = 0, zext.i32.i64(%smax) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>
-;<25>               |   |      |   %3 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3];
-;<28>               |   |      |   %4 = (@vrow)[0][i1][i1 + sext.i32.i64(%other_channels) * i2];
-;<32>               |   |      |   %5 = (%prow)[i1 + sext.i32.i64(%channels) * i2 + i3];
-;<37>               |   |      |   (%prow)[i1 + sext.i32.i64(%channels) * i2 + i3] = (zext.i8.i32(%5) + zext.i8.i32(%4) + (zext.i8.i32(%2) * zext.i8.i32(%3)))/u255;
-;<68>               |   |      + END LOOP
-;<17>               |   |   }
+;<68>               |   |   + DO i3 = 0, zext.i32.i64(%smax) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>
+;<25>               |   |   |   %3 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3];
+;<28>               |   |   |   %4 = (@vrow)[0][i1][i1 + sext.i32.i64(%other_channels) * i2];
+;<32>               |   |   |   %5 = (%prow)[i1 + sext.i32.i64(%channels) * i2 + i3];
+;<37>               |   |   |   (%prow)[i1 + sext.i32.i64(%channels) * i2 + i3] = (zext.i8.i32(%5) + zext.i8.i32(%4) + (zext.i8.i32(%2) * zext.i8.i32(%3)))/u255;
+;<68>               |   |   + END LOOP
 ;<67>               |   + END LOOP
 ;<66>               + END LOOP
 ;<0>          END REGION
@@ -41,15 +30,12 @@
 ; CHECK:           + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>
 ; CHECK:           |   + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:           |   |   %2 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + 3];
-; CHECK:           |   |   if (%channels > 0)
-; CHECK:           |   |   {
-; CHECK:           |   |      + DO i3 = 0, zext.i32.i64(%smax) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>
-; CHECK:           |   |      |   %3 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3];
-; CHECK:           |   |      |   %4 = (@vrow)[0][i1][i1 + sext.i32.i64(%other_channels) * i2];
-; CHECK:           |   |      |   %5 = (%prow)[i1 + sext.i32.i64(%channels) * i2 + i3];
-; CHECK:           |   |      |   (%prow)[i1 + sext.i32.i64(%channels) * i2 + i3] = (zext.i8.i32(%5) + zext.i8.i32(%4) + (zext.i8.i32(%2) * zext.i8.i32(%3)))/u255;
-; CHECK:           |   |      + END LOOP
-; CHECK:           |   |   }
+; CHECK:           |   |   + DO i3 = 0, zext.i32.i64(%smax) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>
+; CHECK:           |   |   |   %3 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3];
+; CHECK:           |   |   |   %4 = (@vrow)[0][i1][i1 + sext.i32.i64(%other_channels) * i2];
+; CHECK:           |   |   |   %5 = (%prow)[i1 + sext.i32.i64(%channels) * i2 + i3];
+; CHECK:           |   |   |   (%prow)[i1 + sext.i32.i64(%channels) * i2 + i3] = (zext.i8.i32(%5) + zext.i8.i32(%4) + (zext.i8.i32(%2) * zext.i8.i32(%3)))/u255;
+; CHECK:           |   |   + END LOOP
 ; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
