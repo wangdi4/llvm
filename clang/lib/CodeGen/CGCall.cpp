@@ -2112,8 +2112,11 @@ static void addToDTransFuncInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
     // Inalloca && Fi.getReturnInfo().getInAllocaSRet() means we have the
     // return type wrapped in a pointer, else it is 'void', so we have nothing
     // to do.
-    if (ArgInfo.getInAllocaSRet())
-      DFI->ResultTypes[0] = CGM.getContext().getPointerType(Ty);
+    if (ArgInfo.getInAllocaSRet()) {
+      QualType RetTy = CGM.getContext().getPointerType(Ty);
+      DFI->ResultTypes[0] = RetTy;
+      DFI->InAllocaTypes.push_back(RetTy);
+    }
     break;
   case ABIArgInfo::CoerceAndExpand:
     // FIXME: CoerceAndExpand means we have to figure out how to separately
