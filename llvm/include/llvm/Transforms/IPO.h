@@ -134,13 +134,6 @@ enum class PassSummaryAction {
   Export, ///< Export information to summary.
 };
 
-/// This pass export CFI checks for use by external modules.
-ModulePass *createCrossDSOCFIPass();
-
-/// This pass splits globals into pieces for the benefit of whole-program
-/// devirtualization and control-flow integrity.
-ModulePass *createGlobalSplitPass();
-
 #if INTEL_CUSTOMIZATION
 /// \brief This pass enables more functions to be converted to use the 'fastcc'
 /// calling convention.
