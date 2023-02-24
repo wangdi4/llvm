@@ -28,7 +28,6 @@ endif()
 
 # Project-wise options
 option(GIT_REVISIONS "Make package version from git revision" ON)
-option(BUILD_QTGUI "Build the QT related projects" OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
 option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device" ON)
 option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of
