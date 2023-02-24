@@ -1929,8 +1929,6 @@ ExecutionModule::RunAutorunKernels(const SharedPtr<Program> &program,
       bool isTask =
           kernel->IsTask(program->GetContext()->GetDevice(devices[i]).GetPtr());
 
-      // According to spec from PSG:
-      //
       // The following kernel:
       // __atrribute__((reqd_work_group_size(X,Y,Z)))
       // __attribute__((autorun))
