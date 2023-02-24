@@ -1907,7 +1907,7 @@ bool Attributor::checkForAllInstructions(function_ref<bool(Instruction &)> Pred,
   // TODO: use the function scope once we have call site AAReturnedValues.
   const IRPosition &QueryIRP = IRPosition::function(*Fn);
   const auto *LivenessAA =
-      (CheckBBLivenessOnly || CheckPotentiallyDead)
+      CheckPotentiallyDead
           ? nullptr
           : &(getAAFor<AAIsDead>(QueryingAA, QueryIRP, DepClassTy::NONE));
 
@@ -2538,9 +2538,9 @@ ChangeStatus Attributor::run() {
 }
 
 ChangeStatus Attributor::updateAA(AbstractAttribute &AA) {
-  TimeTraceScope TimeScope(
-      AA.getName() + std::to_string(AA.getIRPosition().getPositionKind()) +
-      "::updateAA");
+  TimeTraceScope TimeScope("updateAA", [&]() {
+    return AA.getName() + std::to_string(AA.getIRPosition().getPositionKind());
+  });
   assert(Phase == AttributorPhase::UPDATE &&
          "We can update AA only in the update stage!");
 
