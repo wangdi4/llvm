@@ -100,6 +100,8 @@ if( LLVM_ENABLE_ASSERTIONS )
   endif()
   # Enable assertions in libstdc++.
   add_compile_definitions(_GLIBCXX_ASSERTIONS)
+  # Enable assertions in libc++.
+  add_compile_definitions(_LIBCPP_ENABLE_ASSERTIONS)
 endif()
 
 if(LLVM_ENABLE_EXPENSIVE_CHECKS)
