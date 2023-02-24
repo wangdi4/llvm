@@ -156,12 +156,9 @@
 ; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*}}LazyCallGraph::SCC{{.*}}>
 ; CHECK-O-NEXT: Running pass: DevirtSCCRepeatedPass
 ; CHECK-O-NEXT: Running pass: InlinerPass
-<<<<<<< HEAD
+; CHECK-O-NEXT: Running pass: InlinerPass
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SROA                  ;INTEL
-=======
-; CHECK-O-NEXT: Running pass: InlinerPass
->>>>>>> 86bfeb906e3a95ae428f3e97d78d3d22a7c839f3
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: AAManager
 ; CHECK-O2-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
