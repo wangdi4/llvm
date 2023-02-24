@@ -1178,11 +1178,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // Split globals using inrange annotations on GEP indices. This can help
-  // improve the quality of generated code when virtual constant propagation or
-  // control flow integrity are enabled.
-  PM.add(createGlobalSplitPass());
-
   // That's all we need at opt level 1.
   if (OptLevel == 1)
     return;
@@ -1884,10 +1879,6 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
 
   if (OptLevel != 0)
     addLTOOptimizationPasses(PM);
-
-  // Create a function that performs CFI checks for cross-DSO calls with targets
-  // in the current module.
-  PM.add(createCrossDSOCFIPass());
 
   if (OptLevel != 0)
     addLateLTOOptimizationPasses(PM);

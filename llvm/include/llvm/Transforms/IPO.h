@@ -134,14 +134,6 @@ enum class PassSummaryAction {
   Export, ///< Export information to summary.
 };
 
-<<<<<<< HEAD
-/// This pass export CFI checks for use by external modules.
-ModulePass *createCrossDSOCFIPass();
-
-/// This pass splits globals into pieces for the benefit of whole-program
-/// devirtualization and control-flow integrity.
-ModulePass *createGlobalSplitPass();
-
 #if INTEL_CUSTOMIZATION
 /// \brief This pass enables more functions to be converted to use the 'fastcc'
 /// calling convention.
@@ -243,8 +235,6 @@ ModulePass *createArgNoAliasPropPass(void);
 ModulePass *createIntelVTableFixupPass(void);
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> c8b8d6baddf9a744594a69e9fb266b724e2e99b2
 } // End llvm namespace
 
 #endif

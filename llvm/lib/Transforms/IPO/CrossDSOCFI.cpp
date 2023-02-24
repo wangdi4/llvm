@@ -52,18 +52,8 @@ STATISTIC(NumTypeIds, "Number of unique type identifiers");
 
 namespace {
 
-<<<<<<< HEAD
-struct CrossDSOCFI : public ModulePass {
-  static char ID;
-  CrossDSOCFI() : ModulePass(ID) {
-    initializeCrossDSOCFIPass(*PassRegistry::getPassRegistry());
-  }
-
-  MDNode *VeryLikelyWeights = nullptr; // INTEL
-=======
 struct CrossDSOCFI {
   MDNode *VeryLikelyWeights;
->>>>>>> c8b8d6baddf9a744594a69e9fb266b724e2e99b2
 
   ConstantInt *extractNumericTypeId(MDNode *MD);
   void buildCFICheck(Module &M);
