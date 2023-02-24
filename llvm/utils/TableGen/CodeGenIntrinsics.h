@@ -1,4 +1,4 @@
-//===- CodeGenIntrinsic.h - Intrinsic Class Wrapper ------------*- C++ -*--===//
+//===- CodeGenIntrinsics.h - Intrinsic Class Wrapper ------------*- C++ -*--===//
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
