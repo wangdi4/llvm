@@ -4647,7 +4647,7 @@ CallInst *VPOParoptUtils::genCall(Module *M,
   return Call;
 }
 
-// Genetates a CallInst for a function with name `FnName`.
+// Generates a CallInst for a function with name `FnName`.
 // If InsertPt!=null, the Call is emitted before InsertPt.
 CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
                                   ArrayRef<Value *> FnArgs,
@@ -4663,35 +4663,62 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
   // Create the function type from the return type and argument types.
   FunctionType *NewFnTy = FunctionType::get(ReturnTy, FnArgTypes, IsVarArg);
 
-  // Get the function prototype from the module symbol table. If absent,
-  // create and insert it into the symbol table first.
-  FunctionCallee FnC = M->getOrInsertFunction(FnName, NewFnTy);
-  Value *FnCallee = FnC.getCallee();
+  // Get function FnName from the module symbol table (if it exists)
+  // If absent, args check can be later skipped
+  Function *ExistingFn = M->getFunction(FnName);
 
-  auto NewAndExistingFunctionsDifferOnlyByPointerTypeOfArgs = [&NewFnTy,
-                                                               &FnCallee]() {
-    Function *ExistingFn =
-        dyn_cast_or_null<Function>(FnCallee->stripPointerCasts());
-    if (!ExistingFn)
-      return false;
+  // Get the function prototype from the module symbol table.
+  // If absent, create and insert it into the symbol table first.
+  // If present, the utility will return the existing function.
+  // For typed pointers, if the existing function's type does not match NewfnTy,
+  // then it emits a ConstExpr bitcast to NewFnTy and returns that cast.
+  FunctionCallee FnC = M->getOrInsertFunction(FnName, NewFnTy);
+
+  auto NewAndExistingFunctionsAreSameOrDifferOnlyByPointerTypeOfArgs =
+      [&NewFnTy, &ExistingFn, &AllowMismatchingPointerArgs, &FnC]() {
+
+    Value *FnCallee = FnC.getCallee();
+
+    // For typed pointers, if NewFnTyCallee is not a bitcast, then we can assume
+    // that ExistingFn's type matches NewFnTy. However, the bitcast won't be
+    // generated even in the case of a mismatch for opaque pointers.
+    if (isa<Function>(FnCallee) &&
+            !FnCallee->getType()->isOpaquePointerTy())
+          return true;
 
     FunctionType *ExistingFnTy = ExistingFn->getFunctionType();
-    if (!ExistingFnTy || ExistingFnTy->isVarArg() || NewFnTy->isVarArg())
+
+    // In case of vararg function, isVarArg must be true for both ExistingFn and NewFn
+    if (ExistingFnTy->isVarArg() != NewFnTy->isVarArg())
+          return false;
+
+    // getNumParams returns the number of fixed params for function type
+    // For non-vararg function, number of fixed param must be equal
+    // For vararg function, param list size for NewFnTy can be greater than ExistingFnTy
+    if (ExistingFnTy->getNumParams() > NewFnTy->getNumParams())
       return false;
+ 
+    if (!ExistingFnTy->isVarArg() &&
+       (ExistingFnTy->getNumParams() != NewFnTy->getNumParams()))
+       return false;
 
-    if (NewFnTy->getNumParams() != ExistingFnTy->getNumParams())
-      return false;
+    // Check ExistingFnTy param list matches NewFnTy up to ExistingFnTy param_end
+    // For typed pointers, if AllowMismatchingPointerArgs=true, different pointer types
+    // allowed when using a cast
+    return std::equal(ExistingFnTy->param_begin(), ExistingFnTy->param_end(),
+                          NewFnTy->param_begin(),
+                          [&AllowMismatchingPointerArgs](Type *T1, Type *T2) {
+                            return (T1 == T2) || (AllowMismatchingPointerArgs &&
+                                                  (isa<PointerType>(T1) &&
+                                                   isa<PointerType>(T2)));
+                          });
+      };
 
-    return std::equal(NewFnTy->param_begin(), NewFnTy->param_end(),
-                      ExistingFnTy->param_begin(), [](Type *T1, Type *T2) {
-                        return (T1 == T2) ||
-                               (isa<PointerType>(T1) && isa<PointerType>(T2));
-                      });
-  };
-
-  if (isa<Function>(FnCallee) ||
-      (AllowMismatchingPointerArgs &&
-       NewAndExistingFunctionsDifferOnlyByPointerTypeOfArgs()))
+  // If there is no existing matching function in the declaration, we can
+  // assume that getAndInsertFunction created one from scratch. If there is,
+  // we need to check whether its type matches NewFnTy.
+  if (!ExistingFn ||
+	NewAndExistingFunctionsAreSameOrDifferOnlyByPointerTypeOfArgs())
     return genCall(M, FnC, FnArgs, FnArgTypes, InsertPt, IsTail);
 
   std::string Msg =

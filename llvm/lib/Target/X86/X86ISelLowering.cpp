@@ -3265,8 +3265,15 @@ EVT X86TargetLowering::getOptimalMemOpType(
     if (Op.size() >= 16 &&
         (!Subtarget.isUnalignedMem16Slow() || Op.isAligned(Align(16)))) {
       // FIXME: Check if unaligned 64-byte accesses are slow.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if (Op.size() >= 64 && Subtarget.useAVX512Regs() &&
+          (Subtarget.getPreferVectorWidth() >= 512)) {
+#else  // INTEL_FEATURE_ISA_AVX256P
       if (Op.size() >= 64 && Subtarget.hasAVX512() &&
           (Subtarget.getPreferVectorWidth() >= 512)) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
         return Subtarget.hasBWI() ? MVT::v64i8 : MVT::v16i32;
       }
       // FIXME: Check if unaligned 32-byte accesses are slow.
