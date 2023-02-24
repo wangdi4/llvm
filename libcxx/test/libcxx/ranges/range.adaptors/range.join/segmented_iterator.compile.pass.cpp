@@ -6,17 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03, c++11
-#include <utility>
-#include <complex>
+// UNSUPPORTED: c++03, c++11, c++14, c++17
 
-#include <cassert>
+#include <ranges>
+#include <vector>
 
-int main(int, char**)
-{
-    typedef std::unique_ptr<int> upint;
-    std::pair<upint, int> t(upint(new int(4)), 23);
-    upint p = std::get<upint>(t);
-
-  return 0;
-}
+using JoinView = decltype(std::views::join(std::declval<std::vector<std::vector<int>>&>()));
+using JoinIter = std::ranges::iterator_t<JoinView>;
+static_assert(std::__is_segmented_iterator<JoinIter>::value);

@@ -6,18 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// <utility>
+#include <deque>
 
-// template <class T1, class T2> struct pair
 
-// tuple_element<I, pair<T1, T2> >::type
-
-#include <utility>
-
-int main(int, char**)
-{
-    typedef std::pair<int, short> T;
-    std::tuple_element<2, T>::type foo; // expected-error@*:* {{Index out of bounds in std::tuple_element<std::pair<T1, T2>>}}
-
-    return 0;
-}
+using DequeIterator = typename std::deque<int>::iterator;
+static_assert(std::__is_segmented_iterator<DequeIterator>::value, "");
