@@ -13615,7 +13615,265 @@ static std::optional<bool> isImpliedCondOperandsViaConstantDifference(
 
   return std::nullopt;
 }
+
+// Forms and returns a constant range for a SCEV by using a known starting
+// range. For example, given that %n has a range of [0, 4], it will return a
+// range of [1, 9] for SCEV expr (1 + (2 * %n)).
+struct ConstantRangeBuilder
+    : public SCEVVisitor<ConstantRangeBuilder, ConstantRange> {
+  const SCEV *KnownSCEV;
+  ConstantRange KnownRange;
+  // This flag is set to false if we cannot form a constant range for the SCEV.
+  // We also try to skip visiting the SCEV sub-tree once this flag is set to
+  // save compile time but it is not done in a strict manner to avoid making the
+  // code too verbose. The caller eventually checks this flag so the behavior is
+  // not affected. It would have been good if the SCEVVisitor had an early-exit
+  // feature which could be used to end traversal. Note that there is another
+  // visitor class SCEVTraversal which allows for early-exit but it cannot be
+  // used here because it inherently caches visited SCEVs to avoid visiting them
+  // again. So we won't be able to correctly form ConstantRange for a SCEV like
+  // (%t1 * %t2) + %t1 as %t1 won't be visited again.
+  bool CanFormConstantRange;
+
+  ConstantRangeBuilder(const SCEV *KnownSCEV, ConstantRange KnownRange)
+      : KnownSCEV(KnownSCEV), KnownRange(KnownRange),
+        CanFormConstantRange(true) {}
+
+  ConstantRange visitConstant(const SCEVConstant *Const) {
+    return ConstantRange::makeExactICmpRegion(ICmpInst::ICMP_EQ,
+                                              Const->getAPInt());
+  }
+
+  ConstantRange visitUnknown(const SCEVUnknown *Unknown) {
+    if (Unknown == KnownSCEV) {
+      return KnownRange;
+    }
+
+    CanFormConstantRange = false;
+    return ConstantRange::getEmpty(
+        Unknown->getType()->getPrimitiveSizeInBits());
+  }
+
+  ConstantRange visitPtrToIntExpr(const SCEVPtrToIntExpr *PtrToInt) {
+    if (PtrToInt == KnownSCEV) {
+      return KnownRange;
+    }
+
+    CanFormConstantRange = false;
+    return ConstantRange::getEmpty(
+        PtrToInt->getType()->getPrimitiveSizeInBits());
+  }
+
+  ConstantRange visitSCEVCastExpr(const SCEVCastExpr *Cast,
+                                  Instruction::CastOps CastTy) {
+    if (Cast == KnownSCEV) {
+      return KnownRange;
+    }
+
+    unsigned BitWidth = Cast->getType()->getPrimitiveSizeInBits();
+
+    if (!CanFormConstantRange) {
+      return ConstantRange::getEmpty(BitWidth);
+    }
+
+    auto CR = visit(Cast->getOperand());
+
+    return CR.castOp(CastTy, BitWidth);
+  }
+
+  ConstantRange visitTruncateExpr(const SCEVTruncateExpr *Trunc) {
+    return visitSCEVCastExpr(Trunc, Instruction::Trunc);
+  }
+
+  ConstantRange visitZeroExtendExpr(const SCEVZeroExtendExpr *ZeroExtend) {
+    return visitSCEVCastExpr(ZeroExtend, Instruction::ZExt);
+  }
+
+  ConstantRange visitSignExtendExpr(const SCEVSignExtendExpr *SignExtend) {
+    return visitSCEVCastExpr(SignExtend, Instruction::SExt);
+  }
+
+  ConstantRange visitAddExpr(const SCEVAddExpr *Add) {
+    if (Add == KnownSCEV) {
+      return KnownRange;
+    }
+
+    auto CR = visit(Add->getOperand(0));
+
+    unsigned WrapType = OverflowingBinaryOperator::AnyWrap;
+    if (Add->hasNoSignedWrap())
+      WrapType |= OverflowingBinaryOperator::NoSignedWrap;
+    if (Add->hasNoUnsignedWrap())
+      WrapType |= OverflowingBinaryOperator::NoUnsignedWrap;
+
+    for (const auto *Op : drop_begin(Add->operands())) {
+      if (!CanFormConstantRange) {
+        return CR;
+      }
+
+      CR = CR.addWithNoWrap(visit(Op), WrapType);
+    }
+
+    return CR;
+  }
+
+  ConstantRange visitMulExpr(const SCEVMulExpr *Mul) {
+    if (Mul == KnownSCEV) {
+      return KnownRange;
+    }
+
+    auto CR = visit(Mul->getOperand(0));
+
+    for (const auto *Op : drop_begin(Mul->operands())) {
+      if (!CanFormConstantRange) {
+        return CR;
+      }
+
+      CR = CR.multiply(visit(Op));
+    }
+
+    return CR;
+  }
+
+  ConstantRange visitMinMaxExpr(const SCEVMinMaxExpr *MinMax, bool IsSigned,
+                                bool IsMax) {
+    if (MinMax == KnownSCEV) {
+      return KnownRange;
+    }
+
+    auto CR = visit(MinMax->getOperand(0));
+
+    for (const auto *Op : drop_begin(MinMax->operands())) {
+      if (!CanFormConstantRange) {
+        return CR;
+      }
+
+      if (IsSigned) {
+        CR = IsMax ? CR.smax(visit(Op)) : CR.smin(visit(Op));
+      } else {
+        CR = IsMax ? CR.umax(visit(Op)) : CR.umin(visit(Op));
+      }
+    }
+
+    return CR;
+  }
+
+  ConstantRange visitSMaxExpr(const SCEVSMaxExpr *SMax) {
+    return visitMinMaxExpr(SMax, true, true);
+  }
+
+  ConstantRange visitUMaxExpr(const SCEVUMaxExpr *UMax) {
+    return visitMinMaxExpr(UMax, false, true);
+  }
+
+  ConstantRange visitSMinExpr(const SCEVSMinExpr *SMin) {
+    return visitMinMaxExpr(SMin, true, false);
+  }
+
+  ConstantRange visitUMinExpr(const SCEVUMinExpr *UMin) {
+    return visitMinMaxExpr(UMin, false, false);
+  }
+
+  ConstantRange visitSequentialUMinExpr(const SCEVSequentialUMinExpr *UMin) {
+    if (UMin == KnownSCEV) {
+      return KnownRange;
+    }
+
+    CanFormConstantRange = false;
+    return ConstantRange::getEmpty(UMin->getType()->getPrimitiveSizeInBits());
+  }
+
+  ConstantRange visitAddRecExpr(const SCEVAddRecExpr *AddRec) {
+    if (AddRec == KnownSCEV) {
+      return KnownRange;
+    }
+
+    // TODO: can be extended
+    CanFormConstantRange = false;
+    return ConstantRange::getEmpty(AddRec->getType()->getPrimitiveSizeInBits());
+  }
+
+  ConstantRange visitUDivExpr(const SCEVUDivExpr *Div) {
+    if (Div == KnownSCEV) {
+      return KnownRange;
+    }
+
+    if (!CanFormConstantRange) {
+      return ConstantRange::getEmpty(Div->getType()->getPrimitiveSizeInBits());
+    }
+
+    auto CRLHS = visit(Div->getLHS());
+    auto CRRHS = visit(Div->getRHS());
+
+    return CRLHS.udiv(CRRHS);
+  }
+
+  ConstantRange visitCouldNotCompute(const SCEVCouldNotCompute *SC) {
+    llvm_unreachable("Could not compute not expected!");
+  }
+
+  bool formedConstantRange() const { return CanFormConstantRange; }
+
+  void reset() { CanFormConstantRange = true; }
+};
+
+// Given a found predicate of the following form-
+// %n > const
+//
+// Can help prove predicates like the following-
+// (1 + %n) > (1 + (-1 * %n))
+//
+// by forming a constant range for both LHS/RHS and comparing them using
+// \p Pred.
+static bool isImpliedCondOperandsViaFoundPredRange(ICmpInst::Predicate Pred,
+                                                   const SCEV *LHS,
+                                                   const SCEV *RHS,
+                                                   const SCEV *FoundLHS,
+                                                   const SCEV *FoundRHS) {
+
+  auto *ConstFoundRHS = dyn_cast<SCEVConstant>(FoundRHS);
+
+  if (!ConstFoundRHS)
+    return false;
+
+  auto FoundRHSInt = ConstFoundRHS->getAPInt();
+
+  // If found predicate is of the form (sext(%n) > 0), use the known range as
+  // (%n > 0) as it will help process both sext(%n) and zext(%n).
+  if (CmpInst::isSigned(Pred)) {
+    if (auto *SExt = dyn_cast<SCEVSignExtendExpr>(FoundLHS)) {
+      FoundLHS = SExt->getOperand();
+      FoundRHSInt =
+          FoundRHSInt.trunc(FoundLHS->getType()->getPrimitiveSizeInBits());
+    }
+
+  } else if (CmpInst::isUnsigned(Pred)) {
+    if (auto *ZExt = dyn_cast<SCEVZeroExtendExpr>(FoundLHS)) {
+      FoundLHS = ZExt->getOperand();
+      FoundRHSInt =
+          FoundRHSInt.trunc(FoundLHS->getType()->getPrimitiveSizeInBits());
+    }
+  }
+
+  auto FoundLHSRange = ConstantRange::makeExactICmpRegion(Pred, FoundRHSInt);
+
+  ConstantRangeBuilder CRB(FoundLHS, FoundLHSRange);
+
+  auto LHSRange = CRB.visit(LHS);
+
+  if (!CRB.formedConstantRange())
+    return false;
+
+  CRB.reset();
+  auto RHSRange = CRB.visit(RHS);
+
+  if (!CRB.formedConstantRange())
+    return false;
+
+  return LHSRange.icmp(Pred, RHSRange);
+}
 #endif // INTEL_CUSTOMIZATION
+
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS,
                                     ICmpInst::Predicate FoundPred,
@@ -14328,6 +14586,10 @@ bool ScalarEvolution::isImpliedCondOperands(ICmpInst::Predicate Pred,
   auto Res = isImpliedCondOperandsViaConstantDifference(*this, Pred, LHS, RHS,
                                                         FoundLHS, FoundRHS);
   if (Res && *Res)
+    return true;
+
+  if (isImpliedCondOperandsViaFoundPredRange(Pred, LHS, RHS, FoundLHS,
+                                             FoundRHS))
     return true;
 #endif // INTEL_CUSTOMIZATION
 

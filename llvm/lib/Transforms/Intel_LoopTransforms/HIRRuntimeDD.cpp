@@ -1125,62 +1125,6 @@ static void clearNotInvolvedGroups(
   }
 }
 
-static bool unknownLoopInLoopNest(const HLLoop *Loop,
-                                  const HLLoop *InnermostLoop) {
-  assert(InnermostLoop->isInnermost() &&
-         "InnermostLoop is not an innermost loop");
-  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop->getParentLoop();
-       LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
-    if (LoopI->isUnknown()) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-// Check whether RTDD can happen before a relaxed non-perfect loopnest.
-// The pattern is matched by Geekbench6.0/Camera
-static bool canLoopBeRelaxed(HLLoop *Loop, const HLLoop *&InnermostLoop) {
-  HLIf *If = dyn_cast<HLIf>(Loop->getLastChild());
-
-  if (!If) {
-    return false;
-  }
-
-  if (If->getNumThenChildren() != 1 || If->hasElseChildren()) {
-    return false;
-  }
-
-  const HLNode *FirstThenChild = If->getFirstThenChild();
-
-  InnermostLoop = dyn_cast<HLLoop>(FirstThenChild);
-
-  if (!InnermostLoop || !InnermostLoop->isInnermost()) {
-    return false;
-  }
-
-  if (unknownLoopInLoopNest(Loop, InnermostLoop)) {
-    return false;
-  }
-
-  for (const HLNode &Node :
-       make_range(Loop->child_begin(), std::prev(Loop->child_end()))) {
-    const HLInst *HInst = dyn_cast<HLInst>(&Node);
-    if (!HInst) {
-      return false;
-    }
-
-    const RegDDRef *Lval = HInst->getLvalDDRef();
-
-    if (!Lval || !Lval->isTerminalRef()) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 static bool
 canHelpScalarReplacementOrMemoryMotion(const HLLoop *InnermostLoop) {
   return HIRLoopLocality::hasTemporalLocality(InnermostLoop, 2, true, false);
@@ -1403,18 +1347,13 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   }
 
   const HLLoop *InnermostLoop = Loop;
-  bool CanLoopBeRelaxed = false;
 
   bool IsNearPerfect = false;
   if (!Loop->isInnermost() &&
       !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false,
                                       &IsNearPerfect) &&
       !IsNearPerfect) {
-    CanLoopBeRelaxed = canLoopBeRelaxed(Loop, InnermostLoop);
-
-    if (!CanLoopBeRelaxed) {
-      return NON_PERFECT_LOOPNEST;
-    }
+    return NON_PERFECT_LOOPNEST;
   }
 
   Context.InnermostLoop = const_cast<HLLoop *>(InnermostLoop);
@@ -1462,13 +1401,14 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     }
   });
 
+  bool TryGroupSplitting = false;
   MemRefGatherer::VectorTy MemRefs;
 
   if (!IsNearPerfect) {
-    // Using Loop instead of InnermostLoop to handle 'CanLoopBeRelaxed' case.
-    MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(),
-                                MemRefs);
-
+    // This is either innermost loop or perfect loopnest so we can use
+    // InnermostLoop to gather memrefs.
+    MemRefGatherer::gatherRange(InnermostLoop->child_begin(),
+                                InnermostLoop->child_end(), MemRefs);
   } else {
     // Gather pre and post innermost loop memrefs separately to do some
     // validation.
@@ -1491,13 +1431,27 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     MemRefGatherer::gatherRange(std::next(InnermostLoop->getIterator()),
                                 OuterLoop->child_end(), PostLoopMemRefs);
 
-    // Give up on near perfect loopnest if any of the pre or post loop memrefs
-    // do not have constant distance with loop body refs as we will not be able
-    // to from valid grouping. We return with 'NON_PERFECT_LOOPNEST' so the
-    // caller can try multiversioning the innermost loop.
+    // If any of the pre or post loop memrefs do not have constant distance with
+    // loop body refs, we will not be able to from valid groups except by using
+    // group splitting. For example, consider the following loopnest-
+    //
+    //  DO i1
+    //    t = A[n];
+    //    DO i2
+    //      B[i2] = A[i2] + t;
+    //    EN DO
+    //  END DO
+    //
+    // The pre-loop load A[n] and loop body load A[i2] do not have constant
+    // distance so we cannot evaluate the address range of the group {A[n],
+    // A[i2]}. However, if we split these loads into two different groups {A[n]}
+    // and {A[i2]}, we can independantly test them against address range of
+    // {B[i2]}. Refer to
+    // llvm/test/Transforms/Intel_LoopTransforms/HIRRuntimeDD/near-perfect-loopnest-group-splitting.ll
+    // for an example.
     if (!haveConstantDistance(PreLoopMemRefs, LoopMemRefs) ||
         !haveConstantDistance(PostLoopMemRefs, LoopMemRefs)) {
-      return NON_PERFECT_LOOPNEST;
+      TryGroupSplitting = true;
     }
 
     MemRefs.append(PreLoopMemRefs.begin(), PreLoopMemRefs.end());
@@ -1516,7 +1470,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   // Split the Group if the size of Group is larger than 2 and the elements are
   // from different parent loops and they do not have constant distance
-  if (CanLoopBeRelaxed) {
+  if (TryGroupSplitting) {
     splitRefGroups(Groups, Grouping.getIndex(), SplitedGroupsOriginalIndices);
   }
 
@@ -1568,7 +1522,9 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     Ret = tryDelinearization(Loop, InnermostLoop, UnsortedGroupIndices, Groups,
                              DelinearizedGroups, Context.PreConditions);
     if (Ret != OK) {
-      return Ret;
+      // Return NON_PERFECT_LOOPNEST for near-perfect loopnest so we try
+      // innermost loop multiversioning.
+      return IsNearPerfect ? NON_PERFECT_LOOPNEST : Ret;
     }
 
     LLVM_DEBUG(
