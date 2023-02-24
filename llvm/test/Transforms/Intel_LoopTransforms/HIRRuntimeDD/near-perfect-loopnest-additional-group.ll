@@ -1,73 +1,62 @@
-; Test that RTDD can happen before a relaxed non-perfect loopnest
+; Test that RTDD can happen on a near-perfect loopnest with a load ref in the
+; outer loop which forms a separate group.
 ;
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 ;
-;*** IR Dump Before HIR RuntimeDD Multiversioning (hir-runtime-dd) ***                                             
-;Function: _Z19composite_referenceiiiiPvPhS0_                                                                      
+; Incoming HIR-
 ;
 ;<0>          BEGIN REGION { }
 ;<62>               + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>
 ;<63>               |   + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
 ;<12>               |   |   %2 = (%new_row)[3];                                                
 ;<14>               |   |   %sub = %2  ^  255;
-;<15>               |   |   if (%channels > 0)
-;<15>               |   |   {
-;<64>               |   |      + DO i3 = 0, zext.i32.i64(%smax) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>
-;<23>               |   |      |   %3 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3];
-;<27>               |   |      |   %4 = (%prow)[sext.i32.i64(%channels) * i2 + i3];
-;<33>               |   |      |   (%prow)[sext.i32.i64(%channels) * i2 + i3] = ((zext.i8.i32(%2) * zext.i8.i32(%3)) + (zext.i8.i32(%4) * %sub))/u255;
-;<64>               |   |      + END LOOP
-;<15>               |   |   }
+;<64>               |   |   + DO i3 = 0, zext.i32.i64(%smax) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>
+;<23>               |   |   |   %3 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3];
+;<27>               |   |   |   %4 = (%prow)[sext.i32.i64(%channels) * i2 + i3];
+;<33>               |   |   |   (%prow)[sext.i32.i64(%channels) * i2 + i3] = ((zext.i8.i32(%2) * zext.i8.i32(%3)) + (zext.i8.i32(%4) * %sub))/u255;
+;<64>               |   |   + END LOOP
 ;<63>               |   + END LOOP
 ;<62>               + END LOOP
 ;<0>          END REGION
 ;
 ;*** IR Dump After HIR RuntimeDD Multiversioning (hir-runtime-dd) ***
-;Function: _Z19composite_referenceiiiiPvPhS0_
 ;
-; CHECK:   BEGIN REGION { }
-; CHECK:           + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>
-; CHECK:           |   if (%width > 0)
-; CHECK:           |   {
-; CHECK:           |      %mv.test = &((%new_row)[3]) >=u &((%prow)[0]);
-; CHECK:           |      %mv.test5 = &((%prow)[zext.i32.i64(%smax) + (sext.i32.i64((-1 + %width)) * sext.i32.i64(%channels)) + -1]) >=u &((%new_row)[3]);
-; CHECK:           |      %mv.and = %mv.test  &  %mv.test5;
-; CHECK:           |      %mv.test6 = &((@vrow)[0][i1][zext.i32.i64(%smax) + (sext.i32.i64((-1 + %width)) * smax(0, sext.i32.i64(%other_channels))) + -1]) >=u &((%prow)[0]);
-; CHECK:           |      %mv.test7 = &((%prow)[zext.i32.i64(%smax) + (sext.i32.i64((-1 + %width)) * sext.i32.i64(%channels)) + -1]) >=u &((@vrow)[0][i1][(sext.i32.i64((-1 + %width)) * smin(0, sext.i32.i64(%other_channels)))]);
-; CHECK:           |      %mv.and8 = %mv.test6  &  %mv.test7;
-; CHECK:           |      if (%mv.and == 0 && %mv.and8 == 0)
-; CHECK:           |      {
-; CHECK:           |         + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <MVTag: 63>
-; CHECK:           |         |   %2 = (%new_row)[3];
-; CHECK:           |         |   %sub = %2  ^  255;
-; CHECK:           |         |   if (%channels > 0)
-; CHECK:           |         |   {
-; CHECK:           |         |      + DO i3 = 0, zext.i32.i64(%smax) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>
-; CHECK:           |         |      |   %3 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3];
-; CHECK:           |         |      |   %4 = (%prow)[sext.i32.i64(%channels) * i2 + i3];
-; CHECK:           |         |      |   (%prow)[sext.i32.i64(%channels) * i2 + i3] = ((zext.i8.i32(%2) * zext.i8.i32(%3)) + (zext.i8.i32(%4) * %sub))/u255;
-; CHECK:           |         |      + END LOOP
-; CHECK:           |         |   }
-; CHECK:           |         + END LOOP
-; CHECK:           |      }
-; CHECK:           |      else
-; CHECK:           |      {
-; CHECK:           |         + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <MVTag: 63> <nounroll> <novectorize>
-; CHECK:           |         |   %2 = (%new_row)[3];
-; CHECK:           |         |   %sub = %2  ^  255;
-; CHECK:           |         |   if (%channels > 0)
-; CHECK:           |         |   {
-; CHECK:           |         |      + DO i3 = 0, zext.i32.i64(%smax) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>
-; CHECK:           |         |      |   %3 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3];
-; CHECK:           |         |      |   %4 = (%prow)[sext.i32.i64(%channels) * i2 + i3];
-; CHECK:           |         |      |   (%prow)[sext.i32.i64(%channels) * i2 + i3] = ((zext.i8.i32(%2) * zext.i8.i32(%3)) + (zext.i8.i32(%4) * %sub))/u255;
-; CHECK:           |         |      + END LOOP
-; CHECK:           |         |   }
-; CHECK:           |         + END LOOP
-; CHECK:           |      }
-; CHECK:           |   }
-; CHECK:           + END LOOP
-; CHECK:     END REGION
+; CHECK: %mv.test = &((%new_row)[3]) >=u &((%prow)[0]);
+; CHECK: %mv.test5 = &((%prow)[zext.i32.i64(%smax) + (sext.i32.i64((-1 + %width)) * sext.i32.i64(%channels)) + -1]) >=u &((%new_row)[3]);
+; CHECK: %mv.and = %mv.test  &  %mv.test5;
+; CHECK: %mv.test6 = &((@vrow)[0][zext.i32.i64(%height) + -1][zext.i32.i64(%smax) + (sext.i32.i64((-1 + %width)) * smax(0, sext.i32.i64(%other_channels))) + -1]) >=u &((%prow)[0]);
+; CHECK: %mv.test7 = &((%prow)[zext.i32.i64(%smax) + (sext.i32.i64((-1 + %width)) * sext.i32.i64(%channels)) + -1]) >=u &((@vrow)[0][0][(sext.i32.i64((-1 + %width)) * smin(0, sext.i32.i64(%other_channels)))]);
+; CHECK: %mv.and8 = %mv.test6  &  %mv.test7;
+; CHECK: if (%mv.and == 0 && %mv.and8 == 0)  <MVTag: 62>
+; CHECK: {
+; CHECK:    + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 62>
+; CHECK:    |   + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 63>
+; CHECK:    |   |   %2 = (%new_row)[3];
+; CHECK:    |   |   %sub = %2  ^  255;
+; CHECK:    |   |
+; CHECK:    |   |   + DO i3 = 0, zext.i32.i64(%smax) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3>  <MVTag: 64>
+; CHECK:    |   |   |   %3 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3];
+; CHECK:    |   |   |   %4 = (%prow)[sext.i32.i64(%channels) * i2 + i3];
+; CHECK:    |   |   |   (%prow)[sext.i32.i64(%channels) * i2 + i3] = ((zext.i8.i32(%2) * zext.i8.i32(%3)) + (zext.i8.i32(%4) * %sub))/u255;
+; CHECK:    |   |   + END LOOP
+; CHECK:    |   + END LOOP
+; CHECK:    + END LOOP
+; CHECK: }
+; CHECK: else
+; CHECK: {
+; CHECK:    + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 62> <nounroll> <novectorize>
+; CHECK:    |   + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 63> <nounroll> <novectorize>
+; CHECK:    |   |   %2 = (%new_row)[3];
+; CHECK:    |   |   %sub = %2  ^  255;
+; CHECK:    |   |
+; CHECK:    |   |   + DO i3 = 0, zext.i32.i64(%smax) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3>  <MVTag: 64> <nounroll> <novectorize>
+; CHECK:    |   |   |   %3 = (@vrow)[0][i1][sext.i32.i64(%other_channels) * i2 + i3];
+; CHECK:    |   |   |   %4 = (%prow)[sext.i32.i64(%channels) * i2 + i3];
+; CHECK:    |   |   |   (%prow)[sext.i32.i64(%channels) * i2 + i3] = ((zext.i8.i32(%2) * zext.i8.i32(%3)) + (zext.i8.i32(%4) * %sub))/u255;
+; CHECK:    |   |   + END LOOP
+; CHECK:    |   + END LOOP
+; CHECK:    + END LOOP
+; CHECK: }
 ;
 ;Module Before HIR
 ; ModuleID = 'smallcompo3.cpp'
