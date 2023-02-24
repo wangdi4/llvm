@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-//===- CodeGenIntrinsic.h - Intrinsic Class Wrapper ------------*- C++ -*--===//
+//===- CodeGenIntrinsics.h - Intrinsic Class Wrapper ------------*- C++ -*--===//
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
@@ -17,9 +16,6 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
-=======
-//===- CodeGenIntrinsics.h - Intrinsic Class Wrapper -----------*- C++ -*--===//
->>>>>>> f00d101b8e320089d181afe9379cd46a414efd86
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
