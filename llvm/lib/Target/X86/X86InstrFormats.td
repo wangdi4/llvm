@@ -442,7 +442,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   bits<2> XuCCOpPrefixBits = XuCCOpPrefix.Value;
 #endif // INTEL_FEATURE_XUCC
 #if INTEL_FEATURE_ISA_AVX256P
-  bit hasEVEX_P10 = 1;      // Does this inst set the EVEX_P10 field?
+  bit hasEVEX_P10 = 0;      // Does this inst set the EVEX_P10 field?
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
   // Force to check predicate before compress EVEX to VEX encoding.
