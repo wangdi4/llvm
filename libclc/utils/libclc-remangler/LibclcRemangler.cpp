@@ -455,7 +455,7 @@ private:
                                              SourceLocation(),
                                              DeclarationName(), TPL, FD);
     auto TAArr =
-        makeArrayRef(TemplateArguments.begin(), TemplateArguments.size());
+        ArrayRef(TemplateArguments.begin(), TemplateArguments.size());
     auto *TAL = TemplateArgumentList::CreateCopy(*AST, TAArr);
     FDSpecialization->setTemplateParameterListsInfo(*AST, TPL);
     FDSpecialization->setFunctionTemplateSpecialization(
