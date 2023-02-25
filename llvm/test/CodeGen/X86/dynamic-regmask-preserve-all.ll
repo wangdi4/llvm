@@ -1,3 +1,8 @@
+; INTEL_CUSTOMIZATION
+; INTEL_FEATURE_XISA_COMMON
+; XFAIL: intel_feature_xisa_common
+; end INTEL_FEATURE_XISA_COMMON
+; end INTEL_CUSTOMIZATION
 ; RUN: llc -mtriple=x86_64-apple-darwin -stop-after finalize-isel <%s | FileCheck %s
 
 ; Check that the callee excludes the return register (%rax) from the list of
