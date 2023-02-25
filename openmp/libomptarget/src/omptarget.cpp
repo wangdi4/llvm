@@ -1685,11 +1685,7 @@ public:
 /// Process data before launching the kernel, including calling targetDataBegin
 /// to map and transfer data to target device, transferring (first-)private
 /// variables.
-#if INTEL_COLLAB
-static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *TgtEntryPtr,
-#else // INTEL_COLLAB
 static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
-#endif // INTEL_COLLAB
                              int32_t ArgNum, void **ArgBases, void **Args,
                              int64_t *ArgSizes, int64_t *ArgTypes,
                              map_var_info_t *ArgNames, void **ArgMappers,
@@ -1697,7 +1693,8 @@ static int processDataBefore(ident_t *Loc, int64_t DeviceId, void *HostPtr,
                              SmallVector<ptrdiff_t> &TgtOffsets,
                              PrivateArgumentManagerTy &PrivateArgumentManager,
 #if INTEL_COLLAB
-                             AsyncInfoTy &AsyncInfo, void **TgtNDLoopDesc) {
+                             AsyncInfoTy &AsyncInfo, void *TgtEntryPtr,
+                             void **TgtNDLoopDesc) {
 #else  // INTEL_COLLAB
                              AsyncInfoTy &AsyncInfo) {
 #endif // INTEL_COLLAB
@@ -2030,18 +2027,14 @@ int target(ident_t *Loc, DeviceTy &Device, void *HostPtr,
   int Ret = OFFLOAD_SUCCESS;
   if (NumClangLaunchArgs) {
     // Process data, such as data mapping, before launching the kernel
-#if INTEL_COLLAB
-    Ret = processDataBefore(Loc, DeviceId, HostPtr, KernelArgs.NumArgs,
-                            KernelArgs.ArgBasePtrs, KernelArgs.ArgPtrs,
-                            KernelArgs.ArgSizes, KernelArgs.ArgTypes,
-                            KernelArgs.ArgNames, KernelArgs.ArgMappers, TgtArgs,
-                            TgtOffsets, PrivateArgumentManager, AsyncInfo,
-                            &TgtNDLoopDesc);
-#else // INTEL_COLLAB
     Ret = processDataBefore(Loc, DeviceId, HostPtr, NumClangLaunchArgs,
                             KernelArgs.ArgBasePtrs, KernelArgs.ArgPtrs,
                             KernelArgs.ArgSizes, KernelArgs.ArgTypes,
                             KernelArgs.ArgNames, KernelArgs.ArgMappers, TgtArgs,
+#if INTEL_COLLAB
+                            TgtOffsets, PrivateArgumentManager, AsyncInfo,
+                            TgtEntryPtr, &TgtNDLoopDesc);
+#else  // INTEL_COLLAB
                             TgtOffsets, PrivateArgumentManager, AsyncInfo);
 #endif // INTEL_COLLAB
     if (Ret != OFFLOAD_SUCCESS) {
