@@ -767,80 +767,119 @@ struct OclocInfo {
 // https://github.com/intel/compute-runtime/blob/master/shared/source/dll/devices/devices_base.inl
 // https://github.com/intel/compute-runtime/blob/master/shared/source/dll/devices/devices_additional.inl
 static OclocInfo OclocDevices[] = {
-  { "bdw", "iris", "8.0.0", { 0x1602, 0x160A, 0x1606, 0x160E, 0x160D, 0x1612,
-                              0x161A, 0x1616, 0x161E, 0x161D, 0x1622, 0x162A,
-                              0x1626, 0x162B, 0x162E, 0x162D } },
-  { "skl", "iris", "9.0.9", { 0x1902, 0x190B, 0x190A, 0x1906, 0x190E, 0x1917,
-                              0x1913, 0x1915, 0x1912, 0x191B, 0x191A, 0x1916,
-                              0x191E, 0x191D, 0x1921, 0x9905, 0x192B, 0x192D,
-                              0x192A, 0x1923, 0x1926, 0x1927, 0x1932, 0x193B,
-                              0x193A, 0x193D } },
-  { "kbl", "iris", "9.1.9", { 0x5902, 0x590B, 0x590A, 0x5906, 0x590E, 0x5908,
-                              0x5913, 0x5915, 0x5912, 0x591B, 0x5917, 0x591A,
-                              0x5916, 0x591E, 0x591D, 0x591C, 0x5921, 0x5926,
-                              0x5927, 0x592B, 0x592A, 0x5923, 0x5932, 0x593B,
-                              0x593A, 0x593D } },
-  { "cfl", "iris", "9.2.9", { 0x3E90, 0x3E93, 0x3EA4, 0x3E99, 0x3EA1, 0x3E92,
-                              0x3E9B, 0x3E94, 0x3E91, 0x3E96, 0x3E9A, 0x3EA3,
-                              0x3EA9, 0x3EA0, 0x3E98, 0x3E95, 0x3EA6, 0x3EA7,
-                              0x3EA8, 0x3EA5, 0x3EA2, 0x9B21, 0x9BAA, 0x9BAB,
-                              0x9BAC, 0x9BA0, 0x9BA5, 0x9BA8, 0x9BA4, 0x9BA2,
-                              0x9B41, 0x9BCA, 0x9BCB, 0x9BCC, 0x9BC0, 0x9BC5,
-                              0x9BC8, 0x9BC4, 0x9BC2, 0x9BC6, 0x9BE6,
-                              0x9BF6 } },
-  { "apl", "iris", "9.3.0", { } },
-  { "glk", "iris", "9.4.0", { 0x3184, 0x3185 } },
-  { "whl", "iris", "9.5.0", { } },
-  { "aml", "iris", "9.6.0", { } },
-  { "cml", "iris", "9.7.0", { } },
-  { "icllp", "iris", "11.0.0", { 0xFF05, 0x8A56, 0x8A58, 0x8A5C, 0x8A5A,
-                                 0x8A50, 0x8A52, 0x8A51 } },
-  { "lkf", "iris", "11.1.0", { 0x9840 } },
-  { "ehl", "iris", "11.2.0", { 0x4500, 0x4541, 0x4551, 0x4571, 0x4555, 0x4E51,
-                               0x4E61, 0x4E71, 0x4E55 } },
-  { "tgl", "xe", "", { } },
-  { "tgllp", "xe", "12.0.0", { 0xFF20, 0x9A49, 0x9A40, 0x9A59, 0x9A60,
-                               0x9A68, 0x9A70, 0x9A78 } },
+    {"bdw",
+     "gen9-11",
+     "8.0.0",
+     {0x1602, 0x160A, 0x1606, 0x160E, 0x160D, 0x1612, 0x161A, 0x1616, 0x161E,
+      0x161D, 0x1622, 0x162A, 0x1626, 0x162B, 0x162E, 0x162D}},
+    {"skl", "gen9-11", "9.0.9", {0x1902, 0x190B, 0x190A, 0x1906, 0x190E, 0x1917,
+                                 0x1913, 0x1915, 0x1912, 0x191B, 0x191A, 0x1916,
+                                 0x191E, 0x191D, 0x1921, 0x9905, 0x192B, 0x192D,
+                                 0x192A, 0x1923, 0x1926, 0x1927, 0x1932, 0x193B,
+                                 0x193A, 0x193D}},
+    {"kbl", "gen9-11", "9.1.9", {0x5902, 0x590B, 0x590A, 0x5906, 0x590E, 0x5908,
+                                 0x5913, 0x5915, 0x5912, 0x591B, 0x5917, 0x591A,
+                                 0x5916, 0x591E, 0x591D, 0x591C, 0x5921, 0x5926,
+                                 0x5927, 0x592B, 0x592A, 0x5923, 0x5932, 0x593B,
+                                 0x593A, 0x593D}},
+    {"cfl",
+     "gen9-11",
+     "9.2.9",
+     {0x3E90, 0x3E93, 0x3EA4, 0x3E99, 0x3EA1, 0x3E92, 0x3E9B, 0x3E94, 0x3E91,
+      0x3E96, 0x3E9A, 0x3EA3, 0x3EA9, 0x3EA0, 0x3E98, 0x3E95, 0x3EA6, 0x3EA7,
+      0x3EA8, 0x3EA5, 0x3EA2, 0x9B21, 0x9BAA, 0x9BAB, 0x9BAC, 0x9BA0, 0x9BA5,
+      0x9BA8, 0x9BA4, 0x9BA2, 0x9B41, 0x9BCA, 0x9BCB, 0x9BCC, 0x9BC0, 0x9BC5,
+      0x9BC8, 0x9BC4, 0x9BC2, 0x9BC6, 0x9BE6, 0x9BF6}},
+    {"apl", "gen9-11", "9.3.0", {}},
+    {"glk", "gen9-11", "9.4.0", {0x3184, 0x3185}},
+    {"whl", "gen9-11", "9.5.0", {}},
+    {"aml", "gen9-11", "9.6.0", {}},
+    {"cml", "gen9-11", "9.7.0", {}},
+    {"icllp",
+     "gen9-11",
+     "11.0.0",
+     {0xFF05, 0x8A56, 0x8A58, 0x8A5C, 0x8A5A, 0x8A50, 0x8A52, 0x8A51}},
+    {"lkf", "gen9-11", "11.1.0", {0x9840}},
+    {"ehl",
+     "gen9-11",
+     "11.2.0",
+     {0x4500, 0x4541, 0x4551, 0x4571, 0x4555, 0x4E51, 0x4E61, 0x4E71, 0x4E55}},
+    {"gen9", "gen9-11", "", {}},
+    {"gen11", "gen9-11", "", {}},
+    {"tgl", "gen12+", "", {}},
+    {"tgllp",
+     "gen12+",
+     "12.0.0",
+     {0xFF20, 0x9A49, 0x9A40, 0x9A59, 0x9A60, 0x9A68, 0x9A70, 0x9A78}},
 
-  { "rkl", "xe", "12.1.0", { 0x4C80, 0x4C8A, 0x4C8B, 0x4C8C, 0x4C90,
-                             0x4C9A } },
-  { "adls", "xe", "12.2.0", { 0x4680, 0x4682, 0x4688, 0x468A, 0x4690,
-                              0x4692, 0x4693, 0xA780, 0xA781, 0xA782,
-                              0xA783, 0xA788, 0xA789, 0xA78B } },
-  { "adl-s", "xe", "", { } },
-  { "adlp", "xe", "12.3.0", { 0x46A0, 0x46B0, 0x46A1, 0x46A2, 0x46A3, 0x46A6,
-                              0x46A8, 0x46AA, 0x462A, 0x4626, 0x4628, 0x46B1,
-                              0x46B2, 0x46B3, 0x46C0, 0x46C1, 0x46C2, 0x46C3,
-                              0xA7A0, 0xA720, 0xA7A8, 0xA7A1, 0xA721,
-                              0xA7A9 } },
-  { "adl-p", "xe", "", { } },
-  { "adln", "xe", "12.4.0", { 0x46D0, 0x46D1, 0x46D2 } },
-  { "adl-n", "xe", "", { } },
-  { "dg1", "xe", "12.10.0", { 0x4905, 0x4906, 0x4907, 0x4908 } },
-  { "xehp-sdv", "xe", "12.1.0", { 0x0201, 0x0202, 0x0203, 0x0204, 0x0205,
-                                  0x0206, 0x0207, 0x0208, 0x0209, 0x020A,
-                                  0x020B, 0x020C, 0x020D, 0x020E, 0x020F,
-                                  0x0210 } },
-  { "acm-g10", "xe", "12.55.8", { } },
-  { "acm-g11", "xe", "12.56.0", { } },
-  { "acm-g12", "xe", "12.57.0", { } },
-  { "pvc-sdv", "xe", "12.60.1", { } },
-  { "pvc", "xe", "12.60.7", { 0x0BD0, 0x0BD5, 0x0BD6, 0x0BD7, 0x0BD8,
-                              0x0BD9, 0x0BDA, 0x0BDB} },
-  { "gen9", "xe", "", { } },
-  { "gen11", "xe", "", { } },
-  { "gen12", "xe", "", { } },
-  { "gen12lp", "xe", "", { } },
-  { "xe", "xe", "", { } },
-  { "xe_hp", "xe", "", { } },
-  { "xe_hp_core", "xe", "", { } },
-  { "xe_hpg_core", "dgpu", "", { } },
-  { "dg2", "dgpu", "", { 0x4F80, 0x4F81, 0x4F82, 0x4F83, 0x4F84, 0x4F85,
-                         0x4F86, 0x4F87, 0x4F88, 0x5690, 0x5691, 0x5692,
-                         0x5693, 0x5694, 0x5695, 0x5696, 0x5697, 0x56A3,
-                         0x56A4, 0x56B0, 0x56B1, 0x56B2, 0x56B3, 0x56A0,
-                         0x56A1, 0x56A2, 0x56A5, 0x56A6, 0x56C0, 0x56C1 } }
-};
+    {"rkl",
+     "gen12+",
+     "12.1.0",
+     {0x4C80, 0x4C8A, 0x4C8B, 0x4C8C, 0x4C90, 0x4C9A}},
+    {"adls",
+     "gen12+",
+     "12.2.0",
+     {0x4680, 0x4682, 0x4688, 0x468A, 0x4690, 0x4692, 0x4693, 0xA780, 0xA781,
+      0xA782, 0xA783, 0xA788, 0xA789, 0xA78B}},
+    {"adl-s", "gen12+", "", {}},
+    {"adlp", "gen12+", "12.3.0", {0x46A0, 0x46B0, 0x46A1, 0x46A2, 0x46A3,
+                                  0x46A6, 0x46A8, 0x46AA, 0x462A, 0x4626,
+                                  0x4628, 0x46B1, 0x46B2, 0x46B3, 0x46C0,
+                                  0x46C1, 0x46C2, 0x46C3, 0xA7A0, 0xA720,
+                                  0xA7A8, 0xA7A1, 0xA721, 0xA7A9}},
+    {"adl-p", "gen12+", "", {}},
+    {"adln", "gen12+", "12.4.0", {0x46D0, 0x46D1, 0x46D2}},
+    {"adl-n", "gen12+", "", {}},
+    {"dg1", "gen12+", "12.10.0", {0x4905, 0x4906, 0x4907, 0x4908}},
+    {"dg2-g10-a0", "gen12+", "", {}},
+    {"dg2-g10-a1", "gen12+", "", {}},
+    {"dg2-g10-b0", "gen12+", "", {}},
+    {"acm-g10", "gen12+", "12.55.8", {}},
+    {"ats-m150", "gen12+", "", {}},
+    {"dg2-g10",
+     "gen12+",
+     "",
+     {0x4F80, 0x4F81, 0x4F82, 0x4F83, 0x4F84, 0x4F85, 0x5690, 0x5691, 0x5692,
+      0x56A0, 0x56A1, 0x56A2, 0x56C0}},
+    {"dg2-g10-c0", "gen12+", "", {}},
+    {"dg2-g11-a0", "gen12+", "", {}},
+    {"dg2-g11-b0", "gen12+", "", {}},
+    {"acm-g11", "gen12+", "12.56.0", {}},
+    {"ats-m75", "gen12+", "", {}},
+    {"dg2-g11",
+     "gen12+",
+     "",
+     {0x4F87, 0x4F88, 0x5693, 0x5694, 0x5695, 0x5696, 0x56B0, 0x56B1, 0x56C1}},
+    {"dg2-g11-b1", "gen12+", "", {}},
+    {"acm-g12", "gen12+", "12.57.0", {}},
+    {"dg2-g12",
+     "gen12+",
+     "",
+     {0x5696, 0x5697, 0x56A3, 0x56A4, 0x56B2, 0x56B3, 0x4F85, 0x4F86}},
+    {"dg2-g12-a0", "gen12+", "", {}},
+    {"acm-g20", "gen12+", "", {}},
+    {"dg2-g20", "gen12+", "", {}},
+    {"acm-g21", "gen12+", "", {}},
+    {"dg2-g21", "gen12+", "", {}},
+    {"dg2", "gen12+", "", {}},
+    {"xehp-sdv",
+     "gen12+",
+     "12.1.0",
+     {0x0201, 0x0202, 0x0203, 0x0204, 0x0205, 0x0206, 0x0207, 0x0208, 0x0209,
+      0x020A, 0x020B, 0x020C, 0x020D, 0x020E, 0x020F, 0x0210}},
+    {"pvc-sdv", "gen12+", "12.60.1", {}},
+    {"pvc",
+     "gen12+",
+     "12.60.7",
+     {0x0BD0, 0x0BD5, 0x0BD6, 0x0BD7, 0x0BD8, 0x0BD9, 0x0BDA, 0x0BDB}},
+    {"gen12", "gen12+", "", {}},
+    {"gen12lp", "gen12+", "", {}},
+    {"xe", "gen12+", "", {}},
+    {"xe-hpg", "gen12+", "", {}},
+    {"xe-hpgplus", "gen12+", "", {}},
+    {"xe_hp", "gen12+", "", {}},
+    {"xe_hp_core", "gen12+", "", {}},
+    {"xe_hpg_core", "gen12+", "", {}}};
 static const unsigned numOclocDevices = std::size(OclocDevices);
 
 static SmallVector<std::pair<StringRef, ArgStringList>> getOclocTargets(
@@ -879,20 +918,17 @@ static SmallVector<std::pair<StringRef, ArgStringList>> getOclocTargets(
   // call with specific values.
   if (DeviceArg.equals("*")) {
     // -device * implies:
-    //   iris: -device gen9,gen11
-    //     xe: -device *
-    //   dgpu: -device XE_HPG_CORE (for version 1743, use xe-hpg for newer)
-    addToOcloc("iris", "-device");
-    addToOcloc("iris", "gen9,gen11");
-    addToOcloc("xe", "-device");
-    addToOcloc("xe", "*");
-    addToOcloc("dgpu", "-device");
-    addToOcloc("dgpu", "XE_HPG_CORE");
+    //   gen9-11: -device *
+    //   gen12+:  -device *
+    addToOcloc("gen9-11", "-device");
+    addToOcloc("gen9-11", "*");
+    addToOcloc("gen12+", "-device");
+    addToOcloc("gen12+", "*");
     return std::move(Targets);
   }
   if (DeviceArg.equals("gen9") || DeviceArg.equals("gen11")) {
-    addToOcloc("iris", "-device");
-    addToOcloc("iris", DeviceArg);
+    addToOcloc("gen9-11", "-device");
+    addToOcloc("gen9-11", DeviceArg);
     return std::move(Targets);
   }
 
@@ -901,9 +937,8 @@ static SmallVector<std::pair<StringRef, ArgStringList>> getOclocTargets(
   // Holding vectors for the device values.
   // TODO: Improve handling of these - probably can be done a bit more
   // dynamically instead of fixed vectors.
-  SmallVector<StringRef> Iris;
-  SmallVector<StringRef> Xe;
-  SmallVector<StringRef> Dgpu;
+  SmallVector<StringRef> Gen9_11;
+  SmallVector<StringRef> Gen12plus;
   DeviceArg.split(SplitArgs, ",");
   for (auto SingleArg : SplitArgs) {
     StringRef OclocTarget;
@@ -946,15 +981,13 @@ static SmallVector<std::pair<StringRef, ArgStringList>> getOclocTargets(
       }
     }
     if (!OclocTarget.empty()) {
-      if (OclocTarget.equals("iris"))
-        Iris.push_back(SingleArg);
-      if (OclocTarget.equals("xe"))
-        Xe.push_back(SingleArg);
-      if (OclocTarget.equals("dgpu"))
-        Dgpu.push_back(SingleArg);
+      if (OclocTarget.equals("gen9-11"))
+        Gen9_11.push_back(SingleArg);
+      if (OclocTarget.equals("gen12+"))
+        Gen12plus.push_back(SingleArg);
     } else {
-      // Arg is not recognized.  We will default to adding to the iris ocloc
-      Iris.push_back(SingleArg);
+      // Arg is not recognized.  We will default to adding to the gen12+ ocloc
+      Gen12plus.push_back(SingleArg);
     }
   }
   auto addDevices = [&](SmallVector<StringRef> DeviceVec, StringRef Target) {
@@ -971,9 +1004,8 @@ static SmallVector<std::pair<StringRef, ArgStringList>> getOclocTargets(
       addToOcloc(Target, Devices);
     }
   };
-  addDevices(Iris, "iris");
-  addDevices(Xe, "xe");
-  addDevices(Dgpu, "dgpu");
+  addDevices(Gen9_11, "gen9-11");
+  addDevices(Gen12plus, "gen12+");
 
   return std::move(Targets);
 }
@@ -1043,10 +1075,9 @@ static std::optional<std::string> getOclocLocation(Compilation &C) {
         llvm::sys::path::append(BD, Base);
         LibPaths.emplace_back(BD);
       };
-      // Check for the expected dgpu, xe and iris directories
-      addDir("dgpu", Path.trim());
-      addDir("xe", Path.trim());
-      addDir("iris", Path.trim());
+      // Check for the expected gen12+ and gen9-11 directories
+      addDir("gen12+", Path.trim());
+      addDir("gen9-11", Path.trim());
       bool ValidLoc = true;
       for (auto &Loc : LibPaths)
         ValidLoc &= llvm::sys::fs::exists(Loc);
@@ -1095,9 +1126,8 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
       llvm::sys::path::append(OD, BaseName, "ocloc.exe");
       OclocDirs[BaseName] = OD.str();
     };
-    addOclocDir("iris");
-    addOclocDir("xe");
-    addOclocDir("dgpu");
+    addOclocDir("gen9-11");
+    addOclocDir("gen12+");
     for (auto &Loc : OclocDirs)
       SplitOcloc &= llvm::sys::fs::exists(Loc.second);
   }
@@ -1161,7 +1191,7 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
                               combineArgs(OclocItem.second), OclocDir->second);
       }
       // perform a concatenation.
-      auto OclocDir = OclocDirs.find("xe");
+      auto OclocDir = OclocDirs.find("gen12+");
       // 3 inputs for concat.  Perform a concat against the first 2.
       InputInfoList OutputsP2;
       assert((Outputs.size() == 2 || Outputs.size() == 3) && "Incorrect number "
