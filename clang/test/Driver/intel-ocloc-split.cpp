@@ -41,9 +41,9 @@
 // RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device tgllp" \
 // RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=OCLOC_TGLLP
-// OCLOC_SKL: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "skl"
-// OCLOC_DG2: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}dgpu{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "dg2"
-// OCLOC_TGLLP: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "tgllp"
+// OCLOC_SKL: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen9-11{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "skl"
+// OCLOC_DG2: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "dg2"
+// OCLOC_TGLLP: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "tgllp"
 
 /// Multiple device test
 // RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device dg2,skl,tgllp" \
@@ -51,11 +51,9 @@
 // RUN:   -target x86_64-unknown-linux-gnu 2>&1 \
 // RUN:   | FileCheck %s -check-prefixes=OCLOC_MULTIPLE
 // OCLOC_MULTIPLE: llvm-spirv" "-o" "[[LLVMSPIRVOUT:.+\.txt]]" "-spirv-max-version{{.*}}"
-// OCLOC_MULTIPLE: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" "-output" "[[SKLOUT:.+\.out]]" "-file" "[[LLVMSPIRVOUT]]" {{.*}} "-device" "skl"
-// OCLOC_MULTIPLE: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "-output" "[[TGLLPOUT:.+\.out]]" "-file" "[[LLVMSPIRVOUT]]" {{.*}} "-device" "tgllp"
-// OCLOC_MULTIPLE: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}dgpu{{(/|\\\\)}}ocloc.exe" "-output" "[[DGPUOUT:.+\.out]]" "-file" "[[LLVMSPIRVOUT]]" {{.*}} "-device" "dg2"
-// OCLOC_MULTIPLE: {{.*}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "concat" "[[TGLLPOUT]]" "[[DGPUOUT]]" "-out" "[[CONCATOUT1:.+\.out]]"
-// OCLOC_MULTIPLE: {{.*}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "concat" "[[CONCATOUT1]]" "[[SKLOUT]]" "-out" "[[CONCATOUT:.+\.out]]"
+// OCLOC_MULTIPLE: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen9-11{{(/|\\\\)}}ocloc.exe" "-output" "[[SKLOUT:.+\.out]]" "-file" "[[LLVMSPIRVOUT]]" {{.*}} "-device" "skl"
+// OCLOC_MULTIPLE: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" "-output" "[[TGLLPOUT:.+\.out]]" "-file" "[[LLVMSPIRVOUT]]" {{.*}} "-device" "dg2,tgllp"
+// OCLOC_MULTIPLE: {{.*}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" "concat" "[[TGLLPOUT]]" "[[SKLOUT]]" "-out" "[[CONCATOUT:.+\.out]]"
 // OCLOC_MULTIPLE: {{.*}}file-table-tform" "-replace=Code,Code" "-o" {{.*}} "[[CONCATOUT]]"
 
 /// Verify -device *
@@ -63,10 +61,9 @@
 // RUN:   --sysroot=%S/Inputs/SYCL --enable-ocloc-split -### %s \
 // RUN:   -target x86_64-unknown-linux-gnu 2>&1 \
 // RUN:   | FileCheck %s -check-prefixes=OCLOC_STAR
-// OCLOC_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "gen9,gen11"
-// OCLOC_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
-// OCLOC_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}dgpu{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "XE_HPG_CORE"
-// OCLOC_STAR: {{.*}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "concat"
+// OCLOC_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen9-11{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
+// OCLOC_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
+// OCLOC_STAR: {{.*}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" "concat"
 
 /// phases with split ocloc
 // RUN: touch %t.o
@@ -94,18 +91,16 @@
 // RUN:   -target x86_64-unknown-linux-gnu 2>&1 \
 // RUN:   | FileCheck %s -check-prefixes=OCLOC_OMP_STAR
 // OCLOC_OMP_STAR-NOT: llvm-foreach{{.*}}
-// OCLOC_OMP_STAR: "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "gen9,gen11"
-// OCLOC_OMP_STAR: "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
-// OCLOC_OMP_STAR: "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}dgpu{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "XE_HPG_CORE"
+// OCLOC_OMP_STAR: "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen9-11{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
+// OCLOC_OMP_STAR: "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
 // OCLOC_OMP_STAR-NOT: llvm-foreach{{.*}}
-// OCLOC_OMP_STAR: "{{.*}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "concat"
+// OCLOC_OMP_STAR: "{{.*}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" "concat"
 
 // RUN: %clangxx -fiopenmp -fopenmp-targets=spir64_gen -Xs "-device *" \
 // RUN:   --sysroot=%S/Inputs/SYCL --enable-ocloc-split -### %s \
 // RUN:   -fopenmp-device-code-split=per_kernel \
 // RUN:   -target x86_64-unknown-linux-gnu 2>&1 \
 // RUN:   | FileCheck %s -check-prefixes=OCLOC_OMP_SPLIT_STAR
-// OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}iris{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "gen9,gen11"
-// OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
-// OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}dgpu{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "XE_HPG_CORE"
-// OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}ocloc{{(/|\\\\)}}xe{{(/|\\\\)}}ocloc.exe" "concat"
+// OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen9-11{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
+// OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "*"
+// OCLOC_OMP_SPLIT_STAR: llvm-foreach{{.*}} "--" "{{.*}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" "concat"
