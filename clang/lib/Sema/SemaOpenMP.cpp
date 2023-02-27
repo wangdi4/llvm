@@ -4941,15 +4941,11 @@ static ExprResult buildCapture(Sema &S, Expr *CaptureExpr, DeclRefExpr *&Ref,
     }
 #endif // INTEL_COLLAB
     OMPCapturedExprDecl *CD = buildCaptureDecl(
-<<<<<<< HEAD
 #if INTEL_COLLAB
         S, &S.getASTContext().Idents.get(CaptureStr), CaptureExpr,
 #else // INTEL_COLLAB
-        S, &S.getASTContext().Idents.get(".capture_expr."), CaptureExpr,
-#endif // INTEL_COLLAB
-=======
         S, &S.getASTContext().Idents.get(Name), CaptureExpr,
->>>>>>> ddde06906be11ea540870d5c0e1b3336a4460612
+#endif // INTEL_COLLAB
         /*WithInit=*/true, S.CurContext, /*AsExpression=*/true);
     Ref = buildDeclRefExpr(S, CD, CD->getType().getNonReferenceType(),
                            CaptureExpr->getExprLoc());
