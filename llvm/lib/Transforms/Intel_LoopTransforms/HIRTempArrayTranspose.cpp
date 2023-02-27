@@ -77,6 +77,11 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
+static cl::opt<bool> AllowUnknownSizes(
+    OPT_SWITCH "-allow-unknown-sizes", cl::init(false), cl::Hidden,
+    cl::desc("Allow transformation in HIR temp array transform when dimsizes "
+             "and loop TC is unknown."));
+
 static cl::opt<unsigned>
     MinTCThreshold(OPT_SWITCH "-mintc",
                    cl::desc("minimum profitable TC count for enabling "
@@ -394,6 +399,17 @@ bool ArrayTransposeAnalyzer::isValidRefGroup(
 }
 
 bool ArrayTransposeAnalyzer::isProfitable() {
+  // Note: InnerDim corresponds to the original outer loop
+  Dim1Size = Uses.front().DelinearRef->getNumDimensionElements(1);
+  Dim2Size = Uses.front().DelinearRef->getNumDimensionElements(2);
+
+  // TODO: workaround to currently bail out for unknown dimsizes unless
+  // the loop is already multiversioned for our target benchmark (by RTDD).
+  if (!AllowUnknownSizes && !Dim1Size && !Dim2Size &&
+      !Uses.front().OrigInnerLoop->getMVTag()) {
+    return false;
+  }
+
   // Check tripcount estimate to not consider candidates if LoopTC are small
   unsigned NumProfitableUses = 0;
   for (auto &Use : Uses) {
@@ -661,10 +677,6 @@ bool ArrayTransposeAnalyzer::hasUnsafeCalls(HIRLoopStatistics &HLS,
 bool ArrayTransposeAnalyzer::checkLoopLegality() {
   // Check that all Uses have equivalent strides and ParentLoop TCs
   UseCand &FirstUse = Uses.front();
-
-  // Note: InnerDim corresponds to the original outer loop
-  Dim1Size = FirstUse.DelinearRef->getNumDimensionElements(1);
-  Dim2Size = FirstUse.DelinearRef->getNumDimensionElements(2);
 
   // Check that the Inner and OuterLoops are equal among all Uses
   for (auto &Use : make_range(std::next(Uses.begin()), Uses.end())) {

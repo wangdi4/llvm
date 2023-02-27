@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose,print<hir>" -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-temp-array-transpose,print<hir>" -disable-output -hir-temp-array-transpose-allow-unknown-sizes 2>&1 | FileCheck %s
 
 ; Check that transposing does not not occur for the Loop IV UBRef corresponding to:
 ; DO i2 = 0, i1, 1
