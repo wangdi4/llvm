@@ -77,6 +77,12 @@ public:
 
   static llvm::ArrayRef<llvm::VectItem> getVectInfos();
 
+  /// Initialize cl::opt options in Optimizer.
+  static void initOptimizerOptions();
+  static DebugLogging getDebugPM();
+  static bool getDisableVPlanCM(); // INTEL
+  static bool getVerifyEachPass();
+
   static const StringSet<> &getVPlanMaskedFuncs(); // INTEL
 protected:
   /// Register OCLDiagnosticHandler callback to LLVMContext.
