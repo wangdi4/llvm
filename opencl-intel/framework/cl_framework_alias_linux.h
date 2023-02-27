@@ -15,8 +15,8 @@
 #pragma once
 
 #include "CL/cl.h"
+#include "CL/cl_ext.h"
 #include "CL/cl_fpga_ext.h"
-#include "CL/cl_usm_ext.h"
 
 namespace Intel {
 namespace OpenCL {

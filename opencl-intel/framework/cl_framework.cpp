@@ -4217,14 +4217,14 @@ REGISTER_EXTENSION_FUNCTION(clEnqueueMemcpyINTEL, clEnqueueMemcpyINTEL);
 
 CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemINTEL(
     cl_command_queue command_queue, const void *ptr, size_t size,
-    cl_mem_migration_flags_intel flags, cl_uint num_events_in_wait_list,
+    cl_mem_migration_flags flags, cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list,
     cl_event *event) CL_API_SUFFIX__VERSION_2_1 {
   if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
     START_LOG_API(clEnqueueMigrateMemINTEL);
     apiLogger << "cl_command_queue command_queue" << command_queue
               << "const void* ptr" << ptr << "size_t size" << size
-              << "cl_mem_migration_flags_intel flags";
+              << "cl_mem_migration_flags flags";
     apiLogger.PrintMacroCode(flags)
         << "cl_uint num_events_in_wait_list" << num_events_in_wait_list
         << "const cl_event* event_wait_list" << event_wait_list

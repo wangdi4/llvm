@@ -11,7 +11,6 @@
 // License.
 
 #include "OptimizerLTO.h"
-#include "SPIRVToOCL.h"
 #include "VectorizerUtils.h"
 
 #include "llvm/TargetParser/Triple.h"
@@ -54,6 +53,7 @@
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 
 #include "SPIRVLowerConstExpr.h"
+#include "SPIRVToOCL.h"
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Scalar/Intel_RemoveRegionDirectives.h"

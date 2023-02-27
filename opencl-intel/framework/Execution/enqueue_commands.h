@@ -23,7 +23,6 @@
 #include "queue_event.h"
 #include "task_executor.h"
 
-#include <CL/cl.h>
 #include <Logger.h>
 #include <cl_device_api.h>
 #include <cl_types.h>
@@ -1217,7 +1216,7 @@ class MigrateUSMMemCommand : public Command {
 
 public:
   MigrateUSMMemCommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,
-                       cl_mem_migration_flags_intel clFlags, const void *ptr,
+                       cl_mem_migration_flags clFlags, const void *ptr,
                        size_t size);
 
   virtual ~MigrateUSMMemCommand() {}
