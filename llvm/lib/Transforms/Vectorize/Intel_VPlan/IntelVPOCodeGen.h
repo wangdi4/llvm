@@ -645,12 +645,6 @@ private:
 
   // Widen Shuffle instruction - loop re-vectorization.
   void vectorizeShuffle(VPInstruction *VPInst);
-  // Get the mask of a VPInstruction representing shuffle (before widening) as a
-  // vector of ints.
-  SmallVector<int, 16> getVPShuffleOriginalMask(const VPInstruction *VPI);
-  // Utility to get VPValue that is broadcasted if the input \p V is a splat
-  // vector. Functionality is same as VectorUtils::getSplatValue.
-  const VPValue *getOrigSplatVPValue(const VPValue *V);
 
   /// Adjust arguments passed to SVML functions to handle masks. \p
   /// CallMaskValue defines the mask being applied to the current SVML call
