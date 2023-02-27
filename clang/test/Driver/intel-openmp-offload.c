@@ -380,3 +380,12 @@
 // RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -O1 -fopenmp-targets=spir64 -fno-openmp-device-lib=all  %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-SPIRV-OPT %s
 // CHK-SPIRV-OPT: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu"{{.*}} "-mllvm" "-spirv-opt"
+
+/// use of spir shouldn't error with -fveclib=SVML
+// RUN: %clangxx -### -fiopenmp -fopenmp-targets=spir64 -fveclib=SVML -c \
+// RUN:    -target x86_64-unknown-linux-gnu %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=NO_SVML_ERROR %s
+// RUN: %clangxx -### -fiopenmp -fopenmp-targets=spir -fveclib=SVML \
+// RUN:    -target i386-unknown-linux-gnu -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=NO_SVML_ERROR %s
+// NO_SVML_ERROR-NOT: unsupported option 'SVML' for target
