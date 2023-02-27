@@ -3040,6 +3040,7 @@ PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     PA.preserve<AndersensAA>();           // INTEL
     return PA;
 }
+<<<<<<< HEAD
 
 namespace {
 
@@ -3120,3 +3121,5 @@ INITIALIZE_PASS_END(GlobalOptLegacyPass, "globalopt",
 ModulePass *llvm::createGlobalOptimizerPass() {
   return new GlobalOptLegacyPass();
 }
+=======
+>>>>>>> aecb36c8489a09bcc3deefd7936b9ba18a5eb322

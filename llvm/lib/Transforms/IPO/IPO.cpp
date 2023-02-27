@@ -53,7 +53,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeDAESYCLPass(Registry);
   initializeForceFunctionAttrsLegacyPassPass(Registry);
   initializeGlobalDCELegacyPassPass(Registry);
-  initializeGlobalOptLegacyPassPass(Registry);
   initializeAlwaysInlinerLegacyPassPass(Registry);
   initializeInlineListsPass(Registry); // INTEL
   initializeInlineReportEmitterPass(Registry); // INTEL
@@ -131,10 +130,6 @@ void LLVMAddAlwaysInlinerPass(LLVMPassManagerRef PM) {
 
 void LLVMAddGlobalDCEPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createGlobalDCEPass());
-}
-
-void LLVMAddGlobalOptimizerPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createGlobalOptimizerPass());
 }
 
 void LLVMAddIPSCCPPass(LLVMPassManagerRef PM) {

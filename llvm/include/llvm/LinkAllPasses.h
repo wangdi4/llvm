@@ -192,7 +192,6 @@ namespace {
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createAlwaysInlinerLegacyPass();
       (void) llvm::createGlobalDCEPass();
-      (void) llvm::createGlobalOptimizerPass();
       (void) llvm::createGlobalsAAWrapperPass();
       (void) llvm::createGuardWideningPass();
       (void) llvm::createLoopGuardWideningPass();
