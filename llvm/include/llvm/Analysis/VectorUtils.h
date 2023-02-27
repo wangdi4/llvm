@@ -335,7 +335,6 @@ struct VFInfo {
   std::string VectorName; /// Vector Function Name associated to this VFInfo.
   VFISAKind ISA;          /// Instruction Set Architecture.
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Notes:
   //   - `VectorName` holds either the encoded vector name, or the aliased
@@ -381,11 +380,6 @@ public:
   void setVF(unsigned VF) {
     this->Shape.VF = ElementCount::getFixed(VF);
     recomputeNames();
-  }
-
-  /// \brief Is this a masked vector function variant?
-  bool isMasked() const {
-    return Shape.Parameters.size() > 0 && Shape.Parameters.back().isMask();
   }
 
   /// \brief Get the parameters of the vector variant.
@@ -495,7 +489,6 @@ public:
       const VFInfo &Other, int &MaxArg, const Module *M,
       const ArrayRef<bool> ArgIsLinearPrivateMem) const;
 #endif // INTEL_CUSTOMIZATION
-=======
   /// Returns the index of the first parameter with the kind 'GlobalPredicate',
   /// if any exist.
   std::optional<unsigned> getParamIndexForOptionalMask() const {
@@ -510,7 +503,6 @@ public:
   /// Returns true if at least one of the operands to the vectorized function
   /// has the kind 'GlobalPredicate'.
   bool isMasked() const { return getParamIndexForOptionalMask().has_value(); }
->>>>>>> 0fa5df1959faaf474697fae4fd36b9749b67f815
 };
 
 namespace VFABI {
