@@ -355,6 +355,9 @@ static Function *getAndersCalledFunction(const CallBase &Call) {
 // UseInst: %4 = getelementptr %2, 0, 0
 // TheCall: %8 = call i32 @vsprintf(%7, %5, %0, null, %4 )
 //          call void @llvm.va_end(i8* nonnull %3)
+//
+// Returns true even without bitcast in the pattern.
+//
 static bool isVarArgAddress(Value *PtrOp, Instruction *TheCall,
                             Instruction *UseInst,
                             SmallPtrSetImpl<const Instruction *> &Visited) {
@@ -378,9 +381,10 @@ static bool isVarArgAddress(Value *PtrOp, Instruction *TheCall,
         return false;
       Visited.insert(I);
       // Ignore LoadInst that is used by TheCall.
-      if (I->isLifetimeStartOrEnd() || I == UseInst || isa<DbgInfoIntrinsic>(I))
+      if (I->isLifetimeStartOrEnd() || I == TheCall || isa<DbgInfoIntrinsic>(I))
         continue;
-      if (isa<BitCastInst>(I)) {
+      // Treat UseInst as alias to PtrOp since the GEP has all zero indices.
+      if (isa<BitCastInst>(I) || I == UseInst) {
         WorkList.push_back(I);
         continue;
       }
@@ -625,6 +629,8 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     Node *N = &GraphNodes[*bi];
     if (N == &GraphNodes[UniversalSet]) {
       IsComplete = AndersenSetResult::Incomplete;
+      if (Trace)
+        dbgs() << "    Node Universal\n";
       continue;
     }
     if (N == &GraphNodes[NullPtr] || N == &GraphNodes[NullObject]) {
@@ -739,6 +745,21 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
   //   ...
   //   call void @llvm.va_end(i8* nonnull %3)
   //   ...
+  // }
+  //
+  // or
+  //
+  // define i32 @t_printf(ptr %arg, ...) {
+  //   %i = alloca [1 x %struct.__va_list_tag]
+  //   call void @llvm.lifetime.start.p0(i64 24, ptr %i)
+  //   %i2 = getelementptr [1 x %struct.__va_list_tag], ptr %i, i64 0, i64 0
+  //   call void @llvm.va_start(ptr nonnull %i2)
+  //   %i3 = call i32 @vsprintf(ptr noundef @pf_buf, ptr %arg, ptr %i2)
+  //   %i4 = call i32 @xlate_nl_inplace(ptr noundef @pf_buf)
+  //   call void @llvm.va_end(ptr nonnull %i2)
+  //   call void @llvm.lifetime.end.p0(i64 24, ptr nonnull %i)
+  //   ...
+  // }
   auto IsVSPrintfWrapper = [&, GetActualCalledFunction](Function *F) {
     if (F->size() != 1 || !F->getFunctionType()->isVarArg())
       return false;
@@ -764,7 +785,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
         LibF != LibFunc_vsprintf)
       return false;
     auto GEPI = dyn_cast<GetElementPtrInst>(CB->getArgOperand(2));
-    if (!GEPI || !GEPI->hasOneUse() || !GEPI->hasAllZeroIndices())
+    if (!GEPI || !GEPI->hasAllZeroIndices())
       return false;
     SmallPtrSet<const Instruction *, 2> Visited;
     if (!isVarArgAddress(GEPI->getPointerOperand(), CB, GEPI, Visited))
@@ -1936,7 +1957,6 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallBase *CB,
         FTy->getNumParams() <= 0 || !isPointsToType(FTy->getParamType(0))) {
       return false;
     }
-    
     CreateConstraint(Constraint::AddressOf, getNode(CB->getArgOperand(0)),
                      getVarargNode(SrcFun));
     return true;
