@@ -382,11 +382,6 @@ public:
     recomputeNames();
   }
 
-  /// \brief Is this a masked vector function variant?
-  bool isMasked() const {
-    return Shape.Parameters.size() > 0 && Shape.Parameters.back().isMask();
-  }
-
   /// \brief Get the parameters of the vector variant.
   ArrayRef<VFParameter> getParameters() const { return Shape.Parameters; }
 
@@ -494,6 +489,20 @@ public:
       const VFInfo &Other, int &MaxArg, const Module *M,
       const ArrayRef<bool> ArgIsLinearPrivateMem) const;
 #endif // INTEL_CUSTOMIZATION
+  /// Returns the index of the first parameter with the kind 'GlobalPredicate',
+  /// if any exist.
+  std::optional<unsigned> getParamIndexForOptionalMask() const {
+    unsigned ParamCount = Shape.Parameters.size();
+    for (unsigned i = 0; i < ParamCount; ++i)
+      if (Shape.Parameters[i].ParamKind == VFParamKind::GlobalPredicate)
+        return i;
+
+    return std::nullopt;
+  }
+
+  /// Returns true if at least one of the operands to the vectorized function
+  /// has the kind 'GlobalPredicate'.
+  bool isMasked() const { return getParamIndexForOptionalMask().has_value(); }
 };
 
 namespace VFABI {
