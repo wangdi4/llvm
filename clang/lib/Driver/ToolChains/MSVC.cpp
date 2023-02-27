@@ -511,6 +511,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (Linker.equals_insensitive("lld"))
     Linker = "lld-link";
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // TODO: Create a more streamlined and centralized way to add the additional
   // llvm options that are set.  i.e. set once and use for both Linux and
@@ -564,6 +565,12 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + AV));
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (Linker == "lld-link")
+    for (Arg *A : Args.filtered(options::OPT_vfsoverlay))
+      CmdArgs.push_back(
+          Args.MakeArgString(std::string("/vfsoverlay:") + A->getValue()));
+>>>>>>> df5beebc98bbe76312e3a416d5fbc563c037923c
 
   if (Linker.equals_insensitive("link")) {
     // If we're using the MSVC linker, it's not sufficient to just use link
