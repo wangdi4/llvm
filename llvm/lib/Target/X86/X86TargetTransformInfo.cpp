@@ -6371,13 +6371,31 @@ InstructionCost X86TTIImpl::getGatherScatterOpCost(
     unsigned Opcode, Type *SrcVTy, unsigned IndexSize, bool VariableMask,
     unsigned Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
     const Instruction *I = nullptr) {
+  if (CostKind != TTI::TCK_RecipThroughput) {
+    if ((Opcode == Instruction::Load &&
+         isLegalMaskedGather(SrcVTy, Align(Alignment)) &&
+         !forceScalarizeMaskedGather(cast<VectorType>(SrcVTy),
+                                     Align(Alignment))) ||
+        (Opcode == Instruction::Store &&
+         isLegalMaskedScatter(SrcVTy, Align(Alignment)) &&
+         !forceScalarizeMaskedScatter(cast<VectorType>(SrcVTy),
+                                      Align(Alignment))))
+      return 1;
+    return BaseT::getGatherScatterOpCost(Opcode, SrcVTy, nullptr, VariableMask,
+                                         Align(Alignment), CostKind, I);
+  }
+
   assert(SrcVTy->isVectorTy() && "Unexpected data type for Gather/Scatter");
   PointerType *PtrTy = SrcVTy->getScalarType()->getPointerTo(AddressSpace);
 
   if ((Opcode == Instruction::Load &&
-       !isLegalMaskedGather(SrcVTy, Align(Alignment))) ||
+       (!isLegalMaskedGather(SrcVTy, Align(Alignment)) ||
+        forceScalarizeMaskedGather(cast<VectorType>(SrcVTy),
+                                   Align(Alignment)))) ||
       (Opcode == Instruction::Store &&
-       !isLegalMaskedScatter(SrcVTy, Align(Alignment)))) {
+       (!isLegalMaskedScatter(SrcVTy, Align(Alignment)) ||
+        forceScalarizeMaskedScatter(cast<VectorType>(SrcVTy),
+                                    Align(Alignment))))) {
     unsigned VF = cast<FixedVectorType>(SrcVTy)->getNumElements();
     return getGSScalarCost(Opcode, FixedVectorType::get(PtrTy, VF), SrcVTy,
                            VariableMask, Align(Alignment), AddressSpace);
@@ -6704,9 +6722,6 @@ bool X86TTIImpl::shouldScalarizeMaskedGather(CallInst *CI) {
 #if INTEL_CUSTOMIZATION
   if (CI->getMetadata("hetero.arch.opt.disable.gather"))
     return true;
-
-  if (ST->preferNoGather())
-    return true;
 #endif //INTEL_CUSTOMIZATION
 
   if (ST->hasAVX512() || isAVX2GatherProfitable()) {
@@ -6869,7 +6884,8 @@ bool X86TTIImpl::supportsGather() const {
   return ST->hasAVX512() || (ST->hasFastGather() && ST->hasAVX2());
 }
 
-bool X86TTIImpl::forceScalarizeMaskedGather(VectorType *VTy, Align Alignment) {
+#if INTEL_CUSTOMIZATION
+bool X86TTIImpl::forceScalarizeMaskedGatherScatter(VectorType *VTy, Align Alignment) {
   // Gather / Scatter for vector 2 is not profitable on KNL / SKX
   // Vector-4 of gather/scatter instruction does not exist on KNL. We can extend
   // it to 8 elements, but zeroing upper bits of the mask vector will add more
@@ -6878,7 +6894,6 @@ bool X86TTIImpl::forceScalarizeMaskedGather(VectorType *VTy, Align Alignment) {
   // case.
   unsigned NumElts = cast<FixedVectorType>(VTy)->getNumElements();
   return NumElts == 1 ||
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
          (ST->hasAVX512() &&
           (NumElts == 2 ||
@@ -6886,6 +6901,20 @@ bool X86TTIImpl::forceScalarizeMaskedGather(VectorType *VTy, Align Alignment) {
 #else  // INTEL_FEATURE_ISA_AVX256P
          (ST->hasAVX512() && (NumElts == 2 || (NumElts == 4 && !ST->hasVLX())));
 #endif // INTEL_FEATURE_ISA_AVX256P
+}
+
+bool X86TTIImpl::forceScalarizeMaskedScatter(VectorType *VTy, Align Alignment){
+  if (!ST->preferScatter())
+    return true;
+  return forceScalarizeMaskedGatherScatter(VTy, Alignment);
+}
+#endif // INTEL_CUSTOMIZATION
+
+bool X86TTIImpl::forceScalarizeMaskedGather(VectorType *VTy, Align Alignment) {
+#if INTEL_CUSTOMIZATION
+  if (!ST->preferGather())
+    return true;
+  return forceScalarizeMaskedGatherScatter(VTy, Alignment);
 #endif // INTEL_CUSTOMIZATION
 }
 

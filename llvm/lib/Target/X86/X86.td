@@ -797,8 +797,11 @@ def FeatureHardenSlsIJmp
 
 #if INTEL_CUSTOMIZATION
 def FeaturePreferNoGather
-    : SubtargetFeature<"prefer-no-gather", "PreferNoGather", "true",
-                       "Indicates if gather is disabled">;
+    : SubtargetFeature<"prefer-no-gather", "PreferGather", "false",
+                       "Indicates if gather prefer to be disabled">;
+def FeaturePreferNoScatter
+    : SubtargetFeature<"prefer-no-scatter", "PreferScatter", "false",
+                       "Indicates if scatter prefer to be disabled">;
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
