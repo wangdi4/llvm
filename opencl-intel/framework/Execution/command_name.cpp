@@ -14,7 +14,7 @@
 
 #include "command_name.h"
 #include "llvm/Support/Compiler.h"
-#include <CL/cl_usm_ext.h>
+#include <CL/cl_ext.h>
 
 namespace Intel {
 namespace OpenCL {
