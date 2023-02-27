@@ -26,14 +26,18 @@ define void @test_pointer_induction_escape() {
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE80:%.*]] = extractvalue { double, <4 x i32>, [10 x i32] } [[TMP4]], 1
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE90:%.*]] = extractvalue { double, <4 x i32>, [10 x i32] } [[TMP3]], 2
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE100:%.*]] = extractvalue { double, <4 x i32>, [10 x i32] } [[TMP4]], 2
+; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE110:%.*]] = extractvalue { double, <4 x i32>, [10 x i32] } [[TMP3]], 2, 5
+; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE120:%.*]] = extractvalue { double, <4 x i32>, [10 x i32] } [[TMP4]], 2, 5
 ; CHECK-NEXT:    [[SERIAL_INSERTVALUE0:%.*]] = insertvalue { i64, double, <4 x i32>, [10 x i32] } { i64 1, double undef, <4 x i32> undef, [10 x i32] undef }, <4 x i32> [[SERIAL_EXTRACTVALUE70]], 2
 ; CHECK-NEXT:    [[SERIAL_INSERTVALUE110:%.*]] = insertvalue { i64, double, <4 x i32>, [10 x i32] } { i64 1, double undef, <4 x i32> undef, [10 x i32] undef }, <4 x i32> [[SERIAL_EXTRACTVALUE80]], 2
 ; CHECK-NEXT:    [[SERIAL_INSERTVALUE120:%.*]] = insertvalue { i64, double, <4 x i32>, [10 x i32] } [[SERIAL_INSERTVALUE0]], [10 x i32] [[SERIAL_EXTRACTVALUE90]], 3
 ; CHECK-NEXT:    [[SERIAL_INSERTVALUE130:%.*]] = insertvalue { i64, double, <4 x i32>, [10 x i32] } [[SERIAL_INSERTVALUE110]], [10 x i32] [[SERIAL_EXTRACTVALUE100]], 3
+; CHECK-NEXT:    [[SERIAL_INSERTVALUE140:%.*]] = insertvalue { i64, double, <4 x i32>, [10 x i32] } [[SERIAL_INSERTVALUE120]], i32 [[SERIAL_EXTRACTVALUE110]], 3, 5
+; CHECK-NEXT:    [[SERIAL_INSERTVALUE150:%.*]] = insertvalue { i64, double, <4 x i32>, [10 x i32] } [[SERIAL_INSERTVALUE130]], i32 [[SERIAL_EXTRACTVALUE120]], 3, 5
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq <2 x i64> [[VEC_PHI0]], <i64 64, i64 64>
 ; CHECK-NEXT:    br label [[VPLANNEDBB130:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB13:
+; CHECK-NEXT:  VPlannedBB17:
 ; CHECK-NEXT:    [[TMP6:%.*]] = add <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[DOTEXTRACT_1_0:%.*]] = extractelement <2 x i64> [[TMP6]], i32 1
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <2 x i64> [[TMP6]], i32 0
@@ -54,7 +58,7 @@ define void @test_pointer_induction_escape() {
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i1 [[PREDICATE150]], true
 ; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_CALL_IF240:%.*]], label [[TMP13:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if24:
+; CHECK-NEXT:  pred.call.if28:
 ; CHECK-NEXT:    [[TMP12:%.*]] = tail call { double, double } @bar1(i64 [[DOTEXTRACT_1_0]])
 ; CHECK-NEXT:    br label [[TMP13]]
 ; CHECK-EMPTY:
@@ -62,7 +66,7 @@ define void @test_pointer_induction_escape() {
 ; CHECK-NEXT:    [[TMP14:%.*]] = phi { double, double } [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP12]], [[PRED_CALL_IF240]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE250:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue25:
+; CHECK-NEXT:  pred.call.continue29:
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE160:%.*]] = extractvalue { double, double } [[TMP10]], 1
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE170:%.*]] = extractvalue { double, double } [[TMP14]], 1
 ; CHECK-NEXT:    [[SERIAL_INSERTVALUE180:%.*]] = insertvalue { i64, double, <4 x i32>, [10 x i32] } [[SERIAL_INSERTVALUE0]], double [[SERIAL_EXTRACTVALUE160]], 1
@@ -82,11 +86,13 @@ simd.loop:
   %call2 = tail call { double, <4 x i32>, [10 x i32]} @bar2(i64 %iv.current)
   %e.vec = extractvalue { double, <4 x i32>, [10 x i32]} %call2, 1
   %e.arr = extractvalue { double, <4 x i32>, [10 x i32]} %call2, 2
+  %e.arr.elem = extractvalue {double, <4 x i32>, [10 x i32]} %call2, 2, 5
 
   ; Test insertvalue
   %agg1 = insertvalue {i64 , double, <4 x i32>, [10 x i32]} undef, i64 1, 0
   %agg2 = insertvalue {i64 , double, <4 x i32>, [10 x i32]} %agg1, <4 x i32> %e.vec, 2
   %agg3 = insertvalue {i64 , double, <4 x i32>, [10 x i32]} %agg2, [10 x i32] %e.arr, 3
+  %agg4 = insertvalue {i64 , double, <4 x i32>, [10 x i32]} %agg3, i32 %e.arr.elem, 3, 5
 
   ;branch into an if-part.
   %cmp = icmp eq i64 %iv.current, 64
@@ -96,7 +102,7 @@ block.iv.64:
   %lookahead = add i64%iv.current, 2
   %call3 = tail call { double, double } @bar1(i64 %lookahead)
   %e3 = extractvalue { double, double } %call3, 1
-  %agg4 = insertvalue {i64 , double, <4 x i32>, [10 x i32]} %agg2, double %e3, 1
+  %agg5 = insertvalue {i64 , double, <4 x i32>, [10 x i32]} %agg2, double %e3, 1
   br label %next
 
 next:
