@@ -287,7 +287,7 @@ static bool isLoopDead(Loop *L, ScalarEvolution &SE,
   bool AllEntriesInvariant = true;
   bool AllOutgoingValuesSame = true;
   bool NotInfinite = false; // INTEL
-  if (!L->hasNoExitBlocks()) {
+  if (ExitBlock) {
     for (PHINode &P : ExitBlock->phis()) {
       Value *incoming = P.getIncomingValueForBlock(ExitingBlocks[0]);
 
