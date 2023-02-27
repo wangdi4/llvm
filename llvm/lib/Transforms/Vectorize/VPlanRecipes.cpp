@@ -471,11 +471,6 @@ void VPWidenCallRecipe::execute(VPTransformState &State) {
          "DbgInfoIntrinsic should have been dropped during VPlan construction");
   State.setDebugLocFromInst(&CI);
 
-  SmallVector<Type *, 4> Tys;
-  for (Value *ArgOperand : CI.args())
-    Tys.push_back(
-        ToVectorTy(ArgOperand->getType(), State.VF.getKnownMinValue()));
-
   for (unsigned Part = 0; Part < State.UF; ++Part) {
     SmallVector<Type *, 2> TysForDecl = {CI.getType()};
     SmallVector<Value *, 4> Args;
@@ -503,14 +498,12 @@ void VPWidenCallRecipe::execute(VPTransformState &State) {
       VectorF = Intrinsic::getDeclaration(M, VectorIntrinsicID, TysForDecl);
       assert(VectorF && "Can't retrieve vector intrinsic.");
     } else {
-      // Use vector version of the function call.
-      const VFShape Shape = VFShape::get(CI, State.VF, false /*HasGlobalPred*/);
 #ifndef NDEBUG
-      assert(VFDatabase(CI).getVectorizedFunction(Shape) != nullptr &&
-             "Can't create vector function.");
+      assert(Variant != nullptr && "Can't create vector function.");
 #endif
-      VectorF = VFDatabase(CI).getVectorizedFunction(Shape);
+      VectorF = Variant;
     }
+
     SmallVector<OperandBundleDef, 1> OpBundles;
     CI.getOperandBundlesAsDefs(OpBundles);
     CallInst *V = State.Builder.CreateCall(VectorF, Args, OpBundles);
@@ -555,8 +548,12 @@ void VPWidenCallRecipe::print(raw_ostream &O, const Twine &Indent,
 
   if (VectorIntrinsicID)
     O << " (using vector intrinsic)";
-  else
-    O << " (using library function)";
+  else {
+    O << " (using library function";
+    if (Variant->hasName())
+      O << ": " << Variant->getName();
+    O << ")";
+  }
 }
 
 void VPWidenSelectRecipe::print(raw_ostream &O, const Twine &Indent,
