@@ -51,7 +51,8 @@ Value *llvm::formResolverCondition(IRBuilderBase &Builder,
 static void CreateMultiVersionResolverReturn(Function *Resolver,
                                              IRBuilderBase &Builder,
                                              Function *FuncToReturn,
-                                             bool UseIFunc) {
+                                             bool UseIFunc,
+                                             BasicBlock *ExitBlock) {
   if (UseIFunc) {
     Builder.CreateRet(FuncToReturn);
     return;
@@ -71,7 +72,7 @@ static void CreateMultiVersionResolverReturn(Function *Resolver,
   }
 
   Builder.CreateAlignedStore(FuncToReturn, ResolverPtr, MaybeAlign(8));
-  Builder.CreateRetVoid();
+  Builder.CreateBr(ExitBlock);
 }
 
 void llvm::emitMultiVersionResolver(Function *Resolver,
@@ -82,7 +83,18 @@ void llvm::emitMultiVersionResolver(Function *Resolver,
          "Only implemented for x86 targets");
 
   auto &Ctx = Resolver->getContext();
-  BasicBlock *CurBlock = BasicBlock::Create(Ctx, "resolver_entry", Resolver);
+
+  BasicBlock *CurBlock = nullptr;
+  if (Resolver->empty())
+    CurBlock = BasicBlock::Create(Ctx, "resolver_entry", Resolver);
+  else {
+    CurBlock = &Resolver->back();
+    CurBlock->erase(CurBlock->begin(), CurBlock->end());
+  }
+
+  BasicBlock *ExitBlock = nullptr;
+  if (!UseIFunc)
+    ExitBlock = BasicBlock::Create(Ctx, "resolver_exit", Resolver);
 
   IRBuilder<> Builder(CurBlock, CurBlock->begin());
 
@@ -99,26 +111,24 @@ void llvm::emitMultiVersionResolver(Function *Resolver,
     if (!Condition) {
       assert(&RO == Options.end() - 1 &&
              "Default or Generic case must be last");
-      CreateMultiVersionResolverReturn(Resolver, Builder, RO.Fn, UseIFunc);
-      return;
+      CreateMultiVersionResolverReturn(Resolver, Builder, RO.Fn, UseIFunc, ExitBlock);
+      break;
     }
 
-    BasicBlock *RetBlock = BasicBlock::Create(Ctx, "resolver_return", Resolver);
+    BasicBlock *RetBlock = BasicBlock::Create(Ctx, "resolver_return", Resolver, ExitBlock);
     {
       IRBuilderBase::InsertPointGuard Guard(Builder);
       Builder.SetInsertPoint(RetBlock);
-      CreateMultiVersionResolverReturn(Resolver, Builder, RO.Fn, UseIFunc);
+      CreateMultiVersionResolverReturn(Resolver, Builder, RO.Fn, UseIFunc, ExitBlock);
     }
-    CurBlock = BasicBlock::Create(Ctx, "resolver_else", Resolver);
+    CurBlock = BasicBlock::Create(Ctx, "resolver_else", Resolver, ExitBlock);
     Builder.CreateCondBr(Condition, RetBlock, CurBlock);
   }
 
-  // If no generic/default, emit an unreachable.
-  Builder.SetInsertPoint(CurBlock);
-  CallInst *TrapCall = Builder.CreateIntrinsic(Intrinsic::trap, {}, {});
-  TrapCall->setDoesNotReturn();
-  TrapCall->setDoesNotThrow();
-  Builder.CreateUnreachable();
+  if (!UseIFunc) {
+    Builder.SetInsertPoint(ExitBlock);
+    Builder.CreateRetVoid();
+  }
 }
 
 static Type *getCpuModelType(IRBuilderBase &Builder) {

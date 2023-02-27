@@ -8,7 +8,7 @@
 ; CHECK:     @foo.ptr = internal global ptr null, !llvm.acd.dispatcher !0
 ; CHECK-DAG: define void @foo.A() #0 !llvm.acd.clone !0 {
 ; CHECK-DAG: define void @foo.V() #1 !llvm.acd.clone !0 {
-; CHECK-DAG: define internal void @foo.resolver() #0 {
+; CHECK-DAG: define internal void @__intel.acd.resolver() #0 {
 ; CHECK-DAG: define void @foo() #0 !llvm.acd.dispatcher !0 {
 
 

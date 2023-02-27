@@ -1,9 +1,9 @@
 ; RUN: opt -opaque-pointers -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 
-; CHECK:      @__intel_cpu_feature_indicator = external global [2 x i64]
+; CHECK:      @llvm.global_ctors = appending global [2 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 500, ptr @__intel.acd.resolver, ptr null }, { i32, ptr, ptr } { i32 0, ptr @__intel_cpu_features_init, ptr null }]
+; CHECK-NEXT: @__intel_cpu_feature_indicator = external global [2 x i64]
 ; CHECK-NEXT: @baz.ptr = internal global ptr null
-; CHECK-NEXT: @llvm.global_ctors = appending global [3 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 500, ptr @baz.resolver, ptr null }, { i32, ptr, ptr } { i32 0, ptr @__intel_cpu_features_init, ptr null }, { i32, ptr, ptr } { i32 500, ptr @foo.resolver, ptr null }]
 ; CHECK-NEXT: @foo.ptr = internal global ptr null
 ; CHECK-EMPTY:
 ; CHECK-NEXT: define i32 @baz.A(i32 %a) #0 comdat !llvm.acd.clone !0 {
@@ -27,7 +27,7 @@
 ; CHECK-NEXT:   ret i32 %add
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
-; CHECK-NEXT: define internal void @baz.resolver() #0 {
+; CHECK-NEXT: define internal void @__intel.acd.resolver() #0 {
 ; CHECK-NEXT: resolver_entry:
 ; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator, align 8
 ; CHECK-NEXT:   %cpu_feature_join = and i64 %cpu_feature_indicator, 10330092
@@ -36,10 +36,27 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_return:                                  ; preds = %resolver_entry
 ; CHECK-NEXT:   store ptr @baz.V, ptr @baz.ptr, align 8
-; CHECK-NEXT:   ret void
+; CHECK-NEXT:   br label %resolver_exit
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_else:                                    ; preds = %resolver_entry
 ; CHECK-NEXT:   store ptr @baz.A, ptr @baz.ptr, align 8
+; CHECK-NEXT:   br label %resolver_exit
+; CHECK-EMPTY:
+; CHECK-NEXT: resolver_exit:                                    ; preds = %resolver_else, %resolver_return
+; CHECK-NEXT:   %cpu_feature_indicator2 = load i64, ptr @__intel_cpu_feature_indicator, align 8
+; CHECK-NEXT:   %cpu_feature_join3 = and i64 %cpu_feature_indicator2, 10330092
+; CHECK-NEXT:   %cpu_feature_check4 = icmp eq i64 %cpu_feature_join3, 10330092
+; CHECK-NEXT:   br i1 %cpu_feature_check4, label %resolver_return5, label %resolver_else6
+; CHECK-EMPTY:
+; CHECK-NEXT: resolver_return5:                                 ; preds = %resolver_exit
+; CHECK-NEXT:   store ptr @foo.V, ptr @foo.ptr, align 8
+; CHECK-NEXT:   br label %resolver_exit1
+; CHECK-EMPTY:
+; CHECK-NEXT: resolver_else6:                                   ; preds = %resolver_exit
+; CHECK-NEXT:   store ptr @foo.A, ptr @foo.ptr, align 8
+; CHECK-NEXT:   br label %resolver_exit1
+; CHECK-EMPTY:
+; CHECK-NEXT: resolver_exit1:                                   ; preds = %resolver_else6, %resolver_return5
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
@@ -55,22 +72,6 @@
 ; CHECK-NEXT:   %ret = call i32 @baz.V(i32 33)
 ; CHECK-NEXT:   %add = add i32 %a, %ret
 ; CHECK-NEXT:   ret i32 %add
-; CHECK-NEXT: }
-; CHECK-EMPTY:
-; CHECK-NEXT: define internal void @foo.resolver() #0 {
-; CHECK-NEXT: resolver_entry:
-; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator, align 8
-; CHECK-NEXT:   %cpu_feature_join = and i64 %cpu_feature_indicator, 10330092
-; CHECK-NEXT:   %cpu_feature_check = icmp eq i64 %cpu_feature_join, 10330092
-; CHECK-NEXT:   br i1 %cpu_feature_check, label %resolver_return, label %resolver_else
-; CHECK-EMPTY:
-; CHECK-NEXT: resolver_return:                                  ; preds = %resolver_entry
-; CHECK-NEXT:   store ptr @foo.V, ptr @foo.ptr, align 8
-; CHECK-NEXT:   ret void
-; CHECK-EMPTY:
-; CHECK-NEXT: resolver_else:                                    ; preds = %resolver_entry
-; CHECK-NEXT:   store ptr @foo.A, ptr @foo.ptr, align 8
-; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
 ; CHECK-NEXT: define i32 @foo(i32 %a) #0 !llvm.acd.dispatcher !0 {
