@@ -2830,7 +2830,7 @@ cl_err_code MigrateMemObjCommand::CommandDone() {
  * ******************************************************************/
 MigrateUSMMemCommand::MigrateUSMMemCommand(
     const SharedPtr<IOclCommandQueueBase> &cmdQueue,
-    cl_mem_migration_flags_intel clFlags, const void *ptr, size_t size)
+    cl_mem_migration_flags clFlags, const void *ptr, size_t size)
     : Command(cmdQueue), m_ptr(ptr) {
   assert(nullptr != ptr);
 
@@ -2846,8 +2846,8 @@ MigrateUSMMemCommand::MigrateUSMMemCommand(
  * ******************************************************************/
 cl_err_code MigrateUSMMemCommand::Init() {
   MemoryObject::MemObjUsage access =
-      (0 != (m_migrateCmdParams.flags &
-             CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED_INTEL))
+      (0 !=
+       (m_migrateCmdParams.flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED))
           ? MemoryObject::WRITE_ENTIRE
           : MemoryObject::READ_ONLY;
 

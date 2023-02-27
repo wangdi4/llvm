@@ -45,6 +45,8 @@ static cl::opt<unsigned> FMAControl("x86-global-fma-control",
                                     cl::desc("FMA heuristics control."),
                                     cl::init(0), cl::Hidden);
 
+#define MAX_NUM_FOR_BUILD_TIME 4000
+
 namespace {
 
 class X86FMAImmediateTerm;
@@ -972,6 +974,10 @@ public:
   /// The parameter \p MRI is passed to this method to make it possible
   /// to find virtual registers associated with FMARegisterTerms and
   /// having uses that are not recognized as FMAExpr operations.
+  /// TODO: Refine the algorithm for building time. Current global FMA
+  /// algorithm recursively optimate very node when it change (consumed).
+  /// So, we also let parseBasicBlock return 0 to escape go to long time
+  /// optimation when the BB is huge.
   unsigned parseBasicBlock(MachineRegisterInfo *MRI);
 
   /// Updates the <isKill> attribute to machine operands associated with the
@@ -1059,6 +1065,10 @@ unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI) {
     MVT VT;
     FMAOpcodesInfo::FMAOpcodeKind OpcodeKind;
     bool IsMem;
+
+    if (getFMAs().size() > MAX_NUM_FOR_BUILD_TIME)
+      return 0;
+
     if (!FMAOpcodesInfo::recognizeInstr(MI, VT, OpcodeKind, IsMem))
       continue;
     // Sometimes the fast flags lost during the instruction lowering.

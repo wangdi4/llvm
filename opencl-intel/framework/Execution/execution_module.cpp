@@ -3870,13 +3870,13 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(
 
 cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
     cl_command_queue command_queue, const void *ptr, size_t size,
-    cl_mem_migration_flags_intel flags, cl_uint num_events_in_wait_list,
+    cl_mem_migration_flags flags, cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list, cl_event *event, ApiLogger *api_logger) {
   // TODO: it is unresolved in spec (rev. O) whether nullptr is an invalid
   // value for ptr and whether 0 is invalid for size.
   if (nullptr == ptr || 0 == size || 0 == flags ||
-      (flags & ~(CL_MIGRATE_MEM_OBJECT_HOST_INTEL |
-                 CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED_INTEL)))
+      (flags &
+       ~(CL_MIGRATE_MEM_OBJECT_HOST | CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
     return CL_INVALID_VALUE;
 
   SharedPtr<IOclCommandQueueBase> queue =

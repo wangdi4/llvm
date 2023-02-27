@@ -18,9 +18,7 @@
 #include "llvm/Transforms/SYCLTransforms/KernelArgType.h"
 
 #include "CL/cl.h"
-#include "CL/cl_fpga_ext.h"
 #include "CL/cl_gvp_ext.h"
-#include "CL/cl_usm_ext.h"
 #include <cassert>
 #include <climits>
 #include <cstring>
@@ -734,7 +732,7 @@ struct cl_dev_cmd_param_migrate {
 struct cl_dev_cmd_param_migrate_usm {
   IOCLDevMemoryObject *memObj;        //!< Handle to USM memory object
   size_t size;                        //!< Memory region size
-  cl_mem_migration_flags_intel flags; //!< Migration flags
+  cl_mem_migration_flags flags;       //!< Migration flags
 };
 
 /**
@@ -772,7 +770,8 @@ struct cl_dev_cmd_param_native {
 struct cl_dev_cmd_param_advise_usm {
   IOCLDevMemoryObject *memObj; //!< Handle to USM memory object
   size_t size;                 //!< Memory region size
-  cl_mem_advice_intel advice;  //!< Advice hint
+  cl_uint advice; //!< Advice hint. Use cl_uint instead of cl_mem_advice_intel
+                  //!< to avoid including cl_ext.h
 };
 
 // ------------------------------------------------------------------------------
