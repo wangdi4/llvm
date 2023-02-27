@@ -139,6 +139,24 @@ static bool requiresUnsupportedSVAFeatures(const VPInstruction *VInst,
          SVA->instNeedsLastScalarCode(VInst);
 }
 
+// Helper utility to convert aggregate extract/insert operation indices from
+// llvm::Constant to a vector of integers.
+static SmallVector<unsigned, 2>
+convertAggregateIndicesToIntVector(Constant *IdxsConst) {
+  SmallVector<unsigned, 2> Result;
+
+  // The indices are represented as a ConstantDataArray field in VPlan, hence
+  // the type will be an array.
+  unsigned NumElts = cast<ArrayType>(IdxsConst->getType())->getNumElements();
+  for (unsigned I = 0; I != NumElts; ++I) {
+    Constant *C = IdxsConst->getAggregateElement(I);
+    assert(C && "Unexpected nullptr for index.");
+    Result.push_back(cast<ConstantInt>(C)->getZExtValue());
+  }
+
+  return Result;
+}
+
 Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
                                              ArrayRef<Value *> Ops) {
   Value *SerialInst = nullptr;
@@ -295,28 +313,20 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     SerialInst = SerialAtomicCmpXchg;
     SerialInst->setName("serial.cmpxchg");
   } else if (VPInst->getOpcode() == Instruction::ExtractValue) {
-    // TODO: Currently, 'extractvalue' VPInstruction drops the last argument.
-    // This is an issue similar to the dropped mask-value for shufflevector
-    // instruction. An assert on Ops size seems unnecessary till
-    // then.
-    auto *OrigExtractValueInst =
-        cast<ExtractValueInst>(VPInst->getUnderlyingValue());
-    assert(OrigExtractValueInst &&
-           "Expect a valid underlying extractvalue instruction.");
+    assert(Ops.size() == 2 && "ExtractValue should have only two operands.");
+    // Second operand of extractvalue VPInstruction will be the array of
+    // indices.
+    auto *IdxConst = cast<Constant>(Ops[1]);
     SerialInst = Builder.CreateExtractValue(
-        Ops[0], OrigExtractValueInst->getIndices(), "serial.extractvalue");
+        Ops[0], convertAggregateIndicesToIntVector(IdxConst),
+        "serial.extractvalue");
   } else if (VPInst->getOpcode() == Instruction::InsertValue) {
-    // TODO: Currently, 'insertvalue' VPInstruction drops the last argument.
-    // This is an issue similar to the dropped mask-value for shufflevector
-    // instruction. An assert on Ops size seems unnecessary till
-    // then.
-    auto *OrigInsertValueInst =
-        cast<InsertValueInst>(VPInst->getUnderlyingValue());
-    assert(OrigInsertValueInst &&
-           "Expect a valid underlying insertvalue instruction.");
-    SerialInst = Builder.CreateInsertValue(Ops[0], Ops[1],
-                                           OrigInsertValueInst->getIndices(),
-                                           "serial.insertvalue");
+    // Third operand of insertvalue VPInstruction will be the array of indices.
+    assert(Ops.size() == 3 && "InsertValue should have only three operands.");
+    auto *IdxConst = cast<Constant>(Ops[2]);
+    SerialInst = Builder.CreateInsertValue(
+        Ops[0], Ops[1], convertAggregateIndicesToIntVector(IdxConst),
+        "serial.insertvalue");
   } else if (VPInst->getOpcode() == Instruction::ShuffleVector) {
     SerialInst = Builder.CreateShuffleVector(Ops[0], Ops[1], Ops[2]);
   } else if (VPInst->getOpcode() == Instruction::Select) {
@@ -2448,72 +2458,6 @@ void VPOCodeGen::predicateInstructions() {
       Phi->addIncoming(IncomingTrue, I->getParent());
     }
   }
-}
-
-SmallVector<int, 16>
-VPOCodeGen::getVPShuffleOriginalMask(const VPInstruction *VPI) {
-  assert(VPI->getOpcode() == Instruction::ShuffleVector &&
-         "getVPShuffleOriginalMask called on non-shuffle instruction.");
-  // The last operand of shufflevector is the mask and it is expected to always
-  // be a constant.
-  VPConstant *ShufMask =
-      cast<VPConstant>(VPI->getOperand(VPI->getNumOperands() - 1));
-  Constant *ShufMaskConst = ShufMask->getConstant();
-  SmallVector<int, 16> Result;
-
-  unsigned NumElts =
-      cast<FixedVectorType>(ShufMaskConst->getType())->getNumElements();
-  if (auto *CDS = dyn_cast<ConstantDataSequential>(ShufMaskConst)) {
-    for (unsigned I = 0; I != NumElts; ++I)
-      Result.push_back(CDS->getElementAsInteger(I));
-    return Result;
-  }
-  for (unsigned I = 0; I != NumElts; ++I) {
-    Constant *C = ShufMaskConst->getAggregateElement(I);
-    Result.push_back(isa<UndefValue>(C) ? -1
-                                        : cast<ConstantInt>(C)->getZExtValue());
-  }
-
-  return Result;
-}
-
-const VPValue *VPOCodeGen::getOrigSplatVPValue(const VPValue *V) {
-  if (auto *C = dyn_cast<VPConstant>(V)) {
-    if (isa<VectorType>(V->getType())) {
-      Constant *SplatC =
-          cast<Constant>(
-              getScalarValue(const_cast<VPConstant *>(C), 0 /*Lane*/))
-              ->getSplatValue();
-      // We need to create a new VPConstant to represent a splat constant
-      // vector.
-      return const_cast<VPlanVector *>(Plan)->getVPConstant(SplatC);
-    }
-  }
-
-  auto *VPInst = dyn_cast<VPInstruction>(V);
-  if (!VPInst || VPInst->getOpcode() != Instruction::ShuffleVector)
-    return nullptr;
-
-  // All-zero or undef shuffle mask elements.
-  if (any_of(getVPShuffleOriginalMask(VPInst),
-             [](int MaskElt) -> bool { return MaskElt != 0 && MaskElt != -1; }))
-    return nullptr;
-
-  // The first shuffle source is 'insertelement' with index 0.
-  auto *InsertEltVPInst = dyn_cast<VPInstruction>(VPInst->getOperand(0));
-  if (!InsertEltVPInst ||
-      InsertEltVPInst->getOpcode() != Instruction::InsertElement)
-    return nullptr;
-
-  if (auto *ConstIdx = dyn_cast<VPConstant>(InsertEltVPInst->getOperand(2))) {
-    Value *ConstIdxV = getScalarValue(ConstIdx, 0 /*Lane*/);
-    if (!isa<ConstantInt>(ConstIdxV) || !cast<ConstantInt>(ConstIdxV)->isZero())
-      return nullptr;
-  } else {
-    return nullptr;
-  }
-
-  return InsertEltVPInst->getOperand(1);
 }
 
 // Obtain the last active lane index.
