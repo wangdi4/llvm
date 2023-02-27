@@ -1,4 +1,4 @@
-; RUN: opt %s -passes='hir-ssa-deconstruction,hir-temp-array-transpose' -print-after=hir-temp-array-transpose -disable-output -hir-details-dims 2>&1 | FileCheck %s
+; RUN: opt %s -passes='hir-ssa-deconstruction,hir-temp-array-transpose' -print-after=hir-temp-array-transpose -disable-output -hir-temp-array-transpose-allow-unknown-sizes -hir-details-dims 2>&1 | FileCheck %s
 
 ; Check that we successfully transpose the refs with one dim as constant size and the
 ; other using the Loop UB. Candidate @nsarh_mp_qyt_ has a known inner dimsize and uses
