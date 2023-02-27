@@ -15,16 +15,13 @@
 #include "VectorizerUtils.h"
 #include "exceptions.h"
 
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/SYCLKernelAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/VFAnalysis.h"
 
 #if INTEL_CUSTOMIZATION
-cl::opt<bool>
-    DisableVPlanCM("disable-ocl-vplan-cost-model", cl::init(false), cl::Hidden,
-                   cl::desc("Disable cost model for VPlan vectorizer"));
-
 // Enable vectorization at O0 optimization level.
 extern cl::opt<bool> EnableO0Vectorization;
 #endif // INTEL_CUSTOMIZATION
@@ -32,6 +29,47 @@ extern cl::opt<bool> EnableO0Vectorization;
 // If set, then optimization passes will process functions as if they have the
 // optnone attribute.
 extern bool SYCLForceOptnone;
+
+namespace {
+
+struct CreateDebugPM {
+  static void *call() {
+    return new cl::opt<DebugLogging>(
+        "debug-pass-manager", cl::Hidden, cl::ValueOptional,
+        cl::desc("Print pass management debugging information"),
+        cl::init(DebugLogging::None),
+        cl::values(
+            clEnumValN(DebugLogging::Normal, "", ""),
+            clEnumValN(DebugLogging::Quiet, "quiet",
+                       "Skip printing info about analyses"),
+            clEnumValN(
+                DebugLogging::Verbose, "verbose",
+                "Print extra information about adaptors and pass managers")));
+  }
+};
+ManagedStatic<cl::opt<DebugLogging>, CreateDebugPM> DebugPM;
+
+struct CreateVerifyEachPass {
+  static void *call() {
+    return new cl::opt<bool>("verify-each-pass", cl::Hidden,
+                             cl::desc("Verify IR after each pass"),
+                             cl::init(false));
+  }
+};
+ManagedStatic<cl::opt<bool>, CreateVerifyEachPass> VerifyEachPass;
+
+#if INTEL_CUSTOMIZATION
+struct CreateDisableVPlanCM {
+  static void *call() {
+    return new cl::opt<bool>(
+        "disable-ocl-vplan-cost-model", cl::init(false), cl::Hidden,
+        cl::desc("Disable cost model for VPlan vectorizer"));
+  }
+};
+ManagedStatic<cl::opt<bool>, CreateDisableVPlanCM> DisableVPlanCM;
+#endif // INTEL_CUSTOMIZATION
+
+} // namespace
 
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
@@ -112,6 +150,13 @@ Optimizer::Optimizer(llvm::Module &M,
   m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
                                         Config.GetUseNativeDebuggerFlag());
   m_UseTLSGlobals = (m_debugType == intel::Native);
+
+  static llvm::once_flag OptionOnceFlag;
+  llvm::call_once(OptionOnceFlag, [&] {
+    *DebugPM;
+    *DisableVPlanCM; // INTEL
+    *VerifyEachPass;
+  });
 }
 
 void Optimizer::setDiagnosticHandler(llvm::raw_ostream &LogStream) {
@@ -198,6 +243,19 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
 
   return Res;
 }
+
+void Optimizer::initOptimizerOptions() {
+  *DebugPM;
+  *DisableVPlanCM; // INTEL
+  *VerifyEachPass;
+}
+
+DebugLogging Optimizer::getDebugPM() { return *DebugPM; }
+
+bool Optimizer::getDisableVPlanCM() { return *DisableVPlanCM; } // INTEL
+
+bool Optimizer::getVerifyEachPass() { return *VerifyEachPass; }
+
 } // namespace DeviceBackend
 } // namespace OpenCL
 } // namespace Intel

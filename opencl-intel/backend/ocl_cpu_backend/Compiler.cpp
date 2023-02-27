@@ -246,6 +246,8 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
 
   Args.push_back(nullptr);
 
+  Optimizer::initOptimizerOptions();
+
   cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
 
   if (!config.DisableStackDump())
