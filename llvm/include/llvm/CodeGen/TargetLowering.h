@@ -1593,6 +1593,7 @@ public:
 
   /// Return the type of registers that this ValueType will eventually require.
   MVT getRegisterType(LLVMContext &Context, EVT VT) const {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // For non-power of 2 vector let target decide whether to use
     // getVectorTypeBreakdown or not.
@@ -1602,6 +1603,10 @@ public:
              std::size(RegisterTypeForVT));
       return RegisterTypeForVT[VT.getSimpleVT().SimpleTy];
     }
+=======
+    if (VT.isSimple())
+      return getRegisterType(VT.getSimpleVT());
+>>>>>>> c5085c91cc8eb542933fcf11b684127cbc64d63e
     if (VT.isVector()) {
       EVT VT1;
       MVT RegisterVT;
@@ -4514,7 +4519,7 @@ public:
   /// necessary information.
   virtual EVT getTypeForExtReturn(LLVMContext &Context, EVT VT,
                                        ISD::NodeType /*ExtendKind*/) const {
-    EVT MinVT = getRegisterType(Context, MVT::i32);
+    EVT MinVT = getRegisterType(MVT::i32);
     return VT.bitsLT(MinVT) ? MinVT : VT;
   }
 
