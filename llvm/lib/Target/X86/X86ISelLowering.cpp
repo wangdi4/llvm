@@ -62917,18 +62917,6 @@ static SDValue combineFP_ROUND(SDNode *N, SelectionDAG &DAG,
   if (!Subtarget.hasF16C() || Subtarget.useSoftFloat())
     return SDValue();
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  if (Subtarget.hasFP16() || Subtarget.hasAVX256P())
-#else  // INTEL_FEATURE_ISA_AVX256P
-  if (Subtarget.hasFP16())
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-    return SDValue();
-
-=======
->>>>>>> 6a6c527ee287a4a7787fb5c519014c2e22f718c3
   bool IsStrict = N->isStrictFPOpcode();
   EVT VT = N->getValueType(0);
   SDValue Src = N->getOperand(IsStrict ? 1 : 0);
@@ -62942,7 +62930,13 @@ static SDValue combineFP_ROUND(SDNode *N, SelectionDAG &DAG,
 
   SDValue Cvt, Chain;
   unsigned NumElts = VT.getVectorNumElements();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (Subtarget.hasFP16() || Subtarget.hasAVX256P()) {
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (Subtarget.hasFP16()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     // Combine (v8f16 fp_round(concat_vectors(v4f32 (xint_to_fp v4i64), ..)))
     // into (v8f16 vector_shuffle(v8f16 (CVTXI2P v4i64), ..))
     if (NumElts == 8 && Src.getOpcode() == ISD::CONCAT_VECTORS) {
