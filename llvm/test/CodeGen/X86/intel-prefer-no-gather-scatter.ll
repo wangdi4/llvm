@@ -3,6 +3,8 @@
 ; RUN: llc -opaque-pointers -mattr=+avx2,+fast-gather,+prefer-no-gather %s -o - | FileCheck %s --check-prefixes=NO-GATHER
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+avx512vl,+avx512dq < %s | FileCheck %s --check-prefix=SCATTER
 ; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+avx512vl,+avx512dq,+prefer-no-gather < %s | FileCheck %s --check-prefix=SCATTER-NO-GATHER
+; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+avx512vl,+avx512dq,+prefer-no-scatter < %s | FileCheck %s --check-prefix=GATHER-NO-SCATTER
+; RUN: llc -mtriple=x86_64-unknown-linux-gnu  -mattr=+avx512vl,+avx512dq,+prefer-no-gather,+prefer-no-scatter < %s | FileCheck %s --check-prefix=NO-SCATTER-GATHER
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -18,6 +20,12 @@ define void @test() #0 {
 ;
 ; NO-GATHER-LABEL: test:
 ; NO-GATHER-NOT: vpgatherdq
+;
+; GATHER-NO-SCATTER-LABEL: test:
+; GATHER-NO-SCATTER: vpgatherdq
+;
+; NO-SCATTER-GATHER-LABEL: test:
+; NO-SCATTER-GATHER-NOT: vpgatherdq
 iter.check:
   br i1 false, label %vec.epilog.scalar.ph, label %vector.main.loop.iter.check
 
@@ -111,6 +119,12 @@ define <4 x float> @gather_v4f32_ptr_v4i32(<4 x ptr> %ptr, <4 x i32> %trigger, <
 ;
 ; NO-GATHER-LABEL: gather_v4f32_ptr_v4i32:
 ; NO-GATHER-NOT: vgatherqps
+;
+; GATHER-NO-SCATTER-LABEL: gather_v4f32_ptr_v4i32:
+; GATHER-NO-SCATTER: vgatherqps
+;
+; NO-SCATTER-GATHER-LABEL: gather_v4f32_ptr_v4i32:
+; NO-SCATTER-GATHER-NOT: vgatherqps
   %mask = icmp eq <4 x i32> %trigger, zeroinitializer
   %res = call <4 x float> @llvm.masked.gather.v4f32.v4p0(<4 x ptr> %ptr, i32 4, <4 x i1> %mask, <4 x float> %passthru)
   ret <4 x float> %res
@@ -129,6 +143,9 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ;
 ; NO-GATHER-LABEL: gather_v8i32_v8i32:
 ; NO-GATHER-NOT: vpgatherdd
+;
+; NO-SCATTER-GATHER-LABEL: gather_v8i32_v8i32:
+; NO-SCATTER-GATHER-NOT: vpgatherdd
   %1 = icmp eq <8 x i32> %trigger, zeroinitializer
   %2 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> getelementptr (%struct.a, <8 x ptr> <ptr @c, ptr @c, ptr @c, ptr @c, ptr @c, ptr @c, ptr @c, ptr @c>, <8 x i64> zeroinitializer, i32 0, <8 x i64> <i64 3, i64 3, i64 3, i64 3, i64 3, i64 3, i64 3, i64 3>), i32 4, <8 x i1> %1, <8 x i32> undef)
   %3 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> getelementptr (%struct.a, <8 x ptr> <ptr @c, ptr @c, ptr @c, ptr @c, ptr @c, ptr @c, ptr @c, ptr @c>, <8 x i64> zeroinitializer, i32 3), i32 4, <8 x i1> %1, <8 x i32> undef)
@@ -147,6 +164,12 @@ define void @scatter_test1(ptr %base, <16 x i32> %ind, i16 %mask, <16 x i32>%val
 ;
 ; SCATTER-NO-GATHER-LABEL: scatter_test1:
 ; SCATTER-NO-GATHER: vpscatterdd
+;
+; GATHER-NO-SCATTER-LABEL: scatter_test1:
+; GATHER-NO-SCATTER-NOT: vpscatterdd
+;
+; NO-SCATTER-GATHER-LABEL: scatter_test1:
+; NO-SCATTER-GATHER-NOT: vpscatterdd
   %broadcast.splatinsert = insertelement <16 x ptr> undef, ptr %base, i32 0
   %broadcast.splat = shufflevector <16 x ptr> %broadcast.splatinsert, <16 x ptr> undef, <16 x i32> zeroinitializer
 
@@ -166,6 +189,12 @@ define <8 x i32> @scatter_test2(<8 x i32>%a1, <8 x ptr> %ptr) {
 ;
 ; SCATTER-NO-GATHER-LABEL: scatter_test2:
 ; SCATTER-NO-GATHER: vpscatterqd
+;
+; GATHER-NO-SCATTER-LABEL: scatter_test2:
+; GATHER-NO-SCATTER-NOT: vpscatterqd
+;
+; NO-SCATTER-GATHER-LABEL: scatter_test2:
+; NO-SCATTER-GATHER-NOT: vpscatterqd
   %a = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> %ptr, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> undef)
 
   call void @llvm.masked.scatter.v8i32.v8p0(<8 x i32> %a1, <8 x ptr> %ptr, i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)

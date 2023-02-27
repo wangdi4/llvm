@@ -61,32 +61,13 @@
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #endif // INTEL_CUSTOMIZATION
 
-cl::opt<DebugLogging> DebugPM(
-    "debug-pass-manager", cl::Hidden, cl::ValueOptional,
-    cl::desc("Print pass management debugging information"),
-    cl::init(DebugLogging::None),
-    cl::values(
-        clEnumValN(DebugLogging::Normal, "", ""),
-        clEnumValN(DebugLogging::Quiet, "quiet",
-                   "Skip printing info about analyses"),
-        clEnumValN(
-            DebugLogging::Verbose, "verbose",
-            "Print extra information about adaptors and pass managers")));
-
-cl::opt<bool> VerifyEachPass("verify-each-pass", cl::Hidden,
-                             cl::desc("Verify IR after each pass"),
-                             cl::init(false));
+using namespace llvm;
 
 // If set, then optimization passes will process functions as if they have the
 // optnone attribute.
 extern bool SYCLForceOptnone;
 
-#if INTEL_CUSTOMIZATION
-extern cl::opt<bool> DisableVPlanCM;
-extern cl::opt<bool> EnableO0Vectorization;
-#endif // INTEL_CUSTOMIZATION
-
-using namespace llvm;
+extern cl::opt<bool> EnableO0Vectorization; // INTEL
 
 namespace Intel {
 namespace OpenCL {
@@ -99,7 +80,6 @@ OptimizerLTO::OptimizerLTO(Module &M, SmallVectorImpl<Module *> &RtlModuleList,
 void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   TargetMachine *TM = Config.GetTargetMachine();
   assert(TM && "Uninitialized TargetMachine!");
-
   PipelineTuningOptions PTO;
   PTO.LoopUnrolling = true;
   PTO.LoopInterleaving = false;
@@ -110,16 +90,16 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
 
   std::optional<PGOOptions> PGOOpt;
   PassInstrumentationCallbacks PIC;
-  bool DebugPassManager = DebugPM != DebugLogging::None;
+  bool DebugPassManager = getDebugPM() != DebugLogging::None;
   PrintPassOptions PrintPassOpts;
-  PrintPassOpts.Verbose = DebugPM == DebugLogging::Verbose;
-  PrintPassOpts.SkipAnalyses = DebugPM == DebugLogging::Quiet;
+  PrintPassOpts.Verbose = getDebugPM() == DebugLogging::Verbose;
+  PrintPassOpts.SkipAnalyses = getDebugPM() == DebugLogging::Quiet;
 #if INTEL_CUSTOMIZATION
   vpo::VPlanDriverPass::setRunForSycl(m_IsSYCL);
   vpo::VPlanDriverPass::setRunForO0(EnableO0Vectorization);
 #endif // INTEL_CUSTOMIZATION
   StandardInstrumentations SI(m_M.getContext(), DebugPassManager,
-                              VerifyEachPass, PrintPassOpts);
+                              getVerifyEachPass(), PrintPassOpts);
   SI.registerCallbacks(PIC);
   PassBuilder PB(TM, PTO, PGOOpt, &PIC);
 
@@ -411,7 +391,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       // fastest moving dimension (that maps to get_global_id(0) for LLVM IR
       // in our implementation). The vec/no-vec decision belongs to the
       // programmer.
-      if (!m_IsSYCL && !DisableVPlanCM &&
+      if (!m_IsSYCL && !getDisableVPlanCM() &&
           Config.GetTransposeSize() == TRANSPOSE_SIZE_NOT_SET)
         MPM.addPass(VectorKernelEliminationPass());
 

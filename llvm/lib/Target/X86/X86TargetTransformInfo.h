@@ -288,10 +288,9 @@ public:
   bool isLegalNTLoad(Type *DataType, Align Alignment);
   bool isLegalNTStore(Type *DataType, Align Alignment);
   bool isLegalBroadcastLoad(Type *ElementTy, ElementCount NumElements) const;
+  bool forceScalarizeMaskedGatherScatter(VectorType *VTy, Align Alignment); // INTEL
   bool forceScalarizeMaskedGather(VectorType *VTy, Align Alignment);
-  bool forceScalarizeMaskedScatter(VectorType *VTy, Align Alignment) {
-    return forceScalarizeMaskedGather(VTy, Alignment);
-  }
+  bool forceScalarizeMaskedScatter(VectorType *VTy, Align Alignment); // INTEL
   bool isLegalMaskedGather(Type *DataType, Align Alignment);
 #if INTEL_CUSTOMIZATION
   bool shouldScalarizeMaskedGather(CallInst *CI);
