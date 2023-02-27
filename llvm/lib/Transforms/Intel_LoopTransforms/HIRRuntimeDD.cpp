@@ -144,6 +144,14 @@ static cl::opt<unsigned>
     MaximumNumberOfTests(OPT_SWITCH "-max-tests", cl::init(60), cl::Hidden,
                          cl::desc("Maximum number of runtime tests for loop."));
 
+// Maximum bits of strided access that is considered as contiguous by Runtime
+// DD. This corresponds to max vector register supported on the platform.
+// The threshold will be ignored if -1 is passed.
+static cl::opt<int64_t> ContiguousStridedAccessSizeThreshold(
+    OPT_SWITCH "-contiguous-access-threshold", cl::init(0),
+    cl::desc("Maximum bits of contiguous access in a loop. This threshold "
+             "will be disabled if the value is set to -1."));
+
 static cl::opt<bool> IgnoreIVDepLoopLoops(
     OPT_SWITCH "-ignore-ivdeploop-loops", cl::init(false), cl::Hidden,
     cl::desc("Ignore loops with \"ivdep loop\" in " OPT_DESCR "."));
@@ -434,7 +442,8 @@ static bool sortRefsInGroups(RefGroupVecTy &Groups,
 // is 1. This means that the entries in the group represents an access to
 // the memory that is contiguous.
 static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
-                                             const HLLoop *InnermostLoop) {
+                                             const HLLoop *InnermostLoop,
+                                             TargetTransformInfo &TTI) {
 
   if (Group.empty())
     return false;
@@ -465,8 +474,36 @@ static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
   if (ExpectedContiguousAccessMatches < 2)
     return false;
 
+  // Bail out if the number of bits that are going to be accessed is larger
+  // than the threshold. If the size was provided using the option
+  // -hir-runtime-dd-contiguous-access-threshold=X, the prioritize this value.
+  // If the value is -1, then the threshold will be fully ignored. This is for
+  // testing purposes. Else, use the vector width computed from TTI.
+  int64_t MaxContiguousStrideSize = 0;
+  if (ContiguousStridedAccessSizeThreshold.getNumOccurrences()) {
+    MaxContiguousStrideSize = ContiguousStridedAccessSizeThreshold;
+  } else {
+    auto VectorWidth =
+        TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector);
+    MaxContiguousStrideSize = VectorWidth.getFixedValue();
+  }
+
+  // If MaxContiguousStrideSize is 0, then we fully disable RuntimeDD for
+  // contiguous memory access.
+  if (MaxContiguousStrideSize == 0) {
+    return false;
+  }
+
+  if (MaxContiguousStrideSize > 0) {
+    int64_t ExpectedAccessInBits =
+        (((int64_t)LoadStoreSize * 8) * ExpectedContiguousAccessMatches);
+    if (ExpectedAccessInBits > MaxContiguousStrideSize)
+      return false;
+  }
+
   RegDDRef *PrevRef = FirstRef;
   int64_t NumContiguousAccessMatches = 1;
+
   for (unsigned I = 1, E = Group.size(); I < E; I++) {
     RegDDRef *Ref = Group[I];
 
@@ -1604,7 +1641,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
                     [](const RegDDRef *Ref) { return Ref->isLval(); });
 
     bool IsContiguousGroup =
-        isGroupAccessingContiguousMemory(Groups[I], InnermostLoop);
+        isGroupAccessingContiguousMemory(Groups[I], InnermostLoop, TTI);
     IVSegments.emplace_back(GetGroupForChecks(I), IsWriteGroup,
                             IsContiguousGroup);
 
