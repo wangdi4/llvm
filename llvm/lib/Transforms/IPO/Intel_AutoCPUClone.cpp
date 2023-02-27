@@ -158,13 +158,15 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
                          Function*& Resolver, GlobalValue*& Dispatcher) {
 
   Module *M = Fn.getParent();
-  LLVMContext &Ctx = Fn.getContext();
-  FunctionType *ResolverTy = FunctionType::get(Type::getVoidTy(Ctx), false);
-  Resolver = Function::Create(ResolverTy, GlobalValue::InternalLinkage,
-                              OrigName + ".resolver", M);
-  Resolver->setDSOLocal(true);
-  appendToGlobalCtors(*M, Resolver, 500 /* Some number > 0 */);
-
+  Resolver = M->getFunction("__intel.acd.resolver");
+  if (!Resolver) {
+    LLVMContext &Ctx = Fn.getContext();
+    FunctionType *ResolverTy = FunctionType::get(Type::getVoidTy(Ctx), false);
+    Resolver = Function::Create(ResolverTy, GlobalValue::InternalLinkage,
+                                "__intel.acd.resolver", M);
+    Resolver->setDSOLocal(true);
+    appendToGlobalCtors(*M, Resolver, 500 /* Some number > 0 */);
+  }
   emitMultiVersionResolver(Resolver, MVOptions, false /*UseIFunc*/,
                            true /*UseLibIRC*/);
 

@@ -426,8 +426,7 @@ static bool PreprocessDispatcherFunctions(Module &M) {
       assert(DispatchPtr.getName().endswith(".ptr"));
 
       StringRef FnName = DispatchPtr.getName().drop_back(4);
-      std::string ResolverName = FnName.str() + ".resolver";
-      Function *ResolverFn = M.getFunction(ResolverName);
+      Function *ResolverFn = M.getFunction("__intel.acd.resolver");
 
       bool AllUsesAreInResolverFn = true;
       auto End = DispatchPtr.use_end();
