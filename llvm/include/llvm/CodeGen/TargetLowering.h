@@ -1593,20 +1593,12 @@ public:
 
   /// Return the type of registers that this ValueType will eventually require.
   MVT getRegisterType(LLVMContext &Context, EVT VT) const {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // For non-power of 2 vector let target decide whether to use
     // getVectorTypeBreakdown or not.
-    if (VT.isSimple() && !breakDownNonPow2VectorType(VT)) {
+    if (VT.isSimple() && !breakDownNonPow2VectorType(VT))
 #endif // INTEL_CUSTOMIZATION
-      assert((unsigned)VT.getSimpleVT().SimpleTy <
-             std::size(RegisterTypeForVT));
-      return RegisterTypeForVT[VT.getSimpleVT().SimpleTy];
-    }
-=======
-    if (VT.isSimple())
       return getRegisterType(VT.getSimpleVT());
->>>>>>> c5085c91cc8eb542933fcf11b684127cbc64d63e
     if (VT.isVector()) {
       EVT VT1;
       MVT RegisterVT;
