@@ -4118,6 +4118,9 @@ def ivfsoverlay_lib : JoinedOrSeparate<["-"], "ivfsoverlay-lib">, Group<clang_i_
   HelpText<"Load the virtual filesystem from shared library">,
   MarshallingInfoStringVector<HeaderSearchOpts<"VFSOverlayLibs">>;
 // endif INTEL_CUSTOMIZATION
+def vfsoverlay : JoinedOrSeparate<["-", "--"], "vfsoverlay">, Flags<[CC1Option, CoreOption]>,
+  HelpText<"Overlay the virtual filesystem described by file over the real file system. "
+           "Additionally, pass this overlay file to the linker if it supports it">;
 def imultilib : Separate<["-"], "imultilib">, Group<gfortran_Group>;
 def keep__private__externs : Flag<["-"], "keep_private_externs">;
 def l : JoinedOrSeparate<["-"], "l">, Flags<[LinkerInput, RenderJoined]>,

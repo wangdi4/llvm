@@ -564,6 +564,10 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + AV));
   }
 #endif // INTEL_CUSTOMIZATION
+  if (Linker == "lld-link")
+    for (Arg *A : Args.filtered(options::OPT_vfsoverlay))
+      CmdArgs.push_back(
+          Args.MakeArgString(std::string("/vfsoverlay:") + A->getValue()));
 
   if (Linker.equals_insensitive("link")) {
     // If we're using the MSVC linker, it's not sufficient to just use link
