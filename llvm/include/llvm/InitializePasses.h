@@ -301,7 +301,6 @@ void initializeLoopInfoWrapperPassPass(PassRegistry&);
 void initializeLoopInstSimplifyLegacyPassPass(PassRegistry&);
 void initializeLoopInterchangeLegacyPassPass(PassRegistry &);
 void initializeLoopFlattenLegacyPassPass(PassRegistry&);
-void initializeLoopLoadEliminationPass(PassRegistry&);
 void initializeLoopPassPass(PassRegistry&);
 void initializeLoopPredicationLegacyPassPass(PassRegistry&);
 void initializeLoopRerollLegacyPassPass(PassRegistry &);
