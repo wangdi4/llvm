@@ -62,3 +62,27 @@ void test_tile_transposed(void)
   // CHECK: call void @llvm.x86.ttransposed(i8 1, i8 2)
   _tile_transposed(1, 2);
 }
+
+void test_tile_conjtcmmimfp16ps(void) {
+  // CHECK-LABEL: @test_tile_conjtcmmimfp16ps
+  // CHECK: call void @llvm.x86.tconjtcmmimfp16ps(i8 1, i8 2, i8 3)
+  _tile_conjtcmmimfp16ps(1, 2, 3);
+}
+
+void test_tile_conjtfp16(void) {
+  // CHECK-LABEL: @test_tile_conjtfp16
+  // CHECK: call void @llvm.x86.tconjtfp16(i8 1, i8 2)
+  _tile_conjtfp16(1, 2);
+}
+
+void test_tile_tcmmimfp16ps(void) {
+  // CHECK-LABEL: @test_tile_tcmmimfp16ps
+  // CHECK: call void @llvm.x86.ttcmmimfp16ps(i8 1, i8 2, i8 3)
+  _tile_tcmmimfp16ps(1, 2, 3);
+}
+
+void test_tile_tcmmrlfp16ps(void) {
+  // CHECK-LABEL: @test_tile_tcmmrlfp16ps
+  // CHECK: call void @llvm.x86.ttcmmrlfp16ps(i8 1, i8 2, i8 3)
+  _tile_tcmmrlfp16ps(1, 2, 3);
+}

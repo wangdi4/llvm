@@ -40888,12 +40888,18 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
+  case X86::PTCONJTCMMIMFP16PS:
+  case X86::PTTCMMIMFP16PS:
+  case X86::PTTCMMRLFP16PS:
   case X86::PTTDPBF16PS:
   case X86::PTTDPFP16PS: {
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTCONJTCMMIMFP16PS: Opc = X86::TCONJTCMMIMFP16PS; break;
+    case X86::PTTCMMIMFP16PS:     Opc = X86::TTCMMIMFP16PS;    break;
+    case X86::PTTCMMRLFP16PS:     Opc = X86::TTCMMRLFP16PS;    break;
     case X86::PTTDPBF16PS:  Opc = X86::TTDPBF16PS;  break;
     case X86::PTTDPFP16PS:  Opc = X86::TTDPFP16PS;  break;
     }
@@ -40906,12 +40912,14 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
+  case X86::PTCONJTFP16:
   case X86::PTTRANSPOSED:{
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
     case X86::PTTRANSPOSED: Opc = X86::TTRANSPOSED; break;
+    case X86::PTCONJTFP16:  Opc = X86::TCONJTFP16;  break;
     }
 
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
@@ -41425,32 +41433,20 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   }
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
-  case X86::PTCONJTFP16:
   case X86::PTCMMIMFP16PS:
-  case X86::PTCMMRLFP16PS:
-  case X86::PTCONJTCMMIMFP16PS:
-  case X86::PTTCMMIMFP16PS:
-  case X86::PTTCMMRLFP16PS: {
+  case X86::PTCMMRLFP16PS: {
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
     case X86::PTCMMIMFP16PS:     Opc = X86::TCMMIMFP16PS;     break;
     case X86::PTCMMRLFP16PS:     Opc = X86::TCMMRLFP16PS;     break;
-    case X86::PTCONJTCMMIMFP16PS: Opc = X86::TCONJTCMMIMFP16PS; break;
-    case X86::PTTCMMIMFP16PS:    Opc = X86::TTCMMIMFP16PS;    break;
-    case X86::PTTCMMRLFP16PS:    Opc = X86::TTCMMRLFP16PS;    break;
-    case X86::PTCONJTFP16:        Opc = X86::TCONJTFP16;        break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
-    if (Opc != X86::TCONJTFP16) {
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Undef);
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()), RegState::Undef);
-    } else {
-      MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
-    }
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()), RegState::Undef);
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
