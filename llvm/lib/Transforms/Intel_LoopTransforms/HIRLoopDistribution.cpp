@@ -1133,9 +1133,15 @@ void HIRLoopDistribution::distributeLoop(
         ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
                                        OptReportMsg[Success]);
       }
-      // Loop distributed (%d way)
-      ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25426u,
-                                     LoopCount);
+
+      // Loop distributed (%d way) for <Reason>
+      if (DistCostModel == DistHeuristics::NestFormation) {
+        ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25426u,
+                                       LoopCount);
+      } else {
+        ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25427u,
+                                       LoopCount);
+      }
     }
 
     if (CurLoopIndex == PreheaderLoopIndex) {
@@ -1182,6 +1188,8 @@ void HIRLoopDistribution::distributeLoop(
                                    StripmineSize, StripmineRequiresExtraSetup);
       // Fix TempArray index if stripmine is peformed: 64 * i1 + i2 => i2
       fixTempArrayCoeff(NewLoops[0]->getParentLoop());
+      // Loop stripmined by <StripmineSize>
+      ORBuilder(*NewLoops[0]->getParentLoop()).addOrigin(25428u, StripmineSize);
     }
   }
 

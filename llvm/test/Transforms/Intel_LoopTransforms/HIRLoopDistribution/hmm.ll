@@ -30,6 +30,16 @@
 ; CHECK: END LOOP
 ; CHECK-NEXT: END REGION
 
+;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-cg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-opt-report=low -disable-output 2>&1 %s | FileCheck %s  -check-prefix=OPTREPORT
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Distributed chunk1>
+; OPTREPORT:     remark #25427: Loop distributed (2 way) for enabling vectorization on some chunks
+; OPTREPORT: LOOP END
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Distributed chunk2>
+; OPTREPORT: LOOP END
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
