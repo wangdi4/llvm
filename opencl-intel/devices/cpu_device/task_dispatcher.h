@@ -95,6 +95,9 @@ public:
                  IAffinityChangeObserver *pObsserver);
   virtual ~TaskDispatcher();
 
+  TaskDispatcher(const TaskDispatcher &) = delete;
+  TaskDispatcher &operator=(const TaskDispatcher &) = delete;
+
   virtual cl_dev_err_code init();
 
   virtual cl_dev_err_code
@@ -237,8 +240,6 @@ protected:
 #endif
 
 private:
-  TaskDispatcher(const TaskDispatcher &);
-  TaskDispatcher &operator=(const TaskDispatcher &);
   Intel::OpenCL::Utils::OclSpinMutex TaskSeqQueueMutex;
 };
 

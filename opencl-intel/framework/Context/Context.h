@@ -97,6 +97,9 @@ public:
           ocl_entry_points *pOclEntryPoints, ocl_gpa_data *pGPAData,
           ContextModule &contextModule);
 
+  Context(const Context &) = delete;
+  Context &operator=(const Context &) = delete;
+
   /*****************************************************************************
    * Function:     Cleanup
    * Description:  Cleanup devices in the context if terminate is false
@@ -725,8 +728,6 @@ protected:
   std::vector<size_t> m_forcedWGSizes;
 
 private:
-  Context(const Context &);
-  Context &operator=(const Context &);
   // Store callback function and its parameters
   std::vector<std::tuple<cl_context, CallbackType *, void *>> m_callbackFuncs;
 };

@@ -84,6 +84,9 @@ public:
    */
   virtual ~ArenaHandler();
 
+  ArenaHandler(const ArenaHandler &) = delete;
+  ArenaHandler &operator=(const ArenaHandler &) = delete;
+
   /**
    * Enqueue a functor on the arena.
    * @param F the type of the functor
@@ -139,10 +142,6 @@ private:
 
   DECLARE_LOGGER_CLIENT;
 
-  // do not implement:
-  ArenaHandler(const ArenaHandler &);
-  ArenaHandler &operator=(const ArenaHandler &);
-
   friend class DevArenaObserver;
   friend class TEDevice;
 };
@@ -160,6 +159,9 @@ public:
            const Intel::OpenCL::Utils::SharedPtr<TEDevice> &parent = nullptr) {
     return new TEDevice(device_desc, user_data, observer, taskExecutor, parent);
   }
+
+  TEDevice(const TEDevice &) = delete;
+  TEDevice &operator=(const TEDevice &) = delete;
 
   /**
    * @param  uiNumSubdevComputeUnits - number of computing units in the
@@ -332,10 +334,6 @@ private:
            const Intel::OpenCL::Utils::SharedPtr<TEDevice> &parent);
 
   ~TEDevice();
-
-  // do not implement:
-  TEDevice(const TEDevice &);
-  TEDevice &operator=(const TEDevice &);
 
   void init_next_arena_level(unsigned int current_level,
                              unsigned int position[]);

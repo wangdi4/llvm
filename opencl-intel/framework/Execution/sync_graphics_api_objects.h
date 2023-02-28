@@ -68,6 +68,9 @@ public:
 
   virtual ~SyncGraphicsApiObjects();
 
+  SyncGraphicsApiObjects(const SyncGraphicsApiObjects &s) = delete;
+  SyncGraphicsApiObjects &operator=(const SyncGraphicsApiObjects &s) = delete;
+
   /**
    * @fn  unsigned int SyncGraphicsApiObjects::GetNumMemObjs() const
    *
@@ -130,10 +133,6 @@ public:
   GraphicsApiMemoryObject &GetMemoryObject(size_t Index) {
     return *m_pMemObjects[Index];
   }
-
-private:
-  SyncGraphicsApiObjects(const SyncGraphicsApiObjects &s);
-  SyncGraphicsApiObjects &operator=(const SyncGraphicsApiObjects &s);
 };
 
 } // namespace Framework

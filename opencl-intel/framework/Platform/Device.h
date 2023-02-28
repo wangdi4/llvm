@@ -429,6 +429,9 @@ public:
 
   ~SubDevice();
 
+  SubDevice(const SubDevice &) = delete;
+  SubDevice &operator=(const SubDevice &) = delete;
+
   /*****************************************************************************
    * Function:     GetInfo
    * Description: get object specific information (inherited from OCLObject) the
@@ -506,9 +509,6 @@ protected:
       *m_cachedFissionMode; // A copy of the property list used to create this
                             // device
   cl_uint m_cachedFissionLength; // How many entries the list contains
-private:
-  SubDevice(const SubDevice &);
-  SubDevice &operator=(const SubDevice &);
 };
 
 } // namespace Framework

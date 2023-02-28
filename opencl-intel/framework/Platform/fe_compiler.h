@@ -54,6 +54,8 @@ public:
     return SharedPtr<FrontEndCompiler>(new FrontEndCompiler());
   }
 
+  FrontEndCompiler &operator=(const FrontEndCompiler &) = delete;
+
   /*****************************************************************************
    * Function:     Initialize
    * Description:  Initialize the front-end compiler
@@ -220,7 +222,6 @@ protected:
   DECLARE_LOGGER_CLIENT;
 
 private:
-  FrontEndCompiler &operator=(const FrontEndCompiler &);
   cl_err_code ProcessResults(cl_err_code Error, IOCLFEBinaryResult *Result,
                              char **Binary, size_t *BinarySize,
                              char **CompileLog) const;

@@ -59,6 +59,9 @@ public:
    ****************************************************************************/
   virtual ~PlatformModule();
 
+  PlatformModule(const PlatformModule &) = delete;
+  PlatformModule &operator=(const PlatformModule &) = delete;
+
   /*****************************************************************************
    * Function:     Initialize
    * Description: Initialize the platform module object: set platform's
@@ -224,9 +227,6 @@ private:
   Intel::OpenCL::Utils::OPENCL_VERSION m_oclVersion;
 
   DECLARE_LOGGER_CLIENT;
-
-  PlatformModule(const PlatformModule &);
-  PlatformModule &operator=(const PlatformModule &);
 };
 
 } // namespace Framework

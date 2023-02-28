@@ -266,6 +266,11 @@ public:
     return SharedPtr<Kernel>(new Kernel(pProgram, psKernelName, szNumDevices));
   }
 
+  // disable possibility to create two instances of Kernel with the same
+  // m_pArgsBlob pointer.
+  Kernel(const Kernel &s) = delete;
+  Kernel &operator=(const Kernel &s) = delete;
+
   /*****************************************************************************
    * Function:     GetInfo
    * Description:  get object specific information (inherited from
@@ -561,11 +566,6 @@ private:
    ****************************************************************************/
   Kernel(const SharedPtr<Program> &pProgram, const char *psKernelName,
          size_t szNumDevices);
-
-  // disable possibility to create two instances of Kernel with the same
-  // m_pArgsBlob pointer.
-  Kernel(const Kernel &s);
-  Kernel &operator=(const Kernel &s);
 };
 
 } // namespace Framework

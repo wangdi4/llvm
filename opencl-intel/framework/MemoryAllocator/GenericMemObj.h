@@ -832,6 +832,11 @@ public:
                             cl_mem_object_type clObjType,
                             GenericMemObject &buffer);
 
+  // do not implement
+  GenericMemObjectSubBuffer(const GenericMemObjectSubBuffer &) = delete;
+  GenericMemObjectSubBuffer &
+  operator=(const GenericMemObjectSubBuffer &) = delete;
+
   static SharedPtr<GenericMemObjectSubBuffer>
   Allocate(const SharedPtr<Context> &pContext,
            ocl_entry_points *pOclEntryPoints, cl_mem_object_type clObjType,
@@ -901,10 +906,6 @@ protected:
 
   // synch me with my parent
   void ZombieFlashToParent();
-
-  // do not implement
-  GenericMemObjectSubBuffer(const GenericMemObjectSubBuffer &);
-  GenericMemObjectSubBuffer &operator=(const GenericMemObjectSubBuffer &);
 
 private:
   const GenericMemObject

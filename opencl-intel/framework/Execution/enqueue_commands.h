@@ -60,6 +60,11 @@ public:
   Command(const SharedPtr<IOclCommandQueueBase> &cmdQueue);
   virtual ~Command();
 
+  // disable possibility to create two instances of Command with the same logger
+  // pointer.
+  Command(const Command &s) = delete;
+  Command &operator=(const Command &s) = delete;
+
   //
   // Use this function to initiate the command local data set by a command
   // constructor
@@ -280,10 +285,6 @@ protected:
   DECLARE_LOGGER_CLIENT;
 
 private:
-  // disable possibility to create two instances of Command with the same logger
-  // pointer.
-  Command(const Command &s);
-  Command &operator=(const Command &s);
   // return CL_SUCCESS if ready and succeeded, CL_NOT_READY if not ready yet and
   // succeeded, other error code in case of error
   cl_err_code
@@ -903,6 +904,9 @@ public:
                    size_t *pszImageSlicePitch);
   virtual ~MapMemObjCommand();
 
+  MapMemObjCommand(const MapMemObjCommand &) = delete;
+  MapMemObjCommand &operator=(const MapMemObjCommand &) = delete;
+
   virtual cl_err_code Init() override;
   virtual cl_err_code Execute() override;
   virtual cl_err_code CommandDone() override;
@@ -935,10 +939,6 @@ protected:
   // postfix-related. Created in init, pointer zeroed at enqueue.
   PrePostFixRuntimeCommand *m_pPostfixCommand;
   bool m_bResourcesAllocated;
-
-private:
-  MapMemObjCommand(const MapMemObjCommand &);
-  MapMemObjCommand &operator=(const MapMemObjCommand &);
 };
 
 /******************************************************************
@@ -991,6 +991,9 @@ public:
                         void *pMappedRegion);
   virtual ~UnmapMemObjectCommand();
 
+  UnmapMemObjectCommand(const UnmapMemObjectCommand &) = delete;
+  UnmapMemObjectCommand &operator=(const UnmapMemObjectCommand &) = delete;
+
   cl_err_code Init() override;
   cl_err_code Execute() override;
   cl_err_code CommandDone() override;
@@ -1013,8 +1016,6 @@ private:
   // prefix-related. Created in init, pointer zeroed at enqueue.
   PrePostFixRuntimeCommand *m_pPrefixCommand;
   bool m_bResourcesAllocated;
-  UnmapMemObjectCommand(const UnmapMemObjectCommand &);
-  UnmapMemObjectCommand &operator=(const UnmapMemObjectCommand &);
 };
 
 class UnmapSvmBufferCommand : public UnmapMemObjectCommand {
