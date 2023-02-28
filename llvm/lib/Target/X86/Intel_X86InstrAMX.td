@@ -1495,14 +1495,14 @@ let Predicates = [HasAMXCOMPLEX, In64BitMode] in {
 let Predicates = [HasAMXTF32, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     let Constraints = "$src1 = $dst" in {
-    def TMMULTF32PS : I<0x6d, MRMSrcReg, (outs TILE:$dst),
+    def TMMULTF32PS : I<0x48, MRMSrcReg4VOp3, (outs TILE:$dst),
                         (ins TILE:$src1, TILE:$src2, TILE:$src3),
                         "tmmultf32ps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                         []>, VEX_4V, T8PD;
-    def TTMMULTF32PS : I<0x6d, MRMSrcReg, (outs TILE:$dst),
+    def TTMMULTF32PS : I<0x48, MRMSrcReg4VOp3, (outs TILE:$dst),
                          (ins TILE:$src1, TILE:$src2, TILE:$src3),
                          "ttmmultf32ps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
-                         []>, VEX_4V, T8XS;
+                         []>, VEX_4V, T8PS;
     }
 
     let Constraints = "$src4 = $dst" in {
