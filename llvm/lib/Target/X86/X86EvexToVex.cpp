@@ -1,4 +1,22 @@
 //===- X86EvexToVex.cpp ---------------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 // Compress EVEX instructions to VEX encoding when possible to reduce code size
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -123,6 +141,14 @@ static bool usesExtendedRegister(const MachineInstr &MI) {
     // Check for YMM register with indexes between 16 - 31.
     if (Reg >= X86::YMM16 && Reg <= X86::YMM31)
       return true;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    // Check for GPR with indexes between 16 - 31.
+    if (X86II::isApxExtendedReg(Reg))
+      return true;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     return false;
   };
