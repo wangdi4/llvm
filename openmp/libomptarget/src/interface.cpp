@@ -412,10 +412,17 @@ EXTERN int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
                                int32_t ThreadLimit, void *HostPtr,
                                KernelArgsTy *KernelArgs) {
   TIMESCOPE_WITH_IDENT(Loc);
+#if INTEL_CUSTOMIZATION
+  // TODO: investigate what it costs to enable the new (improved) scheme of
+  // invoking asynchronous target region. We are using customization in all
+  // places (codegen, host runtime, offload runtime), so we are not able to
+  // adopt the new scheme right away.
+#else  // INTEL_CUSTOMIZATION
   if (KernelArgs->Flags.NoWait)
     return targetKernel<TaskAsyncInfoWrapperTy>(
         Loc, DeviceId, NumTeams, ThreadLimit, HostPtr, KernelArgs);
   else
+#endif // INTEL_CUSTOMIZATION
     return targetKernel<AsyncInfoTy>(Loc, DeviceId, NumTeams, ThreadLimit,
                                      HostPtr, KernelArgs);
 }
