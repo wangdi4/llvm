@@ -186,6 +186,8 @@ public:
   OclMutex(unsigned int uiSpinCount = DEFAULT_SPIN_COUNT,
            bool recursive = NO_RECURSIVE_LOCK);
   virtual ~OclMutex();
+  OclMutex(const OclMutex &) = delete;
+  OclMutex &operator=(const OclMutex &) = delete;
   void Lock() override;
   void Unlock() override;
 
@@ -193,8 +195,6 @@ protected:
   MUTEX m_mutex;
 
 private:
-  OclMutex(const OclMutex &o);
-  OclMutex &operator=(const OclMutex &o);
   void spinCountMutexLock();
 
   unsigned int m_uiSpinCount;
@@ -390,6 +390,9 @@ public:
   AtomicBitField();
   virtual ~AtomicBitField();
 
+  AtomicBitField(const AtomicBitField &) = delete;
+  AtomicBitField &operator=(const AtomicBitField &) = delete;
+
   /* Initialize a new bit field array of size 'size' and set its' initial value
      to 'initVal'. The size must be greater than zero. The initialization
      process performs only once. (If 2 or more threads are trying to initialize
@@ -414,9 +417,6 @@ public:
   }
 
 private:
-  AtomicBitField &operator=(const AtomicBitField &);
-  AtomicBitField(const AtomicBitField &);
-
   unsigned int m_size;
   long *m_bitField;
   volatile long m_oneTimeFlag;

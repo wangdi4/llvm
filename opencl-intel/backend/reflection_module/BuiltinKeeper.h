@@ -52,6 +52,9 @@ class BuiltinKeeper {
       llvm::reflection::TypePrimitiveEnum PTy);
 
 public:
+  BuiltinKeeper(const BuiltinKeeper &) = delete;
+  BuiltinKeeper &operator=(const BuiltinKeeper &) = delete;
+
   static const BuiltinKeeper *instance();
 
   // Purpose: indicates whether the given string represent the mangled name of a
@@ -80,8 +83,6 @@ public:
 private:
   BuiltinKeeper();
   ~BuiltinKeeper() {}
-  BuiltinKeeper &operator=(const BuiltinKeeper &) const;
-  BuiltinKeeper(const BuiltinKeeper &);
 
   void initNullStrategyEntries();
   void initSoaStrategyEntries();

@@ -58,6 +58,10 @@ public:
                   ContextModule *pContextModule);
   virtual ~ExecutionModule();
 
+  // Disable copy consructors
+  ExecutionModule(const ExecutionModule &) = delete;
+  ExecutionModule &operator=(const ExecutionModule &) = delete;
+
   // Initialization is done right after the construction in order to capture
   // errors on initialization.
   cl_err_code Initialize(ocl_entry_points *pOclEntryPoints,
@@ -429,10 +433,6 @@ private:
   bool m_enableParallelCopy = false;
 
   DECLARE_LOGGER_CLIENT; // Logger client for logging operations.
-
-  // Disable copy consructors
-  ExecutionModule(const ExecutionModule &);
-  ExecutionModule &operator=(const ExecutionModule &);
 };
 
 } // namespace Framework

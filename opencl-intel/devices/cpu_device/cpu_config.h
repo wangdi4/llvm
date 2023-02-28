@@ -52,6 +52,9 @@ public:
   CPUDeviceConfig();
   ~CPUDeviceConfig();
 
+  CPUDeviceConfig(const CPUDeviceConfig &) = delete;
+  CPUDeviceConfig &operator=(const CPUDeviceConfig &) = delete;
+
   cl_err_code Initialize(std::string filename) override;
 
   cl_ulong GetForcedGlobalMemSize() const;
@@ -89,9 +92,6 @@ public:
   }
 #endif
 private:
-  CPUDeviceConfig(const CPUDeviceConfig &);
-  CPUDeviceConfig &operator=(const CPUDeviceConfig &);
-
   static std::mutex m_mutex;
   static std::string m_extensionsName;
   static std::vector<cl_name_version> m_extensions;

@@ -53,6 +53,10 @@ public:
   DebugServer();
   ~DebugServer();
 
+  // No copying
+  DebugServer(const DebugServer &) = delete;
+  DebugServer &operator=(const DebugServer &) = delete;
+
   // Initialize the server. Note that this blocks until a client is
   // connected.
   //
@@ -86,10 +90,6 @@ private:
   struct DebugServerImpl;
   std::unique_ptr<DebugServerImpl> d;
   HANDLE e = NULL;
-
-  // No copying
-  DebugServer(const DebugServer &);
-  DebugServer &operator=(const DebugServer &);
 
 protected:
   mutable llvm::sys::Mutex m_Lock;

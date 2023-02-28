@@ -57,6 +57,9 @@ public:
    ****************************************************************************/
   virtual ~ContextModule();
 
+  ContextModule(const ContextModule &) = delete;
+  ContextModule &operator=(const ContextModule &) = delete;
+
   /*****************************************************************************
    * Function:     Initialize
    * Description: Initialize the context module object and load devices
@@ -451,9 +454,6 @@ public:
   void UnregisterUSMFreeWaitEvent(const void *usmPtr, cl_event event);
 
 private:
-  ContextModule(const ContextModule &);
-  ContextModule &operator=(const ContextModule &);
-
   cl_err_code CheckMemObjectParameters(
       cl_mem_flags clMemFlags, const cl_image_format *clImageFormat,
       cl_mem_object_type clMemObjType, size_t szImageWidth,

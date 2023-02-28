@@ -44,6 +44,9 @@ public:
   BitCodeContainer(std::unique_ptr<llvm::MemoryBuffer> memBuffer);
   ~BitCodeContainer();
 
+  BitCodeContainer(const BitCodeContainer &) = delete;
+  BitCodeContainer &operator=(const BitCodeContainer &) = delete;
+
   const void *GetCode() const override;
 
   size_t GetCodeSize() const override;
@@ -85,12 +88,6 @@ private:
   llvm::orc::ThreadSafeModule m_TSM;
 
   std::unique_ptr<llvm::MemoryBuffer> m_pBuffer;
-
-  // Klockwork Issue
-  BitCodeContainer(const BitCodeContainer &x);
-
-  // Klockwork Issue
-  BitCodeContainer &operator=(const BitCodeContainer &x);
 };
 } // namespace DeviceBackend
 } // namespace OpenCL
