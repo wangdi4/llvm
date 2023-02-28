@@ -5714,6 +5714,48 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
 }
 
 #if INTEL_CUSTOMIZATION
+static bool isSplatGEP(Value *V) {
+  auto *GEP = dyn_cast<GEPOperator>(V);
+  if (!GEP)
+    return false;
+  bool HasSplatValue = false;
+  for (const Use &U : GEP->operands()) {
+    if (U->getType()->isVectorTy()) {
+      if (!getSplatValue(U))
+        return false;
+      HasSplatValue = true;
+    }
+  }
+
+  return HasSplatValue;
+}
+
+static Value *getScalarGEP(Value *V, Instruction *InsertPoint) {
+  auto *GEP = dyn_cast<GEPOperator>(V);
+  if (!GEP)
+    return nullptr;
+  bool HasSplatValue = false;
+  SmallVector<Value *, 2> Ops(GEP->operands());
+  unsigned FinalIndex = Ops.size();
+  for (unsigned i = 0; i < FinalIndex; ++i)
+    if (Ops[i]->getType()->isVectorTy()) {
+      Value *SplatValue = getSplatValue(Ops[i]);
+      if (!SplatValue)
+        return nullptr;
+      Ops[i] = SplatValue;
+      HasSplatValue = true;
+    }
+
+  if (!HasSplatValue)
+    return nullptr;
+
+  IRBuilder<> Builder(InsertPoint);
+  Type *SourceTy = GEP->getSourceElementType();
+  auto ScalarGEP =
+      Builder.CreateGEP(SourceTy, Ops[0], ArrayRef(Ops).drop_front());
+  return ScalarGEP;
+}
+
 /// Rewrite GEP input to gather/scatter to enable SelectionDAGBuilder to find
 /// a uniform base to use for ISD::MGATHER/MSCATTER.
 ///
@@ -5742,7 +5784,7 @@ bool CodeGenPrepare::optimizeGatherScatterInstExt(Instruction *MemoryInst,
 
   for (unsigned I = 0; I != E; ++I) {
     Value *Op = GEP->getOperand(I);
-    if (!getSplatValue(Op)) {
+    if (!getSplatValue(Op) && !isSplatGEP(Op)) {
       if (GEP->getOperand(I)->getType()->isVectorTy())
         ExistNonSplatVector = true;
       continue;
@@ -5756,6 +5798,9 @@ bool CodeGenPrepare::optimizeGatherScatterInstExt(Instruction *MemoryInst,
   for (unsigned I = 0; I != E; ++I) {
     Value *Op = GEP->getOperand(I);
     Value *SplatValue = getSplatValue(Op);
+
+    if (!SplatValue)
+      SplatValue = getScalarGEP(Op, GEP);
     if (!SplatValue)
       continue;
 
