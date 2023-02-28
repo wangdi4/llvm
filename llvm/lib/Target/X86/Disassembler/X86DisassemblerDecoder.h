@@ -66,6 +66,11 @@ namespace X86Disassembler {
 #define xFromEVEX2of4(evex)     (((~(evex)) & 0x40) >> 6)
 #define bFromEVEX2of4(evex)     (((~(evex)) & 0x20) >> 5)
 #define r2FromEVEX2of4(evex)    (((~(evex)) & 0x10) >> 4)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+#define b2FromEVEX2of4(evex)    (((evex) & 0x8) >> 3)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 #define mmmFromEVEX2of4(evex)   ((evex) & 0x7)
 #define wFromEVEX3of4(evex)     (((evex) & 0x80) >> 7)
 #define vvvvFromEVEX3of4(evex)  (((~(evex)) & 0x78) >> 3)
@@ -73,6 +78,9 @@ namespace X86Disassembler {
 #if INTEL_FEATURE_ISA_AVX256P
 #define p10FromEVEX3of4(evex)   (((~(evex)) & 0x4) >> 2)
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+#define x2FromEVEX3of4(evex)    (((~(evex)) & 0x4) >> 2)
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 #define ppFromEVEX3of4(evex)    ((evex) & 0x3)
 #define zFromEVEX4of4(evex)     (((evex) & 0x80) >> 7)
