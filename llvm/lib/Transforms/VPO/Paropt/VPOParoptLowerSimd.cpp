@@ -1704,7 +1704,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
 static unsigned int assignSLMOffset(Module &M) {
   auto DL = M.getDataLayout();
   unsigned SLMSize = 0;
-  for (auto &&GV : M.getGlobalList()) {
+  for (auto &&GV : M.globals()) {
     auto Ty = dyn_cast<PointerType>(GV.getType());
     if (Ty && Ty->getAddressSpace() == SYCL_SLM_AS) {
       auto DTy = GV.getValueType();
