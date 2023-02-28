@@ -1019,7 +1019,6 @@ void PassManagerBuilder::populateModulePassManager(
   // on the rotated form. Disable header duplication at -Oz.
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // In LTO mode, loopopt needs to run in link phase along with community
   // vectorizer and unroll after it until they are phased out.
@@ -1031,14 +1030,6 @@ void PassManagerBuilder::populateModulePassManager(
   INTEL_LIMIT_END
 
 #endif // INTEL_CUSTOMIZATION
-  // Distribute loops to allow partial vectorization.  I.e. isolate dependences
-  // into separate loop that would otherwise inhibit vectorization.  This is
-  // currently only performed for loops marked with the metadata
-  // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
-  MPM.add(createLoopDistributePass());
-
-=======
->>>>>>> eb5530e621aafedeecafcc25594a6492c0a1e6c3
   addVectorPasses(MPM, /* IsFullLTO */ false);
 
   // GlobalOpt already deletes dead functions and globals, at -O2 try a
@@ -1375,7 +1366,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
                                  ForgetAllSCEVInLoopUnroll));
   addLoopOptAndAssociatedVPOPasses(PM, true);
 #endif  // INTEL_CUSTOMIZATION
-  PM.add(createLoopDistributePass());
 
   addVectorPasses(PM, /* IsFullLTO */ true);
 
