@@ -1004,7 +1004,7 @@ OptimizeGlobalAddressOfAllocation(GlobalVariable *GV, CallInst *CI,
       cast<StoreInst>(InitBool->user_back())->eraseFromParent();
     delete InitBool;
   } else
-    GV->getParent()->insertGlobalVariable(GV->getIterator(), InitBool);
+    GV->getParent()->getGlobalList().insert(GV->getIterator(), InitBool);
 
   // Now the GV is dead, nuke it and the allocation..
   GV->eraseFromParent();
@@ -1196,7 +1196,7 @@ static bool TryToShrinkGlobalToBoolean(GlobalVariable *GV, Constant *OtherVal) {
                                              GV->getThreadLocalMode(),
                                              GV->getType()->getAddressSpace());
   NewGV->copyAttributesFrom(GV);
-  GV->getParent()->insertGlobalVariable(GV->getIterator(), NewGV);
+  GV->getParent()->getGlobalList().insert(GV->getIterator(), NewGV);
 
   Constant *InitVal = GV->getInitializer();
   assert(InitVal->getType() != Type::getInt1Ty(GV->getContext()) &&
