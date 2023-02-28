@@ -161,8 +161,11 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopCarriedCSELegacyPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeLoopSimplifyCFGLegacyPassPass(Registry);
+<<<<<<< HEAD
   initializeLoopVersioningLegacyPassPass(Registry);
   initializeIVSplitLegacyPassPass(Registry); // INTEL
+=======
+>>>>>>> 10eea3fe1536d5c8591d5ad47395345eb84e0201
 }
 
 void LLVMAddLoopSimplifyCFGPass(LLVMPassManagerRef PM) {
