@@ -62,11 +62,11 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:  [[BB2]]: base cost: 436.5
 ; VPLAN-CM-AVX2-NEXT:  Block total cost includes GS Cost: 288
 ; VPLAN-CM-AVX2-NEXT:  Block Scalar spill/fill approximate cost (not included into base cost): 128
-; VPLAN-CM-AVX2-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 160
+; VPLAN-CM-AVX2-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 172
 ; VPLAN-CM-AVX2-NEXT:  Base Cost: 436.5
 ; VPLAN-CM-AVX2-NEXT:  Extra cost due to Gather/Scatter heuristic is 576
-; VPLAN-CM-AVX2-NEXT:  Extra cost due to Spill/Fill heuristic is 288
-; VPLAN-CM-AVX2-NEXT:  Total Cost: 1300.5
+; VPLAN-CM-AVX2-NEXT:  Extra cost due to Spill/Fill heuristic is 300
+; VPLAN-CM-AVX2-NEXT:  Total Cost: 1312.5
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
