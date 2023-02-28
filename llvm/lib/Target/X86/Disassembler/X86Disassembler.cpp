@@ -450,8 +450,12 @@ static int readPrefixes(struct InternalInstruction *insn) {
 
     if ((insn->mode == MODE_64BIT || (byte1 & 0xc0) == 0xc0) &&
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+        // APX does not have limitation on the 1st payload
+        (true ||
+#endif // INTEL_FEATURE_ISA_APX_F
 #if INTEL_FEATURE_ISA_AVX256P
-        ((~byte1 & 0x8) == 0x8)) {
+         ((~byte1 & 0x8) == 0x8))) {
 #else // INTEL_FEATURE_ISA_AVX256P
         ((~byte1 & 0x8) == 0x8) && ((byte2 & 0x4) == 0x4)) {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -481,6 +485,15 @@ static int readPrefixes(struct InternalInstruction *insn) {
                           (rFromEVEX2of4(insn->vectorExtensionPrefix[1]) << 2) |
                           (xFromEVEX2of4(insn->vectorExtensionPrefix[1]) << 1) |
                           (bFromEVEX2of4(insn->vectorExtensionPrefix[1]) << 0);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      // We simulate the REX2 prefix for simplicity's sake
+        insn->rex2ExtensionPrefix[1] =
+            (r2FromEVEX2of4(insn->vectorExtensionPrefix[1]) << 6) |
+            (x2FromEVEX3of4(insn->vectorExtensionPrefix[2]) << 5) |
+            (b2FromEVEX2of4(insn->vectorExtensionPrefix[1]) << 4);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       }
 
       LLVM_DEBUG(
@@ -893,7 +906,19 @@ static int readModRM(struct InternalInstruction *insn) {
       break;
     case 0x3:
       insn->eaDisplacement = EA_DISP_NONE;
-      insn->eaBase = (EABase)(insn->eaRegBase + rm + evexrm);
+#if INTEL_CUSTOMIZATION
+      insn->eaBase = (EABase)(insn->eaRegBase + rm);
+      // NOTE:
+      // The use of evexrm
+      //  (xFromEVEX2of4(insn->vectorExtensionPrefix[1]) << 4)
+      // is moved to fixupReg due to undisclosed isa.
+      //
+      // The definition of this variable is not removed in this function
+      // for the minimum change.
+      //
+      // TODO: Drop the evexrm code in this function after disclose
+      (void) evexrm;
+#endif // INTEL_CUSTOMIZATION
       break;
     }
     break;
@@ -954,9 +979,7 @@ static int readModRM(struct InternalInstruction *insn) {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-// EVEX.X is ignored when modrm.rm encodes a GPR, so we can't
-// always use 0x1f here.
-#define MAX_GPR_NUM (0xf | !!insn->rex2ExtensionPrefix[0] << 4)
+#define MAX_GPR_NUM (0x1f)
 #else // INTEL_FEATURE_ISA_APX_F
 #define MAX_GPR_NUM 0xf
 #endif // INTEL_FEATURE_ISA_APX_F
@@ -1083,8 +1106,33 @@ static int fixupReg(struct InternalInstruction *insn,
     if (!valid)
       return -1;
     break;
-  CASE_ENCODING_SIB: // INTEL
   CASE_ENCODING_RM:
+#if INTEL_CUSTOMIZATION
+    if (insn->vectorExtensionType == TYPE_EVEX && insn->mode == MODE_64BIT &&
+        modFromModRM(insn->modRM) == 3) {
+      // EVEX.X can extend the register id to 32 for a non-GPR register that is
+      // encoded in RM.
+      // mode : MODE_64_BIT
+      //  Only 8 vector registers are available in 32 bit mode
+      // mod : 3
+      //  RM encodes a register
+      switch (op->type) {
+      case TYPE_Rv:
+      case TYPE_R8:
+      case TYPE_R16:
+      case TYPE_R32:
+      case TYPE_R64:
+        break;
+      default:
+        insn->eaBase =
+            (EABase)(insn->eaBase +
+                     (xFromEVEX2of4(insn->vectorExtensionPrefix[1]) << 4));
+        break;
+      }
+    }
+    [[fallthrough]];
+  CASE_ENCODING_SIB:
+#endif // INTEL_CUSTOMIZATION
     if (insn->eaBase >= insn->eaRegBase) {
       insn->eaBase = (EABase)fixupRMValue(
           insn, (OperandType)op->type, insn->eaBase - insn->eaRegBase, &valid);

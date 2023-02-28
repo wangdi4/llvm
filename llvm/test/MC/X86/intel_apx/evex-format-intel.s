@@ -1,7 +1,5 @@
 # REQUIRES: intel_feature_isa_apx_f
-## NOTE: This file needs to be updated after
-## 1. the bug of XED is fixed
-## 2. promoted instruction is supported
+## NOTE: This file needs to be updated after promoted instruction is supported
 # RUN: llvm-mc -triple x86_64 -show-encoding -x86-asm-syntax=intel -output-asm-variant=1 %s | FileCheck %s
 
 ## MRMDestMem
@@ -47,9 +45,10 @@
          vpsraq	zmm0, zmmword ptr [r16 + r17], 0
 
 ## MRM5m
-
-## xed bug
-## vscatterpf0dps (%r16,%zmm0){%k1}
+## AsmParser is buggy for this KNC instruction
+# C;HECK: vscatterpf0dps	{k1}, zmmword ptr [r16 + zmm0]
+# C;HECK: encoding: [0x62,0xfa,0x7d,0x49,0xc6,0x2c,0x00]
+#         vscatterpf0dps	{k1}, zmmword ptr [r16 + zmm0]
 
 ## MRM6m
 
