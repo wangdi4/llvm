@@ -459,6 +459,7 @@ PreservedAnalyses IPSCCPPass::run(Module &M, ModuleAnalysisManager &AM) {
   PA.preserve<AndersensAA>();           // INTEL
   return PA;
 }
+<<<<<<< HEAD
 
 namespace {
 
@@ -532,3 +533,5 @@ INITIALIZE_PASS_END(IPSCCPLegacyPass, "ipsccp",
 // createIPSCCPPass - This is the public interface to this file.
 ModulePass *llvm::createIPSCCPPass() { return new IPSCCPLegacyPass(); }
 
+=======
+>>>>>>> 91d5a52d2c7683f78982929ffc81fb34f73c8619
