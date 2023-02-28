@@ -58,6 +58,10 @@ static cl::opt<bool> UseOVLSCM(
   cl::desc("Consider cost returned by OVLSCostModel "
            "for optimized gathers and scatters."));
 
+static cl::opt<bool> VPlanPhiPumping(
+    "vplan-phi-pumping", cl::init(true), cl::Hidden,
+    cl::desc("Account for PHI pumping in counting PHI registers."));
+
 namespace llvm {
 
 namespace vpo {
@@ -352,11 +356,35 @@ VPInstructionCost HeuristicSpillFill::operator()(const VPBasicBlock *VPBlock,
   };
 
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
-  int NumberPHIs = llvm::count_if(PHIs, [&](auto& PHI) {
-    return !SkipInstRes(&PHI);});
   int FreeVecHWRegsNum = CM->TTI.getNumberOfRegisters(
-                             CM->TTI.getRegisterClassForType(SSERegsPressure)) -
-                         NumberPHIs;
+      CM->TTI.getRegisterClassForType(SSERegsPressure));
+
+  // TODO - When accounting for register pressure we only account for the
+  // following cases
+  // - Scalar VPValue use counting towards GPR register pressure
+  // - Vector VPValue use counting towards vector register pressure
+  // However, a scalar floating point type value uses a vector register. This
+  // case is not modeled currently and is something that we need to look into
+  // in future. However, scalar FP recurrences are expected to be rare(FP
+  // induction is an example).
+  for (auto &Phi : PHIs) {
+    if (SkipInstRes(&Phi))
+      continue;
+
+    // If we are not accounting for PHI pumping or computing non-sse register
+    // pressure, assume PHI takes one register.
+    if (!VPlanPhiPumping || !SSERegsPressure) {
+      FreeVecHWRegsNum -= 1;
+      continue;
+    }
+
+    Type *Ty = Phi.getType();
+    if (isVectorizableTy(Ty->getScalarType()))
+      FreeVecHWRegsNum -= CM->TTI.getNumberOfParts(getWidenedType(Ty, VF));
+    else
+      // The type will be serialized. Model as VF registers.
+      FreeVecHWRegsNum -= VF;
+  }
 
   for (const VPInstruction &VPInst : reverse(*VPBlock)) {
     // Zero-cost and unknown-cost instructions are ignored.
