@@ -420,7 +420,7 @@ static bool runIPSCCP(
                         << "' is target-declare and not removed\n");
     else
 #endif // INTEL_COLLAB
-    M.getGlobalList().erase(GV);
+    M.eraseGlobalVariable(GV);
     ++NumGlobalConst;
   }
 
