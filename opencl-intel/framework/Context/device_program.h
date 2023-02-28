@@ -56,6 +56,7 @@ public:
   DeviceProgram();
   DeviceProgram(const DeviceProgram &dp);
   virtual ~DeviceProgram();
+  DeviceProgram &operator=(const DeviceProgram &) = delete;
 
   void SetDevice(const SharedPtr<FissionableDevice> &pDevice);
   const SharedPtr<FissionableDevice> &GetDevice() const { return m_pDevice; }
@@ -194,9 +195,6 @@ protected:
 
   // Ensure the object is multi-thread safe
   mutable Intel::OpenCL::Utils::AtomicCounter m_currentAccesses;
-
-private:
-  DeviceProgram &operator=(const DeviceProgram &);
 };
 } // namespace Framework
 } // namespace OpenCL

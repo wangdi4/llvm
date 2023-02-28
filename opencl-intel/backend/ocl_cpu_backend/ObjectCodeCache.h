@@ -34,9 +34,6 @@ private:
   std::unique_ptr<llvm::MemoryBuffer> m_pObjectBuffer;
   bool m_isObjectAvailable;
 
-  ObjectCodeCache(const ObjectCodeCache &rhs);
-  ObjectCodeCache &operator=(const ObjectCodeCache &rhs);
-
 public:
   ObjectCodeCache() : m_isObjectAvailable(false) {}
 
@@ -44,6 +41,9 @@ public:
                   size_t ObjectSize);
 
   virtual ~ObjectCodeCache();
+
+  ObjectCodeCache(const ObjectCodeCache &) = delete;
+  ObjectCodeCache &operator=(const ObjectCodeCache &) = delete;
 
   /// notifyObjectCompiled - will be called once the codegen generates an object
   virtual void notifyObjectCompiled(const llvm::Module *,

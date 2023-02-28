@@ -47,6 +47,9 @@ public:
    ****************************************************************************/
   Sampler(_cl_context_int *context);
 
+  Sampler(const Sampler &) = delete;
+  Sampler &operator=(const Sampler &) = delete;
+
   // get image info
   cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
                       void *pParamValue,
@@ -83,10 +86,6 @@ protected:
   std::vector<cl_sampler_properties> m_clSamplerPropArrays;
 
   DECLARE_LOGGER_CLIENT;
-
-private:
-  Sampler(const Sampler &);
-  Sampler &operator=(const Sampler &);
 };
 
 } // namespace Framework

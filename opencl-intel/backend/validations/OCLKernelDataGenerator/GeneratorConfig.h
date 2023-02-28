@@ -75,6 +75,11 @@ public:
          it != m_GeneratorConfigVector.end(); ++it)
       delete *it; // delete each config
   }
+
+  OCLKernelDataGeneratorConfig(const OCLKernelDataGeneratorConfig &) = delete;
+  OCLKernelDataGeneratorConfig &
+  operator=(const OCLKernelDataGeneratorConfig &) = delete;
+
   ///@brief Read OCL Kernel Data Generator Config from file
   ///@param [in] ConfigFile - specified file to read config from.
   explicit OCLKernelDataGeneratorConfig(const TiXmlNode *ConfigNode);
@@ -111,8 +116,6 @@ private:
   ///@brief read xml node into config
   virtual bool VisitEnter(const TiXmlElement &,
                           const TiXmlAttribute *) override;
-  OCLKernelDataGeneratorConfig(const OCLKernelDataGeneratorConfig &) {}
-  OCLKernelDataGeneratorConfig &operator=(const OCLKernelDataGeneratorConfig &);
   typedef enum { SEED = 0, CONFIGS, OCLKERNELDGCONFIG, LASTFIELD } XMLField;
   // number of Successfully Loaded Fileds from XML file
   uint64_t m_SuccessfullyLoadedFileds[LASTFIELD];

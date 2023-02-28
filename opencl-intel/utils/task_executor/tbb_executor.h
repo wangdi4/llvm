@@ -51,6 +51,9 @@ public:
   TBBTaskExecutor();
   virtual ~TBBTaskExecutor();
 
+  TBBTaskExecutor(const TBBTaskExecutor &) = delete;
+  TBBTaskExecutor &operator=(const TBBTaskExecutor &) = delete;
+
   int Init(unsigned int uiNumOfThreads = TE_AUTO_THREADS,
            ocl_gpa_data *pGPAData = nullptr,
            size_t ulAdditionalRequiredStackSize = 0,
@@ -110,10 +113,6 @@ protected:
   DECLARE_LOGGER_CLIENT = nullptr;
 
   int m_err; // error code
-
-private:
-  TBBTaskExecutor(const TBBTaskExecutor &);
-  TBBTaskExecutor &operator=(const TBBTaskExecutor &);
 };
 
 class in_order_executor_task {

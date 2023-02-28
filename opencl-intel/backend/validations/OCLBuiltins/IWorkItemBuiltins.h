@@ -103,6 +103,9 @@ public:
 /// IDs
 class WorkItemInterfaceSetter {
 public:
+  WorkItemInterfaceSetter(WorkItemInterfaceSetter const &) = delete;
+  WorkItemInterfaceSetter &operator=(WorkItemInterfaceSetter const &) = delete;
+
   /// obtain pointer to object
   static WorkItemInterfaceSetter *inst() {
     if (!m_pInst)
@@ -142,9 +145,6 @@ protected:
   ~WorkItemInterfaceSetter(){};
 
 private:
-  /// hide ctors
-  WorkItemInterfaceSetter(WorkItemInterfaceSetter const &);
-  WorkItemInterfaceSetter &operator=(WorkItemInterfaceSetter const &);
   /// static pointer to instance
   static WorkItemInterfaceSetter *m_pInst;
   /// workgroup interface

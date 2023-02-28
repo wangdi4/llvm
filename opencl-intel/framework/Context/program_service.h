@@ -299,6 +299,9 @@ public:
                              uiNumBinaries, ppBinaries, pfn_notify, user_data);
   }
 
+  PostBuildTask(const PostBuildTask &) = delete;
+  PostBuildTask &operator=(const PostBuildTask &) = delete;
+
   virtual bool Execute() override;
   virtual void Cancel() override;
 
@@ -324,10 +327,6 @@ protected:
 
   pfnNotifyBuildDone m_pfn_notify;
   void *m_user_data;
-
-private:
-  PostBuildTask(const PostBuildTask &);
-  PostBuildTask &operator=(const PostBuildTask &);
 };
 
 class CreateAutorunKernelsTask : public BuildTask {

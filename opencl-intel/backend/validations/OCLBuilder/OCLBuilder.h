@@ -27,7 +27,9 @@ namespace Validation {
 //
 class OCLBuilder {
 public:
-  //
+  OCLBuilder(OCLBuilder const &) = delete;
+  OCLBuilder &operator=(OCLBuilder const &) = delete;
+
   // returns a singleton instance of this.
   static OCLBuilder &Instance();
 
@@ -56,8 +58,6 @@ public:
 
 private:
   OCLBuilder();
-  OCLBuilder(OCLBuilder const &);
-  OCLBuilder &operator=(OCLBuilder const &);
 
   Intel::OpenCL::Utils::CommonOCLBuilder &m_CommonBuilder;
 };

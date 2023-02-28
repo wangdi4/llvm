@@ -178,6 +178,9 @@ public:
    ****************************************************************************/
   ~FileLogHandler();
 
+  FileLogHandler &operator=(const FileLogHandler &) = delete;
+  FileLogHandler(const FileLogHandler &) = delete;
+
   /*****************************************************************************
    * Function: Init
    * Description: initialize log handler. retrieve configuration from Logger by
@@ -193,9 +196,6 @@ public:
                    FILE *fileDesc = stderr) override;
 
 private:
-  FileLogHandler &operator=(const FileLogHandler &);
-  FileLogHandler(const FileLogHandler &);
-
   char *m_fileName; // filename of the logging file
 };
 } // namespace Utils

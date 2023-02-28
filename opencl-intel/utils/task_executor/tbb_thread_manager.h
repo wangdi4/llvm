@@ -42,6 +42,9 @@ public:
   TBB_ThreadManager();
   ~TBB_ThreadManager();
 
+  TBB_ThreadManager(const TBB_ThreadManager &o) = delete;
+  TBB_ThreadManager &operator=(const TBB_ThreadManager &o) = delete;
+
   // return false on error
   bool Init(unsigned int uiNumberOfThreadsToOptimize);
 
@@ -69,10 +72,6 @@ private:
   Intel::OpenCL::Utils::AtomicCounter m_nextFreeEntry;
   volatile bool m_bOverflowed;
   static bool m_object_exists;
-
-  // do not implement
-  TBB_ThreadManager(const TBB_ThreadManager &o);
-  TBB_ThreadManager &operator=(const TBB_ThreadManager &o);
 };
 
 template <class Data>

@@ -463,6 +463,9 @@ public:
 
   virtual ~BasicCLConfigWrapper() { Release(); }
 
+  BasicCLConfigWrapper(const BasicCLConfigWrapper &) = delete;
+  BasicCLConfigWrapper &operator=(const BasicCLConfigWrapper &) = delete;
+
   virtual cl_err_code Initialize(std::string filename) {
     m_pConfigFile = new ConfigFile(filename);
     return CL_SUCCESS;
@@ -638,10 +641,6 @@ public:
   int GetSubGroupConstructionMode() const {
     return m_pConfigFile->Read<int>("CL_CONFIG_CPU_SUB_GROUP_CONSTRUCTION", 0);
   }
-
-private:
-  BasicCLConfigWrapper(const BasicCLConfigWrapper &);
-  BasicCLConfigWrapper &operator=(const BasicCLConfigWrapper &);
 
 protected:
   ConfigFile *m_pConfigFile;
