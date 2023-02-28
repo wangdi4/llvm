@@ -58861,14 +58861,13 @@ static SDValue combineVectorSizedSetCCEquality(SDNode *SetCC, SelectionDAG &DAG,
   return SDValue();
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static bool isCondValidForSubCmpOpt(const ISD::CondCode &CC) {
   return (CC == ISD::SETOLT || CC == ISD::SETUGE || CC == ISD::SETUEQ ||
           CC == ISD::SETONE || CC == ISD::SETULE || CC == ISD::SETOGT);
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// If we have AVX512, but not BWI and this is a vXi16/vXi8 setcc, just
 /// pre-promote its result type since vXi1 vectors don't get promoted
 /// during type legalization.
@@ -58888,7 +58887,6 @@ static SDValue truncateAVX512SetCCNoBWI(EVT VT, EVT OpVT, SDValue LHS,
   return SDValue();
 }
 
->>>>>>> f3732c2b18df305a1927b9d4a94610421a2750e7
 static SDValue combineSetCC(SDNode *N, SelectionDAG &DAG,
                             TargetLowering::DAGCombinerInfo &DCI,
                             const X86Subtarget &Subtarget) {
@@ -59120,27 +59118,6 @@ static SDValue combineSetCC(SDNode *N, SelectionDAG &DAG,
     }
   }
 
-<<<<<<< HEAD
-  // If we have AVX512, but not BWI and this is a vXi16/vXi8 setcc, just
-  // pre-promote its result type since vXi1 vectors don't get promoted
-  // during type legalization.
-  // NOTE: The element count check is to ignore operand types that need to
-  // go through type promotion to a 128-bit vector.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  if (Subtarget.hasAVX512() &&
-      !(Subtarget.hasBWI() || Subtarget.hasAVX256P()) && VT.isVector() &&
-      VT.getVectorElementType() == MVT::i1 &&
-#else  // INTEL_FEATURE_ISA_AVX256P
-  if (Subtarget.hasAVX512() && !Subtarget.hasBWI() && VT.isVector() &&
-      VT.getVectorElementType() == MVT::i1 &&
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-      (OpVT.getVectorElementType() == MVT::i8 ||
-       OpVT.getVectorElementType() == MVT::i16)) {
-    SDValue Setcc = DAG.getSetCC(DL, OpVT, LHS, RHS, CC);
-    return DAG.getNode(ISD::TRUNCATE, DL, VT, Setcc);
-=======
   // Try and make unsigned vector comparison signed. On pre AVX512 targets there
   // only are unsigned comparisons (`PCMPGT`) and on AVX512 its often better to
   // use `PCMPGT` if the result is mean to stay in a vector (and if its going to
@@ -59208,7 +59185,6 @@ static SDValue combineSetCC(SDNode *N, SelectionDAG &DAG,
         return DAG.getSetCC(DL, VT, LHSOut, RHSOut, NewCC);
       }
     }
->>>>>>> f3732c2b18df305a1927b9d4a94610421a2750e7
   }
 
   if (SDValue R =
