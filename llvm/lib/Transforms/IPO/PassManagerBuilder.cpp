@@ -891,7 +891,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createIPSCCPPass());          // IP SCCP
 
-  MPM.add(createGlobalOptimizerPass()); // Optimize out global vars
   // Promote any localized global vars.
   MPM.add(createPromoteMemoryToRegisterPass());
 
@@ -989,7 +988,6 @@ void PassManagerBuilder::populateModulePassManager(
   // benefits generally outweight the cost, making the whole pipeline
   // faster.
   if (RunInliner) {
-    MPM.add(createGlobalOptimizerPass());
     MPM.add(createGlobalDCEPass());
   }
 
@@ -1197,8 +1195,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createDopeVectorConstPropLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
-  // Now that we internalized some globals, see if we can hack on them!
-  PM.add(createGlobalOptimizerPass());
   // Promote any localized global vars.
   PM.add(createPromoteMemoryToRegisterPass());
 
@@ -1291,7 +1287,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       PM.add(createIntelAdvancedFastCallWrapperPass());
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-    PM.add(createGlobalOptimizerPass());
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
@@ -1427,11 +1422,6 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
   PM.add(createCFGSimplificationPass());
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-  // HIR complete unroll can expose opportunities for optimizing globals and
-  // allocas.
-  limitLoopOptOnly(PM).add(createGlobalOptimizerPass());
-#endif // INTEL_CUSTOMIZATION
   // Drop bodies of available externally objects to improve GlobalDCE.
   PM.add(createEliminateAvailableExternallyPass());
 
