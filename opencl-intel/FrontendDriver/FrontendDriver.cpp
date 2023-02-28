@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2009-2022 Intel Corporation.
+// Copyright 2009-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,7 +18,9 @@
 #include "Link.h"
 #include "ParseSPIRV.h"
 #include "SPIRMaterializer.h"
+#include "cl_dynamic_lib.h"
 #include "cl_logger.h"
+#include "cl_sys_info.h"
 #include "common_clang.h"
 
 #include <Logger.h>
@@ -27,8 +29,10 @@
 #include <cl_sys_defines.h>
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Mutex.h"
+#include "llvm/Support/Path.h"
 
 #include <ctime>
 #include <memory>
@@ -38,6 +42,64 @@
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
+
+// the flag must be 'volatile' to prevent caching in a CPU register
+static volatile bool lazyClangCompilerInit = true;
+static llvm::sys::Mutex lazyClangCompilerInitMutex;
+
+#ifdef _WIN32
+static llvm::ManagedStatic<OclDynamicLib> m_dlClangLib;
+
+#pragma comment(lib, "cl_sys_utils.lib")
+#endif
+
+static DECLARE_LOGGER_CLIENT;
+
+static bool LoadCommonClang() {
+#ifdef _WIN32
+  // CCLANG_LIB_NAME is defined in CMakeLists.txt
+  std::string modulePath = std::string(MAX_PATH, '\0');
+
+  Intel::OpenCL::Utils::GetModuleDirectory(&modulePath[0], MAX_PATH);
+  modulePath.resize(modulePath.find_first_of('\0'));
+
+#ifdef INTEL_CUSTOMIZATION
+#ifndef INTEL_PRODUCT_RELEASE
+  llvm::SmallString<128> TempPath(modulePath);
+  llvm::sys::path::append(TempPath, CCLANG_LIB_NAME);
+  if (!llvm::sys::fs::exists(TempPath))
+    modulePath = DEFAULT_OCL_LIBRARY_DIR;
+#endif // !INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
+
+  llvm::SmallString<128> clangPath(modulePath);
+  llvm::sys::path::append(clangPath, CCLANG_LIB_NAME);
+
+  if (m_dlClangLib->Load(clangPath.c_str()) != 0) {
+    LogErrorA("Failed to load common clang from %s", clangPath.c_str());
+    if (FrameworkUserLogger::GetInstance()->IsErrorLoggingEnabled())
+      FrameworkUserLogger::GetInstance()->PrintError(
+          "Failed to load " + std::string(CCLANG_LIB_NAME) +
+          " with error info: " + m_dlClangLib->GetError());
+
+    return false;
+  }
+#endif // _WIN32
+  return true;
+}
+
+static bool ClangCompilerInitialize() {
+  bool clangLoadSuccessful = true;
+  if (lazyClangCompilerInit) {
+    llvm::sys::ScopedLock lock(lazyClangCompilerInitMutex);
+
+    if (lazyClangCompilerInit) {
+      clangLoadSuccessful = LoadCommonClang();
+      lazyClangCompilerInit = false;
+    }
+  }
+  return clangLoadSuccessful;
+}
 
 // ClangFECompiler class implementation
 ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
@@ -156,17 +218,23 @@ ClangFECompiler::GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc) {
 
 int CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
                            IOCLFECompiler **pFECompiler) {
+  INIT_LOGGER_CLIENT("FrontendDriver", LL_DEBUG);
+
+  // Lazy initialization
+  if (!ClangCompilerInitialize()) {
+    return CL_COMPILER_NOT_AVAILABLE;
+  }
+
   assert(nullptr != pFECompiler && "Front-end compiler can't be null");
   assert(devInfoSize == sizeof(CLANG_DEV_INFO) && "Ivalid device information");
 
   try {
     *pFECompiler = new ClangFECompiler(pDeviceInfo);
+    RELEASE_LOGGER_CLIENT;
     return CL_SUCCESS;
   } catch (std::bad_alloc &) {
-    DECLARE_LOGGER_CLIENT;
-    INIT_LOGGER_CLIENT("FrontendDriver", LL_DEBUG);
     LogErrorA(TEXT("Can't allocate compiler instance"));
-    RELEASE_LOGGER_CLIENT
+    RELEASE_LOGGER_CLIENT;
     return CL_OUT_OF_HOST_MEMORY;
   }
 }
