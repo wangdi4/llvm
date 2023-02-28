@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
@@ -134,15 +133,12 @@ static llvm::cl::opt<ScanningMode> ScanMode(
 
 static llvm::cl::opt<ScanningOutputFormat> Format(
     "format", llvm::cl::desc("The output format for the dependencies"),
-    llvm::cl::values(
-        clEnumValN(ScanningOutputFormat::Make, "make",
-                   "Makefile compatible dep file"),
-        clEnumValN(ScanningOutputFormat::P1689, "p1689",
-                   "Generate standard c++ modules dependency P1689 format"),
-        clEnumValN(ScanningOutputFormat::Full, "experimental-full",
-                   "Full dependency graph suitable"
-                   " for explicitly building modules. This format "
-                   "is experimental and will change.")),
+    llvm::cl::values(clEnumValN(ScanningOutputFormat::Make, "make",
+                                "Makefile compatible dep file"),
+                     clEnumValN(ScanningOutputFormat::Full, "experimental-full",
+                                "Full dependency graph suitable"
+                                " for explicitly building modules. This format "
+                                "is experimental and will change.")),
     llvm::cl::init(ScanningOutputFormat::Make),
     llvm::cl::cat(DependencyScannerCategory));
 
@@ -171,13 +167,8 @@ llvm::cl::opt<unsigned>
 
 llvm::cl::opt<std::string>
     CompilationDB("compilation-database",
-                  llvm::cl::desc("Compilation database"), llvm::cl::Optional,
+                  llvm::cl::desc("Compilation database"), llvm::cl::Required,
                   llvm::cl::cat(DependencyScannerCategory));
-
-llvm::cl::opt<std::string> P1689TargettedCommand(
-    llvm::cl::Positional, llvm::cl::ZeroOrMore,
-    llvm::cl::desc("The command line flags for the target of which "
-                   "the dependencies are to be computed."));
 
 llvm::cl::opt<std::string> ModuleName(
     "module-name", llvm::cl::Optional,
@@ -472,6 +463,7 @@ static bool handleModuleResult(
   return false;
 }
 
+<<<<<<< HEAD
 class P1689Deps {
 public:
   void printDependencies(raw_ostream &OS) {
@@ -558,6 +550,8 @@ handleP1689DependencyToolResult(const std::string &Input,
   return false;
 }
 
+=======
+>>>>>>> d023b2cc64e5ab8059af6aece03a88ab91262b28
 /// Construct a path for the explicitly built PCM.
 static std::string constructPCMPath(ModuleID MID, StringRef OutputDir) {
   SmallString<256> ExplicitPCMPath(OutputDir);
@@ -594,109 +588,19 @@ static std::string getModuleCachePath(ArrayRef<std::string> Args) {
   return std::string(Path);
 }
 
-// getCompilationDataBase - If -compilation-database is set, load the
-// compilation database from the specified file. Otherwise if the we're
-// generating P1689 format, trying to generate the compilation database
-// form specified command line after the positional parameter "--".
-static std::unique_ptr<tooling::CompilationDatabase>
-getCompilationDataBase(int argc, const char **argv, std::string &ErrorMessage) {
+int main(int argc, const char **argv) {
   llvm::InitLLVM X(argc, argv);
   llvm::cl::HideUnrelatedOptions(DependencyScannerCategory);
   if (!llvm::cl::ParseCommandLineOptions(argc, argv))
-    return nullptr;
+    return 1;
 
-  if (!CompilationDB.empty())
-    return tooling::JSONCompilationDatabase::loadFromFile(
-        CompilationDB, ErrorMessage,
-        tooling::JSONCommandLineSyntax::AutoDetect);
-
-  if (Format != ScanningOutputFormat::P1689) {
-    llvm::errs() << "the --compilation-database option: must be specified at "
-                    "least once!";
-    return nullptr;
-  }
-
-  // Trying to get the input file, the output file and the command line options
-  // from the positional parameter "--".
-  const char **DoubleDash = std::find(argv, argv + argc, StringRef("--"));
-  if (DoubleDash == argv + argc) {
-    llvm::errs() << "The command line arguments is required after '--' in "
-                    "P1689 per file mode.";
-    return nullptr;
-  }
-  std::vector<const char *> CommandLine(DoubleDash + 1, argv + argc);
-
-  llvm::IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
-      CompilerInstance::createDiagnostics(new DiagnosticOptions);
-  driver::Driver TheDriver(CommandLine[0], llvm::sys::getDefaultTargetTriple(),
-                           *Diags);
-  std::unique_ptr<driver::Compilation> C(
-      TheDriver.BuildCompilation(CommandLine));
-  if (!C)
-    return nullptr;
-
-  auto Cmd = C->getJobs().begin();
-  auto CI = std::make_unique<CompilerInvocation>();
-  CompilerInvocation::CreateFromArgs(*CI, Cmd->getArguments(), *Diags,
-                                     CommandLine[0]);
-  if (!CI)
-    return nullptr;
-
-  FrontendOptions &FEOpts = CI->getFrontendOpts();
-  if (FEOpts.Inputs.size() != 1) {
-    llvm::errs() << "Only one input file is allowed in P1689 per file mode.";
-    return nullptr;
-  }
-
-  // There might be multiple jobs for a compilation. Extract the specified
-  // output filename from the last job.
-  auto LastCmd = C->getJobs().end();
-  LastCmd--;
-  if (LastCmd->getOutputFilenames().size() != 1) {
-    llvm::errs() << "The command line should provide exactly one output file "
-                    "in P1689 per file mode.\n";
-  }
-  StringRef OutputFile = LastCmd->getOutputFilenames().front();
-
-  class InplaceCompilationDatabase : public tooling::CompilationDatabase {
-  public:
-    InplaceCompilationDatabase(StringRef InputFile, StringRef OutputFile,
-                               ArrayRef<const char *> CommandLine)
-        : Command(".", InputFile, {}, OutputFile) {
-      for (auto *C : CommandLine)
-        Command.CommandLine.push_back(C);
-    }
-
-    std::vector<tooling::CompileCommand>
-    getCompileCommands(StringRef FilePath) const override {
-      if (FilePath != Command.Filename)
-        return {};
-      return {Command};
-    }
-
-    std::vector<std::string> getAllFiles() const override {
-      return {Command.Filename};
-    }
-
-    std::vector<tooling::CompileCommand>
-    getAllCompileCommands() const override {
-      return {Command};
-    }
-
-  private:
-    tooling::CompileCommand Command;
-  };
-
-  return std::make_unique<InplaceCompilationDatabase>(
-      FEOpts.Inputs[0].getFile(), OutputFile, CommandLine);
-}
-
-int main(int argc, const char **argv) {
   std::string ErrorMessage;
-  std::unique_ptr<tooling::CompilationDatabase> Compilations =
-      getCompilationDataBase(argc, argv, ErrorMessage);
+  std::unique_ptr<tooling::JSONCompilationDatabase> Compilations =
+      tooling::JSONCompilationDatabase::loadFromFile(
+          CompilationDB, ErrorMessage,
+          tooling::JSONCommandLineSyntax::AutoDetect);
   if (!Compilations) {
-    llvm::errs() << ErrorMessage << "\n";
+    llvm::errs() << "error: " << ErrorMessage << "\n";
     return 1;
   }
 
@@ -783,7 +687,6 @@ int main(int argc, const char **argv) {
 
   std::atomic<bool> HadErrors(false);
   FullDeps FD;
-  P1689Deps PD;
   std::mutex Lock;
   size_t Index = 0;
 
@@ -792,7 +695,7 @@ int main(int argc, const char **argv) {
                  << " files using " << Pool.getThreadCount() << " workers\n";
   }
   for (unsigned I = 0; I < Pool.getThreadCount(); ++I) {
-    Pool.async([I, &Lock, &Index, &Inputs, &HadErrors, &FD, &PD, &WorkerTools,
+    Pool.async([I, &Lock, &Index, &Inputs, &HadErrors, &FD, &WorkerTools,
                 &DependencyOS, &Errs]() {
       llvm::StringSet<> AlreadySeenModules;
       while (true) {
@@ -828,6 +731,7 @@ int main(int argc, const char **argv) {
           if (handleMakeDependencyToolResult(Filename, MaybeFile, DependencyOS,
                                              Errs))
             HadErrors = true;
+<<<<<<< HEAD
         } else if (Format == ScanningOutputFormat::P1689) {
           // It is useful to generate the make-format dependency output during
           // the scanning for P1689. Otherwise the users need to scan again for
@@ -871,6 +775,8 @@ int main(int argc, const char **argv) {
                                                MakeformatOS, Errs))
               HadErrors = true;
           }
+=======
+>>>>>>> d023b2cc64e5ab8059af6aece03a88ab91262b28
         } else if (MaybeModuleName) {
           auto MaybeModuleDepsGraph = WorkerTools[I]->getModuleDependencies(
               *MaybeModuleName, Input->CommandLine, CWD, AlreadySeenModules,
@@ -896,8 +802,6 @@ int main(int argc, const char **argv) {
 
   if (Format == ScanningOutputFormat::Full)
     FD.printFullOutput(llvm::outs());
-  else if (Format == ScanningOutputFormat::P1689)
-    PD.printDependencies(llvm::outs());
 
   return HadErrors;
 }

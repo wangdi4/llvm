@@ -90,6 +90,7 @@ llvm::Expected<std::string> DependencyScanningTool::getDependencyFile(
   return Output;
 }
 
+<<<<<<< HEAD
 llvm::Expected<P1689Rule> DependencyScanningTool::getP1689ModuleDependencyFile(
     const CompileCommand &Command, StringRef CWD, std::string &MakeformatOutput,
     std::string &MakeformatOutputPath) {
@@ -134,6 +135,8 @@ llvm::Expected<P1689Rule> DependencyScanningTool::getP1689ModuleDependencyFile(
   return Rule;
 }
 
+=======
+>>>>>>> d023b2cc64e5ab8059af6aece03a88ab91262b28
 llvm::Expected<TranslationUnitDeps>
 DependencyScanningTool::getTranslationUnitDependencies(
     const std::vector<std::string> &CommandLine, StringRef CWD,

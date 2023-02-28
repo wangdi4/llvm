@@ -68,12 +68,6 @@ struct TranslationUnitDeps {
   std::vector<std::string> DriverCommandLine;
 };
 
-struct P1689Rule {
-  std::string PrimaryOutput;
-  std::optional<P1689ModuleInfo> Provides;
-  std::vector<P1689ModuleInfo> Requires;
-};
-
 /// The high-level implementation of the dependency discovery tool that runs on
 /// an individual worker thread.
 class DependencyScanningTool {
@@ -92,6 +86,7 @@ public:
   llvm::Expected<std::string>
   getDependencyFile(const std::vector<std::string> &CommandLine, StringRef CWD);
 
+<<<<<<< HEAD
   /// Collect the module dependency in P1689 format for C++20 named modules.
   ///
   /// \param MakeformatOutput The output parameter for dependency information
@@ -108,6 +103,8 @@ public:
                                StringRef CWD, std::string &MakeformatOutput,
                                std::string &MakeformatOutputPath);
 
+=======
+>>>>>>> d023b2cc64e5ab8059af6aece03a88ab91262b28
   /// Given a Clang driver command-line for a translation unit, gather the
   /// modular dependencies and return the information needed for explicit build.
   ///
