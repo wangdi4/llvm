@@ -1019,6 +1019,7 @@ void PassManagerBuilder::populateModulePassManager(
   // on the rotated form. Disable header duplication at -Oz.
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // In LTO mode, loopopt needs to run in link phase along with community
   // vectorizer and unroll after it until they are phased out.
@@ -1036,6 +1037,8 @@ void PassManagerBuilder::populateModulePassManager(
   // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
   MPM.add(createLoopDistributePass());
 
+=======
+>>>>>>> eb5530e621aafedeecafcc25594a6492c0a1e6c3
   addVectorPasses(MPM, /* IsFullLTO */ false);
 
   // GlobalOpt already deletes dead functions and globals, at -O2 try a
