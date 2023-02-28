@@ -629,12 +629,6 @@ FunctionPass *createLoopFusePass();
 
 //===----------------------------------------------------------------------===//
 //
-// LoopLoadElimination - Perform loop-aware load elimination.
-//
-FunctionPass *createLoopLoadEliminationPass();
-
-//===----------------------------------------------------------------------===//
-//
 // LoopVersioning - Perform loop multi-versioning.
 //
 FunctionPass *createLoopVersioningPass();

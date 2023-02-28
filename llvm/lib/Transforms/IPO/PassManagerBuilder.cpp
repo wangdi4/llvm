@@ -706,11 +706,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 #endif  // INTEL_CUSTOMIZATION
   }
 
-  if (!IsFullLTO) {
-    // Eliminate loads by forwarding stores from the previous iteration to loads
-    // of the current iteration.
-    PM.add(createLoopLoadEliminationPass());
-  }
   // Cleanup after the loop optimization passes.
   
   INTEL_LIMIT_BEGIN(limitNoLoopOptOrNotPrepareForLTO, PM) // INTEL

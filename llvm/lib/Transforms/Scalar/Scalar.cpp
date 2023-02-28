@@ -134,6 +134,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializePlaceBackedgeSafepointsImplPass(Registry);
   initializePlaceSafepointsPass(Registry);
   initializeFloat2IntLegacyPassPass(Registry);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   initializeDopeVectorHoistWrapperPass(Registry);
   initializeNonLTOGlobalOptLegacyPassPass(Registry);
@@ -161,6 +162,8 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopCarriedCSELegacyPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeLoopLoadEliminationPass(Registry);
+=======
+>>>>>>> ae0c203e676ef0b3550cb367ad9a42ce442d332e
   initializeLoopSimplifyCFGLegacyPassPass(Registry);
   initializeLoopVersioningLegacyPassPass(Registry);
   initializeIVSplitLegacyPassPass(Registry); // INTEL
