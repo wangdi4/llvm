@@ -5334,7 +5334,7 @@ class OffloadingActionBuilder final {
                  : omp_device_libs) {
           SmallString<128> LibName(TC->getDriver().Dir);
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
-          llvm::sys::path::append(LibName, "..", "opt", "compiler");
+          llvm::sys::path::append(LibName, "..", "..", "opt", "compiler");
 #else
           llvm::sys::path::append(LibName, "..");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
