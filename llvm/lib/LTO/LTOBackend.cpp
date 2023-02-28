@@ -372,11 +372,6 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   PMB.LibraryInfo = new TargetLibraryInfoImpl(Triple(TM->getTargetTriple()));
   if (Conf.Freestanding)
     PMB.LibraryInfo->disableAllFunctions();
-  PMB.Inliner = createFunctionInliningPass(Conf.OptLevel,
-                                           0     /*SizeOptLevel*/,
-                                           false /*DisableInlineHotCallSite*/,
-                                           false /*PrepareForLTO*/,
-                                           true  /*LinkForLTO*/);
 
   // Store the information related to whole program
   PMB.addWholeProgramUtils(Conf.WPUtils);

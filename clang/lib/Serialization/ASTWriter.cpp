@@ -4444,6 +4444,14 @@ void ASTWriter::AddToken(const Token &Tok, RecordDataImpl &Record) {
 #endif // INTEL_CUSTOMIZATION
       break;
     }
+    case tok::annot_pragma_pack: {
+      auto *Info =
+          static_cast<Sema::PragmaPackInfo *>(Tok.getAnnotationValue());
+      Record.push_back(static_cast<unsigned>(Info->Action));
+      AddString(Info->SlotLabel, Record);
+      AddToken(Info->Alignment, Record);
+      break;
+    }
     // Some annotation tokens do not use the PtrData field.
     case tok::annot_pragma_openmp:
     case tok::annot_pragma_openmp_end:

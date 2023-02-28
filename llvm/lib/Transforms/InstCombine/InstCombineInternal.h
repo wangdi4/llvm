@@ -717,6 +717,7 @@ public:
 #if INTEL_CUSTOMIZATION
   Instruction *foldNotCmpOverTwoSelects(ICmpInst &I, const SimplifyQuery &Q);
 #endif // INTEL_CUSTOMIZATION
+  Instruction *foldICmpWithTrunc(ICmpInst &Cmp);
 
   // Helpers of visitSelectInst().
   Instruction *foldSelectOfBools(SelectInst &SI);

@@ -157,6 +157,11 @@ def ConvertAsyncToLLVM : Pass<"convert-async-to-llvm", "ModuleOp"> {
     "LLVM::LLVMDialect",
     "func::FuncDialect",
   ];
+  let options = [
+    Option<"useOpaquePointers", "use-opaque-pointers", "bool",
+           /*default=*/"false", "Generate LLVM IR using opaque pointers "
+           "instead of typed pointers">,
+  ];
 }
 
 //===----------------------------------------------------------------------===//
@@ -248,6 +253,9 @@ def ConvertControlFlowToLLVM : Pass<"convert-cf-to-llvm", "ModuleOp"> {
     Option<"indexBitwidth", "index-bitwidth", "unsigned",
            /*default=kDeriveIndexBitwidthFromDataLayout*/"0",
            "Bitwidth of the index type, 0 to use size of machine word">,
+    Option<"useOpaquePointers", "use-opaque-pointers", "bool",
+                   /*default=*/"false", "Generate LLVM IR using opaque pointers "
+                   "instead of typed pointers">,
   ];
 }
 
@@ -308,7 +316,10 @@ def ConvertFuncToLLVM : Pass<"convert-func-to-llvm", "ModuleOp"> {
     Option<"dataLayout", "data-layout", "std::string",
            /*default=*/"\"\"",
            "String description (LLVM format) of the data layout that is "
-           "expected on the produced module">
+           "expected on the produced module">,
+    Option<"useOpaquePointers", "use-opaque-pointers", "bool",
+                       /*default=*/"false", "Generate LLVM IR using opaque pointers "
+                       "instead of typed pointers">,
   ];
 }
 
@@ -582,7 +593,10 @@ def FinalizeMemRefToLLVMConversionPass :
            "bool",
            /*default=*/"false",
            "Use generic allocation and deallocation functions instead of the "
-           "classic 'malloc', 'aligned_alloc' and 'free' functions">
+           "classic 'malloc', 'aligned_alloc' and 'free' functions">,
+    Option<"useOpaquePointers", "use-opaque-pointers", "bool",
+               /*default=*/"false", "Generate LLVM IR using opaque pointers "
+               "instead of typed pointers">
   ];
 }
 

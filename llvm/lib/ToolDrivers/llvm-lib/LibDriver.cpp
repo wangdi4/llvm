@@ -150,12 +150,14 @@ static void doList(opt::InputArgList& Args) {
   object::Archive Archive(B.get()->getMemBufferRef(), Err);
   fatalOpenError(std::move(Err), B->getBufferIdentifier());
 
+  std::vector<StringRef> Names;
   for (auto &C : Archive.children(Err)) {
     Expected<StringRef> NameOrErr = C.getName();
     fatalOpenError(NameOrErr.takeError(), B->getBufferIdentifier());
-    StringRef Name = NameOrErr.get();
-    llvm::outs() << Name << '\n';
+    Names.push_back(NameOrErr.get());
   }
+  for (auto Name : reverse(Names))
+    llvm::outs() << Name << '\n';
   fatalOpenError(std::move(Err), B->getBufferIdentifier());
 }
 
@@ -421,6 +423,8 @@ int llvm::libDriverMain(ArrayRef<const char *> ArgsArr) {
     for (NewArchiveMember &Nam : Members)
       Nam.setOpaquePointers();
 #endif // INTEL_CUSTOMIZATION
+  // For compatibility with MSVC, reverse member vector after de-duplication.
+  std::reverse(Members.begin(), Members.end());
 
   if (Error E =
           writeArchive(OutputPath, Members,

@@ -197,7 +197,8 @@ public:
                               int32_t VBPtrOffset, uint32_t VBIndex,
                               raw_ostream &Out) override;
   void mangleCXXRTTI(QualType T, raw_ostream &Out) override;
-  void mangleCXXRTTIName(QualType T, raw_ostream &Out) override;
+  void mangleCXXRTTIName(QualType T, raw_ostream &Out,
+                         bool NormalizeIntegers) override;
   void mangleCXXRTTIBaseClassDescriptor(const CXXRecordDecl *Derived,
                                         uint32_t NVOffset, int32_t VBPtrOffset,
                                         uint32_t VBTableOffset, uint32_t Flags,
@@ -210,7 +211,8 @@ public:
   mangleCXXRTTICompleteObjectLocator(const CXXRecordDecl *Derived,
                                      ArrayRef<const CXXRecordDecl *> BasePath,
                                      raw_ostream &Out) override;
-  void mangleTypeName(QualType T, raw_ostream &) override;
+  void mangleTypeName(QualType T, raw_ostream &,
+                      bool NormalizeIntegers) override;
   void mangleReferenceTemporary(const VarDecl *, unsigned ManglingNumber,
                                 raw_ostream &) override;
   void mangleStaticGuardVariable(const VarDecl *D, raw_ostream &Out) override;
@@ -877,6 +879,8 @@ void MicrosoftCXXNameMangler::mangleFloat(llvm::APFloat Number) {
   case APFloat::S_PPCDoubleDouble: Out << 'Z'; break;
   case APFloat::S_Float8E5M2:
   case APFloat::S_Float8E4M3FN:
+  case APFloat::S_Float8E5M2FNUZ:
+  case APFloat::S_Float8E4M3FNUZ:
     llvm_unreachable("Tried to mangle unexpected APFloat semantics");
   }
 
@@ -3683,8 +3687,8 @@ void MicrosoftMangleContextImpl::mangleCXXRTTI(QualType T, raw_ostream &Out) {
   Mangler.getStream() << "@8";
 }
 
-void MicrosoftMangleContextImpl::mangleCXXRTTIName(QualType T,
-                                                   raw_ostream &Out) {
+void MicrosoftMangleContextImpl::mangleCXXRTTIName(
+    QualType T, raw_ostream &Out, bool NormalizeIntegers = false) {
   MicrosoftCXXNameMangler Mangler(*this, Out);
   Mangler.getStream() << '.';
   Mangler.mangleType(T, SourceRange(), MicrosoftCXXNameMangler::QMM_Result);
@@ -3851,7 +3855,8 @@ void MicrosoftMangleContextImpl::mangleSEHFinallyBlock(
   Mangler.mangleName(EnclosingDecl);
 }
 
-void MicrosoftMangleContextImpl::mangleTypeName(QualType T, raw_ostream &Out) {
+void MicrosoftMangleContextImpl::mangleTypeName(
+    QualType T, raw_ostream &Out, bool NormalizeIntegers = false) {
   // This is just a made up unique string for the purposes of tbaa.  undname
   // does *not* know how to demangle it.
   MicrosoftCXXNameMangler Mangler(*this, Out);

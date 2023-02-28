@@ -10,7 +10,7 @@
 
 #include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"

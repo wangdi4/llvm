@@ -40,7 +40,7 @@
 #define LLVM_TRANSFORMS_VPO_PAROPT_MODULE_TRANSFORMS_H
 
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"

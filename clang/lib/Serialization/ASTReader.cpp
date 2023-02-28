@@ -122,7 +122,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Bitstream/BitstreamReader.h"
 #include "llvm/Support/Casting.h"
@@ -141,6 +140,7 @@
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/VersionTuple.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Triple.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -1710,6 +1710,16 @@ Token ASTReader::ReadToken(ModuleFile &F, const RecordDataImpl &Record,
       Info->ArrayToks =
           llvm::ArrayRef(ArrayToks).copy(PP.getPreprocessorAllocator());
 #endif // INTEL_CUSTOMIZATION
+      Tok.setAnnotationValue(static_cast<void *>(Info));
+      break;
+    }
+    case tok::annot_pragma_pack: {
+      auto *Info = new (PP.getPreprocessorAllocator()) Sema::PragmaPackInfo;
+      Info->Action = static_cast<Sema::PragmaMsStackAction>(Record[Idx++]);
+      auto SlotLabel = ReadString(Record, Idx);
+      Info->SlotLabel =
+          llvm::StringRef(SlotLabel).copy(PP.getPreprocessorAllocator());
+      Info->Alignment = ReadToken(F, Record, Idx);
       Tok.setAnnotationValue(static_cast<void *>(Info));
       break;
     }
@@ -9145,7 +9155,7 @@ llvm::APFloat ASTRecordReader::readAPFloat(const llvm::fltSemantics &Sem) {
 }
 
 // Read a string
-std::string ASTReader::ReadString(const RecordData &Record, unsigned &Idx) {
+std::string ASTReader::ReadString(const RecordDataImpl &Record, unsigned &Idx) {
   unsigned Len = Record[Idx++];
   std::string Result(Record.data() + Idx, Record.data() + Idx + Len);
   Idx += Len;

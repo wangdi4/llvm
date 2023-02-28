@@ -150,10 +150,7 @@ static void AddOptimizationPasses(legacy::FunctionPassManager &FPM,
   Builder.OptLevel = OptLevel;
   Builder.SizeLevel = SizeLevel;
 
-  if (OptLevel > 1)
-    Builder.Inliner = createFunctionInliningPass(OptLevel, SizeLevel, false);
-  else
-    Builder.Inliner = createAlwaysInlinerLegacyPass();
+  Builder.Inliner = createAlwaysInlinerLegacyPass();
 
   Builder.populateFunctionPassManager(FPM);
   Builder.populateModulePassManager(FPM);
@@ -245,7 +242,6 @@ int main(int argc, char **argv) {
 #ifdef INTEL_CUSTOMIZATION
   if (StandardLinkOpts) {
     PassManagerBuilder Builder;
-    Builder.Inliner = createFunctionInliningPass();
     Builder.populateLTOPassManager(PM);
   }
 #endif // INTEL_CUSTOMIZATION

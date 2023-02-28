@@ -185,7 +185,6 @@ namespace {
       (void) llvm::createDomPrinterWrapperPassPass();
       (void) llvm::createDomOnlyViewerWrapperPassPass();
       (void) llvm::createDomViewerWrapperPassPass();
-      (void) llvm::createFunctionInliningPass();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
       (void) llvm::createFunctionRecognizerLegacyPass();
@@ -203,7 +202,6 @@ namespace {
       (void) llvm::createIndVarSimplifyPass();
       (void) llvm::createInstSimplifyLegacyPass();
       (void) llvm::createInstructionCombiningPass();
-      (void) llvm::createInternalizePass();
       (void) llvm::createJMCInstrumenterPass();
       (void) llvm::createLCSSAPass();
       (void) llvm::createLegacyDivergenceAnalysisPass();
@@ -255,10 +253,6 @@ namespace {
       (void) llvm::createSafeStackPass();
       (void) llvm::createSROAPass();
       (void) llvm::createSingleLoopExtractorPass();
-      (void) llvm::createStripSymbolsPass();
-      (void) llvm::createStripNonDebugSymbolsPass();
-      (void) llvm::createStripDeadDebugInfoPass();
-      (void) llvm::createStripDeadPrototypesPass();
       (void) llvm::createTailCallEliminationPass();
       (void)llvm::createTLSVariableHoistPass();
       (void) llvm::createJumpThreadingPass();
@@ -281,7 +275,6 @@ namespace {
       (void) llvm::createAttributorLegacyPass();
       (void) llvm::createAttributorCGSCCLegacyPass();
       (void) llvm::createPostOrderFunctionAttrsLegacyPass();
-      (void) llvm::createReversePostOrderFunctionAttrsPass();
       (void) llvm::createMergeICmpsLegacyPass();
       (void) llvm::createExpandLargeDivRemPass();
       (void) llvm::createExpandMemCmpPass();
@@ -314,7 +307,6 @@ namespace {
       (void) llvm::createVPlanDriverHIRPass(false);
       (void) llvm::createVPlanFunctionVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
-      (void) llvm::createVectorCombinePass();
       (void) llvm::createPartiallyInlineLibCallsPass();
       (void) llvm::createScalarizerPass();
       (void) llvm::createSeparateConstOffsetFromGEPPass();
@@ -328,7 +320,6 @@ namespace {
       (void) llvm::createFloat2IntPass();
       (void) llvm::createEliminateAvailableExternallyPass();
       (void)llvm::createScalarizeMaskedMemIntrinLegacyPass();
-      (void) llvm::createWarnMissedTransformationsPass();
       (void) llvm::createHardwareLoopsPass();
       (void) llvm::createInjectTLIMappingsLegacyPass();
       (void) llvm::createUnifyLoopExitsPass();

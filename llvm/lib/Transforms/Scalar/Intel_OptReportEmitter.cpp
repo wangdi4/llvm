@@ -27,7 +27,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
 
 #if INTEL_FEATURE_CSA
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #endif // INTEL_FEATURE_CSA
 
 #define DEBUG_TYPE "intel-ir-optreport-emitter"

@@ -71,12 +71,12 @@
 #include "llvm/Support/Compression.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/RISCVISAInfo.h"
 #include "llvm/Support/YAMLParser.h"
 #include "llvm/TargetParser/ARMTargetParserCommon.h"
+#include "llvm/TargetParser/Host.h"
 #include "llvm/TargetParser/RISCVTargetParser.h"
 #include <cctype>
 
@@ -7812,7 +7812,15 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
   if (Arg *A = Args.getLastArgNoClaim(options::OPT_p)) {
-    if (!TC.getTriple().isOSAIX() && !TC.getTriple().isOSOpenBSD()) {
+    if (TC.getTriple().isOSAIX()) {
+      CmdArgs.push_back("-pg");
+    } else if (!TC.getTriple().isOSOpenBSD()) {
+      D.Diag(diag::err_drv_unsupported_opt_for_target)
+          << A->getAsString(Args) << TripleStr;
+    }
+  }
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT_pg)) {
+    if (TC.getTriple().isOSzOS()) {
       D.Diag(diag::err_drv_unsupported_opt_for_target)
           << A->getAsString(Args) << TripleStr;
     }
@@ -10746,6 +10754,8 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_long_constant_composite"
         ",+SPV_INTEL_arithmetic_fence"
         ",+SPV_INTEL_global_variable_decorations"
+        ",+SPV_INTEL_fpga_buffer_location"
+        ",+SPV_INTEL_fpga_argument_interfaces"
         ",+SPV_INTEL_task_sequence"; // INTEL
 
 #if INTEL_CUSTOMIZATION
@@ -10754,7 +10764,6 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       INTELExtArg += ",+SPV_INTEL_optnone";
     }
 #endif // INTEL_CUSTOMIZATION
-
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
 #if INTEL_CUSTOMIZATION
     if (!C.getDriver().isFPGAEmulationMode()) {
@@ -10762,7 +10771,6 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       // Enable several extensions on FPGA H/W exclusively
       ExtArg += ",+SPV_INTEL_usm_storage_classes,+SPV_INTEL_runtime_aligned"
                 ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"
-                ",+SPV_INTEL_fpga_buffer_location"
                 ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
                 ",+SPV_INTEL_fpga_dsp_control,+SPV_INTEL_fpga_memory_accesses"
                 ",+SPV_INTEL_fpga_memory_attributes";

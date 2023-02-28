@@ -11,16 +11,6 @@
 ; RUN:    -plugin-opt=O3 \
 ; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-assume \
-; RUN:    -plugin-opt=legacy-pass-manager \
-; RUN:    -plugin-opt=-print-after-all  \
-; RUN:    %t.bc -o %t \
-; RUN:    2>&1 | FileCheck %s
-
-; RUN: llvm-as %s -o %t.bc
-; RUN: %gold -shared -plugin %llvmshlibdir/icx-lto%shlibext \
-; RUN:    -plugin-opt=O3 \
-; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
-; RUN:    -plugin-opt=-whole-program-assume \
 ; RUN:    -plugin-opt=new-pass-manager \
 ; RUN:    -plugin-opt=-print-after-all  \
 ; RUN:    %t.bc -o %t \

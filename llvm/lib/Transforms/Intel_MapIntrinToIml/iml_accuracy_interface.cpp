@@ -101,7 +101,7 @@
 #include <cstdio>
 #include "llvm/Support/Compiler.h"
 
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/search.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/messaging.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/iml_attr_private.h"

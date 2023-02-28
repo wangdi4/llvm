@@ -35,7 +35,6 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -79,6 +78,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
@@ -654,14 +654,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
                                       !CodeGenOpts.DisableLifetimeMarkers) ||
                                      LangOpts.Coroutines);
     PMBuilder.Inliner = createAlwaysInlinerLegacyPass(InsertLifetimeIntrinsics);
-  } else {
-    // We do not want to inline hot callsites for SamplePGO module-summary build
-    // because profile annotation will happen again in ThinLTO backend, and we
-    // want the IR of the hot path to match the profile.
-    PMBuilder.Inliner = createFunctionInliningPass(
-        CodeGenOpts.OptimizationLevel, CodeGenOpts.OptimizeSize,
-        (!CodeGenOpts.SampleProfileFile.empty() &&
-         CodeGenOpts.PrepareForThinLTO), CodeGenOpts.PrepareForLTO); // INTEL
   }
 
 #if INTEL_CUSTOMIZATION
@@ -698,8 +690,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
 
   if (std::optional<GCOVOptions> Options = getGCOVOptions(CodeGenOpts, LangOpts)) {
     MPM.add(createGCOVProfilerPass(*Options));
-    if (CodeGenOpts.getDebugInfo() == codegenoptions::NoDebugInfo)
-      MPM.add(createStripSymbolsPass(true));
   }
 
   PMBuilder.populateFunctionPassManager(FPM);
@@ -1025,7 +1015,8 @@ static void addSanitizers(const Triple &TargetTriple,
 
     if (CodeGenOpts.hasSanitizeBinaryMetadata()) {
       MPM.addPass(SanitizerBinaryMetadataPass(
-          getSanitizerBinaryMetadataOptions(CodeGenOpts)));
+          getSanitizerBinaryMetadataOptions(CodeGenOpts),
+          CodeGenOpts.SanitizeMetadataIgnorelistFiles));
     }
 
     auto MSanPass = [&](SanitizerMask Mask, bool CompileKernel) {
