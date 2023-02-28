@@ -88,7 +88,7 @@ set(OCL_OUTPUT_LIBRARY_DIR ${OCL_LIBRARY_DIR}/${OUTPUT_ARCH_SUFF})
 #   INCLUDE_DIRS     - defines include directories
 #   COMPONENTS       - defines shipping OpenCL libraries to link
 #   LINK_LIBS        - defines rest of libraries to link
-#   INSTALL_PATH     - defines the last element of the install directory.
+#   INSTALL_PATH     - defines the install directory.
 #   RC_TEMPLATE      - defines template for .rc files generation on Windows.
 #                      No .rc file generated if omitted.
 #                      Pass 'default' to use the default one.
@@ -166,13 +166,13 @@ function(add_opencl_library name)
     if(NOT ICS_BUILD_TYPE STREQUAL "release")
       foreach(path ${ARG_INSTALL_PATH})
         install_to(${OCL_OUTPUT_LIBRARY_DIR}/${name}.pdb DESTINATION
-                   lib/${path} COMPONENT ocl-${name})
+                   ${path} COMPONENT ocl-${name})
       endforeach(path)
     endif()
   endif(WIN32 AND ARG_SHARED)
 
   foreach(path ${ARG_INSTALL_PATH})
-    install_to(${name} DESTINATION lib/${path} COMPONENT ocl-${name})
+    install_to(${name} DESTINATION ${path} COMPONENT ocl-${name})
   endforeach(path)
 
 endfunction(add_opencl_library name)

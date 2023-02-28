@@ -127,3 +127,11 @@ message(STATUS "")
 message(STATUS "CMAKE_EXE_LINKER_FLAGS  = ${CMAKE_EXE_LINKER_FLAGS}")
 message(STATUS "")
 message(STATUS "CMAKE_BUILD_TOOL        = ${CMAKE_BUILD_TOOL}")
+
+# Intel new unified layout requires that all 64-bit libraries to be installed
+# into 'lib' dir and all 32-bit libraries to be installed into 'lib32' dir.
+if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  set(OCL_INSTALL_LIBRARY_DIR lib)
+else()
+  set(OCL_INSTALL_LIBRARY_DIR lib/${OUTPUT_ARCH_SUFF})
+endif()

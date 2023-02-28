@@ -73,7 +73,7 @@ add_opencl_library(
   RC_TEMPLATE
   DEFAULT
   INSTALL_PATH
-  ${OUTPUT_ARCH_SUFF})
+  ${OCL_INSTALL_LIBRARY_DIR})
 
 # add an FPGA emulator library
 add_opencl_library(
@@ -89,7 +89,7 @@ add_opencl_library(
   RC_TEMPLATE
   DEFAULT
   INSTALL_PATH
-  ${OUTPUT_ARCH_SUFF})
+  ${OCL_INSTALL_LIBRARY_DIR})
 
 if(WIN32)
   list(APPEND LINK_LIBS delayimp.lib legacy_stdio_definitions.lib)

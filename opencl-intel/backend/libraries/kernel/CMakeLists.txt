@@ -55,7 +55,7 @@ globaldce,instcombine,dpcpp-kernel-cleanup-wrapped"
     ${RTL_TARGET_NAME} PROPERTIES FOLDER
                                   ${BACKEND_FOLDER_NAME}/cl_library_kernel)
 
-  install_to(${OUTPUT_FILE} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT
+  install_to(${OUTPUT_FILE} DESTINATION ${OCL_INSTALL_LIBRARY_DIR} COMPONENT
              ocl-library-kernel)
 
   set(${OUTPUT_RTL}

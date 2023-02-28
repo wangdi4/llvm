@@ -39,7 +39,7 @@ else()
   # Linux
   set(LIB_TYPE SHARED)
   set(SYSTEM_LIBS rt)
-  set(TARGET_INSTALL_PATH ${OUTPUT_ARCH_SUFF})
+  set(TARGET_INSTALL_PATH ${OCL_INSTALL_LIBRARY_DIR})
 endif(WIN32)
 
 # add a target named ${TARGET_NAME}

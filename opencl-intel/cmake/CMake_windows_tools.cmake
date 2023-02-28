@@ -108,3 +108,16 @@ if(UWD_BUILD)
   ocl_replace_compiler_option(CMAKE_C_FLAGS_DEBUG "/MDd" "/MTd")
   ocl_replace_compiler_option(CMAKE_CXX_FLAGS_DEBUG "/MDd" "/MTd")
 endif()
+
+# Intel new unified layout requires that all 64-bit dynamic libraries to be
+# installed into 'bin' dir and all 32-bit dynamic libraries to be installed
+# into 'bin32' dir.
+if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  if(BUILD_X64)
+    set(OCL_INSTALL_LIBRARY_DIR bin)
+  else()
+    set(OCL_INSTALL_LIBRARY_DIR bin32)
+  endif(BUILD_X64)
+else()
+  set(OCL_INSTALL_LIBRARY_DIR lib/${OUTPUT_ARCH_SUFF})
+endif(INTEL_DEPLOY_UNIFIED_LAYOUT)

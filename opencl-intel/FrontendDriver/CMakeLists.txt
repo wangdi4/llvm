@@ -142,5 +142,5 @@ elseif(WIN32)
             ${OCL_OUTPUT_LIBRARY_DIR})
 endif()
 
-install_to(${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT
-           ocl-common_clang)
+install_to(${COMMON_CLANG_FILES} DESTINATION ${OCL_INSTALL_LIBRARY_DIR}
+           COMPONENT ocl-common_clang)
