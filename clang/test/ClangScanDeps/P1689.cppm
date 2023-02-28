@@ -78,31 +78,6 @@ export import :interface_part;
 import :impl_part;
 export void Hello();
 
-// CHECK: {
-// CHECK-NEXT:   "revision": 0,
-// CHECK-NEXT:   "rules": [
-// CHECK-NEXT:     {
-// CHECK-NEXT:       "primary-output": "[[PREFIX]]/M.o",
-// CHECK-NEXT:       "provides": [
-// CHECK-NEXT:         {
-// CHECK-NEXT:           "is-interface": true,
-// CHECK-NEXT:           "logical-name": "M",
-// CHECK-NEXT:           "source-path": "[[PREFIX]]/M.cppm"
-// CHECK-NEXT:         }
-// CHECK-NEXT:       ],
-// CHECK-NEXT:       "requires": [
-// CHECK-NEXT:         {
-// CHECK-NEXT:           "logical-name": "M:interface_part"
-// CHECK-NEXT:         },
-// CHECK-NEXT:         {
-// CHECK-NEXT:           "logical-name": "M:impl_part"
-// CHECK-NEXT:         }
-// CHECK-NEXT:       ]
-// CHECK-NEXT:     }
-// CHECK-NEXT:   ],
-// CHECK-NEXT:   "version": 1
-// CHECK-NEXT: }
-
 //--- Impl.cpp
 module;
 #include "header.mock"
@@ -110,21 +85,6 @@ module M;
 void Hello() {
     std::cout << "Hello ";
 }
-
-// CHECK: {
-// CHECK-NEXT:   "revision": 0,
-// CHECK-NEXT:   "rules": [
-// CHECK-NEXT:     {
-// CHECK-NEXT:       "primary-output": "[[PREFIX]]/Impl.o",
-// CHECK-NEXT:       "requires": [
-// CHECK-NEXT:         {
-// CHECK-NEXT:           "logical-name": "M"
-// CHECK-NEXT:         }
-// CHECK-NEXT:       ]
-// CHECK-NEXT:     }
-// CHECK-NEXT:   ],
-// CHECK-NEXT:   "version": 1
-// CHECK-NEXT: }
 
 //--- impl_part.cppm
 module;
@@ -137,52 +97,9 @@ void World() {
     std::cout << W << std::endl;
 }
 
-// CHECK: {
-// CHECK-NEXT:   "revision": 0,
-// CHECK-NEXT:   "rules": [
-// CHECK-NEXT:     {
-// CHECK-NEXT:       "primary-output": "[[PREFIX]]/impl_part.o",
-// CHECK-NEXT:       "provides": [
-// CHECK-NEXT:         {
-// CHECK-NEXT:           "is-interface": false,
-// CHECK-NEXT:           "logical-name": "M:impl_part",
-// CHECK-NEXT:           "source-path": "[[PREFIX]]/impl_part.cppm"
-// CHECK-NEXT:         }
-// CHECK-NEXT:       ],
-// CHECK-NEXT:       "requires": [
-// CHECK-NEXT:         {
-// CHECK-NEXT:           "logical-name": "M:interface_part"
-// CHECK-NEXT:         }
-// CHECK-NEXT:       ]
-// CHECK-NEXT:     }
-// CHECK-NEXT:   ],
-// CHECK-NEXT:   "version": 1
-// CHECK-NEXT: }
-
-// CHECK-MAKE: [[PREFIX]]/impl_part.o.ddi:
-// CHECK-MAKE:   [[PREFIX]]/impl_part.cppm
-// CHECK-MAKE:   [[PREFIX]]/header.mock
-
 //--- interface_part.cppm
 export module M:interface_part;
 export void World();
-
-// CHECK: {
-// CHECK-NEXT:   "revision": 0,
-// CHECK-NEXT:   "rules": [
-// CHECK-NEXT:     {
-// CHECK-NEXT:       "primary-output": "[[PREFIX]]/interface_part.o",
-// CHECK-NEXT:       "provides": [
-// CHECK-NEXT:         {
-// CHECK-NEXT:           "is-interface": true,
-// CHECK-NEXT:           "logical-name": "M:interface_part",
-// CHECK-NEXT:           "source-path": "[[PREFIX]]/interface_part.cppm"
-// CHECK-NEXT:         }
-// CHECK-NEXT:       ]
-// CHECK-NEXT:     }
-// CHECK-NEXT:   ],
-// CHECK-NEXT:   "version": 1
-// CHECK-NEXT: }
 
 //--- User.cpp
 import M;
@@ -192,24 +109,6 @@ int main() {
     World();
     return 0;
 }
-
-// CHECK: {
-// CHECK-NEXT:   "revision": 0,
-// CHECK-NEXT:   "rules": [
-// CHECK-NEXT:     {
-// CHECK-NEXT:       "primary-output": "[[PREFIX]]/User.o",
-// CHECK-NEXT:       "requires": [
-// CHECK-NEXT:         {
-// CHECK-NEXT:           "logical-name": "M"
-// CHECK-NEXT:         },
-// CHECK-NEXT:         {
-// CHECK-NEXT:           "logical-name": "third_party_module"
-// CHECK-NEXT:         }
-// CHECK-NEXT:       ]
-// CHECK-NEXT:     }
-// CHECK-NEXT:   ],
-// CHECK-NEXT:   "version": 1
-// CHECK-NEXT: }
 
 //--- Checks.cpp
 // CHECK: {

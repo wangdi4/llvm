@@ -133,12 +133,15 @@ static llvm::cl::opt<ScanningMode> ScanMode(
 
 static llvm::cl::opt<ScanningOutputFormat> Format(
     "format", llvm::cl::desc("The output format for the dependencies"),
-    llvm::cl::values(clEnumValN(ScanningOutputFormat::Make, "make",
-                                "Makefile compatible dep file"),
-                     clEnumValN(ScanningOutputFormat::Full, "experimental-full",
-                                "Full dependency graph suitable"
-                                " for explicitly building modules. This format "
-                                "is experimental and will change.")),
+    llvm::cl::values(
+        clEnumValN(ScanningOutputFormat::Make, "make",
+                   "Makefile compatible dep file"),
+        clEnumValN(ScanningOutputFormat::P1689, "p1689",
+                   "Generate standard c++ modules dependency P1689 format"),
+        clEnumValN(ScanningOutputFormat::Full, "experimental-full",
+                   "Full dependency graph suitable"
+                   " for explicitly building modules. This format "
+                   "is experimental and will change.")),
     llvm::cl::init(ScanningOutputFormat::Make),
     llvm::cl::cat(DependencyScannerCategory));
 
@@ -463,7 +466,6 @@ static bool handleModuleResult(
   return false;
 }
 
-<<<<<<< HEAD
 class P1689Deps {
 public:
   void printDependencies(raw_ostream &OS) {
@@ -550,8 +552,6 @@ handleP1689DependencyToolResult(const std::string &Input,
   return false;
 }
 
-=======
->>>>>>> d023b2cc64e5ab8059af6aece03a88ab91262b28
 /// Construct a path for the explicitly built PCM.
 static std::string constructPCMPath(ModuleID MID, StringRef OutputDir) {
   SmallString<256> ExplicitPCMPath(OutputDir);
@@ -687,6 +687,7 @@ int main(int argc, const char **argv) {
 
   std::atomic<bool> HadErrors(false);
   FullDeps FD;
+  P1689Deps PD;
   std::mutex Lock;
   size_t Index = 0;
 
@@ -695,7 +696,7 @@ int main(int argc, const char **argv) {
                  << " files using " << Pool.getThreadCount() << " workers\n";
   }
   for (unsigned I = 0; I < Pool.getThreadCount(); ++I) {
-    Pool.async([I, &Lock, &Index, &Inputs, &HadErrors, &FD, &WorkerTools,
+    Pool.async([I, &Lock, &Index, &Inputs, &HadErrors, &FD, &PD, &WorkerTools,
                 &DependencyOS, &Errs]() {
       llvm::StringSet<> AlreadySeenModules;
       while (true) {
@@ -731,7 +732,6 @@ int main(int argc, const char **argv) {
           if (handleMakeDependencyToolResult(Filename, MaybeFile, DependencyOS,
                                              Errs))
             HadErrors = true;
-<<<<<<< HEAD
         } else if (Format == ScanningOutputFormat::P1689) {
           // It is useful to generate the make-format dependency output during
           // the scanning for P1689. Otherwise the users need to scan again for
@@ -775,8 +775,6 @@ int main(int argc, const char **argv) {
                                                MakeformatOS, Errs))
               HadErrors = true;
           }
-=======
->>>>>>> d023b2cc64e5ab8059af6aece03a88ab91262b28
         } else if (MaybeModuleName) {
           auto MaybeModuleDepsGraph = WorkerTools[I]->getModuleDependencies(
               *MaybeModuleName, Input->CommandLine, CWD, AlreadySeenModules,
@@ -802,6 +800,8 @@ int main(int argc, const char **argv) {
 
   if (Format == ScanningOutputFormat::Full)
     FD.printFullOutput(llvm::outs());
+  else if (Format == ScanningOutputFormat::P1689)
+    PD.printDependencies(llvm::outs());
 
   return HadErrors;
 }
