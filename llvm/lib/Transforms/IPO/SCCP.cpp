@@ -414,15 +414,12 @@ static bool runIPSCCP(
       SI->eraseFromParent();
       MadeChanges = true;
     }
-<<<<<<< HEAD
 #if INTEL_COLLAB
     if (GV->isTargetDeclare())
       LLVM_DEBUG(dbgs() << "Constant GV '" << GV->getName()
                         << "' is target-declare and not removed\n");
     else
 #endif // INTEL_COLLAB
-=======
->>>>>>> cb5f239363a3c94db5425c105fcd45e77d2a16a9
     M.getGlobalList().erase(GV);
     ++NumGlobalConst;
   }
