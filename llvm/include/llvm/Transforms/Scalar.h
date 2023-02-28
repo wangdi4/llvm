@@ -629,12 +629,6 @@ FunctionPass *createLoopFusePass();
 
 //===----------------------------------------------------------------------===//
 //
-// LoopVersioning - Perform loop multi-versioning.
-//
-FunctionPass *createLoopVersioningPass();
-
-//===----------------------------------------------------------------------===//
-//
 // LoopDataPrefetch - Perform data prefetching in loops.
 //
 FunctionPass *createLoopDataPrefetchPass();
