@@ -24,9 +24,7 @@
 // END DO
 //
 // TODO:
-// 1) Support floating point type in memset.
-// 2) Support non-constant memset.
-// 3) Currently we only create single level loop. To avoid out-of-range access
+// 1) Currently we only create single level loop. To avoid out-of-range access
 //    we could consider creating a loop nest.
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLowerSmallMemsetMemcpyPass.h"
@@ -273,8 +271,11 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
   if (!(DstOp->accessesAlloca() || DstOp->accessesNoAliasFunctionArgument())) {
     return false;
   }
+
+  bool SrcOrValOpIsConst = false;
   if (IsMemset) {
-    if (!SrcOrValOp->isIntConstant()) {
+    SrcOrValOpIsConst = SrcOrValOp->isIntConstant();
+    if (!SrcOrValOpIsConst && !SrcOrValOp->isTerminalRef()) {
       return false;
     }
   } else {
@@ -293,6 +294,14 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
       findElementType(DstOp, DstInnermostDimSize, DstInnermostDimIndex);
   if (!DstElemType) {
     return false;
+  }
+
+  if (IsMemset && !SrcOrValOpIsConst) {
+    if (DstElemType != Type::getInt8Ty(DstElemType->getContext())) {
+      // We only allow non-constant memsets with int8 access type to avoid
+      // SrcOrVal operand replication for wider types.
+      return false;
+    }
   }
 
   if (!IsMemset) {
@@ -326,7 +335,7 @@ bool MemsetMemcpyVisitor::doAnalysis(const HLInst *Inst,
   }
 
   // Check that we can successfully create const dd ref for Memset.
-  if (IsMemset) {
+  if (IsMemset && SrcOrValOpIsConst) {
     RegDDRef *ConstRef = createConstRef(SrcOrValOp, DstElemType);
     if (!ConstRef) {
       return false;
@@ -422,6 +431,10 @@ void MemsetMemcpyVisitor::doTransform(HLInst *Inst,
   // call.
   RegDDRef *SrcOrValOp = nullptr;
   if (MMC.IsMemset) {
+    if (!MMC.SrcOrValOp->isConstant()) {
+      // unlink operand from memset before placing it into store.
+      Inst->removeOperandDDRef(1);
+    }
     SrcOrValOp = MMC.SrcOrValOp;
   } else {
     SrcOrValOp = createLoopMemref(MMC.SrcOrValOp, NewLoopLevel);
@@ -435,7 +448,7 @@ void MemsetMemcpyVisitor::doTransform(HLInst *Inst,
   HLNodeUtils::insertAsFirstChild(NewLoop, StoreInst);
 
   NewLoop->addLiveInTemp(DstOp);
-  if (!MMC.IsMemset) {
+  if (!MMC.IsMemset || !SrcOrValOp->isConstant()) {
     NewLoop->addLiveInTemp(SrcOrValOp);
   }
 
