@@ -534,7 +534,6 @@ if (EnableSimpleLoopUnswitch) {
   // We resume loop passes creating a second loop pipeline here.
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
-  MPM.add(createLoopDeletionPass());          // Delete dead loops
 
 #if INTEL_CUSTOMIZATION
     // Unroll small loops
