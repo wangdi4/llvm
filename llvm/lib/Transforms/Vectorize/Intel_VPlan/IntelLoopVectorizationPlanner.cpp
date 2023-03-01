@@ -411,7 +411,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
                       << " Orig MaxVF: " << MaxVF << "\n");
 
     // Maximum allowed VF specified by user is Safelen
-    Safelen = (unsigned)PowerOf2Floor(Safelen);
+    Safelen = (unsigned)llvm::bit_floor(Safelen);
     MaxVF = std::min(MaxVF, Safelen);
     // We won't be able to fill the entire register, but it
     // still might be profitable.

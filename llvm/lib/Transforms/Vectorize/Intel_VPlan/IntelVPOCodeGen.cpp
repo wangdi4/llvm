@@ -4664,7 +4664,7 @@ void VPOCodeGen::generateArrayReductionFinal(
           .getFixedValue();
   unsigned TypeWidthInBits = ElemTy->getPrimitiveSizeInBits();
   unsigned FinalLoopMaxVF = std::min(MaxVectorWidth / TypeWidthInBits, 32u);
-  unsigned FinalLoopVF = llvm::PowerOf2Floor(NumElems);
+  unsigned FinalLoopVF = llvm::bit_floor(NumElems);
   if (FinalLoopVF > FinalLoopMaxVF)
     FinalLoopVF = FinalLoopMaxVF;
 
