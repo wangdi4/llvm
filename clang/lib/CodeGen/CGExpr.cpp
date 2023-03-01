@@ -94,15 +94,11 @@ Address CodeGenFunction::CreateTempAllocaWithoutCast(llvm::Type *Ty,
                                                      llvm::Value *ArraySize) {
   auto Alloca = CreateTempAlloca(Ty, Name, ArraySize);
   Alloca->setAlignment(Align.getAsAlign());
-<<<<<<< HEAD
 #if INTEL_COLLAB
   if (CapturedStmtInfo && !ArraySize)
     CapturedStmtInfo->recordValueDefinition(Alloca, Ty);
 #endif // INTEL_COLLAB
-  return Address(Alloca, Ty, Align);
-=======
   return Address(Alloca, Ty, Align, KnownNonNull);
->>>>>>> 57865bc5ad277166507d9e9fbb5205be86caa73a
 }
 
 /// CreateTempAlloca - This creates a alloca and inserts it into the entry
@@ -138,16 +134,12 @@ Address CodeGenFunction::CreateTempAlloca(llvm::Type *Ty, CharUnits Align,
         Ty->getPointerTo(DestAddrSpace), /*non-null*/ true);
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   if (CapturedStmtInfo && !ArraySize)
     CapturedStmtInfo->recordValueDefinition(V, Ty);
 #endif // INTEL_COLLAB
 
-  return Address(V, Ty, Align);
-=======
   return Address(V, Ty, Align, KnownNonNull);
->>>>>>> 57865bc5ad277166507d9e9fbb5205be86caa73a
 }
 
 /// CreateTempAlloca - This creates an alloca and inserts it into the entry
