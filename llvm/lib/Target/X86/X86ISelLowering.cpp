@@ -58871,8 +58871,6 @@ static bool isCondValidForSubCmpOpt(const ISD::CondCode &CC) {
 /// If we have AVX512, but not BWI and this is a vXi16/vXi8 setcc, just
 /// pre-promote its result type since vXi1 vectors don't get promoted
 /// during type legalization.
-/// NOTE: The element count check is to ignore operand types that need to
-/// go through type promotion to a 128-bit vector.
 static SDValue truncateAVX512SetCCNoBWI(EVT VT, EVT OpVT, SDValue LHS,
                                         SDValue RHS, ISD::CondCode CC, SDLoc DL,
                                         SelectionDAG &DAG,
@@ -59080,6 +59078,29 @@ static SDValue combineSetCC(SDNode *N, SelectionDAG &DAG,
             TLI.isTypeLegal(LHS.getOperand(0).getValueType()))
           return DAG.getSetCC(DL, VT, LHS.getOperand(0),
                               DAG.getConstant(0, DL, SrcVT), CC);
+      }
+
+      // With C as a power of 2 and C != 0 and C != INT_MIN:
+      //    icmp eq Abs(X) C ->
+      //        (icmp eq A, C) | (icmp eq A, -C)
+      //    icmp ne Abs(X) C ->
+      //        (icmp ne A, C) & (icmp ne A, -C)
+      // Both of these patterns can be better optimized in
+      // DAGCombiner::foldAndOrOfSETCC. Note this only applies for scalar
+      // integers which is checked above.
+      if (LHS.getOpcode() == ISD::ABS && LHS.hasOneUse()) {
+        if (auto *C = dyn_cast<ConstantSDNode>(RHS)) {
+          const APInt &CInt = C->getAPIntValue();
+          // We can better optimize this case in DAGCombiner::foldAndOrOfSETCC.
+          if (CInt.isPowerOf2() && !CInt.isMinSignedValue()) {
+            SDValue BaseOp = LHS.getOperand(0);
+            SDValue SETCC0 = DAG.getSetCC(DL, VT, BaseOp, RHS, CC);
+            SDValue SETCC1 = DAG.getSetCC(
+                DL, VT, BaseOp, DAG.getConstant(-CInt, DL, OpVT), CC);
+            return DAG.getNode(CC == ISD::SETEQ ? ISD::OR : ISD::AND, DL, VT,
+                               SETCC0, SETCC1);
+          }
+        }
       }
     }
   }
@@ -63445,6 +63466,20 @@ SDValue X86TargetLowering::expandIndirectJTBranch(const SDLoc& dl,
   }
 
   return TargetLowering::expandIndirectJTBranch(dl, Value, Addr, DAG);
+}
+
+TargetLowering::AndOrSETCCFoldKind
+X86TargetLowering::isDesirableToCombineLogicOpOfSETCC(
+    const SDNode *LogicOp, const SDNode *SETCC0, const SDNode *SETCC1) const {
+  using AndOrSETCCFoldKind = TargetLowering::AndOrSETCCFoldKind;
+  EVT VT = LogicOp->getValueType(0);
+  EVT OpVT = SETCC0->getOperand(0).getValueType();
+  if (!VT.isInteger())
+    return AndOrSETCCFoldKind::None;
+  if (VT.isVector())
+    return isOperationLegal(ISD::ABS, OpVT) ? AndOrSETCCFoldKind::ABS
+                                            : AndOrSETCCFoldKind::None;
+  return AndOrSETCCFoldKind::AddAnd;
 }
 
 bool X86TargetLowering::IsDesirableToPromoteOp(SDValue Op, EVT &PVT) const {
