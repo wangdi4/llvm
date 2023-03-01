@@ -58,10 +58,9 @@ if (NOT TARGET LLVMGenXIntrinsics)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
         # Author: Igor Gorban <igor.gorban@intel.com>
-        # Date:   Mon Jan 23 11:38:22 2023 +0100
-        # [BuildFix] Add option for fix parce opaque pointers
-        #            Fix ArrayRef initialization.
-        set(LLVMGenXIntrinsics_GIT_TAG c4269c3357600556bdd25e89bb4ecd4e81957ba6)
+        # Date:   Wed Feb 15 16:53:29 2023 +0100
+        # [LLVM] Fix module globals accessors
+        set(LLVMGenXIntrinsics_GIT_TAG 15c5667f52fefac72630c478726c8b1fee821795)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
