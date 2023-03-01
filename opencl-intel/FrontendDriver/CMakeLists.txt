@@ -110,7 +110,8 @@ endif()
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME})
 
 if(WIN32)
-  add_definitions(-DCCLANG_LIB_NAME="${COMMON_CLANG}.dll")
+  add_definitions(-DCCLANG_LIB_NAME="${COMMON_CLANG}.dll"
+                  -DDEFAULT_OCL_LIBRARY_DIR="${OCL_OUTPUT_LIBRARY_DIR}")
   if(OPENCL_INTREE_BUILD)
     set(COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/bin/${COMMON_CLANG}.dll)
   else()
