@@ -2684,6 +2684,7 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
              CGM.getDataLayout().getAllocaAddrSpace());
       auto DestAS = getContext().getTargetAddressSpace(DestLangAS);
       auto *T = DeclPtr.getElementType()->getPointerTo(DestAS);
+<<<<<<< HEAD
       DeclPtr = DeclPtr.withPointer(getTargetHooks().performAddrSpaceCast(
           *this, V, SrcLangAS, DestLangAS, T, true));
 #if INTEL_CUSTOMIZATION
@@ -2702,6 +2703,12 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
                                 D.getName() + ".indirect_addr");
       EmitStoreOfScalar(DeclPtr.getPointer(), AllocaPtr, /* Volatile */ false,
                         PtrTy);
+=======
+      DeclPtr =
+          DeclPtr.withPointer(getTargetHooks().performAddrSpaceCast(
+                                  *this, V, SrcLangAS, DestLangAS, T, true),
+                              DeclPtr.isKnownNonNull());
+>>>>>>> 57865bc5ad277166507d9e9fbb5205be86caa73a
     }
 
     // Push a destructor cleanup for this parameter if the ABI requires it.
