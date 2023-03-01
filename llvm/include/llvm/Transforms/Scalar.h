@@ -611,12 +611,6 @@ FunctionPass *createNaryReassociatePass();
 
 //===----------------------------------------------------------------------===//
 //
-// LoopFuse - Fuse loops.
-//
-FunctionPass *createLoopFusePass();
-
-//===----------------------------------------------------------------------===//
-//
 // LoopDataPrefetch - Perform data prefetching in loops.
 //
 FunctionPass *createLoopDataPrefetchPass();
