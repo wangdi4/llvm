@@ -308,7 +308,6 @@ void initializeLoopRotateLegacyPassPass(PassRegistry&);
 void initializeLoopSimplifyCFGLegacyPassPass(PassRegistry&);
 void initializeLoopSimplifyPass(PassRegistry&);
 void initializeLoopStrengthReducePass(PassRegistry&);
-void initializeLoopUnrollAndJamPass(PassRegistry&);
 void initializeLoopUnrollPass(PassRegistry&);
 #ifdef INTEL_CUSTOMIZATION
 void initializeLoopUnswitchPass(PassRegistry&);

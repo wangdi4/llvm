@@ -215,7 +215,6 @@ namespace {
       (void) llvm::createLoopStrengthReducePass();
       (void) llvm::createLoopRerollPass();
       (void) llvm::createLoopUnrollPass();
-      (void) llvm::createLoopUnrollAndJamPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createLoopUnswitchPass();
 #endif // INTEL_CUSTOMIZATION
