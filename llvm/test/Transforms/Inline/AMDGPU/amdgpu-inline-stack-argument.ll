@@ -1,8 +1,12 @@
 ; REQUIRES: asserts
 ; RUN: opt -mtriple=amdgcn-amd-amdhsa -S -passes=inline -inline-cost-full=true -inline-threshold=0 -inline-instr-cost=5 -inline-call-penalty=0 -debug-only=inline < %s 2>&1 | FileCheck %s
 
-; CHECK:      NOT Inlining (cost={{[0-9]+}}, threshold={{[0-9]+}}), Call:   %noinlinecall1 = call noundef i32 @non_inlining_call
-; CHECK:      NOT Inlining (cost={{[0-9]+}}, threshold={{[0-9]+}}), Call:   %noinlinecall2 = call noundef i32 @non_inlining_call
+; INTEL_CUSTOMIZATION
+; In xmain we will always ensure that the threshold is at least 1.
+; The test here will be cost(0) < threshold(1) and so inlining will happen.
+; CHECK:      Inlining (cost={{[0-9]+}}, threshold={{[0-9]+}}), Call:   %noinlinecall1 = call noundef i32 @non_inlining_call
+; CHECK:      Inlining (cost={{[0-9]+}}, threshold={{[0-9]+}}), Call:   %noinlinecall2 = call noundef i32 @non_inlining_call
+; end INTEL_CUSTOMIZATION
 ; CHECK-NOT:  NOT Inlining (cost={{[0-9]+}}, threshold={{[0-9]+}}), Call:   %inlinecall1 = call noundef i32 @inlining_call
 ; CHECK-NOT:  NOT Inlining (cost={{[0-9]+}}, threshold={{[0-9]+}}), Call:   %inlinecall2 = call noundef i32 @inlining_call
 
