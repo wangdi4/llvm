@@ -458,6 +458,10 @@ public:
   void releaseResources();
   bool isDeferredMemObjectsEmpty();
 
+  void enqueueCommandForCG(EventImplPtr NewEvent,
+                           std::vector<Command *> &AuxilaryCmds,
+                           BlockingT Blocking = NON_BLOCKING);
+
 protected:
   using RWLockT = std::shared_timed_mutex;
   using ReadLockT = std::shared_lock<RWLockT>;
@@ -608,7 +612,6 @@ protected:
                              std::vector<Command *> &ToCleanUp);
 
     std::vector<SYCLMemObjI *> MMemObjs;
-
 
   private:
     /// Inserts the command required to update the memory object state in the

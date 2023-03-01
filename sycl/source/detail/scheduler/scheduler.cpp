@@ -580,6 +580,59 @@ void Scheduler::cleanupDeferredMemObjects(BlockingT Blocking) {
   }
 }
 
+void Scheduler::enqueueCommandForCG(EventImplPtr NewEvent,
+                                    std::vector<Command *> &AuxiliaryCmds,
+                                    BlockingT Blocking) {
+  std::vector<Command *> ToCleanUp;
+  {
+    ReadLockT Lock = acquireReadLock();
+    Command *NewCmd =
+        (NewEvent) ? static_cast<Command *>(NewEvent->getCommand()) : nullptr;
+    EnqueueResultT Res;
+    bool Enqueued;
+    auto CleanUp = [&]() {
+      if (NewCmd && (NewCmd->MDeps.size() == 0 && NewCmd->MUsers.size() == 0)) {
+        if (NewEvent) {
+          NewEvent->setCommand(nullptr);
+        }
+        delete NewCmd;
+      }
+    };
+
+    for (Command *Cmd : AuxiliaryCmds) {
+      Enqueued =
+          GraphProcessor::enqueueCommand(Cmd, Res, ToCleanUp, Cmd, Blocking);
+      try {
+        if (!Enqueued && EnqueueResultT::SyclEnqueueFailed == Res.MResult)
+          throw runtime_error("Auxiliary enqueue process failed.",
+                              PI_ERROR_INVALID_OPERATION);
+      } catch (...) {
+        // enqueueCommand() func and if statement above may throw an exception,
+        // so destroy required resources to avoid memory leak
+        CleanUp();
+        std::rethrow_exception(std::current_exception());
+      }
+    }
+    if (NewCmd) {
+      // TODO: Check if lazy mode.
+      EnqueueResultT Res;
+      try {
+        bool Enqueued = GraphProcessor::enqueueCommand(NewCmd, Res, ToCleanUp,
+                                                       NewCmd, Blocking);
+        if (!Enqueued && EnqueueResultT::SyclEnqueueFailed == Res.MResult)
+          throw runtime_error("Enqueue process failed.",
+                              PI_ERROR_INVALID_OPERATION);
+      } catch (...) {
+        // enqueueCommand() func and if statement above may throw an exception,
+        // so destroy required resources to avoid memory leak
+        CleanUp();
+        std::rethrow_exception(std::current_exception());
+      }
+    }
+  }
+  cleanupCommands(ToCleanUp);
+}
+
 } // namespace detail
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
