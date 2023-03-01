@@ -22,6 +22,8 @@ using EventImplPtr = std::shared_ptr<detail::event_impl>;
 
 constexpr auto DisablePostEnqueueCleanupName =
     "SYCL_DISABLE_POST_ENQUEUE_CLEANUP";
+constexpr auto DisableExecutionGraphCleanupName =
+    "SYCL_DISABLE_EXECUTION_GRAPH_CLEANUP";
 
 std::vector<std::pair<pi_uint32, const pi_event *>> PassedNumEvents;
 
@@ -320,6 +322,9 @@ inline pi_result redefinedEnqueueEventsWaitWithBarrier(
 }
 
 TEST_F(DependsOnTests, ShortcutFunctionWithWaitList) {
+  unittest::ScopedEnvVar ExecutionCleanup{
+      DisableExecutionGraphCleanupName, "1",
+      detail::SYCLConfig<detail::SYCL_DISABLE_EXECUTION_GRAPH_CLEANUP>::reset};
   Mock.redefineBefore<detail::PiApiKind::piextUSMEnqueueMemcpy>(
       redefinedextUSMEnqueueMemcpy);
 
@@ -364,6 +369,9 @@ TEST_F(DependsOnTests, ShortcutFunctionWithWaitList) {
 }
 
 TEST_F(DependsOnTests, BarrierWithWaitList) {
+  unittest::ScopedEnvVar ExecutionCleanup{
+      DisableExecutionGraphCleanupName, "1",
+      detail::SYCLConfig<detail::SYCL_DISABLE_EXECUTION_GRAPH_CLEANUP>::reset};
   Mock.redefineBefore<detail::PiApiKind::piEnqueueEventsWaitWithBarrier>(
       redefinedEnqueueEventsWaitWithBarrier);
 
