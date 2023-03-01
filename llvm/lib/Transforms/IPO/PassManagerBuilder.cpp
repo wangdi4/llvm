@@ -534,7 +534,6 @@ if (EnableSimpleLoopUnswitch) {
   // We resume loop passes creating a second loop pipeline here.
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
-  MPM.add(createLoopDeletionPass());          // Delete dead loops
 
 #if INTEL_CUSTOMIZATION
     // Unroll small loops
@@ -1351,7 +1350,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
 
   PM.add(createIndVarSimplifyPass());
-  PM.add(createLoopDeletionPass());
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
