@@ -557,7 +557,7 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_PositiveStride) {
     for (const uint64_t VF : {1, 2, 4, 8, 16, 32}) {
       const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
       EXPECT_TRUE(KB.isNonNegative());
-      EXPECT_EQ(KB.countMinTrailingZeros(), countTrailingZeros(Step * VF));
+      EXPECT_EQ(KB.countMinTrailingZeros(), llvm::countr_zero(Step * VF));
     }
   }
 }
@@ -599,7 +599,7 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NegativeStride) {
     for (const uint64_t VF : {1, 2, 4, 8, 16, 32}) {
       const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
       EXPECT_TRUE(KB.isNonNegative());
-      EXPECT_EQ(KB.countMinTrailingZeros(), countTrailingZeros(Step * VF));
+      EXPECT_EQ(KB.countMinTrailingZeros(), llvm::countr_zero(Step * VF));
     }
   }
 }
@@ -632,7 +632,7 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_KnownUpperLowerBound) {
       const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
       EXPECT_TRUE(KB.isNonNegative());
       EXPECT_EQ(KB.countMinLeadingZeros(),
-                countLeadingZeros(Step * 256) + isPowerOf2_64(Step * 256));
+                llvm::countl_zero(Step * 256) + isPowerOf2_64(Step * 256));
     }
   }
 }
@@ -720,7 +720,7 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NonConstLoopInvariantStep) {
 
     for (const uint64_t VF : {1, 2, 4, 8, 16, 32}) {
       const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
-      EXPECT_EQ(KB.countMinTrailingZeros(), countTrailingZeros(Stride * VF));
+      EXPECT_EQ(KB.countMinTrailingZeros(), llvm::countr_zero(Stride * VF));
     }
   }
 }
@@ -817,8 +817,8 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NotFirstOp) {
   for (const unsigned VF : {1, 2, 4, 8, 16}) {
     const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
     EXPECT_TRUE(KB.isNonNegative());
-    EXPECT_EQ(KB.countMinTrailingZeros(), countTrailingZeros(VF));
-    EXPECT_EQ(KB.countMinLeadingZeros(), countLeadingZeros(256uLL) + 1);
+    EXPECT_EQ(KB.countMinTrailingZeros(), llvm::countr_zero(VF));
+    EXPECT_EQ(KB.countMinLeadingZeros(), llvm::countl_zero(256uLL) + 1);
   }
 }
 
@@ -885,9 +885,9 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NestedLoops) {
     for (const VPInstruction *CtxI : {OuterIV, InnerIV, OuterTerminator}) {
       const auto KB = Plan->getVPVT()->getKnownBits(OuterIV, CtxI, VF);
       EXPECT_TRUE(KB.isNonNegative());
-      EXPECT_EQ(KB.countMinTrailingZeros(), countTrailingZeros(VF));
+      EXPECT_EQ(KB.countMinTrailingZeros(), llvm::countr_zero(VF));
       EXPECT_EQ(KB.countMinLeadingZeros(),
-                countLeadingZeros<uint64_t>(128) + 1);
+                llvm::countl_zero<uint64_t>(128) + 1);
     }
   }
 }
