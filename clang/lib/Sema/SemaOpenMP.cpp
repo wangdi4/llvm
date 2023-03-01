@@ -4934,7 +4934,7 @@ static ExprResult buildCapture(Sema &S, Expr *CaptureExpr, DeclRefExpr *&Ref,
   if (!Ref) {
 #if INTEL_COLLAB
     static unsigned int NumCaptures = 0;
-    SmallString<24> CaptureStr(".capture_expr.");
+    SmallString<24> CaptureStr(Name);
     if (S.getLangOpts().OpenMPLateOutline) {
       CaptureStr += std::to_string(NumCaptures);
       ++NumCaptures;
