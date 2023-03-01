@@ -15020,6 +15020,21 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   if (WTeams && !WTeams->getRed().items().empty())
     return true;
 
+  // Check the pattern when only W's parent PARALLEL construct has
+  // reduction clause
+  // PARALLEL(REDUCTION):   WPar
+  // LOOP:                  W
+  if (!W->getIsPar()) {
+    auto *WPar = WRegionUtils::getParentRegion(W, WRegionNode::WRNParallel);
+    if (WPar && VPOParoptUtils::isAtomicFreeReductionLocalEnabled() &&
+        !AtomicFreeReductionUseSLM && AtomicFreeRedLocalBufSize &&
+        std::any_of(WPar->getRed().begin(), WPar->getRed().end(),
+                    [](const ReductionItem *RedI) {
+                      return VPOParoptUtils::supportsAtomicFreeReduction(RedI);
+                    }))
+      return true;
+  }
+
   // When using tree-pattern local reduction with a global reduction buffer
   // ND-range should be dropped because local buffer ptr calculations rely
   // on not having ND-range parallelization.
