@@ -3835,6 +3835,12 @@ void VPOCodeGenHIR::widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask) {
     HLInst *BlendInst = createSelectHelper(CmpInst::ICMP_EQ /* CmpPred */, Cond,
                                            nullptr /* Pred1 */, IncomingVecVal,
                                            BlendVal, ReplicateFactor);
+    if (Blend->getDebugLocation()) {
+      Instruction *LLVMInst =
+          const_cast<Instruction *>(BlendInst->getLLVMInstruction());
+      LLVMInst->setDebugLoc(Blend->getDebugLocation());
+    }
+
     addInstUnmasked(BlendInst);
     BlendVal = BlendInst->getLvalDDRef()->clone();
   }
@@ -4250,6 +4256,13 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // 1. Generate vector reduce intrinsic call
       HLInst *VecReduceCall = createVectorReduce(
           RedFinal, VecRef, Acc, RednDescriptor, HLNodeUtilities);
+
+      if (RedFinal->getDebugLocation()) {
+        Instruction *LLVMInst =
+            const_cast<Instruction *>(VecReduceCall->getLLVMInstruction());
+        LLVMInst->setDebugLoc(RedFinal->getDebugLocation());
+      }
+
       WInst = VecReduceCall;
       RedTail.push_back(*VecReduceCall);
 

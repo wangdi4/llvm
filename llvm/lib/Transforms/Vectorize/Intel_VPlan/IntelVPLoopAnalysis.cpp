@@ -1263,6 +1263,41 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   if (FMF.any())
     Final->setFastMathFlags(FMF);
 
+  // Find the unique reducing operation and apply its DebugLoc to the
+  // reduction-final.  Leave it alone if a unique operation isn't found.
+  // TODO: We need to more generally apply debug location information
+  // from induction and reduction operations to the phis associated
+  // with them.  Once that's in place, this code can be simplified.
+  // See CMPLRLLVM-45255.
+  VPInstruction *Reducer = nullptr;
+  std::queue<VPInstruction *> WorkList;
+  SmallSet<VPInstruction *, 8> Visited;
+  VPInstruction *First = dyn_cast<VPInstruction>(Final->getReducingOperand());
+  assert(First && "Reducing operand is not instruction!");
+  WorkList.push(First);
+
+  while (!WorkList.empty()) {
+    VPInstruction *Cand = WorkList.front();
+    WorkList.pop();
+    Visited.insert(Cand);
+
+    if (auto *Phi = dyn_cast<VPPHINode>(Cand)) {
+      for (auto Opnd : Phi->operands()) {
+        if (auto *I = dyn_cast<VPInstruction>(Opnd))
+          if (Loop.contains(I) && !Visited.contains(I))
+            WorkList.push(I);
+      }
+    } else if (Reducer) {
+      Reducer = nullptr;
+      break;
+    } else {
+      Reducer = Cand;
+    }
+  }
+
+  if (Reducer)
+    Final->setDebugLocation(Reducer->getDebugLocation());
+
   processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
 
   if (PrivateMem) {
