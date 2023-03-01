@@ -2684,8 +2684,10 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
              CGM.getDataLayout().getAllocaAddrSpace());
       auto DestAS = getContext().getTargetAddressSpace(DestLangAS);
       auto *T = DeclPtr.getElementType()->getPointerTo(DestAS);
-      DeclPtr = DeclPtr.withPointer(getTargetHooks().performAddrSpaceCast(
-          *this, V, SrcLangAS, DestLangAS, T, true));
+      DeclPtr =
+          DeclPtr.withPointer(getTargetHooks().performAddrSpaceCast(
+                                  *this, V, SrcLangAS, DestLangAS, T, true),
+                              DeclPtr.isKnownNonNull());
 #if INTEL_CUSTOMIZATION
       AllocaPtr = DeclPtr;
 #endif // INTEL_CUSTOMIZATION
