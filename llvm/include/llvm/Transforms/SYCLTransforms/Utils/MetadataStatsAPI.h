@@ -118,7 +118,7 @@ private:
   // static members
 public:
   static void readDescription(Module &M, DescriptionListTy &Descs) {
-    const auto &MDList = M.getNamedMDList();
+    const auto &MDList = M.named_metadata();
 
     for (auto &NamedMetadata : MDList) {
       auto Name = NamedMetadata.getName();
