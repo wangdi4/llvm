@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2022 Intel Corporation
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -89,9 +89,15 @@ endif()
 set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
 
 if (INTEL_CUSTOMIZATION)
-  set(DPCPP_VERSION_QUALITY " ")
-  set(DPCPP_VERSION_MAJOR "2023")
-  set(DPCPP_VERSION_MINOR "1")
+  if (INTEL_DEPLOY_UNIFIED_LAYOUT)
+    set(DPCPP_VERSION_QUALITY "Beta")
+    set(DPCPP_VERSION_MAJOR "2024")
+    set(DPCPP_VERSION_MINOR "0")
+  else()
+    set(DPCPP_VERSION_QUALITY " ")
+    set(DPCPP_VERSION_MAJOR "2023")
+    set(DPCPP_VERSION_MINOR "1")
+  endif()
   set(DPCPP_VERSION_PATCH "0")
   set(VERSION "${DPCPP_VERSION_MAJOR}.${DPCPP_VERSION_MINOR}.${DPCPP_VERSION_PATCH}")
   set(DPCPP_PRODUCT_VERSION ${VERSION})
