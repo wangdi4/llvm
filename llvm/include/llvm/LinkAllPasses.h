@@ -215,13 +215,9 @@ namespace {
       (void) llvm::createLoopStrengthReducePass();
       (void) llvm::createLoopRerollPass();
       (void) llvm::createLoopUnrollPass();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       (void) llvm::createLoopUnswitchPass();
 #endif // INTEL_CUSTOMIZATION
-      (void) llvm::createLoopVersioningLICMPass();
-=======
->>>>>>> a409f3c069145547db204099676c643ccd8b30d7
       (void) llvm::createLoopIdiomPass();
       (void) llvm::createLoopRotatePass();
       (void) llvm::createLowerConstantIntrinsicsPass();
