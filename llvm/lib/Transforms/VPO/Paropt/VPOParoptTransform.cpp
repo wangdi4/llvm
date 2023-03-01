@@ -4676,21 +4676,6 @@ bool VPOParoptTransform::genReductionScalarFini(
        (!UseLocalUpdates && !UseGlobalUpdates &&
         !RedI->getIsF90DopeVector())) &&
       !IsArrayOrArraySection) {
-    // Since zero-offset TYPED.ARRSECT clauses are not treated
-    // as an actual array sections, ScalarTy doesn't match
-    // ReductionVar's pointee type (which is an array).
-    // But as it may only happen for zero-offset items, we can
-    // just generate a corresponding bitcast.
-    // Obviously that's not an issue for opaque pointers.
-    if (!ReductionVar->getType()->isOpaquePointerTy() &&
-        ReductionVar->getType()->getPointerElementType()->isArrayTy()) {
-      assert(RedI->getIsTyped() &&
-             "Unexpected type mismatch for non-typed reduction item");
-      ReductionVar = Builder.CreateBitOrPointerCast(
-          ReductionVar,
-          PointerType::get(ScalarTy,
-                           ReductionVar->getType()->getPointerAddressSpace()));
-    }
     // The reduction generation code below assumes that BB which Builder
     // is inserting instruction into doesn't have any code that isn't supposed
     // to be within the newly generated reduction loop, that's why
@@ -4698,6 +4683,33 @@ bool VPOParoptTransform::genReductionScalarFini(
     auto *NewBB = SplitBlock(Builder.GetInsertBlock(),
                              &Builder.GetInsertBlock()->back(), DT, LI);
     Builder.SetInsertPoint(&NewBB->back());
+  }
+
+  // TODO: OPAQUEPOINTER: delete once typed pointers are no longer supported.
+  // Since zero-offset TYPED.ARRSECT clauses are not treated
+  // as an actual array sections, ScalarTy doesn't match
+  // ReductionVar's pointee type (which is an array).
+  // But as it may only happen for zero-offset items, we can
+  // just generate a corresponding bitcast.
+  // Obviously that's not an issue for opaque pointers.
+  if (!RedI->getIsF90DopeVector() && !IsArrayOrArraySection &&
+      !ReductionVar->getType()->isOpaquePointerTy() &&
+      ReductionVar->getType()->getNonOpaquePointerElementType()->isArrayTy()) {
+    assert(RedI->getIsTyped() &&
+           "Unexpected type mismatch for non-typed reduction item");
+    Instruction *ReductionVarInst = dyn_cast<Instruction>(ReductionVar);
+    auto *InsertPt = ReductionVarInst && DT->dominates(W->getEntryDirective(),
+                                                       ReductionVarInst)
+                         ? ReductionVarInst
+                         : W->getEntryDirective();
+    assert(InsertPt &&
+           "No valid insertion point found for 0-offset arrsect bitcast");
+    ReductionVar = Builder.CreateBitOrPointerCast(
+        ReductionVar,
+        PointerType::get(ScalarTy,
+                         ReductionVar->getType()->getPointerAddressSpace()));
+    if (auto *BCInst = dyn_cast<Instruction>(ReductionVar))
+      BCInst->moveAfter(InsertPt);
   }
 
   auto HandleByRefArg = [&ReductionVar](Instruction *InsertPt) {
