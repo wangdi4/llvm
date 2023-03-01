@@ -68,8 +68,12 @@ static std::unique_ptr<lto::LTO> createLTO() {
   c.DiagHandler = diagnosticHandler;
   c.OptLevel = config->ltoo;
   c.MAttrs = getMAttrs();
+<<<<<<< HEAD
   c.CGOptLevel = args::getCGOptLevel(config->ltoo);
   c.UseNewPM = config->ltoNewPassManager; // INTEL
+=======
+  c.CGOptLevel = config->ltoCgo;
+>>>>>>> 45ee0a9afc6282000e06fa1edb89fe2159a7b34e
   c.DebugPassManager = config->ltoDebugPassManager;
 
   if (config->relocatable)
