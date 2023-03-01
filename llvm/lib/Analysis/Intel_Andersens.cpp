@@ -2161,8 +2161,13 @@ void AndersensAAResult::CollectConstraints(Module &M) {
   }
 
   // GlobalAlias: Treat it as Universal.
-  for (auto &GA : M.aliases())
+  for (auto &GA : M.aliases()) {
     CreateConstraint(Constraint::Copy, getNode(&GA), UniversalSet);
+    // Both alias and aliasee need to be modelled as single variable.
+    Value *Aliasee = GA.getAliasee();
+    CreateConstraint(Constraint::Copy, getNode(&GA), getNode(Aliasee));
+    CreateConstraint(Constraint::Copy, getNode(Aliasee), getNode(&GA));
+  }
 
   // Treat Indirect calls conservatively if number of indirect calls exceeds
   // AndersIndirectCallsLimit
