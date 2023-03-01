@@ -3001,7 +3001,24 @@ void OpenMPLateOutliner::emitOMPRelaxedClause(const OMPRelaxedClause *) {}
 void OpenMPLateOutliner::emitOMPDepobjClause(const OMPDepobjClause *) {
   assert(false);
 }
-void OpenMPLateOutliner::emitOMPDetachClause(const OMPDetachClause *) {}
+
+void OpenMPLateOutliner::emitOMPDetachClause(const OMPDetachClause *Cl) {
+  Expr *E = Cl->getEventHandler();
+  const VarDecl *VD = getExplicitVarDecl(Cl->getEventHandler());
+  ClauseEmissionHelper CEH(*this, OMPC_detach, "QUAL.OMP.DETACH");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  assert(VD && "expected VarDecl in detach clause");
+  addExplicit(VD, OMPC_detach);
+  bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+  bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
+  if (IsRef)
+    CSB.setByRef();
+  if (UseTypedClauses)
+    CSB.setTyped();
+  addArg(CSB.getString());
+  addTypedArg(E, IsRef);
+}
+
 void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}

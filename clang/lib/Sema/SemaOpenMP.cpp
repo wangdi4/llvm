@@ -6549,6 +6549,10 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       // OpenMP 5.0, 2.10.1 task Construct
       // [detach clause]... The event-handle will be considered as if it was
       // specified on a firstprivate clause.
+#if INTEL_COLLAB
+      // Paropt doesn't expect implicit firstprivate clause
+      if (!LangOpts.OpenMPLateOutline)
+#endif // INTEL_COLLAB
       if (auto *DC = dyn_cast<OMPDetachClause>(C))
         ImplicitFirstprivates.push_back(DC->getEventHandler());
     }
