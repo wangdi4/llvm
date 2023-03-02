@@ -29,22 +29,25 @@ void foo() {
 #pragma omp begin declare variant match(device={kind(host)})
 void bar() {
   static int y;
-  // expected-note@+1 {{'#pragma omp groupprivate' is specified here}}
+  // expected-note@+1 2 {{'#pragma omp groupprivate' is specified here}}
   #pragma omp groupprivate(y) device_type(nohost) // expected-note {{defined as groupprivate}}
   // expected-warning@+1 {{groupprivate directive for variable 'y' is ignored for x86-64/host compilation}}
   #pragma omp target map(y) // expected-error {{groupprivate variables are not allowed in 'map' clause}}
-  y = 0;
+  y = 0; // expected-warning {{groupprivate directive for variable 'y' is ignored for x86-64/host compilation}}
 }
 #pragma omp end declare variant
 #else
 namespace {
   int ooo;
+  // expected-note@+1 2 {{'#pragma omp groupprivate' is specified here}}
   #pragma omp groupprivate (ooo) device_type(nohost)
 };
 
 int xoo() {
-  ::ooo++; // no warning.
-  return ::ooo; // no warning.
+// expected-warning@+1 {{groupprivate directive for variable 'ooo' is ignored for x86-64/host compilation}}
+  ::ooo++;
+// expected-warning@+1 {{groupprivate directive for variable 'ooo' is ignored for x86-64/host compilation}}
+  return ::ooo;
 }
 #pragma omp begin declare target device_type(host)
 int x;

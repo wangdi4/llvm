@@ -74,8 +74,16 @@ opencl-intel/ @intel-restricted/cmplrllvm-ocl-cpu-rt
 libdevice/ @intel-restricted/llvm-reviewers-runtime
 
 # COMPONENT: DPC++ ESIMD
-# ESIMD device library
-sycl/include/sycl/ext/intel/experimental/esimd/ @v-klochkov
+sycl/include/sycl/ext/intel/experimental/esimd/ @intel-restricted/dpcpp-esimd-reviewers
+sycl/include/sycl/ext/intel/esimd.hpp @intel-restricted/dpcpp-esimd-reviewers
+sycl/doc/extensions/experimental/sycl_ext_intel_esimd/ @intel-restricted/dpcpp-esimd-reviewers
+llvm/lib/SYCLLowerIR/CMakeLists.txt @intel-restricted/dpcpp-esimd-reviewers
+
+# invoke_simd
+sycl/include/sycl/ext/oneapi/experimental/invoke_simd.hpp @intel-restricted/dpcpp-esimd-reviewers
+sycl/include/std/experimental/simd.hpp @intel-restricted/dpcpp-esimd-reviewers
+llvm/lib/SYCLLowerIR/LowerInvokeSimd.cpp @intel-restricted/dpcpp-esimd-reviewers
+llvm/include/llvm/SYCLLowerIR/LowerInvokeSimd.h @intel-restricted/dpcpp-esimd-reviewers
 
 # COMPONENT: CG
 # JIRA: CMPLRLLVM->LLVM Code Generator

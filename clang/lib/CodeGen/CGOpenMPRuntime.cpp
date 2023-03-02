@@ -11210,6 +11210,9 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
   if (CGM.getLangOpts().OpenMPLateOutline &&
       VD->hasAttr<OMPDeclareTargetDeclAttr>())
     cast<llvm::GlobalVariable>(Addr)->setTargetDeclare(true);
+
+  if (VD->hasAttr<OMPGroupPrivateDeclAttr>())
+    return;
 #endif // INTEL_COLLAB
 
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
