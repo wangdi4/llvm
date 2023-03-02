@@ -10822,7 +10822,7 @@ def err_omp_groupprivate_incomplete_type
 def warn_groupprivate_reference_ignore
     : Warning<"groupprivate directive for variable %0 is ignored for "
               "x86-64/host compilation">,
-      InGroup<SourceUsesOpenMP>;
+      InGroup<DiagGroup<"openmp-groupprivate">>;
 def err_omp_private_in_clause
     : Error<"%0 variables are not allowed in '%1' clause">;
 def err_groupprivate_init
