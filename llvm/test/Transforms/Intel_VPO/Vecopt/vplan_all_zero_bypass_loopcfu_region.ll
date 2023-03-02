@@ -21,7 +21,7 @@ define dso_local void @foo(i32* noalias nocapture noundef readonly %A, i32* noal
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_I_LINEAR_IV:%.*]] = allocate-priv i32*, OrigAlign = 4
 ; CHECK-NEXT:     [DA: Div] i8* [[VP0:%.*]] = bitcast i32* [[VP_I_LINEAR_IV]]
-; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial]
+; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV46_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV46_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOAD:%.*]] = load i32* [[I_LINEAR_IV0:%.*]]
@@ -104,7 +104,7 @@ define dso_local void @foo(i32* noalias nocapture noundef readonly %A, i32* noal
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_I_LINEAR_IV_IND_FINAL:%.*]] = induction-final{add} i32 [[VP_LOAD]] i32 1
 ; CHECK-NEXT:     [DA: Uni] store i32 [[VP_I_LINEAR_IV_IND_FINAL]] i32* [[I_LINEAR_IV0]]
 ; CHECK-NEXT:     [DA: Div] i8* [[VP13:%.*]] = bitcast i32* [[VP_I_LINEAR_IV]]
-; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP13]] void (i64, i8*)* @llvm.lifetime.end.p0i8 [Serial]
+; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP13]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     [DA: Uni] br [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]]: # preds: [[BB10]]

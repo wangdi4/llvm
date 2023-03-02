@@ -13,9 +13,9 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div, SVA: (FV  )] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4 (SVAOpBits )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i8* [[VP_ARR_PRIV_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]] (SVAOpBits 0->V ) 
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] call i64 4096 i8* [[VP_ARR_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial] (SVAOpBits 0->V 1->V 2->F ) 
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] i8* [[VP0:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] call i64 4096 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 (SVAOpBits 0->F )
@@ -47,8 +47,8 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i8* [[VP_ARR_PRIV_BCAST1:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]] (SVAOpBits 0->V ) 
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] call i64 4096 i8* [[VP_ARR_PRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 [Serial] (SVAOpBits 0->V 1->V 2->F ) 
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] i8* [[VP1:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] call i64 4096 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
@@ -56,7 +56,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br final.merge (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB4]]
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP0:%.*]] = phi-merge  [ i64 live-out0, [[BB4]] ] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP2:%.*]] = phi-merge  [ i64 live-out0, [[BB4]] ] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] popvf (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
@@ -108,16 +108,16 @@ for.end:                                          ; preds = %for.body
 
 define dso_local void @strided_gep_unit_strided_pointer(i32 %n) {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:  VPlan IR for: strided_gep_unit_strided_pointer:simd.loop
+; CHECK-NEXT:  VPlan IR for: strided_gep_unit_strided_pointer:simd.loop.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF=2 UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] pushvf VF=2 UF=1 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div, SVA: (FV  )] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i8* [[VP_ARR_SOA_PRIV64_BCAST:%.*]] = bitcast [1024 x i64]* [[VP_ARR_SOA_PRIV64]] (SVAOpBits 0->V ) 
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] call i64 8192 i8* [[VP_ARR_SOA_PRIV64_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial] (SVAOpBits 0->V 1->V 2->F ) 
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] i8* [[VP0:%.*]] = bitcast [1024 x i64]* [[VP_ARR_SOA_PRIV64]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] call i64 8192 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 (SVAOpBits 0->F )
@@ -149,8 +149,8 @@ define dso_local void @strided_gep_unit_strided_pointer(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i8* [[VP_ARR_SOA_PRIV64_BCAST1:%.*]] = bitcast [1024 x i64]* [[VP_ARR_SOA_PRIV64]] (SVAOpBits 0->V ) 
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] call i64 8192 i8* [[VP_ARR_SOA_PRIV64_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 [Serial] (SVAOpBits 0->V 1->V 2->F ) 
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] i8* [[VP1:%.*]] = bitcast [1024 x i64]* [[VP_ARR_SOA_PRIV64]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] call i64 8192 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB7:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
@@ -158,7 +158,7 @@ define dso_local void @strided_gep_unit_strided_pointer(i32 %n) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br final.merge (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB7]]
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP0:%.*]] = phi-merge  [ i64 live-out0, [[BB7]] ] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP2:%.*]] = phi-merge  [ i64 live-out0, [[BB7]] ] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] popvf (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:

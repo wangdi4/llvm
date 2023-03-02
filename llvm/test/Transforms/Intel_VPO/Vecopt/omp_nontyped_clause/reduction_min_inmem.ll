@@ -114,7 +114,7 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; Checks for generated vector code
 ; CHECK:  define i32 @foo
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[MIN_VEC_BCAST:%.*]] = bitcast <2 x i32>* [[MIN_VEC:%.*]] to i8* 
+; CHECK-NEXT:    [[MIN_VEC_BCAST:%.*]] = bitcast i32* [[MIN_VEC:%.*]] to i8* 
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[MIN_VEC_BCAST]])
 ; CHECK-NEXT:    [[TMP2:%.*]] = load i32, i32* [[MIN0]], align 1
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32> poison, i32 [[TMP2]], i64 0
@@ -147,7 +147,7 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK-NEXT:    [[WIDE_LOAD70:%.*]] = load <2 x i32>, <2 x i32>* [[MIN_VEC0]], align 1
 ; CHECK-NEXT:    [[TMP9:%.*]] = call i32 @llvm.vector.reduce.smin.v2i32(<2 x i32> [[WIDE_LOAD70]])
 ; CHECK-NEXT:    store i32 [[TMP9]], i32* [[MIN0]], align 1
-; CHECK-NEXT:    [[MIN_VEC_BCAST1:%.*]] = bitcast <2 x i32>* [[MIN_VEC:%.*]] to i8* 
+; CHECK-NEXT:    [[MIN_VEC_BCAST1:%.*]] = bitcast i32* [[MIN_VEC:%.*]] to i8* 
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* [[MIN_VEC_BCAST1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB80:%.*]]
 ; CHECK-EMPTY:

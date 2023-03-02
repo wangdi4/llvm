@@ -14,12 +14,13 @@ define void @merge_uniform_soa_geps() {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[ARR_SOA_PRIV64_SOA_VEC_BCAST:%.*]] = bitcast [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[ARR_SOA_PRIV64_SOA_VEC_BCAST]])
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]] to <2 x i8>*
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i8>* [[TMP0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[TMP1]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VPLANNEDBB6:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP0:%.*]], [[VPLANNEDBB6]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP3:%.*]], [[VPLANNEDBB6:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP2:%.*]], [[VPLANNEDBB6]] ]
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x <2 x i64>], [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]], i64 0, i64 0
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i64>, <2 x i64>* [[SOA_SCALAR_GEP]], align 4
 ; CHECK-NEXT:    br i1 true, label [[VPLANNEDBB3:%.*]], label [[VPLANNEDBB4:%.*]]
@@ -34,10 +35,10 @@ define void @merge_uniform_soa_geps() {
 ; CHECK-NEXT:    [[WIDE_LOAD9:%.*]] = load <2 x i64>, <2 x i64>* [[UNI_PHI8]], align 4
 ; CHECK-NEXT:    [[SOA_VECTORGEP:%.*]] = getelementptr inbounds <2 x i64>, <2 x i64>* [[UNI_PHI8]], <2 x i64> [[WIDE_LOAD9]], <2 x i64> <i64 0, i64 1>
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[SOA_VECTORGEP]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
-; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 1024
-; CHECK-NEXT:    br i1 [[TMP2]], label [[VECTOR_BODY]], label [[VPLANNEDBB10:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp ult i64 [[TMP3]], 1024
+; CHECK-NEXT:    br i1 [[TMP4]], label [[VECTOR_BODY]], label [[VPLANNEDBB10:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB10:
 ;
 entry:
@@ -92,12 +93,13 @@ define void @merge_uniform_strided_soa_geps() {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[ARR_SOA_PRIV64_SOA_VEC_BCAST:%.*]] = bitcast [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[ARR_SOA_PRIV64_SOA_VEC_BCAST]])
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]] to <2 x i8>*
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i8>* [[TMP0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[TMP1]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VPLANNEDBB8:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP0:%.*]], [[VPLANNEDBB8]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP3:%.*]], [[VPLANNEDBB8:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP2:%.*]], [[VPLANNEDBB8]] ]
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x <2 x i64>], [1024 x <2 x i64>]* [[ARR_SOA_PRIV64_SOA_VEC]], i64 0, i64 0
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i64>, <2 x i64>* [[SOA_SCALAR_GEP]], align 4
 ; CHECK-NEXT:    br i1 true, label [[VPLANNEDBB3:%.*]], label [[VPLANNEDBB4:%.*]]
@@ -115,10 +117,10 @@ define void @merge_uniform_strided_soa_geps() {
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[VEC_PHI10]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64*> [[VEC_PHI10]], <2 x i64> [[WIDE_MASKED_GATHER]]
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER11:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
-; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 1024
-; CHECK-NEXT:    br i1 [[TMP2]], label [[VECTOR_BODY]], label [[VPLANNEDBB12:%.*]], !llvm.loop [[LOOP2:![0-9]+]]
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp ult i64 [[TMP3]], 1024
+; CHECK-NEXT:    br i1 [[TMP4]], label [[VECTOR_BODY]], label [[VPLANNEDBB12:%.*]], !llvm.loop [[LOOP2:![0-9]+]]
 ; CHECK:       VPlannedBB13:
 ;
 entry:
@@ -176,12 +178,12 @@ define void @merge_str_soa_geps() {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[ARR_SOA_PRIV64_VEC_BCAST:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_SOA_PRIV64_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[ARR_SOA_PRIV64_VEC_BCAST]])
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_SOA_PRIV64_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[TMP0]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VPLANNEDBB6:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP0:%.*]], [[VPLANNEDBB6]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP2:%.*]], [[VPLANNEDBB6:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VPLANNEDBB6]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [1024 x i64], <2 x [1024 x i64]*> [[ARR_SOA_PRIV64_VEC_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
 ; CHECK-NEXT:    br i1 true, label [[VPLANNEDBB3:%.*]], label [[VPLANNEDBB4:%.*]]
 ; CHECK:       VPlannedBB4:
@@ -195,10 +197,10 @@ define void @merge_str_soa_geps() {
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[VEC_PHI8]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[MM_VECTORGEP9:%.*]] = getelementptr inbounds i64, <2 x i64*> [[VEC_PHI8]], <2 x i64> [[WIDE_MASKED_GATHER]]
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER10:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP9]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
-; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 1024
-; CHECK-NEXT:    br i1 [[TMP2]], label [[VECTOR_BODY]], label [[VPLANNEDBB11:%.*]], !llvm.loop [[LOOP3:![0-9]+]]
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i64 [[TMP2]], 1024
+; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY]], label [[VPLANNEDBB11:%.*]], !llvm.loop [[LOOP3:![0-9]+]]
 ; CHECK:       VPlannedBB11:
 ;
 entry:
@@ -258,20 +260,20 @@ define void @merge_aos_soa_geps() {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[ARR_AOS_PRIV64_VEC_BCAST:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_AOS_PRIV64_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[ARR_AOS_PRIV64_VEC_BCAST]])
-; CHECK-NEXT:    [[ARR_SOA_PRIV64_VEC_BCAST:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_SOA_PRIV64_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[ARR_SOA_PRIV64_VEC_BCAST]])
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_AOS_PRIV64_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[TMP0]])
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast [2 x [1024 x i64]]* [[ARR_SOA_PRIV64_VEC]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16384, i8* [[TMP1]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP3:%.*]], [[VPLANNEDBB7:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP2:%.*]], [[VPLANNEDBB7]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP5:%.*]], [[VPLANNEDBB7:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP4:%.*]], [[VPLANNEDBB7]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [1024 x i64], <2 x [1024 x i64]*> [[ARR_SOA_PRIV64_VEC_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
 ; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds [1024 x i64], <2 x [1024 x i64]*> [[ARR_AOS_PRIV64_VEC_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
 ; CHECK-NEXT:    [[MM_VECTORGEP3_EXTRACT_1_:%.*]] = extractelement <2 x i64*> [[MM_VECTORGEP3]], i32 1
 ; CHECK-NEXT:    [[MM_VECTORGEP3_EXTRACT_0_:%.*]] = extractelement <2 x i64*> [[MM_VECTORGEP3]], i32 0
-; CHECK-NEXT:    [[TMP0:%.*]] = call i64 @helper(i64* nonnull [[MM_VECTORGEP3_EXTRACT_0_]])
-; CHECK-NEXT:    [[TMP1:%.*]] = call i64 @helper(i64* nonnull [[MM_VECTORGEP3_EXTRACT_1_]])
+; CHECK-NEXT:    [[TMP2:%.*]] = call i64 @helper(i64* nonnull [[MM_VECTORGEP3_EXTRACT_0_]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call i64 @helper(i64* nonnull [[MM_VECTORGEP3_EXTRACT_1_]])
 ; CHECK-NEXT:    br i1 true, label [[VPLANNEDBB4:%.*]], label [[VPLANNEDBB5:%.*]]
 ; CHECK:       VPlannedBB5:
 ; CHECK-NEXT:    [[MM_VECTORGEP6:%.*]] = getelementptr inbounds [1024 x i64], <2 x [1024 x i64]*> [[ARR_SOA_PRIV64_VEC_BASE_ADDR]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]]
@@ -284,10 +286,10 @@ define void @merge_aos_soa_geps() {
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[VEC_PHI9]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
 ; CHECK-NEXT:    [[MM_VECTORGEP10:%.*]] = getelementptr inbounds i64, <2 x i64*> [[VEC_PHI9]], <2 x i64> [[WIDE_MASKED_GATHER]]
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER11:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0i64(<2 x i64*> [[MM_VECTORGEP10]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
-; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp ult i64 [[TMP3]], 1024
-; CHECK-NEXT:    br i1 [[TMP4]], label [[VECTOR_BODY]], label [[VPLANNEDBB12:%.*]], !llvm.loop [[LOOP4:![0-9]+]]
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp ult i64 [[TMP5]], 1024
+; CHECK-NEXT:    br i1 [[TMP6]], label [[VECTOR_BODY]], label [[VPLANNEDBB12:%.*]], !llvm.loop [[LOOP4:![0-9]+]]
 ; CHECK:       VPlannedBB12:
 ;
 entry:
