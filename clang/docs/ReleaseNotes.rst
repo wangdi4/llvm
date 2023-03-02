@@ -53,8 +53,6 @@ C/C++ Language Potentially Breaking Changes
 
 C++ Specific Potentially Breaking Changes
 -----------------------------------------
-- Clang won't search for coroutine_traits in std::experimental namespace any more.
-  Clang will only search for std::coroutine_traits for coroutines then.
 
 ABI Changes in This Version
 ---------------------------
@@ -85,7 +83,7 @@ C Language Changes
 ------------------
 - Support for outputs from asm goto statements along indirect edges has been
   added. This fixes
-  `Issue 53562 <https://github.com/llvm/llvm-project/issues/53562`_.
+  `Issue 53562 <https://github.com/llvm/llvm-project/issues/53562>`_.
 
 C2x Feature Support
 ^^^^^^^^^^^^^^^^^^^
