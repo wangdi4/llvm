@@ -42,8 +42,30 @@
 
 namespace llvm {
 
+static constexpr unsigned InstCombineDefaultMaxIterations = 1000;
+
+struct InstCombineOptions {
+  bool UseLoopInfo;
+  unsigned MaxIterations;
+
+  InstCombineOptions()
+      : UseLoopInfo(false), MaxIterations(InstCombineDefaultMaxIterations) {}
+
+  InstCombineOptions &setUseLoopInfo(bool Value) {
+    UseLoopInfo = Value;
+    return *this;
+  }
+
+  InstCombineOptions &setMaxIterations(unsigned Value) {
+    MaxIterations = Value;
+    return *this;
+  }
+};
+
 class InstCombinePass : public PassInfoMixin<InstCombinePass> {
+private:
   InstructionWorklist Worklist;
+<<<<<<< HEAD
   const bool PreserveForDTrans; // INTEL
   const bool PreserveAddrCompute; // INTEL
   const unsigned MaxIterations;
@@ -62,6 +84,14 @@ public:
                            unsigned MaxIterations, bool EnableFcmpMinMaxCombine,
                            bool EnableUpCasting, bool EnableCanonicalizeSwap);
 #endif // INTEL_CUSTOMIZATION
+=======
+  InstCombineOptions Options;
+
+public:
+  explicit InstCombinePass(InstCombineOptions Opts = {});
+  void printPipeline(raw_ostream &OS,
+                     function_ref<StringRef(StringRef)> MapClassName2PassName);
+>>>>>>> ff86bfaaceffd9e6b56075434984938e17393923
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };

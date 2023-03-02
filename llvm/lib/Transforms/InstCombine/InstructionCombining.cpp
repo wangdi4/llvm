@@ -161,7 +161,6 @@ DEBUG_COUNTER(VisitCounter, "instcombine-visit",
               "Controls which instructions are visited");
 
 // FIXME: these limits eventually should be as low as 2.
-static constexpr unsigned InstCombineDefaultMaxIterations = 1000;
 #ifndef NDEBUG
 static constexpr unsigned InstCombineDefaultInfiniteLoopThreshold = 100;
 #else
@@ -176,6 +175,7 @@ static cl::opt<unsigned> MaxSinkNumUsers(
     "instcombine-max-sink-users", cl::init(32),
     cl::desc("Maximum number of undroppable users for instruction sinking"));
 
+<<<<<<< HEAD
 static cl::opt<unsigned> LimitMaxIterations(
     "instcombine-max-iterations",
     cl::desc("Limit the maximum number of instruction combining iterations"),
@@ -210,6 +210,8 @@ static cl::opt<bool> DisableCanonicalizeSwap(
     cl::ReallyHidden, cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> ff86bfaaceffd9e6b56075434984938e17393923
 static cl::opt<unsigned> InfiniteLoopDetectionThreshold(
     "instcombine-infinite-loop-threshold",
     cl::desc("Number of instruction combining iterations considered an "
@@ -5098,6 +5100,7 @@ static bool combineInstructionsOverFunction(
     bool EnableUpCasting, bool EnableCanonicalizeSwap, LoopInfo *LI) {
 #endif // INTEL_CUSTOMIZATION
   auto &DL = F.getParent()->getDataLayout();
+<<<<<<< HEAD
   MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
 #if INTEL_CUSTOMIZATION
   if (EnablePreserveForDTrans)
@@ -5111,6 +5114,8 @@ static bool combineInstructionsOverFunction(
   if (DisableCanonicalizeSwap)
     EnableCanonicalizeSwap = false;
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> ff86bfaaceffd9e6b56075434984938e17393923
 
   /// Builder - This is an IRBuilder that automatically inserts new
   /// instructions into the worklist when they are created.
@@ -5176,6 +5181,7 @@ static bool combineInstructionsOverFunction(
   return MadeIRChange;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 InstCombinePass::InstCombinePass(bool PreserveForDTrans,
                                  bool PreserveAddrCompute,
@@ -5201,6 +5207,19 @@ InstCombinePass::InstCombinePass(bool PreserveForDTrans,
       EnableUpCasting(EnableUpCasting),
       EnableCanonicalizeSwap(EnableCanonicalizeSwap) {}
 #endif // INTEL_CUSTOMIZATION
+=======
+InstCombinePass::InstCombinePass(InstCombineOptions Opts) : Options(Opts) {}
+
+void InstCombinePass::printPipeline(
+    raw_ostream &OS, function_ref<StringRef(StringRef)> MapClassName2PassName) {
+  static_cast<PassInfoMixin<InstCombinePass> *>(this)->printPipeline(
+      OS, MapClassName2PassName);
+  OS << '<';
+  OS << "max-iterations=" << Options.MaxIterations << ";";
+  OS << (Options.UseLoopInfo ? "" : "no-") << "use-loop-info";
+  OS << '>';
+}
+>>>>>>> ff86bfaaceffd9e6b56075434984938e17393923
 
 PreservedAnalyses InstCombinePass::run(Function &F,
                                        FunctionAnalysisManager &AM) {
@@ -5210,7 +5229,11 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
 
+  // TODO: Only use LoopInfo when the option is set. This requires that the
+  //       callers in the pass pipeline explicitly set the option.
   auto *LI = AM.getCachedResult<LoopAnalysis>(F);
+  if (!LI && Options.UseLoopInfo)
+    LI = &AM.getResult<LoopAnalysis>(F);
 
   auto *AA = &AM.getResult<AAManager>(F);
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
@@ -5219,6 +5242,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 
+<<<<<<< HEAD
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                        DT, ORE, BFI, PSI,             // INTEL
                                        MaxIterations,                 // INTEL
@@ -5228,6 +5252,10 @@ PreservedAnalyses InstCombinePass::run(Function &F,
                                        EnableUpCasting,               // INTEL
                                        EnableCanonicalizeSwap,        // INTEL
                                        LI))                           // INTEL
+=======
+  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, DT, ORE,
+                                       BFI, PSI, Options.MaxIterations, LI))
+>>>>>>> ff86bfaaceffd9e6b56075434984938e17393923
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
