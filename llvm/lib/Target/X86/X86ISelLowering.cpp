@@ -58863,14 +58863,13 @@ static SDValue combineVectorSizedSetCCEquality(SDNode *SetCC, SelectionDAG &DAG,
   return SDValue();
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static bool isCondValidForSubCmpOpt(const ISD::CondCode &CC) {
   return (CC == ISD::SETOLT || CC == ISD::SETUGE || CC == ISD::SETUEQ ||
           CC == ISD::SETONE || CC == ISD::SETULE || CC == ISD::SETOGT);
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// If we have AVX512, but not BWI and this is a vXi16/vXi8 setcc, just
 /// pre-promote its result type since vXi1 vectors don't get promoted
 /// during type legalization.
@@ -58889,7 +58888,6 @@ static SDValue truncateAVX512SetCCNoBWI(EVT VT, EVT OpVT, SDValue LHS,
   }
   return SDValue();
 }
->>>>>>> 9e9444ca7d4b6a21ca8c5c57f3d01ca1d00078dc
 
 static SDValue combineSetCC(SDNode *N, SelectionDAG &DAG,
                             TargetLowering::DAGCombinerInfo &DCI,
