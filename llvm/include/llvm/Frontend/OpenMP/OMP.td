@@ -239,6 +239,9 @@ def OMPC_Device : Clause<"device"> {
   let clangClass = "OMPDeviceClause";
   let flangClass = "OmpDeviceClause";
 }
+def OMPC_DeviceType : Clause<"device_type"> {
+  let flangClass = "OmpDeviceTypeClause";
+}
 def OMPC_Threads : Clause<"threads"> { let clangClass = "OMPThreadsClause"; }
 def OMPC_Simd : Clause<"simd"> { let clangClass = "OMPSIMDClause"; }
 def OMPC_Map : Clause<"map"> {
@@ -451,7 +454,6 @@ def OMPC_Uniform : Clause<"uniform"> {
   let flangClass = "Name";
   let isValueList = true;
 }
-def OMPC_DeviceType : Clause<"device_type"> {}
 def OMPC_Match : Clause<"match"> {}
 def OMPC_AdjustArgs : Clause<"adjust_args"> { }
 def OMPC_AppendArgs : Clause<"append_args"> { }
@@ -1239,6 +1241,9 @@ def OMP_DeclareTarget : Directive<"declare target"> {
     VersionedClause<OMPC_To>,
     VersionedClause<OMPC_Link>,
     VersionedClause<OMPC_Indirect>
+  ];
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_DeviceType, 50>
   ];
 }
 def OMP_EndDeclareTarget : Directive<"end declare target"> {}

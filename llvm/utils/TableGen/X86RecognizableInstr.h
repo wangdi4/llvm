@@ -34,8 +34,10 @@
 #define LLVM_UTILS_TABLEGEN_X86RECOGNIZABLEINSTR_H
 
 #include "CodeGenInstruction.h"
-#include "llvm/Support/DataTypes.h"
 #include "llvm/Support/X86DisassemblerDecoderCommon.h"
+#include <cstdint>
+#include <string>
+#include <vector>
 
 struct InstructionSpecifier;
 
