@@ -688,6 +688,8 @@ protected:
     VPInstructionCost Speedup;
     VPInstructionCost LoopOverhead;
 
+    VPCostSummary() = default;
+
     VPCostSummary(VPInstructionCost ScalarIterationCost,
                   VPInstructionCost VectorIterationCost,
                   VPInstructionCost Speedup, VPInstructionCost VectorInitFini)
