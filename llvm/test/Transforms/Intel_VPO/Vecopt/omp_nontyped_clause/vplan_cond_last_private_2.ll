@@ -14,6 +14,7 @@ define void @foo() {
 ; CHECK-NEXT:    [[RET_LPRIV_VEC:%.*]] = alloca <4 x i8>, align 4
 ; CHECK-NEXT:    [[RET_LPRIV_VEC_BC:%.*]] = bitcast <4 x i8>* [[RET_LPRIV_VEC]] to i8*
 ; CHECK-NEXT:    [[RET_LPRIV_VEC_BASE_ADDR:%.*]] = getelementptr i8, i8* [[RET_LPRIV_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <4 x i8*> [[RET_LPRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK-NEXT:    [[PRIV_IDX_MEM_VEC:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[PRIV_IDX_MEM_VEC_BC:%.*]] = bitcast <4 x i32>* [[PRIV_IDX_MEM_VEC]] to i32*
 ; CHECK-NEXT:    [[PRIV_IDX_MEM_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[PRIV_IDX_MEM_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
@@ -33,8 +34,7 @@ define void @foo() {
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
-; CHECK-NEXT:    [[RET_LPRIV_VEC_BCAST:%.*]] = bitcast <4 x i8>* [[RET_LPRIV_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BCAST]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    store <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>, <4 x i32>* [[PRIV_IDX_MEM_VEC]], align 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = and i32 [[SMAX]], -4
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
@@ -98,8 +98,7 @@ define void @foo() {
 ; CHECK-NEXT:    store i8 [[PRIV_EXTRACT]], i8* [[RET_LPRIV]], align 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB18]]
 ; CHECK:       VPlannedBB18:
-; CHECK-NEXT:    [[RET_LPRIV_VEC_BCAST1:%.*]] = bitcast <4 x i8>* [[RET_LPRIV_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BCAST1]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB22:%.*]]
 ;
 entry:

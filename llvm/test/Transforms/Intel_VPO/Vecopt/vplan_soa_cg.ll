@@ -12,7 +12,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
 ; CHECK-NEXT:     [DA: Div] i8* [[VP_ARR_PRIV_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
-; CHECK-NEXT:     [DA: Div] call i64 4096 i8* [[VP_ARR_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial]
+; CHECK-NEXT:     [DA: Div] call i64 4096 i8* [[VP_ARR_PRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
@@ -45,7 +45,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Div] i8* [[VP_ARR_PRIV_BCAST1:%.*]] = bitcast [1024 x i32]* [[VP_ARR_PRIV]]
-; CHECK-NEXT:     [DA: Div] call i64 4096 i8* [[VP_ARR_PRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8 [Serial]
+; CHECK-NEXT:     [DA: Div] call i64 4096 i8* [[VP_ARR_PRIV_BCAST1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
@@ -70,7 +70,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[ARR_PRIV_SOA_VEC0_BCAST:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV_SOA_VEC0]] to i8*
+; CHECK:         [[ARR_PRIV_SOA_VEC0_BCAST:%.*]] = bitcast <2 x i8>* [[ARR_PRIV_SOA_VEC0_A:%.*]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8192, i8* [[ARR_PRIV_SOA_VEC0_BCAST]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
@@ -98,7 +98,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY0]], label [[VPLANNEDBB90:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB10:                                     ; preds = %vector.body
-; CHECK-NEXT:    [[ARR_PRIV_SOA_VEC0_BCAST1:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV_SOA_VEC0]] to i8*
+; CHECK:         [[ARR_PRIV_SOA_VEC0_BCAST1:%.*]] = bitcast <2 x i8>* [[ARR_PRIV_SOA_VEC0_A2:%.*]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8192, i8* [[ARR_PRIV_SOA_VEC0_BCAST1]])
 ; CHECK-NEXT:    br label %VPlannedBB11
 ;

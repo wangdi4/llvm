@@ -30,7 +30,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK:         br label [[DIR_OMP_SIMD_10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK:        VPlannedBB25:
-; CHECK-NEXT:    [[TMP18:%.*]] = bitcast <2 x float>* [[DOTVEC0]] to i8*
+; CHECK-NEXT:    [[TMP18:%.*]] = bitcast float* [[DOTVEC0_1:%.*]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[TMP18]])
 ; CHECK-NEXT:    [[TMP19:%.*]] = load float, float* [[X_RED0]], align 1
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT560:%.*]] = insertelement <2 x float> poison, float [[TMP19]], i64 0

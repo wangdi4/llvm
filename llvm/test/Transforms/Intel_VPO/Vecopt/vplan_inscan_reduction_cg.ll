@@ -23,7 +23,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK:          br label [[DIR_OMP_SIMD_10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK:        VPlannedBB1:
-; CHECK:         [[TMP1:%.*]] = bitcast <4 x float>* [[X_RED_VEC0]] to i8*
+; CHECK:         [[TMP1:%.*]] = bitcast float* [[X_RED_VEC0_E:%.*]] to i8*
 ; CHECK:         [[TMP2:%.*]] = load float, float* [[X_RED0]], align 1
 ; CHECK:         br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
