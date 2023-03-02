@@ -7684,7 +7684,9 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
   case Intrinsic::experimental_vector_splice:
     visitVectorSplice(I);
     return;
-<<<<<<< HEAD
+  case Intrinsic::callbr_landingpad:
+    visitCallBrLandingPad(I);
+    return;
 #if INTEL_CUSTOMIZATION
   case Intrinsic::intel_complex_fmul:
     EVT ResultVT = TLI.getValueType(DAG.getDataLayout(), I.getType());
@@ -7693,11 +7695,6 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
                              getValue(I.getOperand(1)), Flags));
     return;
 #endif // INTEL_CUSTOMIZATION
-=======
-  case Intrinsic::callbr_landingpad:
-    visitCallBrLandingPad(I);
-    return;
->>>>>>> 5cc1016a57b38595262026ba3c482f6108b12e5b
   }
 }
 
