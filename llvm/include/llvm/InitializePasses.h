@@ -133,6 +133,7 @@ void initializeCFGuardLongjmpPass(PassRegistry&);
 void initializeCFGViewerLegacyPassPass(PassRegistry&);
 void initializeCFIFixupPass(PassRegistry&);
 void initializeCFIInstrInserterPass(PassRegistry&);
+void initializeCallBrPreparePass(PassRegistry &);
 void initializeCallGraphDOTPrinterPass(PassRegistry&);
 void initializeCallGraphPrinterLegacyPassPass(PassRegistry&);
 void initializeCallGraphViewerPass(PassRegistry&);
