@@ -71,8 +71,10 @@ void *&AsyncInfoTy::getVoidPtrLocation() {
   return BufferLocations.back();
 }
 
-bool AsyncInfoTy::isDone() {
-  (void)synchronize(); // INTEL
+std::optional<bool> AsyncInfoTy::isDone() {
+  if (int Result = synchronize())
+    return std::nullopt;
+
   // The async info operations are completed when the internal queue is empty.
   return isQueueEmpty();
 }
