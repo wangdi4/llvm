@@ -985,23 +985,12 @@ if (!SYCLOptimizationMode) {
   // benchmarks.
   if (!DTransEnabled)
     LPM1.addPass(
-<<<<<<< HEAD
         LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                  /*AllowSpeculation=*/false));
 #else // INTEL_CUSTOMIZATION
   LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                         /*AllowSpeculation=*/false));
 #endif // INTEL_CUSTOMIZATION
-=======
-        LoopRotatePass(Level != OptimizationLevel::Oz, isLTOPreLink(Phase)));
-    // TODO: Investigate promotion cap for O1.
-    LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
-                          /*AllowSpeculation=*/true));
-    LPM1.addPass(SimpleLoopUnswitchPass(/* NonTrivial */ Level ==
-                                        OptimizationLevel::O3));
-    if (EnableLoopFlatten)
-      LPM1.addPass(LoopFlattenPass());
->>>>>>> 541780a8d2151d74a3d77f8b3ad1b75b8068365e
 
   // Disable header duplication in loop rotation at -Oz.
   LPM1.addPass(
@@ -1010,8 +999,8 @@ if (!SYCLOptimizationMode) {
   LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                         /*AllowSpeculation=*/true));
   LPM1.addPass(
-      SimpleLoopUnswitchPass(/* NonTrivial */ Level == OptimizationLevel::O3 &&
-                             EnableO3NonTrivialUnswitching));
+      SimpleLoopUnswitchPass(/* NonTrivial */ Level == OptimizationLevel::O3));
+
   if (EnableLoopFlatten)
     LPM1.addPass(LoopFlattenPass());
 
