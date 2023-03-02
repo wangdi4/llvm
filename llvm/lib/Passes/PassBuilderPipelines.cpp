@@ -504,10 +504,6 @@ static cl::opt<bool> PerformMandatoryInliningsFirst(
     cl::desc("Perform mandatory inlinings module-wide, before performing "
              "inlining"));
 
-static cl::opt<bool> EnableO3NonTrivialUnswitching(
-    "enable-npm-O3-nontrivial-unswitch", cl::init(true), cl::Hidden,
-    cl::desc("Enable non-trivial loop unswitching for -O3"));
-
 static cl::opt<bool> EnableEagerlyInvalidateAnalyses(
     "eagerly-invalidate-analyses", cl::init(true), cl::Hidden,
     cl::desc("Eagerly invalidate more analyses in default pipelines"));
@@ -989,12 +985,23 @@ if (!SYCLOptimizationMode) {
   // benchmarks.
   if (!DTransEnabled)
     LPM1.addPass(
+<<<<<<< HEAD
         LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                  /*AllowSpeculation=*/false));
 #else // INTEL_CUSTOMIZATION
   LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                         /*AllowSpeculation=*/false));
 #endif // INTEL_CUSTOMIZATION
+=======
+        LoopRotatePass(Level != OptimizationLevel::Oz, isLTOPreLink(Phase)));
+    // TODO: Investigate promotion cap for O1.
+    LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
+                          /*AllowSpeculation=*/true));
+    LPM1.addPass(SimpleLoopUnswitchPass(/* NonTrivial */ Level ==
+                                        OptimizationLevel::O3));
+    if (EnableLoopFlatten)
+      LPM1.addPass(LoopFlattenPass());
+>>>>>>> 541780a8d2151d74a3d77f8b3ad1b75b8068365e
 
   // Disable header duplication in loop rotation at -Oz.
   LPM1.addPass(
