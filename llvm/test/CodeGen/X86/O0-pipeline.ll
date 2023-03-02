@@ -45,6 +45,7 @@
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:     X86 Pre-ISel Intrinsic Lowering ;INTEL
 ; CHECK-NEXT:     FunctionPass Manager ;INTEL
+; CHECK-NEXT:       Prepare callbr
 ; CHECK-NEXT:       Safe Stack instrumentation pass
 ; CHECK-NEXT:       Insert stack protectors
 ; CHECK-NEXT:       Module Verifier
