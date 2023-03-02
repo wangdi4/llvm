@@ -1158,6 +1158,7 @@ if (!SYCLOptimizationMode) {
 #endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(FPM, Level);
 
+<<<<<<< HEAD
   // Don't add CHR pass for CSIRInstr build in PostLink as the profile
   // is still the same as the PreLink compilation.
   if (EnableCHR && Level == OptimizationLevel::O3 && PGOOpt &&
@@ -1171,6 +1172,8 @@ if (!SYCLOptimizationMode) {
     FPM.addPass(TransformSinAndCosCallsPass());
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> b374423304a8d91d590d0ce5ab1b381296d6dfb2
   return FPM;
 }
 
@@ -2696,6 +2699,11 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     OptimizePM.addPass(LowerMatrixIntrinsicsPass());
     OptimizePM.addPass(EarlyCSEPass());
   }
+
+  if (EnableCHR && Level == OptimizationLevel::O3 && PGOOpt &&
+      (PGOOpt->Action == PGOOptions::IRUse ||
+       PGOOpt->Action == PGOOptions::SampleUse))
+    OptimizePM.addPass(ControlHeightReductionPass());
 
   // FIXME: We need to run some loop optimizations to re-rotate loops after
   // simplifycfg and others undo their rotation.
