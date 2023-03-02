@@ -1813,8 +1813,6 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   RegDDRef *WideRef;
   auto RefDestTy = Ref->getDestType();
   auto VecRefDestTy = getWidenedType(RefDestTy, VF);
-  auto RefSrcTy = Ref->getSrcType();
-  auto VecRefSrcTy = getWidenedType(RefSrcTy, VF);
 
   // If the DDREF has a widened counterpart, return the same after setting
   // SrcType/DestType appropriately.
@@ -1824,6 +1822,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
     if ((WideRef = getWideRef(Ref->getSymbase()))) {
       WideRef = WideRef->clone();
 
+      auto RefSrcTy = Ref->getSrcType();
+      auto VecRefSrcTy = getWidenedType(RefSrcTy, VF);
       auto CE = WideRef->getSingleCanonExpr();
       CE->setDestType(VecRefDestTy);
       CE->setSrcType(VecRefSrcTy);
@@ -4256,13 +4256,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // 1. Generate vector reduce intrinsic call
       HLInst *VecReduceCall = createVectorReduce(
           RedFinal, VecRef, Acc, RednDescriptor, HLNodeUtilities);
-
-      if (RedFinal->getDebugLocation()) {
-        Instruction *LLVMInst =
-            const_cast<Instruction *>(VecReduceCall->getLLVMInstruction());
-        LLVMInst->setDebugLoc(RedFinal->getDebugLocation());
-      }
-
       WInst = VecReduceCall;
       RedTail.push_back(*VecReduceCall);
 

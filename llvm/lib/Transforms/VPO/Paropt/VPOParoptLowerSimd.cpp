@@ -1315,10 +1315,10 @@ static Value *translateLLVMInst(Instruction *Inst) {
     llvm::Type *DstTy = CastOp->getDestTy();
     auto CastOpcode = CastOp->getOpcode();
     if (isa<FixedVectorType>(DstTy) &&
-            (CastOpcode == llvm::Instruction::FPToUI &&
-             DstTy->getScalarType()->getPrimitiveSizeInBits() <= 32) ||
-        (CastOpcode == llvm::Instruction::FPToSI &&
-         DstTy->getScalarType()->getPrimitiveSizeInBits() < 32)) {
+        ((CastOpcode == llvm::Instruction::FPToUI &&
+          DstTy->getScalarType()->getPrimitiveSizeInBits() <= 32) ||
+         (CastOpcode == llvm::Instruction::FPToSI &&
+          DstTy->getScalarType()->getPrimitiveSizeInBits() < 32))) {
       llvm::Value *Src = CastOp->getOperand(0);
       auto TmpTy = llvm::FixedVectorType::get(
           llvm::Type::getInt32Ty(CTX),
