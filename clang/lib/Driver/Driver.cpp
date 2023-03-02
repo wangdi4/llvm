@@ -8711,7 +8711,8 @@ Action *Driver::ConstructPhaseAction(
           Args.hasArg(options::OPT_S) &&
                   (TargetDeviceOffloadKind == Action::OFK_None ||
                    offloadDeviceOnly() ||
-                   (TargetDeviceOffloadKind == Action::OFK_HIP &&
+                   ((TargetDeviceOffloadKind == Action::OFK_HIP ||
+                     TargetDeviceOffloadKind == Action::OFK_OpenMP) && // INTEL
                     !Args.hasFlag(options::OPT_offload_new_driver,
                                   options::OPT_no_offload_new_driver, false)))
               ? types::TY_LLVM_IR
