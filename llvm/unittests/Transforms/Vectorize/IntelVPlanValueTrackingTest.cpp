@@ -633,7 +633,7 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_KnownUpperLowerBound) {
       const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
       EXPECT_TRUE(KB.isNonNegative());
       EXPECT_EQ(KB.countMinLeadingZeros(),
-                (unsigned)(llvm::countl_zero(Step * 256u) +
+                (unsigned)(llvm::countl_zero(Step * 256uLL) +
                            isPowerOf2_64(Step * 256)));
     }
   }
@@ -817,12 +817,12 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NotFirstOp) {
   const VPInstruction *I = findInstructionByName("iv");
   ASSERT_TRUE(I) << "No such instruction: '%iv'";
 
-  for (const unsigned VF : {1, 2, 4, 8, 16}) {
+  for (const uint64_t VF : {1, 2, 4, 8, 16}) {
     const auto KB = Plan->getVPVT()->getKnownBits(I, I, VF);
     EXPECT_TRUE(KB.isNonNegative());
     EXPECT_EQ(KB.countMinTrailingZeros(), (unsigned)llvm::countr_zero(VF));
     EXPECT_EQ(KB.countMinLeadingZeros(),
-              (unsigned)llvm::countl_zero(256u) + 1u);
+              (unsigned)llvm::countl_zero(256uLL) + 1u);
   }
 }
 
@@ -885,13 +885,13 @@ TEST_F(VPlanComputeKnownBitsTest, InductionPHI_NestedLoops) {
   // Test outer IV.
   const auto *OuterIV = findInstructionByName("outer.iv");
   ASSERT_TRUE(OuterIV) << "No such instruction: '%outer.iv'";
-  for (const unsigned VF : {1, 2, 4, 8, 16}) {
+  for (const uint64_t VF : {1, 2, 4, 8, 16}) {
     for (const VPInstruction *CtxI : {OuterIV, InnerIV, OuterTerminator}) {
       const auto KB = Plan->getVPVT()->getKnownBits(OuterIV, CtxI, VF);
       EXPECT_TRUE(KB.isNonNegative());
       EXPECT_EQ(KB.countMinTrailingZeros(), (unsigned)llvm::countr_zero(VF));
       EXPECT_EQ(KB.countMinLeadingZeros(),
-                (unsigned)llvm::countl_zero(128u) + 1u);
+                (unsigned)llvm::countl_zero(128uLL) + 1u);
     }
   }
 }
