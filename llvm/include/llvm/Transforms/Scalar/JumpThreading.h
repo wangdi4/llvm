@@ -127,17 +127,6 @@ enum ConstantPreference { WantInteger, WantBlockAddress };
 /// In this case, the unconditional branch at the end of the first if can be
 /// revectored to the false side of the second if.
 class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
-<<<<<<< HEAD
-  TargetLibraryInfo *TLI;
-  TargetTransformInfo *TTI;
-  LazyValueInfo *LVI;
-  AAResults *AA;
-  DomTreeUpdater *DTU;
-  PostDominatorTree *PDT; // INTEL
-  std::unique_ptr<BlockFrequencyInfo> BFI;
-  std::unique_ptr<BranchProbabilityInfo> BPI;
-  bool HasProfileData = false;
-=======
   Function *F = nullptr;
   FunctionAnalysisManager *FAM = nullptr;
   TargetLibraryInfo *TLI = nullptr;
@@ -145,10 +134,10 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   LazyValueInfo *LVI = nullptr;
   AAResults *AA = nullptr;
   std::unique_ptr<DomTreeUpdater> DTU;
+  PostDominatorTree *PDT; // INTEL
   std::optional<BlockFrequencyInfo *> BFI = std::nullopt;
   std::optional<BranchProbabilityInfo *> BPI = std::nullopt;
   bool ChangedSinceLastAnalysisUpdate = false;
->>>>>>> a1b78fb929fccf96acaa0212cf68fee82298e747
   bool HasGuards = false;
 #ifndef LLVM_ENABLE_ABI_BREAKING_CHECKS
   SmallPtrSet<const BasicBlock *, 16> LoopHeaders;
@@ -187,20 +176,13 @@ public:
                     bool AllowCFGSimps = true); // INTEL
 
   // Glue for old PM.
-<<<<<<< HEAD
-  bool runImpl(Function &F, TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
-               LazyValueInfo *LVI, AAResults *AA, DomTreeUpdater *DTU,
-               bool HasProfileData, std::unique_ptr<BlockFrequencyInfo> BFI,
-               std::unique_ptr<BranchProbabilityInfo> BPI, // INTEL
-               PostDominatorTree *PDT_);  // INTEL
-=======
   bool runImpl(Function &F, FunctionAnalysisManager *FAM,
                TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                LazyValueInfo *LVI, AAResults *AA,
                std::unique_ptr<DomTreeUpdater> DTU,
                std::optional<BlockFrequencyInfo *> BFI,
-               std::optional<BranchProbabilityInfo *> BPI);
->>>>>>> a1b78fb929fccf96acaa0212cf68fee82298e747
+               std::optional<BranchProbabilityInfo *> BPI, // INTEL
+               PostDominatorTree *PDT_);  // INTEL
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 
@@ -269,21 +251,15 @@ public:
 private:
   BasicBlock *splitBlockPreds(BasicBlock *BB, ArrayRef<BasicBlock *> Preds,
                               const char *Suffix);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     void updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
                        BasicBlock *SuccBB,
                        const jumpthreading::ThreadRegionInfo &RegionInfo,
                        const SmallVectorImpl<BasicBlock*> &RegionBlocks,
-                       DenseMap<BasicBlock*, BasicBlock*> &BlockMapping);
+                       DenseMap<BasicBlock*, BasicBlock*> &BlockMapping,
+                       BlockFrequencyInfo *BFI, BranchProbabilityInfo *BPI,
+                       bool HasProfile);
 #endif // INTEL_CUSTOMIZATION
-=======
-  void updateBlockFreqAndEdgeWeight(BasicBlock *PredBB, BasicBlock *BB,
-                                    BasicBlock *NewBB, BasicBlock *SuccBB,
-                                    BlockFrequencyInfo *BFI,
-                                    BranchProbabilityInfo *BPI,
-                                    bool HasProfile);
->>>>>>> a1b78fb929fccf96acaa0212cf68fee82298e747
   /// Check if the block has profile metadata for its outgoing edges.
   bool doesBlockHaveProfileData(BasicBlock *BB);
 
