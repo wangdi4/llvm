@@ -497,34 +497,6 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
   unsigned UF = LVP.getBestUF();
 
-  // Workaround for kernel vectorization. Kernel vectorization is done through
-  // loop creation inside vec-clone) followed by loop vectorization. That
-  // leaves a loop CFG that can't be optimized away (even though it will be
-  // 1-iteration loop) without scheduling indvars-simplify or unroller later in
-  // the pipeline. We don't want to spend compile-time on these passes so do
-  // some special casing here for a vector loop that will result in exactly one
-  // iteration.
-  //
-  // For ahead of time calculation a better approach is to perform small-trip
-  // count loop-unroll which won't be limited to exactly one iteration. For
-  // kernel vectorization the long-term plan would be to import the region
-  // itself into VPlan without artificial loop being created at all.
-  if (auto *TripCount = dyn_cast<SCEVConstant>(PSE.getBackedgeTakenCount()))
-    if ((VF * UF - 1) == TripCount->getAPInt()) {
-      VPLoop *Lp = (*Plan->getVPLoopInfo()->begin());
-      VPBasicBlock *Latch = Lp->getLoopLatch();
-      assert(Latch && "Latch should not be a null pointer.");
-      VPBasicBlock *Header = Lp->getHeader();
-      bool BackedgeOnTrue = Latch->getSuccessor(0) == Header;
-      auto &Context = Fn.getContext();
-      auto *Cond = BackedgeOnTrue ? ConstantInt::getFalse(Context)
-                                  : ConstantInt::getTrue(Context);
-      auto *VPCond = Plan->getVPConstant(Cond);
-      Latch->setCondBit(VPCond);
-      VPLAN_DUMP(VPlanPrintAfterSingleTripCountOpt,
-                 "single iteration optimization", Plan);
-    }
-
   // Do the preparation for CG: create auxiliary loops and merge them into one
   // piece of CFG.
   if (VF > 1) {
@@ -544,8 +516,38 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
       // For unroller, we only want to pass the main-vector, i.e., the unmasked
       // vector loop.
       if (LpKind == CfgMergerPlanDescr::LoopType::LTMain)
-        if (auto *NonMaskedVPlan = dyn_cast<VPlanNonMasked>(Plan))
+        if (auto *NonMaskedVPlan = dyn_cast<VPlanNonMasked>(Plan)) {
           LVP.unroll(*NonMaskedVPlan);
+          // Workaround for kernel vectorization. Kernel vectorization is done
+          // through loop creation inside vec-clone) followed by loop
+          // vectorization. That leaves a loop CFG that can't be optimized away
+          // (even though it will be 1-iteration loop) without scheduling
+          // indvars-simplify or unroller later in the pipeline. We don't want
+          // to spend compile-time on these passes so do some special casing
+          // here for a vector loop that will result in exactly one iteration.
+          //
+          // For ahead of time calculation a better approach is to perform
+          // small-trip count loop-unroll which won't be limited to exactly one
+          // iteration. For kernel vectorization the long-term plan would be to
+          // import the region itself into VPlan without artificial loop being
+          // created at all.
+          if (auto *TripCount =
+                  dyn_cast<SCEVConstant>(PSE.getBackedgeTakenCount()))
+            if ((VF * UF - 1) == TripCount->getAPInt()) {
+              VPLoop *Lp = (*NonMaskedVPlan->getVPLoopInfo()->begin());
+              VPBasicBlock *Latch = Lp->getLoopLatch();
+              assert(Latch && "Latch should not be a null pointer.");
+              VPBasicBlock *Header = Lp->getHeader();
+              bool BackedgeOnTrue = Latch->getSuccessor(0) == Header;
+              auto &Context = Fn.getContext();
+              auto *Cond = BackedgeOnTrue ? ConstantInt::getFalse(Context)
+                                          : ConstantInt::getTrue(Context);
+              auto *VPCond = NonMaskedVPlan->getVPConstant(Cond);
+              Latch->setCondBit(VPCond);
+              VPLAN_DUMP(VPlanPrintAfterSingleTripCountOpt,
+                         "single iteration optimization", NonMaskedVPlan);
+            }
+        }
 
       // Transform SOA-GEPs and library calls.
       // Do this transformation only for Masked and Non-masked, i.e.,
