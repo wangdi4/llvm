@@ -37,7 +37,6 @@
 ; CHECK-NEXT:       Expand indirectbr instructions
 ; CHECK-NEXT:       FPBuiltin Function Selection
 ; CHECK-NEXT:       Exception handling preparation
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
@@ -46,9 +45,7 @@
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:     X86 Pre-ISel Intrinsic Lowering ;INTEL
 ; CHECK-NEXT:     FunctionPass Manager ;INTEL
-=======
 ; CHECK-NEXT:       Prepare callbr
->>>>>>> a3a84c9e2511c06f1c47af76e26581b674149b82
 ; CHECK-NEXT:       Safe Stack instrumentation pass
 ; CHECK-NEXT:       Insert stack protectors
 ; CHECK-NEXT:       Module Verifier
