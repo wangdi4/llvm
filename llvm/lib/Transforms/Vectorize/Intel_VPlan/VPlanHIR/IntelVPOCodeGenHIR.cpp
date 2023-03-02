@@ -4256,13 +4256,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // 1. Generate vector reduce intrinsic call
       HLInst *VecReduceCall = createVectorReduce(
           RedFinal, VecRef, Acc, RednDescriptor, HLNodeUtilities);
-
-      if (RedFinal->getDebugLocation()) {
-        Instruction *LLVMInst =
-            const_cast<Instruction *>(VecReduceCall->getLLVMInstruction());
-        LLVMInst->setDebugLoc(RedFinal->getDebugLocation());
-      }
-
       WInst = VecReduceCall;
       RedTail.push_back(*VecReduceCall);
 
