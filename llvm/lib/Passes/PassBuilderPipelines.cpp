@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -2198,9 +2198,10 @@ void PassBuilder::addInstCombinePass(FunctionPassManager &FPM,
     // to stop fiddling with the optimization pipeline.
     FPM.addPass(VPOCFGRestructuringPass());
   }
-  FPM.addPass(InstCombinePass(
-      PreserveForDTrans, PrepareForLTO && EnableIPArrayTranspose,
-      EnableFcmpMinMaxCombine, EnableUpCasting, EnableCanonicalizeSwap));
+  InstCombineOptions InstCombOptions(PreserveForDTrans,
+      PrepareForLTO && EnableIPArrayTranspose, EnableFcmpMinMaxCombine,
+      EnableUpCasting, EnableCanonicalizeSwap);
+  FPM.addPass(InstCombinePass(InstCombOptions));
 }
 
 bool PassBuilder::isLoopOptEnabled(OptimizationLevel Level) {

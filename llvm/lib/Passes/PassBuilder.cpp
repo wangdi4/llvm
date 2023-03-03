@@ -1047,6 +1047,13 @@ Expected<InstCombineOptions> parseInstCombineOptions(StringRef Params) {
           formatv("invalid InstCombine pass parameter '{0}' ", ParamName).str(),
           inconvertibleErrorCode());
     }
+#if INTEL_CUSTOMIZATION
+    // TODO: This function sets the default parameters for the Intel specific
+    // options in inst-combine when running the pass through opt. We need to
+    // expand it in order to be consistent to what is done by the community
+    // with the open source options.
+    Result.setIntelDefaultParams();
+#endif // INTEL_CUSTOMIZATION
   }
   return Result;
 }
