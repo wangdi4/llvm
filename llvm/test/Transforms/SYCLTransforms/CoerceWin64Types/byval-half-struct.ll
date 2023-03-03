@@ -1,7 +1,7 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-NONOPAQUE
+; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-OPAQUE
 
 %struct.single.half = type { half } ; 2 bytes
 %struct.half.float = type { half, float } ; 2 + 2 (padding) + 4 = 8 bytes
@@ -39,30 +39,34 @@ entry:
 }
 
 declare void @single.half(%struct.single.half* byval(%struct.single.half) align 2)
-; CHECK: declare void @single.half(half)
+; CHECK: declare void @single.half(i16)
 
 declare void @half.float(%struct.half.float* byval(%struct.half.float) align 4)
-; CHECK: declare void @half.float(double)
+; CHECK: declare void @half.float(i64)
 
 declare void @half.double(%struct.half.double* byval(%struct.half.double) align 8)
-; CHECK: declare void @half.double(half, double)
+; CHECK-NONOPAQUE: declare void @half.double(%struct.half.double*)
+; CHECK-OPAQUE: declare void @half.double(ptr)
 
 declare void @float.double(%struct.float.double* byval(%struct.float.double) align 8)
-; CHECK: declare void @float.double(float, double)
+; CHECK-NONOPAQUE: declare void @float.double(%struct.float.double*)
+; CHECK-OPAQUE: declare void @float.double(ptr)
 
 declare void @half2(%struct.half2* byval(%struct.half2) align 2)
-; CHECK: declare void @half2(<2 x half>)
+; CHECK: declare void @half2(i32)
 
 declare void @half2.float(%struct.half2.float* byval(%struct.half2.float) align 4)
-; CHECK: declare void @half2.float(double)
+; CHECK: declare void @half2.float(i64)
 
 declare void @half2.double(%struct.half2.double* byval(%struct.half2.double) align 8)
-; CHECK: declare void @half2.double(<2 x half>, double)
+; CHECK-NONOPAQUE: declare void @half2.double(%struct.half2.double*)
+; CHECK-OPAQUE: declare void @half2.double(ptr)
 
 declare void @half3(%struct.half3* byval(%struct.half3) align 2)
-; CHECK: declare void @half3(<3 x half>)
+; CHECK-NONOPAQUE: declare void @half3(%struct.half3*)
+; CHECK-OPAQUE: declare void @half3(ptr)
 
 declare void @half4(%struct.half4* byval(%struct.half4) align 2)
-; CHECK: declare void @half4(<4 x half>)
+; CHECK: declare void @half4(i64)
 
 ; DEBUGIFY-NOT: WARNING

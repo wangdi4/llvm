@@ -1,8 +1,8 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=CHECK-NONOPAQUE
 
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 
 ; This test checks function comdat change
@@ -28,10 +28,8 @@ declare float @llvm.pow.f32(float, float) #0
 declare float @llvm.exp.f32(float) #0
 ; Function Attrs: nounwind
 
-; CHECK-NONOPAQUE: declare void @___ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE_before.CoerceTypes(%"class.ihc::hls_float"*, %class.ac_int.13* byval(%class.ac_int.13) align 1) align 2
-; CHECK-NONOPAQUE: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, i8 %bits.coerce.high) comdat {
-; CHECK-OPAQUE: declare void @___ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE_before.CoerceTypes(ptr, ptr byval(%class.ac_int.13) align 1) align 2
-; CHECK-OPAQUE: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(ptr %this, i8 %bits.coerce.high) comdat {
+; CHECK-NONOPAQUE: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, i8 %bits) comdat align 2 {
+; CHECK-OPAQUE: define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(ptr %this, i8 %bits) comdat align 2 {
 
 define linkonce_odr void @_ZN3ihc9hls_floatILi8ELi23ELNS_9fp_config8FP_RoundE0EE12set_exponentE6ac_intILi8ELb0EE(%"class.ihc::hls_float"* %this, %class.ac_int.13* byval(%class.ac_int.13) align 1 %bits) #2 comdat align 2 {
 entry:
