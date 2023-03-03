@@ -1070,6 +1070,15 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     IsUserForcedUF = true;
   }
 
+  // TODO - unrolling needs to support outer loops. Force unroll factor to 1
+  // until this support is in place. TreeConflict instruction generates a loop.
+  // We also need to suppress unroll when conflict instructions are seen.
+  if (!OuterMostVPLoop->getSubLoops().empty() ||
+      ScalarPlan->getTreeConflictUsed()) {
+    ForcedUF = 1;
+    IsUserForcedUF = true;
+  }
+
   bool IsTripCountEstimated = OuterMostVPLoop->getTripCountInfo().IsEstimated;
   unsigned ForcedVF = getForcedVF(WRLp);
 

@@ -4984,6 +4984,9 @@ public:
   bool getCompressExpandUsed() const { return CompressExpandUsed; }
   void setCompressExpandUsed() { CompressExpandUsed = true; }
 
+  bool getTreeConflictUsed() const { return TreeConflictUsed; }
+  void setTreeConflictUsed() { TreeConflictUsed = true; }
+
   // VPBasicBlock iterator forwarding functions
   iterator begin() { return VPBasicBlocks.begin(); }
   const_iterator begin() const { return VPBasicBlocks.begin(); }
@@ -5217,6 +5220,11 @@ private:
   /// Flag to indicate that VPlan has compress/expand idiom related
   /// instructions.
   bool CompressExpandUsed = false;
+
+  /// Flag to indicate that VPlan has conflict idiom related instructions
+  /// that will be lowered into a loop. Currently used to suppress unroll
+  /// of such loops.
+  bool TreeConflictUsed = false;
 
   /// Flag showing that a new scheme of CG for loops and basic blocks
   /// should be used.
