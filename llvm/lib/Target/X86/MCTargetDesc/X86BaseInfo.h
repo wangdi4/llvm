@@ -676,6 +676,15 @@ namespace X86II {
     ///
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    /// MRM0rImmAAA - This is used for the pop2 instruction, which has two
+    /// immediates encoded in aaa of EVEX.
+    MRM0rImmAAA = 13,
+
+    /// MRM6rImmAAA - This is used for the push2 instruction, which has two
+    /// immediates encoded in aaa of EVEX.
+    MRM6rImmAAA = 14,
+#endif // INTEL_FEATURE_ISA_APX_F
     /// MRMDestMemImm8 - This form is used for instructions that use the Mod/RM
     /// byte to specify a destination which in this case is memory and operand 2
     /// is a 8-bit immediate.
@@ -901,6 +910,7 @@ namespace X86II {
 #if INTEL_CUSTOMIZATION
     // MAP8 - Prefix after the 0x0F prefix.
     T_MAP8 = 10 << OpMapShift,
+    T_MAP4 = 11 << OpMapShift,
 #endif // INTEL_CUSTOMIZATION
 
     //===------------------------------------------------------------------===//
@@ -1249,6 +1259,13 @@ namespace X86II {
     case X86II::MRM4r: case X86II::MRM5r:
     case X86II::MRM6r: case X86II::MRM7r:
       return -1;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86II::MRM0rImmAAA:
+    case X86II::MRM6rImmAAA:
+      return -1;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86II::MRM0X: case X86II::MRM1X:
     case X86II::MRM2X: case X86II::MRM3X:
     case X86II::MRM4X: case X86II::MRM5X:

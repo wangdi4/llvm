@@ -45,11 +45,17 @@ def RawFrmImm8    : Format<7>;
 def RawFrmImm16   : Format<8>;
 def AddCCFrm      : Format<9>;
 def PrefixByte    : Format<10>;
-def MRMDestMemImm8      : Format<15>; //INTEL
-def MRMDestReg4VOp3     : Format<16>; //INTEL
-def MRMDestMem4VOp3     : Format<17>; //INTEL
-def MRMDestMem4VOp2FSIB : Format<18>; //INTEL
-def MRMSrcMem4VOp3FSIB  : Format<19>; //INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def MRM0rImmAAA      : Format<13>;
+def MRM6rImmAAA      : Format<14>;
+#endif // INTEL_FEATURE_ISA_APX_F
+def MRMDestMemImm8      : Format<15>;
+def MRMDestReg4VOp3     : Format<16>;
+def MRMDestMem4VOp3     : Format<17>;
+def MRMDestMem4VOp2FSIB : Format<18>;
+def MRMSrcMem4VOp3FSIB  : Format<19>;
+#endif // INTEL_CUSTOMIZATION
 def MRMDestMem4VOp3CC : Format<20>;
 def MRMr0          : Format<21>;
 def MRMSrcMemFSIB  : Format<22>;
@@ -210,6 +216,7 @@ def T_MAP5    : Map<8>;
 def T_MAP6    : Map<9>;
 #if INTEL_CUSTOMIZATION
 def T_MAP8    : Map<10>;
+def T_MAP4    : Map<11>;
 #endif // INTEL_CUSTOMIZATION
 
 // Class specifying the encoding
@@ -251,6 +258,9 @@ class REP    { bit hasREPPrefix = 1; }
 class TB     { Map OpMap = TB; }
 class T8     { Map OpMap = T8; }
 class TA     { Map OpMap = TA; }
+#if INTEL_CUSTOMIZATION
+class T_MAP4     { Map OpMap = T_MAP4; }
+#endif // INTEL_CUSTOMIZATION
 class XOP8   { Map OpMap = XOP8; Prefix OpPrefix = PS; }
 class XOP9   { Map OpMap = XOP9; Prefix OpPrefix = PS; }
 class XOPA   { Map OpMap = XOPA; Prefix OpPrefix = PS; }
@@ -272,6 +282,7 @@ class T_MAP8PD : T_MAP8 { Prefix OpPrefix = PD; } // 0x66
 class T_MAP8XS : T_MAP8 { Prefix OpPrefix = XS; } // 0xF3
 class T_MAP8XD : T_MAP8 { Prefix OpPrefix = XD; } // 0xF2
 class OBXD   { Prefix OpPrefix = XD; }
+class T_MAP4PS : T_MAP4 { Prefix OpPrefix = PS; } // none
 #endif // INTEL_CUSTOMIZATION
 class OBXS   { Prefix OpPrefix = XS; }
 class PS   : TB { Prefix OpPrefix = PS; }

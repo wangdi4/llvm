@@ -183,6 +183,9 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
   case MAP8:
     dec = &MAP8_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
     break;
+  case MAP4:
+    dec = &MAP4_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
+    break;
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1168,6 +1171,11 @@ static bool readOpcode(struct InternalInstruction *insn) {
     case VEX_LOB_0F3A:
       insn->opcodeType = THREEBYTE_3A;
       return consume(insn, insn->opcode);
+#if INTEL_CUSTOMIZATION
+    case VEX_LOB_MAP4:
+      insn->opcodeType = MAP4;
+      return consume(insn, insn->opcode);
+#endif // INTEL_CUSTOMIZATION
     case VEX_LOB_MAP5:
       insn->opcodeType = MAP5;
       return consume(insn, insn->opcode);
@@ -1362,6 +1370,10 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
 #if INTEL_CUSTOMIZATION
   case MAP8:
     decision = &MAP8_SYM;
+    break;
+  case MAP4:
+    decision = &MAP4_SYM;
+    break;
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1420,7 +1432,11 @@ static int getInstructionID(struct InternalInstruction *insn,
         attrMask |= ATTR_EVEXKZ;
       if (bFromEVEX4of4(insn->vectorExtensionPrefix[3]))
         attrMask |= ATTR_EVEXB;
-      if (aaaFromEVEX4of4(insn->vectorExtensionPrefix[3]))
+#if INTEL_CUSTOMIZATION
+      // aaa is not used a opmask in MAP4
+      if (aaaFromEVEX4of4(insn->vectorExtensionPrefix[3]) &&
+          (insn->opcodeType != MAP4))
+#endif // INTEL_CUSTOMIZATION
         attrMask |= ATTR_EVEXK;
       if (lFromEVEX4of4(insn->vectorExtensionPrefix[3]))
         attrMask |= ATTR_VEXL;
@@ -1946,6 +1962,18 @@ static int readOperands(struct InternalInstruction *insn) {
       if (Op.encoding != ENCODING_REG && insn->eaDisplacement == EA_DISP_8)
         insn->displacement *= 1 << (Op.encoding - ENCODING_RM);
       break;
+#if INTEL_CUSTOMIZATION
+    case ENCODING_I_EVEX_a:
+      assert((insn->vectorExtensionType == TYPE_EVEX) && "illegal immediate");
+      insn->immediates[insn->numImmediatesConsumed++] =
+          (aaaFromEVEX4of4(insn->vectorExtensionPrefix[3]) >> 2) & 0x1;
+      break;
+    case ENCODING_I_EVEX_aa:
+      assert((insn->vectorExtensionType == TYPE_EVEX) && "illegal immediate");
+      insn->immediates[insn->numImmediatesConsumed++] =
+          aaaFromEVEX4of4(insn->vectorExtensionPrefix[3]) & 0x3;
+      break;
+#endif // INTEL_CUSTOMIZATION
     case ENCODING_IB:
       if (sawRegImm) {
         // Saw a register immediate so don't read again and instead split the
@@ -2646,6 +2674,10 @@ static bool translateOperand(MCInst &mcInst, const OperandSpecifier &operand,
   CASE_ENCODING_RM:
   CASE_ENCODING_VSIB:
     return translateRM(mcInst, operand, insn, Dis);
+#if INTEL_CUSTOMIZATION
+  case ENCODING_I_EVEX_a:
+  case ENCODING_I_EVEX_aa:
+#endif // INTEL_CUSTOMIZATION
   case ENCODING_IB:
   case ENCODING_IW:
   case ENCODING_ID:

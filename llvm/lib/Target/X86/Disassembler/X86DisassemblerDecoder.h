@@ -944,7 +944,8 @@ enum VEXLeadingOpcodeByte {
   VEX_LOB_MAP5 = 0x5,
 #if INTEL_CUSTOMIZATION
   VEX_LOB_MAP6 = 0x6,
-  VEX_LOB_MAP8 = 0x8
+  VEX_LOB_MAP8 = 0x8,
+  VEX_LOB_MAP4 = 0x4
 #endif // INTEL_CUSTOMIZATION
 };
 
