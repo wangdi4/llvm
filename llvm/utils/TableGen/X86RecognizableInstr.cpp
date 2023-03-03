@@ -842,6 +842,19 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(relocation)
     HANDLE_OPTIONAL(immediate)
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86Local::MRM0rImmAAA:
+  case X86Local::MRM6rImmAAA:
+    assert(numPhysicalOperands == 4 &&
+           "Unexpected number of operands for MRMnrImmAAA");
+    HANDLE_OPERAND(vvvvRegister)
+    HANDLE_OPERAND(rmRegister)
+    HANDLE_OPERAND(immediate)
+    HANDLE_OPERAND(immediate)
+    break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRMXmCC:
     assert(numPhysicalOperands == 2 &&
            "Unexpected number of operands for MRMXm");
@@ -926,6 +939,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
 #if INTEL_FEATURE_ISA_DSPV1
   case X86Local::T_MAP8:    opcodeType = MAP8;          break;
 #endif // INTEL_FEATURE_ISA_DSPV1
+  case X86Local::T_MAP4:    opcodeType = MAP4;          break;
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -971,6 +985,14 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRMDestMemImm8: // INTEL
     filter = std::make_unique<ModFilter>(false);
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86Local::MRM0rImmAAA:
+  case X86Local::MRM6rImmAAA:
+    filter = std::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0rImmAAA);
+    break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRM0r: case X86Local::MRM1r:
   case X86Local::MRM2r: case X86Local::MRM3r:
   case X86Local::MRM4r: case X86Local::MRM5r:
@@ -1067,6 +1089,10 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("GR64",                TYPE_R64)
   TYPE("i8mem",               TYPE_M)
   TYPE("i8imm",               TYPE_IMM)
+#if INTEL_CUSTOMIZATION
+  TYPE("u1imm",               TYPE_UIMM8)
+  TYPE("u2imm",               TYPE_UIMM8)
+#endif // INTEL_CUSTOMIZATION
   TYPE("u4imm",               TYPE_UIMM8)
   TYPE("u8imm",               TYPE_UIMM8)
   TYPE("i16u8imm",            TYPE_UIMM8)
@@ -1220,6 +1246,10 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
   ENCODING("i64i32imm",       ENCODING_ID)
   ENCODING("i64i8imm",        ENCODING_IB)
   ENCODING("i8imm",           ENCODING_IB)
+#if INTEL_CUSTOMIZATION
+  ENCODING("u1imm",           ENCODING_I_EVEX_a)
+  ENCODING("u2imm",           ENCODING_I_EVEX_aa)
+#endif // INTEL_CUSTOMIZATION
   ENCODING("u4imm",           ENCODING_IB)
   ENCODING("u8imm",           ENCODING_IB)
   ENCODING("i16u8imm",        ENCODING_IB)

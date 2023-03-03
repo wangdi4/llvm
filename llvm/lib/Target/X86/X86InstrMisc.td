@@ -180,6 +180,15 @@ let isCodeGenOnly = 1, ForceDisassemble = 1 in {
 def POP64rmr: I<0x8F, MRM0r, (outs GR64:$reg), (ins), "pop{q}\t$reg", []>,
                 OpSize32, Requires<[In64BitMode]>, NotMemoryFoldable;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def POP2: I<0x8F, MRM0rImmAAA, (outs GR64:$reg1, GR64:$reg2),
+            (ins u1imm:$imm1, u2imm:$imm2),
+            "pop2\t{$imm2, $reg1, $reg2, $imm1|$imm1, $reg2, $reg1, $imm2}",
+	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS, Requires<[HasPush2Pop2]>,
+	    NotMemoryFoldable;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 } // mayLoad, SchedRW
 let mayLoad = 1, mayStore = 1, SchedRW = [WriteCopy] in
 def POP64rmm: I<0x8F, MRM0m, (outs), (ins i64mem:$dst), "pop{q}\t$dst", []>,
@@ -192,6 +201,15 @@ let isCodeGenOnly = 1, ForceDisassemble = 1 in {
 def PUSH64rmr: I<0xFF, MRM6r, (outs), (ins GR64:$reg), "push{q}\t$reg", []>,
                  OpSize32, Requires<[In64BitMode]>, NotMemoryFoldable;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def PUSH2: I<0xFF, MRM6rImmAAA, (outs),
+            (ins GR64:$reg1, GR64:$reg2, u1imm:$imm1, u2imm:$imm2),
+            "push2\t{$imm1, $reg1, $reg2, $imm2|$imm2, $reg2, $reg1, $imm1}",
+	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS, Requires<[HasPush2Pop2]>,
+	    NotMemoryFoldable;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 } // mayStore, SchedRW
 let mayLoad = 1, mayStore = 1, SchedRW = [WriteCopy] in {
 def PUSH64rmm: I<0xFF, MRM6m, (outs), (ins i64mem:$src), "push{q}\t$src", []>,

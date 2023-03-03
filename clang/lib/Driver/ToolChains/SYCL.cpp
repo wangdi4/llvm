@@ -1490,9 +1490,10 @@ SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
   // getDriver() returns clang, which is not the Intel driver and may not be in
   // "bin". Ensure that we look in "bin" for programs. This is Intel-specific
   // because upstream doesn't typically have multiple program directories.
-  SmallString<128> Bin(getDriver().Dir);
-  llvm::sys::path::append(Bin, "..", "bin");
-  llvm::sys::path::remove_dots(Bin, /*remove_dot_dot=*/ true);
+  SmallString<128> Bin(llvm::sys::path::parent_path(getDriver().Dir));
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
+  llvm::sys::path::append(Bin, "bin");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   getProgramPaths().push_back(std::string(Bin));
 #endif // INTEL_CUSTOMIZATION
 
