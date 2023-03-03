@@ -288,62 +288,6 @@ private:
 
   /// @}
 };
-<<<<<<< HEAD
-
-class LoopIdiomRecognizeLegacyPass : public LoopPass {
-public:
-  static char ID;
-
-  explicit LoopIdiomRecognizeLegacyPass() : LoopPass(ID) {
-    initializeLoopIdiomRecognizeLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnLoop(Loop *L, LPPassManager &LPM) override {
-    if (DisableLIRP::All)
-      return false;
-
-    if (skipLoop(L))
-      return false;
-
-    AliasAnalysis *AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-    DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-    ScalarEvolution *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-    TargetLibraryInfo *TLI =
-        &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(
-            *L->getHeader()->getParent());
-    const TargetTransformInfo *TTI =
-        &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(
-            *L->getHeader()->getParent());
-    const DataLayout *DL = &L->getHeader()->getModule()->getDataLayout();
-    auto *MSSAAnalysis = getAnalysisIfAvailable<MemorySSAWrapperPass>();
-    MemorySSA *MSSA = nullptr;
-    if (MSSAAnalysis)
-      MSSA = &MSSAAnalysis->getMSSA();
-
-    // For the old PM, we can't use OptimizationRemarkEmitter as an analysis
-    // pass.  Function analyses need to be preserved across loop transformations
-    // but ORE cannot be preserved (see comment before the pass definition).
-    OptimizationRemarkEmitter ORE(L->getHeader()->getParent());
-
-    LoopIdiomRecognize LIR(AA, DT, LI, SE, TLI, TTI, MSSA, DL, ORE);
-    return LIR.runOnLoop(L);
-  }
-
-  /// This transformation requires natural loop information & requires that
-  /// loop preheaders be inserted into the CFG.
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addPreserved<MemorySSAWrapperPass>();
-    getLoopAnalysisUsage(AU);
-    AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
-  }
-};
-
-=======
->>>>>>> d7c459070cf3382f30abaf0b258223f7c254a06c
 } // end anonymous namespace
 
 PreservedAnalyses LoopIdiomRecognizePass::run(Loop &L, LoopAnalysisManager &AM,
