@@ -557,6 +557,7 @@ if (EnableSimpleLoopUnswitch) {
     MPM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds
     MPM.add(createGVNPass(DisableGVNLoadPRE));  // Remove redundancies
   }
+  MPM.add(createSCCPPass());                  // Constant prop with SCCP
 
   // Delete dead bit computations (instcombine runs after to fold away the dead
   // computations, and then ADCE will run later to exploit any new DCE
@@ -740,7 +741,12 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 #endif // INTEL_CUSTOMIZATION
 
   if (IsFullLTO) {
+<<<<<<< HEAD
     addInstructionCombiningPass(PM, true /* EnableUpCasting */); // INTEL
+=======
+    PM.add(createSCCPPass());                 // Propagate exposed constants
+    PM.add(createInstructionCombiningPass()); // Clean up again
+>>>>>>> a9a1950115d7db95c7439128b14af2cefe8f796d
     PM.add(createBitTrackingDCEPass());
   }
 
