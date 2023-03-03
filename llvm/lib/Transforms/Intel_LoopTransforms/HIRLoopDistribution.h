@@ -208,8 +208,7 @@ public:
                   ArrayRef<HLDDNodeList> Chunks);
 
   // After scalar expansion, scalar temps is need to be replaced with Array Temp
-  void replaceWithArrayTemps(unsigned OrigLoopLevel,
-                             SmallSet<unsigned, 12> &TempArraySB);
+  void replaceWithArrayTemps();
 
   bool isTempRequired() const {
     return std::any_of(Candidates.begin(), Candidates.end(),
@@ -257,8 +256,7 @@ private:
   bool isScalarExpansionCandidate(const DDRef *Ref) const;
 
   // Create TEMP[i] = temp and insert
-  RegDDRef *createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
-                                 unsigned OrigLoopLevel);
+  RegDDRef *createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef);
 
   // Insert an assignment TEMP[i] = temp after DDNode
   void insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
@@ -300,7 +298,6 @@ private:
   DistHeuristics DistCostModel;
   DistAnalysis Analysis;
   HLLoop *NewLoops[MaxDistributedLoop];
-  SmallSet<unsigned, 12> TempArraySB;
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, InsertOrMove>, 16>
       DistDirectiveNodeMap;
 

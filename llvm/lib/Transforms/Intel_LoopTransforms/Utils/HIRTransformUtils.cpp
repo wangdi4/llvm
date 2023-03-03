@@ -969,7 +969,8 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
     InnerUBRef->getSingleCanonExpr()->setConstant(StripmineSize - 1);
   }
 
-  // Normalize code will set linear at level
+  // Try to reuse ExplicitBoundInst when stripmining multiple loops.
+  HLInst *ExplicitBoundInst = nullptr;
   for (auto It = NewLoop->child_begin(), E = NewLoop->child_end(); It != E;
        ++It) {
 
@@ -998,7 +999,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
     }
 
     // Normalize
-    bool Result = Lp->normalize(AllowExplicitBoundInst);
+    bool Result = Lp->normalize(AllowExplicitBoundInst, &ExplicitBoundInst);
     assert(Result && "Not expecting cannot be normalized");
     (void)Result;
   }
