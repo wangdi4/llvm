@@ -334,7 +334,8 @@ tryReplaceWithTreeConflict(VPGeneralMemOptConflict *VPConflict) {
 
 // Checks what kind of VConflict type we have and it lowers it accordingly.
 bool processVConflictIdiom(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
-  auto *DA = VPConflict->getParent()->getParent()->getVPlanDA();
+  auto *Plan = VPConflict->getParent()->getParent();
+  auto *DA = Plan->getVPlanDA();
   if (auto *TreeConflict = tryReplaceWithTreeConflict(VPConflict)) {
     // Try to lower optimized tree-conflict idioms to histogram. This is
     // feasible only if the reduction updating operand is uniform.
@@ -343,6 +344,7 @@ bool processVConflictIdiom(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
 
     // General Requirements met to enable TreeConflict lowering to double
     // permute tree reduction sequence. This happens just before codegen.
+    Plan->setTreeConflictUsed();
     return true;
   }
 
