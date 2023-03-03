@@ -8787,6 +8787,7 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I, bool PtrValu
         return passingValueIsAlwaysUndefined(V, GEP, PtrValueMayBeModified);
       }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (auto *SI = dyn_cast<AddressInst>(Use))
       if (SI->getPointerOperand() == I)
@@ -8807,6 +8808,8 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I, bool PtrValu
       }
     }
 
+=======
+>>>>>>> c23f29d6f05b1fe4fa2dd50cbb78ee2b30e0de4d
     // Look through bitcasts.
     if (BitCastInst *BC = dyn_cast<BitCastInst>(Use))
       return passingValueIsAlwaysUndefined(V, BC, PtrValueMayBeModified);
