@@ -1,7 +1,7 @@
 //===--- HIRScalarReplArray.cpp -Loop Scalar Replacement Impl -*- C++ -*---===//
 // Implement HIR Loop Scalar Replacement of Array Access Transformation
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -93,6 +93,7 @@
 //
 
 // -------------------------------------------------------------------
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopIndependentScalarReplPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArrayPass.h"
 
 #include "llvm/ADT/Statistic.h"
@@ -211,18 +212,8 @@ static unsigned getMaxDepDist(const RefGroupTy &Group, unsigned LoopLevel) {
 // Returns the Max-index load with MIN TOPO#: may find if #Loads >0
 // E.g. .., A[i+3](.), A[i+4](R) .. A[i+4](R) ...
 //                     ^max_index load with MinTOPO#
+//
 // Returns -1 if not max index load is not applicable.
-// Note:
-// The logic is contrived because the current MemRefs are sorted such that all
-// write(s) appear before all read(s) after the collection from
-// HIRLocaltyAnalysis, instead of the default (expected) sort by Topological
-// numbers over the MemRefs.
-//
-// This makes the logic is bit difficult to understand.
-//
-// Once HIRLoopLocality relaxes this behavior, the code can be simplified
-// with easy-to-understand logic.
-//
 static unsigned getMaxLoadIndex(const RefGroupTy &Group, unsigned LoopLevel,
                                 unsigned MaxDepDist) {
 
@@ -250,7 +241,8 @@ static unsigned getMaxLoadIndex(const RefGroupTy &Group, unsigned LoopLevel,
 
     // Find the minimal TOPO#: + record its matching Index
     unsigned CurTopNum = MemRef->getHLDDNode()->getTopSortNum();
-    if (CurTopNum < MinTopNum) {
+    // Override store at same top sort number with load.
+    if (CurTopNum < MinTopNum || (CurTopNum == MinTopNum && MemRef->isRval())) {
       MinTopNum = CurTopNum;
       // Set flag based on whether MemRef is Rval or not
       MaxIndexIsRVal = MemRef->isRval();
@@ -336,7 +328,7 @@ static bool canHoistMinLoadIndex(const RefGroupTy &Group, const HLLoop *Lp) {
 void MemRefGroup::setHasIndexGap(const RefGroupTy &Group) {
 
   // Groups with distance of 0 or 1 cannot have gaps.
-  if (MaxDepDist == 0 || MaxDepDist == 1) {
+  if (MaxDepDist < 2) {
     return;
   }
 
@@ -525,18 +517,18 @@ void MemRefGroup::identifyGaps(SmallVectorImpl<bool> &IndexGaps) {
   assert(MaxDepDist != unsigned(-1));
 
   if (!HasIndexGap) {
-    // Group is known to have no gaps, make all slots true and return.
-    IndexGaps.resize(MaxDepDist + 1, true);
+    // Group is known to have no gaps, make all slots false and return.
+    IndexGaps.resize(MaxDepDist + 1, false);
     return;
   }
 
-  IndexGaps.resize(MaxDepDist + 1, false);
+  IndexGaps.resize(MaxDepDist + 1, true);
 
   // Accumulate MemRefs into the IndexGaps mask
   for (auto &RT : RefTupleVec) {
     unsigned Dist = RT.getTmpId();
     assert((Dist <= MaxDepDist) && "MemRef distance out of range\n");
-    IndexGaps[Dist] = true;
+    IndexGaps[Dist] = false;
   }
 }
 
@@ -554,12 +546,12 @@ bool MemRefGroup::isLegal(void) const {
   DDGraph DDG = HSRA.HDDA.getGraph(Lp);
 
   // Check: outgoing edge(s)
-  if (!areDDEdgesInSameMRG<false>(DDG)) {
+  if (!areDDEdgesLegal<false>(DDG)) {
     return false;
   }
 
   // Check: incoming edge(s)
-  if (!areDDEdgesInSameMRG<true>(DDG)) {
+  if (!areDDEdgesLegal<true>(DDG)) {
     return false;
   }
 
@@ -567,7 +559,7 @@ bool MemRefGroup::isLegal(void) const {
 }
 
 template <bool IsIncoming>
-bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
+bool MemRefGroup::areDDEdgesLegal(DDGraph &DDG) const {
   DDRef *OtherRef = nullptr;
 
   for (auto &RT : RefTupleVec) {
@@ -575,7 +567,6 @@ bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
 
     for (const DDEdge *Edge :
          (IsIncoming ? DDG.incoming(Ref) : DDG.outgoing(Ref))) {
-      LLVM_DEBUG(Edge->print(dbgs()););
 
       auto &DV = Edge->getDV();
 
@@ -615,6 +606,8 @@ bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
 
       // Check: OtherRef must be in the same MRG
       if (!belongs(cast<RegDDRef>(OtherRef))) {
+        LLVM_DEBUG(dbgs() << "Giving up on illegal edge:\n");
+        LLVM_DEBUG(Edge->dump());
         return false;
       }
     }
@@ -790,7 +783,7 @@ void MemRefGroup::generateLoadToTmps(HLLoop *Lp,
 
   // Scan in [0 .. MaxDD): NOT to generate a load for MemRef[MaxDD](R)
   for (unsigned Idx = 0; Idx < MaxDepDist; ++Idx) {
-    bool HasMemRef = IndexGaps[Idx];
+    bool HasMemRef = !IndexGaps[Idx];
     LLVM_DEBUG(FOS << "Idx: " << Idx << " HasMemRef: " << HasMemRef << "\n";);
 
     if (HasMemRef) {
@@ -914,6 +907,9 @@ HLInst *MemRefGroup::generateStoreInPostexit(HLLoop *Lp, RegDDRef *MemRef,
 
 bool MemRefGroup::analyze(HLLoop *Lp) {
   assert(isValid() && "Invalid MemRefGroup encountered during analysis!");
+
+  LLVM_DEBUG(dbgs() << "Analyzing group:\n");
+  LLVM_DEBUG(print(true));
 
   // do Profit Test:
   if (!isProfitable()) {
@@ -1081,9 +1077,10 @@ void MemRefGroup::printTmpVec(bool NewLine) {
 #endif
 
 HIRScalarReplArray::HIRScalarReplArray(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                                       HIRLoopStatistics &HLS)
+                                       HIRLoopStatistics &HLS,
+                                       bool LoopIndependentReplOnly)
     : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()),
-      DDRU(HIRF.getDDRefUtils()), CEU(HIRF.getCanonExprUtils()) {
+      LoopIndependentReplOnly(LoopIndependentReplOnly) {
 
   // TODO: set platform specific thresholds.
   // Check whether the target is an X86 (32b) or X64 (64b) platform
@@ -1165,6 +1162,14 @@ bool HIRScalarReplArray::doPreliminaryChecks(const HLLoop *Lp) {
     // If the SIMD directive was left on a loop then it might be
     // an attemp to vectorize it after loopopt. We skip such loops
     // to not introduce unneeded recurrences.
+    return false;
+  }
+
+  // Loop independant scalar replacement breaks the pipeline of optimization for
+  // the special region so we need to bail out.
+  if (LoopIndependentReplOnly && Lp->getParentRegion()->isFunctionLevel() &&
+      Lp->getHLNodeUtils().getFunction().hasFnAttribute(
+          "prefer-function-level-region")) {
     return false;
   }
 
@@ -1271,7 +1276,11 @@ bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
   // double>*)(%A)[i1+1]}
   RefGroupVecTy Groups;
   HIRLoopLocality::populateTemporalLocalityGroups(
-      Lp, IsVectorLoop ? 0 : HIRScalarReplArrayDepDistThreshold, Groups);
+      Lp,
+      (LoopIndependentReplOnly || IsVectorLoop)
+          ? 0
+          : HIRScalarReplArrayDepDistThreshold,
+      Groups);
   LLVM_DEBUG(DDRefGrouping::dump(Groups));
 
   // Examine each individual group, validate it, and save only the good ones.
@@ -1300,43 +1309,60 @@ bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
   return Result;
 }
 
-bool HIRScalarReplArray::checkAndUpdateQuota(MemRefGroup &MRG,
-                                             unsigned &NumGPRsUsed) const {
-  bool Result =
-      (NumGPRsUsed + MRG.getNumTemps() <= HIRScalarReplArrayNumRegThreshold);
-  if (Result) {
-    NumGPRsUsed += MRG.getNumTemps();
+static bool checkAndUpdateQuota(MemRefGroup &MRG, unsigned &NumRegsUsed) {
+  unsigned NumTemps = MRG.getNumTemps();
+
+  if ((NumRegsUsed + NumTemps) > HIRScalarReplArrayNumRegThreshold) {
+    return false;
   }
-  return Result;
+
+  NumRegsUsed += NumTemps;
+  return true;
 }
 
 void HIRScalarReplArray::doTransform(HLLoop *Lp) {
-  unsigned NumGPRsPromoted = 0;
+  unsigned NumRefsPromoted = 0;
+  unsigned NumRegsUsed = 0;
   bool Transformed = false;
+  (void)Transformed;
 
   // Transform each suitable Group as long as there is still quota available
   for (auto &MRG : MRGVec) {
-    if (MRG.isValid() && checkAndUpdateQuota(MRG, NumGPRsPromoted)) {
+    if (MRG.isValid() && checkAndUpdateQuota(MRG, NumRegsUsed)) {
       doTransform(Lp, MRG);
       Transformed = true;
+
+      assert((MRG.getSize() > MRG.hasMaxLoadIndex() + MRG.hasMinStoreIndex()) &&
+             "at least one memref expected to be replaced!");
+
+      // MaxLoadIndex and MinStoreIndex refs stay inside the loop body, all
+      // other refs are replaced with temp.
+      NumRefsPromoted +=
+          (MRG.getSize() - MRG.hasMaxLoadIndex() - MRG.hasMinStoreIndex());
     }
+  }
+
+  assert(Transformed && "At least one transformed group expected!");
+
+  // Loop independent scalar replacement happens early in the pipeline so
+  // cleaning up temps helps downstream optimizations.
+  if (LoopIndependentReplOnly) {
+    HIRTransformUtils::doConstantAndCopyPropagation(Lp);
   }
 
   OptReportBuilder &ORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // Number of Array Refs Scalar Replaced In Loop: %d
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25583u, NumGPRsPromoted);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25583u, NumRefsPromoted);
 
   // Mark the loop has been changed, request CodeGen support
   // Note: ScalarReplArray won't change current HIRLoopStatistics
-  if (Transformed) {
-    assert(Lp->getParentRegion() && " Loop does not have a parent region\n");
-    Lp->getParentRegion()->setGenCode();
-    HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
-    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
-        Lp);
-  }
+
+  assert(Lp->getParentRegion() && " Loop does not have a parent region\n");
+  Lp->getParentRegion()->setGenCode();
+  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(Lp);
 }
 
 void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
@@ -1516,7 +1542,16 @@ void HIRScalarReplArray::printRefGroupTy(RefGroupTy &Group, bool PrintNewLine) {
 PreservedAnalyses HIRScalarReplArrayPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   HIRScalarReplArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                     AM.getResult<HIRLoopStatisticsAnalysis>(F))
+                     AM.getResult<HIRLoopStatisticsAnalysis>(F), false)
+      .run();
+
+  return PreservedAnalyses::all();
+}
+
+PreservedAnalyses HIRLoopIndependentScalarReplPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRScalarReplArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                     AM.getResult<HIRLoopStatisticsAnalysis>(F), true)
       .run();
 
   return PreservedAnalyses::all();
@@ -1546,7 +1581,7 @@ public:
     return HIRScalarReplArray(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
+               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(), false)
         .run();
   }
 };
