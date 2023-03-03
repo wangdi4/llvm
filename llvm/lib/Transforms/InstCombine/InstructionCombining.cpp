@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -161,7 +161,6 @@ DEBUG_COUNTER(VisitCounter, "instcombine-visit",
               "Controls which instructions are visited");
 
 // FIXME: these limits eventually should be as low as 2.
-static constexpr unsigned InstCombineDefaultMaxIterations = 1000;
 #ifndef NDEBUG
 static constexpr unsigned InstCombineDefaultInfiniteLoopThreshold = 100;
 #else
@@ -5176,31 +5175,21 @@ static bool combineInstructionsOverFunction(
   return MadeIRChange;
 }
 
-#if INTEL_CUSTOMIZATION
-InstCombinePass::InstCombinePass(bool PreserveForDTrans,
-                                 bool PreserveAddrCompute,
-                                 bool EnableFcmpMinMaxCombine,
-                                 bool EnableUpCasting,
-                                 bool EnableCanonicalizeSwap)
-    : PreserveForDTrans(PreserveForDTrans),
-      PreserveAddrCompute(PreserveAddrCompute),
-      MaxIterations(LimitMaxIterations),
-      EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
-      EnableUpCasting(EnableUpCasting),
-      EnableCanonicalizeSwap(EnableCanonicalizeSwap) {}
+InstCombinePass::InstCombinePass(InstCombineOptions Opts) : Options(Opts) {}
 
-InstCombinePass::InstCombinePass(bool PreserveForDTrans,
-                                 bool PreserveAddrCompute,
-                                 unsigned MaxIterations,
-                                 bool EnableFcmpMinMaxCombine,
-                                 bool EnableUpCasting,
-                                 bool EnableCanonicalizeSwap)
-    : PreserveForDTrans(PreserveForDTrans),
-      PreserveAddrCompute(PreserveAddrCompute), MaxIterations(MaxIterations),
-      EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
-      EnableUpCasting(EnableUpCasting),
-      EnableCanonicalizeSwap(EnableCanonicalizeSwap) {}
+void InstCombinePass::printPipeline(
+    raw_ostream &OS, function_ref<StringRef(StringRef)> MapClassName2PassName) {
+  static_cast<PassInfoMixin<InstCombinePass> *>(this)->printPipeline(
+      OS, MapClassName2PassName);
+  OS << '<';
+  OS << "max-iterations=" << Options.MaxIterations << ";";
+  OS << (Options.UseLoopInfo ? "" : "no-") << "use-loop-info";
+  OS << '>';
+#if INTEL_CUSTOMIZATION
+  // TODO: Add the output for the rest of the options that are proprietary to
+  // Intel.
 #endif // INTEL_CUSTOMIZATION
+}
 
 PreservedAnalyses InstCombinePass::run(Function &F,
                                        FunctionAnalysisManager &AM) {
@@ -5210,7 +5199,11 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
 
+  // TODO: Only use LoopInfo when the option is set. This requires that the
+  //       callers in the pass pipeline explicitly set the option.
   auto *LI = AM.getCachedResult<LoopAnalysis>(F);
+  if (!LI && Options.UseLoopInfo)
+    LI = &AM.getResult<LoopAnalysis>(F);
 
   auto *AA = &AM.getResult<AAManager>(F);
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
@@ -5219,15 +5212,15 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 
-  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
-                                       DT, ORE, BFI, PSI,             // INTEL
-                                       MaxIterations,                 // INTEL
-                                       PreserveForDTrans,             // INTEL
-                                       EnableFcmpMinMaxCombine,       // INTEL
-                                       PreserveAddrCompute,           // INTEL
-                                       EnableUpCasting,               // INTEL
-                                       EnableCanonicalizeSwap,        // INTEL
-                                       LI))                           // INTEL
+  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI,   // INTEL
+                                       DT, ORE, BFI, PSI,               // INTEL
+                                       Options.MaxIterations,           // INTEL
+                                       Options.PreserveForDTrans,       // INTEL
+                                       Options.EnableFcmpMinMaxCombine, // INTEL
+                                       Options.PreserveAddrCompute,     // INTEL
+                                       Options.EnableUpCasting,         // INTEL
+                                       Options.EnableCanonicalizeSwap,  // INTEL
+                                       LI))                             // INTEL
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
