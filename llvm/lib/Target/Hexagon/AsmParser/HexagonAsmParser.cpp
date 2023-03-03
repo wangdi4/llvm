@@ -508,7 +508,7 @@ bool HexagonAsmParser::matchBundleOptions() {
     } else if (Option.compare_insensitive("endloop1") == 0) {
       HexagonMCInstrInfo::setOuterLoop(MCB);
     } else if (Option.compare_insensitive("mem_noshuf") == 0) {
-      if (getSTI().getFeatureBits()[Hexagon::FeatureMemNoShuf])
+      if (getSTI().hasFeature(Hexagon::FeatureMemNoShuf))
         HexagonMCInstrInfo::setMemReorderDisabled(MCB);
       else
         return getParser().Error(IDLoc, MemNoShuffMsg);
@@ -805,7 +805,7 @@ bool HexagonAsmParser::ParseDirectiveComm(bool IsLocal, SMLoc Loc) {
 // validate register against architecture
 bool HexagonAsmParser::RegisterMatchesArch(unsigned MatchNum) const {
   if (HexagonMCRegisterClasses[Hexagon::V62RegsRegClassID].contains(MatchNum))
-    if (!getSTI().getFeatureBits()[Hexagon::ArchV62])
+    if (!getSTI().hasFeature(Hexagon::ArchV62))
       return false;
   return true;
 }
@@ -1321,7 +1321,7 @@ int HexagonAsmParser::processInstruction(MCInst &Inst,
     break;
 
   case Hexagon::J2_trap1:
-    if (!getSTI().getFeatureBits()[Hexagon::ArchV65]) {
+    if (!getSTI().hasFeature(Hexagon::ArchV65)) {
       MCOperand &Rx = Inst.getOperand(0);
       MCOperand &Ry = Inst.getOperand(1);
       if (Rx.getReg() != Hexagon::R0 || Ry.getReg() != Hexagon::R0) {
