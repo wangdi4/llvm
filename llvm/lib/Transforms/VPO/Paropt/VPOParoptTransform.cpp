@@ -8697,8 +8697,9 @@ bool VPOParoptTransform::genFirstPrivatizationCode(
               return std::make_tuple(nullptr, nullptr);
           }
 
-          // Recognize VLA, and return early.
-          if (NumElements && !isa<ConstantInt>(NumElements))
+          // Recognize Arrays, and return early. Bitcasts of even single element
+          // arrays like [1 x i8] <-> i8 are not legal.
+          if (NumElements)
             return std::make_tuple(nullptr, nullptr);
 
           auto *ValueTy = ElementTy;
@@ -8714,8 +8715,9 @@ bool VPOParoptTransform::genFirstPrivatizationCode(
             return std::make_tuple(nullptr, nullptr);
 
           uint64_t ValueSize = ValueTySize.getFixedSize();
-          if (NumElements)
-            ValueSize *= cast<ConstantInt>(NumElements)->getZExtValue();
+          // ValueTySize.getFixedSize() returns 0 for array-types like [1 x i8],
+          // so the non-zero check on ValueSize below causes null to be returned
+          // for them for non-typed clauses.
 
           // WARNING: in case host and target use differently sized
           //          pointers this optimization may be illegal
@@ -8787,6 +8789,9 @@ bool VPOParoptTransform::genFirstPrivatizationCode(
           //   store float %x.val.bcast.zext.trunc.bcast, float* %x.fpriv
           //   ...;                               FprivInitInsertPt
           IRBuilder<> PredBuilder(RegPredBlock->getTerminator());
+          // TODO: Use ValueIntTy as the Type for the Load/Store directly.
+          // Then we can even handle cases like [4 x i8], whereas currently
+          // we cannot, because [4 x i8] <-> i32 bitcasting is illegal.
           Value *NewArg = PredBuilder.CreateLoad(
               ElementTy, Orig, Orig->getName() + Twine(".val"));
           NewArg = PredBuilder.CreateBitCast(NewArg, ValueIntTy,
