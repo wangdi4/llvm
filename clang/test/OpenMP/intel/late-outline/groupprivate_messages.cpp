@@ -21,13 +21,13 @@ int a; // expected-note {{'a' defined here}}
 //expected-warning@+1 {{extra tokens at the end of '#pragma omp groupprivate' are ignored}}
 #pragma omp groupprivate(a) allocate(a) // expected-error {{unexpected device_type clause}}
 #pragma omp groupprivate(u) // expected-error {{use of undeclared identifier 'u'}}
-// expected-note@+1 5 {{'#pragma omp groupprivate' is specified here}}
+// expected-note@+1 8 {{'#pragma omp groupprivate' is specified here}}
 #pragma omp groupprivate(d, a)
 int foo() { // expected-note {{declared here}}
   static int l;
 #pragma omp groupprivate(l)) // expected-warning {{extra tokens at the end of '#pragma omp groupprivate' are ignored}}
 #pragma omp target
-  a++;
+  a++; //  expected-warning 3 {{groupprivate directive for variable 'a' is ignored for x86-64/host compilation}}
   return 1;
 }
 

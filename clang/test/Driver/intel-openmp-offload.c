@@ -361,8 +361,10 @@
 
 /// -S -emit-llvm should generate textual IR for device.
 // RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -S -emit-llvm %s 2>&1 \
-// RUN:   | FileCheck -check-prefix=CHECK_S_LLVM %s
-// CHECK_S_LLVM: clang{{.*}} "-triple" "spir64"{{.*}} "-emit-llvm"{{.*}} "-o" "[[DEVICE:.+\.ll]]"
+// RUN:   | FileCheck -check-prefix=CHECK_S_LLVM -DOMP_TARGET=spir64 %s
+// RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=x86_64 -S -emit-llvm %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK_S_LLVM -DOMP_TARGET=x86_64 %s
+// CHECK_S_LLVM: clang{{.*}} "-triple" "[[OMP_TARGET]]"{{.*}} "-emit-llvm"{{.*}} "-o" "[[DEVICE:.+\.ll]]"
 // CHECK_S_LLVM: clang{{.*}} "-triple" "x86_64-unknown-linux-gnu"{{.*}} "-emit-llvm"{{.*}} "-o" "[[HOST:.+\.ll]]"
 // CHECK_S_LLVM: clang-offload-bundler{{.*}} "-type=ll"{{.*}} "-input=[[DEVICE]]" "-input=[[HOST]]"
 
