@@ -8787,28 +8787,12 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I, bool PtrValu
         return passingValueIsAlwaysUndefined(V, GEP, PtrValueMayBeModified);
       }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (auto *SI = dyn_cast<AddressInst>(Use))
       if (SI->getPointerOperand() == I)
         return passingValueIsAlwaysUndefined(V, SI);
 #endif // INTEL_CUSTOMIZATION
-    // Look through return.
-    if (ReturnInst *Ret = dyn_cast<ReturnInst>(Use)) {
-      bool HasNoUndefAttr =
-          Ret->getFunction()->hasRetAttribute(Attribute::NoUndef);
-      // Return undefined to a noundef return value is undefined.
-      if (isa<UndefValue>(C) && HasNoUndefAttr)
-        return true;
-      // Return null to a nonnull+noundef return value is undefined.
-      if (C->isNullValue() && HasNoUndefAttr &&
-          Ret->getFunction()->hasRetAttribute(Attribute::NonNull)) {
-        return !PtrValueMayBeModified;
-      }
-    }
 
-=======
->>>>>>> 1235ed913356d493563d730cb7997bcca633397d
     // Look through bitcasts.
     if (BitCastInst *BC = dyn_cast<BitCastInst>(Use))
       return passingValueIsAlwaysUndefined(V, BC, PtrValueMayBeModified);
