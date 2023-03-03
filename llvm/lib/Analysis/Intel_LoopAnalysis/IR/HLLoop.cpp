@@ -1591,7 +1591,8 @@ static bool normalizeCE(const HLLoop *Lp, CanonExpr *CE,
   return true;
 }
 
-bool HLLoop::normalize(bool AllowExplicitBoundInst) {
+bool HLLoop::normalize(bool AllowExplicitBoundInst,
+                       HLInst **ExplicitBoundInst) {
   if (isNormalized()) {
     return true;
   }
@@ -1618,13 +1619,20 @@ bool HLLoop::normalize(bool AllowExplicitBoundInst) {
     // otherwise loop invariant operations in the lower get embedded inside the
     // normalized CEs in the loop body and may not exist in a hoistable form.
     if (ExplicitLowerBoundSwitch && AllowExplicitBoundInst) {
-      HLInst *LBCopyInst =
-          getHLNodeUtils().createCopyInst(removeLowerDDRef(), "lb");
-      HLNodeUtils::insertAsLastPreheaderNode(this, LBCopyInst);
+      if (ExplicitBoundInst && (*ExplicitBoundInst)) {
+        LowerRef = (*ExplicitBoundInst)->getLvalDDRef()->clone();
+      } else {
+        HLInst *LBCopyInst =
+            getHLNodeUtils().createCopyInst(removeLowerDDRef(), "lb");
+        HLNodeUtils::insertAsLastPreheaderNode(this, LBCopyInst);
 
-      LBCopyInst->getRvalDDRef()->makeConsistent();
+        LBCopyInst->getRvalDDRef()->makeConsistent();
 
-      LowerRef = LBCopyInst->getLvalDDRef()->clone();
+        LowerRef = LBCopyInst->getLvalDDRef()->clone();
+        if (ExplicitBoundInst) {
+          *ExplicitBoundInst = LBCopyInst;
+        }
+      }
 
       LowerCE = LowerRef->getSingleCanonExpr();
       LowerCE->setDefinedAtLevel(Level - 1);
