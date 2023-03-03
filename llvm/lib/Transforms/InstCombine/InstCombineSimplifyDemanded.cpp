@@ -1738,7 +1738,7 @@ Value *InstCombinerImpl::SimplifyDemandedVectorElts(Value *V,
       // corresponding input elements are undef.
       for (unsigned OutIdx = 0; OutIdx != VWidth; ++OutIdx) {
         APInt SubUndef = UndefElts2.lshr(OutIdx * Ratio).zextOrTrunc(Ratio);
-        if (SubUndef.countPopulation() == Ratio)
+        if (SubUndef.popcount() == Ratio)
           UndefElts.setBit(OutIdx);
       }
     } else {
