@@ -1652,13 +1652,6 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     break;
-<<<<<<< HEAD
-=======
-  case X86II::MRMr0:
-    llvm_unreachable("MRMr0 format never need REX prefix!");
-  case X86II::MRMDestMemFSIB:
-    llvm_unreachable("FSIB format never need REX prefix!");
->>>>>>> d3745461dacbf2e158a9e5fb47c0a518d64a936b
   }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
