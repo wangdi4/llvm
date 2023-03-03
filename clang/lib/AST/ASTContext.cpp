@@ -1806,14 +1806,13 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
   case BuiltinType::Ibm128:
     return Target->getIbm128Format();
   case BuiltinType::LongDouble:
-    if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)
 #if INTEL_COLLAB
-      // AuxTarget does not call 'adjust' to pull in command-line changes
-      // for -mlong-double-64 (that may be considered the real bug). For now
-      // expect that options that change the long double properties will be
-      // passed to the target compile and handled in the Target instead.
-      if (!getLangOpts().OpenMPLateOutline || getLangOpts().LongDoubleSize == 0)
+    // The upstream code tries to use the host long double format for some
+    // unknown reason. Use the code Target info instead.
+    if (getLangOpts().OpenMPLateOutline)
+      return Target->getLongDoubleFormat();
 #endif // INTEL_COLLAB
+    if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)
       return AuxTarget->getLongDoubleFormat();
     return Target->getLongDoubleFormat();
   case BuiltinType::Float128:
