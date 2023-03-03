@@ -53,6 +53,7 @@ namespace X86Disassembler {
 
 #if INTEL_CUSTOMIZATION
 #define MAP8_SYM          x86DisassemblerMap8Opcodes
+#define MAP4_SYM          x86DisassemblerMap4Opcodes
 #endif // INTEL_CUSTOMIZATION
 
 #define INSTRUCTIONS_STR  "x86DisassemblerInstrSpecifiers"
@@ -70,6 +71,7 @@ namespace X86Disassembler {
 
 #if INTEL_CUSTOMIZATION
 #define MAP8_STR          "x86DisassemblerMap8Opcodes"
+#define MAP4_STR          "x86DisassemblerMap4Opcodes"
 #endif // INTEL_CUSTOMIZATION
 
 // Attributes of an instruction that must be known before the opcode can be
@@ -580,7 +582,8 @@ enum OpcodeType {
   MAP5          = 8,
 #if INTEL_CUSTOMIZATION
   MAP6          = 9,
-  MAP8          = 10
+  MAP8          = 10,
+  MAP4          = 11
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -680,6 +683,8 @@ enum ModRMDecisionType {
   ENUM_ENTRY(ENCODING_VSIB_CD64,"VSIB operand with CDisp scaling of 64")       \
   ENUM_ENTRY(ENCODING_VVVV,   "Register operand in VEX.vvvv byte.")            \
   ENUM_ENTRY(ENCODING_WRITEMASK, "Register operand in EVEX.aaa byte.")         \
+  ENUM_ENTRY(ENCODING_I_EVEX_a,  "1-bit immediate encoded in EVEX.a")          \
+  ENUM_ENTRY(ENCODING_I_EVEX_aa, "2-bit immediate encoded in EVEX.aa")         \
   ENUM_ENTRY(ENCODING_IB,     "1-byte immediate")                              \
   ENUM_ENTRY(ENCODING_IW,     "2-byte")                                        \
   ENUM_ENTRY(ENCODING_ID,     "4-byte")                                        \
