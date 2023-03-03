@@ -288,6 +288,7 @@ private:
 
   /// @}
 };
+<<<<<<< HEAD
 
 class LoopIdiomRecognizeLegacyPass : public LoopPass {
 public:
@@ -341,9 +342,9 @@ public:
   }
 };
 
+=======
+>>>>>>> d7c459070cf3382f30abaf0b258223f7c254a06c
 } // end anonymous namespace
-
-char LoopIdiomRecognizeLegacyPass::ID = 0;
 
 PreservedAnalyses LoopIdiomRecognizePass::run(Loop &L, LoopAnalysisManager &AM,
                                               LoopStandardAnalysisResults &AR,
@@ -368,16 +369,6 @@ PreservedAnalyses LoopIdiomRecognizePass::run(Loop &L, LoopAnalysisManager &AM,
     PA.preserve<MemorySSAAnalysis>();
   return PA;
 }
-
-INITIALIZE_PASS_BEGIN(LoopIdiomRecognizeLegacyPass, "loop-idiom",
-                      "Recognize loop idioms", false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(LoopIdiomRecognizeLegacyPass, "loop-idiom",
-                    "Recognize loop idioms", false, false)
-
-Pass *llvm::createLoopIdiomPass() { return new LoopIdiomRecognizeLegacyPass(); }
 
 static void deleteDeadInstruction(Instruction *I) {
   I->replaceAllUsesWith(PoisonValue::get(I->getType()));

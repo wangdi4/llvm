@@ -532,7 +532,6 @@ if (EnableSimpleLoopUnswitch) {
       SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
   // We resume loop passes creating a second loop pipeline here.
-  MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
 
 #if INTEL_CUSTOMIZATION
