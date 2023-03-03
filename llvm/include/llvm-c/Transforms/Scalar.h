@@ -128,6 +128,8 @@ void LLVMAddForcedCMOVGenerationPass(LLVMPassManagerRef PM);
 /** See llvm::createTransformSinAndCosCallsPass function. */
 void LLVMAddTransformSinAndCosCallsPass(LLVMPassManagerRef PM);
 #endif // INTEL_CUSTOMIZATION
+/** See llvm::createSCCPPass function. */
+void LLVMAddSCCPPass(LLVMPassManagerRef PM);
 
 /** See llvm::createSROAPass function. */
 void LLVMAddScalarReplAggregatesPass(LLVMPassManagerRef PM);
