@@ -20,7 +20,7 @@ define void @foo([1024 x i32]* %src, [1024 x i32]* %dest, i1 %cond) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 2] i64 [[VP_IV_2_TIMES:%.*]] = mul i64 [[VP_INDVARS_IV]] i64 2
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds [1024 x i32]* [[DEST0]] i64 1 i64 [[VP_IV_2_TIMES]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] i32* [[VP_SELECT_DEST:%.*]] = select i1 [[COND0]] i32* [[VP_ARRAYIDX3]] i32* [[VP_ARRAYIDX4]]
-; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP_LOAD]] i32* [[VP_SELECT_DEST]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] store i32 [[VP_LOAD]] i32* [[VP_SELECT_DEST]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB0]], [[BB2:BB[0-9]+]]

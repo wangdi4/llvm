@@ -10,7 +10,7 @@ define void @test1(float* nocapture %A, i64 %n) {
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Random] store float 4.200000e+01 float* [[VP_ARRAYIDX]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store float 4.200000e+01 float* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB0]]

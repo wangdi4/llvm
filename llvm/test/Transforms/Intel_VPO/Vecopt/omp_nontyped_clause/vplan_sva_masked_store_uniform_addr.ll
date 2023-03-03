@@ -30,7 +30,7 @@ simd.loop:
 
 if.then:
 ; CHECK:          [DA: Div, SVA: ( V )] i1 [[VP1:%.*]] = block-predicate i1 [[VP_COND:%.*]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 addrspace(4)* [[VP_PRIV_GEP]] i32 addrspace(4)** [[UNI_ADDR0:%.*]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Uni, SVA: ( V )] store i32 addrspace(4)* [[VP_PRIV_GEP]] i32 addrspace(4)** [[UNI_ADDR0:%.*]] (SVAOpBits 0->V 1->V )
   store i32 addrspace(4)* %priv.gep, i32 addrspace(4)** %uni.addr, align 4
   br label %merge
 

@@ -129,7 +129,7 @@ define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_INNER_IV]] i64* [[A0:%.*]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Uni, SVA: ( V )] store i64 [[VP_INNER_IV]] i64* [[A0:%.*]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_UNI_OP:%.*]] = mul i64 [[B0:%.*]] i64 42 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 [[VP_UNI_OP]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 1024 (SVAOpBits 0->V 1->V )

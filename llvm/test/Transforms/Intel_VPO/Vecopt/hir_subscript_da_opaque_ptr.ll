@@ -15,7 +15,7 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK: Printing Divergence info for foo:HIR.#1
 ; CHECK: Basic Block: BB3
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR1:%.*]] = subscript inbounds ptr [[PTR0:%.*]] i64 0 i64 0
-; CHECK: Divergent: [Shape: Random] store float %centerx ptr [[PTR1]]
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store float %centerx ptr [[PTR1]]
 
 define void @foo(float %centerx) {
 entry:
@@ -50,7 +50,7 @@ simd.end.region:
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr addrspace(1) [[PTR5:%.*]] = subscript inbounds ptr addrspace(1) [[PTR4]]
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR6:%.*]] = addrspacecast ptr addrspace(1) [[PTR5]]
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR7:%.*]] = subscript inbounds ptr [[PTR6]]
-; CHECK: Divergent: [Shape: Random] store float %centerx ptr [[PTR7]]
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store float %centerx ptr [[PTR7]]
 
 define void @bar(float %centerx) {
 entry:
@@ -83,10 +83,10 @@ simd.end.region:
 ; CHECK: Printing Divergence info for baz:HIR.#3
 ; CHECK: Basic Block: BB17
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR9:%.*]] = subscript inbounds ptr [[PTR8:%.*]] i64 0 i64 0
-; CHECK: Divergent: [Shape: Random] store float %another ptr [[PTR9]]
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store float %another ptr [[PTR9]]
 ; CHECK: Basic Block: BB16
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR11:%.*]] = subscript inbounds ptr [[PTR10:%.*]] i64 0 i64 0
-; CHECK: Divergent: [Shape: Random] store float %centerx ptr [[PTR11]]
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store float %centerx ptr [[PTR11]]
 
 define void @baz(float %centerx, float %another, i1 %flag) {
 entry:
@@ -127,10 +127,10 @@ simd.end.region:
 ; CHECK: Printing Divergence info for rebaz:HIR.#4
 ; CHECK: Basic Block: BB26
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR13:%.*]] = subscript inbounds ptr [[PTR12:%.*]] i64 0 i64 0
-; CHECK: Divergent: [Shape: Random] store i32 %another ptr [[PTR13]]
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store i32 %another ptr [[PTR13]]
 ; CHECK: Basic Block: BB25
 ; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] ptr [[PTR15:%.*]] = subscript inbounds ptr [[PTR14:%.*]] i64 0 i64 0
-; CHECK: Divergent: [Shape: Random] store float %centerx ptr [[PTR15]]
+; CHECK: Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store float %centerx ptr [[PTR15]]
 
 define void @rebaz(float %centerx, i32 %another, i1 %flag) {
 entry:
@@ -174,10 +174,10 @@ simd.end.region:
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr addrspace(1) [[PTR19:%.*]] = subscript inbounds ptr addrspace(1) [[PTR18]]
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr [[PTR20:%.*]] = addrspacecast ptr addrspace(1) [[PTR19]]
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr [[PTR21:%.*]] = subscript inbounds ptr [[PTR20]]
-; CHECK: Divergent: [Shape: Random] store i16 %another ptr [[PTR21]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 32] store i16 %another ptr [[PTR21]]
 ; CHECK: Basic Block: BB34
 ; CHECK: Divergent: [Shape: Strided, Stride: i64 32] ptr [[PTR22:%.*]] = subscript inbounds ptr [[PTR16]] i64 0 i64 0
-; CHECK: Divergent: [Shape: Random] store float %centerx ptr [[PTR22]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 32] store float %centerx ptr [[PTR22]]
 
 define void @threebaz(float %centerx, i16 %another, i1 %flag) {
 entry:

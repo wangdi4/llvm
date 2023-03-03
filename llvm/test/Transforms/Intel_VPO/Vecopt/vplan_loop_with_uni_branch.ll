@@ -20,7 +20,7 @@ define void @test1(float* nocapture %ptr, i64 %n) {
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] float [[VP_DIVPHI:%.*]] = phi  [ float [[VP_CAST]], [[BB1]] ],  [ float 4.200000e+01, [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[PTR0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Random] store float [[VP_DIVPHI]] float* [[VP_ARRAYIDX]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store float [[VP_DIVPHI]] float* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB4:BB[0-9]+]], [[BB0]]

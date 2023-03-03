@@ -49,7 +49,7 @@ define i32 @getElement(i32 %RetIdx) {
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i32 [[JVAL:%.*]] = load i32* @j
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[SEXT3:%.*]] = sext i32 [[JVAL]] to i64
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] i32* [[PRIV_GEP3:%.*]] = getelementptr inbounds [1024 x i32]* [[ARR_PRIV]] i64 0 i64 [[SEXT3]]
-; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VAL_TO_STORE]] i32* [[PRIV_GEP3]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4096] store i32 [[VAL_TO_STORE]] i32* [[PRIV_GEP3]]
 
 ; CHECK: VPlan after predicator
 ; CHECK:  [DA: Div] [1024 x i32]* [[PRIV1:%.*]] = allocate-priv [1024 x i32]*
@@ -79,6 +79,7 @@ define i32 @getElement(i32 %RetIdx) {
 ; CHECK-NEXT:  [DA: Div] i64 [[L6:%.*]] = load i64* [[GEP2]]
 ; CHECK:  [DA: Div] i32* [[GEP5:%.*]] = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 {{.*}}
 ; CHECK-NEXT:  [DA: Div] store i32 {{.*}} i32* [[GEP5]]
+
 
 omp.inner.for.body.lr.ph:
   %arr1.priv = alloca [1024 x i32], align 4
@@ -173,10 +174,10 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 ; Function Attrs: nounwind uwtable
 define i32 @scalPrivate(i32 %RetIdx) {
 ; CHECK: Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[PHI1:%.*]] = phi  [ i32 [[IND_INIT:%.*]], {{.*}} ],  [ i32 {{.*}}, {{.*}} ]
-; CHECK: Divergent: [Shape: Random] store i32 [[PHI1]] i32* [[L_PRIV:%.*]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4] store i32 [[PHI1]] i32* [[L_PRIV:%.*]]
 ; CHECK: Divergent: [Shape: Random] i32 [[J1:%.*]] = load i32* [[J:%.*]]
 ; CHECK: Divergent: [Shape: Random] i32 [[ADD4:%.*]] = add i32 [[J1]] i32 [[PHI1]]
-; CHECK: Divergent: [Shape: Random] store i32 [[ADD4]] i32* [[J]]
+; CHECK: Divergent: [Shape: Strided, Stride: i64 4] store i32 [[ADD4]] i32* [[J]]
 ; CHECK: Divergent: [Shape: Random] i32 [[H1:%.*]] = call i32 [[ADD4]] i32 (i32)* @helper
 ; CHECK: Divergent: [Shape: Random] i32 [[H2:%.*]] = call i32* [[J]] i32 (i32*)* @helperPtr
 ; CHECK: Divergent: [Shape: Random] i32 [[ADD2:%.*]] = add i32 [[H2]] i32 [[H1]]
