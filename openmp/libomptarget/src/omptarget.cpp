@@ -125,7 +125,11 @@ bool AsyncInfoTy::isQueueEmpty() const { return AsyncInfo.Queue == nullptr; }
  * device will start at 0x200 with the padding (4 bytes), then &s1.b=0x204 and
  * &s1.p=0x208, as they should be to satisfy the alignment requirements.
  */
+#if INTEL_COLLAB
+static const int64_t MaxAlignment = 8;
+#else  // INTEL_COLLAB
 static const int64_t MaxAlignment = 16;
+#endif // INTEL_COLLAB
 
 /// Return the alignment requirement of partially mapped structs, see
 /// MaxAlignment above.
