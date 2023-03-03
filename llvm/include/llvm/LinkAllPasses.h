@@ -215,7 +215,6 @@ namespace {
 #if INTEL_CUSTOMIZATION
       (void) llvm::createLoopUnswitchPass();
 #endif // INTEL_CUSTOMIZATION
-      (void) llvm::createLoopIdiomPass();
       (void) llvm::createLoopRotatePass();
       (void) llvm::createLowerConstantIntrinsicsPass();
       (void) llvm::createLowerExpectIntrinsicPass();
