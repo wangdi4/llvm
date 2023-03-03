@@ -22,7 +22,7 @@ define dso_local void @foo(i32 %arg0) local_unnamed_addr #0 {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x i64]* @a i64 0 i32 [[VP_INDVARS_IV_TRUNC]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_VAL:%.*]] = load i64* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i64]* @b i64 0 i32 [[VP_INDVARS_IV_TRUNC]]
-; CHECK-NEXT:  Divergent: [Shape: Random] store i64 [[VP_VAL]] i64* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] store i64 [[VP_VAL]] i64* [[VP_ARRAYIDX2]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

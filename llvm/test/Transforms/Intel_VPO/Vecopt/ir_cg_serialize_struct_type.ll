@@ -13,7 +13,7 @@
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_PR_FETCH]] %complex_64bit* [[VP_PS]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] [[COMPLEX_64BIT0]] = type { float, float } [[VP_UNI_LOAD:%.*]] = load %complex_64bit* [[UNI_SRC0:%.*]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_UNI_LOAD]] %complex_64bit* [[UNI_DEST0:%.*]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (  L)] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_PR_FETCH]] %complex_64bit* [[UNI_DEST0]] (SVAOpBits 0->L 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (  L)] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_PR_FETCH]] %complex_64bit* [[UNI_DEST0]] (SVAOpBits 0->L 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i32 [[VP_ADD21]] = add i32 [[VP_P0]] i32 [[VP_P0_IND_INIT_STEP:%.*]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ule i32 [[VP_ADD21]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )

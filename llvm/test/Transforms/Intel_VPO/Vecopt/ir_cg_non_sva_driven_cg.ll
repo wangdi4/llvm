@@ -31,7 +31,7 @@ header:
 ; LLVM-IR-NEXT:    [[TMP2:%.*]] = add <2 x i32> [[BROADCAST_SPLAT]], [[BROADCAST_SPLAT4:%.*]]
   %res = add i32 %bc, %uni
 
-; VPLAN-IR:        [DA: Div, SVA: (  L)] store i32 [[VP_RES]] i32* [[DEST0:%.*]] (SVAOpBits 0->L 1->F )
+; VPLAN-IR:        [DA: Uni, SVA: (  L)] store i32 [[VP_RES]] i32* [[DEST0:%.*]] (SVAOpBits 0->L 1->F )
 ; LLVM-IR-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <2 x i32> [[TMP2]], i32 1
 ; LLVM-IR-NEXT:    store i32 [[DOTEXTRACT_1_]], i32* [[DEST:%.*]], align 4
   store i32 %res, i32* %dest

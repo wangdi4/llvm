@@ -19,7 +19,7 @@ define void @test1(float* nocapture %ptr, i64 %n) {
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_TRUNC:%.*]] = trunc i64 [[VP_IDX]] to i32
 ; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_VAL:%.*]] = sitofp i32 [[VP_TRUNC]] to float
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds float* [[PTR0:%.*]] i64 [[VP_IDX]]
-; CHECK-NEXT:  Divergent: [Shape: Random] store float [[VP_VAL]] float* [[VP_ARRAYIDX]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] store float [[VP_VAL]] float* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV_NEXT2]] = add i64 [[VP_IV2]] i64 1
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_EXITCOND2:%.*]] = icmp sge i64 [[VP_IV_NEXT2]] i64 [[VP_IV]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] br i1 [[VP_EXITCOND2]], [[BB2]], [[BB1]]
