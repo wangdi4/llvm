@@ -258,7 +258,6 @@ void LLVMAddReassociatePass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createReassociatePass());
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void LLVMAddAddSubReassociatePass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createAddSubReassociatePass());
@@ -277,12 +276,6 @@ void LLVMAddTransformSinAndCosCallsPass(LLVMPassManagerRef PM) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-void LLVMAddSCCPPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createSCCPPass());
-}
-
-=======
->>>>>>> 5356fefc19df3fbf32d180b1b10e6226e8743541
 void LLVMAddScalarReplAggregatesPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createSROAPass());
 }

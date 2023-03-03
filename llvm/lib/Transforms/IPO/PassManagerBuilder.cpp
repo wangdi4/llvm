@@ -740,12 +740,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 #endif // INTEL_CUSTOMIZATION
 
   if (IsFullLTO) {
-<<<<<<< HEAD
-    PM.add(createSCCPPass());                 // Propagate exposed constants
     addInstructionCombiningPass(PM, true /* EnableUpCasting */); // INTEL
-=======
-    PM.add(createInstructionCombiningPass()); // Clean up again
->>>>>>> 5356fefc19df3fbf32d180b1b10e6226e8743541
     PM.add(createBitTrackingDCEPass());
   }
 
