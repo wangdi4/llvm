@@ -242,7 +242,6 @@ namespace {
       (void) llvm::createRegionOnlyViewerPass();
       (void) llvm::createRegionPrinterPass();
       (void) llvm::createRegionViewerPass();
-      (void) llvm::createSCCPPass();
       (void) llvm::createSafeStackPass();
       (void) llvm::createSROAPass();
       (void) llvm::createSingleLoopExtractorPass();
