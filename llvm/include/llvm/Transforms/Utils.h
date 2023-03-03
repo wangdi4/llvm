@@ -104,15 +104,11 @@ FunctionPass *createAddDiscriminatorsPass();
 //   %Y = load i32* %X
 //   ret i32 %Y
 //
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 FunctionPass *createPromoteMemoryToRegisterPass(bool Unskippable = false,
                                                 bool AllBBs = false);
 #endif // INTEL_CUSTOMIZATION
-=======
-FunctionPass *createPromoteMemoryToRegisterPass(bool IsForced = false);
->>>>>>> 1f892cc77b81d76d103e3ebe69aa260f2f07fde9
 
 //===----------------------------------------------------------------------===//
 //
