@@ -1,6 +1,6 @@
 //===--- HIRScalarReplArray.h -Loop Scalar Replacement --- --*- C++ -*---===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -174,8 +174,9 @@ struct MemRefGroup {
   // - for each valid DDEdge, Refs on both ends belong to the same MRG;
   bool isLegal(void) const;
 
-  // each valid DDEdge, both ends of the Edge must be in MRG
-  template <bool IsIncoming> bool areDDEdgesInSameMRG(DDGraph &DDG) const;
+  // Checks whether all DDEdges to/from memrefs in the group are legal for
+  // transformation.
+  template <bool IsIncoming> bool areDDEdgesLegal(DDGraph &DDG) const;
 
   // A MRG is profitable IF&F it has at least 1 non anti-dependence DDEdge
   //
@@ -344,14 +345,14 @@ class HIRScalarReplArray {
   HIRDDAnalysis &HDDA;
   HIRLoopStatistics &HLS;
   HLNodeUtils &HNU;
-  DDRefUtils &DDRU;
-  CanonExprUtils &CEU;
 
   SmallVector<MemRefGroup, 8> MRGVec;
 
+  bool LoopIndependentReplOnly;
+
 public:
   HIRScalarReplArray(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                     HIRLoopStatistics &HLS);
+                     HIRLoopStatistics &HLS, bool LoopIndependentReplOnly);
 
   bool run();
 
@@ -443,9 +444,6 @@ public:
   // Utility Functions
   void clearWorkingSetMemory(void);
   void getAnalysisUsage(AnalysisUsage &AU) const;
-
-  // check quota and implicitly update quota if available
-  bool checkAndUpdateQuota(MemRefGroup &MRG, unsigned &NumGPRsUsed) const;
 
   // Replace a given MemRef with a TmpDDRef
   //(e.g. A[i] becomes t0, A[i+2] becomes t2, etc.)

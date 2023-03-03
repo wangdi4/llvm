@@ -1309,13 +1309,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForLoadInst(
 
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForStoreInst(
     const VPInstruction *I) {
-
-  const auto &VPBB = *I->getParent();
-  VPValue *ValOp = I->getOperand(0);
-  VPValue *PtrOp = I->getOperand(1);
-  VPVectorShape ValShape = getObservedShape(VPBB, *ValOp);
-  VPVectorShape PtrShape = getObservedShape(VPBB, *PtrOp);
-  return VPVectorShape::joinShapes(ValShape, PtrShape);
+  // For store return its pointer operand shape.
+  return getObservedShape(*I->getParent(), *I->getOperand(1));
 }
 
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCmpInst(

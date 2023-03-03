@@ -181,7 +181,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] store i32 10 i32* [[VP_UNI_GEP1]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] store i32 10 i32* [[VP_UNI_GEP1]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_CMP]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -214,7 +214,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT]], [[BB2]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] store i32 10 i32* [[VP_UNI_GEP1]]
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] store i32 10 i32* [[VP_UNI_GEP1]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_CMP]], [[BB2]], [[BB3]]

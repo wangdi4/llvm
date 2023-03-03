@@ -89,7 +89,7 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE_LCSSA:%.*]] = phi  [ i32 [[VP_PHI_USE_LIVE_OUT_BLEND]], [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:     [DA: Uni] i32* [[VP_STORE_USER_GEP:%.*]] = getelementptr inbounds i32* [[A0]] i32 0
-; CHECK-NEXT:     [DA: Div] store i32 [[VP_PHI_USE_LCSSA]] i32* [[VP_STORE_USER_GEP]]
+; CHECK-NEXT:     [DA: Uni] store i32 [[VP_PHI_USE_LCSSA]] i32* [[VP_STORE_USER_GEP]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]]: # preds: [[BB10]]

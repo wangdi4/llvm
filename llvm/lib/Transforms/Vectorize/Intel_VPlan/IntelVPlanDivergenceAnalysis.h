@@ -406,6 +406,7 @@ private:
   VPVectorShape computeVectorShapeForLoadInst(const VPInstruction *I);
 
   /// Computes vector shape for store instructions.
+  /// The result is always the shape of the pointer operand.
   VPVectorShape computeVectorShapeForStoreInst(const VPInstruction *I);
 
   /// Computes vector shape for the different types of cmp instructions.
