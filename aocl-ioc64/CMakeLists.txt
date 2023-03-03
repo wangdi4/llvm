@@ -40,7 +40,9 @@ add_llvm_tool_in_bin(${AOCL_IOC64_PROJECT_NAME} ${TARGET_SOURCES} CUSTOM_WIN_VER
 
 if(NOT MSVC)
   # FIXME: when built with icx it produces a warning.
-  target_compile_options(${AOCL_IOC64_PROJECT_NAME} PRIVATE "-Wno-unused-parameter")
+  target_compile_options(${AOCL_IOC64_PROJECT_NAME} PRIVATE -Wno-unused-parameter -fexceptions)
+else()
+  target_compile_options(${AOCL_IOC64_PROJECT_NAME} PRIVATE "/EHsc")
 endif()
 
 target_link_libraries(${AOCL_IOC64_PROJECT_NAME}
