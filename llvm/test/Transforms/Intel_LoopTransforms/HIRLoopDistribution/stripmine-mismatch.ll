@@ -46,13 +46,12 @@
 ;               |   + END LOOP
 ;               |
 ;               |
-;               |      %lb4 = 64 * i1;
-;               |   + DO i2 = 0, 64 * i1 + %min + -1 * %lb4, 1
+;               |   + DO i2 = 0, 64 * i1 + %min + -1 * %lb, 1
 ;               |   |   if (%z > %cmp)
 ;               |   |   {
-;               |   |      %x.addr.020 = (%.TempArray)[0][i2 + %lb4];
-;               |   |      %0 = (@A)[0][i2 + %s + trunc.i32.i4(%lb4)];
-;               |   |      %1 = (%.TempArray2)[0][i2 + %lb4];
+;               |   |      %x.addr.020 = (%.TempArray)[0][i2 + %lb];
+;               |   |      %0 = (@A)[0][i2 + %s + trunc.i32.i4(%lb)];
+;               |   |      %1 = (%.TempArray2)[0][i2 + %lb];
 ;               |   |      %2 = (@A1)[0][%x.addr.020];
 ;               |   |      (@B1)[0][%x.addr.020] = %2 + (%0 * %1);
 ;               |   |   }

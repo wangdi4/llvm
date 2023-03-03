@@ -414,13 +414,13 @@ static void updateLiveInAllocaTemp(HLLoop *Loop, unsigned SB) {
   }
 }
 
-RegDDRef *ScalarExpansion::createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
-                                                unsigned OrigLoopLevel) {
+RegDDRef *ScalarExpansion::createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef) {
 
   // Generates  TEMP[i] = tx
-  //  tx may be from assignments of this form:
-  //  tx = ty   ;  tx = 1000
-  //  Make it a self-blob to avoid IR validation error
+  // iv must be for innermostloop
+  // tx may be from assignments of this form:
+  // tx = ty   ;  tx = 1000
+  // Make it a self-blob to avoid IR validation error
 
   HLDDNode *TempRefDDNode = TempRef->getHLDDNode();
 
@@ -432,9 +432,10 @@ RegDDRef *ScalarExpansion::createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
   RegDDRef *TmpArrayRef =
       HNU.getDDRefUtils().createMemRef(ArrTy, AllocaBlobIdx);
 
+  unsigned Level = TempRef->getParentLoop()->getNestingLevel();
   auto IVType = Lp->getIVType();
   CanonExpr *FirstCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
-  FirstCE->addIV(OrigLoopLevel, 0, 1);
+  FirstCE->addIV(Level, 0, 1);
 
   //  Create constant of 0
   CanonExpr *SecondCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
@@ -787,8 +788,7 @@ void ScalarExpansion::computeInsertNodes() {
   }
 }
 
-void ScalarExpansion::replaceWithArrayTemps(
-    unsigned OrigLoopLevel, SmallSet<unsigned, 12> &TempArraySB) {
+void ScalarExpansion::replaceWithArrayTemps() {
   // Used to skip SBs that are already scalar expanded
   SymbaseLoopSetTy ProcessedSBs;
 
@@ -824,13 +824,12 @@ void ScalarExpansion::replaceWithArrayTemps(
         HLLoop *Lp = TmpDef->getLexicalParentLoop();
 
         if (!TmpArrayRef) {
-          TmpArrayRef = createTempArrayStore(Lp, TmpDef, OrigLoopLevel);
+          TmpArrayRef = createTempArrayStore(Lp, TmpDef);
         } else {
           insertTempArrayStore(Lp, TmpDef, TmpArrayRef->clone(),
                                TmpDef->getHLDDNode());
         }
       }
-      TempArraySB.insert(TmpArrayRef->getSymbase());
 
       // Insert tx = TEMP[i]
       assert(TmpArrayRef && "Temp Store missing");
@@ -1110,9 +1109,7 @@ void HIRLoopDistribution::distributeLoop(
   LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION : " << LoopCount
                     << " way distributed\n");
 
-  TempArraySB.clear();
   HLLoop *LoopNode;
-  unsigned LoopLevel = Loop->getNestingLevel();
   HLRegion *RegionNode = Loop->getParentRegion();
 
   unsigned PreheaderLoopIndex =
@@ -1179,18 +1176,16 @@ void HIRLoopDistribution::distributeLoop(
 
   if (SCEX.isScalarExpansionRequired()) {
     SCEX.computeInsertNodes();
-    SCEX.replaceWithArrayTemps(LoopLevel, TempArraySB);
-    LLVM_DEBUG(dbgs() << "Scalar Expansion analysis:\n"; SCEX.dump(););
-
     // For constant trip count <= StripmineSize, no stripmine is done
     if (SCEX.isTempRequired() && Loop->isStripmineRequired(StripmineSize)) {
       HIRTransformUtils::stripmine(NewLoops[0], NewLoops[LoopCount - 1],
                                    StripmineSize, StripmineRequiresExtraSetup);
-      // Fix TempArray index if stripmine is peformed: 64 * i1 + i2 => i2
-      fixTempArrayCoeff(NewLoops[0]->getParentLoop());
       // Loop stripmined by <StripmineSize>
       ORBuilder(*NewLoops[0]->getParentLoop()).addOrigin(25428u, StripmineSize);
     }
+
+    SCEX.replaceWithArrayTemps();
+    LLVM_DEBUG(dbgs() << "Scalar Expansion analysis:\n"; SCEX.dump(););
   }
 
   for (unsigned I = 0; I < LoopCount; ++I) {
@@ -1216,28 +1211,6 @@ void HIRLoopDistribution::distributeLoop(
 
   LLVM_DEBUG(dbgs() << "New Region with Transformed Loops:\n";
              RegionNode->dump(););
-}
-
-void HIRLoopDistribution::fixTempArrayCoeff(HLLoop *Loop) {
-
-  // After stripemine, change coeff from  of TempArray
-  //  from  i1 * 64 + i2  to   i2
-  unsigned Level = Loop->getNestingLevel();
-
-  ForEach<HLDDNode>::visitRange(
-      Loop->child_begin(), Loop->child_end(), [this, Level](HLDDNode *Node) {
-        for (RegDDRef *Ref :
-             llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
-          if (!TempArraySB.count(Ref->getSymbase())) {
-            continue;
-          }
-
-          for (CanonExpr *CE :
-               llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
-            CE->removeIV(Level);
-          }
-        }
-      });
 }
 
 // Form perfect loop candidates by grouping stmt only piblocks
