@@ -1,8 +1,8 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-NONOPAQUE
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-NONOPAQUE
 
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-OPAQUE
+; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-OPAQUE
 
 ; This test checks function argument type coercion
 
@@ -102,61 +102,67 @@ declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
 
 ; Function Attrs: convergent
 declare void @singleInt(%struct.SingleInt* byval(%struct.SingleInt) align 4) #2
-; CHECK: declare void @singleInt(i32)
+; CHECK:   declare void @singleInt(i32)
 
 ; Function Attrs: convergent
 declare void @singleFloat(%struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
-; CHECK: declare void @singleFloat(float)
+; CHECK:   declare void @singleFloat(i32)
 
 ; Function Attrs: convergent
 declare void @intAndSSE(%struct.IntAndSSE* byval(%struct.IntAndSSE) align 4) #2
-; CHECK: declare void @intAndSSE(i64)
+; CHECK:   declare void @intAndSSE(i64)
 
 ; Function Attrs: convergent
 declare void @twoFloats(%struct.TwoFloats* byval(%struct.TwoFloats) align 4) #2
-; CHECK: declare void @twoFloats(<2 x float>)
+; CHECK:   declare void @twoFloats(i64)
 
 ; Function Attrs: convergent
 declare void @twoDoubles(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8) #2
-; CHECK: declare void @twoDoubles(double, double)
+; CHECK-NONOPAQUE:   declare void @twoDoubles(%struct.TwoDoubles*)
+; CHECK-OPAQUE:   declare void @twoDoubles(ptr)
 
 ; Function Attrs: convergent
 declare void @twoInts(%struct.TwoInts* byval(%struct.TwoInts) align 4) #2
-; CHECK: declare void @twoInts(i64)
+; CHECK:   declare void @twoInts(i64)
 
 ; Function Attrs: convergent
 declare void @twoLongs(%struct.TwoLongs* byval(%struct.TwoLongs) align 8) #2
-; CHECK: declare void @twoLongs(i64, i64)
+; CHECK-NONOPAQUE:   declare void @twoLongs(%struct.TwoLongs*)
+; CHECK-OPAQUE:   declare void @twoLongs(ptr)
 
 ; Function Attrs: convergent
 declare void @twoDifferentWords(%struct.TwoDifferentWords* byval(%struct.TwoDifferentWords) align 8) #2
-; CHECK: declare void @twoDifferentWords(double, i64)
+; CHECK-NONOPAQUE:   declare void @twoDifferentWords(%struct.TwoDifferentWords*)
+; CHECK-OPAQUE:   declare void @twoDifferentWords(ptr)
 
 ; Function Attrs: convergent
 declare void @twoWordWithArray(%struct.TwoWordWithArray* byval(%struct.TwoWordWithArray) align 4) #2
-; CHECK: declare void @twoWordWithArray(i64, i64)
+; CHECK-NONOPAQUE:   declare void @twoWordWithArray(%struct.TwoWordWithArray*)
+; CHECK-OPAQUE:   declare void @twoWordWithArray(ptr)
 
 ; Function Attrs: convergent
 declare void @threeIntegerMember(%struct.ThreeIntegerMember* byval(%struct.ThreeIntegerMember) align 4) #2
-; CHECK: declare void @threeIntegerMember(i64, i32)
+; CHECK-NONOPAQUE:   declare void @threeIntegerMember(%struct.ThreeIntegerMember*)
+; CHECK-OPAQUE:   declare void @threeIntegerMember(ptr)
 
 ; Function Attrs: convergent
 declare void @nestedStruct(%struct.NestedStruct* byval(%struct.NestedStruct) align 4) #2
-; CHECK: declare void @nestedStruct(i64, i64)
+; CHECK-NONOPAQUE:   declare void @nestedStruct(%struct.NestedStruct*)
+; CHECK-OPAQUE:   declare void @nestedStruct(ptr)
 
 ; Function Attrs: convergent
 declare void @oneElementFLoatArray(%struct.OneElementFloatArray* byval(%struct.OneElementFloatArray) align 4) #2
-; CHECK: declare void @oneElementFLoatArray(float)
+; CHECK:   declare void @oneElementFLoatArray(i32)
 
 ; Function Attrs: convergent
 declare void @outOfIntRegisters(%struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.SingleInt* byval(%struct.SingleInt) align 4) #2
-; CHECK-NONOPAQUE: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, %struct.TwoLongs*, i32, %struct.SingleInt*)
-; CHECK-OPAQUE: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, ptr, i32, ptr)
+; CHECK-NONOPAQUE: declare void @outOfIntRegisters(%struct.TwoLongs*, %struct.TwoLongs*, i32, %struct.TwoLongs*, i32, i32)
+; CHECK-OPAQUE: declare void @outOfIntRegisters(ptr, ptr, i32, ptr, i32, i32)
 
 ; Function Attrs: convergent
 declare void @outOfSSERegisters(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.SingleFloat* byval(%struct.SingleFloat) align 4, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.SingleFloat* byval(%struct.SingleFloat) align 4, %struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
-; CHECK-NONOPAQUE: declare void @outOfSSERegisters(double, double, double, double, double, double, float, %struct.TwoDoubles*, float, %struct.SingleFloat*)
-; CHECK-OPAQUE: declare void @outOfSSERegisters(double, double, double, double, double, double, float, ptr, float, ptr)
+; CHECK-NONOPAQUE: declare void @outOfSSERegisters(%struct.TwoDoubles*, %struct.TwoDoubles*, %struct.TwoDoubles*, i32, %struct.TwoDoubles*, i32, i32)
+; CHECK-OPAQUE: declare void @outOfSSERegisters(ptr, ptr, ptr, i32, ptr, i32, i32)
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
