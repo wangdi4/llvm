@@ -2326,7 +2326,6 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     }
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   if (!verifyBlockAddresses(oldFunction, Blocks)) {
     LLVM_DEBUG(dbgs() << "Invalid block address found in extraction.");
@@ -2338,12 +2337,9 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     // Force assumptions in the old function to be rescanned on the next access.
     AC->clear();
 #else // INTEL_CUSTOMIZATION
-  // Remove CondGuardInsts that will be moved to the new function from the old
-  // function's assumption cache.
-=======
+
   // Remove @llvm.assume calls that will be moved to the new function from the
   // old function's assumption cache.
->>>>>>> 0cbb8ec030e23c0e13331b5d54155def8c901b36
   for (BasicBlock *Block : Blocks) {
     for (Instruction &I : llvm::make_early_inc_range(*Block)) {
       if (auto *AI = dyn_cast<AssumeInst>(&I)) {
