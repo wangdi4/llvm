@@ -6909,7 +6909,7 @@ static bool eliminateDeadSwitchCases(SwitchInst *SI, DomTreeUpdater *DTU,
     }
     const APInt &CaseVal = Case.getCaseValue()->getValue();
     if (Known.Zero.intersects(CaseVal) || !Known.One.isSubsetOf(CaseVal) ||
-        (CaseVal.getMinSignedBits() > MaxSignificantBitsInCond) || // INTEL
+        (CaseVal.getSignificantBits() > MaxSignificantBitsInCond) || // INTEL
         !Range.contains(CaseVal)) { // INTEL
       DeadCases.push_back(Case.getCaseValue());
       if (DTU)

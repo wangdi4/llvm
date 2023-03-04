@@ -1008,7 +1008,7 @@ protected:
           bool signedElement = IntElement->getValue().isNegative();
           // Get the element min required size.
           unsigned ElementMinRequiredSize =
-              IntElement->getValue().getMinSignedBits() - 1;
+              IntElement->getValue().getSignificantBits() - 1;
           // In case one element is signed then all the vector is signed.
           isSigned |= signedElement;
           // Save the max required bit size between all the elements.
@@ -1023,7 +1023,7 @@ protected:
 
     if (const auto *CI = dyn_cast<ConstantInt>(Val)) {
       isSigned = CI->getValue().isNegative();
-      return CI->getValue().getMinSignedBits() - 1;
+      return CI->getValue().getSignificantBits() - 1;
     }
 
     if (const auto *Cast = dyn_cast<SExtInst>(Val)) {
