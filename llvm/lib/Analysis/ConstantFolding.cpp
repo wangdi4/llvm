@@ -2915,9 +2915,9 @@ static Constant *ConstantFoldScalarCall2(StringRef Name,
       if (!C0)
         return Constant::getNullValue(Ty);
       if (IntrinsicID == Intrinsic::cttz)
-        return ConstantInt::get(Ty, C0->countTrailingZeros());
+        return ConstantInt::get(Ty, C0->countr_zero());
       else
-        return ConstantInt::get(Ty, C0->countLeadingZeros());
+        return ConstantInt::get(Ty, C0->countl_zero());
 
     case Intrinsic::abs:
       assert(C1 && "Must be constant int");
