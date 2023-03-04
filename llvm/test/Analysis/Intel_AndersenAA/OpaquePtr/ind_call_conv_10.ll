@@ -1,8 +1,5 @@
-; TODO: A fallback case is unnecessarily generated with -opaque-pointers.
-; Indirect-Call-Conv needs to be improved to avoid the fallback case.
-
-; This test verifies that the target with the same type as @fptr (@add_fun
-; is converted into a direct call, and the fallback case is generated.
+; This test verifies that @fptr is converted to direct call with same type
+; target function (i.e @add_fun) without fallback case.
 
 ; RUN: opt  -opaque-pointers -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
 
@@ -50,18 +47,5 @@ if.end:                                           ; preds = %if.else.end, %if.el
   ret i32 %call
 }
 
-; CHECK: .indconv.cmp.add_fun:
-; CHECK:   %.indconv.c = icmp eq ptr %1, @add_fun
-; CHECK:   br i1 %.indconv.c, label %.indconv.call.add_fun, label %.indconv.icall.call
-
-; CHECK: .indconv.call.add_fun:
-; CHECK:   %call.indconv = call i32 @add_fun(ptr null)
-; CHECK:   br label %.indconv.sink.
-
-; CHECK: .indconv.icall.call:
-; CHECK:   %call.indconv1 = call i32 %1(ptr null)
-; CHECK:   br label %.indconv.sink.
-
-; CHECK: .indconv.sink.:
-; CHECK:   %.indconv.ret = phi i32 [ %call.indconv, %.indconv.call.add_fun ], [ %call.indconv1, %.indconv.icall.call ]
-
+; CHECK:  %call = call i32 @add_fun(ptr null)
+; CHECK:  ret i32 %call
