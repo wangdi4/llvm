@@ -16,6 +16,8 @@
 # system libarary directories
 include(embed.rpath)
 
+use_rtti(TRUE)
+
 include_directories(
   BEFORE
   ${CMAKE_CURRENT_SOURCE_DIR}

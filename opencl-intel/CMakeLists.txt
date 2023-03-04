@@ -26,6 +26,8 @@ else()
   set(OPENCL_INTREE_BUILD ON)
 endif()
 
+include(FetchContent)
+
 # Project-wise options
 option(GIT_REVISIONS "Make package version from git revision" ON)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
@@ -52,6 +54,34 @@ option(OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
 
 set(OCL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(OCL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+
+if(INTEL_CUSTOMIZATION)
+  if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
+    STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
+  else()
+    set(GITSERVER "https://github.com/intel-innersource")
+  endif()
+ set(OPENCL_CLANG_REPO
+   "${GITSERVER}/applications.compilers.source.ocl-common-clang")
+endif(INTEL_CUSTOMIZATION)
+
+# Download opencl-clang
+set(OPENCL_CLANG_TAG de0ea6d42a4c25fba614571651f1a9292078610f)
+# PCH_EXTENSION can override PCH extension map in opencl-clang/options_compile.cpp
+set(PCH_EXTENSION "cl_khr_3d_image_writes,cl_khr_depth_images,cl_khr_global_int32_base_atomics,cl_khr_global_int32_extended_atomics,cl_khr_int64_base_atomics,cl_khr_int64_extended_atomics,cl_khr_local_int32_base_atomics,cl_khr_local_int32_extended_atomics,cl_intel_subgroups,cl_intel_subgroups_short" CACHE STRING "")
+
+message(STATUS "Will fetch opencl-clang from ${OPENCL_CLANG_REPO}")
+FetchContent_Declare(
+  opencl-clang
+  GIT_REPOSITORY ${OPENCL_CLANG_REPO}
+  GIT_TAG ${OPENCL_CLANG_TAG}
+)
+
+FetchContent_MakeAvailable(opencl-clang)
+
+if (NOT EXISTS ${opencl-clang_SOURCE_DIR})
+  message(FATAL_ERROR "opencl-clang is not fetched from ${OPENCL_CLANG_REPO}")
+endif()
 
 # Set path to the CMAKE modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
