@@ -131,7 +131,8 @@ let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
 let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
   def NAME#_ND : shift_rCL_NDD<opcode, f, mnemonic, node, typeinfo>;
 }
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
+    isCodeGenOnly = 1 in
   def NAME#_NF : shift_rCL_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shift_rCL_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
@@ -179,8 +180,8 @@ let Constraints = "$src1 = $dst", isConvertibleToThreeAddress = 1,
 let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
   def NAME#_ND : shift_ri_NDD<opcode, f, mnemonic, node, typeinfo>;
 }
-let Predicates = [FalsePredicateNF], isConvertibleToThreeAddress = 1, 
-    isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
+    isConvertibleToThreeAddress = 1, isCodeGenOnly = 1 in
   def NAME#_NF : shift_ri_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shift_ri_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
@@ -196,7 +197,8 @@ let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
 let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
   def NAME#_ND : shift_ri_NDD<opcode, f, mnemonic, node, typeinfo>;
 }
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
+    isCodeGenOnly = 1 in
   def NAME#_NF : shift_ri_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shift_ri_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
@@ -220,7 +222,8 @@ let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
 let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
   def NAME#_ND : shiftl_r1_NDD<opcode, f, mnemonic, typeinfo>;
 }
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
+    isCodeGenOnly = 1 in
   def NAME#_NF : shiftl_r1<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shiftl_r1_NDD<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
@@ -523,12 +526,13 @@ multiclass mshift_rCL_NoPat<bits<8> opcode, Format f, string mnemonic,
 let Defs = [EFLAGS] in {
 let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
   def NAME  : shift_rCL_NoPat<opcode, f, mnemonic, typeinfo>;
-let isCodeGenOnly = 1 in 
+let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in 
   def NAME#_EVEX : shift_rCL_NoPat<opcode, f, mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
   def NAME#_ND : shift_rCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>;
 }
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
+    isCodeGenOnly = 1 in
   def NAME#_NF : shift_rCL_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shift_rCL_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, 
@@ -540,12 +544,13 @@ multiclass mshift_ri_NoPat<bits<8> opcode, Format f, string mnemonic,
 let Defs = [EFLAGS] in {
 let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
   def NAME  : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>;
-let isCodeGenOnly = 1 in 
+let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in 
   def NAME#_EVEX : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
   def NAME#_ND : shift_rCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>;
 }
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
+    isCodeGenOnly = 1 in
   def NAME#_NF : shift_ri_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shift_rCL_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, 
@@ -562,7 +567,8 @@ let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
 let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
   def NAME#_ND : shift_r1_NDD_NoPat<opcode, f, mnemonic, typeinfo>;
 }
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
+    isCodeGenOnly = 1 in
   def NAME#_NF : shift_r1_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shift_r1_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
@@ -843,7 +849,8 @@ let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
 let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
   def NAME#_ND : shiftLD_rrCL_NDD<opcode, f, mnemonic, node, typeinfo>;
 }
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
+    isCodeGenOnly = 1 in
   def NAME#_NF : shiftLD_rrCL_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shiftLD_rrCL_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
@@ -895,7 +902,8 @@ let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
 let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
   def NAME#_ND : shiftRD_rrCL_NDD<opcode, f, mnemonic, node, typeinfo>;
 }
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
+    isCodeGenOnly = 1 in
   def NAME#_NF : shiftRD_rrCL_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shiftRD_rrCL_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
@@ -961,7 +969,8 @@ let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
 let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
   def NAME#_ND : shiftLD_rri8_NDD<opcode, f, mnemonic, node, typeinfo>;
 }
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
+    isCodeGenOnly = 1 in
   def NAME#_NF : shiftLD_rri8_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shiftLD_rri8_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, 
@@ -1018,7 +1027,8 @@ let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
 let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
   def NAME#_ND : shiftRD_rri8_NDD<opcode, f, mnemonic, node, typeinfo>;
 }
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
+    isCodeGenOnly = 1 in
   def NAME#_NF : shiftRD_rri8<opcode, f, "{nf}\t"#mnemonic, node, typeinfo>;
 let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shiftRD_rri8_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic,  
