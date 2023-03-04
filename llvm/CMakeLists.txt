@@ -176,6 +176,17 @@ endif()
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
 # one for llvm+clang+... using the same sources.
+if (INTEL_CUSTOMIZATION)
+  # FIXME: when build opencl cpurt, xtoolsup is always adding ocl-cclang to
+  # LLVM_EXTERNAL_PROJECTS. Now we will start to use github opencl-clang,
+  # this is workaround to remove ocl-cclang. Without the WA, both ocl-cclang and
+  # github opencl-clang will be build and there will be CMake error that same
+  # target name already exists. After the patch is landed, we need to update
+  # xtoolsup to remove ocl-cclang from LLVM_EXTERNAL_PROJECTS, and then the WA
+  # can be removed.
+  string(REPLACE "ocl-cclang;" "" WITHOUT_OCLCCLANG "${LLVM_EXTERNAL_PROJECTS}")
+  set(LLVM_EXTERNAL_PROJECTS "${WITHOUT_OCLCCLANG}")
+endif (INTEL_CUSTOMIZATION)
 set(LLVM_ALL_PROJECTS "bolt;clang;clang-tools-extra;compiler-rt;cross-project-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;mlir;openmp;polly;pstl")
 set(LLVM_ALL_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTERNAL_PROJECTS}")
 # The flang project is not yet part of "all" projects (see C++ requirements)
@@ -185,6 +196,7 @@ set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS}")
 if (INTEL_CUSTOMIZATION)
   # List of Intel specific projects
   set(LLVM_INTEL_EXTRA_PROJECTS "opencl;aocl-ioc64;libdevice")
+  set(COMMON_CLANG_LIBRARY_NAME "common_clang" CACHE STRING "")
   # List of all known projects in the mono repo
   set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS};${LLVM_INTEL_EXTRA_PROJECTS}")
 endif (INTEL_CUSTOMIZATION)

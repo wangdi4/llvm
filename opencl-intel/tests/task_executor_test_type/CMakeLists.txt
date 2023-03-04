@@ -2,6 +2,8 @@ link_directories(${TBB_LIB_DIR})
 
 set(TARGET task_executor_test_type)
 
+use_rtti(TRUE)
+
 include_directories(AFTER ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
                     ${OCL_SOURCE_DIR}/utils/task_executor)
 

@@ -271,8 +271,9 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
   // Form a set of all functions that are candidates for multi-versioning.
   SetVector<Function*> MVCandidates;
+  SetVector<Function*> MVFunctionsCallableFromLoops;
   for (Function &Fn : M) {
-    if (Fn.isDeclaration() || MVCandidates.contains(&Fn))
+    if (Fn.isDeclaration() || MVFunctionsCallableFromLoops.contains(&Fn))
       continue;
     // If selective multiversioning is enabled, multi-version only the
     //   1) functions that contain non-annotation like intrinsics,
@@ -295,7 +296,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       continue;
     MVCandidates.insert(&Fn);
     // Collect functions that are callable from loop bodies.
-    int StartIndex = MVCandidates.size();
+    int StartIndex = MVFunctionsCallableFromLoops.size();
     for (inst_iterator It = inst_begin(Fn), End = inst_end(Fn); It != End; ++It) {
       auto *CInst = dyn_cast<CallBase>(&*It);
       if (!CInst)
@@ -306,10 +307,11 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       Function* Callee = CInst->getCalledFunction();
       if (!Callee || Callee->isDeclaration())
         continue;
-      MVCandidates.insert(Callee);
+      MVFunctionsCallableFromLoops.insert(Callee);
     }
-    CollectCalledFunctions(MVCandidates, StartIndex);
+    CollectCalledFunctions(MVFunctionsCallableFromLoops, StartIndex);
   }
+  MVCandidates.set_union(MVFunctionsCallableFromLoops);
 
   // Collect functions that have GlobalAlias(es) and are in MVCandidates.
   std::set<Function*> HasGlobalAliasSet;

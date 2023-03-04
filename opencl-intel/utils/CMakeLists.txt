@@ -19,6 +19,8 @@ endif(NOT WIN32)
 
 add_definitions(-DCLANG_VERSION_STRING="${CLANG_VERSION_MAJOR}")
 
+use_rtti(TRUE)
+
 add_subdirectory(cl_hw_utils)
 add_subdirectory(cl_logger)
 add_subdirectory(cl_sys_utils)
