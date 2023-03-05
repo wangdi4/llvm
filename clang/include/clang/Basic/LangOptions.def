@@ -434,12 +434,16 @@ LANGOPT(ObjCDisableDirectMethodsForTesting, 1, 0,
         "Disable recognition of objc_direct methods")
 LANGOPT(CFProtectionBranch , 1, 0, "Control-Flow Branch Protection enabled")
 LANGOPT(FakeAddressSpaceMap , 1, 0, "OpenCL fake address space map")
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenCLChannel       , 1, 0, "Intel FPGA OpenCL cl_intel_channels extension supported")
 LANGOPT(OpenCLForceVectorABI, 1, 0, "OpenCL vector to scalar coercion disabling")
 // IntrinsicPromotion implementation.
 LANGOPT(IntrinsicAutoPromote, 1, 0, "Auto promote functions using intrinsics and include intrinsics headers")
 #endif // INTEL_CUSTOMIZATION
+=======
+LANGOPT(OpenCLForceVectorABI, 1, 0, "OpenCL vector to scalar coercion disabling")
+>>>>>>> 8b55761761cd0dd87efd3eb1e9d6f8dd2a878ca6
 ENUM_LANGOPT(AddressSpaceMapMangling , AddrSpaceMapMangling, 2, ASMM_Target, "OpenCL address space map mangling mode")
 LANGOPT(IncludeDefaultHeader, 1, 0, "Include default header file for OpenCL")
 LANGOPT(DeclareOpenCLBuiltins, 1, 0, "Declare OpenCL builtin functions")

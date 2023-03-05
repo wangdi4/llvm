@@ -7611,11 +7611,17 @@ defm const_strings : BoolOption<"f", "const-strings",
 def fno_bitfield_type_align : Flag<["-"], "fno-bitfield-type-align">,
   HelpText<"Ignore bit-field types when aligning structures">,
   MarshallingInfoFlag<LangOpts<"NoBitFieldTypeAlign">>;
+<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 def fopencl_force_vector_abi : Flag<["-"], "fopencl-force-vector-abi">,
   HelpText<"Disable vector to scalar coercion for OpenCL">,
   MarshallingInfoFlag<LangOpts<"OpenCLForceVectorABI">>;
 // endif INTEL_CUSTOMIZATION
+=======
+def fopencl_force_vector_abi : Flag<["-"], "fopencl-force-vector-abi">,
+  HelpText<"Disable vector to scalar coercion for OpenCL">,
+  MarshallingInfoFlag<LangOpts<"OpenCLForceVectorABI">>;
+>>>>>>> 8b55761761cd0dd87efd3eb1e9d6f8dd2a878ca6
 def ffake_address_space_map : Flag<["-"], "ffake-address-space-map">,
   HelpText<"Use a fake address space map; OpenCL testing purposes only">,
   MarshallingInfoFlag<LangOpts<"FakeAddressSpaceMap">>;
