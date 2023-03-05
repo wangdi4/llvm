@@ -12,22 +12,36 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; IR-UF1-CHECK:  Cost of Scalar VPlan: 4096
 ; IR-UF1-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 512 x 7.125 + 0 + 0 = 3648
+; IR-UF1-CHECK:   VectorCostWithoutPeel = 512 x 7.125 + 0 = 3648
 ; IR-UF1-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 256 x 7.375 + 0 + 0 = 1888
+; IR-UF1-CHECK:   VectorCostWithoutPeel = 256 x 7.375 + 0 = 1888
 ; IR-UF3-CHECK:  Cost of Scalar VPlan: 4096
 ; IR-UF3-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 170 x 21.375 + 0 + 16 = 3649.75
+; IR-UF3-CHECK:   VectorCostWithoutPeel = 170 x 21.375 + 0 = 3649.75
 ; IR-UF3-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 85 x 22.125 + 0 + 16 = 1896.625
+; IR-UF3-CHECK:   VectorCostWithoutPeel = 85 x 22.125 + 0 = 1896.625
 ; HIR-UF1-CHECK:  Cost of Scalar VPlan: 4096
 ; HIR-UF1-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 512 x 7.125 + 0 + 0 = 3648
+; HIR-UF1-CHECK:   VectorCostWithoutPeel = 512 x 7.125 + 0 = 3648
 ; HIR-UF1-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 256 x 7.375 + 0 + 0 = 1888
+; HIR-UF1-CHECK:   VectorCostWithoutPeel = 256 x 7.375 + 0 = 1888
 ; HIR-UF1-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 128 x 14.75 + 0 + 0 = 1888
+; HIR-UF1-CHECK:   VectorCostWithoutPeel = 128 x 14.75 + 0 = 1888
 ; HIR-UF1-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 64 x 29.5 + 0 + 0 = 1888
+; HIR-UF1-CHECK:   VectorCostWithoutPeel = 64 x 29.5 + 0 = 1888
 ; HIR-UF1-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 32 x 59 + 0 + 0 = 1888
+; HIR-UF1-CHECK:   VectorCostWithoutPeel = 32 x 59 + 0 = 1888
 ; HIR-UF2-CHECK:  Cost of Scalar VPlan: 4096
 ; HIR-UF2-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 256 x 14.25 + 0 + 0 = 3648
+; HIR-UF2-CHECK:   VectorCostWithoutPeel = 256 x 14.25 + 0 = 3648
 ; HIR-UF2-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 128 x 14.75 + 0 + 0 = 1888
+; HIR-UF2-CHECK:   VectorCostWithoutPeel = 128 x 14.75 + 0 = 1888
 ; HIR-UF2-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 64 x 29.5 + 0 + 0 = 1888
+; HIR-UF2-CHECK:   VectorCostWithoutPeel = 64 x 29.5 + 0 = 1888
 ; HIR-UF2-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 32 x 59 + 0 + 0 = 1888
+; HIR-UF2-CHECK:   VectorCostWithoutPeel = 32 x 59 + 0 = 1888
 ; HIR-UF2-CHECK:  Scalar Cost = 1024 x 4 = 4096 > VectorCost = 0 + 16 x 118 + 0 + 0 = 1888
+; HIR-UF2-CHECK:   VectorCostWithoutPeel = 16 x 118 + 0 = 1888
 define void @baz(ptr %lparr) {
 ;
 entry:

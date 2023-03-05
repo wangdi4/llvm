@@ -577,6 +577,13 @@ public:
         getBlockRangeCost(getVPlanAfterLoopBeginEndBlocks(),
                           nullptr /* peeling */, OS, "Loop postexit");
 
+    // If the loop is going to be unrolled, scale up total cost by UF
+    // as a starting approximation. We were not doing this before which
+    // artificially inflates benefit from unrolling. TODO - consider
+    // refining loop iteration cost by considering benefits of unrolling.
+    if (UF > 1 && TotCost.isValid())
+      TotCost *= UF;
+
     return std::make_pair(TotCost, PostExitCost + PreHdrCost);
   }
 
