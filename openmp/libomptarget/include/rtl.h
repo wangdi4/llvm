@@ -298,6 +298,10 @@ struct RTLsTy {
   // not thread-safe, called from global constructor (i.e. once)
   void loadRTLs();
 
+#if INTEL_CUSTOMIZATION
+  std::once_flag InitFlag;
+#endif // INTEL_CUSTOMIZATION
+
 private:
   static bool attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL);
 };
