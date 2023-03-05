@@ -494,10 +494,84 @@ void AndersensAAResult::CreateConstraint(Constraint::ConstraintType Ty,
   Constraints.push_back(Constraint(Ty, D, S, O));
 }
 
+// OpaquePointers:
 // Returns false if 'Target' is unsafe possible target for 'Call', which is
 // indirect call with 'FP' as function pointer.
 //
-static bool safePossibleTarget(Value *FP, Value* Target, CallBase *Call) {
+static bool safeOpaquePointersPossibleTarget(Value *FP, Value *Target,
+                                             CallBase *CB) {
+  // Get ABI affecting attributes for given parameter location "I".
+  auto GetParameterABIAttributes = [](LLVMContext &C, unsigned I,
+                                      AttributeList Attrs) -> AttrBuilder {
+    static const Attribute::AttrKind ABIAttrs[] = {
+        Attribute::StructRet,      Attribute::ByVal,
+        Attribute::InAlloca,       Attribute::InReg,
+        Attribute::StackAlignment, Attribute::Preallocated,
+        Attribute::ByRef};
+    AttrBuilder Copy(C);
+    for (auto AK : ABIAttrs) {
+      Attribute Attr = Attrs.getParamAttrs(I).getAttribute(AK);
+      if (Attr.isValid())
+        Copy.addAttribute(Attr);
+    }
+
+    // `align` is ABI-affecting only in combination with `byval` or `byref`.
+    if (Attrs.hasParamAttr(I, Attribute::Alignment) &&
+        (Attrs.hasParamAttr(I, Attribute::ByVal) ||
+         Attrs.hasParamAttr(I, Attribute::ByRef)))
+      Copy.addAlignmentAttr(Attrs.getParamAlignment(I));
+    return Copy;
+  };
+
+  auto *Callee = dyn_cast<Function>(Target);
+  // Go conservative for now when possible target is non-function
+  if (!Callee)
+    return false;
+
+  FunctionType *CalleeTy = cast<Function>(Target)->getFunctionType();
+  FunctionType *FTy = CB->getFunctionType();
+  // Treat varargs as unsafe targets for now. If required, it can be
+  // allowed as safe target later by checking number of actual arguments
+  // at call site, number of formals of possible targets, argument types
+  // of call site, and formal param types of possible target.
+  if (FTy->isVarArg() || CalleeTy->isVarArg())
+    return false;
+
+  // MustTailCall is not considered safe for now. Need to check for more
+  // things like addressspace for params and return values.
+  if (CB->isMustTailCall())
+    return false;
+
+  if (Callee->getCallingConv() != CB->getCallingConv())
+    return false;
+
+  if (CalleeTy == FTy) {
+    // The number of formal arguments of the callee.
+    unsigned NumParams = Callee->getFunctionType()->getNumParams();
+    assert(NumParams == CB->arg_size() && "Expected same number of args");
+    AttributeList CallerAttrs = CB->getAttributes();
+    AttributeList CalleeAttrs = Callee->getAttributes();
+    LLVMContext &Ctx = Callee->getContext();
+    // All ABI-impacting function attributes, such as sret, byval, inreg,
+    // returned, preallocated, and inalloca, must match.
+    for (unsigned I = 0; I < NumParams; ++I) {
+      AttrBuilder CallerABIAttrs =
+          GetParameterABIAttributes(Ctx, I, CallerAttrs);
+      AttrBuilder CalleeABIAttrs =
+          GetParameterABIAttributes(Ctx, I, CalleeAttrs);
+      if (CallerABIAttrs != CalleeABIAttrs)
+        return false;
+    }
+  }
+  return true;
+}
+
+// Typed Pointers:
+// Returns false if 'Target' is unsafe possible target for 'Call', which is
+// indirect call with 'FP' as function pointer.
+//
+static bool safeTypedPointersPossibleTarget(Value *FP, Value *Target,
+                                            CallBase *Call) {
 
   // Go conservative for now when possible target is non-function
   if (!isa<Function>(Target)) return false;
@@ -650,11 +724,14 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     }
 
     Value *V = N->getValue();
-  
+
+    bool IsOpaquePointers =
+        !FP->getType()->getContext().supportsTypedPointers();
     // Set IsComplete to AndersenSetResult::Incomplete if V is unsafe target.
-    if (!safePossibleTarget(FP, V, Call)) {
-      if (Trace) {
-        if (Function *Fn = dyn_cast<Function>(V)) {
+    if ((IsOpaquePointers && !safeOpaquePointersPossibleTarget(FP, V, Call)) ||
+        (!IsOpaquePointers && !safeTypedPointersPossibleTarget(FP, V, Call))) {
+        if (Trace) {
+            if (Function *Fn = dyn_cast<Function>(V)) {
           dbgs() << "    Unsafe target: Skipping  " << Fn->getName() << "\n";
         }
         else {
@@ -668,33 +745,38 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     // target do match. This behavior is different from icc. For icc, unsafe
     // possible targets(i.e MS_CDELS, varargs, NOSTATE etc) are also added
     // to the Target list.
-    if (FP->getType() == V->getType()) {
-      Targets.push_back(V);
-    } else if (FP->getType()->getContext().supportsTypedPointers()) {
-      Type *CallTy = Call->getFunctionType();
-      Type *TargetTy = cast<Function>(V)->getFunctionType();
-      bool TypeComputed = false;
-      // If there is a chance that the types are similar, then it means
-      // that we don't have a complete set. V can be a possible target
-      // but there is no full proof that it's type match with FP.
-      //
-      // A set will be marked as partially complete only if it is complete.
-      // If the previous checks found that the set is incomplete, then that
-      // result can't be reverted.
-      if (IsComplete == AndersenSetResult::Complete &&
-          areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
-        IsComplete = AndersenSetResult::PartiallyComplete;
-        TypeComputed = true;
-      }
-
-      if (Trace) {
-        if (TypeComputed ||
+    Type *CallTy = Call->getFunctionType();
+    Type *TargetTy = cast<Function>(V)->getFunctionType();
+    if (IsOpaquePointers) {
+      if (CallTy == TargetTy)
+        Targets.push_back(V);
+    } else {
+      if (FP->getType() == V->getType()) {
+        Targets.push_back(V);
+      } else {
+        bool TypeComputed = false;
+        // If there is a chance that the types are similar, then it means
+        // that we don't have a complete set. V can be a possible target
+        // but there is no full proof that it's type match with FP.
+        //
+        // A set will be marked as partially complete only if it is complete.
+        // If the previous checks found that the set is incomplete, then that
+        // result can't be reverted.
+        if (IsComplete == AndersenSetResult::Complete &&
             areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
-          dbgs() << "    Types might be similar: Ignoring "
-                 << cast<Function>(V)->getName() << "\n";
-        } else {
-          dbgs() << "    Args mismatch: Ignoring "
-                 << cast<Function>(V)->getName() << "\n";
+          IsComplete = AndersenSetResult::PartiallyComplete;
+          TypeComputed = true;
+        }
+
+        if (Trace) {
+          if (TypeComputed ||
+              areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
+            dbgs() << "    Types might be similar: Ignoring "
+                   << cast<Function>(V)->getName() << "\n";
+          } else {
+            dbgs() << "    Args mismatch: Ignoring "
+                   << cast<Function>(V)->getName() << "\n";
+          }
         }
       }
     }
