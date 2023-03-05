@@ -83,8 +83,14 @@ EXTERN void __tgt_register_requires(int64_t Flags) {
 /// adds a target shared library to the target execution image
 EXTERN void __tgt_register_lib(__tgt_bin_desc *Desc) {
   TIMESCOPE();
+#if INTEL_CUSTOMIZATION
+  // Keep the old behavior since moving this to global constructor does not work
+  // well with our software stack.
+  std::call_once(PM->RTLs.InitFlag, &RTLsTy::loadRTLs, &PM->RTLs);
+#else  // INTEL_CUSTOMIZATION
   if (PM->maybeDelayRegisterLib(Desc))
     return;
+#endif // INTEL_CUSTOMIZATION
 
   for (auto &RTL : PM->RTLs.AllRTLs) {
     if (RTL.register_lib) {
