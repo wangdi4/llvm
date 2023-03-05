@@ -1348,12 +1348,6 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       const decltype(TripCount) MainLoopTripCount =
           (TripCount - PeelEvaluator.getTripCount()) / (VF * UF);
 
-      // If the loop is going to be unrolled, scale up MainLoopIterationCost by
-      // BestUF as a starting approximation. We were not doing this before which
-      // artificially inflates benefit from unrolling. TODO - consider refining
-      // loop iteration cost by considering benefits of unrolling.
-      MainLoopIterationCost *= UF;
-      
       // The total vector cost is calculated by adding the total cost of peel,
       // main and remainder loops.
       VPInstructionCost VectorCost = PeelEvaluator.getLoopCost() +
