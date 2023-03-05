@@ -50,10 +50,8 @@
 #include <unordered_map>
 #include <vector>
 #ifdef _WIN32
-#define NOMINMAX 1
 #include <fcntl.h>
 #include <io.h>
-#include <Windows.h>
 #else
 #include <dlfcn.h>
 #include <unistd.h>
