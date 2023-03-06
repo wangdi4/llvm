@@ -2362,6 +2362,11 @@ extern SYCL_EXTERNAL long int __imf_lroundf (float x);
 extern SYCL_EXTERNAL float __imf_nanf (const char* x);
 extern SYCL_EXTERNAL float __imf_scalbnf (float x, int y);
 extern SYCL_EXTERNAL int __imf_signbitf (float x);
+extern SYCL_EXTERNAL float __imf_i0f(float x);
+extern SYCL_EXTERNAL float __imf_j0f(float x);
+extern SYCL_EXTERNAL float __imf_j1f(float x);
+extern SYCL_EXTERNAL float __imf_y0f(float x);
+extern SYCL_EXTERNAL float __imf_y1f(float x);
 // float64 imf builtins
 extern SYCL_EXTERNAL double __imf_erfinv(double x);
 extern SYCL_EXTERNAL double __imf_acos (double x);
@@ -2429,6 +2434,7 @@ extern SYCL_EXTERNAL double __imf_tan (double x);
 extern SYCL_EXTERNAL double __imf_tanh (double x);
 extern SYCL_EXTERNAL double __imf_tgamma (double x);
 extern SYCL_EXTERNAL double __imf_lgamma (double x);
+extern SYCL_EXTERNAL double __imf_i0(double x);
 /* end INTEL_CUSTOMIZATION */
 
 extern SYCL_EXTERNAL unsigned int __imf_vabs2(unsigned int x);
