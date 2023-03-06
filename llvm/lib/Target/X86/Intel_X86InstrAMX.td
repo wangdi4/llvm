@@ -1737,7 +1737,7 @@ let Predicates = [HasAMXFP8, In64BitMode], Constraints = "$src1 = $dst" in
     !strconcat(Opstr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
     []>, VEX_4V;
 
-def TDPBF8PS : AMX_FP8_BASE<0x5c, "tdpbf8ps">, T8PD;
+def TDPBF8PS : AMX_FP8_BASE<0xfd, "tdpbf8ps">, T_MAP5PS;
 def TDPBHF8PS : AMX_FP8_BASE<0xfd, "tdpbhf8ps">, T_MAP5XD;
 def TDPHBF8PS : AMX_FP8_BASE<0xfd, "tdphbf8ps">, T_MAP5XS;
 def TDPHF8PS : AMX_FP8_BASE<0xfd, "tdphf8ps">, T_MAP5PD;

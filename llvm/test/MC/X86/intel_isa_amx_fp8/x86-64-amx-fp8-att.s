@@ -2,11 +2,11 @@
 // RUN: llvm-mc -triple x86_64 --show-encoding %s | FileCheck %s
 
 // CHECK: tdpbf8ps %tmm4, %tmm5, %tmm6
-// CHECK: encoding: [0xc4,0xe2,0x59,0x5c,0xf5]
+// CHECK: encoding: [0xc4,0xe5,0x58,0xfd,0xf5]
           tdpbf8ps %tmm4, %tmm5, %tmm6
 
 // CHECK: tdpbf8ps %tmm1, %tmm2, %tmm3
-// CHECK: encoding: [0xc4,0xe2,0x71,0x5c,0xda]
+// CHECK: encoding: [0xc4,0xe5,0x70,0xfd,0xda]
           tdpbf8ps %tmm1, %tmm2, %tmm3
 
 // CHECK: tdpbhf8ps %tmm4, %tmm5, %tmm6
