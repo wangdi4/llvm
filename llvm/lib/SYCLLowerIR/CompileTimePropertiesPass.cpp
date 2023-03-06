@@ -419,8 +419,11 @@ PreservedAnalyses CompileTimePropertiesPass::run(Module &M,
 
 void CompileTimePropertiesPass::parseAlignmentAndApply(
     Module &M, IntrinsicInst *IntrInst) {
+<<<<<<< HEAD
   LLVMContext &Ctx = M.getContext();
   unsigned MDKindID = Ctx.getMDKindID(SPIRV_DECOR_MD_KIND);
+=======
+>>>>>>> a1c6e1125fa5fc7236b571ca229ba0c7e6fb5856
 
   // Get the global variable with the annotation string.
   const GlobalVariable *AnnotStrArgGV = nullptr;
@@ -462,12 +465,16 @@ void CompileTimePropertiesPass::parseAlignmentAndApply(
     if (DecorIt == SpirvDecorMap.end())
       continue;
 
+<<<<<<< HEAD
     uint32_t DecorCode = DecorIt->second.Code;
+=======
+>>>>>>> a1c6e1125fa5fc7236b571ca229ba0c7e6fb5856
     auto DecorStr = property.first->str();
     auto DecorValue = property.second;
     uint32_t attr_val;
 
     if (DecorStr == "sycl-alignment") {
+<<<<<<< HEAD
       assert(DecorValue && "sycl-alignment attribute is missing");
 
       bool DecorValueIntConvFailed = DecorValue->getAsInteger(0, attr_val);
@@ -475,6 +482,11 @@ void CompileTimePropertiesPass::parseAlignmentAndApply(
       std::ignore = DecorValueIntConvFailed;
       assert(!DecorValueIntConvFailed &&
              "sycl-alignment attribute is not an integer");
+=======
+      assert(DecorValue && !DecorValue->getAsInteger(0, attr_val) &&
+             "sycl-alignment attribute is missing or not valid");
+
+>>>>>>> a1c6e1125fa5fc7236b571ca229ba0c7e6fb5856
       assert(llvm::isPowerOf2_64(attr_val) &&
              "sycl-alignment attribute is not a power of 2");
 
