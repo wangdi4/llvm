@@ -1589,16 +1589,11 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
     OptNoTriple = A->getOption().matches(Opt);
     if (A->getOption().matches(Opt_EQ)) {
       // Passing device args: -X<Opt>=<triple> -opt=val.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-      if (getDriver().MakeSYCLDeviceTriple(A->getValue()) != getTriple() &&
-          A->getValue() != getTripleString())
-#endif // INTEL_CUSTOMIZATION
-=======
       StringRef GenDevice = SYCL::gen::resolveGenDevice(A->getValue());
       if (getDriver().MakeSYCLDeviceTriple(A->getValue()) != getTriple() &&
-          GenDevice.empty())
->>>>>>> 60e97e77c9315250da24368ced1e1d741e24048f
+#if INTEL_CUSTOMIZATION
+          GenDevice.empty() && A->getValue() != getTripleString())
+#endif // INTEL_CUSTOMIZATION
         // Provided triple does not match current tool chain.
         continue;
       if (Device != GenDevice && getTriple().isSPIR() &&
