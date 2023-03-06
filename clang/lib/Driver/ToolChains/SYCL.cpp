@@ -1589,20 +1589,21 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
     OptNoTriple = A->getOption().matches(Opt);
     if (A->getOption().matches(Opt_EQ)) {
       // Passing device args: -X<Opt>=<triple> -opt=val.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (getDriver().MakeSYCLDeviceTriple(A->getValue()) != getTriple() &&
           A->getValue() != getTripleString())
 #endif // INTEL_CUSTOMIZATION
+=======
+      StringRef GenDevice = SYCL::gen::resolveGenDevice(A->getValue());
+      if (getDriver().MakeSYCLDeviceTriple(A->getValue()) != getTriple() &&
+          GenDevice.empty())
+>>>>>>> 60e97e77c9315250da24368ced1e1d741e24048f
         // Provided triple does not match current tool chain.
         continue;
-      if (getTriple().isSPIR() &&
-          getTriple().getSubArch() == llvm::Triple::SPIRSubArch_gen) {
-        if (Device.empty() && StringRef(A->getValue()).startswith("intel_gpu"))
-          continue;
-        if (!Device.empty() &&
-            getDriver().MakeSYCLDeviceTriple(A->getValue()) == getTriple())
-          continue;
-      }
+      if (Device != GenDevice && getTriple().isSPIR() &&
+          getTriple().getSubArch() == llvm::Triple::SPIRSubArch_gen)
+        continue;
     } else if (!OptNoTriple)
       // Don't worry about any of the other args, we only want to pass what is
       // passed in -X<Opt>
