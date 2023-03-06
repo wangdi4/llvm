@@ -1285,6 +1285,19 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   VPConstant *One =
       Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1));
   auto *IVNext = cast<VPInstruction>(Builder.createAdd(IndVPPhi, One, HLp));
+  if (HLp->hasSignedIV()) {
+    // Signed IV is safely within both signed/unsigned ranges as lower bound
+    // will be 0 and UB is known to not wrap for signed (thus, it cannot
+    // wrap for unsigned).
+    IVNext->setHasNoSignedWrap(true);
+    IVNext->setHasNoUnsignedWrap(true);
+  } else {
+    // Unsigned IV can wrap if used as a signed int.
+    // E.g., for (unsigned i = 0; i < 0xFFFFFFF0; ++i)
+    // signed range is [0, -16] as two's complement
+    IVNext->setHasNoSignedWrap(false);
+    IVNext->setHasNoUnsignedWrap(true);
+  }
 
   // Add IVNext to induction PHI.
   IndVPPhi->addIncoming(IVNext, LpLatch);
