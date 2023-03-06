@@ -58,6 +58,7 @@
 ; GCN-O0-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O0-NEXT:    FunctionPass Manager
 ; GCN-O0-NEXT:      FPBuiltin Function Selection
+; GCN-O0-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O0-NEXT:    AMDGPU Attributor
 ; GCN-O0-NEXT:      FunctionPass Manager
 ; GCN-O0-NEXT:        Cycle Info Analysis
@@ -243,6 +244,7 @@
 ; GCN-O1-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O1-NEXT:    FunctionPass Manager
 ; GCN-O1-NEXT:      FPBuiltin Function Selection
+; GCN-O1-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O1-NEXT:    AMDGPU Attributor
 ; GCN-O1-NEXT:      FunctionPass Manager
 ; GCN-O1-NEXT:        Cycle Info Analysis
@@ -538,6 +540,7 @@
 ; GCN-O1-OPTS-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O1-OPTS-NEXT:    FunctionPass Manager
 ; GCN-O1-OPTS-NEXT:      FPBuiltin Function Selection
+; GCN-O1-OPTS-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O1-OPTS-NEXT:    AMDGPU Attributor
 ; GCN-O1-OPTS-NEXT:      FunctionPass Manager
 ; GCN-O1-OPTS-NEXT:        Cycle Info Analysis
@@ -847,6 +850,7 @@
 ; GCN-O2-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O2-NEXT:    FunctionPass Manager
 ; GCN-O2-NEXT:      FPBuiltin Function Selection
+; GCN-O2-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O2-NEXT:    AMDGPU Attributor
 ; GCN-O2-NEXT:      FunctionPass Manager
 ; GCN-O2-NEXT:        Cycle Info Analysis
@@ -1169,6 +1173,7 @@
 ; GCN-O3-NEXT:    SYCL Add Implicit Global Offset
 ; GCN-O3-NEXT:    FunctionPass Manager
 ; GCN-O3-NEXT:      FPBuiltin Function Selection
+; GCN-O3-NEXT:    AMDGPU Remove Incompatible Functions
 ; GCN-O3-NEXT:    AMDGPU Attributor
 ; GCN-O3-NEXT:      FunctionPass Manager
 ; GCN-O3-NEXT:        Cycle Info Analysis
