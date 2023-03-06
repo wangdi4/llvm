@@ -583,12 +583,17 @@ RT::PiProgram ProgramManager::getBuiltPIProgram(
         reinterpret_cast<const std::uint32_t *>(&Aspects[0] + Aspects.size());
     while (AIt != AEnd) {
       auto Aspect = static_cast<aspect>(*AIt);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // Strict check for fp64 is disabled temporarily to avoid confusion.
       if (Aspect != aspect::fp64 && !Dev->has(Aspect))
 #else
       if (!Dev->has(Aspect))
 #endif // INTEL_CUSTOMIZATION
+=======
+      // Strict check for fp64 is disabled temporarily to avoid confusion.
+      if (Aspect != aspect::fp64 && !Dev->has(Aspect))
+>>>>>>> 0aa17a6af7dc990225868a6ae57371a21600b8e3
         throw sycl::exception(errc::kernel_not_supported,
                               "Required aspect " + getAspectNameStr(Aspect) +
                                   " is not supported on the device");
@@ -2255,12 +2260,17 @@ bool doesDevSupportDeviceRequirements(const device &Dev,
     Aspects.dropBytes(8);
     while (!Aspects.empty()) {
       aspect Aspect = Aspects.consume<aspect>();
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // Strict check for fp64 is disabled temporarily to avoid confusion.
     if (Aspect != aspect::fp64 && !Dev.has(Aspect))
 #else
     if (!Dev->has(Aspect))
 #endif // INTEL_CUSTOMIZATION
+=======
+      // Strict check for fp64 is disabled temporarily to avoid confusion.
+      if (Aspect != aspect::fp64 && !Dev.has(Aspect))
+>>>>>>> 0aa17a6af7dc990225868a6ae57371a21600b8e3
         return false;
     }
   }
