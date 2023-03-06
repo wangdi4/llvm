@@ -565,8 +565,12 @@ public:
   void emitOMPScanDirective();
   void emitLiveinClauses();
   void emitVLAExpressions() {
-    if (needsVLAExprEmission())
-      CGF.VLASizeMapHandler->EmitVLASizeExpressions();
+    if (needsVLAExprEmission()) {
+      SmallVector<std::pair<llvm::Value *, llvm::Type *>> Refs;
+      CGF.VLASizeMapHandler->EmitVLASizeExpressions(Refs);
+      for (const auto &Ref : Refs)
+        addValueRef(Ref.first, Ref.second);
+    }
   }
 
   OpenMPLateOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
