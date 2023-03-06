@@ -7113,6 +7113,12 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         auto *VecIdx = widenRef(Idx, VF);
         VectorType *VecTy = cast<VectorType>(VecPtrs->getDestType());
         PointerType *PtrTy = cast<PointerType>(VecTy->getElementType());
+        if (!VecPtrs->isSelfBlob()) {
+          auto *CopyInst =
+              HLNodeUtilities.createCopyInst(VecPtrs, "gep.base.copy");
+          addInstUnmasked(CopyInst);
+          VecPtrs = CopyInst->getLvalDDRef()->clone();
+        }
         auto *VecPtrsUpdate = DDRefUtilities.createAddressOfRef(
             getInt8OrPointerElementTy(PtrTy), VecPtrs->getSelfBlobIndex(),
             getNestingLevelFromInsertPoint(), VecPtrs->getSymbase());
