@@ -713,7 +713,3 @@ def : InstAlias<"vmsave\t{%eax|eax}", (VMSAVE32), 0>, Requires<[Not64BitMode]>;
 def : InstAlias<"vmsave\t{%rax|rax}", (VMSAVE64), 0>, Requires<[In64BitMode]>;
 def : InstAlias<"invlpga\t{%eax, %ecx|eax, ecx}", (INVLPGA32), 0>, Requires<[Not64BitMode]>;
 def : InstAlias<"invlpga\t{%rax, %ecx|rax, ecx}", (INVLPGA64), 0>, Requires<[In64BitMode]>;
-<<<<<<< HEAD
-=======
-
->>>>>>> b9ea7327c0923e6a4f21cd508ee34a8fcf8eefeb

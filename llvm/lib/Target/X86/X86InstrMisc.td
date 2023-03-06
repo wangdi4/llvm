@@ -1,5 +1,4 @@
 //===-- X86InstrMisc.td - Misc X86 Instruction Definition -*- tablegen -*-===//
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
@@ -17,8 +16,6 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
-=======
->>>>>>> b9ea7327c0923e6a4f21cd508ee34a8fcf8eefeb
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -183,7 +180,6 @@ let isCodeGenOnly = 1, ForceDisassemble = 1 in {
 def POP64rmr: I<0x8F, MRM0r, (outs GR64:$reg), (ins), "pop{q}\t$reg", []>,
                 OpSize32, Requires<[In64BitMode]>, NotMemoryFoldable;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 def POP2: I<0x8F, MRM0rImmAAA, (outs GR64:$reg1, GR64:$reg2),
@@ -193,8 +189,6 @@ def POP2: I<0x8F, MRM0rImmAAA, (outs GR64:$reg1, GR64:$reg2),
 	    NotMemoryFoldable;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> b9ea7327c0923e6a4f21cd508ee34a8fcf8eefeb
 } // mayLoad, SchedRW
 let mayLoad = 1, mayStore = 1, SchedRW = [WriteCopy] in
 def POP64rmm: I<0x8F, MRM0m, (outs), (ins i64mem:$dst), "pop{q}\t$dst", []>,
@@ -207,7 +201,6 @@ let isCodeGenOnly = 1, ForceDisassemble = 1 in {
 def PUSH64rmr: I<0xFF, MRM6r, (outs), (ins GR64:$reg), "push{q}\t$reg", []>,
                  OpSize32, Requires<[In64BitMode]>, NotMemoryFoldable;
 } // isCodeGenOnly = 1, ForceDisassemble = 1
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 def PUSH2: I<0xFF, MRM6rImmAAA, (outs),
@@ -217,8 +210,6 @@ def PUSH2: I<0xFF, MRM6rImmAAA, (outs),
 	    NotMemoryFoldable;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> b9ea7327c0923e6a4f21cd508ee34a8fcf8eefeb
 } // mayStore, SchedRW
 let mayLoad = 1, mayStore = 1, SchedRW = [WriteCopy] in {
 def PUSH64rmm: I<0xFF, MRM6m, (outs), (ins i64mem:$src), "push{q}\t$src", []>,
@@ -1086,7 +1077,6 @@ def STD : I<0xFD, RawFrm, (outs), (ins), "std", []>;
 let Uses = [AL,EBX], Defs = [AL], hasSideEffects = 0, mayLoad = 1 in
 def XLAT : I<0xD7, RawFrm, (outs), (ins), "xlatb", []>, Sched<[WriteLoad]>;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
 // Marker Count
@@ -1099,8 +1089,6 @@ def MARKER_FUNCTION: I<0x0e, RawFrm, (outs), (ins), "marker_function", []>,
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> b9ea7327c0923e6a4f21cd508ee34a8fcf8eefeb
 let SchedRW = [WriteMicrocoded] in {
 // ASCII Adjust After Addition
 let Uses = [AL,EFLAGS], Defs = [AX,EFLAGS], hasSideEffects = 0 in
@@ -1705,7 +1693,6 @@ let Predicates = [HasUINTR, In64BitMode], SchedRW = [WriteSystem] in {
                    [(set EFLAGS, (X86testui))]>, XS;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_PREFETCHST2
 //===----------------------------------------------------------------------===//
@@ -1717,8 +1704,6 @@ let Predicates = [HasPREFETCHST2], SchedRW = [WriteLoad] in
 #endif // INTEL_FEATURE_ISA_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> b9ea7327c0923e6a4f21cd508ee34a8fcf8eefeb
 //===----------------------------------------------------------------------===//
 // PREFETCHIT0 and PREFETCHIT1 Instructions
 // prefetch ADDR, RW, Locality, Data
@@ -1750,7 +1735,6 @@ def CMPCCXADDmr64 : I<0xe0, MRMDestMem4VOp3CC, (outs GR64:$dst),
           VEX_4V, VEX_W, T8PD, Sched<[WriteXCHG]>;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_MOVRS_PREFETCHST2
 //===----------------------------------------------------------------------===//
@@ -1772,8 +1756,6 @@ def MOVRS64rm : RI<0x8B, MRMSrcMem, (outs GR64:$dst), (ins i64mem:$src),
 }
 #endif // INTEL_FEATURE_ISA_MOVRS_PREFETCHST2
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> b9ea7327c0923e6a4f21cd508ee34a8fcf8eefeb
 //===----------------------------------------------------------------------===//
 // Memory Instructions
 //
