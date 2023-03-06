@@ -1858,16 +1858,16 @@ public:
   // body of the region.
   class CGVLASizeMapHandler {
     CodeGenFunction &CGF;
-    llvm::DenseMap<const Expr*, llvm::Value*> SavedVLASizeMap;
+    llvm::SmallVector<llvm::DenseMap<const Expr *, llvm::Value *>, 3>
+        SavedVLASizeMaps;
     llvm::MapVector<const Expr*, std::pair<llvm::Value*, CharUnits>> AddressMap;
     CGVLASizeMapHandler *PrevHandler = nullptr;
     bool Initialized = false;
-    bool MapRestored = false;
 
   public:
     CGVLASizeMapHandler(CodeGenFunction &CGF)
         : CGF(CGF), PrevHandler(CGF.VLASizeMapHandler) {
-      SavedVLASizeMap = CGF.VLASizeMap;
+      SavedVLASizeMaps.push_back(CGF.VLASizeMap);
       CGF.VLASizeMapHandler = this;
     }
 
@@ -1876,7 +1876,6 @@ public:
     // than one llvm directive per OMPExecutable directive, use the
     // Initialized field so it happens only at the outermost.
     void ModifyVLASizeMap(const CapturedStmt *CS) {
-      assert(!MapRestored && "VLASizeMap already restored");
       if (Initialized || !CS)
         return;
       Initialized = true;
@@ -1903,8 +1902,9 @@ public:
 
     // Before dumping the captured statement, load the temp and store that
     // value in the VLASizeMap.  Record the value so it will appear in a clause.
-    void EmitVLASizeExpressions() {
-      assert(!MapRestored && "VLASizeMap already restored");
+    void EmitVLASizeExpressions(
+        SmallVectorImpl<std::pair<llvm::Value *, llvm::Type *>> &Refs) {
+      SavedVLASizeMaps.push_back(CGF.VLASizeMap);
       for (auto &Z : AddressMap) {
         const Expr *E = Z.first;
         llvm::Value *V = Z.second.first;
@@ -1912,9 +1912,7 @@ public:
         Address A(V, CGF.ConvertTypeForMem(CGF.getContext().getSizeType()),
                   Align);
         CGF.VLASizeMap[E] = CGF.Builder.CreateLoad(A);
-        if (CGF.CapturedStmtInfo)
-          CGF.CapturedStmtInfo->recordValueReference(A.getPointer(),
-                                                     A.getElementType());
+        Refs.push_back({A.getPointer(), A.getElementType()});
       }
     }
     // Restore the map to the previous state. This must happen before emitting
@@ -1922,13 +1920,12 @@ public:
     // or multiple regions, whether it was restored must be tracked so it is
     // done exactly once.
     void RestoreVLASizeMap() {
-      if (MapRestored)
+      if (SavedVLASizeMaps.empty())
         return;
-      MapRestored = true;
-      CGF.VLASizeMap = SavedVLASizeMap;
+      CGF.VLASizeMap = SavedVLASizeMaps.pop_back_val();
     }
     ~CGVLASizeMapHandler() {
-      if (!MapRestored)
+      if (!SavedVLASizeMaps.empty())
         RestoreVLASizeMap();
       CGF.VLASizeMapHandler = PrevHandler;
     }

@@ -3773,6 +3773,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_scan:
   case OMPD_prefetch:
   case OMPD_scope:
+  case OMPD_interop:
     return false;
   case OMPD_unknown:
   default:
@@ -4370,6 +4371,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   }
   Outliner << S.clauses();
   Outliner.insertMarker();
+  Outliner.emitVLAExpressions();
   if (S.hasAssociatedStmt() && S.getAssociatedStmt() != nullptr) {
     LateOutlineOpenMPRegionRAII Region(*this, Outliner, S);
     CodeGenFunction::OMPPrivateScope MapClausePointerScope(*this);
@@ -4414,7 +4416,6 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     if (IsDeviceTarget)
       addAttrsForFuncWithTargetRegion(CurFn);
     CodeGenModule::InTargetRegionRAII ITR(CGM, IsDeviceTarget);
-    Outliner.emitVLAExpressions();
     EmitBody(*this, S);
     Outliner.emitOMPAllNeedDevicePtrClauses();
   }
