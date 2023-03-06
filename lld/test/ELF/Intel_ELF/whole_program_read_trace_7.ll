@@ -9,11 +9,11 @@
 ; RUN:     --export-dynamic-symbol=add \
 ; RUN:     2>&1 | FileCheck %s
 
-; CHECK: SYMBOL NAME: main
-; CHECK:  RESULT: MAIN | RESOLVED BY LINKER
-
 ; CHECK: SYMBOL NAME: add
 ; CHECK:  RESULT: DYNAMIC EXPORT SYMBOL | RESOLVED BY LINKER
+
+; CHECK: SYMBOL NAME: main
+; CHECK:  RESULT: MAIN | RESOLVED BY LINKER
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

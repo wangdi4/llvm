@@ -59,9 +59,9 @@ target triple = "x86_64-pc-linux"
 @ch_out1.pipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
 
 ; CHECK: @ch_in0.str = private unnamed_addr constant [7 x i8] c"ch_in0\00"
+; CHECK: @ch_out1.str = private unnamed_addr constant [8 x i8] c"ch_out1\00"
 ; CHECK: @ch_in1.str = private unnamed_addr constant [7 x i8] c"ch_in1\00"
 ; CHECK: @ch_out0.str = private unnamed_addr constant [8 x i8] c"ch_out0\00"
-; CHECK: @ch_out1.str = private unnamed_addr constant [8 x i8] c"ch_out1\00"
 
 ; Function Attrs: convergent norecurse nounwind
 define void @readFileViaChannel(i32 addrspace(1)* %dst) #0 !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !12 !kernel_arg_base_type !12 !kernel_arg_type_qual !13 !kernel_arg_name !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !13 !kernel_arg_buffer_location !13 {

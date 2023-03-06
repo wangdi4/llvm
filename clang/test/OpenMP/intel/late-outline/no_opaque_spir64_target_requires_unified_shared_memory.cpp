@@ -78,8 +78,8 @@ int main() {
 //TARG: [[LOAD3:%.+]] = load {{.*}} [[LOAD2]]
 
 //HOST: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, [256 x float]** [[ARRTAG]]}
-//HOST: !{i32 1, !"Nodes_base_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, %struct.NODE*** [[Nodes_TGT_REF_PTR]]
 //HOST: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, i32*** [[ATAG]]}
+//HOST: !{i32 1, !"Nodes_base_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, %struct.NODE*** [[Nodes_TGT_REF_PTR]]
 //TARG-DAG: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, [256 x float] addrspace(4)* addrspace(1)*  [[ARRTAG]]}
 //TARG-DAG: !{i32 1, !"Nodes_base_decl_tgt_ref_ptr", i32 0, i32 1, %struct.NODE addrspace(4)* addrspace(4)* addrspace(1)* @Nodes_base_decl_tgt_ref_ptr}
 //TARG-DAG: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, i32 addrspace(4)* addrspace(4)* addrspace(1)* [[ATAG]]}

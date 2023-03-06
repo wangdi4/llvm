@@ -152,9 +152,9 @@ int main() {
 //HOST: ret i32
 
 //HOST: !omp_offload.info = !{!0, !1, !2, !3, !4, !5, !6, !7}
-//HOST: !5 = !{i32 1, !"_ZTV4Base", i32 0, i32 5, ptr @_ZTV4Base}
-//HOST: !6 = !{i32 1, !"_ZTV1D", i32 0, i32 7, ptr @_ZTV1D}
-//HOST: !7 = !{i32 1, !"_ZTV7Derived", i32 0, i32 6, ptr @_ZTV7Derived}
+//HOST: !5 = !{i32 1, !"_ZTV7Derived", i32 0, i32 6, ptr @_ZTV7Derived}
+//HOST: !6 = !{i32 1, !"_ZTV4Base", i32 0, i32 5, ptr @_ZTV4Base}
+//HOST: !7 = !{i32 1, !"_ZTV1D", i32 0, i32 7, ptr @_ZTV1D}
 
 //TARG: @_ZTV4Base = linkonce_odr target_declare unnamed_addr addrspace(1) constant
 //TARG: @_ZTV7Derived = linkonce_odr target_declare unnamed_addr addrspace(1) constant
@@ -203,8 +203,8 @@ int main() {
 //TARG: ret i32
 
 //TARG: !omp_offload.info = !{!0, !1, !2, !3, !4, !5, !6, !7}
-//TARG: !5 = !{i32 1, !"_ZTV4Base", i32 0, i32 5, ptr addrspace(1) @_ZTV4Base}
-//TARG: !6 = !{i32 1, !"_ZTV1D", i32 0, i32 7, ptr addrspace(1) @_ZTV1D}
-//TARG: !7 = !{i32 1, !"_ZTV7Derived", i32 0, i32 6, ptr addrspace(1) @_ZTV7Derived}
+//TARG: !5 = !{i32 1, !"_ZTV7Derived", i32 0, i32 6, ptr addrspace(1) @_ZTV7Derived}
+//TARG: !6 = !{i32 1, !"_ZTV4Base", i32 0, i32 5, ptr addrspace(1) @_ZTV4Base}
+//TARG: !7 = !{i32 1, !"_ZTV1D", i32 0, i32 7, ptr addrspace(1) @_ZTV1D}
 
 // INTEL_COLLAB
