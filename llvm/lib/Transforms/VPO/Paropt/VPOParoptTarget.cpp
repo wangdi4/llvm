@@ -438,7 +438,8 @@ Function *VPOParoptTransform::finalizeKernelFunction(
   auto GenerateKernelArgInfoVar =
       [this, &WT](const std::vector<KernelArgInfoDesc> &KernelArgInfo,
                   Function *Fn, bool HasTeamsReduction,
-                  bool HasLocalAFReduction, bool HasGlobalAFReduction) {
+                  bool HasLocalAFReduction, bool HasGlobalAFReduction,
+                  bool HasKnownNDRange) {
         auto &C = Fn->getContext();
         size_t ArgsNum = KernelArgInfo.size();
         assert(ArgsNum == Fn->getFunctionType()->params().size() &&
@@ -486,6 +487,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         // Init Attributes1.
         uint64_t Attributes1 = 0;
         Attributes1 |= (HasTeamsReduction ? 1 : 0);
+        Attributes1 |= (HasKnownNDRange ? (1 << 1) : 0);
 
         KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
         KernelInfoInitBuffer.push_back(
@@ -617,7 +619,8 @@ Function *VPOParoptTransform::finalizeKernelFunction(
 
   GenerateKernelArgInfoVar(KernelArgInfo, Fn, WT->getHasTeamsReduction(),
                            WT->getHasLocalAtomicFreeReduction(),
-                           WT->getHasGlobalAtomicFreeReduction());
+                           WT->getHasGlobalAtomicFreeReduction(),
+                           WT->getHasKnownNDRange());
 
   Type *RetTy = FnTy->getReturnType();
   FunctionType *NFnTy = FunctionType::get(RetTy, ParamsTy, false);

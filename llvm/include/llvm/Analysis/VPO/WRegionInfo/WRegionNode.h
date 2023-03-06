@@ -610,9 +610,6 @@ public:
       getUncollapsedNDRangeTypes() const {
     WRNERROR("OFFLOAD_NDRANGE");
   }
-  virtual void resetUncollapsedNDRange() {
-    WRNERROR("OFFLOAD_NDRANGE");
-  }
   virtual void setNDRangeDistributeDim(uint8_t Dim) {
     WRNERROR("NDRANGE_DISTRIBUTE_DIM");
   }
@@ -630,6 +627,12 @@ public:
   }
   virtual bool getHasTeamsReduction() const {
     WRNERROR("OFFLOAD_HAS_TEAMS_REDUCTION");
+  }
+  virtual void setHasKnownNDRange(bool V) {
+    WRNERROR("OFFLOAD_HAS_KNOWN_NDRANGE");
+  }
+  virtual bool getHasKnownNDRange() const {
+    WRNERROR("OFFLOAD_HAS_KNOWN_NDRANGE");
   }
 
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }

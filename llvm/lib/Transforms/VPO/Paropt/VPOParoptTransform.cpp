@@ -2014,6 +2014,8 @@ bool VPOParoptTransform::paroptTransforms() {
                 RemoveDirectives = true;
             break;
           }
+          if (isTargetSPIRV())
+            Changed |= propagateKnownNDRange(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
           Changed |= genLaunderIntrinIfPrivatizedInAncestor(W);
@@ -2407,6 +2409,8 @@ bool VPOParoptTransform::paroptTransforms() {
             break;
           }
           debugPrintHeader(W, Mode);
+          if (isTargetSPIRV())
+            Changed |= propagateKnownNDRange(W);
           Changed |= setInsertionPtForVlaAllocas(W);
           Changed |= regularizeOMPLoop(W, false);
           Changed |= genAlignedCode(W);
@@ -2465,6 +2469,8 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= fixupKnownNDRange(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          if (isTargetSPIRV())
+            Changed |= propagateKnownNDRange(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
           if (isLoopOptimizedAway(W)) {
@@ -14987,7 +14993,7 @@ void VPOParoptTransform::assignParallelDimensions() const {
 
 // Return true, if the given region should not use specific ND-range
 // partitioning, e.g. it cannot use it or using it is unprofitable.
-bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
+bool VPOParoptTransform::shouldNotUseKnownNDRange(const WRegionNode *W) const {
   if (!W->getIsOmpLoop())
     return true;
 
@@ -15034,8 +15040,11 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   // teams reduction due to the perf problems.
   // This check's intended to cover Distribute WRNs as they
   // can't have reduction clauses themselves
-  if (WTeams && !WTeams->getRed().items().empty())
+  if (WTeams && !WTeams->getRed().items().empty()) {
+    // NOTE: enclosing teams region doesn't allow to keep OFFLOAD_NDRANGE clause
+    // as it may be used for manual scheduling of the inner parloop
     return true;
+  }
 
   // Check the pattern when only W's parent PARALLEL construct has
   // reduction clause
@@ -15109,7 +15118,7 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   // partitioning under VPOParoptUtils::getSPIRImplicitMultipleTeams(),
   // which we check above.
   if (WTeams) {
-    if (WRNGenericLoopNode *WGL = dyn_cast<WRNGenericLoopNode>(W)) {
+    if (auto *WGL = dyn_cast<WRNGenericLoopNode>(W)) {
       if (WGL->getMappedDir() != DIR_OMP_DISTRIBUTE_PARLOOP) {
         // Use NDRange if W is a GenericLoop mapped to DistributeParLoop.
         // Bail out for all other GenericLoop cases.
@@ -15121,6 +15130,25 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
     }
   }
   return false;
+}
+
+bool VPOParoptTransform::propagateKnownNDRange(WRegionNode *W) const {
+  if (!W->getIsOmpLoop())
+    return false;
+
+  if (!W->getWRNLoopInfo().isKnownNDRange())
+    return false;
+
+  assert(VPOParoptUtils::getSPIRExecutionScheme() ==
+             spirv::ImplicitSIMDSPMDES &&
+         "Unexpected known ND-range with disabled ND-range parallelization.");
+
+  WRegionNode *WTarget =
+      WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+  assert(WTarget && "Unexpected known ND-range with no parent target region.");
+
+  WTarget->setHasKnownNDRange(true);
+  return true;
 }
 
 // Reset QUAL_OMP_OFFLOAD_KNOWN_NDRANGE clauses for OpenMP loop regions
@@ -15136,9 +15164,8 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
          spirv::ImplicitSIMDSPMDES &&
          "Unexpected known ND-range with disabled ND-range parallelization.");
 
-  WRegionNode *WTarget =
-      WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
-  assert(WTarget && "Unexpected known ND-range with no parent target region.");
+  assert(WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget) &&
+         "Unexpected known ND-range with no parent target region.");
 
   if (!shouldNotUseKnownNDRange(W))
     return false;
@@ -15150,13 +15177,6 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
   EntryCI = VPOUtils::removeOperandBundlesFromCall(EntryCI, ClauseName);
   W->setEntryDirective(EntryCI);
   W->getWRNLoopInfo().resetKnownNDRange();
-
-  // Remove QUAL.OMP.OFFLOAD.NDRANGE from the parent target region.
-  EntryCI = cast<CallInst>(WTarget->getEntryDirective());
-  ClauseName = VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_NDRANGE);
-  EntryCI = VPOUtils::removeOperandBundlesFromCall(EntryCI, ClauseName);
-  WTarget->setEntryDirective(EntryCI);
-  WTarget->resetUncollapsedNDRange();
 
   return true;
 }

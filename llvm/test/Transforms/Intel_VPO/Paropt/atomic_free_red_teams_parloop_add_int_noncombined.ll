@@ -27,7 +27,7 @@
 ; This test checks if OFFLOAD.NDRANGE clause is removed due to the loop's reduction clause supporting
 ; atomic-free approach, when DISTRIBUTE, PARALLEL and LOOP constructs are not combined.
 
-; CHECK-NOT: @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), {{.*}}, "QUAL.OMP.OFFLOAD.NDRANGE"({{.*}})
+; CHECK-NOT: @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), {{.*}}, "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"({{.*}})
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

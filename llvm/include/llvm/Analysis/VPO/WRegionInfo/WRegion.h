@@ -811,6 +811,7 @@ private:
   unsigned SPIRVSIMDWidth = 0;
   bool HasTeamsReduction = false;
   uint8_t HasAtomicFreeReduction = 0;
+  bool HasKnownNDRange = false;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent = false;  // Used fro Fortran Do Concurrent
 #endif // INTEL_CUSTOMIZATION
@@ -848,7 +849,9 @@ protected:
   void setHasTeamsReduction() override {
     HasTeamsReduction = true;
   }
- public:
+  void setHasKnownNDRange(bool V) override { HasKnownNDRange = V; }
+
+public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
   DEFINE_GETTER(MapClause,          getMap,         Map)
@@ -900,11 +903,6 @@ protected:
     return SPIRVSIMDWidth;
   }
 
-  void resetUncollapsedNDRange() override {
-    UncollapsedNDRangeDimensions.clear();
-    UncollapsedNDRangeTypes.clear();
-  }
-
   void setNDRangeDistributeDim(uint8_t Dim) override {
     assert(Dim != 0 && "Dim is 0 by default.");
     assert(NDRangeDistributeDim == 0 &&
@@ -919,6 +917,8 @@ protected:
   bool getHasTeamsReduction() const override {
     return HasTeamsReduction;
   }
+
+  bool getHasKnownNDRange() const override { return HasKnownNDRange; }
 
   void setHasLocalAtomicFreeReduction() {
     HasAtomicFreeReduction |= VPOParoptAtomicFreeReduction::Kind_Local;
