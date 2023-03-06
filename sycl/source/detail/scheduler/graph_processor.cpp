@@ -58,7 +58,11 @@ bool Scheduler::GraphProcessor::handleBlockingCmd(Command *Cmd,
   // kernel_3 without explicit dependencies submitted to in order queue: host
   // task blocks kernel_2 from being enqueued while kernel_3 has no such
   // dependencies so in current impl it could be enqueued earlier that kernel_2.
+<<<<<<< HEAD
   // That makes not possible to use this path with blocking users for in order
+=======
+  // That makes it impossible to use this path with blocking users for in order
+>>>>>>> 74bf1959dff65074cc7c1f87f31ec083d1cc57f6
   // queue.
   if (QueueImplPtr Queue = RootCommand->getEvent()->getSubmittedQueue();
       Queue && Queue->isInOrder())
