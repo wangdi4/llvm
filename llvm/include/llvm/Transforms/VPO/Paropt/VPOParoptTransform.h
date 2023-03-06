@@ -2341,16 +2341,26 @@ private:
   /// fixupKnownNDRange(), so that their behavior is synchronized
   /// regarding the loop paritioning and the actual specific vs default
   /// ND-range used for the kernel invocation.
-  bool shouldNotUseKnownNDRange(WRegionNode *W) const;
+  /// Despite removing QUAL_OMP_OFFLOAD_KNOWN_NDRANGE, QUAL_OMP_OFFLOAD_NDRANGE
+  /// should be kept to supply loop tripcounts to runtime to possibly limit
+  /// number of teams the kernel is run with to reduce launch latency for
+  /// kernels with short loops only.
+  bool shouldNotUseKnownNDRange(const WRegionNode *W) const;
 
   /// Checks if the given OpenMP loop region may use SPIR paritioning
   /// with known loop(s) bounds and if it is profitable.
   /// It analyzes only QUAL_OMP_OFFLOAD_KNOWN_NDRANGE loops, which means
   /// that the loops' bounds may be computed before the enclosing target region.
   /// If known loop bounds may/must not be used, then the routine deletes
-  /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE from the loop region, and also
-  /// deletes QUAL_OMP_OFFLOAD_NDRANGE from the enclosing target region.
+  /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE from the loop region.
   bool fixupKnownNDRange(WRegionNode *W) const;
+
+  /// Propagates existing QUAL_OMP_OFFLOAD_KNOWN_NDRANGE clause on loop
+  /// constructs (if any) to the enclosing target region so that it would be
+  /// possible to generate binary attributes to instruct RT how to use the
+  /// provided loop descriptor (based on target region's
+  /// QUAL_OMP_OFFLOAD_NDRANGE).
+  bool propagateKnownNDRange(WRegionNode *W) const;
 
   /// Analyzes the current Function's WRegionList and sets starting
   /// ND-range dimensions for OpenMP loop regions. It also sets
