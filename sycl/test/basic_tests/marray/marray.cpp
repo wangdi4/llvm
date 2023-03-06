@@ -34,14 +34,9 @@ template <size_t N> bool AllTrue(sycl::marray<bool, N> M) {
 // scalar values with the marrays, which is valid as all elements in the marrays
 // should be the same.
 #define CHECK_BINOP(OP, LHS, RHS)                                              \
-<<<<<<< HEAD
   assert(AllTrue((LHS[0] OP RHS) == (LHS OP RHS)) &&                           \
          AllTrue((LHS OP RHS[0]) == (LHS OP RHS)) &&                           \
          AllTrue((LHS[0] OP RHS[0]) == (LHS OP RHS)));
-=======
-  assert((LHS[0] OP RHS) == (LHS OP RHS) && (LHS OP RHS[0]) == (LHS OP RHS) && \
-         (LHS[0] OP RHS[0]) == (LHS OP RHS));
->>>>>>> a1787de59f3c594498637781f2aeeb1d7c398ad8
 
 struct NotDefaultConstructible {
   NotDefaultConstructible() = delete;
