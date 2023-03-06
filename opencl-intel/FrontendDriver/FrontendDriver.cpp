@@ -43,10 +43,6 @@ using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
 
-// the flag must be 'volatile' to prevent caching in a CPU register
-static volatile bool lazyClangCompilerInit = true;
-static llvm::sys::Mutex lazyClangCompilerInitMutex;
-
 #ifdef _WIN32
 static llvm::ManagedStatic<OclDynamicLib> m_dlClangLib;
 
@@ -89,16 +85,11 @@ static bool LoadCommonClang() {
 }
 
 static bool ClangCompilerInitialize() {
-  bool clangLoadSuccessful = true;
-  if (lazyClangCompilerInit) {
-    llvm::sys::ScopedLock lock(lazyClangCompilerInitMutex);
-
-    if (lazyClangCompilerInit) {
-      clangLoadSuccessful = LoadCommonClang();
-      lazyClangCompilerInit = false;
-    }
-  }
-  return clangLoadSuccessful;
+  // 'volatile' prevents caching in a CPU register.
+  static volatile bool LoadSuccessful = true;
+  static llvm::once_flag OnceFlag;
+  llvm::call_once(OnceFlag, [&]() { LoadSuccessful = LoadCommonClang(); });
+  return LoadSuccessful;
 }
 
 // ClangFECompiler class implementation

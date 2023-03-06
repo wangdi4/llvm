@@ -444,7 +444,7 @@ typedef struct __tile1024i_str {
 /* INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS */
 #if defined(__AVXDOTPRODPHPS_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX_DOTPRODPHPS__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AVXDOTPRODPHPS__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avxdotprodphps/avxdotprodphpsintrin.h>
 #endif
 #endif
