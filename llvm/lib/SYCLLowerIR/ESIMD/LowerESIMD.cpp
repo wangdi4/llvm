@@ -539,7 +539,6 @@ public:
         {"raw_send2_noresult",
          {"raw.send2.noresult",
           {a(0), a(1), ai1(2), a(3), a(4), a(5), a(6), a(7)}}},
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
         {"wait", {"dummy.mov", {a(0)}}},
@@ -547,9 +546,6 @@ public:
         {"srnd", {"srnd", {a(0), a(1)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
-=======
-        {"wait", {"dummy.mov", {a(0)}}},
->>>>>>> 714cfc384d337af31215e5bb352b734f83494b8b
         {"dpas2",
          {"dpas2", {a(0), a(1), a(2), t(0), t(1), t(2), t(3), t(11), t(12)}}},
         {"dpas_nosrc0", {"dpas.nosrc0", {a(0), a(1), t(0)}}},
