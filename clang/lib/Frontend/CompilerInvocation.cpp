@@ -4140,6 +4140,8 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     }
   }
 
+  Opts.OpenCLForceVectorABI = Args.hasArg(OPT_fopencl_force_vector_abi);
+
   // Check if -fopenmp is specified and set default version to 5.0.
   Opts.OpenMP = Args.hasArg(options::OPT_fopenmp) ? 50 : 0;
   // Check if -fopenmp-simd is specified.
