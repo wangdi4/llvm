@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -1326,7 +1326,7 @@ void ToolChain::AddIPPLibPath(const ArgList &Args, ArgStringList &CmdArgs,
 #else
   llvm::sys::path::append(P, "lib");
   if (getTriple().getArch() == llvm::Triple::x86)
-    llvm::sys::path::append(P, "32");
+    P += "32";
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   const Arg *IL = Args.getLastArg(options::OPT_qipp_link_EQ);
   if (IsNonPIC && (!IL || (IL->getValue() == StringRef("static"))))
@@ -1381,7 +1381,7 @@ std::string ToolChain::GetMKLLibPath(void) const {
 #else
   llvm::sys::path::append(P, "lib");
   if (getTriple().getArch() == llvm::Triple::x86)
-    llvm::sys::path::append(P, "32");
+    P += "32";
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().isWindowsMSVCEnvironment()) {
     llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
@@ -1432,7 +1432,7 @@ void ToolChain::AddTBBLibPath(const ArgList &Args, ArgStringList &CmdArgs,
 #else
   llvm::sys::path::append(P, "lib");
   if (getTriple().getArch() == llvm::Triple::x86)
-    llvm::sys::path::append(P, "32");
+    P += "32";
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   // FIXME - this only handles Linux and Windows for now
   if (getTriple().isWindowsMSVCEnvironment())
@@ -1480,7 +1480,7 @@ std::string ToolChain::GetDAALLibPath(void) const {
 #else
   llvm::sys::path::append(P, "lib");
   if (getTriple().getArch() == llvm::Triple::x86)
-    llvm::sys::path::append(P, "32");
+    P += "32";
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   if (getTriple().isWindowsMSVCEnvironment()) {
     llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
