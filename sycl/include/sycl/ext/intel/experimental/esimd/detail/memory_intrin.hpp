@@ -432,7 +432,6 @@ void __esimd_emu_lsc_offset_write(
                       std::conditional_t<DS ==
                                              __ESIMD_ENS::lsc_data_size::u16u32,
                                          uint16_t, void>>>>>>;
-
   for (int OffsetIdx = 0; OffsetIdx < N; OffsetIdx += 1) {
     if (Pred[OffsetIdx] == 0) {
       // Skip input vector elements correpsonding to
