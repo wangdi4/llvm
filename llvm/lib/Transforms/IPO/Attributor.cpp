@@ -2298,14 +2298,15 @@ ChangeStatus Attributor::cleanupIR() {
 
 #if INTEL_CUSTOMIZATION
     // Do not perform modification of a ConstantExpression.
-    // (CMPLRLLVM-39584)
+    // (CMPLRLLVM-39584, CMPLRLLVM-45318)
     //
     // All ConstantExpr objects are stored within a hash table based on
     // their content. Changing the expression would cause subsequent
     // lookups in the hash table to fail.
     //
-    // Also ConstantExpr values may be shared by multiple functions.
-    if (isa<ConstantExpr>(U->getUser()))
+    // Also ConstantExpr values may be shared by multiple functions,
+    // ConstantVectors (even a single one) or other ConstantExprs.
+    if (isa<ConstantExpr>(OldV) && isa<Constant>(U->getUser()))
       return;
 #endif // INTEL_CUSTOMIZATION
 
