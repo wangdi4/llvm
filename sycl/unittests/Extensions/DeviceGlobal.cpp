@@ -292,12 +292,8 @@ void ResetTrackersAndMarkers() {
   ExpectedReadWritePIProgram = std::nullopt;
 }
 
-<<<<<<< HEAD
-TEST(DeviceGlobalTest, DISABLED_DeviceGlobalInitBeforeUse) {
-=======
 std::pair<sycl::unittest::PiMock, sycl::queue>
 CommonSetup(std::function<void(sycl::unittest::PiMock &)> RedefinitionFunc) {
->>>>>>> d6f5b35286e5df3467ad73dd6734e15a1aa08c5c
   ResetTrackersAndMarkers();
 
   sycl::unittest::PiMock Mock;
