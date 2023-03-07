@@ -1085,6 +1085,20 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   bool IsTripCountEstimated = OuterMostVPLoop->getTripCountInfo().IsEstimated;
   unsigned ForcedVF = getForcedVF(WRLp);
 
+  // If we have a known trip count loop and ForcedVF * ForcedUF exceeds the
+  // trip count, instead of bailing out of vectorization altogether give
+  // precedence to ForcedVF.
+  if (!IsTripCountEstimated && ForcedVF && ForcedUF > 1) {
+    uint64_t VFUF = ForcedVF * ForcedUF;
+
+    // We can also consider forcing UF to 1 here. The following will attempt
+    // to unroll as much as possible assuming that this would still be helpful.
+    if (VFUF > OrigTripCount)
+      ForcedUF = OrigTripCount / ForcedVF;
+
+    IsUserForcedUF = true;
+  }
+
   // Reset the current selection to scalar loop only.
   VecScenario.resetPeel();
   VecScenario.resetMain();
