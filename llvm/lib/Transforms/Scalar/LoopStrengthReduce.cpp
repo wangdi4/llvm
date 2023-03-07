@@ -5081,7 +5081,11 @@ static bool IsSimplerBaseSCEVForTarget(const TargetTransformInfo &TTI,
                                        const SCEV *Reg,
                                        MemAccessTy AccessType) {
   if (Best->getType() != Reg->getType() ||
+<<<<<<< HEAD
       (isa<SCEVAddRecExpr>(Best) && isa<SCEVAddRecExpr>(Reg) &&
+=======
+      (false && isa<SCEVAddRecExpr>(Best) && isa<SCEVAddRecExpr>(Reg) &&
+>>>>>>> 73cd3d4391ad47ae72028d4d01df0865b033dfed
        cast<SCEVAddRecExpr>(Best)->getLoop() !=
            cast<SCEVAddRecExpr>(Reg)->getLoop()))
     return false;
