@@ -5594,7 +5594,7 @@ bool LoopVectorizationCostModel::isEpilogueVectorizationProfitable(
 
   // We also consider epilogue vectorization unprofitable for targets that don't
   // consider interleaving beneficial (eg. MVE).
-  if (TTI.getMaxInterleaveFactor(VF.getKnownMinValue()) <= 1)
+  if (TTI.getMaxInterleaveFactor(VF) <= 1)
     return false;
   // FIXME: We should consider changing the threshold for scalable
   // vectors to take VScaleForTuning into account.
@@ -5849,8 +5849,7 @@ LoopVectorizationCostModel::selectInterleaveCount(ElementCount VF,
   }
 
   // Clamp the interleave ranges to reasonable counts.
-  unsigned MaxInterleaveCount =
-      TTI.getMaxInterleaveFactor(VF.getKnownMinValue());
+  unsigned MaxInterleaveCount = TTI.getMaxInterleaveFactor(VF);
 
   // Check if the user has overridden the max.
   if (VF.isScalar()) {
@@ -10641,7 +10640,7 @@ LoopVectorizeResult LoopVectorizePass::runImpl(
   // vector registers, loop vectorization may still enable scalar
   // interleaving.
   if (!TTI->getNumberOfRegisters(TTI->getRegisterClassForType(true)) &&
-      TTI->getMaxInterleaveFactor(1) < 2)
+      TTI->getMaxInterleaveFactor(ElementCount::getFixed(1)) < 2)
     return LoopVectorizeResult(false, false);
 
   bool Changed = false, CFGChanged = false;
@@ -10736,8 +10735,8 @@ void LoopVectorizePass::printPipeline(
   static_cast<PassInfoMixin<LoopVectorizePass> *>(this)->printPipeline(
       OS, MapClassName2PassName);
 
-  OS << "<";
+  OS << '<';
   OS << (InterleaveOnlyWhenForced ? "" : "no-") << "interleave-forced-only;";
   OS << (VectorizeOnlyWhenForced ? "" : "no-") << "vectorize-forced-only;";
-  OS << ">";
+  OS << '>';
 }

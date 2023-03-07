@@ -63439,6 +63439,10 @@ SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
   return SDValue();
 }
 
+bool X86TargetLowering::preferABDSToABSWithNSW(EVT VT) const {
+  return false;
+}
+
 bool X86TargetLowering::isTypeDesirableForOp(unsigned Opc, EVT VT) const {
   if (!isTypeLegal(VT))
     return false;
