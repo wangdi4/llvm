@@ -1,6 +1,6 @@
 //===-- IntelLoopVectorizationPlanner.cpp ---------------------------------===//
 //
-//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -507,6 +507,9 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   OS = is_contained(VPlanCostModelPrintAnalysisForVF, 1) ? &outs() : nullptr;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Analyze no-cost instructions prior to initial cost model analysis.
+  Plan->runNCIA();
 
   std::tie(ScalarIterationCost, std::ignore) =
       createCostModel(Plan.get(), 1)->getCost(nullptr /* PeelingVariant */, OS);

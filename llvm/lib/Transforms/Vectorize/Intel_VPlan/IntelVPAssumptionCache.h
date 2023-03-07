@@ -84,6 +84,7 @@ public:
 
   /// Return all assumptions which have been registered in the cache.
   MutableArrayRef<ResultElem> assumptions() { return Assumes; }
+  ArrayRef<ResultElem> assumptions() const { return Assumes; }
 
   /// Register the given \p Assume in the cache.
   void registerAssumption(const VPCallInstruction &Assume);
