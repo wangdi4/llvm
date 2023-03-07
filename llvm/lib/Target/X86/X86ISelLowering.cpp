@@ -59121,8 +59121,16 @@ static SDValue combineSetCC(SDNode *N, SelectionDAG &DAG,
   // during type legalization.
   // NOTE: The element count check is to ignore operand types that need to
   // go through type promotion to a 128-bit vector.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (Subtarget.hasAVX512() &&
+      !(Subtarget.hasBWI() || Subtarget.hasAVX256P()) && VT.isVector() &&
+      VT.getVectorElementType() == MVT::i1 &&
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (Subtarget.hasAVX512() && !Subtarget.hasBWI() && VT.isVector() &&
       VT.getVectorElementType() == MVT::i1 &&
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       (OpVT.getVectorElementType() == MVT::i8 ||
        OpVT.getVectorElementType() == MVT::i16)) {
     SDValue Setcc = DAG.getSetCC(DL, OpVT, LHS, RHS, CC);
