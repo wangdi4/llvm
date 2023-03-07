@@ -3,13 +3,13 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2021-2022 Intel Corporation
+ * Copyright (C) 2021-2023 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise, you may not
- * use, modify, copy, publish, distribute, disclose or transmit this software or
- * the related documents without Intel's prior written permission.
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
  * This software and the related documents are provided as is, with no express
  * or implied warranties, other than those that are expressly stated in the
@@ -46,6 +46,7 @@
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanExternals.h"
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlanNoCostInstructionAnalysis.h"
 #include "IntelVPlanScalVecAnalysis.h"
 #include "IntelVPlanValue.h"
 #include "IntelVPlanValueTracking.h"
@@ -5373,6 +5374,16 @@ public:
   // Clear results of SVA.
   void clearSVA();
 
+  void setVPlanNCIA(std::unique_ptr<VPlanNoCostInstAnalysis> VPNCIA) {
+    VPlanNCIA = std::move(VPNCIA);
+  }
+
+  VPlanNoCostInstAnalysis *getVPlanNCIA() const { return VPlanNCIA.get(); }
+
+  // Compute no-cost instructions for this VPlan.
+  void runNCIA();
+  void clearNCIA() { VPlanNCIA.reset(); }
+
   void markFullLinearizationForced() { FullLinearizationForced = true; }
   bool isFullLinearizationForced() const { return FullLinearizationForced; }
 
@@ -5514,6 +5525,7 @@ private:
   std::unique_ptr<VPlanScalarEvolution> VPSE;
   std::unique_ptr<VPlanValueTracking> VPVT;
   std::unique_ptr<VPlanScalVecAnalysisBase> VPlanSVA;
+  std::unique_ptr<VPlanNoCostInstAnalysis> VPlanNCIA;
 
   DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 

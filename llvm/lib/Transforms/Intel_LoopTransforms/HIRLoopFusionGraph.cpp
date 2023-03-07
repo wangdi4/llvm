@@ -999,15 +999,18 @@ void FuseGraph::collapse(FuseEdgeHeap &Heap, unsigned NodeV,
   }
 }
 
-RefinedDependence FuseGraph::refineDependency(DDRef *Src, DDRef *Dst,
+RefinedDependence FuseGraph::refineDependency(const DDEdge &Edge,
                                               unsigned CommonLevel,
                                               unsigned MaxLevel) const {
-  auto RefinedDep = DDA.refineDV(Dst, Src, CommonLevel, MaxLevel, true);
+  auto RefinedDep = DDA.refineDV(&Edge, CommonLevel, MaxLevel, true);
 
   LLVM_DEBUG(dbgs() << "Forward dep: ");
-  LLVM_DEBUG(DDA.refineDV(Src, Dst, CommonLevel, MaxLevel, true).dump());
+  // There is no interface to get refined DV for forward depenency for fusion as
+  // it was only used in debug dumps. We can consider one in the future, if
+  // needed.
+  LLVM_DEBUG(Edge.getDV().dump());
   LLVM_DEBUG(dbgs() << "Backward dep: ");
-  LLVM_DEBUG(RefinedDep.print(dbgs()));
+  LLVM_DEBUG(RefinedDep.dump());
 
   return RefinedDep;
 }
@@ -1160,8 +1163,7 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
 
   assert(CanonExpr::isValidLoopLevel(MinMaxLevel.second));
 
-  auto RefinedDep =
-      refineDependency(SrcRef, DstRef, CommonLevel, MinMaxLevel.second);
+  auto RefinedDep = refineDependency(Edge, CommonLevel, MinMaxLevel.second);
 
   if (RefinedDep.isIndependent()) {
     return true;

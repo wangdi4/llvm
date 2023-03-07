@@ -82,7 +82,10 @@ const std::map<std::string, cl_version> extRefCPU = {
     // FIXME: Re-claim cl_khr_subgroup_ballot support when we implement all
     // required builtins.
     // {"cl_khr_subgroup_ballot", CL_MAKE_VERSION(1, 0, 0)}
-};
+    {"cl_khr_subgroup_shuffle", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_subgroup_shuffle_relative", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_subgroup_non_uniform_arithmetic", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_subgroup_extended_types", CL_MAKE_VERSION(1, 0, 0)}};
 
 TEST_P(CheckExtensions, CpuDevice) {
   // Query list of extension names from clGetPlatformInfo/clGetDeviceInfo

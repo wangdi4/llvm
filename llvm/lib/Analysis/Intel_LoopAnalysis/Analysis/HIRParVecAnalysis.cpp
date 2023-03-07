@@ -573,8 +573,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
     // Input DV set to test for innermost loop vectorization
     // For outer loop vectorization, modification is neeeded here or elsewhere
-    auto RefinedDep =
-        DDA.refineDV(SrcRef, SinkRef, NestLevel, DeepestLevel, false);
+    auto RefinedDep = DDA.refineDV(Edge, NestLevel, DeepestLevel, false);
     if (RefinedDep.isIndependent()) {
       LLVM_DEBUG(dbgs() << "\tis safe to vectorize (indep)\n");
       return;

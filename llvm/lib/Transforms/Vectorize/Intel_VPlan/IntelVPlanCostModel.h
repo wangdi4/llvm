@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -108,6 +108,9 @@ public:
   const TargetTransformInfo &TTI;
   const VPlanVLSAnalysis *const VLSA;
 
+  /// \Returns if the given instruction \p VPInst is zero-cost in this context.
+  bool hasZeroCost(const VPInstruction *VPInst) const;
+
   /// \Returns the alignment of the load/store \p LoadStore.
   ///
   /// This method guarantees to never return zero by returning default alignment
@@ -164,6 +167,9 @@ protected:
     // Compute SVA results for current VPlan in order to compute cost
     // accurately in CM.
     const_cast<VPlanVector *>(Plan)->runSVA(VF);
+
+    // Ensure NCIA is available for zero-cost checking.
+    const_cast<VPlanVector *>(Plan)->runNCIA();
 
     // Collect VLS Groups once VLSA is specified. Heuristics can query VLS
     // Groups when VLSA is available.

@@ -1,6 +1,6 @@
 //===-- IntelVPlanCostModel.cpp -------------------------------------------===//
 //
-//   Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -16,6 +16,7 @@
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanCallVecDecisions.h"
+#include "IntelVPlanNoCostInstructionAnalysis.h"
 #include "IntelVPlanPatternMatch.h"
 #include "IntelVPlanScalVecAnalysis.h"
 #include "IntelVPlanUtils.h"
@@ -620,8 +621,13 @@ VPInstructionCost VPlanTTICostModel::getAllZeroCheckInstrCost(Type *VecSrcTy,
   return CastCost + CmpCost;
 }
 
-VPInstructionCost VPlanTTICostModel::getTTICostForVF(
-  const VPInstruction *VPInst, unsigned VF) {
+VPInstructionCost
+VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
+
+  // Before any other checks, check if this instruction is marked as zero-cost.
+  if (hasZeroCost(VPInst))
+    return 0;
+
   // TODO: For instruction that are not contained inside the loop we're
   // vectorizing, VF should not be considered. That includes the instructions
   // that are outside of any of the loops in the loopnest. However, before
@@ -1850,6 +1856,12 @@ VPInstructionCost VPlanTTICostModel::getIntMinMaxInstCost(
       TTI::TCK_RecipThroughput);
   }
   return Cost;
+}
+
+bool VPlanTTICostModel::hasZeroCost(const VPInstruction *VPInst) const {
+  assert(Plan->getVPlanNCIA() && "Not yet computed?");
+  return Plan->getVPlanNCIA()->getScenario(VPInst) ==
+         VPlanNoCostInstAnalysis::Scenario::Always;
 }
 
 } // namespace vpo

@@ -81,7 +81,7 @@ declare i32 @llvm.abs.i32(i32, i1))";
   auto *DA = Plan->getVPlanDA();
   Plan->computeDT();
   Plan->computePDT();
-  DA->compute(Plan.get(), OuterMostVPL, Plan->getVPLoopInfo(),
+  DA->compute(Plan.get(), OuterMostVPL, Plan->getVPLoopInfo(), nullptr /*VPVT*/,
               *Plan->getDT(), *Plan->getPDT(), false /*Not in LCSSA form.*/);
 
   auto TM = createTargetMachine("skx", "");
