@@ -20,6 +20,7 @@ namespace llvm {
 class Value;
 class Function;
 class IRBuilderBase;
+class GlobalVariable;
 
 struct MultiVersionResolverOption {
   Function *Fn;
@@ -39,6 +40,7 @@ struct MultiVersionResolverOption {
 // options are already sorted in the proper order, with the 'default' option
 // last (if it exists).
 void emitMultiVersionResolver(Function *Resolver,
+                              GlobalVariable *DispatchPtr,
                               ArrayRef<MultiVersionResolverOption> Options,
                               bool UseIFunc, bool UseLibIRC);
 

@@ -103,6 +103,7 @@ libIRCMVResolverOptionComparator(const MultiVersionResolverOption &LHS,
 
 static void
 emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
+                           GlobalVariable *DispatchPtr,
                            Function*& Dispatcher) {
 
   // Create the dispatcher function through cloning Fn.
@@ -122,28 +123,21 @@ emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
   BasicBlock *CurBlock = BasicBlock::Create(Ctx, "", Dispatcher);
   IRBuilder<> Builder(CurBlock, CurBlock->begin());
 
-  // Get the function pointer that stores the address of the clone at runtime.
-  Module *M = Fn.getParent();
-  std::string ResolverPtrName = OrigName + ".ptr";
-  GlobalVariable *ResolverPtr =
-      dyn_cast<GlobalVariable>(M->getNamedValue(ResolverPtrName));
+  // Create a load of the dispatch pointer.
+  auto DispatchPtrVal = Builder.CreateAlignedLoad(DispatchPtr->getType(),
+                                                  DispatchPtr, MaybeAlign(8));
 
-  // Create a load of the function pointer.
-  Type *ResolverPtrType = Fn.getFunctionType()->getPointerTo();
-  auto ResolverPtrVal = Builder.CreateAlignedLoad(ResolverPtrType, ResolverPtr,
-                                                  MaybeAlign(8));
-
-  // Create an indirect call through the function pointer.
+  // Create an indirect call through the dispatch pointer.
   SmallVector<Value *, 10> Args;
   for_each(Dispatcher->args(), [&](Argument &Arg) { Args.push_back(&Arg); });
   CallInst *Result =
-      Builder.CreateCall(FunctionCallee(Fn.getFunctionType(), ResolverPtrVal),
+      Builder.CreateCall(FunctionCallee(Fn.getFunctionType(), DispatchPtrVal),
                          Args);
   Result->setCallingConv(Fn.getCallingConv());
   Result->setAttributes(Fn.getAttributes());
 
   Dispatcher->setMetadata("llvm.acd.dispatcher", MDNode::get(Ctx, {}));
-  ResolverPtr->setMetadata("llvm.acd.dispatcher", MDNode::get(Ctx, {}));
+  DispatchPtr->setMetadata("llvm.acd.dispatcher", MDNode::get(Ctx, {}));
 
   // Create a return.
   if (Fn.getReturnType()->isVoidTy())
@@ -167,10 +161,18 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
     Resolver->setDSOLocal(true);
     appendToGlobalCtors(*M, Resolver, 500 /* Some number > 0 */);
   }
-  emitMultiVersionResolver(Resolver, MVOptions, false /*UseIFunc*/,
-                           true /*UseLibIRC*/);
 
-  emitWrapperBasedDispatcher(Fn, OrigName, (Function*&)Dispatcher);
+  std::string DispatchPtrName = OrigName + ".ptr";
+  Type *DispatchPtrType = Fn.getFunctionType()->getPointerTo();
+  GlobalVariable *DispatchPtr =
+      new GlobalVariable(*M, DispatchPtrType, false, GlobalValue::InternalLinkage,
+                         Constant::getNullValue(DispatchPtrType), DispatchPtrName);
+  DispatchPtr->setDSOLocal(true);
+
+  emitMultiVersionResolver(Resolver, DispatchPtr, MVOptions,
+                           false /*UseIFunc*/, true /*UseLibIRC*/);
+
+  emitWrapperBasedDispatcher(Fn, OrigName, DispatchPtr, (Function*&)Dispatcher);
 }
 
 static void
@@ -189,8 +191,8 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
   Dispatcher->setVisibility(Fn.getVisibility());
   Dispatcher->setDSOLocal(Fn.isDSOLocal());
 
-  emitMultiVersionResolver(Resolver, MVOptions, true /*UseIFunc*/,
-                           true /*UseLibIRC*/);
+  emitMultiVersionResolver(Resolver, nullptr /*DispatchPtr*/, MVOptions,
+                           true /*UseIFunc*/, true /*UseLibIRC*/);
 }
 
 static bool
