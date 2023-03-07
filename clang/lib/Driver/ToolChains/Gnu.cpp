@@ -3320,7 +3320,7 @@ bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
 
 #if INTEL_CUSTOMIZATION
 bool Generic_GCC::GCCInstallationDetector::ScanForCxxPaths(
-    const GCCVersion Version, StringRef TripleStr, StringRef LibDir,
+    GCCVersion Version, StringRef TripleStr, StringRef LibDir,
     StringRef InstallDir) {
   // By default, look for the C++ headers in an include directory adjacent to
   // the lib directory of the GCC installation. Note that this is expect to be
@@ -3410,7 +3410,7 @@ void Generic_GCC::GCCInstallationDetector::ScanLibDirForGCCTriple(
     if (!Suffix.Active)
       continue;
 
-    GCCVersion CxxCandidateVersion; // INTEL
+    GCCVersion CxxCandidateVersion = GCCVersion::Parse("0.0.0"); // INTEL
     StringRef LibSuffix = Suffix.LibSuffix;
     std::error_code EC;
     for (llvm::vfs::directory_iterator
@@ -3456,7 +3456,7 @@ void Generic_GCC::GCCInstallationDetector::ScanLibDirForGCCTriple(
 #if INTEL_CUSTOMIZATION
     // We have gone through all of the candidates.  Check to see if the latest
     // candidate matches the last true 'full' candidate (C and C++).
-    if (IsValid && !CxxCandidateVersion.Text.empty() &&
+    if (IsValid && CxxCandidateVersion.Text != "0.0.0" &&
         getVersion().Text != CxxCandidateVersion.Text) {
       Version = CxxCandidateVersion;
       GCCInstallPath = (LibDir + "/" + LibSuffix + "/" + Version.Text).str();

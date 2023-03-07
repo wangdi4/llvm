@@ -19,7 +19,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;     x = a[i];
 ; }
 ;
-; The test verifies that VPlan bails out to scalar VPlan.
+; The test verifies that VPlan gives precedence to forced vf.
 
 @a = dso_local local_unnamed_addr global [4 x i32] zeroinitializer, align 16
 
@@ -27,40 +27,23 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @foo() {
 ;                   *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; CHECK-HIR:       Function: foo
-; CHECK-HIR-EMPTY:
-; CHECK-HIR-NEXT:  <0>          BEGIN REGION { }
-; CHECK-HIR-NEXT:  <2>                [[TMP0:%.*]] = @llvm.directive.region.entry()
-; CHECK-HIR-NEXT:  <17>
-; CHECK-HIR-NEXT:  <17>               + DO i1 = 0, 3, 1   <DO_LOOP> <simd> <unroll = 2> <vectorize>
-; CHECK-HIR-NEXT:  <7>                |   [[TMP1:%.*]] = (@a)[0][i1]
-; CHECK-HIR-NEXT:  <17>               + END LOOP
-; CHECK-HIR-NEXT:  <17>
-; CHECK-HIR-NEXT:  <15>               @llvm.directive.region.exit([[TMP0]])
-; CHECK-HIR-NEXT:  <16>               ret
-; CHECK-HIR-NEXT:  <0>          END REGION
+; CHECK-HIR:       BEGIN REGION { modified }
+; CHECK-HIR-NEXT:        %.vec = (<4 x i32>*)(@a)[0][0];
+; CHECK-HIR-NEXT:        ret
+; CHECK-HIR-NEXT:  END REGION
 ;
 ;
 ; CHECK-LLVM-IR:  define dso_local void @foo() {
-; CHECK-LLVM-IR-NEXT:  entry:
-; CHECK-LLVM-IR-NEXT:    [[I_LINEAR_IV0:%.*]] = alloca i32, align 4
-; CHECK-LLVM-IR-NEXT:    br label [[OMP_INNER_FOR_BODY_LR_PH0:%.*]]
-; CHECK-LLVM-IR-EMPTY:
-; CHECK-LLVM-IR-NEXT:  omp.inner.for.body.lr.ph:
-; CHECK-LLVM-IR-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4),  "QUAL.OMP.LINEAR:IV.TYPED"(i32* [[I_LINEAR_IV0]], i32 0, i32 1, i32 1) ]
-; CHECK-LLVM-IR-NEXT:    br label [[OMP_INNER_FOR_BODY0:%.*]]
-; CHECK-LLVM-IR-EMPTY:
-; CHECK-LLVM-IR-NEXT:  omp.inner.for.body:
-; CHECK-LLVM-IR-NEXT:    [[IV0:%.*]] = phi i64 [ 0, [[OMP_INNER_FOR_BODY_LR_PH0]] ], [ [[IV_NEXT0:%.*]], [[OMP_INNER_FOR_BODY0]] ]
-; CHECK-LLVM-IR-NEXT:    [[IDX0:%.*]] = getelementptr inbounds [4 x i32], [4 x i32]* @a, i64 0, i64 [[IV0]]
-; CHECK-LLVM-IR-NEXT:    [[TMP1:%.*]] = load i32, i32* [[IDX0]], align 4
-; CHECK-LLVM-IR-NEXT:    [[IV_NEXT0]] = add nuw nsw i64 [[IV0]], 1
-; CHECK-LLVM-IR-NEXT:    [[EXITCOND0:%.*]] = icmp eq i64 [[IV_NEXT0]], 4
-; CHECK-LLVM-IR-NEXT:    br i1 [[EXITCOND0]], label [[DIR_OMP_END_SIMD_40:%.*]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !0
-; CHECK-LLVM-IR-EMPTY:
-; CHECK-LLVM-IR-NEXT:  DIR.OMP.END.SIMD.4:
-; CHECK-LLVM-IR-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.SIMD"() ]
-; CHECK-LLVM-IR-NEXT:    ret void
-; CHECK-LLVM-IR-NEXT:  }
+; CHECK-LLVM-IR:       vector.body:
+; CHECK-LLVM-IR-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
+; CHECK-LLVM-IR-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
+; CHECK-LLVM-IR-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [4 x i32], [4 x i32]* @a, i64 0, i64 [[UNI_PHI]]
+; CHECK-LLVM-IR-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
+; CHECK-LLVM-IR-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 16
+; CHECK-LLVM-IR-NEXT:    [[TMP1]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
+; CHECK-LLVM-IR-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI]], 4
+; CHECK-LLVM-IR-NEXT:    [[TMP3:%.*]] = icmp uge i64 [[TMP2]], 4
+; CHECK-LLVM-IR-NEXT:    br i1 true, label [[VPLANNEDBB3:%.*]], label [[VECTOR_BODY]]
 ;
 entry:
   %i.linear.iv = alloca i32, align 4

@@ -48,9 +48,9 @@ Value *llvm::formResolverCondition(IRBuilderBase &Builder,
   return Condition;
 }
 
-static void CreateMultiVersionResolverReturn(Function *Resolver,
-                                             IRBuilderBase &Builder,
+static void CreateMultiVersionResolverBranch(IRBuilderBase &Builder,
                                              Function *FuncToReturn,
+                                             GlobalVariable *DispatchPtr,
                                              bool UseIFunc,
                                              BasicBlock *ExitBlock) {
   if (UseIFunc) {
@@ -58,24 +58,12 @@ static void CreateMultiVersionResolverReturn(Function *Resolver,
     return;
   }
 
-  Module *M = Resolver->getParent();
-  auto NameTargetPair = FuncToReturn->getName().rsplit('.');
-  assert(!NameTargetPair.second.empty());
-  std::string ResolverPtrName = NameTargetPair.first.str() + ".ptr";
-  GlobalValue *ResolverPtr = M->getNamedValue(ResolverPtrName);
-  if (!ResolverPtr) {
-    Type *ResolverPtrType = FuncToReturn->getFunctionType()->getPointerTo();
-    ResolverPtr =
-        new GlobalVariable(*M, ResolverPtrType, false, GlobalValue::InternalLinkage,
-                           Constant::getNullValue(ResolverPtrType), ResolverPtrName);
-    ResolverPtr->setDSOLocal(true);
-  }
-
-  Builder.CreateAlignedStore(FuncToReturn, ResolverPtr, MaybeAlign(8));
+  Builder.CreateAlignedStore(FuncToReturn, DispatchPtr, MaybeAlign(8));
   Builder.CreateBr(ExitBlock);
 }
 
 void llvm::emitMultiVersionResolver(Function *Resolver,
+                                    GlobalVariable *DispatchPtr,
                                     ArrayRef<MultiVersionResolverOption> Options,
                                     bool UseIFunc, bool UseLibIRC) {
 
@@ -111,7 +99,7 @@ void llvm::emitMultiVersionResolver(Function *Resolver,
     if (!Condition) {
       assert(&RO == Options.end() - 1 &&
              "Default or Generic case must be last");
-      CreateMultiVersionResolverReturn(Resolver, Builder, RO.Fn, UseIFunc, ExitBlock);
+      CreateMultiVersionResolverBranch(Builder, RO.Fn, DispatchPtr, UseIFunc, ExitBlock);
       break;
     }
 
@@ -119,7 +107,7 @@ void llvm::emitMultiVersionResolver(Function *Resolver,
     {
       IRBuilderBase::InsertPointGuard Guard(Builder);
       Builder.SetInsertPoint(RetBlock);
-      CreateMultiVersionResolverReturn(Resolver, Builder, RO.Fn, UseIFunc, ExitBlock);
+      CreateMultiVersionResolverBranch(Builder, RO.Fn, DispatchPtr, UseIFunc, ExitBlock);
     }
     CurBlock = BasicBlock::Create(Ctx, "resolver_else", Resolver, ExitBlock);
     Builder.CreateCondBr(Condition, RetBlock, CurBlock);

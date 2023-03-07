@@ -1691,26 +1691,6 @@ struct RTLOptionTy {
       }
     }
 
-    // Global thread limit
-    int ThrLimit = omp_get_thread_limit();
-    DP("omp_get_thread_limit() returned %" PRId32 "\n", ThrLimit);
-    // omp_get_thread_limit() would return INT_MAX by default.
-    // NOTE: Windows.h defines max() macro, so we have to guard
-    //       the call with parentheses.
-    ThreadLimit = (ThrLimit > 0 &&
-        ThrLimit != (std::numeric_limits<int32_t>::max)()) ?
-        ThrLimit : 0;
-
-    // Global max number of teams.
-    int NTeams = omp_get_max_teams();
-    DP("omp_get_max_teams() returned %" PRId32 "\n", NTeams);
-    // omp_get_max_teams() would return INT_MAX by default.
-    // NOTE: Windows.h defines max() macro, so we have to guard
-    //       the call with parentheses.
-    NumTeams = (NTeams > 0 &&
-        NTeams != (std::numeric_limits<int32_t>::max)()) ?
-        NTeams : 0;
-
     // Compilation options for IGC
     if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS")))
       UserCompilationOptions += std::string(" ") + Env;
@@ -2170,6 +2150,30 @@ struct RTLOptionTy {
     (void)std::transform(Str.begin(), Str.end(), Str.begin(),
                          [](unsigned char C) { return std::tolower(C); });
     return (Str.compare(Matched) == 0);
+  }
+
+  /// Read global thread limit and max teams from the host runtime. These values
+  /// are subject to change at any program point, so every kernel execution
+  /// needs to read the most recent values.
+  void readTeamsThreadLimit() {
+    int ThrLimit = omp_get_thread_limit();
+    DP("omp_get_thread_limit() returned %" PRId32 "\n", ThrLimit);
+    // omp_get_thread_limit() would return INT_MAX by default.
+    // NOTE: Windows.h defines max() macro, so we have to guard
+    //       the call with parentheses.
+    ThreadLimit =
+        (ThrLimit > 0 && ThrLimit != (std::numeric_limits<int32_t>::max)())
+            ? ThrLimit
+            : 0;
+
+    int NTeams = omp_get_max_teams();
+    DP("omp_get_max_teams() returned %" PRId32 "\n", NTeams);
+    // omp_get_max_teams() would return INT_MAX by default.
+    // NOTE: Windows.h defines max() macro, so we have to guard
+    //       the call with parentheses.
+    NumTeams = (NTeams > 0 && NTeams != (std::numeric_limits<int32_t>::max)())
+                   ? NTeams
+                   : 0;
   }
 }; // RTLOptionTy
 
@@ -4499,6 +4503,9 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   }
 
   auto &KernelPR = DeviceInfo->getKernelProperties(Kernel);
+
+  // Read the most recent global thread limit and max teams.
+  DeviceInfo->Option.readTeamsThreadLimit();
 
   ScopedTimerTy KernelTimer(SubId, "Kernel ", KernelPR.Name);
 
