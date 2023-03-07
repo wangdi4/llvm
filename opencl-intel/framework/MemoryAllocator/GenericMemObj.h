@@ -758,7 +758,7 @@ private:
   update_parent_struct m_updateParentStruct;
 
   // Mutex for parent buffer / sub-buffers sync. Use only the parent instance.
-  OclSpinMutex m_buffersSyncLock;
+  Utils::OclRecursiveMutex m_buffersSyncLock;
 
   // Call it when new sub-buffer creates.
   // pSubBuffer is the sub-buffer that created.

@@ -297,7 +297,7 @@ void FrameworkUserLogger::PrintError(const string &msg) {
 }
 
 void FrameworkUserLogger::PrintStringInternal(const string &str) {
-  OclAutoMutex mutex(&m_outputMutex);
+  std::lock_guard<std::recursive_mutex> mutex(m_outputMutex);
   *m_pOutput << str;
 }
 
@@ -305,7 +305,7 @@ void FrameworkUserLogger::SetWGSizeCount(cl_dev_cmd_id id, size_t ndim,
                                          const size_t *localSizeUniform,
                                          const size_t *localSizeNonUniform,
                                          const size_t *workgroupCount) {
-  OclAutoMutex mutex(&m_outputMutex);
+  std::lock_guard<std::recursive_mutex> mutex(m_outputMutex);
   *m_pOutput
       << "Internally calculated WG info for NDRangeKernel command with ID "
       << (size_t)id << ": work dimension = " << ndim

@@ -22,7 +22,6 @@
 #include <cl_utils.h>
 
 using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::Utils;
 
 OutOfOrderCommandQueue::OutOfOrderCommandQueue(
     SharedPtr<Context> pContext, cl_device_id clDefaultDeviceID,
@@ -94,7 +93,7 @@ void OutOfOrderCommandQueue::Submit(Command *cmd) {
 }
 
 cl_err_code OutOfOrderCommandQueue::Enqueue(Command *cmd) {
-  OclAutoMutex mu(&m_muLastBarrer);
+  std::lock_guard<std::recursive_mutex> mu(m_muLastBarrer);
 
   SharedPtr<OclEvent> cmdEvent = cmd->GetEvent();
   m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
@@ -122,7 +121,7 @@ OutOfOrderCommandQueue::EnqueueMarkerWaitForEvents(Command *marker) {
 cl_err_code
 OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command *barrier) {
   if (!barrier->IsDependentOnEvents()) {
-    OclAutoMutex mu(&m_muLastBarrer);
+    std::lock_guard<std::recursive_mutex> mu(m_muLastBarrer);
     m_lastBarrier = barrier->GetEvent();
     const cl_err_code ret = AddDependentOnAll(barrier);
     return ret;
@@ -131,7 +130,7 @@ OutOfOrderCommandQueue::EnqueueBarrierWaitForEvents(Command *barrier) {
 }
 
 cl_err_code OutOfOrderCommandQueue::EnqueueWaitForEvents(Command *cmd) {
-  OclAutoMutex mu(&m_muLastBarrer);
+  std::lock_guard<std::recursive_mutex> mu(m_muLastBarrer);
 
   SharedPtr<OclEvent> cmdEvent = cmd->GetEvent();
   m_depOnAll->GetEvent()->AddDependentOn(cmdEvent);
@@ -165,7 +164,7 @@ OutOfOrderCommandQueue::NotifyStateChange(const SharedPtr<QueueEvent> &pEvent,
                       // Execute() call.
 
       if (!isMarker) {
-        OclAutoMutex mu(&m_muLastBarrer);
+        std::lock_guard<std::recursive_mutex> mu(m_muLastBarrer);
         if (pEvent == m_lastBarrier) {
           m_lastBarrier = nullptr;
         }

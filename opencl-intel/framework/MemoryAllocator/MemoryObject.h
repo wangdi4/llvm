@@ -23,6 +23,7 @@
 #include <Logger.h>
 #include <cl_device_api.h>
 #include <map>
+#include <mutex>
 #include <stack>
 
 namespace Intel {
@@ -409,15 +410,14 @@ protected:
   std::stack<MemDtorNotifyData *>
       m_pfnNotifiers; // Holds a list of pointers to callbacks upon dtor
                       // execution
-  Intel::OpenCL::Utils::OclSpinMutex
-      m_muNotifiers; // Mutex for accessing m_pfnNotifiers
+  std::recursive_mutex m_muNotifiers; // Mutex for accessing m_pfnNotifiers
   Intel::OpenCL::Utils::AtomicCounter
       m_mapCount; // A counter for the number of times an object has been mapped
   Addr2MapRegionMultiMap
       m_mapMappedRegions; // A map for storage of Mapped Regions
   SharedPtr<FissionableDevice>
       m_pMappedDevice; // A device that manages mapped regions
-  Intel::OpenCL::Utils::OclSpinMutex
+  std::recursive_mutex
       m_muMappedRegions; // A mutex for accessing Mapped regions
   size_t m_stMemObjSize; // Size of the memory object in bytes
   volatile mutable bool

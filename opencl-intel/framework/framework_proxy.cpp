@@ -26,7 +26,6 @@
 #include "cl_framework_alias_linux.h"
 #include "cl_secure_string_linux.h"
 #endif
-using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::TaskExecutor;
 
@@ -36,7 +35,7 @@ cl_monitor_init
 SOCLCRTDispatchTable FrameworkProxy::CRTDispatchTable;
 ocl_entry_points FrameworkProxy::OclEntryPoints;
 
-OclSpinMutex FrameworkProxy::m_initializationMutex;
+std::recursive_mutex FrameworkProxy::m_initializationMutex;
 
 volatile FrameworkProxy::GLOBAL_STATE FrameworkProxy::gGlobalState =
     FrameworkProxy::WORKING;
@@ -649,14 +648,14 @@ void FrameworkProxy::Release(bool bTerminate) {
 
 void FrameworkProxy::RegisterDllCallback(at_exit_dll_callback_fn cb) {
   if (nullptr != cb) {
-    OclAutoMutex cs(&m_initializationMutex);
+    std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
     m_at_exit_cbs.insert(cb);
   }
 }
 
 void FrameworkProxy::UnregisterDllCallback(at_exit_dll_callback_fn cb) {
   if (nullptr != cb) {
-    OclAutoMutex cs(&m_initializationMutex);
+    std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
     m_at_exit_cbs.erase(cb);
   }
 }
@@ -696,7 +695,7 @@ void FrameworkProxy::TerminateProcess(bool needToDisableAPI) {
 // Anyway using mutex during process shutdown is meaningless
 // because of there is only one thread is alive.
 #ifndef _WIN32
-    OclAutoMutex cs(&m_initializationMutex);
+    std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
 #endif // _WIN32
     for (auto it : m_at_exit_cbs) {
       at_exit_dll_callback_fn cb = *it;
@@ -713,7 +712,7 @@ void FrameworkProxy::TerminateProcess(bool needToDisableAPI) {
   // notify all DLLs that at_exit occured
   {
 #ifndef _WIN32
-    OclAutoMutex cs(&m_initializationMutex);
+    std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
 #endif // _WIN32
     for (auto it : m_at_exit_cbs) {
       at_exit_dll_callback_fn cb = *it;
@@ -748,7 +747,7 @@ FrameworkProxy::GetTaskExecutor() const {
   static int teInitialized = 1;
   if (nullptr == m_pTaskExecutor && 0 != teInitialized) {
     // Initialize TaskExecutor
-    OclAutoMutex cs(&m_initializationMutex);
+    std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
     if (nullptr == m_pTaskExecutor && 0 != teInitialized) {
       LOG_INFO(TEXT("%s"), "Initialize Executor");
       m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
@@ -784,7 +783,7 @@ FrameworkProxy::GetTaskExecutor() const {
 bool FrameworkProxy::ActivateTaskExecutor() const {
   ITaskExecutor *pTaskExecutor = GetTaskExecutor();
 
-  OclAutoMutex cs(&m_initializationMutex);
+  std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
   // Quit as early as possible if task executor initialization fails.
   if (nullptr == pTaskExecutor)
     return false;
@@ -836,7 +835,7 @@ void FrameworkProxy::DeactivateTaskExecutor() const {
     return;
   }
 
-  OclAutoMutex cs(&m_initializationMutex);
+  std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
 
   if (nullptr != m_pTaskList && nullptr != m_pTaskList_immediate) {
     --m_uiTEActivationCount;
@@ -897,9 +896,9 @@ bool FrameworkProxy::Execute(
 // FrameworkProxy::Execute()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::CancelAllTasks(bool wait_for_finish) const {
-  m_initializationMutex.Lock();
+  m_initializationMutex.lock();
   SharedPtr<ITaskList> tmpTaskList = m_pTaskList;
-  m_initializationMutex.Unlock();
+  m_initializationMutex.unlock();
 
   if (0 != tmpTaskList) {
     tmpTaskList->Cancel();

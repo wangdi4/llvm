@@ -14,11 +14,13 @@
 
 #pragma once
 
-#include "cl_synch_objects.h"
 #include "cl_timer.h"
+#include "cl_utils.h"
+#include "hw_utils.h"
 #include "llvm/Support/ManagedStatic.h"
 
 #include <fstream>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -104,7 +106,8 @@ private:
   bool m_bLogApis;
   std::ofstream m_logFile;
   std::ostream *m_pOutput;
-  mutable OclSpinMutex m_outputMutex; // Synchronize writing to m_pOutput
+  mutable std::recursive_mutex
+      m_outputMutex; // Synchronize writing to m_pOutput
 };
 
 /**

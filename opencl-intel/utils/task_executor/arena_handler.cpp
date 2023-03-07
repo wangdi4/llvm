@@ -110,7 +110,7 @@ unsigned int ArenaHandler::AllocateThreadPosition() {
   // assign to thread. Even if this thread is not from the upper level but just
   // worker that joined arena, we cannot use tbb slot as this number may be
   // already saved by some another upper level thread.
-  OclAutoMutex lock(&m_lock);
+  std::lock_guard<std::recursive_mutex> lock(m_lock);
 
   unsigned int pos = m_freePositions.back();
   m_freePositions.pop_back();
@@ -119,7 +119,7 @@ unsigned int ArenaHandler::AllocateThreadPosition() {
 
 void ArenaHandler::FreeThreadPosition(unsigned int pos) {
   if (0 != m_uiLevel) {
-    OclAutoMutex lock(&m_lock);
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     m_freePositions.push_back(pos);
   }
 }

@@ -20,9 +20,9 @@
 #include <cl_device_api.h>
 #include <cl_dynamic_lib.h>
 #include <cl_object.h>
-#include <cl_synch_objects.h>
 #include <list>
 #include <map>
+#include <mutex>
 #if defined(DX_MEDIA_SHARING)
 #include <d3d9.h>
 #endif
@@ -381,7 +381,7 @@ private:
       m_pDeviceRefCount; // holds the reference count for the associated
                          // IOCLDevice
 
-  mutable Utils::OclSpinMutex m_deviceInitializationMutex;
+  mutable std::recursive_mutex m_deviceInitializationMutex;
 
   std::map<cl_int, Intel::OpenCL::Utils::LoggerClient *>
       m_mapDeviceLoggerClinets; // OpenCL device's logger clients

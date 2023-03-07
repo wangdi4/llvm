@@ -24,7 +24,6 @@
 #include <assert.h>
 
 using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::Utils;
 
 /******************************************************************
  *
@@ -374,7 +373,7 @@ void QueueEvent::NotifyComplete(cl_int returnCode /* = CL_SUCCESS */) {
   {
     // Lock required because of races with EventsManager::WaitForEvents that may
     // be used from other thread
-    OclAutoMutex lock(&m_queueLock);
+    std::lock_guard<std::recursive_mutex> lock(m_queueLock);
     m_pEventQueue = NULL;
   }
   MarkAsComplete();
@@ -383,9 +382,9 @@ void QueueEvent::NotifyComplete(cl_int returnCode /* = CL_SUCCESS */) {
 const SharedPtr<IOclCommandQueueBase> QueueEvent::GetEventQueue() const {
   // Lock required because of races with QueueEvent::NotifyComplete that may be
   // used from other thread
-  m_queueLock.Lock();
+  m_queueLock.lock();
   const SharedPtr<IOclCommandQueueBase> queue = m_pEventQueue;
-  m_queueLock.Unlock();
+  m_queueLock.unlock();
   return queue;
 }
 
