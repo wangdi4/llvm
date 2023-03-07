@@ -1064,6 +1064,13 @@ bool OpenMPLateOutliner::isAllowedClauseForDirectiveFull(
         return true;
     }
     return false;
+  } else if (CK == OMPC_thread_limit) {
+    if (CGF.getLangOpts().OpenMP >= 51 && DKind == OMPD_teams &&
+        isOpenMPTargetExecutionDirective(Directive.getDirectiveKind())) {
+      // Allow 'thread_limit' clause only on parent 'target' construct if it
+      // appears on combined 'target teams' construct.
+      return false;
+    }
   }
   return isAllowedClauseForDirective(DKind, CK, CGF.getLangOpts().OpenMP);
 }
