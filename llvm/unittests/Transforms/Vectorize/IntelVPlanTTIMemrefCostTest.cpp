@@ -82,7 +82,8 @@ protected:
     Plan->computePDT();
     VPLInfo->analyze(*Plan->getDT());
     DA->compute(Plan.get(), nullptr /* CandidateLoop */, Plan->getVPLoopInfo(),
-                *Plan->getDT(), *Plan->getPDT(), false /*Not in LCSSA form.*/);
+                nullptr /*VPVT*/, *Plan->getDT(), *Plan->getPDT(),
+                false /*Not in LCSSA form.*/);
 
     TM = createTargetMachine("skx", "");
     auto TTIPass =

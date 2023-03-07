@@ -1807,6 +1807,7 @@ void VPlanDivergenceAnalysis::cacheInductionInitPtrs() {
 
 void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
                                       VPLoopInfo *VPLInfo,
+                                      VPlanValueTracking *VPValTracking,
                                       VPDominatorTree &VPDomTree,
                                       VPPostDominatorTree &VPPostDomTree,
                                       bool IsLCSSA) {
@@ -1817,6 +1818,7 @@ void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
   Plan = P;
   RegionLoop = CandidateLoop;
   VPLI = VPLInfo;
+  VPVT = VPValTracking;
   DT = &VPDomTree;
   PDT = &VPPostDomTree;
   IsLCSSAForm = IsLCSSA;
