@@ -231,9 +231,7 @@ void VPlanLoopUnroller::run() {
       // and stash the accumulator value for reduction in the exit.
       auto PSIt = PSumCandidates.find(OrigInst);
       if (PSIt != PSumCandidates.end()) {
-        auto PhiOpnds = getHeaderPhiOperands(*VPL, ClonedInst);
-        VPInstruction *ClonedReduc =
-            cast<VPInstruction>(ValueMap[PhiOpnds.first]);
+        VPInstruction *ClonedReduc = cast<VPInstruction>(ValueMap[LastUpdate]);
 
         // Generate the new PHI in the header to use the candidate's
         // initializer and the current iteration's result.
@@ -243,26 +241,25 @@ void VPlanLoopUnroller::run() {
         Phi->addIncoming(PSIt->second.Init, PSIt->second.Init->getParent());
         Phi->addIncoming(ClonedReduc,
                          cast<VPBasicBlock>(Clones[UF - 2][Latch]));
-        ClonedReduc->replaceUsesOfWith(OrigInst, Phi);
 
-        // Queue the cloned PHI for deletion, and the split accumulator for
-        // post-loop reduction.
+        // Add the new PHI to the value map.
+        ValueMap[OrigInst] = Phi;
+
+        // Record the accumulator result for post-loop reduction.
         PSIt->second.Accum.push_back(ClonedReduc);
-        InstToRemove.insert(&ClonedInst);
-        continue;
+      } else {
+        // For the current iteration replace a clone of the original PHI with
+        // the current last update instruction.
+        ValueMap[OrigInst] = PHILastUpdate[OrigInst];
+
+        // Replace the last update instruction with the cloned one
+        // related to the current iteration.
+        PHILastUpdate[OrigInst] = ValueMap[LastUpdate];
+
+        // Not actually a live-out, but this will help to replace phi's operand
+        // to the final last update instruction
+        LiveOutExtUsers[OrigInst] = LastUpdate;
       }
-
-      // For the current iteration replace a clone of the original PHI with
-      // the current last update instruction.
-      ValueMap[OrigInst] = PHILastUpdate[OrigInst];
-
-      // Replace the last update instruction with the cloned one
-      // related to the current iteration.
-      PHILastUpdate[OrigInst] = ValueMap[LastUpdate];
-
-      // Not actually a live-out, but this will help to replace phi's operand
-      // to the final last update instruction
-      LiveOutExtUsers[OrigInst] = LastUpdate;
 
       InstToRemove.insert(&ClonedInst);
     }
