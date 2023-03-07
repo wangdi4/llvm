@@ -683,6 +683,17 @@ static bool foldLoadsRecursive(Value *V, LoadOps &LOps, const DataLayout &DL,
   if (!LI1->getPointerOperandType()->isOpaquePointerTy() ||
       !LI2->getPointerOperandType()->isOpaquePointerTy())
     return false;
+  // The load combining optimization can't handle loads with multiple GEP
+  // sequences. In llorg, these sequences are folded by InstCombine.
+  // xmain won't do the GEP/GEP folds, to preserve metadata.
+  auto isGEPofGEP = [](Value *V) {
+    if (auto *GEP = dyn_cast<GetElementPtrInst>(V))
+      return isa<GetElementPtrInst>(GEP->getPointerOperand());
+    return false;
+  };
+  if (isGEPofGEP(LI1->getPointerOperand()) ||
+      isGEPofGEP(LI2->getPointerOperand()))
+    return false;
 #endif // INTEL_CUSTOMIZATION
 
   // Check if Loads come from same BB.
