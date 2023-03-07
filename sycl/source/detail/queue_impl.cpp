@@ -225,8 +225,6 @@ event queue_impl::mem_advise(const std::shared_ptr<detail::queue_impl> &Self,
   }
   // Track only if we won't be able to handle it with piQueueFinish.
   if (MEmulateOOO)
-<<<<<<< HEAD
-=======
     addSharedEvent(ResEvent);
   return MDiscardEvents ? createDiscardedEvent() : ResEvent;
 }
@@ -321,7 +319,6 @@ event queue_impl::memcpyFromDeviceGlobal(
   }
   // Track only if we won't be able to handle it with piQueueFinish.
   if (MEmulateOOO)
->>>>>>> 44b80dce421bf378198b3776959a232ca67cf1c4
     addSharedEvent(ResEvent);
   return MDiscardEvents ? createDiscardedEvent() : ResEvent;
 }
