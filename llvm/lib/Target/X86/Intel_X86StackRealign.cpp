@@ -211,6 +211,11 @@ bool X86StackRealign::runOnMachineFunction(MachineFunction &MF) {
   MRI = &MF.getRegInfo();
   LIS = &getAnalysis<LiveIntervals>();
   MBFI = &getAnalysis<MachineBlockFrequencyInfo>();
+
+  uint64_t EntryFreq = MBFI->getEntryFreq();
+  if (EntryFreq == 0)
+    return false;
+
   RCI.runOnMachineFunction(MF);
 
   // TotalCost is total unalign cost of spill/reload weighted by block
@@ -218,8 +223,7 @@ bool X86StackRealign::runOnMachineFunction(MachineFunction &MF) {
   double TotalCost = 0.0, InstRetired = 0.0;
   for (MachineBasicBlock &MBB : MF) {
     unsigned NumNoDbgInst;
-    uint64_t RelFrequency =
-        MBFI->getBlockFreq(&MBB).getFrequency() / MBFI->getEntryFreq();
+    uint64_t RelFrequency = MBFI->getBlockFreq(&MBB).getFrequency() / EntryFreq;
     TotalCost += computeMBBCost(&MBB, &NumNoDbgInst) * RelFrequency;
     InstRetired += static_cast<double>(RelFrequency) * NumNoDbgInst;
   }
