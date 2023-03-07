@@ -2,8 +2,6 @@
 ; RUN: opt < %s -S -mtriple=x86_64-unknown -passes=slp-vectorizer -slp-max-store-lookup=2 -slp-min-reg-size=64 -slp-threshold=-1000 | FileCheck %s
 
 define i32 @non-ordered-stores(ptr noalias nocapture %in, ptr noalias nocapture %inn, ptr noalias nocapture %out) {
-; INTEL_CUSTOMIZATION
-; The checks are different than in llorg because we handle masked gathers in a different way in xmain.
 ; CHECK-LABEL: @non-ordered-stores(
 ; CHECK-NEXT:    [[LOAD_1:%.*]] = load i32, ptr [[IN:%.*]], align 4
 ; CHECK-NEXT:    [[GEP_1:%.*]] = getelementptr inbounds i32, ptr [[IN]], i64 1
@@ -42,7 +40,6 @@ define i32 @non-ordered-stores(ptr noalias nocapture %in, ptr noalias nocapture 
 ; CHECK-NEXT:    store <2 x i32> [[TMP10]], ptr [[OUT]], align 4
 ; CHECK-NEXT:    ret i32 undef
 ;
-; END INTEL_CUSTOMIZATION
   %load.1 = load i32, ptr %in, align 4
   %gep.1 = getelementptr inbounds i32, ptr %in, i64 1
   %load.2 = load i32, ptr %gep.1, align 4
