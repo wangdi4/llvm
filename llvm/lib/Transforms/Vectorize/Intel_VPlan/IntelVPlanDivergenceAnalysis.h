@@ -35,6 +35,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 
 #include "llvm/Analysis/SyncDependenceAnalysis.h"
+#include "IntelVPlanValueTracking.h"
 #include "IntelVPlanVectorShape.h"
 #include "llvm/ADT/DenseSet.h"
 #include <queue>
@@ -166,8 +167,8 @@ public:
   // Note: this compute is a public interface for VPlan because we may want to
   // compute DA on demand after other VPlan transformations.
   void compute(VPlanVector *Plan, VPLoop *RegionLoop, VPLoopInfo *VPLI,
-               VPDominatorTree &DT, VPPostDominatorTree &PDT,
-               bool IsLCSSA = true);
+               VPlanValueTracking *VPVT, VPDominatorTree &DT,
+               VPPostDominatorTree &PDT, bool IsLCSSA = true);
 
   /// Recomputes the shapes of all the instructions in the \p Seeds set and
   /// triggers the recomputation of all dependent instructions.
@@ -485,6 +486,7 @@ private:
   VPDominatorTree *DT = nullptr;
   VPPostDominatorTree *PDT = nullptr;
   VPLoopInfo *VPLI = nullptr;
+  VPlanValueTracking *VPVT = nullptr;
 
   // Recognized divergent loops
   DenseSet<const VPLoop *> DivergentLoops;

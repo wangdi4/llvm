@@ -1573,7 +1573,8 @@ void VPlanVector::computeDA() {
   VPLoopInfo *VPLInfo = getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
   auto *DA = getVPlanDA();
-  DA->compute(this, CandidateLoop, VPLInfo, *getDT(), *getPDT(),
+  auto *VPVT = getVPVT();
+  DA->compute(this, CandidateLoop, VPLInfo, VPVT, *getDT(), *getPDT(),
               false /*Not in LCSSA form*/);
   if (isSOAAnalysisEnabled()) {
     // Do SOA-analysis for loop-privates.

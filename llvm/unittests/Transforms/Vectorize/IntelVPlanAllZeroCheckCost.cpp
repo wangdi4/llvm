@@ -76,8 +76,9 @@ entry:
   // CM runs SVA, which in turn needs DA, which then needs VPLoopInfo.
   Plan->setVPlanDA(std::make_unique<VPlanDivergenceAnalysis>());
   auto *DA = Plan->getVPlanDA();
-  DA->compute(Plan.get(), nullptr, Plan->getVPLoopInfo(),
-              *Plan->getDT(), *Plan->getPDT(), false /*Not in LCSSA form.*/);
+  DA->compute(Plan.get(), nullptr /*RegionLoop*/, Plan->getVPLoopInfo(),
+              nullptr /*VPVT*/, *Plan->getDT(), *Plan->getPDT(),
+              false /*Not in LCSSA form.*/);
   auto *EntryBB = &Plan->getEntryBlock();
   VPBuilder Builder;
   Builder.setInsertPoint(EntryBB, EntryBB->begin());
