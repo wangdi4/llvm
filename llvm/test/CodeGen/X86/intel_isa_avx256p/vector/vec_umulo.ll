@@ -140,10 +140,8 @@ define <8 x i32> @umulo_v8i16(<8 x i16> %a0, <8 x i16> %a1, ptr %p2) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vpmullw %xmm1, %xmm0, %xmm2 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0xd5,0xd1]
 ; CHECK-NEXT:    vpmulhuw %xmm1, %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0xe4,0xc1]
-; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1 # EVEX TO VEX Compression encoding: [0xc5,0xf1,0xef,0xc9]
-; CHECK-NEXT:    vpcmpeqw %xmm1, %xmm0, %xmm0 # encoding: [0xc5,0xf9,0x75,0xc1]
-; CHECK-NEXT:    vpternlogq $15, %xmm0, %xmm0, %xmm0 # encoding: [0x62,0xf3,0xfd,0x08,0x25,0xc0,0x0f]
-; CHECK-NEXT:    vpmovsxwd %xmm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x7d,0x23,0xc0]
+; CHECK-NEXT:    vptestmw %xmm0, %xmm0, %k0 # encoding: [0x62,0xf2,0xfd,0x08,0x26,0xc0]
+; CHECK-NEXT:    vpmovm2d %k0, %ymm0 # encoding: [0x62,0xf2,0x7e,0x28,0x38,0xc0]
 ; CHECK-NEXT:    vmovdqa %xmm2, (%rdi) # EVEX TO VEX Compression encoding: [0xc5,0xf9,0x7f,0x17]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %t = call {<8 x i16>, <8 x i1>} @llvm.umul.with.overflow.v8i16(<8 x i16> %a0, <8 x i16> %a1)

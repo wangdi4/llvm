@@ -623,12 +623,12 @@ define zeroext i8 @test_extractelement_varible_v32i1(<32 x i8> %a, <32 x i8> %b,
 ;
 ; CHECK-LABEL: test_extractelement_varible_v32i1:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpminub %ymm1, %ymm0, %ymm1 ## EVEX TO VEX Compression encoding: [0xc5,0xfd,0xda,0xc9]
-; CHECK-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm0 ## encoding: [0xc5,0xfd,0x74,0xc1]
+; CHECK-NEXT:    vpcmpnleub %ymm1, %ymm0, %k0 ## encoding: [0x62,0xf3,0x7d,0x28,0x3e,0xc1,0x06]
+; CHECK-NEXT:    vpmovm2b %k0, %ymm0 ## encoding: [0x62,0xf2,0x7e,0x28,0x28,0xc0]
 ; CHECK-NEXT:    vpmovmskb %ymm0, %ecx ## encoding: [0xc5,0xfd,0xd7,0xc8]
 ; CHECK-NEXT:    xorl %eax, %eax ## encoding: [0x31,0xc0]
 ; CHECK-NEXT:    btl %edi, %ecx ## encoding: [0x0f,0xa3,0xf9]
-; CHECK-NEXT:    setae %al ## encoding: [0x0f,0x93,0xc0]
+; CHECK-NEXT:    setb %al ## encoding: [0x0f,0x92,0xc0]
 ; CHECK-NEXT:    vzeroupper ## encoding: [0xc5,0xf8,0x77]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
   %t1 = icmp ugt <32 x i8> %a, %b
