@@ -58908,8 +58908,16 @@ static SDValue truncateAVX512SetCCNoBWI(EVT VT, EVT OpVT, SDValue LHS,
                                         SDValue RHS, ISD::CondCode CC, SDLoc DL,
                                         SelectionDAG &DAG,
                                         const X86Subtarget &Subtarget) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (Subtarget.hasAVX512() &&
+      !(Subtarget.hasBWI() || Subtarget.hasAVX256P()) && VT.isVector() &&
+      VT.getVectorElementType() == MVT::i1 &&
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (Subtarget.hasAVX512() && !Subtarget.hasBWI() && VT.isVector() &&
       VT.getVectorElementType() == MVT::i1 &&
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       (OpVT.getVectorElementType() == MVT::i8 ||
        OpVT.getVectorElementType() == MVT::i16)) {
     SDValue Setcc = DAG.getSetCC(DL, OpVT, LHS, RHS, CC);
