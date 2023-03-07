@@ -100,6 +100,11 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/nan_s_xa.cpp
                                imf/intel/scalbn_s_xa.cpp
                                imf/intel/signbit_s_xa.cpp
+                               imf/intel/i0_s_ep.cpp
+                               imf/intel/j0_s_ep.cpp
+                               imf/intel/j1_s_ep.cpp
+                               imf/intel/y0_s_ep.cpp
+                               imf/intel/y1_s_ep.cpp
                                # end INTEL_CUSTOMIZATION
                                imf/imf_inline_fp32.cpp)
 
@@ -176,6 +181,7 @@ set(imf_fp64_fallback_src_list imf_utils/double_convert.cpp
                                imf/intel/tanh_d_ha.cpp
                                imf/intel/tgamma_d_ep.cpp
                                imf/intel/lgamma_d_ep.cpp
+                               imf/intel/i0_d_ep.cpp
                                # end INTEL_CUSTOMIZATION
                                imf/imf_inline_fp64.cpp)
 
