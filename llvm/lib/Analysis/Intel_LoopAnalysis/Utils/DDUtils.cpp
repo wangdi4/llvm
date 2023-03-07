@@ -1367,12 +1367,8 @@ void CollectDDInfoForPermute<T>::visit(const HLDDNode *DDNode) {
       RefinedDependence RefinedDep;
 
       if (RefineDV) {
-        DDRef *SrcDDRef = Edge->getSrc();
-        DDRef *DstDDRef = Edge->getSink();
-
         // Refine works only for non-terminal refs
-        RefinedDep = DDA.refineDV(SrcDDRef, DstDDRef, OutermostLevel,
-                                  InnermostLevel, false);
+        RefinedDep = DDA.refineDV(Edge, OutermostLevel, InnermostLevel, false);
 
         if (RefinedDep.isIndependent()) {
           LLVM_DEBUG(dbgs() << "\n\t<Edge dropped with DDTest Indep>");

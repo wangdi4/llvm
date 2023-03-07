@@ -306,14 +306,10 @@ bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
     // dependency to be less conservative.
     RefinedDependence RefinedDep;
     if (Level != 1) {
-      const DDRef *SrcRef = Ref;
-      const DDRef *DstRef = OtherRef;
-      if (!IsOutgoing) {
-        std::swap(SrcRef, DstRef);
-      }
-
-      RefinedDep = DDA.refineDV(SrcRef, DstRef, Level, Level, false);
+      RefinedDep = DDA.refineDV(E, Level, Level, false);
       if (RefinedDep.isIndependent()) {
+        LLVM_DEBUG(dbgs() << "Edge was refined as independant:\n");
+        LLVM_DEBUG(E->dump());
         continue;
       }
 
