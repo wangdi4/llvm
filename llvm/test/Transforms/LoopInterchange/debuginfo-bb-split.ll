@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -loop-interchange -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=loop-interchange -S | FileCheck %s
 ;
 ; This test verifies that when a basic block is split at
 ; a debug intrinsic call, the source location of the br

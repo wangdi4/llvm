@@ -442,7 +442,7 @@ Type *dtrans::unwrapType(Type *Ty) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
-  assert(countPopulation(SafetyInfo) == 1 &&
+  assert(llvm::popcount(SafetyInfo) == 1 &&
          "More than one safety type detected\n");
 
   if (SafetyInfo & dtrans::BadCasting)

@@ -534,7 +534,6 @@ if (EnableSimpleLoopUnswitch) {
   // We resume loop passes creating a second loop pipeline here.
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
-  MPM.add(createLoopDeletionPass());          // Delete dead loops
 
 #if INTEL_CUSTOMIZATION
     // Unroll small loops
@@ -706,11 +705,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 #endif  // INTEL_CUSTOMIZATION
   }
 
-  if (!IsFullLTO) {
-    // Eliminate loads by forwarding stores from the previous iteration to loads
-    // of the current iteration.
-    PM.add(createLoopLoadEliminationPass());
-  }
   // Cleanup after the loop optimization passes.
   
   INTEL_LIMIT_BEGIN(limitNoLoopOptOrNotPrepareForLTO, PM) // INTEL
@@ -889,9 +883,6 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel > 2)
     MPM.add(createCallSiteSplittingPass());
 
-  MPM.add(createIPSCCPPass());          // IP SCCP
-
-  MPM.add(createGlobalOptimizerPass()); // Optimize out global vars
   // Promote any localized global vars.
   MPM.add(createPromoteMemoryToRegisterPass());
 
@@ -948,13 +939,6 @@ void PassManagerBuilder::populateModulePassManager(
   addFunctionSimplificationPasses(MPM);
 
 #if INTEL_CUSTOMIZATION
-  // If VPO paropt was required to run then do IP constant propagation after
-  // promoting pointer arguments to values (when OptLevel > 1) and running
-  // simplification passes. That will propagate constant values down to callback
-  // functions which represent outlined OpenMP parallel loops where possible.
-  if (RunVPOParopt && OptLevel > 1)
-    MPM.add(createIPSCCPPass());
-
   // Propagate noalias attribute to function arguments.
   if (EnableArgNoAliasProp && OptLevel > 2)
     MPM.add(createArgNoAliasPropPass());
@@ -989,7 +973,6 @@ void PassManagerBuilder::populateModulePassManager(
   // benefits generally outweight the cost, making the whole pipeline
   // faster.
   if (RunInliner) {
-    MPM.add(createGlobalOptimizerPass());
     MPM.add(createGlobalDCEPass());
   }
 
@@ -1041,12 +1024,6 @@ void PassManagerBuilder::populateModulePassManager(
   INTEL_LIMIT_END
 
 #endif // INTEL_CUSTOMIZATION
-  // Distribute loops to allow partial vectorization.  I.e. isolate dependences
-  // into separate loop that would otherwise inhibit vectorization.  This is
-  // currently only performed for loops marked with the metadata
-  // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
-  MPM.add(createLoopDistributePass());
-
   addVectorPasses(MPM, /* IsFullLTO */ false);
 
   // GlobalOpt already deletes dead functions and globals, at -O2 try a
@@ -1128,13 +1105,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_FEATURE_SW_ADVANCED
   // IP Cloning
   if (EnableIPCloning) {
-    // This pass is being added under DTRANS only at this point, because a
-    // particular benchmark needs it to prove that the period of a recursive
-    // progression is constant. We can remove the test for DTransEnabled if
-    // we find IPSCCP to be generally useful here and we are willing to
-    // tolerate the additional compile time.
-    if (DTransEnabled)
-      PM.add(createIPSCCPPass());
     PM.add(createIPCloningLegacyPass(false, true));
   }
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -1159,11 +1129,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     // Compute the loop attributes
     PM.add(createIntelLoopAttrsWrapperPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
-
-    // Propagate constants at call sites into the functions they call.  This
-    // opens opportunities for globalopt (and inlining) by substituting function
-    // pointers passed as arguments to direct uses of functions.
-    PM.add(createIPSCCPPass());
   }
 
   // Infer attributes about definitions. The readnone attribute in particular is
@@ -1197,8 +1162,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createDopeVectorConstPropLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
-  // Now that we internalized some globals, see if we can hack on them!
-  PM.add(createGlobalOptimizerPass());
   // Promote any localized global vars.
   PM.add(createPromoteMemoryToRegisterPass());
 
@@ -1291,7 +1254,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       PM.add(createIntelAdvancedFastCallWrapperPass());
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-    PM.add(createGlobalOptimizerPass());
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
@@ -1308,8 +1270,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     if (EnableCallTreeCloning)
       // Do function cloning along call trees
       PM.add(createCallTreeCloningPass());
-    // Call IPCP to propagate constants
-    PM.add(createIPSCCPPass());
   }
 #endif // INTEL_CUSTOMIZATION
   PM.add(createGlobalDCEPass()); // Remove dead functions.
@@ -1390,7 +1350,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
 
   PM.add(createIndVarSimplifyPass());
-  PM.add(createLoopDeletionPass());
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
@@ -1400,7 +1359,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
                                  ForgetAllSCEVInLoopUnroll));
   addLoopOptAndAssociatedVPOPasses(PM, true);
 #endif  // INTEL_CUSTOMIZATION
-  PM.add(createLoopDistributePass());
 
   addVectorPasses(PM, /* IsFullLTO */ true);
 
@@ -1427,11 +1385,6 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
   PM.add(createCFGSimplificationPass());
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-  // HIR complete unroll can expose opportunities for optimizing globals and
-  // allocas.
-  limitLoopOptOnly(PM).add(createGlobalOptimizerPass());
-#endif // INTEL_CUSTOMIZATION
   // Drop bodies of available externally objects to improve GlobalDCE.
   PM.add(createEliminateAvailableExternallyPass());
 

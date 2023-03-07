@@ -380,6 +380,8 @@ def warn_drv_sycl_target_missing : Warning<
   InGroup<SyclTarget>;
 def err_drv_no_rdc_sycl_target_missing : Error<
   "linked binaries do not contain expected '%0' target; found targets: '%1', this is not supported with '-fno-sycl-rdc'">;
+def err_drv_fsycl_wrong_optimization_options : Error<
+  "-fsycl-optimize-non-user-code option can be used only in conjunction with %0">;
 def err_drv_multiple_target_with_forced_target : Error<
   "multiple target usage with '%0' is not supported with '%1'">;
 def err_drv_failed_to_deduce_target_from_arch : Error<
@@ -730,10 +732,6 @@ def warn_deperecated_fcoroutines_ts_flag : Warning<
   "the '-fcoroutines-ts' flag is deprecated and it will be removed in Clang 17; "
   "use '-std=c++20' or higher to use standard C++ coroutines instead">,
   InGroup<DeprecatedExperimentalCoroutine>;
-def warn_deprecated_fmodules_ts_flag : Warning<
-  "the '-fmodules-ts' flag is deprecated and it will be removed in Clang 17; "
-  "use '-std=c++20' or higher to use standard C++ modules instead">,
-  InGroup<DiagGroup<"deprecated-module-ts">>;
 
 def err_drv_cannot_mix_options : Error<"cannot specify '%1' along with '%0'">;
 

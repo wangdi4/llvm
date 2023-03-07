@@ -210,6 +210,30 @@ static PackingMetadata computePackingMetadata(int64_t packedRank,
 }
 
 //===----------------------------------------------------------------------===//
+// BufferizeToAllocationOp
+//===----------------------------------------------------------------------===//
+DiagnosedSilenceableFailure
+transform::BufferizeToAllocationOp::apply(transform::TransformResults &results,
+                                          transform::TransformState &state) {
+  Attribute memorySpace =
+      getMemorySpace().has_value() ? getMemorySpace().value() : Attribute();
+  IRRewriter rewriter(getContext());
+  auto transformed = llvm::to_vector(
+      llvm::map_range(state.getPayloadValues(getTarget()), [&](Value v) {
+        return linalg::bufferizeToAllocation(rewriter, v, memorySpace);
+      }));
+  results.setValues(getTransformed().cast<OpResult>(), transformed);
+  return DiagnosedSilenceableFailure::success();
+}
+
+void transform::BufferizeToAllocationOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance> &effects) {
+  consumesHandle(getTarget(), effects);
+  producesHandle(getTransformed(), effects);
+  modifiesPayload(effects);
+}
+
+//===----------------------------------------------------------------------===//
 // DecomposeOp
 //===----------------------------------------------------------------------===//
 
@@ -665,9 +689,8 @@ transform::FuseIntoContainingOp::apply(transform::TransformResults &results,
   while (!remainingProducers.empty()) {
     auto nextProducer = getNextProducer();
     if (failed(nextProducer)) {
-      Diagnostic diag(containingOp->getLoc(), DiagnosticSeverity::Remark);
-      diag << "could not find next producer to fuse into container";
-      return DiagnosedSilenceableFailure::silenceableFailure(std::move(diag));
+      return mlir::emitSilenceableFailure(containingOp->getLoc())
+             << "could not find next producer to fuse into container";
     }
 
     Operation *producerOp = *nextProducer;
@@ -886,9 +909,8 @@ DiagnosedSilenceableFailure transform::LowerPackOp::applyToOne(
   rewriter.setInsertionPoint(target);
   FailureOr<LowerPackResult> res = lowerPack(rewriter, target);
   if (failed(res)) {
-    Diagnostic diag(target->getLoc(), DiagnosticSeverity::Error);
-    diag << "cannot lower to pad + expand + transpose";
-    return DiagnosedSilenceableFailure::silenceableFailure(std::move(diag));
+    return mlir::emitSilenceableFailure(target->getLoc())
+           << "cannot lower to pad + expand + transpose";
   }
   transformResults.push_back(res->padOp);
   transformResults.push_back(res->expandShapeOp);
@@ -996,9 +1018,8 @@ DiagnosedSilenceableFailure transform::LowerUnPackOp::applyToOne(
   rewriter.setInsertionPoint(target);
   FailureOr<LowerUnPackOpResult> res = lowerUnPack(rewriter, target);
   if (failed(res)) {
-    Diagnostic diag(target->getLoc(), DiagnosticSeverity::Error);
-    diag << "cannot rewrite to pad + expand + transpose";
-    return DiagnosedSilenceableFailure::silenceableFailure(std::move(diag));
+    return mlir::emitSilenceableFailure(target->getLoc())
+           << "cannot rewrite to pad + expand + transpose";
   }
   transformResults.push_back(res->emptyOp);
   transformResults.push_back(res->transposeOp);
@@ -2985,15 +3006,14 @@ DiagnosedSilenceableFailure transform::MaskedVectorizeOp::apply(
   for (Operation *target : targets) {
     auto linalgOp = dyn_cast<LinalgOp>(target);
     if (!linalgOp) {
-      Diagnostic diag(target->getLoc(), DiagnosticSeverity::Error);
-      diag << "cannot vectorize non-Linalg op";
-      return DiagnosedSilenceableFailure::silenceableFailure(std::move(diag));
+      return mlir::emitSilenceableFailure(target->getLoc())
+             << "cannot vectorize non-Linalg op";
     }
 
-    if (failed(linalg::vectorize(rewriter, linalgOp, vectorSizes))) {
-      Diagnostic diag(target->getLoc(), DiagnosticSeverity::Error);
-      diag << "failed to vectorize op";
-      return DiagnosedSilenceableFailure::silenceableFailure(std::move(diag));
+    if (failed(linalg::vectorize(rewriter, linalgOp, vectorSizes,
+                                 getVectorizeNdExtract()))) {
+      return mlir::emitSilenceableFailure(target->getLoc())
+             << "failed to vectorize op";
     }
   }
 

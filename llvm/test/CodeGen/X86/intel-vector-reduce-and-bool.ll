@@ -534,10 +534,8 @@ define i1 @icmp_v4i32_v4i1(<4 x i32>) {
 define i1 @icmp_v8i16_v8i1(<8 x i8>) {
 ; SSE-LABEL: icmp_v8i16_v8i1:
 ; SSE:       # %bb.0:
-; SSE-NEXT:    pxor %xmm1, %xmm1
-; SSE-NEXT:    pcmpeqb %xmm0, %xmm1
-; SSE-NEXT:    pmovmskb %xmm1, %eax
-; SSE-NEXT:    cmpb $-1, %al
+; SSE-NEXT:    movq %xmm0, %rax
+; SSE-NEXT:    testq %rax, %rax
 ; SSE-NEXT:    sete %al
 ; SSE-NEXT:    retq
 ;

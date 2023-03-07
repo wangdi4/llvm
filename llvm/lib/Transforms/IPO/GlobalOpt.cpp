@@ -1004,7 +1004,7 @@ OptimizeGlobalAddressOfAllocation(GlobalVariable *GV, CallInst *CI,
       cast<StoreInst>(InitBool->user_back())->eraseFromParent();
     delete InitBool;
   } else
-    GV->getParent()->getGlobalList().insert(GV->getIterator(), InitBool);
+    GV->getParent()->insertGlobalVariable(GV->getIterator(), InitBool);
 
   // Now the GV is dead, nuke it and the allocation..
   GV->eraseFromParent();
@@ -1196,7 +1196,7 @@ static bool TryToShrinkGlobalToBoolean(GlobalVariable *GV, Constant *OtherVal) {
                                              GV->getThreadLocalMode(),
                                              GV->getType()->getAddressSpace());
   NewGV->copyAttributesFrom(GV);
-  GV->getParent()->getGlobalList().insert(GV->getIterator(), NewGV);
+  GV->getParent()->insertGlobalVariable(GV->getIterator(), NewGV);
 
   Constant *InitVal = GV->getInitializer();
   assert(InitVal->getType() != Type::getInt1Ty(GV->getContext()) &&
@@ -2734,7 +2734,7 @@ OptimizeGlobalAliases(Module &M,
       continue;
 
     // Delete the alias.
-    M.getAliasList().erase(&J);
+    M.eraseAlias(&J);
     ++NumAliasesRemoved;
     Changed = true;
   }
@@ -3039,84 +3039,4 @@ PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     PA.preserve<WholeProgramAnalysis>();  // INTEL
     PA.preserve<AndersensAA>();           // INTEL
     return PA;
-}
-
-namespace {
-
-struct GlobalOptLegacyPass : public ModulePass {
-  static char ID; // Pass identification, replacement for typeid
-
-  GlobalOptLegacyPass() : ModulePass(ID) {
-    initializeGlobalOptLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-#if INTEL_CUSTOMIZATION
-    // Skip GlobalOptLegacyPass iff the pass is limited and every functions'
-    // loopopt-pipeline attribute indicates that the pass needs to be skipped.
-    LoopOptLimiter Limiter = getLimiter();
-    if (!M.functions().empty() &&
-        none_of(M.functions(),
-                [Limiter](Function& F) {
-                    return doesLoopOptPipelineAllowToRun(Limiter, F); }))
-      return false;
-#endif // INTEL_CUSTOMIZATION
-
-    auto &DL = M.getDataLayout();
-    auto LookupDomTree = [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    auto GetTTI = [this](Function &F) -> TargetTransformInfo & {
-      return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-    };
-
-    auto GetBFI = [this](Function &F) -> BlockFrequencyInfo & {
-      return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
-    };
-
-    auto ChangedCFGCallback = [&LookupDomTree](Function &F) {
-      auto &DT = LookupDomTree(F);
-      DT.recalculate(F);
-    };
-
-    auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();        // INTEL
-    WholeProgramInfo *WPInfo = WPA ? &WPA->getResult() : nullptr;         // INTEL
-    return optimizeGlobalsInModule(M, DL, GetTLI, GetTTI, GetBFI, WPInfo, // INTEL
-                                   LookupDomTree,                         // INTEL
-                                   ChangedCFGCallback, nullptr);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<BlockFrequencyInfoWrapperPass>();
-    AU.addUsedIfAvailable<WholeProgramWrapperPass>();      // INTEL
-    AU.addPreserved<WholeProgramWrapperPass>();            // INTEL
-    AU.addPreserved<AndersensAAWrapperPass>();             // INTEL
-  }
-};
-
-} // end anonymous namespace
-
-char GlobalOptLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(GlobalOptLegacyPass, "globalopt",
-                      "Global Variable Optimizer", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)  // INTEL
-INITIALIZE_PASS_END(GlobalOptLegacyPass, "globalopt",
-                    "Global Variable Optimizer", false, false)
-
-ModulePass *llvm::createGlobalOptimizerPass() {
-  return new GlobalOptLegacyPass();
 }

@@ -6,14 +6,14 @@
 
 // CHECK-LABEL: @_Z5test1{{.*}}(
 int test1() {
-  // CHECK: %.capture_expr.0 = alloca i32, align 4
-  // CHECK-NEXT: %.capture_expr.1 = alloca i32, align 4
-  // CHECK-NEXT: %.capture_expr.2 = alloca i8, align 1
-  // CHECK-NEXT: %.capture_expr.3 = alloca i32, align 4
-  // CHECK-NEXT: %.capture_expr.4 = alloca i32, align 4
-  // CHECK-NEXT: %.capture_expr.5 = alloca i8, align 1
-  // CHECK-NEXT: %.capture_expr.6 = alloca i32, align 4
-  // CHECK-NEXT: %.capture_expr.7 = alloca i32, align 4
+  // CHECK: %.lb_min0 = alloca i32, align 4
+  // CHECK-NEXT: %.lb_max1 = alloca i32, align 4
+  // CHECK-NEXT: %.min_less_max2 = alloca i8, align 1
+  // CHECK-NEXT: %.ub_min3 = alloca i32, align 4
+  // CHECK-NEXT: %.ub_max4 = alloca i32, align 4
+  // CHECK-NEXT: %.min_greater_max5 = alloca i8, align 1
+  // CHECK-NEXT: %.upper6 = alloca i32, align 4
+  // CHECK-NEXT: %.lower7 = alloca i32, align 4
   // CHECK-NEXT: %.capture_expr.8 = alloca i64, align 8
   #pragma omp for collapse(2)
   for (int i = 0; i < 4; i++) {

@@ -1178,6 +1178,9 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
   PTO.DisableIntelProprietaryOpts = CodeGenOpts.DisableIntelProprietaryOpts;
   PTO.EnableAutoCPUDispatch = !TargetOpts.AutoMultiVersionTargets.empty();
 #endif // INTEL_CUSTOMIZATION
+  // Enable a custom optimization pipeline for non-user SYCL code.
+  PTO.OptimizeSYCLFramework =
+      CodeGenOpts.OptimizeSYCLFramework && !CodeGenOpts.DisableLLVMPasses;
 
   LoopAnalysisManager LAM;
   FunctionAnalysisManager FAM;

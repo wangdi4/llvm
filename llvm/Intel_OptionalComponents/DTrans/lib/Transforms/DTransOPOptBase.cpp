@@ -924,7 +924,7 @@ void DTransOPOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
   // have been processed. The aliases need to be processed before the global
   // variable initializers are remapped in case a variable makes use of an
   // alias instead of the original variable or function.
-  for (auto &Alias : M.getAliasList()) {
+  for (auto &Alias : M.aliases()) {
     Constant *Aliasee = Alias.getAliasee();
     // If the Aliasee is being mapped to something other than itself,
     // then this GlobalAlias needs to be updated.
