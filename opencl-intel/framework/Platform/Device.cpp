@@ -27,7 +27,6 @@
 #include <framework_proxy.h>
 
 using namespace std;
-using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 PlatformModule *Device::m_pPlatformModule = nullptr;
@@ -290,7 +289,7 @@ cl_err_code Device::CreateInstance() {
   LOG_DEBUG(
       TEXT("%s"),
       TEXT("Need to create a new device instance (Device::CreateInstance)"));
-  OclAutoMutex CS(&m_deviceInitializationMutex);
+  std::lock_guard<std::recursive_mutex> CS(m_deviceInitializationMutex);
   if (0 == m_pDeviceRefCount) {
     LOG_DEBUG(TEXT("%s"),
               TEXT("Creating new device instance (Device::CreateInstance)"));
@@ -318,7 +317,7 @@ cl_err_code Device::CreateInstance() {
 }
 
 cl_err_code Device::CloseDeviceInstance() {
-  OclAutoMutex CS(&m_deviceInitializationMutex);
+  std::lock_guard<std::recursive_mutex> CS(m_deviceInitializationMutex);
   LOG_DEBUG(TEXT("%s"), TEXT("CloseDeviceInstance enter"));
   if (0 == --m_pDeviceRefCount) {
     if (!m_bTerminate) {
@@ -469,7 +468,7 @@ void Device::InitFECompiler() const {
 
 const SharedPtr<FrontEndCompiler> &Device::GetFrontEndCompiler() const {
   if (!m_bFrontEndCompilerDone) {
-    OclAutoMutex CS(&m_deviceInitializationMutex);
+    std::lock_guard<std::recursive_mutex> CS(m_deviceInitializationMutex);
     if (!m_bFrontEndCompilerDone) {
       InitFECompiler();
       m_bFrontEndCompilerDone = true;

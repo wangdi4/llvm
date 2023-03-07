@@ -17,6 +17,7 @@
 #include "MemoryObject.h"
 
 #include <list>
+#include <mutex>
 
 namespace Intel {
 namespace OpenCL {
@@ -133,7 +134,7 @@ protected:
       const SharedPtr<FissionableDevice> &, cl_dev_cmd_param_map *cmd_param_map,
       void *pHostMapDataPtr, bool force_unmap = false) override;
 
-  mutable Intel::OpenCL::Utils::OclSpinMutex m_muAcquireRelease;
+  mutable std::recursive_mutex m_muAcquireRelease;
   // This list hold the ordered events which represent acquire commands and
   // appropriate child object, the latest event located in the tail. Scenario:
   // clEnqueueAcquireGL...()

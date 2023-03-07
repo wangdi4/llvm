@@ -14,11 +14,8 @@
 
 #pragma once
 
-#include "cl_synch_objects.h"
-
+#include <mutex>
 #include <stack>
-
-using Intel::OpenCL::Utils::OclAutoMutex;
 
 namespace Intel {
 namespace OpenCL {
@@ -56,7 +53,7 @@ public:
 
 private:
   std::stack<ElemType *> m_stack;
-  Intel::OpenCL::Utils::OclSpinMutex m_mutex;
+  std::recursive_mutex m_mutex;
 };
 
 template <typename ElemType> void ObjectPool<ElemType>::Clear() {
@@ -67,23 +64,23 @@ template <typename ElemType> void ObjectPool<ElemType>::Clear() {
 }
 
 template <typename ElemType> ElemType *ObjectPool<ElemType>::Malloc() {
-  m_mutex.Lock();
+  m_mutex.lock();
   if (m_stack.empty()) {
     m_mutex
-        .Unlock(); // let the heavy new operator be outside the critical section
+        .unlock(); // let the heavy new operator be outside the critical section
     return new ElemType();
   } else {
     ElemType *const pElem = m_stack.top();
     assert(nullptr != pElem);
     m_stack.pop();
-    m_mutex.Unlock();
+    m_mutex.unlock();
     return pElem;
   }
 }
 
 template <typename ElemType> void ObjectPool<ElemType>::Free(ElemType *pObj) {
   assert(nullptr != pObj);
-  OclAutoMutex autoMutex(&m_mutex);
+  std::lock_guard<std::recursive_mutex> autoMutex(m_mutex);
   m_stack.push(pObj);
 }
 

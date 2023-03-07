@@ -15,8 +15,8 @@
 #pragma once
 
 #include "cl_shared_ptr.h"
-#include "cl_synch_objects.h"
 #include "task_executor.h"
+#include <mutex>
 #include <vector>
 
 using Intel::OpenCL::TaskExecutor::ITask;
@@ -24,7 +24,6 @@ using Intel::OpenCL::TaskExecutor::ITaskBase;
 using Intel::OpenCL::TaskExecutor::ITaskList;
 using Intel::OpenCL::TaskExecutor::TASK_PRIORITY;
 using Intel::OpenCL::Utils::AtomicCounter;
-using Intel::OpenCL::Utils::OclSpinMutex;
 using Intel::OpenCL::Utils::ReferenceCountedObject;
 using Intel::OpenCL::Utils::SharedPtr;
 
@@ -184,7 +183,7 @@ private:
   // finished)
   std::vector<SharedPtr<DeviceCommand>> m_commandsThisIsWaitingFor;
   SharedPtr<ITaskList> m_list;
-  mutable OclSpinMutex m_mutex;
+  mutable std::recursive_mutex m_mutex;
   mutable Utils::OclOsDependentEvent m_event;
   ITaskBase *const m_pMyTaskBase;
   const bool m_bIsProfilingEnabled;

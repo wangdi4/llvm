@@ -16,10 +16,10 @@
 
 #include "cl_device_api.h"
 #include "cl_shutdown.h"
-#include "cl_synch_objects.h"
 #include "harness_trapper.h"
 #include "task_executor.h"
 
+#include <mutex>
 #include <tbb/task_arena.h>
 #include <tbb/task_group.h>
 #include <tbb/task_scheduler_observer.h>
@@ -137,7 +137,7 @@ private:
   unsigned int m_uiLevel;
   unsigned int m_uiPosition[TE_MAX_LEVELS_COUNT];
 
-  Intel::OpenCL::Utils::OclSpinMutex m_lock;
+  std::recursive_mutex m_lock;
   std::vector<unsigned int> m_freePositions;
 
   DECLARE_LOGGER_CLIENT;

@@ -26,9 +26,9 @@
 #include "ocl_itt.h"
 #include "sampler.h"
 #include <Logger.h>
-#include <cl_synch_objects.h>
 #include <list>
 #include <map>
+#include <mutex>
 #include <set>
 #include <tuple>
 
@@ -693,7 +693,7 @@ protected:
 
   typedef std::list<cl_image_format> tImageFormatList;
   typedef std::map<cl_mem_flags, tImageFormatList> tImageFormatMap;
-  Intel::OpenCL::Utils::OclSpinMutex m_muFormatsMap;
+  std::recursive_mutex m_muFormatsMap;
   tImageFormatMap m_mapSupportedFormats;
 
   Intel::OpenCL::Utils::ClHeap m_MemObjectsHeap;

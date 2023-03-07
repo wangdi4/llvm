@@ -27,11 +27,11 @@
 // utils
 #include "Logger.h"
 #include "cl_shutdown.h"
-#include "cl_synch_objects.h"
 #include "cl_thread.h"
 #include "ocl_itt.h"
 
 // system
+#include <mutex>
 #include <set>
 
 namespace Intel {
@@ -221,7 +221,7 @@ private:
   mutable unsigned int m_uiTEActivationCount;
 
   // a lock to prevent double initialization
-  static Intel::OpenCL::Utils::OclSpinMutex m_initializationMutex;
+  static std::recursive_mutex m_initializationMutex;
 
   // Linux shutdown process
   static void CL_CALLBACK TerminateProcess(bool needToDisableAPI);

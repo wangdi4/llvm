@@ -52,6 +52,7 @@
 #include "cl_utils.h"
 #include "hw_utils.h"
 #include "ittnotify.h"
+#include <mutex>
 
 namespace Intel {
 namespace OpenCL {
@@ -201,16 +202,30 @@ private:
   bool m_bRecursive;
 };
 
-class OclSpinMutex : public IMutex {
+/************************************************************************
+ * OclRecursiveMutex:
+ * Add number of locked for std::recursive
+ ************************************************************************/
+class OclRecursiveMutex {
 public:
-  OclSpinMutex();
-  void Lock() override;
-  void Unlock() override;
+  void Lock() {
+    mutex.lock();
+    lMutex++;
+  };
+  void Unlock() {
+    mutex.unlock();
+#ifdef _DEBUG
+    long Val = lMutex--;
+    assert(Val != 0);
+#else
+    lMutex--;
+#endif
+  }
   bool lockedRecursively() const { return (lMutex > 1); }
 
 protected:
   AtomicCounter lMutex;
-  threadid_t threadId;
+  std::recursive_mutex mutex;
 };
 
 class OclNonReentrantSpinMutex : public IMutex {

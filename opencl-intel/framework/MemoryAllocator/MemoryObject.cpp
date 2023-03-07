@@ -18,14 +18,12 @@
 #include "cl_user_logger.h"
 #include "context_module.h"
 
-#include <cl_synch_objects.h>
 #if defined(DX_MEDIA_SHARING)
 #include "d3d9_resource.h"
 #endif
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
-using namespace Intel::OpenCL::Utils;
 
 MemoryObject::MemoryObject(SharedPtr<Context> pContext)
     : OCLObject<_cl_mem_int>(pContext.GetPtr() != NULL ? pContext->GetHandle()
@@ -62,7 +60,7 @@ cl_err_code MemoryObject::registerDtorNotifierCallback(mem_dtor_fn pfn_notify,
   notifyData->first = pfn_notify;
   notifyData->second = pUserData;
 
-  OclAutoMutex CS(&m_muNotifiers); // release on return
+  std::lock_guard<std::recursive_mutex> CS(m_muNotifiers);
   m_pfnNotifiers.push(notifyData);
   return CL_SUCCESS;
 }
@@ -322,7 +320,7 @@ cl_err_code MemoryObject::CreateMappedRegion(
   MapParamPerPtr *pclDevCmdParamMap = NULL;
   void *pPrevMapping = NULL;
 
-  OclAutoMutex CS(&m_muMappedRegions); // release on return
+  std::lock_guard<std::recursive_mutex> CS(m_muMappedRegions);
 
   // check if the region was mapped before
   Addr2MapRegionMultiMap::iterator it = m_mapMappedRegions.begin();
@@ -426,7 +424,7 @@ cl_err_code MemoryObject::GetMappedRegionInfo(
             pDevice.GetPtr(), mappedPtr);
   assert(NULL != pMapInfo);
   assert(NULL != pMappedOnDevice);
-  OclAutoMutex CS(&m_muMappedRegions); // release on return
+  std::lock_guard<std::recursive_mutex> CS(m_muMappedRegions);
 
   // try to find a region that hasn't yet been invalidated
   Addr2MapRegionMultiMap::iterator it = m_mapMappedRegions.find(mappedPtr);
@@ -465,7 +463,7 @@ cl_err_code MemoryObject::GetMappedRegionInfo(
 cl_err_code
 MemoryObject::UndoMappedRegionInvalidation(cl_dev_cmd_param_map *IN pMapInfo) {
   assert(NULL != pMapInfo);
-  OclAutoMutex CS(&m_muMappedRegions); // release on return
+  std::lock_guard<std::recursive_mutex> CS(m_muMappedRegions);
 
   Addr2MapRegionMultiMap::iterator it = m_mapMappedRegions.find(pMapInfo->ptr);
   MapParamPerPtr *info = NULL;
@@ -501,7 +499,7 @@ cl_err_code MemoryObject::ReleaseMappedRegion(cl_dev_cmd_param_map *IN pMapInfo,
                                               bool invalidatedBefore) {
   LOG_DEBUG(TEXT("Enter ReleaseMappedRegion (mapInfo=%p)"), pMapInfo);
 
-  OclAutoMutex CS(&m_muMappedRegions); // release on return
+  std::lock_guard<std::recursive_mutex> CS(m_muMappedRegions);
 
   // check if the region was mapped before
   Addr2MapRegionMultiMap::iterator it =
@@ -556,7 +554,7 @@ cl_err_code MemoryObject::ReleaseMappedRegion(cl_dev_cmd_param_map *IN pMapInfo,
 void MemoryObject::ReleaseAllMappedRegions() {
   LOG_DEBUG(TEXT("Enter ReleaseAllMappedRegions"));
 
-  OclAutoMutex CS(&m_muMappedRegions); // release on return
+  std::lock_guard<std::recursive_mutex> CS(m_muMappedRegions);
 
   if (0 == m_mapCount) {
     return;

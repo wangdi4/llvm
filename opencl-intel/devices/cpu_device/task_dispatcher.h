@@ -22,12 +22,12 @@
 #include "program_service.h"
 #include "task_executor.h"
 #include <builtin_kernels.h>
-#include <cl_synch_objects.h>
 #include <cl_thread.h>
 
 #include <atomic>
 #include <list>
 #include <map> //should be hash_map but cant compile #include <hash_map>
+#include <mutex>
 
 using namespace Intel::OpenCL::TaskExecutor;
 
@@ -129,7 +129,7 @@ public:
 
   queue_t GetTaskSeqQueue() {
     if (!m_pTaskSeqQueue) {
-      OclAutoMutex lock(&TaskSeqQueueMutex);
+      std::lock_guard<std::recursive_mutex> lock(TaskSeqQueueMutex);
       if (!m_pTaskSeqQueue) {
         cl_dev_err_code err = createCommandList(
             CL_DEV_LIST_ENABLE_OOO, GetRootDevice(), &m_pTaskSeqQueue);
@@ -240,7 +240,7 @@ protected:
 #endif
 
 private:
-  Intel::OpenCL::Utils::OclSpinMutex TaskSeqQueueMutex;
+  std::recursive_mutex TaskSeqQueueMutex;
 };
 
 class AffinitizeThreads : public ITaskSet {

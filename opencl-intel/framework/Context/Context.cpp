@@ -41,7 +41,6 @@
 #include <framework_proxy.h>
 
 using namespace std;
-using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 #ifdef __GNUC__
@@ -1429,7 +1428,7 @@ Context::CheckSupportedImageFormat(const cl_image_format *pclImageFormat,
 
   tImageFormatMap::iterator mapIT;
   { // Critical section
-    OclAutoMutex mu(&m_muFormatsMap);
+    std::lock_guard<std::recursive_mutex> mu(m_muFormatsMap);
     mapIT = m_mapSupportedFormats.find(key);
     // First access to the key, need to get formats from devices
     if (m_mapSupportedFormats.end() == mapIT) {
@@ -1466,7 +1465,7 @@ size_t Context::CalculateSupportedImageFormats(const cl_mem_flags clMemFlags,
   // Calculate supported format key
   cl_mem_flags key = getFormatsKey(clObjType, clMemFlags);
 
-  OclAutoMutex mu(&m_muFormatsMap);
+  std::lock_guard<std::recursive_mutex> mu(m_muFormatsMap);
 
   tImageFormatMap::iterator mapIT = m_mapSupportedFormats.find(key);
 

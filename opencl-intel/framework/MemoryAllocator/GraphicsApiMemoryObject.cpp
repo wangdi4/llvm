@@ -18,7 +18,6 @@
 #include "ocl_event.h"
 
 using namespace std;
-using namespace Intel::OpenCL::Utils;
 
 namespace Intel {
 namespace OpenCL {
@@ -55,7 +54,7 @@ cl_err_code GraphicsApiMemoryObject::LockOnDevice(
     OUT MemObjUsage *pOutUsageLocked, OUT SharedPtr<OclEvent> &pOutEvent) {
   pOutEvent = NULL;
   *pOutUsageLocked = usage;
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
   if (m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject) {
     return CL_SUCCESS;
   }
@@ -71,7 +70,7 @@ cl_err_code GraphicsApiMemoryObject::LockOnDevice(
 
 cl_err_code GraphicsApiMemoryObject::UnLockOnDevice(
     IN const SharedPtr<FissionableDevice> &dev, IN MemObjUsage usage) {
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
   if (m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject) {
     return CL_SUCCESS;
   }
@@ -87,7 +86,7 @@ cl_err_code GraphicsApiMemoryObject::UnLockOnDevice(
 cl_err_code GraphicsApiMemoryObject::CheckBoundsRect(
     const size_t *pszOrigin, const size_t *pszRegion, size_t szRowPitch,
     size_t szSlicePitch) const {
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
   if (m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject) {
     return CL_INVALID_VALUE;
   }
@@ -102,7 +101,7 @@ cl_err_code GraphicsApiMemoryObject::CheckBoundsRect(
 
 void *
 GraphicsApiMemoryObject::GetBackingStoreData(const size_t *pszOrigin) const {
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
   if (m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject) {
     return NULL;
   }
@@ -140,7 +139,7 @@ bool GraphicsApiMemoryObject::IsSupportedByDevice(
 cl_err_code GraphicsApiMemoryObject::MemObjCreateDevMappedRegion(
     const SharedPtr<FissionableDevice> &pDevice,
     cl_dev_cmd_param_map *cmd_param_map, void **pHostMapDataPtr) {
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
   if (m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject) {
     return CL_INVALID_OPERATION;
   }
@@ -158,7 +157,7 @@ cl_err_code GraphicsApiMemoryObject::MemObjReleaseDevMappedRegion(
     const SharedPtr<FissionableDevice> &pDevice,
     cl_dev_cmd_param_map *cmd_param_map, void *pHostMapDataPtr,
     bool force_unmap) {
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
   if (m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject) {
     return CL_INVALID_OPERATION;
   }
@@ -168,7 +167,7 @@ cl_err_code GraphicsApiMemoryObject::MemObjReleaseDevMappedRegion(
 
 bool GraphicsApiMemoryObject::IsSynchDataWithHostRequired(
     cl_dev_cmd_param_map *IN pMapInfo, void *IN pHostMapDataPtr) const {
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
   if (m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject) {
     return false;
   }
@@ -179,7 +178,7 @@ bool GraphicsApiMemoryObject::IsSynchDataWithHostRequired(
 cl_err_code
 GraphicsApiMemoryObject::SynchDataToHost(cl_dev_cmd_param_map *IN pMapInfo,
                                          void *IN pHostMapDataPtr) {
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
   if (m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject) {
     return CL_INVALID_OPERATION;
   }
@@ -190,7 +189,7 @@ GraphicsApiMemoryObject::SynchDataToHost(cl_dev_cmd_param_map *IN pMapInfo,
 cl_err_code
 GraphicsApiMemoryObject::SynchDataFromHost(cl_dev_cmd_param_map *IN pMapInfo,
                                            void *IN pHostMapDataPtr) {
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
   if (m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject) {
     return CL_INVALID_OPERATION;
   }
@@ -205,7 +204,7 @@ GraphicsApiMemoryObject::SynchDataFromHost(cl_dev_cmd_param_map *IN pMapInfo,
 
 cl_err_code
 GraphicsApiMemoryObject::SetAcquireCmdEvent(SharedPtr<OclEvent> pEvent) {
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
 
   if (NULL != pEvent.GetPtr()) {
     m_lstAcquiredObjectDescriptors.push_back(
@@ -240,7 +239,7 @@ GraphicsApiMemoryObject::SetAcquireCmdEvent(SharedPtr<OclEvent> pEvent) {
 cl_err_code GraphicsApiMemoryObject::ClearAcquireCmdEvent() {
   // we get there in case of failure - undo what we did in init
 
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
 
   // release the last object desc - which was insirted in init
   m_lstAcquiredObjectDescriptors.pop_back();
@@ -261,7 +260,7 @@ cl_err_code GraphicsApiMemoryObject::ClearAcquireCmdEvent() {
 cl_err_code GraphicsApiMemoryObject::GetDeviceDescriptor(
     const SharedPtr<FissionableDevice> &pDevice,
     IOCLDevMemoryObject **ppDevObject, SharedPtr<OclEvent> *ppEvent) {
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
 
   if (m_lstAcquiredObjectDescriptors.empty()) {
     // Trying to get device descriptor before acquire operation was enqueued
@@ -311,7 +310,7 @@ cl_err_code GraphicsApiMemoryObject::GetDeviceDescriptor(
 cl_err_code GraphicsApiMemoryObject::UpdateDeviceDescriptor(
     const SharedPtr<FissionableDevice> &IN pDevice,
     IOCLDevMemoryObject *OUT *ppDevObject) {
-  OclAutoMutex mu(&m_muAcquireRelease);
+  std::lock_guard<std::recursive_mutex> mu(m_muAcquireRelease);
 
   if (m_lstAcquiredObjectDescriptors.end() == m_itCurrentAcquriedObject) {
     // Trying to get device descriptor before acquire operation was enqueued
