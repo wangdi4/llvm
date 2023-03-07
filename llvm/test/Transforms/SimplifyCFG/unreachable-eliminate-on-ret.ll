@@ -37,7 +37,6 @@ bb2:
 define nonnull noundef ptr @test_ret_ptr_nonnull_noundef(i1 %cond, ptr %x) {
 ; CHECK-LABEL: @test_ret_ptr_nonnull_noundef(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    call void @llvm.assume(i1 [[COND:%.*]])
 ; CHECK-NEXT:    ret ptr [[X:%.*]]
 ;
 entry:
