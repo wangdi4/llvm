@@ -1343,71 +1343,44 @@ static std::string addSuffixInFunctionName(std::string FuncName,
   return (Twine("__") + FuncName + Twine("_before.") + Suffix).str();
 }
 
-static void
-replaceScalarKernelInVectorizerMetadata(Function *VFunc, Function *ScalarFunc,
-                                        StringRef ScalarFuncNameWithSuffix) {
+static void replaceScalarKernelInVectorizerMetadata(Function *VFunc,
+                                                    Function *NewF,
+                                                    Function *OldF) {
   SYCLKernelMetadataAPI::KernelInternalMetadataAPI VKIMD(VFunc);
-  if (!VKIMD.ScalarKernel.hasValue())
+  if (!VKIMD.ScalarKernel.hasValue() || VKIMD.ScalarKernel.get() != OldF)
     return;
-  Function *ScalarF = VKIMD.ScalarKernel.get();
-  if (ScalarF->getName() == ScalarFuncNameWithSuffix)
-    VKIMD.ScalarKernel.set(ScalarFunc);
+  VKIMD.ScalarKernel.set(NewF);
 }
 
-static void replaceScalarKernelInMetadata(Function *ScalarFunc,
-                                          StringRef Suffix) {
-  std::string ScalarFuncName = ScalarFunc->getName().str();
-  assert(ScalarFuncName.find(Suffix.str()) == std::string::npos &&
-         "Invalid scalar function name having suffix!");
-#if INTEL_CUSTOMIZATION
-  assert(!VFInfo::isVectorVariant(ScalarFuncName) &&
-         "Expect scalar function but it's vector variant.");
-#endif // end INTEL_CUSTOMIZATION
-  std::string ScalarFuncNameWithSuffix =
-      addSuffixInFunctionName(ScalarFuncName, Suffix);
-
-  SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(ScalarFunc);
+static void replaceScalarKernelInMetadata(Function *OldF, Function *NewF) {
+  SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(NewF);
   if (KIMD.VectorizedKernel.hasValue()) {
     Function *VectorizedF = KIMD.VectorizedKernel.get();
-    replaceScalarKernelInVectorizerMetadata(VectorizedF, ScalarFunc,
-                                            ScalarFuncNameWithSuffix);
+    replaceScalarKernelInVectorizerMetadata(VectorizedF, NewF, OldF);
   }
   if (KIMD.VectorizedMaskedKernel.hasValue()) {
     Function *VectorizedMaskedF = KIMD.VectorizedMaskedKernel.get();
-    replaceScalarKernelInVectorizerMetadata(VectorizedMaskedF, ScalarFunc,
-                                            ScalarFuncNameWithSuffix);
+    replaceScalarKernelInVectorizerMetadata(VectorizedMaskedF, NewF, OldF);
   }
 }
 
-#if INTEL_CUSTOMIZATION
-static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF,
-                                              StringRef Suffix) {
-  std::string NewFName = NewF->getName().str();
-  assert(NewFName.find(Suffix.str()) == std::string::npos &&
-         "Invalid vectorized function name having suffix!");
-
-  std::optional<VFInfo> Variant = VFABI::tryDemangleForVFABI(NewFName);
-  assert(Variant.has_value() && "Expect vector variant but it's not.");
-
-  Function *ScalarFunc = NewF->getParent()->getFunction(Variant->ScalarName);
-  if (ScalarFunc == nullptr)
+static void replaceVectorizedKernelInMetadata(Function *OldF, Function *NewF) {
+  SYCLKernelMetadataAPI::KernelInternalMetadataAPI VKIMD(NewF);
+  if (!VKIMD.ScalarKernel.hasValue()) {
     return;
+  }
+  Function *ScalarFunc = VKIMD.ScalarKernel.get();
+  if (!ScalarFunc) {
+    return;
+  }
   SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(ScalarFunc);
-  if (!Variant->isMasked()) {
-    if (KIMD.VectorizedKernel.hasValue()) {
-      assert(KIMD.VectorizedKernel.get() == OldF &&
-             "Invalid vectorized masked function!");
-      KIMD.VectorizedKernel.set(NewF);
-    }
-  } else {
-    if (KIMD.VectorizedMaskedKernel.hasValue()) {
-      assert(KIMD.VectorizedMaskedKernel.get() == OldF &&
-             "Invalid vectorized masked function!");
-      KIMD.VectorizedMaskedKernel.set(NewF);
-    }
+  if (KIMD.VectorizedKernel.hasValue() && KIMD.VectorizedKernel.get() == OldF) {
+    KIMD.VectorizedKernel.set(NewF);
+  } else if (KIMD.VectorizedMaskedKernel.hasValue() &&
+             KIMD.VectorizedMaskedKernel.get() == OldF) {
+    KIMD.VectorizedMaskedKernel.set(NewF);
   }
 }
-#endif // end INTEL_CUSTOMIZATION
 
 Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
                             ArrayRef<const char *> NewArgumentNames,
@@ -1485,16 +1458,12 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
       [F](llvm::Function *Func) { return F == Func; }, NewF);
   KernelList(M).set(Kernels);
 
-#if INTEL_CUSTOMIZATION
   // Since the name of F function is added with suffix, we have to replace it
   // with original name of F function (now it's name of NewF function) with NewF
   // function name in the metadata for vectorized kernel, masked kernel and
   // scalar kernel
-  if (VFInfo::isVectorVariant(NewF->getName().str()))
-    replaceVectorizedKernelInMetadata(F, NewF, Suffix);
-  else
-    replaceScalarKernelInMetadata(NewF, Suffix);
-#endif // INTEL_CUSTOMIZATION
+  replaceVectorizedKernelInMetadata(F, NewF);
+  replaceScalarKernelInMetadata(F, NewF);
 
   return NewF;
 }

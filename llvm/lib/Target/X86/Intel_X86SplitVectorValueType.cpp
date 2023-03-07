@@ -237,13 +237,6 @@ public:
                     SmallVector<unsigned, 2> &&OperandList)
       : BinaryInstAction(I, NI), OperandList(std::move(OperandList)) {}
 
-  UpdateInstOperand(const UpdateInstOperand &&UIO)
-      : BinaryInstAction(std::move(UIO)),
-        OperandList(std::move(UIO.OperandList)) {}
-
-  UpdateInstOperand(const UpdateInstOperand &UIO)
-      : BinaryInstAction(UIO), OperandList(UIO.OperandList) {}
-
   void run() {
     for (unsigned OpI : OperandList)
       I->setOperand(OpI, NI);
