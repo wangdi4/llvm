@@ -245,15 +245,62 @@ public:
   bool isRefinableDepAtLevel(const DDEdge *Edge, unsigned Level) const;
 
   /// \brief Refine DV by calling demand driven DD.
-  /// e.g. If we are testing for Vectorization for outer loop level 4
-  ///  in a 5 level Loop,  Start nest = 4, Deepest nest = 5
-  ///  The input DV will be set as  * from Start to Deepest
-  ///  Input DV for DD in this case is (= = = * *).
-  ///  When ForFusion is true, DD assumes both references are inside the
-  ///  deepest nesting.
-
-  RefinedDependence refineDV(const DDRef *SrcDDRef, const DDRef *DstDDRef,
-                             unsigned StartNestingLevel,
+  /// e.g. If we are testing for vectorization for outer loop level 4
+  /// in a 5 level loop then \p StartNestingLevel = 4 and \p DeepestNestingLevel
+  /// = 5. The input DV will be set as * from StartNestingLevel to
+  /// DeepestNestingLevel. Internally, DD's input DV will be set to (= = = * *).
+  /// Essentially, DD will only refine DV at level 4 and 5.
+  ///
+  /// For example, consider this 2-level loopnest-
+  /// DO i1
+  ///   DO i2
+  ///     A[i1][i2] =
+  ///               = A[i1-1][i2]
+  ///   END DO
+  /// END DO
+  ///
+  /// DD will return this flow edge with a call to getGraph()-
+  /// A[i1][i2] --> A[i1-1][i2] FLOW (< =)
+  ///
+  /// Note that in this case it doesn't matter whether getGraph() was called for
+  /// i1 of i2 loop, the dependency is evaluated at all loop levels common to
+  /// src/dest refs. The only difference between calls to getGraph() of loops at
+  /// different levels is how the refs are collected. For getGraph(i1), all refs
+  /// inside i1 loop will be collected. For getGraph(i2), all refs within i2
+  /// loop will be collected.
+  //
+  /// If we are testing for innermost loop vectorization, the client can pass
+  /// StartNestingLevel = DeepestNestingLevel = 2 to refineDV(). With this
+  /// input, refineDV() will return 'independent' for the edge as the dependency
+  /// is carried by the i1 loop.
+  ///
+  /// When \p ForFusion is true, DD assumes both references are inside the
+  /// deepest nesting level and also flips the src and sink as fusion is
+  /// interested in knowing 'potential' backward dependency resulting from
+  /// fusion for the forward dependency represented by \p Edge.
+  ///
+  /// For example, consider this sibling loopnest-
+  /// DO i1
+  ///   DO i2
+  ///      A[i1+i2] =
+  ///    END DO
+  ///  END DO
+  ///
+  /// DO i1
+  ///     = A[i1]
+  /// END DO
+  ///
+  /// DD will return this flow edge with a call to getGraph(Region)-
+  /// A[i1+i2] --> A[i1] FLOW (*)
+  ///
+  /// Since we are testing for fusion at i1 level, client will pass
+  /// StartNestingLevel = 1 and DeepestNestingLevel = 2 to refineDV(). With this
+  /// input, refineDV() will return backward ANTI edge DV (>= *). This
+  /// represents a legal edge for fusion since the dependence is carried by the
+  /// i2 loop. If DD allows it, it might be possible to always pass the same
+  /// StartNestingLevel and DeepestNestingLevel if we are fusing from outer to
+  /// inner loop level, one level at a time.
+  RefinedDependence refineDV(const DDEdge *Edge, unsigned StartNestingLevel,
                              unsigned DeepestNestingLevel,
                              bool ForFusion) const;
 
