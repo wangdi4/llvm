@@ -64,11 +64,7 @@ struct DeviceGlobalUSMMem {
   DeviceGlobalUSMMem(void *Ptr) : MPtr(Ptr) {}
   ~DeviceGlobalUSMMem();
 
-<<<<<<< HEAD
-  void *getPtr() const noexcept { return MPtr; }
-=======
   void *const &getPtr() const noexcept { return MPtr; }
->>>>>>> 44b80dce421bf378198b3776959a232ca67cf1c4
 
   // Gets the zero-initialization event if it exists. If not the OwnedPiEvent
   // will contain no event.
