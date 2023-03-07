@@ -1034,24 +1034,6 @@ struct RTLOptionTy {
   RTLOptionTy() {
     const char *Env;
 
-    // Get global OMP_THREAD_LIMIT for SPMD parallelization.
-    int ThrLimit = omp_get_thread_limit();
-    DP("omp_get_thread_limit() returned %" PRId32 "\n", ThrLimit);
-    // omp_get_thread_limit() would return INT_MAX by default.
-    // NOTE: Windows.h defines max() macro, so we have to guard
-    //       the call with parentheses.
-    ThreadLimit = (ThrLimit > 0 &&
-        ThrLimit != (std::numeric_limits<int32_t>::max)()) ? ThrLimit : 0;
-
-    // Global max number of teams.
-    int NTeams = omp_get_max_teams();
-    DP("omp_get_max_teams() returned %" PRId32 "\n", NTeams);
-    // omp_get_max_teams() would return INT_MAX by default.
-    // NOTE: Windows.h defines max() macro, so we have to guard
-    //       the call with parentheses.
-    NumTeams = (NTeams > 0 &&
-        NTeams != (std::numeric_limits<int32_t>::max)()) ? NTeams : 0;
-
     // Read LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD
     if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD"))) {
       std::string Value(Env);
@@ -1308,6 +1290,30 @@ struct RTLOptionTy {
         Str == "no" || Str == "disabled")
       return 0;
     return -1;
+  }
+
+  /// Read global thread limit and max teams from the host runtime. These values
+  /// are subject to change at any program point, so every kernel execution
+  /// needs to read the most recent values.
+  void readTeamsThreadLimit() {
+    int ThrLimit = omp_get_thread_limit();
+    DP("omp_get_thread_limit() returned %" PRId32 "\n", ThrLimit);
+    // omp_get_thread_limit() would return INT_MAX by default.
+    // NOTE: Windows.h defines max() macro, so we have to guard
+    //       the call with parentheses.
+    ThreadLimit =
+        (ThrLimit > 0 && ThrLimit != (std::numeric_limits<int32_t>::max)())
+            ? ThrLimit
+            : 0;
+
+    int NTeams = omp_get_max_teams();
+    DP("omp_get_max_teams() returned %" PRId32 "\n", NTeams);
+    // omp_get_max_teams() would return INT_MAX by default.
+    // NOTE: Windows.h defines max() macro, so we have to guard
+    //       the call with parentheses.
+    NumTeams = (NTeams > 0 && NTeams != (std::numeric_limits<int32_t>::max)())
+                   ? NTeams
+                   : 0;
   }
 }; // RTLOptionTy
 
@@ -2628,6 +2634,9 @@ static inline int32_t runTargetTeamNDRegion(
   size_t KernelLocalMemSize = (size_t)LocalMemSizeTmp;
   DP("Kernel local mem size: %zu\n", KernelLocalMemSize);
 #endif // INTEL_INTERNAL_BUILD
+
+  // Read the most recent global thread limit and max teams.
+  DeviceInfo->Option.readTeamsThreadLimit();
 
   // Decide group sizes and counts
   size_t LocalWorkSize[3] = {1, 1, 1};
