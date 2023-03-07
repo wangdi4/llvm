@@ -257,6 +257,11 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/nan_s_xa.cpp
                            imf/intel/scalbn_s_xa.cpp
                            imf/intel/signbit_s_xa.cpp
+                           imf/intel/i0_s_ep.cpp
+                           imf/intel/j0_s_ep.cpp
+                           imf/intel/j1_s_ep.cpp
+                           imf/intel/y0_s_ep.cpp
+                           imf/intel/y1_s_ep.cpp
                            # end INTEL_CUSTOMIZATION
                            imf/imf_inline_fp32.cpp)
 set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
@@ -329,6 +334,7 @@ set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/tanh_d_ha.cpp
                            imf/intel/tgamma_d_ep.cpp
                            imf/intel/lgamma_d_ep.cpp
+                           imf/intel/i0_d_ep.cpp
                            # end INTEL_CUSTOMIZATION
                            imf/imf_inline_fp64.cpp)
 set(imf_fallback_bf16_deps device.h device_imf.hpp imf_bf16.hpp
