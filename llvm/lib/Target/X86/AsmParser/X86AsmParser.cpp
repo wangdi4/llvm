@@ -122,6 +122,13 @@ class X86AsmParser : public MCTargetAsmParser {
 
   DispEncoding ForcedDispEncoding = DispEncoding_Default;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  // Is this instruction explicitly required not to update flags?
+  bool ForcedNoFlag = false;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 private:
   SMLoc consumeToken() {
     MCAsmParser &Parser = getParser();
@@ -3105,6 +3112,11 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   // Reset the forced VEX encoding.
   ForcedVEXEncoding = VEXEncoding_Default;
   ForcedDispEncoding = DispEncoding_Default;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  ForcedNoFlag = false;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   // Parse pseudo prefixes.
   while (true) {
@@ -3129,6 +3141,12 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
         ForcedDispEncoding = DispEncoding_Disp8;
       else if (Prefix == "disp32")
         ForcedDispEncoding = DispEncoding_Disp32;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      else if (Prefix == "nf")
+        ForcedNoFlag = true;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       else
         return Error(NameLoc, "unknown prefix");
 
@@ -4207,6 +4225,13 @@ static unsigned getPrefixes(OperandVector &Operands) {
 unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
   unsigned Opc = Inst.getOpcode();
   const MCInstrDesc &MCID = MII.get(Opc);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  if (ForcedNoFlag && !(MCID.TSFlags & X86II::EVEX_NF))
+    return Match_Unsupported;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   if (ForcedVEXEncoding == VEXEncoding_EVEX &&
       (MCID.TSFlags & X86II::EncodingMask) != X86II::EVEX)

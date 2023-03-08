@@ -152,6 +152,9 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
 #if INTEL_FEATURE_ISA_AVX256P
   HasEVEX_P10 = Rec->getValueAsBit("hasEVEX_P10");
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+  HasEVEX_NF = Rec->getValueAsBit("hasEVEX_NF");
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   IsCodeGenOnly = Rec->getValueAsBit("isCodeGenOnly");
   IsAsmParserOnly = Rec->getValueAsBit("isAsmParserOnly");
@@ -227,6 +230,10 @@ void RecognizableInstr::processInstr(DisassemblerTables &tables,
 #define EVEX_KB_P10(n) (HasEVEX_KZ ? n##_KZ_B_P10 : \
                         (HasEVEX_K ? n##_K_B_P10 : n##_B_P10))
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+#define EVEX_NF(n) (HasEVEX_NF ? n##_NF: n)
+#define EVEX_B_NF(n) (HasEVEX_B ? EVEX_NF(n##_B): EVEX_NF(n))
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 InstructionContext RecognizableInstr::insnContext() const {
@@ -260,8 +267,18 @@ InstructionContext RecognizableInstr::insnContext() const {
         else if (OpPrefix == X86Local::PS)
           insnContext = EVEX_KB_P10(IC_EVEX);
       }
-    } else
+    }
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+    else if (HasEVEX_NF) {
+      if (OpPrefix == X86Local::PD)
+        insnContext = EVEX_B_NF(IC_EVEX_OPSIZE);
+      else if (HasVEX_W)
+        insnContext = EVEX_B_NF(IC_EVEX_W);
+      else
+        insnContext = EVEX_B_NF(IC_EVEX);
+    } else
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     // VEX_L & VEX_W
     if (!EncodeRC && HasVEX_L && HasVEX_W) {
@@ -1416,6 +1433,12 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
 OperandEncoding
 RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
                                                   uint8_t OpSize) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  ENCODING("GR8",             ENCODING_VVVV)
+  ENCODING("GR16",            ENCODING_VVVV)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   ENCODING("GR32",            ENCODING_VVVV)
   ENCODING("GR64",            ENCODING_VVVV)
   ENCODING("FR32",            ENCODING_VVVV)

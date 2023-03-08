@@ -311,6 +311,12 @@ class EVEX_K { bit hasEVEX_K = 1; }
 class EVEX_KZ : EVEX_K { bit hasEVEX_Z = 1; }
 class EVEX_B { bit hasEVEX_B = 1; }
 class EVEX_RC { bit hasEVEX_RC = 1; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+class EVEX_NF { bit hasEVEX_NF = 1; }
+class EVEX_B4V : EVEX_B { bit hasVEX_4V = 1; }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 class EVEX_V512 { bit hasEVEX_L2 = 1; bit hasVEX_L = 0; }
 class EVEX_V256 { bit hasEVEX_L2 = 0; bit hasVEX_L = 1; }
 class EVEX_V128 { bit hasEVEX_L2 = 0; bit hasVEX_L = 0; }
@@ -455,6 +461,9 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 #if INTEL_FEATURE_ISA_AVX256P
   bit hasEVEX_P10 = 0;      // Does this inst set the EVEX_P10 field?
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+  bit hasEVEX_NF = 0;      // Does this inst set the EVEX_NF field?
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   // Force to check predicate before compress EVEX to VEX encoding.
   bit checkVEXPredicate = 0;
@@ -495,6 +504,9 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 #if INTEL_FEATURE_ISA_AVX256P
   let TSFlags{59}    = hasEVEX_P10;
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+  let TSFlags{60}    = hasEVEX_NF;
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }
 

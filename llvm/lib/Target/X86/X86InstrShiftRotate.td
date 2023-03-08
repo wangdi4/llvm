@@ -33,9 +33,13 @@
 // The chars behind underline represent their inputs and outputs, use a '_' to
 // connect. In it, R means Register, M means mem, I means Imm, so I_R_R means
 // this class denotes an instruction with one output reg and one input reg.
-class I_R_R<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic, 
+class I_R_R<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
             string operands, list<dag> patterns>
-  : ITy<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst), 
+  : ITy<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+        (ins typeinfo.RegClass:$src1), mnemonic, operands, patterns>;
+class I_R_R_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
+            string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
         (ins typeinfo.RegClass:$src1), mnemonic, operands, patterns>;
 
 class I_R_RI<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic, 
@@ -204,29 +208,23 @@ let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shift_ri_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 }
 
-class shiftl_r1<bits<8> opcode, Format f, string mnemonic, 
-                X86TypeInfo typeinfo>
-  : I_R_R<opcode, f, typeinfo, mnemonic, "$dst", []>;
+class shiftl_r1<bits<8> opcode, Format f, X86TypeInfo typeinfo>
+  : I_R_R_EVEX<opcode, f, typeinfo, "shl", "$dst", []>;
 
-class shiftl_r1_NDD<bits<8> opcode, Format f, string mnemonic, 
-                    X86TypeInfo typeinfo>
-  : I_R_R<opcode, f, typeinfo, mnemonic, "{$src1, $dst|$dst, $src1}", []>;
+class shiftl_r1_NDD<bits<8> opcode, Format f, X86TypeInfo typeinfo>
+  : I_R_R_EVEX<opcode, f, typeinfo, "shl", "{$src1, $dst|$dst, $src1}", []>;
 
-multiclass mshiftl_r1<bits<8> opcode, Format f, string mnemonic, 
-                      X86TypeInfo typeinfo>{
+multiclass mshiftl_r1<bits<8> opcode, Format f, X86TypeInfo typeinfo> {
 let Defs = [EFLAGS] in {
-let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
-  def NAME  : shiftl_r1<opcode, f, mnemonic, typeinfo>;
-let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
-  def NAME_#EVEX  : shiftl_r1<opcode, f, mnemonic, typeinfo>;
-let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
-  def NAME#_ND : shiftl_r1_NDD<opcode, f, mnemonic, typeinfo>;
+let Constraints = "$src1 = $dst" in {
+  def NAME: I_R_R<opcode, f, typeinfo, "shl", "$dst", []>;
+  def _EVEX  : shiftl_r1<opcode, f, typeinfo>, EmitVEXOrEVEXPrefix;
 }
-let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
-    isCodeGenOnly = 1 in
-  def NAME#_NF : shiftl_r1<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
-let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
-  def NAME#_ND_NF : shiftl_r1_NDD<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
+  def _ND : shiftl_r1_NDD<opcode, f, typeinfo>, EVEX_B4V;
+}
+let Constraints = "$src1 = $dst" in
+  def _NF : shiftl_r1<opcode, f, typeinfo>, EVEX_NF;
+  def _ND_NF : shiftl_r1_NDD<opcode, f, typeinfo>, EVEX_B4V, EVEX_NF;
 }
 
 let Uses = [CL], SchedRW = [WriteShiftCL] in {
@@ -246,10 +244,10 @@ defm SHL64ri  : mshiftl_ri<0xC1, MRM4r, "shl", shl, Xi64>;
 // NOTE: We don't include patterns for shifts of a register by one, because
 // 'add reg,reg' is cheaper (and we have a Pat pattern for shift-by-one).
 let hasSideEffects = 0, SchedRW = [WriteShift] in {
-defm SHL8r1   : mshiftl_r1<0xD0, MRM4r, "shl", Xi8>;
-defm SHL16r1  : mshiftl_r1<0xD1, MRM4r, "shl", Xi16>;
-defm SHL32r1  : mshiftl_r1<0xD1, MRM4r, "shl", Xi32>;
-defm SHL64r1  : mshiftl_r1<0xD1, MRM4r, "shl", Xi64>;
+defm SHL8r1   : mshiftl_r1<0xD0, MRM4r, Xi8>;
+defm SHL16r1  : mshiftl_r1<0xD1, MRM4r, Xi16>;
+defm SHL32r1  : mshiftl_r1<0xD1, MRM4r, Xi32>;
+defm SHL64r1  : mshiftl_r1<0xD1, MRM4r, Xi64>;
 } // hasSideEffects = 0
 
 // FIXME: Why do we need an explicit "Uses = [CL]" when the instr has a pattern

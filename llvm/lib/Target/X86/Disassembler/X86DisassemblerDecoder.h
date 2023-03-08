@@ -89,6 +89,11 @@ namespace X86Disassembler {
 #define bFromEVEX4of4(evex)     (((evex) & 0x10) >> 4)
 #define v2FromEVEX4of4(evex)    (((~evex) & 0x8) >> 3)
 #define aaaFromEVEX4of4(evex)   ((evex) & 0x7)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+#define nfFromEVEX4of4(evex)    (((evex) >> 2) & 0x1)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 #define rFromVEX2of3(vex)       (((~(vex)) & 0x80) >> 7)
 #define xFromVEX2of3(vex)       (((~(vex)) & 0x40) >> 6)

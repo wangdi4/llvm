@@ -67,3 +67,9 @@
 # CHECK: vextractps	r16d, xmm16, 1
 # CHECK: encoding: [0x62,0xeb,0x7d,0x08,0x17,0xc0,0x01]
          vextractps	r16d, xmm16, 1
+
+## MRM4r
+
+# CHECK: shl	r17d, r16d
+# CHECK: encoding: [0x62,0xfc,0x74,0x10,0xd1,0xe0]
+         shl	r17d, r16d

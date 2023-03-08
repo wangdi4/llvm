@@ -1,4 +1,21 @@
 //===-- X86InstrArithmetic.td - Integer Arithmetic Instrs --*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -70,6 +87,30 @@ class ITy<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
   let OpSize = typeinfo.OpSize;
   let hasREX_W  = typeinfo.HasREX_W;
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+/// ITy_EVEX - This instruction base class takes the type info for the instruction.
+/// Using this, it:
+/// 1. Concatenates together the instruction mnemonic with the appropriate
+///    suffix letter, a tab, and the arguments.
+/// 2. Infers whether the instruction should have a PD prefix.
+/// 3. Infers whether the instruction should have a VEX_W prefix.
+/// 4. Infers whether the low bit of the opcode should be 0 (for i8 operations)
+///    or 1 (for i16,i32,i64 operations).
+class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
+          string mnemonic, string args, list<dag> pattern>
+  : I<{opcode{7}, opcode{6}, opcode{5}, opcode{4},
+       opcode{3}, opcode{2}, opcode{1}, typeinfo.HasOddOpcode },
+      f, outs, ins,
+      !strconcat(mnemonic, "{", typeinfo.InstrSuffix, "}\t", args), pattern>, T_MAP4, EVEX {
+
+  // Infer instruction prefixes from type info.
+  let HasVEX_W  = typeinfo.HasREX_W;
+  let OpPrefix = !if (!eq (typeinfo.OpSize, OpSize16), PD, PS);
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // BinOpRR - Binary instructions with inputs "reg, reg".
 class BinOpRR<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
