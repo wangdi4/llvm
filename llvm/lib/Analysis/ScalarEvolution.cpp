@@ -8483,10 +8483,6 @@ ScalarEvolution::getOperandsToCreate(Value *V, SmallVectorImpl<Value *> &Ops) {
   } else if (ConstantInt *CI = dyn_cast<ConstantInt>(V))
     return getConstant(CI);
   else if (GlobalAlias *GA = dyn_cast<GlobalAlias>(V)) {
-    if (!GA->isInterposable()) {
-      Ops.push_back(GA->getAliasee());
-      return nullptr;
-    }
     return getUnknown(V);
   } else if (!isa<ConstantExpr>(V))
     return getUnknown(V);
@@ -8700,7 +8696,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
   } else if (ConstantInt *CI = dyn_cast<ConstantInt>(V))
     return getConstant(CI);
   else if (GlobalAlias *GA = dyn_cast<GlobalAlias>(V))
-    return GA->isInterposable() ? getUnknown(V) : getSCEV(GA->getAliasee());
+    return getUnknown(V);
   else if (!isa<ConstantExpr>(V))
     return getUnknown(V);
 
