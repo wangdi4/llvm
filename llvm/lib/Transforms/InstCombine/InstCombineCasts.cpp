@@ -1043,7 +1043,7 @@ Instruction *InstCombinerImpl::visitTrunc(TruncInst &Trunc) {
     }
   }
 
-  if (match(Src, m_VScale(DL))) {
+  if (match(Src, m_VScale())) {
     if (Trunc.getFunction() &&
         Trunc.getFunction()->hasFnAttribute(Attribute::VScaleRange)) {
       Attribute Attr =
@@ -1392,7 +1392,7 @@ Instruction *InstCombinerImpl::visitZExt(ZExtInst &Zext) {
     return BinaryOperator::CreateAnd(X, ZextC);
   }
 
-  if (match(Src, m_VScale(DL))) {
+  if (match(Src, m_VScale())) {
     if (Zext.getFunction() &&
         Zext.getFunction()->hasFnAttribute(Attribute::VScaleRange)) {
       Attribute Attr =
@@ -1781,7 +1781,7 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &Sext) {
     }
   }
 
-  if (match(Src, m_VScale(DL))) {
+  if (match(Src, m_VScale())) {
     if (Sext.getFunction() &&
         Sext.getFunction()->hasFnAttribute(Attribute::VScaleRange)) {
       Attribute Attr =

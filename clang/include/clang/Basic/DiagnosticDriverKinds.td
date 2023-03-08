@@ -731,11 +731,6 @@ def err_drv_cxx_header_not_found : Error<
   "C++ header location not resolved; check installed C++ dependencies">;
 #endif // INTEL_CUSTOMIZATION
 
-def warn_deperecated_fcoroutines_ts_flag : Warning<
-  "the '-fcoroutines-ts' flag is deprecated and it will be removed in Clang 17; "
-  "use '-std=c++20' or higher to use standard C++ coroutines instead">,
-  InGroup<DeprecatedExperimentalCoroutine>;
-
 def err_drv_cannot_mix_options : Error<"cannot specify '%1' along with '%0'">;
 
 def err_drv_invalid_object_mode : Error<

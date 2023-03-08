@@ -2767,11 +2767,6 @@ cc_library(
         "include/llvm/WindowsManifest/*.h",
     ]),
     copts = llvm_copts,
-    linkopts = [
-        # Libxml2 is required to process Windows manifests. Without this,
-        # lld uses Microsoft mt.exe instead, which is not cross-platform.
-        "-lxml2",
-    ],
     deps = [
         ":Support",
         ":config",
