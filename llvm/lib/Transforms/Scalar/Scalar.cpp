@@ -111,7 +111,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeRegToMemLegacyPass(Registry);
   initializeRewriteStatepointsForGCLegacyPassPass(Registry);
   initializeScalarizeMaskedMemIntrinLegacyPassPass(Registry);
-  initializeSCCPLegacyPassPass(Registry);
   initializeSROALegacyPassPass(Registry);
   initializeSROALegacyCGSCCAdaptorPassPass(Registry); // INTEL
   initializeCFGSimplifyPassPass(Registry);
@@ -254,6 +253,7 @@ void LLVMAddReassociatePass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createReassociatePass());
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void LLVMAddAddSubReassociatePass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createAddSubReassociatePass());
@@ -275,6 +275,8 @@ void LLVMAddSCCPPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createSCCPPass());
 }
 
+=======
+>>>>>>> e2cd0851faaba39cc04c3059df25d22a02b1e682
 void LLVMAddScalarReplAggregatesPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createSROAPass());
 }
