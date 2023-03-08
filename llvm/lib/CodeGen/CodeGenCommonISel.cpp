@@ -225,8 +225,8 @@ llvm::findSplitPointForStackProtector(MachineBasicBlock *BB,
   return SplitPoint;
 }
 
-unsigned llvm::getInvertedFPClassTest(unsigned Test) {
-  unsigned InvertedTest = ~Test & fcAllFlags;
+FPClassTest llvm::getInvertedFPClassTest(FPClassTest Test) {
+  FPClassTest InvertedTest = ~Test & fcAllFlags;
   switch (InvertedTest) {
   default:
     break;
@@ -250,7 +250,7 @@ unsigned llvm::getInvertedFPClassTest(unsigned Test) {
   case fcNegFinite:
     return InvertedTest;
   }
-  return 0;
+  return fcNone;
 }
 
 static MachineOperand *getSalvageOpsForCopy(const MachineRegisterInfo &MRI,
