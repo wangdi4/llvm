@@ -111,7 +111,6 @@ void LLVMAddPartiallyInlineLibCallsPass(LLVMPassManagerRef PM);
 /** See llvm::createReassociatePass function. */
 void LLVMAddReassociatePass(LLVMPassManagerRef PM);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /** See llvm::createAddSubReassociatePass function. */
 void LLVMAddAddSubReassociatePass(LLVMPassManagerRef PM);
@@ -126,11 +125,6 @@ void LLVMAddForcedCMOVGenerationPass(LLVMPassManagerRef PM);
 /** See llvm::createTransformSinAndCosCallsPass function. */
 void LLVMAddTransformSinAndCosCallsPass(LLVMPassManagerRef PM);
 #endif // INTEL_CUSTOMIZATION
-/** See llvm::createSCCPPass function. */
-void LLVMAddSCCPPass(LLVMPassManagerRef PM);
-
-=======
->>>>>>> e2cd0851faaba39cc04c3059df25d22a02b1e682
 /** See llvm::createSROAPass function. */
 void LLVMAddScalarReplAggregatesPass(LLVMPassManagerRef PM);
 
