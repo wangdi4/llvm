@@ -118,7 +118,6 @@ KnownBits computeKnownBits(const Value *V, const APInt &DemandedElts,
 /// \p KnownOne the set of bits that are known to be one
 void computeKnownBitsFromRangeMetadata(const MDNode &Ranges, KnownBits &Known);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// Returns true if the given floating-point value is a whole number.
   bool isFPValueIntegral(const Value *V);
@@ -143,14 +142,13 @@ void computeKnownBitsFromRangeMetadata(const MDNode &Ranges, KnownBits &Known);
                              const DominatorTree *DT = nullptr,
                              bool UseInstrInfo = true);
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// Using KnownBits LHS/RHS produce the known bits for logic op (and/xor/or).
 KnownBits analyzeKnownBitsFromAndXorOr(
     const Operator *I, const KnownBits &KnownLHS, const KnownBits &KnownRHS,
     unsigned Depth, const DataLayout &DL, AssumptionCache *AC = nullptr,
     const Instruction *CxtI = nullptr, const DominatorTree *DT = nullptr,
     OptimizationRemarkEmitter *ORE = nullptr, bool UseInstrInfo = true);
->>>>>>> 6ad6f9c57911a9e6279e4b6ef212d25e58dac112
 
 /// Return true if LHS and RHS have no common bits set.
 bool haveNoCommonBitsSet(const Value *LHS, const Value *RHS,
