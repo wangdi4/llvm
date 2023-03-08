@@ -329,6 +329,7 @@ public:
     assert((Encoding < 8) && "Invalid EVEX.aaa");
     EVEX_aaa = Encoding;
   }
+  void setNF(bool V) { EVEX_aaa |= V << 2; }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
@@ -1167,6 +1168,9 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
 #if INTEL_FEATURE_ISA_AVX256P
   Prefix.setP10(TSFlags & X86II::EVEX_P10);
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+  Prefix.setNF(TSFlags & X86II::EVEX_NF);
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   bool EncodeRC = false;
@@ -1504,7 +1508,15 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
     // MRM0r-MRM7r instructions forms:
     //  dst(VEX_4V), src(ModR/M), imm8
     if (HasVEX_4V)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      Prefix.set4VV2(MI, CurOp++,
+                     ((TSFlags & X86II::OpMapMask) == X86II::T_MAP4) &&
+                         (TSFlags & X86II::EVEX_B));
+#else // INTEL_FEATURE_ISA_APX_F
       Prefix.set4VV2(MI, CurOp++);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     if (HasEVEX_K)
       Prefix.setAAA(MI, CurOp++);

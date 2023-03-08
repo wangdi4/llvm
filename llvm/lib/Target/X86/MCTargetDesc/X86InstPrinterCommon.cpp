@@ -403,6 +403,11 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O,
   else if (Flags & X86::IP_HAS_REPEAT)
     O << "\trep\t";
 
+#if INTEL_FEATURE_ISA_APX_F
+  if (TSFlags & X86II::EVEX_NF)
+    O << "\t{nf}";
+#endif // INTEL_FEATURE_ISA_APX_F
+
 #if INTEL_CUSTOMIZATION
   if (TSFlags & X86II::EmitVEXOrEVEXPrefix) {
     // These all require a pseudo prefix

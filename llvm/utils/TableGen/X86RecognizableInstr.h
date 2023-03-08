@@ -261,6 +261,10 @@ struct RecognizableInstrBase {
   /// The HasEVEX_P10 field from the record
   bool HasEVEX_P10;
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+  /// The hasEVEX_NF field from the record
+  bool HasEVEX_NF;
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   /// \param insn The CodeGenInstruction to extract information from.

@@ -1072,6 +1072,10 @@ namespace X86II {
     // EVEX_P10 - Set if this instruction has EVEX.P10 field set.
     EVEX_P10Shift = XuCCPrefixShift + 2,
     EVEX_P10      = 1ULL << EVEX_P10Shift,
+
+    // EVEX_NF - Set if this instruction has EVEX.NF field set.
+    EVEX_NFShift = EVEX_P10Shift + 1,
+    EVEX_NF      = 1ULL << EVEX_NFShift,
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   };

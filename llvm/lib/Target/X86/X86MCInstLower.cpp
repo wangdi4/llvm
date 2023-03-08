@@ -2870,6 +2870,17 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
     if (IndCSPrefix && MI->hasRegisterImplicitUseOperand(X86::R11))
       EmitAndCountInstruction(MCInstBuilder(X86::CS_PREFIX));
     break;
+
+#if INTEL_CUSTOMIZATION
+  case X86::JCC_1:
+    // SSE2 extensions designate two instruction prefixes (2EH branch not taken
+    // and 3EH branch taken) to provide branch hints to the processor, here we
+    // add branch taken prefix for big probability jump.
+    if (getSubtarget().hasSSE2() &&
+        MI->getFlag(MachineInstr::MIFlag::BranchHint))
+      EmitAndCountInstruction(MCInstBuilder(X86::DS_PREFIX));
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
 
   MCInst TmpInst;

@@ -615,6 +615,15 @@ static inline bool inheritsFrom(InstructionContext child,
   case IC_EVEX_W_OPSIZE_KZ_B_P10:
     return false;
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+  case IC_EVEX_NF:
+  case IC_EVEX_B_NF:
+  case IC_EVEX_OPSIZE_NF:
+  case IC_EVEX_OPSIZE_B_NF:
+  case IC_EVEX_W_NF:
+  case IC_EVEX_W_B_NF:
+    return false;
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   default:
     errs() << "Unknown instruction class: " <<
@@ -951,7 +960,25 @@ void DisassemblerTables::emitContextTable(raw_ostream &o, unsigned &i) const {
   for (unsigned index = 0; index < ATTR_max; ++index) {
     o.indent(i * 2);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (index & ATTR_EVEXNF) {
+      o << "IC_EVEX";
+      if (index & ATTR_REXW)
+        o << "_W";
+      else if (index & ATTR_OPSIZE)
+        o << "_OPSIZE";
+
+      if (index & ATTR_EVEXB)
+        o << "_B";
+
+      o << "_NF";
+    }
+    else if ((index & ATTR_EVEX) || (index & ATTR_VEX) || (index & ATTR_VEXL)) {
+#else // INTEL_FEATURE_ISA_APX_F
     if ((index & ATTR_EVEX) || (index & ATTR_VEX) || (index & ATTR_VEXL)) {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       if (index & ATTR_EVEX)
         o << "IC_EVEX";
       else

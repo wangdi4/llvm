@@ -1391,6 +1391,15 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
   return 0;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+static bool isPush2Pop2(InternalInstruction *insn) {
+  unsigned Opcode = insn->opcode;
+  return Opcode == 0xff || Opcode == 0x8f;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 // Determine the ID of an instruction, consuming the ModR/M byte as appropriate
 // for extended and escape opcodes. Determines the attributes and context for
 // the instruction before doing so.
@@ -1433,6 +1442,11 @@ static int getInstructionID(struct InternalInstruction *insn,
       if (bFromEVEX4of4(insn->vectorExtensionPrefix[3]))
         attrMask |= ATTR_EVEXB;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      if (nfFromEVEX4of4(insn->vectorExtensionPrefix[3]) &&
+          (insn->opcodeType == MAP4) && !isPush2Pop2(insn))
+        attrMask |= ATTR_EVEXNF;
+#endif // INTEL_FEATURE_ISA_APX_F
       // aaa is not used a opmask in MAP4
       if (aaaFromEVEX4of4(insn->vectorExtensionPrefix[3]) &&
           (insn->opcodeType != MAP4))
