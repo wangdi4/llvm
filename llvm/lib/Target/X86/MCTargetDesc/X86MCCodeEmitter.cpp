@@ -1569,12 +1569,7 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
                                            raw_ostream &OS) const {
   if (!STI.hasFeature(X86::Is64Bit))
     return None;
-<<<<<<< HEAD
   X86OpcodePrefixHelper Prefix(*Ctx.getRegisterInfo(), STI); // INTEL
-  bool UsesHighByteReg = false;
-=======
-  X86OpcodePrefixHelper Prefix(*Ctx.getRegisterInfo());
->>>>>>> 7427375531283c263d191a1652719936b7b7e364
   const MCInstrDesc &Desc = MCII.get(MI.getOpcode());
   uint64_t TSFlags = Desc.TSFlags;
   Prefix.setW(TSFlags & X86II::REX_W);
