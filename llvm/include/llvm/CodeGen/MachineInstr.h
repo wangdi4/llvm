@@ -134,6 +134,7 @@ public:
     NonSequential = 1 << 16,            // Instruction removed from sequence
     RasReplayable = 1 << 17,            // Instruction can be replayed
 #endif // INTEL_FEATURE_CSA
+    BranchHint = 1 << 18,               // Hint for condition branch
 #endif // INTEL_CUSTOMIZATION
   };
 
