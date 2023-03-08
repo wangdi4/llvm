@@ -1303,9 +1303,13 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 
   // -fno-vectorize
   if (Arg *A = Args.getLastArg(options::OPT_fvectorize,
-                               options::OPT_fno_vectorize))
-    if (A->getOption().matches(options::OPT_fno_vectorize))
+                               options::OPT_fno_vectorize)) {
+    if (A->getOption().matches(options::OPT_fno_vectorize)) {
       addllvmOption("-disable-hir-vec-dir-insert");
+      addllvmOption("-enable-o0-vectorization=false");
+      addllvmOption("-vplan-driver=false");
+    }
+  }
 
   // no-global-hoist
   if (Args.hasFlag(options::OPT_no_global_hoist,

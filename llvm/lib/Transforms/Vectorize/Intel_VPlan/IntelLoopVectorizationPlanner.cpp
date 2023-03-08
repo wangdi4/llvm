@@ -503,6 +503,19 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
     return 0;
   }
 
+  VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
+  if (VFs.size() == 1) {
+    // If we are dealing with a single valid VF either due to a
+    // forced vf or due to vector register size and representative
+    // type, bail out if this VF exceeds known loop trip count.
+    if (!MainLoop->getTripCountInfo().IsEstimated &&
+        MainLoop->getTripCountInfo().TripCount < VFs[0]) {
+      LLVM_DEBUG(dbgs() << "LVP: Enforced or only valid VF exceeds known trip "
+                           "count, bailing out.\n");
+      return 0;
+    }
+  }
+
   raw_ostream *OS = nullptr;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   OS = is_contained(VPlanCostModelPrintAnalysisForVF, 1) ? &outs() : nullptr;
@@ -519,7 +532,6 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   // reused in general.
   Plan->invalidateAnalyses(VPAnalysisID::SVA);
 
-  VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
   if (LE->getImportingError() != VPLoopEntityList::ImportError::None) {
     LLVM_DEBUG(dbgs() << "LVP: Entities import error.\n");

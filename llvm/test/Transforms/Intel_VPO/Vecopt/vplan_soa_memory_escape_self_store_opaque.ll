@@ -35,7 +35,7 @@ header:
   store ptr %gep, ptr %arr.priv1
   %iv.next = add nsw nuw i64 %iv, 1
   %exitcond = icmp ult i64 %iv.next, 1024
-  br i1 %exitcond, label %exit, label %header
+  br i1 %exitcond, label %header, label %exit
 
 exit:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
@@ -61,7 +61,7 @@ header:
   store ptr %arr.priv2, ptr %gep
   %iv.next = add nsw nuw i64 %iv, 1
   %exitcond = icmp ult i64 %iv.next, 1024
-  br i1 %exitcond, label %exit, label %header
+  br i1 %exitcond, label %header, label %exit
 
 exit:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]

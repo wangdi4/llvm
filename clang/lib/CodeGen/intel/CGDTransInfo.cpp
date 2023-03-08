@@ -1138,7 +1138,12 @@ DTransInfoGenerator::CreateFunctionTypeMD(const CGFunctionInfo *CallInfo,
     // just give up.
     if (FuncTy->getNumParams() <= Idx)
       break;
-    FuncMD.push_back(CreateTypeMD(Ty, FuncTy->getParamType(Idx), nullptr));
+    if (Idx == FuncInfo.InAllocaIdx)
+      FuncMD.push_back(
+          AddInAllocaLiteral(FuncInfo.InAllocaTypes, FuncInfo.InAllocaStruct));
+    else
+      FuncMD.push_back(CreateTypeMD(Ty, FuncTy->getParamType(Idx), nullptr));
+
     ++Idx;
   }
 
