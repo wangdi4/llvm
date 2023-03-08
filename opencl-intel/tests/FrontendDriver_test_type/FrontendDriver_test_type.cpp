@@ -295,7 +295,7 @@ TEST_F(ClangCompilerTestType,
       spv::MemoryModelOpenCL};
   // Swap byte order of SPIR-V BC
   for (auto &word : spvBC)
-    word = llvm::ByteSwap_32(word);
+    word = llvm::byteswap(word);
 
   auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
 
