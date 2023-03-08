@@ -1186,7 +1186,7 @@ bool DevirtModule::tryFindVirtualCallTargets(
       return false;
 
     Constant *Ptr = getPointerAtOffset(TM.Bits->GV->getInitializer(),
-                                       TM.Offset + ByteOffset, M);
+                                       TM.Offset + ByteOffset, M, TM.Bits->GV);
     if (!Ptr)
       return false;
 
