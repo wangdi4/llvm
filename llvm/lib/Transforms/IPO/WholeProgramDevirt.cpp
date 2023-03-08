@@ -1698,7 +1698,8 @@ void DevirtModule::translateDataForMultiVersion(
   // CMPLRLLVM-23243: If at least one target function is a libfunc or external
   // then we are going to include the default case in the multiversioning.
   for (auto &&Target : TargetsForSlot)
-    IntelDevirtMV.addTarget(Target.Fn);
+    if (auto Fn = dyn_cast<Function>(Target.Fn))
+      IntelDevirtMV.addTarget(Fn);
 
   // Lambda function that will go through each of the virtual call sites
   // and collect the CallBase pointer
@@ -2582,12 +2583,7 @@ bool DevirtModule::run() {
 
   // For each (type, offset) pair:
   bool DidVirtualConstProp = false;
-<<<<<<< HEAD
-  std::map<std::string, Function*> DevirtTargets;
-
-=======
   std::map<std::string, GlobalValue *> DevirtTargets;
->>>>>>> c1b3e888449045db6b57353b2b3ebbb56541fb6c
   for (auto &S : CallSlots) {
     // Search each of the members of the type identifier for the virtual
     // function implementation at offset S.first.ByteOffset, and add to
