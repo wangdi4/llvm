@@ -9,13 +9,23 @@
 ; with a dynamic alloca, but with -inlining-dyn-alloca-special-arg-count=4
 ; inlining does not happen with a dynamic alloca.
 
+; Check also that with -inlining-dyn-alloca-special-arg-count=3 on the classic
+; inlining report that llvm.experimental.noalias.scope.decl, llvm.stacksave,
+; and llvm.stackrestore appear, even though they are emitted after inlining.
+
 ; CHECK-GOOD-CL-NOT: call void @asa2_
 ; CHECK-BAD-CL: call void @asa2_
 ; CHECK-GOOD: DEAD STATIC FUNC: asa2_
 ; CHECK-BAD: COMPILE FUNC: asa2_
 ; CHECK: COMPILE FUNC: MAIN__
+; CHECK-GOOD-CL: EXTERN: for_set_fpe_
 ; CHECK-BAD: asa2_ {{.*}}Callee has dynamic alloca
 ; CHECK-GOOD: asa2_ {{.*}}Callee has single callsite and local linkage
+; CHECK-GOOD-CL: llvm.experimental.noalias.scope.decl
+; CHECK-GOOD-CL: llvm.experimental.noalias.scope.decl
+; CHECK-GOOD-CL: llvm.experimental.noalias.scope.decl
+; CHECK-GOOD-CL: llvm.stacksave
+; CHECK-GOOD-CL: llvm.stackrestore
 ; CHECK-GOOD-ML-NOT: call void @asa2_
 ; CHECK-BAD-ML: call void @asa2_
 
