@@ -48,6 +48,10 @@
 ; RUN: opt -o %t5.o %s
 ; RUN: llvm-lto2 run %t5.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
+; INTEL_CUSTOMIZATION
+; RUN:   %intel_devirt_options \
+; RUN:   -enable-npm-ind-call-conv=false \
+; end INTEL_CUSTOMIZATION
 ; RUN:   -o %t6 \
 ; RUN:   -r=%t5.o,test,px \
 ; RUN:   -r=%t5.o,_ZTV1D,px \
