@@ -30,8 +30,6 @@ class Address {
   llvm::PointerIntPair<llvm::Value *, 1, bool> PointerAndKnownNonNull;
   llvm::Type *ElementType;
   CharUnits Alignment;
-
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // True if this address has been remapped directly and should not generate
   // the load normally required for variables with reference type.
@@ -40,72 +38,6 @@ public:
   bool hasRemovedReference() { return ReferenceRemovedWithRemap; }
   void setRemovedReference() { ReferenceRemovedWithRemap = true; }
 #endif // INTEL_COLLAB
-public:
-  AddressImpl(llvm::Value *Pointer, llvm::Type *ElementType,
-              CharUnits Alignment, KnownNonNull_t IsKnownNonNull)
-      : PointerAndKnownNonNull(Pointer, IsKnownNonNull),
-        ElementType(ElementType), Alignment(Alignment) {}
-  llvm::Value *getPointer() const {
-    return PointerAndKnownNonNull.getPointer();
-  }
-  llvm::Type *getElementType() const { return ElementType; }
-  CharUnits getAlignment() const { return Alignment; }
-  KnownNonNull_t isKnownNonNull() const {
-    return (KnownNonNull_t)PointerAndKnownNonNull.getInt();
-  }
-  void setKnownNonNull() { PointerAndKnownNonNull.setInt(true); }
-};
-
-template <typename T> class AddressImpl<T, true> {
-  // Int portion stores the non-null bit and the upper 2 bits of the log of the
-  // alignment.
-  llvm::PointerIntPair<llvm::Value *, 3, unsigned> Pointer;
-  // Int portion stores lower 3 bits of the log of the alignment.
-  llvm::PointerIntPair<llvm::Type *, 3, unsigned> ElementType;
-#if INTEL_COLLAB
-  // True if this address has been remapped directly and should not generate
-  // the load normally required for variables with reference type.
-  bool ReferenceRemovedWithRemap = false;
-public:
-  bool hasRemovedReference() { return ReferenceRemovedWithRemap; }
-  void setRemovedReference() { ReferenceRemovedWithRemap = true; }
-#endif // INTEL_COLLAB
-
-public:
-  AddressImpl(llvm::Value *Pointer, llvm::Type *ElementType,
-              CharUnits Alignment, KnownNonNull_t IsKnownNonNull)
-      : Pointer(Pointer), ElementType(ElementType) {
-    if (Alignment.isZero()) {
-      this->Pointer.setInt(IsKnownNonNull << 2);
-      return;
-    }
-    // Currently the max supported alignment is exactly 1 << 32 and is
-    // guaranteed to be a power of 2, so we can store the log of the alignment
-    // into 5 bits.
-    assert(Alignment.isPowerOfTwo() && "Alignment cannot be zero");
-    auto AlignLog = llvm::Log2_64(Alignment.getQuantity());
-    assert(AlignLog < (1 << 5) && "cannot fit alignment into 5 bits");
-    this->Pointer.setInt(IsKnownNonNull << 2 | AlignLog >> 3);
-    this->ElementType.setInt(AlignLog & 7);
-  }
-  llvm::Value *getPointer() const { return Pointer.getPointer(); }
-  llvm::Type *getElementType() const { return ElementType.getPointer(); }
-  CharUnits getAlignment() const {
-    unsigned AlignLog = ((Pointer.getInt() & 0x3) << 3) | ElementType.getInt();
-    return CharUnits::fromQuantity(CharUnits::QuantityType(1) << AlignLog);
-  }
-  KnownNonNull_t isKnownNonNull() const {
-    return (KnownNonNull_t)(!!(Pointer.getInt() & 0x4));
-  }
-  void setKnownNonNull() { Pointer.setInt(Pointer.getInt() | 0x4); }
-};
-
-/// An aligned address.
-class Address {
-  AddressImpl<void> A;
-
-=======
->>>>>>> e419e22ff6fdff97191d132555ded7811c3f5b05
 protected:
   Address(std::nullptr_t) : ElementType(nullptr) {}
 
@@ -185,11 +117,6 @@ public:
     PointerAndKnownNonNull.setInt(true);
     return *this;
   }
-
-#if INTEL_COLLAB
-  bool hasRemovedReference() { return A.hasRemovedReference(); }
-  void setRemovedReference() { A.setRemovedReference(); }
-#endif // INTEL_COLLAB
 };
 
 /// A specialization of Address that requires the address to be an
