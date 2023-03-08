@@ -1,6 +1,12 @@
 // Test basic new functionality.
 // RUN: %clangxx_hwasan -std=c++17 %s -o %t -fsized-deallocation
 // RUN: %run %t
+// INTEL_CUSTOMIZATION
+// See CMPLRLLVM-45382
+// Disable the test-- It fails on RH7.8 due to gcc 4.8.5 not supporting
+// std::align_val_t.
+// UNSUPPORTED: linux
+// end INTEL_CUSTOMIZATION
 
 #include <cassert>
 #include <cstdint>
