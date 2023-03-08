@@ -45,7 +45,6 @@ private:
   ProfileSummaryInfo *PSI;
   LoopAccessInfoManager *LAIs;
   OptimizationRemarkEmitter *ORE;
-  OptReportBuilder ORBuilder;
   FatalErrorHandlerTy FatalErrorHandler;
 
 #if INTEL_CUSTOMIZATION
@@ -85,6 +84,8 @@ protected:
   TargetTransformInfo *TTI;
   TargetLibraryInfo *TLI;
   const DataLayout *DL;
+
+  OptReportBuilder ORBuilder;
 
 #if INTEL_CUSTOMIZATION
   template <typename Loop = llvm::Loop>
@@ -203,7 +204,6 @@ private:
   loopopt::HIRLoopStatistics *HIRLoopStats;
   loopopt::HIRDDAnalysis *DDA;
   loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis;
-  OptReportBuilder ORBuilder;
   bool LightWeightMode;
 
   bool processLoop(loopopt::HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
