@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.h - Implement inlining report ---------*- C++ -*-===//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -626,6 +626,10 @@ private:
   /// changes that have been made to that routine since the last call to
   /// Inliner::runOnSCC()
   void makeCurrent(Function *F);
+
+  /// Update the Functions in the call graph, so that all are current
+  /// and all newly created callsites will appear in the inline report.
+  void makeAllCurrent(void);
 
   /// Indicate that the inline reports may need to be made current
   /// with InlineReport::makeCurrent() before they are changed to indicate

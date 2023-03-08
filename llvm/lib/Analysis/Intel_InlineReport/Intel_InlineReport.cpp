@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.cpp - Inline report ------- ---------------------===//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -694,6 +694,7 @@ void InlineReport::print() const {
 
 void InlineReport::testAndPrint(void *Inliner) {
   if (!Inliner) {
+    makeAllCurrent();
     print();
     return;
   }
@@ -702,6 +703,7 @@ void InlineReport::testAndPrint(void *Inliner) {
   ActiveInliners.erase(Inliner);
   if (!ActiveInliners.empty())
     return;
+  makeAllCurrent();
   print();
 }
 
@@ -772,6 +774,8 @@ void InlineReport::makeCurrent(Function *F) {
     IRF->setCurrent(true);
     return;
   }
+  SmallPtrSet<CallBase *, 16> SeenCallBases;
+  // Ensure that every CallBase in F is in the IRCallBaseCallSiteMap.
   for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
     for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
       CallBase *Call = dyn_cast<CallBase>(I);
@@ -780,6 +784,7 @@ void InlineReport::makeCurrent(Function *F) {
       if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
           shouldSkipIntrinsic(cast<IntrinsicInst>(I)))
         continue;
+      SeenCallBases.insert(Call);
       if (IRCallBaseCallSiteMap.count(Call))
         continue;
       InlineReportCallSite *IRCS = addCallSite(Call);
@@ -797,7 +802,33 @@ void InlineReport::makeCurrent(Function *F) {
       }
     }
   }
+  // Ensure that any CallBase in the IRCallBaseCallSiteMap which is
+  // no longer in F is marked as deleted.
+  SmallVector<CallBase *, 16> RemovableCallBases;
+  for (auto CBI : IRCallBaseCallSiteMap) {
+    CallBase *CB = CBI.first;
+    InlineReportCallSite *IRCS = CBI.second;
+    if (CB == ActiveInlineCallBase || SeenCallBases.count(CB))
+      continue;
+    InlineReportCallSite *IRCS0 = IRCS;
+    while (IRCS0->getIRParent())
+      IRCS0 = IRCS0->getIRParent();
+    if (IRCS0->getIRCaller() == IRF)
+      RemovableCallBases.push_back(CB);
+  }
+  for (CallBase *CB : RemovableCallBases)
+    removeCallBaseReference(*CB);
   IRF->setCurrent(true);
+}
+
+void InlineReport::makeAllCurrent(void) {
+  if (!isClassicIREnabled())
+    return;
+  std::vector<Function *> FuncVector;
+  for (auto &IRFME : IRFunctionMap)
+    FuncVector.push_back(IRFME.first);
+  for (Function *F : FuncVector)
+    makeCurrent(F);
 }
 
 void InlineReport::makeAllNotCurrent(void) {
