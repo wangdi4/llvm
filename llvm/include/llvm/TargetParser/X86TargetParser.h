@@ -199,6 +199,40 @@ void updateImpliedFeatures(StringRef Feature, bool Enabled,
 uint64_t getCpuSupportsMask(ArrayRef<StringRef> FeatureStrs);
 unsigned getFeaturePriority(ProcessorFeatures Feat);
 
+#if INTEL_CUSTOMIZATION
+class VectorAbiIsaInfo {
+public:
+  /// Return a pointer to a struct with target processor information based
+  /// on the processor name. The known names are those that can be used in
+  /// __attribute__((cpu_specific(...))) in the sources, same as for
+  /// -target-cpu=... in the command line.
+  /// When the \p Name is unknown, return nullptr.
+  static std::unique_ptr<const VectorAbiIsaInfo> getByName(StringRef Name);
+
+  VectorAbiIsaInfo(StringRef TN, char IntelI, char GnuI, size_t IntRegSize,
+                   size_t FpRegSize)
+      : TargetName(TN), IntelISA(IntelI), GnuISA(GnuI),
+        MaxIntVecRegByteSize(IntRegSize), MaxFPVecRegByteSize(FpRegSize) {}
+
+  VectorAbiIsaInfo(const VectorAbiIsaInfo &) = default;
+
+  /// Target CPU name to be used in a vector-dispatch attribute.
+  const StringRef TargetName;
+
+  /// The Intel letter code for this processor's ISA (e.g., x, y, Y, Z, etc.)
+  const char IntelISA;
+
+  /// The GNU letter code for this processor's ISA (e.g., b, c, d, e, etc.)
+  const char GnuISA;
+
+  /// Register width of integer vector registers in bytes
+  const size_t MaxIntVecRegByteSize;
+
+  /// Register width of floating-point vector registers in bytes
+  const size_t MaxFPVecRegByteSize;
+};
+#endif // INTEL_CUSTOMIZATION
+
 } // namespace X86
 } // namespace llvm
 
