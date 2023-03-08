@@ -210,49 +210,48 @@ namespace L0Interop {
   const char *FrName = GETNAME(level_zero);
 
   // targetsync = -9, device_context = -8, ...,  fr_id = -1
-  std::vector<const char *> IprNames {
-    "targetsync",
-    "device_context",
-    "device",
-    "platform",
-    "device_num",
-    "vendor_name",
-    "vendor",
-    "fr_name",
-    "fr_id",
-    "device_num_eus",
-    "device_num_threads_per_eu",
-    "device_eu_simd_width",
-    "device_num_eus_per_subslice",
-    "device_num_subslices_per_slice",
-    "device_num_slices",
-    "device_local_mem_size",
-    "device_global_mem_size",
-    "device_global_mem_cache_size",
-    "device_max_clock_frequency"
-  };
+  std::vector<const char *> IprNames{"targetsync",
+                                     "device_context",
+                                     "device",
+                                     "platform",
+                                     "device_num",
+                                     "vendor_name",
+                                     "vendor",
+                                     "fr_name",
+                                     "fr_id",
+                                     "device_num_eus",
+                                     "device_num_threads_per_eu",
+                                     "device_eu_simd_width",
+                                     "device_num_eus_per_subslice",
+                                     "device_num_subslices_per_slice",
+                                     "device_num_slices",
+                                     "device_local_mem_size",
+                                     "device_global_mem_size",
+                                     "device_global_mem_cache_size",
+                                     "device_max_clock_frequency",
+                                     "is_imm_cmd_list"};
 
-  std::vector<const char *> IprTypeDescs {
-    "ze_command_queue_handle_t, level_zero command queue handle",
-    "ze_context_handle_t, level_zero context handle",
-    "ze_device_handle_t, level_zero device handle",
-    "ze_driver_handle_t, level_zero driver handle",
-    "intptr_t, OpenMP device ID",
-    "const char *, vendor name",
-    "intptr_t, vendor ID",
-    "const char *, foreign runtime name",
-    "intptr_t, foreign runtime ID",
-    "intptr_t, total number of EUs",
-    "intptr_t, number of threads per EU",
-    "intptr_t, physical EU simd width",
-    "intptr_t, number of EUs per sub-slice",
-    "intptr_t, number of sub-slices per slice",
-    "intptr_t, number of slices",
-    "intptr_t, local memory size in bytes",
-    "intptr_t, global memory size in bytes",
-    "intptr_t, global memory cache size in bytes",
-    "intptr_t, max clock frequency in MHz"
-  };
+  std::vector<const char *> IprTypeDescs{
+      "ze_command_queue_handle_t, level_zero command queue handle",
+      "ze_context_handle_t, level_zero context handle",
+      "ze_device_handle_t, level_zero device handle",
+      "ze_driver_handle_t, level_zero driver handle",
+      "intptr_t, OpenMP device ID",
+      "const char *, vendor name",
+      "intptr_t, vendor ID",
+      "const char *, foreign runtime name",
+      "intptr_t, foreign runtime ID",
+      "intptr_t, total number of EUs",
+      "intptr_t, number of threads per EU",
+      "intptr_t, physical EU simd width",
+      "intptr_t, number of EUs per sub-slice",
+      "intptr_t, number of sub-slices per slice",
+      "intptr_t, number of slices",
+      "intptr_t, local memory size in bytes",
+      "intptr_t, global memory size in bytes",
+      "intptr_t, global memory cache size in bytes",
+      "intptr_t, max clock frequency in MHz",
+      "intptr_t, Using immediate command list"};
 
   // Level Zero property ID
   enum IprIDTy : int32_t {
@@ -265,7 +264,8 @@ namespace L0Interop {
     device_local_mem_size,
     device_global_mem_size,
     device_global_mem_cache_size,
-    device_max_clock_frequency
+    device_max_clock_frequency,
+    is_imm_cmd_list
   };
 
   /// Level Zero interop property
@@ -7141,6 +7141,15 @@ int32_t __tgt_rtl_get_interop_property_value(
     if (ValueType == OMP_IPR_VALUE_INT)
       *static_cast<intptr_t *>(Value) = DeviceProperties.coreClockRate;
     else
+      RC = omp_irc_type_int;
+    break;
+  case L0Interop::is_imm_cmd_list:
+    if (ValueType == OMP_IPR_VALUE_INT) {
+      if (DeviceInfo->Option.Flags.UseInteropImmCmdList)
+        *static_cast<intptr_t *>(Value) = 1;
+      else
+        *static_cast<intptr_t *>(Value) = 0;
+    } else
       RC = omp_irc_type_int;
     break;
   default:

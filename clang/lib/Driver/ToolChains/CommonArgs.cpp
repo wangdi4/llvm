@@ -1322,13 +1322,21 @@ void tools::addOpenMPRuntimeSpecificRPath(const ToolChain &TC,
                                           const ArgList &Args,
                                           ArgStringList &CmdArgs) {
 
+#if INTEL_CUSTOMIZATION
+  // -fopenmp-implicit-rpath is not enabled by default for the Intel compiler.
   if (Args.hasFlag(options::OPT_fopenmp_implicit_rpath,
-                   options::OPT_fno_openmp_implicit_rpath, true)) {
+                   options::OPT_fno_openmp_implicit_rpath, false)) {
+#endif // INTEL_CUSTOMIZATION
     // Default to clang lib / lib64 folder, i.e. the same location as device
     // runtime
     SmallString<256> DefaultLibPath =
         llvm::sys::path::parent_path(TC.getDriver().Dir);
     llvm::sys::path::append(DefaultLibPath, CLANG_INSTALL_LIBDIR_BASENAME);
+#if INTEL_CUSTOMIZATION
+    if (TC.getDriver().IsIntelMode() &&
+        TC.getDriver().getOpenMPRuntime(Args) == Driver::OMPRT_IOMP5)
+      DefaultLibPath = TC.GetIntelLibPath();
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-rpath");
     CmdArgs.push_back(Args.MakeArgString(DefaultLibPath));
   }
@@ -1435,7 +1443,7 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
 
   addArchSpecificRPath(TC, Args, CmdArgs);
 
-  if (RTKind == Driver::OMPRT_OMP)
+  if (RTKind == Driver::OMPRT_OMP || RTKind == Driver::OMPRT_IOMP5) // INTEL
     addOpenMPRuntimeSpecificRPath(TC, Args, CmdArgs);
   addOpenMPRuntimeLibraryPath(TC, Args, CmdArgs);
 

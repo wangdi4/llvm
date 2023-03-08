@@ -215,19 +215,9 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   Generic_GCC::PushPPaths(PPaths);
 #if INTEL_CUSTOMIZATION
   // Add the Intel installed library search path
-  if (D.IsIntelMode()) {
-    SmallString<128> LibDir(D.Dir);
-    llvm::sys::path::append(LibDir, "..");
-#if INTEL_DEPLOY_UNIFIED_LAYOUT
-    llvm::sys::path::append(LibDir, "..", "opt", "compiler",
-                            Arch == llvm::Triple::x86_64 ? "lib" : "lib32");
-#else
-    llvm::sys::path::append(LibDir, "compiler", "lib",
-                            Arch == llvm::Triple::x86_64 ? "intel64_lin"
-                                                         : "ia32_lin");
-#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
-    getFilePaths().push_back(Args.MakeArgString(LibDir));
-  }
+  if (D.IsIntelMode())
+    getFilePaths().push_back(
+        Args.MakeArgString(Generic_GCC::GetIntelLibPath()));
 #endif // INTEL_CUSTOMIZATION
 
   Distro Distro(D.getVFS(), Triple);

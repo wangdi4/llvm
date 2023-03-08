@@ -395,6 +395,7 @@ protected:
 #if INTEL_CUSTOMIZATION
   void AddIntelLibimfLibArgs(const llvm::opt::ArgList &Args,
                              llvm::opt::ArgStringList &CmdArgs) const override;
+  std::string GetIntelLibPath() const override;
 #endif // INTEL_CUSTOMIZATION
 
   virtual void

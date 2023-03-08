@@ -1126,3 +1126,57 @@ unsigned llvm::X86::getFeaturePriority(ProcessorFeatures Feat) {
     llvm_unreachable("No Feature Priority for non-CPUSupports Features");
   }
 }
+
+#if INTEL_CUSTOMIZATION
+static StringRef DealiasCPUName(StringRef Name) {
+  return llvm::StringSwitch<StringRef>(Name)
+#define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, NAME)
+#define CPU_SPECIFIC_ALIAS_ADDITIONAL(NEW_NAME, NAME) .Case(NEW_NAME, NAME)
+#include "llvm/TargetParser/X86TargetParser.def"
+      .Default(Name);
+}
+static StringRef getCpuFeatures(StringRef Name) {
+  StringRef Features = StringSwitch<StringRef>(Name)
+#define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, FEATURES)
+#include "llvm/TargetParser/X86TargetParser.def"
+                           .Default("");
+  return Features;
+}
+
+std::unique_ptr<const VectorAbiIsaInfo>
+llvm::X86::VectorAbiIsaInfo::getByName(StringRef Name) {
+
+  StringRef DealiasedName = DealiasCPUName(Name);
+  StringRef CpuFeatures = getCpuFeatures(DealiasedName);
+  if (CpuFeatures.empty())
+    return nullptr; // Unknown cpu name
+
+  // Default values for ISA etc.
+  char IntelIsa = 'x';
+  char GnuIsa = 'b';
+  size_t IntRegSize = 16;
+  size_t FPRegSize = 16;
+
+  if (CpuFeatures.find("+avx512") != StringRef::npos) {
+    IntelIsa = 'Z';
+    GnuIsa = 'e';
+    IntRegSize = 64;
+    FPRegSize = 64;
+  } else if (CpuFeatures.find("+avx2") != StringRef::npos) {
+    IntelIsa = 'Y';
+    GnuIsa = 'd';
+    IntRegSize = 32;
+    FPRegSize = 32;
+  } else if (CpuFeatures.find("+avx") != StringRef::npos) {
+    IntelIsa = 'y';
+    GnuIsa = 'c';
+    IntRegSize = 16;
+    FPRegSize = 32;
+  }
+  // default lowest, XMM ISA.
+
+  return std::make_unique<const VectorAbiIsaInfo>(
+      DealiasedName, IntelIsa, GnuIsa, IntRegSize, FPRegSize);
+}
+#endif // INTEL_CUSTOMIZATION
+

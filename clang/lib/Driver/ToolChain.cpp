@@ -1224,6 +1224,15 @@ void ToolChain::AddCCKextLibArgs(const ArgList &Args,
 }
 
 #if INTEL_CUSTOMIZATION
+std::string ToolChain::GetIntelLibPath() const {
+  SmallString<128> LibDir(llvm::sys::path::parent_path(getDriver().Dir));
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  LibDir = llvm::sys::path::parent_path(LibDir);
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+  llvm::sys::path::append(LibDir, "lib");
+  return std::string(LibDir.str());
+}
+
 void ToolChain::AddIntelLibimfLibArgs(const ArgList &Args,
                                       ArgStringList &CmdArgs) const {
   CmdArgs.push_back("-limf");
