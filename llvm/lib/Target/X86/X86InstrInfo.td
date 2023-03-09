@@ -992,7 +992,6 @@ def TruePredicate : Predicate<"true">;
 def FalsePredicateNDD : Predicate<"!(true || Subtarget->hasNOPL())">;
 def FalsePredicateNF : Predicate<"!(true || Subtarget->canUseCMOV())">;
 
-def HasPush2Pop2      : Predicate<"Subtarget->hasPush2Pop2()">;
 def HasNDD : Predicate<"Subtarget->hasNDD()">;
 def NoNDD : Predicate<"!Subtarget->hasNDD()">;
 #endif // INTEL_FEATURE_ISA_APX_F
