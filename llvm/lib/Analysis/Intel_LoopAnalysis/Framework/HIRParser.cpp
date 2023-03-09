@@ -237,9 +237,6 @@ void HIRParser::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
 
 bool HIRParser::isTempBlob(BlobTy Blob) {
   if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    Type *Ty;
-    Constant *FieldNo;
-
     if (!UnknownSCEV->isVScale() &&
         !HIRScalarSymbaseAssignment::isConstant(UnknownSCEV->getValue()) &&
         !BlobUtils::isMetadataBlob(Blob, nullptr)) {

@@ -16021,6 +16021,7 @@ private:
     case RecurKind::FMulAdd:
     case RecurKind::SelectICmp:
     case RecurKind::SelectFCmp:
+    case RecurKind::Udr: // INTEL
     case RecurKind::None:
       llvm_unreachable("Unexpected reduction kind for repeated scalar.");
     }
@@ -16108,6 +16109,7 @@ private:
     case RecurKind::FMulAdd:
     case RecurKind::SelectICmp:
     case RecurKind::SelectFCmp:
+    case RecurKind::Udr: // INTEL
     case RecurKind::None:
       llvm_unreachable("Unexpected reduction kind for reused scalars.");
     }
