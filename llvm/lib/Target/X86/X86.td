@@ -1419,7 +1419,6 @@ def ProcessorFeatures {
                                                   FeatureGFNI,
                                                   FeatureRDPID,
                                                   FeatureFSRM];
-#if INTEL_CUSTOMIZATION
   list<SubtargetFeature> ICLTuning = [TuningFastGather,
                                       TuningMacroFusion,
                                       TuningSlowDivide64,
@@ -1431,17 +1430,14 @@ def ProcessorFeatures {
                                       TuningFastVariablePerLaneShuffle,
                                       TuningPrefer256Bit,
                                       TuningInsertVZEROUPPER,
-<<<<<<< HEAD
-                                      TuningAllowLight256Bit];
-  list<SubtargetFeature> ICLAdditionalTuning = [Tuning2KDSB, TuningDSB];
-  list<SubtargetFeature> ICLTuning2 = !listconcat(ICLTuning, ICLAdditionalTuning);
-#endif // INTEL_CUSTOMIZATION
-=======
                                       TuningAllowLight256Bit,
                                       TuningNoDomainDelayMov,
                                       TuningNoDomainDelayShuffle,
                                       TuningNoDomainDelayBlend];
->>>>>>> cecaf295898f6bb23b052892c1d06c27f2715b0d
+#if INTEL_CUSTOMIZATION
+  list<SubtargetFeature> ICLAdditionalTuning = [Tuning2KDSB, TuningDSB];
+  list<SubtargetFeature> ICLTuning2 = !listconcat(ICLTuning, ICLAdditionalTuning);
+#endif // INTEL_CUSTOMIZATION
   list<SubtargetFeature> ICLFeatures =
     !listconcat(CNLFeatures, ICLAdditionalFeatures);
 
