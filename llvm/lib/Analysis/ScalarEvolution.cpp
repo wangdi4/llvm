@@ -9670,20 +9670,6 @@ void ScalarEvolution::forgetValue(Value *V) {
   Visited.insert(I);
   visitAndClearUsers(Worklist, Visited, ToForget);
 
-<<<<<<< HEAD
-  while (!Worklist.empty()) {
-    I = Worklist.pop_back_val();
-    ValueExprMapType::iterator It =
-      ValueExprMap.find_as(static_cast<Value *>(I));
-    if (It != ValueExprMap.end()) {
-      eraseValueFromMap(It->first);
-      ToForget.push_back(It->second);
-      if (PHINode *PN = dyn_cast<PHINode>(I))
-        ConstantEvolutionLoopExitValue.erase(PN);
-    }
-
-    PushDefUseChildren(I, Worklist, Visited);
-  }
 #if INTEL_CUSTOMIZATION
   // If we are in scoped mode, we need to forget underlying regular
   // ScalarEvolution results as well.
@@ -9692,8 +9678,6 @@ void ScalarEvolution::forgetValue(Value *V) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 2f3c748c45ff7f9022ffa88d5a06a856a1b15ace
   forgetMemoizedResults(ToForget);
 }
 
