@@ -25,38 +25,6 @@
  ************************************************************************/
 using namespace Intel::OpenCL::Utils;
 
-void Intel::OpenCL::Utils::InnerSpinloopImpl() {
-  if (0 == SwitchToThread()) {
-    // 0 means no other thread is ready to run
-    hw_pause();
-  }
-}
-
-/************************************************************************
- * Creates the mutex section object.
- ************************************************************************/
-OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive)
-    : m_uiSpinCount(uiSpinCount), m_bRecursive(recursive) {
-  InitializeCriticalSectionAndSpinCount((LPCRITICAL_SECTION)&m_mutex,
-                                        uiSpinCount);
-}
-
-/************************************************************************
- * Destroys the critical section object.
- ************************************************************************/
-OclMutex::~OclMutex() { DeleteCriticalSection((LPCRITICAL_SECTION)&m_mutex); }
-
-/************************************************************************
- * Take the lock on this critical section.
- * If lock is acquired, all other threads are blocked on this lock until
- * the current thread unlocked it.
- ************************************************************************/
-void OclMutex::Lock() { EnterCriticalSection((LPCRITICAL_SECTION)&m_mutex); }
-/************************************************************************
- * Release the lock
- ************************************************************************/
-void OclMutex::Unlock() { LeaveCriticalSection((LPCRITICAL_SECTION)&m_mutex); }
-
 /************************************************************************
  *
  ************************************************************************/
@@ -76,14 +44,14 @@ OclCondition::~OclCondition() {}
 /************************************************************************
  *
  ************************************************************************/
-COND_RESULT OclCondition::Wait(OclMutex *mutexObj) {
+COND_RESULT OclCondition::Wait(std::mutex *mutexObj) {
   assert(nullptr != mutexObj && "mutexObj must be valid object");
   if (nullptr == mutexObj) {
     return COND_RESULT_FAIL;
   }
-  if (0 == SleepConditionVariableCS((CONDITION_VARIABLE *)&m_condVar,
-                                    (PCRITICAL_SECTION) & (mutexObj->m_mutex),
-                                    INFINITE)) {
+  if (0 == SleepConditionVariableCS(
+               (CONDITION_VARIABLE *)&m_condVar,
+               (PCRITICAL_SECTION)(mutexObj->native_handle()), INFINITE)) {
     return COND_RESULT_FAIL;
   }
   return COND_RESULT_OK;

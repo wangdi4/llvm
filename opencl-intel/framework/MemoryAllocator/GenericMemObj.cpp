@@ -462,7 +462,7 @@ cl_err_code GenericMemObject::CreateDeviceResource(
   //             m_global_lock may be taken only during sharing group lazy
   //             initialization.
 
-  OclAutoMutex lock(&m_global_lock);
+  std::lock_guard<std::mutex> lock(m_global_lock);
 
   return allocate_object_for_sharing_group(
       (unsigned int)desc->m_sharing_group_id);

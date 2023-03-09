@@ -60,7 +60,7 @@ void FiniSharedPts() {
 }
 
 void ReferenceCountedObject::IncZombieCnt() const {
-  OclAutoMutex lock(&m_zombieLock);
+  std::lock_guard<std::mutex> lock(m_zombieLock);
   ++m_zombieLevelCnt;
   m_bCheckZombie = true;
 }
@@ -76,7 +76,7 @@ long ReferenceCountedObject::DriveEnterZombieState() const {
   //  2. Decrement atomic counter
   //  3. Release m_zombieLock
   {
-    OclAutoMutex lock(&m_zombieLock);
+    std::lock_guard<std::mutex> lock(m_zombieLock);
     new_val =
         --m_refCnt; // this cannot result in object deletion as done inside lock
 
@@ -97,7 +97,7 @@ long ReferenceCountedObject::DriveEnterZombieState() const {
 #endif
     // now decrement counter inside the same lock as above to avoid object
     // deappearence inside the above critical section in another thread
-    OclAutoMutex lock(&m_zombieLock);
+    std::lock_guard<std::mutex> lock(m_zombieLock);
     new_val = --m_refCnt;
   }
 

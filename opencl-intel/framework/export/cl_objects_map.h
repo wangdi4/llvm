@@ -20,11 +20,11 @@
 
 #include "cl_object.h"
 #include "cl_shared_ptr.h"
-#include "cl_synch_objects.h"
 #include "cl_sys_defines.h"
 #include "cl_types.h"
 #include "ocl_object_base.h"
 #include <map>
+#include <mutex>
 
 namespace Intel {
 namespace OpenCL {
@@ -53,7 +53,7 @@ protected:
   // object's map
   HandleTypeMap m_mapObjects;
   static Intel::OpenCL::Utils::AtomicCounter m_iNextGenKey;
-  mutable Intel::OpenCL::Utils::OclNonReentrantSpinMutex m_muMapMutex;
+  mutable std::mutex m_muMapMutex;
   bool m_bDisableAdding;
   bool m_bPreserveUserHandles;
 
