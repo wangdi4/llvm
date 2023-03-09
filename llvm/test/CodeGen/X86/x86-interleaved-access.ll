@@ -1717,6 +1717,7 @@ define void @splat4_v8f32_load_store(ptr %s, ptr %d) nounwind {
 ; AVX2-LABEL: splat4_v8f32_load_store:
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vmovups (%rdi), %ymm0
+<<<<<<< HEAD
 ; AVX2-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
 ; AVX2-NEXT:    vmovups (%rdi), %xmm2 ;INTEL
 ; AVX2-NEXT:    vbroadcastss %xmm2, %xmm3 ;INTEL
@@ -1730,6 +1731,16 @@ define void @splat4_v8f32_load_store(ptr %s, ptr %d) nounwind {
 ; AVX2-NEXT:    vmovups %xmm5, 32(%rsi) ;INTEL
 ; AVX2-NEXT:    vpermpd {{.*#+}} ymm1 = ymm1[2,2,3,3] ;INTEL
 ; AVX2-NEXT:    vmovups %ymm1, 64(%rsi) ;INTEL
+=======
+; AVX2-NEXT:    vmovups (%rdi), %xmm1
+; AVX2-NEXT:    vshufps {{.*#+}} xmm2 = xmm1[0,0,1,1]
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm2 = ymm2[0,0,1,1]
+; AVX2-NEXT:    vshufps {{.*#+}} xmm1 = xmm1[2,2,3,3]
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm1 = ymm1[0,0,1,1]
+; AVX2-NEXT:    vshufps {{.*#+}} ymm3 = ymm0[0,0,1,1,4,4,5,5]
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm3 = ymm3[2,2,3,3]
+; AVX2-NEXT:    vshufps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7]
+>>>>>>> 69a322fed19b977d15be9500d8653496b73673e9
 ; AVX2-NEXT:    vpermpd {{.*#+}} ymm0 = ymm0[2,2,3,3]
 ; AVX2-NEXT:    vmovups %ymm0, 96(%rsi)
 ; AVX2-NEXT:    vzeroupper
@@ -1783,6 +1794,7 @@ define void @splat4_v8i32_load_store(ptr %s, ptr %d) nounwind {
 ; AVX2-LABEL: splat4_v8i32_load_store:
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vmovups (%rdi), %ymm0
+<<<<<<< HEAD
 ; AVX2-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
 ; AVX2-NEXT:    vmovddup {{.*#+}} xmm2 = xmm1[0,0] ;INTEL
 ; AVX2-NEXT:    vmovups (%rdi), %xmm3 ;INTEL
@@ -1796,6 +1808,16 @@ define void @splat4_v8i32_load_store(ptr %s, ptr %d) nounwind {
 ; AVX2-NEXT:    vmovups %ymm2, 32(%rsi) ;INTEL
 ; AVX2-NEXT:    vpermpd {{.*#+}} ymm1 = ymm1[2,2,3,3] ;INTEL
 ; AVX2-NEXT:    vmovups %ymm1, 64(%rsi) ;INTEL
+=======
+; AVX2-NEXT:    vmovups (%rdi), %xmm1
+; AVX2-NEXT:    vshufps {{.*#+}} xmm2 = xmm1[0,0,1,1]
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm2 = ymm2[0,0,1,1]
+; AVX2-NEXT:    vshufps {{.*#+}} xmm1 = xmm1[2,2,3,3]
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm1 = ymm1[0,0,1,1]
+; AVX2-NEXT:    vshufps {{.*#+}} ymm3 = ymm0[0,0,1,1,4,4,5,5]
+; AVX2-NEXT:    vpermpd {{.*#+}} ymm3 = ymm3[2,2,3,3]
+; AVX2-NEXT:    vshufps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7]
+>>>>>>> 69a322fed19b977d15be9500d8653496b73673e9
 ; AVX2-NEXT:    vpermpd {{.*#+}} ymm0 = ymm0[2,2,3,3]
 ; AVX2-NEXT:    vmovups %ymm0, 96(%rsi)
 ; AVX2-NEXT:    vzeroupper
