@@ -343,7 +343,6 @@
 ; end INTEL_FEATURE_SW_ADVANCED
 
 ; CHECK-O-NEXT: Running pass: LoopDistributePass
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; InjectTLIMappings invocation is in sync with SLPVectorizerPass
 ; CHECK-LTO-NEXT: Running analysis: LoopAccessAnalysis
@@ -352,18 +351,8 @@
 ; CHECK-Os-NEXT: Running pass: InjectTLIMappings
 ; Removed LoopVectorizePass pass as it is disabled by default
 ; END INTEL_CUSTOMIZATION
-=======
-; CHECK-O-NEXT: Running analysis: LoopAccessAnalysis on foo
-; CHECK-O-NEXT: Running pass: InjectTLIMappings
-; CHECK-O-NEXT: Running pass: LoopVectorizePass
-<<<<<<< HEAD
-; CHECK-O12SZ-NEXT: Running analysis: BlockFrequencyAnalysis
-; CHECK-O12SZ-NEXT: Running analysis: BranchProbabilityAnalysis
->>>>>>> 666731660c733896b83de5eec49e2cd469aef02c
-=======
 ; CHECK-O-NEXT: Running analysis: BlockFrequencyAnalysis
 ; CHECK-O-NEXT: Running analysis: BranchProbabilityAnalysis
->>>>>>> 43b725f83431372bb95af1dda24c17293017bb5b
 ; CHECK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
