@@ -9,22 +9,22 @@
 
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='default<O1>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-DEFAULT,CHECK-O123,CHECK-O1,%llvmcheckext
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-DEFAULT,CHECK-O123,CHECK-O1,CHECK-O12SZ,%llvmcheckext
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='default<O2>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-DEFAULT,CHECK-O123,CHECK-O2,CHECK-O23SZ,%llvmcheckext
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-DEFAULT,CHECK-O123,CHECK-O2,CHECK-O23SZ,CHECK-O12SZ,%llvmcheckext
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='default<O3>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-DEFAULT,CHECK-O123,CHECK-O3,CHECK-O23SZ,%llvmcheckext
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='default<Os>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-DEFAULT,CHECK-OSZ,CHECK-Os,CHECK-O23SZ,%llvmcheckext
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-DEFAULT,CHECK-OSZ,CHECK-Os,CHECK-O23SZ,CHECK-O12SZ,%llvmcheckext
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='default<Oz>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-DEFAULT,CHECK-OSZ,CHECK-Oz,CHECK-O23SZ,%llvmcheckext
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-DEFAULT,CHECK-OSZ,CHECK-Oz,CHECK-O23SZ,CHECK-O12SZ,%llvmcheckext
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto-pre-link<O2>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-LTO,CHECK-O123,CHECK-O2,CHECK-O23SZ,%llvmcheckext
+; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-LTO,CHECK-O123,CHECK-O2,CHECK-O23SZ,CHECK-O12SZ,%llvmcheckext
 
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes-ep-peephole='no-op-function' \
@@ -263,6 +263,9 @@
 ; CHECK-O-NEXT: Running pass: LowerConstantIntrinsicsPass on foo
 ; CHECK-MATRIX: Running pass: LowerMatrixIntrinsicsPass on f
 ; CHECK-MATRIX-NEXT: Running pass: EarlyCSEPass on f
+; CHECK-O3-NEXT: Running pass: ControlHeightReductionPass
+; CHECK-O3-NEXT: Running analysis: BlockFrequencyAnalysis
+; CHECK-O3-NEXT: Running analysis: BranchProbabilityAnalysis
 ; CHECK-EP-VECTORIZER-START-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-EXT: Running pass: {{.*}}::Bye on foo
 ; CHECK-NOEXT:  {{^}}
@@ -342,6 +345,7 @@
 ; end INTEL_FEATURE_SW_ADVANCED
 
 ; CHECK-O-NEXT: Running pass: LoopDistributePass
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; InjectTLIMappings invocation is in sync with SLPVectorizerPass
 ; CHECK-LTO-NEXT: Running analysis: LoopAccessAnalysis
@@ -350,6 +354,13 @@
 ; CHECK-Os-NEXT: Running pass: InjectTLIMappings
 ; Removed LoopVectorizePass pass as it is disabled by default
 ; END INTEL_CUSTOMIZATION
+=======
+; CHECK-O-NEXT: Running analysis: LoopAccessAnalysis on foo
+; CHECK-O-NEXT: Running pass: InjectTLIMappings
+; CHECK-O-NEXT: Running pass: LoopVectorizePass
+; CHECK-O12SZ-NEXT: Running analysis: BlockFrequencyAnalysis
+; CHECK-O12SZ-NEXT: Running analysis: BranchProbabilityAnalysis
+>>>>>>> 666731660c733896b83de5eec49e2cd469aef02c
 ; CHECK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass

@@ -1159,6 +1159,7 @@ if (!SYCLOptimizationMode) {
 #endif // INTEL_CUSTOMIZATION
   invokePeepholeEPCallbacks(FPM, Level);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (!SYCLOptimizationMode)
     FPM.addPass(TransformSinAndCosCallsPass());
@@ -1173,6 +1174,8 @@ if (!SYCLOptimizationMode) {
        PGOOpt->Action == PGOOptions::SampleUse))
     FPM.addPass(ControlHeightReductionPass());
 
+=======
+>>>>>>> 666731660c733896b83de5eec49e2cd469aef02c
   return FPM;
 }
 
@@ -2700,6 +2703,11 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     OptimizePM.addPass(LowerMatrixIntrinsicsPass());
     OptimizePM.addPass(EarlyCSEPass());
   }
+
+  // CHR pass should only be applied with the profile information.
+  // The check is to check the profile summary information in CHR.
+  if (EnableCHR && Level == OptimizationLevel::O3)
+    OptimizePM.addPass(ControlHeightReductionPass());
 
   // FIXME: We need to run some loop optimizations to re-rotate loops after
   // simplifycfg and others undo their rotation.
