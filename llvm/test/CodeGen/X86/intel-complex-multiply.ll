@@ -41,7 +41,7 @@ define <2 x float> @intrinsic_implied_limited_v2f32(<2 x float> %z, <2 x float> 
 ; ALL-LABEL: intrinsic_implied_limited_v2f32:
 ; ALL:       # %bb.0:
 ; ALL-NEXT:    vmovshdup {{.*#+}} xmm2 = xmm1[1,1,3,3]
-; ALL-NEXT:    vpermilps {{.*#+}} xmm3 = xmm0[1,0,3,2]
+; ALL-NEXT:    vshufps {{.*#+}} xmm3 = xmm0[1,0,3,2]
 ; ALL-NEXT:    vmulps %xmm2, %xmm3, %xmm2
 ; ALL-NEXT:    vmovsldup {{.*#+}} xmm1 = xmm1[0,0,2,2]
 ; ALL-NEXT:    vfmaddsub213ps {{.*#+}} xmm0 = (xmm1 * xmm0) +/- xmm2
@@ -55,7 +55,7 @@ define <2 x float> @intrinsic_limited_v2f32(<2 x float> %z, <2 x float> %w) {
 ; ALL-LABEL: intrinsic_limited_v2f32:
 ; ALL:       # %bb.0:
 ; ALL-NEXT:    vmovshdup {{.*#+}} xmm2 = xmm1[1,1,3,3]
-; ALL-NEXT:    vpermilps {{.*#+}} xmm3 = xmm0[1,0,3,2]
+; ALL-NEXT:    vshufps {{.*#+}} xmm3 = xmm0[1,0,3,2]
 ; ALL-NEXT:    vmulps %xmm2, %xmm3, %xmm2
 ; ALL-NEXT:    vmovsldup {{.*#+}} xmm1 = xmm1[0,0,2,2]
 ; ALL-NEXT:    vfmaddsub213ps {{.*#+}} xmm0 = (xmm1 * xmm0) +/- xmm2
@@ -69,7 +69,7 @@ define <2 x float> @intrinsic_fast_v2f32(<2 x float> %z, <2 x float> %w) {
 ; ALL-LABEL: intrinsic_fast_v2f32:
 ; ALL:       # %bb.0:
 ; ALL-NEXT:    vmovshdup {{.*#+}} xmm2 = xmm1[1,1,3,3]
-; ALL-NEXT:    vpermilps {{.*#+}} xmm3 = xmm0[1,0,3,2]
+; ALL-NEXT:    vshufps {{.*#+}} xmm3 = xmm0[1,0,3,2]
 ; ALL-NEXT:    vmulps %xmm2, %xmm3, %xmm2
 ; ALL-NEXT:    vmovsldup {{.*#+}} xmm1 = xmm1[0,0,2,2]
 ; ALL-NEXT:    vfmaddsub213ps {{.*#+}} xmm0 = (xmm1 * xmm0) +/- xmm2
@@ -98,7 +98,7 @@ define <4 x float> @intrinsic_fast_v4f32(<4 x float> %z, <4 x float> %w) {
 ; ALL-LABEL: intrinsic_fast_v4f32:
 ; ALL:       # %bb.0:
 ; ALL-NEXT:    vmovshdup {{.*#+}} xmm2 = xmm1[1,1,3,3]
-; ALL-NEXT:    vpermilps {{.*#+}} xmm3 = xmm0[1,0,3,2]
+; ALL-NEXT:    vshufps {{.*#+}} xmm3 = xmm0[1,0,3,2]
 ; ALL-NEXT:    vmulps %xmm2, %xmm3, %xmm2
 ; ALL-NEXT:    vmovsldup {{.*#+}} xmm1 = xmm1[0,0,2,2]
 ; ALL-NEXT:    vfmaddsub213ps {{.*#+}} xmm0 = (xmm1 * xmm0) +/- xmm2
@@ -111,7 +111,7 @@ define <4 x float> @intrinsic_limited_v4f32(<4 x float> %z, <4 x float> %w) {
 ; ALL-LABEL: intrinsic_limited_v4f32:
 ; ALL:       # %bb.0:
 ; ALL-NEXT:    vmovshdup {{.*#+}} xmm2 = xmm1[1,1,3,3]
-; ALL-NEXT:    vpermilps {{.*#+}} xmm3 = xmm0[1,0,3,2]
+; ALL-NEXT:    vshufps {{.*#+}} xmm3 = xmm0[1,0,3,2]
 ; ALL-NEXT:    vmulps %xmm2, %xmm3, %xmm2
 ; ALL-NEXT:    vmovsldup {{.*#+}} xmm1 = xmm1[0,0,2,2]
 ; ALL-NEXT:    vfmaddsub213ps {{.*#+}} xmm0 = (xmm1 * xmm0) +/- xmm2
@@ -142,7 +142,7 @@ define <8 x float> @intrinsic_fast_v8f32(<8 x float> %z, <8 x float> %w) {
 ; ALL-LABEL: intrinsic_fast_v8f32:
 ; ALL:       # %bb.0:
 ; ALL-NEXT:    vmovshdup {{.*#+}} ymm2 = ymm1[1,1,3,3,5,5,7,7]
-; ALL-NEXT:    vpermilps {{.*#+}} ymm3 = ymm0[1,0,3,2,5,4,7,6]
+; ALL-NEXT:    vshufps {{.*#+}} ymm3 = ymm0[1,0,3,2,5,4,7,6]
 ; ALL-NEXT:    vmulps %ymm2, %ymm3, %ymm2
 ; ALL-NEXT:    vmovsldup {{.*#+}} ymm1 = ymm1[0,0,2,2,4,4,6,6]
 ; ALL-NEXT:    vfmaddsub213ps {{.*#+}} ymm0 = (ymm1 * ymm0) +/- ymm2
@@ -155,7 +155,7 @@ define <8 x float> @intrinsic_limited_v8f32(<8 x float> %z, <8 x float> %w) {
 ; ALL-LABEL: intrinsic_limited_v8f32:
 ; ALL:       # %bb.0:
 ; ALL-NEXT:    vmovshdup {{.*#+}} ymm2 = ymm1[1,1,3,3,5,5,7,7]
-; ALL-NEXT:    vpermilps {{.*#+}} ymm3 = ymm0[1,0,3,2,5,4,7,6]
+; ALL-NEXT:    vshufps {{.*#+}} ymm3 = ymm0[1,0,3,2,5,4,7,6]
 ; ALL-NEXT:    vmulps %ymm2, %ymm3, %ymm2
 ; ALL-NEXT:    vmovsldup {{.*#+}} ymm1 = ymm1[0,0,2,2,4,4,6,6]
 ; ALL-NEXT:    vfmaddsub213ps {{.*#+}} ymm0 = (ymm1 * ymm0) +/- ymm2
@@ -200,12 +200,12 @@ define <16 x float> @intrinsic_fast_v16f32(<16 x float> %z, <16 x float> %w) {
 ; FMA-LABEL: intrinsic_fast_v16f32:
 ; FMA:       # %bb.0:
 ; FMA-NEXT:    vmovshdup {{.*#+}} ymm4 = ymm2[1,1,3,3,5,5,7,7]
-; FMA-NEXT:    vpermilps {{.*#+}} ymm5 = ymm0[1,0,3,2,5,4,7,6]
+; FMA-NEXT:    vshufps {{.*#+}} ymm5 = ymm0[1,0,3,2,5,4,7,6]
 ; FMA-NEXT:    vmulps %ymm4, %ymm5, %ymm4
 ; FMA-NEXT:    vmovsldup {{.*#+}} ymm2 = ymm2[0,0,2,2,4,4,6,6]
 ; FMA-NEXT:    vfmaddsub213ps {{.*#+}} ymm0 = (ymm2 * ymm0) +/- ymm4
 ; FMA-NEXT:    vmovshdup {{.*#+}} ymm2 = ymm3[1,1,3,3,5,5,7,7]
-; FMA-NEXT:    vpermilps {{.*#+}} ymm4 = ymm1[1,0,3,2,5,4,7,6]
+; FMA-NEXT:    vshufps {{.*#+}} ymm4 = ymm1[1,0,3,2,5,4,7,6]
 ; FMA-NEXT:    vmulps %ymm2, %ymm4, %ymm2
 ; FMA-NEXT:    vmovsldup {{.*#+}} ymm3 = ymm3[0,0,2,2,4,4,6,6]
 ; FMA-NEXT:    vfmaddsub213ps {{.*#+}} ymm1 = (ymm3 * ymm1) +/- ymm2
@@ -214,7 +214,7 @@ define <16 x float> @intrinsic_fast_v16f32(<16 x float> %z, <16 x float> %w) {
 ; AVX512VL-LABEL: intrinsic_fast_v16f32:
 ; AVX512VL:       # %bb.0:
 ; AVX512VL-NEXT:    vmovshdup {{.*#+}} zmm2 = zmm1[1,1,3,3,5,5,7,7,9,9,11,11,13,13,15,15]
-; AVX512VL-NEXT:    vpermilps {{.*#+}} zmm3 = zmm0[1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14]
+; AVX512VL-NEXT:    vshufps {{.*#+}} zmm3 = zmm0[1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14]
 ; AVX512VL-NEXT:    vmulps %zmm2, %zmm3, %zmm2
 ; AVX512VL-NEXT:    vmovsldup {{.*#+}} zmm1 = zmm1[0,0,2,2,4,4,6,6,8,8,10,10,12,12,14,14]
 ; AVX512VL-NEXT:    vfmaddsub213ps {{.*#+}} zmm0 = (zmm1 * zmm0) +/- zmm2
@@ -227,12 +227,12 @@ define <16 x float> @intrinsic_limited_v16f32(<16 x float> %z, <16 x float> %w) 
 ; FMA-LABEL: intrinsic_limited_v16f32:
 ; FMA:       # %bb.0:
 ; FMA-NEXT:    vmovshdup {{.*#+}} ymm4 = ymm2[1,1,3,3,5,5,7,7]
-; FMA-NEXT:    vpermilps {{.*#+}} ymm5 = ymm0[1,0,3,2,5,4,7,6]
+; FMA-NEXT:    vshufps {{.*#+}} ymm5 = ymm0[1,0,3,2,5,4,7,6]
 ; FMA-NEXT:    vmulps %ymm4, %ymm5, %ymm4
 ; FMA-NEXT:    vmovsldup {{.*#+}} ymm2 = ymm2[0,0,2,2,4,4,6,6]
 ; FMA-NEXT:    vfmaddsub213ps {{.*#+}} ymm0 = (ymm2 * ymm0) +/- ymm4
 ; FMA-NEXT:    vmovshdup {{.*#+}} ymm2 = ymm3[1,1,3,3,5,5,7,7]
-; FMA-NEXT:    vpermilps {{.*#+}} ymm4 = ymm1[1,0,3,2,5,4,7,6]
+; FMA-NEXT:    vshufps {{.*#+}} ymm4 = ymm1[1,0,3,2,5,4,7,6]
 ; FMA-NEXT:    vmulps %ymm2, %ymm4, %ymm2
 ; FMA-NEXT:    vmovsldup {{.*#+}} ymm3 = ymm3[0,0,2,2,4,4,6,6]
 ; FMA-NEXT:    vfmaddsub213ps {{.*#+}} ymm1 = (ymm3 * ymm1) +/- ymm2
@@ -241,7 +241,7 @@ define <16 x float> @intrinsic_limited_v16f32(<16 x float> %z, <16 x float> %w) 
 ; AVX512VL-LABEL: intrinsic_limited_v16f32:
 ; AVX512VL:       # %bb.0:
 ; AVX512VL-NEXT:    vmovshdup {{.*#+}} zmm2 = zmm1[1,1,3,3,5,5,7,7,9,9,11,11,13,13,15,15]
-; AVX512VL-NEXT:    vpermilps {{.*#+}} zmm3 = zmm0[1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14]
+; AVX512VL-NEXT:    vshufps {{.*#+}} zmm3 = zmm0[1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14]
 ; AVX512VL-NEXT:    vmulps %zmm2, %zmm3, %zmm2
 ; AVX512VL-NEXT:    vmovsldup {{.*#+}} zmm1 = zmm1[0,0,2,2,4,4,6,6,8,8,10,10,12,12,14,14]
 ; AVX512VL-NEXT:    vfmaddsub213ps {{.*#+}} zmm0 = (zmm1 * zmm0) +/- zmm2
@@ -432,7 +432,7 @@ define <6 x float> @intrinsic_fast_v6f32(<6 x float> %z, <6 x float> %w) {
 ; ALL-LABEL: intrinsic_fast_v6f32:
 ; ALL:       # %bb.0:
 ; ALL-NEXT:    vmovshdup {{.*#+}} ymm2 = ymm1[1,1,3,3,5,5,7,7]
-; ALL-NEXT:    vpermilps {{.*#+}} ymm3 = ymm0[1,0,3,2,5,4,7,6]
+; ALL-NEXT:    vshufps {{.*#+}} ymm3 = ymm0[1,0,3,2,5,4,7,6]
 ; ALL-NEXT:    vmulps %ymm2, %ymm3, %ymm2
 ; ALL-NEXT:    vmovsldup {{.*#+}} ymm1 = ymm1[0,0,2,2,4,4,6,6]
 ; ALL-NEXT:    vfmaddsub213ps {{.*#+}} ymm0 = (ymm1 * ymm0) +/- ymm2
@@ -484,22 +484,22 @@ define <32 x float> @intrinsic_fast_v32f32(<32 x float> %z, <32 x float> %w) {
 ; FMA-LABEL: intrinsic_fast_v32f32:
 ; FMA:       # %bb.0:
 ; FMA-NEXT:    vmovshdup {{.*#+}} ymm8 = ymm4[1,1,3,3,5,5,7,7]
-; FMA-NEXT:    vpermilps {{.*#+}} ymm9 = ymm0[1,0,3,2,5,4,7,6]
+; FMA-NEXT:    vshufps {{.*#+}} ymm9 = ymm0[1,0,3,2,5,4,7,6]
 ; FMA-NEXT:    vmulps %ymm8, %ymm9, %ymm8
 ; FMA-NEXT:    vmovsldup {{.*#+}} ymm4 = ymm4[0,0,2,2,4,4,6,6]
 ; FMA-NEXT:    vfmaddsub213ps {{.*#+}} ymm0 = (ymm4 * ymm0) +/- ymm8
 ; FMA-NEXT:    vmovshdup {{.*#+}} ymm4 = ymm5[1,1,3,3,5,5,7,7]
-; FMA-NEXT:    vpermilps {{.*#+}} ymm8 = ymm1[1,0,3,2,5,4,7,6]
+; FMA-NEXT:    vshufps {{.*#+}} ymm8 = ymm1[1,0,3,2,5,4,7,6]
 ; FMA-NEXT:    vmulps %ymm4, %ymm8, %ymm4
 ; FMA-NEXT:    vmovsldup {{.*#+}} ymm5 = ymm5[0,0,2,2,4,4,6,6]
 ; FMA-NEXT:    vfmaddsub213ps {{.*#+}} ymm1 = (ymm5 * ymm1) +/- ymm4
 ; FMA-NEXT:    vmovshdup {{.*#+}} ymm4 = ymm6[1,1,3,3,5,5,7,7]
-; FMA-NEXT:    vpermilps {{.*#+}} ymm5 = ymm2[1,0,3,2,5,4,7,6]
+; FMA-NEXT:    vshufps {{.*#+}} ymm5 = ymm2[1,0,3,2,5,4,7,6]
 ; FMA-NEXT:    vmulps %ymm4, %ymm5, %ymm4
 ; FMA-NEXT:    vmovsldup {{.*#+}} ymm5 = ymm6[0,0,2,2,4,4,6,6]
 ; FMA-NEXT:    vfmaddsub213ps {{.*#+}} ymm2 = (ymm5 * ymm2) +/- ymm4
 ; FMA-NEXT:    vmovshdup {{.*#+}} ymm4 = ymm7[1,1,3,3,5,5,7,7]
-; FMA-NEXT:    vpermilps {{.*#+}} ymm5 = ymm3[1,0,3,2,5,4,7,6]
+; FMA-NEXT:    vshufps {{.*#+}} ymm5 = ymm3[1,0,3,2,5,4,7,6]
 ; FMA-NEXT:    vmulps %ymm4, %ymm5, %ymm4
 ; FMA-NEXT:    vmovsldup {{.*#+}} ymm5 = ymm7[0,0,2,2,4,4,6,6]
 ; FMA-NEXT:    vfmaddsub213ps {{.*#+}} ymm3 = (ymm5 * ymm3) +/- ymm4
@@ -508,12 +508,12 @@ define <32 x float> @intrinsic_fast_v32f32(<32 x float> %z, <32 x float> %w) {
 ; AVX512VL-LABEL: intrinsic_fast_v32f32:
 ; AVX512VL:       # %bb.0:
 ; AVX512VL-NEXT:    vmovshdup {{.*#+}} zmm4 = zmm2[1,1,3,3,5,5,7,7,9,9,11,11,13,13,15,15]
-; AVX512VL-NEXT:    vpermilps {{.*#+}} zmm5 = zmm0[1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14]
+; AVX512VL-NEXT:    vshufps {{.*#+}} zmm5 = zmm0[1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14]
 ; AVX512VL-NEXT:    vmulps %zmm4, %zmm5, %zmm4
 ; AVX512VL-NEXT:    vmovsldup {{.*#+}} zmm2 = zmm2[0,0,2,2,4,4,6,6,8,8,10,10,12,12,14,14]
 ; AVX512VL-NEXT:    vfmaddsub213ps {{.*#+}} zmm0 = (zmm2 * zmm0) +/- zmm4
 ; AVX512VL-NEXT:    vmovshdup {{.*#+}} zmm2 = zmm3[1,1,3,3,5,5,7,7,9,9,11,11,13,13,15,15]
-; AVX512VL-NEXT:    vpermilps {{.*#+}} zmm4 = zmm1[1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14]
+; AVX512VL-NEXT:    vshufps {{.*#+}} zmm4 = zmm1[1,0,3,2,5,4,7,6,9,8,11,10,13,12,15,14]
 ; AVX512VL-NEXT:    vmulps %zmm2, %zmm4, %zmm2
 ; AVX512VL-NEXT:    vmovsldup {{.*#+}} zmm3 = zmm3[0,0,2,2,4,4,6,6,8,8,10,10,12,12,14,14]
 ; AVX512VL-NEXT:    vfmaddsub213ps {{.*#+}} zmm1 = (zmm3 * zmm1) +/- zmm2
