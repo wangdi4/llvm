@@ -98,6 +98,10 @@ FunctionPass *createX86StackRealignPass();
 /// instructions, in order to eliminate execution delays in some processors.
 FunctionPass *createX86FixupLEAs();
 
+/// Return as pass that replaces equivilent slower instructions with faster
+/// ones.
+FunctionPass *createX86FixupInstTuning();
+
 /// Return a pass that removes redundant LEA instructions and redundant address
 /// recalculations.
 FunctionPass *createX86OptimizeLEAs();
@@ -237,6 +241,7 @@ void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFPSPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
 void initializeFixupLEAPassPass(PassRegistry &);
+void initializeX86FixupInstTuningPassPass(PassRegistry &);
 void initializeWinEHStatePassPass(PassRegistry &);
 void initializeX86AvoidSFBPassPass(PassRegistry &);
 void initializeX86AvoidTrailingCallPassPass(PassRegistry &);
