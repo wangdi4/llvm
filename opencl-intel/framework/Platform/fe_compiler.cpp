@@ -15,9 +15,9 @@
 #include "fe_compiler.h"
 #include "cl_sys_info.h"
 #include "cl_user_logger.h"
-#include "common_clang.h"
 #include "frontend_api.h"
 #include "observer.h"
+#include "opencl_clang.h"
 
 #include <cl_sys_defines.h>
 #include <task_executor.h>

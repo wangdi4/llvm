@@ -17,10 +17,10 @@
 #include <mutex>
 #include <vector>
 
-#include "common_clang.h"
 #include "compile_data.h"
 #include "link_data.h"
 #include "ocl_source_recorder.h"
+#include "opencl_clang.h"
 
 using namespace llvm;
 

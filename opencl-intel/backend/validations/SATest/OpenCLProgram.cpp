@@ -17,8 +17,8 @@
 #include "OCLBuilder.h"
 #include "SATestException.h"
 #include "cl_types.h"
-#include "common_clang.h"
 #include "exceptions.h"
+#include "opencl_clang.h"
 
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/Bitcode/BitcodeReader.h"

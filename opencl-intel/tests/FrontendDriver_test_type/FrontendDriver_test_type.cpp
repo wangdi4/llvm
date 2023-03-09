@@ -21,10 +21,10 @@
 #include "FrontendDriver.h"
 #include "FrontendDriverFixture.h"
 #include "clang_device_info.h"
-#include "common_clang.h"
 #include "common_utils.h"
 #include "frontend_api.h"
 #include "gtest_wrapper.h"
+#include "opencl_clang.h"
 #include <CL/cl.h>
 
 #include "SPIRV/libSPIRV/spirv_internal.hpp"
