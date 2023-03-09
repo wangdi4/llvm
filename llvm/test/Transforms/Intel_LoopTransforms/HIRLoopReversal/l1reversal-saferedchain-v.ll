@@ -15,7 +15,7 @@
 ;    s1 = s2 + A[2 * n - i];
 ;    s2 = s1 + A[n - i];
 ;  }
-;  return s1 + s2 + A[0];
+;  return s2 + A[0];
 ;}
 ;
 ;
@@ -58,10 +58,9 @@ entry:
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
-  %add5 = fadd float %add, %add4
   %2 = load float, float* %A, align 4, !tbaa !1
-  %add7 = fadd float %add5, %2
-  ret float %add7
+  %add5 = fadd float %add4, %2
+  ret float %add5
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
