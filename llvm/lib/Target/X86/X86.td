@@ -301,6 +301,8 @@ def FeatureEGPR : SubtargetFeature<"egpr", "HasEGPR", "true",
                                    "Support extended general purpose register">;
 def FeaturePush2Pop2 : SubtargetFeature<"push2pop2", "HasPush2Pop2", "true",
                                    "Support PUSH2/POP2 instructions">;
+def FeatureNDD : SubtargetFeature<"ndd", "HasNDD", "true",
+                                   "Support non-destructive destination">;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 

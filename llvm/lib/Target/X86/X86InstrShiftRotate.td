@@ -42,10 +42,15 @@ class I_R_R_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic
   : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
         (ins typeinfo.RegClass:$src1), mnemonic, operands, patterns>;
 
-class I_R_RI<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic, 
+class I_R_RI<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
              string operands, list<dag> patterns>
-  : ITy<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst), 
-        (ins typeinfo.RegClass:$src1, u8imm:$src2), 
+  : ITy<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+        (ins typeinfo.RegClass:$src1, u8imm:$src2),
+        mnemonic, operands, patterns>;
+class I_R_RI_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
+             string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+        (ins typeinfo.RegClass:$src1, u8imm:$src2),
         mnemonic, operands, patterns>;
 
 class I_N_M<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic, 
@@ -142,70 +147,50 @@ let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
   def NAME#_ND_NF : shift_rCL_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
 }
 
-class shift_ri<bits<8> opcode, Format f, string mnemonic, SDNode node, 
+class shift_ri<bits<8> opcode, Format f, string mnemonic, SDNode node,
                X86TypeInfo typeinfo>
-  : I_R_RI<opcode, f, typeinfo, mnemonic, "{$src2, $dst|$dst, $src2}", 
-           [(set typeinfo.RegClass:$dst, 
-            (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]>{
+  : I_R_RI<opcode, f, typeinfo, mnemonic, "{$src2, $dst|$dst, $src2}",
+           [(set typeinfo.RegClass:$dst,
+            (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]> {
   let ImmT = Imm8;
 }
 
-class shift_ri_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node, 
+class shift_ri_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
                    X86TypeInfo typeinfo>
-  : I_R_RI<opcode, f, typeinfo, mnemonic, 
-           "{$src2, $src1, $dst|$dst, $src1, $src2}", 
-           [(set typeinfo.RegClass:$dst, 
-            (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]>{
+  : I_R_RI_EVEX<opcode, f, typeinfo, mnemonic,
+           "{$src2, $src1, $dst|$dst, $src1, $src2}",
+           [(set typeinfo.RegClass:$dst,
+            (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]> {
   let ImmT = Imm8;
 }
 
-class shift_ri_NoPat<bits<8> opcode, Format f, string mnemonic, 
+class shift_ri_NoPat<bits<8> opcode, Format f, string mnemonic,
                      X86TypeInfo typeinfo>
-  : I_R_RI<opcode, f, typeinfo, mnemonic, "{$src2, $dst|$dst, $src2}", []>{
+  : I_R_RI_EVEX<opcode, f, typeinfo, mnemonic, "{$src2, $dst|$dst, $src2}", []> {
   let ImmT = Imm8;
 }
 
-class shift_ri_NDD_NoPat<bits<8> opcode, Format f, string mnemonic, 
+class shift_ri_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
                          X86TypeInfo typeinfo>
-  : I_R_RI<opcode, f, typeinfo, mnemonic, 
-           "{$src2, $src1, $dst|$dst, $src1, $src2}", []>{
+  : I_R_RI_EVEX<opcode, f, typeinfo, mnemonic,
+           "{$src2, $src1, $dst|$dst, $src1, $src2}", []> {
   let ImmT = Imm8;
 }
 
-multiclass mshiftl_ri<bits<8> opcode, Format f, string mnemonic, SDNode node, 
-                      X86TypeInfo typeinfo>{
+multiclass mshift_ri<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                      X86TypeInfo typeinfo> {
 let Defs = [EFLAGS] in {
-let Constraints = "$src1 = $dst", Predicates = [TruePredicate], 
-    isConvertibleToThreeAddress = 1 in
+let Constraints = "$src1 = $dst" in {
+let Predicates = [NoNDD] in
   def NAME : shift_ri<opcode, f, mnemonic, node, typeinfo>;
-let Constraints = "$src1 = $dst", isConvertibleToThreeAddress = 1, 
-    isCodeGenOnly = 1 in
-  def NAME#_EVEX : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>;
-let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
-  def NAME#_ND : shift_ri_NDD<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>, EmitVEXOrEVEXPrefix;
 }
-let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
-    isConvertibleToThreeAddress = 1, isCodeGenOnly = 1 in
-  def NAME#_NF : shift_ri_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
-let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
-  def NAME#_ND_NF : shift_ri_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
+let Predicates = [HasNDD] in
+  def _ND : shift_ri_NDD<opcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
 }
-
-multiclass mshift_ri<bits<8> opcode, Format f, string mnemonic, SDNode node, 
-                     X86TypeInfo typeinfo>{
-let Defs = [EFLAGS] in {
-let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
-  def NAME : shift_ri<opcode, f, mnemonic, node, typeinfo>;
-let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
-  def NAME#_EVEX : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>;
-let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
-  def NAME#_ND : shift_ri_NDD<opcode, f, mnemonic, node, typeinfo>;
-}
-let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
-    isCodeGenOnly = 1 in
-  def NAME#_NF : shift_ri_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
-let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
-  def NAME#_ND_NF : shift_ri_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
+let Constraints = "$src1 = $dst" in
+  def _NF : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_ri_NDD_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_B4V, EVEX_NF;
 }
 
 class shiftl_r1<bits<8> opcode, Format f, X86TypeInfo typeinfo>
@@ -234,11 +219,11 @@ defm SHL32rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi32>;
 defm SHL64rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi64>;
 } // Uses = [CL], SchedRW
 
-let SchedRW = [WriteShift]in {
-defm SHL8ri   : mshiftl_ri<0xC0, MRM4r, "shl", shl, Xi8>;
-defm SHL16ri  : mshiftl_ri<0xC1, MRM4r, "shl", shl, Xi16>;
-defm SHL32ri  : mshiftl_ri<0xC1, MRM4r, "shl", shl, Xi32>;
-defm SHL64ri  : mshiftl_ri<0xC1, MRM4r, "shl", shl, Xi64>;
+let SchedRW = [WriteShift], isConvertibleToThreeAddress = 1 in {
+defm SHL8ri   : mshift_ri<0xC0, MRM4r, "shl", shl, Xi8>;
+defm SHL16ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi16>;
+defm SHL32ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi32>;
+defm SHL64ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi64>;
 } // SchedRW
 
 // NOTE: We don't include patterns for shifts of a register by one, because
@@ -537,22 +522,19 @@ let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
                                         typeinfo>;
 }
 
-multiclass mshift_ri_NoPat<bits<8> opcode, Format f, string mnemonic, 
+multiclass mshift_ri_NoPat<bits<8> opcode, Format f, string mnemonic,
                            X86TypeInfo typeinfo>{
 let Defs = [EFLAGS] in {
-let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
-  def NAME  : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>;
-let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in 
-  def NAME#_EVEX : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>;
-let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in 
-  def NAME#_ND : shift_rCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>;
+let Constraints = "$src1 = $dst" in {
+let ImmT = Imm8 in
+  def NAME : I_R_RI<opcode, f, typeinfo, mnemonic, "{$src2, $dst|$dst, $src2}", []>;
+  def _EVEX : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>, EmitVEXOrEVEXPrefix;
 }
-let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
-    isCodeGenOnly = 1 in
-  def NAME#_NF : shift_ri_NoPat<opcode, f, "{nf}\t"#mnemonic, typeinfo>;
-let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
-  def NAME#_ND_NF : shift_rCL_NDD_NoPat<opcode, f, "{nf}\t"#mnemonic, 
-                                        typeinfo>;
+  def _ND : shift_ri_NDD_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_B4V;
+}
+let Constraints = "$src1 = $dst" in
+  def _NF : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_ri_NDD_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_B4V, EVEX_NF;
 }
 
 multiclass mshift_r1_NoPat<bits<8> opcode, Format f, string mnemonic, 
