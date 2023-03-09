@@ -2151,6 +2151,9 @@ if (INTEL_CUSTOMIZATION)
         clang_rt.ubsan_standalone-x86_64
         clang_rt.ubsan_standalone_cxx-x86_64
 
+        # Control-flow integrity (CFI) sanitizer
+        clang_rt.cfi-x86_64 clang_rt.cfi_diag-x86_64 cfi
+
         # llvm-symbolizer improves traces from sanitizers.
         llvm-symbolizer
       )
@@ -2176,6 +2179,12 @@ if (INTEL_CUSTOMIZATION)
         )
       endif()
     endif()
+
+    # Deploying fuzzer libraries.
+    list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+      clang_rt.fuzzer-x86_64 clang_rt.fuzzer_no_main-x86_64
+      clang_rt.fuzzer_interceptors-x86_64
+    )
 
     set(INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST
       # Libdev components
