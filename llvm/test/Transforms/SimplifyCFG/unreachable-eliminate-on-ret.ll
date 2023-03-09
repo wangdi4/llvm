@@ -72,7 +72,6 @@ bb2:
 define nonnull noundef ptr @test_ret_ptr_nonnull_noundef_gep_inbounds_nonzero(i1 %cond, ptr %x) {
 ; CHECK-LABEL: @test_ret_ptr_nonnull_noundef_gep_inbounds_nonzero(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    call void @llvm.assume(i1 [[COND:%.*]])
 ; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds ptr, ptr [[X:%.*]], i64 12
 ; CHECK-NEXT:    ret ptr [[GEP]]
 ;
