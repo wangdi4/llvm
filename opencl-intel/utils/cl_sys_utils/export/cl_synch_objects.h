@@ -17,20 +17,6 @@
  * The synchronization objects header declares all objects in Intel OCL
  * runtime that are needed for synchronization. The header is OS independent.
  * The implementation is tuned per needed OS.
- * The available objects are:
- * - OclMutex:
- *      This object can be acquire by only one thread at a time.
- *      Use it to mutually exclusive access to a shared resource.
- *      Best suited for Critical Section gaurd.
- * - OclNamedMutex:
- *      Same as Mutex, but provides an option to share the object
- *      between 2 threads according to a unique name.
- *      Is expected to use only when sharing and synchronizing objects in
- *different processes.
- * - OclAutoMutex:
- *      By using AutoMutex, you can lock the mutex and unlock it through the
- *      object Constructor/Destructor. Use it to prevent nested lock/unlock
- *logic.
  * - OclCondition:
  *      Condition object is a synchronization object that enables a thread to
  *wait on a condition until that condition is set. The object is attached with
@@ -48,7 +34,6 @@
 #include <assert.h>
 #include <queue>
 
-#include "cl_sys_defines.h"
 #include "cl_utils.h"
 #include "hw_utils.h"
 #include "ittnotify.h"
@@ -57,14 +42,6 @@
 namespace Intel {
 namespace OpenCL {
 namespace Utils {
-
-const unsigned int DEFAULT_SPIN_COUNT = 4000;
-const bool SUPPORT_RECURSIVE_LOCK = true;
-const bool NO_RECURSIVE_LOCK = false;
-
-// Call this function from within spinning loops
-void InnerSpinloopImpl();
-
 template <class T> class AtomicPointer {
 public:
   AtomicPointer(T *ptr = nullptr) : m_ptr(ptr) {}
@@ -105,104 +82,6 @@ private:
 };
 
 /************************************************************************
- * IMutex:
- * An abstract mutex interface. Used as an input to the AutoMutex objects
- ************************************************************************/
-class IMutex {
-public:
-  IMutex() {}
-  virtual void Lock() = 0;
-  virtual void Unlock() = 0;
-  virtual ~IMutex() {}
-  IMutex(const IMutex &) = delete;
-  IMutex(IMutex &&) = delete;
-  IMutex &operator=(const IMutex &) = delete;
-  IMutex &operator=(IMutex &&) = delete;
-};
-
-/************************************************************************
- * OclAutoMutex:
- * The OclAutoMutex class is a convenience class that simplifies
- * locking and unlocking of a Mutex.
- * Use this object to control critical sections in your code
- * In the class constructor, the critical section is locked and unlocked
- * when the object is freed.
- *
- * How to use it?
- * 1) A critical section within a function.
- *      void foo()
- *      {
- *          ... // None critical section
- *          { OclAutoMutex CS(&mutex);
- *          ... // Add your critical section here
- *          } // End of CS
- *          ... // Another critical section
- *      }
- *
- *
- * 2) The entire function is trade-safe.
- *      void foo()
- *      {
- *          OclAutoMutex CS(&mutex); // Lock the function
- *          bool b = IsBool();
- *          if (!b)
- *              return;  // Implicit unlock by calling CS distructor.
- *          else
- *              DoThat();
- *          return;
- *      }
- *
- ************************************************************************/
-class OclAutoMutex {
-public:
-  OclAutoMutex(IMutex *mutexObj, bool bAutoLock = true) {
-    m_mutexObj = mutexObj;
-    if (bAutoLock) {
-      m_mutexObj->Lock();
-    }
-  }
-
-  ~OclAutoMutex() { m_mutexObj->Unlock(); }
-
-private:
-  IMutex *m_mutexObj;
-};
-/************************************************************************
- * OclMutex:
- * This is the basic synchronization object in the system.
- * By locking the Mutex, a thread can exclusively access to a protected
- *resource. Any other thread that wants to access the same resource is blocked
- *until the Mutex is released. If more than one thread is waiting on this Mutex,
- * a waiting thread is selected to acquire the resource next. The order is
- *arbitrary. It is the developer responsibility to use this object correctly, in
- *order to really protect the resource. The OclMutex can be acquired by calling
- *the lock method and be released by calling the unlock method. Use this object
- *wisely, since it can slow-down a multi-threaded code.
- *
- ************************************************************************/
-class OclMutex : public IMutex {
-  friend class OclCondition;
-
-public:
-  OclMutex(unsigned int uiSpinCount = DEFAULT_SPIN_COUNT,
-           bool recursive = NO_RECURSIVE_LOCK);
-  virtual ~OclMutex();
-  OclMutex(const OclMutex &) = delete;
-  OclMutex &operator=(const OclMutex &) = delete;
-  void Lock() override;
-  void Unlock() override;
-
-protected:
-  MUTEX m_mutex;
-
-private:
-  void spinCountMutexLock();
-
-  unsigned int m_uiSpinCount;
-  bool m_bRecursive;
-};
-
-/************************************************************************
  * OclRecursiveMutex:
  * Add number of locked for std::recursive
  ************************************************************************/
@@ -228,47 +107,20 @@ protected:
   std::recursive_mutex mutex;
 };
 
-class OclNonReentrantSpinMutex : public IMutex {
-public:
-  OclNonReentrantSpinMutex() : m_val(0) {}
-  void Lock() override {
-    while (CAS(&m_val, 0, 1)) {
-      hw_pause();
-    };
-
-    // Notify Intel Inspector that the lock is acquired
-    __itt_sync_acquired(this);
-    assert(1 == m_val && "Mutex expected to be in locked");
-  }
-
-  void Unlock() override {
-    assert(1 == m_val && "Mutex expected to be in locked");
-    _mm_mfence(); // ensure all memory accesses inside critical sections
-                  // are flushed by HW
-
-    // Notify Intel Inspector that the lock is releasing
-    __itt_sync_releasing(this);
-    m_val = 0;
-  }
-
-protected:
-  volatile size_t m_val;
-};
-
 /************************************************************************
- * OclCondition:
- *      Condition object is a synchronization object that enables a thread to
- wait on a condition
- *      until that condition is set.
- *      The object is attached with an external mutex. When the object enters
- into wait state,
- *      the mutex is atomically released and atomically is acquired when the
- condition is set.
- *      The condition may be signaled or broadcast. In case of single, only one
- waiting thread
- *      is released, otherwise, all threads are released
-            AND THE MUTEX IS NOT AQUIRED???
- ************************************************************************/
+* OclCondition:
+*      Condition object is a synchronization object that enables a thread to
+wait on a condition
+*      until that condition is set.
+*      The object is attached with an external mutex. When the object enters
+into wait state,
+*      the mutex is atomically released and atomically is acquired when the
+condition is set.
+*      The condition may be signaled or broadcast. In case of single, only one
+waiting thread
+*      is released, otherwise, all threads are released
+           AND THE MUTEX IS NOT AQUIRED???
+************************************************************************/
 enum COND_RESULT {
   COND_RESULT_OK,  // Return code on success.
   COND_RESULT_FAIL // Return code in case of error.
@@ -279,7 +131,7 @@ public:
   OclCondition();
   ~OclCondition();
 
-  COND_RESULT Wait(OclMutex *m_mutexObj);
+  COND_RESULT Wait(std::mutex *m_mutexObj);
   COND_RESULT Signal();
 
 private:
@@ -374,7 +226,7 @@ public:
 
 private:
   std::queue<T> m_queue;
-  OclNonReentrantSpinMutex m_queueLock;
+  std::mutex m_queueLock;
 };
 
 template <class T, class S> class OclNaiveConcurrentMap {
@@ -391,7 +243,7 @@ public:
 
 private:
   std::map<T, S> m_map;
-  OclNonReentrantSpinMutex m_mapLock;
+  std::mutex m_mapLock;
 
   bool IsEmptyInternal() const;
 };

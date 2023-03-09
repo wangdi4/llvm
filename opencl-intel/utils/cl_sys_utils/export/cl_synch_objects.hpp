@@ -54,7 +54,7 @@ template <class T> inline bool OclNaiveConcurrentQueue<T>::IsEmpty() const {
 }
 
 template <class T> T OclNaiveConcurrentQueue<T>::Top() {
-  OclAutoMutex mu(&m_queueLock);
+  std::lock_guard<std::mutex> mu(m_queueLock);
 
   assert(!IsEmpty());
   T &ret = m_queue.front();
@@ -63,7 +63,7 @@ template <class T> T OclNaiveConcurrentQueue<T>::Top() {
 }
 
 template <class T> T OclNaiveConcurrentQueue<T>::PopFront() {
-  OclAutoMutex mu(&m_queueLock);
+  std::lock_guard<std::mutex> mu(m_queueLock);
 
   assert(!IsEmpty());
   T ret = m_queue.front();
@@ -73,13 +73,13 @@ template <class T> T OclNaiveConcurrentQueue<T>::PopFront() {
 }
 
 template <class T> void OclNaiveConcurrentQueue<T>::PushBack(const T &newNode) {
-  OclAutoMutex mu(&m_queueLock);
+  std::lock_guard<std::mutex> mu(m_queueLock);
 
   m_queue.push(newNode);
 }
 
 template <class T> bool OclNaiveConcurrentQueue<T>::TryPop(T &val) {
-  OclAutoMutex mu(&m_queueLock);
+  std::lock_guard<std::mutex> mu(m_queueLock);
 
   if (m_queue.empty()) {
     return false;
@@ -95,20 +95,20 @@ template <class T> bool OclNaiveConcurrentQueue<T>::TryPop(T &val) {
 // OclNaiveConcurrentMap
 /////////////////////////////////////////////////////////////////////////////
 template <class T, class S> inline bool OclNaiveConcurrentMap<T, S>::IsEmpty() {
-  OclAutoMutex mu(&m_mapLock);
+  std::lock_guard<std::mutex> mu(m_mapLock);
 
   return IsEmptyInternal();
 }
 
 template <class T, class S>
 void OclNaiveConcurrentMap<T, S>::Insert(const T &key, const S &val) {
-  OclAutoMutex mu(&m_mapLock);
+  std::lock_guard<std::mutex> mu(m_mapLock);
 
   m_map[key] = val;
 }
 
 template <class T, class S> S OclNaiveConcurrentMap<T, S>::Find(const T &key) {
-  OclAutoMutex mu(&m_mapLock);
+  std::lock_guard<std::mutex> mu(m_mapLock);
 
   assert(!IsEmptyInternal());
   typename std::map<T, S>::const_iterator it = m_map.find(key);
@@ -119,7 +119,7 @@ template <class T, class S> S OclNaiveConcurrentMap<T, S>::Find(const T &key) {
 
 template <class T, class S>
 void OclNaiveConcurrentMap<T, S>::Erase(const T &key) {
-  OclAutoMutex mu(&m_mapLock);
+  std::lock_guard<std::mutex> mu(m_mapLock);
 
   assert(!IsEmptyInternal());
   m_map.erase(key);
@@ -127,7 +127,7 @@ void OclNaiveConcurrentMap<T, S>::Erase(const T &key) {
 
 template <class T, class S>
 bool OclNaiveConcurrentMap<T, S>::IsFound(const T &key, S &val) {
-  OclAutoMutex mu(&m_mapLock);
+  std::lock_guard<std::mutex> mu(m_mapLock);
 
   if (IsEmptyInternal()) {
     return false;
@@ -143,7 +143,7 @@ bool OclNaiveConcurrentMap<T, S>::IsFound(const T &key, S &val) {
 }
 
 template <class T, class S> void OclNaiveConcurrentMap<T, S>::Clear() {
-  OclAutoMutex mu(&m_mapLock);
+  std::lock_guard<std::mutex> mu(m_mapLock);
 
   m_map.clear();
 }

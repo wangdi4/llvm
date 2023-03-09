@@ -23,13 +23,10 @@
 #include <Logger.h>
 #include <cl_device_api.h>
 #include <cl_object.h>
-#include <cl_synch_objects.h>
 #include <list>
+#include <mutex>
 #include <stack>
 #include <vector>
-
-// Using namespace here for mutex support in inline functions
-using namespace Intel::OpenCL::Utils;
 
 namespace Intel {
 namespace OpenCL {
@@ -697,7 +694,7 @@ protected:
 
 private:
   DataValidState m_data_valid_state;      // overall state - sum of all devices
-  OclNonReentrantSpinMutex m_global_lock; // lock for control structures changes
+  std::mutex m_global_lock;               // lock for control structures changes
 
   cl_err_code allocate_object_for_sharing_group(unsigned int group_id);
   const DeviceDescriptor *get_device(const FissionableDevice *dev) const;

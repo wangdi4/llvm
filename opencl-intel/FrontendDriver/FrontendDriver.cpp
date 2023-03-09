@@ -21,7 +21,7 @@
 #include "cl_dynamic_lib.h"
 #include "cl_logger.h"
 #include "cl_sys_info.h"
-#include "common_clang.h"
+#include "opencl_clang.h"
 
 #include <Logger.h>
 #include <cl_device_api.h>

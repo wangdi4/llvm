@@ -66,7 +66,7 @@ if(INTEL_CUSTOMIZATION)
 endif(INTEL_CUSTOMIZATION)
 
 # Download opencl-clang
-set(OPENCL_CLANG_TAG de0ea6d42a4c25fba614571651f1a9292078610f)
+set(OPENCL_CLANG_TAG b3b2d7f192ca070c9c4c2184b3e4ac7c10d75178)
 # PCH_EXTENSION can override PCH extension map in opencl-clang/options_compile.cpp
 set(PCH_EXTENSION "cl_khr_3d_image_writes,cl_khr_depth_images,cl_khr_global_int32_base_atomics,cl_khr_global_int32_extended_atomics,cl_khr_int64_base_atomics,cl_khr_int64_extended_atomics,cl_khr_local_int32_base_atomics,cl_khr_local_int32_extended_atomics,cl_intel_subgroups,cl_intel_subgroups_short" CACHE STRING "")
 
@@ -263,8 +263,8 @@ if(OPENCL_INTREE_BUILD)
 
   get_target_property(COMMON_CLANG_H_LOC ${COMMON_CLANG} SOURCE_DIR)
   if((NOT COMMON_CLANG_H_LOC) OR (NOT EXISTS
-                                  "${COMMON_CLANG_H_LOC}/common_clang.h"))
-    message(FATAL_ERROR "Cannot find common_clang.h from common_clang project (in ${COMMON_CLANG_H_LOC}).")
+                                  "${COMMON_CLANG_H_LOC}/opencl_clang.h"))
+    message(FATAL_ERROR "Cannot find opencl_clang.h from opencl_clang project (in ${COMMON_CLANG_H_LOC}).")
   endif()
   set(CCLANG_DEV_INCLUDE_DIRS ${COMMON_CLANG_H_LOC})
   set(LLVM_INCLUDE_DIRS ${LLVM_MAIN_INCLUDE_DIR})

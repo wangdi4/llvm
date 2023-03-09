@@ -17,7 +17,7 @@
 #include "SPIRMaterializer.h"
 #include "SPIRVMaterializer.h"
 #include "clang_device_info.h"
-#include "common_clang.h" //IOCLFEBinaryResult
+#include "opencl_clang.h" //IOCLFEBinaryResult
 
 #include "SPIRV/libSPIRV/spirv_internal.hpp" // spv::MagicNumber, spv::Version
 #include <LLVMSPIRVLib.h>                    // llvm::ReadSPIRV

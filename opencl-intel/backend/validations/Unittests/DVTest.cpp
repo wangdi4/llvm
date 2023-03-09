@@ -13,8 +13,8 @@
 // License.
 
 #include "cl_types.h"
-#include "common_clang.h"
 #include "gtest_wrapper.h"
+#include "opencl_clang.h"
 
 #include "OCLBuilder.h"
 #include "llvm/IR/LLVMContext.h"

@@ -18,6 +18,7 @@ PUBLIC Emit_VZeroUpper
 Emit_VZeroUpper PROC
 ; Begin ASM
   vzeroupper
+  ret 0
 ; End ASM
 Emit_VZeroUpper ENDP
 _TEXT  ENDS

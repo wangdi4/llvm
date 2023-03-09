@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "common_clang.h"
+#include "opencl_clang.h"
 #include "llvm/ADT/SmallVector.h"
 #include <string>
 

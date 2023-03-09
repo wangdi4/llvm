@@ -19,8 +19,8 @@
 // problem reports or change requests be submitted to it directly.
 
 #include "FrontendDriverFixture.h"
-#include "common_clang.h"
 #include "common_utils.h"
+#include "opencl_clang.h"
 
 #include <llvm/Support/MemoryBuffer.h>
 

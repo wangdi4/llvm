@@ -14,8 +14,8 @@
 
 #include "CommonOCLBuilder.h"
 
-#include "common_clang.h"
 #include "ocl_string_exception.h"
+#include "opencl_clang.h"
 
 #include <clang_device_info.h>
 #include <string>
