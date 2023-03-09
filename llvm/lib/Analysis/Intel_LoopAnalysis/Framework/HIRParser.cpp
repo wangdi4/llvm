@@ -240,7 +240,7 @@ bool HIRParser::isTempBlob(BlobTy Blob) {
     Type *Ty;
     Constant *FieldNo;
 
-    if (!UnknownSCEV->isSizeOf(Ty) &&
+    if (!UnknownSCEV->isVScale() &&
         !HIRScalarSymbaseAssignment::isConstant(UnknownSCEV->getValue()) &&
         !BlobUtils::isMetadataBlob(Blob, nullptr)) {
       return true;
