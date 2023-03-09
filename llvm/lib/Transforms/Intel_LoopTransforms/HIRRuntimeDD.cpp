@@ -403,12 +403,80 @@ static void replaceIVByBound(RegDDRef *Ref, const HLLoop *Loop,
   }
 }
 
-static bool sortRefsInSingleGroup(RefGroupTy &Group) {
-  for (int I = 0, E = Group.size() - 1; I < E; ++I) {
-    if (!DDRefUtils::haveConstDimensionDistances(Group[I], Group[I + 1],
-                                                 false)) {
+template <typename T> static bool areAllAtConstDimDist(ArrayRef<T> Refs) {
+  for (int I = 0, E = Refs.size() - 1; I < E; ++I)
+    if (!DDRefUtils::haveConstDimensionDistances(Refs[I], Refs[I + 1], false))
       return false;
-    }
+  return true;
+}
+
+static bool isZeroOffsetMemRef(const RegDDRef *Ref) {
+  if (!Ref->isMemRef())
+    return false;
+
+  // All index and offsets are zero
+  for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; I++)
+    if (!Ref->getDimensionIndex(I)->isZero() ||
+        !Ref->getDimensionLower(I)->isZero() ||
+        Ref->hasNonZeroTrailingStructOffsets(I))
+      return false;
+
+  return true;
+}
+
+static bool isEqualTypeAndBaseCE(const RegDDRef *Ref1, const RegDDRef *Ref2) {
+  return Ref1->getDestType() == Ref2->getDestType() &&
+         Ref1->getSrcType() == Ref2->getSrcType() &&
+         CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE());
+}
+
+static bool sortRefsInSingleGroup(RefGroupTy &Group) {
+
+  SmallVector<const RegDDRef *> ZeroOffsetRefs;
+  SmallVector<const RegDDRef *> NonZeroOffsetRefs;
+
+  // Zero offset memrefs can show different ways.
+  // (%a)[0].0, (%a)[0].1.0[1] - non-opaque ptrs
+  // (%a)[0]  , (%a)[0].1.0[1] - opaque ptrs
+  for (int I = 0, E = Group.size(); I < E; ++I) {
+    if (isZeroOffsetMemRef(Group[I]))
+      ZeroOffsetRefs.push_back(Group[I]);
+    else
+      NonZeroOffsetRefs.push_back(Group[I]);
+  }
+
+  bool HasNonConstDistZeroOffsetRefs =
+      !ZeroOffsetRefs.empty() && !NonZeroOffsetRefs.empty() &&
+      !DDRefUtils::haveConstDimensionDistances(ZeroOffsetRefs[0],
+                                               NonZeroOffsetRefs[0], false);
+
+  if (HasNonConstDistZeroOffsetRefs) {
+    // Throughout all refs, check
+    // 1. equal DestType (e.g. type of load)
+    // 2. equal base CE
+    // Throughout NonZeroOffsetRefs - hasConstDimensionDistance
+
+    // This means ZeroOffsetRefs and NonZeroOffsetRefs
+    // won't share the same Dest/SrcTypes or BaseCE.
+    // Bail out.
+    if (!isEqualTypeAndBaseCE(ZeroOffsetRefs[0], NonZeroOffsetRefs[0]))
+      return false;
+
+    // For all ZeroOffsetRefs, at least
+    // Dest/SrcTypes and BaseCEs should be the same.
+    for (int I = 0, E = ZeroOffsetRefs.size() - 1; I < E; ++I)
+      if (!isEqualTypeAndBaseCE(ZeroOffsetRefs[I], ZeroOffsetRefs[I + 1]))
+        return false;
+
+    // For all others, original logic of checking of congruency of shape and
+    // const distance for every dim are checked.
+    if (!areAllAtConstDimDist<const RegDDRef *>(NonZeroOffsetRefs))
+      return false;
+
+  } else {
+    // Original logic - when there is no non-const-dim-dist ZeroOffsetRef
+    if (!areAllAtConstDimDist<RegDDRef *>(Group))
+      return false;
   }
 
   std::sort(Group.begin(), Group.end(), DDRefUtils::compareMemRefAddress);
