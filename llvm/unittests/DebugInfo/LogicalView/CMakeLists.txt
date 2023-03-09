@@ -1,7 +1,7 @@
 set(LLVM_LINK_COMPONENTS
   AllTargetsDescs
-  AllTargetsDisassemblers
   AllTargetsInfos
+  AllTargetsDisassemblers
   DebugInfoLogicalView
   MC
   MCDisassembler
@@ -9,7 +9,6 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_llvm_unittest_with_input_files(DebugInfoLogicalViewTests
-  CodeViewReaderTest.cpp
   CommandLineOptionsTest.cpp
   CompareElementsTest.cpp
   ELFReaderTest.cpp
