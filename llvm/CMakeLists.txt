@@ -2188,6 +2188,12 @@ if (INTEL_CUSTOMIZATION)
       libdev-libistrconv libdev-svml libdev-libimf libdev-libirng
     )
 
+    if (WIN32)
+      # Libdev components
+      list(APPEND INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST
+           libdev-libicaio)
+    endif(WIN32)
+
     list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
       ${INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST}
     )
