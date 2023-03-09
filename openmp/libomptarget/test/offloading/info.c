@@ -1,16 +1,12 @@
 // RUN: %libomptarget-compile-generic \
 // RUN:     -gline-tables-only -fopenmp-extensions
 // RUN: env LIBOMPTARGET_INFO=63 %libomptarget-run-generic 2>&1 | \
-<<<<<<< HEAD
-// RUN:   %fcheck-generic -allow-empty -check-prefix=INFO
 // INTEL_CUSTOMIZATION
 // UNSUPPORTED: x86_64-pc-linux-gnu
 // end INTEL_CUSTOMIZATION
-=======
 // RUN:   %fcheck-generic -allow-empty -check-prefixes=INFO
 // RUN: env LIBOMPTARGET_INFO=63 %libomptarget-run-amdgcn-amd-amdhsa 2>&1 | \
 // RUN:   %fcheck-amdgcn-amd-amdhsa -allow-empty -check-prefixes=INFO,AMDGPU
->>>>>>> b82ac74f7e184319c4f379234915efc8d096f048
 
 #include <omp.h>
 #include <stdio.h>
