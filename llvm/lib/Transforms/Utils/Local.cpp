@@ -2889,7 +2889,7 @@ void llvm::combineMetadataForCSE(Instruction *K, const Instruction *J,
 #endif // INTEL_CUSTOMIZATION
       LLVMContext::MD_dereferenceable_or_null,
       LLVMContext::MD_access_group,    LLVMContext::MD_preserve_access_index,
-      LLVMContext::MD_nontemporal};
+      LLVMContext::MD_nontemporal,     LLVMContext::MD_noundef};
   combineMetadata(K, J, KnownIDs, KDominatesJ);
 }
 
