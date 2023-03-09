@@ -820,6 +820,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 
 void PassManagerBuilder::populateModulePassManager(
     legacy::PassManagerBase &MPM) {
+<<<<<<< HEAD
   MPM.add(createAnnotation2MetadataLegacyPass());
 
 #if INTEL_CUSTOMIZATION
@@ -829,6 +830,8 @@ void PassManagerBuilder::populateModulePassManager(
   // Allow forcing function attributes as a debugging and tuning aid.
   MPM.add(createForceFunctionAttrsLegacyPass());
 
+=======
+>>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658
   // If all optimizations are disabled, just run the always-inline pass and,
   // if enabled, the function merging pass.
   if (OptLevel == 0) {
@@ -866,6 +869,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   addInitialAliasAnalysisPasses(MPM);
 
+<<<<<<< HEAD
   // Infer attributes about declarations if possible.
   MPM.add(createInferFunctionAttrsLegacyPass());
 
@@ -878,6 +882,8 @@ void PassManagerBuilder::populateModulePassManager(
   }
 #endif  // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658
   if (OptLevel > 2)
     MPM.add(createCallSiteSplittingPass());
 
@@ -913,13 +919,12 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createGlobalsAAWrapperPass());
 
   // Start of CallGraph SCC passes.
-  bool RunInliner = false;
   if (Inliner) {
     MPM.add(Inliner);
     Inliner = nullptr;
-    RunInliner = true;
   }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   // Process OpenMP directives at -O1 and above
   if (RunVPOOpt == InvokeParoptAfterInliner) {
@@ -934,6 +939,8 @@ void PassManagerBuilder::populateModulePassManager(
 
   MPM.add(createPostOrderFunctionAttrsLegacyPass());
 
+=======
+>>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658
   addFunctionSimplificationPasses(MPM);
 
 #if INTEL_CUSTOMIZATION
@@ -947,6 +954,7 @@ void PassManagerBuilder::populateModulePassManager(
   // we must insert a no-op module pass to reset the pass manager.
   MPM.add(createBarrierNoopPass());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (EnableStdContainerOpt)
     MPM.add(createStdContainerOptPass());
@@ -986,6 +994,8 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createAggressiveDCEPass());
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658
   // We add a fresh GlobalsModRef run at this point. This is particularly
   // useful as the above will have inlined, DCE'ed, and function-attr
   // propagated everything. We should at this point have a reasonably minimal
@@ -1023,13 +1033,6 @@ void PassManagerBuilder::populateModulePassManager(
 
 #endif // INTEL_CUSTOMIZATION
   addVectorPasses(MPM, /* IsFullLTO */ false);
-
-  // GlobalOpt already deletes dead functions and globals, at -O2 try a
-  // late pass of GlobalDCE.  It is capable of deleting dead cycles.
-  if (OptLevel > 1) {
-    MPM.add(createGlobalDCEPass());         // Remove dead fns and globals.
-    MPM.add(createConstantMergePass());     // Merge dup global constants
-  }
 
   // LoopSink pass sinks instructions hoisted by LICM, which serves as a
   // canonicalization pass that enables other optimizations. As a result,

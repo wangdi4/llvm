@@ -276,6 +276,7 @@ PreservedAnalyses ConstantMergePass::run(Module &M, ModuleAnalysisManager &) {
 
   return PA;                            // INTEL
 }
+<<<<<<< HEAD
 
 namespace {
 
@@ -311,3 +312,5 @@ INITIALIZE_PASS(ConstantMergeLegacyPass, "constmerge",
 ModulePass *llvm::createConstantMergePass() {
   return new ConstantMergeLegacyPass();
 }
+=======
+>>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658

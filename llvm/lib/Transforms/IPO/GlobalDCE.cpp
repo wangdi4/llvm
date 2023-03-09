@@ -64,6 +64,7 @@ STATISTIC(NumIFuncs,    "Number of indirect functions removed");
 STATISTIC(NumVariables, "Number of global variables removed");
 STATISTIC(NumVFuncs,    "Number of virtual functions removed");
 
+<<<<<<< HEAD
 namespace {
   class GlobalDCELegacyPass : public ModulePass {
   public:
@@ -112,6 +113,8 @@ ModulePass *llvm::createGlobalDCEPass() {
   return new GlobalDCELegacyPass();
 }
 
+=======
+>>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658
 /// Returns true if F is effectively empty.
 static bool isEmptyFunction(Function *F) {
   // Skip external functions.

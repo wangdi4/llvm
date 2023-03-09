@@ -97,6 +97,7 @@ EliminateAvailableExternallyPass::run(Module &M, ModuleAnalysisManager &) {
 
   return PA;                               // INTEL
 }
+<<<<<<< HEAD
 
 namespace {
 
@@ -134,3 +135,5 @@ INITIALIZE_PASS(EliminateAvailableExternallyLegacyPass, "elim-avail-extern",
 ModulePass *llvm::createEliminateAvailableExternallyPass() {
   return new EliminateAvailableExternallyLegacyPass();
 }
+=======
+>>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658

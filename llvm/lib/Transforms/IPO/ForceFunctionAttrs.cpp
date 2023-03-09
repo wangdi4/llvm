@@ -102,6 +102,7 @@ PreservedAnalyses ForceFunctionAttrsPass::run(Module &M,
   // Just conservatively invalidate analyses, this isn't likely to be important.
   return PreservedAnalyses::none();
 }
+<<<<<<< HEAD
 
 namespace {
 struct ForceFunctionAttrsLegacyPass : public ModulePass {
@@ -137,3 +138,5 @@ INITIALIZE_PASS(ForceFunctionAttrsLegacyPass, "forceattrs",
 Pass *llvm::createForceFunctionAttrsLegacyPass() {
   return new ForceFunctionAttrsLegacyPass();
 }
+=======
+>>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658

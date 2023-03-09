@@ -3795,6 +3795,7 @@ template <> struct DOTGraphTraits<AADepGraph *> : public DefaultDOTGraphTraits {
 };
 
 } // end namespace llvm
+<<<<<<< HEAD
 
 namespace {
 
@@ -3892,3 +3893,5 @@ INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_END(AttributorCGSCCLegacyPass, "attributor-cgscc",
                     "Deduce and propagate attributes (CGSCC pass)", false,
                     false)
+=======
+>>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658

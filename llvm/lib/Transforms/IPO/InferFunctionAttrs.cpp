@@ -106,6 +106,7 @@ PreservedAnalyses InferFunctionAttrsPass::run(Module &M,
   // out all the passes.
   return PreservedAnalyses::none();
 }
+<<<<<<< HEAD
 
 namespace {
 struct InferFunctionAttrsLegacyPass : public ModulePass {
@@ -142,3 +143,5 @@ INITIALIZE_PASS_END(InferFunctionAttrsLegacyPass, "inferattrs",
 Pass *llvm::createInferFunctionAttrsLegacyPass() {
   return new InferFunctionAttrsLegacyPass();
 }
+=======
+>>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658
