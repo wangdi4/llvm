@@ -1920,48 +1920,6 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
   return PA;
 }
 
-<<<<<<< HEAD
-namespace {
-
-struct PostOrderFunctionAttrsLegacyPass : public CallGraphSCCPass {
-  // Pass identification, replacement for typeid
-  static char ID;
-
-  PostOrderFunctionAttrsLegacyPass() : CallGraphSCCPass(ID) {
-    initializePostOrderFunctionAttrsLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnSCC(CallGraphSCC &SCC) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-    AU.addPreserved<AndersensAAWrapperPass>();                // INTEL
-    AU.addPreserved<WholeProgramWrapperPass>();               // INTEL
-    AU.addUsedIfAvailable<WholeProgramWrapperPass>();         // INTEL
-    AU.addRequired<AssumptionCacheTracker>();
-    getAAResultsAnalysisUsage(AU);
-    CallGraphSCCPass::getAnalysisUsage(AU);
-  }
-};
-
-} // end anonymous namespace
-
-char PostOrderFunctionAttrsLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(PostOrderFunctionAttrsLegacyPass, "function-attrs",
-                      "Deduce function attributes", false, false)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_END(PostOrderFunctionAttrsLegacyPass, "function-attrs",
-                    "Deduce function attributes", false, false)
-
-Pass *llvm::createPostOrderFunctionAttrsLegacyPass() {
-  return new PostOrderFunctionAttrsLegacyPass();
-}
-
-=======
->>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658
 template <typename AARGetterT>
 static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter, // INTEL
                     WholeProgramWrapperPass *WPA) {          // INTEL
@@ -1996,16 +1954,6 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter, // INTEL
 #endif // INTEL_CUSTOMIZATION
 }
 
-<<<<<<< HEAD
-bool PostOrderFunctionAttrsLegacyPass::runOnSCC(CallGraphSCC &SCC) {
-  if (skipSCC(SCC))
-    return false;
-  auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>(); // INTEL
-  return runImpl(SCC, LegacyAARGetter(*this), WPA);              // INTEL
-}
-
-=======
->>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658
 static bool addNoRecurseAttrsTopDown(Function &F) {
   // We check the preconditions for the function prior to calling this to avoid
   // the cost of building up a reversible post-order list. We assert them here

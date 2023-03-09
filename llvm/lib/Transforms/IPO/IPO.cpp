@@ -50,18 +50,12 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeDAHPass(Registry);
   initializeDAESYCLPass(Registry);
   initializeAlwaysInlinerLegacyPassPass(Registry);
-<<<<<<< HEAD
   initializeInlineListsPass(Registry); // INTEL
   initializeInlineReportEmitterPass(Registry); // INTEL
   initializeInlineReportSetupPass(Registry); // INTEL
-  initializeInferFunctionAttrsLegacyPassPass(Registry);
-=======
->>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658
   initializeLoopExtractorLegacyPassPass(Registry);
   initializeSingleLoopExtractorPass(Registry);
   initializeBarrierNoopPass(Registry);
-<<<<<<< HEAD
-  initializeEliminateAvailableExternallyLegacyPassPass(Registry);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
   initializeIPCloningLegacyPassPass(Registry);
@@ -90,8 +84,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeDeadArrayOpsEliminationLegacyPassPass(Registry);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {
@@ -102,7 +94,6 @@ void LLVMAddDeadArgEliminationPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createDeadArgEliminationPass());
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void LLVMAddInlineListsPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createInlineListsPass());
@@ -115,12 +106,6 @@ void LLVMAddInlineReportEmitterPass(LLVMPassManagerRef PM) {
 }
 #endif  // INTEL_CUSTOMIZATION
 
-void LLVMAddFunctionAttrsPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createPostOrderFunctionAttrsLegacyPass());
-}
-
-=======
->>>>>>> f57ff7346bc6e08317308c15118e4c0372a98658
 void LLVMAddAlwaysInlinerPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(llvm::createAlwaysInlinerLegacyPass());
 }
