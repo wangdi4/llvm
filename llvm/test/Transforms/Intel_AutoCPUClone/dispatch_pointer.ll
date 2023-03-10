@@ -5,7 +5,7 @@
 ; in the input IR below.
 
 
-; CHECK:      @foo.ptr = internal global ptr null, !llvm.acd.dispatcher !0
+; CHECK:      @foo.ptr = internal global ptr @foo.A.3, !llvm.acd.dispatcher !0
 ; CHECK:      @llvm.global_ctors = appending global [2 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 500, ptr @__intel.acd.resolver, ptr null }, { i32, ptr, ptr } { i32 0, ptr @__intel_cpu_features_init, ptr null }]
 ; CHECK:      define dso_local i32 @foo.A.3(i32 noundef %i) local_unnamed_addr #0 !llvm.acd.clone !0 {
 ; CHECK:      define dso_local i32 @foo.a.2(i32 noundef %i) local_unnamed_addr #1 !llvm.acd.clone !0 {

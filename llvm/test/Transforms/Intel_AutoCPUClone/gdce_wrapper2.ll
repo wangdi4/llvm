@@ -3,7 +3,7 @@
 
 ; CHECK:      @llvm.global_ctors = appending global [2 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 500, ptr @__intel.acd.resolver, ptr null }, { i32, ptr, ptr } { i32 0, ptr @__intel_cpu_features_init, ptr null }]
 ; CHECK:      @__intel_cpu_feature_indicator = external global [2 x i64]
-; CHECK:      @bar.ptr = internal global ptr null
+; CHECK:      @bar.ptr = internal global ptr @bar.A, !llvm.acd.dispatcher !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT: define internal i32 @baz.A(i32 %a) #0 !llvm.acd.clone !0 {
 ; CHECK-NEXT:   %add = add i32 %a, 42

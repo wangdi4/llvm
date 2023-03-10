@@ -164,7 +164,7 @@ protected:
   /// For writeWithSizeLimit in text mode, each newline takes 1 additional byte
   /// on Windows when actually written to the file, but not written to a memory
   /// buffer. This needs to be accounted for when rewriting the profile.
-  size_t LineCount;
+  size_t LineCount = 0; // INTEL
 
   /// Output stream where to emit the profile to.
   std::unique_ptr<raw_ostream> OutputStream;
