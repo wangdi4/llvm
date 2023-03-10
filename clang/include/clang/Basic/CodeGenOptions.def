@@ -85,6 +85,7 @@ CODEGENOPT(LoopMarkerCount, 6, llvm::MarkerCount::Loop_Never)
 //                emitted without exposing Intel IP.
 CODEGENOPT(DisableIntelProprietaryOpts, 1, 0)
 CODEGENOPT(IntelAdvancedOptim, 1, 0)
+CODEGENOPT(VecABICmdTarget, 1, 0)
 CODEGENOPT(IntelLibIRCAllowed, 1, 0)
 CODEGENOPT(IntelSpillParms, 1, 0)
 CODEGENOPT(AssumeCountedLoops, 1, 0)

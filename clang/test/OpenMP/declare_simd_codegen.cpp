@@ -403,8 +403,6 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVeN16vl16__ZN1A7outfuncILi4EfEET0_PS1_
 
 // SPIR-DAG: _ZGVxN64va128U64__Z3fooILi64EEvRAT__iRPf
-// SPIR-DAG: _ZGVxN64va128U64__Z3fooILi64EEvRAT__iRPf
-// SPIR-DAG: _ZGVxM64va128U64__Z3fooILi64EEvRAT__iRPf
 // SPIR-DAG: _ZGVxM64va128U64__Z3fooILi64EEvRAT__iRPf
 
 // CHECK-DAG: _ZGVbM4vv__Z3bar2VVPf
