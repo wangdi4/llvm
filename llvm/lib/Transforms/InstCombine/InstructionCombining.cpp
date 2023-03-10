@@ -5350,11 +5350,4 @@ FunctionPass *llvm::createInstructionCombiningPass(
                                       MaxIterations, EnableFcmpMinMaxCombine,
                                       EnableUpCasting, EnableCanonicalizeSwap);
 }
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-
-void LLVMAddInstructionCombiningPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createInstructionCombiningPass());
-}
-=======
->>>>>>> f7ca01333214f934c580c162afdee933e7430b6c

@@ -88,11 +88,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {
   initializeIPO(*unwrap(R));
 }
-<<<<<<< HEAD
-
-void LLVMAddDeadArgEliminationPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createDeadArgEliminationPass());
-}
 
 #if INTEL_CUSTOMIZATION
 void LLVMAddInlineListsPass(LLVMPassManagerRef PM) {
@@ -105,9 +100,3 @@ void LLVMAddInlineReportEmitterPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createInlineReportEmitterPass());
 }
 #endif  // INTEL_CUSTOMIZATION
-
-void LLVMAddAlwaysInlinerPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(llvm::createAlwaysInlinerLegacyPass());
-}
-=======
->>>>>>> f7ca01333214f934c580c162afdee933e7430b6c
