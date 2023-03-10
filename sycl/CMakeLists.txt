@@ -351,6 +351,7 @@ add_custom_target( sycl-toolchain
   DEPENDS sycl-runtime-libraries
           sycl-compiler
           sycl-ls
+	  win_proxy_loader
           ${XPTIFW_LIBS}
 )
 
@@ -401,6 +402,8 @@ add_subdirectory( plugins )
 
 add_subdirectory(tools)
 
+add_subdirectory(win_proxy_loader)
+
 if(SYCL_INCLUDE_TESTS)
   if(NOT LLVM_INCLUDE_TESTS)
       message(FATAL_ERROR
@@ -443,6 +446,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl
      libsycldevice
      level-zero-sycl-dev
+     win_proxy_loader
      ${XPTIFW_LIBS}
 # INTEL_CUSTOMIZATION
      # Please add xmain specific deploy components
