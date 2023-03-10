@@ -2365,10 +2365,10 @@ static void decideLoopKernelGroupArguments(
   std::copy(GRPSizes, GRPSizes + 3, GroupSizes);
 }
 
-static void decideKernelGroupArguments(
-    int32_t DeviceId, int32_t NumTeams, int32_t ThreadLimit,
-    cl_kernel Kernel, size_t *GroupSizes, size_t *GroupCounts,
-    uint32_t TeamsSubscriptionRate) {
+static void decideKernelGroupArguments(int32_t DeviceId, int32_t NumTeams,
+                                       int32_t ThreadLimit, cl_kernel Kernel,
+                                       size_t *GroupSizes, size_t *GroupCounts,
+                                       size_t LoopTripcount) {
   auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
 #if INTEL_CUSTOMIZATION
   // Default to best GEN9 GT4 configuration initially.
@@ -2558,10 +2558,10 @@ static void decideKernelGroupArguments(
 
   GroupCounts[0] = MaxGroupCount;
   GroupCounts[1] = GroupCounts[2] = 1;
+  bool UsedReductionSubscriptionRate = false;
   if (!MaxGroupCountForced) {
     if (KInfo && KInfo->getHasTeamsReduction() &&
-        (DeviceInfo->Option.ReductionSubscriptionRate ||
-         KInfo->isAtomicFreeReduction())) {
+        DeviceInfo->Option.ReductionSubscriptionRate) {
 #if INTEL_CUSTOMIZATION
       if (DeviceInfo->isDiscreteDevice(DeviceId)) {
         // Do not apply ReductionSubscriptionRate for non-discrete devices.
@@ -2576,14 +2576,7 @@ static void decideKernelGroupArguments(
           // rate via environment.
           GroupCounts[0] /= DeviceInfo->Option.ReductionSubscriptionRate;
           GroupCounts[0] = (std::max)(GroupCounts[0], size_t(1));
-        } else if (KInfo->getHasTeamsReduction() ||
-                   KInfo->isAtomicFreeReduction()) {
-          uint32_t Rate = DeviceInfo->Option.ReductionSubscriptionRateIsDefault
-                              ? TeamsSubscriptionRate
-                              : DeviceInfo->Option.ReductionSubscriptionRate;
-          DP("Using reduction subscription rate: %" PRIu32 "\n", Rate);
-          GroupCounts[0] /= Rate;
-          GroupCounts[0] = (std::max)(GroupCounts[0], size_t(1));
+          UsedReductionSubscriptionRate = true;
         }
 #if INTEL_CUSTOMIZATION
       }
@@ -2593,6 +2586,14 @@ static void decideKernelGroupArguments(
     }
   }
 
+  if (LoopTripcount && !UsedReductionSubscriptionRate) {
+    size_t AdjustedGroupCount =
+        (LoopTripcount + GroupSizes[0] - 1) / GroupSizes[0];
+    if (AdjustedGroupCount < GroupCounts[0]) {
+      DP("Preventing oversubscription using the loop tripcount\n");
+      GroupCounts[0] = AdjustedGroupCount;
+    }
+  }
   if (KInfo && KInfo->getWGNum()) {
     GroupCounts[0] =
         (std::min)(KInfo->getWGNum(), static_cast<uint64_t>(GroupCounts[0]));
@@ -2653,36 +2654,26 @@ static inline int32_t runTargetTeamNDRegion(
                                    (TgtNDRangeDescTy *)LoopDesc, Kernel,
                                    LocalWorkSize, NumWorkGroups);
   } else {
-    uint32_t TeamsSubscrRate = 1;
+    size_t LoopTC = 0;
     if (LoopDesc) {
       // TODO: consider other possible LoopDesc uses
       DP("Loop desciptor provided but specific ND-range is disabled\n");
-      DP("Calculating teams subscription rate:\n");
       TgtNDRangeDescTy *LI = (TgtNDRangeDescTy *)LoopDesc;
       // TODO: get rid of this constraint
       if (LI->NumLoops > 1) {
         DP("More than 1 loop found (%" PRIu32 "), ignoring loop info\n",
            LI->NumLoops);
-      } else {
-        auto *Levels = LI->Levels;
-        uint32_t TC;
-        if (Levels[0].Ub < Levels[0].Lb)
-          TC = 0;
-        else
-          TC = (Levels[0].Ub - Levels[0].Lb + Levels[0].Stride) /
-               Levels[0].Stride;
+      } else if (LI->Levels[0].Ub >= LI->Levels[0].Lb) {
+        LoopTC = (LI->Levels[0].Ub - LI->Levels[0].Lb + LI->Levels[0].Stride) /
+                 LI->Levels[0].Stride;
         DP("Loop TC = (%" PRId64 " - %" PRId64 " + %" PRId64 ") / %" PRId64
-           " = %" PRIu32 "\n",
-           Levels[0].Ub, Levels[0].Lb, Levels[0].Stride, Levels[0].Stride, TC);
-        TeamsSubscrRate = static_cast<uint32_t>((std::max)(
-            uint64_t(1), KInfo->getWGNum() * KInfo->getWINum() / TC));
-        DP("TeamsSubscriptionRate = (%" PRIu64 " * %" PRIu64 ") / %" PRIu32
-           " = %" PRIu32 "\n",
-           KInfo->getWGNum(), KInfo->getWINum(), TC, TeamsSubscrRate);
+           " = %zu\n",
+           LI->Levels[0].Ub, LI->Levels[0].Lb, LI->Levels[0].Stride,
+           LI->Levels[0].Stride, LoopTC);
       }
     }
     decideKernelGroupArguments(DeviceId, NumTeams, ThreadLimit, Kernel,
-                               LocalWorkSize, NumWorkGroups, TeamsSubscrRate);
+                               LocalWorkSize, NumWorkGroups, LoopTC);
   }
 
   size_t GlobalWorkSize[3];
