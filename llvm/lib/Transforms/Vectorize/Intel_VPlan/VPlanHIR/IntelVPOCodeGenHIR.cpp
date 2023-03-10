@@ -4075,12 +4075,15 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
       CanonExprUtilities.createConstStandAloneBlobCanonExpr(Cv);
 
   // Create address-of ref to compute vector of pointers using base-address and
-  // vector indices. The base ptr of this address-of ref will be defined in loop
-  // preheader always, hence set defined at level as (LoopLevel - 1).
+  // vector indices. The base ptr of this address-of ref will be defined in
+  // current insertion point's nesting level.
   auto *VecPvtPtrs = DDRefUtilities.createAddressOfRef(
       AllocatedType, BaseRefCopy->getLvalDDRef()->getSelfBlobIndex(),
-      OrigLoop->getNestingLevel() - 1, AllocaMemRefSym);
+      getNestingLevelFromInsertPoint(), AllocaMemRefSym);
   VecPvtPtrs->addDimension(IndexCE);
+  // Since dimension index is constant, we need to only make the base pointer
+  // consistent.
+  VecPvtPtrs->makeConsistent({}, getNestingLevelFromInsertPoint());
   VecPvtPtrs->setBitCastDestVecOrElemType(getWidenedType(PvtTy, getVF()));
   return VecPvtPtrs;
 }
