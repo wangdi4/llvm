@@ -1,10 +1,10 @@
 ; RUN: opt -opaque-pointers -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 
-; CHECK:      @baz.ptr = internal global ptr null
+; CHECK:      @baz.ptr = internal global ptr @baz.A, !llvm.acd.dispatcher !0
 ; CHECK-NEXT: @llvm.global_ctors = appending global [2 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 500, ptr @__intel.acd.resolver, ptr null }, { i32, ptr, ptr } { i32 0, ptr @__intel_cpu_features_init, ptr null }]
 ; CHECK-NEXT: @__intel_cpu_feature_indicator = external global [2 x i64]
-; CHECK-NEXT: @foo.ptr = internal global ptr null
+; CHECK-NEXT: @foo.ptr = internal global ptr @foo.A, !llvm.acd.dispatcher !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT: define i32 @baz.A(i32 %a) #0 comdat !llvm.acd.clone !0 {
 ; CHECK-NEXT:   %add = add i32 %a, 42
