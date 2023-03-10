@@ -351,7 +351,6 @@ add_custom_target( sycl-toolchain
   DEPENDS sycl-runtime-libraries
           sycl-compiler
           sycl-ls
-	  win_proxy_loader
           ${XPTIFW_LIBS}
 )
 
@@ -360,6 +359,10 @@ list(FIND LLVM_ENABLE_PROJECTS opencl-aot OPENCL_AOT_FOUND)
 if(NOT OPENCL_AOT_FOUND EQUAL -1)
   add_dependencies(sycl-toolchain opencl-aot)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-aot)
+endif()
+
+if (WIN32)
+  add_dependencies(sycl-toolchain win_proxy_loader)
 endif()
 
 # Enable new IN_LIST operator.
@@ -402,7 +405,9 @@ add_subdirectory( plugins )
 
 add_subdirectory(tools)
 
-add_subdirectory(win_proxy_loader)
+if (WIN32)
+  add_subdirectory(win_proxy_loader)
+endif()
 
 if(SYCL_INCLUDE_TESTS)
   if(NOT LLVM_INCLUDE_TESTS)
@@ -446,7 +451,6 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl
      libsycldevice
      level-zero-sycl-dev
-     win_proxy_loader
      ${XPTIFW_LIBS}
 # INTEL_CUSTOMIZATION
      # Please add xmain specific deploy components
@@ -467,6 +471,9 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
 #   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-trace)
 # endif()
 # end INTEL_CUSTOMIZATION
+if (WIN32)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS win_proxy_loader)
+endif()
 
 if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET OpenCL-ICD)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS OpenCL-ICD)
