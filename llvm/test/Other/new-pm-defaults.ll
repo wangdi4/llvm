@@ -401,8 +401,6 @@
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O-NEXT: Running pass: ConstantMergePass
 ; CHECK-DEFAULT-NEXT: Running pass: CGProfilePass
-; CHECK-DEFAULT-NEXT: Running analysis: BlockFrequencyAnalysis
-; CHECK-DEFAULT-NEXT: Running analysis: BranchProbabilityAnalysis
 ; CHECK-DEFAULT-NEXT: Running pass: RelLookupTableConverterPass
 ; CHECK-LTO-NOT: Running pass: RelLookupTableConverterPass
 ; CHECK-LTO-NEXT: Running pass: IntelMathLibrariesDeclarationPass ;INTEL
