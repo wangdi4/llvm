@@ -1667,14 +1667,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Optimize globals to try and fold them into constants.
   MPM.addPass(GlobalOptPass());
 
-<<<<<<< HEAD
-  // Promote any localized globals to SSA registers.
-  // FIXME: Should this instead by a run of SROA?
-  // FIXME: We should probably run instcombine and simplifycfg afterward to
-  // delete control flows that are dead once globals have been folded to
-  // constants.
-  MPM.addPass(createModuleToFunctionPassAdaptor(PromotePass()));
-
 #if INTEL_CUSTOMIZATION
   // Remove any dead arguments exposed by cleanups, constant folding globals,
   // and argument promotion.
@@ -1685,6 +1677,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Create a small function pass pipeline to cleanup after all the global
   // optimizations.
   FunctionPassManager GlobalCleanupPM;
+  // FIXME: Should this instead by a run of SROA?
+  GlobalCleanupPM.addPass(PromotePass());
 #if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
@@ -1695,14 +1689,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (EarlyJumpThreading && !SYCLOptimizationMode)
     GlobalCleanupPM.addPass(JumpThreadingPass());
 #endif // INTEL_CUSTOMIZATION
-=======
-  // Create a small function pass pipeline to cleanup after all the global
-  // optimizations.
-  FunctionPassManager GlobalCleanupPM;
-  // FIXME: Should this instead by a run of SROA?
-  GlobalCleanupPM.addPass(PromotePass());
-  GlobalCleanupPM.addPass(InstCombinePass());
->>>>>>> bd6eb1423c38ef14014b8ddacb42326bd9f38af4
   invokePeepholeEPCallbacks(GlobalCleanupPM, Level);
   GlobalCleanupPM.addPass(
       SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
