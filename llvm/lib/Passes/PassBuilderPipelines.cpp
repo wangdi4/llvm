@@ -1667,6 +1667,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Optimize globals to try and fold them into constants.
   MPM.addPass(GlobalOptPass());
 
+<<<<<<< HEAD
   // Promote any localized globals to SSA registers.
   // FIXME: Should this instead by a run of SROA?
   // FIXME: We should probably run instcombine and simplifycfg afterward to
@@ -1694,8 +1695,15 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (EarlyJumpThreading && !SYCLOptimizationMode)
     GlobalCleanupPM.addPass(JumpThreadingPass());
 #endif // INTEL_CUSTOMIZATION
+=======
+  // Create a small function pass pipeline to cleanup after all the global
+  // optimizations.
+  FunctionPassManager GlobalCleanupPM;
+  // FIXME: Should this instead by a run of SROA?
+  GlobalCleanupPM.addPass(PromotePass());
+  GlobalCleanupPM.addPass(InstCombinePass());
+>>>>>>> bd6eb1423c38ef14014b8ddacb42326bd9f38af4
   invokePeepholeEPCallbacks(GlobalCleanupPM, Level);
-
   GlobalCleanupPM.addPass(
       SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(GlobalCleanupPM),
