@@ -1,6 +1,6 @@
 //===- StructOfArraysInfoImpl.h - common for SOAToAOS and MemInitTrimDown -===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -43,7 +43,7 @@ inline StructType *getClassType(const Function *F) {
   // Get class type from "this" pointer that is passed as 1st
   // argument.
   if (auto *PTy = dyn_cast<PointerType>(FunTy->getParamType(0)))
-    if (auto *STy = dyn_cast<StructType>(PTy->getPointerElementType()))
+    if (auto *STy = dyn_cast<StructType>(PTy->getNonOpaquePointerElementType()))
       return STy;
   return nullptr;
 }
@@ -52,8 +52,9 @@ inline StructType *getClassType(const Function *F) {
 inline bool isPtrToVFTable(Type *Ty) {
   Type *ETy = nullptr;
   if (auto *PPETy = dyn_cast<PointerType>(Ty))
-    if (auto *PETy = dyn_cast<PointerType>(PPETy->getElementType()))
-      ETy = PETy->getElementType();
+    if (auto *PETy =
+            dyn_cast<PointerType>(PPETy->getNonOpaquePointerElementType()))
+      ETy = PETy->getNonOpaquePointerElementType();
   if (!ETy || !ETy->isFunctionTy())
     return false;
   return true;
@@ -203,7 +204,7 @@ StructType *SOACandidateInfo::getValidStructTy(Type *Ty) {
 // Returns type of pointee if 'Ty' is pointer.
 Type *SOACandidateInfo::getPointeeType(Type *Ty) {
   if (auto *PTy = dyn_cast_or_null<PointerType>(Ty))
-    return PTy->getElementType();
+    return PTy->getNonOpaquePointerElementType();
   return nullptr;
 }
 

@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_DTRANS
 //=- Intel_DevirtMultiversioning.cpp - Intel Devirtualization Multiversion --=//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -846,8 +846,7 @@ void IntelDevirtMultiversion::collectAssumeCallSitesNonOpaque(
 
     // We can use getElementType here since we have typed pointers.
     while (RootType && RootType->isPointerTy()) {
-      PointerType *PtrTy = cast<PointerType>(RootType);
-      RootType = PtrTy->getElementType();
+      RootType = RootType->getNonOpaquePointerElementType();
     }
 
     return RootType;

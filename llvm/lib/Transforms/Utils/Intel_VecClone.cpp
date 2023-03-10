@@ -1,6 +1,6 @@
 //=---- Intel_VecClone.cpp - Vector function to loop transform -*- C++ -*----=//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -794,8 +794,9 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
       // loop phi that is inserted by this pass. No cast on Mul is necessary
       // because gep can use a base address of one type with an index of
       // another type.
-      Value *LinearArgGep = Builder.CreateGEP(
-          ArgTy->getPointerElementType(), Arg, Mul, Arg->getName() + ".gep");
+      Value *LinearArgGep =
+          Builder.CreateGEP(ArgTy->getNonOpaquePointerElementType(), Arg, Mul,
+                            Arg->getName() + ".gep");
 
       return LinearArgGep;
     }
@@ -968,7 +969,7 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
           if (!PtrTy->isOpaque()) {
             const DataLayout &DL = Clone->getParent()->getDataLayout();
             unsigned PointeeEltSize =
-                DL.getTypeAllocSize(PtrTy->getPointerElementType());
+                DL.getTypeAllocSize(PtrTy->getNonOpaquePointerElementType());
             assert(Stride % PointeeEltSize == 0 &&
                    "Stride is expected to be a multiple of element size!");
             Stride /= PointeeEltSize;

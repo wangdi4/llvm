@@ -259,7 +259,7 @@ bool FoldLoadsToGather::run(Instruction& I) {
   auto AddrBaseTy = Load0.AddrBase->getType()->getScalarType();
   auto GEPTy = AddrBaseTy->isOpaquePointerTy()
                    ? AddrBaseTy
-                   : AddrBaseTy->getPointerElementType();
+                   : AddrBaseTy->getNonOpaquePointerElementType();
   auto GEP =
       Builder.CreateGEP(GEPTy, Load0.AddrBase, ArrayRef<Value *>({AddrIndex}));
 

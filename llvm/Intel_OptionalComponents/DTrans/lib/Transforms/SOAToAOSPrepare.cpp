@@ -1,6 +1,6 @@
 //===------ SOAToAOSPrepare.cpp - SOAToAOSPreparePass ---------------------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -789,9 +789,9 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
     Type *FuncTy = OrigF->getType();
     Type *ReplTy = TypeRemapper.remapType(FuncTy);
     assert(ReplTy != FuncTy && "Unexpected cloning");
-    Function *NewF =
-        Function::Create(cast<FunctionType>(ReplTy->getPointerElementType()),
-                         OrigF->getLinkage(), OrigF->getName(), &M);
+    Function *NewF = Function::Create(
+        cast<FunctionType>(ReplTy->getNonOpaquePointerElementType()),
+        OrigF->getLinkage(), OrigF->getName(), &M);
     NewF->copyAttributesFrom(OrigF);
     VMap[OrigF] = NewF;
     OrigToNewFuncMap[OrigF] = NewF;
@@ -2152,7 +2152,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     int32_t Pos = 0;
     for (auto &Arg : CtorF->args()) {
       auto *PTy = dyn_cast<PointerType>(Arg.getType());
-      if (PTy && PTy->getElementType() == MemInterTy)
+      if (PTy && PTy->getNonOpaquePointerElementType() == MemInterTy)
         return Pos;
       Pos++;
     }
@@ -2263,7 +2263,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
   llvm::Type *BaseTy = ElemTy;
   while (BaseTy->isPointerTy()) {
     ++PtrLevel;
-    BaseTy = BaseTy->getPointerElementType();
+    BaseTy = BaseTy->getNonOpaquePointerElementType();
   }
   DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(*SimpleCCtor,
                                                              BaseTy, PtrLevel);

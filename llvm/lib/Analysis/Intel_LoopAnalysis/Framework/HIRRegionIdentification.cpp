@@ -2841,7 +2841,8 @@ HIRRegionIdentification::findPhiElementType(const PHINode *AddRecPhi) const {
     // This check will try to keep parsing identical for non-opaque ptrs.
     // Parsing will change in some case with opaque ptrs.
     // See phi-base-with-bitcast-ptr-element-type.ll for an example.
-    return PhiTy->isOpaque() ? nullptr : PhiTy->getPointerElementType();
+    return PhiTy->isOpaque() ? nullptr
+                             : PhiTy->getNonOpaquePointerElementType();
   }
 
   return GEPOp->getResultElementType();

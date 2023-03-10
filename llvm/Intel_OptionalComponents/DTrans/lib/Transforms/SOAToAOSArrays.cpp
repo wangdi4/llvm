@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSArrays.cpp - Part of SOAToAOSPass -----------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -50,12 +50,13 @@ getParametersForSOAToAOSArrayMethodsCheckDebug(Function &F) {
   auto *PBase = dyn_cast<PointerType>(
       S.StrType->getTypeAtIndex(DTransSOAToAOSBasePtrOff));
 
-  if (!PBase || !isa<PointerType>(PBase->getElementType()))
-    report_fatal_error(
-        "Incorrect base pointer specification: "
-        "type at dtrans-soatoaos-base-ptr-off offset is not pointer to pointer.");
+  if (!PBase || !isa<PointerType>(PBase->getNonOpaquePointerElementType()))
+    report_fatal_error("Incorrect base pointer specification: "
+                       "type at dtrans-soatoaos-base-ptr-off offset is not "
+                       "pointer to pointer.");
 
-  return ArraySummaryForIdiom(S, cast<PointerType>(PBase->getElementType()));
+  return ArraySummaryForIdiom(
+      S, cast<PointerType>(PBase->getNonOpaquePointerElementType()));
 }
 } // namespace soatoaos
 
@@ -161,7 +162,7 @@ public:
     SmallVector<Type *, 6> DataTypes;
     for (auto *T : S.StrType->elements()) {
       if (auto *PT = dyn_cast<PointerType>(T))
-        if (PT->getElementType() == S.ElementType) {
+        if (PT->getNonOpaquePointerElementType() == S.ElementType) {
           // Replace base pointer
           DataTypes.push_back(NewElement->getPointerTo(0));
           continue;
