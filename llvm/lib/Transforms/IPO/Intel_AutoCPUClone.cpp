@@ -149,7 +149,8 @@ emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
 static void
 emitWrapperBasedResolver(Function &Fn, std::string OrigName,
                          SmallVector<MultiVersionResolverOption> &MVOptions,
-                         Function*& Resolver, GlobalValue*& Dispatcher) {
+                         Function*& Resolver, GlobalValue*& Dispatcher,
+                         GlobalVariable*& DispatchPtr) {
 
   Module *M = Fn.getParent();
   Resolver = M->getFunction("__intel.acd.resolver");
@@ -164,7 +165,7 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
 
   std::string DispatchPtrName = OrigName + ".ptr";
   Type *DispatchPtrType = Fn.getFunctionType()->getPointerTo();
-  GlobalVariable *DispatchPtr =
+  DispatchPtr =
       new GlobalVariable(*M, DispatchPtrType, false, GlobalValue::InternalLinkage,
                          Constant::getNullValue(DispatchPtrType), DispatchPtrName);
   DispatchPtr->setDSOLocal(true);
@@ -327,7 +328,8 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
   // Maps that are used to do to RAUW later.
   std::map</*OrigFunc*/ GlobalValue *,
-           std::tuple</*Resolver*/ GlobalValue *, /*Dispatch*/ GlobalValue *,
+           std::tuple</*Resolver*/ GlobalValue *, /*Dispatcher*/ GlobalValue *,
+                      /*DispatchPtr*/ GlobalVariable *,
                       /*Target extension to multivesioned func*/
                       std::map<std::string, GlobalValue *>>>
       Orig2MultiFuncs;
@@ -452,12 +454,14 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
     Function* Resolver = nullptr;
     GlobalValue* Dispatcher = nullptr;
+    GlobalVariable* DispatchPtr = nullptr;
     if (UseWrapperBasedResolver)
-      emitWrapperBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher);
+      emitWrapperBasedResolver(*Fn, OrigName, MVOptions, Resolver,
+                               Dispatcher, DispatchPtr);
     else
       emitIFuncBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher);
 
-    Orig2MultiFuncs[Fn] = {Resolver, Dispatcher, std::move(Clones)};
+    Orig2MultiFuncs[Fn] = {Resolver, Dispatcher, DispatchPtr, std::move(Clones)};
     Fn->setMetadata("llvm.auto.cpu.dispatch", nullptr);
     Fn->setMetadata("llvm.acd.clone", MDNode::get(Fn->getContext(), {}));
 
@@ -506,7 +510,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
     // Make clones of GA each aliasing a version of Fn.
     std::map<std::string, GlobalValue *> GAClones;
-    std::map<std::string, GlobalValue *> &FnClones = std::get<2>(Orig2MultiFuncs[Fn]);
+    std::map<std::string, GlobalValue *> &FnClones = std::get<3>(Orig2MultiFuncs[Fn]);
     for (auto& I : FnClones) {
       const StringRef TargetCpu = I.first;
 
@@ -528,7 +532,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       GAClones[I.first] = NewGA;
     }
 
-    Orig2MultiFuncs[&GA] = {nullptr, DispatcherGA, std::move(GAClones)};
+    Orig2MultiFuncs[&GA] = {nullptr, DispatcherGA, nullptr, std::move(GAClones)};
     GlobalAliasWorklist.push_back(&GA);
   }
 
@@ -547,7 +551,8 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     GlobalValue *Fn = Entry.first;
     const GlobalValue *Resolver = std::get<0>(Entry.second);
     GlobalValue *Dispatcher = std::get<1>(Entry.second);
-    std::map<std::string, GlobalValue *> &Clones = std::get<2>(Entry.second);
+    GlobalVariable *DispatchPtr = std::get<2>(Entry.second);
+    std::map<std::string, GlobalValue *> &Clones = std::get<3>(Entry.second);
 
     Fn->replaceUsesWithIf(Dispatcher, [&](Use &IFUse) {
 
@@ -609,6 +614,9 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
       llvm_unreachable("Unhandled case!");
     }
+
+    if (DispatchPtr)
+      DispatchPtr->setInitializer(Fn);
   }
 
   // Iterate over GlobalAliases once more.

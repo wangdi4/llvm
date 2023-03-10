@@ -5,7 +5,7 @@
 ; from PICLevel::NotPIC.
 
 
-; CHECK:     @foo.ptr = internal global ptr null, !llvm.acd.dispatcher !0
+; CHECK:     @foo.ptr = internal global ptr @foo.A, !llvm.acd.dispatcher !0
 ; CHECK-DAG: define void @foo.A() #0 !llvm.acd.clone !0 {
 ; CHECK-DAG: define void @foo.V() #1 !llvm.acd.clone !0 {
 ; CHECK-DAG: define internal void @__intel.acd.resolver() #0 {
