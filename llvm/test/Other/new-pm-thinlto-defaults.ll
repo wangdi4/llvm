@@ -314,6 +314,7 @@
 ; end INTEL_FEATURE_SW_ADVANCED
 
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopDistributePass
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; LoopVectorizePass is disabled by default
 ; InjectTLIMappings invocation is in sync with SLPVectorizerPass
@@ -323,6 +324,11 @@
 ; END INTEL_CUSTOMIZATION
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BlockFrequencyAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BranchProbabilityAnalysis
+=======
+; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAccessAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running pass: InjectTLIMappings
+; CHECK-POSTLINK-O-NEXT: Running pass: LoopVectorizePass
+>>>>>>> 4bc254c66442ce64075eb257105fb89e53e8a89f
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: SimplifyCFGPass
@@ -352,6 +358,8 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: LICMPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopSinkPass
+; CHECK-POSTLINK-O-NEXT: Running analysis: BlockFrequencyAnalysis
+; CHECK-POSTLINK-O-NEXT: Running analysis: BranchProbabilityAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: DivRemPairsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: TailCallElimPass

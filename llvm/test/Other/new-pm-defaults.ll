@@ -343,6 +343,7 @@
 ; end INTEL_FEATURE_SW_ADVANCED
 
 ; CHECK-O-NEXT: Running pass: LoopDistributePass
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; InjectTLIMappings invocation is in sync with SLPVectorizerPass
 ; CHECK-LTO-NEXT: Running analysis: LoopAccessAnalysis
@@ -353,6 +354,11 @@
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running analysis: BlockFrequencyAnalysis
 ; CHECK-O-NEXT: Running analysis: BranchProbabilityAnalysis
+=======
+; CHECK-O-NEXT: Running analysis: LoopAccessAnalysis on foo
+; CHECK-O-NEXT: Running pass: InjectTLIMappings
+; CHECK-O-NEXT: Running pass: LoopVectorizePass
+>>>>>>> 4bc254c66442ce64075eb257105fb89e53e8a89f
 ; CHECK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
@@ -382,6 +388,7 @@
 ; CHECK-O-NEXT: Running pass: LICMPass
 ; CHECK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-O-NEXT: Running pass: LoopSinkPass
+<<<<<<< HEAD
 ; CHECK-LTO-NEXT: Running analysis: BlockFrequencyAnalysis ;INTEL
 ; CHECK-LTO-NEXT: Running analysis: BranchProbabilityAnalysis ;INTEL
 ; INTEL_CUSTOMIZATION
@@ -389,6 +396,10 @@
 ; CHECK-EARLY-LSR: Running pass: LoopStrengthReducePass ;INTEL
 ; CHECK-EARLY-LSR: Running pass: InstSimplifyPass
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-O-NEXT: Running analysis: BlockFrequencyAnalysis
+; CHECK-O-NEXT: Running analysis: BranchProbabilityAnalysis
+>>>>>>> 4bc254c66442ce64075eb257105fb89e53e8a89f
 ; CHECK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-O-NEXT: Running pass: DivRemPairsPass
 ; CHECK-O-NEXT: Running pass: TailCallElimPass

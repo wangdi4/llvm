@@ -357,6 +357,7 @@
 
 
 ; CHECK-O23SZ-NEXT: Running pass: LoopDistributePass on foo
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; These are moved later
 ; COM: CHECK-O23SZ-NEXT: Running pass: LoopVectorizePass on foo
@@ -368,6 +369,11 @@
 ; CHECK-O3-NEXT: Running pass: InjectTLIMappings on foo
 ; CHECK-OS-NEXT: Running pass: InjectTLIMappings on foo
 ; END INTEL_CUSTOMIZATION
+=======
+; CHECK-O23SZ-NEXT: Running analysis: LoopAccessAnalysis on foo
+; CHECK-O23SZ-NEXT: Running pass: LoopVectorizePass on foo
+; CHECK-O23SZ-NEXT: Running analysis: DemandedBitsAnalysis on foo
+>>>>>>> 4bc254c66442ce64075eb257105fb89e53e8a89f
 ; CHECK-O23SZ-NEXT: Running pass: LoopUnrollPass on foo
 ; CHECK-O23SZ-NEXT: WarnMissedTransformationsPass on foo
 ; INTEL_CUSTOMIZATION
@@ -403,6 +409,8 @@
 ; CHECK-O23SZ-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O23SZ-NEXT: Running pass: CGProfilePass
+; CHECK-O23SZ-NEXT: Running analysis: BlockFrequencyAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: BranchProbabilityAnalysis on foo
 ; CHECK-EP-NEXT: Running pass: NoOpModulePass
 ; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: InlineReportEmitterPass ;INTEL
