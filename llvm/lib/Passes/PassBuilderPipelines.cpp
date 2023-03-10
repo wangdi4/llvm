@@ -31,6 +31,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
@@ -597,11 +598,6 @@ static cl::opt<bool>
     EnableMatrix("enable-matrix", cl::init(false), cl::Hidden,
                  cl::desc("Enable lowering of the matrix intrinsics"));
 
-static cl::opt<bool> CountCGSCCVisits(
-    "count-cgscc-max-visits", cl::init(false), cl::Hidden,
-    cl::desc("Keep track of the max number of times we visit a function in the "
-             "CGSCC pipeline as a statistic"));
-
 static cl::opt<bool> EnableConstraintElimination(
     "enable-constraint-elimination", cl::init(true), cl::Hidden,
     cl::desc(
@@ -673,7 +669,7 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
 
-  if (CountCGSCCVisits)
+  if (AreStatisticsEnabled())
     FPM.addPass(CountVisitsPass());
 
   // Form SSA out of local memory accesses after breaking apart aggregates into
@@ -874,7 +870,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
 #endif // INTEL_CUSTOMIZATION
 
-  if (CountCGSCCVisits)
+  if (AreStatisticsEnabled())
     FPM.addPass(CountVisitsPass());
 
   // Form SSA out of local memory accesses after breaking apart aggregates into
