@@ -51,7 +51,6 @@
 
 #include "InstCombineInternal.h"
 #include "llvm-c/Initialization.h"
-#include "llvm-c/Transforms/InstCombine.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -5351,8 +5350,11 @@ FunctionPass *llvm::createInstructionCombiningPass(
                                       MaxIterations, EnableFcmpMinMaxCombine,
                                       EnableUpCasting, EnableCanonicalizeSwap);
 }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
 
 void LLVMAddInstructionCombiningPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createInstructionCombiningPass());
 }
+=======
+>>>>>>> f7ca01333214f934c580c162afdee933e7430b6c

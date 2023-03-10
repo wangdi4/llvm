@@ -31,7 +31,6 @@
 
 #include "llvm/Transforms/Scalar.h"
 #include "llvm-c/Initialization.h"
-#include "llvm-c/Transforms/Scalar.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -154,13 +153,10 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeIVSplitLegacyPassPass(Registry); // INTEL
 }
 
-void LLVMAddLoopSimplifyCFGPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createLoopSimplifyCFGPass());
-}
-
 void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
   initializeScalarOpts(*unwrap(R));
 }
+<<<<<<< HEAD
 
 void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createAggressiveDCEPass());
@@ -357,3 +353,5 @@ void LLVMAddConvertGEPToSubscriptIntrinsicPass(LLVMPassManagerRef PM) {
 void LLVMAddUnifyFunctionExitNodesPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createUnifyFunctionExitNodesPass());
 }
+=======
+>>>>>>> f7ca01333214f934c580c162afdee933e7430b6c
