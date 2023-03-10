@@ -7711,6 +7711,9 @@ def fintel_compatibility_doc
 def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
   HelpText<"Enable Intel specific advanced optimizations">,
   MarshallingInfoFlag<CodeGenOpts<"IntelAdvancedOptim">>;
+def fvecabi_cmdtarget : Flag<["-"], "fvecabi-cmdtarget">,
+  HelpText<"Create -vecabi=cmdtarget vector function">,
+  MarshallingInfoFlag<CodeGenOpts<"VecABICmdTarget">>;
 def fintel_libirc_allowed
     : Flag<["-"], "fintel-libirc-allowed">,
       HelpText<"Enable Intel specific behaviors dependent on libirc">,
