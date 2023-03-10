@@ -382,7 +382,6 @@
 ; CHECK-O-NEXT: Running pass: LICMPass
 ; CHECK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-O-NEXT: Running pass: LoopSinkPass
-<<<<<<< HEAD
 ; CHECK-LTO-NEXT: Running analysis: BlockFrequencyAnalysis ;INTEL
 ; CHECK-LTO-NEXT: Running analysis: BranchProbabilityAnalysis ;INTEL
 ; INTEL_CUSTOMIZATION
@@ -390,8 +389,6 @@
 ; CHECK-EARLY-LSR: Running pass: LoopStrengthReducePass ;INTEL
 ; CHECK-EARLY-LSR: Running pass: InstSimplifyPass
 ; end INTEL_CUSTOMIZATION
-=======
->>>>>>> 69d4e5ae7b976ded707e78d033b3490ca9ce0ba7
 ; CHECK-O-NEXT: Running pass: InstSimplifyPass
 ; CHECK-O-NEXT: Running pass: DivRemPairsPass
 ; CHECK-O-NEXT: Running pass: TailCallElimPass
