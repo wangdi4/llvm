@@ -142,7 +142,7 @@ define void @test4(<4 x float> %X, ptr %res) nounwind {
 ; X86-AVX-LABEL: test4:
 ; X86-AVX:       # %bb.0:
 ; X86-AVX-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-AVX-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[2,1,3,3]
+; X86-AVX-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[2,1,3,3]
 ; X86-AVX-NEXT:    vmovaps %xmm0, (%eax)
 ; X86-AVX-NEXT:    retl
 ;
@@ -154,7 +154,7 @@ define void @test4(<4 x float> %X, ptr %res) nounwind {
 ;
 ; AVX-LABEL: test4:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpermilps $246, %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x79,0x04,0xc0,0xf6]
+; AVX-NEXT:    vshufps $246, %xmm0, %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf8,0xc6,0xc0,0xf6]
 ; AVX-NEXT:    # xmm0 = xmm0[2,1,3,3]
 ; AVX-NEXT:    vmovaps %xmm0, (%rdi) # EVEX TO VEX Compression encoding: [0xc5,0xf8,0x29,0x07]
 ; AVX-NEXT:    retq # encoding: [0xc3]
@@ -462,7 +462,7 @@ define void @test13(ptr %res, ptr %A, ptr %B, ptr %C) nounwind {
 ; X86-AVX-NEXT:    movl {{[0-9]+}}(%esp), %edx
 ; X86-AVX-NEXT:    vmovaps (%edx), %xmm0
 ; X86-AVX-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[1,1],mem[0,1]
-; X86-AVX-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[0,2,1,3]
+; X86-AVX-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[0,2,1,3]
 ; X86-AVX-NEXT:    vmovaps %xmm0, (%eax)
 ; X86-AVX-NEXT:    retl
 ;
@@ -479,7 +479,7 @@ define void @test13(ptr %res, ptr %A, ptr %B, ptr %C) nounwind {
 ; AVX-NEXT:    vmovaps (%rdx), %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf8,0x28,0x02]
 ; AVX-NEXT:    vshufps $69, (%rcx), %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf8,0xc6,0x01,0x45]
 ; AVX-NEXT:    # xmm0 = xmm0[1,1],mem[0,1]
-; AVX-NEXT:    vpermilps $216, %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x79,0x04,0xc0,0xd8]
+; AVX-NEXT:    vshufps $216, %xmm0, %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf8,0xc6,0xc0,0xd8]
 ; AVX-NEXT:    # xmm0 = xmm0[0,2,1,3]
 ; AVX-NEXT:    vmovaps %xmm0, (%rdi) # EVEX TO VEX Compression encoding: [0xc5,0xf8,0x29,0x07]
 ; AVX-NEXT:    retq # encoding: [0xc3]
