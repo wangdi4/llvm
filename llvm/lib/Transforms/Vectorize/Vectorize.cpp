@@ -31,7 +31,6 @@
 
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm-c/Initialization.h"
-#include "llvm-c/Transforms/Vectorize.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
@@ -56,14 +55,6 @@ void llvm::initializeVectorization(PassRegistry &Registry) {
 
 void LLVMInitializeVectorization(LLVMPassRegistryRef R) {
   initializeVectorization(*unwrap(R));
-}
-
-void LLVMAddLoopVectorizePass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createLoopVectorizePass());
-}
-
-void LLVMAddSLPVectorizePass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createSLPVectorizerPass());
 }
 
 #if INTEL_CUSTOMIZATION
