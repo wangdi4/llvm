@@ -1241,7 +1241,7 @@ static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
     //
     // It just removes the redundant load.
     if (CurrType->isPointerTy())
-      CurrType = CurrType->getPointerElementType();
+      CurrType = CurrType->getNonOpaquePointerElementType();
     return dyn_cast<StructType>(CurrType);
   };
 

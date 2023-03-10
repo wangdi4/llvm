@@ -1,6 +1,6 @@
 //===-----DTransAllocAnalyzer.cpp - Allocation/Free function analyzer------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -299,7 +299,8 @@ DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
     if (F->arg_begin()->getNumUses() != 0)
       return false;
     auto PtrType = dyn_cast<PointerType>(F->arg_begin()->getType());
-    if (!PtrType || !PtrType->getElementType()->isAggregateType())
+    if (!PtrType ||
+        !PtrType->getNonOpaquePointerElementType()->isAggregateType())
       return false;
     Argument *Arg1 = F->arg_begin() + 1;
     if (!Arg1->getType()->isIntegerTy())
@@ -376,7 +377,7 @@ bool DTransAllocAnalyzer::analyzeForIndirectStatus(const CallBase *Call,
     return false;
 
   StructType *SObjType =
-      dyn_cast<StructType>(cast<PointerType>(ObjType)->getElementType());
+      dyn_cast<StructType>(ObjType->getNonOpaquePointerElementType());
 
   if (!SObjType)
     return false;
@@ -584,7 +585,7 @@ DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
     Type *ZeroArgType = F->getArg(0)->getType();
     Type *FirstArgType = F->getArg(1)->getType();
     if (ZeroArgType->isPointerTy() &&
-        ZeroArgType->getPointerElementType()->isStructTy() &&
+        ZeroArgType->getNonOpaquePointerElementType()->isStructTy() &&
         FirstArgType->isPointerTy())
       FreeType = AKS_FreeThis;
     else if (ZeroArgType->isPointerTy())
@@ -722,7 +723,7 @@ bool DTransAllocAnalyzer::isMallocWithStoredMMPtr(const Function *F) {
   // TODO: OpaquePtr: Need to implement a way to get the pointer type for the
   // argument when opaque pointers are in use.
   if (!Arg1->getType()->isPointerTy() ||
-      !Arg1->getType()->getPointerElementType()->isStructTy())
+      !Arg1->getType()->getNonOpaquePointerElementType()->isStructTy())
     return false;
   // Look for a unique ReturnInst with a return value.
   const ReturnInst *RI = nullptr;
@@ -966,7 +967,7 @@ bool DTransAllocAnalyzer::isFreeWithStoredMMPtr(const Function *F) {
     // TODO: OpaquePtr: Need to implement a way to get the pointer type for the
     // argument when opaque pointers are in use.
     if (!Arg1->getType()->isPointerTy() ||
-        !Arg1->getType()->getPointerElementType()->isStructTy())
+        !Arg1->getType()->getNonOpaquePointerElementType()->isStructTy())
       return false;
   }
   // Look for a unique ReturnInst without a return value.

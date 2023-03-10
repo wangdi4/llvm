@@ -4185,7 +4185,7 @@ static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
     auto *PtrBaseCETy = cast<PointerType>(BaseCETy);
 
     if (!PtrBaseCETy->isOpaque()) {
-      ElementTy = BaseCETy->getPointerElementType();
+      ElementTy = BaseCETy->getNonOpaquePointerElementType();
     }
   }
 
@@ -4290,7 +4290,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   }
 
   if (HasDestTy && !cast<PointerType>(DestTy)->isOpaque()) {
-    Ref->setBitCastDestVecOrElemType(DestTy->getPointerElementType());
+    Ref->setBitCastDestVecOrElemType(DestTy->getNonOpaquePointerElementType());
   }
 
   populateBlobDDRefs(Ref, Level);
@@ -4449,7 +4449,7 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
     // This condition is comparing two pointer types so it can only be true for
     // non-opaque pointers.
     if (Ref->getDestType() != OpTy) {
-      Ref->setBitCastDestVecOrElemType(OpTy->getPointerElementType());
+      Ref->setBitCastDestVecOrElemType(OpTy->getNonOpaquePointerElementType());
     }
 
     assert((Ref->isSelfGEPRef(true) || Ref->getBasePtrElementType()) &&

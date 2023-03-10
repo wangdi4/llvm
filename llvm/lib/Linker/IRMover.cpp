@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -622,8 +622,10 @@ bool TypeMapTy::handleEmptyStrSpecialCase(StructType *SrcStr,
       return false;
     }
 
-    StructType *SrcPtrTy = dyn_cast<StructType>(SrcPtr->getElementType());
-    FunctionType *DstPtrTy = dyn_cast<FunctionType>(DstPtr->getElementType());
+    StructType *SrcPtrTy =
+        dyn_cast<StructType>(SrcPtr->getNonOpaquePointerElementType());
+    FunctionType *DstPtrTy =
+        dyn_cast<FunctionType>(DstPtr->getNonOpaquePointerElementType());
 
     // Source and destination aren't the form we want
     if (!SrcPtrTy || !DstPtrTy)
@@ -754,7 +756,8 @@ Type* TypeMapTy::tryToRepairType(Type *Ty,
     return MappedTypes[Ty];
 
   auto *DTFieldPtr = TypesToRepair[PtrField];
-  StructType *PtrSrc = cast<StructType>(PtrField->getElementType());
+  StructType *PtrSrc =
+      cast<StructType>(PtrField->getNonOpaquePointerElementType());
   auto *DTFuncTy =
       cast<DTransFunctionType>(DTFieldPtr->getPointerElementType());
 
@@ -812,7 +815,7 @@ void TypeMapTy::insertVisitedType(StructType *ST) {
 
     while (CurrPtr && isa<PointerType>(CurrPtr)) {
       PointerType *TempPtr = cast<PointerType>(CurrPtr);
-      CurrPtr = TempPtr->getElementType();
+      CurrPtr = TempPtr->getNonOpaquePointerElementType();
     }
 
     return dyn_cast<StructType>(CurrPtr);
@@ -971,7 +974,8 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
       if (!PtrField || PtrField->isOpaque())
         continue;
 
-      StructType *PtrStrc = dyn_cast<StructType>(PtrField->getElementType());
+      StructType *PtrStrc =
+          dyn_cast<StructType>(PtrField->getNonOpaquePointerElementType());
       if (!PtrStrc)
         continue;
 
@@ -2771,7 +2775,8 @@ static bool isSpecialEmptyStructToFuncMapping(PointerType *SrcPtr,
   if (SrcPtr->isOpaque())
     return false;
 
-  StructType *EmptyStr = dyn_cast<StructType>(SrcPtr->getElementType());
+  StructType *EmptyStr =
+      dyn_cast<StructType>(SrcPtr->getNonOpaquePointerElementType());
   if (!EmptyStr)
     return false;
 

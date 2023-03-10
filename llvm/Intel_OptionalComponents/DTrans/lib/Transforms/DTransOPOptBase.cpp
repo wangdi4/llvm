@@ -1,6 +1,6 @@
 //===--- DTransOPOptBase.cpp - Base class for DTrans Transforms -----==//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -188,7 +188,8 @@ DTransOPTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
     return CurMapping;
 
   if (SrcTy->isPointerTy() && !UsingOpaquePtrs) {
-    Type *ReplTy = computeReplacementType(SrcTy->getPointerElementType());
+    Type *ReplTy =
+        computeReplacementType(SrcTy->getNonOpaquePointerElementType());
     if (!ReplTy)
       return nullptr;
     return ReplTy->getPointerTo();

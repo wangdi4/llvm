@@ -1,6 +1,6 @@
 //===--------------------DTransInfoAdapter.h--------------------------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -53,7 +53,8 @@ public:
   bool isFieldPtrToPtr(dtrans::StructInfo &StInfo, unsigned Idx) {
     dtrans::FieldInfo &FI = StInfo.getField(Idx);
     llvm::Type *Ty = FI.getLLVMType();
-    return Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy();
+    return Ty->isPointerTy() &&
+           Ty->getNonOpaquePointerElementType()->isPointerTy();
   }
 
   uint64_t getMaxTotalFrequency() const {
@@ -109,7 +110,7 @@ public:
     auto PTy = dyn_cast<PointerType>(V->getType());
     if (!PTy)
       return false;
-    return isa<StructType>(PTy->getElementType());
+    return isa<StructType>(PTy->getNonOpaquePointerElementType());
   }
 
   bool isFunctionPtr(StructType *STy, unsigned Idx) {
@@ -118,27 +119,27 @@ public:
     auto PTy = dyn_cast<PointerType>(STy->getElementType(Idx));
     if (!PTy)
       return false;
-    return isa<FunctionType>(PTy->getElementType());
+    return isa<FunctionType>(PTy->getNonOpaquePointerElementType());
   }
 
   StructType *getPtrToStructElementType(Value *V) {
     auto PTy = dyn_cast<PointerType>(V->getType());
     if (!PTy)
       return nullptr;
-    return dyn_cast<StructType>(PTy->getPointerElementType());
+    return dyn_cast<StructType>(PTy->getNonOpaquePointerElementType());
   }
 
   bool isPtrToStructWithI8StarFieldAt(Value *V, unsigned StructIndex) {
     auto PTy = dyn_cast<PointerType>(V->getType());
     if (!PTy)
       return false;
-    auto STy = dyn_cast<StructType>(PTy->getElementType());
+    auto STy = dyn_cast<StructType>(PTy->getNonOpaquePointerElementType());
     if (!STy || StructIndex >= STy->getNumElements())
       return false;
     auto SFTy = STy->getTypeAtIndex(StructIndex);
     if (!SFTy || !SFTy->isPointerTy())
       return false;
-    return SFTy->getPointerElementType()->isIntegerTy(8);
+    return SFTy->getNonOpaquePointerElementType()->isIntegerTy(8);
   }
 
   iterator_range<DTransAnalysisInfo::type_info_iterator> type_info_entries() {
@@ -163,7 +164,7 @@ public:
     auto PTy = dyn_cast<PointerType>(V->getType());
     if (!PTy)
       return false;
-    Type *PETy = PTy->getPointerElementType();
+    Type *PETy = PTy->getNonOpaquePointerElementType();
     return PETy && (PETy->isIntegerTy() || PETy->isFloatingPointTy());
   }
 
@@ -171,7 +172,7 @@ public:
     auto PTy = dyn_cast<PointerType>(F->getReturnType());
     if (!PTy)
       return false;
-    Type *PETy = PTy->getPointerElementType();
+    Type *PETy = PTy->getNonOpaquePointerElementType();
     return PETy && (PETy->isIntegerTy() || PETy->isFloatingPointTy());
   }
 
@@ -179,7 +180,7 @@ public:
     auto PTy = dyn_cast<PointerType>(FI.getLLVMType());
     if (!PTy)
       return false;
-    Type *PETy = PTy->getPointerElementType();
+    Type *PETy = PTy->getNonOpaquePointerElementType();
     return PETy && (PETy->isIntegerTy() || PETy->isFloatingPointTy());
   }
 
