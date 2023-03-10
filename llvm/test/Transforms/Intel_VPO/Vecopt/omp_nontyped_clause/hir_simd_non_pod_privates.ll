@@ -93,7 +93,7 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 ; Incoming HIR
 ;    BEGIN REGION { }
 ;          + DO i1 = 0, 119, 1   <DO_LOOP>
-;          |   %2 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.i.linear.iv)[0])1),  QUAL.OMP.PRIVATE(&((%ref.tmp.i.priv)[0])) ]
+;          |   %2 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.i.linear.iv)[0])1), QUAL.OMP.PRIVATE:NONPOD(&((%ref.tmp.i.priv)[0])&((@_ZTSSt7complexIdE.omp.def_constr)[0])&((@_ZTSSt7complexIdE.omp.destr)[0])) ]
 ;          |
 ;          |   + DO i2 = 0, 119, 1   <DO_LOOP> <simd>
 ;          |   |   (%ref.tmp.i.priv)[0].0.0 = 0x400A666660000000;
@@ -113,21 +113,24 @@ define dso_local i32 @nested_loops() local_unnamed_addr #4 {
 ; CHECK:    BEGIN REGION { modified }
 ; CHECK:          + DO i32 i1 = 0, 119, 1   <DO_LOOP>
 ; CHECK:          |   %priv.mem.bc = &((%"class.std::complex"*)(%priv.mem)[0]);
+; CHECK:          |   %extract.1. = extractelement &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
+; CHECK:          |   <RVAL-REG> &((<2 x %"class.std::complex"*>)(NON-LINEAR %"class.std::complex"* %priv.mem.bc)[<2 x i32> <i32 0, i32 1>]) inbounds
+; CHECK:          |   %_ZTSSt7complexIdE.omp.def_constr3 = @_ZTSSt7complexIdE.omp.def_constr(%extract.1.);
 ; CHECK:          |
 ; CHECK:          |   + DO i32 i2 = 0, 119, 2   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK:          |   |   %nsbgepcopy = &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]);
-; CHECK:          |   |   <RVAL-REG> &((<2 x %"class.std::complex"*>)(LINEAR %"class.std::complex"* %priv.mem.bc{def@1})[<2 x i32> <i32 0, i32 1>]) inbounds
-; CHECK:          |   |   %nsbgepcopy3 = &((%"class.std::complex"*)(%priv.mem)[0]);
-; CHECK:          |   |   (<2 x float>*)(%nsbgepcopy)[0].0.0 = 0x400A666660000000;
-; CHECK:          |   |   %nsbgepcopy4 = &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]);
+; CHECK:          |   |   <RVAL-REG> &((<2 x %"class.std::complex"*>)(NON-LINEAR %"class.std::complex"* %priv.mem.bc)[<2 x i32> <i32 0, i32 1>]) inbounds
 ; CHECK:          |   |   %nsbgepcopy5 = &((%"class.std::complex"*)(%priv.mem)[0]);
-; CHECK:          |   |   (<2 x float>*)(%nsbgepcopy4)[0].0.1 = 0x40119999A0000000;
-; CHECK:          |   |   %serial.temp = undef;
+; CHECK:          |   |   (<2 x float>*)(%nsbgepcopy)[0].0.0 = 0x400A666660000000;
+; CHECK:          |   |   %nsbgepcopy6 = &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]);
+; CHECK:          |   |   %nsbgepcopy7 = &((%"class.std::complex"*)(%priv.mem)[0]);
+; CHECK:          |   |   (<2 x float>*)(%nsbgepcopy6)[0].0.1 = 0x40119999A0000000;
+; CHECK:          |   |   %serial.temp8 = undef;
 ; CHECK:          |   |   %_Z5pointRKSt7complexIfE = @_Z5pointRKSt7complexIfE(&((%"class.std::complex"*)(%priv.mem)[0]));
-; CHECK:          |   |   %serial.temp = insertelement %serial.temp,  %_Z5pointRKSt7complexIfE,  0;
-; CHECK:          |   |   %extract.1. = extractelement &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
-; CHECK:          |   |   %_Z5pointRKSt7complexIfE6 = @_Z5pointRKSt7complexIfE(%extract.1.);
-; CHECK:          |   |   %serial.temp = insertelement %serial.temp,  %_Z5pointRKSt7complexIfE6,  1;
+; CHECK:          |   |   %serial.temp8 = insertelement %serial.temp8,  %_Z5pointRKSt7complexIfE,  0;
+; CHECK:          |   |   %extract.1.10 = extractelement &((<2 x %"class.std::complex"*>)(%priv.mem.bc)[<i32 0, i32 1>]),  1;
+; CHECK:          |   |   %_Z5pointRKSt7complexIfE11 = @_Z5pointRKSt7complexIfE(%extract.1.10);
+; CHECK:          |   |   %serial.temp8 = insertelement %serial.temp8,  %_Z5pointRKSt7complexIfE11,  1;
 ; CHECK:          |   + END LOOP
 ; CHECK:          + END LOOP
 ; CHECK:    END REGION
@@ -146,7 +149,7 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.END.SIMD.2,
   br label %DIR.OMP.SIMD.115
 
 DIR.OMP.SIMD.115:                                 ; preds = %DIR.OMP.SIMD.1
-  %2 = call token @llvm.directive.region.entry() #5 [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %j.i.linear.iv, i32 1), "QUAL.OMP.PRIVATE"(%"class.std::complex"* %ref.tmp.i.priv) ]
+  %2 = call token @llvm.directive.region.entry() #5 [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD"(%"class.std::complex"* %ref.tmp.i.priv, %"class.std::complex"* (%"class.std::complex"*)* @_ZTSSt7complexIdE.omp.def_constr, void (%"class.std::complex"*)* @_ZTSSt7complexIdE.omp.destr) ]
   br label %omp.inner.for.body.i
 
 omp.inner.for.body.i:                             ; preds = %DIR.OMP.SIMD.115, %omp.inner.for.body.i
@@ -195,6 +198,12 @@ declare void @_ZN6ClassA3incEi(%struct.ClassA* nocapture nonnull dereferenceable
 
 ; Function Attrs: mustprogress nofree noinline nosync nounwind willreturn
 declare dso_local i32 @_Z5pointRKSt7complexIfE(%"class.std::complex"* nocapture nonnull readonly align 4 dereferenceable(8) %c) #2
+
+; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(argmem: write) uwtable
+declare %"class.std::complex"* @_ZTSSt7complexIdE.omp.def_constr(%"class.std::complex"* noundef returned writeonly %0) #8
+
+; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none) uwtable
+declare void @_ZTSSt7complexIdE.omp.destr(%"class.std::complex"* nocapture readnone %0) #8
 
 attributes #1 = { nofree noinline norecurse nounwind uwtable willreturn mustprogress }
 attributes #2 = { mustprogress nofree noinline nosync nounwind willreturn }

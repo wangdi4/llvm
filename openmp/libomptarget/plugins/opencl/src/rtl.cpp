@@ -2648,7 +2648,7 @@ static inline int32_t runTargetTeamNDRegion(
        DPxPTR(Kernel));
   }
 
-  if (LoopDesc && KInfo->isSpecificNDRange()) {
+  if (LoopDesc && KInfo && KInfo->isSpecificNDRange()) {
     decideLoopKernelGroupArguments(DeviceId, ThreadLimit,
                                    (TgtNDRangeDescTy *)LoopDesc, Kernel,
                                    LocalWorkSize, NumWorkGroups);

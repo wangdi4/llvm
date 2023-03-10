@@ -4538,7 +4538,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
          "ZET_ENABLE_PROGRAM_DEBUGGING set to 1\n");
     }
 
-    const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(SubId, Kernel);
+    const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(RootId, Kernel);
     if (!KInfo) {
       DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
          DPxPTR(Kernel));
@@ -4549,7 +4549,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
     // 2. NDRangeMode == true
     // When 1 AND !2 we try to limit the number of teams spawned
     // based on the loop tripcount to decrease the kernel launch latency.
-    if (LoopDesc && KInfo->isSpecificNDRange()) {
+    if (LoopDesc && KInfo && KInfo->isSpecificNDRange()) {
       auto RC = decideLoopKernelGroupArguments(
           SubId, (uint32_t)ThreadLimit, (TgtNDRangeDescTy *)LoopDesc, Kernel,
           KernelPR, GroupSizes, GroupCounts, HalfNumThreads);
