@@ -751,7 +751,7 @@ tryToMergePartialOverlappingStores(StoreInst *KillingI, StoreInst *DeadI,
 }
 
 namespace {
-// Returns true if \p I is an intrisnic that does not read or write memory.
+// Returns true if \p I is an intrinsic that does not read or write memory.
 bool isNoopIntrinsic(Instruction *I) {
   if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
     switch (II->getIntrinsicID()) {
@@ -761,7 +761,6 @@ bool isNoopIntrinsic(Instruction *I) {
     case Intrinsic::launder_invariant_group:
     case Intrinsic::assume:
       return true;
-    case Intrinsic::dbg_addr:
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_label:
     case Intrinsic::dbg_value:

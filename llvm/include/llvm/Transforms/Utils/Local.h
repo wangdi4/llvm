@@ -450,17 +450,17 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
 ///
 
 /// Inserts a llvm.dbg.value intrinsic before a store to an alloca'd value
-/// that has an associated llvm.dbg.declare or llvm.dbg.addr intrinsic.
+/// that has an associated llvm.dbg.declare intrinsic.
 void ConvertDebugDeclareToDebugValue(DbgVariableIntrinsic *DII,
                                      StoreInst *SI, DIBuilder &Builder);
 
 /// Inserts a llvm.dbg.value intrinsic before a load of an alloca'd value
-/// that has an associated llvm.dbg.declare or llvm.dbg.addr intrinsic.
+/// that has an associated llvm.dbg.declare intrinsic.
 void ConvertDebugDeclareToDebugValue(DbgVariableIntrinsic *DII,
                                      LoadInst *LI, DIBuilder &Builder);
 
 /// Inserts a llvm.dbg.value intrinsic after a phi that has an associated
-/// llvm.dbg.declare or llvm.dbg.addr intrinsic.
+/// llvm.dbg.declare intrinsic.
 void ConvertDebugDeclareToDebugValue(DbgVariableIntrinsic *DII,
                                      PHINode *LI, DIBuilder &Builder);
 
