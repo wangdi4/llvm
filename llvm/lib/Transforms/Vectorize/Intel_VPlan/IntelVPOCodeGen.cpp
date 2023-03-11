@@ -243,8 +243,9 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     // TODO: SOAMemRef transformations needs to be updated to correctly set
     // SourceElementType which can then be used here.
     if (!VPGEP->isOpaque()) {
-      SourceElementType =
-          GepBasePtr->getType()->getScalarType()->getPointerElementType();
+      SourceElementType = GepBasePtr->getType()
+                              ->getScalarType()
+                              ->getNonOpaquePointerElementType();
     } else if (isSOAAccess(VPGEP, Plan)) {
       SourceElementType = getSOAType(SourceElementType, VF);
     }
@@ -342,7 +343,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     if (isSOAAccess(VPInst, Plan)) {
       auto *DestPtrTy = cast<PointerType>(DestTy);
       if (!DestPtrTy->isOpaque()) {
-        Type *ElemTy = DestPtrTy->getPointerElementType();
+        Type *ElemTy = DestPtrTy->getNonOpaquePointerElementType();
         DestTy = PointerType::get(getSOAType(ElemTy, VF),
                                   DestPtrTy->getAddressSpace());
       }
@@ -1080,10 +1081,10 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
                               : GEP->getSourceElementType()
                         : WideGepBasePtr->getType()
                               ->getScalarType()
-                              ->getPointerElementType();
+                              ->getNonOpaquePointerElementType();
 
-    Value *VectorGEP = Builder.CreateGEP(SourceElementType,
-                                         WideGepBasePtr, OpsV, GepName);
+    Value *VectorGEP =
+        Builder.CreateGEP(SourceElementType, WideGepBasePtr, OpsV, GepName);
     cast<GetElementPtrInst>(VectorGEP)->setIsInBounds(GEP->isInBounds());
 
     VPWidenMap[GEP] = VectorGEP;
@@ -3588,7 +3589,7 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
       Value *PointerArg = getScalarValue(VPCall->getOperand(1), 0);
       auto *PointerArgType = cast<PointerType>(PointerArg->getType());
       if (!PointerArgType->isOpaque() &&
-          !PointerArgType->getElementType()->isIntegerTy(8))
+          !PointerArgType->getNonOpaquePointerElementType()->isIntegerTy(8))
         PointerArg = Builder.CreateBitCast(
             PointerArg, Type::getInt8PtrTy(*Plan->getLLVMContext()));
 
@@ -4230,9 +4231,9 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
       !Plan->getVPlanDA()->hasBeenSOAConverted(VPPhi)) {
     auto *PhiPtrTy = cast<PointerType>(PhiTy);
     if (!PhiPtrTy->isOpaque()) {
-      Type *ElemTy = PhiTy->getPointerElementType();
-      PhiTy = PointerType::get(getSOAType(ElemTy, VF),
-                               PhiPtrTy->getAddressSpace());
+      Type *ElemTy = PhiTy->getNonOpaquePointerElementType();
+      PhiTy =
+          PointerType::get(getSOAType(ElemTy, VF), PhiPtrTy->getAddressSpace());
     }
   }
   // FIXME: Replace with proper SVA.

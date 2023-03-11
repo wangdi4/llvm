@@ -1,6 +1,6 @@
 //===-----DTransBadCastingAnalyzer.cpp - Specialized bad casting analyzer--===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -81,7 +81,7 @@ bool DTransBadCastingAnalyzer::analyzeBeforeVisit() {
         continue;
       llvm::Type *FieldTy = Ty->getElementType(I);
       if (FieldTy->isPointerTy() &&
-          FieldTy->getPointerElementType()->isFunctionTy())
+          FieldTy->getNonOpaquePointerElementType()->isFunctionTy())
         ++Count;
     }
     if (Count > BestCount) {
@@ -709,7 +709,7 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
       // allocation.
       llvm::Type *TargetType = BCI->getDestTy();
       assert(TargetType->isPointerTy());
-      TargetType = TargetType->getPointerElementType();
+      TargetType = TargetType->getNonOpaquePointerElementType();
       // Any uses should be GEPs from the same bit cast type.  This can
       // be generalized, but this is sufficient for now.
       for (auto *V : BCI->users()) {
@@ -757,7 +757,7 @@ bool DTransBadCastingAnalyzer::analyzeStore(dtrans::FieldInfo &FI,
     return false;
   }
   if (!isa<ConstantPointerNull>(AV) && AVType->isPointerTy() &&
-      AVType->getPointerElementType()->isFunctionTy()) {
+      AVType->getNonOpaquePointerElementType()->isFunctionTy()) {
     // For the case of a function pointer field being stored, ensure that the
     // VoidArgumentIndex of that function can be determined ...
     Function *F = cast<Function>(AV);
@@ -1111,7 +1111,7 @@ void DTransBadCastingAnalyzer::processPotentialUnsafePointerStores() {
       setFoundViolation(true);
       return;
     }
-    llvm::Type *StType = StPtrType->getPointerElementType();
+    llvm::Type *StType = StPtrType->getNonOpaquePointerElementType();
     auto ASIT = AllocStores.find(SI);
     if (ASIT == AllocStores.end() || ASIT->second.second != StType) {
       setFoundViolation(true);
@@ -1293,7 +1293,7 @@ bool DTransBadCastingAnalyzer::isBadCastTypeAndFieldCandidate(llvm::Type *Type,
                                                               unsigned Index) {
   if (!Type->isPointerTy())
     return false;
-  llvm::Type *PTy = Type->getPointerElementType();
+  llvm::Type *PTy = Type->getNonOpaquePointerElementType();
   auto StPTy = dyn_cast<StructType>(PTy);
   if (StPTy != CandidateRootType)
     return false;

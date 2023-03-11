@@ -1,6 +1,6 @@
 //===--- DTransArraysWithConstant.cpp - Arrays with constant entries -*---===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -361,7 +361,8 @@ static ConstantInt *getFieldAndStructureAccessed(GetElementPtrInst *GEP,
   llvm::StructType *CurrStruct = nullptr;
   llvm::Type *GEPType = GEP->getOperand(0)->getType();
   if (GEPType->isPointerTy())
-    CurrStruct = dyn_cast<llvm::StructType>(GEPType->getPointerElementType());
+    CurrStruct =
+        dyn_cast<llvm::StructType>(GEPType->getNonOpaquePointerElementType());
   if (!CurrStruct)
     return nullptr;
 

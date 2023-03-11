@@ -268,8 +268,8 @@ static bool isGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size,
 
   // The following code gets the structure type for the source operand
   // and destination operand in the memcpy.
-  Type *SrcPtrTyp = cast<PointerType>(StrippedSrc->getType())->getElementType();
-  Type *DstPtrTyp = cast<PointerType>(StrippedDst->getType())->getElementType();
+  Type *SrcPtrTyp = StrippedSrc->getType()->getNonOpaquePointerElementType();
+  Type *DstPtrTyp = StrippedDst->getType()->getNonOpaquePointerElementType();
   StructType *SrcSTy = dyn_cast<StructType>(&*SrcPtrTyp);
   StructType *DstSTy = dyn_cast<StructType>(&*DstPtrTyp);
   if (!SrcSTy || !DstSTy || SrcSTy != DstSTy) {

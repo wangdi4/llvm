@@ -7008,7 +7008,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     if (VPInst->getOpcode() == Instruction::BitCast && RefOp0->isAddressOf()) {
       SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
       auto *BitCastDestTy = isa<PointerType>(ResultRefTy)
-                                ? ResultRefTy->getPointerElementType()
+                                ? ResultRefTy->getNonOpaquePointerElementType()
                                 : ResultRefTy;
       RefOp0->setBitCastDestVecOrElemType(BitCastDestTy);
       makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);

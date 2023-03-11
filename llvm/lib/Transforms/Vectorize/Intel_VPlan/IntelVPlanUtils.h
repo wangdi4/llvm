@@ -299,7 +299,7 @@ inline Type *getInt8OrPointerElementTy(Type *ValTy) {
   assert(ValTy->isPointerTy() && "Expected Pointer type");
   if (ValTy->isOpaquePointerTy())
     return Type::getInt8Ty(ValTy->getContext());
-  return ValTy->getPointerElementType();
+  return ValTy->getNonOpaquePointerElementType();
 }
 
 #if INTEL_CUSTOMIZATION

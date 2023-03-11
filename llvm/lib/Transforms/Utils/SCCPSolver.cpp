@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1464,7 +1464,7 @@ static ArrayType *getArrayFromPointerCast(Value *VPtr) {
   if (!ArrPtr || ArrPtr->isOpaque())
     return nullptr;
 
-  return dyn_cast<ArrayType>(ArrPtr->getElementType());
+  return dyn_cast<ArrayType>(ArrPtr->getNonOpaquePointerElementType());
 }
 
 // Return true if the type of the input ArrayVal doesn't match with the type
@@ -1491,7 +1491,7 @@ static bool isCastingNeeded(Value *ArrayVal, Value *PtrVal) {
   if (!PtrTy || PtrTy->isOpaque())
     return false;
 
-  auto *ElemType = PtrTy->getElementType();
+  auto *ElemType = PtrTy->getNonOpaquePointerElementType();
 
   // CMPLRLLVM-22930: If the constant is casted from an array to a pointer,
   // then we need to collect the actual array and check if the types matches.

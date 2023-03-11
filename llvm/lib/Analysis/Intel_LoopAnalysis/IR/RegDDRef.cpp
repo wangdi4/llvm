@@ -511,7 +511,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
         // opaque ptrs. Not sure if we can do better.
         return cast<PointerType>(BasePtrTy)->isOpaque()
                    ? Type::getInt8Ty(BasePtrTy->getContext())
-                   : BasePtrTy->getPointerElementType();
+                   : BasePtrTy->getNonOpaquePointerElementType();
 
       } else {
         assert(isSelfAddressOf(true) && "Self AddressOf ref expected!");
@@ -2250,7 +2250,7 @@ Type *RegDDRef::getDereferencedType() const {
 
     // This is an attempt to keep original behavior for non-opaque pointer path.
     if (!DestTy->isOpaquePointerTy()) {
-      DestTy->getPointerElementType();
+      DestTy->getNonOpaquePointerElementType();
     }
 
     // This can return null.

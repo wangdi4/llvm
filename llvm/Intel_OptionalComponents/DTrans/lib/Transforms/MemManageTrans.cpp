@@ -1,6 +1,6 @@
 //===-------------- MemManageTrans.cpp - DTransMemManageTransPass ---------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -826,7 +826,7 @@ bool MemManageTransImpl::categorizeFunctions() {
       break;
 
     case Type::PointerTyID: {
-      Type *PTy = cast<PointerType>(RTy)->getElementType();
+      Type *PTy = RTy->getNonOpaquePointerElementType();
       if (PTy == ReusableArenaAllocatorType || PTy == ArenaAllocatorType)
         ClassReturn = true;
       else if (PTy == StringObjectType)
@@ -850,7 +850,7 @@ bool MemManageTransImpl::categorizeFunctions() {
         return UnKnown;
 
       case Type::PointerTyID: {
-        auto *PTy = cast<PointerType>(ArgTy)->getElementType();
+        auto *PTy = ArgTy->getNonOpaquePointerElementType();
         if (PTy == ReusableArenaAllocatorType || PTy == ArenaAllocatorType)
           ClassArgs++;
         else if (PTy == MemInterfaceType)
@@ -987,7 +987,7 @@ bool MemManageTransImpl::isArenaAllocatorAddr(Value *V, Value *Obj) {
   // If it is ArenaAllocator, address of ArenaAllocator is "obj".
   Type *ObjTy = nullptr;
   if (auto *PTy = dyn_cast<PointerType>(Obj->getType()))
-    ObjTy = PTy->getElementType();
+    ObjTy = PTy->getNonOpaquePointerElementType();
   if (ObjTy == Cand->getArenaAllocatorType()) {
     if (V != Obj)
       return false;
@@ -1439,7 +1439,7 @@ bool MemManageTransImpl::isListFrontNodeArenaBlockAddr(
     auto *PTy = dyn_cast<PointerType>(Ptr->getType());
     if (!PTy)
       return false;
-    Type *ElemTy = PTy->getElementType();
+    Type *ElemTy = PTy->getNonOpaquePointerElementType();
     auto Cand = getCurrentCandidate();
     // Makes sure ElemTy is ArenaBlockBase.
     if (ElemTy != Cand->getBlockBaseType())
@@ -1581,8 +1581,8 @@ bool MemManageTransImpl::isLegalBitCast(BitCastInst *BC) {
   auto *TPTy = dyn_cast<PointerType>(BC->getType());
   if (!FPTy || !TPTy)
     return false;
-  Type *FElemTy = FPTy->getElementType();
-  Type *TElemTy = TPTy->getElementType();
+  Type *FElemTy = FPTy->getNonOpaquePointerElementType();
+  Type *TElemTy = TPTy->getNonOpaquePointerElementType();
   auto Cand = getCurrentCandidate();
   if (FElemTy != Cand->getBlockBaseType() ||
       TElemTy != Cand->getReusableArenaBlockType())
@@ -1938,7 +1938,7 @@ bool MemManageTransImpl::checkInstructionInBlock(Value *V, BasicBlock *BB) {
 bool MemManageTransImpl::isStrObjPtrTypeArg(Value *ArgOp) {
   Type *ObjTy = nullptr;
   if (auto *PTy = dyn_cast<PointerType>(ArgOp->getType()))
-    ObjTy = PTy->getElementType();
+    ObjTy = PTy->getNonOpaquePointerElementType();
   auto Cand = getCurrentCandidate();
   StructType *StrObjType = Cand->getStringObjectType();
   if (!ObjTy || ObjTy != StrObjType)
@@ -2164,7 +2164,7 @@ bool MemManageTransImpl::identifyDevirtChecks(BasicBlock *BB, Value *Obj,
     return false;
   // Check for VTable load.
   auto *PTy = dyn_cast<PointerType>(LI->getType());
-  if (!PTy || !PTy->getElementType()->isFunctionTy())
+  if (!PTy || !PTy->getNonOpaquePointerElementType()->isFunctionTy())
     return false;
   auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
   if (!GEP)
@@ -2881,7 +2881,7 @@ bool MemManageTransImpl::identifyCreate(BasicBlock *BB, Value *Obj,
   auto *RABAllocBC = dyn_cast<BitCastInst>(*RABAllocPtr);
   assert(RABAllocBC && "Expected BitCastInst");
   auto *PTy = dyn_cast<PointerType>(RABAllocBC->getType());
-  if (!PTy || PTy->getElementType() != RABType)
+  if (!PTy || PTy->getNonOpaquePointerElementType() != RABType)
     return false;
 
   // Check memory allocation for StringObject
@@ -2901,7 +2901,7 @@ bool MemManageTransImpl::identifyCreate(BasicBlock *BB, Value *Obj,
   auto *BlkAllocBC = dyn_cast<BitCastInst>(BlockAllocPtr);
   assert(BlkAllocBC && "Expected BitCastInst");
   PTy = dyn_cast<PointerType>(BlkAllocBC->getType());
-  if (!PTy || PTy->getElementType() != StrObjType)
+  if (!PTy || PTy->getNonOpaquePointerElementType() != StrObjType)
     return false;
 
   // Check EH code
@@ -4686,7 +4686,7 @@ bool MemManageTransImpl::recognizeConstructor(Function *F) {
     Value *ValOp = SI->getValueOperand();
     auto *SITy = ValOp->getType();
     if (SITy->isPointerTy()) {
-      auto *ETy = cast<PointerType>(SITy)->getElementType();
+      auto *ETy = SITy->getNonOpaquePointerElementType();
       if (ETy == MemInterfaceType) {
         // Check "Obj->ArenaAllocator.List.MemManager = m;"
         if (!isListMemManagerAddr(PtrOp, ThisObj))

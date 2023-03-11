@@ -1,6 +1,6 @@
 //===-- DTransOptBase.cpp - Common base classes for DTrans Transforms---==//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -123,7 +123,8 @@ DTransTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
     return CurMapping;
 
   if (SrcTy->isPointerTy()) {
-    Type *ReplTy = computeReplacementType(SrcTy->getPointerElementType());
+    Type *ReplTy =
+        computeReplacementType(SrcTy->getNonOpaquePointerElementType());
     if (!ReplTy)
       return nullptr;
     return ReplTy->getPointerTo();
@@ -829,7 +830,7 @@ void DTransOptBase::createCloneFunctionDeclarations(Module &M) {
     Type *RetTy = FuncSig->getReturnType();
 
     if (RetTy->isPointerTy())
-      RetTy = RetTy->getPointerElementType();
+      RetTy = RetTy->getNonOpaquePointerElementType();
 
     if (RetTy->isStructTy())
       return RetTy->getStructName();

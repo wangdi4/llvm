@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSArrays.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -198,7 +198,7 @@ protected:
 
     if (D->Kind == Dep::DK_Load)
       return isa<PointerType>(ATy) &&
-             ATy->getPointerElementType() == S.ElementType;
+             ATy->getNonOpaquePointerElementType() == S.ElementType;
 
     return ATy == S.ElementType;
   }
@@ -253,7 +253,7 @@ protected:
     if (!isa<PointerType>(Out))
       return false;
 
-    return S.ElementType == Out->getPointerElementType();
+    return S.ElementType == Out->getNonOpaquePointerElementType();
   }
 
   // Initialize base pointer with constant.
@@ -272,7 +272,7 @@ protected:
     if (!isa<PointerType>(Out))
       return false;
 
-    return S.ElementType == Out->getPointerElementType();
+    return S.ElementType == Out->getNonOpaquePointerElementType();
   }
 
   // Deallocation of memory pointed to base pointer.
@@ -367,7 +367,8 @@ private:
     Type *Out = nullptr;
     if (!isFieldAddr(D, S, Out))
       return false;
-    return Out->isPointerTy() && Out->getPointerElementType() == S.ElementType;
+    return Out->isPointerTy() &&
+           Out->getNonOpaquePointerElementType() == S.ElementType;
   }
 
   // (Arg ArgNo) of integer type.
@@ -694,7 +695,7 @@ private:
           ElemArgOff = I;
           break;
         } else if (auto *Ptr = dyn_cast<PointerType>(P)) {
-          auto *Pointee = Ptr->getElementType();
+          auto *Pointee = Ptr->getNonOpaquePointerElementType();
           if (Pointee == S.ElementType) {
             ElemArgOff = I;
             break;
@@ -760,7 +761,7 @@ private:
 
     auto *PTy = dyn_cast<PointerType>(Address->getType());
 
-    if (!PTy || PTy->getElementType() != S.ElementType)
+    if (!PTy || PTy->getNonOpaquePointerElementType() != S.ElementType)
       return false;
 
     if (!isa<Instruction>(Address))
@@ -1551,11 +1552,11 @@ public:
           // TODO (opaque pointers): This code needs to be rewritten to create
           // the load instructions earlier, similar to how
           // earlyCloneElemStoreInst() handles store instructions to eliminate
-          // the call to getPointerElementType(). The type for the load cannot
-          // be easily determined here by looking at the existing LoadInst,
-          // 'NewLoad', because after processing the first element the type of
-          // 'NewLoad' is mutated to no longer match the pointer type.
-          NewPtr->getType()->getPointerElementType(), NewPtr,
+          // the call to getNonOpaquePointerElementType(). The type for the load
+          // cannot be easily determined here by looking at the existing
+          // LoadInst, 'NewLoad', because after processing the first element the
+          // type of 'NewLoad' is mutated to no longer match the pointer type.
+          NewPtr->getType()->getNonOpaquePointerElementType(), NewPtr,
           NewLoad->getAlign(), false, "copy");
 
       if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr)) {
@@ -1582,13 +1583,13 @@ public:
         // TODO (opaque pointers): This code needs to be rewritten to create
         // the load instructions earlier, similar to how
         // earlyCloneElemStoreInst() handles store instructions to eliminate
-        // the call to getPointerElementType(). The type for the load cannot
-        // be easily determined here by looking at the existing LoadInst,
+        // the call to getNonOpaquePointerElementType(). The type for the load
+        // cannot be easily determined here by looking at the existing LoadInst,
         // 'NewLoad', because after processing the first element the type of
         // 'NewLoad' is mutated to no longer match the pointer type.
         auto *CopyLoad = Builder.CreateAlignedLoad(
             // Assumed all pointer types have same alignment.
-            NewPtr->getType()->getPointerElementType(), NewPtr,
+            NewPtr->getType()->getNonOpaquePointerElementType(), NewPtr,
             NewLoad->getAlign(), false, "copy");
         OrigToCopy[NewLoad] = CopyLoad;
         if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr))
@@ -1697,8 +1698,10 @@ public:
       if (auto *NewGEP = dyn_cast<GetElementPtrInst>(NewI)) {
         NewGEP->mutateType(NewBaseType);
         NewGEP->getPointerOperand()->mutateType(NewBaseType);
-        NewGEP->setResultElementType(NewBaseType->getPointerElementType());
-        NewGEP->setSourceElementType(NewBaseType->getPointerElementType());
+        NewGEP->setResultElementType(
+            NewBaseType->getNonOpaquePointerElementType());
+        NewGEP->setSourceElementType(
+            NewBaseType->getNonOpaquePointerElementType());
       } else if (auto *NewPHI = dyn_cast<PHINode>(NewI)) {
         NewPHI->mutateType(NewBaseType);
       } else
@@ -1804,12 +1807,12 @@ public:
       }
 
       if (auto *Ptr = dyn_cast<PointerType>(Param)) {
-        if (Ptr->getElementType() == ArrType) {
+        if (Ptr->getNonOpaquePointerElementType() == ArrType) {
           Params.push_back(NewArray->getPointerTo(0));
           continue;
         }
 
-        if (Ptr->getElementType() == ElementType) {
+        if (Ptr->getNonOpaquePointerElementType() == ElementType) {
           if (I != FuncTy->getNumParams() - 1)
             llvm_unreachable(
                 "Inconsistency with MethodClassification::classifyMethod.");
@@ -1843,8 +1846,8 @@ private:
         ConstantInt::get(Context, APInt(32, Offset))};
 
     return Builder.CreateInBoundsGEP(
-        Base->getType()->getScalarType()->getPointerElementType(), Base,
-        ArrayRef<Value *>(Idx), "elem");
+        Base->getType()->getScalarType()->getNonOpaquePointerElementType(),
+        Base, ArrayRef<Value *>(Idx), "elem");
   }
 
   const DataLayout &DL;

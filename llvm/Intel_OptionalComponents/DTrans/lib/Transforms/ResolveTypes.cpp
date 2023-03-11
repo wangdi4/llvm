@@ -1,6 +1,6 @@
 //===--------------- ResolveTypes.cpp - DTransResolveTypesPass ------------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -451,7 +451,7 @@ public:
       auto referencesTypeOfInterest = [&](Type *Ty) {
         auto *BaseTy = Ty;
         while (BaseTy->isPointerTy())
-          BaseTy = BaseTy->getPointerElementType();
+          BaseTy = BaseTy->getNonOpaquePointerElementType();
         if (isTypeOfInterest(BaseTy))
           return true;
         return false;
@@ -467,8 +467,8 @@ public:
         return false;
       };
 
-      auto *SrcTy = Cast->getSrcTy()->getPointerElementType();
-      auto *DestTy = Cast->getDestTy()->getPointerElementType();
+      auto *SrcTy = Cast->getSrcTy()->getNonOpaquePointerElementType();
+      auto *DestTy = Cast->getDestTy()->getNonOpaquePointerElementType();
 
       // It's possible that the source type was not a function type pointer.
       // In that case, we can't really deduce anything from the call site.
@@ -734,7 +734,8 @@ private:
   // possible for these uses to form a cycle, so no recursion guard is needed.
   void visitGlobalValueUsers(Constant *C) {
     auto *Ty = C->getType();
-    if (!Ty->isPointerTy() || !isTypeOfInterest(Ty->getPointerElementType()))
+    if (!Ty->isPointerTy() ||
+        !isTypeOfInterest(Ty->getNonOpaquePointerElementType()))
       return;
     for (auto *U : C->users()) {
       if (auto *GEP = dyn_cast<GEPOperator>(U))
@@ -895,8 +896,8 @@ private:
         return;
       if (isVTableCast(SrcTy, DestTy))
         return;
-      SrcTy = SrcTy->getPointerElementType();
-      DestTy = DestTy->getPointerElementType();
+      SrcTy = SrcTy->getNonOpaquePointerElementType();
+      DestTy = DestTy->getNonOpaquePointerElementType();
     }
     recordTypeCasting(SrcTy, DestTy, /*IsCall=*/false);
     DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
@@ -921,8 +922,8 @@ private:
            (SrcBaseTy->isArrayTy() && DestBaseTy->isArrayTy()) ||
            (SrcBaseTy->isVectorTy() && DestBaseTy->isVectorTy())) {
       if (SrcBaseTy->isPointerTy()) {
-        SrcBaseTy = SrcBaseTy->getPointerElementType();
-        DestBaseTy = DestBaseTy->getPointerElementType();
+        SrcBaseTy = SrcBaseTy->getNonOpaquePointerElementType();
+        DestBaseTy = DestBaseTy->getNonOpaquePointerElementType();
       } else if (SrcBaseTy->isArrayTy()) {
         SrcBaseTy = cast<ArrayType>(SrcBaseTy)->getElementType();
         DestBaseTy = cast<ArrayType>(DestBaseTy)->getElementType();
@@ -1611,8 +1612,8 @@ void ResolveTypesImpl::collectDependentTypeMappings(
            (SrcBaseTy->isArrayTy() && DestBaseTy->isArrayTy()) ||
            (SrcBaseTy->isVectorTy() && DestBaseTy->isVectorTy())) {
       if (SrcBaseTy->isPointerTy()) {
-        SrcBaseTy = SrcBaseTy->getPointerElementType();
-        DestBaseTy = DestBaseTy->getPointerElementType();
+        SrcBaseTy = SrcBaseTy->getNonOpaquePointerElementType();
+        DestBaseTy = DestBaseTy->getNonOpaquePointerElementType();
       } else if (SrcBaseTy->isArrayTy()) {
         SrcBaseTy = cast<ArrayType>(SrcBaseTy)->getElementType();
         DestBaseTy = cast<ArrayType>(DestBaseTy)->getElementType();
@@ -1699,7 +1700,7 @@ void ResolveTypesImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
       return;
 
     while (SrcTy->isPointerTy())
-      SrcTy = SrcTy->getPointerElementType();
+      SrcTy = SrcTy->getNonOpaquePointerElementType();
 
     if (!SrcTy->isStructTy())
       return;
@@ -1917,8 +1918,8 @@ ResolveTypesImpl::CompareResult ResolveTypesImpl::compareTypeMembers(
           return CompareResult::Distinct;
         }
         // Otherwise, drill down on both pointers.
-        ElemATy = ElemATy->getPointerElementType();
-        ElemBTy = ElemBTy->getPointerElementType();
+        ElemATy = ElemATy->getNonOpaquePointerElementType();
+        ElemBTy = ElemBTy->getNonOpaquePointerElementType();
         ComparingPointerElements = true;
       } else {
         assert((ElemATy->isArrayTy() || ElemATy->isVectorTy()) &&
