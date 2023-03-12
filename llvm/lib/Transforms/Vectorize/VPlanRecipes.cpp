@@ -129,6 +129,9 @@ bool VPRecipeBase::mayHaveSideEffects() const {
   case VPDerivedIVSC:
   case VPPredInstPHISC:
     return false;
+  case VPWidenCallSC:
+    return cast<Instruction>(getVPSingleValue()->getUnderlyingValue())
+        ->mayHaveSideEffects();
   case VPWidenIntOrFpInductionSC:
   case VPWidenPointerInductionSC:
   case VPWidenCanonicalIVSC:
