@@ -1442,63 +1442,6 @@ static bool isPointerValueDeadOnEntryToFunction(
   return true;
 }
 
-<<<<<<< HEAD
-/// C may have non-instruction users. Can all of those users be turned into
-/// instructions?
-static bool allNonInstructionUsersCanBeMadeInstructions(Constant *C) {
-  // We don't do this exhaustively. The most common pattern that we really need
-  // to care about is a constant GEP or constant bitcast - so just looking
-  // through one single ConstantExpr.
-  //
-  // The set of constants that this function returns true for must be able to be
-  // handled by makeAllConstantUsesInstructions.
-  for (auto *U : C->users()) {
-    if (isa<Instruction>(U))
-      continue;
-    if (!isa<ConstantExpr>(U))
-      // Non instruction, non-constantexpr user; cannot convert this.
-      return false;
-    for (auto *UU : U->users())
-      if (!isa<Instruction>(UU))
-        // A constantexpr used by another constant. We don't try and recurse any
-        // further but just bail out at this point.
-        return false;
-  }
-
-  return true;
-}
-
-/// C may have non-instruction users, and
-/// allNonInstructionUsersCanBeMadeInstructions has returned true. Convert the
-/// non-instruction users to instructions.
-static void makeAllConstantUsesInstructions(Constant *C) {
-  SmallVector<ConstantExpr*,4> Users;
-  for (auto *U : C->users()) {
-    if (isa<ConstantExpr>(U))
-      Users.push_back(cast<ConstantExpr>(U));
-    else
-      // We should never get here; allNonInstructionUsersCanBeMadeInstructions
-      // should not have returned true for C.
-      assert(
-          isa<Instruction>(U) &&
-          "Can't transform non-constantexpr non-instruction to instruction!");
-  }
-
-  SmallVector<Value*,4> UUsers;
-  for (auto *U : Users) {
-    UUsers.clear();
-    append_range(UUsers, U->users());
-    for (auto *UU : UUsers) {
-      Instruction *UI = cast<Instruction>(UU);
-      Instruction *NewU = U->getAsInstruction(UI);
-      UI->replaceUsesOfWith(U, NewU);
-    }
-    // We've replaced all the uses, so destroy the constant. (destroyConstant
-    // will update value handles and metadata.)
-    U->destroyConstant();
-  }
-}
-
 #if INTEL_CUSTOMIZATION
 // Replace all uses of "GV" with "StoredOnceVal" in "F" if all uses of
 // GV are dominated by store to GV using "LookupDomTree".
@@ -1761,8 +1704,6 @@ static bool tryToReplaceGlobalWithMSVCStdout(
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 82f2ce7eb98030f18656a24adf80b667ef666b45
 // For a global variable with one store, if the store dominates any loads,
 // those loads will always load the stored value (as opposed to the
 // initializer), even in the presence of recursion.
@@ -1969,7 +1910,6 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
         GV->getValueType()->isSingleValueType() &&
         GV->getType()->getAddressSpace() == 0 &&
         !GV->isExternallyInitialized() &&
-        allNonInstructionUsersCanBeMadeInstructions(GV) &&
         isStoredOnceValueUsedByAllUsesInFunction(GS.AccessingFunction, GV,
                                        StoredOnceValue, LookupDomTree)) {
       LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH CONSTANT: " << *GV << "\n");
