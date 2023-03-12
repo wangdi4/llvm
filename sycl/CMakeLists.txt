@@ -354,6 +354,7 @@ add_custom_target( sycl-toolchain
           ${XPTIFW_LIBS}
 )
 
+<<<<<<< HEAD
 # Check if opencl-aot tool is enabled.
 list(FIND LLVM_ENABLE_PROJECTS opencl-aot OPENCL_AOT_FOUND)
 if(NOT OPENCL_AOT_FOUND EQUAL -1)
@@ -361,6 +362,8 @@ if(NOT OPENCL_AOT_FOUND EQUAL -1)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-aot)
 endif()
 
+=======
+>>>>>>> 999f75e79ff5698b25aa9206d1cc7dd4ef04812f
 if (WIN32)
   add_dependencies(sycl-toolchain win_proxy_loader)
 endif()
@@ -460,6 +463,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      ${SYCL_TOOLCHAIN_DEPS}
 )
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # if (TARGET sycl-prof)
 #   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-prof)
@@ -473,6 +477,20 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
 # end INTEL_CUSTOMIZATION
 if (WIN32)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS win_proxy_loader)
+=======
+if (WIN32)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS win_proxy_loader)
+endif()
+
+if (TARGET sycl-prof)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-prof)
+endif()
+if (TARGET sycl-sanitize)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-sanitize)
+endif()
+if (TARGET sycl-trace)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-trace)
+>>>>>>> 999f75e79ff5698b25aa9206d1cc7dd4ef04812f
 endif()
 
 if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET OpenCL-ICD)
