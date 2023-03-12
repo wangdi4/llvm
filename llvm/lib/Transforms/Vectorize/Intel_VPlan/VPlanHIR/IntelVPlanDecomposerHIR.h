@@ -324,6 +324,7 @@ private:
     VPValue *visitSequentialUMinExpr(const SCEVSequentialUMinExpr *Expr);
     VPValue *visitUnknown(const SCEVUnknown *Expr);
     VPValue *visitCouldNotCompute(const SCEVCouldNotCompute *Expr);
+    VPValue *visitVScale(const SCEVVScale *Expr);
   };
   friend class VPBlobDecompVisitor;
 
