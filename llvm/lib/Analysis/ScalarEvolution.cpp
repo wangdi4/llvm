@@ -13788,6 +13788,10 @@ struct ConstantRangeBuilder
     llvm_unreachable("Could not compute not expected!");
   }
 
+  ConstantRange visitVScale(const SCEVVScale *SC) {
+    llvm_unreachable("Found SCEVVScale!");
+  }
+
   bool formedConstantRange() const { return CanFormConstantRange; }
 
   void reset() { CanFormConstantRange = true; }
