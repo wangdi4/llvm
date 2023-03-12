@@ -2351,6 +2351,11 @@ protected: // INTEL
   void getReachableBlocks(SmallPtrSetImpl<BasicBlock *> &Reachable,
                           Function &F);
 
+  /// Return the given SCEV expression with a new set of operands.
+  /// This preserves the origial nowrap flags.
+  const SCEV *getWithOperands(const SCEV *S,
+                              SmallVectorImpl<const SCEV *> &NewOps);
+
   FoldingSet<SCEV> UniqueSCEVs;
   FoldingSet<SCEVPredicate> UniquePreds;
   BumpPtrAllocator SCEVAllocator;

@@ -3617,8 +3617,10 @@ InstructionCost LoopVectorizationCostModel::getVectorCallCost(
     }
   }
 
-  if (!TLI || CI->isNoBuiltin() || !VecFunc)
-    return Cost;
+  // We don't support masked function calls yet, but we can scalarize a
+  // masked call with branches (unless VF is scalable).
+  if (!TLI || CI->isNoBuiltin() || !VecFunc || Legal->isMaskRequired(CI))
+    return VF.isScalable() ? InstructionCost::getInvalid() : Cost;
 
 #if INTEL_CUSTOMIZATION
   // Use vector library call if scalar call is known to read memory only. This
@@ -4602,6 +4604,8 @@ bool LoopVectorizationCostModel::isPredicatedInst(Instruction *I) const {
     // TODO: We can use the loop-preheader as context point here and get
     // context sensitive reasoning
     return !isSafeToSpeculativelyExecute(I);
+  case Instruction::Call:
+    return Legal->isMaskRequired(I);
   }
 }
 

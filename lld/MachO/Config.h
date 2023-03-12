@@ -59,7 +59,6 @@ using SegmentRenameMap = llvm::DenseMap<llvm::StringRef, llvm::StringRef>;
 
 struct PlatformInfo {
   llvm::MachO::Target target;
-  llvm::VersionTuple minimum;
   llvm::VersionTuple sdk;
 };
 
