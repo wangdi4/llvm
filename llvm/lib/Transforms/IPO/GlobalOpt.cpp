@@ -1393,18 +1393,6 @@ static bool isPointerValueDeadOnEntryToFunction(
   SmallVector<LoadInst *, 4> Loads;
   SmallVector<StoreInst *, 4> Stores;
   for (auto *U : GV->users()) {
-    if (Operator::getOpcode(U) == Instruction::BitCast) {
-      for (auto *UU : U->users()) {
-        if (auto *LI = dyn_cast<LoadInst>(UU))
-          Loads.push_back(LI);
-        else if (auto *SI = dyn_cast<StoreInst>(UU))
-          Stores.push_back(SI);
-        else
-          return false;
-      }
-      continue;
-    }
-
     Instruction *I = dyn_cast<Instruction>(U);
     if (!I)
       return false;
@@ -1454,6 +1442,7 @@ static bool isPointerValueDeadOnEntryToFunction(
   return true;
 }
 
+<<<<<<< HEAD
 /// C may have non-instruction users. Can all of those users be turned into
 /// instructions?
 static bool allNonInstructionUsersCanBeMadeInstructions(Constant *C) {
@@ -1772,6 +1761,8 @@ static bool tryToReplaceGlobalWithMSVCStdout(
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 82f2ce7eb98030f18656a24adf80b667ef666b45
 // For a global variable with one store, if the store dominates any loads,
 // those loads will always load the stored value (as opposed to the
 // initializer), even in the presence of recursion.
@@ -1837,7 +1828,6 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
       GV->getValueType()->isSingleValueType() &&
       GV->getType()->getAddressSpace() == 0 &&
       !GV->isExternallyInitialized() &&
-      allNonInstructionUsersCanBeMadeInstructions(GV) &&
       GS.AccessingFunction->doesNotRecurse() &&
       !GS.AccessingFunction->callsFunctionThatReturnsTwice() && // INTEL
       isPointerValueDeadOnEntryToFunction(GS.AccessingFunction, GV,
@@ -1853,8 +1843,6 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
                                         GV->getName(), &FirstI);
     if (!isa<UndefValue>(GV->getInitializer()))
       new StoreInst(GV->getInitializer(), Alloca, &FirstI);
-
-    makeAllConstantUsesInstructions(GV);
 
     GV->replaceAllUsesWith(Alloca);
     GV->eraseFromParent();
