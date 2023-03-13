@@ -1,5 +1,5 @@
 ; INTEL: Added options due to opaque pointer revert in xmain
-; RUN: opt  -opaque-pointers=1 -S -mtriple=amdgcn--  -amdgpu-replace-lds-use-with-pointer -amdgpu-enable-lds-replace-with-pointer=true < %s | FileCheck %s
+; RUN: opt --opaque-pointers -S -mtriple=amdgcn--  -amdgpu-replace-lds-use-with-pointer -amdgpu-enable-lds-replace-with-pointer=true < %s | FileCheck %s
 
 ; DESCRIPTION:
 ;
