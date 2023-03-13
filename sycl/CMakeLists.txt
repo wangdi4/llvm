@@ -352,6 +352,7 @@ add_custom_target( sycl-toolchain
           sycl-compiler
           sycl-ls
           ${XPTIFW_LIBS}
+  COMMENT "Building SYCL compiler toolchain..."
 )
 
 if (WIN32)
