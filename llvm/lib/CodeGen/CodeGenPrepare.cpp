@@ -6923,15 +6923,17 @@ static bool sinkSelectOperand(const TargetTransformInfo *TTI, Value *V) {
   auto *I = dyn_cast<Instruction>(V);
   // If it's safe to speculatively execute, then it should not have side
   // effects; therefore, it's safe to sink and possibly *not* execute.
-  return I && I->hasOneUse() && isSafeToSpeculativelyExecute(I) &&
-         TTI->isExpensiveToSpeculativelyExecute(I);
+  return I && I->hasOneUse() && !I->mayReadOrWriteMemory() && // INTEL
+         isSafeToSpeculativelyExecute(I) &&                   // INTEL
+         TTI->isExpensiveToSpeculativelyExecute(I);           // INTEL
 }
 
 #if INTEL_CUSTOMIZATION
 /// Check if V is worth to continue to sink.
 static bool worthToContinueSink(const TargetTransformInfo *TTI, Value *V) {
   auto *I = dyn_cast<Instruction>(V);
-  if (!I || !I->hasOneUse() || !isSafeToSpeculativelyExecute(I))
+  if (!I || !I->hasOneUse() || I->mayReadOrWriteMemory() ||
+      !isSafeToSpeculativelyExecute(I))
     return false;
 
   // Good for expensive instruction.
