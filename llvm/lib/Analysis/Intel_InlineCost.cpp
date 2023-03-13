@@ -1701,15 +1701,17 @@ static bool preferNotToInlineForRecProgressionClone(Function *Callee) {
 }
 
 //
-// Return 'true' if the CallSites of 'Caller' should not be inlined because
-// we are in the 'PrepareForLTO' compile phase and delaying the inlining
-// decision until the link phase will let us more easily decide whether to
-// inline the caller. NOTE: This function 'preferToDelayInlineDecision' can
-// also be called in the link phase.  If it is, we determine whether the
-// caller should be inlined, and if so, add it on the 'QueuedCallers' set.
+// Return 'true' if the callsites of 'CB.getCaller()' or the call sites of
+// 'CB.getCalledFunctiopn()'should not be inlined because we are in the
+// 'PrepareForLTO' compile phase and delaying the inlining decision until
+// the link phase.
+//
+// NOTE: This function 'preferToDelayInlineDecision' can also be called in
+// the link phase.  If it is, we will determine whether the caller should be
+// inlined, and if so, add it on the 'QueuedCallers' set.
 //
 static bool
-preferToDelayInlineDecision(Function *Caller, bool PrepareForLTO,
+preferToDelayInlineDecision(CallBase &CB, bool PrepareForLTO,
                             bool IsLibIRCAllowed,
                             SmallPtrSetImpl<Function *> *QueuedCallers) {
 
@@ -1781,6 +1783,18 @@ preferToDelayInlineDecision(Function *Caller, bool PrepareForLTO,
     return true;
   };
 
+  // Return 'true' if the decision of whether 'Callee' should be inlined
+  // should be delayed until the link step. This may enable other
+  // optimizations which required calls to 'Callee' to appear explictly
+  // in the IR.
+  auto IsDelayInlineCallee = [](Function *Callee, bool PrepareForLTO) -> bool {
+    if (!PrepareForLTO)
+      return false;
+    return Callee->hasFnAttribute("is-magick-round");
+  };
+
+  Function *Caller = CB.getCaller();
+  Function *Callee = CB.getCalledFunction();
   if (!(DTransInlineHeuristics && IsLibIRCAllowed))
     return false;
   if (IsDelayInlineCaller(Caller, PrepareForLTO)) {
@@ -1788,6 +1802,8 @@ preferToDelayInlineDecision(Function *Caller, bool PrepareForLTO,
       QueuedCallers->insert(Caller);
     return true;
   }
+  if (IsDelayInlineCallee(Callee, PrepareForLTO))
+    return true;
   return false;
 }
 
@@ -2190,8 +2206,8 @@ extern std::optional<InlineResult> intelWorthNotInlining(
   if (preferNotToInlineForRecProgressionClone(Callee))
     return InlineResult::failure("recursive").setIntelInlReason(NinlrRecursive);
 
-  if (preferToDelayInlineDecision(CandidateCall.getCaller(), PrepareForLTO,
-                                  IsLibIRCAllowed, QueuedCallers)) {
+  if (preferToDelayInlineDecision(CandidateCall, PrepareForLTO, IsLibIRCAllowed,
+                                  QueuedCallers)) {
     if (PrepareForLTO)
       return InlineResult::failure("not profitable")
           .setIntelInlReason(NinlrDelayInlineDecision);
