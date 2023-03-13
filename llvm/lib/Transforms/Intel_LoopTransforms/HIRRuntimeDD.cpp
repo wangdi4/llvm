@@ -462,6 +462,18 @@ static bool sortRefsInSingleGroup(RefGroupTy &Group) {
     if (!isEqualTypeAndBaseCE(ZeroOffsetRefs[0], NonZeroOffsetRefs[0]))
       return false;
 
+    // When NonConstDist ZeroOffsetRefs exist, sorting in the same group
+    // is for const indexes.
+    // Refs with blobs or IVs in the same group should not be sorted together.
+    if (std::any_of(NonZeroOffsetRefs.begin(), NonZeroOffsetRefs.end(),
+                    [](const RegDDRef *Ref) {
+                      return std::any_of(Ref->canon_begin(), Ref->canon_end(),
+                                         [](const CanonExpr *CE) {
+                                           return CE->hasBlob() || CE->hasIV();
+                                         });
+                    }))
+      return false;
+
     // For all ZeroOffsetRefs, at least
     // Dest/SrcTypes and BaseCEs should be the same.
     for (int I = 0, E = ZeroOffsetRefs.size() - 1; I < E; ++I)
