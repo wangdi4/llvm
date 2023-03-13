@@ -354,13 +354,6 @@ add_custom_target( sycl-toolchain
           ${XPTIFW_LIBS}
 )
 
-# Check if opencl-aot tool is enabled.
-list(FIND LLVM_ENABLE_PROJECTS opencl-aot OPENCL_AOT_FOUND)
-if(NOT OPENCL_AOT_FOUND EQUAL -1)
-  add_dependencies(sycl-toolchain opencl-aot)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-aot)
-endif()
-
 if (WIN32)
   add_dependencies(sycl-toolchain win_proxy_loader)
 endif()
@@ -473,6 +466,16 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
 # end INTEL_CUSTOMIZATION
 if (WIN32)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS win_proxy_loader)
+endif()
+
+if (TARGET sycl-prof)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-prof)
+endif()
+if (TARGET sycl-sanitize)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-sanitize)
+endif()
+if (TARGET sycl-trace)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-trace)
 endif()
 
 if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET OpenCL-ICD)
