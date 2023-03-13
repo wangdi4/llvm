@@ -1006,19 +1006,17 @@ extern __DPCPP_SYCL_EXTERNAL int __spirv_ocl_printf(const char *Format, ...);
 
 /* INTEL_CUSTOMIZATION */
 template <typename dataT, typename ReturnT, typename... ArgsT>
-extern SYCL_EXTERNAL size_t
-__spirv_TaskSequenceCreateINTEL(dataT *Data, ReturnT (*f)(ArgsT...),
-                                uint32_t MaxOut) noexcept;
+extern __DPCPP_SYCL_EXTERNAL size_t __spirv_TaskSequenceCreateINTEL(
+    dataT *Data, ReturnT (*f)(ArgsT...), uint32_t MaxOut) noexcept;
 template <typename dataT, typename ReturnT, typename... ArgsT>
-extern SYCL_EXTERNAL void
+extern __DPCPP_SYCL_EXTERNAL void
 __spirv_TaskSequenceAsyncINTEL(dataT *Data, ReturnT (*f)(ArgsT...), size_t Id,
                                uint32_t Capacity, ArgsT... Args) noexcept;
 template <typename dataT, typename ReturnT, typename... ArgsT>
-extern SYCL_EXTERNAL ReturnT
-__spirv_TaskSequenceGetINTEL(dataT *Data, ReturnT (*f)(ArgsT...), size_t Id,
-                             uint32_t Capacity) noexcept;
+extern __DPCPP_SYCL_EXTERNAL ReturnT __spirv_TaskSequenceGetINTEL(
+    dataT *Data, ReturnT (*f)(ArgsT...), size_t Id, uint32_t Capacity) noexcept;
 template <typename dataT>
-extern SYCL_EXTERNAL void
+extern __DPCPP_SYCL_EXTERNAL void
 __spirv_TaskSequenceReleaseINTEL(dataT *Data) noexcept;
 /* end INTEL_CUSTOMIZATION */
 
