@@ -88,14 +88,9 @@ enum TokKind {
   // String valued tokens.
     Id, StrVal, VarName, CodeFragment,
 
-<<<<<<< HEAD
-    // Preprocessing tokens for internal usage by the lexer.
-    // They are never returned as a result of Lex().
-    IfPP, // INTEL
-=======
   // Preprocessing tokens for internal usage by the lexer.
   // They are never returned as a result of Lex().
->>>>>>> d612a75279250b2816e06fcf9b9770575946ad69
+    IfPP, // INTE
     Ifdef, Ifndef, Else, Endif, Define
 };
 }
