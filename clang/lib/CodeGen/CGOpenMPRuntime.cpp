@@ -12398,7 +12398,7 @@ static std::string getVectorABIMangling(char ISA, char Mask,
   return Out.str();
 }
 
-typedef llvm::StringSet<> CPUList;
+typedef std::set<StringRef> CPUList;
 typedef llvm::MapVector<std::string, CPUList, llvm::StringMap<unsigned>>
     VariantMap;
 
@@ -12477,7 +12477,7 @@ static void addVectorVariantAttr(VariantMap &Variants, llvm::Function *Fn) {
         for (auto &CPU : Variant.second) {
           if (!FirstCPU)
             DispatchAttrs << ",";
-          DispatchAttrs << CPU.getKey();
+          DispatchAttrs << CPU;
           FirstCPU = false;
         }
       }

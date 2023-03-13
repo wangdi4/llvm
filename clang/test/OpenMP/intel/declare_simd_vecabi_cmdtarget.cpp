@@ -33,4 +33,4 @@ int func(int* p) { return 1; }
 // DCHK-DAG:_ZGVZN16l4__Z4funcPi:skylake_avx512
 // DCHK-DAG:_ZGVxN4v__Z4funcPi:core_i7_sse4_2
 // DCHK-DAG:_ZGVYN8v__Z4funcPi:haswell
-// DCHK-DAG:_ZGVZN16v__Z4funcPi:{{tigerlake,skylake_avx512|skylake_avx512,tigerlake}}
+// DCHK-DAG:_ZGVZN16v__Z4funcPi:skylake_avx512,tigerlake
