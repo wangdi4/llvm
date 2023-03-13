@@ -584,7 +584,7 @@ if( MSVC )
 
   append("/Zc:inline" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 
-  if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  if (NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM") # INTEL
     # Enable standards-conforming preprocessor.
     # https://learn.microsoft.com/en-us/cpp/build/reference/zc-preprocessor
     append("/Zc:preprocessor" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
