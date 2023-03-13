@@ -6,7 +6,7 @@ define dso_local noundef float @sqrt(float noundef %a) {
 ; ASM-LABEL: sqrt:
 ; ASM:         rsqrtss
 ;
-; IR-LABEL: define {{[^@]+}}@sqrt(
+; IR-LABEL: @sqrt(
 ; IR-NEXT:  entry:
 ; IR-NEXT:    [[CMP_I:%.*]] = fcmp fast ogt float [[A:%.*]], 0.000000e+00
 ; IR-NEXT:    [[DOTFROZEN:%.*]] = freeze i1 [[CMP_I]]
@@ -26,5 +26,33 @@ entry:
   %1 = select fast i1 %cmp.i, float %div.i, float 0.000000e+00
   ret float %1
 }
+
+define double @foo(double %x_orig) {
+; IR-LABEL: @foo(
+; IR-NEXT:    [[X_PTR:%.*]] = alloca double, align 8
+; IR-NEXT:    store double [[X_ORIG:%.*]], ptr [[X_PTR]], align 8
+; IR-NEXT:    [[X:%.*]] = load double, ptr [[X_PTR]], align 8
+; IR-NEXT:    call void @bar(ptr [[X_PTR]])
+; IR-NEXT:    [[FCMP:%.*]] = fcmp fast ogt double [[X_ORIG]], 0.000000e+00
+; IR-NEXT:    [[SELECT_FROZEN:%.*]] = freeze i1 [[FCMP]]
+; IR-NEXT:    br i1 [[SELECT_FROZEN]], label [[SELECT_END:%.*]], label [[SELECT_FALSE_SINK:%.*]]
+; IR:       select.false.sink:
+; IR-NEXT:    [[DIV:%.*]] = fdiv double 1.000000e+00, [[X]]
+; IR-NEXT:    br label [[SELECT_END]]
+; IR:       select.end:
+; IR-NEXT:    [[SELECT:%.*]] = phi double [ 0.000000e+00, [[TMP0:%.*]] ], [ [[DIV]], [[SELECT_FALSE_SINK]] ]
+; IR-NEXT:    ret double [[SELECT]]
+;
+  %x_ptr = alloca double, align 8
+  store double %x_orig, ptr %x_ptr, align 8
+  %x = load double, ptr %x_ptr, align 8
+  call void (ptr) @bar(ptr %x_ptr)
+  %div = fdiv double 1.000000e+00, %x
+  %fcmp = fcmp fast ogt double %x_orig, 0.000000e+00
+  %select = select i1 %fcmp, double 0.000000e+00, double %div
+  ret double %select
+}
+
+declare void @bar(ptr)
 
 declare float @llvm.sqrt.f32(float)
