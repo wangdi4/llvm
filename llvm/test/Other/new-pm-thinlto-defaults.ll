@@ -150,6 +150,7 @@
 ; CHECK-O-NEXT: Running pass: SROAPass
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: MemorySSAAnalysis
+; CHECK-O-NEXT: Running analysis: AAManager
 ; CHECK-O23SZ-NEXT: Running pass: SpeculativeExecutionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; COM: CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis ;INTEL
@@ -211,6 +212,8 @@
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: TransformSinAndCosCallsPass ;INTEL
+; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
+; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}ShouldNotRunFunctionPassesAnalysis
 ; CHECK-O-NEXT: Running analysis: ShouldNotRunFunctionPassesAnalysis
 ; CHECK-O-NEXT: Running pass: CoroSplitPass
 ; CHECK-O-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}ShouldNotRunFunctionPassesAnalysis
