@@ -1860,8 +1860,14 @@ VPInstructionCost VPlanTTICostModel::getIntMinMaxInstCost(
 
 bool VPlanTTICostModel::hasZeroCost(const VPInstruction *VPInst) const {
   assert(Plan->getVPlanNCIA() && "Not yet computed?");
-  return Plan->getVPlanNCIA()->getScenario(VPInst) ==
-         VPlanNoCostInstAnalysis::Scenario::Always;
+  switch (Plan->getVPlanNCIA()->getScenario(VPInst)) {
+  case VPlanNoCostInstAnalysis::Scenario::Always:
+    return true;
+  case VPlanNoCostInstAnalysis::Scenario::IfPeeling:
+    return ComputingForPeel;
+  case VPlanNoCostInstAnalysis::Scenario::None:
+    return false;
+  }
 }
 
 } // namespace vpo

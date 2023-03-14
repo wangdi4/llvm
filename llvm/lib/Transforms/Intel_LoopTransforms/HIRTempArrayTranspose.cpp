@@ -88,11 +88,17 @@ static cl::opt<unsigned>
                             "HIR temp array transpose."),
                    cl::Hidden, cl::init(8));
 
-static cl::opt<unsigned> MaxAllocaSizeThreshold(
-    OPT_SWITCH "-max-alloca-dimsize",
-    cl::desc("maximum profitable size for single alloca dimension "
+static cl::opt<unsigned> MaxConstSizeThreshold(
+    OPT_SWITCH "-max-const-dimsize",
+    cl::desc("maximum profitable constant dimsize for single alloca "
              "used in HIR temp array transpose."),
     cl::Hidden, cl::init(250));
+
+static cl::opt<unsigned> MaxVarSizeThreshold(
+    OPT_SWITCH "-max-var-dimsize",
+    cl::desc("maximum profitable variable dimsize for single alloca "
+             "used in HIR temp array transpose."),
+    cl::Hidden, cl::init(512));
 
 class ArrayTransposeAnalyzer {
 
@@ -154,6 +160,8 @@ public:
   void doTransformation();
 
   HLInst *createTempArrayAlloca(UseCand &UseCandidate, HLNode *InsertionPoint);
+
+  void addDimSizeChecks(UseCand &UseCandidate, HLLoop *Loop);
 
   // Create the Loopnest where we copy the temparray after \p insertionNode
   HLLoop *createArrayCopyLoop(HLNode *InsertionNode);
@@ -750,8 +758,7 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
   }
 
   // Bail out if constant dimsize is greater than threshold
-  if (Dim1Size > MaxAllocaSizeThreshold ||
-      Dim2Size > MaxAllocaSizeThreshold) {
+  if (Dim1Size > MaxConstSizeThreshold || Dim2Size > MaxConstSizeThreshold) {
     LLVM_DEBUG(
         dbgs() << "[Profit] DimSize surpasses Alloca Size threshold!\n";);
     return false;
@@ -759,14 +766,14 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
 
   uint64_t TripCount;
   if (FirstUse.OrigOuterLoop->isConstTripLoop(&TripCount) &&
-      TripCount > MaxAllocaSizeThreshold) {
+      TripCount > MaxConstSizeThreshold) {
     LLVM_DEBUG(
         dbgs() << "[Profit] OuterLp surpasses Alloca Size threshold!\n";);
     return false;
   }
 
   if (FirstUse.OrigInnerLoop->isConstTripLoop(&TripCount) &&
-      TripCount > MaxAllocaSizeThreshold) {
+      TripCount > MaxConstSizeThreshold) {
     LLVM_DEBUG(
         dbgs() << "[Profit] InnerLp surpasses Alloca Size threshold!\n";);
     return false;
@@ -1214,27 +1221,65 @@ void ArrayTransposeAnalyzer::replaceUsesWithTempArray(HLInst *Alloca,
   }
 }
 
+// Adds Multiversion checks for dimsize. This assumes there is already
+// a MV if encapsulating the candidate loopnest we want to transform.
+void ArrayTransposeAnalyzer::addDimSizeChecks(UseCand &UseCandidate,
+                                              HLLoop *Loop) {
+  // Currently only MV when both dimsizes are unknown
+  // TODO: Check single unknown dimsize in case of overflow.
+  if (Dim1Size || Dim2Size) {
+    return;
+  }
+
+  HLNode *Parent = Loop->getParent();
+  if (isa<HLRegion>(Parent)) {
+    return;
+  }
+
+  assert(isa<HLIf>(Parent) && "Expect MV IfNode for Target Loop!");
+  HLIf *IfNode = cast<HLIf>(Parent);
+
+  Type *Ty;
+  auto &HNU = Loop->getHLNodeUtils();
+  RegDDRef *InnerLoopTC = UseCandidate.OrigInnerLoop->getTripCountDDRef();
+  Ty = InnerLoopTC->getDestType();
+  IfNode->addPredicate(
+      PredicateTy::ICMP_ULT, InnerLoopTC,
+      HNU.getDDRefUtils().createConstDDRef(Ty, MaxVarSizeThreshold));
+
+  // Skip checking other ref if they are the same
+  const RegDDRef *InnerUBRef = UseCandidate.OrigInnerLoop->getUpperDDRef();
+  const RegDDRef *OuterUBRef = UseCandidate.OrigOuterLoop->getUpperDDRef();
+  if (!DDRefUtils::areEqual(InnerUBRef, OuterUBRef)) {
+    RegDDRef *OuterLoopTC = UseCandidate.OrigOuterLoop->getTripCountDDRef();
+    Ty = OuterLoopTC->getDestType();
+    IfNode->addPredicate(
+        PredicateTy::ICMP_ULT, OuterLoopTC,
+        HNU.getDDRefUtils().createConstDDRef(Ty, MaxVarSizeThreshold));
+  }
+  return;
+}
+
 void ArrayTransposeAnalyzer::doTransformation() {
   // Insert our alloca and transpose loop at the Region level before the first
   // use.
-  UseCand *Candidate = &Uses.front();
-  HLRegion *Region = Candidate->OrigInnerLoop->getParentRegion();
-  assert(Region && "Region must be defined!");
-  HLNode *InsertNode = HLNodeUtils::getImmediateChildContainingNode(
-      Region, Candidate->UseRef->getHLDDNode());
+  UseCand *FirstCand = &Uses.front();
+  HLLoop *FirstLoop =
+      FirstCand->UseRef->getHLDDNode()->getOutermostParentLoop();
 
-  assert(InsertNode && "Insertion Node is null!\n");
+  assert(FirstLoop && "Insertion Node is null!\n");
   LLVM_DEBUG(
       dbgs() << "[Transformation] Insertion point for TempArray Transpose: "
-             << InsertNode->getNumber() << "\n";);
+             << FirstLoop->getNumber() << "\n";);
 
-  auto &HNU = InsertNode->getHLNodeUtils();
+  auto &HNU = FirstLoop->getHLNodeUtils();
+  addDimSizeChecks(*FirstCand, FirstLoop);
 
-  HLInst *StacksaveCall = HNU.createStacksave(InsertNode->getDebugLoc());
-  HLNodeUtils::insertBefore(InsertNode, StacksaveCall);
+  HLInst *StacksaveCall = HNU.createStacksave(FirstLoop->getDebugLoc());
+  HLNodeUtils::insertBefore(FirstLoop, StacksaveCall);
 
   // Create alloca and insert it before the first UseLoop
-  HLInst *AllocaInst = createTempArrayAlloca(*Candidate, InsertNode);
+  HLInst *AllocaInst = createTempArrayAlloca(*FirstCand, FirstLoop);
 
   // Create 2 level loopnest where we will copy the original array into the
   // allocated temp array. Then populate the loop with the load/store insts.
@@ -1244,12 +1289,11 @@ void ArrayTransposeAnalyzer::doTransformation() {
 
   unsigned AllocaMemrefSB = DDRU.getNewSymbase();
 
-  createTempArrayCopy(*Candidate, AllocaInst, InnerLoop, AllocaMemrefSB);
+  createTempArrayCopy(*FirstCand, AllocaInst, InnerLoop, AllocaMemrefSB);
 
   // Get last use before we do replacement
   UseCand *LastCand = &Uses.back();
-  HLNode *LastNode = HLNodeUtils::getImmediateChildContainingNode(
-      Region, LastCand->UseRef->getHLDDNode());
+  HLLoop *LastLoop = LastCand->UseRef->getHLDDNode()->getOutermostParentLoop();
 
   // Replace the uses of the bad array with our unit stride temp array
   replaceUsesWithTempArray(AllocaInst, AllocaMemrefSB);
@@ -1264,10 +1308,15 @@ void ArrayTransposeAnalyzer::doTransformation() {
   StackAddrRef->addDimension(CEU.createCanonExpr(Int8Ty, APInt(8, 0)));
 
   HLInst *StackrestoreCall = HNU.createStackrestore(StackAddrRef);
-  HLNodeUtils::insertAfter(LastNode, StackrestoreCall);
+  HLNodeUtils::insertAfter(LastLoop, StackrestoreCall);
 }
 
 bool HIRTempArrayTranspose::runOnRegion(HLRegion &Reg) {
+
+  if (DisablePass) {
+    return false;
+  }
+
   SmallVector<HLLoop *, 12> InnermostLoops;
   HIRF.getHLNodeUtils().gatherInnermostLoops(InnermostLoops, &Reg);
 
