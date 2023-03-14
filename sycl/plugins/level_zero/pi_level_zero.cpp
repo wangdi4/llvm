@@ -5726,7 +5726,7 @@ pi_result _pi_queue::synchronize() {
     // Otherwise sync all L0 queues/immediate command-lists.
     for (auto &QueueMap : {ComputeQueueGroupsByTID, CopyQueueGroupsByTID}) {
       for (auto &QueueGroup : QueueMap) {
-        if (Device->useImmediateCommandLists()) {
+        if (Device->ImmCommandListUsed) {
           for (auto ImmCmdList : QueueGroup.second.ImmCmdLists)
             syncImmCmdList(this, ImmCmdList);
         } else {
