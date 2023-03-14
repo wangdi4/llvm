@@ -71,7 +71,6 @@
 ; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
-; CHECK:      Running pass: RemoveRegionDirectivesPass
 ; CHECK:      Running pass: UnifyFunctionExitNodesPass
 
 ; CHECK:      Running pass: ReplaceScalarWithMaskPass

@@ -601,11 +601,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     MPM.addPass(InfiniteLoopCreatorPass());
 
   FunctionPassManager FPM2;
-#if INTEL_CUSTOMIZATION
-  // Barrier pass can't work with a token type, so here we remove region
-  // directives
-  FPM2.addPass(RemoveRegionDirectivesPass());
-#endif // INTEL_CUSTOMIZATION
   FPM2.addPass(UnifyFunctionExitNodesPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM2)));
 

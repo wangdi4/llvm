@@ -40,7 +40,6 @@
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
 ; CHECK:      Running pass: IndirectCallLowering ;INTEL
-; CHECK:      Skipping pass RemoveRegionDirectivesPass
 ; CHECK:      Skipping pass UnifyFunctionExitNodesPass
 
 ; CHECK:      Running pass: GroupBuiltinPass

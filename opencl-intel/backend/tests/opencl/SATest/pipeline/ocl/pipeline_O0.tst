@@ -46,8 +46,6 @@
 ; CHECK:      Invalidating analysis: VFAnalysis
 ; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
-; CHECK-NEXT: Skipping pass RemoveRegionDirectivesPass
-; CHECK-NEXT: Skipping pass: RemoveRegionDirectivesPass
 ; CHECK-NEXT: Skipping pass UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Skipping pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: GroupBuiltinPass

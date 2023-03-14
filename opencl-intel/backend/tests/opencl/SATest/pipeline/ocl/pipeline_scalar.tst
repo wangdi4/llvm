@@ -179,11 +179,8 @@
 
 ; CHECK:      Running pass: SimplifyCFGPass
 
-; CHECK:      Running pass: RemoveRegionDirectivesPass
-; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
-; CHECK-NEXT: Running pass: RemoveRegionDirectivesPass
-; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
-; CHECK-NEXT: Running pass: ReplaceScalarWithMaskPass
+; CHECK: Running pass: UnifyFunctionExitNodesPass
+; CHECK: Running pass: ReplaceScalarWithMaskPass
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: DCEPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
