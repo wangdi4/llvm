@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -42,26 +42,68 @@
 
 namespace llvm {
 
+static constexpr unsigned InstCombineDefaultMaxIterations = 1000;
+
+struct InstCombineOptions {
+  bool UseLoopInfo;
+  unsigned MaxIterations;
+#if INTEL_CUSTOMIZATION
+  bool PreserveForDTrans;
+  bool PreserveAddrCompute;
+  bool EnableFcmpMinMaxCombine;
+  bool EnableUpCasting;
+  bool EnableCanonicalizeSwap;
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+  InstCombineOptions(bool PreserveForDTrans = false,
+                     bool PreserveAddrCompute = false,
+                     bool EnableFcmpMinMaxCombine = true,
+                     bool EnableUpCasting = true,
+                     bool EnableCanonicalizeSwap = true)
+      : UseLoopInfo(false), MaxIterations(InstCombineDefaultMaxIterations),
+        PreserveForDTrans(PreserveForDTrans),
+        PreserveAddrCompute(PreserveAddrCompute),
+        EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
+        EnableUpCasting(EnableUpCasting),
+        EnableCanonicalizeSwap(EnableCanonicalizeSwap) {}
+  #endif // INTEL_CUSTOMIZATION
+
+  InstCombineOptions &setUseLoopInfo(bool Value) {
+    UseLoopInfo = Value;
+    return *this;
+  }
+
+  InstCombineOptions &setMaxIterations(unsigned Value) {
+    MaxIterations = Value;
+    return *this;
+  }
+
+#if INTEL_CUSTOMIZATION
+  // TODO: Currently, these options aren't handled by the opt command at the
+  // moment. They need to be integrated in PassRegistry.def in order to enable
+  // them through opt.
+  InstCombineOptions &setIntelDefaultParams() {
+    PreserveForDTrans = false;
+    PreserveAddrCompute = false;
+    EnableFcmpMinMaxCombine = true;
+    EnableUpCasting = true;
+    EnableCanonicalizeSwap = true;
+    return *this;
+  }
+#endif // INTEL_CUSTOMIZATION
+
+};
+
 class InstCombinePass : public PassInfoMixin<InstCombinePass> {
+private:
   InstructionWorklist Worklist;
-  const bool PreserveForDTrans; // INTEL
-  const bool PreserveAddrCompute; // INTEL
-  const unsigned MaxIterations;
-  const bool EnableFcmpMinMaxCombine; // INTEL
-  const bool EnableUpCasting;   // INTEL
-  const bool EnableCanonicalizeSwap; // INTEL
+  InstCombineOptions Options;
 
 public:
-#if INTEL_CUSTOMIZATION
-  explicit InstCombinePass(bool PreserveForDTrans = false,
-                           bool PreserveAddrCompute = false,
-                           bool EnableFcmpMinMaxCombine = true,
-                           bool EnableUpCasting = true,
-                           bool EnableCanonicalizeSwap = true);
-  explicit InstCombinePass(bool PreserveForDTrans, bool PreserveAddrCompute,
-                           unsigned MaxIterations, bool EnableFcmpMinMaxCombine,
-                           bool EnableUpCasting, bool EnableCanonicalizeSwap);
-#endif // INTEL_CUSTOMIZATION
+  explicit InstCombinePass(InstCombineOptions Opts = {});
+  void printPipeline(raw_ostream &OS,
+                     function_ref<StringRef(StringRef)> MapClassName2PassName);
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };

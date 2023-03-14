@@ -532,7 +532,6 @@ if (EnableSimpleLoopUnswitch) {
       SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
   // We resume loop passes creating a second loop pipeline here.
-  MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
 
 #if INTEL_CUSTOMIZATION
@@ -557,7 +556,6 @@ if (EnableSimpleLoopUnswitch) {
     MPM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds
     MPM.add(createGVNPass(DisableGVNLoadPRE));  // Remove redundancies
   }
-  MPM.add(createSCCPPass());                  // Constant prop with SCCP
 
   // Delete dead bit computations (instcombine runs after to fold away the dead
   // computations, and then ADCE will run later to exploit any new DCE
@@ -741,8 +739,8 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 #endif // INTEL_CUSTOMIZATION
 
   if (IsFullLTO) {
-    PM.add(createSCCPPass());                 // Propagate exposed constants
     addInstructionCombiningPass(PM, true /* EnableUpCasting */); // INTEL
+    PM.add(createInstructionCombiningPass()); // Clean up again
     PM.add(createBitTrackingDCEPass());
   }
 
@@ -822,14 +820,10 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 
 void PassManagerBuilder::populateModulePassManager(
     legacy::PassManagerBase &MPM) {
-  MPM.add(createAnnotation2MetadataLegacyPass());
 
 #if INTEL_CUSTOMIZATION
   MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
 #endif // INTEL_CUSTOMIZATION
-
-  // Allow forcing function attributes as a debugging and tuning aid.
-  MPM.add(createForceFunctionAttrsLegacyPass());
 
   // If all optimizations are disabled, just run the always-inline pass and,
   // if enabled, the function merging pass.
@@ -867,9 +861,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
   addInitialAliasAnalysisPasses(MPM);
-
-  // Infer attributes about declarations if possible.
-  MPM.add(createInferFunctionAttrsLegacyPass());
 
 #if INTEL_CUSTOMIZATION
   if (Inliner) {
@@ -915,11 +906,9 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createGlobalsAAWrapperPass());
 
   // Start of CallGraph SCC passes.
-  bool RunInliner = false;
   if (Inliner) {
     MPM.add(Inliner);
     Inliner = nullptr;
-    RunInliner = true;
   }
 
 #if INTEL_COLLAB
@@ -933,8 +922,6 @@ void PassManagerBuilder::populateModulePassManager(
                  /* AddNoOpBarrierPassBeforeRestore= */ true);
   }
 #endif // INTEL_COLLAB
-
-  MPM.add(createPostOrderFunctionAttrsLegacyPass());
 
   addFunctionSimplificationPasses(MPM);
 
@@ -954,27 +941,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createStdContainerOptPass());
   MPM.add(createCleanupFakeLoadsPass());
 #endif // INTEL_CUSTOMIZATION
-  if (OptLevel > 1)
-    // Remove avail extern fns and globals definitions if we aren't
-    // compiling an object file for later LTO. For LTO we want to preserve
-    // these so they are eligible for inlining at link-time. Note if they
-    // are unreferenced they will be removed by GlobalDCE later, so
-    // this only impacts referenced available externally globals.
-    // Eventually they will be suppressed during codegen, but eliminating
-    // here enables more opportunity for GlobalDCE as it may make
-    // globals referenced by available external functions dead
-    // and saves running remaining passes on the eliminated functions.
-    MPM.add(createEliminateAvailableExternallyPass());
-
-  // The inliner performs some kind of dead code elimination as it goes,
-  // but there are cases that are not really caught by it. We might
-  // at some point consider teaching the inliner about them, but it
-  // is OK for now to run GlobalOpt + GlobalDCE in tandem as their
-  // benefits generally outweight the cost, making the whole pipeline
-  // faster.
-  if (RunInliner) {
-    MPM.add(createGlobalDCEPass());
-  }
 
 #if INTEL_CUSTOMIZATION
   if (EnableAndersen) {
@@ -988,6 +954,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createAggressiveDCEPass());
   }
 #endif // INTEL_CUSTOMIZATION
+
   // We add a fresh GlobalsModRef run at this point. This is particularly
   // useful as the above will have inlined, DCE'ed, and function-attr
   // propagated everything. We should at this point have a reasonably minimal
@@ -1025,13 +992,6 @@ void PassManagerBuilder::populateModulePassManager(
 
 #endif // INTEL_CUSTOMIZATION
   addVectorPasses(MPM, /* IsFullLTO */ false);
-
-  // GlobalOpt already deletes dead functions and globals, at -O2 try a
-  // late pass of GlobalDCE.  It is capable of deleting dead cycles.
-  if (OptLevel > 1) {
-    MPM.add(createGlobalDCEPass());         // Remove dead fns and globals.
-    MPM.add(createConstantMergePass());     // Merge dup global constants
-  }
 
   // LoopSink pass sinks instructions hoisted by LICM, which serves as a
   // canonicalization pass that enables other optimizations. As a result,
@@ -1086,10 +1046,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createWholeProgramWrapperPassPass(WPUtils));
 #endif // INTEL_CUSTOMIZATION
 
-  // Remove unused virtual tables to improve the quality of code generated by
-  // whole-program devirtualization and bitset lowering.
-  PM.add(createGlobalDCEPass());
-
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
   // IPO Prefetching: make it before IPClone and Inline
@@ -1116,12 +1072,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Provide AliasAnalysis services for optimizations.
   addInitialAliasAnalysisPasses(PM);
 
-  // Allow forcing function attributes as a debugging and tuning aid.
-  PM.add(createForceFunctionAttrsLegacyPass());
-
-  // Infer attributes about declarations if possible.
-  PM.add(createInferFunctionAttrsLegacyPass());
-
   if (OptLevel > 1) {
     // Split call-site with more constrained arguments.
     PM.add(createCallSiteSplittingPass());
@@ -1130,10 +1080,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIntelLoopAttrsWrapperPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
   }
-
-  // Infer attributes about definitions. The readnone attribute in particular is
-  // required for virtual constant propagation.
-  PM.add(createPostOrderFunctionAttrsLegacyPass());
 
 #if INTEL_CUSTOMIZATION
   // Simplify the graph before devirtualization
@@ -1164,10 +1110,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // Promote any localized global vars.
   PM.add(createPromoteMemoryToRegisterPass());
-
-  // Linking modules together can lead to duplicated global constants, only
-  // keep one copy of each constant.
-  PM.add(createConstantMergePass());
 
   // Remove unused arguments from functions.
   PM.add(createDeadArgEliminationPass());
@@ -1272,7 +1214,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       PM.add(createCallTreeCloningPass());
   }
 #endif // INTEL_CUSTOMIZATION
-  PM.add(createGlobalDCEPass()); // Remove dead functions.
 
   // The IPO passes may leave cruft around.  Clean up after them.
   addInstructionCombiningPass(PM, !DTransEnabled);  // INTEL
@@ -1317,8 +1258,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIntelLoopAttrsWrapperPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
 
-  // Infer attributes on declarations, call sites, arguments, etc.
-  PM.add(createPostOrderFunctionAttrsLegacyPass()); // Add nocapture.
 #if INTEL_CUSTOMIZATION
   // Propagate noalias attribute to function arguments.
   if (EnableArgNoAliasProp && OptLevel > 2)
@@ -1384,12 +1323,6 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
   //   createCFGSimplificationPass(SimplifyCFGOptions().hoistCommonInsts(true)));
   PM.add(createCFGSimplificationPass());
 #endif // INTEL_CUSTOMIZATION
-
-  // Drop bodies of available externally objects to improve GlobalDCE.
-  PM.add(createEliminateAvailableExternallyPass());
-
-  // Now that we have optimized the program, discard unreachable functions.
-  PM.add(createGlobalDCEPass());
 }
 
 #if INTEL_COLLAB
@@ -1483,9 +1416,6 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
     // inline those functions here. If it becomes a problem,
     // we will have to resolve that issue with coroutines.
     PM.add(createAlwaysInlinerLegacyPass());
-    if (OptLevel > 0)
-      // Run GlobalDCE to delete dead functions.
-      PM.add(createGlobalDCEPass());
   }
 #endif // INTEL_CUSTOMIZATION
 }

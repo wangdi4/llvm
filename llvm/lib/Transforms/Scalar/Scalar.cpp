@@ -93,7 +93,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
 #if INTEL_CUSTOMIZATION
   initializeLoopUnswitchPass(Registry);
 #endif // INTEL_CUSTOMIZATION
-  initializeLoopIdiomRecognizeLegacyPassPass(Registry);
   initializeLowerAtomicLegacyPassPass(Registry);
   initializeLowerConstantIntrinsicsPass(Registry);
   initializeLowerExpectIntrinsicPass(Registry);
@@ -112,7 +111,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeRegToMemLegacyPass(Registry);
   initializeRewriteStatepointsForGCLegacyPassPass(Registry);
   initializeScalarizeMaskedMemIntrinLegacyPassPass(Registry);
-  initializeSCCPLegacyPassPass(Registry);
   initializeSROALegacyPassPass(Registry);
   initializeSROALegacyCGSCCAdaptorPassPass(Registry); // INTEL
   initializeCFGSimplifyPassPass(Registry);
@@ -124,8 +122,8 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeSeparateConstOffsetFromGEPLegacyPassPass(Registry);
   initializeSpeculativeExecutionLegacyPassPass(Registry);
   initializeStraightLineStrengthReduceLegacyPassPass(Registry);
-  initializePlaceBackedgeSafepointsImplPass(Registry);
-  initializePlaceSafepointsPass(Registry);
+  initializePlaceBackedgeSafepointsLegacyPassPass(Registry);
+  initializePlaceSafepointsLegacyPassPass(Registry);
   initializeFloat2IntLegacyPassPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeDopeVectorHoistWrapperPass(Registry);
@@ -225,10 +223,6 @@ void LLVMAddLICMPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLICMPass());
 }
 
-void LLVMAddLoopIdiomPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createLoopIdiomPass());
-}
-
 void LLVMAddLoopRotatePass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createLoopRotatePass());
 }
@@ -276,11 +270,6 @@ void LLVMAddTransformSinAndCosCallsPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createTransformSinAndCosCallsPass());
 }
 #endif // INTEL_CUSTOMIZATION
-
-void LLVMAddSCCPPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createSCCPPass());
-}
-
 void LLVMAddScalarReplAggregatesPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createSROAPass());
 }

@@ -482,14 +482,6 @@ protected:
     typedef typename allocator_traits<__begin_node_allocator>::pointer
                                                       __begin_node_pointer;
 
-    static_assert((!is_same<allocator_type, __node_allocator>::value),
-                  "internal allocator type must differ from user-specified "
-                  "type; otherwise overload resolution breaks");
-
-    static_assert(is_same<allocator_type, __rebind_alloc<__node_traits, value_type> >::value,
-                  "[allocator.requirements] states that rebinding an allocator to the same type should result in the "
-                  "original allocator");
-
     __compressed_pair<__begin_node, __node_allocator> __before_begin_;
 
     _LIBCPP_INLINE_VISIBILITY
@@ -659,8 +651,16 @@ public:
     typedef _Tp    value_type;
     typedef _Alloc allocator_type;
 
-    static_assert((is_same<typename allocator_type::value_type, value_type>::value),
+    static_assert(is_same<value_type, typename allocator_type::value_type>::value,
                   "Allocator::value_type must be same type as value_type");
+
+    static_assert(is_same<allocator_type, __rebind_alloc<allocator_traits<allocator_type>, value_type> >::value,
+                  "[allocator.requirements] states that rebinding an allocator to the same type should result in the "
+                  "original allocator");
+
+    static_assert((!is_same<allocator_type, __node_allocator>::value),
+                  "internal allocator type must differ from user-specified "
+                  "type; otherwise overload resolution breaks");
 
     typedef value_type&                                                 reference;
     typedef const value_type&                                           const_reference;
@@ -1237,17 +1237,17 @@ forward_list<_Tp, _Alloc>::insert_after(const_iterator __p, size_type __n,
         __node_traits::construct(__a, _VSTD::addressof(__h->__value_), __v);
         __node_pointer __first = __h.release();
         __node_pointer __last = __first;
-#ifndef _LIBCPP_NO_EXCEPTIONS
+#ifndef _LIBCPP_HAS_NO_EXCEPTIONS
         try
         {
-#endif // _LIBCPP_NO_EXCEPTIONS
+#endif // _LIBCPP_HAS_NO_EXCEPTIONS
             for (--__n; __n != 0; --__n, __last = __last->__next_)
             {
                 __h.reset(__node_traits::allocate(__a, 1));
                 __node_traits::construct(__a, _VSTD::addressof(__h->__value_), __v);
                 __last->__next_ = __h.release();
             }
-#ifndef _LIBCPP_NO_EXCEPTIONS
+#ifndef _LIBCPP_HAS_NO_EXCEPTIONS
         }
         catch (...)
         {
@@ -1260,7 +1260,7 @@ forward_list<_Tp, _Alloc>::insert_after(const_iterator __p, size_type __n,
             }
             throw;
         }
-#endif // _LIBCPP_NO_EXCEPTIONS
+#endif // _LIBCPP_HAS_NO_EXCEPTIONS
         __last->__next_ = __r->__next_;
         __r->__next_ = __first;
         __r = static_cast<__begin_node_pointer>(__last);
@@ -1283,17 +1283,17 @@ forward_list<_Tp, _Alloc>::insert_after(const_iterator __p,
         __node_traits::construct(__a, _VSTD::addressof(__h->__value_), *__f);
         __node_pointer __first = __h.release();
         __node_pointer __last = __first;
-#ifndef _LIBCPP_NO_EXCEPTIONS
+#ifndef _LIBCPP_HAS_NO_EXCEPTIONS
         try
         {
-#endif // _LIBCPP_NO_EXCEPTIONS
+#endif // _LIBCPP_HAS_NO_EXCEPTIONS
             for (++__f; __f != __l; ++__f, ((void)(__last = __last->__next_)))
             {
                 __h.reset(__node_traits::allocate(__a, 1));
                 __node_traits::construct(__a, _VSTD::addressof(__h->__value_), *__f);
                 __last->__next_ = __h.release();
             }
-#ifndef _LIBCPP_NO_EXCEPTIONS
+#ifndef _LIBCPP_HAS_NO_EXCEPTIONS
         }
         catch (...)
         {
@@ -1306,7 +1306,7 @@ forward_list<_Tp, _Alloc>::insert_after(const_iterator __p,
             }
             throw;
         }
-#endif // _LIBCPP_NO_EXCEPTIONS
+#endif // _LIBCPP_HAS_NO_EXCEPTIONS
         __last->__next_ = __r->__next_;
         __r->__next_ = __first;
         __r = static_cast<__begin_node_pointer>(__last);

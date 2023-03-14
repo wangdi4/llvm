@@ -813,13 +813,23 @@ static bool unswitchTrivialSwitch(Loop &L, SwitchInst &SI, DominatorTree &DT,
   Loop *OuterL = &L;
 
   if (DefaultExitBB) {
-    // Clear out the default destination temporarily to allow accurate
-    // predecessor lists to be examined below.
-    SI.setDefaultDest(nullptr);
     // Check the loop containing this exit.
     Loop *ExitL = LI.getLoopFor(DefaultExitBB);
     if (!ExitL || ExitL->contains(OuterL))
       OuterL = ExitL;
+  }
+
+  if (SE) {
+    if (OuterL)
+      SE->forgetLoop(OuterL);
+    else
+      SE->forgetTopmostLoop(&L);
+  }
+
+  if (DefaultExitBB) {
+    // Clear out the default destination temporarily to allow accurate
+    // predecessor lists to be examined below.
+    SI.setDefaultDest(nullptr);
   }
 
   // Store the exit cases into a separate data structure and remove them from
@@ -842,13 +852,6 @@ static bool unswitchTrivialSwitch(Loop &L, SwitchInst &SI, DominatorTree &DT,
     ExitCases.emplace_back(CaseI->getCaseValue(), CaseI->getCaseSuccessor(), W);
     // Delete the unswitched cases.
     SIW.removeCase(CaseI);
-  }
-
-  if (SE) {
-    if (OuterL)
-      SE->forgetLoop(OuterL);
-    else
-      SE->forgetTopmostLoop(&L);
   }
 
   // Check if after this all of the remaining cases point at the same
@@ -3031,8 +3034,8 @@ injectPendingInvariantConditions(NonTrivialUnswitchCandidate Candidate, Loop &L,
   auto *InLoopSucc = Candidate.PendingInjection->InLoopSucc;
   auto *TI = cast<BranchInst>(Candidate.TI);
   auto *BB = Candidate.TI->getParent();
-  assert(InLoopSucc == TI->getSuccessor(0));
-  auto *OutOfLoopSucc = TI->getSuccessor(1);
+  auto *OutOfLoopSucc = InLoopSucc == TI->getSuccessor(0) ? TI->getSuccessor(1)
+                                                          : TI->getSuccessor(0);
   // FIXME: Remove this once limitation on successors is lifted.
   assert(L.contains(InLoopSucc) && "Not supported yet!");
   assert(!L.contains(OutOfLoopSucc) && "Not supported yet!");
@@ -3633,10 +3636,10 @@ void SimpleLoopUnswitchPass::printPipeline(
   static_cast<PassInfoMixin<SimpleLoopUnswitchPass> *>(this)->printPipeline(
       OS, MapClassName2PassName);
 
-  OS << "<";
+  OS << '<';
   OS << (NonTrivial ? "" : "no-") << "nontrivial;";
   OS << (Trivial ? "" : "no-") << "trivial";
-  OS << ">";
+  OS << '>';
 }
 
 namespace {

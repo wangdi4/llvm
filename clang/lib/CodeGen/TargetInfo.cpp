@@ -121,7 +121,6 @@ Address ABIInfo::EmitMSVAArg(CodeGenFunction &CGF, Address VAListAddr,
   return Address::invalid();
 }
 
-#if INTEL_CUSTOMIZATION
 static ABIArgInfo classifyOpenCL(QualType Ty, ASTContext &Context) {
   if (Ty->isVoidType())
     return ABIArgInfo::getIgnore();
@@ -145,10 +144,10 @@ static bool doOpenCLClassification(CGFunctionInfo &FI, ASTContext &Context) {
   if (!Context.getLangOpts().OpenCLForceVectorABI)
     return false;
 
-  // Use OpenCL classify to prevent coercing
-  // Vector ABI must be enforced by enabling the corresponding option
+  // Use OpenCL classify to prevent coercing.
+  // Vector ABI must be enforced by enabling the corresponding option.
   // Otherwise, vector types will be coerced to a matching integer
-  // type to conform with ABI, e.g.: <8 x i8> will be coerced to i64
+  // type to conform with ABI, e.g.: <8 x i8> will be coerced to i64.
   FI.getReturnInfo() = classifyOpenCL(FI.getReturnType(), Context);
 
   for (auto &Arg : FI.arguments())
@@ -157,6 +156,7 @@ static bool doOpenCLClassification(CGFunctionInfo &FI, ASTContext &Context) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
 // When an integer type appears in argument of an SVML function, it might be:
 //   a) An AVX512 mask (since the __mmask types are defined as aliases to
 //      integer types in headers), we need to convert it to <n x i1> type and
@@ -241,6 +241,7 @@ static ABIArgInfo classifySVMLStructure(const Type *Base, uint64_t NumElts,
   return IsReturn ? ABIArgInfo::getDirect() : ABIArgInfo::getExpand();
 }
 #endif // INTEL_CUSTOMIZATION
+
 static llvm::Type *getVAListElementType(CodeGenFunction &CGF) {
   return CGF.ConvertTypeForMem(
       CGF.getContext().getBuiltinVaListType()->getPointeeType());
@@ -1059,6 +1060,11 @@ public:
       if (!FD->doesThisDeclarationHaveABody() && !FD->hasPrototype())
         Fn->addFnAttr("no-prototype");
     }
+  }
+
+  /// Return the WebAssembly externref reference type.
+  virtual llvm::Type *getWasmExternrefReferenceType() const override {
+    return llvm::Type::getWasm_ExternrefTy(getABIInfo().getVMContext());
   }
 };
 
@@ -2148,11 +2154,9 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
 }
 
 void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
-#if INTEL_CUSTOMIZATION
   ASTContext &Context = getContext();
   if (doOpenCLClassification(FI, Context))
     return;
-#endif // INTEL_CUSTOMIZATION
 
   CCState State(FI);
   if (IsMCUABI)
@@ -2591,9 +2595,7 @@ class X86_64ABIInfo : public ABIInfo {
       return false;
 
     const llvm::Triple &Triple = getTarget().getTriple();
-    if (Triple.isOSDarwin() || Triple.isPS())
-      return false;
-    if (Triple.isOSFreeBSD() && Triple.getOSMajorVersion() >= 10)
+    if (Triple.isOSDarwin() || Triple.isPS() || Triple.isOSFreeBSD())
       return false;
     return true;
   }
@@ -4179,11 +4181,9 @@ X86_64ABIInfo::classifyRegCallStructType(QualType Ty, unsigned &NeededInt,
 }
 
 void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
-#if INTEL_CUSTOMIZATION
   ASTContext &Context = getContext();
   if (doOpenCLClassification(FI, Context))
     return;
-#endif // INTEL_CUSTOMIZATION
 
   const unsigned CallingConv = FI.getCallingConvention();
   // It is possible to force Win64 calling convention on any x86_64 target by
@@ -4685,11 +4685,9 @@ ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
 }
 
 void WinX86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
-#if INTEL_CUSTOMIZATION
   ASTContext &Context = getContext();
   if (doOpenCLClassification(FI, Context))
     return;
-#endif // INTEL_CUSTOMIZATION
 
   const unsigned CC = FI.getCallingConvention();
   bool IsVectorCall = CC == llvm::CallingConv::X86_VectorCall;

@@ -142,12 +142,8 @@ public:
 #ifdef __SYCL_DEVICE_ONLY__
     return __spirv::initLocalInvocationId<Dimensions, id<Dimensions>>();
 #else
-    throw runtime_error("get_local_id() is not implemented on host device",
+    throw runtime_error("get_local_id() is not implemented on host",
                         PI_ERROR_INVALID_DEVICE);
-    // Implementing get_local_id() on host device requires ABI breaking change.
-    // It requires extending class group with local item which represents
-    // local_id. Currently this local id is only used in nd_item and group
-    // cannot access it.
 #endif
   }
 
@@ -560,7 +556,7 @@ group<Dims> this_group() {
 #else
   throw sycl::exception(
       sycl::make_error_code(sycl::errc::feature_not_supported),
-      "Free function calls are not supported on host device");
+      "Free function calls are not supported on host");
 #endif
 }
 
@@ -572,7 +568,7 @@ template <int Dims> group<Dims> this_group() {
 #else
   throw sycl::exception(
       sycl::make_error_code(sycl::errc::feature_not_supported),
-      "Free function calls are not supported on host device");
+      "Free function calls are not supported on host");
 #endif
 }
 } // namespace ext::oneapi::experimental

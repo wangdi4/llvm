@@ -135,6 +135,12 @@ SparseTensorEncodingAttr SparseTensorEncodingAttr::withoutOrdering() const {
       getPointerBitWidth(), getIndexBitWidth());
 }
 
+SparseTensorEncodingAttr SparseTensorEncodingAttr::withoutBitWidths() const {
+  return SparseTensorEncodingAttr::get(getContext(), getDimLevelType(),
+                                       getDimOrdering(), getHigherOrdering(), 0,
+                                       0);
+}
+
 bool SparseTensorEncodingAttr::isAllDense() const {
   return !getImpl() || llvm::all_of(getDimLevelType(), isDenseDLT);
 }
@@ -571,7 +577,11 @@ getNormalizedEncodingForSpecifier(SparseTensorEncodingAttr enc) {
       enc.getContext(), dlts,
       AffineMap(), // dimOrdering (irrelavant to storage speicifer)
       AffineMap(), // highLvlOrdering (irrelavant to storage specifer)
-      enc.getPointerBitWidth(), enc.getIndexBitWidth(),
+      // Always use index for memSize, dimSize instead of reusing
+      // getBitwidth from pointers/indices.
+      // It allows us to reuse the same SSA value for different bitwidth,
+      // It also avoids casting between index/integer (returned by DimOp)
+      0, 0,
       // FIXME: we should keep the slice information, for now it is okay as only
       // constant can be used for slice
       ArrayRef<SparseTensorDimSliceAttr>{} /*enc.getDimSlices()*/);
@@ -580,36 +590,6 @@ getNormalizedEncodingForSpecifier(SparseTensorEncodingAttr enc) {
 StorageSpecifierType
 StorageSpecifierType::get(MLIRContext *ctx, SparseTensorEncodingAttr encoding) {
   return Base::get(ctx, getNormalizedEncodingForSpecifier(encoding));
-}
-
-IntegerType StorageSpecifierType::getSizesType() const {
-  unsigned idxBitWidth =
-      getEncoding().getIndexBitWidth() ? getEncoding().getIndexBitWidth() : 64u;
-  unsigned ptrBitWidth =
-      getEncoding().getIndexBitWidth() ? getEncoding().getIndexBitWidth() : 64u;
-
-  return IntegerType::get(getContext(), std::max(idxBitWidth, ptrBitWidth));
-}
-
-// FIXME: see note [CLARIFY_DIM_LVL] in
-// "lib/Dialect/SparseTensor/Transforms/SparseTensorStorageLayout.h"
-Type StorageSpecifierType::getFieldType(StorageSpecifierKind kind,
-                                        std::optional<unsigned> dim) const {
-  if (kind != StorageSpecifierKind::ValMemSize)
-    assert(dim);
-
-  // Right now, we store every sizes metadata using the same size type.
-  // TODO: the field size type can be defined dimensional wise after sparse
-  // tensor encoding supports per dimension index/pointer bitwidth.
-  return getSizesType();
-}
-
-// FIXME: see note [CLARIFY_DIM_LVL] in
-// "lib/Dialect/SparseTensor/Transforms/SparseTensorStorageLayout.h"
-Type StorageSpecifierType::getFieldType(StorageSpecifierKind kind,
-                                        std::optional<APInt> dim) const {
-  return getFieldType(kind, dim ? std::optional(dim.value().getZExtValue())
-                                : std::nullopt);
 }
 
 //===----------------------------------------------------------------------===//
@@ -648,12 +628,6 @@ static LogicalResult verifySparsifierGetterSetter(
       return op->emitError(
           "requested pointer memory size on a singleton level");
   }
-  return success();
-}
-
-LogicalResult NewOp::verify() {
-  if (getExpandSymmetry() && getDimRank(getResult()) != 2)
-    return emitOpError("expand_symmetry can only be used for 2D tensors");
   return success();
 }
 
@@ -782,12 +756,6 @@ LogicalResult ToSliceStrideOp::verify() {
 LogicalResult GetStorageSpecifierOp::verify() {
   RETURN_FAILURE_IF_FAILED(verifySparsifierGetterSetter(
       getSpecifierKind(), getDim(), getSpecifier(), getOperation()))
-  // Checks the result type
-  if (getSpecifier().getType().getFieldType(getSpecifierKind(), getDim()) !=
-      getResult().getType()) {
-    return emitError(
-        "type mismatch between requested specifier field and result value");
-  }
   return success();
 }
 
@@ -808,12 +776,6 @@ OpFoldResult GetStorageSpecifierOp::fold(FoldAdaptor adaptor) {
 LogicalResult SetStorageSpecifierOp::verify() {
   RETURN_FAILURE_IF_FAILED(verifySparsifierGetterSetter(
       getSpecifierKind(), getDim(), getSpecifier(), getOperation()))
-  // Checks the input type
-  if (getSpecifier().getType().getFieldType(getSpecifierKind(), getDim()) !=
-      getValue().getType()) {
-    return emitError(
-        "type mismatch between requested specifier field and input value");
-  }
   return success();
 }
 
@@ -988,17 +950,10 @@ LogicalResult CompressOp::verify() {
 
 void ForeachOp::build(
     OpBuilder &builder, OperationState &result, Value tensor,
+    ValueRange initArgs, AffineMapAttr order,
     function_ref<void(OpBuilder &, Location, ValueRange, Value, ValueRange)>
         bodyBuilder) {
-  build(builder, result, tensor, std::nullopt, bodyBuilder);
-}
-
-void ForeachOp::build(
-    OpBuilder &builder, OperationState &result, Value tensor,
-    ValueRange initArgs,
-    function_ref<void(OpBuilder &, Location, ValueRange, Value, ValueRange)>
-        bodyBuilder) {
-  build(builder, result, initArgs.getTypes(), tensor, initArgs);
+  build(builder, result, initArgs.getTypes(), tensor, initArgs, order);
   // Builds foreach body.
   if (!bodyBuilder)
     return;
@@ -1028,6 +983,10 @@ LogicalResult ForeachOp::verify() {
   const auto t = getSparseTensorType(getTensor());
   const Dimension dimRank = t.getDimRank();
   const auto args = getBody()->getArguments();
+
+  if (getOrder().has_value() &&
+      (t.getEncoding() || !getOrder()->isPermutation()))
+    return emitError("Only support permuted order on non encoded dense tensor");
 
   if (static_cast<size_t>(dimRank) + 1 + getInitArgs().size() != args.size())
     return emitError("Unmatched number of arguments in the block");

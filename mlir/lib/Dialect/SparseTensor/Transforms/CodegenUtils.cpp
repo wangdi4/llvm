@@ -204,6 +204,39 @@ StringRef mlir::sparse_tensor::primaryTypeFunctionSuffix(Type elemTp) {
 // Misc code generators.
 //===----------------------------------------------------------------------===//
 
+Value sparse_tensor::genCast(OpBuilder &builder, Location loc, Value value,
+                             Type dstTy) {
+  Type srcTy = value.getType();
+  if (srcTy != dstTy) {
+    // int <=> index
+    if (dstTy.isa<IndexType>() || srcTy.isa<IndexType>())
+      return builder.create<arith::IndexCastOp>(loc, dstTy, value);
+
+    bool ext = srcTy.getIntOrFloatBitWidth() < dstTy.getIntOrFloatBitWidth();
+
+    // float => float.
+    if (srcTy.isa<FloatType>() && dstTy.isa<FloatType>() && ext)
+      return builder.create<arith::ExtFOp>(loc, dstTy, value);
+
+    if (srcTy.isa<FloatType>() && dstTy.isa<FloatType>() && !ext)
+      return builder.create<arith::TruncFOp>(loc, dstTy, value);
+
+    // int => int
+    if (srcTy.isUnsignedInteger() && dstTy.isa<IntegerType>() && ext)
+      return builder.create<arith::ExtUIOp>(loc, dstTy, value);
+
+    if (srcTy.isSignedInteger() && dstTy.isa<IntegerType>() && ext)
+      return builder.create<arith::ExtSIOp>(loc, dstTy, value);
+
+    if (srcTy.isa<IntegerType>() && dstTy.isa<IntegerType>() && !ext)
+      return builder.create<arith::TruncIOp>(loc, dstTy, value);
+
+    llvm_unreachable("unhandled type casting");
+  }
+
+  return value;
+}
+
 mlir::Attribute mlir::sparse_tensor::getOneAttr(Builder &builder, Type tp) {
   if (tp.isa<FloatType>())
     return builder.getFloatAttr(tp, 1.0);
@@ -500,17 +533,46 @@ Operation *mlir::sparse_tensor::getTop(Operation *op) {
 
 void sparse_tensor::foreachInSparseConstant(
     Location loc, RewriterBase &rewriter, SparseElementsAttr attr,
-    function_ref<void(ArrayRef<Value>, Value)> callback) {
-  int64_t rank = attr.getType().getRank();
+    AffineMap order, function_ref<void(ArrayRef<Value>, Value)> callback) {
+  Dimension dimRank = getSparseTensorType(attr).getDimRank();
   // Foreach on constant.
   DenseElementsAttr indicesAttr = attr.getIndices();
   DenseElementsAttr valuesAttr = attr.getValues();
 
+  using CooValuePair = std::pair<SmallVector<IntegerAttr>, Attribute>;
+  SmallVector<CooValuePair> cooV;
+  for (size_t i = 0, nse = valuesAttr.size(); i < nse; i++) {
+    cooV.emplace_back();
+    for (Dimension j = 0; j < dimRank; j++) {
+      auto coordAttr = indicesAttr.getValues<IntegerAttr>()[i * dimRank + j];
+      cooV.back().first.push_back(coordAttr);
+    }
+    auto valAttr = valuesAttr.getValues<Attribute>()[i];
+    cooV.back().second = valAttr;
+  }
+
+  // Sorts the sparse element attribute based on coordinates.
+  std::sort(cooV.begin(), cooV.end(),
+            [order](const CooValuePair &lhs, const CooValuePair &rhs) {
+              const SmallVectorImpl<IntegerAttr> &lc = lhs.first;
+              const SmallVectorImpl<IntegerAttr> &rc = rhs.first;
+              for (size_t i = 0, e = lc.size(); i < e; i++) {
+                auto l =
+                    order
+                        ? order.getResult(i).cast<AffineDimExpr>().getPosition()
+                        : i;
+                if (lc[l].getInt() == rc[l].getInt())
+                  continue;
+                return lc[l].getInt() < rc[l].getInt();
+              }
+              llvm_unreachable("no equal coordinate in sparse element attr");
+            });
+
   SmallVector<Value> coords;
-  for (int i = 0, e = valuesAttr.size(); i < e; i++) {
+  for (size_t i = 0, nse = valuesAttr.size(); i < nse; i++) {
     coords.clear();
-    for (int j = 0; j < rank; j++) {
-      auto coordAttr = indicesAttr.getValues<IntegerAttr>()[i * rank + j];
+    for (Dimension j = 0; j < dimRank; j++) {
+      auto coordAttr = cooV[i].first[j];
       auto coord =
           rewriter.create<arith::ConstantIndexOp>(loc, coordAttr.getInt());
       // Remaps coordinates.
@@ -518,11 +580,11 @@ void sparse_tensor::foreachInSparseConstant(
     }
     Value val;
     if (attr.getElementType().isa<ComplexType>()) {
-      auto valAttr = valuesAttr.getValues<ArrayAttr>()[i];
+      auto valAttr = cooV[i].second.cast<ArrayAttr>();
       val = rewriter.create<complex::ConstantOp>(loc, attr.getElementType(),
                                                  valAttr);
     } else {
-      auto valAttr = valuesAttr.getValues<TypedAttr>()[i];
+      auto valAttr = cooV[i].second.cast<TypedAttr>();
       // Remaps value.
       val = rewriter.create<arith::ConstantOp>(loc, valAttr);
     }

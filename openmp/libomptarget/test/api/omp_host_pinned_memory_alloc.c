@@ -26,7 +26,7 @@ int main() {
 #if INTEL_CUSTOMIZATION
   omp_free(hst_ptr, omp_target_shared_mem_alloc);
 #else // INTEL_CUSTOMIZATION
-  omp_free(hst_ptr, llvm_omp_target_shared_mem_alloc);
+  omp_free(hst_ptr, llvm_omp_target_host_mem_alloc);
 #endif // INTEL_CUSTOMIZATION
   // CHECK: PASS
   if (sum == N)

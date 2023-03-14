@@ -790,6 +790,7 @@ public:
     SLPLoad,
     SLPStore,
     ActiveLaneMask,
+    CalculateTripCountMinusVF,
     CanonicalIVIncrement,
     CanonicalIVIncrementNUW,
     // The next two are similar to the above, but instead increment the
@@ -892,6 +893,7 @@ public:
     default:
       return false;
     case VPInstruction::ActiveLaneMask:
+    case VPInstruction::CalculateTripCountMinusVF:
     case VPInstruction::CanonicalIVIncrement:
     case VPInstruction::CanonicalIVIncrementNUW:
     case VPInstruction::CanonicalIVIncrementForPart:
@@ -1503,22 +1505,12 @@ class VPReplicateRecipe : public VPRecipeBase, public VPValue {
   /// Indicator if the replicas are also predicated.
   bool IsPredicated;
 
-  /// Indicator if the scalar values should also be packed into a vector.
-  bool AlsoPack;
-
 public:
   template <typename IterT>
   VPReplicateRecipe(Instruction *I, iterator_range<IterT> Operands,
                     bool IsUniform, bool IsPredicated = false)
       : VPRecipeBase(VPDef::VPReplicateSC, Operands), VPValue(this, I),
-        IsUniform(IsUniform), IsPredicated(IsPredicated) {
-    // Retain the previous behavior of predicateInstructions(), where an
-    // insert-element of a predicated instruction got hoisted into the
-    // predicated basic block iff it was its only user. This is achieved by
-    // having predicated instructions also pack their values into a vector by
-    // default unless they have a replicated user which uses their scalar value.
-    AlsoPack = IsPredicated && !I->use_empty();
-  }
+        IsUniform(IsUniform), IsPredicated(IsPredicated) {}
 
   ~VPReplicateRecipe() override = default;
 
@@ -1529,8 +1521,6 @@ public:
   /// the \p State.
   void execute(VPTransformState &State) override;
 
-  void setAlsoPack(bool Pack) { AlsoPack = Pack; }
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent,
@@ -1538,8 +1528,6 @@ public:
 #endif
 
   bool isUniform() const { return IsUniform; }
-
-  bool isPacked() const { return AlsoPack; }
 
   bool isPredicated() const { return IsPredicated; }
 
@@ -1556,6 +1544,11 @@ public:
            "Op must be an operand of the recipe");
     return true;
   }
+
+  /// Returns true if the recipe is used by a widened recipe via an intervening
+  /// VPPredInstPHIRecipe. In this case, the scalar values should also be packed
+  /// in a vector.
+  bool shouldPack() const;
 };
 
 /// A recipe for generating conditional branches on the bits of a mask.

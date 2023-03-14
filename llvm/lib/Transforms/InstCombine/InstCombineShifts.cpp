@@ -609,8 +609,7 @@ static bool canEvaluateShifted(Value *V, unsigned NumBits, bool IsLeftShift,
     const APInt *MulConst;
     // We can fold (shr (mul X, -(1 << C)), C) -> (and (neg X), C`)
     return !IsLeftShift && match(I->getOperand(1), m_APInt(MulConst)) &&
-           MulConst->isNegatedPowerOf2() &&
-           MulConst->countTrailingZeros() == NumBits;
+           MulConst->isNegatedPowerOf2() && MulConst->countr_zero() == NumBits;
   }
   }
 }
@@ -1171,6 +1170,14 @@ Instruction *InstCombinerImpl::visitShl(BinaryOperator &I) {
     if (match(Op1, m_Sub(m_SpecificInt(BitWidth - 1), m_Value(X))))
       return BinaryOperator::CreateLShr(
           ConstantInt::get(Ty, APInt::getSignMask(BitWidth)), X);
+
+    // Canonicalize "extract lowest set bit" using cttz to and-with-negate:
+    // 1 << (cttz X) --> -X & X
+    if (match(Op1,
+              m_OneUse(m_Intrinsic<Intrinsic::cttz>(m_Value(X), m_Value())))) {
+      Value *NegX = Builder.CreateNeg(X, "neg");
+      return BinaryOperator::CreateAnd(NegX, X);
+    }
 
     // The only way to shift out the 1 is with an over-shift, so that would
     // be poison with or without "nuw". Undef is excluded because (undef << X)

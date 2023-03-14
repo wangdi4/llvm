@@ -252,68 +252,44 @@ func.func @sparse_slice_stride(%arg0: tensor<2x8xf64, #CSR_SLICE>) -> index {
 
 #SparseVector = #sparse_tensor.encoding<{dimLevelType = ["compressed"]}>
 
-func.func @sparse_get_md(%arg0: !sparse_tensor.storage_specifier<#SparseVector>) -> i64 {
+func.func @sparse_get_md(%arg0: !sparse_tensor.storage_specifier<#SparseVector>) -> index {
   // expected-error@+1 {{redundant level argument for querying value memory size}}
   %0 = sparse_tensor.storage_specifier.get %arg0 val_mem_sz at 0
-       : !sparse_tensor.storage_specifier<#SparseVector> to i64
-  return %0 : i64
+       : !sparse_tensor.storage_specifier<#SparseVector>
+  return %0 : index
 }
 
 // -----
 
 #SparseVector = #sparse_tensor.encoding<{dimLevelType = ["compressed"]}>
 
-func.func @sparse_get_md(%arg0: !sparse_tensor.storage_specifier<#SparseVector>) -> i64 {
+func.func @sparse_get_md(%arg0: !sparse_tensor.storage_specifier<#SparseVector>) -> index {
   // expected-error@+1 {{missing level argument}}
   %0 = sparse_tensor.storage_specifier.get %arg0 idx_mem_sz
-       : !sparse_tensor.storage_specifier<#SparseVector> to i64
-  return %0 : i64
+       : !sparse_tensor.storage_specifier<#SparseVector>
+  return %0 : index
 }
 
 // -----
 
 #SparseVector = #sparse_tensor.encoding<{dimLevelType = ["compressed"]}>
 
-func.func @sparse_get_md(%arg0: !sparse_tensor.storage_specifier<#SparseVector>) -> i64 {
+func.func @sparse_get_md(%arg0: !sparse_tensor.storage_specifier<#SparseVector>) -> index {
   // expected-error@+1 {{requested level out of bound}}
   %0 = sparse_tensor.storage_specifier.get %arg0 dim_sz at 1
-       : !sparse_tensor.storage_specifier<#SparseVector> to i64
-  return %0 : i64
+       : !sparse_tensor.storage_specifier<#SparseVector>
+  return %0 : index
 }
 
 // -----
 
 #COO = #sparse_tensor.encoding<{dimLevelType = ["compressed-nu", "singleton"]}>
 
-func.func @sparse_get_md(%arg0: !sparse_tensor.storage_specifier<#COO>) -> i64 {
+func.func @sparse_get_md(%arg0: !sparse_tensor.storage_specifier<#COO>) -> index {
   // expected-error@+1 {{requested pointer memory size on a singleton level}}
   %0 = sparse_tensor.storage_specifier.get %arg0 ptr_mem_sz at 1
-       : !sparse_tensor.storage_specifier<#COO> to i64
-  return %0 : i64
-}
-
-// -----
-
-#COO = #sparse_tensor.encoding<{dimLevelType = ["compressed-nu", "singleton"]}>
-
-func.func @sparse_get_md(%arg0: !sparse_tensor.storage_specifier<#COO>) -> i64 {
-  // expected-error@+1 {{type mismatch between requested }}
-  %0 = sparse_tensor.storage_specifier.get %arg0 ptr_mem_sz at 0
-       : !sparse_tensor.storage_specifier<#COO> to i32
-  return %0 : i32
-}
-
-// -----
-
-#SparseVector = #sparse_tensor.encoding<{dimLevelType = ["compressed"]}>
-
-func.func @sparse_set_md(%arg0: !sparse_tensor.storage_specifier<#SparseVector>,
-                         %arg1: i32)
-          -> !sparse_tensor.storage_specifier<#SparseVector> {
-  // expected-error@+1 {{type mismatch between requested }}
-  %0 = sparse_tensor.storage_specifier.set %arg0 dim_sz at 0 with %arg1
-       : i32, !sparse_tensor.storage_specifier<#SparseVector>
-  return %0 : !sparse_tensor.storage_specifier<#SparseVector>
+       : !sparse_tensor.storage_specifier<#COO>
+  return %0 : index
 }
 
 // -----
@@ -395,16 +371,6 @@ func.func @sparse_wrong_arity_compression(%arg0: memref<?xf64>,
   // expected-error@+1 {{'sparse_tensor.compress' op incorrect number of indices}}
   sparse_tensor.compress %arg0, %arg1, %arg2, %arg3 into %arg4[%arg5,%arg5]
     : memref<?xf64>, memref<?xi1>, memref<?xindex>, tensor<8x8xf64, #CSR>
-  return
-}
-
-// -----
-
-#SparseVector = #sparse_tensor.encoding<{dimLevelType = ["compressed"]}>
-
-func.func @sparse_new(%arg0: !llvm.ptr<i8>) {
-  // expected-error@+1 {{expand_symmetry can only be used for 2D tensors}}
-  %0 = sparse_tensor.new expand_symmetry %arg0 : !llvm.ptr<i8> to tensor<128xf64, #SparseVector>
   return
 }
 

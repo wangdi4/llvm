@@ -20,12 +20,12 @@
 
 ; Check that main is a valid symbol
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ TRACE
-; CHECK: SYMBOL NAME: main
-; CHECK: RESULT: MAIN | RESOLVED BY LINKER
-
 ; Check that add and sub are printed since they won't be internalized
 ; CHECK: SYMBOL NAME: add
 ; CHECK:  RESULT: RESOLVED BY LINKER
+
+; CHECK: SYMBOL NAME: main
+; CHECK: RESULT: MAIN | RESOLVED BY LINKER
 
 ; CHECK: SYMBOL NAME: sub
 ; CHECK:  RESULT:  RESOLVED BY LINKER

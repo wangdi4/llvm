@@ -41,6 +41,11 @@ __ESIMD_INTRIN void __esimd_sbarrier(__ESIMD_ENS::split_barrier_action flag)
 }
 #endif // __SYCL_DEVICE_ONLY__
 
+#ifdef __SYCL_DEVICE_ONLY__
+// Create an explicit data and GPU scoreboard dependency.
+__ESIMD_INTRIN void __esimd_wait(uint16_t value);
+#endif // __SYCL_DEVICE_ONLY__
+
 // \brief Raw sends load.
 //
 // @param modifier	the send message flags (Bit-0: isSendc, Bit-1: isEOT).
@@ -432,7 +437,6 @@ void __esimd_emu_lsc_offset_write(
                       std::conditional_t<DS ==
                                              __ESIMD_ENS::lsc_data_size::u16u32,
                                          uint16_t, void>>>>>>;
-
   for (int OffsetIdx = 0; OffsetIdx < N; OffsetIdx += 1) {
     if (Pred[OffsetIdx] == 0) {
       // Skip input vector elements correpsonding to

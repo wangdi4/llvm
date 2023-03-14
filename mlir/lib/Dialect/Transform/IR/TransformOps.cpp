@@ -448,6 +448,27 @@ transform::GetConsumersOfResult::apply(transform::TransformResults &results,
 }
 
 //===----------------------------------------------------------------------===//
+// GetDefiningOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform::GetDefiningOp::apply(transform::TransformResults &results,
+                              transform::TransformState &state) {
+  SmallVector<Operation *> definingOps;
+  for (Value v : state.getPayloadValues(getTarget())) {
+    if (v.isa<BlockArgument>()) {
+      DiagnosedSilenceableFailure diag =
+          emitSilenceableError() << "cannot get defining op of block argument";
+      diag.attachNote(v.getLoc()) << "target value";
+      return diag;
+    }
+    definingOps.push_back(v.getDefiningOp());
+  }
+  results.set(getResult().cast<OpResult>(), definingOps);
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
 // GetProducerOfOperand
 //===----------------------------------------------------------------------===//
 
@@ -971,7 +992,7 @@ void transform::SequenceOp::build(OpBuilder &builder, OperationState &state,
                                   Value root,
                                   SequenceBodyBuilderFn bodyBuilder) {
   build(builder, state, resultTypes, failurePropagationMode, root,
-        /*extraBindings=*/ValueRange());
+        /*extra_bindings=*/ValueRange());
   Type bbArgType = root.getType();
   buildSequenceBody(builder, state, bbArgType,
                     /*extraBindingTypes=*/TypeRange(), bodyBuilder);
@@ -994,7 +1015,7 @@ void transform::SequenceOp::build(OpBuilder &builder, OperationState &state,
                                   Type bbArgType,
                                   SequenceBodyBuilderFn bodyBuilder) {
   build(builder, state, resultTypes, failurePropagationMode, /*root=*/Value(),
-        /*extraBindings=*/ValueRange());
+        /*extra_bindings=*/ValueRange());
   buildSequenceBody(builder, state, bbArgType,
                     /*extraBindingTypes=*/TypeRange(), bodyBuilder);
 }
@@ -1005,7 +1026,7 @@ void transform::SequenceOp::build(OpBuilder &builder, OperationState &state,
                                   Type bbArgType, TypeRange extraBindingTypes,
                                   SequenceBodyBuilderArgsFn bodyBuilder) {
   build(builder, state, resultTypes, failurePropagationMode, /*root=*/Value(),
-        /*extraBindings=*/ValueRange());
+        /*extra_bindings=*/ValueRange());
   buildSequenceBody(builder, state, bbArgType, extraBindingTypes, bodyBuilder);
 }
 

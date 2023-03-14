@@ -93,9 +93,6 @@ void LLVMAddJumpThreadingPass(LLVMPassManagerRef PM);
 /** See llvm::createLICMPass function. */
 void LLVMAddLICMPass(LLVMPassManagerRef PM);
 
-/** See llvm::createLoopIdiomPass function */
-void LLVMAddLoopIdiomPass(LLVMPassManagerRef PM);
-
 /** See llvm::createLoopRotatePass function. */
 void LLVMAddLoopRotatePass(LLVMPassManagerRef PM);
 
@@ -128,10 +125,6 @@ void LLVMAddForcedCMOVGenerationPass(LLVMPassManagerRef PM);
 /** See llvm::createTransformSinAndCosCallsPass function. */
 void LLVMAddTransformSinAndCosCallsPass(LLVMPassManagerRef PM);
 #endif // INTEL_CUSTOMIZATION
-
-/** See llvm::createSCCPPass function. */
-void LLVMAddSCCPPass(LLVMPassManagerRef PM);
-
 /** See llvm::createSROAPass function. */
 void LLVMAddScalarReplAggregatesPass(LLVMPassManagerRef PM);
 

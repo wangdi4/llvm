@@ -539,9 +539,9 @@ public:
         {"raw_send2_noresult",
          {"raw.send2.noresult",
           {a(0), a(1), ai1(2), a(3), a(4), a(5), a(6), a(7)}}},
+        {"wait", {"dummy.mov", {a(0)}}},
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
-        {"wait", {"dummy.mov", {a(0)}}},
         {"qf_cvt", { "qf.cvt", { a(0) }}},
         {"srnd", {"srnd", {a(0), a(1)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
@@ -1231,6 +1231,25 @@ translateSpirvGlobalUses(LoadInst *LI, StringRef SpirvGlobalName,
   }
   if (NewInst) {
     LI->replaceAllUsesWith(NewInst);
+    InstsToErase.push_back(LI);
+    return;
+  }
+
+  // As an optimization of accesses of the first element for vector SPIRV
+  // globals sometimes the load will return a scalar and the uses can be of any
+  // pattern. In this case, generate GenX calls to access the first element and
+  // update the use to instead use the GenX call result rather than the load
+  // result.
+  if (!LI->getType()->isVectorTy()) {
+    // Copy users to seperate container for safe modification
+    // during iteration.
+    SmallVector<User *> Users(LI->users());
+    for (User *LU : Users) {
+      Instruction *Inst = cast<Instruction>(LU);
+      NewInst =
+          generateSpirvGlobalGenX(Inst, SpirvGlobalName, /*IndexValue=*/0);
+      LU->replaceUsesOfWith(LI, NewInst);
+    }
     InstsToErase.push_back(LI);
     return;
   }

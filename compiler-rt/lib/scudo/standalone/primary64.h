@@ -65,8 +65,8 @@ public:
     DCHECK(isAligned(reinterpret_cast<uptr>(this), alignof(ThisT)));
     DCHECK_EQ(PrimaryBase, 0U);
     // Reserve the space required for the Primary.
-    PrimaryBase = reinterpret_cast<uptr>(
-        map(nullptr, PrimarySize, nullptr, MAP_NOACCESS, &Data));
+    PrimaryBase = reinterpret_cast<uptr>(map(
+        nullptr, PrimarySize, "scudo:primary_reserve", MAP_NOACCESS, &Data));
 
     u32 Seed;
     const u64 Time = getMonotonicTime();
@@ -458,14 +458,6 @@ private:
   // Use `SameGroup=true` to indicate that all blocks in the array are from the
   // same group then we will skip checking the group id of each block.
   //
-  // Note that this aims to have a better management of dirty pages, i.e., the
-  // RSS usage won't grow indefinitely. There's an exception that we may not put
-  // a block to its associated group. While populating new blocks, we may have
-  // blocks cross different groups. However, most cases will fall into same
-  // group and they are supposed to be popped soon. In that case, it's not worth
-  // sorting the array with the almost-sorted property. Therefore, we use
-  // `SameGroup=true` instead.
-  //
   // The region mutex needs to be held while calling this method.
   void pushBlocksImpl(CacheT *C, uptr ClassId, RegionInfo *Region,
                       CompactPtrT *Array, u32 Size, bool SameGroup = false)
@@ -477,6 +469,40 @@ private:
       TransferBatch *TB = nullptr;
       if (ClassId == SizeClassMap::BatchClassId) {
         DCHECK_GE(Size, 2U);
+
+        // Free blocks are recorded by TransferBatch in freelist, blocks of
+        // BatchClassId are included. In order not to use additional memory to
+        // record blocks of BatchClassId, they are self-contained. I.e., A
+        // TransferBatch may record the block address of itself. See the figure
+        // below:
+        //
+        // TransferBatch at 0xABCD
+        // +----------------------------+
+        // | Free blocks' addr          |
+        // | +------+------+------+     |
+        // | |0xABCD|...   |...   |     |
+        // | +------+------+------+     |
+        // +----------------------------+
+        //
+        // The safeness of manipulating TransferBatch is kept by the invariant,
+        //
+        //   The unit of each pop-block request is a TransferBatch. Return
+        //   part of the blocks in a TransferBatch is not allowed.
+        //
+        // This ensures that TransferBatch won't leak the address itself while
+        // it's still holding other valid data.
+        //
+        // Besides, BatchGroup uses the same size-class as TransferBatch does
+        // and its address is recorded in the TransferBatch too. To maintain the
+        // safeness, the invariant to keep is,
+        //
+        //   The address of itself is always recorded in the last TransferBatch
+        //   of the freelist (also imply that the freelist should only be
+        //   updated with push_front). Once the last TransferBatch is popped,
+        //   the BatchGroup becomes invalid.
+        //
+        // As a result, the blocks used by BatchGroup and TransferBatch are
+        // reusable and don't need additional space for them.
         BG = reinterpret_cast<BatchGroup *>(
             decompactPtr(ClassId, Array[Size - 1]));
         BG->Batches.clear();
@@ -484,6 +510,11 @@ private:
         TB = reinterpret_cast<TransferBatch *>(
             decompactPtr(ClassId, Array[Size - 2]));
         TB->clear();
+
+        // Append the blocks used by BatchGroup and TransferBatch immediately so
+        // that we ensure that they are in the last TransBatch.
+        TB->appendFromArray(Array + Size - 2, 2);
+        Size -= 2;
       } else {
         BG = C->createGroup();
         BG->Batches.clear();
@@ -493,6 +524,7 @@ private:
       }
 
       BG->GroupId = GroupId;
+      // TODO(chiahungduan): Avoid the use of push_back() in `Batches`.
       BG->Batches.push_front(TB);
       BG->PushedBlocks = 0;
       BG->PushedBlocksAtLastCheckpoint = 0;
@@ -560,6 +592,9 @@ private:
     // All the blocks are from the same group, just push without checking group
     // id.
     if (SameGroup) {
+      for (u32 I = 0; I < Size; ++I)
+        DCHECK_EQ(compactPtrGroup(Array[I]), Cur->GroupId);
+
       InsertBlocks(Cur, Array, Size);
       return;
     }
@@ -672,19 +707,28 @@ private:
     uptr P = RegionBeg + Region->AllocatedUser;
     for (u32 I = 0; I < NumberOfBlocks; I++, P += Size)
       ShuffleArray[I] = compactPtrInternal(CompactPtrBase, P);
-    // No need to shuffle the batches size class.
-    if (ClassId != SizeClassMap::BatchClassId)
-      shuffle(ShuffleArray, NumberOfBlocks, &Region->RandState);
-    for (u32 I = 0; I < NumberOfBlocks;) {
-      // `MaxCount` is u16 so the result will also fit in u16.
-      const u16 N = static_cast<u16>(Min<u32>(MaxCount, NumberOfBlocks - I));
-      // Note that the N blocks here may have different group ids. Given that
-      // it only happens when it crosses the group size boundary. Instead of
-      // sorting them, treat them as same group here to avoid sorting the
-      // almost-sorted blocks.
-      pushBlocksImpl(C, ClassId, Region, &ShuffleArray[I], N,
+
+    if (ClassId != SizeClassMap::BatchClassId) {
+      u32 N = 1;
+      uptr CurGroup = compactPtrGroup(ShuffleArray[0]);
+      for (u32 I = 1; I < NumberOfBlocks; I++) {
+        if (UNLIKELY(compactPtrGroup(ShuffleArray[I]) != CurGroup)) {
+          shuffle(ShuffleArray + I - N, N, &Region->RandState);
+          pushBlocksImpl(C, ClassId, Region, ShuffleArray + I - N, N,
+                         /*SameGroup=*/true);
+          N = 1;
+          CurGroup = compactPtrGroup(ShuffleArray[I]);
+        } else {
+          ++N;
+        }
+      }
+
+      shuffle(ShuffleArray + NumberOfBlocks - N, N, &Region->RandState);
+      pushBlocksImpl(C, ClassId, Region, &ShuffleArray[NumberOfBlocks - N], N,
                      /*SameGroup=*/true);
-      I += N;
+    } else {
+      pushBlocksImpl(C, ClassId, Region, ShuffleArray, NumberOfBlocks,
+                     /*SameGroup=*/true);
     }
 
     const uptr AllocatedUser = Size * NumberOfBlocks;
@@ -750,19 +794,34 @@ private:
 
     const uptr GroupSize = (1U << GroupSizeLog);
     const uptr AllocatedUserEnd = Region->AllocatedUser + Region->RegionBeg;
-    ReleaseRecorder Recorder(Region->RegionBeg, &Region->Data);
-    PageReleaseContext Context(BlockSize, Region->AllocatedUser,
-                               /*NumberOfRegions=*/1U);
-
     const uptr CompactPtrBase = getCompactPtrBaseByClassId(ClassId);
     auto DecompactPtr = [CompactPtrBase](CompactPtrT CompactPtr) {
       return decompactPtrInternal(CompactPtrBase, CompactPtr);
     };
-    for (BatchGroup &BG : Region->FreeList) {
+
+    // Instead of always preparing PageMap for the entire region, we only do it
+    // for the range of releasing groups. To do that, the free-block marking
+    // process includes visiting BlockGroups twice.
+
+    // The first visit is to determine the range of BatchGroups we are going to
+    // release. And we will extract those BatchGroups out and push into
+    // `GroupToRelease`.
+    SinglyLinkedList<BatchGroup> GroupToRelease;
+    GroupToRelease.clear();
+
+    // This is only used for debugging to ensure the consistency of the number
+    // of groups.
+    uptr NumberOfBatchGroups = Region->FreeList.size();
+
+    for (BatchGroup *BG = Region->FreeList.front(), *Prev = nullptr;
+         BG != nullptr;) {
       const uptr PushedBytesDelta =
-          BG.PushedBlocks - BG.PushedBlocksAtLastCheckpoint;
-      if (PushedBytesDelta * BlockSize < PageSize)
+          BG->PushedBlocks - BG->PushedBlocksAtLastCheckpoint;
+      if (PushedBytesDelta * BlockSize < PageSize) {
+        Prev = BG;
+        BG = BG->Next;
         continue;
+      }
 
       // Group boundary does not necessarily have the same alignment as Region.
       // It may sit across a Region boundary. Which means that we may have the
@@ -770,7 +829,7 @@ private:
       //
       // 1. Group boundary sits before RegionBeg.
       //
-      //                (BatchGroupBeg)
+      //                (BatchGroupBase)
       // batchGroupBase  RegionBeg       BatchGroupEnd
       //        |            |                |
       //        v            v                v
@@ -780,7 +839,7 @@ private:
       //
       // 2. Group boundary sits after RegionBeg.
       //
-      //               (BatchGroupBeg)
+      //               (BatchGroupBase)
       //    RegionBeg  batchGroupBase               BatchGroupEnd
       //        |           |                             |
       //        v           v                             v
@@ -791,21 +850,24 @@ private:
       // Note that in the first case, the group range before RegionBeg is never
       // used. Therefore, while calculating the used group size, we should
       // exclude that part to get the correct size.
-      const uptr BatchGroupBeg =
-          Max(batchGroupBase(CompactPtrBase, BG.GroupId), Region->RegionBeg);
-      DCHECK_GE(AllocatedUserEnd, BatchGroupBeg);
+      const uptr BatchGroupBase =
+          Max(batchGroupBase(CompactPtrBase, BG->GroupId), Region->RegionBeg);
+      DCHECK_GE(AllocatedUserEnd, BatchGroupBase);
       const uptr BatchGroupEnd =
-          batchGroupBase(CompactPtrBase, BG.GroupId) + GroupSize;
+          batchGroupBase(CompactPtrBase, BG->GroupId) + GroupSize;
       const uptr AllocatedGroupSize = AllocatedUserEnd >= BatchGroupEnd
-                                          ? BatchGroupEnd - BatchGroupBeg
-                                          : AllocatedUserEnd - BatchGroupBeg;
-      if (AllocatedGroupSize == 0)
+                                          ? BatchGroupEnd - BatchGroupBase
+                                          : AllocatedUserEnd - BatchGroupBase;
+      if (AllocatedGroupSize == 0) {
+        Prev = BG;
+        BG = BG->Next;
         continue;
+      }
 
       // TransferBatches are pushed in front of BG.Batches. The first one may
       // not have all caches used.
-      const uptr NumBlocks = (BG.Batches.size() - 1) * BG.MaxCachedPerBatch +
-                             BG.Batches.front()->getCount();
+      const uptr NumBlocks = (BG->Batches.size() - 1) * BG->MaxCachedPerBatch +
+                             BG->Batches.front()->getCount();
       const uptr BytesInBG = NumBlocks * BlockSize;
       // Given the randomness property, we try to release the pages only if the
       // bytes used by free blocks exceed certain proportion of group size. Note
@@ -813,17 +875,119 @@ private:
       // are allocated.
       if (CheckDensity && (BytesInBG * 100U) / AllocatedGroupSize <
                               (100U - 1U - BlockSize / 16U)) {
+        Prev = BG;
+        BG = BG->Next;
         continue;
       }
 
-      BG.PushedBlocksAtLastCheckpoint = BG.PushedBlocks;
-      // Note that we don't always visit blocks in each BatchGroup so that we
-      // may miss the chance of releasing certain pages that cross BatchGroups.
-      Context.markFreeBlocks(BG.Batches, DecompactPtr, Region->RegionBeg);
+      // If `BG` is the first BatchGroup in the list, we only need to advance
+      // `BG` and call FreeList::pop_front(). No update is needed for `Prev`.
+      //
+      //         (BG)   (BG->Next)
+      // Prev     Cur      BG
+      //   |       |       |
+      //   v       v       v
+      //  nil     +--+    +--+
+      //          |X | -> |  | -> ...
+      //          +--+    +--+
+      //
+      // Otherwise, `Prev` will be used to extract the `Cur` from the
+      // `FreeList`.
+      //
+      //         (BG)   (BG->Next)
+      // Prev     Cur      BG
+      //   |       |       |
+      //   v       v       v
+      //  +--+    +--+    +--+
+      //  |  | -> |X | -> |  | -> ...
+      //  +--+    +--+    +--+
+      //
+      // After FreeList::extract(),
+      //
+      // Prev     Cur       BG
+      //   |       |        |
+      //   v       v        v
+      //  +--+    +--+     +--+
+      //  |  |-+  |X |  +->|  | -> ...
+      //  +--+ |  +--+  |  +--+
+      //       +--------+
+      //
+      // Note that we need to advance before pushing this BatchGroup to
+      // GroupToRelease because it's a destructive operation.
+
+      BatchGroup *Cur = BG;
+      BG = BG->Next;
+
+      if (Prev != nullptr)
+        Region->FreeList.extract(Prev, Cur);
+      else
+        Region->FreeList.pop_front();
+      GroupToRelease.push_back(Cur);
     }
 
-    if (!Context.hasBlockMarked())
+    if (GroupToRelease.empty())
       return 0;
+
+    const uptr ReleaseBase =
+        Max(batchGroupBase(CompactPtrBase, GroupToRelease.front()->GroupId),
+            Region->RegionBeg);
+    const uptr LastGroupEnd =
+        Min(batchGroupBase(CompactPtrBase, GroupToRelease.back()->GroupId) +
+                GroupSize,
+            AllocatedUserEnd);
+    // The last block may straddle the group boundary. Rounding up to BlockSize
+    // to get the exact range.
+    const uptr ReleaseEnd =
+        roundUpSlow(LastGroupEnd - Region->RegionBeg, BlockSize) +
+        Region->RegionBeg;
+    const uptr ReleaseRangeSize = ReleaseEnd - ReleaseBase;
+
+    ReleaseRecorder Recorder(ReleaseBase, &Region->Data);
+    PageReleaseContext Context(
+        BlockSize, Region->AllocatedUser, /*NumberOfRegions=*/1U,
+        ReleaseRangeSize, /*ReleaseOffset=*/ReleaseBase - Region->RegionBeg);
+
+    for (BatchGroup &BG : GroupToRelease) {
+      BG.PushedBlocksAtLastCheckpoint = BG.PushedBlocks;
+
+      // TODO(chiahungduan): Replace GroupId with BatchGroupBase to simplify the
+      // calculation here and above (where we determine the set of groups to
+      // release).
+      const uptr BatchGroupBase =
+          Max(batchGroupBase(CompactPtrBase, BG.GroupId), Region->RegionBeg);
+      const uptr BatchGroupEnd =
+          batchGroupBase(CompactPtrBase, BG.GroupId) + GroupSize;
+      const uptr AllocatedGroupSize = AllocatedUserEnd >= BatchGroupEnd
+                                          ? BatchGroupEnd - BatchGroupBase
+                                          : AllocatedUserEnd - BatchGroupBase;
+      const uptr BatchGroupUsedEnd = BatchGroupBase + AllocatedGroupSize;
+      const bool BlockAlignedWithUsedEnd =
+          (BatchGroupUsedEnd - Region->RegionBeg) % BlockSize == 0;
+
+      uptr MaxContainedBlocks = AllocatedGroupSize / BlockSize;
+      if (!BlockAlignedWithUsedEnd)
+        ++MaxContainedBlocks;
+
+      const uptr NumBlocks = (BG.Batches.size() - 1) * BG.MaxCachedPerBatch +
+                             BG.Batches.front()->getCount();
+
+      if (NumBlocks == MaxContainedBlocks) {
+        for (const auto &It : BG.Batches)
+          for (u16 I = 0; I < It.getCount(); ++I)
+            DCHECK_EQ(compactPtrGroup(It.get(I)), BG.GroupId);
+
+        Context.markRangeAsAllCounted(BatchGroupBase, BatchGroupUsedEnd,
+                                      Region->RegionBeg);
+      } else {
+        DCHECK_LT(NumBlocks, MaxContainedBlocks);
+        // Note that we don't always visit blocks in each BatchGroup so that we
+        // may miss the chance of releasing certain pages that cross
+        // BatchGroups.
+        Context.markFreeBlocks(BG.Batches, DecompactPtr, Region->RegionBeg);
+      }
+    }
+
+    DCHECK(Context.hasBlockMarked());
 
     auto SkipRegion = [](UNUSED uptr RegionIndex) { return false; };
     releaseFreeMemoryToOS(Context, Recorder, SkipRegion);
@@ -835,6 +999,55 @@ private:
       Region->ReleaseInfo.LastReleasedBytes = Recorder.getReleasedBytes();
     }
     Region->ReleaseInfo.LastReleaseAtNs = getMonotonicTime();
+
+    // Merge GroupToRelease back to the Region::FreeList. Note that both
+    // `Region->FreeList` and `GroupToRelease` are sorted.
+    for (BatchGroup *BG = Region->FreeList.front(), *Prev = nullptr;;) {
+      if (BG == nullptr || GroupToRelease.empty()) {
+        if (!GroupToRelease.empty())
+          Region->FreeList.append_back(&GroupToRelease);
+        break;
+      }
+
+      DCHECK_NE(BG->GroupId, GroupToRelease.front()->GroupId);
+
+      if (BG->GroupId < GroupToRelease.front()->GroupId) {
+        Prev = BG;
+        BG = BG->Next;
+        continue;
+      }
+
+      // At here, the `BG` is the first BatchGroup with GroupId larger than the
+      // first element in `GroupToRelease`. We need to insert
+      // `GroupToRelease::front()` (which is `Cur` below)  before `BG`.
+      //
+      //   1. If `Prev` is nullptr, we simply push `Cur` to the front of
+      //      FreeList.
+      //   2. Otherwise, use `insert()` which inserts an element next to `Prev`.
+      //
+      // Afterwards, we don't need to advance `BG` because the order between
+      // `BG` and the new `GroupToRelease::front()` hasn't been checked.
+      BatchGroup *Cur = GroupToRelease.front();
+      GroupToRelease.pop_front();
+      if (Prev == nullptr)
+        Region->FreeList.push_front(Cur);
+      else
+        Region->FreeList.insert(Prev, Cur);
+      DCHECK_EQ(Cur->Next, BG);
+      Prev = Cur;
+    }
+
+    DCHECK_EQ(Region->FreeList.size(), NumberOfBatchGroups);
+    (void)NumberOfBatchGroups;
+
+    if (SCUDO_DEBUG) {
+      BatchGroup *Prev = Region->FreeList.front();
+      for (BatchGroup *Cur = Prev->Next; Cur != nullptr;
+           Prev = Cur, Cur = Cur->Next) {
+        CHECK_LT(Prev->GroupId, Cur->GroupId);
+      }
+    }
+
     return Recorder.getReleasedBytes();
   }
 };

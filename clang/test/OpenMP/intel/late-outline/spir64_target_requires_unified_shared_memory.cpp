@@ -81,9 +81,9 @@ int main() {
 //TARG-NEXT: [[LOAD3:%.+]] = load ptr addrspace(4), ptr addrspace(4) [[LOAD2]]
 
 //HOST: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr [[ARRTAG]]}
-//HOST: !{i32 1, !"Nodes_base_decl_tgt_ref_ptr", i32 0, i32 {{.*}} ptr [[Nodes_TGT_REF_PTR]]
 //HOST: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr [[ATAG]]}
+//HOST: !{i32 1, !"Nodes_base_decl_tgt_ref_ptr", i32 0, i32 {{.*}} ptr [[Nodes_TGT_REF_PTR]]
 //TARG: !{i32 1, !"array_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr addrspace(1) [[ARRTAG]]}
-//TARG: !{i32 1, !"Nodes_base_decl_tgt_ref_ptr", i32 0, i32 1, ptr addrspace(1) [[Nodes_TGT_REF_PTR]]
 //TARG: !{i32 1, !"arr_decl_tgt_ref_ptr", i32 0, i32 {{.*}}, ptr addrspace(1) [[ATAG]]}
+//TARG: !{i32 1, !"Nodes_base_decl_tgt_ref_ptr", i32 0, i32 1, ptr addrspace(1) [[Nodes_TGT_REF_PTR]]
 //end INTEL_COLLAB

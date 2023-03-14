@@ -127,6 +127,7 @@ namespace {
 struct PromoteLegacyPass : public FunctionPass {
   // Pass identification, replacement for typeid
   static char ID;
+  bool ForcePass; /// If true, forces pass to execute, instead of skipping.
 
 #if INTEL_CUSTOMIZATION
   bool Unskippable;

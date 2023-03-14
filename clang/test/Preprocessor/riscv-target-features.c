@@ -424,11 +424,11 @@
 // RUN: -o - | FileCheck --check-prefix=CHECK-ZICBOP-EXT %s
 // CHECK-ZICBOP-EXT: __riscv_zicbop 1000000{{$}}
 
-// RUN: %clang -target riscv32-unknown-linux-gnu -menable-experimental-extensions \
-// RUN: -march=rv32izawrs1p0 -x c -E -dM %s \
+// RUN: %clang -target riscv32-unknown-linux-gnu \
+// RUN: -march=rv32izawrs -x c -E -dM %s \
 // RUN: -o - | FileCheck --check-prefix=CHECK-ZAWRS-EXT %s
-// RUN: %clang -target riscv64-unknown-linux-gnu -menable-experimental-extensions \
-// RUN: -march=rv64izawrs1p0 -x c -E -dM %s \
+// RUN: %clang -target riscv64-unknown-linux-gnu \
+// RUN: -march=rv64izawrs -x c -E -dM %s \
 // RUN: -o - | FileCheck --check-prefix=CHECK-ZAWRS-EXT %s
 // CHECK-ZAWRS-EXT: __riscv_zawrs 1000000{{$}}
 
@@ -494,3 +494,23 @@
 // RUN: %clang -target riscv32 -march=rv32izcf1p0 -menable-experimental-extensions \
 // RUN: -x c -E -dM %s -o - | FileCheck --check-prefix=CHECK-ZCF-EXT %s
 // CHECK-ZCF-EXT: __riscv_zcf 1000000{{$}}
+
+// RUN: %clang -target riscv32-unknown-linux-gnu -march=rv32izicsr2p0 -x c -E -dM %s \
+// RUN: -o - | FileCheck --check-prefix=CHECK-ZICSR-EXT %s
+// RUN: %clang -target riscv64-unknown-linux-gnu -march=rv64izicsr2p0 -x c -E -dM %s \
+// RUN: -o - | FileCheck --check-prefix=CHECK-ZICSR-EXT %s
+// CHECK-ZICSR-EXT: __riscv_zicsr 2000000{{$}}
+
+// RUN: %clang -target riscv32-unknown-linux-gnu -march=rv32izifencei2p0 -x c -E -dM %s \
+// RUN: -o - | FileCheck --check-prefix=CHECK-ZIFENCEI-EXT %s
+// RUN: %clang -target riscv64-unknown-linux-gnu -march=rv64izifencei2p0 -x c -E -dM %s \
+// RUN: -o - | FileCheck --check-prefix=CHECK-ZIFENCEI-EXT %s
+// CHECK-ZIFENCEI-EXT: __riscv_zifencei 2000000{{$}}
+
+// RUN: %clang -target riscv32-unknown-linux-gnu -menable-experimental-extensions \
+// RUN: -march=rv32izfa0p1 -x c -E -dM %s \
+// RUN: -o - | FileCheck --check-prefix=CHECK-ZFA-EXT %s
+// RUN: %clang -target riscv64-unknown-linux-gnu -menable-experimental-extensions \
+// RUN: -march=rv64izfa0p1 -x c -E -dM %s \
+// RUN: -o - | FileCheck --check-prefix=CHECK-ZFA-EXT %s
+// CHECK-ZFA-EXT: __riscv_zfa 1000{{$}}

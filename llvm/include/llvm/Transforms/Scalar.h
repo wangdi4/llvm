@@ -50,12 +50,6 @@ FunctionPass *createAlignmentFromAssumptionsPass();
 
 //===----------------------------------------------------------------------===//
 //
-// SCCP - Sparse conditional constant propagation.
-//
-FunctionPass *createSCCPPass();
-
-//===----------------------------------------------------------------------===//
-//
 // RedundantDbgInstElimination - This pass removes redundant dbg intrinsics
 // without modifying the CFG of the function.  It is a FunctionPass.
 //
@@ -206,12 +200,6 @@ Pass *createSimpleLoopUnrollPass(int OptLevel = 2, bool OnlyWhenForced = false,
 // LoopRotate - This pass is a simple loop rotating pass.
 //
 Pass *createLoopRotatePass(int MaxHeaderSize = -1, bool PrepareForLTO = false);
-
-//===----------------------------------------------------------------------===//
-//
-// LoopIdiom - This pass recognizes and replaces idioms in loops.
-//
-Pass *createLoopIdiomPass();
 
 //===----------------------------------------------------------------------===//
 //

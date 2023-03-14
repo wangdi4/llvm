@@ -829,12 +829,12 @@ define bfloat @extract_f16_1(<8 x bfloat> %x) {
 define bfloat @extract_f16_2(<8 x bfloat> %x) {
 ; AVX512FP16-X64-LABEL: extract_f16_2:
 ; AVX512FP16-X64:       # %bb.0:
-; AVX512FP16-X64-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[1,1,3,3]
+; AVX512FP16-X64-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[1,1,3,3]
 ; AVX512FP16-X64-NEXT:    retq
 ;
 ; AVX512FP16-X86-LABEL: extract_f16_2:
 ; AVX512FP16-X86:       # %bb.0:
-; AVX512FP16-X86-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[1,1,3,3]
+; AVX512FP16-X86-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[1,1,3,3]
 ; AVX512FP16-X86-NEXT:    retl
    %res = extractelement <8 x bfloat> %x, i32 2
    ret bfloat %res
@@ -857,12 +857,12 @@ define bfloat @extract_f16_3(<8 x bfloat> %x) {
 define bfloat @extract_f16_4(<8 x bfloat> %x) {
 ; AVX512FP16-X64-LABEL: extract_f16_4:
 ; AVX512FP16-X64:       # %bb.0:
-; AVX512FP16-X64-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[2,3,0,1]
+; AVX512FP16-X64-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[2,3,0,1]
 ; AVX512FP16-X64-NEXT:    retq
 ;
 ; AVX512FP16-X86-LABEL: extract_f16_4:
 ; AVX512FP16-X86:       # %bb.0:
-; AVX512FP16-X86-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[2,3,0,1]
+; AVX512FP16-X86-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[2,3,0,1]
 ; AVX512FP16-X86-NEXT:    retl
    %res = extractelement <8 x bfloat> %x, i32 4
    ret bfloat %res
@@ -885,12 +885,12 @@ define bfloat @extract_f16_5(<8 x bfloat> %x) {
 define bfloat @extract_f16_6(<8 x bfloat> %x) {
 ; AVX512FP16-X64-LABEL: extract_f16_6:
 ; AVX512FP16-X64:       # %bb.0:
-; AVX512FP16-X64-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,3,3,3]
+; AVX512FP16-X64-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[3,3,3,3]
 ; AVX512FP16-X64-NEXT:    retq
 ;
 ; AVX512FP16-X86-LABEL: extract_f16_6:
 ; AVX512FP16-X86:       # %bb.0:
-; AVX512FP16-X86-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,3,3,3]
+; AVX512FP16-X86-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[3,3,3,3]
 ; AVX512FP16-X86-NEXT:    retl
    %res = extractelement <8 x bfloat> %x, i32 6
    ret bfloat %res
@@ -947,14 +947,14 @@ define void @extract_store_f16_1(<8 x bfloat> %x, bfloat* %y) {
 define void @extract_store_f16_2(<8 x bfloat> %x, bfloat* %y) {
 ; AVX512FP16-X64-LABEL: extract_store_f16_2:
 ; AVX512FP16-X64:       # %bb.0:
-; AVX512FP16-X64-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[1,1,3,3]
+; AVX512FP16-X64-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[1,1,3,3]
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm0, (%rdi)
 ; AVX512FP16-X64-NEXT:    retq
 ;
 ; AVX512FP16-X86-LABEL: extract_store_f16_2:
 ; AVX512FP16-X86:       # %bb.0:
 ; AVX512FP16-X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; AVX512FP16-X86-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[1,1,3,3]
+; AVX512FP16-X86-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[1,1,3,3]
 ; AVX512FP16-X86-NEXT:    vmovsh %xmm0, (%eax)
 ; AVX512FP16-X86-NEXT:    retl
    %res = extractelement <8 x bfloat> %x, i32 2
@@ -983,14 +983,14 @@ define void @extract_store_f16_3(<8 x bfloat> %x, bfloat* %y) {
 define void @extract_store_f16_4(<8 x bfloat> %x, bfloat* %y) {
 ; AVX512FP16-X64-LABEL: extract_store_f16_4:
 ; AVX512FP16-X64:       # %bb.0:
-; AVX512FP16-X64-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[2,3,0,1]
+; AVX512FP16-X64-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[2,3,0,1]
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm0, (%rdi)
 ; AVX512FP16-X64-NEXT:    retq
 ;
 ; AVX512FP16-X86-LABEL: extract_store_f16_4:
 ; AVX512FP16-X86:       # %bb.0:
 ; AVX512FP16-X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; AVX512FP16-X86-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[2,3,0,1]
+; AVX512FP16-X86-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[2,3,0,1]
 ; AVX512FP16-X86-NEXT:    vmovsh %xmm0, (%eax)
 ; AVX512FP16-X86-NEXT:    retl
    %res = extractelement <8 x bfloat> %x, i32 4
@@ -1019,14 +1019,14 @@ define void @extract_store_f16_5(<8 x bfloat> %x, bfloat* %y) {
 define void @extract_store_f16_6(<8 x bfloat> %x, bfloat* %y) {
 ; AVX512FP16-X64-LABEL: extract_store_f16_6:
 ; AVX512FP16-X64:       # %bb.0:
-; AVX512FP16-X64-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,3,3,3]
+; AVX512FP16-X64-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[3,3,3,3]
 ; AVX512FP16-X64-NEXT:    vmovsh %xmm0, (%rdi)
 ; AVX512FP16-X64-NEXT:    retq
 ;
 ; AVX512FP16-X86-LABEL: extract_store_f16_6:
 ; AVX512FP16-X86:       # %bb.0:
 ; AVX512FP16-X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; AVX512FP16-X86-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,3,3,3]
+; AVX512FP16-X86-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[3,3,3,3]
 ; AVX512FP16-X86-NEXT:    vmovsh %xmm0, (%eax)
 ; AVX512FP16-X86-NEXT:    retl
    %res = extractelement <8 x bfloat> %x, i32 6

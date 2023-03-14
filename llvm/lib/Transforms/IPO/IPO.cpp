@@ -46,25 +46,16 @@
 using namespace llvm;
 
 void llvm::initializeIPO(PassRegistry &Registry) {
-  initializeAnnotation2MetadataLegacyPass(Registry);
-  initializeConstantMergeLegacyPassPass(Registry);
   initializeDAEPass(Registry);
   initializeDAHPass(Registry);
   initializeDAESYCLPass(Registry);
-  initializeForceFunctionAttrsLegacyPassPass(Registry);
-  initializeGlobalDCELegacyPassPass(Registry);
   initializeAlwaysInlinerLegacyPassPass(Registry);
   initializeInlineListsPass(Registry); // INTEL
   initializeInlineReportEmitterPass(Registry); // INTEL
   initializeInlineReportSetupPass(Registry); // INTEL
-  initializeInferFunctionAttrsLegacyPassPass(Registry);
   initializeLoopExtractorLegacyPassPass(Registry);
   initializeSingleLoopExtractorPass(Registry);
-  initializeAttributorLegacyPassPass(Registry);
-  initializeAttributorCGSCCLegacyPassPass(Registry);
-  initializePostOrderFunctionAttrsLegacyPassPass(Registry);
   initializeBarrierNoopPass(Registry);
-  initializeEliminateAvailableExternallyLegacyPassPass(Registry);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
   initializeIPCloningLegacyPassPass(Registry);
@@ -99,10 +90,6 @@ void LLVMInitializeIPO(LLVMPassRegistryRef R) {
   initializeIPO(*unwrap(R));
 }
 
-void LLVMAddConstantMergePass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createConstantMergePass());
-}
-
 void LLVMAddDeadArgEliminationPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createDeadArgEliminationPass());
 }
@@ -119,14 +106,6 @@ void LLVMAddInlineReportEmitterPass(LLVMPassManagerRef PM) {
 }
 #endif  // INTEL_CUSTOMIZATION
 
-void LLVMAddFunctionAttrsPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createPostOrderFunctionAttrsLegacyPass());
-}
-
 void LLVMAddAlwaysInlinerPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(llvm::createAlwaysInlinerLegacyPass());
-}
-
-void LLVMAddGlobalDCEPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createGlobalDCEPass());
 }

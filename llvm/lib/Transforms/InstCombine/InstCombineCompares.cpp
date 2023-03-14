@@ -31,6 +31,7 @@
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/CmpInstAnalysis.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -934,57 +935,27 @@ Instruction *InstCombinerImpl::foldAllocaCmp(ICmpInst &ICI,
   // comparisons against the alloca consistently, and avoids the risk of
   // erroneously folding a comparison of the pointer with itself.
 
-  unsigned MaxIter = 32; // Break cycles and bound to constant-time.
+  struct CmpCaptureTracker : public CaptureTracker {
+    bool Captured = false;
+    unsigned NumCmps = 0;
 
-  SmallVector<const Use *, 32> Worklist;
-  for (const Use &U : Alloca->uses()) {
-    if (Worklist.size() >= MaxIter)
-      return nullptr;
-    Worklist.push_back(&U);
-  }
+    void tooManyUses() override { Captured = true; }
 
-  unsigned NumCmps = 0;
-  while (!Worklist.empty()) {
-    assert(Worklist.size() <= MaxIter);
-    const Use *U = Worklist.pop_back_val();
-    const Value *V = U->getUser();
-    --MaxIter;
-
-    if (isa<BitCastInst>(V) || isa<GetElementPtrInst>(V) || isa<PHINode>(V) ||
-        isa<SelectInst>(V)) {
-      // Track the uses.
-    } else if (isa<LoadInst>(V)) {
-      // Loading from the pointer doesn't escape it.
-      continue;
-    } else if (const auto *SI = dyn_cast<StoreInst>(V)) {
-      // Storing *to* the pointer is fine, but storing the pointer escapes it.
-      if (SI->getValueOperand() == U->get())
-        return nullptr;
-      continue;
-    } else if (isa<ICmpInst>(V)) {
-      if (NumCmps++)
-        return nullptr; // Found more than one cmp.
-      continue;
-    } else if (const auto *Intrin = dyn_cast<IntrinsicInst>(V)) {
-      switch (Intrin->getIntrinsicID()) {
-        // These intrinsics don't escape or compare the pointer. Memset is safe
-        // because we don't allow ptrtoint. Memcpy and memmove are safe because
-        // we don't allow stores, so src cannot point to V.
-        case Intrinsic::lifetime_start: case Intrinsic::lifetime_end:
-        case Intrinsic::memcpy: case Intrinsic::memmove: case Intrinsic::memset:
-          continue;
-        default:
-          return nullptr;
+    bool captured(const Use *U) override {
+      if (isa<ICmpInst>(U->getUser()) && ++NumCmps == 1) {
+        // Ignore one icmp capture.
+        return false;
       }
-    } else {
-      return nullptr;
+
+      Captured = true;
+      return true;
     }
-    for (const Use &U : V->uses()) {
-      if (Worklist.size() >= MaxIter)
-        return nullptr;
-      Worklist.push_back(&U);
-    }
-  }
+  };
+
+  CmpCaptureTracker Tracker;
+  PointerMayBeCaptured(Alloca, &Tracker);
+  if (Tracker.Captured)
+    return nullptr;
 
   auto *Res = ConstantInt::get(ICI.getType(),
                                !CmpInst::isTrueWhenEqual(ICI.getPredicate()));
@@ -1077,9 +1048,9 @@ Instruction *InstCombinerImpl::foldICmpShrConstConst(ICmpInst &I, Value *A,
 
   int Shift;
   if (IsAShr && AP1.isNegative())
-    Shift = AP1.countLeadingOnes() - AP2.countLeadingOnes();
+    Shift = AP1.countl_one() - AP2.countl_one();
   else
-    Shift = AP1.countLeadingZeros() - AP2.countLeadingZeros();
+    Shift = AP1.countl_zero() - AP2.countl_zero();
 
   if (Shift > 0) {
     if (IsAShr && AP1 == AP2.ashr(Shift)) {
@@ -1116,7 +1087,7 @@ Instruction *InstCombinerImpl::foldICmpShlConstConst(ICmpInst &I, Value *A,
   if (AP2.isZero())
     return nullptr;
 
-  unsigned AP2TrailingZeros = AP2.countTrailingZeros();
+  unsigned AP2TrailingZeros = AP2.countr_zero();
 
   if (!AP1 && AP2TrailingZeros != 0)
     return getICmp(
@@ -1127,7 +1098,7 @@ Instruction *InstCombinerImpl::foldICmpShlConstConst(ICmpInst &I, Value *A,
     return getICmp(I.ICMP_EQ, A, ConstantInt::getNullValue(A->getType()));
 
   // Get the distance between the lowest bits that are set.
-  int Shift = AP1.countTrailingZeros() - AP2TrailingZeros;
+  int Shift = AP1.countr_zero() - AP2TrailingZeros;
 
   if (Shift > 0 && AP2.shl(Shift) == AP1)
     return getICmp(I.ICMP_EQ, A, ConstantInt::get(A->getType(), Shift));
@@ -1162,7 +1133,7 @@ static Instruction *processUGT_ADDCST_ADD(ICmpInst &I, Value *A, Value *B,
   // If CI2 is 2^7, 2^15, 2^31, then it might be an sadd.with.overflow.
   if (!CI2->getValue().isPowerOf2())
     return nullptr;
-  unsigned NewWidth = CI2->getValue().countTrailingZeros();
+  unsigned NewWidth = CI2->getValue().countr_zero();
   if (NewWidth != 7 && NewWidth != 15 && NewWidth != 31)
     return nullptr;
 
@@ -1430,11 +1401,8 @@ Instruction *InstCombinerImpl::foldICmpWithDominatingICmp(ICmpInst &Cmp) {
   if (TrueBB == FalseBB)
     return nullptr;
 
-  // Try to simplify this compare to T/F based on the dominating condition.
-  std::optional<bool> Imp =
-      isImpliedCondition(DomCond, &Cmp, DL, TrueBB == CmpBB);
-  if (Imp)
-    return replaceInstUsesWith(Cmp, ConstantInt::get(Cmp.getType(), *Imp));
+  // We already checked simple implication in InstSimplify, only handle complex
+  // cases here.
 
   CmpInst::Predicate Pred = Cmp.getPredicate();
   Value *X = Cmp.getOperand(0), *Y = Cmp.getOperand(1);
@@ -1542,7 +1510,7 @@ Instruction *InstCombinerImpl::foldICmpTruncConstant(ICmpInst &Cmp,
     KnownBits Known = computeKnownBits(X, 0, &Cmp);
 
     // If all the high bits are known, we can do this xform.
-    if ((Known.Zero | Known.One).countLeadingOnes() >= SrcBits - DstBits) {
+    if ((Known.Zero | Known.One).countl_one() >= SrcBits - DstBits) {
       // Pull in the high bits from known-ones set.
       APInt NewRHS = C.zext(SrcBits);
       NewRHS |= Known.One & APInt::getHighBitsSet(SrcBits, SrcBits - DstBits);
@@ -1885,6 +1853,15 @@ Instruction *InstCombinerImpl::foldICmpAndConstant(ICmpInst &Cmp,
         match(And->getOperand(1), m_Not(m_Specific(X)))) {
       auto NewPred = TrueIfNeg ? CmpInst::ICMP_EQ : CmpInst::ICMP_NE;
       return new ICmpInst(NewPred, X, ConstantInt::getNullValue(X->getType()));
+    }
+    // (X & X) <  0 --> X == MinSignedC
+    // (X & X) > -1 --> X != MinSignedC
+    if (match(And, m_c_And(m_Neg(m_Value(X)), m_Deferred(X)))) {
+      Constant *MinSignedC = ConstantInt::get(
+          X->getType(),
+          APInt::getSignedMinValue(X->getType()->getScalarSizeInBits()));
+      auto NewPred = TrueIfNeg ? CmpInst::ICMP_EQ : CmpInst::ICMP_NE;
+      return new ICmpInst(NewPred, X, MinSignedC);
     }
   }
 
@@ -2307,7 +2284,7 @@ Instruction *InstCombinerImpl::foldICmpShlConstant(ICmpInst &Cmp,
   // free on the target. It has the additional benefit of comparing to a
   // smaller constant that may be more target-friendly.
   unsigned Amt = ShiftAmt->getLimitedValue(TypeBits - 1);
-  if (Shl->hasOneUse() && Amt != 0 && C.countTrailingZeros() >= Amt &&
+  if (Shl->hasOneUse() && Amt != 0 && C.countr_zero() >= Amt &&
       DL.isLegalInteger(TypeBits - Amt)) {
     Type *TruncTy = IntegerType::get(Cmp.getContext(), TypeBits - Amt);
     if (auto *ShVTy = dyn_cast<VectorType>(ShType))
@@ -2355,9 +2332,8 @@ Instruction *InstCombinerImpl::foldICmpShrConstant(ICmpInst &Cmp,
       assert(ShiftValC->uge(C) && "Expected simplify of compare");
       assert((IsUGT || !C.isZero()) && "Expected X u< 0 to simplify");
 
-      unsigned CmpLZ =
-          IsUGT ? C.countLeadingZeros() : (C - 1).countLeadingZeros();
-      unsigned ShiftLZ = ShiftValC->countLeadingZeros();
+      unsigned CmpLZ = IsUGT ? C.countl_zero() : (C - 1).countl_zero();
+      unsigned ShiftLZ = ShiftValC->countl_zero();
       Constant *NewC = ConstantInt::get(Shr->getType(), CmpLZ - ShiftLZ);
       auto NewPred = IsUGT ? CmpInst::ICMP_ULT : CmpInst::ICMP_UGE;
       return new ICmpInst(NewPred, Shr->getOperand(1), NewC);
@@ -4631,7 +4607,7 @@ Instruction *InstCombinerImpl::foldICmpBinOp(ICmpInst &I,
           !C->isOne()) {
         // icmp eq/ne (X * C), (Y * C) --> icmp (X & Mask), (Y & Mask)
         // Mask = -1 >> count-trailing-zeros(C).
-        if (unsigned TZs = C->countTrailingZeros()) {
+        if (unsigned TZs = C->countr_zero()) {
           Constant *Mask = ConstantInt::get(
               BO0->getType(),
               APInt::getLowBitsSet(C->getBitWidth(), C->getBitWidth() - TZs));
@@ -4885,7 +4861,7 @@ Instruction *InstCombinerImpl::foldICmpEquality(ICmpInst &I) {
     // (B & (Pow2C-1)) != zext A --> A != trunc B
     const APInt *MaskC;
     if (match(Op0, m_And(m_Value(B), m_LowBitMask(MaskC))) &&
-        MaskC->countTrailingOnes() == A->getType()->getScalarSizeInBits())
+        MaskC->countr_one() == A->getType()->getScalarSizeInBits())
       return new ICmpInst(Pred, A, Builder.CreateTrunc(B, A->getType()));
   }
 
@@ -5543,7 +5519,7 @@ static Instruction *processUMulZExtIdiom(ICmpInst &I, Value *MulVal,
           return nullptr;
         if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1))) {
           const APInt &CVal = CI->getValue();
-          if (CVal.getBitWidth() - CVal.countLeadingZeros() > MulWidth)
+          if (CVal.getBitWidth() - CVal.countl_zero() > MulWidth)
             return nullptr;
         } else {
           // In this case we could have the operand of the binary operation
@@ -5724,12 +5700,12 @@ static APInt getDemandedBitsLHSMask(ICmpInst &I, unsigned BitWidth) {
   // bits doesn't impact the outcome of the comparison, because any value
   // greater than the RHS must differ in a bit higher than these due to carry.
   case ICmpInst::ICMP_UGT:
-    return APInt::getBitsSetFrom(BitWidth, RHS->countTrailingOnes());
+    return APInt::getBitsSetFrom(BitWidth, RHS->countr_one());
 
   // Similarly, for a ULT comparison, we don't care about the trailing zeros.
   // Any value less than the RHS must differ in a higher bit because of carries.
   case ICmpInst::ICMP_ULT:
-    return APInt::getBitsSetFrom(BitWidth, RHS->countTrailingZeros());
+    return APInt::getBitsSetFrom(BitWidth, RHS->countr_zero());
 
   default:
     return APInt::getAllOnes(BitWidth);
@@ -5743,17 +5719,22 @@ static APInt getDemandedBitsLHSMask(ICmpInst &I, unsigned BitWidth) {
 /// The rationale is that several architectures use the same instruction for
 /// both subtract and cmp. Thus, it is better if the order of those operands
 /// match.
+/// TODO: Shouldn't this be part of CGP instead?
 /// \return true if Op0 and Op1 should be swapped.
 static bool swapMayExposeCSEOpportunities(const Value *Op0, const Value *Op1) {
   // Filter out pointer values as those cannot appear directly in subtract.
   // FIXME: we may want to go through inttoptrs or bitcasts.
-  if (Op0->getType()->isPointerTy())
+  if (Op0->getType()->isPointerTy() || isa<Constant>(Op0))
     return false;
   // If a subtract already has the same operands as a compare, swapping would be
   // bad. If a subtract has the same operands as a compare but in reverse order,
   // then swapping is good.
   int GoodToSwap = 0;
+  unsigned NumInspected = 0;
   for (const User *U : Op0->users()) {
+    // Avoid walking many users.
+    if (++NumInspected > 128)
+      return false;
     if (match(U, m_Sub(m_Specific(Op1), m_Specific(Op0))))
       GoodToSwap++;
     else if (match(U, m_Sub(m_Specific(Op0), m_Specific(Op1))))
@@ -6028,14 +6009,14 @@ Instruction *InstCombinerImpl::foldICmpUsingKnownBits(ICmpInst &I) {
       const APInt *C1;
       if (match(LHS, m_Shl(m_Power2(C1), m_Value(X)))) {
         Type *XTy = X->getType();
-        unsigned Log2C1 = C1->countTrailingZeros();
+        unsigned Log2C1 = C1->countr_zero();
         APInt C2 = Op0KnownZeroInverted;
         APInt C2Pow2 = (C2 & ~(*C1 - 1)) + *C1;
         if (C2Pow2.isPowerOf2()) {
           // iff (C1 is pow2) & ((C2 & ~(C1-1)) + C1) is pow2):
           // ((C1 << X) & C2) == 0 -> X >= (Log2(C2+C1) - Log2(C1))
           // ((C1 << X) & C2) != 0 -> X  < (Log2(C2+C1) - Log2(C1))
-          unsigned Log2C2 = C2Pow2.countTrailingZeros();
+          unsigned Log2C2 = C2Pow2.countr_zero();
           auto *CmpC = ConstantInt::get(XTy, Log2C2 - Log2C1);
           auto NewPred =
               Pred == CmpInst::ICMP_EQ ? CmpInst::ICMP_UGE : CmpInst::ICMP_ULT;
