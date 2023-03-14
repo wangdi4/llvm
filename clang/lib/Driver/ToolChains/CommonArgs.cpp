@@ -919,7 +919,6 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                          /*IsLTO=*/true, PluginOptPrefix);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static void AddllvmOption(const ToolChain &TC, const char *Opt, bool IsLink,
                           const llvm::opt::ArgList &Args,
@@ -1323,32 +1322,6 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 }
 #endif // INTEL_CUSTOMIZATION
 
-void tools::addOpenMPRuntimeSpecificRPath(const ToolChain &TC,
-                                          const ArgList &Args,
-                                          ArgStringList &CmdArgs) {
-
-#if INTEL_CUSTOMIZATION
-  // -fopenmp-implicit-rpath is not enabled by default for the Intel compiler.
-  if (Args.hasFlag(options::OPT_fopenmp_implicit_rpath,
-                   options::OPT_fno_openmp_implicit_rpath, false)) {
-#endif // INTEL_CUSTOMIZATION
-    // Default to clang lib / lib64 folder, i.e. the same location as device
-    // runtime
-    SmallString<256> DefaultLibPath =
-        llvm::sys::path::parent_path(TC.getDriver().Dir);
-    llvm::sys::path::append(DefaultLibPath, CLANG_INSTALL_LIBDIR_BASENAME);
-#if INTEL_CUSTOMIZATION
-    if (TC.getDriver().IsIntelMode() &&
-        TC.getDriver().getOpenMPRuntime(Args) == Driver::OMPRT_IOMP5)
-      DefaultLibPath = TC.GetIntelLibPath();
-#endif // INTEL_CUSTOMIZATION
-    CmdArgs.push_back("-rpath");
-    CmdArgs.push_back(Args.MakeArgString(DefaultLibPath));
-  }
-}
-
-=======
->>>>>>> 555b572e3f407ac48b5f30fc06760cc4d0549977
 void tools::addOpenMPRuntimeLibraryPath(const ToolChain &TC,
                                         const ArgList &Args,
                                         ArgStringList &CmdArgs) {
@@ -1449,12 +1422,6 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
     CmdArgs.push_back("-lomptarget.devicertl");
 
   addArchSpecificRPath(TC, Args, CmdArgs);
-<<<<<<< HEAD
-
-  if (RTKind == Driver::OMPRT_OMP || RTKind == Driver::OMPRT_IOMP5) // INTEL
-    addOpenMPRuntimeSpecificRPath(TC, Args, CmdArgs);
-=======
->>>>>>> 555b572e3f407ac48b5f30fc06760cc4d0549977
   addOpenMPRuntimeLibraryPath(TC, Args, CmdArgs);
 
   return true;
