@@ -82,6 +82,7 @@ enum ActionType {
   GenClangCommentCommandInfo,
   GenClangCommentCommandList,
   GenClangOpenCLBuiltins,
+  GenClangOpenCLBuiltinHeader,
   GenClangOpenCLBuiltinTests,
   GenClangSPIRVBuiltins,
   GenArmNeon,
@@ -222,6 +223,9 @@ cl::opt<ActionType> Action(
                    "documentation comments"),
         clEnumValN(GenClangOpenCLBuiltins, "gen-clang-opencl-builtins",
                    "Generate OpenCL builtin declaration handlers"),
+        clEnumValN(GenClangOpenCLBuiltinHeader,
+                   "gen-clang-opencl-builtin-header",
+                   "Generate OpenCL builtin header"),
         clEnumValN(GenClangOpenCLBuiltinTests, "gen-clang-opencl-builtin-tests",
                    "Generate OpenCL builtin declaration tests"),
         clEnumValN(GenClangSPIRVBuiltins, "gen-clang-spirv-builtins",
@@ -413,6 +417,9 @@ bool ClangTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
     break;
   case GenClangOpenCLBuiltins:
     EmitClangOpenCLBuiltins(Records, OS);
+    break;
+  case GenClangOpenCLBuiltinHeader:
+    EmitClangOpenCLBuiltinHeader(Records, OS);
     break;
   case GenClangOpenCLBuiltinTests:
     EmitClangOpenCLBuiltinTests(Records, OS);
