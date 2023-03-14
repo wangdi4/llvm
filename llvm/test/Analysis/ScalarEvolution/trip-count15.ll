@@ -7,12 +7,7 @@ define void @umin_unsigned_check(i64 %n) {
 ; CHECK-NEXT:    %min.n = select i1 %min.cmp, i64 4096, i64 %n
 ; CHECK-NEXT:    --> (4096 umin %n) U: [0,4097) S: [0,4097)
 ; CHECK-NEXT:    %iv = phi i64 [ 0, %entry ], [ %iv.next, %loop ]
-<<<<<<< HEAD
-; CHECK-NEXT:    --> {0,+,1}<%loop> U: [0,4098) S: [0,4098) Exits: (1 + (4096 umin %n))<nuw><nsw> LoopDispositions: { %loop: Computable }
-; INTEL - SCEV improvements prove stronger NoWrap flags
-=======
 ; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%loop> U: [0,4098) S: [0,4098) Exits: (1 + (4096 umin %n))<nuw><nsw> LoopDispositions: { %loop: Computable }
->>>>>>> 7019624ee124c0560567923ecd808c2d36c40f14
 ; CHECK-NEXT:    %iv.next = add i64 %iv, 1
 ; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,4099) S: [1,4099) Exits: (2 + (4096 umin %n))<nuw><nsw> LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @umin_unsigned_check
@@ -43,12 +38,7 @@ define void @umin_signed_check(i64 %n) {
 ; CHECK-NEXT:    %min.n = select i1 %min.cmp, i64 4096, i64 %n
 ; CHECK-NEXT:    --> (4096 umin %n) U: [0,4097) S: [0,4097)
 ; CHECK-NEXT:    %iv = phi i64 [ 0, %entry ], [ %iv.next, %loop ]
-<<<<<<< HEAD
-; CHECK-NEXT:    --> {0,+,1}<%loop> U: [0,4098) S: [0,4098) Exits: (1 + (4096 umin %n))<nuw><nsw> LoopDispositions: { %loop: Computable }
-; INTEL - SCEV improvements prove stronger NoWrap flags
-=======
 ; CHECK-NEXT:    --> {0,+,1}<nuw><nsw><%loop> U: [0,4098) S: [0,4098) Exits: (1 + (4096 umin %n))<nuw><nsw> LoopDispositions: { %loop: Computable }
->>>>>>> 7019624ee124c0560567923ecd808c2d36c40f14
 ; CHECK-NEXT:    %iv.next = add i64 %iv, 1
 ; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,4099) S: [1,4099) Exits: (2 + (4096 umin %n))<nuw><nsw> LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:  Determining loop execution counts for: @umin_signed_check
