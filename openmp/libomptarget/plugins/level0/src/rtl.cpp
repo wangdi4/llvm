@@ -2988,6 +2988,9 @@ struct RTLDeviceInfoTy {
   /// API version supported by the L0 driver
   ze_api_version_t DriverAPIVersion = ZE_API_VERSION_CURRENT;
 
+  /// Count loaded device images. Use this to decide when to finalize RTL.
+  std::atomic<int> NumRegisteredImages = 0;
+
   /// Available L0 driver extensions
   std::vector<ze_driver_extension_properties_t> DriverExtensions;
 
@@ -3626,10 +3629,14 @@ ATTRIBUTE(constructor(101)) void init() {
   TLSList = new std::list<TLSTy *>();
 }
 
-/// RTL calls this function as early as possible (not as RTL destructor) to
-/// avoid finalization issues in various circumstances (e.g., tracing tool).
-/// We use the entry __tgt_rtl_unregister_lib.
-static void deinit() {
+/// RTL calls this function as early as possible to avoid finalization issues
+/// in various circumstances (e.g., tracing tool). We use the entry
+/// __tgt_rtl_unregister_lib to call this function if all images were
+/// unregistered. When plugin is unloaded, we also try to finalize if it is not
+/// done already.
+ATTRIBUTE(destructor(101)) void deinit() {
+  if (!DeviceInfo)
+    return;
   DP("Deinit Level0 plugin!\n");
   closeRTL();
   delete TLSList;
@@ -6786,9 +6793,15 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
 
 int32_t __tgt_rtl_supports_empty_images() { return 1; }
 
+EXTERN int32_t __tgt_rtl_register_lib(__tgt_bin_desc *Desc) {
+  DeviceInfo->NumRegisteredImages.fetch_add(1);
+  return OFFLOAD_SUCCESS;
+}
+
 EXTERN int32_t __tgt_rtl_unregister_lib(__tgt_bin_desc *Desc) {
-  static std::once_flag Flag;
-  std::call_once(Flag, deinit);
+  DeviceInfo->NumRegisteredImages.fetch_sub(1);
+  if (DeviceInfo->NumRegisteredImages == 0)
+    deinit();
   return OFFLOAD_SUCCESS;
 }
 

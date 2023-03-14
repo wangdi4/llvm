@@ -3,15 +3,10 @@
 //   Copyright (C) 2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
-//   property of Intel Corporation. and may not be disclosed, examined
+//   property of Intel Corporation and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//===----------------------------------------------------------------------===//
-///
-/// \file
-/// This file implements IntelVPlanNoCostInstructionAnalysis.
-///
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanNoCostInstructionAnalysis.h"
@@ -23,8 +18,8 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 /// Analyze expression trees rooted at the condition of an '@llvm.assume', and
-/// mark instructions in the tree as ZeroCost if their only use is within an
-/// assume call expression tree, e.g:
+/// mark instructions in the tree as 'Always' no-cost if their only use is
+/// within an assume call expression tree, e.g:
 ///
 ///   for (unsigned I = 0; I < 256; ++I) {
 ///     __builtin_assume(2 * (N + I) < 256)
@@ -61,8 +56,7 @@ void VPlanNoCostInstAnalysis::analyzeAssumptions(const VPAssumptionCache *AC) {
     return Visited.contains(dyn_cast<VPInstruction>(U));
   };
   const auto IsNoCost = [this](const VPUser *U) {
-    return getScenario(dyn_cast<VPInstruction>(U)) ==
-           VPlanNoCostInstAnalysis::Scenario::Always;
+    return getScenario(dyn_cast<VPInstruction>(U)) == Scenario::Always;
   };
 
   // First, iterate over internal assumes, pushing each to the worklist.
@@ -93,7 +87,7 @@ void VPlanNoCostInstAnalysis::analyzeAssumptions(const VPAssumptionCache *AC) {
       continue;
 
     LLVM_DEBUG(dbgs() << "Definitely dead: " << *I << '\n');
-    setScenario(I, VPlanNoCostInstAnalysis::Scenario::Always);
+    setScenario(I, Scenario::Always);
 
     for (const VPValue *Op : I->operands()) {
       const auto *I = dyn_cast<VPInstruction>(Op);
@@ -112,6 +106,31 @@ void VPlanNoCostInstAnalysis::analyzeAssumptions(const VPAssumptionCache *AC) {
   }
 }
 
+/// Analyze a masked-mode plan to identify loop normalization instructions.
+/// A loop normalization instruction is of the form:
+///
+///     <add/sub> ..., <orig-lower-bound>
+///
+/// In a peel loop, this original lower bound will be '0', hence we mark
+/// these instructions with the 'IfPeeling' no-cost scenario.
+void VPlanNoCostInstAnalysis::analyzeMaskedModeNormalizationInstructions(
+    const VPlanMasked &Plan) {
+  LLVM_DEBUG(
+      dbgs() << "Analyzing masked mode VPlan for normalization insts.\n");
+
+  const auto *OrigLB = Plan.getMainLoop(true)->getOrigLowerBound();
+  for (const auto &I : vpinstructions(&Plan)) {
+    if ((I.getOpcode() == Instruction::Add ||
+         I.getOpcode() == Instruction::Sub) &&
+        I.getOperand(1) == OrigLB) {
+      LLVM_DEBUG(dbgs() << "No-cost if peeling: " << I << '\n');
+      setScenario(&I, Scenario::IfPeeling);
+    }
+  }
+}
+
 void VPlanNoCostInstAnalysis::analyze(const VPlanVector &Plan) {
   analyzeAssumptions(Plan.getVPAC());
+  if (const auto *MaskedPlan = dyn_cast<VPlanMasked>(&Plan))
+    analyzeMaskedModeNormalizationInstructions(*MaskedPlan);
 }

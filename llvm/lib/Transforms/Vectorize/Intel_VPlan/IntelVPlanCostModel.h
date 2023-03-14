@@ -150,6 +150,7 @@ public:
 
 protected:
   VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
+  bool ComputingForPeel = false;
 
   VPlanTTICostModel(const VPlanVector *Plan, const unsigned VF,
                     const unsigned UF, const TargetTransformInfo *TTIin,
@@ -332,8 +333,9 @@ public:
   /// Get the pair of Costs (iteration cost and preheader/postexit cost) for
   /// VPlan with optionally specified peeling \p PeelingVariant and optionally
   /// specified pointer to output stream \p OS if debug output is requested.
-  virtual VPlanCostPair getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
-                                 raw_ostream *OS = nullptr) = 0;
+  virtual VPlanCostPair getCost(bool ForPeel = false,
+                                VPlanPeelingVariant *PeelingVariant = nullptr,
+                                raw_ostream *OS = nullptr) = 0;
 
   /// Return the cost of Load/Store VPInstruction given VF and Alignment
   /// on input.
@@ -548,10 +550,12 @@ public:
     return Cost;
   }
 
-  VPlanCostPair getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
+  VPlanCostPair getCost(bool ForPeel = false,
+                        VPlanPeelingVariant *PeelingVariant = nullptr,
                         raw_ostream *OS = nullptr) final {
+    SaveAndRestore<bool> RestoreComputingForPeel(ComputingForPeel, ForPeel);
     // Assume no peeling if it is not specified.
-    SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
+    SaveAndRestore<VPlanPeelingVariant *> RestoreOnExit(
         DefaultPeelingVariant,
         PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
 

@@ -54,18 +54,18 @@
 ;                 %mv.test4 = &((%inner)[(zext.i32.i64(%0) * zext.i32.i64(%0)) + -1]) >=u &((%row)[0]);
 ;                 %mv.test5 = &((%row)[(zext.i32.i64(%0) * zext.i32.i64(%0)) + -1]) >=u &((%inner)[0]);
 ;                 %mv.and6 = %mv.test4  &  %mv.test5;
-; CHECK:          %call = @llvm.stacksave();
-; CHECK:          %TranspTmpArr = alloca 4 * (zext.i32.i64(%0) * zext.i32.i64(%0));
-;
-; CHECK:          + DO i1 = 0, zext.i32.i64(%0) + -1, 1
-; CHECK:          |   + DO i2 = 0, zext.i32.i64(%0) + -1, 1
-; CHECK:          |   |   (%TranspTmpArr)[i1][i2] = (%col)[i2][i1];
-;                 |   + END LOOP
-;                 + END LOOP
 
 ;
-; CHECK:          if (%mv.and == 0 && %mv.and6 == 0)
+; CHECK:          if (%mv.and == 0 && %mv.and6 == 0 && zext.i32.i64(%0) <u 512) <MVTag: 43>
 ;                 {
+; CHECK:            %call = @llvm.stacksave();
+; CHECK:            %TranspTmpArr = alloca 4 * (zext.i32.i64(%0) * zext.i32.i64(%0));
+;
+; CHECK:            + DO i1 = 0, zext.i32.i64(%0) + -1, 1
+; CHECK:            |   + DO i2 = 0, zext.i32.i64(%0) + -1, 1
+; CHECK:            |   |   (%TranspTmpArr)[i1][i2] = (%col)[i2][i1];
+;                   |   + END LOOP
+;                   + END LOOP
 ;                    + DO i1 = 0, zext.i32.i64(%0) + -1, 1
 ;                    |   + DO i2 = 0, zext.i32.i64(%0) + -1, 1
 ;                    |   |   %3 = (%inner)[zext.i32.i64(%0) * i1 + i2];
@@ -77,8 +77,9 @@
 ;                    |   |   + END LOOP
 ;                    |   + END LOOP
 ;                    + END LOOP
+; CHECK:            @llvm.stackrestore(&((%call)[0]));
 ;                 }
-;                 else
+; CHECK:          else
 ;                 {
 ;                    + DO i1 = 0, zext.i32.i64(%0) + -1, 1
 ;                    |   + DO i2 = 0, zext.i32.i64(%0) + -1, 1
@@ -92,7 +93,6 @@
 ;                    |   + END LOOP
 ;                    + END LOOP
 ;                 }
-; CHECK:          @llvm.stackrestore(&((%call)[0]));
 ; CHECK:    END REGION
 
 

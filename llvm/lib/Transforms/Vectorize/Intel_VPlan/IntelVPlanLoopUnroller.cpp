@@ -195,7 +195,7 @@ void VPlanLoopUnroller::run() {
   for (unsigned Part = 0; Part < UF - 1; Part++) {
     VPCloneUtils::Value2ValueMapTy &ValueMap = Clones[Part];
     VPCloneUtils::Value2ValueMapTy ReverseMap;
-    for (auto It : ValueMap)
+    for (const auto &It : ValueMap)
       ReverseMap[It.second] = It.first;
     assert(ReverseMap.size() == ValueMap.size() &&
            "Expecting unique values only in ValueMap");

@@ -1990,9 +1990,9 @@ public:
 
   /// Generate a call to get number of groups for the dimension provided.
   /// For OpenMP SIMD path pick something of:
-  ///   call spir_func i64 _Z29__spirv_NumWorkgroups_xv
-  ///   call spir_func i64 _Z29__spirv_NumWorkgroups_yv
-  ///   call spir_func i64 _Z29__spirv_NumWorkgroups_zv
+  ///   call spir_func i64 _Z23__spirv_NumWorkgroups_xv
+  ///   call spir_func i64 _Z23__spirv_NumWorkgroups_yv
+  ///   call spir_func i64 _Z23__spirv_NumWorkgroups_zv
   /// Otherwise generate general OCL builtin:
   ///   call spir_func i64 @_Z14get_num_groupsj
   static CallInst *genNumGroupsCall(int Dim, Instruction *InsertPt);

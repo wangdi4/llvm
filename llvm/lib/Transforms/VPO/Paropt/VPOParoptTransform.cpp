@@ -553,13 +553,13 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
       SmallVector<Value *, 1> Arg;
       switch (DimNum) {
       case 0:
-        fname = "_Z29__spirv_NumWorkgroups_xv";
+        fname = "_Z23__spirv_NumWorkgroups_xv";
         break;
       case 1:
-        fname = "_Z29__spirv_NumWorkgroups_yv";
+        fname = "_Z23__spirv_NumWorkgroups_yv";
         break;
       case 2:
-        fname = "_Z29__spirv_NumWorkgroups_zv";
+        fname = "_Z23__spirv_NumWorkgroups_zv";
         break;
       default:
         llvm_unreachable("Invalid dimentional index ");
@@ -815,11 +815,11 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       std::string fname;
       SmallVector<Value *, 1> Arg;
       switch (DimNum) {
-      case 0: fname = "_Z22__spirv_WorkgroupSize_xv";
+      case 0: fname = "_Z23__spirv_WorkgroupSize_xv";
         break;
-      case 1: fname = "_Z22__spirv_WorkgroupSize_yv";
+      case 1: fname = "_Z23__spirv_WorkgroupSize_yv";
         break;
-      case 2: fname = "_Z22__spirv_WorkgroupSize_zv";
+      case 2: fname = "_Z23__spirv_WorkgroupSize_zv";
         break;
       default:
         llvm_unreachable("Invalid dimentional index ");
@@ -3378,7 +3378,7 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
   if (EmitSPIRVBuiltins) {
     SmallVector<Value *, 1> Arg;
     LocalSize = VPOParoptUtils::genOCLGenericCall(
-        "_Z22__spirv_WorkgroupSize_xv", SizeTy, Arg,
+        "_Z23__spirv_WorkgroupSize_xv", SizeTy, Arg,
         (IsArrayOrArraySection ? EntryBB : UpdateBB)->getFirstNonPHI());
     LocalId = VPOParoptUtils::genSPIRVLocalIdCall(0, LocalSize);
   } else {

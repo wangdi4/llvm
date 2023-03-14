@@ -1468,13 +1468,13 @@ CallInst *VPOParoptUtils::genNumGroupsCall(int Dim, Instruction *InsertPt) {
     // target-simd uses SPIRV builtins
     switch (Dim) {
     case 0:
-      FName = "_Z29__spirv_NumWorkgroups_xv";
+      FName = "_Z23__spirv_NumWorkgroups_xv";
       break;
     case 1:
-      FName = "_Z29__spirv_NumWorkgroups_yv";
+      FName = "_Z23__spirv_NumWorkgroups_yv";
       break;
     case 2:
-      FName = "_Z29__spirv_NumWorkgroups_zv";
+      FName = "_Z23__spirv_NumWorkgroups_zv";
       break;
     default:
       break;

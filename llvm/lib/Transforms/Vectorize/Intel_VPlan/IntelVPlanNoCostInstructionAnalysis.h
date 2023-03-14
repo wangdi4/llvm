@@ -1,4 +1,4 @@
-//===- IntelVPlanNoCostInstructionAnalysis.h -------------------*- C++ -*--===//
+//===-- IntelVPlanNoCostInstructionAnalysis.h ------------------*- C++ -*--===//
 //
 //   Copyright (C) 2023 Intel Corporation. All rights reserved.
 //
@@ -18,9 +18,10 @@
 
 namespace llvm {
 namespace vpo {
-class VPlanVector;
-class VPInstruction;
 class VPAssumptionCache;
+class VPInstruction;
+class VPlanMasked;
+class VPlanVector;
 
 class VPlanNoCostInstAnalysis {
 public:
@@ -50,9 +51,13 @@ public:
 
 private:
   /// Analyze expression trees rooted at the condition of an '@llvm.assume', and
-  /// mark instructions in the tree as ZeroCost if their only use is within an
-  /// assume call expression tree
+  /// mark instructions in the tree as 'Always' no-cost if their only use is
+  /// within an assume call expression tree.
   void analyzeAssumptions(const VPAssumptionCache *AC);
+
+  /// Analyze a masked-mode plan to identify loop normalization instructions and
+  /// mark them as no-cost 'IfPeeling'.
+  void analyzeMaskedModeNormalizationInstructions(const VPlanMasked &Plan);
 
   /// Sets the zero-cost scenario \p S for the given instruction \p I.
   /// Asserts that \p S is not `SpecialCMBehavior::None`.
