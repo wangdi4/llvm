@@ -2459,6 +2459,7 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, ModifyDT &ModifiedDT) {
     case Intrinsic::dbg_assign:
     case Intrinsic::dbg_value:
       return fixupDbgValue(II);
+<<<<<<< HEAD
     case Intrinsic::vscale: {
       // If datalayout has no special restrictions on vector data layout,
       // replace `llvm.vscale` by an equivalent constant expression
@@ -2491,6 +2492,12 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, ModifyDT &ModifiedDT) {
       return Changed;
     }
 #endif // INTEL_CUSTOMIZATION
+=======
+    case Intrinsic::masked_gather:
+      return optimizeGatherScatterInst(II, II->getArgOperand(0));
+    case Intrinsic::masked_scatter:
+      return optimizeGatherScatterInst(II, II->getArgOperand(1));
+>>>>>>> adbdf273efd584e58e7ef57d391b4e1885e7837f
     }
 
     SmallVector<Value *, 2> PtrOps;
