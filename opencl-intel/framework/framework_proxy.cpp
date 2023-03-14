@@ -28,6 +28,7 @@
 #endif
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::TaskExecutor;
+using namespace Intel::OpenCL::Utils;
 
 cl_monitor_init
 

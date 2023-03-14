@@ -36,6 +36,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
+
 std::unique_ptr<llvm::ExecutionEngine>
 LLDJITBuilder::CreateExecutionEngine(llvm::Module *M, llvm::TargetMachine *TM) {
   std::string Err;

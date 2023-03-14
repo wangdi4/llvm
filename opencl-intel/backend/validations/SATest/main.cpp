@@ -26,7 +26,7 @@
 #include "llvm/Support/CommandLine.h"
 
 using namespace Validation;
-using std::endl;
+using namespace Intel::OpenCL::DeviceBackend;
 
 llvm::cl::opt<std::string>
     ConfigFile("config", llvm::cl::desc("Test configuration file parameters."),
@@ -266,19 +266,20 @@ int main(int argc, char *argv[]) {
     return 0;
   } catch (Exception::InvalidEnvironmentException &e) {
     // Exception of invalid execution environment of SATest
-    std::cerr << "InvalidEnvironment exception occurred: " << e.what() << endl;
+    std::cerr << "InvalidEnvironment exception occurred: " << e.what()
+              << std::endl;
     return int(e.GetErrorCode());
   } catch (Exception::TestFailException &e) {
     // Test does not match reference
-    std::cerr << "Test Failed: " << e.what() << endl;
+    std::cerr << "Test Failed: " << e.what() << std::endl;
     return int(e.GetErrorCode());
   } catch (Exception::ValidationExceptionBase &e) {
     // Exception occurred during test run process
-    std::cerr << "Validation exception occurred: " << e.what() << endl;
+    std::cerr << "Validation exception occurred: " << e.what() << std::endl;
     return int(e.GetErrorCode());
   } catch (Exceptions::DeviceBackendExceptionBase &e) {
     // Exception occurred inside the back-end
-    std::cerr << "Back-end exception occurred: " << e.what() << endl;
+    std::cerr << "Back-end exception occurred: " << e.what() << std::endl;
     return int(e.GetErrorCode());
   }
 }

@@ -45,6 +45,8 @@
 #define GET_FPOS_T(var) ((var).__pos)
 #endif
 
+using namespace llvm;
+
 bool BuildProgram(const char *szFileName, cl_dev_program *prog) {
   std::ifstream testFile(szFileName, std::ios::binary);
   if (!testFile.is_open()) {

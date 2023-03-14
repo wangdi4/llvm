@@ -39,7 +39,6 @@
 
 struct _cl_mem_obj_descriptor;
 typedef struct _cl_mem_obj_descriptor cl_mem_obj_descriptor;
-using namespace llvm;
 
 namespace Validation {
 namespace OCLBuiltins {
@@ -166,14 +165,14 @@ lle_X_read_image_samplerless(llvm::FunctionType *FT,
 }
 
 template <typename T>
-void getColorForWriteImage(const GenericValue &PixelGV, T val[4]) {
+void getColorForWriteImage(const llvm::GenericValue &PixelGV, T val[4]) {
   llvm::report_fatal_error("getColor: unsupported data type.");
 }
 
 template <typename T>
 llvm::GenericValue lle_X_write_image(llvm::FunctionType *FT,
                                      llvm::ArrayRef<llvm::GenericValue> Args) {
-  GenericValue gv;
+  llvm::GenericValue gv;
   cl_mem_obj_descriptor *memobj = (cl_mem_obj_descriptor *)Args[0].PointerVal;
 
   cl_image_format im_fmt;
@@ -182,14 +181,14 @@ llvm::GenericValue lle_X_write_image(llvm::FunctionType *FT,
   const cl_mem_object_type objType = memobj->memObjType;
 
   // coordinates
-  const GenericValue &CoordGV = Args[1];
+  const llvm::GenericValue &CoordGV = Args[1];
 
   int32_t u, v, w;
 
   getCoordsByImageType<int32_t, int32_t>(objType, CoordGV, u, v, w);
 
   // datatype of pixel
-  const GenericValue &PixelGV = Args[2];
+  const llvm::GenericValue &PixelGV = Args[2];
 
   T val[4];
 
@@ -231,7 +230,7 @@ lle_X_get_image_channel_order(llvm::FunctionType *FT,
                               llvm::ArrayRef<llvm::GenericValue> Args);
 
 llvm::GenericValue
-lle_X_get_image_array_size(FunctionType *FT,
+lle_X_get_image_array_size(llvm::FunctionType *FT,
                            llvm::ArrayRef<llvm::GenericValue> Args);
 
 /// @brief convert from Intel OpenCL enums with CLK_ prefix to CL_ prefix

@@ -20,8 +20,6 @@
 #include "cl_dynamic_lib.h"
 #include "common_dev_limits.h"
 
-using namespace Intel::OpenCL::DeviceBackend;
-
 namespace Intel {
 namespace OpenCL {
 namespace CPUDevice {
@@ -35,8 +33,9 @@ public:
   /**
    * Calls the OCLCpuBackend Init function
    */
-  cl_dev_err_code Init(const ICLDevBackendOptions *pBackendOptions,
-                       DeviceMode dev);
+  cl_dev_err_code
+  Init(const DeviceBackend::ICLDevBackendOptions *pBackendOptions,
+       DeviceMode dev);
 
   /**
    * Calls the OCLCpuBackend Terminate function
@@ -47,7 +46,7 @@ public:
    * Calls the OCLCpuBackend 'GetBackendFactor' method (returning the factory
    * inteface)
    */
-  ICLDevBackendServiceFactory *GetBackendFactory();
+  DeviceBackend::ICLDevBackendServiceFactory *GetBackendFactory();
 
 private:
   DeviceMode m_targetDev;

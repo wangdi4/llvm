@@ -52,8 +52,10 @@
 #define MEMORY_LIMIT (MIN(TotalPhysicalSize(), TotalVirtualSize()))
 #endif
 
+using namespace llvm;
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::BuiltInKernels;
+using namespace Intel::OpenCL::TaskExecutor;
 using namespace Intel::OpenCL::Utils;
 
 const char *Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";

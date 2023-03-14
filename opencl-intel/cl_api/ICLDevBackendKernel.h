@@ -23,7 +23,7 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-typedef void JIT_PTR(const UniformKernelArgs *, const size_t *, void *);
+typedef void JIT_PTR(const llvm::UniformKernelArgs *, const size_t *, void *);
 /**
  * This interface represent the bitcode container responsible
  * for holding the bitcode buffer
@@ -336,7 +336,7 @@ public:
    *  In success will return the kernel arguments descriptor; otherwise, NULL
    *  value will be returned
    */
-  virtual const KernelArgument *GetKernelParams() const = 0;
+  virtual const llvm::KernelArgument *GetKernelParams() const = 0;
 
   /**
    * Gets the kernel parameters extended information

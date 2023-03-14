@@ -42,7 +42,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
 #ifdef _DEBUG
     // this is needed to initialize allocated objects DB, which is
     // maintained in only in debug
-    InitSharedPtrs();
+    Intel::OpenCL::Utils::InitSharedPtrs();
 #endif
     break;
   case DLL_THREAD_ATTACH:
@@ -54,7 +54,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
     Intel::OpenCL::Framework::FrameworkProxy::Destroy();
     llvm::llvm_shutdown();
 #ifdef _DEBUG
-    FiniSharedPts();
+    Intel::OpenCL::Utils::FiniSharedPts();
 #endif
     break;
   }

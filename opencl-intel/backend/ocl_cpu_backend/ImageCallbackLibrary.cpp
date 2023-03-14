@@ -45,7 +45,7 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-const string channelOrderToPrefix(cl_channel_order _co) {
+const std::string channelOrderToPrefix(cl_channel_order _co) {
   std::string toReturn = channelOrderToString(_co);
   // Must match order in cl_api/cl.h and cl_api/cl_2_0.h
   // channel_order starts with CL_ that we need to cut
@@ -53,7 +53,7 @@ const string channelOrderToPrefix(cl_channel_order _co) {
   return toReturn;
 }
 
-const string samplerToAddrModePrefix(SamplerType _sampler) {
+const std::string samplerToAddrModePrefix(SamplerType _sampler) {
   int addressMode = _sampler & __ADDRESS_MASK;
   switch (addressMode) {
   case CLK_ADDRESS_MIRRORED_REPEAT:
@@ -73,7 +73,7 @@ const string samplerToAddrModePrefix(SamplerType _sampler) {
   }
 }
 
-const string imgTypeToDimPrefix(cl_mem_object_type _type) {
+const std::string imgTypeToDimPrefix(cl_mem_object_type _type) {
   switch (_type) {
   case CL_MEM_OBJECT_IMAGE1D:
   case CL_MEM_OBJECT_IMAGE1D_ARRAY:
@@ -90,14 +90,14 @@ const string imgTypeToDimPrefix(cl_mem_object_type _type) {
   }
 }
 
-const string channelDataTypeToPrefix(cl_channel_type _ct) {
+const std::string channelDataTypeToPrefix(cl_channel_type _ct) {
   std::string toReturn = channelTypeToString(_ct);
   // channel_type starts with CL_ that we need to cut
   toReturn = toReturn.substr(strlen("CL_"), toReturn.size());
   return toReturn;
 }
 
-const string VecSizeToPrefix(VecSize _size) {
+const std::string VecSizeToPrefix(VecSize _size) {
   switch (_size) {
   case SCALAR:
     return "";
@@ -113,7 +113,7 @@ const string VecSizeToPrefix(VecSize _size) {
       std::string("Internal error. Unsupported vector size"));
 }
 
-const string FilterToPrefix(cl_filter_mode _filterMode) {
+const std::string FilterToPrefix(cl_filter_mode _filterMode) {
   switch (_filterMode) {
   case CL_FILTER_LINEAR:
     return "LINEAR";

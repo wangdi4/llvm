@@ -46,6 +46,7 @@
 #include <windows.h>
 #endif
 
+using namespace llvm;
 using namespace Intel::OpenCL::Utils;
 
 // #define _EXTENDED_LOG

@@ -222,9 +222,9 @@ protected:
   DECLARE_LOGGER_CLIENT;
 
 private:
-  cl_err_code ProcessResults(cl_err_code Error, IOCLFEBinaryResult *Result,
-                             char **Binary, size_t *BinarySize,
-                             char **CompileLog) const;
+  cl_err_code ProcessResults(cl_err_code Error,
+                             ClangFE::IOCLFEBinaryResult *Result, char **Binary,
+                             size_t *BinarySize, char **CompileLog) const;
 };
 } // namespace Framework
 } // namespace OpenCL

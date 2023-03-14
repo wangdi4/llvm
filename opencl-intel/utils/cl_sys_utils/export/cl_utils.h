@@ -147,8 +147,8 @@ the object are merely a typedefs
 * Arguments:    a variable to convert into string
 * Return value:    string
 *******************************************************************************/
-const string channelOrderToString(const cl_channel_order &co);
-const string channelTypeToString(const cl_channel_type &ct);
+const std::string channelOrderToString(const cl_channel_order &co);
+const std::string channelTypeToString(const cl_channel_type &ct);
 
 /*******************************************************************************
  * Function:     clIsNumaAvailable
@@ -318,7 +318,7 @@ bool GetStringValueFromRegistryOrETC(HKEY top_hkey, const char *keyPath,
 /**
  * @return the text content of filePath
  */
-string ReadFileContents(const string &filePath);
+std::string ReadFileContents(const std::string &filePath);
 
 // Identify the node on which the calling thread is current running.
 // The return value should lie in the range [0, max_node_count).

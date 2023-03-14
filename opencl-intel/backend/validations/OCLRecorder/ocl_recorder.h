@@ -45,15 +45,13 @@
 #include <list>
 #include <map>
 
-using namespace Intel::OpenCL;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 ///\brief exported creator method - used to create the OCLRecorder plug-in
-OCL_RECORDER_API IPlugin *CreatePlugin(void);
+OCL_RECORDER_API Intel::OpenCL::IPlugin *CreatePlugin(void);
 ///\brief exported destructor method - used to delete the OCLRecorder plug-in
-OCL_RECORDER_API void ReleasePlugin(IPlugin *pPlugin);
+OCL_RECORDER_API void ReleasePlugin(Intel::OpenCL::IPlugin *pPlugin);
 #ifdef __cplusplus
 }
 #endif
@@ -63,6 +61,10 @@ class Function;
 }
 
 namespace Validation {
+
+// FIXME 'using namespace' shouldn't be used in header file.
+using namespace Intel::OpenCL::DeviceBackend;
+
 ///\brief Context maintained for each captured kernel's binary.
 ///       The main purpose to maintain this information is to
 ///       ensure that kernel work size parameters will be
@@ -269,7 +271,7 @@ private: // Internal method
   void RecordProgramConfig(RecorderContext &context);
 
   void RecordSourceCode(RecorderContext &context,
-                        const Frontend::SourceFile &sourceFile);
+                        const Intel::OpenCL::Frontend::SourceFile &sourceFile);
 
   void RecordKernelConfig(RecorderContext &programContext,
                           const KernelContext &kernelContext,
@@ -319,8 +321,9 @@ private: // Utility methods
   //  configuration file. (valid pointer only if this method returns true).
   // Returns true, if we have a all the pre-requisits for source-level
   // recordings.
-  bool NeedSourceRecording(const llvm::MD5::MD5Result &code,
-                           OUT Frontend::SourceFile *pSourceFile) const;
+  bool NeedSourceRecording(
+      const llvm::MD5::MD5Result &code,
+      OUT Intel::OpenCL::Frontend::SourceFile *pSourceFile) const;
 
 private: // Data members
   typedef std::map<const ICLDevBackendProgram_ *, RecorderContext *>

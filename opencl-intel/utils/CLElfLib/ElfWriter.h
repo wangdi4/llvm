@@ -24,8 +24,6 @@
 #define ELF_CALL
 #endif
 
-using namespace std;
-
 namespace CLElfLib {
 static const unsigned int g_scElfHeaderAlignment =
     16; // allocation alignment restriction
@@ -36,7 +34,7 @@ static const unsigned int g_scInitNumSectionHeaders = 8;
 struct SSectionNode {
   E_SH_TYPE Type;
   unsigned int Flags;
-  string Name;
+  std::string Name;
   char *pData;
   unsigned int DataSize;
 

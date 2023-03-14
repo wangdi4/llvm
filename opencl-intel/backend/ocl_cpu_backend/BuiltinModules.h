@@ -35,7 +35,8 @@ namespace DeviceBackend {
 
 class BuiltinModules {
 public:
-  BuiltinModules(llvm::SmallVector<std::unique_ptr<Module>, 2> builtinsModules);
+  BuiltinModules(
+      llvm::SmallVector<std::unique_ptr<llvm::Module>, 2> builtinsModules);
   ~BuiltinModules();
 
   llvm::SmallVector<llvm::Module *, 2> &GetBuiltinModuleList() {
@@ -53,11 +54,12 @@ public:
   virtual ~BuiltinLibrary();
 
   std::unique_ptr<llvm::MemoryBuffer> GetRtlBuffer() const {
-    return MemoryBuffer::getMemBuffer(m_pRtlBuffer->getBuffer());
+    return llvm::MemoryBuffer::getMemBuffer(m_pRtlBuffer->getBuffer());
   }
 
   std::unique_ptr<llvm::MemoryBuffer> GetRtlBufferSvmlShared() const {
-    return MemoryBuffer::getMemBuffer(m_pRtlBufferSvmlShared->getBuffer());
+    return llvm::MemoryBuffer::getMemBuffer(
+        m_pRtlBufferSvmlShared->getBuffer());
   }
 
   Intel::OpenCL::Utils::ECPU GetCPU() const { return m_cpuId->GetCPU(); }

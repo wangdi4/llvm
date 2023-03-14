@@ -30,6 +30,8 @@
 
 #include <memory>
 
+using namespace llvm;
+using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::ELFUtils;
 
 static std::vector<cl_kernel_argument_info>

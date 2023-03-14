@@ -25,7 +25,9 @@
 #include <algorithm>
 #include <functional>
 
+using namespace llvm;
 using namespace Validation;
+using namespace Intel::OpenCL::DeviceBackend;
 
 // must be a multiple of 64 to avoid alignment issues.
 const size_t PaddingSize = 4096;

@@ -357,7 +357,7 @@ public:
                     cl_bool IN bBlocking, size_t IN szOffset, size_t IN szCb,
                     void *OUT pOutData, cl_uint IN uNumEventsInWaitList,
                     const cl_event *IN cpEeventWaitList, cl_event *OUT pEvent,
-                    ApiLogger *IN apiLogger) = 0;
+                    Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function: EnqueueWriteBuffer
@@ -426,7 +426,7 @@ public:
                      cl_bool IN bBlocking, size_t IN szOffset, size_t IN szCb,
                      const void *OUT cpSrcData, cl_uint IN uNumEventsInWaitList,
                      const cl_event *IN cpEeventWaitList, cl_event *OUT pEvent,
-                     ApiLogger *IN apiLogger) = 0;
+                     Utils::ApiLogger *IN apiLogger) = 0;
   /*****************************************************************************
    * Function:     EnqueueCopyBuffer
    * Description: Enqueues a command to copy a buffer object identified by
@@ -490,7 +490,7 @@ public:
                     size_t IN szDstOffset, size_t IN szCb,
                     cl_uint IN uNumEventsInWaitList,
                     const cl_event *IN cpEeventWaitList, cl_event *OUT pEvent,
-                    ApiLogger *IN apiLogger) = 0;
+                    Utils::ApiLogger *IN apiLogger) = 0;
 
   /**
    * enqueues a command to fill a buffer object with a pattern of a given
@@ -548,7 +548,7 @@ public:
                     const void *pattern, size_t pattern_size, size_t offset,
                     size_t size, cl_uint num_events_in_wait_list,
                     const cl_event *event_wait_list, cl_event *event,
-                    ApiLogger *apiLogger) = 0;
+                    Utils::ApiLogger *apiLogger) = 0;
 
   /*****************************************************************************
    * Function:    EnqueueReadImage
@@ -645,7 +645,7 @@ public:
                    size_t IN szSlicePitch, void *OUT pOutData,
                    cl_uint IN uNumEventsInWaitList,
                    const cl_event *IN cpEeventWaitList, cl_event *OUT pEvent,
-                   ApiLogger *IN apiLogger) = 0;
+                   Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:    EnqueueWriteImage
@@ -742,7 +742,7 @@ public:
                     size_t IN szSlicePitch, const void *IN cpSrcData,
                     cl_uint IN uNumEventsInWaitList,
                     const cl_event *IN cpEeventWaitList, cl_event *OUT pEvent,
-                    ApiLogger *IN apiLogger) = 0;
+                    Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:    EnqueueCopyImage
@@ -836,7 +836,7 @@ public:
                    const size_t IN szDstOrigin[3], const size_t IN szRegion[3],
                    cl_uint IN uNumEventsInWaitList,
                    const cl_event *IN cpEeventWaitList, cl_event *OUT pEvent,
-                   ApiLogger *IN apiLogger) = 0;
+                   Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:    EnqueueCopyImageToBuffer
@@ -912,7 +912,7 @@ public:
       cl_mem IN clDstBuffer, const size_t IN szSrcOrigin[3],
       const size_t IN szRegion[3], size_t IN szDstOffset,
       cl_uint IN uNumEventsInWaitList, const cl_event *IN cpEeventWaitList,
-      cl_event *OUT pEvent, ApiLogger *IN apiLogger) = 0;
+      cl_event *OUT pEvent, Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:    EnqueueCopyBufferToImage
@@ -987,7 +987,7 @@ public:
       cl_mem IN clDstImage, size_t IN szSrcOffset,
       const size_t IN szDstOrigin[3], const size_t IN szRegion[3],
       cl_uint IN uNumEventsInWaitList, const cl_event *IN cpEeventWaitList,
-      cl_event *OUT pEvent, ApiLogger *IN apiLogger) = 0;
+      cl_event *OUT pEvent, Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:    EnqueueMapBuffer
@@ -1074,7 +1074,7 @@ public:
                                  cl_uint IN uNumEventsInWaitList,
                                  const cl_event *IN cpEeventWaitList,
                                  cl_event *OUT pEvent, cl_int *OUT pErrcodeRet,
-                                 ApiLogger *IN apiLogger) = 0;
+                                 Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:    EnqueueMapImage
@@ -1172,7 +1172,7 @@ public:
                   size_t *OUT pszImageRowPitch, size_t *OUT pszImageSlicePitch,
                   cl_uint IN uNumEventsInWaitList,
                   const cl_event *IN cpEeventWaitList, cl_event *OUT pEvent,
-                  cl_int *OUT pErrcodeRet, ApiLogger *IN apiLogger) = 0;
+                  cl_int *OUT pErrcodeRet, Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:     EnqueueUnmapMemObject
@@ -1222,11 +1222,13 @@ public:
    *                                       resources on the host
    *
    ****************************************************************************/
-  virtual cl_err_code
-  EnqueueUnmapMemObject(cl_command_queue IN clCommandQueue, cl_mem IN clMemObj,
-                        void *IN mappedPtr, cl_uint IN uNumEventsInWaitList,
-                        const cl_event *IN cpEeventWaitList,
-                        cl_event *OUT pEvent, ApiLogger *IN apiLogger) = 0;
+  virtual cl_err_code EnqueueUnmapMemObject(cl_command_queue IN clCommandQueue,
+                                            cl_mem IN clMemObj,
+                                            void *IN mappedPtr,
+                                            cl_uint IN uNumEventsInWaitList,
+                                            const cl_event *IN cpEeventWaitList,
+                                            cl_event *OUT pEvent,
+                                            Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:     EnqueueNDRangeKernel
@@ -1326,7 +1328,7 @@ public:
       cl_uint IN uiWorkDim, const size_t *IN cpszGlobalWorkOffset,
       const size_t *IN cpszGlobalWorkSize, const size_t *IN cpszLocalWorkSize,
       cl_uint IN uNumEventsInWaitList, const cl_event *IN cpEeventWaitList,
-      cl_event *OUT pEvent, ApiLogger *IN apiLogger) = 0;
+      cl_event *OUT pEvent, Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:     EnqueueTask
@@ -1394,7 +1396,7 @@ public:
                                   cl_uint IN uNumEventsInWaitList,
                                   const cl_event *IN cpEeventWaitList,
                                   cl_event *OUT pEvent,
-                                  ApiLogger *IN apiLogger) = 0;
+                                  Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function: EnqueueNativeKernel
@@ -1480,7 +1482,7 @@ public:
                       const cl_mem *IN clMemList, const void **IN ppArgsMemLoc,
                       cl_uint IN uNumEventsInWaitList,
                       const cl_event *IN cpEeventWaitList, cl_event *OUT pEvent,
-                      ApiLogger *IN apiLogger) = 0;
+                      Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:     EnqueueMarker
@@ -1507,7 +1509,7 @@ public:
    ****************************************************************************/
   virtual cl_err_code EnqueueMarker(cl_command_queue IN clCommandQueue,
                                     cl_event *OUT pEvent,
-                                    ApiLogger *IN apiLogger) = 0;
+                                    Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:     EnqueueWaitForEvents
@@ -1536,7 +1538,7 @@ public:
   virtual cl_err_code EnqueueWaitForEvents(cl_command_queue IN clCommandQueue,
                                            cl_uint IN uiNumEvents,
                                            const cl_event *OUT cpEventList,
-                                           ApiLogger *IN apiLogger) = 0;
+                                           Utils::ApiLogger *IN apiLogger) = 0;
 
   /*****************************************************************************
    * Function:     EnqueueBarrier
@@ -1556,7 +1558,7 @@ public:
    *                                       resources on the host
    ****************************************************************************/
   virtual cl_err_code EnqueueBarrier(cl_command_queue IN clCommandQueue,
-                                     ApiLogger *pApiLogger) = 0;
+                                     Utils::ApiLogger *pApiLogger) = 0;
 
   /*****************************************************************************
    * Function:     Flush

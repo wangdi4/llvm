@@ -13,7 +13,7 @@
 #include <iostream>
 #include <sys/stat.h>
 
-// used to make a macro definition into a string simply call XSTR with you
+// used to make a macro definition into a std::string simply call XSTR with you
 // defined macro "s"
 #define XSTR(s) STR(s)
 #define STR(s) #s
@@ -50,16 +50,17 @@ inline bool checkFileExistence(char *fileName);
  *  isEqual - true if you want to check they are equal and false if you want
  *to check they are different
  */
-void validateEqualityOfFiles(string fileName1, string fileName2, bool isEqual,
-                             int linesToSkip);
+void validateEqualityOfFiles(std::string fileName1, std::string fileName2,
+                             bool isEqual, int linesToSkip);
 
-void validateSubstringInFile(string fileName, string subString, bool doesExist);
+void validateSubstringInFile(std::string fileName, std::string subString,
+                             bool doesExist);
 /*
  * just delete all the files you give him, if they exists
  * files[] - all the file names to be removed
  * num - the length of the array.
  */
-void removeFiles(string files[], int num);
+void removeFiles(std::string files[], int num);
 
 /*
  * google test base class for OpenCL framework tests, just inherit from him and
@@ -137,13 +138,13 @@ class oclErr {
 public:
   oclErr(cl_err_code errCode);
 
-  string gerErrString() const;
+  std::string gerErrString() const;
   bool operator==(const oclErr &other) const;
   bool operator!=(const oclErr &other) const { return !operator==(other); }
 
 private:
   cl_err_code errCode;
-  string err;
+  std::string err;
 };
 
 ::std::ostream &operator<<(::std::ostream &os, const oclErr &OclErr);
@@ -208,7 +209,7 @@ public:
     return mMem == NULL;
   }
 
-  ostream &print(::std::ostream &os) const { return os << mMem; }
+  std::ostream &print(::std::ostream &os) const { return os << mMem; }
 
 protected:
   cl_mem mMem;

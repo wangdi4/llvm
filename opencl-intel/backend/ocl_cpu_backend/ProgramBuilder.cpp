@@ -63,9 +63,9 @@
 
 #define DEBUG_TYPE "ProgramBuilder"
 
+using namespace llvm;
 using namespace SYCLKernelMetadataAPI;
 using namespace intel;
-using namespace llvm;
 
 namespace Intel {
 namespace OpenCL {

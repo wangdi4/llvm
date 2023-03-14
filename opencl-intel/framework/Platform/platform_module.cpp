@@ -554,7 +554,7 @@ cl_int PlatformModule::GetDeviceIDs(cl_platform_id /*clPlatform*/,
   }
 
   if (nullptr != pclDevices) {
-    cl_uint uiNumDevicesToAdd = min(uiRetNumDevices, uiNumEntries);
+    cl_uint uiNumDevicesToAdd = std::min(uiRetNumDevices, uiNumEntries);
 
     for (cl_uint ui = 0; ui < uiNumDevicesToAdd; ++ui) {
       pclDevices[ui] = pDeviceIds[ui];

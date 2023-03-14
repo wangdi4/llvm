@@ -25,6 +25,7 @@
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MemoryObject C'tor

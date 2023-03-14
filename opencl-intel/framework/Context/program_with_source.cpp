@@ -51,7 +51,7 @@ ProgramWithSource::ProgramWithSource(SharedPtr<Context> pContext,
     CopySourceStrings(uiNumStrings, pSources, pszLengths);
 
     for (size_t i = 0; i < m_szNumAssociatedDevices; ++i) {
-      unique_ptr<DeviceProgram> &pDevProgram = m_ppDevicePrograms[i];
+      std::unique_ptr<DeviceProgram> &pDevProgram = m_ppDevicePrograms[i];
       pDevProgram.reset(new DeviceProgram());
 
       pDevProgram->SetDevice(pDevices[i]);

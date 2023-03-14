@@ -82,7 +82,7 @@ public:
     m_useAutoMemory = basicConfig.UseAutoMemory();
   }
 
-  Kernel(const std::string &name, const std::vector<KernelArgument> &args,
+  Kernel(const std::string &name, const std::vector<llvm::KernelArgument> &args,
          const std::vector<unsigned int> &memArgs, KernelProperties *pProps);
 
   virtual ~Kernel();
@@ -122,7 +122,7 @@ public:
    *  In success will return the kernel arguments descriptor; otherwise, NULL
    *  value will be returned
    */
-  virtual const KernelArgument *GetKernelParams() const override;
+  virtual const llvm::KernelArgument *GetKernelParams() const override;
 
   /**
    * Gets the kernel parameters extended information
@@ -278,7 +278,7 @@ public:
   /**
    * Returns the vector of kernel parameters
    */
-  const std::vector<KernelArgument> *GetKernelParamsVector() const;
+  const std::vector<llvm::KernelArgument> *GetKernelParamsVector() const;
 
   /**
    * Adds kernel JIT version to the kernel.
@@ -307,7 +307,7 @@ public:
    * Calculate the local workgroup sizes if one was not specified in the input
    * work sizes
    */
-  void CreateWorkDescription(UniformKernelArgs *UniformImplicitArgs,
+  void CreateWorkDescription(llvm::UniformKernelArgs *UniformImplicitArgs,
                              size_t numOfComputeUnits) const;
   /**
    * get RuntimeService
@@ -332,7 +332,7 @@ public:
   virtual void Deserialize(IInputStream &ist, SerializationStatus *stats);
 
 protected:
-  void DebugPrintUniformKernelArgs(const UniformKernelArgs *Arguments,
+  void DebugPrintUniformKernelArgs(const llvm::UniformKernelArgs *Arguments,
                                    size_t offsetToImplicit,
                                    std::ostream &OS) const;
   std::pair<void *, size_t> AllocaStack(size_t size) const;
@@ -341,7 +341,7 @@ protected:
   std::string m_name;
   unsigned int m_CSRMask = 0;  // Mask to be applied to set the execution flags
   unsigned int m_CSRFlags = 0; // Flags to be set during execution
-  std::vector<KernelArgument> m_explicitArgs;
+  std::vector<llvm::KernelArgument> m_explicitArgs;
   std::vector<cl_kernel_argument_info> m_explicitArgsInfo;
   unsigned int m_explicitArgsSizeInBytes = 0;
   unsigned int m_RequiredUniformKernelArgsAlignment = 0;

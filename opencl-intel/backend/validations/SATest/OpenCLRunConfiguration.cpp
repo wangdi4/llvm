@@ -17,6 +17,8 @@
 #include "SATest.h"
 #include "llvm/Support/CommandLine.h"
 
+using namespace Intel::OpenCL::DeviceBackend;
+
 extern llvm::cl::opt<Validation::TEST_MODE> TestMode;
 
 extern llvm::cl::opt<bool> NoRef;

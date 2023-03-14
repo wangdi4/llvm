@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include "IBlockToKernelMapper.h"
 #include <vector>
 
 #ifndef LLVM_BACKEND_NOINLINE_PRE
@@ -35,10 +36,11 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE size_t
 __ocl_task_sequence_create(size_t ret_type_size);
 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void
-__ocl_task_sequence_async(task_sequence *obj, unsigned invocation_capacity,
-                          void *block_invoke, void *block_literal,
-                          IDeviceCommandManager *DCM, IBlockToKernelMapper *B2K,
-                          void *RuntimeHandle);
+__ocl_task_sequence_async(
+    task_sequence *obj, unsigned invocation_capacity, void *block_invoke,
+    void *block_literal, IDeviceCommandManager *DCM,
+    Intel::OpenCL::DeviceBackend::IBlockToKernelMapper *B2K,
+    void *RuntimeHandle);
 
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void *
 __ocl_task_sequence_get(task_sequence *obj, IDeviceCommandManager *DCM);

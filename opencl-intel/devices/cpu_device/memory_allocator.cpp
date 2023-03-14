@@ -29,6 +29,7 @@
 // #define _ENABLE_LOCK_OBJECTS_
 
 using namespace Intel::OpenCL::CPUDevice;
+using namespace Intel::OpenCL::DeviceBackend;
 
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc,
                                  cl_ulong maxAllocSize,

@@ -201,7 +201,6 @@ extern "C" LLVM_BACKEND_API int __opencl_atexit(void (*function)(void)) {
 
 // OpenCL20. Extended execution
 class IDeviceCommandManager;
-class IBlockToKernelMapper;
 #include "Intel_opencl_task_sequence.h" // INTEL
 #include "opencl20_ext_execution.h"
 

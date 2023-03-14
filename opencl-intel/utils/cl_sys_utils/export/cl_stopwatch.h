@@ -18,8 +18,6 @@
 
 #include <string>
 
-using namespace ::std;
-
 namespace Intel {
 namespace OpenCL {
 namespace Utils {

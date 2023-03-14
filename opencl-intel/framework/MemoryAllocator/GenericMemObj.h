@@ -189,7 +189,7 @@ public:
 protected:
   unsigned int m_active_groups_count; // groups with allocated device objects
 
-  typedef vector<SharedPtr<GenericMemObjectSubBuffer>> TSubBufferList;
+  typedef std::vector<SharedPtr<GenericMemObjectSubBuffer>> TSubBufferList;
 
   enum hierarchical_memory_mode {
     MEMORY_MODE_NORMAL = 0,
@@ -301,7 +301,7 @@ protected:
   // Get m_eventOfSubBufferInUpdateProcessList of this hierarchical memory
   // group. (use 'm_updateParentInProcessSubBufferList' only by getting it from
   // this method.)
-  inline vector<SharedPtr<OclEvent>> *
+  inline std::vector<SharedPtr<OclEvent>> *
   getEventsOfSubBuffersInUpdateProcessListPtr() {
     return &(getParentMemObj()
                  .m_updateParentStruct.m_eventOfSubBufferInUpdateProcessList);
@@ -433,7 +433,7 @@ private:
 
     // Set the updateChildEventList.
     inline void setUpdateChildEventList(
-        const vector<SharedPtr<OclEvent>> &updateChildEventList) {
+        const std::vector<SharedPtr<OclEvent>> &updateChildEventList) {
       assert(m_updateParentEventList.size() == 0 &&
              "The size of m_updateParentList must be 0 when calling to "
              "setUpdateChildList()");
@@ -441,7 +441,7 @@ private:
     }
 
     // Get the updateChildEventList.
-    inline vector<SharedPtr<OclEvent>> &getUpdateChildEventList() {
+    inline std::vector<SharedPtr<OclEvent>> &getUpdateChildEventList() {
       return m_updateParentEventList;
     }
 
@@ -457,7 +457,8 @@ private:
     }
 
     // Get the parentChildList.
-    inline vector<SharedPtr<GenericMemObjectSubBuffer>> &getParentChildList() {
+    inline std::vector<SharedPtr<GenericMemObjectSubBuffer>> &
+    getParentChildList() {
       return m_subBuffersList;
     }
 
@@ -509,7 +510,7 @@ private:
         PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE;
     unsigned int m_parentValidGroupId;
 
-    vector<SharedPtr<OclEvent>> m_updateParentEventList;
+    std::vector<SharedPtr<OclEvent>> m_updateParentEventList;
     TSubBufferList m_subBuffersList;
 
     bool m_hasZombieUpdate;
@@ -725,7 +726,7 @@ private:
 
   // define the current memory mode status (Of all hierarchical group). Use only
   // the parent instance.
-  AtomicCounter m_hierarchicalMemoryMode;
+  Utils::AtomicCounter m_hierarchicalMemoryMode;
 
   // Vector of all my sub-buffers. Use only the parent instance.
   TSubBufferList m_subBuffersList;
@@ -745,11 +746,11 @@ private:
 
     // Vector of DataCopyEvent(s) for each event that create due to update
     // parent of m_updateParentList or zombies. Use only the parent instance.
-    vector<SharedPtr<OclEvent>> m_eventOfSubBufferInUpdateProcessList;
+    std::vector<SharedPtr<OclEvent>> m_eventOfSubBufferInUpdateProcessList;
 
     unsigned int m_parentValidSharingGroupIdDuringUpdate;
 
-    AtomicCounter m_updateParentFlag;
+    Utils::AtomicCounter m_updateParentFlag;
   };
 
   update_parent_struct m_updateParentStruct;
@@ -918,7 +919,7 @@ public:
                                unsigned int dim_count, const size_t *dimension,
                                const size_t *pitches, void *pHostPtr,
                                size_t alignment, size_t preferred_alignment,
-                               bool used_by_DMA, ClHeap heap,
+                               bool used_by_DMA, Utils::ClHeap heap,
                                cl_rt_memobj_creation_flags creation_flags,
                                IOCLDevRawMemoryAllocator *pRawMemoryAllocator);
 
@@ -995,11 +996,11 @@ private:
   size_t m_preferred_alignment;
   size_t m_raw_data_size;
 
-  ClHeap m_heap;
+  Utils::ClHeap m_heap;
   IOCLDevRawMemoryAllocator *m_pRawMemoryAllocator;
 
   IOCLDevBackingStore *m_parent;
-  AtomicCounter m_refCount;
+  Utils::AtomicCounter m_refCount;
 };
 
 //

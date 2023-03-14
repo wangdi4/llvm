@@ -91,13 +91,13 @@ public:
 
   /// @brief save stamp, insert it into the reference file name and mark it as
   /// "inserted"
-  void SetReferenceStamp(ArrayRef<uint8_t> &&stamp) {
+  void SetReferenceStamp(llvm::ArrayRef<uint8_t> &&stamp) {
     m_referenceStamp = stamp;
   }
 
   /// @brief save stamp, insert it into the neat file name and mark it as
   /// "inserted"
-  void SetNeatStamp(ArrayRef<uint8_t> &&stamp) { m_neatStamp = stamp; }
+  void SetNeatStamp(llvm::ArrayRef<uint8_t> &&stamp) { m_neatStamp = stamp; }
 
   ///  @brief get reference file name with stamp
   std::string GetStampedPathReference() {

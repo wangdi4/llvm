@@ -22,6 +22,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
 
 template <class T> static inline T *objptr_from_addr(uint64_t addr) {
   void *ptr = reinterpret_cast<void *>(addr);

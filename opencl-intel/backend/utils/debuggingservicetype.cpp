@@ -18,6 +18,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
+using namespace llvm;
+
 namespace intel {
 
 DebuggingServiceType getUserDefinedDebuggingServiceType() {
@@ -38,8 +40,7 @@ DebuggingServiceType getUserDefinedDebuggingServiceType() {
   return serviceType;
 }
 
-DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled,
-                                             llvm::Module *M,
+DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled, Module *M,
                                              bool useNativeDebugger) {
   if (!debuggingEnabled && !CompilationUtils::getDebugFlagFromMetadata(M)) {
     return None;

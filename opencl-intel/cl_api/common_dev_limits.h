@@ -17,8 +17,6 @@
 
 #include "llvm/Transforms/SYCLTransforms/DevLimits.h"
 
-using namespace llvm;
-
 // List of supported devices that differs from the a given one in cl.h
 enum DeviceMode { CPU_DEVICE = 0, FPGA_EMU_DEVICE = 1 };
 

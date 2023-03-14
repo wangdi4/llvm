@@ -39,7 +39,7 @@ TEST(ClangStadalone, DISABLED_instance_creation) {
                        "c[tid] = b[tid] + a[tid];"
                        "}";
   OCLBuilder &builder = OCLBuilder::Instance();
-  IOCLFEBinaryResult *binaryResult =
+  Intel::OpenCL::ClangFE::IOCLFEBinaryResult *binaryResult =
       builder.withSource(source).createCompiler().build();
   ASSERT_TRUE(binaryResult);
   builder.close();

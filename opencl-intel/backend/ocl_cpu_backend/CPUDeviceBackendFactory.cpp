@@ -20,6 +20,8 @@
 #include "KernelProperties.h"
 #include <assert.h>
 
+using namespace llvm;
+
 namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
