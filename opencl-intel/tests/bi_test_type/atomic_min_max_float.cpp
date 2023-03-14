@@ -94,11 +94,13 @@ cl_int check_atomic_min(bool isOCL20, const std::vector<T> &src_a,
   std::string options;
   if (isOCL20) {
     options = "-cl-std=CL2.0";
-    options += (is_same<T, double>::value) ? " -D T=double -D AT=atomic_double"
-                                           : " -D T=float -D AT=atomic_float";
+    options += (std::is_same<T, double>::value)
+                   ? " -D T=double -D AT=atomic_double"
+                   : " -D T=float -D AT=atomic_float";
   } else {
     options = "-cl-std=CL1.2";
-    options += (is_same<T, double>::value) ? " -D T=double" : " -D T=float";
+    options +=
+        (std::is_same<T, double>::value) ? " -D T=double" : " -D T=float";
   }
   options += " -D float_atomics_enable";
 
@@ -261,11 +263,13 @@ cl_int check_atomic_max(bool isOCL20, const std::vector<T> &src_a,
   std::string options;
   if (isOCL20) {
     options = "-cl-std=CL2.0";
-    options += (is_same<T, double>::value) ? " -D T=double -D AT=atomic_double"
-                                           : " -D T=float -D AT=atomic_float";
+    options += (std::is_same<T, double>::value)
+                   ? " -D T=double -D AT=atomic_double"
+                   : " -D T=float -D AT=atomic_float";
   } else {
     options = "-cl-std=CL1.2";
-    options += (is_same<T, double>::value) ? " -D T=double" : " -D T=float";
+    options +=
+        (std::is_same<T, double>::value) ? " -D T=double" : " -D T=float";
   }
   options += " -D float_atomics_enable";
 

@@ -27,6 +27,7 @@
 #include <cstring>
 
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 cl_err_code IOclCommandQueueBase::EnqueueCommand(
     Command *pCommand, cl_bool bBlocking, cl_uint uNumEventsInWaitList,

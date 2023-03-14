@@ -2384,7 +2384,7 @@ OclBuiltinImpl sub_group_broadcast_ext_avx_v8 =
 OclBuiltinImpl sub_group_broadcast_ext_avx_v12 =
   OclBuiltinImpl<sub_group_broadcast_extended_avx, [v12i8, v12u8, v12i16, v12u16, v12i32, v12u32, v12i64, v12u64, v12f32, v12f64], 0,
   [{
-     $Arg0BaseType#3 temp = *(($Arg0BaseType#3*)&$Arg0VarName + $Arg1VarName);
+     $Arg0BaseType#3 temp = vload3($Arg1VarName, ($Arg0BaseType *)&$Arg0VarName);
      return ($ReturnType)(temp, temp, temp, temp);
   }]>;
 
@@ -2420,7 +2420,7 @@ OclBuiltinImpl sub_group_broadcast_ext_avx2_v16 =
 OclBuiltinImpl sub_group_broadcast_ext_avx2_v24 =
   OclBuiltinImpl<sub_group_broadcast_extended_avx2, [v24i8, v24u8, v24i16, v24u16, v24i32, v24u32, v24i64, v24u64, v24f32, v24f64], 0,
   [{
-     $Arg0BaseType#3 temp = *(($Arg0BaseType#3*)&$Arg0VarName + $Arg1VarName);
+     $Arg0BaseType#3 temp = vload3($Arg1VarName, ($Arg0BaseType *)&$Arg0VarName);
      return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp);
   }]>;
 
@@ -2455,7 +2455,7 @@ OclBuiltinImpl sub_group_broadcast_ext_avx512_v32 =
 OclBuiltinImpl sub_group_broadcast_ext_avx512_v48 =
   OclBuiltinImpl<sub_group_broadcast_extended_avx512, [v48i8, v48u8, v48i16, v48u16, v48i32, v48u32, v48i64, v48u64, v48f32, v48f64], 0,
   [{
-     $Arg0BaseType#3 temp = *(($Arg0BaseType#3*)&$Arg0VarName + $Arg1VarName);
+     $Arg0BaseType#3 temp = vload3($Arg1VarName, ($Arg0BaseType *)&$Arg0VarName);
      return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
   }]>;
 

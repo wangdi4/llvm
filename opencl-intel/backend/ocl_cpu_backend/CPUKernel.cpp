@@ -15,6 +15,9 @@
 #include "CPUKernel.h"
 #include "KernelProperties.h"
 
+using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
+
 #if defined(_M_X64) || defined(__LP64__)
 // defined in kernel_execute64.asm
 extern "C" void Emit_VZeroUpper(void);

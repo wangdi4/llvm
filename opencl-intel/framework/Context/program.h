@@ -163,7 +163,7 @@ public:
   DeviceProgram *GetDeviceProgram(cl_device_id clDeviceId);
 
   // Retrive an array of all device programs
-  std::vector<unique_ptr<DeviceProgram>> &GetProgramsForAllDevices() {
+  std::vector<std::unique_ptr<DeviceProgram>> &GetProgramsForAllDevices() {
     return m_ppDevicePrograms;
   }
 
@@ -215,7 +215,7 @@ protected:
   bool Finalize();
 
   SharedPtr<Context> m_pContext;
-  std::vector<unique_ptr<DeviceProgram>> m_ppDevicePrograms;
+  std::vector<std::unique_ptr<DeviceProgram>> m_ppDevicePrograms;
   cl_uint m_szNumAssociatedDevices;
 
   OCLObjectsMap<_cl_kernel_int> m_pKernels; // associated

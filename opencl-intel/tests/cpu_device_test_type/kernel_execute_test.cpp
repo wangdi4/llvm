@@ -37,6 +37,8 @@
 #include <stdio.h>
 #include <time.h>
 
+using namespace llvm;
+
 extern RTMemObjService localRTMemService;
 
 bool KernelExecute_Dot_Test(const char *prog_file) {

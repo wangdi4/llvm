@@ -27,9 +27,7 @@
 #include <iostream>
 #include <vector>
 
-using Intel::OpenCL::Utils::OclBinarySemaphore;
-using std::count;
-using std::vector;
+using namespace Intel::OpenCL::Utils;
 
 enum EProcessorOccupied { NOT_OCCUPIED, OCCUPIED };
 
@@ -48,20 +46,20 @@ struct NativeKernelParams {
 
   unsigned long m_ulNumProcessors;
   unsigned long m_ulNumKernels;
-  vector<EProcessorOccupied> m_processorsOccupied;
+  std::vector<EProcessorOccupied> m_processorsOccupied;
   volatile bool m_bDoubleAffinity;
   volatile unsigned int m_uiMasterCpuId;
   affinityMask_t *m_pMask;
-  Intel::OpenCL::Utils::AtomicCounter m_cnt;
+  AtomicCounter m_cnt;
 };
 
 static void CL_CALLBACK NativeKernel(void *ptr) {
   NativeKernelParams *params = *(NativeKernelParams **)ptr;
-  const unsigned int uiCpuId = Intel::OpenCL::Utils::GetCpuId();
+  const unsigned int uiCpuId = GetCpuId();
 
   if (uiCpuId != params->m_uiMasterCpuId &&
       params->m_processorsOccupied[uiCpuId]) {
-    cout << "HW thread " << uiCpuId << " is already occupied" << endl;
+    std::cout << "HW thread " << uiCpuId << " is already occupied" << std::endl;
     params->m_bDoubleAffinity = true;
   } else {
     params->m_processorsOccupied[uiCpuId] = OCCUPIED;
@@ -100,7 +98,7 @@ public:
 
 private:
   const unsigned long m_ulNumKernels;
-  Intel::OpenCL::Utils::AtomicCounter m_cnt;
+  AtomicCounter m_cnt;
   OclBinarySemaphore *const m_pSem;
 };
 
@@ -161,9 +159,10 @@ static bool AffinityTestForDevice(cl_dev_subdevice_id dev,
 
 #ifndef _WIN32
     if (NULL != params->m_pMask) {
-      const vector<EProcessorOccupied>::difference_type numOccupiedProcessors =
-          count(params->m_processorsOccupied.begin(),
-                params->m_processorsOccupied.end(), OCCUPIED);
+      const std::vector<EProcessorOccupied>::difference_type
+          numOccupiedProcessors =
+              count(params->m_processorsOccupied.begin(),
+                    params->m_processorsOccupied.end(), OCCUPIED);
       for (unsigned long i = 0; i < params->m_ulNumProcessors; ++i) {
         bRes &=
             !params->m_processorsOccupied[i] || CPU_ISSET(i, params->m_pMask);
@@ -179,7 +178,7 @@ static bool AffinityTestForDevice(cl_dev_subdevice_id dev,
            CPU_COUNT(params->m_pMask) == numOccupiedProcessors);
     }
 #endif
-  } catch (const exception &) {
+  } catch (const std::exception &) {
     bRes = false;
   }
   g_dev_callbacks.RemoveUserCallback(callback);
@@ -227,8 +226,7 @@ bool AffinitySubDeviceTest(affinityMask_t *pMask) {
     fflush(0);
     return true;
   }
-  const unsigned long ulNumProcessors =
-      Intel::OpenCL::Utils::GetNumberOfProcessors();
+  const unsigned long ulNumProcessors = GetNumberOfProcessors();
   const unsigned long ulSubDevSize = (ulNumProcessors - 1) / NUM_SUB_DEVS;
 
   if (0 == ulSubDevSize) {
@@ -237,7 +235,7 @@ bool AffinitySubDeviceTest(affinityMask_t *pMask) {
     return true;
   }
 
-  clSetThreadAffinityToCore(Intel::OpenCL::Utils::GetCpuId(), clMyThreadId());
+  clSetThreadAffinityToCore(GetCpuId(), clMyThreadId());
 
   printf("AffinitySubDeviceTest: NumProcessors=%d, SubDeviceSize=%d, "
          "NUM_SUB_DEVS=%d\n",
@@ -266,8 +264,8 @@ bool AffinitySubDeviceTest(affinityMask_t *pMask) {
 
     bool res = true;
     for (size_t i = 0; i < NUM_SUB_DEVS; i++) {
-      NativeKernelParams subDevParams(ulNumProcessors, ulSubDevSize,
-                                      Intel::OpenCL::Utils::GetCpuId(), pMask);
+      NativeKernelParams subDevParams(ulNumProcessors, ulSubDevSize, GetCpuId(),
+                                      pMask);
       if (!AffinityTestForDevice(subDevs[i], &subDevParams, false)) {
         res = false;
       }
@@ -280,7 +278,7 @@ bool AffinitySubDeviceTest(affinityMask_t *pMask) {
 
     clResetThreadAffinityMask(clMyThreadId());
     return res;
-  } catch (const exception &) {
+  } catch (const std::exception &) {
     return false;
   }
   return true;

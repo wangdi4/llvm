@@ -722,7 +722,7 @@ cl_err_code ProgramService::CompileProgram(
     }
   } else // Build for all devices
   {
-    std::vector<unique_ptr<DeviceProgram>> &pAllDevicePrograms =
+    std::vector<std::unique_ptr<DeviceProgram>> &pAllDevicePrograms =
         program->GetProgramsForAllDevices();
     for (cl_uint i = 0; i < uiNumDevices; ++i) {
       ppDevicePrograms[i] = pAllDevicePrograms[i].get();
@@ -934,7 +934,7 @@ cl_err_code ProgramService::LinkProgram(
     }
   } else // Build for all devices
   {
-    std::vector<unique_ptr<DeviceProgram>> &pAllDevicePrograms =
+    std::vector<std::unique_ptr<DeviceProgram>> &pAllDevicePrograms =
         program->GetProgramsForAllDevices();
     for (cl_uint i = 0; i < uiNumDevices; ++i) {
       ppDevicePrograms[i] = pAllDevicePrograms[i].get();
@@ -1229,7 +1229,7 @@ cl_err_code ProgramService::BuildProgram(SharedPtr<Program> &program,
     }
   } else // Build for all devices
   {
-    std::vector<unique_ptr<DeviceProgram>> &pAllDevicePrograms =
+    std::vector<std::unique_ptr<DeviceProgram>> &pAllDevicePrograms =
         program->GetProgramsForAllDevices();
     for (cl_uint i = 0; i < uiNumDevices; ++i) {
       ppDevicePrograms[i] = pAllDevicePrograms[i].get();
@@ -1515,7 +1515,7 @@ ProgramService::SetSpecializationConstant(const SharedPtr<Program> &pProgram,
     auto &AllDevPrograms = pProgram->GetProgramsForAllDevices();
     assert(!AllDevPrograms.empty() &&
            "No device program is associated with the program");
-    unique_ptr<DeviceProgram> &pDevProgram = AllDevPrograms[0];
+    std::unique_ptr<DeviceProgram> &pDevProgram = AllDevPrograms[0];
     SharedPtr<Device> pDevice = pDevProgram->GetDevice()->GetRootDevice();
     assert(pDevice && "No device is associated with the device program");
     SharedPtr<FrontEndCompiler> pFECompiler = pDevice->GetFrontEndCompiler();

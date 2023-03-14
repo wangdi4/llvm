@@ -44,8 +44,15 @@
 #define GPA_RANGE_STRING_SIZE 130
 
 #define COLOR(R, G, B) (((R) << 16) + ((G) << 8) + (B))
-using namespace Intel::OpenCL::CPUDevice;
+
+using namespace llvm;
 using namespace Intel::OpenCL;
+using namespace Intel::OpenCL::CPUDevice;
+using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::OpenCL::DeviceCommands;
+using namespace Intel::OpenCL::TaskExecutor;
+using namespace Intel::OpenCL::Utils;
+
 unsigned int NDRange::RGBTable[COLOR_TABLE_SIZE] = {
     COLOR(204, 0, 102),   COLOR(153, 51, 153),  COLOR(102, 51, 204),
     COLOR(51, 0, 253),    COLOR(102, 153, 255), COLOR(0, 204, 204),
@@ -439,7 +446,7 @@ bool CopyMemObject::Execute() {
       sCpyParam.vDstPitch, pDstMemObj->uiElementSize);
 
   sCpyParam.uiDimCount =
-      min(cmdParams->src_dim_count, cmdParams->dst_dim_count);
+      std::min(cmdParams->src_dim_count, cmdParams->dst_dim_count);
   // Buffer to image
   if (CL_MEM_OBJECT_BUFFER == pSrcMemObj->memObjType &&
       CL_MEM_OBJECT_BUFFER != pDstMemObj->memObjType) {

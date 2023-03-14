@@ -26,6 +26,7 @@ File Name:  BWOptions.h
 #include <assert.h>
 #define PAGE_SIZE 4096
 
+// FIXME 'using namespace' shouldn't be used in header file.
 using namespace Intel::OpenCL::DeviceBackend;
 
 /** @brief CompilationServiceOptions: used when calling GetCompilationService

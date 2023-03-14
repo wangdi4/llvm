@@ -9210,6 +9210,8 @@
 ; CHECK-NEXT: _Z30intel_sub_group_block_write8_8Dv8_14ocl_image2d_woDv16_iDv64_jDv8_j
 ; CHECK-NEXT: _Z30intel_sub_group_block_write8_8Dv8_PU3AS1jDv64_jDv8_j
 ; CHECK-NEXT: _Z31__spirv_BuiltInSubDeviceIDINTELv
+; CHECK-NEXT: _Z31intel_convert_as_bfloat16_floats
+; CHECK-NEXT: _Z31intel_convert_as_bfloat16_floatt
 ; CHECK-NEXT: _Z31intel_sub_group_block_write1_16Dv16_14ocl_image2d_rwDv32_iDv16_jS2_
 ; CHECK-NEXT: _Z31intel_sub_group_block_write1_16Dv16_14ocl_image2d_woDv32_iDv16_jS2_
 ; CHECK-NEXT: _Z31intel_sub_group_block_write1_16Dv16_PU3AS1jDv16_jS2_
@@ -9246,6 +9248,7 @@
 ; CHECK-NEXT: _Z31intel_sub_group_block_write8_64Dv64_14ocl_image2d_rwDv128_iDv512_jDv64_j
 ; CHECK-NEXT: _Z31intel_sub_group_block_write8_64Dv64_14ocl_image2d_woDv128_iDv512_jDv64_j
 ; CHECK-NEXT: _Z31intel_sub_group_block_write8_64Dv64_PU3AS1jDv512_jDv64_j
+; CHECK-NEXT: _Z32intel_convert_bfloat16_as_ushortf
 ; CHECK-NEXT: _Z32intel_sub_group_block_read_uc1_4Dv4_14ocl_image2d_roDv8_iDv4_j
 ; CHECK-NEXT: _Z32intel_sub_group_block_read_uc1_4Dv4_14ocl_image2d_rwDv8_iDv4_j
 ; CHECK-NEXT: _Z32intel_sub_group_block_read_uc1_4Dv4_PU3AS1KhDv4_j
@@ -9366,6 +9369,14 @@
 ; CHECK-NEXT: _Z32sub_group_non_uniform_reduce_mulDv4_DhDv4_j
 ; CHECK-NEXT: _Z32sub_group_non_uniform_reduce_mulDv64_DhDv64_j
 ; CHECK-NEXT: _Z32sub_group_non_uniform_reduce_mulDv8_DhDv8_j
+; CHECK-NEXT: _Z33intel_convert_as_bfloat162_float2Dv2_s
+; CHECK-NEXT: _Z33intel_convert_as_bfloat162_float2Dv2_t
+; CHECK-NEXT: _Z33intel_convert_as_bfloat163_float3Dv3_s
+; CHECK-NEXT: _Z33intel_convert_as_bfloat163_float3Dv3_t
+; CHECK-NEXT: _Z33intel_convert_as_bfloat164_float4Dv4_s
+; CHECK-NEXT: _Z33intel_convert_as_bfloat164_float4Dv4_t
+; CHECK-NEXT: _Z33intel_convert_as_bfloat168_float8Dv8_s
+; CHECK-NEXT: _Z33intel_convert_as_bfloat168_float8Dv8_t
 ; CHECK-NEXT: _Z33intel_sub_group_block_read_uc16_4Dv4_14ocl_image2d_roDv8_iDv4_j
 ; CHECK-NEXT: _Z33intel_sub_group_block_read_uc16_4Dv4_14ocl_image2d_rwDv8_iDv4_j
 ; CHECK-NEXT: _Z33intel_sub_group_block_read_uc16_4Dv4_PU3AS1KhDv4_j
@@ -9612,6 +9623,10 @@
 ; CHECK-NEXT: _Z33intel_sub_group_block_write_us8_8Dv8_14ocl_image2d_rwDv16_iDv64_tDv8_j
 ; CHECK-NEXT: _Z33intel_sub_group_block_write_us8_8Dv8_14ocl_image2d_woDv16_iDv64_tDv8_j
 ; CHECK-NEXT: _Z33intel_sub_group_block_write_us8_8Dv8_PU3AS1tDv64_tDv8_j
+; CHECK-NEXT: _Z34intel_convert_bfloat162_as_ushort2Dv2_f
+; CHECK-NEXT: _Z34intel_convert_bfloat163_as_ushort3Dv3_f
+; CHECK-NEXT: _Z34intel_convert_bfloat164_as_ushort4Dv4_f
+; CHECK-NEXT: _Z34intel_convert_bfloat168_as_ushort8Dv8_f
 ; CHECK-NEXT: _Z34intel_sub_group_block_read_uc16_16Dv16_14ocl_image2d_roDv32_iDv16_j
 ; CHECK-NEXT: _Z34intel_sub_group_block_read_uc16_16Dv16_14ocl_image2d_rwDv32_iDv16_j
 ; CHECK-NEXT: _Z34intel_sub_group_block_read_uc16_16Dv16_PU3AS1KhDv16_j
@@ -9771,6 +9786,8 @@
 ; CHECK-NEXT: _Z34intel_sub_group_block_write_us8_64Dv64_14ocl_image2d_rwDv128_iDv512_tDv64_j
 ; CHECK-NEXT: _Z34intel_sub_group_block_write_us8_64Dv64_14ocl_image2d_woDv128_iDv512_tDv64_j
 ; CHECK-NEXT: _Z34intel_sub_group_block_write_us8_64Dv64_PU3AS1tDv512_tDv64_j
+; CHECK-NEXT: _Z35intel_convert_as_bfloat1616_float16Dv16_s
+; CHECK-NEXT: _Z35intel_convert_as_bfloat1616_float16Dv16_t
 ; CHECK-NEXT: _Z35intel_sub_group_block_write_uc16_16Dv16_14ocl_image2d_rwDv32_iDv256_hDv16_j
 ; CHECK-NEXT: _Z35intel_sub_group_block_write_uc16_16Dv16_14ocl_image2d_woDv32_iDv256_hDv16_j
 ; CHECK-NEXT: _Z35intel_sub_group_block_write_uc16_16Dv16_PU3AS1hDv256_hDv16_j
@@ -9781,6 +9798,7 @@
 ; CHECK-NEXT: _Z35intel_sub_group_block_write_uc16_64Dv64_14ocl_image2d_woDv128_iDv1024_hDv64_j
 ; CHECK-NEXT: _Z35intel_sub_group_block_write_uc16_64Dv64_PU3AS1hDv1024_hDv64_j
 ; CHECK-NEXT: _Z36__spirv_BuiltInGlobalHWThreadIDINTELv
+; CHECK-NEXT: _Z36intel_convert_bfloat1616_as_ushort16Dv16_f
 ; CHECK-NEXT: _Z38__spirv_CreatePipeFromPipeStorage_readPU3AS419ConstantPipeStorage
 ; CHECK-NEXT: _Z38__spirv_CreatePipeFromPipeStorage_readPU3AS427__spirv_ConstantPipeStorage
 ; CHECK-NEXT: _Z39__spirv_CreatePipeFromPipeStorage_writePU3AS419ConstantPipeStorage

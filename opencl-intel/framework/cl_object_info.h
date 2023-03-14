@@ -16,7 +16,6 @@
 
 #include "cl_types.h"
 #include <map>
-using namespace std;
 
 namespace Intel {
 namespace OpenCL {
@@ -148,7 +147,7 @@ public:
 
 private:
   // map of the information parameters
-  map<cl_int, OCLObjectInfoParam *> m_mapInfoParams;
+  std::map<cl_int, OCLObjectInfoParam *> m_mapInfoParams;
 };
 
 } // namespace Framework

@@ -24,7 +24,6 @@
 #include "cl_sys_defines.h"
 #include <memory>
 #include <string>
-// #include "svm_buffer.h"
 
 namespace Intel {
 namespace OpenCL {
@@ -67,7 +66,7 @@ struct SKernelArgumentInfo {
 struct SKernelPrototype {
   std::string m_szKernelName;
   cl_dev_dispatch_buffer_prop m_dispatchBufferProperties;
-  std::vector<KernelArgument> m_vArguments;
+  std::vector<llvm::KernelArgument> m_vArguments;
   std::vector<cl_uint> m_MemArgumentsIndx;
   std::string m_szKernelAttributes;
 };
@@ -168,23 +167,23 @@ class KernelArg {
 public:
   KernelArg() : m_pValueLocation(NULL), m_bValid(false) {}
 
-  void Init(char *baseAddress, const KernelArgument &clKernelArgType);
+  void Init(char *baseAddress, const llvm::KernelArgument &clKernelArgType);
 
   cl_uint GetOffset() const { return m_clKernelArgType.OffsetInBytes; }
 
   // return the size (in bytes) of the kernel arg's value
   // if Buffer / Image / ... returns sizeof(MemoryObject*)
   size_t GetSize() const { return m_clKernelArgType.SizeInBytes; }
-  KernelArgumentType GetType() const { return m_clKernelArgType.Ty; }
+  llvm::KernelArgumentType GetType() const { return m_clKernelArgType.Ty; }
 
   // returns the value of the kernel argument
   void GetValue(size_t size, void *pValue) const;
   void SetValue(size_t size, const void *pValue);
   void SetValid() { m_bValid = true; }
-  void SetSvmObject(const SharedPtr<ReferenceCountedObject> &svmMemObj) {
+  void SetSvmObject(const SharedPtr<Utils::ReferenceCountedObject> &svmMemObj) {
     m_pSvmPtrArg = svmMemObj;
   }
-  void SetUsmObject(const SharedPtr<ReferenceCountedObject> &usmMemObj) {
+  void SetUsmObject(const SharedPtr<Utils::ReferenceCountedObject> &usmMemObj) {
     m_pUsmPtrArg = usmMemObj;
   }
 
@@ -195,28 +194,30 @@ public:
   }
 
   bool IsMemObject() const {
-    return (KRNL_ARG_PTR_GLOBAL <= m_clKernelArgType.Ty);
+    return (llvm::KRNL_ARG_PTR_GLOBAL <= m_clKernelArgType.Ty);
   }
   bool IsBuffer() const {
-    return ((KRNL_ARG_PTR_GLOBAL == m_clKernelArgType.Ty) ||
-            (KRNL_ARG_PTR_CONST == m_clKernelArgType.Ty));
+    return ((llvm::KRNL_ARG_PTR_GLOBAL == m_clKernelArgType.Ty) ||
+            (llvm::KRNL_ARG_PTR_CONST == m_clKernelArgType.Ty));
   }
   bool IsImage() const {
-    return ((KRNL_ARG_PTR_IMG_2D <= m_clKernelArgType.Ty) &&
-            (KRNL_ARG_PTR_IMG_1D_BUF >= m_clKernelArgType.Ty));
+    return ((llvm::KRNL_ARG_PTR_IMG_2D <= m_clKernelArgType.Ty) &&
+            (llvm::KRNL_ARG_PTR_IMG_1D_BUF >= m_clKernelArgType.Ty));
   }
-  bool IsPipe() const { return (KRNL_ARG_PTR_PIPE_T == m_clKernelArgType.Ty); }
+  bool IsPipe() const {
+    return (llvm::KRNL_ARG_PTR_PIPE_T == m_clKernelArgType.Ty);
+  }
   bool IsSampler() const { return (IsOpaqueSampler() || IsInt32Sampler()); }
 
   bool IsOpaqueSampler() const {
-    return (KRNL_ARG_PTR_SAMPLER_T == m_clKernelArgType.Ty);
+    return (llvm::KRNL_ARG_PTR_SAMPLER_T == m_clKernelArgType.Ty);
   }
   bool IsInt32Sampler() const {
-    return (KRNL_ARG_SAMPLER == m_clKernelArgType.Ty);
+    return (llvm::KRNL_ARG_SAMPLER == m_clKernelArgType.Ty);
   }
 
   bool IsLocalPtr() const {
-    return (KRNL_ARG_PTR_LOCAL == m_clKernelArgType.Ty);
+    return (llvm::KRNL_ARG_PTR_LOCAL == m_clKernelArgType.Ty);
   }
 
   bool IsValid() const { return m_bValid; }
@@ -225,22 +226,22 @@ public:
   bool IsUsmPtr() const { return nullptr != m_pUsmPtrArg.GetPtr(); }
 
   bool IsQueueId() const {
-    return KRNL_ARG_PTR_QUEUE_T == m_clKernelArgType.Ty;
+    return llvm::KRNL_ARG_PTR_QUEUE_T == m_clKernelArgType.Ty;
   }
 
 private:
   void SetValuePlaceHolder(void *pValuePlaceHolder, size_t offset);
 
   // type of kernel argument
-  KernelArgument m_clKernelArgType;
+  llvm::KernelArgument m_clKernelArgType;
 
   void *m_pValueLocation;
   bool m_bValid;
 
-  SharedPtr<ReferenceCountedObject>
+  SharedPtr<Utils::ReferenceCountedObject>
       m_pSvmPtrArg; // we hold a SharedPtr to ReferenceCountedObject because of
                     // header dependencies
-  SharedPtr<ReferenceCountedObject> m_pUsmPtrArg;
+  SharedPtr<Utils::ReferenceCountedObject> m_pUsmPtrArg;
 };
 
 /*******************************************************************************
@@ -333,8 +334,8 @@ public:
                                void *pParamValue, size_t *pszParamValueSizeRet);
 
   // create device kernels
-  cl_err_code
-  CreateDeviceKernels(std::vector<unique_ptr<DeviceProgram>> &pDevicePrograms);
+  cl_err_code CreateDeviceKernels(
+      std::vector<std::unique_ptr<DeviceProgram>> &pDevicePrograms);
 
   // set kernel argument without checks.
   cl_err_code SetKernelArgInternal(cl_uint uiIndex, const KernelArg *arg);
@@ -533,11 +534,11 @@ protected:
   size_t m_szAssociatedDevices;
 
   // Kernel arguments
-  vector<KernelArg> m_vecArgs;
+  std::vector<KernelArg> m_vecArgs;
   char *m_pArgsBlob;
 
   // Per-device kernels
-  vector<const DeviceKernel *> m_vpDeviceKernels;
+  std::vector<const DeviceKernel *> m_vpDeviceKernels;
 
   // To ensure all args have been set
   size_t m_numValidArgs;

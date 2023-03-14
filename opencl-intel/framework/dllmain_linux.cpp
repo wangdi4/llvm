@@ -35,6 +35,7 @@ __attribute__((constructor)) static void dll_init(void);
 __attribute__((destructor(100))) static void dll_fini(void);
 
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 // explicitly instantiate some SharedPtrBase classes:
 template class Intel::OpenCL::Utils::SharedPtrBase<GenericMemObject>;

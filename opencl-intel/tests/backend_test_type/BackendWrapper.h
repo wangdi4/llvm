@@ -36,8 +36,6 @@ File Name:  BackendWrapper.h
 #include "mem_utils.h"
 #include "plugin_manager.h"
 
-using namespace Intel::OpenCL::DeviceBackend;
-
 #if defined(_WIN32)
 /// @brief the plugin dll file name, in our case its the SamplePlugin
 #define PLUGIN_DLL_NAME "OCLSamplePlugin.dll"

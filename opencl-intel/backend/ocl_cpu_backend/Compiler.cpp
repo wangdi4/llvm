@@ -40,8 +40,6 @@
 #endif
 #include "llvm/CodeGen/CommandFlags.h"
 
-static codegen::RegisterCodeGenFlags CGF;
-
 #include <sstream>
 #include <string>
 #include <vector>
@@ -61,6 +59,8 @@ ExternInitTargetOptionsFromCodeGenFlags(llvm::Triple ModuleTriple) {
   return codegen::InitTargetOptionsFromCodeGenFlags(ModuleTriple);
 #endif
 }
+
+static codegen::RegisterCodeGenFlags CGF;
 
 // Supported target triples.
 const char *PC_LIN64 = "x86_64-pc-linux";          // Used for RH64/SLES64.

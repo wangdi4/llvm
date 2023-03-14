@@ -47,7 +47,8 @@ private:
   void registerOptimizerLastCallback(llvm::PassBuilder &PB);
 
   /// Add barrier related passes to pass manager.
-  void addBarrierPasses(ModulePassManager &MPM, OptimizationLevel Level);
+  void addBarrierPasses(llvm::ModulePassManager &MPM,
+                        llvm::OptimizationLevel Level);
 
   /// Register passes that run at the end of pipeline.
   void registerLastPasses(llvm::ModulePassManager &MPM);

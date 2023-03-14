@@ -48,6 +48,7 @@
 #define MAX_LOG_PATH 512
 
 using namespace llvm;
+using namespace Intel::OpenCL;
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Validation {

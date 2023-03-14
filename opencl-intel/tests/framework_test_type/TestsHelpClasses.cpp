@@ -73,14 +73,14 @@ void baseOcl::simpleProgramBuild() {
                                MAX_SOURCE_SIZE, &build_status, NULL);
 
   if (err != CL_SUCCESS || build_status == CL_BUILD_ERROR) {
-    cout << "build failed, status is: " << build_status << endl;
+    std::cout << "build failed, status is: " << build_status << std::endl;
     char err_str[MAX_SOURCE_SIZE]; // instead of dynamic allocation
     char *err_str_ptr = err_str;
     err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
                                 MAX_SOURCE_SIZE, err_str_ptr, NULL);
     if (err != CL_SUCCESS)
-      cout << "Build Info error: " << oclErr(err) << endl;
-    cout << err_str_ptr << endl;
+      std::cout << "Build Info error: " << oclErr(err) << std::endl;
+    std::cout << err_str_ptr << std::endl;
     FAIL();
   }
 }
@@ -114,19 +114,19 @@ int crossPlatformFOpen(char *fileName, const char *optns, FILE *file) {
   return err;
 }
 
-void removeFiles(string files[], int num) {
+void removeFiles(std::string files[], int num) {
   for (int i = 0; i < num; i++) {
     remove(files[i].c_str());
   }
 }
-void validateEqualityOfFiles(string fileName1, string fileName2, bool isEqual,
-                             int linesToSkip) {
-  string const files = "The Files " + fileName1 + " and " + fileName2;
-  ifstream file1(fileName1.c_str());
+void validateEqualityOfFiles(std::string fileName1, std::string fileName2,
+                             bool isEqual, int linesToSkip) {
+  std::string const files = "The Files " + fileName1 + " and " + fileName2;
+  std::ifstream file1(fileName1.c_str());
   ASSERT_TRUE(file1.is_open()) << "file " + fileName1 + " does not exist";
-  ifstream file2(fileName2.c_str());
+  std::ifstream file2(fileName2.c_str());
   ASSERT_TRUE(file2.is_open()) << "file " + fileName2 + " does not exist";
-  string line1, line2;
+  std::string line1, line2;
   int i;
   for (i = 1; getline(file1, line1) && getline(file2, line2); i++) {
     if (i - 1 < linesToSkip)
@@ -156,21 +156,21 @@ void validateEqualityOfFiles(string fileName1, string fileName2, bool isEqual,
   file2.close();
 }
 
-void validateSubstringInFile(string fileName, string subString,
+void validateSubstringInFile(std::string fileName, std::string subString,
                              bool doesExist) {
-  string const theFile = "The File " + fileName;
-  ifstream file(fileName.c_str());
+  std::string const theFile = "The File " + fileName;
+  std::ifstream file(fileName.c_str());
   ASSERT_TRUE(file.is_open()) << theFile + " does not exist";
-  string line;
+  std::string line;
   int i;
   for (i = 1; file.good(); i++) {
     getline(file, line);
-    if (string::npos != line.find(subString)) {
+    if (std::string::npos != line.find(subString)) {
       if (doesExist) {
         file.close();
         return;
       } else {
-        FAIL() << theFile + "contains the string " + subString +
+        FAIL() << theFile + "contains the std::string " + subString +
                       " in line number"
                << i << "which is:\n" + line;
         break;
@@ -178,7 +178,7 @@ void validateSubstringInFile(string fileName, string subString,
     }
   }
   if (doesExist) {
-    FAIL() << theFile + " does not contain the string " + subString +
+    FAIL() << theFile + " does not contain the std::string " + subString +
                   " , it is "
            << i + 1 << " lines long";
   }
@@ -190,7 +190,7 @@ oclErr::oclErr(cl_err_code errCode_) {
   err = ClErrTxt(errCode);
 }
 
-string oclErr::gerErrString() const { return err; }
+std::string oclErr::gerErrString() const { return err; }
 
 bool oclErr::operator==(const oclErr &other) const {
   return errCode == other.errCode;

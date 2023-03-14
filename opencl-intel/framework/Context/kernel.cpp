@@ -37,10 +37,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
+using namespace llvm;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
-
-using namespace std;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // DeviceKernel C'tor
@@ -699,7 +698,7 @@ cl_err_code Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice> &device,
 // Kernel::CreateDeviceKernels
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Kernel::CreateDeviceKernels(
-    std::vector<unique_ptr<DeviceProgram>> &ppDevicePrograms) {
+    std::vector<std::unique_ptr<DeviceProgram>> &ppDevicePrograms) {
   if (ppDevicePrograms.empty()) {
     return CL_INVALID_VALUE;
   }
@@ -854,7 +853,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel *pDeviceKernel) {
     size_t numArgs = m_sKernelPrototype.m_vArguments.size();
     m_vArgumentsInfo.resize(numArgs);
 
-    llvm::SmallVector<cl_kernel_argument_info> argInfoArray(numArgs);
+    SmallVector<cl_kernel_argument_info> argInfoArray(numArgs);
 
     cl_dev_err_code clDevErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(
         pDeviceKernel->GetId(), CL_DEV_KERNEL_ARG_INFO, 0, nullptr,

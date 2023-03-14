@@ -35,7 +35,7 @@ ProgramWithBuiltInKernels::ProgramWithBuiltInKernels(
     bool bDeviceProgramCreated = false;
     size_t i = 0;
     for (i = 0; i < m_szNumAssociatedDevices; ++i) {
-      unique_ptr<DeviceProgram> &pDevProgram = m_ppDevicePrograms[i];
+      std::unique_ptr<DeviceProgram> &pDevProgram = m_ppDevicePrograms[i];
       pDevProgram.reset(new DeviceProgram());
 
       cl_dev_program pDevProg;

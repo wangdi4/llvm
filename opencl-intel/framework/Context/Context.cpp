@@ -42,6 +42,7 @@
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 #ifdef __GNUC__
 #define UNUSED_ATTR __attribute__((unused))

@@ -24,6 +24,7 @@
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 MemoryObject::MemoryObject(SharedPtr<Context> pContext)
     : OCLObject<_cl_mem_int>(pContext.GetPtr() != NULL ? pContext->GetHandle()

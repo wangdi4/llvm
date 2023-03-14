@@ -18,8 +18,6 @@
 #include "ICLDevBackendOptions.h"
 #include "cl_cpu_detect.h"
 
-using namespace Intel::OpenCL::DeviceBackend;
-
 namespace llvm {
 class TargetMachine;
 }
@@ -29,10 +27,11 @@ namespace intel {
 class OptimizerConfig {
 public:
   OptimizerConfig(const Intel::OpenCL::Utils::CPUDetect *cpuId,
-                  ETransposeSize tranposeSize, llvm::TargetMachine *machine,
-                  bool debugInfo, bool useNativeDebugger, bool profiling,
-                  bool disableOpt, bool relaxedMath, bool uniformWGSize,
-                  bool fpgaEmulator, bool heuristicIR, int rtLoopUnrollFactor,
+                  Intel::OpenCL::DeviceBackend::ETransposeSize tranposeSize,
+                  llvm::TargetMachine *machine, bool debugInfo,
+                  bool useNativeDebugger, bool profiling, bool disableOpt,
+                  bool relaxedMath, bool uniformWGSize, bool fpgaEmulator,
+                  bool heuristicIR, int rtLoopUnrollFactor,
                   bool streamingAlways, unsigned expensiveMemOpts,
                   int subGroupConstructionMode)
       : m_cpuId(cpuId), m_transposeSize(tranposeSize), m_targetMachine(machine),
@@ -46,7 +45,9 @@ public:
         m_subGroupConstructionMode(subGroupConstructionMode) {}
 
   const Intel::OpenCL::Utils::CPUDetect *GetCpuId() const { return m_cpuId; }
-  ETransposeSize GetTransposeSize() const { return m_transposeSize; }
+  Intel::OpenCL::DeviceBackend::ETransposeSize GetTransposeSize() const {
+    return m_transposeSize;
+  }
 
   const std::string &GetDumpIRDir() const { return m_dumpIRDir; }
   llvm::TargetMachine *GetTargetMachine() const { return m_targetMachine; }
@@ -65,7 +66,7 @@ public:
 
 private:
   const Intel::OpenCL::Utils::CPUDetect *m_cpuId;
-  ETransposeSize m_transposeSize;
+  Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
 
   std::vector<int> m_dumpIROptionsAfter;
   std::vector<int> m_dumpIROptionsBefore;

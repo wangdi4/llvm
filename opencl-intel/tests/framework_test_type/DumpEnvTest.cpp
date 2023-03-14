@@ -13,6 +13,8 @@
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
 
+using namespace llvm;
+
 extern cl_device_type gDeviceType;
 
 class DumpEnvTest : public ::testing::Test {

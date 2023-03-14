@@ -32,7 +32,7 @@
 #include <sstream>
 #include <string>
 
-using namespace std;
+using namespace Intel::OpenCL::ClangFE;
 
 // See Table 1. "First Words of Physical Layout" of SPIR-V specification
 enum { MagicNumberIdx = 0, SPIRVVersionIdx = 1, FirstOpIdx = 5 };

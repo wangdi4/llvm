@@ -51,8 +51,8 @@
 
 #define WRITE_MEM_OBJ_ALLOC_ALIGNMENT 128
 
+using namespace llvm;
 using namespace Intel::OpenCL::Framework;
-
 using namespace Intel::OpenCL::Utils;
 
 /******************************************************************

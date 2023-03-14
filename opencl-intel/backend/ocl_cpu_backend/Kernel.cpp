@@ -38,6 +38,8 @@
 #include <ucontext.h>
 #endif
 
+using namespace llvm;
+
 static size_t GCD(size_t a, size_t b) {
   while (1) {
     a = a % b;
@@ -842,9 +844,9 @@ static void ErrorExit(LPCTSTR lpszFunction) {
                                (LPTSTR)MessageBuffer + BufferLength);
       // TODO: use LOG_ERROR (It needs to implement LogErrorW since backend
       // library is built with UNICODE)
-      llvm::errs() << "\n"
-                   << FunctionName << " failed with error " << LastError << ": "
-                   << ErrorMessage << "\n";
+      errs() << "\n"
+             << FunctionName << " failed with error " << LastError << ": "
+             << ErrorMessage << "\n";
       LocalFree(MessageBuffer);
     }
     ExitProcess(LastError);

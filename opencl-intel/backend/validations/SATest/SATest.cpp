@@ -128,7 +128,7 @@ void SATest::RunValidation(IRunConfiguration *pRunConfiguration) {
       throw Exception::TestFailException("Comparison failed.");
     }
   }
-  std::cout << "Test Passed." << endl;
+  std::cout << "Test Passed." << std::endl;
 }
 
 void SATest::RunPerformance(
@@ -150,7 +150,7 @@ void SATest::RunReference(const IRunComponentConfiguration *pRunConfiguration) {
   std::unique_ptr<IProgramRunner> spRunner(
       m_factory.CreateReferenceRunner(pRunConfiguration));
   GenerateReference(&runResult, spRunner.get(), pRunConfiguration);
-  std::cout << "Reference output generated successfully" << endl;
+  std::cout << "Reference output generated successfully" << std::endl;
 }
 
 void SATest::RunBuildOnly(const IRunComponentConfiguration *pRunConfiguration) {
@@ -160,7 +160,7 @@ void SATest::RunBuildOnly(const IRunComponentConfiguration *pRunConfiguration) {
   RunResult runResult;
   spRunner->Run(&runResult, m_pProgram, m_pProgramConfiguration,
                 pRunConfiguration);
-  std::cout << "Test program was successfully built." << endl;
+  std::cout << "Test program was successfully built." << std::endl;
 }
 
 void SATest::GenerateReference(
