@@ -272,8 +272,6 @@ entry:
 ; It is more profitable to reorder the operands of the RHS add, because A[1] has an external use.
 
 define void @lookahead_external_uses(ptr %A, ptr %B, ptr %C, ptr %D, ptr %S, ptr %Ext1, ptr %Ext2) {
-; Test behaves differently on xmain due to TTI cost customization for llvm.masked.gather ; INTEL
-; Checks were regenerated to match xmain behavior ; INTEL
 ; CHECK-LABEL: @lookahead_external_uses(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[IDXB2:%.*]] = getelementptr inbounds double, ptr [[B:%.*]], i64 2
@@ -380,8 +378,6 @@ entry:
 ; from A get vectorized instead of the loads from B.
 ;
 define void @lookahead_limit_users_budget(ptr %A, ptr %B, ptr %C, ptr %D, ptr %S, ptr %Ext1, ptr %Ext2, ptr %Ext3, ptr %Ext4, ptr %Ext5) {
-; Test behaves differently on xmain due to TTI cost customizations ; INTEL
-; Checks were regenerated to match xmain behavior ; INTEL
 ; CHECK-LABEL: @lookahead_limit_users_budget(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[IDXB2:%.*]] = getelementptr inbounds double, ptr [[B:%.*]], i64 2
