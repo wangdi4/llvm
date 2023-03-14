@@ -8885,10 +8885,8 @@ VPRecipeBuilder::tryToCreateWidenRecipe(Instruction *Instr,
         GEP, make_range(Operands.begin(), Operands.end())));
 
   if (auto *SI = dyn_cast<SelectInst>(Instr)) {
-    bool InvariantCond =
-        PSE.getSE()->isLoopInvariant(PSE.getSCEV(SI->getOperand(0)), OrigLoop);
     return toVPRecipeResult(new VPWidenSelectRecipe(
-        *SI, make_range(Operands.begin(), Operands.end()), InvariantCond));
+        *SI, make_range(Operands.begin(), Operands.end())));
   }
 
   return toVPRecipeResult(tryToWiden(Instr, Operands, VPBB, Plan));
@@ -9306,7 +9304,7 @@ VPlanPtr LoopVectorizationPlanner::buildVPlan(VFRange &Range) {
 
   SmallPtrSet<Instruction *, 1> DeadInstructions;
   VPlanTransforms::VPInstructionsToVPRecipes(
-      OrigLoop, Plan,
+      Plan,
       [this](PHINode *P) { return Legal->getIntOrFpInductionDescriptor(P); },
       DeadInstructions, *PSE.getSE(), *TLI);
 
