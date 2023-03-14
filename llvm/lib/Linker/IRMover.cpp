@@ -2083,6 +2083,10 @@ class IRLinker {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
+  /// Set of globals with eagerly copied metadata that may require remapping.
+  /// This remapping is performed after metadata linking.
+  DenseSet<GlobalObject *> UnmappedMetadata;
+
   void maybeAdd(GlobalValue *GV) {
     if (ValuesToLink.insert(GV).second)
       Worklist.push_back(GV);
@@ -2455,8 +2459,11 @@ GlobalValue *IRLinker::copyGlobalValueProto(const GlobalValue *SGV,
 
   if (auto *NewGO = dyn_cast<GlobalObject>(NewGV)) {
     // Metadata for global variables and function declarations is copied eagerly.
-    if (isa<GlobalVariable>(SGV) || SGV->isDeclaration())
+    if (isa<GlobalVariable>(SGV) || SGV->isDeclaration()) {
       NewGO->copyMetadata(cast<GlobalObject>(SGV), 0);
+      if (SGV->isDeclaration())
+        UnmappedMetadata.insert(NewGO);
+    }
   }
 
   // Remove these copied constants in case this stays a declaration, since
@@ -4000,6 +4007,13 @@ Error IRLinker::run() {
   // after linking GlobalValues so that MDNodes that reference GlobalValues
   // are properly remapped.
   linkNamedMDNodes();
+
+  // Clean up any global objects with potentially unmapped metadata.
+  // Specifically declarations which did not become definitions.
+  for (GlobalObject *NGO : UnmappedMetadata) {
+    if (NGO->isDeclaration())
+      Mapper.remapGlobalObjectMetadata(*NGO);
+  }
 
   if (!IsPerformingImport && !SrcM->getModuleInlineAsm().empty()) {
     // Append the module inline asm string.
