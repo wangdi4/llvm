@@ -94,19 +94,14 @@ define void @gather_load(ptr noalias nocapture %0, ptr noalias nocapture readonl
 ; AVX512F-NEXT:    ret void
 ;
 ; AVX512VL-LABEL: @gather_load(
-; AVX512VL-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[TMP1:%.*]], i64 1
-; AVX512VL-NEXT:    [[TMP4:%.*]] = load i32, ptr [[TMP1]], align 4, !tbaa [[TBAA0:![0-9]+]]
-; AVX512VL-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 11
-; AVX512VL-NEXT:    [[TMP6:%.*]] = load i32, ptr [[TMP5]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 4
-; AVX512VL-NEXT:    [[TMP8:%.*]] = load i32, ptr [[TMP7]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP9:%.*]] = load i32, ptr [[TMP3]], align 4, !tbaa [[TBAA0]]
-; AVX512VL-NEXT:    [[TMP10:%.*]] = insertelement <4 x i32> undef, i32 [[TMP4]], i64 0
-; AVX512VL-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> [[TMP10]], i32 [[TMP6]], i64 1
-; AVX512VL-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP8]], i64 2
-; AVX512VL-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP9]], i64 3
-; AVX512VL-NEXT:    [[TMP14:%.*]] = add nsw <4 x i32> [[TMP13]], <i32 1, i32 2, i32 3, i32 4>
-; AVX512VL-NEXT:    store <4 x i32> [[TMP14]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
+; INTEL_CUSTOMIZATION
+; AVX512VL-NEXT:    [[TMP3:%.*]] = insertelement <4 x ptr> poison, ptr [[TMP1:%.*]], i64 0
+; AVX512VL-NEXT:    [[TMP4:%.*]] = shufflevector <4 x ptr> [[TMP3]], <4 x ptr> poison, <4 x i32> zeroinitializer
+; AVX512VL-NEXT:    [[TMP5:%.*]] = getelementptr i32, <4 x ptr> [[TMP4]], <4 x i64> <i64 0, i64 11, i64 4, i64 1>
+; AVX512VL-NEXT:    [[TMP6:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> [[TMP5]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> poison), !tbaa [[TBAA0:![0-9]+]]
+; AVX512VL-NEXT:    [[TMP7:%.*]] = add nsw <4 x i32> [[TMP6]], <i32 1, i32 2, i32 3, i32 4>
+; AVX512VL-NEXT:    store <4 x i32> [[TMP7]], ptr [[TMP0:%.*]], align 4, !tbaa [[TBAA0]]
+; end INTEL_CUSTOMIZATION
 ; AVX512VL-NEXT:    ret void
 ;
 ; INTEL_CUSTOMIZATION
