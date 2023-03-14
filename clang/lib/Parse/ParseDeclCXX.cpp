@@ -1693,6 +1693,9 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
     ColonProtectionRAIIObject X(*this);
 
     CXXScopeSpec Spec;
+    if (TemplateInfo.TemplateParams)
+      Spec.setTemplateParamLists(*TemplateInfo.TemplateParams);
+
     bool HasValidSpec = true;
     if (ParseOptionalCXXScopeSpecifier(Spec, /*ObjectType=*/nullptr,
                                        /*ObjectHasErrors=*/false,
