@@ -372,6 +372,10 @@ foreach suffix = ["", "_avx", "_avx2", "_avx512", "_x32", "_x64"] in {
     ["sub_group_shuffle_xor"#suffix, "sub_group_shuffle_xor"]], types>;
 }
 
+foreach suffix = ["_cs", "_vec_cs", "_assume_uniform_vec_cs"] in {
+  def sub_group_broadcast_alias#suffix : AliasMap<
+    [["sub_group_broadcast"#suffix, "sub_group_non_uniform_broadcast", "sub_group_broadcast"]], []>;
+}
 
 foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
   foreach op = ["add", "min", "max"] in {
@@ -458,9 +462,9 @@ let Types = [ v1i32, v1u32, v1i64, v1u64, v1f32, v1f64 ] in {
 }
 
 let Types = [v1i8, v1u8, v1i16, v1u16] in {
-  let HandleAlias = 0 in {
-    def sub_group_broadcast_cs_vect_info : VectInfo<[], sub_group_broadcast_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs>;
-    def sub_group_broadcast_assume_uniform_cs_vect_info : VectInfo<[], sub_group_broadcast_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs>;
+  foreach suffix = ["", "_assume_uniform"] in {
+    defvar vec_variant = !cast<OclBuiltin>("sub_group_broadcast"#suffix#"_vec_cs");
+    def sub_group_broadcast#suffix#_cs_vect_info : VectInfo<[], sub_group_broadcast_cs, vec_variant, vec_variant, vec_variant, vec_variant, vec_variant>;
   }
 
   foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
