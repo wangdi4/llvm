@@ -694,7 +694,6 @@ void InlineReport::print() const {
 
 void InlineReport::testAndPrint(void *Inliner) {
   if (!Inliner) {
-    makeAllCurrent();
     print();
     return;
   }
@@ -703,7 +702,6 @@ void InlineReport::testAndPrint(void *Inliner) {
   ActiveInliners.erase(Inliner);
   if (!ActiveInliners.empty())
     return;
-  makeAllCurrent();
   print();
 }
 
@@ -764,42 +762,42 @@ bool InlineReport::validate(void) {
 }
 #endif // NDEBUG
 
-void InlineReport::makeCurrent(Function *F) {
+bool InlineReport::makeCurrent(Function *F) {
   auto MapIt = IRFunctionMap.find(F);
-  assert(MapIt != IRFunctionMap.end());
-  InlineReportFunction *IRF = MapIt->second;
+  InlineReportFunction *IRF =
+      (MapIt == IRFunctionMap.end()) ? addFunction(F) : MapIt->second;
   if (IRF->getCurrent())
-    return;
-  if (F->isDeclaration()) {
+    return false;
+  if (IRF->getIsDeclaration()) {
     IRF->setCurrent(true);
-    return;
+    return false;
   }
+  bool Changed = false;
   SmallPtrSet<CallBase *, 16> SeenCallBases;
   // Ensure that every CallBase in F is in the IRCallBaseCallSiteMap.
-  for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
-    for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
-      CallBase *Call = dyn_cast<CallBase>(I);
-      if (!Call)
-        continue;
-      if (isa<IntrinsicInst>(I) && !(Level & DontSkipIntrin) &&
-          shouldSkipIntrinsic(cast<IntrinsicInst>(I)))
-        continue;
-      SeenCallBases.insert(Call);
-      if (IRCallBaseCallSiteMap.count(Call))
-        continue;
-      InlineReportCallSite *IRCS = addCallSite(Call);
-      if (auto Callee = Call->getCalledFunction()) {
-        if (Callee->isDeclaration()) {
-          if (Callee->isIntrinsic())
-            IRCS->setReason(NinlrIntrinsic);
-          else
-            IRCS->setReason(NinlrExtern);
-        } else {
-          IRCS->setReason(NinlrNewlyCreated);
-        }
+  for (auto &I : instructions(*F)) {
+    CallBase *Call = dyn_cast<CallBase>(&I);
+    if (!Call)
+      continue;
+    if (isa<IntrinsicInst>(Call) && !(Level & DontSkipIntrin) &&
+        shouldSkipIntrinsic(cast<IntrinsicInst>(Call)))
+      continue;
+    SeenCallBases.insert(Call);
+    if (IRCallBaseCallSiteMap.count(Call))
+      continue;
+    Changed = true;
+    InlineReportCallSite *IRCS = addCallSite(Call);
+    if (auto Callee = Call->getCalledFunction()) {
+      if (Callee->isDeclaration()) {
+        if (Callee->isIntrinsic())
+          IRCS->setReason(NinlrIntrinsic);
+        else
+          IRCS->setReason(NinlrExtern);
       } else {
-        IRCS->setReason(NinlrIndirect);
+        IRCS->setReason(NinlrNewlyCreated);
       }
+    } else {
+      IRCS->setReason(NinlrIndirect);
     }
   }
   // Ensure that any CallBase in the IRCallBaseCallSiteMap which is
@@ -816,19 +814,24 @@ void InlineReport::makeCurrent(Function *F) {
     if (IRCS0->getIRCaller() == IRF)
       RemovableCallBases.push_back(CB);
   }
-  for (CallBase *CB : RemovableCallBases)
+  for (CallBase *CB : RemovableCallBases) {
+    Changed = true;
     removeCallBaseReference(*CB);
+  }
   IRF->setCurrent(true);
+  return Changed;
 }
 
-void InlineReport::makeAllCurrent(void) {
+bool InlineReport::makeAllCurrent(void) {
   if (!isClassicIREnabled())
-    return;
+    return false;
   std::vector<Function *> FuncVector;
   for (auto &IRFME : IRFunctionMap)
     FuncVector.push_back(IRFME.first);
+  bool Changed = false;
   for (Function *F : FuncVector)
-    makeCurrent(F);
+    Changed |= makeCurrent(F);
+  return Changed;
 }
 
 void InlineReport::makeAllNotCurrent(void) {
@@ -864,7 +867,7 @@ InlineReportFunction *InlineReport::initFunction(Function *F) {
   InlineReportFunction *IRF = getOrAddFunction(F);
   assert(IRF);
   IRF->setCurrent(false);
-  makeCurrent(F);
+  (void)makeCurrent(F);
   return IRF;
 }
 
@@ -1108,5 +1111,17 @@ PreservedAnalyses InlineReportPass::run(Module &M, ModuleAnalysisManager &AM) {
     getInlineReport()->initFunction(&F);
   getInlineReport()->print();
   getInlineReport()->~InlineReport();
+  return PreservedAnalyses::all();
+}
+
+InlineReportMakeCurrentPass::InlineReportMakeCurrentPass(void) {}
+
+PreservedAnalyses
+InlineReportMakeCurrentPass::run(Function &F, FunctionAnalysisManager &AM) {
+  InlineReport *IR = getInlineReport();
+  if (!IR->isClassicIREnabled())
+    return PreservedAnalyses::all();
+  if (IR->makeCurrent(&F))
+    return PreservedAnalyses::none();
   return PreservedAnalyses::all();
 }

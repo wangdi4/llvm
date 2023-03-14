@@ -1,4 +1,4 @@
-; RUN: opt -passes='cgscc(inline),dse' -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='cgscc(inline),dse,inlinereportmakecurrent' -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; RUN: opt -passes='inlinereportsetup,cgscc(inline),dse,inlinereportemitter' -inline-report=0xe886 < %s -S 2>&1 | FileCheck %s
 
 ; Check that the classic inlining report notes that a malloc and memset were

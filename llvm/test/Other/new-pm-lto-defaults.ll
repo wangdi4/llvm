@@ -405,6 +405,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: CGProfilePass
 ; CHECK-EP-NEXT: Running pass: NoOpModulePass
 ; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
+; CHECK-O23SZ-NEXT: Running pass: InlineReportMakeCurrentPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: InlineReportEmitterPass ;INTEL
 ; CHECK-O-NEXT: Running pass: PrintModulePass
 

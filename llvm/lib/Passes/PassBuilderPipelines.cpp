@@ -2830,6 +2830,7 @@ if (!SYCLOptimizationMode) {
   // needed
   if (PrepareForLTO)
     MPM.addPass(IntelMathLibrariesDeclarationPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(InlineReportMakeCurrentPass()));
   MPM.addPass(InlineReportEmitterPass(Level.getSpeedupLevel(),
                                       Level.getSizeLevel(), LTOPreLink));
 #endif // INTEL_CUSTOMIZATION
@@ -3650,6 +3651,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   addAnnotationRemarksPass(MPM);
 
 #if INTEL_CUSTOMIZATION
+  MPM.addPass(createModuleToFunctionPassAdaptor(InlineReportMakeCurrentPass()));
   MPM.addPass(InlineReportEmitterPass(Level.getSpeedupLevel(),
                                       Level.getSizeLevel(), false));
 #endif // INTEL_CUSTOMIZATION

@@ -364,6 +364,7 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: ConstantMergePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: CGProfilePass
 ; CHECK-POSTLINK-O-NEXT: Running pass: RelLookupTableConverterPass
+; CHECK-POSTLINK-O-NEXT: Running pass: InlineReportMakeCurrentPass ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: InlineReportEmitterPass ;INTEL
 ; CHECK-EP-OPT-EARLY-NEXT: Running pass: NoOpModulePass
 ; CHECK-EP-OPT-LAST-NEXT: Running pass: NoOpModulePass
