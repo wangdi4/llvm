@@ -64,13 +64,6 @@ Pass *createRedundantDbgInstEliminationPass();
 //
 FunctionPass *createDeadCodeEliminationPass();
 
-//===----------------------------------------------------------------------===//
-//
-// DeadStoreElimination - This pass deletes stores that are post-dominated by
-// must-aliased stores and are not loaded used between the stores.
-//
-FunctionPass *createDeadStoreEliminationPass();
-
 
 //===----------------------------------------------------------------------===//
 //
@@ -80,6 +73,7 @@ FunctionPass *createCallSiteSplittingPass();
 
 //===----------------------------------------------------------------------===//
 //
+<<<<<<< HEAD
 // AggressiveDCE - This pass uses the SSA based Aggressive DCE algorithm.  This
 // algorithm assumes instructions are dead until proven otherwise, which makes
 // it more successful are removing non-obviously dead instructions.
@@ -89,6 +83,8 @@ FunctionPass *createUnskippableAggressiveDCEPass(); // INTEL
 
 //===----------------------------------------------------------------------===//
 //
+=======
+>>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
 // GuardWidening - An optimization over the @llvm.experimental.guard intrinsic
 // that (optimistically) combines multiple guards into one to have fewer checks
 // at runtime.
@@ -130,13 +126,6 @@ Pass *createSROALegacyCGSCCAdaptorPass();
 // linear functions of the induction variable.
 //
 Pass *createInductiveRangeCheckEliminationPass();
-
-//===----------------------------------------------------------------------===//
-//
-// InductionVariableSimplify - Transform induction variables in a program to all
-// use a single canonical induction variable per loop.
-//
-Pass *createIndVarSimplifyPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -252,6 +241,7 @@ FunctionPass *createTransformSinAndCosCallsPass();
 
 //===----------------------------------------------------------------------===//
 //
+<<<<<<< HEAD
 // JumpThreading - Thread control through mult-pred/multi-succ blocks where some
 // preds always go to some succ. Thresholds other than minus one
 // override the internal BB duplication default threshold.
@@ -333,6 +323,8 @@ FunctionPass *createDFAJumpThreadingPass();
 
 //===----------------------------------------------------------------------===//
 //
+=======
+>>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
 // CFGSimplification - Merge basic blocks, eliminate unreachable blocks,
 // simplify terminator instructions, convert switches to lookup tables, etc.
 //
@@ -459,12 +451,6 @@ Pass *createMergeICmpsLegacyPass();
 
 //===----------------------------------------------------------------------===//
 //
-// ValuePropagation - Propagate CFG-derived value information
-//
-Pass *createCorrelatedValuePropagationPass();
-
-//===----------------------------------------------------------------------===//
-//
 // InferAddressSpaces - Modify users of addrspacecast instructions with values
 // in the source address space if using the destination address space is slower
 // on the target. If AddressSpace is left to its default value, it will be
@@ -570,13 +556,6 @@ FunctionPass *createNaryReassociatePass();
 // LoopDataPrefetch - Perform data prefetching in loops.
 //
 FunctionPass *createLoopDataPrefetchPass();
-
-//===----------------------------------------------------------------------===//
-//
-// LibCallsShrinkWrap - Shrink-wraps a call to function if the result is not
-// used.
-//
-FunctionPass *createLibCallsShrinkWrapPass();
 
 //===----------------------------------------------------------------------===//
 //

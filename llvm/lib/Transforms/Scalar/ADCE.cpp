@@ -754,6 +754,7 @@ PreservedAnalyses ADCEPass::run(Function &F, FunctionAnalysisManager &FAM) {
 
   return PA;
 }
+<<<<<<< HEAD
 
 namespace {
 
@@ -808,3 +809,5 @@ FunctionPass *llvm::createAggressiveDCEPass() { return new ADCELegacyPass(); }
 FunctionPass *llvm::createUnskippableAggressiveDCEPass() { // INTEL
   return new UnskippableADCELegacyPass();                  // INTEL
 } // INTEL
+=======
+>>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b

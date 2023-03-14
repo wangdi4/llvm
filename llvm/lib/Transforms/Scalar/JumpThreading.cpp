@@ -142,6 +142,7 @@ static cl::opt<bool> ThreadAcrossLoopHeaders(
     cl::desc("Allow JumpThreading to thread across loop headers, for testing"),
     cl::init(false), cl::Hidden);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
 JumpThreadLoopHeader("jump-thread-loop-header",
@@ -227,6 +228,9 @@ FunctionPass *llvm::createJumpThreadingPass(int Threshold,              // INTEL
 JumpThreadingPass::JumpThreadingPass(int T,                             // INTEL
                                      bool AllowCFGSimps) {              // INTEL
   DoCFGSimplifications = AllowCFGSimps;                                 // INTEL
+=======
+JumpThreadingPass::JumpThreadingPass(int T) {
+>>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
   DefaultBBDupThreshold = (T == -1) ? BBDuplicateThreshold : unsigned(T);
 }
 
@@ -356,6 +360,7 @@ static void updatePredecessorProfileMetadata(PHINode *PN, BasicBlock *BB) {
   }
 }
 
+<<<<<<< HEAD
 /// runOnFunction - Toplevel algorithm.
 bool JumpThreading::runOnFunction(Function &F) {
   if (skipFunction(F))
@@ -392,6 +397,8 @@ bool JumpThreading::runOnFunction(Function &F) {
   return Changed;
 }
 
+=======
+>>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
 PreservedAnalyses JumpThreadingPass::run(Function &F,
                                          FunctionAnalysisManager &AM) {
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);

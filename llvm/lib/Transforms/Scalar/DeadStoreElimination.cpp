@@ -2262,6 +2262,7 @@ PreservedAnalyses DSEPass::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserve<LoopAnalysis>();
   return PA;
 }
+<<<<<<< HEAD
 
 namespace {
 
@@ -2339,3 +2340,5 @@ INITIALIZE_PASS_END(DSELegacyPass, "dse", "Dead Store Elimination", false,
 FunctionPass *llvm::createDeadStoreEliminationPass() {
   return new DSELegacyPass();
 }
+=======
+>>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b

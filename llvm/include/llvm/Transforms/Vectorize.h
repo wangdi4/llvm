@@ -127,20 +127,6 @@ struct VectorizeConfig {
 using FatalErrorHandlerTy = std::function<void (llvm::Function *F)>;  // INTEL
 
 //===----------------------------------------------------------------------===//
-//
-// LoopVectorize - Create a loop vectorization pass.
-//
-Pass *createLoopVectorizePass();
-Pass *createLoopVectorizePass(bool InterleaveOnlyWhenForced,
-                              bool VectorizeOnlyWhenForced);
-
-//===----------------------------------------------------------------------===//
-//
-// SLPVectorizer - Create a bottom-up SLP vectorizer pass.
-//
-Pass *createSLPVectorizerPass();
-
-//===----------------------------------------------------------------------===//
 /// Vectorize the BasicBlock.
 ///
 /// @param BB The BasicBlock to be vectorized

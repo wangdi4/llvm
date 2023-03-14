@@ -123,6 +123,7 @@ STATISTIC(NumMinMax, "Number of llvm.[us]{min,max} intrinsics removed");
 STATISTIC(NumUDivURemsNarrowedExpanded,
           "Number of bound udiv's/urem's expanded");
 
+<<<<<<< HEAD
 namespace {
 
   class CorrelatedValuePropagation : public FunctionPass {
@@ -162,6 +163,8 @@ Pass *llvm::createCorrelatedValuePropagationPass() {
   return new CorrelatedValuePropagation();
 }
 
+=======
+>>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
 static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
   if (S->getType()->isVectorTy()) return false;
   if (isa<Constant>(S->getCondition())) return false;
@@ -1325,16 +1328,6 @@ static bool runImpl(Function &F, LazyValueInfo *LVI, DominatorTree *DT,
   }
 
   return FnChanged;
-}
-
-bool CorrelatedValuePropagation::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
-
-  LazyValueInfo *LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
-  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-
-  return runImpl(F, LVI, DT, getBestSimplifyQuery(*this, F));
 }
 
 PreservedAnalyses
