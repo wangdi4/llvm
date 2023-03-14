@@ -2067,7 +2067,6 @@ class IRLinker {
   std::vector<GlobalValue *> Worklist;
   std::vector<std::pair<GlobalValue *, Value*>> RAUWWorklist;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // When DTrans metadata tags are used to describe types of function
@@ -2084,12 +2083,6 @@ class IRLinker {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-  /// Set of globals with eagerly copied metadata that may require remapping.
-  /// This remapping is performed after metadata linking.
-  DenseSet<GlobalObject *> UnmappedMetadata;
-
-=======
->>>>>>> e510d0bda0876c4baa3a270dca39b95da7ec6d9e
   void maybeAdd(GlobalValue *GV) {
     if (ValuesToLink.insert(GV).second)
       Worklist.push_back(GV);
