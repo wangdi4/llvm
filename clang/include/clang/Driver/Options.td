@@ -7938,7 +7938,7 @@ def fno_cuda_host_device_constexpr : Flag<["-"], "fno-cuda-host-device-constexpr
 
 def fopenmp_is_device : Flag<["-"], "fopenmp-is-device">,
   HelpText<"Generate code only for an OpenMP target device.">,
-  Flags<[CC1Option, NoDriverOption]>;
+  Flags<[CC1Option, FC1Option, NoDriverOption]>;
 def fopenmp_host_ir_file_path : Separate<["-"], "fopenmp-host-ir-file-path">,
   HelpText<"Path to the IR file produced by the frontend for the host.">,
   Flags<[CC1Option, NoDriverOption]>;
@@ -9688,6 +9688,16 @@ def _SLASH_Gregcall : CLFlag<"Gregcall">,
 def _SLASH_Qregcall : CLFlag<"Qregcall">, Alias<_SLASH_Gregcall>,
   HelpText<"Set __regcall as a default calling convention">;
 #endif // INTEL_CUSTOMIZATION
+
+// GNU Driver aliases
+
+def : Separate<["-"], "Xmicrosoft-visualc-tools-root">, Alias<_SLASH_vctoolsdir>;
+def : Separate<["-"], "Xmicrosoft-visualc-tools-version">,
+    Alias<_SLASH_vctoolsversion>;
+def : Separate<["-"], "Xmicrosoft-windows-sdk-root">,
+    Alias<_SLASH_winsdkdir>;
+def : Separate<["-"], "Xmicrosoft-windows-sdk-version">,
+    Alias<_SLASH_winsdkversion>;
 
 // Ignored:
 
