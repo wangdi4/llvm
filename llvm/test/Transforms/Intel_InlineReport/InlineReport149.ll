@@ -1,8 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 < %s -S 2>&1 | opt -passes='cgscc(inline)' -inline-report=0xe807 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-GOOD,CHECK-GOOD-CL
+; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 < %s -S 2>&1 | opt -passes='cgscc(inline),inlinereportmakecurrent' -inline-report=0xe807 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-GOOD,CHECK-GOOD-CL
 ; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 < %s -S 2>&1 | opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=3 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-GOOD,CHECK-GOOD-ML
-; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 < %s -S 2>&1 | opt -passes='cgscc(inline)' -inline-report=0xe807 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BAD,CHECK-BAD-CL
+; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 < %s -S 2>&1 | opt -passes='cgscc(inline),inlinereportmakecurrent' -inline-report=0xe807 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BAD,CHECK-BAD-CL
 ; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 < %s -S 2>&1 | opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -lto-inline-cost -inlining-dyn-alloca-special-arg-count=4 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BAD,CHECK-BAD-ML
 
 ; Check that with -inlining-dyn-alloca-special-arg-count=3 inlining happens

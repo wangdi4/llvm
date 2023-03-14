@@ -518,6 +518,11 @@ public:
   void
   removeCallBasesInBasicBlocks(SmallSetVector<BasicBlock *, 8> &BlocksToRemove);
 
+  /// Ensure that the inline report for this routine reflects the
+  /// changes that have been made to that routine since the last call to
+  /// Inliner::runOnSCC(). Return 'true' if 'F' is modified.
+  bool makeCurrent(Function *F);
+
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
@@ -622,14 +627,10 @@ private:
   bool validate(void);
 #endif // NDEBUG
 
-  /// Ensure that the inline report for this routine reflects the
-  /// changes that have been made to that routine since the last call to
-  /// Inliner::runOnSCC()
-  void makeCurrent(Function *F);
-
   /// Update the Functions in the call graph, so that all are current
   /// and all newly created callsites will appear in the inline report.
-  void makeAllCurrent(void);
+  /// Return 'true' if some function is modified.
+  bool makeAllCurrent(void);
 
   /// Indicate that the inline reports may need to be made current
   /// with InlineReport::makeCurrent() before they are changed to indicate
@@ -664,6 +665,17 @@ private:
   // Remove it from the IRCallSiteMap, remove its callback, and remove
   // all of its children if it represents an inlined call site.
   void removeIRCS(InlineReportCallSite *IRCS);
+};
+
+/// Pass to bring a Function up to date by including all its callsites in
+/// the classic inlining report and excluding any which have been deleted.
+class InlineReportMakeCurrentPass
+    : public PassInfoMixin<InlineReportMakeCurrentPass> {
+  static char PassID;
+
+public:
+  InlineReportMakeCurrentPass(void);
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
 /// Get the single, active classic inlining report.
