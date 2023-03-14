@@ -1,5 +1,6 @@
 # The LLVM Compiler Infrastructure
 
+<<<<<<< HEAD
 This directory and its subdirectories contain source code for LLVM,
 a toolkit for the construction of highly optimized compilers,
 optimizers, and run-time environments.
@@ -15,13 +16,24 @@ Taken from https://llvm.org/docs/GettingStarted.html.
 
 ### Overview
 
+=======
+>>>>>>> 65548ff349012c3087260697d5aecb4ceaaa3f23
 Welcome to the LLVM project!
+
+This repository contains the source code for LLVM, a toolkit for the
+construction of highly optimized compilers, optimizers, and run-time
+environments.
 
 The LLVM project has multiple components. The core of the project is
 itself called "LLVM". This contains all of the tools, libraries, and header
 files needed to process intermediate representations and convert them into
+<<<<<<< HEAD
 object files.  Tools include an assembler, disassembler, bitcode analyzer, and
 bitcode optimizer.  It also contains basic regression tests.
+=======
+object files. Tools include an assembler, disassembler, bitcode analyzer, and
+bitcode optimizer.
+>>>>>>> 65548ff349012c3087260697d5aecb4ceaaa3f23
 
 C-like languages use the [Clang](http://clang.llvm.org/) front end.  This
 component compiles C, C++, Objective-C, and Objective-C++ code into LLVM bitcode
@@ -31,6 +43,7 @@ Other components include:
 the [libc++ C++ standard library](https://libcxx.llvm.org),
 the [LLD linker](https://lld.llvm.org), and more.
 
+<<<<<<< HEAD
 ### Getting the Source Code and Building LLVM
 
 The LLVM Getting Started documentation may be out of date.  The [Clang
@@ -106,16 +119,22 @@ This is an example work-flow and configuration to get and build the LLVM source:
           CPUs you have.
 
       * For more information see [CMake](https://llvm.org/docs/CMake.html)
+=======
+## Getting the Source Code and Building LLVM
+>>>>>>> 65548ff349012c3087260697d5aecb4ceaaa3f23
 
 Consult the
-[Getting Started with LLVM](https://llvm.org/docs/GettingStarted.html#getting-started-with-llvm)
-page for detailed information on configuring and compiling LLVM. You can visit
-[Directory Layout](https://llvm.org/docs/GettingStarted.html#directory-layout)
-to learn about the layout of the source code tree.
+[Getting Started with LLVM](https://llvm.org/docs/GettingStarted.html#getting-the-source-code-and-building-llvm)
+page for information on building and running LLVM.
+
+For information on how to contribute to the LLVM project, please take a look at
+the [Contributing to LLVM](https://llvm.org/docs/Contributing.html) guide.
 
 ## Getting in touch
 
-Join [LLVM Discourse forums](https://discourse.llvm.org/), [discord chat](https://discord.gg/xS7Z362) or #llvm IRC channel on [OFTC](https://oftc.net/).
+Join the [LLVM Discourse forums](https://discourse.llvm.org/), [Discord
+chat](https://discord.gg/xS7Z362), or #llvm IRC channel on
+[OFTC](https://oftc.net/).
 
 The LLVM project has adopted a [code of conduct](https://llvm.org/docs/CodeOfConduct.html) for
 participants to all modes of communication within the project.
