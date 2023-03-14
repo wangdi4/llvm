@@ -35,7 +35,7 @@ public:
   /// @param pValue           Implict argument's value destination pointer
   /// @param arg              OpenCL argument
   /// @param pBL              BlockLiteral pointers
-  ExplicitBlockLiteralArgument(char *pValue, const KernelArgument &arg,
+  ExplicitBlockLiteralArgument(char *pValue, const llvm::KernelArgument &arg,
                                const BlockLiteral *pBL)
       : ExplicitArgument(pValue, arg), m_pBL(pBL) {}
 

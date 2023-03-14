@@ -18,6 +18,8 @@
 #include <iostream>
 
 using namespace std;
+using namespace debugservermessages;
+using namespace Intel::OpenCL::Utils;
 
 char const *localhost = "127.0.0.1";
 

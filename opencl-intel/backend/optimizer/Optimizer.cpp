@@ -21,6 +21,9 @@
 #include "llvm/Transforms/SYCLTransforms/SYCLKernelAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/VFAnalysis.h"
 
+using namespace intel;
+using namespace llvm;
+
 #if INTEL_CUSTOMIZATION
 // Enable vectorization at O0 optimization level.
 extern cl::opt<bool> EnableO0Vectorization;
@@ -73,18 +76,17 @@ ManagedStatic<cl::opt<bool>, CreateDisableVPlanCM> DisableVPlanCM;
 
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
-using namespace intel;
 namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
 // Load Table-Gen'erated VectInfo.gen
-static constexpr llvm::VectItem Vect[] = {
+static constexpr VectItem Vect[] = {
 #include "VectInfo.gen"
 };
-static constexpr llvm::ArrayRef<llvm::VectItem> VectInfos(Vect);
+static constexpr ArrayRef<VectItem> VectInfos(Vect);
 
-llvm::ArrayRef<llvm::VectItem> Optimizer::getVectInfos() { return VectInfos; }
+ArrayRef<VectItem> Optimizer::getVectInfos() { return VectInfos; }
 #if INTEL_CUSTOMIZATION
 const StringSet<> &Optimizer::getVPlanMaskedFuncs() {
   static const StringSet<> VPlanMaskedFuncs =
@@ -100,13 +102,13 @@ const StringSet<> &Optimizer::getVPlanMaskedFuncs() {
 /// passes. Prints error messages and throw exception if received an error
 /// diagnostic.
 /// - Handles VFAnalysisDiagInfo emitted by VFAnalysis.
-class OCLDiagnosticHandler : public llvm::DiagnosticHandler {
+class OCLDiagnosticHandler : public DiagnosticHandler {
 public:
-  OCLDiagnosticHandler(llvm::raw_ostream &OS) : OS(OS) {}
-  bool handleDiagnostics(const llvm::DiagnosticInfo &DI) override {
+  OCLDiagnosticHandler(raw_ostream &OS) : OS(OS) {}
+  bool handleDiagnostics(const DiagnosticInfo &DI) override {
     // Handle VFAnalysisDiagInfo emitted by VFAnalysis.
-    if (auto *VFADI = dyn_cast<llvm::VFAnalysisDiagInfo>(&DI)) {
-      OS << llvm::LLVMContext::getDiagnosticMessagePrefix(VFADI->getSeverity())
+    if (auto *VFADI = dyn_cast<VFAnalysisDiagInfo>(&DI)) {
+      OS << LLVMContext::getDiagnosticMessagePrefix(VFADI->getSeverity())
          << ": ";
       VFADI->print(OS);
       OS << ".\n";
@@ -115,8 +117,8 @@ public:
             "Checking vectorization factor failed", CL_DEV_INVALID_BINARY);
       return true;
     }
-    if (auto *DKADI = dyn_cast<llvm::SYCLKernelAnalysisDiagInfo>(&DI)) {
-      OS << llvm::LLVMContext::getDiagnosticMessagePrefix(DKADI->getSeverity())
+    if (auto *DKADI = dyn_cast<SYCLKernelAnalysisDiagInfo>(&DI)) {
+      OS << LLVMContext::getDiagnosticMessagePrefix(DKADI->getSeverity())
          << ": ";
       DKADI->print(OS);
       OS << ".\n";
@@ -129,24 +131,22 @@ public:
   }
 
 private:
-  llvm::DiagnosticPrinterRawOStream OS;
+  DiagnosticPrinterRawOStream OS;
 };
 
-Optimizer::Optimizer(llvm::Module &M,
-                     llvm::SmallVectorImpl<llvm::Module *> &RtlModules,
+Optimizer::Optimizer(Module &M, SmallVectorImpl<Module *> &RtlModules,
                      const intel::OptimizerConfig &OptConfig)
     : m_M(M), m_RtlModules(RtlModules.begin(), RtlModules.end()),
-      Config(OptConfig),
-      m_IsSPIRV(llvm::CompilationUtils::generatedFromSPIRV(M)),
-      m_IsSYCL(llvm::CompilationUtils::isGeneratedFromOCLCPP(M)),
-      m_IsOMP(llvm::CompilationUtils::isGeneratedFromOMP(M)),
+      Config(OptConfig), m_IsSPIRV(CompilationUtils::generatedFromSPIRV(M)),
+      m_IsSYCL(CompilationUtils::isGeneratedFromOCLCPP(M)),
+      m_IsOMP(CompilationUtils::isGeneratedFromOMP(M)),
       m_IsFpgaEmulator(Config.isFpgaEmulator()), UnrollLoops(true) {
   assert(Config.GetCpuId() && "Invalid optimizer config");
   ISA = VectorizerUtils::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
   SYCLForceOptnone = Config.GetDisableOpt();
-  m_IsOcl20 = llvm::CompilationUtils::fetchCLVersionFromMetadata(M) >=
-              llvm::CompilationUtils::OclVersion::CL_VER_2_0;
+  m_IsOcl20 = CompilationUtils::fetchCLVersionFromMetadata(M) >=
+              CompilationUtils::OclVersion::CL_VER_2_0;
   m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
                                         Config.GetUseNativeDebuggerFlag());
   m_UseTLSGlobals = (m_debugType == intel::Native);
@@ -159,7 +159,7 @@ Optimizer::Optimizer(llvm::Module &M,
   });
 }
 
-void Optimizer::setDiagnosticHandler(llvm::raw_ostream &LogStream) {
+void Optimizer::setDiagnosticHandler(raw_ostream &LogStream) {
   m_M.getContext().setDiagnosticHandler(
       std::make_unique<OCLDiagnosticHandler>(LogStream));
 }
@@ -218,20 +218,20 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
       Invalid = KMD.RecursiveCall.hasValue() && KMD.RecursiveCall.get();
       break;
     case RECURSION_WITH_BARRIER:
-      Invalid = F.hasFnAttribute(llvm::KernelAttribute::RecursionWithBarrier);
+      Invalid = F.hasFnAttribute(KernelAttribute::RecursionWithBarrier);
       break;
     case FPGA_PIPE_DYNAMIC_ACCESS:
       Invalid = KMD.FpgaPipeDynamicAccess.hasValue() &&
                 KMD.FpgaPipeDynamicAccess.get();
       break;
     case VECTOR_VARIANT_FAILURE:
-      Invalid = F.hasFnAttribute(llvm::KernelAttribute::VectorVariantFailure);
+      Invalid = F.hasFnAttribute(KernelAttribute::VectorVariantFailure);
       break;
     }
 
     if (Invalid) {
       std::string Message;
-      llvm::raw_string_ostream MStr(Message);
+      raw_string_ostream MStr(Message);
       MStr << std::string(F.getName());
       if (auto SP = F.getSubprogram()) {
         MStr << " at ";

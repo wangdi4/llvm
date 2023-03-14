@@ -24,8 +24,6 @@
 #include <string>
 #include <vector>
 
-using namespace Intel::OpenCL::DeviceBackend;
-
 namespace Validation {
 class PriorityBooster {
 public:

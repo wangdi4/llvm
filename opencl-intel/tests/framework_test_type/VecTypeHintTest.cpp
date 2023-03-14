@@ -117,7 +117,7 @@ bool VecTypeHintTest() {
       std::string patternStr = patternStrStream.str();
 
       size_t new_place = strLog.find(patternStr, place) + patternStr.size();
-      if (new_place == string::npos) {
+      if (new_place == std::string::npos) {
         printf("ERROR: Cannot find log about kernel%d!\n", i + 1);
         bResult = false;
       }

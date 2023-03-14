@@ -46,7 +46,7 @@ unsigned long long Intel::OpenCL::Utils::TotalVirtualSize() {
     if (!GlobalMemoryStatusEx(&memStatus)) {
       return 0;
     }
-    vsize = min(memStatus.ullTotalPhys, memStatus.ullTotalVirtual);
+    vsize = std::min(memStatus.ullTotalPhys, memStatus.ullTotalVirtual);
   }
   return vsize;
 }

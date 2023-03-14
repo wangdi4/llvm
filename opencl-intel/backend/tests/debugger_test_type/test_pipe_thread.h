@@ -19,10 +19,7 @@
 #include "cl_thread.h"
 #include <cstdlib>
 
-using namespace std;
-using Intel::OpenCL::Utils::OclThread;
-
-class NamedPipeThread : public OclThread {
+class NamedPipeThread : public Intel::OpenCL::Utils::OclThread {
 public:
   HANDLE pipe;
   std::string portNumber;

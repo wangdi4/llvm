@@ -33,7 +33,7 @@ ProgramWithLibraryKernels::ProgramWithLibraryKernels(
     bool DeviceProgramCreated = false;
     size_t i = 0;
     for (; i < m_szNumAssociatedDevices; ++i) {
-      unique_ptr<DeviceProgram> &DevProgram = m_ppDevicePrograms[i];
+      std::unique_ptr<DeviceProgram> &DevProgram = m_ppDevicePrograms[i];
       DevProgram.reset(new DeviceProgram());
 
       cl_dev_program DevProg;

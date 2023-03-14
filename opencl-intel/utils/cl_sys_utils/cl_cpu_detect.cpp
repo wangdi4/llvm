@@ -312,7 +312,7 @@ CPUDetect::CPUDetect(void) : m_is64BitOS(sizeof(void *) == 8) {
     m_CPUArch = CPU_SPR;
 
   if (m_CPUArch == CPU_UNKNOWN) {
-    string errMessage = m_CPUString + ": Unsupported CPU!";
+    std::string errMessage = m_CPUString + ": Unsupported CPU!";
     llvm_unreachable(errMessage.data());
   }
 }

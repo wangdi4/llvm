@@ -59,7 +59,7 @@ public:
                                      cl_uint uNumEventsInWaitList,
                                      const cl_event *cpEeventWaitList,
                                      cl_event *pEvent,
-                                     ApiLogger *apiLogger) override;
+                                     Utils::ApiLogger *apiLogger) override;
   virtual cl_err_code Enqueue(Command *cmd) override;
   virtual cl_err_code EnqueueWaitForEvents(Command *cmd) override {
     return Enqueue(cmd);

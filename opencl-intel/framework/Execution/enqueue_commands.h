@@ -154,7 +154,8 @@ public:
   virtual cl_err_code EnqueueSelf(cl_bool bBlocking,
                                   cl_uint uNumEventsInWaitList,
                                   const cl_event *cpEeventWaitList,
-                                  cl_event *pEvent, ApiLogger *apiLogger);
+                                  cl_event *pEvent,
+                                  Utils::ApiLogger *apiLogger);
 
   // Prefix and Postfix Runtime commands
   // Each command may schedule prefix and postfix runtime commands for itself.
@@ -226,7 +227,7 @@ protected:
           access_rights_realy_used(MemoryObject::MEMOBJ_USAGES_COUNT){};
   };
 
-  typedef vector<MemoryObjectArg> MemoryObjectArgList;
+  typedef std::vector<MemoryObjectArg> MemoryObjectArgList;
 
   static void
   AddToMemoryObjectArgList(MemoryObjectArgList &argList, MemoryObject *pMemObj,
@@ -919,7 +920,7 @@ public:
                                   cl_uint uNumEventsInWaitList,
                                   const cl_event *cpEeventWaitList,
                                   cl_event *pEvent,
-                                  ApiLogger *apiLogger) override;
+                                  Utils::ApiLogger *apiLogger) override;
   virtual cl_err_code PostfixExecute() override;
 
   // Object only function
@@ -1000,7 +1001,7 @@ public:
 
   cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList,
                           const cl_event *cpEeventWaitList, cl_event *pEvent,
-                          ApiLogger *apiLogger) override;
+                          Utils::ApiLogger *apiLogger) override;
   cl_err_code PrefixExecute() override;
 
   ECommandExecutionType GetExecutionType() const override {

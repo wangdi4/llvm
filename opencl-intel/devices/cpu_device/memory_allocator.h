@@ -20,8 +20,6 @@
 #include <cl_types.h>
 #include <map>
 
-using namespace Intel::OpenCL::Utils;
-
 namespace Intel {
 namespace OpenCL {
 namespace CPUDevice {
@@ -31,7 +29,7 @@ class MemoryAllocator {
 public:
   MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *pLogDesc,
                   cl_ulong maxAllocSize,
-                  ICLDevBackendImageService *pImageService);
+                  DeviceBackend::ICLDevBackendImageService *pImageService);
   virtual ~MemoryAllocator();
 
   cl_dev_err_code GetAllocProperties(cl_mem_object_type IN memObjType,
@@ -53,7 +51,7 @@ protected:
   cl_ulong m_maxAllocSize;
   IOCLDevLogDescriptor *m_pLogDescriptor;
   cl_int m_iLogHandle;
-  ICLDevBackendImageService *m_pImageService;
+  DeviceBackend::ICLDevBackendImageService *m_pImageService;
 };
 
 class CPUDevMemoryObject : public IOCLDevMemoryObject {
@@ -65,7 +63,7 @@ public:
                      const cl_image_format *pImgFormat, size_t dimCount,
                      const size_t *dim,
                      IOCLDevRTMemObjectService *pRTMemObjService,
-                     ICLDevBackendImageService *pImageService);
+                     DeviceBackend::ICLDevBackendImageService *pImageService);
 
   virtual ~CPUDevMemoryObject();
 
@@ -113,7 +111,7 @@ protected:
   cl_mem_flags m_memFlags;
   IOCLDevRTMemObjectService *m_pRTMemObjService;
   IOCLDevBackingStore *m_pBackingStore;
-  ICLDevBackendImageService *m_pImageService;
+  DeviceBackend::ICLDevBackendImageService *m_pImageService;
 };
 
 class CPUDevMemorySubObject : public CPUDevMemoryObject {

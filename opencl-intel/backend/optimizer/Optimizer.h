@@ -83,7 +83,7 @@ public:
   static bool getDisableVPlanCM(); // INTEL
   static bool getVerifyEachPass();
 
-  static const StringSet<> &getVPlanMaskedFuncs(); // INTEL
+  static const llvm::StringSet<> &getVPlanMaskedFuncs(); // INTEL
 protected:
   /// Register OCLDiagnosticHandler callback to LLVMContext.
   void setDiagnosticHandler(llvm::raw_ostream &LogStream);
@@ -96,7 +96,7 @@ protected:
 
   const intel::OptimizerConfig &Config;
 
-  StringRef CPUPrefix;
+  llvm::StringRef CPUPrefix;
 
   /// True if OpenCL version is greater or equal to 2.0.
   bool m_IsOcl20;

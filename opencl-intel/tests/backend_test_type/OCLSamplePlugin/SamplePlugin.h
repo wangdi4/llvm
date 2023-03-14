@@ -34,6 +34,7 @@ File Name:  SamplePlugin.h
 #define OCL_SAMPLEPLUGIN_API
 #endif
 
+// FIXME 'using namespace' shouldn't be used in header file.
 using namespace Intel::OpenCL::DeviceBackend;
 
 /** @brief SamplePlugin used for testing the loading of the plugins in the
@@ -41,7 +42,7 @@ using namespace Intel::OpenCL::DeviceBackend;
  * flag before and after the call of OnCreateProgram
  */
 
-class SamplePlugin : public Intel::OpenCL::DeviceBackend::ICLDevBackendPlugin {
+class SamplePlugin : public ICLDevBackendPlugin {
 public:
   SamplePlugin() {}
   ~SamplePlugin() {}

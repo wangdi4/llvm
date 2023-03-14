@@ -25,6 +25,9 @@
 
 #define DEBUG_TYPE "opencl_task_sequence"
 
+using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
+
 extern "C" LLVM_BACKEND_API size_t
 __ocl_task_sequence_create(size_t ret_type_size) {
   // For each task_sequence object, other essential data is stored in

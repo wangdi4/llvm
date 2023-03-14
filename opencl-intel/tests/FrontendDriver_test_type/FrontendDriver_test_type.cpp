@@ -36,6 +36,7 @@
 #include <fstream>
 #include <string>
 
+using namespace llvm;
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
@@ -149,7 +150,7 @@ TEST_F(ClangCompilerTestType, Test_CTSSPIR12) {
 }
 
 TEST_F(ClangCompilerTestType, Test_PlainSpirvConversion)
-// take a simple spirv file and make FE Compiler convert it to llvm::Module
+// take a simple spirv file and make FE Compiler convert it to Module
 {
   const char *build_options = "";
 
@@ -295,7 +296,7 @@ TEST_F(ClangCompilerTestType,
       spv::MemoryModelOpenCL};
   // Swap byte order of SPIR-V BC
   for (auto &word : spvBC)
-    word = llvm::byteswap(word);
+    word = byteswap(word);
 
   auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
 

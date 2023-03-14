@@ -25,6 +25,8 @@
 #include <sstream>
 #include <string.h>
 
+using namespace llvm;
+
 extern cl::opt<std::string> OptReqdSubGroupSizes;
 
 namespace Intel {
@@ -184,7 +186,7 @@ void CompilerConfig::LoadConfig() {
   if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_DEBUG"))
     llvm::DebugFlag = true;
   if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_DEBUG_ONLY"))
-    llvm::setCurrentDebugType(Env.c_str());
+    setCurrentDebugType(Env.c_str());
 #endif // NDEBUG
   if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_DUMP_FILE_NAME_PREFIX")) {
     // base name for stat files

@@ -27,8 +27,6 @@
 #include <d3d9.h>
 #endif
 
-using namespace Intel::OpenCL::Utils;
-
 namespace Intel {
 namespace OpenCL {
 namespace Framework {
@@ -199,7 +197,7 @@ private:
   cl_context_properties m_iD3DDevType = 0;
 
   std::mutex m_changeDefaultDeviceMutex;
-  AtomicPointer<OclCommandQueue> m_default_command_queue;
+  Utils::AtomicPointer<OclCommandQueue> m_default_command_queue;
 };
 
 /*******************************************************************************
@@ -227,10 +225,9 @@ public:
    *              pOutDevices [out] the initialized devices
    * Return value:    CL_SUCCESS - operation succeeded
    ****************************************************************************/
-  static cl_err_code
-  CreateAndInitAllDevicesOfDeviceType(const char *psDeviceAgentDllPath,
-                                      _cl_platform_id_int *pClPlatformId,
-                                      vector<SharedPtr<Device>> *pOutDevices);
+  static cl_err_code CreateAndInitAllDevicesOfDeviceType(
+      const char *psDeviceAgentDllPath, _cl_platform_id_int *pClPlatformId,
+      std::vector<SharedPtr<Device>> *pOutDevices);
 
   /*****************************************************************************
    * Function:     GetInfo

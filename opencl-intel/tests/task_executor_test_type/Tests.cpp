@@ -6,7 +6,7 @@
 #include "gtest/gtest.h"
 #include <iostream>
 
-using namespace std;
+using namespace Intel::OpenCL::TaskExecutor;
 
 ITaskExecutor *TaskExecutorTester::m_pTaskExecutor = NULL;
 
@@ -39,7 +39,7 @@ static bool RunSomeTasks(const SharedPtr<ITEDevice> &pSubdevData,
   SharedPtr<ITaskList> pTaskList = pSubdevData->CreateTaskList(
       bOutOfOrder ? TE_CMD_LIST_OUT_OF_ORDER : TE_CMD_LIST_IN_ORDER);
   if (NULL == pTaskList.GetPtr()) {
-    cerr << "TaskExecutor::CreateTaskList returned NULL" << endl;
+    std::cerr << "TaskExecutor::CreateTaskList returned NULL" << std::endl;
     return false;
   }
   const bool bWaitShouldBeSupported = bIsFullDevice;
@@ -55,7 +55,7 @@ static bool RunSomeTasks(const SharedPtr<ITEDevice> &pSubdevData,
       tasks[i] = pTaskSet;
     }
     if (!pTaskList->Flush()) {
-      cerr << "Flush failed failed" << endl;
+      std::cerr << "Flush failed failed" << std::endl;
       return false;
     }
 
@@ -64,7 +64,8 @@ static bool RunSomeTasks(const SharedPtr<ITEDevice> &pSubdevData,
 
       if ((!bWaitShouldBeSupported && res != TE_WAIT_NOT_SUPPORTED) ||
           (bWaitShouldBeSupported && res != TE_WAIT_COMPLETED)) {
-        cerr << "WaitForCompletion doesn't return result as expected" << endl;
+        std::cerr << "WaitForCompletion doesn't return result as expected"
+                  << std::endl;
         return false;
       }
     }
@@ -72,7 +73,8 @@ static bool RunSomeTasks(const SharedPtr<ITEDevice> &pSubdevData,
     const te_wait_result res = pTaskList->WaitForCompletion(NULL);
     if ((!bWaitShouldBeSupported && res != TE_WAIT_NOT_SUPPORTED) ||
         (bWaitShouldBeSupported && res != TE_WAIT_COMPLETED)) {
-      cerr << "WaitForCompletion doesn't return result as expected" << endl;
+      std::cerr << "WaitForCompletion doesn't return result as expected"
+                << std::endl;
       return false;
     }
   }
@@ -89,7 +91,7 @@ static bool RunSubdeviceTest(unsigned int uiSubdevSize,
   SharedPtr<ITEDevice> pSubdevData =
       use_subdevice ? subDevHandle.deviceHandle : rootDeviceHandle.deviceHandle;
   if (NULL == pSubdevData.GetPtr() && use_subdevice) {
-    cerr << "CreateSubdevice returned NULL" << endl;
+    std::cerr << "CreateSubdevice returned NULL" << std::endl;
     return false;
   }
   AtomicCounter uncompletedTasks;
@@ -107,7 +109,8 @@ static bool RunSubdeviceTest(unsigned int uiSubdevSize,
     pTaskList->Flush();
     pTaskList->WaitForCompletion(pTaskSet.GetPtr());
     if (!pTaskSet->IsCompleted()) {
-      cerr << "pTaskSet is not completed after taskExecutor.Execute" << endl;
+      std::cerr << "pTaskSet is not completed after taskExecutor.Execute"
+                << std::endl;
       return false;
     }
   } else {

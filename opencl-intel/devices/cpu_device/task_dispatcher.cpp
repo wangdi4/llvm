@@ -53,7 +53,7 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::TaskExecutor;
-using Intel::OpenCL::Utils::SharedPtr;
+using namespace Intel::OpenCL::Utils;
 
 class InPlaceTaskList : public ITaskList {
 public:
@@ -658,6 +658,8 @@ void AffinitizeThreads::DetachFromThread(void * /*pWgContext*/) { return; }
 
 bool AffinitizeThreads::ExecuteIteration(size_t /*x*/, size_t /*y*/,
                                          size_t /*z*/, void * /*pWgContext*/) {
+  using namespace std::chrono_literals;
+
   if (m_failed)
     return true;
 

@@ -466,11 +466,6 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       FPM2.addPass(SimplifyCFGPass());
     }
 
-#if INTEL_CUSTOMIZATION
-    // Barrier pass can't work with a token type, so here we remove region
-    // directives
-    FPM2.addPass(RemoveRegionDirectivesPass());
-#endif // INTEL_CUSTOMIZATION
     FPM2.addPass(UnifyFunctionExitNodesPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM2)));
 

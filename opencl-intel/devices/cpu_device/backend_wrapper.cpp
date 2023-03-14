@@ -22,6 +22,8 @@ namespace Intel {
 namespace OpenCL {
 namespace CPUDevice {
 
+using namespace DeviceBackend;
+
 OpenCLBackendWrapper::OpenCLBackendWrapper(void)
     : // ALERT!!! DK!!! Backend sometimes corrups heap on Linux if it unloads in
       // parallel with shutdown

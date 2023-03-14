@@ -151,7 +151,7 @@ bool run_common_rt_sub_buffers_async_test(
     }
     pDevTypes[currIndex] = dev_types[i];
     pNumDevicesOfType[currIndex] =
-        min(currDeviceNumDevicesRet, pNumExpectedDeviceOfType[i]);
+        std::min(currDeviceNumDevicesRet, pNumExpectedDeviceOfType[i]);
     numDevices += pNumDevicesOfType[currIndex];
     currIndex++;
   }
@@ -1015,12 +1015,12 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers() {
 
     // Supposing that alignment can be power of 2 only,
     // we get maximum of all values for all devices to satisfy all of them.
-    alignment = max(alignment, size_t(device_alignment_in_bits / 8));
+    alignment = std::max(alignment, size_t(device_alignment_in_bits / 8));
   }
 
   assert(alignment % sizeof(float) == 0);
 
-  vector<float *> hostMem(NUM_BUFFERS);
+  std::vector<float *> hostMem(NUM_BUFFERS);
   for (unsigned int i = 0; i < NUM_BUFFERS; i++) {
     hostMem[i] = (float *)ALIGNED_MALLOC(BUFFER_SIZE, alignment);
   }
@@ -1036,7 +1036,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers() {
     }
   }
 
-  vector<cl_mem> buffers(NUM_BUFFERS);
+  std::vector<cl_mem> buffers(NUM_BUFFERS);
 
   for (size_t i = 0; i < NUM_BUFFERS; ++i) {
     buffers[i] =
@@ -1063,7 +1063,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers() {
   //
   // Create queue
   //
-  vector<cl_command_queue> queues(uiNumDevices);
+  std::vector<cl_command_queue> queues(uiNumDevices);
   for (unsigned int i = 0; i < uiNumDevices; i++) {
     queues[i] = clCreateCommandQueueWithProperties(
         context, pDevices[i], NULL /*no properties*/, &iRet);
@@ -1071,7 +1071,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers() {
                            CL_SUCCESS, iRet);
   }
 
-  vector<cl_mem *> subBuffers(NUM_BUFFERS);
+  std::vector<cl_mem *> subBuffers(NUM_BUFFERS);
   for (unsigned int i = 0; i < NUM_BUFFERS; i++) {
     subBuffers[i] = new cl_mem[NUM_SUB_BUFFERS];
     for (unsigned int j = 0; j < NUM_SUB_BUFFERS; j++) {
@@ -1086,7 +1086,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers() {
 
   const unsigned int num_iterations = 2;
   const unsigned int total_rounds = uiNumDevices * 2 * num_iterations;
-  vector<cl_event> events(total_rounds);
+  std::vector<cl_event> events(total_rounds);
 
   float resArr[9][2][NUM_SUB_BUFFERS] = {
       {{1, 2, 3, 4, 5, 6}, {1, 2, 3, 4, 5, 6}},
@@ -1111,7 +1111,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers() {
       validationSubBufferSize * total_rounds, validationBufferPtr, &iRet);
   bResult &= SilentCheck("clCreateBuffer - validationBuffer", CL_SUCCESS, iRet);
 
-  vector<cl_mem> validationSubBuffers(total_rounds);
+  std::vector<cl_mem> validationSubBuffers(total_rounds);
   for (unsigned int i = 0; i < total_rounds; i++) {
     cl_buffer_region region = {i * validationSubBufferSize,
                                validationSubBufferSize};

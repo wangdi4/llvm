@@ -28,6 +28,7 @@
 
 using namespace std;
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 PlatformModule *Device::m_pPlatformModule = nullptr;
 
@@ -61,7 +62,7 @@ Device::~Device() { LOG_DEBUG(TEXT("%s"), TEXT("Device destructor enter")); }
 
 void Device::Cleanup(bool /*bIsTerminate*/) {
   // release logger clients
-  map<cl_int, LoggerClient *>::iterator it = m_mapDeviceLoggerClinets.begin();
+  auto it = m_mapDeviceLoggerClinets.begin();
   while (it != m_mapDeviceLoggerClinets.end()) {
     LoggerClient *pLoggerClient = it->second;
     if (nullptr != pLoggerClient) {
@@ -354,8 +355,7 @@ cl_int Device::clLogCreateClient(cl_int /*device_id*/, const char *client_name,
 }
 
 cl_int Device::clLogReleaseClient(cl_int client_id) {
-  map<cl_int, LoggerClient *>::iterator it =
-      m_mapDeviceLoggerClinets.find(client_id);
+  auto it = m_mapDeviceLoggerClinets.find(client_id);
   if (it == m_mapDeviceLoggerClinets.end()) {
     return CL_ERR_KEY_NOT_FOUND;
   }
@@ -370,8 +370,7 @@ cl_int Device::clLogAddLine(cl_int client_id, cl_int log_level,
                             const char *IN source_file,
                             const char *IN function_name, cl_int line_num,
                             ...) {
-  map<cl_int, LoggerClient *>::iterator it =
-      m_mapDeviceLoggerClinets.find(client_id);
+  auto it = m_mapDeviceLoggerClinets.find(client_id);
   if (it == m_mapDeviceLoggerClinets.end()) {
     return CL_ERR_KEY_NOT_FOUND;
   }

@@ -38,7 +38,9 @@
 #include <windows.h>
 #endif
 
+using namespace llvm;
 using namespace Intel::OpenCL::CPUDevice;
+using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::BuiltInKernels;
 
@@ -1002,7 +1004,7 @@ cl_dev_err_code ProgramService::GetSupportedImageFormats(
                                                        flags);
 
   if (nullptr != formats) {
-    uiNumEntries = min(uiNumEntries, numEntries);
+    uiNumEntries = std::min(uiNumEntries, numEntries);
     MEMCPY_S(formats, numEntries * sizeof(cl_image_format),
              supportedImageFormats, uiNumEntries * sizeof(cl_image_format));
   }

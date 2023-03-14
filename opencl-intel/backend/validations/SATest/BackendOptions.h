@@ -25,6 +25,9 @@
 
 namespace Validation {
 
+// FIXME 'using namespace' shouldn't be used in header file.
+using namespace Intel::OpenCL::DeviceBackend;
+
 class GlobalBackendOptions : public ICLDevBackendOptions {
 public:
   void InitFromRunConfiguration(const BERunOptions &runConfig) {

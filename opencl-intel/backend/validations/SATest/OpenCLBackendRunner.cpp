@@ -49,6 +49,7 @@
 
 #include <string.h>
 
+using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Validation {

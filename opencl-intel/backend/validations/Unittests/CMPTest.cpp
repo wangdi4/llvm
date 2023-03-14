@@ -459,43 +459,43 @@ TEST(Comparator, EqualNEATAccurate) {
 
 template <typename T> void TestFloatBoundsReference(DataTypeVal valType) {
   /// Check infinities
-  EXPECT_EQ(PASSED,
-            CompareSingleValueRef<T>(numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::infinity(), valType));
-  EXPECT_EQ(PASSED,
-            CompareSingleValueRef<T>(-numeric_limits<T>::infinity(),
-                                     -numeric_limits<T>::infinity(), valType));
-  EXPECT_EQ(NOT_PASSED,
-            CompareSingleValueRef<T>(numeric_limits<T>::infinity(),
-                                     -numeric_limits<T>::infinity(), valType));
-  EXPECT_EQ(NOT_PASSED,
-            CompareSingleValueRef<T>(-numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::infinity(), valType));
-  EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(numeric_limits<T>::infinity(),
-                                                 0, valType));
+  EXPECT_EQ(PASSED, CompareSingleValueRef<T>(std::numeric_limits<T>::infinity(),
+                                             std::numeric_limits<T>::infinity(),
+                                             valType));
+  EXPECT_EQ(PASSED, CompareSingleValueRef<T>(
+                        -std::numeric_limits<T>::infinity(),
+                        -std::numeric_limits<T>::infinity(), valType));
   EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(
-                            0, numeric_limits<T>::infinity(), valType));
+                            std::numeric_limits<T>::infinity(),
+                            -std::numeric_limits<T>::infinity(), valType));
+  EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(
+                            -std::numeric_limits<T>::infinity(),
+                            std::numeric_limits<T>::infinity(), valType));
+  EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(
+                            std::numeric_limits<T>::infinity(), 0, valType));
+  EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(
+                            0, std::numeric_limits<T>::infinity(), valType));
 
   /// Check NaNs
-  EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(numeric_limits<T>::quiet_NaN(),
-                                                 0, valType));
   EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(
-                            0, numeric_limits<T>::quiet_NaN(), valType));
-  EXPECT_EQ(NOT_PASSED,
-            CompareSingleValueRef<T>(numeric_limits<T>::quiet_NaN(),
-                                     numeric_limits<T>::infinity(), valType));
-  EXPECT_EQ(NOT_PASSED,
-            CompareSingleValueRef<T>(numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::quiet_NaN(), valType));
-  EXPECT_EQ(PASSED,
-            CompareSingleValueRef<T>(numeric_limits<T>::quiet_NaN(),
-                                     numeric_limits<T>::quiet_NaN(), valType));
-  EXPECT_EQ(PASSED, CompareSingleValueRef<T>(numeric_limits<T>::quiet_NaN(),
-                                             numeric_limits<T>::signaling_NaN(),
-                                             valType));
-  EXPECT_EQ(PASSED, CompareSingleValueRef<T>(numeric_limits<T>::signaling_NaN(),
-                                             numeric_limits<T>::signaling_NaN(),
-                                             valType));
+                            std::numeric_limits<T>::quiet_NaN(), 0, valType));
+  EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(
+                            0, std::numeric_limits<T>::quiet_NaN(), valType));
+  EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(
+                            std::numeric_limits<T>::quiet_NaN(),
+                            std::numeric_limits<T>::infinity(), valType));
+  EXPECT_EQ(NOT_PASSED, CompareSingleValueRef<T>(
+                            std::numeric_limits<T>::infinity(),
+                            std::numeric_limits<T>::quiet_NaN(), valType));
+  EXPECT_EQ(PASSED, CompareSingleValueRef<T>(
+                        std::numeric_limits<T>::quiet_NaN(),
+                        std::numeric_limits<T>::quiet_NaN(), valType));
+  EXPECT_EQ(PASSED, CompareSingleValueRef<T>(
+                        std::numeric_limits<T>::quiet_NaN(),
+                        std::numeric_limits<T>::signaling_NaN(), valType));
+  EXPECT_EQ(PASSED, CompareSingleValueRef<T>(
+                        std::numeric_limits<T>::signaling_NaN(),
+                        std::numeric_limits<T>::signaling_NaN(), valType));
 
   /// Check zeros
   EXPECT_EQ(PASSED, CompareSingleValueRef<T>(T(+0.0), T(+0.0), valType));
@@ -539,43 +539,43 @@ void TestCFloat16BoundsReference() {
 
 template <typename T> void TestFloatBoundsNeatAccurate(DataTypeVal valType) {
   /// Check infinities
-  EXPECT_EQ(PASSED,
-            CompareSingleValueNeat<T>(numeric_limits<T>::infinity(),
-                                      numeric_limits<T>::infinity(), valType));
-  EXPECT_EQ(PASSED,
-            CompareSingleValueNeat<T>(-numeric_limits<T>::infinity(),
-                                      -numeric_limits<T>::infinity(), valType));
-  EXPECT_EQ(NOT_PASSED,
-            CompareSingleValueNeat<T>(numeric_limits<T>::infinity(),
-                                      -numeric_limits<T>::infinity(), valType));
-  EXPECT_EQ(NOT_PASSED,
-            CompareSingleValueNeat<T>(-numeric_limits<T>::infinity(),
-                                      numeric_limits<T>::infinity(), valType));
-  EXPECT_EQ(NOT_PASSED, CompareSingleValueNeat<T>(numeric_limits<T>::infinity(),
-                                                  0, valType));
+  EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(
+                        std::numeric_limits<T>::infinity(),
+                        std::numeric_limits<T>::infinity(), valType));
+  EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(
+                        -std::numeric_limits<T>::infinity(),
+                        -std::numeric_limits<T>::infinity(), valType));
   EXPECT_EQ(NOT_PASSED, CompareSingleValueNeat<T>(
-                            0, numeric_limits<T>::infinity(), valType));
+                            std::numeric_limits<T>::infinity(),
+                            -std::numeric_limits<T>::infinity(), valType));
+  EXPECT_EQ(NOT_PASSED, CompareSingleValueNeat<T>(
+                            -std::numeric_limits<T>::infinity(),
+                            std::numeric_limits<T>::infinity(), valType));
+  EXPECT_EQ(NOT_PASSED, CompareSingleValueNeat<T>(
+                            std::numeric_limits<T>::infinity(), 0, valType));
+  EXPECT_EQ(NOT_PASSED, CompareSingleValueNeat<T>(
+                            0, std::numeric_limits<T>::infinity(), valType));
 
   /// Check NaNs
   EXPECT_EQ(NOT_PASSED, CompareSingleValueNeat<T>(
-                            numeric_limits<T>::quiet_NaN(), 0, valType));
-  EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(0, numeric_limits<T>::quiet_NaN(),
-                                              valType));
-  EXPECT_EQ(NOT_PASSED,
-            CompareSingleValueNeat<T>(numeric_limits<T>::quiet_NaN(),
-                                      numeric_limits<T>::infinity(), valType));
-  EXPECT_EQ(PASSED,
-            CompareSingleValueNeat<T>(numeric_limits<T>::infinity(),
-                                      numeric_limits<T>::quiet_NaN(), valType));
-  EXPECT_EQ(PASSED,
-            CompareSingleValueNeat<T>(numeric_limits<T>::quiet_NaN(),
-                                      numeric_limits<T>::quiet_NaN(), valType));
+                            std::numeric_limits<T>::quiet_NaN(), 0, valType));
   EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(
-                        numeric_limits<T>::quiet_NaN(),
-                        numeric_limits<T>::signaling_NaN(), valType));
+                        0, std::numeric_limits<T>::quiet_NaN(), valType));
+  EXPECT_EQ(NOT_PASSED, CompareSingleValueNeat<T>(
+                            std::numeric_limits<T>::quiet_NaN(),
+                            std::numeric_limits<T>::infinity(), valType));
   EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(
-                        numeric_limits<T>::signaling_NaN(),
-                        numeric_limits<T>::signaling_NaN(), valType));
+                        std::numeric_limits<T>::infinity(),
+                        std::numeric_limits<T>::quiet_NaN(), valType));
+  EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(
+                        std::numeric_limits<T>::quiet_NaN(),
+                        std::numeric_limits<T>::quiet_NaN(), valType));
+  EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(
+                        std::numeric_limits<T>::quiet_NaN(),
+                        std::numeric_limits<T>::signaling_NaN(), valType));
+  EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(
+                        std::numeric_limits<T>::signaling_NaN(),
+                        std::numeric_limits<T>::signaling_NaN(), valType));
 
   /// Check zeros
   EXPECT_EQ(PASSED, CompareSingleValueNeat<T>(T(+0.0), T(+0.0), valType));
@@ -683,66 +683,67 @@ TEST(Comparator, PreciseWithULPs) {
 template <typename T> void TestFloatBoundsNeat(DataTypeVal val) {
   /// Test infinities
   EXPECT_EQ(PASSED,
-            CompareSingleInterval<T>(numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::infinity(), val));
+            CompareSingleInterval<T>(std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::infinity(), val));
   EXPECT_EQ(NOT_PASSED,
-            CompareSingleInterval<T>(numeric_limits<T>::infinity(),
-                                     -numeric_limits<T>::infinity(),
-                                     -numeric_limits<T>::infinity(), val));
+            CompareSingleInterval<T>(std::numeric_limits<T>::infinity(),
+                                     -std::numeric_limits<T>::infinity(),
+                                     -std::numeric_limits<T>::infinity(), val));
   EXPECT_EQ(NOT_PASSED,
-            CompareSingleInterval<T>(-numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::infinity(), val));
+            CompareSingleInterval<T>(-std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::infinity(), val));
   EXPECT_EQ(NOT_PASSED,
-            CompareSingleInterval<T>(0, numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::infinity(), val));
+            CompareSingleInterval<T>(0, std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::infinity(), val));
   EXPECT_EQ(PASSED,
-            CompareSingleInterval<T>(0, -numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::infinity(), val));
+            CompareSingleInterval<T>(0, -std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::infinity(), val));
   // EXPECT_FATAL_FAILURE(NOT_PASSED, CompareSingleInterval<T>(0,
-  // numeric_limits<T>::infinity(),-numeric_limits<T>::infinity(), val));
+  // std::numeric_limits<T>::infinity(),-std::numeric_limits<T>::infinity(),
+  // val));
   EXPECT_EQ(NOT_PASSED, CompareSingleInterval<T>(
-                            -1, 0, numeric_limits<T>::infinity(), val));
+                            -1, 0, std::numeric_limits<T>::infinity(), val));
   EXPECT_EQ(PASSED, CompareSingleInterval<T>(
-                        0, -1, numeric_limits<T>::infinity(), val));
+                        0, -1, std::numeric_limits<T>::infinity(), val));
   EXPECT_EQ(NOT_PASSED, CompareSingleInterval<T>(
-                            0, -numeric_limits<T>::infinity(), -1, val));
-  EXPECT_EQ(PASSED, CompareSingleInterval<T>(0, -numeric_limits<T>::infinity(),
-                                             1, val));
+                            0, -std::numeric_limits<T>::infinity(), -1, val));
+  EXPECT_EQ(PASSED, CompareSingleInterval<T>(
+                        0, -std::numeric_limits<T>::infinity(), 1, val));
 
   // Test NaNs
   EXPECT_EQ(PASSED,
-            CompareSingleInterval<T>(numeric_limits<T>::quiet_NaN(),
-                                     -numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::infinity(), val));
+            CompareSingleInterval<T>(std::numeric_limits<T>::quiet_NaN(),
+                                     -std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::infinity(), val));
   EXPECT_EQ(NOT_PASSED,
-            CompareSingleInterval<T>(numeric_limits<T>::quiet_NaN(),
-                                     numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::infinity(), val));
+            CompareSingleInterval<T>(std::numeric_limits<T>::quiet_NaN(),
+                                     std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::infinity(), val));
   EXPECT_EQ(PASSED,
-            CompareSingleInterval<T>(numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::quiet_NaN(),
-                                     numeric_limits<T>::infinity(), val));
+            CompareSingleInterval<T>(std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::quiet_NaN(),
+                                     std::numeric_limits<T>::infinity(), val));
   EXPECT_EQ(PASSED,
-            CompareSingleInterval<T>(-numeric_limits<T>::infinity(),
-                                     -numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::quiet_NaN(), val));
+            CompareSingleInterval<T>(-std::numeric_limits<T>::infinity(),
+                                     -std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::quiet_NaN(), val));
   EXPECT_EQ(PASSED,
-            CompareSingleInterval<T>(numeric_limits<T>::infinity(),
-                                     -numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::quiet_NaN(), val));
+            CompareSingleInterval<T>(std::numeric_limits<T>::infinity(),
+                                     -std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::quiet_NaN(), val));
   EXPECT_EQ(PASSED,
-            CompareSingleInterval<T>(numeric_limits<T>::infinity(),
-                                     -numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::quiet_NaN(), val));
+            CompareSingleInterval<T>(std::numeric_limits<T>::infinity(),
+                                     -std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::quiet_NaN(), val));
   EXPECT_EQ(PASSED,
-            CompareSingleInterval<T>(numeric_limits<T>::quiet_NaN(),
-                                     -numeric_limits<T>::infinity(),
-                                     numeric_limits<T>::infinity(), val));
-  EXPECT_EQ(NOT_PASSED,
-            CompareSingleInterval<T>(numeric_limits<T>::quiet_NaN(),
-                                     -numeric_limits<T>::infinity(), 0, val));
+            CompareSingleInterval<T>(std::numeric_limits<T>::quiet_NaN(),
+                                     -std::numeric_limits<T>::infinity(),
+                                     std::numeric_limits<T>::infinity(), val));
+  EXPECT_EQ(NOT_PASSED, CompareSingleInterval<T>(
+                            std::numeric_limits<T>::quiet_NaN(),
+                            -std::numeric_limits<T>::infinity(), 0, val));
 }
 
 void TestCFloat16BoundsNeat() {

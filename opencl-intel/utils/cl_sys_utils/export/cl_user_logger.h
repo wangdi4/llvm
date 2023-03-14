@@ -135,7 +135,7 @@ public:
    * Destructor
    */
   ~ApiLogger() {
-    m_stream << endl;
+    m_stream << std::endl;
     FrameworkUserLogger::GetInstance()->PrintString(m_stream.str());
   }
 
@@ -236,7 +236,7 @@ public:
       m_strStream << "nullptr";
       return *this;
     }
-    m_strStream << "[" << hex;
+    m_strStream << "[" << std::hex;
     int i = 0;
     while (properties[i] != 0) {
       m_strStream << "0x" << properties[i++] << ", ";
@@ -303,7 +303,7 @@ public:
   void SetCmdId(cl_int id) { m_iCmdId = id; }
 
 private:
-  void StartApiFuncInternal(const string &funcName);
+  void StartApiFuncInternal(const std::string &funcName);
 
   void PrintParamTypeAndName(const char *sParamTypeAndName);
 
@@ -414,7 +414,7 @@ inline void ApiLogger::EndApiFunc() {
   EndApiFuncInternal();
 }
 
-inline void ApiLogger::StartApiFunc(const string &funcName) {
+inline void ApiLogger::StartApiFunc(const std::string &funcName) {
   if (!m_bLogApis) {
     return;
   }

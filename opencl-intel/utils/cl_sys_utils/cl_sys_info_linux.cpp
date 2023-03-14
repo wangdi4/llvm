@@ -63,7 +63,7 @@ unsigned long long Intel::OpenCL::Utils::TotalVirtualSize() {
     unsigned long long totalPhys =
         tSysInfoStruct.totalram * tSysInfoStruct.mem_unit;
 
-    vsize = min(totalPhys, totalVirtual);
+    vsize = std::min(totalPhys, totalVirtual);
   }
   return vsize;
 }
@@ -228,22 +228,22 @@ int Intel::OpenCL::Utils::GetModulePathName(const void *modulePtr,
   if ((fileName == nullptr) || (strLen <= 0)) {
     return 0;
   }
-  ifstream ifs("/proc/self/maps", ifstream::in);
+  std::ifstream ifs("/proc/self/maps", std::ifstream::in);
   if (!ifs.good()) {
     fileName[0] = 0;
     return 0;
   }
-  string address, perms, offset, dev, inode, pathName;
+  std::string address, perms, offset, dev, inode, pathName;
 
   char buff[MAX_PATH + 1024];
   while (ifs.getline(buff, MAX_PATH + 1024)) {
-    istringstream strStream(buff);
+    std::istringstream strStream(buff);
     address = "\0";
     pathName = "\0";
     strStream >> address >> perms >> offset >> dev >> inode >> pathName;
     if ((address != "\0") && (pathName != "\0")) {
-      string::size_type pos = address.find("-");
-      if (pos != string::npos) {
+      auto pos = address.find("-");
+      if (pos != std::string::npos) {
         size_t from = 0;
         size_t to = 0;
         bool legalAddress = true;

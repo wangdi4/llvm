@@ -344,7 +344,8 @@ void VectInfoGenerator::run(raw_ostream &os) {
       v1AliasTypes = m_DB.getAliasTypes(pV1Builtin);
     }
 
-    size_t numAliasNames = m_DB.getAliasNames(pV1Builtin).size();
+    size_t numAliasNames =
+        handleAlias ? m_DB.getAliasNames(pV1Builtin).size() : 0;
     size_t numEntry = vectInfo.getNumOfTypes();
     // Generate dummy functions to get the mangled function name.
     for (VectInfo::type_iterator typeIt = vectInfo.type_begin(),
