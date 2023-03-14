@@ -357,6 +357,10 @@ public:
   // Process AliasMap records.
   void processAliasMap();
 
+  auto getAlias(const OclBuiltin *builtin) const {
+    return m_AliasMap.equal_range(builtin);
+  }
+
   // Check whether the builtin has alias names.
   bool hasAlias(const OclBuiltin *builtin) const;
 
@@ -375,8 +379,8 @@ protected:
   std::map<std::string, OclType *> m_TypeMap;
   std::map<std::string, OclBuiltin *> m_ProtoMap;
   std::map<const OclBuiltin *, OclBuiltinImpl *> m_ImplMap;
-  std::map<const OclBuiltin *,
-           std::pair<std::vector<std::string>, std::set<const OclType *>>>
+  std::multimap<const OclBuiltin *,
+                std::pair<std::vector<std::string>, std::set<const OclType *>>>
       m_AliasMap;
 };
 
