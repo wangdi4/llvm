@@ -23,8 +23,8 @@ target device_triples = "spir64"
 
 ; CHECK: call spir_func i64 @_Z21__spirv_WorkgroupId_xv()
 ; CHECK: call spir_func i64 @_Z27__spirv_LocalInvocationId_xv()
-; CHECK: call spir_func i64 @_Z22__spirv_WorkgroupSize_xv()
-; CHECK: call spir_func i64 @_Z29__spirv_NumWorkgroups_xv()
+; CHECK: call spir_func i64 @_Z23__spirv_WorkgroupSize_xv()
+; CHECK: call spir_func i64 @_Z23__spirv_NumWorkgroups_xv()
 
 ; Function Attrs: convergent noinline nounwind
 define hidden i32 @main() #0 {
