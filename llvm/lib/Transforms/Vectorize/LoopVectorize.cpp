@@ -548,7 +548,7 @@ public:
   /// Instr's operands.
   void scalarizeInstruction(const Instruction *Instr,
                             VPReplicateRecipe *RepRecipe,
-                            const VPIteration &Instance, bool IfPredicateInstr,
+                            const VPIteration &Instance,
                             VPTransformState &State);
 
   /// Construct the vector value of a scalarized value \p V one lane at a time.
@@ -2915,7 +2915,6 @@ void InnerLoopVectorizer::vectorizeInterleaveGroup(
 void InnerLoopVectorizer::scalarizeInstruction(const Instruction *Instr,
                                                VPReplicateRecipe *RepRecipe,
                                                const VPIteration &Instance,
-                                               bool IfPredicateInstr,
                                                VPTransformState &State) {
   assert(!Instr->getType()->isAggregateType() && "Can't handle vectors");
 
@@ -2965,6 +2964,7 @@ void InnerLoopVectorizer::scalarizeInstruction(const Instruction *Instr,
     AC->registerAssumption(II);
 
   // End if-block.
+  bool IfPredicateInstr = RepRecipe->getParent()->getParent()->isReplicator();
   if (IfPredicateInstr)
     PredicatedInstructions.push_back(Cloned);
 }
@@ -9774,8 +9774,7 @@ void VPReplicateRecipe::execute(VPTransformState &State) {
   Instruction *UI = getUnderlyingInstr();
   if (State.Instance) { // Generate a single instance.
     assert(!State.VF.isScalable() && "Can't scalarize a scalable vector");
-    State.ILV->scalarizeInstruction(UI, this, *State.Instance,
-                                    IsPredicated, State);
+    State.ILV->scalarizeInstruction(UI, this, *State.Instance, State);
     // Insert scalar instance packing it into a vector.
     if (State.VF.isVector() && shouldPack()) {
       // If we're constructing lane 0, initialize to start from poison.
@@ -9797,8 +9796,7 @@ void VPReplicateRecipe::execute(VPTransformState &State) {
         all_of(operands(), [](VPValue *Op) {
           return Op->isDefinedOutsideVectorRegions();
         })) {
-      State.ILV->scalarizeInstruction(UI, this, VPIteration(0, 0), IsPredicated,
-                                      State);
+      State.ILV->scalarizeInstruction(UI, this, VPIteration(0, 0), State);
       if (user_begin() != user_end()) {
         for (unsigned Part = 1; Part < State.UF; ++Part)
           State.set(this, State.get(this, VPIteration(0, 0)),
@@ -9810,8 +9808,7 @@ void VPReplicateRecipe::execute(VPTransformState &State) {
     // Uniform within VL means we need to generate lane 0 only for each
     // unrolled copy.
     for (unsigned Part = 0; Part < State.UF; ++Part)
-      State.ILV->scalarizeInstruction(UI, this, VPIteration(Part, 0),
-                                      IsPredicated, State);
+      State.ILV->scalarizeInstruction(UI, this, VPIteration(Part, 0), State);
     return;
   }
 
@@ -9819,7 +9816,7 @@ void VPReplicateRecipe::execute(VPTransformState &State) {
   // needs only the last copy of the store.
   if (isa<StoreInst>(UI) && !getOperand(1)->hasDefiningRecipe()) {
     auto Lane = VPLane::getLastLaneForVF(State.VF);
-    State.ILV->scalarizeInstruction(UI, this, VPIteration(State.UF - 1, Lane), IsPredicated,
+    State.ILV->scalarizeInstruction(UI, this, VPIteration(State.UF - 1, Lane),
                                     State);
     return;
   }
@@ -9829,8 +9826,7 @@ void VPReplicateRecipe::execute(VPTransformState &State) {
   const unsigned EndLane = State.VF.getKnownMinValue();
   for (unsigned Part = 0; Part < State.UF; ++Part)
     for (unsigned Lane = 0; Lane < EndLane; ++Lane)
-      State.ILV->scalarizeInstruction(UI, this, VPIteration(Part, Lane),
-                                      IsPredicated, State);
+      State.ILV->scalarizeInstruction(UI, this, VPIteration(Part, Lane), State);
 }
 
 void VPWidenMemoryInstructionRecipe::execute(VPTransformState &State) {
