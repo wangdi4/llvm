@@ -60,7 +60,9 @@ protected:
   // \p Plan is null returns Invalid cost.
   // \p AddZtt indicates that TC is not const and ZTT check cost should be added
   // to overhead-part of the cost.
-  VPlanCostPair calculatePlanCost(unsigned VF, VPlanVector *Plan, bool AddZtt);
+  // \p ForPeel If we're calculating the cost of a peel loop.
+  VPlanCostPair calculatePlanCost(unsigned VF, VPlanVector *Plan, bool AddZtt,
+                                  bool ForPeel = false);
 
   LoopVectorizationPlanner &Planner;
   VPInstructionCost ScalarIterCost;

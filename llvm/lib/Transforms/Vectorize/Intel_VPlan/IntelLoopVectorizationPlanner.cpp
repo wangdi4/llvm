@@ -521,11 +521,9 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   OS = is_contained(VPlanCostModelPrintAnalysisForVF, 1) ? &outs() : nullptr;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  // Analyze no-cost instructions prior to initial cost model analysis.
-  Plan->runNCIA();
-
   std::tie(ScalarIterationCost, std::ignore) =
-      createCostModel(Plan.get(), 1)->getCost(nullptr /* PeelingVariant */, OS);
+      createCostModel(Plan.get(), 1)
+          ->getCost(false /* ForPeel */, nullptr /* PeelingVariant */, OS);
 
   // Reset the results of SVA that are set as a side effect of CM invocation.
   // The results are dummy (specific to VF = 1) and may not be automatically
@@ -1330,7 +1328,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       VPInstructionCost MainLoopIterationCost, MainLoopOverhead;
 
       std::tie(MainLoopIterationCost, MainLoopOverhead) =
-          MainLoopCM->getCost(PeelingVariant, OS);
+          MainLoopCM->getCost(false /*ForPeel */, PeelingVariant, OS);
 
       if (!MainLoopIterationCost.isValid() || !MainLoopOverhead.isValid()) {
         LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << ", UF = " << UF
