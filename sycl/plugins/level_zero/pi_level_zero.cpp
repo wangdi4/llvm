@@ -5715,17 +5715,6 @@ pi_result _pi_queue::synchronize() {
     return PI_SUCCESS;
   };
 
-<<<<<<< HEAD
-  for (auto &QueueMap : {ComputeQueueGroupsByTID, CopyQueueGroupsByTID})
-    for (auto &QueueGroup : QueueMap) {
-      if (Device->ImmCommandListUsed) {
-        for (auto ImmCmdList : QueueGroup.second.ImmCmdLists)
-          syncImmCmdList(this, ImmCmdList);
-      } else {
-        for (auto &ZeQueue : QueueGroup.second.ZeQueues)
-          if (ZeQueue)
-            ZE_CALL(zeHostSynchronize, (ZeQueue));
-=======
   // Do nothing if the queue is empty
   if (!LastCommandEvent)
     return PI_SUCCESS;
@@ -5745,7 +5734,6 @@ pi_result _pi_queue::synchronize() {
             if (ZeQueue)
               ZE_CALL(zeHostSynchronize, (ZeQueue));
         }
->>>>>>> 46af824a3f5a30fd281df03e652452244ee1d9b9
       }
     }
   }
