@@ -1,10 +1,6 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -passes=loop-vectorize -force-vector-width=2 -force-vector-interleave=1 -force-widen-divrem-via-safe-divisor=0 -disable-output -debug-only=loop-vectorize 2>&1 | FileCheck %s
 
-; INTEL_CUSTOMIZATION
-; REQUIRES: system-linux
-; end INTEL_CUSTOMIZATION
-
 target datalayout = "e-m:e-i64:64-i128:128-n32:64-S128"
 
 ; Test cases for PR50009, which require sinking a replicate-region due to a
