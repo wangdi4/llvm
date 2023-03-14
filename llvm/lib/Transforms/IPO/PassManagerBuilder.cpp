@@ -1025,8 +1025,6 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_CUSTOMIZATION
 
 }
-<<<<<<< HEAD
-
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
@@ -1764,6 +1762,7 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
   if (VerifyOutput)
     PM.add(createVerifierPass());
 }
+
 void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
                                                   LLVMPassManagerRef PM,
                                                   LLVMBool Internalize,
@@ -1775,70 +1774,3 @@ void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
 }
 
 #endif // INTEL_CUSTOMIZATION
-
-LLVMPassManagerBuilderRef LLVMPassManagerBuilderCreate() {
-  PassManagerBuilder *PMB = new PassManagerBuilder();
-  return wrap(PMB);
-}
-
-void LLVMPassManagerBuilderDispose(LLVMPassManagerBuilderRef PMB) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  delete Builder;
-}
-
-void
-LLVMPassManagerBuilderSetOptLevel(LLVMPassManagerBuilderRef PMB,
-                                  unsigned OptLevel) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  Builder->OptLevel = OptLevel;
-}
-
-void
-LLVMPassManagerBuilderSetSizeLevel(LLVMPassManagerBuilderRef PMB,
-                                   unsigned SizeLevel) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  Builder->SizeLevel = SizeLevel;
-}
-
-void
-LLVMPassManagerBuilderSetDisableUnitAtATime(LLVMPassManagerBuilderRef PMB,
-                                            LLVMBool Value) {
-  // NOTE: The DisableUnitAtATime switch has been removed.
-}
-
-void
-LLVMPassManagerBuilderSetDisableUnrollLoops(LLVMPassManagerBuilderRef PMB,
-                                            LLVMBool Value) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  Builder->DisableUnrollLoops = Value;
-}
-
-void
-LLVMPassManagerBuilderSetDisableSimplifyLibCalls(LLVMPassManagerBuilderRef PMB,
-                                                 LLVMBool Value) {
-  // NOTE: The simplify-libcalls pass has been removed.
-}
-
-void
-LLVMPassManagerBuilderUseInlinerWithThreshold(LLVMPassManagerBuilderRef PMB,
-                                              unsigned Threshold) {
-  // TODO: remove this
-}
-
-void
-LLVMPassManagerBuilderPopulateFunctionPassManager(LLVMPassManagerBuilderRef PMB,
-                                                  LLVMPassManagerRef PM) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  legacy::FunctionPassManager *FPM = unwrap<legacy::FunctionPassManager>(PM);
-  Builder->populateFunctionPassManager(*FPM);
-}
-
-void
-LLVMPassManagerBuilderPopulateModulePassManager(LLVMPassManagerBuilderRef PMB,
-                                                LLVMPassManagerRef PM) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  legacy::PassManagerBase *MPM = unwrap(PM);
-  Builder->populateModulePassManager(*MPM);
-}
-=======
->>>>>>> 0aac9a2875bad4f065367e4a6553fad78605f895

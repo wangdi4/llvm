@@ -31,11 +31,7 @@
 #ifndef LLVM_TRANSFORMS_IPO_PASSMANAGERBUILDER_H
 #define LLVM_TRANSFORMS_IPO_PASSMANAGERBUILDER_H
 
-<<<<<<< HEAD
-#include "llvm-c/Transforms/PassManagerBuilder.h"
 #include "llvm/Support/Intel_WP_utils.h"   // INTEL
-=======
->>>>>>> 0aac9a2875bad4f065367e4a6553fad78605f895
 #include <functional>
 #include <string>
 #include <vector>
@@ -205,5 +201,11 @@ public:
 #endif // INTEL_CUSTOMIZATION
 };
 
+#if INTEL_CUSTOMIZATION
+typedef struct LLVMOpaquePassManagerBuilder *LLVMPassManagerBuilderRef;
+  inline PassManagerBuilder *unwrap(LLVMPassManagerBuilderRef P) {
+      return reinterpret_cast<PassManagerBuilder*>(P);
+  }
+#endif // INTEL_CUSTOMIZATION
 } // end namespace llvm
 #endif
