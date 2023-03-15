@@ -299,13 +299,9 @@ void initializeLoopSimplifyCFGLegacyPassPass(PassRegistry&);
 void initializeLoopSimplifyPass(PassRegistry&);
 void initializeLoopStrengthReducePass(PassRegistry&);
 void initializeLoopUnrollPass(PassRegistry&);
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
 void initializeLoopUnswitchPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
-void initializeLoopVectorizePass(PassRegistry&);
-=======
->>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
 void initializeLowerAtomicLegacyPassPass(PassRegistry&);
 void initializeLowerConstantIntrinsicsPass(PassRegistry&);
 void initializeLowerEmuTLSPass(PassRegistry&);

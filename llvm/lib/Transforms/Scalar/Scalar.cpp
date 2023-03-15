@@ -57,11 +57,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeAlignmentFromAssumptionsPass(Registry);
   initializeCallSiteSplittingLegacyPassPass(Registry);
   initializeConstantHoistingLegacyPassPass(Registry);
-<<<<<<< HEAD
   initializeConvertGEPToSubscriptIntrinsicLegacyPassPass(Registry); // INTEL
-  initializeCorrelatedValuePropagationPass(Registry);
-=======
->>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
   initializeDCELegacyPassPass(Registry);
   initializeScalarizerLegacyPassPass(Registry);
   initializeGuardWideningLegacyPassPass(Registry);

@@ -123,48 +123,6 @@ STATISTIC(NumMinMax, "Number of llvm.[us]{min,max} intrinsics removed");
 STATISTIC(NumUDivURemsNarrowedExpanded,
           "Number of bound udiv's/urem's expanded");
 
-<<<<<<< HEAD
-namespace {
-
-  class CorrelatedValuePropagation : public FunctionPass {
-  public:
-    static char ID;
-
-    CorrelatedValuePropagation(): FunctionPass(ID) {
-     initializeCorrelatedValuePropagationPass(*PassRegistry::getPassRegistry());
-    }
-
-    bool runOnFunction(Function &F) override;
-
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addRequired<LazyValueInfoWrapperPass>();
-      AU.addPreserved<GlobalsAAWrapperPass>();
-      AU.addPreserved<DominatorTreeWrapperPass>();
-      AU.addPreserved<LazyValueInfoWrapperPass>();
-      AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
-      AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
-    }
-  };
-
-} // end anonymous namespace
-
-char CorrelatedValuePropagation::ID = 0;
-
-INITIALIZE_PASS_BEGIN(CorrelatedValuePropagation, "correlated-propagation",
-                "Value Propagation", false, false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LazyValueInfoWrapperPass)
-INITIALIZE_PASS_END(CorrelatedValuePropagation, "correlated-propagation",
-                "Value Propagation", false, false)
-
-// Public interface to the Value Propagation pass
-Pass *llvm::createCorrelatedValuePropagationPass() {
-  return new CorrelatedValuePropagation();
-}
-
-=======
->>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
 static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
   if (S->getType()->isVectorTy()) return false;
   if (isa<Constant>(S->getCondition())) return false;

@@ -240,12 +240,7 @@ namespace {
       (void) llvm::createSingleLoopExtractorPass();
       (void) llvm::createTailCallEliminationPass();
       (void)llvm::createTLSVariableHoistPass();
-<<<<<<< HEAD
-      (void) llvm::createJumpThreadingPass();
       (void) llvm::createIVSplitLegacyPass(); // INTEL
-      (void) llvm::createDFAJumpThreadingPass();
-=======
->>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
       (void) llvm::createUnifyFunctionExitNodesPass();
       (void) llvm::createInstCountPass();
       (void) llvm::createConstantHoistingPass();

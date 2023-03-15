@@ -467,13 +467,7 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true))); // Merge & remove BBs
   // Combine silly seq's
-<<<<<<< HEAD
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
-  if (SizeLevel == 0)
-    MPM.add(createLibCallsShrinkWrapPass());
-=======
-  MPM.add(createInstructionCombiningPass());
->>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
 
 #if INTEL_CUSTOMIZATION
   bool SkipRecProgression = false;
@@ -563,16 +557,7 @@ if (EnableSimpleLoopUnswitch) {
 
   // Run instcombine after redundancy elimination to exploit opportunities
   // opened up by them.
-<<<<<<< HEAD
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
-  if (OptLevel > 1) {
-    MPM.add(createJumpThreadingPass());         // Thread jumps
-    MPM.add(createCorrelatedValuePropagationPass());
-  }
-  MPM.add(createAggressiveDCEPass()); // Delete dead instructions
-=======
-  MPM.add(createInstructionCombiningPass());
->>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -673,23 +658,6 @@ PassManagerBuilder::limitNoLoopOptOrNotPrepareForLTO(
 /// FIXME: Should LTO cause any differences to this set of passes?
 void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
                                          bool IsFullLTO) {
-<<<<<<< HEAD
-
-#if INTEL_CUSTOMIZATION
-  if (!IsFullLTO) {
-    if (EnableLV)
-      limitNoLoopOptOrNotPrepareForLTO(PM).add(
-          createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
-  } else {
-    // FIXME: Needs driver cleanup at least.
-    if (EnableLV)
-      limitNoLoopOptOnly(PM).add(
-          createLoopVectorizePass(true, !LoopVectorize));
-  }
-#endif // INTEL_CUSTOMIZATION
-
-=======
->>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
   if (IsFullLTO) {
     // The vectorizer may have significantly shortened a loop body; unroll
     // again. Unroll small loops to hide loop backedge latency and saturate any
@@ -749,30 +717,21 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     PM.add(createBitTrackingDCEPass());
   }
 
-<<<<<<< HEAD
-  // Optimize parallel scalar instruction chains into SIMD instructions.
-  if (SLPVectorize) {
-    PM.add(createSLPVectorizerPass());
-
 #if INTEL_CUSTOMIZATION
-    AfterSLPVectorizer = true;
+  if (SLPVectorize) {
     if (EnableLoadCoalescing)
       PM.add(createLoadCoalescingPass());
     if (EnableSROAAfterSLP) {
       // SLP creates opportunities for SROA.
       PM.add(createSROAPass());
     }
-#endif // INTEL_CUSTOMIZATION
   }
   INTEL_LIMIT_END // INTEL
 
-#if INTEL_CUSTOMIZATION
   if (!IsFullLTO)
     PM.add(createEarlyCSEPass());
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 7c3c981442b11153ac1a2be678db727ff715253b
   if (!IsFullLTO) {
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
 
@@ -894,8 +853,6 @@ void PassManagerBuilder::populateModulePassManager(
   // In 2020, after the FreezeSelect arg was added, the Allow CFGSimps parm
   // was accidentally left at default (true) [e9e5aace]
   // Leaving it "true" for now as it has been 2 years without regressions.
-  if (EarlyJumpThreading)
-    MPM.add(createJumpThreadingPass());
 #endif // INTEL_CUSTOMIZATION
 
   MPM.add(
@@ -959,7 +916,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createPromoteMemoryToRegisterPass());
     // AggressiveDCE is invoked here to avoid -6% performance regression
     // for aifftr01@opt_speed
-    MPM.add(createAggressiveDCEPass());
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1219,7 +1175,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // The IPO passes may leave cruft around.  Clean up after them.
   addInstructionCombiningPass(PM, !DTransEnabled);  // INTEL
-  PM.add(createJumpThreadingPass());
 
   // Break up allocas
   PM.add(createSROAPass());
@@ -1234,8 +1189,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableDeadArrayOpsElim)
     PM.add(createDeadArrayOpsEliminationLegacyPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
-
-  PM.add(createCorrelatedValuePropagationPass());
 
   if (EnableMultiVersioning) {
     PM.add(createMultiVersioningWrapperPass());
@@ -1287,10 +1240,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createMemCpyOptPass());            // Remove dead memcpys.
 
   // Nuke dead stores.
-  PM.add(createDeadStoreEliminationPass());
   PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
-
-  PM.add(createIndVarSimplifyPass());
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
@@ -1311,7 +1261,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (RunInliner)
     PM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
 #endif // INTEL_CUSTOMIZATION
-  PM.add(createJumpThreadingPass());
 }
 
 void PassManagerBuilder::addLateLTOOptimizationPasses(
@@ -1496,7 +1445,6 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
   PM.add(createSROAPass());
   addInstructionCombiningPass(PM, !DTransEnabled);  // INTEL
   PM.add(createLoopCarriedCSEPass());
-  PM.add(createDeadStoreEliminationPass());
 
   if (OptLevel > 2) {
     // Cleanup code with AddSub reassociation.
@@ -1510,7 +1458,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
   // Run additional cleanup passes that help to cleanup the code.
   if (IsLTO) {
     limitFullLoopOptOnly(PM).add(createCFGSimplificationPass());
-    limitFullLoopOptOnly(PM).add(createAggressiveDCEPass());
   }
 
   // This pass "canonicalizes" loops and makes analysis easier.
