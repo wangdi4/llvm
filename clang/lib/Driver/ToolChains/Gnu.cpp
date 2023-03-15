@@ -1205,15 +1205,15 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
       // We don't need libpthread neither for bionic (Android) nor for musl,
       // (used by OHOS as runtime library).
-      if (WantPthread && !isAndroid && !isOHOSFamily)
 #if INTEL_CUSTOMIZATION
+      if (WantPthread && !isAndroid && !isOHOSFamily) {
         if (Args.hasArg(options::OPT_fortlib))
           CmdArgs.push_back("--as-needed");
         CmdArgs.push_back("-lpthread");
         if (Args.hasArg(options::OPT_fortlib))
           CmdArgs.push_back("--no-as-needed");
-#endif // INTEL_CUSTOMIZATION
       }
+#endif // INTEL_CUSTOMIZATION
 
       if (Args.hasArg(options::OPT_fsplit_stack))
         CmdArgs.push_back("--wrap=pthread_create");
