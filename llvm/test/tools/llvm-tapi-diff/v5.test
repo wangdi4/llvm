@@ -3,11 +3,6 @@
 ; RUN: llvm-tapi-diff %t/Simple_v5.tbd  %t/Simple_v5.tbd 2>&1 | FileCheck %s --allow-empty
 ; RUN: llvm-tapi-diff %t/Simple_v5.tbd  %t/Simple_v4.tbd 2>&1 | FileCheck %s --allow-empty
 
-// INTEL_CUSTOMIZATION
-// CMPLRLLVM-45708
-// UNSUPPORTED: target={{.*windows.*}}
-// end INTEL_CUSTOMIZATION
-
 ; CHECK-NOT: error:
 ; CHECK-NOT: warning:
 
