@@ -88,33 +88,12 @@ static cl::opt<bool>
 static cl::list<const PassInfo *, bool, PassNameParser>
     PassList(cl::desc("Passes available:"));
 
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
 static cl::opt<bool>
     StandardLinkOpts("std-link-opts",
                      cl::desc("Include the standard link time optimizations"));
 #endif // INTEL_CUSTOMIZATION
 
-static cl::opt<bool>
-    OptLevelO1("O1", cl::desc("Optimization level 1. Identical to 'opt -O1'"));
-
-static cl::opt<bool>
-    OptLevelO2("O2", cl::desc("Optimization level 2. Identical to 'opt -O2'"));
-
-static cl::opt<bool> OptLevelOs(
-    "Os",
-    cl::desc(
-        "Like -O2 with extra optimizations for size. Similar to clang -Os"));
-
-static cl::opt<bool>
-OptLevelOz("Oz",
-           cl::desc("Like -Os but reduces code size further. Similar to clang -Oz"));
-
-static cl::opt<bool>
-    OptLevelO3("O3", cl::desc("Optimization level 3. Identical to 'opt -O3'"));
-
-=======
->>>>>>> 3724ac04005c2f6a687014ad4832006adc7d58df
 static cl::opt<std::string>
     OverrideTriple("mtriple", cl::desc("Override target triple for module"));
 
@@ -224,27 +203,6 @@ int main(int argc, char **argv) {
 
   AddToDriver PM(D);
 
-<<<<<<< HEAD
-#ifdef INTEL_CUSTOMIZATION
-  if (StandardLinkOpts) {
-    PassManagerBuilder Builder;
-    Builder.populateLTOPassManager(PM);
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  if (OptLevelO1)
-    AddOptimizationPasses(PM, 1, 0);
-  else if (OptLevelO2)
-    AddOptimizationPasses(PM, 2, 0);
-  else if (OptLevelO3)
-    AddOptimizationPasses(PM, 3, 0);
-  else if (OptLevelOs)
-    AddOptimizationPasses(PM, 2, 1);
-  else if (OptLevelOz)
-    AddOptimizationPasses(PM, 2, 2);
-
-=======
->>>>>>> 3724ac04005c2f6a687014ad4832006adc7d58df
   for (const PassInfo *PI : PassList)
     D.addPass(std::string(PI->getPassArgument()));
 
