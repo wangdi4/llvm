@@ -13,6 +13,8 @@
 // RUN: touch %t/empty.txt
 // RUN: diff %t/mytmp.txt %t/empty.txt
 
-// CHECK: -o {{.*}}/mytmp/hip-temps-linux-gfx1030-{{.*}}.bc
+// INTEL_CUSTOMIZATION
+// CHECK: -o {{.*}}/mytmp/{{clang.*}}/hip-temps-linux-gfx1030-{{.*}}.bc
+// end INTEL_CUSTOMIZATION
 
 int main() {}
