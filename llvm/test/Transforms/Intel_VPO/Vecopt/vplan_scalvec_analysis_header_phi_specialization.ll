@@ -42,7 +42,7 @@ define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB6]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT_NOT:%.*]] = not i1 [[VP_INNER_EXIT]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_INNER_EXIT_NOT]] i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_INNER_EXIT_NOT]] i1 false (SVAOpBits 0->V 1->V 2->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i1 [[VP1:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP1]], [[BB3]], [[BB4]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
@@ -137,7 +137,7 @@ define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB6]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT_NOT:%.*]] = not i1 [[VP_INNER_EXIT]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_INNER_EXIT_NOT]] i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_INNER_EXIT_NOT]] i1 false (SVAOpBits 0->V 1->V 2->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i1 [[VP1:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP1]], [[BB3]], [[BB4]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:

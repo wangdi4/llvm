@@ -33,10 +33,10 @@
 ; CHECK-NEXT:      |      + UNKNOWN LOOP i2 <novectorize>
 ; CHECK-NEXT:      |      |   <i2 = 0>
 ; CHECK-NEXT:      |      |   BB6.58:
-; CHECK-NEXT:      |      |   %.vec6 = %.vec3  &  %phi.temp4;
+; CHECK-NEXT:      |      |   %.vec6 = (%.vec > 0) ? %phi.temp4 : 0;
 ; CHECK-NEXT:      |      |   (<4 x i64>*)(@A)[0][i2][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>, Mask = @{%.vec6};
 ; CHECK-NEXT:      |      |   %.vec7 = i2 + 1 < %.vec;
-; CHECK-NEXT:      |      |   %.vec8 = %.vec7  &  %phi.temp4;
+; CHECK-NEXT:      |      |   %.vec8 = (%phi.temp4 == <i1 true, i1 true, i1 true, i1 true>) ? %.vec7 : 0;
 ; CHECK-NEXT:      |      |   %allz.and. = %.vec3  &  %.vec8;
 ; CHECK-NEXT:      |      |   %1 = bitcast.<4 x i1>.i4(%allz.and.);
 ; CHECK-NEXT:      |      |   %cmp9 = %1 == 0;

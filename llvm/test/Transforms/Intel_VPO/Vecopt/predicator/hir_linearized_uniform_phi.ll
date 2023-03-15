@@ -36,8 +36,8 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; VPLAN-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB5]]: # preds: [[BB4]]
-; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB4_BR_VP__NOT:%.*]] = and i1 [[VP7]] i1 [[VP__NOT]]
-; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB4_BR_:%.*]] = and i1 [[VP7]] i1 [[VP9]]
+; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB4_BR_VP__NOT:%.*]] = select i1 [[VP7]] i1 [[VP__NOT]] i1 false
+; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB4_BR_:%.*]] = select i1 [[VP7]] i1 [[VP9]] i1 false
 ; VPLAN-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB6]]: # preds: [[BB5]]
@@ -92,8 +92,8 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; HIR-CG-NEXT:        |   }
 ; HIR-CG-NEXT:        |   [[DOTVEC40:%.*]] = [[DOTUNIFLOAD0]] != 0
 ; HIR-CG-NEXT:        |   [[DOTVEC50:%.*]] = [[DOTVEC40]]  ^  -1
-; HIR-CG-NEXT:        |   [[DOTVEC60:%.*]] = [[DOTVEC0]]  &  [[DOTVEC50]]
-; HIR-CG-NEXT:        |   [[DOTVEC70:%.*]] = [[DOTVEC0]]  &  [[DOTVEC40]]
+; HIR-CG-NEXT:        |   [[DOTVEC60:%.*]] = (i1 + <i64 0, i64 1> > 0) ?  [[DOTVEC50]] : 0
+; HIR-CG-NEXT:        |   [[DOTVEC70:%.*]] = (i1 + <i64 0, i64 1> > 0) ?  [[DOTVEC40]] : 0
 ; HIR-CG-NEXT:        |   [[DOTCOPY80:%.*]] = 2
 ; HIR-CG-NEXT:        |   [[DOTCOPY90:%.*]] = 1
 ; HIR-CG-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC70]] == <i1 true, i1 true>) ? [[DOTCOPY90]] : [[DOTCOPY80]]

@@ -64,7 +64,7 @@ define dso_local void @foo(i32* noalias nocapture noundef readonly %A, i32* noal
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB21_BR_VP_CMP12:%.*]] = and i1 [[VP_LOOP_MASK]] i1 [[VP_CMP12]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB21_BR_VP_CMP12:%.*]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_CMP12]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin31
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.begin31: # preds: [[BB7]]
@@ -88,7 +88,7 @@ define dso_local void @foo(i32* noalias nocapture noundef readonly %A, i32* noal
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB9]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND_NOT_NOT:%.*]] = not i1 [[VP_EXITCOND_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_EXITCOND_NOT_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP12:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP12]], [[BB3]], [[BB4]]
 ; CHECK-EMPTY:

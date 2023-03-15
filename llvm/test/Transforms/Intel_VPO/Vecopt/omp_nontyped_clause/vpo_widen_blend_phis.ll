@@ -145,7 +145,7 @@ for.end:
 ; CHECK-NEXT:    br label [[VPLANNEDBB100:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB9:
-; CHECK-NEXT:    [[TMP5:%.*]] = and <2 x i1> [[TMP3]], [[VEC_PHI80]]
+; CHECK-NEXT:    [[TMP5:%.*]] = select <2 x i1> [[TMP3]], <2 x i1> [[VEC_PHI80]], <2 x i1> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB110:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB10:

@@ -7,7 +7,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; The reduction instruction is associated with !dbg !26764, pointing to
-; line 255 of the source file.  We check that all adds, selects, and
+; line 255 ofo the source file.  We check that all adds, selects, and
 ; horizontal reductions associated with that original instruction are
 ; assigned to line 255 after HIR code gen.  Formerly these were assigned
 ; to line 238 (!dbg !25941), which is the #pragma omp simd directive.

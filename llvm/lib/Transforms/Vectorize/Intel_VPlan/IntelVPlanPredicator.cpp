@@ -318,8 +318,14 @@ VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
   if (!Val)
     return Predicate;
 
-  Val = VPBuilder().setInsertPoint(Block).createAnd(
-      Predicate, Val, Block->getName() + ".br." + Val->getName());
+  // The defining value for the predicate term is essentially 'Predicate && Val'
+  // which is the same as 'select i1 Predicate, i1 Val, i1 false'.
+  // The select version does not cause poison to be generated if Predicate is
+  // false and Val is poison. Using 'and' here may cause poison to be generated
+  // for the mask by later optimizations leading to runtime issues.
+  VPValue *FalseVal = Plan.getVPConstant(ConstantInt::getFalse(Val->getType()));
+  Val = VPBuilder().setInsertPoint(Block).createSelect(
+      Predicate, Val, FalseVal, Block->getName() + ".br." + Val->getName());
   Plan.getVPlanDA()->updateDivergence(*Val);
   if (!BlocksToSplit.count(Block))
     BlocksToSplit[Block] = cast<VPInstruction>(Val);

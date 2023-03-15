@@ -40,7 +40,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32** nocapture readonly 
 ; CHECK-NEXT:       [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB3_BR_VP_CMP631:%.*]] = and i1 [[VP_CMP1]] i1 [[VP_CMP631]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB3_BR_VP_CMP631:%.*]] = select i1 [[VP_CMP1]] i1 [[VP_CMP631]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.begin14
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      all.zero.bypass.begin14: # preds: [[BB3]]

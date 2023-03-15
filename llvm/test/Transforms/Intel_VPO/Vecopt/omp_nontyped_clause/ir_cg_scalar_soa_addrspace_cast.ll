@@ -86,7 +86,7 @@ define dso_local void @test2(i32* %a) {
 ; CHECK-NEXT:    [[VEC_PHI12:%.*]] = phi <2 x i1> [ [[TMP12]], [[VPLANNEDBB10]] ], [ zeroinitializer, [[ALL_ZERO_BYPASS_BEGIN42]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB13:%.*]]
 ; CHECK:       VPlannedBB13:
-; CHECK-NEXT:    [[TMP13:%.*]] = and <2 x i1> [[TMP1]], [[VEC_PHI12]]
+; CHECK-NEXT:    [[TMP13:%.*]] = select <2 x i1> [[TMP1]], <2 x i1> [[VEC_PHI12]], <2 x i1> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB14:%.*]]
 ; CHECK:       VPlannedBB14:
 ; CHECK-NEXT:    call void @llvm.masked.store.v2i8.p4v2i8(<2 x i8> <i8 124, i8 124>, <2 x i8> addrspace(4)* [[UNI_PHI11]], i32 1, <2 x i1> [[TMP13]])

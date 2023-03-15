@@ -42,7 +42,7 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_ad
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_IV]] i64 [[VP_IV_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_SOME_CMP_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_SOME_CMP]] i1 [[VP_SOME_CMP_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_EXITCOND_NOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP0]], [[BB7:BB[0-9]+]], [[BB4]]
 ; CHECK-EMPTY:

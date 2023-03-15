@@ -54,7 +54,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:       [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[BB5]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB5_BR_VP_LOOP_MASK:%.*]] = and i1 [[VP_CMP127]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB5_BR_VP_LOOP_MASK:%.*]] = select i1 [[VP_CMP127]] i1 [[VP_LOOP_MASK]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: [[BB7]]
@@ -68,8 +68,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:       [DA: Uni] br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB10]]: # preds: [[BB9]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB6_BR_VP_PIVOT_NOT:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_PIVOT_NOT]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB6_BR_VP_PIVOT:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_PIVOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB6_BR_VP_PIVOT_NOT:%.*]] = select i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_PIVOT_NOT]] i1 false
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB6_BR_VP_PIVOT:%.*]] = select i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_PIVOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB11]]: # preds: [[BB10]]
@@ -79,8 +79,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:       [DA: Uni] br [[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB12]]: # preds: [[BB11]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB8_BR_VP_SWITCHLEAF31_NOT:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT_NOT]] i1 [[VP_SWITCHLEAF31_NOT]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB8_BR_VP_SWITCHLEAF31:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT_NOT]] i1 [[VP_SWITCHLEAF31]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB8_BR_VP_SWITCHLEAF31_NOT:%.*]] = select i1 [[VP_BB6_BR_VP_PIVOT_NOT]] i1 [[VP_SWITCHLEAF31_NOT]] i1 false
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB8_BR_VP_SWITCHLEAF31:%.*]] = select i1 [[VP_BB6_BR_VP_PIVOT_NOT]] i1 [[VP_SWITCHLEAF31]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br [[BB13:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB13]]: # preds: [[BB12]]
@@ -90,8 +90,8 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:       [DA: Uni] br [[BB14:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB14]]: # preds: [[BB13]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB7_BR_VP_SWITCHLEAF_NOT:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT]] i1 [[VP_SWITCHLEAF_NOT]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB7_BR_VP_SWITCHLEAF:%.*]] = and i1 [[VP_BB6_BR_VP_PIVOT]] i1 [[VP_SWITCHLEAF]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB7_BR_VP_SWITCHLEAF_NOT:%.*]] = select i1 [[VP_BB6_BR_VP_PIVOT]] i1 [[VP_SWITCHLEAF_NOT]] i1 false
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB7_BR_VP_SWITCHLEAF:%.*]] = select i1 [[VP_BB6_BR_VP_PIVOT]] i1 [[VP_SWITCHLEAF]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br [[BB15:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB15]]: # preds: [[BB14]]
@@ -114,7 +114,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:       [DA: Uni] br [[BB18:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB18]]: # preds: [[BB17]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB11_BR_VP_EXITCOND_NOT:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_EXITCOND_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB11_BR_VP_EXITCOND_NOT:%.*]] = select i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_EXITCOND_NOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br [[BB19:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB19]]: # preds: [[BB18]]
@@ -129,7 +129,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP15:%.*]] = block-predicate i1 [[VP_CMP127]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKEBACKEDGECOND_BLEND_BB13]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_TAKEBACKEDGECOND_BLEND_BB13]] i1 false
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP16:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP16]], [[BB20:BB[0-9]+]], [[BB5]]
 ; CHECK-EMPTY:

@@ -318,7 +318,7 @@ DIR.OMP.END.SIMD.2:
 ; CHECK:  [[LOAD:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32
 ; CHECK:  [[ICMP2:%.*]] = icmp eq <8 x i32> [[LOAD]]
 ; CHECK: VPlannedBB7
-; CHECK:  [[AND:%.*]] = and <8 x i1> [[ICMP]], [[ICMP2]]
+; CHECK:  [[AND:%.*]] = select <8 x i1> [[ICMP]], <8 x i1> [[ICMP2]], <8 x i1> zeroinitializer
 ; CHECK: VPlannedBB8
 ; CHECK:  [[LOAD2:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32
 ; CHECK:  [[ICMP3:%.*]] = icmp slt <8 x i32> [[LOAD2]]

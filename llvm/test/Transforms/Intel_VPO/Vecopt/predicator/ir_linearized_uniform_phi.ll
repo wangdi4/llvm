@@ -27,8 +27,8 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; VPLAN-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB5]]: # preds: [[BB4]]
-; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_COND]] i1 [[VP_UNIFORM_NOT]]
-; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_COND]] i1 [[VP_UNIFORM]]
+; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = select i1 [[VP_COND]] i1 [[VP_UNIFORM_NOT]] i1 false
+; VPLAN-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = select i1 [[VP_COND]] i1 [[VP_UNIFORM]] i1 false
 ; VPLAN-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB6]]: # preds: [[BB5]]
@@ -97,8 +97,8 @@ define void @foo(i64 *%p, i1 *%uniform.ptr) {
 ; CG-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB4:
-; CG-NEXT:    [[TMP7:%.*]] = and <2 x i1> [[TMP0]], [[TMP6]]
-; CG-NEXT:    [[TMP8:%.*]] = and <2 x i1> [[TMP0]], [[BROADCAST_SPLAT0]]
+; CG-NEXT:    [[TMP7:%.*]] = select <2 x i1> [[TMP0]], <2 x i1> [[TMP6]], <2 x i1> zeroinitializer
+; CG-NEXT:    [[TMP8:%.*]] = select <2 x i1> [[TMP0]], <2 x i1> [[BROADCAST_SPLAT0]], <2 x i1> zeroinitializer
 ; CG-NEXT:    br label [[VPLANNEDBB50:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB5:

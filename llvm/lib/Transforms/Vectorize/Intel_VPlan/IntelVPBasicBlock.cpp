@@ -570,7 +570,7 @@ static bool isDeadPredicateInst(VPInstruction &Inst) {
            !cast<VPBranchInst>(NextIt)->getHLGoto();
   }
 
-  if (Opcode != VPInstruction::Not && Opcode != Instruction::And)
+  if (Opcode != VPInstruction::Not && Opcode != Instruction::Select)
     return false;
 
   if (Inst.getNumUsers() != 1)

@@ -212,8 +212,8 @@ define void @active_lane_as_branch_cond(i32 *%a, i32 %b) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_UNIFORM]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = select i1 [[VP_VARYING]] i1 [[VP_UNIFORM_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING]] i1 [[VP_UNIFORM]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
@@ -233,7 +233,7 @@ define void @active_lane_as_branch_cond(i32 *%a, i32 %b) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB7_BR_VP_BLEND_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_BLEND_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB7_BR_VP_BLEND_NOT:%.*]] = select i1 [[VP_VARYING]] i1 [[VP_BLEND_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
@@ -312,7 +312,7 @@ define void @active_lane_as_branch_cond2(i32 *%a, i32 %b) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB5_BR_VP_VARYING_NOT:%.*]] = and i1 [[VP_BB1_VARYING]] i1 [[VP_VARYING_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB5_BR_VP_VARYING_NOT:%.*]] = select i1 [[VP_BB1_VARYING]] i1 [[VP_VARYING_NOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br [[BLEND_BB0:blend.bb[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB0]]: # preds: [[BB6]]
@@ -333,7 +333,7 @@ define void @active_lane_as_branch_cond2(i32 *%a, i32 %b) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB4_BR_VP_VARYING:%.*]] = and i1 [[VP3]] i1 [[VP_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB4_BR_VP_VARYING:%.*]] = select i1 [[VP3]] i1 [[VP_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
@@ -341,7 +341,7 @@ define void @active_lane_as_branch_cond2(i32 *%a, i32 %b) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_UNI_PHI_NOT:%.*]] = and i1 [[VP_BB4_BR_VP_VARYING]] i1 [[VP_UNI_PHI_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_UNI_PHI_NOT:%.*]] = select i1 [[VP_BB4_BR_VP_VARYING]] i1 [[VP_UNI_PHI_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
