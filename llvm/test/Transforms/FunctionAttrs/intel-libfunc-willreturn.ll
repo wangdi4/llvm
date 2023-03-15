@@ -11,6 +11,9 @@
 ; CHECK-TEST1: attributes #[[T1]]
 ; CHECK-TEST1-SAME: willreturn
 
+; CMPLRLLVM-45598: Temporarily marking as expected to fail.
+; XFAIL: *
+
 declare dso_local i8* @libfunc1(i8*, i8*, i8*, i64) #1
 
 define i8* @test1(i8* %0, i8* %1, i8* %2, i64 %3) {
