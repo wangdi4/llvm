@@ -423,7 +423,6 @@ int clang_main(int Argc, char **Argv, const llvm::ToolContext &ToolContext) {
 
   bool ClangCLMode =
       IsClangCL(getDriverMode(ProgName, llvm::ArrayRef(Args).slice(1)));
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   std::string Msg("PLEASE append the compiler options ");
   Msg += ClangCLMode ? "\"/Qsave-temps -v\"" : "\"-save-temps -v\"";
@@ -433,15 +432,6 @@ int clang_main(int Argc, char **Argv, const llvm::ToolContext &ToolContext) {
          "backtrace (if any).\n";
   llvm::setBugReportMsg(Msg.c_str());
 #endif // INTEL_CUSTOMIZATION
-  enum { Default, POSIX, Windows } RSPQuoting = Default;
-  for (const char *F : Args) {
-    if (strcmp(F, "--rsp-quoting=posix") == 0)
-      RSPQuoting = POSIX;
-    else if (strcmp(F, "--rsp-quoting=windows") == 0)
-      RSPQuoting = Windows;
-  }
-=======
->>>>>>> fcab930cd32e6d977816fa7094a0de0bc0d7dd1f
 
   if (llvm::Error Err = expandResponseFiles(Args, ClangCLMode, A)) {
     llvm::errs() << toString(std::move(Err)) << '\n';
