@@ -119,11 +119,8 @@
 ; CHECK-O1-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O1-NEXT: Running pass: LowerSwitchPass
 ; CHECK-O1-NEXT: Running analysis: LazyValueAnalysis
+; CHECK-O1-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O1-NEXT: Running pass: LCSSAPass
-; CHECK-O1-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-O1-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass
-; CHECK-O1-NEXT: Running analysis: WRegionInfoAnalysis
-; CHECK-O1-NEXT: Running analysis: WRegionCollectionAnalysis
 ; CHECK-O1-NEXT: Running analysis: AAManager
 ; CHECK-O1-NEXT: Running analysis: BasicAA
 ; CHECK-O1-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -131,6 +128,12 @@
 ; CHECK-O1-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-O1-NEXT: Running analysis: TypeBasedAA
 ; CHECK-O1-NEXT: Running analysis: StdContainerAA
+; CHECK-O1-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-O1-NEXT: Running pass: LoopSimplifyCFGPass
+; CHECK-O1-NEXT: Running pass: VPOCFGRestructuringPass
+; CHECK-O1-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass
+; CHECK-O1-NEXT: Running analysis: WRegionInfoAnalysis
+; CHECK-O1-NEXT: Running analysis: WRegionCollectionAnalysis
 ; CHECK-O1-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O1-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-O1-NEXT: Running analysis: InnerAnalysisManagerProxy
@@ -301,11 +304,8 @@
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O23SZ-NEXT: Running pass: LowerSwitchPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
+; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass
-; CHECK-O23SZ-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-O23SZ-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass
-; CHECK-O23SZ-NEXT: Running analysis: WRegionInfoAnalysis
-; CHECK-O23SZ-NEXT: Running analysis: WRegionCollectionAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager
 ; CHECK-O23SZ-NEXT: Running analysis: BasicAA
 ; CHECK-O23SZ-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -313,6 +313,12 @@
 ; CHECK-O23SZ-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-O23SZ-NEXT: Running analysis: TypeBasedAA
 ; CHECK-O23SZ-NEXT: Running analysis: StdContainerAA
+; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyCFGPass
+; CHECK-O23SZ-NEXT: Running pass: VPOCFGRestructuringPass
+; CHECK-O23SZ-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass
+; CHECK-O23SZ-NEXT: Running analysis: WRegionInfoAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: WRegionCollectionAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O23SZ-NEXT:Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy

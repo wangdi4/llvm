@@ -258,11 +258,8 @@
 ; CHECK-POSTLINK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LowerSwitchPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: LazyValueAnalysis
+; CHECK-POSTLINK-O-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LCSSAPass
-; CHECK-POSTLINK-O-NEXT: Running pass: VPOCFGRestructuringPass
-; CHECK-POSTLINK-O-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass
-; CHECK-POSTLINK-O-NEXT: Running analysis: WRegionInfoAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: WRegionCollectionAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: AAManager
 ; CHECK-POSTLINK-O-NEXT: Running analysis: BasicAA
 ; CHECK-POSTLINK-O-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -270,6 +267,12 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-POSTLINK-O-NEXT: Running analysis: TypeBasedAA
 ; CHECK-POSTLINK-O-NEXT: Running analysis: StdContainerAA
+; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-POSTLINK-O-NEXT: Running pass: LoopSimplifyCFGPass
+; CHECK-POSTLINK-O-NEXT: Running pass: VPOCFGRestructuringPass
+; CHECK-POSTLINK-O-NEXT: Running pass: VPlanPragmaOmpOrderedSimdExtractPass
+; CHECK-POSTLINK-O-NEXT: Running analysis: WRegionInfoAnalysis
+; CHECK-POSTLINK-O-NEXT: Running analysis: WRegionCollectionAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
