@@ -297,15 +297,18 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     if (Fn.isDeclaration() || MVFunctionsCallableFromLoops.contains(&Fn))
       continue;
     // If selective multiversioning is enabled, multi-version only the
-    //   1) functions that contain non-annotation like intrinsics,
-    //   2) functions that contain loops, or
-    //   3) functions that are callable from loop bodies.
+    //   1) functions that have Attribute::Hot,
+    //   2) functions that contain non-annotation like intrinsics,
+    //   3) functions that contain loops, or
+    //   4) functions that are callable from loop bodies.
     if (!EnableSelectiveMultiVersioning) {
       MVCandidates.insert(&Fn);
       continue;
     }
-    // Collect functions that contain non-annotation like intrinsics.
-    if (any_of(instructions(Fn),
+    // Collect functions that have Attribute::Hot
+    if (Fn.hasFnAttribute(Attribute::Hot) ||
+        // Collect functions that contain non-annotation like intrinsics.
+        any_of(instructions(Fn),
                [&](Instruction &I) {
                  auto *Inst = dyn_cast<IntrinsicInst>(&I);
                  return Inst && !Inst->isAssumeLikeIntrinsic();
