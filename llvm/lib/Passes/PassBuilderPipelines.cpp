@@ -1827,12 +1827,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(LoopLoadEliminationPass());
   }
   // Cleanup after the loop optimization passes.
-<<<<<<< HEAD
   addInstCombinePass(FPM, !DTransEnabled,                // INTEL
                      true /* EnableCanonicalizeSwap */); // INTEL
-=======
-  FPM.addPass(InstCombinePass());
->>>>>>> db99deed27d9c11fad017a36b3cd3b45d211dbfe
 
 #if INTEL_CUSTOMIZATION
   // In LTO mode, loopopt runs in link phase along with community vectorizer
@@ -1971,7 +1967,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
   if (!PrepareForLTO)
     FPM.addPass(WarnMissedTransformationsPass());
-<<<<<<< HEAD
   // Now that we are done with loop unrolling, be it either by LoopVectorizer,
   // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
   // become constant-offset, thus enabling SROA and alloca promotion. Do so.
@@ -1986,16 +1981,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 #endif // INTEL_CUSTOMIZATION
-=======
-    // Now that we are done with loop unrolling, be it either by LoopVectorizer,
-    // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
-    // become constant-offset, thus enabling SROA and alloca promotion. Do so.
-    // NOTE: we are very late in the pipeline, and we don't have any LICM
-    // or SimplifyCFG passes scheduled after us, that would cleanup
-    // the CFG mess this may created if allowed to modify CFG, so forbid that.
-    FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
-    FPM.addPass(InstCombinePass());
->>>>>>> db99deed27d9c11fad017a36b3cd3b45d211dbfe
     FPM.addPass(
         RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
     FPM.addPass(createFunctionToLoopPassAdaptor(
@@ -2008,7 +1993,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // alignment information, try to re-derive it here.
   FPM.addPass(AlignmentFromAssumptionsPass());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (IsFullLTO) {
 #if INTEL_FEATURE_SW_ADVANCED
@@ -2021,10 +2005,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
                        true /* EnableCanonicalizeSwap */);
   }
 #endif // INTEL_CUSTOMIZATOIN
-=======
-  if (IsFullLTO)
-    FPM.addPass(InstCombinePass());
->>>>>>> db99deed27d9c11fad017a36b3cd3b45d211dbfe
 }
 
 #if INTEL_COLLAB
