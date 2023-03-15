@@ -5,7 +5,7 @@
 
 // INTEL_CUSTOMIZATION
 // CMPLRLLVM-45708
-// XFAIL: target={{.*windows.*}}
+// UNSUPPORTED: target={{.*windows.*}}
 // end INTEL_CUSTOMIZATION
 
 ; CHECK-NOT: error:
