@@ -2283,11 +2283,12 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     INTEL_LIMIT_END(FPM)
   }
 
+  // FunctionToLoopPassAdaptor invokes LCSSA pass which is required by loopopt
+  // framework. We don't need to add it explicitly in the pipeline.
   FPM.addPass(createFunctionToLoopPassAdaptor(
       LoopSimplifyCFGPass(), /*UseMemorySSA=*/false,
       /*UseBlockFrequencyInfo=*/false));
 
-  FPM.addPass(LCSSAPass());
   // Leaving comments for stuff which need to be added to match legacy pass
   // manager.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
