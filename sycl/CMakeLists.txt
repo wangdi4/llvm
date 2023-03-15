@@ -359,6 +359,10 @@ if (WIN32)
   add_dependencies(sycl-toolchain win_proxy_loader)
 endif()
 
+if (WIN32)
+  add_dependencies(sycl-toolchain win_proxy_loader)
+endif()
+
 # Enable new IN_LIST operator.
 cmake_policy(SET CMP0057 NEW)
 
@@ -468,6 +472,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
 if (WIN32)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS win_proxy_loader)
 endif()
+<<<<<<< HEAD
 
 if (TARGET sycl-prof)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-prof)
@@ -478,6 +483,8 @@ endif()
 if (TARGET sycl-trace)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-trace)
 endif()
+=======
+>>>>>>> b2c314ee5f8d72187cbd51874a5d52b649dbcda1
 
 if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET OpenCL-ICD)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS OpenCL-ICD)
