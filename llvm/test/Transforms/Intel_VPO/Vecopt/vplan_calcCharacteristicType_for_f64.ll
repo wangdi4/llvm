@@ -98,8 +98,8 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP4]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP5]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP5]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp ult i32 [[TMP5]], 4
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB60:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:

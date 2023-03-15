@@ -204,8 +204,8 @@ define dso_local void @foo(i64* %x, i32* %y, i16** %z) #0 {
 ; CHECK-NEXT:   [[WIDE_LOAD21_EXTRACT0:%.*]] = extractelement <2 x ptr> [[WIDE_LOAD21]], i32 0
 ; CHECK-NEXT:   call void @_Z3bazPcPc(ptr nonnull [[WIDE_LOAD20_EXTRACT0]], ptr nonnull [[WIDE_LOAD21_EXTRACT0]])
 ; CHECK-NEXT:   call void @_Z3bazPcPc(ptr nonnull [[WIDE_LOAD20_EXTRACT1]], ptr nonnull [[WIDE_LOAD21_EXTRACT1]])
-; CHECK-NEXT:   %9 = add nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
-; CHECK-NEXT:   %10 = add nsw i32 [[UNI_PHI]], 2
+; CHECK-NEXT:   %9 = add nuw nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
+; CHECK-NEXT:   %10 = add nuw nsw i32 [[UNI_PHI]], 2
 ; CHECK-NEXT:   [[MM_VECTORGEP22]] = getelementptr inbounds i8, <2 x ptr> [[VEC_PHI12]], <2 x i64> <i64 16, i64 16>
 ; CHECK-NEXT:   [[MM_VECTORGEP22_EXTRACT0]] = extractelement <2 x ptr> [[MM_VECTORGEP22]], i32 0
 ; CHECK-NEXT:   [[MM_VECTORGEP23]] = getelementptr inbounds i8, <2 x ptr> [[VEC_PHI14]], <2 x i64> <i64 8, i64 8>

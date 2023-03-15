@@ -55,7 +55,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK:       VPlannedBB10:
 ; CHECK-NEXT:    [[UNI_PHI11:%.*]] = phi i64 [ 0, [[VPLANNEDBB9]] ], [ [[TMP13:%.*]], [[NEW_LATCH:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI12:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB9]] ], [ [[TMP12:%.*]], [[NEW_LATCH]] ]
-; CHECK-NEXT:    [[TMP7:%.*]] = add <2 x i64> [[VEC_PHI12]], [[BROADCAST_SPLAT14]]
+; CHECK-NEXT:    [[TMP7:%.*]] = add nuw nsw <2 x i64> [[VEC_PHI12]], [[BROADCAST_SPLAT14]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <2 x i64> [[TMP7]], i32 0
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult <2 x i64> [[VEC_PHI12]], [[BROADCAST_SPLAT16]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB17:%.*]]

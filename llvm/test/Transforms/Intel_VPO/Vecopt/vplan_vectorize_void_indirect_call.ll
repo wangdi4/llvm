@@ -23,8 +23,8 @@ define void @foo() #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
-; CHECK-NEXT:    [[TMP1]] = add nuw <16 x i32> [[VEC_PHI0]], <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
-; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI0]], 16
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw <16 x i32> [[VEC_PHI0]], <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i32 [[UNI_PHI0]], 16
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i32 [[TMP2]], 16
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB40:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:

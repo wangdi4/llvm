@@ -26,7 +26,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK:       VPlannedBB2:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP6:%.*]], [[NEW_LATCH:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB1]] ], [ [[TMP5:%.*]], [[NEW_LATCH]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = add <4 x i64> [[VEC_PHI]], zeroinitializer
+; CHECK-NEXT:    [[TMP0:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI]], zeroinitializer
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp ult <4 x i64> [[VEC_PHI]], <i64 1, i64 1, i64 1, i64 1>
 ; CHECK-NEXT:    br label [[VPLANNEDBB3:%.*]]

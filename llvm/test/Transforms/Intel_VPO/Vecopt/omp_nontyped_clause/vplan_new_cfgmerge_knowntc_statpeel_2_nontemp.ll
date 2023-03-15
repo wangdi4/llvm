@@ -38,8 +38,8 @@ define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI5:%.*]] = phi i64 [ [[UNI_PHI]], [[VPLANNEDBB3]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ [[TMP0]], [[VPLANNEDBB3]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP1]] = add <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP2]] = add i64 [[UNI_PHI5]], 4
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI5]], 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 1, i64 1, i64 1, i64 1>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x i64> [[TMP3]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = sitofp <4 x i64> [[TMP3]] to <4 x double>

@@ -53,7 +53,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[VEC_PHI37:%.*]] = phi <2 x float> [ [[BROADCAST_SPLAT84]], [[VPLANNEDBB30]] ], [ [[PREDBLEND73:%.*]], [[NEW_LATCH67]] ]
 ; CHECK-NEXT:    [[UNI_PHI38:%.*]] = phi i32 [ [[TMP27]], [[VPLANNEDBB30]] ], [ [[PREDBLEND70_EXTRACT_0_:%.*]], [[NEW_LATCH67]] ]
 ; CHECK-NEXT:    [[VEC_PHI39:%.*]] = phi <2 x i32> [ [[TMP29]], [[VPLANNEDBB30]] ], [ [[PREDBLEND70:%.*]], [[NEW_LATCH67]] ]
-; CHECK-NEXT:    [[TMP31:%.*]] = add <2 x i64> [[VEC_PHI36]], [[BROADCAST_SPLAT41:%.*]]
+; CHECK-NEXT:    [[TMP31:%.*]] = add nuw nsw  <2 x i64> [[VEC_PHI36]], [[BROADCAST_SPLAT41:%.*]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <2 x i64> [[TMP31]], i32 0
 ; CHECK-NEXT:    store <2 x float> zeroinitializer, ptr [[DOTVEC31]], align 1
 ; CHECK-NEXT:    [[TMP32:%.*]] = icmp ult i64 [[UNI_PHI35]], [[TMP30]]

@@ -39,7 +39,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK:       VPlannedBB2:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP14:%.*]], [[NEW_LATCH:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB1]] ], [ [[TMP13:%.*]], [[NEW_LATCH]] ]
-; CHECK-NEXT:    [[TMP8:%.*]] = add <4 x i64> [[VEC_PHI]], zeroinitializer
+; CHECK-NEXT:    [[TMP8:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI]], zeroinitializer
 ; CHECK-NEXT:    [[DOTEXTRACT_0_6:%.*]] = extractelement <4 x i64> [[TMP8]], i32 0
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult <4 x i64> [[VEC_PHI]], [[BROADCAST_SPLAT4]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
@@ -127,7 +127,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK:       VPlannedBB29:
 ; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VPLANNEDBB28]] ], [ [[TMP39:%.*]], [[NEW_LATCH19:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI31:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB28]] ], [ [[TMP38:%.*]], [[NEW_LATCH19]] ]
-; CHECK-NEXT:    [[TMP33:%.*]] = add <4 x i64> [[VEC_PHI31]], [[BROADCAST_SPLAT33]]
+; CHECK-NEXT:    [[TMP33:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI31]], [[BROADCAST_SPLAT33]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_37:%.*]] = extractelement <4 x i64> [[TMP33]], i32 0
 ; CHECK-NEXT:    [[TMP34:%.*]] = icmp ult <4 x i64> [[VEC_PHI31]], [[BROADCAST_SPLAT35]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB36:%.*]]

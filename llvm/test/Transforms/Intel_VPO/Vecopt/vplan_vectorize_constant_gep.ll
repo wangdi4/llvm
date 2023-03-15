@@ -6,8 +6,8 @@ define void @foo() {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB2:%.+]] ], [ [[TMP1:%.*]], [[VECTOR_BODY:%.+]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB2]] ], [ [[TMP0:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP0]] = add nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP1]] = add nsw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 2
 ; CHECK-NEXT:    br i1 [[TMP2]], label [[VECTOR_BODY]], label [[VPLANNEDBB5:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;

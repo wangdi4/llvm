@@ -46,8 +46,8 @@ define void @simd_test(%complex_64bit* %uni.src, %complex_64bit* %uni.dest) loca
 ; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP3]], %complex_64bit* [[UNI_DEST]], align 4
 ; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP1]], %complex_64bit* [[UNI_DEST]], align 4
 ; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP2]], %complex_64bit* [[UNI_DEST]], align 4
-; CHECK-NEXT:    [[TMP4]] = add nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
-; CHECK-NEXT:    [[TMP5]] = add nsw i32 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
+; CHECK-NEXT:    [[TMP5]] = add nuw nsw i32 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp ule i32 [[TMP5]], 4
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VECTOR_BODY]], label [[VPLANNEDBB4:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;

@@ -56,8 +56,8 @@ define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnam
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v2i64.v2p1i64(<2 x i64> [[BROADCAST_SPLAT8]], <2 x i64 addrspace(1)*> [[BROADCAST_SPLAT10:%.*]], i32 8, <2 x i1> [[TMP1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB11]]
 ; CHECK:       VPlannedBB11:
-; CHECK-NEXT:    [[TMP12]] = add nuw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP13]] = add nuw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP12]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP13]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp ult i64 [[TMP13]], 2
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY:%.*]], label [[VPLANNEDBB12:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
