@@ -351,8 +351,6 @@
 ; CHECK-Os-NEXT: Running pass: InjectTLIMappings
 ; Removed LoopVectorizePass pass as it is disabled by default
 ; END INTEL_CUSTOMIZATION
-; CHECK-O-NEXT: Running analysis: BlockFrequencyAnalysis
-; CHECK-O-NEXT: Running analysis: BranchProbabilityAnalysis
 ; CHECK-O-NEXT: Running pass: LoopLoadEliminationPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
@@ -382,8 +380,6 @@
 ; CHECK-O-NEXT: Running pass: LICMPass
 ; CHECK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-O-NEXT: Running pass: LoopSinkPass
-; CHECK-LTO-NEXT: Running analysis: BlockFrequencyAnalysis ;INTEL
-; CHECK-LTO-NEXT: Running analysis: BranchProbabilityAnalysis ;INTEL
 ; INTEL_CUSTOMIZATION
 ; CHECK-EARLY-LSR: Running pass: LoopSinkPass
 ; CHECK-EARLY-LSR: Running pass: LoopStrengthReducePass ;INTEL
