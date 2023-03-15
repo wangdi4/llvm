@@ -1845,8 +1845,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     // dead (or speculatable) control flows or more combining opportunities.
     ExtraPasses.addPass(EarlyCSEPass());
     ExtraPasses.addPass(CorrelatedValuePropagationPass());
-    ExtraPasses.addPass(
-        InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
+    ExtraPasses.addPass(InstCombinePass());
     LoopPassManager LPM;
     LPM.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                          /*AllowSpeculation=*/true));
