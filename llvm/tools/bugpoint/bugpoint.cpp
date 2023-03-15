@@ -47,7 +47,6 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -89,6 +88,7 @@ static cl::opt<bool>
 static cl::list<const PassInfo *, bool, PassNameParser>
     PassList(cl::desc("Passes available:"));
 
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
 static cl::opt<bool>
     StandardLinkOpts("std-link-opts",
@@ -113,6 +113,8 @@ OptLevelOz("Oz",
 static cl::opt<bool>
     OptLevelO3("O3", cl::desc("Optimization level 3. Identical to 'opt -O3'"));
 
+=======
+>>>>>>> 3724ac04005c2f6a687014ad4832006adc7d58df
 static cl::opt<std::string>
     OverrideTriple("mtriple", cl::desc("Override target triple for module"));
 
@@ -137,23 +139,6 @@ public:
     D.addPass(std::string(PI->getPassArgument()));
   }
 };
-}
-
-// This routine adds optimization passes based on selected optimization level,
-// OptLevel.
-//
-// OptLevel - Optimization Level
-static void AddOptimizationPasses(legacy::FunctionPassManager &FPM,
-                                  unsigned OptLevel,
-                                  unsigned SizeLevel) {
-  PassManagerBuilder Builder;
-  Builder.OptLevel = OptLevel;
-  Builder.SizeLevel = SizeLevel;
-
-  Builder.Inliner = createAlwaysInlinerLegacyPass();
-
-  Builder.populateFunctionPassManager(FPM);
-  Builder.populateModulePassManager(FPM);
 }
 
 #define HANDLE_EXTENSION(Ext)                                                  \
@@ -239,6 +224,7 @@ int main(int argc, char **argv) {
 
   AddToDriver PM(D);
 
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   if (StandardLinkOpts) {
     PassManagerBuilder Builder;
@@ -257,6 +243,8 @@ int main(int argc, char **argv) {
   else if (OptLevelOz)
     AddOptimizationPasses(PM, 2, 2);
 
+=======
+>>>>>>> 3724ac04005c2f6a687014ad4832006adc7d58df
   for (const PassInfo *PI : PassList)
     D.addPass(std::string(PI->getPassArgument()));
 
