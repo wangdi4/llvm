@@ -152,7 +152,6 @@ void initializeDAEPass(PassRegistry&);
 void initializeDAHPass(PassRegistry&);
 void initializeDAESYCLPass(PassRegistry&);
 void initializeDCELegacyPassPass(PassRegistry&);
-void initializeDFAJumpThreadingLegacyPassPass(PassRegistry &);
 void initializeDSELegacyPassPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
@@ -275,7 +274,6 @@ void initializeLegalizerPass(PassRegistry&);
 void initializeMemorySanitizerLegacyPassPass(PassRegistry&); // INTEL
 void initializeGISelCSEAnalysisWrapperPassPass(PassRegistry &);
 void initializeGISelKnownBitsAnalysisPass(PassRegistry &);
-void initializeLibCallsShrinkWrapLegacyPassPass(PassRegistry&);
 void initializeLintLegacyPassPass(PassRegistry &);
 void initializeLiveDebugValuesPass(PassRegistry&);
 void initializeLiveDebugVariablesPass(PassRegistry&);
@@ -304,7 +302,6 @@ void initializeLoopUnrollPass(PassRegistry&);
 #ifdef INTEL_CUSTOMIZATION
 void initializeLoopUnswitchPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
-void initializeLoopVectorizePass(PassRegistry&);
 void initializeLowerAtomicLegacyPassPass(PassRegistry&);
 void initializeLowerConstantIntrinsicsPass(PassRegistry&);
 void initializeLowerEmuTLSPass(PassRegistry&);
@@ -439,7 +436,6 @@ void initializeRewriteStatepointsForGCLegacyPassPass(PassRegistry &);
 void initializeRewriteSymbolsLegacyPassPass(PassRegistry&);
 void initializeSCCPLegacyPassPass(PassRegistry&);
 void initializeSCEVAAWrapperPassPass(PassRegistry&);
-void initializeSLPVectorizerPass(PassRegistry&);
 void initializeSROALegacyPassPass(PassRegistry&);
 void initializeSROALegacyCGSCCAdaptorPassPass(PassRegistry &); // INTEL
 void initializeSafeStackLegacyPassPass(PassRegistry&);
