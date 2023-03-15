@@ -2080,7 +2080,7 @@ void ReassociatePass::EraseInst(Instruction *I) {
       // blocks because it's a waste of time and also because it can
       // lead to infinite loop due to LLVM's non-standard definition
       // of dominance.
-      if (ValueRankMap.find(Op) != ValueRankMap.end())
+      if (ValueRankMap.contains(Op))
         RedoInsts.insert(Op);
     }
 

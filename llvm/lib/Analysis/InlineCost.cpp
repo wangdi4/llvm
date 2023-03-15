@@ -606,7 +606,7 @@ public:
   InlineResult analyze(const TargetTransformInfo &CalleeTTI); // INTEL
 
   std::optional<Constant *> getSimplifiedValue(Instruction *I) {
-    if (SimplifiedValues.find(I) != SimplifiedValues.end())
+    if (SimplifiedValues.contains(I))
       return SimplifiedValues[I];
     return std::nullopt;
   }
@@ -1297,7 +1297,7 @@ public:
   void print(raw_ostream &OS);
 
   std::optional<InstructionCostDetail> getCostDetails(const Instruction *I) {
-    if (InstructionCostDetailMap.find(I) != InstructionCostDetailMap.end())
+    if (InstructionCostDetailMap.contains(I))
       return InstructionCostDetailMap[I];
     return std::nullopt;
   }
