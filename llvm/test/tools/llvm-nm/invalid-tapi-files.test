@@ -7,11 +7,6 @@ RUN:          | FileCheck %s -check-prefix V2
 RUN: not llvm-nm %p/Inputs/tapi-invalid-v3.tbd 2>&1\
 RUN:          | FileCheck %s -check-prefix V3
 
-// INTEL_CUSTOMIZATION
-// CMPLRLLVM-45708
-// UNSUPPORTED: target={{.*windows.*}}
-// end INTEL_CUSTOMIZATION
-
 # Typo Check
 V1: tapi-invalid-v1.tbd: malformed file
 V1-NEXT: tapi-invalid-v1.tbd:11:1: error: unknown key 'expors'

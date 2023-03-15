@@ -16,11 +16,6 @@ RUN:          | FileCheck %s -check-prefix V4-WATCH
 RUN: llvm-nm %p/Inputs/tapi-v5.tbd \
 RUN:          | FileCheck %s -check-prefix V5
 
-// INTEL_CUSTOMIZATION
-// CMPLRLLVM-45708
-// UNSUPPORTED: target={{.*windows.*}}
-// end INTEL_CUSTOMIZATION
-
 V1: /u/l/libfoo.dylib (for architecture armv7):
 V1-NEXT: 00000000 S _sym
 V1: /u/l/libfoo.dylib (for architecture armv7s):
