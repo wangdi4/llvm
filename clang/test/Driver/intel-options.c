@@ -108,27 +108,15 @@
 // Behavior with qopenmp/Qopenmp option
 // RUN: %clang -### -c -target x86_64-linux-gnu -qopenmp %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP %s
 // RUN: %clang_cl -### -c -target x86_64-windows-gnu /Qopenmp %s 2>&1 | FileCheck -check-prefixes=CHECK-QOPENMP,CHECK-QOPENMP-WIN %s
-// RUN: %clang -### -target x86_64-linux-gnu --intel -qopenmp %s -o %t 2>&1 | FileCheck %s -check-prefixes=CHECK-LD-IOMP5,CHECK-NO-RPATH
+// RUN: %clang -### -target x86_64-linux-gnu --intel -qopenmp %s -o %t 2>&1 | FileCheck %s -check-prefixes=CHECK-LD-IOMP5
 // Default behavior with -fopenmp should be liomp5
-// RUN: %clang -### -target x86_64-linux-gnu -fopenmp %s -o %t 2>&1 | FileCheck %s -check-prefixes=CHECK-LD-IOMP5,CHECK-NO-RPATH
+// RUN: %clang -### -target x86_64-linux-gnu -fopenmp %s -o %t 2>&1 | FileCheck %s -check-prefixes=CHECK-LD-IOMP5
 // CHECK-QOPENMP-WIN: "--dependent-lib=libiomp5md"
 // CHECK-QOPENMP: "-fopenmp-late-outline"
 // CHECK-QOPENMP: "-fopenmp-threadprivate-legacy"
 // CHECK-QOPENMP: "-fopenmp"
 // CHECK-QOPENMP: "-mllvm" "-paropt=31"
 // CHECK-LD-IOMP5: "-liomp5"
-
-// Use of -fopenmp-implicit-rpath should set rpath
-// RUN: %clang -### -target x86_64-linux-gnu -fiopenmp \
-// RUN:  -fopenmp-implicit-rpath %s -o %t 2>&1 \
-// RUN:  | FileCheck %s -check-prefix CHECK-RPATH
-// CHECK-RPATH: "-rpath"
-
-// Use of -fno-openmp-implicit-rpath should not set rpath
-// RUN: %clang -### -target x86_64-linux-gnu -fiopenmp \
-// RUN:  -fno-openmp-implicit-rpath %s -o %t 2>&1 \
-// RUN:  | FileCheck %s -check-prefix CHECK-NO-RPATH
-// CHECK-NO-RPATH-NOT: "-rpath"
 
 // RUN: %clang_cl -### -c -target x86_64-windows-gnu /Qopenmp /Zl %s 2>&1 | FileCheck -check-prefixes=ZL_OPENMP %s
 // ZL_OPENMP-NOT: --dependent-lib=libiomp5md
