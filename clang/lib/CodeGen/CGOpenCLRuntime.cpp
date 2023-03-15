@@ -48,11 +48,8 @@ void CGOpenCLRuntime::EmitWorkGroupLocalVarDecl(CodeGenFunction &CGF,
 }
 
 llvm::Type *CGOpenCLRuntime::convertOpenCLSpecificType(const Type *T) {
-  assert(T->isOpenCLSpecificType() && "Not an OpenCL specific type!");
-
-  // Check if the target has a specific translation for this type first.
-  if (llvm::Type *TransTy = CGM.getTargetCodeGenInfo().getOpenCLType(CGM, T))
-    return TransTy;
+  assert(T->isOpenCLSpecificType() &&
+         "Not an OpenCL specific type!");
 
   llvm::LLVMContext& Ctx = CGM.getLLVMContext();
   uint32_t AddrSpc = CGM.getContext().getTargetAddressSpace(
@@ -129,9 +126,6 @@ llvm::PointerType *CGOpenCLRuntime::getPointerType(const Type *T,
 }
 
 llvm::Type *CGOpenCLRuntime::getPipeType(const PipeType *T) {
-  if (llvm::Type *PipeTy = CGM.getTargetCodeGenInfo().getOpenCLType(CGM, T))
-    return PipeTy;
-
   if (T->isReadOnly())
     return getPipeType(T, "opencl.pipe_ro_t", PipeROTy);
   else
@@ -148,18 +142,12 @@ llvm::Type *CGOpenCLRuntime::getPipeType(const PipeType *T, StringRef Name,
   return PipeTy;
 }
 
-llvm::Type *CGOpenCLRuntime::getSamplerType(const Type *T) {
-  if (SamplerTy)
-    return SamplerTy;
-
-  if (llvm::Type *TransTy = CGM.getTargetCodeGenInfo().getOpenCLType(
-          CGM, CGM.getContext().OCLSamplerTy.getTypePtr()))
-    SamplerTy = TransTy;
-  else
-    SamplerTy = llvm::PointerType::get(
-        llvm::StructType::create(CGM.getLLVMContext(), "opencl.sampler_t"),
-        CGM.getContext().getTargetAddressSpace(
-            CGM.getContext().getOpenCLTypeAddrSpace(T)));
+llvm::PointerType *CGOpenCLRuntime::getSamplerType(const Type *T) {
+  if (!SamplerTy)
+    SamplerTy = llvm::PointerType::get(llvm::StructType::create(
+      CGM.getLLVMContext(), "opencl.sampler_t"),
+      CGM.getContext().getTargetAddressSpace(
+          CGM.getContext().getOpenCLTypeAddrSpace(T)));
   return SamplerTy;
 }
 
