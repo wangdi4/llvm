@@ -31,7 +31,7 @@
 
 ; CHECK:      define dso_local i32 @foo(i32 noundef %i) local_unnamed_addr #0 !llvm.acd.dispatcher !0 {
 ; CHECK-NEXT:   %1 = load ptr, ptr @foo.ptr, align 8
-; CHECK-NEXT:   %2 = call i32 %1(i32 noundef %i) #3
+; CHECK-NEXT:   %2 = call i32 %1(i32 noundef %i)
 ; CHECK-NEXT:   ret i32 %2
 ; CHECK-NEXT: }
 
