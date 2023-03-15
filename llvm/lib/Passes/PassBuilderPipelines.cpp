@@ -1827,8 +1827,12 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(LoopLoadEliminationPass());
   }
   // Cleanup after the loop optimization passes.
+<<<<<<< HEAD
   addInstCombinePass(FPM, !DTransEnabled,                // INTEL
                      true /* EnableCanonicalizeSwap */); // INTEL
+=======
+  FPM.addPass(InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
+>>>>>>> d0cd14384de5709ed27a149d1cd39f9ba0741f2a
 
 #if INTEL_CUSTOMIZATION
   // In LTO mode, loopopt runs in link phase along with community vectorizer
@@ -1845,7 +1849,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     // dead (or speculatable) control flows or more combining opportunities.
     ExtraPasses.addPass(EarlyCSEPass());
     ExtraPasses.addPass(CorrelatedValuePropagationPass());
-    ExtraPasses.addPass(InstCombinePass());
+    ExtraPasses.addPass(
+        InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
     LoopPassManager LPM;
     LPM.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                          /*AllowSpeculation=*/true));
@@ -1967,6 +1972,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
   if (!PrepareForLTO)
     FPM.addPass(WarnMissedTransformationsPass());
+<<<<<<< HEAD
   // Now that we are done with loop unrolling, be it either by LoopVectorizer,
   // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
   // become constant-offset, thus enabling SROA and alloca promotion. Do so.
@@ -1981,6 +1987,16 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 #endif // INTEL_CUSTOMIZATION
+=======
+    // Now that we are done with loop unrolling, be it either by LoopVectorizer,
+    // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
+    // become constant-offset, thus enabling SROA and alloca promotion. Do so.
+    // NOTE: we are very late in the pipeline, and we don't have any LICM
+    // or SimplifyCFG passes scheduled after us, that would cleanup
+    // the CFG mess this may created if allowed to modify CFG, so forbid that.
+    FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
+    FPM.addPass(InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
+>>>>>>> d0cd14384de5709ed27a149d1cd39f9ba0741f2a
     FPM.addPass(
         RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
     FPM.addPass(createFunctionToLoopPassAdaptor(
@@ -1993,6 +2009,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // alignment information, try to re-derive it here.
   FPM.addPass(AlignmentFromAssumptionsPass());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (IsFullLTO) {
 #if INTEL_FEATURE_SW_ADVANCED
@@ -2005,6 +2022,10 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
                        true /* EnableCanonicalizeSwap */);
   }
 #endif // INTEL_CUSTOMIZATOIN
+=======
+  if (IsFullLTO)
+    FPM.addPass(InstCombinePass(InstCombineOptions().setUseLoopInfo(true)));
+>>>>>>> d0cd14384de5709ed27a149d1cd39f9ba0741f2a
 }
 
 #if INTEL_COLLAB
