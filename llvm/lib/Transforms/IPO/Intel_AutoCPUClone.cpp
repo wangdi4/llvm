@@ -10,13 +10,13 @@
 
 #include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Intel_CPU_utils.h"
-#include "llvm/TargetParser/X86TargetParser.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Triple.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -102,6 +102,22 @@ libIRCMVResolverOptionComparator(const MultiVersionResolverOption &LHS,
 }
 
 static void
+setResolverAttributes(Function *Resolver, Function &Fn) {
+
+  if (Fn.hasFnAttribute("tune-cpu"))
+    Resolver->addFnAttr(Fn.getFnAttribute("tune-cpu"));
+
+  if (Fn.hasFnAttribute("target-cpu"))
+    Resolver->addFnAttr(Fn.getFnAttribute("target-cpu"));
+
+  if (Fn.hasFnAttribute("target-features"))
+    Resolver->addFnAttr(Fn.getFnAttribute("target-features"));
+
+  if (Fn.hasFnAttribute("advanced-optim"))
+    Resolver->addFnAttr(Fn.getFnAttribute("advanced-optim"));
+}
+
+static void
 emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
                            GlobalVariable *DispatchPtr,
                            Function*& Dispatcher) {
@@ -160,6 +176,7 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
     Resolver = Function::Create(ResolverTy, GlobalValue::InternalLinkage,
                                 "__intel.acd.resolver", M);
     Resolver->setDSOLocal(true);
+    setResolverAttributes(Resolver, Fn);
     appendToGlobalCtors(*M, Resolver, 500 /* Some number > 0 */);
   }
 
@@ -194,6 +211,7 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
 
   emitMultiVersionResolver(Resolver, nullptr /*DispatchPtr*/, MVOptions,
                            true /*UseIFunc*/, true /*UseLibIRC*/);
+  setResolverAttributes(Resolver, Fn);
 }
 
 static bool
@@ -359,6 +377,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       continue;
 
     MDNode *AutoCPUDispatchMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
+    // Remove llvm.auto.cpu.dispatch metadata here, to prevent cloning it
+    // unnecessarily during multi-versioning as well as dispatcher code generation.
+    Fn->setMetadata("llvm.auto.cpu.dispatch", nullptr);
+
     if (AutoCPUDispatchMD)
       LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *AutoCPUDispatchMD << "\n");
 
@@ -385,13 +407,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       ValueToValueMapTy VMap;
       Function *New = CloneFunction(Fn, VMap);
 
-      New->setMetadata("llvm.auto.cpu.dispatch", nullptr);
-      New->setMetadata("llvm.acd.clone", MDNode::get(New->getContext(), {}));
-
-      std::string Features = LibIRCDispatchFeatures.str();
-
       const Attribute Attr = New->getFnAttribute("target-features");
       const StringRef OldFeatures = Attr.getValueAsString();
+
+      std::string Features = LibIRCDispatchFeatures.str();
 
       // Keep old target features as some of them can be added as a result
       // of command line arguments(e.g. -msha)
@@ -413,6 +432,8 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
       New->addFnAttr("loopopt-pipeline", "full");
       New->addFnAttr("advanced-optim", "true");
+
+      New->setMetadata("llvm.acd.clone", MDNode::get(New->getContext(), {}));
 
       New->setName(Fn->getName() + "." + getTargetSuffix(TargetCpuDealiased));
 
@@ -449,6 +470,11 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       }
     }
 
+    // Set advanced-optim attribute here. Fn's attributes will be used to set
+    // the attributes of resolver/dispatcher functions.
+    Fn->addFnAttr("advanced-optim",
+                  GetTTI(*Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
+
     MVOptions.emplace_back(Fn, "", ArrayRef<StringRef>()); // generic.
     stable_sort(MVOptions, libIRCMVResolverOptionComparator);
 
@@ -462,21 +488,8 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       emitIFuncBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher);
 
     Orig2MultiFuncs[Fn] = {Resolver, Dispatcher, DispatchPtr, std::move(Clones)};
-    Fn->setMetadata("llvm.auto.cpu.dispatch", nullptr);
+
     Fn->setMetadata("llvm.acd.clone", MDNode::get(Fn->getContext(), {}));
-
-    std::string FnAttr = GetTTI(*Fn).isIntelAdvancedOptimEnabled() ? "true" : "false";
-    Fn->addFnAttr("advanced-optim", FnAttr);
-    Resolver->addFnAttr("advanced-optim", FnAttr);
-
-    if (Fn->hasFnAttribute("tune-cpu"))
-      Resolver->addFnAttr(Fn->getFnAttribute("tune-cpu"));
-
-    if (Fn->hasFnAttribute("target-cpu"))
-      Resolver->addFnAttr(Fn->getFnAttribute("target-cpu"));
-
-    if (Fn->hasFnAttribute("target-features"))
-      Resolver->addFnAttr(Fn->getFnAttribute("target-features"));
 
     Changed = true;
   }
@@ -645,13 +658,15 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
   for (Function &Fn : M) {
     if (Fn.isDeclaration())
       continue;
-    // Remove "llvm.auto.cpu.dispatch" metadata from functions that're skipped and
-    // not multi-versioned.
+    // Remove "llvm.auto.cpu.dispatch" metadata from functions that are
+    // skipped and not multi-versioned.
     if (Fn.hasMetadata("llvm.auto.cpu.dispatch"))
       Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
-    // Add "advanced-optim" attribute on functions that are skipped and not multi-versioned.
+    // Add "advanced-optim" attribute on functions that are skipped
+    // and not multi-versioned.
     if (!Fn.hasFnAttribute("advanced-optim"))
-      Fn.addFnAttr("advanced-optim", GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
+      Fn.addFnAttr("advanced-optim",
+                   GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
   }
 
   // If we are here then we have done modifications.
