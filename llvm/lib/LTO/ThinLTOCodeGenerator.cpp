@@ -89,7 +89,6 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -257,37 +256,6 @@ crossImportIntoModule(Module &TheModule, const ModuleSummaryIndex &Index,
   // Verify again after cross-importing.
   verifyLoadedModule(TheModule);
 }
-
-#if INTEL_CUSTOMIZATION
-static void optimizeModuleLegacyPM(Module &TheModule, TargetMachine &TM,
-                                   unsigned OptLevel, bool Freestanding,
-                                   ModuleSummaryIndex *Index) {
-  // Populate the PassManager
-  PassManagerBuilder PMB;
-  PMB.LibraryInfo = new TargetLibraryInfoImpl(TM.getTargetTriple());
-  if (Freestanding)
-    PMB.LibraryInfo->disableAllFunctions();
-  // FIXME: should get it from the bitcode?
-  PMB.OptLevel = OptLevel;
-  PMB.LoopVectorize = true;
-  PMB.SLPVectorize = true;
-  // Already did this in verifyLoadedModule().
-  PMB.VerifyInput = false;
-  PMB.VerifyOutput = false;
-  PMB.ImportSummary = Index;
-
-  legacy::PassManager PM;
-
-  // Add the TTI (required to inform the vectorizer about register size for
-  // instance)
-  PM.add(createTargetTransformInfoWrapperPass(TM.getTargetIRAnalysis()));
-
-  // Add optimizations
-  PMB.populateThinLTOPassManager(PM);
-
-  PM.run(TheModule);
-}
-#endif // INTEL_CUSTOMIZATION
 
 static void optimizeModule(Module &TheModule, TargetMachine &TM,
                            unsigned OptLevel, bool Freestanding,
@@ -551,13 +519,8 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
     saveTempBitcode(TheModule, SaveTempsDir, count, ".3.imported.bc");
   }
 
-#if INTEL_CUSTOMIZATION
-  if (UseNewPM)
-    optimizeModule(TheModule, TM, OptLevel, Freestanding, DebugPassManager,
-                   &Index);
-  else
-    optimizeModuleLegacyPM(TheModule, TM, OptLevel, Freestanding, &Index);
-#endif
+  optimizeModule(TheModule, TM, OptLevel, Freestanding, DebugPassManager,
+                 &Index);
 
   saveTempBitcode(TheModule, SaveTempsDir, count, ".4.opt.bc");
 
@@ -980,14 +943,8 @@ void ThinLTOCodeGenerator::optimize(Module &TheModule) {
   initTMBuilder(TMBuilder, Triple(TheModule.getTargetTriple()));
 
   // Optimize now
-#if INTEL_CUSTOMIZATION
-  if (UseNewPM)
-    optimizeModule(TheModule, *TMBuilder.create(), OptLevel, Freestanding,
-                   DebugPassManager, nullptr);
-  else
-    optimizeModuleLegacyPM(TheModule, *TMBuilder.create(), OptLevel,
-                           Freestanding, nullptr);
-#endif // INTEL_CUSTOMIZATION
+  optimizeModule(TheModule, *TMBuilder.create(), OptLevel, Freestanding,
+                 DebugPassManager, nullptr);
 }
 
 /// Write out the generated object file, either from CacheEntryPath or from
