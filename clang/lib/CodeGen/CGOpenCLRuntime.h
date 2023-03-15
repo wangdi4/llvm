@@ -55,14 +55,10 @@ protected:
   CodeGenModule &CGM;
   llvm::Type *PipeROTy;
   llvm::Type *PipeWOTy;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   llvm::Type *ChannelTy;
 #endif // INTEL_CUSTOMIZATION
-  llvm::PointerType *SamplerTy;
-=======
   llvm::Type *SamplerTy;
->>>>>>> 5e38e8531f2807de23427f5cb57a7591bebe1296
   llvm::StringMap<llvm::PointerType *> CachedTys;
 
   /// Structure for enqueued block information.
