@@ -803,7 +803,7 @@ bool InlineReport::makeCurrent(Function *F) {
   // Ensure that any CallBase in the IRCallBaseCallSiteMap which is
   // no longer in F is marked as deleted.
   SmallVector<CallBase *, 16> RemovableCallBases;
-  for (auto CBI : IRCallBaseCallSiteMap) {
+  for (const auto &CBI : IRCallBaseCallSiteMap) {
     CallBase *CB = CBI.first;
     InlineReportCallSite *IRCS = CBI.second;
     if (CB == ActiveInlineCallBase || SeenCallBases.count(CB))
