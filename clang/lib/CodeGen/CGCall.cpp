@@ -5497,12 +5497,9 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 #if INTEL_CUSTOMIZATION
     if (TargetDecl->hasAttr<AlwaysInlineAttr>() &&
         (TargetDecl->hasAttr<TargetAttr>() ||
-<<<<<<< HEAD
+         (CurFuncDecl && CurFuncDecl->hasAttr<TargetAttr>()) ||
          TargetDecl->hasAttr<AllowCpuFeaturesAttr>()))
 #endif // INTEL_CUSTOMIZATION
-=======
-         (CurFuncDecl && CurFuncDecl->hasAttr<TargetAttr>())))
->>>>>>> 608212a0ff2f9e9a2cee8b5b0fa206fd15eb6472
       checkTargetFeatures(Loc, FD);
 
     // Some architectures (such as x86-64) have the ABI changed based on

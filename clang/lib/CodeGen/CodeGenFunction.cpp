@@ -3365,7 +3365,6 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
     }))
       CGM.getDiags().Report(Loc, diag::err_function_needs_feature)
           << FD->getDeclName() << TargetDecl->getDeclName() << MissingFeature;
-<<<<<<< HEAD
 #if  INTEL_CUSTOMIZATION
   } else if (const AllowCpuFeaturesAttr *AT =
                  TargetDecl->getAttr<AllowCpuFeaturesAttr>()) {
@@ -3390,7 +3389,7 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
         }))
       CGM.getDiags().Report(Loc, diag::err_function_needs_feature)
           << FD->getDeclName() << TargetDecl->getDeclName() << MissingFeature;
-=======
+#endif // INTEL_CUSTOMIZATION
   } else if (!FD->isMultiVersion() && FD->hasAttr<TargetAttr>()) {
     llvm::StringMap<bool> CalleeFeatureMap;
     CGM.getContext().getFunctionFeatureMap(CalleeFeatureMap, TargetDecl);
@@ -3401,9 +3400,7 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
         CGM.getDiags().Report(Loc, diag::err_function_needs_feature)
             << FD->getDeclName() << TargetDecl->getDeclName() << F.getKey();
     }
->>>>>>> 608212a0ff2f9e9a2cee8b5b0fa206fd15eb6472
   }
-#endif // INTEL_CUSTOMIZATION
 }
 
 void CodeGenFunction::EmitSanitizerStatReport(llvm::SanitizerStatKind SSK) {
