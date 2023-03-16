@@ -65,6 +65,7 @@ CodeGenIntrinsic::CodeGenIntrinsic(Record *R,
   isCommutative = false;
   canThrow = false;
   isNoReturn = false;
+  isNoRecurse = false; // INTEL
   isNoCallback = false;
   isNoSync = false;
   isNoFree = false;
@@ -265,6 +266,10 @@ void CodeGenIntrinsic::setProperty(Record *R) {
     isConvergent = true;
   else if (R->getName() == "IntrNoReturn")
     isNoReturn = true;
+#if INTEL_CUSTOMIZATION
+  else if (R->getName() == "IntrNoRecurse")
+    isNoRecurse = true;
+#endif // INTEL_CUSTOMIZATION
   else if (R->getName() == "IntrNoCallback")
     isNoCallback = true;
   else if (R->getName() == "IntrNoSync")
