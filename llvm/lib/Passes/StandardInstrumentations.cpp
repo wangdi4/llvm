@@ -65,12 +65,12 @@ using namespace llvm;
 extern cl::opt<bool> EnableDTrans;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_PRODUCT_RELEASE
-
-static cl::opt<bool> VerifyPreservedCFG("verify-cfg-preserved", cl::Hidden,
+static cl::opt<bool> VerifyAnalysisInvalidation("verify-analysis-invalidation",
+                                                cl::Hidden,
 #ifdef EXPENSIVE_CHECKS
-                                        cl::init(true)
+                                                cl::init(true)
 #else
-                                        cl::init(false)
+                                                cl::init(false)
 #endif
 );
 
@@ -1219,7 +1219,7 @@ bool PreservedCFGCheckerInstrumentation::CFG::invalidate(
 
 void PreservedCFGCheckerInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC, FunctionAnalysisManager &FAM) {
-  if (!VerifyPreservedCFG)
+  if (!VerifyAnalysisInvalidation)
     return;
 
   FAM.registerPass([&] { return PreservedCFGCheckerAnalysis(); });
