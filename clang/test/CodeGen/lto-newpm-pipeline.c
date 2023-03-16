@@ -2,10 +2,7 @@
 
 <<<<<<< HEAD
 // INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -mllvm -verify-cfg-preserved=0 -fdebug-pass-manager -flto=full -O0 %s 2>&1 | FileCheck %s \
-=======
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -mllvm -verify-analysis-invalidation=0 -fdebug-pass-manager -flto=full -O0 %s 2>&1 | FileCheck %s \
->>>>>>> 361cba22b2013f66e5b18896ffcf2564b332ab7b
 // RUN:   -check-prefix=CHECK-FULL-O0
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -mllvm -verify-analysis-invalidation=0 -fdebug-pass-manager -flto=thin -O0 %s 2>&1 | FileCheck %s \
 // RUN:   -check-prefix=CHECK-THIN-O0
