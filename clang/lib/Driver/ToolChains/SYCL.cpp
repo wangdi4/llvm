@@ -974,7 +974,8 @@ static SmallVector<std::pair<StringRef, ArgStringList>> getOclocTargets(
       // the ranges (possible future enhancement)
       if (SingleArg.contains('-') || SingleArg.contains(':')) {
         if (SingleArg.contains(OclocDevices[I].DeviceName) ||
-            SingleArg.contains(OclocDevices[I].Version)) {
+            (OclocDevices[I].Version[0] &&
+             SingleArg.contains(OclocDevices[I].Version))) {
           OclocTarget = OclocDevices[I].PackageName;
           continue;
         }

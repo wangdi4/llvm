@@ -13,6 +13,10 @@
 // RUN:   --sysroot=%S/Inputs/SYCL --enable-ocloc-split -### %s \
 // RUN:   -target x86_64-unknown-linux-gnu 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=OCLOC_TGLLP
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device ats-m75" \
+// RUN:   --sysroot=%S/Inputs/SYCL --enable-ocloc-split -### %s \
+// RUN:   -target x86_64-unknown-linux-gnu 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=OCLOC_ATS_M75
 
 /// Using OCLOC env variables for finding ocloc bits
 // RUN: env OCLOCROOT="%S/Inputs/SYCL/lib" OCLOCVER="ocloc" \
@@ -27,6 +31,10 @@
 // RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device tgllp" \
 // RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=OCLOC_TGLLP
+// RUN: env OCLOCROOT="%S/Inputs/SYCL/lib" OCLOCVER="ocloc" \
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device ats-m75" \
+// RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=OCLOC_ATS_M75
 
 /// Using LIB env variable for finding ocloc bits
 // RUN: env OCLOCROOT= OCLOCVER= LIB="%S/Inputs/SYCL/lib/ocloc" \
@@ -41,9 +49,14 @@
 // RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device tgllp" \
 // RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=OCLOC_TGLLP
+// RUN: env OCLOCROOT= OCLOCVER= LIB="%S/Inputs/SYCL/lib/ocloc" \
+// RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device ats-m75" \
+// RUN:   -### %s -target x86_64-pc-windows-msvc 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=OCLOC_ATS_M75
 // OCLOC_SKL: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen9-11{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "skl"
 // OCLOC_DG2: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "dg2"
 // OCLOC_TGLLP: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "tgllp"
+// OCLOC_ATS_M75: llvm-foreach{{.*}} "--" "{{.*}}Inputs{{(/|\\\\)}}SYCL{{(/|\\\\)}}lib{{(/|\\\\)}}ocloc{{(/|\\\\)}}gen12+{{(/|\\\\)}}ocloc.exe" {{.*}} "-device" "ats-m75"
 
 /// Multiple device test
 // RUN: %clangxx -fsycl -fsycl-targets=spir64_gen -Xs "-device dg2,skl,tgllp" \
