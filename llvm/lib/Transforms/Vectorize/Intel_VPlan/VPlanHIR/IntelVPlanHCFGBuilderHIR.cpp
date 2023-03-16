@@ -1613,8 +1613,12 @@ public:
           // is i8. For non-opaque cases, this adjustment is not needed because
           // getPointerElementType() can be used. setStepType is called here so
           // that the correct type is used when generating the mul instruction
-          // for the stride adjustment.
-          Descriptor.setStepType(DL.getIntPtrType(IndTy));
+          // for the stride adjustment. The step type set here should match the
+          // type of CurrValue.Step because this is the same type used when
+          // creating the VPExternalDef for the stride (see StrideExtDef below).
+          // Otherwise, the operands of the mul created later can have different
+          // types.
+          Descriptor.setStepType(CurrValue.Step->getDestType());
           Descriptor.setStepMultiplier(Size);
         }
       }
