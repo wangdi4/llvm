@@ -1622,8 +1622,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     for (unsigned Idx = 0; Idx < Struct->getNumElements(); Idx++) {
       // Combine by ORing together each element's bool shadow
       Value *ShadowItem = IRB.CreateExtractValue(Shadow, Idx);
-      Value *ShadowInner = convertShadowToScalar(ShadowItem, IRB);
-      Value *ShadowBool = convertToBool(ShadowInner, IRB);
+      Value *ShadowBool = convertToBool(ShadowItem, IRB);
 
       if (Aggregator != FalseVal)
         Aggregator = IRB.CreateOr(Aggregator, ShadowBool);
@@ -3601,8 +3600,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     Value *MaskedPassThruShadow = IRB.CreateAnd(
         getShadow(PassThru), IRB.CreateSExt(IRB.CreateNeg(Mask), ShadowTy));
 
-    Value *ConvertedShadow = convertShadowToScalar(MaskedPassThruShadow, IRB);
-    Value *NotNull = convertToBool(ConvertedShadow, IRB, "_mscmp");
+    Value *NotNull = convertToBool(MaskedPassThruShadow, IRB, "_mscmp");
 
     Value *PtrOrigin = IRB.CreateLoad(MS.OriginTy, OriginPtr);
     Value *Origin = IRB.CreateSelect(NotNull, getOrigin(PassThru), PtrOrigin);
