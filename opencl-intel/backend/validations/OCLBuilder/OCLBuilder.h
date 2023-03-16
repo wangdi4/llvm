@@ -42,6 +42,7 @@ public:
   OCLBuilder &withSource(const char *src);
 
   OCLBuilder &withExtensions(bool IsFPGA);
+  OCLBuilder &withOpenCLCFeatures();
 
   OCLBuilder &withFP16Support(bool);
   OCLBuilder &withFP64Support(bool);

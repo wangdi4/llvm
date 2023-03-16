@@ -350,17 +350,19 @@ bool HIRLoopCollapse::doAnalysis(HLLoop *InnermostLp) {
 }
 
 bool HIRLoopCollapse::doPreliminaryChecks(void) {
-  IVType = InnermostLp->getIVType();
+  InnermostIVType = InnermostLp->getIVType();
   uint64_t TripCount = 0;
   HLLoop *CurLp = InnermostLp;
   unsigned Count = 0;
+  auto InnermostIVTypeSize = InnermostIVType->getPrimitiveSizeInBits();
   for (; Count < NumCollapsableLoops; Count++, CurLp = CurLp->getParentLoop()) {
 
     if (!CurLp->isDo() || !CurLp->isNormalized()) {
       break;
     }
 
-    if (CurLp->getIVType() != IVType) {
+    auto CurLoopIVTypeSize = CurLp->getIVType()->getPrimitiveSizeInBits();
+    if (CurLoopIVTypeSize > InnermostIVTypeSize) {
       break;
     }
 
@@ -382,7 +384,12 @@ bool HIRLoopCollapse::doPreliminaryChecks(void) {
     CanonExpr *UB = CurLp->getUpperCanonExpr();
     if (UB->canConvertToStandAloneBlobOrConstant()) {
       CanonExpr *TC = CurLp->getTripCountCanonExpr();
-      const bool CanConvert = TC->convertToStandAloneBlobOrConstant();
+      unsigned TCTypeSize = TC->getDestType()->getPrimitiveSizeInBits();
+      bool CanConvert =
+          (TCTypeSize < InnermostIVTypeSize)
+              ? TC->convertToZExtStandAloneBlobOrConstant(InnermostIVType)
+              : TC->convertToStandAloneBlobOrConstant();
+
       assert(CanConvert && "Expect a good conversion");
       (void)CanConvert;
       TCArry[LoopLevel].set(TC);
@@ -599,14 +606,15 @@ unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
 }
 
 unsigned HIRLoopCollapse::getNumMatchedDimensions(RegDDRef *GEPRef) {
-  assert(IVType && "IVType must have been set by now");
+  assert(InnermostIVType && "InnermostIVType must have been set by now");
   assert(GEPRef->getNumDimensions() > 1 && "Expect a multi-dimension Ref");
 
   unsigned Idx = 1;
   for (unsigned End = std::min(GEPRef->getNumDimensions(), NumCollapsableLoops);
        Idx <= End; ++Idx) {
     CanonExpr *CE = GEPRef->getDimensionIndex(Idx);
-    if ((CE->getSrcType() != IVType) || (CE->getDestType() != IVType)) {
+    if ((CE->getSrcType() != InnermostIVType) ||
+        (CE->getDestType() != InnermostIVType)) {
       break;
     }
   }
@@ -985,7 +993,7 @@ void HIRLoopCollapse::clearWorkingSetMemory(void) {
   GEPRefVec.clear();
   NumCollapsableLoops = 0;
   initializeTCArry();
-  IVType = nullptr;
+  InnermostIVType = nullptr;
 }
 
 unsigned HIRLoopCollapse::matchSingleDimDynShapeArray(RegDDRef *Ref) {
@@ -1267,10 +1275,25 @@ unsigned HIRLoopCollapse::matchCEOnIVLevels(CanonExpr *CE) const {
     }
 
     // Compare: match CE on current level?
-    if (IVConstCoeff != AccumuConst || IVIndex != AccumuBlobIndex) {
+    if (IVConstCoeff != AccumuConst) {
       break;
     }
 
+    // Index mismatch is a result of IV types mismatch, strip ext to compare
+    // blobs.
+    // Ex.:
+    //   DO i1 = 0, %n + -1, 1
+    //     DO i2 = 0, zext.i32.i64(%n) + -1, 1
+    //       (%a)[%n * i1 + i2] = %n;
+    //     END LOOP
+    //   END LOOP
+    //
+    //   We are matching i1 coefficient (%n) to TC (zext.i32.i64(%n)).
+    if (IVIndex != AccumuBlobIndex) {
+      unsigned TempBlobIndex = BU->getUnderlyingExtBlobIndex(AccumuBlobIndex);
+      if (IVIndex != TempBlobIndex)
+        break;
+    }
     // Increase the levels matched
     ++LevelsMatched;
   }

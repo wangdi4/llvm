@@ -100,6 +100,7 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration *oclProgramConfig,
                               .withBuildOptions(buildOptions.str().c_str())
                               .withFpgaEmulator(isFPGA)
                               .withExtensions(isFPGA)
+                              .withOpenCLCFeatures()
                               .createCompiler();
     IOCLFEBinaryResult *result = builder.build();
     delete[] source;

@@ -342,6 +342,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP64AndImages) {
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       true,  // images support
       false, // fp16 support
       true,  // fp64 support
@@ -375,6 +376,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       true,  // images support
       false, // fp16 support
       false, // fp64 support
@@ -397,6 +399,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
 TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       false, // images support
       false, // fp16 support
       true,  // fp64 support
@@ -447,6 +450,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP16) {
 
   CLANG_DEV_INFO devInfo1 = {
       "",    // extensions
+      "",    // features
       false, // images support
       false, // fp16 support
       false, // fp64 support
@@ -465,6 +469,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP16) {
 
   CLANG_DEV_INFO devInfo2 = {
       "",    // extensions
+      "",    // features
       false, // images support
       true,  // fp16 support
       false, // fp64 support
@@ -567,6 +572,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       false, // images support
       false, // fp16 support
       true,  // fp64 support
@@ -600,6 +606,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnFPGA) {
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       false, // images support
       false, // fp16 support
       true,  // fp64 support
@@ -674,6 +681,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
   for (int i = 0; i < 2; i++) {
     CLANG_DEV_INFO devInfo = {
         "",    // extensions
+        "",    // features
         false, // images support
         false, // fp16 support
         true,  // fp64 support
@@ -728,6 +736,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       false, // images support
       false, // fp16 support
       true,  // fp64 support

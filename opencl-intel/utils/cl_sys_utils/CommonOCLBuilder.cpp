@@ -43,6 +43,12 @@ CommonOCLBuilder::withExtensions(const std::string &extensions) {
   return *this;
 }
 
+CommonOCLBuilder &
+CommonOCLBuilder::withOpenCLCFeatures(const std::string &features) {
+  m_OpenCLCFeatures = features;
+  return *this;
+}
+
 CommonOCLBuilder &CommonOCLBuilder::withFP16Support(bool isFP16Supported) {
   m_bSupportFP16 = isFP16Supported;
   return *this;
@@ -115,11 +121,10 @@ CommonOCLBuilder::CommonOCLBuilder()
       m_bSupportImages(true), m_bFpgaEmulator(false) {}
 
 CommonOCLBuilder &CommonOCLBuilder::createCompiler() {
-  // constants
-  const char *strDeviceOptions = m_extensions.c_str();
-
   Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo = {
-      strDeviceOptions, m_bSupportImages, m_bSupportFP16, m_bSupportFP64, 0,
+      m_extensions.c_str(), m_OpenCLCFeatures.c_str(),
+      m_bSupportImages,     m_bSupportFP16,
+      m_bSupportFP64,       0,
       m_bFpgaEmulator};
 
   int rc =

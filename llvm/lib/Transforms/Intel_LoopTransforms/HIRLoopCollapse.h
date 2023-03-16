@@ -114,7 +114,7 @@ class HIRLoopCollapse {
   std::array<HLLoop *, MaxLoopNestLevel + 1> LoopNest;
 
   // Save IV type for the collapse-able loop nest:
-  Type *IVType = nullptr;
+  Type *InnermostIVType = nullptr;
 
 public:
   HIRLoopCollapse(HIRFramework &HIRF, HIRDDAnalysis &DDA)
