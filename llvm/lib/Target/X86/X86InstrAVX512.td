@@ -17537,16 +17537,16 @@ multiclass avx512_sat_cvt_maskable<bits<8> Opc, Format F,
                                    list<dag> Pattern,
                                    list<dag> MaskingPattern,
                                    list<dag> ZeroMaskingPattern> {
-    def : AVX512Ii8<Opc, F, Outs, Ins,
+    def : AVX512<Opc, F, Outs, Ins,
               OpStr#"\t{"#AttSrcAsm#", $dst|"#"$dst, "#IntelSrcAsm#"}",
               Pattern>;
     let Constraints = "$src0 = $dst" in
-    def k: AVX512Ii8<Opc, F, Outs,
+    def k: AVX512<Opc, F, Outs,
               !con((ins DestInfo.RC:$src0, DestInfo.KRCWM:$mask), Ins),
                OpStr#"\t{"#AttSrcAsm#", $dst {${mask}}|"#
                         "$dst {${mask}}, "#IntelSrcAsm#"}",
               MaskingPattern>, EVEX_K;
-    def kz: AVX512Ii8<Opc, F, Outs,
+    def kz: AVX512<Opc, F, Outs,
               !con((ins DestInfo.KRCWM:$mask), Ins),
                OpStr#"\t{"#AttSrcAsm#", $dst {${mask}} {z}|"#
                              "$dst {${mask}} {z}, "#IntelSrcAsm#"}",
@@ -17558,51 +17558,51 @@ multiclass avx512_sat_cvt_rmb<bits<8> Opc, string OpStr, X86FoldableSchedWrite s
                               X86VectorVTInfo SrcInfo,
                               SDNode MaskNode, SDNode MaskzNode,
                               string VL> {
-  defm rri  :   avx512_sat_cvt_maskable<Opc, MRMSrcReg,
+  defm rr  :   avx512_sat_cvt_maskable<Opc, MRMSrcReg,
                               (outs DestInfo.RC:$dst),
-                              (ins SrcInfo.RC:$src1, i32u8imm:$src2),
-                              DestInfo, OpStr, "$src2, $src1", "$src1, $src2",
+                              (ins SrcInfo.RC:$src1),
+                              DestInfo, OpStr, "$src1", "$src1",
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (!cast<Intrinsic>("int_x86_"#OpStr#VL)
-                                            SrcInfo.RC:$src1, (i32 timm:$src2))))],
+                                            SrcInfo.RC:$src1)))],
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (MaskNode
-                                DestInfo.RC:$src0, DestInfo.KRCWM:$mask, SrcInfo.RC:$src1, (i32 timm:$src2))))],
+                                DestInfo.RC:$src0, DestInfo.KRCWM:$mask, SrcInfo.RC:$src1)))],
                               [(set DestInfo.RC:$dst,
-                               (DestInfo.VT (MaskzNode DestInfo.KRCWM:$mask, SrcInfo.RC:$src1, (i32 timm:$src2))))]>,
+                               (DestInfo.VT (MaskzNode DestInfo.KRCWM:$mask, SrcInfo.RC:$src1)))]>,
                               Sched<[sched]>;
-  defm rmi  :   avx512_sat_cvt_maskable<Opc, MRMSrcMem,
+  defm rm  :   avx512_sat_cvt_maskable<Opc, MRMSrcMem,
                               (outs DestInfo.RC:$dst),
-                              (ins SrcInfo.MemOp:$src1, i32u8imm:$src2),
-                              DestInfo, OpStr, "$src2, $src1", "$src1, $src2",
+                              (ins SrcInfo.MemOp:$src1),
+                              DestInfo, OpStr, "$src1", "$src1",
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (!cast<Intrinsic>("int_x86_"#OpStr#VL)
-                               (SrcInfo.VT (SrcInfo.LdFrag addr:$src1)), (i32 timm:$src2))))],
+                               (SrcInfo.VT (SrcInfo.LdFrag addr:$src1)))))],
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (MaskNode
                                DestInfo.RC:$src0, DestInfo.KRCWM:$mask,
-                               (SrcInfo.VT (SrcInfo.LdFrag addr:$src1)), (i32 timm:$src2))))],
+                               (SrcInfo.VT (SrcInfo.LdFrag addr:$src1)))))],
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (MaskzNode
                                 DestInfo.KRCWM:$mask,
-                                (SrcInfo.VT (SrcInfo.LdFrag addr:$src1)), (i32 timm:$src2))))]>,
+                                (SrcInfo.VT (SrcInfo.LdFrag addr:$src1)))))]>,
                               Sched<[sched.Folded, sched.ReadAfterFold]>;
-  defm rmbi  :  avx512_sat_cvt_maskable<Opc, MRMSrcMem,
+  defm rmb  :  avx512_sat_cvt_maskable<Opc, MRMSrcMem,
                               (outs DestInfo.RC:$dst),
-                              (ins SrcInfo.ScalarMemOp:$src1, i32u8imm:$src2),
-                              DestInfo, OpStr, "$src2, ${src1}"#SrcInfo.BroadcastStr,
-                              "${src1}"#SrcInfo.BroadcastStr#", $src2",
+                              (ins SrcInfo.ScalarMemOp:$src1),
+                              DestInfo, OpStr, "${src1}"#SrcInfo.BroadcastStr,
+                              "${src1}"#SrcInfo.BroadcastStr,
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (!cast<Intrinsic>("int_x86_"#OpStr#VL)
-                               (SrcInfo.VT (SrcInfo.BroadcastLdFrag addr:$src1)), (i32 timm:$src2))))],
+                               (SrcInfo.VT (SrcInfo.BroadcastLdFrag addr:$src1)))))],
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (MaskNode
                                 DestInfo.RC:$src0, DestInfo.KRCWM:$mask,
-                               (SrcInfo.VT (SrcInfo.BroadcastLdFrag addr:$src1)), (i32 timm:$src2))))],
+                               (SrcInfo.VT (SrcInfo.BroadcastLdFrag addr:$src1)))))],
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (MaskzNode
                                 DestInfo.KRCWM:$mask,
-                               (SrcInfo.VT (SrcInfo.BroadcastLdFrag addr:$src1)), (i32 timm:$src2))))]>,
+                               (SrcInfo.VT (SrcInfo.BroadcastLdFrag addr:$src1)))))]>,
                               EVEX_B,
                               Sched<[sched.Folded, sched.ReadAfterFold]>;
 }
@@ -17612,19 +17612,19 @@ multiclass avx512_sat_cvt_rc<bits<8> Opc, string OpStr, X86FoldableSchedWrite sc
                              X86VectorVTInfo DestInfo, X86VectorVTInfo SrcInfo,
                              SDNode MaskNode, SDNode MaskzNode> {
     let Uses = [MXCSR] in
-    defm Zrrib : avx512_sat_cvt_maskable<Opc, MRMSrcReg,
+    defm Zrrb : avx512_sat_cvt_maskable<Opc, MRMSrcReg,
                               (outs DestInfo.RC:$dst),
-                              (ins SrcInfo.RC:$src1, i32u8imm:$src2, AVX512RC:$rc),
-                              DestInfo, OpStr, "$src2, $rc, $src1", "$src1, $rc, $src2",
+                              (ins SrcInfo.RC:$src1, AVX512RC:$rc),
+                              DestInfo, OpStr, "$rc, $src1", "$src1, $rc",
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (!cast<Intrinsic>("int_x86_"#OpStr#"_round_512")
-                                SrcInfo.RC:$src1, (i32 timm:$src2), (i32 timm:$rc))))],
+                                SrcInfo.RC:$src1, (i32 timm:$rc))))],
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (MaskNode
-                               DestInfo.RC:$src0, DestInfo.KRCWM:$mask, SrcInfo.RC:$src1, (i32 timm:$src2), (i32 timm:$rc))))],
+                               DestInfo.RC:$src0, DestInfo.KRCWM:$mask, SrcInfo.RC:$src1, (i32 timm:$rc))))],
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (MaskzNode
-                               DestInfo.KRCWM:$mask, SrcInfo.RC:$src1, (i32 timm:$src2), (i32 timm:$rc))))]>,
+                               DestInfo.KRCWM:$mask, SrcInfo.RC:$src1, (i32 timm:$rc))))]>,
                               Sched<[sched]>, EVEX, EVEX_RC, EVEX_B;
 }
 
@@ -17634,19 +17634,19 @@ multiclass
                       X86VectorVTInfo DestInfo, X86VectorVTInfo SrcInfo,
                       SDNode Node, SDNode MaskNode, SDNode MaskzNode> {
     let Uses = [MXCSR] in
-    defm Zrrib : avx512_sat_cvt_maskable<Opc, MRMSrcReg,
+    defm Zrrb : avx512_sat_cvt_maskable<Opc, MRMSrcReg,
                               (outs DestInfo.RC:$dst),
-                              (ins SrcInfo.RC:$src1, i32u8imm:$src2),
-                              DestInfo, OpStr, "$src2, {sae}, $src1", "$src1, {sae}, $src2",
+                              (ins SrcInfo.RC:$src1),
+                              DestInfo, OpStr, "{sae}, $src1", "$src1, {sae}",
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (Node
-                                SrcInfo.RC:$src1, (i32 timm:$src2))))],
+                                SrcInfo.RC:$src1)))],
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (MaskNode
-                                DestInfo.RC:$src0, DestInfo.KRCWM:$mask, SrcInfo.RC:$src1, (i32 timm:$src2))))],
+                                DestInfo.RC:$src0, DestInfo.KRCWM:$mask, SrcInfo.RC:$src1)))],
                               [(set DestInfo.RC:$dst,
                                (DestInfo.VT (MaskzNode
-                                DestInfo.KRCWM:$mask, SrcInfo.RC:$src1, (i32 timm:$src2))))]>,
+                                DestInfo.KRCWM:$mask, SrcInfo.RC:$src1)))]>,
                               Sched<[sched]>, EVEX, EVEX_B;
 }
 
@@ -17675,86 +17675,86 @@ multiclass avx512_sat_cvt_base<bits<8> Opc, string OpStr, X86SchedWriteWidths sc
 defm VCVTNEBF162IBS : avx512_sat_cvt_base<0x69, "vcvtnebf162ibs",
                       SchedWriteVecIMul, X86vcvtnebf162ibs, X86vcvtnebf162ibsz,
                       avx512vl_i16_info, avx512vl_i16_info>,
-                      AVX512XDIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                      AVX512XDIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 defm VCVTNEBF162IUBS : avx512_sat_cvt_base<0x6b, "vcvtnebf162iubs",
                       SchedWriteVecIMul, X86vcvtnebf162iubs, X86vcvtnebf162iubsz,
                       avx512vl_i16_info, avx512vl_i16_info>,
-                      AVX512XDIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                      AVX512XDIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 
 defm VCVTPH2IBS : avx512_sat_cvt_base<0x69, "vcvtph2ibs", SchedWriteVecIMul,
                   X86vcvtph2ibs, X86vcvtph2ibsz, avx512vl_i16_info,
-                  avx512vl_f16_info>, AVX512PSIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                  avx512vl_f16_info>, AVX512PSIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 defm VCVTPH2IBS : avx512_sat_cvt_rc<0x69, "vcvtph2ibs", SchedWriteVecIMul.ZMM,
                    v32i16_info, v32f16_info,
                    X86vcvtph2ibsRnd, X86vcvtph2ibszRnd>,
-                   AVX512PSIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                   AVX512PSIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 
 defm VCVTPH2IUBS : avx512_sat_cvt_base<0x6b, "vcvtph2iubs", SchedWriteVecIMul,
                    X86vcvtph2iubs, X86vcvtph2iubsz, avx512vl_i16_info,
-                   avx512vl_f16_info>, AVX512PSIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                   avx512vl_f16_info>, AVX512PSIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 defm VCVTPH2IUBS : avx512_sat_cvt_rc<0x6b, "vcvtph2iubs", SchedWriteVecIMul.ZMM,
                    v32i16_info, v32f16_info,
                    X86vcvtph2iubsRnd, X86vcvtph2iubszRnd>,
-                   AVX512PSIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                   AVX512PSIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 
 defm VCVTPS2IBS : avx512_sat_cvt_base<0x69, "vcvtps2ibs", SchedWriteVecIMul,
                   X86vcvtps2ibs, X86vcvtps2ibsz, avx512vl_i32_info,
-                  avx512vl_f32_info>, AVX512PDIi8Base, TA, EVEX_CD8<32, CD8VF>;
+                  avx512vl_f32_info>, AVX512PDIi8Base, T_MAP5, EVEX_CD8<32, CD8VF>;
 defm VCVTPS2IBS : avx512_sat_cvt_rc<0x69, "vcvtps2ibs", SchedWriteVecIMul.ZMM,
                    v16i32_info, v16f32_info,
                    X86vcvtps2ibsRnd, X86vcvtps2ibszRnd>,
-                   AVX512PDIi8Base, TA, EVEX_CD8<32, CD8VF>;
+                   AVX512PDIi8Base, T_MAP5, EVEX_CD8<32, CD8VF>;
 
 defm VCVTPS2IUBS : avx512_sat_cvt_base<0x6b, "vcvtps2iubs", SchedWriteVecIMul,
                    X86vcvtps2iubs, X86vcvtps2iubsz, avx512vl_i32_info,
-                   avx512vl_f32_info>, AVX512PDIi8Base, TA, EVEX_CD8<32, CD8VF>;
+                   avx512vl_f32_info>, AVX512PDIi8Base, T_MAP5, EVEX_CD8<32, CD8VF>;
 defm VCVTPS2IUBS : avx512_sat_cvt_rc<0x6b, "vcvtps2iubs", SchedWriteVecIMul.ZMM,
                    v16i32_info, v16f32_info,
                    X86vcvtps2iubsRnd, X86vcvtps2iubszRnd>,
-                   AVX512PDIi8Base, TA, EVEX_CD8<32, CD8VF>;
+                   AVX512PDIi8Base, T_MAP5, EVEX_CD8<32, CD8VF>;
 
 
 defm VCVTTNEBF162IBS : avx512_sat_cvt_base<0x68, "vcvttnebf162ibs",
                       SchedWriteVecIMul, X86vcvttnebf162ibs, X86vcvttnebf162ibsz,
                       avx512vl_i16_info, avx512vl_i16_info>,
-                      AVX512XDIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                      AVX512XDIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 defm VCVTTNEBF162IUBS : avx512_sat_cvt_base<0x6a, "vcvttnebf162iubs",
                       SchedWriteVecIMul, X86vcvttnebf162iubs, X86vcvttnebf162iubsz,
                       avx512vl_i16_info, avx512vl_i16_info>,
-                      AVX512XDIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                      AVX512XDIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 
 defm VCVTTPH2IBS : avx512_sat_cvt_base<0x68, "vcvttph2ibs", SchedWriteVecIMul,
                    X86vcvttph2ibs, X86vcvttph2ibsz, avx512vl_i16_info,
-                   avx512vl_f16_info>, AVX512PSIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                   avx512vl_f16_info>, AVX512PSIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 defm VCVTTPH2IBS : avx512_sat_cvt_sae<0x68, "vcvttph2ibs", SchedWriteVecIMul.ZMM,
                    v32i16_info, v32f16_info, X86vcvttph2ibsSAE,
                    X86vcvttph2ibsMaskSAE, X86vcvttph2ibsMaskzSAE>,
-                   AVX512PSIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                   AVX512PSIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 
 defm VCVTTPH2IUBS : avx512_sat_cvt_base<0x6a, "vcvttph2iubs", SchedWriteVecIMul,
                    X86vcvttph2iubs, X86vcvttph2iubsz, avx512vl_i16_info,
-                   avx512vl_f16_info>, AVX512PSIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                   avx512vl_f16_info>, AVX512PSIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 defm VCVTTPH2IUBS : avx512_sat_cvt_sae<0x6a, "vcvttph2iubs", SchedWriteVecIMul.ZMM,
                    v32i16_info, v32f16_info, X86vcvttph2iubsSAE,
                    X86vcvttph2iubsMaskSAE, X86vcvttph2iubsMaskzSAE>,
-                   AVX512PSIi8Base, TA, EVEX_CD8<16, CD8VF>;
+                   AVX512PSIi8Base, T_MAP5, EVEX_CD8<16, CD8VF>;
 
 
 defm VCVTTPS2IBS : avx512_sat_cvt_base<0x68, "vcvttps2ibs", SchedWriteVecIMul,
                    X86vcvttps2ibs, X86vcvttps2ibsz, avx512vl_i32_info,
-                   avx512vl_f32_info>, AVX512PDIi8Base, TA, EVEX_CD8<32, CD8VF>;
+                   avx512vl_f32_info>, AVX512PDIi8Base, T_MAP5, EVEX_CD8<32, CD8VF>;
 defm VCVTTPS2IBS : avx512_sat_cvt_sae<0x68, "vcvttps2ibs", SchedWriteVecIMul.ZMM,
                    v16i32_info, v16i32_info, X86vcvttps2ibsSAE,
                    X86vcvttps2ibsMaskSAE, X86vcvttps2ibsMaskzSAE>,
-                   AVX512PDIi8Base, TA, EVEX_CD8<32, CD8VF>;
+                   AVX512PDIi8Base, T_MAP5, EVEX_CD8<32, CD8VF>;
 
 defm VCVTTPS2IUBS : avx512_sat_cvt_base<0x6a, "vcvttps2iubs", SchedWriteVecIMul,
                    X86vcvttps2iubs, X86vcvttps2iubsz, avx512vl_i32_info,
-                   avx512vl_f32_info>, AVX512PDIi8Base, TA, EVEX_CD8<32, CD8VF>;
+                   avx512vl_f32_info>, AVX512PDIi8Base, T_MAP5, EVEX_CD8<32, CD8VF>;
 defm VCVTTPS2IUBS : avx512_sat_cvt_sae<0x6a, "vcvttps2iubs", SchedWriteVecIMul.ZMM,
                    v16i32_info, v16f32_info, X86vcvttps2iubsSAE,
                    X86vcvttps2iubsMaskSAE, X86vcvttps2iubsMaskzSAE>,
-                   AVX512PDIi8Base, TA, EVEX_CD8<32, CD8VF>;
+                   AVX512PDIi8Base, T_MAP5, EVEX_CD8<32, CD8VF>;
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 
 #if INTEL_FEATURE_ISA_AVX512_MINMAX
