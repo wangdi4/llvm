@@ -30,9 +30,9 @@ using namespace Intel::OpenCL::Utils;
 #include <powrprof.h>
 #include <windows.h>
 
-#include "llvm/TargetParser/Triple.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
+#include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 using namespace llvm::sys;

@@ -38,10 +38,10 @@ using namespace Intel::OpenCL::Utils;
 #include "hw_utils.h"
 
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/Valgrind.h"
+#include "llvm/TargetParser/Host.h"
 
 using namespace llvm;
 using namespace llvm::sys;
