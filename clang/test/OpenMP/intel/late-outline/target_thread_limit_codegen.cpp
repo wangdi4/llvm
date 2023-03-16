@@ -8,15 +8,15 @@ void boo(long long n) {
 int local = 2;
   // CHECK: [[NADDR:%n.addr]] = alloca i64, align 8
   // CHECK: [[LOCAL:%local]] = alloca i32, align 4
-  // CHECK: [[EXPR0:%.capture_expr.0]] = alloca i32, align 4
-  // CHECK: [[EXPR1:%.capture_expr.1]] = alloca i64, align 8
-  // CHECK: [[EXPR2:%.capture_expr.2]] = alloca i32, align 4
-  // CHECK: [[EXPR3:%.capture_expr.3]] = alloca i64, align 8
-  // CHECK: [[EXPR4:%.capture_expr.4]] = alloca i32, align 4
-  // CHECK: [[EXPR5:%.capture_expr.5]] = alloca i32, align 4
-  // CHECK: [[EXPR6:%.capture_expr.6]] = alloca i32, align 4
-  // CHECK: [[EXPR7:%.capture_expr.7]] = alloca i32, align 4
-  // CHECK: [[EXPR8:%.capture_expr.8]] = alloca i32, align 4
+  // CHECK: [[EXPR0:%.capture_expr.[0-9]*]] = alloca i32, align 4
+  // CHECK: [[EXPR1:%.capture_expr.[0-9]*]] = alloca i64, align 8
+  // CHECK: [[EXPR2:%.capture_expr.[0-9]*]] = alloca i32, align 4
+  // CHECK: [[EXPR3:%.capture_expr.[0-9]*]] = alloca i64, align 8
+  // CHECK: [[EXPR4:%.capture_expr.[0-9]*]] = alloca i32, align 4
+  // CHECK: [[EXPR5:%.capture_expr.[0-9]*]] = alloca i32, align 4
+  // CHECK: [[EXPR6:%.capture_expr.[0-9]*]] = alloca i32, align 4
+  // CHECK: [[EXPR7:%.capture_expr.[0-9]*]] = alloca i32, align 4
+  // CHECK: [[EXPR8:%.capture_expr.[0-9]*]] = alloca i32, align 4
   // CHECK: [[TEMP0:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.THREAD_LIMIT"(i32 2)
 #pragma omp target thread_limit(2)
@@ -25,18 +25,16 @@ int local = 2;
 
   // CHECK: [[TEMP1:%[0-9]+]] = load i32, ptr [[LOCAL]], align 4
   // CHECK: store i32 [[TEMP1]], ptr [[EXPR0]], align 4
-  // CHECK: [[TEMP2:%[0-9]+]] = load i32, ptr [[EXPR0]], align 4
   // CHECK: [[TEMP3:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.THREAD_LIMIT"(i32 [[TEMP2]]
+  // CHECK-SAME: "QUAL.OMP.THREAD_LIMIT:TYPED"(ptr [[EXPR0]], i32 0)
 #pragma omp target thread_limit(local)
   {}
   // CHECK: region.exit(token [[TEMP3]]) [ "DIR.OMP.END.TARGET"() ]
   
   // CHECK: [[TEMP4:%[0-9]+]] = load i64, ptr [[NADDR]], align 8
   // CHECK: store i64 [[TEMP4]], ptr [[EXPR1]], align 8
-  // CHECK: [[TEMP5:%[0-9]+]] = load i64, ptr [[EXPR1]], align 8
   // CHECK: [[TEMP6:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.THREAD_LIMIT"(i64 [[TEMP5]])
+  // CHECK-SAME: "QUAL.OMP.THREAD_LIMIT:TYPED"(ptr [[EXPR1]], i64 0)
 #pragma omp target thread_limit(n)
   {}
   // CHECK: region.exit(token [[TEMP6]]) [ "DIR.OMP.END.TARGET"() ]
