@@ -3551,9 +3551,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // transform it to pass arguments by value instead of by reference.
   MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(ArgumentPromotionPass()));
 
-  // Remove unused arguments from functions.
-  MPM.addPass(DeadArgumentEliminationPass());
-
   FunctionPassManager FPM;
   // The IPO Passes may leave cruft around. Clean up after them.
   addInstCombinePass(FPM, !DTransEnabled, !DTransEnabled); // INTEL
