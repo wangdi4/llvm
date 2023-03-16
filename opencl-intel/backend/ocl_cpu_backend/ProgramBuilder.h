@@ -74,7 +74,7 @@ public:
   void ParseProgram(Program *pProgram);
 
   /// Build backend library program and kernels.
-  cl_dev_err_code BuildLibraryProgram(Program *Prog, std::string &KernelNames);
+  void BuildLibraryProgram(Program *Prog, std::string &KernelNames);
 
   /// Generate IR/Asm/Bin dump filename.
   std::string generateDumpFilename(const std::string &hash, unsigned fileId,

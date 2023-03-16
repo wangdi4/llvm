@@ -44,7 +44,6 @@ namespace OpenCL {
 namespace DeviceBackend {
 class BuiltinLibrary;
 class BuiltinModules;
-class ProgramBuildResult;
 class ObjectCodeCache;
 
 //******************************************************************************
