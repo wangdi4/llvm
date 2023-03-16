@@ -113,7 +113,10 @@ namespace {
         : EphValues(EphValues), ReturnCaptures(ReturnCaptures),
         IgnoreNoAliasArgStCaptured(IgnoreFlag) {} // INTEL
 
-    void tooManyUses() override { Captured = true; }
+    void tooManyUses() override {
+      LLVM_DEBUG(dbgs() << "Captured due to too many uses\n");
+      Captured = true;
+    }
 
     bool captured(const Use *U) override {
       if (isa<ReturnInst>(U->getUser()) && !ReturnCaptures)
@@ -133,6 +136,8 @@ namespace {
 
       if (EphValues.contains(U->getUser()))
         return false;
+
+      LLVM_DEBUG(dbgs() << "Captured by: " << *U->getUser() << "\n");
 
       Captured = true;
       return true;
@@ -283,14 +288,22 @@ bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
   // take advantage of this.
   (void)StoreCaptures;
 
+<<<<<<< HEAD
   SimpleCaptureTracker SCT(EphValues, ReturnCaptures,           // INTEL
                            IgnoreStoreCapturesByNoAliasArgument // INTEL
                            );                                   // INTEL
+=======
+  LLVM_DEBUG(dbgs() << "Captured?: " << *V << " = ");
+
+  SimpleCaptureTracker SCT(EphValues, ReturnCaptures);
+>>>>>>> 564ed0bd2245d4477dfd1c2f610294eff697edab
   PointerMayBeCaptured(V, &SCT, MaxUsesToExplore);
   if (SCT.Captured)
     ++NumCaptured;
-  else
+  else {
     ++NumNotCaptured;
+    LLVM_DEBUG(dbgs() << "not captured\n");
+  }
   return SCT.Captured;
 }
 
