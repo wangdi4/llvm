@@ -96,9 +96,9 @@ static bool ClangCompilerInitialize() {
 ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
   const CLANG_DEV_INFO *pDevInfo = (const CLANG_DEV_INFO *)pszDeviceInfo;
 
-  memset(&m_sDeviceInfo, 0, sizeof(CLANG_DEV_INFO));
-
   m_sDeviceInfo.sExtensionStrings = STRDUP(pDevInfo->sExtensionStrings);
+  m_sDeviceInfo.sOpenCLCFeatureStrings =
+      STRDUP(pDevInfo->sOpenCLCFeatureStrings);
   m_sDeviceInfo.bImageSupport = pDevInfo->bImageSupport;
   m_sDeviceInfo.bHalfSupport = pDevInfo->bHalfSupport;
   m_sDeviceInfo.bDoubleSupport = pDevInfo->bDoubleSupport;
@@ -111,6 +111,8 @@ ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
 ClangFECompiler::~ClangFECompiler() {
   if (m_sDeviceInfo.sExtensionStrings)
     free((void *)m_sDeviceInfo.sExtensionStrings);
+  if (m_sDeviceInfo.sOpenCLCFeatureStrings)
+    free((void *)m_sDeviceInfo.sOpenCLCFeatureStrings);
 }
 
 int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,

@@ -42,6 +42,7 @@ public:
   CommonOCLBuilder &withSource(const char *src);
 
   CommonOCLBuilder &withExtensions(const std::string &extentions);
+  CommonOCLBuilder &withOpenCLCFeatures(const std::string &features);
 
   CommonOCLBuilder &withFP16Support(bool);
   CommonOCLBuilder &withFP64Support(bool);
@@ -71,6 +72,8 @@ private:
   std::string m_options;
   // extensions
   std::string m_extensions;
+  // OpenCL 3.0 feature macros
+  std::string m_OpenCLCFeatures;
   // Indicates whether halfs are supported by the device
   bool m_bSupportFP16;
   // Indicates whether doubles are supported by the device

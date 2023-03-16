@@ -291,7 +291,7 @@ public:
 
   void Acquire() { ++m_refCount; }
 
-private:
+public:
   CPUDevice() = delete;
   CPUDevice(const CPUDevice &) = delete;
   CPUDevice(const CPUDevice &&) = delete;

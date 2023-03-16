@@ -380,8 +380,9 @@ cl_int PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         }
       }
       if (bRes) {
+        if (pcPlatformExtension[0] != '\0')
+          STRCAT_S((char *)pcPlatformExtension, 8192, " ");
         STRCAT_S((char *)pcPlatformExtension, 8192, pch);
-        STRCAT_S((char *)pcPlatformExtension, 8192, " ");
       }
       pch = STRTOK_S(nullptr, " ", &pNextToken);
     }

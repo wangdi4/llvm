@@ -23,12 +23,20 @@ namespace OpenCL {
 namespace ClangFE {
 
 struct CLANG_DEV_INFO {
-  const char *sExtensionStrings;    // A string for device supported extensions
-  bool bImageSupport;               // Does the device support images?
-  bool bHalfSupport;                // Does the device support 16 bit FP?
-  bool bDoubleSupport;              // Does the device support 64 bit FP?
-  bool bEnableSourceLevelProfiling; // Enable source level profiling
-  bool bIsFPGAEmu;                  // Is this FPGA emu device?
+  // A string for device supported extensions
+  const char *sExtensionStrings = nullptr;
+  // A string for OpenCL 3.0 feature macros
+  const char *sOpenCLCFeatureStrings = nullptr;
+  // Does the device support images?
+  bool bImageSupport = false;
+  // Does the device support 16 bit FP?
+  bool bHalfSupport = false;
+  // Does the device support 64 bit FP?
+  bool bDoubleSupport = false;
+  // Enable source level profiling
+  bool bEnableSourceLevelProfiling = false;
+  // Is this FPGA emu device?
+  bool bIsFPGAEmu = false;
 };
 
 } // namespace ClangFE

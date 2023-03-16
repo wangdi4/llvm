@@ -14,9 +14,10 @@
 
 #include "OCLBuilder.h"
 #include "clang_device_info.h"
-#include <cstring>
+#include "opencl_c_features.h"
 #include <ocl_string_exception.h>
 
+using namespace llvm;
 using namespace Intel::OpenCL::FECompilerAPI;
 using namespace Intel::OpenCL;
 using namespace Intel::OpenCL::Utils;
@@ -121,6 +122,25 @@ OCLBuilder &OCLBuilder::withExtensions(bool IsFPGA) {
                     std::string(IsFPGA ? BE_FE_COMPILER_USE_EXTENSIONS_FPGA
                                        : BE_FE_COMPILER_USE_EXTENSIONS_CPU);
   m_CommonBuilder.withExtensions(ext);
+  return *this;
+}
+
+OCLBuilder &OCLBuilder::withOpenCLCFeatures() {
+  m_CommonBuilder.withOpenCLCFeatures(
+      (Twine(OPENCL_C_3D_IMAGE_WRITES) + Twine(" ") +
+       Twine(OPENCL_C_ATOMIC_ORDER_ACQ_REL) + Twine(" ") +
+       Twine(OPENCL_C_ATOMIC_ORDER_SEQ_CST) + Twine(" ") +
+       Twine(OPENCL_C_ATOMIC_SCOPE_DEVICE) + Twine(" ") +
+       Twine(OPENCL_C_ATOMIC_SCOPE_ALL_DEVICES) + Twine(" ") +
+       Twine(OPENCL_C_DEVICE_ENQUEUE) + Twine(" ") +
+       Twine(OPENCL_C_GENERIC_ADDRESS_SPACE) + Twine(" ") +
+       Twine(OPENCL_C_FP64) + Twine(" ") + Twine(OPENCL_C_IMAGES) + Twine(" ") +
+       Twine(OPENCL_C_INT64) + Twine(" ") + Twine(OPENCL_C_PIPES) + Twine(" ") +
+       Twine(OPENCL_C_PROGRAM_SCOPE_GLOBAL_VARIABLES) + Twine(" ") +
+       Twine(OPENCL_C_READ_WRITE_IMAGES) + Twine(" ") +
+       Twine(OPENCL_C_SUBGROUPS) + Twine(" ") +
+       Twine(OPENCL_C_WORK_GROUP_COLLECTIVE_FUNCTIONS) + Twine(" "))
+          .str());
   return *this;
 }
 

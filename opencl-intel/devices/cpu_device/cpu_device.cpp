@@ -128,20 +128,15 @@ cl_ulong GetMaxMemAllocSize(const CPUDeviceConfig &config,
 struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *
 GetCPUDevInfo(CPUDeviceConfig &config) {
   static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {
-      nullptr, // extensions
-      true,    // images support
-      true,    // fp16 support
-      true,    // fp64 support
-      false,   // source level profiling
-      false    // fpga emu
+      config.GetExtensions(),                   // extensions
+      config.GetOpenCLCFeatures(),              // features
+      true,                                     // images support
+      true,                                     // fp16 support
+      true,                                     // fp64 support
+      false,                                    // source level profiling
+      FPGA_EMU_DEVICE == config.GetDeviceMode() // fpga emu
   };
-  if (nullptr == CPUDevInfo.sExtensionStrings) {
-    CPUDevInfo.sExtensionStrings = config.GetExtensions();
-  }
 
-  if (FPGA_EMU_DEVICE == config.GetDeviceMode()) {
-    CPUDevInfo.bIsFPGAEmu = true;
-  }
   return &CPUDevInfo;
 }
 
@@ -1660,7 +1655,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
       return CL_DEV_INVALID_VALUE;
 
     std::vector<cl_name_version> devSupportedCFeatures =
-        m_CPUDeviceConfig.GetOpenCLCFeatures();
+        m_CPUDeviceConfig.GetOpenCLCFeaturesWithVersion();
     *pinternalRetunedValueSize =
         devSupportedCFeatures.size() * sizeof(cl_name_version);
     if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
