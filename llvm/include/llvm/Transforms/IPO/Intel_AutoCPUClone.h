@@ -22,7 +22,6 @@ class AutoCPUClonePass : public PassInfoMixin<AutoCPUClonePass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 };
-Pass *createAutoCPUCloneLegacyPass();
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_INTEL_AUTOCPUCLONE_H

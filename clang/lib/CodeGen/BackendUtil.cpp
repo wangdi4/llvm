@@ -111,7 +111,6 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
-#include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/Scalar/NewGVN.h"
 #include "llvm/Transforms/Utils.h"
@@ -654,6 +653,162 @@ bool EmitAssemblyHelper::AddEmitPasses(legacy::PassManager &CodeGenPasses,
   return true;
 }
 
+<<<<<<< HEAD
+=======
+#if INTEL_CUSTOMIZATION
+void EmitAssemblyHelper::EmitAssemblyWithLegacyPassManager(
+    BackendAction Action, std::unique_ptr<raw_pwrite_stream> OS) {
+  TimeRegion Region(CodeGenOpts.TimePasses ? &CodeGenerationTime : nullptr);
+
+  setCommandLineOpts(CodeGenOpts);
+
+  bool UsesCodeGen = actionRequiresCodeGen(Action);
+  CreateTargetMachine(UsesCodeGen);
+
+  if (UsesCodeGen && !TM)
+    return;
+  if (TM)
+    TheModule->setDataLayout(TM->createDataLayout());
+
+  DebugifyCustomPassManager PerModulePasses;
+  DebugInfoPerPass DebugInfoBeforePass;
+  if (CodeGenOpts.EnableDIPreservationVerify) {
+    PerModulePasses.setDebugifyMode(DebugifyMode::OriginalDebugInfo);
+    PerModulePasses.setDebugInfoBeforePass(DebugInfoBeforePass);
+
+    if (!CodeGenOpts.DIBugsReportFilePath.empty())
+      PerModulePasses.setOrigDIVerifyBugsReportFilePath(
+          CodeGenOpts.DIBugsReportFilePath);
+  }
+  PerModulePasses.add(
+      createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
+
+  legacy::FunctionPassManager PerFunctionPasses(TheModule);
+  PerFunctionPasses.add(
+      createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
+
+  CreatePasses(PerModulePasses, PerFunctionPasses);
+
+  // Add a verifier pass if requested. We don't have to do this if the action
+  // requires code generation because there will already be a verifier pass in
+  // the code-generation pipeline.
+  if (!UsesCodeGen && CodeGenOpts.VerifyModule)
+    PerModulePasses.add(createVerifierPass());
+
+  legacy::PassManager CodeGenPasses;
+  CodeGenPasses.add(
+      createTargetTransformInfoWrapperPass(getTargetIRAnalysis()));
+
+  std::unique_ptr<llvm::ToolOutputFile> ThinLinkOS, DwoOS;
+
+  // Eliminate dead arguments from SPIR kernels in SYCL environment.
+  // Run DAE when LLVM optimizations are applied as well.
+  if (LangOpts.SYCLIsDevice && !CodeGenOpts.DisableLLVMPasses &&
+      LangOpts.EnableDAEInSpirKernels)
+    PerModulePasses.add(createDeadArgEliminationSYCLPass());
+
+  // Add SPIRITTAnnotations pass to the pass manager if
+  // -fsycl-instrument-device-code option was passed. This option can be
+  // used only with spir triple.
+  if (CodeGenOpts.SPIRITTAnnotations) {
+    assert(llvm::Triple(TheModule->getTargetTriple()).isSPIR() &&
+           "ITT annotations can only be added to a module with spir target");
+    PerModulePasses.add(createSPIRITTAnnotationsLegacyPass());
+  }
+
+  // Allocate static local memory in SYCL kernel scope for each allocation call.
+  if (LangOpts.SYCLIsDevice) {
+    // Group local memory pass depends on inlining. Turn it on even in case if
+    // all llvm passes or SYCL early optimizations are disabled.
+    // FIXME: Remove this workaround when dependency on inlining is eliminated.
+    if (CodeGenOpts.DisableLLVMPasses)
+      PerModulePasses.add(createAlwaysInlinerLegacyPass(false));
+    PerModulePasses.add(createSYCLLowerWGLocalMemoryLegacyPass());
+    PerModulePasses.add(createSYCLMutatePrintfAddrspaceLegacyPass());
+  }
+
+  switch (Action) {
+  case Backend_EmitNothing:
+    break;
+
+  case Backend_EmitBC:
+    if (CodeGenOpts.PrepareForThinLTO && !CodeGenOpts.DisableLLVMPasses) {
+      if (!CodeGenOpts.ThinLinkBitcodeFile.empty()) {
+        ThinLinkOS = openOutputFile(CodeGenOpts.ThinLinkBitcodeFile);
+        if (!ThinLinkOS)
+          return;
+      }
+      if (!TheModule->getModuleFlag("EnableSplitLTOUnit"))
+        TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
+                                 CodeGenOpts.EnableSplitLTOUnit);
+    } else {
+      // Emit a module summary by default for Regular LTO except for ld64
+      // targets
+      bool EmitLTOSummary = shouldEmitRegularLTOSummary();
+      if (EmitLTOSummary) {
+        if (!TheModule->getModuleFlag("ThinLTO"))
+          TheModule->addModuleFlag(Module::Error, "ThinLTO", uint32_t(0));
+        if (!TheModule->getModuleFlag("EnableSplitLTOUnit"))
+          TheModule->addModuleFlag(Module::Error, "EnableSplitLTOUnit",
+                                   uint32_t(1));
+      }
+      PerModulePasses.add(createBitcodeWriterPass(
+          *OS, CodeGenOpts.EmitLLVMUseLists, EmitLTOSummary));
+    }
+    break;
+
+  case Backend_EmitLL:
+    PerModulePasses.add(
+        createPrintModulePass(*OS, "", CodeGenOpts.EmitLLVMUseLists));
+    break;
+
+  default:
+    if (!CodeGenOpts.SplitDwarfOutput.empty()) {
+      DwoOS = openOutputFile(CodeGenOpts.SplitDwarfOutput);
+      if (!DwoOS)
+        return;
+    }
+    if (!AddEmitPasses(CodeGenPasses, Action, *OS,
+                       DwoOS ? &DwoOS->os() : nullptr))
+      return;
+  }
+
+  // Before executing passes, print the final values of the LLVM options.
+  cl::PrintOptionValues();
+
+  // Run passes. For now we do all passes at once, but eventually we
+  // would like to have the option of streaming code generation.
+  {
+    PrettyStackTraceString CrashInfo("Per-function optimization");
+    llvm::TimeTraceScope TimeScope("PerFunctionPasses");
+
+    PerFunctionPasses.doInitialization();
+    for (Function &F : *TheModule)
+      if (!F.isDeclaration())
+        PerFunctionPasses.run(F);
+    PerFunctionPasses.doFinalization();
+  }
+
+  {
+    PrettyStackTraceString CrashInfo("Per-module optimization passes");
+    llvm::TimeTraceScope TimeScope("PerModulePasses");
+    PerModulePasses.run(*TheModule);
+  }
+
+  {
+    PrettyStackTraceString CrashInfo("Code generation");
+    llvm::TimeTraceScope TimeScope("CodeGenPasses");
+    CodeGenPasses.run(*TheModule);
+  }
+
+  if (ThinLinkOS)
+    ThinLinkOS->keep();
+  if (DwoOS)
+    DwoOS->keep();
+}
+#endif // INTEL_CUSTOMIZATION
+
+>>>>>>> 325226fecd0f02cbc73f1e2d5324a6338c62b9f5
 static OptimizationLevel mapToLevel(const CodeGenOptions &Opts) {
   switch (Opts.OptimizationLevel) {
   default:
