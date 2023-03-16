@@ -624,23 +624,8 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     O << getOpcodeName(getOpcode());
   }
 
-  if (auto *ScalarLp = dyn_cast<VPScalarPeel>(this)) {
+  if (auto *ScalarLp = dyn_cast<VPScalarLoopBase>(this)) {
     ScalarLp->printImpl(O);
-    return;
-  }
-
-  if (auto *ScalarLp = dyn_cast<VPScalarRemainder>(this)) {
-    ScalarLp->printImpl(O);
-    return;
-  }
-
-  if (auto *ScalarLpHIR = dyn_cast<VPScalarPeelHIR>(this)) {
-    ScalarLpHIR->printImpl(O);
-    return;
-  }
-
-  if (auto *ScalarLpHIR = dyn_cast<VPScalarRemainderHIR>(this)) {
-    ScalarLpHIR->printImpl(O);
     return;
   }
 
@@ -1022,8 +1007,8 @@ VPlanAdapter::VPlanAdapter(unsigned Opcode, VPlan &P)
     : VPInstruction(Opcode, Type::getTokenTy(*P.getLLVMContext()), {}),
       Plan(P) {}
 
-VPValue *VPlanPeelAdapter::getPeelLoop() const {
-  VPInstruction *LoopI = cast<VPlanScalar>(Plan).getScalarLoopInst();
+VPScalarLoopBase *VPlanPeelAdapter::getPeelLoop() const {
+  VPScalarLoopBase *LoopI = cast<VPlanScalar>(Plan).getScalarLoopInst();
   assert((isa<VPScalarPeel>(LoopI) || isa<VPScalarPeelHIR>(LoopI)) &&
          "Scalar loop instruction expected for peel adapter VPlan.");
   return LoopI;
@@ -1059,7 +1044,7 @@ void VPlanPeelAdapter::updateUBInHIROrigLiveOut() {
 }
 
 const VPValue *VPlanPeelAdapter::getUpperBound() const {
-  VPValue *PeelLp = getPeelLoop();
+  VPScalarLoopBase *PeelLp = getPeelLoop();
   if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
     return IRPeel->getUpperBound();
   return cast<VPScalarPeelHIR>(PeelLp)->getUpperBound();
@@ -1067,7 +1052,7 @@ const VPValue *VPlanPeelAdapter::getUpperBound() const {
 
 void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
   if (isa<VPlanScalarPeel>(Plan)) {
-    VPValue *PeelLp = getPeelLoop();
+    VPScalarLoopBase *PeelLp = getPeelLoop();
     if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
       IRPeel->setUpperBound(TC);
     else {
@@ -1288,28 +1273,17 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB, bool SkipInstructions)
 
 void VPlanScalar::setNeedCloneOrigLoop(bool V) {
   NeedCloneOrigLoop = V;
-  if (!V)
-    return;
-
-  VPInstruction *LoopI = getScalarLoopInst();
-  if (auto *IRPeel = dyn_cast<VPScalarPeel>(&*LoopI))
-    IRPeel->setCloningRequired();
-  else if (auto *IRRem = dyn_cast<VPScalarRemainder>(&*LoopI))
-    IRRem->setCloningRequired();
-  else if (auto *HIRPeel = dyn_cast<VPScalarPeelHIR>(&*LoopI))
-    HIRPeel->setCloningRequired();
-  else
-    cast<VPScalarRemainderHIR>(*LoopI).setCloningRequired();
+  if (V)
+    getScalarLoopInst()->setCloningRequired();
 }
 
-VPInstruction *VPlanScalar::getScalarLoopInst() {
+VPScalarLoopBase *VPlanScalar::getScalarLoopInst() {
   auto It = llvm::find_if(vpinstructions(this), [](VPInstruction &I) {
-    return isa<VPScalarPeel>(&I) || isa<VPScalarPeelHIR>(&I) ||
-           isa<VPScalarRemainder>(&I) || isa<VPScalarRemainderHIR>(&I);
+    return isa<VPScalarLoopBase>(&I);
   });
 
   if (It != vpinstructions(this).end())
-    return &*It;
+    return cast<VPScalarLoopBase>(&*It);
   llvm_unreachable("can't find scalar loop instruction");
 }
 

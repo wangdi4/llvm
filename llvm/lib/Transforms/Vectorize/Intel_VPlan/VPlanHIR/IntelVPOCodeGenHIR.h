@@ -824,7 +824,7 @@ private:
   SmallDenseMap<const VPLoop *, HLLoop *> VPLoopHLLoopMap;
   // TODO: Remove the set when legacy CG is retired.
   // Set of scalar HLLoops generated for outgoing HIR.
-  SmallDenseMap<const VPInstruction *, HLLoop *> OutgoingScalarHLLoopsMap;
+  SmallDenseMap<const VPScalarLoopBase *, HLLoop *> OutgoingScalarHLLoopsMap;
   SmallPtrSet<HLLoop *, 2> OutgoingScalarHLLoops;
 
   // Keep track of which scalar call instructions got replaced with a call to a
@@ -1141,7 +1141,7 @@ private:
     auto *LiveOutRef = const_cast<RegDDRef *>(
         cast<RegDDRef>(LiveOut->getLiveOutVal())->clone());
     auto ScalarLpIt = OutgoingScalarHLLoopsMap.find(
-        cast<VPInstruction>(LiveOut->getOperand(0)));
+        cast<VPScalarLoopBase>(LiveOut->getOperand(0)));
     assert(ScalarLpIt != OutgoingScalarHLLoopsMap.end() &&
            "Outgoing scalar loop not found.");
     HLLoop *ScalarLp = ScalarLpIt->second;

@@ -5320,19 +5320,12 @@ void VPOCodeGen::emitRemarksForScalarLoops() {
 
     // Emit remarks collected for scalar loop instruction into outgoing scalar
     // loop's opt-report.
-    auto EmitScalarLpVPIRemarks = [this, ScalarLp](auto *LpVPI) {
-      for (const auto &R : LpVPI->getOriginRemarks())
-        ORBuilder(*ScalarLp, *LI).addOrigin(R.RemarkID);
+    for (const auto &R : ScalarLpVPI->getOriginRemarks())
+      ORBuilder(*ScalarLp, *LI).addOrigin(R.RemarkID);
 
-      for (const auto &R : LpVPI->getGeneralRemarks())
-        ORBuilder(*ScalarLp, *LI)
-            .addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
-    };
-
-    if (auto *RemLp = dyn_cast<VPScalarRemainder>(ScalarLpVPI))
-      EmitScalarLpVPIRemarks(RemLp);
-    else
-      EmitScalarLpVPIRemarks(cast<VPScalarPeel>(ScalarLpVPI));
+    for (const auto &R : ScalarLpVPI->getGeneralRemarks())
+      ORBuilder(*ScalarLp, *LI)
+          .addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
   }
 }
 
