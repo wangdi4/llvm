@@ -276,6 +276,7 @@ void MemsetRanges::addRange(int64_t Start, int64_t Size, Value *Ptr,
 //                         MemCpyOptLegacyPass Pass
 //===----------------------------------------------------------------------===//
 
+<<<<<<< HEAD
 namespace {
 
 class MemCpyOptLegacyPass : public FunctionPass {
@@ -325,6 +326,8 @@ INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
 INITIALIZE_PASS_END(MemCpyOptLegacyPass, "memcpyopt", "MemCpy Optimization",
                     false, false)
 
+=======
+>>>>>>> 1a90faacf1502fb967900ab44b62e8509a369013
 // Check that V is either not accessible by the caller, or unwinding cannot
 // occur between Start and End.
 static bool mayBeVisibleThroughUnwinding(Value *V, Instruction *Start,
@@ -1751,18 +1754,4 @@ bool MemCpyOptPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
     MSSA_->verifyMemorySSA();
 
   return MadeChange;
-}
-
-/// This is the main transformation entry point for a function.
-bool MemCpyOptLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
-
-  auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  auto *AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-  auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  auto *MSSA = &getAnalysis<MemorySSAWrapperPass>().getMSSA();
-
-  return Impl.runImpl(F, TLI, AA, AC, DT, MSSA);
 }

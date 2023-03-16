@@ -554,6 +554,7 @@ private:
   std::pair<unsigned, unsigned> hoistExpressions(Function &F);
 };
 
+<<<<<<< HEAD
 class GVNHoistLegacyPass : public FunctionPass {
   const bool HoistingGeps; // INTEL
 public:
@@ -589,6 +590,8 @@ public:
   }
 };
 
+=======
+>>>>>>> 1a90faacf1502fb967900ab44b62e8509a369013
 bool GVNHoist::run(Function &F) {
   NumFuncArgs = F.arg_size();
   VN.setDomTree(DT);
@@ -1320,6 +1323,7 @@ PreservedAnalyses GVNHoistPass::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserve<MemorySSAAnalysis>();
   return PA;
 }
+<<<<<<< HEAD
 
 char GVNHoistLegacyPass::ID = 0;
 
@@ -1338,3 +1342,5 @@ FunctionPass *llvm::createGVNHoistPass(bool HoistingGeps) {
   return new GVNHoistLegacyPass(HoistingGeps);
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 1a90faacf1502fb967900ab44b62e8509a369013

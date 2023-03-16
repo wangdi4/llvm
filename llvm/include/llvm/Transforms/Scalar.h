@@ -331,6 +331,7 @@ FunctionPass *createEarlyCSEPass(bool UseMemorySSA = false);
 
 //===----------------------------------------------------------------------===//
 //
+<<<<<<< HEAD
 // GVNHoist - This pass performs a simple and fast GVN pass over the dominator
 // tree to hoist common expressions from sibling branches.
 //
@@ -345,24 +346,12 @@ FunctionPass *createGVNSinkPass();
 
 //===----------------------------------------------------------------------===//
 //
+=======
+>>>>>>> 1a90faacf1502fb967900ab44b62e8509a369013
 // MergedLoadStoreMotion - This pass merges loads and stores in diamonds. Loads
 // are hoisted into the header, while stores sink into the footer.
 //
 FunctionPass *createMergedLoadStoreMotionPass(bool SplitFooterBB = false);
-
-//===----------------------------------------------------------------------===//
-//
-// GVN - This pass performs global value numbering and redundant load
-// elimination cotemporaneously.
-//
-FunctionPass *createNewGVNPass();
-
-//===----------------------------------------------------------------------===//
-//
-// MemCpyOpt - This pass performs optimizations related to eliminating memcpy
-// calls and/or combining multiple stores into memset's.
-//
-FunctionPass *createMemCpyOptPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -502,12 +491,6 @@ FunctionPass *createPlaceSafepointsPass();
 // explicit relocations to include explicit relocations.
 //
 ModulePass *createRewriteStatepointsForGCLegacyPass();
-
-//===----------------------------------------------------------------------===//
-//
-// Float2Int - Demote floats to ints where possible.
-//
-FunctionPass *createFloat2IntPass();
 
 //===----------------------------------------------------------------------===//
 //
