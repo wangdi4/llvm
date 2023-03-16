@@ -119,6 +119,10 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // Greate normalized UB and replace induction start with 0.
   VPValue *LowerBound = IndInit->getStartValueOperand();
   VPValue *NormUB = VPBldr.createSub(OrigTC, LowerBound, "norm.ub");
+  // Set nowrap flags for the normalized upper bound since it's known to be
+  // within signed/unsigned range.
+  cast<VPInstruction>(NormUB)->setHasNoUnsignedWrap(true);
+  cast<VPInstruction>(NormUB)->setHasNoSignedWrap(true);
   IndInit->replaceStartValue(
       MaskedVPlan->getVPConstant(ConstantInt::get(LowerBound->getType(), 0)));
 
@@ -173,6 +177,9 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   VPBldr.setInsertPoint(Header);
   VPInstruction *DenormPhi =
       VPBldr.createAdd(VPIndInstVPPhi, LowerBound, "new.ind");
+  // Lower bound for masked mode loop is within signed/unsigned range.
+  DenormPhi->setHasNoUnsignedWrap(true);
+  DenormPhi->setHasNoSignedWrap(true);
   VPIndInstVPPhi->replaceUsesWithIf(
       DenormPhi, [NewBottomTest, DenormPhi, VPIndIncrement](VPUser *U) {
         return U != NewBottomTest && U != VPIndIncrement && U != DenormPhi;

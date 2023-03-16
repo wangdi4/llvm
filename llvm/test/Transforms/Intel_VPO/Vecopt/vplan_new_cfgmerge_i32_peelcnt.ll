@@ -77,7 +77,7 @@ define dso_local float @getElement(i32 %idx) {
 ; CHECK-NEXT:    [[UNI_PHI16:%.*]] = phi i32 [ 0, [[VPLANNEDBB14]] ], [ [[TMP11:%.*]], [[NEW_LATCH:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI17:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VPLANNEDBB14]] ], [ [[TMP10:%.*]], [[NEW_LATCH]] ]
 ; CHECK-NEXT:    [[VEC_PHI18:%.*]] = phi <2 x float> [ <float -0.000000e+00, float -0.000000e+00>, [[VPLANNEDBB14]] ], [ [[PREDBLEND:%.*]], [[NEW_LATCH]] ]
-; CHECK-NEXT:    [[TMP7:%.*]] = add <2 x i32> [[VEC_PHI17]], [[BROADCAST_SPLAT20]]
+; CHECK-NEXT:    [[TMP7:%.*]] = add nuw nsw <2 x i32> [[VEC_PHI17]], [[BROADCAST_SPLAT20]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult <2 x i32> [[VEC_PHI17]], [[BROADCAST_SPLAT22]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB23:%.*]]
 ; CHECK:       VPlannedBB23:

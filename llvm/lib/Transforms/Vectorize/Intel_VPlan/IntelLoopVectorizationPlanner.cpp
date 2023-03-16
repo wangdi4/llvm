@@ -2211,6 +2211,11 @@ void LoopVectorizationPlanner::emitVectorLoopIV(VPlanVector *Plan,
     IV->addIncoming(IVUpdate, Latch);
   }
 
+  // Set nowrap flags for the vector loop iv update instruction. This instruction
+  // is known to be within the signed/unsigned range.
+  cast<VPInstruction>(IVUpdate)->setHasNoUnsignedWrap(true);
+  cast<VPInstruction>(IVUpdate)->setHasNoSignedWrap(true);
+
   Builder.setInsertPoint(Latch);
   auto *ExitCond = Builder.createCmpInst(
       Latch->getSuccessor(0) == Header

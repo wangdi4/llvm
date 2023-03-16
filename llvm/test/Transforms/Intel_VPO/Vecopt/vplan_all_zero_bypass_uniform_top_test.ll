@@ -52,7 +52,7 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB7]]
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]] (SVAOpBits 0->V )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_EXITCOND_NOT]] i1 false (SVAOpBits 0->V 1->V 2->V )
 ; CHECK-NEXT:       [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i1 [[VP1:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]] (SVAOpBits 0->V )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP1]], [[BB8:BB[0-9]+]], [[BB5]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:

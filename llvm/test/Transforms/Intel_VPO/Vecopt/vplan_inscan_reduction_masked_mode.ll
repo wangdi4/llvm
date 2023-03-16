@@ -45,7 +45,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    [[UNI_PHI270:%.*]] = phi i64 [ 0, [[VPLANNEDBB250:%.*]] ], [ [[TMP35:%.*]], [[NEW_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI280:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB250]] ], [ [[TMP34:%.*]], [[NEW_LATCH0]] ]
 ; CHECK-NEXT:    [[VEC_PHI290:%.*]] = phi <2 x float> [ [[BROADCAST_SPLAT570]], [[VPLANNEDBB250]] ], [ [[PREDBLEND0:%.*]], [[NEW_LATCH0]] ]
-; CHECK-NEXT:    [[TMP22:%.*]] = add <2 x i64> [[VEC_PHI280]], [[BROADCAST_SPLAT310:%.*]]
+; CHECK-NEXT:    [[TMP22:%.*]] = add nuw nsw  <2 x i64> [[VEC_PHI280]], [[BROADCAST_SPLAT310:%.*]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <2 x i64> [[TMP22]], i32 0
 ; CHECK-NEXT:    store <2 x float> zeroinitializer, <2 x float>* [[DOTVEC0]], align 1
 ; CHECK-NEXT:    [[TMP23:%.*]] = icmp ult i64 [[UNI_PHI270]], [[TMP21]]

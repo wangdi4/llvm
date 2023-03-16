@@ -35,7 +35,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_CMP4:%.*]] = and i1 [[VP_CMP1]] i1 [[VP_CMP4]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_CMP4:%.*]] = select i1 [[VP_CMP1]] i1 [[VP_CMP4]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -60,7 +60,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture readonly %
 ; CHECK-NEXT:       [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[BB5]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB6_BR_VP_CMP9:%.*]] = and i1 [[VP_CMP1]] i1 [[VP_CMP9]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB6_BR_VP_CMP9:%.*]] = select i1 [[VP_CMP1]] i1 [[VP_CMP9]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: [[BB7]]

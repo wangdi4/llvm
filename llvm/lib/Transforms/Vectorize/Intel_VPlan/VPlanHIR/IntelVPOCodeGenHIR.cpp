@@ -6907,11 +6907,25 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     // In order for HIR idiom recognition to work, when generating the widened
     // select we need to use operands of the compare instruction corresponding
-    // to the select mask when possible.
+    // to the select mask when possible. If doing this, mark the operands as
+    // livein as needed.
     if (PredInst) {
       Pred0 = widenRef(PredInst->getOperand(0), getVF());
       Pred1 = widenRef(PredInst->getOperand(1), getVF());
       Pred = PredInst->getPredicate();
+
+      auto *DefVPLoop =
+          Plan->getVPLoopInfo()->getLoopFor(PredInst->getParent());
+      auto *UseVPLoop = Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent());
+      if (DefVPLoop != UseVPLoop) {
+        auto *DefHLoop = VPLoopHLLoopMap[DefVPLoop];
+        auto *UseHLoop = VPLoopHLLoopMap[UseVPLoop];
+        while (UseHLoop != DefHLoop) {
+          UseHLoop->addLiveInTemp(Pred0);
+          UseHLoop->addLiveInTemp(Pred1);
+          UseHLoop = UseHLoop->getParentLoop();
+        }
+      }
     } else {
       // Used Pred0 == AllOnes as the select mask
       Pred0 = widenRef(VPInst->getOperand(0), getVF());

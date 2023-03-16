@@ -102,8 +102,8 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    br label [[VPLANNEDBB110]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB11:
-; CHECK-NEXT:    [[TMP17]] = add nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP18]] = add nsw i64 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP17]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
+; CHECK-NEXT:    [[TMP18]] = add nuw nsw i64 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP19:%.*]] = icmp uge i64 [[TMP18]], [[TMP2]]
 ; CHECK-NEXT:    br i1 [[TMP19]], label [[VPLANNEDBB120:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:

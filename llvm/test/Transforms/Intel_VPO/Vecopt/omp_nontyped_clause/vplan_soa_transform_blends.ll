@@ -31,8 +31,8 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_COND]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_COND]] i1 [[VP_UNIFORM]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = select i1 [[VP_COND]] i1 [[VP_UNIFORM_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = select i1 [[VP_COND]] i1 [[VP_UNIFORM]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]

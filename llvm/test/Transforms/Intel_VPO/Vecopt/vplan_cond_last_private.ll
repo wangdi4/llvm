@@ -43,8 +43,8 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i8.p0v4i8(<4 x i8> [[BROADCAST_SPLAT]], <4 x i8>* [[RET_LPRIV_VEC]], i32 1, <4 x i1> [[TMP1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB4]]
 ; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    [[TMP7]] = add nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP8]] = add nsw i32 [[UNI_PHI]], 4
+; CHECK-NEXT:    [[TMP7]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP8]] = add nuw nsw i32 [[UNI_PHI]], 4
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i32 [[TMP8]], 100
 ; CHECK-NEXT:    br i1 [[TMP9]], label [[VECTOR_BODY]], label [[VPLANNEDBB5:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB5:

@@ -107,8 +107,8 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
-; CHECK-NEXT:    [[TMP5]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP6]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP6]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i32 [[TMP6]], 4
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB40:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:

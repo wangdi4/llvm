@@ -120,7 +120,7 @@ define void @test_lifetime_start_end_with_phi_inputs() {
 ; CHECK-NEXT:    [[UNI_PHI11:%.*]] = phi <2 x i8>* [ [[TMP5]], [[VPLANNEDBB10:%.*]] ], [ null, [[ALL_ZERO_BYPASS_BEGIN42]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB12:%.*]]
 ; CHECK:       VPlannedBB12:
-; CHECK-NEXT:    [[TMP13:%.*]] = and <2 x i1> [[TMP2]], <i1 true, i1 true>
+; CHECK-NEXT:    [[TMP13:%.*]] = select <2 x i1> [[TMP2]], <2 x i1> <i1 true, i1 true>, <2 x i1> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB13:%.*]]
 ; CHECK:       VPlannedBB13:
 ; CHECK-NEXT:    br label [[VPLANNEDBB14]]

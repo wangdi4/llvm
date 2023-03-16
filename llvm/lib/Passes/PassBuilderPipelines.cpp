@@ -2344,8 +2344,14 @@ void PassBuilder::addVPlanVectorizer(ModulePassManager &MPM,
 
   if (OptLevel > 0) {
     FPM.addPass(LowerSwitchPass(true /*Only for SIMD loops*/));
-    // Add LCSSA pass before VPlan driver
-    FPM.addPass(LCSSAPass());
+    // LowerSwitch may have broken loop-canonical form for some loops by
+    // introducing new loop latches when transforming switches to branches.
+    // VPlan expects all loops to be in loop-canonical form (and will crash
+    // otherwise), so run LoopSimplifyCFG to re-canonicalize all loops.
+    // (Note: this will also run LoopSimplify and LCSSA.)
+    FPM.addPass(createFunctionToLoopPassAdaptor(
+        LoopSimplifyCFGPass(), /*UseMemorySSA=*/false,
+        /*UseBlockFrequencyInfo=*/false));
   }
 
   FPM.addPass(VPOCFGRestructuringPass());
@@ -2412,11 +2418,12 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     INTEL_LIMIT_END(FPM)
   }
 
+  // FunctionToLoopPassAdaptor invokes LCSSA pass which is required by loopopt
+  // framework. We don't need to add it explicitly in the pipeline.
   FPM.addPass(createFunctionToLoopPassAdaptor(
       LoopSimplifyCFGPass(), /*UseMemorySSA=*/false,
       /*UseBlockFrequencyInfo=*/false));
 
-  FPM.addPass(LCSSAPass());
   // Leaving comments for stuff which need to be added to match legacy pass
   // manager.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

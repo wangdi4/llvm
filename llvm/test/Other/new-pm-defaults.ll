@@ -296,11 +296,8 @@
 ; CHECK-DEFAULT-NEXT:  Running pass: LoopSimplifyPass
 ; CHECK-DEFAULT-NEXT:  Running pass: LowerSwitchPass
 ; CHECK-DEFAULT-NEXT:  Running analysis: LazyValueAnalysis
+; CHECK-DEFAULT-NEXT:  Running pass: LoopSimplifyPass
 ; CHECK-DEFAULT-NEXT:  Running pass: LCSSAPass
-; CHECK-DEFAULT-NEXT:  Running pass: VPOCFGRestructuringPass
-; CHECK-DEFAULT-NEXT:  Running pass: VPlanPragmaOmpOrderedSimdExtractPass
-; CHECK-DEFAULT-NEXT:  Running analysis: WRegionInfoAnalysis
-; CHECK-DEFAULT-NEXT:  Running analysis: WRegionCollectionAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: AAManager
 ; CHECK-DEFAULT-NEXT:  Running analysis: BasicAA
 ; CHECK-DEFAULT-NEXT:  Running analysis: XmainOptLevelAnalysis
@@ -308,6 +305,12 @@
 ; CHECK-DEFAULT-NEXT:  Running analysis: ScopedNoAliasAA
 ; CHECK-DEFAULT-NEXT:  Running analysis: TypeBasedAA
 ; CHECK-DEFAULT-NEXT:  Running analysis: StdContainerAA
+; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy
+; CHECK-DEFAULT-NEXT:  Running pass: LoopSimplifyCFGPass
+; CHECK-DEFAULT-NEXT:  Running pass: VPOCFGRestructuringPass
+; CHECK-DEFAULT-NEXT:  Running pass: VPlanPragmaOmpOrderedSimdExtractPass
+; CHECK-DEFAULT-NEXT:  Running analysis: WRegionInfoAnalysis
+; CHECK-DEFAULT-NEXT:  Running analysis: WRegionCollectionAnalysis
 ; CHECK-DEFAULT-NEXT:  Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-DEFAULT-NEXT:  Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT:  Running analysis: InnerAnalysisManagerProxy

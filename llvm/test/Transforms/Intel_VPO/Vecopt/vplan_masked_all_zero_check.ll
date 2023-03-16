@@ -42,7 +42,7 @@ for.body4:                                        ; preds = %for.body4.preheader
 ; CHECK-NEXT:    br label [[VPLANNEDBB100:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB10:
-; CHECK-NEXT:    [[TMP4:%.*]] = and <8 x i1> [[TMP3]], [[VEC_PHI90]]
+; CHECK-NEXT:    [[TMP4:%.*]] = select <8 x i1> [[TMP3]], <8 x i1> [[VEC_PHI90]], <8 x i1> zeroinitializer
   %j.020 = phi i64 [ %inc, %for.body4 ], [ %0, %for.body4.preheader ]
   %shl = shl i64 %j.020, 3
   %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %j.020, i64 %i.022

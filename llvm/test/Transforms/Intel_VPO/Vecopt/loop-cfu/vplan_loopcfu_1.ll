@@ -40,7 +40,7 @@ define dso_local void @foo(i64 %N, i64 %lb, i64 %ub) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB5]], [[BB3]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_EXITCOND_NOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP0]], [[BB6:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:

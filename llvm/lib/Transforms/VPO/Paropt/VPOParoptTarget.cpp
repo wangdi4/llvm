@@ -5902,7 +5902,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   //     A2. Processing of need_device_ptr is the same in both versions.
   //     A3. Call __kmpc_omp_wait_deps, __kmpc_omp_task_begin_if0,
   //         and __kmpc_omp_task_complete_if0 to handle DEPEND.
-  //     A4. Does not call __tgt_target_sync.
+  //     A4. Does not call __tgt_target_sync or __tgt_interop_use_async
   //
   // B. DispatchCodegenVersion > 0 is for the newer implementation that
   //    supports creation of interop obj that honors the prefer_type
@@ -5914,7 +5914,9 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   //     B2. Processing of need_device_ptr is the same in both versions.
   //     B3. Call __kmpc_omp_wait_deps to handle DEPEND, but not
   //         __kmpc_omp_task_begin_if0 and  __kmpc_omp_task_complete_if0.
-  //     B4. Call __tgt_target_sync if NOWAIT is not specified.
+  //     B4. if NOWAIT is not specified
+  //        a) Call __tgt_target_sync if INTEROP is not specified
+  //        b) Call __tgt_interop_use_async if INTEROP is specified
   Instruction *ThenTerm, *ElseTerm;
   VPOParoptUtils::buildCFGForIfClause(Available, ThenTerm, ElseTerm, InsertPt, DT);
 
@@ -5999,11 +6001,17 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   genDependForDispatch(W, VariantCall, SupportOMPTTracing);
 
   // (B4) If DispatchCodegenVersion > 0 and the NOWAIT clause is not specified,
-  // emit a call to
+  // if the INTEROP clause was specified emit a call to
+  //   __tgt_interop_use_async(loc, gtid, interop_op, false)
+  // if the INTEROP clause was not specified emit a call to
   //   __tgt_target_sync(loc, gtid, CurrentTask, nullptr);
   if (DispatchCodegenVersion > 0 && !W->getNowait()) {
     LoadTidAndCurrentTask();
-    VPOParoptUtils::genTgtTargetSync(W, IdentTy, Tid, CurrentTask, ThenTerm);
+    if (InteropClauseObj)
+      VPOParoptUtils::genTgtInteropUseAsync(W, IdentTy, TidPtrHolder,
+                                            InteropObj, false, ThenTerm);
+    else
+      VPOParoptUtils::genTgtTargetSync(W, IdentTy, Tid, CurrentTask, ThenTerm);
   }
 
   // Move BaseCall to before ElseTerm

@@ -39,8 +39,8 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-NEXT:    [[TMP8:%.*]] = xor <2 x i1> [[BROADCAST_SPLAT]], <i1 true, i1 true>
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    [[TMP9:%.*]] = and <2 x i1> [[TMP2]], [[TMP8]]
-; CHECK-NEXT:    [[TMP10:%.*]] = and <2 x i1> [[TMP2]], [[BROADCAST_SPLAT]]
+; CHECK-NEXT:    [[TMP9:%.*]] = select <2 x i1> [[TMP2]], <2 x i1> [[TMP8]], <2 x i1> zeroinitializer
+; CHECK-NEXT:    [[TMP10:%.*]] = select <2 x i1> [[TMP2]], <2 x i1> [[BROADCAST_SPLAT]], <2 x i1> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
 ; CHECK:       VPlannedBB5:
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP6:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], i64 2

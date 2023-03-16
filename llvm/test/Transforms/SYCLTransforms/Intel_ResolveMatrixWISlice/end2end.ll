@@ -324,8 +324,8 @@ attributes #6 = { nounwind readnone willreturn }
 ; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 ; CHECK-NEXT:    br label [[VPLANNEDBB35]]
 ; CHECK:       VPlannedBB35:
-; CHECK-NEXT:    [[TMP38]] = add nuw <8 x i32> [[VEC_PHI]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
-; CHECK-NEXT:    [[TMP39]] = add nuw i32 [[UNI_PHI]], 8
+; CHECK-NEXT:    [[TMP38]] = add nuw nsw <8 x i32> [[VEC_PHI]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
+; CHECK-NEXT:    [[TMP39]] = add nuw nsw i32 [[UNI_PHI]], 8
 ; CHECK-NEXT:    [[TMP40:%.*]] = icmp ult i32 [[TMP39]], 8
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY]], label [[VPLANNEDBB36:%.*]], !llvm.loop [[LOOP22:![0-9]+]]
 ; CHECK:       VPlannedBB36:

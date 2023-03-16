@@ -107,7 +107,7 @@ define void @test_div_loop(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB3]], [[BB1]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXIT_COND_NOT:%.*]] = not i1 [[VP_EXIT_COND]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXIT_COND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_EXIT_COND_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP0]], [[BB4:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:
@@ -207,7 +207,7 @@ define void @test_rematerialized_live_out(i32 %vf) {
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB5]], [[BB3]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_VEC_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i32 [[VP_VEC]] i32 [[VP_VEC_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXIT_COND_NOT:%.*]] = not i1 [[VP_EXIT_COND]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXIT_COND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_EXIT_COND_NOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP0]], [[BB6:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:

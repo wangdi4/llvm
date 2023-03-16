@@ -56,8 +56,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i32 [[TMP2]], 4
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB60:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
@@ -135,8 +135,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP3]] = icmp ult i32 [[TMP2]], 8
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY0]], label [[VPLANNEDBB60]], !llvm.loop !2
 ; CHECK-EMPTY:
@@ -214,8 +214,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP3]] = icmp ult i32 [[TMP2]], 8
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY0]], label [[VPLANNEDBB60]], !llvm.loop !3
 ; CHECK-EMPTY:
@@ -293,8 +293,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP1]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP2]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP3]] = icmp ult i32 [[TMP2]], 16
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY0]], label [[VPLANNEDBB60]], !llvm.loop !4
 ; CHECK-EMPTY:
@@ -430,8 +430,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB110]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB11:
-; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP12]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP13]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp ult i32 [[TMP13]], 4
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB120:%.*]], !llvm.loop !5
 ; CHECK-EMPTY:
@@ -576,8 +576,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB110]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB11:
-; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP12]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP13]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP14]] = icmp ult i32 [[TMP13]], 8
 ; CHECK-NEXT:    br i1 [[TMP14]], label [[VECTOR_BODY0]], label [[VPLANNEDBB120]], !llvm.loop !6
 ; CHECK-EMPTY:
@@ -722,8 +722,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB110]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB11:
-; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP12]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP13]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP14]] = icmp ult i32 [[TMP13]], 8
 ; CHECK-NEXT:    br i1 [[TMP14]], label [[VECTOR_BODY0]], label [[VPLANNEDBB120]], !llvm.loop !7
 ; CHECK-EMPTY:
@@ -868,8 +868,8 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB110]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB11:
-; CHECK-NEXT:    [[TMP12]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP13]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP12]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP13]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP14]] = icmp ult i32 [[TMP13]], 16
 ; CHECK-NEXT:    br i1 [[TMP14]], label [[VECTOR_BODY0]], label [[VPLANNEDBB120]], !llvm.loop !8
 ; CHECK-EMPTY:

@@ -45,8 +45,8 @@ define void @fn(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"cla
 ; CHECK-NEXT:    br label [[VPLANNEDBB130:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB13:
-; CHECK-NEXT:    [[TMP15:%.*]] = add nuw <8 x i32> [[VEC_PHI0:%.*]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
-; CHECK-NEXT:    [[TMP16:%.*]] = add nuw i32 [[UNI_PHI0:%.*]], 8
+; CHECK-NEXT:    [[TMP15:%.*]] = add nuw nsw <8 x i32> [[VEC_PHI0:%.*]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
+; CHECK-NEXT:    [[TMP16:%.*]] = add nuw nsw i32 [[UNI_PHI0:%.*]], 8
 ; CHECK-NEXT:    [[TMP17:%.*]] = icmp ult i32 [[TMP16]], 8
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB140:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:

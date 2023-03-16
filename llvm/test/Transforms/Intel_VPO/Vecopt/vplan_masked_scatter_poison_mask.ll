@@ -54,7 +54,7 @@ define void @foo(ptr noalias noundef %lp1, ptr noalias noundef %lp2, ptr noalias
 ; the scatter mask leading to incorrect runtime behavior. Instead of using an and here
 ; we need to use a select instruction to avoid the poison mask.
 ;
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB4_BR_VP_TOBOOL_NOT_NOT:%.*]] = and i1 [[VP_CMP2_NOT_NOT]] i1 [[VP_TOBOOL_NOT_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB4_BR_VP_TOBOOL_NOT_NOT:%.*]] = select i1 [[VP_CMP2_NOT_NOT]] i1 [[VP_TOBOOL_NOT_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
@@ -66,11 +66,7 @@ define void @foo(ptr noalias noundef %lp1, ptr noalias noundef %lp2, ptr noalias
 ;
 ; CHECK:  define void @foo
 ; CHECK:       VPlannedBB6:
-;
-; FIXME:  As can be seen here, we have a masked scatter using <8 x i1> as the scatter mask. This
-; can be lowered unpredictably by CG causing runtime issues.
-;
-; CHECK:         call void @llvm.masked.scatter.v8i64.v8p0(<8 x i64> <i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1>, <8 x ptr> [[MM_VECTORGEP0:%.*]], i32 8, <8 x i1> poison)
+; CHECK-NOT:     call void @llvm.masked.scatter.v8i64.v8p0({{.*}}, <8 x i1> poison)
 ;
 entry:
   br label %for.body.lr.ph

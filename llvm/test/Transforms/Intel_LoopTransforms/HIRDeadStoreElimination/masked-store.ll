@@ -11,7 +11,7 @@
 ; CHECK: |   %.vec = i1 + <i32 0, i32 1, i32 2, i32 3> <u 10;
 ; CHECK: |   %.vec1 = %.vec  ^  -1;
 ; CHECK: |   %.vec2 = i1 + <i32 0, i32 1, i32 2, i32 3> <u 30;
-; CHECK: |   %.vec3 = %.vec1  &  %.vec2;
+; CHECK: |   %.vec3 = (%.vec1 == <i1 true, i1 true, i1 true, i1 true>) ?  %.vec2 : 0;
 ; CHECK: |   %.vec4 = (<4 x i32>*)(%B)[i1], Mask = @{%.vec3};
 ; CHECK: |   (<4 x i32>*)(%A)[i1] = %.vec4 + 15, Mask = @{%.vec3};
 ; CHECK: |   %.vec5 = (<4 x i32>*)(%B)[i1], Mask = @{%.vec};

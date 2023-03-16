@@ -53,8 +53,8 @@
 ; CHECK-NEXT:           |   %.vec6 = (<32 x i64>*)(%ttag)[i1], Mask = @{%.vec4};
 ; CHECK-NEXT:           |   %.vec7 = %.vec6 == 0;
 ; CHECK-NEXT:           |   %.vec8 = %.vec7  ^  -1;
-; CHECK-NEXT:           |   %.vec9 = %.vec4  &  %.vec7;
-; CHECK-NEXT:           |   %.vec10 = %.vec4  &  %.vec8;
+; CHECK-NEXT:           |   %.vec9 = (%.vec > 10) ? %.vec7 : 0;
+; CHECK-NEXT:           |   %.vec10 = (%.vec > 10) ? %.vec8 : 0;
 ; CHECK-NEXT:           |   %extract.0. = extractelement &((<32 x i64*>)(%neighptr2)[%phi.temp2]),  0;
 ; CHECK-NEXT:           |   @llvm.masked.compressstore.v32i64(%.vec,  %extract.0.,  %.vec9);
 ; CHECK-NEXT:           |   %.vec11 = %.vec10  |  %.vec5;

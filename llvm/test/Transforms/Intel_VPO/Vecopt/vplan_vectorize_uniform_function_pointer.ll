@@ -47,8 +47,8 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT40:%.*]] = insertelement <4 x i32> poison, i32 [[TMP9]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT50:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT40]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP10:%.*]] = add nsw <4 x i32> [[BROADCAST_SPLAT50]], [[TMP8]]
-; CHECK-NEXT:    [[TMP11]] = add nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP12]] = add nsw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP11]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP12]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP13:%.*]] = icmp uge i32 [[TMP12]], [[TMP2]]
 ; CHECK-NEXT:    br i1 [[TMP13]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
