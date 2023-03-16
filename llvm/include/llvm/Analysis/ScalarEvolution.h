@@ -1269,16 +1269,11 @@ public:
   /// unequal, LHS and RHS are set to the same value and Pred is set to either
   /// ICMP_EQ or ICMP_NE.
   bool SimplifyICmpOperands(ICmpInst::Predicate &Pred, const SCEV *&LHS,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
                             const SCEV *&RHS,
                             const ICmpInst *PredContext = nullptr,
-                            unsigned Depth = 0,
-                            bool ControllingFiniteLoop = false);
+                            unsigned Depth = 0);
 #endif // INTEL_CUSTOMIZATION
-=======
-                            const SCEV *&RHS, unsigned Depth = 0);
->>>>>>> 660403940ca33d84c20b1cae343655f3d7872ada
 
   /// Return the "disposition" of the given SCEV with respect to the given
   /// loop.

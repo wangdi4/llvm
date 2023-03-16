@@ -196,17 +196,10 @@ for.end:
 define void @pr54191(i64 %n) mustprogress {
 ; CHECK-LABEL: 'pr54191'
 ; CHECK-NEXT:  Determining loop execution counts for: @pr54191
-<<<<<<< HEAD
-; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-2 + %n) /u 2) ;INTEL
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 4611686018427387901
-; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((-2 + %n) /u 2) ;INTEL
-; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-2 + %n) /u 2) ;INTEL
-=======
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is ((-2 + %n) /u 2)
-; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 4611686018427387902
+; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 461168601842738790 ;INTEL
 ; CHECK-NEXT:  Loop %loop: symbolic max backedge-taken count is ((-2 + %n) /u 2)
 ; CHECK-NEXT:  Loop %loop: Predicated backedge-taken count is ((-2 + %n) /u 2)
->>>>>>> 660403940ca33d84c20b1cae343655f3d7872ada
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %loop: Trip multiple is 1
 ;
