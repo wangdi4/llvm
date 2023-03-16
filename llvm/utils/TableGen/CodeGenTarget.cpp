@@ -32,13 +32,11 @@
 
 #include "CodeGenTarget.h"
 #include "CodeGenInstruction.h"
-#include "CodeGenIntrinsics.h"
 #include "CodeGenSchedule.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/ModRef.h"
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
 #include <algorithm>
@@ -658,6 +656,7 @@ ComplexPattern::ComplexPattern(Record *R) {
                                        "'!");
     }
 }
+<<<<<<< HEAD
 
 //===----------------------------------------------------------------------===//
 // CodeGenIntrinsic Implementation
@@ -979,3 +978,5 @@ void CodeGenIntrinsic::addArgAttribute(unsigned Idx, ArgAttrKind AK,
     ArgumentAttributes.resize(Idx + 1);
   ArgumentAttributes[Idx].emplace_back(AK, V);
 }
+=======
+>>>>>>> fe7b38cb6b7438be9981c741fbbec715c234c1ca
