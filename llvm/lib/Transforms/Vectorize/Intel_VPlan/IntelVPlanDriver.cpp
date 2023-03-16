@@ -1023,6 +1023,9 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
   // Add remark about VF
   OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
                                           Twine(MainPlanDescr.getVF()).str());
+  if (MainPlanDescr.getUF() > 1)
+    OptRptStats.GeneralRemarks.emplace_back(15399, OptReportVerbosity::Low,
+                                            Twine(MainPlanDescr.getUF()).str());
 }
 
 void VPlanDriverImpl::addOptReportRemarksForVecRemainder(

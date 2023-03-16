@@ -585,7 +585,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
     // loop for remainder and create a clone for peel if that's needed.
     ScalarPlan->setNeedCloneOrigLoop(ScalarUsed);
     CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
-    PlanDescrs.push_front({LT::LTPeel, 1, CurPlan});
+    PlanDescrs.push_front({LT::LTPeel, 1 /* VF */, 1 /* UF */, CurPlan});
     PlanDescrs.front().setMaxTripCount(MainVF - 1);
     dumpNewVPlan(CurPlan);
     break;
@@ -602,7 +602,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       dumpExistingVPlan(CurPlan);
     }
     UsedPlans.insert(CurPlan);
-    PlanDescrs.push_front({LT::LTPeel, Scen.getPeelVF(), CurPlan});
+    PlanDescrs.push_front({LT::LTPeel, Scen.getPeelVF(), 1 /* UF */, CurPlan});
     PlanDescrs.front().setMaxTripCount(1);
     break;
   case LK::LKVector:
@@ -613,7 +613,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
   CurPlan = NewMainPlan;
   unsigned MainUF = Scen.getMainUF();
   unsigned PrevVF = MainVF * MainUF;
-  PlanDescrs.push_front({LT::LTMain, PrevVF, CurPlan});
+  PlanDescrs.push_front({LT::LTMain, MainVF, MainUF, CurPlan});
   auto TCInfo = cast<VPlanVector>(CurPlan)
                     ->getMainLoop(true /* StrictCheck */)
                     ->getTripCountInfo();
@@ -633,7 +633,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       ScalarRemainderVPlanFab Fab;
       auto ScalarPlan = Fab.create(MainPlan, OrigLoop);
       CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
-      PlanDescrs.push_front({LT::LTRemainder, 1, CurPlan});
+      PlanDescrs.push_front({LT::LTRemainder, 1 /* VF */, 1 /* UF */, CurPlan});
       PlanDescrs.front().setMaxTripCount(PrevVF - 1);
       dumpNewVPlan(CurPlan);
       break;
@@ -649,7 +649,8 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       } else {
         dumpExistingVPlan(CurPlan);
       }
-      PlanDescrs.insert(AnchorIter, {LT::LTRemainder, Rem.VF, CurPlan});
+      PlanDescrs.insert(AnchorIter,
+                        {LT::LTRemainder, Rem.VF, 1 /* UF */, CurPlan});
       // Non-masked remainder can execute one more iteration when we have a
       // peel. That is due to we don't execute peel and main loop when scalar TC
       // is less than main VF + PeelCnt.
@@ -674,7 +675,8 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       } else {
         dumpExistingVPlan(CurPlan);
       }
-      PlanDescrs.insert(AnchorIter, {LT::LTRemainder, Rem.VF, CurPlan});
+      PlanDescrs.insert(AnchorIter,
+                        {LT::LTRemainder, Rem.VF, 1 /* UF */, CurPlan});
       // Masked remainder can execute more than one iteration when we have a
       // peel. That is due to we don't execute peel and main loop when scalar TC
       // is less than main VF + PeelCnt. See comment above.
