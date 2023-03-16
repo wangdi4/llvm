@@ -18,7 +18,6 @@
 #include "CompilerConfig.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "OCLAddressSpace.h"
 #include "ObjectCodeContainer.h"
 #include "Program.h"
 #include "StaticObjectLoader.h"
@@ -379,7 +378,8 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
 
       PointerType *PT = GV.getType();
       unsigned AS = PT->getAddressSpace();
-      if (!IS_ADDR_SPACE_GLOBAL(AS) && !IS_ADDR_SPACE_CONSTANT(AS))
+      if (CompilationUtils::ADDRESS_SPACE_GLOBAL != AS &&
+          CompilationUtils::ADDRESS_SPACE_CONSTANT != AS)
         continue;
 
       size_t Size = DL.getTypeAllocSize(PT->getContainedType(0));

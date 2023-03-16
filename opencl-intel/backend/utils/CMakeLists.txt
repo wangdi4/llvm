@@ -14,7 +14,6 @@
 #
 set(TARGET_NAME OclBackendUtils)
 
-add_subdirectory(LoopUtils)
 add_subdirectory(objdump)
 
 set(TARGET_EXTRA_SOURCE_FILES SystemInfo.cpp)
@@ -24,9 +23,7 @@ set(TARGET_EXTRA_INCLUDE_FILES
 
 set(TARGET_INCLUDE_FILES
     BackendUtils.h
-    BlockUtils.h
     debuggingservicetype.h
-    OCLAddressSpace.h
     OptimizerConfig.h
     SerializerCompatibility.h
     TypeConversion.h
@@ -39,7 +36,6 @@ set(TARGET_INCLUDE_FILES
 set(TARGET_SOURCE_FILES
     Atomics.cpp
     BackendUtils.cpp
-    BlockUtils.cpp
     GDBRegistrationListener.cpp
     OptimizerConfig.cpp
     SerializerCompatibility.cpp

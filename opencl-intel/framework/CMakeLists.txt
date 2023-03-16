@@ -80,7 +80,6 @@ set(FRAMEWORK_LINK_LIBS
     CacheBinaryHandler
     Context
     Execution
-    LoopUtils
     MemoryAllocator
     ObjDump
     OclBackendUtils
