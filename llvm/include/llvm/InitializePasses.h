@@ -197,12 +197,8 @@ void initializeFinalizeMachineBundlesPass(PassRegistry&);
 void initializeFixIrreduciblePass(PassRegistry &);
 void initializeFixupStatepointCallerSavedPass(PassRegistry&);
 void initializeFlattenCFGLegacyPassPass(PassRegistry &);
-<<<<<<< HEAD
 void initializeFloat128ExpandPass(PassRegistry&); // INTEL
-void initializeFloat2IntLegacyPassPass(PassRegistry&);
 void initializeFoldLoadsToGatherPass(PassRegistry&); // INTEL
-=======
->>>>>>> 1a90faacf1502fb967900ab44b62e8509a369013
 void initializeForceFunctionAttrsLegacyPassPass(PassRegistry&);
 void initializeFuncletLayoutPass(PassRegistry&);
 void initializeFunctionSplittingWrapperPass(PassRegistry&);        // INTEL
@@ -365,14 +361,10 @@ void initializeModuloScheduleTestPass(PassRegistry&);
 void initializeMustExecutePrinterPass(PassRegistry&);
 void initializeMustBeExecutedContextPrinterPass(PassRegistry&);
 void initializeNaryReassociateLegacyPassPass(PassRegistry&);
-<<<<<<< HEAD
-void initializeNewGVNLegacyPassPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION
 void initializeObjCARCAAWrapperPassPass(PassRegistry&);
 void initializeObjCARCAPElimPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 1a90faacf1502fb967900ab44b62e8509a369013
 void initializeObjCARCContractLegacyPassPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 void initializeObjCARCExpandPass(PassRegistry&);

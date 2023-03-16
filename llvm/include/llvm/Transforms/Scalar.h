@@ -331,23 +331,6 @@ FunctionPass *createEarlyCSEPass(bool UseMemorySSA = false);
 
 //===----------------------------------------------------------------------===//
 //
-<<<<<<< HEAD
-// GVNHoist - This pass performs a simple and fast GVN pass over the dominator
-// tree to hoist common expressions from sibling branches.
-//
-FunctionPass *createGVNHoistPass(bool HoistingGeps = false); // INTEL
-
-//===----------------------------------------------------------------------===//
-//
-// GVNSink - This pass uses an "inverted" value numbering to decide the
-// similarity of expressions and sinks similar expressions into successors.
-//
-FunctionPass *createGVNSinkPass();
-
-//===----------------------------------------------------------------------===//
-//
-=======
->>>>>>> 1a90faacf1502fb967900ab44b62e8509a369013
 // MergedLoadStoreMotion - This pass merges loads and stores in diamonds. Loads
 // are hoisted into the header, while stores sink into the footer.
 //

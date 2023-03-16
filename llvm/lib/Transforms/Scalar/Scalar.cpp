@@ -89,11 +89,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLowerMatrixIntrinsicsLegacyPassPass(Registry);
   initializeLowerMatrixIntrinsicsMinimalLegacyPassPass(Registry);
   initializeLowerWidenableConditionLegacyPassPass(Registry);
-<<<<<<< HEAD
   initializeLowerSubscriptIntrinsicLegacyPassPass(Registry); // INTEL
-  initializeMemCpyOptLegacyPassPass(Registry);
-=======
->>>>>>> 1a90faacf1502fb967900ab44b62e8509a369013
   initializeMergeICmpsLegacyPassPass(Registry);
   initializeMergedLoadStoreMotionLegacyPassPass(Registry);
   initializeNaryReassociateLegacyPassPass(Registry);
@@ -116,8 +112,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeStraightLineStrengthReduceLegacyPassPass(Registry);
   initializePlaceBackedgeSafepointsLegacyPassPass(Registry);
   initializePlaceSafepointsLegacyPassPass(Registry);
-<<<<<<< HEAD
-  initializeFloat2IntLegacyPassPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeDopeVectorHoistWrapperPass(Registry);
   initializeNonLTOGlobalOptLegacyPassPass(Registry);
@@ -144,8 +138,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
 #endif // INTEL_FEATURE_CSA
   initializeLoopCarriedCSELegacyPass(Registry);
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 1a90faacf1502fb967900ab44b62e8509a369013
   initializeLoopSimplifyCFGLegacyPassPass(Registry);
   initializeIVSplitLegacyPassPass(Registry); // INTEL
 }
