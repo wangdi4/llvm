@@ -64,9 +64,14 @@ private:
   /// Map table between threadprivate global and threadprivate local pointer
   DenseMap<Value*, Value *> TpvTable;
 
-  /// Map table between the theread-private globals and threadprivate local
-  /// pointer dereference per function.
-  DenseMap<std::pair<Value *, Function*>, AllocaInst *> TpvAcc;
+  /// Map table between thread-private globals and their local versions
+  /// (returned by kmpc_threadprivate_cached calls) per function.
+  DenseMap<std::pair<Value *, Function *>, Instruction *> TpvAcc;
+
+  /// Map table between thread-private globals and their local versions of a
+  /// given Type, per function.
+  DenseMap<std::tuple<Value *, Type *, Function *>, Instruction *>
+      TpvAccWithType;
 
   /// Map table for global thread id per function
   DenseMap<Function*, Instruction *> TidTable;
@@ -81,8 +86,9 @@ private:
       const DataLayout &DL);
 
   /// Returns the threadprivate local pointer dereference given a thread
-  /// private variable and the accessed function.
-  AllocaInst *getTpvRef(Value *V, Instruction *I, const DataLayout &DL);
+  /// private variable \p V, casted to the Type \p Ty (if applicable) for
+  /// accesses in the Function \p F.
+  Instruction *getTpvRef(Value *V, Type *Ty, Function *F, const DataLayout &DL);
 
   /// Returns the threadprivate local pointer given a threadprivate
   /// variable and the accessed function.
@@ -235,15 +241,14 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   // Generates a stack variable to store the dereference of threadprivate
   // local global pointer
   // Example:
-  //     %0 = alloca i8*
+  //     %a.tpv.cached.addr = alloca i8*
   //     ....
   //     %7 = call i8* @__kmpc_threadprivate_cached(...)
-  //     store i8* %7, i8** %0
+  //     store i8* %7, i8** %a.tpv.cached.addr
   //
-  AllocaInst *TpvPtrRef = new AllocaInst(Int8PtrTy, DL.getAllocaAddrSpace(),
-                                         "", &*(B->begin()));
-  TpvAcc[std::make_pair(V, F)]= TpvPtrRef;
-
+  AllocaInst *TpvPtrRef =
+      new AllocaInst(Int8PtrTy, DL.getAllocaAddrSpace(),
+                     V->getName() + ".tpv.cached.addr", &*(B->begin()));
 
   // Generates the code to check whether threadprivate local global pointer is empty.
   // Example:
@@ -338,45 +343,81 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   // Generates the call __kmpc_threadprivate_cached() if threadprivate local global pointer
   // is empty.
   // Example:
-  //   %6 = bitcast i32* @a to i8*
-  //   %7 = call i8* @__kmpc_threadprivate_cached(...)
-  //   store i8* %7, i8** %0
+  //   %6 = bitcast i32* @a to i8*                                           (1)
+  //   %7 = call i8* @__kmpc_threadprivate_cached(...)                       (2)
+  //   store i8* %7, i8** %a.tpv.cached.addr                                 (3)
+  //   %a.tpv.cached = load i8*, i8** %a.tpv.cached.addr                     (4)
+
   Instruction *AI = ElseBB->getTerminator();
   LLVMContext &C = F->getContext();
   StructType *IdentTy = VPOParoptUtils::getIdentStructType(F);
 
   Type *TpvVarValueTy = cast<GlobalVariable>(V)->getValueType();
+  Value *VI8Ptr = nullptr;
 #if !ENABLE_OPAQUEPOINTER
   if (V->getType() != Type::getInt8PtrTy(C))
-    V = CastInst::CreatePointerCast(V, Type::getInt8PtrTy(C),
-                                    Twine(""), ElseBB->getTerminator());
+    VI8Ptr = CastInst::CreatePointerCast(V, Type::getInt8PtrTy(C), Twine(""),
+                                         ElseBB->getTerminator()); //        (1)
+  else
 #endif // !ENABLE_OPAQUEPOINTER
+    VI8Ptr = V;
 
   Type *SizeTTy = GeneralUtils::getSizeTTy(F);
   unsigned SizeTBitWidth = SizeTTy->getIntegerBitWidth();
   Value *SizeV =
       BuilderElse.getIntN(SizeTBitWidth, DL.getTypeAllocSize(TpvVarValueTy));
 
-  CallInst *TC = VPOParoptUtils::genKmpcThreadPrivateCachedCall(
-      F, AI, IdentTy, TidV, V, SizeV, TpvGV);
+  CallInst *TC = VPOParoptUtils::genKmpcThreadPrivateCachedCall( //          (2)
+      F, AI, IdentTy, TidV, VI8Ptr, SizeV, TpvGV);
 
   TC->insertBefore(AI);
   // TODO DT needs to be added as a dependence on the pass.
   // VPOParoptUtils::addFuncletOperandBundle(TC, DT);
-  IRBuilder<> BuilderStore(AI);
-  BuilderStore.CreateStore(TC, TpvPtrRef);
+
+  // TODO: This store + load and the alloca TpvPtrRef can be removed, and  `TC`
+  // used directly instead of the load from TpvPtrRef, since we don't have the
+  // store to TpvPtrRef in the `#if 0` block above.
+  IRBuilder<> BuilderSL(AI);
+  BuilderSL.CreateStore(TC, TpvPtrRef); //                                   (3)
+  LoadInst *TpvCachedVal = BuilderSL.CreateLoad( //                          (4)
+      TpvPtrRef->getAllocatedType(), TpvPtrRef, V->getName() + ".tpv.cached");
+  TpvAcc[{V, F}] = TpvCachedVal;
 }
 
-// Return the threadprivate local global pointer dereferece.
-AllocaInst *VPOParoptTpvLegacy::getTpvRef(Value *V, Instruction *I,
-                                          const DataLayout &DL) {
-  Function *F = I->getParent()->getParent();
-  Instruction *TidV = getThreadNum(V, F);
+// Return the threadprivate local pointer for V with Type Ty, for Function F.
+Instruction *VPOParoptTpvLegacy::getTpvRef(Value *V, Type *Ty, Function *F,
+                                           const DataLayout &DL) {
+  assert(V && "Null threadprivate global.");
+  assert(Ty && "No type to get threadprivate local for.");
+  assert(F && "No function to get threadprivate local for.");
+
+  // If we already have an entry for the given Type, return it.
+  if (auto TpvAccOfTyTypeIt = TpvAccWithType.find({V, Ty, F});
+      TpvAccOfTyTypeIt != TpvAccWithType.end())
+    return TpvAccOfTyTypeIt->second;
+
+  // Emit "kmpc_threadprivate_cached" for V in F, it it hasn't been done yet.
   if (TpvAcc.find(std::make_pair(V, F)) == TpvAcc.end()) {
+    Instruction *TidV = getThreadNum(V, F);
     genTpvRef(V, F, TidV, DL);
   }
 
-  return TpvAcc[std::make_pair(V, F)];
+  Instruction *TpvCached = TpvAcc[{V, F}];
+  assert(TpvCached && "No local version of tpv variable for the function.");
+
+  // Create a cast of the "kmpc_threadprivate_cached" value to Ty, and add it
+  // to the map for future accesses with the same type.
+  Instruction *TpvAccOfTyType = nullptr;
+  if (TpvCached->getType() == Ty) {
+    TpvAccOfTyType = TpvCached;
+  } else {
+    TpvAccOfTyType = CastInst::CreatePointerCast(
+        TpvCached, Ty, TpvCached->getName() + ".cast");
+    TpvAccOfTyType->insertAfter(TpvCached);
+  }
+
+  TpvAccWithType[{V, Ty, F}] = TpvAccOfTyType;
+  return TpvAccOfTyType;
 }
 
 // Utility to collect the instructions which use the incoming value V
@@ -408,9 +449,7 @@ void VPOParoptTpvLegacy::collectGlobalVarRecursively(
 // For each threadprivate globals, converts the reference into
 // the reference of threadprivate local global pointer.
 //
-void VPOParoptTpvLegacy::processTpv(Value *V,
-              const DataLayout &DL) {
-  Instruction *LoadI, *CastI;
+void VPOParoptTpvLegacy::processTpv(Value *V, const DataLayout &DL) {
   SmallVector<Instruction*, 8> RewriteCons;
   SmallVector<Instruction*, 8> RewriteIns;
 
@@ -429,17 +468,10 @@ void VPOParoptTpvLegacy::processTpv(Value *V,
 
   while (!RewriteIns.empty()) {
     Instruction *User = RewriteIns.pop_back_val();
-    AllocaInst *New = getTpvRef(V, User, DL);
-    IRBuilder<> BuilderCE(User->getParent());
-    BuilderCE.SetInsertPoint(User);
-    LoadI = BuilderCE.CreateLoad(New->getAllocatedType(), New);
-    if (V->getType() != LoadI->getType())
-      CastI = CastInst::CreatePointerCast(LoadI, V->getType(), Twine(""), User);
-    else
-      CastI = LoadI;
-    User->replaceUsesOfWith(V, CastI);
+    Instruction *ReplacementV =
+        getTpvRef(V, V->getType(), User->getFunction(), DL);
+    User->replaceUsesOfWith(V, ReplacementV);
   }
-
 }
 
 PreservedAnalyses VPOParoptTpvLegacyPass::run(Module &M, AnalysisManager<Module> &AM) {
