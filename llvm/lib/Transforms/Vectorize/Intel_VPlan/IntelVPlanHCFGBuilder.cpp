@@ -568,7 +568,7 @@ public:
         // insertInductionVPInstructions to generate VPInstructions
         const DataLayout &DL =
             cast<Instruction>(V)->getModule()->getDataLayout();
-        Descriptor.setStepType(DL.getIntPtrType(IndTy));
+        Descriptor.setStepType(Step->getType());
         if (IndTy->isOpaquePointerTy())
           Descriptor.setStepMultiplier(
               DL.getTypeAllocSize(IndPointeeTy).getFixedValue());
