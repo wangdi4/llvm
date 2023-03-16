@@ -1308,6 +1308,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       addllvmOption("-disable-hir-vec-dir-insert");
       addllvmOption("-enable-o0-vectorization=false");
       addllvmOption("-vplan-driver=false");
+      addllvmOption("-vplan-driver-hir=false");
     }
   }
 
