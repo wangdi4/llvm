@@ -883,15 +883,38 @@ bool VPOParoptTransform::ignoreWhenGuardingSideEffectStatements(
     const Instruction *I) {
   //   Ignore calls to the following OpenCL functions
   const std::set<std::string> IgnoreCalls = {
-      "_Z13get_global_idj",  "_Z12get_local_idj",   "_Z14get_local_sizej",
-      "_Z14get_num_groupsj", "_Z12get_group_idj",
-      "_Z22__spirv_ControlBarrieriii",
-      "_Z9mem_fencej",       "_Z14read_mem_fencej", "_Z15write_mem_fencej",
+    "_Z13get_global_idj",
+    "_Z12get_local_idj",
+    "_Z14get_local_sizej",
+    "_Z14get_num_groupsj",
+    "_Z12get_group_idj",
+    "_Z28__spirv_GlobalInvocationId_xv",
+    "_Z28__spirv_GlobalInvocationId_yv",
+    "_Z28__spirv_GlobalInvocationId_zv",
+    "_Z27__spirv_LocalInvocationId_xv",
+    "_Z27__spirv_LocalInvocationId_yv",
+    "_Z27__spirv_LocalInvocationId_zv",
+    "_Z23__spirv_WorkgroupSize_xv",
+    "_Z23__spirv_WorkgroupSize_yv",
+    "_Z23__spirv_WorkgroupSize_zv",
+    "_Z23__spirv_NumWorkgroups_xv",
+    "_Z23__spirv_NumWorkgroups_yv",
+    "_Z23__spirv_NumWorkgroups_zv",
+    "_Z21__spirv_WorkgroupId_xv",
+    "_Z21__spirv_WorkgroupId_yv",
+    "_Z21__spirv_WorkgroupId_zv",
+    "_Z22__spirv_ControlBarrieriii",
+    "_Z9mem_fencej",
+    "_Z14read_mem_fencej",
+    "_Z15write_mem_fencej",
 #if INTEL_CUSTOMIZATION
-      "_f90_dope_vector_init", "_f90_firstprivate_copy",
-      "_f90_dope_vector_size", "_f90_lastprivate_copy",
+    "_f90_dope_vector_init",
+    "_f90_firstprivate_copy",
+    "_f90_dope_vector_size",
+    "_f90_lastprivate_copy",
 #endif // INTEL_CUSTOMIZATION
-      "omp_get_thread_num"};
+    "omp_get_thread_num"
+  };
 
   if (auto II = dyn_cast<IntrinsicInst>(I)) {
     if (II->getIntrinsicID() == Intrinsic::memcpy) {
