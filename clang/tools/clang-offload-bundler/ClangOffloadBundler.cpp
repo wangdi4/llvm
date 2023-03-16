@@ -403,6 +403,8 @@ int main(int argc, const char **argv) {
   llvm::DenseSet<StringRef> ParsedTargets;
   // Map {offload-kind}-{triple} to target IDs.
   std::map<std::string, std::set<StringRef>> TargetIDs;
+  // Standardize target names to include env field
+  std::vector<std::string> StandardizedTargetNames;
   for (StringRef Target : TargetNames) {
     if (ParsedTargets.contains(Target)) {
       reportError(createStringError(errc::invalid_argument,
@@ -413,6 +415,8 @@ int main(int argc, const char **argv) {
     auto OffloadInfo = OffloadTargetInfo(Target, BundlerConfig);
     bool KindIsValid = OffloadInfo.isOffloadKindValid();
     bool TripleIsValid = OffloadInfo.isTripleValid();
+
+    StandardizedTargetNames.push_back(OffloadInfo.str());
 
     if (!KindIsValid || !TripleIsValid) {
       SmallVector<char, 128u> Buf;
@@ -438,6 +442,9 @@ int main(int argc, const char **argv) {
 
     ++Index;
   }
+
+  BundlerConfig.TargetNames = StandardizedTargetNames;
+
   for (const auto &TargetID : TargetIDs) {
     if (auto ConflictingTID =
             clang::getConflictTargetIDCombination(TargetID.second)) {
