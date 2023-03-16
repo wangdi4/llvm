@@ -1886,6 +1886,14 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
   MPM.addPass(CoroCleanupPass());
 
+  // Optimize globals now that functions are fully simplified.
+  MPM.addPass(GlobalOptPass());
+
+  // Remove dead code, except in the ThinLTO pre-link pipeline where we may want
+  // to keep available_externally functions.
+  if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink)
+    MPM.addPass(GlobalDCEPass());
+
   if (EnableMemProfiler && Phase != ThinOrFullLTOPhase::ThinLTOPreLink) {
     MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
     MPM.addPass(ModuleMemProfilerPass());
@@ -2726,10 +2734,6 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
                            LTOPhase == ThinOrFullLTOPhase::FullLTOPreLink);
   ModulePassManager MPM;
 
-  // Optimize globals now that the module is fully simplified.
-  MPM.addPass(GlobalOptPass());
-  MPM.addPass(GlobalDCEPass());
-
   // Run partial inlining pass to partially inline functions that have
   // large bodies.
   if (RunPartialInlining)
@@ -3047,9 +3051,6 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
   // ways that aren't beneficial.
   if (RunPartialInlining)
     MPM.addPass(PartialInlinerPass());
-
-  // Reduce the size of the IR as much as possible.
-  MPM.addPass(GlobalOptPass());
 
   if (PGOOpt && PGOOpt->PseudoProbeForProfiling &&
       PGOOpt->Action == PGOOptions::SampleUse)
