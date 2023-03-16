@@ -37,7 +37,6 @@ set(BACKEND_TEST_TYPE_LINK_LIBS
   LLVMTargetParser
   LLVMVPOTransforms
   LLVMVectorize
-  LoopUtils
   ObjDump
   OclBackendUtils
   OclCpuBackEnd

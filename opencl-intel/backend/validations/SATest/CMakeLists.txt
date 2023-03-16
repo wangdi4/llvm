@@ -121,7 +121,6 @@ target_link_libraries(
   LLVMTargetParser
   LLVMVPOTransforms
   LLVMVectorize
-  LoopUtils
   NEAT
   OCLBuilder
   OCLBuiltinsRef
