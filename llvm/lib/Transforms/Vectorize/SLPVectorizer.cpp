@@ -9133,26 +9133,15 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
   // Calculate cost difference from vectorizing set of GEPs.
   // Negative value means vectorizing is profitable.
   auto GetGEPCostDiff = [=](ArrayRef<Value *> Ptrs, Value *BasePtr) {
-<<<<<<< HEAD
-    InstructionCost CostSavings = 0;
 #if INTEL_CUSTOMIZATION
     // This GEP cost adjustment is wrong for X86 as different offsets are
     // encoded just as different displacements. Put it under advanced opts
     // to avoid tests customization until fixed upstream.
+    InstructionCost ScalarCost = 0;
     if (TTI->isAdvancedOptEnabled(
             TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2))
-      return CostSavings;
+      return ScalarCost;
 #endif // INTEL_CUSTOMIZATION
-    for (Value *V : Ptrs) {
-      if (V == BasePtr)
-        continue;
-      auto *Ptr = dyn_cast<GetElementPtrInst>(V);
-      // GEPs may contain just addresses without instructions, considered free.
-      // GEPs with all constant indices also considered to have zero cost.
-      if (!Ptr || Ptr->hasAllConstantIndices())
-        continue;
-=======
-    InstructionCost ScalarCost = 0;
     InstructionCost VecCost = 0;
     // Here we differentiate two cases: (1) when Ptrs represent a regular
     // vectorization tree node (as they are pointer arguments of scattered
@@ -9173,7 +9162,6 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
       ScalarCost = TTI->getPointersChainCost(
           Ptrs, BasePtr, TTI::PointersChainInfo::getKnownUniformStrided(),
           CostKind);
->>>>>>> f9b438b519716febaddb72c774b02a01225bd712
 
       SmallVector<const Value *> PtrsRetainedInVecCode;
       for (Value *V : Ptrs) {
