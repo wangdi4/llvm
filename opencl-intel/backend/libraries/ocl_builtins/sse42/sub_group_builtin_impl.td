@@ -1831,7 +1831,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v4 = OclBuiltinI
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
     $Arg0VarName = $Arg0VarName && temp;
   }
-  return $Arg0VarName;
+  return $Arg0VarName & ($Arg0Type)1;
 }]>;
 
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_and_vec, [v8i32], 0,
@@ -1847,7 +1847,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v8 = OclBuiltinI
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
     $Arg0VarName = $Arg0VarName && temp;
   }
-  return $Arg0VarName;
+  return $Arg0VarName & ($Arg0Type)1;
 }]>;
 
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_and_vec, [v16i32], 0,
@@ -1863,7 +1863,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v16 = OclBuiltin
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
     $Arg0VarName = $Arg0VarName && temp;
   }
-  return $Arg0VarName;
+  return $Arg0VarName & ($Arg0Type)1;
 }]>;
 
 // logical or, xor
@@ -2190,9 +2190,9 @@ code scan_exclusive_or_xor_v4 = [{
   return $Arg0VarName;
 }];
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or_vec,
-  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_inclusive_or_xor_v4, [["$OP", "|"]]>;
+  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_exclusive_or_xor_v4, [["$OP", "|"]]>;
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor_vec,
-  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_inclusive_or_xor_v4, [["$OP", "^"]]>;
+  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_exclusive_or_xor_v4, [["$OP", "^"]]>;
 
 code scan_exclusive_or_xor_v8 = [{
   $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
@@ -2211,9 +2211,9 @@ code scan_exclusive_or_xor_v8 = [{
   return $Arg0VarName;
 }];
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or_vec,
-  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_inclusive_or_xor_v8, [["$OP", "|"]]>;
+  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_exclusive_or_xor_v8, [["$OP", "|"]]>;
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor_vec,
-  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_inclusive_or_xor_v8, [["$OP", "^"]]>;
+  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_exclusive_or_xor_v8, [["$OP", "^"]]>;
 
 code scan_exclusive_or_xor_v16 = [{
   $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
@@ -2232,9 +2232,9 @@ code scan_exclusive_or_xor_v16 = [{
   return $Arg0VarName;
 }];
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or_vec,
-  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_inclusive_or_xor_v16, [["$OP", "|"]]>;
+  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_exclusive_or_xor_v16, [["$OP", "|"]]>;
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor_vec,
-  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_inclusive_or_xor_v16, [["$OP", "^"]]>;
+  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_exclusive_or_xor_v16, [["$OP", "^"]]>;
 
 
 // non uniform arithmetic
