@@ -22,11 +22,10 @@ define i32 @test() {
 ; CHECK-NEXT:    [[TMP2:%.*]] = sub <4 x i32> [[TMP1]], [[TMP0]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, ptr [[ARRAYIDX677]], align 8
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <8 x i32> [[I130]], <8 x i32> poison, <4 x i32> <i32 7, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> poison, <4 x i32> <i32 undef, i32 0, i32 1, i32 2>
-; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <4 x i32> [[TMP4]], <4 x i32> [[TMP5]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
-; CHECK-NEXT:    [[TMP7:%.*]] = sub <4 x i32> [[TMP3]], [[TMP6]]
-; CHECK-NEXT:    [[TMP8:%.*]] = add <4 x i32> [[TMP7]], [[TMP2]]
-; CHECK-NEXT:    store <4 x i32> [[TMP8]], ptr [[ARRAYIDX667]], align 4
+; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <4 x i32> [[TMP4]], <4 x i32> [[TMP3]], <4 x i32> <i32 0, i32 4, i32 5, i32 6>
+; CHECK-NEXT:    [[TMP6:%.*]] = sub <4 x i32> [[TMP3]], [[TMP5]]
+; CHECK-NEXT:    [[TMP7:%.*]] = add <4 x i32> [[TMP6]], [[TMP2]]
+; CHECK-NEXT:    store <4 x i32> [[TMP7]], ptr [[ARRAYIDX667]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX880:%.*]] = getelementptr inbounds [100 x i32], ptr [[Y]], i64 0, i64 2
 ; CHECK-NEXT:    [[GEPLOAD881:%.*]] = load i32, ptr [[ARRAYIDX880]], align 8
 ; CHECK-NEXT:    [[ARRAYIDX883:%.*]] = getelementptr inbounds [100 x i32], ptr [[CL7]], i64 0, i64 2

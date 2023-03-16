@@ -26,7 +26,7 @@ define void @crash_condition(i64 %c) {
 ; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x i64>, ptr @C, align 8
 ; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x i64>, ptr @B, align 8
 ; CHECK-NEXT:    [[TMP8:%.*]] = shl <4 x i64> [[TMP7]], [[TMP5]]
-; CHECK-NEXT:    [[TMP9:%.*]] = shufflevector <4 x i64> [[TMP5]], <4 x i64> poison, <4 x i32> <i32 1, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[TMP9:%.*]] = shufflevector <2 x i64> [[TMP4]], <2 x i64> poison, <4 x i32> <i32 1, i32 1, i32 1, i32 1>
 ; CHECK-NEXT:    [[TMP10:%.*]] = shl <4 x i64> [[TMP6]], [[TMP9]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = add <4 x i64> [[TMP8]], [[TMP10]]
 ; CHECK-NEXT:    store <4 x i64> [[TMP11]], ptr @A, align 8
