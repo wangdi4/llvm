@@ -508,7 +508,18 @@ void SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
                                    MDNode *BranchWeights = nullptr,
                                    DomTreeUpdater *DTU = nullptr);
 
-<<<<<<< HEAD
+/// Utility function for performing a given action on each lane of a vector
+/// with \p EC elements.  To simplify porting legacy code, this defaults to
+/// unrolling the implied loop for non-scalable element counts, but this is
+/// not considered to be part of the contract of this routine, and is
+/// expected to change in the future. The callback takes as arguments an
+/// IRBuilder whose insert point is correctly set for instantiating the
+/// given index, and a value which is (at runtime) the index to access.
+/// This index *may* be a constant.
+void SplitBlockAndInsertForEachLane(ElementCount EC, Type *IndexTy,
+    Instruction *InsertBefore,
+    std::function<void(IRBuilderBase&, Value*)> Func);
+
 #if INTEL_CUSTOMIZATION
 /// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&, BasicBlock *)
 /// is an Intel customized routine that overloads the more limited
@@ -537,19 +548,6 @@ void SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
 BranchInst *GetIfCondition(BasicBlock *BB, BasicBlock *Pred,
                            BasicBlock *&IfTrue, BasicBlock *&IfFalse);
 #endif // INTEL_CUSTOMIZATION
-=======
-/// Utility function for performing a given action on each lane of a vector
-/// with \p EC elements.  To simplify porting legacy code, this defaults to
-/// unrolling the implied loop for non-scalable element counts, but this is
-/// not considered to be part of the contract of this routine, and is
-/// expected to change in the future. The callback takes as arguments an
-/// IRBuilder whose insert point is correctly set for instantiating the
-/// given index, and a value which is (at runtime) the index to access.
-/// This index *may* be a constant.
-void SplitBlockAndInsertForEachLane(ElementCount EC, Type *IndexTy,
-    Instruction *InsertBefore,
-    std::function<void(IRBuilderBase&, Value*)> Func);
->>>>>>> 9227f286acd8f411b74908b4f1a42a0d748b5cac
 
 /// Check whether BB is the merge point of a if-region.
 /// If so, return the branch instruction that determines which entry into

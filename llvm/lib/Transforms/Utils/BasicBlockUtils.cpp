@@ -1925,12 +1925,6 @@ void llvm::SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
   }
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-/// We replace the 3-argument function with a call to the 4-argument function.
-/// Any changes made to the open-source 3-argument function will need to be
-/// merged properly.
-=======
 /// Insert a for (int i = 0; i < End; i++) loop structure (with the exception
 /// that \p End is assumed > 0, and thus not checked on entry) at \p
 /// SplitBefore.  Returns the first insert point in the loop body, and the
@@ -1986,7 +1980,10 @@ void llvm::SplitBlockAndInsertForEachLane(ElementCount EC,
   }
 }
 
->>>>>>> 9227f286acd8f411b74908b4f1a42a0d748b5cac
+#if INTEL_CUSTOMIZATION
+/// We replace the 3-argument function with a call to the 4-argument function.
+/// Any changes made to the open-source 3-argument function will need to be
+/// merged properly.
 BranchInst *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
                                  BasicBlock *&IfFalse) {
   PHINode *SomePHI = dyn_cast<PHINode>(BB->begin());
