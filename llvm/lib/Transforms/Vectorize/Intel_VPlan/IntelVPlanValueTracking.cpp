@@ -78,7 +78,7 @@ public:
       if (const auto *CI = dyn_cast<ConstantInt>(C->getConstant()))
         return KnownBits::makeConstant(CI->getValue());
       if (isa<ConstantPointerNull>(C->getConstant()))
-        return KnownBits::makeConstant(APInt::getNullValue(BitWidth));
+        return KnownBits::makeConstant(APInt::getZero(BitWidth));
     }
 
     // Otherwise, we know nothing about V's known bits.
