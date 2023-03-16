@@ -8296,6 +8296,8 @@ void CodeGenFunction::HoistTeamsClausesIfPossible(
             C == Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass)
           Dir = cast<OMPExecutableDirective>(CS);
       }
+      // thread_limit clause is allowed on 'target' construct since OpenMP 5.1
+      EnsureAddressableClauseExpr(S.getSingleClause<OMPThreadLimitClause>());
       break;
     default:
       break;
