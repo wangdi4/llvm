@@ -10243,18 +10243,13 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromCondImpl(
       LHS = getAddExpr(LHS, getConstant(Offset));
 #if INTEL_CUSTOMIZATION
     auto EL = computeExitLimitFromICmp(L, dyn_cast<ICmpInst>(ExitCond), Pred, LHS, getConstant(NewRHSC),
-                                       ControlsExit, AllowPredicates);
+                                       ControlsOnlyExit, AllowPredicates);
 #else
     auto EL = computeExitLimitFromICmp(L, Pred, LHS, getConstant(NewRHSC),
-<<<<<<< HEAD
-                                       ControlsExit, AllowPredicates);
-#endif // INTEL_CUSTOMIZATION
-    if (EL.hasAnyInfo()) return EL;
-=======
                                        ControlsOnlyExit, AllowPredicates);
+#endif // INTEL_CUSTOMIZATION
     if (EL.hasAnyInfo())
       return EL;
->>>>>>> 2f3dc5fa8b5ddc6cec944580ec59a66cefdf54e7
   }
 
   // If it's not an integer or pointer comparison then compute it the hard way.
@@ -10429,18 +10424,12 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromICmp(
   const SCEV *LHS = getSCEV(ExitCond->getOperand(0));
   const SCEV *RHS = getSCEV(ExitCond->getOperand(1));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   ExitLimit EL = computeExitLimitFromICmp(L, ExitCond, Pred, LHS, RHS,
-                                          ControlsExit, AllowPredicates);
+                                          ControlsOnlyExit, AllowPredicates);
 #endif // INTEL_CUSTOMIZATION
-  if (EL.hasAnyInfo()) return EL;
-=======
-  ExitLimit EL = computeExitLimitFromICmp(L, Pred, LHS, RHS, ControlsOnlyExit,
-                                          AllowPredicates);
   if (EL.hasAnyInfo())
     return EL;
->>>>>>> 2f3dc5fa8b5ddc6cec944580ec59a66cefdf54e7
 
   auto *ExhaustiveCount =
       computeExitCountExhaustively(L, ExitCond, ExitIfTrue);
@@ -10451,19 +10440,10 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromICmp(
   return computeShiftCompareExitLimit(ExitCond->getOperand(0),
                                       ExitCond->getOperand(1), L, OriginalPred);
 }
-<<<<<<< HEAD
-ScalarEvolution::ExitLimit
-ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
-                                          ICmpInst *ExitCond, // INTEL
-                                          ICmpInst::Predicate Pred,
-                                          const SCEV *LHS, const SCEV *RHS,
-                                          bool ControlsExit,
-                                          bool AllowPredicates) {
-=======
 ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromICmp(
-    const Loop *L, ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
+    const Loop *L, ICmpInst *ExitCond, // INTEL
+    ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS, // INTEL
     bool ControlsOnlyExit, bool AllowPredicates) {
->>>>>>> 2f3dc5fa8b5ddc6cec944580ec59a66cefdf54e7
 
   // Try to evaluate any dependencies out of the loop.
   LHS = getSCEVAtScope(LHS, L);
@@ -10477,7 +10457,6 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromICmp(
     Pred = ICmpInst::getSwappedPredicate(Pred);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Predicate logic can provide more refined results in some case by assuming
   // nowrap on a zero/sign extended IV.
@@ -10485,14 +10464,10 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromICmp(
     truncateExtendedExitOperands(*this, LHS, RHS);
   // This needs to be checked before simplification happens below.
   // Simplification changes '<=' to '<' which results in information loss.
-  bool IVMaxValIsUB = isIVMaxValUB(LHS, Pred, ControlsExit);
+  bool IVMaxValIsUB = isIVMaxValUB(LHS, Pred, ControlsOnlyExit);
 #endif // INTEL_CUSTOMIZATION
-  bool ControllingFiniteLoop =
-      ControlsExit && loopHasNoAbnormalExits(L) && loopIsFiniteByAssumption(L);
-=======
   bool ControllingFiniteLoop = ControlsOnlyExit && loopHasNoAbnormalExits(L) &&
                                loopIsFiniteByAssumption(L);
->>>>>>> 2f3dc5fa8b5ddc6cec944580ec59a66cefdf54e7
   // Simplify the operands before analyzing them.
   (void)SimplifyICmpOperands(Pred, LHS, RHS, ExitCond, /*Depth=*/0); // INTEL
 
@@ -10580,18 +10555,12 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromICmp(
   case ICmpInst::ICMP_SLT:
   case ICmpInst::ICMP_ULT: { // while (X < Y)
     bool IsSigned = ICmpInst::isSigned(Pred);
-<<<<<<< HEAD
-    ExitLimit EL = howManyLessThans(LHS, RHS, L, IsSigned, ControlsExit,
+    ExitLimit EL = howManyLessThans(LHS, RHS, L, IsSigned, ControlsOnlyExit,
 #if INTEL_CUSTOMIZATION
                                     AllowPredicates, IVMaxValIsUB, ExitCond);
 #endif // INTEL_CUSTOMIZATION
-    if (EL.hasAnyInfo()) return EL;
-=======
-    ExitLimit EL = howManyLessThans(LHS, RHS, L, IsSigned, ControlsOnlyExit,
-                                    AllowPredicates);
     if (EL.hasAnyInfo())
       return EL;
->>>>>>> 2f3dc5fa8b5ddc6cec944580ec59a66cefdf54e7
     break;
   }
   case ICmpInst::ICMP_SGE:
@@ -10606,17 +10575,10 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeExitLimitFromICmp(
   case ICmpInst::ICMP_SGT:
   case ICmpInst::ICMP_UGT: { // while (X > Y)
     bool IsSigned = ICmpInst::isSigned(Pred);
-<<<<<<< HEAD
-    ExitLimit EL =
-        howManyGreaterThans(LHS, RHS, L, IsSigned, ControlsExit,
-                            AllowPredicates, ExitCond); // INTEL
-    if (EL.hasAnyInfo()) return EL;
-=======
     ExitLimit EL = howManyGreaterThans(LHS, RHS, L, IsSigned, ControlsOnlyExit,
-                                       AllowPredicates);
+                                       AllowPredicates, ExitCond); // INTEL
     if (EL.hasAnyInfo())
       return EL;
->>>>>>> 2f3dc5fa8b5ddc6cec944580ec59a66cefdf54e7
     break;
   }
   default:
@@ -15109,14 +15071,10 @@ const SCEV *ScalarEvolution::computeMaxBECountForLT(const SCEV *Start,
 ScalarEvolution::ExitLimit
 ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
                                   const Loop *L, bool IsSigned,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-                                  bool ControlsExit, bool AllowPredicates,
+                                  bool ControlsOnlyExit, bool AllowPredicates,
                                   bool IVMaxValIsUB, ICmpInst *ExitCond) {
 #endif // INTEL_CUSTOMIZATION
-=======
-                                  bool ControlsOnlyExit, bool AllowPredicates) {
->>>>>>> 2f3dc5fa8b5ddc6cec944580ec59a66cefdf54e7
   SmallPtrSet<const SCEVPredicate *, 4> Predicates;
 
   const SCEVAddRecExpr *IV = dyn_cast<SCEVAddRecExpr>(LHS);
@@ -15221,11 +15179,7 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
   // INTEL - Use original SCEV to get precise wrap flags.
   auto OrigIV = cast<SCEVAddRecExpr>(getNonScopedSCEV(IV)); // INTEL
   auto WrapType = IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW;
-<<<<<<< HEAD
-  bool NoWrap = ControlsExit && OrigIV->getNoWrapFlags(WrapType); // INTEL
-=======
-  bool NoWrap = ControlsOnlyExit && IV->getNoWrapFlags(WrapType);
->>>>>>> 2f3dc5fa8b5ddc6cec944580ec59a66cefdf54e7
+  bool NoWrap = ControlsOnlyExit && OrigIV->getNoWrapFlags(WrapType); // INTEL
   ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT;
 
   const SCEV *Stride = IV->getStepRecurrence(*this);
@@ -15558,19 +15512,9 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
                    Predicates);
 }
 
-<<<<<<< HEAD
-ScalarEvolution::ExitLimit
-ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
-                                     const Loop *L, bool IsSigned,
-#if INTEL_CUSTOMIZATION
-                                     bool ControlsExit, bool AllowPredicates,
-                                     ICmpInst *ExitCond) {
-#endif // INTEL_CUSTOMIZATION
-=======
 ScalarEvolution::ExitLimit ScalarEvolution::howManyGreaterThans(
     const SCEV *LHS, const SCEV *RHS, const Loop *L, bool IsSigned,
-    bool ControlsOnlyExit, bool AllowPredicates) {
->>>>>>> 2f3dc5fa8b5ddc6cec944580ec59a66cefdf54e7
+    bool ControlsOnlyExit, bool AllowPredicates, ICmpInst *ExitCond) { // INTEL
   SmallPtrSet<const SCEVPredicate *, 4> Predicates;
   // We handle only IV > Invariant
   if (!isLoopInvariant(RHS, L))
@@ -15590,11 +15534,7 @@ ScalarEvolution::ExitLimit ScalarEvolution::howManyGreaterThans(
   // INTEL - Use original SCEV to get precise wrap flags.
   auto OrigIV = cast<SCEVAddRecExpr>(getNonScopedSCEV(IV)); // INTEL
   auto WrapType = IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW;
-<<<<<<< HEAD
-  bool NoWrap = ControlsExit && OrigIV->getNoWrapFlags(WrapType); // INTEL
-=======
-  bool NoWrap = ControlsOnlyExit && IV->getNoWrapFlags(WrapType);
->>>>>>> 2f3dc5fa8b5ddc6cec944580ec59a66cefdf54e7
+  bool NoWrap = ControlsOnlyExit && OrigIV->getNoWrapFlags(WrapType); // INTEL
   ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SGT : ICmpInst::ICMP_UGT;
 
   const SCEV *Stride = getNegativeSCEV(IV->getStepRecurrence(*this));

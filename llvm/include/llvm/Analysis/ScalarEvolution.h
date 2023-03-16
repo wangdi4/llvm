@@ -1987,15 +1987,10 @@ protected: // INTEL
   /// If \p AllowPredicates is set, this call will try to use a minimal set of
   /// SCEV predicates in order to return an exact answer.
   ExitLimit howManyLessThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
-<<<<<<< HEAD
-                             bool isSigned, bool ControlsExit,
+                             bool isSigned, bool ControlsOnlyExit,
                              bool AllowPredicates = false,  // INTEL
                              bool IVMaxValIsUB = false,     // INTEL
                              ICmpInst *ExitCond = nullptr); // INTEL
-=======
-                             bool isSigned, bool ControlsOnlyExit,
-                             bool AllowPredicates = false);
->>>>>>> 2f3dc5fa8b5ddc6cec944580ec59a66cefdf54e7
 
   ExitLimit howManyGreaterThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                                 bool isSigned, bool IsSubExpr,
