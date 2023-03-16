@@ -29609,28 +29609,6 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
       SDValue PassThru = Op.getOperand(1);
       SDValue Mask = Op.getOperand(2);
       SDValue Src1 = Op.getOperand(3);
-      SDValue Src2 = Op.getOperand(4);
-      MVT DstVecTy = Op.getSimpleValueType();
-      int NumElts = DstVecTy.getVectorNumElements();
-      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
-      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
-      if (IntrData->Opc1 != 0) {
-        SDValue Rnd = Op.getOperand(5);
-        unsigned RC = 0;
-        if (isRoundModeSAEToX(Rnd, RC))
-          return DAG.getNode(IntrData->Opc1, dl, Op.getValueType(),
-                              {PassThru, VMask, Src1, Src2,
-                              DAG.getTargetConstant(RC, dl, MVT::i32)});
-        else if (!isRoundModeCurDirection(Rnd))
-          return SDValue();
-      }
-      return DAG.getNode(IntrData->Opc0, dl, Op.getValueType(),
-                         {PassThru, VMask, Src1, Src2});
-    }
-    case AVX512_SAT_CVT_MASKZ: {
-      SDValue Mask = Op.getOperand(1);
-      SDValue Src1 = Op.getOperand(2);
-      SDValue Src2 = Op.getOperand(3);
       MVT DstVecTy = Op.getSimpleValueType();
       int NumElts = DstVecTy.getVectorNumElements();
       MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
@@ -29640,38 +29618,38 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
         unsigned RC = 0;
         if (isRoundModeSAEToX(Rnd, RC))
           return DAG.getNode(IntrData->Opc1, dl, Op.getValueType(),
-                              {VMask, Src1, Src2,
+                              {PassThru, VMask, Src1,
                               DAG.getTargetConstant(RC, dl, MVT::i32)});
         else if (!isRoundModeCurDirection(Rnd))
           return SDValue();
       }
       return DAG.getNode(IntrData->Opc0, dl, Op.getValueType(),
-                         {VMask, Src1, Src2});
+                         {PassThru, VMask, Src1});
+    }
+    case AVX512_SAT_CVT_MASKZ: {
+      SDValue Mask = Op.getOperand(1);
+      SDValue Src1 = Op.getOperand(2);
+      MVT DstVecTy = Op.getSimpleValueType();
+      int NumElts = DstVecTy.getVectorNumElements();
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      if (IntrData->Opc1 != 0) {
+        SDValue Rnd = Op.getOperand(3);
+        unsigned RC = 0;
+        if (isRoundModeSAEToX(Rnd, RC))
+          return DAG.getNode(IntrData->Opc1, dl, Op.getValueType(),
+                              {VMask, Src1,
+                              DAG.getTargetConstant(RC, dl, MVT::i32)});
+        else if (!isRoundModeCurDirection(Rnd))
+          return SDValue();
+      }
+      return DAG.getNode(IntrData->Opc0, dl, Op.getValueType(),
+                         {VMask, Src1});
     }
     case AVX512_SAT_CVT_MASK_SAE: {
       SDValue PassThru = Op.getOperand(1);
       SDValue Mask = Op.getOperand(2);
       SDValue Src1 = Op.getOperand(3);
-      SDValue Src2 = Op.getOperand(4);
-      SDValue Rnd = Op.getOperand(5);
-      MVT DstVecTy = Op.getSimpleValueType();
-      int NumElts = DstVecTy.getVectorNumElements();
-      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
-      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
-      unsigned Opc;
-      if (isRoundModeCurDirection(Rnd))
-        Opc = IntrData->Opc0;
-      else if (isRoundModeSAE(Rnd))
-        Opc = IntrData->Opc1;
-      else
-        return SDValue();
-      return DAG.getNode(Opc, dl, Op.getValueType(),
-                         {PassThru, VMask, Src1, Src2});
-    }
-    case AVX512_SAT_CVT_MASKZ_SAE: {
-      SDValue Mask = Op.getOperand(1);
-      SDValue Src1 = Op.getOperand(2);
-      SDValue Src2 = Op.getOperand(3);
       SDValue Rnd = Op.getOperand(4);
       MVT DstVecTy = Op.getSimpleValueType();
       int NumElts = DstVecTy.getVectorNumElements();
@@ -29684,7 +29662,25 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
         Opc = IntrData->Opc1;
       else
         return SDValue();
-      return DAG.getNode(Opc, dl, Op.getValueType(), {VMask, Src1, Src2});
+      return DAG.getNode(Opc, dl, Op.getValueType(),
+                         {PassThru, VMask, Src1});
+    }
+    case AVX512_SAT_CVT_MASKZ_SAE: {
+      SDValue Mask = Op.getOperand(1);
+      SDValue Src1 = Op.getOperand(2);
+      SDValue Rnd = Op.getOperand(3);
+      MVT DstVecTy = Op.getSimpleValueType();
+      int NumElts = DstVecTy.getVectorNumElements();
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      unsigned Opc;
+      if (isRoundModeCurDirection(Rnd))
+        Opc = IntrData->Opc0;
+      else if (isRoundModeSAE(Rnd))
+        Opc = IntrData->Opc1;
+      else
+        return SDValue();
+      return DAG.getNode(Opc, dl, Op.getValueType(), {VMask, Src1});
     }
 #endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 #endif // INTEL_CUSTOMIZATION
@@ -30074,12 +30070,11 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
     SDLoc DL(Op);
     SDValue Src0 = Op.getOperand(0);
     SDValue Src1 = Op.getOperand(1);
-    SDValue Src2 = Op.getOperand(2);
-    SDValue Rnd = Op.getOperand(3);
+    SDValue Rnd = Op.getOperand(2);
     unsigned RC = 0;
     if (isRoundModeSAEToX(Rnd, RC))
       return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, DL, Op.getValueType(),
-                         {Src0, Src1, Src2,
+                         {Src0, Src1,
                          DAG.getTargetConstant(RC, DL, MVT::i32)});
 
     return SDValue();
@@ -30090,8 +30085,7 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
   case Intrinsic::x86_vcvttps2iubs_round_512: {
     SDLoc DL(Op);
     SDValue Src1 = Op.getOperand(1);
-    SDValue Src2 = Op.getOperand(2);
-    SDValue Rnd = Op.getOperand(3);
+    SDValue Rnd = Op.getOperand(2);
     if (isRoundModeCurDirection(Rnd)) {
       unsigned NewIntrinsic;
       switch (IntNo) {
@@ -30113,7 +30107,7 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
       SDValue S = DAG.getTargetConstant(NewIntrinsic, DL,
                                         getPointerTy(DAG.getDataLayout()));
       return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, DL, Op.getValueType(),
-                         {S, Src1, Src2});
+                         {S, Src1});
     } else if (isRoundModeSAE(Rnd)) {
       unsigned NewOpc;
       switch (IntNo) {
@@ -30132,8 +30126,7 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
           NewOpc = X86ISD::VCVTTPS2IUBS_SAE;
           break;
         }
-      return DAG.getNode(NewOpc, dl, Op.getValueType(), Src1,
-                         Src2);
+      return DAG.getNode(NewOpc, dl, Op.getValueType(), Src1);
     }
     return SDValue();
   }

@@ -6285,58 +6285,6 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
 #endif // INTEL_CUSTOMIZATION
     i = 1; l = 0; u = 255;
     break;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
-  case X86::BI__builtin_ia32_vcvtnebf162ibs128:
-  case X86::BI__builtin_ia32_vcvtnebf162ibs256:
-  case X86::BI__builtin_ia32_vcvtnebf162ibs512:
-  case X86::BI__builtin_ia32_vcvtnebf162iubs128:
-  case X86::BI__builtin_ia32_vcvtnebf162iubs256:
-  case X86::BI__builtin_ia32_vcvtnebf162iubs512:
-  case X86::BI__builtin_ia32_vcvtph2ibs128:
-  case X86::BI__builtin_ia32_vcvtph2ibs256:
-  case X86::BI__builtin_ia32_vcvtph2ibs512:
-  case X86::BI__builtin_ia32_vcvtph2iubs128:
-  case X86::BI__builtin_ia32_vcvtph2iubs256:
-  case X86::BI__builtin_ia32_vcvtph2iubs512:
-  case X86::BI__builtin_ia32_vcvttnebf162ibs128:
-  case X86::BI__builtin_ia32_vcvttnebf162ibs256:
-  case X86::BI__builtin_ia32_vcvttnebf162ibs512:
-  case X86::BI__builtin_ia32_vcvttnebf162iubs128:
-  case X86::BI__builtin_ia32_vcvttnebf162iubs256:
-  case X86::BI__builtin_ia32_vcvttnebf162iubs512:
-  case X86::BI__builtin_ia32_vcvttph2ibs128:
-  case X86::BI__builtin_ia32_vcvttph2ibs256:
-  case X86::BI__builtin_ia32_vcvttph2ibs512:
-  case X86::BI__builtin_ia32_vcvttph2iubs128:
-  case X86::BI__builtin_ia32_vcvttph2iubs256:
-  case X86::BI__builtin_ia32_vcvttph2iubs512:
-  case X86::BI__builtin_ia32_vcvtph2ibs512_round:
-  case X86::BI__builtin_ia32_vcvtph2iubs512_round:
-  case X86::BI__builtin_ia32_vcvttph2ibs512_round:
-  case X86::BI__builtin_ia32_vcvttph2iubs512_round:
-    i = 1; l = 0; u = 1;
-    break;
-  case X86::BI__builtin_ia32_vcvtps2ibs128:
-  case X86::BI__builtin_ia32_vcvtps2ibs256:
-  case X86::BI__builtin_ia32_vcvtps2ibs512:
-  case X86::BI__builtin_ia32_vcvtps2iubs128:
-  case X86::BI__builtin_ia32_vcvtps2iubs256:
-  case X86::BI__builtin_ia32_vcvtps2iubs512:
-  case X86::BI__builtin_ia32_vcvttps2ibs128:
-  case X86::BI__builtin_ia32_vcvttps2ibs256:
-  case X86::BI__builtin_ia32_vcvttps2ibs512:
-  case X86::BI__builtin_ia32_vcvttps2iubs128:
-  case X86::BI__builtin_ia32_vcvttps2iubs256:
-  case X86::BI__builtin_ia32_vcvttps2iubs512:
-  case X86::BI__builtin_ia32_vcvtps2ibs512_round:
-  case X86::BI__builtin_ia32_vcvtps2iubs512_round:
-  case X86::BI__builtin_ia32_vcvttps2ibs512_round:
-  case X86::BI__builtin_ia32_vcvttps2iubs512_round:
-    i = 1; l = 0; u = 3;
-    break;
-#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
-#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vperm2f128_pd256:
   case X86::BI__builtin_ia32_vperm2f128_ps256:
   case X86::BI__builtin_ia32_vperm2f128_si256:
@@ -6442,56 +6390,6 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
     i = 2; l = 0; u = 255;
     break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
-  case X86::BI__builtin_ia32_vcvtnebf162ibs128_maskz:
-  case X86::BI__builtin_ia32_vcvtnebf162iubs128_maskz:
-  case X86::BI__builtin_ia32_vcvtph2ibs128_maskz:
-  case X86::BI__builtin_ia32_vcvtph2iubs128_maskz:
-  case X86::BI__builtin_ia32_vcvttnebf162ibs128_maskz:
-  case X86::BI__builtin_ia32_vcvttnebf162iubs128_maskz:
-  case X86::BI__builtin_ia32_vcvttph2ibs128_maskz:
-  case X86::BI__builtin_ia32_vcvttph2iubs128_maskz:
-  case X86::BI__builtin_ia32_vcvtnebf162ibs256_maskz:
-  case X86::BI__builtin_ia32_vcvtnebf162iubs256_maskz:
-  case X86::BI__builtin_ia32_vcvtph2ibs256_maskz:
-  case X86::BI__builtin_ia32_vcvtph2iubs256_maskz:
-  case X86::BI__builtin_ia32_vcvttnebf162ibs256_maskz:
-  case X86::BI__builtin_ia32_vcvttnebf162iubs256_maskz:
-  case X86::BI__builtin_ia32_vcvttph2ibs256_maskz:
-  case X86::BI__builtin_ia32_vcvttph2iubs256_maskz:
-  case X86::BI__builtin_ia32_vcvtnebf162ibs512_maskz:
-  case X86::BI__builtin_ia32_vcvtnebf162iubs512_maskz:
-  case X86::BI__builtin_ia32_vcvtph2ibs512_maskz:
-  case X86::BI__builtin_ia32_vcvtph2iubs512_maskz:
-  case X86::BI__builtin_ia32_vcvttnebf162ibs512_maskz:
-  case X86::BI__builtin_ia32_vcvttnebf162iubs512_maskz:
-  case X86::BI__builtin_ia32_vcvttph2ibs512_maskz:
-  case X86::BI__builtin_ia32_vcvttph2iubs512_maskz:
-  case X86::BI__builtin_ia32_vcvtph2ibs512_round_maskz:
-  case X86::BI__builtin_ia32_vcvtph2iubs512_round_maskz:
-  case X86::BI__builtin_ia32_vcvttph2ibs512_round_maskz:
-  case X86::BI__builtin_ia32_vcvttph2iubs512_round_maskz:
-    i = 2; l = 0; u = 1;
-    break;
-  case X86::BI__builtin_ia32_vcvtps2ibs128_maskz:
-  case X86::BI__builtin_ia32_vcvtps2iubs128_maskz:
-  case X86::BI__builtin_ia32_vcvttps2ibs128_maskz:
-  case X86::BI__builtin_ia32_vcvttps2iubs128_maskz:
-  case X86::BI__builtin_ia32_vcvtps2ibs256_maskz:
-  case X86::BI__builtin_ia32_vcvtps2iubs256_maskz:
-  case X86::BI__builtin_ia32_vcvttps2ibs256_maskz:
-  case X86::BI__builtin_ia32_vcvttps2iubs256_maskz:
-  case X86::BI__builtin_ia32_vcvtps2ibs512_maskz:
-  case X86::BI__builtin_ia32_vcvtps2iubs512_maskz:
-  case X86::BI__builtin_ia32_vcvttps2ibs512_maskz:
-  case X86::BI__builtin_ia32_vcvttps2iubs512_maskz:
-  case X86::BI__builtin_ia32_vcvtps2ibs512_round_maskz:
-  case X86::BI__builtin_ia32_vcvtps2iubs512_round_maskz:
-  case X86::BI__builtin_ia32_vcvttps2ibs512_round_maskz:
-  case X86::BI__builtin_ia32_vcvttps2iubs512_round_maskz:
-    i = 2; l = 0; u = 3;
-    break;
-#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
 #if INTEL_FEATURE_ISA_AVX512_VPMM
   case X86::BI__builtin_ia32_vmmif16ps_128:
     i = 3; l = 0; u = 0;
@@ -6554,58 +6452,6 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
 #endif // INTEL_CUSTOMIZATION
     i = 3; l = 0; u = 255;
     break;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_SAT_CVT
-  case X86::BI__builtin_ia32_vcvtnebf162ibs128_mask:
-  case X86::BI__builtin_ia32_vcvtnebf162iubs128_mask:
-  case X86::BI__builtin_ia32_vcvtph2ibs128_mask:
-  case X86::BI__builtin_ia32_vcvtph2iubs128_mask:
-  case X86::BI__builtin_ia32_vcvttnebf162ibs128_mask:
-  case X86::BI__builtin_ia32_vcvttnebf162iubs128_mask:
-  case X86::BI__builtin_ia32_vcvttph2ibs128_mask:
-  case X86::BI__builtin_ia32_vcvttph2iubs128_mask:
-  case X86::BI__builtin_ia32_vcvtnebf162ibs256_mask:
-  case X86::BI__builtin_ia32_vcvtnebf162iubs256_mask:
-  case X86::BI__builtin_ia32_vcvtph2ibs256_mask:
-  case X86::BI__builtin_ia32_vcvtph2iubs256_mask:
-  case X86::BI__builtin_ia32_vcvttnebf162ibs256_mask:
-  case X86::BI__builtin_ia32_vcvttnebf162iubs256_mask:
-  case X86::BI__builtin_ia32_vcvttph2ibs256_mask:
-  case X86::BI__builtin_ia32_vcvttph2iubs256_mask:
-  case X86::BI__builtin_ia32_vcvtnebf162ibs512_mask:
-  case X86::BI__builtin_ia32_vcvtnebf162iubs512_mask:
-  case X86::BI__builtin_ia32_vcvtph2ibs512_mask:
-  case X86::BI__builtin_ia32_vcvtph2iubs512_mask:
-  case X86::BI__builtin_ia32_vcvttnebf162ibs512_mask:
-  case X86::BI__builtin_ia32_vcvttnebf162iubs512_mask:
-  case X86::BI__builtin_ia32_vcvttph2ibs512_mask:
-  case X86::BI__builtin_ia32_vcvttph2iubs512_mask:
-  case X86::BI__builtin_ia32_vcvtph2ibs512_round_mask:
-  case X86::BI__builtin_ia32_vcvtph2iubs512_round_mask:
-  case X86::BI__builtin_ia32_vcvttph2ibs512_round_mask:
-  case X86::BI__builtin_ia32_vcvttph2iubs512_round_mask:
-    i = 3; l = 0; u = 1;
-    break;
-  case X86::BI__builtin_ia32_vcvtps2ibs128_mask:
-  case X86::BI__builtin_ia32_vcvtps2iubs128_mask:
-  case X86::BI__builtin_ia32_vcvttps2ibs128_mask:
-  case X86::BI__builtin_ia32_vcvttps2iubs128_mask:
-  case X86::BI__builtin_ia32_vcvtps2ibs256_mask:
-  case X86::BI__builtin_ia32_vcvtps2iubs256_mask:
-  case X86::BI__builtin_ia32_vcvttps2ibs256_mask:
-  case X86::BI__builtin_ia32_vcvttps2iubs256_mask:
-  case X86::BI__builtin_ia32_vcvtps2ibs512_mask:
-  case X86::BI__builtin_ia32_vcvtps2iubs512_mask:
-  case X86::BI__builtin_ia32_vcvttps2ibs512_mask:
-  case X86::BI__builtin_ia32_vcvttps2iubs512_mask:
-  case X86::BI__builtin_ia32_vcvtps2ibs512_round_mask:
-  case X86::BI__builtin_ia32_vcvtps2iubs512_round_mask:
-  case X86::BI__builtin_ia32_vcvttps2ibs512_round_mask:
-  case X86::BI__builtin_ia32_vcvttps2iubs512_round_mask:
-    i = 3; l = 0; u = 3;
-    break;
-#endif // INTEL_FEATURE_ISA_AVX512_SAT_CVT
-#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_gatherpfdpd:
   case X86::BI__builtin_ia32_gatherpfdps:
   case X86::BI__builtin_ia32_gatherpfqpd:
