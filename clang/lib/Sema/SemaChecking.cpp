@@ -7851,7 +7851,7 @@ bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     // BitsPerSymbol, positive integer value that evenly divides Type size.
     if (SemaBuiltinConstantArg(TheCall, 4, Result))
       return true;
-    if (!Result.isNullValue() &&
+    if (!Result.isZero() &&
         (Result.isNegative() ||
          Context.getTypeSize(Pointer->getPointeeType())
              % Result.getZExtValue() != 0))

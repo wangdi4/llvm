@@ -10787,7 +10787,7 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
   // Look for (icmp ne (shr_recurrence), 1), if we can prove the MSB of the
   // starting value we can determine the loop count.
   if (Pred == ICmpInst::ICMP_NE && OpCode == Instruction::LShr &&
-      RHS->getValue().isOneValue()) {
+      RHS->getValue().isOne()) {
     Value *FirstValue = PN->getIncomingValueForBlock(Predecessor);
     KnownBits Known = computeKnownBits(FirstValue, DL, 0, nullptr,
                                        Predecessor->getTerminator(), &DT);

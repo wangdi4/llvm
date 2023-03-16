@@ -3214,7 +3214,7 @@ public:
         assert(!SubOverflow && "Unexpected (index - lower) overflow");
       }
 
-      if (ZeroBasedIndex.isNullValue()) {
+      if (ZeroBasedIndex.isZero()) {
         if (Indices.size() > 0) {
           return;
         }

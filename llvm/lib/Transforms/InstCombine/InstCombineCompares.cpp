@@ -2831,7 +2831,7 @@ static bool isAddFoldingProfitable(const BinaryOperator *Add,
 
   // Add with one can easily be folded in both ztt and loop upper because of IV
   // increment.
-  if (Op1.isOneValue())
+  if (Op1.isOne())
     return true;
 
   // If Add is in the entry bblock, make it non-profitable as folding does not

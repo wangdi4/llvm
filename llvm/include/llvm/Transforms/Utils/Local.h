@@ -348,7 +348,7 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
     APInt ElementSize(ConstStride->getBitWidth(), DL.getTypeStoreSize(ElTy));
     APInt Q, R;
     APInt::sdivrem(ConstStride->getValue(), ElementSize, Q, R);
-    IsExact = R.isNullValue();
+    IsExact = R.isZero();
   }
 
   Type *BasePtrTy = BasePtr->getType();

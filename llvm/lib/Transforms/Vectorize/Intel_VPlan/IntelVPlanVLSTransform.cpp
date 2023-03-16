@@ -170,7 +170,7 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
       const_cast<VPLoadStoreInst *>(instruction(Group->getFirstMemref()));
 
   APInt AccessMask = Group->computeByteAccessMask();
-  if (!AccessMask.isAllOnesValue() ||
+  if (!AccessMask.isAllOnes() ||
       AccessMask.getBitWidth() != std::abs(*GroupStride)) {
     FailureReason =
         "Failing to transform OVLSGroup: groups with gaps are not supported.";

@@ -7243,7 +7243,7 @@ bool llvm::matchSaturationAddSub(Value *V, Value *&A, Value *&B,
       // Match:
       // r = SMAX(X, 0)
       // trunc r
-      if (!match(RHS, m_APInt(LowerBound)) || !LowerBound->isNullValue())
+      if (!match(RHS, m_APInt(LowerBound)) || !LowerBound->isZero())
         return false;
 
       // UpperBound is implicitly equal to maximum unsigned value.

@@ -49605,7 +49605,7 @@ static SDValue combineExtractVectorElt(SDNode *N, SelectionDAG &DAG,
   // scalar and. NOTE: We don't do this from extracts of bit 0 due to an
   // infinite loop.
   if (CIdx && SrcVT.getScalarType() == MVT::i1 && Subtarget.hasAVX512() &&
-      !CIdx->isNullValue() && OnlyFlagUsers(N)) {
+      !CIdx->isZero() && OnlyFlagUsers(N)) {
     unsigned NumSrcElts = SrcVT.getVectorNumElements();
     EVT BCVT = EVT::getIntegerVT(*DAG.getContext(), NumSrcElts);
     SDValue BC = DAG.getBitcast(BCVT, InputVector);
@@ -59723,7 +59723,7 @@ static SDValue combineGatherScatter(SDNode *N, SelectionDAG &DAG,
   if (auto *BV = dyn_cast<BuildVectorSDNode>(Index)) {
     BitVector UndefElts;
     if (ConstantSDNode *C = BV->getConstantSplatNode(&UndefElts)) {
-      if (!C->isNullValue() && UndefElts.none() && isOneConstant(Scale)) {
+      if (!C->isZero() && UndefElts.none() && isOneConstant(Scale)) {
         SDValue SExt = DAG.getSExtOrTrunc(SDValue(C, 0), DL, PtrVT);
         Base = DAG.getNode(ISD::ADD, DL, PtrVT, Base, SExt);
         Index = DAG.getConstant(0, DL, Index.getValueType());
