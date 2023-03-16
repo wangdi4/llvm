@@ -1,5 +1,5 @@
 ;
-; RUN: opt -disable-output -passes='vplan-vec,print' -vplan-print-after-transformed-soa-geps -vplan-force-uf=2 -vplan-dump-soa-info -disable-verify < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes='vplan-vec,print' -vplan-print-after-transformed-soa-geps -vplan-force-uf=2 -vplan-dump-soa-info < %s 2>&1 | FileCheck %s
 ;
 ; LIT test to demonstrate issue with SOA transform when we force unrolling. While transforming
 ; SOA GEPs, the const-step vector is incorrectly being created with (VF * UF) number of steps.
@@ -17,10 +17,10 @@ define void @baz() {
 ; CHECK-NEXT:  VPlan after Dump Transformed SOA GEPs:
 ; CHECK-NEXT:  VPlan IR for: baz:for.body.#{{[0-9]+}}
 ;
-; FIXME: The number of steps in const-step-vector needs to be 4(VF) and not 8(VF*UF).
+; The number of steps in const-step-vector needs to be 4(VF) and not 8(VF*UF).
 ; The test uses simdlen(4) and vplan-forced-uf(2).
 ;
-; CHECK:          [DA: Div] i64 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:8}
+; CHECK:          [DA: Div] i64 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:4}
 ; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [4 x i64], ptr [[VP_ARR_PRIV:%.*]] i64 0 i64 [[VP_REM:%.*]] i64 [[VP_CONST_STEP]]
 ; CHECK-NEXT:     [DA: Div] store i64 1111 ptr [[VP_ARRAYIDX2]]
 ;
@@ -28,10 +28,9 @@ define void @baz() {
 ; CHECK:       vector.body:
 ; CHECK:       VPlannedBB3:
 ;
-; FIXME: Note the inconsistent GEP operands. The indices all need to
-; be vectors of size 4.
+; The indices all need to be vectors of size 4.
 ;
-; CHECK:         [[SOA_VECTORGEP50:%.*]] = getelementptr inbounds [4 x <4 x i64>], ptr [[ARR_PRIV_SOA_VEC0:%.*]], <4 x i64> zeroinitializer, <4 x i64> [[TMP4:%.*]], <8 x i64> <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
+; CHECK:         [[SOA_VECTORGEP50:%.*]] = getelementptr inbounds [4 x <4 x i64>], ptr [[ARR_PRIV_SOA_VEC0:%.*]], <4 x i64> zeroinitializer, <4 x i64> [[TMP4:%.*]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i64.v4p0(<4 x i64> <i64 1111, i64 1111, i64 1111, i64 1111>, <4 x ptr> [[SOA_VECTORGEP50]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ;
 entry:
