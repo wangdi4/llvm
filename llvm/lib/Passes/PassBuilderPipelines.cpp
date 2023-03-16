@@ -1731,6 +1731,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (Level == OptimizationLevel::O3)
     EarlyFPM.addPass(CallSiteSplittingPass());
 
+<<<<<<< HEAD
   // In SamplePGO ThinLTO backend, we need instcombine before profile annotation
   // to convert bitcast to direct calls so that they can be inlined during the
   // profile annotation prepration step.
@@ -1740,6 +1741,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (LoadSampleProfile)
     addInstCombinePass(EarlyFPM, !DTransEnabled,           // INTEL
                        true /* EnableCanonicalizeSwap */); // INTEL
+=======
+>>>>>>> 20ed9cebb605a3f95fe2a021219d7a52fb32aa6e
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM),
                                                 PTO.EagerlyInvalidateAnalyses));
 
