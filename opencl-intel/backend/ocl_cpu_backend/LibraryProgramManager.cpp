@@ -41,17 +41,10 @@ LibraryProgramManager *LibraryProgramManager::getInstance() {
   return m_instance;
 }
 
-cl_dev_err_code
-LibraryProgramManager::createProgram(IAbstractBackendFactory *Factory,
-                                     CPUProgramBuilder &PB) {
-  try {
-    m_program.reset(Factory->CreateProgram());
-    return PB.BuildLibraryProgram(m_program.get(), m_kernelNames);
-  } catch (Exceptions::DeviceBackendExceptionBase &e) {
-    return e.GetErrorCode();
-  } catch (std::bad_alloc &) {
-    return CL_DEV_OUT_OF_MEMORY;
-  }
+void LibraryProgramManager::createProgram(IAbstractBackendFactory *Factory,
+                                          CPUProgramBuilder &PB) {
+  m_program.reset(Factory->CreateProgram());
+  PB.BuildLibraryProgram(m_program.get(), m_kernelNames);
 }
 
 } // namespace DeviceBackend

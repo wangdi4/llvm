@@ -620,8 +620,8 @@ cl_dev_err_code ProgramBuilder::FinalizeProgram(Program *Prog) {
   return Prog->Finalize();
 }
 
-cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
-                                                    std::string &KernelNames) {
+void ProgramBuilder::BuildLibraryProgram(Program *Prog,
+                                         std::string &KernelNames) {
   assert(Prog && "Program parameter must not be nullptr");
   ProgramBuildResult buildResult;
   try {
@@ -692,7 +692,7 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
 
     // Get kernel names.
     size_t NumKernels = Kernels->GetCount();
-    std::string KNames;
+    assert(NumKernels == 3 && "Invalid number of library kernels");
     std::ostringstream O;
     for (size_t i = 0; i < NumKernels; ++i) {
       O << Kernels->GetKernel(i)->GetKernelName();
@@ -706,7 +706,7 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
 
     Prog->SetKernelSet(std::move(Kernels));
 
-    buildResult.SetBuildResult(CL_DEV_SUCCESS);
+    Prog->SetBuildLog(buildResult.GetBuildLog());
 
   } catch (Exceptions::DeviceBackendExceptionBase &e) {
     // if an exception is caught, the LLVM error handler should be removed
@@ -715,12 +715,9 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
     remove_fatal_error_handler();
 
     buildResult.LogS() << e.what() << "\n";
-    buildResult.SetBuildResult(e.GetErrorCode());
-    Prog->SetBuildLog(buildResult.GetBuildLog());
-    throw e;
+    throw Exceptions::DeviceBackendExceptionBase{buildResult.GetBuildLog(),
+                                                 e.GetErrorCode()};
   }
-
-  return buildResult.GetBuildResult();
 }
 } // namespace DeviceBackend
 } // namespace OpenCL
