@@ -356,7 +356,12 @@ def main():
 
     prefix_list = []
     for l in run_lines:
-      (tool_cmd, filecheck_cmd) = tuple([cmd.strip() for cmd in l.split('|', 1)])
+      run_line_components = [cmd.strip() for cmd in l.split('|', 1)]
+      if len(run_line_components) != 2:
+          print >>sys.stderr, 'WARNING: Skipping unknown RUN line: %s' % (l)
+          continue
+
+      (tool_cmd, filecheck_cmd) = run_line_components
 
       if not tool_cmd.startswith(opt_basename + ' '):
         print >>sys.stderr, 'WARNING: Skipping non-%s RUN line: %s' % (opt_basename, l)
