@@ -587,7 +587,7 @@ private:
   // Set of scalar loop header blocks generated in outgoing vector code. We also
   // track the scalar loop VPInstruction to identify its type i.e. peel or
   // remainder.
-  SmallVector<std::pair<VPInstruction *, BasicBlock *>, 2>
+  SmallVector<std::pair<VPScalarLoopBase *, BasicBlock *>, 2>
       OutgoingScalarLoopHeaders;
 
   // Get alignment for VPLoadStoreInst using underlying llvm::Instruction if it
