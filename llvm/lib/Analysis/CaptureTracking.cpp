@@ -288,15 +288,11 @@ bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
   // take advantage of this.
   (void)StoreCaptures;
 
-<<<<<<< HEAD
+  LLVM_DEBUG(dbgs() << "Captured?: " << *V << " = ");
+
   SimpleCaptureTracker SCT(EphValues, ReturnCaptures,           // INTEL
                            IgnoreStoreCapturesByNoAliasArgument // INTEL
                            );                                   // INTEL
-=======
-  LLVM_DEBUG(dbgs() << "Captured?: " << *V << " = ");
-
-  SimpleCaptureTracker SCT(EphValues, ReturnCaptures);
->>>>>>> 564ed0bd2245d4477dfd1c2f610294eff697edab
   PointerMayBeCaptured(V, &SCT, MaxUsesToExplore);
   if (SCT.Captured)
     ++NumCaptured;
