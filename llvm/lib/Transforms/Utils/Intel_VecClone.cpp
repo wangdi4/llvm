@@ -261,16 +261,9 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
 
   // Remove incompatible argument attributes (applied to the scalar argument,
   // does not apply to its vector counterpart).
-  Function::arg_iterator ArgIt = Clone->arg_begin();
-  Function::arg_iterator ArgEnd = Clone->arg_end();
-  // TODO (Dave Kreitzer): Once we pull down the changes that add the
-  //   Function::removeParamAttrs method, we should use it in lieu of
-  //   Function::removeAttributes. We just need to change the Idx
-  //   initialization here to start at 0.
-  for (uint64_t Idx = 1; ArgIt != ArgEnd; ++ArgIt, ++Idx) {
-    Type* ArgType = (*ArgIt).getType();
-    Clone->removeFnAttrs(AttributeFuncs::typeIncompatible(ArgType));
-  }
+  for (unsigned Idx = 0, End = F.arg_size(); Idx < End; ++Idx)
+    Clone->removeParamAttrs(
+        Idx, AttributeFuncs::typeIncompatible(Clone->getArg(Idx)->getType()));
 
   Function::arg_iterator NewArgIt = Clone->arg_begin();
   for (Argument &Arg : F.args()) {
