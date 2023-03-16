@@ -5497,6 +5497,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 #if INTEL_CUSTOMIZATION
     if (TargetDecl->hasAttr<AlwaysInlineAttr>() &&
         (TargetDecl->hasAttr<TargetAttr>() ||
+         (CurFuncDecl && CurFuncDecl->hasAttr<TargetAttr>()) ||
          TargetDecl->hasAttr<AllowCpuFeaturesAttr>()))
 #endif // INTEL_CUSTOMIZATION
       checkTargetFeatures(Loc, FD);
