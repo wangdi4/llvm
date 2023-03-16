@@ -3421,16 +3421,10 @@ private:
   unsigned UF;
 };
 
-// Base-class for the peel and remainder loop instructions.
-template <class LoopTy, class LiveInOpTy, unsigned PeelRemOpcode>
-class VPPeelRemainderImpl : public VPInstruction {
-
-  /// The original loop.
-  LoopTy *Lp;
-
-  /// The live-in operands list.
-  SmallVector<LiveInOpTy *, 4> OpLiveInMap;
-
+/// Non-templated base class for VPPeelRemainderImpl which contains the common
+/// interface between all child classes, and allows for generic downcasting from
+/// VPInstruction or VPValue.
+class VPScalarLoopBase : public VPInstruction {
   /// Flag to indicate whether the scalar loop has to be cloned. (Because we
   /// need two copies of it and this is the second one.)
   bool NeedsCloning = false;
@@ -3442,6 +3436,7 @@ class VPPeelRemainderImpl : public VPInstruction {
   /// Set of general opt-report remarks for scalar loop.
   SmallVector<OptReportStatsTracker::RemarkRecord, 4> GeneralRemarks;
 
+protected:
   static LLVMContext &getContext(Loop *Lp) {
     return Lp->getHeader()->getContext();
   }
@@ -3449,6 +3444,73 @@ class VPPeelRemainderImpl : public VPInstruction {
   static LLVMContext &getContext(loopopt::HLLoop *Lp) {
     return Lp->getHLNodeUtils().getContext();
   }
+
+  template <typename LoopTy>
+  VPScalarLoopBase(LoopTy *Lp, unsigned Opcode, bool ShouldClone)
+      : VPInstruction(Opcode, Type::getTokenTy(getContext(Lp)),
+                      {} /* Operands */) {
+    assert(isa<VPScalarLoopBase>(this) && "Unknown scalar loop opcode!");
+  }
+
+  VPInstruction *cloneImpl() const override {
+    assert(false && "not expected to clone");
+    return nullptr;
+  }
+
+public:
+  /// Return true if cloning is required.
+  bool isCloningRequired() const { return NeedsCloning; }
+
+  void setCloningRequired() { NeedsCloning = true; }
+
+  /// Add a new origin remark for outgoing scalar loop.
+  void addOriginRemark(OptReportStatsTracker::RemarkRecord R) {
+    OriginRemarks.push_back(R);
+  }
+
+  /// Add a new general remark for outgoing scalar loop.
+  void addGeneralRemark(OptReportStatsTracker::RemarkRecord R) {
+    GeneralRemarks.push_back(R);
+  }
+
+  /// Get all origin remarks for this scalar loop.
+  ArrayRef<OptReportStatsTracker::RemarkRecord> getOriginRemarks() const {
+    return OriginRemarks;
+  }
+
+  /// Get all general remarks for this scalar loop.
+  ArrayRef<OptReportStatsTracker::RemarkRecord> getGeneralRemarks() const {
+    return GeneralRemarks;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  virtual void printImpl(raw_ostream &O) const = 0;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    // NOTE: Must be kept in sync with child classes.
+    return V->getOpcode() == VPInstruction::ScalarPeel ||
+           V->getOpcode() == VPInstruction::ScalarPeelHIR ||
+           V->getOpcode() == VPInstruction::ScalarRemainder ||
+           V->getOpcode() == VPInstruction::ScalarRemainderHIR;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+};
+
+// Templated base-class for the peel and remainder loop instructions.
+template <class LoopTy, class LiveInOpTy, unsigned PeelRemOpcode>
+class VPPeelRemainderImpl : public VPScalarLoopBase {
+
+  /// The original loop.
+  LoopTy *Lp;
+
+  /// The live-in operands list.
+  SmallVector<LiveInOpTy *, 4> OpLiveInMap;
 
 protected:
 
@@ -3471,9 +3533,7 @@ protected:
 
 public:
   VPPeelRemainderImpl(LoopTy *Lp, bool ShouldClone)
-      : VPInstruction(PeelRemOpcode, Type::getTokenTy(getContext(Lp)),
-                      {} /* Operands */),
-        Lp(Lp), NeedsCloning(ShouldClone) {}
+      : VPScalarLoopBase(Lp, PeelRemOpcode, ShouldClone), Lp(Lp) {}
 
   /// Get the original loop.
   LoopTy *getLoop() const { return Lp; }
@@ -3483,11 +3543,6 @@ public:
     assert(L && "unexpected null loop");
     Lp = L;
   }
-
-  /// Return true if cloning is required.
-  bool isCloningRequired() const { return NeedsCloning; }
-
-  void setCloningRequired() { NeedsCloning = true; }
 
   /// Get the live-in value corresponding to the \p Idx.
   LiveInOpTy *getLiveIn(unsigned Idx) const {
@@ -3505,26 +3560,6 @@ public:
     OpLiveInMap[Idx] = U;
   }
 
-  /// Add a new origin remark for outgoing scalar loop.
-  void addOriginRemark(OptReportStatsTracker::RemarkRecord R) {
-    OriginRemarks.push_back(R);
-  }
-
-  /// Add a new general remark for outgoing scalar loop.
-  void addGeneralRemark(OptReportStatsTracker::RemarkRecord R) {
-    GeneralRemarks.push_back(R);
-  }
-
-  /// Get all origin remarks for this scalar loop.
-  ArrayRef<OptReportStatsTracker::RemarkRecord> getOriginRemarks() const {
-    return OriginRemarks;
-  }
-
-  /// Get all general remarks for this scalar loop.
-  ArrayRef<OptReportStatsTracker::RemarkRecord> getGeneralRemarks() const {
-    return GeneralRemarks;
-  }
-
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPInstruction *V) {
     return V->getOpcode() == PeelRemOpcode;
@@ -3533,16 +3568,6 @@ public:
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
-  }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void printImpl(raw_ostream &O) const = 0;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-protected:
-  VPInstruction *cloneImpl() const override {
-    assert(false && "not expected to clone");
-    return nullptr;
   }
 };
 
@@ -3946,7 +3971,7 @@ public:
   }
 
 private:
-  VPValue *getPeelLoop() const;
+  VPScalarLoopBase *getPeelLoop() const;
 
   // Peel loop specific utility for HIR path where we update orig-live-out-hir
   // created for main loop IV when upper bound of peel loop is set.
@@ -5270,7 +5295,7 @@ public:
 
   /// Utility to retrieve VPInstruction that represents the scalar loop in this
   /// scalar VPlan.
-  VPInstruction *getScalarLoopInst();
+  VPScalarLoopBase *getScalarLoopInst();
 
 protected:
   VPlanScalar(VPlanKind K, VPExternalValues &E, VPUnlinkedInstructions &UVPI)

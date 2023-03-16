@@ -8403,18 +8403,11 @@ void VPOCodeGenHIR::emitRemarksForScalarLoops() {
 
     // Emit remarks collected for scalar loop instruction into outgoing scalar
     // loop's opt-report.
-    auto EmitScalarLpVPIRemarks = [this, ScalarHLp](auto *LpVPI) {
-      for (const auto &R : LpVPI->getOriginRemarks())
-        ORBuilder(*ScalarHLp).addOrigin(R.RemarkID);
+    for (const auto &R : ScalarLpVPI->getOriginRemarks())
+      ORBuilder(*ScalarHLp).addOrigin(R.RemarkID);
 
-      for (const auto &R : LpVPI->getGeneralRemarks())
-        ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
-    };
-
-    if (auto *RemLp = dyn_cast<VPScalarRemainderHIR>(ScalarLpVPI))
-      EmitScalarLpVPIRemarks(RemLp);
-    else
-      EmitScalarLpVPIRemarks(cast<VPScalarPeelHIR>(ScalarLpVPI));
+    for (const auto &R : ScalarLpVPI->getGeneralRemarks())
+      ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
   }
 }
 

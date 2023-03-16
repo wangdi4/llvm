@@ -1058,10 +1058,7 @@ void VPlanDriverImpl::addOptReportRemarksForScalRemainder(
   // that they were not vectorized?
   // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
   OptReportStatsTracker::RemarkRecord R(25519u);
-  if (auto *ScalIRLp = dyn_cast<VPScalarRemainder>(ScalarLpI))
-    ScalIRLp->addOriginRemark(R);
-  else
-    cast<VPScalarRemainderHIR>(ScalarLpI)->addOriginRemark(R);
+  ScalarLpI->addOriginRemark(R);
 }
 
 void VPlanDriverImpl::addOptReportRemarksForVecPeel(
@@ -1090,10 +1087,7 @@ void VPlanDriverImpl::addOptReportRemarksForScalPeel(
       cast<VPlanScalar>(PlanDescr.getVPlan())->getScalarLoopInst();
   // remark #25518: PEEL LOOP FOR VECTORIZATION.
   OptReportStatsTracker::RemarkRecord R(25518u);
-  if (auto *ScalIRLp = dyn_cast<VPScalarPeel>(ScalarLpI))
-    ScalIRLp->addOriginRemark(R);
-  else
-    cast<VPScalarPeelHIR>(ScalarLpI)->addOriginRemark(R);
+  ScalarLpI->addOriginRemark(R);
 }
 
 void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
