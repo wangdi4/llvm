@@ -35,20 +35,18 @@ define i32 @x264_pixel_satd_16x16(ptr noalias nocapture readonly %pix1, i32 %i_p
 ; CHECK-NEXT:    [[TMP10:%.*]] = or <4 x i32> [[TMP8]], [[TMP6]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = sub nsw <4 x i32> [[TMP9]], [[TMP10]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = add nsw <4 x i32> [[TMP11]], [[TMP4]]
-; CHECK-NEXT:    [[TMP13:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <2 x i32> <i32 1, i32 0>
-; CHECK-NEXT:    [[TMP14:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 0, i32 1>
-; CHECK-NEXT:    [[TMP15:%.*]] = add <4 x i32> [[TMP14]], [[TMP12]]
-; CHECK-NEXT:    [[TMP16:%.*]] = sub <4 x i32> [[TMP14]], [[TMP12]]
-; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP15]], <4 x i32> [[TMP16]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
-; CHECK-NEXT:    [[TMP18:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <2 x i32> <i32 2, i32 3>
-; CHECK-NEXT:    [[TMP19:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 3, i32 2>
-; CHECK-NEXT:    [[TMP20:%.*]] = add <4 x i32> [[TMP17]], [[TMP19]]
-; CHECK-NEXT:    [[TMP21:%.*]] = sub <4 x i32> [[TMP17]], [[TMP19]]
-; CHECK-NEXT:    [[TMP22:%.*]] = shufflevector <4 x i32> [[TMP20]], <4 x i32> [[TMP21]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
-; CHECK-NEXT:    [[TMP23:%.*]] = add <4 x i32> [[TMP22]], [[TMP12]]
-; CHECK-NEXT:    [[TMP24:%.*]] = sub <4 x i32> [[TMP22]], [[TMP12]]
-; CHECK-NEXT:    [[TMP25:%.*]] = shufflevector <4 x i32> [[TMP23]], <4 x i32> [[TMP24]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
-; CHECK-NEXT:    store <4 x i32> [[TMP25]], ptr [[GEP043]], align 4
+; CHECK-NEXT:    [[TMP13:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 0, i32 1>
+; CHECK-NEXT:    [[TMP14:%.*]] = add <4 x i32> [[TMP13]], [[TMP12]]
+; CHECK-NEXT:    [[TMP15:%.*]] = sub <4 x i32> [[TMP13]], [[TMP12]]
+; CHECK-NEXT:    [[TMP16:%.*]] = shufflevector <4 x i32> [[TMP14]], <4 x i32> [[TMP15]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
+; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 3, i32 2>
+; CHECK-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[TMP16]], [[TMP17]]
+; CHECK-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[TMP16]], [[TMP17]]
+; CHECK-NEXT:    [[TMP20:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> [[TMP19]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[TMP21:%.*]] = add <4 x i32> [[TMP20]], [[TMP12]]
+; CHECK-NEXT:    [[TMP22:%.*]] = sub <4 x i32> [[TMP20]], [[TMP12]]
+; CHECK-NEXT:    [[TMP23:%.*]] = shufflevector <4 x i32> [[TMP21]], <4 x i32> [[TMP22]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
+; CHECK-NEXT:    store <4 x i32> [[TMP23]], ptr [[GEP043]], align 4
 ; CHECK-NEXT:    [[NEXTIVLOOP_1247]] = add nuw nsw i64 [[I1_I64_0]], 1
 ; CHECK-NEXT:    [[CONDLOOP_1247:%.*]] = icmp ult i64 [[I1_I64_0]], 15
 ; CHECK-NEXT:    br i1 [[CONDLOOP_1247]], label [[LOOP_1247]], label [[AFTERLOOP_1247:%.*]]
@@ -84,20 +82,18 @@ define i32 @x264_pixel_satd_16x16(ptr noalias nocapture readonly %pix1, i32 %i_p
 ; CHECKWOIC-NEXT:    [[TMP10:%.*]] = sub <4 x i32> [[TMP9]], [[TMP6]]
 ; CHECKWOIC-NEXT:    [[TMP11:%.*]] = sub <4 x i32> [[TMP10]], [[TMP8]]
 ; CHECKWOIC-NEXT:    [[TMP12:%.*]] = add <4 x i32> [[TMP11]], [[TMP4]]
-; CHECKWOIC-NEXT:    [[TMP13:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <2 x i32> <i32 1, i32 0>
-; CHECKWOIC-NEXT:    [[TMP14:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 0, i32 1>
-; CHECKWOIC-NEXT:    [[TMP15:%.*]] = add <4 x i32> [[TMP14]], [[TMP12]]
-; CHECKWOIC-NEXT:    [[TMP16:%.*]] = sub <4 x i32> [[TMP14]], [[TMP12]]
-; CHECKWOIC-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP15]], <4 x i32> [[TMP16]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
-; CHECKWOIC-NEXT:    [[TMP18:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <2 x i32> <i32 2, i32 3>
-; CHECKWOIC-NEXT:    [[TMP19:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 3, i32 2>
-; CHECKWOIC-NEXT:    [[TMP20:%.*]] = add <4 x i32> [[TMP17]], [[TMP19]]
-; CHECKWOIC-NEXT:    [[TMP21:%.*]] = sub <4 x i32> [[TMP17]], [[TMP19]]
-; CHECKWOIC-NEXT:    [[TMP22:%.*]] = shufflevector <4 x i32> [[TMP20]], <4 x i32> [[TMP21]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
-; CHECKWOIC-NEXT:    [[TMP23:%.*]] = add <4 x i32> [[TMP22]], [[TMP12]]
-; CHECKWOIC-NEXT:    [[TMP24:%.*]] = sub <4 x i32> [[TMP22]], [[TMP12]]
-; CHECKWOIC-NEXT:    [[TMP25:%.*]] = shufflevector <4 x i32> [[TMP23]], <4 x i32> [[TMP24]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
-; CHECKWOIC-NEXT:    store <4 x i32> [[TMP25]], ptr [[GEP043]], align 4
+; CHECKWOIC-NEXT:    [[TMP13:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 0, i32 1>
+; CHECKWOIC-NEXT:    [[TMP14:%.*]] = add <4 x i32> [[TMP13]], [[TMP12]]
+; CHECKWOIC-NEXT:    [[TMP15:%.*]] = sub <4 x i32> [[TMP13]], [[TMP12]]
+; CHECKWOIC-NEXT:    [[TMP16:%.*]] = shufflevector <4 x i32> [[TMP14]], <4 x i32> [[TMP15]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
+; CHECKWOIC-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 3, i32 2>
+; CHECKWOIC-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[TMP16]], [[TMP17]]
+; CHECKWOIC-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[TMP16]], [[TMP17]]
+; CHECKWOIC-NEXT:    [[TMP20:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> [[TMP19]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
+; CHECKWOIC-NEXT:    [[TMP21:%.*]] = add <4 x i32> [[TMP20]], [[TMP12]]
+; CHECKWOIC-NEXT:    [[TMP22:%.*]] = sub <4 x i32> [[TMP20]], [[TMP12]]
+; CHECKWOIC-NEXT:    [[TMP23:%.*]] = shufflevector <4 x i32> [[TMP21]], <4 x i32> [[TMP22]], <4 x i32> <i32 0, i32 5, i32 6, i32 3>
+; CHECKWOIC-NEXT:    store <4 x i32> [[TMP23]], ptr [[GEP043]], align 4
 ; CHECKWOIC-NEXT:    [[NEXTIVLOOP_1247]] = add nuw nsw i64 [[I1_I64_0]], 1
 ; CHECKWOIC-NEXT:    [[CONDLOOP_1247:%.*]] = icmp ult i64 [[NEXTIVLOOP_1247]], 16
 ; CHECKWOIC-NEXT:    br i1 [[CONDLOOP_1247]], label [[LOOP_1247]], label [[AFTERLOOP_1247:%.*]]
