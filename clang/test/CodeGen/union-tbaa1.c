@@ -1,4 +1,7 @@
-// RUN: %clang_cc1 %s -triple hexagon-unknown-elf -O2 -emit-llvm -o - | FileCheck %s
+// INTEL_CUSTOMIZATION
+// Added -mllvm -xmain-enable-gep0-removal.
+// RUN: %clang_cc1 %s -triple hexagon-unknown-elf -mllvm -xmain-enable-gep0-removal -O2 -emit-llvm -o - | FileCheck %s
+// end INTEL_CUSTOMIZATION
 
 typedef union __attribute__((aligned(4))) {
   unsigned short uh[2];
