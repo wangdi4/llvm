@@ -60,18 +60,13 @@
 
 using namespace llvm;
 
-<<<<<<< HEAD
 #if INTEL_PRODUCT_RELEASE
 #if INTEL_FEATURE_SW_DTRANS
 extern cl::opt<bool> EnableDTrans;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_PRODUCT_RELEASE
 
-cl::opt<bool> PreservedCFGCheckerInstrumentation::VerifyPreservedCFG(
-    "verify-cfg-preserved", cl::Hidden,
-=======
 static cl::opt<bool> VerifyPreservedCFG("verify-cfg-preserved", cl::Hidden,
->>>>>>> 507cba21c382ced5fc075ac74637847fbc2a4c07
 #ifdef NDEBUG
                                         cl::init(false)
 #else
