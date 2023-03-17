@@ -472,7 +472,7 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
 // must be simple types. i.e. none of the members contain pointer references.
 void TypeMetadataReader::populateDTransStructTypeFromLLVMType(
     llvm::StructType *STy, DTransStructType *DSTy) {
-  for (auto &Elem : enumerate(STy->elements())) {
+  for (const auto &Elem : enumerate(STy->elements())) {
     DTransType *DTFieldTy = TM.getOrCreateSimpleType(Elem.value());
     assert(DTFieldTy && "Expected structure fields to be simple types");
     DTransFieldMember &Field = DSTy->getField(Elem.index());

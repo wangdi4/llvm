@@ -1891,7 +1891,7 @@ public:
             // perform the write using new constant values, such as:
             //   store %struct.test01 { i32 100, i32 0 }, %struct.test01* %tmp
             // For this reason, we will set all the fields as multiple value.
-            for (auto &Field : enumerate(SI->getFields())) {
+            for (const auto &Field : enumerate(SI->getFields())) {
               dtrans::FieldInfo &FI = Field.value();
               FI.setWritten(I);
               updateFieldFrequency(FI, I);
@@ -3335,7 +3335,7 @@ public:
       // Note: For a whole structure reference, DTrans does not fill in all
       // the field values for each field because we do not have any transforms
       // that can handle them. Instead, set all the fields as multiple value.
-      for (auto &Field : enumerate(StInfo->getFields())) {
+      for (const auto &Field : enumerate(StInfo->getFields())) {
         dtrans::FieldInfo &FI = Field.value();
         FI.setWritten(I);
         updateFieldFrequency(FI, I);
@@ -7579,7 +7579,7 @@ private:
     }
 
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-      for (auto &Field : enumerate(StInfo->getFields())) {
+      for (const auto &Field : enumerate(StInfo->getFields())) {
         dtrans::FieldInfo &FI = Field.value();
         size_t Idx = Field.index();
         FI.setWritten(I);

@@ -944,7 +944,7 @@ void HIROptVarPredicate::splitLoop(
   HLLoop *SecondLoop = Loop->clone(&CloneMapper);
 
   // Replace nodes back.
-  for (auto &CI : enumerate(Candidates)) {
+  for (const auto &CI : enumerate(Candidates)) {
     auto &ThenContainer = ThenContainers[CI.index()];
     auto &ElseContainer = ElseContainers[CI.index()];
 

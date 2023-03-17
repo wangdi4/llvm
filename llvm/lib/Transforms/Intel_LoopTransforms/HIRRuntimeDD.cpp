@@ -1652,7 +1652,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
     // Populate DelinearizedGroupIndices with indexes where
     // DelinearizedGroups[I] is not empty.
-    for (auto &Group : enumerate(DelinearizedGroups)) {
+    for (const auto &Group : enumerate(DelinearizedGroups)) {
       if (!Group.value().empty()) {
         Context.DelinearizedGroupIndices.push_back(Group.index());
       }

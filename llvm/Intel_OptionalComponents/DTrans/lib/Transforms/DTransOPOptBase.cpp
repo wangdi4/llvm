@@ -1023,7 +1023,7 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
             CInfo, cast<Instruction>(TheVMap[CInfo->getInstruction()]));
 
       dtrans::CallInfoElementTypes &ElementTypes = CInfo->getElementTypesRef();
-      for (auto &I : enumerate(ElementTypes))
+      for (const auto &I : enumerate(ElementTypes))
         ElementTypes.setElemType(
             I.index(), TheTypeRemapper.remapType(I.value().getDTransType()));
     }
@@ -1224,7 +1224,7 @@ void DTransOPOptBase::updateAttributeTypes(Function *F) {
   };
 
   LLVMContext &Context = F->getContext();
-  for (auto &A : enumerate(F->args())) {
+  for (const auto &A : enumerate(F->args())) {
     // The attributes are mutually exclusive. Just find if any are present,
     // and update the type if needed.
     if (A.value().hasByValAttr()) {

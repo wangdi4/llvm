@@ -1034,7 +1034,7 @@ getPreheaderLoopIndex(HLLoop *Loop,
 
   // Iterate through loop nodes and return the first loop which uses preheader
   // temp.
-  for (auto &List : enumerate(DistributedLoops)) {
+  for (const auto &List : enumerate(DistributedLoops)) {
     unsigned LoopIndex = List.index();
 
     // We are already at the last loop, just return its index.
@@ -1115,7 +1115,7 @@ void HIRLoopDistribution::distributeLoop(
   unsigned PreheaderLoopIndex =
       getPreheaderLoopIndex(Loop, DistributedLoops, DistCostModel);
 
-  for (auto &List : enumerate(DistributedLoops)) {
+  for (const auto &List : enumerate(DistributedLoops)) {
     // Each PiBlockList forms a new loop
     // Clone Empty Loop. Copy preheader for 1st loop and
     // postexit for last loop

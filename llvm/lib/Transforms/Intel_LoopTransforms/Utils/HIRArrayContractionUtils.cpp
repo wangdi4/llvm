@@ -147,7 +147,7 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
 
     // See the  NumDimsRemain + 1 Constant strides:
     LLVM_DEBUG({
-      for (auto &V : enumerate(DimStride)) {
+      for (const auto &V : enumerate(DimStride)) {
         auto index = V.index();
         auto value = V.value();
         dbgs() << "idx: " << index << ",\tvalue: " << value << "\n";
@@ -167,7 +167,7 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
     // See the Results:
     LLVM_DEBUG({
       dbgs() << "DimSizeVec: " << DimSizeVec.size() << "\nl";
-      for (auto &V : enumerate(DimSizeVec)) {
+      for (const auto &V : enumerate(DimSizeVec)) {
         auto index = V.index();
         auto value = V.value();
         dbgs() << "idx: " << index << ",\tvalue: " << value << "\n";
