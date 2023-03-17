@@ -214,7 +214,14 @@ public:
                                          unsigned AddressSpace,
                                          TTI::TargetCostKind CostKind,
                                          const Instruction *I);
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+  InstructionCost getPointersChainCost(ArrayRef<const Value *> Ptrs,
+                                       const Value *Base,
+                                       const TTI::PointersChainInfo &Info,
+                                       TTI::TargetCostKind CostKind);
+>>>>>>> 4c2299003fe1910f729180f3e5e434045e533974
   InstructionCost getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
                                             const SCEV *Ptr);
 

@@ -5190,6 +5190,7 @@ X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy, Align Alignment,
   return Cost + LT.first;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 InstructionCost X86TTIImpl::getFMACostSavings(Type *Ty, FastMathFlags FMF) {
 
@@ -5247,6 +5248,25 @@ X86TTIImpl::getSerializationCost(Type *EltTy, unsigned NumElts,
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+InstructionCost X86TTIImpl::getPointersChainCost(
+    ArrayRef<const Value *> Ptrs, const Value *Base,
+    const TTI::PointersChainInfo &Info, TTI::TargetCostKind CostKind) {
+  if (Info.isSameBase() && Info.isKnownStride()) {
+    // If all the pointers have known stride all the differences are translated
+    // into constants. X86 memory addressing allows encoding it into
+    // displacement. So we just need to take the base GEP cost.
+    if (const auto *BaseGEP = dyn_cast<GetElementPtrInst>(Base)) {
+      SmallVector<const Value *> Indices(BaseGEP->indices());
+      return getGEPCost(BaseGEP->getSourceElementType(),
+                        BaseGEP->getPointerOperand(), Indices, CostKind);
+    }
+    return TTI::TCC_Free;
+  }
+  return BaseT::getPointersChainCost(Ptrs, Base, Info, CostKind);
+}
+
+>>>>>>> 4c2299003fe1910f729180f3e5e434045e533974
 InstructionCost X86TTIImpl::getAddressComputationCost(Type *Ty,
                                                       ScalarEvolution *SE,
                                                       const SCEV *Ptr) {
