@@ -18,3 +18,4 @@
 define void @f() {
   unreachable
 }
+
