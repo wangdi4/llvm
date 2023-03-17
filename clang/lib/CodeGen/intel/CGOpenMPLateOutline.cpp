@@ -2488,6 +2488,7 @@ void OpenMPLateOutliner::emitOMPAllDependClauses() {
 void OpenMPLateOutliner::emitOMPAllMapClauses() {
   llvm::DenseMap<const ValueDecl *, const Expr *> UseDeviceAddrExpr;
   llvm::SmallVector<std::pair<const Expr *, llvm::Value *>, 8> UseDeviceAddr;
+  llvm::DenseMap<const ValueDecl *, llvm::Value *> IndirectPrivatizeMaps;
   for (const auto *Cl : Directive.getClausesOfKind<OMPUseDeviceAddrClause>())
     for (const auto *E : Cl->varlists()) {
       const VarDecl *VD = getExplicitVarDecl(E);
@@ -2518,6 +2519,14 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
       const VarDecl *VD = getExplicitVarDecl(E);
       assert(VD && "expected VarDecl in is_device_ptr clause");
       addExplicit(VD, OMPC_is_device_ptr);
+      QualType PtrTy = VD->getType();
+      if (PtrTy->isReferenceType() &&
+          PtrTy.getNonReferenceType()->isAnyPointerType()) {
+        PtrTy = E->getType();
+        Address BP = CGF.EmitOMPSharedLValue(E).getAddress(CGF);
+        BP = CGF.EmitLoadOfPointer(BP, PtrTy->castAs<PointerType>());
+        IndirectPrivatizeMaps.insert({VD, BP.getPointer()});
+      }
     }
   }
   SmallVector<CGOpenMPRuntime::LOMapInfo, 4> Info;
@@ -2540,6 +2549,7 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
       if (It != UseDeviceAddrExpr.end())
         UseDeviceAddr.emplace_back(It->second, I.Base);
     }
+    auto It = IndirectPrivatizeMaps.find(I.Var);
     if (!I.IsChain && I.Var) {
       QualType Ty = I.Var->getType();
       if (isImplicitTask(OMPD_task) && !isExplicitForIsDevicePtr(I.Var)) {
@@ -2566,7 +2576,10 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
       if (CurrentDirectiveKind == OMPD_target)
         if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
             isa<llvm::LoadInst>(I.Base)) {
-          MapTemps.emplace_back(I.Base, I.Var);
+          if (It != IndirectPrivatizeMaps.end())
+            MapTemps.emplace_back(It->second, I.Var);
+          else
+            MapTemps.emplace_back(I.Base, I.Var);
           if (isImplicit(I.Var) && Ty->isReferenceType() &&
               Ty.getNonReferenceType()->isScalarType() &&
               !Ty.getNonReferenceType()->isPointerType()) {
@@ -2589,8 +2602,10 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     if (I.IsChain)
       CSB.setChain();
     addArg(CSB.getString());
-    for (auto *V :
-         {I.Base, I.Pointer, I.Size, I.Type, I.OffloadName, MapperFn}) {
+    llvm::Value *BP = It != IndirectPrivatizeMaps.end() ? It->second : I.Base;
+    llvm::Value *PP =
+        It != IndirectPrivatizeMaps.end() ? It->second : I.Pointer;
+    for (auto *V : {BP, PP, I.Size, I.Type, I.OffloadName, MapperFn}) {
       if (!V)
         V =  llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
       addArg(V);

@@ -16,14 +16,22 @@ struct S {
 //CHECK-LABEL: S3foo
 void S::foo(float *&refptr) {
   //CHECK: [[REFPTR:%refptr.*]] = alloca ptr, align 8
+  //CHECK: [[REFTEMP:%refptr.map.ptr.tmp]] = alloca ptr
+  //CHECK: [[REFTEMP2:%refptr.map.ptr.tmp5]] = alloca ptr
+  //CHECK: [[LREFPTR:%[0-9]+]] = load ptr, ptr [[REFPTR]]
+  //CHECK: [[LREFPTR1:%[0-9]+]] = load ptr, ptr [[REFPTR]]
+  //CHECK: [[LREFPTR2:%[0-9]+]] = load ptr, ptr [[LREFPTR1]]
 
   //CHECK: "DIR.OMP.TARGET"()
   //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %ptr)
   //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %0)
   //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %aaptr)
   //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr %this
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[LREFPTR2]],
+  //CHECK-NEXT: store ptr [[LREFPTR2]], ptr [[REFTEMP]]
+  //CHECK-NEXT: store ptr [[REFTEMP]], ptr [[REFTEMP2]]
   #pragma omp target is_device_ptr(ptr, refptr, aaptr, arr)
-  ++a, ++*ptr, ++ref, ++arr[0];
+  ++a, ++*ptr, ++ref, ++arr[0], refptr++;
   //CHECK: "DIR.OMP.END.TARGET"()
 }
 
@@ -87,6 +95,27 @@ void omp_kernel(float * __restrict xxi) {
 // CHECK: "DIR.OMP.END.TARGET"
 // CHECK: "DIR.OMP.END.TASK"
 }
+//CHECK-LABEL: zoo
+void zoo() {
+  int a[10];
+  int *p = &a[0];
+  int *&qref = p;
+//CHECK: [[REFPTR:%qref]] = alloca ptr
+//CHECK: [[REFTMP:%qref.map.ptr.tmp]] = alloca ptr
+//CHECK: [[REFTMP1:%qref.map.ptr.tmp1]] = alloca ptr
+//CHECK: [[LREFPTR:%[0-9]+]] = load ptr, ptr [[REFPTR]]
+//CHECK: [[LREFPTR1:%[0-9]+]] = load ptr, ptr [[REFPTR]]
+//CHECK: [[LREFPTR2:%[0-9]+]] = load ptr, ptr [[LREFPTR1]]
+//CHECK: "DIR.OMP.TARGET"()
+//CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[LREFPTR2]]
+//CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[REFTMP]])
+//CHECK-SAME: "QUAL.OMP.PRIVATE"(ptr [[REFTMP1]])
+//CHECK-NEXT: store ptr [[LREFPTR2]], ptr [[REFTMP]]
+//CHECK-NEXT: store ptr [[REFTMP]], ptr [[REFTMP1]]
+#pragma omp target is_device_ptr(qref)
+  qref[1] = 222;
+//CHECK: "DIR.OMP.END.TARGET"()
+}
 
 //CHECK-LABEL: main
 int main() {
@@ -128,7 +157,7 @@ int main() {
   #pragma omp target is_device_ptr(fptr)
     fptr();
   //CHECK: "DIR.OMP.END.TARGET"()
-
+  zoo();
   return a;
 }
 
