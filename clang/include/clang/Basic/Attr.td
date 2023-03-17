@@ -5052,8 +5052,13 @@ def OMPDeclareTargetDecl : InheritableAttr {
   let Documentation = [OMPDeclareTargetDocs];
   let Args = [
     EnumArgument<"MapType", "MapTypeTy",
+#if INTEL_COLLAB
+                 [ "to", "enter", "local", "link" ],
+                 [ "MT_To", "MT_Enter", "MT_Local", "MT_Link" ]>,
+#else // INTEL_COLLAB
                  [ "to", "enter", "link" ],
                  [ "MT_To", "MT_Enter", "MT_Link" ]>,
+#endif // INTEL_COLLAB
     EnumArgument<"DevType", "DevTypeTy",
                  [ "host", "nohost", "any" ],
                  [ "DT_Host", "DT_NoHost", "DT_Any" ]>,

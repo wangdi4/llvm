@@ -2085,6 +2085,12 @@ void Parser::ParseOMPDeclareTargetClauses(
       if (IsToEnterOrLinkClause || IsIndirectClause)
         HasToOrLinkOrIndirectClause = true;
 
+#if INTEL_COLLAB
+      if (getLangOpts().OpenMP < 52 && ClauseName == "local") {
+        Diag(Tok, diag::err_omp_declare_target_unexpected_local_clause);
+        break;
+      }
+#endif // INTEL_COLLAB
       if (IsIndirectClause) {
         if (!ParseOpenMPIndirectClause(DTCI, /*ParseOnly*/ false))
           break;

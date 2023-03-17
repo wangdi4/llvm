@@ -25305,6 +25305,13 @@ void Sema::checkDeclIsAllowedInOpenMPTarget(Expr *E, Decl *D,
       Diag(FD->getLocation(), diag::note_defined_here) << FD;
       return;
     }
+#if INTEL_COLLAB
+    if (IdLoc.isValid() && Res && *Res == OMPDeclareTargetDeclAttr::MT_Local) {
+      Diag(IdLoc, diag::err_omp_function_in_local_clause);
+      Diag(FD->getLocation(), diag::note_defined_here) << FD;
+      return;
+    }
+#endif // INTEL_COLLAB
   }
   if (auto *VD = dyn_cast<ValueDecl>(D)) {
     // Problem if any with var declared with incomplete type will be reported

@@ -10,9 +10,10 @@
 
 #include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/Intel_CPU_utils.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
@@ -288,7 +289,9 @@ CollectCalledFunctions(SetVector<Function*>& MVFunctions, unsigned StartIndex) {
 static bool
 cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
                function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-               function_ref<TargetTransformInfo &(Function &)> GetTTI) {
+               function_ref<TargetTransformInfo &(Function &)> GetTTI,
+               function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+               ProfileSummaryInfo &PSI) {
 
   // Form a set of all functions that are candidates for multi-versioning.
   SetVector<Function*> MVCandidates;
@@ -297,16 +300,19 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     if (Fn.isDeclaration() || MVFunctionsCallableFromLoops.contains(&Fn))
       continue;
     // If selective multiversioning is enabled, multi-version only the
-    //   1) functions that have Attribute::Hot,
-    //   2) functions that contain non-annotation like intrinsics,
-    //   3) functions that contain loops, or
-    //   4) functions that are callable from loop bodies.
+    //   1) functions that carry Attribute::Hot,
+    //   2) functions that contain hot code per available profile data,
+    //   3) functions that contain non-annotation like intrinsics,
+    //   4) functions that contain loops, or
+    //   5) functions that are callable from loop bodies.
     if (!EnableSelectiveMultiVersioning) {
       MVCandidates.insert(&Fn);
       continue;
     }
-    // Collect functions that have Attribute::Hot
+    // Collect functions that carry Attribute::Hot.
     if (Fn.hasFnAttribute(Attribute::Hot) ||
+        // Collect functions that contain hot code per available profile data.
+        PSI.isFunctionHotInCallGraph(&Fn, GetBFI(Fn)) ||
         // Collect functions that contain non-annotation like intrinsics.
         any_of(instructions(Fn),
                [&](Instruction &I) {
@@ -688,8 +694,12 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   auto GetTTI = [&FAM](Function &F) -> TargetTransformInfo & {
     return FAM.getResult<TargetIRAnalysis>(F);
   };
+  auto GetBFI = [&FAM](Function &F) -> BlockFrequencyInfo & {
+    return FAM.getResult<BlockFrequencyAnalysis>(F);
+  };
+  ProfileSummaryInfo &PSI = AM.getResult<ProfileSummaryAnalysis>(M);
 
-  if (cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI))
+  if (cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI, GetBFI, PSI))
     return PreservedAnalyses::none();
 
   return PreservedAnalyses::all();
