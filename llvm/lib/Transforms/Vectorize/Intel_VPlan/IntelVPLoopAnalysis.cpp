@@ -763,11 +763,7 @@ static void createLifetimeMarker(VPBuilder &Builder, VPlanVector &Plan,
 
     Function *LMFn = Intrinsic::getDeclaration(AI->getParent()->getModule(),
                                                LMIntrinsicFn, {PrivateMemTy});
-    auto *VPLMFn = Plan.getVPConstant(cast<Constant>(LMFn));
-    auto *VPLMCall =
-        new VPCallInstruction(VPLMFn, LMFn->getFunctionType(),
-                              {Plan.getVPConstant(AllocaSize), LMOp});
-    Builder.insert(VPLMCall);
+    Builder.createCall(LMFn, {Plan.getVPConstant(AllocaSize), LMOp});
   }
 }
 
@@ -1081,24 +1077,6 @@ void VPLoopEntityList::processRunningInscanReduction(
   InscanAccumPhi->addIncoming(CarryOver, Loop.getLoopLatch());
 }
 
-// Helper method to create custom function VPCalls with given args. Currently
-// used to emit ctor/dtor/initializer calls for non-POD privates and UDRs.
-static void createCustomFunctionCall(Function *F, ArrayRef<VPValue *> Args,
-                                     VPBuilder &Builder, VPlanVector &Plan) {
-  assert(
-      F->arg_size() == Args.size() && Args.size() >= 1 &&
-      "Number of input arguments should match number of Function arguments.");
-
-  assert(llvm::all_of(Args, [](VPValue *Arg) { return Arg != nullptr; }) &&
-         "All of input args are expected to be non-null.");
-
-  auto *VPFunc = Plan.getVPConstant(cast<Constant>(F));
-
-  auto *VPCall = new VPCallInstruction(VPFunc, F->getFunctionType(), Args);
-
-  Builder.insert(VPCall);
-}
-
 void VPLoopEntityList::insertOneReductionVPInstructions(
     VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
@@ -1373,10 +1351,10 @@ void VPLoopEntityList::insertUDRVPInstructions(
 
   // Initialize UDR by calling constructor (if present) and initializer.
   if (auto *CtorFn = UDR->getCtor())
-    createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
+    Builder.createCall(CtorFn, {PrivateMem});
 
   if (auto *InitFn = UDR->getInitializer())
-    createCustomFunctionCall(InitFn, {PrivateMem, AI}, Builder, Plan);
+    Builder.createCall(InitFn, {PrivateMem, AI});
 
   // Finalize UDR by emitting a reduction-final-udr instruction and call to
   // destructor (if present).
@@ -1388,7 +1366,7 @@ void VPLoopEntityList::insertUDRVPInstructions(
       ArrayRef<VPValue *>{PrivateMem, AI}, UDR->getCombiner());
 
   if (auto *DtorFn = UDR->getDtor())
-    createCustomFunctionCall(DtorFn, {PrivateMem}, Builder, Plan);
+    Builder.createCall(DtorFn, {PrivateMem});
 
   ProcessedReductions.insert(UDR);
 }
@@ -1618,9 +1596,9 @@ void VPLoopEntityList::processRunningUDS(const VPUserDefinedScanReduction *UDS,
   // Initialize private memory by calling constructor (if present) and
   // initializer (if present).
   if (auto *CtorFn = UDS->getCtor())
-    createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
+    Builder.createCall(CtorFn, {PrivateMem});
   if (auto *InitFn = UDS->getInitializer())
-    createCustomFunctionCall(InitFn, {PrivateMem, AI}, Builder, Plan);
+    Builder.createCall(InitFn, {PrivateMem, AI});
 
   // Create running UDS instructions.
   Builder.setInsertPoint(FenceBlock);
@@ -1644,7 +1622,7 @@ void VPLoopEntityList::processRunningUDS(const VPUserDefinedScanReduction *UDS,
     VPBasicBlock *Latch = Loop.getLoopLatch();
     Builder.setInsertPoint(Latch);
     Builder.setCurrentDebugLocation(Latch->getTerminator()->getDebugLocation());
-    createCustomFunctionCall(DtorFn, {PrivateMem}, Builder, Plan);
+    Builder.createCall(DtorFn, {PrivateMem});
   }
 
   // Create a lifetime.end marker for the temp.
@@ -2181,9 +2159,9 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
               ArrayRef<VPValue *>{PrivateMem}, PrivateNonPOD->getCtor());
         } else {
           if (PrivateNonPOD->isF90())
-            createCustomFunctionCall(CtorFn, {PrivateMem, AI}, Builder, Plan);
+            Builder.createCall(CtorFn, {PrivateMem, AI});
           else
-            createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
+            Builder.createCall(CtorFn, {PrivateMem});
         }
       }
 
@@ -2233,7 +2211,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
               ".priv.nonpod.array", Type::getVoidTy(*Plan.getLLVMContext()),
               ArrayRef<VPValue *>{PrivateMem}, DtorFn);
         } else {
-          createCustomFunctionCall(DtorFn, {PrivateMem}, Builder, Plan);
+          Builder.createCall(DtorFn, {PrivateMem});
         }
       }
     } else if (Private->isLast()) {
