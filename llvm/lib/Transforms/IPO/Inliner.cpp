@@ -918,8 +918,7 @@ InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                                 CGSCCInlineReplayFallback,
                                 {CGSCCInlineReplayFormat}},
           /*EmitRemarks=*/true,
-          InlineContext{LTOPhase,
-                              InlinePass::ReplayCGSCCInliner});
+          InlineContext{LTOPhase, InlinePass::ReplayCGSCCInliner});
 
     return *OwnedAdvisor;
   }
@@ -1097,10 +1096,15 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
       if (InlineHistoryID != -1 &&
           inlineHistoryIncludes(&Callee, InlineHistoryID, InlineHistory)) {
+<<<<<<< HEAD
         LLVM_DEBUG(dbgs() << "Skipping inlining due to history: "
                           << F.getName() << " -> " << Callee.getName() << "\n");
         Report->setReasonNotInlined(CB, NinlrRecursive);  // INTEL
         llvm::setMDReasonNotInlined(CB, NinlrRecursive);  // INTEL
+=======
+        LLVM_DEBUG(dbgs() << "Skipping inlining due to history: " << F.getName()
+                          << " -> " << Callee.getName() << "\n");
+>>>>>>> 96118f1b0ab7a18999a4f2199ba1ecd546c68cb8
         setInlineRemark(*CB, "recursive");
         continue;
       }
