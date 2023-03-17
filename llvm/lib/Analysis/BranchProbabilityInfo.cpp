@@ -1686,12 +1686,20 @@ void BranchProbabilityInfoWrapperPass::print(raw_ostream &OS,
 AnalysisKey BranchProbabilityAnalysis::Key;
 BranchProbabilityInfo
 BranchProbabilityAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
+  auto &LI = AM.getResult<LoopAnalysis>(F);
+  auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
+  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &PDT = AM.getResult<PostDominatorTreeAnalysis>(F);
   BranchProbabilityInfo BPI;
+<<<<<<< HEAD
   BPI.calculate(F, AM.getResult<LoopAnalysis>(F),
                 &AM.getResult<TargetLibraryAnalysis>(F),
                 &AM.getResult<DominatorTreeAnalysis>(F),
                 &AM.getResult<PostDominatorTreeAnalysis>(F), // INTEL
                 &AM.getResult<TargetIRAnalysis>(F));         // INTEL
+=======
+  BPI.calculate(F, LI, &TLI, &DT, &PDT);
+>>>>>>> 951a980dc7aa61b1d414e7d565166ee8071367c6
   return BPI;
 }
 
