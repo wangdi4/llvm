@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -S -passes=vplan-vec -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s -check-prefix=HIR
+; RUN: opt -S -passes=vplan-vec -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s -check-prefix=HIR
 
 ; subroutine foo( a, b, n, cl )
 ;     implicit none
