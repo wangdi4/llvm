@@ -59,7 +59,17 @@ def Znver4Model : SchedMachineModel {
 
   let PostRAScheduler = 1; // Enable Post RegAlloc Scheduler pass.
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XISA_COMMON
+  // FIXME: This variable is required for incomplete model.
+  // We haven't catered all instructions.
+  // So, we reset the value of this variable so as to
+  // say that the model is incomplete.
+  let CompleteModel = 0;
+#else // INTEL_FEATURE_XISA_COMMON
   let CompleteModel = 1;
+#endif // INTEL_FEATURE_XISA_COMMON
+#endif // INTEL_CUSTOMIZATION
 }
 
 let SchedModel = Znver4Model in {
