@@ -179,6 +179,7 @@ static cl::opt<bool> EnableDeviceBlockLoad(
 
 extern cl::opt<bool> AtomicFreeReduction;
 extern cl::opt<uint32_t> AtomicFreeReductionCtrl;
+extern cl::opt<bool> EmitSPIRVBuiltins;
 
 // Get the TidPtrHolder global variable @tid.addr.
 // Assert if the variable is not found or is not i32.
@@ -1430,63 +1431,75 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
   return Call;
 }
 
-// Generate SPIR-V call to get local id for each DIM
-//   call spir_func i64 @_Z27__spirv_LocalInvocationId_xv()
-//   call spir_func i64 @_Z27__spirv_LocalInvocationId_yv()
-//   call spir_func i64 @_Z27__spirv_LocalInvocationId_zv()
-CallInst *VPOParoptUtils::genSPIRVLocalIdCall(int Dim,
-                                              Instruction *InsertPt) {
-  BasicBlock *B  = InsertPt->getParent();
-  Function *F    = B->getParent();
+enum class IndexBuiltinKind {
+  LOCAL_ID,
+  GROUP_ID,
+  LOCAL_SIZE,
+  NUM_GROUPS,
+  INDEX_BUILTIN_MAX
+};
 
-  std::string fname;
+static const StringRef IndexBuiltinNamesOCL[] = {
+    "_Z12get_local_idj", "_Z12get_group_idj", "_Z14get_local_sizej",
+    "_Z14get_num_groupsj"};
+
+static const StringRef IndexBuiltinNamesSPV[] = {
+    "_Z27__spirv_LocalInvocationId",
+    "_Z21__spirv_WorkgroupId",
+    "_Z23__spirv_WorkgroupSize",
+    "_Z23__spirv_NumWorkgroups",
+};
+
+static CallInst *genIndexingBuiltinCall(IndexBuiltinKind BuiltinId, int Dim,
+                                        Instruction *InsertPt) {
+  assert((Dim >= 0 && Dim < 3) && "Invalid dimensional index ");
+  Function *F = InsertPt->getFunction();
+
+  auto Idx = static_cast<unsigned>(BuiltinId);
+  std::string FName;
   SmallVector<Value *, 1> Arg;
-  switch (Dim) {
-    case 0: fname = "_Z27__spirv_LocalInvocationId_xv";
+  if (VPOParoptUtils::enableDeviceSimdCodeGen() || EmitSPIRVBuiltins) {
+    FName = IndexBuiltinNamesSPV[Idx];
+    switch (Dim) {
+    case 0:
+      FName += "_xv";
       break;
-    case 1: fname = "_Z27__spirv_LocalInvocationId_yv";
+    case 1:
+      FName += "_yv";
       break;
-    case 2: fname = "_Z27__spirv_LocalInvocationId_zv";
+    case 2:
+      FName += "_zv";
       break;
     default:
-      llvm_unreachable("Invalid dimentional index ");
+      llvm_unreachable("Invalid dimensional index");
+    }
+  } else {
+    FName = IndexBuiltinNamesOCL[Idx];
+    Arg.push_back(
+        ConstantInt::get(IntegerType::get(InsertPt->getContext(), 32), Dim));
   }
-  return VPOParoptUtils::genOCLGenericCall(fname,
-            GeneralUtils::getSizeTTy(F), Arg, InsertPt);
+  return VPOParoptUtils::genOCLGenericCall(FName, GeneralUtils::getSizeTTy(F),
+                                           Arg, InsertPt);
+}
+
+// Generate a call to get local id for the dimension provided
+CallInst *VPOParoptUtils::genLocalIdCall(int Dim, Instruction *InsertPt) {
+  return genIndexingBuiltinCall(IndexBuiltinKind::LOCAL_ID, Dim, InsertPt);
+}
+
+// Generate a call to get group id for the dimension provided
+CallInst *VPOParoptUtils::genGroupIdCall(int Dim, Instruction *InsertPt) {
+  return genIndexingBuiltinCall(IndexBuiltinKind::GROUP_ID, Dim, InsertPt);
+}
+
+// Generate a call to get local (group) size for the dimension provided
+CallInst *VPOParoptUtils::genLocalSizeCall(int Dim, Instruction *InsertPt) {
+  return genIndexingBuiltinCall(IndexBuiltinKind::LOCAL_SIZE, Dim, InsertPt);
 }
 
 // Generate a call to get number of groups the dimension provided
 CallInst *VPOParoptUtils::genNumGroupsCall(int Dim, Instruction *InsertPt) {
-  assert((Dim >= 0 && Dim < 3) && "Invalid dimentional index ");
-
-  CallInst *Res;
-  Function *F = InsertPt->getFunction();
-
-  std::string FName;
-  SmallVector<Value *, 1> Arg;
-  if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
-    // target-simd uses SPIRV builtins
-    switch (Dim) {
-    case 0:
-      FName = "_Z23__spirv_NumWorkgroups_xv";
-      break;
-    case 1:
-      FName = "_Z23__spirv_NumWorkgroups_yv";
-      break;
-    case 2:
-      FName = "_Z23__spirv_NumWorkgroups_zv";
-      break;
-    default:
-      break;
-    }
-  } else {
-    FName = "_Z14get_num_groupsj";
-    Arg.push_back(
-        ConstantInt::get(IntegerType::get(InsertPt->getContext(), 32), Dim));
-  }
-  Res = VPOParoptUtils::genOCLGenericCall(FName, GeneralUtils::getSizeTTy(F),
-                                          Arg, InsertPt);
-  return Res;
+  return genIndexingBuiltinCall(IndexBuiltinKind::NUM_GROUPS, Dim, InsertPt);
 }
 
 // Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,

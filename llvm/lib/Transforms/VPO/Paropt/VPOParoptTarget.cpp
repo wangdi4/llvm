@@ -1396,14 +1396,7 @@ void VPOParoptTransform::guardSideEffectStatements(
     Value *LocalId = nullptr;
 
     for (unsigned Dim = 0; Dim < 3; ++Dim) {
-      if (VPOParoptUtils::enableDeviceSimdCodeGen())
-        LocalId = VPOParoptUtils::genSPIRVLocalIdCall(Dim, KernelEntryDir);
-      else {
-        auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
-        LocalId = VPOParoptUtils::genOCLGenericCall(
-          "_Z12get_local_idj", GeneralUtils::getSizeTTy(F),
-          { Arg }, KernelEntryDir);
-      }
+      LocalId = VPOParoptUtils::genLocalIdCall(Dim, KernelEntryDir);
       Value *Predicate = Builder.CreateICmpEQ(LocalId, ZeroConst);
 
       if (!MasterCheckPredicate) {

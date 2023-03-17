@@ -1982,11 +1982,32 @@ public:
                                      ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
 
-  /// Generate SPIR-V calls OpenMP SIMD path
-  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_xv()
-  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_yv()
-  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_zv()
-  static CallInst *genSPIRVLocalIdCall(int Dim, Instruction *InsertPt);
+  /// Generate a call to get local id for the dimension provided.
+  /// For OpenMP SIMD path pick something of:
+  ///   call spir_func i64 _Z27__spirv_LocalInvocationId_xv
+  ///   call spir_func i64 _Z27__spirv_LocalInvocationId_yv
+  ///   call spir_func i64 _Z27__spirv_LocalInvocationId_zv
+  /// Otherwise generate general OCL builtin:
+  ///   call spir_func i64 @_Z12get_local_idj
+  static CallInst *genLocalIdCall(int Dim, Instruction *InsertPt);
+
+  /// Generate a call to get group id for the dimension provided.
+  /// For OpenMP SIMD path pick something of:
+  ///   call spir_func i64 _Z21__spirv_WorkgroupId_xv
+  ///   call spir_func i64 _Z21__spirv_WorkgroupId_yv
+  ///   call spir_func i64 _Z21__spirv_WorkgroupId_zv
+  /// Otherwise generate general OCL builtin:
+  ///   call spir_func i64 @_Z12get_group_idj
+  static CallInst *genGroupIdCall(int Dim, Instruction *InsertPt);
+
+  /// Generate a call to get local (group) size for the dimension provided.
+  /// For OpenMP SIMD path pick something of:
+  ///   call spir_func i64 _Z23__spirv_WorkgroupSize_xv
+  ///   call spir_func i64 _Z23__spirv_WorkgroupSize_yv
+  ///   call spir_func i64 _Z23__spirv_WorkgroupSize_zv
+  /// Otherwise generate general OCL builtin:
+  ///   call spir_func i64 @_Z14get_local_sizej
+  static CallInst *genLocalSizeCall(int Dim, Instruction *InsertPt);
 
   /// Generate a call to get number of groups for the dimension provided.
   /// For OpenMP SIMD path pick something of:

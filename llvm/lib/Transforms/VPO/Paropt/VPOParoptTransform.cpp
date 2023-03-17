@@ -139,7 +139,7 @@ static cl::opt<bool> OptimizeScalarFirstprivate(
     "vpo-paropt-opt-scalar-fp", cl::Hidden, cl::init(true),
     cl::desc("Pass scalar firstprivates as literals."));
 
-static cl::opt<bool> EmitSPIRVBuiltins(
+cl::opt<bool> EmitSPIRVBuiltins(
     "vpo-paropt-emit-spirv-builtins", cl::Hidden, cl::init(false),
     cl::desc("Emit SPIR-V builtin calls to compute loop bounds for SIMD."));
 
@@ -547,31 +547,8 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   } else {
     // get_num_groups() returns a value of type size_t by specification,
     // and the return value is greater than 0.
-    CallInst *NumGroupsCall;
-    if (EmitSPIRVBuiltins) {
-      std::string fname;
-      SmallVector<Value *, 1> Arg;
-      switch (DimNum) {
-      case 0:
-        fname = "_Z23__spirv_NumWorkgroups_xv";
-        break;
-      case 1:
-        fname = "_Z23__spirv_NumWorkgroups_yv";
-        break;
-      case 2:
-        fname = "_Z23__spirv_NumWorkgroups_zv";
-        break;
-      default:
-        llvm_unreachable("Invalid dimentional index ");
-      }
-      NumGroupsCall = VPOParoptUtils::genOCLGenericCall(
-          fname, GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-    } else {
-      NumGroupsCall = VPOParoptUtils::genOCLGenericCall(
-          "_Z14get_num_groupsj", GeneralUtils::getSizeTTy(F), Arg,
-          CallsInsertPt);
-    }
-
+    CallInst *NumGroupsCall =
+        VPOParoptUtils::genNumGroupsCall(DimNum, CallsInsertPt);
     // Compute team_chunk_size
     Value *NumGroups = Builder.CreateZExtOrTrunc(NumGroupsCall, ItSpaceType);
     if (DistSchedKind == WRNScheduleDistributeStaticEven) {
@@ -595,27 +572,7 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
 
   // get_group_id returns a value of type size_t by specification,
   // and the return value is non-negative.
-  CallInst *GroupIdCall;
-  if (EmitSPIRVBuiltins) {
-    std::string fname;
-    SmallVector<Value *, 1> Arg;
-    switch (DimNum) {
-    case 0: fname = "_Z21__spirv_WorkgroupId_xv";
-      break;
-    case 1: fname = "_Z21__spirv_WorkgroupId_yv";
-      break;
-    case 2: fname = "_Z21__spirv_WorkgroupId_zv";
-      break;
-    default:
-        llvm_unreachable("Invalid dimentional index ");
-    }
-    GroupIdCall = VPOParoptUtils::genOCLGenericCall(fname,
-      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-  } else {
-    GroupIdCall = VPOParoptUtils::genOCLGenericCall("_Z12get_group_idj",
-      GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-  }
-
+  CallInst *GroupIdCall = VPOParoptUtils::genGroupIdCall(DimNum, CallsInsertPt);
   Value *GroupId = Builder.CreateZExtOrTrunc(GroupIdCall, ItSpaceType);
 
   // Compute new_team_lb
@@ -810,26 +767,8 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   if (!VPOParoptUtils::useSPMDMode(W)) {
     Value *Chunk = nullptr;
 
-    CallInst *LocalSize;
-    if (EmitSPIRVBuiltins) {
-      std::string fname;
-      SmallVector<Value *, 1> Arg;
-      switch (DimNum) {
-      case 0: fname = "_Z23__spirv_WorkgroupSize_xv";
-        break;
-      case 1: fname = "_Z23__spirv_WorkgroupSize_yv";
-        break;
-      case 2: fname = "_Z23__spirv_WorkgroupSize_zv";
-        break;
-      default:
-        llvm_unreachable("Invalid dimentional index ");
-      }
-      LocalSize = VPOParoptUtils::genOCLGenericCall(fname,
-                         GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-    } else {
-      LocalSize = VPOParoptUtils::genOCLGenericCall("_Z14get_local_sizej",
-        GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-    }
+    CallInst *LocalSize =
+        VPOParoptUtils::genLocalSizeCall(DimNum, CallsInsertPt);
 
     Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
     if (SchedKind == WRNScheduleStaticEven) {
@@ -861,13 +800,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       Builder.CreateStore(SchedStrideVal, SchedStride);
     }
 
-    CallInst *LocalId;
-    if (EmitSPIRVBuiltins)
-      LocalId = VPOParoptUtils::genSPIRVLocalIdCall(DimNum, CallsInsertPt);
-    else
-      LocalId = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
-                  GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-
+    CallInst *LocalId = VPOParoptUtils::genLocalIdCall(DimNum, CallsInsertPt);
     Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
 
     Value *LBDiff = nullptr;
@@ -3287,9 +3220,8 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
       // It's basically buf_ptr + group_id * num_teams + thread_id
       LocalBuf = AtomicFreeRedLocalBufs.lookup(RedI);
       assert(LocalBuf && "No local reduction buffer found");
-      Value *GroupId = VPOParoptUtils::genOCLGenericCall(
-          "_Z12get_group_idj", GeneralUtils::getSizeTTy(F), Builder.getInt32(0),
-          &*Builder.GetInsertPoint());
+      Value *GroupId =
+          VPOParoptUtils::genGroupIdCall(0, &*Builder.GetInsertPoint());
       GroupId = Builder.CreateTruncOrBitCast(GroupId, Builder.getInt32Ty());
       auto *LocalBufOff = Builder.CreateMul(
           GroupId, Builder.getInt32(AtomicFreeRedLocalBufSize));
@@ -3372,22 +3304,9 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(WRegionNode *W,
 
   ExitBB->setName("atomic.free.red.local.update.update.exit");
 
-  CallInst *LocalSize;
-  CallInst *LocalId;
-
-  if (EmitSPIRVBuiltins) {
-    SmallVector<Value *, 1> Arg;
-    LocalSize = VPOParoptUtils::genOCLGenericCall(
-        "_Z23__spirv_WorkgroupSize_xv", SizeTy, Arg,
-        (IsArrayOrArraySection ? EntryBB : UpdateBB)->getFirstNonPHI());
-    LocalId = VPOParoptUtils::genSPIRVLocalIdCall(0, LocalSize);
-  } else {
-    LocalSize = VPOParoptUtils::genOCLGenericCall(
-        "_Z14get_local_sizej", SizeTy, Builder.getInt32(0),
-        (IsArrayOrArraySection ? EntryBB : UpdateBB)->getFirstNonPHI());
-    LocalId = VPOParoptUtils::genOCLGenericCall(
-        "_Z12get_local_idj", SizeTy, Builder.getInt32(0), LocalSize);
-  }
+  CallInst *LocalSize = VPOParoptUtils::genLocalSizeCall(
+      0, (IsArrayOrArraySection ? EntryBB : UpdateBB)->getFirstNonPHI());
+  CallInst *LocalId = VPOParoptUtils::genLocalIdCall(0, LocalSize);
 
   auto *HeaderBB =
       SplitBlock((IsArrayOrArraySection ? EntryBB : UpdateBB),
@@ -3792,15 +3711,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
       Value *MasterCheckPredicate = nullptr;
       for (unsigned Dim = 0; Dim < 3; ++Dim) {
-        Instruction *LocalId = nullptr;
-        if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
-          LocalId = VPOParoptUtils::genSPIRVLocalIdCall(Dim, StartPoint);
-        } else {
-          auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
-          LocalId = VPOParoptUtils::genOCLGenericCall(
-              "_Z12get_local_idj", GeneralUtils::getSizeTTy(F), {Arg},
-              StartPoint);
-        }
+        Instruction *LocalId = VPOParoptUtils::genLocalIdCall(Dim, StartPoint);
         if (!LocalId0)
           LocalId0 = LocalId;
         Value *Predicate = Builder.CreateICmpEQ(LocalId, ZeroConst);
@@ -3826,9 +3737,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       if (!Preheader)
         Preheader = StartPoint->getParent()->getSinglePredecessor();
       assert(Preheader);
-      LocalId0 = VPOParoptUtils::genOCLGenericCall(
-          "_Z12get_local_idj", GeneralUtils::getSizeTTy(F),
-          {Builder.getInt32(0)}, Preheader->getTerminator());
+      LocalId0 = VPOParoptUtils::genLocalIdCall(0, Preheader->getTerminator());
       VPOParoptUtils::genCall(
           "_Z22__spirv_ControlBarrieriii", Builder.getVoidTy(),
           {ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
@@ -3893,9 +3802,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
         // IV for loop (0)
         TeamsIdxPhi =
             Builder.CreatePHI(Builder.getInt64Ty(), 2, "teams.idx.phi");
-        CmpValue = VPOParoptUtils::genOCLGenericCall(
-            "_Z14get_local_sizej", GeneralUtils::getSizeTTy(F),
-            Builder.getInt32(0), StartPt);
+        CmpValue = VPOParoptUtils::genLocalSizeCall(0, StartPt);
         NumGroups0 = VPOParoptUtils::genNumGroupsCall(0, StartPt);
         IdxCmp = Builder.CreateICmpUGE(TeamsIdxPhi, NumGroups0);
 
@@ -4144,16 +4051,11 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     //  parallel update: red_buf+local_id(0)
     // array section: red_buf + idx_phi*Section.size()
     Value *Idx = IdxPhi;
-    if (IsArrayOrArraySection) {
+    if (IsArrayOrArraySection)
       Idx = Builder.CreateMul(Idx, NumElements);
-    } else if (UseParallelReduction) {
-      if (EmitSPIRVBuiltins)
-        Idx = VPOParoptUtils::genSPIRVLocalIdCall(0, InsertPt);
-      else
-        Idx = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
-                                                GeneralUtils::getSizeTTy(F),
-                                                Builder.getInt32(0), InsertPt);
-    }
+    else if (UseParallelReduction)
+      Idx = VPOParoptUtils::genLocalIdCall(0, InsertPt);
+
     if (UseParallelReduction)
       Idx = Builder.CreateAdd(Idx, TeamsIdxPhi);
     // NOTE: with UseParallelReduction==true this gep is invariant to the loop,
@@ -4193,9 +4095,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       RedStore->setOperand(0, Res);
 
       Builder.SetInsertPoint(OuterLatchBB->getTerminator());
-      auto *LocalId0 = VPOParoptUtils::genOCLGenericCall(
-          "_Z12get_local_idj", GeneralUtils::getSizeTTy(F), Builder.getInt32(0),
-          OuterLatchBB->getTerminator());
+      auto *LocalId0 =
+          VPOParoptUtils::genLocalIdCall(0, OuterLatchBB->getTerminator());
       auto *Cmp = Builder.CreateICmpNE(LocalId0, Builder.getInt64(0));
       auto *TmpRes = Builder.CreateLoad(RedElemType, GlobalGep);
       auto *PostLoadBB = SplitBlock(OuterLatchBB, OuterLatchBB->getTerminator(), DT, LI);
@@ -5168,12 +5069,7 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
     }
     // (1) Filling the local array with private values
     if (BufPtr && !IsInit) {
-      if (EmitSPIRVBuiltins)
-        IdVal = VPOParoptUtils::genSPIRVLocalIdCall(0, InsertPt);
-      else
-        IdVal = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
-                                                GeneralUtils::getSizeTTy(F),
-                                                Builder.getInt32(0), InsertPt);
+      IdVal = VPOParoptUtils::genLocalIdCall(0, InsertPt);
       auto *NumElementsCast =
           Builder.CreateZExtOrTrunc(NumElements, GeneralUtils::getSizeTTy(F));
       auto *MemPtrOff = Builder.CreateMul(IdVal, NumElementsCast);
@@ -6808,17 +6704,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           IRBuilder<> Builder(InsertPt);
           auto *GlobalBuf = AtomicFreeRedGlobalBufs.lookup(RedI);
 
-          Value *GroupId0;
-          if (EmitSPIRVBuiltins) {
-            SmallVector<Value *, 1> Arg;
-            GroupId0 = VPOParoptUtils::genOCLGenericCall(
-                "_Z21__spirv_WorkgroupId_xv", GeneralUtils::getSizeTTy(F), Arg,
-                InsertPt);
-          } else {
-            GroupId0 = VPOParoptUtils::genOCLGenericCall(
-                "_Z12get_group_idj", GeneralUtils::getSizeTTy(F),
-                Builder.getInt32(0), InsertPt);
-          }
+          Value *GroupId0 = VPOParoptUtils::genGroupIdCall(0, InsertPt);
 
           const auto &[ElemTy, NumElements, AddrSpace] =
               VPOParoptUtils::getItemInfo(RedI);
