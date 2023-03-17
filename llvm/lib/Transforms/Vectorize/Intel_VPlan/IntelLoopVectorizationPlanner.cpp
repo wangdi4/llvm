@@ -2397,6 +2397,58 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
   return true;
 }
 
+bool LoopVectorizationPlanner::isInvalidOMPConstructInSIMD(VPCallInstruction *VPCall) const {
+  auto *CalledF = VPCall->getCalledFunction();
+  auto *CI = VPCall->getUnderlyingCallInst();
+  if (!CalledF || !CI)
+    return false;
+
+  // Check for lowered intrinsics
+  // simd doesn't have a corresponding LibFunc_kmpc_*
+  LibFunc TheLibFunc;
+  if (TLI->getLibFunc(*CalledF, TheLibFunc) && TLI->isOMPLibFunc(TheLibFunc)) {
+    switch (TheLibFunc) {
+      case LibFunc_kmpc_atomic_compare_exchange:
+      case LibFunc_kmpc_atomic_fixed4_add:
+      case LibFunc_kmpc_atomic_float8_add:
+      case LibFunc_kmpc_atomic_load:
+      case LibFunc_kmpc_atomic_store:
+        return false;
+      default:
+        LLVM_DEBUG(dbgs() << "LVP: unsupported nested OpenMP directive."
+                          << *CI << "\n");
+        return true;
+    }
+  }
+
+  // Check for non-lowered intrinsics (llvm.directive.entry...)
+  int DirID = vpo::VPOAnalysisUtils::getDirectiveID(CI);
+  if (vpo::VPOAnalysisUtils::isBeginDirective(DirID) ||
+      vpo::VPOAnalysisUtils::isStandAloneBeginDirective(DirID)) {
+    switch (DirID) {
+      case DIR_OMP_ATOMIC:
+      case DIR_OMP_SIMD:
+      case DIR_OMP_SCAN:
+        return false;
+      case DIR_OMP_ORDERED: {
+        StringRef SimdClauseString =
+            VPOAnalysisUtils::getClauseString(QUAL_OMP_ORDERED_SIMD);
+        for (unsigned I = 0; I < CI->getNumOperandBundles(); ++I) {
+          OperandBundleUse BU = CI->getOperandBundleAt(I);
+          if (BU.getTagName() == SimdClauseString)
+            return false;
+        }
+        LLVM_FALLTHROUGH;
+      }
+      default:
+        LLVM_DEBUG(dbgs() << "LVP: unsupported nested OpenMP directive."
+                          << *CI << "\n");
+        return true;
+    }
+  }
+  return false;
+}
+
 bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
                                                   const VPLoop &Loop) const {
   // Check for live out values that are not inductions/reductions.
@@ -2422,6 +2474,10 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
         // chains.
         LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.\n");
         return false;
+      }
+      if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst)) {
+        if (isInvalidOMPConstructInSIMD(VPCall)) 
+          return false;
       }
     }
 

@@ -106,6 +106,29 @@ static void getCartesianProduct(std::vector<std::vector<VFParameter>> &Scratch,
   }
 }
 
+static VPVectorShape getShapeFromTrunc(VPlanVector &Plan,
+                                       VPInstruction *Trunc) {
+  auto *TruncOp = Trunc->getOperand(0);
+  // KnownBits can only be computed for integral types
+  auto *VPVT = Plan.getVPVT();
+  auto *DA = Plan.getVPlanDA();
+  if (VPVT && TruncOp->getType()->isIntegerTy()) {
+    auto OpKB = VPVT->getKnownBits(TruncOp, Trunc);
+    if (!OpKB.isUnknown()) {
+      // Does value fit into signed range bits?
+      auto MinSignedVal = OpKB.getSignedMinValue();
+      auto MaxSignedVal = OpKB.getSignedMaxValue();
+      Type *ToTy = Trunc->getType();
+      unsigned ToSize = ToTy->getScalarSizeInBits();
+      if (ToSize == 32 &&
+          (MinSignedVal.getSExtValue() >= INT_MIN &&
+           MaxSignedVal.getSExtValue() <= INT_MAX))
+        return DA->getVectorShape(*TruncOp);
+    }
+  }
+  return DA->getVectorShape(*Trunc);
+}
+
 void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
     const VPCallInstruction *VPCall, bool Masked, int VF,
     SmallVectorImpl<bool> &ArgIsLinearPrivateMem,
@@ -119,6 +142,12 @@ void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
   for (unsigned I = SkippedArgs; I < VPCall->getNumArgOperands(); ++I) {
     auto *CallArg = VPCall->getOperand(I);
     auto CallArgShape = DA->getVectorShape(*CallArg);
+    // TODO: this is a workaround for CMPLRLLVM-43350 until the more robust
+    // DA solution is ready.
+    if (auto *Inst = dyn_cast<VPInstruction>(CallArg)) {
+      if (Inst->getOpcode() == Instruction::Trunc)
+        CallArgShape = getShapeFromTrunc(Plan, Inst);
+    }
     auto ParamPos = I - SkippedArgs;
     const VPValue* LinearPrivMem = nullptr;
     std::vector<VFParameter> ParamEncodings;

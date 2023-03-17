@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -252,6 +252,10 @@ public:
   /// True if the provided function \p F is an OpenCL function that can be
   /// vectorized using its vector library equivalent.
   bool isOCLVectorFunction(StringRef F) const;
+
+  // True if the provided LibFunc \p F identifies an OpenMP library function,
+  // i.e. the LibFunc_kmpc_* LibFuncs.
+  bool isOMPLibFunc(LibFunc F) const;
 #endif
 
   /// Return true if the function F has a vector equivalent with any
@@ -463,6 +467,12 @@ public:
   /// vectorized using its vector library equivalent.
   bool isOCLVectorFunction(StringRef F) const {
     return Impl->isOCLVectorFunction(F);
+  }
+
+  // True if the provided LibFunc \p F identifies an OpenMP library function,
+  // i.e. the LibFunc_kmpc_* LibFuncs.
+  bool isOMPLibFunc(LibFunc F) const {
+    return Impl->isOMPLibFunc(F);
   }
 #endif // INTEL_CUSTOMIZATION
 
