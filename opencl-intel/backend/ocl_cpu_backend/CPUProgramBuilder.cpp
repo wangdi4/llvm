@@ -158,9 +158,6 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program *pProgram) {
       bitCodeBuffer, reader.GetSectionSize(g_irSectionName));
   pProgram->SetBitCodeContainer(bcc);
 
-  // update the builtin module
-  pProgram->SetBuiltinModule(GetCompiler()->GetBuiltinModuleList());
-
   // parse the IR bit code
   StringRef data = StringRef(bitCodeBuffer, irSize);
   std::unique_ptr<MemoryBuffer> Buffer = MemoryBuffer::getMemBufferCopy(data);
