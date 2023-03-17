@@ -5190,7 +5190,6 @@ X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy, Align Alignment,
   return Cost + LT.first;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 InstructionCost X86TTIImpl::getFMACostSavings(Type *Ty, FastMathFlags FMF) {
 
@@ -5248,7 +5247,6 @@ X86TTIImpl::getSerializationCost(Type *EltTy, unsigned NumElts,
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
 InstructionCost X86TTIImpl::getPointersChainCost(
     ArrayRef<const Value *> Ptrs, const Value *Base,
     const TTI::PointersChainInfo &Info, TTI::TargetCostKind CostKind) {
@@ -5266,7 +5264,6 @@ InstructionCost X86TTIImpl::getPointersChainCost(
   return BaseT::getPointersChainCost(Ptrs, Base, Info, CostKind);
 }
 
->>>>>>> 4c2299003fe1910f729180f3e5e434045e533974
 InstructionCost X86TTIImpl::getAddressComputationCost(Type *Ty,
                                                       ScalarEvolution *SE,
                                                       const SCEV *Ptr) {
