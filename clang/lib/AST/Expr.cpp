@@ -2356,9 +2356,6 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
   };
 
   switch (getIdentKind()) {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
   case SourceLocExpr::FileName: {
     // __builtin_FILE_NAME() is a Clang-specific extension that expands to the
     // the last part of __builtin_FILE().
@@ -2367,7 +2364,7 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
         FileName, PLoc, Ctx.getLangOpts(), Ctx.getTargetInfo());
     return MakeStringLiteral(FileName);
   }
->>>>>>> 2147e940e8a8f85f97f28407989c628886b5cd7e
+#if INTEL_CUSTOMIZATION
   case SourceLocExpr::File: {
     if (Ctx.getLangOpts().isIntelCompat(LangOptions::DisplayFullFilePath)) {
       SmallString<256> Path(PLoc.getFilename());
