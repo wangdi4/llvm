@@ -21,10 +21,20 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64"
 target device_triples = "spir64"
 
+; CHECK-NOT: get_local_id
+; CHECK-NOT: get_group_id
+; CHECK-NOT: get_local_size
+; CHECK-NOT: get_num_groups
+
 ; CHECK: call spir_func i64 @_Z21__spirv_WorkgroupId_xv()
 ; CHECK: call spir_func i64 @_Z27__spirv_LocalInvocationId_xv()
 ; CHECK: call spir_func i64 @_Z23__spirv_WorkgroupSize_xv()
 ; CHECK: call spir_func i64 @_Z23__spirv_NumWorkgroups_xv()
+
+; CHECK-NOT: get_local_id
+; CHECK-NOT: get_group_id
+; CHECK-NOT: get_local_size
+; CHECK-NOT: get_num_groups
 
 ; Function Attrs: convergent noinline nounwind
 define hidden i32 @main() #0 {
