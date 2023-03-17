@@ -3280,6 +3280,8 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
       // Every function with pointer return type might be marked
       // dereferenceable.
       getOrCreateAAFor<AADereferenceable>(RetPos);
+    } else if (AttributeFuncs::isNoFPClassCompatibleType(ReturnType)) {
+      getOrCreateAAFor<AANoFPClass>(RetPos);
     }
   }
 
@@ -3324,6 +3326,8 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
 
       // Every argument with pointer type might be privatizable (or promotable)
       getOrCreateAAFor<AAPrivatizablePtr>(ArgPos);
+    } else if (AttributeFuncs::isNoFPClassCompatibleType(Arg.getType())) {
+      getOrCreateAAFor<AANoFPClass>(ArgPos);
     }
   }
 
@@ -3352,11 +3356,13 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
       return true;
 
     if (!Callee->getReturnType()->isVoidTy() && !CB.use_empty()) {
-
       IRPosition CBRetPos = IRPosition::callsite_returned(CB);
       bool UsedAssumedInformation = false;
       getAssumedSimplified(CBRetPos, nullptr, UsedAssumedInformation,
                            AA::Intraprocedural);
+
+      if (AttributeFuncs::isNoFPClassCompatibleType(Callee->getReturnType()))
+        getOrCreateAAFor<AANoFPClass>(CBInstPos);
     }
 
     for (int I = 0, E = CB.arg_size(); I < E; ++I) {
@@ -3376,8 +3382,14 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
       // Every call site argument might be marked "noundef".
       getOrCreateAAFor<AANoUndef>(CBArgPos);
 
-      if (!CB.getArgOperand(I)->getType()->isPointerTy())
+      Type *ArgTy = CB.getArgOperand(I)->getType();
+
+      if (!ArgTy->isPointerTy()) {
+        if (AttributeFuncs::isNoFPClassCompatibleType(ArgTy))
+          getOrCreateAAFor<AANoFPClass>(CBArgPos);
+
         continue;
+      }
 
       // Call site argument attribute "non-null".
       getOrCreateAAFor<AANonNull>(CBArgPos);
