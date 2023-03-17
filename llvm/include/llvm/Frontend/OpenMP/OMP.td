@@ -474,6 +474,7 @@ def OMPC_ThreadPrivate : Clause<"threadprivate"> {
 def OMPC_GroupPrivate : Clause<"groupprivate"> {
   let isImplicit = true;
 }
+def OMPC_Local : Clause<"local"> { }
 #endif // INTEL_COLLAB
 def OMPC_Unknown : Clause<"unknown"> {
   let isImplicit = true;
@@ -1244,6 +1245,9 @@ def OMP_DeclareTarget : Directive<"declare target"> {
   let allowedClauses = [
     VersionedClause<OMPC_To>,
     VersionedClause<OMPC_Link>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_Local>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Indirect>
   ];
   let allowedOnceClauses = [

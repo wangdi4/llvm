@@ -10815,6 +10815,8 @@ def note_omp_referenced : Note<
 def err_omp_reduction_in_task : Error<
   "reduction variables may not be accessed in an explicit task">;
 #if INTEL_COLLAB
+def err_omp_function_in_local_clause : Error<
+  "function name is not allowed in 'local' clause">;
 def err_omp_unsupported_region : Error<
   "region '%0' is not yet supported inside '%1' region">;
 def err_omp_groupprivate_incomplete_type
