@@ -407,6 +407,7 @@ llvm/include/llvm/SYCLLowerIR/LowerInvokeSimd.h @intel-restricted/dpcpp-esimd-re
 # COMPONENT: Vectorizer
 # JIRA: CMPLRLLVM->LLVM VPO Vectorizer
 /llvm/docs/Intel/VPO/ @sguggill @skozhukh @mamasten @offsake
+/llvm/include/llvm/IR/Intel_SVML.td @mamasten @skozhukh @karthik-senthil
 /llvm/include/llvm/IR/Intel_VectorVariant.h @mamasten @skozhukh @turinevgeny
 /llvm/include/llvm/Transforms/Vectorize/ @sguggill @skozhukh @mamasten @offsake
 /llvm/lib/IR/Intel_VectorVariant.cpp @mamasten @skozhukh @turinevgeny
