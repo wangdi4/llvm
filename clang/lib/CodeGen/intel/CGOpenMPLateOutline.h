@@ -510,8 +510,23 @@ public:
             CGF.Builder.CreateElementBitCast(A, CGF.ConvertTypeForMem(PtrTy)),
             PtrTy->castAs<PointerType>());
       }
-      PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
-      CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
+      QualType PTy = MT.second->getType();
+      if (isExplicitForIsDevicePtr(MT.second) && PTy->isReferenceType() &&
+          PTy.getNonReferenceType()->isAnyPointerType()) {
+        QualType PtrTy =
+            CGF.getContext().getPointerType(PTy.getNonReferenceType());
+        Address AR = CGF.CreateDefaultAlignTempAlloca(
+            CGF.ConvertTypeForMem(PtrTy),
+            MT.second->getName() + ".map.ptr.tmp");
+        CGF.Builder.CreateStore(A.getPointer(), AR);
+        PrivateScope.addPrivateNoTemps(MT.second,
+                                       [AR]() -> Address { return AR; });
+        CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
+      } else {
+        PrivateScope.addPrivateNoTemps(MT.second,
+                                       [A]() -> Address { return A; });
+        CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
+      }
     }
     PrivateScope.Privatize();
   }
