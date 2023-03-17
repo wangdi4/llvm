@@ -570,6 +570,62 @@ getArraySectionConstantInfo(CodeGenFunction &CGF, const Expr *E,
   return {ChildElements * Elements, ChildOffset + Offset * Size};
 }
 
+struct ArraySectionInfo {
+  llvm::Value *Elements;
+  llvm::Value *Offset;
+};
+
+/// Check if this section/subscript is a simple case where the section contains
+/// exactly the elements and offset needed. If so return it.
+static ArraySectionInfo getArraySectionInfo(CodeGenFunction &CGF,
+                                            const Expr *E) {
+  E = E->IgnoreParenImpCasts();
+  QualType BaseTy;
+  const Expr *Base = nullptr;
+  auto *ASec = dyn_cast<OMPArraySectionExpr>(E);
+  const ArraySubscriptExpr *ASub = nullptr;
+
+  if (ASec) {
+    Base = ASec->getBase()->IgnoreParenImpCasts();
+    BaseTy = OMPArraySectionExpr::getBaseOriginalType(Base);
+  } else {
+    ASub = cast<ArraySubscriptExpr>(E);
+    Base = ASub->getBase()->IgnoreParenImpCasts();
+    BaseTy = Base->getType();
+  }
+  if (isa<ArraySubscriptExpr>(Base) ||
+      Base->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+    return {nullptr, nullptr};
+
+  auto emitASExpr = [&CGF](const Expr *E) {
+    return CGF.EmitScalarConversion(CGF.EmitScalarExpr(E), E->getType(),
+                                    CGF.getContext().getSizeType(),
+                                    E->getExprLoc());
+  };
+  llvm::Value *Elements;
+  llvm::Value *Offset;
+
+  if (ASec) {
+    if (const Expr *LengthExpr = ASec->getLength()) {
+      Elements = emitASExpr(LengthExpr);
+    } else {
+      auto *CAT = CGF.getContext().getAsConstantArrayType(BaseTy);
+      if (!CAT)
+        return {nullptr, nullptr};
+      Elements = llvm::ConstantInt::get(CGF.SizeTy, CAT->getSize());
+    }
+    if (const Expr *LowerExpr = ASec->getLowerBound())
+      Offset = emitASExpr(LowerExpr);
+    else
+      Offset = llvm::ConstantInt::get(CGF.SizeTy, /*V=*/0);
+  } else {
+    Elements = llvm::ConstantInt::get(CGF.SizeTy, /*V=*/1);
+    Offset = emitASExpr(ASub->getIdx());
+  }
+
+  return {Elements, Offset};
+}
+
 void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
                                 bool NeedsTypedElements,
                                 llvm::Type *ElementType,
@@ -582,6 +638,9 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
     // section-base, type specifier, number of elements, offset in elements.
     // If ArraySecUsesBase is false, then it is emiitted as:
     // address of first element of section, type specifier, number of elements.
+
+    ArraySectionInfo SimpleInfo = getArraySectionInfo(CGF, E);
+    bool IsSimpleCase = SimpleInfo.Elements != nullptr;
 
     ArraySectionConstantInfo AI = getArraySectionConstantInfo(CGF, E);
     bool IsConstantCase = AI.Elements != 0;
@@ -599,7 +658,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
     }
 
     LValue LowerBound;
-    if (IsTyped && (!IsConstantCase || !ArraySecUsesBase)) {
+    if (IsTyped && (!IsConstantCase || !IsSimpleCase || !ArraySecUsesBase)) {
       if (auto *AS = dyn_cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts()))
         LowerBound = CGF.EmitOMPArraySectionExpr(AS, /*IsLowerBound=*/true);
       else
@@ -620,7 +679,7 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
           ElementType ? ElementType : CGF.CGM.getTypes().ConvertType(BaseT)));
 
       llvm::Value *BaseCast = nullptr;
-      if (ArraySecUsesBase && !IsConstantCase) {
+      if (ArraySecUsesBase && !IsConstantCase && !IsSimpleCase) {
         // If the array section variable is a pointer or reference, it contains
         // the address of the first element and it differs from the address
         // used in the first Arg. Load it here.
@@ -639,6 +698,10 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef, bool IsTyped,
         NumElements = llvm::ConstantInt::get(CGF.SizeTy, AI.Elements);
         if (ArraySecUsesBase)
           OffsetInElements = llvm::ConstantInt::get(CGF.SizeTy, AI.Offset);
+      } else if (IsSimpleCase) {
+        NumElements = SimpleInfo.Elements;
+        if (ArraySecUsesBase)
+          OffsetInElements = SimpleInfo.Offset;
       } else {
         if (auto *AS =
                 dyn_cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts())) {

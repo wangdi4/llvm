@@ -120,7 +120,7 @@ public:
   Mapper (T* p) : ptr(p) {
     int *axx;
   // CHECK: [[PT_TMP_MAP:%pt.map.ptr.tmp]] = alloca ptr, align 8
-  // CHECK: %sec.offset_in_elements
+  // CHECK: getelementptr inbounds i32
   // CHECK: [[L1:%[0-9]+]] = load ptr, ptr %pt{{.}}
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr %axx, ptr %axx, i64 8, i64 33
@@ -193,7 +193,7 @@ struct A {
   // CHECK: [[PTR2:%ptr[0-9]*]] = getelementptr inbounds %struct.A, ptr [[THIS]]
   // CHECK: [[PTR3:%ptr[0-9]*]] = getelementptr inbounds %struct.A, ptr [[THIS]]
   // CHECK: [[L1:%[0-9]+]] = load ptr, ptr [[PTR3]]
-  // CHECK: %sec.offset_in_elements =
+  // CHECK: getelementptr inbounds i32
   // CHECK: [[L3:%[0-9]+]] = load ptr, ptr [[L1]]
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME "QUAL.OMP.PRIVATE:TYPED"(ptr [[PT_TMP_MAP]]
