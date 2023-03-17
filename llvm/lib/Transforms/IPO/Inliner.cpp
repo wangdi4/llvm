@@ -95,6 +95,7 @@ using namespace InlineReportTypes; // INTEL
 STATISTIC(NumInlined, "Number of functions inlined");
 STATISTIC(NumCallsDeleted, "Number of call sites deleted, not inlined");
 STATISTIC(NumDeleted, "Number of functions deleted because all callers found");
+#if INTEL_CUSTOMIZATION
 STATISTIC(NumMergedAllocas, "Number of allocas merged together");
 
 /// Flag to disable manual alloca merging.
@@ -107,6 +108,8 @@ STATISTIC(NumMergedAllocas, "Number of allocas merged together");
 static cl::opt<bool>
     DisableInlinedAllocaMerging("disable-inlined-alloca-merging",
                                 cl::init(false), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
 /// Merging of allocas during inlining in the new pass manager.  This is off
@@ -226,6 +229,7 @@ void LegacyInlinerBase::getAnalysisUsage(AnalysisUsage &AU) const {
 
 using InlinedArrayAllocasTy = DenseMap<ArrayType *, std::vector<AllocaInst *>>;
 
+#if INTEL_CUSTOMIZATION
 /// Look at all of the allocas that we inlined through this call site.  If we
 /// have already inlined other allocas through other calls into this function,
 /// then we know that they have disjoint lifetimes and that we can merge them.
@@ -340,6 +344,7 @@ static void mergeInlinedArrayAllocas(Function *Caller, InlineFunctionInfo &IFI,
     UsedAllocas.insert(AI);
   }
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// If it is possible to inline the specified call site,
 /// do so and update the CallGraph for this operation.
@@ -372,8 +377,10 @@ static InlineResult inlineCallIfPossible(
   if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)
     ImportedFunctionsStats.recordInline(*Caller, *Callee);
 
+#if INTEL_CUSTOMIZATION
   if (!DisableInlinedAllocaMerging)
     mergeInlinedArrayAllocas(Caller, IFI, InlinedArrayAllocas, InlineHistory);
+#endif // INTEL_CUSTOMIZATION
 
   return IR; // success
 }
