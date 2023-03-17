@@ -110,7 +110,6 @@ protected:
   }
 };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Correct way of inheritance here is to create base class with only
 // parseAssembly method and 3 children: MatchSelectPatternTest,
@@ -142,7 +141,6 @@ protected:
   }
 };
 #endif // INTEL_CUSTOMIZATION
-=======
 class ComputeKnownFPClassTest : public ValueTrackingTest {
 protected:
   void expectKnownFPClass(unsigned KnownTrue, std::optional<bool> SignBitKnown,
@@ -155,7 +153,6 @@ protected:
     EXPECT_EQ(SignBitKnown, Known.SignBit);
   }
 };
->>>>>>> 931d4098a2ebd7f1046e820164b5b6c85650d4d9
 }
 
 TEST_F(MatchSelectPatternTest, SimpleFMin) {
