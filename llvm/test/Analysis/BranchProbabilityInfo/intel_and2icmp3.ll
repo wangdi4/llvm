@@ -1,4 +1,4 @@
-; RUN: opt < %s -analyze -branch-prob -enable-new-pm=0 | FileCheck %s
+; RUN: opt < %s -analyze -branch-prob -bugpoint-enable-legacy-pm | FileCheck %s
 ; RUN: opt < %s -passes='print<branch-prob>' --disable-output 2>&1 | FileCheck %s
 
 define void @test_and2cmp3_branch(i64 %spec.select303, i64 %llMinScore.fpriv.1,

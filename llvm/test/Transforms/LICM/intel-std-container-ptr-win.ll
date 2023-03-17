@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s  -enable-new-pm=0 -tbaa  -std-container-alias   -basiccg -domtree -basic-aa -aa -std-container-opt  -loops  -loop-rotate -licm   -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s  -bugpoint-enable-legacy-pm -tbaa  -std-container-alias   -basiccg -domtree -basic-aa -aa -std-container-opt  -loops  -loop-rotate -licm   -S | FileCheck %s
 ; RUN: opt -opaque-pointers=0 < %s -passes="std-container-opt,loop-rotate,loop-mssa(licm)" -S | FileCheck %s
 
 ; The compiler is exptected to hoisted out the load a[i][k] out of the loop j. 

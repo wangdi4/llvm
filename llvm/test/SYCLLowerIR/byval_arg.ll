@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -LowerWGScope -S -enable-new-pm=0 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -LowerWGScope -S -bugpoint-enable-legacy-pm | FileCheck %s
 ; RUN: opt -opaque-pointers=0 < %s -passes=LowerWGScope -S | FileCheck %s
 
 ; Check that argument of the function marked with !work_group_scope

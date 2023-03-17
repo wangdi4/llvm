@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=1 -passes="vpo-cfg-restructuring,vpo-paropt-prepare" -S %s | FileCheck %s
 
 ; Deprecated the llvm.intel.directive* representation.

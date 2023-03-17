@@ -1,4 +1,4 @@
-; RUN:  opt  -sna -analyze -enable-new-pm=0 < %s | FileCheck %s
+; RUN:  opt  -sna -analyze -bugpoint-enable-legacy-pm < %s | FileCheck %s
 ;
 ; The compiler expects the following output.
 ;

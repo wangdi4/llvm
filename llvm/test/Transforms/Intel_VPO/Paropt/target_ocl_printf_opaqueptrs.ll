@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=1 -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Checks that in the SPIR64 target compilation we replace printf()

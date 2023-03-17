@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt -S
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring),vpo-paropt' -S
 
 ; The test checks that there is no compfail:

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=1 -aa-pipeline=basic-aa -passes='vpo-paropt' -S %s | FileCheck %s
 ;
 ; Check that duplicate values in target entry's map bundles are renamed before

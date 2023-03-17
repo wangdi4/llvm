@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -S -sycllowerwglocalmemory -enable-new-pm=0 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -sycllowerwglocalmemory -bugpoint-enable-legacy-pm < %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -S -passes=sycllowerwglocalmemory < %s | FileCheck %s
 
 ; CHECK-DAG: [[WGLOCALMEM_1:@WGLocalMem.*]] = internal addrspace(3) global [128 x i8] undef, align 4
