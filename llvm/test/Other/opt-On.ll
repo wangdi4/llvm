@@ -18,3 +18,7 @@
 define void @f() {
   unreachable
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> c1b4240322bfaa43b7f02ca58cf9fe52744884b9
