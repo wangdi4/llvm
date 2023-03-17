@@ -783,7 +783,7 @@ void SGValueWidenPass::widenCalls() {
 
     SmallVector<Value *, 4> NewArgs;
     SmallVector<Type *, 4> NewArgTypes;
-    for (auto &Pair : enumerate(CI->args())) {
+    for (const auto &Pair : enumerate(CI->args())) {
       VFParameter Param = Params[Pair.index()];
       Value *Arg = Pair.value(), *NewArg = nullptr;
       if (VectorizerUtils::VFParamIsUniform(Param)) {

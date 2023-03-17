@@ -96,7 +96,7 @@ void FunctionWidener::run(FuncSet &Functions,
 // TODO: We need to add a function(sth like processIncompatibleAttrs) OR a pass
 // to handle all incompatible attributes.
 void FunctionWidener::removeByValAttr(Function &F) {
-  for (auto &Pair : enumerate(F.args())) {
+  for (const auto &Pair : enumerate(F.args())) {
     if (!F.hasParamAttribute(Pair.index(), Attribute::ByVal))
       continue;
 
@@ -189,7 +189,7 @@ Function *FunctionWidener::cloneFunction(Function &F, const VFInfo &V,
 
   // Remove incompatible argument attributes.
   SmallVector<AttributeSet, 4> ParamAttrs;
-  for (auto &Pair : enumerate(Clone->args())) {
+  for (const auto &Pair : enumerate(Clone->args())) {
     Type *ArgType = Pair.value().getType();
     AttributeMask AB = AttributeFuncs::typeIncompatible(ArgType);
     // The following attributes are rejected in community code.

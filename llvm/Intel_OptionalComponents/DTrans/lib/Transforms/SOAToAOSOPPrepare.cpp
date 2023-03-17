@@ -796,7 +796,7 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
                                 DTransOPTypeRemapper &TypeRemapper) {
     dtrans::CallInfoElementTypes &ElementTypes = CInfo->getElementTypesRef();
 
-    for (auto &I : enumerate(ElementTypes))
+    for (const auto &I : enumerate(ElementTypes))
       ElementTypes.setElemType(
           I.index(), TypeRemapper.remapType(I.value().getDTransType()));
   };

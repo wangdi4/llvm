@@ -9189,7 +9189,7 @@ void DTransAnalysisInfo::printCallInfo(raw_ostream &OS) {
   // To get some consistency in the printing order, populate a tuple
   // that can be sorted, then output the sorted list.
   for (const auto &CIVec : call_info_entries())
-    for (auto &E : enumerate(CIVec)) {
+    for (const auto &E : enumerate(CIVec)) {
       auto *CI = E.value();
       Instruction *I = CI->getInstruction();
       Entries.push_back(std::make_tuple(I->getFunction()->getName(),
