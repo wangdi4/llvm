@@ -121,14 +121,19 @@ void CPUCompiler::SetBuiltinModules(const std::string &cpuName,
                                     const std::string &cpuFeatures = "") {
   // config.GetLoadBuiltins should be true
   SelectCpu(cpuName, cpuFeatures);
-  (void)GetOrLoadBuiltinModules(/*ForceLoad*/ true);
 }
 
 CPUCompiler::CPUCompiler(const ICompilerConfig &config) : Compiler(config) {
   SelectCpu(config.GetCpuArch(), config.GetCpuFeatures());
   // Initialize the BuiltinModules
   if (config.GetLoadBuiltins()) {
-    (void)GetOrLoadBuiltinModules();
+    std::lock_guard<sys::Mutex> Locked(m_builtinModuleMutex);
+    BuiltinModuleManager *Manager = BuiltinModuleManager::GetInstance();
+    // Load libraries into current process so that they are visiable for jit
+    // processing in function BuildLibraryProgram. BTW, builtin rtl files are
+    // also loaded into buffers.
+    std::ignore = m_bIsFPGAEmulator ? Manager->GetOrLoadFPGAEmuLibrary(m_CpuId)
+                                    : Manager->GetOrLoadCPULibrary(m_CpuId);
   }
 
   // Create the listener that allows Amplifier to profile OpenCL kernels
