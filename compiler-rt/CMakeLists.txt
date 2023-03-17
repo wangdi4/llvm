@@ -20,6 +20,36 @@
 # An important constraint of the build is that it only produces libraries
 # based on the ability of the host toolchain to target various platforms.
 
+
+# INTEL_CUSTOMIZATION
+#
+# Compiler-RT Deployment Status
+#
+# This comment is used to keep track of current compiler-rt deployment status so
+# that we know which projects are included in our products.
+# Or you can search `clang_rt` in `llvm/CMakeLists.txt`.
+#
+# - profile
+#   - owned & used by PGO team
+#   - Linux & Windows
+# - sanitizers(CMPLRLLVM-41239)
+#   - Address Sanitizer(asan)
+#     - Linux & Windows
+#   - Leak Sanitizer(lsan)
+#     - Linux
+#   - Memory Sanitizer(msan)
+#     - Linux
+#   - Thread Sanitizer(tsan)
+#     - Linux
+#   - Undefined behaviors Sanitizer(ubsan)
+#     - Linux & Windows
+# - fuzzer(CMPLRLLVM-44636)
+#   - Linux
+# - cfi(CMPLRLLVM-43351)
+#   - Linux & Windows
+#
+# end INTEL_CUSTOMIZATION
+
 cmake_minimum_required(VERSION 3.13.4)
 
 # Check if compiler-rt is built as a standalone project.
