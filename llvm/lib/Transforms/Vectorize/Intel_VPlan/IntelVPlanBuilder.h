@@ -378,6 +378,21 @@ public:
     return NewStore;
   }
 
+  // Build a VPCallInstruction for function \p Fnc with list of argument
+  // operands \p ArgList. It allows to create VPCallInstruction without
+  // underlying IR.`
+  VPInstruction *createCall(Function *Fnc, ArrayRef<VPValue *> ArgList) {
+    assert(getInsertBlock() && "Cannot create VPCallInstruction without BB.");
+    auto *Plan = getInsertBlock()->getParent();
+    assert(Plan && "Cannot create VPCallInstruction without VPlan.");
+    auto *VPCallFn = Plan->getVPConstant(cast<Constant>(Fnc));
+    VPCallInstruction *NewVPCall =
+        new VPCallInstruction(VPCallFn, Fnc->getFunctionType(), ArgList);
+    NewVPCall->setName(VPCallFn->getName());
+    insert(NewVPCall);
+    return NewVPCall;
+  }
+
   // Build a VPCallInstruction for the LLVM-IR instruction \p Inst using callee
   // \p CalledValue and list of argument operands \p ArgList.
   VPInstruction *createCall(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,

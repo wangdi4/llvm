@@ -51,6 +51,12 @@ static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
                     cl::desc("use simd versions of read/write pipe functions"));
 
+// Currently only for testing purposes, can be enabled when we start to support
+// vectorizing nested SIMD directives
+static cl::opt<bool>
+    EnableNestedRegions("vplan-enable-nested-simd", cl::init(false), cl::Hidden,
+                    cl::desc("Allow nesting of different SIMD regions"));
+
 namespace llvm {
 namespace vpo {
 bool ForceComplexTyReductionVec = false;
@@ -760,6 +766,9 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
           // removed by VPlan framework.
           if (vpo::VPOAnalysisUtils::getDirectiveID(Call) ==
               DIR_VPO_GUARD_MEM_MOTION)
+            continue;
+
+          if (EnableNestedRegions)
             continue;
 
           // Most probably DIR.OMP.ORDERED, which we have to support in future.

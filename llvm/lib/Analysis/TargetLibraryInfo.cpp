@@ -5994,6 +5994,59 @@ bool TargetLibraryInfoImpl::isOCLVectorFunction(StringRef FuncName) const {
   }
   return false;
 }
+
+bool TargetLibraryInfoImpl::isOMPLibFunc(LibFunc F) const {
+  switch (F) {
+    case LibFunc_kmpc_barrier:
+    case LibFunc_kmpc_critical:
+    case LibFunc_kmpc_critical_with_hint:
+    case LibFunc_kmpc_dispatch_init_4:
+    case LibFunc_kmpc_dispatch_init_4u:
+    case LibFunc_kmpc_dispatch_init_8:
+    case LibFunc_kmpc_dispatch_init_8u:
+    case LibFunc_kmpc_dispatch_next_4:
+    case LibFunc_kmpc_dispatch_next_4u:
+    case LibFunc_kmpc_dispatch_next_8:
+    case LibFunc_kmpc_dispatch_next_8u:
+    case LibFunc_kmpc_end_critical:
+    case LibFunc_kmpc_end_reduce:
+    case LibFunc_kmpc_end_reduce_nowait:
+    case LibFunc_kmpc_end_serialized_parallel:
+    case LibFunc_kmpc_flush:
+    case LibFunc_kmpc_for_static_fini:
+    case LibFunc_kmpc_for_static_init_4:
+    case LibFunc_kmpc_for_static_init_4u:
+    case LibFunc_kmpc_for_static_init_8:
+    case LibFunc_kmpc_for_static_init_8u:
+    case LibFunc_kmpc_fork_call:
+    case LibFunc_kmpc_global_thread_num:
+    case LibFunc_kmpc_ok_to_fork:
+    case LibFunc_kmpc_omp_task:
+    case LibFunc_kmpc_omp_task_alloc:
+    case LibFunc_kmpc_omp_task_begin_if0:
+    case LibFunc_kmpc_omp_task_complete_if0:
+    case LibFunc_kmpc_omp_taskwait:
+    case LibFunc_kmpc_push_num_threads:
+    case LibFunc_kmpc_reduce:
+    case LibFunc_kmpc_reduce_nowait:
+    case LibFunc_kmpc_serialized_parallel:
+    case LibFunc_kmpc_single:
+    case LibFunc_kmpc_end_single:
+    case LibFunc_kmpc_masked:
+    case LibFunc_kmpc_end_masked:
+    case LibFunc_kmpc_master:
+    case LibFunc_kmpc_end_master:
+    case LibFunc_kmpc_threadprivate_cached:
+    case LibFunc_kmpc_atomic_compare_exchange:
+    case LibFunc_kmpc_atomic_fixed4_add:
+    case LibFunc_kmpc_atomic_float8_add:
+    case LibFunc_kmpc_atomic_load:
+    case LibFunc_kmpc_atomic_store:
+      return true;
+    default:
+      return false;
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,

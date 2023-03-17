@@ -588,6 +588,10 @@ protected:
   /// Create VPLiveIn/VPLiveOut lists for VPEntities.
   virtual void createLiveInOutLists(VPlanVector &Plan);
 
+  // Checks whether a call is to an OMP construct, and if so whether it's valid
+  // inside of a SIMD region
+  bool isInvalidOMPConstructInSIMD(VPCallInstruction* VPCall) const;
+
   /// Check whether everything in the loop body is supported at the moment.
   /// We can have some unimplemented things and it's better to gracefully
   /// bailout in such cases than assert or generate incorrect code.
