@@ -1432,6 +1432,8 @@ def warn_omp_groupprivate_only_nohost
     : Warning<"only device_type of nohost is currently supported, the "
               "'#pragma omp groupprivate' is ignored">,
       InGroup<OpenMPClauses>;
+def err_omp_declare_target_unexpected_local_clause: Error<
+  "unexpected 'local' clause">;
 def err_omp_unexpected_device_type : Error<"unexpected device_type clause">;
 // end INTEL_COLLAB
 def err_omp_map_type_missing : Error<
