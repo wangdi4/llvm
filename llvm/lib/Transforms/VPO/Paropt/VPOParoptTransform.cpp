@@ -11565,6 +11565,26 @@ void VPOParoptTransform::getAllocFromTid(CallInst *Tid) {
   }
 }
 
+// Reset non-constant TYPED num-elements to null in Shared clauses. e.g.:
+// Before                           | After
+// ---------------------------------+-------------------------------------------
+// SHARED(ptr %x, i32 0, i32 %n)    | SHARED(ptr %x, i32 0, i32 0)
+static void resetTypedNumElementsInSharedClause(WRegionNode *W) {
+  assert(W && "resetTypedNumElementsInOmpClauses: Null WRegionNode.");
+  assert(isa_and_nonnull<IntrinsicInst>(W->getEntryDirective()) &&
+         "resetTypedNumElementsInOmpClauses: Null Entry Directive.");
+  auto *EntryDir = cast<IntrinsicInst>(W->getEntryDirective());
+
+  if (!W->canHaveShared())
+    return;
+
+  for (SharedItem *SI : W->getShared().items())
+    if (SI->getIsTyped())
+      if (Value *NumElements = SI->getNumElements())
+        if (!isa<ConstantInt>(NumElements))
+          removeAllUsesInClauses<QUAL_OMP_SHARED>(EntryDir, NumElements);
+}
+
 bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMultiThreadedCode\n");
 
@@ -11575,6 +11595,11 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   resetValueInNumTeamsAndThreadsClause(W);
   if (!W->getIsTeams())
     resetValueInOmpClauseGeneric(W, W->getIf());
+
+  // Reset num-elements of typed shared clauses. This is not needed for PRIVATE
+  // etc because for them we send the value into the outlined region using
+  // captureAndAddCollectedNonPointerValuesToSharedClause().
+  resetTypedNumElementsInSharedClause(W);
 
   // Set up Fn Attr for the new function
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
