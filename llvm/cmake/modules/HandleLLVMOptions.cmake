@@ -1681,5 +1681,9 @@ if(INTEL_CUSTOMIZATION)
     message(STATUS "INTEL: setting SDL options - end.")
   endif()
 endif(INTEL_CUSTOMIZATION)
+
+# Add to the end since we need some definitions to be set (LLVM_ON_LINUX)
+include(AddSecurityFlags)
+
 set(LLVM_THIRD_PARTY_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/../third-party CACHE STRING
     "Directory containing third party software used by LLVM (e.g. googletest)")
