@@ -59,11 +59,13 @@ public:
     LTPeel,
   };
 
-  VPlanLoopDescr(LoopType Ty, unsigned VF, bool Masked)
-      : Type(Ty), VF(VF), IsMasked(Masked), TripCount(0) {}
+  VPlanLoopDescr(LoopType Ty, unsigned VF, unsigned UF, bool Masked)
+      : Type(Ty), VF(VF), UF(UF), IsMasked(Masked), TripCount(0) {}
 
   LoopType getLoopType() const { return Type; }
   unsigned getVF() const { return VF; }
+  unsigned getUF() const { return UF; }
+  unsigned getVFUF() const { return VF * UF; }
   bool isMasked() const { return IsMasked; }
   TripCountInfo::TripCountTy getTC() const { return TripCount; }
   bool isTCKnown() const { return TripCount != 0; }
@@ -73,6 +75,7 @@ public:
 private:
   LoopType Type;
   unsigned VF; // vector factor
+  unsigned UF; // unroll factor
   bool IsMasked;
 
   // Vector iterations count, is set to non-zero only when we know

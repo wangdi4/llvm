@@ -1053,8 +1053,8 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
         HLoop->setVecTag(HLLoop::VecTagTy::SIMD);
       else
         HLoop->setVecTag(HLLoop::VecTagTy::AUTOVEC);
-      HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(HLoop,
-                                                               Descr->getVF());
+      HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(
+          HLoop, Descr->getVFUF());
       break;
     }
   } else {

@@ -1741,13 +1741,29 @@ static Instruction *foldSelectZeroOrOnes(ICmpInst *Cmp, Value *TVal,
 }
 
 static Value *foldSelectInstWithICmpConst(SelectInst &SI, ICmpInst *ICI,
-                                          InstCombiner::BuilderTy &Builder) {
+#if INTEL_CUSTOMIZATION
+                                          InstCombiner::BuilderTy &Builder
+#if INTEL_FEATURE_SW_ADVANCED
+                                          , bool AdvOpt
+#endif // INTEL_FEATURE_SW_ADVANCED
+                                          ) {
+#endif // INTEL_CUSTOMIZATION
+                 
   const APInt *CmpC;
   Value *V;
   CmpInst::Predicate Pred;
   if (!match(ICI, m_ICmp(Pred, m_Value(V), m_APInt(CmpC))))
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+ // Disable min/max recognition for this case, when advanced opts are
+ // enabled and the type is scalar. Selects can enable CFG optimizations.
+ if (!AdvOpt || SI.getType()->isVectorTy())
+#endif // INTEL_FEATURE_SW_ADVANCED
+ // do not indent below, preserve llorg code for pulldown
+ {
+#endif // INTEL_CUSTOMIZATION
   // Match clamp away from min/max value as a max/min operation.
   Value *TVal = SI.getTrueValue();
   Value *FVal = SI.getFalseValue();
@@ -1765,7 +1781,9 @@ static Value *foldSelectInstWithICmpConst(SelectInst &SI, ICmpInst *ICI,
     if (CmpC->isMaxSignedValue() && match(TVal, m_SpecificInt(*CmpC - 1)))
       return Builder.CreateBinaryIntrinsic(Intrinsic::smin, V, TVal);
   }
-
+#if INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
   BinaryOperator *BO;
   const APInt *C;
   CmpInst::Predicate CPred;
@@ -1797,8 +1815,15 @@ Instruction *InstCombinerImpl::foldSelectInstWithICmp(SelectInst &SI,
 
   if (Instruction *NewSPF = canonicalizeSPF(SI, *ICI, *this))
     return NewSPF;
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+  bool AnyAdvVec = getTargetTransformInfo().isAdvancedOptEnabled(
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42);
+  if (Value *V = foldSelectInstWithICmpConst(SI, ICI, Builder, AnyAdvVec))
+#else // INTEL_FEATURE_SW_ADVANCED
   if (Value *V = foldSelectInstWithICmpConst(SI, ICI, Builder))
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
     return replaceInstUsesWith(SI, V);
 
   if (Value *V = canonicalizeClampLike(SI, *ICI, Builder))

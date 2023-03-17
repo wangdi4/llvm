@@ -248,8 +248,8 @@ class CfgMergerPlanDescr : public VPlanLoopDescr {
 public:
   using LoopType = VPlanLoopDescr::LoopType;
 
-  CfgMergerPlanDescr(LoopType LT, unsigned F, VPlan *P)
-      : VPlanLoopDescr(LT, F, isa<VPlanMasked>(P)), Plan(P) {}
+  CfgMergerPlanDescr(LoopType LT, unsigned VF, unsigned UF, VPlan *P)
+      : VPlanLoopDescr(LT, VF, UF, isa<VPlanMasked>(P)), Plan(P) {}
 
   VPlan *getVPlan() const { return Plan; }
 
@@ -297,8 +297,10 @@ private:
       return "";
     };
     OS << "VPlan: " << Plan->getName() << "\n";
-    OS << " Kind: " << getLoopTypeName(getLoopType()) << " VF:" << getVF()
-       << " TC:" << getTC() << "\n";
+    OS << " Kind: " << getLoopTypeName(getLoopType()) << " VF:" << getVF();
+    if (getUF() > 1)
+      OS << " UF:" << getUF();
+    OS << " TC:" << getTC() << "\n";
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };

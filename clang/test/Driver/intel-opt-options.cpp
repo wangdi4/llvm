@@ -231,3 +231,4 @@
 // NO_VEC: "-mllvm" "-disable-hir-vec-dir-insert"
 // NO_VEC: "-mllvm" "-enable-o0-vectorization=false"
 // NO_VEC: "-mllvm" "-vplan-driver=false"
+// NO_VEC: "-mllvm" "-vplan-driver-hir=false"
