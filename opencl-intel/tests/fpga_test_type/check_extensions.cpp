@@ -76,11 +76,7 @@ TEST_F(CheckExtensions, FPGADevice) {
                          OCL_EXT_KHR_IL_PROGRAM,
                          OCL_EXT_KHR_LOCAL_BASE_ATOMICS,
                          OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS,
-                         OCL_EXT_KHR_SPIRV_LINKONCE_ODR,
-                         OCL_EXT_KHR_SUBGROUP_EXTENDED_TYPES,
-                         OCL_EXT_KHR_SUBGROUP_NON_UNIFORM_ARITHMETIC,
-                         OCL_EXT_KHR_SUBGROUP_SHUFFLE,
-                         OCL_EXT_KHR_SUBGROUP_SHUFFLE_RELATIVE};
+                         OCL_EXT_KHR_SPIRV_LINKONCE_ODR};
   StringRef exts{extensions};
   SmallVector<StringRef, 64> extensionVec;
   SplitString(exts.substr(0, exts.find_first_of('\0')), extensionVec);
