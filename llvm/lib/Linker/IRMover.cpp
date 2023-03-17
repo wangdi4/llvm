@@ -2069,16 +2069,6 @@ class IRLinker {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-  // When DTrans metadata tags are used to describe types of function
-  // return values or parameters, we need to ensure that the metadata nodes
-  // attached to declarations get remapped to the types contained within the
-  // destination module. Otherwise, the metadata can be left pointing to the
-  // memory object of the source module, resulting in a bad pointer reference
-  // within the destination module. This worklist is for declarations that
-  // are discovered while mapping the source module into the destination module
-  // which will need to be processed.
-  SmallPtrSet<GlobalObject *, 8> DTransMDRemapWorklist;
-
   DTransTypeManager *DstTM = nullptr;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
@@ -3363,20 +3353,6 @@ Expected<Constant *> IRLinker::linkGlobalValueProto(GlobalValue *SGV,
     NewGV = copyGlobalValueProto(SGV, ShouldLink || ForIndirectSymbol);
     if (ShouldLink || !ForIndirectSymbol)
       NeedsRenaming = true;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-    // A new GlobalValue has been introduced into the destination module that
-    // may need to have DTrans metadata updated. We cannot remap the data
-    // immediately because a FlushingRemapper is already in progress. Save
-    // the Value object for updating the metadata attachment after all the IR
-    // definitions have been mapped.
-    if (NewGV->isDeclaration())
-      if (auto *NewGO = dyn_cast<GlobalObject>(NewGV))
-        if (NewGO->hasMetadata("intel.dtrans.func.type") ||
-            NewGO->hasMetadata("intel_dtrans_type"))
-          DTransMDRemapWorklist.insert(NewGO);
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
   }
 
   // Overloaded intrinsics have overloaded types names as part of their
@@ -3977,34 +3953,6 @@ Error IRLinker::run() {
   // metadata linking from creating new references.
   DoneLinkingBodies = true;
   Mapper.addFlags(RF_NullMapMissingGlobalValues);
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  for (auto *GO : DTransMDRemapWorklist) {
-    // Remap the metadata, if the GlobalObject is still a declaration. If it was
-    // changed to a definition, then the remapping has already been done.
-    if (GO->isDeclaration()) {
-      // Function declarations use the tag "intel.dtrans.func.type"
-      // Global variables use the tag "intel_dtrans_type"
-      const char *MDName = "intel.dtrans.func.type";
-      auto *MD = GO->getMetadata(MDName);
-      if (!MD) {
-        MDName = "intel_dtrans_type";
-        MD = GO->getMetadata(MDName);
-      }
-      if (MD) {
-        // Update the metadata tag. Remap it, if one has not been created yet.
-        auto Mapping = ValueMap.getMappedMD(MD);
-        if (Mapping)
-          GO->setMetadata(MDName, cast<MDNode>(Mapping.value()));
-        else
-          GO->setMetadata(MDName, Mapper.mapMDNode(*MD));
-      }
-    }
-  }
-  DTransMDRemapWorklist.clear();
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 
   // Remap all of the named MDNodes in Src into the DstM module. We do this
   // after linking GlobalValues so that MDNodes that reference GlobalValues
