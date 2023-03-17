@@ -1663,14 +1663,6 @@ const SCEV *ScalarEvolution::getZeroExtendExprImpl(const SCEV *Op, Type *Ty,
       unsigned BitWidth = getTypeSizeInBits(AR->getType());
       const Loop *L = AR->getLoop();
 
-<<<<<<< HEAD
-      if (!AR->hasNoUnsignedWrap() || !AR->hasNoSignedWrap()) { // INTEL
-        auto NewFlags = proveNoWrapViaConstantRanges(AR);
-        setNoWrapFlags(const_cast<SCEVAddRecExpr *>(AR), NewFlags);
-      }
-
-=======
->>>>>>> 484c622760e2a46aa1b52c7a791ee59543364225
       // If we have special knowledge that this addrec won't overflow,
       // we don't need to do any further analysis.
       if (AR->hasNoUnsignedWrap()) {
@@ -2050,14 +2042,6 @@ const SCEV *ScalarEvolution::getSignExtendExprImpl(const SCEV *Op, Type *Ty,
       unsigned BitWidth = getTypeSizeInBits(AR->getType());
       const Loop *L = AR->getLoop();
 
-<<<<<<< HEAD
-      if (!AR->hasNoSignedWrap() || !AR->hasNoUnsignedWrap()) { // INTEL
-        auto NewFlags = proveNoWrapViaConstantRanges(AR);
-        setNoWrapFlags(const_cast<SCEVAddRecExpr *>(AR), NewFlags);
-      }
-
-=======
->>>>>>> 484c622760e2a46aa1b52c7a791ee59543364225
       // If we have special knowledge that this addrec won't overflow,
       // we don't need to do any further analysis.
       if (AR->hasNoSignedWrap()) {
