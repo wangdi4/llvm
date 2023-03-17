@@ -49,9 +49,6 @@ add_llvm_component_library(LLVMCore
   InlineAsm.cpp
   Instruction.cpp
   Instructions.cpp
-# INTEL_CUSTOMIZATION
-  Intel_VectorVariant.cpp
-# end INTEL_CUSTOMIZATION
   IntrinsicInst.cpp
   LLVMContext.cpp
   LLVMContextImpl.cpp
