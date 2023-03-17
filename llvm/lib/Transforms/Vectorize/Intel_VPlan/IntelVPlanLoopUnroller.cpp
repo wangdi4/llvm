@@ -296,19 +296,31 @@ void VPlanLoopUnroller::run() {
 
   // Reduce the partial sum values for each candidate to a single
   // value to replace the original reduction's live-outs.
-  for (const auto &It : PSumCandidates) {
-    const PSumCandidate &PS = It.second;
-    VPValue *A = PS.Accum[0];
+  for (auto &It : PSumCandidates) {
+    PSumCandidate &PS = It.second;
+    VPValue *Orig = PS.Accum[0];
     VPBldr.setInsertPointFirstNonPhi(Exit);
-    for (unsigned i = 1, n = PS.Accum.size(); i < n; ++i) {
-      VPInstruction *VPI =
-          VPBldr.createNaryOp(PS.Opcode, PS.ReductionType, {A, PS.Accum[i]});
-      if (VPI->hasFastMathFlags())
-        VPI->setFastMathFlags(PS.FMF);
-      A = VPI;
+    unsigned NumAccums = PS.Accum.size();
+
+    while (NumAccums > 1) {
+      unsigned CurSize = 0, Index;
+
+      for (Index = 0; Index < NumAccums - 1; Index += 2) {
+        VPInstruction *VPI =
+            VPBldr.createNaryOp(PS.Opcode, PS.ReductionType,
+                                {PS.Accum[Index], PS.Accum[Index + 1]});
+        if (VPI->hasFastMathFlags())
+          VPI->setFastMathFlags(PS.FMF);
+        PS.Accum[CurSize++] = VPI;
+      }
+      // If last accumulator is leftover, add it to be processed
+      if (Index < NumAccums)
+        PS.Accum[CurSize++] = PS.Accum[NumAccums - 1];
+
+      NumAccums = CurSize;
     }
     // Replace the last-iteration result with the reduced value.
-    ValueMap[PS.Accum[0]] = A;
+    ValueMap[Orig] = PS.Accum[0];
   }
 
   // Replace uses of live-outs with the last unrolling part clone of them.

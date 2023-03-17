@@ -49,7 +49,7 @@ enum LINK_OPT_ID {
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)                                      \
   OPT_LINK_##ID,
-#include "opencl_link_options.inc"
+#include "OpenCLLinkOptions.inc"
   OPT_LINK_LAST_OPTION
 #undef OPTION
 #undef PREFIX
@@ -61,7 +61,7 @@ enum LINK_OPT_ID {
                                                 std::size(NAME##_init) - 1);
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)
-#include "opencl_link_options.inc"
+#include "OpenCLLinkOptions.inc"
 #undef OPTION
 #undef PREFIX
 
@@ -81,7 +81,7 @@ static constexpr opt::OptTable::Info ClangOptionsInfoTable[] = {
    OPT_LINK_##ALIAS,                                                           \
    ALIASARGS,                                                                  \
    VALUES},
-#include "opencl_link_options.inc"
+#include "OpenCLLinkOptions.inc"
 #undef OPTION
 #undef PREFIX
 };
