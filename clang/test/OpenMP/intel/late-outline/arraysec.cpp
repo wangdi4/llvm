@@ -48,9 +48,7 @@ const int SZ = 3;
 void arrsecred_ptr() {
 
   // CHECK: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"
-  // CHECK-SAME: (ptr {{.*}}yglobptr{{.*}}, i16 0,
-  // CHECK-SAME: i64 %sec.number_of_elements{{[^,]*}},
-  // CHECK-SAME: i64 %sec.offset_in_elements{{[^,]*}})
+  // CHECK-SAME: (ptr {{.*}}yglobptr{{.*}}, i16 0, i64 3, i64 6),
   #pragma omp parallel for reduction(+:yglobptr[6:SZ])
   for (int i = 6; i < 9; i++) {
     yglobptr[i] += 1;

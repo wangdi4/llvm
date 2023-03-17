@@ -132,128 +132,92 @@ foobar bar;
 // CHECK-32-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 4
 // CHECK-32-NEXT:    [[TMP4:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX4]], i32 0, i32 8, i32 3) ]
 // CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP4]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[ARRAYIDX5:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 3
-// CHECK-32-NEXT:    [[SEC_LOWER_CAST:%.*]] = ptrtoint i32* [[ARRAYIDX5]] to i32
 // CHECK-32-NEXT:    [[TMP5:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-32-NEXT:    [[LB_ADD_LEN:%.*]] = add nsw i32 2, [[TMP5]]
-// CHECK-32-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 [[LB_ADD_LEN]]
-// CHECK-32-NEXT:    [[SEC_UPPER_CAST:%.*]] = ptrtoint i32* [[ARRAYIDX6]] to i32
-// CHECK-32-NEXT:    [[TMP6:%.*]] = sub i32 [[SEC_UPPER_CAST]], [[SEC_LOWER_CAST]]
-// CHECK-32-NEXT:    [[TMP7:%.*]] = sdiv exact i32 [[TMP6]], 4
-// CHECK-32-NEXT:    [[SEC_NUMBER_OF_ELEMENTS:%.*]] = add i32 [[TMP7]], 1
-// CHECK-32-NEXT:    [[TMP8:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX5]], i32 0, i32 [[SEC_NUMBER_OF_ELEMENTS]], i32 4) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP8]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[ARRAYIDX7:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 0
-// CHECK-32-NEXT:    [[TMP9:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX7]], i32 0, i32 10, i32 5) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP9]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[TMP10:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-32-NEXT:    [[ARRAYIDX8:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 [[TMP10]]
-// CHECK-32-NEXT:    [[SEC_LOWER_CAST9:%.*]] = ptrtoint i32* [[ARRAYIDX8]] to i32
-// CHECK-32-NEXT:    [[TMP11:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-32-NEXT:    [[LB_ADD_LEN10:%.*]] = add nsw i32 [[TMP11]], 4
-// CHECK-32-NEXT:    [[ARRAYIDX11:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 [[LB_ADD_LEN10]]
-// CHECK-32-NEXT:    [[SEC_UPPER_CAST12:%.*]] = ptrtoint i32* [[ARRAYIDX11]] to i32
-// CHECK-32-NEXT:    [[TMP12:%.*]] = sub i32 [[SEC_UPPER_CAST12]], [[SEC_LOWER_CAST9]]
-// CHECK-32-NEXT:    [[TMP13:%.*]] = sdiv exact i32 [[TMP12]], 4
-// CHECK-32-NEXT:    [[SEC_NUMBER_OF_ELEMENTS13:%.*]] = add i32 [[TMP13]], 1
-// CHECK-32-NEXT:    [[TMP14:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX8]], i32 0, i32 [[SEC_NUMBER_OF_ELEMENTS13]], i32 6) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP14]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[ARRAYIDX14:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 1
-// CHECK-32-NEXT:    [[TMP15:%.*]] = load i32, i32* [[A]], align 4
-// CHECK-32-NEXT:    [[TMP16:%.*]] = load i32, i32* [[B]], align 4
-// CHECK-32-NEXT:    [[CMP:%.*]] = icmp slt i32 [[TMP15]], [[TMP16]]
-// CHECK-32-NEXT:    [[TMP17:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX14]], i32 0, i32 2, i32 1), "QUAL.OMP.IF"(i1 [[CMP]]) ]
+// CHECK-32-NEXT:    [[ARRAYIDX5:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 3
+// CHECK-32-NEXT:    [[TMP6:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX5]], i32 0, i32 [[TMP5]], i32 4) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP6]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 0
+// CHECK-32-NEXT:    [[TMP7:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX6]], i32 0, i32 10, i32 5) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP7]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[TMP8:%.*]] = load i32, i32* [[I]], align 4
+// CHECK-32-NEXT:    [[TMP9:%.*]] = load i32, i32* [[I]], align 4
+// CHECK-32-NEXT:    [[ARRAYIDX7:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 [[TMP9]]
+// CHECK-32-NEXT:    [[TMP10:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX7]], i32 0, i32 5, i32 6) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP10]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[ARRAYIDX8:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 1
+// CHECK-32-NEXT:    [[TMP11:%.*]] = load i32, i32* [[A]], align 4
+// CHECK-32-NEXT:    [[TMP12:%.*]] = load i32, i32* [[B]], align 4
+// CHECK-32-NEXT:    [[CMP:%.*]] = icmp slt i32 [[TMP11]], [[TMP12]]
+// CHECK-32-NEXT:    [[TMP13:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX8]], i32 0, i32 2, i32 1), "QUAL.OMP.IF"(i1 [[CMP]]) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP13]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[TMP14:%.*]] = load i32, i32* [[A]], align 4
+// CHECK-32-NEXT:    [[CMP9:%.*]] = icmp eq i32 [[TMP14]], 0
+// CHECK-32-NEXT:    [[TMP15:%.*]] = load i32, i32* [[I]], align 4
+// CHECK-32-NEXT:    [[TMP16:%.*]] = load i32, i32* [[I]], align 4
+// CHECK-32-NEXT:    [[ARRAYIDX10:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 [[TMP16]]
+// CHECK-32-NEXT:    [[TMP17:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.IF"(i1 [[CMP9]]), "QUAL.OMP.DATA"(i32* [[ARRAYIDX10]], i32 0, i32 3, i32 1) ]
 // CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP17]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[TMP18:%.*]] = load i32, i32* [[A]], align 4
-// CHECK-32-NEXT:    [[CMP15:%.*]] = icmp eq i32 [[TMP18]], 0
-// CHECK-32-NEXT:    [[TMP19:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-32-NEXT:    [[ARRAYIDX16:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 [[TMP19]]
-// CHECK-32-NEXT:    [[SEC_LOWER_CAST17:%.*]] = ptrtoint i32* [[ARRAYIDX16]] to i32
-// CHECK-32-NEXT:    [[TMP20:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-32-NEXT:    [[LB_ADD_LEN18:%.*]] = add nsw i32 [[TMP20]], 2
-// CHECK-32-NEXT:    [[ARRAYIDX19:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 [[LB_ADD_LEN18]]
-// CHECK-32-NEXT:    [[SEC_UPPER_CAST20:%.*]] = ptrtoint i32* [[ARRAYIDX19]] to i32
-// CHECK-32-NEXT:    [[TMP21:%.*]] = sub i32 [[SEC_UPPER_CAST20]], [[SEC_LOWER_CAST17]]
-// CHECK-32-NEXT:    [[TMP22:%.*]] = sdiv exact i32 [[TMP21]], 4
-// CHECK-32-NEXT:    [[SEC_NUMBER_OF_ELEMENTS21:%.*]] = add i32 [[TMP22]], 1
-// CHECK-32-NEXT:    [[TMP23:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.IF"(i1 [[CMP15]]), "QUAL.OMP.DATA"(i32* [[ARRAYIDX16]], i32 0, i32 [[SEC_NUMBER_OF_ELEMENTS21]], i32 1) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP23]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[ARRAYIDX22:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 0
-// CHECK-32-NEXT:    [[ARRAYIDX23:%.*]] = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* [[FOO2]], i32 0, i32 0
-// CHECK-32-NEXT:    [[ARRAYDECAY24:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[ARRAYIDX23]], i32 0, i32 0
-// CHECK-32-NEXT:    [[ARRAYIDX25:%.*]] = getelementptr inbounds i32, i32* [[ARRAYDECAY24]], i32 0
-// CHECK-32-NEXT:    [[TMP24:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX22]], i32 0, i32 1, i32 1), "QUAL.OMP.DATA"(i32* [[ARRAYIDX25]], i32 0, i32 50, i32 1) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP24]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[ARRAYIDX26:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 1
-// CHECK-32-NEXT:    [[TMP25:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX26]], i32 0, i32 1, i32 3) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP25]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[ARRAYIDX27:%.*]] = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* [[FOO2]], i32 0, i32 2
-// CHECK-32-NEXT:    [[ARRAYIDX28:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[ARRAYIDX27]], i32 0, i32 3
-// CHECK-32-NEXT:    [[TMP26:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX28]], i32 0, i32 1, i32 0) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP26]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[ARRAYIDX11:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 0
+// CHECK-32-NEXT:    [[ARRAYIDX12:%.*]] = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* [[FOO2]], i32 0, i32 0
+// CHECK-32-NEXT:    [[ARRAYDECAY13:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[ARRAYIDX12]], i32 0, i32 0
+// CHECK-32-NEXT:    [[ARRAYIDX14:%.*]] = getelementptr inbounds i32, i32* [[ARRAYDECAY13]], i32 0
+// CHECK-32-NEXT:    [[TMP18:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX11]], i32 0, i32 1, i32 1), "QUAL.OMP.DATA"(i32* [[ARRAYIDX14]], i32 0, i32 50, i32 1) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP18]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[ARRAYIDX15:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i32 0, i32 1
+// CHECK-32-NEXT:    [[TMP19:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX15]], i32 0, i32 1, i32 3) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP19]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[ARRAYIDX16:%.*]] = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* [[FOO2]], i32 0, i32 2
+// CHECK-32-NEXT:    [[ARRAYIDX17:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[ARRAYIDX16]], i32 0, i32 3
+// CHECK-32-NEXT:    [[TMP20:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX17]], i32 0, i32 1, i32 0) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP20]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[TMP21:%.*]] = load i32, i32* [[N_ADDR]], align 4
+// CHECK-32-NEXT:    [[TMP22:%.*]] = call i8* @llvm.stacksave()
+// CHECK-32-NEXT:    store i8* [[TMP22]], i8** [[SAVED_STACK]], align 4
+// CHECK-32-NEXT:    [[TMP23:%.*]] = mul nuw i32 1000, [[TMP21]]
+// CHECK-32-NEXT:    [[VLA:%.*]] = alloca i16, i32 [[TMP23]], align 2
+// CHECK-32-NEXT:    store i32 [[TMP21]], i32* [[__VLA_EXPR0]], align 4
+// CHECK-32-NEXT:    [[TMP24:%.*]] = mul nuw i32 10, [[TMP21]]
+// CHECK-32-NEXT:    [[TMP25:%.*]] = mul nsw i32 50, [[TMP24]]
+// CHECK-32-NEXT:    [[ARRAYIDX18:%.*]] = getelementptr inbounds i16, i16* [[VLA]], i32 [[TMP25]]
+// CHECK-32-NEXT:    [[TMP26:%.*]] = mul nsw i32 5, [[TMP21]]
+// CHECK-32-NEXT:    [[ARRAYIDX19:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX18]], i32 [[TMP26]]
+// CHECK-32-NEXT:    [[ARRAYIDX20:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX19]], i32 0
+// CHECK-32-NEXT:    [[SEC_LOWER_CAST:%.*]] = ptrtoint i16* [[ARRAYIDX20]] to i32
 // CHECK-32-NEXT:    [[TMP27:%.*]] = load i32, i32* [[N_ADDR]], align 4
-// CHECK-32-NEXT:    [[TMP28:%.*]] = call i8* @llvm.stacksave()
-// CHECK-32-NEXT:    store i8* [[TMP28]], i8** [[SAVED_STACK]], align 4
-// CHECK-32-NEXT:    [[TMP29:%.*]] = mul nuw i32 1000, [[TMP27]]
-// CHECK-32-NEXT:    [[VLA:%.*]] = alloca i16, i32 [[TMP29]], align 2
-// CHECK-32-NEXT:    store i32 [[TMP27]], i32* [[__VLA_EXPR0]], align 4
-// CHECK-32-NEXT:    [[TMP30:%.*]] = mul nuw i32 10, [[TMP27]]
-// CHECK-32-NEXT:    [[TMP31:%.*]] = mul nsw i32 50, [[TMP30]]
-// CHECK-32-NEXT:    [[ARRAYIDX29:%.*]] = getelementptr inbounds i16, i16* [[VLA]], i32 [[TMP31]]
-// CHECK-32-NEXT:    [[TMP32:%.*]] = mul nsw i32 5, [[TMP27]]
-// CHECK-32-NEXT:    [[ARRAYIDX30:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX29]], i32 [[TMP32]]
-// CHECK-32-NEXT:    [[ARRAYIDX31:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX30]], i32 0
-// CHECK-32-NEXT:    [[SEC_LOWER_CAST32:%.*]] = ptrtoint i16* [[ARRAYIDX31]] to i32
-// CHECK-32-NEXT:    [[TMP33:%.*]] = load i32, i32* [[N_ADDR]], align 4
-// CHECK-32-NEXT:    [[LB_ADD_LEN33:%.*]] = add nsw i32 -1, [[TMP33]]
-// CHECK-32-NEXT:    [[TMP34:%.*]] = mul nuw i32 10, [[TMP27]]
-// CHECK-32-NEXT:    [[TMP35:%.*]] = mul nsw i32 50, [[TMP34]]
-// CHECK-32-NEXT:    [[ARRAYIDX34:%.*]] = getelementptr inbounds i16, i16* [[VLA]], i32 [[TMP35]]
-// CHECK-32-NEXT:    [[TMP36:%.*]] = mul nsw i32 7, [[TMP27]]
-// CHECK-32-NEXT:    [[ARRAYIDX35:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX34]], i32 [[TMP36]]
-// CHECK-32-NEXT:    [[ARRAYIDX36:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX35]], i32 [[LB_ADD_LEN33]]
-// CHECK-32-NEXT:    [[SEC_UPPER_CAST37:%.*]] = ptrtoint i16* [[ARRAYIDX36]] to i32
-// CHECK-32-NEXT:    [[TMP37:%.*]] = sub i32 [[SEC_UPPER_CAST37]], [[SEC_LOWER_CAST32]]
-// CHECK-32-NEXT:    [[TMP38:%.*]] = sdiv exact i32 [[TMP37]], 2
-// CHECK-32-NEXT:    [[SEC_NUMBER_OF_ELEMENTS38:%.*]] = add i32 [[TMP38]], 1
-// CHECK-32-NEXT:    [[TMP39:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i16* [[ARRAYIDX31]], i16 0, i32 [[SEC_NUMBER_OF_ELEMENTS38]], i32 0) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP39]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[LB_ADD_LEN:%.*]] = add nsw i32 -1, [[TMP27]]
+// CHECK-32-NEXT:    [[TMP28:%.*]] = mul nuw i32 10, [[TMP21]]
+// CHECK-32-NEXT:    [[TMP29:%.*]] = mul nsw i32 50, [[TMP28]]
+// CHECK-32-NEXT:    [[ARRAYIDX21:%.*]] = getelementptr inbounds i16, i16* [[VLA]], i32 [[TMP29]]
+// CHECK-32-NEXT:    [[TMP30:%.*]] = mul nsw i32 7, [[TMP21]]
+// CHECK-32-NEXT:    [[ARRAYIDX22:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX21]], i32 [[TMP30]]
+// CHECK-32-NEXT:    [[ARRAYIDX23:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX22]], i32 [[LB_ADD_LEN]]
+// CHECK-32-NEXT:    [[SEC_UPPER_CAST:%.*]] = ptrtoint i16* [[ARRAYIDX23]] to i32
+// CHECK-32-NEXT:    [[TMP31:%.*]] = sub i32 [[SEC_UPPER_CAST]], [[SEC_LOWER_CAST]]
+// CHECK-32-NEXT:    [[TMP32:%.*]] = sdiv exact i32 [[TMP31]], 2
+// CHECK-32-NEXT:    [[SEC_NUMBER_OF_ELEMENTS:%.*]] = add i32 [[TMP32]], 1
+// CHECK-32-NEXT:    [[TMP33:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i16* [[ARRAYIDX20]], i16 0, i32 [[SEC_NUMBER_OF_ELEMENTS]], i32 0) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP33]]) [ "DIR.OMP.END.PREFETCH"() ]
 // CHECK-32-NEXT:    store i32** [[PTR_BASE]], i32*** [[PBREF]], align 4
-// CHECK-32-NEXT:    [[TMP40:%.*]] = load i32*, i32** [[PTR_BASE]], align 4
-// CHECK-32-NEXT:    [[ARRAYIDX39:%.*]] = getelementptr inbounds i32, i32* [[TMP40]], i32 3
-// CHECK-32-NEXT:    [[SEC_LOWER_CAST40:%.*]] = ptrtoint i32* [[ARRAYIDX39]] to i32
-// CHECK-32-NEXT:    [[TMP41:%.*]] = load i32*, i32** [[PTR_BASE]], align 4
-// CHECK-32-NEXT:    [[ARRAYIDX41:%.*]] = getelementptr inbounds i32, i32* [[TMP41]], i32 12
-// CHECK-32-NEXT:    [[SEC_UPPER_CAST42:%.*]] = ptrtoint i32* [[ARRAYIDX41]] to i32
-// CHECK-32-NEXT:    [[TMP42:%.*]] = sub i32 [[SEC_UPPER_CAST42]], [[SEC_LOWER_CAST40]]
-// CHECK-32-NEXT:    [[TMP43:%.*]] = sdiv exact i32 [[TMP42]], 4
-// CHECK-32-NEXT:    [[SEC_NUMBER_OF_ELEMENTS43:%.*]] = add i32 [[TMP43]], 1
-// CHECK-32-NEXT:    [[TMP44:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX39]], i32 0, i32 [[SEC_NUMBER_OF_ELEMENTS43]], i32 0) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP44]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[TMP45:%.*]] = load i32**, i32*** [[PBREF]], align 4
-// CHECK-32-NEXT:    [[TMP46:%.*]] = load i32*, i32** [[TMP45]], align 4
-// CHECK-32-NEXT:    [[ARRAYIDX44:%.*]] = getelementptr inbounds i32, i32* [[TMP46]], i32 3
-// CHECK-32-NEXT:    [[SEC_LOWER_CAST45:%.*]] = ptrtoint i32* [[ARRAYIDX44]] to i32
-// CHECK-32-NEXT:    [[TMP47:%.*]] = load i32**, i32*** [[PBREF]], align 4
-// CHECK-32-NEXT:    [[TMP48:%.*]] = load i32*, i32** [[TMP47]], align 4
-// CHECK-32-NEXT:    [[ARRAYIDX46:%.*]] = getelementptr inbounds i32, i32* [[TMP48]], i32 12
-// CHECK-32-NEXT:    [[SEC_UPPER_CAST47:%.*]] = ptrtoint i32* [[ARRAYIDX46]] to i32
-// CHECK-32-NEXT:    [[TMP49:%.*]] = sub i32 [[SEC_UPPER_CAST47]], [[SEC_LOWER_CAST45]]
-// CHECK-32-NEXT:    [[TMP50:%.*]] = sdiv exact i32 [[TMP49]], 4
-// CHECK-32-NEXT:    [[SEC_NUMBER_OF_ELEMENTS48:%.*]] = add i32 [[TMP50]], 1
-// CHECK-32-NEXT:    [[TMP51:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX44]], i32 0, i32 [[SEC_NUMBER_OF_ELEMENTS48]], i32 0) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP51]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[TMP34:%.*]] = load i32*, i32** [[PTR_BASE]], align 4
+// CHECK-32-NEXT:    [[ARRAYIDX24:%.*]] = getelementptr inbounds i32, i32* [[TMP34]], i32 3
+// CHECK-32-NEXT:    [[TMP35:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX24]], i32 0, i32 10, i32 0) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP35]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[TMP36:%.*]] = load i32**, i32*** [[PBREF]], align 4
+// CHECK-32-NEXT:    [[TMP37:%.*]] = load i32*, i32** [[TMP36]], align 4
+// CHECK-32-NEXT:    [[ARRAYIDX25:%.*]] = getelementptr inbounds i32, i32* [[TMP37]], i32 3
+// CHECK-32-NEXT:    [[TMP38:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX25]], i32 0, i32 10, i32 0) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP38]]) [ "DIR.OMP.END.PREFETCH"() ]
 // CHECK-32-NEXT:    call void @_ZN6foobar5checkEv(%struct.foobar* noundef nonnull align 4 dereferenceable(884) @bar)
-// CHECK-32-NEXT:    [[TMP52:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR:%.*]], %struct.foobar* @bar, i32 0, i32 1, i32 1), double 0.000000e+00, i32 2, i32 4) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP52]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[TMP53:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 1, i32 5), double 0.000000e+00, i32 1, i32 3) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP53]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[TMP54:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 2, i32 1, i32 0), double 0.000000e+00, i32 20, i32 4) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP54]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[TMP55:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 2, i32 6, i32 8), double 0.000000e+00, i32 1, i32 4) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP55]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[TMP56:%.*]] = load i8*, i8** [[SAVED_STACK]], align 4
-// CHECK-32-NEXT:    call void @llvm.stackrestore(i8* [[TMP56]])
+// CHECK-32-NEXT:    [[TMP39:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR:%.*]], %struct.foobar* @bar, i32 0, i32 1, i32 1), double 0.000000e+00, i32 2, i32 4) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP39]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[TMP40:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 1, i32 5), double 0.000000e+00, i32 1, i32 3) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP40]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[TMP41:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 2, i32 1, i32 0), double 0.000000e+00, i32 20, i32 4) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP41]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[TMP42:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 2, i32 6, i32 8), double 0.000000e+00, i32 1, i32 4) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP42]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[TMP43:%.*]] = load i8*, i8** [[SAVED_STACK]], align 4
+// CHECK-32-NEXT:    call void @llvm.stackrestore(i8* [[TMP43]])
 // CHECK-32-NEXT:    ret void
 //
 // CHECK-LABEL: @_Z13test_prefetchm(
@@ -288,133 +252,97 @@ foobar bar;
 // CHECK-NEXT:    [[ARRAYIDX4:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 4
 // CHECK-NEXT:    [[TMP4:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX4]], i32 0, i64 8, i32 3) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP4]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[ARRAYIDX5:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 3
-// CHECK-NEXT:    [[SEC_LOWER_CAST:%.*]] = ptrtoint i32* [[ARRAYIDX5]] to i64
 // CHECK-NEXT:    [[TMP5:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-NEXT:    [[TMP6:%.*]] = sext i32 [[TMP5]] to i64
-// CHECK-NEXT:    [[LB_ADD_LEN:%.*]] = add nsw i64 2, [[TMP6]]
-// CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 [[LB_ADD_LEN]]
-// CHECK-NEXT:    [[SEC_UPPER_CAST:%.*]] = ptrtoint i32* [[ARRAYIDX6]] to i64
-// CHECK-NEXT:    [[TMP7:%.*]] = sub i64 [[SEC_UPPER_CAST]], [[SEC_LOWER_CAST]]
-// CHECK-NEXT:    [[TMP8:%.*]] = sdiv exact i64 [[TMP7]], 4
-// CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS:%.*]] = add i64 [[TMP8]], 1
-// CHECK-NEXT:    [[TMP9:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX5]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS]], i32 4) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP9]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[ARRAYIDX7:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 0
-// CHECK-NEXT:    [[TMP10:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX7]], i32 0, i64 10, i32 5) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP10]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[TMP11:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-NEXT:    [[TMP12:%.*]] = sext i32 [[TMP11]] to i64
-// CHECK-NEXT:    [[ARRAYIDX8:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 [[TMP12]]
-// CHECK-NEXT:    [[SEC_LOWER_CAST9:%.*]] = ptrtoint i32* [[ARRAYIDX8]] to i64
-// CHECK-NEXT:    [[TMP13:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-NEXT:    [[TMP14:%.*]] = sext i32 [[TMP13]] to i64
-// CHECK-NEXT:    [[LB_ADD_LEN10:%.*]] = add nsw i64 [[TMP14]], 4
-// CHECK-NEXT:    [[ARRAYIDX11:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 [[LB_ADD_LEN10]]
-// CHECK-NEXT:    [[SEC_UPPER_CAST12:%.*]] = ptrtoint i32* [[ARRAYIDX11]] to i64
-// CHECK-NEXT:    [[TMP15:%.*]] = sub i64 [[SEC_UPPER_CAST12]], [[SEC_LOWER_CAST9]]
-// CHECK-NEXT:    [[TMP16:%.*]] = sdiv exact i64 [[TMP15]], 4
-// CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS13:%.*]] = add i64 [[TMP16]], 1
-// CHECK-NEXT:    [[TMP17:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX8]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS13]], i32 6) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP17]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[ARRAYIDX14:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 1
-// CHECK-NEXT:    [[TMP18:%.*]] = load i32, i32* [[A]], align 4
-// CHECK-NEXT:    [[TMP19:%.*]] = load i32, i32* [[B]], align 4
-// CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[TMP18]], [[TMP19]]
-// CHECK-NEXT:    [[TMP20:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX14]], i32 0, i64 2, i32 1), "QUAL.OMP.IF"(i1 [[CMP]]) ]
+// CHECK-NEXT:    [[CONV:%.*]] = sext i32 [[TMP5]] to i64
+// CHECK-NEXT:    [[ARRAYIDX5:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 3
+// CHECK-NEXT:    [[TMP6:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX5]], i32 0, i64 [[CONV]], i32 4) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP6]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 0
+// CHECK-NEXT:    [[TMP7:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX6]], i32 0, i64 10, i32 5) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP7]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[TMP8:%.*]] = load i32, i32* [[I]], align 4
+// CHECK-NEXT:    [[CONV7:%.*]] = sext i32 [[TMP8]] to i64
+// CHECK-NEXT:    [[TMP9:%.*]] = load i32, i32* [[I]], align 4
+// CHECK-NEXT:    [[TMP10:%.*]] = sext i32 [[TMP9]] to i64
+// CHECK-NEXT:    [[ARRAYIDX8:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 [[TMP10]]
+// CHECK-NEXT:    [[TMP11:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX8]], i32 0, i64 5, i32 6) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP11]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[ARRAYIDX9:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 1
+// CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* [[A]], align 4
+// CHECK-NEXT:    [[TMP13:%.*]] = load i32, i32* [[B]], align 4
+// CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[TMP12]], [[TMP13]]
+// CHECK-NEXT:    [[TMP14:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX9]], i32 0, i64 2, i32 1), "QUAL.OMP.IF"(i1 [[CMP]]) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP14]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[TMP15:%.*]] = load i32, i32* [[A]], align 4
+// CHECK-NEXT:    [[CMP10:%.*]] = icmp eq i32 [[TMP15]], 0
+// CHECK-NEXT:    [[TMP16:%.*]] = load i32, i32* [[I]], align 4
+// CHECK-NEXT:    [[CONV11:%.*]] = sext i32 [[TMP16]] to i64
+// CHECK-NEXT:    [[TMP17:%.*]] = load i32, i32* [[I]], align 4
+// CHECK-NEXT:    [[TMP18:%.*]] = sext i32 [[TMP17]] to i64
+// CHECK-NEXT:    [[ARRAYIDX12:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 [[TMP18]]
+// CHECK-NEXT:    [[TMP19:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.IF"(i1 [[CMP10]]), "QUAL.OMP.DATA"(i32* [[ARRAYIDX12]], i32 0, i64 3, i32 1) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP19]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[ARRAYIDX13:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 0
+// CHECK-NEXT:    [[ARRAYIDX14:%.*]] = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* [[FOO2]], i64 0, i64 0
+// CHECK-NEXT:    [[ARRAYDECAY15:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[ARRAYIDX14]], i64 0, i64 0
+// CHECK-NEXT:    [[ARRAYIDX16:%.*]] = getelementptr inbounds i32, i32* [[ARRAYDECAY15]], i64 0
+// CHECK-NEXT:    [[TMP20:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX13]], i32 0, i64 1, i32 1), "QUAL.OMP.DATA"(i32* [[ARRAYIDX16]], i32 0, i64 50, i32 1) ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP20]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[TMP21:%.*]] = load i32, i32* [[A]], align 4
-// CHECK-NEXT:    [[CMP15:%.*]] = icmp eq i32 [[TMP21]], 0
-// CHECK-NEXT:    [[TMP22:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-NEXT:    [[TMP23:%.*]] = sext i32 [[TMP22]] to i64
-// CHECK-NEXT:    [[ARRAYIDX16:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 [[TMP23]]
-// CHECK-NEXT:    [[SEC_LOWER_CAST17:%.*]] = ptrtoint i32* [[ARRAYIDX16]] to i64
-// CHECK-NEXT:    [[TMP24:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-NEXT:    [[TMP25:%.*]] = sext i32 [[TMP24]] to i64
-// CHECK-NEXT:    [[LB_ADD_LEN18:%.*]] = add nsw i64 [[TMP25]], 2
-// CHECK-NEXT:    [[ARRAYIDX19:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 [[LB_ADD_LEN18]]
-// CHECK-NEXT:    [[SEC_UPPER_CAST20:%.*]] = ptrtoint i32* [[ARRAYIDX19]] to i64
-// CHECK-NEXT:    [[TMP26:%.*]] = sub i64 [[SEC_UPPER_CAST20]], [[SEC_LOWER_CAST17]]
-// CHECK-NEXT:    [[TMP27:%.*]] = sdiv exact i64 [[TMP26]], 4
-// CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS21:%.*]] = add i64 [[TMP27]], 1
-// CHECK-NEXT:    [[TMP28:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.IF"(i1 [[CMP15]]), "QUAL.OMP.DATA"(i32* [[ARRAYIDX16]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS21]], i32 1) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP28]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[ARRAYIDX22:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 0
-// CHECK-NEXT:    [[ARRAYIDX23:%.*]] = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* [[FOO2]], i64 0, i64 0
-// CHECK-NEXT:    [[ARRAYDECAY24:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[ARRAYIDX23]], i64 0, i64 0
-// CHECK-NEXT:    [[ARRAYIDX25:%.*]] = getelementptr inbounds i32, i32* [[ARRAYDECAY24]], i64 0
-// CHECK-NEXT:    [[TMP29:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX22]], i32 0, i64 1, i32 1), "QUAL.OMP.DATA"(i32* [[ARRAYIDX25]], i32 0, i64 50, i32 1) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP29]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[ARRAYIDX26:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 1
-// CHECK-NEXT:    [[TMP30:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX26]], i32 0, i64 1, i32 3) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP30]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[ARRAYIDX27:%.*]] = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* [[FOO2]], i64 0, i64 2
-// CHECK-NEXT:    [[ARRAYIDX28:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[ARRAYIDX27]], i64 0, i64 3
-// CHECK-NEXT:    [[TMP31:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX28]], i32 0, i64 1, i32 0) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP31]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[TMP32:%.*]] = load i64, i64* [[N_ADDR]], align 8
-// CHECK-NEXT:    [[TMP33:%.*]] = call i8* @llvm.stacksave()
-// CHECK-NEXT:    store i8* [[TMP33]], i8** [[SAVED_STACK]], align 8
-// CHECK-NEXT:    [[TMP34:%.*]] = mul nuw i64 1000, [[TMP32]]
-// CHECK-NEXT:    [[VLA:%.*]] = alloca i16, i64 [[TMP34]], align 16
-// CHECK-NEXT:    store i64 [[TMP32]], i64* [[__VLA_EXPR0]], align 8
-// CHECK-NEXT:    [[TMP35:%.*]] = mul nuw i64 10, [[TMP32]]
-// CHECK-NEXT:    [[TMP36:%.*]] = mul nsw i64 50, [[TMP35]]
-// CHECK-NEXT:    [[ARRAYIDX29:%.*]] = getelementptr inbounds i16, i16* [[VLA]], i64 [[TMP36]]
-// CHECK-NEXT:    [[TMP37:%.*]] = mul nsw i64 5, [[TMP32]]
-// CHECK-NEXT:    [[ARRAYIDX30:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX29]], i64 [[TMP37]]
-// CHECK-NEXT:    [[ARRAYIDX31:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX30]], i64 0
-// CHECK-NEXT:    [[SEC_LOWER_CAST32:%.*]] = ptrtoint i16* [[ARRAYIDX31]] to i64
-// CHECK-NEXT:    [[TMP38:%.*]] = load i64, i64* [[N_ADDR]], align 8
-// CHECK-NEXT:    [[LB_ADD_LEN33:%.*]] = add nsw i64 -1, [[TMP38]]
-// CHECK-NEXT:    [[TMP39:%.*]] = mul nuw i64 10, [[TMP32]]
-// CHECK-NEXT:    [[TMP40:%.*]] = mul nsw i64 50, [[TMP39]]
-// CHECK-NEXT:    [[ARRAYIDX34:%.*]] = getelementptr inbounds i16, i16* [[VLA]], i64 [[TMP40]]
-// CHECK-NEXT:    [[TMP41:%.*]] = mul nsw i64 7, [[TMP32]]
-// CHECK-NEXT:    [[ARRAYIDX35:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX34]], i64 [[TMP41]]
-// CHECK-NEXT:    [[ARRAYIDX36:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX35]], i64 [[LB_ADD_LEN33]]
-// CHECK-NEXT:    [[SEC_UPPER_CAST37:%.*]] = ptrtoint i16* [[ARRAYIDX36]] to i64
-// CHECK-NEXT:    [[TMP42:%.*]] = sub i64 [[SEC_UPPER_CAST37]], [[SEC_LOWER_CAST32]]
-// CHECK-NEXT:    [[TMP43:%.*]] = sdiv exact i64 [[TMP42]], 2
-// CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS38:%.*]] = add i64 [[TMP43]], 1
-// CHECK-NEXT:    [[TMP44:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i16* [[ARRAYIDX31]], i16 0, i64 [[SEC_NUMBER_OF_ELEMENTS38]], i32 0) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP44]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[ARRAYIDX17:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[FOO1]], i64 0, i64 1
+// CHECK-NEXT:    [[TMP21:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX17]], i32 0, i64 1, i32 3) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP21]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[ARRAYIDX18:%.*]] = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* [[FOO2]], i64 0, i64 2
+// CHECK-NEXT:    [[ARRAYIDX19:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[ARRAYIDX18]], i64 0, i64 3
+// CHECK-NEXT:    [[TMP22:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX19]], i32 0, i64 1, i32 0) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP22]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[TMP23:%.*]] = load i64, i64* [[N_ADDR]], align 8
+// CHECK-NEXT:    [[TMP24:%.*]] = call i8* @llvm.stacksave()
+// CHECK-NEXT:    store i8* [[TMP24]], i8** [[SAVED_STACK]], align 8
+// CHECK-NEXT:    [[TMP25:%.*]] = mul nuw i64 1000, [[TMP23]]
+// CHECK-NEXT:    [[VLA:%.*]] = alloca i16, i64 [[TMP25]], align 16
+// CHECK-NEXT:    store i64 [[TMP23]], i64* [[__VLA_EXPR0]], align 8
+// CHECK-NEXT:    [[TMP26:%.*]] = mul nuw i64 10, [[TMP23]]
+// CHECK-NEXT:    [[TMP27:%.*]] = mul nsw i64 50, [[TMP26]]
+// CHECK-NEXT:    [[ARRAYIDX20:%.*]] = getelementptr inbounds i16, i16* [[VLA]], i64 [[TMP27]]
+// CHECK-NEXT:    [[TMP28:%.*]] = mul nsw i64 5, [[TMP23]]
+// CHECK-NEXT:    [[ARRAYIDX21:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX20]], i64 [[TMP28]]
+// CHECK-NEXT:    [[ARRAYIDX22:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX21]], i64 0
+// CHECK-NEXT:    [[SEC_LOWER_CAST:%.*]] = ptrtoint i16* [[ARRAYIDX22]] to i64
+// CHECK-NEXT:    [[TMP29:%.*]] = load i64, i64* [[N_ADDR]], align 8
+// CHECK-NEXT:    [[LB_ADD_LEN:%.*]] = add nsw i64 -1, [[TMP29]]
+// CHECK-NEXT:    [[TMP30:%.*]] = mul nuw i64 10, [[TMP23]]
+// CHECK-NEXT:    [[TMP31:%.*]] = mul nsw i64 50, [[TMP30]]
+// CHECK-NEXT:    [[ARRAYIDX23:%.*]] = getelementptr inbounds i16, i16* [[VLA]], i64 [[TMP31]]
+// CHECK-NEXT:    [[TMP32:%.*]] = mul nsw i64 7, [[TMP23]]
+// CHECK-NEXT:    [[ARRAYIDX24:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX23]], i64 [[TMP32]]
+// CHECK-NEXT:    [[ARRAYIDX25:%.*]] = getelementptr inbounds i16, i16* [[ARRAYIDX24]], i64 [[LB_ADD_LEN]]
+// CHECK-NEXT:    [[SEC_UPPER_CAST:%.*]] = ptrtoint i16* [[ARRAYIDX25]] to i64
+// CHECK-NEXT:    [[TMP33:%.*]] = sub i64 [[SEC_UPPER_CAST]], [[SEC_LOWER_CAST]]
+// CHECK-NEXT:    [[TMP34:%.*]] = sdiv exact i64 [[TMP33]], 2
+// CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS:%.*]] = add i64 [[TMP34]], 1
+// CHECK-NEXT:    [[TMP35:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i16* [[ARRAYIDX22]], i16 0, i64 [[SEC_NUMBER_OF_ELEMENTS]], i32 0) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP35]]) [ "DIR.OMP.END.PREFETCH"() ]
 // CHECK-NEXT:    store i32** [[PTR_BASE]], i32*** [[PBREF]], align 8
-// CHECK-NEXT:    [[TMP45:%.*]] = load i32*, i32** [[PTR_BASE]], align 8
-// CHECK-NEXT:    [[ARRAYIDX39:%.*]] = getelementptr inbounds i32, i32* [[TMP45]], i64 3
-// CHECK-NEXT:    [[SEC_LOWER_CAST40:%.*]] = ptrtoint i32* [[ARRAYIDX39]] to i64
-// CHECK-NEXT:    [[TMP46:%.*]] = load i32*, i32** [[PTR_BASE]], align 8
-// CHECK-NEXT:    [[ARRAYIDX41:%.*]] = getelementptr inbounds i32, i32* [[TMP46]], i64 12
-// CHECK-NEXT:    [[SEC_UPPER_CAST42:%.*]] = ptrtoint i32* [[ARRAYIDX41]] to i64
-// CHECK-NEXT:    [[TMP47:%.*]] = sub i64 [[SEC_UPPER_CAST42]], [[SEC_LOWER_CAST40]]
-// CHECK-NEXT:    [[TMP48:%.*]] = sdiv exact i64 [[TMP47]], 4
-// CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS43:%.*]] = add i64 [[TMP48]], 1
-// CHECK-NEXT:    [[TMP49:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX39]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS43]], i32 0) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP49]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[TMP50:%.*]] = load i32**, i32*** [[PBREF]], align 8
-// CHECK-NEXT:    [[TMP51:%.*]] = load i32*, i32** [[TMP50]], align 8
-// CHECK-NEXT:    [[ARRAYIDX44:%.*]] = getelementptr inbounds i32, i32* [[TMP51]], i64 3
-// CHECK-NEXT:    [[SEC_LOWER_CAST45:%.*]] = ptrtoint i32* [[ARRAYIDX44]] to i64
-// CHECK-NEXT:    [[TMP52:%.*]] = load i32**, i32*** [[PBREF]], align 8
-// CHECK-NEXT:    [[TMP53:%.*]] = load i32*, i32** [[TMP52]], align 8
-// CHECK-NEXT:    [[ARRAYIDX46:%.*]] = getelementptr inbounds i32, i32* [[TMP53]], i64 12
-// CHECK-NEXT:    [[SEC_UPPER_CAST47:%.*]] = ptrtoint i32* [[ARRAYIDX46]] to i64
-// CHECK-NEXT:    [[TMP54:%.*]] = sub i64 [[SEC_UPPER_CAST47]], [[SEC_LOWER_CAST45]]
-// CHECK-NEXT:    [[TMP55:%.*]] = sdiv exact i64 [[TMP54]], 4
-// CHECK-NEXT:    [[SEC_NUMBER_OF_ELEMENTS48:%.*]] = add i64 [[TMP55]], 1
-// CHECK-NEXT:    [[TMP56:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX44]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS48]], i32 0) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP56]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[TMP36:%.*]] = load i32*, i32** [[PTR_BASE]], align 8
+// CHECK-NEXT:    [[ARRAYIDX26:%.*]] = getelementptr inbounds i32, i32* [[TMP36]], i64 3
+// CHECK-NEXT:    [[TMP37:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX26]], i32 0, i64 10, i32 0) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP37]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[TMP38:%.*]] = load i32**, i32*** [[PBREF]], align 8
+// CHECK-NEXT:    [[TMP39:%.*]] = load i32*, i32** [[TMP38]], align 8
+// CHECK-NEXT:    [[ARRAYIDX27:%.*]] = getelementptr inbounds i32, i32* [[TMP39]], i64 3
+// CHECK-NEXT:    [[TMP40:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(i32* [[ARRAYIDX27]], i32 0, i64 10, i32 0) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP40]]) [ "DIR.OMP.END.PREFETCH"() ]
 // CHECK-NEXT:    call void @_ZN6foobar5checkEv(%struct.foobar* noundef nonnull align 8 dereferenceable(888) @bar)
-// CHECK-NEXT:    [[TMP57:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR:%.*]], %struct.foobar* @bar, i32 0, i32 1, i64 1), double 0.000000e+00, i64 2, i32 4) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP57]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[TMP58:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 1, i64 5), double 0.000000e+00, i64 1, i32 3) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP58]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[TMP59:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 2, i64 1, i64 0), double 0.000000e+00, i64 20, i32 4) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP59]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[TMP60:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 2, i64 6, i64 8), double 0.000000e+00, i64 1, i32 4) ]
-// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP60]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-NEXT:    [[TMP61:%.*]] = load i8*, i8** [[SAVED_STACK]], align 8
-// CHECK-NEXT:    call void @llvm.stackrestore(i8* [[TMP61]])
+// CHECK-NEXT:    [[TMP41:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR:%.*]], %struct.foobar* @bar, i32 0, i32 1, i64 1), double 0.000000e+00, i64 2, i32 4) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP41]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[TMP42:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 1, i64 5), double 0.000000e+00, i64 1, i32 3) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP42]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[TMP43:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 2, i64 1, i64 0), double 0.000000e+00, i64 20, i32 4) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP43]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[TMP44:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(double* getelementptr inbounds ([[STRUCT_FOOBAR]], %struct.foobar* @bar, i32 0, i32 2, i64 6, i64 8), double 0.000000e+00, i64 1, i32 4) ]
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP44]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-NEXT:    [[TMP45:%.*]] = load i8*, i8** [[SAVED_STACK]], align 8
+// CHECK-NEXT:    call void @llvm.stackrestore(i8* [[TMP45]])
 // CHECK-NEXT:    ret void
 //
 void test_prefetch(unsigned long n) {
@@ -499,35 +427,27 @@ float mathfunc(float);
 // CHECK-32-NEXT:    [[ADD:%.*]] = add nsw i32 0, [[MUL]]
 // CHECK-32-NEXT:    store i32 [[ADD]], i32* [[I]], align 4
 // CHECK-32-NEXT:    [[TMP6:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-32-NEXT:    [[TMP7:%.*]] = load float*, float** [[A_ADDR]], align 4
-// CHECK-32-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, float* [[TMP7]], i32 [[TMP6]]
-// CHECK-32-NEXT:    [[SEC_LOWER_CAST:%.*]] = ptrtoint float* [[ARRAYIDX]] to i32
-// CHECK-32-NEXT:    [[TMP8:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-32-NEXT:    [[LB_ADD_LEN:%.*]] = add nsw i32 [[TMP8]], 31
-// CHECK-32-NEXT:    [[TMP9:%.*]] = load float*, float** [[A_ADDR]], align 4
-// CHECK-32-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds float, float* [[TMP9]], i32 [[LB_ADD_LEN]]
-// CHECK-32-NEXT:    [[SEC_UPPER_CAST:%.*]] = ptrtoint float* [[ARRAYIDX1]] to i32
-// CHECK-32-NEXT:    [[TMP10:%.*]] = sub i32 [[SEC_UPPER_CAST]], [[SEC_LOWER_CAST]]
-// CHECK-32-NEXT:    [[TMP11:%.*]] = sdiv exact i32 [[TMP10]], 4
-// CHECK-32-NEXT:    [[SEC_NUMBER_OF_ELEMENTS:%.*]] = add i32 [[TMP11]], 1
-// CHECK-32-NEXT:    [[TMP12:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(float* [[ARRAYIDX]], float 0.000000e+00, i32 [[SEC_NUMBER_OF_ELEMENTS]], i32 0) ]
-// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP12]]) [ "DIR.OMP.END.PREFETCH"() ]
-// CHECK-32-NEXT:    [[TMP13:%.*]] = load float*, float** [[A_ADDR]], align 4
+// CHECK-32-NEXT:    [[TMP7:%.*]] = load i32, i32* [[I]], align 4
+// CHECK-32-NEXT:    [[TMP8:%.*]] = load float*, float** [[A_ADDR]], align 4
+// CHECK-32-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, float* [[TMP8]], i32 [[TMP7]]
+// CHECK-32-NEXT:    [[TMP9:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PREFETCH"(), "QUAL.OMP.DATA"(float* [[ARRAYIDX]], float 0.000000e+00, i32 32, i32 0) ]
+// CHECK-32-NEXT:    call void @llvm.directive.region.exit(token [[TMP9]]) [ "DIR.OMP.END.PREFETCH"() ]
+// CHECK-32-NEXT:    [[TMP10:%.*]] = load float*, float** [[A_ADDR]], align 4
+// CHECK-32-NEXT:    [[TMP11:%.*]] = load i32, i32* [[I]], align 4
+// CHECK-32-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds float, float* [[TMP10]], i32 [[TMP11]]
+// CHECK-32-NEXT:    [[TMP12:%.*]] = load float, float* [[ARRAYIDX1]], align 4
+// CHECK-32-NEXT:    [[CALL:%.*]] = call noundef float @_Z8mathfuncf(float noundef [[TMP12]]) #[[ATTR1:[0-9]+]]
+// CHECK-32-NEXT:    [[TMP13:%.*]] = load float*, float** [[PTR_ADDR]], align 4
 // CHECK-32-NEXT:    [[TMP14:%.*]] = load i32, i32* [[I]], align 4
 // CHECK-32-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds float, float* [[TMP13]], i32 [[TMP14]]
-// CHECK-32-NEXT:    [[TMP15:%.*]] = load float, float* [[ARRAYIDX2]], align 4
-// CHECK-32-NEXT:    [[CALL:%.*]] = call noundef float @_Z8mathfuncf(float noundef [[TMP15]]) #[[ATTR1:[0-9]+]]
-// CHECK-32-NEXT:    [[TMP16:%.*]] = load float*, float** [[PTR_ADDR]], align 4
-// CHECK-32-NEXT:    [[TMP17:%.*]] = load i32, i32* [[I]], align 4
-// CHECK-32-NEXT:    [[ARRAYIDX3:%.*]] = getelementptr inbounds float, float* [[TMP16]], i32 [[TMP17]]
-// CHECK-32-NEXT:    store float [[CALL]], float* [[ARRAYIDX3]], align 4
+// CHECK-32-NEXT:    store float [[CALL]], float* [[ARRAYIDX2]], align 4
 // CHECK-32-NEXT:    br label [[OMP_BODY_CONTINUE:%.*]]
 // CHECK-32:       omp.body.continue:
 // CHECK-32-NEXT:    br label [[OMP_INNER_FOR_INC:%.*]]
 // CHECK-32:       omp.inner.for.inc:
-// CHECK-32-NEXT:    [[TMP18:%.*]] = load i32, i32* [[DOTOMP_IV]], align 4
-// CHECK-32-NEXT:    [[ADD4:%.*]] = add nsw i32 [[TMP18]], 1
-// CHECK-32-NEXT:    store i32 [[ADD4]], i32* [[DOTOMP_IV]], align 4
+// CHECK-32-NEXT:    [[TMP15:%.*]] = load i32, i32* [[DOTOMP_IV]], align 4
+// CHECK-32-NEXT:    [[ADD3:%.*]] = add nsw i32 [[TMP15]], 1
+// CHECK-32-NEXT:    store i32 [[ADD3]], i32* [[DOTOMP_IV]], align 4
 // CHECK-32-NEXT:    br label [[OMP_INNER_FOR_COND]], !llvm.loop [[LOOP4:![0-9]+]]
 // CHECK-32:       omp.inner.for.end:
 // CHECK-32-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
