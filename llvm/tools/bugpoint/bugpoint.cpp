@@ -47,6 +47,9 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -93,6 +96,24 @@ static cl::opt<bool>
     StandardLinkOpts("std-link-opts",
                      cl::desc("Include the standard link time optimizations"));
 #endif // INTEL_CUSTOMIZATION
+
+static cl::opt<bool>
+    OptLevelO1("O1", cl::desc("Optimization level 1. Identical to 'opt -O1'"));
+
+static cl::opt<bool>
+    OptLevelO2("O2", cl::desc("Optimization level 2. Identical to 'opt -O2'"));
+
+static cl::opt<bool> OptLevelOs(
+    "Os",
+    cl::desc(
+        "Like -O2 with extra optimizations for size. Similar to clang -Os"));
+
+static cl::opt<bool>
+OptLevelOz("Oz",
+           cl::desc("Like -Os but reduces code size further. Similar to clang -Oz"));
+
+static cl::opt<bool>
+    OptLevelO3("O3", cl::desc("Optimization level 3. Identical to 'opt -O3'"));
 
 static cl::opt<std::string>
     OverrideTriple("mtriple", cl::desc("Override target triple for module"));
@@ -202,6 +223,13 @@ int main(int argc, char **argv) {
     return 1;
 
   AddToDriver PM(D);
+
+#ifdef INTEL_CUSTOMIZATION
+  if (StandardLinkOpts) {
+    PassManagerBuilder Builder;
+    Builder.populateLTOPassManager(PM);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   for (const PassInfo *PI : PassList)
     D.addPass(std::string(PI->getPassArgument()));

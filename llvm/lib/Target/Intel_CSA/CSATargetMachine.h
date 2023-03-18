@@ -67,6 +67,11 @@ public:
     return TLOF.get();
   }
 
+  // This is used to inject passes before other LLVM optimizations run, which is
+  // important for the loop intrinsic expansion pass because some optimizations
+  // move parallel loop intrinsics in unhelpful ways.
+  void adjustPassManager(PassManagerBuilder &) override;
+
   // This is overridden to set up assembly wrapping.
   bool addPassesToEmitFile(PassManagerBase &PM, raw_pwrite_stream &Out,
                            raw_pwrite_stream *DwoOut, CodeGenFileType FileType,

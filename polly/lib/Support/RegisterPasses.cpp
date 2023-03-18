@@ -48,6 +48,9 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Transforms/IPO.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif // INTEL_CUSTOMIZATION
 
 namespace cl = llvm::cl;
 
