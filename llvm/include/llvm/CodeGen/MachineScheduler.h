@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -865,7 +865,7 @@ public:
   enum CandReason : uint8_t {
     NoCand, Only1, PhysReg, RegExcess, RegCritical, Stall, Cluster, Weak,
     RegMax, ResourceReduce, ResourceDemand, BotHeightReduce, BotPathReduce,
-    TopDepthReduce, TopPathReduce, NextDefUse, NodeOrder};
+    TopDepthReduce, TopPathReduce, NextDefUse, NodeOrder, Prefetch}; // INTEL
 
 #ifndef NDEBUG
   static const char *getReasonStr(GenericSchedulerBase::CandReason Reason);

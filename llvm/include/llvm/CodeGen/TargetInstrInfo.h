@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1582,6 +1582,10 @@ public:
   virtual bool isSchedulingBoundary(const MachineInstr &MI,
                                     const MachineBasicBlock *MBB,
                                     const MachineFunction &MF) const;
+
+#if INTEL_CUSTOMIZATION
+  virtual bool isPrefetchInstr(const MachineInstr &MI) const { return false; }
+#endif // INTEL_CUSTOMIZATION
 
   /// Measure the specified inline asm to determine an approximation of its
   /// length.
