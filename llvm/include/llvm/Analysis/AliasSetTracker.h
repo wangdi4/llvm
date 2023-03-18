@@ -277,16 +277,16 @@ public:
 private:
   // Can only be created by AliasSetTracker.
   AliasSet()
-<<<<<<< HEAD
-      : PtrListEnd(&PtrList), RefCount(0),  AliasAny(false), Access(NoAccess),
-        Alias(SetMustAlias) {}
+      : PtrListEnd(&PtrList), RefCount(0),  AliasAny(false),
+        Access(ModRefInfo::NoModRef), Alias(SetMustAlias) {}
 #ifdef INTEL_CUSTOMIZATION
   // This constructor allows one to specify whether or not "loopCarriedAlias"
   // disambiguation is will be used instead of the usual "alias"
   // disambiguation.
   AliasSet(bool WillRequireLoopCarried)
-      : PtrListEnd(&PtrList), RefCount(0), AliasAny(false), Access(NoAccess),
-        Alias(SetMustAlias), RequiresLoopCarried(WillRequireLoopCarried) {}
+      : PtrListEnd(&PtrList), RefCount(0), AliasAny(false),
+        Access(ModRefInfo::NoModRef), Alias(SetMustAlias),
+        RequiresLoopCarried(WillRequireLoopCarried) {}
 
   // This wraps all pairwise AA queries made by the AST and ensures that we use
   // the expected type of disambiguation.
@@ -296,10 +296,6 @@ private:
                                : AA.alias(LocA, LocB);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-      : PtrListEnd(&PtrList), RefCount(0),  AliasAny(false),
-        Access(ModRefInfo::NoModRef), Alias(SetMustAlias) {}
->>>>>>> 2c78a9e65ccfe36d213a409592bebdd3ed8ba771
 
   PointerRec *getSomePointer() const {
     return PtrList;
