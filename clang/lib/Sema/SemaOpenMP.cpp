@@ -2370,6 +2370,10 @@ bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
       !getLangOpts().OpenMPLateOutlineTarget)
     return false;
 
+  // Structured bindings not yet supported, so return early for now.
+  if (isa<BindingDecl>(D))
+    return false;
+
   D = getCanonicalDecl(D);
 
   auto *VD = dyn_cast<VarDecl>(D);
