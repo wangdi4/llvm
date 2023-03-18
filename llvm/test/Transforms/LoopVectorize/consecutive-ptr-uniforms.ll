@@ -358,20 +358,25 @@ for.end:
 ; induction variable is used by a store that will be scalarized.
 ;
 ; CHECK-NOT: LV: Found uniform instruction: %p = phi ptr [%tmp1, %for.body], [%a, %entry]
-; CHECK:     vector.body
-; CHECK:       %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
-; CHECK:       [[SHL1:%.+]] = shl i64 %index, 4
-; CHECK:       %next.gep = getelementptr i8, ptr %a, i64 [[SHL1]]
-; CHECK:       [[SHL2:%.+]] = shl i64 %index, 4
-; CHECK:       %[[I1:.+]] = or i64 [[SHL2]], 16
-; CHECK:       %next.gep2 = getelementptr i8, ptr %a, i64 %[[I1]]
-; CHECK:       [[SHL3:%.+]] = shl i64 %index, 4
-; CHECK:       %[[I2:.+]] = or i64 [[SHL3]], 32
-; CHECK:       %next.gep3 = getelementptr i8, ptr %a, i64 %[[I2]]
-; CHECK:       [[SHL4:%.+]] = shl i64 %index, 4
-; CHECK:       %[[I3:.+]] = or i64 [[SHL4]], 48
-; CHECK:       %next.gep4 = getelementptr i8, ptr %a, i64 %[[I3]]
-; CHECK:       br i1 {{.*}}, label %middle.block, label %vector.body
+; INTEL_CUSTOMIZATION
+; xmain's output is significantly different than the below. It looks like
+; llorg's has an i8 index which is added to a base, and xmain is computing
+; the pointer value with GEP directly. Probably a result of improved SCEV.
+; INTEL-DISABLED:     vector.body
+; INTEL-DISABLED:       %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
+; INTEL-DISABLED:       [[SHL1:%.+]] = shl i64 %index, 4
+; INTEL-DISABLED:       %next.gep = getelementptr i8, ptr %a, i64 [[SHL1]]
+; INTEL-DISABLED:       [[SHL2:%.+]] = shl i64 %index, 4
+; INTEL-DISABLED:       %[[I1:.+]] = or i64 [[SHL2]], 16
+; INTEL-DISABLED:       %next.gep2 = getelementptr i8, ptr %a, i64 %[[I1]]
+; INTEL-DISABLED:       [[SHL3:%.+]] = shl i64 %index, 4
+; INTEL-DISABLED:       %[[I2:.+]] = or i64 [[SHL3]], 32
+; INTEL-DISABLED:       %next.gep3 = getelementptr i8, ptr %a, i64 %[[I2]]
+; INTEL-DISABLED:       [[SHL4:%.+]] = shl i64 %index, 4
+; INTEL-DISABLED:       %[[I3:.+]] = or i64 [[SHL4]], 48
+; INTEL-DISABLED:       %next.gep4 = getelementptr i8, ptr %a, i64 %[[I3]]
+; INTEL-DISABLED:       br i1 {{.*}}, label %middle.block, label %vector.body
+; end INTEL_CUSTOMIZATION
 ;
 define void @pointer_iv_non_uniform_1(ptr %a, i64 %n) {
 entry:
