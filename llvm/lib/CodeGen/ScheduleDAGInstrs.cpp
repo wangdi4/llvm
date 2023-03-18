@@ -1,4 +1,21 @@
 //===---- ScheduleDAGInstrs.cpp - MachineInstr Rescheduling ---------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -56,6 +73,10 @@
 #include <iterator>
 #include <utility>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/CodeGen/TargetInstrInfo.h"
+#endif // end INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -194,6 +215,12 @@ void ScheduleDAGInstrs::enterRegion(MachineBasicBlock *bb,
   RegionBegin = begin;
   RegionEnd = end;
   NumRegionInstrs = regioninstrs;
+
+#if INTEL_CUSTOMIZATION
+  NumRegionInstrsScheduled = 0;
+  NumRegionPrefetchScheduled = 0;
+  RegionPrefetchInstrs.clear();
+#endif // INTEL_CUSTOMIZATION
 }
 
 void ScheduleDAGInstrs::exitRegion() {
@@ -807,6 +834,11 @@ void ScheduleDAGInstrs::buildSchedGraph(AAResults *AA,
       DbgMI = &MI;
       continue;
     }
+
+#if INTEL_CUSTOMIZATION
+    if (TII->isPrefetchInstr(MI))
+      RegionPrefetchInstrs.insert(&MI);
+#endif // INTEL_CUSTOMIZATION
 
     if (MI.isDebugLabel() || MI.isDebugRef() || MI.isPseudoProbe())
       continue;

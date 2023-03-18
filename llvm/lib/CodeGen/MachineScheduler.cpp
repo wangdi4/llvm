@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -887,6 +887,8 @@ void ScheduleDAGMI::schedule() {
     // newly released nodes can move to the readyQ.
     SchedImpl->schedNode(SU, IsTopNode);
 
+    recordScheduledInstr(SU->getInstr()); // INTEL
+
     updateQueues(SU, IsTopNode);
   }
   assert(CurrentTop == CurrentBottom && "Nonempty unscheduled zone.");
@@ -1492,6 +1494,8 @@ void ScheduleDAGMILive::schedule() {
 
     // Notify the scheduling strategy after updating the DAG.
     SchedImpl->schedNode(SU, IsTopNode);
+
+    recordScheduledInstr(SU->getInstr()); // INTEL
 
     updateQueues(SU, IsTopNode);
   }
@@ -3018,6 +3022,7 @@ const char *GenericSchedulerBase::getReasonStr(
   case BotPathReduce:  return "BOT-PATH  ";
   case NextDefUse:     return "DEF-USE   ";
   case NodeOrder:      return "ORDER     ";
+  case Prefetch:       return "PREFETCH  "; // INTEL
   };
   llvm_unreachable("Unknown reason!");
 }
@@ -3402,6 +3407,87 @@ int biasPhysReg(const SUnit *SU, bool isTop) {
 
   return 0;
 }
+
+#if INTEL_CUSTOMIZATION
+// This heuristic is ported from ICC. We try to spread prefetches evenly
+// throughout the block. For example, if the block contains two prefetches and
+// 10 non-prefetches, we will attempt to schedule as follows:
+//    prefetch
+//    5 non-prefetch instructions
+//    prefetch
+//    5 non-prefetch instructions
+// The final result may not strictly uniformly distributed due to dependency or
+// process resources. We do not schedule a prefetch at the end of the block in
+// case this a loop with a single basic block.
+static std::optional<bool>
+tryPrefetch(GenericSchedulerBase::SchedCandidate &Cand,
+            GenericSchedulerBase::SchedCandidate &TryCand, SchedBoundary *Zone,
+            const ScheduleDAGMILive *DAG) {
+  unsigned NumPrefetchInstrs = DAG->getNumRegionPrefetchInstrs();
+  if (NumPrefetchInstrs && Zone != nullptr) {
+    unsigned NumInstrs = DAG->getNumRegionInstrs();
+    unsigned NumInstrsScheduled = DAG->getNumRegionInstrsScheduled();
+    unsigned Stride = NumInstrs / NumPrefetchInstrs;
+    bool CandIsPrefetch = DAG->isPrefetchInstr(Cand.SU->getInstr());
+    bool TryCandIsPrefetch = DAG->isPrefetchInstr(TryCand.SU->getInstr());
+
+    // Return true if replacing C with T preserves original instruction order.
+    auto tryOriginalOrder =
+        [&Zone](const GenericSchedulerBase::SchedCandidate &C,
+                const GenericSchedulerBase::SchedCandidate &T) {
+          return (Zone->isTop() && T.SU->NodeNum < C.SU->NodeNum) ||
+                 (!Zone->isTop() && T.SU->NodeNum > C.SU->NodeNum);
+        };
+
+    unsigned NumExpectedPrefetch;
+    if (Zone->isTop())
+      NumExpectedPrefetch = divideCeil(NumInstrsScheduled + 1, Stride);
+    else {
+      unsigned Offset = NumInstrs % NumPrefetchInstrs;
+      NumExpectedPrefetch = NumInstrsScheduled < Offset
+                                ? 0
+                                : (NumInstrsScheduled - Offset + 1) / Stride;
+    }
+    if (NumExpectedPrefetch > DAG->getNumRegionPrefetchScheduled()) {
+      if (CandIsPrefetch) {
+        // Preserve original instruction order if both are prefetch.
+        if (TryCandIsPrefetch && tryOriginalOrder(Cand, TryCand)) {
+          TryCand.Reason = GenericSchedulerBase::NodeOrder;
+          return true;
+        }
+        // Cand is already prefetch.
+        return false;
+      }
+
+      if (TryCandIsPrefetch) {
+        TryCand.Reason = GenericSchedulerBase::Prefetch;
+        return true;
+      }
+    } else {
+      if (CandIsPrefetch) {
+        if (!TryCandIsPrefetch) {
+          TryCand.Reason = GenericSchedulerBase::Prefetch;
+          return true;
+        }
+
+        if (tryOriginalOrder(Cand, TryCand)) {
+          TryCand.Reason = GenericSchedulerBase::NodeOrder;
+          return true;
+        }
+
+        // No need to try other heuristics.
+        return false;
+      }
+
+      if (TryCandIsPrefetch)
+        return false;
+    }
+  }
+  // Try remaining heuristics.
+  return std::nullopt;
+}
+#endif // INTEL_CUSTOMIZATION
+
 } // end namespace llvm
 
 void GenericScheduler::initCandidate(SchedCandidate &Cand, SUnit *SU,
@@ -3460,6 +3546,11 @@ bool GenericScheduler::tryCandidate(SchedCandidate &Cand,
     TryCand.Reason = NodeOrder;
     return true;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (std::optional<bool> Res = tryPrefetch(Cand, TryCand, Zone, DAG))
+    return Res.value();
+#endif // INTEL_CUSTOMIZATION
 
   // Bias PhysReg Defs and copies to their uses and defined respectively.
   if (tryGreater(biasPhysReg(TryCand.SU, TryCand.AtTop),

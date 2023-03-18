@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -8210,6 +8210,26 @@ bool X86InstrInfo::isSchedulingBoundary(const MachineInstr &MI,
 
   return TargetInstrInfo::isSchedulingBoundary(MI, MBB, MF);
 }
+
+#if INTEL_CUSTOMIZATION
+bool X86InstrInfo::isPrefetchInstr(const MachineInstr &MI) const {
+  unsigned Opcode = MI.getOpcode();
+  switch (Opcode) {
+  default:
+    return TargetInstrInfo::isPrefetchInstr(MI);
+  case X86::PREFETCH:
+  case X86::PREFETCHIT0:
+  case X86::PREFETCHIT1:
+  case X86::PREFETCHNTA:
+  case X86::PREFETCHT0:
+  case X86::PREFETCHT1:
+  case X86::PREFETCHT2:
+  case X86::PREFETCHW:
+  case X86::PREFETCHWT1:
+    return true;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool X86InstrInfo::
 reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
