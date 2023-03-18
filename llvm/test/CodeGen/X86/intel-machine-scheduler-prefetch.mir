@@ -1823,6 +1823,7 @@ body:             |
   ; CHECK-NEXT: {{  $}}
   ; CHECK-NEXT:    %53:vr512 = VMOVAPDZrm %24, 1, %736, 0, $noreg :: (load (s512) from %ir.sunkaddr, !tbaa !5)
   ; CHECK-NEXT:    %54:vr512 = VMOVAPDZrm %24, 1, %736, 64, $noreg :: (load (s512) from %ir.sunkaddr166, !tbaa !5)
+  ; CHECK-NEXT:    PREFETCHT0 %4, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep31)
   ; CHECK-NEXT:    %55:vr512 = VMOVAPDZrm %24, 1, %736, 128, $noreg :: (load (s512) from %ir.sunkaddr168, !tbaa !5)
   ; CHECK-NEXT:    %56:vr512 = VMOVAPDZrm %24, 1, %736, 192, $noreg :: (load (s512) from %ir.sunkaddr170, !tbaa !5)
   ; CHECK-NEXT:    %57:vr512 = nofpexcept VADDPDZrr %53, %54, implicit $mxcsr
@@ -1831,238 +1832,249 @@ body:             |
   ; CHECK-NEXT:    %62:vr512 = VUNPCKHPDZrr %57, %58
   ; CHECK-NEXT:    %61:vr512 = nofpexcept VMULPDZrr %62, %59, implicit $mxcsr
   ; CHECK-NEXT:    %62:vr512 = nofpexcept VFMADD213PDZr %62, %59, %61, implicit $mxcsr
-  ; CHECK-NEXT:    %65:vr512 = nofpexcept VADDPDZrr %55, %56, implicit $mxcsr
   ; CHECK-NEXT:    %63:vr512 = nofpexcept VADDPDZrr %61, %62, implicit $mxcsr
+  ; CHECK-NEXT:    %65:vr512 = nofpexcept VADDPDZrr %55, %56, implicit $mxcsr
   ; CHECK-NEXT:    %66:vr512 = nofpexcept VSUBPDZrr %55, %56, implicit $mxcsr
   ; CHECK-NEXT:    %67:vr512 = VUNPCKLPDZrr %65, %66
   ; CHECK-NEXT:    %70:vr512 = VUNPCKHPDZrr %65, %66
   ; CHECK-NEXT:    %69:vr512 = nofpexcept VMULPDZrr %70, %67, implicit $mxcsr
-  ; CHECK-NEXT:    %70:vr512 = nofpexcept VFMADD213PDZr %70, %67, %69, implicit $mxcsr
   ; CHECK-NEXT:    %64:vr512 = nofpexcept VSUBPDZrr %61, %62, implicit $mxcsr
+  ; CHECK-NEXT:    %70:vr512 = nofpexcept VFMADD213PDZr %70, %67, %69, implicit $mxcsr
   ; CHECK-NEXT:    %71:vr512 = nofpexcept VADDPDZrr %69, %70, implicit $mxcsr
   ; CHECK-NEXT:    %72:vr512 = nofpexcept VSUBPDZrr %69, %70, implicit $mxcsr
-  ; CHECK-NEXT:    %73:vr512 = nofpexcept VADDPDZrr %63, %71, implicit $mxcsr
   ; CHECK-NEXT:    %87:vr512 = VMOVAPDZrm %12, 1, %736, -192, $noreg :: (load (s512) from %ir.uglygep95, !tbaa !5)
-  ; CHECK-NEXT:    %74:vr512 = nofpexcept VSUBPDZrr %63, %71, implicit $mxcsr
-  ; CHECK-NEXT:    %81:vr512 = nofpexcept VADDPDZrr %72, %72, implicit $mxcsr
+  ; CHECK-NEXT:    %73:vr512 = nofpexcept VADDPDZrr %63, %71, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %4, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep29)
   ; CHECK-NEXT:    %88:vr512 = VMOVAPDZrm %12, 1, %736, -128, $noreg :: (load (s512) from %ir.uglygep93, !tbaa !5)
   ; CHECK-NEXT:    %89:vr512 = VMOVAPDZrm %12, 1, %736, -64, $noreg :: (load (s512) from %ir.uglygep91, !tbaa !5)
-  ; CHECK-NEXT:    %82:vr512 = nofpexcept VSUBPDZrr %72, %72, implicit $mxcsr
+  ; CHECK-NEXT:    %74:vr512 = nofpexcept VSUBPDZrr %63, %71, implicit $mxcsr
+  ; CHECK-NEXT:    %81:vr512 = nofpexcept VADDPDZrr %72, %72, implicit $mxcsr
   ; CHECK-NEXT:    %90:vr512 = VMOVAPDZrm %12, 1, %736, 0, $noreg :: (load (s512) from %ir.uglygep89, !tbaa !5)
   ; CHECK-NEXT:    %91:vr512 = nofpexcept VADDPDZrr %87, %88, implicit $mxcsr
   ; CHECK-NEXT:    %92:vr512 = nofpexcept VSUBPDZrr %87, %88, implicit $mxcsr
+  ; CHECK-NEXT:    %82:vr512 = nofpexcept VSUBPDZrr %72, %72, implicit $mxcsr
   ; CHECK-NEXT:    %93:vr512 = VUNPCKLPDZrr %91, %92
-  ; CHECK-NEXT:    %75:vr512 = VUNPCKLPDZrr %73, %74
   ; CHECK-NEXT:    %96:vr512 = VUNPCKHPDZrr %91, %92
   ; CHECK-NEXT:    %95:vr512 = nofpexcept VMULPDZrr %96, %93, implicit $mxcsr
   ; CHECK-NEXT:    %96:vr512 = nofpexcept VFMADD213PDZr %96, %93, %95, implicit $mxcsr
   ; CHECK-NEXT:    %97:vr512 = nofpexcept VADDPDZrr %95, %96, implicit $mxcsr
+  ; CHECK-NEXT:    %75:vr512 = VUNPCKLPDZrr %73, %74
   ; CHECK-NEXT:    %98:vr512 = nofpexcept VSUBPDZrr %95, %96, implicit $mxcsr
-  ; CHECK-NEXT:    %78:vr512 = VUNPCKHPDZrr %73, %74
   ; CHECK-NEXT:    %99:vr512 = nofpexcept VADDPDZrr %89, %90, implicit $mxcsr
   ; CHECK-NEXT:    %100:vr512 = nofpexcept VSUBPDZrr %89, %90, implicit $mxcsr
   ; CHECK-NEXT:    %101:vr512 = VUNPCKLPDZrr %99, %100
   ; CHECK-NEXT:    %104:vr512 = VUNPCKHPDZrr %99, %100
+  ; CHECK-NEXT:    %78:vr512 = VUNPCKHPDZrr %73, %74
   ; CHECK-NEXT:    %103:vr512 = nofpexcept VMULPDZrr %104, %101, implicit $mxcsr
-  ; CHECK-NEXT:    %85:vr512 = VUNPCKHPDZrr %81, %82
   ; CHECK-NEXT:    %104:vr512 = nofpexcept VFMADD213PDZr %104, %101, %103, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %4, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep27)
   ; CHECK-NEXT:    %105:vr512 = nofpexcept VADDPDZrr %103, %104, implicit $mxcsr
   ; CHECK-NEXT:    %106:vr512 = nofpexcept VSUBPDZrr %103, %104, implicit $mxcsr
+  ; CHECK-NEXT:    %85:vr512 = VUNPCKHPDZrr %81, %82
   ; CHECK-NEXT:    %107:vr512 = nofpexcept VADDPDZrr %97, %105, implicit $mxcsr
   ; CHECK-NEXT:    %108:vr512 = nofpexcept VSUBPDZrr %97, %105, implicit $mxcsr
-  ; CHECK-NEXT:    %109:vr512 = VUNPCKLPDZrr %107, %108
   ; CHECK-NEXT:    %115:vr512 = nofpexcept VADDPDZrr %106, %106, implicit $mxcsr
   ; CHECK-NEXT:    %121:vr512 = VMOVAPDZrm %11, 1, %736, -192, $noreg :: (load (s512) from %ir.uglygep87, !tbaa !5)
-  ; CHECK-NEXT:    %122:vr512 = VMOVAPDZrm %11, 1, %736, -128, $noreg :: (load (s512) from %ir.uglygep85, !tbaa !5)
-  ; CHECK-NEXT:    %112:vr512 = VUNPCKHPDZrr %107, %108
+  ; CHECK-NEXT:    %109:vr512 = VUNPCKLPDZrr %107, %108
   ; CHECK-NEXT:    %116:vr512 = nofpexcept VSUBPDZrr %106, %106, implicit $mxcsr
+  ; CHECK-NEXT:    %122:vr512 = VMOVAPDZrm %11, 1, %736, -128, $noreg :: (load (s512) from %ir.uglygep85, !tbaa !5)
   ; CHECK-NEXT:    %123:vr512 = VMOVAPDZrm %11, 1, %736, -64, $noreg :: (load (s512) from %ir.uglygep83, !tbaa !5)
-  ; CHECK-NEXT:    %124:vr512 = VMOVAPDZrm %11, 1, %736, 0, $noreg :: (load (s512) from %ir.uglygep81, !tbaa !5)
+  ; CHECK-NEXT:    %112:vr512 = VUNPCKHPDZrr %107, %108
   ; CHECK-NEXT:    %119:vr512 = VUNPCKHPDZrr %115, %116
+  ; CHECK-NEXT:    %124:vr512 = VMOVAPDZrm %11, 1, %736, 0, $noreg :: (load (s512) from %ir.uglygep81, !tbaa !5)
   ; CHECK-NEXT:    %125:vr512 = nofpexcept VADDPDZrr %121, %122, implicit $mxcsr
   ; CHECK-NEXT:    %126:vr512 = nofpexcept VSUBPDZrr %121, %122, implicit $mxcsr
+  ; CHECK-NEXT:    %77:vr512 = nofpexcept VMULPDZrr %78, %75, implicit $mxcsr
   ; CHECK-NEXT:    %127:vr512 = VUNPCKLPDZrr %125, %126
   ; CHECK-NEXT:    %130:vr512 = VUNPCKHPDZrr %125, %126
   ; CHECK-NEXT:    %129:vr512 = nofpexcept VMULPDZrr %130, %127, implicit $mxcsr
-  ; CHECK-NEXT:    %77:vr512 = nofpexcept VMULPDZrr %78, %75, implicit $mxcsr
   ; CHECK-NEXT:    %130:vr512 = nofpexcept VFMADD213PDZr %130, %127, %129, implicit $mxcsr
   ; CHECK-NEXT:    %131:vr512 = nofpexcept VADDPDZrr %129, %130, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %4, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep25)
   ; CHECK-NEXT:    %132:vr512 = nofpexcept VSUBPDZrr %129, %130, implicit $mxcsr
   ; CHECK-NEXT:    %133:vr512 = nofpexcept VADDPDZrr %123, %124, implicit $mxcsr
   ; CHECK-NEXT:    %134:vr512 = nofpexcept VSUBPDZrr %123, %124, implicit $mxcsr
-  ; CHECK-NEXT:    %84:vr512 = nofpexcept VMULPDZrr %85, %85, implicit $mxcsr
   ; CHECK-NEXT:    %135:vr512 = VUNPCKLPDZrr %133, %134
   ; CHECK-NEXT:    %138:vr512 = VUNPCKHPDZrr %133, %134
+  ; CHECK-NEXT:    %84:vr512 = nofpexcept VMULPDZrr %85, %85, implicit $mxcsr
   ; CHECK-NEXT:    %137:vr512 = nofpexcept VMULPDZrr %138, %135, implicit $mxcsr
   ; CHECK-NEXT:    %138:vr512 = nofpexcept VFMADD213PDZr %138, %135, %137, implicit $mxcsr
   ; CHECK-NEXT:    %139:vr512 = nofpexcept VADDPDZrr %137, %138, implicit $mxcsr
-  ; CHECK-NEXT:    %111:vr512 = nofpexcept VMULPDZrr %112, %109, implicit $mxcsr
   ; CHECK-NEXT:    %140:vr512 = nofpexcept VSUBPDZrr %137, %138, implicit $mxcsr
   ; CHECK-NEXT:    %141:vr512 = nofpexcept VADDPDZrr %131, %139, implicit $mxcsr
+  ; CHECK-NEXT:    %111:vr512 = nofpexcept VMULPDZrr %112, %109, implicit $mxcsr
   ; CHECK-NEXT:    %142:vr512 = nofpexcept VSUBPDZrr %131, %139, implicit $mxcsr
   ; CHECK-NEXT:    %143:vr512 = VUNPCKLPDZrr %141, %142
   ; CHECK-NEXT:    %146:vr512 = VUNPCKHPDZrr %141, %142
-  ; CHECK-NEXT:    %118:vr512 = nofpexcept VMULPDZrr %119, %119, implicit $mxcsr
   ; CHECK-NEXT:    %149:vr512 = nofpexcept VADDPDZrr %140, %140, implicit $mxcsr
   ; CHECK-NEXT:    %150:vr512 = nofpexcept VSUBPDZrr %140, %140, implicit $mxcsr
+  ; CHECK-NEXT:    %118:vr512 = nofpexcept VMULPDZrr %119, %119, implicit $mxcsr
   ; CHECK-NEXT:    %153:vr512 = VUNPCKHPDZrr %149, %150
   ; CHECK-NEXT:    %155:vr512 = VMOVAPDZrm %16, 1, %736, -192, $noreg :: (load (s512) from %ir.uglygep135, !tbaa !5)
-  ; CHECK-NEXT:    %145:vr512 = nofpexcept VMULPDZrr %146, %143, implicit $mxcsr
-  ; CHECK-NEXT:    %152:vr512 = nofpexcept VMULPDZrr %153, %153, implicit $mxcsr
   ; CHECK-NEXT:    %156:vr512 = VMOVAPDZrm %16, 1, %736, -128, $noreg :: (load (s512) from %ir.uglygep133, !tbaa !5)
+  ; CHECK-NEXT:    %145:vr512 = nofpexcept VMULPDZrr %146, %143, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %3, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep23)
   ; CHECK-NEXT:    %157:vr512 = VMOVAPDZrm %16, 1, %736, -64, $noreg :: (load (s512) from %ir.uglygep131, !tbaa !5)
-  ; CHECK-NEXT:    %78:vr512 = nofpexcept VFMADD213PDZr %78, %75, %77, implicit $mxcsr
   ; CHECK-NEXT:    %158:vr512 = VMOVAPDZrm %16, 1, %736, 0, $noreg :: (load (s512) from %ir.uglygep129, !tbaa !5)
+  ; CHECK-NEXT:    %152:vr512 = nofpexcept VMULPDZrr %153, %153, implicit $mxcsr
   ; CHECK-NEXT:    %159:vr512 = nofpexcept VADDPDZrr %155, %156, implicit $mxcsr
   ; CHECK-NEXT:    %160:vr512 = nofpexcept VSUBPDZrr %155, %156, implicit $mxcsr
   ; CHECK-NEXT:    %161:vr512 = VUNPCKLPDZrr %159, %160
-  ; CHECK-NEXT:    %85:vr512 = nofpexcept VFMADD213PDZr %85, %85, %84, implicit $mxcsr
   ; CHECK-NEXT:    %164:vr512 = VUNPCKHPDZrr %159, %160
   ; CHECK-NEXT:    %163:vr512 = nofpexcept VMULPDZrr %164, %161, implicit $mxcsr
+  ; CHECK-NEXT:    %78:vr512 = nofpexcept VFMADD213PDZr %78, %75, %77, implicit $mxcsr
   ; CHECK-NEXT:    %164:vr512 = nofpexcept VFMADD213PDZr %164, %161, %163, implicit $mxcsr
   ; CHECK-NEXT:    %165:vr512 = nofpexcept VADDPDZrr %163, %164, implicit $mxcsr
   ; CHECK-NEXT:    %166:vr512 = nofpexcept VSUBPDZrr %163, %164, implicit $mxcsr
-  ; CHECK-NEXT:    %112:vr512 = nofpexcept VFMADD213PDZr %112, %109, %111, implicit $mxcsr
   ; CHECK-NEXT:    %167:vr512 = nofpexcept VADDPDZrr %157, %158, implicit $mxcsr
   ; CHECK-NEXT:    %168:vr512 = nofpexcept VSUBPDZrr %157, %158, implicit $mxcsr
+  ; CHECK-NEXT:    %85:vr512 = nofpexcept VFMADD213PDZr %85, %85, %84, implicit $mxcsr
   ; CHECK-NEXT:    %169:vr512 = VUNPCKLPDZrr %167, %168
   ; CHECK-NEXT:    %172:vr512 = VUNPCKHPDZrr %167, %168
   ; CHECK-NEXT:    %171:vr512 = nofpexcept VMULPDZrr %172, %169, implicit $mxcsr
-  ; CHECK-NEXT:    %119:vr512 = nofpexcept VFMADD213PDZr %119, %119, %118, implicit $mxcsr
   ; CHECK-NEXT:    %172:vr512 = nofpexcept VFMADD213PDZr %172, %169, %171, implicit $mxcsr
   ; CHECK-NEXT:    %173:vr512 = nofpexcept VADDPDZrr %171, %172, implicit $mxcsr
+  ; CHECK-NEXT:    %112:vr512 = nofpexcept VFMADD213PDZr %112, %109, %111, implicit $mxcsr
   ; CHECK-NEXT:    %174:vr512 = nofpexcept VSUBPDZrr %171, %172, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %3, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep21)
   ; CHECK-NEXT:    %175:vr512 = nofpexcept VADDPDZrr %165, %173, implicit $mxcsr
   ; CHECK-NEXT:    %176:vr512 = nofpexcept VSUBPDZrr %165, %173, implicit $mxcsr
-  ; CHECK-NEXT:    %146:vr512 = nofpexcept VFMADD213PDZr %146, %143, %145, implicit $mxcsr
   ; CHECK-NEXT:    %177:vr512 = VUNPCKLPDZrr %175, %176
+  ; CHECK-NEXT:    %119:vr512 = nofpexcept VFMADD213PDZr %119, %119, %118, implicit $mxcsr
   ; CHECK-NEXT:    %180:vr512 = VUNPCKHPDZrr %175, %176
   ; CHECK-NEXT:    %179:vr512 = nofpexcept VMULPDZrr %180, %177, implicit $mxcsr
   ; CHECK-NEXT:    %183:vr512 = nofpexcept VADDPDZrr %174, %174, implicit $mxcsr
   ; CHECK-NEXT:    %184:vr512 = nofpexcept VSUBPDZrr %174, %174, implicit $mxcsr
-  ; CHECK-NEXT:    %153:vr512 = nofpexcept VFMADD213PDZr %153, %153, %152, implicit $mxcsr
   ; CHECK-NEXT:    %187:vr512 = VUNPCKHPDZrr %183, %184
+  ; CHECK-NEXT:    %146:vr512 = nofpexcept VFMADD213PDZr %146, %143, %145, implicit $mxcsr
+  ; CHECK-NEXT:    %186:vr512 = nofpexcept VMULPDZrr %187, %187, implicit $mxcsr
   ; CHECK-NEXT:    %189:vr512 = VMOVAPDZrm %10, 1, %736, -192, $noreg :: (load (s512) from %ir.uglygep79, !tbaa !5)
   ; CHECK-NEXT:    %190:vr512 = VMOVAPDZrm %10, 1, %736, -128, $noreg :: (load (s512) from %ir.uglygep77, !tbaa !5)
-  ; CHECK-NEXT:    %180:vr512 = nofpexcept VFMADD213PDZr %180, %177, %179, implicit $mxcsr
-  ; CHECK-NEXT:    %186:vr512 = nofpexcept VMULPDZrr %187, %187, implicit $mxcsr
+  ; CHECK-NEXT:    %153:vr512 = nofpexcept VFMADD213PDZr %153, %153, %152, implicit $mxcsr
   ; CHECK-NEXT:    %191:vr512 = VMOVAPDZrm %10, 1, %736, -64, $noreg :: (load (s512) from %ir.uglygep75, !tbaa !5)
   ; CHECK-NEXT:    %192:vr512 = VMOVAPDZrm %10, 1, %736, 0, $noreg :: (load (s512) from %ir.uglygep73, !tbaa !5)
-  ; CHECK-NEXT:    %187:vr512 = nofpexcept VFMADD213PDZr %187, %187, %186, implicit $mxcsr
   ; CHECK-NEXT:    %193:vr512 = nofpexcept VADDPDZrr %189, %190, implicit $mxcsr
+  ; CHECK-NEXT:    %180:vr512 = nofpexcept VFMADD213PDZr %180, %177, %179, implicit $mxcsr
   ; CHECK-NEXT:    %194:vr512 = nofpexcept VSUBPDZrr %189, %190, implicit $mxcsr
   ; CHECK-NEXT:    %195:vr512 = VUNPCKLPDZrr %193, %194
   ; CHECK-NEXT:    %198:vr512 = VUNPCKHPDZrr %193, %194
   ; CHECK-NEXT:    %197:vr512 = nofpexcept VMULPDZrr %198, %195, implicit $mxcsr
-  ; CHECK-NEXT:    %79:vr512 = nofpexcept VADDPDZrr %77, %78, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %3, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep19)
+  ; CHECK-NEXT:    %187:vr512 = nofpexcept VFMADD213PDZr %187, %187, %186, implicit $mxcsr
   ; CHECK-NEXT:    %198:vr512 = nofpexcept VFMADD213PDZr %198, %195, %197, implicit $mxcsr
   ; CHECK-NEXT:    %199:vr512 = nofpexcept VADDPDZrr %197, %198, implicit $mxcsr
   ; CHECK-NEXT:    %200:vr512 = nofpexcept VSUBPDZrr %197, %198, implicit $mxcsr
   ; CHECK-NEXT:    %201:vr512 = nofpexcept VADDPDZrr %191, %192, implicit $mxcsr
   ; CHECK-NEXT:    %202:vr512 = nofpexcept VSUBPDZrr %191, %192, implicit $mxcsr
-  ; CHECK-NEXT:    %80:vr512 = nofpexcept VSUBPDZrr %77, %78, implicit $mxcsr
+  ; CHECK-NEXT:    %79:vr512 = nofpexcept VADDPDZrr %77, %78, implicit $mxcsr
   ; CHECK-NEXT:    %203:vr512 = VUNPCKLPDZrr %201, %202
   ; CHECK-NEXT:    %206:vr512 = VUNPCKHPDZrr %201, %202
   ; CHECK-NEXT:    %205:vr512 = nofpexcept VMULPDZrr %206, %203, implicit $mxcsr
   ; CHECK-NEXT:    %206:vr512 = nofpexcept VFMADD213PDZr %206, %203, %205, implicit $mxcsr
   ; CHECK-NEXT:    %207:vr512 = nofpexcept VADDPDZrr %205, %206, implicit $mxcsr
-  ; CHECK-NEXT:    %86:vr512 = nofpexcept VSUBPDZrr %84, %85, implicit $mxcsr
+  ; CHECK-NEXT:    %80:vr512 = nofpexcept VSUBPDZrr %77, %78, implicit $mxcsr
   ; CHECK-NEXT:    %208:vr512 = nofpexcept VSUBPDZrr %205, %206, implicit $mxcsr
   ; CHECK-NEXT:    %209:vr512 = nofpexcept VADDPDZrr %199, %207, implicit $mxcsr
   ; CHECK-NEXT:    %210:vr512 = nofpexcept VSUBPDZrr %199, %207, implicit $mxcsr
   ; CHECK-NEXT:    %211:vr512 = VUNPCKLPDZrr %209, %210
   ; CHECK-NEXT:    %214:vr512 = VUNPCKHPDZrr %209, %210
-  ; CHECK-NEXT:    %113:vr512 = nofpexcept VADDPDZrr %111, %112, implicit $mxcsr
+  ; CHECK-NEXT:    %86:vr512 = nofpexcept VSUBPDZrr %84, %85, implicit $mxcsr
   ; CHECK-NEXT:    %213:vr512 = nofpexcept VMULPDZrr %214, %211, implicit $mxcsr
   ; CHECK-NEXT:    %214:vr512 = nofpexcept VFMADD213PDZr %214, %211, %213, implicit $mxcsr
   ; CHECK-NEXT:    %217:vr512 = nofpexcept VADDPDZrr %208, %208, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %3, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep17)
   ; CHECK-NEXT:    %218:vr512 = nofpexcept VSUBPDZrr %208, %208, implicit $mxcsr
+  ; CHECK-NEXT:    %113:vr512 = nofpexcept VADDPDZrr %111, %112, implicit $mxcsr
   ; CHECK-NEXT:    %221:vr512 = VUNPCKHPDZrr %217, %218
-  ; CHECK-NEXT:    %114:vr512 = nofpexcept VSUBPDZrr %111, %112, implicit $mxcsr
-  ; CHECK-NEXT:    %220:vr512 = nofpexcept VMULPDZrr %221, %221, implicit $mxcsr
   ; CHECK-NEXT:    %223:vr512 = VMOVAPDZrm %15, 1, %736, -192, $noreg :: (load (s512) from %ir.uglygep127, !tbaa !5)
   ; CHECK-NEXT:    %224:vr512 = VMOVAPDZrm %15, 1, %736, -128, $noreg :: (load (s512) from %ir.uglygep125, !tbaa !5)
-  ; CHECK-NEXT:    %120:vr512 = nofpexcept VSUBPDZrr %118, %119, implicit $mxcsr
-  ; CHECK-NEXT:    %221:vr512 = nofpexcept VFMADD213PDZr %221, %221, %220, implicit $mxcsr
+  ; CHECK-NEXT:    %114:vr512 = nofpexcept VSUBPDZrr %111, %112, implicit $mxcsr
+  ; CHECK-NEXT:    %220:vr512 = nofpexcept VMULPDZrr %221, %221, implicit $mxcsr
   ; CHECK-NEXT:    %225:vr512 = VMOVAPDZrm %15, 1, %736, -64, $noreg :: (load (s512) from %ir.uglygep123, !tbaa !5)
   ; CHECK-NEXT:    %226:vr512 = VMOVAPDZrm %15, 1, %736, 0, $noreg :: (load (s512) from %ir.uglygep121, !tbaa !5)
-  ; CHECK-NEXT:    %147:vr512 = nofpexcept VADDPDZrr %145, %146, implicit $mxcsr
+  ; CHECK-NEXT:    %120:vr512 = nofpexcept VSUBPDZrr %118, %119, implicit $mxcsr
+  ; CHECK-NEXT:    %221:vr512 = nofpexcept VFMADD213PDZr %221, %221, %220, implicit $mxcsr
   ; CHECK-NEXT:    %227:vr512 = nofpexcept VADDPDZrr %223, %224, implicit $mxcsr
   ; CHECK-NEXT:    %228:vr512 = nofpexcept VSUBPDZrr %223, %224, implicit $mxcsr
   ; CHECK-NEXT:    %229:vr512 = VUNPCKLPDZrr %227, %228
   ; CHECK-NEXT:    %232:vr512 = VUNPCKHPDZrr %227, %228
+  ; CHECK-NEXT:    %147:vr512 = nofpexcept VADDPDZrr %145, %146, implicit $mxcsr
   ; CHECK-NEXT:    %231:vr512 = nofpexcept VMULPDZrr %232, %229, implicit $mxcsr
-  ; CHECK-NEXT:    %148:vr512 = nofpexcept VSUBPDZrr %145, %146, implicit $mxcsr
   ; CHECK-NEXT:    %232:vr512 = nofpexcept VFMADD213PDZr %232, %229, %231, implicit $mxcsr
   ; CHECK-NEXT:    %233:vr512 = nofpexcept VADDPDZrr %231, %232, implicit $mxcsr
   ; CHECK-NEXT:    %234:vr512 = nofpexcept VSUBPDZrr %231, %232, implicit $mxcsr
   ; CHECK-NEXT:    %235:vr512 = nofpexcept VADDPDZrr %225, %226, implicit $mxcsr
+  ; CHECK-NEXT:    %148:vr512 = nofpexcept VSUBPDZrr %145, %146, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %2, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep15)
   ; CHECK-NEXT:    %236:vr512 = nofpexcept VSUBPDZrr %225, %226, implicit $mxcsr
-  ; CHECK-NEXT:    %154:vr512 = nofpexcept VSUBPDZrr %152, %153, implicit $mxcsr
   ; CHECK-NEXT:    %237:vr512 = VUNPCKLPDZrr %235, %236
   ; CHECK-NEXT:    %240:vr512 = VUNPCKHPDZrr %235, %236
   ; CHECK-NEXT:    %239:vr512 = nofpexcept VMULPDZrr %240, %237, implicit $mxcsr
+  ; CHECK-NEXT:    %154:vr512 = nofpexcept VSUBPDZrr %152, %153, implicit $mxcsr
   ; CHECK-NEXT:    %240:vr512 = nofpexcept VFMADD213PDZr %240, %237, %239, implicit $mxcsr
   ; CHECK-NEXT:    %241:vr512 = nofpexcept VADDPDZrr %239, %240, implicit $mxcsr
-  ; CHECK-NEXT:    %181:vr512 = nofpexcept VADDPDZrr %179, %180, implicit $mxcsr
   ; CHECK-NEXT:    %242:vr512 = nofpexcept VSUBPDZrr %239, %240, implicit $mxcsr
   ; CHECK-NEXT:    %243:vr512 = nofpexcept VADDPDZrr %233, %241, implicit $mxcsr
   ; CHECK-NEXT:    %244:vr512 = nofpexcept VSUBPDZrr %233, %241, implicit $mxcsr
+  ; CHECK-NEXT:    %181:vr512 = nofpexcept VADDPDZrr %179, %180, implicit $mxcsr
   ; CHECK-NEXT:    %245:vr512 = VUNPCKLPDZrr %243, %244
   ; CHECK-NEXT:    %248:vr512 = VUNPCKHPDZrr %243, %244
-  ; CHECK-NEXT:    %182:vr512 = nofpexcept VSUBPDZrr %179, %180, implicit $mxcsr
   ; CHECK-NEXT:    %247:vr512 = nofpexcept VMULPDZrr %248, %245, implicit $mxcsr
   ; CHECK-NEXT:    %248:vr512 = nofpexcept VFMADD213PDZr %248, %245, %247, implicit $mxcsr
   ; CHECK-NEXT:    %251:vr512 = nofpexcept VADDPDZrr %242, %242, implicit $mxcsr
+  ; CHECK-NEXT:    %182:vr512 = nofpexcept VSUBPDZrr %179, %180, implicit $mxcsr
   ; CHECK-NEXT:    %252:vr512 = nofpexcept VSUBPDZrr %242, %242, implicit $mxcsr
   ; CHECK-NEXT:    %255:vr512 = VUNPCKHPDZrr %251, %252
-  ; CHECK-NEXT:    %188:vr512 = nofpexcept VSUBPDZrr %186, %187, implicit $mxcsr
   ; CHECK-NEXT:    %254:vr512 = nofpexcept VMULPDZrr %255, %255, implicit $mxcsr
   ; CHECK-NEXT:    %257:vr512 = VMOVAPDZrm %14, 1, %736, -192, $noreg :: (load (s512) from %ir.uglygep119, !tbaa !5)
+  ; CHECK-NEXT:    %188:vr512 = nofpexcept VSUBPDZrr %186, %187, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %2, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep13)
   ; CHECK-NEXT:    %258:vr512 = VMOVAPDZrm %14, 1, %736, -128, $noreg :: (load (s512) from %ir.uglygep117, !tbaa !5)
+  ; CHECK-NEXT:    %259:vr512 = VMOVAPDZrm %14, 1, %736, -64, $noreg :: (load (s512) from %ir.uglygep115, !tbaa !5)
   ; CHECK-NEXT:    %215:vr512 = nofpexcept VADDPDZrr %213, %214, implicit $mxcsr
   ; CHECK-NEXT:    %255:vr512 = nofpexcept VFMADD213PDZr %255, %255, %254, implicit $mxcsr
-  ; CHECK-NEXT:    %259:vr512 = VMOVAPDZrm %14, 1, %736, -64, $noreg :: (load (s512) from %ir.uglygep115, !tbaa !5)
   ; CHECK-NEXT:    %260:vr512 = VMOVAPDZrm %14, 1, %736, 0, $noreg :: (load (s512) from %ir.uglygep113, !tbaa !5)
-  ; CHECK-NEXT:    %216:vr512 = nofpexcept VSUBPDZrr %213, %214, implicit $mxcsr
   ; CHECK-NEXT:    %261:vr512 = nofpexcept VADDPDZrr %257, %258, implicit $mxcsr
   ; CHECK-NEXT:    %262:vr512 = nofpexcept VSUBPDZrr %257, %258, implicit $mxcsr
+  ; CHECK-NEXT:    %216:vr512 = nofpexcept VSUBPDZrr %213, %214, implicit $mxcsr
   ; CHECK-NEXT:    %263:vr512 = VUNPCKLPDZrr %261, %262
   ; CHECK-NEXT:    %266:vr512 = VUNPCKHPDZrr %261, %262
   ; CHECK-NEXT:    %265:vr512 = nofpexcept VMULPDZrr %266, %263, implicit $mxcsr
-  ; CHECK-NEXT:    %222:vr512 = nofpexcept VSUBPDZrr %220, %221, implicit $mxcsr
   ; CHECK-NEXT:    %266:vr512 = nofpexcept VFMADD213PDZr %266, %263, %265, implicit $mxcsr
   ; CHECK-NEXT:    %267:vr512 = nofpexcept VADDPDZrr %265, %266, implicit $mxcsr
+  ; CHECK-NEXT:    %222:vr512 = nofpexcept VSUBPDZrr %220, %221, implicit $mxcsr
   ; CHECK-NEXT:    %268:vr512 = nofpexcept VSUBPDZrr %265, %266, implicit $mxcsr
   ; CHECK-NEXT:    %269:vr512 = nofpexcept VADDPDZrr %259, %260, implicit $mxcsr
   ; CHECK-NEXT:    %270:vr512 = nofpexcept VSUBPDZrr %259, %260, implicit $mxcsr
-  ; CHECK-NEXT:    %249:vr512 = nofpexcept VADDPDZrr %247, %248, implicit $mxcsr
   ; CHECK-NEXT:    %271:vr512 = VUNPCKLPDZrr %269, %270
   ; CHECK-NEXT:    %274:vr512 = VUNPCKHPDZrr %269, %270
+  ; CHECK-NEXT:    %249:vr512 = nofpexcept VADDPDZrr %247, %248, implicit $mxcsr
   ; CHECK-NEXT:    %273:vr512 = nofpexcept VMULPDZrr %274, %271, implicit $mxcsr
   ; CHECK-NEXT:    %274:vr512 = nofpexcept VFMADD213PDZr %274, %271, %273, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %2, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep11)
   ; CHECK-NEXT:    %275:vr512 = nofpexcept VADDPDZrr %273, %274, implicit $mxcsr
-  ; CHECK-NEXT:    %250:vr512 = nofpexcept VSUBPDZrr %247, %248, implicit $mxcsr
   ; CHECK-NEXT:    %276:vr512 = nofpexcept VSUBPDZrr %273, %274, implicit $mxcsr
+  ; CHECK-NEXT:    %250:vr512 = nofpexcept VSUBPDZrr %247, %248, implicit $mxcsr
   ; CHECK-NEXT:    %277:vr512 = nofpexcept VADDPDZrr %267, %275, implicit $mxcsr
   ; CHECK-NEXT:    %278:vr512 = nofpexcept VSUBPDZrr %267, %275, implicit $mxcsr
   ; CHECK-NEXT:    %279:vr512 = VUNPCKLPDZrr %277, %278
   ; CHECK-NEXT:    %282:vr512 = VUNPCKHPDZrr %277, %278
-  ; CHECK-NEXT:    %256:vr512 = nofpexcept VSUBPDZrr %254, %255, implicit $mxcsr
   ; CHECK-NEXT:    %281:vr512 = nofpexcept VMULPDZrr %282, %279, implicit $mxcsr
+  ; CHECK-NEXT:    %256:vr512 = nofpexcept VSUBPDZrr %254, %255, implicit $mxcsr
   ; CHECK-NEXT:    %282:vr512 = nofpexcept VFMADD213PDZr %282, %279, %281, implicit $mxcsr
-  ; CHECK-NEXT:    %283:vr512 = nofpexcept VADDPDZrr %281, %282, implicit $mxcsr
-  ; CHECK-NEXT:    %291:vr512 = VMOVAPDZrm %13, 1, %736, -192, $noreg :: (load (s512) from %ir.uglygep111, !tbaa !5)
-  ; CHECK-NEXT:    %284:vr512 = nofpexcept VSUBPDZrr %281, %282, implicit $mxcsr
   ; CHECK-NEXT:    %285:vr512 = nofpexcept VADDPDZrr %276, %276, implicit $mxcsr
+  ; CHECK-NEXT:    %286:vr512 = nofpexcept VSUBPDZrr %276, %276, implicit $mxcsr
+  ; CHECK-NEXT:    %291:vr512 = VMOVAPDZrm %13, 1, %736, -192, $noreg :: (load (s512) from %ir.uglygep111, !tbaa !5)
+  ; CHECK-NEXT:    %283:vr512 = nofpexcept VADDPDZrr %281, %282, implicit $mxcsr
+  ; CHECK-NEXT:    %289:vr512 = VUNPCKHPDZrr %285, %286
   ; CHECK-NEXT:    %292:vr512 = VMOVAPDZrm %13, 1, %736, -128, $noreg :: (load (s512) from %ir.uglygep109, !tbaa !5)
   ; CHECK-NEXT:    %293:vr512 = VMOVAPDZrm %13, 1, %736, -64, $noreg :: (load (s512) from %ir.uglygep107, !tbaa !5)
-  ; CHECK-NEXT:    %286:vr512 = nofpexcept VSUBPDZrr %276, %276, implicit $mxcsr
-  ; CHECK-NEXT:    %289:vr512 = VUNPCKHPDZrr %285, %286
+  ; CHECK-NEXT:    %284:vr512 = nofpexcept VSUBPDZrr %281, %282, implicit $mxcsr
   ; CHECK-NEXT:    %295:vr512 = nofpexcept VADDPDZrr %291, %292, implicit $mxcsr
   ; CHECK-NEXT:    %296:vr512 = nofpexcept VSUBPDZrr %291, %292, implicit $mxcsr
   ; CHECK-NEXT:    %297:vr512 = VUNPCKLPDZrr %295, %296
   ; CHECK-NEXT:    %300:vr512 = VUNPCKHPDZrr %295, %296
+  ; CHECK-NEXT:    PREFETCHT0 %2, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep9)
   ; CHECK-NEXT:    %299:vr512 = nofpexcept VMULPDZrr %300, %297, implicit $mxcsr
   ; CHECK-NEXT:    %300:vr512 = nofpexcept VFMADD213PDZr %300, %297, %299, implicit $mxcsr
   ; CHECK-NEXT:    %301:vr512 = nofpexcept VADDPDZrr %299, %300, implicit $mxcsr
@@ -2085,6 +2097,7 @@ body:             |
   ; CHECK-NEXT:    %316:vr512 = VUNPCKHPDZrr %311, %312
   ; CHECK-NEXT:    %315:vr512 = nofpexcept VMULPDZrr %316, %313, implicit $mxcsr
   ; CHECK-NEXT:    %316:vr512 = nofpexcept VFMADD213PDZr %316, %313, %315, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %8, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep63)
   ; CHECK-NEXT:    %317:vr512 = nofpexcept VADDPDZrr %315, %316, implicit $mxcsr
   ; CHECK-NEXT:    %318:vr512 = nofpexcept VSUBPDZrr %315, %316, implicit $mxcsr
   ; CHECK-NEXT:    %319:vr512 = nofpexcept VADDPDZrr %310, %310, implicit $mxcsr
@@ -2107,79 +2120,81 @@ body:             |
   ; CHECK-NEXT:    %338:vr512 = nofpexcept VFMADD213PDZr %338, %335, %337, implicit $mxcsr
   ; CHECK-NEXT:    %341:vr512 = nofpexcept VADDPDZrr %215, %249, implicit $mxcsr
   ; CHECK-NEXT:    %342:vr512 = nofpexcept VSUBPDZrr %215, %249, implicit $mxcsr
-  ; CHECK-NEXT:    %343:vr512 = VUNPCKLPDZrr %341, %342
-  ; CHECK-NEXT:    %346:vr512 = VUNPCKHPDZrr %341, %342
+  ; CHECK-NEXT:    PREFETCHT0 %8, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep61)
   ; CHECK-NEXT:    %331:vr512 = nofpexcept VADDPDZrr %329, %330, implicit $mxcsr
   ; CHECK-NEXT:    %332:vr512 = nofpexcept VSUBPDZrr %329, %330, implicit $mxcsr
+  ; CHECK-NEXT:    %343:vr512 = VUNPCKLPDZrr %341, %342
+  ; CHECK-NEXT:    %346:vr512 = VUNPCKHPDZrr %341, %342
   ; CHECK-NEXT:    %345:vr512 = nofpexcept VMULPDZrr %346, %343, implicit $mxcsr
   ; CHECK-NEXT:    %346:vr512 = nofpexcept VFMADD213PDZr %346, %343, %345, implicit $mxcsr
-  ; CHECK-NEXT:    %349:vr512 = nofpexcept VADDPDZrr %283, %317, implicit $mxcsr
-  ; CHECK-NEXT:    %350:vr512 = nofpexcept VSUBPDZrr %283, %317, implicit $mxcsr
   ; CHECK-NEXT:    %339:vr512 = nofpexcept VADDPDZrr %337, %338, implicit $mxcsr
   ; CHECK-NEXT:    %340:vr512 = nofpexcept VSUBPDZrr %337, %338, implicit $mxcsr
+  ; CHECK-NEXT:    %349:vr512 = nofpexcept VADDPDZrr %283, %317, implicit $mxcsr
+  ; CHECK-NEXT:    %350:vr512 = nofpexcept VSUBPDZrr %283, %317, implicit $mxcsr
   ; CHECK-NEXT:    %351:vr512 = VUNPCKLPDZrr %349, %350
   ; CHECK-NEXT:    %354:vr512 = VUNPCKHPDZrr %349, %350
-  ; CHECK-NEXT:    %353:vr512 = nofpexcept VMULPDZrr %354, %351, implicit $mxcsr
-  ; CHECK-NEXT:    %354:vr512 = nofpexcept VFMADD213PDZr %354, %351, %353, implicit $mxcsr
   ; CHECK-NEXT:    %347:vr512 = nofpexcept VADDPDZrr %345, %346, implicit $mxcsr
   ; CHECK-NEXT:    %348:vr512 = nofpexcept VSUBPDZrr %345, %346, implicit $mxcsr
+  ; CHECK-NEXT:    %353:vr512 = nofpexcept VMULPDZrr %354, %351, implicit $mxcsr
+  ; CHECK-NEXT:    %354:vr512 = nofpexcept VFMADD213PDZr %354, %351, %353, implicit $mxcsr
   ; CHECK-NEXT:    %355:vr512 = nofpexcept VADDPDZrr %353, %354, implicit $mxcsr
   ; CHECK-NEXT:    %356:vr512 = nofpexcept VSUBPDZrr %353, %354, implicit $mxcsr
   ; CHECK-NEXT:    %357:vr512 = nofpexcept VADDPDZrr %331, %347, implicit $mxcsr
   ; CHECK-NEXT:    %358:vr512 = nofpexcept VSUBPDZrr %331, %347, implicit $mxcsr
   ; CHECK-NEXT:    %359:vr512 = VUNPCKLPDZrr %357, %358
   ; CHECK-NEXT:    %362:vr512 = VUNPCKHPDZrr %357, %358
+  ; CHECK-NEXT:    PREFETCHT0 %8, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep59)
+  ; CHECK-NEXT:    %361:vr512 = nofpexcept VMULPDZrr %362, %359, implicit $mxcsr
+  ; CHECK-NEXT:    %362:vr512 = nofpexcept VFMADD213PDZr %362, %359, %361, implicit $mxcsr
+  ; CHECK-NEXT:    %363:vr512 = nofpexcept VADDPDZrr %361, %362, implicit $mxcsr
+  ; CHECK-NEXT:    %364:vr512 = nofpexcept VSUBPDZrr %361, %362, implicit $mxcsr
   ; CHECK-NEXT:    %365:vr512 = nofpexcept VADDPDZrr %339, %355, implicit $mxcsr
   ; CHECK-NEXT:    %366:vr512 = nofpexcept VSUBPDZrr %339, %355, implicit $mxcsr
   ; CHECK-NEXT:    %367:vr512 = VUNPCKLPDZrr %365, %366
   ; CHECK-NEXT:    %370:vr512 = VUNPCKHPDZrr %365, %366
-  ; CHECK-NEXT:    %361:vr512 = nofpexcept VMULPDZrr %362, %359, implicit $mxcsr
-  ; CHECK-NEXT:    %362:vr512 = nofpexcept VFMADD213PDZr %362, %359, %361, implicit $mxcsr
   ; CHECK-NEXT:    %369:vr512 = nofpexcept VMULPDZrr %370, %367, implicit $mxcsr
   ; CHECK-NEXT:    %370:vr512 = nofpexcept VFMADD213PDZr %370, %367, %369, implicit $mxcsr
+  ; CHECK-NEXT:    %371:vr512 = nofpexcept VADDPDZrr %369, %370, implicit $mxcsr
+  ; CHECK-NEXT:    %372:vr512 = nofpexcept VSUBPDZrr %369, %370, implicit $mxcsr
   ; CHECK-NEXT:    %373:vr512 = nofpexcept VADDPDZrr %332, %348, implicit $mxcsr
   ; CHECK-NEXT:    %374:vr512 = nofpexcept VSUBPDZrr %332, %348, implicit $mxcsr
-  ; CHECK-NEXT:    %363:vr512 = nofpexcept VADDPDZrr %361, %362, implicit $mxcsr
-  ; CHECK-NEXT:    %364:vr512 = nofpexcept VSUBPDZrr %361, %362, implicit $mxcsr
   ; CHECK-NEXT:    %375:vr512 = VUNPCKLPDZrr %373, %374
   ; CHECK-NEXT:    %378:vr512 = VUNPCKHPDZrr %373, %374
   ; CHECK-NEXT:    %377:vr512 = nofpexcept VMULPDZrr %378, %375, implicit $mxcsr
   ; CHECK-NEXT:    %378:vr512 = nofpexcept VFMADD213PDZr %378, %375, %377, implicit $mxcsr
-  ; CHECK-NEXT:    %371:vr512 = nofpexcept VADDPDZrr %369, %370, implicit $mxcsr
-  ; CHECK-NEXT:    %372:vr512 = nofpexcept VSUBPDZrr %369, %370, implicit $mxcsr
   ; CHECK-NEXT:    %381:vr512 = nofpexcept VADDPDZrr %340, %356, implicit $mxcsr
   ; CHECK-NEXT:    %382:vr512 = nofpexcept VSUBPDZrr %340, %356, implicit $mxcsr
   ; CHECK-NEXT:    %383:vr512 = VUNPCKLPDZrr %381, %382
   ; CHECK-NEXT:    %386:vr512 = VUNPCKHPDZrr %381, %382
-  ; CHECK-NEXT:    %379:vr512 = nofpexcept VADDPDZrr %377, %378, implicit $mxcsr
-  ; CHECK-NEXT:    %380:vr512 = nofpexcept VSUBPDZrr %377, %378, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %8, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep57)
   ; CHECK-NEXT:    %385:vr512 = nofpexcept VMULPDZrr %386, %383, implicit $mxcsr
   ; CHECK-NEXT:    %386:vr512 = nofpexcept VFMADD213PDZr %386, %383, %385, implicit $mxcsr
+  ; CHECK-NEXT:    %379:vr512 = nofpexcept VADDPDZrr %377, %378, implicit $mxcsr
+  ; CHECK-NEXT:    %380:vr512 = nofpexcept VSUBPDZrr %377, %378, implicit $mxcsr
+  ; CHECK-NEXT:    %387:vr512 = nofpexcept VADDPDZrr %385, %386, implicit $mxcsr
+  ; CHECK-NEXT:    %388:vr512 = nofpexcept VSUBPDZrr %385, %386, implicit $mxcsr
   ; CHECK-NEXT:    %389:vr512 = nofpexcept VADDPDZrr %363, %371, implicit $mxcsr
   ; CHECK-NEXT:    %390:vr512 = nofpexcept VSUBPDZrr %363, %371, implicit $mxcsr
   ; CHECK-NEXT:    %391:vr512 = VUNPCKLPDZrr %389, %390
   ; CHECK-NEXT:    %394:vr512 = VUNPCKHPDZrr %389, %390
   ; CHECK-NEXT:    %393:vr512 = nofpexcept VMULPDZrr %394, %391, implicit $mxcsr
   ; CHECK-NEXT:    %394:vr512 = nofpexcept VFMADD213PDZr %394, %391, %393, implicit $mxcsr
-  ; CHECK-NEXT:    %395:vr512 = nofpexcept VADDPDZrr %393, %394, implicit $mxcsr
-  ; CHECK-NEXT:    %396:vr512 = nofpexcept VSUBPDZrr %393, %394, implicit $mxcsr
-  ; CHECK-NEXT:    VMOVAPDZmr %9, 1, %736, -192, $noreg, %395 :: (store (s512) into %ir.uglygep71, !tbaa !5)
-  ; CHECK-NEXT:    %52:gr64_nosp = LEA64r %9, 1, %736, 0, $noreg
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %52, -192, $noreg, %396 :: (store (s512) into %ir.uglygep136, !tbaa !5)
   ; CHECK-NEXT:    %398:vr512 = nofpexcept VADDPDZrr %364, %372, implicit $mxcsr
   ; CHECK-NEXT:    %399:vr512 = nofpexcept VSUBPDZrr %364, %372, implicit $mxcsr
+  ; CHECK-NEXT:    %395:vr512 = nofpexcept VADDPDZrr %393, %394, implicit $mxcsr
+  ; CHECK-NEXT:    %396:vr512 = nofpexcept VSUBPDZrr %393, %394, implicit $mxcsr
   ; CHECK-NEXT:    %400:vr512 = VUNPCKLPDZrr %398, %399
   ; CHECK-NEXT:    %403:vr512 = VUNPCKHPDZrr %398, %399
   ; CHECK-NEXT:    %402:vr512 = nofpexcept VMULPDZrr %403, %400, implicit $mxcsr
   ; CHECK-NEXT:    %403:vr512 = nofpexcept VFMADD213PDZr %403, %400, %402, implicit $mxcsr
+  ; CHECK-NEXT:    VMOVAPDZmr %9, 1, %736, -192, $noreg, %395 :: (store (s512) into %ir.uglygep71, !tbaa !5)
   ; CHECK-NEXT:    %404:vr512 = nofpexcept VADDPDZrr %402, %403, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %1, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep7)
   ; CHECK-NEXT:    %405:vr512 = nofpexcept VSUBPDZrr %402, %403, implicit $mxcsr
+  ; CHECK-NEXT:    %52:gr64_nosp = LEA64r %9, 1, %736, 0, $noreg
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %52, -192, $noreg, %396 :: (store (s512) into %ir.uglygep136, !tbaa !5)
   ; CHECK-NEXT:    %407:gr64_nosp = LEA64r %0, 1, %52, -192, $noreg
   ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %404 :: (store (s512) into %ir.uglygep137, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %405 :: (store (s512) into %ir.uglygep138, !tbaa !5)
-  ; CHECK-NEXT:    %387:vr512 = nofpexcept VADDPDZrr %385, %386, implicit $mxcsr
-  ; CHECK-NEXT:    %388:vr512 = nofpexcept VSUBPDZrr %385, %386, implicit $mxcsr
   ; CHECK-NEXT:    %408:vr512 = nofpexcept VADDPDZrr %379, %387, implicit $mxcsr
   ; CHECK-NEXT:    %409:vr512 = nofpexcept VSUBPDZrr %379, %387, implicit $mxcsr
   ; CHECK-NEXT:    %410:vr512 = VUNPCKLPDZrr %408, %409
@@ -2188,22 +2203,17 @@ body:             |
   ; CHECK-NEXT:    %413:vr512 = nofpexcept VFMADD213PDZr %413, %410, %412, implicit $mxcsr
   ; CHECK-NEXT:    %414:vr512 = nofpexcept VADDPDZrr %412, %413, implicit $mxcsr
   ; CHECK-NEXT:    %415:vr512 = nofpexcept VSUBPDZrr %412, %413, implicit $mxcsr
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %414 :: (store (s512) into %ir.uglygep139, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %415 :: (store (s512) into %ir.uglygep140, !tbaa !5)
   ; CHECK-NEXT:    %418:vr512 = nofpexcept VADDPDZrr %380, %388, implicit $mxcsr
   ; CHECK-NEXT:    %419:vr512 = nofpexcept VSUBPDZrr %380, %388, implicit $mxcsr
   ; CHECK-NEXT:    %420:vr512 = VUNPCKLPDZrr %418, %419
   ; CHECK-NEXT:    %423:vr512 = VUNPCKHPDZrr %418, %419
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %405 :: (store (s512) into %ir.uglygep138, !tbaa !5)
   ; CHECK-NEXT:    %422:vr512 = nofpexcept VMULPDZrr %423, %420, implicit $mxcsr
   ; CHECK-NEXT:    %423:vr512 = nofpexcept VFMADD213PDZr %423, %420, %422, implicit $mxcsr
   ; CHECK-NEXT:    %424:vr512 = nofpexcept VADDPDZrr %422, %423, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %1, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep5)
   ; CHECK-NEXT:    %425:vr512 = nofpexcept VSUBPDZrr %422, %423, implicit $mxcsr
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %424 :: (store (s512) into %ir.uglygep141, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %425 :: (store (s512) into %ir.uglygep142, !tbaa !5)
   ; CHECK-NEXT:    %428:vr512 = nofpexcept VADDPDZrr %64, %98, implicit $mxcsr
   ; CHECK-NEXT:    %429:vr512 = nofpexcept VSUBPDZrr %64, %98, implicit $mxcsr
   ; CHECK-NEXT:    %430:vr512 = VUNPCKLPDZrr %428, %429
@@ -2220,9 +2230,12 @@ body:             |
   ; CHECK-NEXT:    %441:vr512 = nofpexcept VFMADD213PDZr %441, %438, %440, implicit $mxcsr
   ; CHECK-NEXT:    %442:vr512 = nofpexcept VADDPDZrr %440, %441, implicit $mxcsr
   ; CHECK-NEXT:    %443:vr512 = nofpexcept VSUBPDZrr %440, %441, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %414 :: (store (s512) into %ir.uglygep139, !tbaa !5)
   ; CHECK-NEXT:    %444:vr512 = nofpexcept VADDPDZrr %200, %234, implicit $mxcsr
   ; CHECK-NEXT:    %445:vr512 = nofpexcept VSUBPDZrr %200, %234, implicit $mxcsr
   ; CHECK-NEXT:    %446:vr512 = VUNPCKLPDZrr %444, %445
+  ; CHECK-NEXT:    PREFETCHT0 %1, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep3)
   ; CHECK-NEXT:    %449:vr512 = VUNPCKHPDZrr %444, %445
   ; CHECK-NEXT:    %448:vr512 = nofpexcept VMULPDZrr %449, %446, implicit $mxcsr
   ; CHECK-NEXT:    %449:vr512 = nofpexcept VFMADD213PDZr %449, %446, %448, implicit $mxcsr
@@ -2240,9 +2253,12 @@ body:             |
   ; CHECK-NEXT:    %461:vr512 = nofpexcept VSUBPDZrr %434, %450, implicit $mxcsr
   ; CHECK-NEXT:    %462:vr512 = VUNPCKLPDZrr %460, %461
   ; CHECK-NEXT:    %465:vr512 = VUNPCKHPDZrr %460, %461
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %415 :: (store (s512) into %ir.uglygep140, !tbaa !5)
   ; CHECK-NEXT:    %464:vr512 = nofpexcept VMULPDZrr %465, %462, implicit $mxcsr
   ; CHECK-NEXT:    %465:vr512 = nofpexcept VFMADD213PDZr %465, %462, %464, implicit $mxcsr
   ; CHECK-NEXT:    %466:vr512 = nofpexcept VADDPDZrr %464, %465, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %1, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep1)
   ; CHECK-NEXT:    %467:vr512 = nofpexcept VSUBPDZrr %464, %465, implicit $mxcsr
   ; CHECK-NEXT:    %468:vr512 = nofpexcept VADDPDZrr %442, %458, implicit $mxcsr
   ; CHECK-NEXT:    %469:vr512 = nofpexcept VSUBPDZrr %442, %458, implicit $mxcsr
@@ -2260,14 +2276,15 @@ body:             |
   ; CHECK-NEXT:    %481:vr512 = nofpexcept VFMADD213PDZr %481, %478, %480, implicit $mxcsr
   ; CHECK-NEXT:    %482:vr512 = nofpexcept VADDPDZrr %480, %481, implicit $mxcsr
   ; CHECK-NEXT:    %483:vr512 = nofpexcept VSUBPDZrr %480, %481, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %424 :: (store (s512) into %ir.uglygep141, !tbaa !5)
   ; CHECK-NEXT:    %484:vr512 = nofpexcept VADDPDZrr %443, %459, implicit $mxcsr
   ; CHECK-NEXT:    %485:vr512 = nofpexcept VSUBPDZrr %443, %459, implicit $mxcsr
   ; CHECK-NEXT:    %486:vr512 = VUNPCKLPDZrr %484, %485
+  ; CHECK-NEXT:    PREFETCHT0 %7, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep55)
   ; CHECK-NEXT:    %489:vr512 = VUNPCKHPDZrr %484, %485
   ; CHECK-NEXT:    %488:vr512 = nofpexcept VMULPDZrr %489, %486, implicit $mxcsr
   ; CHECK-NEXT:    %489:vr512 = nofpexcept VFMADD213PDZr %489, %486, %488, implicit $mxcsr
-  ; CHECK-NEXT:    %490:vr512 = nofpexcept VADDPDZrr %488, %489, implicit $mxcsr
-  ; CHECK-NEXT:    %491:vr512 = nofpexcept VSUBPDZrr %488, %489, implicit $mxcsr
   ; CHECK-NEXT:    %492:vr512 = nofpexcept VADDPDZrr %466, %474, implicit $mxcsr
   ; CHECK-NEXT:    %493:vr512 = nofpexcept VSUBPDZrr %466, %474, implicit $mxcsr
   ; CHECK-NEXT:    %494:vr512 = VUNPCKLPDZrr %492, %493
@@ -2275,43 +2292,43 @@ body:             |
   ; CHECK-NEXT:    %496:vr512 = nofpexcept VMULPDZrr %497, %494, implicit $mxcsr
   ; CHECK-NEXT:    %497:vr512 = nofpexcept VFMADD213PDZr %497, %494, %496, implicit $mxcsr
   ; CHECK-NEXT:    %498:vr512 = nofpexcept VADDPDZrr %496, %497, implicit $mxcsr
-  ; CHECK-NEXT:    VMOVAPDZmr %9, 1, %736, -128, $noreg, %498 :: (store (s512) into %ir.uglygep69, !tbaa !5)
   ; CHECK-NEXT:    %499:vr512 = nofpexcept VSUBPDZrr %496, %497, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %425 :: (store (s512) into %ir.uglygep142, !tbaa !5)
+  ; CHECK-NEXT:    VMOVAPDZmr %9, 1, %736, -128, $noreg, %498 :: (store (s512) into %ir.uglygep69, !tbaa !5)
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %17, 1, %407, 0, $noreg, %499 :: (store (s512) into %ir.uglygep143, !tbaa !5)
+  ; CHECK-NEXT:    %490:vr512 = nofpexcept VADDPDZrr %488, %489, implicit $mxcsr
+  ; CHECK-NEXT:    %491:vr512 = nofpexcept VSUBPDZrr %488, %489, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %17, implicit-def dead $eflags
   ; CHECK-NEXT:    %501:vr512 = nofpexcept VADDPDZrr %467, %475, implicit $mxcsr
   ; CHECK-NEXT:    %502:vr512 = nofpexcept VSUBPDZrr %467, %475, implicit $mxcsr
   ; CHECK-NEXT:    %503:vr512 = VUNPCKLPDZrr %501, %502
+  ; CHECK-NEXT:    PREFETCHT0 %7, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep53)
   ; CHECK-NEXT:    %506:vr512 = VUNPCKHPDZrr %501, %502
   ; CHECK-NEXT:    %505:vr512 = nofpexcept VMULPDZrr %506, %503, implicit $mxcsr
   ; CHECK-NEXT:    %506:vr512 = nofpexcept VFMADD213PDZr %506, %503, %505, implicit $mxcsr
   ; CHECK-NEXT:    %507:vr512 = nofpexcept VADDPDZrr %505, %506, implicit $mxcsr
-  ; CHECK-NEXT:    %508:vr512 = nofpexcept VSUBPDZrr %505, %506, implicit $mxcsr
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %17, 1, %407, 0, $noreg, %499 :: (store (s512) into %ir.uglygep143, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %17, implicit-def dead $eflags
   ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %507 :: (store (s512) into %ir.uglygep144, !tbaa !5)
+  ; CHECK-NEXT:    %508:vr512 = nofpexcept VSUBPDZrr %505, %506, implicit $mxcsr
   ; CHECK-NEXT:    %511:vr512 = nofpexcept VADDPDZrr %482, %490, implicit $mxcsr
   ; CHECK-NEXT:    %512:vr512 = nofpexcept VSUBPDZrr %482, %490, implicit $mxcsr
   ; CHECK-NEXT:    %513:vr512 = VUNPCKLPDZrr %511, %512
   ; CHECK-NEXT:    %516:vr512 = VUNPCKHPDZrr %511, %512
   ; CHECK-NEXT:    %515:vr512 = nofpexcept VMULPDZrr %516, %513, implicit $mxcsr
   ; CHECK-NEXT:    %516:vr512 = nofpexcept VFMADD213PDZr %516, %513, %515, implicit $mxcsr
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %508 :: (store (s512) into %ir.uglygep145, !tbaa !5)
   ; CHECK-NEXT:    %517:vr512 = nofpexcept VADDPDZrr %515, %516, implicit $mxcsr
   ; CHECK-NEXT:    %518:vr512 = nofpexcept VSUBPDZrr %515, %516, implicit $mxcsr
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %517 :: (store (s512) into %ir.uglygep146, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %518 :: (store (s512) into %ir.uglygep147, !tbaa !5)
   ; CHECK-NEXT:    %521:vr512 = nofpexcept VADDPDZrr %483, %491, implicit $mxcsr
   ; CHECK-NEXT:    %522:vr512 = nofpexcept VSUBPDZrr %483, %491, implicit $mxcsr
   ; CHECK-NEXT:    %523:vr512 = VUNPCKLPDZrr %521, %522
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
   ; CHECK-NEXT:    %526:vr512 = VUNPCKHPDZrr %521, %522
   ; CHECK-NEXT:    %525:vr512 = nofpexcept VMULPDZrr %526, %523, implicit $mxcsr
   ; CHECK-NEXT:    %526:vr512 = nofpexcept VFMADD213PDZr %526, %523, %525, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %508 :: (store (s512) into %ir.uglygep145, !tbaa !5)
+  ; CHECK-NEXT:    PREFETCHT0 %7, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep51)
   ; CHECK-NEXT:    %527:vr512 = nofpexcept VADDPDZrr %525, %526, implicit $mxcsr
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %527 :: (store (s512) into %ir.uglygep148, !tbaa !5)
   ; CHECK-NEXT:    %528:vr512 = nofpexcept VSUBPDZrr %525, %526, implicit $mxcsr
   ; CHECK-NEXT:    %531:vr512 = nofpexcept VADDPDZrr %80, %114, implicit $mxcsr
   ; CHECK-NEXT:    %532:vr512 = nofpexcept VSUBPDZrr %80, %114, implicit $mxcsr
@@ -2331,6 +2348,9 @@ body:             |
   ; CHECK-NEXT:    %546:vr512 = nofpexcept VSUBPDZrr %543, %544, implicit $mxcsr
   ; CHECK-NEXT:    %547:vr512 = nofpexcept VADDPDZrr %216, %250, implicit $mxcsr
   ; CHECK-NEXT:    %548:vr512 = nofpexcept VSUBPDZrr %216, %250, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %517 :: (store (s512) into %ir.uglygep146, !tbaa !5)
+  ; CHECK-NEXT:    PREFETCHT0 %7, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep49)
   ; CHECK-NEXT:    %549:vr512 = VUNPCKLPDZrr %547, %548
   ; CHECK-NEXT:    %552:vr512 = VUNPCKHPDZrr %547, %548
   ; CHECK-NEXT:    %551:vr512 = nofpexcept VMULPDZrr %552, %549, implicit $mxcsr
@@ -2351,6 +2371,9 @@ body:             |
   ; CHECK-NEXT:    %568:vr512 = VUNPCKHPDZrr %563, %564
   ; CHECK-NEXT:    %567:vr512 = nofpexcept VMULPDZrr %568, %565, implicit $mxcsr
   ; CHECK-NEXT:    %568:vr512 = nofpexcept VFMADD213PDZr %568, %565, %567, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %518 :: (store (s512) into %ir.uglygep147, !tbaa !5)
+  ; CHECK-NEXT:    PREFETCHT0 %6, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep47)
   ; CHECK-NEXT:    %569:vr512 = nofpexcept VADDPDZrr %567, %568, implicit $mxcsr
   ; CHECK-NEXT:    %570:vr512 = nofpexcept VSUBPDZrr %567, %568, implicit $mxcsr
   ; CHECK-NEXT:    %571:vr512 = nofpexcept VADDPDZrr %545, %561, implicit $mxcsr
@@ -2371,8 +2394,15 @@ body:             |
   ; CHECK-NEXT:    %586:vr512 = nofpexcept VSUBPDZrr %583, %584, implicit $mxcsr
   ; CHECK-NEXT:    %587:vr512 = nofpexcept VADDPDZrr %546, %562, implicit $mxcsr
   ; CHECK-NEXT:    %588:vr512 = nofpexcept VSUBPDZrr %546, %562, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %527 :: (store (s512) into %ir.uglygep148, !tbaa !5)
+  ; CHECK-NEXT:    PREFETCHT0 %6, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep45)
   ; CHECK-NEXT:    %589:vr512 = VUNPCKLPDZrr %587, %588
   ; CHECK-NEXT:    %592:vr512 = VUNPCKHPDZrr %587, %588
+  ; CHECK-NEXT:    %591:vr512 = nofpexcept VMULPDZrr %592, %589, implicit $mxcsr
+  ; CHECK-NEXT:    %592:vr512 = nofpexcept VFMADD213PDZr %592, %589, %591, implicit $mxcsr
+  ; CHECK-NEXT:    %593:vr512 = nofpexcept VADDPDZrr %591, %592, implicit $mxcsr
+  ; CHECK-NEXT:    %594:vr512 = nofpexcept VSUBPDZrr %591, %592, implicit $mxcsr
   ; CHECK-NEXT:    %595:vr512 = nofpexcept VADDPDZrr %569, %577, implicit $mxcsr
   ; CHECK-NEXT:    %596:vr512 = nofpexcept VSUBPDZrr %569, %577, implicit $mxcsr
   ; CHECK-NEXT:    %597:vr512 = VUNPCKLPDZrr %595, %596
@@ -2383,22 +2413,20 @@ body:             |
   ; CHECK-NEXT:    %602:vr512 = nofpexcept VSUBPDZrr %599, %600, implicit $mxcsr
   ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
   ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %528 :: (store (s512) into %ir.uglygep149, !tbaa !5)
-  ; CHECK-NEXT:    VMOVAPDZmr %9, 1, %736, -64, $noreg, %601 :: (store (s512) into %ir.uglygep67, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %17, 1, %407, 0, $noreg, %602 :: (store (s512) into %ir.uglygep150, !tbaa !5)
-  ; CHECK-NEXT:    %591:vr512 = nofpexcept VMULPDZrr %592, %589, implicit $mxcsr
-  ; CHECK-NEXT:    %592:vr512 = nofpexcept VFMADD213PDZr %592, %589, %591, implicit $mxcsr
   ; CHECK-NEXT:    %604:vr512 = nofpexcept VADDPDZrr %570, %578, implicit $mxcsr
   ; CHECK-NEXT:    %605:vr512 = nofpexcept VSUBPDZrr %570, %578, implicit $mxcsr
   ; CHECK-NEXT:    %606:vr512 = VUNPCKLPDZrr %604, %605
   ; CHECK-NEXT:    %609:vr512 = VUNPCKHPDZrr %604, %605
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %17, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %9, 1, %736, -64, $noreg, %601 :: (store (s512) into %ir.uglygep67, !tbaa !5)
   ; CHECK-NEXT:    %608:vr512 = nofpexcept VMULPDZrr %609, %606, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %6, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep43)
   ; CHECK-NEXT:    %609:vr512 = nofpexcept VFMADD213PDZr %609, %606, %608, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %17, 1, %407, 0, $noreg, %602 :: (store (s512) into %ir.uglygep150, !tbaa !5)
   ; CHECK-NEXT:    %610:vr512 = nofpexcept VADDPDZrr %608, %609, implicit $mxcsr
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %610 :: (store (s512) into %ir.uglygep151, !tbaa !5)
-  ; CHECK-NEXT:    %593:vr512 = nofpexcept VADDPDZrr %591, %592, implicit $mxcsr
   ; CHECK-NEXT:    %611:vr512 = nofpexcept VSUBPDZrr %608, %609, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %17, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %610 :: (store (s512) into %ir.uglygep151, !tbaa !5)
   ; CHECK-NEXT:    %614:vr512 = nofpexcept VADDPDZrr %585, %593, implicit $mxcsr
   ; CHECK-NEXT:    %615:vr512 = nofpexcept VSUBPDZrr %585, %593, implicit $mxcsr
   ; CHECK-NEXT:    %616:vr512 = VUNPCKLPDZrr %614, %615
@@ -2407,25 +2435,17 @@ body:             |
   ; CHECK-NEXT:    %619:vr512 = nofpexcept VFMADD213PDZr %619, %616, %618, implicit $mxcsr
   ; CHECK-NEXT:    %620:vr512 = nofpexcept VADDPDZrr %618, %619, implicit $mxcsr
   ; CHECK-NEXT:    %621:vr512 = nofpexcept VSUBPDZrr %618, %619, implicit $mxcsr
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %611 :: (store (s512) into %ir.uglygep152, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %620 :: (store (s512) into %ir.uglygep153, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %621 :: (store (s512) into %ir.uglygep154, !tbaa !5)
-  ; CHECK-NEXT:    %594:vr512 = nofpexcept VSUBPDZrr %591, %592, implicit $mxcsr
   ; CHECK-NEXT:    %624:vr512 = nofpexcept VADDPDZrr %586, %594, implicit $mxcsr
   ; CHECK-NEXT:    %625:vr512 = nofpexcept VSUBPDZrr %586, %594, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %611 :: (store (s512) into %ir.uglygep152, !tbaa !5)
   ; CHECK-NEXT:    %626:vr512 = VUNPCKLPDZrr %624, %625
   ; CHECK-NEXT:    %629:vr512 = VUNPCKHPDZrr %624, %625
   ; CHECK-NEXT:    %628:vr512 = nofpexcept VMULPDZrr %629, %626, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %6, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep41)
   ; CHECK-NEXT:    %629:vr512 = nofpexcept VFMADD213PDZr %629, %626, %628, implicit $mxcsr
   ; CHECK-NEXT:    %630:vr512 = nofpexcept VADDPDZrr %628, %629, implicit $mxcsr
   ; CHECK-NEXT:    %631:vr512 = nofpexcept VSUBPDZrr %628, %629, implicit $mxcsr
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %630 :: (store (s512) into %ir.uglygep155, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %631 :: (store (s512) into %ir.uglygep156, !tbaa !5)
   ; CHECK-NEXT:    %634:vr512 = nofpexcept VADDPDZrr %86, %120, implicit $mxcsr
   ; CHECK-NEXT:    %635:vr512 = nofpexcept VSUBPDZrr %86, %120, implicit $mxcsr
   ; CHECK-NEXT:    %636:vr512 = VUNPCKLPDZrr %634, %635
@@ -2440,9 +2460,12 @@ body:             |
   ; CHECK-NEXT:    %647:vr512 = VUNPCKHPDZrr %642, %643
   ; CHECK-NEXT:    %646:vr512 = nofpexcept VMULPDZrr %647, %644, implicit $mxcsr
   ; CHECK-NEXT:    %647:vr512 = nofpexcept VFMADD213PDZr %647, %644, %646, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %620 :: (store (s512) into %ir.uglygep153, !tbaa !5)
   ; CHECK-NEXT:    %648:vr512 = nofpexcept VADDPDZrr %646, %647, implicit $mxcsr
   ; CHECK-NEXT:    %649:vr512 = nofpexcept VSUBPDZrr %646, %647, implicit $mxcsr
   ; CHECK-NEXT:    %650:vr512 = nofpexcept VADDPDZrr %222, %256, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %5, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep39)
   ; CHECK-NEXT:    %651:vr512 = nofpexcept VSUBPDZrr %222, %256, implicit $mxcsr
   ; CHECK-NEXT:    %652:vr512 = VUNPCKLPDZrr %650, %651
   ; CHECK-NEXT:    %655:vr512 = VUNPCKHPDZrr %650, %651
@@ -2460,9 +2483,12 @@ body:             |
   ; CHECK-NEXT:    %665:vr512 = nofpexcept VSUBPDZrr %662, %663, implicit $mxcsr
   ; CHECK-NEXT:    %666:vr512 = nofpexcept VADDPDZrr %640, %656, implicit $mxcsr
   ; CHECK-NEXT:    %667:vr512 = nofpexcept VSUBPDZrr %640, %656, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %621 :: (store (s512) into %ir.uglygep154, !tbaa !5)
   ; CHECK-NEXT:    %668:vr512 = VUNPCKLPDZrr %666, %667
   ; CHECK-NEXT:    %671:vr512 = VUNPCKHPDZrr %666, %667
   ; CHECK-NEXT:    %670:vr512 = nofpexcept VMULPDZrr %671, %668, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %5, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep37)
   ; CHECK-NEXT:    %671:vr512 = nofpexcept VFMADD213PDZr %671, %668, %670, implicit $mxcsr
   ; CHECK-NEXT:    %672:vr512 = nofpexcept VADDPDZrr %670, %671, implicit $mxcsr
   ; CHECK-NEXT:    %673:vr512 = nofpexcept VSUBPDZrr %670, %671, implicit $mxcsr
@@ -2480,9 +2506,12 @@ body:             |
   ; CHECK-NEXT:    %687:vr512 = VUNPCKHPDZrr %682, %683
   ; CHECK-NEXT:    %686:vr512 = nofpexcept VMULPDZrr %687, %684, implicit $mxcsr
   ; CHECK-NEXT:    %687:vr512 = nofpexcept VFMADD213PDZr %687, %684, %686, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %630 :: (store (s512) into %ir.uglygep155, !tbaa !5)
   ; CHECK-NEXT:    %688:vr512 = nofpexcept VADDPDZrr %686, %687, implicit $mxcsr
   ; CHECK-NEXT:    %689:vr512 = nofpexcept VSUBPDZrr %686, %687, implicit $mxcsr
   ; CHECK-NEXT:    %690:vr512 = nofpexcept VADDPDZrr %649, %665, implicit $mxcsr
+  ; CHECK-NEXT:    PREFETCHT0 %5, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep35)
   ; CHECK-NEXT:    %691:vr512 = nofpexcept VSUBPDZrr %649, %665, implicit $mxcsr
   ; CHECK-NEXT:    %692:vr512 = VUNPCKLPDZrr %690, %691
   ; CHECK-NEXT:    %695:vr512 = VUNPCKHPDZrr %690, %691
@@ -2494,81 +2523,52 @@ body:             |
   ; CHECK-NEXT:    %699:vr512 = nofpexcept VSUBPDZrr %672, %680, implicit $mxcsr
   ; CHECK-NEXT:    %700:vr512 = VUNPCKLPDZrr %698, %699
   ; CHECK-NEXT:    %703:vr512 = VUNPCKHPDZrr %698, %699
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %631 :: (store (s512) into %ir.uglygep156, !tbaa !5)
   ; CHECK-NEXT:    %702:vr512 = nofpexcept VMULPDZrr %703, %700, implicit $mxcsr
   ; CHECK-NEXT:    %703:vr512 = nofpexcept VFMADD213PDZr %703, %700, %702, implicit $mxcsr
   ; CHECK-NEXT:    %704:vr512 = nofpexcept VADDPDZrr %702, %703, implicit $mxcsr
   ; CHECK-NEXT:    %705:vr512 = nofpexcept VSUBPDZrr %702, %703, implicit $mxcsr
   ; CHECK-NEXT:    VMOVAPDZmr %9, 1, %736, 0, $noreg, %704 :: (store (s512) into %ir.uglygep65, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %17, 1, %407, 0, $noreg, %705 :: (store (s512) into %ir.uglygep157, !tbaa !5)
   ; CHECK-NEXT:    %707:vr512 = nofpexcept VADDPDZrr %673, %681, implicit $mxcsr
   ; CHECK-NEXT:    %708:vr512 = nofpexcept VSUBPDZrr %673, %681, implicit $mxcsr
   ; CHECK-NEXT:    %709:vr512 = VUNPCKLPDZrr %707, %708
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %17, implicit-def dead $eflags
   ; CHECK-NEXT:    %712:vr512 = VUNPCKHPDZrr %707, %708
+  ; CHECK-NEXT:    PREFETCHT0 %5, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep33)
   ; CHECK-NEXT:    %711:vr512 = nofpexcept VMULPDZrr %712, %709, implicit $mxcsr
   ; CHECK-NEXT:    %712:vr512 = nofpexcept VFMADD213PDZr %712, %709, %711, implicit $mxcsr
   ; CHECK-NEXT:    %713:vr512 = nofpexcept VADDPDZrr %711, %712, implicit $mxcsr
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %713 :: (store (s512) into %ir.uglygep158, !tbaa !5)
   ; CHECK-NEXT:    %714:vr512 = nofpexcept VSUBPDZrr %711, %712, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %17, 1, %407, 0, $noreg, %705 :: (store (s512) into %ir.uglygep157, !tbaa !5)
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %17, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %713 :: (store (s512) into %ir.uglygep158, !tbaa !5)
   ; CHECK-NEXT:    %717:vr512 = nofpexcept VADDPDZrr %688, %696, implicit $mxcsr
   ; CHECK-NEXT:    %718:vr512 = nofpexcept VSUBPDZrr %688, %696, implicit $mxcsr
   ; CHECK-NEXT:    %719:vr512 = VUNPCKLPDZrr %717, %718
   ; CHECK-NEXT:    %722:vr512 = VUNPCKHPDZrr %717, %718
   ; CHECK-NEXT:    %721:vr512 = nofpexcept VMULPDZrr %722, %719, implicit $mxcsr
   ; CHECK-NEXT:    %722:vr512 = nofpexcept VFMADD213PDZr %722, %719, %721, implicit $mxcsr
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %714 :: (store (s512) into %ir.uglygep159, !tbaa !5)
   ; CHECK-NEXT:    %723:vr512 = nofpexcept VADDPDZrr %721, %722, implicit $mxcsr
   ; CHECK-NEXT:    %724:vr512 = nofpexcept VSUBPDZrr %721, %722, implicit $mxcsr
   ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %714 :: (store (s512) into %ir.uglygep159, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
   ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %723 :: (store (s512) into %ir.uglygep160, !tbaa !5)
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %724 :: (store (s512) into %ir.uglygep161, !tbaa !5)
   ; CHECK-NEXT:    %727:vr512 = nofpexcept VADDPDZrr %689, %697, implicit $mxcsr
   ; CHECK-NEXT:    %728:vr512 = nofpexcept VSUBPDZrr %689, %697, implicit $mxcsr
   ; CHECK-NEXT:    %729:vr512 = VUNPCKLPDZrr %727, %728
+  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
   ; CHECK-NEXT:    %732:vr512 = VUNPCKHPDZrr %727, %728
   ; CHECK-NEXT:    %731:vr512 = nofpexcept VMULPDZrr %732, %729, implicit $mxcsr
   ; CHECK-NEXT:    %732:vr512 = nofpexcept VFMADD213PDZr %732, %729, %731, implicit $mxcsr
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %724 :: (store (s512) into %ir.uglygep161, !tbaa !5)
   ; CHECK-NEXT:    %733:vr512 = nofpexcept VADDPDZrr %731, %732, implicit $mxcsr
+  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %733 :: (store (s512) into %ir.uglygep162, !tbaa !5)
   ; CHECK-NEXT:    %734:vr512 = nofpexcept VSUBPDZrr %731, %732, implicit $mxcsr
   ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
-  ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %733 :: (store (s512) into %ir.uglygep162, !tbaa !5)
-  ; CHECK-NEXT:    %407:gr64_nosp = ADD64rr %407, %0, implicit-def dead $eflags
   ; CHECK-NEXT:    VMOVAPDZmr %0, 1, %407, 0, $noreg, %734 :: (store (s512) into %ir.uglygep163, !tbaa !5)
-  ; CHECK-NEXT:    PREFETCHT0 %4, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep31)
-  ; CHECK-NEXT:    PREFETCHT0 %4, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep29)
-  ; CHECK-NEXT:    PREFETCHT0 %4, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep27)
-  ; CHECK-NEXT:    PREFETCHT0 %4, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep25)
-  ; CHECK-NEXT:    PREFETCHT0 %3, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep23)
-  ; CHECK-NEXT:    PREFETCHT0 %3, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep21)
-  ; CHECK-NEXT:    PREFETCHT0 %3, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep19)
-  ; CHECK-NEXT:    PREFETCHT0 %3, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep17)
-  ; CHECK-NEXT:    PREFETCHT0 %2, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep15)
-  ; CHECK-NEXT:    PREFETCHT0 %2, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep13)
-  ; CHECK-NEXT:    PREFETCHT0 %2, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep11)
-  ; CHECK-NEXT:    PREFETCHT0 %2, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep9)
-  ; CHECK-NEXT:    PREFETCHT0 %8, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep63)
-  ; CHECK-NEXT:    PREFETCHT0 %8, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep61)
-  ; CHECK-NEXT:    PREFETCHT0 %8, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep59)
-  ; CHECK-NEXT:    PREFETCHT0 %8, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep57)
-  ; CHECK-NEXT:    PREFETCHT0 %1, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep7)
-  ; CHECK-NEXT:    PREFETCHT0 %1, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep5)
-  ; CHECK-NEXT:    PREFETCHT0 %1, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep3)
-  ; CHECK-NEXT:    PREFETCHT0 %1, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep1)
-  ; CHECK-NEXT:    PREFETCHT0 %7, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep55)
-  ; CHECK-NEXT:    PREFETCHT0 %7, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep53)
-  ; CHECK-NEXT:    PREFETCHT0 %7, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep51)
-  ; CHECK-NEXT:    PREFETCHT0 %7, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep49)
-  ; CHECK-NEXT:    PREFETCHT0 %6, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep47)
-  ; CHECK-NEXT:    PREFETCHT0 %6, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep45)
-  ; CHECK-NEXT:    PREFETCHT0 %6, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep43)
-  ; CHECK-NEXT:    PREFETCHT0 %6, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep41)
-  ; CHECK-NEXT:    PREFETCHT0 %5, 1, %736, -192, $noreg :: (load (s8) from %ir.uglygep39)
-  ; CHECK-NEXT:    PREFETCHT0 %5, 1, %736, -128, $noreg :: (load (s8) from %ir.uglygep37)
-  ; CHECK-NEXT:    PREFETCHT0 %5, 1, %736, -64, $noreg :: (load (s8) from %ir.uglygep35)
-  ; CHECK-NEXT:    PREFETCHT0 %5, 1, %736, 0, $noreg :: (load (s8) from %ir.uglygep33)
   ; CHECK-NEXT:    %736:gr64_nosp = ADD64ri8 %736, 64, implicit-def dead $eflags
   ; CHECK-NEXT:    %737:gr64 = DEC64r %737, implicit-def $eflags
   ; CHECK-NEXT:    JCC_1 %bb.1, 5, implicit $eflags

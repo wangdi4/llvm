@@ -1,4 +1,21 @@
 //===- ScheduleDAGInstrs.h - MachineInstr Scheduling ------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -153,6 +170,18 @@ namespace llvm {
 
     /// Instructions in this region (distance(RegionBegin, RegionEnd)).
     unsigned NumRegionInstrs;
+
+#if INTEL_CUSTOMIZATION
+    // Prefetch instructions in this region.
+    DenseSet<MachineInstr *> RegionPrefetchInstrs;
+
+    // The number of instructions in this region scheduled so far.
+    unsigned NumRegionInstrsScheduled;
+
+    // The number of prefetch instructions in this region scheduled so far.
+    unsigned NumRegionPrefetchScheduled;
+
+#endif // INTEL_CUSTOMIZATION
 
     /// After calling BuildSchedGraph, each machine instruction in the current
     /// scheduling region is mapped to an SUnit.
@@ -361,6 +390,26 @@ namespace llvm {
     /// equivalent edge already existed (false indicates failure).
     bool addEdge(SUnit *SuccSU, const SDep &PredDep);
 
+#if INTEL_CUSTOMIZATION
+    bool isPrefetchInstr(const MachineInstr *MI) const {
+      return RegionPrefetchInstrs.count(MI);
+    }
+
+    unsigned getNumRegionInstrs() const { return NumRegionInstrs; }
+
+    unsigned getNumRegionPrefetchInstrs() const {
+      return RegionPrefetchInstrs.size();
+    }
+
+    unsigned getNumRegionInstrsScheduled() const {
+      return NumRegionInstrsScheduled;
+    }
+
+    unsigned getNumRegionPrefetchScheduled() const {
+      return NumRegionPrefetchScheduled;
+    }
+#endif // INTEL_CUSTOMIZATION
+
   protected:
     void initSUnits();
     void addPhysRegDataDeps(SUnit *SU, unsigned OperIdx);
@@ -374,6 +423,14 @@ namespace llvm {
 
     /// Returns true if the def register in \p MO has no uses.
     bool deadDefHasNoUse(const MachineOperand &MO);
+
+#if INTEL_CUSTOMIZATION
+    void recordScheduledInstr(const MachineInstr *MI) {
+      NumRegionInstrsScheduled++;
+      if (isPrefetchInstr(MI))
+        NumRegionPrefetchScheduled++;
+    }
+#endif // INTEL_CUSTOMIZATION
   };
 
   /// Creates a new SUnit and return a ptr to it.
