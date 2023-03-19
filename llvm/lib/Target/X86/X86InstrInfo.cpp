@@ -3756,11 +3756,23 @@ static unsigned getLoadStoreOpcodeForFP16(bool Load, const X86Subtarget &STI) {
 #endif // INTEL_CUSTOMIZATION
     return Load ? X86::VMOVSHZrm_alt : X86::VMOVSHZmr;
   if (Load)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    return STI.hasAVX3() ? X86::VMOVSSZrm
+#else  // INTEL_FEATURE_ISA_AVX256P
     return STI.hasAVX512() ? X86::VMOVSSZrm
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
            : STI.hasAVX()  ? X86::VMOVSSrm
                            : X86::MOVSSrm;
   else
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    return STI.hasAVX3() ? X86::VMOVSSZmr
+#else  // INTEL_FEATURE_ISA_AVX256P
     return STI.hasAVX512() ? X86::VMOVSSZmr
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
            : STI.hasAVX()  ? X86::VMOVSSmr
                            : X86::MOVSSmr;
 }
@@ -6132,7 +6144,13 @@ void X86InstrInfo::breakPartialRegDependency(
     MI.addRegisterKilled(Reg, TRI, true);
   } else if (X86::VR128XRegClass.contains(Reg)) {
     // Only handle VLX targets.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (!Subtarget.hasVLX() && !Subtarget.hasAVX256P())
+#else // INTEL_FEATURE_ISA_AVX256P
     if (!Subtarget.hasVLX())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return;
     // Since vxorps requires AVX512DQ, vpxord should be the best choice.
     BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(X86::VPXORDZ128rr), Reg)
@@ -6142,7 +6160,13 @@ void X86InstrInfo::breakPartialRegDependency(
   } else if (X86::VR256XRegClass.contains(Reg) ||
              X86::VR512RegClass.contains(Reg)) {
     // Only handle VLX targets.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (!Subtarget.hasVLX() && !Subtarget.hasAVX256P())
+#else // INTEL_FEATURE_ISA_AVX256P
     if (!Subtarget.hasVLX())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return;
     // Use vpxord to clear the full ymm/zmm register.
     // It wants to read and write the xmm sub-register.
@@ -7559,7 +7583,13 @@ extractStoreMMOs(ArrayRef<MachineMemOperand *> MMOs, MachineFunction &MF) {
 static unsigned getBroadcastOpcode(const X86MemoryFoldTableEntry *I,
                                    const TargetRegisterClass *RC,
                                    const X86Subtarget &STI) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  assert(STI.hasAVX3() && "Expected at least AVX3!");
+#else  // INTEL_FEATURE_ISA_AVX256P
   assert(STI.hasAVX512() && "Expected at least AVX512!");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   unsigned SpillSize = STI.getRegisterInfo()->getSpillSize(*RC);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
@@ -9146,7 +9176,13 @@ void X86InstrInfo::setExecutionDomain(MachineInstr &MI, unsigned Domain) const {
     table = lookup(MI.getOpcode(), dom, ReplaceableInstrsAVX2InsertExtract);
   }
   if (!table) { // try the AVX512 table
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    assert(Subtarget.hasAVX3() && "Requires AVX3");
+#else  // INTEL_FEATURE_ISA_AVX256P
     assert(Subtarget.hasAVX512() && "Requires AVX-512");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     table = lookupAVX512(MI.getOpcode(), dom, ReplaceableInstrsAVX512);
     // Don't change integer Q instructions to D instructions.
     if (table && Domain == 3 && table[3] == MI.getOpcode())

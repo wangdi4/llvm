@@ -281,8 +281,8 @@ static unsigned getLoadStoreRegOpcode(const X86Subtarget *STI,
                                       bool Load,
                                       bool IsStackAligned = true) {
   bool HasAVX = STI->hasAVX();
-  bool HasAVX512 = STI->hasAVX512();
-  bool HasVLX = STI->hasVLX();
+  bool HasAVX512 = STI->hasAVX512F();
+  bool HasVLX = STI->hasVLX() || STI->hasAVX256P();
   switch (SubSpillSize) {
   default:
     llvm_unreachable("Unknown expected spill size");

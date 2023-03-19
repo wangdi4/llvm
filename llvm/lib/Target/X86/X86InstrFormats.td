@@ -621,7 +621,7 @@ class SI<bits<8> o, Format F, dag outs, dag ins, string asm,
       : I<o, F, outs, ins, asm, pattern, d> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX256P_Or_HasAVX512],
+  let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX3],
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX512],
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -644,7 +644,7 @@ class SI_Int<bits<8> o, Format F, dag outs, dag ins, string asm,
       : I<o, F, outs, ins, asm, pattern, d> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX256P_Or_HasAVX512],
+  let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX3],
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX512],
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -666,7 +666,7 @@ class SIi8<bits<8> o, Format F, dag outs, dag ins, string asm,
       : Ii8<o, F, outs, ins, asm, pattern> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX256P_Or_HasAVX512],
+  let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX3],
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX512],
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -687,7 +687,7 @@ class PI<bits<8> o, Format F, dag outs, dag ins, string asm, list<dag> pattern,
       : I<o, F, outs, ins, asm, pattern, d> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX256P_Or_HasAVX512],
+  let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX3],
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX512],
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -716,7 +716,7 @@ class PIi8<bits<8> o, Format F, dag outs, dag ins, string asm,
       : Ii8<o, F, outs, ins, asm, pattern, d> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX256P_Or_HasAVX512],
+  let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX3],
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = !if(!eq(OpEnc.Value, EncEVEX.Value), [HasAVX512],
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -955,7 +955,7 @@ class AVX5128I<bits<8> o, Format F, dag outs, dag ins, string asm,
       : I<o, F, outs, ins, asm, pattern, SSEPackedInt>, T8PD,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-        Requires<[HasAVX256P_Or_HasAVX512]>;
+        Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
         Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -968,7 +968,7 @@ class AVX512XS8I<bits<8> o, Format F, dag outs, dag ins, string asm,
       : I<o, F, outs, ins, asm, pattern, SSEPackedInt>, T8XS,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-        Requires<[HasAVX256P_Or_HasAVX512]>;
+        Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
         Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -978,7 +978,7 @@ class AVX512XSI<bits<8> o, Format F, dag outs, dag ins, string asm,
       : I<o, F, outs, ins, asm, pattern>, XS,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-        Requires<[HasAVX256P_Or_HasAVX512]>;
+        Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
         Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -988,7 +988,7 @@ class AVX512XDI<bits<8> o, Format F, dag outs, dag ins, string asm,
       : I<o, F, outs, ins, asm, pattern, SSEPackedInt>, XD,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-        Requires<[HasAVX256P_Or_HasAVX512]>;
+        Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
         Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -998,7 +998,7 @@ class AVX512BI<bits<8> o, Format F, dag outs, dag ins, string asm,
       : I<o, F, outs, ins, asm, pattern, SSEPackedInt>, PD,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-        Requires<[HasAVX256P_Or_HasAVX512]>;
+        Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
         Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -1011,7 +1011,7 @@ class AVX512BIi8<bits<8> o, Format F, dag outs, dag ins, string asm,
       : Ii8<o, F, outs, ins, asm, pattern, SSEPackedInt>, PD,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-        Requires<[HasAVX256P_Or_HasAVX512]>;
+        Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
         Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -1041,7 +1041,7 @@ class AVX512AIi8<bits<8> o, Format F, dag outs, dag ins, string asm,
       : Ii8<o, F, outs, ins, asm, pattern, SSEPackedInt>, TAPD,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-        Requires<[HasAVX256P_Or_HasAVX512]>;
+        Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
         Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -1054,7 +1054,7 @@ class AVX512Ii8<bits<8> o, Format F, dag outs, dag ins, string asm,
       : Ii8<o, F, outs, ins, asm, pattern, SSEPackedInt>,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-        Requires<[HasAVX256P_Or_HasAVX512]>;
+        Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
         Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -1064,7 +1064,7 @@ class AVX512PDI<bits<8> o, Format F, dag outs, dag ins, string asm,
       : I<o, F, outs, ins, asm, pattern, SSEPackedDouble>, PD,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-        Requires<[HasAVX256P_Or_HasAVX512]>;
+        Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
         Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -1074,7 +1074,7 @@ class AVX512PSI<bits<8> o, Format F, dag outs, dag ins, string asm,
       : I<o, F, outs, ins, asm, pattern, SSEPackedSingle>, PS,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-        Requires<[HasAVX256P_Or_HasAVX512]>;
+        Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
         Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -1083,7 +1083,7 @@ class AVX512PIi8<bits<8> o, Format F, dag outs, dag ins, string asm,
               list<dag> pattern, Domain d>
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-      : Ii8<o, F, outs, ins, asm, pattern, d>, Requires<[HasAVX256P_Or_HasAVX512]>;
+      : Ii8<o, F, outs, ins, asm, pattern, d>, Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
       : Ii8<o, F, outs, ins, asm, pattern, d>, Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -1092,7 +1092,7 @@ class AVX512PI<bits<8> o, Format F, dag outs, dag ins, string asm,
               list<dag> pattern, Domain d>
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-      : I<o, F, outs, ins, asm, pattern, d>, Requires<[HasAVX256P_Or_HasAVX512]>;
+      : I<o, F, outs, ins, asm, pattern, d>, Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
       : I<o, F, outs, ins, asm, pattern, d>, Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -1102,7 +1102,7 @@ class AVX512FMA3S<bits<8> o, Format F, dag outs, dag ins, string asm,
       : I<o, F, outs, ins, asm, pattern>, T8PD,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-        EVEX_4V, Requires<[HasAVX256P_Or_HasAVX512]>;
+        EVEX_4V, Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
         EVEX_4V, Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -1112,7 +1112,7 @@ class AVX512<bits<8> o, Format F, dag outs, dag ins, string asm,
            list<dag>pattern>
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-      : I<o, F, outs, ins, asm, pattern>, Requires<[HasAVX256P_Or_HasAVX512]>;
+      : I<o, F, outs, ins, asm, pattern>, Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
       : I<o, F, outs, ins, asm, pattern>, Requires<[HasAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX256P

@@ -532,7 +532,7 @@ def AVX512_512_SEXT_MASK_64 : I<0, Pseudo, (outs VR512:$dst),
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let isReMaterializable = 1, isAsCheapAsAMove = 1, canFoldAsLoad = 1,
-    isPseudo = 1, Predicates = [HasAVX256P_Or_HasAVX512], SchedRW = [WriteZero] in {
+    isPseudo = 1, Predicates = [HasAVX3], SchedRW = [WriteZero] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let isReMaterializable = 1, isAsCheapAsAMove = 1, canFoldAsLoad = 1,
     isPseudo = 1, Predicates = [HasAVX512], SchedRW = [WriteZero] in {
@@ -546,7 +546,7 @@ def AVX512_256_SET0 : I<0, Pseudo, (outs VR256X:$dst), (ins), "",
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -580,7 +580,7 @@ def : Pat<(v4f64 immAllZerosV), (AVX512_256_SET0)>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let isReMaterializable = 1, isAsCheapAsAMove = 1, canFoldAsLoad = 1,
-    isPseudo = 1, SchedRW = [WriteZero], Predicates = [HasAVX256P_Or_HasAVX512] in {
+    isPseudo = 1, SchedRW = [WriteZero], Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let isReMaterializable = 1, isAsCheapAsAMove = 1, canFoldAsLoad = 1,
     isPseudo = 1, SchedRW = [WriteZero], Predicates = [HasAVX512] in {
@@ -2750,7 +2750,7 @@ def X86cmpmsSAE_su : PatFrag<(ops node:$src1, node:$src2, node:$cc),
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -3288,7 +3288,7 @@ defm VCMPPH : avx512_vcmp<SchedWriteFCmp, avx512vl_f16_info, HasFP16>,
 // Patterns to select fp compares with load as first operand.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -3543,7 +3543,7 @@ let Predicates = [HasDQI] in
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in
+let Predicates = [HasAVX3] in
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -3581,7 +3581,7 @@ let isCodeGenOnly = 1, isPseudo = 1 in {
   let Predicates = [HasAVX256P_Or_HasDQI_NoVL, IntelAdvOpt] in
     def KMOVBki : I<0, Pseudo, (outs VK8:$dst), (ins i8imm :$src), "",
                     [(set VK8:$dst, (bitconvert (i8 imm:$src)))]>, Sched<[WriteMove]>;
-  let Predicates = [HasAVX256P_Or_HasAVX512, IntelAdvOpt] in
+  let Predicates = [HasAVX3, IntelAdvOpt] in
     def KMOVWki : I<0, Pseudo, (outs VK16:$dst), (ins i16imm :$src), "",
                     [(set VK16:$dst, (bitconvert (i16 imm:$src)))]>, Sched<[WriteMove]>;
 }
@@ -3667,7 +3667,7 @@ let Predicates = [HasDQI] in {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -3683,7 +3683,13 @@ def X86kextract : SDNode<"ISD::EXTRACT_VECTOR_ELT",
                                               SDTCVecEltisVT<1, i1>,
                                               SDTCisPtrTy<2>]>>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX3] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   multiclass operation_gpr_mask_copy_lowering<RegisterClass maskRC, ValueType maskVT> {
     def : Pat<(maskVT (scalar_to_vector GR32:$src)),
               (COPY_TO_REGCLASS GR32:$src, maskRC)>;
@@ -3704,6 +3710,11 @@ let Predicates = [HasAVX512] in {
   defm : operation_gpr_mask_copy_lowering<VK8,  v8i1>;
   defm : operation_gpr_mask_copy_lowering<VK16,  v16i1>;
   defm : operation_gpr_mask_copy_lowering<VK32,  v32i1>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // FIXME: This should be HasAVX512F only.
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   defm : operation_gpr_mask_copy_lowering<VK64,  v64i1>;
 
   def : Pat<(insert_subvector (v16i1 immAllZerosV),
@@ -3733,7 +3744,7 @@ multiclass avx512_mask_unop_all<bits<8> opc, string OpcodeStr,
   defm B : avx512_mask_unop<opc, !strconcat(OpcodeStr, "b"), VK8, OpNode,
                             sched, HasAVX256P_Or_HasDQI_NoVL>, VEX, PD;
   defm W : avx512_mask_unop<opc, !strconcat(OpcodeStr, "w"), VK16, OpNode,
-                            sched, HasAVX256P_Or_HasAVX512>, VEX, PS;
+                            sched, HasAVX3>, VEX, PS;
   defm D : avx512_mask_unop<opc, !strconcat(OpcodeStr, "d"), VK32, OpNode,
                             sched, HasAVX256P_Or_HasBWI_NoVL>, VEX, PD, VEX_W;
 #else // INTEL_FEATURE_ISA_AVX256P
@@ -3787,7 +3798,7 @@ multiclass avx512_mask_binop_all<bits<8> opc, string OpcodeStr,
   defm B : avx512_mask_binop<opc, !strconcat(OpcodeStr, "b"), VK8, OpNode,
                              sched, HasAVX256P_Or_HasDQI_NoVL, IsCommutable>, VEX_4V, VEX_L, PD;
   defm W : avx512_mask_binop<opc, !strconcat(OpcodeStr, "w"), VK16, OpNode,
-                             sched, !if (!eq (prdW, HasAVX512), HasAVX256P_Or_HasAVX512, 
+                             sched, !if (!eq (prdW, HasAVX512), HasAVX3, 
                              !cast<Predicate>("HasAVX256P_Or_"#prdW#"_NoVL")), IsCommutable>, VEX_4V, VEX_L, PS;
   defm D : avx512_mask_binop<opc, !strconcat(OpcodeStr, "d"), VK32, OpNode,
                              sched, HasAVX256P_Or_HasBWI_NoVL, IsCommutable>, VEX_4V, VEX_L, VEX_W, PD;
@@ -3871,7 +3882,7 @@ multiclass avx512_mask_unpck<string Suffix, X86KVectorVTInfo Dst,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-defm KUNPCKBW : avx512_mask_unpck<"bw", v16i1_info, v8i1_info,  WriteShuffle, HasAVX256P_Or_HasAVX512>, PD;
+defm KUNPCKBW : avx512_mask_unpck<"bw", v16i1_info, v8i1_info,  WriteShuffle, HasAVX3>, PD;
 defm KUNPCKWD : avx512_mask_unpck<"wd", v32i1_info, v16i1_info, WriteShuffle, HasAVX256P_Or_HasBWI_NoVL>, PS;
 #else // INTEL_FEATURE_ISA_AVX256P
 defm KUNPCKBW : avx512_mask_unpck<"bw", v16i1_info, v8i1_info,  WriteShuffle, HasAVX512>, PD;
@@ -3899,7 +3910,7 @@ multiclass avx512_mask_testop_w<bits<8> opc, string OpcodeStr, SDNode OpNode,
   defm B : avx512_mask_testop<opc, OpcodeStr#"b", VK8, OpNode, sched, HasAVX256P_Or_HasDQI_NoVL>,
                                                                 VEX, PD;
   defm W : avx512_mask_testop<opc, OpcodeStr#"w", VK16, OpNode, sched, !if (!eq (prdW, HasAVX512), 
-                  HasAVX256P_Or_HasAVX512, !cast<Predicate>("HasAVX256P_Or_"#prdW#"_NoVL"))>,VEX, PS;
+                  HasAVX3, !cast<Predicate>("HasAVX256P_Or_"#prdW#"_NoVL"))>,VEX, PS;
   defm Q : avx512_mask_testop<opc, OpcodeStr#"q", VK64, OpNode, sched, HasBWI>,
                                                                 VEX, PS, VEX_W;
   defm D : avx512_mask_testop<opc, OpcodeStr#"d", VK32, OpNode, sched, HasAVX256P_Or_HasBWI_NoVL>,
@@ -3926,7 +3937,7 @@ multiclass avx512_mask_shiftop<bits<8> opc, string OpcodeStr, RegisterClass KRC,
                                SDNode OpNode, X86FoldableSchedWrite sched> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasAVX256P_Or_HasAVX512] in
+  let Predicates = [HasAVX3] in
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX512] in
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -3942,7 +3953,7 @@ multiclass avx512_mask_shiftop_w<bits<8> opc1, bits<8> opc2, string OpcodeStr,
                                  SDNode OpNode, X86FoldableSchedWrite sched> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasAVX256P_Or_HasAVX512] in
+  let Predicates = [HasAVX3] in
   defm W : avx512_mask_shiftop<opc1, !strconcat(OpcodeStr, "w"), VK16, OpNode,
                                sched>, VEX, TAPD, VEX_W;
   let Predicates = [HasAVX256P_Or_HasDQI_NoVL] in
@@ -4152,7 +4163,13 @@ let Predicates = [HasBWI, NoVLX] in {
 
 // Mask setting all 0s or 1s
 multiclass avx512_mask_setop<RegisterClass KRC, ValueType VT, SDPatternOperator Val> {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  let Predicates = [HasAVX3] in
+#else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX512] in
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     let isReMaterializable = 1, isAsCheapAsAMove = 1, isPseudo = 1,
         SchedRW = [WriteZero] in
       def NAME# : I<0, Pseudo, (outs KRC:$dst), (ins), "",
@@ -4169,7 +4186,13 @@ defm KSET0 : avx512_mask_setop_w<immAllZerosV>;
 defm KSET1 : avx512_mask_setop_w<immAllOnesV>;
 
 // With AVX-512 only, 8-bit mask is promoted to 16-bit mask.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+let Predicates = [HasAVX3] in {
+#else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(v8i1 immAllZerosV), (COPY_TO_REGCLASS (KSET0W), VK8)>;
   def : Pat<(v4i1 immAllZerosV), (COPY_TO_REGCLASS (KSET0W), VK4)>;
   def : Pat<(v2i1 immAllZerosV), (COPY_TO_REGCLASS (KSET0W), VK2)>;
@@ -5027,13 +5050,13 @@ def VMOVPQIto64Zrr : I<0x7E, MRMDestReg, (outs GR64:$dst), (ins VR128X:$src),
                       [(set GR64:$dst, (extractelt (v2i64 VR128X:$src),
                                                    (iPTR 0)))]>,
                       PD, EVEX, VEX_W, Sched<[WriteVecMoveToGpr]>,
-                      Requires<[HasAVX256P_Or_HasAVX512]>;
+                      Requires<[HasAVX3]>;
 
 let isCodeGenOnly = 1, ForceDisassemble = 1, hasSideEffects = 0, mayStore = 1 in
 def VMOVPQIto64Zmr : I<0x7E, MRMDestMem, (outs), (ins i64mem:$dst, VR128X:$src),
                       "vmovq\t{$src, $dst|$dst, $src}", []>, PD,
                       EVEX, VEX_W, Sched<[WriteVecStore]>,
-                      Requires<[HasAVX256P_Or_HasAVX512, In64BitMode]>;
+                      Requires<[HasAVX3, In64BitMode]>;
 
 def VMOVPQI2QIZmr : I<0xD6, MRMDestMem, (outs),
                       (ins i64mem:$dst, VR128X:$src),
@@ -5041,7 +5064,7 @@ def VMOVPQI2QIZmr : I<0xD6, MRMDestMem, (outs),
                       [(store (extractelt (v2i64 VR128X:$src), (iPTR 0)),
                               addr:$dst)]>,
                       EVEX, PD, VEX_W, EVEX_CD8<64, CD8VT1>,
-                      Sched<[WriteVecStore]>, Requires<[HasAVX256P_Or_HasAVX512]>;
+                      Sched<[WriteVecStore]>, Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
 def VMOVPQIto64Zrr : I<0x7E, MRMDestReg, (outs GR64:$dst), (ins VR128X:$src),
                       "vmovq\t{$src, $dst|$dst, $src}",
@@ -5078,7 +5101,7 @@ def : InstAlias<"vmovq.s\t{$src, $dst|$dst, $src}",
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else //INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif //INTEL_FEATURE_ISA_AVX256P
@@ -5146,7 +5169,7 @@ multiclass avx512_move_scalar<string asm, SDNode OpNode, PatFrag vzload_frag,
              _.ExeDomain>, EVEX_4V, Sched<[SchedWriteFShuffle.XMM]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512, 
+  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3, 
                               !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [prd] in {
@@ -5781,7 +5804,7 @@ def : InstAlias<"vmovsd.s\t{$src2, $src1, $dst {${mask}} {z}|"#
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512, OptForSize] in {
+let Predicates = [HasAVX3, OptForSize] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512, OptForSize] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -5834,7 +5857,7 @@ let Predicates = [HasAVX512, OptForSpeed] in {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -6034,7 +6057,7 @@ def VMOVZPQILo2PQIZrr : AVX512XSI<0x7E, MRMSrcReg, (outs VR128X:$dst),
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -7027,7 +7050,7 @@ multiclass avx512_fp_scalar<bits<8> opc, string OpcodeStr,X86VectorVTInfo _,
                          Sched<[sched.Folded, sched.ReadAfterFold]>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let isCodeGenOnly = 1, Predicates = [HasAVX256P_Or_HasAVX512] in {
+  let isCodeGenOnly = 1, Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let isCodeGenOnly = 1, Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -7137,7 +7160,7 @@ multiclass avx512_binop_s_sae<bits<8> opc, string OpcodeStr, SDNode OpNode,
                               X86SchedWriteSizes sched, bit IsCommutable> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasAVX256P_Or_HasAVX512] in {
+  let Predicates = [HasAVX3] in {
   defm SSZ : avx512_fp_scalar_sae<opc, OpcodeStr#"ss", f32x_info, OpNode,
                               VecNode, SaeNode, sched.PS.Scl, IsCommutable,
                               NAME#"SS">,
@@ -7188,7 +7211,7 @@ multiclass avx512_comutable_binop_s<bits<8> opc, string OpcodeStr,
                                     string EVEX2VEXOvrd> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let isCodeGenOnly = 1, Predicates = [HasAVX256P_Or_HasAVX512], ExeDomain = _.ExeDomain in {
+  let isCodeGenOnly = 1, Predicates = [HasAVX3], ExeDomain = _.ExeDomain in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let isCodeGenOnly = 1, Predicates = [HasAVX512], ExeDomain = _.ExeDomain in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -7554,7 +7577,7 @@ multiclass avx512_fp_scalef_all<bits<8> opc, bits<8> opcScaler, string OpcodeStr
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   }
-  let Predicates = [HasAVX256P_Or_HasAVX512] in {
+  let Predicates = [HasAVX3] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
   defm SSZ : avx512_fp_scalef_scalar<opcScaler, OpcodeStr, X86scalefs, sched.Scl, f32x_info>,
@@ -8385,7 +8408,7 @@ defm VMOVLPDZ128 : avx512_mov_hilo_packed<0x12, "vmovlpd", X86Movsd,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -8427,7 +8450,7 @@ def VMOVLPDZ128mr : AVX512PDI<0x13, MRMDestMem, (outs),
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -8825,7 +8848,7 @@ multiclass avx512_fma3s<bits<8> opc213, bits<8> opc231, bits<8> opc132,
                         string OpcodeStr, SDPatternOperator OpNode, SDNode OpNodeRnd> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasAVX256P_Or_HasAVX512] in {
+  let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -8862,7 +8885,7 @@ multiclass avx512_scalar_fma_patterns<SDPatternOperator Op, SDNode MaskedOp,
                                       Predicate prd = HasAVX512> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512, 
+  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3, 
                         !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [prd] in {
@@ -9225,7 +9248,7 @@ multiclass avx512_vcvtsi_common<bits<8> opc, SDNode OpNode, SDNode OpNodeRnd,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -9320,7 +9343,7 @@ multiclass avx512_cvt_s_int_round<bits<8> opc, X86VectorVTInfo SrcVT,
                                   string aliasStr, Predicate prd = HasAVX512> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512, 
+  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3, 
          !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))], ExeDomain = SrcVT.ExeDomain in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [prd], ExeDomain = SrcVT.ExeDomain in {
@@ -9383,7 +9406,7 @@ multiclass avx512_cvt_s<bits<8> opc, string asm, X86VectorVTInfo SrcVT,
                         X86FoldableSchedWrite sched> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasAVX256P_Or_HasAVX512], ExeDomain = SrcVT.ExeDomain in {
+  let Predicates = [HasAVX3], ExeDomain = SrcVT.ExeDomain in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX512], ExeDomain = SrcVT.ExeDomain in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -9412,7 +9435,7 @@ defm VCVTSD2SI64Z: avx512_cvt_s<0x2D, "vcvtsd2si", f64x_info, i64x_info,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -9428,7 +9451,7 @@ let Predicates = [HasAVX512] in {
 // which produce unnecessary vmovs{s,d} instructions
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -9522,7 +9545,7 @@ multiclass avx512_cvt_s_all<bits<8> opc, string asm, X86VectorVTInfo _SrcRC,
                             Predicate prd = HasAVX512> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512, 
+let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3, 
               !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))], ExeDomain = _SrcRC.ExeDomain in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [prd], ExeDomain = _SrcRC.ExeDomain in {
@@ -9659,7 +9682,7 @@ multiclass avx512_cvt_fp_scalar_trunc<bits<8> opc, string OpcodeStr,
                                       Predicate prd = HasAVX512> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512,
+  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3,
                                 !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))], 
                                     ExeDomain = SSEPackedSingle in {
 #else // INTEL_FEATURE_ISA_AVX256P
@@ -9679,7 +9702,7 @@ multiclass avx512_cvt_fp_scalar_extend<bits<8> opc, string OpcodeStr,
                                        Predicate prd = HasAVX512> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512, 
+  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3, 
       !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))], ExeDomain = SSEPackedSingle in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [prd], ExeDomain = SSEPackedSingle in {
@@ -9713,14 +9736,14 @@ defm VCVTSH2SS : avx512_cvt_fp_scalar_extend<0x13, "vcvtsh2ss", X86fpexts,
 #if INTEL_FEATURE_ISA_AVX256P
 def : Pat<(f64 (any_fpextend FR32X:$src)),
           (VCVTSS2SDZrr (f64 (IMPLICIT_DEF)), FR32X:$src)>,
-          Requires<[HasAVX256P_Or_HasAVX512]>;
+          Requires<[HasAVX3]>;
 def : Pat<(f64 (any_fpextend (loadf32 addr:$src))),
           (VCVTSS2SDZrm (f64 (IMPLICIT_DEF)), addr:$src)>,
-          Requires<[HasAVX256P_Or_HasAVX512, OptForSize]>;
+          Requires<[HasAVX3, OptForSize]>;
 
 def : Pat<(f32 (any_fpround FR64X:$src)),
           (VCVTSD2SSZrr (f32 (IMPLICIT_DEF)), FR64X:$src)>,
-           Requires<[HasAVX256P_Or_HasAVX512]>;
+           Requires<[HasAVX3]>;
 
 def : Pat<(f32 (any_fpextend FR16X:$src)),
           (VCVTSH2SSZrr (f32 (IMPLICIT_DEF)), FR16X:$src)>,
@@ -9748,14 +9771,14 @@ def : Pat<(v4f32 (X86Movss
                    (v4f32 (scalar_to_vector
                      (f32 (any_fpround (f64 (extractelt VR128X:$src, (iPTR 0))))))))),
           (VCVTSD2SSZrr_Int VR128X:$dst, VR128X:$src)>,
-          Requires<[HasAVX256P_Or_HasAVX512]>;
+          Requires<[HasAVX3]>;
 
 def : Pat<(v2f64 (X86Movsd
                    (v2f64 VR128X:$dst),
                    (v2f64 (scalar_to_vector
                      (f64 (any_fpextend (f32 (extractelt VR128X:$src, (iPTR 0))))))))),
           (VCVTSS2SDZrr_Int VR128X:$dst, VR128X:$src)>,
-          Requires<[HasAVX256P_Or_HasAVX512]>;
+          Requires<[HasAVX3]>;
 #else // INTEL_FEATURE_ISA_AVX256P
 def : Pat<(f64 (any_fpextend FR32X:$src)),
           (VCVTSS2SDZrr (f64 (IMPLICIT_DEF)), FR32X:$src)>,
@@ -11211,7 +11234,7 @@ multiclass avx512_ord_cmp_sae<bits<8> opc, X86VectorVTInfo _,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Defs = [EFLAGS], Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Defs = [EFLAGS], Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Defs = [EFLAGS], Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -11228,7 +11251,7 @@ let Defs = [EFLAGS], Predicates = [HasAVX512] in {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Defs = [EFLAGS], Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Defs = [EFLAGS], Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Defs = [EFLAGS], Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -11298,7 +11321,7 @@ multiclass avx512_fp14_s<bits<8> opc, string OpcodeStr, SDNode OpNode,
                          Predicate prd = HasAVX512> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P 
-  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512, 
+  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3, 
                       !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))],
                           ExeDomain = _.ExeDomain in {
 #else // INTEL_FEATURE_ISA_AVX256P
@@ -11337,7 +11360,7 @@ multiclass avx512_fp14_s_alt<bits<8> opc, string OpcodeStr, SDNode OpNodeAlt,
   }
 
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512, 
+  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3, 
                       !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [prd] in {
@@ -11348,7 +11371,7 @@ multiclass avx512_fp14_s_alt<bits<8> opc, string OpcodeStr, SDNode OpNodeAlt,
   }
 
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512, 
+  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3, 
                     !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL")), OptForSize] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [prd, OptForSize] in {
@@ -11750,7 +11773,7 @@ multiclass avx512_sqrt_scalar<bits<8> opc, string OpcodeStr, X86FoldableSchedWri
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   let ExeDomain = _.ExeDomain, Predicates = [!if (!eq (prd, HasAVX512), 
-                    HasAVX256P_Or_HasAVX512, !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))] in {
+                    HasAVX3, !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let ExeDomain = _.ExeDomain, Predicates = [prd] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -11791,7 +11814,7 @@ multiclass avx512_sqrt_scalar<bits<8> opc, string OpcodeStr, X86FoldableSchedWri
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512, 
+  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3, 
                       !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [prd] in {
@@ -11804,7 +11827,7 @@ multiclass avx512_sqrt_scalar<bits<8> opc, string OpcodeStr, X86FoldableSchedWri
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512, 
+  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3, 
             !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL")), OptForSize] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [prd, OptForSize] in {
@@ -11859,7 +11882,7 @@ multiclass avx512_rndscale_scalar<bits<8> opc, string OpcodeStr,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let isCodeGenOnly = 1, hasSideEffects = 0, Predicates = [HasAVX256P_Or_HasAVX512] in {
+  let isCodeGenOnly = 1, hasSideEffects = 0, Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let isCodeGenOnly = 1, hasSideEffects = 0, Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -11879,7 +11902,7 @@ multiclass avx512_rndscale_scalar<bits<8> opc, string OpcodeStr,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasAVX256P_Or_HasAVX512] in {
+  let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -11891,7 +11914,7 @@ multiclass avx512_rndscale_scalar<bits<8> opc, string OpcodeStr,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasAVX256P_Or_HasAVX512, OptForSize] in {
+  let Predicates = [HasAVX3, OptForSize] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX512, OptForSize] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -11928,7 +11951,7 @@ defm VRNDSCALESDZ : avx512_rndscale_scalar<0x0B, "vrndscalesd",
 // Using VRNDSCALESD instead of VCVTTSD2SI+VCVTSI2SD
 // and VRNDSCALESS instead of VCVTTPS2DQ+VCVTDQ2PS.
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -13405,7 +13428,7 @@ multiclass avx512_common_fp_sae_scalar_imm<string OpcodeStr,
                   SDNode OpNodeSAE, X86SchedWriteWidths sched, Predicate prd> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX256P_Or_HasAVX512,
+  let Predicates = [!if (!eq (prd, HasAVX512), HasAVX3,
                                 !cast<Predicate>("HasAVX256P_Or_"#prd#"_NoVL"))] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [prd] in {
@@ -14775,7 +14798,7 @@ multiclass avx512_fixupimm_scalar<bits<8> opc, string OpcodeStr,
                                   X86VectorVTInfo _src3VT> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Constraints = "$src1 = $dst" , Predicates = [HasAVX256P_Or_HasAVX512],
+  let Constraints = "$src1 = $dst" , Predicates = [HasAVX3],
 #else // INTEL_FEATURE_ISA_AVX256P
   let Constraints = "$src1 = $dst" , Predicates = [HasAVX512],
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -14892,7 +14915,7 @@ multiclass AVX512_scalar_math_fp_patterns<SDPatternOperator Op, SDNode MaskedOp,
                                           X86VectorVTInfo _, PatLeaf ZeroFP> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  let Predicates = [HasAVX256P_Or_HasAVX512] in {
+  let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P

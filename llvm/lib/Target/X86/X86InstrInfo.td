@@ -1021,11 +1021,25 @@ def HasSSE4A     : Predicate<"Subtarget->hasSSE4A()">;
 def NoAVX        : Predicate<"!Subtarget->hasAVX()">;
 def HasAVX       : Predicate<"Subtarget->hasAVX()">;
 def HasAVX2      : Predicate<"Subtarget->hasAVX2()">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+def HasAVX3      : Predicate<"Subtarget->hasAVX3()">;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def HasAVX1Only  : Predicate<"Subtarget->hasAVX() && !Subtarget->hasAVX2()">;
 def HasAVX512    : Predicate<"Subtarget->hasAVX512()">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+def UseAVX       : Predicate<"Subtarget->hasAVX() && !Subtarget->hasAVX3()">;
+def UseAVX2      : Predicate<"Subtarget->hasAVX2() && !Subtarget->hasAVX3()">;
+// FIXME: Change to NoAVX3 when upstream.
+def NoAVX512     : Predicate<"!Subtarget->hasAVX3()">;
+#else // INTEL_FEATURE_ISA_AVX256P
 def UseAVX       : Predicate<"Subtarget->hasAVX() && !Subtarget->hasAVX512()">;
 def UseAVX2      : Predicate<"Subtarget->hasAVX2() && !Subtarget->hasAVX512()">;
 def NoAVX512     : Predicate<"!Subtarget->hasAVX512()">;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 def HasCDI       : Predicate<"Subtarget->hasCDI()">;
 def HasVPOPCNTDQ : Predicate<"Subtarget->hasVPOPCNTDQ()">;
 def HasPFI       : Predicate<"Subtarget->hasPFI()">;
@@ -1346,6 +1360,7 @@ def HasAVX512REDUCTION2 : Predicate<"Subtarget->hasAVX512REDUCTION2()">;
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION2
 #if INTEL_FEATURE_ISA_AVX256P
 def HasAVX256P : Predicate<"Subtarget->hasAVX256P()">;
+// FIXME: We have some shared predicates using this too. Need remove when upstream.
 def HasAVX256P_Or_HasAVX512 : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasAVX512()">;
 def HasAVX256P_Or_HasVLX : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasVLX()">;
 def HasAVX256P_Or_HasFP16 : Predicate<"Subtarget->hasAVX256P() || Subtarget->hasFP16()">;
