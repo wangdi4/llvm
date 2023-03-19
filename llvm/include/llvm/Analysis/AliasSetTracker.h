@@ -44,7 +44,6 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/ModRef.h"
 #include <cassert>
 #include <cstddef>
 #include <iterator>
@@ -176,9 +175,15 @@ class AliasSet : public ilist_node<AliasSet> {
   ///
   /// We keep track of whether this alias set merely refers to the locations of
   /// memory (and not any particular access), whether it modifies or references
-  /// the memory, or whether it does both. The lattice goes from NoModRef to
-  /// either Ref or Mod, then to ModRef as necessary.
-  ModRefInfo Access : 2;
+  /// the memory, or whether it does both. The lattice goes from "NoAccess" to
+  /// either RefAccess or ModAccess, then to ModRefAccess as necessary.
+  enum AccessLattice {
+    NoAccess = 0,
+    RefAccess = 1,
+    ModAccess = 2,
+    ModRefAccess = RefAccess | ModAccess
+  };
+  unsigned Access : 2;
 
   /// The kind of alias relationship between pointers of the set.
   ///
@@ -210,8 +215,8 @@ public:
   AliasSet &operator=(const AliasSet &) = delete;
 
   /// Accessors...
-  bool isRef() const { return isRefSet(Access); }
-  bool isMod() const { return isModSet(Access); }
+  bool isRef() const { return Access & RefAccess; }
+  bool isMod() const { return Access & ModAccess; }
   bool isMustAlias() const { return Alias == SetMustAlias; }
   bool isMayAlias()  const { return Alias == SetMayAlias; }
 
@@ -278,14 +283,14 @@ private:
   // Can only be created by AliasSetTracker.
   AliasSet()
       : PtrListEnd(&PtrList), RefCount(0),  AliasAny(false),
-        Access(ModRefInfo::NoModRef), Alias(SetMustAlias) {}
+        Access(NoAccess), Alias(SetMustAlias) {}
 #ifdef INTEL_CUSTOMIZATION
   // This constructor allows one to specify whether or not "loopCarriedAlias"
   // disambiguation is will be used instead of the usual "alias"
   // disambiguation.
   AliasSet(bool WillRequireLoopCarried)
       : PtrListEnd(&PtrList), RefCount(0), AliasAny(false),
-        Access(ModRefInfo::NoModRef), Alias(SetMustAlias),
+        Access(NoAccess), Alias(SetMustAlias),
         RequiresLoopCarried(WillRequireLoopCarried) {}
 
   // This wraps all pairwise AA queries made by the AST and ensures that we use
@@ -442,7 +447,7 @@ private:
     return *Entry;
   }
 
-  AliasSet &addPointer(MemoryLocation Loc, ModRefInfo E);
+  AliasSet &addPointer(MemoryLocation Loc, AliasSet::AccessLattice E);
   AliasSet *mergeAliasSetsForPointer(const Value *Ptr, LocationSize Size,
                                      const AAMDNodes &AAInfo,
                                      bool &MustAliasAll);
