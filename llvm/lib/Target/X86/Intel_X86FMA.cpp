@@ -692,6 +692,16 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(const X86Subtarget *ST,
     switch (VT.getSizeInBits()) {
     case 16:
       return X86::AVX512_FsFLD0SH;
+#if INTEL_FEATURE_ISA_AVX256P
+    case 32:
+      return ST->hasAVX3() ? X86::AVX512_FsFLD0SS : X86::FsFLD0SS;
+    case 64:
+      return ST->hasAVX3() ? X86::AVX512_FsFLD0SD : X86::FsFLD0SD;
+    case 128:
+      return ST->hasAVX3() ? X86::AVX512_128_SET0 : X86::V_SET0;
+    case 256:
+      return ST->hasAVX3() ? X86::AVX512_256_SET0 : X86::AVX_SET0;
+#else // INTEL_FEATURE_ISA_AVX256P
     case 32:
       return ST->hasAVX512() ? X86::AVX512_FsFLD0SS : X86::FsFLD0SS;
     case 64:
@@ -700,6 +710,7 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(const X86Subtarget *ST,
       return ST->hasAVX512() ? X86::AVX512_128_SET0 : X86::V_SET0;
     case 256:
       return ST->hasAVX512() ? X86::AVX512_256_SET0 : X86::AVX_SET0;
+#endif // INTEL_FEATURE_ISA_AVX256P
     case 512:
       assert(ST->hasAVX512() && "Expected AVX512!");
       return X86::AVX512_512_SET0;

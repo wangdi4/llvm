@@ -115,7 +115,13 @@ bool EvexToVexInstPass::runOnMachineFunction(MachineFunction &MF) {
   TII = MF.getSubtarget<X86Subtarget>().getInstrInfo();
 
   ST = &MF.getSubtarget<X86Subtarget>();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (!ST->hasAVX3())
+#else // INTEL_FEATURE_ISA_AVX256P
   if (!ST->hasAVX512())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return false;
 
   bool Changed = false;

@@ -4409,7 +4409,13 @@ bool X86DAGToDAGISel::tryVPTERNLOG(SDNode *N) {
   MVT NVT = N->getSimpleValueType(0);
 
   // Make sure we support VPTERNLOG.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (!NVT.isVector() || !Subtarget->hasAVX3() ||
+#else  // INTEL_FEATURE_ISA_AVX256P
   if (!NVT.isVector() || !Subtarget->hasAVX512() ||
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       NVT.getVectorElementType() == MVT::i1)
     return false;
 
@@ -4628,7 +4634,13 @@ VPTESTM_CASE(v32i16, WZ##SUFFIX)
 // to form a masked operation.
 bool X86DAGToDAGISel::tryVPTESTM(SDNode *Root, SDValue Setcc,
                                  SDValue InMask) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  assert(Subtarget->hasAVX3() && "Expected AVX3!");
+#else // INTEL_FEATURE_ISA_AVX256P
   assert(Subtarget->hasAVX512() && "Expected AVX512!");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   assert(Setcc.getSimpleValueType().getVectorElementType() == MVT::i1 &&
          "Unexpected VT!");
 
@@ -4807,7 +4819,13 @@ bool X86DAGToDAGISel::tryMatchBitSelect(SDNode *N) {
   MVT NVT = N->getSimpleValueType(0);
 
   // Make sure we support VPTERNLOG.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (!NVT.isVector() || !Subtarget->hasAVX3())
+#else // INTEL_FEATURE_ISA_AVX256P
   if (!NVT.isVector() || !Subtarget->hasAVX512())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return false;
 
   // We need VLX for 128/256-bit.
