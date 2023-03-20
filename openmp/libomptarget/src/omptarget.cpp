@@ -32,6 +32,9 @@
 #include "device.h"
 #include "private.h"
 #include "rtl.h"
+#if INTEL_COLLAB
+#include "Utilities.h"
+#endif // INTEL_COLLAB
 
 #include "llvm/ADT/bit.h"
 
