@@ -426,6 +426,7 @@ class MSBuiltin<string name> {
   string MSBuiltinName = name;
 }
 
+#ifndef TEST_INTRINSICS_SUPPRESS_DEFS
 
 //===--------------- Variable Argument Handling Intrinsics ----------------===//
 //
@@ -2545,3 +2546,5 @@ include "llvm/IR/IntrinsicsVE.td"
 include "llvm/IR/Intel_IntrinsicsFPGA.td" // INTEL
 include "llvm/IR/IntrinsicsDirectX.td"
 include "llvm/IR/IntrinsicsLoongArch.td"
+
+#endif // TEST_INTRINSICS_SUPPRESS_DEFS
