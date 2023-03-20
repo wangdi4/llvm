@@ -729,6 +729,9 @@ KEYWORD(_Nullable                , KEYALL)
 KEYWORD(_Nullable_result         , KEYALL)
 KEYWORD(_Null_unspecified        , KEYALL)
 
+// WebAssembly Type Extension
+KEYWORD(__funcref                     , KEYALL)
+
 // Microsoft extensions which should be disabled in strict conformance mode
 #if INTEL_CUSTOMIZATION
 // Fix for CQ#373504: __ptr64 and __ptr32 on Linux.
