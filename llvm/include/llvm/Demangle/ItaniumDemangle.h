@@ -45,21 +45,25 @@
 #include <cstring>
 #include <limits>
 #include <new>
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 #include <string>
 // end INTEL_CUSTOMIZATION
 #include <type_traits>
+=======
+>>>>>>> 50b58e89a122fdc20616ad6d6dd3a802206454d2
 #include <utility>
 
 DEMANGLE_NAMESPACE_BEGIN
 
 template <class T, size_t N> class PODSmallVector {
-  static_assert(std::is_trivial_v<T>, "T is required to be a trivial type");
+  static_assert(std::is_pod<T>::value,
+                "T is required to be a plain old data type");
 
   T *First = nullptr;
   T *Last = nullptr;
   T *Cap = nullptr;
-  T Inline[N] = {};
+  T Inline[N] = {0};
 
   bool isInline() const { return First == Inline; }
 
