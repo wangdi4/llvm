@@ -45,13 +45,9 @@
 #include <cstring>
 #include <limits>
 #include <new>
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 #include <string>
 // end INTEL_CUSTOMIZATION
-#include <type_traits>
-=======
->>>>>>> 50b58e89a122fdc20616ad6d6dd3a802206454d2
 #include <utility>
 
 DEMANGLE_NAMESPACE_BEGIN
