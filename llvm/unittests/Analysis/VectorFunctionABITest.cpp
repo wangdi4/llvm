@@ -425,6 +425,14 @@ TEST_F(VFABIParserTest, ISAIndependentMangling) {
   __COMMON_CHECKS;
   EXPECT_EQ(VectorName, "vectorf");
 
+#if INTEL_CUSTOMIZATION
+  // Intel-specific: <isa> = "_unknown_"
+  EXPECT_TRUE(invokeParser("_ZGV_unknown_N2vls2Ls27Us4Rs5l1L10U100R1000u_sin"));
+  EXPECT_EQ(ISA, VFISAKind::Unknown);
+  __COMMON_CHECKS;
+  EXPECT_EQ(VectorName, "_ZGV_unknown_N2vls2Ls27Us4Rs5l1L10U100R1000u_sin");
+
+#endif // INTEL_CUSTOMIZATION
   // Unknown ISA (randomly using "q"). This test will need update if
   // some targets decide to use "q" as their ISA token.
   EXPECT_TRUE(invokeParser("_ZGVqN2vls2Ls27Us4Rs5l1L10U100R1000u_sin"));
