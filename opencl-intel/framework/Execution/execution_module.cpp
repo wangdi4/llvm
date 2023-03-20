@@ -3986,6 +3986,7 @@ cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
     bool blocking_read, size_t size, size_t offset, void *ptr,
     cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
     cl_event *event, ApiLogger *apiLogger) {
+  LOG_DEBUG(TEXT("%s"), TEXT("EnqueueReadGlobalVariable enter"));
   if (nullptr == name || nullptr == ptr)
     return CL_INVALID_VALUE;
 
@@ -3999,18 +4000,36 @@ cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
   if (CL_FAILED(err))
     return err;
 
-  size_t gvSize;
-  void *gvPtr;
+  cl_prog_gv gv;
   err = m_pContextModule->GetDeviceGlobalVariablePointer(
-      queue->GetDefaultDevice()->GetHandle(), program, name, &gvSize, &gvPtr);
-  if (CL_FAILED(err))
+      queue->GetDefaultDevice()->GetHandle(), program, name, nullptr, nullptr,
+      &gv);
+  if (CL_FAILED(err)) {
+    LOG_ERROR(TEXT("EnqueueReadGlobalVariable failed to get global variable "
+                   "%s, err is %d"),
+              name, err);
     return err;
+  }
 
-  if (size + offset > gvSize)
+  if (gv.host_access == HOST_ACCESS_NONE ||
+      gv.host_access == HOST_ACCESS_WRITE) {
+    LOG_ERROR(
+        TEXT("EnqueueReadGlobalVariable global variable %s is not writable, "
+             "err is %d"),
+        name, err);
+    return CL_INVALID_OPERATION;
+  }
+
+  if (size + offset > gv.size) {
+    LOG_ERROR(TEXT("EnqueueReadGlobalVariable the region being read specified "
+                   "by (offset, size) is not fully contained by the size of "
+                   "global variable, err is %d"),
+              err);
     return CL_INVALID_VALUE;
+  }
 
-  Command *readGVCmd =
-      new ReadGVCommand(queue, ptr, (void *)((size_t)gvPtr + offset), size);
+  Command *readGVCmd = new ReadGVCommand(
+      queue, ptr, (void *)((size_t)gv.pointer + offset), size);
   if (nullptr == readGVCmd)
     return CL_OUT_OF_HOST_MEMORY;
 
@@ -4030,6 +4049,7 @@ cl_err_code ExecutionModule::EnqueueWriteGlobalVariable(
     bool blocking_write, size_t size, size_t offset, const void *ptr,
     cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
     cl_event *event, ApiLogger *apiLogger) {
+  LOG_DEBUG(TEXT("%s"), TEXT("EnqueueWriteGlobalVariable enter"));
   if (nullptr == name || nullptr == ptr)
     return CL_INVALID_VALUE;
 
@@ -4043,18 +4063,37 @@ cl_err_code ExecutionModule::EnqueueWriteGlobalVariable(
   if (CL_FAILED(err))
     return err;
 
-  size_t gvSize;
-  void *gvPtr;
+  cl_prog_gv gv;
   err = m_pContextModule->GetDeviceGlobalVariablePointer(
-      queue->GetDefaultDevice()->GetHandle(), program, name, &gvSize, &gvPtr);
-  if (CL_FAILED(err))
+      queue->GetDefaultDevice()->GetHandle(), program, name, nullptr, nullptr,
+      &gv);
+  if (CL_FAILED(err)) {
+    LOG_ERROR(TEXT("EnqueueWriteGlobalVariable failed to get global variable "
+                   "%s, err is %d"),
+              name, err);
     return err;
+  }
 
-  if (size + offset > gvSize)
+  if (gv.host_access == HOST_ACCESS_NONE ||
+      gv.host_access == HOST_ACCESS_READ) {
+    LOG_ERROR(
+        TEXT("EnqueueWriteGlobalVariable global variable %s is not readable, "
+             "err is %d"),
+        name, err);
+    return CL_INVALID_OPERATION;
+  }
+
+  if (size + offset > gv.size) {
+    LOG_ERROR(
+        TEXT("EnqueueWriteGlobalVariable the region being written specified "
+             "by (offset, size) is not fully contained by the size of "
+             "global variable, err is %d"),
+        err);
     return CL_INVALID_VALUE;
+  }
 
-  Command *writeGVCmd =
-      new WriteGVCommand(queue, (void *)((size_t)gvPtr + offset), ptr, size);
+  Command *writeGVCmd = new WriteGVCommand(
+      queue, (void *)((size_t)gv.pointer + offset), ptr, size);
   if (nullptr == writeGVCmd)
     return CL_OUT_OF_HOST_MEMORY;
 

@@ -25,6 +25,7 @@
 #include "cl_sys_defines.h"
 #include "debuggingservicetype.h"
 
+#include "SPIRV/libSPIRV/spirv_internal.hpp"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -391,8 +392,30 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
       if (!GV.hasCommonLinkage() && !GV.hasExternalLinkage())
         continue;
 
-      GlobalVariables.push_back(
-          {STRDUP(GV.getName().str().c_str()), Size, nullptr});
+      // Try to get decorations for device globals.
+      StringRef DecoName = "";
+      unsigned int HostAccessMode = HOST_ACCESS_READ_WRITE;
+      if (MDNode *DecoMD = GV.getMetadata("spirv.Decorations")) {
+        for (const MDOperand &MDOp : DecoMD->operands()) {
+          MDNode *Node = dyn_cast<MDNode>(MDOp);
+          if (Node && Node->getNumOperands() == 3 &&
+              mdconst::extract<ConstantInt>(Node->getOperand(0))
+                      ->getZExtValue() ==
+                  spv::internal::DecorationHostAccessINTEL) {
+            // Get the host access mode
+            HostAccessMode = mdconst::extract<ConstantInt>(Node->getOperand(1))
+                                 ->getZExtValue();
+            assert(HostAccessMode <= HOST_ACCESS_NONE &&
+                   "HostAccess mode is invalid");
+            // Get the decoration name
+            DecoName = cast<MDString>(Node->getOperand(2))->getString();
+          }
+        }
+      }
+
+      GlobalVariables.push_back({STRDUP(GV.getName().str().c_str()),
+                                 STRDUP(DecoName.str().c_str()), HostAccessMode,
+                                 Size, nullptr});
     }
     pProgram->SetGlobalVariableTotalSize(GlobalVariableTotalSize);
     pProgram->SetGlobalVariables(std::move(GlobalVariables));

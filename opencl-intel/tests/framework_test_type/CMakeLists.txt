@@ -113,6 +113,7 @@ add_ocl_unittest_artifacts(
   data/cached_binary_with_wrong_version.bin
   data/code_coverage.bc
   data/code_coverage_linux.bin
+  data/device_global.bc
   data/fp-as-kernel-arg.spv
   data/replace-module-after-optimizer-1.ll
   data/replace-module-after-optimizer-2.ll
