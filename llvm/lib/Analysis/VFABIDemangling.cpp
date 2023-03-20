@@ -43,6 +43,13 @@ ParseRet tryParseISA(StringRef &MangledName, VFISAKind &ISA) {
   if (MangledName.empty())
     return ParseRet::Error;
 
+#if INTEL_CUSTOMIZATION
+  if (MangledName.startswith(VFABI::_Unknown_)) {
+    MangledName = MangledName.drop_front(strlen(VFABI::_Unknown_));
+    ISA = VFISAKind::Unknown;
+    return ParseRet::OK;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (MangledName.startswith(VFABI::_LLVM_)) {
     MangledName = MangledName.drop_front(strlen(VFABI::_LLVM_));
     ISA = VFISAKind::LLVM;
