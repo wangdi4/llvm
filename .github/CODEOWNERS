@@ -415,6 +415,7 @@ llvm/include/llvm/SYCLLowerIR/LowerInvokeSimd.h @intel-restricted/dpcpp-esimd-re
 /llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @skozhukh @mamasten @offsake
 /llvm/test/Transforms/Intel_VPO/Vecopt/optreport/ @karthik-senthil @speryt @skozhukh
 /llvm/test/Transforms/LoopVectorize/ @sguggill @skozhukh @mamasten @offsake
+/llvm/unittests/Analysis/VectorFunctionABITest.cpp @sguggill @skozhukh @mamasten @offsake
 /llvm/unittests/Transforms/Vectorize/ @sguggill @skozhukh @mamasten @offsake
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR @sguggill @skozhukh @karthik-senthil @mamasten
 
@@ -687,7 +688,6 @@ llvm/include/llvm/SYCLLowerIR/LowerInvokeSimd.h @intel-restricted/dpcpp-esimd-re
 /llvm/lib/Analysis/MemDerefPrinter.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/ConstantFolding.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/InstCount.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/lib/Analysis/VFABIDemangling.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/LoopUnrollAnalyzer.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/DominanceFrontier.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/Intel_StdContainerAA.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -742,6 +742,7 @@ llvm/include/llvm/SYCLLowerIR/LowerInvokeSimd.h @intel-restricted/dpcpp-esimd-re
 /llvm/lib/Analysis/DependenceAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/ScalarEvolutionDivision.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/VectorUtils.cpp @mamasten @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Analysis/VFABIDemangling.cpp @mamasten @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Analysis/MemorySSAUpdater.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/RegionPass.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/PhiValues.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
