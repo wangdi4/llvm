@@ -150,16 +150,20 @@ def get_file_path_in_git(exp):
 # GIT is used for version control, so we don't test git history to avoid circular dependencies.
 def get_llorg_ref(exp, ref_commit=None):
     """Get file from best common ancestor with llorg"""
-    if ref_commit == None:
-        ref_commit = get_merge_base()
-
     # Get the path of the file relative to git repository root, so that
     # we can run the script in any subdirectory.
     exp_path = exp
     exp = get_file_path_in_git(exp)
+    # NOTE: It's time consuming to get a merge base. So we check the result of
+    # get_file_path_in_git before calling get_merge_base to bail out quickly
+    # for a untracked file.
     if not exp:
         logging.debug(f'File {exp_path} is no tracked by GIT')
         return None
+
+    if ref_commit == None:
+        ref_commit = get_merge_base()
+
     ref_str = subprocess.run(['git', 'show', f'{ref_commit}:{exp}'],
                              stdout=PIPE,
                              stderr=PIPE,
