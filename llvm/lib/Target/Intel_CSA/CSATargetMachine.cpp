@@ -53,6 +53,7 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
@@ -364,6 +365,21 @@ TargetPassConfig *
 CSATargetMachine::createPassConfig(legacy::PassManagerBase &PM) {
   CSAPassConfig *PassConfig = new CSAPassConfig(*this, PM);
   return PassConfig;
+}
+
+void CSATargetMachine::adjustPassManager(PassManagerBuilder &PMB) {
+  PMB.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
+                   [](const PassManagerBuilder &, legacy::PassManagerBase &PM) {
+
+                     // Add the pass to convert Fortran "builtin" calls
+                     PM.add(createFortranIntrinsics());
+
+                     // Add the pass to expand loop intrinsics
+                     PM.add(createSROAPass());
+                     PM.add(createLoopSimplifyPass());
+                     PM.add(createLICMPass());
+                     PM.add(createCSALoopIntrinsicExpanderPass());
+                   });
 }
 
 // This function is copied from lib/CodeGen/LLVMTargetMachine.cpp because it is
