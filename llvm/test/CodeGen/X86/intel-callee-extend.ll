@@ -5,7 +5,6 @@
 define i64 @calleeu8(i8 noundef zeroext %a) nounwind {
 ; CHECK-LABEL: calleeu8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    # kill: def $edi killed $edi def $rdi
 ; CHECK-NEXT:    movzbl %dil, %eax
 ; CHECK-NEXT:    retq
 entry:
@@ -16,7 +15,6 @@ entry:
 define i64 @calleeu16(i16 noundef zeroext %a) nounwind {
 ; CHECK-LABEL: calleeu16:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    # kill: def $edi killed $edi def $rdi
 ; CHECK-NEXT:    movzwl %di, %eax
 ; CHECK-NEXT:    retq
 entry:
