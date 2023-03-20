@@ -515,6 +515,11 @@ static constexpr char const *_LLVM_ = "_LLVM_";
 /// vectorizer to vectorize the scalar call `foo`, and to scalarize
 /// it once vectorization is done.
 static constexpr char const *_LLVM_Scalarize_ = "_LLVM_Scalarize_";
+#if INTEL_CUSTOMIZATION
+/// Intel-specific VFABI ISA token for vector functions that indicates
+/// incomplete (i.e. yet to be defined) ISA class specification.
+static constexpr char const *_Unknown_ = "_unknown_";
+#endif // INTEL_CUSTOMIZATION
 
 /// Function to construct a VFInfo out of a mangled names in the
 /// following format:
