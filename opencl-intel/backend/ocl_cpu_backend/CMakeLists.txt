@@ -162,6 +162,7 @@ endif(WIN32)
 # Add include directories
 set(INCLUDE_DIRS
     ${LLVM_INCLUDE_DIRS}
+    ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib
     ${CL_API_HEADERS}
     ${OCL_CPU_BACKEND_DIR}
     ${OCL_SOURCE_DIR}/utils/cache_binary_handler

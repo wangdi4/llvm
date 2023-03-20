@@ -144,11 +144,29 @@ struct cl_prog_program {
   cl_prog_kernel *kernels; //!< A pointer to list of cl_prog_kernel
 };
 
+/*! \enum cl_prog_gv_host_access
+ * Defines decoration HostAccess for the device globals
+ */
+enum cl_prog_gv_host_access : unsigned int {
+  HOST_ACCESS_READ = 0,  //!< The execution environment may read the variable
+                         //!< from the host but will never write it
+  HOST_ACCESS_WRITE = 1, //!< The execution environment may write the variable
+                         //!< from the host but will never read it
+  HOST_ACCESS_READ_WRITE = 2, //!< The execution environment may read or write
+                              //!< the variable from the host
+  HOST_ACCESS_NONE = 3, //!< The execution environment may neither read nor
+                        //!< write the variable from the host
+};
+
 /*! \struct cl_prog_gv
  * \brief This struct defines properties of a global variable in a built program
  */
 struct cl_prog_gv {
-  char *name;    //!< Name of global variable
+  char *name;               //!< Name of global variable
+  char *deco_name;          //!< Literal string name, only global variable with
+                            //!< spirv decoration has such name
+  unsigned int host_access; //!< Host access mode, only global variable with
+                            //!< spirv decoration has such name
   size_t size;   //!< Size of global variable in bytes
   void *pointer; //!< Address of global variable in program
 };

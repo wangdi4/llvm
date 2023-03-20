@@ -44,12 +44,6 @@ using namespace std;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-#ifdef __GNUC__
-#define UNUSED_ATTR __attribute__((unused))
-#else
-#define UNUSED_ATTR
-#endif
-
 // Function to compare two image formats.
 static bool compareImageFormats(cl_image_format f1, cl_image_format f2);
 // Function to get format map key
@@ -1582,7 +1576,8 @@ Intel::OpenCL::Utils::OclOsDependentEvent *Context::GetOSEvent() {
   if (!exists) {
     pOsEvent = new Intel::OpenCL::Utils::OclOsDependentEvent();
     if (nullptr != pOsEvent) {
-      bool UNUSED_ATTR initOK = pOsEvent->Init();
+      bool initOK = pOsEvent->Init();
+      (void)initOK;
       assert(initOK && "OclEvent Failed to setup OS_DEPENDENT event");
     }
   }
