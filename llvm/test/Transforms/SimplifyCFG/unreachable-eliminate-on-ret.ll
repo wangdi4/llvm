@@ -54,6 +54,7 @@ define nonnull noundef ptr @test_ret_ptr_nonnull_noundef_gep_nonzero(i1 %cond, p
 ; CHECK-LABEL: @test_ret_ptr_nonnull_noundef_gep_nonzero(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 [[COND:%.*]], ptr [[X:%.*]], ptr null
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[GEP:%.*]] = getelementptr ptr, ptr [[SPEC_SELECT]], i64 12
 ; CHECK-NEXT:    ret ptr [[GEP]]
 ;
@@ -73,6 +74,9 @@ define nonnull noundef ptr @test_ret_ptr_nonnull_noundef_gep_inbounds_nonzero(i1
 ; CHECK-LABEL: @test_ret_ptr_nonnull_noundef_gep_inbounds_nonzero(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds ptr, ptr [[X:%.*]], i64 12
+=======
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr inbounds ptr, ptr [[SPEC_SELECT]], i64 12
+>>>>>>> c6e54c7fec6e612ef4631ef80abca6dcb16adea6
 ; CHECK-NEXT:    ret ptr [[GEP]]
 ;
 entry:
