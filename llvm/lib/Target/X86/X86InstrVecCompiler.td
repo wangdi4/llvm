@@ -50,7 +50,7 @@ let Predicates = [NoAVX512] in {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -338,7 +338,7 @@ let Predicates = [HasBWI] in {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -424,7 +424,7 @@ let Predicates = [HasBWI] in {
 // using shifts.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasAVX512] in {
+let Predicates = [HasAVX3] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in {
 #endif // INTEL_FEATURE_ISA_AVX256P

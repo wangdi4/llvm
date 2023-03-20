@@ -459,8 +459,12 @@ void DeviceProgram::CollectGlobalVariablePointers() {
   size_t gvCount;
   m_pDevice->GetDeviceAgent()->clDevGetGlobalVariablePointers(
       m_programHandle, &gvPtrs, &gvCount);
-  for (size_t i = 0; i < gvCount; ++i)
+  for (size_t i = 0; i < gvCount; ++i) {
     m_gvPointers[std::string(gvPtrs[i].name)] = gvPtrs[i];
+    if (gvPtrs[i].deco_name[0] != '\0') {
+      m_gvPointers[std::string(gvPtrs[i].deco_name)] = gvPtrs[i];
+    }
+  }
 }
 
 cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void *pBin,

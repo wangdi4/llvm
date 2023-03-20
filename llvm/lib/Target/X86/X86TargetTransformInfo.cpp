@@ -200,7 +200,13 @@ unsigned X86TTIImpl::getNumberOfRegisters(unsigned ClassID) const {
     return 0;
 
   if (ST->is64Bit()) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (Vector && ST->hasAVX3())
+#else // INTEL_FEATURE_ISA_AVX256P
     if (Vector && ST->hasAVX512())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return 32;
     return 16;
   }
@@ -484,7 +490,13 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::UREM, MVT::v16i32, {  7 } }, // pmuludq+mul+sub sequence
   };
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (Op2Info.isUniform() && Op2Info.isConstant() && ST->hasAVX3())
+#else // INTEL_FEATURE_ISA_AVX256P
   if (Op2Info.isUniform() && Op2Info.isConstant() && ST->hasAVX512())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     if (const auto *Entry =
             CostTableLookup(AVX512UniformConstCostTable, ISD, LT.second))
       if (auto KindCost = Entry->Cost[CostKind])
@@ -6535,7 +6547,13 @@ bool X86TTIImpl::isLegalMaskedExpandLoad(Type *DataTy) {
   if (!isa<VectorType>(DataTy))
     return false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (!ST->hasAVX3())
+#else // INTEL_FEATURE_ISA_AVX256P
   if (!ST->hasAVX512())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return false;
 
   // The backend can't handle a single element vector.
@@ -6736,7 +6754,13 @@ bool X86TTIImpl::shouldScalarizeMaskedGather(CallInst *CI) {
     return true;
 #endif //INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (ST->hasAVX3() || isAVX2GatherProfitable()) {
+#else // INTEL_FEATURE_ISA_AVX256P
   if (ST->hasAVX512() || isAVX2GatherProfitable()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     if (auto *DataVTy = dyn_cast<FixedVectorType>(DataTy)) {
       unsigned NumElts = DataVTy->getNumElements();
       if (NumElts == 1)
@@ -6893,7 +6917,13 @@ bool X86TTIImpl::supportsGather() const {
   // Some CPUs have better gather performance than others.
   // TODO: Remove the explicit ST->hasAVX512()?, That would mean we would only
   // enable gather with a -march.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  return ST->hasAVX3() || (ST->hasFastGather() && ST->hasAVX2());
+#else  // INTEL_FEATURE_ISA_AVX256P
   return ST->hasAVX512() || (ST->hasFastGather() && ST->hasAVX2());
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
@@ -6907,7 +6937,7 @@ bool X86TTIImpl::forceScalarizeMaskedGatherScatter(VectorType *VTy, Align Alignm
   unsigned NumElts = cast<FixedVectorType>(VTy)->getNumElements();
   return NumElts == 1 ||
 #if INTEL_FEATURE_ISA_AVX256P
-         (ST->hasAVX512() &&
+         (ST->hasAVX3() &&
           (NumElts == 2 ||
            (NumElts == 4 && !(ST->hasVLX() || ST->hasAVX256P()))));
 #else  // INTEL_FEATURE_ISA_AVX256P
@@ -6982,7 +7012,13 @@ bool X86TTIImpl::isLegalAltInstr(VectorType *VecTy, unsigned Opcode0,
 
 bool X86TTIImpl::isLegalMaskedScatter(Type *DataType, Align Alignment) {
   // AVX2 doesn't support scatter
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (!ST->hasAVX3())
+#else // INTEL_FEATURE_ISA_AVX256P
   if (!ST->hasAVX512())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     return false;
   return isLegalMaskedGather(DataType, Alignment);
 }

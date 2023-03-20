@@ -76,7 +76,7 @@ Attrs = [OVERLOADABLE] in {
   }
 
   let Types = [v1i8, v1u8, v1i16, v1u16] in {
-    def sub_group_broadcast_cs : OclBuiltin<"intel_sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id), [], [], 1, 0>;
+    def sub_group_broadcast_cs : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id), [], [], 1, 0>;
     foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
       foreach op = ["add", "min", "max"] in {
         def sub_group_#func#_#op#_cs : OclBuiltin<"intel_sub_group_"#func#_#op, (outs gentype:$ret), (ins gentype:$src), [], [], 1, 0>;
@@ -133,8 +133,8 @@ Attrs = [OVERLOADABLE] in {
                v16i8, v16u8, v16i16, v16u16,
                v32i8, v32u8, v32i16, v32u16,
                v64i8, v64u8, v64i16, v64u16] in {
-    def sub_group_broadcast_vec_cs : OclBuiltin<"intel_sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, u32gentype:$vec_mask), [], [], 1, 0>;
-    def sub_group_broadcast_assume_uniform_vec_cs : OclBuiltin<"intel_sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids, u32gentype:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_vec_cs : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, u32gentype:$vec_mask), [], [], 1, 0>;
+    def sub_group_broadcast_assume_uniform_vec_cs : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, u32gentype:$sub_group_local_ids, u32gentype:$vec_mask), [], [], 1, 0>;
     foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
       foreach op = ["add", "min", "max"] in {
         def sub_group_#func#_#op#_vec_cs : OclBuiltin<"intel_sub_group_"#func#_#op, (outs gentype:$ret), (ins gentype:$src, u32gentype:$vec_mask), [], [], 1, 0>;
@@ -370,11 +370,6 @@ foreach suffix = ["", "_avx", "_avx2", "_avx512", "_x32", "_x64"] in {
   def subgroup_shuffle_alias#suffix : AliasMap<[
     ["sub_group_shuffle"#suffix, "sub_group_shuffle"],
     ["sub_group_shuffle_xor"#suffix, "sub_group_shuffle_xor"]], types>;
-}
-
-foreach suffix = ["_cs", "_vec_cs", "_assume_uniform_vec_cs"] in {
-  def sub_group_broadcast_alias#suffix : AliasMap<
-    [["sub_group_broadcast"#suffix, "sub_group_non_uniform_broadcast", "sub_group_broadcast"]], []>;
 }
 
 foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {

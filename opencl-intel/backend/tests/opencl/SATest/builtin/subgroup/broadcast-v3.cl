@@ -6,4 +6,6 @@ broadcast(global int3 *out, const global int3 *in) {
   int sgid = get_sub_group_id();
 
   out[gid] = sub_group_broadcast(in[gid], sgid == 0 ? 0 : (SUB_GROUP_SIZE - 1));
+  out[gid] += (int3)intel_sub_group_broadcast(
+      (short)gid, sgid == 0 ? 0 : (SUB_GROUP_SIZE - 1));
 }

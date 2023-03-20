@@ -265,7 +265,9 @@ private:
 };
 
 } // namespace
-void SYCLEqualizerPass::setBlockLiteralSizeMetadata(Function &F) {
+
+// Set block-literal-size attribute for enqueued kernels.
+static void setBlockLiteralSizeMetadata(Function &F) {
   SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
   // Find all enqueue_kernel and kernel query calls.
   for (const auto &EEF : *(F.getParent())) {
@@ -312,7 +314,8 @@ void SYCLEqualizerPass::setBlockLiteralSizeMetadata(Function &F) {
   }
 }
 
-void SYCLEqualizerPass::formKernelsMetadata(Module &M) {
+// Add sycl_kernel attribute and set C calling conventions for kernels.
+static void formKernelsMetadata(Module &M) {
   assert(!M.getNamedMetadata("sycl.kernels") &&
          "Do not expect sycl.kernels Metadata");
 
@@ -342,32 +345,59 @@ void SYCLEqualizerPass::formKernelsMetadata(Module &M) {
   KernelList.set(Kernels);
 }
 
-bool SYCLEqualizerPass::runImpl(Module &M, BuiltinLibInfo *BLI) {
-  BuiltinModules = BLI->getBuiltinModules();
+// Rename builtin functions that may alias to other functions.
+// e.g. intel_sub_group_broadcast --> sub_group_broadcast
+static bool renameAliasingBuiltins(Module &M) {
+  const static std::unordered_map<std::string, std::string> TrivialMappings = {
+      {"sub_group_non_uniform_broadcast", "sub_group_broadcast"},
+      {"intel_sub_group_broadcast", "sub_group_broadcast"},
+  };
+
+  bool Changed = false;
+  for (auto &F : M) {
+    // Parse function name with StringRef operations directly.
+    // We don't use the demangle API intentionally as we don't need to know
+    // type infos here.
+    StringRef Name = F.getName();
+    if (!Name.consume_front("_Z"))
+      continue;
+    unsigned EncodedLen = 0;
+    if (Name.consumeInteger(10, EncodedLen))
+      continue;
+    StringRef RawName = Name.substr(0, EncodedLen);
+    auto It = TrivialMappings.find(RawName.str());
+    if (It == TrivialMappings.end())
+      continue;
+
+    LLVM_DEBUG(dbgs() << "Renaming function " << F.getName());
+    const std::string &Replacement = It->second;
+    F.setName(Twine("_Z") + Twine(Replacement.length()) + Twine(Replacement) +
+              Name.substr(EncodedLen));
+    LLVM_DEBUG(dbgs() << " as " << F.getName() << '\n');
+    Changed = true;
+  }
+
+  return Changed;
+}
+
+PreservedAnalyses SYCLEqualizerPass::run(Module &M, ModuleAnalysisManager &AM) {
+  bool Changed = false;
 
   // form kernel list in the module.
   formKernelsMetadata(M);
 
+  auto BuiltinModules =
+      AM.getResult<BuiltinLibInfoAnalysis>(M).getBuiltinModules();
   SmallPtrSet<Function *, 4> FuncDeclToRemove;
   MaterializeFunctionFunctor FuncMaterializer(BuiltinModules, FuncDeclToRemove);
-
   // Take care of calling conventions.
   std::for_each(M.begin(), M.end(), FuncMaterializer);
-
   // Remove unused declarations.
   for (auto *FDecl : FuncDeclToRemove)
     FDecl->eraseFromParent();
+  Changed |= FuncMaterializer.isChanged();
 
-  return FuncMaterializer.isChanged();
-}
+  Changed |= renameAliasingBuiltins(M);
 
-PreservedAnalyses SYCLEqualizerPass::run(Module &M,
-                                          ModuleAnalysisManager &AM) {
-  BuiltinLibInfo *BLI = &AM.getResult<BuiltinLibInfoAnalysis>(M);
-  if (!runImpl(M, BLI))
-    return PreservedAnalyses::all();
-  PreservedAnalyses PA;
-  PA.preserve<CallGraphAnalysis>();
-  PA.preserveSet<CFGAnalyses>();
-  return PA;
+  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

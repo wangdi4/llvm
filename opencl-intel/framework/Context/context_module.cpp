@@ -3319,12 +3319,10 @@ cl_int ContextModule::GetDeviceFunctionPointer(cl_device_id device,
   return error;
 }
 
-cl_int ContextModule::GetDeviceGlobalVariablePointer(cl_device_id device,
-                                                     cl_program program,
-                                                     const char *gv_name,
-                                                     size_t *gv_size_ret,
-                                                     void **gv_pointer_ret) {
-  if (nullptr == gv_name || nullptr == gv_pointer_ret)
+cl_int ContextModule::GetDeviceGlobalVariablePointer(
+    cl_device_id device, cl_program program, const char *gv_name,
+    size_t *gv_size_ret, void **gv_pointer_ret, cl_prog_gv *gv_ret) {
+  if (nullptr == gv_name || (nullptr == gv_pointer_ret && nullptr == gv_ret))
     return CL_INVALID_VALUE;
 
   SharedPtr<Program> pProgram =
@@ -3333,8 +3331,20 @@ cl_int ContextModule::GetDeviceGlobalVariablePointer(cl_device_id device,
   if (nullptr == pProgram.GetPtr())
     return CL_INVALID_PROGRAM;
 
-  return pProgram->GetDeviceGlobalVariablePointer(device, gv_name, gv_size_ret,
-                                                  gv_pointer_ret);
+  cl_prog_gv gv;
+  cl_int err = pProgram->GetDeviceGlobalVariablePointer(device, gv_name, &gv);
+  if (CL_FAILED(err))
+    return err;
+
+  if (gv_ret) {
+    *gv_ret = gv;
+    return CL_SUCCESS;
+  }
+
+  if (gv_size_ret)
+    *gv_size_ret = gv.size;
+  *gv_pointer_ret = gv.pointer;
+  return CL_SUCCESS;
 }
 
 //////////////////////////////////////////////////////////////////////////////

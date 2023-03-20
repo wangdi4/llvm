@@ -24,19 +24,7 @@ class SYCLEqualizerPass : public PassInfoMixin<SYCLEqualizerPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
-  // Glue for old PM.
-  bool runImpl(Module &M, BuiltinLibInfo *BLI);
-
   static bool isRequired() { return true; }
-
-private:
-  /// Set block-literal-size attribute for enqueued kernels.
-  void setBlockLiteralSizeMetadata(Function &F);
-
-  /// Add sycl_kernel attribute and set C calling conventions for kernels.
-  void formKernelsMetadata(Module &M);
-
-  ArrayRef<Module *> BuiltinModules;
 };
 
 } // namespace llvm

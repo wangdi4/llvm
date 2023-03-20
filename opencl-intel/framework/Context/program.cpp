@@ -121,8 +121,7 @@ cl_err_code Program::GetDeviceFunctionPointer(cl_device_id device,
 
 cl_err_code Program::GetDeviceGlobalVariablePointer(cl_device_id device,
                                                     const char *gv_name,
-                                                    size_t *gv_size_ret,
-                                                    void **gv_pointer_ret) {
+                                                    cl_prog_gv *gv_ret) {
   DeviceProgram *deviceProgram = InternalGetDeviceProgram(device);
   if (!deviceProgram)
     return CL_INVALID_DEVICE;
@@ -139,9 +138,8 @@ cl_err_code Program::GetDeviceGlobalVariablePointer(cl_device_id device,
   auto it = gvs.find(gv_name);
   if (it == gvs.end())
     return CL_INVALID_ARG_VALUE;
-  if (gv_size_ret)
-    *gv_size_ret = it->second.size;
-  *gv_pointer_ret = it->second.pointer;
+  if (gv_ret)
+    *gv_ret = it->second;
 
   return CL_SUCCESS;
 }
@@ -172,6 +170,9 @@ void Program::FreeUSMForGVPointers() {
     const std::map<std::string, cl_prog_gv> &gvs =
         deviceProgram->GetGlobalVariablePointers();
     for (const auto &gv : gvs) {
+      // Skip free usm for decoration name
+      if (gv.first == gv.second.deco_name)
+        continue;
       cl_int err = m_pContext->USMFree(gv.second.pointer);
       if (CL_FAILED(err))
         assert(false && "Fail to free USM for global variable pointer");
