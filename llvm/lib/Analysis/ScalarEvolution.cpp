@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -6601,6 +6601,14 @@ const SCEV *ScalarEvolution::createNodeForRedundantPHICycle(PHINode *PN) {
   return nullptr;
 }
 
+bool ScopedScalarEvolution::isInScope(const Instruction *Inst) const {
+  for (auto *OutermostLp : OutermostLps) {
+    if (OutermostLp->contains(Inst))
+      return true;
+  }
+
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
 #if INTEL_CUSTOMIZATION
@@ -6621,14 +6629,19 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
   if (const SCEV *S = createNodeFromSelectLikePHI(PN))
     return S;
 
-  if (Value *V = simplifyInstruction(PN, {getDataLayout(), &TLI, &DT, &AC}))
 #if INTEL_CUSTOMIZATION
+  if (Value *V = simplifyInstruction(PN, {getDataLayout(), &TLI, &DT, &AC})) {
     // HIR depends on ScalarEvolution preserving LCSSA form as it allows us to
-    // from 'independantly optimizable' regions. This logic has been removed in
-    // the community so reverting it for ScopedScalarEvolution(HIR).
-    if (!isa<ScopedScalarEvolution>(this) ||
+    // from 'independantly optimizable' regions. We can only allow traceback for
+    // phis-
+    // 1) If the phi is inside the region being parsed (in scope), Or
+    // 2) If replacing PN with V preserves LCSSA form.
+    auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this);
+
+    if (!ScopedSE || ScopedSE->isInScope(PN) ||
         LI.replacementPreservesLCSSAForm(PN, V))
       return getSCEV(V);
+  }
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

@@ -3,48 +3,42 @@
 
 ; HIR:
 ; BEGIN REGION { }
-;     + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
-;     |   %0 = (%a)[i1];
-;     |   if (%0 != 0)
-;     |   {
-;     |      + DO i2 = 0, 99, 1   <DO_MULTI_EXIT_LOOP>
-;     |      |   %j.023.out = i2;
-;     |      |   %j.023.lcssa = %j.023.out;
-;     |      |   if (%n == 5)
-;     |      |   {
-;     |      |      goto for.inc10.loopexit;
-;     |      |   }
-;     |      |   %j.023.lcssa = %j.023.out;
-;     |      + END LOOP
-;     |
-;     |      for.inc10.loopexit:
-;     |      (%b)[i1] = i1 + %j.023.lcssa;
-;     |   }
-;     + END LOOP
+; + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; |   %0 = (%a)[i1];
+; |   if (%0 != 0)
+; |   {
+; |      + DO i2 = 0, 99, 1   <DO_MULTI_EXIT_LOOP>
+; |      |   %j.023.out = i2;
+; |      |   if (%n == 5)
+; |      |   {
+; |      |      goto for.inc10.loopexit;
+; |      |   }
+; |      + END LOOP
+; |
+; |      for.inc10.loopexit:
+; |      (%b)[i1] = i1 + %j.023.out;
+; |   }
+; + END LOOP
 ;  END REGION
 
 ; CHECK:   BEGIN REGION { modified }
-; CHECK:        + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
-; CHECK:        |   %0 = (%a)[i1];
-; CHECK:        |   if (%0 != 0)
-; CHECK:        |   {
-; CHECK:        |      if (%n == 5)
-; CHECK:        |      {
-; CHECK:        |         %j.023.out = 0;
-; CHECK:        |         %j.023.lcssa = %j.023.out;
-; CHECK:        |      }
-; CHECK:        |      else
-; CHECK:        |      {
-; CHECK:        |         + DO i2 = 0, 99, 1   <DO_LOOP>
-;               |         |                    ^ Should be regular do loop
-; CHECK:        |         |   %j.023.out = i2;
-; CHECK:        |         |   %j.023.lcssa = %j.023.out;
-; CHECK:        |         |   %j.023.lcssa = %j.023.out;
-; CHECK:        |         + END LOOP
-; CHECK:        |      }
-; CHECK:        |      (%b)[i1] = i1 + %j.023.lcssa;
-; CHECK:        |   }
-; CHECK:        + END LOOP
+; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK: |   %0 = (%a)[i1];
+; CHECK: |   if (%0 != 0)
+; CHECK: |   {
+; CHECK: |      if (%n == 5)
+; CHECK: |      {
+; CHECK: |         %j.023.out = 0;
+; CHECK: |      }
+; CHECK: |      else
+; CHECK: |      {
+; CHECK: |         + DO i2 = 0, 99, 1   <DO_LOOP>
+; CHECK: |         |   %j.023.out = i2;
+; CHECK: |         + END LOOP
+; CHECK: |      }
+; CHECK: |      (%b)[i1] = i1 + %j.023.out;
+; CHECK: |   }
+; CHECK: + END LOOP
 ; CHECK:   END REGION
 
 ;Module Before HIR; ModuleID = 'multiexit-update-non-candidate.c'

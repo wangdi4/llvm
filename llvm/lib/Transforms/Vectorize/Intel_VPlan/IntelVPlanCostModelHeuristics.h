@@ -18,6 +18,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODELHEURISTICS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODELHEURISTICS_H
 
+#include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 
 #if INTEL_FEATURE_SW_ADVANCED
@@ -30,6 +31,7 @@ namespace vpo {
 class VPlanTTICostModel;
 
 namespace VPlanCostModelHeuristics {
+
 // The base class to inherit from the Cost Model heuristics that we apply on
 // whole VPlan.
 class HeuristicBase {
@@ -42,6 +44,7 @@ protected:
   // Some utility stuff that is referenced within heuristics quite frequently.
   const VPlanVector *Plan;
   unsigned VF;
+  unsigned UF;
   HeuristicBase(VPlanTTICostModel *CM, std::string Name);
 
 public:
@@ -79,6 +82,55 @@ public:
   // VPInstruction cost calculation only.
   // The default implementation do nothing.
   void initForVPlan() {}
+};
+
+// Analyzes the PHIs in a header block, classifying them as an induction, 
+// partial sum candidate reduction, or 'other'. 
+// A partial sum candidate reduction is expected to be parallelized
+// during unrolling.
+class RecurrenceAnalysis {
+public:
+  enum RecKind {
+    NotRecurrent = 0,
+    Induction,
+    PartialSumReduction,
+    Other,
+    NumKinds
+  };
+
+  // Map from PHI nodes to their recurrence kind and associated cost.
+  using RecInfo = std::pair<RecKind, VPInstructionCost>;
+  using RecMap = MapVector<const VPPHINode *, RecInfo>;
+
+protected:
+  RecMap RecurrenceInfo;
+
+  // Set to indicate analysis has been computed for the given plan.  
+  const VPlanVector *AnalyzedPlan = nullptr;
+
+public:
+  RecurrenceAnalysis() = default;
+
+  // Clear any existing recurrence info and perform
+  // analysis of the given VPlanVector.
+  void analyze(VPlanTTICostModel *CM, const VPlanVector &Plan);
+
+  RecKind getRecurrenceKind(const VPPHINode *Phi) const {
+    auto I = RecurrenceInfo.find(Phi);
+    if (I == RecurrenceInfo.end())
+      return RecKind::NotRecurrent;
+    return I->second.first;
+  }
+
+  VPInstructionCost getRecurrenceCost(const VPPHINode *Phi) const {
+    auto I = RecurrenceInfo.find(Phi);
+    if (I == RecurrenceInfo.end())
+      return VPInstructionCost();
+    return I->second.second;
+  }
+
+  // Provide const access to the map for access to size(), empty() etc.
+  const RecMap &getRecurrences() const { return RecurrenceInfo; }
 };
 
 // Heurstic that calculates the cost of VPlan vectorization when VPlan
@@ -278,6 +330,16 @@ public:
   HeuristicOVLSMember(VPlanTTICostModel *CM) : HeuristicBase(CM, "OVLS") {};
   void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
              const VPInstruction *VPInst, raw_ostream *OS = nullptr) const;
+};
+
+// Heuristic that models benefits or penalties of unrolling at the
+// VPlan scope by adjusting the cost before the final scaling by UF
+// performed in the containing cost model.
+class HeuristicUnroll : public HeuristicBase {
+public:
+  HeuristicUnroll(VPlanTTICostModel *CM) : HeuristicBase(CM, "Unroll") {}
+  void apply(const VPInstructionCost &TTICost, VPInstructionCost &Cost,
+             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
 };
 
 } // namespace VPlanCostModelHeuristics

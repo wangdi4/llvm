@@ -1770,12 +1770,14 @@ private:
   ScheduleClause DistSchedule;
   int Collapse;
   WRNLoopInfo WRNLI;
+  WRNLoopOrderKind LoopOrder;
 
 public:
   WRNDistributeNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
   void setCollapse(int N) override  { Collapse = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,         Priv)
@@ -1787,6 +1789,7 @@ public:
 
   int getCollapse() const override  { return Collapse; }
   int getOmpLoopDepth() const override { return Collapse > 0 ? Collapse : 1; }
+  WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;
