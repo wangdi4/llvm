@@ -13,12 +13,6 @@
 include "ssse3/code_relational.td"
 //==============================================================
 
-OclBuiltinImpl isfinite_promote       =  OclBuiltinImpl  <isfinite,  [v2f32, v3f32],                                            0, Promote1>;
-
-OclBuiltinImpl isinf_promotef2        =  OclBuiltinImpl  <isinf,  [v2f32, v3f32],                                               0, Promote1>;
-
-OclBuiltinImpl isnormal_promote       =  OclBuiltinImpl  <isnormal,  [v2f32, v3f32],                                            0, Promote1>;
-
 OclBuiltinImpl any_expand1           =  OclBuiltinImpl  <any,  [v3i8, v3i16],                                              0,Expand_any_3i8_3i16 >;
 OclBuiltinImpl any_expand2           =  OclBuiltinImpl  <any,  [v2i8, v16i16, v16i32, v2i16, v8i64, v8i64],  0, Expand_any>;
 OclBuiltinImpl any_expand3           =  OclBuiltinImpl  <any,  [v4i8],                                                     0, Expand_any_all_char4 >;
@@ -66,77 +60,6 @@ OclBuiltinImpl all_3i16 = OclBuiltinImpl  <all,  [v3i16], 0, [{
     return res1 && res2 && res3;
   }]>;
 
-
-
-
- 
-
-
-
-//======scalar implementation===============================
-OclBuiltinImpl isfinite_scalarf = OclBuiltinImpl<isfinite, [v1f32], 0, [{
-    $Arg0igentype fX = as_$Arg0igentype($Arg0VarName);
-    fX = (fX & abs_inf);
-    float res = as_float(fX);
-    if (res < INFINITY)
-    {
-      return 1;
-    }
-    return 0;
-  }]>;
-
-OclBuiltinImpl isfinite_scalard = OclBuiltinImpl<isfinite, [v1f64], 0, [{
-    long xAsLong = *((long*)&$Arg0VarName);
-    if( ( xAsLong & dnan_min ) != dnan_min )
-    {
-      return 1;
-    }
-    return 0;
-  }]>;
-
-OclBuiltinImpl isinf_scalarf = OclBuiltinImpl<isinf, [v1f32], 0, [{
-    $Arg0igentype fX = as_$Arg0igentype($Arg0VarName);
-    fX = (fX & abs_inf);
-    float res = as_float(fX);
-    if (INFINITY == res)
-    {
-      return 1;
-    }
-    return 0;
-  }]>;
-
-OclBuiltinImpl isinf_scalard = OclBuiltinImpl<isinf, [v1f64], 0, [{
-    long xAsLong = *((long*)&$Arg0VarName);
-    if( ( xAsLong & dnan_max ) == dnan_min )
-    {
-      return 1;
-    }
-    return 0;
-  }]>;
-
-
-
-OclBuiltinImpl isnormal_scalarf = OclBuiltinImpl<isnormal, [v1f32], 0, [{
-    int iAsIntAbs = (*(int*)&$Arg0VarName) & abs_inf;
-    $Arg0Type fAbs = *(($Arg0Type*)&iAsIntAbs);
-    if ((fAbs < INFINITY) && (fAbs >= FLT_MIN))
-    {
-      return 1;
-    }
-    return 0;
-  }]>;
-
-OclBuiltinImpl isnormal_scalard = OclBuiltinImpl<isnormal, [v1f64], 0, [{
-    long iAsLong = *((long*)&$Arg0VarName);
-    bool NaNorINF = ( iAsLong & dexp_mask ) == dexp_mask;                  //NaN or INF
-    bool denom = ( iAsLong & dexp_mask ) == 0;  //denom
-    if( NaNorINF || denom )
-    {
-      return 0;
-    }
-    return 1;
-  }]>;
-
 OclBuiltinImpl any__scalar8 = OclBuiltinImpl<any, [v1i8], 0, any_all_scalar8>;
 
 OclBuiltinImpl any__scalar16 = OclBuiltinImpl<any, [v1i16], 0, any_all_scalar16>;
@@ -152,17 +75,6 @@ OclBuiltinImpl all__scalar16 = OclBuiltinImpl<all, [v1i16], 0, any_all_scalar16>
 OclBuiltinImpl all__scalar32 = OclBuiltinImpl<all, [v1i32], 0, any_all_scalar32>;
 
 OclBuiltinImpl all__scalar64 = OclBuiltinImpl<all, [v1i64], 0, any_all_scalar64>;
-
-//======v4f32 and v2f64 implementation===============================
-
-OclBuiltinImpl isfinite_v4f32 = OclBuiltinImpl<isfinite, [v4f32, v8f32, v16f32], 0, isfinite_f32_code>;
-OclBuiltinImpl isfinite_v2f64 = OclBuiltinImpl<isfinite, [v2f64, v4f64, v8f64, v16f64], 0, isfinite_f64_code>;
-
-OclBuiltinImpl isinf_v4f32 = OclBuiltinImpl<isinf, [v4f32, v8f32, v16f32], 0, isinf_f32_code>;
-OclBuiltinImpl isinf_v2f64 = OclBuiltinImpl<isinf, [v2f64, v4f64, v8f64, v16f64], 0, isinf_f64_code>;
-
-OclBuiltinImpl isnormal_v4f32 = OclBuiltinImpl<isnormal, [v4f32, v8f32, v16f32], 0, isnormal_f32_code>;
-OclBuiltinImpl isnormal_v2f64 = OclBuiltinImpl<isnormal, [v2f64, v4f64, v8f64, v16f64], 0, isnormal_f64_code>;
 
 //======v8i16 and v16i8 implementation===============================
 
