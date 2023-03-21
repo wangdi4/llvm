@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -bugpoint-enable-legacy-pm -hir-framework -hir-framework-debug=parser 2>&1 -hir-details | FileCheck %s
+=======
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser 2>&1 -hir-details | FileCheck %s
+>>>>>>> a687de8a3616b80c1da002faffab7b5a9e4d1d25
 
 ; for(i=-5; i<n; ++i) {
 ;   A[i+5] = i;
@@ -7,7 +11,6 @@
 ; Check that parser does not set NSW for this loop as the normalized IV can overflow signed range.
 ; CHECK: HasSignedIV: No
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck --check-prefix=CG %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck --check-prefix=CG %s
 
 ; Check that CG generatres nuw only IV for this loop

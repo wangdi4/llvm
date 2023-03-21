@@ -1,4 +1,4 @@
-; Check that proper optreport (structure and metadata) is emitted for loop unswitching with HIR passes.
+; Check the loop opt reports are printed with vectorization and complete unroll along with simplify CFG in presence of sibling loops.
 
 ;void foo(int *restrict A, int *restrict B, int *restrict C, int *restrict D, int *G, int N) {
 ;
@@ -14,6 +14,7 @@
 ;  return;
 ;}
 
+<<<<<<< HEAD:llvm/test/Transforms/Intel_LoopTransforms/HIROptReport/loop-unswitch.ll
 ; Check the proper optreport for loop unswitching using metadata.
 ; RUN: opt -bugpoint-enable-legacy-pm -loop-unswitch -intel-opt-report=low < %s -S | FileCheck %s
 
@@ -46,6 +47,11 @@
 ; TODO: There is still a small issue where the merged CFG-based HIR causes
 ; the opt report layout to mismatch slightly with the loop layout.
 ; RUN: opt -bugpoint-enable-legacy-pm -loop-unswitch -intel-opt-report=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=MERGED-CFG-HIR --strict-whitespace
+=======
+; TODO: There is still a small issue where the merged CFG-based HIR causes
+; the opt report layout to mismatch slightly with the loop layout.
+; RUN: opt -intel-opt-report=low -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s -check-prefix=MERGED-CFG-HIR --strict-whitespace
+>>>>>>> a687de8a3616b80c1da002faffab7b5a9e4d1d25:llvm/test/Transforms/Intel_LoopTransforms/HIROptReport/sibling-loop-complete-unroll-vectorization.ll
 
 ; MERGED-CFG-HIR:      LOOP BEGIN
 ; MERGED-CFG-HIR:          LOOP BEGIN

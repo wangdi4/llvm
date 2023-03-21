@@ -12,7 +12,10 @@
 ;  }
 ;
 ; REQUIRES: asserts
+<<<<<<< HEAD
 ; RUN: opt < %s  -bugpoint-enable-legacy-pm -hir-ssa-deconstruction   -hir-temp-cleanup  -analyze -hir-safe-reduction-analysis -hir-opt-var-predicate  -print-after=hir-opt-var-predicate | FileCheck %s
+=======
+>>>>>>> a687de8a3616b80c1da002faffab7b5a9e4d1d25
 ; RUN: opt < %s  -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>,hir-opt-var-predicate,print<hir>"  2>&1 -disable-output | FileCheck %s
 ;
 ; CHECK: <Safe Reduction>
