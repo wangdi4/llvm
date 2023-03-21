@@ -1555,7 +1555,8 @@ std::string OclBuiltinDB::rewritePattern(
           val = "LONG_MIN";
         } else if (baseType == "ulong") {
           val = "0";
-        } else if (baseType == "float" || baseType == "double") {
+        } else if (baseType == "half" || baseType == "float" ||
+                   baseType == "double") {
           val = "(-INFINITY)";
         } else {
           llvm_unreachable("Unexpected base type!");
@@ -1578,7 +1579,8 @@ std::string OclBuiltinDB::rewritePattern(
           val = "LONG_MAX";
         } else if (baseType == "ulong") {
           val = "ULONG_MAX";
-        } else if (baseType == "float" || baseType == "double") {
+        } else if (baseType == "half" || baseType == "float" ||
+                   baseType == "double") {
           val = "INFINITY";
         } else {
           llvm_unreachable("Unexpected base type!");
