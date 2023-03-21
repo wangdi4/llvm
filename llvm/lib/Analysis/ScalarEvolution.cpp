@@ -4765,6 +4765,18 @@ const SCEV *ScalarEvolution::getExistingSCEV(Value *V) {
 }
 
 #if INTEL_CUSTOMIZATION
+bool ScalarEvolution::containsLoopAddRecurrence(const SCEV *SC,
+                                                const Loop *Lp) const {
+  assert(Lp && "Loop cannot be null!");
+
+  bool ContainsAddRec = SCEVExprContains(SC, [&](const SCEV *Expr) {
+    auto *AddRec = dyn_cast<SCEVAddRecExpr>(Expr);
+    return (AddRec && AddRec->getLoop() == Lp);
+  });
+
+  return ContainsAddRec;
+}
+
 bool ScalarEvolution::isLoopZtt(const Loop *Lp, const BranchInst *ZttInst,
                                 bool Inverse) {
 

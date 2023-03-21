@@ -903,10 +903,24 @@ const SCEV *HIRParser::BlobProcessor::getSubstituteSCEV(const SCEV *SC) {
     return nullptr;
   }
 
-  // Avoid substitution of AddRec operand into Unknown loop bottom test.
-  if (HIRP->ScopedSE.containsAddRecurrence(SC) &&
-      isa<HLIf>(HIRP->getCurNode()) &&
-      cast<HLIf>(HIRP->getCurNode())->isUnknownLoopBottomTest()) {
+  // Avoid reverse engineering unknown loop's AddRec at the bottom test because
+  // the underlying value would be redefined at the end of the loop body just
+  // before the bottom test causing live range violation. For example-
+  //  %iv = 0
+  // UNKNOWN i1
+  //   L:
+  //    ...
+  //    %iv = i1 + 1; // %iv phi was deconstructed and livein copy inserted at
+  //    the end of loop
+  //   if (%iv < %n) { // this occurence of %iv causes live-range violation
+  //     goto L:
+  //   }
+  // END
+  auto *CurIf = dyn_cast<HLIf>(HIRP->getCurNode());
+
+  if (CurIf && CurIf->isUnknownLoopBottomTest() &&
+      HIRP->ScopedSE.containsLoopAddRecurrence(
+          SC, CurIf->getParentLoop()->getLLVMLoop())) {
     return nullptr;
   }
 
