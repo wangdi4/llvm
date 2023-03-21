@@ -121,6 +121,8 @@ private:
   /// detailed documentation.
   Type *GroupGranularityType;
   unsigned GroupSizeInGranularityElements;
+  int GroupStrideInGranularityElements;
+
   // Includes the spacing at the end for non-power-of two sizes.
   FixedVectorType *GroupTy;
 };
@@ -131,7 +133,7 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
       DA(*Plan.getVPlanDA()), VF(VF), InsertPointMemref(nullptr),
       InsertPointInst(nullptr), FirstMemrefInst(nullptr),
       GroupGranularityType(nullptr), GroupSizeInGranularityElements(0),
-      GroupTy(nullptr) {
+      GroupStrideInGranularityElements(0), GroupTy(nullptr) {
   if (Group->size() <= 1) {
     FailureReason = "Group doesn't contain enough elments (at least 2).";
     return;
@@ -150,7 +152,8 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
       return;
     }
   }
-  if (std::abs(*GroupStride) > 64) {
+  unsigned long AbsStride = std::abs(*GroupStride);
+  if (AbsStride > 64) {
     // TODO: Don't skip in LLVM IR case?
     FailureReason = "HIR only supports up to 64 bits in mask, skipping.";
     return;
@@ -170,8 +173,12 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
       const_cast<VPLoadStoreInst *>(instruction(Group->getFirstMemref()));
 
   APInt AccessMask = Group->computeByteAccessMask();
+<<<<<<< HEAD
   if (!AccessMask.isAllOnes() ||
       AccessMask.getBitWidth() != std::abs(*GroupStride)) {
+=======
+  if (!AccessMask.isAllOnesValue() || AccessMask.getBitWidth() != AbsStride) {
+>>>>>>> f1661efd5377cc9ffb118578c68d3d713f896ad7
     FailureReason =
         "Failing to transform OVLSGroup: groups with gaps are not supported.";
     return;
@@ -205,6 +212,12 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
   // Initialize whole group specific properties.
   std::tie(GroupGranularityType, GroupSizeInGranularityElements) =
       getGroupGranularity();
+
+  GroupStrideInGranularityElements =
+      (*GroupStride * 8) / DL.getTypeSizeInBits(GroupGranularityType);
+  assert((unsigned)(std::abs(GroupStrideInGranularityElements)) ==
+             GroupSizeInGranularityElements &&
+         "Expected matching group stride and size");
   GroupTy = cast<FixedVectorType>(getWidenedType(
       GroupGranularityType,
       VF * llvm::NextPowerOf2(GroupSizeInGranularityElements - 1)));
@@ -305,10 +318,11 @@ std::pair<Type *, int> VLSTransform::getGroupGranularity() {
                                       DL.getTypeSizeInBits(Result));
     }
 
-  int GroupSize = DL.getTypeSizeInBits(SomeLoadType) * Group->size() /
-                  DL.getTypeSizeInBits(Result);
+  int GroupSizeInGranularityElements = DL.getTypeSizeInBits(SomeLoadType) *
+                                       Group->size() /
+                                       DL.getTypeSizeInBits(Result);
 
-  return {Result, GroupSize};
+  return {Result, GroupSizeInGranularityElements};
 }
 
 VPValue *VLSTransform::createCast(VPBuilder &Builder, VPValue *From,
@@ -412,7 +426,8 @@ void VLSTransform::processLoadGroup(DenseSet<VPInstruction *> &InstsToRemove) {
   // address of non-gap element in case of gap presence).
   auto *WideLoad = Builder.create<VPVLSLoad>(
       "vls.load", LeaderAddress, GroupTy, GroupSizeInGranularityElements,
-      FirstMemrefInst->getAlignment(), Group->size());
+      GroupStrideInGranularityElements, FirstMemrefInst->getAlignment(),
+      Group->size());
   DA.markUniform(*WideLoad);
   setMemOpProperties(WideLoad);
 
@@ -423,7 +438,8 @@ void VLSTransform::processLoadGroup(DenseSet<VPInstruction *> &InstsToRemove) {
     auto ExtractTy = getExtractInsertEltType(OrigLoad->getType());
     auto *Extract = Builder.create<VPVLSExtract>(
         OrigLoad->getName(), ReverseAdjusted, ExtractTy,
-        GroupSizeInGranularityElements, getExtractInsertEltOffset(Memref));
+        GroupSizeInGranularityElements, GroupStrideInGranularityElements,
+        getExtractInsertEltOffset(Memref));
     auto *ExtractCast =
         cast<VPInstruction>(createCast(Builder, Extract, OrigLoad->getType()));
     ExtractCast->setDebugLocation(OrigLoad->getDebugLocation());
@@ -447,9 +463,9 @@ void VLSTransform::processStoreGroup(DenseSet<VPInstruction *> &InstsToRemove) {
     VPValue *V = Store->getOperand(0);
     Type *InsertTy = getExtractInsertEltType(V->getType());
     auto *Casted = createCast(Builder, V, InsertTy);
-    WideValue = Builder.create<VPVLSInsert>("vls.insert", WideValue, Casted,
-                                            GroupSizeInGranularityElements,
-                                            getExtractInsertEltOffset(Memref));
+    WideValue = Builder.create<VPVLSInsert>(
+        "vls.insert", WideValue, Casted, GroupSizeInGranularityElements,
+        GroupStrideInGranularityElements, getExtractInsertEltOffset(Memref));
     DA.markUniform(*WideValue);
   }
 
@@ -461,7 +477,8 @@ void VLSTransform::processStoreGroup(DenseSet<VPInstruction *> &InstsToRemove) {
   BaseAddr = adjustBasePtrForReverse(BaseAddr, Builder);
   auto *WideStore = Builder.create<VPVLSStore>(
       "vls.store", WideValue, BaseAddr, GroupSizeInGranularityElements,
-      FirstMemrefInst->getAlignment(), Group->size());
+      GroupStrideInGranularityElements, FirstMemrefInst->getAlignment(),
+      Group->size());
   setMemOpProperties(WideStore);
 }
 
