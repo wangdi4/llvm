@@ -48,6 +48,7 @@
 // INTEL_CUSTOMIZATION
 #include <string>
 // end INTEL_CUSTOMIZATION
+#include <type_traits>
 #include <utility>
 
 DEMANGLE_NAMESPACE_BEGIN
