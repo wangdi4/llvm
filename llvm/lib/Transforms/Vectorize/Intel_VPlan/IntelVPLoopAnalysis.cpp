@@ -942,10 +942,14 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
   // Process each inscan reduction one by one.
   VPBuilder::InsertPointGuard Guard(Builder);
   for (const VPReduction *Red : InscanReductions) {
-    if (isa<VPInscanReduction>(Red))
-      processRunningInscanReduction(cast<VPInscanReduction>(Red), FenceBlock,
-                                    Builder);
-    else if (isa<VPUserDefinedScanReduction>(Red))
+    if (isa<VPInscanReduction>(Red)) {
+      if (Red->getRecurrenceType()->isArrayTy())
+       processRunningInscanArrReduction(cast<VPInscanReduction>(Red),
+                                        FenceBlock, Builder);
+      else
+       processRunningInscanReduction(cast<VPInscanReduction>(Red), FenceBlock,
+                                     Builder);
+    } else if (isa<VPUserDefinedScanReduction>(Red))
       processRunningUDS(cast<VPUserDefinedScanReduction>(Red), FenceBlock,
                         Builder);
     else
@@ -1075,6 +1079,194 @@ void VPLoopEntityList::processRunningInscanReduction(
   // Initialize the accumulator with the last lane of running
   // reduction for the next iteration.
   InscanAccumPhi->addIncoming(CarryOver, Loop.getLoopLatch());
+}
+
+// Handles array inscan reduction variable by emitting a loop to iterate over
+// each element of the array and inserting corresponding running reduction
+// sequence for them. Accumulator (or carry-over) values are tracked in-memory
+// by reusing original scalar array. Effectively it mimics processing of scalar
+// inscan reductions (check processRunningInscanReduction) but repeated for each
+// element of array being reduced upon. Pseudo VPlan IR looks like -
+//
+// Original array: [3 x i32]* %arr.red
+//
+// Preheader:
+//   ptr %vp.arr.red = allocate-priv ptr
+//   br Header
+//
+// Header:
+//   i64 %vp.iv = phi ...
+//   reduction-init-arr i32 0 ptr %vp.arr.red
+//   ...
+//
+// Prescan:
+//   ...
+//
+// RunningRednLoop:
+//   i64 %arr.idx = phi [ i64 0, Prescan ], [ i64 %arr.idx.next, RunningRedn ]
+//   ptr %cur.idx.ptrs = gep [3 x i32] ptr %vp.arr.red i64 0 i64 %arr.idx
+//   i32 %arr.idx.vals = load ptr %cur.idx.ptrs
+//   ptr %cur.idx.accum.ptr = gep [3 x i32] ptr %arr.red i64 0 i64 %arr.idx
+//   i32 %cur.idx.accum = load ptr %cur.idx.accum.ptr
+//   i32 %vp.scan = running-{in|ex}clusive-reduction{add} i32 %arr.idx.vals
+//                                                        i32 %cur.idx.accum
+//                                                        i32 0
+//   store i32 %vp.scan ptr %cur.idx.ptrs
+//
+//   ; For inclusive scan
+//   %accum.next = extract-last-vector-lane i32 %vp.scan
+//   ; For exclusive scan, we need last lane of input to reduce with last lane
+//   of running reduction.
+//   ; %input.last = extract-last-vector-lane i32 %cur.idx.vals
+//   ; %redn.last = extract-last-vector-lane i32 %vp.scan
+//   ; %accum.next = add i32 %input.last, %redn.last
+//
+//   store i32 %accum.next ptr %cur.idx.accum.ptr
+//   i64 %arr.idx.next = add %arr.idx, 1
+//   %running.done = icmp eq i64 %arr.idx.next, 3
+//   br i1 %running.done label PostScan label RunningRednLoop
+//
+// PostScan:
+//   ...
+//
+// Since everything is done in memory, this reduction does not need any
+// initialization/finalization instructions.
+void VPLoopEntityList::processRunningInscanArrReduction(
+    const VPInscanReduction *ArrInscanRedConst, VPBasicBlock *FenceBlock,
+    VPBuilder &Builder) {
+  VPInscanReduction *ArrInscanRed =
+      const_cast<VPInscanReduction *>(ArrInscanRedConst);
+  auto *ArrTy = cast<ArrayType>(ArrInscanRed->getRecurrenceType());
+  Type *ElemTy = ArrTy->getElementType();
+  unsigned NumElems = ArrTy->getNumElements();
+
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
+
+  VPBasicBlock *Preheader = Loop.getLoopPreheader();
+  Builder.setInsertPoint(Preheader);
+  Builder.setCurrentDebugLocation(
+      Preheader->getTerminator()->getDebugLocation());
+
+  VPValue *OrigArr = nullptr;
+  VPAllocatePrivate *PrivateMem =
+      createPrivateMemory(*ArrInscanRed, Builder, OrigArr, Preheader);
+  assert(PrivateMem && "Private memory expected for array inscan reduction.");
+
+  // Add memory aliases (if any) collected for this array inscan reduction.
+  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  insertEntityMemoryAliases(ArrInscanRed, Preheader, AddedAliasInstrs, Builder);
+
+  // Replace all uses of original array with private memory.
+  OrigArr->replaceAllUsesWithInBlock(PrivateMem, *Preheader);
+  OrigArr->replaceAllUsesWithInLoop(PrivateMem, Loop);
+
+  // Initialize the private array with constant identity value in loop header.
+  Constant *ConstId = VPReduction::getConstRecurrenceIdentity(
+      ArrInscanRed->getRecurrenceKind(), ElemTy,
+      ArrInscanRed->getFastMathFlags());
+  auto *Identity = Plan.getVPConstant(ConstId);
+
+  VPBasicBlock *Header = Loop.getHeader();
+  Builder.setInsertPointFirstNonPhi(Header);
+  Builder.setCurrentDebugLocation(Header->getTerminator()->getDebugLocation());
+  Builder.createNaryOp(VPInstruction::ReductionInitArr,
+                       Type::getVoidTy(*Plan.getLLVMContext()),
+                       {Identity, PrivateMem});
+
+  // Create running reduction loop iterating over each element in the array.
+
+  assert((FenceBlock->getSinglePredecessor() &&
+          FenceBlock->getSingleSuccessor()) &&
+         "Fence BB in scan region is expected to have single predecessor and "
+         "successor.");
+  assert(FenceBlock->size() == 1 &&
+         "Fence BB expected to have only terminator instruction.");
+
+  VPLoopInfo *VPLI = Plan.getVPLoopInfo();
+  VPLoop *ArrRednLoop = VPLI->AllocateLoop();
+  Loop.addChildLoop(ArrRednLoop);
+  VPLI->changeLoopFor(FenceBlock, ArrRednLoop);
+  ArrRednLoop->addBlockEntry(FenceBlock);
+
+  // Set insertion point to the fence block.
+  Builder.setInsertPoint(FenceBlock);
+  Builder.setCurrentDebugLocation(
+      FenceBlock->getTerminator()->getDebugLocation());
+
+  Type *I64Ty = Type::getInt64Ty(*Plan.getLLVMContext());
+  auto *ZeroConst = Plan.getVPConstant(ConstantInt::get(I64Ty, 0));
+
+  auto *ArrIdxPhi = Builder.createPhiInstruction(I64Ty, "scan.arr.idx");
+  ArrIdxPhi->addIncoming(ZeroConst, FenceBlock->getSinglePredecessor());
+  // Generate GEP to obtain pointer for current input element in array.
+  auto *CurIdxInputPtr =
+      Builder.createGEP(ArrTy /*SrcElemTy*/, ElemTy /*ResElemTy*/, PrivateMem,
+                        {ZeroConst, ArrIdxPhi}, nullptr /*Underlying*/);
+  CurIdxInputPtr->setName("scan.arr.ip.ptr");
+  // Load the input element.
+  auto *CurIdxInput = Builder.createLoad(ElemTy, CurIdxInputPtr,
+                                         nullptr /*Underlying*/, "scan.arr.ip");
+  // Generate GEP to obtain pointer for current accumulator element. Note that
+  // we re-use original array reduction variable for this.
+  auto *CurIdxAccumPtr =
+      Builder.createGEP(ArrTy /*SrcElemTy*/, ElemTy /*ResElemTy*/, OrigArr,
+                        {ZeroConst, ArrIdxPhi}, nullptr /*Underlying*/);
+  CurIdxAccumPtr->setName("scan.arr.accum.ptr");
+  // Load the accumulator element.
+  auto *CurIdxAccum = Builder.createLoad(
+      ElemTy, CurIdxAccumPtr, nullptr /*Underlying*/, "scan.arr.accum");
+
+  // Issue the running reduction instruction based on the inscan kind.
+  unsigned BinOpcode = ArrInscanRed->getReductionOpcode();
+  bool IsInclusive =
+      (ArrInscanRed->getInscanKind() == InscanReductionKind::Inclusive);
+  VPInstruction *RunningReduction =
+      IsInclusive
+          ? Builder.create<VPRunningInclusiveReduction>(
+                "arr.scan.incl", BinOpcode, CurIdxInput, CurIdxAccum, Identity)
+          : Builder.create<VPRunningExclusiveReduction>(
+                "arr.scan.excl", BinOpcode, CurIdxInput, CurIdxAccum, Identity);
+  // Attach FastMathFlags to running reduction.
+  FastMathFlags FMF = ArrInscanRed->getFastMathFlags();
+  if (FMF.any())
+    RunningReduction->setFastMathFlags(FMF);
+  Builder.createStore(RunningReduction, CurIdxInputPtr);
+
+  // Extract last lane to update accumulator.
+  auto *CarryOver =
+      Builder.createNaryOp(VPInstruction::ExtractLastVectorLane,
+                           RunningReduction->getType(), {RunningReduction});
+  // If we deal with exclusive scan reduction, reduce carry-over with the last
+  // lane of reduction.
+  if (!IsInclusive) {
+    auto *RedInputLastLane =
+        Builder.createNaryOp(VPInstruction::ExtractLastVectorLane,
+                             CurIdxInput->getType(), {CurIdxInput});
+    CarryOver =
+        Builder.createNaryOp(BinOpcode, ElemTy, {CarryOver, RedInputLastLane});
+    if (FMF.any())
+      CarryOver->setFastMathFlags(FMF);
+  }
+
+  // Update current accumulator element for next iteration.
+  Builder.createStore(CarryOver, CurIdxAccumPtr);
+
+  // Increment array loop IV and update the PHI.
+  auto *OneConst = Plan.getVPConstant(ConstantInt::get(I64Ty, 1));
+  auto *NumElemsConst = Plan.getVPConstant(ConstantInt::get(I64Ty, NumElems));
+  auto *ArrIdxNext = Builder.createAdd(ArrIdxPhi, OneConst, "scan.arr.idx.nxt");
+  ArrIdxPhi->addIncoming(ArrIdxNext, FenceBlock);
+
+  // Generate array loop exit condition and update BB's terminator with it.
+  auto *ArrLpExitCond = Builder.createCmpInst(
+      CmpInst::ICMP_EQ, ArrIdxNext, NumElemsConst, "scan.arr.running.done");
+  FenceBlock->setTerminator(FenceBlock->getSingleSuccessor() /*trueBB*/,
+                            FenceBlock /*falseBB*/, ArrLpExitCond);
+
+  // Replace uses of external defs associated with memory aliases.
+  replaceUsesOfExtDefWithMemoryAliases(ArrInscanRed, Preheader, Loop,
+                                       AddedAliasInstrs);
 }
 
 void VPLoopEntityList::insertOneReductionVPInstructions(
@@ -1435,6 +1627,11 @@ void VPLoopEntityList::insertArrayRedVPInstructions(
     VPReduction *ArrRed, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
     SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
+  // ArrayType scan reductions are handled separately downstream, nothing to do
+  // here.
+  if (isa<VPInscanReduction>(ArrRed))
+    return;
+
   // Note: the insert location guard also guards builder debug location.
   VPBuilder::InsertPointGuard Guard(Builder);
 

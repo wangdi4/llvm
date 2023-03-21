@@ -324,6 +324,17 @@ VPBasicBlock *VPBasicBlock::getSinglePredecessor() const {
   return getNumPredecessors() == 1 ? *getPredecessors().begin() : nullptr;
 }
 
+VPBasicBlock *VPBasicBlock::getPredecessor(unsigned idx) const {
+  if (idx >= getNumPredecessors())
+    return nullptr;
+
+  for (auto &[Idx, Pred] : enumerate(getPredecessors()))
+    if (idx == Idx)
+      return Pred;
+
+  return nullptr;
+}
+
 const VPBasicBlock *VPBasicBlock::getUniquePredecessor() const {
   auto Predecessors = getPredecessors();
   auto PI = Predecessors.begin();

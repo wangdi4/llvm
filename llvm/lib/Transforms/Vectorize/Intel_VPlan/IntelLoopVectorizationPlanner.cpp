@@ -1904,12 +1904,20 @@ void LoopVectorizationPlanner::exchangeExclusiveScanLoopInputScanPhases(
   // If we don't have exclusive reductions, this loop does not require
   // the transformation.
   bool IsExclusiveLoop = false;
+  bool IsArrayTyReduction = false;
   for (ReductionItem *Item : WRLp->getRed().items()) {
     if (Item->getIsInscan() &&
         isa<ExclusiveItem>(
             WRegionUtils::getInclusiveExclusiveItemForReductionItem(WRLp,
                                                                     Item))) {
       IsExclusiveLoop = true;
+      // Check if this exclusive scan reduction is array type.
+      Value *NumElements = nullptr;
+      std::tie(std::ignore /*Type*/, NumElements, std::ignore /*AddrSpace*/) =
+          VPOParoptUtils::getItemInfo(Item);
+      if (auto *CI = dyn_cast_or_null<ConstantInt>(NumElements))
+        if (CI->getValue().ugt(1))
+          IsArrayTyReduction = true;
       break;
     }
   }
@@ -1932,6 +1940,18 @@ void LoopVectorizationPlanner::exchangeExclusiveScanLoopInputScanPhases(
   //  ...
   //  br ScanEndBB
   //
+  // NOTE: For array type reduction the above BB would be single block loop over
+  // array elements like below -
+  //
+  // ArrScanBB: # preds ScanBeginBB, ArrScanBB
+  //  %idx = phi [ 0, %ScanBeginBB ], [ %idx.next, %ArrScanBB]
+  //  ...
+  //  float %vp3 = running-exclusive-reduction float %vp1 float %vp2 ...
+  //  ...
+  //  %idx.next = add %idx, 1
+  //  %exit.cond = icmp eq %idx.next, ArrNumElems
+  //  br i1 %exit.cond, ScanEndBB, ArrScanBB
+  //
   // ScanEndBB: # preds: ScanBB
   //  br InputPhaseBB
   //
@@ -1946,7 +1966,7 @@ void LoopVectorizationPlanner::exchangeExclusiveScanLoopInputScanPhases(
   // ScanBeginBB: #preds : InputPhaseBB
   //  br ScanBB
   //
-  // ScanBB: # preds: ScanBeginBB
+  // ScanBB (or ArrScanBB): # preds: ScanBeginBB
   //  ...
   //  float %vp3 = running-exclusive-reduction float %vp1 float %vp2 ...
   //  br ScanEndBB
@@ -2092,8 +2112,22 @@ void LoopVectorizationPlanner::exchangeExclusiveScanLoopInputScanPhases(
       OriginalHeader, ++LastLinearIVStore->getIterator(), VPLInfo);
 
   VPBasicBlock *ScanBB = RunningRedInst->getParent();
-  VPBasicBlock *ScanBeginBB = ScanBB->getSinglePredecessor();
-  VPBasicBlock *ScanEndBB = ScanBB->getSingleSuccessor();
+  VPBasicBlock *ScanBeginBB = nullptr, *ScanEndBB = nullptr;
+  if (!IsArrayTyReduction) {
+    ScanBeginBB = ScanBB->getSinglePredecessor();
+    ScanEndBB = ScanBB->getSingleSuccessor();
+  } else {
+    // For array scan reductions, search through all successors and predecessors
+    // to find ScanBeginBB and ScanEndBB.
+    assert((ScanBB->getNumSuccessors() == 2 &&
+            ScanBB->getNumPredecessors() == 2) &&
+           "Expected single BB loop for array scan reduction.");
+    ScanBeginBB = ScanBB->getPredecessor(0) == ScanBB
+                      ? ScanBB->getPredecessor(1)
+                      : ScanBB->getPredecessor(0);
+    ScanEndBB = ScanBB->getSuccessor(0) == ScanBB ? ScanBB->getSuccessor(1)
+                                                  : ScanBB->getSuccessor(0);
+  }
   assert(ScanBeginBB && ScanEndBB && "Separating scan pragma was not found!");
   assert(ScanBeginBB->getSingleSuccessor() &&
          ScanEndBB->getSinglePredecessor() &&
