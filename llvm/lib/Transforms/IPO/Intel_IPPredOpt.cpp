@@ -50,7 +50,9 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -70,20 +72,56 @@ static cl::opt<bool> IPPredDumpTargetFunctions(
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// Application may have many candidates. This class is used to
+// handle multiple candidates.
+class PredCandidate {
+public:
+  PredCandidate(BasicBlock *ExitBB) : ExitBB(ExitBB) {}
+  ~PredCandidate() {}
+
+  bool collectExecutedBlocks();
+  PredCandidate(const PredCandidate &) = delete;
+  PredCandidate(PredCandidate &&) = delete;
+  PredCandidate &operator=(const PredCandidate &) = delete;
+  PredCandidate &operator=(PredCandidate &&) = delete;
+
+private:
+  // Maximum executed basic blocks that are controlled under
+  // inside condition statements.
+  constexpr static int MaxNumberExecutedBlocks = 2;
+
+  // Exit block of outermost conditional statement.
+  BasicBlock *ExitBB = nullptr;
+
+  // Basic blocks that are controlled under inside condition statements.
+  SmallPtrSet<BasicBlock *, 2> ExecutedBlocks;
+};
+
 // Main class to implement the transformation.
 class IPPredOptImpl {
 
 public:
-  IPPredOptImpl(Module &M, WholeProgramInfo &WPInfo) : M(M), WPInfo(WPInfo){};
+  IPPredOptImpl(Module &M, WholeProgramInfo &WPInfo,
+                function_ref<DominatorTree &(Function &)> DTGetter,
+                function_ref<PostDominatorTree &(Function &)> PDTGetter)
+      : M(M), WPInfo(WPInfo), DTGetter(DTGetter), PDTGetter(PDTGetter){};
   ~IPPredOptImpl(){};
   bool run(void);
 
 private:
+  constexpr static int MaxNumCandidates = 1;
+
   Module &M;
   WholeProgramInfo &WPInfo;
+  function_ref<DominatorTree &(Function &)> DTGetter;
+  function_ref<PostDominatorTree &(Function &)> PDTGetter;
   DenseMap<Metadata *, SmallSet<std::pair<GlobalVariable *, uint64_t>, 4>>
       TypeIdMap;
+  SmallPtrSet<PredCandidate *, MaxNumCandidates> Candidates;
 
+  bool mayBBWriteToMemory(BasicBlock *BB);
+  bool checkBBControlAllCode(BasicBlock *BB, BasicBlock *ExitBB);
+  void gatherCandidates(Function &F);
   void buildTypeIdMap();
   bool getVirtualPossibleTargets(CallBase &CB,
                                  SetVector<Function *> &TargetFunctions);
@@ -219,6 +257,183 @@ void IPPredOptImpl::dumpTargetFunctions(void) {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// Collect all executed blocks that are controlled by all conditions.
+// Executed blocks are terminated with unconditional branches.
+//
+//     if (contains(this)) {
+//       if (this->field0) {
+//         if (this->field2->vtable->function5 == foo) {
+//           // Executed block
+//         } else if (this->field2->vtable->function5 != bar) {
+//           // Executed block
+//         }
+//       }
+//     }
+//     ExitBB:
+bool PredCandidate::collectExecutedBlocks() {
+  assert(ExitBB && "Expected ExitBB");
+  for (auto *BB : predecessors(ExitBB)) {
+    auto BI = dyn_cast<BranchInst>(BB->getTerminator());
+    if (!BI)
+      return false;
+    if (BI->isConditional())
+      continue;
+    ExecutedBlocks.insert(BB);
+  }
+  if (ExecutedBlocks.empty() || ExecutedBlocks.size() > MaxNumberExecutedBlocks)
+    return false;
+  return true;
+}
+
+// Returns true if BB has any instruction with side-effect.
+bool IPPredOptImpl::mayBBWriteToMemory(BasicBlock *BB) {
+  for (auto &I : *BB)
+    if (I.mayWriteToMemory())
+      return true;
+  return false;
+}
+
+// Check terminator of ThenBB is conditional branch and one of its
+// successors is ExitBB. Makes sure ThenBB doesn't have any
+// mayWriteToMemory instructions.
+//
+//  ThenBB:    ; single-pred
+//    ; No mayWriteToMemory instructions
+//    br i1 %i, label %BB2, label %ExitBB
+//    ...
+//  BB2:
+//    ..
+//  ExitBB:
+//       ...
+bool IPPredOptImpl::checkBBControlAllCode(BasicBlock *ThenBB,
+                                          BasicBlock *ExitBB) {
+  if (!ThenBB->hasNPredecessors(1))
+    return false;
+  auto *BI = dyn_cast<BranchInst>(ThenBB->getTerminator());
+  if (!BI)
+    return false;
+  if (!BI->isConditional())
+    return false;
+  if (BI->getSuccessor(0) != ExitBB && BI->getSuccessor(1) != ExitBB)
+    return false;
+  if (mayBBWriteToMemory(ThenBB))
+    return false;
+  return true;
+}
+
+void IPPredOptImpl::gatherCandidates(Function &F) {
+
+  // Check if terminator of BB is controlled with a return value of a call
+  // and return the call if it a valid candidate.
+  //
+  // BB:
+  //   %i = call contains()
+  //   br i1 %i, label %TB, label %FB
+  //
+  // Or
+  //
+  // BB:
+  //   %j = call contains()
+  //   %i = icmp eq i32 %j, i32 2
+  //   br i1 %i, label %TB, label %FB
+  //
+  auto GetCondCall = [](BasicBlock &BB) -> CallInst * {
+    auto *BBI = dyn_cast<BranchInst>(BB.getTerminator());
+    if (!BBI || !BBI->isConditional())
+      return nullptr;
+    CallInst *CB;
+    Value *CmpOp = nullptr;
+    CB = dyn_cast<CallInst>(BBI->getCondition());
+    if (!CB) {
+      ICmpInst *IC = dyn_cast<ICmpInst>(BBI->getCondition());
+      if (!IC)
+        return nullptr;
+      auto *CB1 = dyn_cast<CallInst>(IC->getOperand(0));
+      auto *CB2 = dyn_cast<CallInst>(IC->getOperand(1));
+      if (CB1 && !CB2) {
+        CB = CB1;
+        CmpOp = IC->getOperand(1);
+      } else if (!CB1 && CB2) {
+        CB = CB2;
+        CmpOp = IC->getOperand(0);
+      }
+    }
+    if (!CB)
+      return nullptr;
+
+    if (CmpOp && !isa<Constant>(CmpOp))
+      return nullptr;
+    if (!CB->hasOneUse())
+      return nullptr;
+    if (!CB->hasFnAttr(Attribute::MustProgress))
+      return nullptr;
+    return CB;
+  };
+
+  DominatorTree &DT = DTGetter(F);
+  PostDominatorTree &PDT = PDTGetter(F);
+
+  for (auto &BB : F) {
+    // Checking for code with this pattern to find candidates.
+    //
+    // BB:
+    //   %i = call contains()
+    //   br i1 %i, label %ThenBB, label %ExitBB
+    //
+    // ThenBB:
+    //   br i1 %j, label %ExitBB, label %Cond2BB
+    //     ...
+    // Cond2BB:
+    //   ...
+    //   br i1 %k, label %ExecutedBB label %ExitBB
+    //
+    // ExecutedBB:
+    //   ...
+    //   br %ExitBB
+    //
+    // ExitBB:
+    //   ...
+    CallInst *CI = GetCondCall(BB);
+    if (!CI)
+      continue;
+    Function *Callee = CI->getCalledFunction();
+    if (!Callee || Callee->isDeclaration())
+      continue;
+    BasicBlock *ExitBB = nullptr;
+    BasicBlock *ThenBB = nullptr;
+    auto *BI = cast<BranchInst>(BB.getTerminator());
+    BasicBlock *Succ0 = BI->getSuccessor(0);
+    BasicBlock *Succ1 = BI->getSuccessor(1);
+    if (Succ0->getSinglePredecessor() == &BB &&
+        Succ1->getSinglePredecessor() == nullptr) {
+      ThenBB = Succ0;
+      ExitBB = Succ1;
+    } else if (Succ1->getSinglePredecessor() == &BB &&
+               Succ0->getSinglePredecessor() == nullptr) {
+      ThenBB = Succ1;
+      ExitBB = Succ0;
+    }
+    if (!ThenBB || !ExitBB)
+      continue;
+    if (!DT.dominates(&BB, ExitBB))
+      continue;
+    if (!PDT.dominates(ExitBB, ThenBB))
+      continue;
+    if (!checkBBControlAllCode(ThenBB, ExitBB))
+      continue;
+
+    std::unique_ptr<PredCandidate> CandD(new PredCandidate(ExitBB));
+
+    // Collect ExecutedBB if there are any.
+    if (!CandD->collectExecutedBlocks())
+      continue;
+
+    // TODO: Add more checks here.
+
+    Candidates.insert(CandD.release());
+  }
+}
+
 bool IPPredOptImpl::run(void) {
 
   LLVM_DEBUG(dbgs() << "  IP Pred Opt: Started\n");
@@ -229,11 +444,20 @@ bool IPPredOptImpl::run(void) {
   }
 
   buildTypeIdMap();
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (IPPredDumpTargetFunctions)
     dumpTargetFunctions();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  for (Function &F : M)
+    if (!F.isDeclaration())
+      gatherCandidates(F);
+
+  if (Candidates.empty()) {
+    LLVM_DEBUG(dbgs() << "    Failed: No Candidate\n");
+    return false;
+  }
+  LLVM_DEBUG(dbgs() << "  Found candidate    \n";);
 
   // TODO: Add more code here
   return false;
@@ -253,13 +477,22 @@ public:
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<PostDominatorTreeWrapperPass>();
   }
 
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
     auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    IPPredOptImpl IPPredOptI(M, WPInfo);
+    auto DTGetter = [this](Function &F) -> DominatorTree & {
+      return getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+    };
+    auto PDTGetter = [this](Function &F) -> PostDominatorTree & {
+      return getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
+    };
+
+    IPPredOptImpl IPPredOptI(M, WPInfo, DTGetter, PDTGetter);
     return IPPredOptI.run();
   }
 };
@@ -270,6 +503,8 @@ char IPPredOptLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(IPPredOptLegacyPass, "ippredopt", "ippredopt", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_END(IPPredOptLegacyPass, "ippredopt", "ippredopt", false, false)
 
 ModulePass *llvm::createIPPredOptLegacyPass(void) {
@@ -280,8 +515,16 @@ IPPredOptPass::IPPredOptPass(void) {}
 
 PreservedAnalyses IPPredOptPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 
-  IPPredOptImpl IPPredOptI(M, WPInfo);
+  auto DTGetter = [&FAM](Function &F) -> DominatorTree & {
+    return FAM.getResult<DominatorTreeAnalysis>(F);
+  };
+  auto PDTGetter = [&FAM](Function &F) -> PostDominatorTree & {
+    return FAM.getResult<PostDominatorTreeAnalysis>(F);
+  };
+
+  IPPredOptImpl IPPredOptI(M, WPInfo, DTGetter, PDTGetter);
   if (!IPPredOptI.run())
     return PreservedAnalyses::all();
   auto PA = PreservedAnalyses();
