@@ -4250,7 +4250,7 @@ using VPRemainderOrigLiveOutHIR =
 /// the VPlan CG.
 class VPVLSLoad : public VPInstruction {
    // Logical size in Type->getElementType()
-  int GroupSize;
+  int GroupSize, GroupStride;
   Align Alignment;
    // Number of original loads being optimized. For OptReport purposes.
   int NumOrigLoads;
@@ -4269,7 +4269,8 @@ public:
   /// scalar type such that all the individual elements of the groups and offset
   /// between could be represented as a multiple of that type's width.
   ///
-  /// \p GroupSize is the size of the group in terms of \p Ty's element type.
+  /// \p GroupSize, GroupStride is the size, stride of the group in terms
+  /// of \p Ty's element type.
   ///
   /// \p Alignment is the alignment of the base pointer (the one in the \p Ptr's
   /// 0th lane)
@@ -4279,15 +4280,17 @@ public:
   ///
   /// Note that this instruction is very low-level (i.e. the VF is implicitly
   /// encoded in the \p Ty) and is expected to be created soon before VPlan CG.
-  VPVLSLoad(VPValue *Ptr, Type *Ty, int GroupSize, Align Alignment,
-            int NumOrigLoads)
+  VPVLSLoad(VPValue *Ptr, Type *Ty, int GroupSize, int GroupStride,
+            Align Alignment, int NumOrigLoads)
       : VPInstruction(VPInstruction::VLSLoad, Ty, {Ptr}), GroupSize(GroupSize),
-        Alignment(Alignment), NumOrigLoads(NumOrigLoads) {}
+        GroupStride(GroupStride), Alignment(Alignment),
+        NumOrigLoads(NumOrigLoads) {}
 
   VPValue *getPointerOperand() const { return getOperand(0); }
   Type *getValueType() const { return getType(); }
 
   int getGroupSize() const { return GroupSize; }
+  int getGroupStride() const { return GroupStride; }
   Align getAlignment() const { return Alignment; }
   int getNumOrigLoads() const { return NumOrigLoads; }
 
@@ -4313,7 +4316,8 @@ public:
   }
 
   VPVLSLoad *cloneImpl() const override {
-    return new VPVLSLoad(getOperand(0), getType(), GroupSize, Alignment, NumOrigLoads);
+    return new VPVLSLoad(getOperand(0), getType(), GroupSize, GroupStride,
+                         Alignment, NumOrigLoads);
   }
 };
 
@@ -4326,7 +4330,7 @@ public:
 /// the VPlan CG.
 class VPVLSStore : public VPInstruction {
    // Logical size in Type->getElementType()
-  int GroupSize;
+  int GroupSize, GroupStride;
   Align Alignment;
    // Number of original stores being optimized. For OptReport purposes.
   int NumOrigStores;
@@ -4348,7 +4352,8 @@ public:
   /// without gaps. Its type isn't important, it's the CG's job to insert proper
   /// bitcasts if needed (or move to opaque pointer types in future).
   ///
-  /// \p GroupSize is the size of the group in terms of \p Ty's element type.
+  /// \p GroupSize, GroupStride is the size, stride of the group in terms
+  /// of \p Ty's element type.
   ///
   /// \p Alignment is the alignment of the base pointer (the one in the \p Ptr's
   /// 0th lane)
@@ -4358,12 +4363,12 @@ public:
   ///
   /// Note that this instruction is very low-level (i.e. the VF is implicitly
   /// encoded in the \p Val) and is expected to be created soon before VPlan CG.
-  VPVLSStore(VPValue *Val, VPValue *Ptr, int GroupSize, Align Alignment,
-             int NumOrigStores)
+  VPVLSStore(VPValue *Val, VPValue *Ptr, int GroupSize, int GroupStride,
+             Align Alignment, int NumOrigStores)
       : VPInstruction(VPInstruction::VLSStore,
                       Type::getVoidTy(Val->getType()->getContext()),
                       {Val, Ptr}),
-        GroupSize(GroupSize), Alignment(Alignment),
+        GroupSize(GroupSize), GroupStride(GroupStride), Alignment(Alignment),
         NumOrigStores(NumOrigStores) {}
 
   VPValue *getValueOperand() const { return getOperand(0); }
@@ -4371,6 +4376,7 @@ public:
   Type *getValueType() const { return getValueOperand()->getType(); }
 
   int getGroupSize() const { return GroupSize; }
+  int getGroupStride() const { return GroupStride; }
   Align getAlignment() const { return Alignment; }
   int getNumOrigStores() const { return NumOrigStores; }
 
@@ -4397,7 +4403,7 @@ public:
 
   VPVLSStore *cloneImpl() const override {
     return new VPVLSStore(getValueOperand(), getPointerOperand(), GroupSize,
-                          Alignment, NumOrigStores);
+                          GroupStride, Alignment, NumOrigStores);
   }
 };
 
@@ -4405,7 +4411,7 @@ public:
 /// wider VPVLSLoad.
 class VPVLSExtract : public VPInstruction {
   // Logical size in terms Type->getElementType() elements.
-  int GroupSize;
+  int GroupSize, GroupStride;
   int Offset;
 
 public:
@@ -4415,18 +4421,21 @@ public:
   /// \p Ty - type of the data being extracted. Must have the same element type
   /// that \p WideVal has, but will be of smaller size.
   ///
-  /// \p GroupSize - Size of the VLS Group in terms of \p WideVal's element type.
+  /// \p GroupSize, GroupStride - Size, stride of the VLS Group in terms of
+  /// \p WideVal's element type.
   ///
   /// \p Offset of the data being extracted inside the group, in terms of \p
   /// WideVal's element type.
-  VPVLSExtract(VPValue *WideVal, Type *Ty, int GroupSize, int Offset)
+  VPVLSExtract(VPValue *WideVal, Type *Ty, int GroupSize, int GroupStride,
+               int Offset)
       : VPInstruction(VPInstruction::VLSExtract, Ty, {WideVal}),
-        GroupSize(GroupSize), Offset(Offset) {
+        GroupSize(GroupSize), GroupStride(GroupStride), Offset(Offset) {
     assert(WideVal->getType()->getScalarType() == Ty->getScalarType() &&
            "Type cast must be explicit in VLS transformation!");
   }
 
   int getGroupSize() const { return GroupSize; }
+  int getGroupStride() const { return GroupStride; }
   int getOffset() const { return Offset; }
 
   /// How many GroupTy's scalar elements fit into the type of the value
@@ -4443,7 +4452,8 @@ public:
   }
 
   VPVLSExtract *cloneImpl() const override {
-    return new VPVLSExtract(getOperand(0), getType(), GroupSize, Offset);
+    return new VPVLSExtract(getOperand(0), getType(), GroupSize, GroupStride,
+                            Offset);
   }
 };
 
@@ -4452,7 +4462,7 @@ public:
 /// interfaces are tuned for VLS purposes.
 class VPVLSInsert : public VPInstruction {
   // Logical size in terms Type->getElementType() elements.
-  int GroupSize;
+  int GroupSize, GroupStride;
   int Offset;
 
 public:
@@ -4463,20 +4473,23 @@ public:
   /// \p Element - data corresponding to an element of the group to be inserted
   /// into \p WideVal. It must have the same element type as \p WideVal.
   ///
-  /// \p GroupSize - Size of the VLS Group in terms of \p WideVal's element type.
+  /// \p GroupSize, GroupStride - Size, stride of the VLS Group in terms of
+  /// \p WideVal's element type.
   ///
   /// \p Offset of the data being inserted inside the group, in terms of \p
   /// WideVal's element type.
-  VPVLSInsert(VPValue *WideVal, VPValue *Element, int GroupSize, int Offset)
+  VPVLSInsert(VPValue *WideVal, VPValue *Element, int GroupSize,
+              int GroupStride, int Offset)
       : VPInstruction(VPInstruction::VLSInsert, WideVal->getType(),
                       {WideVal, Element}),
-        GroupSize(GroupSize), Offset(Offset) {
+        GroupSize(GroupSize), GroupStride(GroupStride), Offset(Offset) {
     assert(WideVal->getType()->getScalarType() ==
                Element->getType()->getScalarType() &&
            "Type cast must be explicit in VLS transformation!");
   }
 
   int getGroupSize() const { return GroupSize; }
+  int getGroupStride() const { return GroupStride; }
   int getOffset() const { return Offset; }
 
   /// How many GroupTy's scalar elements fit into the type of the value being
@@ -4493,7 +4506,8 @@ public:
   }
 
   VPVLSInsert *cloneImpl() const override {
-    return new VPVLSInsert(getOperand(0), getOperand(1), GroupSize, Offset);
+    return new VPVLSInsert(getOperand(0), getOperand(1), GroupSize, GroupStride,
+                           Offset);
   }
 };
 
