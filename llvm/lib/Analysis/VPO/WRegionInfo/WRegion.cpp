@@ -828,7 +828,10 @@ WRNDistributeNode::WRNDistributeNode(BasicBlock *BB, LoopInfo *Li)
 // printer
 void WRNDistributeNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                    unsigned Verbosity) const {
-  vpo::printInt("COLLAPSE", getCollapse(), OS, 2*Depth, Verbosity);
+  unsigned Indent = 2 * Depth;
+  vpo::printInt("COLLAPSE", getCollapse(), OS, Indent, Verbosity);
+  vpo::printStr("ORDER", WRNLoopOrderName[getLoopOrder()], OS, Indent,
+                Verbosity);
 }
 
 //
