@@ -1564,7 +1564,21 @@ void VPlanVector::computeDA() {
     VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
     SmallPtrSet<VPInstruction *, 32> SOAVars;
     VPSOAA.doSOAAnalysis(SOAVars);
-    DA->recomputeShapes(SOAVars, true /*EnableVerifyAndPrintDA*/);
+    // For correct propagation of SOA shapes we need a full recomputation
+    // of DA. Consider the following pointer induction.
+    //  %p1 = allocate-priv ..  ; SOA profitable
+    //
+    //  %ptr = ptr phi [%p1, %b1], [%p2, %b2]
+    //  %p2 = ptr getelementptr inbounds i32, ptr %ptr i64 1
+    //
+    // During the first run all pointers above will be assigned UnitStride
+    // shape. Suppose SOA analysis decided that %p1 should have SOA layout.
+    // During the second run of DA, if we leave the previously calculated shape,
+    // e.g., on %p2 then the %ptr will never get SOA shape, while it should take
+    // it from %p1.
+    //
+    DA->recomputeShapes(SOAVars, true /*FullRecompute*/,
+                        true /*EnableVerifyAndPrintDA*/);
   }
 }
 
