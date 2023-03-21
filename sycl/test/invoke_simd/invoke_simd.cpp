@@ -2,11 +2,6 @@
 // FIXME: check if -fno-sycl-device-code-split-esimd affects any pre-link steps
 //        and remove the flag if that is not the case
 
-// INTEL_CUSTOMIZATION
-// See CMPLRLLVM-45661 - Temporarily marking as expected to fail.
-// XFAIL: *
-// end INTEL_CUSTOMIZATION
-
 // The tests checks that invoke_simd API is compileable.
 
 // TODO For now, compiling functors and lambdas as invoke_simd targets requires
