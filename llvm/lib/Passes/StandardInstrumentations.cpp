@@ -1264,6 +1264,7 @@ static SmallVector<Function *, 1> GetFunctions(Any IR) {
   return Functions;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void PreservedCFGCheckerInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC, ModuleAnalysisManager &MAM) {
   if (!VerifyAnalysisInvalidation)
@@ -1364,6 +1365,7 @@ void PreservedCFGCheckerInstrumentation::registerCallbacks(
     }
   });
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
 void VerifyInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
