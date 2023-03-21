@@ -1,3 +1,7 @@
+; This test case is turned off since we disabled partial hoisting due to
+; nested Ifs (CMPLRLLVM-44207).
+
+; XFAIL: *
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cond-ldst-motion,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; This test checks that hoisting a legal subset of an initial set of loads works
