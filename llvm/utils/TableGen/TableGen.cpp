@@ -27,19 +27,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "TableGenBackends.h" // Declares all backends.
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TableGen/Main.h"
 #include "llvm/TableGen/Record.h"
 #include "llvm/TableGen/SetTheory.h"
+#include "llvm/TableGen/TableGenBackend.h"
 #include <cassert>
 #include <string>
 #include <vector>
 
 using namespace llvm;
 
+<<<<<<< HEAD
 enum ActionType {
   PrintRecords,
   PrintDetailedRecords,
@@ -94,6 +96,8 @@ enum ActionType {
   GenRISCVTargetDef,
 };
 
+=======
+>>>>>>> 9c93e728bfb8079c1de51e5481168c4083038c2a
 namespace llvm {
 cl::opt<bool> EmitLongStrLiterals(
     "long-string-literals",
@@ -104,6 +108,7 @@ cl::opt<bool> EmitLongStrLiterals(
 } // end namespace llvm
 
 namespace {
+<<<<<<< HEAD
 cl::opt<ActionType> Action(
     cl::desc("Action to perform:"),
     cl::values(
@@ -197,11 +202,15 @@ cl::opt<ActionType> Action(
                    "Generate DXIL operation information"),
         clEnumValN(GenRISCVTargetDef, "gen-riscv-target-def",
                    "Generate the list of CPU for RISCV")));
+=======
+
+>>>>>>> 9c93e728bfb8079c1de51e5481168c4083038c2a
 cl::OptionCategory PrintEnumsCat("Options for -print-enums");
 cl::opt<std::string> Class("class", cl::desc("Print Enum list for this class"),
                            cl::value_desc("class name"),
                            cl::cat(PrintEnumsCat));
 
+<<<<<<< HEAD
 bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
   switch (Action) {
   case PrintRecords:
@@ -360,14 +369,50 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
   }
 
   return false;
+=======
+void PrintRecords(RecordKeeper &Records, raw_ostream &OS) {
+  OS << Records; // No argument, dump all contents
+>>>>>>> 9c93e728bfb8079c1de51e5481168c4083038c2a
 }
+
+void PrintEnums(RecordKeeper &Records, raw_ostream &OS) {
+  for (Record *Rec : Records.getAllDerivedDefinitions(Class))
+    OS << Rec->getName() << ", ";
+  OS << "\n";
+}
+
+void PrintSets(RecordKeeper &Records, raw_ostream &OS) {
+  SetTheory Sets;
+  Sets.addFieldExpander("Set", "Elements");
+  for (Record *Rec : Records.getAllDerivedDefinitions("Set")) {
+    OS << Rec->getName() << " = [";
+    const std::vector<Record *> *Elts = Sets.expand(Rec);
+    assert(Elts && "Couldn't expand Set instance");
+    for (Record *Elt : *Elts)
+      OS << ' ' << Elt->getName();
+    OS << " ]\n";
+  }
+}
+
+TableGen::Emitter::Opt X[] = {
+    {"print-records", PrintRecords, "Print all records to stdout (default)",
+     true},
+    {"print-detailed-records", EmitDetailedRecords,
+     "Print full details of all records to stdout"},
+    {"null-backend", [](RecordKeeper &Records, raw_ostream &OS) {},
+     "Do nothing after parsing (useful for timing)"},
+    {"dump-json", EmitJSON, "Dump all records as machine-readable JSON"},
+    {"print-enums", PrintEnums, "Print enum values for a class"},
+    {"print-sets", PrintSets, "Print expanded sets for testing DAG exprs"},
+};
+
 } // namespace
 
 int main(int argc, char **argv) {
   InitLLVM X(argc, argv);
   cl::ParseCommandLineOptions(argc, argv);
 
-  return TableGenMain(argv[0], &LLVMTableGenMain);
+  return TableGenMain(argv[0]);
 }
 
 #ifndef __has_feature
