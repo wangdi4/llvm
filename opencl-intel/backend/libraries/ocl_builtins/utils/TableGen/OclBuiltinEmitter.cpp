@@ -741,6 +741,10 @@ std::string OclBuiltin::getNativeReturnCType(const std::string &TyName) const {
 
   const std::string &GT = m_Outputs[0].first->getGenType(TyName);
   const std::string &NT = m_DB.getNextNativeType(GT);
+  if (NT == "__invalid__") {
+    errs() << "no next native type is found for type '" << GT << "'\n";
+    exit(1);
+  }
   const OclType *T = m_DB.getOclType(NT);
   assert(T && "Invalid type found.");
 
@@ -754,6 +758,10 @@ OclBuiltin::getNativeArgumentCType(unsigned i,
 
   const std::string &GT = m_Inputs[i].first->getGenType(TyName);
   const std::string &NT = m_DB.getNextNativeType(GT);
+  if (NT == "__invalid__") {
+    errs() << "no next native type is found for type '" << GT << "'\n";
+    exit(1);
+  }
   const OclType *T = m_DB.getOclType(NT);
   assert(T && "Invalid type found.");
 
@@ -767,6 +775,10 @@ OclBuiltin::getNativeArgumentCVecLen(unsigned i,
 
   const std::string &GT = m_Inputs[i].first->getGenType(TyName);
   const std::string &NT = m_DB.getNextNativeType(GT);
+  if (NT == "__invalid__") {
+    errs() << "no next native type is found for type '" << GT << "'\n";
+    exit(1);
+  }
   const OclType *T = m_DB.getOclType(NT);
   assert(T && "Invalid type found.");
 
