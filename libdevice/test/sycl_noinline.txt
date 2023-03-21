@@ -1,6 +1,11 @@
 UNSUPPORTED: system-windows
 REQUIRES: libsycldevice
 
+// INTEL_CUSTOMIZATION
+// See CMPLRLLVM-45959 - Temporarily marking as expected to fail.
+// XFAIL: target={{.*linux.*}}
+// end INTEL_CUSTOMIZATION
+
 Verify that the wrapper functions and the fallback functions are not marked
 with noinline attribute.
 

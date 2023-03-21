@@ -9,6 +9,11 @@
 // XUN: %clang_cc1 -triple x86_64-unknown-unknown -target-feature +avx -fenable-matrix -fsignaling-nans -emit-llvm -o - %s | FileCheck -check-prefixes=SNANS %s
 // XUN: %clang_cc1 -triple x86_64-unknown-unknown -target-feature +avx -fenable-matrix -fno-signaling-nans -emit-llvm -o - %s | FileCheck -check-prefixes=NO-SNANS %s
 
+// INTEL_CUSTOMIZATION
+// See CMPLRLLVM-45850 - Temporarily marking as expected to fail.
+// XFAIL: *
+// end INTEL_CUSTOMIZATION
+
 #ifdef __OPENCL_C_VERSION__
 #pragma OPENCL EXTENSION __cl_clang_variadic_functions : enable
 #endif
