@@ -88,7 +88,7 @@
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-DEFAULT,CHECK-FUNC-SPEC,CHECK-O3,CHECK-O23SZ,%llvmcheckext,CHECK-HOT-COLD-SPLIT
 
 ; INTEL_CUSTOMIZATION
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
+; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='default<O3>' -enable-early-lsr -disable-intel-proprietary-opts -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-EARLY-LSR
 ; end INTEL_CUSTOMIZATION
@@ -160,7 +160,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SROA                  ;INTEL
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
-; CHECK-O-NEXT: Running analysis: AAManager
 ; CHECK-O2-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-O3-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-EP-CGSCC-LATE-NEXT: Running pass: NoOpCGSCCPass
