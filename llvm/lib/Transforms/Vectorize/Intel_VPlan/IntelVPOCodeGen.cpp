@@ -4930,11 +4930,12 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   assert(FirstBB.getTerminator() &&
          "Expect the 'entry' basic-block to be well-formed.");
   Builder.SetInsertPoint(FirstBB.getTerminator());
-  // Track if this a private alloca is for an array reduction variable. We don't
-  // want to serialize such allocas since the initialization algorithm assumes
-  // contiguous allocation of elements.
-  bool IsArrayRedn =
-      V->getEntityKind() == VPLoopEntity::Reduction && isa<ArrayType>(OrigTy);
+  // Track if this a private alloca is for an array (inscan) reduction variable.
+  // We don't want to serialize such allocas since the initialization algorithm
+  // assumes contiguous allocation of elements.
+  bool IsArrayRedn = (V->getEntityKind() == VPLoopEntity::Reduction ||
+                      V->getEntityKind() == VPLoopEntity::InscanReduction) &&
+                     isa<ArrayType>(OrigTy);
 
   // TODO: We potentially need additional divisibility-based checks here to
   // ensure that correct alignment is set for each vector lane. Check JIRA :
