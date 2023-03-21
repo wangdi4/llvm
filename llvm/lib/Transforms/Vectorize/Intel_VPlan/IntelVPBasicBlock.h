@@ -209,6 +209,8 @@ public:
   // See comment about workaround below.
   static bool isBranchInst(const VPUser *U) { return isa<VPBranchInst>(U); }
 
+  VPBasicBlock *getPredecessor(unsigned idx) const;
+
   // Return iterator range of VPBasicBlock predecessors.
   // In make_filter_range, the static function is used instead of a lambda to
   // workaround a build error with Microsoft VS.

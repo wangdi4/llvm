@@ -1204,6 +1204,12 @@ private:
                                      VPBasicBlock *FenceBlock,
                                      VPBuilder &Builder);
 
+  // Insert reduction instructions for array type VPInscanReduction.
+  void
+  processRunningInscanArrReduction(const VPInscanReduction *InscanReduction,
+                                   VPBasicBlock *FenceBlock,
+                                   VPBuilder &Builder);
+
   // Insert reduction instructions for specific VPUserDefinedScanReduction.
   void processRunningUDS(const VPUserDefinedScanReduction *UserDefinedScan,
                          VPBasicBlock *FenceBlock, VPBuilder &Builder);
