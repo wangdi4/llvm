@@ -1,4 +1,4 @@
-; Check that proper optreport (structure and metadata) is emitted for loop unswitching with HIR passes.
+; Check the loop opt reports are printed with vectorization and complete unroll along with simplify CFG in presence of sibling loops.
 
 ;void foo(int *restrict A, int *restrict B, int *restrict C, int *restrict D, int *G, int N) {
 ;
@@ -14,38 +14,9 @@
 ;  return;
 ;}
 
-; Check the proper optreport for loop unswitching using metadata.
-; RUN: opt -enable-new-pm=0 -loop-unswitch -intel-opt-report=low < %s -S | FileCheck %s
-
-; CHECK: llvm.loop [[M1:!.*]]
-; CHECK-NOT: llvm.loop [[M1]]
-; CHECK: [[M1]] = distinct !{[[M1]], [[M2:!.*]]}
-; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
-; CHECK: [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]]}
-; CHECK: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]]}
-; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 25422, !"Invariant Condition%s hoisted out of this loop", {{.*}}}
-
-; Check the proper optreport for loop unswitching.
-; RUN: opt -enable-new-pm=0 -loop-unswitch -intel-opt-report=low -intel-ir-optreport-emitter -simplifycfg < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-EMITTER --strict-whitespace
-
-; CHECK-EMITTER:     LOOP BEGIN
-; CHECK-EMITTER:          LOOP BEGIN
-; CHECK-EMITTER-NEXT:     LOOP END{{[[:space:]]}}
-; CHECK-EMITTER-NEXT:     LOOP BEGIN
-; CHECK-EMITTER-NEXT:     LOOP END
-; CHECK-EMITTER-NEXT: LOOP END
-; CHECK-EMITTER: LOOP BEGIN
-; CHECK-EMITTER-NEXT:     remark #25422: Invariant Condition hoisted out of this loop{{[[:space:]]}}
-; CHECK-EMITTER-NEXT:     LOOP BEGIN
-; CHECK-EMITTER-NEXT:     LOOP END{{[[:space:]]}}
-; CHECK-EMITTER-NEXT:     LOOP BEGIN
-; CHECK-EMITTER-NEXT:     LOOP END
-; CHECK-EMITTER-NEXT: LOOP END
-
-; TODO: -simplifycfg gets rid of one of loops showing the remark of loop unswitch in this test case. We need to change the test case to show loop unswitch remark in the HIR.
 ; TODO: There is still a small issue where the merged CFG-based HIR causes
 ; the opt report layout to mismatch slightly with the loop layout.
-; RUN: opt -enable-new-pm=0 -loop-unswitch -intel-opt-report=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=MERGED-CFG-HIR --strict-whitespace
+; RUN: opt -intel-opt-report=low -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-vec-dir-insert,hir-vplan-vec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s -check-prefix=MERGED-CFG-HIR --strict-whitespace
 
 ; MERGED-CFG-HIR:      LOOP BEGIN
 ; MERGED-CFG-HIR:          LOOP BEGIN
