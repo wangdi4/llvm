@@ -39,6 +39,7 @@
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/Intel_CloneUtils.h"
 #include "llvm/Transforms/Utils/Intel_RegionSplitter.h"
 #include <sstream>
@@ -4810,10 +4811,10 @@ public:
         WrapperCB(nullptr), BigLoopCB(nullptr), SimpleLoopDepth(0) {}
   // Find 'WrapperCB' and 'BigLoopCB'.
   bool findSpine();
-  // Return 'true' if the desired predicate opt can be performed.
-  bool canDoPredicateOpt();
-  // Perform the desired predicate opt.
-  void doPredicateOpt();
+  // Return 'true' if the desired predicate opt should be attempted.
+  bool attemptPredicateOpt();
+  // Attempt the desired predicate opt. Return 'true' if it is performed.
+  bool doPredicateOpt();
 
 private:
   // The base function.
@@ -4839,7 +4840,7 @@ private:
   // LoadInst of a key local ptr declared "restrict" in the source code.
   LoadInst *LIRestrict = nullptr;
   // Optimized version of the key predicate opt code
-  Function *OptFxn = nullptr;
+  Function *OptF = nullptr;
   // Return 'true' if 'F' is a wrapper function.
   bool isWrapper(Function &F);
   // Return the number of simple loops enclosing 'CB'.
@@ -4858,6 +4859,8 @@ private:
   // indices in 'HoistYes' and 'HoistNo'.
   bool findHoistableFields(Function *F, Value *V, std::set<unsigned> &HoistYes,
                            std::set<unsigned> &HoistNo);
+  // Return Function with cold code extracted from 'OptBaseF'.
+  Function *extractColdCode(Function *OptBaseF);
 };
 
 //
@@ -5173,11 +5176,11 @@ bool PredicateOpt::findSpine() {
 }
 
 //
-// Return 'true' if the desired predicate opt can be performed.
+// Return 'true' if the desired predicate opt should be attempted.
 // NOTE: At this point, we are just checking if the hot path can be identified.
 // More code will be added to check additional conditions.
 //
-bool PredicateOpt::canDoPredicateOpt() {
+bool PredicateOpt::attemptPredicateOpt() {
   if (!findSpine()) {
     LLVM_DEBUG(dbgs() << "MRC Predicate Opt: Could not find spine\n");
     return false;
@@ -5203,38 +5206,101 @@ bool PredicateOpt::canDoPredicateOpt() {
 }
 
 //
-// Perform the predicate opt.
+// If possible, return Function with cold code extracted from 'OptBaseF'.
+// Otherwise, return 'nullptr'.
+//
+Function *PredicateOpt::extractColdCode(Function *OptBaseF) {
+
+  auto FindSplitBasicBlock = [](Function *OptBaseF) -> BasicBlock * {
+    BasicBlock *SplitBB = nullptr;
+    for (auto &BB : *OptBaseF)
+      if (isa<SwitchInst>(BB.getTerminator()))
+        if (std::distance(pred_begin(&BB), pred_end(&BB)) >= 3) {
+          if (SplitBB)
+            return nullptr;
+          SplitBB = &BB;
+        }
+    return SplitBB;
+  };
+
+  BasicBlock *SplitBB = FindSplitBasicBlock(OptBaseF);
+  if (!SplitBB)
+    return nullptr;
+  DominatorTree &DT = (*GetDT)(*OptBaseF);
+  SmallVector<BasicBlock *, 16> Descendants;
+  DT.getDescendants(SplitBB, Descendants);
+  CodeExtractor CE(Descendants);
+  CodeExtractorAnalysisCache CEAC(*OptBaseF);
+  SetVector<Value *> Inputs, Outputs, Sinks;
+  CE.findInputsOutputs(Inputs, Outputs, Sinks);
+  return CE.extractCodeRegion(CEAC);
+}
+
+//
+// Attempt to perform the predicate opt. Return 'true' if it was possible.
 // NOTE: Right now we simply emit a trace indicating the key elements
-// on the hot path, and the extracted and enclosing function.
+// on the hot path, and the extracted and enclosing functions.
 // More code will be added to do the optimization.
 //
-void PredicateOpt::doPredicateOpt() {
+bool PredicateOpt::doPredicateOpt() {
+
+  auto findUniqueCB = [](Function *Caller, Function *Callee) -> CallBase * {
+    CallBase *CBOut = nullptr;
+    for (User *U : Callee->users())
+      if (auto CB = dyn_cast<CallBase>(U))
+        if (CB->getCaller() == Caller) {
+          if (CBOut)
+            return nullptr;
+          CBOut = CB;
+        }
+    return CBOut;
+  };
+
+  Function *WrapperF = WrapperCB->getCaller();
+  Function *BigLoopF = BigLoopCB->getCaller();
+  (void)BigLoopF;
   LLVM_DEBUG({
     dbgs() << "MRC PredicateOpt: Loop Depth = " << SimpleLoopDepth << "\n";
     dbgs() << "  BaseF: " << BaseF->getName() << "\n";
-    dbgs() << "  WrapperF: " << WrapperCB->getCaller()->getName() << "\n";
-    dbgs() << "  BigLoopF: " << BigLoopCB->getCaller()->getName() << "\n";
+    dbgs() << "  WrapperF: " << WrapperF->getName() << "\n";
+    dbgs() << "  BigLoopF: " << BigLoopF->getName() << "\n";
   });
   Function *FxnOuter = BigLoopCB->getCaller();
   DominatorTree &DT = (*GetDT)(*FxnOuter);
   BlockFrequencyInfo &BFI = (*GetBFI)(*FxnOuter);
   BranchProbabilityInfo &BPI = (*GetBPI)(*FxnOuter);
   RegionSplitter MultiLoopSplitter(DT, BFI, BPI);
-  OptFxn = MultiLoopSplitter.splitRegion(*MultiLoop);
-  CallBase *OptCB = cast<CallBase>(OptFxn->user_back());
-  CallBase *GenCB = cast<CallBase>(OptCB->clone());
-  BasicBlock *BBPred = OptCB->getParent();
-  BBPred->splitBasicBlock(OptCB);
+  Function *NoOptF = MultiLoopSplitter.splitRegion(*MultiLoop);
+  CallBase *NoOptCB = cast<CallBase>(NoOptF->user_back());
+  ValueToValueMapTy VMap;
+  OptF = IPCloneFunction(NoOptF, VMap);
+  CallBase *OptCB = cast<CallBase>(NoOptCB->clone());
+  setCalledFunction(OptCB, OptF);
+  BasicBlock *BBPred = NoOptCB->getParent();
+  BBPred->splitBasicBlock(NoOptCB);
   BBPred->getTerminator()->eraseFromParent();
-  Module *M = OptCB->getFunction()->getParent();
+  Module *M = NoOptCB->getFunction()->getParent();
   ConstantInt *TInt = ConstantInt::getTrue(M->getContext());
-  makeBlocks(OptCB, GenCB, TInt, BBPred);
-  LLVM_DEBUG({
-    dbgs() << "MRC Predicate Opt: Extracted Function:\n";
-    OptFxn->dump();
-    dbgs() << "MRC Predicate Opt: Enclosing Function:\n";
-    FxnOuter->dump();
-  });
+  makeBlocks(NoOptCB, OptCB, TInt, BBPred);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: OptF: " << OptF->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "MRC Predicate: NoOptF: " << NoOptF->getName() << "\n");
+  CallBase *OptWrapperCB = findUniqueCB(OptF, WrapperF);
+  assert(OptWrapperCB && "Expecting OptWrapperCB");
+  Function *OptWrapperF = IPCloneFunction(WrapperF, VMap);
+  setCalledFunction(OptWrapperCB, OptWrapperF);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: OptWrapperF : " << OptWrapperF->getName()
+                    << "\n");
+  CallBase *OptBaseCB = findUniqueCB(OptWrapperF, BaseF);
+  Function *OptBaseF = IPCloneFunction(BaseF, VMap);
+  setCalledFunction(OptBaseCB, OptBaseF);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: OptBaseF : " << OptBaseF->getName()
+                    << "\n");
+  Function *OptColdF = extractColdCode(OptBaseF);
+  if (!OptColdF)
+    return false;
+  LLVM_DEBUG(dbgs() << "MRC Predicate: ColdF : " << OptColdF->getName()
+                    << "\n");
+  return true;
 }
 
 // End of code for class PredicateOpt
@@ -6008,7 +6074,7 @@ static bool analysisCallsCloneFunctions(
             LLVM_DEBUG(dbgs() << "    Selected many recursive calls "
                               << "predicate opt\n");
             PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI);
-            if (MRCPO.canDoPredicateOpt())
+            if (MRCPO.attemptPredicateOpt())
               MRCPO.doPredicateOpt();
           } else if (EnableManyRecCallsSplitting) {
             PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI);
