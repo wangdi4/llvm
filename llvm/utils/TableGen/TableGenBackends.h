@@ -1,18 +1,3 @@
-/*
- * INTEL CONFIDENTIAL
- *
- * Modifications, Copyright (C) 2021 Intel Corporation
- *
- * This software and the related documents are Intel copyrighted materials, and
- * your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise, you may not
- * use, modify, copy, publish, distribute, disclose or transmit this software or
- * the related documents without Intel's prior written permission.
- *
- * This software and the related documents are provided as is, with no express
- * or implied warranties, other than those that are expressly stated in the
- * License.
- */
 //===- TableGenBackends.h - Declarations for LLVM TableGen Backends -------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -79,38 +64,6 @@ class raw_ostream;
 class RecordKeeper;
 
 void EmitMapTable(RecordKeeper &RK, raw_ostream &OS);
-<<<<<<< HEAD
-void EmitOptParser(RecordKeeper &RK, raw_ostream &OS);
-void EmitOptRST(RecordKeeper &RK, raw_ostream &OS);
-void EmitCTags(RecordKeeper &RK, raw_ostream &OS);
-void EmitAttributes(RecordKeeper &RK, raw_ostream &OS);
-#if INTEL_COLLAB
-void EmitDirectives(RecordKeeper &RK, raw_ostream &OS);
-#endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS,
-                      bool IsDevice = false); // TODO: VEC to COLLAB
-void EmitLibmvecVariants(RecordKeeper &RK, raw_ostream &OS);
-void EmitMAPatterns(RecordKeeper &RK, raw_ostream &OS);
-#if INTEL_FEATURE_CSA
-void EmitCSAOpTypes(RecordKeeper &RK, raw_ostream &OS);
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-void EmitSearchableTables(RecordKeeper &RK, raw_ostream &OS);
-void EmitGlobalISel(RecordKeeper &RK, raw_ostream &OS);
-void EmitGICombiner(RecordKeeper &RK, raw_ostream &OS);
-void EmitX86EVEX2VEXTables(RecordKeeper &RK, raw_ostream &OS);
-void EmitX86FoldTables(RecordKeeper &RK, raw_ostream &OS);
-void EmitX86MnemonicTables(RecordKeeper &RK, raw_ostream &OS);
-void EmitRegisterBank(RecordKeeper &RK, raw_ostream &OS);
-void EmitExegesis(RecordKeeper &RK, raw_ostream &OS);
-void EmitAutomata(RecordKeeper &RK, raw_ostream &OS);
-void EmitDirectivesDecl(RecordKeeper &RK, raw_ostream &OS);
-void EmitDirectivesImpl(RecordKeeper &RK, raw_ostream &OS);
-void EmitDXILOperation(RecordKeeper &RK, raw_ostream &OS);
-void EmitRISCVTargetDef(const RecordKeeper &RK, raw_ostream &OS);
-=======
->>>>>>> 9c93e728bfb8079c1de51e5481168c4083038c2a
 
 // Defined in DecoderEmitter.cpp
 void EmitDecoder(RecordKeeper &RK, raw_ostream &OS,
