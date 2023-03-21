@@ -1641,15 +1641,15 @@ OclBuiltinImpl work_group_scan_exclusive_max_mask_helper_ulong64 =
       OclBuiltinImpl<work_group_scan_exclusive_max_helper_mask, [v64u64], 0, work_group_scan_exclusive_function_op_mask64, [["$FUNC","max"], ["$VAL", "0"]]>;
 
 OclBuiltinImpl work_group_scan_exclusive_max_mask_helper_float4 =
-      OclBuiltinImpl<work_group_scan_exclusive_max_helper, work_group_vector_types_float4,  0, work_group_scan_exclusive_function_op_mask4, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
+      OclBuiltinImpl<work_group_scan_exclusive_max_helper_mask, work_group_vector_types_float4,  0, work_group_scan_exclusive_function_op_mask4, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
 OclBuiltinImpl work_group_scan_exclusive_max_mask_helper_float8 =
-      OclBuiltinImpl<work_group_scan_exclusive_max_helper, work_group_vector_types_float8,  0, work_group_scan_exclusive_function_op_mask8, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
+      OclBuiltinImpl<work_group_scan_exclusive_max_helper_mask, work_group_vector_types_float8,  0, work_group_scan_exclusive_function_op_mask8, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
 OclBuiltinImpl work_group_scan_exclusive_max_mask_helper_float16 =
-      OclBuiltinImpl<work_group_scan_exclusive_max_helper, work_group_vector_types_float16, 0, work_group_scan_exclusive_function_op_mask16, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
+      OclBuiltinImpl<work_group_scan_exclusive_max_helper_mask, work_group_vector_types_float16, 0, work_group_scan_exclusive_function_op_mask16, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
 OclBuiltinImpl work_group_scan_exclusive_max_mask_helper_float32 =
-      OclBuiltinImpl<work_group_scan_exclusive_max_helper, work_group_vector_types_float32, 0, work_group_scan_exclusive_function_op_mask32, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
+      OclBuiltinImpl<work_group_scan_exclusive_max_helper_mask, work_group_vector_types_float32, 0, work_group_scan_exclusive_function_op_mask32, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
 OclBuiltinImpl work_group_scan_exclusive_max_mask_helper_float64 =
-      OclBuiltinImpl<work_group_scan_exclusive_max_helper, work_group_vector_types_float64, 0, work_group_scan_exclusive_function_op_mask64, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
+      OclBuiltinImpl<work_group_scan_exclusive_max_helper_mask, work_group_vector_types_float64, 0, work_group_scan_exclusive_function_op_mask64, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
 
 OclBuiltinImpl work_group_scan_inclusive_add_mask_helper_gen4 =
       OclBuiltinImpl<work_group_scan_inclusive_add_helper_mask, work_group_vector_types_all4,    0, work_group_scan_inclusive_function_op_mask4, [["$FUNC","work_group_add_util"], ["$VAL", "0"]]>;
@@ -1773,15 +1773,15 @@ OclBuiltinImpl work_group_scan_inclusive_max_mask_helper_ulong64 =
       OclBuiltinImpl<work_group_scan_inclusive_max_helper_mask, [v64u64], 0, work_group_scan_inclusive_function_op_mask64, [["$FUNC","max"], ["$VAL", "0"]]>;
 
 OclBuiltinImpl work_group_scan_inclusive_max_mask_helper_float4 =
-      OclBuiltinImpl<work_group_scan_inclusive_max_helper, work_group_vector_types_float4,  0, work_group_scan_inclusive_function_op_mask4, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
+      OclBuiltinImpl<work_group_scan_inclusive_max_helper_mask, work_group_vector_types_float4,  0, work_group_scan_inclusive_function_op_mask4, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
 OclBuiltinImpl work_group_scan_inclusive_max_mask_helper_float8 =
-      OclBuiltinImpl<work_group_scan_inclusive_max_helper, work_group_vector_types_float8,  0, work_group_scan_inclusive_function_op_mask8, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
+      OclBuiltinImpl<work_group_scan_inclusive_max_helper_mask, work_group_vector_types_float8,  0, work_group_scan_inclusive_function_op_mask8, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
 OclBuiltinImpl work_group_scan_inclusive_max_mask_helper_float16 =
-      OclBuiltinImpl<work_group_scan_inclusive_max_helper, work_group_vector_types_float16, 0, work_group_scan_inclusive_function_op_mask16, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
+      OclBuiltinImpl<work_group_scan_inclusive_max_helper_mask, work_group_vector_types_float16, 0, work_group_scan_inclusive_function_op_mask16, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
 OclBuiltinImpl work_group_scan_inclusive_max_mask_helper_float32 =
-      OclBuiltinImpl<work_group_scan_inclusive_max_helper, work_group_vector_types_float32, 0, work_group_scan_inclusive_function_op_mask32, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
+      OclBuiltinImpl<work_group_scan_inclusive_max_helper_mask, work_group_vector_types_float32, 0, work_group_scan_inclusive_function_op_mask32, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
 OclBuiltinImpl work_group_scan_inclusive_max_mask_helper_float64 =
-      OclBuiltinImpl<work_group_scan_inclusive_max_helper, work_group_vector_types_float64, 0, work_group_scan_inclusive_function_op_mask64, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
+      OclBuiltinImpl<work_group_scan_inclusive_max_helper_mask, work_group_vector_types_float64, 0, work_group_scan_inclusive_function_op_mask64, [["$FUNC","fmax"], ["$VAL", "-INFINITY"]]>;
 
 
 // Scalar versions of Scan_add/min/max/mul functions

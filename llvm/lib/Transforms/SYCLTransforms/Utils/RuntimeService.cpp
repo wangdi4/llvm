@@ -17,8 +17,12 @@ using namespace CompilationUtils;
 using namespace NameMangleAPI;
 using namespace reflection;
 
+#define DEBUG_TYPE "sycl-kernel-runtime-service"
+
 Function *
 RuntimeService::findFunctionInBuiltinModules(StringRef FuncName) const {
+  LLVM_DEBUG(dbgs() << "Finding function in builtin modules: " << FuncName
+                    << '\n');
   for (Module *M : BuiltinModules) {
     Function *RetFunction = M->getFunction(FuncName);
     if (RetFunction)
