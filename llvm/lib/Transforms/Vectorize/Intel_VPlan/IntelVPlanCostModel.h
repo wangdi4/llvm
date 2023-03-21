@@ -148,6 +148,15 @@ public:
                                                  const Type *ScalarTy,
                                                  const unsigned VF);
 
+#if INTEL_FEATURE_SW_ADVANCED
+  /// \Returns the RecurrenceAnalysis for Plan.
+  const VPlanCostModelHeuristics::RecurrenceAnalysis &getVPRA() {
+    // analyze() is a noop after the first invocation on Plan.
+    VPRA.analyze(this, *Plan);
+    return VPRA;
+  }
+#endif // INTEL_FEATURE_SW_ADVANCED
+
 protected:
   VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
   bool ComputingForPeel = false;
@@ -187,6 +196,12 @@ protected:
 
 private:
   VPlanAlignmentAnalysis VPAA;
+
+#if INTEL_FEATURE_SW_ADVANCED
+  // Shared analysis of recurrences (i.e. reductions/inductions) for
+  // heuristics. This is populated when a heuristic calls getRecurrences().
+  VPlanCostModelHeuristics::RecurrenceAnalysis VPRA;
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   // The utility checks whether the Cost Model can assume that 32-bit indexes
   // will be used instead of 64-bit indexes for gather/scatter HW instructions.
@@ -617,7 +632,8 @@ using VPlanCostModelBase = VPlanCostModelWithHeuristics<
   HeuristicsList<const VPBasicBlock>,  // empty list
   HeuristicsList<const VPlanVector,
                  VPlanCostModelHeuristics::HeuristicSLP,
-                 VPlanCostModelHeuristics::HeuristicSpillFill>>;
+                 VPlanCostModelHeuristics::HeuristicSpillFill,
+                 VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 // TODO: lightweight mode CostModel heuristics set to be tuned yet.
 using VPlanCostModelLite = VPlanCostModelWithHeuristics<
@@ -628,7 +644,8 @@ using VPlanCostModelLite = VPlanCostModelWithHeuristics<
     VPlanCostModelHeuristics::HeuristicSLP,
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,
-    VPlanCostModelHeuristics::HeuristicPsadbw>>;
+    VPlanCostModelHeuristics::HeuristicPsadbw,
+    VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 using VPlanCostModelFull = VPlanCostModelWithHeuristics<
   HeuristicsList<
@@ -641,13 +658,15 @@ using VPlanCostModelFull = VPlanCostModelWithHeuristics<
     VPlanCostModelHeuristics::HeuristicSLP,
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,
-    VPlanCostModelHeuristics::HeuristicPsadbw>>;
+    VPlanCostModelHeuristics::HeuristicPsadbw,
+    VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 using VPlanCostModelBaseNoSLP = VPlanCostModelWithHeuristics<
   HeuristicsList<const VPInstruction>, // empty list
   HeuristicsList<const VPBasicBlock>,  // empty list
   HeuristicsList<const VPlanVector,
-                 VPlanCostModelHeuristics::HeuristicSpillFill>>;
+                 VPlanCostModelHeuristics::HeuristicSpillFill,
+                 VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 using VPlanCostModelLiteNoSLP = VPlanCostModelWithHeuristics<
   HeuristicsList<const VPInstruction>, // empty list
@@ -656,7 +675,8 @@ using VPlanCostModelLiteNoSLP = VPlanCostModelWithHeuristics<
     const VPlanVector,
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,
-    VPlanCostModelHeuristics::HeuristicPsadbw>>;
+    VPlanCostModelHeuristics::HeuristicPsadbw,
+    VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 using VPlanCostModelFullNoSLP = VPlanCostModelWithHeuristics<
   HeuristicsList<
@@ -668,7 +688,8 @@ using VPlanCostModelFullNoSLP = VPlanCostModelWithHeuristics<
     const VPlanVector,
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,
-    VPlanCostModelHeuristics::HeuristicPsadbw>>;
+    VPlanCostModelHeuristics::HeuristicPsadbw,
+    VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 #else // INTEL_FEATURE_SW_ADVANCED
 
