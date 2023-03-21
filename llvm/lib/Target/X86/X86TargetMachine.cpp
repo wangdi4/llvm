@@ -142,6 +142,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86StackRealignPass(PR);
   initializeX86HeteroArchOptPass(PR);
 #endif // INTEL_CUSTOMIZATION
+  initializeX86ArgumentStackSlotPassPass(PR);
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
@@ -624,6 +625,7 @@ bool X86PassConfig::addPreISel() {
 }
 
 void X86PassConfig::addPreRegAlloc() {
+  addPass(createX86ArgumentStackSlotPass());
   if (getOptLevel() != CodeGenOpt::None) {
     addPass(&LiveRangeShrinkID);
     addPass(createX86FixupSetCC());

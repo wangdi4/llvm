@@ -146,6 +146,7 @@ class X86MachineFunctionInfo : public MachineFunctionInfo {
   std::set<Register> CandidatesForPush2Pop2;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+  MachineInstr *StackPtrSaveMI = nullptr;
 
   std::optional<int> SwiftAsyncContextFrameIdx;
 
@@ -274,6 +275,8 @@ public:
   }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+  void setStackPtrSaveMI(MachineInstr *MI) { StackPtrSaveMI = MI; }
+  MachineInstr *getStackPtrSaveMI() const { return StackPtrSaveMI; }
 
   std::optional<int> getSwiftAsyncContextFrameIdx() const {
     return SwiftAsyncContextFrameIdx;
