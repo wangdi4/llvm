@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -bugpoint-enable-legacy-pm -hir-framework -hir-framework-debug=parser 2>&1 -hir-details | FileCheck %s
-=======
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser 2>&1 -hir-details | FileCheck %s
->>>>>>> a687de8a3616b80c1da002faffab7b5a9e4d1d25
 
 ; for(i=-5; i<n; ++i) {
 ;   A[i+5] = i;
