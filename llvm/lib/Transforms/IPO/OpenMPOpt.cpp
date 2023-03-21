@@ -53,6 +53,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instruction.h"
@@ -2666,6 +2667,8 @@ struct AAExecutionDomainFunction : public AAExecutionDomain {
           CallBase *LastCB = Worklist.pop_back_val();
           if (!Visited.insert(LastCB))
             continue;
+          if (LastCB->getFunction() != getAnchorScope())
+            continue;
           if (!DeletedBarriers.count(LastCB)) {
             A.deleteAfterManifest(*LastCB);
             continue;
@@ -2711,7 +2714,7 @@ struct AAExecutionDomainFunction : public AAExecutionDomain {
                           bool InitialEdgeOnly = false);
 
   /// Accumulate information for the entry block in \p EntryBBED.
-  void handleEntryBB(Attributor &A, ExecutionDomainTy &EntryBBED);
+  void handleCallees(Attributor &A, ExecutionDomainTy &EntryBBED);
 
   /// See AbstractAttribute::updateImpl.
   ChangeStatus updateImpl(Attributor &A) override;
@@ -2784,12 +2787,15 @@ struct AAExecutionDomainFunction : public AAExecutionDomain {
       break;
     } while ((CurI = CurI->getPrevNonDebugInstruction()));
 
-    if (!CurI &&
-        !llvm::all_of(
-            predecessors(I.getParent()), [&](const BasicBlock *PredBB) {
-              return BEDMap.lookup(PredBB).IsReachedFromAlignedBarrierOnly;
-            })) {
-      return false;
+    if (!CurI) {
+      const BasicBlock *BB = I.getParent();
+      if (BB == &BB->getParent()->getEntryBlock())
+        return BEDMap.lookup(nullptr).IsReachedFromAlignedBarrierOnly;
+      if (!llvm::all_of(predecessors(BB), [&](const BasicBlock *PredBB) {
+            return BEDMap.lookup(PredBB).IsReachedFromAlignedBarrierOnly;
+          })) {
+        return false;
+      }
     }
 
     // On neither traversal we found a anything but aligned barriers.
@@ -2809,7 +2815,7 @@ struct AAExecutionDomainFunction : public AAExecutionDomain {
   ExecutionDomainTy getFunctionExecutionDomain() const override {
     assert(isValidState() &&
            "No request should be made against an invalid state!");
-    return BEDMap.lookup(nullptr);
+    return InterProceduralED;
   }
   ///}
 
@@ -2858,6 +2864,9 @@ struct AAExecutionDomainFunction : public AAExecutionDomain {
     return false;
   };
 
+  /// Mapping containing information about the function for other AAs.
+  ExecutionDomainTy InterProceduralED;
+
   /// Mapping containing information per block.
   DenseMap<const BasicBlock *, ExecutionDomainTy> BEDMap;
   DenseMap<const CallBase *, ExecutionDomainTy> CEDMap;
@@ -2892,26 +2901,29 @@ void AAExecutionDomainFunction::mergeInPredecessor(
     ED.clearAssumeInstAndAlignedBarriers();
 }
 
-void AAExecutionDomainFunction::handleEntryBB(Attributor &A,
+void AAExecutionDomainFunction::handleCallees(Attributor &A,
                                               ExecutionDomainTy &EntryBBED) {
-  SmallVector<ExecutionDomainTy> PredExecDomains;
+  SmallVector<ExecutionDomainTy> CallSiteEDs;
   auto PredForCallSite = [&](AbstractCallSite ACS) {
     const auto &EDAA = A.getAAFor<AAExecutionDomain>(
         *this, IRPosition::function(*ACS.getInstruction()->getFunction()),
         DepClassTy::OPTIONAL);
     if (!EDAA.getState().isValidState())
       return false;
-    PredExecDomains.emplace_back(
+    CallSiteEDs.emplace_back(
         EDAA.getExecutionDomain(*cast<CallBase>(ACS.getInstruction())));
     return true;
   };
 
+  ExecutionDomainTy ExitED;
   bool AllCallSitesKnown;
   if (A.checkForAllCallSites(PredForCallSite, *this,
                              /* RequiresAllCallSites */ true,
                              AllCallSitesKnown)) {
-    for (const auto &PredED : PredExecDomains)
-      mergeInPredecessor(A, EntryBBED, PredED);
+    for (const auto &CSED : CallSiteEDs) {
+      mergeInPredecessor(A, EntryBBED, CSED);
+      ExitED.IsReachingAlignedBarrierOnly &= CSED.IsReachingAlignedBarrierOnly;
+    }
 
   } else {
     // We could not find all predecessors, so this is either a kernel or a
@@ -2921,16 +2933,19 @@ void AAExecutionDomainFunction::handleEntryBB(Attributor &A,
       EntryBBED.IsExecutedByInitialThreadOnly = false;
       EntryBBED.IsReachedFromAlignedBarrierOnly = true;
       EntryBBED.EncounteredNonLocalSideEffect = false;
+      ExitED.IsReachingAlignedBarrierOnly = true;
     } else {
       EntryBBED.IsExecutedByInitialThreadOnly = false;
       EntryBBED.IsReachedFromAlignedBarrierOnly = false;
       EntryBBED.EncounteredNonLocalSideEffect = true;
+      ExitED.IsReachingAlignedBarrierOnly = false;
     }
   }
 
   auto &FnED = BEDMap[nullptr];
-  FnED.IsReachingAlignedBarrierOnly &=
+  FnED.IsReachedFromAlignedBarrierOnly &=
       EntryBBED.IsReachedFromAlignedBarrierOnly;
+  FnED.IsReachingAlignedBarrierOnly &= ExitED.IsReachingAlignedBarrierOnly;
 }
 
 ChangeStatus AAExecutionDomainFunction::updateImpl(Attributor &A) {
@@ -2982,7 +2997,7 @@ ChangeStatus AAExecutionDomainFunction::updateImpl(Attributor &A) {
     ExecutionDomainTy ED;
     // Propagate "incoming edges" into information about this block.
     if (IsEntryBB) {
-      handleEntryBB(A, ED);
+      handleCallees(A, ED);
     } else {
       // For live non-entry blocks we only propagate
       // information via live edges.
@@ -3121,18 +3136,24 @@ ChangeStatus AAExecutionDomainFunction::updateImpl(Attributor &A) {
         ED.EncounteredNonLocalSideEffect = true;
     }
 
+    bool IsEndAndNotReachingAlignedBarriersOnly = false;
     if (!isa<UnreachableInst>(BB.getTerminator()) &&
         !BB.getTerminator()->getNumSuccessors()) {
 
-      auto &FnED = BEDMap[nullptr];
-      mergeInPredecessor(A, FnED, ED);
+      mergeInPredecessor(A, InterProceduralED, ED);
 
+      auto &FnED = BEDMap[nullptr];
+      if (!FnED.IsReachingAlignedBarrierOnly) {
+        IsEndAndNotReachingAlignedBarriersOnly = true;
+        SyncInstWorklist.push_back(BB.getTerminator());
+      }
       if (IsKernel)
         HandleAlignedBarrier(nullptr, ED);
     }
 
     ExecutionDomainTy &StoredED = BEDMap[&BB];
-    ED.IsReachingAlignedBarrierOnly = StoredED.IsReachingAlignedBarrierOnly;
+    ED.IsReachingAlignedBarrierOnly = StoredED.IsReachingAlignedBarrierOnly &
+                                      !IsEndAndNotReachingAlignedBarriersOnly;
 
     // Check if we computed anything different as part of the forward
     // traversal. We do not take assumptions and aligned barriers into account
@@ -3183,8 +3204,7 @@ ChangeStatus AAExecutionDomainFunction::updateImpl(Attributor &A) {
     }
     if (SyncBB != &EntryBB)
       continue;
-    auto &FnED = BEDMap[nullptr];
-    if (SetAndRecord(FnED.IsReachingAlignedBarrierOnly, false))
+    if (SetAndRecord(InterProceduralED.IsReachingAlignedBarrierOnly, false))
       Changed = true;
   }
 
@@ -5229,6 +5249,8 @@ void OpenMPOpt::registerAAsForFunction(Attributor &A, const Function &F) {
   A.getOrCreateAAFor<AAExecutionDomain>(IRPosition::function(F));
   if (!DisableOpenMPOptDeglobalization)
     A.getOrCreateAAFor<AAHeapToStack>(IRPosition::function(F));
+  if (F.hasFnAttribute(Attribute::Convergent))
+    A.getOrCreateAAFor<AANonConvergent>(IRPosition::function(F));
 
   for (auto &I : instructions(F)) {
     if (auto *LI = dyn_cast<LoadInst>(&I)) {

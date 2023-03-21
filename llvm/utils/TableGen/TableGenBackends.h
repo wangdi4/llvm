@@ -30,6 +30,8 @@
 #ifndef LLVM_UTILS_TABLEGEN_TABLEGENBACKENDS_H
 #define LLVM_UTILS_TABLEGEN_TABLEGENBACKENDS_H
 
+#include <string>
+
 // A TableGen backend is a function that looks like
 //
 //    EmitFoo(RecordKeeper &RK, raw_ostream &OS /*, anything else you need */ )
@@ -123,6 +125,10 @@ void EmitDirectivesImpl(RecordKeeper &RK, raw_ostream &OS);
 void EmitDXILOperation(RecordKeeper &RK, raw_ostream &OS);
 void EmitRISCVTargetDef(const RecordKeeper &RK, raw_ostream &OS);
 
-} // End llvm namespace
+// Defined in DecoderEmitter.cpp
+void EmitDecoder(RecordKeeper &RK, raw_ostream &OS,
+                 const std::string &PredicateNamespace);
+
+} // namespace llvm
 
 #endif

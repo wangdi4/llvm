@@ -3233,6 +3233,10 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
   // Every function might be "no-recurse".
   getOrCreateAAFor<AANoRecurse>(FPos);
 
+  // Every function can be "non-convergent".
+  if (F.hasFnAttribute(Attribute::Convergent))
+    getOrCreateAAFor<AANonConvergent>(FPos);
+
   // Every function might be "readnone/readonly/writeonly/...".
   getOrCreateAAFor<AAMemoryBehavior>(FPos);
 
