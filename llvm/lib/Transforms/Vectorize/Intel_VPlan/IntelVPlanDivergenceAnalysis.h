@@ -179,6 +179,7 @@ public:
   // whether verification and printing of DA information has to be done as
   // part of invocation of this function.
   void recomputeShapes(SmallPtrSetImpl<VPInstruction *> &Seeds,
+                       bool FullRecompute = false,
                        bool EnableFullDAVerificationAndPrint = false);
 
   /// Mark \p DivVal as a value that is always divergent.

@@ -1857,7 +1857,7 @@ void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
 // Dominator/Post-Dominator tree, etc. are unchanged from the previous
 // invocation of the \p compute method.
 void VPlanDivergenceAnalysis::recomputeShapes(
-    SmallPtrSetImpl<VPInstruction *> &Seeds,
+    SmallPtrSetImpl<VPInstruction *> &Seeds, bool FullRecompute,
     bool EnableFullDAVerificationAndPrint) {
 
   if (Seeds.empty())
@@ -1866,15 +1866,23 @@ void VPlanDivergenceAnalysis::recomputeShapes(
   // Clear the Worklist.
   clearWorklist();
 
-  // Compute the shapes of the VPAllocatePrivate seed-instructions and push
-  // their users to the Worklist.
-  for (auto *Inst : Seeds) {
-    assertOperandsDefined(*Inst, this);
-    auto Shape = computeVectorShape(Inst);
-    updateVectorShape(Inst, Shape);
-    pushUsers(*Inst);
+  if (FullRecompute) {
+    assert(!DARecomputationDisabled && "DA should not be fully recomputed!");
+    VectorShapes.clear();
+    ReversePostOrderTraversal<VPBasicBlock *> RPOT(&Plan->getEntryBlock());
+    for (auto *BB : RPOT)
+      for (auto &Inst : *BB)
+        pushToWorklist(Inst);
+  } else {
+    // Compute the shapes of the seed-instructions and push
+    // their users to the Worklist.
+    for (auto *Inst : Seeds) {
+      assertOperandsDefined(*Inst, this);
+      auto Shape = computeVectorShape(Inst);
+      updateVectorShape(Inst, Shape);
+      pushUsers(*Inst);
+    }
   }
-
   // Compute the shapes of instructions.
   computeImpl();
 
