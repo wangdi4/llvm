@@ -1,6 +1,6 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
-; Verify that the liveout temp %add is correctly renamed for different unrolled
+; Verify that the liveout temp %div is correctly renamed for different unrolled
 ; iterations of i3 loop postexit.
 
 ; Incoming HIR-
@@ -9,9 +9,9 @@
 ; |   |   + DO i3 = 0, -1 * i1 + 15, 1   <DO_LOOP>  <MAX_TC_EST = 16>
 ; |   |   |   %t3 = (%a)[0][i2 + 1][i1 + i3 + 1];
 ; |   |   |   %t4 = (%vq8)[0][i1 + i3 + 1];
-; |   |   |   %add = %t4  +  %t3;
+; |   |   |   %div = %t4  /  %t3;
 ; |   |   + END LOOP
-; |   |      (%a)[0][i2 + 1][0] = %add;
+; |   |      (%a)[0][i2 + 1][0] = %div;
 ; |   + END LOOP
 ; + END LOOP
 
@@ -19,28 +19,28 @@
 ; CHECK: |   |   + DO i3 = 0, -1 * i1 + 15, 1   <DO_LOOP>  <MAX_TC_EST = 16>
 ; CHECK: |   |   |   %t3 = (%a)[0][8 * i2 + 1][i1 + i3 + 1];
 ; CHECK: |   |   |   %t4 = (%vq8)[0][i1 + i3 + 1];
-; CHECK: |   |   |   %temp = %t4  +  %t3;
+; CHECK: |   |   |   %temp = %t4  /  %t3;
 ; CHECK: |   |   |   %t3 = (%a)[0][8 * i2 + 2][i1 + i3 + 1];
 ; CHECK: |   |   |   %t4 = (%vq8)[0][i1 + i3 + 1];
-; CHECK: |   |   |   %temp3 = %t4  +  %t3;
+; CHECK: |   |   |   %temp3 = %t4  /  %t3;
 ; CHECK: |   |   |   %t3 = (%a)[0][8 * i2 + 3][i1 + i3 + 1];
 ; CHECK: |   |   |   %t4 = (%vq8)[0][i1 + i3 + 1];
-; CHECK: |   |   |   %temp4 = %t4  +  %t3;
+; CHECK: |   |   |   %temp4 = %t4  /  %t3;
 ; CHECK: |   |   |   %t3 = (%a)[0][8 * i2 + 4][i1 + i3 + 1];
 ; CHECK: |   |   |   %t4 = (%vq8)[0][i1 + i3 + 1];
-; CHECK: |   |   |   %temp5 = %t4  +  %t3;
+; CHECK: |   |   |   %temp5 = %t4  /  %t3;
 ; CHECK: |   |   |   %t3 = (%a)[0][8 * i2 + 5][i1 + i3 + 1];
 ; CHECK: |   |   |   %t4 = (%vq8)[0][i1 + i3 + 1];
-; CHECK: |   |   |   %temp6 = %t4  +  %t3;
+; CHECK: |   |   |   %temp6 = %t4  /  %t3;
 ; CHECK: |   |   |   %t3 = (%a)[0][8 * i2 + 6][i1 + i3 + 1];
 ; CHECK: |   |   |   %t4 = (%vq8)[0][i1 + i3 + 1];
-; CHECK: |   |   |   %temp7 = %t4  +  %t3;
+; CHECK: |   |   |   %temp7 = %t4  /  %t3;
 ; CHECK: |   |   |   %t3 = (%a)[0][8 * i2 + 7][i1 + i3 + 1];
 ; CHECK: |   |   |   %t4 = (%vq8)[0][i1 + i3 + 1];
-; CHECK: |   |   |   %temp8 = %t4  +  %t3;
+; CHECK: |   |   |   %temp8 = %t4  /  %t3;
 ; CHECK: |   |   |   %t3 = (%a)[0][8 * i2 + 8][i1 + i3 + 1];
 ; CHECK: |   |   |   %t4 = (%vq8)[0][i1 + i3 + 1];
-; CHECK: |   |   |   %add = %t4  +  %t3;
+; CHECK: |   |   |   %div = %t4  /  %t3;
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   |      (%a)[0][8 * i2 + 1][0] = %temp;
 ; CHECK: |   |      (%a)[0][8 * i2 + 2][0] = %temp3;
@@ -49,15 +49,14 @@
 ; CHECK: |   |      (%a)[0][8 * i2 + 5][0] = %temp6;
 ; CHECK: |   |      (%a)[0][8 * i2 + 6][0] = %temp7;
 ; CHECK: |   |      (%a)[0][8 * i2 + 7][0] = %temp8;
-; CHECK: |   |      (%a)[0][8 * i2 + 8][0] = %add;
+; CHECK: |   |      (%a)[0][8 * i2 + 8][0] = %div;
 ; CHECK: |   + END LOOP
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
-define dso_local i32 @main() local_unnamed_addr #1 {
+define dso_local i32 @main() {
 entry:
   %vq8 = alloca [100 x i32], align 16
   %a = alloca [100 x [100 x i32]], align 16
@@ -90,14 +89,14 @@ for.body6:                                        ; preds = %for.body6, %for.bod
   %t3 = load i32, i32* %arrayidx8, align 4
   %arrayidx10 = getelementptr inbounds [100 x i32], [100 x i32]* %vq8, i64 0, i64 %indvars.iv44
   %t4 = load i32, i32* %arrayidx10, align 4
-  %add = add i32 %t4, %t3
+  %div = sdiv i32 %t4, %t3
   %indvars.iv.next45 = add nuw nsw i64 %indvars.iv44, 1
   %exitcond = icmp eq i64 %indvars.iv.next45, 17
   br i1 %exitcond, label %for.inc14.loopexit, label %for.body6
 
 for.inc14.loopexit:                               ; preds = %for.body6
-  %add.lcssa = phi i32 [ %add, %for.body6 ]
-  store i32 %add.lcssa, i32* %arrayidx13, align 16
+  %div.lcssa = phi i32 [ %div, %for.body6 ]
+  store i32 %div.lcssa, i32* %arrayidx13, align 16
   br label %for.inc14
 
 for.inc14:                                        ; preds = %for.inc14.loopexit, %for.cond4.preheader

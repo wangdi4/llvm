@@ -5,7 +5,7 @@
 ;<0>       BEGIN REGION { }
 ;<29>            + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;<30>            |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
-;<11>            |   |   %add = 2 * i2  +  i1;
+;<11>            |   |   %div = 2 * i2  /  i1;
 ;<30>            |   + END LOOP
 ;<19>            |      %t.05 = %add;
 ;<29>            + END LOOP
@@ -17,8 +17,8 @@
 ; CHECK:        + DO i1 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:        |   if (0 < %M)
 ; CHECK:        |   {
-; CHECK:        |      %add = 2 * %M + -2  +  i1;
-; CHECK:        |      %t.05 = %add;
+; CHECK:        |      %div = 2 * %M + -2  /  i1;
+; CHECK:        |      %t.05 = %div;
 ; CHECK:        |   }
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
@@ -46,13 +46,13 @@ for.body3.lr.ph:                                  ; preds = %for.cond1.preheader
 for.body3:                                        ; preds = %for.body3.lr.ph, %for.body3
   %j.02 = phi i32 [ 0, %for.body3.lr.ph ], [ %inc, %for.body3 ]
   %mul = mul nuw nsw i32 %j.02, 2
-  %add = add nuw nsw i32 %mul, %i.04
+  %div = sdiv i32 %mul, %i.04
   %inc = add nuw nsw i32 %j.02, 1
   %cmp2 = icmp slt i32 %inc, %M
   br i1 %cmp2, label %for.body3, label %for.cond1.for.inc4_crit_edge
 
 for.cond1.for.inc4_crit_edge:                     ; preds = %for.body3
-  %split = phi i32 [ %add, %for.body3 ]
+  %split = phi i32 [ %div, %for.body3 ]
   br label %for.inc4
 
 for.inc4:                                         ; preds = %for.cond1.for.inc4_crit_edge, %for.cond1.preheader

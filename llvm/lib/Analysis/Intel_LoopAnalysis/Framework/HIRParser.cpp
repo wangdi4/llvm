@@ -2105,9 +2105,8 @@ bool HIRParser::parseAddRec(const SCEVAddRecExpr *RecSCEV, CanonExpr *CE,
       std::unique_ptr<CanonExpr> NewCE(getCanonExprUtils().createExtCanonExpr(
           CE->getSrcType(), CE->getDestType(), CE->isSExt()));
 
-      if (parseRecursive(NewSC, NewCE.get(), Level, false, true, true)) {
-        getCanonExprUtils().add(CE, NewCE.get());
-      } else {
+      if (!parseRecursive(NewSC, NewCE.get(), Level, false, true, true) ||
+          !CanonExprUtils::add(CE, NewCE.get())) {
         return parseBlob(RecSCEV, CE, Level, 0, IndicateFailure);
       }
 
