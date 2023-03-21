@@ -247,6 +247,11 @@ void VectInfoGenerator::generateFunctions(
                         << "\n  #Variant = " << t << "  Proto: " << proto
                         << "\n  Type: " << strTy << '\n');
       size_t pos = proto.find(funcName);
+      if (pos == std::string::npos) {
+        errs() << "Error: " << strTy << " " << funcName
+               << " not found in proto\n";
+        exit(1);
+      }
       size_t length = funcName.size();
       const std::string &rewritedAlias =
           m_DB.rewritePattern(pBuiltin, pType, aliasName[t], {});
@@ -256,6 +261,12 @@ void VectInfoGenerator::generateFunctions(
       FuncProto key = {{pBuiltin, rewritedAlias}, strTy};
       if (m_funcProtoToIndex.count(key)) {
         size_t pos = proto.find(rewritedAlias);
+        if (pos == std::string::npos) {
+          errs() << "Error: " << strTy << " " << aliasName[t]
+                 << ", rewritedAlias " << rewritedAlias
+                 << " not found in proto\n";
+          exit(1);
+        }
         size_t length = rewritedAlias.size();
         proto.replace(pos, length,
                       rewritedAlias + std::to_string(m_funcCounter));
@@ -364,12 +375,12 @@ void VectInfoGenerator::run(raw_ostream &os) {
   m_funcStream.clear();
   m_funcStream.str("");
   LLVMContext context;
-  llvm::SMDiagnostic errDiagnostic;
-  std::unique_ptr<llvm::Module> pModule =
-      llvm::parseIRFile("protos.ll", errDiagnostic, context);
+  SMDiagnostic errDiagnostic;
+  std::unique_ptr<Module> pModule =
+      parseIRFile("protos.ll", errDiagnostic, context);
   if (!pModule) {
-    llvm::errs() << "Parse \"protos.ll\" failed: " << errDiagnostic.getMessage()
-                 << "\n";
+    errs() << "Error: parse \"protos.ll\" failed: "
+           << errDiagnostic.getMessage() << "\n";
     exit(1);
   }
   int err = remove("protos.ll");

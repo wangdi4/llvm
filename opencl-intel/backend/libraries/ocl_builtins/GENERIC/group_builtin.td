@@ -150,22 +150,6 @@ OclBuiltinImpl work_group_broadcast3d_fake = OclBuiltinImpl<work_group_broadcast
   [{
     return $Arg0VarName;
   }]>;
-OclBuiltinImpl work_group_reduce_add_fake = OclBuiltinImpl<work_group_reduce_add, work_group_types_all, 0,
-  [{
-    return $Arg0VarName;
-  }]>;
-OclBuiltinImpl work_group_reduce_mul_fake = OclBuiltinImpl<work_group_reduce_mul, work_group_types_all, 0,
-  [{
-    return $Arg0VarName;
-  }]>;
-OclBuiltinImpl work_group_reduce_min_fake = OclBuiltinImpl<work_group_reduce_min, work_group_types_all, 0,
-  [{
-    return $Arg0VarName;
-  }]>;
-OclBuiltinImpl work_group_reduce_max_fake = OclBuiltinImpl<work_group_reduce_max, work_group_types_all, 0,
-  [{
-    return $Arg0VarName;
-  }]>;
 OclBuiltinImpl work_group_reduce_bitwise_and_fake = OclBuiltinImpl<work_group_reduce_bitwise_and, work_group_types_all_integer, 0,
   [{
     return $Arg0VarName;
@@ -243,22 +227,6 @@ OclBuiltinImpl work_group_broadcast3d_mask_fake = OclBuiltinImpl<work_group_broa
   [{
     return $Arg0VarName;
   }]>;
-OclBuiltinImpl work_group_reduce_add_mask_fake = OclBuiltinImpl<work_group_reduce_add_mask, work_group_types_all, 0,
-  [{
-    return $Arg0VarName;
-  }]>;
-OclBuiltinImpl work_group_reduce_min_mask_fake = OclBuiltinImpl<work_group_reduce_min_mask, work_group_types_all, 0,
-  [{
-    return $Arg0VarName;
-  }]>;
-OclBuiltinImpl work_group_reduce_max_mask_fake = OclBuiltinImpl<work_group_reduce_max_mask, work_group_types_all, 0,
-  [{
-    return $Arg0VarName;
-  }]>;
-OclBuiltinImpl work_group_reduce_mul_mask_fake = OclBuiltinImpl<work_group_reduce_mul_mask, work_group_types_all, 0,
-  [{
-    return $Arg0VarName;
-  }]>;
 OclBuiltinImpl work_group_scan_exclusive_add_mask_fake = OclBuiltinImpl<work_group_scan_exclusive_add_mask, work_group_types_all, 0,
   [{
     return $Arg0VarName;
@@ -292,15 +260,7 @@ OclBuiltinImpl work_group_scan_inclusive_mul_mask_fake = OclBuiltinImpl<work_gro
     return $Arg0VarName;
   }]>;
 
-// Functions for addition/and/or operations (in order to have all per-WI helper functions uniformal)
-OclBuiltinImpl work_group_add_helper_util__generic = OclBuiltinImpl<work_group_add_helper_util, work_group_types_all, 0,
-  [{
-    return $Arg0VarName + $Arg1VarName;
-  }]>;
-OclBuiltinImpl work_group_mul_helper_util__generic = OclBuiltinImpl<work_group_mul_helper_util, work_group_types_all, 0,
-  [{
-    return $Arg0VarName * $Arg1VarName;
-  }]>;
+// Functions for and/or operations (in order to have all per-WI helper functions uniformal)
 OclBuiltinImpl work_group_bitwise_and_helper_util__generic = OclBuiltinImpl<work_group_bitwise_and_helper_util, work_group_types_all_integer, 0,
   [{
     return $Arg0VarName & $Arg1VarName;
@@ -339,80 +299,6 @@ OclBuiltinImpl work_group_any_helper_util_int = OclBuiltinImpl<work_group_any_he
 // 1. Uniform result
 //-----------------------------------------------
 
-defvar work_group_inclusive_function_op_vector = [{
-    $Arg0Type acc = $FUNC($Arg0VarName, *$Arg1VarName);
-    *$Arg1VarName = acc;
-    return acc;
-  }];
-
-defvar work_group_inclusive_function_op_vector32 = [{
-    $Arg0Type acc;
-    acc.lo = $FUNC($Arg0VarName.lo, (*$Arg1VarName).lo);
-    acc.hi = $FUNC($Arg0VarName.hi, (*$Arg1VarName).hi);
-    *$Arg1VarName = acc;
-    return acc;
-  }];
-
-defvar work_group_inclusive_function_op_vector64 = [{
-    $Arg0Type acc;
-    acc.lo.lo = $FUNC($Arg0VarName.lo.lo, (*$Arg1VarName).lo.lo);
-    acc.lo.hi = $FUNC($Arg0VarName.lo.hi, (*$Arg1VarName).lo.hi);
-    acc.hi.lo = $FUNC($Arg0VarName.hi.lo, (*$Arg1VarName).hi.lo);
-    acc.hi.hi = $FUNC($Arg0VarName.hi.hi, (*$Arg1VarName).hi.hi);
-    *$Arg1VarName = acc;
-    return acc;
-  }];
-
-
-defvar work_group_inclusive_function_op_scalar = [{
-    $Arg0Type acc = $FUNC($Arg0VarName, *$Arg1VarName);
-    *$Arg1VarName = acc;
-    return acc;
-  }];
-
-defvar work_group_inclusive_function_op_mask = [{
-    $MaskCastTy$VecLength arg0 = __builtin_astype($Arg0VarName, $MaskCastTy$VecLength);
-    $MaskCastTy$VecLength arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int$VecLength), $MaskCastTy$VecLength);
-    arg0 &= arg1;
-    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
-    arg0 |= arg1;
-    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
-    $Arg0Type acc = $FUNC($Arg0VarName, *$Arg2VarName);
-    *$Arg2VarName = acc;
-    return acc;
-  }];
-
-defvar work_group_inclusive_function_op_mask32 = [{
-    $MaskCastTy$VecLength arg0 = __builtin_astype($Arg0VarName, $MaskCastTy$VecLength);
-    $MaskCastTy$VecLength arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int$VecLength), $MaskCastTy$VecLength);
-    arg0 &= arg1;
-    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
-    arg0 |= arg1;
-    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
-    $Arg0Type acc;
-    acc.lo = $FUNC($Arg0VarName.lo, (*$Arg2VarName).lo);
-    acc.hi = $FUNC($Arg0VarName.hi, (*$Arg2VarName).hi);
-    *$Arg2VarName = acc;
-    return acc;
-  }];
-
-defvar work_group_inclusive_function_op_mask64 = [{
-    $MaskCastTy$VecLength arg0 = __builtin_astype($Arg0VarName, $MaskCastTy$VecLength);
-    $MaskCastTy$VecLength arg1 = __builtin_convertvector(__builtin_astype($Arg1VarName, int$VecLength), $MaskCastTy$VecLength);
-    arg0 &= arg1;
-    arg1 = ~arg1 & __builtin_astype(($Arg0BaseType)($VAL), $MaskCastTy);
-    arg0 |= arg1;
-    $Arg0VarName = __builtin_astype(arg0, $Arg0Type);
-    $Arg0Type acc;
-    acc.lo.lo = $FUNC($Arg0VarName.lo.lo, (*$Arg2VarName).lo.lo);
-    acc.lo.hi = $FUNC($Arg0VarName.lo.hi, (*$Arg2VarName).lo.hi);
-    acc.hi.lo = $FUNC($Arg0VarName.hi.lo, (*$Arg2VarName).hi.lo);
-    acc.hi.hi = $FUNC($Arg0VarName.hi.hi, (*$Arg2VarName).hi.hi);
-    *$Arg2VarName = acc;
-    return acc;
-  }];
-
-
 // work_group_all
 OclBuiltinImpl work_group_all_vector_helper_int = OclBuiltinImpl<work_group_all_helper, [v4i32, v8i32, v16i32, v32i32, v64i32], 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_all_util"]]>;
 OclBuiltinImpl work_group_all_scalar_helper_int = OclBuiltinImpl<work_group_all_helper, [v1i32], 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_all_util"]]>;
@@ -422,14 +308,6 @@ OclBuiltinImpl work_group_all_mask_helper_int = OclBuiltinImpl<work_group_all_he
 OclBuiltinImpl work_group_any_vector_helper_int = OclBuiltinImpl<work_group_any_helper, [v4i32, v8i32, v16i32, v32i32, v64i32], 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_any_util"]]>;
 OclBuiltinImpl work_group_any_scalar_helper_int = OclBuiltinImpl<work_group_any_helper, [v1i32], 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_any_util"]]>;
 OclBuiltinImpl work_group_any_mask_helper_int = OclBuiltinImpl<work_group_any_helper_mask, [v4i32, v8i32, v16i32, v32i32, v64i32], 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_any_util"], ["$VAL", "0"]]>;
-
-// work_group_reduce_add
-OclBuiltinImpl work_group_reduce_add_vector_helper_generic = OclBuiltinImpl<work_group_reduce_add_helper, work_group_vector_types_all, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_add_util"]]>;
-OclBuiltinImpl work_group_reduce_add_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_add_helper, work_group_scalar_types_all, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_add_util"]]>;
-
-// work_group_reduce_mul
-OclBuiltinImpl work_group_reduce_mul_vector_helper_generic = OclBuiltinImpl<work_group_reduce_mul_helper, work_group_vector_types_all, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_mul_util"]]>;
-OclBuiltinImpl work_group_reduce_mul_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_mul_helper, work_group_scalar_types_all, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_mul_util"]]>;
 
 // work_group_reduce_bitwise_and
 OclBuiltinImpl work_group_reduce_bitwise_and_vector_helper_generic = OclBuiltinImpl<work_group_reduce_bitwise_and_helper, work_group_vector_types_all_integer, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_bitwise_and_util"]]>;
@@ -454,99 +332,6 @@ OclBuiltinImpl work_group_reduce_logical_or_scalar_helper_generic = OclBuiltinIm
 // work_group_reduce_logical_xor
 OclBuiltinImpl work_group_reduce_logical_xor_vector_helper_generic = OclBuiltinImpl<work_group_reduce_logical_xor_helper, work_group_vector_types_all_i32, 0, work_group_inclusive_function_op_vector, [["$FUNC", "work_group_logical_xor_util"]]>;
 OclBuiltinImpl work_group_reduce_logical_xor_scalar_helper_generic = OclBuiltinImpl<work_group_reduce_logical_xor_helper, [v1i32], 0, work_group_inclusive_function_op_scalar, [["$FUNC", "work_group_logical_xor_util"]]>;
-
-// work_group_reduce_max/min
-OclBuiltinImpl work_group_reduce_min_vector_helper_int4 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_int4, 0, work_group_inclusive_function_op_vector, [["$FUNC", "min"]]>;
-OclBuiltinImpl work_group_reduce_min_vector_helper_int8 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_int8, 0, work_group_inclusive_function_op_vector, [["$FUNC", "min"]]>;
-OclBuiltinImpl work_group_reduce_min_vector_helper_int16 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_int16, 0, work_group_inclusive_function_op_vector, [["$FUNC", "min"]]>;
-OclBuiltinImpl work_group_reduce_min_vector_helper_int32 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_int32, 0, work_group_inclusive_function_op_vector32, [["$FUNC", "min"]]>;
-OclBuiltinImpl work_group_reduce_min_vector_helper_int64 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_int64, 0, work_group_inclusive_function_op_vector64, [["$FUNC", "min"]]>;
-OclBuiltinImpl work_group_reduce_min_scalar_helper_int = OclBuiltinImpl<work_group_reduce_min_helper, work_group_scalar_types_int, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "min"]]>;
-
-OclBuiltinImpl work_group_reduce_min_vector_helper_float4 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_float4, 0, work_group_inclusive_function_op_vector, [["$FUNC", "fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_vector_helper_float8 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_float8, 0, work_group_inclusive_function_op_vector, [["$FUNC", "fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_vector_helper_float16  = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_float16, 0, work_group_inclusive_function_op_vector, [["$FUNC", "fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_vector_helper_float32 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_float32, 0, work_group_inclusive_function_op_vector32, [["$FUNC", "fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_vector_helper_float64 = OclBuiltinImpl<work_group_reduce_min_helper, work_group_vector_types_float64, 0, work_group_inclusive_function_op_vector64, [["$FUNC", "fmin"]]>;
-
-OclBuiltinImpl work_group_reduce_min_scalar_helper_float = OclBuiltinImpl<work_group_reduce_min_helper, work_group_scalar_types_float, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "fmin"]]>;
-OclBuiltinImpl work_group_reduce_max_vector_helper_int4 = OclBuiltinImpl<work_group_reduce_max_helper, work_group_vector_types_int4, 0, work_group_inclusive_function_op_vector, [["$FUNC", "max"]]>;
-OclBuiltinImpl work_group_reduce_max_vector_helper_int8 = OclBuiltinImpl<work_group_reduce_max_helper, work_group_vector_types_int8, 0, work_group_inclusive_function_op_vector, [["$FUNC", "max"]]>;
-OclBuiltinImpl work_group_reduce_max_vector_helper_int16 = OclBuiltinImpl<work_group_reduce_max_helper, work_group_vector_types_int16, 0, work_group_inclusive_function_op_vector, [["$FUNC", "max"]]>;
-OclBuiltinImpl work_group_reduce_max_vector_helper_int32 = OclBuiltinImpl<work_group_reduce_max_helper, work_group_vector_types_int32, 0, work_group_inclusive_function_op_vector32, [["$FUNC", "max"]]>;
-OclBuiltinImpl work_group_reduce_max_vector_helper_int64 = OclBuiltinImpl<work_group_reduce_max_helper, work_group_vector_types_int64, 0, work_group_inclusive_function_op_vector64, [["$FUNC", "max"]]>;
-
-OclBuiltinImpl work_group_reduce_max_scalar_helper_int = OclBuiltinImpl<work_group_reduce_max_helper, work_group_scalar_types_int, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "max"]]>;
-OclBuiltinImpl work_group_reduce_max_vector_helper_float4 = OclBuiltinImpl<work_group_reduce_max_helper, work_group_vector_types_float4, 0, work_group_inclusive_function_op_vector, [["$FUNC", "fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_vector_helper_float8 = OclBuiltinImpl<work_group_reduce_max_helper, work_group_vector_types_float8, 0, work_group_inclusive_function_op_vector, [["$FUNC", "fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_vector_helper_float16 = OclBuiltinImpl<work_group_reduce_max_helper, work_group_vector_types_float16, 0, work_group_inclusive_function_op_vector, [["$FUNC", "fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_vector_helper_float32 = OclBuiltinImpl<work_group_reduce_max_helper, work_group_vector_types_float32, 0, work_group_inclusive_function_op_vector32, [["$FUNC", "fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_vector_helper_float64 = OclBuiltinImpl<work_group_reduce_max_helper, work_group_vector_types_float64, 0, work_group_inclusive_function_op_vector64, [["$FUNC", "fmax"]]>;
-
-OclBuiltinImpl work_group_reduce_max_scalar_helper_float = OclBuiltinImpl<work_group_reduce_max_helper, work_group_scalar_types_float, 0, work_group_inclusive_function_op_scalar, [["$FUNC", "fmax"]]>;
-
-// Masked work group reduce add
-//OclBuiltinImpl work_group_reduce_add_mask_helper_generic = OclBuiltinImpl<work_group_reduce_add_helper_mask, work_group_vector_types_all, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_add_util"], ["$VAL", "0"]]>;
-OclBuiltinImpl work_group_reduce_add_mask_helper_gen4 = OclBuiltinImpl<work_group_reduce_add_helper_mask, work_group_vector_types_all4, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_add_util"], ["$VAL", "0"]]>;
-OclBuiltinImpl work_group_reduce_add_mask_helper_gen8 = OclBuiltinImpl<work_group_reduce_add_helper_mask, work_group_vector_types_all8, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_add_util"], ["$VAL", "0"]]>;
-OclBuiltinImpl work_group_reduce_add_mask_helper_gen16 = OclBuiltinImpl<work_group_reduce_add_helper_mask, work_group_vector_types_all16, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_add_util"], ["$VAL", "0"]]>;
-OclBuiltinImpl work_group_reduce_add_mask_helper_gen32 = OclBuiltinImpl<work_group_reduce_add_helper_mask, work_group_vector_types_all32, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_add_util"], ["$VAL", "0"]]>;
-OclBuiltinImpl work_group_reduce_add_mask_helper_gen64 = OclBuiltinImpl<work_group_reduce_add_helper_mask, work_group_vector_types_all64, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_add_util"], ["$VAL", "0"]]>;
-
-OclBuiltinImpl work_group_reduce_mul_mask_helper_gen4 = OclBuiltinImpl<work_group_reduce_mul_helper_mask, work_group_vector_types_all4, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_mul_util"], ["$VAL", "1"]]>;
-OclBuiltinImpl work_group_reduce_mul_mask_helper_gen8 = OclBuiltinImpl<work_group_reduce_mul_helper_mask, work_group_vector_types_all8, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_mul_util"], ["$VAL", "1"]]>;
-OclBuiltinImpl work_group_reduce_mul_mask_helper_gen16 = OclBuiltinImpl<work_group_reduce_mul_helper_mask, work_group_vector_types_all16, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_mul_util"], ["$VAL", "1"]]>;
-OclBuiltinImpl work_group_reduce_mul_mask_helper_gen32 = OclBuiltinImpl<work_group_reduce_mul_helper_mask, work_group_vector_types_all32, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_mul_util"], ["$VAL", "1"]]>;
-OclBuiltinImpl work_group_reduce_mul_mask_helper_gen64 = OclBuiltinImpl<work_group_reduce_mul_helper_mask, work_group_vector_types_all64, 0, work_group_inclusive_function_op_mask, [["$FUNC", "work_group_mul_util"], ["$VAL", "1"]]>;
-
-// Masked work group reduce max/min
-OclBuiltinImpl work_group_reduce_min_mask_helper_i32 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v4i32, v8i32, v16i32], 0, work_group_inclusive_function_op_mask, [["$FUNC", "min"],["$VAL", "INT_MAX"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_i32_v32 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v32i32], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "min"],["$VAL", "INT_MAX"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_i32_v64 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v64i32], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "min"],["$VAL", "INT_MAX"]]>;
-
-OclBuiltinImpl work_group_reduce_min_mask_helper_u32 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v4u32, v8u32, v16u32], 0, work_group_inclusive_function_op_mask, [["$FUNC", "min"],["$VAL", "UINT_MAX"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_u32_v32 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v32u32], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "min"],["$VAL", "UINT_MAX"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_u32_v64 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v64u32], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "min"],["$VAL", "UINT_MAX"]]>;
-
-OclBuiltinImpl work_group_reduce_min_mask_helper_i64 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v4i64, v8i64, v16i64], 0, work_group_inclusive_function_op_mask, [["$FUNC", "min"],["$VAL", "LONG_MAX"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_i64_v32 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v32i64], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "min"],["$VAL", "LONG_MAX"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_i64_v64 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v64i64], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "min"],["$VAL", "LONG_MAX"]]>;
-
-OclBuiltinImpl work_group_reduce_min_mask_helper_u64 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v4u64, v8u64, v16u64], 0, work_group_inclusive_function_op_mask, [["$FUNC", "min"],["$VAL", "ULONG_MAX"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_u64_v32 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v32u64], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "min"],["$VAL", "ULONG_MAX"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_u64_v64 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v64u64], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "min"],["$VAL", "ULONG_MAX"]]>;
-
-OclBuiltinImpl work_group_reduce_min_mask_helper_f32 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v4f32, v8f32, v16f32], 0, work_group_inclusive_function_op_mask, [["$FUNC", "fmin"], ["$VAL", "INFINITY"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_f32_v32 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v32f32], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "fmin"], ["$VAL", "INFINITY"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_f32_v64 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v64f32], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "fmin"], ["$VAL", "INFINITY"]]>;
-
-OclBuiltinImpl work_group_reduce_min_mask_helper_f64 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v4f64, v8f64, v16f64], 0, work_group_inclusive_function_op_mask, [["$FUNC", "fmin"], ["$VAL", "INFINITY"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_f64_v32 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v32f64], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "fmin"], ["$VAL", "INFINITY"]]>;
-OclBuiltinImpl work_group_reduce_min_mask_helper_f64_v64 = OclBuiltinImpl<work_group_reduce_min_helper_mask, [v64f64], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "fmin"], ["$VAL", "INFINITY"]]>;
-
-OclBuiltinImpl work_group_reduce_max_mask_helper_i32 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v4i32, v8i32, v16i32], 0, work_group_inclusive_function_op_mask, [["$FUNC", "max"],["$VAL", "INT_MIN"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_i32_v32 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v32i32], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "max"],["$VAL", "INT_MIN"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_i32_v64 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v64i32], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "max"],["$VAL", "INT_MIN"]]>;
-
-OclBuiltinImpl work_group_reduce_max_mask_helper_u32 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v4u32, v8u32, v16u32], 0, work_group_inclusive_function_op_mask, [["$FUNC", "max"],["$VAL", "0"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_u32_v32 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v32u32], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "max"],["$VAL", "0"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_u32_v64 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v64u32], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "max"],["$VAL", "0"]]>;
-
-OclBuiltinImpl work_group_reduce_max_mask_helper_i64 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v4i64, v8i64, v16i64], 0, work_group_inclusive_function_op_mask, [["$FUNC", "max"],["$VAL", "LONG_MIN"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_i64_v32 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v32i64], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "max"],["$VAL", "LONG_MIN"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_i64_v64 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v64i64], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "max"],["$VAL", "LONG_MIN"]]>;
-
-OclBuiltinImpl work_group_reduce_max_mask_helper_u64 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v4u64, v8u64, v16u64], 0, work_group_inclusive_function_op_mask, [["$FUNC", "max"],["$VAL", "0"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_u64_v32 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v32u64], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "max"],["$VAL", "0"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_u64_v64 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v64u64], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "max"],["$VAL", "0"]]>;
-
-OclBuiltinImpl work_group_reduce_max_mask_helper_f32 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v4f32, v8f32, v16f32], 0, work_group_inclusive_function_op_mask, [["$FUNC", "fmax"], ["$VAL", "-INFINITY"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_f32_v32 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v32f32], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "fmax"], ["$VAL", "-INFINITY"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_f32_v64 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v64f32], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "fmax"], ["$VAL", "-INFINITY"]]>;
-
-OclBuiltinImpl work_group_reduce_max_mask_helper_f64 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v4f64, v8f64, v16f64], 0, work_group_inclusive_function_op_mask, [["$FUNC", "fmax"], ["$VAL", "-INFINITY"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_f64_v32 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v32f64], 0, work_group_inclusive_function_op_mask32, [["$FUNC", "fmax"], ["$VAL", "-INFINITY"]]>;
-OclBuiltinImpl work_group_reduce_max_mask_helper_f64_v64 = OclBuiltinImpl<work_group_reduce_max_helper_mask, [v64f64], 0, work_group_inclusive_function_op_mask64, [["$FUNC", "fmax"], ["$VAL", "-INFINITY"]]>;
 
 // work_group_broadcast_scalar
 OclBuiltinImpl work_group_broadcast_scalar_helper = OclBuiltinImpl<work_group_broadcast_helper, work_group_scalar_types_all, 0, [{
@@ -1817,172 +1602,6 @@ OclBuiltinImpl work_group_scan_inclusive_max_scalar_helper_float =
       OclBuiltinImpl<work_group_scan_inclusive_max_helper, work_group_scalar_types_float,   0, work_group_inclusive_function_op_scalar, [["$FUNC","fmax"]]>;
 
 
-//-----------------------------------------------
-// 3. Finalization of uniform result
-//-----------------------------------------------
-
-defvar work_group_finalize_function_op4 = [{
-    $Arg0VecType ret;
-    ret.s0 = $Arg0VarName.s0;
-    ret.s0 = $FUNC($Arg0VarName.s1, ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s2, ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s3, ret.s0);
-    return ($Arg0VecType)(ret.s0);
-  }];
-
-defvar work_group_finalize_function_op8 = [{
-    $Arg0VecType ret;
-    ret.s0 = $Arg0VarName.s0;
-    ret.s0 = $FUNC($Arg0VarName.s1, ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s2, ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s3, ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s4, ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s5, ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s6, ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s7, ret.s0);
-    return ($Arg0VecType)(ret.s0);
-  }];
-
-defvar work_group_finalize_function_op16 = [{
-    $Arg0VecType ret;
-    ret.s0 = $Arg0VarName.s0;
-    ret.s0 = $FUNC($Arg0VarName.s1,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s2,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s3,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s4,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s5,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s6,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s7,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s8,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.s9,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.sA,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.sB,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.sC,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.sD,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.sE,  ret.s0);
-    ret.s0 = $FUNC($Arg0VarName.sF,  ret.s0);
-    return ($Arg0VecType)(ret.s0);
-  }];
-
-defvar work_group_finalize_function_op32 = [{
-    $Arg0VecType ret;
-    $Arg0BaseType#16 hi = $Arg0VarName.hi;
-    $Arg0BaseType#16 lo = $Arg0VarName.lo;
-
-    ret.s0 = lo.s0;
-    ret.s0 = $FUNC(lo.s1,  ret.s0);
-    ret.s0 = $FUNC(lo.s2,  ret.s0);
-    ret.s0 = $FUNC(lo.s3,  ret.s0);
-    ret.s0 = $FUNC(lo.s4,  ret.s0);
-    ret.s0 = $FUNC(lo.s5,  ret.s0);
-    ret.s0 = $FUNC(lo.s6,  ret.s0);
-    ret.s0 = $FUNC(lo.s7,  ret.s0);
-    ret.s0 = $FUNC(lo.s8,  ret.s0);
-    ret.s0 = $FUNC(lo.s9,  ret.s0);
-    ret.s0 = $FUNC(lo.sA,  ret.s0);
-    ret.s0 = $FUNC(lo.sB,  ret.s0);
-    ret.s0 = $FUNC(lo.sC,  ret.s0);
-    ret.s0 = $FUNC(lo.sD,  ret.s0);
-    ret.s0 = $FUNC(lo.sE,  ret.s0);
-    ret.s0 = $FUNC(lo.sF,  ret.s0);
-
-    ret.s0 = $FUNC(hi.s0,  ret.s0);
-    ret.s0 = $FUNC(hi.s1,  ret.s0);
-    ret.s0 = $FUNC(hi.s2,  ret.s0);
-    ret.s0 = $FUNC(hi.s3,  ret.s0);
-    ret.s0 = $FUNC(hi.s4,  ret.s0);
-    ret.s0 = $FUNC(hi.s5,  ret.s0);
-    ret.s0 = $FUNC(hi.s6,  ret.s0);
-    ret.s0 = $FUNC(hi.s7,  ret.s0);
-    ret.s0 = $FUNC(hi.s8,  ret.s0);
-    ret.s0 = $FUNC(hi.s9,  ret.s0);
-    ret.s0 = $FUNC(hi.sA,  ret.s0);
-    ret.s0 = $FUNC(hi.sB,  ret.s0);
-    ret.s0 = $FUNC(hi.sC,  ret.s0);
-    ret.s0 = $FUNC(hi.sD,  ret.s0);
-    ret.s0 = $FUNC(hi.sE,  ret.s0);
-    ret.s0 = $FUNC(hi.sF,  ret.s0);
-
-    return ($Arg0VecType)(ret.s0);
-  }];
-
-defvar work_group_finalize_function_op64 = [{
-    $Arg0VecType ret;
-    $Arg0BaseType#16 hihi = $Arg0VarName.hi.hi;
-    $Arg0BaseType#16 hilo = $Arg0VarName.hi.lo;
-    $Arg0BaseType#16 lohi = $Arg0VarName.lo.hi;
-    $Arg0BaseType#16 lolo = $Arg0VarName.lo.lo;
-
-    ret.s0 = lolo.s0;
-    ret.s0 = $FUNC(lolo.s1,  ret.s0);
-    ret.s0 = $FUNC(lolo.s2,  ret.s0);
-    ret.s0 = $FUNC(lolo.s3,  ret.s0);
-    ret.s0 = $FUNC(lolo.s4,  ret.s0);
-    ret.s0 = $FUNC(lolo.s5,  ret.s0);
-    ret.s0 = $FUNC(lolo.s6,  ret.s0);
-    ret.s0 = $FUNC(lolo.s7,  ret.s0);
-    ret.s0 = $FUNC(lolo.s8,  ret.s0);
-    ret.s0 = $FUNC(lolo.s9,  ret.s0);
-    ret.s0 = $FUNC(lolo.sA,  ret.s0);
-    ret.s0 = $FUNC(lolo.sB,  ret.s0);
-    ret.s0 = $FUNC(lolo.sC,  ret.s0);
-    ret.s0 = $FUNC(lolo.sD,  ret.s0);
-    ret.s0 = $FUNC(lolo.sE,  ret.s0);
-    ret.s0 = $FUNC(lolo.sF,  ret.s0);
-
-    ret.s0 = $FUNC(lohi.s0,  ret.s0);
-    ret.s0 = $FUNC(lohi.s1,  ret.s0);
-    ret.s0 = $FUNC(lohi.s2,  ret.s0);
-    ret.s0 = $FUNC(lohi.s3,  ret.s0);
-    ret.s0 = $FUNC(lohi.s4,  ret.s0);
-    ret.s0 = $FUNC(lohi.s5,  ret.s0);
-    ret.s0 = $FUNC(lohi.s6,  ret.s0);
-    ret.s0 = $FUNC(lohi.s7,  ret.s0);
-    ret.s0 = $FUNC(lohi.s8,  ret.s0);
-    ret.s0 = $FUNC(lohi.s9,  ret.s0);
-    ret.s0 = $FUNC(lohi.sA,  ret.s0);
-    ret.s0 = $FUNC(lohi.sB,  ret.s0);
-    ret.s0 = $FUNC(lohi.sC,  ret.s0);
-    ret.s0 = $FUNC(lohi.sD,  ret.s0);
-    ret.s0 = $FUNC(lohi.sE,  ret.s0);
-    ret.s0 = $FUNC(lohi.sF,  ret.s0);
-
-    ret.s0 = $FUNC(hilo.s0,  ret.s0);
-    ret.s0 = $FUNC(hilo.s1,  ret.s0);
-    ret.s0 = $FUNC(hilo.s2,  ret.s0);
-    ret.s0 = $FUNC(hilo.s3,  ret.s0);
-    ret.s0 = $FUNC(hilo.s4,  ret.s0);
-    ret.s0 = $FUNC(hilo.s5,  ret.s0);
-    ret.s0 = $FUNC(hilo.s6,  ret.s0);
-    ret.s0 = $FUNC(hilo.s7,  ret.s0);
-    ret.s0 = $FUNC(hilo.s8,  ret.s0);
-    ret.s0 = $FUNC(hilo.s9,  ret.s0);
-    ret.s0 = $FUNC(hilo.sA,  ret.s0);
-    ret.s0 = $FUNC(hilo.sB,  ret.s0);
-    ret.s0 = $FUNC(hilo.sC,  ret.s0);
-    ret.s0 = $FUNC(hilo.sD,  ret.s0);
-    ret.s0 = $FUNC(hilo.sE,  ret.s0);
-    ret.s0 = $FUNC(hilo.sF,  ret.s0);
-
-    ret.s0 = $FUNC(hihi.s0,  ret.s0);
-    ret.s0 = $FUNC(hihi.s1,  ret.s0);
-    ret.s0 = $FUNC(hihi.s2,  ret.s0);
-    ret.s0 = $FUNC(hihi.s3,  ret.s0);
-    ret.s0 = $FUNC(hihi.s4,  ret.s0);
-    ret.s0 = $FUNC(hihi.s5,  ret.s0);
-    ret.s0 = $FUNC(hihi.s6,  ret.s0);
-    ret.s0 = $FUNC(hihi.s7,  ret.s0);
-    ret.s0 = $FUNC(hihi.s8,  ret.s0);
-    ret.s0 = $FUNC(hihi.s9,  ret.s0);
-    ret.s0 = $FUNC(hihi.sA,  ret.s0);
-    ret.s0 = $FUNC(hihi.sB,  ret.s0);
-    ret.s0 = $FUNC(hihi.sC,  ret.s0);
-    ret.s0 = $FUNC(hihi.sD,  ret.s0);
-    ret.s0 = $FUNC(hihi.sE,  ret.s0);
-    ret.s0 = $FUNC(hihi.sF,  ret.s0);
-
-    return ($Arg0VecType)(ret.s0);
-  }];
 // Definitions of finalization functions
 OclBuiltinImpl work_group_all_finalize_helper_int4 =  OclBuiltinImpl<work_group_all_finalize_helper,   [v4i32],   0, work_group_finalize_function_op4, [["$FUNC","work_group_all_util"]]>;
 OclBuiltinImpl work_group_all_finalize_helper_int8 =  OclBuiltinImpl<work_group_all_finalize_helper,   [v8i32],   0, work_group_finalize_function_op8, [["$FUNC","work_group_all_util"]]>;
@@ -1995,28 +1614,6 @@ OclBuiltinImpl work_group_any_finalize_helper_int8 =  OclBuiltinImpl<work_group_
 OclBuiltinImpl work_group_any_finalize_helper_int16 = OclBuiltinImpl<work_group_any_finalize_helper,   [v16i32],  0, work_group_finalize_function_op16, [["$FUNC","work_group_any_util"]]>;
 OclBuiltinImpl work_group_any_finalize_helper_int32 = OclBuiltinImpl<work_group_any_finalize_helper,   [v32i32],  0, work_group_finalize_function_op32, [["$FUNC","work_group_any_util"]]>;
 OclBuiltinImpl work_group_any_finalize_helper_int64 = OclBuiltinImpl<work_group_any_finalize_helper,   [v64i32],  0, work_group_finalize_function_op64, [["$FUNC","work_group_any_util"]]>;
-
-OclBuiltinImpl work_group_reduce_add_finalize_helper_gen4 =
-      OclBuiltinImpl<work_group_reduce_add_finalize_helper, work_group_vector_types_all4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_add_util"]]>;
-OclBuiltinImpl work_group_reduce_add_finalize_helper_gen8 =
-      OclBuiltinImpl<work_group_reduce_add_finalize_helper, work_group_vector_types_all8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_add_util"]]>;
-OclBuiltinImpl work_group_reduce_add_finalize_helper_gen16 =
-      OclBuiltinImpl<work_group_reduce_add_finalize_helper, work_group_vector_types_all16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_add_util"]]>;
-OclBuiltinImpl work_group_reduce_add_finalize_helper_gen32 =
-      OclBuiltinImpl<work_group_reduce_add_finalize_helper, work_group_vector_types_all32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_add_util"]]>;
-OclBuiltinImpl work_group_reduce_add_finalize_helper_gen64 =
-      OclBuiltinImpl<work_group_reduce_add_finalize_helper, work_group_vector_types_all64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_add_util"]]>;
-
-OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen4 =
-      OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_mul_util"]]>;
-OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen8 =
-      OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_mul_util"]]>;
-OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen16 =
-      OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_mul_util"]]>;
-OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen32 =
-      OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_mul_util"]]>;
-OclBuiltinImpl work_group_reduce_mul_finalize_helper_gen64 =
-      OclBuiltinImpl<work_group_reduce_mul_finalize_helper, work_group_vector_types_all64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_mul_util"]]>;
 
 OclBuiltinImpl work_group_reduce_bitwise_and_finalize_helper_gen4 =
       OclBuiltinImpl<work_group_reduce_bitwise_and_finalize_helper, work_group_vector_types_all_integer4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_bitwise_and_util"]]>;
@@ -2084,50 +1681,6 @@ OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen32 =
 OclBuiltinImpl work_group_reduce_logical_xor_finalize_helper_gen64 =
       OclBuiltinImpl<work_group_reduce_logical_xor_finalize_helper, [v64i32],   0, work_group_finalize_function_op64, [["$FUNC","work_group_logical_xor_util"]]>;
 
-OclBuiltinImpl work_group_reduce_min_finalize_helper_int4 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_int4,    0, work_group_finalize_function_op4, [["$FUNC","min"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_int8 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_int8,    0, work_group_finalize_function_op8, [["$FUNC","min"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_int16 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_int16,   0, work_group_finalize_function_op16, [["$FUNC","min"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_int32 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_int32,   0, work_group_finalize_function_op32, [["$FUNC","min"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_int64 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_int64,   0, work_group_finalize_function_op64, [["$FUNC","min"]]>;
-
-OclBuiltinImpl work_group_reduce_min_finalize_helper_float4 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_float4,  0, work_group_finalize_function_op4, [["$FUNC","fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_float8 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_float8,  0, work_group_finalize_function_op8, [["$FUNC","fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_float16 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_float16, 0, work_group_finalize_function_op16, [["$FUNC","fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_float32 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_float32, 0, work_group_finalize_function_op32, [["$FUNC","fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_float64 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper, work_group_vector_types_float64, 0, work_group_finalize_function_op64, [["$FUNC","fmin"]]>;
-
-OclBuiltinImpl work_group_reduce_max_finalize_helper_int4 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper, work_group_vector_types_int4,    0, work_group_finalize_function_op4, [["$FUNC","max"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_int8 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper, work_group_vector_types_int8,    0, work_group_finalize_function_op8, [["$FUNC","max"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_int16 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper, work_group_vector_types_int16,   0, work_group_finalize_function_op16, [["$FUNC","max"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_int32 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper, work_group_vector_types_int32,   0, work_group_finalize_function_op32, [["$FUNC","max"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_int64 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper, work_group_vector_types_int64,   0, work_group_finalize_function_op64, [["$FUNC","max"]]>;
-
-OclBuiltinImpl work_group_reduce_max_finalize_helper_float4 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper, work_group_vector_types_float4,  0, work_group_finalize_function_op4, [["$FUNC","fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_float8 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper, work_group_vector_types_float8,  0, work_group_finalize_function_op8, [["$FUNC","fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_float16 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper, work_group_vector_types_float16, 0, work_group_finalize_function_op16, [["$FUNC","fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_float32 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper, work_group_vector_types_float64, 0, work_group_finalize_function_op64, [["$FUNC","fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_float64 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper, work_group_vector_types_float64, 0, work_group_finalize_function_op64, [["$FUNC","fmax"]]>;
-
 // Definitions of finalization functions with a dummy mask.
 OclBuiltinImpl work_group_all_finalize_helper_mask_int4 =  OclBuiltinImpl<work_group_all_finalize_helper_mask, [v4i32],   0, work_group_finalize_function_op4, [["$FUNC","work_group_all_util"]]>;
 OclBuiltinImpl work_group_all_finalize_helper_mask_int8 =  OclBuiltinImpl<work_group_all_finalize_helper_mask, [v8i32],   0, work_group_finalize_function_op8, [["$FUNC","work_group_all_util"]]>;
@@ -2140,69 +1693,3 @@ OclBuiltinImpl work_group_any_finalize_helper_mask_int8 =  OclBuiltinImpl<work_g
 OclBuiltinImpl work_group_any_finalize_helper_mask_int16 = OclBuiltinImpl<work_group_any_finalize_helper_mask, [v16i32],  0, work_group_finalize_function_op16, [["$FUNC","work_group_any_util"]]>;
 OclBuiltinImpl work_group_any_finalize_helper_mask_int32 = OclBuiltinImpl<work_group_any_finalize_helper_mask, [v32i32],  0, work_group_finalize_function_op32, [["$FUNC","work_group_any_util"]]>;
 OclBuiltinImpl work_group_any_finalize_helper_mask_int64 = OclBuiltinImpl<work_group_any_finalize_helper_mask, [v64i32],  0, work_group_finalize_function_op64, [["$FUNC","work_group_any_util"]]>;
-
-OclBuiltinImpl work_group_reduce_add_finalize_helper_mask_gen4 =
-      OclBuiltinImpl<work_group_reduce_add_finalize_helper_mask, work_group_vector_types_all4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_add_util"]]>;
-OclBuiltinImpl work_group_reduce_add_finalize_helper_mask_gen8 =
-      OclBuiltinImpl<work_group_reduce_add_finalize_helper_mask, work_group_vector_types_all8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_add_util"]]>;
-OclBuiltinImpl work_group_reduce_add_finalize_helper_mask_gen16 =
-      OclBuiltinImpl<work_group_reduce_add_finalize_helper_mask, work_group_vector_types_all16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_add_util"]]>;
-OclBuiltinImpl work_group_reduce_add_finalize_helper_mask_gen32 =
-      OclBuiltinImpl<work_group_reduce_add_finalize_helper_mask, work_group_vector_types_all32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_add_util"]]>;
-OclBuiltinImpl work_group_reduce_add_finalize_helper_mask_gen64 =
-      OclBuiltinImpl<work_group_reduce_add_finalize_helper_mask, work_group_vector_types_all64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_add_util"]]>;
-
-OclBuiltinImpl work_group_reduce_mul_finalize_helper_mask_gen4 =
-      OclBuiltinImpl<work_group_reduce_mul_finalize_helper_mask, work_group_vector_types_all4,    0, work_group_finalize_function_op4, [["$FUNC","work_group_mul_util"]]>;
-OclBuiltinImpl work_group_reduce_mul_finalize_helper_mask_gen8 =
-      OclBuiltinImpl<work_group_reduce_mul_finalize_helper_mask, work_group_vector_types_all8,    0, work_group_finalize_function_op8, [["$FUNC","work_group_mul_util"]]>;
-OclBuiltinImpl work_group_reduce_mul_finalize_helper_mask_gen16 =
-      OclBuiltinImpl<work_group_reduce_mul_finalize_helper_mask, work_group_vector_types_all16,   0, work_group_finalize_function_op16, [["$FUNC","work_group_mul_util"]]>;
-OclBuiltinImpl work_group_reduce_mul_finalize_helper_mask_gen32 =
-      OclBuiltinImpl<work_group_reduce_mul_finalize_helper_mask, work_group_vector_types_all32,   0, work_group_finalize_function_op32, [["$FUNC","work_group_mul_util"]]>;
-OclBuiltinImpl work_group_reduce_mul_finalize_helper_mask_gen64 =
-      OclBuiltinImpl<work_group_reduce_mul_finalize_helper_mask, work_group_vector_types_all64,   0, work_group_finalize_function_op64, [["$FUNC","work_group_mul_util"]]>;
-
-OclBuiltinImpl work_group_reduce_min_finalize_helper_mask_int4 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper_mask, work_group_vector_types_int4,    0, work_group_finalize_function_op4, [["$FUNC","min"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_mask_int8 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper_mask, work_group_vector_types_int8,    0, work_group_finalize_function_op8, [["$FUNC","min"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_mask_int16 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper_mask, work_group_vector_types_int16,   0, work_group_finalize_function_op16, [["$FUNC","min"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_mask_int32 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper_mask, work_group_vector_types_int32,   0, work_group_finalize_function_op32, [["$FUNC","min"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_mask_int64 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper_mask, work_group_vector_types_int64,   0, work_group_finalize_function_op64, [["$FUNC","min"]]>;
-
-OclBuiltinImpl work_group_reduce_min_finalize_helper_mask_float4 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper_mask, work_group_vector_types_float4,  0, work_group_finalize_function_op4, [["$FUNC","fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_mask_float8 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper_mask, work_group_vector_types_float8,  0, work_group_finalize_function_op8, [["$FUNC","fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_mask_float16 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper_mask, work_group_vector_types_float16, 0, work_group_finalize_function_op16, [["$FUNC","fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_mask_float32 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper_mask, work_group_vector_types_float32, 0, work_group_finalize_function_op32, [["$FUNC","fmin"]]>;
-OclBuiltinImpl work_group_reduce_min_finalize_helper_mask_float64 =
-      OclBuiltinImpl<work_group_reduce_min_finalize_helper_mask, work_group_vector_types_float64, 0, work_group_finalize_function_op64, [["$FUNC","fmin"]]>;
-
-OclBuiltinImpl work_group_reduce_max_finalize_helper_mask_int4 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper_mask, work_group_vector_types_int4,    0, work_group_finalize_function_op4, [["$FUNC","max"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_mask_int8 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper_mask, work_group_vector_types_int8,    0, work_group_finalize_function_op8, [["$FUNC","max"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_mask_int16 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper_mask, work_group_vector_types_int16,   0, work_group_finalize_function_op16, [["$FUNC","max"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_mask_int32 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper_mask, work_group_vector_types_int32,   0, work_group_finalize_function_op32, [["$FUNC","max"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_mask_int64 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper_mask, work_group_vector_types_int64,   0, work_group_finalize_function_op64, [["$FUNC","max"]]>;
-
-OclBuiltinImpl work_group_reduce_max_finalize_helper_mask_float4 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper_mask, work_group_vector_types_float4,  0, work_group_finalize_function_op4, [["$FUNC","fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_mask_float8 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper_mask, work_group_vector_types_float8,  0, work_group_finalize_function_op8, [["$FUNC","fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_mask_float16 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper_mask, work_group_vector_types_float16, 0, work_group_finalize_function_op16, [["$FUNC","fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_mask_float32 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper_mask, work_group_vector_types_float32, 0, work_group_finalize_function_op32, [["$FUNC","fmax"]]>;
-OclBuiltinImpl work_group_reduce_max_finalize_helper_mask_float64 =
-      OclBuiltinImpl<work_group_reduce_max_finalize_helper_mask, work_group_vector_types_float64, 0, work_group_finalize_function_op64, [["$FUNC","fmax"]]>;

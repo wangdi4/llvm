@@ -244,9 +244,18 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
   for (const std::string &Option : config.LLVMOptions())
     Args.push_back(Option.c_str());
 
-  Args.push_back(nullptr);
-
   Optimizer::initOptimizerOptions();
+
+  // Handle CL_CONFIG_LLVM_OPTIONS at the end so that it can pass an option to
+  // overturn a previously added option.
+  std::vector<std::string> LastOptions;
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_LLVM_OPTIONS")) {
+    LastOptions = std::move(SplitString(Env, ' '));
+    for (const auto &Option : LastOptions)
+      Args.push_back(Option.c_str());
+  }
+
+  Args.push_back(nullptr);
 
   cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
 

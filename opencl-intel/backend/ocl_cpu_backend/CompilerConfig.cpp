@@ -87,11 +87,6 @@ void GlobalCompilerConfig::LoadConfig() {
   m_LLVMOptions.emplace_back("-vector-library=SVML");
   // INTEL VPO END
 
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_LLVM_OPTIONS")) {
-    std::vector<std::string> Options = SplitString(Env, ' ');
-    m_LLVMOptions.append(Options.begin(), Options.end());
-  }
-
   if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_REQD_SUB_GROUP_SIZE"))
     m_LLVMOptions.emplace_back("-" + OptReqdSubGroupSizes.ArgStr.str() + "=" +
                                Env);
@@ -106,12 +101,6 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(
       (int)CL_DEV_BACKEND_OPTION_TIME_PASSES, m_infoOutputFile.c_str());
   m_enableTiming = !m_infoOutputFile.empty();
 
-  std::string LLVMOption = pBackendOptions->GetStringValue(
-      (int)CL_DEV_BACKEND_OPTION_LLVM_OPTION, "");
-  if (!LLVMOption.empty()) {
-    std::vector<std::string> Options = SplitString(LLVMOption, ' ');
-    m_LLVMOptions.append(Options.begin(), Options.end());
-  }
   // C++ pipeline command line options.
   m_LLVMOptions.emplace_back("-enable-vec-clone=false"); // INTEL
   ETransposeSize TransposeSize =
@@ -150,6 +139,15 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(
   // kernels.
   m_LLVMOptions.emplace_back("-machine-sink-load-instrs-threshold=0");
   m_LLVMOptions.emplace_back("-machine-sink-load-blocks-threshold=0");
+
+  // Handle CL_DEV_BACKEND_OPTION_LLVM_OPTION at the end so that it can pass an
+  // option to overturn a previously added option.
+  std::string LLVMOption = pBackendOptions->GetStringValue(
+      (int)CL_DEV_BACKEND_OPTION_LLVM_OPTION, "");
+  if (!LLVMOption.empty()) {
+    std::vector<std::string> Options = SplitString(LLVMOption, ' ');
+    m_LLVMOptions.append(Options.begin(), Options.end());
+  }
 }
 
 void CompilerConfig::LoadDefaults() {

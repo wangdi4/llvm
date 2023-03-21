@@ -172,13 +172,6 @@ CPUDeviceConfig::GetExtensionsWithVersion() {
   if (IsHalfSupported())
     GetExtVer(OCL_EXT_KHR_FP16, 1, 0, 0);
 
-  GetExtVer(OCL_EXT_INTEL_SUBGROUPS, 1, 0, 0);
-  GetExtVer(OCL_EXT_INTEL_SUBGROUPS_CHAR, 1, 0, 0);
-  GetExtVer(OCL_EXT_INTEL_SUBGROUPS_SHORT, 1, 0, 0);
-  GetExtVer(OCL_EXT_INTEL_SUBGROUPS_LONG, 1, 0, 0);
-  GetExtVer(OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE, 1, 0, 0);
-  GetExtVer(OCL_EXT_INTEL_SPIRV_SUBGROUPS, 1, 0, 0);
-
   GetExtVer(OCL_EXT_KHR_GLOBAL_BASE_ATOMICS, 1, 0, 0);
   GetExtVer(OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS, 1, 0, 0);
   GetExtVer(OCL_EXT_KHR_LOCAL_BASE_ATOMICS, 1, 0, 0);
@@ -211,6 +204,13 @@ CPUDeviceConfig::GetExtensionsWithVersion() {
   GetExtVer(OCL_EXT_KHR_SUBGROUP_SHUFFLE_RELATIVE, 1, 0, 0);
   GetExtVer(OCL_EXT_KHR_SUBGROUP_EXTENDED_TYPES, 1, 0, 0);
   GetExtVer(OCL_EXT_KHR_SUBGROUP_NON_UNIFORM_ARITHMETIC, 1, 0, 0);
+
+  GetExtVer(OCL_EXT_INTEL_SUBGROUPS, 1, 0, 0);
+  GetExtVer(OCL_EXT_INTEL_SUBGROUPS_CHAR, 1, 0, 0);
+  GetExtVer(OCL_EXT_INTEL_SUBGROUPS_SHORT, 1, 0, 0);
+  GetExtVer(OCL_EXT_INTEL_SUBGROUPS_LONG, 1, 0, 0);
+  GetExtVer(OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE, 1, 0, 0);
+  GetExtVer(OCL_EXT_INTEL_SPIRV_SUBGROUPS, 1, 0, 0);
 
   // build the extensions list dynamically
   // common KHR extensions
