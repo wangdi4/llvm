@@ -1,6 +1,5 @@
 // REQUIRES: x86-registered-target
 
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm-bc -o /dev/null -mllvm -verify-analysis-invalidation=0 -fdebug-pass-manager -flto=full -O0 %s 2>&1 | FileCheck %s \
 // RUN:   -check-prefix=CHECK-FULL-O0
