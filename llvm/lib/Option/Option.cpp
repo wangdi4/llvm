@@ -251,7 +251,7 @@ std::unique_ptr<Arg> Option::acceptInternal(const ArgList &Args,
   }
 #if INTEL_CUSTOMIZATION
   case SeparateOrNoneClass: {
-    if (ArgSize != strlen(Args.getArgString(Index)))
+    if (SpellingSize != strlen(Args.getArgString(Index)))
       return nullptr;
 
     // If it is not followed by a value
