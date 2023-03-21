@@ -60,6 +60,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetOptions.h"
+#include <optional>
 
 using namespace llvm;
 
@@ -10420,7 +10421,8 @@ enum MachineOutlinerClass {
   MachineOutlinerTailCall
 };
 
-outliner::OutlinedFunction X86InstrInfo::getOutliningCandidateInfo(
+std::optional<outliner::OutlinedFunction>
+X86InstrInfo::getOutliningCandidateInfo(
     std::vector<outliner::Candidate> &RepeatedSequenceLocs) const {
   unsigned SequenceSize =
       std::accumulate(RepeatedSequenceLocs[0].front(),
@@ -10453,7 +10455,7 @@ outliner::OutlinedFunction X86InstrInfo::getOutliningCandidateInfo(
         C.getMF()->getFrameInstructions();
 
     if (CFICount > 0 && CFICount != CFIInstructions.size())
-      return outliner::OutlinedFunction();
+      return std::nullopt;
   }
 
   // FIXME: Use real size in bytes for call and ret instructions.
@@ -10468,7 +10470,7 @@ outliner::OutlinedFunction X86InstrInfo::getOutliningCandidateInfo(
   }
 
   if (CFICount > 0)
-    return outliner::OutlinedFunction();
+    return std::nullopt;
 
   for (outliner::Candidate &C : RepeatedSequenceLocs)
     C.setCallInfo(MachineOutlinerDefault, 1);
