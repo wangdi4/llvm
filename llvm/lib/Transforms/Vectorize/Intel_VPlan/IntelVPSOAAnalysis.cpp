@@ -215,6 +215,11 @@ bool VPSOAAnalysis::isSafeUse(const VPInstruction *UseInst,
     // that are modified inside the loop, see CMPLRLLVM-41092.
     return VPlanAllowSOAPhis;
 
+  case VPInstruction::ReductionInitArr:
+    // Array reduction initialization does not affect layout. It's currently
+    // implemented as a scalar loop.
+    return true;
+
   case VPInstruction::InductionInit:
     // Intentionally use isa<> to make assert non-trivial,
     // so LLVM_FALLTHROUGH can be used without compiler warning
@@ -283,6 +288,12 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
     // Analyze the users of the current-instruction.
     for (VPValue *User : CurrentI->users()) {
       const VPInstruction *UseInst = cast<VPInstruction>(User);
+
+      // Array reduction finalization assumes AOS layout strictly.
+      // TODO: Remove this when array reduction finalization is updated to
+      // handle SOA layout memory.
+      if (isa<VPReductionFinalArray>(UseInst))
+        return true;
 
       // We are only interested in pointer or its alias which is either in the
       // Loop-preheader of within the loop itself.
