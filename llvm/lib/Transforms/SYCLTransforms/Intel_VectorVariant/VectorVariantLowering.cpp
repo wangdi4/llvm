@@ -42,7 +42,8 @@ PreservedAnalyses VectorVariantLowering::run(Module &M,
 //     call void @bar(i32 %i, float %f) #0
 //     ret void
 //   }
-//   attributes #0 = { "vector-variants"="_ZGVxN0lu_XXX,_ZGVxM0vv_XXX" }
+//   attributes #0 = \
+//   { "vector-variants"="_ZGV_unknown_N0lu_XXX,_ZGV_unknown_M0vv_XXX" }
 //
 // After the pass:
 //

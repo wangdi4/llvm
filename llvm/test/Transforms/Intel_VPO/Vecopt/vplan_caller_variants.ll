@@ -3,14 +3,14 @@
 ; VPlanCallVecDecisions test to make sure it generates all combinations of caller side
 ; variants and that it matches the correct one.
 
-; CHECK: _ZGVxN8ul4l4__Z3fooiPiRi
-; CHECK: _ZGVxN8ul4R4__Z3fooiPiRi
-; CHECK: _ZGVxN8ul4U__Z3fooiPiRi
-; CHECK: _ZGVxN8ul4L__Z3fooiPiRi
-; CHECK: _ZGVxN8uR4l4__Z3fooiPiRi
-; CHECK: _ZGVxN8uR4R4__Z3fooiPiRi
-; CHECK: _ZGVxN8uR4U__Z3fooiPiRi
-; CHECK: _ZGVxN8uR4L__Z3fooiPiRi
+; CHECK: _ZGV_unknown_N8ul4l4__Z3fooiPiRi
+; CHECK: _ZGV_unknown_N8ul4R4__Z3fooiPiRi
+; CHECK: _ZGV_unknown_N8ul4U__Z3fooiPiRi
+; CHECK: _ZGV_unknown_N8ul4L__Z3fooiPiRi
+; CHECK: _ZGV_unknown_N8uR4l4__Z3fooiPiRi
+; CHECK: _ZGV_unknown_N8uR4R4__Z3fooiPiRi
+; CHECK: _ZGV_unknown_N8uR4U__Z3fooiPiRi
+; CHECK: _ZGV_unknown_N8uR4L__Z3fooiPiRi
 ; CHECK: Matched call to: _ZGVbN8ul4R4__Z3fooiPiRi
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
