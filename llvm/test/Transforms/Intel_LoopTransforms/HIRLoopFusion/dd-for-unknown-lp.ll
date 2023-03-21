@@ -22,8 +22,7 @@
 ; CHECK:                |   |         |   <i3 = 0>
 ; CHECK:                |   |         |   bb63:
 ; CHECK:                |   |         |   (@global.9)[0][3 * i2 + %tmp76 * i3 + 3] = 0;
-; CHECK:                |   |         |   %tmp66 = 3 * i2 + %tmp76 * i3 + 4  +  2 * i2 + 3;
-; CHECK:                |   |         |   if (%tmp66 <u 500001)
+; CHECK:                |   |         |   if (5 * i2 + %tmp76 * i3 + 7 <u 500001)
 ; CHECK:                |   |         |   {
 ; CHECK:                |   |         |      <i3 = i3 + 1>
 ; CHECK:                |   |         |      goto bb63;

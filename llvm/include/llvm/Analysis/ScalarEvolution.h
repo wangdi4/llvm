@@ -539,6 +539,10 @@ public:
   /// Returns MDNode associated with this instruction for the particular HIR
   /// metadata type.
   MDNode *getHIRMetadata(const Instruction *Inst, HIRLiveKind Kind);
+
+  /// Returns true if the SCEV is a scAddRecExpr or it contains
+  /// scAddRecExpr belonging to \p Lp.
+  bool containsLoopAddRecurrence(const SCEV *SC, const Loop *Lp) const;
 #endif  // INTEL_CUSTOMIZATION
   // Returns a wider type among {Ty1, Ty2}.
   Type *getWiderType(Type *Ty1, Type *Ty2) const;
