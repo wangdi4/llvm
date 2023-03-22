@@ -3350,7 +3350,9 @@ public:
       return Extent;
     }
 
-    if (auto *CurStride = dyn_cast<ConstantInt>(CurDim.getStride())) {
+    auto *CurStride = dyn_cast<ConstantInt>(CurDim.getStride());
+
+    if (CurStride && !CurStride->isZero()) {
 
       // We find the next available stride from higher dimensions because
       // sometimes info for some dimensions is just missing.
