@@ -5,13 +5,8 @@
 ;; with following commands:
 ;; clang++ -fsycl -fsycl-device-only load.cpp -o load.bc
 
-<<<<<<< HEAD
 ; RUN: opt -opaque-pointers=0 < %s -passes=SPIRITTAnnotations -S | FileCheck %s
 ; RUN: opt -opaque-pointers=0 < %s -passes=SPIRITTAnnotations -S | FileCheck %s
-=======
-; RUN: opt < %s -passes=SPIRITTAnnotations -S | FileCheck %s
-; RUN: opt < %s -passes=SPIRITTAnnotations -S | FileCheck %s
->>>>>>> d0a58545a28ca2c0529e1be36aa9fe1cb96275ab
 
 ; ModuleID = 'load.bc'
 source_filename = "llvm-test-suite/SYCL/AtomicRef/load.cpp"
