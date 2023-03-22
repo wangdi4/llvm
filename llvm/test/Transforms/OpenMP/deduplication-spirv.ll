@@ -27,7 +27,7 @@ target device_triples = "spir64"
 
 @.str.as2 = private target_declare addrspace(2) constant [23 x i8] c"threads in target: %d\0A\00"
 @.str.1.as2 = private target_declare addrspace(2) constant [25 x i8] c"threads in parallel: %d\0A\00"
-@__omp_offloading_54_d6771c2a__Z4main_l6_kernel_info = weak target_declare local_unnamed_addr addrspace(1) constant %0 { i32 4, i32 0, i64 0, i64 0, i64 0 }
+@__omp_offloading_54_d6771c2a__Z4main_l6_kernel_info = weak target_declare local_unnamed_addr addrspace(1) constant %0 { i32 5, i32 0, i64 0, i64 0, i64 0 }
 @.omp_offloading.entry_name = internal target_declare unnamed_addr addrspace(2) constant [40 x i8] c"__omp_offloading_54_d6771c2a__Z4main_l6\00"
 @.omp_offloading.entry.__omp_offloading_54_d6771c2a__Z4main_l6 = weak target_declare local_unnamed_addr addrspace(1) constant %struct.__tgt_offload_entry { i8 addrspace(4)* null, i8 addrspace(2)* getelementptr inbounds ([40 x i8], [40 x i8] addrspace(2)* @.omp_offloading.entry_name, i32 0, i32 0), i64 0, i32 0, i32 0, i64 40 }, section "omp_offloading_entries"
 

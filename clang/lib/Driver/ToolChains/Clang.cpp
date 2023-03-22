@@ -5091,9 +5091,11 @@ void Clang::ConstructHostCompilerJob(Compilation &C, const JobAction &JA,
 
   // Add default header search directories.
   SmallString<128> BaseDir(C.getDriver().Dir);
+#if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
   llvm::sys::path::append(BaseDir, "..");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // INTEL_CUSTOMIZATION
   llvm::sys::path::append(BaseDir, "..", "include");
   SmallString<128> SYCLDir(BaseDir);
   llvm::sys::path::append(SYCLDir, "sycl");
@@ -5101,6 +5103,23 @@ void Clang::ConstructHostCompilerJob(Compilation &C, const JobAction &JA,
   HostCompileArgs.push_back(TCArgs.MakeArgString(SYCLDir));
   HostCompileArgs.push_back("-I");
   HostCompileArgs.push_back(TCArgs.MakeArgString(BaseDir));
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  // Do an additional check for '../include' to cover LIT requirements due to
+  // a difference in directory structure.
+  SmallString<128> BaseDirExtra(C.getDriver().Dir);
+  llvm::sys::path::append(BaseDirExtra, "..", "include");
+  if (llvm::sys::fs::exists(BaseDirExtra)) {
+    SmallString<128> SYCLDir(BaseDirExtra);
+    llvm::sys::path::append(SYCLDir, "sycl");
+    HostCompileArgs.push_back("-I");
+    HostCompileArgs.push_back(TCArgs.MakeArgString(SYCLDir));
+    HostCompileArgs.push_back("-I");
+    HostCompileArgs.push_back(TCArgs.MakeArgString(BaseDirExtra));
+  }
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // INTEL_CUSTOMIZATION
 
   if (!OutputAdded) {
     // Add output file to the command line.  This is assumed to be prefaced

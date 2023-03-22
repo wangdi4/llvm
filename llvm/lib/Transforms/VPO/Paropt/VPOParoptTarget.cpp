@@ -423,9 +423,9 @@ Function *VPOParoptTransform::finalizeKernelFunction(
 
   // Generate '<kernel-name>_kernel_info' global variable that specifies
   // whether a kernel argument is passed by value or not.
-  // Versions 1-4 of the data structure use the following format:
+  // Versions 1-5 of the data structure use the following format:
   //   struct KernelInfoTy {
-  //     uint32_t Version = [1 .. 2];
+  //     uint32_t Version = [1 .. 5];
   //     uint32_t ArgsNum = <number of the kernel arguments>;
   //     struct ArgDescTy {
   //       uint32_t IsByVal = 0/1;
@@ -449,10 +449,10 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         SmallVector<Type *, 3> KernelInfoInitMemberTypes;
         SmallVector<Constant *, 10> KernelInfoInitBuffer;
 
-        // The current version is 4.
+        // The current version is 5.
         KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
         KernelInfoInitBuffer.push_back(
-            ConstantInt::get(Type::getInt32Ty(C), 4));
+            ConstantInt::get(Type::getInt32Ty(C), 5));
         // Specify the number of kernel argument.
         KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
         KernelInfoInitBuffer.push_back(

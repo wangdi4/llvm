@@ -61,7 +61,6 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
-#include "llvm/Transforms/Scalar/Intel_RemoveRegionDirectives.h"
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
