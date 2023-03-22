@@ -426,7 +426,9 @@ void foo_linear_clauses()
   //CHECK: [[XP:%xp.*]] = alloca ptr, align 8
   //CHECK: [[Y:%y.*]] = alloca ptr, align 8
   //CHECK: [[CP:%cp.*]] = alloca ptr, align 8
+  //CHECK: [[X1:%x1.*]] = alloca ptr, align 8
   //CHECK: [[Z6:%z6.*]] = alloca i32, align 4
+  //CHECK: [[IT:%it.*]] = alloca ptr, align 8
 
   int i;
   int &j = i;
@@ -434,6 +436,7 @@ void foo_linear_clauses()
   int **xp = &x;
   int *(&y) = x;
   char *cp;
+  int *x1 = x;
 
   //CHECK: "DIR.OMP.PARALLEL.LOOP"()
   //CHECK-SAME: "QUAL.OMP.LINEAR:TYPED"(ptr [[I]], i32 0, i32 1, i32 2)
@@ -448,6 +451,11 @@ void foo_linear_clauses()
                                 linear(y) linear(cp:3)
   for (int z6=0; z6 < 10; ++z6) { }
 
+  //CHECK: "DIR.OMP.SIMD"()
+  //CHECK-SAME: "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(ptr [[X1]], i32 0, i32 1, i32 1)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:PTR_TO_PTR.IV.TYPED"(ptr [[IT]], i32 0, i32 1, i32 1)
+  #pragma omp simd linear(x1)
+  for (int *it = x; it != x + 4; ++it) { }
 }
 
 //CHECK: define {{.*}}foo_shared_clauses
