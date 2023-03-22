@@ -12,20 +12,20 @@ define void @foo(%S1 *%p) {
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_NEG:%.*]] = sub i64 0 i64 [[VP_IV]]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_P0:%.*]] = getelementptr inbounds %S1* [[P0:%.*]] i64 [[VP_NEG]] i32 0
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_P0_REVERSE_ADJUST:%.*]] = getelementptr i64* [[VP_P0]] i64 -9
-; CHECK-NEXT:     [DA: Uni] <16 x i64> [[VP_VLS_LOAD:%.*]] = vls-load i64* [[VP_P0_REVERSE_ADJUST]], group_size=3, align=8
+; CHECK-NEXT:     [DA: Uni] <16 x i64> [[VP_VLS_LOAD:%.*]] = vls-load i64* [[VP_P0_REVERSE_ADJUST]], group_size=3, group_stride=-3, align=8
 ; CHECK-NEXT:     [DA: Uni] <16 x i64> [[VP_VLS_LOAD_REVERSE:%.*]] = shufflevector <16 x i64> [[VP_VLS_LOAD]] <16 x i64> [[VP_VLS_LOAD]] <16 x i64> <i64 9, i64 10, i64 11, i64 6, i64 7, i64 8, i64 3, i64 4, i64 5, i64 0, i64 1, i64 2, i64 undef, i64 undef, i64 undef, i64 undef>
-; CHECK-NEXT:     [DA: Div] i64 [[VP_LD0:%.*]] = vls-extract <16 x i64> [[VP_VLS_LOAD_REVERSE]], group_size=3, offset=0
-; CHECK-NEXT:     [DA: Div] i64 [[VP_LD1:%.*]] = vls-extract <16 x i64> [[VP_VLS_LOAD_REVERSE]], group_size=3, offset=1
-; CHECK-NEXT:     [DA: Div] i64 [[VP_LD2:%.*]] = vls-extract <16 x i64> [[VP_VLS_LOAD_REVERSE]], group_size=3, offset=2
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LD0:%.*]] = vls-extract <16 x i64> [[VP_VLS_LOAD_REVERSE]], group_size=3, group_stride=-3, offset=0
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LD1:%.*]] = vls-extract <16 x i64> [[VP_VLS_LOAD_REVERSE]], group_size=3, group_stride=-3, offset=1
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LD2:%.*]] = vls-extract <16 x i64> [[VP_VLS_LOAD_REVERSE]], group_size=3, group_stride=-3, offset=2
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_ADD:%.*]] = add i64 [[VP_LD0]] i64 [[VP_LD1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_SUB:%.*]] = sub i64 [[VP_LD0]] i64 [[VP_LD1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_MUL:%.*]] = mul i64 [[VP_LD1]] i64 [[VP_LD2]]
-; CHECK-NEXT:     [DA: Uni] <16 x i64> [[VP_VLS_INSERT:%.*]] = vls-insert <16 x i64> undef i64 [[VP_ADD]], group_size=3, offset=0
-; CHECK-NEXT:     [DA: Uni] <16 x i64> [[VP_VLS_INSERT_1:%.*]] = vls-insert <16 x i64> [[VP_VLS_INSERT]] i64 [[VP_SUB]], group_size=3, offset=1
-; CHECK-NEXT:     [DA: Uni] <16 x i64> [[VP_VLS_INSERT_2:%.*]] = vls-insert <16 x i64> [[VP_VLS_INSERT_1]] i64 [[VP_MUL]], group_size=3, offset=2
+; CHECK-NEXT:     [DA: Uni] <16 x i64> [[VP_VLS_INSERT:%.*]] = vls-insert <16 x i64> undef i64 [[VP_ADD]], group_size=3, group_stride=-3, offset=0
+; CHECK-NEXT:     [DA: Uni] <16 x i64> [[VP_VLS_INSERT_1:%.*]] = vls-insert <16 x i64> [[VP_VLS_INSERT]] i64 [[VP_SUB]], group_size=3, group_stride=-3, offset=1
+; CHECK-NEXT:     [DA: Uni] <16 x i64> [[VP_VLS_INSERT_2:%.*]] = vls-insert <16 x i64> [[VP_VLS_INSERT_1]] i64 [[VP_MUL]], group_size=3, group_stride=-3, offset=2
 ; CHECK-NEXT:     [DA: Uni] <16 x i64> [[VP_VLS_INSERT_REVERSE:%.*]] = shufflevector <16 x i64> [[VP_VLS_INSERT_2]] <16 x i64> [[VP_VLS_INSERT_2]] <16 x i64> <i64 9, i64 10, i64 11, i64 6, i64 7, i64 8, i64 3, i64 4, i64 5, i64 0, i64 1, i64 2, i64 undef, i64 undef, i64 undef, i64 undef>
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_P0_REVERSE_ADJUST_1:%.*]] = getelementptr i64* [[VP_P0]] i64 -9
-; CHECK-NEXT:     [DA: Div] vls-store <16 x i64> [[VP_VLS_INSERT_REVERSE]] i64* [[VP_P0_REVERSE_ADJUST_1]], group_size=3, align=8
+; CHECK-NEXT:     [DA: Div] vls-store <16 x i64> [[VP_VLS_INSERT_REVERSE]] i64* [[VP_P0_REVERSE_ADJUST_1]], group_size=3, group_stride=-3, align=8
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
@@ -72,11 +72,11 @@ define void @test_vec(%S2 *%p) {
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_NEG:%.*]] = sub i64 0 i64 [[VP_IV]]
 ; CHECK-NEXT:       [DA: Div] <2 x i32>* [[VP_P0:%.*]] = getelementptr inbounds %S2* [[P0:%.*]] i64 [[VP_NEG]] i32 0
 ; CHECK-NEXT:       [DA: Div] <2 x i32>* [[VP_P0_REVERSE_ADJUST:%.*]] = getelementptr <2 x i32>* [[VP_P0]] i64 -1
-; CHECK-NEXT:       [DA: Uni] <4 x i64> [[VP_VLS_LOAD:%.*]] = vls-load <2 x i32>* [[VP_P0_REVERSE_ADJUST]], group_size=2, align=8
+; CHECK-NEXT:       [DA: Uni] <4 x i64> [[VP_VLS_LOAD:%.*]] = vls-load <2 x i32>* [[VP_P0_REVERSE_ADJUST]], group_size=2, group_stride=-2, align=8
 ; CHECK-NEXT:       [DA: Uni] <4 x i64> [[VP_VLS_LOAD_REVERSE:%.*]] = shufflevector <4 x i64> [[VP_VLS_LOAD]] <4 x i64> [[VP_VLS_LOAD]] <4 x i64> <i64 2, i64 3, i64 0, i64 1>
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LD0:%.*]] = vls-extract <4 x i64> [[VP_VLS_LOAD_REVERSE]], group_size=2, offset=0
+; CHECK-NEXT:       [DA: Div] i64 [[VP_LD0:%.*]] = vls-extract <4 x i64> [[VP_VLS_LOAD_REVERSE]], group_size=2, group_stride=-2, offset=0
 ; CHECK-NEXT:       [DA: Div] <2 x i32> [[VP0:%.*]] = bitcast i64 [[VP_LD0]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LD1:%.*]] = vls-extract <4 x i64> [[VP_VLS_LOAD_REVERSE]], group_size=2, offset=1
+; CHECK-NEXT:       [DA: Div] i64 [[VP_LD1:%.*]] = vls-extract <4 x i64> [[VP_VLS_LOAD_REVERSE]], group_size=2, group_stride=-2, offset=1
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]

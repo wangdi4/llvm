@@ -1113,7 +1113,7 @@ void VPOCodeGenHIR::setupLoopsForLegacyCG(unsigned VF, unsigned UF) {
 
   bool SearchLoopNeedsPeeling =
       TTI->isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2) &&
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42) &&
       (EnableFirstIterPeelMEVec || EnablePeelMEVec) && isSearchLoop() &&
       (getSearchLoopType() == VPlanIdioms::SearchLoopStrEq ||
        getSearchLoopType() == VPlanIdioms::SearchLoopPtrEq ||
