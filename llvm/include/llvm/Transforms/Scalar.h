@@ -269,9 +269,6 @@ FunctionPass *createJumpThreadingPass(int Threshold = -1,
 // scope global variables into the registers.
 FunctionPass *createNonLTOGlobalOptimizerPass();
 
-// RemoveRegionDirectivesLegacyPass is a pass which removes region directives.
-FunctionPass *createRemoveRegionDirectivesLegacyPass();
-
 // StdContainerOptPass is a pass which generates the std container
 // metadata based on the analysis of std container intrinisc.
 FunctionPass *createStdContainerOptPass();

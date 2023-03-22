@@ -139,7 +139,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeMultiVersioningWrapperPass(Registry);
   initializeLoopOptMarkerLegacyPassPass(Registry);
   initializeOptReportEmitterLegacyPassPass(Registry);
-  initializeRemoveRegionDirectivesLegacyPassPass(Registry);
   initializeTransformFPGARegPass(Registry);
   initializeAddSubReassociateLegacyPassPass(Registry);
   initializeForcedCMOVGenerationLegacyPassPass(Registry);

@@ -536,8 +536,6 @@ void initializeLoopOptMarkerLegacyPassPass(PassRegistry&);
 // Pass to store the opt level.
 void initializeXmainOptLevelWrapperPassPass(PassRegistry&);
 void initializeOptReportOptionsPassPass(PassRegistry &);
-// Pass for removing region directives.
-void initializeRemoveRegionDirectivesLegacyPassPass(PassRegistry &);
 void initializeOptReportEmitterLegacyPassPass(PassRegistry&);
 // Pass for loop carried CSE
 void initializeLoopCarriedCSELegacyPass(PassRegistry&);
