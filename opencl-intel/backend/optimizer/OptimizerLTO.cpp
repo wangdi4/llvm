@@ -56,7 +56,6 @@
 #include "SPIRVToOCL.h"
 
 #if INTEL_CUSTOMIZATION
-#include "llvm/Transforms/Scalar/Intel_RemoveRegionDirectives.h"
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #endif // INTEL_CUSTOMIZATION

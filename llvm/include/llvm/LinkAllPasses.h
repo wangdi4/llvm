@@ -149,7 +149,6 @@ namespace {
 #endif // INTEL_FEATURE_SW_ADVANCED
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
-      (void) llvm::createRemoveRegionDirectivesLegacyPass();
       (void) llvm::createOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
       (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
