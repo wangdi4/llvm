@@ -1006,6 +1006,7 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
               DenseMap<const Loop *, SCEV::NoWrapFlags> &PostIncIVLimitFlags) {
 #endif // INTEL_CUSTOMIZATION
   assert(isLoopCounter(IndVar, L, SE));
+  assert(ExitCount->getType()->isIntegerTy() && "exit count must be integer");
   const SCEVAddRecExpr *AR = cast<SCEVAddRecExpr>(SE->getSCEV(IndVar));
   const SCEV *IVInit = AR->getStart();
   assert(AR->getStepRecurrence(*SE)->isOne() && "only handles unit stride");
@@ -1014,8 +1015,7 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
   // finds a valid pointer IV. Sign extend ExitCount in order to materialize a
   // GEP. Avoid running SCEVExpander on a new pointer value, instead reusing
   // the existing GEPs whenever possible.
-  if (IndVar->getType()->isPointerTy() &&
-      !ExitCount->getType()->isPointerTy()) {
+  if (IndVar->getType()->isPointerTy()) {
     // IVOffset will be the new GEP offset that is interpreted by GEP as a
     // signed value. ExitCount on the other hand represents the loop trip count,
     // which is an unsigned value. FindLoopCounter only allows induction
@@ -1109,8 +1109,7 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
     // Ensure that we generate the same type as IndVar, or a smaller integer
     // type. In the presence of null pointer values, we have an integer type
     // SCEV expression (IVInit) for a pointer type IV value (IndVar).
-    Type *LimitTy = ExitCount->getType()->isPointerTy() ?
-      IndVar->getType() : ExitCount->getType();
+    Type *LimitTy = ExitCount->getType();
     BranchInst *BI = cast<BranchInst>(ExitingBB->getTerminator());
 #if INTEL_CUSTOMIZATION
     if (!PreIncOrigIVLimit)
