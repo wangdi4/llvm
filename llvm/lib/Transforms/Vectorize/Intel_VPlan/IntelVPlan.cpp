@@ -774,26 +774,26 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     }
     case VPInstruction::VLSLoad: {
       auto *VLSLoad = cast<VPVLSLoad>(this);
-      O << ", group_size=" << VLSLoad->getGroupSize()
-        << ", align=" << VLSLoad->getAlignment().value();
+      VLSLoad->printGroupSizeStride(O);
+      O << ", align=" << VLSLoad->getAlignment().value();
       break;
     }
     case VPInstruction::VLSStore: {
       auto *VLSStore = cast<VPVLSStore>(this);
-      O << ", group_size=" << VLSStore->getGroupSize()
-        << ", align=" << VLSStore->getAlignment().value();
+      VLSStore->printGroupSizeStride(O);
+      O << ", align=" << VLSStore->getAlignment().value();
       break;
     }
     case VPInstruction::VLSExtract: {
       auto *Extract = cast<VPVLSExtract>(this);
-      O << ", group_size=" << Extract->getGroupSize()
-        << ", offset=" << Extract->getOffset();
+      Extract->printGroupSizeStride(O);
+      O << ", offset=" << Extract->getOffset();
       break;
     }
     case VPInstruction::VLSInsert: {
       auto *Insert = cast<VPVLSInsert>(this);
-      O << ", group_size=" << Insert->getGroupSize()
-        << ", offset=" << Insert->getOffset();
+      Insert->printGroupSizeStride(O);
+      O << ", offset=" << Insert->getOffset();
       break;
     }
     case VPInstruction::GeneralMemOptConflict: {
