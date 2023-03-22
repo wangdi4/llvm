@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/SYCLTransforms/AddTLSGlobals.h"
+#include "llvm/Analysis/CallGraph.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/SYCLTransforms/ImplicitArgsAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/LocalBufferAnalysis.h"
@@ -51,6 +52,7 @@ PreservedAnalyses AddTLSGlobalsPass::run(Module &M, ModuleAnalysisManager &AM) {
   }
 
   PreservedAnalyses PA;
+  PA.preserve<CallGraphAnalysis>();
   PA.preserve<ImplicitArgsAnalysis>();
   PA.preserve<LocalBufferAnalysis>();
   return PA;
