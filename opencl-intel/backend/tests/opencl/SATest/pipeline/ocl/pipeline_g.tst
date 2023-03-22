@@ -356,7 +356,6 @@
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: LocalBufferAnalysis
