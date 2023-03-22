@@ -2484,6 +2484,13 @@ attributes are supported:
         <isa>:= b | c | d | e  -> X86 SSE, AVX, AVX2, AVX512
               | n | s          -> Armv8 Advanced SIMD, SVE
               | __LLVM__       -> Internal LLVM Vector ISA
+              | _unknown_      -> Unspecified Vector ISA class
+
+    .. INTEL_CUSTOMIZATION
+       The line above which adds _unknown_ is the customization.
+       ReST comments are sensitive to indentation so it takes it
+       as a part of comment if markers placed around the added line.
+    .. END INTEL_CUSTOMIZATION
 
     For all targets currently supported (x86, Arm and Internal LLVM),
     the remaining tokens can have the following values:::
