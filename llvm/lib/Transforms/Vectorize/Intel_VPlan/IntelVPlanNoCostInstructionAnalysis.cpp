@@ -11,11 +11,13 @@
 
 #include "IntelVPlanNoCostInstructionAnalysis.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanPatternMatch.h"
 
 #define DEBUG_TYPE "VPlanNoCostInstructionAnalysis"
 
 using namespace llvm;
 using namespace llvm::vpo;
+using namespace llvm::PatternMatch;
 
 /// Analyze expression trees rooted at the condition of an '@llvm.assume', and
 /// mark instructions in the tree as 'Always' no-cost if their only use is
@@ -120,9 +122,8 @@ void VPlanNoCostInstAnalysis::analyzeMaskedModeNormalizationInstructions(
 
   const auto *OrigLB = Plan.getMainLoop(true)->getOrigLowerBound();
   for (const auto &I : vpinstructions(&Plan)) {
-    if ((I.getOpcode() == Instruction::Add ||
-         I.getOpcode() == Instruction::Sub) &&
-        I.getOperand(1) == OrigLB) {
+    if (match(&I, m_Add(m_VPValue(), m_Specific(OrigLB))) ||
+        match(&I, m_Sub(m_VPValue(), m_Specific(OrigLB)))) {
       LLVM_DEBUG(dbgs() << "No-cost if peeling: " << I << '\n');
       setScenario(&I, Scenario::IfPeeling);
     }

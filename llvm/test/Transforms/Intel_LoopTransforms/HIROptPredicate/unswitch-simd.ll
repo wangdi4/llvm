@@ -7,7 +7,7 @@
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 99, 1   <DO_LOOP>
-;       |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1) ]
+;       |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0]),1) ]
 ;       |   + DO i2 = 0, %m + -1, 1   <DO_LOOP> <simd>
 ;       |   |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%j.linear.iv)[0]));
 ;       |   |   if (%n != 20)
@@ -26,7 +26,7 @@
 ; CHECK:       if (%n != 20)
 ; CHECK:       {
 ; CHECK:          + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:          |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1) ]
+; CHECK:          |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0]), 1) ]
 ; CHECK:          |   + DO i2 = 0, %m + -1, 1   <DO_LOOP> <simd>
 ; CHECK:          |   |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%j.linear.iv)[0]));
 ; CHECK:          |   |   (%a)[i2] = i2;
@@ -38,7 +38,7 @@
 ; CHECK:       else
 ; CHECK:       {
 ; CHECK:          + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:          |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1) ]
+; CHECK:          |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0]), 1) ]
 ; CHECK:          |   + DO i2 = 0, %m + -1, 1   <DO_LOOP> <simd>
 ; CHECK:          |   |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%j.linear.iv)[0]));
 ; CHECK:          |   |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%j.linear.iv)[0]));

@@ -2,13 +2,13 @@
 
 ; CHECK:                + DO i1 = 0, 1023, 4 <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:           |   [[VP_EXTRACT0:%.*]] = extractelement &((<4 x i8*>)(%this)[i1 + <i64 0, i64 1, i64 2, i64 3>].0.0[0]),  0;
-; CHECK-NEXT:           |   @llvm.assume(-1); [ align([[VP_EXTRACT0]]1) ]
+; CHECK-NEXT:           |   @llvm.assume(-1); [ align([[VP_EXTRACT0]], 1) ]
 ; CHECK-NEXT:           |   [[VP_EXTRACT1:%.*]] = extractelement &((<4 x i8*>)(%this)[i1 + <i64 0, i64 1, i64 2, i64 3>].0.0[0]),  1;
-; CHECK-NEXT:           |   @llvm.assume(-1); [ align([[VP_EXTRACT1]]1) ]
+; CHECK-NEXT:           |   @llvm.assume(-1); [ align([[VP_EXTRACT1]], 1) ]
 ; CHECK-NEXT:           |   [[VP_EXTRACT2:%.*]] = extractelement &((<4 x i8*>)(%this)[i1 + <i64 0, i64 1, i64 2, i64 3>].0.0[0]),  2;
-; CHECK-NEXT:           |   @llvm.assume(-1); [ align([[VP_EXTRACT2]]1) ]
+; CHECK-NEXT:           |   @llvm.assume(-1); [ align([[VP_EXTRACT2]], 1) ]
 ; CHECK-NEXT:           |   [[VP_EXTRACT3:%.*]] = extractelement &((<4 x i8*>)(%this)[i1 + <i64 0, i64 1, i64 2, i64 3>].0.0[0]),  3;
-; CHECK-NEXT:           |   @llvm.assume(-1); [ align([[VP_EXTRACT3]]1) ]
+; CHECK-NEXT:           |   @llvm.assume(-1); [ align([[VP_EXTRACT3]], 1) ]
 ; CHECK-NEXT:           + END LOOP
 
 ; CHECK:        [[VP_EXTRACT0:%.*]] = extractelement <4 x i8*> [[VP_GEP0:%.*]], i64 0

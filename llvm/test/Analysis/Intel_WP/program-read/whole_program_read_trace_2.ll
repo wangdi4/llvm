@@ -2,21 +2,9 @@
 ; This test checks that the trace for whole program read prints
 ; the correct solution when the information is missing for one symbol.
 
-; CMPLRLLVM-45598: Temporarily marking as expected to fail.
-; XFAIL: *
-
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: %gold -m elf_x86_64  -plugin %llvmshlibdir/icx-lto%shlibext \
 ; RUN:    -plugin-opt=O3 \
-; RUN:    -plugin-opt=legacy-pass-manager \
-; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
-; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
-; RUN:    2>&1 | FileCheck %s
-
-; RUN: llvm-as %s -o %t.bc
-; RUN: %gold -m elf_x86_64  -plugin %llvmshlibdir/icx-lto%shlibext \
-; RUN:    -plugin-opt=O3 \
-; RUN:    -plugin-opt=new-pass-manager \
 ; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
 ; RUN:    2>&1 | FileCheck %s

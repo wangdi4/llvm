@@ -12,7 +12,7 @@
 
 ; HIR: Complex type reductions are not supported
 ; HIR: BEGIN REGION { }
-; HIR:      %tok = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(), QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED(&((%sum)[0])zeroinitializer1) ]
+; HIR:      %tok = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(), QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED(&((%sum)[0]), zeroinitializer, 1) ]
 ; HIR:      DO i1 = 0, %N + -1, 1   <DO_LOOP> <simd> <vectorize>
 
 %complex_64bit = type { float, float }

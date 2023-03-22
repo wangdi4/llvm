@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -817,7 +817,9 @@ m_ImmConstant(Constant *&C) {
 }
 
 /// Match a specified Value*.
-struct specificval_ty {
+#if INTEL_CUSTOMIZATION
+template <typename Class> struct specificval_ty {
+  INTEL_INJECT_VPLAN_TEMPLATIZATION(Class);
   const Value *Val;
 
   specificval_ty(const Value *V) : Val(V) {}
@@ -826,7 +828,11 @@ struct specificval_ty {
 };
 
 /// Match if we have a specific specified value.
-inline specificval_ty m_Specific(const Value *V) { return V; }
+template <typename Class>
+inline specificval_ty<Class> m_Specific(const Class *V) {
+  return V;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Stores a reference to the Value *, not the Value * itself,
 /// thus can be used in commutative matchers.
