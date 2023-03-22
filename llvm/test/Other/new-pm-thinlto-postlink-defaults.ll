@@ -9,32 +9,6 @@
 ;
 ; INTEL - LoopVectorizer is not enabled by default, the appropriate CHECKs removed.
 ;
-; Prelink pipelines:
-; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
-; RUN:     -passes='thinlto-pre-link<O1>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O1,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS
-; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
-; RUN:     -passes='thinlto-pre-link<O2>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O2,CHECK-O23SZ,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS
-; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
-; RUN:     -passes='thinlto-pre-link<O3>' -S -passes-ep-pipeline-start='no-op-module' %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O3,CHECK-O23SZ,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS,CHECK-EP-PIPELINE-START
-; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
-; RUN:     -passes='thinlto-pre-link<O3>' -S -passes-ep-optimizer-early='no-op-module' %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O3,CHECK-O23SZ,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS,CHECK-EP-OPT-EARLY
-; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
-; RUN:     -passes='thinlto-pre-link<O3>' -S -passes-ep-optimizer-last='no-op-module' %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O3,CHECK-O23SZ,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS,CHECK-EP-OPT-LAST
-; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
-; RUN:     -passes='thinlto-pre-link<Os>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O23SZ,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS
-; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
-; RUN:     -passes='thinlto-pre-link<Oz>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O23SZ,CHECK-PRELINK-O,CHECK-PRELINK-O-NODIS
-; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -debug-info-for-profiling \
-; RUN:     -passes='thinlto-pre-link<O2>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-DIS,CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O2,CHECK-O23SZ,CHECK-PRELINK-O
-;
 ; Postlink pipelines:
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<O1>' -S %s 2>&1 \
@@ -78,7 +52,6 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
-; CHECK-PRELINK-O-NODIS-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass          ;INTEL
 ; CHECK-O-NEXT: Running pass: InlineListsPass                ;INTEL
@@ -102,7 +75,6 @@
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: PromotePass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
-; CHECK-PRELINK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O-NEXT: Running analysis: AAManager
 ; CHECK-O-NEXT: Running analysis: BasicAA
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
@@ -124,7 +96,6 @@
 ; CHECK-O-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
 ; CHECK-O-NEXT: Invalidating analysis: AAManager
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}ProfileSummaryAnalysis
-; CHECK-PRELINK-O-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
 ; CHECK-O-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
@@ -214,7 +185,6 @@
 ; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-O-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-O-NEXT: Running pass: CoroCleanupPass
-; CHECK-PRELINK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-POSTLINK-O3-NEXT: Running pass: ArgNoAliasPropPass ;INTEL
@@ -363,8 +333,6 @@
 ; CHECK-EP-OPT-EARLY-NEXT: Running pass: NoOpModulePass
 ; CHECK-EP-OPT-LAST-NEXT: Running pass: NoOpModulePass
 ; CHECK-O-NEXT:          Running pass: AnnotationRemarksPass on foo
-; CHECK-PRELINK-O-NEXT: Running pass: CanonicalizeAliasesPass
-; CHECK-PRELINK-O-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-O-NEXT: Running pass: PrintModulePass
 
 ; Make sure we get the IR back out without changes when we print the module.
