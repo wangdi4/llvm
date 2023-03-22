@@ -328,7 +328,9 @@ public:
     return getWGNum();
   }
   // TODO: unify codestyle with the code above
-  bool isSpecificNDRange() const { return (Attributes1 & (1 << 1)); }
+  bool isSpecificNDRange() const {
+    return Version < 5 || (Attributes1 & (1 << 1));
+  }
 };
 
 /// Loop descriptor
@@ -2659,7 +2661,7 @@ static inline int32_t runTargetTeamNDRegion(
        DPxPTR(Kernel));
   }
 
-  if (LoopDesc && KInfo && KInfo->isSpecificNDRange()) {
+  if (LoopDesc && (!KInfo || KInfo->isSpecificNDRange())) {
     decideLoopKernelGroupArguments(DeviceId, ThreadLimit,
                                    (TgtNDRangeDescTy *)LoopDesc, Kernel,
                                    LocalWorkSize, NumWorkGroups);
@@ -3835,7 +3837,7 @@ bool OpenCLProgramTy::readKernelInfo(const __tgt_offload_entry &KernelEntry) {
     DP("Error: version 0 of kernel info structure is illegal.\n");
     return false;
   }
-  if (Version > 4) {
+  if (Version > 5) {
     DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
        Version);
     DP("Error: please use newer OpenMP offload runtime.\n");
