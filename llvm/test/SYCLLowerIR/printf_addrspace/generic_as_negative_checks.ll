@@ -1,4 +1,5 @@
 ; generic_as.ll
+<<<<<<< HEAD
 ; RUN: opt < %S/generic_as.ll --SYCLMutatePrintfAddrspace -S --bugpoint-enable-legacy-pm | FileCheck %s --check-prefix=CHECK-BUILTIN
 ; RUN: opt < %S/generic_as.ll --passes=SYCLMutatePrintfAddrspace -S | FileCheck %s --check-prefix=CHECK-BUILTIN
 
@@ -12,6 +13,21 @@
 
 ; generic_as_variadic_no_opt.ll
 ; RUN: opt < %S/generic_as_variadic_no_opt.ll --SYCLMutatePrintfAddrspace -S --bugpoint-enable-legacy-pm | FileCheck %s --check-prefixes=CHECK-WRAPPER,CHECK-BUILTIN
+=======
+; RUN: opt < %S/generic_as.ll --SYCLMutatePrintfAddrspace -S -bugpoint-enable-legacy-pm | FileCheck %s --check-prefix=CHECK-BUILTIN
+; RUN: opt < %S/generic_as.ll --passes=SYCLMutatePrintfAddrspace -S | FileCheck %s --check-prefix=CHECK-BUILTIN
+
+; generic_as_no_opt.ll
+; RUN: opt < %S/generic_as_no_opt.ll --SYCLMutatePrintfAddrspace -S -bugpoint-enable-legacy-pm | FileCheck %s --check-prefixes=CHECK-WRAPPER,CHECK-BUILTIN
+; RUN: opt < %S/generic_as_no_opt.ll --passes=SYCLMutatePrintfAddrspace -S | FileCheck %s --check-prefixes=CHECK-WRAPPER,CHECK-BUILTIN
+
+; generic_as_variadic.ll
+; RUN: opt < %S/generic_as_variadic.ll --SYCLMutatePrintfAddrspace -S -bugpoint-enable-legacy-pm | FileCheck %s --check-prefix=CHECK-BUILTIN
+; RUN: opt < %S/generic_as_variadic.ll --passes=SYCLMutatePrintfAddrspace -S | FileCheck %s --check-prefix=CHECK-BUILTIN
+
+; generic_as_variadic_no_opt.ll
+; RUN: opt < %S/generic_as_variadic_no_opt.ll --SYCLMutatePrintfAddrspace -S -bugpoint-enable-legacy-pm | FileCheck %s --check-prefixes=CHECK-WRAPPER,CHECK-BUILTIN
+>>>>>>> c033cd60051cace92f47102bbc6b119777b42cca
 ; RUN: opt < %S/generic_as_variadic_no_opt.ll --passes=SYCLMutatePrintfAddrspace -S | FileCheck %s --check-prefixes=CHECK-WRAPPER,CHECK-BUILTIN
 
 ; Check that the wrapper bodies have been deleted after call replacement

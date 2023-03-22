@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 ; RUN: opt -opaque-pointers=0 < %s -LowerWGScope -S -bugpoint-enable-legacy-pm | FileCheck %s
 ; RUN: opt -opaque-pointers=0 < %s -passes=LowerWGScope -S | FileCheck %s
+=======
+; RUN: opt < %s -LowerWGScope -S -bugpoint-enable-legacy-pm | FileCheck %s
+; RUN: opt < %s -passes=LowerWGScope -S | FileCheck %s
+>>>>>>> c033cd60051cace92f47102bbc6b119777b42cca
 
 ; Check that argument of the function marked with !work_group_scope
 ; attribute passed as byval is shared by leader work item via local
