@@ -19,7 +19,6 @@
 ; Added CHECK-POSTLINK-O23SZ target for easier matching.
 ; If new lines are added, this target must be added to those lines.
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2,CHECK-POSTLINK-O23SZ
-<<<<<<< HEAD:llvm/test/Other/new-pm-thinlto-postlink-defaults.ll
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -passes-ep-pipeline-start='no-op-module' \
 ; RUN:     -passes='thinlto<O3>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POSTLINK-O23SZ
@@ -36,24 +35,6 @@
 ; RUN:     -passes='thinlto<Oz>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O23SZ
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -debug-info-for-profiling \
-=======
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -passes-ep-pipeline-start='no-op-module' \
-; RUN:     -passes='thinlto<O3>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POSTLINK-O23SZ
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -passes-ep-optimizer-early='no-op-module' \
-; RUN:     -passes='thinlto<O3>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POST-EP-OPT-EARLY,CHECK-POSTLINK-O23SZ
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -passes-ep-optimizer-last='no-op-module' \
-; RUN:     -passes='thinlto<O3>' -S  %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O3,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O3,CHECK-POST-EP-OPT-LAST,CHECK-POSTLINK-O23SZ
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
-; RUN:     -passes='thinlto<Os>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-Os,CHECK-POSTLINK-O23SZ
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
-; RUN:     -passes='thinlto<Oz>' -S %s 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O23SZ
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -eagerly-invalidate-analyses=0 -debug-pass-manager -debug-info-for-profiling \
->>>>>>> 7b6100bbec5f6892617b61a944a813b884169c2a:llvm/test/Other/new-pm-thinlto-defaults.ll
 ; RUN:     -passes='thinlto<O2>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-FUNC-SPEC,CHECK-O2,CHECK-O23SZ,CHECK-POSTLINK-O,%llvmcheckext,CHECK-POSTLINK-O2,CHECK-POSTLINK-O23SZ
 ; end INTEL_CUSTOMIZATION

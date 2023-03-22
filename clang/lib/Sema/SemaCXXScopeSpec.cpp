@@ -310,6 +310,11 @@ bool Sema::ActOnCXXGlobalScopeSpecifier(SourceLocation CCLoc,
 bool Sema::ActOnSuperScopeSpecifier(SourceLocation SuperLoc,
                                     SourceLocation ColonColonLoc,
                                     CXXScopeSpec &SS) {
+  if (getCurLambda()) {
+    Diag(SuperLoc, diag::err_super_in_lambda_unsupported);
+    return true;
+  }
+
   CXXRecordDecl *RD = nullptr;
   for (Scope *S = getCurScope(); S; S = S->getParent()) {
     if (S->isFunctionScope()) {
@@ -325,9 +330,6 @@ bool Sema::ActOnSuperScopeSpecifier(SourceLocation SuperLoc,
 
   if (!RD) {
     Diag(SuperLoc, diag::err_invalid_super_scope);
-    return true;
-  } else if (RD->isLambda()) {
-    Diag(SuperLoc, diag::err_super_in_lambda_unsupported);
     return true;
   } else if (RD->getNumBases() == 0) {
     Diag(SuperLoc, diag::err_no_base_classes) << RD->getName();
