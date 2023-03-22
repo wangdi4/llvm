@@ -936,15 +936,27 @@ void OpenMPLateOutliner::emitImplicit(llvm::Value *V, llvm::Type *ElementType,
 void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   if (K == ICK_linear || K == ICK_linear_private ||
       K == ICK_linear_lastprivate) {
+    bool IsPtr = E->getType()->isPointerType();
     ClauseEmissionHelper CEH(*this, OMPC_unknown);
     ClauseStringBuilder &CSB = CEH.getBuilder();
     CSB.add("QUAL.OMP.LINEAR");
     CSB.setIV();
     if (UseTypedClauses)
       CSB.setTyped();
+    if (UseTypedClauses && IsPtr)
+      CSB.setPtrToPtr();
     CEH.setImplicitClause(ICK_linear);
     addArg(CSB.getString());
-    addTypedArg(E);
+    if (UseTypedClauses && IsPtr) {
+      QualType PointeeT = E->getType()->getPointeeType();
+      llvm::Type *ElemTy = PointeeT->isFunctionType()
+                               ? CGF.Int8Ty
+                               : CGF.ConvertTypeForMem(PointeeT);
+      addArg(E, /*IsRef=*/false, UseTypedClauses, /*NeedsTypedElements=*/true,
+             ElemTy);
+    } else {
+      addTypedArg(E);
+    }
     auto *LD = cast<OMPLoopDirective>(&Directive);
     addArg(emitSpecialSIMDExpression(LD->getLateOutlineLinearCounterStep()));
     // Plain SIMD doesn't use the private/lastprivate clause but the

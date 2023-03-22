@@ -421,7 +421,7 @@ void bar7(float *A, int N, int S)
   //CHECK: "DIR.OMP.END.SIMD"
 
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[FP]], ptr null, i32 1, i32 4)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:PTR_TO_PTR.IV.TYPED"(ptr [[FP]], float 0.000000e+00, i32 1, i32 4)
   //CHECK: call void {{.*}}call_bar7
   //CHECK: load i64, ptr %.omp.iv
   //CHECK-NEXT: add nsw i64 {{.*}}1{{$}}
