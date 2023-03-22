@@ -1251,8 +1251,6 @@ static Value *translateSLMStore(StoreInst *StoreOp) {
 std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath32 = {
     //  Basic functions
     //{Intrinsic::fma,        NA}, // llvm fma is supported by BE
-    {Intrinsic::maxnum, GenXIntrinsic::genx_fmax},
-    {Intrinsic::minnum, GenXIntrinsic::genx_fmin},
 
     //  Exponential functions
     {Intrinsic::exp, GenXIntrinsic::not_genx_intrinsic},
@@ -1282,8 +1280,6 @@ std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath32 = {
 std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath64 = {
     //  Basic functions
     {Intrinsic::fma, GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::maxnum, GenXIntrinsic::genx_fmax},
-    {Intrinsic::minnum, GenXIntrinsic::genx_fmin},
 
     //  Exponential functions
     {Intrinsic::exp, GenXIntrinsic::not_genx_intrinsic},
