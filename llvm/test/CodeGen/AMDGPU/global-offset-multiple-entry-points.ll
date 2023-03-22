@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -globaloffset %s -S -o - | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -globaloffset %s -S -o - | FileCheck %s
 ; ModuleID = 'global-offset-multiple-entry-points.bc'
 source_filename = "global-offset-multiple-entry-points.ll"
 
