@@ -134,6 +134,7 @@ class X86MachineFunctionInfo : public MachineFunctionInfo {
   /// determine if we should insert tilerelease in frame lowering.
   bool HasVirtualTileReg = false;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   /// Ajust stack for push2/pop2
@@ -148,6 +149,8 @@ class X86MachineFunctionInfo : public MachineFunctionInfo {
 #endif // INTEL_CUSTOMIZATION
   MachineInstr *StackPtrSaveMI = nullptr;
 
+=======
+>>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
   std::optional<int> SwiftAsyncContextFrameIdx;
 
   // Preallocated fields are only used during isel.
@@ -256,6 +259,7 @@ public:
   bool hasVirtualTileReg() const { return HasVirtualTileReg; }
   void setHasVirtualTileReg(bool v) { HasVirtualTileReg = v; }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   bool padForPush2Pop2() const { return PadForPush2Pop2; }
@@ -278,6 +282,8 @@ public:
   void setStackPtrSaveMI(MachineInstr *MI) { StackPtrSaveMI = MI; }
   MachineInstr *getStackPtrSaveMI() const { return StackPtrSaveMI; }
 
+=======
+>>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
   std::optional<int> getSwiftAsyncContextFrameIdx() const {
     return SwiftAsyncContextFrameIdx;
   }

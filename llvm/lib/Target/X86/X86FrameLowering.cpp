@@ -50,7 +50,6 @@
 #include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/LEB128.h"
 #include "llvm/Target/TargetOptions.h"
 #include <cstdlib>
 
@@ -494,7 +493,6 @@ void X86FrameLowering::emitCalleeSavedFrameMoves(
   MachineFrameInfo &MFI = MF.getFrameInfo();
   MachineModuleInfo &MMI = MF.getMMI();
   const MCRegisterInfo *MRI = MMI.getContext().getRegisterInfo();
-  X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
 
   // Add callee saved registers to move list.
   const std::vector<CalleeSavedInfo> &CSI = MFI.getCalleeSavedInfo();
@@ -506,61 +504,12 @@ void X86FrameLowering::emitCalleeSavedFrameMoves(
     unsigned DwarfReg = MRI->getDwarfRegNum(Reg, true);
 
     if (IsPrologue) {
-      if (X86FI->getStackPtrSaveMI()) {
-        // +2*SlotSize because there is return address and ebp at the bottom
-        // of the stack.
-        // | retaddr |
-        // | ebp     |
-        // |         |<--ebp
-        Offset += 2 * SlotSize;
-        SmallString<64> CfaExpr;
-        CfaExpr.push_back(dwarf::DW_CFA_expression);
-        uint8_t buffer[16];
-        CfaExpr.append(buffer, buffer + encodeULEB128(DwarfReg, buffer));
-        CfaExpr.push_back(2);
-        Register FramePtr = TRI->getFrameRegister(MF);
-        const Register MachineFramePtr =
-            STI.isTarget64BitILP32()
-                ? Register(getX86SubSuperRegister(FramePtr, 64))
-                : FramePtr;
-        unsigned DwarfFramePtr = MRI->getDwarfRegNum(MachineFramePtr, true);
-        CfaExpr.push_back((uint8_t)(dwarf::DW_OP_breg0 + DwarfFramePtr));
-        CfaExpr.append(buffer, buffer + encodeSLEB128(Offset, buffer));
-        BuildCFI(MBB, MBBI, DL,
-                 MCCFIInstruction::createEscape(nullptr, CfaExpr.str()),
-                 MachineInstr::FrameSetup);
-      } else {
-        BuildCFI(MBB, MBBI, DL,
-                 MCCFIInstruction::createOffset(nullptr, DwarfReg, Offset));
-      }
+      BuildCFI(MBB, MBBI, DL,
+               MCCFIInstruction::createOffset(nullptr, DwarfReg, Offset));
     } else {
       BuildCFI(MBB, MBBI, DL,
                MCCFIInstruction::createRestore(nullptr, DwarfReg));
     }
-  }
-  if (auto *MI = X86FI->getStackPtrSaveMI()) {
-    int FI = MI->getOperand(1).getIndex();
-    int64_t Offset = MFI.getObjectOffset(FI) + 2 * SlotSize;
-    SmallString<64> CfaExpr;
-    Register FramePtr = TRI->getFrameRegister(MF);
-    const Register MachineFramePtr =
-        STI.isTarget64BitILP32()
-            ? Register(getX86SubSuperRegister(FramePtr, 64))
-            : FramePtr;
-    unsigned DwarfFramePtr = MRI->getDwarfRegNum(MachineFramePtr, true);
-    CfaExpr.push_back((uint8_t)(dwarf::DW_OP_breg0 + DwarfFramePtr));
-    uint8_t buffer[16];
-    CfaExpr.append(buffer, buffer + encodeSLEB128(Offset, buffer));
-    CfaExpr.push_back(dwarf::DW_OP_deref);
-
-    SmallString<64> DefCfaExpr;
-    DefCfaExpr.push_back(dwarf::DW_CFA_def_cfa_expression);
-    DefCfaExpr.append(buffer, buffer + encodeSLEB128(CfaExpr.size(), buffer));
-    DefCfaExpr.append(CfaExpr.str());
-    // DW_CFA_def_cfa_expression: DW_OP_breg5 offset, DW_OP_deref
-    BuildCFI(MBB, MBBI, DL,
-             MCCFIInstruction::createEscape(nullptr, DefCfaExpr.str()),
-             MachineInstr::FrameSetup);
   }
 }
 
@@ -1577,42 +1526,6 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
   // Debug location must be unknown since the first debug location is used
   // to determine the end of the prologue.
   DebugLoc DL;
-  Register ArgBaseReg;
-
-  // Emit extra prolog for argument stack slot reference.
-  if (auto *MI = X86FI->getStackPtrSaveMI()) {
-    // MI is lea instruction that created in X86ArgumentStackSlotPass.
-    // Creat extra prolog for stack realignment.
-    ArgBaseReg = MI->getOperand(0).getReg();
-    // leal    4(%esp), %basereg
-    // .cfi_def_cfa %basereg, 0
-    // andl    $-128, %esp
-    // pushl   -4(%basereg)
-    BuildMI(MBB, MBBI, DL, TII.get(Is64Bit ? X86::LEA64r : X86::LEA32r),
-            ArgBaseReg)
-        .addUse(StackPtr)
-        .addImm(1)
-        .addUse(X86::NoRegister)
-        .addImm(SlotSize)
-        .addUse(X86::NoRegister)
-        .setMIFlag(MachineInstr::FrameSetup);
-    if (NeedsDwarfCFI) {
-      // .cfi_def_cfa %basereg, 0
-      unsigned DwarfStackPtr = TRI->getDwarfRegNum(ArgBaseReg, true);
-      BuildCFI(MBB, MBBI, DL,
-               MCCFIInstruction::cfiDefCfa(nullptr, DwarfStackPtr, 0),
-               MachineInstr::FrameSetup);
-    }
-    BuildStackAlignAND(MBB, MBBI, DL, StackPtr, MaxAlign);
-    int64_t Offset = Is64Bit ? -2 * (int64_t)SlotSize : -1 * (int64_t)SlotSize;
-    BuildMI(MBB, MBBI, DL, TII.get(Is64Bit ? X86::PUSH64rmm: X86::PUSH32rmm))
-        .addReg(ArgBaseReg)
-        .addImm(1)
-        .addReg(X86::NoRegister)
-        .addImm(Offset)
-        .addReg(X86::NoRegister)
-        .setMIFlag(MachineInstr::FrameSetup);
-  }
 
   // Space reserved for stack-based arguments when making a (ABI-guaranteed)
   // tail call.
@@ -1759,7 +1672,7 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
       .addReg(MachineFramePtr, RegState::Kill)
       .setMIFlag(MachineInstr::FrameSetup);
 
-    if (NeedsDwarfCFI && !ArgBaseReg.isValid()) {
+    if (NeedsDwarfCFI) {
       // Mark the place where EBP/RBP was saved.
       // Define the current CFA rule to use the provided offset.
       assert(StackSize);
@@ -1836,28 +1749,13 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
               .setMIFlag(MachineInstr::FrameSetup);
 
         if (NeedsDwarfCFI) {
-          if (ArgBaseReg.isValid()) {
-            SmallString<64> CfaExpr;
-            CfaExpr.push_back(dwarf::DW_CFA_expression);
-            uint8_t buffer[16];
-            unsigned DwarfReg = TRI->getDwarfRegNum(MachineFramePtr, true);
-            CfaExpr.append(buffer, buffer + encodeULEB128(DwarfReg, buffer));
-            CfaExpr.push_back(2);
-            CfaExpr.push_back((uint8_t)(dwarf::DW_OP_breg0 + DwarfReg));
-            CfaExpr.push_back(0);
-            // DW_CFA_expression: reg5 DW_OP_breg5 +0
-            BuildCFI(MBB, MBBI, DL,
-                     MCCFIInstruction::createEscape(nullptr, CfaExpr.str()),
-                     MachineInstr::FrameSetup);
-          } else {
-            // Mark effective beginning of when frame pointer becomes valid.
-            // Define the current CFA to use the EBP/RBP register.
-            unsigned DwarfFramePtr = TRI->getDwarfRegNum(MachineFramePtr, true);
-            BuildCFI(
-                MBB, MBBI, DL,
-                MCCFIInstruction::createDefCfaRegister(nullptr, DwarfFramePtr),
-                MachineInstr::FrameSetup);
-          }
+          // Mark effective beginning of when frame pointer becomes valid.
+          // Define the current CFA to use the EBP/RBP register.
+          unsigned DwarfFramePtr = TRI->getDwarfRegNum(MachineFramePtr, true);
+          BuildCFI(
+              MBB, MBBI, DL,
+              MCCFIInstruction::createDefCfaRegister(nullptr, DwarfFramePtr),
+              MachineInstr::FrameSetup);
         }
 
         if (NeedsWinFPO) {
@@ -1995,8 +1893,7 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
   // Realign stack after we pushed callee-saved registers (so that we'll be
   // able to calculate their offsets from the frame pointer).
   // Don't do this for Win64, it needs to realign the stack after the prologue.
-  if (!IsWin64Prologue && !IsFunclet && TRI->hasStackRealignment(MF) &&
-      !ArgBaseReg.isValid()) {
+  if (!IsWin64Prologue && !IsFunclet && TRI->hasStackRealignment(MF)) {
     assert(HasFP && "There should be a frame pointer if stack is realigned.");
     BuildStackAlignAND(MBB, MBBI, DL, StackPtr, MaxAlign);
 
@@ -2254,16 +2151,6 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
           .setMIFlag(MachineInstr::FrameSetup);
     }
   }
-  if (ArgBaseReg.isValid()) {
-    // Save argument base pointer.
-    auto *MI = X86FI->getStackPtrSaveMI();
-    int FI = MI->getOperand(1).getIndex();
-    unsigned MOVmr = Is64Bit ? X86::MOV64mr : X86::MOV32mr;
-    // movl    %basereg, offset(%ebp)
-    addFrameReference(BuildMI(MBB, MBBI, DL, TII.get(MOVmr)), FI)
-        .addReg(ArgBaseReg)
-        .setMIFlag(MachineInstr::FrameSetup);
-  }
 
   if (((!HasFP && NumBytes) || PushedRegs) && NeedsDwarfCFI) {
     // Mark end of stack pointer adjustment.
@@ -2412,34 +2299,6 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
                         !MF.getTarget().getTargetTriple().isOSWindows()) &&
                        MF.needsFrameMoves();
 
-  Register ArgBaseReg;
-  if (auto *MI = X86FI->getStackPtrSaveMI()) {
-    unsigned Opc = X86::LEA32r;
-    Register StackReg = X86::ESP;
-    ArgBaseReg = MI->getOperand(0).getReg();
-    if (STI.is64Bit()) {
-      Opc = X86::LEA64r;
-      StackReg = X86::RSP;
-    }
-    // leal    -8(%basereg), %esp
-    // .cfi_def_cfa %esp, 4
-    BuildMI(MBB, MBBI, DL, TII.get(Opc), StackReg)
-        .addUse(ArgBaseReg)
-        .addImm(1)
-        .addUse(X86::NoRegister)
-        .addImm((int64_t)SlotSize * -2)
-        .addUse(X86::NoRegister)
-        .setMIFlag(MachineInstr::FrameDestroy);
-    if (NeedsDwarfCFI) {
-      unsigned DwarfStackPtr = TRI->getDwarfRegNum(StackReg, true);
-      BuildCFI(MBB, MBBI, DL,
-               MCCFIInstruction::cfiDefCfa(nullptr, DwarfStackPtr, SlotSize),
-               MachineInstr::FrameDestroy);
-      --MBBI;
-    }
-    --MBBI;
-  }
-
   if (IsFunclet) {
     assert(HasFP && "EH funclets without FP not yet implemented");
     NumBytes = getWinEHFuncletFrameSize(MF);
@@ -2495,13 +2354,11 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
     }
 
     if (NeedsDwarfCFI) {
-      if (!ArgBaseReg.isValid()) {
-        unsigned DwarfStackPtr =
-            TRI->getDwarfRegNum(Is64Bit ? X86::RSP : X86::ESP, true);
-        BuildCFI(MBB, MBBI, DL,
-                 MCCFIInstruction::cfiDefCfa(nullptr, DwarfStackPtr, SlotSize),
-                 MachineInstr::FrameDestroy);
-      }
+      unsigned DwarfStackPtr =
+          TRI->getDwarfRegNum(Is64Bit ? X86::RSP : X86::ESP, true);
+      BuildCFI(MBB, MBBI, DL,
+               MCCFIInstruction::cfiDefCfa(nullptr, DwarfStackPtr, SlotSize),
+               MachineInstr::FrameDestroy);
       if (!MBB.succ_empty() && !MBB.isReturnBlock()) {
         unsigned DwarfFramePtr = TRI->getDwarfRegNum(MachineFramePtr, true);
         BuildCFI(MBB, AfterPop, DL,
@@ -2537,6 +2394,7 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
 
     --MBBI;
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   // Semantic of
@@ -2572,6 +2430,8 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
     addFrameReference(BuildMI(MBB, MBBI, DL, TII.get(MOVrm), ArgBaseReg), FI)
         .setMIFlag(MachineInstr::FrameDestroy);
   }
+=======
+>>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
   MBBI = FirstCSPop;
 
   if (IsFunclet && Terminator->getOpcode() == X86::CATCHRET)
@@ -4369,10 +4229,9 @@ void X86FrameLowering::adjustFrameForMsvcCxxEh(MachineFunction &MF) const {
 
 void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     MachineFunction &MF, RegScavenger *RS) const {
-  auto *X86FI = MF.getInfo<X86MachineFunctionInfo>();
-
   if (STI.is32Bit() && MF.hasEHFunclets())
     restoreWinEHStackPointersInParent(MF);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   MachineFrameInfo &MFI = MF.getFrameInfo();
   if (!MFI.VecSpillMap.size())
@@ -4522,6 +4381,8 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     MI->eraseFromParent();
     X86FI->setStackPtrSaveMI(nullptr);
   }
+=======
+>>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
 }
 
 void X86FrameLowering::restoreWinEHStackPointersInParent(
