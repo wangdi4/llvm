@@ -7,6 +7,7 @@
 ; Any invalidation that shows up here is a bug, unless we started modifying
 ; the IR, in which case we need to make it immutable harder.
 ;
+<<<<<<< HEAD:llvm/test/Other/new-pm-thinlto-defaults.ll
 ; INTEL - LoopVectorizer is not enabled by default, the appropriate CHECKs removed.
 ;
 ; Prelink pipelines:
@@ -35,6 +36,8 @@
 ; RUN:     -passes='thinlto-pre-link<O2>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-DIS,CHECK-O,CHECK-NO-FUNC-SPEC,CHECK-O2,CHECK-O23SZ,CHECK-PRELINK-O
 ;
+=======
+>>>>>>> 511ddfe2650ac4429f36c927865cf45122501585:llvm/test/Other/new-pm-thinlto-postlink-defaults.ll
 ; Postlink pipelines:
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto<O1>' -S %s 2>&1 \
@@ -78,7 +81,6 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
-; CHECK-PRELINK-O-NODIS-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass          ;INTEL
 ; CHECK-O-NEXT: Running pass: InlineListsPass                ;INTEL
@@ -102,7 +104,6 @@
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: PromotePass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
-; CHECK-PRELINK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O-NEXT: Running analysis: AAManager
 ; CHECK-O-NEXT: Running analysis: BasicAA
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
@@ -124,7 +125,6 @@
 ; CHECK-O-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
 ; CHECK-O-NEXT: Invalidating analysis: AAManager
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}ProfileSummaryAnalysis
-; CHECK-PRELINK-O-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
 ; CHECK-O-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
@@ -214,7 +214,6 @@
 ; CHECK-O-NEXT: Invalidating analysis: InlineAdvisorAnalysis
 ; CHECK-O-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-O-NEXT: Running pass: CoroCleanupPass
-; CHECK-PRELINK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-POSTLINK-O3-NEXT: Running pass: ArgNoAliasPropPass ;INTEL
@@ -363,8 +362,6 @@
 ; CHECK-EP-OPT-EARLY-NEXT: Running pass: NoOpModulePass
 ; CHECK-EP-OPT-LAST-NEXT: Running pass: NoOpModulePass
 ; CHECK-O-NEXT:          Running pass: AnnotationRemarksPass on foo
-; CHECK-PRELINK-O-NEXT: Running pass: CanonicalizeAliasesPass
-; CHECK-PRELINK-O-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-O-NEXT: Running pass: PrintModulePass
 
 ; Make sure we get the IR back out without changes when we print the module.
