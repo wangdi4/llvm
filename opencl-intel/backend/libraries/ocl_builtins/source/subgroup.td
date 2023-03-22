@@ -43,6 +43,84 @@ foreach bi = dummy_no_ret_builtins in {
 // VectInfos (not needed for dummy subgroup builtins)
 
 
+// --- subgroup core ---
+// https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_C.html#subgroup-functions
+//
+// Types
+defvar sub_group_core_scalar_types = [v1i32, v1u32, v1i64, v1u64, v1f16, v1f32, v1f64];
+// --- cl_khr_subgroup_extended_types ---
+// https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_Ext.html#cl_khr_subgroup_extended_types
+// Extended scalar types for broadcast, scan and reduction
+defvar sub_group_extended_scalar_types = sub_group_core_scalar_types # [v1i8, v1u8, v1i16, v1u16];
+// Extended vector types for broadcast
+defvar sub_group_extended_vector_types = ExpandTypesByVFAndFlatten<sub_group_extended_scalar_types, [2, 3, 4, 8, 16]>.Tout;
+defvar sub_group_extended_all_types = sub_group_extended_scalar_types # sub_group_extended_vector_types;
+
+// Prototypes
+let Attrs = [OVERLOADABLE], VectorAttrs = [KERNEL_CALL_ONCE] in {
+  def sub_group_broadcast : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$x, v1u32:$sub_group_local_id), sub_group_extended_all_types>;
+
+  foreach vf = [4, 8, 16, 32, 64] in {
+    let NeedForwardDecl = true in {
+      defvar mask_type = !cast<OclType>("v" # vf # "u32");
+      def sub_group_broadcast_vf # vf : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$x, v1u32:$sub_group_local_id, mask_type:$vec_mask), WidenTypeForList<sub_group_broadcast.Types, vf>.Tout>;
+
+      defvar lid_type = !cast<OclType>("v" # vf # "u32");
+      def sub_group_broadcast_assume_uniform_vf # vf : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$x, lid_type:$sub_group_local_ids, mask_type:$vec_mask), WidenTypeForList<sub_group_broadcast.Types, vf>.Tout>;
+    }
+  }
+}
+
+// Implementations
+// Fake scalar impl
+def : OclBuiltinImpl<sub_group_broadcast, sub_group_broadcast.Types, false, ret_zero_code>, SHARED;
+// Vector impl
+foreach vf = [4, 8, 16, 32, 64] in {
+  defvar sub_group_broadcast_vec = !cast<OclBuiltin>("sub_group_broadcast_vf" # vf);
+
+  // Vector variant of scalar data types.
+  // e.g. Widening `int sub_group_broadcast(int, uint)`
+  defvar scalar_widened_types = WidenTypeForList<sub_group_extended_scalar_types, vf>.Tout;
+  def : OclBuiltinImpl<sub_group_broadcast_vec, scalar_widened_types, false, [{
+    return $Arg0VarName[$Arg1VarName];
+  }]>, SHARED;
+
+  // Vector variant of vector data types.
+  // e.g. Widening `int3 sub_group_broadcast(int3, uint)`
+  // Use `vloadn` to get the broadcast value.
+  foreach orig_vec_len = [2, 3, 4, 8, 16] in {
+    defvar broadcast_expression = !interleave(!listsplat("_t", vf), ",");
+
+    // For `halfn` types, we need to use `vload_halfn`.
+    defvar vector_half_widened_types = [!cast<OclType>("v" # !mul(vf, orig_vec_len) # "f16")];
+    def : OclBuiltinImpl<sub_group_broadcast_vec, vector_half_widened_types, false, [{
+      half$N _t = convert_half$N(vload_half$N($Arg1VarName, (half *)&$Arg0VarName));
+      return ($ReturnType)($BROADCAST);
+    }], [["$N", !cast<string>(orig_vec_len)], ["$BROADCAST", broadcast_expression]]>, SHARED;
+
+    // For types other than `halfn`, we use `vloadn`.
+    defvar non_half_scalar_types = !filter(t, sub_group_extended_scalar_types, !not(!eq(t, v1f16)));
+    defvar vector_non_half_widened_types = WidenTypeForList<non_half_scalar_types, !mul(vf, orig_vec_len)>.Tout;
+    def : OclBuiltinImpl<sub_group_broadcast_vec, vector_non_half_widened_types, false, [{
+      $Arg0BaseType$N _t = vload$N($Arg1VarName, ($Arg0BaseType *)&$Arg0VarName);
+      return ($ReturnType)($BROADCAST);
+    }], [["$N", !cast<string>(orig_vec_len)], ["$BROADCAST", broadcast_expression]]>, SHARED;
+  }
+
+  // This is a variant with "sub_group_local_id" parameter widened by VF.
+  // The spec explicitly requires "the value of sub_group_local_id to be
+  // equivalent for all work-items in the subgroup", so we assume it uniform by
+  // accessing the first element directly.
+  defvar sub_group_broadcast_assume_uniform_vec = !cast<OclBuiltin>("sub_group_broadcast_assume_uniform_vf" # vf);
+  def : OclBuiltinImpl<sub_group_broadcast_assume_uniform_vec, sub_group_broadcast_assume_uniform_vec.Types, false, [{
+    return sub_group_broadcast($Arg0VarName, $Arg1VarName[0], $Arg2VarName);
+  }]>, SHARED;
+}
+
+// VectInfos
+def : VectInfo<sub_group_broadcast.Types, sub_group_broadcast, sub_group_broadcast_vf4, sub_group_broadcast_vf8, sub_group_broadcast_vf16, sub_group_broadcast_vf32, sub_group_broadcast_vf64>;
+def : VectInfo<sub_group_broadcast.Types, sub_group_broadcast, sub_group_broadcast_assume_uniform_vf4, sub_group_broadcast_assume_uniform_vf8, sub_group_broadcast_assume_uniform_vf16, sub_group_broadcast_assume_uniform_vf32, sub_group_broadcast_assume_uniform_vf64>;
+
 // --- cl_khr_subgroup_ballot ---
 //
 // https://www.khronos.org/registry/OpenCL/specs/3.0-unified/html/OpenCL_Ext.html#cl_khr_subgroup_ballot
@@ -330,76 +408,5 @@ foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
       defvar types = WidenType<v1f16, vf>.Tout;
       def : AliasMap<[["sub_group_"#func#"_"#op#"_vf"#vf, "sub_group_non_uniform_"#func#"_"#op]], [types]>;
     }
-  }
-}
-
-// --- sub_group_broadcast builtins ---
-//
-// https://registry.khronos.org/OpenCL/specs/3.0-unified/html/OpenCL_Ext.html#cl_khr_subgroups-add-a-new-section-6.13.X-sub-group-functions
-
-defvar broadcast_type = [v1f16];
-defvar broadcast_all_type = ExpandTypesByVFAndFlatten<broadcast_type, [1, 2, 3, 4, 8, 16]>.Tout;
-
-// Prototypes
-let Attrs = [OVERLOADABLE], VectorAttrs = [KERNEL_CALL_ONCE], NeedForwardDecl = true in {
-  // scalar and vector
-  let Types = broadcast_all_type in {
-    def sub_group_broadcast_vf1 : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id)>;
-  }
-  // vectorized
-  foreach vf = [4, 8, 16, 32, 64] in {
-    defvar mask_type = !cast<OclType>("v" # vf # "u32");
-    let Types = WidenTypeForList<broadcast_all_type, vf>.Tout in {
-      def sub_group_broadcast_vf#vf : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, uint:$sub_group_local_id, mask_type:$vec_mask)>;
-      def sub_group_broadcast_assume_uniform_vf#vf : OclBuiltin<"sub_group_broadcast", (outs gentype:$ret), (ins gentype:$src, mask_type:$sub_group_local_ids, mask_type:$vec_mask)>;
-    }
-  }
-}
-
-// Implementations
-defvar broadcast_code =
-[{
-  return $Arg0VarName[$Arg1VarName];
-}];
-defvar broadcast_extended_code =
-[{
-  $Arg0BaseType$VSize temp = *(($Arg0BaseType$VSize*)&$Arg0VarName + $Arg1VarName);
-  return ($ReturnType)$Result;
-}];
-// Number of params = 3, assuming the second parameter as uniform
-defvar broadcast_assume_uniform_code = [{
-  return $Func($Arg0VarName, $Arg1VarName[0], $Arg2VarName);
-}];
-
-// scalar and vector input, no vectorized
-let Types = broadcast_all_type in {
-  def : OclBuiltinImpl<sub_group_broadcast_vf1, sub_group_broadcast_vf1.Types, /*IsDeclOnly*/false, ret_arg0_code>, SHARED;
-}
-
-// vectorized
-foreach vf = [4, 8, 16, 32, 64] in {
-  defvar builtin_type = WidenTypeForList<broadcast_type, vf>.Tout;
-  defvar builtin = !cast<OclBuiltin>("sub_group_broadcast_vf"#vf);
-  def : OclBuiltinImpl<builtin, builtin_type, false, broadcast_code>, SHARED;
-
-  foreach vsize = [2, 3, 4, 8, 16] in {
-    defvar builtin_extend_type = WidenTypeForList<WidenTypeForList<broadcast_type, vsize>.Tout, vf>.Tout;
-    // To generate string "(temp, temp, ...)", the number of "temp" is vf
-    defvar count = Range<0, vf>.Tout;
-    defvar result_vector = "(" # !interleave(!foreach(i, count, "temp"), ", ")# ")";
-    def : OclBuiltinImpl<builtin, builtin_extend_type, false, broadcast_extended_code, [["$VSize", !cast<string>(vsize)], ["$Result", result_vector]]>, SHARED;
-  }
-
-  defvar builtin_assume_uniform = !cast<OclBuiltin>("sub_group_broadcast_assume_uniform_vf"#vf);
-  def : OclBuiltinImpl<builtin_assume_uniform, builtin_assume_uniform.Types, false, broadcast_assume_uniform_code>, SHARED;
-}
-
-// VectInfos
-let Types = broadcast_all_type in {
-  let HandleAlias = 0 in {
-    def : VectInfo<[], sub_group_broadcast_vf1, sub_group_broadcast_vf4, sub_group_broadcast_vf8,
-                       sub_group_broadcast_vf16, sub_group_broadcast_vf32, sub_group_broadcast_vf64>;
-    def : VectInfo<[], sub_group_broadcast_vf1, sub_group_broadcast_assume_uniform_vf4, sub_group_broadcast_assume_uniform_vf8,
-                       sub_group_broadcast_assume_uniform_vf16, sub_group_broadcast_assume_uniform_vf32, sub_group_broadcast_assume_uniform_vf64>;
   }
 }
