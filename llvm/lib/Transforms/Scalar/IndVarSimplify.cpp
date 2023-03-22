@@ -1245,11 +1245,17 @@ linearFunctionTestReplace(Loop *L, BasicBlock *ExitingBB,
 #endif // INTEL_CUSTOMIZATION
     bool Extended = false;
     const SCEV *IV = SE->getSCEV(CmpIndVar);
+<<<<<<< HEAD
     const SCEV *TruncatedIV = SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
                                                   ExitCnt->getType());
 #if INTEL_CUSTOMIZATION
     const SCEV *SExtTrunc =
       SE->getSignExtendExpr(TruncatedIV, CmpIndVar->getType());
+=======
+    const SCEV *TruncatedIV = SE->getTruncateExpr(IV, ExitCnt->getType());
+    const SCEV *ZExtTrunc =
+      SE->getZeroExtendExpr(TruncatedIV, CmpIndVar->getType());
+>>>>>>> 24caf0196d03858bd9fe90d14133fb69c8cea444
 
     if (SExtTrunc == IV) {
       Extended = true;
