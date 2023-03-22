@@ -16,7 +16,7 @@
 ; CHECK:  END REGION
 
 ; CHECK:  BEGIN REGION { }
-; CHECK:   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%d8.linear.iv)[0])1) ]
+; CHECK:   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%d8.linear.iv)[0]), 1) ]
 ; CHECK:   @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
 ; CHECK: END REGION
 

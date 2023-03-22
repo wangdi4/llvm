@@ -1,6 +1,6 @@
 //===-------- HLInst.cpp - Implements the HLInst class --------------------===//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -290,6 +290,8 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
       for (unsigned I = 0, NumOperands = OB.Inputs.size(); I < NumOperands;
            ++I, ++OpIt) {
         *OpIt ? (*OpIt)->print(OS, false) : (void)(OS << *OpIt);
+        if (I != (NumOperands - 1))
+          OS << ", ";
       }
 
       OS << ")";
