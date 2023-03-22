@@ -55,18 +55,18 @@ static cl::opt<unsigned> MaxInterleaveGroupFactor(
     cl::init(8));
 
 #if INTEL_CUSTOMIZATION
-static char encodeISAClass(VFISAKind Isa) {
+static StringRef encodeISAClass(VFISAKind Isa) {
   switch (Isa) {
   case VFISAKind::SSE:
-    return 'b';
+    return "b";
   case VFISAKind::AVX:
-    return 'c';
+    return "c";
   case VFISAKind::AVX2:
-    return 'd';
+    return "d";
   case VFISAKind::AVX512:
-    return 'e';
+    return "e";
   case VFISAKind::Unknown:
-    return 'x';
+    return "_unknown_";
   case VFISAKind::AdvancedSIMD:
   case VFISAKind::SVE:
   case VFISAKind::LLVM:
@@ -145,7 +145,6 @@ std::string llvm::VFInfo::encodeFromParts(VFISAKind Isa, bool Mask, unsigned VF,
     encodeParam(OS, *It);
 
   OS << "_" << ScalarName;
-  
   return VectorName;
 }
 

@@ -857,7 +857,7 @@ TEST_F(VFInfoTest, encode) {
   EXPECT_EQ("_ZGVeM32_foo",
             getVectorName(VFISAKind::AVX512, true, 32, {}, "foo"));
 
-  EXPECT_EQ(makeNames("_ZGVxN2uv_foo(aliased)", "aliased"),
+  EXPECT_EQ(makeNames("_ZGV_unknown_N2uv_foo(aliased)", "aliased"),
             getNames(VFISAKind::Unknown, false, 2,
                      {VFParameter{0, VFParamKind::OMP_Uniform},
                       VFParameter{1, VFParamKind::Vector}},
