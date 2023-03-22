@@ -2394,7 +2394,6 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
 
     --MBBI;
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   // Semantic of
@@ -2421,17 +2420,6 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
   }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-  if (ArgBaseReg.isValid()) {
-    // Restore argument base pointer.
-    auto *MI = X86FI->getStackPtrSaveMI();
-    int FI = MI->getOperand(1).getIndex();
-    unsigned MOVrm = Is64Bit ? X86::MOV64rm : X86::MOV32rm;
-    // movl   offset(%ebp), %basereg
-    addFrameReference(BuildMI(MBB, MBBI, DL, TII.get(MOVrm), ArgBaseReg), FI)
-        .setMIFlag(MachineInstr::FrameDestroy);
-  }
-=======
->>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
   MBBI = FirstCSPop;
 
   if (IsFunclet && Terminator->getOpcode() == X86::CATCHRET)
@@ -4231,7 +4219,6 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     MachineFunction &MF, RegScavenger *RS) const {
   if (STI.is32Bit() && MF.hasEHFunclets())
     restoreWinEHStackPointersInParent(MF);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   MachineFrameInfo &MFI = MF.getFrameInfo();
   if (!MFI.VecSpillMap.size())
@@ -4375,14 +4362,6 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     });
   }
 #endif // INTEL_CUSTOMIZATION
-  // We have emitted prolog and epilog. Don't need stack pointer saving
-  // instruction any more.
-  if (MachineInstr *MI = X86FI->getStackPtrSaveMI()) {
-    MI->eraseFromParent();
-    X86FI->setStackPtrSaveMI(nullptr);
-  }
-=======
->>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
 }
 
 void X86FrameLowering::restoreWinEHStackPointersInParent(

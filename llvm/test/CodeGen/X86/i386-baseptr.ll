@@ -46,18 +46,10 @@ define void @clobber_base() #0 {
 ; CHECK-NEXT:    movl %esp, %ebp
 ; CHECK-NEXT:    .cfi_def_cfa_register %ebp
 ; CHECK-NEXT:    pushl %esi
-<<<<<<< HEAD
-; CHECK-NEXT:    subl $244, %esp
-; CHECK-NEXT:    leal -120(%ebp), %ecx ;INTEL
-; CHECK-NEXT:    movl %ecx, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
-; CHECK-NEXT:    .cfi_escape 0x10, 0x06, 0x02, 0x75, 0x7c #
-; CHECK-NEXT:    .cfi_escape 0x0f, 0x04, 0x75, 0x84, 0x7f, 0x06 #
-=======
 ; CHECK-NEXT:    andl $-128, %esp
 ; CHECK-NEXT:    subl $128, %esp
 ; CHECK-NEXT:    movl %esp, %esi
 ; CHECK-NEXT:    .cfi_offset %esi, -12
->>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
 ; CHECK-NEXT:    calll helper@PLT
 ; CHECK-NEXT:    movl %esp, %ecx
 ; CHECK-NEXT:    leal 31(,%eax,4), %eax

@@ -84,18 +84,10 @@ define void @clobber_base() #0 {
 ; CHECK-NEXT:    movq %rsp, %rbp
 ; CHECK-NEXT:    .cfi_def_cfa_register %rbp
 ; CHECK-NEXT:    pushq %rbx
-<<<<<<< HEAD
-; CHECK-NEXT:    subq $232, %rsp
-; CHECK-NEXT:    leaq -112(%rbp), %r10 ;INTEL
-; CHECK-NEXT:    movq %r10, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    .cfi_escape 0x10, 0x03, 0x02, 0x76, 0x78 #
-; CHECK-NEXT:    .cfi_escape 0x0f, 0x04, 0x76, 0x88, 0x7f, 0x06 #
-=======
 ; CHECK-NEXT:    andq $-128, %rsp
 ; CHECK-NEXT:    subq $128, %rsp
 ; CHECK-NEXT:    movq %rsp, %rbx
 ; CHECK-NEXT:    .cfi_offset %rbx, -24
->>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
 ; CHECK-NEXT:    callq helper@PLT
 ; CHECK-NEXT:    movq %rsp, %rcx
 ; CHECK-NEXT:    movl %eax, %eax
@@ -128,18 +120,10 @@ define void @clobber_base() #0 {
 ; X32ABI-NEXT:    movl %esp, %ebp
 ; X32ABI-NEXT:    .cfi_def_cfa_register %rbp
 ; X32ABI-NEXT:    pushq %rbx
-<<<<<<< HEAD
-; X32ABI-NEXT:    subl $232, %esp
-; X32ABI-NEXT:    leaq -112(%ebp), %r10 ;INTEL
-; X32ABI-NEXT:    movq %r10, {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Spill
-; X32ABI-NEXT:    .cfi_escape 0x10, 0x03, 0x02, 0x76, 0x78 #
-; X32ABI-NEXT:    .cfi_escape 0x0f, 0x04, 0x76, 0x88, 0x7f, 0x06 #
-=======
 ; X32ABI-NEXT:    andl $-128, %esp
 ; X32ABI-NEXT:    subl $128, %esp
 ; X32ABI-NEXT:    movl %esp, %ebx
 ; X32ABI-NEXT:    .cfi_offset %rbx, -24
->>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
 ; X32ABI-NEXT:    callq helper@PLT
 ; X32ABI-NEXT:    # kill: def $eax killed $eax def $rax
 ; X32ABI-NEXT:    leal 31(,%rax,4), %eax
@@ -193,21 +177,6 @@ define x86_regcallcc void @clobber_baseptr_argptr(i32 %param1, i32 %param2, i32 
 ; CHECK-NEXT:    movaps %xmm10, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; CHECK-NEXT:    movaps %xmm9, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
 ; CHECK-NEXT:    movaps %xmm8, {{[-0-9]+}}(%r{{[sb]}}p) # 16-byte Spill
-<<<<<<< HEAD
-; CHECK-NEXT:    leaq -240(%rbp), %r10 ;INTEL
-; CHECK-NEXT:    movq %r10, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
-; CHECK-NEXT:    .cfi_escape 0x10, 0x03, 0x02, 0x76, 0x78 #
-; CHECK-NEXT:    .cfi_escape 0x10, 0x19, 0x02, 0x76, 0xf0, 0x7e #
-; CHECK-NEXT:    .cfi_escape 0x10, 0x1a, 0x02, 0x76, 0x80, 0x7f #
-; CHECK-NEXT:    .cfi_escape 0x10, 0x1b, 0x02, 0x76, 0x90, 0x7f #
-; CHECK-NEXT:    .cfi_escape 0x10, 0x1c, 0x02, 0x76, 0xa0, 0x7f #
-; CHECK-NEXT:    .cfi_escape 0x10, 0x1d, 0x02, 0x76, 0xb0, 0x7f #
-; CHECK-NEXT:    .cfi_escape 0x10, 0x1e, 0x02, 0x76, 0x40 #
-; CHECK-NEXT:    .cfi_escape 0x10, 0x1f, 0x02, 0x76, 0x50 #
-; CHECK-NEXT:    .cfi_escape 0x10, 0x20, 0x02, 0x76, 0x60 #
-; CHECK-NEXT:    .cfi_escape 0x0f, 0x04, 0x76, 0x88, 0x7e, 0x06 #
-; CHECK-NEXT:    movl (%r10), %r14d
-=======
 ; CHECK-NEXT:    movq %rsp, %rbx
 ; CHECK-NEXT:    .cfi_offset %rbx, -24
 ; CHECK-NEXT:    .cfi_offset %xmm8, -160
@@ -219,7 +188,6 @@ define x86_regcallcc void @clobber_baseptr_argptr(i32 %param1, i32 %param2, i32 
 ; CHECK-NEXT:    .cfi_offset %xmm14, -64
 ; CHECK-NEXT:    .cfi_offset %xmm15, -48
 ; CHECK-NEXT:    movl 16(%rbp), %r14d
->>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
 ; CHECK-NEXT:    callq helper@PLT
 ; CHECK-NEXT:    movq %rsp, %rcx
 ; CHECK-NEXT:    movl %eax, %eax
@@ -273,21 +241,6 @@ define x86_regcallcc void @clobber_baseptr_argptr(i32 %param1, i32 %param2, i32 
 ; X32ABI-NEXT:    movaps %xmm10, {{[-0-9]+}}(%e{{[sb]}}p) # 16-byte Spill
 ; X32ABI-NEXT:    movaps %xmm9, {{[-0-9]+}}(%e{{[sb]}}p) # 16-byte Spill
 ; X32ABI-NEXT:    movaps %xmm8, {{[-0-9]+}}(%e{{[sb]}}p) # 16-byte Spill
-<<<<<<< HEAD
-; X32ABI-NEXT:    leaq -240(%ebp), %r10 ;INTEL
-; X32ABI-NEXT:    movq %r10, {{[-0-9]+}}(%e{{[sb]}}p) # 8-byte Spill
-; X32ABI-NEXT:    .cfi_escape 0x10, 0x03, 0x02, 0x76, 0x78 #
-; X32ABI-NEXT:    .cfi_escape 0x10, 0x19, 0x02, 0x76, 0xf0, 0x7e #
-; X32ABI-NEXT:    .cfi_escape 0x10, 0x1a, 0x02, 0x76, 0x80, 0x7f #
-; X32ABI-NEXT:    .cfi_escape 0x10, 0x1b, 0x02, 0x76, 0x90, 0x7f #
-; X32ABI-NEXT:    .cfi_escape 0x10, 0x1c, 0x02, 0x76, 0xa0, 0x7f #
-; X32ABI-NEXT:    .cfi_escape 0x10, 0x1d, 0x02, 0x76, 0xb0, 0x7f #
-; X32ABI-NEXT:    .cfi_escape 0x10, 0x1e, 0x02, 0x76, 0x40 #
-; X32ABI-NEXT:    .cfi_escape 0x10, 0x1f, 0x02, 0x76, 0x50 #
-; X32ABI-NEXT:    .cfi_escape 0x10, 0x20, 0x02, 0x76, 0x60 #
-; X32ABI-NEXT:    .cfi_escape 0x0f, 0x04, 0x76, 0x88, 0x7e, 0x06 #
-; X32ABI-NEXT:    movl (%r10), %r14d
-=======
 ; X32ABI-NEXT:    movl %esp, %ebx
 ; X32ABI-NEXT:    .cfi_offset %rbx, -24
 ; X32ABI-NEXT:    .cfi_offset %xmm8, -160
@@ -299,7 +252,6 @@ define x86_regcallcc void @clobber_baseptr_argptr(i32 %param1, i32 %param2, i32 
 ; X32ABI-NEXT:    .cfi_offset %xmm14, -64
 ; X32ABI-NEXT:    .cfi_offset %xmm15, -48
 ; X32ABI-NEXT:    movl 16(%ebp), %r14d
->>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
 ; X32ABI-NEXT:    callq helper@PLT
 ; X32ABI-NEXT:    # kill: def $eax killed $eax def $rax
 ; X32ABI-NEXT:    leal 31(,%rax,4), %eax

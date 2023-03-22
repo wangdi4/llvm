@@ -44,7 +44,6 @@ endif()
 add_public_tablegen_target(X86CommonTableGen)
 
 set(sources
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   Intel_X86AvoidMemoryRenamingBlocks.cpp
   Intel_X86SplitVectorValueType.cpp
@@ -63,9 +62,6 @@ set(sources
   Intel_X86StackRealign.cpp
   Intel_X86HeteroArchOpt.cpp
 # end INTEL_CUSTOMIZATION
-  X86ArgumentStackSlotRebase.cpp
-=======
->>>>>>> da8260a9b11152e2a6fb0fcad9e3c0b0312ecd6f
   X86AsmPrinter.cpp
   X86AvoidTrailingCall.cpp
   X86CallFrameOptimization.cpp
