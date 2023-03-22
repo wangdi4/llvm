@@ -199,7 +199,7 @@ void CPUProgram::LoadProfileLib() {
       GetObjFileInterface = orc::getObjectFileInterface;
   auto G = orc::StaticLibraryDefinitionGenerator::Load(
       m_LLJIT->getObjLinkingLayer(), ProfileLibPath.c_str(),
-      m_LLJIT->getTargetTriple(), std::move(GetObjFileInterface));
+      std::move(GetObjFileInterface));
   if (!G) {
     logAllUnhandledErrors(std::move(G.takeError()), errs());
     throw Exceptions::CompilerException("Failed to load clang profile library");

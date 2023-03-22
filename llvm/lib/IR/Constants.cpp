@@ -2464,6 +2464,7 @@ Constant *ConstantExpr::getGetElementPtr(Type *Ty, Constant *C,
                                          Type *OnlyIfReducedTy) {
   PointerType *OrigPtrTy = cast<PointerType>(C->getType()->getScalarType());
   assert(Ty && "Must specify element type");
+  assert(isSupportedGetElementPtr(Ty) && "Element type is unsupported!");
   assert(OrigPtrTy->isOpaqueOrPointeeTypeMatches(Ty));
 
   if (Constant *FC =
@@ -2688,11 +2689,6 @@ Constant *ConstantExpr::getOr(Constant *C1, Constant *C2) {
 
 Constant *ConstantExpr::getXor(Constant *C1, Constant *C2) {
   return get(Instruction::Xor, C1, C2);
-}
-
-Constant *ConstantExpr::getUMin(Constant *C1, Constant *C2) {
-  Constant *Cmp = ConstantExpr::getICmp(CmpInst::ICMP_ULT, C1, C2);
-  return getSelect(Cmp, C1, C2);
 }
 
 Constant *ConstantExpr::getShl(Constant *C1, Constant *C2,

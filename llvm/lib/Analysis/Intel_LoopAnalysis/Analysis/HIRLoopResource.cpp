@@ -311,6 +311,10 @@ public:
   void visitCouldNotCompute(const SCEVCouldNotCompute *CNC) {
     llvm_unreachable("Found could not compute!!");
   }
+
+  void visitVScale(const SCEVVScale *SC) {
+    llvm_unreachable("Found SCEVVScale!");
+  }
 };
 
 void LoopResourceInfo::LoopResourceVisitor::visit(unsigned BlobIndex,

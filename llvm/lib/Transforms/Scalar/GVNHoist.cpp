@@ -554,41 +554,6 @@ private:
   std::pair<unsigned, unsigned> hoistExpressions(Function &F);
 };
 
-class GVNHoistLegacyPass : public FunctionPass {
-  const bool HoistingGeps; // INTEL
-public:
-  static char ID;
-
-  GVNHoistLegacyPass(bool HoistingGeps = false)        // INTEL
-      : FunctionPass(ID), HoistingGeps(HoistingGeps) { // INTEL
-    initializeGVNHoistLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
-      return false;
-    auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    auto &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-    auto &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
-    auto &MD = getAnalysis<MemoryDependenceWrapperPass>().getMemDep();
-    auto &MSSA = getAnalysis<MemorySSAWrapperPass>().getMSSA();
-
-    GVNHoist G(&DT, &PDT, &AA, &MD, &MSSA, HoistingGeps); // INTEL
-    return G.run(F);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<PostDominatorTreeWrapperPass>();
-    AU.addRequired<AAResultsWrapperPass>();
-    AU.addRequired<MemoryDependenceWrapperPass>();
-    AU.addRequired<MemorySSAWrapperPass>();
-    AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addPreserved<MemorySSAWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-  }
-};
-
 bool GVNHoist::run(Function &F) {
   NumFuncArgs = F.arg_size();
   VN.setDomTree(DT);
@@ -854,15 +819,20 @@ bool GVNHoist::valueAnticipable(CHIArgs C, Instruction *TI) const {
 void GVNHoist::checkSafety(CHIArgs C, BasicBlock *BB, GVNHoist::InsKind K,
                            SmallVectorImpl<CHIArg> &Safe) {
   int NumBBsOnAllPaths = MaxNumberOfBBSInPath;
+  const Instruction *T = BB->getTerminator();
   for (auto CHI : C) {
     Instruction *Insn = CHI.I;
     if (!Insn) // No instruction was inserted in this CHI.
+      continue;
+    // If the Terminator is some kind of "exotic terminator" that produces a
+    // value (such as InvokeInst, CallBrInst, or CatchSwitchInst) which the CHI
+    // uses, it is not safe to hoist the use above the def.
+    if (!T->use_empty() && is_contained(Insn->operands(), cast<const Value>(T)))
       continue;
     if (K == InsKind::Scalar) {
       if (safeToHoistScalar(BB, Insn->getParent(), NumBBsOnAllPaths))
         Safe.push_back(CHI);
     } else {
-      auto *T = BB->getTerminator();
       if (MemoryUseOrDef *UD = MSSA->getMemoryAccess(Insn))
         if (safeToHoistLdSt(T, Insn, UD, K, NumBBsOnAllPaths))
           Safe.push_back(CHI);
@@ -1315,21 +1285,3 @@ PreservedAnalyses GVNHoistPass::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserve<MemorySSAAnalysis>();
   return PA;
 }
-
-char GVNHoistLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(GVNHoistLegacyPass, "gvn-hoist",
-                      "Early GVN Hoisting of Expressions", false, false)
-INITIALIZE_PASS_DEPENDENCY(MemoryDependenceWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_END(GVNHoistLegacyPass, "gvn-hoist",
-                    "Early GVN Hoisting of Expressions", false, false)
-
-#if INTEL_CUSTOMIZATION
-FunctionPass *llvm::createGVNHoistPass(bool HoistingGeps) {
-  return new GVNHoistLegacyPass(HoistingGeps);
-}
-#endif // INTEL_CUSTOMIZATION

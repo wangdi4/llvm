@@ -29,7 +29,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm-c/Transforms/PassManagerBuilder.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/GlobalsModRef.h"
@@ -463,17 +462,12 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   if (OptLevel > 1) {
     // Speculative execution if the target has divergent branches; otherwise nop.
     MPM.add(createSpeculativeExecutionIfHasBranchDivergencePass());
-
-    MPM.add(createJumpThreadingPass());         // Thread jumps.
-    MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
   }
   MPM.add(
       createCFGSimplificationPass(SimplifyCFGOptions().convertSwitchRangeToICmp(
           true))); // Merge & remove BBs
   // Combine silly seq's
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
-  if (SizeLevel == 0)
-    MPM.add(createLibCallsShrinkWrapPass());
 
 #if INTEL_CUSTOMIZATION
   bool SkipRecProgression = false;
@@ -532,7 +526,6 @@ if (EnableSimpleLoopUnswitch) {
       SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
   // We resume loop passes creating a second loop pipeline here.
-  MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
 
 #if INTEL_CUSTOMIZATION
     // Unroll small loops
@@ -565,29 +558,9 @@ if (EnableSimpleLoopUnswitch) {
   // Run instcombine after redundancy elimination to exploit opportunities
   // opened up by them.
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
-  if (OptLevel > 1) {
-    MPM.add(createJumpThreadingPass());         // Thread jumps
-    MPM.add(createCorrelatedValuePropagationPass());
-  }
-  MPM.add(createAggressiveDCEPass()); // Delete dead instructions
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  // Skip MemCpyOpt when both PrepareForLTO and DTransEnabled flags are
-  // true to simplify handling of memcpy/memset/memmov calls in DTrans
-  // implementation.
-  // TODO: Remove this customization once DTrans handled partial memcpy/
-  // memset/memmov calls of struct types.
-  if (!DTransEnabled)
-    MPM.add(createMemCpyOptPass());           // Remove memcpy / form memset
-#else // INTEL_FEATURE_SW_DTRANS
-  MPM.add(createMemCpyOptPass());             // Remove memcpy / form memset
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 
   // TODO: Investigate if this is too expensive at O1.
   if (OptLevel > 1) {
-    MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                            /*AllowSpeculation=*/true));
   }
@@ -671,20 +644,6 @@ PassManagerBuilder::limitNoLoopOptOrNotPrepareForLTO(
 /// FIXME: Should LTO cause any differences to this set of passes?
 void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
                                          bool IsFullLTO) {
-
-#if INTEL_CUSTOMIZATION
-  if (!IsFullLTO) {
-    if (EnableLV)
-      limitNoLoopOptOrNotPrepareForLTO(PM).add(
-          createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
-  } else {
-    // FIXME: Needs driver cleanup at least.
-    if (EnableLV)
-      limitNoLoopOptOnly(PM).add(
-          createLoopVectorizePass(true, !LoopVectorize));
-  }
-#endif // INTEL_CUSTOMIZATION
-
   if (IsFullLTO) {
     // The vectorizer may have significantly shortened a loop body; unroll
     // again. Unroll small loops to hide loop backedge latency and saturate any
@@ -744,23 +703,17 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     PM.add(createBitTrackingDCEPass());
   }
 
-  // Optimize parallel scalar instruction chains into SIMD instructions.
-  if (SLPVectorize) {
-    PM.add(createSLPVectorizerPass());
-
 #if INTEL_CUSTOMIZATION
-    AfterSLPVectorizer = true;
+  if (SLPVectorize) {
     if (EnableLoadCoalescing)
       PM.add(createLoadCoalescingPass());
     if (EnableSROAAfterSLP) {
       // SLP creates opportunities for SROA.
       PM.add(createSROAPass());
     }
-#endif // INTEL_CUSTOMIZATION
   }
   INTEL_LIMIT_END // INTEL
 
-#if INTEL_CUSTOMIZATION
   if (!IsFullLTO)
     PM.add(createEarlyCSEPass());
 #endif // INTEL_CUSTOMIZATION
@@ -886,8 +839,6 @@ void PassManagerBuilder::populateModulePassManager(
   // In 2020, after the FreezeSelect arg was added, the Allow CFGSimps parm
   // was accidentally left at default (true) [e9e5aace]
   // Leaving it "true" for now as it has been 2 years without regressions.
-  if (EarlyJumpThreading)
-    MPM.add(createJumpThreadingPass());
 #endif // INTEL_CUSTOMIZATION
 
   MPM.add(
@@ -951,7 +902,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createPromoteMemoryToRegisterPass());
     // AggressiveDCE is invoked here to avoid -6% performance regression
     // for aifftr01@opt_speed
-    MPM.add(createAggressiveDCEPass());
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -972,7 +922,6 @@ void PassManagerBuilder::populateModulePassManager(
   // correct in the face of IR changes).
   MPM.add(createGlobalsAAWrapperPass());
 
-  MPM.add(createFloat2IntPass());
   MPM.add(createLowerConstantIntrinsicsPass());
 
   // Re-rotate loops in all our loop nests. These may have fallout out of
@@ -1007,11 +956,6 @@ void PassManagerBuilder::populateModulePassManager(
   // Get rid of LCSSA nodes.
   MPM.add(createInstSimplifyLegacyPass());
 
-  // This hoists/decomposes div/rem ops. It should run after other sink/hoist
-  // passes to avoid re-sinking, but before SimplifyCFG because it can allow
-  // flattening of blocks.
-  MPM.add(createDivRemPairsPass());
-
   // LoopSink (and other loop passes since the last simplifyCFG) might have
   // resulted in single-entry-single-exit or empty blocks. Clean up the CFG.
   MPM.add(createCFGSimplificationPass(
@@ -1031,7 +975,6 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_CUSTOMIZATION
 
 }
-
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
@@ -1217,7 +1160,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // The IPO passes may leave cruft around.  Clean up after them.
   addInstructionCombiningPass(PM, !DTransEnabled);  // INTEL
-  PM.add(createJumpThreadingPass());
 
   // Break up allocas
   PM.add(createSROAPass());
@@ -1232,8 +1174,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableDeadArrayOpsElim)
     PM.add(createDeadArrayOpsEliminationLegacyPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
-
-  PM.add(createCorrelatedValuePropagationPass());
 
   if (EnableMultiVersioning) {
     PM.add(createMultiVersioningWrapperPass());
@@ -1282,13 +1222,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
                         /*AllowSpeculation=*/true));
   PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
   PM.add(createDopeVectorHoistWrapperPass());  // INTEL
-  PM.add(createMemCpyOptPass());            // Remove dead memcpys.
 
   // Nuke dead stores.
-  PM.add(createDeadStoreEliminationPass());
   PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
-
-  PM.add(createIndVarSimplifyPass());
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll pass replaces LLVM's simple loop unroll pass.
@@ -1309,7 +1245,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (RunInliner)
     PM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
 #endif // INTEL_CUSTOMIZATION
-  PM.add(createJumpThreadingPass());
 }
 
 void PassManagerBuilder::addLateLTOOptimizationPasses(
@@ -1494,7 +1429,6 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
   PM.add(createSROAPass());
   addInstructionCombiningPass(PM, !DTransEnabled);  // INTEL
   PM.add(createLoopCarriedCSEPass());
-  PM.add(createDeadStoreEliminationPass());
 
   if (OptLevel > 2) {
     // Cleanup code with AddSub reassociation.
@@ -1508,7 +1442,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
   // Run additional cleanup passes that help to cleanup the code.
   if (IsLTO) {
     limitFullLoopOptOnly(PM).add(createCFGSimplificationPass());
-    limitFullLoopOptOnly(PM).add(createAggressiveDCEPass());
   }
 
   // This pass "canonicalizes" loops and makes analysis easier.
@@ -1769,6 +1702,7 @@ void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
   if (VerifyOutput)
     PM.add(createVerifierPass());
 }
+
 void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
                                                   LLVMPassManagerRef PM,
                                                   LLVMBool Internalize,
@@ -1780,68 +1714,3 @@ void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
 }
 
 #endif // INTEL_CUSTOMIZATION
-
-LLVMPassManagerBuilderRef LLVMPassManagerBuilderCreate() {
-  PassManagerBuilder *PMB = new PassManagerBuilder();
-  return wrap(PMB);
-}
-
-void LLVMPassManagerBuilderDispose(LLVMPassManagerBuilderRef PMB) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  delete Builder;
-}
-
-void
-LLVMPassManagerBuilderSetOptLevel(LLVMPassManagerBuilderRef PMB,
-                                  unsigned OptLevel) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  Builder->OptLevel = OptLevel;
-}
-
-void
-LLVMPassManagerBuilderSetSizeLevel(LLVMPassManagerBuilderRef PMB,
-                                   unsigned SizeLevel) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  Builder->SizeLevel = SizeLevel;
-}
-
-void
-LLVMPassManagerBuilderSetDisableUnitAtATime(LLVMPassManagerBuilderRef PMB,
-                                            LLVMBool Value) {
-  // NOTE: The DisableUnitAtATime switch has been removed.
-}
-
-void
-LLVMPassManagerBuilderSetDisableUnrollLoops(LLVMPassManagerBuilderRef PMB,
-                                            LLVMBool Value) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  Builder->DisableUnrollLoops = Value;
-}
-
-void
-LLVMPassManagerBuilderSetDisableSimplifyLibCalls(LLVMPassManagerBuilderRef PMB,
-                                                 LLVMBool Value) {
-  // NOTE: The simplify-libcalls pass has been removed.
-}
-
-void
-LLVMPassManagerBuilderUseInlinerWithThreshold(LLVMPassManagerBuilderRef PMB,
-                                              unsigned Threshold) {
-  // TODO: remove this
-}
-
-void
-LLVMPassManagerBuilderPopulateFunctionPassManager(LLVMPassManagerBuilderRef PMB,
-                                                  LLVMPassManagerRef PM) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  legacy::FunctionPassManager *FPM = unwrap<legacy::FunctionPassManager>(PM);
-  Builder->populateFunctionPassManager(*FPM);
-}
-
-void
-LLVMPassManagerBuilderPopulateModulePassManager(LLVMPassManagerBuilderRef PMB,
-                                                LLVMPassManagerRef PM) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  legacy::PassManagerBase *MPM = unwrap(PM);
-  Builder->populateModulePassManager(*MPM);
-}

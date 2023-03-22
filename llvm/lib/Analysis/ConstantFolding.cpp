@@ -855,7 +855,8 @@ Constant *SymbolicallyEvaluateBinop(unsigned Opc, Constant *Op0, Constant *Op1,
 /// If array indices are not pointer-sized integers, explicitly cast them so
 /// that they aren't implicitly casted by the getelementptr.
 Constant *CastGEPIndices(Type *SrcElemTy, ArrayRef<Constant *> Ops,
-                         Type *ResultTy, std::optional<unsigned> InRangeIndex,
+                         Type *ResultTy, bool InBounds,
+                         std::optional<unsigned> InRangeIndex,
                          const DataLayout &DL, const TargetLibraryInfo *TLI) {
   Type *IntIdxTy = DL.getIndexType(ResultTy);
   Type *IntIdxScalarTy = IntIdxTy->getScalarType();
@@ -884,7 +885,7 @@ Constant *CastGEPIndices(Type *SrcElemTy, ArrayRef<Constant *> Ops,
     return nullptr;
 
   Constant *C = ConstantExpr::getGetElementPtr(
-      SrcElemTy, Ops[0], NewIdxs, /*InBounds=*/false, InRangeIndex);
+      SrcElemTy, Ops[0], NewIdxs, InBounds, InRangeIndex);
   return ConstantFoldConstant(C, DL, TLI);
 }
 
@@ -919,7 +920,8 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
     return nullptr;
 
   if (Constant *C = CastGEPIndices(SrcElemTy, Ops, ResTy,
-                                   GEP->getInRangeIndex(), DL, TLI))
+                                   GEP->isInBounds(), GEP->getInRangeIndex(),
+                                   DL, TLI))
     return C;
 
   Constant *Ptr = Ops[0];
@@ -1083,11 +1085,15 @@ Constant *ConstantFoldInstOperandsImpl(const Value *InstOrCE, unsigned Opcode,
     return ConstantFoldCastOperand(Opcode, Ops[0], DestTy, DL);
 
   if (auto *GEP = dyn_cast<GEPOperator>(InstOrCE)) {
+    Type *SrcElemTy = GEP->getSourceElementType();
+    if (!ConstantExpr::isSupportedGetElementPtr(SrcElemTy))
+      return nullptr;
+
     if (Constant *C = SymbolicallyEvaluateGEP(GEP, Ops, DL, TLI))
       return C;
 
-    return ConstantExpr::getGetElementPtr(GEP->getSourceElementType(), Ops[0],
-                                          Ops.slice(1), GEP->isInBounds(),
+    return ConstantExpr::getGetElementPtr(SrcElemTy, Ops[0], Ops.slice(1),
+                                          GEP->isInBounds(),
                                           GEP->getInRangeIndex());
   }
 

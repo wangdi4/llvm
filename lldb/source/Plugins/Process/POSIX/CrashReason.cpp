@@ -12,17 +12,15 @@
 
 #include <sstream>
 
-namespace {
-
-void AppendFaultAddr(std::string &str, lldb::addr_t addr) {
+static void AppendFaultAddr(std::string &str, lldb::addr_t addr) {
   std::stringstream ss;
   ss << " (fault address: 0x" << std::hex << addr << ")";
   str += ss.str();
 }
 
 #if defined(si_lower) && defined(si_upper)
-void AppendBounds(std::string &str, lldb::addr_t lower_bound,
-                  lldb::addr_t upper_bound, lldb::addr_t addr) {
+static void AppendBounds(std::string &str, lldb::addr_t lower_bound,
+                         lldb::addr_t upper_bound, lldb::addr_t addr) {
   llvm::raw_string_ostream stream(str);
   if ((unsigned long)addr < lower_bound)
     stream << ": lower bound violation ";
@@ -39,7 +37,7 @@ void AppendBounds(std::string &str, lldb::addr_t lower_bound,
 }
 #endif
 
-CrashReason GetCrashReasonForSIGSEGV(const siginfo_t &info) {
+static CrashReason GetCrashReasonForSIGSEGV(const siginfo_t &info) {
   assert(info.si_signo == SIGSEGV);
 
   switch (info.si_code) {
@@ -75,7 +73,7 @@ CrashReason GetCrashReasonForSIGSEGV(const siginfo_t &info) {
   return CrashReason::eInvalidCrashReason;
 }
 
-CrashReason GetCrashReasonForSIGILL(const siginfo_t &info) {
+static CrashReason GetCrashReasonForSIGILL(const siginfo_t &info) {
   assert(info.si_signo == SIGILL);
 
   switch (info.si_code) {
@@ -100,7 +98,7 @@ CrashReason GetCrashReasonForSIGILL(const siginfo_t &info) {
   return CrashReason::eInvalidCrashReason;
 }
 
-CrashReason GetCrashReasonForSIGFPE(const siginfo_t &info) {
+static CrashReason GetCrashReasonForSIGFPE(const siginfo_t &info) {
   assert(info.si_signo == SIGFPE);
 
   switch (info.si_code) {
@@ -125,7 +123,7 @@ CrashReason GetCrashReasonForSIGFPE(const siginfo_t &info) {
   return CrashReason::eInvalidCrashReason;
 }
 
-CrashReason GetCrashReasonForSIGBUS(const siginfo_t &info) {
+static CrashReason GetCrashReasonForSIGBUS(const siginfo_t &info) {
   assert(info.si_signo == SIGBUS);
 
   switch (info.si_code) {
@@ -138,7 +136,6 @@ CrashReason GetCrashReasonForSIGBUS(const siginfo_t &info) {
   }
 
   return CrashReason::eInvalidCrashReason;
-}
 }
 
 std::string GetCrashReasonString(CrashReason reason, const siginfo_t &info) {
@@ -244,97 +241,6 @@ std::string GetCrashReasonString(CrashReason reason, lldb::addr_t fault_addr) {
     break;
   }
 
-  return str;
-}
-
-const char *CrashReasonAsString(CrashReason reason) {
-  const char *str = nullptr;
-
-  switch (reason) {
-  case CrashReason::eInvalidCrashReason:
-    str = "eInvalidCrashReason";
-    break;
-
-  // SIGSEGV crash reasons.
-  case CrashReason::eInvalidAddress:
-    str = "eInvalidAddress";
-    break;
-  case CrashReason::ePrivilegedAddress:
-    str = "ePrivilegedAddress";
-    break;
-  case CrashReason::eBoundViolation:
-    str = "eBoundViolation";
-    break;
-  case CrashReason::eAsyncTagCheckFault:
-    str = "eAsyncTagCheckFault";
-    break;
-  case CrashReason::eSyncTagCheckFault:
-    str = "eSyncTagCheckFault";
-    break;
-
-  // SIGILL crash reasons.
-  case CrashReason::eIllegalOpcode:
-    str = "eIllegalOpcode";
-    break;
-  case CrashReason::eIllegalOperand:
-    str = "eIllegalOperand";
-    break;
-  case CrashReason::eIllegalAddressingMode:
-    str = "eIllegalAddressingMode";
-    break;
-  case CrashReason::eIllegalTrap:
-    str = "eIllegalTrap";
-    break;
-  case CrashReason::ePrivilegedOpcode:
-    str = "ePrivilegedOpcode";
-    break;
-  case CrashReason::ePrivilegedRegister:
-    str = "ePrivilegedRegister";
-    break;
-  case CrashReason::eCoprocessorError:
-    str = "eCoprocessorError";
-    break;
-  case CrashReason::eInternalStackError:
-    str = "eInternalStackError";
-    break;
-
-  // SIGBUS crash reasons:
-  case CrashReason::eIllegalAlignment:
-    str = "eIllegalAlignment";
-    break;
-  case CrashReason::eIllegalAddress:
-    str = "eIllegalAddress";
-    break;
-  case CrashReason::eHardwareError:
-    str = "eHardwareError";
-    break;
-
-  // SIGFPE crash reasons:
-  case CrashReason::eIntegerDivideByZero:
-    str = "eIntegerDivideByZero";
-    break;
-  case CrashReason::eIntegerOverflow:
-    str = "eIntegerOverflow";
-    break;
-  case CrashReason::eFloatDivideByZero:
-    str = "eFloatDivideByZero";
-    break;
-  case CrashReason::eFloatOverflow:
-    str = "eFloatOverflow";
-    break;
-  case CrashReason::eFloatUnderflow:
-    str = "eFloatUnderflow";
-    break;
-  case CrashReason::eFloatInexactResult:
-    str = "eFloatInexactResult";
-    break;
-  case CrashReason::eFloatInvalidOperation:
-    str = "eFloatInvalidOperation";
-    break;
-  case CrashReason::eFloatSubscriptRange:
-    str = "eFloatSubscriptRange";
-    break;
-  }
   return str;
 }
 

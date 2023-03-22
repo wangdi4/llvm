@@ -2248,11 +2248,14 @@ bool Sema::isOpenMPCapturedByRef(const ValueDecl *D, unsigned Level,
           ++EI;
           if (EI == EE)
             return false;
-
-          if (isa<ArraySubscriptExpr>(EI->getAssociatedExpression()) ||
-              isa<OMPArraySectionExpr>(EI->getAssociatedExpression()) ||
+          auto Last = std::prev(EE);
+          const auto *UO =
+              dyn_cast<UnaryOperator>(Last->getAssociatedExpression());
+          if ((UO && UO->getOpcode() == UO_Deref) ||
+              isa<ArraySubscriptExpr>(Last->getAssociatedExpression()) ||
+              isa<OMPArraySectionExpr>(Last->getAssociatedExpression()) ||
               isa<MemberExpr>(EI->getAssociatedExpression()) ||
-              isa<OMPArrayShapingExpr>(EI->getAssociatedExpression())) {
+              isa<OMPArrayShapingExpr>(Last->getAssociatedExpression())) {
             IsVariableAssociatedWithSection = true;
             // There is nothing more we need to know about this variable.
             return true;
@@ -2365,6 +2368,10 @@ bool Sema::isInOpenMPTargetExecutionDirective() const {
 bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
   if (!getLangOpts().OpenMPLateOutline ||
       !getLangOpts().OpenMPLateOutlineTarget)
+    return false;
+
+  // Structured bindings not yet supported, so return early for now.
+  if (isa<BindingDecl>(D))
     return false;
 
   D = getCanonicalDecl(D);
@@ -10898,10 +10905,8 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
       Built.DependentInits[Cnt] = nullptr;
       Built.FinalsConditions[Cnt] = nullptr;
       if (IS.IsNonRectangularLB || IS.IsNonRectangularUB) {
-        Built.DependentCounters[Cnt] =
-            Built.Counters[NestedLoopCount - 1 - IS.LoopDependentIdx];
-        Built.DependentInits[Cnt] =
-            Built.Inits[NestedLoopCount - 1 - IS.LoopDependentIdx];
+        Built.DependentCounters[Cnt] = Built.Counters[IS.LoopDependentIdx - 1];
+        Built.DependentInits[Cnt] = Built.Inits[IS.LoopDependentIdx - 1];
         Built.FinalsConditions[Cnt] = IS.FinalCondition;
       }
 #if INTEL_CUSTOMIZATION

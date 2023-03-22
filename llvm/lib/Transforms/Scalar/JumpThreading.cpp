@@ -160,70 +160,6 @@ ConservativeJumpThreading("conservative-jump-threading",
           cl::init(true), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
 
-namespace {
-
-  /// This pass performs 'jump threading', which looks at blocks that have
-  /// multiple predecessors and multiple successors.  If one or more of the
-  /// predecessors of the block can be proven to always jump to one of the
-  /// successors, we forward the edge from the predecessor to the successor by
-  /// duplicating the contents of this block.
-  ///
-  /// An example of when this can occur is code like this:
-  ///
-  ///   if () { ...
-  ///     X = 4;
-  ///   }
-  ///   if (X < 3) {
-  ///
-  /// In this case, the unconditional branch at the end of the first if can be
-  /// revectored to the false side of the second if.
-  class JumpThreading : public FunctionPass {
-  public:
-    static char ID; // Pass identification
-
-    JumpThreading(int T = -1,                                            // INTEL
-                  bool AllowCFGSimps = true) :                           // INTEL
-       FunctionPass(ID) {                                                 // INTEL
-      initializeJumpThreadingPass(*PassRegistry::getPassRegistry());
-    }
-
-    bool runOnFunction(Function &F) override;
-
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addPreserved<DominatorTreeWrapperPass>();
-      AU.addRequired<AAResultsWrapperPass>();
-      AU.addRequired<LazyValueInfoWrapperPass>();
-      AU.addPreserved<LazyValueInfoWrapperPass>();
-      AU.addPreserved<GlobalsAAWrapperPass>();
-      AU.addPreserved<AndersensAAWrapperPass>();                        // INTEL
-      AU.addPreserved<WholeProgramWrapperPass>();                       // INTEL
-      AU.addRequired<TargetLibraryInfoWrapperPass>();
-      AU.addRequired<TargetTransformInfoWrapperPass>();
-      AU.addRequired<PostDominatorTreeWrapperPass>();                   // INTEL
-    }
-  };
-
-} // end anonymous namespace
-
-char JumpThreading::ID = 0;
-
-INITIALIZE_PASS_BEGIN(JumpThreading, "jump-threading",
-                "Jump Threading", false, false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LazyValueInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass) // INTEL
-INITIALIZE_PASS_END(JumpThreading, "jump-threading",
-                "Jump Threading", false, false)
-
-// Public interface to the Jump Threading pass
-FunctionPass *llvm::createJumpThreadingPass(int Threshold,              // INTEL
-                                            bool AllowCFGSimps) {       // INTEL
-  return new JumpThreading(Threshold, AllowCFGSimps);                   // INTEL
-}                                                                       // INTEL
-
 JumpThreadingPass::JumpThreadingPass(int T,                             // INTEL
                                      bool AllowCFGSimps) {              // INTEL
   DoCFGSimplifications = AllowCFGSimps;                                 // INTEL
@@ -354,42 +290,6 @@ static void updatePredecessorProfileMetadata(PHINode *PN, BasicBlock *BB) {
                         MDBuilder(PredBr->getParent()->getContext())
                             .createBranchWeights(Weights));
   }
-}
-
-/// runOnFunction - Toplevel algorithm.
-bool JumpThreading::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
-  auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  // Jump Threading has no sense for the targets with divergent CF
-  if (TTI->hasBranchDivergence())
-    return false;
-  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-#if INTEL_CUSTOMIZATION
-  // If we need structured CFGs, disable jump threading, since it generally
-  // tends to destructure them.
-  if (TTI->needsStructuredCFG())
-    return false;
-  auto *PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-#endif
-  auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  auto LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
-  auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-
-  LoopInfo LI{*DT};
-  auto BPI = std::make_unique<BranchProbabilityInfo>(F, LI, TLI);
-  auto BFI = std::make_unique<BlockFrequencyInfo>(F, *BPI, LI);
-
-  JumpThreadingPass Impl;
-  bool Changed = Impl.runImpl(F, nullptr, TLI, TTI, LVI, AA,
-                              std::make_unique<DomTreeUpdater>(
-                                  DT, DomTreeUpdater::UpdateStrategy::Lazy),
-                              BFI.get(), BPI.get(), PDT); // INTEL
-  if (PrintLVIAfterJumpThreading) {
-    dbgs() << "LVI for function '" << F.getName() << "':\n";
-    LVI->printLVI(F, Impl.getDomTreeUpdater()->getDomTree(), dbgs());
-  }
-  return Changed;
 }
 
 PreservedAnalyses JumpThreadingPass::run(Function &F,

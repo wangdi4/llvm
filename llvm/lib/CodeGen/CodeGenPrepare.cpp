@@ -2459,24 +2459,6 @@ bool CodeGenPrepare::optimizeCallInst(CallInst *CI, ModifyDT &ModifiedDT) {
     case Intrinsic::dbg_assign:
     case Intrinsic::dbg_value:
       return fixupDbgValue(II);
-    case Intrinsic::vscale: {
-      // If datalayout has no special restrictions on vector data layout,
-      // replace `llvm.vscale` by an equivalent constant expression
-      // to benefit from cheap constant propagation.
-      Type *ScalableVectorTy =
-          VectorType::get(Type::getInt8Ty(II->getContext()), 1, true);
-      if (DL->getTypeAllocSize(ScalableVectorTy).getKnownMinValue() == 8) {
-        auto *Null = Constant::getNullValue(ScalableVectorTy->getPointerTo());
-        auto *One = ConstantInt::getSigned(II->getType(), 1);
-        auto *CGep =
-            ConstantExpr::getGetElementPtr(ScalableVectorTy, Null, One);
-        replaceAllUsesWith(II, ConstantExpr::getPtrToInt(CGep, II->getType()),
-                           FreshBBs, IsHugeFunc);
-        II->eraseFromParent();
-        return true;
-      }
-      break;
-    }
 #if INTEL_CUSTOMIZATION
     case Intrinsic::masked_gather: {
       bool Changed = false;
@@ -2807,7 +2789,7 @@ void ExtAddrMode::print(raw_ostream &OS) const {
   if (InBounds)
     OS << "inbounds ";
   if (BaseGV) {
-    OS << (NeedPlus ? " + " : "") << "GV:";
+    OS << "GV:";
     BaseGV->printAsOperand(OS, /*PrintType=*/false);
     NeedPlus = true;
   }
@@ -4028,7 +4010,7 @@ private:
     while (!Worklist.empty()) {
       Value *Current = Worklist.pop_back_val();
       // if it is already visited or it is an ending value then skip it.
-      if (Map.find(Current) != Map.end())
+      if (Map.contains(Current))
         continue;
       TraverseOrder.push_back(Current);
 
@@ -7964,7 +7946,7 @@ static bool splitMergedValStore(StoreInst &SI, const DataLayout &DL,
   // whereas scalable vectors would have to be shifted by
   // <2log(vscale) + number of bits> in order to store the
   // low/high parts. Bailing out for now.
-  if (isa<ScalableVectorType>(StoreType))
+  if (StoreType->isScalableTy())
     return false;
 
   if (!DL.typeSizeEqualsStoreSize(StoreType) ||

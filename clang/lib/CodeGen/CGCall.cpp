@@ -2739,6 +2739,39 @@ static bool IsArgumentMaybeUndef(const Decl *TargetDecl,
   return false;
 }
 
+/// Test if it's legal to apply nofpclass for the given parameter type and it's
+/// lowered IR type.
+static bool canApplyNoFPClass(const ABIArgInfo &AI, QualType ParamType,
+                              bool IsReturn) {
+  // Should only apply to FP types in the source, not ABI promoted.
+  if (!ParamType->hasFloatingRepresentation())
+    return false;
+
+  // The promoted-to IR type also needs to support nofpclass.
+  llvm::Type *IRTy = AI.getCoerceToType();
+  if (llvm::AttributeFuncs::isNoFPClassCompatibleType(IRTy))
+    return true;
+
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(IRTy)) {
+    return !IsReturn && AI.getCanBeFlattened() &&
+           llvm::all_of(ST->elements(), [](llvm::Type *Ty) {
+             return llvm::AttributeFuncs::isNoFPClassCompatibleType(Ty);
+           });
+  }
+
+  return false;
+}
+
+/// Return the nofpclass mask that can be applied to floating-point parameters.
+static llvm::FPClassTest getNoFPClassTestMask(const LangOptions &LangOpts) {
+  llvm::FPClassTest Mask = llvm::fcNone;
+  if (LangOpts.NoHonorInfs)
+    Mask |= llvm::fcInf;
+  if (LangOpts.NoHonorNaNs)
+    Mask |= llvm::fcNan;
+  return Mask;
+}
+
 /// Construct the IR attribute list of a function or call.
 ///
 /// When adding an attribute, please consider where it should be handled:
@@ -3006,6 +3039,10 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
   case ABIArgInfo::Direct:
     if (RetAI.getInReg())
       RetAttrs.addAttribute(llvm::Attribute::InReg);
+
+    if (canApplyNoFPClass(RetAI, RetTy, true))
+      RetAttrs.addNoFPClassAttr(getNoFPClassTestMask(getLangOpts()));
+
     break;
   case ABIArgInfo::Ignore:
     break;
@@ -3158,8 +3195,10 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
       else if (AI.getInReg())
         Attrs.addAttribute(llvm::Attribute::InReg);
       Attrs.addStackAlignmentAttr(llvm::MaybeAlign(AI.getDirectAlign()));
-      break;
 
+      if (canApplyNoFPClass(AI, ParamType, false))
+        Attrs.addNoFPClassAttr(getNoFPClassTestMask(getLangOpts()));
+      break;
     case ABIArgInfo::Indirect: {
       if (AI.getInReg())
         Attrs.addAttribute(llvm::Attribute::InReg);
@@ -5458,6 +5497,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 #if INTEL_CUSTOMIZATION
     if (TargetDecl->hasAttr<AlwaysInlineAttr>() &&
         (TargetDecl->hasAttr<TargetAttr>() ||
+         (CurFuncDecl && CurFuncDecl->hasAttr<TargetAttr>()) ||
          TargetDecl->hasAttr<AllowCpuFeaturesAttr>()))
 #endif // INTEL_CUSTOMIZATION
       checkTargetFeatures(Loc, FD);

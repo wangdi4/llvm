@@ -314,6 +314,7 @@ public:
   RegDDRef *visitSequentialUMinExpr(const SCEVSequentialUMinExpr *Expr);
   RegDDRef *visitUnknown(const SCEVUnknown *Expr);
   RegDDRef *visitCouldNotCompute(const SCEVCouldNotCompute *Expr);
+  RegDDRef *visitVScale(const SCEVVScale *Expr);
 };
 
 RegDDRef *NestedBlobCG::codegenCoeff(Constant *Const) {
@@ -482,6 +483,10 @@ RegDDRef *NestedBlobCG::visitUnknown(const SCEVUnknown *Expr) {
 
 RegDDRef *NestedBlobCG::visitCouldNotCompute(const SCEVCouldNotCompute *Expr) {
   llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
+}
+
+RegDDRef *NestedBlobCG::visitVScale(const SCEVVScale *Expr) {
+  llvm_unreachable("Attempt to use a SCEVVScale object!");
 }
 
 namespace {

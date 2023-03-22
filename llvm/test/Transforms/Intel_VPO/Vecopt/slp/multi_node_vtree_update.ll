@@ -17,20 +17,19 @@
 ; instruction (which was deleted).
 
 define void @crash_condition(i64 %c) {
-; CHECK-LABEL: define {{[^@]+}}@crash_condition(
+; CHECK-LABEL: @crash_condition(
 ; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x i64> poison, i64 [[C:%.*]], i32 0
-; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x i64> [[TMP1]], <2 x i64> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP2:%.*]] = add <2 x i64> [[SHUFFLE]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP3:%.*]] = sub nsw <2 x i64> [[TMP2]], <i64 1, i64 1>
-; CHECK-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <2 x i64> [[TMP3]], <2 x i64> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 1>
-; CHECK-NEXT:    [[TMP4:%.*]] = load <4 x i64>, ptr @C, align 8
-; CHECK-NEXT:    [[TMP5:%.*]] = load <4 x i64>, ptr @B, align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = shl <4 x i64> [[TMP5]], [[SHUFFLE1]]
-; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <2 x i64> [[TMP3]], <2 x i64> poison, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[SHUFFLE2:%.*]] = shufflevector <4 x i64> [[TMP7]], <4 x i64> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP8:%.*]] = shl <4 x i64> [[TMP4]], [[SHUFFLE2]]
-; CHECK-NEXT:    [[TMP9:%.*]] = add <4 x i64> [[TMP6]], [[TMP8]]
-; CHECK-NEXT:    store <4 x i64> [[TMP9]], ptr @A, align 8
+; CHECK-NEXT:    [[TMP2:%.*]] = shufflevector <2 x i64> [[TMP1]], <2 x i64> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i64> [[TMP2]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP4:%.*]] = sub nsw <2 x i64> [[TMP3]], <i64 1, i64 1>
+; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <2 x i64> [[TMP4]], <2 x i64> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x i64>, ptr @C, align 8
+; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x i64>, ptr @B, align 8
+; CHECK-NEXT:    [[TMP8:%.*]] = shl <4 x i64> [[TMP7]], [[TMP5]]
+; CHECK-NEXT:    [[TMP9:%.*]] = shufflevector <2 x i64> [[TMP4]], <2 x i64> poison, <4 x i32> <i32 1, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[TMP10:%.*]] = shl <4 x i64> [[TMP6]], [[TMP9]]
+; CHECK-NEXT:    [[TMP11:%.*]] = add <4 x i64> [[TMP8]], [[TMP10]]
+; CHECK-NEXT:    store <4 x i64> [[TMP11]], ptr @A, align 8
 ; CHECK-NEXT:    ret void
 ;
   %t0 = add i64 %c, 2

@@ -19,6 +19,7 @@
 #include "TestFS.h"
 #include "TestTU.h"
 #include "XRefs.h"
+#include "support/Context.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Format/Format.h"
 #include "clang/Frontend/FrontendActions.h"
@@ -36,6 +37,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 using testing::AllOf;
@@ -216,7 +218,6 @@ TEST(PreamblePatchTest, PatchesPreambleIncludes) {
           Field(&Inclusion::Written, "\"a.h\""),
           Field(&Inclusion::Resolved, testPath("a.h")),
           Field(&Inclusion::HeaderID, testing::Not(testing::Eq(std::nullopt))),
-          Field(&Inclusion::BehindPragmaKeep, true),
           Field(&Inclusion::FileKind, SrcMgr::CharacteristicKind::C_User))));
 }
 
@@ -665,7 +666,7 @@ TEST(PreamblePatch, DiagnosticsFromMainASTAreInRightPlace) {
 TEST(PreamblePatch, DiagnosticsToPreamble) {
   Config Cfg;
   Cfg.Diagnostics.AllowStalePreamble = true;
-  Cfg.Diagnostics.UnusedIncludes = Config::UnusedIncludesPolicy::Strict;
+  Cfg.Diagnostics.UnusedIncludes = Config::IncludesPolicy::Strict;
   WithContextValue WithCfg(Config::Key, std::move(Cfg));
 
   llvm::StringMap<std::string> AdditionalFiles;
@@ -827,6 +828,35 @@ x>)");
     EXPECT_THAT(*AST->getDiagnostics(), IsEmpty());
   }
 }
+
+TEST(PreamblePatch, MacroAndMarkHandling) {
+  Config Cfg;
+  Cfg.Diagnostics.AllowStalePreamble = true;
+  WithContextValue WithCfg(Config::Key, std::move(Cfg));
+
+  {
+    Annotations Code(R"cpp(
+#ifndef FOO
+#define FOO
+// Some comments
+#pragma mark XX
+#define BAR
+
+#endif)cpp");
+    Annotations NewCode(R"cpp(
+#ifndef FOO
+#define FOO
+#define BAR
+#pragma mark XX
+
+#endif)cpp");
+    auto AST = createPatchedAST(Code.code(), NewCode.code());
+    // FIXME: Macros and marks have locations that need to be patched.
+    EXPECT_THAT(AST->getMacros().Names, IsEmpty());
+    EXPECT_THAT(AST->getMarks(), IsEmpty());
+  }
+}
+
 } // namespace
 } // namespace clangd
 } // namespace clang

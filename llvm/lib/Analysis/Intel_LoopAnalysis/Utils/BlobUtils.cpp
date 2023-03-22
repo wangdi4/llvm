@@ -653,6 +653,10 @@ public:
     llvm_unreachable("Could not compute not expected!");
   }
 
+  void visitVScale(const SCEVVScale *SC) {
+    llvm_unreachable("Found SCEVVScale!");
+  }
+
   unsigned getNumOperations() const { return NumOperations; }
 };
 

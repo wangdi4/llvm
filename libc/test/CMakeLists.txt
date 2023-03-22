@@ -9,6 +9,8 @@ add_header_library(
   errno_setter_matcher
   HDRS
     ErrnoSetterMatcher.h
+  DEPENDS
+    libc.src.errno.errno
 )
 
 add_custom_target(check-libc)
@@ -25,7 +27,7 @@ if(NOT LLVM_LIBC_FULL_BUILD)
   return()
 endif()
 
-if(NOT (${LIBC_TARGET_OS} STREQUAL "linux"))
+if(NOT ${LIBC_TARGET_OS} STREQUAL "linux")
   # Integration tests are currently only available for linux.
   return()
 endif()

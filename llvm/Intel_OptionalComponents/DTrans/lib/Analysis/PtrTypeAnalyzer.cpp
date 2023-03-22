@@ -1015,7 +1015,7 @@ public:
       //   ...
       //   %NextCount = add nsw i64 %Count, -1
       //   %Cmp = icmp sgt i64 %NextCount, 0
-      if (Count->isOneValue()) {
+      if (Count->isOne()) {
         auto *BasePHI = dyn_cast<PHINode>(Base);
         if (!BasePHI || BasePHI->getParent() != LoopBB) {
           DEBUG_WITH_TYPE_P(
@@ -1041,7 +1041,7 @@ public:
           return false;
         }
       } else {
-        if (!Count->isNullValue()) {
+        if (!Count->isZero()) {
           DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
                             dbgs() << "Not matched. icmp not using 0 or 1!\n");
           return false;

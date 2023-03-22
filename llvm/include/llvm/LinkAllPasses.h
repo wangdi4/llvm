@@ -127,7 +127,6 @@ namespace {
         return;
 
       (void) llvm::createAAEvalPass();
-      (void) llvm::createAggressiveDCEPass();
       (void)llvm::createBitTrackingDCEPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
@@ -168,12 +167,10 @@ namespace {
       (void) llvm::createCallGraphViewerPass();
       (void) llvm::createCFGSimplificationPass();
       (void) llvm::createStructurizeCFGPass();
-      (void) llvm::createLibCallsShrinkWrapPass();
       (void) llvm::createCostModelAnalysisPass();
       (void) llvm::createDeadArgEliminationPass();
       (void) llvm::createDeadArgEliminationSYCLPass();
       (void) llvm::createDeadCodeEliminationPass();
-      (void) llvm::createDeadStoreEliminationPass();
       (void) llvm::createDependenceAnalysisWrapperPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createGCOVProfilerPass();
@@ -193,7 +190,6 @@ namespace {
       (void) llvm::createLoopGuardWideningPass();
       (void) llvm::createIndirectCallConvLegacyPass(); // INTEL
       (void) llvm::createInductiveRangeCheckEliminationPass();
-      (void) llvm::createIndVarSimplifyPass();
       (void) llvm::createInstSimplifyLegacyPass();
       (void) llvm::createInstructionCombiningPass();
       (void) llvm::createJMCInstrumenterPass();
@@ -242,19 +238,14 @@ namespace {
       (void) llvm::createSingleLoopExtractorPass();
       (void) llvm::createTailCallEliminationPass();
       (void)llvm::createTLSVariableHoistPass();
-      (void) llvm::createJumpThreadingPass();
       (void) llvm::createIVSplitLegacyPass(); // INTEL
-      (void) llvm::createDFAJumpThreadingPass();
       (void) llvm::createUnifyFunctionExitNodesPass();
       (void) llvm::createInstCountPass();
       (void) llvm::createConstantHoistingPass();
       (void) llvm::createCodeGenPreparePass();
       (void) llvm::createEarlyCSEPass();
-      (void) llvm::createGVNHoistPass();
       (void) llvm::createMergedLoadStoreMotionPass();
       (void) llvm::createGVNPass();
-      (void) llvm::createNewGVNPass();
-      (void) llvm::createMemCpyOptPass();
       (void) llvm::createPostDomTree();
       (void) llvm::createInstructionNamerPass();
       (void) llvm::createMetaRenamerPass();
@@ -279,10 +270,7 @@ namespace {
       (void) llvm::createLintLegacyPassPass();
       (void) llvm::createSinkingPass();
       (void) llvm::createLowerAtomicPass();
-      (void) llvm::createCorrelatedValuePropagationPass();
       (void) llvm::createMemDepPrinter();
-      (void) llvm::createLoopVectorizePass();
-      (void) llvm::createSLPVectorizerPass();
       (void) llvm::createLoadStoreVectorizerPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createVPlanPragmaOmpOrderedSimdExtractPass();
@@ -300,7 +288,6 @@ namespace {
       (void) llvm::createMemDerefPrinter();
       (void) llvm::createMustExecutePrinter();
       (void) llvm::createMustBeExecutedContextPrinter();
-      (void) llvm::createFloat2IntPass();
       (void)llvm::createScalarizeMaskedMemIntrinLegacyPass();
       (void) llvm::createHardwareLoopsLegacyPass();
       (void) llvm::createInjectTLIMappingsLegacyPass();

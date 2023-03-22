@@ -184,6 +184,7 @@ set (SUPPORT_SOURCES
   FileCollector.cpp
   FileUtilities.cpp
   FileOutputBuffer.cpp
+  FloatingPointMode.cpp
   FoldingSet.cpp
   FormattedStream.cpp
   FormatVariadic.cpp

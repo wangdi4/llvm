@@ -464,15 +464,15 @@ void KernelBarrier::bindUsersToBasicBlock(
   }
 }
 
-static TinyPtrVector<DbgVariableIntrinsic *> findDbgUses(Value *V) {
-  TinyPtrVector<DbgVariableIntrinsic *> DIs = FindDbgAddrUses(V);
+static TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V) {
+  TinyPtrVector<DbgDeclareInst *> DIs = FindDbgDeclareUses(V);
   if (!DIs.empty())
     return DIs;
 
   // Try debug info of addrspacecast user.
   for (auto *U : V->users()) {
     if (auto *ASC = dyn_cast<AddrSpaceCastInst>(U)) {
-      DIs = FindDbgAddrUses(ASC);
+      DIs = FindDbgDeclareUses(ASC);
       if (!DIs.empty())
         break;
     }
@@ -520,7 +520,7 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     }
 
     // Collect debug intrinsic.
-    TinyPtrVector<DbgVariableIntrinsic *> DIs;
+    TinyPtrVector<DbgDeclareInst *> DIs;
     if (IsNativeDBG)
       DIs = findDbgUses(V);
 

@@ -97,7 +97,9 @@ add_llvm_component_library(LLVMipo
   ModuleInliner.cpp
   OpenMPOpt.cpp
   PartialInlining.cpp
+#if INTEL_CUSTOMIZATION
   PassManagerBuilder.cpp
+#endif // INTEL_CUSTOMIZATION
   SampleContextTracker.cpp
   SampleProfile.cpp
   SampleProfileProbe.cpp

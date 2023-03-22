@@ -418,7 +418,6 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
   case Intrinsic::lifetime_end:
   case Intrinsic::lifetime_start:
   case Intrinsic::icall_branch_funnel:
-  case Intrinsic::dbg_addr:
   case Intrinsic::dbg_declare:
   case Intrinsic::dbg_label:
   case Intrinsic::dbg_value:

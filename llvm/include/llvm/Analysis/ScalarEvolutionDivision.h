@@ -79,6 +79,8 @@ public:
 
   void visitConstant(const SCEVConstant *Numerator);
 
+  void visitVScale(const SCEVVScale *Numerator);
+
   void visitAddRecExpr(const SCEVAddRecExpr *Numerator);
 
   void visitAddExpr(const SCEVAddExpr *Numerator);

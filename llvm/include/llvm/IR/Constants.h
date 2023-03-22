@@ -1049,7 +1049,6 @@ public:
   static Constant *getAnd(Constant *C1, Constant *C2);
   static Constant *getOr(Constant *C1, Constant *C2);
   static Constant *getXor(Constant *C1, Constant *C2);
-  static Constant *getUMin(Constant *C1, Constant *C2);
   static Constant *getShl(Constant *C1, Constant *C2, bool HasNUW = false,
                           bool HasNSW = false);
   static Constant *getLShr(Constant *C1, Constant *C2, bool isExact = false);
@@ -1349,6 +1348,12 @@ public:
   /// Whether creating a constant expression for this binary operator is
   /// supported.
   static bool isSupportedBinOp(unsigned Opcode);
+
+  /// Whether creating a constant expression for this getelementptr type is
+  /// supported.
+  static bool isSupportedGetElementPtr(const Type *SrcElemTy) {
+    return !SrcElemTy->isScalableTy();
+  }
 
   /// Methods for support type inquiry through isa, cast, and dyn_cast:
   static bool classof(const Value *V) {

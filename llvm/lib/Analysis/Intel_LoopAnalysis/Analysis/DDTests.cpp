@@ -3219,7 +3219,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
   unsigned BitWidth = 64;
 
-  APInt RunningGCD = APInt::getNullValue(BitWidth);
+  APInt RunningGCD = APInt::getZero(BitWidth);
 
   // Examine Src coefficients.
   // Compute running GCD and record source constant.
@@ -3284,7 +3284,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
   const CanonExpr *DstConst = getInvariant(Dst);
 
-  APInt ExtraGCD = APInt::getNullValue(BitWidth);
+  APInt ExtraGCD = APInt::getZero(BitWidth);
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
   if (!Delta) {
     return false;

@@ -29,4 +29,12 @@ void *malloc(size_t s) {
 
 void free(void *) {}
 
+void *realloc(void *ptr, size_t s) {
+  free(ptr);
+  return malloc(s);
+}
+
+// Integration tests are linked with -nostdlib. BFD linker expects
+// __dso_handle when -nostdlib is used.
+void *__dso_handle = nullptr;
 } // extern "C"

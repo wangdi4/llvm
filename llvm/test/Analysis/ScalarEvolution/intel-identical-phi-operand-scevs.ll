@@ -1,4 +1,3 @@
-; RUN: opt < %s -analyze -enable-new-pm=0 -scalar-evolution | FileCheck %s
 ; RUN: opt < %s -disable-output "-passes=print<scalar-evolution>" 2>&1 | FileCheck %s
 
 ; Verify that we are able to deduce the loop header phi as an AddRec by
@@ -7,17 +6,16 @@
 
 ; In addition, loop backedge taken count is recognized as a constant.
 
-; TODO: fix missing no-wrap flags.
 ; CHECK: %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next.pre-phi, %if.end18 ]
-; CHECK-NEXT: -->  {0,+,1}<%for.body>
+; CHECK-NEXT: -->  {0,+,1}<nuw><nsw><%for.body>
 
 ; CHECK: %.pre = add nuw nsw i64 %indvars.iv, 1
 ; Due to cache invalidation issue in ScalarEvolution, the SCEV form of this is
 ; (1 + %indvars.iv). Disabling the check for now as a workaround.
-; TODO-NEXT:  -->  {1,+,1}<%for.body>
+; TODO-NEXT:  -->  {1,+,1}<nuw><nsw><%for.body>
 
 ; CHECK: %.pre1 = add nuw nsw i64 %indvars.iv, 1
-; CHECK-NEXT:  -->  {1,+,1}<%for.body>
+; CHECK-NEXT:  -->  {1,+,1}<nuw><nsw><%for.body>
 
 ; CHECK: Loop %for.body: backedge-taken count is 1023
 

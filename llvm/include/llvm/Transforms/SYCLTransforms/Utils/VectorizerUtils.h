@@ -94,7 +94,6 @@ inline bool isSafeIntrinsic(Intrinsic::ID IntrinsicID) {
   case Intrinsic::ptr_annotation:
   case Intrinsic::invariant_start:
   case Intrinsic::invariant_end:
-  case Intrinsic::dbg_addr:
   case Intrinsic::dbg_label:
   case Intrinsic::dbg_declare:
   case Intrinsic::dbg_value:

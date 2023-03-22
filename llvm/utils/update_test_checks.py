@@ -178,6 +178,7 @@ def main():
                   func,
                   False,
                   args.function_signature,
+                  args.version,
                   global_vars_seen_dict,
                   is_filtered=builder.is_filtered())))
     else:
@@ -204,6 +205,7 @@ def main():
                   func_name,
                   args.preserve_names,
                   args.function_signature,
+                  args.version,
                   global_vars_seen_dict,
                   is_filtered=builder.is_filtered()))
           is_in_function_start = False

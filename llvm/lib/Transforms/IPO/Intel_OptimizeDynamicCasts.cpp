@@ -394,7 +394,7 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(
           if (!Hint->isZero()) {
             // Calculate value of the pointer after dynamic cast.
             auto NegHint =
-                APInt::getNullValue(Hint->getType()->getScalarSizeInBits());
+                APInt::getZero(Hint->getType()->getScalarSizeInBits());
             NegHint -= Hint->getValue();
             CastedObjPointer = Builder.CreateGEP(
                 ObjType, ObjPointer,

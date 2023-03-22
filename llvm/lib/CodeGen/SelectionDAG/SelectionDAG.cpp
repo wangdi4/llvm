@@ -34,6 +34,7 @@
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -1338,8 +1339,8 @@ SelectionDAG::SelectionDAG(const TargetMachine &tm, CodeGenOpt::Level OL)
 void SelectionDAG::init(MachineFunction &NewMF,
                         OptimizationRemarkEmitter &NewORE, Pass *PassPtr,
                         const TargetLibraryInfo *LibraryInfo,
-                        LegacyDivergenceAnalysis *Divergence,
-                        ProfileSummaryInfo *PSIin, BlockFrequencyInfo *BFIin,
+                        UniformityInfo *NewUA, ProfileSummaryInfo *PSIin,
+                        BlockFrequencyInfo *BFIin,
                         FunctionVarLocs const *VarLocs) {
   MF = &NewMF;
   SDAGISelPass = PassPtr;
@@ -1348,7 +1349,7 @@ void SelectionDAG::init(MachineFunction &NewMF,
   TSI = getSubtarget().getSelectionDAGInfo();
   LibInfo = LibraryInfo;
   Context = &MF->getFunction().getContext();
-  DA = Divergence;
+  UA = NewUA;
   PSI = PSIin;
   BFI = BFIin;
   FnVarLocs = VarLocs;
@@ -1963,6 +1964,27 @@ SDValue SelectionDAG::getCondCode(ISD::CondCode Cond) {
   return SDValue(CondCodeNodes[Cond], 0);
 }
 
+SDValue SelectionDAG::getVScale(const SDLoc &DL, EVT VT, APInt MulImm,
+                                bool ConstantFold) {
+  assert(MulImm.getSignificantBits() <= VT.getSizeInBits() &&
+         "Immediate does not fit VT");
+
+  MulImm = MulImm.sextOrTrunc(VT.getSizeInBits());
+
+  if (ConstantFold) {
+    const MachineFunction &MF = getMachineFunction();
+    auto Attr = MF.getFunction().getFnAttribute(Attribute::VScaleRange);
+    if (Attr.isValid()) {
+      unsigned VScaleMin = Attr.getVScaleRangeMin();
+      if (std::optional<unsigned> VScaleMax = Attr.getVScaleRangeMax())
+        if (*VScaleMax == VScaleMin)
+          return getConstant(MulImm * VScaleMin, DL, VT);
+    }
+  }
+
+  return getNode(ISD::VSCALE, DL, VT, getConstant(MulImm, DL, VT));
+}
+
 SDValue SelectionDAG::getStepVector(const SDLoc &DL, EVT ResVT) {
   APInt One(ResVT.getScalarSizeInBits(), 1);
   return getStepVector(DL, ResVT, One);
@@ -2181,7 +2203,7 @@ SDValue SelectionDAG::getRegister(unsigned RegNo, EVT VT) {
     return SDValue(E, 0);
 
   auto *N = newSDNode<RegisterSDNode>(RegNo, VT);
-  N->SDNodeBits.IsDivergent = TLI->isSDNodeSourceOfDivergence(N, FLI, DA);
+  N->SDNodeBits.IsDivergent = TLI->isSDNodeSourceOfDivergence(N, FLI, UA);
   CSEMap.InsertNode(N, IP);
   InsertNode(N);
   return SDValue(N, 0);
@@ -9486,8 +9508,8 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, SDVTList VTList,
            "STRICT_FP_EXTEND result type should be vector iff the operand "
            "type is vector!");
     assert((!VTList.VTs[0].isVector() ||
-            VTList.VTs[0].getVectorNumElements() ==
-            Ops[1].getValueType().getVectorNumElements()) &&
+            VTList.VTs[0].getVectorElementCount() ==
+                Ops[1].getValueType().getVectorElementCount()) &&
            "Vector element count mismatch!");
     assert(Ops[1].getValueType().bitsLT(VTList.VTs[0]) &&
            "Invalid fpext node, dst <= src!");
@@ -10723,11 +10745,11 @@ public:
 
 bool SelectionDAG::calculateDivergence(SDNode *N) {
   if (TLI->isSDNodeAlwaysUniform(N)) {
-    assert(!TLI->isSDNodeSourceOfDivergence(N, FLI, DA) &&
+    assert(!TLI->isSDNodeSourceOfDivergence(N, FLI, UA) &&
            "Conflicting divergence information!");
     return false;
   }
-  if (TLI->isSDNodeSourceOfDivergence(N, FLI, DA))
+  if (TLI->isSDNodeSourceOfDivergence(N, FLI, UA))
     return true;
   for (const auto &Op : N->ops()) {
     if (Op.Val.getValueType() != MVT::Other && Op.getNode()->isDivergent())
@@ -12222,7 +12244,7 @@ void SelectionDAG::createOperands(SDNode *Node, ArrayRef<SDValue> Vals) {
   Node->NumOperands = Vals.size();
   Node->OperandList = Ops;
   if (!TLI->isSDNodeAlwaysUniform(Node)) {
-    IsDivergent |= TLI->isSDNodeSourceOfDivergence(Node, FLI, DA);
+    IsDivergent |= TLI->isSDNodeSourceOfDivergence(Node, FLI, UA);
     Node->SDNodeBits.IsDivergent = IsDivergent;
   }
   checkForCycles(Node);
@@ -12285,6 +12307,21 @@ void SelectionDAG::copyExtraInfo(SDNode *From, SDNode *To) {
   if (I == SDEI.end())
     return;
 
+  // Use of operator[] on the DenseMap may cause an insertion, which invalidates
+  // the iterator, hence the need to make a copy to prevent a use-after-free.
+  NodeExtraInfo NEI = I->second;
+  if (LLVM_LIKELY(!NEI.PCSections)) {
+    // No deep copy required for the types of extra info set.
+    //
+    // FIXME: Investigate if other types of extra info also need deep copy. This
+    // depends on the types of nodes they can be attached to: if some extra info
+    // is only ever attached to nodes where a replacement To node is always the
+    // node where later use and propagation of the extra info has the intended
+    // semantics, no deep copy is required.
+    SDEI[To] = std::move(NEI);
+    return;
+  }
+
   // We need to copy NodeExtraInfo to all _new_ nodes that are being introduced
   // through the replacement of From with To. Otherwise, replacements of a node
   // (From) with more complex nodes (To and its operands) may result in lost
@@ -12294,28 +12331,68 @@ void SelectionDAG::copyExtraInfo(SDNode *From, SDNode *To) {
   // In the first step pre-populate the visited set with the nodes reachable
   // from the old From node. This avoids copying NodeExtraInfo to parts of the
   // DAG that is not new and should be left untouched.
-  SmallPtrSet<const SDNode *, 32> Visited;
-  auto VisitFrom = [&Visited](auto &&Self, SDNode *N) {
-    if (!Visited.insert(N).second)
+  SmallVector<const SDNode *> Leafs{From}; // Leafs reachable with VisitFrom.
+  DenseSet<const SDNode *> FromReach; // The set of nodes reachable from From.
+  auto VisitFrom = [&](auto &&Self, const SDNode *N, int MaxDepth) {
+    if (MaxDepth == 0) {
+      // Remember this node in case we need to increase MaxDepth and continue
+      // populating FromReach from this node.
+      Leafs.emplace_back(N);
+      return;
+    }
+    if (!FromReach.insert(N).second)
       return;
     for (const SDValue &Op : N->op_values())
-      Self(Self, Op.getNode());
+      Self(Self, Op.getNode(), MaxDepth - 1);
   };
-  VisitFrom(VisitFrom, From);
-
-  // Use of operator[] on the DenseMap may cause an insertion, which invalidates
-  // the iterator, hence the need to make a copy to prevent a use-after-free.
-  NodeExtraInfo Copy = I->second;
 
   // Copy extra info to To and all its transitive operands (that are new).
-  auto DeepCopyTo = [this, &Copy, &Visited](auto &&Self, SDNode *To) {
-    if (!Visited.insert(To).second)
-      return;
-    SDEI[To] = Copy;
-    for (const SDValue &Op : To->op_values())
-      Self(Self, Op.getNode());
+  SmallPtrSet<const SDNode *, 8> Visited;
+  auto DeepCopyTo = [&](auto &&Self, const SDNode *N) {
+    if (FromReach.contains(N))
+      return true;
+    if (!Visited.insert(N).second)
+      return true;
+    if (getEntryNode().getNode() == N)
+      return false;
+    for (const SDValue &Op : N->op_values()) {
+      if (!Self(Self, Op.getNode()))
+        return false;
+    }
+    // Copy only if entry node was not reached.
+    SDEI[N] = NEI;
+    return true;
   };
-  DeepCopyTo(DeepCopyTo, To);
+
+  // We first try with a lower MaxDepth, assuming that the path to common
+  // operands between From and To is relatively short. This significantly
+  // improves performance in the common case. The initial MaxDepth is big
+  // enough to avoid retry in the common case; the last MaxDepth is large
+  // enough to avoid having to use the fallback below (and protects from
+  // potential stack exhaustion from recursion).
+  for (int PrevDepth = 0, MaxDepth = 16; MaxDepth <= 1024;
+       PrevDepth = MaxDepth, MaxDepth *= 2, Visited.clear()) {
+    // StartFrom is the previous (or initial) set of leafs reachable at the
+    // previous maximum depth.
+    SmallVector<const SDNode *> StartFrom;
+    std::swap(StartFrom, Leafs);
+    for (const SDNode *N : StartFrom)
+      VisitFrom(VisitFrom, N, MaxDepth - PrevDepth);
+    if (LLVM_LIKELY(DeepCopyTo(DeepCopyTo, To)))
+      return;
+    // This should happen very rarely (reached the entry node).
+    LLVM_DEBUG(dbgs() << __func__ << ": MaxDepth=" << MaxDepth << " too low\n");
+    assert(!Leafs.empty());
+  }
+
+  // This should not happen - but if it did, that means the subgraph reachable
+  // from From has depth greater or equal to maximum MaxDepth, and VisitFrom()
+  // could not visit all reachable common operands. Consequently, we were able
+  // to reach the entry node.
+  errs() << "warning: incomplete propagation of SelectionDAG::NodeExtraInfo\n";
+  assert(false && "From subgraph too complex - increase max. MaxDepth?");
+  // Best-effort fallback if assertions disabled.
+  SDEI[To] = std::move(NEI);
 }
 
 #ifndef NDEBUG

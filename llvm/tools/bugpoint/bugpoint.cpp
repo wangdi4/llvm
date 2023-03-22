@@ -47,7 +47,9 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
+#if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -139,23 +141,6 @@ public:
 };
 }
 
-// This routine adds optimization passes based on selected optimization level,
-// OptLevel.
-//
-// OptLevel - Optimization Level
-static void AddOptimizationPasses(legacy::FunctionPassManager &FPM,
-                                  unsigned OptLevel,
-                                  unsigned SizeLevel) {
-  PassManagerBuilder Builder;
-  Builder.OptLevel = OptLevel;
-  Builder.SizeLevel = SizeLevel;
-
-  Builder.Inliner = createAlwaysInlinerLegacyPass();
-
-  Builder.populateFunctionPassManager(FPM);
-  Builder.populateModulePassManager(FPM);
-}
-
 #define HANDLE_EXTENSION(Ext)                                                  \
   llvm::PassPluginLibraryInfo get##Ext##PluginInfo();
 #include "llvm/Support/Extension.def"
@@ -245,17 +230,6 @@ int main(int argc, char **argv) {
     Builder.populateLTOPassManager(PM);
   }
 #endif // INTEL_CUSTOMIZATION
-
-  if (OptLevelO1)
-    AddOptimizationPasses(PM, 1, 0);
-  else if (OptLevelO2)
-    AddOptimizationPasses(PM, 2, 0);
-  else if (OptLevelO3)
-    AddOptimizationPasses(PM, 3, 0);
-  else if (OptLevelOs)
-    AddOptimizationPasses(PM, 2, 1);
-  else if (OptLevelOz)
-    AddOptimizationPasses(PM, 2, 2);
 
   for (const PassInfo *PI : PassList)
     D.addPass(std::string(PI->getPassArgument()));

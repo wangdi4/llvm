@@ -75,6 +75,7 @@ public:
 
   bool shouldExpandReduction(const IntrinsicInst *II) const;
   bool supportsScalableVectors() const { return ST->hasVInstructions(); }
+  bool enableOrderedReductions() const { return true; }
   bool enableScalableVectorization() const { return ST->hasVInstructions(); }
   TailFoldingStyle
   getPreferredTailFoldingStyle(bool IVUpdateMayOverflow) const {
@@ -112,7 +113,6 @@ public:
     return ST->useRVVForFixedLengthVectors() ? 16 : 0;
   }
 
-  InstructionCost getSpliceCost(VectorType *Tp, int Index);
   InstructionCost getShuffleCost(TTI::ShuffleKind Kind, VectorType *Tp,
                                  ArrayRef<int> Mask,
                                  TTI::TargetCostKind CostKind, int Index,

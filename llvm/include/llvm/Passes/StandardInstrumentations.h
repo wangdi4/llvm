@@ -186,7 +186,6 @@ public:
   SmallVector<StringRef, 8> PassStack;
 #endif
 
-  static cl::opt<bool> VerifyPreservedCFG;
   void registerCallbacks(PassInstrumentationCallbacks &PIC,
                          FunctionAnalysisManager &FAM);
 };

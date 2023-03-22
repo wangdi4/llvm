@@ -29,7 +29,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm-c/Transforms/IPO.h"
 #include "llvm-c/Initialization.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/InitializePasses.h"
@@ -90,10 +89,6 @@ void LLVMInitializeIPO(LLVMPassRegistryRef R) {
   initializeIPO(*unwrap(R));
 }
 
-void LLVMAddDeadArgEliminationPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createDeadArgEliminationPass());
-}
-
 #if INTEL_CUSTOMIZATION
 void LLVMAddInlineListsPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createInlineListsPass());
@@ -105,7 +100,3 @@ void LLVMAddInlineReportEmitterPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createInlineReportEmitterPass());
 }
 #endif  // INTEL_CUSTOMIZATION
-
-void LLVMAddAlwaysInlinerPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(llvm::createAlwaysInlinerLegacyPass());
-}

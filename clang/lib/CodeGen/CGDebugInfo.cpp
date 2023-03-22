@@ -416,8 +416,8 @@ std::optional<StringRef> CGDebugInfo::getSource(const SourceManager &SM,
 FileID ComputeValidFileID(SourceManager &SM, StringRef FileName) {
   FileID MainFileID = SM.getMainFileID();
   // Find the filename FileName and load it.
-  llvm::Expected<FileEntryRef>  ExpectedFileRef =
-    SM.getFileManager().getFileRef(FileName);
+  llvm::Expected<FileEntryRef> ExpectedFileRef =
+      SM.getFileManager().getFileRef(FileName);
   if (ExpectedFileRef) {
     MainFileID = SM.getOrCreateFileID(ExpectedFileRef.get(),
                                       SrcMgr::CharacteristicKind::C_User);
@@ -431,18 +431,25 @@ llvm::DIFile *CGDebugInfo::getOrCreateFile(SourceLocation Loc) {
   FileID FID;
 
   if (Loc.isInvalid()) {
-    // The DIFile used by the CU is distinct from the main source file. Call
-    // createFile() below for canonicalization if the source file was specified
-    // with an absolute path.
-    FileName = TheCU->getFile()->getFilename();
+    if (CGM.getCodeGenOpts().SYCLUseMainFileName &&
+        CGM.getLangOpts().MacroPrefixMap.size() > 0) {
+      // When fmacro-prefix-map is used, the original source file
+      // file name is indicated by FullMainFileName instead of the CU.
+      auto &CGO = CGM.getCodeGenOpts();
+      FileName = CGO.FullMainFileName;
+      FID = ComputeValidFileID(SM, CGO.FullMainFileName);
+    } else {
+      // The DIFile used by the CU is distinct from the main source file. Call
+      // createFile() below for canonicalization if the source file was
+      // specified with an absolute path.
+      FileName = TheCU->getFile()->getFilename();
+    }
   } else {
     PresumedLoc PLoc = SM.getPresumedLoc(Loc);
     FileName = PLoc.getFilename();
 
     if (FileName.empty()) {
       FileName = TheCU->getFile()->getFilename();
-    } else {
-      FileName = PLoc.getFilename();
     }
     FID = PLoc.getFileID();
   }
@@ -689,11 +696,18 @@ void CGDebugInfo::CreateCompileUnit() {
   // file. Its directory part specifies what becomes the
   // DW_AT_comp_dir (the compilation directory), even if the source
   // file was specified with an absolute path.
+  // Unless an integration footer is involved, and the directory part is
+  // specified by the FileEntryRef provided by the FileID of the main source
+  // file.
   if (CSKind)
     CSInfo.emplace(*CSKind, Checksum);
-  llvm::DIFile *CUFile = DBuilder.createFile(
-      remapDIPath(MainFileName), remapDIPath(getCurrentDirname()), CSInfo,
-      getSource(SM, SM.getMainFileID()));
+
+  if (!CGM.getCodeGenOpts().SYCLUseMainFileName)
+    MainFileDir = getCurrentDirname();
+
+  llvm::DIFile *CUFile =
+      DBuilder.createFile(remapDIPath(MainFileName), remapDIPath(MainFileDir),
+                          CSInfo, getSource(SM, SM.getMainFileID()));
 
   StringRef Sysroot, SDK;
   if (CGM.getCodeGenOpts().getDebuggerTuning() == llvm::DebuggerKind::LLDB) {
@@ -804,24 +818,41 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
 #include "clang/Basic/AArch64SVEACLETypes.def"
     {
       ASTContext::BuiltinVectorTypeInfo Info =
-          CGM.getContext().getBuiltinVectorTypeInfo(BT);
-      unsigned NumElemsPerVG = (Info.EC.getKnownMinValue() * Info.NumVectors) / 2;
+          // For svcount_t, only the lower 2 bytes are relevant.
+          BT->getKind() == BuiltinType::SveCount
+              ? ASTContext::BuiltinVectorTypeInfo(
+                    CGM.getContext().BoolTy, llvm::ElementCount::getFixed(16),
+                    1)
+              : CGM.getContext().getBuiltinVectorTypeInfo(BT);
+
+      // A single vector of bytes may not suffice as the representation of
+      // svcount_t tuples because of the gap between the active 16bits of
+      // successive tuple members. Currently no such tuples are defined for
+      // svcount_t, so assert that NumVectors is 1.
+      assert((BT->getKind() != BuiltinType::SveCount || Info.NumVectors == 1) &&
+             "Unsupported number of vectors for svcount_t");
 
       // Debuggers can't extract 1bit from a vector, so will display a
-      // bitpattern for svbool_t instead.
+      // bitpattern for predicates instead.
+      unsigned NumElems = Info.EC.getKnownMinValue() * Info.NumVectors;
       if (Info.ElementType == CGM.getContext().BoolTy) {
-        NumElemsPerVG /= 8;
+        NumElems /= 8;
         Info.ElementType = CGM.getContext().UnsignedCharTy;
       }
 
-      auto *LowerBound =
-          llvm::ConstantAsMetadata::get(llvm::ConstantInt::getSigned(
-              llvm::Type::getInt64Ty(CGM.getLLVMContext()), 0));
-      SmallVector<uint64_t, 9> Expr(
-          {llvm::dwarf::DW_OP_constu, NumElemsPerVG, llvm::dwarf::DW_OP_bregx,
-           /* AArch64::VG */ 46, 0, llvm::dwarf::DW_OP_mul,
-           llvm::dwarf::DW_OP_constu, 1, llvm::dwarf::DW_OP_minus});
-      auto *UpperBound = DBuilder.createExpression(Expr);
+      llvm::Metadata *LowerBound, *UpperBound;
+      LowerBound = llvm::ConstantAsMetadata::get(llvm::ConstantInt::getSigned(
+          llvm::Type::getInt64Ty(CGM.getLLVMContext()), 0));
+      if (Info.EC.isScalable()) {
+        unsigned NumElemsPerVG = NumElems / 2;
+        SmallVector<uint64_t, 9> Expr(
+            {llvm::dwarf::DW_OP_constu, NumElemsPerVG, llvm::dwarf::DW_OP_bregx,
+             /* AArch64::VG */ 46, 0, llvm::dwarf::DW_OP_mul,
+             llvm::dwarf::DW_OP_constu, 1, llvm::dwarf::DW_OP_minus});
+        UpperBound = DBuilder.createExpression(Expr);
+      } else
+        UpperBound = llvm::ConstantAsMetadata::get(llvm::ConstantInt::getSigned(
+            llvm::Type::getInt64Ty(CGM.getLLVMContext()), NumElems - 1));
 
       llvm::Metadata *Subscript = DBuilder.getOrCreateSubrange(
           /*count*/ nullptr, LowerBound, UpperBound, /*stride*/ nullptr);

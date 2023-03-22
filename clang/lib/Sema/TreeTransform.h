@@ -35,10 +35,9 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
-#include "clang/AST/Designator.h"
 #include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprConcepts.h"
+#include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/OpenMPClause.h"
@@ -51,6 +50,7 @@
 #endif  // INTEL_CUSTOMIZATION
 #include "clang/Basic/DiagnosticParse.h"
 #include "clang/Basic/OpenMPKinds.h"
+#include "clang/Sema/Designator.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Ownership.h"
 #include "clang/Sema/ParsedTemplate.h"
@@ -2963,6 +2963,21 @@ public:
     LookupResult R(getSema(), MemberNameInfo, Sema::LookupMemberName);
     R.addDecl(FoundDecl);
     R.resolveKind();
+
+    if (getSema().isUnevaluatedContext() && Base->isImplicitCXXThis() &&
+        isa<FieldDecl, IndirectFieldDecl, MSPropertyDecl>(Member)) {
+      if (auto *ThisClass = cast<CXXThisExpr>(Base)
+                                ->getType()
+                                ->getPointeeType()
+                                ->getAsCXXRecordDecl()) {
+        auto *Class = cast<CXXRecordDecl>(Member->getDeclContext());
+        // In unevaluated contexts, an expression supposed to be a member access
+        // might reference a member in an unrelated class.
+        if (!ThisClass->Equals(Class) && !ThisClass->isDerivedFrom(Class))
+          return getSema().BuildDeclRefExpr(Member, Member->getType(),
+                                            VK_LValue, Member->getLocation());
+      }
+    }
 
     return getSema().BuildMemberReferenceExpr(Base, BaseType, OpLoc, isArrow,
                                               SS, TemplateKWLoc,
@@ -6078,7 +6093,6 @@ bool TreeTransform<Derived>::TransformFunctionTypeParams(
                                        = dyn_cast<PackExpansionType>(OldType)) {
       // We have a function parameter pack that may need to be expanded.
       QualType Pattern = Expansion->getPattern();
-      NumExpansions = Expansion->getNumExpansions();
       SmallVector<UnexpandedParameterPack, 2> Unexpanded;
       getSema().collectUnexpandedParameterPacks(Pattern, Unexpanded);
 
@@ -8284,6 +8298,12 @@ TreeTransform<Derived>::TransformCoroutineBodyStmt(CoroutineBodyStmt *S) {
     if (DeallocRes.isInvalid())
       return StmtError();
     Builder.Deallocate = DeallocRes.get();
+
+    assert(S->getResultDecl() && "ResultDecl must already be built");
+    StmtResult ResultDecl = getDerived().TransformStmt(S->getResultDecl());
+    if (ResultDecl.isInvalid())
+      return StmtError();
+    Builder.ResultDecl = ResultDecl.get();
 
     if (auto *ReturnStmt = S->getReturnStmt()) {
       StmtResult Res = getDerived().TransformStmt(ReturnStmt);
@@ -12036,10 +12056,11 @@ TreeTransform<Derived>::TransformDesignatedInitExpr(DesignatedInitExpr *E) {
   // transform the designators.
   SmallVector<Expr*, 4> ArrayExprs;
   bool ExprChanged = false;
-  for (const Designator &D : E->designators()) {
+  for (const DesignatedInitExpr::Designator &D : E->designators()) {
     if (D.isFieldDesignator()) {
-      Desig.AddDesignator(Designator::CreateFieldDesignator(
-          D.getFieldName(), D.getDotLoc(), D.getFieldLoc()));
+      Desig.AddDesignator(Designator::getField(D.getFieldName(),
+                                               D.getDotLoc(),
+                                               D.getFieldLoc()));
       if (D.getField()) {
         FieldDecl *Field = cast_or_null<FieldDecl>(
             getDerived().TransformDecl(D.getFieldLoc(), D.getField()));
@@ -12062,7 +12083,7 @@ TreeTransform<Derived>::TransformDesignatedInitExpr(DesignatedInitExpr *E) {
         return ExprError();
 
       Desig.AddDesignator(
-          Designator::CreateArrayDesignator(Index.get(), D.getLBracketLoc()));
+          Designator::getArray(Index.get(), D.getLBracketLoc()));
 
       ExprChanged = ExprChanged || Init.get() != E->getArrayIndex(D);
       ArrayExprs.push_back(Index.get());
@@ -12079,8 +12100,10 @@ TreeTransform<Derived>::TransformDesignatedInitExpr(DesignatedInitExpr *E) {
     if (End.isInvalid())
       return ExprError();
 
-    Desig.AddDesignator(Designator::CreateArrayRangeDesignator(
-        Start.get(), End.get(), D.getLBracketLoc(), D.getEllipsisLoc()));
+    Desig.AddDesignator(Designator::getArrayRange(Start.get(),
+                                                  End.get(),
+                                                  D.getLBracketLoc(),
+                                                  D.getEllipsisLoc()));
 
     ExprChanged = ExprChanged || Start.get() != E->getArrayRangeStart(D) ||
                   End.get() != E->getArrayRangeEnd(D);

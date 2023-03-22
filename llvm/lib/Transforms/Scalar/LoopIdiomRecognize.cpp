@@ -1681,12 +1681,12 @@ matchNotZeroAfterShiftRightNCondition(BranchInst *BI, BasicBlock *LoopEntry) {
   unsigned N;
   switch (Cond->getPredicate()) {
   case ICmpInst::ICMP_EQ:
-    if (!OneLShiftN.isNullValue())
+    if (!OneLShiftN.isZero())
       return {nullptr, 0};
     N = 0, Inverted = false;
     break;
   case ICmpInst::ICMP_NE:
-    if (!OneLShiftN.isNullValue())
+    if (!OneLShiftN.isZero())
       return {nullptr, 0};
     N = 0, Inverted = true;
     break;

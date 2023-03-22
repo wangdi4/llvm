@@ -597,7 +597,7 @@ void LinkerDriver::detectWinSysRoot(const opt::InputArgList &Args) {
                                      WinSysRoot, vcToolChainPath, vsLayout) &&
       (Args.hasArg(OPT_lldignoreenv) ||
        !findVCToolChainViaEnvironment(*VFS, vcToolChainPath, vsLayout)) &&
-      !findVCToolChainViaSetupConfig(*VFS, vcToolChainPath, vsLayout) &&
+      !findVCToolChainViaSetupConfig(*VFS, {}, vcToolChainPath, vsLayout) &&
       !findVCToolChainViaRegistry(vcToolChainPath, vsLayout))
     return;
 

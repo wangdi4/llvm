@@ -43,6 +43,7 @@ endif()
 add_library(sycl_pi_trace_collector SHARED
   collector.cpp
   pi_trace_collector.cpp
+  sycl_trace_collector.cpp
   ${EXTRA_SRC}
 )
 

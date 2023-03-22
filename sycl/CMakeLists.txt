@@ -352,13 +352,11 @@ add_custom_target( sycl-toolchain
           sycl-compiler
           sycl-ls
           ${XPTIFW_LIBS}
+  COMMENT "Building SYCL compiler toolchain..."
 )
 
-# Check if opencl-aot tool is enabled.
-list(FIND LLVM_ENABLE_PROJECTS opencl-aot OPENCL_AOT_FOUND)
-if(NOT OPENCL_AOT_FOUND EQUAL -1)
-  add_dependencies(sycl-toolchain opencl-aot)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-aot)
+if (WIN32)
+  add_dependencies(sycl-toolchain win_proxy_loader)
 endif()
 
 if (WIN32)

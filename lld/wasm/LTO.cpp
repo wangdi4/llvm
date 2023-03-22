@@ -54,8 +54,7 @@
 
 using namespace llvm;
 
-namespace lld {
-namespace wasm {
+namespace lld::wasm {
 static std::unique_ptr<lto::LTO> createLTO() {
   lto::Config c;
   c.Options = initTargetOptionsFromCodeGenFlags();
@@ -183,5 +182,4 @@ std::vector<StringRef> BitcodeCompiler::compile() {
   return ret;
 }
 
-} // namespace wasm
-} // namespace lld
+} // namespace lld::wasm

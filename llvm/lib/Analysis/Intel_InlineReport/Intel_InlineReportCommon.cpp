@@ -79,7 +79,6 @@ bool llvm::shouldSkipIntrinsic(IntrinsicInst *II) {
   switch (Intrin) {
   default:
     return false;
-  case Intrinsic::dbg_addr:
   case Intrinsic::dbg_declare:
   case Intrinsic::dbg_value:
   case Intrinsic::intel_subscript:

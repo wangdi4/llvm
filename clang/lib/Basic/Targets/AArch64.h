@@ -26,7 +26,11 @@ class LLVM_LIBRARY_VISIBILITY AArch64TargetInfo : public TargetInfo {
   static const TargetInfo::GCCRegAlias GCCRegAliases[];
   static const char *const GCCRegNames[];
 
-  enum FPUModeEnum { FPUMode, NeonMode = (1 << 0), SveMode = (1 << 1) };
+  enum FPUModeEnum {
+    FPUMode = (1 << 0),
+    NeonMode = (1 << 1),
+    SveMode = (1 << 2),
+  };
 
   unsigned FPU = FPUMode;
   bool HasCRC = false;
@@ -73,6 +77,7 @@ class LLVM_LIBRARY_VISIBILITY AArch64TargetInfo : public TargetInfo {
   bool HasWFxT = false;
   bool HasJSCVT = false;
   bool HasFCMA = false;
+  bool HasNoFP = false;
   bool HasNoNeon = false;
   bool HasNoSVE = false;
   bool HasFMV = true;
@@ -143,9 +148,8 @@ public:
 
   std::optional<std::pair<unsigned, unsigned>>
   getVScaleRange(const LangOptions &LangOpts) const override;
-
-  bool getFeatureDepOptions(StringRef Feature,
-                            std::string &Options) const override;
+  bool doesFeatureAffectCodeGen(StringRef Name) const override;
+  StringRef getFeatureDependencies(StringRef Name) const override;
   bool validateCpuSupports(StringRef FeatureStr) const override;
   bool hasFeature(StringRef Feature) const override;
   void setFeatureEnabled(llvm::StringMap<bool> &Features, StringRef Name,

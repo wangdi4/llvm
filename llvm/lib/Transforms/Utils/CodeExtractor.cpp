@@ -2010,7 +2010,7 @@ static void updateDebugPostExtraction(Function *OldF, Function *NewF,
     }
 
     // Handle cases where the DVI and storage end up in different functions.
-    if (isa<DbgDeclareInst>(DVI) || isa<DbgAddrIntrinsic>(DVI)) {
+    if (isa<DbgDeclareInst>(DVI)) {
       Function *MoveTo = DVI->getFunction() == OldF ? NewF : OldF;
       for (const Value *Storage : DVI->location_ops()) {
         const Function *SF;

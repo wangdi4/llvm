@@ -602,6 +602,7 @@ public:
   const SCEV *getLosslessPtrToIntExpr(const SCEV *Op, unsigned Depth = 0);
   const SCEV *getPtrToIntExpr(const SCEV *Op, Type *Ty);
   const SCEV *getTruncateExpr(const SCEV *Op, Type *Ty, unsigned Depth = 0);
+  const SCEV *getVScale(Type *Ty);
   const SCEV *getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth = 0);
   const SCEV *getZeroExtendExprImpl(const SCEV *Op, Type *Ty,
                                     unsigned Depth = 0);
@@ -1203,7 +1204,7 @@ public:
   /// Compute the number of times the backedge of the specified loop will
   /// execute if its exit condition were a conditional branch of ExitCond.
   ///
-  /// \p ControlsExit is true if ExitCond directly controls the exit
+  /// \p ControlsOnlyExit is true if ExitCond directly controls the only exit
   /// branch. In this case, we can assume that the loop exits only if the
   /// condition is true and can infer that failing to meet the condition prior
   /// to integer wraparound results in undefined behavior.
@@ -1211,7 +1212,7 @@ public:
   /// If \p AllowPredicates is set, this call will try to use a minimal set of
   /// SCEV predicates in order to return an exact answer.
   ExitLimit computeExitLimitFromCond(const Loop *L, Value *ExitCond,
-                                     bool ExitIfTrue, bool ControlsExit,
+                                     bool ExitIfTrue, bool ControlsOnlyExit,
                                      bool AllowPredicates = false);
 
   /// A predicate is said to be monotonically increasing if may go from being
@@ -1270,14 +1271,12 @@ public:
   /// Simplify LHS and RHS in a comparison with predicate Pred. Return true
   /// iff any changes were made. If the operands are provably equal or
   /// unequal, LHS and RHS are set to the same value and Pred is set to either
-  /// ICMP_EQ or ICMP_NE. ControllingFiniteLoop is set if this comparison
-  /// controls the exit of a loop known to have a finite number of iterations.
+  /// ICMP_EQ or ICMP_NE.
   bool SimplifyICmpOperands(ICmpInst::Predicate &Pred, const SCEV *&LHS,
 #if INTEL_CUSTOMIZATION
                             const SCEV *&RHS,
                             const ICmpInst *PredContext = nullptr,
-                            unsigned Depth = 0,
-                            bool ControllingFiniteLoop = false);
+                            unsigned Depth = 0);
 #endif // INTEL_CUSTOMIZATION
 
   /// Return the "disposition" of the given SCEV with respect to the given
@@ -1881,11 +1880,11 @@ protected: // INTEL
   // complexity.
 
   class ExitLimitCache {
-    // It may look like we need key on the whole (L, ExitIfTrue, ControlsExit,
-    // AllowPredicates) tuple, but recursive calls to
+    // It may look like we need key on the whole (L, ExitIfTrue,
+    // ControlsOnlyExit, AllowPredicates) tuple, but recursive calls to
     // computeExitLimitFromCondCached from computeExitLimitFromCondImpl only
-    // vary the in \c ExitCond and \c ControlsExit parameters.  We remember the
-    // initial values of the other values to assert our assumption.
+    // vary the in \c ExitCond and \c ControlsOnlyExit parameters.  We remember
+    // the initial values of the other values to assert our assumption.
     SmallDenseMap<PointerIntPair<Value *, 1>, ExitLimit> TripCountMap;
 
     const Loop *L;
@@ -1897,11 +1896,12 @@ protected: // INTEL
         : L(L), ExitIfTrue(ExitIfTrue), AllowPredicates(AllowPredicates) {}
 
     std::optional<ExitLimit> find(const Loop *L, Value *ExitCond,
-                                  bool ExitIfTrue, bool ControlsExit,
+                                  bool ExitIfTrue, bool ControlsOnlyExit,
                                   bool AllowPredicates);
 
     void insert(const Loop *L, Value *ExitCond, bool ExitIfTrue,
-                bool ControlsExit, bool AllowPredicates, const ExitLimit &EL);
+                bool ControlsOnlyExit, bool AllowPredicates,
+                const ExitLimit &EL);
   };
 
   using ExitLimitCacheTy = ExitLimitCache;
@@ -1909,16 +1909,15 @@ protected: // INTEL
   ExitLimit computeExitLimitFromCondCached(ExitLimitCacheTy &Cache,
                                            const Loop *L, Value *ExitCond,
                                            bool ExitIfTrue,
-                                           bool ControlsExit,
+                                           bool ControlsOnlyExit,
                                            bool AllowPredicates);
   ExitLimit computeExitLimitFromCondImpl(ExitLimitCacheTy &Cache, const Loop *L,
                                          Value *ExitCond, bool ExitIfTrue,
-                                         bool ControlsExit,
+                                         bool ControlsOnlyExit,
                                          bool AllowPredicates);
-  std::optional<ScalarEvolution::ExitLimit>
-  computeExitLimitFromCondFromBinOp(ExitLimitCacheTy &Cache, const Loop *L,
-                                    Value *ExitCond, bool ExitIfTrue,
-                                    bool ControlsExit, bool AllowPredicates);
+  std::optional<ScalarEvolution::ExitLimit> computeExitLimitFromCondFromBinOp(
+      ExitLimitCacheTy &Cache, const Loop *L, Value *ExitCond, bool ExitIfTrue,
+      bool ControlsOnlyExit, bool AllowPredicates);
 
   /// Compute the number of times the backedge of the specified loop will
   /// execute if its exit condition were a conditional branch of the ICmpInst
@@ -1985,14 +1984,14 @@ protected: // INTEL
   ///
   /// \p isSigned specifies whether the less-than is signed.
   ///
-  /// \p ControlsExit is true when the LHS < RHS condition directly controls
+  /// \p ControlsOnlyExit is true when the LHS < RHS condition directly controls
   /// the branch (loops exits only if condition is true). In this case, we can
   /// use NoWrapFlags to skip overflow checks.
   ///
   /// If \p AllowPredicates is set, this call will try to use a minimal set of
   /// SCEV predicates in order to return an exact answer.
   ExitLimit howManyLessThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
-                             bool isSigned, bool ControlsExit,
+                             bool isSigned, bool ControlsOnlyExit,
                              bool AllowPredicates = false,  // INTEL
                              bool IVMaxValIsUB = false,     // INTEL
                              ICmpInst *ExitCond = nullptr); // INTEL
@@ -2353,6 +2352,11 @@ protected: // INTEL
   /// reasoning about conditions.
   void getReachableBlocks(SmallPtrSetImpl<BasicBlock *> &Reachable,
                           Function &F);
+
+  /// Return the given SCEV expression with a new set of operands.
+  /// This preserves the origial nowrap flags.
+  const SCEV *getWithOperands(const SCEV *S,
+                              SmallVectorImpl<const SCEV *> &NewOps);
 
   FoldingSet<SCEV> UniqueSCEVs;
   FoldingSet<SCEVPredicate> UniquePreds;

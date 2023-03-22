@@ -152,7 +152,6 @@ void initializeDAEPass(PassRegistry&);
 void initializeDAHPass(PassRegistry&);
 void initializeDAESYCLPass(PassRegistry&);
 void initializeDCELegacyPassPass(PassRegistry&);
-void initializeDFAJumpThreadingLegacyPassPass(PassRegistry &);
 void initializeDSELegacyPassPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
@@ -166,7 +165,6 @@ void initializeDemandedBitsWrapperPassPass(PassRegistry&);
 void initializeDependenceAnalysisWrapperPassPass(PassRegistry&);
 void initializeDopeVectorConstPropLegacyPassPass(PassRegistry&);   // INTEL
 void initializeDetectDeadLanesPass(PassRegistry&);
-void initializeDivRemPairsLegacyPassPass(PassRegistry&);
 void initializeDomOnlyPrinterWrapperPassPass(PassRegistry &);
 void initializeDomOnlyViewerWrapperPassPass(PassRegistry &);
 void initializeDomPrinterWrapperPassPass(PassRegistry &);
@@ -200,16 +198,13 @@ void initializeFixIrreduciblePass(PassRegistry &);
 void initializeFixupStatepointCallerSavedPass(PassRegistry&);
 void initializeFlattenCFGLegacyPassPass(PassRegistry &);
 void initializeFloat128ExpandPass(PassRegistry&); // INTEL
-void initializeFloat2IntLegacyPassPass(PassRegistry&);
 void initializeFoldLoadsToGatherPass(PassRegistry&); // INTEL
 void initializeForceFunctionAttrsLegacyPassPass(PassRegistry&);
 void initializeFuncletLayoutPass(PassRegistry&);
 void initializeFunctionSplittingWrapperPass(PassRegistry&);        // INTEL
 void initializeGCMachineCodeAnalysisPass(PassRegistry&);
 void initializeGCModuleInfoPass(PassRegistry&);
-void initializeGVNHoistLegacyPassPass(PassRegistry&);
 void initializeGVNLegacyPassPass(PassRegistry&);
-void initializeGVNSinkLegacyPassPass(PassRegistry&);
 void initializeGlobalDCELegacyPassPass(PassRegistry&);
 void initializeGlobalMergePass(PassRegistry&);
 void initializeGlobalOptLegacyPassPass(PassRegistry&);
@@ -276,7 +271,6 @@ void initializeLegalizerPass(PassRegistry&);
 void initializeMemorySanitizerLegacyPassPass(PassRegistry&); // INTEL
 void initializeGISelCSEAnalysisWrapperPassPass(PassRegistry &);
 void initializeGISelKnownBitsAnalysisPass(PassRegistry &);
-void initializeLibCallsShrinkWrapLegacyPassPass(PassRegistry&);
 void initializeLintLegacyPassPass(PassRegistry &);
 void initializeLiveDebugValuesPass(PassRegistry&);
 void initializeLiveDebugVariablesPass(PassRegistry&);
@@ -305,7 +299,6 @@ void initializeLoopUnrollPass(PassRegistry&);
 #ifdef INTEL_CUSTOMIZATION
 void initializeLoopUnswitchPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
-void initializeLoopVectorizePass(PassRegistry&);
 void initializeLowerAtomicLegacyPassPass(PassRegistry&);
 void initializeLowerConstantIntrinsicsPass(PassRegistry&);
 void initializeLowerEmuTLSPass(PassRegistry&);
@@ -354,7 +347,6 @@ void initializeMachineTraceMetricsPass(PassRegistry&);
 void initializeMachineUniformityInfoPrinterPassPass(PassRegistry &);
 void initializeMachineUniformityAnalysisPassPass(PassRegistry &);
 void initializeMachineVerifierPassPass(PassRegistry&);
-void initializeMemCpyOptLegacyPassPass(PassRegistry&);
 void initializeMemDepPrinterPass(PassRegistry&);
 void initializeMemDerefPrinterPass(PassRegistry&);
 void initializeMemoryDependenceWrapperPassPass(PassRegistry&);
@@ -369,7 +361,6 @@ void initializeModuloScheduleTestPass(PassRegistry&);
 void initializeMustExecutePrinterPass(PassRegistry&);
 void initializeMustBeExecutedContextPrinterPass(PassRegistry&);
 void initializeNaryReassociateLegacyPassPass(PassRegistry&);
-void initializeNewGVNLegacyPassPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION
 void initializeObjCARCAAWrapperPassPass(PassRegistry&);
 void initializeObjCARCAPElimPass(PassRegistry&);
@@ -440,7 +431,6 @@ void initializeRewriteStatepointsForGCLegacyPassPass(PassRegistry &);
 void initializeRewriteSymbolsLegacyPassPass(PassRegistry&);
 void initializeSCCPLegacyPassPass(PassRegistry&);
 void initializeSCEVAAWrapperPassPass(PassRegistry&);
-void initializeSLPVectorizerPass(PassRegistry&);
 void initializeSROALegacyPassPass(PassRegistry&);
 void initializeSROALegacyCGSCCAdaptorPassPass(PassRegistry &); // INTEL
 void initializeSafeStackLegacyPassPass(PassRegistry&);

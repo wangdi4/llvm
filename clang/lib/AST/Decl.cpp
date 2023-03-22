@@ -605,20 +605,6 @@ static LinkageInfo getInternalLinkageFor(const NamedDecl *D) {
 }
 
 static LinkageInfo getExternalLinkageFor(const NamedDecl *D) {
-  // C++ [basic.link]p4.8:
-  //   - if the declaration of the name is attached to a named module and is not
-  //   exported
-  //     the name has module linkage;
-  //
-  // [basic.namespace.general]/p2
-  //   A namespace is never attached to a named module and never has a name with
-  //   module linkage.
-  if (isInModulePurview(D) &&
-      !isExportedFromModuleInterfaceUnit(
-          cast<NamedDecl>(D->getCanonicalDecl())) &&
-      !isa<NamespaceDecl>(D))
-    return LinkageInfo(ModuleLinkage, DefaultVisibility, false);
-
   return LinkageInfo::external();
 }
 
@@ -1165,6 +1151,29 @@ Linkage NamedDecl::getLinkageInternal() const {
       .getLinkage();
 }
 
+/// Get the linkage from a semantic point of view. Entities in
+/// anonymous namespaces are external (in c++98).
+Linkage NamedDecl::getFormalLinkage() const {
+  Linkage InternalLinkage = getLinkageInternal();
+
+  // C++ [basic.link]p4.8:
+  //   - if the declaration of the name is attached to a named module and is not
+  //   exported
+  //     the name has module linkage;
+  //
+  // [basic.namespace.general]/p2
+  //   A namespace is never attached to a named module and never has a name with
+  //   module linkage.
+  if (isInModulePurview(this) &&
+      InternalLinkage == ExternalLinkage &&
+      !isExportedFromModuleInterfaceUnit(
+          cast<NamedDecl>(this->getCanonicalDecl())) &&
+      !isa<NamespaceDecl>(this))
+    InternalLinkage = ModuleLinkage;
+
+  return clang::getFormalLinkage(InternalLinkage);
+}
+
 LinkageInfo NamedDecl::getLinkageAndVisibility() const {
   return LinkageComputer{}.getDeclLinkageAndVisibility(this);
 }
@@ -1590,7 +1599,8 @@ Module *Decl::getOwningModuleForLinkage(bool IgnoreLinkage) const {
     return M;
 
   case Module::ModuleHeaderUnit:
-  case Module::GlobalModuleFragment: {
+  case Module::ExplicitGlobalModuleFragment:
+  case Module::ImplicitGlobalModuleFragment: {
     // External linkage declarations in the global module have no owning module
     // for linkage purposes. But internal linkage declarations in the global
     // module fragment of a particular module are owned by that module for

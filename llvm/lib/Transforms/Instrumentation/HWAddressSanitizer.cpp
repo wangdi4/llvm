@@ -990,11 +990,11 @@ bool HWAddressSanitizer::instrumentMemAccess(InterestingMemoryOperand &O) {
     return false; // FIXME
 
   IRBuilder<> IRB(O.getInsn());
-  if (isPowerOf2_64(O.TypeSize) &&
-      (O.TypeSize / 8 <= (1ULL << (kNumberOfAccessSizes - 1))) &&
+  if (isPowerOf2_64(O.TypeStoreSize) &&
+      (O.TypeStoreSize / 8 <= (1ULL << (kNumberOfAccessSizes - 1))) &&
       (!O.Alignment || *O.Alignment >= Mapping.getObjectAlignment() ||
-       *O.Alignment >= O.TypeSize / 8)) {
-    size_t AccessSizeIndex = TypeSizeToSizeIndex(O.TypeSize);
+       *O.Alignment >= O.TypeStoreSize / 8)) {
+    size_t AccessSizeIndex = TypeSizeToSizeIndex(O.TypeStoreSize);
     if (InstrumentWithCalls) {
       IRB.CreateCall(HwasanMemoryAccessCallback[O.IsWrite][AccessSizeIndex],
                      IRB.CreatePointerCast(Addr, IntptrTy));
@@ -1006,7 +1006,7 @@ bool HWAddressSanitizer::instrumentMemAccess(InterestingMemoryOperand &O) {
   } else {
     IRB.CreateCall(HwasanMemoryAccessCallbackSized[O.IsWrite],
                    {IRB.CreatePointerCast(Addr, IntptrTy),
-                    ConstantInt::get(IntptrTy, O.TypeSize / 8)});
+                    ConstantInt::get(IntptrTy, O.TypeStoreSize / 8)});
   }
   untagPointerOperand(O.getInsn(), Addr);
 

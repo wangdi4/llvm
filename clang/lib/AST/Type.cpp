@@ -2180,8 +2180,9 @@ bool Type::isDoubleType() const {
 bool Type::hasFloatingRepresentation() const {
   if (const auto *VT = dyn_cast<VectorType>(CanonicalType))
     return VT->getElementType()->isFloatingType();
-  else
-    return isFloatingType();
+  if (const auto *MT = dyn_cast<MatrixType>(CanonicalType))
+    return MT->getElementType()->isFloatingType();
+  return isFloatingType();
 }
 
 bool Type::isRealFloatingType() const {
@@ -2431,6 +2432,8 @@ bool Type::isVLSTBuiltinType() const {
     case BuiltinType::SveFloat64:
     case BuiltinType::SveBFloat16:
     case BuiltinType::SveBool:
+    case BuiltinType::SveBoolx2:
+    case BuiltinType::SveBoolx4:
       return true;
     default:
       return false;

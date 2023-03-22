@@ -1768,7 +1768,7 @@ APInt OVLSGroup::computeByteAccessMask() const {
   auto NBytes = *LastMrf->getConstDistanceFrom(*FirstMrf) +
                 LastMrf->getType().getElementSize() / 8;
 
-  auto Mask = APInt::getNullValue(NBytes);
+  auto Mask = APInt::getZero(NBytes);
   for (OVLSMemref *Mrf : MemrefVec) {
     auto MrfSize = Mrf->getType().getElementSize() / 8;
     std::optional<int64_t> MrfOffset = Mrf->getConstDistanceFrom(*FirstMrf);

@@ -3389,8 +3389,18 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
         }))
       CGM.getDiags().Report(Loc, diag::err_function_needs_feature)
           << FD->getDeclName() << TargetDecl->getDeclName() << MissingFeature;
-  }
 #endif // INTEL_CUSTOMIZATION
+  } else if (!FD->isMultiVersion() && FD->hasAttr<TargetAttr>()) {
+    llvm::StringMap<bool> CalleeFeatureMap;
+    CGM.getContext().getFunctionFeatureMap(CalleeFeatureMap, TargetDecl);
+
+    for (const auto &F : CalleeFeatureMap) {
+      if (F.getValue() && (!CallerFeatureMap.lookup(F.getKey()) ||
+                           !CallerFeatureMap.find(F.getKey())->getValue()))
+        CGM.getDiags().Report(Loc, diag::err_function_needs_feature)
+            << FD->getDeclName() << TargetDecl->getDeclName() << F.getKey();
+    }
+  }
 }
 
 void CodeGenFunction::EmitSanitizerStatReport(llvm::SanitizerStatKind SSK) {

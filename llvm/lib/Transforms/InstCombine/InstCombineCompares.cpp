@@ -580,7 +580,7 @@ static Value *rewriteGEPAsOffset(Type *ElemTy, Value *Start, Value *Base,
   // Create all the other instructions.
   for (Value *Val : Explored) {
 
-    if (NewInsts.find(Val) != NewInsts.end())
+    if (NewInsts.contains(Val))
       continue;
 
     if (auto *CI = dyn_cast<CastInst>(Val)) {
@@ -628,7 +628,7 @@ static Value *rewriteGEPAsOffset(Type *ElemTy, Value *Start, Value *Base,
       for (unsigned I = 0, E = PHI->getNumIncomingValues(); I < E; ++I) {
         Value *NewIncoming = PHI->getIncomingValue(I);
 
-        if (NewInsts.find(NewIncoming) != NewInsts.end())
+        if (NewInsts.contains(NewIncoming))
           NewIncoming = NewInsts[NewIncoming];
 
         NewPhi->addIncoming(NewIncoming, PHI->getIncomingBlock(I));
@@ -2831,7 +2831,7 @@ static bool isAddFoldingProfitable(const BinaryOperator *Add,
 
   // Add with one can easily be folded in both ztt and loop upper because of IV
   // increment.
-  if (Op1.isOneValue())
+  if (Op1.isOne())
     return true;
 
   // If Add is in the entry bblock, make it non-profitable as folding does not
@@ -3368,6 +3368,11 @@ Instruction *InstCombinerImpl::foldICmpEqIntrinsicWithConstant(
     // bswap(A) == C  ->  A == bswap(C)
     return new ICmpInst(Pred, II->getArgOperand(0),
                         ConstantInt::get(Ty, C.byteSwap()));
+
+  case Intrinsic::bitreverse:
+    // bitreverse(A) == C  ->  A == bitreverse(C)
+    return new ICmpInst(Pred, II->getArgOperand(0),
+                        ConstantInt::get(Ty, C.reverseBits()));
 
   case Intrinsic::ctlz:
   case Intrinsic::cttz: {

@@ -7628,7 +7628,8 @@ static void genPrivatizationDebug(WRegionNode *W,
       break;
 
     // If the current value has any debug information available then use it.
-    DVIs = FindDbgAddrUses(Current);
+    for (auto *DbgDeclare : FindDbgDeclareUses(Current))
+      DVIs.push_back(DbgDeclare);
     if (!DVIs.empty())
       break;
 
@@ -7755,7 +7756,7 @@ static void genPrivatizationDebug(WRegionNode *W,
     // Insert a llvm.dbg intrinsic describing the location of the variable in
     // this parallel region.
     Instruction *NDVI;
-    if (isa<DbgDeclareInst>(ODVI) || isa<DbgAddrIntrinsic>(ODVI))
+    if (isa<DbgDeclareInst>(ODVI))
       NDVI = DIB.insertDeclare(NewPrivValue, Variable, Expression, Location,
                                Before);
     else if (isa<DbgValueInst>(ODVI))

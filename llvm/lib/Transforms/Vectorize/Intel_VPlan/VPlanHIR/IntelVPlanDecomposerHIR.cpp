@@ -2574,3 +2574,8 @@ VPValue *VPDecomposerHIR::VPBlobDecompVisitor::visitCouldNotCompute(
     const SCEVCouldNotCompute *Expr) {
   llvm_unreachable("Attempt to use a SCEVCouldNotCompute object.");
 }
+
+VPValue *VPDecomposerHIR::VPBlobDecompVisitor::visitVScale(
+    const SCEVVScale *Expr) {
+  llvm_unreachable("Attempt to use a SCEVVScale object.");
+}

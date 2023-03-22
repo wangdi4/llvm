@@ -6,7 +6,7 @@
 ; sensitive to instcombine add/sub expressions reassociating transforms.
 ; The code expected to be vectorized.
 define i32 @x264_pixel_satd_16x16(ptr noalias nocapture readonly %pix1, i32 %i_pix1, ptr noalias nocapture readonly %pix2, i32 %i_pix2, ptr noalias nocapture %R) {
-; CHECK-LABEL: define {{[^@]+}}@x264_pixel_satd_16x16(
+; CHECK-LABEL: @x264_pixel_satd_16x16(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[IDX_EXT_I:%.*]] = sext i32 [[I_PIX1:%.*]] to i64
 ; CHECK-NEXT:    [[IDX_EXT63_I:%.*]] = sext i32 [[I_PIX2:%.*]] to i64
@@ -35,15 +35,13 @@ define i32 @x264_pixel_satd_16x16(ptr noalias nocapture readonly %pix1, i32 %i_p
 ; CHECK-NEXT:    [[TMP10:%.*]] = or <4 x i32> [[TMP8]], [[TMP6]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = sub nsw <4 x i32> [[TMP9]], [[TMP10]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = add nsw <4 x i32> [[TMP11]], [[TMP4]]
-; CHECK-NEXT:    [[TMP13:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
-; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP13]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
-; CHECK-NEXT:    [[TMP14:%.*]] = add <4 x i32> [[SHUFFLE]], [[TMP12]]
-; CHECK-NEXT:    [[TMP15:%.*]] = sub <4 x i32> [[SHUFFLE]], [[TMP12]]
+; CHECK-NEXT:    [[TMP13:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 0, i32 1>
+; CHECK-NEXT:    [[TMP14:%.*]] = add <4 x i32> [[TMP13]], [[TMP12]]
+; CHECK-NEXT:    [[TMP15:%.*]] = sub <4 x i32> [[TMP13]], [[TMP12]]
 ; CHECK-NEXT:    [[TMP16:%.*]] = shufflevector <4 x i32> [[TMP14]], <4 x i32> [[TMP15]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
-; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-; CHECK-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <4 x i32> [[TMP17]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
-; CHECK-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[TMP16]], [[SHUFFLE1]]
-; CHECK-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[TMP16]], [[SHUFFLE1]]
+; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 3, i32 2>
+; CHECK-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[TMP16]], [[TMP17]]
+; CHECK-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[TMP16]], [[TMP17]]
 ; CHECK-NEXT:    [[TMP20:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> [[TMP19]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[TMP21:%.*]] = add <4 x i32> [[TMP20]], [[TMP12]]
 ; CHECK-NEXT:    [[TMP22:%.*]] = sub <4 x i32> [[TMP20]], [[TMP12]]
@@ -55,7 +53,7 @@ define i32 @x264_pixel_satd_16x16(ptr noalias nocapture readonly %pix1, i32 %i_p
 ; CHECK:       afterloop.1247:
 ; CHECK-NEXT:    ret i32 0
 ;
-; CHECKWOIC-LABEL: define {{[^@]+}}@x264_pixel_satd_16x16(
+; CHECKWOIC-LABEL: @x264_pixel_satd_16x16(
 ; CHECKWOIC-NEXT:  entry:
 ; CHECKWOIC-NEXT:    [[IDX_EXT_I:%.*]] = sext i32 [[I_PIX1:%.*]] to i64
 ; CHECKWOIC-NEXT:    [[IDX_EXT63_I:%.*]] = sext i32 [[I_PIX2:%.*]] to i64
@@ -84,15 +82,13 @@ define i32 @x264_pixel_satd_16x16(ptr noalias nocapture readonly %pix1, i32 %i_p
 ; CHECKWOIC-NEXT:    [[TMP10:%.*]] = sub <4 x i32> [[TMP9]], [[TMP6]]
 ; CHECKWOIC-NEXT:    [[TMP11:%.*]] = sub <4 x i32> [[TMP10]], [[TMP8]]
 ; CHECKWOIC-NEXT:    [[TMP12:%.*]] = add <4 x i32> [[TMP11]], [[TMP4]]
-; CHECKWOIC-NEXT:    [[TMP13:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 undef, i32 undef>
-; CHECKWOIC-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP13]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
-; CHECKWOIC-NEXT:    [[TMP14:%.*]] = add <4 x i32> [[SHUFFLE]], [[TMP12]]
-; CHECKWOIC-NEXT:    [[TMP15:%.*]] = sub <4 x i32> [[SHUFFLE]], [[TMP12]]
+; CHECKWOIC-NEXT:    [[TMP13:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 1, i32 0, i32 0, i32 1>
+; CHECKWOIC-NEXT:    [[TMP14:%.*]] = add <4 x i32> [[TMP13]], [[TMP12]]
+; CHECKWOIC-NEXT:    [[TMP15:%.*]] = sub <4 x i32> [[TMP13]], [[TMP12]]
 ; CHECKWOIC-NEXT:    [[TMP16:%.*]] = shufflevector <4 x i32> [[TMP14]], <4 x i32> [[TMP15]], <4 x i32> <i32 3, i32 2, i32 4, i32 1>
-; CHECKWOIC-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-; CHECKWOIC-NEXT:    [[SHUFFLE1:%.*]] = shufflevector <4 x i32> [[TMP17]], <4 x i32> poison, <4 x i32> <i32 0, i32 1, i32 1, i32 0>
-; CHECKWOIC-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[TMP16]], [[SHUFFLE1]]
-; CHECKWOIC-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[TMP16]], [[SHUFFLE1]]
+; CHECKWOIC-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i32> [[TMP12]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 3, i32 2>
+; CHECKWOIC-NEXT:    [[TMP18:%.*]] = add <4 x i32> [[TMP16]], [[TMP17]]
+; CHECKWOIC-NEXT:    [[TMP19:%.*]] = sub <4 x i32> [[TMP16]], [[TMP17]]
 ; CHECKWOIC-NEXT:    [[TMP20:%.*]] = shufflevector <4 x i32> [[TMP18]], <4 x i32> [[TMP19]], <4 x i32> <i32 0, i32 5, i32 6, i32 7>
 ; CHECKWOIC-NEXT:    [[TMP21:%.*]] = add <4 x i32> [[TMP20]], [[TMP12]]
 ; CHECKWOIC-NEXT:    [[TMP22:%.*]] = sub <4 x i32> [[TMP20]], [[TMP12]]
