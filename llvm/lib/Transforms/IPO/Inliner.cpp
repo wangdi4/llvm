@@ -44,7 +44,6 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
-#include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
@@ -93,7 +92,6 @@ using namespace InlineReportTypes; // INTEL
 #define DEBUG_TYPE "inline"
 
 STATISTIC(NumInlined, "Number of functions inlined");
-STATISTIC(NumCallsDeleted, "Number of call sites deleted, not inlined");
 STATISTIC(NumDeleted, "Number of functions deleted because all callers found");
 #if INTEL_CUSTOMIZATION
 STATISTIC(NumMergedAllocas, "Number of allocas merged together");
@@ -142,6 +140,7 @@ static cl::opt<bool>
     EnablePostSCCAdvisorPrinting("enable-scc-inline-advisor-printing",
                                  cl::init(false), cl::Hidden);
 
+<<<<<<< HEAD
 namespace llvm {
 extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 }
@@ -150,6 +149,8 @@ extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 extern cl::opt<bool> DTransInlineHeuristics;
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
 
 static cl::opt<std::string> CGSCCInlineReplayFile(
     "cgscc-inline-replay", cl::init(""), cl::value_desc("filename"),
@@ -202,6 +203,7 @@ static cl::opt<CallSiteFormat::Format> CGSCCInlineReplayFormat(
                    "<Line Number>:<Column Number>.<Discriminator> (default)")),
     cl::desc("How cgscc inline replay file is formatted"), cl::Hidden);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 LegacyInlinerBase::LegacyInlinerBase(char &ID) : CallGraphSCCPass(ID) {
   Report = getInlineReport();
@@ -385,6 +387,8 @@ static InlineResult inlineCallIfPossible(
   return IR; // success
 }
 
+=======
+>>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
 /// Return true if the specified inline history ID
 /// indicates an inline history that includes the specified function.
 static bool inlineHistoryIncludes(
@@ -400,6 +404,7 @@ static bool inlineHistoryIncludes(
   return false;
 }
 
+<<<<<<< HEAD
 bool LegacyInlinerBase::doInitialization(CallGraph &CG) {
   if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)
     ImportedFunctionsStats.setModuleInfo(CG.getModule());
@@ -890,6 +895,8 @@ InlinerPass::~InlinerPass() {
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
 InlineAdvisor &
 InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                         FunctionAnalysisManager &FAM, Module &M) {
@@ -1156,7 +1163,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       // Setup the data structure used to plumb customization into the
       // `InlineFunction` routine.
       InlineFunctionInfo IFI(
-          /*cg=*/nullptr, GetAssumptionCache, PSI,
+          GetAssumptionCache, PSI,
           &FAM.getResult<BlockFrequencyAnalysis>(*(CB->getCaller())),
           &FAM.getResult<BlockFrequencyAnalysis>(Callee));
 

@@ -1796,6 +1796,7 @@ static void AddAlignmentAssumptions(CallBase &CB, InlineFunctionInfo &IFI) {
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// In case of new callsites appearing in the inlined code we need to have
 /// a list of original callsites and inlined callsites for correct transfer
@@ -1921,6 +1922,8 @@ static void UpdateCallGraphAfterInlining(CallBase &CB,
   CallerNode->removeCallEdgeFor(*cast<CallBase>(&CB));
 }
 
+=======
+>>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
 static void HandleByValArgumentInit(Type *ByValType, Value *Dst, Value *Src,
                                     Module *M, BasicBlock *InsertBlock,
                                     InlineFunctionInfo &IFI,
@@ -2964,6 +2967,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       }
     }
 
+<<<<<<< HEAD
     // Update the callgraph if requested.
 #if INTEL_CUSTOMIZATION
     if (IFI.CG)
@@ -2971,6 +2975,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     UpdateIFIWithoutCG(CB, VMap, IFI, IR, MDIR);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
     // For 'nodebug' functions, the associated DISubprogram is always null.
     // Conservatively avoid propagating the callsite debug location to
     // instructions inlined from a function whose DISubprogram is not null.
@@ -3417,7 +3423,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   // call graph updates weren't requested, as those provide value handle based
   // tracking of inlined call sites instead. Calls to intrinsics are not
   // collected because they are not inlineable.
-  if (InlinedFunctionInfo.ContainsCalls && !IFI.CG) {
+  if (InlinedFunctionInfo.ContainsCalls) {
     // Otherwise just collect the raw call sites that were inlined.
     for (BasicBlock &NewBB :
          make_range(FirstNewBlock->getIterator(), Caller->end()))

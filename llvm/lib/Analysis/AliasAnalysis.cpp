@@ -1208,6 +1208,7 @@ bool llvm::isNotVisibleOnUnwind(const Value *Object,
 
   return false;
 }
+<<<<<<< HEAD
 
 void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   // This function needs to be in sync with llvm::createLegacyPMAAResults -- if
@@ -1223,3 +1224,5 @@ void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
   AU.addUsedIfAvailable<ExternalAAWrapperPass>();
   AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
 }
+=======
+>>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb

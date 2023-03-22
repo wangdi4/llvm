@@ -1281,7 +1281,7 @@ bool SampleProfileLoader::tryInlineCandidate(
   if (!Cost)
     return false;
 
-  InlineFunctionInfo IFI(nullptr, GetAC);
+  InlineFunctionInfo IFI(GetAC);
   IFI.UpdateProfile = false;
 #if INTEL_CUSTOMIZATION
   InlineResult IR = InlineFunction(CB, IFI, nullptr, nullptr,

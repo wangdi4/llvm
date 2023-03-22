@@ -43,6 +43,7 @@ class AssumptionCacheTracker;
 class CallGraph;
 class ProfileSummaryInfo;
 
+<<<<<<< HEAD
 /// This class contains all of the helper code which is used to perform the
 /// inlining operations that do not depend on the policy. It contains the core
 /// bottom-up inlining infrastructure that specific inliner passes use.
@@ -113,6 +114,8 @@ protected:
   ImportedFunctionsInliningStatistics ImportedFunctionsStats;
 };
 
+=======
+>>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
 /// The inliner pass for the new pass manager.
 ///
 /// This pass wires together the inlining utilities and the inline cost
