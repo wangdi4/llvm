@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -localaccessortosharedmemory %s -S -o - | FileCheck %s
-=======
 ; RUN: opt -bugpoint-enable-legacy-pm -localaccessortosharedmemory %s -S -o - | FileCheck %s
->>>>>>> c033cd60051cace92f47102bbc6b119777b42cca
 ; ModuleID = 'multiple-functions.bc'
 source_filename = "multiple-functions.ll"
 target datalayout = "e-i64:64-i128:128-v16:16-v32:32-n16:32:64"

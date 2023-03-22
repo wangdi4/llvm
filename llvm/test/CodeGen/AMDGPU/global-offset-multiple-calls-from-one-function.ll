@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -globaloffset %s -S -o - | FileCheck %s
-=======
 ; RUN: opt -bugpoint-enable-legacy-pm -globaloffset %s -S -o - | FileCheck %s
->>>>>>> c033cd60051cace92f47102bbc6b119777b42cca
 ; ModuleID = 'global-offset-multiple-calls-from-one-function.bc'
 source_filename = "global-offset-multiple-calls-from-one-function.ll"
 
