@@ -17560,16 +17560,16 @@ multiclass avx512_sat_cvt_maskable<bits<8> Opc, Format F,
                                    list<dag> Pattern,
                                    list<dag> MaskingPattern,
                                    list<dag> ZeroMaskingPattern> {
-    def : AVX512<Opc, F, Outs, Ins,
+    def NAME: AVX512<Opc, F, Outs, Ins,
               OpStr#"\t{"#AttSrcAsm#", $dst|"#"$dst, "#IntelSrcAsm#"}",
               Pattern>;
     let Constraints = "$src0 = $dst" in
-    def k: AVX512<Opc, F, Outs,
+    def NAME#k: AVX512<Opc, F, Outs,
               !con((ins DestInfo.RC:$src0, DestInfo.KRCWM:$mask), Ins),
                OpStr#"\t{"#AttSrcAsm#", $dst {${mask}}|"#
                         "$dst {${mask}}, "#IntelSrcAsm#"}",
               MaskingPattern>, EVEX_K;
-    def kz: AVX512<Opc, F, Outs,
+    def NAME#kz: AVX512<Opc, F, Outs,
               !con((ins DestInfo.KRCWM:$mask), Ins),
                OpStr#"\t{"#AttSrcAsm#", $dst {${mask}} {z}|"#
                              "$dst {${mask}} {z}, "#IntelSrcAsm#"}",
