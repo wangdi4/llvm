@@ -6,11 +6,9 @@
 define i64 @reduce_orq_13xi64(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_orq_13xi64:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa64 64(%rdi), %zmm0
-; AVX512REDUCTION-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512REDUCTION-NEXT:    movb $127, %al
+; AVX512REDUCTION-NEXT:    movb $31, %al
 ; AVX512REDUCTION-NEXT:    kmovw %eax, %k1
-; AVX512REDUCTION-NEXT:    vpexpandq %zmm0, %zmm0 {%k1} {z}
+; AVX512REDUCTION-NEXT:    vpexpandq 64(%rdi), %zmm0 {%k1} {z}
 ; AVX512REDUCTION-NEXT:    vporq (%rdi), %zmm0, %zmm0
 ; AVX512REDUCTION-NEXT:    vphrorq %zmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovq %xmm0, %rax
@@ -19,11 +17,9 @@ define i64 @reduce_orq_13xi64(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_orq_13xi64:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa64 64(%rdi), %zmm0
-; AVX512F-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512F-NEXT:    movb $127, %al
+; AVX512F-NEXT:    movb $31, %al
 ; AVX512F-NEXT:    kmovw %eax, %k1
-; AVX512F-NEXT:    vpexpandq %zmm0, %zmm0 {%k1} {z}
+; AVX512F-NEXT:    vpexpandq 64(%rdi), %zmm0 {%k1} {z}
 ; AVX512F-NEXT:    vporq (%rdi), %zmm0, %zmm0
 ; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
 ; AVX512F-NEXT:    vpor %ymm1, %ymm0, %ymm0
@@ -228,11 +224,9 @@ define i32 @reduce_ord_16xi32(<16 x i32> %vec) {
 define i32 @reduce_ord_13xi32(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_ord_13xi32:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa64 (%rdi), %zmm0
-; AVX512REDUCTION-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512REDUCTION-NEXT:    movw $32767, %ax # imm = 0x7FFF
+; AVX512REDUCTION-NEXT:    movw $8191, %ax # imm = 0x1FFF
 ; AVX512REDUCTION-NEXT:    kmovw %eax, %k1
-; AVX512REDUCTION-NEXT:    vpexpandd %zmm0, %zmm0 {%k1} {z}
+; AVX512REDUCTION-NEXT:    vpexpandd (%rdi), %zmm0 {%k1} {z}
 ; AVX512REDUCTION-NEXT:    vphrord %zmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    vzeroupper
@@ -240,11 +234,9 @@ define i32 @reduce_ord_13xi32(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_ord_13xi32:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa64 (%rdi), %zmm0
-; AVX512F-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512F-NEXT:    movw $32767, %ax # imm = 0x7FFF
+; AVX512F-NEXT:    movw $8191, %ax # imm = 0x1FFF
 ; AVX512F-NEXT:    kmovw %eax, %k1
-; AVX512F-NEXT:    vpexpandd %zmm0, %zmm0 {%k1} {z}
+; AVX512F-NEXT:    vpexpandd (%rdi), %zmm0 {%k1} {z}
 ; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm0
 ; AVX512F-NEXT:    vpor (%rdi), %ymm0, %ymm0
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
@@ -540,8 +532,7 @@ define i16 @reduce_orw_13xi16(ptr %p) {
 ; AVX512F-LABEL: reduce_orw_13xi16:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vmovdqa (%rdi), %xmm0
-; AVX512F-NEXT:    vmovdqa 16(%rdi), %xmm1
-; AVX512F-NEXT:    vpternlogq $236, {{\.?LCPI[0-9]+_[0-9]+}}+16(%rip), %xmm0, %xmm1
+; AVX512F-NEXT:    vpor 16(%rdi), %xmm0, %xmm1
 ; AVX512F-NEXT:    vpextrw $1, %xmm1, %eax
 ; AVX512F-NEXT:    vmovd %xmm1, %ecx
 ; AVX512F-NEXT:    orl %eax, %ecx
@@ -899,31 +890,30 @@ define i8 @reduce_orb_17xi8(ptr %p) {
 ; AVX512F-LABEL: reduce_orb_17xi8:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vmovdqa (%rdi), %xmm0
-; AVX512F-NEXT:    vmovdqa 16(%rdi), %xmm1
-; AVX512F-NEXT:    vpextrb $1, %xmm0, %eax
-; AVX512F-NEXT:    vpternlogq $236, {{\.?LCPI[0-9]+_[0-9]+}}+16(%rip), %xmm0, %xmm1
-; AVX512F-NEXT:    vmovd %xmm1, %ecx
+; AVX512F-NEXT:    vpor 16(%rdi), %xmm0, %xmm1
+; AVX512F-NEXT:    vmovd %xmm1, %eax
+; AVX512F-NEXT:    vpextrb $1, %xmm0, %ecx
 ; AVX512F-NEXT:    vpextrb $2, %xmm0, %edx
-; AVX512F-NEXT:    orl %eax, %edx
-; AVX512F-NEXT:    vpextrb $3, %xmm0, %eax
-; AVX512F-NEXT:    orl %edx, %eax
+; AVX512F-NEXT:    orl %ecx, %edx
+; AVX512F-NEXT:    vpextrb $3, %xmm0, %ecx
+; AVX512F-NEXT:    orl %edx, %ecx
 ; AVX512F-NEXT:    vpextrb $4, %xmm0, %edx
-; AVX512F-NEXT:    orl %eax, %edx
-; AVX512F-NEXT:    vpextrb $5, %xmm0, %eax
-; AVX512F-NEXT:    orl %edx, %eax
-; AVX512F-NEXT:    orl %ecx, %eax
-; AVX512F-NEXT:    vpextrb $6, %xmm0, %ecx
+; AVX512F-NEXT:    orl %ecx, %edx
+; AVX512F-NEXT:    vpextrb $5, %xmm0, %ecx
+; AVX512F-NEXT:    orl %edx, %ecx
+; AVX512F-NEXT:    orl %eax, %ecx
+; AVX512F-NEXT:    vpextrb $6, %xmm0, %eax
 ; AVX512F-NEXT:    vpextrb $7, %xmm0, %edx
-; AVX512F-NEXT:    orl %ecx, %edx
-; AVX512F-NEXT:    vpextrb $8, %xmm0, %ecx
-; AVX512F-NEXT:    orl %edx, %ecx
-; AVX512F-NEXT:    vpextrb $9, %xmm0, %edx
-; AVX512F-NEXT:    orl %ecx, %edx
-; AVX512F-NEXT:    vpextrb $10, %xmm0, %ecx
-; AVX512F-NEXT:    orl %edx, %ecx
-; AVX512F-NEXT:    vpextrb $11, %xmm0, %edx
-; AVX512F-NEXT:    orl %ecx, %edx
 ; AVX512F-NEXT:    orl %eax, %edx
+; AVX512F-NEXT:    vpextrb $8, %xmm0, %eax
+; AVX512F-NEXT:    orl %edx, %eax
+; AVX512F-NEXT:    vpextrb $9, %xmm0, %edx
+; AVX512F-NEXT:    orl %eax, %edx
+; AVX512F-NEXT:    vpextrb $10, %xmm0, %eax
+; AVX512F-NEXT:    orl %edx, %eax
+; AVX512F-NEXT:    vpextrb $11, %xmm0, %edx
+; AVX512F-NEXT:    orl %eax, %edx
+; AVX512F-NEXT:    orl %ecx, %edx
 ; AVX512F-NEXT:    vpextrb $12, %xmm0, %eax
 ; AVX512F-NEXT:    vpextrb $13, %xmm0, %ecx
 ; AVX512F-NEXT:    orl %eax, %ecx

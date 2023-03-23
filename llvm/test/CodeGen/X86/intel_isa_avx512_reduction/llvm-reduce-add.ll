@@ -6,11 +6,9 @@
 define i64 @reduce_addq_13xi64(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_addq_13xi64:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa64 64(%rdi), %zmm0
-; AVX512REDUCTION-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512REDUCTION-NEXT:    movb $127, %al
+; AVX512REDUCTION-NEXT:    movb $31, %al
 ; AVX512REDUCTION-NEXT:    kmovw %eax, %k1
-; AVX512REDUCTION-NEXT:    vpexpandq %zmm0, %zmm0 {%k1} {z}
+; AVX512REDUCTION-NEXT:    vpexpandq 64(%rdi), %zmm0 {%k1} {z}
 ; AVX512REDUCTION-NEXT:    vpaddq (%rdi), %zmm0, %zmm0
 ; AVX512REDUCTION-NEXT:    vphraddq %zmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovq %xmm0, %rax
@@ -19,11 +17,9 @@ define i64 @reduce_addq_13xi64(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_addq_13xi64:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa64 64(%rdi), %zmm0
-; AVX512F-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512F-NEXT:    movb $127, %al
+; AVX512F-NEXT:    movb $31, %al
 ; AVX512F-NEXT:    kmovw %eax, %k1
-; AVX512F-NEXT:    vpexpandq %zmm0, %zmm0 {%k1} {z}
+; AVX512F-NEXT:    vpexpandq 64(%rdi), %zmm0 {%k1} {z}
 ; AVX512F-NEXT:    vpaddq (%rdi), %zmm0, %zmm0
 ; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
 ; AVX512F-NEXT:    vpaddq %ymm1, %ymm0, %ymm0
@@ -233,11 +229,9 @@ define i32 @reduce_addd_16xi32(<16 x i32> %vec) {
 define i32 @reduce_addd_13xi32(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_addd_13xi32:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa64 (%rdi), %zmm0
-; AVX512REDUCTION-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512REDUCTION-NEXT:    movw $32767, %ax # imm = 0x7FFF
+; AVX512REDUCTION-NEXT:    movw $8191, %ax # imm = 0x1FFF
 ; AVX512REDUCTION-NEXT:    kmovw %eax, %k1
-; AVX512REDUCTION-NEXT:    vpexpandd %zmm0, %zmm0 {%k1} {z}
+; AVX512REDUCTION-NEXT:    vpexpandd (%rdi), %zmm0 {%k1} {z}
 ; AVX512REDUCTION-NEXT:    vphraddd %zmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    vzeroupper
@@ -245,11 +239,9 @@ define i32 @reduce_addd_13xi32(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_addd_13xi32:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa64 (%rdi), %zmm0
-; AVX512F-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512F-NEXT:    movw $32767, %ax # imm = 0x7FFF
+; AVX512F-NEXT:    movw $8191, %ax # imm = 0x1FFF
 ; AVX512F-NEXT:    kmovw %eax, %k1
-; AVX512F-NEXT:    vpexpandd %zmm0, %zmm0 {%k1} {z}
+; AVX512F-NEXT:    vpexpandd (%rdi), %zmm0 {%k1} {z}
 ; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm0
 ; AVX512F-NEXT:    vpaddd (%rdi), %ymm0, %ymm0
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
