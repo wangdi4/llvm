@@ -56,9 +56,9 @@ __attribute__((sycl_kernel)) void kernel_single_task(const Func &kernelFunc) {
 
 int main() {
   kernel_single_task<class kernel_function>([]() {
-    // CHECK: alloca target("spirv.Pipe", 1)
+    // CHECK: alloca ptr
     WPipeTy wpipe = WPipeCreator();
-    // CHECK: alloca target("spirv.Pipe", 0)
+    // CHECK: alloca ptr
     RPipeTy rpipe = RPipeCreator();
     foo<WPipeTy>(wpipe);
     foo<RPipeTy>(rpipe);
