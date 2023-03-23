@@ -1248,4 +1248,4 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   writeResult();
 }
 
-} // namespace wasm::lld
+} // namespace lld::wasm
