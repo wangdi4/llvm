@@ -74,7 +74,6 @@
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
-#include "llvm/Transforms/IPO/MemProfContextDisambiguation.h"
 #include "llvm/Transforms/IPO/MergeFunctions.h"
 #include "llvm/Transforms/IPO/ModuleInliner.h"
 #include "llvm/Transforms/IPO/OpenMPOpt.h"
@@ -615,10 +614,6 @@ static cl::opt<AttributorRunOption> AttributorRun(
                           "enable call graph SCC attributor runs"),
                clEnumValN(AttributorRunOption::NONE, "none",
                           "disable attributor runs")));
-
-cl::opt<bool> EnableMemProfContextDisambiguation(
-    "enable-memprof-context-disambiguation", cl::init(false), cl::Hidden,
-    cl::ZeroOrMore, cl::desc("Enable MemProf context disambiguation"));
 
 PipelineTuningOptions::PipelineTuningOptions() {
   LoopInterleaving = true;
@@ -3376,6 +3371,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       InlineContext{ThinOrFullLTOPhase::FullLTOPostLink,
                     InlinePass::CGSCCInliner}));
 
+<<<<<<< HEAD
 #if INTEL_FEATURE_SW_DTRANS
   // The global optimizer pass can convert function calls to use
   // the 'fastcc' calling convention. The following pass enables more
@@ -3395,6 +3391,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (EnableMemProfContextDisambiguation)
     MPM.addPass(MemProfContextDisambiguation());
 
+=======
+>>>>>>> 883dbb9c86be87593a58ef10b070b3a0564c7fee
   // Optimize globals again after we ran the inliner.
   MPM.addPass(GlobalOptPass());
 
