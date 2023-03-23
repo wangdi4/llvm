@@ -64,9 +64,11 @@
 #endif
 #include <sycl/ext/codeplay/experimental/fusion_wrapper.hpp>
 #include <sycl/ext/intel/usm_pointers.hpp>
+#ifndef DISABLE_SYCL_EXT_ANNOTATED_XXX
 #include <sycl/ext/oneapi/annotated_arg/annotated_arg.hpp>
 #include <sycl/ext/oneapi/annotated_arg/annotated_ptr.hpp>
 #include <sycl/ext/oneapi/annotated_arg/properties.hpp>
+#endif
 #include <sycl/ext/oneapi/device_global/device_global.hpp>
 #include <sycl/ext/oneapi/device_global/properties.hpp>
 #include <sycl/ext/oneapi/experimental/ballot_group.hpp>
