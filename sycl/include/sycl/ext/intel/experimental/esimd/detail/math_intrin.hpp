@@ -160,6 +160,18 @@ __esimd_qf_cvt(__ESIMD_DNS::vector_type_t<SrcType, N> src)
 
 template <int N, typename DstType, typename SrcType>
 __DPCPP_SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
+__esimd_hf8_cvt(__ESIMD_DNS::vector_type_t<SrcType, N> src)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw sycl::feature_not_supported();
+  return {};
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+template <int N, typename DstType, typename SrcType>
+__DPCPP_SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
 __esimd_srnd(__ESIMD_DNS::vector_type_t<SrcType, N> src1,
              __ESIMD_DNS::vector_type_t<SrcType, N> src2)
 #ifdef __SYCL_DEVICE_ONLY__
