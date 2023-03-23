@@ -1091,10 +1091,9 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
     // Ensure that we generate the same type as IndVar, or a smaller integer
     // type. In the presence of null pointer values, we have an integer type
     // SCEV expression (IVInit) for a pointer type IV value (IndVar).
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
     Type *LimitTy = ExitCount->getType();
     BranchInst *BI = cast<BranchInst>(ExitingBB->getTerminator());
-#if INTEL_CUSTOMIZATION
     if (!PreIncOrigIVLimit)
       if (auto *PostIncOrigIVLimit =
               getOrigIVLimitBinOp(BI->getCondition(), IVLimit, *SE))
@@ -1122,10 +1121,6 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
     }
     return NewIVLimitExpr;
 #endif // INTEL_CUSTOMIZATION
-=======
-    return Rewriter.expandCodeFor(IVLimit, ExitCount->getType(),
-                                  ExitingBB->getTerminator());
->>>>>>> 06006f438e1b9168a859b8d7d5273f0170330ebd
   }
 }
 
