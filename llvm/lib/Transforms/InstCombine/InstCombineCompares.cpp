@@ -4152,7 +4152,6 @@ Value *InstCombinerImpl::foldMultiplicationOverflowCheck(ICmpInst &I) {
   return Res;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Checks if \p Cmp is the loop backedge condition.
 // For example-
@@ -4186,11 +4185,8 @@ static bool isLoopBackedgeCompare(ICmpInst *Cmp, Value *IV, Value *CmpOp1) {
           (Br->getSuccessor(0) == IVPhiBB || Br->getSuccessor(1) == IVPhiBB));
 }
 #endif // INTEL_CUSTOMIZATION
-static Instruction *foldICmpXNegX(ICmpInst &I) {
-=======
 static Instruction *foldICmpXNegX(ICmpInst &I,
                                   InstCombiner::BuilderTy &Builder) {
->>>>>>> 7949a2a802f0791eaf7c6ecbdd6ed5daa2a278cf
   CmpInst::Predicate Pred;
   Value *X;
   if (match(&I, m_c_ICmp(Pred, m_NSWNeg(m_Value(X)), m_Deferred(X)))) {
