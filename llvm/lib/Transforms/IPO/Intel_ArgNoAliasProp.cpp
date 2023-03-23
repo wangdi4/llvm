@@ -263,7 +263,8 @@ struct ArgNoAliasProp : public ModulePass {
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
-    getAAResultsAnalysisUsage(AU);
+    // Commenting this out uintil we remove the legacy pass manager code.
+    // getAAResultsAnalysisUsage(AU);
   }
 
   bool runOnModule(Module &M) override {
