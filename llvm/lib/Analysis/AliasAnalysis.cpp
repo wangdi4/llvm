@@ -1208,21 +1208,3 @@ bool llvm::isNotVisibleOnUnwind(const Value *Object,
 
   return false;
 }
-<<<<<<< HEAD
-
-void llvm::getAAResultsAnalysisUsage(AnalysisUsage &AU) {
-  // This function needs to be in sync with llvm::createLegacyPMAAResults -- if
-  // more alias analyses are added to llvm::createLegacyPMAAResults, they need
-  // to be added here also.
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
-  AU.addUsedIfAvailable<StdContainerAAWrapperPass>(); // INTEL
-  AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
-  AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>(); // INTEL
-  AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
-  AU.addUsedIfAvailable<AndersensAAWrapperPass>();        // INTEL
-  AU.addUsedIfAvailable<ExternalAAWrapperPass>();
-  AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
-}
-=======
->>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb

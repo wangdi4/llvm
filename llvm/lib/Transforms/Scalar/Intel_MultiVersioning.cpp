@@ -637,7 +637,8 @@ public:
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
     AU.addPreserved<TargetTransformInfoWrapperPass>();
-    getAAResultsAnalysisUsage(AU);
+    // Comment out until we can remove it
+    // getAAResultsAnalysisUsage(AU);
   }
 };
 

@@ -1796,7 +1796,6 @@ static void AddAlignmentAssumptions(CallBase &CB, InlineFunctionInfo &IFI) {
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// In case of new callsites appearing in the inlined code we need to have
 /// a list of original callsites and inlined callsites for correct transfer
@@ -1804,9 +1803,6 @@ static void AddAlignmentAssumptions(CallBase &CB, InlineFunctionInfo &IFI) {
 static void UpdateIFIWithoutCG(CallBase &OrigCB, ValueToValueMapTy &VMap,
                                InlineFunctionInfo &IFI, InlineReport *IR,
                                InlineReportBuilder *MDIR) {
-  if (IFI.CG && !(IR && IR->isClassicIREnabled()) &&
-      !(MDIR && MDIR->isMDIREnabled()))
-    return;
   Function *Caller = OrigCB.getCalledFunction();
   if (!Caller)
     return;
@@ -1841,89 +1837,12 @@ static void UpdateIFIWithoutCG(CallBase &OrigCB, ValueToValueMapTy &VMap,
       IR->addActiveCallSitePair(&I, NewCallBase);
     if (MDIR && MDIR->isMDIREnabled())
       MDIR->addActiveCallSitePair(&I, NewCallBase);
-    if (!IFI.CG && !II)
+    if (!II)
       IFI.InlinedCalls.push_back(NewCall);
   }
 }
 #endif // INTEL_CUSTOMIZATION
 
-/// Once we have cloned code over from a callee into the caller,
-/// update the specified callgraph to reflect the changes we made.
-/// Note that it's possible that not all code was copied over, so only
-/// some edges of the callgraph may remain.
-static void UpdateCallGraphAfterInlining(CallBase &CB,
-                                         Function::iterator FirstNewBlock,
-                                         ValueToValueMapTy &VMap,
-                                         InlineFunctionInfo &IFI) {
-  CallGraph &CG = *IFI.CG;
-  const Function *Caller = CB.getCaller();
-  const Function *Callee = CB.getCalledFunction();
-  CallGraphNode *CalleeNode = CG[Callee];
-  CallGraphNode *CallerNode = CG[Caller];
-
-  // Since we inlined some uninlined call sites in the callee into the caller,
-  // add edges from the caller to all of the callees of the callee.
-  CallGraphNode::iterator I = CalleeNode->begin(), E = CalleeNode->end();
-
-  // Consider the case where CalleeNode == CallerNode.
-  CallGraphNode::CalledFunctionsVector CallCache;
-  if (CalleeNode == CallerNode) {
-    CallCache.assign(I, E);
-    I = CallCache.begin();
-    E = CallCache.end();
-  }
-
-  for (; I != E; ++I) {
-    // Skip 'refererence' call records.
-    if (!I->first)
-      continue;
-
-    const Value *OrigCall = *I->first;
-
-    ValueToValueMapTy::iterator VMI = VMap.find(OrigCall);
-    // Only copy the edge if the call was inlined!
-    if (VMI == VMap.end() || VMI->second == nullptr)
-      continue;
-
-    // If the call was inlined, but then constant folded, there is no edge to
-    // add.  Check for this case.
-    auto *NewCall = dyn_cast<CallBase>(VMI->second);
-    if (!NewCall)
-      continue;
-
-    // We do not treat intrinsic calls like real function calls because we
-    // expect them to become inline code; do not add an edge for an intrinsic.
-    if (NewCall->getCalledFunction() &&
-        NewCall->getCalledFunction()->isIntrinsic())
-      continue;
-
-    // Remember that this call site got inlined for the client of
-    // InlineFunction.
-    IFI.InlinedCalls.push_back(NewCall);
-
-    // It's possible that inlining the callsite will cause it to go from an
-    // indirect to a direct call by resolving a function pointer.  If this
-    // happens, set the callee of the new call site to a more precise
-    // destination.  This can also happen if the call graph node of the caller
-    // was just unnecessarily imprecise.
-    if (!I->second->getFunction())
-      if (Function *F = NewCall->getCalledFunction()) {
-        // Indirect call site resolved to direct call.
-        CallerNode->addCalledFunction(NewCall, CG[F]);
-
-        continue;
-      }
-
-    CallerNode->addCalledFunction(NewCall, I->second);
-  }
-
-  // Update the call graph by deleting the edge from Callee to Caller.  We must
-  // do this after the loop above in case Caller and Callee are the same.
-  CallerNode->removeCallEdgeFor(*cast<CallBase>(&CB));
-}
-
-=======
->>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
 static void HandleByValArgumentInit(Type *ByValType, Value *Dst, Value *Src,
                                     Module *M, BasicBlock *InsertBlock,
                                     InlineFunctionInfo &IFI,
@@ -2967,16 +2886,10 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       }
     }
 
-<<<<<<< HEAD
     // Update the callgraph if requested.
 #if INTEL_CUSTOMIZATION
-    if (IFI.CG)
-      UpdateCallGraphAfterInlining(CB, FirstNewBlock, VMap, IFI);
     UpdateIFIWithoutCG(CB, VMap, IFI, IR, MDIR);
 #endif // INTEL_CUSTOMIZATION
-
-=======
->>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
     // For 'nodebug' functions, the associated DISubprogram is always null.
     // Conservatively avoid propagating the callsite debug location to
     // instructions inlined from a function whose DISubprogram is not null.

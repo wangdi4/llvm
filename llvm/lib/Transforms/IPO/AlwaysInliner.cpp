@@ -51,7 +51,6 @@ using namespace InlineReportTypes; // INTEL
 
 #define DEBUG_TYPE "inline"
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 extern cl::opt<unsigned> IntelInlineReportLevel;
 
@@ -62,24 +61,14 @@ AlwaysInlinerPass::AlwaysInlinerPass(bool InsertLifetime)
 }
 #endif // INTEL_CUSTOMIZATION
 
-PreservedAnalyses AlwaysInlinerPass::run(Module &M,
-                                         ModuleAnalysisManager &MAM) {
-  // Add inline assumptions during code generation.
-  FunctionAnalysisManager &FAM =
-      MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-  auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
-    return FAM.getResult<AssumptionAnalysis>(F);
-  };
-  auto &PSI = MAM.getResult<ProfileSummaryAnalysis>(M);
-=======
-namespace {
->>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
-
 bool AlwaysInlineImpl(
     Module &M, bool InsertLifetime, ProfileSummaryInfo &PSI,
     function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
     function_ref<AAResults &(Function &)> GetAAR,
-    function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
+#if INTEL_CUSTOMIZATION
+    function_ref<BlockFrequencyInfo &(Function &)> GetBFI, InlineReport *IR,
+    InlineReportBuilder *MDIR) {
+#endif // INTEL_CUSTOMIZATION
   SmallSetVector<CallBase *, 16> Calls;
   bool Changed = false;
   SmallVector<Function *, 16> InlinedFunctions;
@@ -107,20 +96,17 @@ bool AlwaysInlineImpl(
         DebugLoc DLoc = CB->getDebugLoc();
         BasicBlock *Block = CB->getParent();
 
+#if INTEL_CUSTOMIZATION
         InlineFunctionInfo IFI(GetAssumptionCache, &PSI,
+#endif // INTEL_CUSTOMIZATION
                                GetBFI ? &GetBFI(*Caller) : nullptr,
                                GetBFI ? &GetBFI(F) : nullptr);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         InlineResult Res = InlineFunction(
-            *CB, IFI, getReport(), getMDReport(), /*MergeAttributes=*/true,
-            &FAM.getResult<AAManager>(F), InsertLifetime);
+            *CB, IFI, getInlineReport(), getMDInlineReport(),
+            /*MergeAttributes=*/true, &GetAAR(F), InsertLifetime);
 #endif // INTEL_CUSTOMIZATION
-=======
-        InlineResult Res = InlineFunction(*CB, IFI, /*MergeAttributes=*/true,
-                                          &GetAAR(F), InsertLifetime);
->>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
         if (!Res.isSuccess()) {
           ORE.emit([&]() {
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", // INTEL
@@ -174,12 +160,7 @@ bool AlwaysInlineImpl(
       Changed = true;
     }
   }
-<<<<<<< HEAD
-  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
-=======
-
   return Changed;
->>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
 }
 
 struct AlwaysInlinerLegacyPass : public ModulePass {
@@ -193,44 +174,12 @@ struct AlwaysInlinerLegacyPass : public ModulePass {
     initializeAlwaysInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
-#if INTEL_CUSTOMIZATION
   ~AlwaysInlinerLegacyPass() {
-    getReport()->testAndPrint(this);
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  /// Main run interface method.  We override here to avoid calling skipSCC().
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  bool runOnSCC(CallGraphSCC &SCC) override {
-    getInlineReport()->beginSCC(SCC, this);
-    getMDInlineReport()->beginSCC(SCC);
-    bool RV = inlineCalls(SCC);
-    getInlineReport()->endSCC();
-    return RV;
+    getInlineReport()->testAndPrint(this);
   }
 #endif // INTEL_CUSTOMIZATION
 
-  static char ID; // Pass identification, replacement for typeid
-
-  InlineCost getInlineCost(CallBase &CB) override;
-
-  using llvm::Pass::doFinalization;
-  bool doFinalization(CallGraph &CG) override {
-  return removeDeadFunctions(CG, /*AlwaysInlineOnly=*/true);
-  }
-};
-
-#if INTEL_CUSTOMIZATION
-class UnskippableAlwaysInlinerLegacyPass : public AlwaysInlinerLegacyPass {
-public:
-  UnskippableAlwaysInlinerLegacyPass(bool InsertLietime)
-      : AlwaysInlinerLegacyPass(InsertLietime) {}
-  bool skipSCC(CallGraphSCC &SCC) const override { return false; }
-};
-#endif // INTEL_CUSTOMIZATION
-}
-=======
   bool runOnModule(Module &M) override {
 
     auto &PSI = getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
@@ -242,7 +191,10 @@ public:
     };
 
     return AlwaysInlineImpl(M, InsertLifetime, PSI, GetAssumptionCache, GetAAR,
-                            /*GetBFI*/ nullptr);
+#if INTEL_CUSTOMIZATION
+                            /*GetBFI*/ nullptr, getInlineReport(),
+                            getMDInlineReport());
+#endif // INTEL_CUSTOMIZATION
   }
 
   static char ID; // Pass identification, replacement for typeid
@@ -253,9 +205,6 @@ public:
     AU.addRequired<ProfileSummaryInfoWrapperPass>();
   }
 };
-
-} // namespace
->>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
 
 char AlwaysInlinerLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(AlwaysInlinerLegacyPass, "always-inline",
@@ -270,59 +219,19 @@ Pass *llvm::createAlwaysInlinerLegacyPass(bool InsertLifetime) {
   return new AlwaysInlinerLegacyPass(InsertLifetime);
 }
 
-<<<<<<< HEAD
+/// Main run interface method.  We override here to avoid calling skipSCC().
 #if INTEL_CUSTOMIZATION
+class UnskippableAlwaysInlinerLegacyPass : public AlwaysInlinerLegacyPass {
+public:
+  UnskippableAlwaysInlinerLegacyPass(bool InsertLietime)
+      : AlwaysInlinerLegacyPass(InsertLietime) {}
+};
+
 Pass *llvm::createUnskippableAlwaysInlinerLegacyPass(bool InsertLifetime) {
   return new UnskippableAlwaysInlinerLegacyPass(InsertLifetime);
 }
 #endif // INTEL_CUSTOMIZATION
 
-/// Get the inline cost for the always-inliner.
-///
-/// The always inliner *only* handles functions which are marked with the
-/// attribute to force inlining. As such, it is dramatically simpler and avoids
-/// using the powerful (but expensive) inline cost analysis. Instead it uses
-/// a very simple and boring direct walk of the instructions looking for
-/// impossible-to-inline constructs.
-///
-/// Note, it would be possible to go to some lengths to cache the information
-/// computed here, but as we only expect to do this for relatively few and
-/// small functions which have the explicit attribute to force inlining, it is
-/// likely not worth it in practice.
-InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallBase &CB) {
-  Function *Callee = CB.getCalledFunction();
-
-  // Only inline direct calls to functions with always-inline attributes
-  // that are viable for inlining.
-  if (!Callee)
-    return InlineCost::getNever("indirect call", NinlrNotAlwaysInline); // INTEL
-
-  // When callee coroutine function is inlined into caller coroutine function
-  // before coro-split pass,
-  // coro-early pass can not handle this quiet well.
-  // So we won't inline the coroutine function if it have not been unsplited
-  if (Callee->isPresplitCoroutine())
-    return InlineCost::getNever("unsplited coroutine call");
-
-  // FIXME: We shouldn't even get here for declarations.
-  if (Callee->isDeclaration())
-    return InlineCost::getNever("no definition", NinlrNotAlwaysInline); // INTEL
-
-  if (!CB.hasFnAttr(Attribute::AlwaysInline))
-    return InlineCost::getNever("no alwaysinline attribute",  // INTEL
-                                NinlrNotAlwaysInline); // INTEL
-
-  if (Callee->hasFnAttribute(Attribute::AlwaysInline) && CB.isNoInline())
-    return InlineCost::getNever("noinline call site attribute");
-
-  auto IsViable = isInlineViable(*Callee);
-  if (!IsViable.isSuccess())
-    return InlineCost::getNever(IsViable.getFailureReason(), // INTEL
-                                NinlrNotAlwaysInline);       // INTEL
-
-
-  return InlineCost::getAlways("always inliner", InlrAlwaysInline); // INTEL
-=======
 PreservedAnalyses AlwaysInlinerPass::run(Module &M,
                                          ModuleAnalysisManager &MAM) {
   FunctionAnalysisManager &FAM =
@@ -339,8 +248,7 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
   auto &PSI = MAM.getResult<ProfileSummaryAnalysis>(M);
 
   bool Changed = AlwaysInlineImpl(M, InsertLifetime, PSI, GetAssumptionCache,
-                                  GetAAR, GetBFI);
+                                  GetAAR, GetBFI, getReport(), getMDReport());
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
->>>>>>> fa6ea7a419f37befbed04368bcb8af4c718facbb
 }
