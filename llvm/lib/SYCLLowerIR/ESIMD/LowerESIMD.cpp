@@ -542,7 +542,8 @@ public:
         {"wait", {"dummy.mov", {a(0)}}},
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
-        {"qf_cvt", { "qf.cvt", { a(0) }}},
+        {"qf_cvt", {"qf.cvt", {a(0)}}},
+        {"hf8_cvt", {"hf8.cvt", {a(0)}}},
         {"srnd", {"srnd", {a(0), a(1)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
@@ -1818,3 +1819,4 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
 
   return ESIMDIntrCalls.size();
 }
+
