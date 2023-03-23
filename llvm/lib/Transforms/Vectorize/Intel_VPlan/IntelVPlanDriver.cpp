@@ -157,7 +157,6 @@ static cl::opt<bool> VPlanDebugOptReport(
 static constexpr bool VPlanPrintInit = false;
 static constexpr bool VPlanPrintAfterSingleTripCountOpt = false;
 static constexpr bool VPlanPrintAfterFinalCondTransform = false;
-static constexpr bool VPlanDebugOptReport = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
