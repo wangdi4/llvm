@@ -243,18 +243,14 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
     HDTTMapAccessorTy &HDTTMap, void *HstPtrBegin, void *HstPtrBase,
     int64_t Size, map_var_info_t HstPtrName, bool HasFlagTo, bool HasFlagAlways,
     bool IsImplicit, bool UpdateRefCount, bool HasCloseModifier,
-<<<<<<< HEAD
 #if INTEL_COLLAB
     bool HasPresentModifier, bool HasHoldModifier, bool UseHostMem,
-    AsyncInfoTy &AsyncInfo) {
+    AsyncInfoTy &AsyncInfo, HostDataToTargetTy *OwnedTPR,
+    bool ReleaseHDTTMap) {
 #else // INTEL_COLLAB
-    bool HasPresentModifier, bool HasHoldModifier, AsyncInfoTy &AsyncInfo) {
-#endif // INTEL_COLLAB
-  HDTTMapAccessorTy HDTTMap = HostDataToTargetMap.getExclusiveAccessor();
-=======
     bool HasPresentModifier, bool HasHoldModifier, AsyncInfoTy &AsyncInfo,
     HostDataToTargetTy *OwnedTPR, bool ReleaseHDTTMap) {
->>>>>>> f2c385934b0cb5fee14e62528497f76a9a534d77
+#endif // INTEL_COLLAB
 
   LookupResult LR = lookupMapping(HDTTMap, HstPtrBegin, Size, OwnedTPR);
   LR.TPR.Flags.IsPresent = true;
@@ -313,11 +309,9 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
     DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64
        " for device-accessible memory\n", DPxPTR(HstPtrBegin), Size);
     if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
-      IsHostPtr = true;
-    TargetPointer = HstPtrBegin;
-    IsPresent = false;
-    // Lookup result becomes irrelevant in this case, and it should be ignored.
-    Entry = nullptr;
+      LR.TPR.Flags.IsHostPointer = true;
+    LR.TPR.TargetPointer = HstPtrBegin;
+    LR.TPR.Flags.IsPresent = false;
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
              !HasCloseModifier && !managedMemorySupported()) {
 #else // INTEL_COLLAB
@@ -347,8 +341,7 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
             DPxPTR(HstPtrBegin), Size);
   } else if (Size) {
     // If it is not contained and Size > 0, we should create a new entry for it.
-<<<<<<< HEAD
-    IsNew = true;
+    LR.TPR.Flags.IsNewEntry = true;
 #if INTEL_COLLAB
     int32_t AllocOpt = UseHostMem ? ALLOC_OPT_HOST_MEM : ALLOC_OPT_NONE;
     uintptr_t Ptr = (uintptr_t)dataAllocBase(Size, HstPtrBegin, HstPtrBase,
@@ -356,12 +349,14 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
 #else // INTEL_COLLAB
     uintptr_t Ptr = (uintptr_t)allocData(Size, HstPtrBegin);
 #endif // INTEL_COLLAB
-    Entry = HDTTMap
-                ->emplace(new HostDataToTargetTy(
-                    (uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
-                    (uintptr_t)HstPtrBegin + Size, Ptr, HasHoldModifier,
-                    HstPtrName))
-                .first->HDTT;
+    // Release the mapping table lock only after the entry is locked by
+    // attaching it to TPR.
+    LR.TPR.setEntry(HDTTMap
+                        ->emplace(new HostDataToTargetTy(
+                            (uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
+                            (uintptr_t)HstPtrBegin + Size, Ptr, HasHoldModifier,
+                            HstPtrName))
+                        .first->HDTT);
 #if INTEL_CUSTOMIZATION
     XPTIRegistry->traceMemAssociate((uintptr_t)HstPtrBegin, Ptr);
 #endif // INTEL_CUSTOMIZATION
@@ -371,21 +366,10 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
          "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%" PRId64 ", "
          "DynRefCount=%s, HoldRefCount=%s, Name=%s\n",
          DPxPTR(HstPtrBegin), DPxPTR(Ptr), Size,
-         Entry->dynRefCountToStr().c_str(), Entry->holdRefCountToStr().c_str(),
+         LR.TPR.getEntry()->dynRefCountToStr().c_str(),
+         LR.TPR.getEntry()->holdRefCountToStr().c_str(),
          (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
 #else // INTEL_COLLAB
-=======
-    LR.TPR.Flags.IsNewEntry = true;
-    uintptr_t Ptr = (uintptr_t)allocData(Size, HstPtrBegin);
-    // Release the mapping table lock only after the entry is locked by
-    // attaching it to TPR.
-    LR.TPR.setEntry(HDTTMap
-                        ->emplace(new HostDataToTargetTy(
-                            (uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
-                            (uintptr_t)HstPtrBegin + Size, Ptr, HasHoldModifier,
-                            HstPtrName))
-                        .first->HDTT);
->>>>>>> f2c385934b0cb5fee14e62528497f76a9a534d77
     INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
          "Creating new map entry with HstPtrBase=" DPxMOD
          ", HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%ld, "
@@ -394,12 +378,8 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
          LR.TPR.getEntry()->dynRefCountToStr().c_str(),
          LR.TPR.getEntry()->holdRefCountToStr().c_str(),
          (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-    TargetPointer = (void *)Ptr;
-=======
     LR.TPR.TargetPointer = (void *)Ptr;
->>>>>>> f2c385934b0cb5fee14e62528497f76a9a534d77
 
     // Notify the plugin about the new mapping.
     if (notifyDataMapped(HstPtrBegin, Size))
@@ -418,27 +398,16 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
 
   // If the target pointer is valid, and we need to transfer data, issue the
   // data transfer.
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // Adding extra checks to be on safe side since we have cases more complicated
   // than the upstream.
-  if (Entry && TargetPointer != HstPtrBegin &&
-      TargetPointer && !IsHostPtr && HasFlagTo && (IsNew || HasFlagAlways) &&
-      Size != 0) {
+  if (LR.TPR.getEntry() && LR.TPR.TargetPointer != HstPtrBegin &&
+      LR.TPR.TargetPointer && !LR.TPR.Flags.IsHostPointer && HasFlagTo &&
+      (LR.TPR.Flags.IsNewEntry || HasFlagAlways) && Size != 0) {
 #else // INTEL_COLLAB
-  if (TargetPointer && !IsHostPtr && HasFlagTo && (IsNew || HasFlagAlways) &&
-      Size != 0) {
-#endif // INTEL_COLLAB
-    // Lock the entry before releasing the mapping table lock such that another
-    // thread that could issue data movement will get the right result.
-    std::lock_guard<decltype(*Entry)> LG(*Entry);
-    // Release the mapping table lock right after the entry is locked.
-    HDTTMap.destroy();
-
-=======
   if (LR.TPR.TargetPointer && !LR.TPR.Flags.IsHostPointer && HasFlagTo &&
       (LR.TPR.Flags.IsNewEntry || HasFlagAlways) && Size != 0) {
->>>>>>> f2c385934b0cb5fee14e62528497f76a9a534d77
+#endif // INTEL_COLLAB
     DP("Moving %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
        DPxPTR(HstPtrBegin), DPxPTR(LR.TPR.TargetPointer));
 
@@ -531,28 +500,22 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool UpdateRefCount,
     INFO(OMP_INFOTYPE_MAPPING_EXISTS, DeviceID,
          "Mapping exists with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
          "Size=%" PRId64 ", DynRefCount=%s%s, HoldRefCount=%s%s\n",
-<<<<<<< HEAD
-         DPxPTR(HstPtrBegin), DPxPTR(TP), Size, HT.dynRefCountToStr().c_str(),
-         DynRefCountAction, HT.holdRefCountToStr().c_str(), HoldRefCountAction);
-    TargetPointer = (void *)TP;
+         DPxPTR(HstPtrBegin), DPxPTR(TP), Size,
+         LR.TPR.getEntry()->dynRefCountToStr().c_str(), DynRefCountAction,
+         LR.TPR.getEntry()->holdRefCountToStr().c_str(), HoldRefCountAction);
+    LR.TPR.TargetPointer = (void *)TP;
 
 #if INTEL_COLLAB
   } else if (!requiresMapping(HstPtrBegin, Size)) {
     DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64
        " for device-accessible memory\n", DPxPTR(HstPtrBegin), Size);
     if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
-      IsHostPtr = true;
-    IsPresent = false;
-    TargetPointer = HstPtrBegin;
+      LR.TPR.Flags.IsHostPointer = true;
+    LR.TPR.Flags.IsPresent = false;
+    LR.TPR.TargetPointer = HstPtrBegin;
   } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
              !managedMemorySupported()) {
 #else // INTEL_COLLAB
-=======
-         DPxPTR(HstPtrBegin), DPxPTR(TP), Size,
-         LR.TPR.getEntry()->dynRefCountToStr().c_str(), DynRefCountAction,
-         LR.TPR.getEntry()->holdRefCountToStr().c_str(), HoldRefCountAction);
-    LR.TPR.TargetPointer = (void *)TP;
->>>>>>> f2c385934b0cb5fee14e62528497f76a9a534d77
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
 #endif // INTEL_COLLAB
 

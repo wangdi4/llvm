@@ -394,6 +394,16 @@ private:
   HostDataToTargetTy *Entry = nullptr;
 };
 
+#if INTEL_COLLAB
+/// Map for shadow pointers
+struct ShadowPtrValTy {
+  void *HstPtrVal;
+  void *TgtPtrAddr;
+  void *TgtPtrVal;
+};
+typedef std::map<void *, ShadowPtrValTy> ShadowPtrListTy;
+#endif // INTEL_COLLAB
+
 struct LookupResult {
   struct {
     unsigned IsContained : 1;
@@ -441,10 +451,13 @@ struct DeviceTy {
 
   PendingCtorsDtorsPerLibrary PendingCtorsDtors;
 
-<<<<<<< HEAD
+#if INTEL_COLLAB
   ShadowPtrListTy ShadowPtrMap;
-
   std::mutex PendingGlobalsMtx, ShadowMtx;
+#else // INTEL_COLLAB
+  std::mutex PendingGlobalsMtx;
+#endif // INTEL_COLLAB
+
 #if INTEL_COLLAB
   std::map<int32_t, UsedPtrsTy> UsedPtrs;
   std::mutex UsedPtrsMtx;
@@ -452,13 +465,6 @@ struct DeviceTy {
   std::mutex LambdaPtrsMtx;
   std::map<uint64_t, uint64_t> FnPtrMap;
 #endif // INTEL_COLLAB
-
-  // NOTE: Once libomp gains full target-task support, this state should be
-  // moved into the target task in libomp.
-  std::map<int32_t, uint64_t> LoopTripCnt;
-=======
-  std::mutex PendingGlobalsMtx;
->>>>>>> f2c385934b0cb5fee14e62528497f76a9a534d77
 
   DeviceTy(RTLInfoTy *RTL);
   // DeviceTy is not copyable
@@ -486,27 +492,18 @@ struct DeviceTy {
   /// - Data allocation failed;
   /// - The user tried to do an illegal mapping;
   /// - Data transfer issue fails.
-<<<<<<< HEAD
-  TargetPointerResultTy
-  getTargetPointer(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
-                   map_var_info_t HstPtrName, bool HasFlagTo,
-                   bool HasFlagAlways, bool IsImplicit, bool UpdateRefCount,
-                   bool HasCloseModifier, bool HasPresentModifier,
-#if INTEL_COLLAB
-                   bool HasHoldModifier, bool UseHostMem,
-                   AsyncInfoTy &AsyncInfo);
-#else // INTEL_COLLAB
-                   bool HasHoldModifier, AsyncInfoTy &AsyncInfo);
-#endif // INTEL_COLLAB
-=======
   TargetPointerResultTy getTargetPointer(
       HDTTMapAccessorTy &HDTTMap, void *HstPtrBegin, void *HstPtrBase,
       int64_t Size, map_var_info_t HstPtrName, bool HasFlagTo,
       bool HasFlagAlways, bool IsImplicit, bool UpdateRefCount,
       bool HasCloseModifier, bool HasPresentModifier, bool HasHoldModifier,
+#if INTEL_COLLAB
+      bool UseHostMem, AsyncInfoTy &AsyncInfo,
+      HostDataToTargetTy *OwnedTPR = nullptr, bool ReleaseHDTTMap = true);
+#else // INTEL_COLLAB
       AsyncInfoTy &AsyncInfo, HostDataToTargetTy *OwnedTPR = nullptr,
       bool ReleaseHDTTMap = true);
->>>>>>> f2c385934b0cb5fee14e62528497f76a9a534d77
+#endif // INTEL_COLLAB
 
   /// Return the target pointer for \p HstPtrBegin in \p HDTTMap. The accessor
   /// ensures exclusive access to the HDTT map.
