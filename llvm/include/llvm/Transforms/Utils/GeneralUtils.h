@@ -63,9 +63,9 @@ public:
   template <typename T>
   static Constant* getConstantValue(Type *Ty, LLVMContext &Context, T Val);
 
-  /// \brief Returns Loop in LoopInfo corresponding to the WRN.  The initial
-  /// call to this recursive DFS function should pass in the WRN's EntryBB and
-  /// ExitBB to prevent searching for the loop header outside of the region.
+  /// \brief Returns Loop in \p LI corresponding to the WRN with entry block \p
+  /// EntryBB and exit block \p ExitBB. Passing of WRN's EntryBB and ExitBB is
+  /// required to prevent searching for the loop header outside of the region.
   static Loop *getLoopFromLoopInfo(LoopInfo *LI, DominatorTree *DT,
                                    BasicBlock *EntryBB, BasicBlock *ExitBB);
 

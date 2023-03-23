@@ -148,10 +148,16 @@ static cl::opt<bool> VPlanPrintAfterFinalCondTransform(
 static cl::opt<bool> PrintHIRBeforeVPlan(
     "print-hir-before-vplan", cl::init(false),
     cl::desc("Print HLLoop which we attempt to vectorize via VPlanDriverHIR"));
+
+static cl::opt<bool> VPlanDebugOptReport(
+    "vplan-debug-opt-report", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Enable the output of debug remarks from VPlan in the opt report."));
 #else
 static constexpr bool VPlanPrintInit = false;
 static constexpr bool VPlanPrintAfterSingleTripCountOpt = false;
 static constexpr bool VPlanPrintAfterFinalCondTransform = false;
+static constexpr bool VPlanDebugOptReport = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
