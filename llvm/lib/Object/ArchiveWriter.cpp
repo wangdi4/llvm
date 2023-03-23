@@ -539,13 +539,8 @@ static void writeSymbolMap(raw_ostream &Out, object::Archive::Kind Kind,
 }
 
 static Expected<std::vector<unsigned>>
-<<<<<<< HEAD
-getSymbols(MemoryBufferRef Buf, raw_ostream &SymNames, bool &HasObject, // INTEL
-           bool IsOpaque = false) {                                     // INTEL
-=======
 getSymbols(MemoryBufferRef Buf, uint16_t Index, raw_ostream &SymNames,
-           SymMap *SymMap, bool &HasObject) {
->>>>>>> 4fcbf3842007569880fa916831efefda6b1bd032
+           SymMap *SymMap, bool &HasObject, bool IsOpaque = false) { // INTEL
   std::vector<unsigned> Ret;
 
   // In the scenario when LLVMContext is populated SymbolicFile will contain a
@@ -729,11 +724,7 @@ computeMemberData(raw_ostream &StringTable, raw_ostream &SymNames,
     std::vector<unsigned> Symbols;
     if (NeedSymbols) {
       Expected<std::vector<unsigned>> SymbolsOrErr =
-<<<<<<< HEAD
-          getSymbols(Buf, SymNames, HasObject, IsOpaque); // INTEL
-=======
-          getSymbols(Buf, Index, SymNames, SymMap, HasObject);
->>>>>>> 4fcbf3842007569880fa916831efefda6b1bd032
+          getSymbols(Buf, Index, SymNames, SymMap, HasObject, IsOpaque); // INTEL
       if (!SymbolsOrErr)
         return createFileError(M.MemberName, SymbolsOrErr.takeError());
       Symbols = std::move(*SymbolsOrErr);
