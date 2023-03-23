@@ -612,13 +612,13 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
 
   CurPlan = NewMainPlan;
   unsigned MainUF = Scen.getMainUF();
-  unsigned PrevVF = MainVF * MainUF;
+  unsigned PrevVFUF = MainVF * MainUF;
   PlanDescrs.push_front({LT::LTMain, MainVF, MainUF, CurPlan});
   auto TCInfo = cast<VPlanVector>(CurPlan)
                     ->getMainLoop(true /* StrictCheck */)
                     ->getTripCountInfo();
   if (!TCInfo.IsEstimated)
-    PlanDescrs.front().setMaxTripCount(TCInfo.TripCount / PrevVF);
+    PlanDescrs.front().setMaxTripCount(TCInfo.TripCount / PrevVFUF);
   dumpExistingVPlan(CurPlan);
 
   // The order of insertion of remainders in the list is important. We insert
@@ -634,7 +634,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       auto ScalarPlan = Fab.create(MainPlan, OrigLoop);
       CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
       PlanDescrs.push_front({LT::LTRemainder, 1 /* VF */, 1 /* UF */, CurPlan});
-      PlanDescrs.front().setMaxTripCount(PrevVF - 1);
+      PlanDescrs.front().setMaxTripCount(PrevVFUF - 1);
       dumpNewVPlan(CurPlan);
       break;
     }
@@ -661,7 +661,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       // the main loop. Yes, it can happen that more than 2 iterations, but that
       // does not matter much, for us it's only important that it is not 1
       std::prev(AnchorIter, 1)
-          ->setMaxTripCount((PrevVF - 1) / Rem.VF + (Scen.hasPeel() ? 1 : 0));
+          ->setMaxTripCount((PrevVFUF - 1) / Rem.VF + (Scen.hasPeel() ? 1 : 0));
       UsedPlans.insert(CurPlan);
       break;
     case LK::LKMasked:
@@ -681,7 +681,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       // peel. That is due to we don't execute peel and main loop when scalar TC
       // is less than main VF + PeelCnt. See comment above.
       std::prev(AnchorIter, 1)
-          ->setMaxTripCount(PrevVF / Rem.VF + (Scen.hasPeel() ? 1 : 0));
+          ->setMaxTripCount(PrevVFUF / Rem.VF + (Scen.hasPeel() ? 1 : 0));
       UsedPlans.insert(CurPlan);
     }
 

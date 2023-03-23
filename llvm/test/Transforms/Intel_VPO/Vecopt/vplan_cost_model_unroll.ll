@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 
-; RUN: opt < %s -opaque-pointers=0 -disable-output -passes=vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -vplan-enable-partial-sums=true -vplan-force-uf=4 -vplan-cm-unroll=true -vplan-cm-unroll-partial-sums-only=true | FileCheck %s 
+; RUN: opt < %s -disable-output -passes=vplan-vec -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -vplan-enable-partial-sums=true -vplan-force-uf=4 -vplan-cm-unroll=true -vplan-cm-unroll-partial-sums-only=true | FileCheck %s 
 
-; RUN: opt < %s -opaque-pointers=0 -disable-output -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -vplan-enable-partial-sums=true -vplan-force-uf=4 -vplan-cm-unroll=true -vplan-cm-unroll-partial-sums-only=true | FileCheck %s
+; RUN: opt < %s -disable-output -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=4 -vplan-cost-model-print-analysis-for-vf=4 -vplan-enable-partial-sums=true -vplan-force-uf=4 -vplan-cm-unroll=true -vplan-cm-unroll-partial-sums-only=true | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
