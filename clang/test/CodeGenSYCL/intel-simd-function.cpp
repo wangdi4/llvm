@@ -267,8 +267,8 @@ SYCL_EXTERNAL auto bar()
 //CHECK: @__intel_create_simd_variant_0{{.*}}@_Z3fooif) #[[UNMASK8:[0-9]+]]
 //CHECK: @__intel_create_simd_variant_0{{.*}}@_Z3fooif) #[[MASK8:[0-9]+]]
 
-//CHECK: attributes #[[CALL]] = { "vector-variants"="_ZGVxN4lu__$U0,_ZGVxM4vv__$U0,_ZGVxN8lu__$U0,_ZGVxM8vv__$U0" }
-//CHECK: attributes #[[UNMASK4]] = { "vector-variants"="_ZGVxN4lu__Z3fooif" }
-//CHECK: attributes #[[MASK4]] = { "vector-variants"="_ZGVxM4vv__Z3fooif" }
-//CHECK: attributes #[[UNMASK8]] = { "vector-variants"="_ZGVxN8lu__Z3fooif" }
-//CHECK: attributes #[[MASK8]] = { "vector-variants"="_ZGVxM8vv__Z3fooif" }
+//CHECK: attributes #[[CALL]] = { "vector-variants"="_ZGV_unknown_N4lu__$U0,_ZGV_unknown_M4vv__$U0,_ZGV_unknown_N8lu__$U0,_ZGV_unknown_M8vv__$U0" }
+//CHECK: attributes #[[UNMASK4]] = { "vector-variants"="_ZGV_unknown_N4lu__Z3fooif" }
+//CHECK: attributes #[[MASK4]] = { "vector-variants"="_ZGV_unknown_M4vv__Z3fooif" }
+//CHECK: attributes #[[UNMASK8]] = { "vector-variants"="_ZGV_unknown_N8lu__Z3fooif" }
+//CHECK: attributes #[[MASK8]] = { "vector-variants"="_ZGV_unknown_M8vv__Z3fooif" }
