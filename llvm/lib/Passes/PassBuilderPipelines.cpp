@@ -3376,7 +3376,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       InlineContext{ThinOrFullLTOPhase::FullLTOPostLink,
                     InlinePass::CGSCCInliner}));
 
-<<<<<<< HEAD
 #if INTEL_FEATURE_SW_DTRANS
   // The global optimizer pass can convert function calls to use
   // the 'fastcc' calling convention. The following pass enables more
@@ -3390,13 +3389,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
   // Perform context disambiguation after inlining, since that would reduce the
   // amount of additional cloning required to distinguish the allocation
   // contexts.
   if (EnableMemProfContextDisambiguation)
     MPM.addPass(MemProfContextDisambiguation());
->>>>>>> 700cd99061edeeba7b657e32acca940225fa25ae
 
   // Optimize globals again after we ran the inliner.
   MPM.addPass(GlobalOptPass());
