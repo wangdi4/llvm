@@ -14,6 +14,6 @@ entry:
   ret void
 }
 
-attributes #0 = { "vector-variants"="_ZGVxN1lu_bar,_ZGVxM1vv_bar" }
+attributes #0 = { "vector-variants"="_ZGV_unknown_N1lu_bar,_ZGV_unknown_M1vv_bar" }
 
 ; DEBUGIFY-NOT: WARNING
