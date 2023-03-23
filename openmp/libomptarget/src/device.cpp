@@ -390,9 +390,11 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
   // Adding extra checks to be on safe side since we have cases more complicated
   // than the upstream.
   if (Entry && TargetPointer != HstPtrBegin &&
-      TargetPointer && !IsHostPtr && HasFlagTo && (IsNew || HasFlagAlways)) {
+      TargetPointer && !IsHostPtr && HasFlagTo && (IsNew || HasFlagAlways) &&
+      Size != 0) {
 #else // INTEL_COLLAB
-  if (TargetPointer && !IsHostPtr && HasFlagTo && (IsNew || HasFlagAlways)) {
+  if (TargetPointer && !IsHostPtr && HasFlagTo && (IsNew || HasFlagAlways) &&
+      Size != 0) {
 #endif // INTEL_COLLAB
     // Lock the entry before releasing the mapping table lock such that another
     // thread that could issue data movement will get the right result.
