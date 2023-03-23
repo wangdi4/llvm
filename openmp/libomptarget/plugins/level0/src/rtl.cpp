@@ -6367,14 +6367,7 @@ int32_t LevelZeroProgramTy::buildKernels() {
        "NumArgs = %" PRIu32 ", Handle = " DPxMOD "\n", I,
        DPxPTR(Image->EntriesBegin[I].addr), Image->EntriesBegin[I].name,
        KP.numKernelArgs, DPxPTR(Kernels[I]));
-#if 0
-    // Enable this with 0.95.55 Level Zero.
-    KernelPR.MaxThreadGroupSize =
-        kernelProperties.maxSubgroupSize * kernelProperties.maxNumSubgroups;
-#else
-    KernelPR.MaxThreadGroupSize =
-        (std::numeric_limits<uint32_t>::max)();
-#endif
+    KernelPR.MaxThreadGroupSize = KP.maxSubgroupSize * KP.maxNumSubgroups;
   }
 
   // Release unused kernels
