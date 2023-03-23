@@ -386,6 +386,7 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
 
   // If the target pointer is valid, and we need to transfer data, issue the
   // data transfer.
+<<<<<<< HEAD
 #if INTEL_COLLAB
   // Adding extra checks to be on safe side since we have cases more complicated
   // than the upstream.
@@ -394,6 +395,10 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
 #else // INTEL_COLLAB
   if (TargetPointer && !IsHostPtr && HasFlagTo && (IsNew || HasFlagAlways)) {
 #endif // INTEL_COLLAB
+=======
+  if (TargetPointer && !IsHostPtr && HasFlagTo && (IsNew || HasFlagAlways) &&
+      Size != 0) {
+>>>>>>> bff6fd123d7b187e2c76c0987e097b976a2906cf
     // Lock the entry before releasing the mapping table lock such that another
     // thread that could issue data movement will get the right result.
     std::lock_guard<decltype(*Entry)> LG(*Entry);
