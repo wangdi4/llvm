@@ -27,7 +27,7 @@ entry:
   ret void
 }
 
-attributes #0 = { "vector-variants"="_ZGVxN8_bar,_ZGVxN16_bar,_ZGVxN32_bar" }
-attributes #1 = { "vector-variants"="_ZGVxN8_foo,_ZGVxN16_foo,_ZGVxN32_foo" }
+attributes #0 = { "vector-variants"="_ZGV_unknown_N8_bar,_ZGV_unknown_N16_bar,_ZGV_unknown_N32_bar" }
+attributes #1 = { "vector-variants"="_ZGV_unknown_N8_foo,_ZGV_unknown_N16_foo,_ZGV_unknown_N32_foo" }
 
 ; DEBUGIFY-NOT: WARNING

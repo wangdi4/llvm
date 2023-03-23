@@ -49,8 +49,8 @@ declare i32 (i32, float)* @__intel_create_simd_variant_p0f_i32i32f32f.p0f_i32i32
 
 declare i32 @__intel_indirect_call_i32(i32 (i32, float)**, ...)
 
-attributes #5 = { nounwind "vector-variant"="_ZGVxN0lu__Z3fooif" }
-attributes #6 = { nounwind "vector-variant"="_ZGVxM0vv__Z3fooif" }
+attributes #5 = { nounwind "vector-variant"="_ZGV_unknown_N0lu__Z3fooif" }
+attributes #6 = { nounwind "vector-variant"="_ZGV_unknown_M0vv__Z3fooif" }
 attributes #7 = { nounwind "vector-variants"="_ZGVeN2vv___intel_indirect_call_i32,_ZGVeM2vv___intel_indirect_call_i32,_ZGVcN2vv___intel_indirect_call_i32,_ZGVcM2vv___intel_indirect_call_i32,_ZGVbN2vv___intel_indirect_call_i32,_ZGVbM2vv___intel_indirect_call_i32" }
 
 ; DEBUGIFY-NOT: WARNING
