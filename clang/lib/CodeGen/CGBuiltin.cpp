@@ -23609,7 +23609,7 @@ static std::string createMangledSIMDName(const FunctionProtoType *ProtoType,
                                          StringRef FuncName = "_$U0") {
   std::string Buffer;
   llvm::raw_string_ostream Out(Buffer);
-  Out << "_ZGV" << 'x';
+  Out << "_ZGV_unknown_";
 
   QualType ReturnType = ProtoType->getReturnType();
   const auto *RTy = ReturnType->getAs<RecordType>();
