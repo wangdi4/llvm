@@ -2427,10 +2427,15 @@ Error BitcodeReader::parseTypeTableBody() {
                                     //          [pointee type, address space]
       if (Record.empty())
         return error("Invalid pointer record");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (LLVM_UNLIKELY(!Context.hasSetOpaquePointersValue()))
         Context.setOpaquePointers(false);
 #endif // INTEL_CUSTOMIZATION
+=======
+      if (LLVM_UNLIKELY(!Context.hasSetOpaquePointersValue()))
+        Context.setOpaquePointers(false);
+>>>>>>> 130466e924c51d408408d2a8b8f774d2a119baf4
       unsigned AddressSpace = 0;
       if (Record.size() == 2)
         AddressSpace = Record[1];
