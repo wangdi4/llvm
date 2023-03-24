@@ -115,6 +115,7 @@
 ; CHECK-O1-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-O1-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O1-NEXT: Running pass: VPORestoreOperandsPass
+; CHECK-O1-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-O1-NEXT: Running pass: VPlanPragmaOmpSimdIfPass
 ; CHECK-O1-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O1-NEXT: Running pass: LowerSwitchPass
@@ -299,6 +300,7 @@
 ; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: VPORestoreOperandsPass
+; CHECK-O23SZ-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-O23SZ-NEXT: Running pass: LowerSwitchPass
