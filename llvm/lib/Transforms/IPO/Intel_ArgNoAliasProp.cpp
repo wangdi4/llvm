@@ -242,6 +242,7 @@ PreservedAnalyses ArgNoAliasPropPass::run(Module &M,
   PA.preserve<WholeProgramAnalysis>();
   return PA;
 }
+<<<<<<< HEAD
 
 namespace {
 
@@ -321,3 +322,5 @@ INITIALIZE_PASS_END(ArgNoAliasProp, DEBUG_TYPE,
                     "Propagate noalias to function arguments", false, false)
 
 ModulePass *llvm::createArgNoAliasPropPass() { return new ArgNoAliasProp(); }
+=======
+>>>>>>> d70143a36e1b2b5ac4b66ba698f8b74763c4fc66

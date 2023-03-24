@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===----------- Intel_TileMVInlMarker.cpp --------------------------------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1775,66 +1775,6 @@ bool TileMVInlMarker::runImpl() {
   LLVM_DEBUG(dumpKeyFunctionNamesAndCalls());
   LLVM_DEBUG(dbgs() << "TMVINL: Multiversioning complete\n");
   return true;
-}
-
-namespace {
-
-struct TileMVInlMarkerLegacyPass : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  TileMVInlMarkerLegacyPass(void) : ModulePass(ID) {
-    initializeTileMVInlMarkerLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<PostDominatorTreeWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-
-    if (skipModule(M))
-      return false;
-
-    // Lambda function to find the LoopInfo related to an input function
-    TileMVInlMarker::LoopInfoFuncType GetLoopInfo =
-        [this](Function &F) -> LoopInfo & {
-      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    };
-
-    std::function<DominatorTree &(Function &)> GetDT =
-        [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-
-    std::function<PostDominatorTree &(Function &)> GetPDT =
-        [this](Function &F) -> PostDominatorTree & {
-      return this->getAnalysis<PostDominatorTreeWrapperPass>(F)
-          .getPostDomTree();
-    };
-
-    WholeProgramInfo *WPInfo =
-        &getAnalysis<WholeProgramWrapperPass>().getResult();
-
-    return TileMVInlMarker(M, GetLoopInfo, &GetDT, &GetPDT, WPInfo).runImpl();
-  }
-};
-
-} // namespace
-
-char TileMVInlMarkerLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(TileMVInlMarkerLegacyPass, "tilemvinlmarker",
-                      "Tile Multiversioning and Inline Marker", false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(TileMVInlMarkerLegacyPass, "tilemvinlmarker",
-                    "Tile Multiversioning and Inline Marker", false, false)
-
-ModulePass *llvm::createTileMVInlMarkerLegacyPass(void) {
-  return new TileMVInlMarkerLegacyPass();
 }
 
 TileMVInlMarkerPass::TileMVInlMarkerPass(void) {}

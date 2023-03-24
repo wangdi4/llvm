@@ -463,54 +463,6 @@ bool IPPredOptImpl::run(void) {
   return false;
 }
 
-namespace {
-
-struct IPPredOptLegacyPass : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  IPPredOptLegacyPass(void) : ModulePass(ID) {
-    initializeIPPredOptLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<PostDominatorTreeWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    auto DTGetter = [this](Function &F) -> DominatorTree & {
-      return getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-    auto PDTGetter = [this](Function &F) -> PostDominatorTree & {
-      return getAnalysis<PostDominatorTreeWrapperPass>(F).getPostDomTree();
-    };
-
-    IPPredOptImpl IPPredOptI(M, WPInfo, DTGetter, PDTGetter);
-    return IPPredOptI.run();
-  }
-};
-
-} // namespace
-
-char IPPredOptLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IPPredOptLegacyPass, "ippredopt", "ippredopt", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_END(IPPredOptLegacyPass, "ippredopt", "ippredopt", false, false)
-
-ModulePass *llvm::createIPPredOptLegacyPass(void) {
-  return new IPPredOptLegacyPass();
-}
-
 IPPredOptPass::IPPredOptPass(void) {}
 
 PreservedAnalyses IPPredOptPass::run(Module &M, ModuleAnalysisManager &AM) {

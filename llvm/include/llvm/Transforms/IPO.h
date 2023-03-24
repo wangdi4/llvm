@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -94,104 +94,10 @@ enum class PassSummaryAction {
 };
 
 #if INTEL_CUSTOMIZATION
-/// \brief This pass enables more functions to be converted to use the 'fastcc'
-/// calling convention.
-ModulePass *createIntelAdvancedFastCallWrapperPass();
-
-#if INTEL_FEATURE_SW_ADVANCED
-/// \brief This pass conducts IPO-based prefetching
-ModulePass *createIntelIPOPrefetchWrapperPass();
-#endif // INTEL_FEATURE_SW_ADVANCED
-
-/// \brief This pass implements a constant propagation in those places where
-/// the memory alignment is being computed.
-ModulePass *createIntelArgumentAlignmentLegacyPass();
-
-/// \brief This pass implements a simplified dead argument elimination with
-/// IPO analysis. The goal is to eliminate an argument if it initializes data
-/// that won't be use across multiple functions. The actual value will be
-/// removed too.
-ModulePass *createIntelIPODeadArgEliminationWrapperPass();
-
-#if INTEL_FEATURE_SW_DTRANS
-/// \brief This pass folds the intrinsic llvm.intel.wholeprogramsafe using the
-/// results from the whole program analysis.
-ModulePass *createIntelFoldWPIntrinsicLegacyPass();
-#endif // INTEL_FEATURE_SW_DTRANS
-
-/// \brief This pass will add the declarations for math functions that are
-/// expressed as llvm intrinsics.
-ModulePass *createIntelMathLibrariesDeclarationWrapperPass();
-
-#if INTEL_FEATURE_SW_ADVANCED
-/// \brief This pass implements a simple partial inlining for small functions.
-/// This partial inliner will take care of small functions that the compiler
-/// will like to fully inline. The difference between this partial inliner and
-/// the traditional partial inliner is that this pass won't do inlining, just
-/// create a new function that will call the original function and set the
-/// the inlining attributes. The inliner will read the attributes and inline
-/// the new function that calls the original, creating a partial inline
-/// behavior. The traditional partial inliner will actually do inlining.
-ModulePass *createIntelPartialInlineLegacyPass();
-#endif // INTEL_FEATURE_SW_ADVANCED
-
-/// \brief This pass conducts IPO-based Array Transpose.
-ModulePass *createIPArrayTransposeLegacyPass();
-
-#if INTEL_FEATURE_SW_ADVANCED
-/// \brief This pass conducts IPO-based Predicate optimization.
-ModulePass *createIPPredOptLegacyPass();
-/// \brief This pass implements IP Cloning
-ModulePass *createIPCloningLegacyPass(bool AfterInl = false,
-                                      bool IfSwitchHeuristic = false);
-#endif // INTEL_FEATURE_SW_ADVANCED
-
-/// \brief This pass parses -[no]inline-list option and assigns corresponding
-/// attributes to callsites (for experimental purposes).
-ModulePass *createInlineListsPass();
 ModulePass *createInlineReportSetupPass(InlineReportBuilder *IRB = nullptr);
 ModulePass *createInlineReportEmitterPass(unsigned OptLevel = 0,
                                           unsigned SizeLevel = 0,
                                           bool PrepareForLTO = false);
-
-/// \brief This pass implements optimization of dynamic_cast calls depending on
-/// the classes hierarchy.
-ModulePass *createOptimizeDynamicCastsPass();
-
-/// \brief This pass implements IP Cloning of call trees based on constant
-/// parameter set propagation and folding.
-ModulePass* createCallTreeCloningPass();
-
-/// \brief This pass implements DopeVectorConstProp (propagation of constant
-/// lower bounds, strides, and extents of dope vectors whose pointers are
-/// formal parameters).
-ModulePass *createDopeVectorConstPropLegacyPass(void);
-
-#if INTEL_FEATURE_SW_ADVANCED
-/// \brief This pass will attempt to recognize each Function as a "qsort".
-/// For those it recognizes as such, it will add the Function attribute
-/// "is-qsort".
-ModulePass *createQsortRecognizerLegacyPass(void);
-#endif // INTEL_FEATURE_SW_ADVANCED
-
-/// \brief This pass will mark callsites that should be aggressively
-/// inlined with the "prefer-inline-aggressive" attribute.
-ModulePass *createAggInlinerLegacyPass(void);
-
-#if INTEL_FEATURE_SW_ADVANCED
-/// \brief This pass eliminates dead array element operations.
-ModulePass *createDeadArrayOpsEliminationLegacyPass(void);
-
-/// \brief This pass multiversions for tiling and marks tiled functions for
-/// inlining.
-ModulePass *createTileMVInlMarkerLegacyPass(void);
-#endif // INTEL_FEATURE_SW_ADVANCED
-
-/// This pass adds noalias attribute to function arguments where it is safe
-/// to do so.
-ModulePass *createArgNoAliasPropPass(void);
-
-ModulePass *createIntelVTableFixupPass(void);
 #endif // INTEL_CUSTOMIZATION
 
 } // End llvm namespace

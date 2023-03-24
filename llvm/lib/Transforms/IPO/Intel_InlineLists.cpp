@@ -1,6 +1,6 @@
 //===----------- Intel_InlineLists.cpp - [No]Inline Lists  ----------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -471,29 +471,6 @@ static bool setInlineListsAttributes(Module &M) {
     Changed |= addListAttributesToCallsites(F, Data);
   return Changed;
 }
-
-namespace {
-struct InlineLists : public ModulePass {
-  static char ID;
-  InlineLists() : ModulePass(ID) {
-    initializeInlineListsPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  bool runOnModule(Module &M) override {
-    return setInlineListsAttributes(M);
-  }
-};
-} // namespace
-
-char InlineLists::ID = 0;
-INITIALIZE_PASS(InlineLists, "inlinelists",
-                "Set attributes for callsites in [no]inline list", false, false)
-
-ModulePass *llvm::createInlineListsPass() { return new InlineLists; }
 
 PreservedAnalyses InlineListsPass::run(Module &M, ModuleAnalysisManager &AM) {
   setInlineListsAttributes(M);
