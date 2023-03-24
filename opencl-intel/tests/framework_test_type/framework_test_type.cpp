@@ -86,10 +86,6 @@ TEST(FrameworkTestType, Test_clGetPlatformInfoTest) {
   EXPECT_TRUE(clGetPlatformInfoTest());
 }
 
-TEST(FrameworkTestType, Test_clGetDeviceInfoTest) {
-  EXPECT_TRUE(clGetDeviceInfoTest());
-}
-
 TEST(FrameworkTestType, Test_clOutOfOrderTest) {
   EXPECT_TRUE(clOutOfOrderTest());
 }

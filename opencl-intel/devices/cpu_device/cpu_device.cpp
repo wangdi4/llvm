@@ -2089,7 +2089,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     }
     return CL_DEV_SUCCESS;
   case (CL_DEVICE_HALF_FP_CONFIG): {
-    if (isCPUDeviceMode) {
+    std::string Env;
+    if (isCPUDeviceMode && !Intel::OpenCL::Utils::getEnvVar(
+                               Env, "CL_CONFIG_CPU_EXPERIMENTAL_FP16")) {
       return CL_DEV_INVALID_VALUE;
     }
     cl_device_fp_config fpConfig = 0;
