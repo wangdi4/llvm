@@ -19,7 +19,7 @@
 #include "FloatOperations.h"
 #include "dxfloat.h"
 
-#include <cfloat>
+#include <float.h>
 
 namespace Validation {
 /// uniform random generator class is container of random generators

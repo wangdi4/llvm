@@ -17,6 +17,7 @@
 
 #include "cl_device_api.h"
 #include <stdexcept>
+#include <string>
 
 #ifndef LLVM_BACKEND_UNUSED
 #if defined(_WIN32)
