@@ -4031,13 +4031,13 @@ Constant *OpenMPIRBuilder::createTargetRegionEntryAddr(Function *OutlinedFn,
 }
 
 void OpenMPIRBuilder::emitTargetRegionFunction(
-    OffloadEntriesInfoManager &InfoManager, TargetRegionEntryInfo &EntryInfo,
+    TargetRegionEntryInfo &EntryInfo,
     FunctionGenCallback &GenerateFunctionCallback, int32_t NumTeams,
     int32_t NumThreads, bool IsOffloadEntry, Function *&OutlinedFn,
     Constant *&OutlinedFnID) {
 
   SmallString<64> EntryFnName;
-  InfoManager.getTargetRegionEntryFnName(EntryFnName, EntryInfo);
+  OffloadInfoManager.getTargetRegionEntryFnName(EntryFnName, EntryInfo);
 
   OutlinedFn = Config.isEmbedded() || !Config.openMPOffloadMandatory()
                    ? GenerateFunctionCallback(EntryFnName)
@@ -4063,19 +4063,18 @@ void OpenMPIRBuilder::emitTargetRegionFunction(
           : createPlatformSpecificName({EntryFnName, "region_id"});
 
   OutlinedFnID = registerTargetRegionFunction(
-      InfoManager, EntryInfo, OutlinedFn, EntryFnName, EntryFnIDName, NumTeams,
-      NumThreads);
+      EntryInfo, OutlinedFn, EntryFnName, EntryFnIDName, NumTeams, NumThreads);
 }
 
 Constant *OpenMPIRBuilder::registerTargetRegionFunction(
-    OffloadEntriesInfoManager &InfoManager, TargetRegionEntryInfo &EntryInfo,
-    Function *OutlinedFn, StringRef EntryFnName, StringRef EntryFnIDName,
-    int32_t NumTeams, int32_t NumThreads) {
+    TargetRegionEntryInfo &EntryInfo, Function *OutlinedFn,
+    StringRef EntryFnName, StringRef EntryFnIDName, int32_t NumTeams,
+    int32_t NumThreads) {
   if (OutlinedFn)
     setOutlinedTargetRegionFunctionAttributes(OutlinedFn, NumTeams, NumThreads);
   auto OutlinedFnID = createOutlinedFunctionID(OutlinedFn, EntryFnIDName);
   auto EntryAddr = createTargetRegionEntryAddr(OutlinedFn, EntryFnName);
-  InfoManager.registerTargetRegionEntryInfo(
+  OffloadInfoManager.registerTargetRegionEntryInfo(
       EntryInfo, EntryAddr, OutlinedFnID,
       OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion);
   return OutlinedFnID;
@@ -4956,18 +4955,17 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
 #if INTEL_COLLAB
     bool IsLateOutline,
 #endif // INTEL_COLLAB
-    OffloadEntriesInfoManager &OffloadEntriesInfoManager,
     EmitMetadataErrorReportFunctionTy &ErrorFn) {
 
   // If there are no entries, we don't need to do anything.
-  if (OffloadEntriesInfoManager.empty())
+  if (OffloadInfoManager.empty())
     return;
 
   LLVMContext &C = M.getContext();
   SmallVector<std::pair<const OffloadEntriesInfoManager::OffloadEntryInfo *,
                         TargetRegionEntryInfo>,
               16>
-      OrderedEntries(OffloadEntriesInfoManager.size());
+      OrderedEntries(OffloadInfoManager.size());
 
   // Auxiliary methods to create metadata values and strings.
   auto &&GetMDInt = [this](unsigned V) {
@@ -5022,8 +5020,7 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
         MD->addOperand(MDNode::get(C, Ops));
       };
 
-  OffloadEntriesInfoManager.actOnTargetRegionEntriesInfo(
-      TargetRegionMetadataEmitter);
+  OffloadInfoManager.actOnTargetRegionEntriesInfo(TargetRegionMetadataEmitter);
 
   // Create function that emits metadata for each device global variable entry;
   auto &&DeviceGlobalVarMetadataEmitter =
@@ -5062,7 +5059,7 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
         MD->addOperand(MDNode::get(C, Ops));
       };
 
-  OffloadEntriesInfoManager.actOnDeviceGlobalVarEntriesInfo(
+  OffloadInfoManager.actOnDeviceGlobalVarEntriesInfo(
       DeviceGlobalVarMetadataEmitter);
 
 #if INTEL_COLLAB
@@ -5090,7 +5087,7 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
         // Add metadata to the named metadata node.
         MD->addOperand(llvm::MDNode::get(C, Ops));
       };
-  OffloadEntriesInfoManager.actOnDeviceIndirectFnEntriesInfo(
+  OffloadInfoManager.actOnDeviceIndirectFnEntriesInfo(
       DeviceIndirectFnMetadataEmitter);
 
   if (IsLateOutline)
@@ -5182,8 +5179,7 @@ void OffloadEntriesInfoManager::getTargetRegionEntryFnName(
 
 /// Loads all the offload entries information from the host IR
 /// metadata.
-void OpenMPIRBuilder::loadOffloadInfoMetadata(
-    Module &M, OffloadEntriesInfoManager &OffloadEntriesInfoManager) {
+void OpenMPIRBuilder::loadOffloadInfoMetadata(Module &M) {
   // If we are in target mode, load the metadata from the host IR. This code has
   // to match the metadata creation in createOffloadEntriesAndInfoMetadata().
 
@@ -5213,13 +5209,13 @@ void OpenMPIRBuilder::loadOffloadInfoMetadata(
                                       /*FileID=*/GetMDInt(2),
                                       /*Line=*/GetMDInt(4),
                                       /*Count=*/GetMDInt(5));
-      OffloadEntriesInfoManager.initializeTargetRegionEntryInfo(
-          EntryInfo, /*Order=*/GetMDInt(6));
+      OffloadInfoManager.initializeTargetRegionEntryInfo(EntryInfo,
+                                                         /*Order=*/GetMDInt(6));
       break;
     }
     case OffloadEntriesInfoManager::OffloadEntryInfo::
         OffloadingEntryInfoDeviceGlobalVar:
-      OffloadEntriesInfoManager.initializeDeviceGlobalVarEntryInfo(
+      OffloadInfoManager.initializeDeviceGlobalVarEntryInfo(
           /*MangledName=*/GetMDString(1),
           static_cast<OffloadEntriesInfoManager::OMPTargetGlobalVarEntryKind>(
               /*Flags=*/GetMDInt(2)),
@@ -5228,7 +5224,7 @@ void OpenMPIRBuilder::loadOffloadInfoMetadata(
 #if INTEL_COLLAB
     case llvm::OffloadEntriesInfoManager::OffloadEntryInfo::
         OffloadingEntryInfoIndirectFn:
-      OffloadEntriesInfoManager.initializeDeviceIndirectFnEntryInfo(
+      OffloadInfoManager.initializeDeviceIndirectFnEntryInfo(
           /*MangledName=*/GetMDString(1), /*Order=*/GetMDInt(2));
       break;
 #endif // INTEL_COLLAB
@@ -5279,7 +5275,7 @@ void OffloadEntriesInfoManager::registerTargetRegionEntryInfo(
 
   // If we are emitting code for a target, the entry is already initialized,
   // only has to be registered.
-  if (Config.isEmbedded()) {
+  if (OMPBuilder->Config.isEmbedded()) {
     // This could happen if the device compilation is invoked standalone.
     if (!hasTargetRegionEntryInfo(EntryInfo)) {
 #if INTEL_COLLAB
@@ -5355,7 +5351,7 @@ void OffloadEntriesInfoManager::initializeDeviceIndirectFnEntryInfo(
 void OffloadEntriesInfoManager::registerDeviceGlobalVarEntryInfo(
     StringRef VarName, Constant *Addr, int64_t VarSize,
     OMPTargetGlobalVarEntryKind Flags, GlobalValue::LinkageTypes Linkage) {
-  if (Config.isEmbedded()) {
+  if (OMPBuilder->Config.isEmbedded()) {
     // This could happen if the device compilation is invoked standalone.
     if (!hasDeviceGlobalVarEntryInfo(VarName))
       return;
