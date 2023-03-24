@@ -69,18 +69,15 @@ static Align getMemInstAlignment(const Value *I) {
   return cast<StoreInst>(I)->getAlign();
 }
 
-#if INTEL_CUSTOMIZATION
 static const Instruction *getLLVMInstFromDDNode(const HLDDNode *Node) {
   const HLInst *HLInstruction = cast<HLInst>(Node);
   return HLInstruction->getLLVMInstruction();
 }
-#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 
 namespace vpo {
 
-#if INTEL_CUSTOMIZATION
 uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
   uint32_t ElemSize = I->getType().getElementSize();
   Type *ElemType = Type::getIntNTy(getLLVMContext(), ElemSize);
@@ -119,7 +116,6 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
           : Instruction::Store;
   return *TTI.getMemoryOpCost(Opcode, VecTy, Align(), 0).getValue();
 }
-#endif // INTEL_CUSTOMIZATION
 
 Align VPlanTTICostModel::getMemInstAlignment(
     const VPLoadStoreInst *LoadStore) const {
@@ -145,7 +141,6 @@ Align VPlanTTICostModel::getMemInstAlignment(
   if (const Instruction *Inst = LoadStore->getInstruction())
     return ::getMemInstAlignment(Inst);
 
-#if INTEL_CUSTOMIZATION
   if (LoadStore->HIR().isMaster()) {
     const HLDDNode *DDNode = cast<HLDDNode>(LoadStore->HIR().getUnderlyingNode());
     if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
@@ -161,7 +156,6 @@ Align VPlanTTICostModel::getMemInstAlignment(
       }
     }
   }
-#endif // INTEL_CUSTOMIZATION
 
   // If underlying instruction had default alignment (0) we need to query
   // DataLayout what it is, because default alignment for the widened type will
@@ -668,7 +662,6 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
     // VPValue-based operands overload.
     return 0;
   }
-#if INTEL_CUSTOMIZATION
   case VPInstruction::Abs: {
     // Cost of Abs instruction is computed as cost of a compare followed by
     // a select for now.
@@ -715,7 +708,6 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
   // No-op terminator instruction.
   case Instruction::Br:
     return 0;
-#endif // INTEL_CUSTOMIZATION
   case Instruction::Load:
   case Instruction::Store:
     return getLoadStoreCost(cast<VPLoadStoreInst>(VPInst), VF);

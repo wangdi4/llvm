@@ -676,15 +676,9 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 BasicBlock *
-#if INTEL_CUSTOMIZATION
 VPBasicBlock::createEmptyBasicBlock(VPTransformState *State)
-#else
-VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
-#endif
 {
-#if INTEL_CUSTOMIZATION
   VPTransformState::CFGState &CFG = State->CFG;
-#endif
   // BB stands for IR BasicBlocks. VPBB stands for VPlan VPBasicBlocks.
   // Pred stands for Predecessor. Prev stands for Previous, last
   // visited/created.
@@ -693,7 +687,6 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
                                          PrevBB->getParent(), CFG.InsertBefore);
   LLVM_DEBUG(dbgs() << "LV: created " << NewBB->getName() << '\n');
 
-#if INTEL_CUSTOMIZATION
   // Hook up the new basic block to its predecessors.
   for (VPBasicBlock *PredVPBB : getPredecessors()) {
     // In order to keep the hookup code simple, we delay fixing up blocks
@@ -714,29 +707,6 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
       llvm_unreachable("Predecessor with two successors unexpected here");
     }
   }
-#else
-  // Hook up the new basic block to its predecessors.
-  for (VPBasicBlock *PredVPBB : getPredecessors()) {
-    auto PredVPSuccessors = PredVPBB->getSuccessors();
-    BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
-    assert(PredBB && "Predecessor basic-block not found building successor.");
-    auto *PredBBTerminator = PredBB->getTerminator();
-    LLVM_DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
-    if (isa<UnreachableInst>(PredBBTerminator)) {
-      assert(PredVPSuccessors.size() == 1 &&
-             "Predecessor ending w/o branch must have single successor.");
-      PredBBTerminator->eraseFromParent();
-      BranchInst::Create(NewBB, PredBB);
-    } else {
-      assert(PredVPSuccessors.size() == 2 &&
-             "Predecessor ending with branch must have two successors.");
-      unsigned idx = PredVPSuccessors.front() == this ? 0 : 1;
-      assert(!PredBBTerminator->getSuccessor(idx) &&
-             "Trying to reset an existing successor block.");
-      PredBBTerminator->setSuccessor(idx, NewBB);
-    }
-  }
-#endif
   return NewBB;
 }
 

@@ -38,13 +38,11 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-#if INTEL_CUSTOMIZATION
 static LoopVPlanDumpControl PlainCFGDumpControl("plain-cfg",
                                                 "importing plain CFG");
 static cl::opt<bool, true> VPlanPrintLegalityOpt(
     "vplan-print-legality", cl::Hidden, cl::location(VPlanPrintLegality),
     cl::desc("Print SIMD clause data structure details in VPlan legality."));
-#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 namespace vpo {

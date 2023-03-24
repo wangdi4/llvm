@@ -1,4 +1,4 @@
-//===-------------- VecClone.h - Class definition -*- C++ -*---------------===//
+//===-------- Intel_VecClone.h - Class definition -*- C++ -*---------------===//
 //
 // Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
@@ -41,9 +41,7 @@ class ModulePass;
 
 class VecCloneImpl {
 
-#if INTEL_CUSTOMIZATION
   protected:
-#endif // INTEL_CUSTOMIZATION
 
     /// Set of memory locations to mark as private for the SIMD loop
     SetVector<Value*> PrivateMemory;
@@ -180,7 +178,6 @@ class VecCloneImpl {
     /// prevent loop unrolling.
     void disableLoopUnrolling(BasicBlock *Latch);
 
-#if INTEL_CUSTOMIZATION
     /// Languages like OpenCL override this method to perform some
     /// pre-processing for enabling VecClone pass.
     virtual void languageSpecificInitializations(Module &M);
@@ -191,7 +188,6 @@ class VecCloneImpl {
                                          Function *Clone,
                                          BasicBlock *EntryBlock,
                                          const VFInfo &Variant);
-#endif // INTEL_CUSTOMIZATION
 
   public:
     VecCloneImpl() {}

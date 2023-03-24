@@ -18,9 +18,7 @@
 #define LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVPLANVLSANALYSIS_H
 
 #include "IntelVPlanVLSClient.h"
-#if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelVPlanVLSClientHIR.h"
-#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 

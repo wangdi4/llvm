@@ -842,7 +842,6 @@ static void relinkLiveOuts(VPValue *From, VPValue *To, const VPLoop &Loop) {
   });
 }
 
-#if INTEL_CUSTOMIZATION
 static void updateHIROperand(VPValue *AI, VPLoadStoreInst *V) {
   if (auto *ExtDef = dyn_cast<VPExternalDef>(AI)) {
     unsigned ExtDefSym = ExtDef->HIR().getSymbase();
@@ -850,14 +849,13 @@ static void updateHIROperand(VPValue *AI, VPLoadStoreInst *V) {
       V->HIR().setSymbase(ExtDefSym);
   }
 }
-#endif // INTEL_CUSTOMIZATION
 
 void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
                                          VPBuilder &Builder, VPValue &Final,
                                          Type *Ty, VPValue *Exit) {
   if (AI) {
     VPLoadStoreInst *V = Builder.createStore(&Final, AI);
-    updateHIROperand(AI, V); // INTEL
+    updateHIROperand(AI, V);
     linkValue(&E, V);
   }
 
@@ -1289,7 +1287,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity)) {
     // min/max in-memory reductions. Need to generate a load.
     VPLoadStoreInst *V = Builder.createLoad(Ty, AI);
-    updateHIROperand(AI, V); // INTEL
+    updateHIROperand(AI, V);
     Identity = V;
   }
 
@@ -1321,7 +1319,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     assert(isa<PointerType>(StartValue->getType()) &&
            "Expected pointer type here.");
     VPLoadStoreInst *V = Builder.createLoad(Ty, StartValue);
-    updateHIROperand(StartValue, V); // INTEL
+    updateHIROperand(StartValue, V);
     StartValue = V;
   }
 
@@ -1420,7 +1418,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
         assert(isa<PointerType>(FinalStartValue->getType()) &&
                "Expected pointer type here.");
         VPLoadStoreInst *V  = Builder.createLoad(Ty, FinalStartValue);
-        updateHIROperand(AI, V); // INTEL
+        updateHIROperand(AI, V);
         FinalStartValue = V;
       }
       Final = Builder.create<VPReductionFinal>(
@@ -1998,7 +1996,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     Type *Ty = Start->getType();
     if (Induction->getIsMemOnly()) {
       VPLoadStoreInst *V = Builder.createLoad(Ty, AI);
-      updateHIROperand(AI, V); // INTEL
+      updateHIROperand(AI, V);
       Start = V;
     }
 
