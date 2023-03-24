@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -68,18 +68,11 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
-#if INTEL_FEATURE_SW_DTRANS
-#include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-#include "llvm/Transforms/IPO/Intel_InlineLists.h"
-#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
-#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
-#include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h"
-#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
-#include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
@@ -239,40 +232,6 @@ static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
 // Whole Program Analysis
 static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
     cl::init(true), cl::Hidden, cl::desc("Enable Whole Program Analysis"));
-
-#if INTEL_FEATURE_SW_ADVANCED
-// IP Cloning
-static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
-    cl::init(true), cl::Hidden, cl::desc("Enable IP Cloning"));
-#endif // INTEL_FEATURE_SW_ADVANCED
-
-#if INTEL_FEATURE_SW_ADVANCED
-// Dead Array Element Ops Elimination
-static cl::opt<bool> EnableDeadArrayOpsElim(
-   "enable-dead-array-ops-elim", cl::init(true), cl::Hidden,
-   cl::desc("Enable Dead Array Ops Elimination"));
-#endif // INTEL_FEATURE_SW_ADVANCED
-
-// IPO Array Transpose
-static cl::opt<bool> EnableIPArrayTranspose(
-   "enable-ip-array-transpose", cl::init(true), cl::Hidden,
-   cl::desc("Enable IPO Array Transpose"));
-
-// Call Tree Cloning
-static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
-    cl::init(true), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
-
-// Inline Aggressive Analysis
-static cl::opt<bool>
-    EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
-    cl::init(true), cl::Hidden, cl::desc("Enable Inline Aggressive Analysis"));
-
-#if INTEL_FEATURE_SW_ADVANCED
-// IPO Prefetch
-static cl::opt<bool>
-    EnableIPOPrefetch("enable-ipo-prefetch",
-  cl::init(true), cl::Hidden, cl::desc("Enable IPO Prefetch"));
-#endif // INTEL_FEATURE_SW_ADVANCED
 
 #if INTEL_FEATURE_SW_DTRANS
 // DTrans optimizations -- this is a placeholder for future work.
@@ -783,7 +742,6 @@ void PassManagerBuilder::populateModulePassManager(
   if (OptLevel == 0) {
     if (Inliner) {
       MPM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
-      MPM.add(createInlineListsPass()); // INTEL: -[no]inline-list parsing
       MPM.add(Inliner);
       Inliner = nullptr;
     }
@@ -818,7 +776,6 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
   if (Inliner) {
     MPM.add(createInlineReportSetupPass(getMDInlineReport()));
-    MPM.add(createInlineListsPass()); // -[no]inline-list parsing
     if (RunVPOParopt && EnableVPOParoptTargetInline)
       MPM.add(createVPOParoptTargetInlinePass());
   }
@@ -875,12 +832,6 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_COLLAB
 
   addFunctionSimplificationPasses(MPM);
-
-#if INTEL_CUSTOMIZATION
-  // Propagate noalias attribute to function arguments.
-  if (EnableArgNoAliasProp && OptLevel > 2)
-    MPM.add(createArgNoAliasPropPass());
-#endif // INTEL_CUSTOMIZATION
 
   // FIXME: This is a HACK! The inliner pass above implicitly creates a CGSCC
   // pass manager that we are specifically trying to avoid. To prevent this
@@ -989,29 +940,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createWholeProgramWrapperPassPass(WPUtils));
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-  // IPO Prefetching: make it before IPClone and Inline
-  if (EnableIPOPrefetch)
-    PM.add(createIntelIPOPrefetchWrapperPass());
-#endif // INTEL_FEATURE_SW_ADVANCED
-
-#if INTEL_FEATURE_SW_DTRANS
-  if (EnableWPA)
-    PM.add(createIntelFoldWPIntrinsicLegacyPass());
-#endif // INTEL_FEATURE_SW_DTRANS
-
-#if INTEL_FEATURE_SW_ADVANCED
-  // IP Cloning
-  if (EnableIPCloning) {
-    PM.add(createIPCloningLegacyPass(false, true));
-  }
-#endif // INTEL_FEATURE_SW_ADVANCED
-
-  // Apply dynamic_casts optimization pass.
-  PM.add(createOptimizeDynamicCastsWrapperPass());
-#endif // INTEL_CUSTOMIZATION
-
   // Provide AliasAnalysis services for optimizations.
   addInitialAliasAnalysisPasses(PM);
 
@@ -1043,12 +971,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     addDTransLegacyPasses(PM);
   }
 #endif // INTEL_FEATURE_SW_DTRANS
-#if INTEL_FEATURE_SW_ADVANCED
-  // Multiversion and mark for inlining functions for tiling
-  if (DTransEnabled)
-    PM.add(createTileMVInlMarkerLegacyPass());
-#endif // INTEL_FEATURE_SW_ADVANCED
-  PM.add(createDopeVectorConstPropLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Promote any localized global vars.
@@ -1076,30 +998,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addInstructionCombiningPass(PM, !DTransEnabled);   // INTEL
 
 #if INTEL_CUSTOMIZATION
-
-#if INTEL_FEATURE_SW_ADVANCED
-  if (DTransEnabled) {
-    // Compute the aligment of the argument
-    PM.add(createIntelArgumentAlignmentLegacyPass());
-    // Recognize Functions that implement qsort
-    PM.add(createQsortRecognizerLegacyPass());
-  }
-
-  bool EnableIntelPartialInlining = EnableIntelPI && DTransEnabled;
-  if (EnableIntelPartialInlining)
-    PM.add(createIntelPartialInlineLegacyPass());
-#endif // INTEL_FEATURE_SW_ADVANCED
-
   bool RunInliner = Inliner;
-#if INTEL_CUSTOMIZATION
   if (RunInliner &&
       !(IntelInlineReportLevel & InlineReportOptions::CompositeReport))
     PM.add(createInlineReportSetupPass(getMDInlineReport()));
-#endif // INTEL_CUSTOMIZATION
-  if (RunInliner) {
-    PM.add(createInlineListsPass()); // -[no]inline-list parsing
-  }
-
   if (EnableAndersen) {
     // Andersen's IP alias analysis
     PM.add(createAndersensAAWrapperPass(true /* BeforeInl */));
@@ -1113,9 +1015,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #endif // INTEL_FEATURE_SW_DTRANS
     // Indirect Call Conv
   }
-  if (EnableInlineAggAnalysis) {
-    PM.add(createAggInlinerLegacyPass()); // Aggressive Inline
-  }
 #endif // INTEL_CUSTOMIZATION
 
   // Inline small functions
@@ -1123,41 +1022,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(Inliner);
     Inliner = nullptr;
   }
-
-  // Optimize globals again if we ran the inliner.
-  if (RunInliner) { // INTEL
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-    // The global optimizer pass can convert function calls to use
-    // the 'fastcc' calling convention. The following pass enables more
-    // functions to be converted to this calling convention. This can improve
-    // performance by having arguments passed in registers, and enable more
-    // cases where pointer parameters are changed to pass-by-value parameters.
-    // We can remove the test for DTransEnabled if it is found to be useful
-    // on other cases.
-    if (DTransEnabled)
-      PM.add(createIntelAdvancedFastCallWrapperPass());
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-  } // INTEL
-
-#if INTEL_CUSTOMIZATION
-  if (
-#if INTEL_FEATURE_SW_ADVANCED
-      EnableIPCloning ||
-#endif // INTEL_FEATURE_SW_ADVANCED
-      EnableCallTreeCloning) {
-#if INTEL_FEATURE_SW_ADVANCED
-    if (EnableIPCloning)
-      // Enable generic IPCloning after Inlining.
-      PM.add(createIPCloningLegacyPass(true, DTransEnabled));
-#endif // INTEL_FEATURE_SW_ADVANCED
-    if (EnableCallTreeCloning)
-      // Do function cloning along call trees
-      PM.add(createCallTreeCloningPass());
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // The IPO passes may leave cruft around.  Clean up after them.
   addInstructionCombiningPass(PM, !DTransEnabled);  // INTEL
 
@@ -1165,16 +1029,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createSROAPass());
 
 #if INTEL_CUSTOMIZATION
-  if (EnableIPArrayTranspose)
-    PM.add(createIPArrayTransposeLegacyPass());
-
-#if INTEL_FEATURE_SW_ADVANCED
-  if (DTransEnabled)
-    PM.add(createIPPredOptLegacyPass());
-  if (EnableDeadArrayOpsElim)
-    PM.add(createDeadArrayOpsEliminationLegacyPass());
-#endif // INTEL_FEATURE_SW_ADVANCED
-
   if (EnableMultiVersioning) {
     PM.add(createMultiVersioningWrapperPass());
 #if INTEL_FEATURE_SW_DTRANS
@@ -1198,12 +1052,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIntelLoopAttrsWrapperPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-  // Propagate noalias attribute to function arguments.
-  if (EnableArgNoAliasProp && OptLevel > 2)
-    PM.add(createArgNoAliasPropPass());
-
-#endif // INTEL_CUSTOMIZATION
   // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createGlobalsAAWrapperPass()); // IP alias analysis.
 
@@ -1215,13 +1063,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (DTransEnabled)
     PM.add(createDTransFieldModRefAnalysisWrapperPass());
 #endif // INTEL_FEATURE_SW_DTRANS
-  PM.add(createIntelIPODeadArgEliminationWrapperPass());
 #endif // INTEL_CUSTOMIZATION
 
   PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                         /*AllowSpeculation=*/true));
   PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
-  PM.add(createDopeVectorHoistWrapperPass());  // INTEL
 
   // Nuke dead stores.
   PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
@@ -1377,15 +1223,7 @@ void PassManagerBuilder::addVPlanVectorizer(legacy::PassManagerBase &PM) const {
   // assumes that the directives are in single-entry single-exit basic blocks.
   PM.add(createVPOCFGRestructuringPass());
 
-  // Create OCL sincos from sin/cos and sincos
-  if (OptLevel > 0)
-    PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
-
   PM.add(createVPlanDriverPass());
-
-  // Split/translate scalar OCL and vector sincos
-  if (OptLevel > 0)
-    PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
 
   // The region that is outlined by #pragma omp simd ordered was extracted by
   // VPlanPragmaOmpOrderedSimdExtarct pass. Now, we need to run the inliner in
