@@ -50,7 +50,13 @@ using namespace llvm;
 // potentially pair up with old instructions and create new entries in the
 // tables that would be incorrect. The manual review process allows us a chance
 // to catch these before they become observable bugs.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XISA_COMMON
+#include "Intel_X86XISAMemFoldTables.inc"
+#else
 #include "X86MemFoldTables.inc"
+#endif // INTEL_FEATURE_XISA_COMMON
+#endif // INTEL_CUSTOMIZATION
 static const X86MemoryFoldTableEntry BroadcastFoldTable2[] = {
   { X86::VADDPDZ128rr,   X86::VADDPDZ128rmb,   TB_BCAST_SD },
   { X86::VADDPDZ256rr,   X86::VADDPDZ256rmb,   TB_BCAST_SD },
