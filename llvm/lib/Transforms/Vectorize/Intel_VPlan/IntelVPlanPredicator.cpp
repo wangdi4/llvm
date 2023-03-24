@@ -899,13 +899,19 @@ public:
     VPBlendInst *Blend = Builder.create<VPBlendInst>(
         Phis[Idx]->getName() + ".blend." + From->getName(),
         Phis[Idx]->getType());
-    Plan->getVPlanDA()->markDivergent(*Blend);
 
     for (int ValNumber = 0; ValNumber < NumBlendVals; ++ValNumber) {
       VPValue *Predicate = BlendOps[NumBlendVals * 2 - ValNumber * 2 - 2];
       VPValue *Val = BlendOps[NumBlendVals * 2 - ValNumber * 2 - 1];
       Blend->addIncoming(Val, Predicate, Plan);
     }
+    // If all operands of blend have their shape defined then
+    // update its shape here. Otherwise it has a new phi as operand
+    // and will be updated when we will update that phi.
+    if (none_of(Blend->incomingValues(), [=](VPValue *Op) {
+          return Plan->getVPlanDA()->getVectorShape(*Op).isUndefined();
+        }))
+      Plan->getVPlanDA()->updateDivergence(*Blend);
 
     // Assign debug location to the blend instruction.  When we have a
     // reduction operation under a conditional test, the blend is of
@@ -1022,6 +1028,15 @@ public:
 
     auto *VecVPlan = cast<VPlanVector>(Block->getParent());
     auto *DA = VecVPlan->getVPlanDA();
+
+    // Update divergence of newly inserted phis.
+    for (int Idx = 0; Idx < Size; ++Idx)
+      for (auto &Pair : MergePhiMaps[Idx]) {
+        VPPHINode *Phi = Pair.second;
+        if (DA->getVectorShape(*Phi).isUndefined())
+          DA->updateDivergence(*Phi);
+      }
+
     if (is_contained(IDFPHIBlocks, Block)) {
       if (VecVPlan->areActiveLaneInstructionsDisabled())
         return;
