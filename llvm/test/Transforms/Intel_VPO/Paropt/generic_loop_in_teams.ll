@@ -14,7 +14,7 @@
 ;   }
 ; }
 
-; This test checks that the "loop" construct is mapped to "distribute parallel for"
+; This test checks that the "loop" construct is mapped to "distribute"
 ; after prepare pass.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -68,9 +68,9 @@ for.body:                                         ; preds = %for.cond
   call void @llvm.lifetime.start.p0(i64 4, ptr %.omp.ub) #1
   store i32 99, ptr %.omp.ub, align 4, !tbaa !5
 
-; Verify that DIR.OMP.GENERICLOOP is mapped to DIR.OMP.DISTRIBUTE.PARLOOP
+; Verify that DIR.OMP.GENERICLOOP is mapped to DIR.OMP.DISTRIBUTE
 ; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.SHARED:TYPED"({{.*}}), "QUAL.OMP.SHARED:TYPED"({{.*}}), "QUAL.OMP.NORMALIZED.IV:TYPED"({{.*}}), "QUAL.OMP.FIRSTPRIVATE:TYPED"({{.*}}), "QUAL.OMP.NORMALIZED.UB:TYPED"({{.*}}), "QUAL.OMP.PRIVATE:TYPED"({{.*}})
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.NORMALIZED.IV:TYPED"({{.*}}), "QUAL.OMP.FIRSTPRIVATE:TYPED"({{.*}}), "QUAL.OMP.NORMALIZED.UB:TYPED"({{.*}}), "QUAL.OMP.PRIVATE:TYPED"({{.*}})
 
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(),
     "QUAL.OMP.SHARED:TYPED"(ptr @aaa, i32 0, i64 1000),
@@ -122,7 +122,7 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
 
 ; CHECK-NOT: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.GENERICLOOP"() {{.*}}
-; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() {{.*}}
+; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE"() {{.*}}
 
   call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.GENERICLOOP"() ]
   call void @llvm.lifetime.end.p0(i64 4, ptr %.omp.ub) #1

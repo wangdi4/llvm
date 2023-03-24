@@ -16,7 +16,7 @@
 ;     a[i] = n;
 ;
 ; // case 3
-; #pragma omp loop bind(teams) // -> DISTRIBUTE PARALLEL FOR
+; #pragma omp loop bind(teams) // -> DISTRIBUTE
 ;   for (int i = 0; i < 100; i++)
 ;     a[i] = n;
 ; }
@@ -31,8 +31,8 @@
 ;    b. FIRSTPRIVATE --> unchanged
 ;    c. variables are renamed with OPERAND.ADDR
 ;
-; case 3: GenericLoop --> DISTRIBUTE PARALLEL FOR; check that
-;    a. SHARED --> unchanged
+; case 3: GenericLoop --> DISTRIBUTE; check that
+;    a. SHARED --> clauses removed
 ;    b. FIRSTPRIVATE --> unchanged
 ;    c. variables are renamed with OPERAND.ADDR
 
@@ -175,7 +175,7 @@ omp.loop.exit19:                                  ; preds = %omp.inner.for.end18
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub24, i32 0),
     "QUAL.OMP.PRIVATE:TYPED"(ptr %i28, i32 0, i32 1) ]
 
-; CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.SHARED:TYPED"(ptr %a, i32 0, i64 100), "QUAL.OMP.SHARED:TYPED"(ptr %n, i32 0, i32 1), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb23, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb23, ptr %.omp.lb23.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
+; CHECK: "DIR.OMP.DISTRIBUTE"(), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb23, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb23, ptr %.omp.lb23.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
 
   %18 = load i32, ptr %.omp.lb23, align 4
   store i32 %18, ptr %.omp.iv22, align 4

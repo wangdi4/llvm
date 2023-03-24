@@ -13,18 +13,8 @@
 ;   }
 ; }
 
-; This test checks that the "loop" construct is mapped to "distribute parallel for"
+; This test checks that the "loop" construct is mapped to "distribute"
 ; after prepare pass, if binding rule is teams.
-
-; int aaa[1000];
-; void foo() {
-;   for (int i=0; i<1000; ++i) {
-; # pragma omp loop bind(teams)
-;     for (int j=0; j<100; j++) {
-;       aaa[i] += i + j;
-;     }
-;   }
-; }
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -60,11 +50,11 @@ for.body:                                         ; preds = %for.cond
   call void @llvm.lifetime.start.p0(i64 4, ptr %.omp.ub) #2
   store i32 99, ptr %.omp.ub, align 4, !tbaa !4
 
-; Verify that DIR.OMP.GENERICLOOP is mapped to DIR.OMP.DISTRIBUTE.PARLOOP
+; Verify that DIR.OMP.GENERICLOOP is mapped to DIR.OMP.DISTRIBUTE
 ; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(),
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(),
 ; CHECK-NOT: "QUAL.OMP.BIND.TEAMS
-; CHECK-SAME:  "QUAL.OMP.SHARED:TYPED"({{.*}}), "QUAL.OMP.SHARED:TYPED"({{.*}}, "QUAL.OMP.NORMALIZED.IV:TYPED"({{.*}}), "QUAL.OMP.FIRSTPRIVATE:TYPED"({{.*}}), "QUAL.OMP.NORMALIZED.UB:TYPED"({{.*}}), "QUAL.OMP.PRIVATE:TYPED"({{.*}})
+; CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"({{.*}}), "QUAL.OMP.FIRSTPRIVATE:TYPED"({{.*}}), "QUAL.OMP.NORMALIZED.UB:TYPED"({{.*}}), "QUAL.OMP.PRIVATE:TYPED"({{.*}})
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(),
     "QUAL.OMP.BIND.TEAMS"(),
@@ -117,7 +107,7 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
 
 ; CHECK-NOT: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.GENERICLOOP"() {{.*}}
-; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() {{.*}}
+; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE"() {{.*}}
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.GENERICLOOP"() ]
   call void @llvm.lifetime.end.p0(i64 4, ptr %.omp.ub) #2
