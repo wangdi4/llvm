@@ -4373,6 +4373,12 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
 
   if (STI.is32Bit() && MF.hasEHFunclets())
     restoreWinEHStackPointersInParent(MF);
+  // We have emitted prolog and epilog. Don't need stack pointer saving
+  // instruction any more.
+  if (MachineInstr *MI = X86FI->getStackPtrSaveMI()) {
+    MI->eraseFromParent();
+    X86FI->setStackPtrSaveMI(nullptr);
+  }
 #if INTEL_CUSTOMIZATION
   MachineFrameInfo &MFI = MF.getFrameInfo();
   if (!MFI.VecSpillMap.size())
@@ -4516,12 +4522,6 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     });
   }
 #endif // INTEL_CUSTOMIZATION
-  // We have emitted prolog and epilog. Don't need stack pointer saving
-  // instruction any more.
-  if (MachineInstr *MI = X86FI->getStackPtrSaveMI()) {
-    MI->eraseFromParent();
-    X86FI->setStackPtrSaveMI(nullptr);
-  }
 }
 
 void X86FrameLowering::restoreWinEHStackPointersInParent(
