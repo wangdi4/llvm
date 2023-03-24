@@ -270,7 +270,6 @@ bool VPlanDivergenceAnalysis::isSOAUnitStride(const VPValue *Ptr) const {
   return getVectorShape(*Ptr).isSOAUnitStride();
 }
 
-#if INTEL_CUSTOMIZATION
 static bool hasDeterministicResult(const VPInstruction &I) {
   if (I.getType()->isVoidTy())
     return true;
@@ -288,31 +287,6 @@ static bool hasDeterministicResult(const VPInstruction &I) {
   // use conservative approach.
   return !I.mayHaveSideEffects();
 }
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-#else
-// This is used in the community version because br instructions are explicit.
-// We will do the same for VPlan once supported.
-bool DivergenceAnalysis::updateTerminator(const TerminatorInst &Term) const {
-
-  if (Term.getNumSuccessors() <= 1)
-    return false;
-
-  if (auto *BranchTerm = dyn_cast<BranchInst>(&Term)) {
-    assert(BranchTerm->isConditional());
-    return isDivergent(*BranchTerm->getCondition());
-  }
-
-  if (auto *SwitchTerm = dyn_cast<SwitchInst>(&Term))
-    return isDivergent(*SwitchTerm->getCondition());
-
-  if (isa<InvokeInst>(Term))
-    return false; // ignore abnormal executions through landingpad
-
-  llvm_unreachable("unexpected terminator");
-}
-#endif // INTEL_CUSTOMIZATION
 
 // Push the instruction onto the Worklist.
 bool VPlanDivergenceAnalysis::pushToWorklist(const VPInstruction &I) {
@@ -492,12 +466,10 @@ void VPlanDivergenceAnalysis::taintLoopLiveOuts(
 }
 
 void VPlanDivergenceAnalysis::pushPHINodes(const VPBasicBlock &Block,
-                                           bool PushAll) { // INTEL
+                                           bool PushAll) {
 
-#if INTEL_CUSTOMIZATION
   for (const auto &Phi : Block.getVPPhis()) {
     if (isDivergent(Phi) && !PushAll)
-#endif // INTEL_CUSTOMIZATION
       continue;
     pushToWorklist(Phi);
   }
@@ -653,7 +625,6 @@ bool VPlanDivergenceAnalysis::isDivergent(const VPValue &V) const {
   return !getVectorShape(V).isUniform();
 }
 
-#if INTEL_CUSTOMIZATION
 VPVectorShape VPlanDivergenceAnalysis::getVectorShape(const VPValue &V) const {
   auto *NonConstDA = const_cast<VPlanDivergenceAnalysis *>(this);
   if (isAlwaysUniform(V))
@@ -1792,7 +1763,6 @@ void VPlanDivergenceAnalysis::improveStrideUsingIR() {
     }
   }
 }
-#endif // INTEL_CUSTOMIZATION
 
 void VPlanDivergenceAnalysis::cacheInductionInitPtrs() {
   InductionInitPtrCache.clear();
@@ -1851,15 +1821,12 @@ void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
   // Compute the shapes of instructions - iterate until fixed point is reached.
   computeImpl();
 
-#if INTEL_CUSTOMIZATION
-
   // We verify the shapes of the instructions 'always' in the debug-build and if
   // the command-line switch is enabled.
   if (VPlanVerifyDA)
     verifyVectorShapes();
 
   improveStrideUsingIR();
-#endif // INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DumpDA)
@@ -1904,8 +1871,6 @@ void VPlanDivergenceAnalysis::recomputeShapes(
   // Compute the shapes of instructions.
   computeImpl();
 
-#if INTEL_CUSTOMIZATION
-
   // We verify the shapes of the instructions 'always' in the debug-build and if
   // the command-line switch is enabled.
   if (EnableFullDAVerificationAndPrint && VPlanVerifyDA)
@@ -1918,8 +1883,6 @@ void VPlanDivergenceAnalysis::recomputeShapes(
     print(dbgs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
-
-#endif // INTEL_CUSTOMIZATION
 
 void VPlanDivergenceAnalysis::cloneDAData(
     VPlanVector *ClonedVPlan,

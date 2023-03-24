@@ -44,7 +44,6 @@
 
 using namespace llvm::PatternMatch;
 
-#if INTEL_CUSTOMIZATION
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
 
 static cl::opt<unsigned> VecThreshold(
@@ -52,7 +51,6 @@ static cl::opt<unsigned> VecThreshold(
     cl::desc("sets a threshold for the vectorization on the probability"
              "of profitable execution of the vectorized loop in parallel."),
     cl::init(100));
-#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned> VPlanForceVF(
     "vplan-force-vf", cl::init(0),
@@ -340,11 +338,9 @@ unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
   return WRLp && WRLp->getSimdlen() ? WRLp->getSimdlen() : VPlanTargetVF;
 }
 
-#if INTEL_CUSTOMIZATION
 static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
   return WRLp && WRLp->getSafelen() ? WRLp->getSafelen() : UINT_MAX;
 }
-#endif // INTEL_CUSTOMIZATION
 
 void LoopVectorizationPlanner::setDefaultVectorFactors() {
   unsigned ForcedVF = getForcedVF(WRLp);
@@ -356,8 +352,6 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
     return;
   }
 
-
-#if INTEL_CUSTOMIZATION
   unsigned Safelen = getSafelen(WRLp);
 
   LLVM_DEBUG(dbgs() << "LVP: ForcedVF: " << ForcedVF << "\n");
@@ -370,10 +364,8 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
     VFs.push_back(0);
     return;
   }
-#endif // INTEL_CUSTOMIZATION
 
   if (ForcedVF) {
-#if INTEL_CUSTOMIZATION
     if (ForcedVF > Safelen) {
       // We are bailing out of vectorization if ForcedVF > safelen
       LLVM_DEBUG(dbgs() << "VPlan: The forced VF is greater than safelen set "
@@ -381,20 +373,15 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
       VFs.push_back(0);
       return;
     }
-#endif // INTEL_CUSTOMIZATION
     VFs.push_back(ForcedVF);
-#if INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "LVP: MinVF: " << ForcedVF << " MaxVF: " << ForcedVF
                       << "\n");
-#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
   } else if (VPlanConstrStressTest) {
     // If we are only stress testing VPlan construction, force VPlan
     // construction for just VF 1. This avoids any divide by zero errors in the
     // min/max VF computation.
     VFs.push_back(1);
-#endif // INTEL_CUSTOMIZATION
   } else if (VectorlengthMD != nullptr) {
     extractVFsFromMetadata(Safelen);
   } else {
@@ -434,10 +421,8 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
       }
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-#if INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "LVP: MinVF: " << MinVF << " MaxVF: " << MaxVF
                       << "\n");
-#endif // INTEL_CUSTOMIZATION
     if (MinVF > MaxVF) {
       VFs.push_back(0);
       return;
@@ -445,7 +430,6 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
     for (unsigned VF = MinVF; VF <= MaxVF; VF *= 2)
       VFs.push_back(VF);
   }
-#if INTEL_CUSTOMIZATION
   // TODO: add information about specified vector lengths in opt-report
   DEBUG_WITH_TYPE("LoopVectorizationPlanner_vec_lengths",
                   dbgs() << "LVP: Specified vectorlengths: ");
@@ -454,7 +438,6 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
                        : getVectorFactors()) dbgs()
                       << VF << " ";
                   dbgs() << "\n";);
-#endif // INTEL_CUSTOMIZATION
   return;
 }
 
@@ -1238,7 +1221,6 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   VPInstructionCost BestCost = ScalarCost;
   LLVM_DEBUG(dbgs() << "Cost of Scalar VPlan: " << ScalarCost << '\n');
 
-#if INTEL_CUSTOMIZATION
   // When a loop is marked with pragma vector always, the user wants the loop
   // to be vectorized. In order to force the loop to be vectorized, we set
   // BestCost to MAX value for such a case. WRLp can be null when stress testing
@@ -1253,7 +1235,6 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     LLVM_DEBUG(dbgs() << "'#pragma vector always'/ '#pragma omp simd' is used "
                          "for the given loop\n");
   }
-#endif // INTEL_CUSTOMIZATION
 
   // FIXME: Currently limit this to VF = 16 for HIR path. Has to be fixed with
   // more accurate cost model. Still allow forced VFs to enter the loop below.
@@ -1528,7 +1509,6 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       }
     }
   }
-#if INTEL_CUSTOMIZATION
   // Corner case: all available VPlans have Invalid cost.
   // With 'vector always' we have to vectorize with some VF, so select first
   // available VF and UF.
@@ -1546,7 +1526,6 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   if (IsTripCountEstimated && !VecScenario.hasRemainder())
     VecScenario.addScalarRemainder();
 
-#endif // INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (!VecScenarioStr.empty()) {
     VecScenario.fromString(VecScenarioStr);
@@ -2571,10 +2550,8 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
                          ILV, CallbackILV, Plan->getVPLoopInfo());
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
-#if INTEL_CUSTOMIZATION
   // Set ILV transform state
   ILV->setTransformState(&State);
-#endif // INTEL_CUSTOMIZATION
 
   Plan->execute(&State);
 

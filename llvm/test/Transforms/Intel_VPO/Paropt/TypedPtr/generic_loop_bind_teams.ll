@@ -1,7 +1,7 @@
 ; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
 
-; This test checks that the "loop" construct is mapped to "distribute parallel for"
+; This test checks that the "loop" construct is mapped to "distribute"
 ; after prepare pass, if binding rule is teams.
 
 ; int aaa[1000];
@@ -57,11 +57,11 @@ for.body:                                         ; preds = %for.cond
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %5) #2
   store i32 99, i32* %.omp.ub, align 4, !tbaa !2
 
-; Verify that DIR.OMP.GENERICLOOP is mapped to DIR.OMP.DISTRIBUTE.PARLOOP
+; Verify that DIR.OMP.GENERICLOOP is mapped to DIR.OMP.DISTRIBUTE
 ; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(),
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(),
 ; CHECK-NOT: "QUAL.OMP.BIND.TEAMS"
-; CHECK-SAME:  "QUAL.OMP.FIRSTPRIVATE"({{.*}}), "QUAL.OMP.NORMALIZED.IV"({{.*}}), "QUAL.OMP.NORMALIZED.UB"({{.*}}), "QUAL.OMP.PRIVATE"({{.*}}), "QUAL.OMP.SHARED"({{.*}}), "QUAL.OMP.SHARED"({{.*}})
+; CHECK-SAME:  "QUAL.OMP.FIRSTPRIVATE"({{.*}}), "QUAL.OMP.NORMALIZED.IV"({{.*}}), "QUAL.OMP.NORMALIZED.UB"({{.*}}), "QUAL.OMP.PRIVATE"({{.*}})
 
   %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.BIND.TEAMS"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SHARED"(i32* %i), "QUAL.OMP.SHARED"([1000 x i32]* @aaa) ]
   %7 = load i32, i32* %.omp.lb, align 4, !tbaa !2
@@ -109,7 +109,7 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
 
 ; CHECK-NOT: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.GENERICLOOP"() {{.*}}
-; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() {{.*}}
+; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE"() {{.*}}
 
   call void @llvm.directive.region.exit(token %6) [ "DIR.OMP.END.GENERICLOOP"() ]
   %18 = bitcast i32* %.omp.ub to i8*

@@ -153,9 +153,12 @@ This will generate a call to this special intrinsic-like function:
 
  Func* __intel_create_simd_variant_[0-9]+(Func)
 
-A vector ABI (https://software.intel.com/sites/default/files/managed/b4/c8/Intel-Vector-Function-ABI.pdf)
-mangled name is created from the passed function type SpecType and provided as
-a attribute to the __intel_create_simd_variant call.
+A mangled name with VFABI rules is created (see vector-function-abi-variant
+at https://llvm.org/docs/LangRef.html#call-site-attributes) from the passed
+function type SpecType and provided as an attribute to the __intel_create_simd_variant
+call. Note that ISA class for the variants is not fixed at this moment and
+generated as _unknown_. Specific ISA class is assigned later in pipeline during
+variant lowering.
 
 .. code-block:: llvm
 
@@ -163,7 +166,7 @@ a attribute to the __intel_create_simd_variant call.
  %call = call i32 (i32, float)* @__intel_create_simd_variant_0(i32 (i32, float)* @foo) #0
  store i32 (i32, float)* %call, i32 (i32, float)** %fp, align 8
 
- attributes #0 = { "vector-variants"="_ZGVxN4lu_foo" }
+ attributes #0 = { "vector-variants"="_ZGV_unknown_N4lu_foo" }
 
 (2) Ret __builtin_call_SIMD_variant(detail::variant_list<SpecType...>(), int_list<int...>(), (F**)ptrs, args...)
 ----------------------------------------------------------------------------------------------------------------
@@ -199,7 +202,7 @@ The IR for the call would be something like:
  %call = call i32 @__intel_indirect_call_0(i32 (i32, float)** @ptrs, i32 1, float 2.000000e+00) #0
  store i32 %call1, i32* %i, align 4
 
- attributes #0 = { "vector-variants"="_ZGVxN4lu_foo,_ZGVxM4vv_foo" }
+ attributes #0 = { "vector-variants"="_ZGV_unknown_N4lu_foo,_ZGV_unknown_M4vv_foo" }
 
 .. _Full Functionality:
 

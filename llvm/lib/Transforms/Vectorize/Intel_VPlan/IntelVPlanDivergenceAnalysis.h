@@ -48,7 +48,6 @@ class VPlanVector;
 class VPInstruction;
 class VPLoop;
 class VPLoopInfo;
-#if INTEL_CUSTOMIZATION
 class VPVectorShape;
 class VPPHINode;
 class VPCmpInst;
@@ -58,8 +57,6 @@ class VPAllocatePrivate;
 class VPInductionInit;
 class VPInductionInitStep;
 class VPLoadStoreInst;
-#endif // INTEL_CUSTOMIZATION
-
 class VPDominatorTree;
 class VPPostDominatorTree;
 

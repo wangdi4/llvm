@@ -186,7 +186,6 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#if INTEL_CUSTOMIZATION
   void print(raw_ostream &OS) const {
     OS << "[Shape: " << getShapeDescriptorStr();
     if (isAnyStrided()) {
@@ -201,7 +200,6 @@ public:
     }
     OS << ']';
   }
-#endif
 #endif
 
 private:

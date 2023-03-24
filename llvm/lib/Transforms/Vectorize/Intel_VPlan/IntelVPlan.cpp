@@ -33,7 +33,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPAssumptionCache.h"
@@ -47,9 +46,6 @@
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
-#else
-#include "VPlan.h"
-#endif // INTEL_CUSTOMIZATION
 
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/BasicBlock.h"
@@ -58,17 +54,12 @@
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
-#if INTEL_CUSTOMIZATION
 #define DEBUG_TYPE "intel-vplan"
-#else
-#define DEBUG_TYPE "vplan"
-#endif
 
 using namespace llvm;
 using namespace llvm::vpo;
 
 std::atomic<unsigned> VPlanUtils::NextOrdinal{1};
-#if INTEL_CUSTOMIZATION
 // Replace dot print output with plain print.
 static cl::opt<bool>
     DumpPlainVPlanIR("vplan-plain-dump", cl::init(false), cl::Hidden,
@@ -130,7 +121,6 @@ raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   return OS;
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif
 
 // When a VPBasicBlock is added in VPlan, the parent pointer needs to be
 // updated.
@@ -188,7 +178,6 @@ void VPInstruction::generateInstruction(VPTransformState &State,
   State.ILV->processInstruction(this);
 }
 
-#if INTEL_CUSTOMIZATION
 void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   // TODO: For the reuse/invalidation of the underlying HIR to be working
   // properly, we need to do an independent traversal of all the VPInstructions
@@ -201,7 +190,6 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   // Propagate debug location for the generated HIR construct.
   CG->propagateDebugLocation(this);
 }
-#endif // INTEL_CUSTOMIZATION
 
 void VPInstruction::execute(VPTransformState &State) {
   assert(!State.Instance && "VPInstruction executing an Instance");
@@ -253,7 +241,6 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
   switch (Opcode) {
   case VPInstruction::Not:
     return "not";
-#if INTEL_CUSTOMIZATION
   case VPInstruction::Abs:
     return "abs";
   case VPInstruction::AllZeroCheck:
@@ -410,7 +397,6 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "transform-lib-call";
   case VPInstruction::SOAExtractValue:
     return "soa-extract-value";
-#endif
   default:
     return Instruction::getOpcodeName(Opcode);
   }
@@ -821,7 +807,6 @@ unsigned VPInstruction::getNumSuccessors() const {
   return cast<VPBranchInst>(this)->getNumSuccessors();
 }
 
-#if INTEL_CUSTOMIZATION
 VPlanVector::VPlanVector(VPlanKind K, VPExternalValues &E,
                          VPUnlinkedInstructions &UVPI)
     : VPlan(K, E, UVPI) {}
@@ -860,8 +845,6 @@ void VPlanVector::runNCIA() {
   NCIA->analyze(*this);
   setVPlanNCIA(std::move(NCIA));
 }
-
-#endif // INTEL_CUSTOMIZATION
 
 void VPlanVector::runSVA(unsigned VF) {
   if (!EnableScalVecAnalysis)
@@ -942,7 +925,6 @@ void VPlanVector::execute(VPTransformState *State) {
   }
 }
 
-#if INTEL_CUSTOMIZATION
 void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(&getEntryBlock());
 
@@ -951,7 +933,6 @@ void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
     VPBB->executeHIR(CG);
   }
 }
-#endif
 
 void VPlanVector::setVPSE(std::unique_ptr<VPlanScalarEvolution> A) {
   VPSE = std::move(A);
@@ -1174,12 +1155,10 @@ void VPlan::printLiveOuts(raw_ostream &OS) const {
 void VPlanPrinter::dump(bool CFGOnly) {
   if (!Plan.isPrintingEnabled())
     return;
-#if INTEL_CUSTOMIZATION
   if (DumpPlainVPlanIR) {
     Plan.dump(OS);
     return;
   }
-#endif /* INTEL_CUSTOMIZATION */
 
   Depth = 1;
   bumpIndent(0);
@@ -1268,8 +1247,6 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB, bool SkipInstructions)
   dumpEdges(BB);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-#if INTEL_CUSTOMIZATION
 
 void VPlanScalar::setNeedCloneOrigLoop(bool V) {
   NeedCloneOrigLoop = V;
@@ -1549,7 +1526,6 @@ template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
 
 using VPPostDomTree = PostDomTreeBase<VPBasicBlock>;
 template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
-#endif
 
 void VPlanVector::computeDA() {
   VPLoopInfo *VPLInfo = getVPLoopInfo();

@@ -186,7 +186,6 @@ bool VecClone::runOnModule(Module &M) {
   return Impl.runImpl(M, &ORBuilder, getLimiter());
 }
 
-#if INTEL_CUSTOMIZATION
 // The following two functions are virtual and they are overloaded when
 // VecClone is called by language-specific optimizations. Their default
 // implementation is empty.
@@ -196,7 +195,6 @@ void VecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                        const VFInfo &Variant) {}
 
 void VecCloneImpl::languageSpecificInitializations(Module &M) {}
-#endif // INTEL_CUSTOMIZATION
 
 Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
                                       ValueToValueMapTy &VMap) {
@@ -1560,9 +1558,9 @@ void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
   // VecClone pass does not make any changes in the existing functions and
   // Andersens analysis is conservative on new functions. So we can consider it
   // as preserved.
-  AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
+  AU.addPreserved<AndersensAAWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
-  AU.addRequired<OptReportOptionsPass>(); // INTEL
+  AU.addRequired<OptReportOptionsPass>();
 }
 
 bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
@@ -1570,10 +1568,8 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
 
   LLVM_DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
-#if INTEL_CUSTOMIZATION
   // Language specific hook
   languageSpecificInitializations(M);
-#endif // INTEL_CUSTOMIZATION
 
   MapVector<Function *, std::vector<StringRef>> FunctionsToVectorize;
   getFunctionsToVectorize(M, FunctionsToVectorize);
@@ -1685,10 +1681,8 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
         insertSplitForMaskedVariant(Clone, LoopHeader, LoopLatch, Mask, Phi);
       }
 
-#if INTEL_CUSTOMIZATION
       // Language specific hook.
       handleLanguageSpecifics(F, Phi, Clone, EntryBlock, Variant);
-#endif // INTEL_CUSTOMIZATION
 
       // Insert the basic blocks that mark the beginning/end of the SIMD loop.
       insertDirectiveIntrinsics(M, Clone, F, Variant, EntryBlock, LoopPreHeader,
