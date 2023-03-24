@@ -4451,13 +4451,14 @@ decideKernelGroupArguments(int32_t DeviceId, uint32_t NumTeams,
     } else {
       GRPCounts[0] *= DeviceInfo->Option.SubscriptionRate;
     }
-  }
 
-  if (LoopTripcount && !UsedReductionSubscriptionRate) {
-    size_t AdjustedGroupCount = (LoopTripcount + GRPSizes[0] - 1) / GRPSizes[0];
-    if (AdjustedGroupCount < GRPCounts[0]) {
-      DP("Preventing oversubscription using the loop tripcount\n");
-      GRPCounts[0] = AdjustedGroupCount;
+    if (LoopTripcount && !UsedReductionSubscriptionRate) {
+      size_t AdjustedGroupCount =
+          (LoopTripcount + GRPSizes[0] - 1) / GRPSizes[0];
+      if (AdjustedGroupCount < GRPCounts[0]) {
+        DP("Preventing oversubscription using the loop tripcount\n");
+        GRPCounts[0] = AdjustedGroupCount;
+      }
     }
   }
   if (KInfo && KInfo->getWGNum()) {
