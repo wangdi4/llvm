@@ -154,7 +154,8 @@ void StreamOutputAccumulator::append(char c) {
     }
   }
   DWORD d;
-  WriteFile(hStdout, &c, 1, &d, nullptr);
+  [[maybe_unused]] BOOL result = WriteFile(hStdout, &c, 1, &d, nullptr);
+  assert(result && "WriteFile failed!");
 #else
   fputc(c, stream);
 #endif
