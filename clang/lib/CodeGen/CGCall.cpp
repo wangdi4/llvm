@@ -2052,6 +2052,18 @@ static void addToDTransFuncInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
         // Complex types are just expanded for params into 2 of the base type.
         for (unsigned I = FirstIdx; I < FirstIdx + NumIRArgs; ++I)
           DFI->Params[I] = Cplx->getElementType();
+      } else if (Ty->isSpecificBuiltinType(BuiltinType::Int128) ||
+                 Ty->isSpecificBuiltinType(BuiltinType::UInt128)) {
+        // Int128 gets broken up into 2 i64 types.
+        assert(NumIRArgs == 2 && " Unknown i128 type?");
+        assert(TypeArray[FirstIdx]->getIntegerBitWidth() ==
+                   TypeArray[FirstIdx + 1]->getIntegerBitWidth() &&
+               TypeArray[FirstIdx]->getIntegerBitWidth() == 64 &&
+               "Unknown i128 decomposition");
+        DFI->Params[FirstIdx] = DFI->Params[FirstIdx + 1] =
+            CGT.getContext().getIntTypeForBitwidth(
+                64,
+                /*Signed=*/Ty->isSpecificBuiltinType(BuiltinType::Int128));
       } else {
         llvm_unreachable("Don't know what to do without an RD");
       }
@@ -2098,6 +2110,13 @@ static void addToDTransFuncInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
             llvm::ArrayRef<llvm::Type *>{&ResultTy, 1},
             llvm::MutableArrayRef<QualType>{&DFI->ResultTypes[0], 1});
       }
+    } else if (Ty->isSpecificBuiltinType(BuiltinType::Int128) ||
+               Ty->isSpecificBuiltinType(BuiltinType::UInt128)) {
+      // int 128 types, when passed directly, are a literal type of 2 i64s.
+      DFI->ResultTypes[0] = DFI->ResultTypes[1] =
+          CGT.getContext().getIntTypeForBitwidth(
+              64,
+              /*Signed=*/Ty->isSpecificBuiltinType(BuiltinType::Int128));
     } else {
       DFI->ResultTypes[0] = Ty;
       // Complex types end up being vectors, not structs as ConvertType makes
