@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===----  Intel_IPOPrefetch.cpp - Intel IPO Prefetch   --------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -2458,68 +2458,9 @@ bool IPOPrefetcher::insertCallToPrefetchFunction(void) {
   return true;
 }
 
-// Legacy pass manager implementation
-class IntelIPOPrefetchWrapperPass : public ModulePass {
-public:
-  static char ID;
-  IntelIPOPrefetchWrapperPass() : ModulePass(ID) {
-    initializeIntelIPOPrefetchWrapperPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<PostDominatorTreeWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-
-    AU.addPreserved<TargetLibraryInfoWrapperPass>();
-    AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addPreserved<PostDominatorTreeWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    auto LookupDomTree = [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-
-    auto LookupPostDomTree = [this](Function &F) -> PostDominatorTree & {
-      return this->getAnalysis<PostDominatorTreeWrapperPass>(F)
-          .getPostDomTree();
-    };
-
-    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    if (skipModule(M) || !EnableIPOPrefetch) {
-      LLVM_DEBUG(dbgs() << "IPO Prefetch disabled\n";);
-      return false;
-    }
-
-    auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-
-    IPOPrefetcher Impl(M, GetTLI, LookupDomTree, LookupPostDomTree, WPInfo);
-    return Impl.run(M);
-  }
-};
-
 } // End anonymous namespace
 
-char IntelIPOPrefetchWrapperPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IntelIPOPrefetchWrapperPass, "intel-ipoprefetch",
-                      "Intel IPO Prefetch", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(IntelIPOPrefetchWrapperPass, "intel-ipoprefetch",
-                    "Intel IPO Prefetch", false, false)
 namespace llvm {
-
-ModulePass *createIntelIPOPrefetchWrapperPass() {
-  return new IntelIPOPrefetchWrapperPass();
-}
 
 PreservedAnalyses IntelIPOPrefetchPass::run(Module &M,
                                             ModuleAnalysisManager &AM) {

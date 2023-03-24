@@ -6218,67 +6218,6 @@ runIPCloning(Module &M, bool AfterInl, bool EnableDTrans,
   return Change;
 }
 
-namespace {
-
-struct IPCloningLegacyPass : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  IPCloningLegacyPass(bool AfterInl = false, bool EnableDTrans = false)
-      : ModulePass(ID), AfterInl(AfterInl), EnableDTrans(EnableDTrans) {
-    initializeIPCloningLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    WholeProgramInfo *WPInfo =
-        &getAnalysis<WholeProgramWrapperPass>().getResult();
-    std::function<DominatorTree &(Function &)> GetDT =
-        [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-    std::function<BlockFrequencyInfo &(Function &)> GetBFI =
-        [this](Function &F) -> BlockFrequencyInfo & {
-      return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
-    };
-    std::function<BranchProbabilityInfo &(Function &)> GetBPI =
-        [this](Function &F) -> BranchProbabilityInfo & {
-      return this->getAnalysis<BranchProbabilityInfoWrapperPass>(F).getBPI();
-    };
-
-    if (IPCloningAfterInl)
-      AfterInl = true;
-    return runIPCloning(M, AfterInl, EnableDTrans, WPInfo, &GetDT, &GetBFI,
-                        &GetBPI);
-  }
-
-private:
-  // This flag helps to decide whether function addresses or other
-  // constants need to be considered for cloning.
-  bool AfterInl;
-  // If 'true' we are doing specialized cloning generally applicable
-  // when we are running DTrans.
-  bool EnableDTrans;
-};
-} // namespace
-
-char IPCloningLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IPCloningLegacyPass, "ip-cloning",
-                      "IP Cloning", false, false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(IPCloningLegacyPass, "ip-cloning",
-                    "IP Cloning", false, false)
-
-ModulePass *llvm::createIPCloningLegacyPass(bool AfterInl, bool EnableDTrans) {
-  return new IPCloningLegacyPass(AfterInl, EnableDTrans);
-}
-
 IPCloningPass::IPCloningPass(bool AfterInl, bool EnableDTrans)
     : AfterInl(AfterInl), EnableDTrans(EnableDTrans) {}
 
