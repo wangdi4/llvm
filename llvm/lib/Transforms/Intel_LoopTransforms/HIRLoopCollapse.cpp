@@ -1238,15 +1238,15 @@ int HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref, unsigned Level) {
 
 unsigned HIRLoopCollapse::matchCEOnIVLevels(CanonExpr *CE) const {
   int64_t IVConstCoeff = 0;
-  unsigned IVIndex = 0, LevelsMatched = 0;
+  unsigned IVBlobCoeff = 0, LevelsMatched = 0;
 
   // Try to match the 1st level (on InnermostLevel):
-  CE->getIVCoeff(InnermostLevel, &IVIndex, &IVConstCoeff);
-  if ((IVConstCoeff != 1) || (IVIndex != InvalidBlobIndex)) {
+  CE->getIVCoeff(InnermostLevel, &IVBlobCoeff, &IVConstCoeff);
+  if ((IVConstCoeff != 1) || (IVBlobCoeff != InvalidBlobIndex)) {
     return 0;
   }
-  unsigned AccumuConst = IVConstCoeff;
-  unsigned AccumuBlobIndex = IVIndex;
+  unsigned AccumuTCConst = IVConstCoeff;
+  unsigned AccumTCBlob = IVBlobCoeff;
   ++LevelsMatched;
 
   // Try to match each applicable level within [InnermostLevel-1 .. EndLevel]
@@ -1254,28 +1254,28 @@ unsigned HIRLoopCollapse::matchCEOnIVLevels(CanonExpr *CE) const {
        Level >= EndLevel; --Level) {
 
     // Obtain: data from CE on current Level
-    CE->getIVCoeff(Level, &IVIndex, &IVConstCoeff);
+    CE->getIVCoeff(Level, &IVBlobCoeff, &IVConstCoeff);
     unsigned PrevLevel = Level + 1;
 
     if (TCArry[PrevLevel].isConstant()) {
-      AccumuConst *= TCArry[PrevLevel].getConstTripCount();
+      AccumuTCConst *= TCArry[PrevLevel].getConstTripCount();
     } else {
       CanonExpr *TCCE = TCArry[PrevLevel].getTripCount();
       unsigned BlobIndex = TCCE->getSingleBlobIndex();
 
-      // Accumulate Blob into AccumuBlobIndex:
-      if (AccumuBlobIndex == InvalidBlobIndex) {
-        AccumuBlobIndex = BlobIndex;
+      // Accumulate Blob into AccumTCBlob:
+      if (AccumTCBlob == InvalidBlobIndex) {
+        AccumTCBlob = BlobIndex;
       } else {
         unsigned NewBlobIndex = 0;
-        BU->createMulBlob(BU->getBlob(AccumuBlobIndex), BU->getBlob(BlobIndex),
+        BU->createMulBlob(BU->getBlob(AccumTCBlob), BU->getBlob(BlobIndex),
                           true, &NewBlobIndex);
-        AccumuBlobIndex = NewBlobIndex;
+        AccumTCBlob = NewBlobIndex;
       }
     }
 
     // Compare: match CE on current level?
-    if (IVConstCoeff != AccumuConst) {
+    if (IVConstCoeff != AccumuTCConst) {
       break;
     }
 
@@ -1288,10 +1288,15 @@ unsigned HIRLoopCollapse::matchCEOnIVLevels(CanonExpr *CE) const {
     //     END LOOP
     //   END LOOP
     //
-    //   We are matching i1 coefficient (%n) to TC (zext.i32.i64(%n)).
-    if (IVIndex != AccumuBlobIndex) {
-      unsigned TempBlobIndex = BU->getUnderlyingExtBlobIndex(AccumuBlobIndex);
-      if (IVIndex != TempBlobIndex)
+    // We are matching i1 coefficient (%n) to TC (zext.i32.i64(%n)).
+    if (IVBlobCoeff != AccumTCBlob) {
+      // If TC is constant, do not try to match blobs.
+      if (AccumTCBlob == InvalidBlobIndex) {
+        break;
+      }
+
+      unsigned TempBlobIndex = BU->getUnderlyingExtBlobIndex(AccumTCBlob);
+      if (IVBlobCoeff != TempBlobIndex)
         break;
     }
     // Increase the levels matched
