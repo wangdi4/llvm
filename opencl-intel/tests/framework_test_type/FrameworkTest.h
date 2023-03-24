@@ -32,7 +32,6 @@ typedef void (*openBcFunc)(FILE *&);
 
 bool clCreateContextTest();
 bool clGetPlatformInfoTest();
-bool clGetDeviceInfoTest();
 void clGetKernelSubGroupInfo();
 bool clCheckJITSaveLoadTest();
 bool GenerateBinaryFile();
