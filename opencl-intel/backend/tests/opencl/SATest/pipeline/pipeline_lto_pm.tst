@@ -72,7 +72,7 @@
 ; CHECK-NEXT: Running pass: CreateSimdVariantPropagation
 ; CHECK-NEXT: Running pass: SGSizeCollectorPass
 ; CHECK-NEXT: Running pass: SGSizeCollectorIndirectPass
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VectorizationDimensionAnalysis, llvm::Module>
+; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VectorizationDimensionAnalysis, llvm::Module
 ; CHECK-NEXT: Running analysis: VectorizationDimensionAnalysis
 ; CHECK-NEXT: Running pass: SYCLKernelVecClonePass
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>

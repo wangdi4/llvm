@@ -93,7 +93,6 @@ add_opencl_executable(
   RunnerFactoryGenerator.cpp
   SATest.cpp
   dbg_utils.cpp
-  dllmain.cpp
   main.cpp
   mem_utils.cpp)
 

@@ -14,4 +14,11 @@ add_ocl_unittest(
   LLVMTransformUtils
   test_utils)
 
+# TODO: The test_utils.a library get undefined symbol errors
+# using LLD for linker, but the symbols are not actually used, 
+# this problem needs more investigation.
+if(NOT WIN32)
+  target_link_options(metadata_api_test_type PUBLIC "-fuse-ld=bfd")
+endif()
+
 add_ocl_unittest_artifacts(FILE metadatatest.ll)
