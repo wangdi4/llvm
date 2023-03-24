@@ -28589,6 +28589,32 @@ execution, but is unknown at compile time.
 If the result value does not fit in the result type, then the result is
 a :ref:`poison value <poisonvalues>`.
 
+.. INTEL_CUSTOMIZATION
+
+.. _int_intel_directive_elementsize:
+
+'``llvm.intel.directive.elementsize``' Intrinsic
+
+Syntax:
+"""""""
+
+::
+
+      declare void llvm.intel.directive.elementsize(ptr %p1, i64 4)
+      declare void llvm.intel.directive.elementsize(ptr %p2, i64 8)
+
+Overview:
+"""""""""
+
+The ``llvm.intel.directive.elementsize`` intrinsic specifies the pointee size in bytes
+for the pointer argument.
+
+Semantics:
+""""""""""
+
+The element size is a constant positive integer value known at compile time.
+
+.. END INTEL_CUSTOMIZATION
 
 Stack Map Intrinsics
 --------------------
