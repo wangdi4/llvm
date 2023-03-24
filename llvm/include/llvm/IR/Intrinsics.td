@@ -1446,6 +1446,10 @@ def int_experimental_gc_relocate : DefaultAttrsIntrinsic<
 def int_directive_region_entry : Intrinsic<[llvm_token_ty], [], []>;
 def int_directive_region_exit  : Intrinsic<[], [llvm_token_ty], []>;
 // end INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+def int_intel_directive_elementsize :
+    Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty], [ImmArg<ArgIndex<1>>]>;
+#endif // INTEL_CUSTOMIZATION
 
 def int_experimental_gc_get_pointer_base : DefaultAttrsIntrinsic<
     [llvm_anyptr_ty], [llvm_anyptr_ty],
