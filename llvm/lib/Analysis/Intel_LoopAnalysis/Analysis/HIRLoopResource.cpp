@@ -669,11 +669,16 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
 
   } else if (isa<CallInst>(Inst)) {
 
-    // Accounting for the cost of calls which do not access memory is resulting
-    // in regressions as general unroll bails out on some loops.
-    // TODO: Do something smarter for calls. Probably tune general unroll along
-    // with loop resource.
-    return LoopResourceInfo::OperationCost::FreeOp;
+    auto *Intrin = dyn_cast<IntrinsicInst>(Inst);
+
+    // Assume like intrinsics 'annotate' IR so they do not cost anything.
+    // TODO: Add other calls (like region.entry/region/exit intrinsics) that may
+    // be classified as free.
+    if (Intrin && Intrin->isAssumeLikeIntrinsic()) {
+      return LoopResourceInfo::OperationCost::FreeOp;
+    }
+
+    return LoopResourceInfo::OperationCost::BasicOp;
 
   } else if (isa<InsertElementInst>(Inst) || isa<ExtractElementInst>(Inst)) {
 
