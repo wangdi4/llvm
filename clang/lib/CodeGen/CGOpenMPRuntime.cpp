@@ -3139,18 +3139,15 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
     }
   };
 
-<<<<<<< HEAD
-  OMPBuilder.createOffloadEntriesAndInfoMetadata(
 #if INTEL_COLLAB
+  OMPBuilder.createOffloadEntriesAndInfoMetadata(
 #if INTEL_CUSTOMIZATION
       CGM.getLangOpts().OpenMPLateOutlineTarget &&
 #endif // INTEL_CUSTOMIZATION
-      CGM.getLangOpts().OpenMPLateOutline,
-#endif // INTEL_COLLAB
-  OffloadEntriesInfoManager, ErrorReportFn);
-=======
+      CGM.getLangOpts().OpenMPLateOutline, ErrorReportFn);
+#else // INTEL_COLLAB
   OMPBuilder.createOffloadEntriesAndInfoMetadata(ErrorReportFn);
->>>>>>> 85faee69928b1eeb74a0d74f374a1c74ddf236dd
+#endif // INTEL_COLLAB
 }
 
 /// Loads all the offload entries information from the host IR
@@ -6192,7 +6189,7 @@ int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
       getTargetEntryUniqueInfo(CGM.getContext(), D.getBeginLoc(), ParentName);
 
   // Register the information for the entry associated with this target region.
-  int Index = OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
+  int Index = OMPBuilder.OffloadInfoManager.registerTargetRegionEntryInfo(
       EntryInfo, nullptr, nullptr,
       llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion);
   if (Index == -1)
@@ -10865,8 +10862,7 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
 
     // Is this a target region that should not be emitted as an entry point? If
     // so just signal we are done with this target region.
-<<<<<<< HEAD
-    if (!OffloadEntriesInfoManager.hasTargetRegionEntryInfo(EntryInfo))
+    if (!OMPBuilder.OffloadInfoManager.hasTargetRegionEntryInfo(EntryInfo))
 #if INTEL_COLLAB
       return false;
     if (CGM.getLangOpts().OpenMPLateOutline)
@@ -10874,10 +10870,7 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
       if (CGM.getLangOpts().OpenMPLateOutlineTarget)
 #endif // INTEL_CUSTOMIZATION
       return true;
-#else
-=======
-    if (!OMPBuilder.OffloadInfoManager.hasTargetRegionEntryInfo(EntryInfo))
->>>>>>> 85faee69928b1eeb74a0d74f374a1c74ddf236dd
+#else // INTEL_COLLAB
       return;
 #endif // INTEL_COLLAB
 
@@ -11341,7 +11334,7 @@ void CGOpenMPRuntime::registerTargetIndirectFn(StringRef FnName,
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
       !CGM.getLangOpts().OpenMPIsDevice)
     return;
-  OffloadEntriesInfoManager.registerDeviceIndirectFnEntryInfo(
+  OMPBuilder.OffloadInfoManager.registerDeviceIndirectFnEntryInfo(
       FnName, Addr, CGM.getLangOpts().OpenMPIsDevice);
 }
 
@@ -11350,7 +11343,7 @@ void CGOpenMPRuntime::registerTargetVtableGlobalVar(StringRef VarName,
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
       !CGM.getLangOpts().OpenMPIsDevice)
     return;
-  OffloadEntriesInfoManager.registerDeviceGlobalVarEntryInfo(
+  OMPBuilder.OffloadInfoManager.registerDeviceGlobalVarEntryInfo(
       VarName, Addr, CGM.getPointerSize().getQuantity(),
       llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo,
       llvm::GlobalValue::ExternalLinkage);

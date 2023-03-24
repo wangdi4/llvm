@@ -727,11 +727,13 @@ public:
                            SmallVectorImpl<LOMapInfo> *Info);
 
   StringRef getNameOfOffloadEntryDeviceGlobalVar(llvm::Constant *Addr) {
-    return OffloadEntriesInfoManager.getNameOfOffloadEntryDeviceGlobalVar(Addr);
+    return OMPBuilder.OffloadInfoManager.getNameOfOffloadEntryDeviceGlobalVar(
+        Addr);
   }
   void updateDeviceGlobalVarEntryInfoAddr(StringRef Name,
                                           llvm::Constant *Addr) {
-    OffloadEntriesInfoManager.updateDeviceGlobalVarEntryInfoAddr(Name, Addr);
+    OMPBuilder.OffloadInfoManager.updateDeviceGlobalVarEntryInfoAddr(Name,
+                                                                     Addr);
   }
 #endif // INTEL_COLLAB
 

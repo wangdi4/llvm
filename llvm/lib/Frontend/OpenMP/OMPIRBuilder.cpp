@@ -4952,13 +4952,9 @@ void OpenMPIRBuilder::createOffloadEntry(Constant *ID, Constant *Addr,
 
 // We only generate metadata for function that contain target regions.
 void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
-<<<<<<< HEAD
 #if INTEL_COLLAB
     bool IsLateOutline,
 #endif // INTEL_COLLAB
-    OffloadEntriesInfoManager &OffloadEntriesInfoManager,
-=======
->>>>>>> 85faee69928b1eeb74a0d74f374a1c74ddf236dd
     EmitMetadataErrorReportFunctionTy &ErrorFn) {
 
   // If there are no entries, we don't need to do anything.
@@ -5091,7 +5087,7 @@ void OpenMPIRBuilder::createOffloadEntriesAndInfoMetadata(
         // Add metadata to the named metadata node.
         MD->addOperand(llvm::MDNode::get(C, Ops));
       };
-  OffloadEntriesInfoManager.actOnDeviceIndirectFnEntriesInfo(
+  OffloadInfoManager.actOnDeviceIndirectFnEntriesInfo(
       DeviceIndirectFnMetadataEmitter);
 
   if (IsLateOutline)
@@ -5228,7 +5224,7 @@ void OpenMPIRBuilder::loadOffloadInfoMetadata(Module &M) {
 #if INTEL_COLLAB
     case llvm::OffloadEntriesInfoManager::OffloadEntryInfo::
         OffloadingEntryInfoIndirectFn:
-      OffloadEntriesInfoManager.initializeDeviceIndirectFnEntryInfo(
+      OffloadInfoManager.initializeDeviceIndirectFnEntryInfo(
           /*MangledName=*/GetMDString(1), /*Order=*/GetMDInt(2));
       break;
 #endif // INTEL_COLLAB
