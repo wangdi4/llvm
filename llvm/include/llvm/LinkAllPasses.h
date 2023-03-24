@@ -46,23 +46,23 @@
 #include "llvm/Analysis/RegionPrinter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
-#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
-#include "llvm/Analysis/Intel_ArrayUseAnalysis.h"  // INTEL
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" // INTEL - HIR
-#include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
-#include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/Analysis/Intel_Andersens.h"                      // INTEL
+#include "llvm/Analysis/Intel_ArrayUseAnalysis.h"               // INTEL
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"            // INTEL - HIR
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
+#include "llvm/Analysis/Intel_StdContainerAA.h"                 // INTEL
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"              // INTEL
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/SYCLLowerIR/ESIMD/ESIMDVerifier.h"
 #include "llvm/SYCLLowerIR/ESIMD/LowerESIMD.h"
+#include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/LowerWGScope.h"
-#include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
 #include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
@@ -70,16 +70,8 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
-#include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
-#include "llvm/Transforms/IPO/Intel_InlineLists.h"         // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
-#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h" // INTEL
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
@@ -139,20 +131,14 @@ namespace {
       (void) llvm::createCleanupFakeLoadsPass();
       (void) llvm::createHandlePragmaVectorAlignedPass();
       (void) llvm::createStdContainerOptPass();
-      (void) llvm::createStdContainerAAWrapperPass();
-      (void) llvm::createInlineListsPass();
+      (void)llvm::createStdContainerAAWrapperPass();
       (void) llvm::createInlineReportSetupPass();
-      (void) llvm::createInlineReportEmitterPass();
-      (void) llvm::createIntelAdvancedFastCallWrapperPass();
-#if INTEL_FEATURE_SW_ADVANCED
-      (void) llvm::createIntelIPOPrefetchWrapperPass();
-#endif // INTEL_FEATURE_SW_ADVANCED
+      (void)llvm::createInlineReportEmitterPass();
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
-      (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
-      (void) llvm::createCallTreeCloningPass();
+      (void)llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
       (void) llvm::createAddSubReassociatePass();
       (void) llvm::createForcedCMOVGenerationPass();
       (void) llvm::createTransformFPGARegPass();
@@ -311,7 +297,6 @@ namespace {
 
 #if INTEL_CUSTOMIZATION
       (void)llvm::createLoadCoalescingPass();
-      (void)llvm::createMathLibraryFunctionsReplacementPass();
       (void) llvm::createSNodeAnalysisPass();
       (void) llvm::createLoopOptMarkerLegacyPass();
       (void) llvm::createArrayUseWrapperPass();
@@ -397,10 +382,7 @@ namespace {
       (void) llvm::createVPODirectiveCleanupPass();
       (void) llvm::createVecClonePass();
 
-      // dynamic_cast calls optimization pass.
-      (void) llvm::createOptimizeDynamicCastsWrapperPass();
-
-  #if INTEL_FEATURE_CSA
+#if INTEL_FEATURE_CSA
       // Various CSA passes.
       (void) llvm::createLoopSPMDizationPass();
       (void) llvm::createCSALowerParallelIntrinsicsWrapperPass();
@@ -409,8 +391,7 @@ namespace {
       (void) llvm::createVPOParoptOptimizeDataSharingPass();
       (void) llvm::createVPOParoptSharedPrivatizationPass();
       (void) llvm::createVPOParoptTargetInlinePass();
-      (void) llvm::createVPOParoptApplyConfigPass();
-      (void) llvm::createIntelVTableFixupPass();
+      (void)llvm::createVPOParoptApplyConfigPass();
 #endif // INTEL_CUSTOMIZATION
 
   #if INTEL_COLLAB

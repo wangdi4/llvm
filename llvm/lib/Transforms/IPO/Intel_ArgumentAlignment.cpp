@@ -1,6 +1,6 @@
 //===---- Intel_ArgumentAlignment.cpp - Intel Compute Alignment      -*----===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1133,56 +1133,6 @@ bool ArgumentAlignment::runImpl() {
   applyTransformation();
 
   return true;
-}
-
-namespace {
-
-struct IntelArgumentAlignmentLegacyPass : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  IntelArgumentAlignmentLegacyPass() : ModulePass(ID) {
-    initializeIntelArgumentAlignmentLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-
-    if (skipModule(M))
-      return false;
-
-    WholeProgramInfo *WPInfo =
-        &getAnalysis<WholeProgramWrapperPass>().getResult();
-
-    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    // Implementation of the optimization
-    return ArgumentAlignment(M, WPInfo, GetTLI).runImpl();
-  }
-};
-
-} // namespace
-
-char IntelArgumentAlignmentLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IntelArgumentAlignmentLegacyPass,
-                      "intel-argument-alignment", "Intel argument alignment",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(IntelArgumentAlignmentLegacyPass,
-                    "intel-argument-alignment", "Intel argument alignment",
-                    false, false)
-
-ModulePass *llvm::createIntelArgumentAlignmentLegacyPass() {
-  return new IntelArgumentAlignmentLegacyPass();
 }
 
 IntelArgumentAlignmentPass::IntelArgumentAlignmentPass() {}
