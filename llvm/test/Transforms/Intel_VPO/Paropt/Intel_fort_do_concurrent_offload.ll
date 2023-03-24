@@ -121,7 +121,7 @@ bb_new8:                                          ; preds = %DIR.OMP.TEAMS.2
 ; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.EXT.DO.CONCURRENT"(),
 
-  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.EXT.DO.CONCURRENT"(), "QUAL.OMP.COLLAPSE"(i32 1), "QUAL.OMP.SHARED"([64 x float]* %"_unnamed_main$$_$A"), "QUAL.OMP.SHARED"([64 x float]* @"_unnamed_main$$_$B"), "QUAL.OMP.SHARED"(i32* %do.step), "QUAL.OMP.SHARED"(i32* %do.start), "QUAL.OMP.PRIVATE"(i32* %"_unnamed_main$$_$I$_1"), "QUAL.OMP.FIRSTPRIVATE"(i64* %do.norm.lb), "QUAL.OMP.NORMALIZED.IV"(i64* %do.norm.iv), "QUAL.OMP.NORMALIZED.UB"(i64* %do.norm.ub), "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"() ]
+  %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.EXT.DO.CONCURRENT"(), "QUAL.OMP.COLLAPSE"(i32 1), "QUAL.OMP.SHARED"([64 x float]* %"_unnamed_main$$_$A"), "QUAL.OMP.SHARED"([64 x float]* @"_unnamed_main$$_$B"), "QUAL.OMP.SHARED"(i32* %do.step), "QUAL.OMP.SHARED"(i32* %do.start), "QUAL.OMP.PRIVATE"(i32* %"_unnamed_main$$_$I$_1"), "QUAL.OMP.FIRSTPRIVATE"(i64* %do.norm.lb), "QUAL.OMP.NORMALIZED.IV"(i64* %do.norm.iv), "QUAL.OMP.NORMALIZED.UB"(i64* %do.norm.ub), "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(i1 true) ]
   br label %DIR.OMP.GENERICLOOP.4
 
 DIR.OMP.GENERICLOOP.4:                            ; preds = %bb_new8

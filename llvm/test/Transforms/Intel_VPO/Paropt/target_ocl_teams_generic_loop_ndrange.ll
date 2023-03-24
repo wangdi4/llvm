@@ -64,10 +64,10 @@ DIR.OMP.TEAMS.2:                                  ; preds = %DIR.OMP.TEAMS.4
   br label %DIR.OMP.TEAMS.5
 
 DIR.OMP.TEAMS.5:                                  ; preds = %DIR.OMP.TEAMS.2
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.SHARED"(float addrspace(4)* addrspace(4)* %A.addr.ascast), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %j.ascast), "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"() ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.SHARED"(float addrspace(4)* addrspace(4)* %A.addr.ascast), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %j.ascast), "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(i1 false) ]
 
 ; Note: Prepare pass changes the GENERICLOOP to a DISTRIBUTE
-; CHECK: @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), {{.*}}, "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"()
+; CHECK: @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), {{.*}}, "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"({{.*}})
 
 
   br label %DIR.OMP.GENERICLOOP.6
