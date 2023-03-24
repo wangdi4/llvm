@@ -1,3 +1,16 @@
+//
+// Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 OclBuiltinImpl HalfToFloat2 = OclBuiltinImpl<__ocl_HalfToFloat, [v1i16], 0, [{
     unsigned short expHalf16 = $Arg0VarName & 0x7C00;
     int exp1 = (int)expHalf16;
@@ -690,7 +703,7 @@ OclBuiltinImpl __ocl_double4ToHalf42 = OclBuiltinImpl<__ocl_double4ToHalf4, [v4f
 
 //===========load===================
 code Load = [{
-    __attribute__((aligned(1))) typedef struct {$ReturnType data;} LoadTy;
+    __attribute__((aligned(sizeof($ReturnBaseType)))) typedef struct {$ReturnType data;} LoadTy;
     const LoadTy *pSrc = (LoadTy*)((char*)$Arg1VarName + (offset * $VecLength * sizeof($ReturnBaseType)));
     return pSrc->data;
   }];
@@ -702,7 +715,7 @@ code LoadC = [{
   }];
 
 code Load3 = [{
-    __attribute__((aligned(1))) typedef struct {$ReturnType data;} LoadTy;
+    __attribute__((aligned(sizeof($ReturnBaseType)))) typedef struct {$ReturnType data;} LoadTy;
     const LoadTy *pSrc = (LoadTy*)((char*)$Arg1VarName + (offset * $VecLength * sizeof($ReturnBaseType)));
     return ($ReturnType)(pSrc->data.lo, pSrc->data.s2);
   }];
@@ -786,12 +799,12 @@ code Loada_const_half3 = [{
   }];
 //==============store==================
 code Store = [{
-    __attribute__((aligned(1))) typedef struct {$Arg0Type data;} StoreTy;
+    __attribute__((aligned(sizeof($Arg0BaseType)))) typedef struct {$Arg0Type data;} StoreTy;
     StoreTy* pDst = (StoreTy*)((char*)$Arg2VarName + ($Arg1VarName * $VecLength * sizeof($Arg0BaseType)));
     pDst->data = $Arg0VarName;
   }];
 code Store3 = [{
-    __attribute__((aligned(1))) typedef struct {$Arg0Type data;} StoreTy;
+    __attribute__((aligned(sizeof($Arg0BaseType)))) typedef struct {$Arg0Type data;} StoreTy;
     StoreTy* pDst = (StoreTy*)((char*)$Arg2VarName + ($Arg1VarName * $VecLength * sizeof($Arg0BaseType)));
     pDst->data.lo = $Arg0VarName.lo;
     pDst->data.s2 = $Arg0VarName.s2;
