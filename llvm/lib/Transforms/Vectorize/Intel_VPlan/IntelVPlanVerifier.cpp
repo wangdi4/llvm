@@ -53,21 +53,17 @@ void VPlanVerifier::verifyNumLoops(void) const {
   (void)NumLoopsInIR;
 }
 
-#if INTEL_CUSTOMIZATION
 void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
   Plan->getExternals().verifyVPConstants();
   Plan->getExternals().verifyVPExternalDefs();
   Plan->getExternals().verifyVPExternalDefsHIR();
   Plan->getExternals().verifyVPMetadataAsValues();
 }
-#endif
 
 // Public interface to verify the loop and its loop info.
-void VPlanVerifier::verifyLoops(
-#if INTEL_CUSTOMIZATION
-    const VPlanVector *Plan,
-#endif
-    const VPDominatorTree &VPDomTree, VPLoopInfo *VPLI) {
+void VPlanVerifier::verifyLoops(const VPlanVector *Plan,
+                                const VPDominatorTree &VPDomTree,
+                                VPLoopInfo *VPLI) {
 
   VPLInfo = VPLI;
 
@@ -76,9 +72,7 @@ void VPlanVerifier::verifyLoops(
 
   LLVM_DEBUG(dbgs() << "Verifying loop nest.\n");
 
-#if INTEL_CUSTOMIZATION
   verifyCFGExternals(Plan);
-#endif
 
   unsigned BBNum = 0;
   (void)BBNum;

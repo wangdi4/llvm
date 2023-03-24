@@ -13759,6 +13759,15 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   // TYPED, just use its first argument for the LIVEIN clause.
   bool ReplaceShared = (MappedDir == DIR_OMP_LOOP || MappedDir == DIR_OMP_SIMD);
   bool ReplaceFirstPrivate = (MappedDir == DIR_OMP_SIMD);
+  // For GenericLoops with TEAMS binding, the mapped directive is
+  // DIR_OMP_DISTRIBUTE therefore:
+  //  * SHARED clauses will be dropped as DISTRIBUTE currently doesn't support
+  //    LIVEIN clauses for replacement
+  //  * REDUCTION clause on DISTRIBUTE is not supported based on
+  //    OMP 5.2 spec for non-host devices. For host, our compiler
+  //    implementation doesn't support it. Frontend should emit error
+  //    for this but until then abort and emit error.
+  bool IsLoopBindTeams = (MappedDir == DIR_OMP_DISTRIBUTE);
   for (unsigned i = 1; i < OpBundles.size(); i++) {
     StringRef Tag = OpBundles[i].getTag();
     ClauseSpecifier ClauseInfo(Tag);
@@ -13766,6 +13775,17 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
 
     if (VPOAnalysisUtils::isBindClause(ClauseID))
       continue;
+
+    if (IsLoopBindTeams) {
+      if (VPOAnalysisUtils::isReductionClause(ClauseID)) {
+        std::string ErrorMsg = "'reduction' clause on a 'loop' construct with "
+                               "'teams' binding is not supported";
+        F->getContext().diagnose(DiagnosticInfoUnsupported(*F, ErrorMsg));
+      }
+
+      if (QUAL_OMP_SHARED == ClauseID)
+        continue;
+    }
 
     if (((QUAL_OMP_SHARED == ClauseID) && ReplaceShared) ||
         ((QUAL_OMP_FIRSTPRIVATE == ClauseID) && ReplaceFirstPrivate)) {
@@ -15031,11 +15051,9 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(const WRegionNode *W) const {
   // which we check above.
   if (WTeams) {
     if (auto *WGL = dyn_cast<WRNGenericLoopNode>(W)) {
-      if (WGL->getMappedDir() != DIR_OMP_DISTRIBUTE_PARLOOP) {
-        // Use NDRange if W is a GenericLoop mapped to DistributeParLoop.
-        // Bail out for all other GenericLoop cases.
+      if (WGL->getMappedDir() != DIR_OMP_DISTRIBUTE_PARLOOP &&
+          WGL->getMappedDir() != DIR_OMP_DISTRIBUTE)
         return true;
-      }
     } else if (!WRegionUtils::isDistributeNode(W) &&
                !WRegionUtils::isDistributeParLoopNode(W)) {
       return true;

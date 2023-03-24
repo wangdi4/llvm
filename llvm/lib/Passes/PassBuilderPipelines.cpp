@@ -2569,9 +2569,11 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
 
   // Enable VPlanPragmaOmpSimdIfPass pass only in case VPlan pass will be
   // enabled after that
-  if (RunVPOOpt && EnableVPlanDriver)
+  if (RunVPOOpt && EnableVPlanDriver) {
     // Makes sure #pragma omp if clause will be reduced before VPlan pass
+    FPM.addPass(VPOCFGRestructuringPass());
     FPM.addPass(VPlanPragmaOmpSimdIfPass());
+  }
 
   if (RunVPOOpt && EnableVPlanDriver && RunPreLoopOptVPOPasses) {
     // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit

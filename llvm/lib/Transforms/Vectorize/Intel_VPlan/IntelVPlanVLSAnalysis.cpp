@@ -17,11 +17,8 @@
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSTransform.h"
-#if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#endif // INTEL_CUSTOMIZATION
-
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-vls-analysis"

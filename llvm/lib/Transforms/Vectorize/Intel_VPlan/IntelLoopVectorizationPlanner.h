@@ -17,12 +17,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZATIONPLANNER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZATIONPLANNER_H
 
-#if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelVPlanLoopUnroller.h"
-#else
-#include "VPlan.h"
-#endif
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
 
@@ -40,10 +36,8 @@ class DDGraph;
 using namespace llvm::loopopt;
 
 namespace vpo {
-#if INTEL_CUSTOMIZATION
 class VPlanVLSAnalysis;
 class WRNVecLoopNode;
-#endif
 class VPOCodeGen;
 class VPOVectorizationLegality;
 class WRNVecLoopNode;
@@ -329,7 +323,6 @@ protected:
   };
 
 public:
-#if INTEL_CUSTOMIZATION
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
                            const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI, const DataLayout *DL,
@@ -339,7 +332,6 @@ public:
                            BlockFrequencyInfo *BFI = nullptr)
       : VectorlengthMD(nullptr), WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL),
         Legal(Legal), VLSA(VLSA), DT(DT), TheLoop(Lp), LI(LI), BFI(BFI) {}
-#endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
   /// Build initial VPlans according to the information gathered by Legal
@@ -672,10 +664,8 @@ protected:
   // Storage for VPInstructions that have been removed from VPlan and unlinked.
   std::unique_ptr<VPUnlinkedInstructions> UnlinkedVPInsts;
 
-#if INTEL_CUSTOMIZATION
   /// VPlan VLS Analysis.
   VPlanVLSAnalysis *VLSA;
-#endif // INTEL_CUSTOMIZATION
 
   /// The dominator tree.
   class DominatorTree *DT;

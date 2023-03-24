@@ -16,10 +16,10 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDRIVER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANDRIVER_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h" // INTEL
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h" // INTEL
-#include "llvm/Transforms/Vectorize.h" // INTEL
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Vectorize.h"
 
 namespace llvm {
 namespace vpo {
@@ -47,34 +47,24 @@ private:
   OptimizationRemarkEmitter *ORE;
   FatalErrorHandlerTy FatalErrorHandler;
 
-#if INTEL_CUSTOMIZATION
   template <class Loop>
-#endif // INTEL_CUSTOMIZATION
   bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
 
-#if INTEL_CUSTOMIZATION
   template <class Loop>
-#endif // INTEL_CUSTOMIZATION
   bool isSupported(Loop *Lp);
 
-#if INTEL_CUSTOMIZATION
   template <class Loop>
-#endif // INTEL_CUSTOMIZATION
   void collectAllLoops(SmallVectorImpl<Loop *> &Loops);
 
   /// Return true if the given loop is a candidate for VPlan vectorization.
-#if INTEL_CUSTOMIZATION
   // Currently this function is used in the LLVM IR path to generate VPlan
   // candidates using LoopVectorizationLegality for stress testing the LLVM IR
   // VPlan implementation.
   template <class Loop>
-#endif // INTEL_CUSTOMIZATION
   bool isVPlanCandidate(Function &Fn, Loop *Lp);
 
-#if INTEL_CUSTOMIZATION
 protected:
   // Hold information regarding explicit vectorization in LLVM-IR.
-#endif //INTEL_CUSTOMIZATION
   WRegionInfo *WR;
   // true if runStandardMode was used for current processFunction and should
   // emit  kernel remarks in this case
@@ -87,7 +77,6 @@ protected:
 
   OptReportBuilder ORBuilder;
 
-#if INTEL_CUSTOMIZATION
   template <typename Loop = llvm::Loop>
   bool processFunction(Function &Fn);
 
@@ -100,21 +89,9 @@ protected:
 
   template <typename Loop = Loop>
   bool runConstructStressTestMode(Function &Fn);
-
-#else
-  bool processFunction(Function &Fn);
-  // VPlan Driver running modes
-  bool runStandardMode(Function &Fn);
-  bool runCGStressTestMode(Function &Fn);
-  bool runConstructStressTestMode(Function &Fn);
-#endif // INTEL_CUSTOMIZATION
 
   // Add remarks to the VPlan loop opt-report for loops created by codegen
-#if INTEL_CUSTOMIZATION
   template <class VPOCodeGenType, typename Loop = Loop>
-#else
-  template <class VPOCodeGenType>
-#endif //INTEL_CUSTOMIZATION
   void addOptReportRemarks(WRNVecLoopNode *WRLp,
                            VPlanOptReportBuilder &VPORBuilder,
                            VPOCodeGenType *VCodeGen);
@@ -182,20 +159,19 @@ public:
 
 class VPlanDriver : public FunctionPass {
   VPlanDriverImpl Impl;
-  FatalErrorHandlerTy FatalErrorHandler; // INTEL
+  FatalErrorHandlerTy FatalErrorHandler;
 
 protected:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 public:
   static char ID; // Pass identification, replacement for typeid
-  VPlanDriver(FatalErrorHandlerTy FatalErrorHandler = nullptr); // INTEL
+  VPlanDriver(FatalErrorHandlerTy FatalErrorHandler = nullptr);
 
   bool runOnFunction(Function &Fn) override;
   bool skipFunction(const Function &F) const override;
 };
 
-#if INTEL_CUSTOMIZATION
 class VPlanDriverHIRImpl : public VPlanDriverImpl {
   friend VPlanDriverImpl;
 
@@ -258,7 +234,6 @@ public:
 
   bool runOnFunction(Function &Fn) override;
 };
-#endif //INTEL_CUSTOMIZATION
 
 } // namespace vpo
 } // namespace llvm

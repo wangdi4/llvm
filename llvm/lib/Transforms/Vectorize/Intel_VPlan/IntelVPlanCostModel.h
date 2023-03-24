@@ -54,7 +54,6 @@ class VPInstruction;
 #define CM_DEBUG(OS, X)
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-#if INTEL_CUSTOMIZATION
 class VPlanVLSCostModel : public OVLSCostModel {
 public:
   explicit VPlanVLSCostModel(unsigned VF,
@@ -70,7 +69,6 @@ public:
 protected:
   unsigned VF;
 };
-#endif // INTEL_CUSTOMIZATION
 
 // VPlanTTICostModel defines interface and its implementation, that is to be
 // used by Cost Model heuristics.  Also all Heuristics independent code goes

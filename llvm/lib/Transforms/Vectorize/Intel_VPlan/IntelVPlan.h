@@ -118,13 +118,11 @@ class VPOCodeGenHIR;
 class VPOVectorizationLegality;
 class VPDominatorTree;
 class VPPostDominatorTree;
-#if INTEL_CUSTOMIZATION
 // To be later declared as a friend
 class VPlanCostModelInterface;
 namespace VPlanCostModelHeuristics {
 class HeuristicSLP;
 } // namespace VPlanCostModelHeuristics
-#endif // INTEL_CUSTOMIZATION
 class VPlanDivergenceAnalysis;
 class VPlanBranchDependenceAnalysis;
 class VPValueMapper;
@@ -358,7 +356,6 @@ struct VPTransformState {
 /// of IR instructions when executed, these instructions would always form a
 /// single-def expression as the VPInstruction is also a single def-use vertex.
 ///
-#if INTEL_CUSTOMIZATION
 /// For HIR, we classify VPInstructions into 3 sub-types:
 ///   1) Master VPInstruction: It has underlying HIR data attached and its
 ///      operands could have been decomposed or not. If so, this VPInstruction
@@ -392,7 +389,6 @@ struct VPTransformState {
 /// VPInstructionHIR sub-class would be complicated because VPInstruction also
 /// has sub-classes (VPCmpInst, VPPHINode, etc.) that would need to be
 /// replicated under the VPInstructionHIR.
-#endif
 class VPInstruction : public VPUser,
                       public ilist_node_with_parent<VPInstruction, VPBasicBlock,
                                              ilist_sentinel_tracking<true>> {
@@ -420,7 +416,6 @@ class VPInstruction : public VPUser,
   friend class VPlanCostModelHeuristics::HeuristicSLP;
   friend class VPlanIdioms;
 
-#if INTEL_CUSTOMIZATION
   friend class HIRSpecifics;
   friend class VPBuilderHIR;
   friend class VPDecomposerHIR;
@@ -428,7 +423,6 @@ class VPInstruction : public VPUser,
   // To get underlying HIRData until we have proper VPType.
   friend class VPVLSClientMemrefHIR;
   friend class VPOCodeGenHIR;
-#endif // INTEL_CUSTOMIZATION
 
   /// Central class to capture and differentiate operator-specific attributes
   /// that are attached to an instruction. All operators in LLVM are mutually
@@ -613,7 +607,7 @@ public:
     AllocatePrivate,
     Subscript,
     Blend,
-    HIRCopy, // INTEL
+    HIRCopy,
     OrigTripCountCalculation,
     VectorTripCountCalculation,
     ActiveLane,
@@ -738,9 +732,7 @@ private:
   void generateInstruction(VPTransformState &State, unsigned Part);
 
   void copyUnderlyingFrom(const VPInstruction &Inst) {
-#if INTEL_CUSTOMIZATION
     HIR().cloneFrom(Inst.HIR());
-#endif // INTEL_CUSTOMIZATION
     Value *V = Inst.getUnderlyingValue();
     if (V)
       setUnderlyingValue(*V);
@@ -765,13 +757,11 @@ protected:
     return cast_or_null<Instruction>(getUnderlyingValue());
   }
 
-#if INTEL_CUSTOMIZATION
   /// Return true if this is a new VPInstruction (i.e., an VPInstruction that is
   /// not coming from the underlying IR.
   bool isNew() const {
     return getUnderlyingValue() == nullptr && !HIR().isSet();
   }
-#endif
 
   virtual VPInstruction *cloneImpl() const {
     VPInstruction *Cloned = new VPInstruction(Opcode, getType(), {});
@@ -924,9 +914,7 @@ public:
   /// TODO: We currently execute only per-part unless a specific instance is
   /// provided.
   virtual void execute(VPTransformState &State);
-#if INTEL_CUSTOMIZATION
   virtual void executeHIR(VPOCodeGenHIR *CG);
-#endif
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &O) const override;
   void printWithoutAnalyses(raw_ostream &O) const;
@@ -5389,9 +5377,7 @@ public:
   /// Generate the LLVM IR code for this VPlan.
   void execute(struct VPTransformState *State);
 
-#if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG);
-#endif // INTEL_CUSTOMIZATION
 
   VPLoopInfo *getVPLoopInfo() { return VPLInfo.get(); }
 
