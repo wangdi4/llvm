@@ -64,7 +64,7 @@
 #endif
 #include <sycl/ext/codeplay/experimental/fusion_wrapper.hpp>
 #include <sycl/ext/intel/usm_pointers.hpp>
-#ifndef DISABLE_SYCL_EXT_ANNOTATED_XXX
+#ifndef DISABLE_SYCL_EXT_ONEAPI_ANNOTATED_XXX
 #include <sycl/ext/oneapi/annotated_arg/annotated_arg.hpp>
 #include <sycl/ext/oneapi/annotated_arg/annotated_ptr.hpp>
 #include <sycl/ext/oneapi/annotated_arg/properties.hpp>
