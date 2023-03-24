@@ -179,6 +179,21 @@ cl::opt<unsigned> llvm::SetLicmMssaNoAccForPromotionCap(
 cl::opt<bool> LICMUpdateHoistedDebugInfo(
     "licm-update-hoisted-debug-info", cl::Hidden, cl::init(false),
     cl::desc("Update (by clearing) debug info for hoisted instructions"));
+
+cl::opt<bool> LICMSpeculateRelatedLoads(
+    "licm-speculate-related-loads", cl::Hidden, cl::init(true),
+    cl::desc(
+        "Speculate loads when a load of the same structure is speculatable"));
+cl::opt<unsigned> LICMSpeculateMinStructByteSize(
+    "licm-speculate-min-struct-byte-size", cl::Hidden, cl::init(512),
+    cl::desc("Minimum structure size for LICM speculation"));
+cl::opt<unsigned> LICMSpeculateMaxRelatedDist(
+    "licm-speculate-max-related-dist", cl::Hidden, cl::init(128),
+    cl::desc("Maximum distance where a load will be considered related"));
+cl::opt<unsigned>
+    LICMSpeculateMaxInsts("licm-speculate-max-insts", cl::Hidden, cl::init(24),
+                          cl::desc("Maximum number of instructions to look at "
+                                   "when searching for related loads"));
 #endif // INTEL_CUSTOMIZATION
 
 static bool inSubLoop(BasicBlock *BB, Loop *CurLoop, LoopInfo *LI);
@@ -1818,6 +1833,102 @@ static void hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
   ++NumHoisted;
 }
 
+#if INTEL_CUSTOMIZATION
+// 2 loads are related, if their pointer operands are GEPs that point into
+// the same structure, with a small offset difference.
+//   - base pointer of GEPs are the same
+//   - the GEP base type is a structure
+//   - the structure is larger than a certain size
+//   - the GEP offsets are constant indices
+//   - the GEP offsets differ by only a small amount.
+//   - the TBAA information exists and has the same base for both loads.
+static bool loadsAreRelated(LoadInst *LI1, LoadInst *LI2,
+                            const DataLayout &DL) {
+  // Compare the basic GEP fields.
+  auto *GEP1 = dyn_cast<GetElementPtrInst>(LI1->getPointerOperand());
+  auto *GEP2 = dyn_cast<GetElementPtrInst>(LI2->getPointerOperand());
+  if (!GEP1 || !GEP2)
+    return false;
+  if (GEP1->getPointerOperand() != GEP2->getPointerOperand())
+    return false;
+  if (!GEP1->isInBounds() || !GEP2->isInBounds())
+    return false;
+
+  // Constant index GEPs of the same base structure type
+  if (!GEP1->hasAllConstantIndices() || !GEP2->hasAllConstantIndices())
+    return false;
+  auto *StrTy1 = dyn_cast<StructType>(GEP1->getSourceElementType());
+  auto *StrTy2 = dyn_cast<StructType>(GEP2->getSourceElementType());
+  if (!StrTy1 || !StrTy2 || StrTy1 != StrTy2)
+    return false;
+
+  // Small structures that fit in cache, may not perform better if fields are
+  // speculatively hoisted (waste registers, reduce locality)
+  if (DL.getTypeSizeInBits(StrTy1) < (LICMSpeculateMinStructByteSize * 8))
+    return false;
+
+  // Check that the AA metadata also shows the same base type. Filters out
+  // illegal casts.
+  AAMDNodes AAMD1 = LI1->getAAMetadata();
+  AAMDNodes AAMD2 = LI2->getAAMetadata();
+  if (!AAMD1.TBAA || !AAMD2.TBAA)
+    return false;
+  if (AAMD1.TBAA->getNumOperands() < 3 || AAMD2.TBAA->getNumOperands() < 3)
+    return false;
+  if (AAMD1.TBAA->getOperand(0) != AAMD2.TBAA->getOperand(0))
+    return false;
+
+  // Finally, check that the addresses are close together, likely to have
+  // good cache locality.
+  APInt Offset1, Offset2;
+  Offset1 = APInt::getZero(DL.getIndexSizeInBits(GEP1->getAddressSpace()));
+  Offset2 = Offset1;
+  if (!GEP1->accumulateConstantOffset(DL, Offset1))
+    return false;
+  if (!GEP2->accumulateConstantOffset(DL, Offset2))
+    return false;
+  if ((Offset1 - Offset2).abs().ugt(LICMSpeculateMaxRelatedDist))
+    return false;
+
+  return true;
+}
+
+// If a load in a loop is conditionally executed, it usually not safe to
+// hoist it to the loop header unconditionally. But if the load is a structure
+// field, and there exists an unconditional load of a different field of that
+// structure, we may be able to hoist it. This saves a condition check, and
+// may allow hoisting where it would not normally be possible.
+// Returns the related load, or nullptr.
+static LoadInst *loadHasSafeRelatedLoad(LoadInst *LI, const DominatorTree *DT,
+                                        const Loop *L, const DataLayout &DL) {
+  unsigned ICount = 0;
+  assert(L->contains(LI) && "Loop does not contain the load to be analyzed.");
+  auto *DomNode = DT->getNode(LI->getParent());
+  if (!DomNode)
+    return nullptr;
+  // LI is known in the loop, skip to its dominator.
+  DomNode = DomNode->getIDom();
+  for (; DomNode; DomNode = DomNode->getIDom()) {
+    // The related load must execute unconditionally w.r.t the loop.
+    // Only look at blocks that dominate the entire loop for now.
+    // TODO: Use SafetyInfo to analyze loads inside the loop.
+    if (L->contains(DomNode->getBlock()))
+      continue;
+    Instruction *CurrI = DomNode->getBlock()->getTerminator();
+    while (CurrI) {
+      if (auto *LI2 = dyn_cast<LoadInst>(CurrI))
+        if (loadsAreRelated(LI, LI2, DL))
+          return LI2;
+      CurrI = CurrI->getPrevNode();
+      // Reduce compile time impact. Only search a small number of insts.
+      if (ICount++ > LICMSpeculateMaxInsts)
+        return nullptr;
+    }
+  }
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Only sink or hoist an instruction if it is not a trapping instruction,
 /// or if the instruction is known not to trap when moved to the preheader.
 /// or if it is a trapping instruction and is guaranteed to execute.
@@ -1835,6 +1946,18 @@ static bool isSafeToExecuteUnconditionally(
 
   if (!GuaranteedToExecute) {
     auto *LI = dyn_cast<LoadInst>(&Inst);
+
+#if INTEL_CUSTOMIZATION
+    if (LICMSpeculateRelatedLoads && LI) {
+      const DataLayout &MDL = LI->getModule()->getDataLayout();
+      if (auto *RelatedLoad = loadHasSafeRelatedLoad(LI, DT, CurLoop, MDL)) {
+        LLVM_DEBUG(dbgs() << *LI << " is speculatable because of load "
+                          << *RelatedLoad);
+        return true;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+
     if (LI && CurLoop->isLoopInvariant(LI->getPointerOperand()))
       ORE->emit([&]() {
         return OptimizationRemarkMissed(
