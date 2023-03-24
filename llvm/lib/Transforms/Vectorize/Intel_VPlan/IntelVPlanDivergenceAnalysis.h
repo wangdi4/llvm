@@ -52,6 +52,7 @@ class VPLoopInfo;
 class VPVectorShape;
 class VPPHINode;
 class VPCmpInst;
+class VPBlendInst;
 class VPLoopEntityList;
 class VPAllocatePrivate;
 class VPInductionInit;
@@ -401,8 +402,16 @@ private:
 
   VPVectorShape computeVectorShapeForSOAGepInst(const VPInstruction *I);
 
+  /// Go through operands of Phi or Blend instructions and compute their
+  /// "joined" shape.
+  template <typename PhiOrBlend>
+  VPVectorShape joinOperandShapes(const PhiOrBlend *Inst);
+
   /// Computes vector shapes for phi nodes.
   VPVectorShape computeVectorShapeForPhiNode(const VPPHINode *Phi);
+
+  /// Computes vector shapes for blend instruction.
+  VPVectorShape computeVectorShapeForBlend(const VPBlendInst *Blend);
 
   /// Computes vector shape for load instructions.
   VPVectorShape computeVectorShapeForLoadInst(const VPInstruction *I);

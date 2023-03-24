@@ -1271,6 +1271,14 @@ public:
   /// the "true" will be used as the predicate.
   void addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan = nullptr);
 
+  auto incomingValues() {
+    return map_range(make_filter_range(llvm::enumerate(operands()),
+                                       [](const auto &Arg) {
+                                         return (Arg.index() & 1) == 0;
+                                       }),
+                     [](const auto &Arg) { return Arg.value(); });
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printImpl(raw_ostream &O) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
