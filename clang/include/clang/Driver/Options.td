@@ -3581,6 +3581,9 @@ def fsycl_max_parallel_jobs_EQ : Joined<["-"], "fsycl-max-parallel-link-jobs=">,
   HelpText<"Experimental feature: Controls the maximum parallelism of actions performed "
   "on SYCL device code post-link, i.e. the generation of SPIR-V device images "
   "or AOT compilation of each device image.">;
+def ftarget_compile_fast : Flag<["-"], "ftarget-compile-fast">,
+  Flags<[CoreOption]>, HelpText<"Experimental feature: Reduce target "
+  "compilation time, with potential runtime performance trade-off.">;
 #endif // INTEL_CUSTOMIZATION
 def : Flag<["-"], "fsycl-rdc">, Flags<[CoreOption]>, Alias<fgpu_rdc>;
 def : Flag<["-"], "fno-sycl-rdc">, Flags<[CoreOption]>, Alias<fno_gpu_rdc>;
@@ -8386,6 +8389,8 @@ def _SLASH_fsycl_targets_EQ : CLCommaJoined<"fsycl-targets=">, Alias<fsycl_targe
 def _SLASH_fsycl_unnamed_lambda : CLFlag<"fsycl-unnamed-lambda">, Alias<fsycl_unnamed_lambda>;
 def _SLASH_fno_sycl_unnamed_lambda : CLFlag<"fno-sycl-unnamed-lambda">,
   Alias<fno_sycl_unnamed_lambda>;
+def _SLASH_ftarget_compile_fast : CLFlag<"ftarget-compile-fast">,
+  Alias<ftarget_compile_fast>;
 def _SLASH_fuse_ld_COL : CLJoined<"fuse-ld:">, Alias<fuse_ld_EQ>;
 def _SLASH_fuse_ld_EQ : CLJoined<"fuse-ld=">, Alias<fuse_ld_EQ>;
 def _SLASH_fvirtual_function_elimination : CLFlag<"fvirtual-function-elimination">,
