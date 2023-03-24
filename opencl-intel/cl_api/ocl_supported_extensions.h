@@ -58,8 +58,7 @@
 #define OCL_EXT_INTEL_SPIRV_SUBGROUPS "cl_intel_spirv_subgroups"
 #define OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE "cl_intel_required_subgroup_size"
 
-#define OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY                                    \
-  "cl_intel_unified_shared_memory_preview"
+#define OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY "cl_intel_unified_shared_memory"
 
 #define OCL_EXT_INTEL_CREATE_BUFFER_WITH_PROPERTIES                            \
   "cl_intel_create_buffer_with_properties"
