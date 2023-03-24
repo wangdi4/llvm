@@ -430,7 +430,7 @@ void SVMLVariantsEmitter::emitSVMLDeviceVariants(raw_ostream &OS) {
           OS << (Is64Bit ? ".f64" : ".f32");
         else if (!Is64Bit)
           OS << "f";
-        OS << "\", \"_ZGVx" << (IsMasked ? "M" : "N") << SIMDSize;
+        OS << "\", \"_ZGV_unknown_" << (IsMasked ? "M" : "N") << SIMDSize;
         for (int i = 0; i < ArgsNum; ++i) {
           // TODO: support other argument types when necessary
           OS << 'v';

@@ -21,7 +21,7 @@ define float @__svml_device_add(float %i, float %j) #0 {
 ; CHECK-NEXT:    ret float [[ADD0]]
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define <4 x float> @_ZGVxM4vv___svml_device_add(<4 x float> [[I0]], <4 x float> [[J0]], <4 x i32> [[MASK0:%.*]])
+; CHECK:  define <4 x float> @_ZGV_unknown_M4vv___svml_device_add(<4 x float> [[I0]], <4 x float> [[J0]], <4 x i32> [[MASK0:%.*]])
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VEC_I0:%.*]] = alloca <4 x float>, align 16
 ; CHECK-NEXT:    [[VEC_J0:%.*]] = alloca <4 x float>, align 16
@@ -95,4 +95,4 @@ entry:
   ret float %add
 }
 
-attributes #0 = { nounwind uwtable "vector-variants"="_ZGVxM4vv___svml_device_add" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGV_unknown_M4vv___svml_device_add" }
