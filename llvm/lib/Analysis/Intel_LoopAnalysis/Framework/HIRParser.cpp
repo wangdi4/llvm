@@ -695,6 +695,9 @@ public:
   /// value. All the temp blob related processing is performed here.
   const SCEV *visitUnknown(const SCEVUnknown *Unknown);
 
+  /// Returns true if \p Inst can act as a valid substitute inst.
+  bool isValidSubstituteInst(const Instruction *Inst) const;
+
   /// Returns a substitute SCEV for SC. Returns null if it cannot do so.
   const SCEV *getSubstituteSCEV(const SCEV *SC);
 
@@ -891,6 +894,66 @@ const SCEV *HIRParser::BlobProcessor::visitUnknown(const SCEVUnknown *Unknown) {
   return BaseBlob;
 }
 
+// Avoid reverse engineering CurInst in terms of loop header phi if CurInst is
+// not contained in phi's loop. This is because phi would be deconstructed and
+// redefined at the end of the loop body so using it oustide the loop would
+// cause live range violation. This is also true if phi's loop is an unknown
+// loop and CurInst is loop's bottom test. The two cases are shown below.
+//
+// 1)
+//
+//  %iv = 0
+// DO i1
+//   ...
+//   %iv = i1 + 1; // %iv phi was deconstructed and livein copy inserted at
+//    the end of loop
+// END
+//   = %iv // this occurence of %iv causes live-range violation
+//
+// 2)
+//
+//  %iv = 0
+// UNKNOWN i1
+//   L:
+//    ...
+//    %iv = i1 + 1; // %iv phi was deconstructed and livein copy inserted at
+//    the end of loop
+//   if (%iv < %n) { // this occurence of %iv causes live-range violation
+//     goto L:
+//   }
+// END
+bool HIRParser::BlobProcessor::isValidSubstituteInst(
+    const Instruction *Inst) const {
+
+  if (!Inst) {
+    return false;
+  }
+
+  auto *Phi = dyn_cast<PHINode>(Inst);
+
+  if (!Phi || !HIRP->RI.isHeaderPhi(Phi)) {
+    return true;
+  }
+
+  auto *PhiLp = HIRP->LI.getLoopFor(Phi->getParent());
+  auto *CurInst = HIRP->getCurInst();
+
+  // Case #1 in comments above.
+  if (!PhiLp->contains(CurInst)) {
+    return false;
+  }
+
+  auto *CurIf = dyn_cast<HLIf>(HIRP->getCurNode());
+
+  // Case #2 in comments above.
+  if (CurIf && CurIf->isUnknownLoopBottomTest() &&
+      (PhiLp == HIRP->LI.getLoopFor(CurInst->getParent()))) {
+    return false;
+  }
+
+  return true;
+}
+
 const SCEV *HIRParser::BlobProcessor::getSubstituteSCEV(const SCEV *SC) {
   const Instruction *OrigInst = nullptr;
   SCEV *Additive = nullptr;
@@ -903,31 +966,10 @@ const SCEV *HIRParser::BlobProcessor::getSubstituteSCEV(const SCEV *SC) {
     return nullptr;
   }
 
-  // Avoid reverse engineering unknown loop's AddRec at the bottom test because
-  // the underlying value would be redefined at the end of the loop body just
-  // before the bottom test causing live range violation. For example-
-  //  %iv = 0
-  // UNKNOWN i1
-  //   L:
-  //    ...
-  //    %iv = i1 + 1; // %iv phi was deconstructed and livein copy inserted at
-  //    the end of loop
-  //   if (%iv < %n) { // this occurence of %iv causes live-range violation
-  //     goto L:
-  //   }
-  // END
-  auto *CurIf = dyn_cast<HLIf>(HIRP->getCurNode());
-
-  if (CurIf && CurIf->isUnknownLoopBottomTest() &&
-      HIRP->ScopedSE.containsLoopAddRecurrence(
-          SC, CurIf->getParentLoop()->getLLVMLoop())) {
-    return nullptr;
-  }
-
   OrigInst = findOrigInst(nullptr, SC, &IsTruncOrSExt, &IsZExt, &IsNegation,
                           &ConstMultiplier, &Additive);
 
-  if (!OrigInst) {
+  if (!isValidSubstituteInst(OrigInst)) {
     return nullptr;
   }
 
