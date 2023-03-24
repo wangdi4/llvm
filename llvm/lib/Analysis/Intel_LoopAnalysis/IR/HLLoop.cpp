@@ -21,6 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Support/CommandLine.h"
@@ -1168,6 +1169,13 @@ void HLLoop::replaceByFirstIteration(bool ExtractPostexit,
   extractPreheader();
   if (ExtractPostexit) {
     extractPostexit();
+  }
+
+  // The instructions are potentially being moved to parent loop so we need to
+  // invalidate analysis to avoid stale data.
+  if (getParentLoop()) {
+    HIRInvalidationUtils::invalidateBody(this);
+    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(this);
   }
 
   ForEach<RegDDRef>::visitRange(

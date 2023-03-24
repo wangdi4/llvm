@@ -2,10 +2,7 @@
 
 ; Verify that we can successfully compute loop resource for loop containing
 ; call instruction which does not access memory.
-; Note that currently calls which do not access memory are assumed to have zero
-; cost to work around perf regressions.
-; Also note that the loop is classified as 'Branch Bound' which is unintentional
-; result in the case where total cost is zero.
+; Currently, we assign a cost of 1 to calls which do not access memory.
 
 ; + DO i1 = 0, 4, 1   <DO_LOOP>
 ; |   %res = @bar();
@@ -14,8 +11,8 @@
 
 ; CHECK: + DO i1 = 0, 4, 1   <DO_LOOP>
 ; CHECK:    Integer Operations: 1
-; CHECK:    Total Cost: 0
-; CHECK:    Branch(Misprediction) Bound
+; CHECK:    Total Cost: 1
+; CHECK:    Integer Bound
 ; CHECK: + END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
