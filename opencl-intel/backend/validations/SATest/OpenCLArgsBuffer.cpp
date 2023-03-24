@@ -475,12 +475,12 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output,
         // Check for mutations
         if ((std::find_if(
                  (char *)pBufferArgData - PaddingSize, (char *)pBufferArgData,
-                 std::bind2nd(std::not_equal_to<char>(), PaddingVal)) !=
-             (char *)pBufferArgData) ||
-            (std::find_if(
-                 (char *)pBufferArgData + bufferSize + vec3align,
-                 (char *)pBufferArgData + bufferSize + PaddingSize,
-                 std::bind2nd(std::not_equal_to<char>(), PaddingVal)) !=
+                 std::bind(std::not_equal_to<char>(), std::placeholders::_1,
+                           PaddingVal)) != (char *)pBufferArgData) ||
+            (std::find_if((char *)pBufferArgData + bufferSize + vec3align,
+                          (char *)pBufferArgData + bufferSize + PaddingSize,
+                          std::bind(std::not_equal_to<char>(),
+                                    std::placeholders::_1, PaddingVal)) !=
              (char *)pBufferArgData + bufferSize + PaddingSize)) {
           throw Exception::OutOfRange("Padding was mutated!");
         }
