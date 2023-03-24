@@ -84,6 +84,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include <algorithm>
 #include <cassert>
@@ -269,6 +270,8 @@ static Function *doPromotion(
   // Loop over all the callers of the function, transforming the call sites to
   // pass in the loaded pointers.
   SmallVector<Value *, 16> Args;
+  SmallVector<WeakTrackingVH, 16> DeadArgs;
+
   while (!F->use_empty()) {
 #if INTEL_CUSTOMIZATION
     AbstractCallSite ACS(&*F->use_begin());
@@ -360,6 +363,9 @@ static Function *doPromotion(
           Args.push_back(MaybeCastTo(LI, *I)); // INTEL
           ArgAttrVec.push_back(AttributeSet());
         }
+      } else {
+        assert(ArgsToPromote.count(&*I) && I->use_empty());
+        DeadArgs.emplace_back(AI->get());
       }
     }
 
@@ -425,6 +431,7 @@ static Function *doPromotion(
   if (OldCount.has_value())
     NF->setEntryCount(OldCount->getCount());
 #endif // INTEL_CUSTOMIZATION
+  RecursivelyDeleteTriviallyDeadInstructionsPermissive(DeadArgs);
 
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old rotting hulk of the
