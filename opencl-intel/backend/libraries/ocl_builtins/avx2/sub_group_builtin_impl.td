@@ -174,7 +174,7 @@ OclBuiltinImpl sub_group_reduce_min_avx256i64 = OclBuiltinImpl<sub_group_reduce_
      arg1 = (~arg1) & LONG_MAX;
      arg0 |= arg1;
      long4 temp0;
-     long4 mask4 = as_long4( _mm256_cmpgt_epi64((__m256i)$Arg0VarName.lo, (__m256i)$Arg0VarName.hi));
+     long4 mask4 = as_long4( _mm256_cmpgt_epi64((__m256i)arg0.lo, (__m256i)arg0.hi));
      temp0 = arg0.lo & ~mask4;
      temp0 |= arg0.hi & mask4;
      long2 temp1;
@@ -1039,7 +1039,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx256u32 = OclBuiltinImpl<sub_group
   [{
     int8 arg0 = as_int8($Arg0VarName);
     int8 arg1 = as_int8($Arg1VarName);
-    arg0 |= ~arg1;
+    arg0 &= arg1;
     $Arg0VarName = as_$Arg0Type(arg0);
 
     $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 7, 0, 1, 2, 3, 4, 5, 6);

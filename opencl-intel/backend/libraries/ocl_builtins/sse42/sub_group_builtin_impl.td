@@ -1004,7 +1004,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx128u32 = OclBuiltinImpl<sub_group
   [{
     int4 arg0 = as_int4($Arg0VarName);
     int4 arg1 = as_int4($Arg1VarName);
-    arg0 |= ~arg1;
+    arg0 &= arg1;
     $Arg0VarName = as_$Arg0Type(arg0);
 
     $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
@@ -1069,7 +1069,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx128u64 = OclBuiltinImpl<sub_group
   [{
     long4 arg0 = as_long4($Arg0VarName);
     long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
-    arg0 |= ~arg1;
+    arg0 &= arg1;
 
     arg0 = __builtin_shufflevector(arg0, arg0, 3, 0, 1, 2);
     arg0[0] = 0;
