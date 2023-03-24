@@ -1,6 +1,6 @@
 //===----  Intel_AdvancedFastCall.cpp - Intel Advanced Fast Call   --------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -301,47 +301,9 @@ void FastCallEnabler::convert(Function *F) {
   }
 }
 
-// Legacy pass manager implementation
-class IntelAdvancedFastCallWrapperPass : public ModulePass {
-public:
-  static char ID;
-  IntelAdvancedFastCallWrapperPass() : ModulePass(ID) {
-    initializeIntelAdvancedFastCallWrapperPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ProfileSummaryInfoWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    ProfileSummaryInfo *PSI =
-        &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
-
-    FastCallEnabler Impl;
-    return Impl.run(M, PSI);
-  }
-};
-
 } // End anonymous namespace
 
-char IntelAdvancedFastCallWrapperPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IntelAdvancedFastCallWrapperPass,
-                      "intel-advancedfastcall", "Intel advanced fastcall",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
-INITIALIZE_PASS_END(IntelAdvancedFastCallWrapperPass, "intel-advancedfastcall",
-                    "Intel advanced fastcall", false, false)
-
 namespace llvm {
-
-ModulePass *createIntelAdvancedFastCallWrapperPass() {
-  return new IntelAdvancedFastCallWrapperPass();
-}
 
 PreservedAnalyses IntelAdvancedFastCallPass::run(Module &M,
                                                  ModuleAnalysisManager &AM) {
