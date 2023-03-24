@@ -107,7 +107,7 @@ set(CLANG_C_COMPILER_PARAMS
     ${DEVICE_TRIPLE}
     -emit-llvm-bc
     -fwrapv
-    ${CL_OPT_LEVEL}
+    -O3
     -disable-intel-proprietary-opts # INTEL
     -I
     ${IMPORT_DIR}
@@ -248,7 +248,7 @@ function(
         ${TMP_FILES}
         ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
       COMMAND
-        ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_link ${CL_OPT_LEVEL}
+        ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_link -O3
         -disable-intel-proprietary-opts # INTEL
         -o ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
       DEPENDS ${LLVM_LINK} ${OPT} ${TMP_FILES}
@@ -328,7 +328,7 @@ function(
       -sycl-kernel-cpu-prefix=${ARCH}
       "-passes=function(infer-address-spaces),sycl-kernel-builtin-import,function(sycl-kernel-builtin-call-to-inst),verify"
       -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
-    COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas ${CL_OPT_LEVEL}
+    COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas -O3
             -disable-intel-proprietary-opts # INTEL
 	    -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
     DEPENDS ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB} ${TMP_LINKED_RTL_OUTPUT}
@@ -665,7 +665,7 @@ add_custom_command(
   COMMAND ${LLVM_LINK} pipes1.bc pipes2.bc -o pipes.bc
   COMMAND ${OPT} -sycl-kernel-builtin-lib=${RTL_MINIMAL},${RTL_SHARED}
           -passes=sycl-kernel-builtin-import pipes.bc -o pipes-builtin.bc
-  COMMAND ${OPT} ${CL_OPT_LEVEL}
+  COMMAND ${OPT} -O3
           -disable-intel-proprietary-opts # INTEL
           pipes-builtin.bc -o pipes-opt.bc
   COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-opt.bc -o clbltpipe.obj)

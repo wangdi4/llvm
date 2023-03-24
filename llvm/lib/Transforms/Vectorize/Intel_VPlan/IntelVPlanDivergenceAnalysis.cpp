@@ -184,13 +184,15 @@ void VPlanDivergenceAnalysis::markDivergent(const VPValue &DivVal) {
   // Community version also checks to see if DivVal is a function argument.
   // For VPlan, function arguments are ExternalDefs, so check that here instead.
   assert(!isAlwaysUniform(DivVal) && "cannot be a divergent");
-  if (getVectorShape(DivVal).isAnyStrided())
+  auto ExistingShape = getVectorShape(DivVal);
+  if (ExistingShape.isAnyStrided())
     return;
-  updateVectorShape(&DivVal, getRandomVectorShape());
+  updateVectorShape(&DivVal, VPVectorShape::makeRandom(ExistingShape));
 }
 
 // Mark UniVal as a value that is non-divergent.
 void VPlanDivergenceAnalysis::markUniform(const VPValue &UniVal) {
+  assert(!getVectorShape(UniVal).isSOAShape() && "Can't make uniform SOA shape");
   updateVectorShape(&UniVal, getUniformVectorShape());
 }
 
@@ -577,6 +579,7 @@ void VPlanDivergenceAnalysis::computeImpl() {
     // maintain uniformity of overrides
     if ((isAlwaysUniform(I)) && !getVectorShape(I).isUndefined())
       continue;
+    LLVM_DEBUG(dbgs() << "Computing shape for"; I.print(dbgs()););
 
     bool IsPhiOrTerminatorNode = I.getOpcode() == Instruction::PHI ||
                                  I.getOpcode() == Instruction::Br;
@@ -592,6 +595,7 @@ void VPlanDivergenceAnalysis::computeImpl() {
       NewShape = computeVectorShape(&I);
       ShapeUpdated |= updateVectorShape(&I, NewShape);
     }
+    LLVM_DEBUG(dbgs() << " Result:"; NewShape.print(dbgs()); dbgs() << "\n");
 
     if (!ShapeUpdated)
       continue;
@@ -1258,27 +1262,41 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
   return {NewDesc, NewStride};
 }
 
+template <typename PhiOrBlend>
+VPVectorShape
+VPlanDivergenceAnalysis::joinOperandShapes(const PhiOrBlend *Inst) {
+  VPVectorShape NewShape = VPVectorShape::getUndef();
+  for (unsigned I = 0; I < Inst->getNumIncomingValues(); I++) {
+    VPValue *IncomingVal = Inst->getIncomingValue(I);
+    VPVectorShape IncomingShape =
+        getObservedShape(*Inst->getParent(), *IncomingVal);
+    NewShape = VPVectorShape::joinShapes(NewShape, IncomingShape);
+  }
+  return NewShape;
+}
+
 VPVectorShape
 VPlanDivergenceAnalysis::computeVectorShapeForPhiNode(const VPPHINode *Phi) {
+
+  VPVectorShape NewShape = joinOperandShapes(Phi);
+
   // Incoming value shapes could be uniform, but the parent of the phi node may
   // be reached through a divergent branch. If so, the phi is divergent and
   // return random shape.
   if (!Phi->hasConstantOrUndefValue() && isJoinDivergent(*Phi->getParent()))
-    return getRandomVectorShape();
-
-  // Compute shape for phi node.
-  SmallVector<VPVectorShape, 2> Shapes;
-  VPVectorShape NewShape = VPVectorShape::getUndef();
-  Shapes.push_back(NewShape);
-  for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++) {
-    VPValue *IncomingVal = Phi->getIncomingValue(i);
-    VPVectorShape IncomingShape =
-        getObservedShape(*Phi->getParent(), *IncomingVal);
-    NewShape = VPVectorShape::joinShapes(NewShape, IncomingShape);
-    Shapes.push_back(NewShape);
-  }
+    return VPVectorShape::makeRandom(NewShape);
 
   return NewShape;
+}
+
+VPVectorShape
+VPlanDivergenceAnalysis::computeVectorShapeForBlend(const VPBlendInst *Blend) {
+
+  // Go through operands to handle undef shapes and verify SOA-ness.
+  VPVectorShape NewShape = joinOperandShapes(Blend);
+
+  // For blends we always return random.
+  return VPVectorShape::makeRandom(NewShape);
 }
 
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForLoadInst(
@@ -1694,7 +1712,7 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::CvtMaskToInt)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::Blend)
-    NewShape = getRandomVectorShape();
+    NewShape = computeVectorShapeForBlend(cast<VPBlendInst>(I));
   else if (Opcode == VPInstruction::RunningInclusiveReduction)
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::RunningExclusiveReduction)

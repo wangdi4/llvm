@@ -56,9 +56,7 @@ define dso_local void @test_soa_shapes(i32 %n) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
-
 ; Divergence info after SOA-shape analysis is run.
-
 ; CHECK:       Printing Divergence info for test_soa_shapes:for.body
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1]]
@@ -416,12 +414,12 @@ define void @test_vplan_da_phis_soa(i32* %arr.non.priv) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT21]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_UNI_ELSE2]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_PHI_RESULT21]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_UNI_ELSE2]], [[BB8]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT22]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_STR_ELSE_NON_PRIV2]], [[BB8]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT23]] = phi  [ i32* [[VP_RND_SOA_DIV_IF]], [[BB7]] ],  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT24]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT25]] = phi  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ],  [ i32* [[VP_UNI_IF2]], [[BB7]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT26]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_RND_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_PHI_RESULT23]] = phi  [ i32* [[VP_RND_SOA_DIV_IF]], [[BB7]] ],  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_PHI_RESULT24]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_PHI_RESULT25]] = phi  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ],  [ i32* [[VP_UNI_IF2]], [[BB7]] ]
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_PHI_RESULT26]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_RND_SOA_DIV_ELSE]], [[BB8]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT27]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_RND_DIV_ELSE_NON_PRIV1]], [[BB8]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT28]] = phi  [ i32* [[VP_RND_SOA_DIV_IF]], [[BB7]] ],  [ i32* [[VP_RND_DIV_ELSE_NON_PRIV1]], [[BB8]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT29]] = phi  [ i32* [[VP_STR_IF_NON_PRIV2]], [[BB7]] ],  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ]

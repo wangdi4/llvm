@@ -12398,7 +12398,10 @@ static std::string getVectorABIMangling(char ISA, char Mask,
   std::string Buffer;
   llvm::raw_string_ostream Out(Buffer);
 
-  Out << "_ZGV" << ISA << Mask << VLen;
+  if (ISA == '*')
+    Out << "_ZGV_unknown_" << Mask << VLen;
+  else
+    Out << "_ZGV" << ISA << Mask << VLen;
   Out << mangleVectorParameters(ParamAttrs);
   Out << '_' << FuncName;
   Out.flush();
@@ -12672,12 +12675,15 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
           }
         } else if (CGM.getTriple().isSPIR() &&
                    CGM.getCodeGenOpts().OpenMPDeclareSIMDSPIR) {
+          // A minor HACK in order to limit customizations:
+          // we need a way to encode _unknown_ as a wildcard for ISA class
+          // using just single character. '*' serves this purpose.
           if (VLENExpr) {
-            addVectorVariant(Variants, FD, Fn, 'x', VLENVal, ParamAttrs, State);
+            addVectorVariant(Variants, FD, Fn, '*', VLENVal, ParamAttrs, State);
           } else {
-            addVectorVariant(Variants, FD, Fn, 'x',
+            addVectorVariant(Variants, FD, Fn, '*',
                              llvm::APSInt::getUnsigned(8), ParamAttrs, State);
-            addVectorVariant(Variants, FD, Fn, 'x',
+            addVectorVariant(Variants, FD, Fn, '*',
                              llvm::APSInt::getUnsigned(16), ParamAttrs, State);
           }
         } else {
