@@ -1741,12 +1741,10 @@ static Instruction *foldSelectZeroOrOnes(ICmpInst *Cmp, Value *TVal,
 }
 
 static Value *foldSelectInstWithICmpConst(SelectInst &SI, ICmpInst *ICI,
-#if INTEL_CUSTOMIZATION
                                           InstCombiner::BuilderTy &Builder
-#if INTEL_FEATURE_SW_ADVANCED
-                                          , bool AdvOpt
-#endif // INTEL_FEATURE_SW_ADVANCED
-                                          ) {
+#if INTEL_CUSTOMIZATION
+                                          ,
+                                          bool HasSSE) {
 #endif // INTEL_CUSTOMIZATION
                  
   const APInt *CmpC;
@@ -1756,13 +1754,11 @@ static Value *foldSelectInstWithICmpConst(SelectInst &SI, ICmpInst *ICI,
     return nullptr;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
- // Disable min/max recognition for this case, when advanced opts are
- // enabled and the type is scalar. Selects can enable CFG optimizations.
- if (!AdvOpt || SI.getType()->isVectorTy())
-#endif // INTEL_FEATURE_SW_ADVANCED
- // do not indent below, preserve llorg code for pulldown
- {
+  // Disable min/max recognition for this case, when the type is scalar
+  // and SSE is enabled (meaning, xmain front-end is used).
+  if (!HasSSE || SI.getType()->isVectorTy())
+  // do not indent below, preserve llorg code for pulldown
+  {
 #endif // INTEL_CUSTOMIZATION
   // Match clamp away from min/max value as a max/min operation.
   Value *TVal = SI.getTrueValue();
@@ -1816,13 +1812,13 @@ Instruction *InstCombinerImpl::foldSelectInstWithICmp(SelectInst &SI,
   if (Instruction *NewSPF = canonicalizeSPF(SI, *ICI, *this))
     return NewSPF;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-  bool AnyAdvVec = getTargetTransformInfo().isAdvancedOptEnabled(
-      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42);
-  if (Value *V = foldSelectInstWithICmpConst(SI, ICI, Builder, AnyAdvVec))
-#else // INTEL_FEATURE_SW_ADVANCED
-  if (Value *V = foldSelectInstWithICmpConst(SI, ICI, Builder))
-#endif // INTEL_FEATURE_SW_ADVANCED
+  // Check if target-features contains "sse".
+  auto *F = SI.getFunction();
+  Attribute TFAttr = F->getFnAttribute("target-features");
+  StringRef TFStr = TFAttr.isValid() ? TFAttr.getValueAsString() : "";
+  bool HasSSE = TFStr.contains("sse");
+
+  if (Value *V = foldSelectInstWithICmpConst(SI, ICI, Builder, HasSSE))
 #endif // INTEL_CUSTOMIZATION
     return replaceInstUsesWith(SI, V);
 

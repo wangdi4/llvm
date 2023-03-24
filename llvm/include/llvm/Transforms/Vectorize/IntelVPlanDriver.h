@@ -33,6 +33,15 @@ class VPLoop;
 class VPLoopInfo;
 class CfgMergerPlanDescr;
 
+// Data to be passed to VPlanOptReportBuilder::addRemark().  At present, we
+// support a single string argument, which suffices for the remark strings
+// that we utilize.
+struct VPlanBailoutData {
+  OptReportVerbosity::Level BailoutLevel = OptReportVerbosity::High;
+  unsigned BailoutID = 0;
+  std::string BailoutMessage;
+};
+
 class VPlanDriverImpl {
 private:
   LoopInfo *LI;
@@ -51,7 +60,7 @@ private:
   bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
 
   template <class Loop>
-  bool isSupported(Loop *Lp);
+  bool isSupported(Loop *Lp, WRNVecLoopNode *WRLp);
 
   template <class Loop>
   void collectAllLoops(SmallVectorImpl<Loop *> &Loops);
@@ -62,6 +71,15 @@ private:
   // VPlan implementation.
   template <class Loop>
   bool isVPlanCandidate(Function &Fn, Loop *Lp);
+
+  template <class Loop>
+  bool bailout(VPlanOptReportBuilder &ORBuilder, Loop *Lp,
+               OptReportVerbosity::Level Level, unsigned ID,
+               std::string Reason);
+
+  // Helper functions for isSupported().
+  bool hasDedicatedAndUniqueExits(Loop *Lp, WRNVecLoopNode *WRLp);
+  bool isSupportedRec(Loop *Lp, WRNVecLoopNode *WRLp);
 
 protected:
   // Hold information regarding explicit vectorization in LLVM-IR.
@@ -76,6 +94,7 @@ protected:
   const DataLayout *DL;
 
   OptReportBuilder ORBuilder;
+  VPlanBailoutData BD;
 
   template <typename Loop = llvm::Loop>
   bool processFunction(Function &Fn);
@@ -130,18 +149,50 @@ protected:
   DominatorTree *getDT() const { return DT; }
   void setDT(DominatorTree *NewDT) { DT = NewDT; }
 
+  void setBailoutData(OptReportVerbosity::Level BailoutLevel,
+                      unsigned BailoutID, std::string BailoutMessage) {
+    BD.BailoutLevel = BailoutLevel;
+    BD.BailoutID = BailoutID;
+    BD.BailoutMessage = BailoutMessage;
+  }
+
 public:
   bool runImpl(Function &F, LoopInfo *LI, ScalarEvolution *SE,
                DominatorTree *DT, AssumptionCache *AC, AliasAnalysis *AA,
-               DemandedBits *DB,
-               LoopAccessInfoManager *LAIs,
+               DemandedBits *DB, LoopAccessInfoManager *LAIs,
                OptimizationRemarkEmitter *ORE,
                OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
                TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
                BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
                FatalErrorHandlerTy FatalErrorHandler);
-};
 
+  // Remark IDs are defined in lib/Analysis/Intel_OptReport/Diag.cpp:
+
+  // 15353: loop was not vectorized: loop is not in canonical form from
+  //        OpenMP specification, may be as a result of previous
+  //        optimization(s)
+  static const unsigned BadSimdRemarkID = 15353;
+
+  // 15436: loop was not vectorized: %s
+  static const unsigned BailoutRemarkID = 15436;
+
+  // 15520: %s was not vectorized: loop with multiple exits cannot be
+  //        vectorized unless it meets search loop idiom criteria
+  static const unsigned BadSearchRemarkID = 15520;
+
+  // 15521: %s was not vectorized: loop control variable was not identified.
+  //        Explicitly compute the iteration count before executing the loop
+  //        or try using canonical loop form from OpenMP specification%s
+  static const unsigned LoopIVRemarkID = 15521;
+
+  // 15522: %s was not vectorized: loop control flow is too complex. Try
+  //        using canonical loop form from OpenMP specification%s
+  static const unsigned ComplexFlowRemarkID = 15522;
+
+  // 15535: %s was not vectorized: loop contains switch statement. Consider
+  //        using if-else statement.
+  static const unsigned SwitchRemarkID = 15535;
+};
 
 class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
   VPlanDriverImpl Impl;
@@ -181,13 +232,17 @@ private:
   loopopt::HIRDDAnalysis *DDA;
   loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis;
   bool LightWeightMode;
+  bool IsOmpSIMD = false;
 
   bool processLoop(loopopt::HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
-  bool isSupported(loopopt::HLLoop *Lp);
+  bool isSupported(loopopt::HLLoop *Lp, WRNVecLoopNode *WRLp);
   void collectAllLoops(SmallVectorImpl<loopopt::HLLoop *> &Loops);
   bool isVPlanCandidate(Function &Fn, loopopt::HLLoop *Lp);
   // Delete intel intrinsic directives before/after the given loop.
   void eraseLoopIntrins(loopopt::HLLoop *Lp, WRNVecLoopNode *WRLp);
+  bool bailout(VPlanOptReportBuilder &VPORBuilder, loopopt::HLLoop *Lp,
+               OptReportVerbosity::Level Level, unsigned ID,
+               std::string Reason);
 
 public:
   bool runImpl(Function &F, loopopt::HIRFramework *HIRF,
@@ -200,8 +255,8 @@ public:
                FatalErrorHandlerTy FatalErrorHandler);
 
   VPlanDriverHIRImpl(bool LightWeightMode)
-      : VPlanDriverImpl(), HIRF(nullptr), HIRLoopStats(nullptr),
-        DDA(nullptr), SafeRedAnalysis(nullptr), LightWeightMode(LightWeightMode){};
+      : VPlanDriverImpl(), HIRF(nullptr), HIRLoopStats(nullptr), DDA(nullptr),
+        SafeRedAnalysis(nullptr), LightWeightMode(LightWeightMode){};
 };
 
 class VPlanDriverHIRPass
@@ -212,7 +267,7 @@ public:
   static constexpr auto PassName = "hir-vplan-vec";
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
                             loopopt::HIRFramework &);
-  VPlanDriverHIRPass(bool LightWeightMode) : Impl(LightWeightMode) {};
+  VPlanDriverHIRPass(bool LightWeightMode) : Impl(LightWeightMode){};
 };
 
 class VPlanDriverHIR : public FunctionPass {
