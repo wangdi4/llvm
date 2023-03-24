@@ -131,6 +131,8 @@ private:
   /// If set to true, then the associated loop(s) is optimized away.
   bool LoopOptimizedAway = false;
 
+  bool CompletelyCollapsed = false;
+
   /// For each loop in the loop nest described by this WRNLoopInfo
   /// we have to map the loop to some ND-range dimension.
   /// NDRangeStartDim specifies the starting dimension for the loop
@@ -218,6 +220,10 @@ public:
   void setLoopOptimizedAway() { LoopOptimizedAway = true; }
 
   bool getLoopOptimizedAway() { return LoopOptimizedAway; }
+
+  void setLoopNestCompletelyCollapsed(bool V) { CompletelyCollapsed = V; }
+
+  bool getLoopNestCompletelyCollapsed() const { return CompletelyCollapsed; }
 
   void setKnownNDRange() {
     assert(!KnownNDRange && "KnownNDRange must be set only once.");

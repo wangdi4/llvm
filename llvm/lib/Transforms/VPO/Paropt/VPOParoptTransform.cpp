@@ -76,6 +76,7 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 
+#include "llvm/Analysis/LoopNestAnalysis.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
@@ -324,6 +325,12 @@ static cl::opt<bool> CaptureNonPtrsUsingMapTo(
     cl::init(false),
     cl::desc("For non-pointer values to be passed into a target region (like "
              "VLA sizes), use map(to), instead of firstprivate."));
+
+static cl::opt<bool> DefaultNDRangeTripcountHeuristic(
+    "vpo-paropt-default-ndrange-tripcount-heuristic", cl::Hidden,
+    cl::init(true),
+    cl::desc("Use profitability heuristic when passing tripcount"
+             "with default ND-range"));
 
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
@@ -14874,11 +14881,22 @@ void VPOParoptTransform::setNDRangeClause(
   EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, {{Clause, ClauseArgs}});
   WT->setEntryDirective(EntryCI);
 
+  // The info about collapsing completeness is pass via KNOWN_NDRANGE clause
+  // to be later used by fixupKnownNDRange, and the reason why we need to pass
+  // it that way instead of calculating it inplace is that after loop collapsing
+  // we have the loop nest structure modified.
+  LoopNest Nest(*(WL->getWRNLoopInfo().getLoop()), *SE);
+  bool CollapsedCompletely =
+      static_cast<int>(Nest.getNestDepth()) == WL->getCollapse();
+
   // The region's loop(s) now have its tripcounts in the NDRANGE clause
   // of the "omp target" region. Mark it as such.
   EntryCI = cast<CallInst>(WL->getEntryDirective());
   Clause = VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_KNOWN_NDRANGE);
-  EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, {{Clause, {}}});
+  EntryCI = VPOUtils::addOperandBundlesInCall(
+      EntryCI, {{Clause,
+                 {ConstantInt::get(Type::getInt1Ty(F->getContext()),
+                                   CollapsedCompletely)}}});
   WL->setEntryDirective(EntryCI);
 }
 
@@ -15090,23 +15108,57 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
   if (!W->getWRNLoopInfo().isKnownNDRange())
     return false;
 
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": " << *W->getEntryDirective() << "\n");
+
   assert(VPOParoptUtils::getSPIRExecutionScheme() ==
          spirv::ImplicitSIMDSPMDES &&
          "Unexpected known ND-range with disabled ND-range parallelization.");
 
-  assert(WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget) &&
-         "Unexpected known ND-range with no parent target region.");
+  auto *WTarget = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+  assert(WTarget && "Unexpected known ND-range with no parent target region.");
 
-  if (!shouldNotUseKnownNDRange(W))
+  if (!shouldNotUseKnownNDRange(W)) {
+    LLVM_DEBUG(
+        dbgs()
+        << __FUNCTION__
+        << ": Legality checks passed. Keeping OFFLOAD.KNOWN.NDRANGE qual.\n");
     return false;
+  }
 
   // Remove QUAL.OMP.OFFLOAD.KNOWN.NDRANGE clause from the loop region.
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": Removing OFFLOAD.KNOWN.NDRANGE qual.\n");
   CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
   StringRef ClauseName =
       VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_KNOWN_NDRANGE);
   EntryCI = VPOUtils::removeOperandBundlesFromCall(EntryCI, ClauseName);
   W->setEntryDirective(EntryCI);
   W->getWRNLoopInfo().resetKnownNDRange();
+
+  // When trying to help avoid oversubscription by passing
+  // loop information for non-specific ND-range cases which used to be utilized
+  // by specific ND-range partitioning only, non-collapsed loop nests should be
+  // ignored for performance sake.
+  // Examples:
+  // omp teams distribute parallel for
+  // for (int i = 0; i < 32; i++)
+  //   for (int j = 0; j < 32; j++)
+  // OR
+  // omp teams distribute parallel for collapse(2)
+  // for (int i = 0; i < 32; i++)
+  //   for (int j = 0; j < 32; j++)
+  //     for (int k = 0; k < 32; k++)
+  if (DefaultNDRangeTripcountHeuristic &&
+      !W->getWRNLoopInfo().getLoop()->isInnermost() &&
+      !W->getWRNLoopInfo().getLoopNestCompletelyCollapsed()) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": The region has inner loops not associated with the "
+                         "construct. Removing OFFLOAD.NDRANGE qual.\n");
+    EntryCI = cast<CallInst>(WTarget->getEntryDirective());
+    ClauseName = VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_NDRANGE);
+    EntryCI = VPOUtils::removeOperandBundlesFromCall(EntryCI, ClauseName);
+    WTarget->setEntryDirective(EntryCI);
+  }
 
   return true;
 }

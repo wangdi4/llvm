@@ -822,9 +822,6 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_ORDER_CONCURRENT:
     setLoopOrder(WRNLoopOrderConcurrent);
     break;
-  case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE:
-    getWRNLoopInfo().setKnownNDRange();
-    break;
   case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
     setHasTeamsReduction();
     break;
@@ -930,6 +927,10 @@ void WRegionNode::handleQualOpnd(const ClauseSpecifier &ClauseInfo, Value *V) {
     InteropAction.add(V);
     InteropActionItem *InteropI = InteropAction.back();
     InteropI->setIsUse();
+  } break;
+  case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE: {
+    getWRNLoopInfo().setKnownNDRange();
+    getWRNLoopInfo().setLoopNestCompletelyCollapsed(N);
   } break;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA

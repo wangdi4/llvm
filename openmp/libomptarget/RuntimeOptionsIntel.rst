@@ -230,6 +230,23 @@ in the kernel should decrease.
 
 **Default**: 0.1
 
+``LIBOMPTARGET_NDRANGE_IGNORE_TRIPCOUNT=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Enable> := 1 | T | t
+
+Loop kernels without known ND-range may still benefit
+from considering loop tripcount to better align
+ND-range with the actual code being run. Currently compiler
+passes loop information when possible and when it is
+considered to be potentially beneficial. This option controls
+whether that information is to be ignored by the runtime and
+use the default unassisted ND-range calculation.
+This is mostly for experimental purposes.
+
+**Default**: Disabled
+
 Plugin LevelZero
 ----------------
 

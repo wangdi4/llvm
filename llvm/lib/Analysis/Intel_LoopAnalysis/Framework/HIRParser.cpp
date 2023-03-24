@@ -2006,69 +2006,11 @@ bool HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
   return true;
 }
 
-// Validates SCEV returned by getSCEVAtScope(). If the returned SCEV contains a
-// phi which is defined in the current loop, we invalidate the SCEV as it can
-// potentially cause live range issues.
-//
-// NOTE: This check does not belong to parser. It is the job of SSA
-// deconstruction to only let valid incoming SCEVs to parser but the solutions
-// I can think of are either too conservative or too compile time expensive.
-//
-// TODO: Find a way to handle this in SSA deconstruction.
-class HIRParser::ScopeSCEVValidator {
-private:
-  const HIRParser &HIRP;
-  bool IsValid;
-  const Instruction *CurInst;
-  const Loop *CurLp;
-
-public:
-  ScopeSCEVValidator(const HIRParser &HIRP) : HIRP(HIRP), IsValid(true) {
-    CurInst = HIRP.getCurInst();
-    CurLp = HIRP.LI.getLoopFor(CurInst->getParent());
-  }
-
-  bool follow(const SCEV *SC) {
-
-    if (!HIRP.isTempBlob(SC)) {
-      return true;
-    }
-
-    auto Val = cast<SCEVUnknown>(SC)->getValue();
-    auto Phi = dyn_cast<PHINode>(Val);
-
-    if (!Phi) {
-      return true;
-    }
-
-    if (!CurLp->contains(Phi)) {
-      return true;
-    }
-
-    IsValid = false;
-    return IsValid;
-  }
-
-  bool isDone() const { return !isValid(); }
-
-  bool isValid() const { return IsValid; }
-};
-
-bool HIRParser::isValidScopeSCEV(const SCEV *SC) const {
-  ScopeSCEVValidator SSV(*this);
-  SCEVTraversal<ScopeSCEVValidator> Validator(SSV);
-  Validator.visitAll(SC);
-
-  return SSV.isValid();
-}
-
 const SCEV *HIRParser::getSCEVAtScope(const SCEV *SC) const {
   auto ParHLoop = CurNode->getLexicalParentLoop();
   const Loop *ParLoop = ParHLoop ? ParHLoop->getLLVMLoop() : nullptr;
 
-  auto NewSC = ScopedSE.getSCEVAtScope(SC, ParLoop);
-
-  return isValidScopeSCEV(NewSC) ? NewSC : SC;
+  return ScopedSE.getSCEVAtScope(SC, ParLoop);
 }
 
 bool HIRParser::parseAddRec(const SCEVAddRecExpr *RecSCEV, CanonExpr *CE,

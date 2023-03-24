@@ -234,7 +234,7 @@ DIR.OMP.DISTRIBUTE.PARLOOP.12:                    ; preds = %DIR.OMP.DISTRIBUTE.
  "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %omp.pdo.norm.lb, i32 0, i32 1),
  "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr addrspace(4) %omp.pdo.norm.iv, i32 0, ptr addrspace(4) %do.norm.iv, i32 0),
  "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) %omp.pdo.norm.ub, i32 0, ptr addrspace(4) %do.norm.ub, i32 0),
- "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(),
+ "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(i1 true),
  "QUAL.OMP.JUMP.TO.END.IF"(ptr %end.dir.temp),
  "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %"ascast$a$C$_1", i32 0, i32 1),
  "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %"ascast$a$B$_1", i32 0, i32 1),

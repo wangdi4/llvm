@@ -755,12 +755,14 @@ struct RTLFlagsTy {
   uint64_t UseImageOptions : 1;
   uint64_t ShowBuildLog : 1;
   uint64_t LinkLibDevice : 1;
+  uint64_t NDRangeIgnoreTripcount : 1;
   // Add new flags here
-  uint64_t Reserved : 54;
+  uint64_t Reserved : 53;
   RTLFlagsTy()
       : EnableProfile(0), UseHostMemForUSM(0), UseDriverGroupSizes(0),
         EnableSimd(0), UseSVM(0), UseBuffer(0), UseSingleContext(0),
-        UseImageOptions(1), ShowBuildLog(0), LinkLibDevice(0), Reserved(0) {}
+        UseImageOptions(1), ShowBuildLog(0), LinkLibDevice(0),
+        NDRangeIgnoreTripcount(0), Reserved(0) {}
 };
 
 /// Kernel properties.
@@ -1254,6 +1256,12 @@ struct RTLOptionTy {
            "be a non-negative floating-point number not greater than 1.0.\n");
         DP("Using default value: %f\n", ThinThreadsThreshold);
       }
+    }
+
+    if ((Env = readEnvVar("LIBOMPTARGET_NDRANGE_IGNORE_TRIPCOUNT"))) {
+      int32_t Value = parseBool(Env);
+      if (Value >= 0 && Value <= 1)
+        Flags.NDRangeIgnoreTripcount = Value;
     }
   }
 
@@ -2667,7 +2675,7 @@ static inline int32_t runTargetTeamNDRegion(
                                    LocalWorkSize, NumWorkGroups);
   } else {
     size_t LoopTC = 0;
-    if (LoopDesc) {
+    if (LoopDesc && !DeviceInfo->Option.Flags.NDRangeIgnoreTripcount) {
       // TODO: consider other possible LoopDesc uses
       DP("Loop desciptor provided but specific ND-range is disabled\n");
       TgtNDRangeDescTy *LI = (TgtNDRangeDescTy *)LoopDesc;
