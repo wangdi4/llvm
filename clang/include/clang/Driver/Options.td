@@ -3042,6 +3042,7 @@ defm objc_avoid_heapify_local_blocks : BoolFOption<"objc-avoid-heapify-local-blo
   NegFlag<SetFalse, [], "Don't try">,
   BothFlags<[CC1Option, NoDriverOption], " to avoid heapifying local blocks">>;
 
+<<<<<<< HEAD
 def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>;
 #if INTEL_CUSTOMIZATION
 def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
@@ -3084,6 +3085,15 @@ defm openmp_experimental_vlas : BoolFOption<"openmp-experimental-vlas",
   BothFlags<[CC1Option, NoArgumentUnused, HelpHidden]>>;
 // end INTEL_COLLAB
 
+=======
+def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>,
+  HelpText<"Omit the frame pointer from functions that don't need it. "
+  "Some stack unwinding cases, such as profilers and sanitizers, may prefer specifying -fno-omit-frame-pointer. "
+  "On many targets, -O1 and higher omit the frame pointer by default. "
+  "-m[no-]omit-leaf-frame-pointer takes precedence for leaf functions">;
+def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, FlangOption, FC1Option]>,
+  HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+>>>>>>> 5f883cdbfbe216ec184194114676075f3633e08b
 def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Set OpenMP version (e.g. 45 for OpenMP 4.5, 50 for OpenMP 5.0). Default value is 50.">;
