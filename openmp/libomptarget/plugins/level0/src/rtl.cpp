@@ -1373,13 +1373,15 @@ struct RTLFlagsTy {
   uint64_t ShowBuildLog : 1;
   uint64_t UseInteropImmCmdList : 1;
   uint64_t NoSYCLFlush : 1;
-  uint64_t Reserved : 53;
+  uint64_t NDRangeIgnoreTripcount : 1;
+  uint64_t Reserved : 52;
   RTLFlagsTy()
       : DumpTargetImage(0), EnableProfile(0),
         LinkLibDevice(0), // TODO: change it to 1 when L0 issue is resolved
         UseHostMemForUSM(0), UseMemoryPool(1), UseDriverGroupSizes(0),
         UseImageOptions(1), UseMultipleComputeQueues(0), ShowBuildLog(0),
-        UseInteropImmCmdList(0), NoSYCLFlush(0), Reserved(0) {}
+        UseInteropImmCmdList(0), NoSYCLFlush(0), NDRangeIgnoreTripcount(0),
+        Reserved(0) {}
 };
 
 /// Loop descriptor
@@ -2103,6 +2105,13 @@ struct RTLOptionTy {
         WARNING("Ignoring invalid option "
                 "LIBOMPTARGET_LEVEL_ZERO_COMMAND_MODE=%s\n",
                 Env);
+    }
+
+    // LIBOMPTARGET_NDRANGE_IGNORE_TRIPCOUNT=<Bool>
+    if ((Env = readEnvVar("LIBOMPTARGET_NDRANGE_IGNORE_TRIPCOUNT"))) {
+      int32_t Value = parseBool(Env);
+      if (Value >= 0 && Value <= 1)
+        Flags.NDRangeIgnoreTripcount = Value;
     }
   }
 
@@ -4573,7 +4582,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
         GroupCounts.groupCountX = (GroupCounts.groupCountX + 7) & ~7;
     } else {
       size_t LoopTC = 0;
-      if (LoopDesc) {
+      if (LoopDesc && !DeviceInfo->Option.Flags.NDRangeIgnoreTripcount) {
         // TODO: consider other possible LoopDesc uses
         DP("Loop desciptor provided but specific ND-range is disabled\n");
         TgtNDRangeDescTy *LI = (TgtNDRangeDescTy *)LoopDesc;
