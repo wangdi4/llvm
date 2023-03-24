@@ -1080,7 +1080,7 @@ static FieldDecl *addFieldToRecordDecl(ASTContext &C, DeclContext *DC,
 }
 
 CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM)
-    : CGM(CGM), OMPBuilder(CGM.getModule()), OffloadEntriesInfoManager() {
+    : CGM(CGM), OMPBuilder(CGM.getModule()) {
   KmpCriticalNameTy = llvm::ArrayType::get(CGM.Int32Ty, /*NumElements*/ 8);
   llvm::OpenMPIRBuilderConfig Config(CGM.getLangOpts().OpenMPIsDevice, false,
                                      hasRequiresUnifiedSharedMemory(),
@@ -1088,7 +1088,6 @@ CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM)
   // Initialize Types used in OpenMPIRBuilder from OMPKinds.def
   OMPBuilder.initialize();
   OMPBuilder.setConfig(Config);
-  OffloadEntriesInfoManager.setConfig(Config);
   loadOffloadInfoMetadata();
 }
 
@@ -1958,7 +1957,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
   auto EntryInfo =
       getTargetEntryUniqueInfo(CGM.getContext(), Loc, VD->getName());
   SmallString<128> Buffer, Out;
-  OffloadEntriesInfoManager.getTargetRegionEntryFnName(Buffer, EntryInfo);
+  OMPBuilder.OffloadInfoManager.getTargetRegionEntryFnName(Buffer, EntryInfo);
 
   const Expr *Init = VD->getAnyInitializer();
   if (CGM.getLangOpts().CPlusPlus && PerformInit) {
@@ -2030,7 +2029,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
     Out.clear();
     auto CtorEntryInfo = EntryInfo;
     CtorEntryInfo.ParentName = Twine(Buffer, "_ctor").toStringRef(Out);
-    OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
+    OMPBuilder.OffloadInfoManager.registerTargetRegionEntryInfo(
         CtorEntryInfo, Ctor, ID,
         llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryCtor);
   }
@@ -2103,7 +2102,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
     Out.clear();
     auto DtorEntryInfo = EntryInfo;
     DtorEntryInfo.ParentName = Twine(Buffer, "_dtor").toStringRef(Out);
-    OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
+    OMPBuilder.OffloadInfoManager.registerTargetRegionEntryInfo(
         DtorEntryInfo, Dtor, ID,
         llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryDtor);
   }
@@ -3096,7 +3095,7 @@ enum KmpTaskTFields {
 void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
   // If we are in simd mode or there are no entries, we don't need to do
   // anything.
-  if (CGM.getLangOpts().OpenMPSimd || OffloadEntriesInfoManager.empty())
+  if (CGM.getLangOpts().OpenMPSimd || OMPBuilder.OffloadInfoManager.empty())
     return;
 
   llvm::OpenMPIRBuilder::EmitMetadataErrorReportFunctionTy &&ErrorReportFn =
@@ -3140,6 +3139,7 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
     }
   };
 
+<<<<<<< HEAD
   OMPBuilder.createOffloadEntriesAndInfoMetadata(
 #if INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
@@ -3148,6 +3148,9 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
       CGM.getLangOpts().OpenMPLateOutline,
 #endif // INTEL_COLLAB
   OffloadEntriesInfoManager, ErrorReportFn);
+=======
+  OMPBuilder.createOffloadEntriesAndInfoMetadata(ErrorReportFn);
+>>>>>>> 85faee69928b1eeb74a0d74f374a1c74ddf236dd
 }
 
 /// Loads all the offload entries information from the host IR
@@ -3181,7 +3184,7 @@ void CGOpenMPRuntime::loadOffloadInfoMetadata() {
     return;
   }
 
-  OMPBuilder.loadOffloadInfoMetadata(*ME.get(), OffloadEntriesInfoManager);
+  OMPBuilder.loadOffloadInfoMetadata(*ME.get());
 }
 
 void CGOpenMPRuntime::emitKmpRoutineEntryT(QualType KmpInt32Ty) {
@@ -6323,10 +6326,9 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
   getNumTeamsExprForTargetDirective(CGF, D, DefaultValTeams);
   getNumThreadsExprForTargetDirective(CGF, D, DefaultValThreads);
 
-  OMPBuilder.emitTargetRegionFunction(OffloadEntriesInfoManager, EntryInfo,
-                                      GenerateOutlinedFunction, DefaultValTeams,
-                                      DefaultValThreads, IsOffloadEntry,
-                                      OutlinedFn, OutlinedFnID);
+  OMPBuilder.emitTargetRegionFunction(EntryInfo, GenerateOutlinedFunction,
+                                      DefaultValTeams, DefaultValThreads,
+                                      IsOffloadEntry, OutlinedFn, OutlinedFnID);
 
   if (OutlinedFn != nullptr)
     CGM.getTargetCodeGenInfo().setTargetAttributes(nullptr, OutlinedFn, CGM);
@@ -10863,6 +10865,7 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
 
     // Is this a target region that should not be emitted as an entry point? If
     // so just signal we are done with this target region.
+<<<<<<< HEAD
     if (!OffloadEntriesInfoManager.hasTargetRegionEntryInfo(EntryInfo))
 #if INTEL_COLLAB
       return false;
@@ -10872,6 +10875,9 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
 #endif // INTEL_CUSTOMIZATION
       return true;
 #else
+=======
+    if (!OMPBuilder.OffloadInfoManager.hasTargetRegionEntryInfo(EntryInfo))
+>>>>>>> 85faee69928b1eeb74a0d74f374a1c74ddf236dd
       return;
 #endif // INTEL_COLLAB
 
@@ -11285,7 +11291,7 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
          Linkage == llvm::GlobalValue::LinkOnceODRLinkage)) {
       // Do not create a "ref-variable" if the original is not also available
       // on the host.
-      if (!OffloadEntriesInfoManager.hasDeviceGlobalVarEntryInfo(VarName))
+      if (!OMPBuilder.OffloadInfoManager.hasDeviceGlobalVarEntryInfo(VarName))
         return;
       std::string RefName = getName({VarName, "ref"});
       if (!CGM.GetGlobalValue(RefName)) {
@@ -11325,7 +11331,7 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
     Linkage = llvm::GlobalValue::WeakAnyLinkage;
   }
 
-  OffloadEntriesInfoManager.registerDeviceGlobalVarEntryInfo(
+  OMPBuilder.OffloadInfoManager.registerDeviceGlobalVarEntryInfo(
       VarName, Addr, VarSize, Flags, Linkage);
 }
 
@@ -11525,9 +11531,8 @@ llvm::Function *CGOpenMPRuntime::emitRequiresDirectiveRegFun() {
   // don't need to do anything.
   if (CGM.getLangOpts().OMPTargetTriples.empty() ||
       CGM.getLangOpts().OpenMPSimd || CGM.getLangOpts().OpenMPIsDevice ||
-      (OffloadEntriesInfoManager.empty() &&
-       !HasEmittedDeclareTargetRegion &&
-       !HasEmittedTargetRegion))
+      (OMPBuilder.OffloadInfoManager.empty() &&
+       !HasEmittedDeclareTargetRegion && !HasEmittedTargetRegion))
     return nullptr;
 
   // Create and register the function that handles the requires directives.
@@ -11548,9 +11553,8 @@ llvm::Function *CGOpenMPRuntime::emitRequiresDirectiveRegFun() {
     // passed to the runtime. This avoids the runtime from throwing an error
     // for mismatching requires clauses across compilation units that don't
     // contain at least 1 target region.
-    assert((HasEmittedTargetRegion ||
-            HasEmittedDeclareTargetRegion ||
-            !OffloadEntriesInfoManager.empty()) &&
+    assert((HasEmittedTargetRegion || HasEmittedDeclareTargetRegion ||
+            !OMPBuilder.OffloadInfoManager.empty()) &&
            "Target or declare target region expected.");
     if (HasRequiresUnifiedSharedMemory)
       Flags = OMP_REQ_UNIFIED_SHARED_MEMORY;
