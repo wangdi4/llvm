@@ -144,12 +144,6 @@ else()
   set(LLC_PARAMS ${LLC_PARAMS} -relocation-model=static)
 endif()
 
-if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-  set(CL_OPT_LEVEL -O0)
-else()
-  set(CL_OPT_LEVEL -O3)
-endif()
-
 # options for clang to compile OpenCL 2.0 code
 set(CLANG_CL_COMMON_FLAGS
     -cc1
@@ -157,7 +151,7 @@ set(CLANG_CL_COMMON_FLAGS
     ${DEVICE_TRIPLE}
     -emit-llvm-bc
     -fwrapv
-    ${CL_OPT_LEVEL}
+    -O3
     -disable-intel-proprietary-opts # INTEL
     -x
     cl
