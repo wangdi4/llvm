@@ -42,8 +42,18 @@ void specific_alignment_is_device_ptr()
   // Overaligned device_ptr is passed by reference.
   // Flags are OMP_MAP_TARGET_PARAM|OMP_MAP_TO (currently 0x21 or 33)
 
+  // After 65a0d669b4625c34 the overalignment is not significant.
+  // See CMPLRLLVM-46102.
+  // For now leave the old checks here with unused CHCK lines.
+
+  //CHCK: "DIR.OMP.TARGET"
+  //CHCK-SAME: "QUAL.OMP.MAP.TO"(ptr [[PTR]]
+  //CHCK-SAME: MAP.FROM"(ptr [[I]], ptr [[I]], i64 4,
+  //CHCK: "DIR.OMP.END.TARGET"
+
+  //CHECK: [[L:%[0-9]+]] = load ptr, ptr [[PTR]], align 64
   //CHECK: "DIR.OMP.TARGET"
-  //CHECK-SAME: "QUAL.OMP.MAP.TO"(ptr [[PTR]]
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(ptr [[L]]
   //CHECK-SAME: MAP.FROM"(ptr [[I]], ptr [[I]], i64 4,
   //CHECK: "DIR.OMP.END.TARGET"
   #pragma omp target device(0) map(from:i) is_device_ptr(ptr)
