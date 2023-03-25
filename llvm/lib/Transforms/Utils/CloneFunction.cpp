@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -146,7 +146,8 @@ void llvm::CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
                              SmallVectorImpl<ReturnInst *> &Returns,
                              const char *NameSuffix, ClonedCodeInfo *CodeInfo,
                              ValueMapTypeRemapper *TypeMapper,
-                             ValueMaterializer *Materializer) {
+                             ValueMaterializer *Materializer,    // INTEL
+                             bool StopAfterCloningDeclaration) { // INTEL
   assert(NameSuffix && "NameSuffix cannot be null!");
 
 #ifndef NDEBUG
@@ -200,7 +201,7 @@ void llvm::CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
 
   // Everything else beyond this point deals with function instructions,
   // so if we are dealing with a function declaration, we're done.
-  if (OldFunc->isDeclaration())
+  if (OldFunc->isDeclaration() || StopAfterCloningDeclaration) // INTEL
     return;
 
   // When we remap instructions within the same module, we want to avoid
@@ -373,7 +374,8 @@ void llvm::CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
 /// instructions and basicblocks in the function from their old to new values.
 ///
 Function *llvm::CloneFunction(Function *F, ValueToValueMapTy &VMap,
-                              ClonedCodeInfo *CodeInfo) {
+                              ClonedCodeInfo *CodeInfo,           // INTEL
+                              bool StopAfterCloningDeclaration) { // INTEL
   std::vector<Type *> ArgTypes;
 
   // The user might be deleting arguments to the function by specifying them in
@@ -402,7 +404,8 @@ Function *llvm::CloneFunction(Function *F, ValueToValueMapTy &VMap,
 
   SmallVector<ReturnInst *, 8> Returns; // Ignore returns cloned.
   CloneFunctionInto(NewF, F, VMap, CloneFunctionChangeType::LocalChangesOnly,
-                    Returns, "", CodeInfo);
+                    Returns, "", CodeInfo, nullptr, nullptr, // INTEL
+                    StopAfterCloningDeclaration);            // INTEL
 
   return NewF;
 }
