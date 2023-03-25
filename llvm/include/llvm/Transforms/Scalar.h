@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -249,20 +249,6 @@ ModulePass *createTransformFPGARegPass();
 // CleanupFakeLoadsPass is a pass which removes intel.fakeload intrinsics
 // (which are needed by TbaaMDPropagationPass) after all inlining is finished.
 FunctionPass *createCleanupFakeLoadsPass();
-
-// FunctionRecognizer - Mark recognizable Functions with Function Attributes
-FunctionPass *createFunctionRecognizerLegacyPass(void);
-
-#if INTEL_FEATURE_SW_DTRANS
-// IndirectCallConv - Converts indirect calls to direct calls using
-// points-to info and/or DTrans Field Single Value Info if possible
-FunctionPass *createIndirectCallConvLegacyPass(bool UseAndersen = false,
-                                               bool UseDTrans = false);
-#else // INTEL_FEATURE_SW_DTRANS
-// IndirectCallConv - Converts indirect calls to direct calls using
-// points-to info
-FunctionPass *createIndirectCallConvLegacyPass(bool UseAndersen = false);
-#endif // INTEL_FEATURE_SW_DTRANS
 
 // LoopOptMarker - Indicates loopopt based throttling to subsequent passes.
 FunctionPass *createLoopOptMarkerLegacyPass();

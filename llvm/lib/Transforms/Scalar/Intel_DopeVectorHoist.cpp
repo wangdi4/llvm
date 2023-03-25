@@ -1,6 +1,6 @@
 //===------ Intel_DopeVectorHoist.cpp - Hoisting Dope Vector Fields -*-----===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -301,50 +301,4 @@ PreservedAnalyses DopeVectorHoistPass::run(Function &F,
   PA.preserve<MemorySSAAnalysis>();
   PA.preserve<LoopAnalysis>();
   return PA;
-}
-
-namespace {
-
-class DopeVectorHoistWrapper : public FunctionPass {
-public:
-  static char ID;
-
-  DopeVectorHoistWrapper() : FunctionPass(ID) {
-    initializeDopeVectorHoistWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
-      return false;
-    auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-    auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-
-    return DopeVectorHoistImpl(F, DT, TTI).run();
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addPreserved<LoopInfoWrapperPass>();
-    AU.addPreserved<MemorySSAWrapperPass>();
-  }
-};
-
-} // end of anonymous namespace
-
-char DopeVectorHoistWrapper::ID = 0;
-
-INITIALIZE_PASS_BEGIN(DopeVectorHoistWrapper, DEBUG_TYPE, "DopeVector Hoist",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_END(DopeVectorHoistWrapper, DEBUG_TYPE, "DopeVector Hoist",
-                    false, false)
-
-FunctionPass *llvm::createDopeVectorHoistWrapperPass() {
-  return new DopeVectorHoistWrapper();
 }

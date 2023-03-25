@@ -92,14 +92,6 @@ enum class PassSummaryAction {
   Import, ///< Import information from summary.
   Export, ///< Export information to summary.
 };
-
-#if INTEL_CUSTOMIZATION
-ModulePass *createInlineReportSetupPass(InlineReportBuilder *IRB = nullptr);
-ModulePass *createInlineReportEmitterPass(unsigned OptLevel = 0,
-                                          unsigned SizeLevel = 0,
-                                          bool PrepareForLTO = false);
-#endif // INTEL_CUSTOMIZATION
-
 } // End llvm namespace
 
 #endif
