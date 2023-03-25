@@ -131,14 +131,12 @@ namespace {
       (void) llvm::createCleanupFakeLoadsPass();
       (void) llvm::createHandlePragmaVectorAlignedPass();
       (void) llvm::createStdContainerOptPass();
-      (void)llvm::createStdContainerAAWrapperPass();
-      (void) llvm::createInlineReportSetupPass();
-      (void)llvm::createInlineReportEmitterPass();
+      (void) llvm::createStdContainerAAWrapperPass();
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
-      (void)llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
+      (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
       (void) llvm::createAddSubReassociatePass();
       (void) llvm::createForcedCMOVGenerationPass();
       (void) llvm::createTransformFPGARegPass();
@@ -165,16 +163,10 @@ namespace {
       (void) llvm::createDomPrinterWrapperPassPass();
       (void) llvm::createDomOnlyViewerWrapperPassPass();
       (void) llvm::createDomViewerWrapperPassPass();
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-      (void) llvm::createFunctionRecognizerLegacyPass();
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
       (void) llvm::createAlwaysInlinerLegacyPass();
       (void) llvm::createGlobalsAAWrapperPass();
       (void) llvm::createGuardWideningPass();
       (void) llvm::createLoopGuardWideningPass();
-      (void) llvm::createIndirectCallConvLegacyPass(); // INTEL
       (void) llvm::createInductiveRangeCheckEliminationPass();
       (void) llvm::createInstSimplifyLegacyPass();
       (void) llvm::createInstructionCombiningPass();
@@ -201,7 +193,7 @@ namespace {
       (void) llvm::createLowerSwitchPass();
       (void) llvm::createNaryReassociatePass();
 #if INTEL_CUSTOMIZATION
-	  (void) llvm::createObjCARCAAWrapperPass();
+      (void) llvm::createObjCARCAAWrapperPass();
       (void) llvm::createObjCARCAPElimPass();
       (void) llvm::createObjCARCExpandPass();
 #endif // INTEL_CUSTOMIZATION
@@ -296,7 +288,7 @@ namespace {
       (void) llvm::sys::RunningOnValgrind();
 
 #if INTEL_CUSTOMIZATION
-      (void)llvm::createLoadCoalescingPass();
+      (void) llvm::createLoadCoalescingPass();
       (void) llvm::createSNodeAnalysisPass();
       (void) llvm::createLoopOptMarkerLegacyPass();
       (void) llvm::createArrayUseWrapperPass();
@@ -391,7 +383,7 @@ namespace {
       (void) llvm::createVPOParoptOptimizeDataSharingPass();
       (void) llvm::createVPOParoptSharedPrivatizationPass();
       (void) llvm::createVPOParoptTargetInlinePass();
-      (void)llvm::createVPOParoptApplyConfigPass();
+      (void) llvm::createVPOParoptApplyConfigPass();
 #endif // INTEL_CUSTOMIZATION
 
   #if INTEL_COLLAB

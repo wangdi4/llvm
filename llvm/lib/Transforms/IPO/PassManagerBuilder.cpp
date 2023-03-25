@@ -68,13 +68,10 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Inliner.h"
-#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
-#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
 #include "llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
-#include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #if INTEL_FEATURE_SW_DTRANS
@@ -224,10 +221,6 @@ cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
 // Andersen AliasAnalysis
 cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
-
-// Indirect call Conv
-static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
-    cl::init(true), cl::Hidden, cl::desc("Enable Indirect Call Conv"));
 
 // Whole Program Analysis
 static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
@@ -392,14 +385,6 @@ void PassManagerBuilder::populateFunctionPassManager(
   FPM.add(createLowerExpectIntrinsicPass());
   FPM.add(createCFGSimplificationPass());
   FPM.add(createSROAPass());
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-  if (DTransEnabled)
-    FPM.add(createFunctionRecognizerLegacyPass());
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
-
   FPM.add(createEarlyCSEPass());
 }
 
@@ -741,7 +726,6 @@ void PassManagerBuilder::populateModulePassManager(
   // if enabled, the function merging pass.
   if (OptLevel == 0) {
     if (Inliner) {
-      MPM.add(createInlineReportSetupPass(getMDInlineReport())); // INTEL
       MPM.add(Inliner);
       Inliner = nullptr;
     }
@@ -775,7 +759,6 @@ void PassManagerBuilder::populateModulePassManager(
 
 #if INTEL_CUSTOMIZATION
   if (Inliner) {
-    MPM.add(createInlineReportSetupPass(getMDInlineReport()));
     if (RunVPOParopt && EnableVPOParoptTargetInline)
       MPM.add(createVPOParoptTargetInlinePass());
   }
@@ -920,20 +903,10 @@ void PassManagerBuilder::populateModulePassManager(
   }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-  MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
-#endif // INTEL_CUSTOMIZATION
-
 }
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
-  if (Inliner &&
-      (IntelInlineReportLevel & InlineReportOptions::CompositeReport)) {
-    PM.add(createInlineReportSetupPass(getMDInlineReport()));
-  }
-
   PM.add(createXmainOptLevelWrapperPass(OptLevel));
   // Whole Program Analysis
   if (EnableWPA)
@@ -981,13 +954,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-  if (DTransEnabled) {
+  if (DTransEnabled)
     addLateDTransLegacyPasses(PM);
-    if (EnableIndirectCallConv)
-      PM.add(createIndirectCallConvLegacyPass(false /* EnableAndersen */,
-                                              true /* DTransEnabled */));
-      // Indirect Call Conv
-  }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -999,21 +967,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
   bool RunInliner = Inliner;
-  if (RunInliner &&
-      !(IntelInlineReportLevel & InlineReportOptions::CompositeReport))
-    PM.add(createInlineReportSetupPass(getMDInlineReport()));
   if (EnableAndersen) {
     // Andersen's IP alias analysis
     PM.add(createAndersensAAWrapperPass(true /* BeforeInl */));
-  }
-  if (EnableIndirectCallConv && EnableAndersen) {
-#if INTEL_FEATURE_SW_DTRANS
-    PM.add(createIndirectCallConvLegacyPass(true /* EnableAndersen */,
-                                            false /* EnableDTrans */));
-#else // INTEL_FEATURE_SW_DTRANS
-    PM.add(createIndirectCallConvLegacyPass(true /* EnableAndersen */));
-#endif // INTEL_FEATURE_SW_DTRANS
-    // Indirect Call Conv
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1028,19 +984,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Break up allocas
   PM.add(createSROAPass());
 
-#if INTEL_CUSTOMIZATION
-  if (EnableMultiVersioning) {
-    PM.add(createMultiVersioningWrapperPass());
-#if INTEL_FEATURE_SW_DTRANS
-    // 21914: If we ran cloning+MV+Dtrans, it is likely we have duplicate
-    // code regions that need to be cleaned up. Community disabled hoisting
-    // recently, we therefore need to run it explictly.
-    if (DTransEnabled)
-      PM.add(createCFGSimplificationPass(SimplifyCFGOptions()
-                                             .hoistCommonInsts(true)));
-#endif // INTEL_FEATURE_SW_DTRANS
-  }
-#endif // INTEL_CUSTOMIZATION
   // LTO provides additional opportunities for tailcall elimination due to
   // link-time inlining, and visibility of nocapture attribute.
   if (OptLevel > 1)
@@ -1085,12 +1028,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
   PM.add(createForcedCMOVGenerationPass()); // To help CMOV generation
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-  if (RunInliner)
-    PM.add(createInlineReportEmitterPass(OptLevel, SizeLevel, false));
-#endif // INTEL_CUSTOMIZATION
+#endif                                      // INTEL_CUSTOMIZATION
 }
 
 void PassManagerBuilder::addLateLTOOptimizationPasses(
@@ -1504,11 +1442,7 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
   // that loopopt and vectorizers might have missed.
   if (RunVPOOpt)
     addVPOPasses(PM, true);
-
-  if (IntelOptReportEmitter == OptReportOptions::IR)
-    PM.add(createOptReportEmitterLegacyPass());
 }
-
 
 void PassManagerBuilder::populateThinLTOPassManager(
     legacy::PassManagerBase &PM) {
