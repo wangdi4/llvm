@@ -1,6 +1,6 @@
 //===----- Intel_MultiVersion.cpp - Whole Function multi-versioning -*-----===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -608,51 +608,4 @@ PreservedAnalyses MultiVersioningPass::run(Function &F,
   PA.preserve<AndersensAA>();
 
   return PA;
-}
-
-namespace {
-
-class MultiVersioningWrapper : public FunctionPass {
-public:
-  static char ID;
-
-  MultiVersioningWrapper() : FunctionPass(ID) {
-    initializeMultiVersioningWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
-      return false;
-
-    auto &AAR = getAnalysis<AAResultsWrapperPass>().getAAResults();
-    auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-
-    return BoolMultiVersioningImpl(F, AAR, TTI).run();
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AAResultsWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<TargetTransformInfoWrapperPass>();
-    // Comment out until we can remove it
-    // getAAResultsAnalysisUsage(AU);
-  }
-};
-
-} // end of anonymous namespace
-
-char MultiVersioningWrapper::ID = 0;
-
-INITIALIZE_PASS_BEGIN(MultiVersioningWrapper, DEBUG_TYPE,
-                      "Function multi-versioning", false, false)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(MultiVersioningWrapper, DEBUG_TYPE,
-                    "Function multi-versioning", false, false)
-
-FunctionPass *llvm::createMultiVersioningWrapperPass() {
-  return new MultiVersioningWrapper();
 }
