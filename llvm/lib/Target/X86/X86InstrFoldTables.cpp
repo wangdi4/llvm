@@ -53,7 +53,7 @@ using namespace llvm;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_XISA_COMMON
 #include "Intel_X86XISAMemFoldTables.inc"
-#else
+#else // INTEL_FEATURE_XISA_COMMON
 #include "X86MemFoldTables.inc"
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
