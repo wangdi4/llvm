@@ -3042,7 +3042,12 @@ defm objc_avoid_heapify_local_blocks : BoolFOption<"objc-avoid-heapify-local-blo
   NegFlag<SetFalse, [], "Don't try">,
   BothFlags<[CC1Option, NoDriverOption], " to avoid heapifying local blocks">>;
 
-def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>;
+def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>,
+  HelpText<"Omit the frame pointer from functions that don't need it. "
+  "Some stack unwinding cases, such as profilers and sanitizers, may prefer specifying -fno-omit-frame-pointer. "
+  "On many targets, -O1 and higher omit the frame pointer by default. "
+  "-m[no-]omit-leaf-frame-pointer takes precedence for leaf functions">;
+
 #if INTEL_CUSTOMIZATION
 def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
   Flags<[CC1Option, NoArgumentUnused, FlangOption, FC1Option]>,
