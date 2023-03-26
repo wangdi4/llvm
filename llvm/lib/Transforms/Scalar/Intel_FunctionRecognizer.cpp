@@ -3494,34 +3494,6 @@ static bool FunctionRecognizerImpl(Function &F) {
   return false;
 }
 
-namespace {
-
-struct FunctionRecognizerLegacyPass : public FunctionPass {
-  static char ID; // Pass identification, replacement for typeid
-  FunctionRecognizerLegacyPass(void) : FunctionPass(ID) {
-    initializeFunctionRecognizerLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
-      return false;
-    return FunctionRecognizerImpl(F);
-  }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-};
-
-} // namespace
-
-char FunctionRecognizerLegacyPass::ID = 0;
-INITIALIZE_PASS(FunctionRecognizerLegacyPass, "functionrecognizer",
-                "Function Recognizer", false, false)
-
-FunctionPass *llvm::createFunctionRecognizerLegacyPass(void) {
-  return new FunctionRecognizerLegacyPass();
-}
-
 PreservedAnalyses FunctionRecognizerPass::run(Function &F,
                                               FunctionAnalysisManager &AM) {
   FunctionRecognizerImpl(F);

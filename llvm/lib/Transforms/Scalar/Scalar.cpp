@@ -113,17 +113,13 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializePlaceBackedgeSafepointsLegacyPassPass(Registry);
   initializePlaceSafepointsLegacyPassPass(Registry);
 #if INTEL_CUSTOMIZATION
-  initializeDopeVectorHoistWrapperPass(Registry);
   initializeNonLTOGlobalOptLegacyPassPass(Registry);
 #if INTEL_FEATURE_SW_ADVANCED
-  initializeFunctionRecognizerLegacyPassPass(Registry);
   initializeNontemporalStoreWrapperPassPass(Registry);
 #endif // INTEL_FEATURE_SW_ADVANCED
-  initializeIndirectCallConvLegacyPassPass(Registry);
   initializeStdContainerOptLegacyPassPass(Registry);
   initializeTbaaMDPropagationLegacyPassPass(Registry);
   initializeCleanupFakeLoadsLegacyPassPass(Registry);
-  initializeMultiVersioningWrapperPass(Registry);
   initializeLoopOptMarkerLegacyPassPass(Registry);
   initializeOptReportEmitterLegacyPassPass(Registry);
   initializeTransformFPGARegPass(Registry);

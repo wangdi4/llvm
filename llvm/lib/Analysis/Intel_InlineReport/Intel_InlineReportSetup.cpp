@@ -1,6 +1,6 @@
 //=== --------- Intel_InlineReiortSetup.cpp - Inlining Report Setup ------=== //
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -623,42 +623,6 @@ bool setupInlineReport(Module &M, InlineReportBuilder &MDIR) {
 
   LLVM_DEBUG(dbgs() << "\nMDIR setup: finish\n");
   return false;
-}
-
-namespace {
-struct InlineReportSetup : public ModulePass {
-  static char ID;
-  InlineReportSetup(InlineReportBuilder *IRB = nullptr)
-      : ModulePass(ID), MDIR(IRB) {
-    initializeInlineReportSetupPass(*PassRegistry::getPassRegistry());
-    if (!IRB)
-      MDIR = new InlineReportBuilder(IntelInlineReportLevel);
-    MDIR->setLevel(IntelInlineReportLevel);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    return setupInlineReport(M, *MDIR);
-  }
-
-  InlineReportBuilder *getMDReport() { return MDIR; }
-
-private:
-  InlineReportBuilder *MDIR;
-};
-} // namespace
-
-char InlineReportSetup::ID = 0;
-INITIALIZE_PASS(InlineReportSetup, "inlinereportsetup", "Setup inlining report",
-                false, false)
-
-ModulePass *llvm::createInlineReportSetupPass(InlineReportBuilder *MDIR) {
-  return new InlineReportSetup(MDIR);
 }
 
 InlineReportSetupPass::InlineReportSetupPass() {
