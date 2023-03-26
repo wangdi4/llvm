@@ -1,6 +1,6 @@
 //===----------- Intel_InlineReportEmitter.cpp - Inlining Report ----------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -471,41 +471,6 @@ bool IREmitterInfo::runImpl() {
   OS << "---- End Inlining Report ------ (via metadata)\n";
   delete getMDInlineReport();
   return true;
-}
-
-namespace {
-struct InlineReportEmitter : public ModulePass {
-  static char ID;
-  unsigned OptLevel;
-  unsigned SizeLevel;
-  bool PrepareForLTO;
-  InlineReportEmitter(unsigned OL = 0, unsigned SL = 0, bool PrepForLTO = false)
-      : ModulePass(ID), OptLevel(OL), SizeLevel(SL), PrepareForLTO(PrepForLTO) {
-    initializeInlineReportEmitterPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    unsigned Level = IntelInlineReportLevel;
-    return IREmitterInfo(M, Level, OptLevel, SizeLevel, PrepareForLTO)
-        .runImpl();
-  }
-};
-} // namespace
-
-char InlineReportEmitter::ID = 0;
-INITIALIZE_PASS(InlineReportEmitter, "inlinereportemitter",
-                "Emit inlining report", false, false)
-
-ModulePass *llvm::createInlineReportEmitterPass(unsigned OptLevel,
-                                                unsigned SizeLevel,
-                                                bool PrepareForLTO) {
-  return new InlineReportEmitter(OptLevel, SizeLevel, PrepareForLTO);
 }
 
 PreservedAnalyses InlineReportEmitterPass::run(Module &M,

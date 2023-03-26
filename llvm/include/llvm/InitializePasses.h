@@ -78,11 +78,7 @@ void initializeIntel_LoopAnalysis(PassRegistry&);
 
 /// initializeIntel_LoopTransforms - Initialize all passes linked into the
 /// Intel_LoopTransforms library.
-void initializeIntel_LoopTransforms(PassRegistry&);
-
-void initializeInlineListsPass(PassRegistry&);
-void initializeInlineReportSetupPass(PassRegistry&);
-void initializeInlineReportEmitterPass(PassRegistry&);
+void initializeIntel_LoopTransforms(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
@@ -217,14 +213,6 @@ void initializeIPSCCPLegacyPassPass(PassRegistry&);
 void initializeIRCELegacyPassPass(PassRegistry&);
 void initializeIRSimilarityIdentifierWrapperPassPass(PassRegistry&);
 void initializeIRTranslatorPass(PassRegistry&);
-#if INTEL_CUSTOMIZATION
-void initializeIPArrayTransposeLegacyPassPass(PassRegistry &);
-#if INTEL_FEATURE_SW_ADVANCED
-void initializeIPCloningLegacyPassPass(PassRegistry&);
-void initializeIPPredOptLegacyPassPass(PassRegistry &);
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
-void initializeCallTreeCloningLegacyPassPass(PassRegistry &);      // INTEL
 void initializeIVUsersWrapperPassPass(PassRegistry&);
 void initializeIfConverterPass(PassRegistry&);
 void initializeImmutableModuleSummaryIndexWrapperPassPass(PassRegistry&);
@@ -505,16 +493,8 @@ void initializeStdContainerOptLegacyPassPass(PassRegistry &);
 void initializeTbaaMDPropagationLegacyPassPass(PassRegistry &);
 // Pass for removing fakeload intrinisics
 void initializeCleanupFakeLoadsLegacyPassPass(PassRegistry &);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-// Pass for function recognition
-void initializeFunctionRecognizerLegacyPassPass(PassRegistry &);
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
 // Pass for handling '#pragma vector aligned'.
 void initializeHandlePragmaVectorAlignedLegacyPassPass(PassRegistry &);
-// Pass for indirect call conversion using points-to info
-void initializeIndirectCallConvLegacyPassPass(PassRegistry &);
 // Pass for SnodeInfo analysis
 void initializeSNodeAnalysisPass(PassRegistry &);
 // Pass for register promotion for non escaped block scope global variables.
@@ -531,18 +511,6 @@ void initializeOptReportEmitterLegacyPassPass(PassRegistry&);
 void initializeLoopCarriedCSELegacyPass(PassRegistry&);
 // Pass for transforming __fpga_reg builtin representation
 void initializeTransformFPGARegPass(PassRegistry &);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-// Qsort recognition
-void initializeQsortRecognizerLegacyPassPass(PassRegistry&);
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
-// Multiversioning and inline marking for tiled functions
-void initializeTileMVInlMarkerLegacyPassPass(PassRegistry&);
-// Mark callsites for aggressive inlining
-void initializeAggInlinerLegacyPassPass(PassRegistry&);
-// Hoist base addresses of Dope Vector
-void initializeDopeVectorHoistWrapperPass(PassRegistry&);
 // Converting annotation attribute to function attribute
 void initializeParseAnnotateAttributesLegacyPass(PassRegistry&);
 // HIR Passes
@@ -635,8 +603,7 @@ void initializeVPODriverHIRPass(PassRegistry&);
 void initializeVPODirectiveCleanupPass(PassRegistry&);
 void initializeVectorGraphInfoPass(PassRegistry&);
 void initializeVectorGraphPredicatorPass(PassRegistry&);
-void initializeWholeProgramWrapperPassPass(PassRegistry&);
-void initializeMultiVersioningWrapperPass(PassRegistry&);
+void initializeWholeProgramWrapperPassPass(PassRegistry &);
 // VPO VPlan Pass for pragma omp ordered simd
 void initializeVPlanPragmaOmpOrderedSimdExtractPass(PassRegistry &);
 // VPO VPlan Pass for pragma omp simd if
