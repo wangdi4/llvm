@@ -1,4 +1,4 @@
-#if INTEL_FEATURE_XISA_COMMON
+// INTEL_FEATURE_XISA_COMMON
 static const X86MemoryFoldTableEntry MemoryFoldTable2Addr[] = {
   {X86::ADD16ri8_DB, X86::ADD16mi8, TB_NO_REVERSE},
   {X86::ADD16ri_DB, X86::ADD16mi, TB_NO_REVERSE},
@@ -7704,5 +7704,5 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   {X86::VXORPSZ256rrk, X86::VXORPSZ256rmk, 0},
   {X86::VXORPSZrrk, X86::VXORPSZrmk, 0},
 };
-#endif // INTEL_FEATURE_XISA_COMMON
 
+// end INTEL_FEATURE_XISA_COMMON
