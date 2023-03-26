@@ -7704,4 +7704,5 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   {X86::VXORPSZ256rrk, X86::VXORPSZ256rmk, 0},
   {X86::VXORPSZrrk, X86::VXORPSZrmk, 0},
 };
+
 // end INTEL_FEATURE_XISA_COMMON
