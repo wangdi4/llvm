@@ -127,13 +127,8 @@ emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
   // This will make sure all attributes and properties of Fn are cloned/copied
   // over to the dispatcher function.
   ValueToValueMapTy VMap;
-  Dispatcher = CloneFunction(&Fn, VMap);
-  // Delete the body of Dispatcher function.
-  Dispatcher->deleteBody();
+  Dispatcher = CloneFunction(&Fn, VMap, nullptr, true);
   Dispatcher->setName(OrigName);
-  // Call to deleteBody() set Dispatcher's linkage to ExternalLinkage.
-  // Reset the linkage back to that of Fn's.
-  Dispatcher->setLinkage(Fn.getLinkage());
 
   // Now, create the body for the Dispatcher.
   LLVMContext &Ctx = Fn.getContext();
