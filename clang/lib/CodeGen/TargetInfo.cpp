@@ -11507,7 +11507,7 @@ llvm::Type *CommonSPIRTargetCodeGenInfo::getOpenCLType(CodeGenModule &CGM,
   return nullptr;
 }
 //===----------------------------------------------------------------------===//
-// RISCV ABI Implementation
+// RISC-V ABI Implementation
 //===----------------------------------------------------------------------===//
 
 namespace {
