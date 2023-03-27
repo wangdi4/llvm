@@ -17,7 +17,7 @@ namespace llvm {
 
 /// AddFunctionAttrs pass marks synchronize built-ins of DPC++/OpenCL language
 /// and all functions that calls them direct or indirect, in order to prevent
-/// LLVM Standard passes or vectorizer from breaking their symantic.
+/// LLVM Standard passes or vectorizer from breaking their semantic.
 ///
 /// For instance, it propogates convergent, kernel-convergent-call,
 /// kernel-call-once and noduplicate attributes to all synchronize built-ins.

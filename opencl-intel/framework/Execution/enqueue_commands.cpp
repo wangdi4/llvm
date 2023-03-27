@@ -1537,8 +1537,6 @@ cl_err_code NDRangeKernelCommand::Init() {
   // USM capacities
   auto crossSharedCaps = GetDevice()->GetUSMCapabilities(
       CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL);
-  auto systemCaps = GetDevice()->GetUSMCapabilities(
-      CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL);
   cl_device_id queueDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
 
   // Indirect USM allocations that are not passed as kernel arguments
@@ -1601,8 +1599,7 @@ cl_err_code NDRangeKernelCommand::Init() {
       cl_device_id bufDeviceId = buf->GetDevice();
       if (!crossSharedCaps && bufDeviceId && queueDeviceId != bufDeviceId)
         return CL_INVALID_OPERATION;
-    } else if (!systemCaps)
-      return CL_INVALID_OPERATION;
+    }
   }
 
   const SharedPtr<Context> &pContext = m_pKernel->GetContext();
