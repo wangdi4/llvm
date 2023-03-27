@@ -528,50 +528,6 @@ private: // data
   // integer index value.
   SmallPtrSet<Function *, 16> FnClonedForIndex;
 };
-
-class DTransAOSToSOAOPWrapper : public ModulePass {
-private:
-  AOSToSOAOPPass Impl;
-
-public:
-  static char ID;
-
-  DTransAOSToSOAOPWrapper() : ModulePass(ID) {
-    initializeDTransAOSToSOAOPWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto &DTAnalysisWrapper = getAnalysis<DTransSafetyAnalyzerWrapper>();
-    DTransSafetyInfo &DTInfo = DTAnalysisWrapper.getDTransSafetyInfo(M);
-    auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    AOSToSOAOPPass::GetTLIFuncType GetTLI =
-        [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    // This lambda function is to allow getting the DominatorTree analysis for a
-    // specific function to allow analysis of loops when checking the dynamic
-    // allocation of the structure type candidates of this transformation.
-    AOSToSOAOPPass::DominatorTreeFuncType GetDT =
-        [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-
-    bool Changed = Impl.runImpl(M, &DTInfo, WPInfo, GetTLI, GetDT);
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransSafetyAnalyzerWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
 } // end anonymous namespace
 
 void AOSCollector::visitGetElementPtrInst(GetElementPtrInst &GEP) {
@@ -3038,24 +2994,6 @@ Value *AOSToSOAOPTransformImpl::createIndexFromValue(
   }
 
   llvm_unreachable("unexpected instruction");
-}
-
-char DTransAOSToSOAOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransAOSToSOAOPWrapper, "dtrans-aostosoaop",
-                      "DTrans array of structures to structure of arrays with "
-                      "opaque pointer support",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransAOSToSOAOPWrapper, "dtrans-aostosoaop",
-                    "DTrans array of structures to structure of arrays with "
-                    "opaque pointer support",
-                    false, false)
-
-ModulePass *llvm::createDTransAOSToSOAOPWrapperPass() {
-  return new DTransAOSToSOAOPWrapper();
 }
 
 namespace llvm {

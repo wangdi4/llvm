@@ -164,60 +164,7 @@ LLVM_DUMP_METHOD StringRef getStName(StructType *StTy) {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-class DTransReorderFieldsWrapper : public ModulePass {
-private:
-  dtrans::ReorderFieldsPass Impl;
-
-public:
-  static char ID;
-
-  DTransReorderFieldsWrapper() : ModulePass(ID) {
-    initializeDTransReorderFieldsWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    DTransAnalysisWrapper &DTAnalysisWrapper =
-        getAnalysis<DTransAnalysisWrapper>();
-    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    bool Changed = Impl.runImpl(
-        M, DTInfo, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult());
-
-    if (Changed)
-      DTAnalysisWrapper.setInvalidated();
-
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
 } // end anonymous namespace
-
-char DTransReorderFieldsWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransReorderFieldsWrapper, "dtrans-reorderfields",
-                      "DTrans reorder fields", false, false)
-  INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-  INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-  INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransReorderFieldsWrapper, "dtrans-reorderfields",
-                    "DTrans reorder fields", false, false)
-
-ModulePass *llvm::createDTransReorderFieldsWrapperPass() {
-  return new DTransReorderFieldsWrapper();
-}
 
 // FieldData records a field's alignment, size, index, and access frequency.
 class FieldData {

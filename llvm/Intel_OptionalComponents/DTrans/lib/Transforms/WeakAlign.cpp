@@ -54,35 +54,6 @@ const int32_t WeakAlignEnableValue = 0;
 // error. It will be used later.
 // const int32_t WeakAlignDisableValue = 1;
 
-class DTransWeakAlignWrapper : public ModulePass {
-private:
-  dtrans::WeakAlignPass Impl;
-
-public:
-  static char ID;
-
-  DTransWeakAlignWrapper() : ModulePass(ID) {
-    initializeDTransWeakAlignWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    return Impl.runImpl(M, GetTLI, WPInfo);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
 } //  end anonymous namespace
 
 PreservedAnalyses dtrans::WeakAlignPass::run(Module &M,
@@ -866,15 +837,3 @@ bool WeakAlignPass::runImpl(
 
 } // end namespace dtrans
 } // end namespace llvm
-
-char DTransWeakAlignWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransWeakAlignWrapper, "dtrans-weakalign",
-                      "DTrans weak align", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransWeakAlignWrapper, "dtrans-weakalign",
-                    "DTrans weak align", false, false)
-
-ModulePass *llvm::createDTransWeakAlignWrapperPass() {
-  return new DTransWeakAlignWrapper();
-}

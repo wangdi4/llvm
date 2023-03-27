@@ -1,7 +1,7 @@
 //=--- DTransForceInlineOP.cpp - Force inlining/noninlining for DTrans ---===//
 //=---------------- Opaque pointer friendly version -------------------------//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -399,25 +399,6 @@ bool DTransForceInlineOP::run(
   return true;
 }
 
-class DTransForceInlineOPWrapper : public ModulePass {
-public:
-  static char ID;
-
-  DTransForceInlineOPWrapper() : ModulePass(ID) {
-    initializeDTransForceInlineOPWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    return Impl.runImpl(M, GetTLI);
-  }
-
-private:
-  DTransForceInlineOPPass Impl;
-};
-
 } // end anonymous namespace
 
 namespace llvm {
@@ -442,13 +423,3 @@ bool DTransForceInlineOPPass::runImpl(
 
 } // end namespace dtransOP
 } // end namespace llvm
-
-char DTransForceInlineOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransForceInlineOPWrapper, "dtrans-force-inline-op",
-                      "DTrans force inline and noinline", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(DTransForceInlineOPWrapper, "dtrans-force-inline-op",
-                    "DTrans force inline and noinline", false, false)
-ModulePass *llvm::createDTransForceInlineOPWrapperPass() {
-  return new DTransForceInlineOPWrapper();
-}

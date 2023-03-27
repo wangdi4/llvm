@@ -1,6 +1,6 @@
 //===-------------- ReorderFieldsOP.cpp - DTransReorderFieldsPass ---------===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -133,42 +133,6 @@ static bool getConstantFromValue(Value *V, uint64_t &Val) {
 
   return true;
 }
-
-class DTransReorderFieldsOPWrapper : public ModulePass {
-public:
-  static char ID;
-
-  DTransReorderFieldsOPWrapper() : ModulePass(ID) {
-    initializeDTransReorderFieldsOPWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    DTransSafetyAnalyzerWrapper &DTAnalysisWrapper =
-        getAnalysis<DTransSafetyAnalyzerWrapper>();
-    DTransSafetyInfo &DTInfo = DTAnalysisWrapper.getDTransSafetyInfo(M);
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    bool Changed = Impl.runImpl(
-        M, &DTInfo, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult());
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransSafetyAnalyzerWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-
-private:
-  ReorderFieldsOPPass Impl;
-};
 
 // FieldData records a field's alignment, size, index, and access frequency.
 class FieldData {
@@ -2070,21 +2034,6 @@ bool ReorderFieldsAnalyzer::doCollection(Module &M, DTransSafetyInfo *DTInfo) {
 }
 
 } // end anonymous namespace
-
-char DTransReorderFieldsOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransReorderFieldsOPWrapper, "dtrans-reorderfieldsop",
-                      "DTrans reorder fields with opaque pointer support",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransReorderFieldsOPWrapper, "dtrans-reorderfieldsop",
-                    "DTrans reorder fields with opaque pointer support", false,
-                    false)
-
-ModulePass *llvm::createDTransReorderFieldsOPWrapperPass() {
-  return new DTransReorderFieldsOPWrapper();
-}
 
 PreservedAnalyses ReorderFieldsOPPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {
