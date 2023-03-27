@@ -570,11 +570,7 @@ TEST_F(ScopedPrinterTest, PrintNumber) {
     W.printNumber("float-42.0", 42.0f);
     W.printNumber("float-42.5625", 42.5625f);
 
-<<<<<<< HEAD
     W.printNumber("double-max", MaxDouble);
-=======
-        W.printNumber("double-max", MaxDouble);
->>>>>>> 8088f5bf2dc051dc0828990b3df2a3299c9f0433
     W.printNumber("double-min", MinDouble);
     W.printNumber("double-42.0", 42.0);
     W.printNumber("double-42.5625", 42.5625);
@@ -605,22 +601,8 @@ TEST_F(ScopedPrinterTest, PrintNumber) {
   format("%5.1f", MaxDouble).snprint(Buf, sizeof(Buf));
   std::string MaxDoubleStr(Buf);
 
-<<<<<<< HEAD
   // FIXME: temporarily disable checking the for Inf and NaN until we have a
   // cross platform solution can handle this case
-=======
-  format("%5.1f", InfFloat).snprint(Buf, sizeof(Buf));
-  std::string InfFloatStr(Buf);
-
-  format("%5.1f", InfDouble).snprint(Buf, sizeof(Buf));
-  std::string InfDoubleStr(Buf);
-
-  format("%5.1f", NaNFloat).snprint(Buf, sizeof(Buf));
-  std::string NaNFloatStr(Buf);
-
-  format("%5.1f", NaNDouble).snprint(Buf, sizeof(Buf));
-  std::string NaNDoubleStr(Buf);
->>>>>>> 8088f5bf2dc051dc0828990b3df2a3299c9f0433
 
   std::string ExpectedOut = Twine(
                                 R"(uint64_t-max: 18446744073709551615
@@ -677,27 +659,14 @@ double-42.5625:  42.6
   },
   "float-max": 3.4028234663852886e+38,
   "float-min": 1.1754943508222875e-38,
-<<<<<<< HEAD
-=======
-  "float-inf": )" + std::to_string(InfFloat) + R"(,
-  "float-nan": )" + std::to_string(NaNFloat) + R"(,
->>>>>>> 8088f5bf2dc051dc0828990b3df2a3299c9f0433
   "float-42.0": 42,
   "float-42.5625": 42.5625,
   "double-max": 1.7976931348623157e+308,
   "double-min": 2.2250738585072014e-308,
-<<<<<<< HEAD
   "double-42.0": 42,
   "double-42.5625": 42.5625
 })")
                                     .str();
-=======
-  "double-inf": )" + std::to_string(InfDouble) + R"(,
-  "double-nan": )" + std::to_string(NaNDouble) + R"(,
-  "double-42.0": 42,
-  "double-42.5625": 42.5625
-})").str();
->>>>>>> 8088f5bf2dc051dc0828990b3df2a3299c9f0433
   verifyAll(ExpectedOut, JSONExpectedOut, PrintFunc);
 }
 
