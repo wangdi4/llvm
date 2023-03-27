@@ -73,7 +73,8 @@ define void @expandOuterRecurrence(i32 %arg) nounwind {
 ; CHECK:       outer.preheader:
 ; CHECK-NEXT:    br label [[OUTER:%.*]]
 ; CHECK:       outer:
-; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[I_INC:%.*]], [[OUTER_INC:%.*]] ], [ 0, [[OUTER_PREHEADER]] ] ;INTEL
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i32 [ [[SUB1]], [[OUTER_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[OUTER_INC:%.*]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[I_INC:%.*]], [[OUTER_INC]] ], [ 0, [[OUTER_PREHEADER]] ]
 ; CHECK-NEXT:    [[SUB2:%.*]] = sub nsw i32 [[ARG]], [[I]]
 ; CHECK-NEXT:    [[SUB3:%.*]] = sub nsw i32 [[SUB2]], 1
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp slt i32 0, [[SUB3]]
@@ -83,12 +84,13 @@ define void @expandOuterRecurrence(i32 %arg) nounwind {
 ; CHECK:       inner:
 ; CHECK-NEXT:    [[J:%.*]] = phi i32 [ 0, [[INNER_PH]] ], [ [[J_INC:%.*]], [[INNER]] ]
 ; CHECK-NEXT:    [[J_INC]] = add nuw nsw i32 [[J]], 1
-; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[J_INC]], [[SUB3]] ;INTEL
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i32 [[J_INC]], [[INDVARS_IV]]
 ; CHECK-NEXT:    br i1 [[EXITCOND]], label [[INNER]], label [[OUTER_INC_LOOPEXIT:%.*]]
 ; CHECK:       outer.inc.loopexit:
 ; CHECK-NEXT:    br label [[OUTER_INC]]
 ; CHECK:       outer.inc:
 ; CHECK-NEXT:    [[I_INC]] = add nuw nsw i32 [[I]], 1
+; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add i32 [[INDVARS_IV]], -1
 ; CHECK-NEXT:    [[EXITCOND1:%.*]] = icmp ne i32 [[I_INC]], [[SUB1]]
 ; CHECK-NEXT:    br i1 [[EXITCOND1]], label [[OUTER]], label [[EXIT_LOOPEXIT:%.*]]
 ; CHECK:       exit.loopexit:
