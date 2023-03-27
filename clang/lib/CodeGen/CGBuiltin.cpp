@@ -3306,9 +3306,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Builder.CreateCall(FnAssume, ArgValue);
     return RValue::get(nullptr);
   }
-<<<<<<< HEAD
-  case Builtin::BI__fence: // INTEL
-=======
   case Builtin::BI__builtin_assume_separate_storage: {
     const Expr *Arg0 = E->getArg(0);
     const Expr *Arg1 = E->getArg(1);
@@ -3321,7 +3318,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Builder.CreateAssumption(ConstantInt::getTrue(getLLVMContext()), {OBD});
     return RValue::get(nullptr);
   }
->>>>>>> 07ef7b1ff21e8e3faaf8279b8ec6a7f0ac252fad
+  case Builtin::BI__fence: // INTEL
   case Builtin::BI__arithmetic_fence: {
 #if INTEL_CUSTOMIZATION
     if (!E->getArg(0)->getType()->hasFloatingRepresentation()) {
