@@ -350,10 +350,14 @@ bool X86FastISel::X86FastEmitLoad(MVT VT, X86AddressMode &AM,
   bool HasSSE41 = Subtarget->hasSSE41();
   bool HasAVX = Subtarget->hasAVX();
   bool HasAVX2 = Subtarget->hasAVX2();
-  bool HasAVX512 = Subtarget->hasAVX512();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
+#ifndef NDEBUG
+  bool HasAVX512 = Subtarget->hasAVX512();
+#endif
   bool HasAVX3 = Subtarget->hasAVX3();
+#else // INTEL_FEATURE_ISA_AVX256P
+  bool HasAVX512 = Subtarget->hasAVX512();
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
   bool HasVLX = Subtarget->hasVLX();
@@ -528,10 +532,14 @@ bool X86FastISel::X86FastEmitStore(EVT VT, unsigned ValReg, X86AddressMode &AM,
   bool HasSSE2 = Subtarget->hasSSE2();
   bool HasSSE4A = Subtarget->hasSSE4A();
   bool HasAVX = Subtarget->hasAVX();
-  bool HasAVX512 = Subtarget->hasAVX512();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
+#ifndef NDEBUG
+  bool HasAVX512 = Subtarget->hasAVX512();
+#endif
   bool HasAVX3 = Subtarget->hasAVX3();
+#else // INTEL_FEATURE_ISA_AVX256P
+  bool HasAVX512 = Subtarget->hasAVX512();
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
   bool HasVLX = Subtarget->hasVLX();
