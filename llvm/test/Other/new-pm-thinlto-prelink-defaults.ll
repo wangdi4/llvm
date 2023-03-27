@@ -45,7 +45,15 @@
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; CHECK-O-NODIS-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: InlineReportSetupPass on [module]
+; CHECK-O-NEXT:Running pass: InlineListsPass on [module]
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: CoroEarlyPass
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: LowerSubscriptIntrinsicPass on foo
+; CHECK-O-NEXT: Running pass: DopeVectorConstPropPass on foo
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: LowerExpectIntrinsicPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
@@ -64,9 +72,18 @@
 ; CHECK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O-NEXT: Running analysis: AAManager
 ; CHECK-O-NEXT: Running analysis: BasicAA
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis on foo
+; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-O-NEXT: Running analysis: TypeBasedAA
-; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running analysis: StdContainerAA on foo
+; CHECK-O-NEXT: Running pass: JumpThreadingPass on foo
+; CHECK-O-NEXT: Running analysis: LazyValueAnalysis on foo
+; CHECK-O-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: ModuleInlinerWrapperPass
 ; CHECK-O-NEXT: Running analysis: InlineAdvisorAnalysis
@@ -84,17 +101,24 @@
 ; CHECK-O-NEXT: Running pass: DevirtSCCRepeatedPass
 ; CHECK-O-NEXT: Running pass: InlinerPass
 ; CHECK-O-NEXT: Running pass: InlinerPass
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass on (foo)
+; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
-; CHECK-O3-NEXT: Running pass: ArgumentPromotionPass
+; end INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-O3-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: TbaaMDPropagationPass on foo
+; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptReportOptionsAnalysis
+; CHECK-O-NEXT: Running analysis: OptReportOptionsAnalysis on foo
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: SROAPass
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: MemorySSAAnalysis
 ; CHECK-O-NEXT: Running analysis: AAManager
 ; CHECK-O23SZ-NEXT: Running pass: SpeculativeExecutionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
-; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
@@ -144,7 +168,6 @@
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyValueAnalysis
 ; CHECK-O1-NEXT: Running pass: CoroElidePass
 ; CHECK-O-NEXT: Running pass: ADCEPass
-; CHECK-O-NEXT: Running analysis: PostDominatorTreeAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass
@@ -153,6 +176,9 @@
 ; CHECK-O23SZ-NEXT: Running pass: CoroElidePass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InstCombinePass
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: TransformSinAndCosCallsPass on foo
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}ShouldNotRunFunctionPassesAnalysis
 ; CHECK-O-NEXT: Running analysis: ShouldNotRunFunctionPassesAnalysis
