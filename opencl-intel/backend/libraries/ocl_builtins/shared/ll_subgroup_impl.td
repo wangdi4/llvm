@@ -12,6 +12,49 @@
 
 include "GENERIC/ll_generation/definition.td"
 
+// _get_sub_group_leader implementations
+// uint _get_sub_group_leader(gentype mask)
+// Semantics: get the local id of the first active item in the subgroup.
+// This is achieved by finding the first non-zero mask element.
+// Implementation:
+// Truncate mask to <VF x i1> booleans, then bitcast to an i{VF} integer.
+// Since x86 is little-endian, the element zero of <VF x i1> would be put in
+// the least significant bit of i{VF}.
+// So we can obtain the index by counting the trailing zeros in the i{VF}
+// integer.
+let EmitMangledName = true,
+    FuncAttrs = ["memory(none)", "willreturn", "nounwind"] in {
+  defvar builtin = "_get_sub_group_leader";
+  defvar ret_type = i32;
+foreach vf = [4, 8, 16, 32, 64] in {
+  // Declare llvm.cttz. intrinsic
+  defvar intrinsic_overload_type = !cast<IntType>("i" # vf);
+  defvar intrinsic_name = "llvm.cttz." # intrinsic_overload_type;
+  let EmitMangledName = false in
+    def : LLDeclare<intrinsic_name, [intrinsic_overload_type, i1], intrinsic_overload_type>;
+
+  foreach type = [i8, i16, i32, i64] in {
+    defvar mask_type = !cast<VectorType>("v" # vf # type);
+    foreach is_signed = [true, false] in {
+      defvar mask_mangle = MangleVectorType<mask_type, is_signed>.ret;
+
+      defvar trunc_or_zext_expr = !cond(!lt(vf, 32): "%r = zext i" # vf # " %trail.zero to i32",
+                                        !eq(vf, 32): "",
+                                        true: "%r = trunc i" # vf # " %trail.zero to i32");
+      defvar ret_var = !if(!eq(vf, 32), "%trail.zero", "%r");
+      defm builtin # vf # type # is_signed : LLDefine<builtin, [Value<mask_type, "mask">], ret_type, [{
+        %to.bool = trunc {Args[0]} to <{VF} x i1>
+        %to.int = bitcast <{VF} x i1> %to.bool to i{VF}
+        ; count trailing zeros (x86 is little-endian)
+        %trail.zero = call i{VF} @{INTRINSIC_NAME}(i{VF} %to.int, i1 true) ; don't expect all-zero mask
+        {TRUNC_OR_ZEXT}
+        ret i32 {RET_VAR}
+      }], [Macro<"VF", !cast<string>(vf)>, Macro<"INTRINSIC_NAME", intrinsic_name>, Macro<"TRUNC_OR_ZEXT", trunc_or_zext_expr>, Macro<"RET_VAR", ret_var>], mask_mangle>;
+    } // foreach is_signed
+  } // foreach type
+} // foreach vf
+}
+
 // sub_group_ballot vector implementations
 // scalar:
 //   uint4 sub_group_ballot(int predicate)
