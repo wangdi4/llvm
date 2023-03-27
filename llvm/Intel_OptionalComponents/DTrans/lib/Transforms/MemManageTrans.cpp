@@ -36,58 +36,6 @@ using namespace llvm;
 static cl::opt<bool> MemManageIgnoreSOAHeur("dtrans-memmanage-ignore-soa-heur",
                                             cl::init(false), cl::ReallyHidden);
 
-namespace {
-
-class DTransMemManageTransWrapper : public ModulePass {
-private:
-  dtrans::MemManageTransPass Impl;
-
-public:
-  static char ID;
-
-  DTransMemManageTransWrapper() : ModulePass(ID) {
-    initializeDTransMemManageTransWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    DTransAnalysisWrapper &DTAnalysisWrapper =
-        getAnalysis<DTransAnalysisWrapper>();
-    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-    auto GetTLI = [this](const Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    bool Changed = Impl.runImpl(
-        M, DTInfo, getAnalysis<WholeProgramWrapperPass>().getResult(), GetTLI);
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
-} // end anonymous namespace
-
-char DTransMemManageTransWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransMemManageTransWrapper, "dtrans-memmanagetrans",
-                      "DTrans Memory Manage Trans", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(DTransMemManageTransWrapper, "dtrans-memmanagetrans",
-                    "DTrans Memory Manage Trans", false, false)
-
-ModulePass *llvm::createDTransMemManageTransWrapperPass() {
-  return new DTransMemManageTransWrapper();
-}
-
 namespace llvm {
 
 namespace dtrans {

@@ -83,36 +83,6 @@ bool typesHaveSameBaseName(StructType *StTyA, StructType *StTyB) {
       .equals(getTypeBaseName(StTyB->getName()));
 }
 
-class DTransResolveTypesWrapper : public ModulePass {
-private:
-  dtrans::ResolveTypesPass Impl;
-
-public:
-  static char ID;
-
-  DTransResolveTypesWrapper() : ModulePass(ID) {
-    initializeDTransResolveTypesWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-    return Impl.runImpl(M, GetTLI, WPInfo);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
 class ResolveTypesImpl : public DTransOptBase {
 public:
   ResolveTypesImpl(
@@ -990,18 +960,6 @@ private:
 };
 
 } // end anonymous namespace
-
-char DTransResolveTypesWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransResolveTypesWrapper, "dtrans-resolvetypes",
-                      "DTrans resolve types", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransResolveTypesWrapper, "dtrans-resolvetypes",
-                    "DTrans resolve types", false, false)
-
-ModulePass *llvm::createDTransResolveTypesWrapperPass() {
-  return new DTransResolveTypesWrapper();
-}
 
 // This function walks over the structure types in the specified module and
 // identifies types which we would like to remap to one another. At this point

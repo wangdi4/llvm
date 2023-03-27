@@ -2527,68 +2527,7 @@ private:
   SmallVector<std::pair<Instruction *, Type *>, 16> InstructionsToAnnotate;
 };
 
-class DTransAOSToSOAWrapper : public ModulePass {
-private:
-  dtrans::AOSToSOAPass Impl;
-
-public:
-  static char ID;
-
-  DTransAOSToSOAWrapper() : ModulePass(ID) {
-    initializeDTransAOSToSOAWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    auto &DTAnalysisWrapper = getAnalysis<DTransAnalysisWrapper>();
-    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    // This lambda function is to allow getting the DominatorTree analysis for a
-    // specific function to allow analysis of loops for the dynamic allocation
-    // of the structure.
-    dtrans::AOSToSOAPass::DominatorTreeFuncType GetDT =
-        [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-
-    bool Changed = Impl.runImpl(M, DTInfo, GetTLI, WPInfo, GetDT);
-    if (Changed)
-      DTAnalysisWrapper.setInvalidated();
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // TODO: Mark the actual required and preserved analyses.
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
 } // end anonymous namespace
-
-char DTransAOSToSOAWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransAOSToSOAWrapper, "dtrans-aostosoa",
-                      "DTrans array of structs to struct of arrays", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransAOSToSOAWrapper, "dtrans-aostosoa",
-                    "DTrans array of structs to struct of arrays", false, false)
-
-ModulePass *llvm::createDTransAOSToSOAWrapperPass() {
-  return new DTransAOSToSOAWrapper();
-}
 
 namespace llvm {
 namespace dtrans {

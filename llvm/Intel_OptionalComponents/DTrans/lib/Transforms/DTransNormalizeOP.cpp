@@ -1,6 +1,6 @@
 //==== DTransNormalizeOP.cpp - Normalize IR for the DTransSafetyAnalyzer ====//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -56,40 +56,6 @@ using namespace llvm;
 using namespace dtransOP;
 
 #define DEBUG_TYPE "dtrans-normalizeop"
-
-namespace {
-
-class DTransNormalizeOPWrapper : public ModulePass {
-private:
-  dtransOP::DTransNormalizeOPPass Impl;
-
-public:
-  static char ID;
-
-  DTransNormalizeOPWrapper() : ModulePass(ID) {
-    initializeDTransNormalizeOPWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    bool Changed = Impl.runImpl(M, WPInfo, GetTLI);
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<TargetLibraryInfoWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
 
 class DTransNormalizeImpl {
 public:
@@ -1066,8 +1032,6 @@ private:
   SmallDenseMap<Value *, GetElementPtrInst *> NewGEPInsts;
 };
 
-} // end anonymous namespace
-
 PreservedAnalyses
 dtransOP::DTransNormalizeOPPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
@@ -1113,16 +1077,4 @@ bool dtransOP::DTransNormalizeOPPass::runImpl(Module &M,
 
   DTransNormalizeImpl Impl(M, PtrAnalyzer, MDReader, DTAC, GetTLI);
   return Impl.run();
-}
-
-char DTransNormalizeOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransNormalizeOPWrapper, "dtrans-normalizeop",
-                      "Normalize IR for DTrans", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransNormalizeOPWrapper, "dtrans-normalizeop",
-                    "Normalize IR for DTrans", false, false)
-
-ModulePass *llvm::createDTransNormalizeOPWrapperPass() {
-  return new DTransNormalizeOPWrapper();
 }

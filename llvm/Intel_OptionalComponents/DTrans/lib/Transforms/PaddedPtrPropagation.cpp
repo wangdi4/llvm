@@ -1001,78 +1001,6 @@ bool PaddedPtrPropImpl<InfoClass>::run(Module &M, WholeProgramInfo &WPInfo) {
 
   return Modified;
 }
-
-//===----------------------------------------------------------------------===//
-///                 Wrapper pass for legacy pass manager
-//===----------------------------------------------------------------------===//
-
-struct PaddedPtrPropWrapper final : ModulePass {
-  static char ID;
-  PaddedPtrPropWrapper();
-  bool runOnModule(Module &M) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-};
-
-char PaddedPtrPropWrapper::ID = 0;
-
-PaddedPtrPropWrapper::PaddedPtrPropWrapper() : ModulePass(ID) {
-  initializePaddedPtrPropWrapperPass(*PassRegistry::getPassRegistry());
-}
-
-void PaddedPtrPropWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<DTransAnalysisWrapper>();
-  AU.addPreserved<DTransAnalysisWrapper>();
-  AU.addRequired<WholeProgramWrapperPass>();
-  AU.addPreserved<WholeProgramWrapperPass>();
-}
-
-// Potentially the pass can change the CFG by inserting a new BB after
-// InvokeInst. In that case, it preserves none of its analyses.
-bool PaddedPtrPropWrapper::runOnModule(Module &M) {
-  auto &DTInfo = getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M);
-  if (!DTInfo.useDTransAnalysis())
-    return false;
-  WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-  dtrans::DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
-  PaddedPtrPropImpl<dtrans::DTransAnalysisInfoAdapter> PaddedPtrI(AIAdaptor);
-  return PaddedPtrI.run(M, WPInfo);
-}
-
-struct PaddedPtrPropOPWrapper final : ModulePass {
-  static char ID;
-  PaddedPtrPropOPWrapper();
-  bool runOnModule(Module &M) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-};
-
-char PaddedPtrPropOPWrapper::ID = 0;
-
-PaddedPtrPropOPWrapper::PaddedPtrPropOPWrapper() : ModulePass(ID) {
-  initializePaddedPtrPropOPWrapperPass(*PassRegistry::getPassRegistry());
-}
-
-void PaddedPtrPropOPWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
-  AU.addPreserved<dtransOP::DTransSafetyAnalyzerWrapper>();
-  AU.addRequired<WholeProgramWrapperPass>();
-  AU.addPreserved<WholeProgramWrapperPass>();
-}
-
-// Potentially the pass can change the CFG by inserting a new BB after
-// InvokeInst. In that case, it preserves none of its analyses.
-bool PaddedPtrPropOPWrapper::runOnModule(Module &M) {
-  auto &DTAnalysisWrapper =
-      getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
-  dtransOP::DTransSafetyInfo &DTInfo =
-      DTAnalysisWrapper.getDTransSafetyInfo(M);
-  if (!DTInfo.useDTransSafetyAnalysis())
-    return false;
-  WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-  dtransOP::DTransSafetyInfoAdapter AIAdaptor(DTInfo);
-  PaddedPtrPropImpl<dtransOP::DTransSafetyInfoAdapter> PaddedPtrI(AIAdaptor);
-  return PaddedPtrI.run(M, WPInfo);
-}
-
 } // namespace
 
 namespace llvm {
@@ -1119,14 +1047,6 @@ void removePaddedMarkUp(IntrinsicInst *I) {
   });
   I->replaceAllUsesWith(I->getArgOperand(0));
   I->eraseFromParent();
-}
-
-ModulePass *createPaddedPtrPropWrapperPass() {
-  return new PaddedPtrPropWrapper();
-}
-
-ModulePass *createPaddedPtrPropOPWrapperPass() {
-  return new PaddedPtrPropOPWrapper();
 }
 
 //===----------------------------------------------------------------------===//
@@ -1181,24 +1101,3 @@ PreservedAnalyses PaddedPtrPropOPPass::run(Module &M,
 } // namespace dtransOP
 
 } // namespace llvm
-
-//===----------------------------------------------------------------------===//
-///                     Wrapper pass initialization
-//===----------------------------------------------------------------------===//
-
-INITIALIZE_PASS_BEGIN(PaddedPtrPropWrapper, "padded-pointer-prop",
-                      "Optimize data layout with malloc padding", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(PaddedPtrPropWrapper, "padded-pointer-prop",
-                    "Optimize data layout with malloc padding", false, false)
-
-INITIALIZE_PASS_BEGIN(PaddedPtrPropOPWrapper, "padded-pointer-prop-op",
-                      "Optimize data layout with malloc padding for OP",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(PaddedPtrPropOPWrapper, "padded-pointer-prop-op",
-                    "Optimize data layout with malloc padding for OP",
-                    false, false)
-

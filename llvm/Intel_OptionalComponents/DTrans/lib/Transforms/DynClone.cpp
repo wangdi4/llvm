@@ -1,6 +1,6 @@
 //===---------------- DynClone.cpp - DTransDynClonePass -------------------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -113,123 +113,7 @@ static cl::opt<int>
 static cl::opt<int>
     DTransDynCloneShrTyDelta("dtrans-dynclone-shrunken-type-width-delta",
                              cl::init(2), cl::ReallyHidden);
-
-class DTransDynCloneWrapper : public ModulePass {
-private:
-  dtrans::DynClonePass Impl;
-
-public:
-  static char ID;
-
-  DTransDynCloneWrapper() : ModulePass(ID) {
-    initializeDTransDynCloneWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    DTransAnalysisWrapper &DTAnalysisWrapper =
-        getAnalysis<DTransAnalysisWrapper>();
-    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-
-    dtrans::LoopInfoFuncType GetLI = [this](Function &F) -> LoopInfo & {
-      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    };
-    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    bool Changed =
-        Impl.runImpl(M, DTInfo, GetTLI,
-                     getAnalysis<WholeProgramWrapperPass>().getResult(), GetLI);
-    if (Changed)
-      DTAnalysisWrapper.setInvalidated();
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
-class DTransDynCloneOPWrapper : public ModulePass {
-private:
-  dtransOP::DynClonePass Impl;
-
-public:
-  static char ID;
-
-  DTransDynCloneOPWrapper() : ModulePass(ID) {
-    initializeDTransDynCloneOPWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    auto &DTAnalysisWrapper =
-        getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
-    dtransOP::DTransSafetyInfo &DTInfo =
-        DTAnalysisWrapper.getDTransSafetyInfo(M);
-
-    dtrans::LoopInfoFuncType GetLI = [this](Function &F) -> LoopInfo & {
-      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    };
-    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    bool Changed =
-        Impl.runImpl(M, DTInfo, GetTLI,
-                     getAnalysis<WholeProgramWrapperPass>().getResult(), GetLI);
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
 } // end anonymous namespace
-
-char DTransDynCloneWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransDynCloneWrapper, "dtrans-dynclone",
-                      "DTrans dynamic cloning", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransDynCloneWrapper, "dtrans-dynclone",
-                    "DTrans dynamic cloning", false, false)
-
-ModulePass *llvm::createDTransDynCloneWrapperPass() {
-  return new DTransDynCloneWrapper();
-}
-
-using dtransOP::DTransSafetyAnalyzerWrapper;
-char DTransDynCloneOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransDynCloneOPWrapper, "dtrans-dyncloneop",
-                      "DTrans dynamic cloning with opaque pointer support",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransDynCloneOPWrapper, "dtrans-dyncloneop",
-                    "DTrans dynamic cloning with opaque pointer support", false,
-                    false)
-
-ModulePass *llvm::createDTransDynCloneOPWrapperPass() {
-  return new DTransDynCloneOPWrapper();
-}
 
 namespace llvm {
 
