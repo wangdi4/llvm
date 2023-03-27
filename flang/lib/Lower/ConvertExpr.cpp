@@ -416,7 +416,8 @@ static fir::ExtendedValue genLoad(fir::FirOpBuilder &builder,
         if (fir::unwrapRefType(fir::getBase(p).getType())
                 .isa<fir::RecordType>())
           return p;
-        return builder.create<fir::LoadOp>(loc, fir::getBase(p));
+        mlir::Value load = builder.create<fir::LoadOp>(loc, fir::getBase(p));
+        return fir::PolymorphicValue(load, p.getSourceBox());
       },
       [&](const fir::UnboxedValue &v) -> fir::ExtendedValue {
         if (fir::unwrapRefType(fir::getBase(v).getType())
@@ -429,9 +430,6 @@ static fir::ExtendedValue genLoad(fir::FirOpBuilder &builder,
                        fir::factory::genMutableBoxRead(builder, loc, box));
       },
       [&](const fir::BoxValue &box) -> fir::ExtendedValue {
-        if (box.isUnlimitedPolymorphic())
-          fir::emitFatalError(
-              loc, "attempting to load an unlimited polymorphic entity");
         return genLoad(builder, loc,
                        fir::factory::readBoxValue(builder, loc, box));
       },
@@ -2714,12 +2712,13 @@ public:
             // actually a variable.
             box = Fortran::evaluate::IsVariable(*expr)
                       ? builder.createBox(loc, genBoxArg(*expr),
-                                          fir::isPolymorphicType(argTy))
+                                          fir::isPolymorphicType(argTy),
+                                          fir::isAssumedType(argTy))
                       : builder.createBox(getLoc(), genTempExtAddr(*expr),
-                                          fir::isPolymorphicType(argTy));
-
+                                          fir::isPolymorphicType(argTy),
+                                          fir::isAssumedType(argTy));
             if (box.getType().isa<fir::BoxType>() &&
-                fir::isPolymorphicType(argTy)) {
+                fir::isPolymorphicType(argTy) && !fir::isAssumedType(argTy)) {
               mlir::Type actualTy = argTy;
               if (Fortran::lower::isParentComponent(*expr))
                 actualTy = fir::BoxType::get(converter.genType(*expr));
@@ -2758,7 +2757,6 @@ public:
               box = fir::getBase(newExv);
             }
           }
-
           caller.placeInput(arg, box);
         }
       } else if (arg.passBy == PassBy::AddressAndLength) {

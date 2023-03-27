@@ -541,7 +541,7 @@ FailureOr<PackResult> linalg::pack(RewriterBase &rewriter,
 
   // Step 2. Propagate packing to all LinalgOp operands.
   SmallVector<Value> inputsAndInits, results;
-  for (auto operandsList :
+  for (const auto& operandsList :
        {linalgOp.getDpsInputOperands(), linalgOp.getDpsInitOperands()}) {
     for (OpOperand *opOperandPtr : operandsList) {
       int64_t pos = opOperandPtr->getOperandNumber();
@@ -952,12 +952,14 @@ LogicalResult ExtractSliceOfPadTensorSwapPattern::matchAndRewrite(
       return failure();
   }
 
-  Operation *tiledPadOp =
+  FailureOr<TilingResult> tilingResult =
       tensor::bubbleUpPadSlice(rewriter, padOp, sliceOp.getMixedOffsets(),
                                sliceOp.getMixedSizes(), zeroSliceGuard);
+  if (failed(tilingResult))
+    return failure();
   // All shapes are static and the data source is actually used. Rewrite into
   // pad(extract_slice(x)).
-  rewriter.replaceOp(sliceOp, tiledPadOp->getResults());
+  rewriter.replaceOp(sliceOp, tilingResult->tiledValues);
   return success();
 }
 

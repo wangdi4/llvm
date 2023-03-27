@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
 
-; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt -S -pass-remarks-missed=openmp -switch-to-offload %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S -pass-remarks-missed=openmp -switch-to-offload %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S -pass-remarks-missed=openmp -switch-to-offload %s 2>&1 | FileCheck %s
 
 ; Check for remarks about the loop construct being optimized away and ignored.

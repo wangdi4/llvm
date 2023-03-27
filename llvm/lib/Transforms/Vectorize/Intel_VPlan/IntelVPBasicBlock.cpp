@@ -328,7 +328,7 @@ VPBasicBlock *VPBasicBlock::getPredecessor(unsigned idx) const {
   if (idx >= getNumPredecessors())
     return nullptr;
 
-  for (auto &[Idx, Pred] : enumerate(getPredecessors()))
+  for (const auto &[Idx, Pred] : enumerate(getPredecessors()))
     if (idx == Idx)
       return Pred;
 

@@ -283,7 +283,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   //Clone->setCallingConv(CallingConv::X86_RegCall);
 
   /// Add the 'align' attribute to any params with specified alignment.
-  for (auto &It : enumerate(Clone->args())) {
+  for (const auto &It : enumerate(Clone->args())) {
     Argument &Arg = It.value();
 
     MaybeAlign ParamAlign = V.getParameters()[It.index()].Alignment;

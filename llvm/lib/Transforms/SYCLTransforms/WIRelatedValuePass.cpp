@@ -379,7 +379,7 @@ bool WIRelatedValue::calculateDep(FreezeInst *Inst) {
 }
 
 void WIRelatedValue::updateArgumentsDep(Function *Func) {
-  for (auto &ArgItPair : enumerate(Func->args())) {
+  for (const auto &ArgItPair : enumerate(Func->args())) {
     Argument *Arg = &ArgItPair.value();
     unsigned Idx = ArgItPair.index();
     for (User *U : Func->users()) {

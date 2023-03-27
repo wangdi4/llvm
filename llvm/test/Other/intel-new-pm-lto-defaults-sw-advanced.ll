@@ -4,7 +4,7 @@
 ; This test case checks that the passes guarded with INTEL FEATURE SW_ADVANCED
 ; ran.
 
-; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
+; RUN: opt -disable-verify -verify-analysis-invalidation=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O3>' -S  %s -passes-ep-peephole='no-op-function' 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-INTEL-SW-ADVANCED
 

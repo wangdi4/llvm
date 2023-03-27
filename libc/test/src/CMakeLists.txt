@@ -35,6 +35,7 @@ add_subdirectory(string)
 add_subdirectory(stdlib)
 add_subdirectory(inttypes)
 add_subdirectory(stdio)
+add_subdirectory(wchar)
 
 if(${LIBC_TARGET_OS} STREQUAL "linux")
   add_subdirectory(fcntl)
@@ -115,8 +116,6 @@ add_integration_test(
     libc-api-test
   SRCS
     ${public_test}
-  STARTUP
-    libc.startup.linux.crt1
   DEPENDS
     ${api-test-entrypoints}
 )

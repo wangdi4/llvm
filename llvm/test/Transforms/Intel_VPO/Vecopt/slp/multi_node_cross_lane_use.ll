@@ -3,21 +3,21 @@
 
 ; Jira: CMPLRLLVM-33821
 define void @main(ptr %arg, i32 %arg1, i32 %arg2) {
-; CHECK-LABEL: define {{[^@]+}}@main(
+; CHECK-LABEL: @main(
 ; CHECK-NEXT:  bb:
 ; CHECK-NEXT:    [[T3:%.*]] = getelementptr i32, ptr [[ARG:%.*]], i64 0
 ; CHECK-NEXT:    [[T6:%.*]] = add i32 [[ARG2:%.*]], 42
 ; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> poison, i32 [[ARG2]], i32 0
-; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <4 x i32> <i32 7, i32 13, i32 13, i32 poison>, i32 [[T6]], i32 3
-; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i32> [[SHUFFLE]], [[TMP1]]
-; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <4 x i32> <i32 7, i32 3, i32 poison, i32 9>, i32 [[T6]], i32 2
-; CHECK-NEXT:    [[TMP4:%.*]] = add <4 x i32> [[TMP2]], [[TMP3]]
-; CHECK-NEXT:    [[TMP5:%.*]] = insertelement <4 x i32> <i32 poison, i32 13, i32 13, i32 13>, i32 [[ARG2]], i32 0
-; CHECK-NEXT:    [[TMP6:%.*]] = add <4 x i32> [[TMP5]], [[TMP4]]
-; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <4 x i32> <i32 poison, i32 poison, i32 poison, i32 91>, <4 x i32> [[TMP4]], <4 x i32> <i32 5, i32 6, i32 7, i32 3>
-; CHECK-NEXT:    [[TMP8:%.*]] = add <4 x i32> [[TMP6]], [[TMP7]]
-; CHECK-NEXT:    store <4 x i32> [[TMP8]], ptr [[T3]], align 16
+; CHECK-NEXT:    [[TMP1:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <4 x i32> <i32 7, i32 13, i32 13, i32 poison>, i32 [[T6]], i32 3
+; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i32> [[TMP1]], [[TMP2]]
+; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <4 x i32> <i32 7, i32 3, i32 poison, i32 9>, i32 [[T6]], i32 2
+; CHECK-NEXT:    [[TMP5:%.*]] = add <4 x i32> [[TMP3]], [[TMP4]]
+; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <4 x i32> [[TMP1]], <4 x i32> <i32 poison, i32 13, i32 13, i32 13>, <4 x i32> <i32 0, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[TMP7:%.*]] = add <4 x i32> [[TMP6]], [[TMP5]]
+; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32> [[TMP5]], <4 x i32> <i32 poison, i32 poison, i32 poison, i32 91>, <4 x i32> <i32 1, i32 2, i32 3, i32 7>
+; CHECK-NEXT:    [[TMP9:%.*]] = add <4 x i32> [[TMP7]], [[TMP8]]
+; CHECK-NEXT:    store <4 x i32> [[TMP9]], ptr [[T3]], align 16
 ; CHECK-NEXT:    ret void
 ;
 bb:

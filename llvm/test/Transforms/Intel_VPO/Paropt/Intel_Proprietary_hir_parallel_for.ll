@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -S %s | FileCheck %s
 
 ; WARNING!!!

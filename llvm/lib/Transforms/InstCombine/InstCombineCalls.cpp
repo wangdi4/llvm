@@ -1267,11 +1267,33 @@ InstCombinerImpl::foldIntrinsicWithOverflowCommon(IntrinsicInst *II) {
   return nullptr;
 }
 
+/// \returns true if the test performed by llvm.is.fpclass(x, \p Mask) is
+/// equivalent to fcmp oeq x, 0.0 with the floating-point environment assumed
+/// for \p F for type \p Ty
+static bool fpclassTestIsFCmp0(FPClassTest Mask, const Function &F, Type *Ty) {
+  if (Mask == fcZero)
+    return F.getDenormalMode(Ty->getScalarType()->getFltSemantics()).Input ==
+           DenormalMode::IEEE;
+
+  if (Mask == (fcZero | fcSubnormal)) {
+    DenormalMode::DenormalModeKind InputMode =
+        F.getDenormalMode(Ty->getScalarType()->getFltSemantics()).Input;
+    return InputMode == DenormalMode::PreserveSign ||
+           InputMode == DenormalMode::PositiveZero;
+  }
+
+  return false;
+}
+
 Instruction *InstCombinerImpl::foldIntrinsicIsFPClass(IntrinsicInst &II) {
   Value *Src0 = II.getArgOperand(0);
   Value *Src1 = II.getArgOperand(1);
   const ConstantInt *CMask = cast<ConstantInt>(Src1);
   FPClassTest Mask = static_cast<FPClassTest>(CMask->getZExtValue());
+  const bool IsUnordered = (Mask & fcNan) == fcNan;
+  const bool IsOrdered = (Mask & fcNan) == fcNone;
+  const FPClassTest OrderedMask = Mask & ~fcNan;
+  const FPClassTest OrderedInvertedMask = ~OrderedMask & ~fcNan;
 
   const bool IsStrict = II.isStrictFP();
 
@@ -1289,6 +1311,37 @@ Instruction *InstCombinerImpl::foldIntrinsicIsFPClass(IntrinsicInst &II) {
     return replaceOperand(II, 0, FAbsSrc);
   }
 
+  // TODO: is.fpclass(x, fcInf) -> fabs(x) == inf
+
+  if ((OrderedMask == fcPosInf || OrderedMask == fcNegInf) &&
+      (IsOrdered || IsUnordered) && !IsStrict) {
+    // is.fpclass(x, fcPosInf) -> fcmp oeq x, +inf
+    // is.fpclass(x, fcNegInf) -> fcmp oeq x, -inf
+    // is.fpclass(x, fcPosInf|fcNan) -> fcmp ueq x, +inf
+    // is.fpclass(x, fcNegInf|fcNan) -> fcmp ueq x, -inf
+    Constant *Inf =
+        ConstantFP::getInfinity(Src0->getType(), OrderedMask == fcNegInf);
+    Value *EqInf = IsUnordered ? Builder.CreateFCmpUEQ(Src0, Inf)
+                               : Builder.CreateFCmpOEQ(Src0, Inf);
+
+    EqInf->takeName(&II);
+    return replaceInstUsesWith(II, EqInf);
+  }
+
+  if ((OrderedInvertedMask == fcPosInf || OrderedInvertedMask == fcNegInf) &&
+      (IsOrdered || IsUnordered) && !IsStrict) {
+    // is.fpclass(x, ~fcPosInf) -> fcmp one x, +inf
+    // is.fpclass(x, ~fcNegInf) -> fcmp one x, -inf
+    // is.fpclass(x, ~fcPosInf|fcNan) -> fcmp une x, +inf
+    // is.fpclass(x, ~fcNegInf|fcNan) -> fcmp une x, -inf
+    Constant *Inf = ConstantFP::getInfinity(Src0->getType(),
+                                            OrderedInvertedMask == fcNegInf);
+    Value *NeInf = IsUnordered ? Builder.CreateFCmpUNE(Src0, Inf)
+                               : Builder.CreateFCmpONE(Src0, Inf);
+    NeInf->takeName(&II);
+    return replaceInstUsesWith(II, NeInf);
+  }
+
   if (Mask == fcNan && !IsStrict) {
     // Equivalent of isnan. Replace with standard fcmp if we don't care about FP
     // exceptions.
@@ -1302,6 +1355,29 @@ Instruction *InstCombinerImpl::foldIntrinsicIsFPClass(IntrinsicInst &II) {
     // Equivalent of !isnan. Replace with standard fcmp.
     Value *FCmp =
         Builder.CreateFCmpORD(Src0, ConstantFP::getZero(Src0->getType()));
+    FCmp->takeName(&II);
+    return replaceInstUsesWith(II, FCmp);
+  }
+
+  if (!IsStrict && (IsOrdered || IsUnordered) &&
+      fpclassTestIsFCmp0(OrderedMask, *II.getFunction(), Src0->getType())) {
+    Constant *Zero = ConstantFP::getZero(Src0->getType());
+    // Equivalent of == 0.
+    Value *FCmp = IsUnordered ? Builder.CreateFCmpUEQ(Src0, Zero)
+                              : Builder.CreateFCmpOEQ(Src0, Zero);
+    FCmp->takeName(&II);
+    return replaceInstUsesWith(II, FCmp);
+  }
+
+  if (!IsStrict && (IsOrdered || IsUnordered) &&
+      fpclassTestIsFCmp0(OrderedInvertedMask, *II.getFunction(),
+                         Src0->getType())) {
+    Constant *Zero = ConstantFP::getZero(Src0->getType());
+
+    // Equivalent of !(x == 0).
+    Value *FCmp = IsUnordered ? Builder.CreateFCmpUNE(Src0, Zero)
+                              : Builder.CreateFCmpONE(Src0, Zero);
+
     FCmp->takeName(&II);
     return replaceInstUsesWith(II, FCmp);
   }
@@ -1762,9 +1838,15 @@ foldShuffledIntrinsicOperands(IntrinsicInst *II,
 Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
   // Don't try to simplify calls without uses. It will not do anything useful,
   // but will result in the following folds being skipped.
-  if (!CI.use_empty())
-    if (Value *V = simplifyCall(&CI, SQ.getWithInstruction(&CI)))
+  if (!CI.use_empty()) {
+    SmallVector<Value *, 4> Args;
+    Args.reserve(CI.arg_size());
+    for (Value *Op : CI.args())
+      Args.push_back(Op);
+    if (Value *V = simplifyCall(&CI, CI.getCalledOperand(), Args,
+                                SQ.getWithInstruction(&CI)))
       return replaceInstUsesWith(CI, V);
+  }
 
   if (Value *FreedOp = getFreedOperand(&CI, &TLI))
     return visitFree(CI, FreedOp);

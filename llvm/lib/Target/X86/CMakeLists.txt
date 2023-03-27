@@ -62,6 +62,7 @@ set(sources
   Intel_X86StackRealign.cpp
   Intel_X86HeteroArchOpt.cpp
 # end INTEL_CUSTOMIZATION
+  X86ArgumentStackSlotRebase.cpp
   X86AsmPrinter.cpp
   X86AvoidTrailingCall.cpp
   X86CallFrameOptimization.cpp

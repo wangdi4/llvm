@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -S 
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt -S 
 ; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -S 
 
 ; Clang-emitted IR for a loop with unsigned UB changed after the

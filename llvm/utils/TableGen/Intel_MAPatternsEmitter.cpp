@@ -939,10 +939,5 @@ void MAPatternsEmitter::run(raw_ostream &OS) {
 #endif // INTEL_FEATURE_CSA
 }
 
-namespace llvm {
-
-void EmitMAPatterns(RecordKeeper &RK, raw_ostream &OS) {
-  MAPatternsEmitter(RK).run(OS);
-}
-
-} // End llvm namespace
+static TableGen::Emitter::OptClass<MAPatternsEmitter>
+    X("gen-ma-patterns", "Generate MUL/ADD patterns");

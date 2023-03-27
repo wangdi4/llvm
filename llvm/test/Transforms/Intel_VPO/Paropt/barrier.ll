@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes=vpo-paropt-prepare -S %s | FileCheck %s
 
 ; ModuleID = 'barrier_test.ll'

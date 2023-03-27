@@ -80,9 +80,19 @@ C++20 Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
 - Support for out-of-line definitions of constrained templates has been improved.
   This partially fixes `#49620 <https://github.com/llvm/llvm-project/issues/49620>`_.
+- Lambda templates with a requires clause directly after the template parameters now parse
+  correctly if the requires clause consists of a variable with a dependent type.
+  (`#61278 <https://github.com/llvm/llvm-project/issues/61278>`_)
+- Announced C++20 Coroutines is fully supported on all targets except Windows, which
+  still has some stability and ABI issues.
 
 C++2b Feature Support
 ^^^^^^^^^^^^^^^^^^^^^
+
+- Implemented `P2036R3: Change scope of lambda trailing-return-type <https://wg21.link/P2036R3>`_
+  and `P2579R0 Mitigation strategies for P2036 <https://wg21.link/P2579R0>`_.
+  These proposals modify how variables captured in lambdas can appear in trailing return type
+  expressions and how their types are deduced therein, in all C++ language versions.
 
 Resolutions to C++ Defect Reports
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -111,6 +121,9 @@ Non-comprehensive list of changes in this release
   optimizations.
 - Clang now supports ``__builtin_nondeterministic_value`` that returns a
   nondeterministic value of the same type as the provided argument.
+- Clang now supports ``__builtin_FILE_NAME()`` which returns the same
+  information as the ``__FILE_NAME__`` macro (the presumed file name
+  from the invocation point, with no path components included).
 
 New Compiler Flags
 ------------------
@@ -161,13 +174,15 @@ Improvements to Clang's diagnostics
 - Diagnostic notes and fix-its are now generated for ``ifunc``/``alias`` attributes
   which point to functions whose names are mangled.
 - Diagnostics relating to macros on the command line of a preprocessed assembly
-  file are now reported as coming from the file ``<command line>`` instead of
-  ``<built-in>``.
+  file or precompiled header are now reported as coming from the file
+  ``<command line>`` instead of ``<built-in>``.
 - Clang constexpr evaluator now provides a more concise diagnostic when calling
   function pointer that is known to be null.
 - Clang now avoids duplicate warnings on unreachable ``[[fallthrough]];`` statements
   previously issued from ``-Wunreachable-code`` and ``-Wunreachable-code-fallthrough``
   by prioritizing ``-Wunreachable-code-fallthrough``.
+- Clang now correctly diagnoses statement attributes ``[[clang::always_inine]]`` and
+  ``[[clang::noinline]]`` when used on a statement with dependent call expressions.
 
 Bug Fixes in This Version
 -------------------------
@@ -201,6 +216,15 @@ Bug Fixes in This Version
   function context.
   (`#37792 <https://github.com/llvm/llvm-project/issues/37792>`_) and
   (`#48405 <https://github.com/llvm/llvm-project/issues/48405>`_)
+- Fix crash when using ``[[clang::always_inline]]`` or ``[[clang::noinline]]``
+  statement attributes on a call to a template function in the body of a
+  template function.
+- Fix coroutines issue where ``get_return_object()`` result was always eargerly
+  converted to the return type. Eager initialization (allowing RVO) is now only
+  perfomed when these types match, otherwise deferred initialization is used,
+  enabling short-circuiting coroutines use cases. This fixes
+  (`#56532 <https://github.com/llvm/llvm-project/issues/56532>`_) in
+  antecipation of `CWG2563 <https://cplusplus.github.io/CWG/issues/2563.html>_`.
 
 Bug Fixes to Compiler Builtins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -220,6 +244,11 @@ Bug Fixes to C++ Support
 - Fix an issue about ``decltype`` in the members of class templates derived from
   templates with related parameters.
   (`#58674 <https://github.com/llvm/llvm-project/issues/58674>`_)
+- Fix incorrect deletion of the default constructor of unions in some
+  cases. (`#48416 <https://github.com/llvm/llvm-project/issues/48416>`_)
+- No longer issue a pre-C++2b compatibility warning in ``-pedantic`` mode
+  regading overloaded `operator[]` with more than one parmeter or for static
+  lambdas. (`#61582 <https://github.com/llvm/llvm-project/issues/61582>`_)
 
 Bug Fixes to AST Handling
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -262,6 +291,9 @@ Windows Support
 
 LoongArch Support
 ^^^^^^^^^^^^^^^^^
+
+- Patchable function entry (``-fpatchable-function-entry``) is now supported
+  on LoongArch.
 
 RISC-V Support
 ^^^^^^^^^^^^^^
@@ -325,8 +357,8 @@ libclang
   was marked with the explicit identifier.
 
 - Introduced the new ``CXIndex`` constructor function
-  ``clang_createIndexWithOptions``, which allows overriding precompiled preamble
-  storage path.
+  ``clang_createIndexWithOptions``, which allows storing precompiled preambles
+  in memory or overriding the precompiled preamble storage path.
 
 - Deprecated two functions ``clang_CXIndex_setGlobalOptions`` and
   ``clang_CXIndex_setInvocationEmissionPathOption`` in favor of the new

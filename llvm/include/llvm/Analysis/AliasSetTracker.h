@@ -282,15 +282,16 @@ public:
 private:
   // Can only be created by AliasSetTracker.
   AliasSet()
-      : PtrListEnd(&PtrList), RefCount(0),  AliasAny(false), Access(NoAccess),
-        Alias(SetMustAlias) {}
+      : PtrListEnd(&PtrList), RefCount(0),  AliasAny(false),
+        Access(NoAccess), Alias(SetMustAlias) {}
 #ifdef INTEL_CUSTOMIZATION
   // This constructor allows one to specify whether or not "loopCarriedAlias"
   // disambiguation is will be used instead of the usual "alias"
   // disambiguation.
   AliasSet(bool WillRequireLoopCarried)
-      : PtrListEnd(&PtrList), RefCount(0), AliasAny(false), Access(NoAccess),
-        Alias(SetMustAlias), RequiresLoopCarried(WillRequireLoopCarried) {}
+      : PtrListEnd(&PtrList), RefCount(0), AliasAny(false),
+        Access(NoAccess), Alias(SetMustAlias),
+        RequiresLoopCarried(WillRequireLoopCarried) {}
 
   // This wraps all pairwise AA queries made by the AST and ensures that we use
   // the expected type of disambiguation.

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt -S %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt -S %s
 ; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -S %s
 
 ; Before the fix for CMPLRLLVM-8213, compiling the test below with

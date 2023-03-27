@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -switch-to-offload -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -switch-to-offload -passes="vpo-paropt" -S %s | FileCheck %s
 ;
 ; CHECK-NOT: @"sigma_kernel_$AQSN"

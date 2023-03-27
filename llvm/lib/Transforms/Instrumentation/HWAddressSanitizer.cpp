@@ -305,7 +305,7 @@ public:
 
   void setSSI(const StackSafetyGlobalInfo *S) { SSI = S; }
 
-  bool sanitizeFunction(Function &F, FunctionAnalysisManager &FAM);
+  void sanitizeFunction(Function &F, FunctionAnalysisManager &FAM);
   void initializeModule();
   void createHwasanCtorComdat();
 
@@ -443,12 +443,9 @@ PreservedAnalyses HWAddressSanitizerPass::run(Module &M,
     SSI = &MAM.getResult<StackSafetyGlobalAnalysis>(M);
 
   HWAddressSanitizer HWASan(M, Options.CompileKernel, Options.Recover, SSI);
-  bool Modified = false;
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   for (Function &F : M)
-    Modified |= HWASan.sanitizeFunction(F, FAM);
-  if (!Modified)
-    return PreservedAnalyses::all();
+    HWASan.sanitizeFunction(F, FAM);
 
   PreservedAnalyses PA = PreservedAnalyses::none();
   // GlobalsAA is considered stateless and does not get invalidated unless
@@ -1425,13 +1422,13 @@ bool HWAddressSanitizer::instrumentStack(memtag::StackInfo &SInfo,
   return true;
 }
 
-bool HWAddressSanitizer::sanitizeFunction(Function &F,
+void HWAddressSanitizer::sanitizeFunction(Function &F,
                                           FunctionAnalysisManager &FAM) {
   if (&F == HwasanCtorFunction)
-    return false;
+    return;
 
   if (!F.hasFnAttribute(Attribute::SanitizeHWAddress))
-    return false;
+    return;
 
   LLVM_DEBUG(dbgs() << "Function: " << F.getName() << "\n");
 
@@ -1459,22 +1456,19 @@ bool HWAddressSanitizer::sanitizeFunction(Function &F,
 
   initializeCallbacks(*F.getParent());
 
-  bool Changed = false;
-
   if (!LandingPadVec.empty())
-    Changed |= instrumentLandingPads(LandingPadVec);
+    instrumentLandingPads(LandingPadVec);
 
   if (SInfo.AllocasToInstrument.empty() && F.hasPersonalityFn() &&
       F.getPersonalityFn()->getName() == kHwasanPersonalityThunkName) {
     // __hwasan_personality_thunk is a no-op for functions without an
     // instrumented stack, so we can drop it.
     F.setPersonalityFn(nullptr);
-    Changed = true;
   }
 
   if (SInfo.AllocasToInstrument.empty() && OperandsToInstrument.empty() &&
       IntrinToInstrument.empty())
-    return Changed;
+    return;
 
   assert(!ShadowBase);
 
@@ -1518,8 +1512,6 @@ bool HWAddressSanitizer::sanitizeFunction(Function &F,
   ShadowBase = nullptr;
   StackBaseTag = nullptr;
   CachedSP = nullptr;
-
-  return true;
 }
 
 void HWAddressSanitizer::instrumentGlobal(GlobalVariable *GV, uint8_t Tag) {

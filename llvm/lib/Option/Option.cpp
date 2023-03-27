@@ -131,20 +131,21 @@ bool Option::matches(OptSpecifier Opt) const {
 std::unique_ptr<Arg> Option::acceptInternal(const ArgList &Args,
                                             StringRef Spelling,
                                             unsigned &Index) const {
-  size_t ArgSize = Spelling.size();
+  const size_t SpellingSize = Spelling.size();
+  const size_t ArgStringSize = StringRef(Args.getArgString(Index)).size();
   switch (getKind()) {
   case FlagClass: {
-    if (ArgSize != strlen(Args.getArgString(Index)))
+    if (SpellingSize != ArgStringSize)
       return nullptr;
     return std::make_unique<Arg>(*this, Spelling, Index++);
   }
   case JoinedClass: {
-    const char *Value = Args.getArgString(Index) + ArgSize;
+    const char *Value = Args.getArgString(Index) + SpellingSize;
     return std::make_unique<Arg>(*this, Spelling, Index++, Value);
   }
   case CommaJoinedClass: {
     // Always matches.
-    const char *Str = Args.getArgString(Index) + ArgSize;
+    const char *Str = Args.getArgString(Index) + SpellingSize;
     auto A = std::make_unique<Arg>(*this, Spelling, Index++);
 
     // Parse out the comma separated values.
@@ -172,8 +173,7 @@ std::unique_ptr<Arg> Option::acceptInternal(const ArgList &Args,
   }
   case SeparateClass:
     // Matches iff this is an exact match.
-    // FIXME: Avoid strlen.
-    if (ArgSize != strlen(Args.getArgString(Index)))
+    if (SpellingSize != ArgStringSize)
       return nullptr;
 
     Index += 2;
@@ -185,8 +185,7 @@ std::unique_ptr<Arg> Option::acceptInternal(const ArgList &Args,
                                  Args.getArgString(Index - 1));
   case MultiArgClass: {
     // Matches iff this is an exact match.
-    // FIXME: Avoid strlen.
-    if (ArgSize != strlen(Args.getArgString(Index)))
+    if (SpellingSize != ArgStringSize)
       return nullptr;
 
     Index += 1 + getNumArgs();
@@ -201,9 +200,8 @@ std::unique_ptr<Arg> Option::acceptInternal(const ArgList &Args,
   }
   case JoinedOrSeparateClass: {
     // If this is not an exact match, it is a joined arg.
-    // FIXME: Avoid strlen.
-    if (ArgSize != strlen(Args.getArgString(Index))) {
-      const char *Value = Args.getArgString(Index) + ArgSize;
+    if (SpellingSize != ArgStringSize) {
+      const char *Value = Args.getArgString(Index) + SpellingSize;
       return std::make_unique<Arg>(*this, Spelling, Index++, Value);
     }
 
@@ -224,12 +222,11 @@ std::unique_ptr<Arg> Option::acceptInternal(const ArgList &Args,
       return nullptr;
 
     return std::make_unique<Arg>(*this, Spelling, Index - 2,
-                                 Args.getArgString(Index - 2) + ArgSize,
+                                 Args.getArgString(Index - 2) + SpellingSize,
                                  Args.getArgString(Index - 1));
   case RemainingArgsClass: {
     // Matches iff this is an exact match.
-    // FIXME: Avoid strlen.
-    if (ArgSize != strlen(Args.getArgString(Index)))
+    if (SpellingSize != ArgStringSize)
       return nullptr;
     auto A = std::make_unique<Arg>(*this, Spelling, Index++);
     while (Index < Args.getNumInputArgStrings() &&
@@ -239,9 +236,9 @@ std::unique_ptr<Arg> Option::acceptInternal(const ArgList &Args,
   }
   case RemainingArgsJoinedClass: {
     auto A = std::make_unique<Arg>(*this, Spelling, Index);
-    if (ArgSize != strlen(Args.getArgString(Index))) {
+    if (SpellingSize != ArgStringSize) {
       // An inexact match means there is a joined arg.
-      A->getValues().push_back(Args.getArgString(Index) + ArgSize);
+      A->getValues().push_back(Args.getArgString(Index) + SpellingSize);
     }
     Index++;
     while (Index < Args.getNumInputArgStrings() &&
@@ -251,7 +248,7 @@ std::unique_ptr<Arg> Option::acceptInternal(const ArgList &Args,
   }
 #if INTEL_CUSTOMIZATION
   case SeparateOrNoneClass: {
-    if (ArgSize != strlen(Args.getArgString(Index)))
+    if (SpellingSize != strlen(Args.getArgString(Index)))
       return nullptr;
 
     // If it is not followed by a value

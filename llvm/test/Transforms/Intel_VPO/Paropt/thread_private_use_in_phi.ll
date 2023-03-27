@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt-tpv -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-tpv -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=1 -passes='vpo-paropt-tpv' -S %s | FileCheck %s
 
 ; Make sure that vpo-paropt-tpv creates the local version of `@global` in the beginning

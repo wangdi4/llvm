@@ -32,11 +32,17 @@ endif()
 list(APPEND omp_compile_opts -mllvm -disable-vector-combine)
 # end INTEL_CUSTOMIZATION
 
-# Specify O1 optimizations to avoid noinline attribute
-# in SPIR-V code. Device compilers have to be able to inline
-# libdevice functions.
-set(clang_opts -fdeclare-spirv-builtins -O1)
+set(clang_opts -fdeclare-spirv-builtins)
 if (INTEL_CUSTOMIZATION)
+  if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+     # Specify O0 to reduce compile time
+     list(APPEND clang_opts -O0)
+  else()
+     # Specify O1 optimizations to avoid noinline attribute
+     # in SPIR-V code. Device compilers have to be able to inline
+     # libdevice functions.
+     list(APPEND clang_opts -O1)
+  endif()
   # FIXME: clang has to work with -fiopenmp -fopenmp-targets=spir64
   #        the same way icx does.
   list(APPEND omp_compile_opts --intel)

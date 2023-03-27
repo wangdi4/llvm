@@ -1,5 +1,5 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -disable-verify -disable-output -verify-cfg-preserved=0 \
+; RUN: opt -disable-verify -disable-output -verify-analysis-invalidation=0 \
 ; RUN:     -debug-pass-manager  -passes='default<O3>' \
 ; RUN:     -paropt=31 -S %s 2>&1 | FileCheck %s
 

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt -S -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S -pass-remarks-missed=openmp %s 2>&1 | FileCheck %s
 
 ; Test src:

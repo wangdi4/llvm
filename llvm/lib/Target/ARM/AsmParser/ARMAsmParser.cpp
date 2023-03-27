@@ -11007,7 +11007,7 @@ unsigned ARMAsmParser::checkTargetMatchPredicate(MCInst &Inst) {
     // Find the optional-def operand (cc_out).
     unsigned OpNo;
     for (OpNo = 0;
-         !MCID.operands()[OpNo].isOptionalDef() && OpNo < MCID.NumOperands;
+         OpNo < MCID.NumOperands && !MCID.operands()[OpNo].isOptionalDef();
          ++OpNo)
       ;
     // If we're parsing Thumb1, reject it completely.
@@ -11766,7 +11766,7 @@ bool ARMAsmParser::parseDirectiveFPU(SMLoc L) {
   SMLoc FPUNameLoc = getTok().getLoc();
   StringRef FPU = getParser().parseStringToEndOfStatement().trim();
 
-  unsigned ID = ARM::parseFPU(FPU);
+  ARM::FPUKind ID = ARM::parseFPU(FPU);
   std::vector<StringRef> Features;
   if (!ARM::getFPUFeatures(ID, Features))
     return Error(FPUNameLoc, "Unknown FPU name");

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=1 -enable-new-pm=0 -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S %s | FileCheck %s
 
 ; Test src:

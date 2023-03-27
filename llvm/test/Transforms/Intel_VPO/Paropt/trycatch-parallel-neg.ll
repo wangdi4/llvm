@@ -2,7 +2,7 @@
 ; try/catch inside parallel region.
 ; The invoke foo must not be converted to a call (by the fix for 8372)
 
-; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes="function(vpo-paropt-prepare)" -S %s | FileCheck %s
 
 ; CHECK: invoke void @_Z3foov

@@ -445,7 +445,7 @@ void DataPerValue::markSpecialArguments(Function &F) {
       }
     }
   }
-  for (auto &ArgIdxPair : enumerate(F.args())) {
+  for (const auto &ArgIdxPair : enumerate(F.args())) {
     if (!ArgsFunction[ArgIdxPair.index()])
       continue;
     Value *Val = &ArgIdxPair.value();

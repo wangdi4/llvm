@@ -461,10 +461,17 @@ void SVMLVariantsEmitter::run(raw_ostream &OS, bool IsDevice) {
     emitSVMLVariants(OS);
 }
 
-namespace llvm {
-
-void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS, bool IsDevice) {
-  SVMLVariantsEmitter(RK).run(OS, IsDevice);
+static void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS) {
+  SVMLVariantsEmitter(RK).run(OS, /*IsDevice=*/false);
 }
 
-} // End llvm namespace
+static TableGen::Emitter::Opt X("gen-svml", EmitSVMLVariants,
+                                "Generate SVML variant function names");
+
+static void EmitSVMLDeviceVariants(RecordKeeper &RK, raw_ostream &OS) {
+  SVMLVariantsEmitter(RK).run(OS, /*IsDevice=*/true);
+}
+
+static TableGen::Emitter::Opt
+    Y("gen-svml-device", EmitSVMLDeviceVariants,
+      "Generate OMP SIMD versions of SVML variant function names");

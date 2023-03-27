@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-paropt-target-inline -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-target-inline -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes="vpo-paropt-target-inline" -S %s | FileCheck %s
 
 ; Check that vpo-paropt-target-inline pass adds alwaysinline attribute to all

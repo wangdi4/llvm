@@ -1,4 +1,4 @@
-; RUN: not opt -enable-new-pm=0 -opaque-pointers=1 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
+; RUN: not opt -bugpoint-enable-legacy-pm -opaque-pointers=1 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
 ; RUN: not opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
 ;
 ; Test src:

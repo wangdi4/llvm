@@ -1248,7 +1248,8 @@ namespace {
 
       // We recreated a local declaration, but not by instantiating it. There
       // may be pending dependent diagnostics to produce.
-      if (auto *DC = dyn_cast<DeclContext>(Old); DC && DC->isDependentContext())
+      if (auto *DC = dyn_cast<DeclContext>(Old);
+          DC && DC->isDependentContext() && DC->isFunctionOrMethod())
         SemaRef.PerformDependentDiagnostics(DC, TemplateArgs);
     }
 
@@ -1311,6 +1312,12 @@ namespace {
     const SYCLIntelMaxReinvocationDelayAttr *
     TransformSYCLIntelMaxReinvocationDelayAttr(
         const SYCLIntelMaxReinvocationDelayAttr *MRD);
+    const NoInlineAttr *TransformStmtNoInlineAttr(const Stmt *OrigS,
+                                                  const Stmt *InstS,
+                                                  const NoInlineAttr *A);
+    const AlwaysInlineAttr *
+    TransformStmtAlwaysInlineAttr(const Stmt *OrigS, const Stmt *InstS,
+                                  const AlwaysInlineAttr *A);
 
 #if INTEL_CUSTOMIZATION
     const IntelBlockLoopAttr *
@@ -1389,7 +1396,7 @@ namespace {
 
       CXXMethodDecl *MD = Result.getAs<LambdaExpr>()->getCallOperator();
       for (ParmVarDecl *PVD : MD->parameters()) {
-        if (!PVD->hasDefaultArg())
+        if (!PVD || !PVD->hasDefaultArg())
           continue;
         Expr *UninstExpr = PVD->getUninstantiatedDefaultArg();
         // FIXME: Obtain the source location for the '=' token.
@@ -1852,6 +1859,20 @@ TemplateInstantiator::TransformLoopHintAttr(const LoopHintAttr *LH) {
                                       LH->getState(), TransformedExpr,
                                       TransformedLoopExpr, *LH);
 #endif // INTEL_CUSTOMIZATION
+}
+const NoInlineAttr *TemplateInstantiator::TransformStmtNoInlineAttr(
+    const Stmt *OrigS, const Stmt *InstS, const NoInlineAttr *A) {
+  if (!A || getSema().CheckNoInlineAttr(OrigS, InstS, *A))
+    return nullptr;
+
+  return A;
+}
+const AlwaysInlineAttr *TemplateInstantiator::TransformStmtAlwaysInlineAttr(
+    const Stmt *OrigS, const Stmt *InstS, const AlwaysInlineAttr *A) {
+  if (!A || getSema().CheckAlwaysInlineAttr(OrigS, InstS, *A))
+    return nullptr;
+
+  return A;
 }
 
 #if INTEL_CUSTOMIZATION

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=0 -enable-new-pm=0 -vpo-cfg-restructuring -instcombine -vpo-cfg-restructuring -vpo-paropt -S <%s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -instcombine -vpo-cfg-restructuring -vpo-paropt -S <%s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes="function(vpo-cfg-restructuring,instcombine,vpo-cfg-restructuring),vpo-paropt" -S <%s 2>&1 | FileCheck %s
 
 ; Test src:

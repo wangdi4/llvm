@@ -156,21 +156,21 @@ public:
       dbgs() << ") (In/Out " << IsLiveIn;
       dbgs() << "/" << IsLiveOut;
       dbgs() << ") (";
-      for (auto &TmpDef : enumerate(TmpDefs)) {
+      for (const auto &TmpDef : enumerate(TmpDefs)) {
         dbgs() << TmpDef.value()->getHLDDNode()->getNumber();
         if (TmpDef.index() != TmpDefs.size() - 1) {
           dbgs() << ",";
         }
       }
       dbgs() << ") -> (";
-      for (auto &TmpUse : enumerate(TmpUses)) {
+      for (const auto &TmpUse : enumerate(TmpUses)) {
         dbgs() << TmpUse.value().Ref->getHLDDNode()->getNumber();
         if (TmpUse.index() != TmpUses.size() - 1) {
           dbgs() << ",";
         }
       }
       dbgs() << ") Recompute: " << SafeToRecompute << "\n";
-      for (auto &Entry : enumerate(SCEXDefsForUse)) {
+      for (const auto &Entry : enumerate(SCEXDefsForUse)) {
         dbgs() << " ( ";
 
         for (auto &Def : Entry.value().second) {
