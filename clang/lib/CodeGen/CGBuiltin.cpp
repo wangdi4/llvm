@@ -3306,6 +3306,18 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Builder.CreateCall(FnAssume, ArgValue);
     return RValue::get(nullptr);
   }
+  case Builtin::BI__builtin_assume_separate_storage: {
+    const Expr *Arg0 = E->getArg(0);
+    const Expr *Arg1 = E->getArg(1);
+
+    Value *Value0 = EmitScalarExpr(Arg0);
+    Value *Value1 = EmitScalarExpr(Arg1);
+
+    Value *Values[] = {Value0, Value1};
+    OperandBundleDefT<Value *> OBD("separate_storage", Values);
+    Builder.CreateAssumption(ConstantInt::getTrue(getLLVMContext()), {OBD});
+    return RValue::get(nullptr);
+  }
   case Builtin::BI__fence: // INTEL
   case Builtin::BI__arithmetic_fence: {
 #if INTEL_CUSTOMIZATION
