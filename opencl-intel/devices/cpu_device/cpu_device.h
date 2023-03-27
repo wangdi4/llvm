@@ -293,8 +293,10 @@ public:
 
 public:
   CPUDevice() = delete;
+  CPUDevice &operator=(const CPUDevice &) = delete;
   CPUDevice(const CPUDevice &) = delete;
-  CPUDevice(const CPUDevice &&) = delete;
+  CPUDevice &operator=(CPUDevice &&) = delete;
+  CPUDevice(CPUDevice &&) = delete;
 };
 
 } // namespace CPUDevice
