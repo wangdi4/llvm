@@ -604,19 +604,6 @@ TEST_F(ScopedPrinterTest, PrintNumber) {
   // FIXME: temporarily disable checking the for Inf and NaN until we have a
   // cross platform solution can handle this case
 
-  format("%.*g", InfFloat).snprint(Buf, sizeof(Buf));
-  std::string JsonInfFloatStr(Buf);
-
-  format("%.*g", InfDouble).snprint(Buf, sizeof(Buf));
-  std::string JsonInfDoubleStr(Buf);
-
-  format("%.*g", NaNFloat).snprint(Buf, sizeof(Buf));
-  std::string JsonNaNFloatStr(Buf);
-
-  format("%.*g", NaNDouble).snprint(Buf, sizeof(Buf));
-  std::string JsonNaNDoubleStr(Buf);
-
-
   std::string ExpectedOut = Twine(
                                 R"(uint64_t-max: 18446744073709551615
 uint64_t-min: 0
@@ -672,20 +659,10 @@ double-42.5625:  42.6
   },
   "float-max": 3.4028234663852886e+38,
   "float-min": 1.1754943508222875e-38,
-<<<<<<< HEAD
-=======
-  "float-inf": )" + JsonInfFloatStr + R"(,
-  "float-nan": )" + JsonNaNFloatStr + R"(,
->>>>>>> 6d5845c5c335f7146c9d3c8b2b4946609aaea2c2
   "float-42.0": 42,
   "float-42.5625": 42.5625,
   "double-max": 1.7976931348623157e+308,
   "double-min": 2.2250738585072014e-308,
-<<<<<<< HEAD
-=======
-  "double-inf": )" + JsonInfDoubleStr + R"(,
-  "double-nan": )" + JsonNaNDoubleStr + R"(,
->>>>>>> 6d5845c5c335f7146c9d3c8b2b4946609aaea2c2
   "double-42.0": 42,
   "double-42.5625": 42.5625
 })")
