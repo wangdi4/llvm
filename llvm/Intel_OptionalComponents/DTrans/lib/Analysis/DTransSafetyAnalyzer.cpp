@@ -1,6 +1,6 @@
 //===----------------------DTransSafetyAnalyzer.cpp-----------------------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -7933,8 +7933,9 @@ private:
 DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
     : TM(std::move(Other.TM)), MDReader(std::move(Other.MDReader)),
       PtrAnalyzer(std::move(Other.PtrAnalyzer)),
-      TypeInfoMap(std::move(Other.TypeInfoMap)), CIM(std::move(Other.CIM)),
-      MaxTotalFrequency(Other.MaxTotalFrequency),
+      TypeInfoMap(std::move(Other.TypeInfoMap)),
+      TypeInfoAllocs(std::move(Other.TypeInfoAllocs)),
+      CIM(std::move(Other.CIM)), MaxTotalFrequency(Other.MaxTotalFrequency),
       UnhandledPtrType(Other.UnhandledPtrType),
       DTransSafetyAnalysisRan(Other.DTransSafetyAnalysisRan),
       RelatedTypesUtils(std::move(Other.RelatedTypesUtils)) {
@@ -7953,7 +7954,28 @@ DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
   SawFortran = Other.SawFortran;
 }
 
-DTransSafetyInfo::~DTransSafetyInfo() { reset(); }
+DTransSafetyInfo::~DTransSafetyInfo() {
+  reset();
+  // clean up any lingering allocated type info no longer stored
+  // in the TypeInfoMap
+  for (auto *Ptr : TypeInfoAllocs) {
+    switch (Ptr->getTypeInfoKind()) {
+    case dtrans::TypeInfo::NonAggregateInfo:
+      delete dyn_cast<dtrans::NonAggregateTypeInfo>(Ptr);
+      break;
+    case dtrans::TypeInfo::PtrInfo:
+      delete dyn_cast<dtrans::PointerInfo>(Ptr);
+      break;
+    case dtrans::TypeInfo::StructInfo:
+      delete dyn_cast<dtrans::StructInfo>(Ptr);
+      break;
+    case dtrans::TypeInfo::ArrayInfo:
+      delete dyn_cast<dtrans::ArrayInfo>(Ptr);
+      break;
+    }
+  }
+  TypeInfoAllocs.clear();
+}
 
 DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   if (this == &Other)
@@ -7964,6 +7986,7 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   MDReader = std::move(Other.MDReader);
   PtrAnalyzer = std::move(Other.PtrAnalyzer);
   TypeInfoMap = std::move(Other.TypeInfoMap);
+  TypeInfoAllocs = std::move(Other.TypeInfoAllocs);
   RelatedTypesUtils = std::move(Other.RelatedTypesUtils);
   CIM = std::move(Other.CIM);
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
@@ -8127,6 +8150,10 @@ void DTransSafetyInfo::reset() {
   // The DTransType pointers are owned by the DTransTypeManager, and
   // will be cleaned up when that object is reset.
   for (const auto &Entry : TypeInfoMap) {
+    auto It =
+        std::find(TypeInfoAllocs.begin(), TypeInfoAllocs.end(), Entry.second);
+    if (It != TypeInfoAllocs.end())
+      TypeInfoAllocs.erase(It);
     switch (Entry.second->getTypeInfoKind()) {
     case dtrans::TypeInfo::NonAggregateInfo:
       delete cast<dtrans::NonAggregateTypeInfo>(Entry.second);
@@ -8250,6 +8277,7 @@ dtrans::TypeInfo *DTransSafetyInfo::createTypeInfo(DTransType *Ty) {
     // map early to avoid infinite recursion.
     DTransTI = new dtrans::PointerInfo(Ty);
     TypeInfoMap[Ty] = DTransTI;
+    TypeInfoAllocs.push_back(DTransTI);
     getOrCreateTypeInfo(cast<DTransPointerType>(Ty)->getPointerElementType());
     return DTransTI;
   } else if (Ty->isArrayTy()) {
@@ -8276,6 +8304,7 @@ dtrans::TypeInfo *DTransSafetyInfo::createTypeInfo(DTransType *Ty) {
     DTransTI = new dtrans::NonAggregateTypeInfo(Ty);
   }
 
+  TypeInfoAllocs.push_back(DTransTI);
   TypeInfoMap[Ty] = DTransTI;
   return DTransTI;
 }
