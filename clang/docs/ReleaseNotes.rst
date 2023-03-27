@@ -177,8 +177,8 @@ Improvements to Clang's diagnostics
 - Diagnostic notes and fix-its are now generated for ``ifunc``/``alias`` attributes
   which point to functions whose names are mangled.
 - Diagnostics relating to macros on the command line of a preprocessed assembly
-  file or precompiled header are now reported as coming from the file
-  ``<command line>`` instead of ``<built-in>``.
+  file are now reported as coming from the file ``<command line>`` instead of
+  ``<built-in>``.
 - Clang constexpr evaluator now provides a more concise diagnostic when calling
   function pointer that is known to be null.
 - Clang now avoids duplicate warnings on unreachable ``[[fallthrough]];`` statements
@@ -306,6 +306,9 @@ RISC-V Support
   length. Valid values are powers of 2 between 64 and 65536. A value of 32
   should eventually be supported. We also accept "zvl" to use the Zvl*b
   extension from ``-march`` or ``-mcpu`` to the be the upper and lower bound.
+- Fixed incorrect ABI lowering of ``_Float16`` in the case of structs
+  containing ``_Float16`` that are eligible for passing via GPR+FPR or
+  FPR+FPR.
 
 CUDA/HIP Language Changes
 ^^^^^^^^^^^^^^^^^^^^^^^^^

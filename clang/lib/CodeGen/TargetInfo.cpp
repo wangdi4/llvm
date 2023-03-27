@@ -7676,6 +7676,11 @@ void NVPTXTargetCodeGenInfo::setTargetAttributes(
       }
     }
   }
+
+  // Attach kernel metadata directly if compiling for NVPTX.
+  if (FD->hasAttr<NVPTXKernelAttr>()) {
+    addNVVMMetadata(F, "kernel", 1);
+  }
 }
 
 void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::GlobalValue *GV,
@@ -11601,10 +11606,9 @@ bool RISCVABIInfo::detectFPCCEligibleStructHelper(QualType Ty, CharUnits CurOff,
     uint64_t Size = getContext().getTypeSize(Ty);
     if (IsInt && Size > XLen)
       return false;
-    // Can't be eligible if larger than the FP registers. Half precision isn't
-    // currently supported on RISC-V and the ABI hasn't been confirmed, so
-    // default to the integer ABI in that case.
-    if (IsFloat && (Size > FLen || Size < 32))
+    // Can't be eligible if larger than the FP registers. Handling of half
+    // precision values has been specified in the ABI, so don't block those.
+    if (IsFloat && Size > FLen)
       return false;
     // Can't be eligible if an integer type was already found (int+int pairs
     // are not eligible).
