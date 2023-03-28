@@ -40,10 +40,10 @@
 ; Check for debug print
 
 ; CHECK: Candidate store sets:
-; CHECK:   (<9>(%a)[i1] | <23>(%a)[i1], <19>(%a)[i1])
+; CHECK:   (<9>(%a)[i1] | <19>(%a)[i1], <23>(%a)[i1])
 
 ; CHECK: Will sink stores:
-; CHECK:   (<9>(%a)[i1] | <23>(%a)[i1], <19>(%a)[i1])
+; CHECK:   (<9>(%a)[i1] | <19>(%a)[i1], <23>(%a)[i1])
 
 ; HIR after transformation
 
