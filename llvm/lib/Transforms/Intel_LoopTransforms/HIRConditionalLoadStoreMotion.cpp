@@ -200,6 +200,13 @@ public:
   /// else return false.
   bool mergeInformationFromInnerSet(HoistSinkSet &Set, bool IsThen);
 
+  /// Return the first memref stored in the ThenRefs or ElseRefs.
+  RegDDRef *getFirstMemRef() const {
+    assert(isUnconditional() &&
+           "Trying to access a memref in a conditional set");
+    return ThenRefs.front();
+  }
+
 private:
   /// Return true if the refs in the input Set access the same memory space
   /// as the current set
@@ -237,13 +244,21 @@ private:
     HoistSinkRefsVector Stores;
 
     bool isEmpty() { return Loads.empty() && Stores.empty(); }
-    void reverseStores() {
-      // CMPLRLLVM-45901: This reversal needs to be reconsidered, there is a
-      // potential that we may prevent vectorization if the order of the
-      // entries isn't correct. We need to sort them rather than reverse them.
-      std::reverse(std::begin(Stores), std::end(Stores));
-      for (HoistSinkSet &StoreSet : Stores)
-        StoreSet.reverse();
+
+    // Stores need to be organized. We want to order them by distance in
+    // ascending order. The transformation will go from the end to begin,
+    // and inserting the new stores in the HIR will prevent backward
+    // dependencies.
+    void sortStores() {
+      if (Stores.empty())
+        return;
+
+      std::sort(Stores.begin(), Stores.end(),
+                [](HoistSinkSet &LHS, HoistSinkSet &RHS) {
+                  auto *LHSRef = LHS.getFirstMemRef();
+                  auto *RHSRef = RHS.getFirstMemRef();
+                  return DDRefUtils::compareMemRefAddress(LHSRef, RHSRef);
+                });
     }
   };
 
@@ -371,9 +386,8 @@ public:
       // If the parent node of the If is the loop, then it means that we
       // already collected and merged all the information.
 
-      // Reverse the store list, as required to put the stores in reverse
-      // execution order.
-      CurrHostSinkRefs.reverseStores();
+      // Sort the stores to prevent backward dependencies
+      CurrHostSinkRefs.sortStores();
 
       // Store the new candidate
       HoistSinkCandidatesVector.emplace_back(
@@ -736,7 +750,11 @@ bool HoistSinkSet::checkAndAssignCommonTemp(HoistSinkSet &HoistSet,
   const RegDDRef *const HoistRef = HoistSet.ThenRefs.front();
   assert(HoistRef->isRval());
   assert(SinkSet.isUnconditional());
-  const RegDDRef *const SinkRef = SinkSet.ThenRefs.front();
+
+  // Stores are handled from the end to beginning. The reason is to reduce
+  // bitcasts produced when the set have stores with different destination
+  // types.
+  const RegDDRef *const SinkRef = SinkSet.ThenRefs.back();
   assert(SinkRef->isLval());
 
   // Skip any sets that already have a common temp set.
@@ -746,6 +764,9 @@ bool HoistSinkSet::checkAndAssignCommonTemp(HoistSinkSet &HoistSet,
     return false;
 
   // Set a common temp if the refs are equivalent.
+  //
+  // TODO: This may need to be updated for areEquivalentAccesses() in the
+  // future (CMPLRLLVM-45919).
   if (DDRefUtils::areEqual(HoistRef, SinkRef)) {
     HLNodeUtils &HNU = HoistRef->getHLDDNode()->getHLNodeUtils();
     HoistSet.CommonTemp =
@@ -846,9 +867,9 @@ void HoistSinkSet::hoistOrSinkFrom(HLIf *If) {
     RegDDRef *const NewSunkRef =
         CommonTemp
             ? CommonTemp
-            : HNU.createTemp(ThenRefs.front()->getDestType(), "cldst.sunk");
+            : HNU.createTemp(ThenRefs.back()->getDestType(), "cldst.sunk");
     HLInst *const SunkStoreInst =
-      HNU.createStore(NewSunkRef, "", ThenRefs.front()->clone());
+        HNU.createStore(NewSunkRef, "", ThenRefs.back()->clone());
     HLNodeUtils::insertAfter(If, SunkStoreInst);
     HoistedOrSunk = NewSunkRef;
   }
