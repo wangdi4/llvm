@@ -42,7 +42,12 @@ constexpr uint32_t SPIRV_PIPELINE_ENABLE_DECOR = 5919;
 enum class DecorValueTy {
   uint32,
   boolean,
+<<<<<<< HEAD
   none,  // INTEL
+=======
+  string,
+  none,
+>>>>>>> 34cb6bd1b5ce06d1adbfc38456548fee622c16ad
 };
 
 struct Decor {
@@ -75,6 +80,27 @@ MDNode *buildSpirvDecorMetadata(LLVMContext &Ctx, uint32_t OpCode,
       Constant::getIntegerValue(Ty, APInt(32, OpCode))));
   MD.push_back(
       ConstantAsMetadata::get(Constant::getIntegerValue(Ty, APInt(32, Value))));
+  return MDNode::get(Ctx, MD);
+}
+
+/// Builds a metadata node for a SPIR-V decoration (decoration code
+/// is \c uint32_t integer and value is a string).
+///
+/// @param Ctx    [in] the LLVM Context.
+/// @param OpCode [in] the SPIR-V OpCode code.
+/// @param Value  [in] the SPIR-V decoration value.
+///
+/// @returns a pointer to the metadata node created for the required decoration
+/// and its value.
+MDNode *buildSpirvDecorMetadata(LLVMContext &Ctx, uint32_t OpCode,
+                                StringRef Value) {
+  auto *Ty = Type::getInt32Ty(Ctx);
+  SmallVector<Metadata *, 2> MD;
+  MD.push_back(ConstantAsMetadata::get(
+      Constant::getIntegerValue(Ty, APInt(32, OpCode))));
+  MD.push_back(
+      ConstantAsMetadata::get(ConstantDataArray::getString(Ctx, Value,
+                                                           /*AddNull=*/true)));
   return MDNode::get(Ctx, MD);
 }
 
@@ -138,6 +164,7 @@ MDNode *attributeToDecorateMetadata(LLVMContext &Ctx, const Attribute &Attr) {
   Decor DecorFound = DecorIt->second;
   uint32_t DecorCode = DecorFound.Code;
   switch (DecorFound.Type) {
+<<<<<<< HEAD
     case DecorValueTy::uint32:
       return buildSpirvDecorMetadata(Ctx, DecorCode,
                                      getAttributeAsInteger<uint32_t>(Attr));
@@ -145,6 +172,17 @@ MDNode *attributeToDecorateMetadata(LLVMContext &Ctx, const Attribute &Attr) {
       return buildSpirvDecorMetadata(Ctx, DecorCode, hasProperty(Attr));
     default:
       break;
+=======
+  case DecorValueTy::uint32:
+    return buildSpirvDecorMetadata(Ctx, DecorCode,
+                                   getAttributeAsInteger<uint32_t>(Attr));
+  case DecorValueTy::boolean:
+    return buildSpirvDecorMetadata(Ctx, DecorCode, hasProperty(Attr));
+  case DecorValueTy::string:
+    return buildSpirvDecorMetadata(Ctx, DecorCode, Attr.getValueAsString());
+  default:
+    llvm_unreachable("Unhandled decorator type.");
+>>>>>>> 34cb6bd1b5ce06d1adbfc38456548fee622c16ad
   }
   llvm_unreachable("Unhandled decorator type.");
 }
@@ -252,29 +290,31 @@ parseSYCLPropertiesString(Module &M, IntrinsicInst *IntrInst) {
   SmallVector<std::pair<std::optional<StringRef>, std::optional<StringRef>>, 8>
       result;
 
-  if (const auto *Cast =
-          dyn_cast<BitCastOperator>(IntrInst->getArgOperand(4))) {
-    if (const auto *AnnotValsGV =
-            dyn_cast<GlobalVariable>(Cast->getOperand(0))) {
-      if (const auto *AnnotValsAggr =
-              dyn_cast<ConstantAggregate>(AnnotValsGV->getInitializer())) {
-        assert(
-            (AnnotValsAggr->getNumOperands() & 1) == 0 &&
-            "sycl-properties annotation must have an even number of annotation "
-            "values.");
+  auto AnnotValsIntrOpd = IntrInst->getArgOperand(4);
+  const GlobalVariable *AnnotValsGV = nullptr;
+  if (AnnotValsIntrOpd->getType()->isOpaquePointerTy())
+    AnnotValsGV = dyn_cast<GlobalVariable>(AnnotValsIntrOpd);
+  else if (const auto *Cast = dyn_cast<BitCastOperator>(AnnotValsIntrOpd))
+    AnnotValsGV = dyn_cast<GlobalVariable>(Cast->getOperand(0));
+  if (AnnotValsGV) {
+    if (const auto *AnnotValsAggr =
+            dyn_cast<ConstantAggregate>(AnnotValsGV->getInitializer())) {
+      assert(
+          (AnnotValsAggr->getNumOperands() & 1) == 0 &&
+          "sycl-properties annotation must have an even number of annotation "
+          "values.");
 
-        // Iterate over the pairs of property meta-names and meta-values.
-        for (size_t I = 0; I < AnnotValsAggr->getNumOperands(); I += 2) {
-          std::optional<StringRef> PropMetaName =
-              getGlobalVariableString(AnnotValsAggr->getOperand(I));
-          std::optional<StringRef> PropMetaValue =
-              getGlobalVariableString(AnnotValsAggr->getOperand(I + 1));
+      // Iterate over the pairs of property meta-names and meta-values.
+      for (size_t I = 0; I < AnnotValsAggr->getNumOperands(); I += 2) {
+        std::optional<StringRef> PropMetaName =
+            getGlobalVariableString(AnnotValsAggr->getOperand(I));
+        std::optional<StringRef> PropMetaValue =
+            getGlobalVariableString(AnnotValsAggr->getOperand(I + 1));
 
-          assert(PropMetaName &&
-                 "Unexpected format for property name in annotation.");
+        assert(PropMetaName &&
+               "Unexpected format for property name in annotation.");
 
-          result.push_back(std::make_pair(PropMetaName, PropMetaValue));
-        }
+        result.push_back(std::make_pair(PropMetaName, PropMetaValue));
       }
     }
   }
@@ -511,9 +551,10 @@ bool CompileTimePropertiesPass::transformSYCLPropertiesAnnotation(
   // Get the global variable with the annotation string.
   const GlobalVariable *AnnotStrArgGV = nullptr;
   const Value *IntrAnnotStringArg = IntrInst->getArgOperand(1);
-  if (auto *GEP = dyn_cast<GEPOperator>(IntrAnnotStringArg))
-    if (auto *C = dyn_cast<Constant>(GEP->getOperand(0)))
-      AnnotStrArgGV = dyn_cast<GlobalVariable>(C);
+  if (IntrAnnotStringArg->getType()->isOpaquePointerTy())
+    AnnotStrArgGV = dyn_cast<GlobalVariable>(IntrAnnotStringArg);
+  else if (auto *GEP = dyn_cast<GEPOperator>(IntrAnnotStringArg))
+    AnnotStrArgGV = dyn_cast<GlobalVariable>(GEP->getOperand(0));
   if (!AnnotStrArgGV)
     return false;
 
