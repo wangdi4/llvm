@@ -913,7 +913,8 @@ bool VPOParoptTransform::ignoreWhenGuardingSideEffectStatements(
     "_f90_dope_vector_size",
     "_f90_lastprivate_copy",
 #endif // INTEL_CUSTOMIZATION
-    "omp_get_thread_num"
+    "omp_get_thread_num",
+    "__kmpc_barrier"
   };
 
   if (auto II = dyn_cast<IntrinsicInst>(I)) {

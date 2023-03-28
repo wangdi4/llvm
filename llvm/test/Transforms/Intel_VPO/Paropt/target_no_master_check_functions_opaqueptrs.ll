@@ -44,6 +44,7 @@ entry:
   call spir_func void @_Z14read_mem_fencej(i32 0)
   call spir_func void @_Z15write_mem_fencej(i32 0)
   call spir_func i32 @omp_get_thread_num()
+  call spir_func void @__kmpc_barrier()
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
   ret i32 0
@@ -77,6 +78,7 @@ declare spir_func void @_Z9mem_fencej(i32)
 declare spir_func void @_Z14read_mem_fencej(i32)
 declare spir_func void @_Z15write_mem_fencej(i32)
 declare spir_func i32 @omp_get_thread_num()
+declare spir_func void @__kmpc_barrier()
 
 !omp_offload.info = !{!0}
 
