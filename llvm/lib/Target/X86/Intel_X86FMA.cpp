@@ -541,7 +541,9 @@ static bool isADDSUBMULIntrinsic(const MCInstrDesc &Desc) {
 
   // Check the register class of the destination. If it's 128-bit register
   // this is an intrinsic.
-  int16_t RegClassID = Desc.OpInfo[0].RegClass;
+  auto OpInfo =
+      reinterpret_cast<const MCOperandInfo *>(&Desc + Desc.Opcode + 1);
+  int16_t RegClassID = (OpInfo + Desc.OpInfoOffset)[0].RegClass;
   if (RegClassID == X86::VR128RegClassID ||
       RegClassID == X86::VR128XRegClassID)
     return true;
