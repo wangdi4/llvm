@@ -1,4 +1,21 @@
 //===-- X86PreTileConfig.cpp - Tile Register Pre-configure-----------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -114,20 +131,37 @@ class X86PreTileConfig : public MachineFunctionPass {
     return !UsableRegs.none();
   }
 
+  /// Collect the shape def information for later use.
+  void collectShapeInfo(MachineInstr &MI, unsigned Shapes); // INTEL
+
   /// Check if MI is AMX pseudo instruction.
   bool isAMXInstruction(MachineInstr &MI) {
     if (MI.isPHI() || MI.isDebugInstr() || MI.getNumOperands() < 3)
       return false;
-    MachineOperand &MO = MI.getOperand(0);
+#if INTEL_CUSTOMIZATION
+    // PTILESTOREDV is the only exception that doesn't def a AMX register.
+    if (MI.getOpcode() == X86::PTILESTOREDV)
+      return true;
+
     // We can simply check if it is AMX instruction by its def.
     // But we should exclude old API which uses physical registers.
-    if (MO.isReg() && MO.getReg().isVirtual() &&
-        MRI->getRegClass(MO.getReg())->getID() == X86::TILERegClassID) {
-      collectShapeInfo(MI);
+    MachineOperand &MO = MI.getOperand(0);
+    if (!MO.isReg() || !MO.getReg().isVirtual())
+      return false;
+
+    unsigned Shapes = 0;
+    if (MRI->getRegClass(MO.getReg())->getID() == X86::TILERegClassID)
+      Shapes = 1;
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+    if (MRI->getRegClass(MO.getReg())->getID() == X86::TILEPAIRRegClassID)
+      Shapes = 2;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+    if (Shapes != 0) {
+      collectShapeInfo(MI, Shapes);
       return true;
     }
-    // PTILESTOREDV is the only exception that doesn't def a AMX register.
-    return MI.getOpcode() == X86::PTILESTOREDV;
+    return false;
+#endif // INTEL_CUSTOMIZATION
   }
 
   /// Check if it is an edge from loop bottom to loop head.
@@ -140,9 +174,6 @@ class X86PreTileConfig : public MachineFunctionPass {
 
     return false;
   }
-
-  /// Collect the shape def information for later use.
-  void collectShapeInfo(MachineInstr &MI);
 
   /// Try to hoist shapes definded below AMX instructions.
   bool hoistShapesInBB(MachineBasicBlock *MBB, SmallVectorImpl<MIRef> &Shapes) {
@@ -208,7 +239,7 @@ INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
 INITIALIZE_PASS_END(X86PreTileConfig, "tilepreconfig",
                     "Tile Register Pre-configure", false, false)
 
-void X86PreTileConfig::collectShapeInfo(MachineInstr &MI) {
+void X86PreTileConfig::collectShapeInfo(MachineInstr &MI, unsigned Shapes) {
   auto RecordShape = [&](MachineInstr *MI, MachineBasicBlock *MBB) {
     MIRef MIR(MI, MBB);
     auto I = llvm::lower_bound(ShapeBBs[MBB], MIR);
@@ -216,8 +247,14 @@ void X86PreTileConfig::collectShapeInfo(MachineInstr &MI) {
       ShapeBBs[MBB].insert(I, MIR);
   };
 
-  SmallVector<Register, 8> WorkList(
-      {MI.getOperand(1).getReg(), MI.getOperand(2).getReg()});
+#if INTEL_CUSTOMIZATION
+  // Note: We suppose all shapes have same row in multi-tile operand.
+  // Update me if the ruler changes.
+  SmallVector<Register, 8> WorkList;
+  for (unsigned I = 0; I < Shapes + 1; I++)
+    WorkList.push_back(MI.getOperand(1 + I).getReg());
+#endif // INTEL_CUSTOMIZATION
+
   while (!WorkList.empty()) {
     Register R = WorkList.pop_back_val();
     MachineInstr *DefMI = MRI->getVRegDef(R);

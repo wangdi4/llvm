@@ -858,7 +858,17 @@ bool X86RegisterInfo::isFixedRegister(const MachineFunction &MF,
 }
 
 bool X86RegisterInfo::isTileRegisterClass(const TargetRegisterClass *RC) const {
-  return RC->getID() == X86::TILERegClassID;
+#if INTEL_CUSTOMIZATION
+  if (RC->getID() == X86::TILERegClassID)
+    return true;
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  // Specially do greedy reg allocate for tilepair and tile.
+  // TODO: Merge the if when disclose.
+  if (RC->getID() == X86::TILEPAIRRegClassID)
+    return true;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  return false;
+#endif // INTEL_CUSTOMIZATION
 }
 
 void X86RegisterInfo::adjustStackMapLiveOutMask(uint32_t *Mask) const {
@@ -1209,14 +1219,67 @@ static ShapeT getTileShape(Register VirtReg, VirtRegMap *VRM,
   case X86::PTTMMULTF32PSV:
 #endif // INTEL_FEATURE_ISA_AMX_TF32
 #endif // INTEL_CUSTOMIZATION
-  case X86::PTDPFP16PSV:
+  case X86::PTDPFP16PSV: {
     MachineOperand &MO1 = MI->getOperand(1);
     MachineOperand &MO2 = MI->getOperand(2);
     ShapeT Shape(&MO1, &MO2, MRI);
     VRM->assignVirt2Shape(VirtReg, Shape);
     return Shape;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  case X86::PT2RPNTLVWZ0V:
+  case X86::PT2RPNTLVWZ0T1V:
+  case X86::PT2RPNTLVWZ1V:
+  case X86::PT2RPNTLVWZ1T1V: {
+    MachineOperand &MO1 = MI->getOperand(1);
+    MachineOperand &MO2 = MI->getOperand(2);
+    MachineOperand &MO3 = MI->getOperand(3);
+    ShapeT Shape({&MO1, &MO2, &MO1, &MO3}, MRI);
+    VRM->assignVirt2Shape(VirtReg, Shape);
+    return Shape;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  }
+#endif // INTEL_CUSTOMIZATION
 }
+
+#if INTEL_CUSTOMIZATION
+// Can PhysReg with PhysShape be hint for VirtReg with VirtShape.
+static bool canHintShape(ShapeT &PhysShape, ShapeT &VirtShape) {
+  unsigned PhysShapeNum = PhysShape.getShapeNum();
+  unsigned VirtShapeNum = VirtShape.getShapeNum();
+
+  if (PhysShapeNum < VirtShapeNum)
+    return false;
+
+  if (PhysShapeNum == VirtShapeNum) {
+    if (PhysShapeNum == 1)
+      return PhysShape == VirtShape;
+
+    for (unsigned I = 0; I < PhysShapeNum; I++) {
+      ShapeT PShape(PhysShape.getRow(I), PhysShape.getCol(I));
+      ShapeT VShape(VirtShape.getRow(I), VirtShape.getCol(I));
+      if (VShape != PShape)
+        return false;
+    }
+    return true;
+  }
+
+  // Hint subreg of mult-tile reg to single tile reg.
+  if (VirtShapeNum == 1) {
+    for (unsigned I = 0; I < PhysShapeNum; I++) {
+      ShapeT PShape(PhysShape.getRow(I), PhysShape.getCol(I));
+      if (VirtShape == PShape)
+        return true;
+    }
+  }
+
+  // Note: Currently we have no requirement for case of
+  // (VirtShapeNum > 1 and PhysShapeNum > VirtShapeNum)
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
                                             ArrayRef<MCPhysReg> Order,
@@ -1229,10 +1292,17 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
   bool BaseImplRetVal = TargetRegisterInfo::getRegAllocationHints(
       VirtReg, Order, Hints, MF, VRM, Matrix);
 
-  if (RC.getID() != X86::TILERegClassID)
+#if INTEL_CUSTOMIZATION
+  if (RC.getID() != X86::TILERegClassID
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+      && RC.getID() != X86::TILEPAIRRegClassID
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+     )
     return BaseImplRetVal;
 
   ShapeT VirtShape = getTileShape(VirtReg, const_cast<VirtRegMap *>(VRM), MRI);
+#endif // INTEL_CUSTOMIZATION
+
   auto AddHint = [&](MCPhysReg PhysReg) {
     Register VReg = Matrix->getOneVReg(PhysReg);
     if (VReg == MCRegister::NoRegister) { // Not allocated yet
@@ -1240,7 +1310,7 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
       return;
     }
     ShapeT PhysShape = getTileShape(VReg, const_cast<VirtRegMap *>(VRM), MRI);
-    if (PhysShape == VirtShape)
+    if (canHintShape(PhysShape, VirtShape)) // INTEL
       Hints.push_back(PhysReg);
   };
 

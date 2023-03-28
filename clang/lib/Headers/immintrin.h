@@ -36,6 +36,7 @@
 /// bytes. Since there is no 2D type in llvm IR, we use vector type to
 /// represent 2D tile and the fixed size is maximum amx tile register size.
 typedef int _tile1024i __attribute__((__vector_size__(1024), __aligned__(64)));
+typedef int _tile1024i_1024a __attribute__((__vector_size__(1024), __aligned__(1024)));
 
 /// This struct pack the shape and tile data together for user. We suggest
 /// initializing the struct as early as possible, because compiler depends

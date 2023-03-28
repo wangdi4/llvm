@@ -3949,6 +3949,14 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
     assert(X86::TILERegClass.hasSubClassEq(RC) && "Unknown 1024-byte regclass");
     assert(STI.hasAMXTILE() && "Using 8*1024-bit register requires AMX-TILE");
     return Load ? X86::TILELOADD : X86::TILESTORED;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  case 2048:
+    assert(X86::TILEPAIRRegClass.hasSubClassEq(RC) && "Unknown 2048-byte regclass");
+    assert(STI.hasAMXTILE() && "Using 2048-bit register requires AMX-TILE");
+    return Load ? X86::PTILEPAIRLOAD : X86::PTILEPAIRSTORE;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -4111,6 +4119,12 @@ static bool isAMXOpcode(unsigned Opc) {
     return false;
   case X86::TILELOADD:
   case X86::TILESTORED:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  case X86::PTILEPAIRLOAD:
+  case X86::PTILEPAIRSTORE:
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
 }
@@ -4122,6 +4136,12 @@ void X86InstrInfo::loadStoreTileReg(MachineBasicBlock &MBB,
   switch (Opc) {
   default:
     llvm_unreachable("Unexpected special opcode!");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  case X86::PTILEPAIRSTORE:
+    // tilepairstore %tmm, (%sp, %idx)
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+#endif // INTEL_CUSTOMIZATION
   case X86::TILESTORED: {
     // tilestored %tmm, (%sp, %idx)
     MachineRegisterInfo &RegInfo = MBB.getParent()->getRegInfo();
@@ -4135,6 +4155,12 @@ void X86InstrInfo::loadStoreTileReg(MachineBasicBlock &MBB,
     MO.setIsKill(true);
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  case X86::PTILEPAIRLOAD:
+    // tilepairload (%sp, %idx), %tmm
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+#endif // INTEL_CUSTOMIZATION
   case X86::TILELOADD: {
     // tileloadd (%sp, %idx), %tmm
     MachineRegisterInfo &RegInfo = MBB.getParent()->getRegInfo();

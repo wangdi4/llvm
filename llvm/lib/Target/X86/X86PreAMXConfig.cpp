@@ -1,4 +1,21 @@
 //===- Target/X86/X86PreAMXConfig.cpp - ------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -57,13 +74,6 @@ using namespace PatternMatch;
 
 #define DEBUG_TYPE "pre-amx-config"
 
-static bool isAMXIntrinsic(IntrinsicInst *II) {
-  for (Value *Operand : II->operands())
-    if (Operand->getType()->isX86_AMXTy())
-      return true;
-  return II->getType()->isX86_AMXTy();
-}
-
 static bool isTileLoad(IntrinsicInst *II) {
   return II->getIntrinsicID() == Intrinsic::x86_tileloadd64_internal ||
          II->getIntrinsicID() == Intrinsic::x86_tileloaddt164_internal;
@@ -73,12 +83,62 @@ static bool isTileStore(IntrinsicInst *II) {
   return II->getIntrinsicID() == Intrinsic::x86_tilestored64_internal;
 }
 
+#if INTEL_CUSTOMIZATION
+// Some instructions may return more than one tiles.
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+// e.g: call { x86_amx, x86_amx } @llvm.x86.t2rpntlvwz0.internal
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+static unsigned getNumDefTiles(IntrinsicInst *II) {
+  Type *Ty = II->getType();
+  if (Ty->isX86_AMXTy())
+    return 1;
+
+  unsigned Num = 0;
+  for (unsigned i = 0; i < Ty->getNumContainedTypes(); i++) {
+    Type *STy = Ty->getContainedType(i);
+    if (STy->isX86_AMXTy())
+      Num++;
+  }
+  return Num;
+}
+
+static bool isAMXIntrinsic(IntrinsicInst *II) {
+  for (Value *Operand : II->operands())
+    if (Operand->getType()->isX86_AMXTy())
+      return true;
+
+  return getNumDefTiles(II) > 0;
+}
+
+static void getTileDefs(SmallSet<Value *, 4> &TileDefs, IntrinsicInst *II) {
+  unsigned Num = getNumDefTiles(II);
+  if (Num == 0)
+    return;
+
+  if (Num == 1) {
+    TileDefs.insert(II);
+    return;
+  }
+
+  for (Value::user_iterator UI = II->user_begin();
+                            UI != II->user_end(); UI++) {
+    Value *Def = *UI;
+    if (Def->getType()->isX86_AMXTy() && isa<ExtractValueInst>(Def)) {
+      TileDefs.insert(Def);
+    }
+  }
+
+  assert(TileDefs.size() == Num && "Incorrect tile define number!");
+}
+#endif // INTEL_CUSTOMIZATION
+
 #ifndef NDEBUG
 static bool onlyTileDef(IntrinsicInst *II) {
   for (Value *Operand : II->operands())
     if (Operand->getType()->isX86_AMXTy())
       return false;
-  return II->getType()->isX86_AMXTy();
+
+  return getNumDefTiles(II) > 0; // INTEL
 }
 
 static bool brokenVolatile(Instruction *I) {
@@ -106,7 +166,8 @@ public:
   BasicBlock::iterator
   getShapesAndConfigPosEnd(BasicBlock::iterator Iter,
                            SmallVector<Value *, 8> &Shapes);
-  bool checkVolatileModel(SmallSet<Value *, 4> &Loads, IntrinsicInst *Store,
+  bool checkVolatileModel(SmallSet<Value *, 4> &Loads,  // INTEL
+                          SmallSet<Value *, 4> &Stores, // INTEL
                           IntrinsicInst *KeyAMX);
 };
 
@@ -203,15 +264,23 @@ void X86PreAMXConfig::addTileConfig(Instruction *ModelStart,
                           {I8Ptr});
 }
 
-// Todo: We may need to handle "more than one store" case in the future.
+#if INTEL_CUSTOMIZATION
+// 1) All tile operands of KeyAMX come from tileload.
+// 2) All tile defs of KeyAMX store by tilestore.
 bool X86PreAMXConfig::checkVolatileModel(SmallSet<Value *, 4> &Loads,
-                                         IntrinsicInst *Store,
+                                         SmallSet<Value *, 4> &Stores,
                                          IntrinsicInst *KeyAMX) {
-  Value *ST = Store->getOperand(4);
-
-  // Only has tileload and tilestore.
-  if (!KeyAMX)
-    return (Loads.size() == 1) && Loads.contains(ST);
+  // Only has tileloads and tilestores.
+  // Each tileload and tilestore should "match" with each other.
+  if (!KeyAMX) {
+    if (Loads.size() != Stores.size())
+      return false;
+    for (auto *St : Stores) {
+      if (!Loads.erase(St))
+        return false;
+      return Loads.empty();
+    }
+  }
 
   // All Loads should be operands of KeyAMX.
   // All tile operands of KeyAMX should come from Loads.
@@ -220,11 +289,31 @@ bool X86PreAMXConfig::checkVolatileModel(SmallSet<Value *, 4> &Loads,
       if (!Loads.erase(Op))
         return false;
   }
+  if (!Loads.empty())
+    return false;
 
-  // The def of KeyAMX should be stored into mem.
-  // Todo: is it key amx can be no def?
-  return Loads.empty() && (ST == cast<Value>(KeyAMX));
+  // All defs of KeyAMX should be stored into mem.
+  if (getNumDefTiles(KeyAMX) != Stores.size())
+    return false;
+
+  Type *Ty = KeyAMX->getType();
+  Value *ST = *Stores.begin();
+
+  // Def one tile.
+  if (Ty->isX86_AMXTy())
+    return Stores.size() == 1 && ST == cast<Value>(KeyAMX);
+
+  SmallSet<Value *, 4> TileDefs;
+  getTileDefs(TileDefs, KeyAMX);
+
+  // Def multi-tiles or non-tile.
+  for (Value *St : Stores) {
+    if (!TileDefs.erase(St))
+      return false;
+  }
+  return TileDefs.empty();
 }
+#endif // INTEL_CUSTOMIZATION
 
 bool X86PreAMXConfig::getKeyAMXShapes(IntrinsicInst *KeyAMX,
                                       SmallVector<Value *, 8> &Shapes) {
@@ -238,10 +327,18 @@ bool X86PreAMXConfig::getKeyAMXShapes(IntrinsicInst *KeyAMX,
     Shapes.push_back(TileDef->getOperand(0));
     Shapes.push_back(TileDef->getOperand(1));
   }
-  if (!isTileStore(KeyAMX)) {
-    Shapes.push_back(KeyAMX->getOperand(0));
-    Shapes.push_back(KeyAMX->getOperand(1));
+
+#if INTEL_CUSTOMIZATION
+  // TODO: Currently we suppose multi-tiles defs share same shape.
+  // This should be changed in the future.
+  unsigned Num = getNumDefTiles(KeyAMX);
+  Value *Row = KeyAMX->getOperand(0);
+  for (unsigned I = 0; I < Num; I++) {
+    Value *Col = KeyAMX->getOperand(1 + I);
+    Shapes.push_back(Row);
+    Shapes.push_back(Col);
   }
+#endif // INTEL_CUSTOMIZATION
   return Shapes.size() != 0;
 }
 
@@ -263,6 +360,8 @@ X86PreAMXConfig::getShapesAndConfigPosEnd(BasicBlock::iterator Iter,
   BasicBlock *BB = Iter->getParent();
   BasicBlock::iterator PosEnd = BB->end();
   SmallSet<Value *, 4> Loads;
+  SmallSet<Value *, 4> Stores; // INTEL
+  unsigned Num = 0, NumStore = 0; // INTEL
 
   // See TileStore as "Config Position End" and check volatile model.
   for (auto I = Iter, E = BB->end(); I != E; ++I) {
@@ -271,17 +370,24 @@ X86PreAMXConfig::getShapesAndConfigPosEnd(BasicBlock::iterator Iter,
     if (!II || !isAMXIntrinsic(II))
       continue;
 
+#if INTEL_CUSTOMIZATION
     if (isTileLoad(II)) {
+      assert((NumStore == 0) && "Unexpected AMX store!");
       Loads.insert(II);
     } else if (isTileStore(II)) {
-      if (!checkVolatileModel(Loads, II, KeyAMX))
+      Stores.insert(II->getOperand(4));
+      if (++NumStore < Num)
+        continue;
+      if (!checkVolatileModel(Loads, Stores, KeyAMX))
         report_fatal_error("Not Volatile AMX Model!");
       PosEnd = I;
       break;
     } else {
       assert(!KeyAMX && "Too many key amx intrinsic!");
+      Num = getNumDefTiles(II);
       KeyAMX = II;
     }
+#endif // INTEL_CUSTOMIZATION
   }
   assert(PosEnd != BB->end() && "Not find TileStore!");
 

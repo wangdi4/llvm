@@ -310,6 +310,12 @@ TARGET_BUILTIN(__builtin_ia32_ttcmmimfp16ps_internal, "V256iUsUsUsV256iV256iV256
 TARGET_BUILTIN(__builtin_ia32_ttcmmrlfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-transpose")
 TARGET_BUILTIN(__builtin_ia32_tconjtfp16_internal, "V256iUsUsV256i", "n", "amx-transpose")
 
+// TODO: Use 2048-bytes output type for tile-pair output builtin.
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz0_internal, "vUsUsUsV256i*V256i*vC*z", "n", "amx-transpose")
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz0t1_internal, "vUsUsUsV256i*V256i*vC*z", "n", "amx-transpose")
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz1_internal, "vUsUsUsV256i*V256i*vC*z", "n", "amx-transpose")
+TARGET_BUILTIN(__builtin_ia32_t2rpntlvwz1t1_internal, "vUsUsUsV256i*V256i*vC*z", "n", "amx-transpose")
+
 TARGET_BUILTIN(__builtin_ia32_tconjtcmmimfp16ps, "vIUcIUcIUc", "n", "amx-transpose")
 TARGET_BUILTIN(__builtin_ia32_tconjtfp16, "vIUcIUc", "n", "amx-transpose")
 TARGET_BUILTIN(__builtin_ia32_ttcmmimfp16ps, "vIUcIUcIUc", "n", "amx-transpose")

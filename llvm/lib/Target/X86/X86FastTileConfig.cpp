@@ -1,4 +1,21 @@
 //===-- X86FastTileConfig.cpp - Fast Tile Register Configure---------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -80,29 +97,40 @@ INITIALIZE_PASS_BEGIN(X86FastTileConfig, DEBUG_TYPE,
 INITIALIZE_PASS_END(X86FastTileConfig, DEBUG_TYPE,
                     "Fast Tile Register Configure", false, false)
 
-static bool isTileDef(MachineRegisterInfo *MRI, MachineInstr &MI) {
+#if INTEL_CUSTOMIZATION
+static unsigned getNumDefTiles(MachineRegisterInfo *MRI, MachineInstr &MI) {
   // There is no phi instruction after register allocation.
   assert(MI.isPHI() == false);
   // The instruction must have 3 operands: tile def, row, col.
   // It should be AMX pseudo instruction that have shape operand.
   if (MI.isDebugInstr() || MI.isCopy() || MI.getNumOperands() < 3 ||
       !MI.isPseudo())
-    return false;
+    return 0;
   MachineOperand &MO = MI.getOperand(0);
 
   if (MO.isReg()) {
     Register Reg = MO.getReg();
     // FIXME it may be used after Greedy RA and the physical
     // register is not rewritten yet.
-    if (Reg.isVirtual() &&
-        MRI->getRegClass(Reg)->getID() == X86::TILERegClassID)
-      return true;
+    if (Reg.isVirtual()) {
+      if (MRI->getRegClass(Reg)->getID() == X86::TILERegClassID)
+        return 1;
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+      if (MRI->getRegClass(Reg)->getID() == X86::TILEPAIRRegClassID)
+        return 2;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+    }
     if (Reg >= X86::TMM0 && Reg <= X86::TMM7)
-      return true;
+      return 1;
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+    if (Reg >= X86::TMM0_TMM1 && Reg <= X86::TMM6_TMM7)
+      return 2;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
   }
 
-  return false;
+  return 0;
 }
+#endif // INTEL_CUSTOMIZATION
 
 // PreTileConfig should configure the tile registers based on basic
 // block.
@@ -110,17 +138,23 @@ bool X86FastTileConfig::configBasicBlock(MachineBasicBlock &MBB) {
   bool Change = false;
   SmallVector<std::pair<unsigned, ShapeT>, 6> ShapeInfos;
   for (MachineInstr &MI : reverse(MBB)) {
-    if (!isTileDef(MRI, MI) && MI.getOpcode() != X86::PLDTILECFGV)
+#if INTEL_CUSTOMIZATION
+    unsigned DefNum = getNumDefTiles(MRI, MI);
+    if (DefNum == 0 && MI.getOpcode() != X86::PLDTILECFGV)
       continue;
     // AMX instructions that define tile register.
     if (MI.getOpcode() != X86::PLDTILECFGV) {
       MachineOperand &Row = MI.getOperand(1);
-      MachineOperand &Col = MI.getOperand(2);
       unsigned TMMIdx = MI.getOperand(0).getReg() - X86::TMM0;
-      ShapeInfos.push_back({TMMIdx, ShapeT(&Row, &Col)});
+      for (unsigned I = 0; I < DefNum; I++) {
+        MachineOperand &Col = MI.getOperand(2 + I);
+        ShapeInfos.push_back({TMMIdx + I, ShapeT(&Row, &Col)});
+      }
+#endif // INTEL_CUSTOMIZATION
     } else { // PLDTILECFGV
       // Rewrite the shape information to memory. Stack slot should have
       // been initialized to zero in pre config.
+      // TODO: Remove the duplicated config // INTEL
       int SS = MI.getOperand(0).getIndex(); // tile config stack slot.
       for (auto &ShapeInfo : ShapeInfos) {
         DebugLoc DL;
