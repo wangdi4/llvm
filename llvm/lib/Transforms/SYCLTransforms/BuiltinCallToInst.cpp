@@ -73,7 +73,9 @@ bool BuiltinCallToInstPass::handleSupportedBuiltinCalls() {
     BuiltinType BuiltinTy = It.second;
     switch (BuiltinTy) {
     case BI_SHUFFLE1:
+    case BI_SHUFFLE1_HELPER:
     case BI_SHUFFLE2:
+    case BI_SHUFFLE2_HELPER:
       handleShuffleCalls(BuiltinCall, BuiltinTy);
       break;
     case BI_REL_IS_LESS:
@@ -146,6 +148,7 @@ void BuiltinCallToInstPass::handleShuffleCalls(CallInst *ShuffleCall,
   Value *Mask = nullptr;
   switch (ShuffleTy) {
   case BI_SHUFFLE2:
+  case BI_SHUFFLE2_HELPER:
     // First vector operand.
     FirstVec = VectorizerUtils::rootInputArgumentBySignature(
         ShuffleCall->getArgOperand(ArgStart + SHUFFLE2_VEC1_POS),
@@ -167,6 +170,7 @@ void BuiltinCallToInstPass::handleShuffleCalls(CallInst *ShuffleCall,
     break;
 
   case BI_SHUFFLE1:
+  case BI_SHUFFLE1_HELPER:
     // First vector operand.
     FirstVec = VectorizerUtils::rootInputArgumentBySignature(
         ShuffleCall->getArgOperand(ArgStart + SHUFFLE_VEC1_POS),
@@ -186,9 +190,23 @@ void BuiltinCallToInstPass::handleShuffleCalls(CallInst *ShuffleCall,
     llvm_unreachable("Shuffle function of unknown type");
   }
 
+  // In the case builtin is built with -O0, look up mask constant from def.
+  if (!isa<Constant>(Mask) &&
+      (ShuffleTy == BI_SHUFFLE1_HELPER || ShuffleTy == BI_SHUFFLE2_HELPER)) {
+    for (User *U : cast<LoadInst>(Mask)->getPointerOperand()->users()) {
+      if (auto *SI = dyn_cast<StoreInst>(U)) {
+        Mask = SI->getValueOperand();
+        assert(isa<Constant>(Mask) && "mask is not constant");
+        break;
+      }
+    }
+  }
+
   if (!FirstVec || !SecondVec || !Mask || !isa<Constant>(Mask)) {
     // Failed to generate valid params to shuffle, do not optimize this shufle
     // call! Or mask is not of type const.
+    LLVM_DEBUG(dbgs() << "Failed to generate valid params to shuffle: "
+                      << *ShuffleCall << "\n");
     return;
   }
 
@@ -423,9 +441,9 @@ BuiltinCallToInstPass::isSupportedBuiltin(CallInst *CI) {
   // Check if it is a supported built-in function.
   return StringSwitch<BuiltinType>(StrippedName)
       .Case("shuffle", BI_SHUFFLE1)
-      .Case("__ocl_helper_shuffle", BI_SHUFFLE1)
+      .Case("__ocl_helper_shuffle", BI_SHUFFLE1_HELPER)
       .Case("shuffle2", BI_SHUFFLE2)
-      .Case("__ocl_helper_shuffle2", BI_SHUFFLE2)
+      .Case("__ocl_helper_shuffle2", BI_SHUFFLE2_HELPER)
       .Case("isless", BI_REL_IS_LESS)
       .Case("islessequal", BI_REL_IS_LESS_EQUAL)
       .Case("islessgreater", BI_REL_IS_LESS_GREATER)

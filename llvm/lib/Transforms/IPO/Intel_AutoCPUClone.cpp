@@ -58,14 +58,8 @@ static StringRef getTargetCPUFromMD(MDNode *TargetInfoMD) {
 static std::string getTargetFeatures(StringRef TargetCpu) {
   SmallVector<StringRef, 16> CPUFeatures;
   X86::getFeaturesForCPU(TargetCpu, CPUFeatures);
-
-  ListSeparator LS(",");
-  std::string TargetFeaturesStr;
-  raw_string_ostream TargetFeatures(TargetFeaturesStr);
-  for (const auto &Feature : CPUFeatures)
-    TargetFeatures << LS << "+" << Feature;
-
-  return TargetFeatures.str();
+  llvm::sort(CPUFeatures);
+  return "+" + llvm::join(CPUFeatures, ",+");
 }
 
 static Twine getTargetSuffix(StringRef TargetCpu) {
@@ -108,11 +102,14 @@ setResolverAttributes(Function *Resolver, Function &Fn) {
   if (Fn.hasFnAttribute("tune-cpu"))
     Resolver->addFnAttr(Fn.getFnAttribute("tune-cpu"));
 
-  if (Fn.hasFnAttribute("target-cpu"))
-    Resolver->addFnAttr(Fn.getFnAttribute("target-cpu"));
-
-  if (Fn.hasFnAttribute("target-features"))
-    Resolver->addFnAttr(Fn.getFnAttribute("target-features"));
+  // Set Resolver's "target-features" attribute to the feature-set supported
+  // by the "target-cpu".
+  if (Fn.hasFnAttribute("target-cpu")) {
+    const Attribute Attr = Fn.getFnAttribute("target-cpu");
+    Resolver->addFnAttr(Attr);
+    StringRef TargetCPU = Attr.getValueAsString();
+    Resolver->addFnAttr("target-features", getTargetFeatures(TargetCPU));
+  }
 
   if (Fn.hasFnAttribute("advanced-optim"))
     Resolver->addFnAttr(Fn.getFnAttribute("advanced-optim"));

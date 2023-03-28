@@ -815,6 +815,13 @@ let Predicates = [HasAMXMEMORY, In64BitMode] in {
   }
 } // HasAMXTILE, HasAMXMEMORY
 
+let Predicates = [HasAMXTILE, In64BitMode], isPseudo = true in {
+  let mayStore = 1 in
+  def PTILEPAIRSTORE : PseudoI<(outs), (ins opaquemem:$src1, TILEPair:$src2), []>;
+  let mayLoad = 1 in
+  def PTILEPAIRLOAD : PseudoI<(outs TILEPair:$dst), (ins opaquemem:$src), []>;
+}
+
 // AMX-TRANSPOSE
 let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
@@ -877,6 +884,21 @@ let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
                      (ins TILE:$src),
                      "ttransposed\t{$src, $dst|$dst, $src}",
                      []>, VEX, T8XS;
+
+    let isPseudo = true in {
+      def PT2RPNTLVWZ0V : PseudoI<(outs TILEPair:$dst),
+                                  (ins GR16:$src1, GR16:$src2, GR16:$src3, opaquemem:$src4),
+                                  []>;
+      def PT2RPNTLVWZ0T1V : PseudoI<(outs TILEPair:$dst),
+                                  (ins GR16:$src1, GR16:$src2, GR16:$src3, opaquemem:$src4),
+                                  []>;
+      def PT2RPNTLVWZ1V : PseudoI<(outs TILEPair:$dst),
+                                  (ins GR16:$src1, GR16:$src2, GR16:$src3, opaquemem:$src4),
+                                  []>;
+      def PT2RPNTLVWZ1T1V : PseudoI<(outs TILEPair:$dst),
+                                  (ins GR16:$src1, GR16:$src2, GR16:$src3, opaquemem:$src4),
+                                  []>;
+    }
 
     def PTTRANSPOSEDV : PseudoI<(outs TILE:$dst),
                                 (ins GR16:$src1, GR16:$src2, TILE:$src),

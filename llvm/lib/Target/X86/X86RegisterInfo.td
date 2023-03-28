@@ -49,10 +49,10 @@ let Namespace = "X86" in {
   def sub_mask_1   : SubRegIndex<-1, -1>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE
-  def sub_t0   : SubRegIndex<-1>;
-  def sub_t1   : SubRegIndex<-1, -1>;
-  def sub_t2   : SubRegIndex<-1, -1>;
-  def sub_t3   : SubRegIndex<-1, -1>;
+  def sub_t0   : SubRegIndex<8192>;
+  def sub_t1   : SubRegIndex<8192, 8192>;
+  def sub_t2   : SubRegIndex<8192, 16384>;
+  def sub_t3   : SubRegIndex<8192, 24576>;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
 #if INTEL_FEATURE_XISA_COMMON
@@ -957,6 +957,7 @@ def VK32WM  : RegisterClass<"X86", [v32i1], 32, (add VK16WM)> {let Size = 32;}
 def VK64WM  : RegisterClass<"X86", [v64i1], 64, (add VK32WM)> {let Size = 64;}
 
 // Tiles
+// TODO: Change to small alignment (catch line size)
 let CopyCost = -1 in // Don't allow copying of tile registers
 def TILE : RegisterClass<"X86", [x86amx], 8192,
                          (sequence "TMM%u", 0, 7)> {let Size = 8192;}
@@ -968,8 +969,8 @@ def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
                              (add TMM1, TMM3, TMM5, TMM7)]>;
 
 // Need check alignment 3rd operand size=1024*2*8
-let isAllocatable = 0 in
-def TILEPAIR : RegisterClass<"X86", [untyped], 0, (add TPAIRS)> {let Size = 16384;}
+let isAllocatable = 1 in
+def TILEPAIR : RegisterClass<"X86", [untyped], 512, (add TPAIRS)> {let Size = 16384;}
 
 // FIXME: Now we only support ZMM16-ZMM31 for ZMM16TUPLES, but the tile16move
 // can also choose ZMM0-ZMM15, so we should support ZMM0-ZMM15 too.

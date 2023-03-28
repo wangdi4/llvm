@@ -33,7 +33,9 @@ private:
   /// Built-in function type.
   enum BuiltinType {
     BI_SHUFFLE1,
+    BI_SHUFFLE1_HELPER,
     BI_SHUFFLE2,
+    BI_SHUFFLE2_HELPER,
     BI_REL_IS_LESS,
     BI_REL_IS_LESS_EQUAL,
     BI_REL_IS_LESS_GREATER,

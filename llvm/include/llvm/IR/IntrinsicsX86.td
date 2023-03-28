@@ -5975,7 +5975,9 @@ let TargetPrefix = "x86" in {
   def int_x86_tilestored64_internal :
               ClangBuiltin<"__builtin_ia32_tilestored64_internal">,
               Intrinsic<[], [llvm_i16_ty, llvm_i16_ty, llvm_ptr_ty,
-                             llvm_i64_ty, llvm_x86amx_ty], []>;
+// INTEL_CUSTOMIZATION
+                             llvm_i64_ty, llvm_x86amx_ty], [IntrArgMemOnly, IntrWriteMem]>;
+// end INTEL_CUSTOMIZATION
   def int_x86_tilezero_internal :
               ClangBuiltin<"__builtin_ia32_tilezero_internal">,
               Intrinsic<[llvm_x86amx_ty], [llvm_i16_ty, llvm_i16_ty],
@@ -6449,6 +6451,24 @@ let TargetPrefix = "x86" in {
                         [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
                          llvm_x86amx_ty, llvm_x86amx_ty,
                          llvm_x86amx_ty], []>;
+
+  def int_x86_t2rpntlvwz0_internal :
+              Intrinsic<[llvm_x86amx_ty, llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty, llvm_ptr_ty, llvm_i64_ty],
+                        [IntrArgMemOnly, IntrReadMem]>;
+  def int_x86_t2rpntlvwz0t1_internal :
+              Intrinsic<[llvm_x86amx_ty, llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty, llvm_ptr_ty, llvm_i64_ty],
+                        [IntrArgMemOnly]>;
+  def int_x86_t2rpntlvwz1_internal :
+              Intrinsic<[llvm_x86amx_ty, llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty, llvm_ptr_ty, llvm_i64_ty],
+                        [IntrArgMemOnly]>;
+  def int_x86_t2rpntlvwz1t1_internal :
+              Intrinsic<[llvm_x86amx_ty, llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty, llvm_ptr_ty, llvm_i64_ty],
+                        [IntrArgMemOnly]>;
+
 }
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
