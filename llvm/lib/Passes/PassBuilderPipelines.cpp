@@ -306,6 +306,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDDPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArrayPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnestPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSpecialOptPredicatePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRStoreResultIntoTempArray.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSumWindowReuse.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTempArrayTranspose.h"
@@ -2453,6 +2454,7 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
       FPM.addPass(HIROptVarPredicatePass());
       FPM.addPass(HIROptPredicatePass(Level.getSpeedupLevel() == 3, false));
+      FPM.addPass(HIRSpecialOptPredicatePass());
       FPM.addPass(HIRLMMPass());
       if (RunVPOOpt) {
         FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3));
