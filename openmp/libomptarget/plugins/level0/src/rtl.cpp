@@ -1371,16 +1371,15 @@ struct RTLFlagsTy {
   uint64_t UseImageOptions : 1;
   uint64_t UseMultipleComputeQueues : 1;
   uint64_t ShowBuildLog : 1;
-  uint64_t UseInteropImmCmdList : 1;
   uint64_t NoSYCLFlush : 1;
   uint64_t NDRangeIgnoreTripcount : 1;
-  uint64_t Reserved : 52;
+  uint64_t Reserved : 53;
   RTLFlagsTy()
       : DumpTargetImage(0), EnableProfile(0),
         LinkLibDevice(0), // TODO: change it to 1 when L0 issue is resolved
         UseHostMemForUSM(0), UseMemoryPool(1), UseDriverGroupSizes(0),
         UseImageOptions(1), UseMultipleComputeQueues(0), ShowBuildLog(0),
-        UseInteropImmCmdList(0), NoSYCLFlush(0), NDRangeIgnoreTripcount(0),
+        NoSYCLFlush(0), NDRangeIgnoreTripcount(0),
         Reserved(0) {}
 };
 
@@ -2073,14 +2072,6 @@ struct RTLOptionTy {
       }
     }
 
-    // LIBOMPTARGET_LEVEL_ZERO_INTEROP_USE_IMMEDIATE_COMMAND_LIST=<Value>
-    if ((Env =
-        readEnvVar("LIBOMPTARGET_LEVEL_ZERO_INTEROP_USE_IMMEDIATE_COMMAND_LIST"))) {
-      int32_t Value = parseBool(Env);
-      if (Value >= 0 && Value <= 1)
-        Flags.UseInteropImmCmdList = Value;
-    }
-
     // LIBOMPTARGET_LEVEL_ZERO_NO_SYCL_FLUSH=<Bool>
     if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_NO_SYCL_FLUSH"))) {
       int32_t Value = parseBool(Env);
@@ -2185,6 +2176,10 @@ struct RTLOptionTy {
                    ? NTeams
                    : 0;
   }
+
+  // Interop should be using Immediate Command lists if they are being
+  // used for compute kernels (i.e., 1 or 3)
+  bool useImmForInterop() { return UseImmCmdList == 1 || UseImmCmdList == 3; }
 }; // RTLOptionTy
 
 static bool isDiscrete(uint32_t); // Forward declaration
@@ -4665,7 +4660,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
 
   ze_command_list_handle_t CmdList = nullptr;
   ze_command_queue_handle_t CmdQueue = nullptr;
-  bool UseImmCmdList = Option.UseImmCmdList == 1 || Option.UseImmCmdList == 3;
+  bool UseImmCmdList = DeviceInfo->Option.useImmForInterop();
 
   if (UseImmCmdList) {
     CmdList = DeviceInfo->getImmCmdList(SubId);
@@ -6992,8 +6987,8 @@ __tgt_interop *__tgt_rtl_create_interop(
   Ret->RTLProperty = new L0Interop::Property();
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
     auto L0 = static_cast<L0Interop::Property *>(Ret->RTLProperty);
-    // Do we still need this separate option?
-    if (DeviceInfo->Option.Flags.UseInteropImmCmdList) {
+
+    if (DeviceInfo->Option.useImmForInterop()) {
       auto CmdList = DeviceInfo->createImmCmdList(DeviceId);
       Ret->TargetSync = CmdList;
       L0->ImmCmdList = CmdList;
@@ -7029,20 +7024,21 @@ int32_t __tgt_rtl_release_interop(int32_t DeviceId, __tgt_interop *Interop) {
     return OFFLOAD_FAIL;
   }
 
-  // Call  sycl wrapper delete if it was a sycl object
+  // synchronize the object first
+  if (__tgt_rtl_sync_barrier(Interop))
+    return OFFLOAD_FAIL;
+
+  // Call sycl wrapper delete if it was a sycl object
   if (Interop->FrId == 4)
     L0Interop::SyclWrapper.delete_sycl_interop(Interop);
 
   auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   if (Interop->TargetSync) {
-    if (DeviceInfo->Option.Flags.UseInteropImmCmdList) {
+    if (DeviceInfo->Option.useImmForInterop()) {
       auto immCmdList = L0->ImmCmdList;
-      CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, immCmdList, nullptr, 0,
-                       nullptr);
       CALL_ZE_RET_FAIL(zeCommandListDestroy, immCmdList);
     } else {
       auto cmdQueue = L0->CommandQueue;
-      CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
       CALL_ZE_RET_FAIL(zeCommandQueueDestroy, cmdQueue);
     }
   }
@@ -7059,17 +7055,7 @@ int32_t __tgt_rtl_use_interop(int32_t DeviceId, __tgt_interop *Interop) {
     return OFFLOAD_FAIL;
   }
 
-  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
-  if (Interop->TargetSync) {
-    if (DeviceInfo->Option.Flags.UseInteropImmCmdList) {
-      auto immCmdList = L0->ImmCmdList;
-      CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, immCmdList, nullptr, 0, nullptr);
-    } else {
-      auto cmdQueue = L0->CommandQueue;
-      CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
-    }
-  }
-  return OFFLOAD_SUCCESS;
+  return __tgt_rtl_sync_barrier(Interop);
 }
 
 int32_t __tgt_rtl_get_num_interop_properties(int32_t DeviceId) {
@@ -7154,7 +7140,7 @@ int32_t __tgt_rtl_get_interop_property_value(
     break;
   case L0Interop::is_imm_cmd_list:
     if (ValueType == OMP_IPR_VALUE_INT) {
-      if (DeviceInfo->Option.Flags.UseInteropImmCmdList)
+      if (DeviceInfo->Option.useImmForInterop())
         *static_cast<intptr_t *>(Value) = 1;
       else
         *static_cast<intptr_t *>(Value) = 0;
@@ -7583,7 +7569,7 @@ int32_t __tgt_rtl_flush_queue(__tgt_interop *Interop) {
   // We only need to flush SYCL objects
   // and only if immediate command list are not being used
   // and the user didn't disable SYCL flushes
-  if (!DeviceInfo->Option.Flags.UseInteropImmCmdList &&
+  if (!DeviceInfo->Option.useImmForInterop() &&
       !DeviceInfo->Option.Flags.NoSYCLFlush && Interop->FrId == 4 &&
       Interop->TargetSync) {
     return L0Interop::SyclWrapper.flush_queue_sycl(Interop);
@@ -7597,10 +7583,26 @@ int32_t __tgt_rtl_sync_barrier(__tgt_interop *Interop) {
     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
     return OFFLOAD_FAIL;
   }
+  if (!Interop->TargetSync)
+    return OFFLOAD_SUCCESS;
 
-  // We can syncronize both L0 & SYCL objects with the same ze command
-  if (Interop->TargetSync) {
-    auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+  auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
+
+  // We can synchronize both L0 & SYCL objects with the same ze command
+  if (DeviceInfo->Option.useImmForInterop()) {
+    DP("__tgt_rtl_sync_barrier: Synchronizing " DPxMOD
+       " with ImmCmdList barrier\n",
+       DPxPTR(Interop));
+    auto ImmCmdList = L0->ImmCmdList;
+    auto Event = DeviceInfo->EventPool.getEvent();
+
+    CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, ImmCmdList, Event, 0, nullptr);
+    CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
+    DeviceInfo->EventPool.releaseEvent(Event);
+  } else {
+    DP("__tgt_rtl_sync_barrier: Synchronizing " DPxMOD
+       " with queue synchronize\n",
+       DPxPTR(Interop));
     auto CmdQueue = L0->CommandQueue;
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
   }
@@ -7613,18 +7615,27 @@ int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop) {
     DP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
     return OFFLOAD_FAIL;
   }
+  if (!Interop->TargetSync)
+    return OFFLOAD_SUCCESS;
+
   // use a SYCL barrier for SYCL objects unless immediate command lists
   // are being used
-  if (!DeviceInfo->Option.Flags.UseInteropImmCmdList && Interop->FrId == 4 &&
-      Interop->TargetSync) {
+  if (!DeviceInfo->Option.useImmForInterop() && Interop->FrId == 4) {
+    DP("__tgt_rtl_async_barrier: Appending SYCL barrier to " DPxMOD "\n",
+       DPxPTR(Interop));
     return L0Interop::SyclWrapper.append_barrier_sycl(Interop);
   } else {
     auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
-    if (DeviceInfo->Option.Flags.UseInteropImmCmdList) {
+    if (DeviceInfo->Option.useImmForInterop()) {
+      DP("__tgt_rtl_async_barrier: Appending ImmCmdList barrier to " DPxMOD
+         "\n",
+         DPxPTR(Interop));
       auto ImmCmdList = L0->ImmCmdList;
       CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, ImmCmdList, nullptr, 0,
                        nullptr);
     } else {
+      DP("__tgt_rtl_async_barrier: Appending CmdList barrier to " DPxMOD "\n",
+         DPxPTR(Interop));
       auto CmdQueue = L0->CommandQueue;
       ze_command_list_handle_t CmdList =
           DeviceInfo->getCmdList(Interop->DeviceNum);
