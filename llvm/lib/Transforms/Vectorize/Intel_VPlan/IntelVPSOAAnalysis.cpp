@@ -472,11 +472,20 @@ void VPSOAAnalysis::dump(raw_ostream &OS) const {
     if (VPAllocatePrivate *VPAllocaPriv =
             dyn_cast<VPAllocatePrivate>(&VPInst)) {
 
-      if (VPAllocaPriv->isSOASafe())
-        OS << "SOASafe = " << VPAllocaPriv->getOrigName()
-           << " Profitable = " << VPAllocaPriv->isSOAProfitable() << "\n";
-      else
-        OS << "SOAUnsafe = " << VPAllocaPriv->getOrigName() << "\n";
+      StringRef OrigName = VPAllocaPriv->getOrigName();
+      if (VPAllocaPriv->isSOASafe()) {
+        OS << "SOASafe = ";
+        VPAllocaPriv->printAsOperandNoType(OS);
+        if (!OrigName.empty())
+          OS << " (" << OrigName << ")";
+        OS << " Profitable = " << VPAllocaPriv->isSOAProfitable() << "\n";
+      } else {
+        OS << "SOAUnsafe = ";
+        VPAllocaPriv->printAsOperandNoType(OS);
+        if (!OrigName.empty())
+          OS << " (" << OrigName << ")";
+        OS << "\n";
+      }
     }
   }
 }

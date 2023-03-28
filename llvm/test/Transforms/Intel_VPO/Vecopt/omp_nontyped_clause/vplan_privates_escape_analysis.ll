@@ -9,11 +9,12 @@
 
 ; REQUIRES:asserts
 
-; CHECK-DAG: SOASafe = arr.priv
-; CHECK-DAG: SOASafe = arr_ne.priv
+; CHECK-LABEL:  SOA profitability:
+; CHECK-NEXT:  SOASafe = [[VP_INDEX_LPRIV:%.*]] (index.lpriv) Profitable = 1
+; CHECK-NEXT:  SOASafe = [[VP_ARR_NE_PRIV:%.*]] (arr_ne.priv) Profitable = 0
 ;; This next one privates escapes into the unknown function and is unsafe.
-; CHECK-DAG: SOAUnsafe = arr_e.priv
-; CHECK-DAG: SOASafe = index.lpriv
+; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_E_PRIV:%.*]] (arr_e.priv)
+; CHECK-NEXT:  SOASafe = [[VP_ARR_PRIV:%.*]] (arr.priv) Profitable = 0
 
 ; Source-file: test.c
 ;int arr[1024];
@@ -145,9 +146,9 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 ; This test checks that we correctly identify SOA-unsafe variables on account of
 ; unsafe load/store instructions (loaded type size != alloca element size).
 define void @test_unsafe_addrspacecast() {
-; CHECK:        SOA profitability
-; CHECK-NEXT:  SOASafe = arr_ne.priv
-; CHECK-NEXT:  SOAUnsafe = arr_e.priv
+; CHECK:  SOA profitability
+; CHECK-NEXT:  SOASafe = [[VP_ARR_NE_PRIV:%.*]] (arr_ne.priv) Profitable = 0
+; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_E_PRIV:%.*]] (arr_e.priv)
 ;
   %arr_e.priv = alloca [1024 x i32], align 4
   %arr_ne.priv = alloca [1024 x i32], align 4
