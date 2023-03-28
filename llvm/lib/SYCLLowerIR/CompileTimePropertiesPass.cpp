@@ -42,12 +42,8 @@ constexpr uint32_t SPIRV_PIPELINE_ENABLE_DECOR = 5919;
 enum class DecorValueTy {
   uint32,
   boolean,
-<<<<<<< HEAD
-  none,  // INTEL
-=======
   string,
-  none,
->>>>>>> 34cb6bd1b5ce06d1adbfc38456548fee622c16ad
+  none, // INTEL
 };
 
 struct Decor {
@@ -164,15 +160,6 @@ MDNode *attributeToDecorateMetadata(LLVMContext &Ctx, const Attribute &Attr) {
   Decor DecorFound = DecorIt->second;
   uint32_t DecorCode = DecorFound.Code;
   switch (DecorFound.Type) {
-<<<<<<< HEAD
-    case DecorValueTy::uint32:
-      return buildSpirvDecorMetadata(Ctx, DecorCode,
-                                     getAttributeAsInteger<uint32_t>(Attr));
-    case DecorValueTy::boolean:
-      return buildSpirvDecorMetadata(Ctx, DecorCode, hasProperty(Attr));
-    default:
-      break;
-=======
   case DecorValueTy::uint32:
     return buildSpirvDecorMetadata(Ctx, DecorCode,
                                    getAttributeAsInteger<uint32_t>(Attr));
@@ -182,9 +169,7 @@ MDNode *attributeToDecorateMetadata(LLVMContext &Ctx, const Attribute &Attr) {
     return buildSpirvDecorMetadata(Ctx, DecorCode, Attr.getValueAsString());
   default:
     llvm_unreachable("Unhandled decorator type.");
->>>>>>> 34cb6bd1b5ce06d1adbfc38456548fee622c16ad
   }
-  llvm_unreachable("Unhandled decorator type.");
 }
 
 /// Tries to generate a SPIR-V execution mode metadata node from an attribute.
