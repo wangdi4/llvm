@@ -354,6 +354,10 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
        D.getVFS().exists(D.Dir + "/../../lib/libsycl.so"))) {
     addPathIfExists(D, D.Dir + "/../../lib", Paths);
+    // Do an additional check for libsycl.so in case of the new layout.  The
+    // base directory is different in the product as opposed to LIT testing.
+    if (D.getVFS().exists(D.Dir + "/../lib/libsycl.so"))
+      addPathIfExists(D, D.Dir + "/../lib", Paths);
 #else
        D.getVFS().exists(D.Dir + "/../lib/libsycl.so"))) {
     addPathIfExists(D, D.Dir + "/../lib", Paths);
