@@ -8,9 +8,7 @@
 
 #pragma once
 #include <sycl/functional.hpp>
-#include <sycl/half_type.hpp>
 
-#include <complex>
 #include <functional>
 
 namespace sycl {
@@ -33,7 +31,6 @@ namespace detail {
 struct GroupOpISigned {};
 struct GroupOpIUnsigned {};
 struct GroupOpFP {};
-struct GroupOpC {};
 
 template <typename T, typename = void> struct GroupOpTag;
 
@@ -50,14 +47,6 @@ struct GroupOpTag<T, detail::enable_if_t<detail::is_sugeninteger<T>::value>> {
 template <typename T>
 struct GroupOpTag<T, detail::enable_if_t<detail::is_sgenfloat<T>::value>> {
   using type = GroupOpFP;
-};
-
-template <typename T>
-struct GroupOpTag<
-    T, detail::enable_if_t<std::is_same<T, std::complex<half>>::value ||
-                           std::is_same<T, std::complex<float>>::value ||
-                           std::is_same<T, std::complex<double>>::value>> {
-  using type = GroupOpC;
 };
 
 #define __SYCL_CALC_OVERLOAD(GroupTag, SPIRVOperation, BinaryOperation)        \
@@ -94,7 +83,6 @@ __SYCL_CALC_OVERLOAD(GroupOpFP, FAdd, sycl::plus<T>)
 __SYCL_CALC_OVERLOAD(GroupOpISigned, IMulKHR, sycl::multiplies<T>)
 __SYCL_CALC_OVERLOAD(GroupOpIUnsigned, IMulKHR, sycl::multiplies<T>)
 __SYCL_CALC_OVERLOAD(GroupOpFP, FMulKHR, sycl::multiplies<T>)
-__SYCL_CALC_OVERLOAD(GroupOpC, CMulINTEL, sycl::multiplies<T>)
 
 __SYCL_CALC_OVERLOAD(GroupOpISigned, BitwiseOrKHR, sycl::bit_or<T>)
 __SYCL_CALC_OVERLOAD(GroupOpIUnsigned, BitwiseOrKHR, sycl::bit_or<T>)
