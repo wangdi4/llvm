@@ -43,19 +43,19 @@ protected:
   explicit VPVLSClientMemrefHIR(OVLSContext &Context, OVLSAccessKind AccKind,
                                 const OVLSType &Ty, const VPLoadStoreInst *Inst,
                                 const HLLoop *Loop, HIRDDAnalysis *DDA,
-                                const RegDDRef *Ref)
+                                const RegDDRef *Ref, bool IsMasked)
       : VPVLSClientMemref(Context, VLSK_VPlanHIRVLSClientMemref, AccKind, Ty,
                           Inst,
-                          /*VLSA=*/nullptr),
+                          /*VLSA=*/nullptr, IsMasked),
         TheLoop(Loop), DDA(DDA), Ref(Ref) {}
 
 public:
   static VPVLSClientMemrefHIR *
   create(OVLSContext &Context, OVLSAccessKind AccKind, const OVLSType &Ty,
          const VPLoadStoreInst *Inst, const HLLoop *Loop, HIRDDAnalysis *DDA,
-         const RegDDRef *Ref) {
+         const RegDDRef *Ref, bool IsMasked) {
     return Context.create<VPVLSClientMemrefHIR>(AccKind, Ty, Inst, Loop, DDA,
-                                                Ref);
+                                                Ref, IsMasked);
   }
 
   std::optional<int64_t>
@@ -174,8 +174,9 @@ public:
       auto *SinkRef = dyn_cast<RegDDRef>(Edge->getSink());
 
       if (FromInst->getOpcode() == Instruction::Load &&
-          ToInst->getOpcode() == Instruction::Load && SrcRef && SinkRef &&
-          !SrcRef->isMemRef() && !SinkRef->isMemRef())
+          ToInst->getOpcode() == Instruction::Load &&
+          (!SrcRef || !SrcRef->isMemRef()) &&
+          (!SinkRef || !SinkRef->isMemRef()))
         return false;
 
       return true;

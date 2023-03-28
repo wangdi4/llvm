@@ -88,9 +88,10 @@ VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
     if (getForceStride2VLS() && ((*Stride / (AccessSize / 8)) != 2))
       return nullptr;
 
+    bool IsMasked = VPInst->getParent()->getBlockPredicate() != nullptr;
     return VPVLSClientMemref::create(OptVLSContext,
                                      OVLSMemref::VLSK_VPlanVLSClientMemref,
-                                     AccKind, Ty, VPInst, this);
+                                     AccKind, Ty, VPInst, this, IsMasked);
   }
   return nullptr;
 }
