@@ -1367,6 +1367,9 @@ def HIPOnly : DiagGroup<"hip-only">;
 // without linking LIBSPIRV.
 def NoLibspirvHipCuda : DiagGroup<"no-libspirv-hip-cuda">;
 
+// Warning about mixed HIP and OpenMP compilation / target offloading.
+def HIPOpenMPOffloading: DiagGroup<"hip-omp-target-directives">;
+
 // Warnings which cause linking of the runtime libraries like
 // libc and the CRT to be skipped.
 def AVRRtlibLinkingQuirks : DiagGroup<"avr-rtlib-linking-quirks">;
