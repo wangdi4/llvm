@@ -698,7 +698,10 @@ static void adjustIVCoeffs(RegDDRef *Ref, unsigned StartDim, unsigned EndDim,
                                         1);
   Ref->makeConsistent({}, OrigOutermostLevel);
   if (SetCollapsed) {
-    Ref->setCollapsed(true);
+    // Consider following collapsing:
+    //   A[i1][i2][i3][i4][i5] -> A[i1][0][0][0][i2']
+    //   i5 is StartDim, i2 is EndDim. Num collapsed levels is 4.
+    Ref->setCollapsedLevels(EndDim - StartDim + 1);
   }
 }
 
