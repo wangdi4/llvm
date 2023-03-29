@@ -5075,9 +5075,28 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     }
     LLVM_DEBUG(dbgs() << "may alias\n");
 
+    // In ForFusion mode when being called from refineDV(), DD is assuming that
+    // fusion happens one level at a time so loop fusion only cares about DV at
+    // the fusion level. This means we can ignore inner dimensions (containing
+    // inner loop IVs) which are invariant w.r.t fusion level.
+    // This is only important when we compare collapsed and non-collapsed refs.
+    unsigned NumInvariantDims = 0;
+    unsigned NumDims = SrcRegDDRef->getNumDimensions();
+    if (ForFusion && (NumDims == DstRegDDRef->getNumDimensions()) &&
+        (SrcRegDDRef->isCollapsed() != DstRegDDRef->isCollapsed())) {
+      for (unsigned DimI = 1; DimI <= NumDims; ++DimI, ++NumInvariantDims) {
+        if (!SrcRegDDRef->getDimensionIndex(DimI)->isInvariantAtLevel(
+                RefiningLevel, true) ||
+            !DstRegDDRef->getDimensionIndex(DimI)->isInvariantAtLevel(
+                RefiningLevel, true)) {
+          break;
+        }
+      }
+    }
+
     // TODO: MaxLoopNestLevel should be computed from InputDV.
-    EqualBaseAndShape =
-        DDRefUtils::haveEqualBaseAndShape(SrcRegDDRef, DstRegDDRef, true);
+    EqualBaseAndShape = DDRefUtils::haveEqualBaseAndShape(
+        SrcRegDDRef, DstRegDDRef, true, NumInvariantDims);
   }
 
   LLVM_DEBUG(dbgs() << "\ncommon nesting levels = " << CommonLevels << "\n");
@@ -5334,7 +5353,8 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   NewConstraint.setAny();
 
-  bool IsCollapsedRefs = (SrcRegDDRef->isCollapsed() && DstRegDDRef->isCollapsed());
+  bool IsCollapsedRefs =
+      (SrcRegDDRef->isCollapsed() && DstRegDDRef->isCollapsed());
   bool IsCollapsedWithDifferentHigherDim = false;
   if (!ForFusion) {
     // test separable subscripts
@@ -5838,7 +5858,8 @@ void DDTest::adjustDV(Dependences &Result, bool SameBase,
   }
 
   // Adjust DV for backward dependency between collapsed mem refs.
-  if (SrcRegDDRef->isCollapsed() && DstRegDDRef->isCollapsed()) {
+  if (SrcRegDDRef->getNumCollapsedLevels() ==
+      DstRegDDRef->getNumCollapsedLevels()) {
     int64_t VecLen1 = SrcRegDDRef->getMaxVecLenAllowed();
     int64_t VecLen2 = DstRegDDRef->getMaxVecLenAllowed();
     int64_t FinalVecLen = (VecLen1 < VecLen2) ? VecLen1 : VecLen2;

@@ -295,7 +295,8 @@ bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2) {
 
 // TODO: merge with areEqualImpl.
 bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
-                                       const RegDDRef *Ref2, bool RelaxedMode) {
+                                       const RegDDRef *Ref2, bool RelaxedMode,
+                                       unsigned NumIgnorableDims) {
   assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
          "Ref1 and Ref2 should be GEP DDRef");
 
@@ -317,9 +318,54 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
     return false;
   }
 
-  // It is not safe to treat collapsed and non-collapsed refs as having same
-  // shape as the indices of collapsed refs are out of range.
-  if (Ref1->isCollapsed() != Ref2->isCollapsed()) {
+  // The only case we want to relax haveEqualBaseAndShape() check is under
+  // ForFusion mode (basically it means that we call refineDV() on the edge for
+  // particular fusion level). We calculate number of dimensions that are
+  // invariant w.r.t. this level and provide it to haveEqualBaseAndShape(). Now
+  // in haveEqualBaseAndShape() if we compare collapsed and non-collapsed refs
+  // AND one of the refs have more collapsed level than those that could be
+  // ignored, we bail out.
+  //
+  // Example: we have a three-level loopnest:
+  // DO i1 {
+  //   DO i2 {
+  //     DO i3 {
+  //       A[][][] = ...
+  //     }
+  //   }
+  //   DO i2 {
+  //     ... = A[][][]
+  //   }
+  // }
+  // DO i1 {
+  //   ... = A[][][]
+  // }
+  //
+  // After collapsing i2-i3 loops we have following structure:
+  //
+  // DO i1 {
+  //   DO i2 {  <collapsed i2-i3>
+  //      A[][][] =..      <collapsed>
+  //   }
+  //   DO i2 {
+  //     ... = A[][][] < non-collapsed>
+  //   }
+  // }
+  // DO i1 {
+  //   ... = A[][][] <non-collapsed>
+  // }
+  //
+  // It is not safe to consider fusion on i2 level since that level was
+  // collapsed and we cannot compute the DV correctly at this level. It is safe
+  // to consider fusion on i1 level since we are not interested in computation
+  // of dependences on lower (collapsed) levels.
+  // Previously we just bail out for any attempt to compare collapsed and
+  // non-collapsed refs. Which was over conservative.
+  unsigned Ref1CollapsedLevels = Ref1->getNumCollapsedLevels();
+  unsigned Ref2CollapsedLevels = Ref2->getNumCollapsedLevels();
+  if ((Ref1CollapsedLevels != Ref2CollapsedLevels) &&
+      ((Ref1CollapsedLevels > NumIgnorableDims) ||
+       (Ref2CollapsedLevels > NumIgnorableDims))) {
     return false;
   }
 
