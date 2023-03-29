@@ -3,7 +3,7 @@
 ;           BEGIN REGION { }
 ;                  + DO i1 = 0, 3, 1   <DO_LOOP>
 ;                  |   + DO i2 = 0, -1 * undef + 3, 1   <DO_LOOP>
-;                  |   |   if (undef #UNDEF# undef)
+;                  |   |   if (undef == 0)
 ;                  |   |   {
 ;                  |   |      + DO i3 = 0, 63, 1   <DO_LOOP>
 ;                  |   |      |   if (i3 != 0)
@@ -22,7 +22,7 @@
 ; CHECK:     BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, 2, 1   <DO_LOOP>
 ; CHECK:           |   + DO i2 = 0, -1 * undef + 3, 1   <DO_LOOP>
-; CHECK:           |   |   if (undef #UNDEF# undef)
+; CHECK:           |   |   if (undef == 0)
 ; CHECK:           |   |   {
 ; CHECK:           |   |      + DO i3 = 0, 62, 1   <DO_LOOP>
 ; CHECK:           |   |      |   @_Z6printbj();

@@ -2772,13 +2772,6 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     }
   }
 
-  if (isa<UndefValue>(Cond)) {
-    Preds.push_back(UNDEFINED_PREDICATE);
-    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
-    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
-    return;
-  }
-
   if (auto *ConstVal = dyn_cast<ConstantInt>(Cond)) {
     if (ConstVal->isOneValue()) {
       Preds.push_back(PredicateTy::FCMP_TRUE);
@@ -4362,6 +4355,7 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     // If lval DDRef's symbase and blob's symbase don't match, we need to add a
     // blob DDRef.
     else if (Symbase != SB) {
+      IsSelfBlob = false;
       populateBlobDDRefs(Ref, Level);
     }
 

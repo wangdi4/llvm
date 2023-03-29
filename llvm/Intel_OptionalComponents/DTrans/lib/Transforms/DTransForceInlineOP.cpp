@@ -10,7 +10,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Transforms/DTransForceInlineOP.h"
-#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/DTransTypeMetadataConstants.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
@@ -208,6 +207,14 @@ bool DTransForceInlineOP::run(
   for (auto *Str : M.getIdentifiedStructTypes()) {
     if (!Str->hasName())
       continue;
+    if (isDTransSkippableType(Str)) {
+      DEBUG_WITH_TYPE(DTRANS_LAYOUT_DEBUG_TYPE, {
+        dbgs() << " ; Skippable type ";
+        Str->print(dbgs(), true, true);
+        dbgs() << "\n";
+      });
+      continue;
+    }
     dtransOP::DTransStructType *StrType = TM.getStructType(Str->getName());
     assert(StrType && "Expected DTransStructType");
     dtransOP::soatoaosOP::SOAToAOSOPCFGInfo Info;
@@ -302,6 +309,8 @@ bool DTransForceInlineOP::run(
   FunctionTypeResolver TypeResolver(MDReader, DTransLibInfo);
   for (auto *Str : M.getIdentifiedStructTypes()) {
     if (!Str->hasName())
+      continue;
+    if (isDTransSkippableType(Str))
       continue;
     dtransOP::DTransStructType *StrType = TM.getStructType(Str->getName());
     assert(StrType && "Expected DTransStructType");

@@ -490,8 +490,7 @@ void HLInst::verify() const {
                               isPredicateTrueOrFalse(CmpOrSelectPred);
 
   assert((CmpInst::isFPPredicate(CmpOrSelectPred) ||
-          CmpInst::isIntPredicate(CmpOrSelectPred) ||
-          CmpOrSelectPred == UNDEFINED_PREDICATE) &&
+          CmpInst::isIntPredicate(CmpOrSelectPred)) &&
          "Invalid predicate value, should be one of PredicateTy");
 
   HLDDNode::verify();

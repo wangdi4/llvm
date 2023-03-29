@@ -1,6 +1,6 @@
 //===-----------TypeMetadataReader.cpp - Decode metadata annotations-------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -22,6 +22,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "dtrans-typemetadatareader"
 
@@ -33,6 +34,13 @@ static llvm::cl::opt<bool> EnableStrictCheck(
 
 namespace llvm {
 namespace dtransOP {
+
+bool isDTransSkippableType(StructType *Ty) {
+  if (!Ty || !Ty->hasName())
+    return false;
+  StringRef Name = Ty->getName();
+  return Name.startswith("rtti.") || Name.startswith("eh.");
+}
 
 bool TypeMetadataReader::hasDTransTypesMetadata(Module &M) {
   return getDTransTypesMetadata(M) != nullptr;
@@ -116,7 +124,8 @@ MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
   return nullptr;
 }
 
-bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
+bool TypeMetadataReader::initialize(Module &M, bool StrictCheck,
+                                    bool SkipSpecial) {
   NamedMDNode *DTMDTypes = getDTransTypesMetadata(M);
   if (!DTMDTypes)
     return false;
@@ -144,7 +153,7 @@ bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
 
     if (!HasPointer) {
       TypeRecoveryState.insert(std::make_pair(StTy, MS_RecoveryNotNeeded));
-    } else {
+    } else if (!isDTransSkippableType(StTy)) {
       TypeRecoveryState.insert(std::make_pair(StTy, MS_RecoveryNeeded));
     }
   }
@@ -206,7 +215,8 @@ bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
     // because we are referencing the type within the metadata. If the encoding
     // is switched to just use string names for the types, then the type may no
     // longer exist.
-    llvm::StructType *StTy = populateDTransStructType(M, MD, DTStTy);
+    llvm::StructType *StTy =
+        populateDTransStructType(M, MD, DTStTy, SkipSpecial);
     if (StTy)
       TypeRecoveryState[StTy] = MS_RecoveryComplete;
   }
@@ -356,9 +366,8 @@ DTransStructType *TypeMetadataReader::constructDTransStructType(MDNode *MD) {
 
 // Populate the body of the \p DTStTy based on the metadata. If a body is
 // populated and the type corresponds to a llvm::StructType, return it.
-llvm::StructType *
-TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
-                                             DTransStructType *DTStTy) {
+llvm::StructType *TypeMetadataReader::populateDTransStructType(
+    Module &M, MDNode *MD, DTransStructType *DTStTy, bool SkipSpecial) {
   // Metadata is of the form:
   //   { !"S", struct.type zeroinitializer, i32 NumFields [,!MDRef[,!MDRef]* ] }
   const unsigned FieldTyStartPos = DTransStructMDConstants::FieldNodeOffset;
@@ -408,6 +417,8 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
   llvm::StructType *StTy = cast<llvm::StructType>(DTStTy->getLLVMType());
   assert(StTy && "DTransStructType incorrectly initialized during "
                  "constructDTransStructType");
+  if (SkipSpecial && isDTransSkippableType(StTy))
+    return StTy;
 
   // Check that the metadata information matches with the structure definition.
   if (FieldCountU != StTy->getNumElements()) {

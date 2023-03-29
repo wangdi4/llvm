@@ -5,7 +5,7 @@
 
 ; CHECK:      + DO i1 = 0, 47, 1   <DO_LOOP>
 ; CHECK-NEXT: |   %add23.lcssa94 = 1;
-; CHECK-NEXT: |   if (undef #UNDEF# undef)
+; CHECK-NEXT: |   if (undef != 0)
 ; CHECK-NEXT: |   {
 ; CHECK-NEXT: |
 ; CHECK-NEXT: |      + DO i2 = 0, ((-4 + (-1 * umin(1, (-4 + umax(4, %0)))) + umax(4, %0)) /u 3) + umin(1, (-4 + umax(4, %0))), 1   <DO_LOOP>  <MAX_TC_EST = 16>

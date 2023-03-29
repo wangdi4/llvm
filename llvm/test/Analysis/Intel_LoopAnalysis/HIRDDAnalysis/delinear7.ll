@@ -5,7 +5,7 @@
 ; <0>          BEGIN REGION { }
 ; <25>               + DO i1 = 0, -1 * undef + 3, 1   <DO_LOOP>
 ; <26>               |   + DO i2 = 0, 63, 1   <DO_LOOP>
-; <5>                |   |   if (undef #UNDEF# undef)
+; <5>                |   |   if (undef != 0)
 ; <5>                |   |   {
 ; <9>                |   |      (@c)[2][0] = undef;
 ; <5>                |   |   }
