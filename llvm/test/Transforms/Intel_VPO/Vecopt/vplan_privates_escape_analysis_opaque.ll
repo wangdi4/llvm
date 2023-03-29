@@ -37,8 +37,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local i32 @foo(i32 %n1) {
 ; CHECK-LABEL:  SOA profitability:
-; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_E2_PRIV:%.*]]
-; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_E_PRIV:%.*]]
+; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_E2_PRIV:%.*]] (arr_e2.priv)
+; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_E_PRIV:%.*]] (arr_e.priv)
 ;
 DIR.OMP.SIMD.211:
   %index.linear.iv = alloca i32, align 4

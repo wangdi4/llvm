@@ -4,7 +4,7 @@
 
 ; REQUIRES:asserts
 
-; CHECK:  SOAUnsafe = [[VP_PRIV:%.*]]
+; CHECK:  SOAUnsafe = [[VP_PRIV:%.*]] (priv)
 define void @volatile_store_privates() {
 entry:
   %priv = alloca [1024 x i32], align 4

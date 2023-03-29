@@ -18,7 +18,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @test_unsafe_store_variation_1() {
 ; CHECK-LABEL:  SOA profitability:
-; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_PRIV1:%.*]]
+; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_PRIV1:%.*]] (arr.priv1)
 ;
 entry:
   %arr.priv1 = alloca [1024 x i64], align 4
@@ -47,7 +47,7 @@ declare void @llvm.directive.region.exit(token)
 
 define void @test_unsafe_store_variation_2() {
 ; CHECK-LABEL:  SOA profitability:
-; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_PRIV2:%.*]]
+; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_PRIV2:%.*]] (arr.priv2)
 ;
 entry:
   %arr.priv2 = alloca [1024 x i64], align 4
