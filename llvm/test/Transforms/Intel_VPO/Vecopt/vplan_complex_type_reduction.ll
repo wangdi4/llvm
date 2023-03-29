@@ -3,17 +3,24 @@
 
 ; REQUIRES: asserts
 ; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -S -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s --check-prefix=LLVM-IR
-; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vpo-ir-loop-vectorize-legality < %s 2>&1 | FileCheck %s --check-prefix=LLVM-IR
-; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -debug-only=HIRLegality -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>' -vplan-force-vf=2 -debug-only=HIRLegality -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRVEC
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI-HIR
 
 ; LLVM-IR: Complex type reductions are not supported
 ; LLVM-IR: %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED"(%complex_64bit* %sum, %complex_64bit zeroinitializer, i32 1) ]
 
-; HIR: Complex type reductions are not supported
-; HIR: BEGIN REGION { }
-; HIR:      %tok = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(), QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED(&((%sum)[0]), zeroinitializer, 1) ]
-; HIR:      DO i1 = 0, %N + -1, 1   <DO_LOOP> <simd> <vectorize>
+; HIRVEC: Complex type reductions are not supported
+; HIRVEC: BEGIN REGION { }
+; HIRVEC:      %tok = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(), QUAL.OMP.REDUCTION.ADD:CMPLX.TYPED(&((%sum)[0]), zeroinitializer, 1) ]
+; HIRVEC:      DO i1 = 0, %N + -1, 1   <DO_LOOP> <simd> <vectorize>
+
+; TODO: Remark should change to indicate complex double for add reduction
+; OPTRPTMED: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized: Complex type reductions are not supported.
+; OPTRPTHI-HIR: remark #15436: loop was not vectorized: HIR: Complex type reductions are not supported.
 
 %complex_64bit = type { float, float }
 

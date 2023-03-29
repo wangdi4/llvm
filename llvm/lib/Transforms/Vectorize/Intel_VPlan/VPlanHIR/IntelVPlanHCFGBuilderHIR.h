@@ -151,6 +151,17 @@ public:
   /// instruction.
   void recordPotentialSIMDDescrUpdate(HLInst *UpdateInst);
 
+  /// Set bail-out reason information.
+  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
+                      std::string Message) {
+    BD.BailoutLevel = Level;
+    BD.BailoutID = ID;
+    BD.BailoutMessage = Message;
+  }
+
+  /// Return the reason for bailing out.
+  VPlanBailoutData &getBailoutData() { return BD; }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Debug print utility to display contents of the descriptor lists
   void dump(raw_ostream &OS) const;
@@ -159,7 +170,7 @@ public:
 
 private:
   /// Reports a reason for vectorization bailout. Always returns false.
-  bool bailout(BailoutReason Code);
+  bool bailout(OptReportVerbosity::Level, unsigned, std::string, std::string);
 
   /// Add an explicit non-POD private to PrivatesList
   /// TODO: Use Constr, Destr and CopyAssign for non-POD privates.

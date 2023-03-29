@@ -1,7 +1,9 @@
 ; Test to verify that VPlan vectorizer bails out for AND reduction
 ; REQUIRES: asserts
 ; RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S -debug-only=vplan-vec -debug-only=vpo-ir-loop-vectorize-legality -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -debug-only=HIRLegality -debug-only=vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=HIRVEC
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTREPORT
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTREPORT-HIR
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -11,10 +13,13 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: A reduction of this operation is not supported
 ; CHECK: VD: Not vectorizing: Cannot prove legality.
 
-; HIR: VPlan HIR Driver for Function: foo
-; HIR: A reduction of this operation is not supported
-; HIR: VD: Not vectorizing: Cannot prove legality.
-; HIR: Function: foo
+; HIRVEC: VPlan HIR Driver for Function: foo
+; HIRVEC: A reduction of this operation is not supported
+; HIRVEC: VD: Not vectorizing: Cannot prove legality.
+; HIRVEC: Function: foo
+
+; OPTREPORT: remark #15330: simd loop was not vectorized: the reduction operator is not supported yet
+; OPTREPORT-HIR: remark #15330: HIR: simd loop was not vectorized: the reduction operator is not supported yet
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(float** nocapture readonly %_C) local_unnamed_addr #0 {

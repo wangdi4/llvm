@@ -253,14 +253,23 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
   }
 }
 
-bool HIRVectorizationLegality::bailout(BailoutReason Code) {
-    DEBUG_WITH_TYPE("HIRLegality", dbgs() << getBailoutReasonStr(Code));
-    return false;
+bool HIRVectorizationLegality::bailout(OptReportVerbosity::Level Level,
+                                       unsigned ID, std::string Message,
+                                       std::string Debug = "") {
+  if (Debug == "")
+    DEBUG_WITH_TYPE("HIRLegality", dbgs() << Message << "\n");
+  else
+    DEBUG_WITH_TYPE("HIRLegality", dbgs() << Debug << "\n");
+  setBailoutData(Level, ID, Message);
+  return false;
 }
 
 bool HIRVectorizationLegality::canVectorize(const WRNVecLoopNode *WRLp) {
   // Send explicit data from WRLoop to the Legality.
-  return EnterExplicitData(WRLp);
+  bool RetVal = EnterExplicitData(WRLp);
+  assert((RetVal || BD.BailoutID) &&
+         "EnterExplicitData didn't set bailout data!");
+  return RetVal;
 }
 
 void HIRVectorizationLegality::findAliasDDRefs(HLNode *BeginNode,
