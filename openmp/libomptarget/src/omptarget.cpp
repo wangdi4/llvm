@@ -978,11 +978,7 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
   auto PostProcessingPtrs = std::make_unique<SmallVector<PostProcessingInfo>>();
 #else  // INTEL_COLLAB
   auto *PostProcessingPtrs = new SmallVector<PostProcessingInfo>();
-<<<<<<< HEAD
-=======
 #endif // INTEL_COLLAB
-  void *FromMapperBase = nullptr;
->>>>>>> c8053a32cf9705a1ffefdce4c3b8aff2dfc4d9e5
 #if INTEL_COLLAB
   if (!ArgMappers && Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
     REPORT("Failed to begin command batching\n");
@@ -1151,17 +1147,11 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
   // TODO: We might want to remove `mutable` in the future by not changing the
   // captured variables somehow.
   AsyncInfo.addPostProcessingFunction([=, Device = &Device]() mutable -> int {
-<<<<<<< HEAD
-    return postProcessingTargetDataEnd(Device, *PostProcessingPtrs);
-=======
 #if INTEL_COLLAB
-    return postProcessingTargetDataEnd(Device, *PostProcessingRawPtrs,
-                                       FromMapperBase);
+    return postProcessingTargetDataEnd(Device, *PostProcessingRawPtrs);
 #else  // INTEL_COLLAB
-    return postProcessingTargetDataEnd(Device, *PostProcessingPtrs,
-                                       FromMapperBase);
+    return postProcessingTargetDataEnd(Device, *PostProcessingPtrs);
 #endif // INTEL_COLLAB
->>>>>>> c8053a32cf9705a1ffefdce4c3b8aff2dfc4d9e5
   });
 
   return Ret;
