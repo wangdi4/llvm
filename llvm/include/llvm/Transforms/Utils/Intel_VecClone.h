@@ -28,12 +28,6 @@
 #ifndef LLVM_TRANSFORMS_VPO_VECCLONE_H
 #define LLVM_TRANSFORMS_VPO_VECCLONE_H
 
-enum InstType {
-  ALLOCA = 0,
-  STORE,
-  BITCAST
-};
-
 namespace llvm {
 
 struct VFInfo;

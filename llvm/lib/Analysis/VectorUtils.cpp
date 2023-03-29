@@ -1137,14 +1137,6 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
   }
 }
 
-std::vector<Attribute> llvm::getVectorVariantAttributes(Function &F) {
-  auto Variants = llvm::make_filter_range(
-      F.getAttributes().getFnAttrs(), [](const Attribute &A) {
-        return A.isStringAttribute() && VFInfo::isVectorVariant(A.getKindAsString());
-      });
-  return {Variants.begin(), Variants.end()};
-}
-
 Type *llvm::calcCharacteristicType(Function &F, const VFInfo &Variant) {
   return calcCharacteristicType(F.getReturnType(), F.args(), Variant,
                                 F.getParent()->getDataLayout());
@@ -1179,38 +1171,6 @@ void llvm::createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
   } else {
     VecArgs.push_back(MaskExt);
     VecArgTys.push_back(VecToType);
-  }
-}
-
-void llvm::getFunctionsToVectorize(
-  llvm::Module &M, MapVector<Function*, std::vector<StringRef> > &FuncVars) {
-
-  // FuncVars will contain a 1-many mapping between the original scalar
-  // function and the vector variant encoding strings (represented as
-  // attributes). The encodings correspond to functions that will be created by
-  // the caller of this function as vector versions of the original function.
-  // For example, if foo() is a function marked as a simd function, it will have
-  // several vector variant encodings like: "_ZGVbM4_foo", "_ZGVbN4_foo",
-  // "_ZGVcM8_foo", "_ZGVcN8_foo", "_ZGVdM8_foo", "_ZGVdN8_foo", "_ZGVeM16_foo",
-  // "_ZGVeN16_foo". The caller of this function will then clone foo() and name
-  // the clones using the above name manglings. The variant encodings correspond
-  // to differences in masked/non-masked execution, vector length, and target
-  // vector register size, etc. For more details, please refer to the following
-  // reference for details on the vector function encodings.
-  // https://www.cilkplus.org/sites/default/files/open_specifications/
-  // Intel-ABI-Vector-Function-2012-v0.9.5.pdf
-
-  for (auto It = M.begin(), End = M.end(); It != End; ++It) {
-    Function &F = *It;
-    if (F.hasFnAttribute("vector-variants") && !F.isDeclaration()) {
-      Attribute Attr = F.getFnAttribute("vector-variants");
-      StringRef VariantsStr = Attr.getValueAsString();
-      SmallVector<StringRef, 8> Variants;
-      VariantsStr.split(Variants, ',');
-      for (unsigned i = 0; i < Variants.size(); i++) {
-        FuncVars[&F].push_back(Variants[i]);
-      }
-    }
   }
 }
 
@@ -1343,14 +1303,15 @@ template Value *llvm::getPtrThruCast<BitCastInst>(Value *Ptr);
 template Value *llvm::getPtrThruCast<AddrSpaceCastInst>(Value *Ptr);
 
 void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall) {
-  VecCall->setAttributes(Attrs.removeAttribute(
-      VecCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
+  VecCall->setAttributes(
+      Attrs.removeAttribute(VecCall->getContext(), AttributeList::FunctionIndex,
+                            VectorUtils::VectorVariantsAttrName));
 }
 
 void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
                                  ArrayRef<AttributeSet> ArgAttrs) {
   AttributeSet FnAttrs = Attrs.getFnAttrs().removeAttribute(
-      VecCall->getContext(), "vector-variants");
+      VecCall->getContext(), VectorUtils::VectorVariantsAttrName);
 
   VecCall->setAttributes(AttributeList::get(VecCall->getContext(), FnAttrs,
                                             Attrs.getRetAttrs(), ArgAttrs));

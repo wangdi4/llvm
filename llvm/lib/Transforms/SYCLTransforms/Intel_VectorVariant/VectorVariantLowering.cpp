@@ -70,7 +70,7 @@ bool VectorVariantLowering::runImpl(Module &M, CallGraph &CG) {
       bool AttrsModified = false;
       for (auto &Node : Set) {
         if (!Node.isStringAttribute() ||
-            Node.getKindAsString() != "vector-variants")
+            Node.getKindAsString() != VectorUtils::VectorVariantsAttrName)
           continue;
 
         SmallVector<StringRef, 4> Variants;
@@ -89,8 +89,11 @@ bool VectorVariantLowering::runImpl(Module &M, CallGraph &CG) {
         }
 
         // Update attributes.
-        Attrs = Attrs.removeAttribute(M.getContext(), Index, "vector-variants")
-                    .addAttributeAtIndex(M.getContext(), Index, "vector-variants",
+        Attrs = Attrs
+                    .removeAttribute(M.getContext(), Index,
+                                     VectorUtils::VectorVariantsAttrName)
+                    .addAttributeAtIndex(M.getContext(), Index,
+                                         VectorUtils::VectorVariantsAttrName,
                                          join(NewVariants, ","));
         AttrsModified = true;
       }
