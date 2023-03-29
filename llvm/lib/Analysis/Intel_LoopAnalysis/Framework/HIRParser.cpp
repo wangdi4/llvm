@@ -2772,13 +2772,6 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     }
   }
 
-  if (isa<UndefValue>(Cond)) {
-    Preds.push_back(UNDEFINED_PREDICATE);
-    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
-    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
-    return;
-  }
-
   if (auto *ConstVal = dyn_cast<ConstantInt>(Cond)) {
     if (ConstVal->isOneValue()) {
       Preds.push_back(PredicateTy::FCMP_TRUE);

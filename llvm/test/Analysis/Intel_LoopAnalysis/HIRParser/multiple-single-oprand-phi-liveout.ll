@@ -9,7 +9,7 @@
 ; CHECK: |   if.then15.i:
 ; CHECK: |   %indvars.iv.next.i101923.out = undef;
 ; CHECK: |   %1 = (undef)[%indvars.iv.next.i101923.out + 1];
-; CHECK: |   if (undef #UNDEF# undef)
+; CHECK: |   if (undef == 0)
 ; CHECK: |   {
 ; CHECK: |      goto for.body.i.thread.if.else17.i.loopexit_crit_edge;
 ; CHECK: |   }
