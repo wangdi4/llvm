@@ -975,16 +975,12 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
                   void **ArgMappers, AsyncInfoTy &AsyncInfo, bool FromMapper) {
   int Ret = OFFLOAD_SUCCESS;
   auto *PostProcessingPtrs = new SmallVector<PostProcessingInfo>();
-<<<<<<< HEAD
-  void *FromMapperBase = nullptr;
 #if INTEL_COLLAB
   if (!ArgMappers && Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
     REPORT("Failed to begin command batching\n");
     return OFFLOAD_FAIL;
   }
 #endif // INTEL_COLLAB
-=======
->>>>>>> 5244617e3a03376565afed14713eda4e87e725af
   // process each input.
   for (int32_t I = ArgNum - 1; I >= 0; --I) {
     // Ignore private variables and arrays - there is no mapping for them.
