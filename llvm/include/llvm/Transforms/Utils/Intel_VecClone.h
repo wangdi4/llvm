@@ -13,10 +13,10 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -31,6 +31,7 @@
 namespace llvm {
 
 struct VFInfo;
+struct VFParameter;
 class ModulePass;
 
 class VecCloneImpl {
@@ -47,9 +48,13 @@ class VecCloneImpl {
     /// The non-key value is the stride
     MapVector<Value*, Value*> LinearMemory;
 
+    /// The map of linear pointer args to pointee type size.
+    DenseMap<Value *, Value *> PointeeTypeSize;
+
     /// \brief Make a copy of the function if it is marked as SIMD.
     Function *CloneFunction(Function &F, const VFInfo &V,
-                            ValueToValueMapTy &Vmap);
+                            ValueToValueMapTy &VMap,
+                            ValueToValueMapTy &ReverseVMap);
 
     /// \brief Return true iff we should bail out due to the presence of
     /// variable-length array allocas.  Correctly handling a VLA alloca
@@ -118,7 +123,8 @@ class VecCloneImpl {
     /// Update the values of linear arguments by adding the stride before the
     /// use and mark memory and linear for SIMD directives.
     void processLinearArgs(Function *Clone, const VFInfo &V, PHINode *Phi,
-                           BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
+                           BasicBlock *EntryBlock, BasicBlock *LoopPreheader,
+                           ValueToValueMapTy &ReverseVMap);
 
     /// \brief Update the instructions in the return basic block to return a
     /// vector temp.
@@ -166,7 +172,8 @@ class VecCloneImpl {
     /// stride for a linear argument.
     Value *generateStrideForArgument(Function *Clone, Value *ArgVal,
                                      Instruction *ParmUser, Value *Stride,
-                                     PHINode *Phi);
+                                     PHINode *Phi, const VFParameter &Parm,
+                                     ValueToValueMapTy &ReverseVMap);
 
     /// \brief Adds metadata to the conditional branch of the simd loop latch to
     /// prevent loop unrolling.

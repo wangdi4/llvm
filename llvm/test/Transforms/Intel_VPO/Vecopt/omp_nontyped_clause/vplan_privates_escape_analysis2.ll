@@ -10,9 +10,9 @@
 ; REQUIRES:asserts
 
 ; CHECK:  SOA profitability:
-; CHECK:  SOASafe = [[VP_INDEX_LPRIV:%.*]] Profitable = 1
-; CHECK:  SOAUnsafe = [[VP_ARR_E_PRIV:%.*]]
-; CHECK:  SOASafe = [[VP_ARR_NE_PRIV:%.*]] Profitable = 0
+; CHECK:  SOASafe = [[VP_INDEX_LPRIV:%.*]] (index.lpriv) Profitable = 1
+; CHECK:  SOAUnsafe = [[VP_ARR_E_PRIV:%.*]] (arr_e.priv)
+; CHECK:  SOASafe = [[VP_ARR_NE_PRIV:%.*]] (arr_ne.priv) Profitable = 0
 
 ; Source-file: test.c
 ; int foo(int n1, int **out) {
