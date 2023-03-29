@@ -444,10 +444,12 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
     // Only bail out if we are generating code, we want to continue if
     // we are only stress testing VPlan builds below.
-    if (!VPlanConstrStressTest && !DisableCodeGen)
-      // TODO: Fill in reason data from LVL.
-      return bailout(VPORBuilder, Lp, OptReportVerbosity::Medium,
-                     BailoutRemarkID, "");
+    if (!VPlanConstrStressTest && !DisableCodeGen) {
+      auto &LVLBD = LVL.getBailoutData();
+      assert(LVLBD.BailoutID && "Legality didn't set bailout data!");
+      return bailout(VPORBuilder, Lp, LVLBD.BailoutLevel, LVLBD.BailoutID,
+                     LVLBD.BailoutMessage);
+    }
   }
 
   BasicBlock *Header = Lp->getHeader();
@@ -1548,9 +1550,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   if (!CanVectorize) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot prove legality.\n");
-    // TODO: Fill in reason data from HIRVecLegal.
-    return bailout(VPORBuilder, Lp, OptReportVerbosity::Medium, BailoutRemarkID,
-                   "");
+    auto &HVLBD = HIRVecLegal.getBailoutData();
+    assert(HVLBD.BailoutID && "HIR legality didn't set bailout data!");
+    return bailout(VPORBuilder, Lp, HVLBD.BailoutLevel, HVLBD.BailoutID,
+                   HVLBD.BailoutMessage);
   }
   // Find any DDRefs in loop pre-header/post-exit that are aliases to the
   // descriptor variables
