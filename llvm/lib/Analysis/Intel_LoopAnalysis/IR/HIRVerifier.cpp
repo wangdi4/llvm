@@ -1,6 +1,6 @@
 //===---- HIRVerifier.cpp - Verifies internal structure of HLNodes --------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -395,12 +395,22 @@ void HIRVerifierImpl::checkLoopLiveinLiveout(unsigned UseSB,
   auto *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop);
 
   while (UseLoop != LCALoop) {
-    assert(UseLoop->isLiveIn(UseSB) && "Temp expected to be livein to loop.");
+    if (!UseLoop->isLiveIn(UseSB)) {
+      LLVM_DEBUG(dbgs() << " UseSB: " << UseSB << " UseNode:\n";
+                 UseNode->dump(true));
+      LLVM_DEBUG(dbgs() << " UseLoop:\n"; UseLoop->dump());
+      llvm_unreachable("Temp expected to be livein of loop.");
+    }
     UseLoop = UseLoop->getParentLoop();
   }
 
   while (DefLoop != LCALoop) {
-    assert(DefLoop->isLiveOut(UseSB) && "Temp expected to be liveout of loop.");
+    if (!DefLoop->isLiveOut(UseSB)) {
+      LLVM_DEBUG(dbgs() << " UseSB: " << UseSB << " UseNode:\n";
+                 UseNode->dump(true));
+      LLVM_DEBUG(dbgs() << " DefLoop:\n"; DefLoop->dump());
+      llvm_unreachable("Temp expected to be liveout of loop.");
+    }
     DefLoop = DefLoop->getParentLoop();
   }
 }

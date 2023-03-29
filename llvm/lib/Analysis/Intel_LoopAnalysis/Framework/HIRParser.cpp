@@ -4362,6 +4362,7 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     // If lval DDRef's symbase and blob's symbase don't match, we need to add a
     // blob DDRef.
     else if (Symbase != SB) {
+      IsSelfBlob = false;
       populateBlobDDRefs(Ref, Level);
     }
 
