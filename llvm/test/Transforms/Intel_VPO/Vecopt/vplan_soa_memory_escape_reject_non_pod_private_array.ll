@@ -13,8 +13,8 @@
 ; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa -disable-vplan-codegen -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI-HIR
 
 ; CHECK: SOA profitability:
-; CHECK:  SOAUnsafe = [[VP_Y3_LPRIV:%.*]]
-; CHECK:  SOASafe = [[VP_I_PRIV:%.*]] Profitable = 1
+; CHECK:  SOAUnsafe = [[VP_Y3_LPRIV:%.*]] (y3.lpriv)
+; CHECK:  SOASafe = [[VP_I_PRIV:%.*]] (i.priv) Profitable = 1
 
 ; OPTRPTMED: remark #15436: loop was not vectorized:
 ; OPTRPTHI: remark #15436: loop was not vectorized:

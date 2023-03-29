@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @baz() {
 ;
 ; CHECK-LABEL:  SOA profitability:
-; CHECK-NEXT:  SOASafe = [[VP_ARR_PRIV:%.*]] Profitable = 1
+; CHECK-NEXT:  SOASafe = [[VP_ARR_PRIV:%.*]] (arr.priv) Profitable = 1
 ; CHECK-NEXT:  SOA profitability:
 ; CHECK-NEXT:  SOASafe = [[VP0:%.*]] Profitable = 1
 ; CHECK-NEXT:  VPlan after Dump Transformed SOA GEPs:

@@ -14,7 +14,7 @@ declare void @llvm.lifetime.end.p0i8(i64, ptr nocapture)
 
 define void @_ZGVdN8uuuu_test_fn(ptr addrspace(1) %src) {
 ; CHECK-LABEL:  SOA profitability:
-; CHECK-NEXT:  SOASafe = [[VP_SPRIVATESTORAGE:%.*]] Profitable = 1
+; CHECK-NEXT:  SOASafe = [[VP_SPRIVATESTORAGE:%.*]] (sPrivateStorage) Profitable = 1
 ;
 entry:
   %sPrivateStorage = alloca [2 x i8], align 4
