@@ -2,6 +2,10 @@
 UNSUPPORTED: system-windows
 REQUIRES: libompdevice
 
+// See CMPLRLLVM-46330: To unblock pulldown temporarily marking
+// this test as unsupported on Linux.
+// UNSUPPORTED: system-linux
+
 Verify that the wrapper functions and the fallback functions are not marked
 with noinline attribute.
 
