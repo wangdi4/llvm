@@ -3640,6 +3640,7 @@ bool Generic_GCC::isPICDefaultForced() const {
 
 bool Generic_GCC::IsIntegratedAssemblerDefault() const {
   switch (getTriple().getArch()) {
+<<<<<<< HEAD
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_be:
   case llvm::Triple::amdgcn:
@@ -3682,7 +3683,14 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
 #endif // INTEL_CUSTOMIZATION
     return true;
   default:
+=======
+  case llvm::Triple::nvptx:
+  case llvm::Triple::nvptx64:
+  case llvm::Triple::xcore:
+>>>>>>> d44371c00d87f73aba4ba0feafb4a18151d6f831
     return false;
+  default:
+    return getTriple().getVendor() != llvm::Triple::Myriad;
   }
 }
 
