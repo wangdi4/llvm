@@ -1133,6 +1133,9 @@ bool OpenMPLateOutliner::isAllowedClauseForDirectiveFull(
       return false;
     }
   } else if (CK == OMPC_if) {
+    // Only the implicit 'if' is allowed on the target task.
+    if (isImplicitTask(OMPD_task) && ICK != ICK_if)
+      return false;
     if (isAllowedClauseForDirective(DKind, CK, CGF.getLangOpts().OpenMP)) {
       const OMPIfClause *IC = dyn_cast_or_null<OMPIfClause>(CurrentClause);
       if (checkIfModifier(DKind, IC))
@@ -3533,6 +3536,7 @@ void OpenMPLateOutliner::emitOMPTaskDirective() {
     NeedIf = NeedIf && !Directive.hasClausesOfKind<OMPNowaitClause>();
     if (NeedIf) {
       ClauseEmissionHelper CEH(*this, OMPC_if);
+      CEH.setImplicitClause(ICK_if);
       addArg("QUAL.OMP.IF");
       addArg(CGF.Builder.getInt32(0));
     }

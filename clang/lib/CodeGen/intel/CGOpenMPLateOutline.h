@@ -227,6 +227,7 @@ class OpenMPLateOutliner {
     ICK_normalized_iv,
     ICK_normalized_ub,
     ICK_livein,
+    ICK_if,
     ICK_unknown
   };
 
