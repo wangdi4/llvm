@@ -815,17 +815,31 @@ bool VPOCodeGen::isOpenCLSelectMask(StringRef FnName, unsigned Idx) {
   return Idx == 2 && ScalarSelectSet.count(std::string(FnName));
 }
 
-Value *VPOCodeGen::getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize) {
+Value *VPOCodeGen::getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize,
+                                       int GroupStride) {
   unsigned NumElements = cast<FixedVectorType>(WideValueType)->getNumElements();
-  if (NumElements == VF * GroupSize && !MaskValue)
-    return nullptr;
+  if (!MaskValue) {
+    unsigned NumUnmaskedElements = VF * GroupStride + (GroupSize - GroupStride);
+    if (NumElements == NumUnmaskedElements)
+      return nullptr;
 
+    auto *True = ConstantInt::getTrue(WideValueType->getContext());
+    auto *False = ConstantInt::getFalse(WideValueType->getContext());
+    SmallVector<Constant *, 32> Mask;
+    unsigned Idx;
+    for (Idx = 0; Idx < NumUnmaskedElements; ++Idx)
+      Mask.push_back(True);
+    for (; Idx < NumElements; ++Idx)
+      Mask.push_back(False);
+
+    return ConstantVector::get(Mask);
+  }
+
+  assert(GroupSize == GroupStride &&
+         "Expected group size and stride to match for masked case");
   Value *MaskToUse = MaskValue;
-  if (!MaskToUse)
-    MaskToUse = ConstantInt::getTrue(
-        FixedVectorType::get(Type::getInt1Ty(WideValueType->getContext()), VF));
-
   SmallVector<int, 32> ShuffleMask;
+
   for (unsigned Lane = 0; Lane < VF; ++Lane)
     for (int Elt = 0; Elt < GroupSize; ++Elt)
       ShuffleMask.push_back(Lane);
@@ -1988,7 +2002,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         Base, VecTy->getPointerTo(
                   cast<PointerType>(Base->getType())->getAddressSpace()));
     auto GroupSize = VLSLoad->getGroupSize();
-    auto *LoadMask = getVLSLoadStoreMask(VecTy, GroupSize);
+    auto *LoadMask =
+        getVLSLoadStoreMask(VecTy, GroupSize, VLSLoad->getGroupStride());
     if (!LoadMask) {
       auto *WideLoad = cast<LoadInst>(Builder.CreateAlignedLoad(
           VecTy, CastedBase, VLSLoad->getAlignment(), "vls.load"));
@@ -2016,11 +2031,11 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     auto NumEltsPerValue = Extract->getNumGroupEltsPerValue();
 
     auto Offset = Extract->getOffset();
-    auto GroupSize = Extract->getGroupSize();
+    auto GroupStride = Extract->getGroupStride();
     SmallVector<int, 32> ShuffleMask;
     for (unsigned Lane = 0; Lane < VF; ++Lane)
       for (unsigned Part = 0; Part < NumEltsPerValue; ++Part)
-        ShuffleMask.push_back(Lane * GroupSize + Offset + Part);
+        ShuffleMask.push_back(Lane * GroupStride + Offset + Part);
 
     auto *WideValue = getScalarValue(Extract->getOperand(0), 0);
     auto *Result =
@@ -2074,7 +2089,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         Base, VecTy->getPointerTo(
                   cast<PointerType>(Base->getType())->getAddressSpace()));
     auto GroupSize = VLSStore->getGroupSize();
-    auto *StoreMask = getVLSLoadStoreMask(VecTy, GroupSize);
+    auto *StoreMask =
+        getVLSLoadStoreMask(VecTy, GroupSize, VLSStore->getGroupStride());
     if (!StoreMask) {
       auto *WideStore = cast<StoreInst>(Builder.CreateAlignedStore(
           StoredValue, CastedBase, VLSStore->getAlignment()));

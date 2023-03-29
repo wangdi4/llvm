@@ -64,19 +64,20 @@ VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
     return nullptr;
 
   unsigned Opcode = Inst->getOpcode();
+  bool IsMasked = Inst->getParent()->getBlockPredicate() != nullptr;
 
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Load)
     return VPVLSClientMemrefHIR::create(OptVLSContext, OVLSAccessKind::SLoad,
-                                        Ty, Inst, TheLoop, DDA, Ref);
+                                        Ty, Inst, TheLoop, DDA, Ref, IsMasked);
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Store)
     return VPVLSClientMemrefHIR::create(OptVLSContext, OVLSAccessKind::SStore,
-                                        Ty, Inst, TheLoop, DDA, Ref);
+                                        Ty, Inst, TheLoop, DDA, Ref, IsMasked);
   if (AccTy == MemAccessTy::Indexed && Opcode == Instruction::Load)
     return VPVLSClientMemrefHIR::create(OptVLSContext, OVLSAccessKind::ILoad,
-                                        Ty, Inst, TheLoop, DDA, Ref);
+                                        Ty, Inst, TheLoop, DDA, Ref, IsMasked);
   if (AccTy == MemAccessTy::Indexed && Opcode == Instruction::Store)
     return VPVLSClientMemrefHIR::create(OptVLSContext, OVLSAccessKind::IStore,
-                                        Ty, Inst, TheLoop, DDA, Ref);
+                                        Ty, Inst, TheLoop, DDA, Ref, IsMasked);
   return nullptr;
 }
 

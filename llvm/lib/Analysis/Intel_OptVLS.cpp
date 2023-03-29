@@ -1309,6 +1309,9 @@ static void splitMrfsStep(OVLSMemref *Memref,
     if (Memref->getAccessKind() != SetFirstMrf->getAccessKind())
       continue;
 
+    if (Memref->isMasked() != SetFirstMrf->isMasked())
+      continue;
+
     if (Memref->getNumElements() != SetFirstMrf->getNumElements())
       continue;
 
@@ -1334,11 +1337,16 @@ static void splitMrfsStep(OVLSMemref *Memref,
     // a[2 * i + 1] and doing a gather/scatter for a[2 * i + 2]. For now, do
     // the same in xmain by not considering a[2 * i + 2] for the group. This is
     // done by skipping over refs whose distance from any of the refs in the
-    // group is >= group stride.
-    // TODO: We should be able to do a better job handling a group with all such
-    // refs by doing an appropriate wide access and avoiding the gather/scatter
-    // altogether. This will be done later.
-    if (SetFirstMrf->getConstStride()) {
+    // group is >= group stride. We can do a better job handling a group with
+    // all such refs by doing an appropriate wide access and avoiding the
+    // gather/scatter altogether. This is now being done currently for unmasked
+    // loads with positive stride in xmain.
+    // TODO: We need to look into doing this for stores, negative stride loads
+    // and masked loads.
+    std::optional<int64_t> FirstRefStride = SetFirstMrf->getConstStride();
+    if (FirstRefStride &&
+        (SetFirstMrf->getAccessKind().isStore() || SetFirstMrf->isMasked() ||
+         (SetFirstMrf->getAccessKind().isLoad() && *FirstRefStride < 0))) {
       auto DistExceedsStride =
           find_if(*AdjMemrefSet, [Memref, SetFirstMrf](auto &x) {
             std::optional<int64_t> TDist =

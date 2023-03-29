@@ -339,6 +339,9 @@ public:
 
   unsigned getId() const { return Id; }
 
+  // Is the access masked?
+  virtual bool isMasked() const { return false; }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void print(OVLSostream &OS, unsigned SpaceCount = 0) const;
   void dump() const;

@@ -1159,7 +1159,8 @@ private:
                               0 /*Lane*/);
   }
 
-  RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
+  RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize,
+                                int GroupStride);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.

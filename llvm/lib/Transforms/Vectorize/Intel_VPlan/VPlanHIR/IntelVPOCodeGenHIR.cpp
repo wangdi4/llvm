@@ -5875,10 +5875,11 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
 }
 
 RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
-                                             int GroupSize) {
+                                             int GroupSize, int GroupStride) {
   unsigned NumElements = cast<FixedVectorType>(WideValueType)->getNumElements();
   if (!CurMaskValue) {
-    if (VF * GroupSize == NumElements)
+    unsigned NumUnmaskedElements = VF * GroupStride + (GroupSize - GroupStride);
+    if (NumUnmaskedElements == NumElements)
       // No mask needed.
       return nullptr;
 
@@ -5886,7 +5887,7 @@ RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
     auto *False = ConstantInt::getFalse(WideValueType->getContext());
     SmallVector<Constant *, 32> Mask;
     unsigned Idx;
-    for (Idx = 0; Idx < VF*GroupSize; ++Idx)
+    for (Idx = 0; Idx < NumUnmaskedElements; ++Idx)
       Mask.push_back(True);
     for (; Idx < NumElements; ++Idx)
       Mask.push_back(False);
@@ -5894,6 +5895,8 @@ RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
     return DDRefUtilities.createConstDDRef(ConstantVector::get(Mask));
   }
 
+  assert(GroupSize == GroupStride &&
+         "Expected group size and stride to match for masked case");
   auto *Int32Ty = Type::getInt32Ty(WideValueType->getContext());
   SmallVector<Constant *, 32> ShuffleMask;
   for (unsigned Lane = 0; Lane < VF; ++Lane)
@@ -6102,8 +6105,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       FakeRef->setSymbase(FakeSymbase);
       WideLoad->addFakeRvalDDRef(FakeRef);
     }
-    RegDDRef *Mask = getVLSLoadStoreMask(cast<VectorType>(VPInst->getType()),
-                                         VLSLoad->getGroupSize());
+    RegDDRef *Mask =
+        getVLSLoadStoreMask(cast<VectorType>(VPInst->getType()),
+                            VLSLoad->getGroupSize(), VLSLoad->getGroupStride());
     addInst(WideLoad, Mask);
 
     if (Mask)
@@ -6120,7 +6124,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     auto NumEltsPerValue = Extract->getNumGroupEltsPerValue();
 
     auto Offset = Extract->getOffset();
-    auto GroupSize = Extract->getGroupSize();
+    auto GroupStride = Extract->getGroupStride();
 
     auto *Int32Ty = Type::getInt32Ty(Extract->getType()->getContext());
 
@@ -6128,7 +6132,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     for (unsigned Lane = 0; Lane < VF; ++Lane)
       for (unsigned Part = 0; Part < NumEltsPerValue; ++Part)
         ShuffleMask.push_back(
-            ConstantInt::get(Int32Ty, Lane * GroupSize + Offset + Part));
+            ConstantInt::get(Int32Ty, Lane * GroupStride + Offset + Part));
 
     RegDDRef *WideValue = getOrCreateScalarRef(Extract->getOperand(0), 0);
     HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
@@ -6207,7 +6211,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     }
     RegDDRef *Mask = getVLSLoadStoreMask(
         cast<VectorType>(VLSStore->getOperand(0)->getType()),
-        VLSStore->getGroupSize());
+        VLSStore->getGroupSize(), VLSStore->getGroupStride());
     addInst(WideStore, Mask);
     if (Mask)
       OptRptStats.MaskedVLSStores += VLSStore->getNumOrigStores();

@@ -730,7 +730,8 @@ private:
 
   /// Create a mask to be used in @llvm.masked.[load|store] for the wide VLS
   /// memory operation. Returns nullptr if operation is unmasked.
-  Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);
+  Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize,
+                             int GroupStride);
 
   /// Generate sequence for obtaining the last active lane index.
   /// The index can be used for extracting values in the last active lane.
