@@ -2174,7 +2174,8 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
     if (HasVEX_4V) // Skip the register dst (which is encoded in VEX_VVVV).
       ++CurOp;
     emitByte(BaseOpcode, OS);
-    emitRegModRMByte(MI.getOperand(CurOp++), Form - X86II::MRM0rImmAAA, OS);
+    emitRegModRMByte(MI.getOperand(CurOp++),
+                     (Form == X86II::MRM0rImmAAA) ? 0 : 6, OS);
     CurOp += 2; // Skip the immediates (which is encoded in EVEX_aaa)
     break;
   }
