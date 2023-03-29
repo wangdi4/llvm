@@ -2033,16 +2033,6 @@ private:
   /// guardSideEffectStatements() is done.
   static void markAsGuardedByThreadCheck(Instruction *I);
 
-  /// Return true if the Instruction \p I has metadata indicating that it is
-  /// already guarded by a thread-check like `if (thread_id == xyz)` to ensure
-  /// that only one thread executes it.
-  static bool isGuardedByThreadCheck(const Instruction *I);
-
-  // Returns true if the instruction should be ignored when guarding
-  // side-effect statements with master-thread checks, even if it has
-  // side-effects.
-  static bool ignoreWhenGuardingSideEffectStatements(const Instruction *I);
-
   /// Guard each instruction that has a side effect with master thread id
   /// check, so that only the master thread (id == 0) in the team executes
   /// the code, then put a barrier before the start and after the end of

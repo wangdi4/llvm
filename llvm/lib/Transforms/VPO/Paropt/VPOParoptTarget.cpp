@@ -38,6 +38,7 @@
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/PhiValues.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -66,6 +67,7 @@
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 
+#include <algorithm>
 #include <optional>
 
 using namespace llvm;
@@ -865,24 +867,34 @@ void VPOParoptTransform::markAsGuardedByThreadCheck(Instruction *I) {
                  MDNode::get(C, ConstantAsMetadata::get(One)));
 }
 
-// Return true if the Instruction has metadata indicating that it is already
-// guarded by a check to ensure that only one thread executes it.
-bool VPOParoptTransform::isGuardedByThreadCheck(const Instruction *I) {
+/// Return true if the Instruction \p I has metadata indicating that it is
+/// already guarded by a thread-check like `if (thread_id == xyz)` to ensure
+/// that only one thread executes it.
+static bool isGuardedByThreadCheck(const Instruction *I) {
   return I->hasMetadata(GuardedByThreadCheckMDStr);
 }
 
-/// Returns true for instructions that can be ignored by
-/// guardSideEffectStatements(), even if they have side effects.
-/// Returns true if the call instruction is a special call.
-/// Returns true if the call instruction is a intrinsic call, except for memcpy
-/// intrinsic, the destination operand is not allocated locally in the thread.
-/// Returns true if the store address is an alloca instruction,
-/// that is allocated locally in the thread, or if it has already been marked as
-/// being executed under its own master thread check.
-bool VPOParoptTransform::ignoreWhenGuardingSideEffectStatements(
-    const Instruction *I) {
-  //   Ignore calls to the following OpenCL functions
-  const std::set<std::string> IgnoreCalls = {
+/// Returns true for instructions that must be guarded under master thread
+/// checks by VPOParoptTransform::guardSideEffectStatements().
+///
+/// This is generally true for all instructions with side-effects, but there are
+/// some special cases where this will still return false:
+///
+/// * \p I is a call instruction that is a special call.
+/// * \p I is an intrinsic call, unless it's a memcpy where the destination
+///   operand is not allocated locally in the thread.
+/// * \p I is a store with a store address that is an alloca instruction
+///   allocating locally in the thread.
+/// * \p I has already been marked as being executed under its own master thread
+///   check.
+static bool needsMasterThreadGuard(const Instruction *I) {
+
+  // Instructions without side-effects do not need master thread guards.
+  if (!I->mayThrow() && !I->mayWriteToMemory())
+    return false;
+
+  // Ignore calls to the following functions.
+  static const StringSet<> IgnoreCalls {
     "_Z13get_global_idj",
     "_Z12get_local_idj",
     "_Z14get_local_sizej",
@@ -920,20 +932,23 @@ bool VPOParoptTransform::ignoreWhenGuardingSideEffectStatements(
   if (auto II = dyn_cast<IntrinsicInst>(I)) {
     if (II->getIntrinsicID() == Intrinsic::memcpy) {
       auto Arg0 = II->getArgOperand(0)->stripPointerCasts();
-      LLVM_DEBUG(dbgs() << "Destination operand:: " << *Arg0 << "\n");
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Destination operand::" << *Arg0
+                        << "\n");
       if (cast<PointerType>(Arg0->getType())->getAddressSpace() !=
           vpo::ADDRESS_SPACE_PRIVATE)
-        return false;
+        return true;
     }
-    return true;
-  } else if (auto CallI = dyn_cast<CallInst>(I)) {
+    return false;
+  }
+
+  if (auto CallI = dyn_cast<CallInst>(I)) {
     // Unprototyped function calls may result in a call of a bitcasted
     // Function.
     auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
     assert(CalledF != nullptr && "Called Function not found.");
     if (CalledF->hasName() &&
-        IgnoreCalls.find(std::string(CalledF->getName())) != IgnoreCalls.end())
-      return true;
+        IgnoreCalls.contains(std::string(CalledF->getName())))
+      return false;
 
     if (CallI->hasFnAttr("openmp-privatization-constructor") ||
         CallI->hasFnAttr("openmp-privatization-destructor") ||
@@ -945,19 +960,20 @@ bool VPOParoptTransform::ignoreWhenGuardingSideEffectStatements(
               vpo::ADDRESS_SPACE_PRIVATE ||
           cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
               vpo::ADDRESS_SPACE_PRIVATE)
-        return true;
+        return false;
     }
   } else if (auto StoreI = dyn_cast<StoreInst>(I)) {
     const Value *StorePointer = StoreI->getPointerOperand();
     const Value *RootPointer = StorePointer->stripInBoundsOffsets();
-    LLVM_DEBUG(dbgs() << "Store op:: " << *StorePointer << "\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Store op::" << *StorePointer
+                      << "\n");
 
     // Ignore stores that are already guarded by master-thread checks. e.g.
     // atomic-free reduction implementation's global update loop
     // is executed only by the master thread of a single team
     // so no additional guarding is required.
     if (isGuardedByThreadCheck(StoreI))
-      return true;
+      return false;
 
     // We must not guard stores through private pointers. The store must
     // happen in each work item, so that the variable is initialized
@@ -968,9 +984,10 @@ bool VPOParoptTransform::ignoreWhenGuardingSideEffectStatements(
             vpo::ADDRESS_SPACE_PRIVATE ||
         cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
             vpo::ADDRESS_SPACE_PRIVATE)
-      return true;
+      return false;
   }
-  return false;
+
+  return true;
 }
 
 namespace {
@@ -1200,6 +1217,437 @@ bool VPOParoptTransform::needBarriersAfterParallel(
   return !InsertBarrierAt.empty();
 }
 
+namespace {
+
+/// A single-entry/single-exit code region which should be executed on the
+/// master thread.
+///
+/// A region contains all instructions reachable from Start where the path to
+/// that instruction from Start does not include End. To be a valid region for
+/// inserting master thread guards, these conditions must be met:
+///
+/// * The region must be a single-entry/single-exit region, which is a connected
+///   series of instructions and (possibly-trivial) canonical regions.
+/// * The region must be entirely within the target region.
+/// * The region must not contain any basic blocks inside a parallel region.
+/// * Uses of any instruction in the region must also be in the region.
+/// * If any instruction is a store to an alloca'd value, any loads of that
+///   value must be in the region.
+/// * No other instructions with thread-local side-effects (which don't have
+///   non-thread-local side-effects) are allowed.
+class MasterThreadRegion {
+
+  /// The start of the region.
+  ///
+  /// All instructions in the region should be dominated by this one. This
+  /// instruction is contained in the region.
+  Instruction *Start;
+
+  /// The end of the region.
+  ///
+  /// All instructions in the region should be post-dominated by this one. This
+  /// instruction is not contained in the region; its immediate predecessor (if
+  /// present) is the last instruction in the region.
+  Instruction *End;
+
+  /// Whether this region is in a critical section.
+  ///
+  /// If so, it should not have barriers inserted around it.
+  bool Critical;
+
+  /// All basic blocks fully enclosed by this region.
+  SmallPtrSet<BasicBlock *, 4> EnclosedBBs;
+
+  friend class MasterThreadRegionFinder;
+
+  /// Creates an initial one-instruction master thread region.
+  MasterThreadRegion(Instruction *Inst, bool Critical)
+      : Start(Inst), End(Inst->getNextNode()), Critical(Critical) {}
+
+public:
+  /// The start instruction of this region.
+  Instruction *getStart() const { return Start; }
+
+  /// The end instruction of this region.
+  Instruction *getEnd() const { return End; }
+
+  /// Returns true if \p I is contained in the region.
+  bool contains(const Instruction *I) const;
+
+  /// Inserts broadcasts of any thread-local values used outside of this region.
+  ///
+  /// This ensures that all values used outside the region are visible on all
+  /// threads, and should be called before insertBarriers.
+  /// \p TargetDirectiveBegin is the begin directive for the target region this
+  /// master thread region is in, which is used to find the right insertion
+  /// point for new workgroup-local variables needed to broadcast values.
+  void insertBroadcasts(Instruction *TargetDirectiveBegin);
+
+  /// Inserts barriers around this region.
+  ///
+  /// This ensures that memory dependencies are preserved between the master
+  /// thread and all other threads at the beginning and end of the master thread
+  /// region, and should be called after insertBroadcasts.
+  void insertBarriers();
+
+  /// Inserts a master thread guard for this region.
+  ///
+  /// This inserts the conditional to ensure code in the region is only run on
+  /// the master thread, and should be called after insertBroadcasts and
+  /// insertBarriers. \p MasterCheckPredicate is the condition value to use for
+  /// the branch. \p DTU and \p LI are updated to incorporate the new CFG
+  /// changes.
+  void insertGuard(Value *MasterCheckPredicate, DomTreeUpdater &DTU,
+                   LoopInfo &LI);
+};
+
+/// Utility class to find optimal code regions to execute on the master thread.
+class MasterThreadRegionFinder {
+
+  /// The set of basic blocks which are in parallel regions.
+  ///
+  /// These must not run on the master thread.
+  const SmallPtrSetImpl<BasicBlock *> &ParBBSet;
+
+  const DominatorTree &DT;
+
+  /// The current set of master thread regions to insert.
+  SmallVector<MasterThreadRegion> Regions;
+
+public:
+  MasterThreadRegionFinder(const SmallPtrSetImpl<BasicBlock *> &ParBBSet,
+                           const DominatorTree &DT)
+      : ParBBSet(ParBBSet), DT(DT) {}
+
+  /// Returns the region end if a multi-basic block region ends in \p BB, or the
+  /// first non-phi/debug/lifetime instruction if none end in \p BB, or the
+  /// terminator if \p BB is completely enclosed by any existing region.
+  Instruction *multiBBRegionEnd(BasicBlock *BB) const;
+
+  /// Returns the region start if a multi-basic block region starts in \p BB, or
+  /// the terminator if none start in \p BB.
+  Instruction *multiBBRegionStart(BasicBlock *BB) const;
+
+  /// Finds or creates a master thread region containing \p Inst.
+  ///
+  /// \p Inst is assumed to not be a terminator and to not already be contained
+  /// by any of the master thread regions found so far. If \p Critical is set,
+  /// no barriers should be added for this instruction.
+  const MasterThreadRegion &findMasterThreadRegion(Instruction *Inst,
+                                                   bool Critical);
+
+  /// Returns the final list of master thread regions.
+  SmallVector<MasterThreadRegion> &&foundRegions() {
+    return std::move(Regions);
+  }
+};
+
+bool MasterThreadRegion::contains(const Instruction *I) const {
+
+  // I is contained in the region if it's in a fully enclosed basic block.
+  const BasicBlock *const BB = I->getParent();
+  if (EnclosedBBs.contains(BB))
+    return true;
+
+  // Otherwise, I needs to be in the same basic block as Start and/or End, after
+  // Start and/or before End.
+  const BasicBlock *const StartBB = Start->getParent();
+  const BasicBlock *const EndBB = End->getParent();
+  const BasicBlock::const_iterator StartIt = Start->getIterator();
+  const BasicBlock::const_iterator EndIt = End->getIterator();
+  const auto IsI = [I](const Instruction &CurI) { return &CurI == I; };
+  if (BB == StartBB) {
+    if (StartBB == EndBB)
+      return std::any_of(StartIt, EndIt, IsI);
+    return std::any_of(StartIt, StartBB->end(), IsI);
+  }
+  if (BB == EndBB)
+    return std::any_of(EndBB->begin(), EndIt, IsI);
+
+  return false;
+}
+
+void MasterThreadRegion::insertBroadcasts(Instruction *TargetDirectiveBegin) {
+
+  // If this is a one-instruction region, it's possible that we were unable to
+  // form a region that does not require broadcasting a value. Insert a new
+  // workgroup-local variable and a store/load pair to broadcast through it.
+  // The store needs to go at the end of the region and the load just outside
+  // the end. This code:
+  //
+  // ; Region Start
+  // %c = call spir_func i32 @_Z3barPi(i32 addrspace(4)* %8)
+  // ; Region End
+  // ; Uses of %c
+  //
+  // Will be replaced with:
+  //
+  // @c.broadcast.ptr.__local = internal addrspace(3) global i32 0
+  //
+  // ; Region Start
+  // %c = call spir_func i32 @_Z3barPi(i32 addrspace(4)* %8)
+  // store i32 %c, i32 addrspace(3)* @c.broadcast.ptr.__local
+  // ; Region End
+  // %c.new = load i32, i32 addrspace(3)* @c.broadcast.ptr.__local
+  // ; Uses of %c.new
+  if (Start->getNextNode() == End && !Start->use_empty()) {
+
+    // Create a new workgroup-local variable for the broadcast:
+    const DataLayout &DL = Start->getModule()->getDataLayout();
+    MaybeAlign Alignment = std::nullopt;
+    if (Start->getType()->isPointerTy()) {
+      Align MinAlign = Start->getPointerAlignment(DL);
+      if (MinAlign > 1)
+        Alignment = MinAlign;
+    }
+    Value *const TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca(
+        Start->getType(), nullptr, Alignment, TargetDirectiveBegin, true,
+        Start->getName() + ".broadcast.ptr", vpo::ADDRESS_SPACE_LOCAL);
+
+    // Add the store and load. The region end is adjusted to include the store
+    // but not the load.
+    IRBuilder<> Builder(End);
+    StoreInst *const StoreGuardedInstValue =
+        Builder.CreateStore(Start, TeamLocalVal);
+    LoadInst *const LoadSavedValue = Builder.CreateLoad(
+        Start->getType(), TeamLocalVal, Start->getName() + ".new");
+    End = LoadSavedValue;
+
+    // Replace all of the original uses with the loaded value, except for the
+    // one in the store.
+    Start->replaceAllUsesWith(LoadSavedValue);
+    StoreGuardedInstValue->replaceUsesOfWith(LoadSavedValue, Start);
+  }
+}
+
+// Determines if \p Inst is a barrier instruction.
+//
+// Returns false if \p Inst is nullptr.
+static bool isNonNullAndBarrier(const Instruction *Inst) {
+  if (const auto *const Call = dyn_cast_or_null<CallInst>(Inst))
+    if (Call->getCalledFunction()->getName() == "_Z22__spirv_ControlBarrieriii")
+      return true;
+  return false;
+}
+
+/// Inserts a work group barrier before \p InsertPt.
+///
+/// If \p GlobalFence is set, the barrier will have both global and local memory
+/// fences. If it is not set, the barrier will only have a local memory fence.
+static CallInst *insertWorkGroupBarrier(Instruction *InsertPt,
+                                        bool GlobalFence) {
+  LLVMContext &C = InsertPt->getContext();
+
+  LLVM_DEBUG(dbgs() << "\n"
+                    << __FUNCTION__ << ": Insert Barrier before:" << *InsertPt
+                    << "\n");
+
+  uint64_t MemSemanticsFlags =
+      spirv::SequentiallyConsistent | spirv::WorkgroupMemory;
+  // Experimental option is used to remove global memory fence from the
+  // barrier instruction.
+  if (GlobalFence && !ExcludeGlobalFenceFromBarriers)
+    MemSemanticsFlags |= spirv::CrossWorkgroupMemory;
+
+  // TODO: we only need global fences for side effect instructions
+  //       inside "omp target" and outside of the enclosed regions.
+  //       Moreover, it probably makes sense to guard such instructions
+  //       with (get_group_id() == 0) vs (get_local_id() == 0).
+  CallInst *CI = VPOParoptUtils::genCall(
+      "_Z22__spirv_ControlBarrieriii", Type::getVoidTy(C),
+      // The arguments are:
+      //   (Scope Execution, Scope Memory, MemorySemantics Semantics)
+      //
+      // work_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE)
+      // translates into:
+      // __spirv_ControlBarrier(
+      //     vpo::spirv::Scope::Workgroup,
+      //     vpo::spirv::Scope::Workgroup,
+      //     vpo::spirv::MemorySemantics::SequentiallyConsistent |
+      //     vpo::spirv::MemorySemantics::WorkgroupMemory |
+      //     vpo::spirv::MemorySemantics::CrossWorkgroupMemory)
+      {ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
+       ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
+       ConstantInt::get(Type::getInt32Ty(C), MemSemanticsFlags)},
+      InsertPt);
+  // __spirv_ControlBarrier() is a convergent call.
+  CI->getCalledFunction()->setConvergent();
+  return CI;
+}
+
+void MasterThreadRegion::insertBarriers() {
+
+  // Skip barrier insertion if the region is marked as Critical.
+  if (Critical)
+    return;
+
+  // Only insert a barrier before the region if the preceding non-debug
+  // instruction is not also a barrier.
+  //
+  // Barrier
+  // ; Region Start
+  // ...
+  // ; Region End
+  if (!isNonNullAndBarrier(Start->getPrevNonDebugInstruction()))
+    insertWorkGroupBarrier(Start, true);
+
+  // Insert a barrier after the region unconditionally.
+  //
+  // Barrier
+  // ; Region Start
+  // ...
+  // ; Region End
+  // Barrier
+  CallInst *const EndBarrier = insertWorkGroupBarrier(End, true);
+  End = EndBarrier;
+}
+
+Instruction *MasterThreadRegionFinder::multiBBRegionEnd(BasicBlock *BB) const {
+  for (const MasterThreadRegion &Region : Regions) {
+    if (Region.End->getParent() == BB && Region.Start->getParent() != BB)
+      return Region.End;
+    if (Region.EnclosedBBs.contains(BB))
+      return BB->getTerminator();
+  }
+  return BB->getFirstNonPHIOrDbgOrLifetime();
+}
+
+Instruction *
+MasterThreadRegionFinder::multiBBRegionStart(BasicBlock *BB) const {
+  for (const MasterThreadRegion &Region : Regions)
+    if (Region.Start->getParent() == BB && Region.End->getParent() != BB)
+      return Region.Start;
+  return BB->getTerminator();
+}
+
+void MasterThreadRegion::insertGuard(Value *MasterCheckPredicate,
+                                     DomTreeUpdater &DTU, LoopInfo &LI) {
+
+  LLVM_DEBUG({
+    const Instruction &Last = End->getPrevNode() ? *End->getPrevNode() : *End;
+    dbgs() << "\n"
+           << __FUNCTION__ << ": Guarding instructions from:\n"
+           << *Start << "\nto:\n"
+           << Last << "\n";
+  });
+
+  // This is a generalization of the previous guard insertion to support master
+  // thread regions spanning multiple basic blocks, such as this one:
+  //
+  // BB1: ; PreBB
+  //   ...
+  //   ; Region Start
+  //   ...
+  //   br label %BB2
+  //
+  // BB2:
+  //   ...
+  //   ; Region End
+  //   ...
+  BasicBlock *const PreBB = Start->getParent();
+
+  // Start by splitting at the region start:
+  //
+  // BB1: ; PreBB
+  //   ...
+  //   br label %master.thread.code
+  //
+  // master.thread.code: ; ThenBB
+  //   ; Region Start
+  //   ...
+  //   br label %BB2
+  //
+  // BB2:
+  //   ...
+  //   ; Region End
+  //   ...
+  BasicBlock *const ThenBB =
+      SplitBlock(PreBB, Start, &DTU, &LI, nullptr, "master.thread.code");
+
+  // Then split at the region end:
+  //
+  // BB1: ; PreBB
+  //   ...
+  //   br label %master.thread.code
+  //
+  // master.thread.code: ; ThenBB
+  //   ; Region Start
+  //   ...
+  //   br label %BB2
+  //
+  // BB2:
+  //   ...
+  //   br label %master.thread.fallthru
+  //
+  // master.thread.fallthru: ; ElseBB
+  //   ; Region End
+  //   ...
+  BasicBlock *const ElseBB = SplitBlock(End->getParent(), End, &DTU, &LI,
+                                        nullptr, "master.thread.fallthru");
+
+  // And insert a conditional branch to complete the guard:
+  //
+  // BB1: ; PreBB
+  //   ...
+  //   br i1 %is.master.thread, label %master.thread.code, label
+  //     %master.thread.fallthru
+  //
+  // master.thread.code: ; ThenBB
+  //   ; Region Start
+  //   ...
+  //   br label %BB2
+  //
+  // BB2:
+  //   ...
+  //   br label %master.thread.fallthru
+  //
+  // master.thread.fallthru: ; ElseBB
+  //   ; Region End
+  //   ...
+  BranchInst *const GuardBranch =
+      BranchInst::Create(ThenBB, ElseBB, MasterCheckPredicate);
+  ReplaceInstWithInst(PreBB->getTerminator(), GuardBranch);
+  DTU.applyUpdates(
+      DominatorTree::UpdateType(DominatorTree::Insert, PreBB, ElseBB));
+}
+
+const MasterThreadRegion &
+MasterThreadRegionFinder::findMasterThreadRegion(Instruction *Inst,
+                                                 bool Critical) {
+
+  LLVM_DEBUG({
+    // This function shouldn't need to be called on any instruction already in a
+    // master thread region.
+    for (const MasterThreadRegion &Region : Regions)
+      assert(!Region.contains(Inst));
+  });
+
+  // Start with a master thread region containing only Inst.
+  assert(Inst->getNextNode());
+  MasterThreadRegion Region(Inst, Critical);
+
+  // TODO: Full region expansion will happen here when implemented. For now,
+  // regions are only expanded to include immediate successor side-effect (and
+  // debug) instructions and only if none of the instructions have uses. This
+  // preserves the current master thread guarding behavior.
+  (void)ParBBSet;
+  (void)DT;
+  if (Inst->use_empty()) {
+    Instruction *NewLastInst;
+    while ((NewLastInst =
+                Region.End->getPrevNode()->getNextNonDebugInstruction()) &&
+           NewLastInst->use_empty() && needsMasterThreadGuard(NewLastInst) &&
+           NewLastInst->getNextNode())
+      Region.End = NewLastInst->getNextNode();
+  }
+
+  // Add the completed region to the list and return it.
+  Regions.push_back(std::move(Region));
+  return Regions.back();
+}
+
+} // namespace
+
 /// Guard instructions that have side effects, so that only master thread
 /// (thread_id == 0) in each team executes it.
 void VPOParoptTransform::guardSideEffectStatements(
@@ -1215,49 +1663,11 @@ void VPOParoptTransform::guardSideEffectStatements(
   CallInst *KernelEntryDir          = cast<CallInst>(W->getEntryDirective());
   CallInst *KernelExitDir           = cast<CallInst>(W->getExitDirective());
 
-  SmallVector<Instruction *, 6> SideEffectInstructions;
   SmallDenseMap<Instruction *, bool> InsertBarrierAt;
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
   SmallVector<Instruction *, 10> EntryDirectivesToDelete;
   SmallVector<Instruction *, 10> ExitDirectivesToDelete;
   SmallVector<std::pair<CallInst *, CallInst *>, 10> OmpCriticalCalls;
-
-  auto InsertWorkGroupBarrier = [](Instruction *InsertPt, bool GlobalFence) {
-    LLVMContext &C = InsertPt->getContext();
-
-    LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *InsertPt << "\n");
-
-    uint64_t MemSemanticsFlags =
-        spirv::SequentiallyConsistent | spirv::WorkgroupMemory;
-    // Experimental option is used to remove global memory fence from the
-    // barrier instruction.
-    if (GlobalFence && !ExcludeGlobalFenceFromBarriers)
-      MemSemanticsFlags |= spirv::CrossWorkgroupMemory;
-
-    // TODO: we only need global fences for side effect instructions
-    //       inside "omp target" and outside of the enclosed regions.
-    //       Moreover, it probably makes sense to guard such instructions
-    //       with (get_group_id() == 0) vs (get_local_id() == 0).
-    CallInst *CI = VPOParoptUtils::genCall(
-        "_Z22__spirv_ControlBarrieriii", Type::getVoidTy(C),
-        // The arguments are:
-        //   (Scope Execution, Scope Memory, MemorySemantics Semantics)
-        //
-        // work_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE)
-        // translates into:
-        // __spirv_ControlBarrier(
-        //     vpo::spirv::Scope::Workgroup,
-        //     vpo::spirv::Scope::Workgroup,
-        //     vpo::spirv::MemorySemantics::SequentiallyConsistent |
-        //     vpo::spirv::MemorySemantics::WorkgroupMemory |
-        //     vpo::spirv::MemorySemantics::CrossWorkgroupMemory)
-        {ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
-         ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
-         ConstantInt::get(Type::getInt32Ty(C), MemSemanticsFlags)},
-        InsertPt);
-    // __spirv_ControlBarrier() is a convergent call.
-    CI->getCalledFunction()->setConvergent();
-  };
 
   // Find the parallel region begin and end directives,
   // and add barriers at the entry and exit of parallel region.
@@ -1334,7 +1744,6 @@ void VPOParoptTransform::guardSideEffectStatements(
   SmallPtrSet<BasicBlock *, 10> ParBBSet(ParBBVector.begin(),
                                          ParBBVector.end());
   SmallPtrSet<BasicBlock *, 10> CriticalBBSet;
-  SmallPtrSet<Instruction *, 10> SideEffectsInCritical;
 
   if (!VPOParoptUtils::enableDeviceSimdCodeGen()) {
     for (auto &CriticalPair : OmpCriticalCalls) {
@@ -1346,46 +1755,57 @@ void VPOParoptTransform::guardSideEffectStatements(
     }
   }
 
-  // Iterate over all instructions and add the side effect instructions
-  // to the set "SideEffectInstructions".
+  // Iterate over all instructions and form master thread regions to contain any
+  // instructions that can't be safely run on all threads.
 
-  TargetDirectiveBegin = nullptr;
-  TargetDirectiveExit = nullptr;
+  MasterThreadRegionFinder RegionFinder(ParBBSet, *DT);
 
-  for (auto BB : TargetBBSet) {
-    if (ParBBSet.find(BB) != ParBBSet.end())
+  for (BasicBlock *const BB : TargetBBSet) {
+
+    // Do not add master thread regions in parallel region basic blocks.
+    if (ParBBSet.contains(BB))
       continue;
 
-    for (auto &I : *BB) {
-      if (TargetDirectiveBegin == nullptr &&
-          isParOrTargetDirective(&I, true)) {
-        TargetDirectiveBegin = &I;
-        TargetDirectiveExit = getExitInstruction(TargetDirectiveBegin,
-                                                 KernelEntryDir, KernelExitDir);
-      }
+    // Set up iteration bounds to only iterate instructions that are not already
+    // part of multi-basic block regions.
+    Instruction *Inst = RegionFinder.multiBBRegionEnd(BB);
+    Instruction *EndInst = RegionFinder.multiBBRegionStart(BB);
 
-      if (TargetDirectiveBegin == nullptr)
+    // Adjust the bounds to only iterate instructions within the target region
+    // if this is a target entry/exit block.
+    if (TargetDirectiveBegin->getParent() == BB)
+      Inst = TargetDirectiveBegin->getNextNode();
+    if (TargetDirectiveExit->getParent() == BB)
+      EndInst = TargetDirectiveExit;
+
+    while (Inst != EndInst) {
+
+      // If this instruction needs to be guarded, add a master thread region for
+      // it.
+      if (needsMasterThreadGuard(Inst)) {
+        LLVM_DEBUG(
+            dbgs() << "\n"
+                   << __FUNCTION__ << ": Instruction has side effect::" << *Inst
+                   << "\nBasicBlock: " << Inst->getParent()->getName() << "\n");
+        const MasterThreadRegion &Region = RegionFinder.findMasterThreadRegion(
+            Inst, CriticalBBSet.contains(BB));
+
+        // Skip any other instructions in this region that are in this basic
+        // block.
+        if (Region.getEnd()->getParent() != BB)
+          break;
+        Inst = Region.getEnd();
         continue;
-      if (TargetDirectiveExit == &I)
-        break;
-      if (I.mayThrow() || I.mayWriteToMemory()) {
-        if (ignoreWhenGuardingSideEffectStatements(&I))
-          continue;
-
-        LLVM_DEBUG(dbgs() << "\nInstruction has side effect::" << I
-                          << "\nBasicBlock: " << I.getParent() << "\n");
-        SideEffectInstructions.push_back(&I);
-        if (CriticalBBSet.find(BB) != CriticalBBSet.end())
-          SideEffectsInCritical.insert(&I);
       }
+
+      // Otherwise, continue to the next instruction.
+      Inst = Inst->getNextNonDebugInstruction();
     }
   }
 
-  auto I = SideEffectInstructions.begin();
-  auto IE = SideEffectInstructions.end();
-  Value *MasterCheckPredicate = nullptr;
+  SmallVector<MasterThreadRegion> Regions = RegionFinder.foundRegions();
 
-  if (I != IE) {
+  if (!Regions.empty()) {
     // Prepare the master check predicate, which looks like
     //   (get_local_id(0) == 0 && get_local_id(1) == 0 &&
     //    get_local_id(2) == 0)
@@ -1395,6 +1815,7 @@ void VPOParoptTransform::guardSideEffectStatements(
     IRBuilder<> Builder(KernelEntryDir);
     auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
     Value *LocalId = nullptr;
+    Value *MasterCheckPredicate = nullptr;
 
     for (unsigned Dim = 0; Dim < 3; ++Dim) {
       LocalId = VPOParoptUtils::genLocalIdCall(Dim, KernelEntryDir);
@@ -1409,150 +1830,17 @@ void VPOParoptTransform::guardSideEffectStatements(
     }
 
     MasterCheckPredicate->setName("is.master.thread");
+
+    // Codegen the regions that have been found.
+    DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+    for (MasterThreadRegion &Region : Regions) {
+      Region.insertBroadcasts(TargetDirectiveBegin);
+      Region.insertBarriers();
+      Region.insertGuard(MasterCheckPredicate, DTU, *LI);
+    }
   }
 
-  while (I != IE) {
-
-    Instruction *StartI = *I;
-    bool StartIHasUses = StartI->hasNUsesOrMore(1);
-
-    // Collect a consecutive set of Instructions with side effects
-    // from the same block. We want to guard them all at once.
-    // Note that we cannot easily guard any intermediate instructions.
-    // For example, we cannot guard a store to addrspace(0), because
-    // we want it to be executed in each WI. We cannot guard
-    // loads from addrspace(1|3) as well, since they may be loading
-    // from the memory we are about to guard, and the memory may be outdated
-    // in non-master WIs.
-    // Instructions with uses are guarded separately.
-    if (!StartIHasUses)
-      while (std::next(I) != IE &&
-             *std::next(I) == (*I)->getNextNonDebugInstruction() &&
-             !((*std::next(I))->hasNUsesOrMore(1))) {
-        I = std::next(I);
-      }
-
-    // I is pointing to the last instruction in the sequence.
-    Instruction *StopI = *I;
-
-    // Split the basic block after StopI, into 2 blocks (1st and 2nd Block).
-    // Insert a check, before StartI if the thread id is not equal to zero,
-    // then jump to the 2nd block, else jump to StartI. StopI will fall
-    // through to the 2nd block:
-    //   if(MasterCheckPredicate) {
-    //   master.thread.code:
-    //     <start instruction>
-    //     ...
-    //     <stop instruction>
-    //   }
-    //   master.thread.fallthru:
-
-    LLVM_DEBUG(dbgs() << "\nGuarding instructions from:\n"
-                      << *StartI << "\nto:\n"
-                      << *StopI << "\n");
-
-    // For the following code:
-    //
-    //   #pragma omp target map(tofrom:a)
-    //     int val = bar(a);
-    //
-    // Generate code like this:
-    //
-    //  @c.broadcast.ptr.__local = internal addrspace(3) global i32 0 //  (1)
-    //
-    //  call spir_func void @_Z22__spirv_ControlBarrieriii(
-    //      i32 2, i32 2, i32 784)                                    //  (2)
-    //  if (is_master) {                                              //  (3)
-    //    %c = call spir_func i32 @_Z3barPi(i32 addrspace(4)* %8)     // StartI
-    //    store i32 %c, i32 addrspace(3)* @c.broadcast.ptr.__local    //  (4)
-    //  }
-    //
-    //  call spir_func void @_Z22__spirv_ControlBarrieriii(
-    //      i32 2, i32 2, i32 784)                                    //  (5)
-    //  %c.new = load i32, i32 addrspace(3)* @c.broadcast.ptr.__local //  (6)
-    //  store i32 %c.new, i32* %val.priv, align 4  // Replaced %c with %c.new
-    //
-    Value *TeamLocalVal = nullptr;
-    auto &DL = StartI->getModule()->getDataLayout();
-    MaybeAlign Alignment = std::nullopt;
-    if (StartI->getType()->isPointerTy()) {
-      Align MinAlign = StartI->getPointerAlignment(DL);
-      if (MinAlign > 1)
-        Alignment = MinAlign;
-    }
-    if (StartIHasUses)
-      TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
-          StartI->getType(), nullptr, Alignment, TargetDirectiveBegin,
-          isTargetSPIRV(), StartI->getName() + ".broadcast.ptr",
-          vpo::ADDRESS_SPACE_LOCAL);
-
-    // Insert barrier right before checking is_master to avoid data race issue.
-    // It ensures all threads reading the same unmodified value in local/global
-    // address space, which may be updated by the following basic block being
-    // executed in master thread. In The example below, master thread may
-    // execute all instructions and wait at barrier(), while other threads will
-    // read modified Z at first load instruction, instead of unmodified value as
-    // expected. So we have to insert barrier() before "br is.master.thread..."
-    // instruction, to ensure all threads read unmodified value Z and then
-    // master thread modify the value Z.
-    // Example:
-    //   start:
-    //     load Z
-    //     call barrier()
-    //     br is.master.thread, master.thread.code, master.thread.fallthru
-    //   master.thread.code:
-    //     store Z
-    //     br master.thread.fallthru
-    //   master.thread.fallthru:
-    //     call barrier()
-    //
-    // If previous instruction is barrier, we don't need to insert barrier
-    // again.
-    Instruction *PrevI = StartI->getPrevNonDebugInstruction();
-    if ((SideEffectsInCritical.count(StartI) == 0) &&
-        (!PrevI || !isa<CallInst>(PrevI) ||
-         dyn_cast<CallInst>(PrevI)->getCalledFunction()->getName() !=
-             "_Z22__spirv_ControlBarrieriii"))
-      InsertWorkGroupBarrier(StartI, true); //                            (2)
-
-    Instruction *ThenTerm = SplitBlockAndInsertIfThen(
-        MasterCheckPredicate, StartI, false, nullptr, DT, LI); //         (3)
-    BasicBlock *ThenBB = ThenTerm->getParent();
-    ThenBB->setName("master.thread.code");
-    Instruction *ElseInst = StopI->getNextNonDebugInstruction();
-    BasicBlock *ElseBB = ElseInst->getParent();
-    ElseBB->setName("master.thread.fallthru");
-    ThenBB->splice(
-        ThenTerm->getIterator(), StartI->getParent(),
-        StartI->getIterator(), ElseInst->getIterator());
-
-    Instruction *BarrierInsertPt = ElseBB->getFirstNonPHI();
-
-    if (StartIHasUses) { //                                               (4)
-      Type *StartITy = StartI->getType();
-      Align StartIAlign = DL.getABITypeAlign(StartITy);
-      StoreInst *StoreGuardedInstValue =
-          new StoreInst(StartI, TeamLocalVal, false /*volatile*/, StartIAlign);
-      StoreGuardedInstValue->insertAfter(StartI);
-
-      LoadInst *LoadSavedValue = //                                       (6)
-          new LoadInst(StartITy, TeamLocalVal, StartI->getName() + ".new",
-                       false /*volatile*/, StartIAlign);
-      LoadSavedValue->insertBefore(BarrierInsertPt);
-      BarrierInsertPt = LoadSavedValue;
-
-      StartI->replaceAllUsesWith(LoadSavedValue);
-      StoreGuardedInstValue->replaceUsesOfWith(LoadSavedValue, StartI);
-    }
-
-    // Insert group barrier at the merge point.
-    if (SideEffectsInCritical.count(StartI) == 0)
-      InsertWorkGroupBarrier(BarrierInsertPt, true); //                   (5)
-
-    I = std::next(I);
-  }
-
-  if (!SideEffectInstructions.empty() ||
+  if (!Regions.empty() ||
       // FIXME: if there are multiple parallel regions,
       //        then we need to synchronize between them, otherwise
       //        some data written in a parallel region
@@ -1568,10 +1856,10 @@ void VPOParoptTransform::guardSideEffectStatements(
       //        the parallel region. Can we use alias information for that?
       needBarriersAfterParallel(W, KernelF, InsertBarrierAt)) {
     for (auto &InsertPt : InsertBarrierAt) {
-      LLVM_DEBUG(dbgs() << "Insert Barrier with "
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Insert Barrier with "
                         << (InsertPt.second ? "global" : "local")
                         << " fence at :" << InsertPt.first << "\n");
-      InsertWorkGroupBarrier(InsertPt.first, InsertPt.second);
+      insertWorkGroupBarrier(InsertPt.first, InsertPt.second);
     }
   }
 
