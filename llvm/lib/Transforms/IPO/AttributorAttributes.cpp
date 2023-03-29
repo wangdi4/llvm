@@ -1725,6 +1725,8 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
             return false;
         } else {
           auto PredIt = pred_begin(IntrBB);
+          if (PredIt == pred_end(IntrBB))
+            return false;
           if ((*PredIt) != BB)
             return false;
           if (++PredIt != pred_end(IntrBB))
