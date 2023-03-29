@@ -6,12 +6,12 @@
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 0, 1   <DO_MULTI_EXIT_LOOP>
 ;       |   %tmp4 = 0;
-;       |   if (undef #UNDEF# undef)
+;       |   if (undef != 0)
 ;       |   {
 ;       |      %tmp4 = (undef)[0];
 ;       |   }
 ;       |   %tmp9.in2 = 0.000000e+00;
-;       |   if (undef #UNDEF# undef && %tmp4 > 0)
+;       |   if (undef != 0 && %tmp4 > 0)
 ;       |   {
 ;       |      %tmp9.in2 = undef;
 ;       |   }

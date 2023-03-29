@@ -678,8 +678,6 @@ Value *CGVisitor::createCmpInst(const HLPredicate &P, Value *LHS, Value *RHS,
   // Account for vector type
   auto LType = LHS->getType()->getScalarType();
 
-  assert(P != UNDEFINED_PREDICATE && "invalid predicate for cmp/sel in HIRCG");
-
   if (LType->isIntegerTy() || LType->isPointerTy()) {
     CmpInst = Builder.CreateICmp(P, LHS, RHS, Name);
   } else if (LType->isFloatingPointTy()) {
@@ -1395,14 +1393,6 @@ Value *CGVisitor::generatePredicate(HLIf *HIf, HLIf::const_pred_iterator P) {
 
   RegDDRef *LHSRef = HIf->getLHSPredicateOperandDDRef(P);
   RegDDRef *RHSRef = HIf->getRHSPredicateOperandDDRef(P);
-
-  // For undef predicate, we don't need to CG operands since end result
-  // is undef anyway.
-  if (*P == UNDEFINED_PREDICATE) {
-    // TODO icmp/fcmp with nonvector args return a boolean, i1 but
-    // vector types would require cmp to return vector of i1
-    return UndefValue::get(IntegerType::get(F.getContext(), 1));
-  }
 
   LHSVal = visitRegDDRef(LHSRef);
   RHSVal = visitRegDDRef(RHSRef);
