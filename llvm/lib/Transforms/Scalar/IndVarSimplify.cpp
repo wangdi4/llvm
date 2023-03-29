@@ -1023,8 +1023,11 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
   const SCEV *IVLimit = ARBase->evaluateAtIteration(ExitCount, *SE);
   assert(SE->isLoopInvariant(IVLimit, L) &&
          "Computed iteration count is not loop invariant!");
-  return Rewriter.expandCodeFor(IVLimit, ARBase->getType(),
-                                ExitingBB->getTerminator());
+#if INTEL_COLLAB
+  auto *ExpandTy =
+      IndVar->getType()->isPointerTy() ? IndVar->getType() : ARBase->getType();
+  return Rewriter.expandCodeFor(IVLimit, ExpandTy, ExitingBB->getTerminator());
+#endif // INTEL_COLLAB
 }
 
 /// This method rewrites the exit condition of the loop to be a canonical !=
