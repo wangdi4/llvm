@@ -6,6 +6,15 @@
 
 ; CHECK:  IP Pred Opt: Started
 ; CHECK-NOT: Failed: No Candidate
+;
+; CHECK: Control conditions for bb339:
+; CHECK:      [  %i328 = icmp eq ptr %i327, @_ZNK11xercesc_2_76IC_Key7getTypeEv, true]
+; CHECK:      [  %i319 = icmp eq i8 %i318, 0, false]
+; CHECK:Control conditions for bb331:
+; CHECK:      [  %i330 = icmp eq ptr %i327, @_ZNK11xercesc_2_79IC_KeyRef7getTypeEv, false]
+; CHECK:      [  %i328 = icmp eq ptr %i327, @_ZNK11xercesc_2_76IC_Key7getTypeEv, false]
+; CHECK:      [  %i319 = icmp eq i8 %i318, 0, false]
+;
 ; CHECK:  Found candidate
 
 

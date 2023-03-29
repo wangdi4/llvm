@@ -72,14 +72,34 @@ static cl::opt<bool> IPPredDumpTargetFunctions(
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// This is used to represent control condition.
+// Value: Condition in the ICmp instruction.
+// bool: Whether BasicBlock is executed when the condition is True or False.
+using ControlCond = PointerIntPair<Value *, 1, bool>;
+
+#ifndef NDEBUG
+// Dumper for ControlCond
+raw_ostream &operator<<(raw_ostream &OS, const ControlCond &C) {
+  OS << "[" << *C.getPointer() << ", " << (C.getInt() ? "true" : "false")
+     << "]";
+  return OS;
+}
+#endif
+
 // Application may have many candidates. This class is used to
 // handle multiple candidates.
 class PredCandidate {
 public:
-  PredCandidate(BasicBlock *ExitBB) : ExitBB(ExitBB) {}
+  PredCandidate(BasicBlock *ExitBB, BasicBlock *ThenBB, DominatorTree &DT,
+                PostDominatorTree &PDT)
+      : ExitBB(ExitBB), ThenBB(ThenBB), DT(DT), PDT(PDT) {}
   ~PredCandidate() {}
 
   bool collectExecutedBlocks();
+  bool collectControlConds(BasicBlock *BB);
+  bool collectControlCondsForBlocks();
+  bool isControlCondSame(const ControlCond &C1, const ControlCond &C2);
+  bool checkLegalityIssues();
   PredCandidate(const PredCandidate &) = delete;
   PredCandidate(PredCandidate &&) = delete;
   PredCandidate &operator=(const PredCandidate &) = delete;
@@ -93,8 +113,21 @@ private:
   // Exit block of outermost conditional statement.
   BasicBlock *ExitBB = nullptr;
 
+  // Starting basic block of candidate's CFG.
+  BasicBlock *ThenBB = nullptr;
+
+  DominatorTree &DT;
+
+  PostDominatorTree &PDT;
+
   // Basic blocks that are controlled under inside condition statements.
-  SmallPtrSet<BasicBlock *, 2> ExecutedBlocks;
+  SmallSetVector<BasicBlock *, 2> ExecutedBlocks;
+
+  // List of all control basic blocks
+  SmallPtrSet<BasicBlock *, 8> ControlBlocks;
+
+  // Map between executed block and corresponding control conditions.
+  SmallDenseMap<BasicBlock *, SmallVector<ControlCond, 4>, 2> BBControlCondsMap;
 };
 
 // Main class to implement the transformation.
@@ -256,6 +289,102 @@ void IPPredOptImpl::dumpTargetFunctions(void) {
   }
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// Returns true if C1 and C2 are same. This is used to reduce
+// number of conditions to be hoisted.
+bool PredCandidate::isControlCondSame(const ControlCond &C1,
+                                      const ControlCond &C2) {
+  if (C1.getInt() == C2.getInt()) {
+    if (C1.getPointer() == C2.getPointer())
+      return true;
+  } else {
+    const auto *Cmp1 = dyn_cast<CmpInst>(C1.getPointer());
+    const auto *Cmp2 = dyn_cast<CmpInst>(C2.getPointer());
+    if (!Cmp1 || !Cmp2)
+      return false;
+    if (Cmp1->getPredicate() == Cmp2->getInversePredicate() &&
+        Cmp1->getOperand(0) == Cmp2->getOperand(0) &&
+        Cmp1->getOperand(1) == Cmp2->getOperand(1))
+      return true;
+  }
+  return false;
+}
+
+// Computes all conditions that control "BB" from "ThenBB". Starts from
+// "BB" and find controlling conditions using PostDominatorTree info
+// till "ThenBB" is reached.
+bool PredCandidate::collectControlConds(BasicBlock *BB) {
+  if (BB == ThenBB || !DT.dominates(ThenBB, BB))
+    return false;
+
+  BasicBlock *CurBlock = BB;
+  int NumConditions = 0;
+  SmallVector<ControlCond, 4> Conditions;
+
+  do {
+    if (!DT.getNode(CurBlock))
+      return false;
+    // Get immediate dominator of CurBlock.
+    BasicBlock *CurrDom = DT.getNode(CurBlock)->getIDom()->getBlock();
+
+    // Makes sure ThenBB dominates CurrDom
+    if (!DT.dominates(ThenBB, CurrDom))
+      return false;
+
+    const BranchInst *BI = dyn_cast<BranchInst>(CurrDom->getTerminator());
+    // For now, allow only conditional branches.
+    if (!BI || !BI->isConditional())
+      return false;
+
+    if (PDT.dominates(CurBlock, BI->getSuccessor(0)))
+      Conditions.push_back(ControlCond(BI->getCondition(), true));
+    else if (PDT.dominates(CurBlock, BI->getSuccessor(1)))
+      Conditions.push_back(ControlCond(BI->getCondition(), false));
+    else
+      return false;
+
+    // Limit to at most 3 control conditions.
+    if (++NumConditions > 3)
+      return false;
+
+    CurBlock = CurrDom;
+    ControlBlocks.insert(CurBlock);
+
+  } while (CurBlock != ThenBB);
+
+  BBControlCondsMap[BB] = Conditions;
+  return true;
+}
+
+// Compute all conditions that are controlling all executed basic blocks.
+bool PredCandidate::collectControlCondsForBlocks() {
+  for (auto *BB : ExecutedBlocks)
+    if (!collectControlConds(BB))
+      return false;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Dump control conditions of all executed blocks.
+  for (auto *BB : ExecutedBlocks) {
+    LLVM_DEBUG(dbgs() << "Control conditions for " << BB->getName() << ": \n");
+    for (auto C : BBControlCondsMap[BB])
+      LLVM_DEBUG(dbgs() << "        " << C << "\n");
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  return true;
+}
+
+// Check legality issues to hoist conditions.
+bool PredCandidate::checkLegalityIssues() {
+  // Makes sure all basic blocks between ThenBB and ExitBB are either
+  // ExecutedBlocks or ControlBlocks.
+  for (BasicBlock &BB :
+       make_range(ThenBB->getIterator(), ExitBB->getIterator()))
+    if (!ExecutedBlocks.count(&BB) && !ControlBlocks.count(&BB))
+      return false;
+
+  return true;
+}
 
 // Collect all executed blocks that are controlled by all conditions.
 // Executed blocks are terminated with unconditional branches.
@@ -422,10 +551,17 @@ void IPPredOptImpl::gatherCandidates(Function &F) {
     if (!checkBBControlAllCode(ThenBB, ExitBB))
       continue;
 
-    std::unique_ptr<PredCandidate> CandD(new PredCandidate(ExitBB));
+    std::unique_ptr<PredCandidate> CandD(
+        new PredCandidate(ExitBB, ThenBB, DT, PDT));
 
     // Collect ExecutedBB if there are any.
     if (!CandD->collectExecutedBlocks())
+      continue;
+
+    if (!CandD->collectControlCondsForBlocks())
+      continue;
+
+    if (!CandD->checkLegalityIssues())
       continue;
 
     // TODO: Add more checks here.
