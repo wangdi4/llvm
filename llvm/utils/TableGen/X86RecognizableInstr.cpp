@@ -1006,7 +1006,8 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
 #if INTEL_FEATURE_ISA_APX_F
   case X86Local::MRM0rImmAAA:
   case X86Local::MRM6rImmAAA:
-    filter = std::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0rImmAAA);
+    filter = std::make_unique<ExtendedFilter>(
+        true, (Form == X86Local::MRM0rImmAAA) ? 0 : 6);
     break;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
