@@ -3648,6 +3648,10 @@ bool Generic_GCC::IsIntegratedAssemblerDefault() const {
     return true;
   case llvm::Triple::nvptx:
   case llvm::Triple::nvptx64:
+#if INTEL_CUSTOMIZATION
+  case llvm::Triple::spir:
+  case llvm::Triple::spir64:
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::xcore:
     return false;
   default:
