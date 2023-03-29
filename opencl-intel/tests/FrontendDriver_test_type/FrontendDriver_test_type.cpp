@@ -553,17 +553,18 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
       spv::CapabilityFPGAClusterAttributesINTEL, SPIRVOpCapability,
       spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
       spv::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL,
-      SPIRVOpCapability, spv::CapabilityFPGAKernelAttributesv2INTEL,
-      SPIRVOpCapability, spv::internal::CapabilityFPArithmeticFenceINTEL,
-      SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
-      SPIRVOpCapability, spv::internal::CapabilityTaskSequenceINTEL, // INTEL
+      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAKernelAttributesv2INTEL, SPIRVOpCapability,
+      spv::internal::CapabilityFPArithmeticFenceINTEL, SPIRVOpCapability,
+      spv::CapabilityLongConstantCompositeINTEL, SPIRVOpCapability,
+      spv::internal::CapabilityTaskSequenceINTEL, // INTEL
       SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
       SPIRVOpCapability,
       spv::internal::CapabilityGlobalVariableDecorationsINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
       SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
-      SPIRVOpCapability, spv::CapabilityAtomicFloat64AddEXT,
+      SPIRVOpCapability, spv::CapabilityAtomicFloat64AddEXT, SPIRVOpCapability,
+      spv::CapabilityFPGAArgumentInterfacesINTEL,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
@@ -726,10 +727,11 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
       spv::CapabilityFPGAClusterAttributesINTEL, SPIRVOpCapability,
       spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
       spv::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL,
-      SPIRVOpCapability, spv::CapabilityFPGAKernelAttributesv2INTEL,
-      SPIRVOpCapability, spv::internal::CapabilityFPArithmeticFenceINTEL,
-      SPIRVOpCapability, spv::internal::CapabilityTaskSequenceINTEL, // INTEL
+      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAKernelAttributesv2INTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAArgumentInterfacesINTEL, SPIRVOpCapability,
+      spv::internal::CapabilityFPArithmeticFenceINTEL, SPIRVOpCapability,
+      spv::internal::CapabilityTaskSequenceINTEL, // INTEL
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
 

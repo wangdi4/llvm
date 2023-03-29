@@ -1,7 +1,4 @@
-; RUN: SATest -BUILD --config=%s.cfg -tsize=0 | FileCheck %s -check-prefix=CHECK-LOG
 ; RUN: SATest -BUILD --config=%s.cfg -tsize=0 -llvm-option=-print-before=sycl-kernel-analysis 2>&1 | FileCheck %s
-
-; CHECK-LOG: Test program was successfully built.
 
 ; CHECK: call {{.*}}@_Z11atomic_initP{{.*}}VU7_Atomicii
 ; CHECK: call {{.*}}@_Z11atomic_initP{{.*}}VU7_Atomicjj
@@ -386,3 +383,5 @@
 ; CHECK: call {{.*}}@_Z17atomic_flag_clearP{{.*}}VU7_Atomici
 ; CHECK: call {{.*}}@_Z26atomic_flag_clear_explicitP{{.*}}VU7_Atomici12memory_order
 ; CHECK: call {{.*}}@_Z26atomic_flag_clear_explicitP{{.*}}VU7_Atomici12memory_order12memory_scope
+
+; CHECK: Test program was successfully built.
