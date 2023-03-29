@@ -40,6 +40,16 @@
 namespace llvm {
 class TargetLibraryInfo;
 
+#if INTEL_CUSTOMIZATION
+namespace VectorUtils {
+// The attribute provides a list of vector variants for a scalar function.
+// When attached to a function definition the list specifies vector variants
+// need to be generated from the original (scalar) version.
+// When attached to a call, tells loop vectorizer about available vector
+// variants for the call.
+constexpr const char *VectorVariantsAttrName = "vector-variants";
+} // namespace VectorUtils
+#endif // INTEL_CUSTOMIZATION
 /// Describes the type of Parameters
 enum class VFParamKind {
   Vector,            // No semantic information.
@@ -100,7 +110,7 @@ struct VFParameter {
   int LinearStepOrPos = 0;   // Step or Position of the Parameter.
 #if INTEL_CUSTOMIZATION
   MaybeAlign Alignment = std::nullopt; // Optional alignment in bytes.
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Comparison operator.
   bool operator==(const VFParameter &Other) const {
@@ -325,7 +335,7 @@ struct VFShape {
   /// vector variants that we generate during call vec decisions.
   /// (TODO: remove once this behavior has been properly implemented.)
   bool hasValidParameterList(bool Permissive = false) const;
-#endif
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Holds the VFShape for a specific scalar to vector function mapping.
@@ -554,7 +564,7 @@ std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
 VFInfo demangleForVFABI(StringRef MangledName);
 std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
                                           const Module *M = nullptr);
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 /// This routine mangles the given VectorName according to the LangRef
 /// specification for vector-function-abi-variant attribute and is specific to
@@ -876,11 +886,6 @@ typedef std::vector<std::string> DeclaredVariants;
 /// @brief Contains a mapping of a function to its vector function variants
 typedef std::map<Function*, DeclaredVariants> FunctionVariants;
 
-/// @brief Get all function attributes that specify a vector variant
-/// @param F Function to inspect
-/// @return A vector of all matching attributes
-std::vector<Attribute> getVectorVariantAttributes(Function& F);
-
 /// \brief Determine the characteristic type of the vector function as
 /// specified according to the vector function ABI.
 Type *calcCharacteristicType(Function &F, const VFInfo &Variant);
@@ -955,11 +960,6 @@ inline FixedVectorType *getWidenedType(const Type *Ty, unsigned VF) {
       Ty->isVectorTy() ? cast<FixedVectorType>(Ty)->getNumElements() * VF : VF;
   return FixedVectorType::get(Ty->getScalarType(), NumElts);
 }
-
-/// \brief Get all functions marked for vectorization in module and their
-/// list of variants.
-void getFunctionsToVectorize(
-  Module &M, MapVector<Function*, std::vector<StringRef> > &FuncVars);
 
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.
@@ -1193,7 +1193,7 @@ SmallVector<int, 64> createVectorInterleaveMask(unsigned VF, unsigned NumVecs,
 ///     <(3, 4, 5), (12, 13, 14), (21, 22, 23), (30, 31, 32)>.
 SmallVector<int, 64> createVectorStrideMask(unsigned Start, unsigned Stride,
                                             unsigned VF, unsigned VecWidth);
-#endif /* INTEL_CUSTOMIZATION */
+#endif // INTEL_CUSTOMIZATION
 
 /// Create a sequential shuffle mask.
 ///

@@ -176,6 +176,40 @@ static cl::opt<bool>
     EmitTypedOMP("vec-clone-typed-omp", cl::init(true), cl::Hidden,
                  cl::desc("Emit 'TYPED' version of OMP clauses."));
 
+/// Get all functions marked for vectorization in module \p M, and populate
+/// map FuncVars that maps each such function to corresponding list of variants.
+static void getFunctionsToVectorize(
+    llvm::Module &M, MapVector<Function *, std::vector<StringRef>> &FuncVars) {
+
+  // FuncVars will contain a 1-many mapping between the original scalar
+  // function and the vector variant encoding strings (represented as
+  // attributes). The encodings correspond to functions that will be created by
+  // the caller of this function as vector versions of the original function.
+  // For example, if foo() is a function marked as a simd function, it will have
+  // several vector variant encodings like: "_ZGVbM4_foo", "_ZGVbN4_foo",
+  // "_ZGVcM8_foo", "_ZGVcN8_foo", "_ZGVdM8_foo", "_ZGVdN8_foo", "_ZGVeM16_foo",
+  // "_ZGVeN16_foo". The caller of this function will then clone foo() and name
+  // the clones using the above name manglings. The variant encodings correspond
+  // to differences in masked/non-masked execution, vector length, and target
+  // vector register size, etc. For more details on the vector function
+  // encodings, please refer to 'vector-function-abi-variant' attribute
+  // description at https://llvm.org/docs/LangRef.html#call-site-attributes
+
+  for (auto It = M.begin(), End = M.end(); It != End; ++It) {
+    Function &F = *It;
+    if (F.hasFnAttribute(VectorUtils::VectorVariantsAttrName) &&
+        !F.isDeclaration()) {
+      Attribute Attr = F.getFnAttribute(VectorUtils::VectorVariantsAttrName);
+      StringRef VariantsStr = Attr.getValueAsString();
+      SmallVector<StringRef, 8> Variants;
+      VariantsStr.split(Variants, ',');
+      for (unsigned i = 0; i < Variants.size(); i++) {
+        FuncVars[&F].push_back(Variants[i]);
+      }
+    }
+  }
+}
+
 VecClone::VecClone() : ModulePass(ID) {
   initializeVecClonePass(*PassRegistry::getPassRegistry());
 }
@@ -242,19 +276,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   Function* Clone = getOrInsertVectorVariantFunction(&F, V.getVF(), ParmTypes,
                                                      &V, V.isMasked());
 
-  // Remove vector variant attributes from the original function. They are
-  // not needed for the cloned function and it prevents any attempts at
-  // trying to clone the function again in case the pass is called more than
-  // once.
-  AttributeMask AB;
-  for (const auto &Attr : getVectorVariantAttributes(F)) {
-    AB.addAttribute(Attr);
-  }
-
-  F.removeFnAttrs(AB);
-
-  // Copy all the attributes from the scalar function to its vector version
-  // except for the vector variant attributes.
+  // Copy all the attributes from the scalar function to its vector version.
   Clone->copyAttributesFrom(&F);
 
   // Remove incompatible argument attributes (applied to the scalar argument,
@@ -1582,7 +1604,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
 
     if (vlaAllocasExist(F)) {
       LLVM_DEBUG(dbgs() << "Bail out due to presence of array alloca(s)\n");
-      F.removeFnAttr("vector-variants");
+      F.removeFnAttr(VectorUtils::VectorVariantsAttrName);
       if (ORBuilder)
         (*ORBuilder)(F).addRemark(OptReportVerbosity::Medium,
                                   "'omp declare' vector variants were "

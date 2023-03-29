@@ -626,13 +626,14 @@ void SYCLKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       continue;
 
     std::string Variants;
-    assert(!Call->hasFnAttr("vector-variants") &&
+    assert(!Call->hasFnAttr(VectorUtils::VectorVariantsAttrName) &&
            "Unexpected vector-variants attribute for OpenCL builtin!");
 
     // This condition isn't expected to happen, but do the right thing anyway.
-    if (Call->hasFnAttr("vector-variants"))
+    if (Call->hasFnAttr(VectorUtils::VectorVariantsAttrName))
       Variants = std::string(
-          Call->getCallSiteOrFuncAttr("vector-variants").getValueAsString());
+          Call->getCallSiteOrFuncAttr(VectorUtils::VectorVariantsAttrName)
+              .getValueAsString());
 
     // Indicates the call must have mask arg.
     bool HasMask = true;
@@ -661,7 +662,8 @@ void SYCLKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     AttributeList AL = Call->getAttributes();
 
-    AL = AL.addFnAttribute(Call->getContext(), "vector-variants", Variants);
+    AL = AL.addFnAttribute(Call->getContext(),
+                           VectorUtils::VectorVariantsAttrName, Variants);
     // TODO: So far the functions that have their vector variants assigned here
     // are essentially "kernel-call-once" functions.
     if (KernelCallOnce)
