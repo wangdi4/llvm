@@ -212,8 +212,9 @@ private:
     // This is set if this DDRef represents an address computation (GEP) instead
     // of a load or store.
     bool AddressOf;
-    bool IsCollapsed; // Set if the DDRef has been collapsed through Loop
-                      // Collapse Pass. Needed for DD test to bail out often.
+    unsigned NumCollapsedLevels; // Stores the number of dimensions collapsed by
+                                 // loop collapsing pass. It is set to 0 by
+                                 // default.
     unsigned MaxVecLenAllowed; // Maximum Vector length allowed
     unsigned Alignment;
     // Extent is passed by Fortran FE to indicate known highest dimsize.
@@ -698,7 +699,7 @@ public:
 
   /// Returns true if fake mem ref has known access type.
   bool canUsePointeeSize() const {
-    assert (isFake() && "Fake ref expected");
+    assert(isFake() && "Fake ref expected");
     if (!hasGEPInfo())
       return false;
     return getGEPInfo()->CanUsePointeeSize;
@@ -706,17 +707,26 @@ public:
 
   /// Sets CanUsePointeeSize for this ref
   void setCanUsePointeeSize(bool Val) {
-    assert (isFake() && "Fake ref expected");
+    assert(isFake() && "Fake ref expected");
     getGEPInfo()->CanUsePointeeSize = Val;
   }
 
-  /// \brief Returns true if this is a collapsed ref.
-  bool isCollapsed(void) const { return getGEPInfo()->IsCollapsed; }
+  /// Returns true if reference was collapsed.
+  bool isCollapsed(void) const {
+    assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
+    return getGEPInfo()->NumCollapsedLevels;
+  }
 
-  /// Sets collapse flag for this ref.
-  void setCollapsed(bool CollapseFlag) {
+  /// \brief Returns number of levels that were collapsed.
+  unsigned getNumCollapsedLevels(void) const {
+    assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
+    return getGEPInfo()->NumCollapsedLevels;
+  }
+
+  /// Sets number of levels that were collapsed starting from innermost.
+  void setCollapsedLevels(unsigned NumCollapsedLevelsArg) {
     createGEP();
-    getGEPInfo()->IsCollapsed = CollapseFlag;
+    getGEPInfo()->NumCollapsedLevels = NumCollapsedLevelsArg;
   }
 
   /// Get/Set Max Vector Length Allowed. The field is set by collapsing pass to

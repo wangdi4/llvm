@@ -565,6 +565,10 @@ void FuseGraph::initPathToInfo(NodeMapTy &LocalPathFrom,
 
 void FuseGraph::excludePathPreventingVectorization(unsigned NodeV,
                                                     unsigned NodeW) {
+  if (SkipVecProfitabilityCheck) {
+    return;
+  }
+
   // Skip fusion if one loop is vectorizable and another is not.
   bool NodeVVectorizable = Vertex[NodeV].isVectorizable();
   bool NodeWVectorizable = Vertex[NodeW].isVectorizable();
