@@ -25,4 +25,4 @@ define i32 @bar(i32 %a) !llvm.auto.cpu.dispatch !0 {
 }
 
 !0 = !{!1}
-!1 = !{!"auto-cpu-dispatch-target", !"core_i7_sse4_2"}
+!1 = !{!"auto-cpu-dispatch-target", !"corei7"}

@@ -62,19 +62,11 @@ static std::string getTargetFeatures(StringRef TargetCpu) {
   return "+" + llvm::join(CPUFeatures, ",+");
 }
 
-static Twine getTargetSuffix(StringRef TargetCpu) {
-  return Twine(StringSwitch<char>(TargetCpu)
+static char getTargetSuffix(StringRef TargetCpu) {
+  return StringSwitch<char>(TargetCpu)
 #define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, MANGLING)
 #include "llvm/TargetParser/X86TargetParser.def"
-                   .Default(0));
-}
-
-static StringRef getLibIRCDispatchFeatures(StringRef TargetCpu) {
-  StringRef Features = StringSwitch<StringRef>(TargetCpu)
-#define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, FEATURES)
-#include "llvm/TargetParser/X86TargetParser.def"
-                            .Default("");
-  return Features;
+      .Default(0);
 }
 
 static StringRef CPUSpecificCPUDispatchNameDealias(StringRef Name) {
@@ -397,12 +389,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       const StringRef TargetCpuDealiased =
           CPUSpecificCPUDispatchNameDealias(TargetCpu);
 
-      const StringRef LibIRCDispatchFeatures =
-          getLibIRCDispatchFeatures(TargetCpuDealiased);
-      // Skip target if it is not recognized by
-      // llvm/TargetParser/X86TargetParser.def.
-      assert(LibIRCDispatchFeatures != "" && "A target is not recognized!");
-      if (LibIRCDispatchFeatures == "")
+      auto TargetCpuSuffix = getTargetSuffix(TargetCpuDealiased);
+      // Skip target if not recognized by llvm/TargetParser/X86TargetParser.def
+      assert(TargetCpuSuffix != '\0' && "A target is not recognized!");
+      if (TargetCpuSuffix == '\0')
         continue;
 
       ValueToValueMapTy VMap;
@@ -411,19 +401,19 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       const Attribute Attr = New->getFnAttribute("target-features");
       const StringRef OldFeatures = Attr.getValueAsString();
 
-      std::string Features = LibIRCDispatchFeatures.str();
+      SmallVector<StringRef, 64> NewFeatures;
+      OldFeatures.split(NewFeatures, ",", -1, false);
 
-      // Keep old target features as some of them can be added as a result
-      // of command line arguments(e.g. -msha)
-      if (OldFeatures.empty()) {
-        New->addFnAttr("target-features", Features);
-      }
-      else {
-        SmallString<256> Appended(OldFeatures);
-        Appended.push_back(',');
-        Appended.append(Features);
-        New->addFnAttr("target-features", Appended);
-      }
+      // Drop leading "+".
+      transform(NewFeatures, NewFeatures.begin(),
+                [](StringRef Str) { return Str.substr(1); });
+
+      X86::getFeaturesForCPU(TargetCpu, NewFeatures);
+      llvm::sort(NewFeatures);
+      auto Last = std::unique(NewFeatures.begin(), NewFeatures.end());
+      NewFeatures.erase(Last, NewFeatures.end());
+
+      New->addFnAttr("target-features", "+" + llvm::join(NewFeatures, ",+"));
 
       New->removeFnAttr("target-cpu");
       New->addFnAttr("target-cpu", TargetCpu);
@@ -436,16 +426,9 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
       New->setMetadata("llvm.acd.clone", MDNode::get(New->getContext(), {}));
 
-      New->setName(Fn->getName() + "." + getTargetSuffix(TargetCpuDealiased));
+      New->setName(Fn->getName() + "." + Twine(TargetCpuSuffix));
 
-      SmallVector<StringRef> FeaturesArray;
-      LibIRCDispatchFeatures.split(FeaturesArray, ',', /*MaxSplit=*/-1,
-                                   /*KeepEmpty=*/false);
-      // Drop leading "+".
-      transform(FeaturesArray, FeaturesArray.begin(),
-                [](StringRef Str) { return Str.substr(1); });
-
-      MVOptions.emplace_back(New, "" /* Op(1)? */, FeaturesArray);
+      MVOptions.emplace_back(New, "" /* Op(1)? */, NewFeatures);
 
       MultiFunc2TargetExt[New] = TargetCpu.str();
       Clones[TargetCpu.str()] = New;

@@ -23,4 +23,4 @@ define i32 @bar(i32 %a) {
 }
 
 !0 = !{!1}
-!1 = !{!"auto-cpu-dispatch-target", !"core_i7_sse4_2"}
+!1 = !{!"auto-cpu-dispatch-target", !"corei7"}

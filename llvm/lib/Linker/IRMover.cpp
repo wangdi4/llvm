@@ -313,7 +313,7 @@ public:
   /// Try mapping the structure types in the source module to the destination
   /// module using the DTrans information. Return true if the mapping was done,
   /// else return false.
-  bool mapTypesToDTransData(Module &SrcM, Module &DstM);
+  bool mapTypesToDTransData(Module &SrcM, Module &DstM, bool *DoRTTISpecial);
 
   /// Update destination DTransTypesManager
   void updateDTransTypeManager();
@@ -385,7 +385,8 @@ DTransStructsMap::DTransStructsMap(Module &M, bool AllowsIncompleteMD,
   // traditional type mapping. Also the type mapping verification can't
   // be used. Once we ensure that there is no metadata loss during the
   // compile step then we can replace the 'false' with '!AllowsIncompleteMD'.
-  MDReadCorrectly = DtransTypeMDReader->initialize(M, false);
+  MDReadCorrectly = DtransTypeMDReader->initialize(M, /*StrictCheck=*/false,
+                                                   /*SkipSpecial=*/true);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (TraceDTransMetadataLoss) {
@@ -869,7 +870,8 @@ void TypeMapTy::insertVisitedType(StructType *ST) {
 
 // Traverse through the types in the source module and see which types can be
 // mapped to the destination module by matching the DTrans information.
-bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
+bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM,
+                                     bool *DoRTTISpecial) {
 
   // Traverse through the types in the destination module and check which type
   // can be mapped with the input Structure.
@@ -1011,6 +1013,7 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
     }
   };
 /**************************** End special function ***************************/
+  *DoRTTISpecial = false;
   if (!EnableDTransTypesMappingScheme)
     return false;
 
@@ -1103,6 +1106,12 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
     if (!ST->hasName())
       continue;
 
+    if (isDTransSkippableType(ST)) {
+      DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
+                      dbgs() << "  Skippable type: " << *ST << "\n");
+      *DoRTTISpecial = true;
+      continue;
+    }
     // Ignore special empty strutures (this will go away once the CFE
     // generates OP)
     if (isSpecialEmptyStruct(ST))
@@ -1290,7 +1299,6 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
         dyn_cast<PointerType>(SrcST->getElementType(FieldNum));
     PointerType *PtrDst =
         dyn_cast<PointerType>(DstST->getElementType(FieldNum));
-
     // Fields are pointer types, collect the DTrans type information
     if (PtrSrc && PtrDst) {
       assert((PtrSrc->isOpaque() == PtrDst->isOpaque()) &&
@@ -1534,7 +1542,9 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
   // properties.
   StructType *SrcStr = dyn_cast<StructType>(SrcTy);
   StructType *DstStr = dyn_cast<StructType>(DstTy);
-  bool StructsMatches = StructsAreTheSame(SrcStr, DstStr);
+  bool IsSpecial =
+      isDTransSkippableType(SrcStr) || isDTransSkippableType(DstStr);
+  bool StructsMatches = !IsSpecial && StructsAreTheSame(SrcStr, DstStr);
 #endif //INTEL_FEATURE_SW_DTRANS
 
   for (unsigned I = 0, E = SrcTy->getNumContainedTypes(); I != E; ++I) {
@@ -3052,8 +3062,17 @@ void IRLinker::computeTypeMapping() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // Check if we can map the structures using the DTrans information
+  bool DoRTTIOrEHSpecial = false;
   bool IsMappingByDTransInfoEnabled =
-      TypeMap.mapTypesToDTransData(*SrcM, DstM);
+      TypeMap.mapTypesToDTransData(*SrcM, DstM, &DoRTTIOrEHSpecial);
+  DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES, {
+    dbgs() << "IsMappingByDTransInfoEnabled: ";
+    dbgs() << (IsMappingByDTransInfoEnabled ? "T" : "F");
+    dbgs() << "\n";
+    dbgs() << "DoRTTIOrEHSpecial: ";
+    dbgs() << (DoRTTIOrEHSpecial ? "T" : "F");
+    dbgs() << "\n";
+  });
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -3096,7 +3115,7 @@ void IRLinker::computeTypeMapping() {
   // If mapping with DTrans information passed succesfully then we can skip
   // the next loop. We don't need to spend time traversing through the same
   // types again, plus calling getIdentifiedStructTypes is very expensive.
-  if (!IsMappingByDTransInfoEnabled) {
+  if (!IsMappingByDTransInfoEnabled || DoRTTIOrEHSpecial) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -3143,7 +3162,14 @@ void IRLinker::computeTypeMapping() {
     // we prefer to take the '%C' version. So we are then left with both
     // '%C.1' and '%C' being used for the same types. This leads to some
     // variables using one type and some using the other.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if ((DoRTTIOrEHSpecial && isDTransSkippableType(ST)) ||
+        (!DoRTTIOrEHSpecial && TypeMap.DstStructTypesSet.hasType(DST)))
+#else  // INTEL_FEATURE_SW_DTRANS
     if (TypeMap.DstStructTypesSet.hasType(DST))
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
       TypeMap.addTypeMapping(DST, ST);
   }
 

@@ -1,6 +1,6 @@
 //===-----------TypeMetadataReader.h - Decode metadata annotations---------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -35,6 +35,14 @@ class DTransFunctionType;
 class DTransStructType;
 class DTransTypeManager;
 class TypeMetadataTester;
+
+// Return 'true' if 'STy' is a type for which we are not expected to collect
+// DTrans metadata.
+bool isDTransSkippableType(StructType *ST);
+
+// Return 'true' if there is a NamedMDNode that contains the list of metadata
+// nodes used to describe all the structure types.
+extern bool hasDTransTypesMetadata(Module &M);
 
 // This class parses metadata descriptions of types for DTrans. Refer to the
 // DTrans .rst documentation files for a description of the metadata format.
@@ -100,7 +108,7 @@ public:
   // If StrictCheck is true, then the process for checking the metadata will
   // assert if any metadata is lost. Else, it will only assert for a structure
   // where has an opaque pointer type and the metadata is lost.
-  bool initialize(Module &M, bool StrictCheck = true);
+  bool initialize(Module &M, bool StrictCheck = true, bool SkipSpecial = false);
 
   // If the Value has DTrans type metadata that can be decoded, return the
   // DTransType, otherwise nullptr.
@@ -135,7 +143,8 @@ private:
 
   DTransStructType *constructDTransStructType(MDNode *MD);
   llvm::StructType *populateDTransStructType(Module &M, MDNode *MD,
-                                             DTransStructType *DTStTy);
+                                             DTransStructType *DTStTy,
+                                             bool SkipSpecial = false);
   void populateDTransStructTypeFromLLVMType(llvm::StructType *Sty,
                                             DTransStructType *DSTy);
   bool validateMDFieldType(DTransType *DTy, llvm::Type *LTy);
