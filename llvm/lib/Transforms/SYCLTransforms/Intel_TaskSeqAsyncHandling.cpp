@@ -189,9 +189,11 @@ void Impl::collectTaskFunctionsWithSRetArg(
     SmallVector<Function *> &TaskFuncsWithSRet) {
   for (Function *F : Asyncs) {
     for (Function *TaskF : AsyncBuiltinToTaskFuncMap[F]) {
+      if (TaskF->arg_empty())
+        continue;
       auto *Arg0 = TaskF->getArg(0);
       if (Arg0->getType()->isPointerTy() && Arg0->getParamStructRetType()) {
-        LLVM_DEBUG(dbgs() << "Builtin " << TaskF->getName()
+        LLVM_DEBUG(dbgs() << "Task function " << TaskF->getName()
                           << " with sret in argument 0 " << *Arg0 << "\n");
         TaskFuncsWithSRet.push_back(TaskF);
       }
