@@ -231,7 +231,8 @@ void VecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 void VecCloneImpl::languageSpecificInitializations(Module &M) {}
 
 Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
-                                      ValueToValueMapTy &VMap) {
+                                      ValueToValueMapTy &VMap,
+                                      ValueToValueMapTy &ReverseVMap) {
 
   LLVM_DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
   LLVM_DEBUG(F.dump());
@@ -289,6 +290,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   for (Argument &Arg : F.args()) {
     NewArgIt->setName(Arg.getName());
     VMap[&Arg] = &*NewArgIt;
+    ReverseVMap[&*NewArgIt] = &Arg;
     ++NewArgIt;
   }
 
@@ -775,7 +777,9 @@ Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
 
 Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
                                                Instruction *ArgUser,
-                                               Value *Stride, PHINode *Phi) {
+                                               Value *Stride, PHINode *Phi,
+                                               const VFParameter &Parm,
+                                               ValueToValueMapTy &ReverseVMap) {
   // For linear values, a mul + add/gep sequence is needed to generate the
   // correct value. i.e., val = linear_var + stride * loop_index;
 
@@ -813,8 +817,27 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
 
       return LinearArgGep;
     }
-    auto *Mul = Builder.CreateMul(Stride, Phi, "stride.mul");
-    auto *Gep = Builder.CreateGEP(Builder.getInt8Ty(), Arg, Mul,
+    Value *ByteStride = Stride;
+    if (Parm.isVariableStride()) {
+      // If stride is a variable for opaque pointer, then it is specified as
+      // as a stride in number of elements. Since we generate an i8* gep, the
+      // stride needs to be specified in bytes. E.g., if %c is the element
+      // stride, then the stride in bytes is %c * pointee size. The pointee
+      // size information is obtained via the
+      // llvm.intel.directive.elementsize intrinsic.
+      Value *EltSize = PointeeTypeSize[ReverseVMap[Arg]];
+      assert(EltSize && "No llvm.intel.directive.elementsize intrinsic?");
+      // TODO: We can change VecClone to generate i64 phis for the loop iv and
+      // make the last conversion unnecessary. This will also remove a
+      // potential trunc from the incoming IR to VPlan. EltSize is always
+      // generated as i64.
+      ByteStride = Builder.CreateSExt(ByteStride, EltSize->getType());
+      ByteStride = Builder.CreateMul(ByteStride, EltSize);
+      ByteStride = Builder.CreateSExtOrTrunc(ByteStride, Phi->getType());
+    }
+    // GEP index should be %c * pointee size * loopiv
+    ByteStride = Builder.CreateMul(ByteStride, Phi, "stride.bytes");
+    auto *Gep = Builder.CreateGEP(Builder.getInt8Ty(), Arg, ByteStride,
                                   Arg->getName() + ".gep");
     return Gep;
   }
@@ -963,7 +986,8 @@ void VecCloneImpl::processUniformArgs(Function *Clone, const VFInfo &V,
 
 void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
                                      PHINode *Phi, BasicBlock *EntryBlock,
-                                     BasicBlock *LoopPreHeader) {
+                                     BasicBlock *LoopPreHeader,
+                                     ValueToValueMapTy &ReverseVMap) {
   // Add stride to arguments marked as linear. These instructions are added
   // before the arg user and uses are updated accordingly.
   ArrayRef<VFParameter> Parms = V.getParameters();
@@ -987,6 +1011,11 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
                    "Stride is expected to be a multiple of element size!");
             Stride /= PointeeEltSize;
           }
+          // For opaque pointers with constant stride, the pointee type
+          // information is already "baked" into the variant encoding because
+          // since the stride is specified in bytes and we will generate an i8*
+          // gep in generateStrideForArgument(). Thus, no need to adjust the
+          // stride in that case.
           StrideVal = ConstantInt::get(Phi->getType(), Stride);
         } else {
           assert(!Parm.isLinearRef() &&
@@ -1028,8 +1057,8 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
             continue;
         }
 
-        Value *StrideInst =
-            generateStrideForArgument(Clone, ArgVal, User, StrideVal, Phi);
+        Value *StrideInst = generateStrideForArgument(
+            Clone, ArgVal, User, StrideVal, Phi, Parm, ReverseVMap);
         User->setOperand(U.getOperandNo(), StrideInst);
       }
     } else if (Parm.isLinearUVal() || Parm.isLinearVal()) {
@@ -1239,9 +1268,8 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
       for (auto *ArgValLoad : ArgValLoads) {
         for (auto &U:  make_early_inc_range(ArgValLoad->uses())) {
           auto *User = cast<Instruction>(U.getUser());
-          Value *StrideInst =
-              generateStrideForArgument(Clone, ArgValLoad, User, StrideVal,
-                                        Phi);
+          Value *StrideInst = generateStrideForArgument(
+              Clone, ArgValLoad, User, StrideVal, Phi, Parm, ReverseVMap);
           User->setOperand(U.getOperandNo(), StrideInst);
         }
       }
@@ -1614,6 +1642,29 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       continue;
     }
 
+    // Get pointee type information for linear ptr args and cache for later
+    // use when generating a gep for them in processLinearArgs(). Then, remove
+    // these intrinsics from the original function so they don't cause a
+    // crash downstream. Plus, removing them here in the original function
+    // before cloning will ensure they don't make it into the vector versions
+    // of the function.
+    SmallVector<IntrinsicInst *, 2> IntrinsicsToRemove;
+    PointeeTypeSize.clear();
+    for (auto &Inst : instructions(F)) {
+      Instruction *I = &Inst;
+      if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+        if (II->getIntrinsicID() == Intrinsic::intel_directive_elementsize) {
+          Value *Arg = II->getOperand(0);
+          Value *ElemSize = II->getOperand(1);
+          PointeeTypeSize[Arg] = ElemSize;
+          IntrinsicsToRemove.push_back(II);
+        }
+      }
+    }
+
+    for (auto II : IntrinsicsToRemove)
+      II->eraseFromParent();
+
     auto Variants = map_range(VarIt.second, [](StringRef Name) {
         return VFABI::demangleForVFABI(Name);
     });
@@ -1631,7 +1682,8 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       LLVM_DEBUG(dbgs() << "Before SIMD Function Cloning\n");
       LLVM_DEBUG(F.dump());
       ValueToValueMapTy VMap;
-      Function *Clone = CloneFunction(F, Variant, VMap);
+      ValueToValueMapTy ReverseVMap;
+      Function *Clone = CloneFunction(F, Variant, VMap, ReverseVMap);
       BasicBlock *EntryBlock = &Clone->front();
 
       if (isSimpleFunction(Clone))
@@ -1691,7 +1743,8 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       // function also updates the users of the argument with the new
       // calculation involving the stride. Also mark linear memory for SIMD
       // directives.
-      processLinearArgs(Clone, Variant, Phi, EntryBlock, LoopPreHeader);
+      processLinearArgs(Clone, Variant, Phi, EntryBlock, LoopPreHeader,
+                        ReverseVMap);
 
       // Remove the old scalar instructions associated with the return and
       // replace with packing instructions.
