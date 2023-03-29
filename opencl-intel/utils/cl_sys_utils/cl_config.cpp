@@ -13,11 +13,11 @@
 // License.
 
 #include "cl_config.h"
-
 #include "cl_cpu_detect.h"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include "task_executor.h"
+#include "llvm/Support/Threading.h"
 
 #include <cassert>
 #ifdef _WIN32
@@ -361,10 +361,22 @@ unsigned BasicCLConfigWrapper::GetNumTBBWorkers() const {
   unsigned numWorkers;
 
   std::string strEnv;
-  if (getEnvVar(strEnv, "SYCL_CPU_NUM_CUS")) {
-    numWorkers = (unsigned)std::stoi(strEnv);
-  } else if (getEnvVar(strEnv, "DPCPP_CPU_NUM_CUS")) {
-    numWorkers = (unsigned)std::stoi(strEnv);
+  if (getEnvVar(strEnv, "SYCL_CPU_NUM_CUS") ||
+      getEnvVar(strEnv, "DPCPP_CPU_NUM_CUS")) {
+    try {
+      int num = std::stoi(strEnv);
+      if (num < 0) {
+        numWorkers = num;
+        throw std::logic_error(std::to_string(numWorkers) + " is used.");
+      }
+    } catch (const std::exception &e) {
+      static llvm::once_flag OnceFlag;
+      llvm::call_once(OnceFlag, [&]() {
+        reportWarning(
+            std::string("SYCL_CPU_NUM_CUS: Value is invalid; ignored. ") +
+            e.what());
+      });
+    }
   } else {
     // OCL_TBB_NUM_WORKERS is deprecated and should be removed.
     if (getEnvVar(strEnv, "OCL_TBB_NUM_WORKERS"))

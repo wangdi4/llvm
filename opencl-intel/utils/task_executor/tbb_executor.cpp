@@ -512,23 +512,22 @@ bool TBBTaskExecutor::LoadTBBLibrary() {
       m_err = m_dllTBBLib.Load(tbbFullPath.c_str());
     }
 
-    if (m_err != 0) {
-      fprintf(
-          stderr,
-          "Cannot load TBB from neither Windows registry key nor CPU runtime "
-          "configuration file (cl.cfg / cl.fpga_emu.cfg) in %s location. The "
-          "Error message is: %s.\n"
-          "You can ask your administrator to configure TBB library location "
-          "to CL_CONFIG_TBB_DLL_PATH item in the configuration files.\n"
-          "Or you need to check Windows registry key under "
-          "HKEY_LOCAL_MACHINE\\SOFTWARE\\Intel\\oneAPI\\TBB\\"
-          "locaiton. The version items under this location are installed "
-          "TBB on this machine. The required TBB version is %s. You can "
-          "install "
-          "the required TBB if it is not listed in windows registry.",
-          modulePath.c_str(), m_dllTBBLib.GetError().c_str(),
-          basicConfig.GetTBBVersion().c_str());
-    }
+    if (m_err != 0)
+      reportWarning(
+          std::string(
+              "Cannot load TBB from neither Windows registry key nor CPU "
+              "runtime configuration file (cl.cfg / cl.fpga_emu.cfg) in ") +
+          modulePath + std::string(" location. The Error message is: ") +
+          m_dllTBBLib.GetError() +
+          ".\nYou can ask your administrator to configure TBB library location "
+          "to CL_CONFIG_TBB_DLL_PATH item in the configuration files.\nOr you "
+          "need to check Windows registry key under "
+          "HKEY_LOCAL_MACHINE\\SOFTWARE\\Intel\\oneAPI\\TBB\\ locaiton. The "
+          "version items under this location are installed TBB on this "
+          "machine. The required TBB version is " +
+          basicConfig.GetTBBVersion() +
+          ". You can install the required TBB if it is not listed in windows "
+          "registry.");
   }
 #endif
 
