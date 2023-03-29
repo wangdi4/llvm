@@ -168,10 +168,24 @@ public:
 
   // Remark IDs are defined in lib/Analysis/Intel_OptReport/Diag.cpp:
 
+  // 15313: %s was not vectorized: unsupported data type
+  static const unsigned BadTypeRemarkID = 15313;
+
+  // 15330: %s was not vectorized: the reduction operator is not supported yet
+  static const unsigned BadRednRemarkID = 15330;
+
   // 15353: loop was not vectorized: loop is not in canonical form from
   //        OpenMP specification, may be as a result of previous
   //        optimization(s)
   static const unsigned BadSimdRemarkID = 15353;
+
+  // 15407: vectorization support: type complex float is not supported for
+  //        operation %s
+  static const unsigned CmplxFltRemarkID = 15407;
+
+  // 15408: vectorization support: type complex double is not supported for
+  //        operation %s
+  static const unsigned CmplxDblRemarkID = 15408;
 
   // 15436: loop was not vectorized: %s
   static const unsigned BailoutRemarkID = 15436;
