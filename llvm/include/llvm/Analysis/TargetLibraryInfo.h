@@ -58,14 +58,10 @@ struct VecDesc {
   StringRef ScalarFnName;
   StringRef VectorFnName;
   ElementCount VectorizationFactor;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   bool Masked;
+#if INTEL_CUSTOMIZATION
   bool IsOCLFn = false;
 #endif
-=======
-  bool Masked;
->>>>>>> 59dcf927ee43e995374907b6846b657f68d7ea49
 };
 
   enum LibFunc : unsigned {
@@ -239,19 +235,12 @@ public:
 
 #if INTEL_CUSTOMIZATION
   /// Return true if the function F has a vector equivalent with vectorization
-<<<<<<< HEAD
   /// factor VF and 'IsMasked' property. For any function 'F' \p true is
   /// returned if and only if a vector version for a particular VF
   /// and appropriate 'IsMasked' property exists.
   bool isFunctionVectorizable(StringRef F, const ElementCount &VF,
                               bool IsMasked) const {
     return !getVectorizedFunction(F, VF, IsMasked).empty();
-=======
-  /// factor VF.
-  bool isFunctionVectorizable(StringRef F, const ElementCount &VF) const {
-    return !(getVectorizedFunction(F, VF, false).empty() &&
-             getVectorizedFunction(F, VF, true).empty());
->>>>>>> 59dcf927ee43e995374907b6846b657f68d7ea49
   }
 
   /// True iff vector library is set to SVML.
@@ -276,11 +265,7 @@ public:
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
   StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
-<<<<<<< HEAD
-                                  bool Masked = false) const; // INTEL
-=======
                                   bool Masked) const;
->>>>>>> 59dcf927ee43e995374907b6846b657f68d7ea49
 
   /// Set to true iff i32 parameters to library functions should have signext
   /// or zeroext attributes if they correspond to C-level int or unsigned int,
@@ -472,16 +457,10 @@ public:
   bool isFunctionVectorizable(StringRef F, bool IsMasked = false) const {
     return Impl->isFunctionVectorizable(F, IsMasked);
   }
-<<<<<<< HEAD
 
   /// True iff vector library is set to SVML.
   bool isSVMLEnabled(void) const {
     return Impl->isSVMLEnabled();
-=======
-  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
-                                  bool Masked = false) const {
-    return Impl->getVectorizedFunction(F, VF, Masked);
->>>>>>> 59dcf927ee43e995374907b6846b657f68d7ea49
   }
 
   /// True if the provided function \p F is an OpenCL function that can be
@@ -502,8 +481,8 @@ public:
   }
 
   StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
-                                  bool Masked=false) const { // INTEL
-    return Impl->getVectorizedFunction(F, VF, Masked); // INTEL
+                                  bool Masked = false) const {
+    return Impl->getVectorizedFunction(F, VF, Masked);
   }
 
 
