@@ -5943,10 +5943,17 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
   case SLEEFGNUABI: {
     const VecDesc VecFuncs_VF2[] = {
 #define TLI_DEFINE_SLEEFGNUABI_VF2_VECFUNCS
+#define TLI_DEFINE_VECFUNC(SCAL, VEC, VF) {SCAL, VEC, VF, /* MASK = */ false},
 #include "llvm/Analysis/VecFuncs.def"
     };
     const VecDesc VecFuncs_VF4[] = {
 #define TLI_DEFINE_SLEEFGNUABI_VF4_VECFUNCS
+#define TLI_DEFINE_VECFUNC(SCAL, VEC, VF) {SCAL, VEC, VF, /* MASK = */ false},
+#include "llvm/Analysis/VecFuncs.def"
+    };
+    const VecDesc VecFuncs_VFScalable[] = {
+#define TLI_DEFINE_SLEEFGNUABI_SCALABLE_VECFUNCS
+#define TLI_DEFINE_VECFUNC(SCAL, VEC, VF, MASK) {SCAL, VEC, VF, MASK},
 #include "llvm/Analysis/VecFuncs.def"
     };
 
@@ -5957,6 +5964,7 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     case llvm::Triple::aarch64_be:
       addVectorizableFunctions(VecFuncs_VF2);
       addVectorizableFunctions(VecFuncs_VF4);
+      addVectorizableFunctions(VecFuncs_VFScalable);
       break;
     }
     break;
@@ -6069,17 +6077,27 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
 #endif
 }
 
+<<<<<<< HEAD
 StringRef
 TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
                                              const ElementCount &VF,
                                              bool Masked) const { // INTEL
+=======
+StringRef TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
+                                                       const ElementCount &VF,
+                                                       bool Masked) const {
+>>>>>>> 59dcf927ee43e995374907b6846b657f68d7ea49
   F = sanitizeFunctionName(F);
   if (F.empty())
     return F;
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, F, compareWithScalarFnName);
   while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == F) {
+<<<<<<< HEAD
     if (I->VectorizationFactor == VF && I->Masked == Masked) // INTEL
+=======
+    if ((I->VectorizationFactor == VF) && (I->Masked == Masked))
+>>>>>>> 59dcf927ee43e995374907b6846b657f68d7ea49
       return I->VectorFnName;
     ++I;
   }
