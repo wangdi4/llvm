@@ -3556,6 +3556,11 @@ static unsigned CopyToFromAsymmetricReg(unsigned DestReg, unsigned SrcReg,
                                         const X86Subtarget &Subtarget) {
   bool HasAVX = Subtarget.hasAVX();
   bool HasAVX512 = Subtarget.hasAVX512();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  HasAVX512 = Subtarget.hasAVX3();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   // SrcReg(MaskReg) -> DestReg(GR64)
   // SrcReg(MaskReg) -> DestReg(GR32)
@@ -3786,6 +3791,7 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
   bool HasAVX512 = STI.hasAVX512();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
+  bool HasAVX3 = STI.hasAVX3();
   bool HasVLX = STI.hasVLX() || STI.hasAVX256P();
 #else  // INTEL_FEATURE_ISA_AVX256P
   bool HasVLX = STI.hasVLX();
@@ -3813,10 +3819,22 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
       return Load ? X86::MOV32rm : X86::MOV32mr;
     if (X86::FR32XRegClass.hasSubClassEq(RC))
       return Load ?
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        (HasAVX3 ? X86::VMOVSSZrm_alt :
+#else  // INTEL_FEATURE_ISA_AVX256P
         (HasAVX512 ? X86::VMOVSSZrm_alt :
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
          HasAVX    ? X86::VMOVSSrm_alt :
                      X86::MOVSSrm_alt) :
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        (HasAVX3 ? X86::VMOVSSZmr :
+#else  // INTEL_FEATURE_ISA_AVX256P
         (HasAVX512 ? X86::VMOVSSZmr :
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
          HasAVX    ? X86::VMOVSSmr :
                      X86::MOVSSmr);
     if (X86::RFP32RegClass.hasSubClassEq(RC))
@@ -3857,10 +3875,22 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
       return Load ? X86::MOV64rm : X86::MOV64mr;
     if (X86::FR64XRegClass.hasSubClassEq(RC))
       return Load ?
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        (HasAVX3 ? X86::VMOVSDZrm_alt :
+#else  // INTEL_FEATURE_ISA_AVX256P
         (HasAVX512 ? X86::VMOVSDZrm_alt :
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
          HasAVX    ? X86::VMOVSDrm_alt :
                      X86::MOVSDrm_alt) :
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        (HasAVX3 ? X86::VMOVSDZmr :
+#else  // INTEL_FEATURE_ISA_AVX256P
         (HasAVX512 ? X86::VMOVSDZmr :
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
          HasAVX    ? X86::VMOVSDmr :
                      X86::MOVSDmr);
     if (X86::VR64RegClass.hasSubClassEq(RC))
