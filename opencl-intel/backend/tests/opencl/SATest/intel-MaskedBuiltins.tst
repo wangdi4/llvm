@@ -1,4 +1,7 @@
-;;; Test masked builtin implementation
+; Test masked builtin implementation
+
+; Disable the test in debug build since builtin IR isn't optimized as below.
+; UNSUPPORTED: debug-build
 
 ; RUN: SATest -BUILD --config=%s.cfg --cpuarch=skx -tsize=16 --vectorizer-type=vpo --dump-llvm-file - | FileCheck %s
 

@@ -1,5 +1,8 @@
 ; Check fp16 implementation status.
 
+; Disable the test in debug build since CHECK64 will be complicated.
+; UNSUPPORTED: debug-build
+
 ; RUN: SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,sycl-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK32-VPLAN,CHECK32
 ; RUN: SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch="sapphirerapids" -llvm-option=-print-after=vplan-vec,sycl-kernel-prepare-args 2>&1 | FileCheck %s -check-prefixes=CHECK64-VPLAN,CHECK64
 

@@ -1,5 +1,8 @@
 ; Check that v32 and v64(expand from v32) builtins are used.
 
+; Disable the test in debug build since CHECK64-SVML will be complicated.
+; UNSUPPORTED: debug-build
+
 ; RUN: SATest -BUILD --config=%s.cfg -tsize=32 -cpuarch=skx -llvm-option=-print-after=sycl-kernel-relaxed-math -dump-llvm-file %t.32 2>&1 | FileCheck %s -check-prefix=CHECK32
 ; RUN: SATest -BUILD --config=%s.cfg -tsize=64 -cpuarch=skx -llvm-option=-print-after=sycl-kernel-relaxed-math -dump-llvm-file %t.64 2>&1 | FileCheck %s -check-prefix=CHECK64
 ; RUN: FileCheck %s --input-file=%t.32 -check-prefix=CHECK32-SVML
