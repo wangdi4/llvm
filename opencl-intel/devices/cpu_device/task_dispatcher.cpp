@@ -362,6 +362,9 @@ TE_CMD_LIST_PREFERRED_SCHEDULING TaskDispatcher::getPreferredScheduling() {
       scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY;
     else if ("static" == env_sycl_schedule)
       scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_STATIC;
+    else if ("dynamic" != env_sycl_schedule)
+      reportWarning("SYCL_CPU_SCHEDULE: Value is invalid; ignored. Valid "
+                    "values are dynamic, affinity and static.");
   }
 
   return scheduling;

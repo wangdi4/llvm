@@ -854,3 +854,7 @@ string ReadFileContents(const string &filePath) {
   stream.close();
   return sstr.str();
 }
+
+void reportWarning(const std::string &Msg) {
+  fprintf(stderr, "SYCL CPU RT Warning: %s\n", Msg.c_str());
+}

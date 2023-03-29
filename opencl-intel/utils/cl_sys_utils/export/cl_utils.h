@@ -327,3 +327,6 @@ unsigned getCpuNodeId();
 // Identify the processor on which the calling thread is current running.
 // The return value should lie in the range [0, max_processor_count).
 unsigned getHWThreadId();
+
+/// Print warning message to stdcerr. This reports warning to users.
+void reportWarning(const std::string &Msg);

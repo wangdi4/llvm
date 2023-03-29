@@ -447,6 +447,13 @@ void CPUDevice::calculateComputeUnitMap() {
   for (unsigned int i = 0; i < m_numCores; i++)
     m_pComputeUnitMap[i] = i;
 
+  std::string envAffinity;
+  bool hasEnvAffinity = getEnvVar(envAffinity, "SYCL_CPU_CU_AFFINITY") ||
+                        getEnvVar(envAffinity, "DPCPP_CPU_CU_AFFINITY");
+  std::string places = "cores";
+  bool hasEnvPlaces = getEnvVar(places, "SYCL_CPU_PLACES") ||
+                      getEnvVar(places, "DPCPP_CPU_PLACES");
+
 #ifndef WIN32
   // For Linux, respect the process affinity mask in determining which cores to
   // run on
@@ -457,36 +464,57 @@ void CPUDevice::calculateComputeUnitMap() {
   // Bail out if either taskset or sched_setaffinity forces an application
   // to run on a reduced set of CPU cores, since it is difficult to assure
   // SYCL_CPU_CU_AFFINITY and SYCL_CPU_PLACES are working as expected.
-  for (unsigned int i = 0; i < m_numCores; i++)
-    if (m_pComputeUnitMap[i] != i)
+  for (unsigned int i = 0; i < m_numCores; i++) {
+    if (m_pComputeUnitMap[i] != i) {
+      if (hasEnvAffinity)
+        reportWarning("SYCL_CPU_CU_AFFINITY: Value is ignored since CPU "
+                      "affinity mask is set.");
+      if (hasEnvPlaces)
+        reportWarning("SYCL_CPU_PLACES: Value is ignored since CPU affinity "
+                      "mask is set.");
       return;
+    }
+  }
+
 #endif
 
   const unsigned numSockets = GetNumberOfCpuSockets();
   const unsigned numNumaNodes = GetMaxNumaNode();
 
   // Prevent divide by 0.
-  if (m_numCores <= 1 || numSockets == 0 || numNumaNodes == 0)
+  if (m_numCores <= 1 || numSockets == 0 || numNumaNodes == 0) {
+    if (hasEnvAffinity)
+      reportWarning("SYCL_CPU_CU_AFFINITY: Value is ignored since there is "
+                    "only one CPU core.");
+    if (hasEnvPlaces)
+      reportWarning("SYCL_CPU_PLACES: Value is ignored since there is only one "
+                    "CPU core.");
     return;
+  }
 
   // SYCL_CPU_CU_AFFINITY = {close | spread | master} controls thread
   // affinity, similar to OMP_PROC_BIND in OpenMP.
   // By default, the SYCL_CPU_CU_AFFINITY variable is not set.
-  std::string envAffinity;
-  if (!getEnvVar(envAffinity, "SYCL_CPU_CU_AFFINITY") &&
-      !getEnvVar(envAffinity, "DPCPP_CPU_CU_AFFINITY"))
+  if (!hasEnvAffinity) {
+    if (hasEnvPlaces)
+      reportWarning("SYCL_CPU_PLACES: Value is ignored since "
+                    "SYCL_CPU_CU_AFFINITY is not set.");
     return;
+  }
 
   envAffinity = StringRef(envAffinity).lower();
   CPU_CU_AFFINITY affinity;
-  if ("close" == envAffinity)
+  if ("close" == envAffinity) {
     affinity = CPU_CU_AFFINITY_CLOSE;
-  else if ("spread" == envAffinity)
+  } else if ("spread" == envAffinity) {
     affinity = CPU_CU_AFFINITY_SPREAD;
-  else if ("master" == envAffinity)
+  } else if ("master" == envAffinity) {
     affinity = CPU_CU_AFFINITY_MASTER;
-  else
+  } else {
+    reportWarning("SYCL_CPU_CU_AFFINITY: Value is invalid; ignored. Valid "
+                  "values are close, spread and master.");
     return;
+  }
 
   // Pin master thread if SYCL_CPU_CU_AFFINITY env is set.
   // If we don't pin master thread, SYCL_CPU_CU_AFFINITY affinity can't be
@@ -498,13 +526,18 @@ void CPUDevice::calculateComputeUnitMap() {
   // SYCL_CPU_PLACES must be used together with SYCL_CPU_CU_AFFINITY.
   // Default value is cores.
   // If value is numa_domains, TBB NUMA API will be used.
-  std::string places = "cores";
-  if (!getEnvVar(places, "SYCL_CPU_PLACES"))
-    (void)getEnvVar(places, "DPCPP_CPU_PLACES");
+  if (!hasEnvPlaces) {
+    reportWarning("SYCL_CPU_CU_AFFINITY: Value is ignored since "
+                  "SYCL_CPU_PLACES is not set.");
+    return;
+  }
   places = StringRef(places).lower();
   if ("sockets" != places && "numa_domains" != places && "cores" != places &&
-      "threads" != places)
+      "threads" != places) {
+    reportWarning("SYCL_CPU_PLACES: Value is invalid; ignored. Valid values "
+                  "are sockets, numa_domains, cores and threads.");
     return;
+  }
 
   // Assume we have a system of 2 sockets, 1 numa node per socket, 4 physical
   // cores per numa node.
@@ -555,9 +588,17 @@ void CPUDevice::calculateComputeUnitMap() {
     std::map<int, int> coreToSocket = GetProcessorToSocketMap();
     for (unsigned i = 0; i < m_numCores; ++i)
       coresPerSocket[coreToSocket[processorMap[i]]].push_back(i);
-    for (auto &C : coresPerSocket)
-      if (C.size() < numCoresPerSocket)
+    for (auto &C : coresPerSocket) {
+      if (C.size() < numCoresPerSocket) {
+        if (hasEnvAffinity)
+          reportWarning(
+              "SYCL_CPU_CU_AFFINITY: Value is ignored due to internal error.");
+        if (hasEnvPlaces)
+          reportWarning(
+              "SYCL_CPU_PLACES: Value is ignored due to internal error.");
         return;
+      }
+    }
   }
 
   const size_t numTbbThreads =
