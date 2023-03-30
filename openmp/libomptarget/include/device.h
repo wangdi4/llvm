@@ -279,15 +279,37 @@ public:
 
   /// Lock this entry for exclusive access. Ensure to get exclusive access to
   /// HDTTMap first!
+#if INTEL_CUSTOMIZATION
+  void lock() const {
+    Mtx.lock();
+    MtxOwner = std::this_thread::get_id();
+  }
+#else  // INTEL_CUSTOMIZATION
   void lock() const { Mtx.lock(); }
+#endif // INTEL_CUSTOMIZATION
 
   /// Unlock this entry to allow other threads inspecting it.
+#if INTEL_CUSTOMIZATION
+  void unlock() const {
+    if (MtxOwner != std::this_thread::get_id())
+      return;
+    MtxOwner = std::thread::id();
+    Mtx.unlock();
+  }
+#else  // INTEL_CUSTOMIZATION
   void unlock() const { Mtx.unlock(); }
+#endif // INTEL_CUSTOMIZATION
 
 private:
   // Mutex that needs to be held before the entry is inspected or modified. The
   // HDTTMap mutex needs to be held before trying to lock any HDTT Entry.
   mutable std::mutex Mtx;
+#if INTEL_CUSTOMIZATION
+  // We encountered some cases where unlocking occurs with the mutex unlocked,
+  // and this may result in undefined behavior. Use this owner ID to unlock
+  // the mutex only when the current thread owns the mutex.
+  mutable std::thread::id MtxOwner;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Wrapper around the HostDataToTargetTy to be used in the HDTT map. In
