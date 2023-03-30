@@ -1404,7 +1404,7 @@ private:
   /// region execution order
   bool genOrderedThreadCode(WRegionNode *W);
 
-  /// Emit __kmpc_doacross_post/wait call for an 'ordered depend(source/sink)'
+  /// Emit __kmpc_doacross_post/wait call for an 'ordered doacross(source/sink)'
   /// construct.
   bool genDoacrossWaitOrPost(WRNOrderedNode *W);
 

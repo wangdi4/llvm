@@ -562,11 +562,11 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
     PrintedSomething |= vpo::printDepArray(this, OS, Depth, Verbosity);
   }
 
-  if (canHaveDepSrcSink())
-    PrintedSomething |= getDepSink().print(OS, Depth, Verbosity);
+  if (canHaveDoacrossSrcSink())
+    PrintedSomething |= getDoacrossSink().print(OS, Depth, Verbosity);
 
-  if (canHaveDepSrcSink())
-    PrintedSomething |= getDepSource().print(OS, Depth, Verbosity);
+  if (canHaveDoacrossSrcSink())
+    PrintedSomething |= getDoacrossSource().print(OS, Depth, Verbosity);
 
   if (canHaveAligned())
     PrintedSomething |= getAligned().print(OS, Depth, Verbosity);
@@ -1857,24 +1857,26 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       addOrderedTripCount(Args[I]);
 
   } break;
+  case QUAL_OMP_DOACROSS_SINK:
   case QUAL_OMP_DEPEND_SINK: {
     setIsDoacross(true);
     SmallVector<Value *, 3> SinkExprs;
     for (unsigned I = 0; I < NumArgs; ++I)
       SinkExprs.push_back(Args[I]);
 
-    getDepSink().add(new DepSinkItem(std::move(SinkExprs)));
+    getDoacrossSink().add(new DoacrossSinkItem(std::move(SinkExprs)));
   } break;
+  case QUAL_OMP_DOACROSS_SOURCE:
   case QUAL_OMP_DEPEND_SOURCE: {
     setIsDoacross(true);
-    assert(getDepSource().empty() &&
-           "More than one 'depend(source)' on the same directive.");
+    assert(getDoacrossSource().empty() &&
+           "More than one 'doacross(source)' on the same directive.");
 
     SmallVector<Value *, 3> SrcExprs;
     for (unsigned I = 0; I < NumArgs; ++I)
       SrcExprs.push_back(Args[I]);
 
-    getDepSource().add(new DepSourceItem(std::move(SrcExprs)));
+    getDoacrossSource().add(new DoacrossSourceItem(std::move(SrcExprs)));
   } break;
   case QUAL_OMP_HAS_DEVICE_ADDR:
   case QUAL_OMP_IS_DEVICE_PTR: {
@@ -2612,10 +2614,10 @@ bool WRegionNode::canHaveDetach() const {
   return false;
 }
 
-bool WRegionNode::canHaveDepSrcSink() const {
+bool WRegionNode::canHaveDoacrossSrcSink() const {
   unsigned SubClassID = getWRegionKindID();
-  // Only WRNOrderedNode can have a 'depend(src)' or 'depend(sink : vec)'
-  // clause, but but only if its "IsDoacross" field is true.
+  // Only WRNOrderedNode can have a 'doacross(src)' or 'doacross(sink : vec)'
+  // clause, but only if its "IsDoacross" field is true.
   if(SubClassID==WRNOrdered)
     return getIsDoacross();
 

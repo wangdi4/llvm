@@ -931,12 +931,12 @@ public:
   /// @{
 
   /// Insert a call to `kmpc_doacross_wait/post` for `#pragma omp ordered
-  /// depend(source/sink)` before \p InsertPt and return it.
+  /// doacross(source/sink)` before \p InsertPt and return it.
   ///
   /// Incoming Directive:
   /// \code
   ///   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(),
-  ///        "QUAL.OMP.DEPEND.SINK"(i32 %v1, i32 %v2) ]
+  ///        "QUAL.OMP.DOACROSS.SINK"(i32 %v1, i32 %v2) ]
   /// \endcode
   ///
   /// Generated IR:
