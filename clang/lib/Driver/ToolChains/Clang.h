@@ -109,8 +109,7 @@ private:
 #if INTEL_CUSTOMIZATION
   void AddClangCLArgs(const llvm::opt::ArgList &Args, types::ID InputType,
                       llvm::opt::ArgStringList &CmdArgs,
-<<<<<<< HEAD
-                      codegenoptions::DebugInfoKind *DebugInfoKind,
+                      llvm::codegenoptions::DebugInfoKind *DebugInfoKind,
                       bool *EmitCodeView, const JobAction &JA) const;
   void ClangTidySourceCheck(Compilation &C, const JobAction &JA,
                             const InputInfoList &Inputs,
@@ -121,10 +120,6 @@ private:
                                 const InputInfo &Output,
                                 const InputInfoList &Inputs,
                                 const llvm::opt::ArgList &TCArgs) const;
-=======
-                      llvm::codegenoptions::DebugInfoKind *DebugInfoKind,
-                      bool *EmitCodeView) const;
->>>>>>> ab49747f9d67d82a1cf0f19196ff29f01d4384f5
 
   mutable std::unique_ptr<llvm::raw_fd_ostream> CompilationDatabase = nullptr;
   void DumpCompilationDatabase(Compilation &C, StringRef Filename,

@@ -4517,16 +4517,11 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
       SplitDWARFInlining = false;
     }
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (const Arg *A =
           Args.getLastArg(options::OPT_g_Group, options::OPT__SLASH_Z7)) {
 #endif // INTEL_CUSTOMIZATION
-    DebugInfoKind = codegenoptions::DebugInfoConstructor;
-=======
-  if (const Arg *A = Args.getLastArg(options::OPT_g_Group)) {
     DebugInfoKind = llvm::codegenoptions::DebugInfoConstructor;
->>>>>>> ab49747f9d67d82a1cf0f19196ff29f01d4384f5
 
     // If the last option explicitly specified a debug-info level, use it.
     if (checkDebugInfoOption(A, Args, D, TC) &&
@@ -9470,15 +9465,10 @@ static EHFlags parseClangCLEHFlags(const Driver &D, const ArgList &Args) {
 #if INTEL_CUSTOMIZATION
 void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
                            ArgStringList &CmdArgs,
-<<<<<<< HEAD
-                           codegenoptions::DebugInfoKind *DebugInfoKind,
+                           llvm::codegenoptions::DebugInfoKind *DebugInfoKind,
                            bool *EmitCodeView, const JobAction &JA) const {
   bool isSPIR = getToolChain().getTriple().isSPIR();
 #endif // INTEL_CUSTOMIZATION
-=======
-                           llvm::codegenoptions::DebugInfoKind *DebugInfoKind,
-                           bool *EmitCodeView) const {
->>>>>>> ab49747f9d67d82a1cf0f19196ff29f01d4384f5
   bool isNVPTX = getToolChain().getTriple().isNVPTX();
 
   ProcessVSRuntimeLibrary(Args, CmdArgs, getToolChain());

@@ -10285,17 +10285,13 @@ void CGOpenMPRuntime::emitUserDefinedMapper(const OMPDeclareMapperDecl *D,
         Info.Pointers[I], CGM.getTypes().ConvertTypeForMem(C.VoidPtrTy));
     llvm::Value *CurSizeArg = Info.Sizes[I];
     llvm::Value *CurNameArg =
-<<<<<<< HEAD
-        (CGM.getCodeGenOpts().getDebugInfo() == codegenoptions::NoDebugInfo)
+        (CGM.getCodeGenOpts().getDebugInfo() ==
+         llvm::codegenoptions::NoDebugInfo)
 #if INTEL_COLLAB
             ? llvm::ConstantPointerNull::get(
                   llvm::PointerType::getWithSamePointeeType(CGM.VoidPtrTy,
                       CGM.getEffectiveAllocaAddrSpace()))
 #else  // INTEL_COLLAB
-=======
-        (CGM.getCodeGenOpts().getDebugInfo() ==
-         llvm::codegenoptions::NoDebugInfo)
->>>>>>> ab49747f9d67d82a1cf0f19196ff29f01d4384f5
             ? llvm::ConstantPointerNull::get(CGM.VoidPtrTy)
 #endif // INTEL_COLLAB
             : emitMappingInformation(MapperCGF, OMPBuilder, Info.Exprs[I]);
