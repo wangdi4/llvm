@@ -14,7 +14,6 @@
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/MemManageInfoOPImpl.h"
 #include "Intel_DTrans/Transforms/StructOfArraysOPInfoImpl.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"

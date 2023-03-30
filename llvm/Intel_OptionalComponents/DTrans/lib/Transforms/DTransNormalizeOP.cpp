@@ -43,7 +43,6 @@
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Constants.h"

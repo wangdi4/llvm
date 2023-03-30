@@ -18,7 +18,6 @@
 
 #include "Intel_DTrans/Transforms/AnnotatorCleaner.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"

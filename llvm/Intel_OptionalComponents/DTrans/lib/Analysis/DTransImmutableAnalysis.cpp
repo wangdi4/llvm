@@ -1,6 +1,6 @@
 //===------- DTransImmutableAnalysis.cpp - DTrans Immutable Analysis ------===//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -15,26 +15,11 @@
 
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/IR/Constants.h"
 
 using namespace llvm;
 
 AnalysisKey DTransImmutableAnalysis::Key;
-
-char DTransImmutableAnalysisWrapper::ID = 0;
-INITIALIZE_PASS(DTransImmutableAnalysisWrapper, "dtrans-immutable-analysis",
-                "dtrans immutable analysis", false, true)
-
-DTransImmutableAnalysisWrapper::DTransImmutableAnalysisWrapper()
-    : ImmutablePass(ID) {
-  initializeDTransImmutableAnalysisWrapperPass(
-      *PassRegistry::getPassRegistry());
-}
-
-ImmutablePass *llvm::createDTransImmutableAnalysisWrapperPass() {
-  return new DTransImmutableAnalysisWrapper();
-}
 
 DTransImmutableInfo DTransImmutableAnalysis::run(Module &M,
                                                  ModuleAnalysisManager &AM) {

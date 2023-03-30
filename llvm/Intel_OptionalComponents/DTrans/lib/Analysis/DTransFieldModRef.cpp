@@ -20,7 +20,6 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_LangRules.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/AbstractCallSite.h"
@@ -1562,115 +1561,6 @@ bool DTransModRefAnalyzer::runAnalysis(Module &M,
 
 using namespace llvm;
 
-DTransFieldModRefAnalysisWrapper::DTransFieldModRefAnalysisWrapper()
-    : ModulePass(ID) {
-  initializeDTransFieldModRefAnalysisWrapperPass(
-      *PassRegistry::getPassRegistry());
-}
-
-bool DTransFieldModRefAnalysisWrapper::runOnModule(Module &M) {
-  DTransAnalysisWrapper &DTAnalysisWrapper =
-      getAnalysis<DTransAnalysisWrapper>();
-  DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-  auto &FMRResult = getAnalysis<DTransFieldModRefResultWrapper>().getResult();
-  WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-
-  // TODO: Uncomment this when we want to start running the compiler with opaque
-  // pointer support to allow the DTransFieldModRefAnalysisWrapper to use the
-  // opaque pointer version of analysis to allow HIR to get the
-  // DTransFieldModRefResult without needing to choose which analysis should be
-  // run.
-  // if (!DTInfo.useDTransAnalysis()) {
-  //  auto &DTSafetyAnalyzer =
-  //      getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
-  //  dtransOP::DTransSafetyInfo &DTSafetyInfo =
-  //      DTSafetyAnalyzer.getDTransSafetyInfo(M);
-  //  return Impl.runAnalysis(M, DTSafetyInfo, WPInfo, FMRResult);
-  //}
-
-  return Impl.runAnalysis(M, DTInfo, WPInfo, FMRResult);
-}
-
-void DTransFieldModRefAnalysisWrapper::getAnalysisUsage(
-    AnalysisUsage &AU) const {
-  AU.addRequired<DTransAnalysisWrapper>();
-  // TODO: Uncomment this when we want to start running the compiler with opaque
-  // pointer support to allow the DTransFieldModRefAnalysisWrapper to use the
-  // opaque pointer version of analysis to allow HIR to get the
-  // DTransFieldModRefResult without needing to choose which analysis should be
-  // run.
-  //AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
-  AU.addRequired<DTransFieldModRefResultWrapper>();
-  AU.addRequired<WholeProgramWrapperPass>();
-  AU.setPreservesAll();
-}
-
-char DTransFieldModRefAnalysisWrapper::ID = 0;
-
-INITIALIZE_PASS_BEGIN(DTransFieldModRefAnalysisWrapper,
-                      "dtrans-fieldmodref-analysis",
-                      "DTrans field mod/ref analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-// TODO: Uncomment this when we want to start running the compiler with opaque
-// pointer support to allow the DTransFieldModRefAnalysisWrapper to use the
-// opaque pointer version of analysis to allow HIR to get the
-// DTransFieldModRefResult without needing to choose which analysis should be
-// run.
-//INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(DTransFieldModRefResultWrapper)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransFieldModRefAnalysisWrapper,
-                    "dtrans-fieldmodref-analysis",
-                    "DTrans field mod/ref analysis", false, true)
-
-ModulePass *llvm::createDTransFieldModRefAnalysisWrapperPass() {
-  return new DTransFieldModRefAnalysisWrapper();
-}
-
-DTransFieldModRefOPAnalysisWrapper::DTransFieldModRefOPAnalysisWrapper()
-    : ModulePass(ID) {
-  initializeDTransFieldModRefOPAnalysisWrapperPass(
-      *PassRegistry::getPassRegistry());
-}
-
-bool DTransFieldModRefOPAnalysisWrapper::runOnModule(Module &M) {
-  auto &DTSafetyAnalyzerWrapper =
-      getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
-  dtransOP::DTransSafetyInfo &DTInfo =
-      DTSafetyAnalyzerWrapper.getDTransSafetyInfo(M);
-
-  auto &FMRResult = getAnalysis<DTransFieldModRefResultWrapper>().getResult();
-  WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-  return Impl.runAnalysis(M, DTInfo, WPInfo, FMRResult);
-}
-
-void DTransFieldModRefOPAnalysisWrapper::getAnalysisUsage(
-    AnalysisUsage &AU) const {
-  AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
-  AU.addRequired<DTransFieldModRefResultWrapper>();
-  AU.addRequired<WholeProgramWrapperPass>();
-  AU.setPreservesAll();
-}
-
-using dtransOP::DTransSafetyAnalyzerWrapper;
-char DTransFieldModRefOPAnalysisWrapper::ID = 0;
-
-INITIALIZE_PASS_BEGIN(DTransFieldModRefOPAnalysisWrapper,
-                      "dtrans-fieldmodrefop-analysis",
-                      "DTrans field mod/ref analysis for opaque pointers",
-                      false, true)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(DTransFieldModRefResultWrapper)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransFieldModRefOPAnalysisWrapper,
-                    "dtrans-fieldmodrefop-analysis",
-                    "DTrans field mod/ref analysis for opaque pointers", false,
-                    true)
-
-ModulePass *llvm::createDTransFieldModRefOPAnalysisWrapperPass() {
-  return new DTransFieldModRefOPAnalysisWrapper();
-}
-
 AnalysisKey DTransFieldModRefAnalysis::Key;
 
 DTransFieldModRefAnalysis::Result
@@ -1705,26 +1595,6 @@ DTransFieldModRefOPAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
   FieldModRefResult &FMRResult = AM.getResult<DTransFieldModRefResult>(M);
   Analyzer.runAnalysis(M, DTransInfo, WPInfo, FMRResult);
   return FMRResult;
-}
-
-
-char DTransFieldModRefResultWrapper::ID = 0;
-INITIALIZE_PASS(DTransFieldModRefResultWrapper, "dtrans-fieldmodref-result",
-                "dtrans field mod/ref result", false, true)
-
-DTransFieldModRefResultWrapper::DTransFieldModRefResultWrapper()
-    : ImmutablePass(ID) {
-  initializeDTransFieldModRefResultWrapperPass(
-      *PassRegistry::getPassRegistry());
-}
-
-void DTransFieldModRefResultWrapper::getAnalysisUsage(
-  AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-}
-
-ImmutablePass *llvm::createDTransFieldModRefResultWrapperPass() {
-  return new DTransFieldModRefResultWrapper();
 }
 
 AnalysisKey DTransFieldModRefResult::Key;

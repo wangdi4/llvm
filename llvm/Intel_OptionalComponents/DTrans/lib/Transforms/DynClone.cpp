@@ -17,7 +17,6 @@
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/SetOperations.h"

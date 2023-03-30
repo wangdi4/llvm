@@ -19,7 +19,6 @@
 
 #include "Intel_DTrans/Transforms/DTransOptBaseTest.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringExtras.h"

@@ -1,6 +1,6 @@
 //===------- HIRPreVecCompleteUnroll.cpp - pre vec complete unroll --------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -27,7 +27,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
-#include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 
 using namespace llvm;
@@ -59,51 +58,4 @@ PreservedAnalyses HIRPreVecCompleteUnrollPass::runImpl(
       .run();
 
   return PreservedAnalyses::all();
-}
-
-namespace {
-
-class HIRPreVecCompleteUnrollLegacyPass : public HIRCompleteUnrollLegacyPass {
-public:
-  static char ID;
-
-  HIRPreVecCompleteUnrollLegacyPass(unsigned OptLevel = 0,
-                                    bool PragmaOnlyUnroll = false)
-      : HIRCompleteUnrollLegacyPass(ID, OptLevel, true, PragmaOnlyUnroll) {
-    initializeHIRPreVecCompleteUnrollLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (DisablePreVecUnroll) {
-      return false;
-    }
-
-    return HIRCompleteUnrollLegacyPass::runOnFunction(F);
-  }
-};
-
-} // namespace
-
-char HIRPreVecCompleteUnrollLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRPreVecCompleteUnrollLegacyPass,
-                      "hir-pre-vec-complete-unroll",
-                      "HIR PreVec Complete Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-#if INTEL_FEATURE_SW_DTRANS
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-#endif // INTEL_FEATURE_SW_DTRANS
-INITIALIZE_PASS_END(HIRPreVecCompleteUnrollLegacyPass,
-                    "hir-pre-vec-complete-unroll", "HIR PreVec Complete Unroll",
-                    false, false)
-
-FunctionPass *llvm::createHIRPreVecCompleteUnrollPass(unsigned OptLevel,
-                                                      bool PragmaOnlyUnroll) {
-  return new HIRPreVecCompleteUnrollLegacyPass(OptLevel, PragmaOnlyUnroll);
 }
