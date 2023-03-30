@@ -318,8 +318,10 @@ def "QUAL.OMP.MAP.ALWAYS.DELETE" : Clause;
 def "QUAL.OMP.DEPEND.IN" : Clause;
 def "QUAL.OMP.DEPEND.OUT" : Clause;
 def "QUAL.OMP.DEPEND.INOUT" : Clause;
-def "QUAL.OMP.DEPEND.SOURCE" : Clause;
-def "QUAL.OMP.DEPEND.SINK" : Clause;
+def "QUAL.OMP.DEPEND.SOURCE" : Clause; // TODO: remove when FE stops emitting.
+def "QUAL.OMP.DEPEND.SINK" : Clause; // TODO: remove when FE stops emitting.
+def "QUAL.OMP.DOACROSS.SOURCE" : Clause;
+def "QUAL.OMP.DOACROSS.SINK" : Clause;
 def "QUAL.OMP.DEPARRAY" : Clause;
 def "QUAL.OMP.DETACH" : Clause;
 def "QUAL.OMP.ORDERED.THREADS" : Clause;

@@ -157,8 +157,8 @@ template<>Clause<SubdeviceItem>   ::Clause():ClauseID(QUAL_OMP_SUBDEVICE){}
 template<>Clause<InteropActionItem>::Clause():ClauseID(QUAL_OMP_INIT){}
 template<>Clause<DetachItem>      ::Clause():ClauseID(QUAL_OMP_DETACH){}
 template<>Clause<DependItem>      ::Clause():ClauseID(QUAL_OMP_DEPEND_IN){}
-template<>Clause<DepSinkItem>     ::Clause():ClauseID(QUAL_OMP_DEPEND_SINK){}
-template<>Clause<DepSourceItem>   ::Clause():ClauseID(QUAL_OMP_DEPEND_SOURCE){}
+template<>Clause<DoacrossSinkItem>::Clause():ClauseID(QUAL_OMP_DOACROSS_SINK){}
+template<>Clause<DoacrossSourceItem>::Clause():ClauseID(QUAL_OMP_DOACROSS_SOURCE){}
 template<>Clause<AlignedItem>     ::Clause():ClauseID(QUAL_OMP_ALIGNED){}
 template<>Clause<NontemporalItem> ::Clause():ClauseID(QUAL_OMP_NONTEMPORAL){}
 template<>Clause<FlushItem>       ::Clause():ClauseID(QUAL_OMP_FLUSH){}

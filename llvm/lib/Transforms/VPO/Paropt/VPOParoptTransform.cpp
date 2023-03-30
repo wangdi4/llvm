@@ -12299,7 +12299,7 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
   return true;  // Changed
 }
 
-// Emit __kmpc_doacross_post/wait call for an 'ordered depend(source/sink)'
+// Emit __kmpc_doacross_post/wait call for an 'ordered doacross(source/sink)'
 // construct.
 bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
   assert(W &&"genDoacrossWaitOrPost: Null WRN");
@@ -12309,27 +12309,28 @@ bool VPOParoptTransform::genDoacrossWaitOrPost(WRNOrderedNode *W) {
 
   auto *WParent = W->getParent();
   (void)WParent;
-  assert(WParent && "Orphaned ordered depend source/sink construct.");
+  assert(WParent && "Orphaned ordered doacross source/sink construct.");
   assert(WParent->getIsOmpLoop() && "Parent is not a loop-type WRN");
 
   // Emit doacross post call for 'depend(source)'
-  if (!W->getDepSource().empty()) {
-    assert(W->getDepSource().size() == 1 && "More than one depend(source)");
-    DepSourceItem *DSI = W->getDepSource().back();
+  if (!W->getDoacrossSource().empty()) {
+    assert(W->getDoacrossSource().size() == 1 &&
+           "More than one doacross(source)");
+    DoacrossSourceItem *DSI = W->getDoacrossSource().back();
     // Generate __kmpc_doacross_post call
     CallInst *DoacrossPostCI = VPOParoptUtils::genDoacrossWaitOrPostCall(
-        W, IdentTy, TidPtrHolder, InsertPt, DSI->getDepExprs(),
-        true); // 'depend (source)'
+        W, IdentTy, TidPtrHolder, InsertPt, DSI->getDoacrossExprs(),
+        true); // 'doacross (source)'
     (void)DoacrossPostCI;
     assert(DoacrossPostCI && "Failed to emit doacross_post call.");
   }
 
-  // Emit doacross wait call(s) for 'depend(sink:...)'
-  for (DepSinkItem *DSI : W->getDepSink().items()) {
+  // Emit doacross wait call(s) for 'doacross(sink:...)'
+  for (DoacrossSinkItem *DSI : W->getDoacrossSink().items()) {
     // Generate __kmpc_doacross_wait call
     CallInst *DoacrossWaitCI = VPOParoptUtils::genDoacrossWaitOrPostCall(
-        W, IdentTy, TidPtrHolder, InsertPt, DSI->getDepExprs(),
-        false); // 'depend (sink:...)'
+        W, IdentTy, TidPtrHolder, InsertPt, DSI->getDoacrossExprs(),
+        false); // 'doacross (sink:...)'
     (void)DoacrossWaitCI;
     assert(DoacrossWaitCI && "Failed to emit doacross_wait call.");
   }
