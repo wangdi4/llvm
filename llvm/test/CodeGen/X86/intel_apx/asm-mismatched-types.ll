@@ -1,4 +1,3 @@
-; INTEL_FEATURE_ISA_APX_F
 ; REQUIRES: intel_feature_isa_apx_f
 ; RUN: llc -o - %s -no-integrated-as | FileCheck %s
 target triple = "x86_64--"
@@ -137,5 +136,3 @@ define void @reg8_as_16(i16 %p) {
   call void asm sideeffect "# REG: $0", "{r18b}"(i16 %p)
   ret void
 }
-
-; end INTEL_FEATURE_ISA_APX_F

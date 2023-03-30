@@ -1,4 +1,3 @@
-// INTEL_FEATURE_ISA_APX_F
 // REQUIRES: intel_feature_isa_apx_f
 // RUN: not llvm-mc -triple i386-unknown-unknown %s 2> %t.err
 // RUN: FileCheck --check-prefix=32 < %t.err %s
@@ -10,5 +9,3 @@
 
 // 32: error: register %r16d is only available in 64-bit mode
 movl %eax, %r16d
-
-// end INTEL_FEATURE_ISA_APX_F
