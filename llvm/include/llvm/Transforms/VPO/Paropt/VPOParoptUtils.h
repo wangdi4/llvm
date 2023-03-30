@@ -2613,6 +2613,17 @@ public:
 
   static bool isAtomicFreeReductionLocalEnabled();
   static bool isAtomicFreeReductionGlobalEnabled();
+
+  /// TODO: OPAQUEPOINTER: delete once typed pointers are no longer supported.
+  /// Generate proper array-to-scalar bitcast for \p ReductionVar of \p RedI
+  /// being an array section but not satisfying
+  /// ReductionItem::getIsArraySection() due to having offset == 0. Insert the
+  /// new bitcast right after \p ReductionVar if it's an instruction dominated
+  /// by \p W 's entry directive, or right after \p W 's entry directive
+  /// otherwise.
+  static Value *genZeroOffsetArrsecReductionItemCastIfNeeded(
+      const ReductionItem *RedI, const WRegionNode *W, Value *ReductionVar,
+      DominatorTree *DT);
 };
 
 } // namespace vpo

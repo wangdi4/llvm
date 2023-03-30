@@ -7648,8 +7648,6 @@ OffloadEntry *VPOParoptUtils::getTargetRegionOffloadEntry(
 }
 
 bool VPOParoptUtils::supportsAtomicFreeReduction(const ReductionItem *RedI) {
-  if (RedI->getType() == ReductionItem::WRNReductionUdr)
-    return false;
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector())
     return false;
@@ -7693,4 +7691,41 @@ bool VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() {
   return AtomicFreeReduction &&
          (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Global);
 }
+
+// Since zero-offset TYPED.ARRSECT clauses are not treated
+// as an actual array sections, RedElemType doesn't match
+// ReductionVar's pointee type (which is an array).
+// But as it may only happen for zero-offset items, we can
+// just generate a corresponding bitcast.
+// Obviously that's not an issue for opaque pointers.
+Value *VPOParoptUtils::genZeroOffsetArrsecReductionItemCastIfNeeded(
+    const ReductionItem *RedI, const WRegionNode *W, Value *ReductionVar,
+    DominatorTree *DT) {
+  Type *RedElemType = nullptr;
+  Value *NumElements = nullptr;
+  unsigned Addrspace = 0;
+  std::tie(RedElemType, NumElements, Addrspace) =
+      VPOParoptUtils::getItemInfo(RedI);
+
+  bool IsArrayOrArraySection =
+      RedI->getIsArraySection() || RedElemType->isArrayTy() || NumElements;
+  if (!RedI->getIsF90DopeVector() && !IsArrayOrArraySection &&
+      !ReductionVar->getType()->isOpaquePointerTy() &&
+      ReductionVar->getType()->getNonOpaquePointerElementType()->isArrayTy()) {
+    assert(RedI->getIsTyped() &&
+           "Unexpected type mismatch for non-typed reduction item");
+    Instruction *ReductionVarInst = dyn_cast<Instruction>(ReductionVar);
+    auto *InsertPt = ReductionVarInst && DT->dominates(W->getEntryDirective(),
+                                                       ReductionVarInst)
+                         ? ReductionVarInst
+                         : W->getEntryDirective();
+    assert(InsertPt &&
+           "No valid insertion point found for 0-offset arrsect bitcast");
+    IRBuilder<> Builder(InsertPt->getNextNode());
+    ReductionVar = Builder.CreateBitOrPointerCast(
+        ReductionVar, PointerType::get(RedElemType, Addrspace));
+  }
+  return ReductionVar;
+}
+
 #endif // INTEL_COLLAB
