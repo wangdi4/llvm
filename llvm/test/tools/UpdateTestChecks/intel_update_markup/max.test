@@ -1,5 +1,3 @@
-# REQUIRES: system-linux
-
 # RUN: cp -f %S/Inputs/x86-basic-exp.ll %t.ll && %intel_update_markup %t.ll --ref %S/Inputs/x86-basic-ref.ll --max 0
 # RUN: FileCheck < %t.ll --check-prefixes=CHECK,IR %s
 #
@@ -35,7 +33,7 @@
 # RUN: FileCheck < %t.td %s --check-prefix=CS
 # RUN: cp -f %S/Inputs/number %t.td && %intel_update_markup %t.td --ref %S/Inputs/empty --max 0
 # RUN: FileCheck < %t.td %s --check-prefix=CM
-
+#
 # RUN: cp -f %S/Inputs/number %t.mm && %intel_update_markup %t.mm --ref %S/Inputs/empty --max 999
 # RUN: FileCheck < %t.mm %s --check-prefix=CS
 # RUN: cp -f %S/Inputs/number %t.mm && %intel_update_markup %t.mm --ref %S/Inputs/empty --max 0
