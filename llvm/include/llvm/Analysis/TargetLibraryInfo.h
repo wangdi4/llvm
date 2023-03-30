@@ -58,8 +58,8 @@ struct VecDesc {
   StringRef ScalarFnName;
   StringRef VectorFnName;
   ElementCount VectorizationFactor;
-#if INTEL_CUSTOMIZATION
   bool Masked;
+#if INTEL_CUSTOMIZATION
   bool IsOCLFn = false;
 #endif
 };
@@ -265,7 +265,7 @@ public:
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
   StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
-                                  bool Masked = false) const; // INTEL
+                                  bool Masked) const;
 
   /// Set to true iff i32 parameters to library functions should have signext
   /// or zeroext attributes if they correspond to C-level int or unsigned int,
@@ -479,10 +479,9 @@ public:
   StringRef selectFPBuiltinImplementation(FPBuiltinIntrinsic *Builtin) const {
     return Impl->selectFPBuiltinImplementation(Builtin);
   }
-
   StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
-                                  bool Masked=false) const { // INTEL
-    return Impl->getVectorizedFunction(F, VF, Masked); // INTEL
+                                  bool Masked = false) const {
+    return Impl->getVectorizedFunction(F, VF, Masked);
   }
 
 
