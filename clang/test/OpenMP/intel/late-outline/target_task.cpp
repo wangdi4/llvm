@@ -163,4 +163,32 @@ void foo5(int x, int y)
 // CHECK: DIR.OMP.END.TASK
 // CHECK: DIR.OMP.END.PARALLEL
 }
+
+void foo6(int *array, unsigned size)
+{
+    // The if from the enter/exit data is not added to the target task.
+    //CHECK: DIR.OMP.TASK
+    //CHECK-SAME: "QUAL.OMP.IF"(i32 0)
+    //CHECK-SAME: QUAL.OMP.TARGET.TASK
+    //CHECK-NOT: "QUAL.OMP.IF"(i1 true)
+
+    //CHECK: DIR.OMP.TARGET.ENTER.DATA
+    //CHECK-SAME: "QUAL.OMP.IF"(i1 true)
+    //CHECK: DIR.OMP.END.TARGET.ENTER.DATA
+
+    //CHECK: DIR.OMP.END.TASK
+    #pragma omp target enter data map(to:array[0:size]) if(true) depend(inout:array)
+
+    //CHECK: DIR.OMP.TASK
+    //CHECK-SAME: "QUAL.OMP.IF"(i32 0)
+    //CHECK-SAME: "QUAL.OMP.TARGET.TASK"
+    //CHECK-NOT: "QUAL.OMP.IF"(i1 true)
+
+    //CHECK: DIR.OMP.TARGET.EXIT.DATA
+    //CHECK-SAME: "QUAL.OMP.IF"(i1 true)
+    //CHECK: DIR.OMP.END.TARGET.EXIT.DATA
+
+    //CHECK: DIR.OMP.END.TASK
+    #pragma omp target exit data map(from:array[0:size]) if(true) depend(inout:array)
+}
 // end INTEL_COLLAB
