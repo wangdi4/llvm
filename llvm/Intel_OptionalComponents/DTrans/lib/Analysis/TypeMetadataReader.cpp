@@ -14,7 +14,6 @@
 #include "Intel_DTrans/Analysis/DTransTypeMetadataConstants.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Constants.h"
@@ -1271,38 +1270,6 @@ public:
 } // end namespace llvm
 
 using namespace llvm;
-
-// This pass is just for testing the TypeMetadataReader class. This pass will
-// not be part of the compiler pipeline.
-class DTransTypeMetadataReaderTestWrapper : public ModulePass {
-
-public:
-  static char ID;
-
-  DTransTypeMetadataReaderTestWrapper() : ModulePass(ID) {
-    initializeDTransTypeMetadataReaderTestWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    dtransOP::TypeMetadataTester Tester(M.getContext());
-    Tester.runTest(M);
-    return false;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
-char DTransTypeMetadataReaderTestWrapper::ID = 0;
-INITIALIZE_PASS(DTransTypeMetadataReaderTestWrapper,
-                "dtrans-typemetadatareader",
-                "DTrans type metadata reader tester", false, false)
-
-ModulePass *llvm::createDTransMetadataReaderTestWrapperPass() {
-  return new DTransTypeMetadataReaderTestWrapper();
-}
 
 namespace llvm {
 namespace dtransOP {

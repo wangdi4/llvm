@@ -22,7 +22,6 @@
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"

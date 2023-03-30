@@ -45,7 +45,6 @@
 #include "Intel_DTrans/Transforms/ResolveTypes.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/EquivalenceClasses.h"
@@ -56,8 +55,8 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/Pass.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 using namespace llvm;
 using dtrans::collectAllStructTypes;

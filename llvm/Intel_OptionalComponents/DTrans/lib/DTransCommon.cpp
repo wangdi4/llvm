@@ -13,12 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/DTransCommon.h"
-#include "Intel_DTrans/DTransPasses.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#include "Intel_DTrans/DTransPasses.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IRPrinter/IRPrintingPasses.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/CommandLine.h"
 #include <algorithm>
@@ -205,20 +204,6 @@ constexpr bool EnableResolveTypes = true;
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-void llvm::initializeDTransPasses(PassRegistry &PR) {
-  initializeDTransAnalysisWrapperPass(PR);
-  initializeDTransFieldModRefAnalysisWrapperPass(PR);
-  initializeDTransFieldModRefOPAnalysisWrapperPass(PR);
-  initializeDTransFieldModRefResultWrapperPass(PR);
-  initializeDTransSafetyAnalyzerWrapperPass(PR);
-  initializeDTransImmutableAnalysisWrapperPass(PR);
-
-#if !INTEL_PRODUCT_RELEASE
-  initializeDTransTypeMetadataReaderTestWrapperPass(PR);
-  initializeDTransPtrTypeAnalyzerTestWrapperPass(PR);
-#endif // !INTEL_PRODUCT_RELEASE
-}
-
 // Add a new pass manager type pass. Add module dumps before/after
 // the pass, if requested.
 template <typename PassT>
@@ -312,33 +297,6 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
     MPM.addPass(PrintModulePass(dbgs(), "; Module After Early DTrans\n"));
 }
 
-// Add a legacy pass manager type pass. Add module dumps before/after
-// the pass, if requested.
-static void addPass(legacy::PassManagerBase &PM, DumpModuleDTransValues Phase,
-                    Pass *P) {
-  assert(Phase <= late && "Phase value out of range");
-  if (hasDumpModuleBeforeDTransValue(Phase))
-    PM.add(createPrintModulePass(
-        dbgs(),
-        "; Module Before " + std::string(DumpModuleDTransNames[Phase]) + "\n"));
-
-  PM.add(P);
-
-  if (hasDumpModuleAfterDTransValue(Phase))
-    PM.add(createPrintModulePass(
-        dbgs(),
-        "; Module After " + std::string(DumpModuleDTransNames[Phase]) + "\n"));
-}
-
-void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
-  if (hasDumpModuleBeforeDTransValue(early))
-    PM.add(createPrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
-
-  // Try to run the opaque pointer passes
-  if (hasDumpModuleAfterDTransValue(early))
-    PM.add(createPrintModulePass(dbgs(), "; Module After Early DTrans\n"));
-}
-
 void llvm::addLateDTransPasses(ModulePassManager &MPM) {
   if (hasDumpModuleBeforeDTransValue(late))
     MPM.addPass(PrintModulePass(dbgs(), "; Module Before Late DTrans\n"));
@@ -359,27 +317,4 @@ void llvm::addLateDTransPasses(ModulePassManager &MPM) {
 
   if (hasDumpModuleAfterDTransValue(late))
     MPM.addPass(PrintModulePass(dbgs(), "; Module After Late DTrans\n"));
-}
-
-void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
-  if (hasDumpModuleBeforeDTransValue(late))
-    PM.add(createPrintModulePass(dbgs(), "; Module Before Late DTrans\n"));
-  if (hasDumpModuleAfterDTransValue(late))
-    PM.add(createPrintModulePass(dbgs(), "; Module After Late DTrans\n"));
-}
-
-// This is used by LinkAllPasses.h. The passes are never actually used when
-// created this way.
-void llvm::createDTransPasses() {
-  (void)llvm::createDTransAnalysisWrapperPass();
-  (void)llvm::createDTransImmutableAnalysisWrapperPass();
-  (void)llvm::createDTransSafetyAnalyzerTestWrapperPass();
-  (void)llvm::createDTransFieldModRefAnalysisWrapperPass();
-  (void)llvm::createDTransFieldModRefOPAnalysisWrapperPass();
-  (void)llvm::createDTransFieldModRefResultWrapperPass();
-
-#if !INTEL_PRODUCT_RELEASE
-  (void)llvm::createDTransMetadataReaderTestWrapperPass();
-  (void)llvm::createDTransPtrTypeAnalyzerTestWrapperPass();
-#endif // !INTEL_PRODUCT_RELEASE
 }

@@ -98,7 +98,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"

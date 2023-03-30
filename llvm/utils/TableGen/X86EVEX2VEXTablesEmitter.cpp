@@ -1,4 +1,21 @@
 //===- utils/TableGen/X86EVEX2VEXTablesEmitter.cpp - X86 backend-*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -129,6 +146,14 @@ public:
         // is VEX_W1X and VEX is VEX_W0.
         (!(VEX_WIG || (!EVEX_WIG && EVEX_W == VEX_W) ||
            (EVEX_W1_VEX_W0 && EVEX_W && !VEX_W))) ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_MOVZXC
+        // FIXME: Because VMOVQ (VEX.128.F3.0F.WIG 7E) uses WIG, it cannot be
+        // distinguished from VMOVD (EVEX.128.F3.0F.W0 7E). Hence, we need to
+        // make a comparsion with the record name to resolve this.
+        EVEXInst->TheDef->getName() == "VMOVZPDILo2PDIZrr" ||
+#endif // INTEL_FEATURE_ISA_AVX512_MOVZXC
+#endif // INTEL_CUSTOMIZATION
         // Instruction's format
         VEXRI.Form != EVEXRI.Form)
       return false;

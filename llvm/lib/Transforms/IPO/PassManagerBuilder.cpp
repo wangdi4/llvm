@@ -74,10 +74,6 @@
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/DTransCommon.h"
-#include "Intel_DTrans/DTransPasses.h"
-#endif // INTEL_FEATURE_SW_DTRANS
 #if INTEL_FEATURE_CSA
 #include "Intel_CSA/CSAIRPasses.h"
 #endif // INTEL_FEATURE_CSA
@@ -937,27 +933,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (OptLevel == 1)
     return;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  if (DTransEnabled) {
-    // This call adds the DTrans passes.
-    addDTransLegacyPasses(PM);
-  }
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-
   // Promote any localized global vars.
   PM.add(createPromoteMemoryToRegisterPass());
 
   // Remove unused arguments from functions.
   PM.add(createDeadArgEliminationPass());
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  if (DTransEnabled)
-    addLateDTransLegacyPasses(PM);
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 
   // Reduce the code after globalopt and ipsccp.  Both can open up significant
   // simplification opportunities, and both can propagate functions through
@@ -1001,11 +981,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
   if (EnableAndersen)
     PM.add(createAndersensAAWrapperPass());
-
-#if INTEL_FEATURE_SW_DTRANS
-  if (DTransEnabled)
-    PM.add(createDTransFieldModRefAnalysisWrapperPass());
-#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
@@ -1275,7 +1250,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIROptPredicatePass(OptLevel == 3, true));
       INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM)
       if (OptLevel > 2) {
-        PM.add(createHIRLMMPass(true));
         PM.add(createHIRStoreResultIntoTempArrayPass());
       }
       PM.add(createHIRAosToSoaPass());
@@ -1286,7 +1260,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
 
       INTEL_LIMIT_BEGIN(limitFullLoopOptOnly, PM)
       if (OptLevel > 2 && IsLTO) {
-        PM.add(createHIRRowWiseMVPass());
         PM.add(createHIRSumWindowReusePass());
       }
       INTEL_LIMIT_END // limitFullLoopOptOnly
@@ -1325,16 +1298,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     PM.add(createHIRMinMaxRecognitionPass());
     PM.add(createHIRIdentityMatrixIdiomRecognitionPass());
 
-    if (SizeLevel == 0) {
-      PM.add(createHIRPreVecCompleteUnrollPass(OptLevel, DisableUnrollLoops));
-    }
-
     if (ThroughputModeOpt != ThroughputMode::SingleJob)
       PM.add(createHIRConditionalLoadStoreMotionPass());
 
     if (SizeLevel == 0)
       PM.add(createHIRMemoryReductionSinkingPass());
-    PM.add(createHIRLMMPass());
 
     PM.add(createHIRDeadStoreEliminationPass());
     PM.add(createHIRLastValueComputationPass());
@@ -1370,7 +1338,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
               createVPlanDriverHIRPass(true /* Use Lite CM */));
         }
       }
-      PM.add(createHIRPostVecCompleteUnrollPass(OptLevel, DisableUnrollLoops));
       PM.add(createHIRGeneralUnrollPass(DisableUnrollLoops));
     }
 

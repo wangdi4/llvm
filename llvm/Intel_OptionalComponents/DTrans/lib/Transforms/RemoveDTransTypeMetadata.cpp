@@ -15,7 +15,6 @@
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"

@@ -650,6 +650,17 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
 #endif // INTEL_COLLAB
   // process each input.
   for (int32_t I = 0; I < ArgNum; ++I) {
+#if INTEL_COLLAB
+    //  Fortran  Optional Parameter if NULL and are used in map clause result in
+    //  map with base, begin as null and size 0.  In this case we just need to
+    //  process only the PARAM maptype(Type=0x20) and ignore the rest.
+    //  Base=0x000000000000, Begin=0x000000000000, Size=0, Type=0x20
+    //  Base=0x000000000000, Begin=0x000000000000, Size=0, Type=0x7000000000213
+    //  Base=0x000000000000, Begin=0x000000000000, Size=0, Type=0x7000000000001
+    if ((Args[I] == nullptr) && (ArgsBase[I] == nullptr) &&
+        (ArgSizes[I] == 0) && !(ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM))
+      continue;
+#endif // INTEL_COLLAB
     // Ignore private variables and arrays - there is no mapping for them.
     if ((ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) ||
 #if INTEL_COLLAB
@@ -987,6 +998,12 @@ int targetDataEnd(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
 #endif // INTEL_COLLAB
   // process each input.
   for (int32_t I = ArgNum - 1; I >= 0; --I) {
+#if INTEL_COLLAB
+    //  Fortran  Optional Parameter see targetDataBegin
+    if ((Args[I] == nullptr) && (ArgBases[I] == nullptr) &&
+        (ArgSizes[I] == 0) && !(ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM))
+      continue;
+#endif // INTEL_COLLAB
     // Ignore private variables and arrays - there is no mapping for them.
     // Also, ignore the use_device_ptr directive, it has no effect here.
     if ((ArgTypes[I] & OMP_TGT_MAPTYPE_LITERAL) ||

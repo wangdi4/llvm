@@ -73,7 +73,6 @@
 #include "Intel_DTrans/Transforms/EliminateROFieldAccess.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/CFG.h"

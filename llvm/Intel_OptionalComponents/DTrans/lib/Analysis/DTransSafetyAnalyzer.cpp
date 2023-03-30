@@ -21,7 +21,6 @@
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/Intel_LangRules.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -8942,54 +8941,4 @@ DTransSafetyInfo DTransSafetyAnalyzer::run(Module &M,
   DTransSafetyInfo DTResult;
   DTResult.analyzeModule(M, GetTLI, WPInfo, &DTImmutInfo, GetBFI);
   return DTResult;
-}
-
-INITIALIZE_PASS_BEGIN(DTransSafetyAnalyzerWrapper, "dtrans-safetyanalyzer",
-                      "Data transformation safety analyzer", false, true)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DTransImmutableAnalysisWrapper)
-INITIALIZE_PASS_END(DTransSafetyAnalyzerWrapper, "dtrans-safetyanalyzer",
-                    "Data transformation safety analyzer", false, true)
-
-char DTransSafetyAnalyzerWrapper::ID = 0;
-DTransSafetyAnalyzerWrapper::DTransSafetyAnalyzerWrapper() : ModulePass(ID) {
-  initializeDTransSafetyAnalyzerWrapperPass(*PassRegistry::getPassRegistry());
-}
-
-DTransSafetyInfo &DTransSafetyAnalyzerWrapper::getDTransSafetyInfo(Module &M) {
-  return Result;
-}
-
-bool DTransSafetyAnalyzerWrapper::runOnModule(Module &M) {
-  auto GetBFI = [this](Function &F) -> BlockFrequencyInfo & {
-    return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
-  };
-  auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-
-  WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-  DTransImmutableInfo &DTImmutInfo =
-      getAnalysis<DTransImmutableAnalysisWrapper>().getResult();
-  Result.analyzeModule(M, GetTLI, WPInfo, &DTImmutInfo, GetBFI);
-  return false;
-}
-
-bool DTransSafetyAnalyzerWrapper::doFinalization(Module &M) {
-  Result.reset();
-  return false;
-}
-
-void DTransSafetyAnalyzerWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addRequired<BlockFrequencyInfoWrapperPass>();
-  AU.addRequired<WholeProgramWrapperPass>();
-  AU.addRequired<DTransImmutableAnalysisWrapper>();
-}
-
-ModulePass *llvm::createDTransSafetyAnalyzerTestWrapperPass() {
-  return new dtransOP::DTransSafetyAnalyzerWrapper();
 }

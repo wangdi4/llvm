@@ -15,7 +15,6 @@
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -60,50 +59,7 @@ public:
   }
 };
 
-class DTransPtrTypeAnalyzerTestWrapper : public ModulePass {
-public:
-  static char ID;
-
-  DTransPtrTypeAnalyzerTestWrapper() : ModulePass(ID) {
-    initializeDTransPtrTypeAnalyzerTestWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-
-    PtrTypeAnalyzerTest Tester(M.getContext());
-    Tester.runImpl(M, GetTLI, WPInfo);
-    return false;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
 } // end anonymous namespace
-
-// Interface for legacy pass manager
-char DTransPtrTypeAnalyzerTestWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransPtrTypeAnalyzerTestWrapper,
-                      "dtrans-ptrtypeanalyzertest",
-                      "DTrans pointer type analyzer test", false, true)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransPtrTypeAnalyzerTestWrapper,
-                    "dtrans-ptrtypeanalyzertest",
-                    "DTrans pointer type analyzer test", false, true)
-
-ModulePass *llvm::createDTransPtrTypeAnalyzerTestWrapperPass() {
-  return new DTransPtrTypeAnalyzerTestWrapper();
-}
 
 // Interface for new pass manager
 namespace llvm {
