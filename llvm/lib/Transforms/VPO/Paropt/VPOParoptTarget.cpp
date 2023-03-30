@@ -929,6 +929,13 @@ static bool needsMasterThreadGuard(const Instruction *I) {
     "__kmpc_barrier"
   };
 
+  // Ignore instructions that are already guarded by master-thread checks,
+  // e.g. atomic-free reduction implementation's global update loop
+  // is executed only by the master thread of a single team
+  // so no additional guarding is required.
+  if (isGuardedByThreadCheck(I))
+    return false;
+
   if (auto II = dyn_cast<IntrinsicInst>(I)) {
     if (II->getIntrinsicID() == Intrinsic::memcpy) {
       auto Arg0 = II->getArgOperand(0)->stripPointerCasts();
@@ -967,13 +974,6 @@ static bool needsMasterThreadGuard(const Instruction *I) {
     const Value *RootPointer = StorePointer->stripInBoundsOffsets();
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Store op::" << *StorePointer
                       << "\n");
-
-    // Ignore stores that are already guarded by master-thread checks. e.g.
-    // atomic-free reduction implementation's global update loop
-    // is executed only by the master thread of a single team
-    // so no additional guarding is required.
-    if (isGuardedByThreadCheck(StoreI))
-      return false;
 
     // We must not guard stores through private pointers. The store must
     // happen in each work item, so that the variable is initialized
@@ -3353,7 +3353,8 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
 
     bool IsArrayOrArraySection =
         RedI->getIsArraySection() || BufTy->isArrayTy() || NumElems;
-    if (NeedsLocalBuffer && !IsArrayOrArraySection) {
+    bool IsUDR = RedI->getType() == ReductionItem::WRNReductionUdr;
+    if (NeedsLocalBuffer && !IsArrayOrArraySection && !IsUDR) {
       Value *MapLocalSize = ConstantInt::get(
           Type::getInt64Ty(F->getContext()),
           Size * AtomicFreeRedLocalBufSize *
