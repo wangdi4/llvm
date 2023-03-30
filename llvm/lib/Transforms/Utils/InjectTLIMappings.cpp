@@ -144,8 +144,7 @@ static void addMappingsFromTLI(const TargetLibraryInfo &TLI, CallInst &CI) {
       }
       Function *VariantF = M->getFunction(TLIName);
       if (!VariantF)
-<<<<<<< HEAD
-        addVariantDeclaration(CI, VF, TLIName);
+        addVariantDeclaration(CI, VF, Predicate, TLIName);
 #if INTEL_CUSTOMIZATION
       else
         // Make variant function's declaration "sticky" by adding it to
@@ -153,9 +152,6 @@ static void addMappingsFromTLI(const TargetLibraryInfo &TLI, CallInst &CI) {
         // LTO from removing these declarations in IR.
         addFunctionToCompilerUsed(VariantF);
 #endif // INTEL_CUSTOMIZATION
-=======
-        addVariantDeclaration(CI, VF, Predicate, TLIName);
->>>>>>> cb9403b43977925d767d17cead072a3e54a0b865
     }
   };
 

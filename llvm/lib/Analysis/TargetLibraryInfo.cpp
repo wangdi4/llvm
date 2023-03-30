@@ -6077,27 +6077,16 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
 #endif
 }
 
-<<<<<<< HEAD
-StringRef
-TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
-                                             const ElementCount &VF,
-                                             bool Masked) const { // INTEL
-=======
 StringRef TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
                                                        const ElementCount &VF,
                                                        bool Masked) const {
->>>>>>> cb9403b43977925d767d17cead072a3e54a0b865
   F = sanitizeFunctionName(F);
   if (F.empty())
     return F;
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, F, compareWithScalarFnName);
   while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == F) {
-<<<<<<< HEAD
-    if (I->VectorizationFactor == VF && I->Masked == Masked) // INTEL
-=======
     if ((I->VectorizationFactor == VF) && (I->Masked == Masked))
->>>>>>> cb9403b43977925d767d17cead072a3e54a0b865
       return I->VectorFnName;
     ++I;
   }
