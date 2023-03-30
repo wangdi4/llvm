@@ -1,4 +1,3 @@
-// INTEL_FEATURE_ISA_APX_F
 // REQUIRES: intel_feature_isa_apx_f
 // RUN: llvm-mc -triple x86_64-pc-linux-gnu %s -o - | FileCheck %s
 
@@ -41,5 +40,3 @@ f:
 // CHECK-NEXT:         .cfi_offset %r30, -8
 // CHECK-NEXT:         .cfi_offset %r31, 0
 // CHECK-NEXT:         .cfi_endproc
-
-// end INTEL_FEATURE_ISA_APX_F
