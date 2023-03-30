@@ -278,6 +278,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
                                                      &V, V.isMasked());
 
   // Copy all the attributes from the scalar function to its vector version.
+  // Vector variants attribute will be stripped off later in this routine.
   Clone->copyAttributesFrom(&F);
 
   // Remove incompatible argument attributes (applied to the scalar argument,
@@ -302,6 +303,11 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   SmallVector<ReturnInst*, 8> Returns;
   CloneFunctionInto(Clone, &F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Returns);
+
+  AttributeMask AM;
+  AM.addAttribute(VectorUtils::VectorVariantsAttrName);
+  Clone->removeFnAttrs(AM);
+
   // For some reason, this causes DCE to remove calls to these functions.
   // Disable for now.
   //Clone->setCallingConv(CallingConv::X86_RegCall);
