@@ -913,7 +913,8 @@ FUNCTION_PASS("declare-to-assign", llvm::AssignmentTrackingPass())
 #if INTEL_CUSTOMIZATION
 FUNCTION_PASS_WITH_PARAMS("hir-vplan-vec", "vpo::VPlanDriverHIRPass",
                           [](bool LightWeightMode) {
-                            return vpo::VPlanDriverHIRPass(LightWeightMode);
+                            return vpo::VPlanDriverHIRPass(LightWeightMode,
+                                                           true);
                           },
                           parseVPlanDriverHIROptions,
                           "true;false;Full;Light;LightWeight");

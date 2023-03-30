@@ -1387,8 +1387,8 @@ INITIALIZE_PASS_END(VPlanDriverHIR, "hir-vplan-vec",
 
 char VPlanDriverHIR::ID = 0;
 
-VPlanDriverHIR::VPlanDriverHIR(bool LightWeightMode)
-    : FunctionPass(ID), Impl(LightWeightMode) {
+VPlanDriverHIR::VPlanDriverHIR(bool LightWeightMode, bool WillRunLLVMIRVPlan)
+    : FunctionPass(ID), Impl(LightWeightMode, WillRunLLVMIRVPlan) {
   initializeVPlanDriverHIRPass(*PassRegistry::getPassRegistry());
 }
 
@@ -1797,7 +1797,7 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
                                  OptReportVerbosity::Level Level, unsigned ID,
                                  std::string Reason) {
 
-  if (IsOmpSIMD) {
+  if (IsOmpSIMD && WillRunLLVMIRVPlan) {
 #if !INTEL_PRODUCT_RELEASE
     std::string HIRReason = "HIR: " + Reason;
     VPORBuilder.addRemark(Lp, Level, ID, HIRReason.c_str());
