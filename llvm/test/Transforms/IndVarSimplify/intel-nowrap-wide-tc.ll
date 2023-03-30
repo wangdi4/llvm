@@ -5,10 +5,6 @@
 ; CHECK: [[WIDE_TC:%.*]] = add nuw nsw i32 %n, 1
 ; CHECK-NEXT: %wide.trip.count = sext i32 [[WIDE_TC]] to i64
 
-; nsw flag was lost due to changes in community. Need to investigate how to
-; recover it.
-; XFAIL:*
-
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
