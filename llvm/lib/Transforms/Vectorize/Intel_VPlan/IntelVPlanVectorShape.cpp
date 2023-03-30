@@ -59,11 +59,9 @@ VPVectorShape VPVectorShape::joinShapes(VPVectorShape Shape1,
   }
 
   // TODO. Uncomment the assertion below to ensure we don't mix pointers with
-  // different SOA-ness. That requires changes in SOA analysis (so it does not
-  // create SOA pointers mixed with non-SOA ones) and in recomputeShapes()
-  // after SOA analysis.
+  // different SOA-ness.
   //
-  //assert(Shape1.isSOAShape() == Shape2.isSOAShape() &&
+  // assert(Shape1.isSOAShape() == Shape2.isSOAShape() &&
   //       "Can't mix SOA and non-SOA shapes");
 
   // We want to return SOARand for the following inputs

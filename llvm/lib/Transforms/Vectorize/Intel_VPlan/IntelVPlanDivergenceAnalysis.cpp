@@ -1366,14 +1366,18 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForShuffleVectorInst(
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForSelectInst(
     const VPInstruction *I) {
 
+  const auto &VPBB = *I->getParent();
+  VPValue *Op1 = I->getOperand(1);
+  VPValue *Op2 = I->getOperand(2);
+  VPVectorShape Shape1 = getObservedShape(VPBB, *Op1);
+  VPVectorShape Shape2 = getObservedShape(VPBB, *Op2);
+
+  assert(Shape1.isSOAShape() == Shape2.isSOAShape() &&
+         "Layout should be the same");
+
   VPValue *Mask = I->getOperand(0);
   VPVectorShape MaskShape = getVectorShape(*Mask);
   if (MaskShape.isUniform()) {
-    const auto &VPBB = *I->getParent();
-    VPValue *Op1 = I->getOperand(1);
-    VPValue *Op2 = I->getOperand(2);
-    VPVectorShape Shape1 = getObservedShape(VPBB, *Op1);
-    VPVectorShape Shape2 = getObservedShape(VPBB, *Op2);
     VPVectorShape::VPShapeDescriptor Shape1Desc = Shape1.getShapeDescriptor();
     VPVectorShape::VPShapeDescriptor Shape2Desc = Shape2.getShapeDescriptor();
     int64_t MaskConstIntVal;

@@ -4012,7 +4012,7 @@ public:
   bool isSOAProfitable() const { return IsSOAProfitable; }
 
   /// Set the property of the memory to be SOA-safe.
-  void setSOASafe() { IsSOASafe = true; }
+  void setSOASafe(bool Val) { IsSOASafe = Val; }
 
   /// Set the memory to be profitable for SOA-layout.
   void setSOAProfitable() { IsSOAProfitable = true; }
@@ -4030,8 +4030,7 @@ protected:
   VPAllocatePrivate *cloneImpl() const override {
     auto Ret = new VPAllocatePrivate(
       getType(), getAllocatedType(), getOrigAlignment());
-    if (isSOASafe())
-      Ret->setSOASafe();
+    Ret->setSOASafe(isSOASafe());
     if (isSOAProfitable())
       Ret->setSOAProfitable();
     Ret->setEntityKind(getEntityKind());
