@@ -1263,7 +1263,7 @@ void HeuristicUnroll::apply(const VPInstructionCost &TTICost,
   // Apply cost adjustments for all recurrences by type to account for
   // expected unrolling effects.
   unsigned NumPartialSums = 0;
-  for (auto Iter : VPRA.getRecurrences()) {
+  for (const auto &Iter : VPRA.getRecurrences()) {
     RecurrenceAnalysis::RecKind Kind = Iter.second.first;
     VPInstructionCost C = Iter.second.second;
     if (Kind == RecurrenceAnalysis::RecKind::PartialSumReduction) {
