@@ -198,6 +198,7 @@ public:
     Never,    // No loop is assumed to be finite.
   };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CQ#368125 - support for '/Fd' and '/Fo' options.
   /// The name of object file to emit MS debug info into.
@@ -205,6 +206,13 @@ public:
   /// The name of PDB file to emit MS debug info into.
   std::string MSOutputPdbFile;
 #endif //INTEL_CUSTOMIZATION
+=======
+  enum AssignmentTrackingOpts {
+    Disabled,
+    Enabled,
+    Forced,
+  };
+>>>>>>> 41c92c0dc679022bf270c460629e998380183a2c
 
   /// The code model to use (-mcmodel).
   std::string CodeModel;
