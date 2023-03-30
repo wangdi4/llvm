@@ -9968,7 +9968,8 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
   // debug information requested.
   SmallVector<llvm::Constant *, 4> InfoMap(CombinedInfo.Exprs.size());
   assert(CombinedInfo.BasePointers.size() == CombinedInfo.Exprs.size());
-  if (CGF.CGM.getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo) {
+  if (CGF.CGM.getCodeGenOpts().getDebugInfo() !=
+      llvm::codegenoptions::NoDebugInfo) {
     auto fillInfoMap = [&](MappableExprsHandler::MappingExprInfo &MapExpr) {
       return emitMappingInformation(
           CGF, CGF.CGM.getOpenMPRuntime().getOMPBuilder(), MapExpr);

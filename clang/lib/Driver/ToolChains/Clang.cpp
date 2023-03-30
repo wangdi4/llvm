@@ -4660,8 +4660,9 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (D.IsIntelMode() && DebugInfoKind == codegenoptions::DebugInfoConstructor)
-    DebugInfoKind = codegenoptions::LimitedDebugInfo;
+  if (D.IsIntelMode() &&
+      DebugInfoKind == llvm::codegenoptions::DebugInfoConstructor)
+    DebugInfoKind = llvm::codegenoptions::LimitedDebugInfo;
 #endif // INTEL_CUSTOMIZATION
 
   if (Args.hasFlag(options::OPT_gembed_source, options::OPT_gno_embed_source,
@@ -4695,8 +4696,8 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
     } else {
       CmdArgs.push_back("-traceback");
       // traceback needs debug info about line and PC delta at least.
-      if (DebugInfoKind < codegenoptions::DebugDirectivesOnly)
-        DebugInfoKind = codegenoptions::DebugDirectivesOnly;
+      if (DebugInfoKind < llvm::codegenoptions::DebugDirectivesOnly)
+        DebugInfoKind = llvm::codegenoptions::DebugDirectivesOnly;
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -8768,7 +8769,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     DwarfDebugFlags += " ";
     DwarfDebugFlags += EscapedArg;
   }
-  if (DebugInfoKind != codegenoptions::NoDebugInfo || TC.UseDwarfDebugFlags() || GRecordSwitches) {
+  if (DebugInfoKind != llvm::codegenoptions::NoDebugInfo ||
+      TC.UseDwarfDebugFlags() || GRecordSwitches) {
     CmdArgs.push_back("-dwarf-debug-flags");
     CmdArgs.push_back(Args.MakeArgString(marker + DwarfDebugFlags));
   }

@@ -214,7 +214,8 @@ public:
   }
   bool isPICDefaultForced() const override { return false; }
 
-  virtual codegenoptions::DebugInfoFormat getDefaultDebugFormat() const override {
+  virtual llvm::codegenoptions::DebugInfoFormat
+  getDefaultDebugFormat() const override {
     return HostTC.getDefaultDebugFormat();
   }
 

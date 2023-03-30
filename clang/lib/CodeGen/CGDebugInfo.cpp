@@ -2663,7 +2663,7 @@ void CGDebugInfo::completeClassData(const RecordDecl *RD) {
         // should have debug information emitted ... it even varies based on
         // optimization level. Instead, use isVTableExternal().  Also, only
         // omit the class data if we are not emitting full debug information.
-        DebugKind < codegenoptions::FullDebugInfo &&
+        DebugKind < llvm::codegenoptions::FullDebugInfo &&
         CGM.getVTables().isVTableExternal(CXXRD) &&
 #endif // INTEL_CUSTOMIZATION
         !isClassOrMethodDLLImport(CXXRD))

@@ -1117,7 +1117,7 @@ void CodeGenModule::Release() {
   if (getCodeGenOpts().EmitDeclMetadata)
     EmitDeclMetadata();
 #if INTEL_CUSTOMIZATION
-  if (getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo &&
+  if (getCodeGenOpts().getDebugInfo() != llvm::codegenoptions::NoDebugInfo &&
       getLangOpts().IntelCompat && getLangOpts().MSVCCompat)
     EmitMSDebugInfoMetadata();
 
