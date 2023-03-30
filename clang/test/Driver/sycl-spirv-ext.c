@@ -48,12 +48,9 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_arithmetic_fence
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_buffer_location
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_argument_interfaces
-<<<<<<< HEAD
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_task_sequence ;INTEL
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_optnone ;INTEL
-=======
-// CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
->>>>>>> 3bc05248602af9ffb30c8cf5f3c9cf8deeca4cb2
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_token_type
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_bfloat16_conversion
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_joint_matrix

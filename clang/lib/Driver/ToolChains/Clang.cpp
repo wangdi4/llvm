@@ -10783,7 +10783,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_global_variable_decorations"
         ",+SPV_INTEL_fpga_buffer_location"
         ",+SPV_INTEL_fpga_argument_interfaces"
-<<<<<<< HEAD
+        ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
         ",+SPV_INTEL_task_sequence"; // INTEL
 
 #if INTEL_CUSTOMIZATION
@@ -10792,9 +10792,6 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       INTELExtArg += ",+SPV_INTEL_optnone";
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-        ",+SPV_INTEL_fpga_invocation_pipelining_attributes";
->>>>>>> 3bc05248602af9ffb30c8cf5f3c9cf8deeca4cb2
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
 #if INTEL_CUSTOMIZATION
     if (!C.getDriver().isFPGAEmulationMode()) {
