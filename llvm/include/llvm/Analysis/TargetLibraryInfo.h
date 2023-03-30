@@ -58,10 +58,13 @@ struct VecDesc {
   StringRef ScalarFnName;
   StringRef VectorFnName;
   ElementCount VectorizationFactor;
+<<<<<<< HEAD
   bool Masked;
 #if INTEL_CUSTOMIZATION
   bool IsOCLFn = false;
 #endif
+=======
+>>>>>>> f8f1909d36b2b1dee6ddcdf7bfed23aebf224437
 };
 
   enum LibFunc : unsigned {
@@ -235,12 +238,18 @@ public:
 
 #if INTEL_CUSTOMIZATION
   /// Return true if the function F has a vector equivalent with vectorization
+<<<<<<< HEAD
   /// factor VF and 'IsMasked' property. For any function 'F' \p true is
   /// returned if and only if a vector version for a particular VF
   /// and appropriate 'IsMasked' property exists.
   bool isFunctionVectorizable(StringRef F, const ElementCount &VF,
                               bool IsMasked) const {
     return !getVectorizedFunction(F, VF, IsMasked).empty();
+=======
+  /// factor VF.
+  bool isFunctionVectorizable(StringRef F, const ElementCount &VF) const {
+    return !getVectorizedFunction(F, VF).empty();
+>>>>>>> f8f1909d36b2b1dee6ddcdf7bfed23aebf224437
   }
 
   /// True iff vector library is set to SVML.
@@ -264,8 +273,7 @@ public:
 
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
-  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
-                                  bool Masked) const;
+  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF) const;
 
   /// Set to true iff i32 parameters to library functions should have signext
   /// or zeroext attributes if they correspond to C-level int or unsigned int,
@@ -457,6 +465,7 @@ public:
   bool isFunctionVectorizable(StringRef F, bool IsMasked = false) const {
     return Impl->isFunctionVectorizable(F, IsMasked);
   }
+<<<<<<< HEAD
 
   /// True iff vector library is set to SVML.
   bool isSVMLEnabled(void) const {
@@ -483,6 +492,10 @@ public:
   StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
                                   bool Masked = false) const {
     return Impl->getVectorizedFunction(F, VF, Masked);
+=======
+  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF) const {
+    return Impl->getVectorizedFunction(F, VF);
+>>>>>>> f8f1909d36b2b1dee6ddcdf7bfed23aebf224437
   }
 
 
