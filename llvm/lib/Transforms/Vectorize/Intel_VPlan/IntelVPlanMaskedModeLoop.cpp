@@ -426,6 +426,7 @@ bool MaskedModeLoopCreator::mayUseMaskedMode() { return EnableMaskedVariant; }
 VPInstruction *MaskedModeLoopCreator::getInductionVariable(VPLoop *TopVPLoop) {
   VPInstruction *CondBit =
       dyn_cast<VPInstruction>(TopVPLoop->getLoopLatch()->getCondBit());
+  assert(CondBit && "It's expected Loop Latch to have a non-null CondBit.");
   for (unsigned Idx = 0; Idx < CondBit->getNumOperands(); Idx++) {
     VPInstruction *Op = dyn_cast<VPInstruction>(CondBit->getOperand(Idx));
     if (Op && Op->getOpcode() == Instruction::Add &&
