@@ -6071,14 +6071,15 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
 
 StringRef
 TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
-                                             const ElementCount &VF) const {
+                                             const ElementCount &VF,
+                                             bool Masked) const { // INTEL
   F = sanitizeFunctionName(F);
   if (F.empty())
     return F;
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, F, compareWithScalarFnName);
   while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == F) {
-    if (I->VectorizationFactor == VF)
+    if (I->VectorizationFactor == VF && I->Masked == Masked) // INTEL
       return I->VectorFnName;
     ++I;
   }
