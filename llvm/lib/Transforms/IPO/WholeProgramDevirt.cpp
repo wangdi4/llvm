@@ -1711,11 +1711,8 @@ void DevirtModule::translateDataForMultiVersion(
 
   // CMPLRLLVM-23243: If at least one target function is a libfunc or external
   // then we are going to include the default case in the multiversioning.
-  for (auto &&Target : TargetsForSlot) {
-    assert(isa<Function>(Target.Fn) && "Expected Function");
-    auto *Fn = cast<Function>(Target.Fn);
-    IntelDevirtMV.addTarget(Fn);
-  }
+  for (auto &&Target : TargetsForSlot)
+    IntelDevirtMV.addTarget(Target.Fn);
 
   // Lambda function that will go through each of the virtual call sites
   // and collect the CallBase pointer
