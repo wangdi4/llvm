@@ -206,6 +206,12 @@ public:
   std::string MSOutputPdbFile;
 #endif //INTEL_CUSTOMIZATION
 
+  enum AssignmentTrackingOpts {
+    Disabled,
+    Enabled,
+    Forced,
+  };
+
   /// The code model to use (-mcmodel).
   std::string CodeModel;
 
