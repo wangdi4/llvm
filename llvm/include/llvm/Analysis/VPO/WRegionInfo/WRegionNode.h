@@ -295,7 +295,7 @@ public:
   bool canHaveInteropAction() const;
   bool canHaveDepend() const;
   bool canHaveDetach() const;
-  bool canHaveDepSrcSink() const;
+  bool canHaveDoacrossSrcSink() const;
   bool canHaveAligned() const;
   bool canHaveNontemporal() const;
   bool canHaveFlush() const;
@@ -377,8 +377,10 @@ public:
   virtual DataClause &getData()              {WRNERROR(QUAL_OMP_DATA);        }
   virtual DependClause &getDepend()          {WRNERROR("DEPEND");             }
   virtual DetachClause &getDetach()          {WRNERROR("DETACH");             }
-  virtual DepSinkClause &getDepSink()        {WRNERROR("DEPEND(SINK:..)");    }
-  virtual DepSourceClause &getDepSource()    {WRNERROR("DEPEND(SOURCE)");     }
+  virtual DoacrossSinkClause &getDoacrossSink()
+                                               {WRNERROR("DOACROSS(SINK:..)");}
+  virtual DoacrossSourceClause &getDoacrossSource()
+                                                {WRNERROR("DOACROSS(SOURCE)");}
   virtual FirstprivateClause &getFpriv()     {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual FlushSet &getFlush()               {WRNERROR(QUAL_OMP_FLUSH);       }
   virtual InteropClause &getInterop()        {WRNERROR(QUAL_OMP_INTEROP);     }
@@ -431,10 +433,10 @@ public:
                                            {WRNERROR("DEPEND");             }
   virtual const DetachClause &getDetach() const
                                            {WRNERROR("DETACH");             }
-  virtual const DepSinkClause &getDepSink() const
-                                           {WRNERROR("DEPEND(SINK:..)");    }
-  virtual const DepSourceClause &getDepSource() const
-                                           {WRNERROR("DEPEND(SOURCE)");     }
+  virtual const DoacrossSinkClause &getDoacrossSink() const
+                                             {WRNERROR("DOACROSS(SINK:..)");}
+  virtual const DoacrossSourceClause &getDoacrossSource() const
+                                              {WRNERROR("DOACROSS(SOURCE)");}
   virtual const FirstprivateClause &getFpriv() const
                                            {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual const FlushSet &getFlush() const {WRNERROR(QUAL_OMP_FLUSH);       }
@@ -524,8 +526,8 @@ public:
   virtual EXPR getIf()                    const {WRNERROR(QUAL_OMP_IF);       }
   virtual void setIsStrict(bool F)                      { WRNERROR("STRICT"); }
   virtual bool getIsStrict()                      const { WRNERROR("STRICT"); }
-  virtual void setIsDoacross(bool F)         {WRNERROR("DEPEND(SOURCE|SINK)");}
-  virtual bool getIsDoacross()         const {WRNERROR("DEPEND(SOURCE|SINK)");}
+  virtual void setIsDoacross(bool F)     { WRNERROR("DOACROSS(SOURCE|SINK)"); }
+  virtual bool getIsDoacross()     const { WRNERROR("DOACROSS(SOURCE|SINK)"); }
   virtual void setIsSIMD(bool Flag)          {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
   virtual bool getIsSIMD()             const {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
   virtual void setIsTargetTask(bool Flag)     {WRNERROR(QUAL_OMP_TARGET_TASK);}

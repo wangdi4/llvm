@@ -1,26 +1,32 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=ALL
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=ALL
-
+; REQUIRES: asserts
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -S %s 2>&1 | FileCheck %s
+;
+; Check parsing of the DOACROSS(SINK|SOURCE) clause
+; The test IR is a hand-modified version of parsing_depend_on_ordered_opaqueptrs.ll, with QUAL.OMP.DEPEND.SINK|SOURCE changed to QUAL.OMP.DOACROSS.SINK|SOURCE.
+;
 ; Test src:
 ;
-; #include <stdio.h>
-;
-; void foo(int (*v_ptr)[5][4]) {
+;  #include <stdio.h>
+;  void foo(int (*v_ptr)[5][4]) {
 ;   int i, j;
-;
-; #pragma omp parallel for ordered(2) private(j) schedule(static, 2)
+; #pragma omp for ordered(2) private(j) schedule(static)
 ;   for (i = 1; i < 5; i++) {
 ;     for (j = 2; j < 4; j++) {
-;
-; #pragma omp ordered doacross(sink : i - 1, j - 1) doacross(sink : i, j - 2)
+; #pragma omp ordered depend(sink : i - 1, j - 1) depend(sink : i, j - 2)
 ;       (*v_ptr)[i][j] = (*v_ptr)[i - 1][j - 1] + (*v_ptr)[i][j - 2];
-;
-; #pragma omp ordered doacross(source)
+; #pragma omp ordered depend(source)
 ;     }
 ;   }
-; }
+; } 
+
+; CHECK: BEGIN ORDERED ID=2 {
+; CHECK:  DOACROSS.SINK clause (size=2): (i32 %{{.*}} i32 %{{.*}} ) (i32 %{{.*}} i32 %{{.*}} )
+; CHECK: } END ORDERED ID=2
+
+; CHECK: BEGIN ORDERED ID=3 {
+; CHECK: DOACROSS.SOURCE clause (size=1): (i32 %{{.*}} i32 %{{.*}} )
+; CHECK: } END ORDERED ID=3
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -37,21 +43,15 @@ entry:
   store ptr %v_ptr, ptr %v_ptr.addr, align 8
   store i32 0, ptr %.omp.lb, align 4
   store i32 3, ptr %.omp.ub, align 4
-; TFORM-NOT: %{{[0-9]+}} = call token @llvm.directive.region.entry() {{.*}}
-; TFORM-NOT: call void @llvm.directive.region.exit(token %{{[0-9]+}}) {{.*}}
-
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
     "QUAL.OMP.ORDERED"(i32 2, i32 4, i32 2),
     "QUAL.OMP.PRIVATE:TYPED"(ptr %j, i32 0, i32 1),
-    "QUAL.OMP.SCHEDULE.STATIC"(i32 2),
-    "QUAL.OMP.SHARED:TYPED"(ptr %v_ptr.addr, ptr null, i32 1),
+    "QUAL.OMP.SCHEDULE.STATIC"(i32 0),
     "QUAL.OMP.PRIVATE:TYPED"(ptr %i, i32 0, i32 1),
     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb, i32 0, i32 1),
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0) ]
-; #pragma omp parallel for ordered(2) schedule(static,2)
-; TFORM: call void @__kmpc_doacross_init({{[^,]+}}, i32 %[[TID:[a-zA-Z._0-9]+]], i32 2, ptr %{{[a-zA-Z._0-9]+}})
-; TFORM-NEXT: call void @__kmpc_for_static_init_4({{[^,]+}}, i32 %[[TID]], i32 33, ptr %is.last, ptr %lower.bnd, ptr %upper.bnd, ptr %stride, i32 1, i32 2)
+
   %1 = load i32, ptr %.omp.lb, align 4
   store i32 %1, ptr %.omp.iv, align 4
   br label %omp.inner.for.cond
@@ -94,8 +94,7 @@ for.body:                                         ; preds = %for.cond
   %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(),
     "QUAL.OMP.DOACROSS.SINK"(i32 %div, i32 %div5),
     "QUAL.OMP.DOACROSS.SINK"(i32 %div7, i32 %div10) ]
-; ALL-DAG: call void @__kmpc_doacross_wait({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, ptr %{{[a-zA-Z._0-9]+}})
-; ALL-DAG: call void @__kmpc_doacross_wait({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, ptr %{{[a-zA-Z._0-9]+}})
+
   call void @llvm.directive.region.exit(token %10) [ "DIR.OMP.END.ORDERED"() ]
   %11 = load ptr, ptr %v_ptr.addr, align 8
   %12 = load i32, ptr %i, align 4
@@ -133,7 +132,7 @@ for.body:                                         ; preds = %for.cond
   %div28 = sdiv i32 %sub27, 1
   %24 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(),
     "QUAL.OMP.DOACROSS.SOURCE"(i32 %div26, i32 %div28) ]
-; ALL-DAG: call void @__kmpc_doacross_post({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, ptr %{{[a-zA-Z._0-9]+}})
+
   call void @llvm.directive.region.exit(token %24) [ "DIR.OMP.END.ORDERED"() ]
   br label %for.inc
 
@@ -159,9 +158,7 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
   br label %omp.loop.exit
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
-; TFORM-DAG: call void @__kmpc_for_static_fini({{[^,]+}}, i32 %[[TID]])
-; TFORM-DAG: call void @__kmpc_doacross_fini({{[^,]+}}, i32 %[[TID]])
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.LOOP"() ]
   ret void
 }
 

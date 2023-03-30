@@ -4326,11 +4326,11 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
 }
 
 // This function generates and inserts calls to kmpc_doacross_wait/post for
-// '#pragma omp ordered depend(source/sink)'.
+// '#pragma omp ordered doacross(source/sink)'.
 //
 // Incoming Directive:
 //   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(),
-//        "QUAL.OMP.DEPEND.SINK"(i32 %v1, i32 %v2) ]
+//        "QUAL.OMP.DOACROSS.SINK"(i32 %v1, i32 %v2) ]
 //
 // Generated IR:
 //   %dep.vec = alloca i64, i32 2                             ; (1)

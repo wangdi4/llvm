@@ -2075,20 +2075,20 @@ public:
 /// WRN for these constructs:
 /// \code
 ///   #pragma omp ordered [threads | simd]
-///   #pragma omp ordered depend(source | sink(..))
+///   #pragma omp ordered doacross(source | sink(..))
 /// \endcode
 /// The first form is the traditional OpenMP ordered contruct, while the
 /// second form is new with OpenMP4.x, to describe DOACROSS
 class WRNOrderedNode : public WRegionNode {
 private:
-  bool IsDoacross;         // true iff a depend clause is seen (2nd form above)
+  bool IsDoacross; // true iff a doacross clause is seen (2nd form above)
   // IsSIMD and IsThreads are meaningful only if IsDoacross==false
   bool IsSIMD;
   bool IsThreads;
 
   // The following two fields are meaningful only if IsDoacross==true
-  DepSinkClause DepSink;
-  DepSourceClause DepSource;
+  DoacrossSinkClause DoacrossSink;
+  DoacrossSourceClause DoacrossSource;
   void assertDoacrossTrue() const  { assert (IsDoacross &&
                               "This WRNOrdered represents Doacross"); }
   void assertDoacrossFalse() const { assert (!IsDoacross &&
@@ -2107,13 +2107,23 @@ public:
   bool getIsSIMD() const override { return !IsDoacross && IsSIMD; }
   bool getIsThreads() const override { return !IsDoacross && (IsThreads || !IsSIMD); }
 
-  const DepSinkClause &getDepSink() const override {assertDoacrossTrue();
-                                           return DepSink; }
-  DepSinkClause &getDepSink() override { assertDoacrossTrue(); return DepSink; }
+  const DoacrossSinkClause &getDoacrossSink() const override {
+    assertDoacrossTrue();
+    return DoacrossSink;
+  }
+  DoacrossSinkClause &getDoacrossSink() override {
+    assertDoacrossTrue();
+    return DoacrossSink;
+  }
 
-  const DepSourceClause &getDepSource() const override  {assertDoacrossTrue();
-                                           return DepSource; }
-  DepSourceClause &getDepSource() override { assertDoacrossTrue(); return DepSource; }
+  const DoacrossSourceClause &getDoacrossSource() const override {
+    assertDoacrossTrue();
+    return DoacrossSource;
+  }
+  DoacrossSourceClause &getDoacrossSource() override {
+    assertDoacrossTrue();
+    return DoacrossSource;
+  }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;
