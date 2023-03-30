@@ -12,29 +12,15 @@ import subprocess
 from subprocess import PIPE
 import logging
 import sys
-from multiprocessing import Pool
-from functools import partial
 import re
 
-# REGEX copied from common
-RUN_LINE_RE = re.compile(r'^\s*(?://|[;#])\s*RUN:\s*(.*)$')
-CHECK_PREFIX_RE = re.compile(r'--?check-prefix(?:es)?[= ](\S+)')
-CHECK_RE = re.compile(r'^\s*(?://|[;#])\s*([^:]+?)(?:-NEXT|-NOT|-DAG|-LABEL|-SAME|-EMPTY)?:')
-
-# NOTE: Duplication of REGEX could be avoid by following statements, but it
-#       would trigger error on windows due to known issue
-#
-#       https://bugs.python.org/issue45914
-#
 # This script can be used either as part of the UpdateTestChecks module
 # or as the main module
-# if __name__ == '__main__':
-#     import common
-# else:
-#     from . import common
-#
-# The error can be reproduced by on linux via
-#    multiprocessing.set_start_method('spawn')
+if __name__ == '__main__':
+    from common import RUN_LINE_RE,CHECK_PREFIX_RE,CHECK_RE
+else:
+    from .common import RUN_LINE_RE,CHECK_PREFIX_RE,CHECK_RE
+
 
 def check_ext(file_ext):
     if file_ext not in {'ll', 'mir', 's', 'txt', 'c', 'cpp', 'td', 'test', 'mm'}:
@@ -146,10 +132,7 @@ def get_file_path_in_git(exp):
     return exp
 
 
-# MODIFY THIS FUNCTION WITH CARE!
-# GIT is used for version control, so we don't test git history to avoid circular dependencies.
-def get_llorg_ref(exp, ref_commit=None):
-    """Get file from best common ancestor with llorg"""
+def may_update_path_and_ref_commit(exp, ref_commit):
     # Get the path of the file relative to git repository root, so that
     # we can run the script in any subdirectory.
     exp_path = exp
@@ -158,11 +141,22 @@ def get_llorg_ref(exp, ref_commit=None):
     # get_file_path_in_git before calling get_merge_base to bail out quickly
     # for a untracked file.
     if not exp:
-        logging.debug(f'File {exp_path} is no tracked by GIT')
-        return None
+        logging.debug(f'File {exp_path} is not tracked by GIT')
+        return None, ref_commit
 
-    if ref_commit == None:
-        ref_commit = get_merge_base()
+    if ref_commit:
+        return exp, ref_commit
+
+    return exp, get_merge_base()
+
+
+# MODIFY THIS FUNCTION WITH CARE!
+# GIT is used for version control, so we don't test git history to avoid circular dependencies.
+def get_llorg_ref(exp, ref_commit=None):
+    """Get file from best common ancestor with llorg"""
+    exp, ref_commit = may_update_path_and_ref_commit(exp, ref_commit)
+    if not exp or not ref_commit:
+        return None
 
     ref_str = subprocess.run(['git', 'show', f'{ref_commit}:{exp}'],
                              stdout=PIPE,
@@ -353,6 +347,14 @@ def add(exp, max_line, ref, comment):
         subprocess.run(['sed', '-i', '-b', script, exp])
 
 
+def may_add(exp, max_line, ref, comment, ref_commit=None):
+    if not ref:
+        ref = get_llorg_ref(exp, ref_commit)
+    if not ref: # INTEL-only file
+        return
+    add(exp, max_line, ref, comment)
+
+
 def update(exp, max_line=3, ref=None, comment=True):
     """Update intel markup for a file (Do nothing if there is an explicit INTEL_MARKUP=0) """
     markup = os.environ.get('INTEL_MARKUP', '1')
@@ -363,11 +365,7 @@ def update(exp, max_line=3, ref=None, comment=True):
         return
 
     drop(exp)
-    if not ref:
-        ref = get_llorg_ref(exp)
-    if not ref: # INTEL-only file
-        return
-    add(exp, max_line, ref, comment)
+    may_add(exp, max_line, ref, comment)
 
 
 def check_file(file):
@@ -383,17 +381,6 @@ def check_file_and_ext(file):
 def check_noneg(name, value):
     if value < 0:
         raise ValueError(f'{name} value {value} is less than 0')
-
-
-def drop_may_add(exp, max_line, ref, ref_commit, comment, drop_only):
-    logging.debug(f'Processing file {exp} ...')
-    drop(exp)
-    if drop_only:
-        return
-    ref = ref if ref else get_llorg_ref(exp, ref_commit)
-    if not ref:
-        return
-    add(exp, max_line, ref, comment)
 
 
 def main():
@@ -414,8 +401,7 @@ def main():
     )
     parser.add_argument('--drop', help='drop markup and note', action='store_true')
     parser.add_argument('--comment', help='add a comment if markup is added', action='store_true')
-    parser.add_argument('--log', help='print the log (supported only on posix os)', action='store_true')
-    parser.add_argument('-j', metavar='N', dest='jobs', help=f'run N jobs in parallel (default={os.cpu_count()} on this system)', type=int, default=os.cpu_count())
+    parser.add_argument('--log', help='print the log', action='store_true')
     args = parser.parse_args()
 
     check_git_sed(True)
@@ -427,22 +413,21 @@ def main():
     # Argument checking
     check_noneg('--max', args.max)
     args.ref and check_file(args.ref)
-    if args.log and os.name != 'posix':
-        raise NotImplementedError('--log is supported on posix only') # Due to multiprocessing implementation
-    check_noneg('-j', args.jobs)
-    jobs = min(args.jobs, len(args.exps))
-    logging.debug(f'Running {jobs} job(s) in parallel ...')
-    with Pool(jobs) as p:
-        p.map(check_file_and_ext, args.exps)
-
-    # Look for the best common ancestor only once
-    ref_commit = None if args.ref or args.drop else get_merge_base()
-    assert not (args.ref and ref_commit), 'One at most'
+    for exp in args.exps:
+        check_file_and_ext(exp)
 
     # Process files
-    helper = partial(drop_may_add, max_line=args.max, ref=args.ref, ref_commit=ref_commit, comment=args.comment, drop_only=args.drop)
-    with Pool(jobs) as p:
-        p.map(helper, args.exps)
+    ref_commit = None
+    for exp in args.exps:
+        logging.debug(f'Processing file {exp} ...')
+        drop(exp)
+        if args.drop:
+            continue
+        # Look for the best common ancestor at most once
+        if not args.ref and not ref_commit:
+            _, ref_commit = may_update_path_and_ref_commit(exp, ref_commit)
+        if args.ref or ref_commit:
+            may_add(exp, args.max, args.ref, args.comment, ref_commit)
 
 
 if __name__ == '__main__':
