@@ -390,8 +390,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   llvm::Triple TT(pModule->getTargetTriple());
   if (m_passManagerType == PM_NONE &&
       (TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64 ||
-       (CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
-        !CompilationUtils::isGeneratedFromOMP(*pModule))))
+       CompilationUtils::isGeneratedFromOCLCPP(*pModule)))
     m_passManagerType = PM_LTO;
 
   applyBuildProgramLLVMOptions(m_passManagerType, m_CpuId);
