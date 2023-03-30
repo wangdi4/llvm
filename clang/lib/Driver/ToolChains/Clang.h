@@ -27,10 +27,10 @@
 #define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_CLANG_H
 
 #include "MSVC.h"
-#include "clang/Basic/DebugInfoOptions.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Driver/Types.h"
+#include "llvm/Frontend/Debug/Options.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
@@ -109,7 +109,7 @@ private:
 #if INTEL_CUSTOMIZATION
   void AddClangCLArgs(const llvm::opt::ArgList &Args, types::ID InputType,
                       llvm::opt::ArgStringList &CmdArgs,
-                      codegenoptions::DebugInfoKind *DebugInfoKind,
+                      llvm::codegenoptions::DebugInfoKind *DebugInfoKind,
                       bool *EmitCodeView, const JobAction &JA) const;
   void ClangTidySourceCheck(Compilation &C, const JobAction &JA,
                             const InputInfoList &Inputs,
