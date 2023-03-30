@@ -15,18 +15,17 @@
 
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/PriorityWorklist.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Operator.h"
 
 using namespace llvm;
 using namespace dtransOP;

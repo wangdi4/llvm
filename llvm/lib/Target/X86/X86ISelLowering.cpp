@@ -15744,7 +15744,13 @@ static SDValue lowerShuffleAsElementInsertion(
     }
     V2 = DAG.getNode(ISD::SCALAR_TO_VECTOR, DL, ExtVT, V2S);
   } else if (Mask[V2Index] != (int)Mask.size() || EltVT == MVT::i8 ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_MOVZXC
+             (EltVT == MVT::i16 && !Subtarget.hasAVX512MOVZXC())) {
+#else // INTEL_FEATURE_ISA_AVX512_MOVZXC
              EltVT == MVT::i16) {
+#endif // INTEL_FEATURE_ISA_AVX512_MOVZXC
+#endif // INTEL_CUSTOMIZATION
     // Either not inserting from the low element of the input or the input
     // element size is too small to use VZEXT_MOVL to clear the high bits.
     return SDValue();
@@ -43049,7 +43055,14 @@ static bool matchUnaryShuffle(MVT MaskVT, ArrayRef<int> Mask,
 
   // Match against a VZEXT_MOVL instruction, SSE1 only supports 32-bits (MOVSS).
   if (((MaskEltSize == 32) || (MaskEltSize == 64 && Subtarget.hasSSE2()) ||
-       (MaskEltSize == 16 && Subtarget.hasFP16())) &&
+#if INTEL_CUSTOMIZATION
+       (MaskEltSize == 16 &&
+#if INTEL_FEATURE_ISA_AVX512_MOVZXC
+       (Subtarget.hasFP16() || Subtarget.hasAVX512MOVZXC()))) &&
+#else // INTEL_FEATURE_ISA_AVX512_MOVZXC
+       Subtarget.hasFP16())) &&
+#endif // INTEL_FEATURE_ISA_AVX512_MOVZXC
+#endif // INTEL_CUSTOMIZATION
       isUndefOrEqual(Mask[0], 0) &&
       isUndefOrZeroInRange(Mask, 1, NumMaskElts - 1)) {
     Shuffle = X86ISD::VZEXT_MOVL;

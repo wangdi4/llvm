@@ -18,7 +18,6 @@
 #include "Intel_DTrans/Analysis/DTransBadCastingAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -9207,91 +9206,6 @@ void DTransAnalysisInfo::printCallInfo(raw_ostream &OS) {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-INITIALIZE_PASS_BEGIN(DTransAnalysisWrapper, "dtransanalysis",
-                      "Data transformation analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DTransImmutableAnalysisWrapper)
-INITIALIZE_PASS_END(DTransAnalysisWrapper, "dtransanalysis",
-                    "Data transformation analysis", false, true)
-
-char DTransAnalysisWrapper::ID = 0;
-
-ModulePass *llvm::createDTransAnalysisWrapperPass() {
-  return new DTransAnalysisWrapper();
-}
-
-DTransAnalysisWrapper::DTransAnalysisWrapper()
-    : ModulePass(ID), Invalidated(true) {
-  initializeDTransAnalysisWrapperPass(*PassRegistry::getPassRegistry());
-}
-
-bool DTransAnalysisWrapper::doFinalization(Module &M) {
-  Result.reset();
-  Invalidated = true;
-  return false;
-}
-
-DTransAnalysisInfo &DTransAnalysisWrapper::getDTransInfo(Module &M) {
-  // Rerun the analysis, if the prior transformation has marked it as
-  // invalidated.
-  if (Invalidated) {
-    Result.reset();
-    runOnModule(M);
-  } else {
-    // Check that the previous transforms did not change types and forget
-    // to call setInvalidated.
-    assert(verifyValid(M) &&
-           "Types changed, but DTrans analysis not marked as invalidated");
-  }
-
-  return Result;
-}
-
-#if !defined(NDEBUG)
-// This is for verifying that a transformation did not forget to call
-// setInvalidated after making types changes. Because we require the
-// transformation to replace types with new types, this checks to make sure that
-// there aren't any new top-level structure types that the analysis does not
-// know about. This should also prevent the getDTransInfo from being called
-// with a different Module than the one that was collected for. Returns 'true',
-// if everything appears valid.
-bool DTransAnalysisWrapper::verifyValid(Module &M) {
-  if (!Result.useDTransAnalysis())
-    return true;
-
-  for (auto *Ty : M.getIdentifiedStructTypes())
-    if (!Result.getTypeInfo(Ty)) {
-      dbgs() << "No DTrans TypeInfo for struct type:" << *Ty << "\n";
-      return false;
-    }
-
-  return true;
-}
-#endif // !defined(NDEBUG)
-
-bool DTransAnalysisWrapper::runOnModule(Module &M) {
-
-  auto GetBFI = [this](Function &F) -> BlockFrequencyInfo & {
-    return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
-  };
-  auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-
-  auto &DTImmutInfo = getAnalysis<DTransImmutableAnalysisWrapper>().getResult();
-
-  auto GetDomTree = [this](Function &F) -> DominatorTree & {
-    return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-  };
-
-  Invalidated = false;
-  return Result.analyzeModule(
-      M, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI,
-      DTImmutInfo, GetDomTree);
-}
-
 DTransAnalysisInfo::DTransAnalysisInfo()
     : MaxTotalFrequency(0), FunctionCount(0), CallsiteCount(0),
       InstructionCount(0), DTransAnalysisRan(false) {}
@@ -10040,14 +9954,6 @@ bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
     }
   });
   return !IsIncomplete;
-}
-
-void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addRequired<BlockFrequencyInfoWrapperPass>();
-  AU.addRequired<WholeProgramWrapperPass>();
-  AU.addRequired<DTransImmutableAnalysisWrapper>();
 }
 
 char DTransAnalysis::PassID;

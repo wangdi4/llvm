@@ -78,7 +78,6 @@
 //===----------------------------------------------------------------------===//
 #include "Intel_DTrans/Transforms/CommuteCond.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
-#include "Intel_DTrans/DTransCommon.h"
 
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/PatternMatch.h"

@@ -14,7 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Transforms/ReorderFields.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PatternMatch.h"

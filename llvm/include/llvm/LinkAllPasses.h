@@ -90,9 +90,6 @@
 #include "llvm/Transforms/Vectorize.h"
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/DTransCommon.h"
-#endif // INTEL_FEATURE_SW_DTRANS
 #if INTEL_FEATURE_CSA
 #include "Intel_CSA/CSAIRPasses.h"
 #endif  // INTEL_FEATURE_CSA
@@ -123,9 +120,6 @@ namespace {
       (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createAndersensAAWrapperPass();
-#if INTEL_FEATURE_SW_DTRANS
-      (void) llvm::createDTransPasses();
-#endif // INTEL_FEATURE_SW_DTRANS
       (void) llvm::createNonLTOGlobalOptimizerPass();
       (void) llvm::createTbaaMDPropagationLegacyPass();
       (void) llvm::createCleanupFakeLoadsPass();
@@ -317,8 +311,6 @@ namespace {
       (void) llvm::createHIROptVarPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRUnrollAndJamPass();
-      (void) llvm::createHIRPreVecCompleteUnrollPass();
-      (void) llvm::createHIRPostVecCompleteUnrollPass();
       (void) llvm::createHIRParDirInsertPass();
       (void) llvm::createHIRVecDirInsertPass();
       (void) llvm::createHIRLoopDistributionForMemRecPass();
@@ -327,7 +319,6 @@ namespace {
       (void) llvm::createHIRLoopRerollPass();
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRIfReversalPass();
-      (void) llvm::createHIRLMMPass();
       (void) llvm::createHIRLoopCollapsePass();
       (void) llvm::createHIRPMSymbolicTripCountCompleteUnrollLegacyPass();
       (void) llvm::createHIRScalarReplArrayPass();
@@ -354,7 +345,6 @@ namespace {
       (void) llvm::createHIRUndoSinkingForPerfectLoopnestPass();
       (void) llvm::createHIRConditionalTempSinkingPass();
       (void) llvm::createHIRMemoryReductionSinkingPass();
-      (void) llvm::createHIRRowWiseMVPass();
       (void) llvm::createHIRConditionalLoadStoreMotionPass();
       (void) llvm::createHIRNontemporalMarkingPass();
       (void) llvm::createHIRStoreResultIntoTempArrayPass();

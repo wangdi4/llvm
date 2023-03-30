@@ -53,7 +53,6 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
-#include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 
 using namespace llvm;

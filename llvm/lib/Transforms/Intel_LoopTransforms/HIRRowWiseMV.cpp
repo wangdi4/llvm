@@ -1,6 +1,6 @@
 //===-------------------------- HIRRowWiseMV.cpp --------------------------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -75,7 +75,6 @@
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransFieldModRef.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
-#include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
@@ -112,30 +111,6 @@ static cl::opt<unsigned> ApplyLimit{
     OPT_SWITCH "-per-function", cl::init(2), cl::Hidden,
     cl::desc(
         "The maximum number of times RWMV is allowed to apply per function")};
-
-namespace {
-
-/// A wrapper for running HIRRowWiseMV with the old pass manager.
-class HIRRowWiseMVLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-  HIRRowWiseMVLegacyPass() : HIRTransformPass{ID} {
-    initializeHIRRowWiseMVLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-#if INTEL_FEATURE_SW_DTRANS
-    AU.addRequiredTransitive<DTransImmutableAnalysisWrapper>();
-    AU.addRequiredTransitive<DTransFieldModRefResultWrapper>();
-#endif // INTEL_FEATURE_SW_DTRANS
-    AU.setPreservesAll();
-  }
-};
 
 /// Implements the row-wise multiversioning transform.
 class HIRRowWiseMV {
@@ -197,8 +172,6 @@ struct MVCandidate {
   /// is that Ref should be nullptr when the candidate is invalid.
   explicit operator bool() const { return Ref; }
 };
-
-} // namespace
 
 /// Determines the arithmetically convenient values of type \p T for opcode
 /// \p OPC.
@@ -1520,37 +1493,6 @@ static bool runRowWiseMV(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
   }
 
   return Changed;
-}
-
-char HIRRowWiseMVLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRRowWiseMVLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-#if INTEL_FEATURE_SW_DTRANS
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(DTransFieldModRefResultWrapper)
-#endif // INTEL_FEATURE_SW_DTRANS
-INITIALIZE_PASS_END(HIRRowWiseMVLegacyPass, OPT_SWITCH, OPT_DESC, false, false)
-
-FunctionPass *llvm::createHIRRowWiseMVPass() {
-  return new HIRRowWiseMVLegacyPass{};
-}
-
-bool HIRRowWiseMVLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    return false;
-  }
-
-  return runRowWiseMV(
-      getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-      getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-#if INTEL_FEATURE_SW_DTRANS
-      &getAnalysis<DTransImmutableAnalysisWrapper>().getResult(),
-      &getAnalysis<DTransFieldModRefResultWrapper>().getResult(),
-#endif // INTEL_FEATURE_SW_DTRANS
-      getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
 }
 
 PreservedAnalyses HIRRowWiseMVPass::runImpl(Function &F,

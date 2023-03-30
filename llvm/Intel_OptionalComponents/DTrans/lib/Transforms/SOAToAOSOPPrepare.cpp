@@ -211,7 +211,6 @@
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 

@@ -14,7 +14,6 @@
 //===----------------------------------------------------------------------===//
 #include "Intel_DTrans/Transforms/Transpose.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringExtras.h"

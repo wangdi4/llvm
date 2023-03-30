@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -49,12 +49,6 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/DTransCommon.h"
-#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 // Enable this macro to debug bugpoint itself.
@@ -169,9 +163,6 @@ int main(int argc, char **argv) {
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
-#if INTEL_FEATURE_SW_DTRANS
-  initializeDTransPasses(Registry);
-#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB

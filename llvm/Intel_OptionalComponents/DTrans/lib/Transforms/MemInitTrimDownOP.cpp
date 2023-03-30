@@ -16,7 +16,6 @@
 #include "Intel_DTrans/Transforms/MemInitTrimDownOP.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
-#include "Intel_DTrans/DTransCommon.h"
 
 #include "SOAToAOSOPClassInfo.h"
 

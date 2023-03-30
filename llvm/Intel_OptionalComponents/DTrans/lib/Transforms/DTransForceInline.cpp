@@ -10,7 +10,6 @@
 
 #include "Intel_DTrans/Transforms/DTransForceInline.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/MemManageInfoImpl.h"
 #include "Intel_DTrans/Transforms/StructOfArraysInfoImpl.h"
 #include "llvm/IR/InstIterator.h"

@@ -1,6 +1,6 @@
 //===- HIRCompleteUnroll.cpp - Implements CompleteUnroll class ------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -3645,37 +3645,4 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
     HLNodeUtils::moveBefore(Loop, Loop->child_begin(), Loop->child_end());
     HLNodeUtils::remove(Loop);
   }
-}
-
-void HIRCompleteUnrollLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
-  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-#if INTEL_FEATURE_SW_DTRANS
-  AU.addRequiredTransitive<DTransImmutableAnalysisWrapper>();
-#endif // INTEL_FEATURE_SW_DTRANS
-}
-
-bool HIRCompleteUnrollLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    LLVM_DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
-    return false;
-  }
-
-  return HIRCompleteUnroll(
-             getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-             getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
-             getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
-             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-             getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-             getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
-#if INTEL_FEATURE_SW_DTRANS
-             &getAnalysis<DTransImmutableAnalysisWrapper>().getResult(),
-#endif // INTEL_FEATURE_SW_DTRANS
-             OptLevel, IsPreVec, PragmaOnlyUnroll)
-      .run();
 }

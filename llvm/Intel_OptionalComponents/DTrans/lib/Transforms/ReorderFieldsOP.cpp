@@ -16,7 +16,6 @@
 #include "Intel_DTrans/Transforms/ReorderFieldsOP.h"
 
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/Analysis/Intel_WP.h"

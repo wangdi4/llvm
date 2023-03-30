@@ -80,12 +80,6 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Debugify.h"
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/DTransCommon.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-
 #include <algorithm>
 #include <memory>
 #include <optional>
@@ -571,9 +565,6 @@ int main(int argc, char **argv) {
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
   initializeParseAnnotateAttributesLegacyPass(Registry);
-#if INTEL_FEATURE_SW_DTRANS
-  initializeDTransPasses(Registry);
-#endif // INTEL_FEATURE_SW_DTRANS
 #endif  // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
