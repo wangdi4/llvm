@@ -801,13 +801,13 @@ private:
 
   /// Generate local update loop for atomic-free GPU reduction
   bool genAtomicFreeReductionLocalFini(WRegionNode *W, ReductionItem *RedI,
-                                       LoadInst *Rhs1, LoadInst *Rhs2,
-                                       StoreInst *RedStore,
+                                       Instruction *Rhs1, Instruction *Rhs2,
+                                       Instruction *CombinerCopyout,
                                        IRBuilder<> &Builder, DominatorTree *DT);
 
   /// Generate global update loop for atomic-free GPU reduction
   bool genAtomicFreeReductionGlobalFini(
-      WRegionNode *W, ReductionItem *RedI, StoreInst *RedStore,
+      WRegionNode *W, ReductionItem *RedI, Instruction *CombinerCopyout,
       Instruction *RedVarToLoad, Instruction *RedValToLoad, PHINode *RedSumPhi,
       bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT);
 
@@ -823,7 +823,8 @@ private:
   // the global (teams) stage of atomic-free reduction.
   void resetTeamsCounterAfterCopyingBackRedItem(GlobalVariable *TeamsCounter,
                                                 bool IsArrayOrArraySection,
-                                                StoreInst *CopyoutStore,
+                                                bool IsUdr,
+                                                Instruction *InsertPt,
                                                 BasicBlock *CopyoutLoopHeader);
 
   /// Generate code for the aligned clause.
@@ -860,8 +861,8 @@ private:
                              Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
 
   /// Generate calling reduction update function for user-defined reduction.
-  bool genReductionUdrFini(ReductionItem *RedI, Value *ReductionVar,
-                           Value *ReductionValueLoc, IRBuilder<> &Builder);
+  CallInst *genReductionUdrFini(ReductionItem *RedI, Value *ReductionVar,
+                                Value *ReductionValueLoc, IRBuilder<> &Builder);
 
   /// Generate the reduction update instructions.
   /// Returns true iff critical section is required around the generated
