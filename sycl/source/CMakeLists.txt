@@ -221,11 +221,8 @@ set(SYCL_SOURCES
     "detail/kernel_impl.cpp"
     "detail/kernel_program_cache.cpp"
     "detail/memory_manager.cpp"
-<<<<<<< HEAD
     "detail/non_cached_kernel_lock.cpp"
-=======
     "detail/pipes.cpp"
->>>>>>> 992ef064289fd5f436eaf7d448fc2b6d54a647bc
     "detail/platform_impl.cpp"
     "detail/program_impl.cpp"
     "detail/program_manager/program_manager.cpp"
