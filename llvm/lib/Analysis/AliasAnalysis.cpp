@@ -2,13 +2,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -72,7 +72,6 @@
 #define DEBUG_TYPE "aa"
 
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #endif // INTEL_CUSTOMIZATION
@@ -1000,7 +999,6 @@ char AAResultsWrapperPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(AAResultsWrapperPass, "aa",
                       "Function Alias Analysis Results", false, true)
-INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)  // INTEL
 INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ExternalAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
@@ -1059,10 +1057,6 @@ bool AAResultsWrapperPass::runOnFunction(Function &F) {
     AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<SCEVAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
-#if INTEL_CUSTOMIZATION
-  if (auto *WrapperPass = getAnalysisIfAvailable<AndersensAAWrapperPass>())
-    AAR->addAAResult(WrapperPass->getResult());
-#endif     // INTEL_CUSTOMIZATION
 
   // If available, run an external AA providing callback over the results as
   // well.
@@ -1089,7 +1083,6 @@ void AAResultsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<objcarc::ObjCARCAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<SCEVAAWrapperPass>();
-  AU.addUsedIfAvailable<AndersensAAWrapperPass>(); // INTEL
   AU.addUsedIfAvailable<ExternalAAWrapperPass>();
 }
 
@@ -1125,10 +1118,6 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
 #endif // INTEL_CUSTOMIZATION
   if (auto *WrapperPass = P.getAnalysisIfAvailable<GlobalsAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
-#if INTEL_CUSTOMIZATION
-  if (auto *WrapperPass = P.getAnalysisIfAvailable<AndersensAAWrapperPass>())
-    AAR.addAAResult(WrapperPass->getResult());
-#endif     // INTEL_CUSTOMIZATION
   if (auto *WrapperPass = P.getAnalysisIfAvailable<ExternalAAWrapperPass>())
     if (WrapperPass->CB)
       WrapperPass->CB(P, F, AAR);

@@ -1,6 +1,6 @@
 //===--- Intel_LoadCoalescing.cpp - Coalescing of consecutive loads -------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -695,7 +695,6 @@ void LoadCoalescingLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
-  AU.addPreserved<AndersensAAWrapperPass>();
   AU.addPreserved<AAResultsWrapperPass>();
 }
 

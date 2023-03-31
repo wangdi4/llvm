@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -96,12 +96,6 @@ public:
   DAE() : ModulePass(ID) {
     initializeDAEPass(*PassRegistry::getPassRegistry());
   }
-
-#if INTEL_CUSTOMIZATION
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-#endif // INTEL_CUSTOMIZATION
 
   bool runOnModule(Module &M) override {
     if (skipModule(M))

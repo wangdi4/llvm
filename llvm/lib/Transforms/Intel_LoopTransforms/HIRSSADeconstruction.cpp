@@ -249,7 +249,6 @@ public:
     AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<HIRRegionIdentificationWrapperPass>();
     AU.addPreserved<HIRSCCFormationWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
   }
 };

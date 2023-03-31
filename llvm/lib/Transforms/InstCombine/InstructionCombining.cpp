@@ -5247,8 +5247,6 @@ void InstructionCombiningPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<AAResultsWrapperPass>();
   AU.addPreserved<BasicAAWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
-  AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
-  AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
   AU.addRequired<ProfileSummaryInfoWrapperPass>();
   LazyBlockFrequencyInfoPass::getLazyBFIAnalysisUsage(AU);
 }
@@ -5328,7 +5326,6 @@ INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)   // INTEL
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LazyBlockFrequencyInfoPass)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)

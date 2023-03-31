@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -tbaa %s | opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -disable-output -scoped-noalias-aa -aa-eval -evaluate-aa-metadata -print-no-aliases 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring),vpo-paropt' -aa-pipeline=tbaa %s | opt -opaque-pointers=0 -disable-output -aa-pipeline="scoped-noalias-aa" -passes="aa-eval" -evaluate-aa-metadata -print-no-aliases 2>&1 | FileCheck %s
 
 ; TODO: TBAA only appears to be available during vpo-paropt with the new pass

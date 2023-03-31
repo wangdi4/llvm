@@ -57,7 +57,6 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -350,9 +349,6 @@ void PassManagerBuilder::populateFunctionPassManager(
   if (LibraryInfo)
     FPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
-#if INTEL_CUSTOMIZATION
-  FPM.add(createXmainOptLevelWrapperPass(OptLevel));
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   if (RunVPOOpt && RunVPOParopt) {
     FPM.add(createVPOCFGRestructuringPass());
@@ -714,10 +710,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 void PassManagerBuilder::populateModulePassManager(
     legacy::PassManagerBase &MPM) {
 
-#if INTEL_CUSTOMIZATION
-  MPM.add(createXmainOptLevelWrapperPass(OptLevel)); // INTEL
-#endif // INTEL_CUSTOMIZATION
-
   // If all optimizations are disabled, just run the always-inline pass and,
   // if enabled, the function merging pass.
   if (OptLevel == 0) {
@@ -823,18 +815,6 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createCleanupFakeLoadsPass());
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-  if (EnableAndersen) {
-    MPM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
-  }
-  if (OptLevel >= 2 && EnableNonLTOGlobalVarOpt && EnableAndersen) {
-    MPM.add(createNonLTOGlobalOptimizerPass());
-    MPM.add(createPromoteMemoryToRegisterPass());
-    // AggressiveDCE is invoked here to avoid -6% performance regression
-    // for aifftr01@opt_speed
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // We add a fresh GlobalsModRef run at this point. This is particularly
   // useful as the above will have inlined, DCE'ed, and function-attr
   // propagated everything. We should at this point have a reasonably minimal
@@ -902,12 +882,6 @@ void PassManagerBuilder::populateModulePassManager(
 }
 
 void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
-#if INTEL_CUSTOMIZATION
-  PM.add(createXmainOptLevelWrapperPass(OptLevel));
-  // Whole Program Analysis
-  if (EnableWPA)
-    PM.add(createWholeProgramWrapperPassPass(WPUtils));
-#endif // INTEL_CUSTOMIZATION
 
   // Provide AliasAnalysis services for optimizations.
   addInitialAliasAnalysisPasses(PM);
@@ -947,10 +921,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
   bool RunInliner = Inliner;
-  if (EnableAndersen) {
-    // Andersen's IP alias analysis
-    PM.add(createAndersensAAWrapperPass(true /* BeforeInl */));
-  }
 #endif // INTEL_CUSTOMIZATION
 
   // Inline small functions
@@ -977,11 +947,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createGlobalsAAWrapperPass()); // IP alias analysis.
-
-#if INTEL_CUSTOMIZATION
-  if (EnableAndersen)
-    PM.add(createAndersensAAWrapperPass());
-#endif // INTEL_CUSTOMIZATION
 
   PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
                         /*AllowSpeculation=*/true));

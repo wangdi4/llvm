@@ -72,7 +72,6 @@ void VPlanPragmaOmpOrderedSimdExtract::getAnalysisUsage(
     AnalysisUsage &AU) const {
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<WRegionInfoWrapperPass>();
-  AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
   AU.addPreserved<AAResultsWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
 }

@@ -1936,37 +1936,13 @@ void PostOrderFunctionAttrsPass::printPipeline(
 }
 
 template <typename AARGetterT>
-static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter, // INTEL
-                    WholeProgramWrapperPass *WPA) {          // INTEL
-  bool Changed = false;                                      // INTEL
-
+static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter) {
   SmallVector<Function *, 8> Functions;
   for (CallGraphNode *I : SCC) {
     Functions.push_back(I->getFunction());
-#if INTEL_CUSTOMIZATION
-    Function *F = I->getFunction();
-    // Treat “main” as non-recursive function if there are no uses
-    // when whole-program-safe is true.
-    if (!F)
-      continue;
-    StringRef FName = F->getName();
-    if (F->hasMetadata("llvm.acd.clone"))
-      FName = FName.take_front(FName.find('.'));
-    if (FName == "main" && F->use_empty()) {
-      if (WPA && WPA->getResult().isWholeProgramSafe()) {
-        F->setDoesNotRecurse();
-        ++NumNoRecurse;
-        Changed |= true;
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
   }
 
-#if INTEL_CUSTOMIZATION
-  WholeProgramInfo *WPInfo = WPA ? &WPA->getResult() : nullptr;
-  return !deriveAttrsInPostOrder(Functions, AARGetter, WPInfo).empty()
-         || Changed;
-#endif // INTEL_CUSTOMIZATION
+  return !deriveAttrsInPostOrder(Functions, AARGetter).empty();
 }
 
 static bool addNoRecurseAttrsTopDown(Function &F) {

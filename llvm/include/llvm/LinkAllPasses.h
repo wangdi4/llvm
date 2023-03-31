@@ -49,12 +49,6 @@
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
-#include "llvm/Analysis/Intel_Andersens.h"                      // INTEL
-#include "llvm/Analysis/Intel_ArrayUseAnalysis.h"               // INTEL
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"            // INTEL - HIR
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
-#include "llvm/Analysis/Intel_StdContainerAA.h"                 // INTEL
-#include "llvm/Analysis/Intel_XmainOptLevelPass.h"              // INTEL
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
@@ -70,26 +64,30 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
-#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
 #include "llvm/Transforms/Instrumentation/SPIRITTAnnotations.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
-#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
 #include "llvm/Transforms/Scalar/Scalarizer.h"
 #include "llvm/Transforms/Utils.h"
-#include "llvm/Transforms/Utils/Intel_VecClone.h" // INTEL
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
 
 #if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/Analysis/Intel_StdContainerAA.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#include "llvm/Transforms/Utils/Intel_VecClone.h"
 #if INTEL_FEATURE_CSA
 #include "Intel_CSA/CSAIRPasses.h"
 #endif  // INTEL_FEATURE_CSA
@@ -119,14 +117,12 @@ namespace {
       (void)llvm::createBitTrackingDCEPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
-      (void) llvm::createAndersensAAWrapperPass();
       (void) llvm::createNonLTOGlobalOptimizerPass();
       (void) llvm::createTbaaMDPropagationLegacyPass();
       (void) llvm::createCleanupFakeLoadsPass();
       (void) llvm::createHandlePragmaVectorAlignedPass();
       (void) llvm::createStdContainerOptPass();
-      (void) llvm::createStdContainerAAWrapperPass();
-      (void) llvm::createXmainOptLevelWrapperPass();
+      (void)llvm::createStdContainerAAWrapperPass();
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();

@@ -1078,8 +1078,6 @@ AndersensAAResult AndersensAA::run(Module &M, ModuleAnalysisManager &AM) {
       AM.getCachedResult<WholeProgramAnalysis>(M), BeforeInl);
 }
 
-char AndersensAAWrapperPass::ID = 0;
-
 static cl::opt<unsigned> MaxAliasQuery(
     "max-alias-query", cl::ReallyHidden,
     cl::desc("This option should be used only with debug compiler. It helps to "
@@ -1092,46 +1090,6 @@ static cl::opt<unsigned>
                          "It helps to debug any stability issues in "
                          "AndersensAA by limiting the number of ptr queries."),
                 cl::init(std::numeric_limits<unsigned>::max()));
-
-INITIALIZE_PASS_BEGIN(AndersensAAWrapperPass, "anders-aa",
-                   "Andersen Interprocedural AA", false, true)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(AndersensAAWrapperPass, "anders-aa",
-                    "Andersen Interprocedural AA", false, true)
-
-
-ModulePass *llvm::createAndersensAAWrapperPass(bool BeforeInl) {
-  return new AndersensAAWrapperPass(BeforeInl);
-}
-
-AndersensAAWrapperPass::AndersensAAWrapperPass(bool BeforeInl)
-                          : ModulePass(ID), BeforeInl(BeforeInl) {
-  initializeAndersensAAWrapperPassPass(*PassRegistry::getPassRegistry());
-}
-
-bool AndersensAAWrapperPass::runOnModule(Module &M) {
-  auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();
-  auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
-    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-  Result.reset(new AndersensAAResult(AndersensAAResult::analyzeModule(
-      M, GetTLI, getAnalysis<CallGraphWrapperPass>().getCallGraph(),
-      WPA ? &WPA->getResult() : nullptr, BeforeInl)));
-  return false;
-}
-
-bool AndersensAAWrapperPass::doFinalization(Module &M) {
-  Result.reset();
-  return false;
-}
-
-void AndersensAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequired<CallGraphWrapperPass>();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addUsedIfAvailable<WholeProgramWrapperPass>();
-}
 
 // Returns true if ‘rname’ is found in ‘name_table’.
 bool AndersensAAResult::findNameInTable(StringRef rname, 

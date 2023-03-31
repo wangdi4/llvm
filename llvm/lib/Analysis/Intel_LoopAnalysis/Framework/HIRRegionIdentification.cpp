@@ -1,6 +1,6 @@
 //===- HIRRegionIdentification.cpp - Identifies HIR Regions ---------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -150,7 +150,6 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass)
 INITIALIZE_PASS_END(HIRRegionIdentificationWrapperPass,
                     "hir-region-identification", "HIR Region Identification",
                     false, true)
@@ -171,7 +170,7 @@ bool HIRRegionIdentificationWrapperPass::runOnFunction(Function &F) {
       getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F),
       getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
       getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
-      getAnalysis<XmainOptLevelWrapperPass>().getOptLevel()));
+      0 /* placeholder due to removal of XMainOpt pass */));
 
   return true;
 }
@@ -185,7 +184,6 @@ void HIRRegionIdentificationWrapperPass::getAnalysisUsage(
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
-  AU.addRequiredTransitive<XmainOptLevelWrapperPass>();
 }
 
 HIRRegionIdentificationWrapperPass::HIRRegionIdentificationWrapperPass()

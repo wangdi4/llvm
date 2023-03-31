@@ -96,8 +96,7 @@ void initializeAAResultsWrapperPassPass(PassRegistry&);
 void initializeADCELegacyPassPass(PassRegistry&);
 void initializeAddDiscriminatorsLegacyPassPass(PassRegistry&);
 void initializeAlignmentFromAssumptionsPass(PassRegistry&);
-void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
-void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
+void initializeAlwaysInlinerLegacyPassPass(PassRegistry &);
 void initializeAssignmentTrackingAnalysisPass(PassRegistry &);
 void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
 void initializeAssumeBuilderPassLegacyPassPass(PassRegistry &);
@@ -504,7 +503,6 @@ void initializeMapIntrinToImlPass(PassRegistry&);
 // Pass for indicating loopopt based throttling.
 void initializeLoopOptMarkerLegacyPassPass(PassRegistry&);
 // Pass to store the opt level.
-void initializeXmainOptLevelWrapperPassPass(PassRegistry&);
 void initializeOptReportOptionsPassPass(PassRegistry &);
 void initializeOptReportEmitterLegacyPassPass(PassRegistry&);
 // Pass for loop carried CSE
@@ -602,8 +600,7 @@ void initializeVPODriverPass(PassRegistry&);
 void initializeVPODriverHIRPass(PassRegistry&);
 void initializeVPODirectiveCleanupPass(PassRegistry&);
 void initializeVectorGraphInfoPass(PassRegistry&);
-void initializeVectorGraphPredicatorPass(PassRegistry&);
-void initializeWholeProgramWrapperPassPass(PassRegistry &);
+void initializeVectorGraphPredicatorPass(PassRegistry &);
 // VPO VPlan Pass for pragma omp ordered simd
 void initializeVPlanPragmaOmpOrderedSimdExtractPass(PassRegistry &);
 // VPO VPlan Pass for pragma omp simd if

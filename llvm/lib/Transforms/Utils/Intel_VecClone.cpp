@@ -1611,10 +1611,8 @@ PreservedAnalyses VecClonePass::run(Module &M, ModuleAnalysisManager &AM) {
 }
 
 void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
-  // VecClone pass does not make any changes in the existing functions and
-  // Andersens analysis is conservative on new functions. So we can consider it
-  // as preserved.
-  AU.addPreserved<AndersensAAWrapperPass>();
+  // VecClone pass does not make any changes in the existing functions.
+  // So we can consider it as preserved.
   AU.addPreserved<GlobalsAAWrapperPass>();
   AU.addRequired<OptReportOptionsPass>();
 }

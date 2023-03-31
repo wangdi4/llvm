@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -3482,8 +3482,6 @@ public:
     AU.addRequired<AAResultsWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
-    AU.addPreserved<WholeProgramWrapperPass>(); // INTEL
     AU.addPreserved<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<LoopInfoWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
