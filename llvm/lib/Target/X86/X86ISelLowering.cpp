@@ -24735,7 +24735,15 @@ SDValue X86TargetLowering::LowerFP_TO_INT(SDValue Op, SelectionDAG &DAG) const {
         return DAG.getMergeValues({Tmp, Chain}, dl);
       }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      assert((Subtarget.hasDQI() && Subtarget.hasVLX() ||
+              Subtarget.hasAVX256P()) &&
+             "Requires AVX512DQVL");
+#else  // INTEL_FEATURE_ISA_AVX256P
       assert(Subtarget.hasDQI() && Subtarget.hasVLX() && "Requires AVX512DQVL");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       SDValue Tmp = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v4f32, Src,
                                 DAG.getUNDEF(MVT::v2f32));
       if (IsStrict) {
