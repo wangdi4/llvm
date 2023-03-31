@@ -1347,15 +1347,6 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
   assert((!getConstIntStepValue() || !getConstIntStepValue()->isZero()) &&
          "Step value is zero");
 
-<<<<<<< HEAD
-#if !INTEL_CUSTOMIZATION
-  // Pointer induction that are not constant are supported in intel
-  // customization.
-  assert((IK != IK_PtrInduction || getConstIntStepValue()) &&
-         "Step value should be constant for pointer induction");
-#endif
-=======
->>>>>>> 498aa534f472d28db893aa9a8627d0b46e17f312
   assert((IK == IK_FpInduction || Step->getType()->isIntegerTy()) &&
          "StepValue is not an integer");
 
@@ -1650,10 +1641,6 @@ bool InductionDescriptor::isInductionPHI(
   }
 
   assert(PhiTy->isPointerTy() && "The PHI must be a pointer");
-<<<<<<< HEAD
-  // INTEL Non-constant step is supported in VPlan Vectorizer only.
-  if (OnlyConstPtrStep && !ConstStep) // INTEL
-=======
   PointerType *PtrTy = cast<PointerType>(PhiTy);
 
   // Always use i8 element type for opaque pointer inductions.
@@ -1669,8 +1656,8 @@ bool InductionDescriptor::isInductionPHI(
   // TODO: This could be generalized, but should probably just
   // be dropped instead once the migration to opaque ptrs is
   // complete.
-  if (!ConstStep)
->>>>>>> 498aa534f472d28db893aa9a8627d0b46e17f312
+  // INTEL Non-constant step is supported in VPlan Vectorizer only.
+  if (OnlyConstPtrStep && !ConstStep) // INTEL
     return false;
 
   Type *ElementType = PtrTy->getNonOpaquePointerElementType();
