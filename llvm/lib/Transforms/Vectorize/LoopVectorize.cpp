@@ -2520,6 +2520,8 @@ static Value *emitTransformedIndex(IRBuilderBase &B, Value *Index,
     return CreateAdd(StartValue, Offset);
   }
   case InductionDescriptor::IK_PtrInduction: {
+    assert(isa<Constant>(Step) &&
+           "Expected constant step for pointer induction");
     return B.CreateGEP(ID.getElementType(), StartValue, CreateMul(Index, Step));
   }
   case InductionDescriptor::IK_FpInduction: {
@@ -8356,6 +8358,7 @@ VPRecipeBase *VPRecipeBuilder::tryToOptimizeInductionPHI(
   if (auto *II = Legal->getPointerInductionDescriptor(Phi)) {
     VPValue *Step = vputils::getOrCreateVPValueForSCEVExpr(Plan, II->getStep(),
                                                            *PSE.getSE());
+    assert(isa<SCEVConstant>(II->getStep()));
     return new VPWidenPointerInductionRecipe(
         Phi, Operands[0], Step, *II,
         LoopVectorizationPlanner::getDecisionAndClampRange(
@@ -9461,6 +9464,8 @@ void VPWidenPointerInductionRecipe::execute(VPTransformState &State) {
     return;
   }
 
+  assert(isa<SCEVConstant>(IndDesc.getStep()) &&
+         "Induction step not a SCEV constant!");
   Type *PhiType = IndDesc.getStep()->getType();
 
   // Build a pointer phi
