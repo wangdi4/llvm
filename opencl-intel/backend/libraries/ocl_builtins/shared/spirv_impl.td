@@ -23,3 +23,27 @@ def spirv_convert_bf16_to_f_impl : OclBuiltinImpl<spirv_convert_bf16_to_f, spirv
     $Arg0u16gentype _u16 = __builtin_astype($Arg0VarName, $Arg0u16gentype);
     return __builtin_astype(convert_$Arg0u32gentype(_u16) << 16, $Arg0f32gentype);
 }]>;
+
+// Binary format of TF32: 1 sign bit + 8 exponent bits + 10 mantissa bits + 13 padding bits
+def spirv_round_f_to_tf32_impl : OclBuiltinImpl<spirv_round_f_to_tf32, spirv_round_f_to_tf32.Types, /*IsDeclOnly*/false, [{
+    $Arg0u32gentype _arg0 = __builtin_astype($Arg0VarName, $Arg0u32gentype);
+    $Arg0u32gentype _exp = _arg0 & 0x7F800000;
+    $Arg0u32gentype _mantissa = _arg0 & 0x7FFFFF; // least 23 bits
+    $Arg0u32gentype _trunc = _arg0 & 0x1FFF; // least 13 bits
+
+    $ReturnType _nan = __builtin_astype(($Arg0u32gentype)(0x7F800000 | 0x00400000), $ReturnType);
+
+    // Round to nearest, ties to even
+    $Arg0i32gentype _ties = _trunc == (1 << 12); // exactly halfway in the middle
+    $Arg0i32gentype _tf32_odd = (_mantissa & (1 << 13)) != 0; // least significant bit is set (odd)
+    // Round up if truncated bits are exact halfway and trailing bit of tf32 mantissa is set,
+    // or the truncated bits exceed halfway of ULP.
+    $Arg0i32gentype _round_up = (_ties & _tf32_odd) | (_trunc > (1 << 12));
+    return select(
+        __builtin_astype(_arg0 + __builtin_astype(0x1000 & _round_up, $Arg0u32gentype), $ReturnType),
+        select(
+            _nan, // NaN
+            $Arg0VarName, // Inf: same representation for tf32 and f32
+            _mantissa == 0), // Inf?
+        _exp == 0x7F800000); // NaN or Inf?
+}]>;
