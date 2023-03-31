@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -5652,8 +5652,6 @@ public:
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();    // INTEL
-    AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
     AU.addPreserved<DominatorTreeWrapperPass>();
   }
 
@@ -5713,8 +5711,6 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
     AU.setPreservesCFG();
   }
 };

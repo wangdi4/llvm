@@ -1,6 +1,6 @@
 //===------- Intel_WP.cpp - Whole Program Analysis -*------===//
 //
-// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -80,53 +80,6 @@ static cl::opt<bool>
 static cl::opt<bool>
     WholeProgramAdvanceOptTrace("whole-program-advanced-opt-trace",
                                 cl::init(false), cl::ReallyHidden);
-
-INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
-                      "Whole program analysis", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
-                    "Whole program analysis", false, false)
-
-char WholeProgramWrapperPass::ID = 0;
-
-ModulePass*
-llvm::createWholeProgramWrapperPassPass(WholeProgramUtils WPUtils) {
-  return new WholeProgramWrapperPass(std::move(WPUtils));
-}
-
-WholeProgramWrapperPass::WholeProgramWrapperPass()
-    : ModulePass(ID) {
-  initializeWholeProgramWrapperPassPass(*PassRegistry::getPassRegistry());
-}
-
-WholeProgramWrapperPass::WholeProgramWrapperPass(WholeProgramUtils WPUtils)
-    : ModulePass(ID), WPUtils(std::move(WPUtils)) {
-  initializeWholeProgramWrapperPassPass(*PassRegistry::getPassRegistry());
-}
-
-bool WholeProgramWrapperPass::doFinalization(Module &M) {
-  Result.reset();
-  return false;
-}
-
-bool WholeProgramWrapperPass::runOnModule(Module &M) {
-  auto GTTI = [this](Function &F) -> TargetTransformInfo & {
-    return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  };
-
-  auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
-    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-
-  WholeProgramInfo *WPAResult = new WholeProgramInfo(&M, GetTLI, GTTI,
-                                                     &WPUtils);
-  WPAResult->analyzeModule();
-
-  Result.reset(WPAResult);
-
-  return false;
-}
 
 WholeProgramInfo::WholeProgramInfo(Module *M,
     std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
@@ -306,14 +259,6 @@ void WholeProgramInfo::analyzeModule() {
 
   computeIsAdvancedOptEnabled();
   computeIsLibIRCAllowedEverywhere();
-}
-
-// This analysis depends on TargetLibraryInfo and TargetTransformInfo.
-// Analysis info is not modified by any other pass.
-void WholeProgramWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addRequired<TargetTransformInfoWrapperPass>();
 }
 
 // Collect the following globals from the Module M and store them in the

@@ -1,6 +1,6 @@
 //===-------------------IntelMFReplacement.cpp ----------------------------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -361,10 +361,8 @@ public:
     AU.addPreserved<BasicAAWrapperPass>();
     AU.addPreserved<AAResultsWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
     AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<SCEVAAWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
   }
 };
 

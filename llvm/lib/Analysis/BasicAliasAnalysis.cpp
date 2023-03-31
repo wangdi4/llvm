@@ -2411,8 +2411,7 @@ INITIALIZE_PASS_BEGIN(BasicAAWrapperPass, "basic-aa",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass)     // INTEL
-INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass) // INTEL
+INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass) // INTEL
 INITIALIZE_PASS_END(BasicAAWrapperPass, "basic-aa",
                     "Basic Alias Analysis (stateless AA impl)", true, true)
 
@@ -2425,12 +2424,14 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
   auto &TLIWP = getAnalysis<TargetLibraryInfoWrapperPass>();
   auto &DTWP = getAnalysis<DominatorTreeWrapperPass>();
   auto *PVWP = getAnalysisIfAvailable<PhiValuesWrapperPass>(); // INTEL
-  auto &XOL = getAnalysis<XmainOptLevelWrapperPass>(); // INTEL
 
   Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F,
                                  TLIWP.getTLI(F), ACT.getAssumptionCache(F),
                                  &DTWP.getDomTree(),
-                                 XOL.getOptLevel(),                     // INTEL
+#if INTEL_CUSTOMIZATION
+                                 0, // Placeholder because
+                                    // XmainOptLevelWrapperPass is removed.
+#endif                              // INTEL_CUSTOMIZATION
                                  PVWP ? &PVWP->getResult() : nullptr)); // INTEL
 
   return false;
@@ -2442,15 +2443,15 @@ void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addUsedIfAvailable<PhiValuesWrapperPass>(); // INTEL
-  AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
 }
 
 BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
   return BasicAAResult(
       F.getParent()->getDataLayout(), F,
       P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
-      P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F), // INTEL
-      nullptr,                                                       // INTEL
-      P.getAnalysis<XmainOptLevelWrapperPass>().getOptLevel(),       // INTEL
-      nullptr);                                                      // INTEL
+#if INTEL_CUSTOMIZATION
+      P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F), nullptr,
+      0, // Placeholder because XmainOptLevelWrapperPass is removed.
+      nullptr);
+#endif // INTEL_CUSTOMIZATION
 }

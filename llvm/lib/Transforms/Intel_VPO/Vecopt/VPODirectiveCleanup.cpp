@@ -1,6 +1,7 @@
-//===-- VPODirectiveCleanup.cpp-----------------------------------------------------===//
+//===--
+//VPODirectiveCleanup.cpp-----------------------------------------------------===//
 //
-//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -33,9 +34,7 @@ static cl::opt<bool>
                                cl::Hidden,
                                cl::desc("Disable VPO directive cleanup"));
 
-
 void VPODirectiveCleanup::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addPreserved<AndersensAAWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
 }
 
