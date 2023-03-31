@@ -913,6 +913,11 @@ ComplexPairTy ComplexExprEmitter::EmitBinMul(const BinOpInfo &Op) {
       ResR = Builder.CreateFSub(AC, BD, "mul_r");
       ResI = Builder.CreateFAdd(AD, BC, "mul_i");
 
+#if INTEL_CUSTOMIZATION
+      if (!CGF.getLangOpts().FastMath && CGF.getLangOpts().HonorNaNCompares)
+        return ComplexPairTy(ResR, ResI);
+#endif // INTEL_CUSTOMIZATION
+
       // Emit the test for the real part becoming NaN and create a branch to
       // handle it. We test for NaN by comparing the number to itself.
       Value *IsRNaN = Builder.CreateFCmpUNO(ResR, ResR, "isnan_cmp");
@@ -1007,7 +1012,10 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
     // FIXME: We would be able to avoid the libcall in many places if we
     // supported imaginary types in addition to complex types.
     CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, Op.FPFeatures);
-    if (RHSi && !CGF.getLangOpts().FastMath) {
+#if INTEL_CUSTOMIZATION
+    if (RHSi && !CGF.getLangOpts().FastMath &&
+        !CGF.getLangOpts().HonorNaNCompares) {
+#endif // INTEL_CUSTOMIZATION
       BinOpInfo LibCallOp = Op;
       // If LHS was a real, supply a null imaginary part.
       if (!LHSi)
