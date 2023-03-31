@@ -902,7 +902,7 @@ struct EvaluatedStmt {
   bool HasICEInit : 1;
   bool CheckedForICEInit : 1;
 
-  Stmt *Value;
+  LazyDeclStmtPtr Value;
   APValue Evaluated;
 
   EvaluatedStmt()
@@ -2538,6 +2538,10 @@ public:
     return getCanonicalDecl()
         ->FunctionDeclBits.FriendConstraintRefersToEnclosingTemplate;
   }
+
+  /// Determine whether a function is a friend function that cannot be
+  /// redeclared outside of its class, per C++ [temp.friend]p9.
+  bool isMemberLikeConstrainedFriend() const;
 
   /// Gets the kind of multiversioning attribute this declaration has. Note that
   /// this can return a value even if the function is not multiversion, such as
