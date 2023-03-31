@@ -22,6 +22,16 @@ let Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = true in {
   defm spirv_convert_bf16_to_f : SPIRVBuiltin<"ConvertBF16ToF", (outs f32gentype:$ret), (ins gentype:$x), ExpandTypesByVFAndFlatten<[v1i16, v1u16], vfs>.Tout, /*intel_specific*/true>;
 }
 
+// SPV_INTEL_tensor_float32_conversion
+// https://github.com/intel/llvm/pull/6990
+// Renamed from "ConvertFToTF32" to "RoundFToTF32":
+// https://github.com/KhronosGroup/SPIRV-LLVM-Translator/commit/68855f60b26fd630175b4c8696d2a6a7939f21f5
+let Attrs = [CONSTFUNC, OVERLOADABLE], NeedForwardDecl = true in {
+  defvar vfs = [1, 2, 3, 4, 8, 16];
+
+  defm spirv_round_f_to_tf32 : SPIRVBuiltin<"RoundFToTF32", (outs gentype:$ret), (ins gentype:$x), ExpandTypesByVFAndFlatten<[v1f32], vfs>.Tout, /*intel_specific*/true>;
+}
+
 // alias
 foreach vf = [1, 2, 3, 4, 8, 16] in {
   defvar vfs = !if(!eq(vf, 1), "", !cast<string>(vf));

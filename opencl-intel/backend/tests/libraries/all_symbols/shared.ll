@@ -10367,6 +10367,12 @@
 ; CHECK-NEXT: _Z24convert_ushort16_sat_rtzDv16_m
 ; CHECK-NEXT: _Z24convert_ushort16_sat_rtzDv16_s
 ; CHECK-NEXT: _Z24convert_ushort16_sat_rtzDv16_t
+; CHECK-NEXT: _Z25__spirv_RoundFToTF32INTELDv16_f
+; CHECK-NEXT: _Z25__spirv_RoundFToTF32INTELDv2_f
+; CHECK-NEXT: _Z25__spirv_RoundFToTF32INTELDv3_f
+; CHECK-NEXT: _Z25__spirv_RoundFToTF32INTELDv4_f
+; CHECK-NEXT: _Z25__spirv_RoundFToTF32INTELDv8_f
+; CHECK-NEXT: _Z25__spirv_RoundFToTF32INTELf
 ; CHECK-NEXT: _Z26intel_sub_group_shuffle_upDhDhj
 ; CHECK-NEXT: _Z26intel_sub_group_shuffle_upDv16_DhS_Dv16_jS0_
 ; CHECK-NEXT: _Z26intel_sub_group_shuffle_upDv32_DhS_Dv32_jS0_
