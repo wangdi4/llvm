@@ -1567,3 +1567,12 @@ define i8 @test_int_x86_avx512_fpclass_pd_256(<4 x double> %x0) {
   %3 = bitcast <8 x i1> %2 to i8
   ret i8 %3
 }
+
+define <2 x i64> @fp_to_sint_2f32_to_2i64(<2 x float> %x) {
+; CHECK-LABEL: fp_to_sint_2f32_to_2i64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvttps2qq %xmm0, %xmm0 # encoding: [0x62,0xf1,0x7d,0x08,0x7a,0xc0]
+; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
+  %res = fptosi <2 x float> %x to <2 x i64>
+  ret <2 x i64> %res
+}
