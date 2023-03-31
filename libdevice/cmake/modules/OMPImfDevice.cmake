@@ -22,13 +22,7 @@ function(add_bc_file src cmplr clang_offload_bundler)
     set(target_opts -fopenmp-targets=spir64,spir64_gen=\"-fp-model=precise -fno-math-errno -mllvm -vpo-paropt-preserve-llvm-intrin\" -fopenmp-target-simd -fopenmp-target-intel-proprietary-opts)
   endif()
 
-  if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    set(IMF_OPT_LEVEL -O0)
-  else()
-    set(IMF_OPT_LEVEL -O2)
-  endif()
-
-  set(clang_opts -I ${CMAKE_CURRENT_SOURCE_DIR}/imf -Xclang -fdeclare-spirv-builtins -Xclang ${IMF_OPT_LEVEL} -Xclang -fopenmp-target-declare-simd-spir -D__SPIR__)
+  set(clang_opts -I ${CMAKE_CURRENT_SOURCE_DIR}/imf -Xclang -fdeclare-spirv-builtins -Xclang -O2 -Xclang -fopenmp-target-declare-simd-spir -D__SPIR__)
 
   get_filename_component(name ${src} NAME_WLE)
   set(fname "libomp-device-svml-${name}")

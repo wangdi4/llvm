@@ -9132,15 +9132,7 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
   // Calculate cost difference from vectorizing set of GEPs.
   // Negative value means vectorizing is profitable.
   auto GetGEPCostDiff = [=](ArrayRef<Value *> Ptrs, Value *BasePtr) {
-#if INTEL_CUSTOMIZATION
-    // This GEP cost adjustment is wrong for X86 as different offsets are
-    // encoded just as different displacements. Put it under advanced opts
-    // to avoid tests customization until fixed upstream.
     InstructionCost ScalarCost = 0;
-    if (TTI->isAdvancedOptEnabled(
-            TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2))
-      return ScalarCost;
-#endif // INTEL_CUSTOMIZATION
     InstructionCost VecCost = 0;
     // Here we differentiate two cases: (1) when Ptrs represent a regular
     // vectorization tree node (as they are pointer arguments of scattered
