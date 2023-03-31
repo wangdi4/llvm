@@ -62,6 +62,14 @@ STATISTIC(NumFrameExtraProbe,
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+static cl::opt<bool> HasPush2Pop2("has-push2-pop2",
+                                  cl::desc("Enable APX feature push2/pop2"),
+                                  cl::init(false), cl::Hidden);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 X86FrameLowering::X86FrameLowering(const X86Subtarget &STI,
                                    MaybeAlign StackAlignOverride)
     : TargetFrameLowering(StackGrowsDown, StackAlignOverride.valueOrOne(),
@@ -2975,7 +2983,7 @@ bool X86FrameLowering::assignCalleeSavedSpillSlots(
   //    b. Start to use push2 from the 2nd push if stack is not 16B aligned.
   // 3. When the number of CSR push is even, start to use push2 from the 1st
   //    push and make the stack 16B aligned before the push
-  bool UsePush2Pop2 = STI.hasPush2Pop2() && CSI.size() > 1;
+  bool UsePush2Pop2 = (STI.hasPush2Pop2() || HasPush2Pop2) && CSI.size() > 1;
   X86FI->setPadForPush2Pop2(UsePush2Pop2 && CSI.size() % 2 == 0 &&
                             SpillSlotOffset % 16 != 0);
   unsigned NumRegsForPush2 = UsePush2Pop2 ? alignDown(CSI.size(), 2) : 0;
