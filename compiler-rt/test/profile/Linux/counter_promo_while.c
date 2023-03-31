@@ -19,11 +19,7 @@ int g;
 __attribute__((noinline)) void bar(int i) { g += i; }
 __attribute__((noinline)) void foo(int n, int N) {
 // PROMO-LABEL: @foo
-<<<<<<< HEAD
 // PROMO: load{{.*}}@__profc_foo, align
-=======
-// PROMO:  load{{.*}}@__profc_foo, align
->>>>>>> cbdd97fa5c7c5a6f95d546a71c6851c2d7e7f59a
 // PROMO-NEXT: add
 // PROMO-NEXT: store{{.*}}@__profc_foo, align
 // PROMO-NEXT: load{{.*}}@__profc_foo{{.*}} 1){{.*}}
