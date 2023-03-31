@@ -1347,8 +1347,12 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
   assert((!getConstIntStepValue() || !getConstIntStepValue()->isZero()) &&
          "Step value is zero");
 
+#if !INTEL_CUSTOMIZATION
+  // Pointer inductions that are not constant are supported in Intel
+  // customization.
   assert((IK != IK_PtrInduction || getConstIntStepValue()) &&
          "Step value should be constant for pointer induction");
+#endif // !INTEL_CUSTOMIZATION
   assert((IK == IK_FpInduction || Step->getType()->isIntegerTy()) &&
          "StepValue is not an integer");
 
