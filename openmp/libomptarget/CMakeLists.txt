@@ -101,12 +101,6 @@ endif()
 if(LIBOMPTARGET_ENABLE_DEBUG)
   add_definitions(-DOMPTARGET_DEBUG)
 endif()
-if(INTEL_CUSTOMIZATION)
-  option(LIBOMPTARGET_VERIFY_DLL_SIGNATURE "Verify signature of the loaded plugins" OFF)
-  if(LIBOMPTARGET_VERIFY_DLL_SIGNATURE)
-    add_definitions(-DOMPTARGET_VERIFY_DLL_SIGNATURE=1)
-  endif()
-endif(INTEL_CUSTOMIZATION)
 
 # OMPT support for libomptarget
 # Follow host OMPT support and check if host support has been requested.
@@ -143,23 +137,22 @@ if (INTEL_CUSTOMIZATION)
       set(LIBOMP_LIB_NAME iomp5 libiomp5)
     endif()
 
+    # Check both mainline and mainline-flat directory structure
+    set(LIBOMP_RTL_PATH "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler")
+    if(NOT EXISTS ${LIBOMP_RTL_PATH})
+      set(LIBOMP_RTL_PATH "${IL0_PREBUILT_COMPONENTS_PREFIX}")
+      set(LIBOMP_USE_FLAT_IL0 TRUE)
+    endif()
+
     if ((NOT LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER) OR
         (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}))
-      if ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
-        if (WIN32)
-          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
-            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_win")
-        else()
-          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
-            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_lin")
-        endif()
+      if(LIBOMP_USE_FLAT_IL0)
+        set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER "${LIBOMP_RTL_PATH}/lib")
       else()
         if (WIN32)
-          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
-            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_win")
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER "${LIBOMP_RTL_PATH}/lib/intel64_win")
         else()
-          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
-            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_lin")
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER "${LIBOMP_RTL_PATH}/lib/intel64_lin")
         endif()
       endif()
     endif()
@@ -199,8 +192,7 @@ if (INTEL_CUSTOMIZATION)
 
     if ((NOT LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER) OR
         (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}))
-      set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER
-        "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/include")
+      set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER "${LIBOMP_RTL_PATH}/include")
     endif()
 
     message(STATUS "Looking for omp.h in "

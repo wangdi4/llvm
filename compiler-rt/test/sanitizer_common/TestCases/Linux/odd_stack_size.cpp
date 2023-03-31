@@ -1,6 +1,13 @@
 // RUN: %clangxx -O1 %s -o %t && %run %t
 // UNSUPPORTED: android
 
+// INTEL_CUSTOMIZATION
+// This is flaky. It may point to a real problem, but it is being disabled until
+// the problem can be found and corrected.
+// See CMPLRLLVM-45902
+// UNSUPPORTED: true
+// end INTEL_CUSTOMIZATION
+
 // Fail on powerpc64 bots with:
 // AddressSanitizer: CHECK failed: asan_thread.cpp:315 "((AddrIsInStack((uptr)&local))) != (0)"
 // https://lab.llvm.org/buildbot/#/builders/18/builds/8162

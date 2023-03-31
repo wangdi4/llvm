@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -984,6 +984,13 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
   if (F->getAttributes().hasAttrSomewhere(Attribute::InAlloca))
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-43424: Inhibit argument promotion on the function if it has
+  // vector variants, because the signature of the variants is predetermined
+  // in the front end.
+  if (F->hasFnAttribute("vector-variants"))
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
   // First check: see if there are any pointer arguments!  If not, quick exit.
   SmallVector<Argument *, 16> PointerArgs;
   for (Argument &I : F->args())

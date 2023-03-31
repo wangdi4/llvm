@@ -1,5 +1,5 @@
-; RUN: not opt -opaque-pointers=1 -vpo-paropt-map-loop-reduction-bind-teams-to-distribute=true -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
-; RUN: not opt -opaque-pointers=1 -vpo-paropt-map-loop-reduction-bind-teams-to-distribute=true -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-reduction-bind-teams-to-distribute=false -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-reduction-bind-teams-to-distribute=false -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;
@@ -17,10 +17,17 @@
 ;  }
 ; }
 
-; This test checks that prepare pass will emit error for reduction clauses found on loop construct 
-; if binding is teams.
+; This test checks that prepare pass will map to DISTRIBUTE_PARLOOP if reduction clause
+; is found on loop construct with teams binding.
 
-; CHECK: 'reduction' clause on a 'loop' construct with 'teams' binding is not supported 
+; Verify that DIR.OMP.GENERICLOOP is mapped to DIR.OMP.DISTRIBUTE.PARLOOP
+; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(),
+; CHECK-NOT: "QUAL.OMP.BIND.TEAMS"
+
+; CHECK-NOT: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.GENERICLOOP"() {{.*}}
+; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() {{.*}}
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"

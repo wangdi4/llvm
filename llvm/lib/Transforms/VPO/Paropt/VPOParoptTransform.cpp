@@ -332,6 +332,12 @@ static cl::opt<bool> DefaultNDRangeTripcountHeuristic(
     cl::desc("Use profitability heuristic when passing tripcount"
              "with default ND-range"));
 
+static cl::opt<bool> MapLoopReductionBindTeamsToDistribute(
+    "vpo-paropt-map-loop-reduction-bind-teams-to-distribute", cl::Hidden,
+    cl::init(false),
+    cl::desc("Map loop construct to distribute when bound to teams "
+             "and reduction clause is specified"));
+
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -13773,8 +13779,46 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   assert(Changed &&
          "Loop directive must be mapped to right parallization scheme.");
 
-  // replace entry directive with the mapped directive
   int MappedDir = WL->getMappedDir();
+
+  // Drop the BIND clause and replace these clauses with the LIVEIN clause:
+  //  * SHARED clause if the mapped directive is DIR_OMP_LOOP or DIR_OMP_SIMD
+  //  * FIRSTPRIVATE clause if the mapped directive is DIR_OMP_SIMD
+  // Note that LIVEIN is never TYPED, so if the clause to be converted is
+  // TYPED, just use its first argument for the LIVEIN clause.
+  bool ReplaceShared = (MappedDir == DIR_OMP_LOOP || MappedDir == DIR_OMP_SIMD);
+  bool ReplaceFirstPrivate = (MappedDir == DIR_OMP_SIMD);
+
+  // For GenericLoop with TEAMS binding, the mapped directive is
+  // DIR_OMP_DISTRIBUTE therefore:
+  // * SHARED clauses will be dropped as DISTRIBUTE currently doesn't support
+  //   LIVEIN clauses for replacement
+  //
+  // For GenericLoop with TEAMS binding containing a REDUCTION clause, we
+  // have the following behavior:
+  // * (Default) Override DISTRIBUTE directive with DISTRIBUTE_PARLOOP (old
+  //   behavior) until FE implements fix to move REDUCTION from LOOP
+  //   to a perfectly nested enclosing TEAMS
+  // * If option flag vpo-paropt-map-loop-reduction-bind-teams-to-distribute
+  //   is passed, disable override and use DISTRIBUTE. Once FE fix is
+  //   implemented this should become default. Emit error if REDUCTION
+  //   clause is specified as this is not supported for both host and
+  //   non-hosts. Frontend should eventually emit error for this case.
+  bool IsDistributeLoopBindTeams = (MappedDir == DIR_OMP_DISTRIBUTE);
+  bool HasReduction = !WL->getRed().empty();
+
+  if (IsDistributeLoopBindTeams && HasReduction) {
+    if (!MapLoopReductionBindTeamsToDistribute) {
+      MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+      IsDistributeLoopBindTeams = false;
+    } else {
+      std::string ErrorMsg = "'reduction' clause on a 'loop' construct with "
+                             "'teams' binding is not supported";
+      F->getContext().diagnose(DiagnosticInfoUnsupported(*F, ErrorMsg));
+    }
+  }
+
+  // replace entry directive with the mapped directive
   StringRef MappedEntryDirStr = VPOAnalysisUtils::getDirectiveString(MappedDir);
   CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
   LLVM_DEBUG(dbgs() << "Entry directive: "
@@ -13790,22 +13834,6 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> OpBundlesToAdd;
   OpBundlesToAdd.emplace_back(MappedEntryDirStr, ArrayRef<Value *>{});
 
-  // Drop the BIND clause and replace these clauses with the LIVEIN clause:
-  //  * SHARED clause if the mapped directive is DIR_OMP_LOOP or DIR_OMP_SIMD
-  //  * FIRSTPRIVATE clause if the mapped directive is DIR_OMP_SIMD
-  // Note that LIVEIN is never TYPED, so if the clause to be converted is
-  // TYPED, just use its first argument for the LIVEIN clause.
-  bool ReplaceShared = (MappedDir == DIR_OMP_LOOP || MappedDir == DIR_OMP_SIMD);
-  bool ReplaceFirstPrivate = (MappedDir == DIR_OMP_SIMD);
-  // For GenericLoops with TEAMS binding, the mapped directive is
-  // DIR_OMP_DISTRIBUTE therefore:
-  //  * SHARED clauses will be dropped as DISTRIBUTE currently doesn't support
-  //    LIVEIN clauses for replacement
-  //  * REDUCTION clause on DISTRIBUTE is not supported based on
-  //    OMP 5.2 spec for non-host devices. For host, our compiler
-  //    implementation doesn't support it. Frontend should emit error
-  //    for this but until then abort and emit error.
-  bool IsLoopBindTeams = (MappedDir == DIR_OMP_DISTRIBUTE);
   for (unsigned i = 1; i < OpBundles.size(); i++) {
     StringRef Tag = OpBundles[i].getTag();
     ClauseSpecifier ClauseInfo(Tag);
@@ -13814,16 +13842,8 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
     if (VPOAnalysisUtils::isBindClause(ClauseID))
       continue;
 
-    if (IsLoopBindTeams) {
-      if (VPOAnalysisUtils::isReductionClause(ClauseID)) {
-        std::string ErrorMsg = "'reduction' clause on a 'loop' construct with "
-                               "'teams' binding is not supported";
-        F->getContext().diagnose(DiagnosticInfoUnsupported(*F, ErrorMsg));
-      }
-
-      if (QUAL_OMP_SHARED == ClauseID)
-        continue;
-    }
+    if ((QUAL_OMP_SHARED == ClauseID) && IsDistributeLoopBindTeams)
+      continue;
 
     if (((QUAL_OMP_SHARED == ClauseID) && ReplaceShared) ||
         ((QUAL_OMP_FIRSTPRIVATE == ClauseID) && ReplaceFirstPrivate)) {
