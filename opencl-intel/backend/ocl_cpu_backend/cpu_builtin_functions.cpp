@@ -211,8 +211,7 @@ class IDeviceCommandManager;
   if (LLJIT) {                                                                 \
     if (auto Err = LLJIT->getMainJITDylib().define(llvm::orc::absoluteSymbols( \
             {{LLJIT->mangleAndIntern(name),                                    \
-              llvm::JITEvaluatedSymbol(llvm::pointerToJITTargetAddress(&ptr),  \
-                                       flag)}})))                              \
+              {llvm::orc::ExecutorAddr::fromPtr(&ptr), flag}}})))              \
       return Err;                                                              \
   } else {                                                                     \
     llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name),                \

@@ -5927,3 +5927,7 @@ void Sema::ActOnPragmaDump(Scope *S, SourceLocation IILoc, IdentifierInfo *II) {
   LookupName(R, S);
   R.dump();
 }
+
+void Sema::ActOnPragmaDump(Expr *E) {
+  E->dump();
+}

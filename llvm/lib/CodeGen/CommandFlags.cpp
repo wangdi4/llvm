@@ -132,6 +132,7 @@ CGOPT(bool, XRayOmitFunctionIndex)
 CGOPT(bool, DebugStrictDwarf)
 CGOPT(unsigned, AlignLoops)
 CGOPT(bool, JMCInstrument)
+CGOPT(bool, XCOFFReadOnlyPointers)
 
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> IntelABICompatible;
@@ -567,6 +568,13 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::init(false));
   CGBINDOPT(JMCInstrument);
 
+  static cl::opt<bool> XCOFFReadOnlyPointers(
+      "mroptr",
+      cl::desc("When set to true, const objects with relocatable address "
+               "values are put into the RO data section."),
+      cl::init(false));
+  CGBINDOPT(XCOFFReadOnlyPointers);
+
 #undef CGBINDOPT
 
   mc::RegisterMCTargetOptionsFlags();
@@ -655,6 +663,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
   Options.DebugStrictDwarf = getDebugStrictDwarf();
   Options.LoopAlignment = getAlignLoops();
   Options.JMCInstrument = getJMCInstrument();
+  Options.XCOFFReadOnlyPointers = getXCOFFReadOnlyPointers();
 
   Options.MCOptions = mc::InitMCTargetOptionsFromFlags();
 

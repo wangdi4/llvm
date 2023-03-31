@@ -15,6 +15,12 @@
 // UNSUPPORTED: msvc, target={{.+}}-windows-gnu
 // UNSUPPORTED: LIBCXX-AIX-FIXME
 
+// TODO FMT Fix this test using GCC, it currently crashes.
+// UNSUPPORTED: gcc-12
+
+// TODO FMT This test should not require std::to_chars(floating-point)
+// XFAIL: availability-fp_to_chars-missing
+
 // <format>
 
 // This test the debug string type for the formatter specializations for char

@@ -4128,7 +4128,7 @@ SDValue DAGCombiner::visitSUBO(SDNode *N) {
   ConstantSDNode *N1C = getAsNonOpaqueConstant(N1);
 
   // fold (subox, c) -> (addo x, -c)
-  if (IsSigned && N1C && !N1C->getAPIntValue().isMinSignedValue()) {
+  if (IsSigned && N1C && !N1C->isMinSignedValue()) {
     return DAG.getNode(ISD::SADDO, DL, N->getVTList(), N0,
                        DAG.getConstant(-N1C->getAPIntValue(), DL, VT));
   }
@@ -4608,7 +4608,7 @@ SDValue DAGCombiner::visitSDIV(SDNode *N) {
     return DAG.getNegative(N0, DL, VT);
 
   // fold (sdiv X, MIN_SIGNED) -> select(X == MIN_SIGNED, 1, 0)
-  if (N1C && N1C->getAPIntValue().isMinSignedValue())
+  if (N1C && N1C->isMinSignedValue())
     return DAG.getSelect(DL, VT, DAG.getSetCC(DL, CCVT, N0, N1, ISD::SETEQ),
                          DAG.getConstant(1, DL, VT),
                          DAG.getConstant(0, DL, VT));
@@ -12233,7 +12233,8 @@ static bool isCompatibleLoad(SDValue N, unsigned ExtOpcode) {
 /// This function is called by the DAGCombiner when visiting sext/zext/aext
 /// dag nodes (see for example method DAGCombiner::visitSIGN_EXTEND).
 static SDValue tryToFoldExtendSelectLoad(SDNode *N, const TargetLowering &TLI,
-                                         SelectionDAG &DAG) {
+                                         SelectionDAG &DAG,
+                                         CombineLevel Level) {
   unsigned Opcode = N->getOpcode();
   SDValue N0 = N->getOperand(0);
   EVT VT = N->getValueType(0);
@@ -12258,10 +12259,14 @@ static SDValue tryToFoldExtendSelectLoad(SDNode *N, const TargetLowering &TLI,
   else if (Opcode == ISD::ZERO_EXTEND)
     ExtLoadOpcode = ISD::ZEXTLOAD;
 
+  // Illegal VSELECT may ISel fail if happen after legalization (DAG
+  // Combine2), so we should conservatively check the OperationAction.
   LoadSDNode *Load1 = cast<LoadSDNode>(Op1);
   LoadSDNode *Load2 = cast<LoadSDNode>(Op2);
   if (!TLI.isLoadExtLegal(ExtLoadOpcode, VT, Load1->getMemoryVT()) ||
-      !TLI.isLoadExtLegal(ExtLoadOpcode, VT, Load2->getMemoryVT()))
+      !TLI.isLoadExtLegal(ExtLoadOpcode, VT, Load2->getMemoryVT()) ||
+      (N0->getOpcode() == ISD::VSELECT && Level >= AfterLegalizeTypes &&
+       TLI.getOperationAction(ISD::VSELECT, VT) != TargetLowering::Legal))
     return SDValue();
 
   SDValue Ext1 = DAG.getNode(Opcode, DL, VT, Op1);
@@ -13129,7 +13134,7 @@ SDValue DAGCombiner::visitSIGN_EXTEND(SDNode *N) {
     return DAG.getNode(ISD::ADD, DL, VT, Zext, DAG.getAllOnesConstant(DL, VT));
   }
 
-  if (SDValue Res = tryToFoldExtendSelectLoad(N, TLI, DAG))
+  if (SDValue Res = tryToFoldExtendSelectLoad(N, TLI, DAG, Level))
     return Res;
 
   return SDValue();
@@ -13480,7 +13485,7 @@ SDValue DAGCombiner::visitZERO_EXTEND(SDNode *N) {
   if (SDValue V = widenAbs(N, DAG))
     return V;
 
-  if (SDValue Res = tryToFoldExtendSelectLoad(N, TLI, DAG))
+  if (SDValue Res = tryToFoldExtendSelectLoad(N, TLI, DAG, Level))
     return Res;
 
   return SDValue();
@@ -13641,7 +13646,7 @@ SDValue DAGCombiner::visitANY_EXTEND(SDNode *N) {
   if (SDValue NewCtPop = widenCtPop(N, DAG))
     return NewCtPop;
 
-  if (SDValue Res = tryToFoldExtendSelectLoad(N, TLI, DAG))
+  if (SDValue Res = tryToFoldExtendSelectLoad(N, TLI, DAG, Level))
     return Res;
 
   return SDValue();
@@ -22129,10 +22134,9 @@ static SDValue reduceBuildVecToShuffleWithZero(SDNode *BV, SelectionDAG &DAG) {
       // the source vector. The high bits map to zero. We will use a zero vector
       // as the 2nd source operand of the shuffle, so use the 1st element of
       // that vector (mask value is number-of-elements) for the high bits.
-      if (i % ZextRatio == 0)
-        ShufMask[i] = Extract.getConstantOperandVal(1);
-      else
-        ShufMask[i] = NumMaskElts;
+      int Low = DAG.getDataLayout().isBigEndian() ? (ZextRatio - 1) : 0;
+      ShufMask[i] = (i % ZextRatio == Low) ? Extract.getConstantOperandVal(1)
+                                           : NumMaskElts;
     }
 
     // Undef elements of the build vector remain undef because we initialize

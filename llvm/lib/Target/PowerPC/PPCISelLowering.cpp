@@ -18149,7 +18149,7 @@ PPC::AddrMode PPCTargetLowering::SelectOptimalAddrMode(const SDNode *Parent,
     if (Flags & PPC::MOF_RPlusSImm16) {
       SDValue Op0 = N.getOperand(0);
       SDValue Op1 = N.getOperand(1);
-      int16_t Imm = cast<ConstantSDNode>(Op1)->getAPIntValue().getZExtValue();
+      int16_t Imm = cast<ConstantSDNode>(Op1)->getZExtValue();
       if (!Align || isAligned(*Align, Imm)) {
         Disp = DAG.getTargetConstant(Imm, DL, N.getValueType());
         Base = Op0;
@@ -18253,9 +18253,9 @@ CCAssignFn *PPCTargetLowering::ccAssignFnForCall(CallingConv::ID CC,
                                                  bool IsVarArg) const {
   switch (CC) {
   case CallingConv::Cold:
-    return (Return ? RetCC_PPC_Cold : CC_PPC64_ELF_FIS);
+    return (Return ? RetCC_PPC_Cold : CC_PPC64_ELF);
   default:
-    return CC_PPC64_ELF_FIS;
+    return CC_PPC64_ELF;
   }
 }
 

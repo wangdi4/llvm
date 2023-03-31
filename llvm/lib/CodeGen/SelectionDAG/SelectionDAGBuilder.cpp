@@ -1618,7 +1618,7 @@ SDValue SelectionDAGBuilder::getNonRegisterValue(const Value *V) {
   // If we already have an SDValue for this value, use it.
   SDValue &N = NodeMap[V];
   if (N.getNode()) {
-    if (isa<ConstantSDNode>(N) || isa<ConstantFPSDNode>(N)) {
+    if (isIntOrFPConstant(N)) {
       // Remove the debug location from the node as the node is about to be used
       // in a location which may differ from the original debug location.  This
       // is relevant to Constant and ConstantFP nodes because they can appear
@@ -2999,6 +2999,7 @@ void SelectionDAGBuilder::visitInvoke(const InvokeInst &I) {
   // catchswitch for successors.
   MachineBasicBlock *Return = FuncInfo.MBBMap[I.getSuccessor(0)];
   const BasicBlock *EHPadBB = I.getSuccessor(1);
+  MachineBasicBlock *EHPadMBB = FuncInfo.MBBMap[EHPadBB];
 
   // Deopt bundles are lowered in LowerCallSiteWithDeoptBundle, and we don't
   // have to do anything here to lower funclet bundles.
@@ -3023,6 +3024,10 @@ void SelectionDAGBuilder::visitInvoke(const InvokeInst &I) {
     case Intrinsic::seh_scope_begin:
     case Intrinsic::seh_try_end:
     case Intrinsic::seh_scope_end:
+      if (EHPadMBB)
+          // a block referenced by EH table
+          // so dtor-funclet not removed by opts
+          EHPadMBB->setMachineBlockAddressTaken();
       break;
     case Intrinsic::experimental_patchpoint_void:
     case Intrinsic::experimental_patchpoint_i64:

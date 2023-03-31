@@ -3426,8 +3426,7 @@ cc_library(
         ":ArithDialect",
         ":AsmParser",
         ":IR",
-        ":PDLDialect",
-        ":Parser",
+        ":LLVMDialect",
         ":SideEffectInterfaces",
         ":TransformDialect",
         ":TransformUtils",
@@ -4307,8 +4306,7 @@ cc_library(
     srcs = glob([
         "lib/Conversion/AMDGPUToROCDL/*.cpp",
         "lib/Conversion/AMDGPUToROCDL/*.h",
-        "include/mlir/Conversion/GPUToROCDL/Runtimes.h",
-    ]),
+    ]) + ["include/mlir/Conversion/GPUToROCDL/Runtimes.h"],
     hdrs = glob([
         "include/mlir/Conversion/AMDGPUToROCDL/*.h",
     ]),
@@ -5607,6 +5605,7 @@ cc_library(
     deps = [
         ":AffineDialect",
         ":ArithDialect",
+        ":ArithUtils",
         ":DialectUtils",
         ":TensorDialect",
         "//llvm:Support",
@@ -5663,6 +5662,7 @@ cc_library(
         ":TensorPassIncGen",
         ":TilingInterface",
         ":Transforms",
+        ":VectorDialect",
         "//llvm:Support",
     ],
 )
@@ -6742,8 +6742,8 @@ cc_library(
 
 cc_library(
     name = "GPUToLLVMIRTranslation",
-    srcs = glob(["lib/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.cpp"]),
-    hdrs = glob(["include/mlir/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.h"]),
+    srcs = ["lib/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.cpp"],
+    hdrs = ["include/mlir/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.h"],
     includes = ["include"],
     deps = [
         ":GPUDialect",
@@ -6756,8 +6756,8 @@ cc_library(
 
 cc_library(
     name = "BuiltinToLLVMIRTranslation",
-    srcs = glob(["lib/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.cpp"]),
-    hdrs = glob(["include/mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"]),
+    srcs = ["lib/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.cpp"],
+    hdrs = ["include/mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"],
     includes = ["include"],
     deps = [
         ":IR",
@@ -7208,6 +7208,7 @@ cc_binary(
         "//mlir/test:TestMath",
         "//mlir/test:TestMemRef",
         "//mlir/test:TestNVGPU",
+        "//mlir/test:TestOneToNTypeConversion",
         "//mlir/test:TestPDLL",
         "//mlir/test:TestPass",
         "//mlir/test:TestReducer",
@@ -8537,6 +8538,7 @@ cc_library(
         ":TransformDialect",
         ":TransformDialectUtils",
         ":TransformUtils",
+        ":VectorTransforms",
         "//llvm:Support",
     ],
 )
@@ -9361,6 +9363,7 @@ cc_library(
         ":TransformDialectUtils",
         ":TransformOpsIncGen",
         ":TransformTypesIncGen",
+        ":Transforms",
         "//llvm:Support",
     ],
 )
@@ -10094,8 +10097,10 @@ cc_library(
         ":LoopLikeInterface",
         ":MemRefDialect",
         ":MemRefPassIncGen",
+        ":NVGPUDialect",
         ":Pass",
         ":RuntimeVerifiableOpInterface",
+        ":Support",
         ":TensorDialect",
         ":Transforms",
         ":VectorDialect",
@@ -10148,8 +10153,11 @@ cc_library(
         ":MemRefDialect",
         ":MemRefTransformOpsIncGen",
         ":MemRefTransforms",
+        ":NVGPUDialect",
         ":PDLDialect",
         ":TransformDialect",
+        ":TransformUtils",
+        ":VectorDialect",
         "//llvm:Support",
     ],
 )

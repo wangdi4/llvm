@@ -511,9 +511,6 @@ protected:
   ///  kmp_int64 st; // stride
   /// };
   QualType KmpDimTy;
-  /// Entity that registers the offloading constants that were emitted so
-  /// far.
-  llvm::OffloadEntriesInfoManager OffloadEntriesInfoManager;
 
   bool ShouldMarkAsGlobal = true;
   /// List of the emitted declarations.
@@ -730,11 +727,13 @@ public:
                            SmallVectorImpl<LOMapInfo> *Info);
 
   StringRef getNameOfOffloadEntryDeviceGlobalVar(llvm::Constant *Addr) {
-    return OffloadEntriesInfoManager.getNameOfOffloadEntryDeviceGlobalVar(Addr);
+    return OMPBuilder.OffloadInfoManager.getNameOfOffloadEntryDeviceGlobalVar(
+        Addr);
   }
   void updateDeviceGlobalVarEntryInfoAddr(StringRef Name,
                                           llvm::Constant *Addr) {
-    OffloadEntriesInfoManager.updateDeviceGlobalVarEntryInfoAddr(Name, Addr);
+    OMPBuilder.OffloadInfoManager.updateDeviceGlobalVarEntryInfoAddr(Name,
+                                                                     Addr);
   }
 #endif // INTEL_COLLAB
 

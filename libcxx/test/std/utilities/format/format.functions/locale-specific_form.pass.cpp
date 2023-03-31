@@ -12,6 +12,8 @@
 // TODO FMT Evaluate gcc-12 status
 // UNSUPPORTED: gcc-12
 
+// XFAIL: availability-fp_to_chars-missing
+
 // REQUIRES: locale.en_US.UTF-8
 
 // <format>
