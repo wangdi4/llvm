@@ -333,7 +333,7 @@ ElementTypeAndNumElements getTypedClauseInfoForTypedItem(Item *I) {
   assert(!I->getIsNonPod() && "Typed NONPODs are not supported yet.");
 #if INTEL_CUSTOMIZATION
   assert(!I->getIsF90NonPod() && "Typed F90_NONPODs are not supported yet.");
-  assert(!I->getIsF90DopeVector() && "Typed F90_DVs are not supported yet.");
+  // Note: For F90DVs, we use the type of the dope vector and 1 as num-elements.
 #endif // INTEL_CUSTOMIZATION
 
   Type *ElementTy = I->getOrigItemElementTypeFromIR();
@@ -868,6 +868,12 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       // Do not try to simplify nonPOD items.
       if (Item->getIsNonPod())
         continue;
+#if INTEL_CUSTOMIZATION
+
+      // Skip F90_NONPODs as well.
+      if (Item->getIsF90NonPod())
+        continue;
+#endif // INTEL_CUSTOMIZATION
 
       Value *V = Item->getOrig();
       if (!V || hasWRNUses(W, V))
@@ -953,6 +959,12 @@ bool VPOParoptTransform::simplifyLastprivateClauses(WRegionNode *W) {
     // Also skip nonPOD items.
     if (Item->getIsNonPod())
       continue;
+#if INTEL_CUSTOMIZATION
+
+    // And F90_NONPODs.
+    if (Item->getIsF90NonPod())
+      continue;
+#endif // INTEL_CUSTOMIZATION
 
     Value *V = Item->getOrig();
     if (!V)
