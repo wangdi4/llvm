@@ -319,6 +319,10 @@ function(
       ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
     VERBATIM)
 
+  if(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    set(OPT_PASSES "function(infer-address-spaces),")
+  endif()
+
   add_custom_command(
     OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
     COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
@@ -326,7 +330,7 @@ function(
       ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB}
       -sycl-kernel-builtin-lib=${TMP_LINKED_RTL_OUTPUT}
       -sycl-kernel-cpu-prefix=${ARCH}
-      "-passes=function(infer-address-spaces),sycl-kernel-builtin-import,function(sycl-kernel-builtin-call-to-inst),verify"
+      "-passes=${OPT_PASSES}sycl-kernel-builtin-import,function(sycl-kernel-builtin-call-to-inst)"
       -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
     COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas ${CL_OPT_LEVEL}
             -disable-intel-proprietary-opts # INTEL
