@@ -161,6 +161,14 @@ static cl::opt<unsigned>
                       cl::desc("Maximum amount of shared memory to use."),
                       cl::init(std::numeric_limits<unsigned>::max()));
 
+#if INTEL_COLLAB
+static cl::opt<unsigned> DeviceAggressiveAttributorThreshold(
+    "openmp-opt-device-aggressive-attributor-threshold", cl::Hidden,
+    cl::desc("Number of module instructions threshold for device compilation "
+             "to run extensive attribute deduction"),
+    cl::init(1u << 15));
+
+#endif // INTEL_COLLAB
 STATISTIC(NumOpenMPRuntimeCallsDeduplicated,
           "Number of OpenMP runtime calls deduplicated");
 STATISTIC(NumOpenMPParallelRegionsDeleted,
@@ -5491,9 +5499,22 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
   OMPInformationCache InfoCache(M, AG, Allocator, /*CGSCC*/ nullptr, Kernels,
                                 PostLink);
 
+#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-45082 describes compile time issue when a code is compiled
+  // for >10 hours.
+#endif // INTEL_CUSTOMIZATION
+  // Attributor which tries to deduce instruction attributes by runTillFixpoint
+  // can consume a lot of compile time. To avoid that, we need to reduce the
+  // number of fix point iterations in case of device compilation of a big
+  // module.
   unsigned MaxFixpointIterations =
-      (isOpenMPDevice(M)) ? SetFixpointIterations : 32;
+      (isOpenMPDevice(M) &&
+       M.getInstructionCount() < DeviceAggressiveAttributorThreshold)
+          ? SetFixpointIterations
+          : 32;
 
+#endif // INTEL_COLLAB
   AttributorConfig AC(CGUpdater);
   AC.DefaultInitializeLiveInternals = false;
   AC.IsModulePass = true;
@@ -5569,9 +5590,22 @@ PreservedAnalyses OpenMPOptCGSCCPass::run(LazyCallGraph::SCC &C,
   OMPInformationCache InfoCache(*(Functions.back()->getParent()), AG, Allocator,
                                 /*CGSCC*/ &Functions, Kernels, PostLink);
 
+#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-45082 describes compile time issue when a code is compiled
+  // for >10 hours.
+#endif // INTEL_CUSTOMIZATION
+  // Attributor which tries to deduce instruction attributes by runTillFixpoint
+  // can consume a lot of compile time. To avoid that, we need to reduce the
+  // number of fix point iterations in case of device compilation of a big
+  // module.
   unsigned MaxFixpointIterations =
-      (isOpenMPDevice(M)) ? SetFixpointIterations : 32;
+      (isOpenMPDevice(M) &&
+       M.getInstructionCount() < DeviceAggressiveAttributorThreshold)
+          ? SetFixpointIterations
+          : 32;
 
+#endif // INTEL_COLLAB
   AttributorConfig AC(CGUpdater);
   AC.DefaultInitializeLiveInternals = false;
   AC.IsModulePass = false;
