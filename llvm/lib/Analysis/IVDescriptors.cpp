@@ -1644,15 +1644,8 @@ bool InductionDescriptor::isInductionPHI(
 
   assert(PhiTy->isPointerTy() && "The PHI must be a pointer");
   // Pointer induction should be a constant.
-<<<<<<< HEAD
-  // TODO: This could be generalized, but should probably just
-  // be dropped instead once the migration to opaque ptrs is
-  // complete.
   // INTEL Non-constant step is supported in VPlan Vectorizer only.
   if (OnlyConstPtrStep && !ConstStep) // INTEL
-=======
-  if (!ConstStep)
->>>>>>> 965a090f02cbab2dc08b78e274ce9d65e4d1221f
     return false;
 
   // Always use i8 element type for opaque pointer inductions.
