@@ -246,7 +246,6 @@ EXTERN int omp_target_memcpy(void *Dst, const void *Src, size_t Length,
   return Rc;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Use optimized copy methods if device supports.
 static int memcpyRect3D(void *Dst, const void *Src, size_t ElementSize,
@@ -282,7 +281,7 @@ static int memcpyRect3D(void *Dst, const void *Src, size_t ElementSize,
                              SrcOffsets, DstDims, SrcDims);
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 // The helper function that calls omp_target_memcpy or omp_target_memcpy_rect
 static int libomp_target_memcpy_async_helper(kmp_int32 Gtid, kmp_task_t *Task) {
   if (Task == nullptr)
@@ -381,7 +380,6 @@ EXTERN int omp_target_memcpy_async(void *Dst, const void *Src, size_t Length,
   DP("omp_target_memcpy_async returns %d\n", Rc);
   return Rc;
 }
->>>>>>> 4753a4e31169800277c09a59b2181ba3d4ddd683
 
 EXTERN int
 omp_target_memcpy_rect(void *Dst, const void *Src, size_t ElementSize,
