@@ -1492,17 +1492,11 @@ define i1 @bool_reduction_v32i8(<32 x i8> %x, <32 x i8> %y) {
 ;
 ; AVX512-LABEL: bool_reduction_v32i8:
 ; AVX512:       # %bb.0:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; AVX512-NEXT:    vpsubb %ymm1, %ymm0, %ymm0
 ; AVX512-NEXT:    vptest %ymm0, %ymm0
 ; AVX512-NEXT:    sete %al
 ; end INTEL_CUSTOMIZATION
-=======
-; AVX512-NEXT:    vpxor %ymm1, %ymm0, %ymm0
-; AVX512-NEXT:    vptest %ymm0, %ymm0
-; AVX512-NEXT:    sete %al
->>>>>>> b0b5c546e5c9bc4ad1fbd781146046f3845ebb07
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
   %a = icmp eq <32 x i8> %x, %y
