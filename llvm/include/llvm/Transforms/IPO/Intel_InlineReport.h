@@ -477,8 +477,7 @@ public:
     for (unsigned II = 0, E = ActiveInlinedCalls.size(); II < E; ++II)
       if (ActiveInlinedCalls[II] == &CB)
         ActiveInlinedCalls[II] = nullptr;
-    if (!FromCallback)
-      removeCallback(&CB);
+    removeCallback(&CB);
   }
 
   // Indicate that 'F' has been eliminated as a dead static function.
@@ -497,8 +496,7 @@ public:
       IRFunctionMap.erase(MapIt);
       IRDeadFunctionSet.insert(IRF);
     }
-    if (!FromCallback)
-      removeCallback(&F);
+    removeCallback(&F);
   }
 
   // Create or update the exiting representation of 'F'.
@@ -594,7 +592,6 @@ private:
         /// corresponding to the Value has been deleted
         IR->removeFunctionReference(*F, true);
       }
-      CallbackVH::deleted();
     }
 
   public:
