@@ -76,9 +76,9 @@ public:
   void addOpcodeToSeq(unsigned OpCode) { add(CEList.size(), OpCode); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printCEs() {
+  void printCEs() const {
     for (auto CE : CEList) {
-      CE->dump();
+      CE->dump(1);
       dbgs() << " ";
     }
     dbgs() << "\n";
