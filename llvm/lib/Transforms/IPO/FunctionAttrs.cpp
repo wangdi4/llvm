@@ -1763,8 +1763,36 @@ static bool functionWillReturn(const Function &F,                  // INTEL
 static void addWillReturn(const SCCNodeSet &SCCNodes,
                           SmallSet<Function *, 8> &Changed,         // INTEL
                           WholeProgramInfo *WPInfo) {               // INTEL
+  SmallPtrSet<Function *, 8> ProcessedLibFuncs;                     // INTEL
   for (Function *F : SCCNodes) {
-    if (!F || F->willReturn() || !functionWillReturn(*F, WPInfo))   // INTEL
+#if INTEL_CUSTOMIZATION
+    /*
+      if we have whole program, we must consider called libfuncs for
+      willreturn separately as they are excluded from the SCCNodeSet.
+
+      TODO: The community has signalled that they intend to replace the
+      usage of the LazyCallGraph with the full CallGraph. Once this occurs,
+      this solution can be improved by querying the CallGraph for libfunc
+      calls rather than iterating all instructions.
+    */
+    if (WPInfo && WPInfo->isWholeProgramSafe()) {
+      for (const Instruction &I : instructions(*F)) {
+        if (auto *CI = dyn_cast<CallInst>(&I)) {
+          if (Function *CF = CI->getCalledFunction()) {
+            if (!CF->willReturn() && CF->isDeclaration()) {
+              if (ProcessedLibFuncs.insert(CF).second &&
+                  functionWillReturn(*CF, WPInfo)) {
+                CF->setWillReturn();
+                NumWillReturn++;
+                Changed.insert(CF);
+              }
+            }
+          }
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+    if (!F || F->willReturn() || !functionWillReturn(*F, WPInfo)) // INTEL
       continue;
 
     F->setWillReturn();
