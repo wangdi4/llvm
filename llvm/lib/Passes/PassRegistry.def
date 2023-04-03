@@ -684,6 +684,7 @@ FUNCTION_PASS("memcpyopt", MemCpyOptPass())
 FUNCTION_PASS("mergeicmps", MergeICmpsPass())
 FUNCTION_PASS("multiversioning", MultiVersioningPass()) // INTEL
 FUNCTION_PASS("mergereturn", UnifyFunctionExitNodesPass())
+FUNCTION_PASS("move-auto-init", MoveAutoInitPass())
 FUNCTION_PASS("nary-reassociate", NaryReassociatePass())
 FUNCTION_PASS("newgvn", NewGVNPass())
 FUNCTION_PASS("nonltoglobalopt", NonLTOGlobalOptPass()) // INTEL
