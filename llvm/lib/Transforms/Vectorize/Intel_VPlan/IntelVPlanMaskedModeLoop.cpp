@@ -278,6 +278,7 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
     assert(NewLoopLatchPred != NewLoopLatch->getPredecessors().end() &&
            "Basic block is not a predecessor of the new loop latch.");
     LiveOutVPPhi->addIncoming(LiveOutVal, *NewLoopLatchPred);
+    LiveOutVPPhi->setDebugLocation(LiveOutVal->getDebugLocation());
     VPValue *IncomingValFromHeader = Pair.first;
     if (!IncomingValFromHeader) {
       // Liveout w/o header phi. That can be either -
@@ -297,6 +298,7 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
         assert(RecurPhiFromCopy && "Liveout value expected to have a copy user "
                                    "involved in recurrence.");
         IncomingValFromHeader = RecurPhiFromCopy;
+        LiveOutVPPhi->setDebugLocation(RecurPhiFromCopy->getDebugLocation());
       } else {
         // In such cases we should take the loop incoming value as an
         // operand of the latch phi. Even the unconditional last private does

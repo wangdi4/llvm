@@ -126,7 +126,7 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP7:%.*]] = phi  [ i64 [[VP_MINMAX_RED_INIT]], [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB2]] ]
-; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:15
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:12:13
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP9:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP10:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc:

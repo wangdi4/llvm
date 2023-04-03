@@ -1164,6 +1164,11 @@ private:
   // - Identify/fix indexes of index reductions
   void preprocess();
 
+  // Given a reduction-final instruction, find the unique reducing
+  // instruction and apply its debug location to the PHI nodes for
+  // the associated reduction and to the reduction-final itself.
+  void assignDebugLocToReductionInstrs(VPReductionFinal *Final, bool IsMemOnly);
+
   // Insert VPInstructions (init/final) for the reduction \p Reduction,
   // keeping its final and exit instructions in a special map \p RedFinalMap,
   // and inserting the reduction into list of processed reductions

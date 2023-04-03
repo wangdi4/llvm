@@ -913,39 +913,8 @@ public:
         }))
       Plan->getVPlanDA()->updateDivergence(*Blend);
 
-    // Assign debug location to the blend instruction.  When we have a
-    // reduction operation under a conditional test, the blend is of
-    // the recurrence phi and the conditional reduction operation.  The
-    // latter's debug location is the most reasonable to apply to the
-    // blend.  When we don't have this specific pattern, leave the debug
-    // location alone.  For example, with a blend of two updates to the
-    // same variable, selecting one of those as the debug location would
-    // be arbitrary.
-    // TODO: We need to more generally apply debug location information
-    // from induction and reduction operations to the phis associated
-    // with them.  Once that's in place, the blend instructions can
-    // inherit debug locations from the phis they replace.  See
-    // CMPLRLLVM-45255.
-    VPInstruction *DebugSrc = nullptr;
-
-    for (unsigned N = 0; N < Blend->getNumIncomingValues(); ++N) {
-      VPValue *Val = Blend->getIncomingValue(N);
-      if (auto *Phi = dyn_cast<VPPHINode>(Val)) {
-        if (!VPLI->isLoopHeader(Phi->getParent())) {
-          DebugSrc = nullptr;
-          break;
-        }
-      } else if (auto *I = dyn_cast<VPInstruction>(Val)) {
-        if (DebugSrc) {
-          DebugSrc = nullptr;
-          break;
-        }
-        DebugSrc = I;
-      }
-    }
-
-    if (DebugSrc)
-      Blend->setDebugLocation(DebugSrc->getDebugLocation());
+    // The blend inherits its debug location from the merge phi.
+    Blend->setDebugLocation(Phis[Idx]->getDebugLocation());
 
     return Blend;
   }
