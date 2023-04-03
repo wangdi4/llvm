@@ -3378,25 +3378,19 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
   // Run the inliner now.
-<<<<<<< HEAD
-  MPM.addPass(ModuleInlinerWrapperPass(
-      getInlineParamsFromOptLevel(Level, PrepareForLTO, LinkForLTO,
-      SYCLOptimizationMode), /* MandatoryFirst */ true,
-      InlineContext{ThinOrFullLTOPhase::FullLTOPostLink,
-                    InlinePass::CGSCCInliner}));
-=======
   if (EnableModuleInliner) {
-    MPM.addPass(ModuleInlinerPass(getInlineParamsFromOptLevel(Level),
-                                  UseInlineAdvisor,
-                                  ThinOrFullLTOPhase::FullLTOPostLink));
+    MPM.addPass(ModuleInlinerPass(
+        getInlineParamsFromOptLevel(Level, PrepareForLTO, LinkForLTO,
+                                    SYCLOptimizationMode),
+        UseInlineAdvisor, ThinOrFullLTOPhase::FullLTOPostLink));
   } else {
     MPM.addPass(ModuleInlinerWrapperPass(
-        getInlineParamsFromOptLevel(Level),
+        getInlineParamsFromOptLevel(Level, PrepareForLTO, LinkForLTO,
+                                    SYCLOptimizationMode),
         /* MandatoryFirst */ true,
         InlineContext{ThinOrFullLTOPhase::FullLTOPostLink,
                       InlinePass::CGSCCInliner}));
   }
->>>>>>> 1a36eaa552f14e7376b38cf5fc54afdf52cc8f13
 
 #if INTEL_FEATURE_SW_DTRANS
   // The global optimizer pass can convert function calls to use
