@@ -1944,33 +1944,15 @@ define i1 @icmp1_v32i8_v32i1(<32 x i8>) {
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
-; AVX512F-LABEL: icmp1_v32i8_v32i1:
-; AVX512F:       # %bb.0:
 ; INTEL_CUSTOMIZATION
-; AVX512F-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; AVX512F-NEXT:    vmovdqa64 %zmm0, %zmm1
-; AVX512F-NEXT:    vpternlogq $15, %zmm0, %zmm0, %zmm1
-; AVX512F-NEXT:    vptest %ymm1, %ymm0
-; AVX512F-NEXT:    setb %al
+; AVX512-LABEL: icmp1_v32i8_v32i1:
+; AVX512:       # %bb.0:
+; AVX512-NEXT:    vpcmpeqd %ymm1, %ymm1, %ymm1
+; AVX512-NEXT:    vptest %ymm1, %ymm0
+; AVX512-NEXT:    setb %al
+; AVX512-NEXT:    vzeroupper
+; AVX512-NEXT:    retq
 ; end INTEL_CUSTOMIZATION
-; AVX512F-NEXT:    vzeroupper
-; AVX512F-NEXT:    retq
-;
-; AVX512BW-LABEL: icmp1_v32i8_v32i1:
-; AVX512BW:       # %bb.0:
-; AVX512BW-NEXT:    vpcmpeqd %ymm1, %ymm1, %ymm1
-; AVX512BW-NEXT:    vptest %ymm1, %ymm0
-; AVX512BW-NEXT:    setb %al
-; AVX512BW-NEXT:    vzeroupper
-; AVX512BW-NEXT:    retq
-;
-; AVX512VL-LABEL: icmp1_v32i8_v32i1:
-; AVX512VL:       # %bb.0:
-; AVX512VL-NEXT:    vpcmpeqd %ymm1, %ymm1, %ymm1
-; AVX512VL-NEXT:    vptest %ymm1, %ymm0
-; AVX512VL-NEXT:    setb %al
-; AVX512VL-NEXT:    vzeroupper
-; AVX512VL-NEXT:    retq
   %a = icmp eq <32 x i8> %0, <i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1>
   %b = call i1 @llvm.vector.reduce.and.v32i1(<32 x i1> %a)
   ret i1 %b
