@@ -2964,22 +2964,7 @@ void llvm::patchReplacementInstruction(Instruction *I, Value *Repl) {
   // In general, GVN unifies expressions over different control-flow
   // regions, and so we need a conservative combination of the noalias
   // scopes.
-<<<<<<< HEAD
-  static const unsigned KnownIDs[] = {
-      LLVMContext::MD_tbaa,            LLVMContext::MD_alias_scope,
-      LLVMContext::MD_noalias,         LLVMContext::MD_range,
-      LLVMContext::MD_fpmath,          LLVMContext::MD_invariant_load,
-#if INTEL_CUSTOMIZATION
-      LLVMContext::MD_std_container_ptr,
-      LLVMContext::MD_std_container_ptr_iter,
-#endif // INTEL_CUSTOMIZATION
-      LLVMContext::MD_invariant_group, LLVMContext::MD_nonnull,
-      LLVMContext::MD_access_group,    LLVMContext::MD_preserve_access_index,
-      LLVMContext::MD_noundef,         LLVMContext::MD_nontemporal};
-  combineMetadata(ReplInst, I, KnownIDs, false);
-=======
   combineMetadataForCSE(ReplInst, I, false);
->>>>>>> e20331cec0a21c4798569ee347de3a697621c9c5
 }
 
 template <typename RootType, typename DominatesFn>
