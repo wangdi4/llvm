@@ -2758,6 +2758,7 @@ bool WRegionNode::canHaveLivein() const {
   case WRNTargetData:
   case WRNTile:
   case WRNGuardMemMotion:
+  case WRNTask:
     return true;
   }
   return false;

@@ -1288,6 +1288,7 @@ private:
   SharedClause Shared;
   PrivateClause Priv;
   FirstprivateClause Fpriv;
+  LiveinClause Livein;
   ReductionClause InReduction;
   AllocateClause Alloc;
   DependClause Depend;            // from "QUAL.OMP.DEPEND"
@@ -1331,6 +1332,7 @@ public:
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   DEFINE_GETTER(DependClause,       getDepend,   Depend)
   DEFINE_GETTER(DetachClause,       getDetach,   Detach)
+  DEFINE_GETTER(LiveinClause,       getLivein,   Livein)
 
   EXPR getDepArray() const override { return DepArray; }
   EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
