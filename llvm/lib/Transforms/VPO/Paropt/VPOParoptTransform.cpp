@@ -6393,7 +6393,15 @@ void VPOParoptTransform::genFastRedScalarCopy(Value *Dst, Value *Src,
                                               Type *ElemTy,
                                               IRBuilder<> &Builder) {
   Value *V = Builder.CreateLoad(ElemTy, Src);
-  Builder.CreateStore(V, Dst);
+  Value *DstCasted = Dst;
+  PointerType *DstTy = cast<PointerType>(Dst->getType());
+  if (!DstTy->isOpaque()) {
+    PointerType *ElemPtrTy = PointerType::get(ElemTy, DstTy->getAddressSpace());
+    if (DstTy != ElemPtrTy)
+      DstCasted = Builder.CreatePointerBitCastOrAddrSpaceCast(
+          Dst, ElemPtrTy, Dst->getName() + ".cast");
+  }
+  Builder.CreateStore(V, DstCasted);
 }
 
 /// Generate the code to copy local reduction variable to local variable for
