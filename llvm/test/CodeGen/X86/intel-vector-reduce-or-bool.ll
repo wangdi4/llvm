@@ -224,9 +224,7 @@ define i1 @trunc_v8i32_v8i1(<8 x i32>) {
 ; AVX512-LABEL: trunc_v8i32_v8i1:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpslld $31, %ymm0, %ymm0
-; AVX512-NEXT:    vptestmd %ymm0, %ymm0, %k0
-; AVX512-NEXT:    kmovd %k0, %eax
-; AVX512-NEXT:    testb %al, %al
+; AVX512-NEXT:    vptest %ymm0, %ymm0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
@@ -337,9 +335,8 @@ define i1 @trunc_v8i64_v8i1(<8 x i64>) {
 ; AVX512-LABEL: trunc_v8i64_v8i1:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpsllq $63, %zmm0, %zmm0
-; AVX512-NEXT:    vptestmq %zmm0, %zmm0, %k0
-; AVX512-NEXT:    kmovd %k0, %eax
-; AVX512-NEXT:    testb %al, %al
+; AVX512-NEXT:    vptestmd %zmm0, %zmm0, %k0
+; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
