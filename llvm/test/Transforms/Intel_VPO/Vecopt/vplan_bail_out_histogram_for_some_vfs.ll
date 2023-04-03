@@ -6,10 +6,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec' -vplan-force-vf=16 -debug-only=LoopVectorizationPlanner -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -mattr=+avx512vl,+avx512cd -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=16 -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+; RUN: opt -mattr=+avx512vl,+avx512cd -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=16 -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
 define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %TC) local_unnamed_addr #0 {
-; CHECK: There is no VF found that all VConflict idioms in loop can be optimized for.
+; CHECK: No vectorization factor was found that can satisfy all VConflict idioms in the loop.
+; OPTRPTMED: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized: No vectorization factor was found that can satisfy all VConflict idioms in the loop.
 ;
 entry:
   %cmp11 = icmp sgt i32 %TC, 0

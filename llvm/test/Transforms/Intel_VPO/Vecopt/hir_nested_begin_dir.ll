@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 ;
 ; We currently have a compiler crash when we see a nested begin directive in the
 ; VPlan HIR path. LLVM IR path bails out for such cases. Until we properly
@@ -31,6 +32,8 @@
 ; CHECK:               |   @llvm.directive.region.exit(%tok.inner); [ DIR.OMP.END.SIMD() ]
 ; CHECK:               + END LOOP
 ; CHECK:               @llvm.directive.region.exit(%tok.outer); [ DIR.OMP.END.SIMD() ]
+;
+; OPTRPTMED: remark #15574: HIR: simd loop was not vectorized: unsupported nested OpenMP (simd) loop or region.
 ;
 define void @foo(i64**  %lpp) {
 entry:

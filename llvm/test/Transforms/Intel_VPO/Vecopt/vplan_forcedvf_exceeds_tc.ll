@@ -1,6 +1,8 @@
 ; RUN: opt -passes='vplan-vec,print' -disable-output -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-vplan-vec' -disable-output -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='vpo-directive-cleanup,print,hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec' -disable-output -debug-only=LoopVectorizationPlanner -vplan-force-vf=16 < %s 2>&1 | FileCheck %s --check-prefixes=NODIRCHECK,CHECK
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI-HIR
 ;
 ; REQUIRES: asserts
 ;
@@ -8,7 +10,9 @@
 ; or command line option exceeds loop's known trip count.
 ;
 ; NODIRCHECK-NOT:   @llvm.directive.region
-; CHECK:            LVP: Enforced or only valid VF exceeds known trip count, bailing out
+; CHECK:            Enforced or only valid vectorization factor exceeds the known trip count for this loop.
+; OPTRPTHI: remark #15436: loop was not vectorized: Enforced or only valid vectorization factor exceeds the known trip count for this loop.
+; OPTRPTHI-HIR: remark #15436: loop was not vectorized: HIR: Enforced or only valid vectorization factor exceeds the known trip count for this loop.
 ;
 define void @foo(ptr %lp) {
 entry:

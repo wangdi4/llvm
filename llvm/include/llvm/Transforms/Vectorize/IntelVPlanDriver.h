@@ -174,6 +174,14 @@ public:
   // 15330: %s was not vectorized: the reduction operator is not supported yet
   static const unsigned BadRednRemarkID = 15330;
 
+  // 15332: %s was not vectorized: loop is not within user-defined range
+  static constexpr unsigned OutOfRangeRemarkID = 15332;
+
+  // 15335: %s was not vectorized: vectorization possible but seems
+  //        inefficient. Use vector always directive or -vec-threshold0 to
+  //        override
+  static constexpr unsigned NoProfitRemarkID = 15335;
+
   // 15353: loop was not vectorized: loop is not in canonical form from
   //        OpenMP specification, may be as a result of previous
   //        optimization(s)
@@ -206,6 +214,24 @@ public:
   // 15535: %s was not vectorized: loop contains switch statement. Consider
   //        using if-else statement.
   static const unsigned SwitchRemarkID = 15535;
+
+  // 15571: %s was not vectorized: loop contains a recurrent computation that
+  //        could not be identified as an induction or reduction.  Try using
+  //        #pragma omp simd reduction/linear/private to clarify recurrence.
+  static constexpr unsigned BadRecurPhiRemarkID = 15571;
+
+  // 15572: %s was not vectorized: loop contains a live-out value that could
+  //        not be identified as an induction or reduction.  Try using #pragma
+  //        omp simd reduction/linear/private to clarify recurrence.
+  static constexpr unsigned BadLiveOutRemarkID = 15572;
+
+  // 15573: %s was not vectorized: a reduction or induction of a vector type
+  //        is not supported.
+  static constexpr unsigned VecTypeRednRemarkID = 15573;
+
+  // 15574: %s was not vectorized: unsupported nested OpenMP (simd) loop or
+  //        region.
+  static constexpr unsigned NestedSimdRemarkID = 15574;
 };
 
 class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {

@@ -695,7 +695,7 @@ public:
     Reduction,
     Induction,
     Private,
-    ComressExpand,
+    CompressExpand,
   };
 
   /// Add reduction described by \p K, \p MK, and \p Signed,
@@ -1163,6 +1163,11 @@ private:
   // Preprocess entities before instructions insertion.
   // - Identify/fix indexes of index reductions
   void preprocess();
+
+  // Given a reduction-final instruction, find the unique reducing
+  // instruction and apply its debug location to the PHI nodes for
+  // the associated reduction and to the reduction-final itself.
+  void assignDebugLocToReductionInstrs(VPReductionFinal *Final, bool IsMemOnly);
 
   // Insert VPInstructions (init/final) for the reduction \p Reduction,
   // keeping its final and exit instructions in a special map \p RedFinalMap,

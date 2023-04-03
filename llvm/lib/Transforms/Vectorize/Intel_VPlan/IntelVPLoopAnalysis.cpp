@@ -1267,6 +1267,69 @@ void VPLoopEntityList::processRunningInscanArrReduction(
                                        AddedAliasInstrs);
 }
 
+void VPLoopEntityList::assignDebugLocToReductionInstrs(VPReductionFinal *Final,
+                                                       bool IsMemOnly) {
+
+  VPInstruction *Reducer = nullptr;
+  std::queue<VPInstruction *> WorkList;
+  SmallSet<VPInstruction *, 8> Visited;
+  VPInstruction *First = dyn_cast<VPInstruction>(Final->getReducingOperand());
+  assert(First && "Reducing operand is not instruction!");
+  WorkList.push(First);
+
+  while (!WorkList.empty()) {
+    VPInstruction *Cand = WorkList.front();
+    WorkList.pop();
+    Visited.insert(Cand);
+
+    if (auto *Phi = dyn_cast<VPPHINode>(Cand)) {
+      for (auto Opnd : Phi->operands()) {
+       if (auto *I = dyn_cast<VPInstruction>(Opnd))
+          if (Loop.contains(I) && !Visited.contains(I))
+            WorkList.push(I);
+      }
+    } else if (Reducer) {
+      Reducer = nullptr;
+      break;
+    } else {
+      Reducer = Cand;
+    }
+  }
+
+  // If we can't infer a single reducing instruction, make no changes.
+  if (!Reducer)
+    return;
+
+  // Associate the reduction-final with the reducing instruction.
+  auto DebugLoc = Reducer->getDebugLocation();
+  Final->setDebugLocation(DebugLoc);
+
+  // Don't attempt to mark phis for in-memory reductions.
+  if (IsMemOnly || isa<VPLoadStoreInst>(First))
+    return;
+
+  // All phis encountered in the above search should be associated with the
+  // reducing instruction.
+  bool HeaderPhiFound = false;
+  for (auto *I : Visited)
+    if (auto *Phi = dyn_cast<VPPHINode>(I)) {
+      Phi->setDebugLocation(DebugLoc);
+      if (Phi->getParent() == Loop.getHeader())
+        HeaderPhiFound = true;
+    }
+
+  // Find the header phi for the reduction and associate it with the
+  // reducing instruction.
+  if (!HeaderPhiFound)
+    for (auto *Val : First->users())
+      if (auto *Phi = dyn_cast<VPPHINode>(Val))
+        if (Phi->getParent() == Loop.getHeader()) {
+          Phi->setDebugLocation(DebugLoc);
+          HeaderPhiFound = true;
+        }
+  assert(HeaderPhiFound && "No header phi found for reduction!");
+}
+
 void VPLoopEntityList::insertOneReductionVPInstructions(
     VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
@@ -1431,41 +1494,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   if (FMF.any())
     Final->setFastMathFlags(FMF);
 
-  // Find the unique reducing operation and apply its DebugLoc to the
-  // reduction-final.  Leave it alone if a unique operation isn't found.
-  // TODO: We need to more generally apply debug location information
-  // from induction and reduction operations to the phis associated
-  // with them.  Once that's in place, this code can be simplified.
-  // See CMPLRLLVM-45255.
-  VPInstruction *Reducer = nullptr;
-  std::queue<VPInstruction *> WorkList;
-  SmallSet<VPInstruction *, 8> Visited;
-  VPInstruction *First = dyn_cast<VPInstruction>(Final->getReducingOperand());
-  assert(First && "Reducing operand is not instruction!");
-  WorkList.push(First);
-
-  while (!WorkList.empty()) {
-    VPInstruction *Cand = WorkList.front();
-    WorkList.pop();
-    Visited.insert(Cand);
-
-    if (auto *Phi = dyn_cast<VPPHINode>(Cand)) {
-      for (auto Opnd : Phi->operands()) {
-        if (auto *I = dyn_cast<VPInstruction>(Opnd))
-          if (Loop.contains(I) && !Visited.contains(I))
-            WorkList.push(I);
-      }
-    } else if (Reducer) {
-      Reducer = nullptr;
-      break;
-    } else {
-      Reducer = Cand;
-    }
-  }
-
-  if (Reducer)
-    Final->setDebugLocation(Reducer->getDebugLocation());
-
+  assignDebugLocToReductionInstrs(Final, Reduction->getIsMemOnly());
   processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
 
   if (PrivateMem) {
@@ -4026,7 +4055,7 @@ void CompressExpandIdiomDescr::tryToCompleteByVPlan(VPlanVector *Plan,
   for (VPInstruction *Increment : Increments)
     if (!GatherIdiomInfo(Increment)) {
       VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
-      LE->setImportingError(VPLoopEntityList::ImportError::ComressExpand);
+      LE->setImportingError(VPLoopEntityList::ImportError::CompressExpand);
       return;
     }
 

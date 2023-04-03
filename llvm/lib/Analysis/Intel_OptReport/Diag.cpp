@@ -429,6 +429,18 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15569, "Compiler has chosen to target XMM/YMM vector. Try using "
             "-mprefer-vector-width=512 to override."},
     {15570, "using scalar loop trip count: %s"},
+    // End "vector loop memory reference summary" entries.
+    {15571, "%s was not vectorized: loop contains a recurrent computation "
+            "that could not be identified as an induction or reduction.  "
+            "Try using #pragma omp simd reduction/linear/private to clarify "
+            "recurrence."},
+    {15572, "%s was not vectorized: loop contains a live-out value that could "
+            "not be identified as an induction or reduction.  Try using "
+            "#pragma omp simd reduction/linear/private to clarify recurrence."},
+    {15573, "%s was not vectorized: a reduction or induction of a vector "
+            "type is not supported."},
+    {15574, "%s was not vectorized: unsupported nested OpenMP (simd) loop or "
+            "region."},
 
     {25018, "Total number of lines prefetched=%d"},
     {25019, "Number of spatial prefetches=%d, default dist=%d"},

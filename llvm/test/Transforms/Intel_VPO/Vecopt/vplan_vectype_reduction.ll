@@ -1,5 +1,7 @@
 ; RUN: opt -passes='vplan-vec' -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='hir-ssa-deconstruction,print<hir>,hir-vplan-vec,hir-cg' -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=medium -disable-output < %s 2>&1 | FileCheck %s --check-prefix=LLVM-OPTRPT-MED
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=HIR-OPTRPT-HI
 ;
 ; VPlan vectorizers are currently not setup to deal with reductions/inductions
 ; on vector types. For now, bail out for such cases. Test checks that it does
@@ -13,6 +15,11 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: @foo(
 ; CHECK-NOT: <16 x i64>
+
+; LLVM-OPTRPT-MED: remark #15571: simd loop was not vectorized: loop contains a recurrent computation that could not be identified as an induction or reduction. Try using #pragma omp simd reduction/linear/private to clarify recurrence.
+
+; HIR-OPTRPT-HI: remark #15573: HIR: loop was not vectorized: a reduction or induction of a vector type is not supported.
+
 define <4 x i64> @foo(<4 x i64>* nocapture readonly byval(<4 x i64>) align 32 %0) {
 entry:
   %in = load <4 x i64>, <4 x i64>* %0, align 32

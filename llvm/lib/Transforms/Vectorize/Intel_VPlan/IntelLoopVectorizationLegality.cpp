@@ -721,11 +721,10 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
             continue;
 
           return bailout(OptReportVerbosity::Medium,
-                         VPlanDriverImpl::BailoutRemarkID,
+                         VPlanDriverImpl::BadLiveOutRemarkID,
+                         WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
                          "Loop contains a live-out value that could not be "
-                         "identified as an induction or reduction.  Try using "
-                         "#pragma omp simd reduction/linear/private to clarify "
-                         "recurrence.");
+                         "identified as an induction or reduction.");
         }
 
         // We only allow if-converted PHIs with exactly two incoming values.
@@ -769,11 +768,10 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
 
         LLVM_DEBUG(dbgs() << "LV: Found an unidentified PHI." << *Phi << "\n");
         return bailout(OptReportVerbosity::Medium,
-                       VPlanDriverImpl::BailoutRemarkID,
+                       VPlanDriverImpl::BadRecurPhiRemarkID,
+                       WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
                        "Loop contains a recurrent computation that could not "
-                       "be identified as an induction or reduction.  Try using "
-                       "#pragma omp simd reduction/linear/private to clarify "
-                       "recurrence.");
+                       "be identified as an induction or reduction.");
       } // end of PHI handling
 
       // Bail out if we need to scalarize the read/write pipe OpenCL calls. We
@@ -808,9 +806,9 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
                            "#pragma omp simd ordered is not yet supported.");
           else
             return bailout(OptReportVerbosity::Medium,
-                           VPlanDriverImpl::BailoutRemarkID,
-                           "An unsupported nested region directive is "
-                           "present.");
+                           VPlanDriverImpl::NestedSimdRemarkID,
+                           WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                           "Unsupported nested OpenMP (simd) loop or region.");
         }
 
         if ((isOpenCLReadChannel(F->getName()) ||
