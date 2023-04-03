@@ -2810,8 +2810,10 @@ void llvm::combineMetadata(Instruction *K, const Instruction *J,
         K->setMetadata(Kind, MDNode::getMostGenericFPMath(JMD, KMD));
         break;
       case LLVMContext::MD_invariant_load:
-        // Only set the !invariant.load if it is present in both instructions.
-        K->setMetadata(Kind, JMD);
+        // If K moves, only set the !invariant.load if it is present in both
+        // instructions.
+        if (DoesKMove)
+          K->setMetadata(Kind, JMD);
         break;
 #if INTEL_CUSTOMIZATION
       case LLVMContext::MD_std_container_ptr:
