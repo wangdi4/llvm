@@ -73,7 +73,11 @@ define void @expandOuterRecurrence(i32 %arg) nounwind {
 ; CHECK:       outer.preheader:
 ; CHECK-NEXT:    br label [[OUTER:%.*]]
 ; CHECK:       outer:
-; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[I_INC:%.*]], [[OUTER_INC:%.*]] ], [ 0, [[OUTER_PREHEADER]] ] ;INTEL
+; INTEL_CUSTOMIZATION
+; Addtional IV was not generated as intel customization prefers to use original BinOp IV limit (SUB3) with nowrap flags for the inner loop.
+; CK-NEXT:    [[INDVARS_IV:%.*]] = phi i32 [ [[SUB1]], [[OUTER_PREHEADER]] ], [ [[INDVARS_IV_NEXT:%.*]], [[OUTER_INC:%.*]] ]
+; CHECK-NEXT:    [[I:%.*]] = phi i32 [ [[I_INC:%.*]], [[OUTER_INC:%.*]] ], [ 0, [[OUTER_PREHEADER]] ]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[SUB2:%.*]] = sub nsw i32 [[ARG]], [[I]]
 ; CHECK-NEXT:    [[SUB3:%.*]] = sub nsw i32 [[SUB2]], 1
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp slt i32 0, [[SUB3]]
@@ -89,6 +93,7 @@ define void @expandOuterRecurrence(i32 %arg) nounwind {
 ; CHECK-NEXT:    br label [[OUTER_INC]]
 ; CHECK:       outer.inc:
 ; CHECK-NEXT:    [[I_INC]] = add nuw nsw i32 [[I]], 1
+; CK-NEXT:    [[INDVARS_IV_NEXT]] = add i32 [[INDVARS_IV]], -1 ;INTEL
 ; CHECK-NEXT:    [[EXITCOND1:%.*]] = icmp ne i32 [[I_INC]], [[SUB1]]
 ; CHECK-NEXT:    br i1 [[EXITCOND1]], label [[OUTER]], label [[EXIT_LOOPEXIT:%.*]]
 ; CHECK:       exit.loopexit:
