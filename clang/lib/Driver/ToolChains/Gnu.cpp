@@ -3408,7 +3408,8 @@ void Generic_GCC::GCCInstallationDetector::ScanLibDirForGCCTriple(
         llvm::sys::path::append(LibPath, "..", Suffix.ReversePath);
         if (ScanForCxxPaths(CandidateVersion, CandidateTriple, LibPath,
                             InstallPath)) {
-          CxxCandidateVersion = CandidateVersion;
+          if (CxxCandidateVersion < CandidateVersion)
+            CxxCandidateVersion = CandidateVersion;
         }
       }
 #endif // INTEL_CUSTOMIZATION

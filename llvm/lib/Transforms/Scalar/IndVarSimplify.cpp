@@ -951,13 +951,15 @@ static PHINode *FindLoopCounter(Loop *L, BasicBlock *ExitingBB,
 }
 
 #if INTEL_CUSTOMIZATION
+// Returns true if BinOp's SCEV is the same as IVLimit and it has any nowrap
+// flags on it.
 static bool isIVLimitBinOp(OverflowingBinaryOperator *BinOp,
                            const SCEV *IVLimit, ScalarEvolution &SE) {
   return BinOp && (BinOp->hasNoUnsignedWrap() || BinOp->hasNoSignedWrap()) &&
          (SE.getSCEV(BinOp) == IVLimit);
 }
 
-// Helper to extract BinOp from compare operands.
+// Helper to extract BinOp from \p Val.
 static OverflowingBinaryOperator *getBinOp(Value *Val) {
   auto *BinOp = dyn_cast<OverflowingBinaryOperator>(Val);
 
@@ -971,21 +973,31 @@ static OverflowingBinaryOperator *getBinOp(Value *Val) {
   return nullptr;
 }
 
+// Returns loop invariant operand of \p OrigExitCond if it is a CmpInst else
+// returns nullptr.
+static Value *getOrigIVLimit(Value *OrigExitCond, const Loop *L) {
+  if (auto *CmpInst = dyn_cast<ICmpInst>(OrigExitCond)) {
+    auto *Op0 = CmpInst->getOperand(0);
+
+    return L->isLoopInvariant(Op0) ? Op0 : CmpInst->getOperand(1);
+  }
+
+  return nullptr;
+}
+
+/// Returns the compare operand of \p OrigExitCond which is a BinOp and has the
+/// same SCEV as \p IVLimit.
 static OverflowingBinaryOperator *getOrigIVLimitBinOp(Value *OrigExitCond,
+                                                      const Loop *L,
                                                       const SCEV *IVLimit,
                                                       ScalarEvolution &SE) {
 
-  // ScalarEvolution does not preserve nuw/nsw flags so it is preferrable to
-  // use the original value if the loop limit is the same.
-  if (auto *CmpInst = dyn_cast<ICmpInst>(OrigExitCond)) {
+  if (auto *OrigIVLimit = getOrigIVLimit(OrigExitCond, L)) {
 
-    auto *BinOp0 = getBinOp(CmpInst->getOperand(0));
-    if (isIVLimitBinOp(BinOp0, IVLimit, SE))
-      return BinOp0;
+    auto *BinOp = getBinOp(OrigIVLimit);
 
-    auto *BinOp1 = getBinOp(CmpInst->getOperand(1));
-    if (isIVLimitBinOp(BinOp1, IVLimit, SE))
-      return BinOp1;
+    if (isIVLimitBinOp(BinOp, IVLimit, SE))
+      return BinOp;
   }
 
   return nullptr;
@@ -1004,110 +1016,88 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
   assert(isLoopCounter(IndVar, L, SE));
   assert(ExitCount->getType()->isIntegerTy() && "exit count must be integer");
   const SCEVAddRecExpr *AR = cast<SCEVAddRecExpr>(SE->getSCEV(IndVar));
-  const SCEV *IVInit = AR->getStart();
   assert(AR->getStepRecurrence(*SE)->isOne() && "only handles unit stride");
 
-  // IVInit may be a pointer while ExitCount is an integer when FindLoopCounter
-  // finds a valid pointer IV.
-  if (IndVar->getType()->isPointerTy()) {
-    const SCEVAddRecExpr *ARBase = UsePostInc ? AR->getPostIncExpr(*SE) : AR;
-    const SCEV *IVLimit = ARBase->evaluateAtIteration(ExitCount, *SE);
-    assert(SE->isLoopInvariant(IVLimit, L) &&
-           "Computed iteration count is not loop invariant!");
-    return Rewriter.expandCodeFor(IVLimit, IndVar->getType(),
-                                  ExitingBB->getTerminator());
-  } else {
-    // In any other case, convert both IVInit and ExitCount to integers before
-    // comparing. This may result in SCEV expansion of pointers, but in practice
-    // SCEV will fold the pointer arithmetic away as such:
-    // BECount = (IVEnd - IVInit - 1) => IVLimit = IVInit (postinc).
-    //
-    // Valid Cases: (1) both integers is most common; (2) both may be pointers
-    // for simple memset-style loops.
-    //
-    // IVInit integer and ExitCount pointer would only occur if a canonical IV
-    // were generated on top of case #2, which is not expected.
-
-    // For unit stride, IVCount = Start + ExitCount with 2's complement
-    // overflow.
-    auto *NarrowAddRec = AR; // INTEL
-    // For integer IVs, truncate the IV before computing IVInit + BECount,
-    // unless we know apriori that the limit must be a constant when evaluated
-    // in the bitwidth of the IV.  We prefer (potentially) keeping a truncate
-    // of the IV in the loop over a (potentially) expensive expansion of the
-    // widened exit count add(zext(add)) expression.
-    if (SE->getTypeSizeInBits(IVInit->getType())
-        > SE->getTypeSizeInBits(ExitCount->getType())) {
+  auto *NarrowAddRec = AR; // INTEL
+  // For integer IVs, truncate the IV before computing the limit unless we
+  // know apriori that the limit must be a constant when evaluated in the
+  // bitwidth of the IV.  We prefer (potentially) keeping a truncate of the
+  // IV in the loop over a (potentially) expensive expansion of the widened
+  // exit count add(zext(add)) expression.
+  if (IndVar->getType()->isIntegerTy() &&
+      SE->getTypeSizeInBits(AR->getType()) >
+      SE->getTypeSizeInBits(ExitCount->getType())) {
 #if INTEL_CUSTOMIZATION
-      NarrowAddRec = dyn_cast<SCEVAddRecExpr>(
-          SE->getTruncateExpr(NarrowAddRec, ExitCount->getType()));
+    NarrowAddRec = dyn_cast<SCEVAddRecExpr>(
+        SE->getTruncateExpr(NarrowAddRec, ExitCount->getType()));
 #endif // INTEL_CUSTOMIZATION
-      if (isa<SCEVConstant>(IVInit) && isa<SCEVConstant>(ExitCount))
-        ExitCount = SE->getZeroExtendExpr(ExitCount, IVInit->getType());
-      else
-        IVInit = SE->getTruncateExpr(IVInit, ExitCount->getType());
-    }
+    const SCEV *IVInit = AR->getStart();
+    if (!isa<SCEVConstant>(IVInit) || !isa<SCEVConstant>(ExitCount))
+      AR = cast<SCEVAddRecExpr>(SE->getTruncateExpr(AR, ExitCount->getType()));
+  }
 
+  const SCEVAddRecExpr *ARBase = UsePostInc ? AR->getPostIncExpr(*SE) : AR;
+  const SCEV *IVLimit = ARBase->evaluateAtIteration(ExitCount, *SE);
+  assert(SE->isLoopInvariant(IVLimit, L) &&
+         "Computed iteration count is not loop invariant!");
 #if INTEL_CUSTOMIZATION
-    SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
-    if (NarrowAddRec) {
-      auto It = NonNegativeIVRanges.find(NarrowAddRec);
+  auto *BI = cast<BranchInst>(ExitingBB->getTerminator());
+  // If the new IVLimit SCEV expr corresponds to instruction in the incoming IR,
+  // use that instruction instead of generating a new value as it is more likely
+  // to have no-wrap flags set.
+  if (auto *OrigIVLimit =
+          getOrigIVLimitBinOp(BI->getCondition(), L, IVLimit, *SE))
+    return OrigIVLimit;
 
-      if (It != NonNegativeIVRanges.end()) {
-        auto IVRange = It->second;
-        assert(!IVRange.isWrappedSet() &&
-               "IV unexpectedly wraps in unsigned range!");
-        assert(!IVRange.isSignWrappedSet() &&
-               "IV unexpectedly wraps in signed range!");
-
-        auto SignedMaxVal = APInt::getSignedMaxValue(
-            SE->getTypeSizeInBits(NarrowAddRec->getType()));
-        // If IV is non-negative and its max value is less than signed max then
-        // IVLimit computation does not wrap in signed/unsigned range.
-        if (IVRange.getSignedMax().slt(SignedMaxVal))
-          Flags = (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW);
-      }
-    }
 #endif // INTEL_CUSTOMIZATION
-    const SCEV *IVLimit = SE->getAddExpr(IVInit, ExitCount, Flags); // INTEL
-
+#if INTEL_COLLAB
+  auto *ExpandTy =
+      IndVar->getType()->isPointerTy() ? IndVar->getType() : ARBase->getType();
 #if INTEL_CUSTOMIZATION
-    auto *PreIncOrigIVLimit = getOrigIVLimitBinOp(
-        cast<BranchInst>(ExitingBB->getTerminator())->getCondition(), IVLimit,
-        *SE);
+  auto *NewIVLimitExpr = Rewriter.expandCodeFor(IVLimit, ExpandTy, BI);
 
+  SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
+  // Try to deduce nowrap flags on the limit expr by using information cached
+  // for the original IV.
+  if (NarrowAddRec) {
+    auto It = NonNegativeIVRanges.find(NarrowAddRec);
+
+    if (It != NonNegativeIVRanges.end()) {
+      auto IVRange = It->second;
+      assert(!IVRange.isWrappedSet() &&
+             "IV unexpectedly wraps in unsigned range!");
+      assert(!IVRange.isSignWrappedSet() &&
+             "IV unexpectedly wraps in signed range!");
+
+      auto SignedMaxVal = APInt::getSignedMaxValue(
+          SE->getTypeSizeInBits(NarrowAddRec->getType()));
+      // If IV is non-negative and its max value is less than signed max then
+      // IVLimit computation does not wrap in signed/unsigned range.
+      if (IVRange.getSignedMax().slt(SignedMaxVal))
+        Flags = (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW);
+    }
+  }
+
+  OverflowingBinaryOperator *PreIncOrigIVLimit = nullptr;
+
+  if (UsePostInc) {
+    // Apply nowrap flags using cached post-inc information for original loop.
     auto FlagIt = PostIncIVLimitFlags.find(L);
     if (FlagIt != PostIncIVLimitFlags.end())
       Flags = (SCEV::NoWrapFlags)(Flags | FlagIt->second);
-#endif // INTEL_CUSTOMIZATION
-    if (UsePostInc)
-#if INTEL_CUSTOMIZATION
-      IVLimit = SE->getAddExpr(IVLimit, SE->getOne(IVLimit->getType()), Flags);
-#endif // INTEL_CUSTOMIZATION
 
-    // Expand the code for the iteration count.
-    assert(SE->isLoopInvariant(IVLimit, L) &&
-           "Computed iteration count is not loop invariant!");
-    // Ensure that we generate the same type as IndVar, or a smaller integer
-    // type. In the presence of null pointer values, we have an integer type
-    // SCEV expression (IVInit) for a pointer type IV value (IndVar).
-#if INTEL_CUSTOMIZATION
-    Type *LimitTy = ExitCount->getType();
-    BranchInst *BI = cast<BranchInst>(ExitingBB->getTerminator());
-    if (!PreIncOrigIVLimit)
-      if (auto *PostIncOrigIVLimit =
-              getOrigIVLimitBinOp(BI->getCondition(), IVLimit, *SE))
-        return PostIncOrigIVLimit;
+    // Get pre-inc value by subtracting stride from IVLimit.
+    PreIncOrigIVLimit = getOrigIVLimitBinOp(
+        BI->getCondition(), L,
+        SE->getMinusSCEV(IVLimit, AR->getStepRecurrence(*SE)), *SE);
+  }
 
-    auto *NewIVLimitExpr = Rewriter.expandCodeFor(IVLimit, LimitTy, BI);
-
-    // In the SE->getAddExpr() call for post-inc IVLimit above, ScalarEvolution
-    // does not apply nowrap flags if there is constant folding. For example,
-    // getAddExpr((n+2), 1, NSW) returns (n+3) without nowrap flags. The
-    // following section applies the flags on the generated BinOp using the
-    // flags on the original pre-inc limit (n+2).
+  if (Flags != SCEV::FlagAnyWrap) {
     if (auto *NewIVLimitBinOp =
             dyn_cast<OverflowingBinaryOperator>(NewIVLimitExpr)) {
+
+      // Apply deduced flags on the generated BinOp (ex: (n+3)) by comparing the
+      // flags on the original pre-inc limit BinOp (ex: (n+2)<nsw>).
       if (PreIncOrigIVLimit &&
           (PreIncOrigIVLimit->getOpcode() == NewIVLimitBinOp->getOpcode())) {
         if (PreIncOrigIVLimit->hasNoSignedWrap() &&
@@ -1117,11 +1107,41 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
         if (PreIncOrigIVLimit->hasNoUnsignedWrap() &&
             ScalarEvolution::maskFlags(Flags, SCEV::FlagNUW))
           cast<Instruction>(NewIVLimitExpr)->setHasNoUnsignedWrap();
+
+      } else if (auto *OrigLimit = getOrigIVLimit(BI->getCondition(), L)) {
+
+        // Extension might have been added on the OrigLimit due to IV widening.
+        auto *Cast = dyn_cast<CastInst>(OrigLimit);
+
+        if (Cast && Cast->isIntegerCast())
+          OrigLimit = Cast->getOperand(0);
+
+        // Apply deduced flags on the generated BinOp (ex: n+1) if the original
+        // limit's SCEV was a SCEVUnknown. This eliminates the possibility of
+        // new BinOp limit being generated as a result of folding of a SCEV
+        // expr.
+        if (isa<SCEVUnknown>(SE->getSCEV(OrigLimit))) {
+          if (ScalarEvolution::maskFlags(Flags, SCEV::FlagNSW))
+            cast<Instruction>(NewIVLimitExpr)->setHasNoSignedWrap();
+
+          // Only apply nuw flag if operand 1 is known to be non-negative. It is
+          // incorrect to apply it to an add intruction like (n + -1).
+          if (ScalarEvolution::maskFlags(Flags, SCEV::FlagNUW)) {
+
+            auto *ConstIntOp1 =
+                dyn_cast<ConstantInt>(NewIVLimitBinOp->getOperand(1));
+            if (ConstIntOp1 && !ConstIntOp1->isNegative())
+              cast<Instruction>(NewIVLimitExpr)->setHasNoUnsignedWrap();
+          }
+        }
       }
     }
-    return NewIVLimitExpr;
-#endif // INTEL_CUSTOMIZATION
   }
+  return NewIVLimitExpr;
+#else
+  return Rewriter.expandCodeFor(IVLimit, ExpandTy, ExitingBB->getTerminator());
+#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 }
 
 /// This method rewrites the exit condition of the loop to be a canonical !=
