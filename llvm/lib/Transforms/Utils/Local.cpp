@@ -2863,21 +2863,6 @@ void llvm::combineMetadata(Instruction *K, const Instruction *J,
 
 void llvm::combineMetadataForCSE(Instruction *K, const Instruction *J,
                                  bool KDominatesJ) {
-<<<<<<< HEAD
-  unsigned KnownIDs[] = {
-      LLVMContext::MD_tbaa,            LLVMContext::MD_alias_scope,
-      LLVMContext::MD_noalias,         LLVMContext::MD_range,
-      LLVMContext::MD_invariant_load,  LLVMContext::MD_nonnull,
-      LLVMContext::MD_invariant_group, LLVMContext::MD_align,
-      LLVMContext::MD_dereferenceable,
-#if INTEL_CUSTOMIZATION
-      LLVMContext::MD_std_container_ptr,
-      LLVMContext::MD_std_container_ptr_iter,
-#endif // INTEL_CUSTOMIZATION
-      LLVMContext::MD_dereferenceable_or_null,
-      LLVMContext::MD_access_group,    LLVMContext::MD_preserve_access_index,
-      LLVMContext::MD_nontemporal,     LLVMContext::MD_noundef};
-=======
   unsigned KnownIDs[] = {LLVMContext::MD_tbaa,
                          LLVMContext::MD_alias_scope,
                          LLVMContext::MD_noalias,
@@ -2888,12 +2873,15 @@ void llvm::combineMetadataForCSE(Instruction *K, const Instruction *J,
                          LLVMContext::MD_invariant_group,
                          LLVMContext::MD_align,
                          LLVMContext::MD_dereferenceable,
+#if INTEL_CUSTOMIZATION
+      LLVMContext::MD_std_container_ptr,
+      LLVMContext::MD_std_container_ptr_iter,
+#endif // INTEL_CUSTOMIZATION
                          LLVMContext::MD_dereferenceable_or_null,
                          LLVMContext::MD_access_group,
                          LLVMContext::MD_preserve_access_index,
                          LLVMContext::MD_nontemporal,
                          LLVMContext::MD_noundef};
->>>>>>> 0b5068695aabdca40eddb686be80ef4ad6abf38e
   combineMetadata(K, J, KnownIDs, KDominatesJ);
 }
 
