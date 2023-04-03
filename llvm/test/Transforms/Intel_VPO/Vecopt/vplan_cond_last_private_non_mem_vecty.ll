@@ -8,7 +8,7 @@
 
 ; CHECK: LV: Found an unidentified PHI.  %priv_phi = phi <2 x i64>
 ; CHECK-NOT: <16 x i8>
-; OPTRPTMED: remark #15436: loop was not vectorized: Loop contains a recurrent computation that could not be identified as an induction or reduction. Try using #pragma omp simd reduction/linear/private to clarify recurrence.
+; OPTRPTMED: remark #15571: simd loop was not vectorized: loop contains a recurrent computation that could not be identified as an induction or reduction. Try using #pragma omp simd reduction/linear/private to clarify recurrence.
 ;
 define <2 x i64> @foo(<2 x i64>* nocapture %larr, <2 x i64>* %mm) {
 entry:

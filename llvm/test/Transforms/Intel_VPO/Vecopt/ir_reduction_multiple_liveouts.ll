@@ -2,8 +2,10 @@
 ; with multiple liveout instructions.
 
 ; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -debug-only=LoopVectorizationPlanner -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 
-; CHECK: LVP: Reduction with multiple liveout instructions is not supported.
+; CHECK: A reduction with more than one live-out instruction is not supported.
+; OPTRPTMED: remark #15436: loop was not vectorized: A reduction with more than one live-out instruction is not supported.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

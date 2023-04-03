@@ -39,6 +39,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CommandLine.h"
+#include <sstream>
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
@@ -342,13 +343,22 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
   return WRLp && WRLp->getSafelen() ? WRLp->getSafelen() : UINT_MAX;
 }
 
+void LoopVectorizationPlanner::bailout(OptReportVerbosity::Level Level,
+                                       unsigned ID, std::string Message,
+                                       std::string Debug) const {
+  if (Debug == "")
+    LLVM_DEBUG(dbgs() << Message << '\n');
+  else
+    LLVM_DEBUG(dbgs() << Debug << '\n');
+  setBailoutData(Level, ID, Message);
+}
+
 void LoopVectorizationPlanner::setDefaultVectorFactors() {
   unsigned ForcedVF = getForcedVF(WRLp);
   if (ForcedVF && !isPowerOf2_64(ForcedVF)) {
-    LLVM_DEBUG(
-        dbgs()
-        << "LVP: The forced VF is not power of two, skipping the loop\n");
     VFs.push_back(0);
+    bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+            "The forced vectorization factor is not a power of two.");
     return;
   }
 
@@ -359,18 +369,20 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
 
   // Early return from vectorizer if forced VF or safelen is 1
   if (ForcedVF == 1 || Safelen == 1) {
-    LLVM_DEBUG(dbgs() << "LVP: The forced VF or safelen specified by user is "
-                         "1, VPlans need not be constructed.\n");
     VFs.push_back(0);
+    bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+            "The forced vectorization factor or safelen specified by "
+            "the user is 1.");
     return;
   }
 
   if (ForcedVF) {
     if (ForcedVF > Safelen) {
       // We are bailing out of vectorization if ForcedVF > safelen
-      LLVM_DEBUG(dbgs() << "VPlan: The forced VF is greater than safelen set "
-                           "via `#pragma omp simd`\n");
       VFs.push_back(0);
+      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+              "The forced vectorization factor exceeds the safelen set "
+              "via #pragma omp simd.");
       return;
     }
     VFs.push_back(ForcedVF);
@@ -384,6 +396,9 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
     VFs.push_back(1);
   } else if (VectorlengthMD != nullptr) {
     extractVFsFromMetadata(Safelen);
+    if (VFs.size() > 0 && VFs[0] == 0)
+      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+              "User specified #pragma vector vectorlength(0).");
   } else {
     unsigned MinWidthInBits, MaxWidthInBits, MinVF, MaxVF;
     std::tie(MinWidthInBits, MaxWidthInBits) = getTypesWidthRangeInBits();
@@ -425,6 +440,11 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
                       << "\n");
     if (MinVF > MaxVF) {
       VFs.push_back(0);
+      std::stringstream SS;
+      SS << "Calculated minimum vectorization factor " << MinVF
+         << " exceeds calculated maximum vectorization factor " << MaxVF << ".";
+      bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+              SS.str());
       return;
     }
     for (unsigned VF = MinVF; VF <= MaxVF; VF *= 2)
@@ -449,16 +469,18 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   ++VPlanOrderNumber;
 
   // Bail out if the loop is not in any selected vectorization range.
-  // TODO: add a message to opt report.
   if (!VecRange.empty() && !llvm::any_of(VecRange, [](const VPlanVecRange &R) {
         return R.isInRange(VPlanOrderNumber);
       })) {
-    LLVM_DEBUG(dbgs() << "The loop is out of vplan-vec-range (#"
-                      << VPlanOrderNumber << ")\n";);
+    std::stringstream SS;
+    SS << "The loop is out of vplan-vec-range (#" << VPlanOrderNumber << ")";
+    bailout(OptReportVerbosity::Medium, VPlanDriverImpl::OutOfRangeRemarkID,
+            "loop", SS.str());
     DEBUG_WITH_TYPE("LoopVectorizationPlanner_vec_range",
-                    for (const auto &R : VecRange)
-                      dbgs() << "vec range: " << R.Start << ":" << R.End << " "
-                             << R.Inverse << "\n";);
+                    for (const auto &R
+                         : VecRange) dbgs()
+                        << "vec range: " << R.Start << ":" << R.End << " "
+                        << R.Inverse << "\n";);
     return 0;
   }
 
@@ -467,8 +489,10 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   VPlanName += ".#" + std::to_string(VPlanOrderNumber);
 
   setDefaultVectorFactors();
-  if (VFs[0] == 0)
+  if (VFs[0] == 0) {
+    assert(BD.BailoutID && "setDefaultVectorFactors did not set bailout data!");
     return 0;
+  }
 
   Externals = std::make_unique<VPExternalValues>(Context, DL);
   UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
@@ -478,11 +502,13 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
       buildInitialVPlan(*Externals, *UnlinkedVPInsts, VPlanName, AC, SE);
   if (!Plan) {
     LLVM_DEBUG(dbgs() << "LVP: VPlan was not created.\n");
+    assert(BD.BailoutID && "buildInitialVPlan did not set bailout data!");
     return 0;
   }
 
   if (!IsLegalToVec) {
-    LLVM_DEBUG(dbgs() << "LVP: VPlan is not legal to vectorize.\n");
+    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            "Loop previously found illegal to vectorize.");
     return 0;
   }
 
@@ -493,8 +519,9 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
     // type, bail out if this VF exceeds known loop trip count.
     if (!MainLoop->getTripCountInfo().IsEstimated &&
         MainLoop->getTripCountInfo().TripCount < VFs[0]) {
-      LLVM_DEBUG(dbgs() << "LVP: Enforced or only valid VF exceeds known trip "
-                           "count, bailing out.\n");
+      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+              "Enforced or only valid vectorization factor exceeds "
+              "the known trip count for this loop.");
       return 0;
     }
   }
@@ -514,8 +541,19 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   Plan->invalidateAnalyses(VPAnalysisID::SVA);
 
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
-  if (LE->getImportingError() != VPLoopEntityList::ImportError::None) {
-    LLVM_DEBUG(dbgs() << "LVP: Entities import error.\n");
+  auto Error = LE->getImportingError();
+  if (Error != VPLoopEntityList::ImportError::None) {
+    if (Error == VPLoopEntityList::ImportError::Reduction)
+      bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+              "Reduction has different symbases for live-in and "
+              "live-out values.");
+    else if (Error == VPLoopEntityList::ImportError::CompressExpand)
+      bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+              "Incomplete compress-expand idiom.");
+    else
+      bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+              "Importing loop entities (e.g., inductions and "
+              "reductions) failed for this loop.");
     return 0;
   }
   LE->analyzeImplicitLastPrivates();
@@ -523,6 +561,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   // Check legality of VPlan before proceeding with other transforms/analyses.
   if (!canProcessVPlan(*Plan.get())) {
     LLVM_DEBUG(dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
+    assert(BD.BailoutID && "canProcessVPlan did not set bailout data!");
     return 0;
   }
 
@@ -550,8 +589,9 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
                   }),
               VFs.end());
   if (VFs.empty()) {
-    LLVM_DEBUG(dbgs() << "There is no suitable VF for compress/expand idiom "
-                         "vectorization.\n");
+    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            "The loop contains a compress/expand idiom that cannot "
+            "be vectorized with any suitable vectorization factor.");
     return 0;
   }
 
@@ -741,8 +781,9 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   // When we force VF to have a special value, VFs vector has only one value.
   // Therefore, we have to check if we removed the only value that was in VFs.
   if (VFs.empty()) {
-    LLVM_DEBUG(dbgs() << "There is no VF found that all VConflict idioms in "
-                         "loop can be optimized for.\n");
+    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            "No vectorization factor was found that can satisfy all "
+            "VConflict idioms in the loop.");
     return 0;
   }
 
@@ -1121,9 +1162,13 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                              }),
               UFs.end());
     if (UFs.empty()) {
-      LLVM_DEBUG(dbgs() << "Bailing out to scalar VPlan because ForcedVF("
-                        << ForcedVF << ") * U > TripCount(" << TripCount << ")"
-                        << " for all unroll factors U\n");
+      std::stringstream SS;
+      SS << "Bailing out to scalar VPlan because ForcedVF(" << ForcedVF
+         << ") * U > TripCount(" << TripCount << ") for all unroll factors U";
+      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+              "The forced vectorization factor exceeds the unrolled "
+              "trip count for every legal unroll factor.",
+              SS.str());
       // The scenario was reset just before the check.
       return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
     }
@@ -1133,6 +1178,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // FIXME: We may want to use BestUF in the Unroller.
     LLVM_DEBUG(dbgs() << "There is only VPlan with VF=" << ForcedVF
                       << ", selecting it.\n");
+    if (ForcedVF == 1)
+      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+              "User forced vectorization factor of 1.");
   }
 
   // In light weight and advanced modes select VF basing on Search Loop idioms
@@ -1182,8 +1230,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       // SearchLoopPreferredVF. That requires updating VecScenario structure
       // so getBestVF()/getBestVPlan() utilites can work properly.
       if (SearchLoopPreferredVF == 1) {
-        LLVM_DEBUG(dbgs() << "Selecting VPlan with VF=" <<
-                   SearchLoopPreferredVF << '\n');
+        bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BadSearchRemarkID,
+                WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                "Selecting VPlan with search loop preferred VF=1");
         return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
       }
 
@@ -1196,10 +1245,13 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                                }),
                 UFs.end());
       if (UFs.empty()) {
-        LLVM_DEBUG(dbgs() << "Bailing out to scalar VPlan because "
-                          << "SearchLoopPreferredVF(" << SearchLoopPreferredVF
-                          << ") * U > TripCount(" << TripCount
-                          << ") for all unroll factors U\n");
+        std::stringstream SS;
+        SS << "Bailing out to scalar VPlan because "
+           << "SearchLoopPreferredVF(" << SearchLoopPreferredVF
+           << ") * U > TripCount(" << TripCount
+           << ") for all unroll factors U\n";
+        bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                "Trip count too low for search loop.", SS.str());
         // The scenario was reset just before the check.
         return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
       }
@@ -1564,6 +1616,11 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       VPlans.erase(It.first);
   }
   LLVM_DEBUG(dbgs() << "Selecting VPlan with VF=" << getBestVF() << '\n');
+
+  if (getBestVF() == 1 && !ForcedVF)
+    bailout(OptReportVerbosity::Medium, VPlanDriverImpl::NoProfitRemarkID,
+            WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+            "Loop is unprofitable to vectorize.");
 
   if (BestCostSummarySet) {
     OptReportStatsTracker &OptRptStats =
@@ -2306,8 +2363,12 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   VPLoop *VPLp = *(Plan.getVPLoopInfo()->begin());
   VPBasicBlock *Header = VPLp->getHeader();
   const VPLoopEntityList *LE = Plan.getLoopEntities(VPLp);
-  if (!LE)
+  if (!LE) {
+    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            "There are no loop entities (e.g., inductions or "
+            "reductions) for this loop.");
     return false;
+  }
   // Check whether all reductions are supported.
   for (auto Red : LE->vpreductions()) {
     // Bailouts for user-defined reductions and scans.
@@ -2319,14 +2380,17 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       // testing.
       if (!Red->getRecurrenceStartValue() ||
           LE->getMemoryDescriptor(Red) == nullptr || !Red->getIsMemOnly()) {
-        LLVM_DEBUG(dbgs() << "LVP: Registerized UDR/Scan found.\n");
+        bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                "A user-defined reduction or scan has been "
+                "registerized, and cannot be vectorized.");
         return false;
       }
 
       auto *UDS = dyn_cast<VPUserDefinedScanReduction>(Red);
       if (UDS && !UDS->getInitializer()) {
-        LLVM_DEBUG(
-            dbgs() << "LVP: UDS without Initializer is not supported yet!\n");
+        bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+                "A user-defined reduction without an initializer "
+                "has been detected, and is not yet supported.");
         return false;
       }
     }
@@ -2369,8 +2433,9 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       NumLiveOutInsts++; // at the moment we make reduction exit as liveout.
 
     if (NumLiveOutInsts > 1) {
-      LLVM_DEBUG(dbgs() << "LVP: Reduction with multiple liveout instructions "
-                           "is not supported.\n");
+      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+              "A reduction with more than one live-out instruction "
+              "is not supported.");
       return false;
     }
   }
@@ -2382,10 +2447,16 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       // Non-entity phi. No other PHIs are expected in loop header since we are
       // working on plain CFG before any transforms.
       LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi << "\n");
+      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BadRecurPhiRemarkID,
+              "loop",
+              "Loop contains a recurrent computation that could not be"
+              "identified as an induction or reduction.");
       return false;
     }
-  if (!canProcessLoopBody(Plan, *VPLp))
+  if (!canProcessLoopBody(Plan, *VPLp)) {
+    assert(BD.BailoutID && "canProcessLoopBody did not set bailout data!");
     return false;
+  }
 
   // All safety checks passed.
   return true;
@@ -2400,8 +2471,10 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
       if (AllocaPriv->isSOASafe() && AllocaPriv->isSOAProfitable() &&
           !isSOACodegenSupported() &&
           AllocaPriv->getAllocatedType()->isArrayTy()) {
-        LLVM_DEBUG(dbgs() << "LVP: Bail out for SOA private not handled in CG\n"
-                          << VPI << "\n");
+        bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                "SOA transformation for privates is not yet supported "
+                "on this path.");
+        LLVM_DEBUG(dbgs() << VPI << "\n");
         return false;
       }
   }
@@ -2469,29 +2542,44 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
   if (EnableAllLiveOuts)
     return true;
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
-  if (!LE)
+  assert(LE && "No loop entities for loop!");
+  if (!LE) {
+    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            "There are no loop entities (e.g., inductions or "
+            "reductions) for this loop.");
     return false;
+  }
   for (auto *BB : Loop.blocks())
     for (VPInstruction &Inst : *BB) {
-      if (LE->getReduction(&Inst) || LE->getInduction(&Inst)) {
-        // Entities code and CG need to be uplifted to handle vector type
-        // inductions and reductions.
-        if (isa<VectorType>(Inst.getType())) {
-          LLVM_DEBUG(dbgs() << "LVP: Vector type reduction/induction currently"
-                            << " not supported.\n"
-                            << Inst << "\n");
+        if (LE->getReduction(&Inst) || LE->getInduction(&Inst)) {
+          // Entities code and CG need to be uplifted to handle vector type
+          // inductions and reductions.
+          if (isa<VectorType>(Inst.getType())) {
+            bailout(OptReportVerbosity::Medium,
+                    VPlanDriverImpl::VecTypeRednRemarkID, "loop",
+                    "A reduction or induction of a vector type is not "
+                    "supported.");
+            LLVM_DEBUG(dbgs() << Inst << "\n");
+            return false;
+          }
+        } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst)) {
+          // Some liveouts are left unrecognized due to unvectorizable use-def
+          // chains.
+          bailout(OptReportVerbosity::Medium,
+                  VPlanDriverImpl::BadLiveOutRemarkID, "loop",
+                  "Loop contains a live-out value that could not be "
+                  "identified as an induction or reduction.");
           return false;
         }
-      } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst)) {
-        // Some liveouts are left unrecognized due to unvectorizable use-def
-        // chains.
-        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.\n");
-        return false;
-      }
-      if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst)) {
-        if (isInvalidOMPConstructInSIMD(VPCall)) 
-          return false;
-      }
+        if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst)) {
+          if (isInvalidOMPConstructInSIMD(VPCall)) {
+            bailout(OptReportVerbosity::Medium,
+                    VPlanDriverImpl::BailoutRemarkID,
+                    "An illegal OpenMP construct was found inside this "
+                    "SIMD loop.");
+            return false;
+          }
+        }
     }
 
   return true;

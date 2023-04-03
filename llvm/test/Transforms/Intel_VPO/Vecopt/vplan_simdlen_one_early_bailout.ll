@@ -1,5 +1,6 @@
 ; RUN: opt -passes="vplan-vec" -debug-only=LoopVectorizationPlanner --disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -debug-only=LoopVectorizationPlanner --disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 ; REQUIRES: asserts
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -8,7 +9,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ;; Check that we bail out early when simdlen of 1 is used.
 
 ; CHECK: LVP: ForcedVF: 1
-; CHECK: LVP: The forced VF or safelen specified by user is 1, VPlans need not be constructed.
+; CHECK: The forced vectorization factor or safelen specified by the user is 1.
+
+; OPTRPTMED: remark #15436: loop was not vectorized: The forced vectorization factor or safelen specified by the user is 1.
 
 define void @_Z3fooPfS_S_(ptr %A, ptr %B, ptr %C) {
 DIR.OMP.SIMD.1:

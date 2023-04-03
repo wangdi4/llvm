@@ -695,7 +695,7 @@ public:
     Reduction,
     Induction,
     Private,
-    ComressExpand,
+    CompressExpand,
   };
 
   /// Add reduction described by \p K, \p MK, and \p Signed,

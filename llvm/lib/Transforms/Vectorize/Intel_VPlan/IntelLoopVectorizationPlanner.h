@@ -21,6 +21,7 @@
 #include "IntelVPlanLoopUnroller.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 
 namespace llvm {
 class Loop;
@@ -504,6 +505,15 @@ public:
 
   static int getVPlanOrderNumber() { return VPlanOrderNumber; }
 
+  /// Accessors for bail-out reason.
+  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
+                      std::string Message) const {
+    BD.BailoutLevel = Level;
+    BD.BailoutID = ID;
+    BD.BailoutMessage = Message;
+  }
+  VPlanBailoutData &getBailoutData() { return BD; }
+
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan
@@ -608,6 +618,10 @@ protected:
   /// for them and they are created only during CG
   void fillLoopDescrs();
 
+  /// Set the bailout reason for this loop and optionally print a debug msg.
+  void bailout(OptReportVerbosity::Level Level, unsigned ID,
+               std::string Message, std::string Debug = "") const;
+
   /// Go through all VPlans and run \p ProcessPlan on each of them.
   template <class F> void transformAllVPlans(F &ProcessPlan) {
     SmallPtrSet<VPlan *, 2> Visited;
@@ -677,6 +691,9 @@ protected:
   // Map of the descriptors for top vector loops. Is built after CFG merger
   // creates VPlan list for merging. No info for inner loops is kept here.
   VPLoopDescrMap TopLoopDescrs;
+
+  // Bail-out reason data.
+  mutable VPlanBailoutData BD;
 
   struct VPCostSummary {
     VPInstructionCost ScalarIterationCost;

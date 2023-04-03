@@ -22,19 +22,29 @@
 
 ; RUN: opt -S -vplan-force-vf=8 -passes="vplan-vec" -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
 
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=8 -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI-HIR
+
+; RUN: opt -vplan-force-vf=8 -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+
+; RUN: opt -vplan-force-vf=8 -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
+
 ; Check debug info from LoopVectorizationPlanner
 ; CHECK-HIR: LVP: ForcedVF: 8
 ; CHECK-HIR-NEXT: LVP: Safelen: 4
-; CHECK-HIR-NEXT: VPlan: The forced VF is greater than safelen set via `#pragma omp simd`
+; CHECK-HIR-NEXT: The forced vectorization factor exceeds the safelen set via #pragma omp simd.
 ; Check loop is not vectorized
 ; CHECK-HIR: DO i1 = 0, 1023, 1
 
 
 ; CHECK-LLVM: LVP: ForcedVF: 8
 ; CHECK-LLVM-NEXT: LVP: Safelen: 4
-; CHECK-LLVM-NEXT: VPlan: The forced VF is greater than safelen set via `#pragma omp simd`
+; CHECK-LLVM-NEXT: The forced vectorization factor exceeds the safelen set via #pragma omp simd.
 ; Check that loop is not vectorized
 ; CHECK-LLVM-NOT: add <{{[0-9]+}} x i32>
+
+; OPTRPTMED: remark #15436: loop was not vectorized: The forced vectorization factor exceeds the safelen set via #pragma omp simd.
+; OPTRPTHI: remark #15436: loop was not vectorized: The forced vectorization factor exceeds the safelen set via #pragma omp simd.
+; OPTRPTHI-HIR: remark #15436: loop was not vectorized: HIR: The forced vectorization factor exceeds the safelen set via #pragma omp simd.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

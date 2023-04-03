@@ -5,6 +5,7 @@
 ; from another predecessor in the control flow.
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>"  -vplan-print-after-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 
 ; Input HIR
 ; <70>    + DO i1 = 0, 1023, 1   <DO_LOOP> <simd>
@@ -150,6 +151,9 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ;
 ; Check that the loop is not vectorized.
 ; CHECK:  DO i1 = 0, 1023, 1   <DO_LOOP>
+
+; OPTRPTMED: remark #15571: HIR: loop was not vectorized: loop contains a recurrent computation that could not be identified as an induction or reduction. Try using #pragma omp simd reduction/linear/private to clarify recurrence.
+
 omp.inner.for.body.lr.ph:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
   %mul23 = shl nsw i32 %N, 1

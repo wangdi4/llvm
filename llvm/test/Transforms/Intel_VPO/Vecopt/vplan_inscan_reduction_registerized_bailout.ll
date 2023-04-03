@@ -3,10 +3,15 @@
 ; unexpected case.
 
 ; RUN: opt -disable-output -passes="vplan-vec" -vplan-force-vf=2 -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+; RUN: opt -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 ; REQUIRES: asserts
 
-; CHECK: LVP: Registerized UDR/Scan found.
+; CHECK: A user-defined reduction or scan has been registerized, and cannot be vectorized.
 ; CHECK: LVP: VPlan is not legal to process, bailing out.
+; OPTRPTMED: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized: A user-defined reduction or scan has been registerized, and cannot be vectorized.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

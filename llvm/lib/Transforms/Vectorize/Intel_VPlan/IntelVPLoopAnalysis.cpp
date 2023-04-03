@@ -4026,7 +4026,7 @@ void CompressExpandIdiomDescr::tryToCompleteByVPlan(VPlanVector *Plan,
   for (VPInstruction *Increment : Increments)
     if (!GatherIdiomInfo(Increment)) {
       VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
-      LE->setImportingError(VPLoopEntityList::ImportError::ComressExpand);
+      LE->setImportingError(VPLoopEntityList::ImportError::CompressExpand);
       return;
     }
 

@@ -1,4 +1,10 @@
 ; RUN: opt -S < %s -passes='vplan-vec' -vplan-enable-nested-simd 2>&1 | FileCheck %s
+; RUN: opt -S < %s -passes=vplan-vec,intel-ir-optreport-emitter -vplan-enable-nested-simd -disable-output -intel-opt-report=medium 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+; RUN: opt -S < %s -passes=vplan-vec,intel-ir-optreport-emitter -vplan-enable-nested-simd -disable-output -intel-opt-report=high 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
+
+; OPTRPTMED: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized: An illegal OpenMP construct was found inside this SIMD loop.
 
 %struct.ident_t = type { i32, i32, i32, i32, ptr }
 

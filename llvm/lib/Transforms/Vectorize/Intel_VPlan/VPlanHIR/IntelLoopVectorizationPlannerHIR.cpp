@@ -23,7 +23,7 @@
 #include "IntelVPlanBuilderHIR.h"
 #include "Intel_VPlan/IntelVPTransformLibraryCalls.h"
 
-#define DEBUG_TYPE "LoopVectorizationPlannerHIR"
+#define DEBUG_TYPE "LoopVectorizationPlanner"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -111,8 +111,11 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
 
   VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG, *DT,
                                   AC);
-  if (!HCFGBuilder.buildHierarchicalCFG())
+  if (!HCFGBuilder.buildHierarchicalCFG()) {
+    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            "Unable to construct control-flow graph for this loop.");
     return nullptr;
+  }
 
   // Search loop representation is not yet explicit and search loop idiom
   // recognition is picky. Avoid any changes in predicator behavior for search
@@ -134,8 +137,13 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
     return true;
 
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
-  if (!LE)
+  assert(LE && "No loop entities for loop!");
+  if (!LE) {
+    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            "There are no loop entities (e.g., inductions or "
+            "reductions) for this loop.");
     return false;
+  }
 
   for (auto *BB : Loop.blocks())
     for (VPInstruction &Inst : *BB) {
@@ -143,16 +151,21 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
       // inductions and reductions.
       if (LE->getReduction(&Inst) || LE->getInduction(&Inst)) {
         if (isa<VectorType>(Inst.getType())) {
-          LLVM_DEBUG(dbgs() << "LVP: Vector type reduction/induction currently"
-                            << " not supported.\n"
-                            << Inst << "\n");
+          bailout(OptReportVerbosity::Medium,
+                  VPlanDriverImpl::VecTypeRednRemarkID, "loop",
+                  "A reduction or induction of a vector type is not "
+                  "supported.");
+          LLVM_DEBUG(dbgs() << Inst << "\n");
           return false;
         }
       } else if (Loop.isLiveOut(&Inst) && !LE->getPrivate(&Inst) &&
                  !LE->getCompressExpandIdiom(&Inst)) {
         // Some liveouts are left unrecognized due to unvectorizable use-def
         // chains.
-        LLVM_DEBUG(dbgs() << "LVP: Unrecognized liveout found.\n");
+        bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BadLiveOutRemarkID,
+                "loop",
+                "Loop contains a live-out value that could not be "
+                "identified as an induction or reduction.");
         return false;
       }
       // Specialization for handling sincos functions in CG is done based on
@@ -166,8 +179,10 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
         auto *UnderlyingCall = VPCall->getUnderlyingCallInst();
         if (UnderlyingCall &&
             vpo::VPOAnalysisUtils::isBeginDirective(UnderlyingCall)) {
-          LLVM_DEBUG(dbgs() << "LVP: unsupported nested begin directive. "
-                            << *UnderlyingCall << "\n");
+          bailout(OptReportVerbosity::Medium,
+                  VPlanDriverImpl::NestedSimdRemarkID, "simd loop",
+                  "Unsupported nested OpenMP (simd) loop or region.");
+          LLVM_DEBUG(dbgs() << *UnderlyingCall << "\n");
           return false;
         }
       }
@@ -177,7 +192,9 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   for (auto Red : LE->vpreductions())
     if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
         Red->getRecurrenceKind() == RecurKind::SelectFCmp) {
-      LLVM_DEBUG(dbgs() << "LVP: unsupported reduction kind.\n");
+      bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+              "Select-compare reductions are not expected on this "
+              "path.");
       return false;
     }
   // All checks passed.

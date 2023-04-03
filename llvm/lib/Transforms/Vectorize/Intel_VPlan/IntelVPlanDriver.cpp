@@ -465,9 +465,10 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, *AC, VPAF, &SE,
                               CanVectorize || DisableCodeGen)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
-    // TODO: Fill in reason data from LVP.
-    return bailout(VPORBuilder, Lp, OptReportVerbosity::Medium, BailoutRemarkID,
-                   "");
+    auto &LVPBD = LVP.getBailoutData();
+    assert(LVPBD.BailoutID && "buildInitialVPlans did not set bailout data!");
+    return bailout(VPORBuilder, Lp, LVPBD.BailoutLevel, LVPBD.BailoutID,
+                   LVPBD.BailoutMessage);
   }
 
   populateVPlanAnalyses(LVP, VPAF);
@@ -601,9 +602,10 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
                    "Code generation is disabled.");
 
   if (VF == 1 || !LVP.canLowerVPlan(*Plan, VF)) {
-    // TODO: Fill in reason data from LVP.
-    return bailout(VPORBuilder, Lp, OptReportVerbosity::Medium, BailoutRemarkID,
-                   "");
+    auto &LVPBD = LVP.getBailoutData();
+    assert(LVPBD.BailoutID && "canLowerVPlan did not set bailout data!");
+    return bailout(VPORBuilder, Lp, LVPBD.BailoutLevel, LVPBD.BailoutID,
+                   LVPBD.BailoutMessage);
   }
 
   LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: " << Fn.getName()
@@ -1587,9 +1589,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     // vectorization candidate.
     if (WRLp->getIsAutoVec())
       eraseLoopIntrins(Lp, WRLp);
-    // TODO: Fill in reason data from LVP.
-    return bailout(VPORBuilder, Lp, OptReportVerbosity::Medium, BailoutRemarkID,
-                   "");
+    auto &LVPBD = LVP.getBailoutData();
+    assert(LVPBD.BailoutID && "buildInitialVPlans did not set bailout data!");
+    return bailout(VPORBuilder, Lp, LVPBD.BailoutLevel, LVPBD.BailoutID,
+                   LVPBD.BailoutMessage);
   }
 
   populateVPlanAnalyses(LVP, VPAF);
@@ -1728,6 +1731,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   preprocessPrivateFinalCondInstructions(Plan);
 
   bool ModifiedLoop = false;
+  bool CGHandledLoop = false;
   if (!DisableCodeGen) {
     RegDDRef *PeelArrayRef = nullptr;
     VPlanIdioms::Opcode SearchLoopOpcode =
@@ -1735,8 +1739,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
                            ORBuilder, &HIRVecLegal, SearchLoopOpcode,
                            PeelArrayRef, IsOmpSIMD, MCFGI, LVP.getLoopDescrs());
-    bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF) &&
-                          LVP.canLowerVPlan(*Plan, VF));
+    CGHandledLoop = VCodeGen.loopIsHandled(Lp, VF);
+    bool CanLowerPlan = CGHandledLoop && LVP.canLowerVPlan(*Plan, VF);
+    bool LoopIsHandled = VF != 1 && CanLowerPlan;
     VCodeGen.setTreeConflictsLowered(TreeConflictsLowered);
 
     // Erase intrinsics before and after the loop if we either vectorized the
@@ -1772,13 +1777,14 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   // Emit opt report remark if a VPlan candidate loop was not vectorized.
   if (!ModifiedLoop) {
-    // TODO: More reason string options.
-    if (DisableCodeGen)
+    if (CGHandledLoop) {
+      auto &LVPBD = LVP.getBailoutData();
+      assert(LVPBD.BailoutID && "canLowerVPlan did not set bailout data!");
+      return bailout(VPORBuilder, Lp, LVPBD.BailoutLevel, LVPBD.BailoutID,
+                     LVPBD.BailoutMessage);
+    } else
       return bailout(VPORBuilder, Lp, OptReportVerbosity::High, BailoutRemarkID,
                      "Code generation is disabled.");
-    else
-      return bailout(VPORBuilder, Lp, OptReportVerbosity::Medium,
-                     BailoutRemarkID, "");
   }
 
   return ModifiedLoop;
