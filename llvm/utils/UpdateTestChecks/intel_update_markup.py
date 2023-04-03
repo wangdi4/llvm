@@ -179,6 +179,15 @@ def get_llorg_ref(exp, ref_commit=None):
     return ref
 
 
+def drop_note(exp):
+    note = get_note(get_ext(exp))
+    logging.debug(f'Dropping note ...')
+    script = R'/{note}/d'
+    script = script.replace(R'{note}', str(note))
+    logging.debug(f'SED script: {script}')
+    subprocess.run(['sed', '-i', '-b', script, exp], check=True)
+
+
 def drop(exp):
     """Remove existing intel markup and note"""
     ss_markup, s_markup, m_markup_start, m_markup_end = get_markup(exp)
