@@ -1652,8 +1652,8 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
 
   const DataLayout &DL = F->getParent()->getDataLayout();
   unsigned Count = 0;
-  unsigned Idx = 0;
   for (ReductionItem *RedI : RedClause.items()) {
+    unsigned Idx = 0;
 
     // For non-taskgroups, computeArraySectionTypeOffsetSize is called as part
     // of genTaskInitCode/genTaskLoopInitCode.
