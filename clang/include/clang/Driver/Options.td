@@ -996,8 +996,8 @@ def i_allow_all_opts : Flag<["-"], "i_allow-all-opts">,
   "driver">;
 def ax : CommaJoined<["-"], "ax">,
   Flags<[CC1Option]>, Group<m_Group>,
-  HelpText<"generate code specialized for processors specified by <codes> "
-  "while also generating generic IA-32 instructions">,
+  HelpText<"generate multiple, processor-specific, auto-dispatched code paths "
+  "for Intel® processors, specified by <codes>, if there is a performance benefit">,
   MetaVarName<"<codes>">,
   MarshallingInfoStringVector<TargetOpts<"AutoMultiVersionTargets">>;
 def ax_EQ : CommaJoined<["-"], "ax=">,
