@@ -1351,6 +1351,11 @@ defined(__AVX512MOVZXC__) || defined(__M_INTRINSIC_PROMOTE__)
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMXCOMPLEX__)
+#include <amxcomplexintrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AVX512VP2INTERSECT__)
 #include <avx512vp2intersectintrin.h>
 #endif
