@@ -723,7 +723,11 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(const X86Subtarget *ST,
   }
 
   bool EVEX = (VT.is128BitVector() || VT.is256BitVector()) ? ST->hasVLX()
+#if INTEL_FEATURE_ISA_AVX256P
+                                                           : ST->hasAVX3();
+#else // INTEL_FEATURE_ISA_AVX256P
                                                            : ST->hasAVX512();
+#endif // INTEL_FEATURE_ISA_AVX256P
   const FMAOpcodeDesc *OD = findByVT(VT, OpcodeKind, EVEX);
   assert(OD != nullptr && "Didn't find in table!");
   return OD->RegOpc;
@@ -1217,7 +1221,11 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   // have correct latency values for SKL-client and Broadwell without
   // using FMA internal switches. The latency must be already set/written
   // properly to the opcode information, just need to extract/use it properly.
+#if INTEL_FEATURE_ISA_AVX256P
+  if ((ST->hasAVX3() &&
+#else // INTEL_FEATURE_ISA_AVX256P
   if ((ST->hasAVX512() &&
+#endif // INTEL_FEATURE_ISA_AVX256P
        !checkAnyOfFMAFeatures(FMAControls::TargetFMAsMask)) ||
       checkAllFMAFeatures(FMAControls::SkylakeFMAs)) {
     AddSubLatency = 4;
@@ -1650,11 +1658,19 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
     } else if (FK == IsF32) {
       R = MRI->createVirtualRegister(
           ST->getTargetLowering()->getRegClassFor(VT));
+#if INTEL_FEATURE_ISA_AVX256P
+      Opc = ST->hasAVX3() ? X86::VMOVDI2SSZrr : X86::VMOVDI2SSrr;
+#else // INTEL_FEATURE_ISA_AVX256P
       Opc = ST->hasAVX512() ? X86::VMOVDI2SSZrr : X86::VMOVDI2SSrr;
+#endif // INTEL_FEATURE_ISA_AVX256P
     } else {
       R = MRI->createVirtualRegister(
           ST->getTargetLowering()->getRegClassFor(VT));
+#if INTEL_FEATURE_ISA_AVX256P
+      Opc = ST->hasAVX3() ? X86::VMOV64toSDZrr : X86::VMOV64toSDrr;
+#else // INTEL_FEATURE_ISA_AVX256P
       Opc = ST->hasAVX512() ? X86::VMOV64toSDZrr : X86::VMOV64toSDrr;
+#endif // INTEL_FEATURE_ISA_AVX256P
     }
 
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
@@ -1664,7 +1680,11 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   }
 
   // Use a broadcast from GPR if such is available in the target ISA.
+#if INTEL_FEATURE_ISA_AVX256P
+  if (ST->hasAVX3()) {
+#else // INTEL_FEATURE_ISA_AVX256P
   if (ST->hasAVX512()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
     bool UseVLX = ST->hasVLX() && VTBitSize <= 256;
     unsigned VecBitSize = UseVLX ? VTBitSize : 512;
     unsigned ElemSize =
@@ -1701,10 +1721,17 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   // For vectors we need to insert into 128 bits and then broadcast.
   unsigned R128 = MRI->createVirtualRegister(&X86::VR128RegClass);
   assert(FK != IsF16 && "FP16 should be handled upper");
+#if INTEL_FEATURE_ISA_AVX256P
+  if (FK == IsF32)
+    Opc = ST->hasAVX3() ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
+  else
+    Opc = ST->hasAVX3() ? X86::VMOV64toPQIZrr : X86::VMOV64toPQIrr;
+#else // INTEL_FEATURE_ISA_AVX256P
   if (FK == IsF32)
     Opc = ST->hasAVX512() ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
   else
     Opc = ST->hasAVX512() ? X86::VMOV64toPQIZrr : X86::VMOV64toPQIrr;
+#endif // INTEL_FEATURE_ISA_AVX256P
   BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
       .addReg(GPReg, RegState::Kill);
 
@@ -1742,11 +1769,19 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
     Ty = Type::getHalfTy(Context);
     break;
   case MVT::f32:
+#if INTEL_FEATURE_ISA_AVX256P
+    Opc = ST->hasAVX3() ? X86::VMOVSSZrm_alt : X86::VMOVSSrm_alt;
+#else // INTEL_FEATURE_ISA_AVX256P
     Opc = ST->hasAVX512() ? X86::VMOVSSZrm_alt : X86::VMOVSSrm_alt;
+#endif // INTEL_FEATURE_ISA_AVX256P
     Ty = Type::getFloatTy(Context);
     break;
   case MVT::f64:
+#if INTEL_FEATURE_ISA_AVX256P
+    Opc = ST->hasAVX3() ? X86::VMOVSDZrm_alt : X86::VMOVSDrm_alt;
+#else // INTEL_FEATURE_ISA_AVX256P
     Opc = ST->hasAVX512() ? X86::VMOVSDZrm_alt : X86::VMOVSDrm_alt;
+#endif // INTEL_FEATURE_ISA_AVX256P
     Ty = Type::getDoubleTy(Context);
     break;
   case MVT::v8f16:
