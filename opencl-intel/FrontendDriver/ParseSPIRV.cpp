@@ -214,6 +214,9 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityDebugInfoModuleINTEL:
       // SPV_INTEL_matrix
     case spv::internal::CapabilityJointMatrixINTEL:
+    case spv::internal::CapabilityJointMatrixWIInstructionsINTEL:
+    case spv::internal::CapabilityJointMatrixTF32ComponentTypeINTEL:
+    case spv::internal::CapabilityJointMatrixBF16ComponentTypeINTEL:
       // SPV_INTEL_runtime_aligned
     case spv::CapabilityRuntimeAlignedAttributeINTEL:
     case spv::CapabilityLongConstantCompositeINTEL:
@@ -227,6 +230,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityGroupNonUniformShuffleRelative:
     case spv::internal::CapabilityMaskedGatherScatterINTEL:
     case spv::CapabilityAtomicFloat64AddEXT:
+      // SPV_INTEL_tensor_float32_conversion / SPV_INTEL_tensor_float32_rounding
+    case spv::internal::CapabilityTensorFloat32RoundingINTEL:
       break;
     case spv::CapabilityInt64Atomics:
       if (m_sDeviceInfo.bIsFPGAEmu) {
