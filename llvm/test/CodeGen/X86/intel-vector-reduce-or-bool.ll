@@ -18,18 +18,14 @@ define i1 @trunc_v2i64_v2i1(<2 x i64>) {
 ;
 ; AVX-LABEL: trunc_v2i64_v2i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpsllq $63, %xmm0, %xmm0
-; AVX-NEXT:    vmovmskpd %xmm0, %eax
-; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v2i64_v2i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllq $63, %xmm0, %xmm0
-; AVX512-NEXT:    vptestmq %xmm0, %xmm0, %k0
-; AVX512-NEXT:    kmovd %k0, %eax
-; AVX512-NEXT:    testb %al, %al
+; AVX512-NEXT:    vpbroadcastq {{.*#+}} xmm1 = [1,1]
+; AVX512-NEXT:    vptest %xmm1, %xmm0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    retq
   %a = trunc <2 x i64> %0 to <2 x i1>
@@ -48,18 +44,15 @@ define i1 @trunc_v4i32_v4i1(<4 x i32>) {
 ;
 ; AVX-LABEL: trunc_v4i32_v4i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpslld $31, %xmm0, %xmm0
-; AVX-NEXT:    vmovmskps %xmm0, %eax
-; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    vpbroadcastd {{.*#+}} xmm1 = [1,1,1,1]
+; AVX-NEXT:    vptest %xmm1, %xmm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v4i32_v4i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpslld $31, %xmm0, %xmm0
-; AVX512-NEXT:    vptestmd %xmm0, %xmm0, %k0
-; AVX512-NEXT:    kmovd %k0, %eax
-; AVX512-NEXT:    testb %al, %al
+; AVX512-NEXT:    vpbroadcastd {{.*#+}} xmm1 = [1,1,1,1]
+; AVX512-NEXT:    vptest %xmm1, %xmm0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    retq
   %a = trunc <4 x i32> %0 to <4 x i1>
@@ -117,19 +110,17 @@ define i1 @trunc_v8i16_v8i1(<8 x i8>) {
 ;
 ; AVX-LABEL: trunc_v8i16_v8i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpmovzxbw {{.*#+}} xmm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
-; AVX-NEXT:    vpsllw $15, %xmm0, %xmm0
-; AVX-NEXT:    vpmovmskb %xmm0, %eax
-; AVX-NEXT:    testl $43690, %eax # imm = 0xAAAA
+; AVX-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX-NEXT:    vmovq %xmm0, %rax
+; AVX-NEXT:    testq %rax, %rax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v8i16_v8i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllw $7, %xmm0, %xmm0
-; AVX512-NEXT:    vpmovb2m %xmm0, %k0
-; AVX512-NEXT:    kmovd %k0, %eax
-; AVX512-NEXT:    testb %al, %al
+; AVX512-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512-NEXT:    vmovq %xmm0, %rax
+; AVX512-NEXT:    testq %rax, %rax
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    retq
   %a = trunc <8 x i8> %0 to <8 x i1>
@@ -148,17 +139,13 @@ define i1 @trunc_v16i8_v16i1(<16 x i8>) {
 ;
 ; AVX-LABEL: trunc_v16i8_v16i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpsllw $7, %xmm0, %xmm0
-; AVX-NEXT:    vpmovmskb %xmm0, %eax
-; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v16i8_v16i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllw $7, %xmm0, %xmm0
-; AVX512-NEXT:    vpmovmskb %xmm0, %eax
-; AVX512-NEXT:    testl %eax, %eax
+; AVX512-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    retq
   %a = trunc <16 x i8> %0 to <16 x i1>
@@ -178,19 +165,16 @@ define i1 @trunc_v4i64_v4i1(<4 x i64>) {
 ;
 ; AVX-LABEL: trunc_v4i64_v4i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpsllq $63, %ymm0, %ymm0
-; AVX-NEXT:    vmovmskpd %ymm0, %eax
-; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    vpbroadcastq {{.*#+}} ymm1 = [1,1,1,1]
+; AVX-NEXT:    vptest %ymm1, %ymm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v4i64_v4i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllq $63, %ymm0, %ymm0
-; AVX512-NEXT:    vptestmq %ymm0, %ymm0, %k0
-; AVX512-NEXT:    kmovd %k0, %eax
-; AVX512-NEXT:    testb %al, %al
+; AVX512-NEXT:    vpbroadcastq {{.*#+}} ymm1 = [1,1,1,1]
+; AVX512-NEXT:    vptest %ymm1, %ymm0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
@@ -214,17 +198,16 @@ define i1 @trunc_v8i32_v8i1(<8 x i32>) {
 ;
 ; AVX-LABEL: trunc_v8i32_v8i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpslld $31, %ymm0, %ymm0
-; AVX-NEXT:    vmovmskps %ymm0, %eax
-; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [1,1,1,1,1,1,1,1]
+; AVX-NEXT:    vptest %ymm1, %ymm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v8i32_v8i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpslld $31, %ymm0, %ymm0
-; AVX512-NEXT:    vptest %ymm0, %ymm0
+; AVX512-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [1,1,1,1,1,1,1,1]
+; AVX512-NEXT:    vptest %ymm1, %ymm0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
@@ -248,21 +231,14 @@ define i1 @trunc_v16i16_v16i1(<16 x i16>) {
 ;
 ; AVX-LABEL: trunc_v16i16_v16i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0
-; AVX-NEXT:    vextracti128 $1, %ymm0, %xmm1
-; AVX-NEXT:    vpackuswb %xmm1, %xmm0, %xmm0
-; AVX-NEXT:    vpsllw $7, %xmm0, %xmm0
-; AVX-NEXT:    vpmovmskb %xmm0, %eax
-; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v16i16_v16i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllw $15, %ymm0, %ymm0
-; AVX512-NEXT:    vpmovw2m %ymm0, %k0
-; AVX512-NEXT:    kortestw %k0, %k0
+; AVX512-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
@@ -283,18 +259,14 @@ define i1 @trunc_v32i8_v32i1(<32 x i8>) {
 ;
 ; AVX-LABEL: trunc_v32i8_v32i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpsllw $7, %ymm0, %ymm0
-; AVX-NEXT:    vpmovmskb %ymm0, %eax
-; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v32i8_v32i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllw $7, %ymm0, %ymm0
-; AVX512-NEXT:    vpmovmskb %ymm0, %eax
-; AVX512-NEXT:    testl %eax, %eax
+; AVX512-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
@@ -322,20 +294,17 @@ define i1 @trunc_v8i64_v8i1(<8 x i64>) {
 ;
 ; AVX-LABEL: trunc_v8i64_v8i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vperm2f128 {{.*#+}} ymm2 = ymm0[2,3],ymm1[2,3]
-; AVX-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
-; AVX-NEXT:    vshufps {{.*#+}} ymm0 = ymm0[0,2],ymm2[0,2],ymm0[4,6],ymm2[4,6]
-; AVX-NEXT:    vpslld $31, %ymm0, %ymm0
-; AVX-NEXT:    vmovmskps %ymm0, %eax
-; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    vpor %ymm1, %ymm0, %ymm0
+; AVX-NEXT:    vpbroadcastq {{.*#+}} ymm1 = [1,1,1,1]
+; AVX-NEXT:    vptest %ymm1, %ymm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v8i64_v8i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllq $63, %zmm0, %zmm0
-; AVX512-NEXT:    vptestmd %zmm0, %zmm0, %k0
+; AVX512-NEXT:    vpbroadcastq {{.*#+}} zmm1 = [1,1,1,1,1,1,1,1]
+; AVX512-NEXT:    vptestmd %zmm1, %zmm0, %k0
 ; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    vzeroupper
@@ -364,24 +333,16 @@ define i1 @trunc_v16i32_v16i1(<16 x i32>) {
 ;
 ; AVX-LABEL: trunc_v16i32_v16i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [255,255,255,255,255,255,255,255]
-; AVX-NEXT:    vpand %ymm2, %ymm1, %ymm1
-; AVX-NEXT:    vpand %ymm2, %ymm0, %ymm0
-; AVX-NEXT:    vpackusdw %ymm1, %ymm0, %ymm0
-; AVX-NEXT:    vextracti128 $1, %ymm0, %xmm1
-; AVX-NEXT:    vpackuswb %xmm1, %xmm0, %xmm0
-; AVX-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,2,1,3]
-; AVX-NEXT:    vpsllw $7, %xmm0, %xmm0
-; AVX-NEXT:    vpmovmskb %xmm0, %eax
-; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    vpor %ymm1, %ymm0, %ymm0
+; AVX-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [1,1,1,1,1,1,1,1]
+; AVX-NEXT:    vptest %ymm1, %ymm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v16i32_v16i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpslld $31, %zmm0, %zmm0
-; AVX512-NEXT:    vptestmd %zmm0, %zmm0, %k0
+; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    vzeroupper
@@ -410,23 +371,16 @@ define i1 @trunc_v32i16_v32i1(<32 x i16>) {
 ;
 ; AVX-LABEL: trunc_v32i16_v32i1:
 ; AVX:       # %bb.0:
-; AVX-NEXT:    vpbroadcastw {{.*#+}} ymm2 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
-; AVX-NEXT:    vpand %ymm2, %ymm1, %ymm1
-; AVX-NEXT:    vpand %ymm2, %ymm0, %ymm0
-; AVX-NEXT:    vpackuswb %ymm1, %ymm0, %ymm0
-; AVX-NEXT:    vpermq {{.*#+}} ymm0 = ymm0[0,2,1,3]
-; AVX-NEXT:    vpsllw $7, %ymm0, %ymm0
-; AVX-NEXT:    vpmovmskb %ymm0, %eax
-; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    vpor %ymm1, %ymm0, %ymm0
+; AVX-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v32i16_v32i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllw $15, %zmm0, %zmm0
-; AVX512-NEXT:    vpmovw2m %zmm0, %k0
-; AVX512-NEXT:    kortestd %k0, %k0
+; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
+; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
@@ -450,18 +404,15 @@ define i1 @trunc_v64i8_v64i1(<64 x i8>) {
 ; AVX-LABEL: trunc_v64i8_v64i1:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpor %ymm1, %ymm0, %ymm0
-; AVX-NEXT:    vpsllw $7, %ymm0, %ymm0
-; AVX-NEXT:    vpmovmskb %ymm0, %eax
-; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
 ;
 ; AVX512-LABEL: trunc_v64i8_v64i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpsllw $7, %zmm0, %zmm0
-; AVX512-NEXT:    vpmovb2m %zmm0, %k0
-; AVX512-NEXT:    kortestq %k0, %k0
+; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
+; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
