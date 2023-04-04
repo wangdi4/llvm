@@ -651,7 +651,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       spv::CapabilityIndirectReferencesINTEL, SPIRVOpCapability,
       spv::CapabilityAsmINTEL, SPIRVOpCapability,
       spv::CapabilityVariableLengthArrayINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityVectorVariantsINTEL, SPIRVOpCapability,  // INTEL
+      spv::internal::CapabilityVectorVariantsINTEL, SPIRVOpCapability, // INTEL
       spv::CapabilityExpectAssumeKHR, SPIRVOpCapability,
       spv::CapabilityVectorAnyINTEL, SPIRVOpCapability,
       spv::CapabilityUnstructuredLoopControlsINTEL, SPIRVOpCapability,
@@ -670,6 +670,8 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       spv::internal::CapabilityBfloat16ConversionINTEL, SPIRVOpCapability,
       spv::internal::CapabilityGlobalVariableDecorationsINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
+      SPIRVOpCapability, spv::CapabilityGroupNonUniformShuffle,
+      SPIRVOpCapability, spv::CapabilityGroupNonUniformShuffleRelative,
       SPIRVOpCapability, spv::CapabilityGroupUniformArithmeticKHR,
       SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
       SPIRVOpCapability, spv::CapabilityAtomicFloat64AddEXT,
