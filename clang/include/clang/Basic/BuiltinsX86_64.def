@@ -425,13 +425,6 @@ TARGET_BUILTIN(__builtin_ia32_tcvtps2ph, "vv*zIUc", "n", "amx-convert")
 // AMX_TILE2
 TARGET_BUILTIN(__builtin_ia32_tilemov, "vIUcIUc", "n", "amx-tile2")
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-TARGET_BUILTIN(__builtin_ia32_tcmmimfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
-TARGET_BUILTIN(__builtin_ia32_tcmmrlfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
-
-TARGET_BUILTIN(__builtin_ia32_tcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
-TARGET_BUILTIN(__builtin_ia32_tcmmrlfp16ps, "vIUcIUcIUc", "n", "amx-complex")
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 
 #if INTEL_FEATURE_ISA_AMX_TF32
 TARGET_BUILTIN(__builtin_ia32_tmmultf32ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-tf32")

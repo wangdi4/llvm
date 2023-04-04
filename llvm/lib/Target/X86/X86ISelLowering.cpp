@@ -41385,6 +41385,23 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
+  case X86::PTCMMIMFP16PS:
+  case X86::PTCMMRLFP16PS: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTCMMIMFP16PS:     Opc = X86::TCMMIMFP16PS;     break;
+    case X86::PTCMMRLFP16PS:     Opc = X86::TCMMRLFP16PS;     break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()), RegState::Undef);
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FP8
   case X86::PTDPBF8PS:
@@ -42273,25 +42290,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-  case X86::PTCMMIMFP16PS:
-  case X86::PTCMMRLFP16PS: {
-    const DebugLoc &DL = MI.getDebugLoc();
-    unsigned Opc;
-    switch (MI.getOpcode()) {
-    default: llvm_unreachable("Unexpected instruction!");
-    case X86::PTCMMIMFP16PS:     Opc = X86::TCMMIMFP16PS;     break;
-    case X86::PTCMMRLFP16PS:     Opc = X86::TCMMRLFP16PS;     break;
-    }
-    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
-    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Undef);
-    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
-    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()), RegState::Undef);
-    MI.eraseFromParent(); // The pseudo is gone now.
-    return BB;
-  }
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
   case X86::PTMMULTF32PS:
   case X86::PTTMMULTF32PS: {

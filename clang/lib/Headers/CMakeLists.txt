@@ -139,12 +139,6 @@ intel_add_file(INTEL_HEADERS
   Intel_amxtile2intrin.h
   )
 # end INTEL_FEATURE_ISA_AMX_TILE2
-# INTEL_FEATURE_ISA_AMX_COMPLEX
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_COMPLEX
-  Intel_Headers/amxcomplex/amxcomplexintrin.h
-  )
-# end INTEL_FEATURE_ISA_AMX_COMPLEX
 
 # INTEL_FEATURE_ISA_AMX_TF32
 intel_add_file(INTEL_HEADERS

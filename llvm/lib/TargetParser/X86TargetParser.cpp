@@ -289,9 +289,7 @@ constexpr FeatureBitset FeaturesLioncoveServer =
     FeatureAMX_TRANSPOSE |
     FeatureAMX_AVX512 |
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
     FeatureAMX_COMPLEX |
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
     FeatureAMX_TF32;
 #endif // INTEL_FEATURE_ISA_AMX_TF32
@@ -861,9 +859,6 @@ constexpr FeatureBitset ImpliedFeaturesAMX_MOVRS = FeatureAMX_TILE;
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 constexpr FeatureBitset ImpliedFeaturesAMX_MEMADVISE_EVEX = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-constexpr FeatureBitset ImpliedFeaturesAMX_COMPLEX = FeatureAMX_TILE;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
 constexpr FeatureBitset ImpliedFeaturesAMX_TF32 = FeatureAMX_TILE;
 #endif // INTEL_FEATURE_ISA_AMX_TF32

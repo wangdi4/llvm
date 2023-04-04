@@ -5872,11 +5872,6 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tilemov:
     return CheckX86BuiltinTileArgumentsRange(TheCall, {0, 1});
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-  case X86::BI__builtin_ia32_tcmmimfp16ps:
-  case X86::BI__builtin_ia32_tcmmrlfp16ps:
-    return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
   case X86::BI__builtin_ia32_tmmultf32ps:
   case X86::BI__builtin_ia32_ttmmultf32ps:

@@ -482,11 +482,6 @@ def FeatureAMXTILE2 : SubtargetFeature<"amx-tile2", "HasAMXTILE2", "true",
                                        "Support AMX amx-tile2 instructions",
                                        [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-def FeatureAMXCOMPLEX : SubtargetFeature<"amx-complex", "HasAMXCOMPLEX", "true",
-                                          "Support AMX-COMPLEX instructions",
-                                          [FeatureAMXTILE]>;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
 def FeatureAMXTF32 : SubtargetFeature<"amx-tf32", "HasAMXTF32", "true",
                                       "Support AMX-TF32 instructions",
@@ -1577,9 +1572,7 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
                                                   FeatureAMXAVX512TILE16MOV,
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
                                                   FeatureAMXCOMPLEX,
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
                                                   FeatureAMXTF32
 #endif // INTEL_FEATURE_ISA_AMX_TF32

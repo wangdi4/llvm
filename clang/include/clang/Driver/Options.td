@@ -5493,11 +5493,6 @@ def mamx_fp8 : Flag<["-"], "mamx-fp8">, Group<m_x86_Features_Group>;
 def mno_amx_fp8 : Flag<["-"], "mno-amx-fp8">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AMX_FP8
 
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-def mamx_complex : Flag<["-"], "mamx-complex">, Group<m_x86_Features_Group>;
-def mno_amx_complex : Flag<["-"], "mno-amx-complex">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-
 #if INTEL_FEATURE_ISA_AMX_MOVRS
 def mamx_movrs : Flag<["-"], "mamx-movrs">, Group<m_x86_Features_Group>;
 def mno_amx_movrs : Flag<["-"], "mno-amx-movrs">, Group<m_x86_Features_Group>;
@@ -8545,10 +8540,6 @@ def : CLFlag<"Qmno-amx-tile">, Alias<mno_amx_tile>;
 def : CLFlag<"Qmamx-fp8">, Alias<mamx_fp8>;
 def : CLFlag<"Qmno-amx-fp8">, Alias<mno_amx_fp8>;
 #endif // INTEL_FEATURE_ISA_AMX_FP8
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-def : CLFlag<"Qmamx-complex">, Alias<mamx_complex>;
-def : CLFlag<"Qmno-amx-complex">, Alias<mno_amx_complex>;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_MOVRS
 def : CLFlag<"Qmamx-movrs">, Alias<mamx_movrs>;
 def : CLFlag<"Qmno-amx-movrs">, Alias<mno_amx_movrs>;
@@ -8573,6 +8564,8 @@ def : CLFlag<"Qmno-amx-transpose">, Alias<mno_amx_transpose>;
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 def : CLFlag<"Qmamx-fp16">, Alias<mamx_fp16>;
 def : CLFlag<"Qmno-amx-fp16">, Alias<mno_amx_fp16>;
+def : CLFlag<"Qmamx-complex">, Alias<mamx_complex>;
+def : CLFlag<"Qmno-amx-complex">, Alias<mno_amx_complex>;
 #if INTEL_FEATURE_ISA_AMX_TF32
 def : CLFlag<"Qmamx-tf32">, Alias<mamx_tf32>;
 def : CLFlag<"Qmno-amx-tf32">, Alias<mno_amx_tf32>;

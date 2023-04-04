@@ -6790,30 +6790,6 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-let TargetPrefix = "x86" in {
-  def int_x86_tcmmimfp16ps : ClangBuiltin<"__builtin_ia32_tcmmimfp16ps">,
-        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
-        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
-  def int_x86_tcmmrlfp16ps : ClangBuiltin<"__builtin_ia32_tcmmrlfp16ps">,
-        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
-        [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
-
-  def int_x86_tcmmimfp16ps_internal :
-              ClangBuiltin<"__builtin_ia32_tcmmimfp16ps_internal">,
-              Intrinsic<[llvm_x86amx_ty],
-                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
-                         llvm_x86amx_ty, llvm_x86amx_ty,
-                         llvm_x86amx_ty], []>;
-  def int_x86_tcmmrlfp16ps_internal :
-              ClangBuiltin<"__builtin_ia32_tcmmrlfp16ps_internal">,
-              Intrinsic<[llvm_x86amx_ty],
-                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
-                         llvm_x86amx_ty, llvm_x86amx_ty,
-                         llvm_x86amx_ty], []>;
-}
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
-
 #if INTEL_FEATURE_ISA_AMX_TF32
 let TargetPrefix = "x86" in {
   def int_x86_tmmultf32ps : ClangBuiltin<"__builtin_ia32_tmmultf32ps">,
