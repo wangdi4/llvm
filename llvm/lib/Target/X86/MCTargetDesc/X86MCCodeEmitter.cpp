@@ -517,16 +517,17 @@ static bool isDispOrCDisp8(uint64_t TSFlags, int Value, int &ImmOffset, // INTEL
                            bool ForceSIB) {                             // INTEL
   bool HasEVEX = (TSFlags & X86II::EncodingMask) == X86II::EVEX;
 
-  int CD8_Scale =
+  unsigned CD8_Scale =
       (TSFlags & X86II::CD8_Scale_Mask) >> X86II::CD8_Scale_Shift;
-  if (!HasEVEX || CD8_Scale == 0 || ForceSIB) // INTEL
+  CD8_Scale = CD8_Scale ? 1U << (CD8_Scale - 1) : 0U;
+  if (!HasEVEX || !CD8_Scale || ForceSIB) // INTEL
     return isInt<8>(Value);
 
   assert(isPowerOf2_32(CD8_Scale) && "Unexpected CD8 scale!");
   if (Value & (CD8_Scale - 1)) // Unaligned offset
     return false;
 
-  int CDisp8 = Value / CD8_Scale;
+  int CDisp8 = Value / static_cast<int>(CD8_Scale);
   if (!isInt<8>(CDisp8))
     return false;
 
