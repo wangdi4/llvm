@@ -698,6 +698,22 @@ public:
     CompressExpand,
   };
 
+  static const std::string getImportErrorStr(const ImportError IE) {
+    switch (IE) {
+    case ImportError::None:
+      return "Internal error: no import error!";
+    case ImportError::Reduction:
+      return "Reduction has different symbases for live-in and live-out "
+             "values.";
+    case ImportError::Induction:
+      return "Importing induction failed for this loop.";
+    case ImportError::Private:
+      return "Importing private failed for this loop.";
+    case ImportError::CompressExpand:
+      return "Incomplete compress-expand idiom.";
+    }
+  };
+
   /// Add reduction described by \p K, \p MK, and \p Signed,
   /// with starting instruction \p Instr, incoming value \p Incoming, exiting
   /// instruction \p Exit and alloca-instruction \p AI.

@@ -543,17 +543,8 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
   auto Error = LE->getImportingError();
   if (Error != VPLoopEntityList::ImportError::None) {
-    if (Error == VPLoopEntityList::ImportError::Reduction)
-      bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-              "Reduction has different symbases for live-in and "
-              "live-out values.");
-    else if (Error == VPLoopEntityList::ImportError::CompressExpand)
-      bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-              "Incomplete compress-expand idiom.");
-    else
-      bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-              "Importing loop entities (e.g., inductions and "
-              "reductions) failed for this loop.");
+    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            LE->getImportErrorStr(Error));
     return 0;
   }
   LE->analyzeImplicitLastPrivates();
