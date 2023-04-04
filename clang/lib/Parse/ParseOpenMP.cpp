@@ -2908,9 +2908,10 @@ bool Parser::isIgnoredOpenMPDirective() {
 ///         teams distribute parallel for' | 'target teams distribute parallel
 #if INTEL_COLLAB
 ///         for simd' | 'target teams distribute simd' | 'masked' | 'scope' |
-///         {clause}
+///         'parallel masked' {clause}
 #else // INTEL_COLLAB
-///         for simd' | 'target teams distribute simd' | 'masked' | {clause}
+///         for simd' | 'target teams distribute simd' | 'masked' |
+///         'parallel masked' {clause}
 #endif // INTEL_COLLAB
 ///         annot_pragma_openmp_end
 ///
