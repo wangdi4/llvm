@@ -10373,6 +10373,17 @@
 ; CHECK-NEXT: _Z25__spirv_RoundFToTF32INTELDv4_f
 ; CHECK-NEXT: _Z25__spirv_RoundFToTF32INTELDv8_f
 ; CHECK-NEXT: _Z25__spirv_RoundFToTF32INTELf
+; CHECK-NEXT: _Z25sub_group_ballot_find_lsbDv128_jDv32_j
+; CHECK-NEXT: _Z25sub_group_ballot_find_lsbDv16_jDv4_j
+; CHECK-NEXT: _Z25sub_group_ballot_find_lsbDv256_jDv64_j
+; CHECK-NEXT: _Z25sub_group_ballot_find_lsbDv32_jDv8_j
+; CHECK-NEXT: _Z25sub_group_ballot_find_lsbDv4_j
+; CHECK-NEXT: _Z25sub_group_ballot_find_lsbDv64_jDv16_j
+; CHECK-NEXT: _Z25sub_group_ballot_find_msbDv128_jDv32_j
+; CHECK-NEXT: _Z25sub_group_ballot_find_msbDv16_jDv4_j
+; CHECK-NEXT: _Z25sub_group_ballot_find_msbDv256_jDv64_j
+; CHECK-NEXT: _Z25sub_group_ballot_find_msbDv32_jDv8_j
+; CHECK-NEXT: _Z25sub_group_ballot_find_msbDv64_jDv16_j
 ; CHECK-NEXT: _Z26intel_sub_group_shuffle_upDhDhj
 ; CHECK-NEXT: _Z26intel_sub_group_shuffle_upDv16_DhS_Dv16_jS0_
 ; CHECK-NEXT: _Z26intel_sub_group_shuffle_upDv32_DhS_Dv32_jS0_
