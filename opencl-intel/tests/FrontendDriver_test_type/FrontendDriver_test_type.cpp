@@ -220,6 +220,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
       spv::internal::CapabilityGlobalVariableDecorationsINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
       SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
+      SPIRVOpCapability, spv::internal::CapabilityTensorFloat32RoundingINTEL,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical32,

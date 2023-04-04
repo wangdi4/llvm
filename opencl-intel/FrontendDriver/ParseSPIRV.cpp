@@ -230,6 +230,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityGroupNonUniformShuffleRelative:
     case spv::internal::CapabilityMaskedGatherScatterINTEL:
     case spv::CapabilityAtomicFloat64AddEXT:
+      // SPV_INTEL_tensor_float32_conversion / SPV_INTEL_tensor_float32_rounding
+    case spv::internal::CapabilityTensorFloat32RoundingINTEL:
       break;
     case spv::CapabilityInt64Atomics:
       if (m_sDeviceInfo.bIsFPGAEmu) {
