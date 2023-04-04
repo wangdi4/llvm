@@ -14,16 +14,4 @@ add_ocl_unittest(
   LLVMTransformUtils
   test_utils)
 
-# TODO: The test_utils.a library get undefined symbol errors during linking,
-# but the symbols are not actually used.
-# W/A is to link cl_sys_utils, cl_hw_utils and intelocl.
-if(NOT WIN32)
-  target_link_libraries(metadata_api_test_type
-    PRIVATE
-    cl_sys_utils
-    cl_hw_utils
-    intelocl${BUILD_PLATFORM}
-  )
-endif()
-
 add_ocl_unittest_artifacts(FILE metadatatest.ll)

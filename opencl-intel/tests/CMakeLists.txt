@@ -9,6 +9,11 @@
 # This software and the related documents are provided as is, with no express or
 # implied warranties, other than those that are expressly stated in the License.
 
+set(LLVM_REQUIRES_EH ON)
+
+add_custom_target(OCLUnitTests)
+set_target_properties(OCLUnitTests PROPERTIES FOLDER "OpenCL Tests")
+
 # The conformance tests must be compiled with the headers located in
 # ${OCL_CONFORMANCE_INCLUDE} and not the ones in ${OCL_GLOBAL_INCLUDE}
 # Therefore, it must be added to the include directories only after the
@@ -119,4 +124,5 @@ endif(USE_VALGRIND)
 
 umbrella_lit_testsuite_end(check-ocl-runtime)
 
-set_target_properties(check-ocl-runtime PROPERTIES FOLDER "Tests")
+set_target_properties(check-ocl-runtime PROPERTIES FOLDER "OpenCL Tests")
+add_dependencies(check-ocl-runtime OCLUnitTests)

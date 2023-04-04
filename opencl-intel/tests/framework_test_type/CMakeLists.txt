@@ -33,11 +33,15 @@ include_directories(
   ${OCL_SOURCE_DIR}/framework/export ${OCL_SOURCE_DIR}/framework/Tracing
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export)
 
-set(IGNORE_FILES
-    clBuildCubinProgram|clBuildProgram.cpp|clCreateCudaKernel|clCreateKernelCpuGpu|clCreateQueue
+set(LLVM_OPTIONAL_SOURCES
+  clBuildCubinProgram.cpp
+  clBuildProgram.cpp
+  clCreateCudaKernel.cpp
+  clCreateKernelCpuGpu.cpp
+  clCreateQueue.cpp
 )
 
-find_sources(${IGNORE_FILES})
+find_sources()
 calculate_target_sources()
 
 link_directories(${TBB_LIB_DIR})
