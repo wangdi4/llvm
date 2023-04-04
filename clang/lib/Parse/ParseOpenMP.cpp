@@ -2906,18 +2906,14 @@ bool Parser::isIgnoredOpenMPDirective() {
 ///         simd' | 'teams distribute parallel for simd' | 'teams distribute
 ///         parallel for' | 'target teams' | 'target teams distribute' | 'target
 ///         teams distribute parallel for' | 'target teams distribute parallel
-<<<<<<< HEAD
 #if INTEL_COLLAB
 ///         for simd' | 'target teams distribute simd' | 'masked' | 'scope' |
-///         {clause}
+///         'parallel masked' {clause}
 #else // INTEL_COLLAB
-///         for simd' | 'target teams distribute simd' | 'masked' | {clause}
+///         for simd' | 'target teams distribute simd' | 'masked' |
+///         'parallel masked' {clause}
 #endif // INTEL_COLLAB
 ///         annot_pragma_openmp_end
-=======
-///         for simd' | 'target teams distribute simd' | 'masked' |
-///         'parallel masked' {clause} annot_pragma_openmp_end
->>>>>>> 64549f0903e244fbe2e7f0131698334b6e45dc10
 ///
 StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
     ParsedStmtContext StmtCtx, bool ReadDirectiveWithinMetadirective) {
