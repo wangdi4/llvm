@@ -1,18 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// Modifications, Copyright (C) 2022 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //==-------------- memory.hpp - DPC++ Explicit SIMD API --------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -932,8 +917,8 @@ constexpr void check_atomic() {
                 Op == __ESIMD_NS::atomic_op::fmin ||
                 Op == __ESIMD_NS::atomic_op::fadd ||
                 Op == __ESIMD_NS::atomic_op::fsub) {
-    static_assert((is_type<T, float, sycl::half>()),
-                  "Type F or HF is expected");
+    static_assert((is_type<T, float, sycl::half, double>()),
+                  "float, double or sycl::half type is expected");
   }
   if constexpr (Op == __ESIMD_NS::atomic_op::add ||
                 Op == __ESIMD_NS::atomic_op::sub ||
