@@ -226,6 +226,7 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
   }
   // a * b + c
   // The shape depends on which operand.
+<<<<<<< HEAD
 #if INTEL_FEATURE_ISA_AMX_TF32
   case Intrinsic::x86_tmmultf32ps_internal:
 #endif // INTEL_FEATURE_ISA_AMX_TF32
@@ -233,6 +234,10 @@ std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
   case Intrinsic::x86_tcmmimfp16ps_internal:
   case Intrinsic::x86_tcmmrlfp16ps_internal:
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+=======
+  case Intrinsic::x86_tcmmimfp16ps_internal:
+  case Intrinsic::x86_tcmmrlfp16ps_internal:
+>>>>>>> 038b7e6b761c2bebb30440cdd39252a0fa74ac3f
   case Intrinsic::x86_tdpbssd_internal:
   case Intrinsic::x86_tdpbsud_internal:
   case Intrinsic::x86_tdpbusd_internal:

@@ -41385,6 +41385,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FP8
   case X86::PTDPBF8PS:
@@ -42274,6 +42275,8 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   }
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
+=======
+>>>>>>> 038b7e6b761c2bebb30440cdd39252a0fa74ac3f
   case X86::PTCMMIMFP16PS:
   case X86::PTCMMRLFP16PS: {
     const DebugLoc &DL = MI.getDebugLoc();
@@ -42291,6 +42294,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
   case X86::PTMMULTF32PS:
@@ -42474,6 +42478,8 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   }
 #endif // INTEL_FEATURE_ISA_AMX_V3
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 038b7e6b761c2bebb30440cdd39252a0fa74ac3f
   }
 }
 
