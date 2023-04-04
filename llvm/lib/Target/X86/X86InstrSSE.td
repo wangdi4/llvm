@@ -5842,13 +5842,9 @@ multiclass SS41I_extract64<bits<8> opc, string OpcodeStr> {
 let Predicates = [HasAVX, NoAVX256P_And_NoDQI] in
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoDQI] in
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-  defm VPEXTRQ : SS41I_extract64<0x16, "vpextrq">, VEX, VEX_W;
-=======
   defm VPEXTRQ : SS41I_extract64<0x16, "vpextrq">, VEX, REX_W;
->>>>>>> 3490345670cd88d8c1df1ed4bf8f3d75bb4156d3
 
 defm PEXTRQ      : SS41I_extract64<0x16, "pextrq">, REX_W;
 
@@ -5975,13 +5971,9 @@ multiclass SS41I_insert64<bits<8> opc, string asm, bit Is2Addr = 1> {
 let Predicates = [HasAVX, NoAVX256P_And_NoDQI] in
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoDQI] in
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-  defm VPINSRQ : SS41I_insert64<0x22, "vpinsrq", 0>, VEX_4V, VEX_W;
-=======
   defm VPINSRQ : SS41I_insert64<0x22, "vpinsrq", 0>, VEX_4V, REX_W;
->>>>>>> 3490345670cd88d8c1df1ed4bf8f3d75bb4156d3
 let Constraints = "$src1 = $dst" in
   defm PINSRQ : SS41I_insert64<0x22, "pinsrq">, REX_W;
 
@@ -9302,13 +9294,13 @@ defm VPCOMPRESSD    : VPCOMPRESS_mr<0x8b, "vpcompressd", v4i32, VR128, i128mem,
 defm VPCOMPRESSDY   : VPCOMPRESS_mr<0x8b, "vpcompressd", v8i32, VR256, i256mem,
                                     SchedWriteVarShuffle.YMM>, VEX_L;
 defm VPCOMPRESSQ    : VPCOMPRESS_mr<0x8b, "vpcompressq", v2i64, VR128, i128mem,
-                                    SchedWriteVarShuffle.XMM>, VEX_W;
+                                    SchedWriteVarShuffle.XMM>, REX_W;
 defm VPCOMPRESSQY   : VPCOMPRESS_mr<0x8b, "vpcompressq", v4i64, VR256, i256mem,
-                                    SchedWriteVarShuffle.YMM>, VEX_W, VEX_L;
+                                    SchedWriteVarShuffle.YMM>, REX_W, VEX_L;
 defm VPCOMPRESSW    : VPCOMPRESS_mr<0x63, "vpcompressw", v8i16, VR128, i128mem,
-                                    SchedWriteVarShuffle.XMM>, VEX_W;
+                                    SchedWriteVarShuffle.XMM>, REX_W;
 defm VPCOMPRESSWY   : VPCOMPRESS_mr<0x63, "vpcompressw", v16i16, VR256, i256mem,
-                                    SchedWriteVarShuffle.YMM>, VEX_W, VEX_L;
+                                    SchedWriteVarShuffle.YMM>, REX_W, VEX_L;
 
 multiclass avx_compress_2op_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
                 ValueType OpVT, X86MemOperand X86MemOp, PatFrag MemOpFrag,
@@ -9334,9 +9326,9 @@ multiclass avx_compress_2op_dq<bits<8> opc, string OpcodeStr, SDNode OpNode,
     defm DY : avx_compress_2op_rm<opc, OpcodeStr#"d", OpNode, v8i32, i256mem,
               loadv8i32, VR256, sched.YMM, prd>, VEX_L;
     defm Q  : avx_compress_2op_rm<opc, OpcodeStr#"q", OpNode, v2i64, i128mem,
-              loadv2i64, VR128, sched.XMM, prd>, VEX_W;
+              loadv2i64, VR128, sched.XMM, prd>, REX_W;
     defm QY : avx_compress_2op_rm<opc, OpcodeStr#"q", OpNode, v4i64, i256mem,
-              loadv4i64, VR256, sched.YMM, prd>, VEX_W, VEX_L;
+              loadv4i64, VR256, sched.YMM, prd>, REX_W, VEX_L;
 }
 
 multiclass avx_compress_2op_bw<bits<8> opc, string OpcodeStr, SDNode OpNode,
@@ -9346,9 +9338,9 @@ multiclass avx_compress_2op_bw<bits<8> opc, string OpcodeStr, SDNode OpNode,
     defm BY : avx_compress_2op_rm<opc, OpcodeStr#"b", OpNode, v32i8, i256mem,
               loadv32i8, VR256, sched.YMM, prd>, VEX_L;
     defm W  : avx_compress_2op_rm<opc, OpcodeStr#"w", OpNode, v8i16, i128mem,
-              loadv8i16, VR128, sched.XMM, prd>, VEX_W;
+              loadv8i16, VR128, sched.XMM, prd>, REX_W;
     defm WY : avx_compress_2op_rm<opc, OpcodeStr#"w", OpNode, v16i16, i256mem,
-              loadv16i16, VR256, sched.YMM, prd>, VEX_W, VEX_L;
+              loadv16i16, VR256, sched.YMM, prd>, REX_W, VEX_L;
 }
 
 // VPLZCNT[D,Q]
@@ -9402,7 +9394,7 @@ defm VPMASKMOVW : avxcompress_pmovmask<"vpmaskmovw",
                                 int_x86_avx2_maskload_w_256,
                                 int_x86_avx2_maskstore_w,
                                 int_x86_avx2_maskstore_w_256,
-                                WriteVecMaskMove64, WriteVecMaskMove64Y>, VEX_W;
+                                WriteVecMaskMove64, WriteVecMaskMove64Y>, REX_W;
 
   defm : maskmov_lowering<"VPMASKMOVB", VR128, v16i8,  v16i8>;
   defm : maskmov_lowering<"VPMASKMOVW", VR128, v8i16,  v8i16>;
@@ -9436,13 +9428,13 @@ multiclass avxcompress_shift<Format ImmFormR, Format ImmFormM, string OpcodeStr,
             OpNode, sched.XMM, v4i32, i128mem, loadv4i32, VR128>;
   defm Q  : avxcompress_shift_rmi<ImmFormR, ImmFormM, OpcodeStr#"q",
             OpNode, sched.XMM, v2i64, i128mem, loadv2i64, VR128>,
-            VEX_W;
+            REX_W;
   defm DY : avxcompress_shift_rmi<ImmFormR, ImmFormM, OpcodeStr#"d",
             OpNode, sched.YMM, v8i32, i256mem, loadv8i32, VR256>,
             VEX_L;
   defm QY : avxcompress_shift_rmi<ImmFormR, ImmFormM, OpcodeStr#"q",
             OpNode, sched.YMM, v4i64, i256mem, loadv4i64, VR256>,
-            VEX_W, VEX_L;
+            REX_W, VEX_L;
 }
 
 defm VPROL : avxcompress_shift<MRM1r, MRM1m, "vprol", X86vrotli,
@@ -9474,11 +9466,11 @@ multiclass avxcompress_var_shift<bits<8> Opc, string OpcodeStr, SDNode OpNode,
   defm D  : avxcompress_var_shift_rm<Opc, OpcodeStr#"d", OpNode, sched.XMM,
                                  v4i32, i128mem, loadv4i32, VR128>;
   defm Q  : avxcompress_var_shift_rm<Opc, OpcodeStr#"q", OpNode, sched.XMM,
-                                 v2i64, i128mem, loadv2i64, VR128>, VEX_W;
+                                 v2i64, i128mem, loadv2i64, VR128>, REX_W;
   defm DY : avxcompress_var_shift_rm<Opc, OpcodeStr#"d", OpNode, sched.YMM,
                                  v8i32, i256mem, loadv8i32, VR256>, VEX_L;
   defm QY : avxcompress_var_shift_rm<Opc, OpcodeStr#"q", OpNode, sched.YMM,
-                                 v4i64, i256mem, loadv4i64, VR256>, VEX_W, VEX_L;
+                                 v4i64, i256mem, loadv4i64, VR256>, REX_W, VEX_L;
 }
 
 defm VPROLV : avxcompress_var_shift<0x15, "vprolv", rotl, SchedWriteVarVecShift>, ExplicitVEXPrefix;
@@ -9509,19 +9501,19 @@ multiclass avxcompress_shift_var_rm<bits<8> Op, string OpcodeStr, SDNode OpNode,
 multiclass avxcompress_shift_var<bits<8> Opcdq, bits<8> Opcw, string OpcodeStr,
                                  SDNode OpNode, X86SchedWriteWidths sched> {
   defm W  : avxcompress_shift_var_rm<Opcw, OpcodeStr#"w", OpNode, sched.XMM,
-                                  v8i16, i128mem, loadv8i16, VR128>, VEX_W;
+                                  v8i16, i128mem, loadv8i16, VR128>, REX_W;
   defm D  : avxcompress_shift_var_rm<Opcdq, OpcodeStr#"d", OpNode, sched.XMM,
                                   v4i32, i128mem, loadv4i32, VR128>;
   defm Q  : avxcompress_shift_var_rm<Opcdq, OpcodeStr#"q", OpNode, sched.XMM,
-                                  v2i64, i128mem, loadv2i64, VR128>, VEX_W;
+                                  v2i64, i128mem, loadv2i64, VR128>, REX_W;
   defm WY : avxcompress_shift_var_rm<Opcw, OpcodeStr#"w", OpNode, sched.YMM,
                                   v16i16, i256mem, loadv16i16, VR256>,
-                                  VEX_W, VEX_L;
+                                  REX_W, VEX_L;
   defm DY : avxcompress_shift_var_rm<Opcdq, OpcodeStr#"d", OpNode, sched.YMM,
                                   v8i32, i256mem, loadv8i32, VR256>, VEX_L;
   defm QY : avxcompress_shift_var_rm<Opcdq, OpcodeStr#"q", OpNode, sched.YMM,
                                   v4i64, i256mem, loadv4i64, VR256>,
-                                  VEX_W, VEX_L;
+                                  REX_W, VEX_L;
 }
 
 defm VPSHLDV : avxcompress_shift_var<0x71, 0x70, "vpshldv", X86VShldv,
@@ -9553,17 +9545,17 @@ multiclass avxcompress_3Op_rm_imm8<bits<8> Op, string OpcodeStr, SDNode OpNode,
 multiclass avxcompress_3Op_imm8<bits<8> Opcdq, bits<8> Opcw, string OpcodeStr,
                                  SDNode OpNode, X86SchedWriteWidths sched> {
   defm W  : avxcompress_3Op_rm_imm8<Opcw, OpcodeStr#"w", OpNode, sched.XMM,
-                              v8i16, i128mem, loadv8i16, VR128>, VEX_W;
+                              v8i16, i128mem, loadv8i16, VR128>, REX_W;
   defm D  : avxcompress_3Op_rm_imm8<Opcdq, OpcodeStr#"d", OpNode, sched.XMM,
                               v4i32, i128mem, loadv4i32, VR128>;
   defm Q  : avxcompress_3Op_rm_imm8<Opcdq, OpcodeStr#"q", OpNode, sched.XMM,
-                              v2i64, i128mem, loadv2i64, VR128>, VEX_W;
+                              v2i64, i128mem, loadv2i64, VR128>, REX_W;
   defm WY : avxcompress_3Op_rm_imm8<Opcw, OpcodeStr#"w", OpNode, sched.YMM,
-                              v16i16, i256mem, loadv16i16, VR256>, VEX_W, VEX_L;
+                              v16i16, i256mem, loadv16i16, VR256>, REX_W, VEX_L;
   defm DY : avxcompress_3Op_rm_imm8<Opcdq, OpcodeStr#"d", OpNode, sched.YMM,
                               v8i32, i256mem, loadv8i32, VR256>, VEX_L;
   defm QY : avxcompress_3Op_rm_imm8<Opcdq, OpcodeStr#"q", OpNode, sched.YMM,
-                              v4i64, i256mem, loadv4i64, VR256>, VEX_W, VEX_L;
+                              v4i64, i256mem, loadv4i64, VR256>, REX_W, VEX_L;
 }
 
 defm VPSHLD : avxcompress_3Op_imm8<0x71, 0x70, "vpshld", X86VShld,
@@ -9603,11 +9595,11 @@ multiclass AVX_RAOINT_BASE<string OpcodeStr> {
   def Qmr : I<0xfc, MRMDestMem, (outs), (ins i128mem:$dst, VR128:$src),
               !strconcat(OpcodeStr, "q\t{$src, $dst|$dst, $src}"),
               [(!cast<Intrinsic>("int_x86_"#OpcodeStr#"q128")
-                addr:$dst, VR128:$src)]>, VEX, VEX_W;
+                addr:$dst, VR128:$src)]>, VEX, REX_W;
   def QYmr : I<0xfc, MRMDestMem, (outs), (ins i256mem:$dst, VR256:$src),
               !strconcat(OpcodeStr, "q\t{$src, $dst|$dst, $src}"),
               [(!cast<Intrinsic>("int_x86_"#OpcodeStr#"q256")
-                addr:$dst, VR256:$src)]>, VEX, VEX_L, VEX_W;
+                addr:$dst, VR256:$src)]>, VEX, VEX_L, REX_W;
 }
 
 
@@ -9640,12 +9632,12 @@ class AVX_RAO_FP_BASE2<bits<8> Opcode, string OpcodeStr, X86MemOperand MemOp> :
 
 let Predicates = [HasAVXRAOFP, NoVLX_Or_NoRAOFP], checkVEXPredicate = 1 in {
   defm VAADDPBF16 : AVX_RAO_FP_BASE<0x94, "vaaddpbf16", i128mem, i256mem>, T8PD;
-  defm VAADDPD    : AVX_RAO_FP_BASE<0x84, "vaaddpd", f128mem, f256mem>, T8PD, VEX_W;
+  defm VAADDPD    : AVX_RAO_FP_BASE<0x84, "vaaddpd", f128mem, f256mem>, T8PD, REX_W;
   defm VAADDPH    : AVX_RAO_FP_BASE<0x94, "vaaddph", f128mem, f256mem>, T8PS;
   defm VAADDPS    : AVX_RAO_FP_BASE<0x84, "vaaddps", f128mem, f256mem>, T8PS;
 
   def VAADDSBF16mr : AVX_RAO_FP_BASE2<0x94, "vaaddsbf16", i16mem>, T8XD;
-  def VAADDSDmr    : AVX_RAO_FP_BASE2<0x84, "vaaddsd", f64mem>, T8XD, VEX_W;
+  def VAADDSDmr    : AVX_RAO_FP_BASE2<0x84, "vaaddsd", f64mem>, T8XD, REX_W;
   def VAADDSHmr    : AVX_RAO_FP_BASE2<0x94, "vaaddsh", f16mem>, T8XS;
   def VAADDSSmr    : AVX_RAO_FP_BASE2<0x84, "vaaddss", f32mem>, T8XS;
 }

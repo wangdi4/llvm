@@ -488,13 +488,12 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   let TSFlags{43}    = hasEVEX_L2;
   let TSFlags{44}    = hasEVEX_B;
   // If we run out of TSFlags bits, it's possible to encode this in 3 bits.
-<<<<<<< HEAD
-  let TSFlags{52-46} = CD8_Scale;
-  let TSFlags{53}    = hasEVEX_RC;
-  let TSFlags{54}    = hasNoTrackPrefix;
+  let TSFlags{51-45} = CD8_Scale;
+  let TSFlags{52}    = hasEVEX_RC;
+  let TSFlags{53}    = hasNoTrackPrefix;
+  let TSFlags{54}    = ExplicitVEXPrefix;
 #if INTEL_CUSTOMIZATION
   // Force the instruction to use VEX encoding.
-  let TSFlags{55}    = ExplicitVEXPrefix;
   let TSFlags{56}    = EmitVEXOrEVEXPrefix;
 #if INTEL_FEATURE_XUCC
   let TSFlags{58-57} = XuCCOpPrefixBits;
@@ -506,12 +505,6 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   let TSFlags{60}    = hasEVEX_NF;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-=======
-  let TSFlags{51-45} = CD8_Scale;
-  let TSFlags{52}    = hasEVEX_RC;
-  let TSFlags{53}    = hasNoTrackPrefix;
-  let TSFlags{54}    = ExplicitVEXPrefix;
->>>>>>> 3490345670cd88d8c1df1ed4bf8f3d75bb4156d3
 }
 
 class PseudoI<dag oops, dag iops, list<dag> pattern>

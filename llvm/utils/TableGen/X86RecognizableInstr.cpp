@@ -247,7 +247,7 @@ InstructionContext RecognizableInstr::insnContext() const {
 #if INTEL_FEATURE_ISA_AVX256P
     // AVX256P RC
     if (EncodeRC && HasEVEX_P10) {
-      if (HasVEX_W) {
+      if (HasREX_W) {
         if (OpPrefix == X86Local::PD)
           insnContext = EVEX_KB_P10(IC_EVEX_W_OPSIZE);
         else if (OpPrefix == X86Local::XS)
@@ -272,7 +272,7 @@ InstructionContext RecognizableInstr::insnContext() const {
     else if (HasEVEX_NF) {
       if (OpPrefix == X86Local::PD)
         insnContext = EVEX_B_NF(IC_EVEX_OPSIZE);
-      else if (HasVEX_W)
+      else if (HasREX_W)
         insnContext = EVEX_B_NF(IC_EVEX_W);
       else
         insnContext = EVEX_B_NF(IC_EVEX);

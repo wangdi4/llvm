@@ -113,7 +113,7 @@ class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins
       !strconcat(mnemonic, "{", typeinfo.InstrSuffix, "}\t", args), pattern>, T_MAP4, EVEX {
 
   // Infer instruction prefixes from type info.
-  let HasVEX_W  = typeinfo.HasREX_W;
+  let hasREX_W  = typeinfo.HasREX_W;
   let OpPrefix = !if (!eq (typeinfo.OpSize, OpSize16), PD, PS);
 }
 #endif // INTEL_FEATURE_ISA_APX_F
