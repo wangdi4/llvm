@@ -456,9 +456,9 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.cpp @karthik-senthil @ivankelarev @speryt @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanOptrpt.inc @karthik-senthil @ivankelarev @speryt @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp @skozhukh @mamasten @sguggill
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.cpp @mamasten @offsake @preethi-intel
-/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.h @mamasten @offsake @preethi-intel
-/llvm/test/Transforms/Intel_VPO/Vecopt/predicator/ @mamasten @offsake @preethi-intel
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.cpp @mamasten @offsake
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanPredicator.h @mamasten @offsake
+/llvm/test/Transforms/Intel_VPO/Vecopt/predicator/ @mamasten @offsake
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalVecAnalysis.cpp @karthik-senthil @mamasten @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalVecAnalysis.h @karthik-senthil @mamasten @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSSADeconstruction.cpp @karthik-senthil @sguggill @skozhukh
