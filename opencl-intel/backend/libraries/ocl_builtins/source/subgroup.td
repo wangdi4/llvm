@@ -160,42 +160,52 @@ def : VectInfo<sub_group_broadcast.Types, sub_group_broadcast, sub_group_broadca
 // supported).
 //
 // TODO: implement
-// sub_group_non_uniform_broadcast
 // sub_group_broadcast_first
 // sub_group_inverse_ballot
 // sub_group_ballot_bit_extract
 // sub_group_ballot_bit_count
 // sub_group_ballot_inclusive_scan
 // sub_group_ballot_exclusive_scan
-// sub_group_ballot_find_lsb
-// sub_group_ballot_find_msb
 // get_sub_group_eq_mask
 // get_sub_group_ge_mask
 // get_sub_group_gt_mask
 // get_sub_group_le_mask
 // get_sub_group_lt_mask
 //
+// Note:
+// SYCLEqualizer will resolve sub_group_non_uniform_broadcast as sub_group_broadcast.
+//
 // Prototypes
-let Attrs = [OVERLOADABLE], VectorAttrs = [KERNEL_CALL_ONCE] in {
+let Attrs = [OVERLOADABLE], VectorAttrs = [KERNEL_CALL_ONCE], NeedForwardDecl = true in {
   def sub_group_ballot : OclBuiltin<"sub_group_ballot", (outs v4u32:$ret), (ins gentype:$predicate), [v1i32]>;
+  def sub_group_ballot_find_lsb : OclBuiltin<"sub_group_ballot_find_lsb", (outs v1u32:$ret), (ins gentype:$value), [v4u32]>;
+  def sub_group_ballot_find_msb : OclBuiltin<"sub_group_ballot_find_msb", (outs v1u32:$ret), (ins gentype:$value), [v4u32]>;
   foreach vf = [4, 8, 16, 32, 64] in {
     defvar mask_type = !cast<OclType>("v" # vf # "u32");
     def sub_group_ballot_vf # vf : OclBuiltin<"sub_group_ballot", (outs WidenType<v4u32, vf>.Tout:$ret), (ins gentype:$predicate, mask_type:$vec_mask), [WidenType<v1i32, vf>.Tout]>;
+    // The `value` parameter need NOT to be uniform for active items.
+    def sub_group_ballot_find_lsb_vf # vf : OclBuiltin<"sub_group_ballot_find_lsb", (outs WidenType<v1u32, vf>.Tout:$ret), (ins gentype:$value, mask_type:$vec_mask), [WidenType<v4u32, vf>.Tout]>;
+    def sub_group_ballot_find_msb_vf # vf : OclBuiltin<"sub_group_ballot_find_msb", (outs WidenType<v1u32, vf>.Tout:$ret), (ins gentype:$value, mask_type:$vec_mask), [WidenType<v4u32, vf>.Tout]>;
   }
 }
 
 // Implementations
+// Fake implementation for scalar version
 def : OclBuiltinImpl<sub_group_ballot, sub_group_ballot.Types, false, ret_zero_code>, SHARED;
+def : OclBuiltinImpl<sub_group_ballot_find_lsb, sub_group_ballot_find_lsb.Types, false, ret_zero_code>, SHARED;
+// Vector implementation
+foreach builtin = ["sub_group_ballot", "sub_group_ballot_find_lsb", "sub_group_ballot_find_msb"] in {
 foreach vf = [4, 8, 16, 32, 64] in {
-  defvar builtin = !cast<OclBuiltin>("sub_group_ballot_vf" # vf);
+  defvar builtin_vec = !cast<OclBuiltin>(builtin # "_vf" # vf);
   // Implementation is written in LLVM IR (shared/ll_subgroup_impl.td).
-  def : OclBuiltinImpl<builtin, builtin.Types, /*IsDeclOnly*/true, [{}]>, SHARED;
+  def : OclBuiltinImpl<builtin_vec, builtin_vec.Types, /*IsDeclOnly*/true, [{}]>, SHARED;
 } // foreach vf
+} // foreach builtin
 
 // VectInfos
-let Types = [v1i32] in {
-def : VectInfo<[], sub_group_ballot, sub_group_ballot_vf4, sub_group_ballot_vf8, sub_group_ballot_vf16, sub_group_ballot_vf32, sub_group_ballot_vf64>;
-}
+def : VectInfo<[v1i32], sub_group_ballot, sub_group_ballot_vf4, sub_group_ballot_vf8, sub_group_ballot_vf16, sub_group_ballot_vf32, sub_group_ballot_vf64>;
+def : VectInfo<[v4u32], sub_group_ballot_find_lsb, sub_group_ballot_find_lsb_vf4, sub_group_ballot_find_lsb_vf8, sub_group_ballot_find_lsb_vf16, sub_group_ballot_find_lsb_vf32, sub_group_ballot_find_lsb_vf64>;
+def : VectInfo<[v4u32], sub_group_ballot_find_msb, sub_group_ballot_find_msb_vf4, sub_group_ballot_find_msb_vf8, sub_group_ballot_find_msb_vf16, sub_group_ballot_find_msb_vf32, sub_group_ballot_find_msb_vf64>;
 
 // --- sub_group_shuffle builtins ---
 //
