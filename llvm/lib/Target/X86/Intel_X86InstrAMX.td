@@ -766,11 +766,11 @@ multiclass m_tgatherrow {
       def Q : I<0x6a, MRMSrcMemFSIB, (outs TILE:$dst),
                 (ins sibmem:$src),
                 "tgatherrowq\t{$src, $dst|$dst, $src}",
-                []>, VEX, VEX_W, T8XD;
+                []>, VEX, REX_W, T8XD;
       def QT1 : I<0x6b, MRMSrcMemFSIB, (outs TILE:$dst),
                   (ins sibmem:$src),
                   "tgatherrowqt1\t{$src, $dst|$dst, $src}",
-                  []>, VEX, VEX_W, T8XD;
+                  []>, VEX, REX_W, T8XD;
     }
   } // HasAMXTILE, HasAMXMEMORY
 }
@@ -801,11 +801,11 @@ let Predicates = [HasAMXMEMORY, In64BitMode] in {
     def TSCATTERROWQ : I<0x6a, MRMDestMemFSIB, (outs),
                          (ins sibmem:$dst, TILE:$src),
                          "tscatterrowq\t{$src, $dst|$dst, $src}",
-                         []>, VEX, VEX_W, T8XS;
+                         []>, VEX, REX_W, T8XS;
     def TSCATTERROWQT1 : I<0x6b, MRMDestMemFSIB, (outs),
                            (ins sibmem:$dst, TILE:$src),
                            "tscatterrowqt1\t{$src, $dst|$dst, $src}",
-                           []>, VEX, VEX_W, T8XS;
+                           []>, VEX, REX_W, T8XS;
     let usesCustomInserter = 1 in {
       def PTSCATTERROWD : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
       def PTSCATTERROWDT1 : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
@@ -1632,7 +1632,7 @@ class AMX_SPARSE_BASE1<bits<8> Opcode, string Opstr> :
             I<Opcode, MRMSrcReg4VOp3, (outs TILE:$dst),
             (ins TILE:$src1, TILEPair:$src2, TILEPair:$src3),
             !strconcat(Opstr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
-            []>, VEX_4V, VEX_W;
+            []>, VEX_4V, REX_W;
 
 def TDPSBF16PS : AMX_SPARSE_BASE1<0x5c, "tdpsbf16ps">, T8XS;
 def TDPSFP16PS : AMX_SPARSE_BASE1<0x5c, "tdpsfp16ps">, T8XD;

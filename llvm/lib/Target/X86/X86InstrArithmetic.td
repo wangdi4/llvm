@@ -102,7 +102,7 @@ class ITy<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
 /// 1. Concatenates together the instruction mnemonic with the appropriate
 ///    suffix letter, a tab, and the arguments.
 /// 2. Infers whether the instruction should have a PD prefix.
-/// 3. Infers whether the instruction should have a VEX_W prefix.
+/// 3. Infers whether the instruction should have a REX_W prefix.
 /// 4. Infers whether the low bit of the opcode should be 0 (for i8 operations)
 ///    or 1 (for i16,i32,i64 operations).
 class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
@@ -2177,7 +2177,7 @@ let Predicates = [HasBMI2] in {
 let Uses = [EDX] in
   defm MULX32 : bmi_mulx<"mulx{l}", GR32, i32mem, WriteMULX32>;
 let Uses = [RDX] in
-  defm MULX64 : bmi_mulx<"mulx{q}", GR64, i64mem, WriteMULX64>, VEX_W;
+  defm MULX64 : bmi_mulx<"mulx{q}", GR64, i64mem, WriteMULX64>, REX_W;
 #else // INTEL_FEATURE_ISA_APX_F
 multiclass bmi_mulx<string mnemonic, RegisterClass RC, X86MemOperand x86memop,
                     X86FoldableSchedWrite sched> {

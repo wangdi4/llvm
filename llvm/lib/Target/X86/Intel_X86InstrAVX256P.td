@@ -33,7 +33,7 @@ multiclass avx256_fp_binop_p_round<bits<8> opc, string OpcodeStr, SDNode OpNodeR
   defm PSZ256 : avx512_fp_round_packed<opc, OpcodeStr, OpNodeRnd, sched.PS.YMM,
                                        v8f32x_info>, PS, EVEX_CD8<32, CD8VF>;
   defm PDZ256 : avx512_fp_round_packed<opc, OpcodeStr, OpNodeRnd, sched.PD.YMM,
-                                       v4f64x_info>, PD, EVEX_CD8<64, CD8VF>, VEX_W;
+                                       v4f64x_info>, PD, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_fp_binop_p_sae<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd,
@@ -43,13 +43,13 @@ multiclass avx256_fp_binop_p_sae<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd
   defm PSZ256 : avx512_fp_sae_packed<opc, OpcodeStr, OpNodeRnd, sched.PS.YMM,
                                      v8f32x_info>, PS, EVEX_CD8<32, CD8VF>;
   defm PDZ256 : avx512_fp_sae_packed<opc, OpcodeStr, OpNodeRnd, sched.PD.YMM,
-                                     v4f64x_info>, PD, EVEX_CD8<64, CD8VF>, VEX_W;
+                                     v4f64x_info>, PD, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_vcmp_p_sae<X86SchedWriteWidths sched> {
   defm PHZ256 : avx512_vcmp_sae<sched.YMM, v16f16x_info>, AVX512PSIi8Base, EVEX_CD8<16, CD8VF>, TA;
   defm PSZ256 : avx512_vcmp_sae<sched.YMM, v8f32x_info>, AVX512PSIi8Base, EVEX_CD8<32, CD8VF>;
-  defm PDZ256 : avx512_vcmp_sae<sched.YMM, v4f64x_info>, AVX512PDIi8Base, EVEX_CD8<64, CD8VF>, VEX_W;
+  defm PDZ256 : avx512_vcmp_sae<sched.YMM, v4f64x_info>, AVX512PDIi8Base, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_fixupimm_packed_all<bits<8> opc, string OpcodeStr,
@@ -57,7 +57,7 @@ multiclass avx256_fixupimm_packed_all<bits<8> opc, string OpcodeStr,
   defm PSZ256 : avx512_fixupimm_packed_sae<opc, OpcodeStr, sched.YMM, v8f32x_info,
                                            v8i32x_info>, EVEX_CD8<32, CD8VF>;
   defm PDZ256 : avx512_fixupimm_packed_sae<opc, OpcodeStr, sched.YMM, v4f64x_info,
-                                           v4i64x_info>, EVEX_CD8<64, CD8VF>, VEX_W;
+                                           v4i64x_info>, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_vgetexp<bits<8> opc, string OpcodeStr, SDNode OpNodeSAE,
@@ -67,7 +67,7 @@ multiclass avx256_vgetexp<bits<8> opc, string OpcodeStr, SDNode OpNodeSAE,
   defm PSZ256 : avx512_fp28_p_sae<opc, OpcodeStr#"ps", v8f32x_info, OpNodeSAE,
                                   sched.YMM>, T8PD, EVEX_CD8<32, CD8VF>;
   defm PDZ256 : avx512_fp28_p_sae<opc, OpcodeStr#"pd", v4f64x_info, OpNodeSAE,
-                                  sched.YMM>, T8PD, EVEX_CD8<64, CD8VF>, VEX_W;
+                                  sched.YMM>, T8PD, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_unary_fp_sae<string OpcodeStr, bits<8> opcPs, bits<8> opcPd,
@@ -77,7 +77,7 @@ multiclass avx256_unary_fp_sae<string OpcodeStr, bits<8> opcPs, bits<8> opcPd,
   defm PSZ256 : avx512_unary_fp_sae_packed_imm<opcPs, OpcodeStr, OpNodeSAE, sched.YMM,
                                                v8f32x_info>, AVX512AIi8Base, EVEX_CD8<32, CD8VF>;
   defm PDZ256 : avx512_unary_fp_sae_packed_imm<opcPd, OpcodeStr, OpNodeSAE, sched.YMM,
-                                               v4f64x_info>, AVX512AIi8Base, EVEX_CD8<64, CD8VF>, VEX_W;
+                                               v4f64x_info>, AVX512AIi8Base, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_common_fp_sae_packed_imm<bits<8> opc, string OpcodeStr, SDNode OpNodeSAE,
@@ -85,7 +85,7 @@ multiclass avx256_common_fp_sae_packed_imm<bits<8> opc, string OpcodeStr, SDNode
   defm PSZ256 : avx512_fp_sae_packed_imm<opc, OpcodeStr#"ps", OpNodeSAE, sched.YMM,
                                          v8f32x_info>, EVEX_CD8<32, CD8VF>;
   defm PDZ256 : avx512_fp_sae_packed_imm<opc, OpcodeStr#"pd", OpNodeSAE, sched.YMM,
-                                         v4f64x_info>, EVEX_CD8<64, CD8VF>, VEX_W;
+                                         v4f64x_info>, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_fp_scalef_round<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd,
@@ -95,7 +95,7 @@ multiclass avx256_fp_scalef_round<bits<8> opc, string OpcodeStr, SDNode OpNodeRn
   defm PSZ256 : avx512_fp_round_packed<opc, OpcodeStr, OpNodeRnd, sched.YMM,
                                        v8f32x_info>, T8PD, EVEX_CD8<32, CD8VF>;
   defm PDZ256 : avx512_fp_round_packed<opc, OpcodeStr, OpNodeRnd, sched.YMM,
-                                       v4f64x_info>, T8PD, EVEX_CD8<64, CD8VF>, VEX_W;
+                                       v4f64x_info>, T8PD, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_sqrt_packed_all_round<bits<8> opc, string OpcodeStr,
@@ -105,7 +105,7 @@ multiclass avx256_sqrt_packed_all_round<bits<8> opc, string OpcodeStr,
   defm PSZ256 : avx512_sqrt_packed_round<opc, !strconcat(OpcodeStr, "ps"),
                                          sched.PS.YMM, v8f32x_info>, PS, EVEX_CD8<32, CD8VF>;
   defm PDZ256 : avx512_sqrt_packed_round<opc, !strconcat(OpcodeStr, "pd"),
-                                         sched.PD.YMM, v4f64x_info>, PD, EVEX_CD8<64, CD8VF>, VEX_W;
+                                         sched.PD.YMM, v4f64x_info>, PD, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_vcvtw_rc<string OpcodeStr, SDNode OpNodeRnd> {
@@ -241,7 +241,7 @@ multiclass avx256_fma3_132_round<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd
   defm PSZ256 : avx512_fma3_132_round<opc, !strconcat(OpcodeStr, "ps"), OpNodeRnd,
                                       SchedWriteFMA.YMM, v8f32x_info>, T8PD, EVEX_CD8<32, CD8VF>;
   defm PDZ256 : avx512_fma3_132_round<opc, !strconcat(OpcodeStr, "pd"), OpNodeRnd,
-                                      SchedWriteFMA.YMM, v4f64x_info>, T8PD, EVEX_CD8<64, CD8VF>, VEX_W;
+                                      SchedWriteFMA.YMM, v4f64x_info>, T8PD, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_fma3_213_round<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd> {
@@ -250,7 +250,7 @@ multiclass avx256_fma3_213_round<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd
   defm PSZ256 : avx512_fma3_213_round<opc, !strconcat(OpcodeStr, "ps"), OpNodeRnd,
                                       SchedWriteFMA.YMM, v8f32x_info>, T8PD, EVEX_CD8<32, CD8VF>;
   defm PDZ256 : avx512_fma3_213_round<opc, !strconcat(OpcodeStr, "pd"), OpNodeRnd,
-                                      SchedWriteFMA.YMM, v4f64x_info>, T8PD, EVEX_CD8<64, CD8VF>, VEX_W;
+                                      SchedWriteFMA.YMM, v4f64x_info>, T8PD, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_fma3_231_round<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd> {
@@ -259,7 +259,7 @@ multiclass avx256_fma3_231_round<bits<8> opc, string OpcodeStr, SDNode OpNodeRnd
   defm PSZ256 : avx512_fma3_231_round<opc, !strconcat(OpcodeStr, "ps"), OpNodeRnd,
                                       SchedWriteFMA.YMM, v8f32x_info>, T8PD, EVEX_CD8<32, CD8VF>;
   defm PDZ256 : avx512_fma3_231_round<opc, !strconcat(OpcodeStr, "pd"), OpNodeRnd,
-                                      SchedWriteFMA.YMM, v4f64x_info>, T8PD, EVEX_CD8<64, CD8VF>, VEX_W;
+                                      SchedWriteFMA.YMM, v4f64x_info>, T8PD, EVEX_CD8<64, CD8VF>, REX_W;
 }
 
 multiclass avx256_fma3_round3<bits<8> opc132, bits<8> opc213, bits<8> opc231,
@@ -286,14 +286,14 @@ defm VSCALEF : avx256_fp_scalef_round<0x2C, "vscalef", X86scalefRnd, SchedWriteF
 defm VSQRT : avx256_sqrt_packed_all_round<0x51, "vsqrt", SchedWriteFSqrtSizes>;
 defm VCVTW2 : avx256_vcvtw_rc<"vcvtw2ph", X86VSintToFpRnd>, T_MAP5XS;
 defm VCVTDQ2 : avx256_cvtdq2fp_rc<0x5B, "vcvtdq2", X86VSintToFpRnd, SchedWriteCvtDQ2PS>;
-defm VCVTQQ2 : avx256_cvtqq2fp_rc<"vcvtqq2", v4i64x_info>, EVEX_CD8<64, CD8VF>, VEX_W;
+defm VCVTQQ2 : avx256_cvtqq2fp_rc<"vcvtqq2", v4i64x_info>, EVEX_CD8<64, CD8VF>, REX_W;
 defm VCVTUW2 : avx256_vcvtw_rc<"vcvtuw2ph", X86VUintToFpRnd>, T_MAP5XD;
 defm VCVTUDQ2 : avx256_cvtudq2fp_rc<0x7A, "vcvtudq2", X86VUintToFpRnd, SchedWriteCvtDQ2PS>;
-defm VCVTUQQ2 : avx256_cvtuqq2fp_rc<"vcvtuqq2", v4i64x_info>, EVEX_CD8<64, CD8VF>, VEX_W;
-defm VCVTPD2 : avx256_vcvt_pd2<"vcvtpd2", v4f64x_info>, EVEX_CD8<64, CD8VF>, VEX_W;
+defm VCVTUQQ2 : avx256_cvtuqq2fp_rc<"vcvtuqq2", v4i64x_info>, EVEX_CD8<64, CD8VF>, REX_W;
+defm VCVTPD2 : avx256_vcvt_pd2<"vcvtpd2", v4f64x_info>, EVEX_CD8<64, CD8VF>, REX_W;
 defm VCVTPS2 : avx256_vcvt_ps2<"vcvtps2">;
 defm VCVTPH2 : avx256_vcvt_ph2<"vcvtph2">;
-defm VCVTTPD2 : avx256_vcvtt_pd2<"vcvttpd2", v4f64x_info>, EVEX_CD8<64, CD8VF>, VEX_W;
+defm VCVTTPD2 : avx256_vcvtt_pd2<"vcvttpd2", v4f64x_info>, EVEX_CD8<64, CD8VF>, REX_W;
 defm VCVTTPS2 : avx256_vcvtt_ps2<"vcvttps2">;
 defm VCVTTPH2 : avx256_vcvtt_ph2<"vcvttph2">;
 defm VFMADD : avx256_fma3_round3<0x98, 0xA8, 0xB8, "vfmadd", X86FmaddRnd>;
