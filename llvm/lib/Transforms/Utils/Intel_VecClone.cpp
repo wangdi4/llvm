@@ -146,8 +146,8 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -155,6 +155,7 @@
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
@@ -175,6 +176,8 @@ extern bool Usei1MaskForSimdFunctions;
 static cl::opt<bool>
     EmitTypedOMP("vec-clone-typed-omp", cl::init(true), cl::Hidden,
                  cl::desc("Emit 'TYPED' version of OMP clauses."));
+
+static constexpr const char *VectorDispatchAttrName = "vector-dispatch";
 
 /// Get all functions marked for vectorization in module \p M, and populate
 /// map FuncVars that maps each such function to corresponding list of variants.
@@ -208,6 +211,144 @@ static void getFunctionsToVectorize(
       }
     }
   }
+}
+// Populate \p CPUDispatchMap with vector variants CPU dispatching data (if any)
+// for function \p F.
+static void getVariantsCPUDispatchData(
+    const Function &F,
+    SmallDenseMap<StringRef, SmallVector<StringRef>> &CPUDispatchMap) {
+  if (!F.hasFnAttribute(VectorDispatchAttrName))
+    return;
+
+  // CPUDispatchMap will contain a one-to-many mapping between a vector variant
+  // and a list of CPU targets that the variant have to be specialized for.
+  // CPU dispatch data for vector variants are separated by semicolon.
+  // CPU dispatch target list for a variant is coma separated and can have just
+  // a single entry. For example:
+  //  _ZGVYN8v__Z4funcPi:haswell;_ZGVZN16v__Z4funcPi:skylake_avx512,tigerlake
+
+  Attribute Attr = F.getFnAttribute(VectorDispatchAttrName);
+  StringRef VariantsStr = Attr.getValueAsString();
+  SmallVector<StringRef, 8> Variants;
+  VariantsStr.split(Variants, ';');
+  assert(!Variants.empty() && "Empty CPU dispatch data.");
+  // Now parse data for each vector variant.
+  for (StringRef VariantData : Variants) {
+    size_t ColonPos = VariantData.find_first_of(':');
+    assert(ColonPos != StringRef::npos &&
+           "CPU dispatch data for vector variants is broken.");
+    StringRef VectorVariant = VariantData.substr(0, ColonPos);
+    assert(VFInfo::isVectorVariant(VectorVariant) &&
+           "CPU dispatch data expected to be for a vector variant.");
+    StringRef DispatchList = VariantData.substr(ColonPos + 1);
+    assert(!DispatchList.empty() && "Empty CPU dispatch list.");
+
+    SmallVector<StringRef, 4> DispatchTargets;
+    DispatchList.split(DispatchTargets, ',');
+    SmallVector<StringRef> &DispatchVec = CPUDispatchMap[VectorVariant];
+    for (StringRef TargetCPU : DispatchTargets)
+      DispatchVec.push_back(TargetCPU);
+  }
+}
+
+#ifndef NDEBUG
+// Check that the name is valid for X86 target parser.
+static bool isValidCPUName(StringRef Name, const Module *M) {
+  if (Name.empty())
+    return false;
+  const Triple TT{M->getTargetTriple()};
+  return X86::parseTuneCPU(Name, TT.getArch() != llvm::Triple::x86) !=
+         llvm::X86::CK_None;
+}
+#endif // NDEBUG
+
+// Resolve target CPU name into name which is consumable by X86 target parser.
+static StringRef resolveCPUName(StringRef CPUName, const Module *M) {
+  // Lookup through additional aliases, if any.
+  // I.e. resolve "corei7" to "core_i7_sse4_2".
+  auto AliasName = [=](StringRef Name) -> StringRef {
+    return StringSwitch<StringRef>(Name)
+#define CPU_SPECIFIC_ALIAS_ADDITIONAL(NEW_NAME, NAME) .Case(NEW_NAME, NAME)
+#include "llvm/TargetParser/X86TargetParser.def"
+        .Default(Name);
+  };
+  auto GetTuneName = [=](StringRef Name) -> StringRef {
+    return StringSwitch<StringRef>(AliasName(Name))
+#define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, TUNE_NAME)
+#define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, TUNE_NAME)
+#include "llvm/TargetParser/X86TargetParser.def"
+        .Default("");
+  };
+
+  // An important note!
+  // This is rather strange that there are two tables used to lookup a CPU
+  // names. X86 target parser uses array of CPUs defined separately and it is
+  // just a subset of those defined in X86TargetParser.def. But clang front-end
+  // looks through the latter when resolving CPU name for dispatch-targets
+  // attribute. That particularly creates a problem that we cannot apply that
+  // name directly for "target-cpu"/"tune-cpu" attributes because
+  // parseArchX86/parseTuneCPU do lookups at the smaller table. For example
+  // "core_i7_sse4_2" is accepted for ompx_processor clause of simd declare
+  // pragma while "corei7" or "nehalem" is not accepted. So in order to generate
+  // valid attribute value we need to convert "core_i7_sse4_2" to another name,
+  // the alias that the X86 target parser would accept. Using tune name for
+  // that purpose does not sound like the right fit but it actually does exactly
+  // what we want. Looking via an alias name before further lookup is just
+  // a safety measure which technically is not required. So we will keep it
+  // for a case if pragma implementation changed to allow more aliases.
+  StringRef TargetCpu = GetTuneName(CPUName);
+  LLVM_DEBUG(dbgs() << "Dispatch target CPU " << CPUName << " resolved into "
+                    << TargetCpu << "\n");
+  assert(isValidCPUName(TargetCpu, M) && "Unsupported CPU name");
+  return TargetCpu;
+}
+
+// This routine does actually apply CPU-specific settings for a new clone
+// according to "target-dispatch" attribute data of the scalar function.
+static void applyTargetCPUData(
+    Function *Clone,
+    const SmallDenseMap<StringRef, SmallVector<StringRef>> &CPUDispatchMap) {
+  if (CPUDispatchMap.empty())
+    return;
+  auto It = CPUDispatchMap.find(Clone->getName());
+  // Should we consider this to be an error?
+  if (It == CPUDispatchMap.end())
+    return;
+  ArrayRef<StringRef> TargetCpuList = It->second;
+  if (TargetCpuList.size() == 1) {
+    // Targeted for specific CPU
+    StringRef TargetCpu =
+        resolveCPUName(TargetCpuList.front(), Clone->getParent());
+    LLVM_DEBUG(dbgs() << "Targeting " << Clone->getName() << " for "
+                      << TargetCpu << "\n");
+    SmallVector<StringRef, 64> TargetCPUFeatures;
+    X86::getFeaturesForCPU(TargetCpu, TargetCPUFeatures);
+
+    Clone->addFnAttr("target-features", "+" + join(TargetCPUFeatures, ",+"));
+
+    Clone->removeFnAttr("target-cpu");
+    Clone->addFnAttr("target-cpu", TargetCpu);
+
+    Clone->removeFnAttr("tune-cpu");
+    Clone->addFnAttr("tune-cpu", TargetCpu);
+
+    return;
+  }
+
+  // We have multiple targets. So schedule the routine for auto-cpu dispatch.
+
+  LLVM_DEBUG(dbgs() << "Auto-cpu dispatching " << Clone->getName() << "\n");
+  LLVMContext &Ctx = Clone->getContext();
+  Metadata *MagicStr = MDString::get(Ctx, "auto-cpu-dispatch-target");
+
+  SmallVector<Metadata *> TargetMDs;
+  for (StringRef TargetCPU : TargetCpuList) {
+    StringRef TargetCpu = resolveCPUName(TargetCPU, Clone->getParent());
+    SmallVector<Metadata *> Ops = {MagicStr, MDString::get(Ctx, TargetCpu)};
+    TargetMDs.push_back(MDNode::get(Ctx, Ops));
+  }
+  MDNode *AutoCPUMultiVersionMetadata = MDNode::get(Ctx, TargetMDs);
+  Clone->addMetadata("llvm.auto.cpu.dispatch", *AutoCPUMultiVersionMetadata);
 }
 
 VecClone::VecClone() : ModulePass(ID) {
@@ -306,6 +447,8 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
 
   AttributeMask AM;
   AM.addAttribute(VectorUtils::VectorVariantsAttrName);
+  if (F.hasFnAttribute(VectorDispatchAttrName))
+    AM.addAttribute(VectorDispatchAttrName);
   Clone->removeFnAttrs(AM);
 
   // For some reason, this causes DCE to remove calls to these functions.
@@ -1637,6 +1780,8 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
     if (vlaAllocasExist(F)) {
       LLVM_DEBUG(dbgs() << "Bail out due to presence of array alloca(s)\n");
       F.removeFnAttr(VectorUtils::VectorVariantsAttrName);
+      if (F.hasFnAttribute(VectorDispatchAttrName))
+        F.removeFnAttr(VectorDispatchAttrName);
       if (ORBuilder)
         (*ORBuilder)(F).addRemark(OptReportVerbosity::Medium,
                                   "'omp declare' vector variants were "
@@ -1673,6 +1818,9 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
         return VFABI::demangleForVFABI(Name);
     });
 
+    SmallDenseMap<StringRef, SmallVector<StringRef>> CPUDispatchMap;
+    getVariantsCPUDispatchData(F, CPUDispatchMap);
+
     for (const VFInfo &Variant : Variants) {
       // VecClone runs after OCLVecClone. Hence, VecClone will be triggered
       // again for the OpenCL kernels. To prevent this, we do not process
@@ -1688,11 +1836,13 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       ValueToValueMapTy VMap;
       ValueToValueMapTy ReverseVMap;
       Function *Clone = CloneFunction(F, Variant, VMap, ReverseVMap);
-      BasicBlock *EntryBlock = &Clone->front();
+
+      applyTargetCPUData(Clone, CPUDispatchMap);
 
       if (isSimpleFunction(Clone))
         continue;
 
+      BasicBlock *EntryBlock = &Clone->front();
       BasicBlock *LoopHeader = splitEntryIntoLoop(Clone, Variant, EntryBlock);
 
       BasicBlock *LoopPreHeader = EntryBlock->splitBasicBlock(
@@ -1779,6 +1929,10 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       // Disable unrolling from kicking in on the simd loop.
       disableLoopUnrolling(LoopLatch);
     } // End of function cloning for the variant
+
+    if (F.hasFnAttribute(VectorDispatchAttrName))
+      F.removeFnAttr(VectorDispatchAttrName);
+    // TODO: Remove "vector-variants" attribute as we are done with cloning.
   } // End of function cloning for all variants
 
   //FIXME: return false if all functions were skipped or IR was not modified.
