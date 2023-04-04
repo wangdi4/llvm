@@ -2400,7 +2400,9 @@ typedef enum WRNLoopBindKind {
 //
 typedef enum WRNLoopOrderKind {
   WRNLoopOrderAbsent = 0,
-  WRNLoopOrderConcurrent = 1
+  WRNLoopOrderConcurrentUnconstrained =
+      1, // for both order(concurrent) and order(unconstrained:concurrent)
+  WRNLoopOrderConcurrentReproducible = 2 // order(reporducible:concurrent)
 } WRNLoopOrderKind;
 
 //

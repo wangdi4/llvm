@@ -206,6 +206,18 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "STRICT"
 ///      Id = QUAL_OMP_GRAINSIZE
 ///
+/// * REPRODUCIBLE modifier for ORDER clause. Example:
+///      FullName = "QUAL.OMP.ORDER.CONCURRENT:REPRODUCIBLE"
+///      BaseName = "QUAL.OMP.ORDER.CONCURRENT"
+///      Modifier = "REPRODUCIBLE"
+///      Id = QUAL_OMP_ORDER_CONCURRENT
+///
+/// * UNCONSTRAINED modifier for ORDER clause. Example:
+///      FullName = "QUAL.OMP.ORDER.CONCURRENT:UNCONSTRAINED"
+///      BaseName = "QUAL.OMP.ORDER.CONCURRENT"
+///      Modifier = "UNCONSTRAINED"
+///      Id = QUAL_OMP_ORDER_CONCURRENT
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -267,6 +279,9 @@ private:
   bool IsTask:1;
   bool IsInscan:1;
 
+  // Modifier for order clause
+  bool IsReproducible : 1;
+
   bool IsTyped : 1; // needed in case of data type transfer
 
 public:
@@ -293,6 +308,7 @@ public:
   void setIsTask()                 { IsTask = true; }
   void setIsStrict()               { IsStrict = true; }
   void setIsInscan()               { IsInscan = true; }
+  void setIsReproducible()         { IsReproducible = true; }
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
   void setIsScheduleNonmonotonic() { IsScheduleNonmonotonic = true; }
   void setIsScheduleSimd()         { IsScheduleSimd = true; }
@@ -328,6 +344,7 @@ public:
   bool getIsTask() const { return IsTask; }
   bool getIsStrict() const { return IsStrict; }
   bool getIsInscan() const { return IsInscan; }
+  bool getIsReproducible() const { return IsReproducible; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
   bool getIsScheduleNonmonotonic() const { return IsScheduleNonmonotonic; }
   bool getIsScheduleSimd() const { return IsScheduleSimd; }

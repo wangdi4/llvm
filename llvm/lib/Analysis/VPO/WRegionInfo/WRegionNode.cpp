@@ -819,9 +819,13 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_BIND_THREAD:
     setLoopBind(WRNLoopBindThread);
     break;
-  case QUAL_OMP_ORDER_CONCURRENT:
-    setLoopOrder(WRNLoopOrderConcurrent);
+  case QUAL_OMP_ORDER_CONCURRENT: {
+    if (ClauseInfo.getIsReproducible())
+      setLoopOrder(WRNLoopOrderConcurrentReproducible);
+    else
+      setLoopOrder(WRNLoopOrderConcurrentUnconstrained);
     break;
+  }
   case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
     setHasTeamsReduction();
     break;

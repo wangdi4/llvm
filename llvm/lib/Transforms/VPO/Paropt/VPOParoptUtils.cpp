@@ -485,6 +485,15 @@ WRNScheduleKind VPOParoptUtils::getLoopScheduleKind(WRegionNode *W)
     auto Kind   = Schedule.getKind();
     auto Chunk  = Schedule.getChunk();
 
+    if (W->getLoopOrder() == WRNLoopOrderConcurrentReproducible &&
+        Kind != WRNScheduleStatic && Kind != WRNScheduleStaticEven) {
+      Schedule.setKind(WRNScheduleStatic);
+      Kind = WRNScheduleStatic;
+      emitWarning(W, "The loop's schedule in the '" + W->getName() +
+                         "' construct was changed to 'static' to honor "
+                         "'order(reproducible:concurrent)'.");
+    }
+
     bool IsOrdered = (W->getOrdered() == 0);
     return VPOParoptUtils::genScheduleKind(Kind, IsOrdered, Chunk);
   }
