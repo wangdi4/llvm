@@ -13356,6 +13356,11 @@ void VPOParoptTransform::resetValueInOmpClauseGeneric(WRegionNode *W,
   if (!V || isa<ConstantData>(V))
     return;
 
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Resetting '";
+             V->printAsOperand(dbgs(), /*PrintType=*/false);
+             dbgs() << "' in clauses of directive '" << *W->getEntryDirective()
+                    << "'.\n");
+
   // The WRegionNode::contains() method requires BBSet to be computed.
   W->populateBBSet();
 
@@ -13375,6 +13380,8 @@ void VPOParoptTransform::resetValueInOmpClauseGeneric(WRegionNode *W,
     }
   }
 
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Updated directive: '"
+                    << *W->getEntryDirective() << "'.\n");
   // This routine doesn't change the CFG so no need to invalidate the BBSet
   // before returning.
 }
