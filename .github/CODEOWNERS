@@ -183,6 +183,7 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 # JIRA: CMPLRLLVM->LLVM Debug Information
 /llvm/include/llvm/IR/Debug* @bwyma @stevemerr
 /llvm/include/llvm/IR/DIBuilder* @bwyma @stevemerr
+/llvm/include/llvm/CodeGen/LexicalScopes.h @bwyma @stevemerr
 /llvm/include/llvm/DebugInfo/CodeView/ @bwyma @stevemerr
 /llvm/include/llvm/DebugInfo/DWARF/ @bwyma @stevemerr
 /llvm/lib/IR/Debug* @bwyma @stevemerr
@@ -192,6 +193,7 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/CodeGen/AsmPrinter/Dwarf* @bwyma @stevemerr
 /llvm/lib/CodeGen/AsmPrinter/intel/pdb* @bwyma @stevemerr
 /llvm/lib/CodeGen/AsmPrinter/intel/STI* @bwyma @stevemerr
+/llvm/lib/CodeGen/LexicalScopes.cpp @bwyma @stevemerr
 /llvm/lib/CodeGen/LiveDebugVariables* @bwyma @stevemerr
 /llvm/lib/DebugInfo/CodeView/ @bwyma @stevemerr
 /llvm/lib/DebugInfo/DWARF/ @bwyma @stevemerr
