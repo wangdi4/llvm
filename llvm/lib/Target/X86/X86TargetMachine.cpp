@@ -82,6 +82,51 @@ static cl::opt<bool>
                      cl::desc("Enable the tile register allocation pass"),
                      cl::init(true), cl::Hidden);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+class APXFeatureString {
+private:
+  std::string APXFeature;
+public:
+  void operator=(const std::string &Val) {
+    if (Val.empty())
+      return;
+    SmallVector<StringRef, 9> FeatureList;
+    StringRef(Val).split(FeatureList, '+', -1, false);
+    for (unsigned I = 0, N = FeatureList.size(); I != N; ++I) {
+      StringRef Feature = FeatureList[I];
+      APXFeature += "+" + Feature.str();
+      APXFeature += (I == N - 1) ? "" : ",";
+    }
+  }
+
+  operator std::string() const { return APXFeature; }
+  operator bool() const { return !APXFeature.empty(); }
+};
+
+APXFeatureString APXFeatureStr;
+
+// Temporary knob to turn on APX features in a flexible way w/o the need for
+// front-end support.
+//
+// -mattr is not applicable here for two reasons
+// 1. -mattr is a codegen option and can not be used after -mllvm
+// 2. The arguments of -mattr is comma separated and linker does not support such
+//    options due to the syntax
+//
+// 	-Wl,<arg>    Pass the comma separated arguments in <arg> to the linker
+//
+static cl::opt<APXFeatureString, true, cl::parser<std::string>> X86APXFeatures(
+    "x86-apx-features",
+    cl::desc("Specify apx features to enable (plus separated list of types):"
+             "\npush2pop2    PUSH2/POP2 instructions"
+             "\negpr         extended general purpose register"
+             "\nndd          non-destructive destination"),
+    cl::location(APXFeatureStr));
+
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   // Register the target.
   RegisterTargetMachine<X86TargetMachine> X(getTheX86_32Target());
@@ -380,7 +425,21 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
   // If the soft float attribute is set on the function turn on the soft float
   // subtarget feature.
   if (SoftFloat)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    Key += (FS.empty() && !APXFeatureStr) ? "+soft-float" : "+soft-float,";
+#else // INTEL_FEATURE_ISA_APX_F
     Key += FS.empty() ? "+soft-float" : "+soft-float,";
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  Key += static_cast<std::string>(APXFeatureStr);
+  if (!FS.empty())
+    Key += ",";
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   Key += FS;
 
