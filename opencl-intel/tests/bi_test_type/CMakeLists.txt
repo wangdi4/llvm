@@ -15,9 +15,9 @@
 
 set(TARGET bi_test_type)
 
-set(IGNORE_FILES pipe_tests.cpp)
+set(LLVM_OPTIONAL_SOURCES pipe_tests.cpp)
 
-find_sources(${IGNORE_FILES})
+find_sources()
 calculate_target_sources()
 
 set(TARGET_LIBS
