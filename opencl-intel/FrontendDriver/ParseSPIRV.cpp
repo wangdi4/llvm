@@ -214,6 +214,9 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityDebugInfoModuleINTEL:
       // SPV_INTEL_matrix
     case spv::internal::CapabilityJointMatrixINTEL:
+    case spv::internal::CapabilityJointMatrixWIInstructionsINTEL:
+    case spv::internal::CapabilityJointMatrixTF32ComponentTypeINTEL:
+    case spv::internal::CapabilityJointMatrixBF16ComponentTypeINTEL:
       // SPV_INTEL_runtime_aligned
     case spv::CapabilityRuntimeAlignedAttributeINTEL:
     case spv::CapabilityLongConstantCompositeINTEL:
