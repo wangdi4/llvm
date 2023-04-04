@@ -1105,7 +1105,7 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
     break;
   }
 
-  Prefix.setW(TSFlags & X86II::VEX_W);
+  Prefix.setW(TSFlags & X86II::REX_W);
 
   bool HasEVEX_K = TSFlags & X86II::EVEX_K;
   bool HasVEX_4V = TSFlags & X86II::VEX_4V;
