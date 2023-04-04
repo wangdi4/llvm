@@ -410,7 +410,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAMXINT8 = true;
     } else if (Feature == "+amx-tile") {
       HasAMXTILE = true;
-<<<<<<< HEAD
 #if INTEL_FEATURE_ISA_AMX_FP8
     } else if (Feature == "+amx-fp8") {
       HasAMXFP8 = true;
@@ -667,10 +666,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512MOVZXC = true;
 #endif // INTEL_FEATURE_ISA_AVX512_MOVZXC
 #endif // INTEL_CUSTOMIZATION
-=======
     } else if (Feature == "+amx-complex") {
       HasAMXCOMPLEX = true;
->>>>>>> 038b7e6b761c2bebb30440cdd39252a0fa74ac3f
     } else if (Feature == "+cmpccxadd") {
       HasCMPCCXADD = true;
     } else if (Feature == "+raoint") {

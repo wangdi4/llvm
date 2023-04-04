@@ -428,7 +428,6 @@ def FeatureAMXTRANSPOSE     : SubtargetFeature<"amx-transpose", "HasAMXTRANSPOSE
 def FeatureAMXFP16     : SubtargetFeature<"amx-fp16", "HasAMXFP16", "true",
                                       "Support AMX amx-fp16 instructions",
                                       [FeatureAMXTILE]>;
-<<<<<<< HEAD
 
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 def FeatureAMXMEMORY2     : SubtargetFeature<"amx-memory2", "HasAMXMEMORY2", "true",
@@ -664,11 +663,9 @@ def FeatureAVX512VNNIFP8 :
                        [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 #endif // INTEL_CUSTOMIZATION
-=======
 def FeatureAMXCOMPLEX : SubtargetFeature<"amx-complex", "HasAMXCOMPLEX", "true",
                                          "Support AMX-COMPLEX instructions",
                                          [FeatureAMXTILE]>;
->>>>>>> 038b7e6b761c2bebb30440cdd39252a0fa74ac3f
 def FeatureCMPCCXADD : SubtargetFeature<"cmpccxadd", "HasCMPCCXADD", "true",
                                         "Support CMPCCXADD instructions">;
 def FeatureRAOINT : SubtargetFeature<"raoint", "HasRAOINT", "true",

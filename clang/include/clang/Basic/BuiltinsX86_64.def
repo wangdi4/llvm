@@ -196,7 +196,6 @@ TARGET_BUILTIN(__builtin_ia32_tdpbuud, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbf16ps, "vIUcIUcIUc", "n", "amx-bf16")
 TARGET_BUILTIN(__builtin_ia32_ptwrite64, "vUOi", "n", "ptwrite")
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FP8
 TARGET_BUILTIN(__builtin_ia32_tdpbf8ps, "vIUcIUcIUc", "n", "amx-fp8")
@@ -515,10 +514,8 @@ LANGBUILTIN(read_pipe, "i.", "tn", INTEL_FPGA_PIPE1X)
 LANGBUILTIN(write_pipe, "i.", "tn", INTEL_FPGA_PIPE1X)
 #undef LANGBUILTIN
 #endif // INTEL_CUSTOMIZATION
-=======
 TARGET_BUILTIN(__builtin_ia32_tcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
 TARGET_BUILTIN(__builtin_ia32_tcmmrlfp16ps, "vIUcIUcIUc", "n", "amx-complex")
->>>>>>> 038b7e6b761c2bebb30440cdd39252a0fa74ac3f
 
 TARGET_BUILTIN(__builtin_ia32_prefetchi, "vvC*Ui", "nc", "prefetchi")
 TARGET_BUILTIN(__builtin_ia32_cmpccxadd32, "Siv*SiSiIi", "n", "cmpccxadd")
