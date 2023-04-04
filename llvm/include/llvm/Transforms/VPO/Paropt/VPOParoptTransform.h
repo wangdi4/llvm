@@ -1267,6 +1267,10 @@ private:
   /// Generate the code for the directive omp target
   bool genTargetOffloadingCode(WRegionNode *W);
 
+  /// Generate SPIRV-specific omp target code for genTargetOffloadingCode.
+  void genTargetSPIRVOffloadingCode(WRNTargetNode *WT, Function *NewF,
+                                    CallInst *NewCall);
+
   /// Collect the data mapping information for the given region \p W.
   /// For constructs like "target [enter/exit] data" and "target update", it is
   /// done simply based on the map clauses in \p W, whereas for constructs that
