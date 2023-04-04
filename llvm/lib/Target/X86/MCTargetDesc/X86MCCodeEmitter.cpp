@@ -519,12 +519,8 @@ static bool isDispOrCDisp8(uint64_t TSFlags, int Value, int &ImmOffset, // INTEL
 
   unsigned CD8_Scale =
       (TSFlags & X86II::CD8_Scale_Mask) >> X86II::CD8_Scale_Shift;
-<<<<<<< HEAD
-  if (!HasEVEX || CD8_Scale == 0 || ForceSIB) // INTEL
-=======
   CD8_Scale = CD8_Scale ? 1U << (CD8_Scale - 1) : 0U;
-  if (!HasEVEX || !CD8_Scale)
->>>>>>> e6a39e807582d9e911834bedb952fb3038eec217
+  if (!HasEVEX || !CD8_Scale || ForceSIB) // INTEL
     return isInt<8>(Value);
 
   assert(isPowerOf2_32(CD8_Scale) && "Unexpected CD8 scale!");
