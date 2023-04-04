@@ -372,6 +372,7 @@ void WRNDistributeParLoopNode::printExtra(formatted_raw_ostream &OS,
 WRNTargetNode::WRNTargetNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTarget, BB) {
   setIsTarget();
+  setThreadLimit(nullptr);
   setIf(nullptr);
   setDevice(nullptr);
   setParLoopNdInfoAlloca(nullptr);

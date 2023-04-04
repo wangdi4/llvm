@@ -2084,6 +2084,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   resetValueInPrivateClause(W);
   resetValueInLiveinClause(W);
   resetValueInMapClause(W);
+  if (isa<WRNTargetNode>(W))
+    resetValueInOmpClauseGeneric(W, W->getThreadLimit());
 
   renameDuplicateBasesInMapClauses(W);
 

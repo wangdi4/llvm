@@ -1021,8 +1021,14 @@ VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr, int NumArgs,
   assert((!useSPMDMode(W) || !NumTeamsPtr) &&
          "SPMD mode cannot be used with num_teams.");
 
-  Value *ThreadLimitPtr = W->getThreadLimit();
-  Type *ThreadLimitTy = W->getThreadLimitType();
+  // Get the thread_limit clause value from the parent target construct if it is
+  // present on the parent target construct.
+  Value *ThreadLimitPtr = WTarget->getThreadLimit() ? WTarget->getThreadLimit()
+                                                    : W->getThreadLimit();
+  Type *ThreadLimitTy = WTarget->getThreadLimitType()
+                            ? WTarget->getThreadLimitType()
+                            : W->getThreadLimitType();
+
   CallInst *Call =
       genTgtCall("__tgt_target_teams", W, DeviceID, NumArgs, ArgsBase, Args,
                  ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt,
