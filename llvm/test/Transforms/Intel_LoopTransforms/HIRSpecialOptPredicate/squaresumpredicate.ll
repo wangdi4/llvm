@@ -1,13 +1,13 @@
-; REQUIRES: asserts
-; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-special-opt-predicate' -disable-output -debug-only=hir-special-opt-predicate -disable-hir-special-opt-predicate=false < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-special-opt-predicate' -disable-output -debug-only=hir-special-opt-predicate -print-after=hir-special-opt-predicate -hir-details < %s 2>&1 | FileCheck %s
 
 ; Check that we recognize the candidate for special opt predicate that looks like
 ;  for (v = (-height/2 to height/2)
 ;   for (u = (-width/2 to width/2)
 ;     if ((v*v+u*u) <= (ssize_t) ((width/2)*(height/2)))
 ;
-; TODO: Transformation logic that will convert the predicate to 2 different loops - one
+; Check the transformation logic that will convert the predicate to 2 different loops - one
 ; for computing the bounds, and the other that executes the loop with new bounds.
+; Also check for ztt for the lower bound of the second inner loop
 
 ; HIR
 ;    + DO i4 = 0, 2 * %inst63, 1   <DO_LOOP>
@@ -23,6 +23,30 @@
 ;              ....
 
 ; CHECK: Found Candidate!
+; CHECK:      + DO i64 i4 = 0, 2 * %inst63, 1   <DO_LOOP>
+; CHECK:      |   %inst160 = i4 + -1 * %inst63  *  i4 + -1 * %inst63;
+; CHECK:      |   %inst162 = sitofp.i64.double(i4 + -1 * %inst63);
+; CHECK:      |   %inst163 = %inst142.out  +  %inst162;
+; CHECK:      |   %inst165 = i4 + -1 * %inst63 + %inst148 < 0;
+
+; CHECK:      |   %optprd.lower = -1;
+; CHECK:      |   %optprd.upper = -1;
+; CHECK:      |
+; CHECK:      |   + DO i64 i5 = 0, 2 * %inst66, 1   <DO_MULTI_EXIT_LOOP>
+; CHECK:      |   |   %inst177 = i5 + -1 * %inst66  *  i5 + -1 * %inst66;
+; CHECK:      |   |   %inst178 = %inst177  +  %inst160;
+; CHECK:      |   |   if (%inst178 <= ((%arg1 /u 2) * (%arg2 /u 2)))
+; CHECK:      |   |   {
+; CHECK:      |   |      %optprd.upper = -1 * i5 + 2 * %inst66;
+; CHECK:      |   |      %optprd.lower = i5;
+; CHECK:      |   |      goto loopexit.248;
+; CHECK:      |   |   }
+; CHECK:      |   + END LOOP
+; CHECK:      |
+; CHECK:      |   loopexit.248:
+; CHECK:      |
+; CHECK:          + Ztt: if (%optprd.lower != -1)
+; CHECK:      |   + DO i64 i5 = %optprd.lower, %optprd.upper, 1   <DO_LOOP>
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

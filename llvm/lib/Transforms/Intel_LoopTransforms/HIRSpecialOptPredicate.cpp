@@ -33,7 +33,7 @@
 // The transformation is the following:
 
 // for (v = (-height/2 to height/2))
-//   lb = 0
+//   lb = -1
 //   ub = -1
 //   for (u = (-width/2 to width/2))
 //     if ((v*v+u*u) <= ((width/2)*(height/2)))
@@ -44,8 +44,49 @@
 //   for (w = (lb to ub))
 //     ... Original code inside if goes here
 
+// The HIR looks a bit different:
+//   DO i4 = 0, 2 * %65, 1   <DO_LOOP>
+//     %162 = i4 + -1 * %65  *  i4 + -1 * %65;
+//     ...
+//
+//     + DO i5 = 0, 2 * %68, 1   <DO_LOOP>
+//     |   %179 = i5 + -1 * %68  *  i5 + -1 * %68;
+//     |   %180 = %179  +  %162;
+//     |   if (%180 <= ((%1 /u 2) * (%2 /u 2))) {
+//     |     ...
+//     |   }
+
+// The transformed code looks like:
+//     + DO i4 = 0, 2 * %inst63, 1   <DO_LOOP>
+//     |   %inst160 = i4 + -1 * %inst63  *  i4 + -1 * %inst63;
+//     |   ...
+//     |   %optprd.lower = -1;
+//     |   %optprd.upper = -1;
+//     |
+//     |   + DO i5 = 0, 2 * %inst66, 1   <DO_MULTI_EXIT_LOOP>
+//     |   |   %inst177 = i5 + -1 * %inst66  *  i5 + -1 * %inst66;
+//     |   |   %inst178 = %inst177  +  %inst160;
+//     |   |   if (%inst178 <= ((%arg1 /u 2) * (%arg2 /u 2)))
+//     |   |   {
+//     |   |      %optprd.upper = -1 * i5 + 2 * %inst66;
+//     |   |      %optprd.lower = i5;
+//     |   |      goto loopexit.248;
+//     |   |   }
+//     |   + END LOOP
+//     |
+//     |   loopexit.248:
+//     |
+//           Implicit i5 Ztt: if (%optprd.lower != -1)
+//     |   + DO i5 = %optprd.lower, %optprd.upper, 1   <DO_LOOP>
+//     |      <Original loop body here>
+
+// Notice we have an i5 Ztt on the second loop to prevent the loop from
+// executing the innerloop body when we never would have entered the
+// if in the first place.
+
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSpecialOptPredicatePass.h"
 
 #define OPT_SWITCH "hir-special-opt-predicate"
@@ -55,7 +96,7 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(true),
+static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
@@ -64,6 +105,8 @@ public:
   HIRSpecialOptPredicate(HIRFramework &HIRF) : HIRF(HIRF) {}
   bool run();
   bool isCandidate(const HLLoop *InnerLoop) const;
+  void replaceIfWithBoundsLoop(HLLoop *FirstLoop, HLLoop *SecondLoop, HLIf *If);
+  void doTransformation(HLLoop *InnerLoop);
 
 private:
   HIRFramework &HIRF;
@@ -256,15 +299,143 @@ bool HIRSpecialOptPredicate::isCandidate(const HLLoop *InnerLoop) const {
 
   if (!hasIVSquaredPattern(InnerLoop, OuterLevel) ||
       !hasIVSquaredPattern(OuterLoop, OuterLevel)) {
+    LLVM_DEBUG(dbgs() << "Not IV Squared Pattern!\n";);
     return false;
   }
 
   if (!hasMatchingPredicate(InnerLoop)) {
+    LLVM_DEBUG(dbgs() << "Not Expected Predicate!\n";);
     return false;
   }
 
   LLVM_DEBUG(dbgs() << "Found Candidate!\n"; OuterLoop->dump(););
   return true;
+}
+
+// Logic for the setup loop will look like this:
+//
+//   lb = -1
+//   ub = -1
+//   for (u = (-width/2 to width/2))
+//     if ((v*v+u*u) <= ((width/2)*(height/2)))
+//       lb = -u
+//       ub = u
+//       goto exit;
+//   label exit
+//
+//   DO NewMainLoop
+void HIRSpecialOptPredicate::replaceIfWithBoundsLoop(HLLoop *FirstLoop,
+                                                     HLLoop *SecondLoop,
+                                                     HLIf *If) {
+  auto &HNU = HIRF.getHLNodeUtils();
+  auto &DDRU = FirstLoop->getDDRefUtils();
+
+  Type *Ty = FirstLoop->getUpperDDRef()->getDestType();
+  RegDDRef *NewLowerRef = HNU.createTemp(Ty, "optprd.lower");
+  RegDDRef *NewUpperRef = HNU.createTemp(Ty, "optprd.upper");
+
+  // lb = -1
+  // ub = -1
+  auto *LowerInitInst =
+      HNU.createCopyInst(DDRU.createConstDDRef(Ty, -1), "copy", NewLowerRef);
+  auto *UpperInitInst =
+      HNU.createCopyInst(DDRU.createConstDDRef(Ty, -1), "copy", NewUpperRef);
+
+  HLNodeUtils::insertBefore(FirstLoop, LowerInitInst);
+  HLNodeUtils::insertBefore(FirstLoop, UpperInitInst);
+
+  unsigned InnerLevel = FirstLoop->getNestingLevel();
+
+  NewLowerRef->makeConsistent({}, InnerLevel - 1);
+  NewUpperRef->makeConsistent({}, InnerLevel - 1);
+
+  // add new temps as liveout
+  FirstLoop->addLiveOutTemp(NewLowerRef);
+  FirstLoop->addLiveOutTemp(NewUpperRef);
+
+  // In normalized HIR, it will look like:
+  //     + DO i5 = 0, 2 * %68, 1   <DO_LOOP>
+  //     |   %179 = i5 + -1 * %68  *  i5 + -1 * %68;
+  //     |   %180 = %179  +  %162;
+  //     |   if (%180 <= ((%1 /u 2) * (%2 /u 2))) {
+  //     |      %optprd.lower = i5
+  //     |      %optprd.upper = -1 * i5 + 2 * %68;
+  //     |      goto %loopexit
+  //
+  // We are trying to capture the range from -u to +u where u*u < threshold.
+  // One way to contextualize that the LB and UB are correct is as follows:
+  // In normalized HIR, the IV goes from 0 to 2*D. Once we find the first u
+  // value that satisfies the condition, the last U that satisfies the same
+  // condition is equidistant from the upperbound = 2*D - u. If we were to
+  // un-normalize the values by D, we'd see the LB = u-D and the UB = D-u,
+  // which makes sense as LB = -UB and satisfies u*u < threshold.
+  auto *LowerIVRef = DDRU.createNullDDRef(Ty);
+  auto *LoopLowerSetter =
+      HNU.createCopyInst(LowerIVRef, "copy", NewLowerRef->clone());
+  LowerIVRef->getSingleCanonExpr()->setIVCoeff(InnerLevel, InvalidBlobIndex, 1);
+  // Make consistent symbase
+  LowerIVRef->makeConsistent({}, InnerLevel);
+
+  RegDDRef *UpperIVRef = FirstLoop->getUpperDDRef()->clone();
+  UpperIVRef->getSingleCanonExpr()->setIVCoeff(InnerLevel, InvalidBlobIndex,
+                                               -1);
+
+  auto *LoopUpperSetter =
+      HNU.createCopyInst(UpperIVRef, "copy", NewUpperRef->clone());
+
+  auto *LoopExitLabel = HNU.createHLLabel("loopexit");
+  FirstLoop->setNumExits(2);
+  HLNodeUtils::insertAfter(FirstLoop, LoopExitLabel);
+  auto *Goto = HNU.createHLGoto(LoopExitLabel);
+
+  HLNodeUtils::insertAsLastThenChild(If, LoopLowerSetter);
+  HLNodeUtils::insertAsLastThenChild(If, LoopUpperSetter);
+  HLNodeUtils::insertAsLastThenChild(If, Goto);
+
+  // Set the new loop bounds for second loop
+  // DO iv = lb to ub
+  // lb and ub are linear for this loop
+  RegDDRef *LoopLBRef = NewLowerRef->clone();
+  RegDDRef *LoopUBRef = NewUpperRef->clone();
+  SecondLoop->setLowerDDRef(LoopLBRef);
+  SecondLoop->setUpperDDRef(LoopUBRef);
+  LoopLBRef->getSingleCanonExpr()->setDefinedAtLevel(InnerLevel - 1);
+  LoopUBRef->getSingleCanonExpr()->setDefinedAtLevel(InnerLevel - 1);
+  SecondLoop->addLiveInTemp(LoopLBRef);
+  SecondLoop->addLiveInTemp(LoopUBRef);
+
+  // Create Ztt for the new loop to prevent entering loop when
+  // the original if would have never executed.
+  // Ztt: if (optprd.lower != -1)
+  RegDDRef *LHS = LoopLBRef->clone();
+  RegDDRef *RHS = DDRU.createConstDDRef(Ty, -1);
+  SecondLoop->createZtt(LHS, PredicateTy::ICMP_NE, RHS);
+}
+
+void HIRSpecialOptPredicate::doTransformation(HLLoop *InnerLoop) {
+  // Original Inner Loop looks like this:
+  //  + DO i5 = 0, 2 * %68, 1   <DO_LOOP>
+  //  |   %179 = i5 + -1 * %68  *  i5 + -1 * %68;
+  //  |   %180 = %179  +  %162;
+  //  |   if (%180 <= ((%1 /u 2) * (%2 /u 2)))
+  //         ...
+  // Move the contents of the if into NewMainLoop which will use
+  // the new bounds.
+
+  HIRInvalidationUtils::invalidateLoopNestBody(InnerLoop->getParentLoop());
+
+  HLLoop *NewMainLoop = InnerLoop->cloneEmpty();
+
+  HLIf *If = cast<HLIf>(InnerLoop->getLastChild());
+
+  HLNodeUtils::moveAsLastChildren(NewMainLoop, If->then_begin(),
+                                  If->then_end());
+
+  HLNodeUtils::insertAfter(InnerLoop, NewMainLoop);
+
+  replaceIfWithBoundsLoop(InnerLoop, NewMainLoop, If);
+
+  LLVM_DEBUG(dbgs() << "TRANSFORMED!\n"; InnerLoop->getParentLoop()->dump(1););
 }
 
 bool HIRSpecialOptPredicate::run() {
@@ -278,7 +449,12 @@ bool HIRSpecialOptPredicate::run() {
       continue;
     }
 
-    // Do Transformation
+    LLVM_DEBUG(dbgs() << "Found Candidate for Transformation!\n";
+               Loop->dump(););
+
+    doTransformation(Loop);
+    Modified = true;
+    Loop->getParentRegion()->setGenCode();
   }
 
   return Modified;
