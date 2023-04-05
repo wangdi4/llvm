@@ -46,10 +46,6 @@ struct ManualMapEntry {
   const char *RegInstStr;
   const char *MemInstStr;
   uint16_t Strategy;
-
-  ManualMapEntry(const char *RegInstStr, const char *MemInstStr,
-                 uint16_t Strategy = 0)
-      : RegInstStr(RegInstStr), MemInstStr(MemInstStr), Strategy(Strategy) {}
 };
 
 // List of instructions requiring explicitly aligned memory.
@@ -61,7 +57,12 @@ const char *ExplicitUnalign[] = {"MOVDQU", "MOVUPS", "MOVUPD",
                                  "PCMPESTRM", "PCMPESTRI",
                                  "PCMPISTRM", "PCMPISTRI" };
 
-#include "X86FoldTablesEmitterManualMapSet.inc"
+const ManualMapEntry ManualMapSet[] = {
+#define ENTRY(REG, MEM, FLAGS) {#REG, #MEM, FLAGS},
+#include "X86ManualFoldTables.def"
+#undef ENTRY
+};
+
 static bool isExplicitAlign(const CodeGenInstruction *Inst) {
   return any_of(ExplicitAlign, [Inst](const char *InstStr) {
     return Inst->TheDef->getName().contains(InstStr);
