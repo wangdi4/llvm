@@ -31,6 +31,6 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @main() #0 {
-  %1 = load i32, i32* @mycommon, align 4
+  %1 = load i32, ptr @mycommon, align 4
   ret i32 %1
 }
