@@ -492,15 +492,15 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   let TSFlags{50}    = ExplicitVEXPrefix;
 #if INTEL_CUSTOMIZATION
   // Force the instruction to use VEX encoding.
-  let TSFlags{56}    = EmitVEXOrEVEXPrefix;
+  let TSFlags{51}    = EmitVEXOrEVEXPrefix;
 #if INTEL_FEATURE_XUCC
-  let TSFlags{58-57} = XuCCOpPrefixBits;
+  let TSFlags{53-52} = XuCCOpPrefixBits;
 #endif // INTEL_FEATURE_XUCC
 #if INTEL_FEATURE_ISA_AVX256P
-  let TSFlags{59}    = hasEVEX_P10;
+  let TSFlags{54}    = hasEVEX_P10;
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_APX_F
-  let TSFlags{60}    = hasEVEX_NF;
+  let TSFlags{55}    = hasEVEX_NF;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }
