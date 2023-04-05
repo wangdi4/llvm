@@ -975,17 +975,6 @@ define i1 @icmp0_v32i8_v32i1(<32 x i8>) {
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
-<<<<<<< HEAD
-; AVX512-LABEL: icmp0_v32i8_v32i1: ;INTEL
-; AVX512:       # %bb.0: ;INTEL
-; AVX512-NEXT:    vpxor %xmm1, %xmm1, %xmm1 ;INTEL
-; AVX512-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm0 ;INTEL
-; AVX512-NEXT:    vpmovmskb %ymm0, %eax ;INTEL
-; AVX512-NEXT:    testl %eax, %eax ;INTEL
-; AVX512-NEXT:    setne %al ;INTEL
-; AVX512-NEXT:    vzeroupper ;INTEL
-; AVX512-NEXT:    retq ;INTEL
-=======
 ; AVX512F-LABEL: icmp0_v32i8_v32i1:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vpxor %xmm1, %xmm1, %xmm1
@@ -1012,7 +1001,6 @@ define i1 @icmp0_v32i8_v32i1(<32 x i8>) {
 ; AVX512VL-NEXT:    setne %al
 ; AVX512VL-NEXT:    vzeroupper
 ; AVX512VL-NEXT:    retq
->>>>>>> 00e3ae447150b839567906c9d2c527d7d32db46c
   %a = icmp eq <32 x i8> %0, zeroinitializer
   %b = call i1 @llvm.vector.reduce.or.v32i1(<32 x i1> %a)
   ret i1 %b
@@ -1777,16 +1765,6 @@ define i1 @icmp_v32i8_v32i1(<32 x i8>, <32 x i8>) {
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
-<<<<<<< HEAD
-; AVX512-LABEL: icmp_v32i8_v32i1: ;INTEL
-; AVX512:       # %bb.0: ;INTEL
-; AVX512-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm0 ;INTEL
-; AVX512-NEXT:    vpmovmskb %ymm0, %eax ;INTEL
-; AVX512-NEXT:    testl %eax, %eax ;INTEL
-; AVX512-NEXT:    setne %al ;INTEL
-; AVX512-NEXT:    vzeroupper ;INTEL
-; AVX512-NEXT:    retq ;INTEL
-=======
 ; AVX512F-LABEL: icmp_v32i8_v32i1:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vpcmpeqb %ymm1, %ymm0, %ymm0
@@ -1813,7 +1791,6 @@ define i1 @icmp_v32i8_v32i1(<32 x i8>, <32 x i8>) {
 ; AVX512VL-NEXT:    setne %al
 ; AVX512VL-NEXT:    vzeroupper
 ; AVX512VL-NEXT:    retq
->>>>>>> 00e3ae447150b839567906c9d2c527d7d32db46c
   %a = icmp eq <32 x i8> %0, %1
   %b = call i1 @llvm.vector.reduce.or.v32i1(<32 x i1> %a)
   ret i1 %b

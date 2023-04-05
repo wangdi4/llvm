@@ -163,9 +163,7 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
       }
       break;
     }
-<<<<<<< HEAD
-
-#if INTEL_CUSTOMIZATION
+#if  0
     case Intrinsic::vector_reduce_and:
     case Intrinsic::vector_reduce_or: {
       Value *Vec = II->getArgOperand(0);
@@ -201,8 +199,8 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
       }
     }
     LLVM_FALLTHROUGH;
-#endif // INTEL_CUSTOMIZATION
-=======
+#endif
+
     case Intrinsic::vector_reduce_and:
     case Intrinsic::vector_reduce_or: {
       // Canonicalize logical or/and reductions:
@@ -233,7 +231,6 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
       Rdx = getShuffleReduction(Builder, Vec, getOpcode(ID), RK);
       break;
     }
->>>>>>> 00e3ae447150b839567906c9d2c527d7d32db46c
     case Intrinsic::vector_reduce_add:
     case Intrinsic::vector_reduce_mul:
     case Intrinsic::vector_reduce_xor:

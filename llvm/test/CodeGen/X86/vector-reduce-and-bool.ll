@@ -718,20 +718,12 @@ define i1 @icmp0_v32i8_v32i1(<32 x i8>) {
 ; SSE41-NEXT:    sete %al
 ; SSE41-NEXT:    retq
 ;
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-=======
->>>>>>> 00e3ae447150b839567906c9d2c527d7d32db46c
 ; AVX-LABEL: icmp0_v32i8_v32i1:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vptest %ymm0, %ymm0
 ; AVX-NEXT:    sete %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
-<<<<<<< HEAD
-; end INTEL_CUSTOMIZATION
-=======
->>>>>>> 00e3ae447150b839567906c9d2c527d7d32db46c
   %a = icmp eq <32 x i8> %0, zeroinitializer
   %b = call i1 @llvm.vector.reduce.and.v32i1(<32 x i1> %a)
   ret i1 %b
@@ -1297,10 +1289,6 @@ define i1 @icmp1_v32i8_v32i1(<32 x i8>) {
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-=======
->>>>>>> 00e3ae447150b839567906c9d2c527d7d32db46c
 ; AVX512-LABEL: icmp1_v32i8_v32i1:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpcmpeqd %ymm1, %ymm1, %ymm1
@@ -1308,10 +1296,6 @@ define i1 @icmp1_v32i8_v32i1(<32 x i8>) {
 ; AVX512-NEXT:    setb %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
-<<<<<<< HEAD
-; end INTEL_CUSTOMIZATION
-=======
->>>>>>> 00e3ae447150b839567906c9d2c527d7d32db46c
   %a = icmp eq <32 x i8> %0, <i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1, i8 -1>
   %b = call i1 @llvm.vector.reduce.and.v32i1(<32 x i1> %a)
   ret i1 %b
@@ -1904,10 +1888,6 @@ define i1 @icmp_v32i8_v32i1(<32 x i8>, <32 x i8>) {
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
-<<<<<<< HEAD
-; INTEL_CUSTOMIZATION
-=======
->>>>>>> 00e3ae447150b839567906c9d2c527d7d32db46c
 ; AVX512-LABEL: icmp_v32i8_v32i1:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpxor %ymm1, %ymm0, %ymm0
@@ -1915,10 +1895,6 @@ define i1 @icmp_v32i8_v32i1(<32 x i8>, <32 x i8>) {
 ; AVX512-NEXT:    sete %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
-<<<<<<< HEAD
-; end INTEL_CUSTOMIZATION
-=======
->>>>>>> 00e3ae447150b839567906c9d2c527d7d32db46c
   %a = icmp eq <32 x i8> %0, %1
   %b = call i1 @llvm.vector.reduce.and.v32i1(<32 x i1> %a)
   ret i1 %b
