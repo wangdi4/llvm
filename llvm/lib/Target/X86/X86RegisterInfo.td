@@ -789,6 +789,26 @@ def GR32_NOREX : RegisterClass<"X86", [i32], 32,
 // GR64_NOREX - GR64 registers which do not require a REX prefix.
 def GR64_NOREX : RegisterClass<"X86", [i64], 64,
                             (add RAX, RCX, RDX, RSI, RDI, RBX, RBP, RSP, RIP)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// GeneratePressureSet = 0 here is a temporary workaround for lots of
+// LIT fail for xisa. Whether enabling when upstraming still needs discussion.
+let GeneratePressureSet = 0 in {
+// GR8_NOREX2 - GR8 registers which do not require a REX2 prefix.
+def GR8_NOREX2 : RegisterClass<"X86", [i8], 8,
+                               (sub GR8,  (sequence "R%uB", 16, 31))>;
+// GR16_NOREX2 - GR16 registers which do not require a REX2 prefix.
+def GR16_NOREX2 : RegisterClass<"X86", [i16], 16,
+                               (sub GR16,  (sequence "R%uW", 16, 31))>;
+// GR32_NOREX2 - GR32 registers which do not require a REX2 prefix.
+def GR32_NOREX2 : RegisterClass<"X86", [i32], 32,
+                               (sub GR32,  (sequence "R%uD", 16, 31))>;
+// GR64_NOREX2 - GR64 registers which do not require a REX2 prefix.
+def GR64_NOREX2 : RegisterClass<"X86", [i64], 64,
+                               (sub GR64,  (sequence "R%u", 16, 31))>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // GR32_NOSP - GR32 registers except ESP.
 def GR32_NOSP : RegisterClass<"X86", [i32], 32, (sub GR32, ESP)>;
