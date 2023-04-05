@@ -162,7 +162,7 @@ static cl::opt<bool> EnableManyRecCallsSplitting("ip-manyreccalls-splitting",
 
 static cl::opt<bool>
     EnablePreferFunctionRegion("ip-manyreccalls-preferfunctionlevelregion",
-                               cl::init(false), cl::ReallyHidden);
+                               cl::init(true), cl::ReallyHidden);
 
 static cl::opt<bool>
     EnableManyRecCallsPredicateOpt("ip-manyreccalls-predicateopt",
@@ -1496,7 +1496,7 @@ static bool isRecProSpecialLoopSequence(
       *BBLoopHeader = (*BBLoopHeader)->getSingleSuccessor();
     }
   };
-              
+
   AllocaInst *AICond = nullptr;
   BasicBlock *BBLatch = nullptr;
   BasicBlock *BBExit = nullptr;
