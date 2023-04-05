@@ -121,6 +121,8 @@ class OpenMPLateOutliner {
     bool Fptr = false;
     bool VarLen = false;
     bool Strict = false;
+    bool Reproducible = false;
+    bool Unconstrained = false;
 
     void addSeparated(StringRef QualString) {
       Str += Separator;
@@ -177,6 +179,10 @@ class OpenMPLateOutliner {
         addSeparated("VARLEN");
       if (Strict)
         addSeparated("STRICT");
+      if (Reproducible)
+        addSeparated("REPRODUCIBLE");
+      if (Unconstrained)
+        addSeparated("UNCONSTRAINED");
     }
 
   public:
@@ -206,6 +212,8 @@ class OpenMPLateOutliner {
     void setFptr() { Fptr = true; }
     void setVarLen() { VarLen = true; }
     void setStrict() { Strict = true; }
+    void setReproducible() { Reproducible = true; }
+    void setUnconstrained() { Unconstrained = true; }
 
     void add(StringRef S) { Str += S; }
     StringRef getString() {

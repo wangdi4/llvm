@@ -2973,13 +2973,26 @@ void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *Cl) {
 
 void OpenMPLateOutliner::emitOMPOrderClause(const OMPOrderClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_order);
+  ClauseStringBuilder &CSB = CEH.getBuilder();
   switch (Cl->getKind()) {
   case OMPC_ORDER_concurrent:
-    addArg("QUAL.OMP.ORDER.CONCURRENT");
+    CSB.add("QUAL.OMP.ORDER.CONCURRENT");
     break;
   case OMPC_ORDER_unknown:
     llvm_unreachable("Unknown order clause");
   }
+  switch (Cl->getModifier()) {
+  case OMPC_ORDER_MODIFIER_reproducible:
+    CSB.setReproducible();
+    break;
+  case OMPC_ORDER_MODIFIER_unconstrained:
+    CSB.setUnconstrained();
+    break;
+  case OMPC_ORDER_MODIFIER_last:
+  case OMPC_ORDER_MODIFIER_unknown:
+    break;
+  }
+  addArg(CSB.getString());
 }
 
 void OpenMPLateOutliner::emitOMPNontemporalClause(
