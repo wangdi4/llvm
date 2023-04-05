@@ -25,11 +25,7 @@
 target datalayout = "e-m:x-p:32:32-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "i386-pc-windows-msvc"
 
-@llvm.compiler.used = appending global [6 x i8*] [i8* bitcast (<2 x double> (<2 x double>)* @__svml_sqrt2 to i8*), i8*
- bitcast (<4 x double> (<4 x double>)* @__svml_sqrt4 to i8*), i8* bitcast (<8 x double> (<8 x double>)* @__svml_sqrt8
-to i8*), i8* bitcast (<16 x double> (<16 x double>)* @__svml_sqrt16 to i8*), i8* bitcast (<32 x double> (<32 x double>
-)* @__svml_sqrt32 to i8*), i8* bitcast (<64 x double> (<64 x double>)* @__svml_sqrt64 to i8*)], section "llvm.metadata"
-
+@llvm.compiler.used = appending global [6 x ptr] [ptr @__svml_sqrt2, ptr @__svml_sqrt4, ptr @__svml_sqrt8, ptr @__svml_sqrt16, ptr @__svml_sqrt32, ptr @__svml_sqrt64], section "llvm.metadata"
 @_fltused = dllexport local_unnamed_addr global i32 0, align 4
 
 define i32 @main(double %x) {
@@ -40,11 +36,10 @@ entry:
 }
 
 define double @sqrt(double %x) {
-  %call = call double @llvm.sqrt(double %x)
+bb:
+  %call = call double @llvm.sqrt.f64(double %x)
   ret double %call
 }
-
-declare double @llvm.sqrt(double)
 
 declare dso_local <2 x double> @__svml_sqrt2(<2 x double>) local_unnamed_addr #0
 declare dso_local <4 x double> @__svml_sqrt4(<4 x double>) local_unnamed_addr #0
@@ -52,11 +47,7 @@ declare dso_local <8 x double> @__svml_sqrt8(<8 x double>) local_unnamed_addr #0
 declare dso_local <16 x double> @__svml_sqrt16(<16 x double>) local_unnamed_addr #0
 declare dso_local <32 x double> @__svml_sqrt32(<32 x double>) local_unnamed_addr #0
 declare dso_local <64 x double> @__svml_sqrt64(<64 x double>) local_unnamed_addr #0
+declare double @llvm.sqrt.f64(double) #1
 
-attributes #0 = { nofree nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-
-pointer"="none" "imf-arch-consistency"="truewq" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-mat
-h"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"
-="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind "imf-arch-consistency"="truewq" "vector-function-abi-variant"="_ZGV_LLVM_N2v_sqrt(__svml_sq
-rt2),_ZGV_LLVM_N4v_sqrt(__svml_sqrt4),_ZGV_LLVM_N8v_sqrt(__svml_sqrt8),_ZGV_LLVM_N16v_sqrt(__svml_sqrt16),_ZGV_LLVM_N3
-2v_sqrt(__svml_sqrt32),_ZGV_LLVM_N64v_sqrt(__svml_sqrt64)" }
+attributes #0 = { nofree nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "imf-arch-consistency"="truewq" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
