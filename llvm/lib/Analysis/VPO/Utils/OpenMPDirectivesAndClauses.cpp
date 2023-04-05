@@ -65,7 +65,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
       IsIV(false), IsInitTarget(false), IsInitTargetSync(false),
       IsInitPrefer(false), IsStrict(false), IsTask(false), IsInscan(false),
-      IsTyped(false) {
+      IsReproducible(false), IsTyped(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
   // Split Name into the BaseName and Modifier substrings
@@ -182,6 +182,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
         else if (ModSubString[i] ==
                  "STRICT") // for grainsize or numtasks clause
           setIsStrict();
+        else if (ModSubString[i] == "REPRODUCIBLE") // for order clause
+          setIsReproducible();
+        else if (ModSubString[i] == "UNCONSTRAINED") // for order clause
+          continue;
         else if (ModSubString[i] == "VARLEN")
           setIsVarLen();
         else if (ModSubString[i] == "UNSIGNED")    // for reduction clause

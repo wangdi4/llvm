@@ -11219,10 +11219,17 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
   // For OpenMP backend outlining, the globals in a declare target region must
   // be marked with the target_declare attribute so they're not optimized away
   // by backend optimizations.
+  std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
   if (CGM.getLangOpts().OpenMPLateOutline &&
       VD->hasAttr<OMPDeclareTargetDeclAttr>())
-    cast<llvm::GlobalVariable>(Addr)->setTargetDeclare(true);
+    // Skip set target_declare attribute for local variable on host.
+    if (!(!CGM.getLangOpts().OpenMPIsDevice && Res &&
+          *Res == OMPDeclareTargetDeclAttr::MT_Local))
+      cast<llvm::GlobalVariable>(Addr)->setTargetDeclare(true);
 
+  if (Res && *Res == OMPDeclareTargetDeclAttr::MT_Local)
+    return;
   if (VD->hasAttr<OMPGroupPrivateDeclAttr>())
     return;
 #endif // INTEL_COLLAB
@@ -11237,8 +11244,10 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
   if (DevTy && *DevTy != OMPDeclareTargetDeclAttr::DT_Any)
     return;
 
+#if !defined(INTEL_COLLAB)
   std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
+#endif // !INTEL_COLLAB
   if (!Res) {
     if (CGM.getLangOpts().OpenMPIsDevice) {
       // Register non-target variables being emitted in device code (debug info
@@ -11367,6 +11376,10 @@ void CGOpenMPRuntime::emitDeferredTargetDecls() const {
         OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
     if (!Res)
       continue;
+#if INTEL_COLLAB
+    if (*Res == OMPDeclareTargetDeclAttr::MT_Local)
+      continue;
+#endif // INTEL_COLLAB
     if ((*Res == OMPDeclareTargetDeclAttr::MT_To ||
          *Res == OMPDeclareTargetDeclAttr::MT_Enter) &&
         !HasRequiresUnifiedSharedMemory) {

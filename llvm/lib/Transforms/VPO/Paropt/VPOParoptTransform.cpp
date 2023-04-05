@@ -9318,7 +9318,7 @@ bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
     return false;
 
   // Check if this loop can have parallel access metadata.
-  if (W->getLoopOrder() != WRNLoopOrderConcurrent) {
+  if (W->getLoopOrder() == WRNLoopOrderAbsent) {
     // With presence of 'safelen' loop-carried dependences are possible.
     if (isa<WRNVecLoopNode>(W) && W->getSafelen())
       return false;

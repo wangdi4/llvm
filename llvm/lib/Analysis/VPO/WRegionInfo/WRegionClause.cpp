@@ -105,7 +105,10 @@ DenseMap<int, StringRef> WRNLoopBindName = {
 
 DenseMap<int, StringRef> WRNLoopOrderName = {
     {WRNLoopOrderKind::WRNLoopOrderAbsent, "UNSPECIFIED"},
-    {WRNLoopOrderKind::WRNLoopOrderConcurrent, "CONCURRENT"}};
+    {WRNLoopOrderKind::WRNLoopOrderConcurrentUnconstrained,
+     "UNCONSTRAINED CONCURRENT"},
+    {WRNLoopOrderKind::WRNLoopOrderConcurrentReproducible,
+     "REPRODUCIBLE CONCURRENT"}};
 
 DenseMap<int, StringRef> WRNScheduleName = {
     {WRNScheduleKind::WRNScheduleCrewloop, "Crew Loop"},

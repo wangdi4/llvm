@@ -2625,6 +2625,10 @@ static Address emitDeclTargetVarDeclLValue(CodeGenFunction &CGF,
                                            const VarDecl *VD, QualType T) {
   std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
+#if INTEL_COLLAB
+  if (Res && *Res == OMPDeclareTargetDeclAttr::MT_Local)
+    return Address::invalid();
+#endif // INTEL_COLLAB
   // Return an invalid address if variable is MT_To (or MT_Enter starting with
   // OpenMP 5.2) and unified memory is not enabled. For all other cases: MT_Link
   // and MT_To (or MT_Enter) with unified memory, return a valid address.
