@@ -1,4 +1,21 @@
 //===- MemoryDependenceAnalysis.cpp - Mem Deps Implementation -------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -52,6 +69,10 @@
 #include <iterator>
 #include <utility>
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #define DEBUG_TYPE "memdep"
@@ -74,6 +95,11 @@ static cl::opt<unsigned> BlockScanLimit(
     "memdep-block-scan-limit", cl::Hidden, cl::init(100),
     cl::desc("The number of instructions to scan in a block in memory "
              "dependency analysis (default = 100)"));
+
+#if INTEL_CUSTOMIZATION
+const unsigned OrigBlockNumberLimit = 200;
+const unsigned O3OptLvlBlockNumberLimit = 1000;
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<unsigned>
     BlockNumberLimit("memdep-block-number-limit", cl::Hidden, cl::init(200),
@@ -1188,6 +1214,11 @@ bool MemoryDependenceResults::getNonLocalPointerDepFromBB(
   // won't get any reuse from currently inserted values, because we don't
   // revisit blocks after we insert info for them.
   unsigned NumSortedEntries = Cache->size();
+#if INTEL_CUSTOMIZATION
+  // Skip adjustments if user has explicitly modified default value.
+  if (BlockNumberLimit == OrigBlockNumberLimit && OptLevel == 3)
+    BlockNumberLimit = O3OptLvlBlockNumberLimit;
+#endif // INTEL_CUSTOMIZATION
   unsigned WorklistEntries = BlockNumberLimit;
   bool GotWorklistLimit = false;
   LLVM_DEBUG(AssertSorted(*Cache));
@@ -1727,7 +1758,10 @@ MemoryDependenceAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
-  return MemoryDependenceResults(AA, AC, TLI, DT, DefaultBlockScanLimit);
+  unsigned OptLevel =
+      AM.getResult<XmainOptLevelAnalysis>(F).getOptLevel(); // INTEL
+  return MemoryDependenceResults(AA, AC, TLI, DT, DefaultBlockScanLimit,
+                                 OptLevel); // INTEL
 }
 
 char MemoryDependenceWrapperPass::ID = 0;

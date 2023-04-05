@@ -1,4 +1,21 @@
 //===- llvm/Analysis/MemoryDependenceAnalysis.h - Memory Deps ---*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -362,13 +379,23 @@ private:
   /// Offsets to dependant clobber loads.
   using ClobberOffsetsMapType = DenseMap<LoadInst *, int32_t>;
   ClobberOffsetsMapType ClobberOffsets;
+#if INTEL_CUSTOMIZATION
+  unsigned OptLevel;
+#endif
 
 public:
-  MemoryDependenceResults(AAResults &AA, AssumptionCache &AC,
-                          const TargetLibraryInfo &TLI, DominatorTree &DT,
-                          unsigned DefaultBlockScanLimit)
+  MemoryDependenceResults(
+      AAResults &AA, AssumptionCache &AC, const TargetLibraryInfo &TLI,
+      DominatorTree &DT, unsigned DefaultBlockScanLimit,
+#if INTEL_CUSTOMIZATION
+      // TODO: Remove default value once LPM will be removed.
+      unsigned OptLevel = 2 /* O2 level */)
+#endif // INTEL_CUSTOMIZATION
       : AA(AA), AC(AC), TLI(TLI), DT(DT),
-        DefaultBlockScanLimit(DefaultBlockScanLimit) {}
+        DefaultBlockScanLimit(DefaultBlockScanLimit),
+#if INTEL_CUSTOMIZATION
+        OptLevel(OptLevel) {}
+#endif
 
   /// Handle invalidation in the new PM.
   bool invalidate(Function &F, const PreservedAnalyses &PA,
