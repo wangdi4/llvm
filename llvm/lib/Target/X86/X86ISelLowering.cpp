@@ -48458,24 +48458,15 @@ static SDValue combineBitcastvxi1(SelectionDAG &DAG, EVT VT, SDValue Src,
   if (collectConcatOps(Src.getNode(), SubSrcOps, DAG) &&
       SubSrcOps.size() >= 2) {
     SDValue LowerOp = SubSrcOps[0];
-<<<<<<< HEAD
-    SDValue UpperOp = SubSrcOps[1];
-    if (LowerOp.getOpcode() == ISD::SETCC && UpperOp.isUndef()) {
-      EVT HalfVT = VT.getHalfSizedIntegerVT(*DAG.getContext());
-      if (SDValue V = combineBitcastvxi1(DAG, HalfVT, LowerOp, DL, Subtarget,
-                                         UserIsSetcc)) // INTEL
-        return DAG.getNode(ISD::ANY_EXTEND, DL, VT, V);
-=======
     ArrayRef<SDValue> UpperOps(std::next(SubSrcOps.begin()), SubSrcOps.end());
     if (LowerOp.getOpcode() == ISD::SETCC &&
         all_of(UpperOps, [](SDValue Op) { return Op.isUndef(); })) {
       EVT SubVT = VT.getIntegerVT(
           *DAG.getContext(), LowerOp.getValueType().getVectorMinNumElements());
-      if (SDValue V = combineBitcastvxi1(DAG, SubVT, LowerOp, DL, Subtarget)) {
+      if (SDValue V = combineBitcastvxi1(DAG, SubVT, LowerOp, DL, Subtarget,  UserIsSetcc)) { // INTEL
         EVT IntVT = VT.getIntegerVT(*DAG.getContext(), VT.getSizeInBits());
         return DAG.getBitcast(VT, DAG.getNode(ISD::ANY_EXTEND, DL, IntVT, V));
       }
->>>>>>> e7c454630732c6095406630243cf4f9485ea1ecb
     }
   }
 
