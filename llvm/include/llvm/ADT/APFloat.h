@@ -604,6 +604,7 @@ private:
 
   /// @}
 
+  template <const fltSemantics &S> APInt convertIEEEFloatToAPInt() const;
   APInt convertHalfAPFloatToAPInt() const;
   APInt convertBFloatAPFloatToAPInt() const;
   APInt convertFloatAPFloatToAPInt() const;
@@ -617,6 +618,7 @@ private:
   APInt convertFloat8E4M3FNUZAPFloatToAPInt() const;
   APInt convertFloat8E4M3B11FNUZAPFloatToAPInt() const;
   void initFromAPInt(const fltSemantics *Sem, const APInt &api);
+  template <const fltSemantics &S> void initFromIEEEAPInt(const APInt &api);
   void initFromHalfAPInt(const APInt &api);
   void initFromBFloatAPInt(const APInt &api);
   void initFromFloatAPInt(const APInt &api);
