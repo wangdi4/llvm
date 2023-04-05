@@ -28,6 +28,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 
 using namespace llvm::loopopt;
 
@@ -648,6 +649,19 @@ public:
   // permute tree reduction.
   bool getTreeConflictsLowered();
 
+  // Bailout data accessors.
+  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
+                      std::string Message) {
+    BD.BailoutLevel = Level;
+    BD.BailoutID = ID;
+    BD.BailoutMessage = Message;
+  }
+  VPlanBailoutData &getBailoutData() { return BD; }
+
+  // Set the bailout reason for this loop and optionally print a debug msg.
+  void bailout(OptReportVerbosity::Level Level, unsigned ID,
+               std::string Message, std::string Debug = "");
+
 private:
   // Target Library Info is used to check for svml.
   TargetLibraryInfo *TLI;
@@ -831,6 +845,9 @@ private:
   // library function. We need this so we can ensure these calls are also
   // replaced in any scalar peel or remainder loops.
   SmallDenseSet<const CallInst*> VectorizedLibraryCalls;
+
+  // Bail-out information when we can't vectorize the loop.
+  VPlanBailoutData BD;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }

@@ -11514,6 +11514,11 @@ Value *BoUpSLP::createBuildVector(const TreeEntry *E) {
         // process to keep correct order.
         return Delayed;
       }
+#if INTEL_CUSTOMIZATION
+      if (any_of(Entries,
+                 [&](const TreeEntry *E) { return PostponedGathers.count(E); }))
+        PostponedGathers.insert(E);
+#endif // INTEL_CUSTOMIZATION
       assert((Entries.size() == 1 || Entries.size() == 2) &&
              "Expected shuffle of 1 or 2 entries.");
       if (!Resized) {

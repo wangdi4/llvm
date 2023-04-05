@@ -169,10 +169,13 @@ public:
   // Remark IDs are defined in lib/Analysis/Intel_OptReport/Diag.cpp:
 
   // 15313: %s was not vectorized: unsupported data type
-  static const unsigned BadTypeRemarkID = 15313;
+  static constexpr unsigned BadTypeRemarkID = 15313;
+
+  // 15315: %s was not vectorized: low trip count
+  static constexpr unsigned LowTripCountRemarkID = 15315;
 
   // 15330: %s was not vectorized: the reduction operator is not supported yet
-  static const unsigned BadRednRemarkID = 15330;
+  static constexpr unsigned BadRednRemarkID = 15330;
 
   // 15332: %s was not vectorized: loop is not within user-defined range
   static constexpr unsigned OutOfRangeRemarkID = 15332;
@@ -185,35 +188,38 @@ public:
   // 15353: loop was not vectorized: loop is not in canonical form from
   //        OpenMP specification, may be as a result of previous
   //        optimization(s)
-  static const unsigned BadSimdRemarkID = 15353;
+  static constexpr unsigned BadSimdRemarkID = 15353;
 
   // 15407: vectorization support: type complex float is not supported for
   //        operation %s
-  static const unsigned CmplxFltRemarkID = 15407;
+  static constexpr unsigned CmplxFltRemarkID = 15407;
 
   // 15408: vectorization support: type complex double is not supported for
   //        operation %s
-  static const unsigned CmplxDblRemarkID = 15408;
+  static constexpr unsigned CmplxDblRemarkID = 15408;
 
   // 15436: loop was not vectorized: %s
-  static const unsigned BailoutRemarkID = 15436;
+  static constexpr unsigned BailoutRemarkID = 15436;
 
   // 15520: %s was not vectorized: loop with multiple exits cannot be
   //        vectorized unless it meets search loop idiom criteria
-  static const unsigned BadSearchRemarkID = 15520;
+  static constexpr unsigned BadSearchRemarkID = 15520;
 
   // 15521: %s was not vectorized: loop control variable was not identified.
   //        Explicitly compute the iteration count before executing the loop
   //        or try using canonical loop form from OpenMP specification%s
-  static const unsigned LoopIVRemarkID = 15521;
+  static constexpr unsigned LoopIVRemarkID = 15521;
 
   // 15522: %s was not vectorized: loop control flow is too complex. Try
   //        using canonical loop form from OpenMP specification%s
-  static const unsigned ComplexFlowRemarkID = 15522;
+  static constexpr unsigned ComplexFlowRemarkID = 15522;
 
   // 15535: %s was not vectorized: loop contains switch statement. Consider
   //        using if-else statement.
-  static const unsigned SwitchRemarkID = 15535;
+  static constexpr unsigned SwitchRemarkID = 15535;
+
+  // 15560: Indirect call cannot be vectorized
+  static constexpr unsigned IndCallRemarkID = 15560;
 
   // 15571: %s was not vectorized: loop contains a recurrent computation that
   //        could not be identified as an induction or reduction.  Try using

@@ -4855,6 +4855,14 @@ private:
   bool findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
                             std::set<unsigned> &HoistYes,
                             std::set<unsigned> &HoistNo);
+  // Return 'true' if the local restrict variable 'LIRestrict' in the entry
+  // block of 'BaseF' can be hoisted past the entry of the wrapper function.
+  bool isRestrictVarHoistablePastWrapperF(Function *BaseF,
+                                          LoadInst *LIRestrict);
+  // Return 'true' if the subfields in field 1 of the structure pointed to
+  // by formal argument 6 of the base function are hoistable past the entry
+  // of the wrapper function.
+  bool isBaseFArg6FieldHoistable(Function *BaseF);
   // Find the fields referenced by 'V'in 'F' that are hoistable and put their
   // indices in 'HoistYes' and 'HoistNo'.
   bool findHoistableFields(Function *F, Value *V, std::set<unsigned> &HoistYes,
@@ -5169,10 +5177,300 @@ bool PredicateOpt::findSpine() {
     }
   SimpleLoopDepth = LocalSimpleLoopDepth;
   WrapperCB = LocalWrapperCB;
+  if (!WrapperCB || (WrapperCB->arg_size() != BaseF->arg_size()))
+    return false;
   BigLoopCB = LocalBigLoopCB;
   if (BigLoopCB && EnablePreferFunctionRegion)
     BigLoopCB->getCaller()->addFnAttr("prefer-function-level-region");
   return BigLoopCB;
+}
+
+//
+// First, prove there are no write operations before 'LIRestrict' in 'BaseF'
+// and that 'LIRestrict' can be traced back through a GetElementPtrInst to
+// an Argument (%0) of 'BaseF':
+//
+// define internal ptr @GetVirtualPixelsFromNexus(ptr noundef %0,
+//     i32 noundef %1, i64 noundef %2, i64 noundef %3, i64 noundef %4,
+//     i64 noundef %5, ptr nocapture noundef %6, ptr noundef %7)
+//  %9 = alloca i16, align 2
+//  %10 = alloca %struct._ZTS12_PixelPacket._PixelPacket, align 2
+//  call void @llvm.lifetime.start.p0(i64 2, ptr nonnull %9) #68
+//  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %10) #68
+//  %11 = getelementptr inbounds %struct._ZTS6_Image._Image, ptr %0,
+//      i64 0, i32 49
+//  %12 = load ptr, ptr %11, align 8, !predicate-opt-data !1150
+//
+// Second, prove that the corresponding actual argument (%7) is a LoadInst
+// that can be traced back through a GetElementPtrInst to and Argument (%0)
+// of the wrapper function.
+//
+// define internal i32 @GetOneCacheViewVirtualPixel(ptr noalias nocapture
+//     noundef readonly %0, i64 noundef %1, i64 noundef %2, ptr noalias
+//     nocapture noundef writeonly %3, ptr noundef %4)
+//   %6 = getelementptr inbounds %struct._ZTS10_CacheView._CacheView, ptr %0,
+//     i64 0, i32 0, !intel-tbaa !849
+//   %7 = load ptr, ptr %6, align 8, !tbaa !849
+// ...
+//   %26 = tail call ptr @GetVirtualPixelsFromNexus(ptr noundef %7, i32 noundef
+//     %22, i64 noundef %1, i64 noundef %2, i64 noundef 1, i64 noundef 1,
+//     ptr noundef %25, ptr noundef %4)
+//
+bool PredicateOpt::isRestrictVarHoistablePastWrapperF(Function *BaseF,
+                                                      LoadInst *LIRestrict) {
+  // Prove there are no writes in the entry block of 'BaseF' before
+  // 'LIRestrict'.
+  BasicBlock &BB = BaseF->getEntryBlock();
+  bool FoundLIRestrict = false;
+  for (auto &I : BB) {
+    if (auto LDI = dyn_cast<LoadInst>(&I)) {
+      if (LDI == LIRestrict) {
+        FoundLIRestrict = true;
+        break;
+      }
+    } else if (isa<StoreInst>(&I)) {
+      return false;
+    } else if (auto CBI = dyn_cast<CallBase>(&I)) {
+      if (!CBI->isLifetimeStartOrEnd())
+        return false;
+    }
+  }
+  if (!FoundLIRestrict)
+    return false;
+  // Trace from 'LIRestrict' back to a formal argument 'ArgBaseF' of 'BaseF'.
+  auto GEPI0 = dyn_cast<GetElementPtrInst>(LIRestrict->getPointerOperand());
+  if (!GEPI0)
+    return false;
+  auto ArgBaseF = dyn_cast<Argument>(GEPI0->getPointerOperand());
+  if (!ArgBaseF)
+    return false;
+  unsigned ArgNo = ArgBaseF->getArgNo();
+  // Prove that the corresponding actual argument can be traced back to
+  // a formal argument in the wrapper function.
+  auto LIWrapper = dyn_cast<LoadInst>(WrapperCB->getArgOperand(ArgNo));
+  if (!LIWrapper)
+    return false;
+  Function *WrapperF = WrapperCB->getCaller();
+  if (LIWrapper->getParent() != &WrapperF->getEntryBlock())
+    return false;
+  Value *V = LIWrapper->getPointerOperand();
+  auto GEPI1 = dyn_cast<GetElementPtrInst>(V);
+  if (!GEPI1)
+    return false;
+  if (GEPI1->getPrevNonDebugInstruction())
+    return false;
+  return isa<Argument>(GEPI1->getPointerOperand());
+}
+
+//
+// First, prove that the first field of '%6' is a structure of 4 ia64s
+// which, when it is assigned, is assigned to the values of a set of
+// arguments (%4, %5, %2, %3) of 'BaseF'.
+//
+// define internal ptr @GetVirtualPixelsFromNexus(ptr noundef %0, i32 noundef
+//     %1, i64 noundef %2, i64 noundef %3, i64 noundef %4, i64 noundef %5,
+//     ptr nocapture noundef %6, ptr noundef %7) {
+//  %9 = alloca i16, align 2
+//  %10 = alloca %struct._ZTS12_PixelPacket._PixelPacket, align 2
+//  call void @llvm.lifetime.start.p0(i64 2, ptr nonnull %9) #68
+//  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %10) #68
+//  %11 = getelementptr inbounds %struct._ZTS6_Image._Image, ptr %0, i64 0,
+//    i32 49, !intel-tbaa !867
+//  %12 = load ptr, ptr %11, align 8, !tbaa !867, !predicate-opt-data !1150
+//  %13 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %12,
+//     i64 0, i32 3, !intel-tbaa !888
+//  %14 = load i32, ptr %13, align 8, !tbaa !888, !alias.scope !1151, !noalias
+//     !1154
+//  %15 = icmp eq i32 %14, 0
+//  br i1 %15, label %598, label %16
+//
+// 16:                                               ; preds = %8
+//  %17 = getelementptr inbounds %struct._ZTS6_Image._Image, ptr %0, i64 0,
+//    i32 38, !intel-tbaa !990
+//  %18 = load ptr, ptr %17, align 8, !tbaa !990
+//  %19 = icmp eq ptr %18, null
+//  br i1 %19, label %20, label %24
+//
+// 20:                                               ; preds = %16
+//  %21 = getelementptr inbounds %struct._ZTS6_Image._Image, ptr %0, i64 0,
+//    i32 73, !intel-tbaa !991
+//  %22 = load ptr, ptr %21, align 8, !tbaa !991
+//  %23 = icmp ne ptr %22, null
+//  br label %24
+//
+// 24:                                               ; preds = %20, %16
+//  %25 = phi i1 [ true, %16 ], [ %23, %20 ]
+//  %26 = getelementptr inbounds %struct._ZTS10_NexusInfo._NexusInfo, ptr %6,
+//    i64 0, i32 1
+//  store i64 %4, ptr %26, align 8, !tbaa.struct !631
+//  %27 = getelementptr inbounds i8, ptr %26, i64 8
+//  store i64 %5, ptr %27, align 8, !tbaa.struct !1161
+//  %28 = getelementptr inbounds i8, ptr %26, i64 16
+//  store i64 %2, ptr %28, align 8, !tbaa.struct !633
+//  %29 = getelementptr inbounds i8, ptr %26, i64 24
+//  store i64 %3, ptr %29, align 8, !tbaa.struct !1162
+//  %30 = load i32, ptr %13, align 8, !tbaa !888
+//  %31 = icmp eq i32 %30, 1
+//  br i1 %31, label %35, label %32
+// ...
+// 598: ; preds = %593, %207, %204, %193, %191, %156, %114, %92, %8
+//  %599 = phi ptr [ %166, %593 ], [ null, %8 ], [ null, %156 ],
+//  [ %166, %207 ], [ %166, %191 ], [ null, %193 ], [ null, %204 ],
+//  [ null, %92 ], [ null, %114 ]
+//  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %10) #68
+//  call void @llvm.lifetime.end.p0(i64 2, ptr nonnull %9) #68
+//  ret ptr %599
+//
+// Second, prove each actual argument corresponding to the formal arguments
+// above (%1, %2, 1, 1) is either a formal argument of the wrapper function or
+// an integer constant.
+//
+// define internal i32 @GetOneCacheViewVirtualPixel(ptr noalias nocapture
+//     noundef readonly %0, i64 noundef %1, i64 noundef %2, ptr noalias
+//     nocapture noundef writeonly %3, ptr noundef %4) {
+//   %6 = getelementptr inbounds %struct._ZTS10_CacheView._CacheView, ptr %0,
+//     i64 0, i32 0, !intel-tbaa !849
+//   %7 = load ptr, ptr %6, align 8, !tbaa !849
+//  ...
+//   %26 = tail call ptr @GetVirtualPixelsFromNexus(ptr noundef %7,
+//     i32 noundef %22, i64 noundef %1, i64 noundef %2, i64 noundef 1,
+//     i64 noundef 1, ptr noundef %25, ptr noundef %4) #72
+//
+bool PredicateOpt::isBaseFArg6FieldHoistable(Function *BaseF) {
+
+  // Put the basic blocks which are predecessors of 'BBIn', direct or
+  // indirect into 'BBOut'.  In the above IR, if block 24 is 'BBIn',
+  // on exit from 'FindPredBBs', 'BBOut' should contain basic blocks
+  // 20, 16, and 8.
+  auto FindPredBBs = [](BasicBlock *BBIn,
+                        SmallPtrSetImpl<BasicBlock *> &BBOut) {
+    SetVector<BasicBlock *> BBWorklist;
+    SmallPtrSet<BasicBlock *, 4> BBVisited;
+    BBWorklist.insert(BBIn);
+    while (!BBWorklist.empty()) {
+      BasicBlock *BB = BBWorklist.pop_back_val();
+      if (BBOut.insert(BB).second)
+        for (BasicBlock *PBB : predecessors(BB))
+          BBWorklist.insert(PBB);
+    }
+  };
+
+  // Return 'true' if 'Ty' is a struct type of four i64s.
+  auto Is4i64Struct = [](Type *Ty) -> bool {
+    auto STy = dyn_cast<StructType>(Ty);
+    if (!STy || STy->getNumElements() != 4)
+      return false;
+    for (unsigned I = 0; I < 4; ++I) {
+      auto ITy = dyn_cast<IntegerType>(STy->getElementType(I));
+      if (!ITy || ITy->getBitWidth() != 64)
+        return false;
+    }
+    return true;
+  };
+
+  // Return 'true' if 'BB' may have an instruction that writes memory.
+  auto MayHaveWrite = [](BasicBlock *BB) -> bool {
+    for (auto &I : *BB) {
+      if (isa<StoreInst>(&I))
+        return true;
+      if (auto CB = dyn_cast<CallBase>(&I))
+        if (!CB->isLifetimeStartOrEnd())
+          return true;
+    }
+    return false;
+  };
+
+  // Find 'GEPIF61' which points to the first first field in the structure
+  // pointed to by argument 6 in the base function.
+  if (BaseF->arg_size() <= 6)
+    return false;
+  Argument *Arg6 = BaseF->getArg(6);
+  GetElementPtrInst *GEPI6F1 = nullptr;
+  for (User *U : Arg6->users())
+    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      if (GEPI->getNumOperands() != 3)
+        continue;
+      if (GEPI->getPointerOperand() != Arg6)
+        continue;
+      auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+      if (!CI1 || !CI1->isZero())
+        continue;
+      auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2));
+      if (!CI2 || !CI2->isOne())
+        continue;
+      if (GEPI6F1)
+        return false;
+      GEPI6F1 = GEPI;
+    }
+  // Check that field 1 is a structure of 4 i64s.
+  if (!GEPI6F1 || !Is4i64Struct(GEPI6F1->getResultElementType()))
+    return false;
+  // Check that there are no writes in the basic blocks preceding the
+  // block containing 'GEPI6F1', and that any basic blocks that escape
+  // are blocks with no successors which also have no writes. In the above
+  // IR, block 598 is an escape block.
+  SmallPtrSet<BasicBlock *, 5> BBPred;
+  SmallPtrSet<BasicBlock *, 5> BBEsc;
+  BasicBlock *BBRoot = GEPI6F1->getParent();
+  if (BBRoot->getFirstNonPHI() != GEPI6F1)
+    return false;
+  FindPredBBs(BBRoot, BBPred);
+  for (BasicBlock *BB : BBPred) {
+    if (BB == BBRoot)
+      continue;
+    if (MayHaveWrite(BB))
+      return false;
+    // Check that any basic block that escapes returns and has no writes.
+    for (BasicBlock *BBS : successors(BB)) {
+      if (BBPred.count(BBS))
+        continue;
+      if (!isa<ReturnInst>(BBS->getTerminator()))
+        return false;
+      if (MayHaveWrite(BBS))
+        return false;
+    }
+  }
+  // Check that the bssic block containing 'GEPI6F1' starts with assignments
+  // of various argumemts of 'BaseF' ('ArgsToCheck') to the field pointed to
+  // by 'GEPI6F1'.
+  if (!isa<PHINode>(GEPI6F1->getPrevNonDebugInstruction()))
+    return false;
+  SmallPtrSet<Argument *, 4> ArgsToCheck;
+  auto SI0 = dyn_cast_or_null<StoreInst>(GEPI6F1->getNextNonDebugInstruction());
+  if (!SI0 || SI0->getPointerOperand() != GEPI6F1)
+    return false;
+  auto Arg = dyn_cast<Argument>(SI0->getValueOperand());
+  if (!Arg)
+    return false;
+  ArgsToCheck.insert(Arg);
+  Instruction *II = SI0->getNextNonDebugInstruction();
+  unsigned Offset = 8;
+  for (unsigned I = 0; I < 3; ++I) {
+    auto GEPI = dyn_cast_or_null<GetElementPtrInst>(II);
+    if (!GEPI || GEPI->getNumOperands() != 2 ||
+        GEPI->getPointerOperand() != GEPI6F1)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+    if (!CI || CI->getZExtValue() != Offset)
+      return false;
+    auto SI = dyn_cast_or_null<StoreInst>(GEPI->getNextNonDebugInstruction());
+    if (!SI || SI->getPointerOperand() != GEPI)
+      return false;
+    auto Arg = dyn_cast<Argument>(SI->getValueOperand());
+    if (!Arg)
+      return false;
+    ArgsToCheck.insert(Arg);
+    II = SI->getNextNonDebugInstruction();
+    Offset += 8;
+  }
+  // Check that each of the actual arguments in the call to 'BaseF' is
+  // either an argument in the wrapper function or a constant integer.
+  for (auto Arg : ArgsToCheck) {
+    Value *V = WrapperCB->getArgOperand(Arg->getArgNo());
+    if (!isa<Argument>(V) && !isa<ConstantInt>(V))
+      return false;
+  }
+  return true;
 }
 
 //
@@ -5193,6 +5491,12 @@ bool PredicateOpt::attemptPredicateOpt() {
                     << "LIRestrict: " << (LIRestrict ? "T" : "F") << "\n");
   if (!LIRestrict)
     return false;
+  if (!isRestrictVarHoistablePastWrapperF(BaseF, LIRestrict))
+    return false;
+  LLVM_DEBUG(dbgs() << "MRC RestrictVarHoistablePastWrapperF\n");
+  if (!isBaseFArg6FieldHoistable(BaseF))
+    return false;
+  LLVM_DEBUG(dbgs() << "MRC BaseFArg6FieldHoistable\n");
   std::set<unsigned> HoistYes, HoistNo;
   bool IsHoistable = findHoistableFields(BaseF, LIRestrict, HoistYes, HoistNo);
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "

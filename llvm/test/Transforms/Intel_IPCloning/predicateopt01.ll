@@ -8,6 +8,8 @@
 ; CHECK: Selected many recursive calls predicate opt
 ; CHECK: MRC Predicate Opt: Loops: 5
 ; CHECK: MRC Predicate Opt: LIRestrict: T
+; CHECK: MRC RestrictVarHoistablePastWrapperF
+; CHECK: MRC BaseFArg6FieldHoistable
 ; CHECK: MRC PredicateOpt: HoistYes: {0,1,3,6,7,14,15,16}
 ; CHECK: MRC PredicateOpt: HoistNo: {18,21}
 ; CHECK: MRC Predicate Opt: Hoistable: T

@@ -946,15 +946,20 @@ bool Pattern::parsePattern(StringRef PatternStr, StringRef Prefix,
   // Ignore ;INTEL at the end of the line.  We allow this specially for
   // marking CHECK lines where some other INTEL_CUSTOMIZATION needed
   // to cause the unit test to be changed.
-  StringRef IntelCommentString = StringRef(";INTEL");
-  if (PatternStr.endswith(IntelCommentString)) {
+  StringRef IntelCommentString = StringRef("INTEL");
+  if (PatternStr.endswith(IntelCommentString) &&
+      PatternStr.substr(0, PatternStr.size() - IntelCommentString.size())
+          .rtrim(' ')
+          .endswith(";")) {
+
     PatternStr = PatternStr.drop_back(IntelCommentString.size());
 
     // After matching this we once again have to remove trailing whitespace
-    // if there is any.
+    // if there is any. Skipping ';'
     while (!PatternStr.empty() &&
-           (PatternStr.back() == ' ' || PatternStr.back() == '\t'))
-      PatternStr = PatternStr.substr(0, PatternStr.size()-1);
+           (PatternStr.back() == ' ' || PatternStr.back() == '\t' ||
+            PatternStr.back() == ';'))
+      PatternStr = PatternStr.substr(0, PatternStr.size() - 1);
   }
 #endif // INTEL_CUSTOMIZATION
 

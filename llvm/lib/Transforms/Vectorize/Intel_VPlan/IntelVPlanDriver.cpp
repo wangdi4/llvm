@@ -1730,61 +1730,65 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   preprocessPrivateFinalCondInstructions(Plan);
 
+  if (DisableCodeGen)
+    return bailout(VPORBuilder, Lp, OptReportVerbosity::High, BailoutRemarkID,
+                   "Code generation is disabled.");
+
   bool ModifiedLoop = false;
-  bool CGHandledLoop = false;
-  if (!DisableCodeGen) {
-    RegDDRef *PeelArrayRef = nullptr;
-    VPlanIdioms::Opcode SearchLoopOpcode =
-        VPlanIdioms::isSearchLoop(Plan, true, PeelArrayRef);
-    VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
-                           ORBuilder, &HIRVecLegal, SearchLoopOpcode,
-                           PeelArrayRef, IsOmpSIMD, MCFGI, LVP.getLoopDescrs());
-    CGHandledLoop = VCodeGen.loopIsHandled(Lp, VF);
-    bool CanLowerPlan = CGHandledLoop && LVP.canLowerVPlan(*Plan, VF);
-    bool LoopIsHandled = VF != 1 && CanLowerPlan;
-    VCodeGen.setTreeConflictsLowered(TreeConflictsLowered);
+  RegDDRef *PeelArrayRef = nullptr;
+  VPlanIdioms::Opcode SearchLoopOpcode =
+      VPlanIdioms::isSearchLoop(Plan, true, PeelArrayRef);
+  VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
+                         ORBuilder, &HIRVecLegal, SearchLoopOpcode,
+                         PeelArrayRef, IsOmpSIMD, MCFGI, LVP.getLoopDescrs());
 
-    // Erase intrinsics before and after the loop if we either vectorized the
-    // loop or if this loop is an auto vectorization candidate. SIMD Intrinsics
-    // are left around for loops that are not vectorized.
-    if (LoopIsHandled || WRLp->getIsAutoVec())
+  if (!VCodeGen.loopIsHandled(Lp, VF)) {
+    // We erase intrinsics before and after the loop if we either vectorize
+    // the loop or if this loop is an auto-vectorization candidates.  SIMD
+    // intrinsics are left around for loops that are not vectorized.
+    if (WRLp->getIsAutoVec())
       eraseLoopIntrins(Lp, WRLp);
-
-    if (LoopIsHandled) {
-      CandLoopsVectorized++;
-      // When CFG merger is not enabled run unroller here.
-      if (LVP.mergerVPlans().empty())
-        LVP.unroll(*cast<VPlanNonMasked>(Plan));
-      if (LVP.executeBestPlan(&VCodeGen, UF)) {
-        ModifiedLoop = true;
-        // Use HLLoop based opt-report generation for non-merged CFG-based CG.
-        // TODO: Drop this when merged CFG-based CG is used by default.
-        if (LVP.mergerVPlans().empty())
-          VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
-              WRLp, VPORBuilder, &VCodeGen);
-        // Mark loops with "vectorize.enable" metadata as "isvectorized" so that
-        // WarnMissedTransforms pass will not complain that this loop is not
-        // vectorized. We also tag the main vector loop based on
-        // simd/auto-vectorization scenarios. This tag will be reflected in
-        // downstream HIR dumps.
-        if (IsOmpSIMD) {
-          setHLLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
-          VCodeGen.setIsVecMDForHLLoops();
-        }
-      }
-    }
+    auto &CGBD = VCodeGen.getBailoutData();
+    assert(CGBD.BailoutID && "loopIsHandled did not set bailout data!");
+    return bailout(VPORBuilder, Lp, CGBD.BailoutLevel, CGBD.BailoutID,
+                   CGBD.BailoutMessage);
   }
 
-  // Emit opt report remark if a VPlan candidate loop was not vectorized.
-  if (!ModifiedLoop) {
-    if (CGHandledLoop) {
-      auto &LVPBD = LVP.getBailoutData();
-      assert(LVPBD.BailoutID && "canLowerVPlan did not set bailout data!");
-      return bailout(VPORBuilder, Lp, LVPBD.BailoutLevel, LVPBD.BailoutID,
-                     LVPBD.BailoutMessage);
-    } else
-      return bailout(VPORBuilder, Lp, OptReportVerbosity::High, BailoutRemarkID,
-                     "Code generation is disabled.");
+  if (!LVP.canLowerVPlan(*Plan, VF) || VF == 1) {
+    // Likewise.
+    if (WRLp->getIsAutoVec())
+      eraseLoopIntrins(Lp, WRLp);
+    auto &LVPBD = LVP.getBailoutData();
+    assert(LVPBD.BailoutID && "Planner did not set bailout data!");
+    return bailout(VPORBuilder, Lp, LVPBD.BailoutLevel, LVPBD.BailoutID,
+                   LVPBD.BailoutMessage);
+  }
+
+  VCodeGen.setTreeConflictsLowered(TreeConflictsLowered);
+
+  // We're vectorizing, so remove loop intrinsics.
+  eraseLoopIntrins(Lp, WRLp);
+  CandLoopsVectorized++;
+
+  // When CFG merger is not enabled run unroller here.
+  if (LVP.mergerVPlans().empty())
+    LVP.unroll(*cast<VPlanNonMasked>(Plan));
+  if (LVP.executeBestPlan(&VCodeGen, UF)) {
+    ModifiedLoop = true;
+    // Use HLLoop based opt-report generation for non-merged CFG-based CG.
+    // TODO: Drop this when merged CFG-based CG is used by default.
+    if (LVP.mergerVPlans().empty())
+      VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
+          WRLp, VPORBuilder, &VCodeGen);
+    // Mark loops with "vectorize.enable" metadata as "isvectorized" so that
+    // WarnMissedTransforms pass will not complain that this loop is not
+    // vectorized. We also tag the main vector loop based on
+    // simd/auto-vectorization scenarios. This tag will be reflected in
+    // downstream HIR dumps.
+    if (IsOmpSIMD) {
+      setHLLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
+      VCodeGen.setIsVecMDForHLLoops();
+    }
   }
 
   return ModifiedLoop;

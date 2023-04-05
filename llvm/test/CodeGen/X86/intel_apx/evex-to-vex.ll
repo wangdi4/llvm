@@ -13,9 +13,7 @@ define void @test_x86_vcvtps2ph_256_m(ptr nocapture %d, <8 x float> %a) nounwind
 ; CHECK-NEXT:    pushq %r12 # encoding: [0x41,0x54]
 ; CHECK-NEXT:    pushq %rbx # encoding: [0x53]
 ; CHECK-NEXT:    movq %rdi, %r16 # encoding: [0xd5,0x18,0x89,0xf8]
-; CHECK-NEXT:    movl (%rdi), %r17d # encoding: [0xd5,0x40,0x8b,0x0f]
 ; CHECK-NEXT:    #APP
-; CHECK-NEXT:    movl %eax, %r17d # encoding: [0xd5,0x10,0x89,0xc1]
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vcvtps2ph $3, %ymm0, (%r16) # encoding: [0x62,0xfb,0x7d,0x28,0x1d,0x00,0x03]
 ; CHECK-NEXT:    popq %rbx # encoding: [0x5b]
@@ -28,7 +26,7 @@ define void @test_x86_vcvtps2ph_256_m(ptr nocapture %d, <8 x float> %a) nounwind
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
   %0 = load i32, ptr %d, align 4
-  call void asm sideeffect "movl %eax, $0", "r,~{eax},~{ebx},~{ecx},~{edx},~{edi},~{esi},~{ebp},~{esp},~{r8d},~{r9d},~{r10d},~{r11d},~{r12d},~{r13d},~{r14d},~{r15d},~{dirflag},~{fpsr},~{flags}"(i32 %0)
+  call void asm sideeffect "", "~{eax},~{ebx},~{ecx},~{edx},~{edi},~{esi},~{ebp},~{esp},~{r8d},~{r9d},~{r10d},~{r11d},~{r12d},~{r13d},~{r14d},~{r15d},~{dirflag},~{fpsr},~{flags}"()
   %1 = tail call <8 x i16> @llvm.x86.vcvtps2ph.256(<8 x float> %a, i32 3)
   store <8 x i16> %1, ptr %d, align 16
   ret void
