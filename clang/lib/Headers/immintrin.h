@@ -713,11 +713,8 @@ _rdpid_u32(void) {
 
 /* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-<<<<<<< HEAD
     defined(__RDRND__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
-=======
-    defined(__RDRND__)
 /// Returns a 16-bit hardware-generated random value.
 ///
 /// \headerfile <immintrin.h>
@@ -727,7 +724,6 @@ _rdpid_u32(void) {
 /// \param __p
 ///    A pointer to a 16-bit memory location to place the random value.
 /// \returns 1 if the value was successfully generated, 0 otherwise.
->>>>>>> a82170fa41ca9756b0f67d0ed015adef325e8921
 static __inline__ int __attribute__((__always_inline__, __nodebug__, __target__("rdrnd")))
 _rdrand16_step(unsigned short *__p)
 {
