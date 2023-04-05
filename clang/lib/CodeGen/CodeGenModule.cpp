@@ -2977,7 +2977,7 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
 
 void CodeGenModule::SetTargetRegionFunctionAttributes(llvm::Function *Fn) {
   if (Fn && getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
-      inTargetRegion())
+      inTargetRegion() && getOpenMPRuntime().getShouldMarkAsGlobal())
     Fn->addFnAttr("openmp-target-declare", "true");
 }
 
