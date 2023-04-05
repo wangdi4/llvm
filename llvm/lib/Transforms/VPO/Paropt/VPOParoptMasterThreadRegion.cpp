@@ -55,7 +55,61 @@ static bool isGuardedByThreadCheck(const Instruction *I) {
   return I->hasMetadata(GuardedByThreadCheckMDStr);
 }
 
-bool llvm::vpo::needsMasterThreadGuard(const Instruction *I) {
+/// If \p I writes to thread-local memory, returns a pointer to the memory
+/// written to.
+///
+/// Otherwise, returns nullptr.
+static Value *privateStorePointerOperand(Instruction *I) {
+
+  // Handle normal stores.
+  if (auto *const StoreI = dyn_cast<StoreInst>(I)) {
+    Value *StorePointer = StoreI->getPointerOperand();
+    Value *RootPointer = StorePointer->stripInBoundsOffsets();
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Store op::" << *StorePointer
+                      << "\n");
+
+    if (cast<PointerType>(StorePointer->getType())->getAddressSpace() ==
+            vpo::ADDRESS_SPACE_PRIVATE ||
+        cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
+            vpo::ADDRESS_SPACE_PRIVATE)
+      return RootPointer;
+    return nullptr;
+  }
+
+  if (auto *const CallI = dyn_cast<CallInst>(I)) {
+
+    // Handle memcpy/memmove/memset.
+    if (auto *const II = dyn_cast<AnyMemIntrinsic>(CallI)) {
+      Value *Arg0 = II->getArgOperand(0)->stripPointerCasts();
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Destination operand::" << *Arg0
+                        << "\n");
+      if (cast<PointerType>(Arg0->getType())->getAddressSpace() ==
+          vpo::ADDRESS_SPACE_PRIVATE)
+        return Arg0;
+      return nullptr;
+    }
+
+    // Handle calls with these function attributes which can behave like
+    // thread-local stores.
+    if (CallI->hasFnAttr("openmp-privatization-constructor") ||
+        CallI->hasFnAttr("openmp-privatization-destructor") ||
+        CallI->hasFnAttr("openmp-privatization-copyconstructor") ||
+        CallI->hasFnAttr("openmp-privatization-copyassign")) {
+      Value *CheckArgument = CallI->getArgOperand(0);
+      Value *RootPointer = CheckArgument->stripInBoundsOffsets();
+      if (cast<PointerType>(CheckArgument->getType())->getAddressSpace() ==
+              vpo::ADDRESS_SPACE_PRIVATE ||
+          cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
+              vpo::ADDRESS_SPACE_PRIVATE)
+        return RootPointer;
+    }
+    return nullptr;
+  }
+
+  return nullptr;
+}
+
+bool llvm::vpo::needsMasterThreadGuard(Instruction *I) {
 
   // Instructions without side-effects do not need master thread guards.
   if (!I->mayThrow() && !I->mayWriteToMemory())
@@ -89,56 +143,25 @@ bool llvm::vpo::needsMasterThreadGuard(const Instruction *I) {
   if (isGuardedByThreadCheck(I))
     return false;
 
-  if (auto II = dyn_cast<IntrinsicInst>(I)) {
-    if (II->getIntrinsicID() == Intrinsic::memcpy) {
-      auto Arg0 = II->getArgOperand(0)->stripPointerCasts();
-      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Destination operand::" << *Arg0
-                        << "\n");
-      if (cast<PointerType>(Arg0->getType())->getAddressSpace() !=
-          vpo::ADDRESS_SPACE_PRIVATE)
-        return true;
-    }
-    return false;
-  }
-
-  if (auto CallI = dyn_cast<CallInst>(I)) {
+  if (const auto *const CallI = dyn_cast<CallInst>(I)) {
     // Unprototyped function calls may result in a call of a bitcasted
     // Function.
-    auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
+    const auto *const CalledF = CallI->getCalledOperand()->stripPointerCasts();
     assert(CalledF != nullptr && "Called Function not found.");
     if (CalledF->hasName() &&
         IgnoreCalls.contains(std::string(CalledF->getName())))
       return false;
 
-    if (CallI->hasFnAttr("openmp-privatization-constructor") ||
-        CallI->hasFnAttr("openmp-privatization-destructor") ||
-        CallI->hasFnAttr("openmp-privatization-copyconstructor") ||
-        CallI->hasFnAttr("openmp-privatization-copyassign")) {
-      const Value *CheckArgument = CallI->getArgOperand(0);
-      const Value *RootPointer = CheckArgument->stripInBoundsOffsets();
-      if (cast<PointerType>(CheckArgument->getType())->getAddressSpace() ==
-              vpo::ADDRESS_SPACE_PRIVATE ||
-          cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
-              vpo::ADDRESS_SPACE_PRIVATE)
-        return false;
-    }
-  } else if (auto StoreI = dyn_cast<StoreInst>(I)) {
-    const Value *StorePointer = StoreI->getPointerOperand();
-    const Value *RootPointer = StorePointer->stripInBoundsOffsets();
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Store op::" << *StorePointer
-                      << "\n");
-
-    // We must not guard stores through private pointers. The store must
-    // happen in each work item, so that the variable is initialized
-    // in each work item. For values privatized as local allocas RootPointer
-    // will be the AllocaInst with private address space, so there is no need
-    // for special handling of the regions' private values.
-    if (cast<PointerType>(StorePointer->getType())->getAddressSpace() ==
-            vpo::ADDRESS_SPACE_PRIVATE ||
-        cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
-            vpo::ADDRESS_SPACE_PRIVATE)
+    // Intrinsics besides memory intrinsics cannot have non-thread-local
+    // side-effects and so don't need to be guarded.
+    if (isa<IntrinsicInst>(CallI) && !isa<AnyMemIntrinsic>(CallI))
       return false;
   }
+
+  // Instructions which only write to thread-local memory do not need to be
+  // guarded.
+  if (privateStorePointerOperand(I))
+    return false;
 
   return true;
 }

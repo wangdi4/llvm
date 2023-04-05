@@ -46,7 +46,7 @@ namespace vpo {
 ///   allocating locally in the thread.
 /// * \p I has already been marked as being executed under its own master thread
 ///   check.
-bool needsMasterThreadGuard(const Instruction *I);
+bool needsMasterThreadGuard(Instruction *I);
 
 /// Inserts a work group barrier before \p InsertPt.
 ///
