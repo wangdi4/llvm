@@ -495,6 +495,8 @@ __esimd_dpas_bits_precision(__ESIMD_XMX_NS::dpas_argument_type precisionType) {
          /* INTEL_CUSTOMIZATION */
          /* INTEL_FEATURE_ESIMD_EMBARGO */
          : precisionType == __ESIMD_XMX_NS::dpas_argument_type::df ? 64
+         : precisionType == __ESIMD_XMX_NS::dpas_argument_type::hf8 ? 8
+         : precisionType == __ESIMD_XMX_NS::dpas_argument_type::bf8 ? 8
          /* end INTEL_FEATURE_ESIMD_EMBARGO */
          /* end INTEL_CUSTOMIZATION */
          : precisionType == __ESIMD_XMX_NS::dpas_argument_type::bf16 ||

@@ -735,6 +735,7 @@ public:
     OMPBuilder.OffloadInfoManager.updateDeviceGlobalVarEntryInfoAddr(Name,
                                                                      Addr);
   }
+  bool getShouldMarkAsGlobal() const { return ShouldMarkAsGlobal; }
 #endif // INTEL_COLLAB
 
   /// Returns true if the current target is a GPU.

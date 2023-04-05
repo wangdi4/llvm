@@ -52,13 +52,22 @@ __SYCL_INLINE_VER_NAMESPACE(_V1) {
     // Explicit conversion functions
     static storage_t from_float(const float &a) {
       uint32_t tmp_uint = sycl::bit_cast<uint32_t>(a);
+      int32_t Exponent = (tmp_uint & 0x7f800000) >> 23;
+      if (Exponent != 0) {
+        Exponent -= 127;
+        // Normalize exponent for bf8
+        Exponent = Exponent < -15 || Exponent > 15 ? 31 : Exponent + 15;
+      }
       storage_t Result = ((tmp_uint & 0x80000000) >> (31 - 7)) |
-                         ((tmp_uint & 0x7c000000) >> (31 - 7)) |
+                         ((Exponent & 0x1f) << 2) |
                          ((tmp_uint & 0x600000) >> (23 - 2));
       return Result;
     }
     static float to_float(const storage_t &a) {
-      uint32_t Result = ((a & 0x3) << (23 - 2)) | ((a & 0x7c) << (31 - 7)) |
+      // Normalize the bf8 exponent for float
+      int32_t Exponent = ((a & 0x7c) >> 2);
+      Exponent = Exponent == 0 ? 0 : Exponent - 15 + 127;
+      uint32_t Result = ((a & 0x3) << (23 - 2)) | ((Exponent & 0xff) << 23) |
                         ((a & 0x80) << (31 - 7));
       return sycl::bit_cast<float>(Result);
     }

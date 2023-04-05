@@ -413,14 +413,21 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/docs/Intel/VPO/ @sguggill @skozhukh @mamasten @offsake
 /llvm/include/llvm/IR/Intel_SVML.td @mamasten @skozhukh @karthik-senthil
 /llvm/include/llvm/Transforms/Vectorize/ @sguggill @skozhukh @mamasten @offsake
+/llvm/include/llvm/Transforms/Vectorize.h @sguggill @skozhukh @mamasten @offsake
+/llvm/include/llvm/Analysis/VectorUtils.h @mamasten @skozhukh @sguggill @karthik-senthil
+/llvm/include/llvm/Analysis/VecFuncs.def @sguggill @skozhukh @karthik-senthil @mamasten
+/llvm/lib/Analysis/VFABIDemangling.cpp @sguggill @skozhukh @karthik-senthil @mamasten
+/llvm/lib/Analysis/VectorUtils.cpp @mamasten @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Transforms/Intel_VPO/Vecopt/VPODirectiveCleanup.cpp @sguggill @skozhukh @mamasten @offsake @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/include/llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h @sguggill @skozhukh @mamasten @offsake @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/lib/Transforms/Vectorize/ @sguggill @skozhukh @mamasten @offsake
 /llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @skozhukh @mamasten @offsake
 /llvm/test/Transforms/Intel_VPO/Vecopt/optreport/ @karthik-senthil @speryt @skozhukh
 /llvm/test/Transforms/LoopVectorize/ @sguggill @skozhukh @mamasten @offsake
+/llvm/test/Transforms/Util/*TLI-mappings* @sguggill @skozhukh @mamasten @offsake
 /llvm/unittests/Analysis/VectorFunctionABITest.cpp @sguggill @skozhukh @mamasten @offsake
 /llvm/unittests/Transforms/Vectorize/ @sguggill @skozhukh @mamasten @offsake
+/llvm/unittests/Transforms/Utils/VFABIUtils.cpp @sguggill @skozhukh @karthik-senthil @mamasten
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR @sguggill @skozhukh @karthik-senthil @mamasten
 
 # VPO vectorizer file based code owner overrides
@@ -558,7 +565,6 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Analysis/CFG.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/ScalarEvolutionDivision.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/StackLifetime.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/include/llvm/Analysis/VectorUtils.h @mamasten @skozhukh @sguggill @karthik-senthil
 /llvm/include/llvm/Analysis/CFGPrinter.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/IVUsers.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Analysis/RegionIterator.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -745,7 +751,6 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Analysis/DependenceGraphBuilder.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/DependenceAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/ScalarEvolutionDivision.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
-/llvm/lib/Analysis/VectorUtils.cpp @mamasten @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Analysis/VFABIDemangling.cpp @mamasten @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Analysis/MemorySSAUpdater.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/RegionPass.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -766,6 +771,8 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Analysis/BasicAliasAnalysis.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/InstructionPrecedenceTracking.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Analysis/ConstraintSystem.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/lib/Transforms/Utils/InjectTLIMappings.cpp @sguggill @skozhukh @karthik-senthil @mamasten
+/llvm/include/llvm/Transforms/Utils/InjectTLIMappings.h @sguggill @skozhukh @karthik-senthil @mamasten
 
 # Scalar Optimizer Tests
 /llvm/test/Analysis/AliasSet/ @tcreech-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
