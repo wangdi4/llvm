@@ -136,6 +136,7 @@ add_llvm_component_library(LLVMSYCLLowerIR
   ESIMD/LowerESIMDVecArg.cpp
   ESIMD/LowerESIMDVLoadVStore.cpp
   ESIMD/LowerESIMDSlmReservation.cpp
+  HostPipes.cpp
   LowerInvokeSimd.cpp
   LowerKernelProps.cpp
   LowerWGLocalMemory.cpp
