@@ -183,7 +183,7 @@ def POP64rmr: I<0x8F, MRM0r, (outs GR64:$reg), (ins), "pop{q}\t$reg", []>,
 def POP2: I<0x8F, MRM0rImmAAA, (outs GR64:$reg1, GR64:$reg2),
             (ins u1imm:$imm1, u2imm:$imm2),
             "pop2\t{$imm2, $reg1, $reg2, $imm1|$imm1, $reg2, $reg1, $imm2}",
-	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS, NotMemoryFoldable;
+	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 } // mayLoad, SchedRW
@@ -203,7 +203,7 @@ def PUSH64rmr: I<0xFF, MRM6r, (outs), (ins GR64:$reg), "push{q}\t$reg", []>,
 def PUSH2: I<0xFF, MRM6rImmAAA, (outs),
             (ins GR64:$reg1, GR64:$reg2, u1imm:$imm1, u2imm:$imm2),
             "push2\t{$imm1, $reg1, $reg2, $imm2|$imm2, $reg2, $reg1, $imm1}",
-	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS, NotMemoryFoldable;
+	    []>, OpSize32, EVEX_4V, EVEX_B, T_MAP4PS;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 } // mayStore, SchedRW
