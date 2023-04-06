@@ -230,16 +230,6 @@ static bool mayFoldFromForm(uint8_t Form) {
   }
 }
 
-<<<<<<< HEAD
-// Return true if the instruction defined as a memory flavor.
-static inline bool hasMemoryFormat(const Record *Inst) {
-  const BitsInit *FormBits = Inst->getValueAsBitsInit("FormBits");
-  uint64_t FormBitsNum = getValueFromBitsInit(FormBits);
-
-  // Values from X86Local namespace defined in X86RecognizableInstr.cpp
-  return FormBitsNum >= X86Local::MRMSrcMem4VOp3FSIB // INTEL
-         && FormBitsNum <= X86Local::MRM7m;          // INTEL
-=======
 static bool mayFoldToForm(uint8_t Form) {
   switch (Form) {
   default:
@@ -253,7 +243,6 @@ static bool mayFoldToForm(uint8_t Form) {
   case X86Local::MRMSrcMemCC:
     return true;
   }
->>>>>>> 211f1d2bb8b753f7068d17b3939d1c59b60e838c
 }
 
 static bool mayFoldFromLeftToRight(uint8_t LHS, uint8_t RHS) {
