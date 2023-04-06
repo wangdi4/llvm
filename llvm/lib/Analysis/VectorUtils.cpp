@@ -457,6 +457,7 @@ Value *llvm::stripGetElementPtr(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
   return GEP->getOperand(InductionOperand);
 }
 
+<<<<<<< HEAD
 /// If a value has only one user that is a CastInst, return it.
 Value *llvm::getUniqueCastUse(Value *Ptr, Loop *Lp, Type *Ty) {
   Value *UniqueCast = nullptr;
@@ -562,6 +563,8 @@ Value *llvm::getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
   return Stride;
 }
 
+=======
+>>>>>>> 800a99c4f4eb34f5a7b450a1bf33839233bcc511
 /// Given a vector and an element number, see if the scalar value is
 /// already around as a register, for example if it were inserted then extracted
 /// from the vector.
