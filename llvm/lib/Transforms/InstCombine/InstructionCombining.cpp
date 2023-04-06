@@ -1504,6 +1504,8 @@ Instruction *InstCombinerImpl::foldBinOpIntoSelectOrPhi(BinaryOperator &I) {
   return nullptr;
 }
 
+
+#if INTEL_CUSTOMIZATION
 /// Given a pointer type and a constant offset, determine whether or not there
 /// is a sequence of GEP indices into the pointed type that will land us at the
 /// specified offset. If so, fill them into NewIndices and return the resultant
@@ -1525,6 +1527,7 @@ static Type *findElementAtOffset(PointerType *PtrTy, int64_t IntOffset,
     NewIndices.push_back(ConstantInt::get(PtrTy->getContext(), Index));
   return Ty;
 }
+#endif // INTEL_CUSTOMIZATION
 
 static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
   // If this GEP has only 0 indices, it is the same pointer as
@@ -2496,6 +2499,7 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
 // Note that we may have also stripped an address space cast in between.
 Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
                                                  GetElementPtrInst &GEP) {
@@ -2601,7 +2605,6 @@ Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
   return nullptr;
 }
 
-#if INTEL_CUSTOMIZATION
 // Transform:
 // %V = mul i64 %N, 4
 // %gep = getelementptr i8, ptr %p, i64 %V
@@ -3093,6 +3096,7 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
   // addrspacecast between types is canonicalized as a bitcast, then an
   // addrspacecast. To take advantage of the below bitcast + struct GEP, look
   // through the addrspacecast.
@@ -3109,6 +3113,7 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   if (auto *BCI = dyn_cast<BitCastInst>(ASCStrippedPtrOp))
     if (Instruction *I = visitGEPOfBitcast(BCI, GEP))
       return I;
+#endif // INTEL_CUSTOMIZATION
 
   if (!GEP.isInBounds()) {
     unsigned IdxWidth =
