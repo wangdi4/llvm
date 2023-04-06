@@ -90,9 +90,14 @@ define i1 @trunc_v6i32_v6i1(<6 x i32>) {
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpslld $31, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0x72,0xf0,0x1f]
 ; AVX512-NEXT:    vpmovd2m %ymm0, %k0 # encoding: [0x62,0xf2,0x7e,0x28,0x39,0xc0]
+; AVX512-NEXT:    kshiftrb $4, %k0, %k1 # encoding: [0xc4,0xe3,0x79,0x30,0xc8,0x04]
+; AVX512-NEXT:    korw %k1, %k0, %k1 # encoding: [0xc5,0xfc,0x45,0xc9]
+; AVX512-NEXT:    kshiftrb $2, %k0, %k0 # encoding: [0xc4,0xe3,0x79,0x30,0xc0,0x02]
+; AVX512-NEXT:    korw %k0, %k1, %k0 # encoding: [0xc5,0xf4,0x45,0xc0]
+; AVX512-NEXT:    kshiftrb $1, %k0, %k1 # encoding: [0xc4,0xe3,0x79,0x30,0xc8,0x01]
+; AVX512-NEXT:    korw %k1, %k0, %k0 # encoding: [0xc5,0xfc,0x45,0xc1]
 ; AVX512-NEXT:    kmovd %k0, %eax # encoding: [0xc5,0xfb,0x93,0xc0]
-; AVX512-NEXT:    testb $63, %al # encoding: [0xa8,0x3f]
-; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
+; AVX512-NEXT:    # kill: def $al killed $al killed $eax
 ; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = trunc <6 x i32> %0 to <6 x i1>
