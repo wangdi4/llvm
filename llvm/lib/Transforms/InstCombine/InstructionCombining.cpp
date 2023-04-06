@@ -1504,28 +1504,6 @@ Instruction *InstCombinerImpl::foldBinOpIntoSelectOrPhi(BinaryOperator &I) {
   return nullptr;
 }
 
-/// Given a pointer type and a constant offset, determine whether or not there
-/// is a sequence of GEP indices into the pointed type that will land us at the
-/// specified offset. If so, fill them into NewIndices and return the resultant
-/// element type, otherwise return null.
-static Type *findElementAtOffset(PointerType *PtrTy, int64_t IntOffset,
-                                 SmallVectorImpl<Value *> &NewIndices,
-                                 const DataLayout &DL) {
-  // Only used by visitGEPOfBitcast(), which is skipped for opaque pointers.
-  Type *Ty = PtrTy->getNonOpaquePointerElementType();
-  if (!Ty->isSized())
-    return nullptr;
-
-  APInt Offset(DL.getIndexTypeSizeInBits(PtrTy), IntOffset);
-  SmallVector<APInt> Indices = DL.getGEPIndicesForOffset(Ty, Offset);
-  if (!Offset.isZero())
-    return nullptr;
-
-  for (const APInt &Index : Indices)
-    NewIndices.push_back(ConstantInt::get(PtrTy->getContext(), Index));
-  return Ty;
-}
-
 static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
   // If this GEP has only 0 indices, it is the same pointer as
   // Src. If Src is not a trivial GEP too, don't combine
@@ -2496,6 +2474,7 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   return nullptr;
 }
 
+<<<<<<< HEAD
 // Note that we may have also stripped an address space cast in between.
 Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
                                                  GetElementPtrInst &GEP) {
@@ -2679,6 +2658,8 @@ InstCombinerImpl::convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP) {
   return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> cf9f1a82036cbcbc6c6aaad86ebd5b42e3dda8c3
 Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   Value *PtrOp = GEP.getOperand(0);
   SmallVector<Value *, 8> Indices(GEP.indices());
@@ -3092,23 +3073,6 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       }
     }
   }
-
-  // addrspacecast between types is canonicalized as a bitcast, then an
-  // addrspacecast. To take advantage of the below bitcast + struct GEP, look
-  // through the addrspacecast.
-  Value *ASCStrippedPtrOp = PtrOp;
-  if (auto *ASC = dyn_cast<AddrSpaceCastInst>(PtrOp)) {
-    //   X = bitcast A addrspace(1)* to B addrspace(1)*
-    //   Y = addrspacecast A addrspace(1)* to B addrspace(2)*
-    //   Z = gep Y, <...constant indices...>
-    // Into an addrspacecasted GEP of the struct.
-    if (auto *BC = dyn_cast<BitCastInst>(ASC->getOperand(0)))
-      ASCStrippedPtrOp = BC;
-  }
-
-  if (auto *BCI = dyn_cast<BitCastInst>(ASCStrippedPtrOp))
-    if (Instruction *I = visitGEPOfBitcast(BCI, GEP))
-      return I;
 
   if (!GEP.isInBounds()) {
     unsigned IdxWidth =
