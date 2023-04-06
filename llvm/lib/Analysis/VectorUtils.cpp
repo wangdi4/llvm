@@ -457,7 +457,7 @@ Value *llvm::stripGetElementPtr(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
   return GEP->getOperand(InductionOperand);
 }
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
 /// If a value has only one user that is a CastInst, return it.
 Value *llvm::getUniqueCastUse(Value *Ptr, Loop *Lp, Type *Ty) {
   Value *UniqueCast = nullptr;
@@ -475,13 +475,11 @@ Value *llvm::getUniqueCastUse(Value *Ptr, Loop *Lp, Type *Ty) {
 
 /// Get the stride of a pointer access in a loop. Looks for symbolic
 /// strides "a[i*stride]". Returns the symbolic stride, or null otherwise.
-#if INTEL_CUSTOMIZATION
 /// This function was modified to also return constant strides for the purpose
 /// of analyzing call arguments (specifically, sincos calls) in order to
 /// generate more efficient stores to memory. Previously, this function only
 /// returned loop invariant symbolic strides for loop versioning. This expands
 /// the functionality of this function to a broader set of applications.
-#endif // INTEL_CUSTOMIZATION
 Value *llvm::getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
   auto *PtrTy = dyn_cast<PointerType>(Ptr->getType());
   if (!PtrTy || PtrTy->isAggregateType())
@@ -538,13 +536,11 @@ Value *llvm::getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
     V = C->getOperand();
   }
 
-#if INTEL_CUSTOMIZATION
   // Look for constant stride.
   const SCEVConstant *C = dyn_cast<SCEVConstant>(V);
   if (C) {
     return C->getValue();
   }
-#endif // INTEL_CUSTOMIZATION
 
   // Look for the loop invariant symbolic value.
   const SCEVUnknown *U = dyn_cast<SCEVUnknown>(V);
@@ -562,9 +558,8 @@ Value *llvm::getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
 
   return Stride;
 }
+#endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 800a99c4f4eb34f5a7b450a1bf33839233bcc511
 /// Given a vector and an element number, see if the scalar value is
 /// already around as a register, for example if it were inserted then extracted
 /// from the vector.
