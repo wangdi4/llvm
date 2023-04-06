@@ -1,4 +1,4 @@
-//===--- ExpandReductions.cpp - Expand experimental reduction intrinsics --===//
+//===- ExpandReductions.cpp - Expand reduction intrinsics -----------------===//
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
