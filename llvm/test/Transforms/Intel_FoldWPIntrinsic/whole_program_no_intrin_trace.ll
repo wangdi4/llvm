@@ -8,20 +8,20 @@
 define i32 @main(i1 %val) {
 entry:
   %x = alloca i32, align 4
-  store i32 0, i32* %x, align 4
+  store i32 0, ptr %x, align 4
 
   br i1 %val, label %if.whpr, label %if.nowhpr
 
 if.whpr:
-  store i32 1, i32* %x
+  store i32 1, ptr %x
   br label %if.end
 
 if.nowhpr:
-  store i32 2, i32* %x
+  store i32 2, ptr %x
   br label %if.end
 
 if.end:
-  %retval = load i32, i32* %x, align 4
+  %retval = load i32, ptr %x, align 4
   ret i32 %retval
 }
 

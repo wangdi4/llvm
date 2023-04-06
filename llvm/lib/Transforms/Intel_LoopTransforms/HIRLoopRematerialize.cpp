@@ -533,41 +533,33 @@ bool SequenceChecker::preliminaryChecks(const unsigned II,
     unsigned LeadNumRefs = VecSeq[J].numRefs();
     unsigned LeadOpSize = VecSeq[J].opSize();
     // Instructions in the second initiation interval and so on.
-    for (unsigned K = J + II; K < VecSize; K += II) {
+    for (unsigned K = J + II; K < VecSize; K += II)
       // Every instance of a chunk must have the same nums of DDRefs
       if (VecSeq[K].size() != LeadSize || VecSeq[K].numRefs() != LeadNumRefs ||
-          VecSeq[K].opSize() != LeadOpSize) {
+          VecSeq[K].opSize() != LeadOpSize)
         return false;
-      }
-    }
   }
 
   // Kinds of opcodes sequence should be the same.
-  for (unsigned J = 0; J < II; J++) {
-    for (unsigned K = J; K + II < VecSize; K += II) {
-      bool IsSameOps =
-          std::equal(VecSeq[K].Opcodes.begin(), VecSeq[K].Opcodes.end(),
-                     VecSeq[K + II].Opcodes.begin());
-      if (!IsSameOps) {
+  for (unsigned J = 0; J < II; J++)
+    for (unsigned K = J; K + II < VecSize; K += II)
+      if (!std::equal(VecSeq[K].Opcodes.begin(), VecSeq[K].Opcodes.end(),
+                      VecSeq[K + II].Opcodes.begin(),
+                      VecSeq[K + II].Opcodes.end()))
         return false;
-      }
-    }
-  }
 
   // Make sure GepRefs have the same shape and the number of dimensions.
-  // Notice std::equal contains verifying the equal sizes of two containers
-  for (unsigned J = 0; J < II; J++) {
-    for (unsigned K = J; K + II < VecSize; K += II) {
+  for (unsigned J = 0; J < II; J++)
+    for (unsigned K = J; K + II < VecSize; K += II)
       if (!std::equal(VecSeq[K].MemRefs.begin(), VecSeq[K].MemRefs.end(),
                       VecSeq[K + II].MemRefs.begin(),
+                      VecSeq[K + II].MemRefs.end(),
                       [](const RegDDRef *R1, const RegDDRef *R2) {
                         return DDRefUtils::haveEqualBaseAndShape(R1, R2,
                                                                  false) &&
                                DDRefUtils::haveEqualOffsets(R1, R2);
                       }))
         return false;
-    }
-  }
 
   return true;
 }
