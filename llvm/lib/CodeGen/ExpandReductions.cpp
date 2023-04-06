@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-//===--- ExpandReductions.cpp - Expand experimental reduction intrinsics --===//
+//===- ExpandReductions.cpp - Expand reduction intrinsics -----------------===//
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
@@ -17,9 +16,6 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
-=======
-//===- ExpandReductions.cpp - Expand reduction intrinsics -----------------===//
->>>>>>> 5af5ac4e3ed6ad187cf075501288e62a48560cbf
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
