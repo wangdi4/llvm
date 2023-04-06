@@ -4848,6 +4848,10 @@ private:
   // Find the doubly nested inner loop surrounding 'CB' if there is one,
   // otherwise return 'nullptr'.
   Loop *findMultiLoop(CallBase *CB);
+  // Return 'true' if 'L' writes only through 'WrapperF' and through
+  // stores to a local variable inside the function containing 'L' which
+  // will not alias with actual arguments passed to 'WrapperF'.
+  bool validateMultiLoop(Loop *L, Function *WrapperF);
   // Return a LoadInst to a ptr that will be temporarily annotated with
   // "predicate-opt-restrict" metadata.
   LoadInst *annotateWithRestrictHack(Function *BaseF);
@@ -4862,7 +4866,7 @@ private:
   // Return 'true' if the subfields in field 1 of the structure pointed to
   // by formal argument 6 of the base function are hoistable past the entry
   // of the wrapper function.
-  bool isBaseFArg6FieldHoistable(Function *BaseF);
+  bool isBaseFArg6Field1Hoistable(Function *BaseF);
   // Find the fields referenced by 'V'in 'F' that are hoistable and put their
   // indices in 'HoistYes' and 'HoistNo'.
   bool findHoistableFields(Function *F, Value *V, std::set<unsigned> &HoistYes,
@@ -4930,6 +4934,178 @@ Loop *PredicateOpt::findMultiLoop(CallBase *CB) {
     return nullptr;
   Loop *L = LI->getLoopFor(CB->getParent());
   return L ? L->getParentLoop() : nullptr;
+}
+
+//
+// Show that the 'L' writes only through 'WrapperF' and a single local
+// struct variable that will not alias with the actual arguments passed to
+// 'WrapperF'.
+//
+// The single local struct variable has the form:
+//   %8 = alloca %struct._ZTS18_MagickPixelPacket._MagickPixelPacket, align 8
+// It is referenced by a series of GEPs:
+//   %57 = getelementptr inbounds %S, ptr %8, i64 0, i32 5
+//   %58 = getelementptr inbounds %S, ptr %8, i64 0, i32 6
+//   %59 = getelementptr inbounds %S, ptr %8, i64 0, i32 7
+//   %61 = getelementptr inbounds %S, ptr %8, i64 0, i32 8
+// where %S = %struct._ZTS18_MagickPixelPacket._MagickPixelPacket.
+//
+// These GEPs are then used in the following sequence of loads and stores:
+//
+//   %173 = load float, ptr %57, align 8
+//   %174 = fadd fast float %173, %151
+//   store float %174, ptr %57, align 8
+//   %175 = load float, ptr %58, align 4
+//   %176 = fadd fast float %175, %156
+//   store float %176, ptr %58, align 4
+//   %177 = load float, ptr %59, align 8
+//   %178 = fadd fast float %177, %162
+//   store float %178, ptr %59, align 8
+//   %179 = load i16, ptr %60, align 2
+//   %180 = uitofp i16 %179 to float
+//   %181 = load float, ptr %61, align 4
+//   %182 = fadd fast float %181, %180
+//   store float %182, ptr %61, align 4
+//
+// The only other places %8 is used are lifetime start and end instructions:
+//   call void @llvm.lifetime.start.p0(i64 56, ptr nonnull %8)
+//   call void @llvm.lifetime.end.p0(i64 56, ptr nonnull %8)
+// and being passed to a function:
+//   call void @GetMagickPixelPacket(ptr noundef %0, ptr noundef nonnull %8)
+// where it is used to store constants to the structure fields:
+//   %3 = getelementptr inbounds %S, ptr %1, i64 0, i32 0, !intel-tbaa !4550
+//   store i32 1, ptr %3, align 8
+//   %4 = getelementptr inbounds %S, ptr %1, i64 0, i32 1
+//   store i32 13, ptr %4, align 4
+//   %5 = getelementptr inbounds %S, ptr %1, i64 0, i32 2
+//   store i32 0, ptr %5, align 8
+//   %6 = getelementptr inbounds %S, ptr %1, i64 0, i32 3
+//   store double 0.000000e+00, ptr %6, align 8
+//   %7 = getelementptr inbounds %S, ptr %1, i64 0, i32 4
+//   store i64 16, ptr %7, align 8
+//   %8 = getelementptr inbounds %S, ptr %1, i64 0, i32 5
+//   store float 0.000000e+00, ptr %8, align 8
+//   %9 = getelementptr inbounds %S, ptr %1, i64 0, i32 6
+//   store float 0.000000e+00, ptr %9, align 4
+//   %10 = getelementptr inbounds %S, ptr %1, i64 0, i32 7
+//   store float 0.000000e+00, ptr %10, align 8
+//   %11 = getelementptr inbounds %S, ptr %1, i64 0, i32 8
+//   store float 0.000000e+00, ptr %11, align 4
+//   %12 = getelementptr inbounds %S, ptr %1, i64 0, i32 9
+//   store float 0.000000e+00, ptr %12, align 8
+//
+// validateMultiLoop walks through the IR for 'L' and @GetMagickPixelPacket
+// and returns 'true' if all of thse conditions are met.
+//
+bool PredicateOpt::validateMultiLoop(Loop *L, Function *WrapperF) {
+
+  // Put in 'Writes' any instruction in 'BB' that does not call 'WrapperF'
+  // and may write to memory. Exclude lifetime starts and ends.
+  auto CollectWrites = [](BasicBlock *BB, Function *WrapperF,
+                          SmallPtrSetImpl<Instruction *> &Writes) {
+    for (auto &I : *BB) {
+      if (auto CB = dyn_cast<CallBase>(&I)) {
+        if (CB->getCalledFunction() == WrapperF)
+          continue;
+        if (CB->isLifetimeStartOrEnd())
+          continue;
+      }
+      if (I.mayWriteToMemory())
+        Writes.insert(&I);
+    }
+  };
+
+  // Return 'true' if 'GEPI' is a simple three operand 'GEPI' with pointer
+  // operand 'AI', argument 1 equal to 0, and argument 2 equal to a constant.
+  auto IsSimpleGEPI = [](GetElementPtrInst *GEPI, AllocaInst *AI) -> bool {
+    if (GEPI->getNumOperands() != 3)
+      return false;
+    if (GEPI->getPointerOperand() != AI)
+      return false;
+    auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+    if (!CI1 || !CI1->isZero())
+      return false;
+    if (!isa<ConstantInt>(GEPI->getOperand(2)))
+      return false;
+    return true;
+  };
+
+  // Return 'true' if 'CB' calls a function where the actual argument 'AI'
+  // has contants written to its fields.
+  auto JustStoresConstants = [&IsSimpleGEPI](CallBase *CB,
+                                             AllocaInst *AI) -> bool {
+    unsigned Limit = CB->getNumOperands();
+    unsigned ArgNo = Limit;
+    for (unsigned I = 0; I < Limit; ++I)
+      if (CB->getArgOperand(I)) {
+        ArgNo = I;
+        break;
+      }
+    if (ArgNo == Limit)
+      return false;
+    Function *Callee = CB->getCalledFunction();
+    if (!Callee || (Callee->arg_size() != CB->arg_size()))
+      return false;
+    Argument *Arg = Callee->getArg(ArgNo);
+    for (User *U : Arg->users()) {
+      auto GEPI = dyn_cast<GetElementPtrInst>(U);
+      if (!GEPI || !IsSimpleGEPI(GEPI, AI))
+        return false;
+      for (User *UU : GEPI->users()) {
+        auto SI = dyn_cast<StoreInst>(UU);
+        if (!SI)
+          return false;
+        if (SI->getPointerOperand() != GEPI)
+          return false;
+        if (!isa<Constant>(SI->getValueOperand()))
+          return false;
+      }
+    }
+    return true;
+  };
+
+  // Collect up all of the instructions in 'L' that might write to memory.
+  // Exclude the call to 'WrapperF'.
+  ArrayRef<BasicBlock *> BlockList;
+  BlockList = L->getBlocks();
+  SmallPtrSet<Instruction *, 5> Writes;
+  for (auto BB : BlockList)
+    CollectWrites(BB, WrapperF, Writes);
+  // Check that all writes are stores to a single AllocaInst 'AI'.
+  AllocaInst *AI = nullptr;
+  for (auto I : Writes) {
+    auto SI = dyn_cast<StoreInst>(I);
+    if (!SI)
+      return false;
+    auto GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+    if (!GEPI)
+      return false;
+    auto LAI = dyn_cast<AllocaInst>(GEPI->getPointerOperand());
+    if (AI && (LAI != AI))
+      return false;
+    AI = LAI;
+  }
+  if (!AI)
+    return false;
+  // Check that the users of 'AI' are just simple GEPs which feed loads
+  // and stores, lifetime start and end calls, and an actual argument
+  // to a function where the fields of 'AI' are loaded with constants.
+  for (User *U : AI->users()) {
+    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      if (!IsSimpleGEPI(GEPI, AI))
+        return false;
+      for (User *UU : GEPI->users())
+        if (!isa<LoadInst>(UU) && !isa<StoreInst>(UU))
+          return false;
+    } else if (auto CB = dyn_cast<CallBase>(U)) {
+      if (!CB->isLifetimeStartOrEnd())
+        if (!JustStoresConstants(CB, AI))
+          return false;
+    } else {
+      return false;
+    }
+  }
+  return true;
 }
 
 //
@@ -5336,7 +5512,7 @@ bool PredicateOpt::isRestrictVarHoistablePastWrapperF(Function *BaseF,
 //     i32 noundef %22, i64 noundef %1, i64 noundef %2, i64 noundef 1,
 //     i64 noundef 1, ptr noundef %25, ptr noundef %4) #72
 //
-bool PredicateOpt::isBaseFArg6FieldHoistable(Function *BaseF) {
+bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF) {
 
   // Put the basic blocks which are predecessors of 'BBIn', direct or
   // indirect into 'BBOut'.  In the above IR, if block 24 is 'BBIn',
@@ -5491,12 +5667,18 @@ bool PredicateOpt::attemptPredicateOpt() {
                     << "LIRestrict: " << (LIRestrict ? "T" : "F") << "\n");
   if (!LIRestrict)
     return false;
-  if (!isRestrictVarHoistablePastWrapperF(BaseF, LIRestrict))
+  bool IsResHoist = isRestrictVarHoistablePastWrapperF(BaseF, LIRestrict);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "RestrictVarHoistablePastWrapperF: "
+                    << (IsResHoist ? "T" : "F") << "\n");
+  if (!IsResHoist)
     return false;
-  LLVM_DEBUG(dbgs() << "MRC RestrictVarHoistablePastWrapperF\n");
-  if (!isBaseFArg6FieldHoistable(BaseF))
+  bool IsBaseFArg6Field1Hoistable = isBaseFArg6Field1Hoistable(BaseF);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "BaseFArg6Field1Hoistable: "
+                    << (IsBaseFArg6Field1Hoistable ? "T" : "F") << "\n");
+  if (!IsBaseFArg6Field1Hoistable)
     return false;
-  LLVM_DEBUG(dbgs() << "MRC BaseFArg6FieldHoistable\n");
   std::set<unsigned> HoistYes, HoistNo;
   bool IsHoistable = findHoistableFields(BaseF, LIRestrict, HoistYes, HoistNo);
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
@@ -5505,8 +5687,15 @@ bool PredicateOpt::attemptPredicateOpt() {
     return false;
   MultiLoop = findMultiLoop(BigLoopCB);
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
-                    << "MultiLoop: " << (MultiLoop ? "T" : "F") << "\n");
-  return MultiLoop;
+                    << "FindMultiLoop: " << (MultiLoop ? "T" : "F") << "\n");
+  if (!MultiLoop)
+    return false;
+  bool IsValid = validateMultiLoop(MultiLoop, BigLoopCB->getCalledFunction());
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "ValidateMultiLoop: " << (IsValid ? "T" : "F") << "\n");
+  if (!IsValid)
+    return false;
+  return true;
 }
 
 //
