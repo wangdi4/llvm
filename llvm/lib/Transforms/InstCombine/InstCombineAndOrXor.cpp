@@ -1357,6 +1357,11 @@ Value *InstCombinerImpl::foldLogicOfFCmps(FCmpInst *LHS, FCmpInst *RHS,
       return Right;
   }
 
+#if !INTEL_CUSTOMIZATION
+  // TODO: CMLPRLLVM-45982
+  // Currently is_fpclass intrinsic is not supported in SPIRV-LLVM translator.
+  // Turning off the generation of this intrinsic here until support is added.
+  //
   // Turn at least two fcmps with constants into llvm.is.fpclass.
   //
   // If we can represent a combined value test with one class call, we can
@@ -1377,7 +1382,7 @@ Value *InstCombinerImpl::foldLogicOfFCmps(FCmpInst *LHS, FCmpInst *RHS,
       }
     }
   }
-
+#endif // !INTEL_CUSTOMIZATION
   return nullptr;
 }
 
@@ -2513,9 +2518,13 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
   if (Instruction *Canonicalized = canonicalizeLogicFirst(I, Builder))
     return Canonicalized;
 
+#if !INTEL_CUSTOMIZATION
+  // TODO: CMLPRLLVM-45982
+  // Currently is_fpclass intrinsic is not supported in SPIRV-LLVM translator.
+  // Turning off the generation of this intrinsic here until support is added.
   if (Instruction *Folded = foldLogicOfIsFPClass(I, Op0, Op1))
     return Folded;
-
+#endif // !INTEL_CUSTOMIZATION
   return nullptr;
 }
 
@@ -3546,8 +3555,13 @@ Instruction *InstCombinerImpl::visitOr(BinaryOperator &I) {
   if (Instruction *Canonicalized = canonicalizeLogicFirst(I, Builder))
     return Canonicalized;
 
+#if !INTEL_CUSTOMIZATION
+  // TODO: CMLPRLLVM-45982
+  // Currently is_fpclass intrinsic is not supported in SPIRV-LLVM translator.
+  // Turning off the generation of this intrinsic here until support is added.
   if (Instruction *Folded = foldLogicOfIsFPClass(I, Op0, Op1))
     return Folded;
+#endif // !INTEL_CUSTOMIZATION
 
   return nullptr;
 }
@@ -4457,9 +4471,13 @@ Instruction *InstCombinerImpl::visitXor(BinaryOperator &I) {
   if (Instruction *Canonicalized = canonicalizeLogicFirst(I, Builder))
     return Canonicalized;
 
+#if !INTEL_CUSTOMIZATION
+  // TODO: CMLPRLLVM-45982
+  // Currently is_fpclass intrinsic is not supported in SPIRV-LLVM translator.
+  // Turning off the generation of this intrinsic here until support is added.
   if (Instruction *Folded = foldLogicOfIsFPClass(I, Op0, Op1))
     return Folded;
-
+#endif // !INTEL_CUSTOMIZATION
   if (Instruction *Folded = canonicalizeConditionalNegationViaMathToSelect(I))
     return Folded;
 
