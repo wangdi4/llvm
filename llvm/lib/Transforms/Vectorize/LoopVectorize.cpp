@@ -2519,13 +2519,6 @@ static Value *emitTransformedIndex(IRBuilderBase &B, Value *Index,
     return CreateAdd(StartValue, Offset);
   }
   case InductionDescriptor::IK_PtrInduction: {
-<<<<<<< HEAD
-#if !INTEL_CUSTOMIZATION
-    assert(isa<Constant>(Step) &&
-           "Expected constant step for pointer induction");
-#endif // !INTEL_CUSTOMIZATION
-=======
->>>>>>> c416f6700f513d86226482f47ad956ceb4e7c927
     return B.CreateGEP(ID.getElementType(), StartValue, CreateMul(Index, Step));
   }
   case InductionDescriptor::IK_FpInduction: {
@@ -8367,12 +8360,6 @@ VPRecipeBase *VPRecipeBuilder::tryToOptimizeInductionPHI(
   if (auto *II = Legal->getPointerInductionDescriptor(Phi)) {
     VPValue *Step = vputils::getOrCreateVPValueForSCEVExpr(Plan, II->getStep(),
                                                            *PSE.getSE());
-<<<<<<< HEAD
-#if !INTEL_CUSTOMIZATION
-    assert(isa<SCEVConstant>(II->getStep()));
-#endif // !INTEL_CUSTOMIZATION
-=======
->>>>>>> c416f6700f513d86226482f47ad956ceb4e7c927
     return new VPWidenPointerInductionRecipe(
         Phi, Operands[0], Step, *II,
         LoopVectorizationPlanner::getDecisionAndClampRange(
