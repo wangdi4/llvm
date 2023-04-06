@@ -909,18 +909,12 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   FPM.addPass(
       SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 #endif // INTEL_CUSTOMIZATION
-  if (Level == OptimizationLevel::O3)
-    FPM.addPass(AggressiveInstCombinePass());
-=======
-  FPM.addPass(InstCombinePass());
   FPM.addPass(AggressiveInstCombinePass());
->>>>>>> 05a2f4290e27c67b0f547b893f1dc9aaf6d40ca2
 
   if (EnableConstraintElimination)
     FPM.addPass(ConstraintEliminationPass());
@@ -3338,13 +3332,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // function pointers.  When this happens, we often have to resolve varargs
   // calls, etc, so let instcombine do this.
   FunctionPassManager PeepholeFPM;
-<<<<<<< HEAD
   addInstCombinePass(PeepholeFPM, !DTransEnabled, !DTransEnabled); // INTEL
-  if (Level == OptimizationLevel::O3)
-=======
-  PeepholeFPM.addPass(InstCombinePass());
   if (Level.getSpeedupLevel() > 1)
->>>>>>> 05a2f4290e27c67b0f547b893f1dc9aaf6d40ca2
     PeepholeFPM.addPass(AggressiveInstCombinePass());
   invokePeepholeEPCallbacks(PeepholeFPM, Level);
 
