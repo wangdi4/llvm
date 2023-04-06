@@ -1347,12 +1347,15 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
   assert((!getConstIntStepValue() || !getConstIntStepValue()->isZero()) &&
          "Step value is zero");
 
+<<<<<<< HEAD
 #if !INTEL_CUSTOMIZATION
   // Pointer inductions that are not constant are supported in Intel
   // customization.
   assert((IK != IK_PtrInduction || getConstIntStepValue()) &&
          "Step value should be constant for pointer induction");
 #endif // !INTEL_CUSTOMIZATION
+=======
+>>>>>>> c416f6700f513d86226482f47ad956ceb4e7c927
   assert((IK == IK_FpInduction || Step->getType()->isIntegerTy()) &&
          "StepValue is not an integer");
 
@@ -1647,16 +1650,30 @@ bool InductionDescriptor::isInductionPHI(
   }
 
   assert(PhiTy->isPointerTy() && "The PHI must be a pointer");
-  // Pointer induction should be a constant.
-  // INTEL Non-constant step is supported in VPlan Vectorizer only.
-  if (OnlyConstPtrStep && !ConstStep) // INTEL
-    return false;
+  PointerType *PtrTy = cast<PointerType>(PhiTy);
 
   // Always use i8 element type for opaque pointer inductions.
-  PointerType *PtrTy = cast<PointerType>(PhiTy);
-  Type *ElementType = PtrTy->isOpaque()
-                          ? Type::getInt8Ty(PtrTy->getContext())
-                          : PtrTy->getNonOpaquePointerElementType();
+  // This allows induction variables w/non-constant steps.
+  if (PtrTy->isOpaque()) {
+    D = InductionDescriptor(StartValue, IK_PtrInduction, Step,
+                            /* BinOp */ nullptr,
+                            Type::getInt8Ty(PtrTy->getContext()));
+    return true;
+  }
+
+  // Pointer induction should be a constant.
+<<<<<<< HEAD
+  // INTEL Non-constant step is supported in VPlan Vectorizer only.
+  if (OnlyConstPtrStep && !ConstStep) // INTEL
+=======
+  // TODO: This could be generalized, but should probably just
+  // be dropped instead once the migration to opaque ptrs is
+  // complete.
+  if (!ConstStep)
+>>>>>>> c416f6700f513d86226482f47ad956ceb4e7c927
+    return false;
+
+  Type *ElementType = PtrTy->getNonOpaquePointerElementType();
   if (!ElementType->isSized())
     return false;
 
