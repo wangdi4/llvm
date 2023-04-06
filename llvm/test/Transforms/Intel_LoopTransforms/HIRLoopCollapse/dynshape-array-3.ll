@@ -32,7 +32,7 @@
 
 ;CHECK:      BEGIN REGION { modified }
 ;CHECK:            + DO i1 = 0, sext.i32.i64(%"(i32)var$2_fetch.2$"), 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
-;CHECK:            |   + DO i2 = 0, (1 + sext.i32.i64(%"(i32)var$2_fetch.2$")) + (sext.i32.i64(%"(i32)var$2_fetch.2$") * (1 + sext.i32.i64(%"(i32)var$2_fetch.2$"))) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
+;CHECK:            |   + DO i2 = 0, (1 + sext.i32.i64(%"(i32)var$2_fetch.2$")) + (sext.i32.i64(%"(i32)var$2_fetch.2$") * (1 + sext.i32.i64(%"(i32)var$2_fetch.2$"))) + -1, 1   <DO_LOOP>
 ;CHECK:            |   |   (%"sub_$A")[i1][0][i2] = 1.000000e+00;
 ;CHECK:            |   + END LOOP
 ;CHECK:            + END LOOP
@@ -59,7 +59,7 @@
 
 ;<0>          BEGIN REGION { modified }
 ;<32>               + DO i1 = 0, sext.i32.i64(%"(i32)var$2_fetch.2$"), 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
-;<34>               |   + DO i2 = 0, (1 + sext.i32.i64(%"(i32)var$2_fetch.2$")) + (sext.i32.i64(%"(i32)var$2_fetch.2$") * (1 + sext.i32.i64(%"(i32)var$2_fetch.2$"))) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
+;<34>               |   + DO i2 = 0, (1 + sext.i32.i64(%"(i32)var$2_fetch.2$")) + (sext.i32.i64(%"(i32)var$2_fetch.2$") * (1 + sext.i32.i64(%"(i32)var$2_fetch.2$"))) + -1, 1   <DO_LOOP>
 ;<11>               |   |   (%"sub_$A")[0:i1:4 * ((1 + sext.i32.i64(%"(i32)var$2_fetch.2$")) * (1 + sext.i32.i64(%"(i32)var$2_fetch.2$")))(float*:0)][0:0:4 * sext.i32.i64(%"(i32)var$2_fetch.2$") + 4(float*:0)][0:i2:4(float*:0)] = 1.000000e+00;
 ;<34>               |   + END LOOP
 ;<32>               + END LOOP

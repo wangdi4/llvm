@@ -31,7 +31,7 @@
 ;
 ; CHECK: Function
 ;
-; CHECK:     + DO i1 = 0, 100 * (zext.i32.i64(%P) * zext.i32.i64(%Q)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:     + DO i1 = 0, 100 * (zext.i32.i64(%P) * zext.i32.i64(%Q)) + -1, 1   <DO_LOOP>
 ; CHECK:     |   %7 = (%vla)[0:i1:4(i32*:0)];
 ; CHECK:     |   (%vla)[0:i1:4(i32*:0)] = %7 + 1;
 ; CHECK:     + END LOOP

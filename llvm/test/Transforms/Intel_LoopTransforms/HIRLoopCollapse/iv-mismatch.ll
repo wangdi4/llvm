@@ -41,7 +41,7 @@
 
 ; HIR after Loop Collapsing:
 ; CHECK:     BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, (zext.i32.i64(%n) * zext.i32.i64(%n)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:           + DO i1 = 0, (zext.i32.i64(%n) * zext.i32.i64(%n)) + -1, 1   <DO_LOOP>
 ; CHECK:           |   (%a)[i1] = %n;
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION

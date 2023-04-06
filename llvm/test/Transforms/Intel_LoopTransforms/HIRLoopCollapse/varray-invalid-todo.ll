@@ -93,7 +93,7 @@
 ;
 ; CHECK:    BEGIN REGION { modified }
 ; CHECK:          + DO i1 = 0, %O + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
-; CHECK:          |   + DO i2 = 0, (zext.i32.i64(%P) * zext.i32.i64(%Q)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:          |   + DO i2 = 0, (zext.i32.i64(%P) * zext.i32.i64(%Q)) + -1, 1   <DO_LOOP>
 ; CHECK:          |   |   (%vla)[i2 + 2 * (zext.i32.i64(%P) * zext.i32.i64(%Q))] = 1;
 ; CHECK:          |   + END LOOP
 ; CHECK:          + END LOOP
