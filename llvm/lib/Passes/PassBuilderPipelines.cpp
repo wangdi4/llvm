@@ -914,8 +914,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 #endif // INTEL_CUSTOMIZATION
-  if (Level == OptimizationLevel::O3)
-    FPM.addPass(AggressiveInstCombinePass());
+  FPM.addPass(AggressiveInstCombinePass());
 
   if (EnableConstraintElimination)
     FPM.addPass(ConstraintEliminationPass());
@@ -3334,7 +3333,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // calls, etc, so let instcombine do this.
   FunctionPassManager PeepholeFPM;
   addInstCombinePass(PeepholeFPM, !DTransEnabled, !DTransEnabled); // INTEL
-  if (Level == OptimizationLevel::O3)
+  if (Level.getSpeedupLevel() > 1)
     PeepholeFPM.addPass(AggressiveInstCombinePass());
   invokePeepholeEPCallbacks(PeepholeFPM, Level);
 
