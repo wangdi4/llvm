@@ -230,7 +230,8 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG;
 constexpr FeatureBitset FeaturesGraniteRapids =
-    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI;
+    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI |
+    FeatureAMX_COMPLEX;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 constexpr FeatureBitset FeaturesCommonAVX256 =
