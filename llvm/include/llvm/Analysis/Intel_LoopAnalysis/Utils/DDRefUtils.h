@@ -328,6 +328,16 @@ public:
                                     bool RelaxedMode,
                                     unsigned NumIgnorableDims = 0);
 
+  /// Returns true if both haveEqualBaseAndShape() and haveEqualOffsets() are
+  /// true.
+  static bool haveEqualBaseAndShapeAndOffsets(const RegDDRef *Ref1,
+                                              const RegDDRef *Ref2,
+                                              bool RelaxedMode,
+                                              unsigned NumIgnorableDims = 0) {
+    return haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode, NumIgnorableDims) &&
+           haveEqualOffsets(Ref1, Ref2);
+  }
+
   /// Returns true if \p Ref1 and \p Ref2 have equal base and shape and
   /// distances in each pair of dimension indices are constants.
   static bool haveConstDimensionDistances(const RegDDRef *Ref1,
