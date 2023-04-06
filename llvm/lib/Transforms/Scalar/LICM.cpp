@@ -451,16 +451,11 @@ bool LoopInvariantCodeMotion::runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI,
   bool Changed = false;
 
   assert(L->isLCSSAForm(*DT) && "Loop is not in LCSSA form.");
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   if (DisableLICM)
     return false;
 #endif // INTEL_CUSTOMIZATION
-
-  MSSA->ensureOptimizedUses();
-=======
->>>>>>> 7553bad1ac619d5de72489ec06b63a2ace356c22
 
   // If this loop has metadata indicating that LICM is not to be performed then
   // just exit.
