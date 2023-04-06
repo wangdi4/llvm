@@ -230,8 +230,8 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG;
 constexpr FeatureBitset FeaturesGraniteRapids =
-<<<<<<< HEAD
-    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI;
+    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI |
+    FeatureAMX_COMPLEX;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 constexpr FeatureBitset FeaturesCommonAVX256 =
@@ -343,10 +343,6 @@ constexpr FeatureBitset FeaturesDiamondRapids = FeaturesLioncoveServer |
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // ENABLE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
-=======
-    FeaturesSapphireRapids | FeatureAMX_FP16 | FeaturePREFETCHI |
-    FeatureAMX_COMPLEX;
->>>>>>> 847abddedca9ed2934e0c2386662ccb04ba4d298
 
 // Intel Atom processors.
 // Bonnell has feature parity with Core2 and adds MOVBE.
