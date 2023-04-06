@@ -2918,6 +2918,7 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   if (GEPType->isVectorTy())
     return nullptr;
 
+<<<<<<< HEAD
   // Handle gep(bitcast x) and gep(gep x, 0, 0, 0).
   Value *StrippedPtr = PtrOp->stripPointerCasts();
   PointerType *StrippedPtrTy = cast<PointerType>(StrippedPtr->getType());
@@ -3115,6 +3116,8 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       return I;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> db6b30b1831095c216378a9df215b7c0ae6b959f
   if (!GEP.isInBounds()) {
     unsigned IdxWidth =
         DL.getIndexSizeInBits(PtrOp->getType()->getPointerAddressSpace());
