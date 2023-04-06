@@ -297,6 +297,7 @@ void Instruction::dropUBImplyingAttrsAndUnknownMetadata(
   CB->removeRetAttrs(UBImplyingAttributes);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void Instruction::dropUBImplyingAttrsAndMetadata(
     ArrayRef<unsigned> AuxKnownIDs) {
@@ -320,6 +321,8 @@ void Instruction::dropUBImplyingAttrsAndMetadata(
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 7c78cb4b1f4993a84bf2b46b197d90dcabb9f8c5
 bool Instruction::isExact() const {
   return cast<PossiblyExactOperator>(this)->isExact();
 }
