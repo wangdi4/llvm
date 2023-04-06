@@ -297,29 +297,6 @@ void Instruction::dropUBImplyingAttrsAndUnknownMetadata(
   CB->removeRetAttrs(UBImplyingAttributes);
 }
 
-#if INTEL_CUSTOMIZATION
-void Instruction::dropUBImplyingAttrsAndMetadata(
-    ArrayRef<unsigned> AuxKnownIDs) {
-  // !annotation metadata does not impact semantics.
-  // !range, !nonnull and !align produce poison, so they are safe to speculate.
-  // !noundef and various AA metadata must be dropped, as it generally produces
-  // immediate undefined behavior.
-  unsigned KnownIDs[] = {LLVMContext::MD_annotation, LLVMContext::MD_range,
-                         LLVMContext::MD_nonnull, LLVMContext::MD_align};
-  if (AuxKnownIDs.empty()) {
-    dropUBImplyingAttrsAndUnknownMetadata(KnownIDs);
-    return;
-  }
-
-  SmallVector<unsigned, 6> AllKnownIds;
-  AllKnownIds.reserve(std::size(KnownIDs) + AuxKnownIDs.size());
-  AllKnownIds.insert(AllKnownIds.end(), std::begin(KnownIDs),
-                     std::end(KnownIDs));
-  AllKnownIds.insert(AllKnownIds.end(), AuxKnownIDs.begin(), AuxKnownIDs.end());
-  dropUBImplyingAttrsAndUnknownMetadata(AllKnownIds);
-}
-#endif // INTEL_CUSTOMIZATION
-
 bool Instruction::isExact() const {
   return cast<PossiblyExactOperator>(this)->isExact();
 }
