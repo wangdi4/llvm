@@ -810,6 +810,59 @@ void HIRLoopCollapse::setMaxVecLenAllowed(HLLoop *const OrigOutermostLp,
   }
 }
 
+// Accumulate max trip count estimate and legal max trip count over each loop
+// in the collapse-able loop nest. Note: if accumulated estimate overflows
+// during calculation, we set it to 0 (meaning no info).
+void HIRLoopCollapse::updateMaxTripCountEstimates(
+    HLLoop *ToCollapseLp, const unsigned OrigInnermostLevel,
+    const unsigned OrigOutermostLevel) {
+  APInt AccumulatedMaxTripCountEstimate(64, 1);
+  APInt AccumulatedLegalMaxTC(64, 1);
+  auto *CurLp = ToCollapseLp;
+  for (unsigned Level = OrigInnermostLevel, E = OrigOutermostLevel; Level >= E;
+       --Level, CurLp = CurLp->getParentLoop()) {
+    bool IsConstCurrTC = TCArry[Level].isConstant();
+
+    // 0 means we met a loop with no info or the overflow happened.
+    if (!AccumulatedMaxTripCountEstimate.isZero()) {
+      bool MaxTCEstOverflow = false;
+      uint64_t CurLpMaxTCEst = IsConstCurrTC ? TCArry[Level].getConstTripCount()
+                                             : CurLp->getMaxTripCountEstimate();
+      AccumulatedMaxTripCountEstimate = AccumulatedMaxTripCountEstimate.umul_ov(
+          APInt(64, CurLpMaxTCEst), MaxTCEstOverflow);
+      if (MaxTCEstOverflow) {
+        AccumulatedMaxTripCountEstimate = APInt(64, 0);
+      }
+    }
+
+    // 0 means we met a loop with no info or the overflow happened.
+    if (!AccumulatedLegalMaxTC.isZero()) {
+      bool LegalTCOverflow = false;
+      uint64_t CurLegalMaxTC = IsConstCurrTC ? TCArry[Level].getConstTripCount()
+                                             : CurLp->getLegalMaxTripCount();
+      AccumulatedLegalMaxTC = AccumulatedLegalMaxTC.umul_ov(
+          APInt(64, CurLegalMaxTC), LegalTCOverflow);
+      if (LegalTCOverflow) {
+        AccumulatedLegalMaxTC = APInt(64, 0);
+      }
+    }
+
+    if (AccumulatedMaxTripCountEstimate.isZero() &&
+        AccumulatedLegalMaxTC.isZero()) {
+      break;
+    }
+  }
+
+  // Set MAX_TC_EST to 0 if it is larger than unsigned int 32.
+  uint64_t MaxInt32 = APInt::getMaxValue(32).getZExtValue();
+  uint64_t MaxTCEstConst = AccumulatedMaxTripCountEstimate.getZExtValue();
+  ToCollapseLp->setMaxTripCountEstimate(
+      (MaxTCEstConst <= MaxInt32) ? MaxTCEstConst : 0);
+  uint64_t LegalMaxTCConst = AccumulatedLegalMaxTC.getZExtValue();
+  ToCollapseLp->setLegalMaxTripCount(
+      (LegalMaxTCConst <= MaxInt32) ? LegalMaxTCConst : 0);
+}
+
 bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
                                   const unsigned OrigInnermostLevel,
                                   const unsigned OrigOutermostLevel) {
@@ -846,6 +899,9 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   CanonExpr *AccumulatedTripCountCE = ToCollapseLp->getUpperCanonExpr();
 
   AccumulatedTripCountCE->addConstant(1, false);
+
+  updateMaxTripCountEstimates(ToCollapseLp, OrigInnermostLevel,
+                              OrigOutermostLevel);
 
   // Accumulate TripCount over each loop in the collapse-able loop nest
   // (exclude the Innermost loop)

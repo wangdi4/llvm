@@ -43,7 +43,7 @@
 ; CHECK: Function
 ;
 ; CHECK:     BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, (zext.i32.i64(%O) * zext.i32.i64(%P) * zext.i32.i64(%Q)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:           + DO i1 = 0, (zext.i32.i64(%O) * zext.i32.i64(%P) * zext.i32.i64(%Q)) + -1, 1   <DO_LOOP>
 ; CHECK:           |   %8 = (%vla)[0:i1:4({{.*}}:0)];
 ; CHECK:           |   (%vla)[0:i1:4({{.*}}:0)] = %8 + 1;
 ; CHECK:           + END LOOP

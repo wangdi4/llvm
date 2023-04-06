@@ -107,7 +107,7 @@ class HIRLoopCollapse {
 
   // an array storing relevant constant or symbolic (in CanonExpr *) TripCount
   // for each relevant loop in the loop nest.
-  std::array<TripCountTuple, MaxLoopNestLevel+1> TCArry;
+  std::array<TripCountTuple, MaxLoopNestLevel + 1> TCArry;
 
   // an array storing the entire loop nest: [InnermostLp .. OutermostLp].
   // This helps mapping a particular level to its matching loop.
@@ -441,6 +441,11 @@ private:
       TCArry[I] = TripCountTuple();
     }
   }
+
+  // Set correct MAX_TC_EST and LEGAL_MAX_TC after transformation.
+  void updateMaxTripCountEstimates(HLLoop *ToCollapseLp,
+                                   const unsigned OrigInnermostLevel,
+                                   const unsigned OrigOutermostLevel);
 
   // *** Pattern Matching in GEPRef ***
   //
