@@ -14,6 +14,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -417,6 +418,28 @@ void externalizeGlobalVars(Module &M) {
   }
 }
 
+void addOMPRemainingGlobals(SetVector<const GlobalValue *> &GVs,
+                            const Module &M) {
+  for (const auto &G : M.globals())
+    if (G.hasPrivateLinkage())
+      GVs.insert(&G);
+}
+
+void collectOMPGlobalVarsToExtract(SetVector<const GlobalValue *> &GVs,
+                                   const Module &M) {
+  // It's not easy to trace global variable's uses inside needed functions
+  // because global variable can be used inside a combination of operators, so
+  // mark all global variables as needed and remove dead ones after cloning.
+  // Notice. For device global variables with the 'device_image_scope' property,
+  // removing dead ones is a must, the 'checkImageScopedDeviceGlobals' function
+  // checks that there are no usages of a single device global variable with the
+  // 'device_image_scope' property from multiple modules and the splitter must
+  // not add such usages after the check.
+  for (const auto &G : M.globals())
+    if (!G.hasPrivateLinkage())
+      GVs.insert(&G);
+}
+
 // The function produces a copy of input LLVM IR module M with only those entry
 // points that are specified in ModuleEntryPoints vector.
 // There is a special case for OpenMP offload compilation:
@@ -427,11 +450,13 @@ ModuleDesc extractOMPCallGraph(const ModuleDesc &MD,
   bool IsGlobalsModule = (ModuleEntryPoints.GroupId == OMP_GLOBAL_VARS_NAME);
   SetVector<const GlobalValue *> GVs;
 
-  if (!IsGlobalsModule)
+  if (!IsGlobalsModule) {
     collectFunctionsToExtract(GVs, ModuleEntryPoints,
                               CallGraph{MD.getModule()});
-  else
-    collectGlobalVarsToExtract(GVs, MD.getModule());
+    addOMPRemainingGlobals(GVs, MD.getModule());
+  } else {
+    collectOMPGlobalVarsToExtract(GVs, MD.getModule());
+  }
 
   ModuleDesc SplitM = extractSubModule(MD, GVs, std::move(ModuleEntryPoints));
 
