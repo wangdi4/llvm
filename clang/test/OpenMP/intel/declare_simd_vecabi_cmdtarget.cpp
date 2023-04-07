@@ -13,6 +13,11 @@
 #pragma omp declare simd uniform(p) notinbranch                     // 4
 int func(int* p) { return 1; }
 
+#pragma omp declare simd simdlen(4) ompx_processor(skylake_avx512) notinbranch
+#pragma omp declare simd simdlen(8) ompx_processor(tigerlake)
+int FindPosition(double x) { return 0; }
+
+
 // variants
 // VCHK-DAG: _ZGVxN4u__Z4funcPi
 // VCHK-DAG: _ZGVYN8u__Z4funcPi
@@ -24,6 +29,10 @@ int func(int* p) { return 1; }
 // VCHK-DAG: _ZGVYN8v__Z4funcPi
 // VCHK-DAG: _ZGVZN16v__Z4funcPi
 
+// VCHK-DAG: _ZGVZN4v__Z12FindPositiond
+// VCHK-DAG: _ZGVZM8v__Z12FindPositiond
+// VCHK-DAG: _ZGVZN8v__Z12FindPositiond
+
 // dispatch
 // DCHK-DAG:_ZGVxN4u__Z4funcPi:core_i7_sse4_2
 // DCHK-DAG:_ZGVYN8u__Z4funcPi:haswell
@@ -34,3 +43,14 @@ int func(int* p) { return 1; }
 // DCHK-DAG:_ZGVxN4v__Z4funcPi:core_i7_sse4_2
 // DCHK-DAG:_ZGVYN8v__Z4funcPi:haswell
 // DCHK-DAG:_ZGVZN16v__Z4funcPi:skylake_avx512,tigerlake
+
+// DCHK-DAG: _ZGVxN8v__Z12FindPositiond:core_i7_sse4_2
+// DCHK-DAG: _ZGVxM8v__Z12FindPositiond:core_i7_sse4_2
+// DCHK-DAG: _ZGVYN8v__Z12FindPositiond:haswell
+// DCHK-DAG: _ZGVYM8v__Z12FindPositiond:haswell
+// DCHK-DAG: _ZGVZN8v__Z12FindPositiond:skylake_avx512,tigerlake
+// DCHK-DAG: _ZGVZM8v__Z12FindPositiond:skylake_avx512,tigerlake
+
+// DCHK-DAG: _ZGVxN4v__Z12FindPositiond:core_i7_sse4_2
+// DCHK-DAG: _ZGVYN4v__Z12FindPositiond:haswell
+// DCHK-DAG: _ZGVZN4v__Z12FindPositiond:skylake_avx512
