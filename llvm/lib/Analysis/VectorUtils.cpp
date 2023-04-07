@@ -37,6 +37,9 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Constants.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/IR/GetElementPtrTypeIterator.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Value.h"
@@ -413,7 +416,7 @@ Intrinsic::ID llvm::getVectorIntrinsicIDForCall(const CallInst *CI,
   return Intrinsic::not_intrinsic;
 }
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
 /// Find the operand of the GEP that should be checked for consecutive
 /// stores. This ignores trailing indices that have no effect on the final
 /// pointer.
@@ -457,7 +460,6 @@ Value *llvm::stripGetElementPtr(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
   return GEP->getOperand(InductionOperand);
 }
 
-#if INTEL_CUSTOMIZATION
 /// If a value has only one user that is a CastInst, return it.
 Value *llvm::getUniqueCastUse(Value *Ptr, Loop *Lp, Type *Ty) {
   Value *UniqueCast = nullptr;
@@ -560,8 +562,6 @@ Value *llvm::getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 2d79b713663169b3732fcbdf56cac243b5c41e28
 /// Given a vector and an element number, see if the scalar value is
 /// already around as a register, for example if it were inserted then extracted
 /// from the vector.
