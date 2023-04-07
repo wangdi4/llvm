@@ -39,6 +39,7 @@ using namespace llvm;
 // searched at runtime without the need for additional storage. The enum values
 // are currently emitted in X86GenInstrInfo.inc in alphabetical order. Which
 // makes sorting these tables a simple matter of alphabetizing the table.
+<<<<<<< HEAD
 //
 // We also have a tablegen emitter that tries to autogenerate these tables
 // by comparing encoding information. This can be enabled by passing
@@ -57,6 +58,9 @@ using namespace llvm;
 #include "X86MemFoldTables.inc"
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
+=======
+#include "X86GenFoldTables.inc"
+>>>>>>> f3d9abf1f87c308e9d7bd368b3ad54cb8f28ac4f
 static const X86MemoryFoldTableEntry BroadcastFoldTable2[] = {
   { X86::VADDPDZ128rr,   X86::VADDPDZ128rmb,   TB_BCAST_SD },
   { X86::VADDPDZ256rr,   X86::VADDPDZ256rmb,   TB_BCAST_SD },
