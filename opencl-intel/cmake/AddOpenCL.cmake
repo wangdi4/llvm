@@ -151,6 +151,19 @@ function(add_opencl_library name)
 
   target_link_libraries(${name} PRIVATE ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
 
+  # Try to do some link time optimizations to reduce shared library size
+  if(ARG_SHARED)
+    if(WIN32)
+      set_property(TARGET ${name} APPEND_STRING PROPERTY
+        LINK_FLAGS_RELEASE
+        " /OPT:REF /OPT:ICF ")
+    else()
+      set_property(TARGET ${name} APPEND_STRING PROPERTY
+        LINK_FLAGS_RELEASE
+        " -Wl,--gc-sections ")
+    endif(WIN32)
+  endif(ARG_SHARED)
+
   # Deals with pdb on Windows
   if(WIN32 AND ARG_SHARED)
     file(TO_NATIVE_PATH ${OCL_OUTPUT_LIBRARY_DIR}/${name}.pdb PDB_NAME)
