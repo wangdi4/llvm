@@ -8966,8 +8966,9 @@ def _SLASH_fp_EQ : CLJoined<"fp=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;
 def _SLASH_fp_COL : CLJoined<"fp:">, Alias<ffp_model_EQ>;
 def _SLASH_ax : CLCommaJoined<"Qax">, Alias<ax>,
-  HelpText<"generate code specialized for processors specified by <codes> "
-  "while also generating generic IA-32 instructions">;
+  HelpText<"generate multiple, processor-specific, auto-dispatched code paths "
+  "for Intel® processors, specified by <codes>, if there is a performance benefit">,
+  MetaVarName<"<codes>">;
 def _SLASH_Qcf_protection_EQ : CLJoined<"Qcf-protection=">, Alias<fcf_protection_EQ>,
   HelpText<"Instrument control-flow architecture protection. Options: return, branch, full, none.">;
 def _SLASH_Qcf_protection : CLFlag<"Qcf-protection">,
