@@ -154,7 +154,8 @@ void VPlanLoopUnroller::run() {
           VPBldr.setInsertPoint(ReducInit);
           auto IdInit = VPBldr.createReductionInit(
               ReducInit->getIdentityOperand(),
-              /*Start=*/nullptr, /*UseStart=*/false, ReducInit->isScalar());
+              /*Start=*/nullptr, /*UseStart=*/false, ReducInit->isScalar(),
+              ReducInit->isComplex());
           ReducInit = cast<VPReductionInit>(IdInit);
         }
         // Record the candidate and the original loop-defined result.

@@ -2386,6 +2386,51 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       }
     }
 
+    // Bailouts for complex type reductions.
+    if (Red->isComplex()) {
+      auto *RecTy = cast<StructType>(Red->getRecurrenceType());
+      // Recurrence struct type that represents complex type should have unique
+      // element type.
+      assert(RecTy->hasIdenticalElementTypes() &&
+             RecTy->getNumElements() == 2 &&
+             "Identical element type expected for complex type reduction "
+             "structs.");
+      auto RecTySize = Plan.getDataLayout()->getTypeAllocSize(RecTy);
+
+      // Based on the unique element type, compute size of the equivalent packed
+      // vector type that can represent the complex type. First element of
+      // vector is the real component while second represents the imaginary
+      // part. For example -
+      // ComplexTy/RecTy = {double , double}
+      // ElemTy = double
+      // PackedVecTy = <2 x double>
+      Type *ElemTy = RecTy->getElementType(0);
+      auto *PackedVecTy = FixedVectorType::get(ElemTy, 2);
+      auto PackedVecTySize =
+          Plan.getDataLayout()->getTypeAllocSize(PackedVecTy);
+
+      // For efficient initialization/finalization we try to pack complex type
+      // into vector registers as mentioned above. Check if this is legal based
+      // on type sizes.
+      if (RecTySize != PackedVecTySize) {
+        bailout(
+            OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            "Complex struct type cannot be packed into trivial vector type.");
+        return false;
+      }
+
+      // Ensure that the complex struct type does not have any padding using the
+      // type's alignment.
+      unsigned OrigAlignV =
+          Plan.getDataLayout()->getPrefTypeAlign(RecTy).value();
+      if (RecTySize.getFixedValue() % OrigAlignV != 0) {
+        bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                "Complex struct type size is not divisible by its alignment "
+                "i.e. it has padding.");
+        return false;
+      }
+    }
+
     // Check that reduction does not have more than one liveout instruction.
     // TODO: This scenario can potentially be handled in the future by emitting
     // a reduction-final for each liveout value.

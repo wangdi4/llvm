@@ -1754,6 +1754,7 @@ public:
     Descriptor.setSigned(CurrValue.isSigned());
     Descriptor.setLinkPhi(nullptr);
     Descriptor.setIsLinearIndex(false);
+    Descriptor.setIsComplex(CurrValue.isComplex());
   }
 
   /// Fill in the data from list of user defined reductions

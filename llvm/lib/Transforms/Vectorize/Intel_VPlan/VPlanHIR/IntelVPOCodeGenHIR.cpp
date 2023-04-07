@@ -1492,7 +1492,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
       MainLoop->markDoNotUnroll();
   }
 
-  if (LoopHasUDRsOrInscan)
+  if (LoopHasEntityWithMemGuard)
     eraseGuardMemMotionDirsFromScalarLoops();
 
   // Lower remarks collected in VPLoops to outgoing vector/scalar HLLoops. This
@@ -4281,7 +4281,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::ReductionFinalUdr: {
-    LoopHasUDRsOrInscan = true;
+    LoopHasEntityWithMemGuard = true;
     // Call combiner for each pointer in private memory and accumulate the
     // results in original DDRef corresponding to the UDR.
     auto *Orig = getOrCreateScalarRef(VPInst->getOperand(1), 0);
@@ -4481,6 +4481,123 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // Update insertion point after emitting remainder loop.
       InsertPoint = FinalRemLp;
     }
+
+    return;
+  }
+
+  case VPInstruction::ReductionFinalCmplx: {
+    LoopHasEntityWithMemGuard = true;
+    auto *CmplxRedFinal = cast<VPReductionFinalCmplx>(VPInst);
+    auto *PrivCmplx = cast<VPAllocatePrivate>(CmplxRedFinal->getOperand(0));
+    RegDDRef *OrigCmplx = getUniformScalarRef(CmplxRedFinal->getOperand(1));
+    Type *ElemTy =
+        cast<StructType>(PrivCmplx->getAllocatedType())->getElementType(0);
+
+    // We treat the widened private memory of complex reduction as a wide vector
+    // with real and imaginary parts for each lane stored consecutively like -
+    // <Real_0, Imag_0, Real_1, Imag_1, ..., VF times>
+    //
+    // Horizontal reduction is done by taking the second half of this vector and
+    // iteratively reducing with first half until we are left with only 2
+    // elements in the vector. At that point we reduce the horizontally reduced
+    // vector with original complex value and store the final result.
+    //
+    // Pseudo HIR for generic complex type reduction finalization -
+    //
+    // END LOOP (vector loop)
+    //
+    // %vec = (<VF*2 x ElemTy>*)(%cmplx.red.vec)[0];
+    // %second.half = shuffle %vec, undef, <VF, VF+1, ..., 2*VF-1, undef, ...>;
+    // %vec = %vec  red-opcode  %second.half;
+    // %second.half.2 = shuffle %vec, undef, <VF/2, ..., VF-1, undef, ...>
+    // %vec = %vec  red-opcode  %second.half.2;
+    //   .. repeat log2(VF) times ..
+    // %reduced = shuffle %vec, undef, <0, 1>;
+    // %orig.cmplx = (<2 x ElemTy>*)(%cmplx.red)[0];
+    // %final = %orig.cmplx  red-opcode  %reduced;
+    // (<2 x ElemTy>*)(%cmplx.red)[0] = %final;
+    //
+
+    // Perform consecutive load from widened private memory for the complex type
+    // reduction.
+    RegDDRef *PrivLdBasePtr =
+        getScalRefForVPVal(PrivCmplx, 0 /*Lane*/)->clone();
+    // Addressof should be cleared for load/store operation.
+    PrivLdBasePtr->setAddressOf(false);
+    PrivLdBasePtr->setBitCastDestVecOrElemType(
+        FixedVectorType::get(ElemTy, getVF() * 2));
+    HLInst *PrivLd = HLNodeUtilities.createLoad(PrivLdBasePtr, "cmplx.fin.vec");
+    addInstUnmasked(PrivLd);
+
+    RegDDRef *CmplxFinVec = PrivLd->getLvalDDRef()->clone();
+    auto *CmplxFinVecTy = cast<FixedVectorType>(CmplxFinVec->getDestType());
+    unsigned CmplxFinVecSize = CmplxFinVecTy->getNumElements();
+    assert(CmplxFinVecSize == getVF() * 2 &&
+           "Finalization vector for complex type reduction is expected to have "
+           "2*VF number of elements.");
+
+    // Emit sequence of shuffle + redop instructions to perform horizontal
+    // reduction. We use the same vector for this purpose by reducing the second
+    // half with first. This is repeated for log2(VF) times i.e. until vector
+    // size is 2 elements.
+    for (unsigned CurVecSize = CmplxFinVecSize; CurVecSize > 2;
+         CurVecSize /= 2) {
+      SmallVector<Constant *, 8> ShufMask;
+      ShufMask.resize(CmplxFinVecSize,
+                      UndefValue::get(Type::getInt32Ty(Context)));
+
+      // Compute mask to get second half of vector based on its current size -
+      // VF = 4
+      // CurVecSize = 8
+      // ShufMask = <4, 5, 6, 7, undef, undef, undef, undef>
+      unsigned CurHalfVecSize = CurVecSize / 2;
+      for (unsigned I = 0; I < CurHalfVecSize; ++I)
+        ShufMask[I] =
+            ConstantInt::get(Type::getInt32Ty(Context), CurHalfVecSize + I);
+
+      HLInst *ShufInst = createShuffleWithUndef(CmplxFinVec->clone(), ShufMask,
+                                                "cmplx.fin.second.half");
+      addInstUnmasked(ShufInst);
+      // Reduce the second half with first, and attach any FastMathFlags.
+      HLInst *BinOp = HLNodeUtilities.createFPMathBinOp(
+          CmplxRedFinal->getBinOpcode(), CmplxFinVec->clone(),
+          ShufInst->getLvalDDRef()->clone(), CmplxRedFinal->getFastMathFlags(),
+          "cmplx.fin.redop", CmplxFinVec->clone());
+      addInstUnmasked(BinOp);
+    }
+
+    // We have reduced the finalization vector horizontally to 2 elements,
+    // extract that to reduce with the original complex value.
+    SmallVector<Constant *, 2> ShufMask = {
+        ConstantInt::get(Type::getInt32Ty(Context), 0),
+        ConstantInt::get(Type::getInt32Ty(Context), 1)};
+    HLInst *CmplxFinVecRedShuf = createShuffleWithUndef(
+        CmplxFinVec->clone(), ShufMask, "cmplx.fin.vec.reduced");
+    addInstUnmasked(CmplxFinVecRedShuf);
+
+    // Generate an addressof ref from the original complex type reduction ref
+    // for pointer operand of load/store operation. We treat it as <2 x ElemTy>*
+    // for this purpose.
+    RegDDRef *OrigCmplxPtr = DDRefUtilities.createSelfAddressOfRef(
+        CmplxRedFinal->getType(), OrigCmplx->getSelfBlobIndex(),
+        OrigCmplx->getDefinedAtLevel(), OrigCmplx->getSymbase());
+    OrigCmplxPtr->setBitCastDestVecOrElemType(FixedVectorType::get(ElemTy, 2));
+    OrigCmplxPtr->setAddressOf(false);
+
+    // Reduce the finalized complex value with original and store back the
+    // result.
+    HLInst *OrigCmplxLd =
+        HLNodeUtilities.createLoad(OrigCmplxPtr, "orig.cmplx");
+    addInstUnmasked(OrigCmplxLd);
+    HLInst *CmplxFinalBinOp = HLNodeUtilities.createFPMathBinOp(
+        CmplxRedFinal->getBinOpcode(), OrigCmplxLd->getLvalDDRef()->clone(),
+        CmplxFinVecRedShuf->getLvalDDRef()->clone(),
+        CmplxRedFinal->getFastMathFlags(), "cmplx.final");
+    addInstUnmasked(CmplxFinalBinOp);
+    HLInst *OrigCmplxSt =
+        HLNodeUtilities.createStore(CmplxFinalBinOp->getLvalDDRef()->clone(),
+                                    "orig.cmplx.store", OrigCmplxPtr->clone());
+    addInstUnmasked(OrigCmplxSt);
 
     return;
   }
@@ -5998,6 +6115,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::ReductionFinal:
   case VPInstruction::ReductionFinalUdr:
   case VPInstruction::ReductionFinalArr:
+  case VPInstruction::ReductionFinalCmplx:
   case VPInstruction::InductionInit:
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:

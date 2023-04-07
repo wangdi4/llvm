@@ -776,7 +776,8 @@ private:
   FatalErrorHandlerTy FatalErrorHandler;
 
   // True if loop has any entity for which a memory guard region is expected.
-  // For example, UDRs, inscan reductions and array section reductions.
+  // For example, UDRs, inscan reductions, array section reductions and complex
+  // type reductions.
   bool LoopHasEntityWithMemGuard = false;
 };
 

@@ -39,6 +39,7 @@ static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
 void VPReduction::dump(raw_ostream &OS) const {
   OS << (isIntegerRecurrenceKind(getRecurrenceKind()) && isSigned() ? " signed "
                                                                     : " ");
+  OS << (isComplex() ? " complex " : " ");
   switch (getRecurrenceKind()) {
   default:
     OS << "unknown";
@@ -401,14 +402,14 @@ VPLoopEntityList::addReduction(VPInstruction *Instr, VPValue *Incoming,
                                FastMathFlags FMF, Type *RedTy, bool Signed,
                                VPEntityAliasesTy &MemAliases,
                                std::optional<InscanReductionKind> InscanRedKind,
-                               VPValue *AI, bool ValidMemOnly) {
+                               bool IsComplex, VPValue *AI, bool ValidMemOnly) {
   VPReduction *Red =
       InscanRedKind.has_value()
           ? new VPInscanReduction(InscanRedKind.value(), Incoming, Exit, Kind,
                                   FMF, RedTy, Signed, std::move(MemAliases),
-                                  ValidMemOnly)
+                                  IsComplex, ValidMemOnly)
           : new VPReduction(Incoming, Exit, Kind, FMF, RedTy, Signed,
-                            std::move(MemAliases), ValidMemOnly);
+                            std::move(MemAliases), IsComplex, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
   linkValue(ReductionMap, Red, Exit);
@@ -558,32 +559,53 @@ void VPLoopEntityList::createMemDescFor(VPLoopEntity *E, VPValue *AI) {
 
 /// Returns identity corresponding to the RecurrenceKind.
 VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
-  switch (Red->getRecurrenceKind()) {
-  case RecurKind::Xor:
-  case RecurKind::Add:
-  case RecurKind::Or:
-  case RecurKind::Mul:
-  case RecurKind::And:
-  case RecurKind::FMul:
-  case RecurKind::FMulAdd:
-  case RecurKind::FAdd: {
-    Constant *C = VPReduction::getConstRecurrenceIdentity(Red->getRecurrenceKind(),
-                                                     Red->getRecurrenceType(),
-                                                     Red->getFastMathFlags());
-    return Plan.getVPConstant(C);
-  }
-  case RecurKind::SMin:
-  case RecurKind::SMax:
-  case RecurKind::UMin:
-  case RecurKind::UMax:
-  case RecurKind::FMin:
-  case RecurKind::FMax:
-  case RecurKind::SelectICmp:
-  case RecurKind::SelectFCmp:
-  case RecurKind::Udr:
-    return Red->getRecurrenceStartValue();
-  case RecurKind::None:
-    llvm_unreachable("Unknown recurrence kind");
+  if (Red->isComplex()) {
+    // Capture the unique element type of complex type.
+    auto *RecTy = cast<StructType>(Red->getRecurrenceType());
+    assert(RecTy->hasIdenticalElementTypes() &&
+           "Expected same type struct for complex type reduction.");
+    Type *ElemTy = RecTy->getElementType(0);
+
+    // TODO: Currently only FAdd kind is expected here.
+    switch (Red->getRecurrenceKind()) {
+    case RecurKind::FAdd: {
+      // Identity for complex add reduction would be <0.0, 0.0>.
+      Constant *ValueZero = ConstantFP::get(ElemTy, 0.0);
+      Constant *C = ConstantVector::get({ValueZero, ValueZero});
+      return Plan.getVPConstant(C);
+    }
+    default:
+      llvm_unreachable(
+          "Unexpected reduction operator for complex type reduction.");
+    }
+  } else {
+    switch (Red->getRecurrenceKind()) {
+    case RecurKind::Xor:
+    case RecurKind::Add:
+    case RecurKind::Or:
+    case RecurKind::Mul:
+    case RecurKind::And:
+    case RecurKind::FMul:
+    case RecurKind::FMulAdd:
+    case RecurKind::FAdd: {
+      Constant *C = VPReduction::getConstRecurrenceIdentity(
+          Red->getRecurrenceKind(), Red->getRecurrenceType(),
+          Red->getFastMathFlags());
+      return Plan.getVPConstant(C);
+    }
+    case RecurKind::SMin:
+    case RecurKind::SMax:
+    case RecurKind::UMin:
+    case RecurKind::UMax:
+    case RecurKind::FMin:
+    case RecurKind::FMax:
+    case RecurKind::SelectICmp:
+    case RecurKind::SelectFCmp:
+    case RecurKind::Udr:
+      return Red->getRecurrenceStartValue();
+    case RecurKind::None:
+      llvm_unreachable("Unknown recurrence kind");
+    }
   }
 }
 
@@ -1348,6 +1370,8 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   Type *Ty = Reduction->getRecurrenceType();
   VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI, Preheader);
   if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity)) {
+    assert(!Reduction->isComplex() &&
+           "Complex type reduction is not expected here.");
     // min/max in-memory reductions. Need to generate a load.
     VPLoadStoreInst *V = Builder.createLoad(Ty, AI);
     updateHIROperand(AI, V);
@@ -1371,6 +1395,10 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   }
   bool StartIncluded = (!Ty->isFloatingPointTy() && !Reduction->isMinMax()) ||
                         IsInscan;
+  // For complex type reduction start value is not needed for initialization. We
+  // account for it during finalization.
+  if (Reduction->isComplex())
+    StartIncluded = false;
   VPValue *StartValue =
       StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
   bool UseStart = StartValue != nullptr || Reduction->isMinMax();
@@ -1388,7 +1416,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
 
   VPInstruction *Init = Builder.createReductionInit(
       Identity, StartValue, UseStart, IsInscan /*IsScalar*/,
-      Name + Reduction->getNameSuffix() + ".init");
+      Reduction->isComplex(), Name + Reduction->getNameSuffix() + ".init");
 
   processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                    *Reduction->getRecurrenceStartValue(), IsInscan);
@@ -1411,7 +1439,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     Builder.setCurrentDebugLocation(
         PostExit->getTerminator()->getDebugLocation());
 
-  if (Reduction->getIsMemOnly() || !Exit)
+  // Load from private memory is not needed for complex-type reduction
+  // finalization.
+  if ((Reduction->getIsMemOnly() || !Exit) && !Reduction->isComplex())
     Exit = Builder.createLoad(Ty, PrivateMem);
 
   VPValue *ChangeValue = nullptr;
@@ -1450,7 +1480,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
       ChangeValue = Select->getOperand(2);
   }
 
-  VPReductionFinal *Final = nullptr;
+  VPInstruction *Final = nullptr;
   std::string FinName = (Name + Reduction->getNameSuffix() + ".final").str();
   if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
     const VPReduction *Parent = IndexRed->getParentReduction();
@@ -1461,12 +1491,21 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
         FinName, Reduction->getReductionOpcode(), Exit, ParentExit, ParentFinal,
         Reduction->isSigned());
     if (IndexRed->isLinearIndex())
-      Final->setIsLinearIndex();
+      cast<VPReductionFinal>(Final)->setIsLinearIndex();
   } else if (IsInscan) {
       Final = Builder.create<VPReductionFinalInscan>(
         FinName, Reduction->getReductionOpcode(), Exit);
+  } else if (Reduction->isComplex()) {
+      // Finalize complex type reduction by emitting a reduction-final-cmplx
+      // instruction. Pseudo IR -
+      //
+      // PostExit:
+      //   CmplxTy %fin = reduction-final-cmplx %cmplx.red.vec, %cmplx.red.orig
+      Final = Builder.create<VPReductionFinalCmplx>(
+          "red.final.cmplx", Reduction->getRecurrenceType(),
+          ArrayRef<VPValue *>{PrivateMem, AI}, Reduction->getReductionOpcode());
   } else {
-    if (Reduction->isSelectCmp())
+      if (Reduction->isSelectCmp())
       Final = Builder.create<VPReductionFinal>(
           FinName, Reduction->getReductionOpcode(), Exit,
           Reduction->getRecurrenceStartValue(), ChangeValue,
@@ -1494,8 +1533,10 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   if (FMF.any())
     Final->setFastMathFlags(FMF);
 
-  assignDebugLocToReductionInstrs(Final, Reduction->getIsMemOnly());
-  processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+  if (auto *VPRedFinal = dyn_cast<VPReductionFinal>(Final)) {
+    assignDebugLocToReductionInstrs(VPRedFinal, Reduction->getIsMemOnly());
+    processFinalValue(*Reduction, AI, Builder, *VPRedFinal, Ty, Exit);
+  }
 
   if (PrivateMem) {
     assert(AI && "Expected non-null original pointer");
@@ -1504,7 +1545,8 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
                          Intrinsic::lifetime_end);
   }
 
-  RedExitMap[Reduction] = Exit;
+  if (!Reduction->isComplex())
+    RedExitMap[Reduction] = Exit;
   ProcessedReductions.insert(Reduction);
 }
 
@@ -3361,9 +3403,9 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
         Combiner, Initializer, Ctor, Dtor, Start, RedFMF, RT, Signed,
         MemAliases, AllocaInst, ValidMemOnly, InscanRedKind);
   } else if (LinkPhi == nullptr) {
-    VPRed =
-        LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
-                         MemAliases, InscanRedKind, AllocaInst, ValidMemOnly);
+    VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
+                             MemAliases, InscanRedKind, IsComplex, AllocaInst,
+                             ValidMemOnly);
   } else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");

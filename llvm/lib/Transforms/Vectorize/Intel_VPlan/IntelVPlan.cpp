@@ -279,6 +279,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "reduction-final-inscan";
   case VPInstruction::ReductionFinalArr:
     return "reduction-final-arr";
+  case VPInstruction::ReductionFinalCmplx:
+    return "reduction-final-cmplx";
   case VPInstruction::AllocatePrivate:
     return "allocate-priv";
   case VPInstruction::Subscript:
@@ -542,6 +544,8 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     break;
   case VPInstruction::ReductionInit: {
     O << getOpcodeName(getOpcode());
+    if (cast<const VPReductionInit>(this)->isComplex())
+      O << "-cmplx";
     if (cast<const VPReductionInit>(this)->isScalar())
       O << "-scalar";
     break;

@@ -38,7 +38,6 @@ class Function;
 
 namespace vpo {
 class VPOVectorizationLegality;
-extern bool ForceComplexTyReductionVec;
 extern bool ForceUDSReductionVec;
 
 template <typename LegalityTy> class VectorizationLegalityBase {
@@ -52,12 +51,6 @@ public:
       typename std::conditional<IR == IRKind::LLVMIR,
                                 PrivDescr<Value>::PrivateKind,
                                 PrivDescr<DDRef>::PrivateKind>::type;
-
-  /// Return true if requested to proceed with vectorizing a complex type
-  /// reduction
-  static bool forceComplexTyReductionVec() {
-    return ForceComplexTyReductionVec;
-  }
 
   /// Return true if requested to vectorize a loop with inscan reduction.
   static bool forceUDSReductionVec() { return ForceUDSReductionVec; }
@@ -295,15 +288,6 @@ private:
   /// Return true if successfully consumed.
   bool visitReduction(const ReductionItem *Item,
                       const WRNVecLoopNode *WRLp) {
-    if (!forceComplexTyReductionVec() && Item->getIsComplex())
-      // TODO: Better is to add a medium remark of type CmplxFltRemarkID
-      // or CmplxDblRemarkID, depending on the underlying type.  These
-      // remarks also require passing a string identifying the reduction
-      // kind.  There's some complexity in getting this information from
-      // "Item" for all possible cases.
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-                     "Complex type reductions are not supported.");
-
     Type *Type = nullptr;
     Value *NumElements = nullptr;
     std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
@@ -364,6 +348,18 @@ private:
                      "Scan reduction with user-defined operation is not "
                      "supported.");
 
+    // We currently don't support mul/div reduction of complex types. TODO:
+    // Remove this bailout when complex intrinsics are enabled by default in FE
+    // and VPlan CGs are updated to emit these intrinsics during finalization.
+    if (Item->getIsComplex() && Kind == RecurKind::FMul)
+      // TODO: Better is to add a medium remark of type CmplxFltRemarkID
+      // or CmplxDblRemarkID, depending on the underlying type.  These
+      // remarks also require passing a string identifying the reduction
+      // kind.  There's some complexity in getting this information from
+      // "Item" for all possible cases.
+      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                     "Complex mul/div type reductions are not supported.");
+
     if (Kind == RecurKind::Udr) {
       // Check for UDR and inscan flags, that would make this UDS.
       std::optional<InscanReductionKind> InscanRedKind = std::nullopt;
@@ -381,12 +377,15 @@ private:
                    InscanRedKind);
     } else if (Item->getIsInscan()) {
       // Add an ordinary inscan reduction.
-      addReduction(Val, Kind, isa<InclusiveItem>(
-          WRegionUtils::getInclusiveExclusiveItemForReductionItem(WRLp, Item)) ?
-                   InscanReductionKind::Inclusive :
-                   InscanReductionKind::Exclusive);
+      addReduction(Val, Kind,
+                   isa<InclusiveItem>(
+                       WRegionUtils::getInclusiveExclusiveItemForReductionItem(
+                           WRLp, Item))
+                       ? InscanReductionKind::Inclusive
+                       : InscanReductionKind::Exclusive,
+                   Item->getIsComplex());
     } else
-      addReduction(Val, Kind, std::nullopt);
+      addReduction(Val, Kind, std::nullopt, Item->getIsComplex());
     return true;
   }
 
@@ -414,9 +413,10 @@ private:
   }
 
   void addReduction(ValueTy *V, RecurKind Kind,
-                    std::optional<InscanReductionKind> InscanRedKind) {
-    return static_cast<LegalityTy *>(this)->addReduction(
-      V, Kind, InscanRedKind);
+                    std::optional<InscanReductionKind> InscanRedKind,
+                    bool IsComplex) {
+    return static_cast<LegalityTy *>(this)->addReduction(V, Kind, InscanRedKind,
+                                                         IsComplex);
   }
 
   void addReduction(ValueTy *V, Function *Combiner, Function *Initializer,
@@ -446,6 +446,7 @@ public:
     RecurKind Kind;
     std::optional<InscanReductionKind> InscanRedKind;
     Instruction *UpdateInst;
+    bool IsComplex;
   };
 
   /// Returns true if it is legal to vectorize this loop.
@@ -705,8 +706,10 @@ private:
   }
 
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.
+  /// Additionally track if this is an inscan or complex type reduction.
   void addReduction(Value *V, RecurKind Kind,
-                    std::optional<InscanReductionKind> InscanRedKind);
+                    std::optional<InscanReductionKind> InscanRedKind,
+                    bool IsComplex);
 
   /// Add a user-defined reduction variable \p V and functions that are needed
   /// for its initialization/finalization.
@@ -722,7 +725,8 @@ private:
                             std::optional<InscanReductionKind> InscanRedKind);
   /// Parsing arithmetic reduction patterns.
   void parseBinOpReduction(Value *V, RecurKind Kind,
-                           std::optional<InscanReductionKind> InscanRedKind);
+                           std::optional<InscanReductionKind> InscanRedKind,
+                           bool IsComplex);
 
   /// Return true if the explicit reduction uses Phi nodes.
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,

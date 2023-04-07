@@ -44,7 +44,7 @@
 ; CHECK:         UpdateInstructions:
 ; CHECK-NEXT:    none
 ; HIR-NEXT:      InitValue: %tmpcast.red
-; CHECK-NEXT:    RedDescr: {Kind: call, IsSigned: 0}
+; CHECK-NEXT:    RedDescr: {Kind: call, IsSigned: 0, IsComplex: 0}
 ; CHECK-NEXT:    RedDescrUDR: {Combiner: .omp_combiner., Initializer: .omp_initializer., Ctor: none, Dtor: none}
 
 ; IR:          Ref:   %tmpcast68.red = alloca %struct.point, align 8
@@ -52,7 +52,7 @@
 ; CHECK:         UpdateInstructions:
 ; CHECK-NEXT:    none
 ; HIR-NEXT:      InitValue: %tmpcast68.red
-; CHECK-NEXT:    RedDescr: {Kind: call, IsSigned: 0}
+; CHECK-NEXT:    RedDescr: {Kind: call, IsSigned: 0, IsComplex: 0}
 ; CHECK-NEXT:    RedDescrUDR: {Combiner: .omp_combiner..1, Initializer: .omp_initializer..2, Ctor: none, Dtor: none}
 
 ; ------------------------------------------------------------------------------

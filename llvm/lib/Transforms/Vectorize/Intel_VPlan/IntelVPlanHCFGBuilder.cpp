@@ -404,6 +404,7 @@ public:
     Descriptor.setAllocaInst(OrigAlloca); // Keep original value from clause.
     Descriptor.setLinkPhi(nullptr);
     Descriptor.setInscanReductionKind(CurValue.second.InscanRedKind);
+    Descriptor.setIsComplex(CurValue.second.IsComplex);
   }
 };
 // Conversion functor for user-defined reductions. Implementation mimics

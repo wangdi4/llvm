@@ -18,7 +18,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a) local_unnamed_addr #
 ; HIR-NEXT:    UpdateInstructions:
 ; HIR-NEXT:    none
 ; HIR-NEXT:    InitValue: [[S_RED0]]
-; HIR-NEXT:    RedDescr: {Kind: add, IsSigned: 0}
+; HIR-NEXT:    RedDescr: {Kind: add, IsSigned: 0, IsComplex: 0}
 ; HIR:       HIRLegality UDRList:
 ; HIR-NEXT:  VPlan after insertion of VPEntities instructions:
 ; HIR-NEXT:  VPlan IR for: _Z3fooPii:HIR.#{{[0-9]+}}

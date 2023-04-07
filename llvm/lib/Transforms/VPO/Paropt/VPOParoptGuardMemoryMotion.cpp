@@ -113,16 +113,21 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
     bool IsInscanLoop =
         any_of(VecNode->getRed().items(),
                [](const ReductionItem *Item) { return Item->getIsInscan(); });
-    bool IsUDROrArrSecLoop =
+    // SIMD entities which need memory guard feature -
+    // 1. User-defined reductions
+    // 2. Array section reductions
+    // 3. Complex type reductions
+    bool LoopHasNonScanReductionsNeedingGuard =
         any_of(VecNode->getRed().items(), [](const ReductionItem *Item) {
           return Item->getType() == ReductionItem::WRNReductionUdr ||
-                 Item->getIsArraySection();
+                 Item->getIsArraySection() || Item->getIsComplex();
         });
 
-    // Guarding is needed only for UDR, array section variables or inscan
+    // Guarding is needed only for loops with guard-requiring entities or inscan
     // reductions.
     if (!((RunForScans && IsInscanLoop) ||
-          (!RunForScans && !IsInscanLoop && IsUDROrArrSecLoop)))
+          (!RunForScans && !IsInscanLoop &&
+           LoopHasNonScanReductionsNeedingGuard)))
       continue;
 
     Changed = true;
@@ -140,7 +145,8 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
 
     for (ReductionItem *Item : VecNode->getRed().items()) {
       if (Item->getType() == ReductionItem::WRNReductionUdr ||
-          Item->getIsInscan() || Item->getIsArraySection()) {
+          Item->getIsInscan() || Item->getIsArraySection() ||
+          Item->getIsComplex()) {
         // Add the variable as QUAL.OMP.LIVEIN operand to the directive.
         LiveinBundles.push_back({LiveInClauseString, {Item->getOrig()}});
       }
