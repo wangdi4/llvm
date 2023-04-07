@@ -18,6 +18,7 @@
 #include "cl_disable_sys_dialog.h"
 #include "cl_dynamic_lib.h"
 // clang-format on
+#include "cl_shutdown.h"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include "cl_user_logger.h"
@@ -31,6 +32,8 @@
 #endif
 
 #pragma comment(lib, "cl_sys_utils.lib")
+
+using namespace Intel::OpenCL::Utils;
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
                       LPVOID lpReserved) {
@@ -49,6 +52,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
   case DLL_THREAD_DETACH:
     break;
   case DLL_PROCESS_DETACH:
+    UpdateShutdownMode(ExitStarted);
     Intel::OpenCL::Framework::MemoryObjectFactory::Destroy();
     // release the framework proxy object
     Intel::OpenCL::Framework::FrameworkProxy::Destroy();
@@ -56,6 +60,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
 #ifdef _DEBUG
     Intel::OpenCL::Utils::FiniSharedPts();
 #endif
+    UpdateShutdownMode(ExitDone);
     break;
   }
   return TRUE;

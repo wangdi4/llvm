@@ -21,6 +21,7 @@
 #include "MemoryObject.h"
 #include "cl_secure_string_linux.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_shutdown.h"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include "command_queue.h"
@@ -64,6 +65,7 @@ void dll_init(void) {
 }
 
 void dll_fini(void) {
+  UpdateShutdownMode(ExitStarted);
   Intel::OpenCL::Framework::MemoryObjectFactory::Destroy();
   // release the framework proxy object
   Intel::OpenCL::Framework::FrameworkProxy::Destroy();
@@ -71,4 +73,5 @@ void dll_fini(void) {
 #ifdef _DEBUG
   FiniSharedPts();
 #endif
+  UpdateShutdownMode(ExitDone);
 }

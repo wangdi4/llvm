@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019-2022 Intel Corporation. All rights reserved.
+// Copyright 2019-2023 Intel Corporation. All rights reserved.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,7 +13,6 @@
 // License.
 
 #include "cl_dynamic_lib.h"
-#include "cl_shutdown.h"
 #include "cl_sys_info.h"
 
 #include <assert.h>
@@ -109,14 +108,7 @@ void OclDynamicLib::Close() {
     return;
   }
 
-  if (IsShuttingDown()) {
-    return;
-  }
-
-  UseShutdownHandler::UnloadingDll(true);
   dlclose(m_hLibrary);
-  UseShutdownHandler::UnloadingDll(false);
-
   m_hLibrary = nullptr;
 }
 

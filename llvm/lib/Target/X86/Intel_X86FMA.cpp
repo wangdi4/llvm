@@ -722,10 +722,12 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(const X86Subtarget *ST,
     llvm_unreachable("GlobalFMA: Cannot choose appropriate ZERO opcode.");
   }
 
-  bool EVEX = (VT.is128BitVector() || VT.is256BitVector()) ? ST->hasVLX()
 #if INTEL_FEATURE_ISA_AVX256P
-                                                           : ST->hasAVX3();
+  bool HasVLX = ST->hasVLX() || ST->hasAVX256P();
+  bool EVEX =
+      (VT.is128BitVector() || VT.is256BitVector()) ? HasVLX : ST->hasAVX3();
 #else // INTEL_FEATURE_ISA_AVX256P
+  bool EVEX = (VT.is128BitVector() || VT.is256BitVector()) ? ST->hasVLX()
                                                            : ST->hasAVX512();
 #endif // INTEL_FEATURE_ISA_AVX256P
   const FMAOpcodeDesc *OD = findByVT(VT, OpcodeKind, EVEX);
@@ -1682,10 +1684,11 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   // Use a broadcast from GPR if such is available in the target ISA.
 #if INTEL_FEATURE_ISA_AVX256P
   if (ST->hasAVX3()) {
+    bool UseVLX = (ST->hasVLX() || ST->hasAVX256P()) && VTBitSize <= 256;
 #else // INTEL_FEATURE_ISA_AVX256P
   if (ST->hasAVX512()) {
-#endif // INTEL_FEATURE_ISA_AVX256P
     bool UseVLX = ST->hasVLX() && VTBitSize <= 256;
+#endif // INTEL_FEATURE_ISA_AVX256P
     unsigned VecBitSize = UseVLX ? VTBitSize : 512;
     unsigned ElemSize =
         FK == IsF16 ? 16 :
@@ -1763,6 +1766,11 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   // Get opcode and type for the created const.
   unsigned Opc;
   Type *Ty;
+#if INTEL_FEATURE_ISA_AVX256P
+  bool HasVLX = ST->hasVLX() || ST->hasAVX256P();
+#else  // INTEL_FEATURE_ISA_AVX256P
+  bool HasVLX = ST->hasVLX();
+#endif // INTEL_FEATURE_ISA_AVX256P
   switch (VT.SimpleTy) {
   case MVT::f16:
     Opc = X86::VMOVSHZrm_alt;
@@ -1785,27 +1793,27 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
     Ty = Type::getDoubleTy(Context);
     break;
   case MVT::v8f16:
-    Opc = ST->hasVLX() ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
+    Opc = HasVLX ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
     Ty = FixedVectorType::get(Type::getHalfTy(Context), 8);
     break;
   case MVT::v4f32:
-    Opc = ST->hasVLX() ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
+    Opc = HasVLX ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
     Ty = FixedVectorType::get(Type::getFloatTy(Context), 4);
     break;
   case MVT::v2f64:
-    Opc = ST->hasVLX() ? X86::VMOVAPDZ128rm : X86::VMOVAPDrm;
+    Opc = HasVLX ? X86::VMOVAPDZ128rm : X86::VMOVAPDrm;
     Ty = FixedVectorType::get(Type::getDoubleTy(Context), 2);
     break;
   case MVT::v16f16:
-    Opc = ST->hasVLX() ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
+    Opc = HasVLX ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
     Ty = FixedVectorType::get(Type::getHalfTy(Context), 16);
     break;
   case MVT::v8f32:
-    Opc = ST->hasVLX() ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
+    Opc = HasVLX ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
     Ty = FixedVectorType::get(Type::getFloatTy(Context), 8);
     break;
   case MVT::v4f64:
-    Opc = ST->hasVLX() ? X86::VMOVAPDZ256rm : X86::VMOVAPDYrm;
+    Opc = HasVLX ? X86::VMOVAPDZ256rm : X86::VMOVAPDYrm;
     Ty = FixedVectorType::get(Type::getDoubleTy(Context), 4);
     break;
   case MVT::v32f16:

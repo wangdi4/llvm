@@ -1825,6 +1825,13 @@ static bool isDescribedSubrange(const DISubrange *Subrange) {
   return isValidDescriptorExpression(LE) || isValidDescriptorExpression(UE);
 }
 
+static bool isDescribedSubrange(const DIGenericSubrange *Subrange) {
+  auto *LE = Subrange->getLowerBound().dyn_cast<DIExpression *>();
+  auto *UE = Subrange->getUpperBound().dyn_cast<DIExpression *>();
+
+  return isValidDescriptorExpression(LE) || isValidDescriptorExpression(UE);
+}
+
 static int64_t getConstantLowerBound(const DISubrange *Subrange) {
   auto *LI = Subrange->getLowerBound().dyn_cast<ConstantInt *>();
   // The default lowerbound of an array dimension in Fortran is 1.
@@ -1897,7 +1904,7 @@ TypeIndex CodeViewDebug::lowerTypeOemMSF90Descriptor(const DIStringType *Ty,
 //   index[0] (4)  type index of array's elements
 //   index[1] (4)  type index of bounds key (either LF_REFSYM or 0),
 //                 only the simple case where index[1] is 0 is supported
-//   rank     (4)  number of array dimensions
+//   rank     (4)  number of array dimensions, 0 indicates assumed rank
 //   data     (4)  size of the array descriptor in bytes
 TypeIndex CodeViewDebug::lowerTypeOemMSF90DescribedArray(const DICompositeType *Ty) {
   const uint32_t TypeIndicesCount = 2;
@@ -1923,8 +1930,9 @@ TypeIndex CodeViewDebug::lowerTypeOemMSF90DescribedArray(const DICompositeType *
   uint32_t DescrSize =
       getF90DescriptorSize(Triple(MMI->getModule()->getTargetTriple()).getArch(),
 	                       Elements.size());
+  uint32_t rank = dyn_cast<DISubrange>(Elements[0]) ? Elements.size() : 0;
   TypeIndex Indices[TypeIndicesCount] = {ElementTypeIndex, BoundsKey};
-  uint32_t Data[DataCount] = {Elements.size(), DescrSize};
+  uint32_t Data[DataCount] = {rank, DescrSize};
 
   OEMTypeRecord OEM(TypeLeafKind::LF_OEM_IDENT_MSF90,
                     TypeLeafKind::LF_recOEM_MSF90_DESCR_ARR,
@@ -2006,6 +2014,11 @@ TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
 #if INTEL_CUSTOMIZATION
   if (!DisableIntelCodeViewExtensions && moduleIsInFortran() &&
        Elements.size() > 0) {
+    if (auto *GenSubrange = dyn_cast<DIGenericSubrange>(Elements[0])) {
+      return isDescribedSubrange(GenSubrange)
+                 ? lowerTypeOemMSF90DescribedArray(Ty)
+                 : TypeIndex();
+    }
     assert(Elements[0]->getTag() == dwarf::DW_TAG_subrange_type);
     const DISubrange *Subrange = cast<DISubrange>(Elements[0]);
     if (isDescribedSubrange(Subrange)) {

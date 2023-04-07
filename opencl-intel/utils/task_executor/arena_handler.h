@@ -15,7 +15,6 @@
 #pragma once
 
 #include "cl_device_api.h"
-#include "cl_shutdown.h"
 #include "harness_trapper.h"
 #include "task_executor.h"
 
@@ -44,8 +43,6 @@ namespace TaskExecutor {
 class TBBTaskExecutor;
 class ArenaHandler;
 class TEDevice;
-
-using Intel::OpenCL::Utils::IsShutdownMode;
 
 struct TBB_PerActiveThreadData {
 public:
@@ -371,19 +368,15 @@ private:
 
 // inlines
 inline void ArenaHandler::on_scheduler_entry(bool bIsWorker) {
-  if (!IsShutdownMode()) {
-    m_device->on_scheduler_entry(bIsWorker, *this);
-  }
+  m_device->on_scheduler_entry(bIsWorker, *this);
 }
 
 inline void ArenaHandler::on_scheduler_exit(bool bIsWorker) {
-  if (!IsShutdownMode()) {
-    m_device->on_scheduler_exit(bIsWorker, *this);
-  }
+  m_device->on_scheduler_exit(bIsWorker, *this);
 }
 
 inline bool ArenaHandler::on_scheduler_leaving() {
-  return (IsShutdownMode()) ? true : m_device->on_scheduler_leaving(*this);
+  return m_device->on_scheduler_leaving(*this);
 }
 
 template <class F> class TrappingEnqueueFunctor {

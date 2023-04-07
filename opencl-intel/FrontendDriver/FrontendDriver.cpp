@@ -25,7 +25,6 @@
 
 #include <Logger.h>
 #include <cl_device_api.h>
-#include <cl_shutdown.h>
 #include <cl_sys_defines.h>
 
 #include "llvm/ADT/StringRef.h"

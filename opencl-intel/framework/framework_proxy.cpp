@@ -14,7 +14,6 @@
 
 #include "framework_proxy.h"
 #include "Logger.h"
-#include "cl_shutdown.h"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include <cl_shared_ptr.hpp>
@@ -35,15 +34,6 @@ cl_monitor_init
     cl_icd_dispatch FrameworkProxy::ICDDispatchTable;
 SOCLCRTDispatchTable FrameworkProxy::CRTDispatchTable;
 ocl_entry_points FrameworkProxy::OclEntryPoints;
-
-std::recursive_mutex FrameworkProxy::m_initializationMutex;
-
-volatile FrameworkProxy::GLOBAL_STATE FrameworkProxy::gGlobalState =
-    FrameworkProxy::WORKING;
-THREAD_LOCAL bool FrameworkProxy::m_bIgnoreAtExit = false;
-
-std::set<Intel::OpenCL::Utils::at_exit_dll_callback_fn>
-    FrameworkProxy::m_at_exit_cbs;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy()
@@ -600,12 +590,10 @@ void FrameworkProxy::Destroy() {
 // FrameworkProxy::Release()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Release(bool bTerminate) {
-  if (TERMINATED != gGlobalState) {
-    // Many modules assume that FrameWorkProxy singleton, execution_module,
-    // context_module and platform_module exist all the time -> we must ensure
-    // that everything is shut down before deleting them.
-    Instance()->m_pContextModule->ShutDown(true);
-  }
+  // Many modules assume that FrameWorkProxy singleton, execution_module,
+  // context_module and platform_module exist all the time -> we must ensure
+  // that everything is shut down before deleting them.
+  Instance()->m_pContextModule->ShutDown(true);
 
   if (nullptr != m_pExecutionModule) {
     m_pExecutionModule->Release(bTerminate);
@@ -647,89 +635,6 @@ void FrameworkProxy::Release(bool bTerminate) {
   cl_monitor_summary;
 }
 
-void FrameworkProxy::RegisterDllCallback(at_exit_dll_callback_fn cb) {
-  if (nullptr != cb) {
-    std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
-    m_at_exit_cbs.insert(cb);
-  }
-}
-
-void FrameworkProxy::UnregisterDllCallback(at_exit_dll_callback_fn cb) {
-  if (nullptr != cb) {
-    std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
-    m_at_exit_cbs.erase(cb);
-  }
-}
-
-void FrameworkProxy::AtExitTrigger(at_exit_dll_callback_fn cb) {
-  bool needToDisableAPI = Instance()->NeedToDisableAPIsAtShutdown();
-
-  if (isDllUnloadingState()) {
-    UnregisterDllCallback(cb);
-    cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_DLL_UNLOADING_MODE,
-       needToDisableAPI);
-    cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_DLL_UNLOADING_MODE,
-       needToDisableAPI);
-  } else {
-    TerminateProcess(needToDisableAPI);
-  }
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// FrameworkProxy::TerminateProcess(bool needToDisableAPI)
-///////////////////////////////////////////////////////////////////////////////////////////////////
-void FrameworkProxy::TerminateProcess(bool needToDisableAPI) {
-  if (WORKING != gGlobalState) {
-    return;
-  }
-
-  // references to other DLLs are not safe on Linux at exit
-
-  // normal shutdown
-  gGlobalState = TERMINATING;
-
-  // notify all DLLs that at_exit started
-  {
-// The following comment applicable for Windows only.
-// Locking this mutex may lead to deadlock due to any other thread
-// may acquire mutex and die(killed by OS) without freeing.
-// Anyway using mutex during process shutdown is meaningless
-// because of there is only one thread is alive.
-#ifndef _WIN32
-    std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
-#endif // _WIN32
-    for (auto it : m_at_exit_cbs) {
-      at_exit_dll_callback_fn cb = *it;
-      cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_PROCESS_UNLOADING_MODE,
-         needToDisableAPI);
-    }
-  }
-
-  if (!Instance()->NeedToDisableAPIsAtShutdown())
-    Instance()->m_pContextModule->ShutDown(true);
-
-  gGlobalState = TERMINATED;
-
-  // notify all DLLs that at_exit occured
-  {
-#ifndef _WIN32
-    std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
-#endif // _WIN32
-    for (auto it : m_at_exit_cbs) {
-      at_exit_dll_callback_fn cb = *it;
-      cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_PROCESS_UNLOADING_MODE,
-         needToDisableAPI);
-    }
-    m_at_exit_cbs.clear();
-  }
-
-#if defined(_DEBUG)
-  if (!Instance()->NeedToDisableAPIsAtShutdown()) {
-    DumpSharedPts("TerminateProcess - only SharedPtrs local to intelocl DLL",
-                  true);
-  }
-#endif
-}
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Instance()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -832,10 +737,6 @@ bool FrameworkProxy::ActivateTaskExecutor() const {
 // FrameworkProxy::ActivateTaskExecutor()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::DeactivateTaskExecutor() const {
-  if (TERMINATED == gGlobalState) {
-    return;
-  }
-
   std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
 
   if (nullptr != m_pTaskList && nullptr != m_pTaskList_immediate) {
