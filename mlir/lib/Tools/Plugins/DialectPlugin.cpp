@@ -1,4 +1,4 @@
-//===- lib/IR/DialectPlugin.cpp - Load Dialect Plugins --------------------===//
+//===- lib/Tools/Plugins/DialectPlugin.cpp - Load Dialect Plugins ---------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/IR/DialectPlugin.h"
+#include "mlir/Tools/Plugins/DialectPlugin.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cstdint>

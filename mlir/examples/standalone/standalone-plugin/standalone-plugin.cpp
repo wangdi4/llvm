@@ -8,11 +8,11 @@
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/Dialect.h"
-#include "mlir/IR/DialectPlugin.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Tools/Plugins/DialectPlugin.h"
 
 #include "Standalone/StandaloneDialect.h"
 #include "Standalone/StandalonePasses.h"

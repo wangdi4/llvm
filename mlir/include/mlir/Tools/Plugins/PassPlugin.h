@@ -1,4 +1,4 @@
-//===- mlir/Pass/PassPlugin.h - Public Plugin API -----------------------===//
+//===- mlir/Tools/Plugins/PassPlugin.h - Public Plugin API ----------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_PASSES_PASSPLUGIN_H
-#define MLIR_PASSES_PASSPLUGIN_H
+#ifndef MLIR_TOOLS_PLUGINS_PASSPLUGIN_H
+#define MLIR_TOOLS_PLUGINS_PASSPLUGIN_H
 
 #include "mlir/Support/LLVM.h"
 #include "llvm/ADT/StringRef.h"
@@ -109,4 +109,4 @@ private:
 extern "C" ::mlir::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 mlirGetPassPluginInfo();
 
-#endif /* MLIR_PASS_PASSPLUGIN_H */
+#endif /* MLIR_TOOLS_PLUGINS_PASSPLUGIN_H */

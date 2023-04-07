@@ -1,4 +1,4 @@
-//===- mlir/IR/DialectPlugin.h - Public Plugin API -----------------------===//
+//===- mlir/Tools/Plugins/DialectPlugin.h - Public Plugin API -------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_IR_DIALECTPLUGIN_H
-#define MLIR_IR_DIALECTPLUGIN_H
+#ifndef MLIR_TOOLS_PLUGINS_DIALECTPLUGIN_H
+#define MLIR_TOOLS_PLUGINS_DIALECTPLUGIN_H
 
 #include "mlir/IR/DialectRegistry.h"
-#include "mlir/Pass/PassPlugin.h"
+#include "mlir/Tools/Plugins/PassPlugin.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/DynamicLibrary.h"
@@ -103,4 +103,4 @@ private:
 extern "C" ::mlir::DialectPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 mlirGetDialectPluginInfo();
 
-#endif /* MLIR_IR_DIALECTPLUGIN_H */
+#endif /* MLIR_TOOLS_PLUGINS_DIALECTPLUGIN_H */

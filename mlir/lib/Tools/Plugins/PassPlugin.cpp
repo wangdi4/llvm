@@ -1,4 +1,4 @@
-//===- lib/Passes/PassPlugin.cpp - Load Plugins for PR Passes ---===//
+//===- lib/Tools/Plugins/PassPlugin.cpp - Load Plugins for PR Passes ------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Pass/PassPlugin.h"
+#include "mlir/Tools/Plugins/PassPlugin.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cstdint>

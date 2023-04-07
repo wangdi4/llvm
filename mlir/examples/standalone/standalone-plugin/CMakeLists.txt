@@ -3,6 +3,7 @@ get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 set(LIBS
         MLIRIR
         MLIRPass
+        MLIRPluginsLib
         MLIRStandalone
         MLIRTransformUtils
         )
