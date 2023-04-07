@@ -2356,12 +2356,16 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   // Only do this for opaque pointers, as the result element type may change.
   Type *PtrTy = Src->getType()->getScalarType();
   if (PtrTy->isOpaquePointerTy() && GEP.hasAllConstantIndices() &&
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // Skip offset folding in pre_loopopt mode as it loses struct offset
       // information needed by loopopt.
       (Src->hasOneUse() || Src->hasAllConstantIndices()) &&
       !GEP.getParent()->getParent()->isPreLoopOpt()) {
 #endif // INTEL_CUSTOMIZATION
+=======
+      (Src->hasOneUse() || Src->hasAllConstantIndices())) {
+>>>>>>> 9e3a8c0966db753c063c457da0898dd15428f75c
     // Split Src into a variable part and a constant suffix.
     gep_type_iterator GTI = gep_type_begin(*Src);
     Type *BaseType = GTI.getIndexedType();
