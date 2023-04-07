@@ -743,6 +743,7 @@ bool isVectorIntrinsicWithOverloadTypeAtArg(Intrinsic::ID ID, unsigned OpdIdx);
 Intrinsic::ID getVectorIntrinsicIDForCall(const CallInst *CI,
                                           const TargetLibraryInfo *TLI);
 
+<<<<<<< HEAD
 /// Find the operand of the GEP that should be checked for consecutive
 /// stores. This ignores trailing indices that have no effect on the final
 /// pointer.
@@ -762,6 +763,8 @@ Value *getUniqueCastUse(Value *Ptr, Loop *Lp, Type *Ty);
 Value *getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 2d79b713663169b3732fcbdf56cac243b5c41e28
 /// Given a vector and an element number, see if the scalar value is
 /// already around as a register, for example if it were inserted then extracted
 /// from the vector.
