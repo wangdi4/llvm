@@ -74,7 +74,7 @@ private:
   bool isVPlanCandidate(Function &Fn, Loop *Lp);
 
   template <class Loop>
-  bool bailout(VPlanOptReportBuilder &ORBuilder, Loop *Lp,
+  bool bailout(VPlanOptReportBuilder &ORBuilder, Loop *Lp, WRNVecLoopNode *WRLp,
                OptReportVerbosity::Level Level, unsigned ID,
                std::string Reason);
 
@@ -309,7 +309,6 @@ private:
   loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis;
   bool LightWeightMode;
   bool WillRunLLVMIRVPlan;
-  bool IsOmpSIMD = false;
 
   bool processLoop(loopopt::HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
   bool isSupported(loopopt::HLLoop *Lp, WRNVecLoopNode *WRLp);
@@ -318,8 +317,8 @@ private:
   // Delete intel intrinsic directives before/after the given loop.
   void eraseLoopIntrins(loopopt::HLLoop *Lp, WRNVecLoopNode *WRLp);
   bool bailout(VPlanOptReportBuilder &VPORBuilder, loopopt::HLLoop *Lp,
-               OptReportVerbosity::Level Level, unsigned ID,
-               std::string Reason);
+               WRNVecLoopNode *WRLp, OptReportVerbosity::Level Level,
+               unsigned ID, std::string Reason);
 
 public:
   bool runImpl(Function &F, loopopt::HIRFramework *HIRF,
