@@ -141,7 +141,12 @@ int DeviceTy::disassociatePtr(void *HstPtrBegin) {
   }
   // Mapping exists
   HostDataToTargetTy &HDTT = *It->HDTT;
+#if INTEL_CUSTOMIZATION
+  // Use unique_lock to release ownership before deleting HDTT below.
+  std::unique_lock<HostDataToTargetTy> LG(HDTT);
+#else  // INTEL_CUSTOMIZATION
   std::lock_guard<HostDataToTargetTy> LG(HDTT);
+#endif // INTEL_CUSTOMIZATION
 
   if (HDTT.getHoldRefCount()) {
     // This is based on OpenACC 3.1, sec 3.2.33 "acc_unmap_data", L3656-3657:
@@ -155,6 +160,9 @@ int DeviceTy::disassociatePtr(void *HstPtrBegin) {
   if (HDTT.isDynRefCountInf()) {
     DP("Association found, removing it\n");
     void *Event = HDTT.getEvent();
+#if INTEL_CUSTOMIZATION
+    LG.unlock();
+#endif // INTEL_CUSTOMIZATION
     delete &HDTT;
     if (Event)
       destroyEvent(Event);

@@ -280,6 +280,15 @@ public:
   /// elimination of instruction.
   static bool hasSideEffects(const CallInst *Call) {
     assert(Call && "Inst is nullptr");
+
+    auto *Intrin = dyn_cast<IntrinsicInst>(Call);
+
+    // Assume like intrinsics are for annotating IR. It should be safe to ignore
+    // them.
+    if (Intrin && Intrin->isAssumeLikeIntrinsic()) {
+      return false;
+    }
+
     return Call->mayHaveSideEffects();
   }
 

@@ -39,10 +39,6 @@
 ; CHECK:       {
 ; CHECK:          + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK:          |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0]), 1) ]
-; CHECK:          |   + DO i2 = 0, %m + -1, 1   <DO_LOOP> <simd>
-; CHECK:          |   |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%j.linear.iv)[0]));
-; CHECK:          |   |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%j.linear.iv)[0]));
-; CHECK:          |   + END LOOP
 ; CHECK:          |      @llvm.directive.region.exit(%1); [ DIR.OMP.END.SIMD() ]
 ; CHECK:          + END LOOP
 ; CHECK:       }
