@@ -106,6 +106,11 @@ add_llvm_unittest(SupportTests
   )
 
 target_link_libraries(SupportTests PRIVATE LLVMTestingSupport)
+if (INTEL_CUSTOMIZATION)
+  if (WIN32)
+    target_link_options(SupportTests PRIVATE /FORCE:MULTIPLE /ignore:4006 /ignore:4088)
+  endif()
+endif (INTEL_CUSTOMIZATION)
 
 # Disable all warning for AlignOfTest.cpp,
 # as it does things intentionally, and there is no reliable way of
