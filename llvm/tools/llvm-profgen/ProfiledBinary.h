@@ -1,4 +1,21 @@
 //===-- ProfiledBinary.h - Binary decoder -----------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -41,6 +58,10 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/Object/COFF.h"
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 extern cl::opt<bool> EnableCSPreInliner;
@@ -288,11 +309,18 @@ class ProfiledBinary {
   // Use to avoid redundant warning.
   bool MissingMMapWarned = false;
 
-  void setPreferredTextSegmentAddresses(const ELFObjectFileBase *O);
+  bool IsCOFF = false; // INTEL
+
+  void setPreferredTextSegmentAddresses(const ObjectFile *O); // INTEL
 
   template <class ELFT>
   void setPreferredTextSegmentAddresses(const ELFFile<ELFT> &Obj,
                                         StringRef FileName);
+
+#if INTEL_CUSTOMIZATION
+  void setPreferredTextSegmentAddresses(const COFFObjectFile *Obj,
+                                        StringRef FileName);
+#endif // INTEL_CUSTOMIZATION
 
   void checkPseudoProbe(const ELFObjectFileBase *Obj);
 
@@ -303,7 +331,7 @@ class ProfiledBinary {
                           std::map<SectionRef, SectionSymbolsTy> &AllSymbols);
 
   // Set up disassembler and related components.
-  void setUpDisassembler(const ELFObjectFileBase *Obj);
+  void setUpDisassembler(const ObjectFile *Obj); // INTEL
   void setupSymbolizer();
 
   // Load debug info of subprograms from DWARF section.
@@ -324,7 +352,7 @@ class ProfiledBinary {
   void warnNoFuncEntry();
 
   /// Dissassemble the text section and build various address maps.
-  void disassemble(const ELFObjectFileBase *O);
+  void disassemble(const ObjectFile *O); // INTEL
 
   /// Helper function to dissassemble the symbol and extract info for unwinding
   bool dissassembleSymbol(std::size_t SI, ArrayRef<uint8_t> Bytes,
@@ -352,6 +380,8 @@ public:
   StringRef getName() const { return llvm::sys::path::filename(Path); }
   uint64_t getBaseAddress() const { return BaseAddress; }
   void setBaseAddress(uint64_t Address) { BaseAddress = Address; }
+
+  bool isCOFF() const { return IsCOFF; } // INTEL
 
   // Canonicalize to use preferred load address as base address.
   uint64_t canonicalizeVirtualAddress(uint64_t Address) {

@@ -420,9 +420,24 @@ PerfScriptReader::convertPerfDataToTrace(ProfiledBinary *Binary,
   return {PerfTraceFile, PerfFormat::PerfScript, PerfContent::UnknownContent};
 }
 
+#if INTEL_CUSTOMIZATION
+static StringRef filename(StringRef Path, bool IsCOFF) {
+  llvm::sys::path::Style PathStyle =
+      IsCOFF ? llvm::sys::path::Style::windows_backslash
+             : llvm::sys::path::Style::native;
+  StringRef FileName = llvm::sys::path::filename(Path, PathStyle);
+
+  // In case this file use \r\n as newline.
+  if (IsCOFF && FileName.back() == '\r')
+    return FileName.drop_back();
+
+  return FileName;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void PerfScriptReader::updateBinaryAddress(const MMapEvent &Event) {
   // Drop the event which doesn't belong to user-provided binary
-  StringRef BinaryName = llvm::sys::path::filename(Event.BinaryPath);
+  StringRef BinaryName = filename(Event.BinaryPath, Binary->isCOFF()); // INTEL
   if (Binary->getName() != BinaryName)
     return;
 
@@ -998,7 +1013,8 @@ bool PerfScriptReader::extractMMap2EventForBinary(ProfiledBinary *Binary,
            << format("0x%" PRIx64 ":", MMap.Address) << " \n";
   }
 
-  StringRef BinaryName = llvm::sys::path::filename(MMap.BinaryPath);
+  StringRef BinaryName = filename(MMap.BinaryPath, Binary->isCOFF()); // INTEL
+
   return Binary->getName() == BinaryName;
 }
 
