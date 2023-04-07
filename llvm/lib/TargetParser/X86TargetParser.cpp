@@ -290,7 +290,6 @@ constexpr FeatureBitset FeaturesLioncoveServer =
     FeatureAMX_TRANSPOSE |
     FeatureAMX_AVX512 |
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
-    FeatureAMX_COMPLEX |
 #if INTEL_FEATURE_ISA_AMX_TF32
     FeatureAMX_TF32;
 #endif // INTEL_FEATURE_ISA_AMX_TF32

@@ -1573,7 +1573,6 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
                                                   FeatureAMXAVX512TILE16MOV,
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
-                                                  FeatureAMXCOMPLEX,
 #if INTEL_FEATURE_ISA_AMX_TF32
                                                   FeatureAMXTF32
 #endif // INTEL_FEATURE_ISA_AMX_TF32
