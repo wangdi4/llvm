@@ -942,13 +942,11 @@ define i1 @allzeros_v16i8_not(<16 x i8> %a0) {
 ; SSE41-NEXT:    setne %al
 ; SSE41-NEXT:    retq
 ;
-; INTEL_CUSTOMIZATION
 ; AVX-LABEL: allzeros_v16i8_not:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vptest %xmm0, %xmm0
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    retq
-; end INTEL_CUSTOMIZATION
   %1 = icmp eq <16 x i8> %a0, zeroinitializer
   %2 = bitcast <16 x i1> %1 to i16
   %3 = icmp ne i16 %2, -1
@@ -3299,8 +3297,8 @@ define i1 @allzeros_v8f32_nnan(<8 x float> %a0) {
 ; SSE-NEXT:    xorps %xmm2, %xmm2
 ; SSE-NEXT:    cmpneqps %xmm2, %xmm1
 ; SSE-NEXT:    cmpneqps %xmm2, %xmm0
-; SSE-NEXT:    packssdw %xmm1, %xmm0
-; SSE-NEXT:    pmovmskb %xmm0, %eax
+; SSE-NEXT:    orps %xmm1, %xmm0 ;INTEL
+; SSE-NEXT:    movmskps %xmm0, %eax ;INTEL
 ; SSE-NEXT:    testl %eax, %eax
 ; SSE-NEXT:    setne %al
 ; SSE-NEXT:    retq
