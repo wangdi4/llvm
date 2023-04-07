@@ -2918,18 +2918,18 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   if (GEPType->isVectorTy())
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
   // Handle gep(bitcast x) and gep(gep x, 0, 0, 0).
   Value *StrippedPtr = PtrOp->stripPointerCasts();
   PointerType *StrippedPtrTy = cast<PointerType>(StrippedPtr->getType());
 
-#if INTEL_CUSTOMIZATION
+
   // This is opaque ptr version of some of the code inside the section below
   // which optimizes bitcasts + geps using Descale().
   if (StrippedPtrTy->isOpaque() && (GEP.getNumOperands() == 2) &&
       !IsGEPSrcEleScalable && GEPEltType->isSized())
     if (auto *NewGEP = convertOpaqueGEPToLoadStoreType(GEP))
       return NewGEP;
-#endif // INTEL_CUSTOMIZATION
 
   // TODO: The basic approach of these folds is not compatible with opaque
   // pointers, because we can't use bitcasts as a hint for a desirable GEP
@@ -3096,7 +3096,6 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     }
   }
 
-#if INTEL_CUSTOMIZATION
   // addrspacecast between types is canonicalized as a bitcast, then an
   // addrspacecast. To take advantage of the below bitcast + struct GEP, look
   // through the addrspacecast.
