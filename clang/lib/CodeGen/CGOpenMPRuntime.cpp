@@ -12681,9 +12681,11 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
             if (auto AI = llvm::X86::VectorAbiIsaInfo::getByName(Name)) {
               size_t VSize = IsFloatingPoint ? AI->MaxFPVecRegByteSize
                                              : AI->MaxIntVecRegByteSize;
-              addVectorVariant(Variants, FD, Fn, AI->IntelISA,
-                               llvm::APSInt::getUnsigned(VSize * 8 / NumElts),
-                               ParamAttrs, State, AI->TargetName);
+              addVectorVariant(
+                  Variants, FD, Fn, AI->IntelISA,
+                  NumElts ? llvm::APSInt::getUnsigned(VSize * 8 / NumElts)
+                          : VLENVal,
+                  ParamAttrs, State, AI->TargetName);
             }
           }
         } else if (CGM.getTriple().isSPIR() &&
