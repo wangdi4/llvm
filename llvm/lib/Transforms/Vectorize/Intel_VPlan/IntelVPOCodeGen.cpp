@@ -1624,6 +1624,114 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     generateArrayReductionFinal(cast<VPReductionFinalArray>(VPInst));
     return;
   }
+  case VPInstruction::ReductionFinalCmplx: {
+    LoopHasEntityWithMemGuard = true;
+    auto *CmplxRedFinal = cast<VPReductionFinalCmplx>(VPInst);
+    auto *PrivCmplx = cast<VPAllocatePrivate>(CmplxRedFinal->getOperand(0));
+    Value *OrigCmplx = getScalarValue(CmplxRedFinal->getOperand(1), 0);
+    Type *ElemTy =
+        cast<StructType>(PrivCmplx->getAllocatedType())->getElementType(0);
+    // Represent complex struct type as a packed vector type like <2 x ElemTy>.
+    Type *CmplxTyAsVec = FixedVectorType::get(ElemTy, 2);
+
+    // We treat the widened private memory of complex reduction as a wide vector
+    // with real and imaginary parts for each lane stored consecutively like -
+    // <Real_0, Imag_0, Real_1, Imag_1, ..., VF times>
+    //
+    // Horizontal reduction is done by taking the second half of this vector and
+    // iteratively reducing with first half until we are left with only 2
+    // elements in the vector. At that point we reduce the horizontally reduced
+    // vector with original complex value and store the final result.
+    //
+    // Pseudo IR for generic complex type reduction finalization -
+    //
+    // vector.exit:
+    //   %vec = load <VF * 2 x ElemTy>, ptr %cmplx.red.vec
+    //   %second.half = shuffle %vec, undef, <VF, VF+1, ..., 2*VF-1, undef, ...>
+    //   %redop = red-opcode %vec, %second.half
+    //   %second.half.2 = shuffle %redop, undef, <VF/2, ..., VF-1, undef, ...>
+    //   %redop2 = red-opcode %redop, %second.half.2
+    //   .. repeat log2(VF) times ..
+    //   %reduced = shuffle %fin.redop, undef, <0, 1>
+    //   %orig.cmplx = load <2 x ElemTy>, ptr %cmplx.red
+    //   %final = red-opcode %reduced, %orig.cmplx
+    //   store %final, ptr %orig.cmplx
+    //
+
+    // Perform consecutive load from widened private memory for the complex type
+    // reduction.
+    Value *PrivLdBasePtr = createWidenedBasePtrConsecutiveLoadStore(
+        PrivCmplx, CmplxTyAsVec, false /*Reverse*/);
+    Value *PrivLd = Builder.CreateLoad(getWidenedType(CmplxTyAsVec, VF),
+                                       PrivLdBasePtr, "cmplx.fin.vec");
+
+    Value *CmplxFinVec = PrivLd;
+    auto *CmplxFinVecTy = cast<FixedVectorType>(CmplxFinVec->getType());
+    unsigned CmplxFinVecSize = CmplxFinVecTy->getNumElements();
+    assert(CmplxFinVecSize == VF * 2 &&
+           "Finalization vector for complex type reduction is expected to have "
+           "2*VF number of elements.");
+
+    // Emit sequence of shuffle + redop instructions to perform horizontal
+    // reduction. We use the same vector for this purpose by reducing the second
+    // half with first. This is repeated for log2(VF) times i.e. until vector
+    // size is 2 elements.
+    for (unsigned CurVecSize = CmplxFinVecSize; CurVecSize > 2;
+         CurVecSize /= 2) {
+      SmallVector<Constant *, 8> ShufMask;
+      ShufMask.resize(CmplxFinVecSize, UndefValue::get(Builder.getInt32Ty()));
+
+      // Compute mask to get second half of vector based on its current size -
+      // VF = 4
+      // CurVecSize = 8
+      // ShufMask = <4, 5, 6, 7, undef, undef, undef, undef>
+      unsigned CurHalfVecSize = CurVecSize / 2;
+      for (unsigned I = 0; I < CurHalfVecSize; ++I)
+        ShufMask[I] = Builder.getInt32(CurHalfVecSize + I);
+
+      Value *ShufInst = Builder.CreateShuffleVector(
+          CmplxFinVec, UndefValue::get(CmplxFinVecTy),
+          ConstantVector::get(ShufMask), "cmplx.fin.second.half");
+      // Reduce the second half with first, and attach any FastMathFlags if
+      // needed.
+      Value *BinOp = Builder.CreateBinOp(
+          static_cast<Instruction::BinaryOps>(CmplxRedFinal->getBinOpcode()),
+          CmplxFinVec, ShufInst, "cmplx.fin.redop");
+      if (isa<FPMathOperator>(BinOp) && CmplxRedFinal->hasFastMathFlags())
+        cast<Instruction>(BinOp)->setFastMathFlags(
+            CmplxRedFinal->getFastMathFlags());
+
+      CmplxFinVec = BinOp;
+    }
+
+    // We have reduced the finalization vector horizontally to 2 elements,
+    // extract that to reduce with the original complex value.
+    SmallVector<int, 2> ShufMask = {0, 1};
+    Value *CmplxFinVecRedShuf =
+        Builder.CreateShuffleVector(CmplxFinVec, UndefValue::get(CmplxFinVecTy),
+                                    ShufMask, "cmplx.fin.vec.reduced");
+    // For non-opaque pointers an explicit bitcast from {ElemTy, ElemTy}* to <2
+    // x ElemTy>* is needed.
+    if (!cast<PointerType>(OrigCmplx->getType())->isOpaque()) {
+      OrigCmplx = Builder.CreateBitCast(
+          OrigCmplx,
+          CmplxTyAsVec->getPointerTo(
+              cast<PointerType>(OrigCmplx->getType())->getAddressSpace()),
+          "orig.cmplx.bc");
+    }
+    // Reduce the finalized complex value with original and store back the
+    // result.
+    Value *OrigCmplxLd =
+        Builder.CreateLoad(CmplxTyAsVec, OrigCmplx, "orig.cmplx");
+    Value *CmplxFinBinOp = Builder.CreateBinOp(
+        static_cast<Instruction::BinaryOps>(CmplxRedFinal->getBinOpcode()),
+        OrigCmplxLd, CmplxFinVecRedShuf, "cmplx.final");
+    if (isa<FPMathOperator>(CmplxFinBinOp) && CmplxRedFinal->hasFastMathFlags())
+      cast<Instruction>(CmplxFinBinOp)
+          ->setFastMathFlags(CmplxRedFinal->getFastMathFlags());
+    Builder.CreateStore(CmplxFinBinOp, OrigCmplx);
+    return;
+  }
   case VPInstruction::InductionInit: {
     vectorizeInductionInit(cast<VPInductionInit>(VPInst));
     return;

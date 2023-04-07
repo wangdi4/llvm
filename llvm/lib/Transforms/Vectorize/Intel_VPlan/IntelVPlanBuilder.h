@@ -409,10 +409,10 @@ public:
 
   VPInstruction *createReductionInit(VPValue *Identity, VPValue *Start,
                                      bool UseStart, bool IsScalar,
-                                     const Twine &Name = "") {
+                                     bool IsComplex, const Twine &Name = "") {
     VPInstruction *NewVPInst =
-      Start ? new VPReductionInit(Identity, Start, IsScalar) :
-              new VPReductionInit(Identity, UseStart, IsScalar);
+        Start ? new VPReductionInit(Identity, Start, IsScalar)
+              : new VPReductionInit(Identity, UseStart, IsScalar, IsComplex);
     NewVPInst->setName(Name);
     insert(NewVPInst);
     return NewVPInst;

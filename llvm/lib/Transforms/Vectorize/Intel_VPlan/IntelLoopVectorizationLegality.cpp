@@ -37,11 +37,6 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-static cl::opt<bool, true> ForceComplexTyReductionVecOpt(
-    "vplan-force-complex-type-reduction-vectorization",
-    cl::location(ForceComplexTyReductionVec), cl::Hidden,
-    cl::desc("Force vectorization of reduction involving complex type."));
-
 static cl::opt<bool, true>
     ForceUDSReductionVecOpt("vplan-force-uds-reduction-vectorization",
                             cl::location(ForceUDSReductionVec), cl::Hidden,
@@ -59,7 +54,6 @@ static cl::opt<bool>
 
 namespace llvm {
 namespace vpo {
-bool ForceComplexTyReductionVec = false;
 bool ForceUDSReductionVec = true;
 } // namespace vpo
 } // namespace llvm
@@ -547,13 +541,16 @@ void VPOVectorizationLegality::parseMinMaxReduction(
                             false /*Ordered*/, CastInsts, -1U);
     ExplicitReductions[LoopHeaderPhiNode] = {
         RD, RedVarPtr, std::nullopt /*InscanReductionKind*/};
-  } else if (isInMemoryReductionPattern(RedVarPtr, ReductionUse))
-    InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse};
+  } else if (isInMemoryReductionPattern(RedVarPtr, ReductionUse)) {
+    // Min/max opcodes are not expected for complex type reductions.
+    InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse,
+                                     false /*IsComplex*/};
+  }
 }
 
 void VPOVectorizationLegality::parseBinOpReduction(
     Value *RedVarPtr, RecurKind Kind,
-    std::optional<InscanReductionKind> InscanRedKind) {
+    std::optional<InscanReductionKind> InscanRedKind, bool IsComplex) {
 
   // Analyzing 3 possible scenarios:
   // (1) -- Reduction Phi nodes, the new value is in reg
@@ -599,7 +596,8 @@ void VPOVectorizationLegality::parseBinOpReduction(
                             true /*Signed*/, false /*Ordered*/, CastInsts, -1U);
     ExplicitReductions[ReductionPhi] = {RD, RedVarPtr, InscanRedKind};
   } else if ((UseMemory = isInMemoryReductionPattern(RedVarPtr, ReductionUse)))
-    InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse};
+    InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse,
+                                     IsComplex};
 
   if (!UsePhi && !UseMemory)
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
@@ -607,7 +605,7 @@ void VPOVectorizationLegality::parseBinOpReduction(
 
 void VPOVectorizationLegality::addReduction(
     Value *RedVarPtr, RecurKind Kind,
-    std::optional<InscanReductionKind> InscanRedKind) {
+    std::optional<InscanReductionKind> InscanRedKind, bool IsComplex) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
 
@@ -617,7 +615,7 @@ void VPOVectorizationLegality::addReduction(
     return;
   }
 
-  parseBinOpReduction(RedVarPtr, Kind, InscanRedKind);
+  parseBinOpReduction(RedVarPtr, Kind, InscanRedKind, IsComplex);
 }
 
 bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {

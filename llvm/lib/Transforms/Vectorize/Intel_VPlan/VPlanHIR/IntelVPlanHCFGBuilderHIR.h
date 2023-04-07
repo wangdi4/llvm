@@ -197,13 +197,14 @@ private:
   }
   /// Add an explicit reduction variable
   void addReduction(RegDDRef *V, RecurKind Kind,
-                    std::optional<InscanReductionKind> InscanDescr) {
+                    std::optional<InscanReductionKind> InscanDescr,
+                    bool IsComplex) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
     assert(!InscanDescr && "TODO: Inscan for HIR is not supported!");
 
     // TODO: Consider removing IsSigned field from RedDescr struct since it is
     // unused and can basically be deducted from the recurrence kind.
-    ReductionList.emplace_back(V, Kind, false /*IsSigned*/);
+    ReductionList.emplace_back(V, Kind, false /*IsSigned*/, IsComplex);
   }
 
   /// Add an explicit user-defined reduction variable.

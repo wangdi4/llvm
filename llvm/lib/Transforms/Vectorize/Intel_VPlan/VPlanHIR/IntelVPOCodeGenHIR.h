@@ -823,8 +823,10 @@ private:
   // True if tree conflict lowering was done
   bool TreeConflictsLowered = false;
 
-  // True if loop has any UDR variables and/or inscan reductions.
-  bool LoopHasUDRsOrInscan = false;
+  // True if loop has any entity for which a memory guard region is expected.
+  // For example, UDRs, inscan reductions, array section reductions and complex
+  // type reductions.
+  bool LoopHasEntityWithMemGuard = false;
 
   // Tracker to collect info about loops emitted by CFGMerger.
   MergedCFGInfo &CFGInfo;

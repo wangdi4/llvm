@@ -2177,9 +2177,12 @@ struct RTLOptionTy {
                    : 0;
   }
 
-  // Interop should be using Immediate Command lists if they are being
-  // used for compute kernels (i.e., 1 or 3)
-  bool useImmForInterop() { return UseImmCmdList == 1 || UseImmCmdList == 3; }
+  /// Check if IMM command list is being used for compute. We need this check
+  /// for kernel submission and interop.
+  bool useImmForCompute() { return UseImmCmdList == 1 || UseImmCmdList == 3; }
+
+  /// Check if IMM command list is being used for copy.
+  bool useImmForCopy() { return UseImmCmdList >= 2; }
 }; // RTLOptionTy
 
 static bool isDiscrete(uint32_t); // Forward declaration
@@ -3449,7 +3452,7 @@ struct RTLDeviceInfoTy {
     // Enable async mode when the device is discrete and IMM is fully on.
     return isDiscreteDevice(DeviceId) &&
            Option.CommandMode != CommandModeTy::Sync &&
-           Option.UseImmCmdList >= 2;
+           Option.UseImmCmdList == 3;
   }
 };
 
@@ -4660,7 +4663,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
 
   ze_command_list_handle_t CmdList = nullptr;
   ze_command_queue_handle_t CmdQueue = nullptr;
-  bool UseImmCmdList = DeviceInfo->Option.useImmForInterop();
+  bool UseImmCmdList = DeviceInfo->Option.useImmForCompute();
 
   if (UseImmCmdList) {
     CmdList = DeviceInfo->getImmCmdList(SubId);
@@ -4985,12 +4988,11 @@ int32_t RTLDeviceInfoTy::enqueueMemCopy(int32_t DeviceId, void *Dst,
                                         const void *Src, size_t Size,
                                         ScopedTimerTy *Timer, bool Locked,
                                         bool IsD2D) {
-  bool UseImm = (Option.UseImmCmdList >= 2);
   ze_command_list_handle_t CmdList = nullptr;
   ze_command_queue_handle_t CmdQueue = nullptr;
   ze_event_handle_t Event = nullptr;
 
-  if (UseImm) {
+  if (Option.useImmForCopy()) {
     CmdList = IsD2D ? getImmCmdList(DeviceId) : getImmCopyCmdList(DeviceId);
     Event = EventPool.getEvent();
     CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
@@ -5205,7 +5207,7 @@ bool RTLDeviceInfoTy::isExtensionSupported(const char *ExtName) {
 void RTLDeviceInfoTy::beginKernelBatch(int32_t DeviceId, uint32_t MaxKernels) {
   auto &Batch = BatchCmdQueues[DeviceId];
   Batch.MaxCommands = MaxKernels;
-  Batch.UseImmCmdList = Option.UseImmCmdList == 1 || Option.UseImmCmdList == 3;
+  Batch.UseImmCmdList = Option.useImmForCompute();
   if (Batch.CmdList != nullptr)
     return;
 
@@ -6988,7 +6990,7 @@ __tgt_interop *__tgt_rtl_create_interop(
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
     auto L0 = static_cast<L0Interop::Property *>(Ret->RTLProperty);
 
-    if (DeviceInfo->Option.useImmForInterop()) {
+    if (DeviceInfo->Option.useImmForCompute()) {
       auto CmdList = DeviceInfo->createImmCmdList(DeviceId);
       Ret->TargetSync = CmdList;
       L0->ImmCmdList = CmdList;
@@ -7034,7 +7036,7 @@ int32_t __tgt_rtl_release_interop(int32_t DeviceId, __tgt_interop *Interop) {
 
   auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
   if (Interop->TargetSync) {
-    if (DeviceInfo->Option.useImmForInterop()) {
+    if (DeviceInfo->Option.useImmForCompute()) {
       auto immCmdList = L0->ImmCmdList;
       CALL_ZE_RET_FAIL(zeCommandListDestroy, immCmdList);
     } else {
@@ -7140,7 +7142,7 @@ int32_t __tgt_rtl_get_interop_property_value(
     break;
   case L0Interop::is_imm_cmd_list:
     if (ValueType == OMP_IPR_VALUE_INT) {
-      if (DeviceInfo->Option.useImmForInterop())
+      if (DeviceInfo->Option.useImmForCompute())
         *static_cast<intptr_t *>(Value) = 1;
       else
         *static_cast<intptr_t *>(Value) = 0;
@@ -7569,7 +7571,7 @@ int32_t __tgt_rtl_flush_queue(__tgt_interop *Interop) {
   // We only need to flush SYCL objects
   // and only if immediate command list are not being used
   // and the user didn't disable SYCL flushes
-  if (!DeviceInfo->Option.useImmForInterop() &&
+  if (!DeviceInfo->Option.useImmForCompute() &&
       !DeviceInfo->Option.Flags.NoSYCLFlush && Interop->FrId == 4 &&
       Interop->TargetSync) {
     return L0Interop::SyclWrapper.flush_queue_sycl(Interop);
@@ -7589,7 +7591,7 @@ int32_t __tgt_rtl_sync_barrier(__tgt_interop *Interop) {
   auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
 
   // We can synchronize both L0 & SYCL objects with the same ze command
-  if (DeviceInfo->Option.useImmForInterop()) {
+  if (DeviceInfo->Option.useImmForCompute()) {
     DP("__tgt_rtl_sync_barrier: Synchronizing " DPxMOD
        " with ImmCmdList barrier\n",
        DPxPTR(Interop));
@@ -7620,13 +7622,13 @@ int32_t __tgt_rtl_async_barrier(__tgt_interop *Interop) {
 
   // use a SYCL barrier for SYCL objects unless immediate command lists
   // are being used
-  if (!DeviceInfo->Option.useImmForInterop() && Interop->FrId == 4) {
+  if (!DeviceInfo->Option.useImmForCompute() && Interop->FrId == 4) {
     DP("__tgt_rtl_async_barrier: Appending SYCL barrier to " DPxMOD "\n",
        DPxPTR(Interop));
     return L0Interop::SyclWrapper.append_barrier_sycl(Interop);
   } else {
     auto L0 = static_cast<L0Interop::Property *>(Interop->RTLProperty);
-    if (DeviceInfo->Option.useImmForInterop()) {
+    if (DeviceInfo->Option.useImmForCompute()) {
       DP("__tgt_rtl_async_barrier: Appending ImmCmdList barrier to " DPxMOD
          "\n",
          DPxPTR(Interop));
@@ -7716,20 +7718,22 @@ int32_t __tgt_rtl_memcpy_rect_3d(int32_t DeviceId, void *Dst, const void *Src,
     SrcSlicePitch = ElementSize * SrcDims[NumDims - 2] * SrcDims[NumDims - 1];
   }
 
-  bool UseImm = DeviceInfo->Option.UseImmCmdList >= 2;
-  if (UseImm) {
+#if 0
+  // It seems that 3D copy over IMM copy list is still unstable, so use regular
+  // copy list/queue for now.
+  if (DeviceInfo->Option.useImmForCopy()) {
     auto Event = DeviceInfo->EventPool.getEvent();
-    // This does not seem to work with copy engine -- use compute queue
-    auto CmdList = DeviceInfo->getImmCmdList(DeviceId);
+    auto CmdList = DeviceInfo->getImmCopyCmdList(DeviceId);
     CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopyRegion, CmdList, Dst,
                      &DstRegion, DstPitch, DstSlicePitch, Src, &SrcRegion,
                      SrcPitch, SrcSlicePitch, Event, 0, nullptr);
     CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
     DeviceInfo->EventPool.releaseEvent(Event);
-  } else {
-    // This does not seem to work with copy engine -- use compute queue
-    auto CmdList = DeviceInfo->getCmdList(DeviceId);
-    auto CmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+  } else
+#endif
+  {
+    auto CmdList = DeviceInfo->getCopyCmdList(DeviceId);
+    auto CmdQueue = DeviceInfo->getCopyCmdQueue(DeviceId);
     CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopyRegion, CmdList, Dst,
                      &DstRegion, DstPitch, DstSlicePitch, Src, &SrcRegion,
                      SrcPitch, SrcSlicePitch, nullptr, 0, nullptr);

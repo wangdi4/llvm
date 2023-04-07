@@ -494,6 +494,7 @@ class VPInstruction : public VPUser,
       case VPInstruction::ReductionFinal:
       case VPInstruction::ReductionFinalInscan:
       case VPInstruction::ReductionFinalArr:
+      case VPInstruction::ReductionFinalCmplx:
       case VPInstruction::TreeConflict:
       case VPInstruction::RunningInclusiveReduction:
       case VPInstruction::RunningExclusiveReduction: {
@@ -504,6 +505,12 @@ class VPInstruction : public VPUser,
 
         while (ArrayType *ArrTy = dyn_cast<ArrayType>(InstTy))
           InstTy = ArrTy->getElementType();
+
+        // Instructions that return StructType with a unique element type can be
+        // treated as FPMathOperator based on the elment type.
+        if (auto *StructTy = dyn_cast<StructType>(InstTy))
+          if (StructTy->hasIdenticalElementTypes())
+            InstTy = StructTy->getElementType(0);
 
         if (InstTy->isFPOrFPVectorTy())
           return FlagsKind::VPFastMathFlags;
@@ -604,6 +611,7 @@ public:
                           // calls to combiner function.
     ReductionFinalInscan, // Reduction finalization (noop for scan).
     ReductionFinalArr,    // Custom finalization of array reductions.
+    ReductionFinalCmplx,  // Custom finalization of complex type reductions.
     AllocatePrivate,
     Subscript,
     Blend,
@@ -2784,16 +2792,16 @@ private:
 // perfectly fit this way.
 class VPReductionInit : public VPInstruction {
 public:
-  VPReductionInit(VPValue *Identity, bool UseStart, bool IsScalar = false)
+  VPReductionInit(VPValue *Identity, bool UseStart, bool IsScalar = false,
+                  bool IsComplex = false)
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
                       {Identity}),
-        UsesStartValue(UseStart), IsScalar(IsScalar) {}
+        UsesStartValue(UseStart), IsScalar(IsScalar), IsComplex(IsComplex) {}
 
-  VPReductionInit(VPValue *Identity, VPValue *StartValue,
-                  bool IsScalar = false)
+  VPReductionInit(VPValue *Identity, VPValue *StartValue, bool IsScalar = false)
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
                       {Identity, StartValue}),
-        UsesStartValue(true), IsScalar(IsScalar) {}
+        UsesStartValue(true), IsScalar(IsScalar), IsComplex(false) {}
 
   /// Return operand that corresponds to the indentity value.
   VPValue *getIdentityOperand() const { return getOperand(0);}
@@ -2821,6 +2829,9 @@ public:
     setOperand(Ind, NewVal);
   }
 
+  /// Return true if this is a complex type reduction.
+  bool isComplex() const { return IsComplex; }
+
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::ReductionInit;
@@ -2847,6 +2858,7 @@ protected:
 private:
   bool UsesStartValue;
   bool IsScalar;
+  bool IsComplex;
 };
 
 // VPInstruction for reduction last value calculation.
@@ -3071,21 +3083,21 @@ public:
   }
 };
 
-/// Concrete class to represent last value calculation for array reductions in
-/// VPlan.
-class VPReductionFinalArray : public VPInstruction {
+/// Concrete class to represent last value calculation for array and complex
+/// type reductions in VPlan.
+template <unsigned InstOpcode>
+class VPReductionFinalArrayCmplxImpl : public VPInstruction {
 public:
-  VPReductionFinalArray(Type *BaseTy, ArrayRef<VPValue *> Operands,
-                        unsigned BinOp)
-      : VPInstruction(VPInstruction::ReductionFinalArr, BaseTy, Operands),
-        BinOpcode(BinOp) {}
+  VPReductionFinalArrayCmplxImpl(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                                 unsigned BinOp)
+      : VPInstruction(InstOpcode, BaseTy, Operands), BinOpcode(BinOp) {}
 
   unsigned getBinOpcode() const { return BinOpcode; }
 
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast
   static bool classof(const VPInstruction *VPI) {
-    return VPI->getOpcode() == VPInstruction::ReductionFinalArr;
+    return VPI->getOpcode() == InstOpcode;
   }
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
@@ -3094,12 +3106,18 @@ public:
 protected:
   virtual VPInstruction *cloneImpl() const final {
     SmallVector<VPValue *, 3> Ops(operands());
-    return new VPReductionFinalArray(getType(), Ops, getBinOpcode());
+    return new VPReductionFinalArrayCmplxImpl<InstOpcode>(getType(), Ops,
+                                                          getBinOpcode());
   }
 
 private:
   unsigned BinOpcode;
 };
+
+using VPReductionFinalArray =
+    VPReductionFinalArrayCmplxImpl<VPInstruction::ReductionFinalArr>;
+using VPReductionFinalCmplx =
+    VPReductionFinalArrayCmplxImpl<VPInstruction::ReductionFinalCmplx>;
 
 class VPRunningUDSBase : public VPInstruction {
 protected:

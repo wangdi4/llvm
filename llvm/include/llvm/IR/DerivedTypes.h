@@ -356,6 +356,19 @@ public:
   bool indexValid(const Value *V) const;
   bool indexValid(unsigned Idx) const { return Idx < getNumElements(); }
 
+#if INTEL_CUSTOMIZATION
+  /// Return true if all elements of the structure have the same type. It
+  /// trivially returns true for single element structs.
+  bool hasIdenticalElementTypes() const {
+    // No element type information for opaque structs.
+    if (isOpaque())
+      return false;
+
+    Type *BaseTy = getElementType(0);
+    return all_of(elements(), [BaseTy](Type *T) { return T == BaseTy; });
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Methods for support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const Type *T) {
     return T->getTypeID() == StructTyID;

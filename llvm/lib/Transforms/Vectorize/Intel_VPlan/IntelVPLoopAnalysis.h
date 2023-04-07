@@ -157,10 +157,11 @@ class VPReduction
 public:
   VPReduction(VPValue *Start, VPInstruction *Exit, RecurKind RdxKind,
               FastMathFlags FMF, Type *RT, bool Signed,
-              VPEntityAliasesTy &&InMemAliases, bool IsMemOnly = false,
-              unsigned char Id = Reduction)
+              VPEntityAliasesTy &&InMemAliases, bool IsComplex,
+              bool IsMemOnly = false, unsigned char Id = Reduction)
       : VPLoopEntity(Id, IsMemOnly, std::move(InMemAliases)),
-        RDTempl(Start, Exit, RdxKind, FMF, RT, Signed, false) {}
+        RDTempl(Start, Exit, RdxKind, FMF, RT, Signed, false),
+        IsComplex(IsComplex) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -183,6 +184,8 @@ public:
         getRecurrenceKind());
   }
 
+  bool isComplex() const { return IsComplex; }
+
   virtual StringRef getNameSuffix() const {
     return isMinMax() ? "minmax.red" : "red";
   }
@@ -191,6 +194,10 @@ public:
   virtual void dump(raw_ostream &OS) const override;
 #endif
   static unsigned getReductionOpcode(RecurKind K);
+
+private:
+  // Tracks if this is a complex type reduction.
+  bool IsComplex = false;
 };
 
 /// Descriptor for user-defined reduction.
@@ -203,7 +210,7 @@ public:
                          bool IsMemOnly = false,
                          unsigned char Id = UserDefinedReduction)
       : VPReduction(Start, nullptr /*Exit*/, RecurKind::Udr, FMF, RT, Signed,
-                    std::move(InMemAliases), IsMemOnly, Id),
+                    std::move(InMemAliases), false /*Complex*/, IsMemOnly, Id),
         Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor) {}
 
   Function *getCombiner() const { return Combiner; }
@@ -267,9 +274,10 @@ public:
   VPInscanReduction(InscanReductionKind InscanRedKind, VPValue *Start,
                     VPInstruction *Exit, RecurKind RdxKind, FastMathFlags FMF,
                     Type *RT, bool Signed, VPEntityAliasesTy &&InMemAliases,
-                    bool IsMemOnly = false)
+                    bool IsComplex, bool IsMemOnly = false)
       : VPReduction(Start, Exit, RdxKind, FMF, RT, Signed,
-                    std::move(InMemAliases), IsMemOnly, InscanReduction),
+                    std::move(InMemAliases), IsComplex, IsMemOnly,
+                    InscanReduction),
         InscanRedKind(InscanRedKind) {}
 
   InscanReductionKind getInscanKind() const { return InscanRedKind; }
@@ -304,7 +312,7 @@ public:
                     ForLast ? (Signed ? RecurKind::SMax : RecurKind::UMax)
                             : (Signed ? RecurKind::SMin : RecurKind::UMin),
                     FastMathFlags(), RT, Signed, std::move(InMemAliases),
-                    IsMemOnly, IndexReduction),
+                    false /*Complex*/, IsMemOnly, IndexReduction),
         ParentRed(Parent), IsLinearIndex(IsLinIndex) {
     assert((Parent && Parent->isMinMax()) && "Incorrect parent reduction");
   }
@@ -722,7 +730,8 @@ public:
                             Type *RT, bool Signed,
                             VPEntityAliasesTy &MemAliases,
                             std::optional<InscanReductionKind> InscanRedKind,
-                            VPValue *AI = nullptr, bool ValidMemOnly = false);
+                            bool IsComplex, VPValue *AI = nullptr,
+                            bool ValidMemOnly = false);
 
   /// Add index part of min/max+index reduction with parent (min/max) reduction
   /// \p Parent, starting instruction \pInstr, incoming value \p Incoming,
@@ -1382,6 +1391,7 @@ public:
   Function *getInitializer() const { return Initializer; }
   Function *getCtor() const { return Ctor; }
   Function *getDtor() const { return Dtor; }
+  bool getComplex() const { return IsComplex; }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
@@ -1399,6 +1409,7 @@ public:
   void setInitializer(Function *InitFn) { Initializer = InitFn; }
   void setCtor(Function *CtorFn) { Ctor = CtorFn; }
   void setDtor(Function *DtorFn) { Dtor = DtorFn; }
+  void setIsComplex(bool V) { IsComplex = V; }
 
   /// Clear the content.
   void clear() override {
@@ -1417,6 +1428,7 @@ public:
     Initializer = nullptr;
     Ctor = nullptr;
     Dtor = nullptr;
+    IsComplex = false;
   }
   /// Check for that all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -1487,6 +1499,8 @@ private:
   Function *Initializer = nullptr;
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
+  // Track if this descriptor is a complex type reduction.
+  bool IsComplex = false;
 };
 
 /// Intermediate induction descriptor. Same as ReductionDescr above but for

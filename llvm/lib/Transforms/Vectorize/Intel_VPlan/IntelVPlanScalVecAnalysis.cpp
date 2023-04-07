@@ -393,10 +393,11 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     // First operand represents reduction's identity value which should be
     // scalar.
     setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
-    // Second operand is the private alloca for array reduction.
+    // Second operand is the private alloca for array/complex type reduction.
     setSVAKindForOperand(Inst, 1, SVAKind::Vector);
-    // Instruction itself is vector in nature since it gets lowered to a loop of
-    // VF x NumArrElems iterations.
+    // Instruction itself is vector in nature since it gets lowered to -
+    // 1. a loop of VF x NumArrElems iterations (or)
+    // 2. wide store of identity element.
     setSVAKindForInst(Inst, SVAKind::Vector);
     return true;
   }
@@ -446,13 +447,15 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
-  case VPInstruction::ReductionFinalArr: {
+  case VPInstruction::ReductionFinalArr:
+  case VPInstruction::ReductionFinalCmplx: {
     // Instruction itself is vectorized, it produces a loop nest to finalize
-    // array reduction.
+    // array reduction or a sequence of shuffles incase of complex type
+    // reduction.
     setSVAKindForInst(Inst, SVAKind::Vector);
     // First operand is the private alloca.
     setSVAKindForOperand(Inst, 0, SVAKind::Vector);
-    // Second operand is the original scalar array.
+    // Second operand is the original scalar array/complex value.
     setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
     return true;
   }
@@ -1116,6 +1119,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ReductionFinalUdr:
   case VPInstruction::ReductionFinalInscan:
   case VPInstruction::ReductionFinalArr:
+  case VPInstruction::ReductionFinalCmplx:
   case VPInstruction::Pred:
   case VPInstruction::AllocatePrivate:
   case VPInstruction::AllZeroCheck:
