@@ -315,6 +315,7 @@ def "QUAL.OMP.MAP.ALWAYS.TOFROM" : Clause;
 def "QUAL.OMP.MAP.ALWAYS.ALLOC" : Clause;
 def "QUAL.OMP.MAP.ALWAYS.RELEASE" : Clause;
 def "QUAL.OMP.MAP.ALWAYS.DELETE" : Clause;
+def "QUAL.OMP.AFFARRAY" : Clause;
 def "QUAL.OMP.DEPEND.IN" : Clause;
 def "QUAL.OMP.DEPEND.OUT" : Clause;
 def "QUAL.OMP.DEPEND.INOUT" : Clause;

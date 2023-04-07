@@ -998,6 +998,10 @@ private:
                    Value *TaskAlloc, AllocaInst *DummyTaskTDependRec,
                    Instruction *InsertPt, bool IsTaskWait);
 
+  /// The routine to generate the call __kmpc_omp_reg_task_with_affinity
+  void genTaskAffinity(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
+                       Value *TaskAlloc, Instruction *InsertPt);
+
   /// Create a struct to contain all shared data for the task. This is allocated
   /// in the caller of the task, and is populated with pointers to shared
   /// variables, reduction variables, and lastprivate variables.
@@ -1194,6 +1198,9 @@ private:
 
   /// Reset the expression value of task depend clause to be empty.
   void resetValueInTaskDependClause(WRegionNode *W);
+
+  /// Reset the expression value of task Affinity clause to be empty.
+  void resetValueInTaskAffinityClause(WRegionNode *W);
 
   /// Reset the value of NumElements of VLA (including array section) for TYPED
   /// clauses in private, firstprivate, lastprivate, in_reduction, and

@@ -3565,14 +3565,12 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
 //                                               red_buf[arr_off+local_id(0)+tree_offset]);
 //       tree_offset *= 2;
 //     }
-//     if (master_thread)
-//       sum += red_buf[arr_off];
+//     sum += red_buf[arr_off];
 //     arr_off += team_size(0);
 //   }
-// }
 //
 //   if (is_master_thread) { // check inserted by guardSideEffectStatements
-//     scalar_result = red_buf[0];
+//     scalar_result = sum;
 //     teams_counter = 0;
 //   }
 // }
@@ -3606,11 +3604,6 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
 // to reset it back to 0, so that after the kernel finishes, the runtime can
 // recycle team_counter's memory as-is when some other kernel requests it,
 // without first resetting it to zero in the runtime.
-//
-// NOTE: parallel cross-team reduction relies on
-// PerThreadWork=(team_size(0)/num_teams(0))>=1 (i.e. team_size(0) >=
-// num_teams(0)), otherwise it would be necessary to actually calculate that
-// PerThreadWork with div/mod ops which are enormously expensive on GPU
 //
 bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     WRegionNode *W, ReductionItem *RedI, Instruction *CombinerCopyout,
@@ -3814,8 +3807,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     //                                               red_buf[arr_off+local_id(0)+tree_offset]);
     //       tree_offset *= 2;
     //     }
-    //     if (master_thread)
-    //       sum += red_buf[arr_off];
+    //     sum += red_buf[arr_off];
     //     arr_off += team_size(0);
     //   }
     auto GenerateLoop = [&Builder, W, Preheader, this, ExitBB,
@@ -4116,8 +4108,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     //  red_buf[local_id(0)] = red_op(red_buf[local_id(0)],
     //  red_buf[local_id(0)+tree_offset]);
     // performs a store to red_buf[local_id(0)] in the end.
-    // Both loads and red_op were already generated (ReductionVarLoad,
-    // ReductionValLoad).
+    // Both loads and red_op were already generated (RedVarLoad,
+    // RedValLoad).
     if (UseParallelReduction) {
       Builder.SetInsertPoint(InnerHeaderBB->getTerminator());
       auto *LocalOffGep = Builder.CreateGEP(GepToSkip->getSourceElementType(),
@@ -4137,25 +4129,10 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       RedStore->setOperand(0, Res);
 
       Builder.SetInsertPoint(OuterLatchBB->getTerminator());
-      auto *LocalId0 =
-          VPOParoptUtils::genLocalIdCall(0, OuterLatchBB->getTerminator());
-      auto *Cmp = Builder.CreateICmpNE(LocalId0, Builder.getInt64(0));
-      auto *TmpRes = Builder.CreateLoad(RedElemType, GlobalGep);
-      auto *PostLoadBB = SplitBlock(OuterLatchBB, OuterLatchBB->getTerminator(), DT, LI);
-      // NOTE: we can't generate both load and phi consequently and split
-      // in between because SplitBlock actually picks SplitPt->getFirstNonPhi()
-      // instead of just SplitPt
-      Builder.SetInsertPoint(PostLoadBB->getTerminator());
-      auto *PredTmpRes = Builder.CreatePHI(RedElemType, 2);
-      SplitBlockAndInsertIfThen(Cmp, TmpRes, false, nullptr, DT, LI, PostLoadBB);
-      // Using UndefValue here since this non-master thread values don't matter
-      // as the final result is only written by master thread.
-      // NOTE: Using zeroinitializer makes VPlan crash.
-      PredTmpRes->addIncoming(UndefValue::get(RedElemType), OuterLatchBB);
-      PredTmpRes->addIncoming(TmpRes, OuterLatchBB->getTerminator()->getSuccessor(1));
-      auto *PredRes = genReductionScalarOp(RedI, Builder, RedElemType,
-                                           PredTmpRes, RedSumPhi);
-      RedSumPhi->setIncomingValue(1, PredRes);
+      Value *TmpRes = Builder.CreateLoad(RedElemType, GlobalGep);
+      TmpRes = genReductionScalarOp(RedI, Builder, RedElemType,
+                                           TmpRes, RedSumPhi);
+      RedSumPhi->setIncomingValue(1, TmpRes);
       Init->moveBefore(CntrCheckBBs[W]->getTerminator());
     }
   }
@@ -11520,6 +11497,22 @@ static void resetTypedNumElementsInSharedClause(WRegionNode *W) {
       if (Value *NumElements = SI->getNumElements())
         if (!isa<ConstantInt>(NumElements))
           removeAllUsesInClauses<QUAL_OMP_SHARED>(EntryDir, NumElements);
+}
+
+void VPOParoptTransform::resetValueInTaskAffinityClause(WRegionNode *W) {
+  if (!W->canHaveAffinity())
+    return;
+  Value *AffArray = W->getAffArray();
+
+  if (!AffArray)
+    return;
+
+  Value *NumAff = W->getAffArraySize();
+  assert(NumAff && "Corrupt AFFARRAY IR");
+  auto *EntryDir = cast<IntrinsicInst>(W->getEntryDirective());
+  removeAllUsesInClauses<QUAL_OMP_AFFARRAY>(EntryDir, AffArray);
+  if (!isa<ConstantInt>(NumAff))
+    removeAllUsesInClauses<QUAL_OMP_AFFARRAY>(EntryDir, NumAff);
 }
 
 bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
