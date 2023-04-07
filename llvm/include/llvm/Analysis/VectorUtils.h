@@ -743,6 +743,7 @@ bool isVectorIntrinsicWithOverloadTypeAtArg(Intrinsic::ID ID, unsigned OpdIdx);
 Intrinsic::ID getVectorIntrinsicIDForCall(const CallInst *CI,
                                           const TargetLibraryInfo *TLI);
 
+#if INTEL_CUSTOMIZATION
 /// Find the operand of the GEP that should be checked for consecutive
 /// stores. This ignores trailing indices that have no effect on the final
 /// pointer.
@@ -753,7 +754,6 @@ unsigned getGEPInductionOperand(const GetElementPtrInst *Gep);
 /// operand, it returns that instead.
 Value *stripGetElementPtr(Value *Ptr, ScalarEvolution *SE, Loop *Lp);
 
-#if INTEL_CUSTOMIZATION
 /// If a value has only one user that is a CastInst, return it.
 Value *getUniqueCastUse(Value *Ptr, Loop *Lp, Type *Ty);
 
