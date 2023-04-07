@@ -441,6 +441,9 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
             "type is not supported."},
     {15574, "%s was not vectorized: unsupported nested OpenMP (simd) loop or "
             "region."},
+    {15575, "peel loop is static"},
+    {15576, "peel loop is dynamic"},
+    {15577, "estimated number of scalar loop iterations peeled: %s"},
 
     {25018, "Total number of lines prefetched=%d"},
     {25019, "Number of spatial prefetches=%d, default dist=%d"},

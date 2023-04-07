@@ -8404,7 +8404,10 @@ void VPOCodeGenHIR::emitRemarksForScalarLoops() {
       ORBuilder(*ScalarHLp).addOrigin(R.RemarkID);
 
     for (const auto &R : ScalarLpVPI->getGeneralRemarks())
-      ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
+      if (R.Arg.empty())
+        ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.RemarkID);
+      else
+        ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
   }
 }
 

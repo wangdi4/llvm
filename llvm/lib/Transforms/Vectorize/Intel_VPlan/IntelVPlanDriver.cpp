@@ -68,6 +68,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+using RemarkRecord = OptReportStatsTracker::RemarkRecord;
+
 static cl::opt<bool> DisableCodeGen(
     "disable-vplan-codegen", cl::init(false), cl::Hidden,
     cl::desc(
@@ -515,6 +517,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   if (VF > 1) {
     LVP.createMergerVPlans(VPAF);
 
+    const auto *PeelingVariant = Plan->getPreferredPeeling(VF);
+
     // Note, the loop is executed only when new cfg merger is enabled.
     for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
       auto LpKind = PlanDescr.getLoopType();
@@ -587,9 +591,9 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
       // Capture opt-report remarks for peel loops.
       if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel) {
         if (isa<VPlanVector>(Plan))
-          addOptReportRemarksForVecPeel(PlanDescr);
+          addOptReportRemarksForVecPeel(PlanDescr, PeelingVariant);
         else if (isa<VPlanScalar>(Plan))
-          addOptReportRemarksForScalPeel(PlanDescr);
+          addOptReportRemarksForScalPeel(PlanDescr, PeelingVariant);
       }
     }
     LVP.emitPeelRemainderVPLoops(VF, UF);
@@ -1057,17 +1061,16 @@ void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
   OptReportStatsTracker &OptRptStats =
       PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
-  // remark #25519: Reminder loop for vectorization
-  OptRptStats.OriginRemarks.emplace_back(25519u);
+  OptRptStats.OriginRemarks.emplace_back(RemainderLoopForVectorizationRemarkID);
   if (PlanDescr.isNonMaskedVecRemainder())
-    // remark #15439: remainder loop was vectorized (unmasked)
-    OptRptStats.GeneralRemarks.emplace_back(15439u, OptReportVerbosity::Low);
+    OptRptStats.GeneralRemarks.emplace_back(
+        RemainderLoopVectorizedUnmaskedRemarkID, OptReportVerbosity::Low);
   else
-    // remark #15440: remainder loop was vectorized (masked)
-    OptRptStats.GeneralRemarks.emplace_back(15440u, OptReportVerbosity::Low);
+    OptRptStats.GeneralRemarks.emplace_back(
+        RemainderLoopVectorizedMaskedRemarkID, OptReportVerbosity::Low);
 
-  // Add remark about VF
-  OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
+  OptRptStats.GeneralRemarks.emplace_back(VectorLengthRemarkID,
+                                          OptReportVerbosity::Low,
                                           Twine(PlanDescr.getVF()).str());
 }
 
@@ -1079,38 +1082,55 @@ void VPlanDriverImpl::addOptReportRemarksForScalRemainder(
       cast<VPlanScalar>(PlanDescr.getVPlan())->getScalarLoopInst();
   // TODO: Any other remarks for scalar peel/remainder loops? Should we report
   // that they were not vectorized?
-  // remark #25519: REMAINDER LOOP FOR VECTORIZATION.
-  OptReportStatsTracker::RemarkRecord R(25519u);
-  ScalarLpI->addOriginRemark(R);
+  ScalarLpI->addOriginRemark({RemainderLoopForVectorizationRemarkID});
 }
 
 void VPlanDriverImpl::addOptReportRemarksForVecPeel(
-    const CfgMergerPlanDescr &PlanDescr) {
+    const CfgMergerPlanDescr &PlanDescr, const VPlanPeelingVariant *Variant) {
   assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTPeel &&
          "Only peel loop plan descriptors expected here.");
+  assert(Variant && "No peeling variant with peel loop?");
   auto *VPLI = cast<VPlanVector>(PlanDescr.getVPlan())->getVPLoopInfo();
   auto *OuterLp = *VPLI->begin();
   OptReportStatsTracker &OptRptStats =
       PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
-  // remark #25518: Peeled loop for vectorization
-  OptRptStats.OriginRemarks.emplace_back(25518u);
-  // remark #15437: peel loop was vectorized
-  OptRptStats.GeneralRemarks.emplace_back(15437u, OptReportVerbosity::Low);
-  // Add remark about VF
-  OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
+  OptRptStats.OriginRemarks.emplace_back(PeelLoopForVectorizationRemarkID);
+
+  OptRptStats.GeneralRemarks.emplace_back(PeelLoopWasVectorizedRemarkID,
+                                          OptReportVerbosity::Low);
+
+  OptRptStats.GeneralRemarks.emplace_back(VectorLengthRemarkID,
+                                          OptReportVerbosity::Low,
                                           Twine(PlanDescr.getVF()).str());
+
+  OptRptStats.GeneralRemarks.emplace_back(isa<VPlanStaticPeeling>(Variant)
+                                              ? PeelLoopIsStaticRemarkID
+                                              : PeelLoopIsDynamicRemarkID,
+                                          OptReportVerbosity::High);
+
+  OptRptStats.GeneralRemarks.emplace_back(
+      EstimatedPeelCountRemarkID, OptReportVerbosity::High,
+      std::to_string(Variant->maxPeelCount()));
 }
 
 void VPlanDriverImpl::addOptReportRemarksForScalPeel(
-    const CfgMergerPlanDescr &PlanDescr) {
+    const CfgMergerPlanDescr &PlanDescr, const VPlanPeelingVariant *Variant) {
   assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTPeel &&
          "Only peel loop plan descriptors expected here.");
+  assert(Variant && "No peeling variant with peel loop?");
   auto *ScalarLpI =
       cast<VPlanScalar>(PlanDescr.getVPlan())->getScalarLoopInst();
-  // remark #25518: PEEL LOOP FOR VECTORIZATION.
-  OptReportStatsTracker::RemarkRecord R(25518u);
-  ScalarLpI->addOriginRemark(R);
+  ScalarLpI->addOriginRemark({PeelLoopForVectorizationRemarkID});
+
+  ScalarLpI->addGeneralRemark({isa<VPlanStaticPeeling>(Variant)
+                                   ? PeelLoopIsStaticRemarkID
+                                   : PeelLoopIsDynamicRemarkID,
+                               OptReportVerbosity::High});
+
+  ScalarLpI->addGeneralRemark({EstimatedPeelCountRemarkID,
+                               OptReportVerbosity::High,
+                               std::to_string(Variant->maxPeelCount())});
 }
 
 void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
@@ -1670,6 +1690,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   if (VF > 1) {
     LVP.createMergerVPlans(VPAF);
 
+    const auto *PeelingVariant = Plan->getPreferredPeeling(VF);
+
     // Run some VPlan-to-VPlan transforms for each new auxiliary loop created by
     // CFGMerger.
     for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
@@ -1719,9 +1741,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
       // Capture opt-report remarks for peel loops.
       if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel) {
         if (isa<VPlanVector>(Plan))
-          addOptReportRemarksForVecPeel(PlanDescr);
+          addOptReportRemarksForVecPeel(PlanDescr, PeelingVariant);
         else if (isa<VPlanScalar>(Plan))
-          addOptReportRemarksForScalPeel(PlanDescr);
+          addOptReportRemarksForScalPeel(PlanDescr, PeelingVariant);
       }
     }
 
