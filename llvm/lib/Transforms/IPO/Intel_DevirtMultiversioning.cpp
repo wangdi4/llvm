@@ -280,7 +280,7 @@ bool IntelDevirtMultiversion::createCallSiteBasicBlocks(
     auto TargetFunc = dyn_cast<Function>(GV);
     auto A = dyn_cast<GlobalAlias>(GV);
     if (!TargetFunc && A)
-      TargetFunc = dyn_cast<Function>(A->getAliasee());
+      TargetFunc = cast<Function>(A->getAliasee());
 
     // CMPLRLLVM-22269: The TargetsForSlot array can have repeated
     // entries. This is caused by the process in tryFindVirtualCallTargets,

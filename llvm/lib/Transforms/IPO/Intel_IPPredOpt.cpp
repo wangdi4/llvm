@@ -366,7 +366,7 @@ bool PredCandidate::collectControlCondsForBlocks() {
   // Dump control conditions of all executed blocks.
   for (auto *BB : ExecutedBlocks) {
     LLVM_DEBUG(dbgs() << "Control conditions for " << BB->getName() << ": \n");
-    for (auto C : BBControlCondsMap[BB])
+    for (const auto &C : BBControlCondsMap[BB])
       LLVM_DEBUG(dbgs() << "        " << C << "\n");
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

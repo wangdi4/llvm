@@ -669,8 +669,8 @@ bool PaddedMallocImpl<InfoClass>::run(Module &M,
 
   // Check if the module requires runtime safety checks
   SetVector<Function *> Funcs;
-  unsigned ArgumentIndex;
-  unsigned StructIndex;
+  unsigned ArgumentIndex = 0;
+  unsigned StructIndex = 0;
   if (DTInfo.requiresBadCastValidation(Funcs, ArgumentIndex, StructIndex)) {
     for (auto *Func : Funcs) {
       bool Ret = PaddedMallocData.buildFuncBadCastValidation(
