@@ -48,12 +48,12 @@ set(ADD_COMMON_C_FLAGS
 )
 
 set(ADD_C_FLAGS "${ADD_COMMON_C_FLAGS}")
-set(ADD_C_FLAGS_DEBUG "-O0 -ggdb3 -D _DEBUG")
+set(ADD_C_FLAGS_DEBUG "-ggdb3 -D _DEBUG")
 
 set(ADD_CXX_FLAGS "${ADD_COMMON_C_FLAGS}")
 
-set(ADD_C_FLAGS_RELEASE "-O2 -U _DEBUG")
-set(ADD_C_FLAGS_RELWITHDEBINFO "-O2 -ggdb3 -U _DEBUG")
+set(ADD_C_FLAGS_RELEASE "-U _DEBUG")
+set(ADD_C_FLAGS_RELWITHDEBINFO "-ggdb3 -U _DEBUG")
 
 # Linker switches
 set(ADD_CMAKE_EXE_LINKER_FLAGS "-z noexecstack -z relro -z now")
