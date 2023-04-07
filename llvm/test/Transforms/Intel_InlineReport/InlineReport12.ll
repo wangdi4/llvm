@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -new-double-callsite-inlining-heuristics=true < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 -new-double-callsite-inlining-heuristics=true < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -new-double-callsite-inlining-heuristics=true -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -new-double-callsite-inlining-heuristics=true -S < %s 2>&1 | FileCheck %s
 
 ; CHECK: Callee has double callsite and local linkage
 ; This LIT test checks the following worthy double internal callsite heuristic
@@ -21,13 +21,13 @@ entry:
   %retval = alloca i32, align 4
   %i = alloca i32, align 4
   %s = alloca i32, align 4
-  store i32 0, i32* %retval, align 4
-  store i32 0, i32* %s, align 4
-  store i32 0, i32* %i, align 4
+  store i32 0, ptr %retval, align 4
+  store i32 0, ptr %s, align 4
+  store i32 0, ptr %i, align 4
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %0 = load i32, i32* %i, align 4
+  %0 = load i32, ptr %i, align 4
   %cmp = icmp slt i32 %0, 10
   br i1 %cmp, label %for.body, label %for.end
 
@@ -35,19 +35,19 @@ for.body:                                         ; preds = %for.cond
   %call = call i32 @foo()
   %call1 = call i32 @foo()
   %add = add nsw i32 %call, %call1
-  %1 = load i32, i32* %s, align 4
+  %1 = load i32, ptr %s, align 4
   %add2 = add nsw i32 %1, %add
-  store i32 %add2, i32* %s, align 4
+  store i32 %add2, ptr %s, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %2 = load i32, i32* %i, align 4
+  %2 = load i32, ptr %i, align 4
   %inc = add nsw i32 %2, 1
-  store i32 %inc, i32* %i, align 4
+  store i32 %inc, ptr %i, align 4
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  %3 = load i32, i32* %s, align 4
+  %3 = load i32, ptr %s, align 4
   ret i32 %3
 }
 
@@ -56,30 +56,30 @@ define internal i32 @foo() #0 {
 entry:
   %j = alloca i32, align 4
   %s = alloca i32, align 4
-  store i32 0, i32* %s, align 4
-  store i32 0, i32* %j, align 4
+  store i32 0, ptr %s, align 4
+  store i32 0, ptr %j, align 4
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %0 = load i32, i32* %j, align 4
+  %0 = load i32, ptr %j, align 4
   %cmp = icmp slt i32 %0, 10
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %1 = load i32, i32* %s, align 4
-  %2 = load i32, i32* %j, align 4
+  %1 = load i32, ptr %s, align 4
+  %2 = load i32, ptr %j, align 4
   %add = add nsw i32 %1, %2
-  store i32 %add, i32* %s, align 4
+  store i32 %add, ptr %s, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %3 = load i32, i32* %j, align 4
+  %3 = load i32, ptr %j, align 4
   %inc = add nsw i32 %3, 1
-  store i32 %inc, i32* %j, align 4
+  store i32 %inc, ptr %j, align 4
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  %4 = load i32, i32* %j, align 4
+  %4 = load i32, ptr %j, align 4
   ret i32 %4
 }
 

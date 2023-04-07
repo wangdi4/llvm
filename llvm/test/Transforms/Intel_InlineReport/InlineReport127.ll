@@ -1,13 +1,14 @@
-; RUN: opt -passes=inline -inline-report=0x2819 -disable-output < %s 2>&1 | FileCheck --strict-whitespace %s
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x2898 -S < %s 2>&1 | FileCheck --strict-whitespace %s
-; CHECK: COMPILE FUNC: main
-; CHECK:   -> INLINE: foo
-; CHECK    -> INLINE: foo
-; CHECK:   -> INLINE: foo
+; RUN: opt -opaque-pointers -passes=inline -inline-report=0x2819 -disable-output < %s 2>&1 | FileCheck --strict-whitespace %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x2898 -S < %s 2>&1 | FileCheck --strict-whitespace %s
 
 ; CMPLRLLVM-38939: Fix indentation of lines when "med" form of inlining report is
 ; used so that extra spaces are not emitted when EXTERN functions are excluded in
 ; the report.
+
+; CHECK: COMPILE FUNC: main
+; CHECK:   -> INLINE: foo
+; CHECK    -> INLINE: foo
+; CHECK:   -> INLINE: foo
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -30,9 +31,9 @@ declare dso_local void @bar(...) #1
 ; Function Attrs: nounwind uwtable
 define internal void @foo() #0 {
 entry:
-  %0 = load i32, i32* @myglobal, align 4, !tbaa !3
+  %0 = load i32, ptr @myglobal, align 4, !tbaa !3
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* @myglobal, align 4, !tbaa !3
+  store i32 %inc, ptr @myglobal, align 4, !tbaa !3
   ret void
 }
 

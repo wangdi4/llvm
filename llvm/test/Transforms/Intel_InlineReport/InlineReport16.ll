@@ -1,6 +1,6 @@
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xf847 -inline-threshold=10 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xf847 -inline-threshold=10 -disable-output < %s 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -inline-threshold=10 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -inline-threshold=10 -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: foo{{.*}}EE{{.*}}Inlining is not profitable
 
@@ -10,9 +10,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define i32 @foo(i32 %n, i32* nocapture readonly %str) local_unnamed_addr #0 {
+define i32 @foo(i32 %n, ptr nocapture readonly %str) local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* %str, align 4
+  %0 = load i32, ptr %str, align 4
   %cmp11 = icmp eq i32 %0, 543
   br i1 %cmp11, label %while.end, label %while.body
 
@@ -27,14 +27,14 @@ while.body:                                       ; preds = %entry, %while.body.
   %conv = sext i32 %sub to i64
   %add = add nsw i64 %total.013, %conv
   %2 = mul nsw i64 %indvars.iv.next, 3
-  %arrayidx = getelementptr inbounds i32, i32* %str, i64 %2
-  %3 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %str, i64 %2
+  %3 = load i32, ptr %arrayidx, align 4
   %cmp = icmp eq i32 %3, 543
   br i1 %cmp, label %while.end.loopexit, label %while.body.2
 
 while.body.2:                  ; preds = %while.body
-  %arrayidx2.phi.trans.insert = getelementptr inbounds i32, i32* %str, i64 %indvars.iv.next
-  %.pre = load i32, i32* %arrayidx2.phi.trans.insert, align 4
+  %arrayidx2.phi.trans.insert = getelementptr inbounds i32, ptr %str, i64 %indvars.iv.next
+  %.pre = load i32, ptr %arrayidx2.phi.trans.insert, align 4
   br label %while.body
 
 while.end.loopexit:                               ; preds = %while.body
@@ -47,16 +47,16 @@ while.end:                                        ; preds = %while.end.loopexit,
 }
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define i32 @bar(i32* nocapture readonly %arr) local_unnamed_addr #0 {
+define i32 @bar(ptr nocapture readonly %arr) local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* %arr, align 4
+  %0 = load i32, ptr %arr, align 4
   %cmp7 = icmp sgt i32 %0, 1
   br i1 %cmp7, label %for.body, label %for.end
 
 for.body:                                         ; preds = %entry, %for.body
   %diff.09 = phi i32 [ %add, %for.body ], [ 0, %entry ]
   %j.08 = phi i32 [ %inc, %for.body ], [ 1, %entry ]
-  %call = tail call i32 @foo(i32 %j.08, i32* nonnull %arr)
+  %call = tail call i32 @foo(i32 %j.08, ptr nonnull %arr)
   %add = add nsw i32 %call, %diff.09
   %inc = add nuw nsw i32 %j.08, 1
   %cmp = icmp slt i32 %inc, %0

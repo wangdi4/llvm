@@ -1,7 +1,8 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt < %s -passes='inlinereportsetup,module(ip-cloning),cgscc(inline),inlinereportemitter' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -opaque-pointers < %s -passes='inlinereportsetup,module(ip-cloning),cgscc(inline),inlinereportemitter' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+
 @count = available_externally dso_local local_unnamed_addr global i32 0, align 8
 
 ; Test that all recursive progression clones are inlined.
@@ -48,24 +49,24 @@
 
 define dso_local void @MAIN__() #0 {
   %1 = alloca i32, align 4
-  store i32 1, i32* %1, align 4
-  call void @foo(i32* nonnull %1)
+  store i32 1, ptr %1, align 4
+  call void @foo(ptr nonnull %1)
   ret void
 }
 
 ; Function Attrs: nounwind
-define internal void @foo(i32* noalias nocapture readonly) {
+define internal void @foo(ptr noalias nocapture readonly) {
   %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
+  %3 = load i32, ptr @count, align 8
   %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
+  store i32 %4, ptr @count, align 8
+  %5 = load i32, ptr %0, align 4
   %6 = icmp eq i32 %5, 8
   br i1 %6, label %7, label %9
 
 ; <label>:7:                                      ; preds = %1
   %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
+  store i32 %8, ptr @count, align 8
   br label %13
 
 ; <label>:9:                                      ; preds = %1
@@ -74,8 +75,8 @@ define internal void @foo(i32* noalias nocapture readonly) {
 
 ; <label>:11:                                     ; preds = %9
   %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foo(i32* nonnull %2)
+  store i32 %12, ptr %2, align 4
+  call void @foo(ptr nonnull %2)
   br label %13
 
 ; <label>:13:                                     ; preds = %11, %9, %7

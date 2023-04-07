@@ -1,5 +1,5 @@
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
@@ -15,7 +15,7 @@ declare void @llvm.localescape(...)
 define i32 @callee_frameescape(i32 %v) {
 entry:
   %a = alloca i32
-  call void (...) @llvm.localescape(i32* %a)
+  call void (...) @llvm.localescape(ptr %a)
   %cmp = icmp sgt i32 %v, 2000
   br i1 %cmp, label %if.then, label %if.end
 

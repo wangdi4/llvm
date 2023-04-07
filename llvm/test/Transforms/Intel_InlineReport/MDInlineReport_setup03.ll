@@ -1,4 +1,4 @@
-; RUN: opt -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
 
 ; This test checks that if verification fails then we replace function inline report with a new one.
 ; TODO: mark link-only inline report with special symbol.
@@ -34,7 +34,6 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
 define dso_local void @main() local_unnamed_addr !intel.function.inlining.report !2 {
 entry:
   tail call void (...) @b()
@@ -76,4 +75,3 @@ declare dso_local void @c(...) local_unnamed_addr
 !20 = distinct !{!"intel.function.inlining.report", !6, null, !14, !17, !21, !19}
 !21 = !{!"isDeclaration: 1"}
 !22 = distinct !{!"intel.function.inlining.report", !16, null, !14, !17, !21, !19}
-

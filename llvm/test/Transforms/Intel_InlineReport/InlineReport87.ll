@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 
-; RUN: opt -passes='cgscc(inline),function(lcssa,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg)' -inline-report=0xe807 -S 2>&1 %s | FileCheck %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline),function(lcssa,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg)' -inline-report=0xe807 -S 2>&1 %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
@@ -41,8 +41,8 @@ for.cond.1.preheader:                             ; preds = %for.inc.6, %entry
 
 for.body.3:                                       ; preds = %for.body.3, %for.cond.1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond.1.preheader ], [ %indvars.iv.next, %for.body.3 ]
-  %arrayidx5 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @A, i64 0, i64 %indvars.iv, i64 %indvars.iv20
-  %1 = load i32, i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [1000 x [1000 x i32]], ptr @A, i64 0, i64 %indvars.iv, i64 %indvars.iv20
+  %1 = load i32, ptr %arrayidx5, align 4
   %add = add nsw i32 %1, %0
   %call = tail call i32 @foo1(i32 %add)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -56,19 +56,19 @@ for.inc.6:                                        ; preds = %for.body.3
 
 for.end.8:                                        ; preds = %for.inc.6
   %add9 = add nsw i32 %add, 5
-  store i32 %add9, i32* getelementptr inbounds ([1000 x [1000 x i32]], [1000 x [1000 x i32]]* @A, i64 0, i64 5, i64 5), align 4
+  store i32 %add9, ptr getelementptr inbounds ([1000 x [1000 x i32]], ptr @A, i64 0, i64 5, i64 5), align 4
   ret void
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 define i32 @foo1(i32 %0) #0 {
   ret i32 %0
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)
 
 attributes #0 = { noinline }
 

@@ -1,5 +1,5 @@
-; RUN: opt -passes='deadargelim,print<inline-report>' -disable-output -inline-report=0xe801 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup,deadargelim,inlinereportemitter' -inline-report=0xe880 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='deadargelim,print<inline-report>' -disable-output -inline-report=0xe801 < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,deadargelim,inlinereportemitter' -inline-report=0xe880 -S < %s 2>&1 | FileCheck %s
 
 ; Check that dead arg elimination does not produce DELETEs in the inlining
 ; report
@@ -20,16 +20,16 @@
 ; CHECK-NOT: DELETE: needarg
 
 ; test - an obviously dead argument
-define internal i32 @test(i32 %v, i32 %DEADARG1, i32* %p) {
-        store i32 %v, i32* %p
+define internal i32 @test(i32 %v, i32 %DEADARG1, ptr %p) {
+        store i32 %v, ptr %p
         ret i32 %v
 }
 
 ; hardertest - an argument which is only used by a call of a function with a 
 ; dead argument.
 define internal i32 @hardertest(i32 %DEADARG2) {
-        %p = alloca i32         ; <i32*> [#uses=1]
-        %V = call i32 @test( i32 5, i32 %DEADARG2, i32* %p )            ; <i32> [#uses=1]
+        %p = alloca i32         ; <ptr> [#uses=1]
+        %V = call i32 @test( i32 5, i32 %DEADARG2, ptr %p )            ; <i32> [#uses=1]
         ret i32 %V
 }
 
