@@ -5441,7 +5441,8 @@ public:
   }
 
   static bool containsSideEffect(HLDDNode *Node) {
-    for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+    for (RegDDRef *Ref :
+         make_range(Node->op_ddref_begin(), Node->op_ddref_end())) {
       // Record side effect of LVal memref.
       if (Ref->isMemRef() && Ref->isLval()) {
         return true;
