@@ -25,7 +25,6 @@
 #include <builtin_kernels.h>
 #include <cl_cpu_detect.h>
 #include <cl_shared_ptr.hpp>
-#include <cl_shutdown.h>
 #include <cl_sys_defines.h>
 #include <cl_sys_info.h>
 #include <clang_device_info.h>

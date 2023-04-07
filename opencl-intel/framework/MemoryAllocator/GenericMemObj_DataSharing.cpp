@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -19,7 +19,6 @@
 #include "GenericMemObj.h"
 #include "cl_logger.h"
 #include "cl_shared_ptr.hpp"
-#include "cl_shutdown.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 using namespace std;
@@ -1190,8 +1189,7 @@ void GenericMemObjectSubBuffer::ZombieFlashToParent() {
 
   acquireBufferSyncLock();
 
-  if ((getUpdateParentFlag() && isSecondLevelBufferSyncLock()) ||
-      (IsShuttingDown())) {
+  if (getUpdateParentFlag() && isSecondLevelBufferSyncLock()) {
     // Ooooops! We entered zombie mode during parent update and from inside
     // thread that already holds
     // BufferSyncLock lock. As with current implementation this may

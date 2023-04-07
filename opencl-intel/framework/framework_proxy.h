@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2020 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -44,10 +44,7 @@ namespace Framework {
  * Description: the framework proxy class design to pass the OpenCL api calls to
  *              the framework's modules
  ******************************************************************************/
-class FrameworkProxy : public Intel::OpenCL::Utils::IAtExitCentralPoint {
-private:
-  enum GLOBAL_STATE { WORKING = 0, TERMINATING, TERMINATED };
-
+class FrameworkProxy {
 public:
   /*****************************************************************************
    * Function:     Instance
@@ -149,23 +146,8 @@ public:
   bool ExecuteImmediate(const Intel::OpenCL::Utils::SharedPtr<
                         Intel::OpenCL::TaskExecutor::ITaskBase> &pTask) const;
 
-  /*****************************************************************************
-   * Function:     ~FrameworkProxy
-   * Description:    The FrameworkProxy class destructor
-   * Arguments:
-   ****************************************************************************/
-  bool API_Disabled() const { return (gGlobalState >= TERMINATING); }
+  bool API_Disabled() const { return Intel::OpenCL::Utils::IsShuttingDown(); }
 
-  /*****************************************************************************
-   * Manage process shutdown (IAtExitCentralPoint)
-   ****************************************************************************/
-  void RegisterDllCallback(
-      Intel::OpenCL::Utils::at_exit_dll_callback_fn fn) override;
-  void UnregisterDllCallback(
-      Intel::OpenCL::Utils::at_exit_dll_callback_fn fn) override;
-  void SetDllUnloadingState(bool value) override { m_bIgnoreAtExit = value; }
-  bool isDllUnloadingState() const override { return m_bIgnoreAtExit; }
-  void AtExitTrigger(Intel::OpenCL::Utils::at_exit_dll_callback_fn cb) override;
   const OCLConfig *GetOCLConfig() { return m_pConfig; };
 
 private:
@@ -221,14 +203,7 @@ private:
   mutable unsigned int m_uiTEActivationCount;
 
   // a lock to prevent double initialization
-  static std::recursive_mutex m_initializationMutex;
-
-  // Linux shutdown process
-  static void CL_CALLBACK TerminateProcess(bool needToDisableAPI);
-  static volatile GLOBAL_STATE gGlobalState;
-  static std::set<Intel::OpenCL::Utils::at_exit_dll_callback_fn>
-      m_at_exit_cbs; // use m_initializationMutex
-  static THREAD_LOCAL bool m_bIgnoreAtExit;
+  mutable std::recursive_mutex m_initializationMutex;
 
   // handle to the logger client
   DECLARE_LOGGER_CLIENT;

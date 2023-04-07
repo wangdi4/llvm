@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2022 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -30,7 +30,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cl_env.h>
-#include <cl_shutdown.h>
 #include <cl_sys_defines.h>
 #include <cl_sys_info.h>
 #include <string>
