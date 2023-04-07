@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0xe807 -forced-inline-opt-level=3 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
+; RUN: opt -opaque-pointers -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0xe807 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -forced-inline-opt-level=3 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -forced-inline-opt-level=3 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 
 ; Check that all no instances of @daxpy are inlined, because they fail to pass
 ; the matching actual parameter test for the callsites.
@@ -17,849 +17,6 @@
 ; CHECK-AFTER: call{{.*}}daxpy_
 ; CHECK-AFTER: call{{.*}}daxpy_
 
-define internal fastcc void @dscal_(i32* noalias nocapture readonly %0, double* noalias nocapture readonly %1, double* noalias nocapture %2) unnamed_addr #0 {
-  %4 = load i32, i32* %0, align 1
-  %5 = icmp sgt i32 %4, 0
-  br i1 %5, label %49, label %52
-
-6:                                                ; preds = %45, %6
-  %7 = phi i64 [ 1, %45 ], [ %11, %6 ]
-  %8 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %2, i64 %7)
-  %9 = load double, double* %8, align 1
-  %10 = fmul fast double %9, %46
-  store double %10, double* %8, align 1
-  %11 = add nuw nsw i64 %7, 1
-  %12 = icmp eq i64 %11, %48
-  br i1 %12, label %13, label %6
-
-13:                                               ; preds = %6
-  %14 = icmp sgt i32 %4, 4
-  %15 = icmp sgt i32 %4, %50
-  %16 = and i1 %14, %15
-  br i1 %16, label %17, label %52
-
-17:                                               ; preds = %49, %13
-  %18 = load double, double* %1, align 1
-  %19 = add nuw nsw i32 %50, 1
-  %20 = zext i32 %19 to i64
-  br label %21
-
-21:                                               ; preds = %21, %17
-  %22 = phi i64 [ %20, %17 ], [ %42, %21 ]
-  %23 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %2, i64 %22)
-  %24 = load double, double* %23, align 1
-  %25 = fmul fast double %24, %18
-  store double %25, double* %23, align 1
-  %26 = add nuw nsw i64 %22, 1
-  %27 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %2, i64 %26)
-  %28 = load double, double* %27, align 1
-  %29 = fmul fast double %28, %18
-  store double %29, double* %27, align 1
-  %30 = add nuw nsw i64 %22, 2
-  %31 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %2, i64 %30)
-  %32 = load double, double* %31, align 1
-  %33 = fmul fast double %32, %18
-  store double %33, double* %31, align 1
-  %34 = add nuw nsw i64 %22, 3
-  %35 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %2, i64 %34)
-  %36 = load double, double* %35, align 1
-  %37 = fmul fast double %36, %18
-  store double %37, double* %35, align 1
-  %38 = add nuw nsw i64 %22, 4
-  %39 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %2, i64 %38)
-  %40 = load double, double* %39, align 1
-  %41 = fmul fast double %40, %18
-  store double %41, double* %39, align 1
-  %42 = add nuw i64 %22, 5
-  %43 = trunc i64 %42 to i32
-  %44 = icmp slt i32 %4, %43
-  br i1 %44, label %52, label %21
-
-45:                                               ; preds = %49
-  %46 = load double, double* %1, align 1
-  %47 = add nuw nsw i32 %50, 1
-  %48 = zext i32 %47 to i64
-  br label %6
-
-49:                                               ; preds = %3
-  %50 = urem i32 %4, 5
-  %51 = icmp eq i32 %50, 0
-  br i1 %51, label %17, label %45
-
-52:                                               ; preds = %21, %13, %3
-  ret void
-}
-
-define internal fastcc void @daxpy_(i32* noalias nocapture readonly %0, double* noalias nocapture readonly %1, double* noalias nocapture readonly %2, double* noalias nocapture %3) unnamed_addr #0 {
-  %5 = load i32, i32* %0, align 1
-  %6 = icmp sgt i32 %5, 0
-  br i1 %6, label %62, label %65
-
-7:                                                ; preds = %56, %7
-  %8 = phi i64 [ 1, %56 ], [ %15, %7 ]
-  %9 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %3, i64 %8)
-  %10 = load double, double* %9, align 1
-  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %2, i64 %8)
-  %12 = load double, double* %11, align 1
-  %13 = fmul fast double %12, %63
-  %14 = fadd fast double %13, %10
-  store double %14, double* %9, align 1
-  %15 = add nuw nsw i64 %8, 1
-  %16 = icmp eq i64 %15, %58
-  br i1 %16, label %17, label %7
-
-17:                                               ; preds = %7
-  %18 = icmp slt i32 %5, 4
-  br i1 %18, label %65, label %21
-
-19:                                               ; preds = %59
-  %20 = icmp sgt i32 %5, 3
-  br i1 %20, label %21, label %65
-
-21:                                               ; preds = %19, %17
-  %22 = add nuw nsw i32 %60, 1
-  %23 = zext i32 %22 to i64
-  %24 = zext i32 %5 to i64
-  br label %25
-
-25:                                               ; preds = %25, %21
-  %26 = phi i64 [ %23, %21 ], [ %54, %25 ]
-  %27 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %3, i64 %26)
-  %28 = load double, double* %27, align 1
-  %29 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %2, i64 %26)
-  %30 = load double, double* %29, align 1
-  %31 = fmul fast double %30, %63
-  %32 = fadd fast double %31, %28
-  store double %32, double* %27, align 1
-  %33 = add nuw nsw i64 %26, 1
-  %34 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %3, i64 %33)
-  %35 = load double, double* %34, align 1
-  %36 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %2, i64 %33)
-  %37 = load double, double* %36, align 1
-  %38 = fmul fast double %37, %63
-  %39 = fadd fast double %38, %35
-  store double %39, double* %34, align 1
-  %40 = add nuw nsw i64 %26, 2
-  %41 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %3, i64 %40)
-  %42 = load double, double* %41, align 1
-  %43 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %2, i64 %40)
-  %44 = load double, double* %43, align 1
-  %45 = fmul fast double %44, %63
-  %46 = fadd fast double %45, %42
-  store double %46, double* %41, align 1
-  %47 = add nuw nsw i64 %26, 3
-  %48 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %3, i64 %47)
-  %49 = load double, double* %48, align 1
-  %50 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %2, i64 %47)
-  %51 = load double, double* %50, align 1
-  %52 = fmul fast double %51, %63
-  %53 = fadd fast double %52, %49
-  store double %53, double* %48, align 1
-  %54 = add nuw nsw i64 %26, 4
-  %55 = icmp ugt i64 %54, %24
-  br i1 %55, label %65, label %25
-
-56:                                               ; preds = %59
-  %57 = add nuw nsw i32 %60, 1
-  %58 = zext i32 %57 to i64
-  br label %7
-
-59:                                               ; preds = %62
-  %60 = and i32 %5, 3
-  %61 = icmp eq i32 %60, 0
-  br i1 %61, label %19, label %56
-
-62:                                               ; preds = %4
-  %63 = load double, double* %1, align 1
-  %64 = fcmp fast ueq double %63, 0.000000e+00
-  br i1 %64, label %65, label %59
-
-65:                                               ; preds = %62, %25, %19, %17, %4
-  ret void
-}
-
-define internal fastcc void @dgefa_(i32* noalias nocapture %0) unnamed_addr #0 {
-  %2 = alloca double, align 8
-  %3 = alloca i32, align 4
-  %4 = alloca i32, align 4
-  store i32 0, i32* %0, align 1
-  %5 = bitcast double* %2 to i64*
-  br label %6
-
-6:                                                ; preds = %83, %1
-  %7 = phi i64 [ 1, %1 ], [ %9, %83 ]
-  %8 = phi i64 [ 2, %1 ], [ %86, %83 ]
-  %9 = add nuw i64 %7, 1
-  %10 = trunc i64 %7 to i32
-  %11 = sub nsw i32 2500, %10
-  %12 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %7)
-  %13 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %12, i64 %7)
-  %14 = icmp slt i32 %10, 2501
-  br i1 %14, label %35, label %37
-
-15:                                               ; preds = %28, %15
-  %16 = phi i64 [ 2, %28 ], [ %26, %15 ]
-  %17 = phi double [ %31, %28 ], [ %23, %15 ]
-  %18 = phi i32 [ 1, %28 ], [ %25, %15 ]
-  %19 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13, i64 %16)
-  %20 = load double, double* %19, align 1
-  %21 = tail call fast double @llvm.fabs.f64(double %20)
-  %22 = fcmp fast ogt double %21, %17
-  %23 = select i1 %22, double %21, double %17
-  %24 = trunc i64 %16 to i32
-  %25 = select i1 %22, i32 %24, i32 %18
-  %26 = add nuw nsw i64 %16, 1
-  %27 = icmp eq i64 %26, %34
-  br i1 %27, label %37, label %15
-
-28:                                               ; preds = %35
-  %29 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %13, i64 1)
-  %30 = load double, double* %29, align 1
-  %31 = tail call fast double @llvm.fabs.f64(double %30)
-  %32 = shl i64 %7, 32
-  %33 = sub i64 10746008174592, %32
-  %34 = ashr exact i64 %33, 32
-  br label %15
-
-35:                                               ; preds = %6
-  %36 = icmp eq i32 %11, 0
-  br i1 %36, label %37, label %28
-
-37:                                               ; preds = %35, %15, %6
-  %38 = phi i32 [ 1, %35 ], [ 0, %6 ], [ %25, %15 ]
-  %39 = add i32 %10, -1
-  %40 = add i32 %39, %38
-  %41 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([2500 x i32], [2500 x i32]* @"linpk_$IPVT", i64 0, i64 0), i64 %7)
-  store i32 %40, i32* %41, align 1
-  %42 = sext i32 %40 to i64
-  %43 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %12, i64 %42)
-  %44 = load double, double* %43, align 1
-  %45 = fcmp fast oeq double %44, 0.000000e+00
-  br i1 %45, label %79, label %80
-
-46:                                               ; preds = %80
-  store double %44, double* %2, align 8
-  %47 = bitcast double* %13 to i64*
-  %48 = load i64, i64* %47, align 1
-  %49 = bitcast double* %43 to i64*
-  store i64 %48, i64* %49, align 1
-  store double %44, double* %13, align 1
-  br label %50
-
-50:                                               ; preds = %80, %46
-  %51 = load double, double* %13, align 1
-  %52 = fdiv fast double -1.000000e+00, %51
-  store double %52, double* %2, align 8
-  %53 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12, i64 %9)
-  store i32 %11, i32* %3, align 4
-  call fastcc void @dscal_(i32* nonnull %3, double* nonnull %2, double* %53) #5
-  %54 = icmp slt i64 %7, 2500
-  br i1 %54, label %55, label %83
-
-55:                                               ; preds = %50
-  br i1 %82, label %56, label %69
-
-56:                                               ; preds = %56, %55
-  %57 = phi i64 [ %66, %56 ], [ %8, %55 ]
-  %58 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) nonnull getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %57)
-  %59 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %58, i64 %42)
-  %60 = bitcast double* %59 to i64*
-  %61 = load i64, i64* %60, align 1
-  store i64 %61, i64* %5, align 8
-  %62 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %58, i64 %7)
-  %63 = bitcast double* %62 to i64*
-  %64 = load i64, i64* %63, align 1
-  store i64 %64, i64* %60, align 1
-  store i64 %61, i64* %63, align 1
-  %65 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %58, i64 %9)
-  store i32 %11, i32* %4, align 4
-  call fastcc void @daxpy_(i32* nonnull %3, double* nonnull %2, double* nonnull %2, double* %65) #5
-  %66 = add i64 %57, 1
-  %67 = trunc i64 %66 to i32
-  %68 = icmp sgt i32 %67, 2500
-  br i1 %68, label %83, label %56
-
-69:                                               ; preds = %69, %55
-  %70 = phi i64 [ %76, %69 ], [ %8, %55 ]
-  %71 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) nonnull getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %70)
-  %72 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %71, i64 %42)
-  %73 = bitcast double* %72 to i64*
-  %74 = load i64, i64* %73, align 1
-  store i64 %74, i64* %5, align 8
-  %75 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %71, i64 %9)
-  store i32 %11, i32* %4, align 4
-  call fastcc void @daxpy_(i32* nonnull %4, double* nonnull %2, double* nonnull %53, double* %75) #5
-  %76 = add i64 %70, 1
-  %77 = trunc i64 %76 to i32
-  %78 = icmp sgt i32 %77, 2500
-  br i1 %78, label %83, label %69
-
-79:                                               ; preds = %37
-  store i32 %10, i32* %0, align 1
-  br label %83
-
-80:                                               ; preds = %37
-  %81 = zext i32 %40 to i64
-  %82 = icmp ne i64 %7, %81
-  br i1 %82, label %46, label %50
-
-83:                                               ; preds = %79, %69, %56, %50
-  %84 = trunc i64 %9 to i32
-  %85 = icmp slt i32 %84, 2500
-  %86 = add i64 %8, 1
-  br i1 %85, label %6, label %87
-
-87:                                               ; preds = %83
-  %88 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([2500 x i32], [2500 x i32]* @"linpk_$IPVT", i64 0, i64 0), i64 2500)
-  store i32 2500, i32* %88, align 1
-  %89 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 2500)
-  %90 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %89, i64 2500)
-  %91 = load double, double* %90, align 1
-  %92 = fcmp fast oeq double %91, 0.000000e+00
-  br i1 %92, label %93, label %94
-
-93:                                               ; preds = %87
-  store i32 2500, i32* %0, align 1
-  br label %94
-
-94:                                               ; preds = %93, %87
-  ret void
-}
-
-define internal fastcc void @dgesl_() unnamed_addr #0 {
-  %1 = alloca double, align 8
-  %2 = alloca i32, align 4
-  %3 = alloca i32, align 4
-  %4 = bitcast double* %1 to i64*
-  br label %5
-
-5:                                                ; preds = %0, %19
-  %6 = phi i64 [ 1, %0 ], [ %22, %19 ]
-  %7 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([2500 x i32], [2500 x i32]* @"linpk_$IPVT", i64 0, i64 0), i64 %6)
-  %8 = load i32, i32* %7, align 1
-  %9 = sext i32 %8 to i64
-  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %9)
-  %11 = bitcast double* %10 to i64*
-  %12 = load i64, i64* %11, align 1
-  store i64 %12, i64* %4, align 8
-  %13 = zext i32 %8 to i64
-  %14 = icmp eq i64 %6, %13
-  br i1 %14, label %19, label %15
-
-15:                                               ; preds = %5
-  %16 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %6)
-  %17 = bitcast double* %16 to i64*
-  %18 = load i64, i64* %17, align 1
-  store i64 %18, i64* %11, align 1
-  store i64 %12, i64* %17, align 1
-  br label %19
-
-19:                                               ; preds = %15, %5
-  %20 = trunc i64 %6 to i32
-  %21 = sub nsw i32 2500, %20
-  %22 = add nuw i64 %6, 1
-  %23 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %6)
-  %24 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %23, i64 %22)
-  %25 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %22)
-  store i32 %21, i32* %2, align 4
-  call fastcc void @daxpy_(i32* nonnull %2, double* nonnull %24, double* %24, double* %25) #5
-  %26 = trunc i64 %22 to i32
-  %27 = icmp slt i32 %26, 2500
-  br i1 %27, label %5, label %28
-
-28:                                               ; preds = %19
-  %29 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 1)
-  br label %30
-
-30:                                               ; preds = %30, %28
-  %31 = phi i64 [ 1, %28 ], [ %45, %30 ]
-  %32 = trunc i64 %31 to i32
-  %33 = shl i64 %31, 32
-  %34 = sub i64 10741713207296, %33
-  %35 = ashr exact i64 %34, 32
-  %36 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %35)
-  %37 = load double, double* %36, align 1
-  %38 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %35)
-  %39 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %38, i64 %35)
-  %40 = load double, double* %39, align 1
-  %41 = fdiv fast double %37, %40
-  store double %41, double* %36, align 1
-  %42 = fneg fast double %41
-  store double %42, double* %1, align 8
-  %43 = sub i32 2500, %32
-  %44 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %38, i64 1)
-  store i32 %43, i32* %3, align 4
-  call fastcc void @daxpy_(i32* nonnull %3, double* nonnull %1, double* %44, double* %29) #5
-  %45 = add nuw i64 %31, 1
-  %46 = icmp sgt i64 %45, 2500
-  br i1 %46, label %47, label %30
-
-47:                                               ; preds = %30
-  ret void
-}
-
-define internal fastcc void @dmxpy_() unnamed_addr #3 {
-  %1 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 1)
-  %2 = load double, double* %1, align 1
-  %3 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 1)
-  %4 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 2)
-  %5 = load double, double* %4, align 1
-  %6 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 2)
-  %7 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 3)
-  %8 = load double, double* %7, align 1
-  %9 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 3)
-  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 4)
-  %11 = load double, double* %10, align 1
-  %12 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 4)
-  br label %13
-
-13:                                               ; preds = %0, %13
-  %14 = phi i64 [ 1, %0 ], [ %33, %13 ]
-  %15 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %14)
-  %16 = load double, double* %15, align 1
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %3, i64 %14)
-  %18 = load double, double* %17, align 1
-  %19 = fmul fast double %18, %2
-  %20 = fadd fast double %19, %16
-  %21 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %6, i64 %14)
-  %22 = load double, double* %21, align 1
-  %23 = fmul fast double %22, %5
-  %24 = fadd fast double %20, %23
-  %25 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %9, i64 %14)
-  %26 = load double, double* %25, align 1
-  %27 = fmul fast double %26, %8
-  %28 = fadd fast double %24, %27
-  %29 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %12, i64 %14)
-  %30 = load double, double* %29, align 1
-  %31 = fmul fast double %30, %11
-  %32 = fadd fast double %28, %31
-  store double %32, double* %15, align 1
-  %33 = add nuw nsw i64 %14, 1
-  %34 = icmp eq i64 %33, 2501
-  br i1 %34, label %35, label %13
-
-35:                                               ; preds = %13, %170
-  %36 = phi i64 [ %171, %170 ], [ 20, %13 ]
-  %37 = add nsw i64 %36, -15
-  %38 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %37)
-  %39 = load double, double* %38, align 1
-  %40 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %37)
-  %41 = add nsw i64 %36, -14
-  %42 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %41)
-  %43 = load double, double* %42, align 1
-  %44 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %41)
-  %45 = add nsw i64 %36, -13
-  %46 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %45)
-  %47 = load double, double* %46, align 1
-  %48 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %45)
-  %49 = add nsw i64 %36, -12
-  %50 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %49)
-  %51 = load double, double* %50, align 1
-  %52 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %49)
-  %53 = add nsw i64 %36, -11
-  %54 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %53)
-  %55 = load double, double* %54, align 1
-  %56 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %53)
-  %57 = add nsw i64 %36, -10
-  %58 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %57)
-  %59 = load double, double* %58, align 1
-  %60 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %57)
-  %61 = add nsw i64 %36, -9
-  %62 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %61)
-  %63 = load double, double* %62, align 1
-  %64 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %61)
-  %65 = add nsw i64 %36, -8
-  %66 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %65)
-  %67 = load double, double* %66, align 1
-  %68 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %65)
-  %69 = add nsw i64 %36, -7
-  %70 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %69)
-  %71 = load double, double* %70, align 1
-  %72 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %69)
-  %73 = add nsw i64 %36, -6
-  %74 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %73)
-  %75 = load double, double* %74, align 1
-  %76 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %73)
-  %77 = add nsw i64 %36, -5
-  %78 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %77)
-  %79 = load double, double* %78, align 1
-  %80 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %77)
-  %81 = add nsw i64 %36, -4
-  %82 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %81)
-  %83 = load double, double* %82, align 1
-  %84 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %81)
-  %85 = add nsw i64 %36, -3
-  %86 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %85)
-  %87 = load double, double* %86, align 1
-  %88 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %85)
-  %89 = add nsw i64 %36, -2
-  %90 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %89)
-  %91 = load double, double* %90, align 1
-  %92 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %89)
-  %93 = add nsw i64 %36, -1
-  %94 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %93)
-  %95 = load double, double* %94, align 1
-  %96 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %93)
-  %97 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %36)
-  %98 = load double, double* %97, align 1
-  %99 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %36)
-  br label %100
-
-100:                                              ; preds = %100, %35
-  %101 = phi i64 [ 1, %35 ], [ %168, %100 ]
-  %102 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %101)
-  %103 = load double, double* %102, align 1
-  %104 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %40, i64 %101)
-  %105 = load double, double* %104, align 1
-  %106 = fmul fast double %105, %39
-  %107 = fadd fast double %106, %103
-  %108 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %44, i64 %101)
-  %109 = load double, double* %108, align 1
-  %110 = fmul fast double %109, %43
-  %111 = fadd fast double %107, %110
-  %112 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %48, i64 %101)
-  %113 = load double, double* %112, align 1
-  %114 = fmul fast double %113, %47
-  %115 = fadd fast double %111, %114
-  %116 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %52, i64 %101)
-  %117 = load double, double* %116, align 1
-  %118 = fmul fast double %117, %51
-  %119 = fadd fast double %115, %118
-  %120 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %56, i64 %101)
-  %121 = load double, double* %120, align 1
-  %122 = fmul fast double %121, %55
-  %123 = fadd fast double %119, %122
-  %124 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %60, i64 %101)
-  %125 = load double, double* %124, align 1
-  %126 = fmul fast double %125, %59
-  %127 = fadd fast double %123, %126
-  %128 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %64, i64 %101)
-  %129 = load double, double* %128, align 1
-  %130 = fmul fast double %129, %63
-  %131 = fadd fast double %127, %130
-  %132 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %68, i64 %101)
-  %133 = load double, double* %132, align 1
-  %134 = fmul fast double %133, %67
-  %135 = fadd fast double %131, %134
-  %136 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %72, i64 %101)
-  %137 = load double, double* %136, align 1
-  %138 = fmul fast double %137, %71
-  %139 = fadd fast double %135, %138
-  %140 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %76, i64 %101)
-  %141 = load double, double* %140, align 1
-  %142 = fmul fast double %141, %75
-  %143 = fadd fast double %139, %142
-  %144 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %80, i64 %101)
-  %145 = load double, double* %144, align 1
-  %146 = fmul fast double %145, %79
-  %147 = fadd fast double %143, %146
-  %148 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %84, i64 %101)
-  %149 = load double, double* %148, align 1
-  %150 = fmul fast double %149, %83
-  %151 = fadd fast double %147, %150
-  %152 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %88, i64 %101)
-  %153 = load double, double* %152, align 1
-  %154 = fmul fast double %153, %87
-  %155 = fadd fast double %151, %154
-  %156 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %92, i64 %101)
-  %157 = load double, double* %156, align 1
-  %158 = fmul fast double %157, %91
-  %159 = fadd fast double %155, %158
-  %160 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %96, i64 %101)
-  %161 = load double, double* %160, align 1
-  %162 = fmul fast double %161, %95
-  %163 = fadd fast double %159, %162
-  %164 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %99, i64 %101)
-  %165 = load double, double* %164, align 1
-  %166 = fmul fast double %165, %98
-  %167 = fadd fast double %163, %166
-  store double %167, double* %102, align 1
-  %168 = add nuw nsw i64 %101, 1
-  %169 = icmp eq i64 %168, 2501
-  br i1 %169, label %170, label %100
-
-170:                                              ; preds = %100
-  %171 = add nuw nsw i64 %36, 16
-  %172 = icmp ugt i64 %36, 2484
-  br i1 %172, label %173, label %35
-
-173:                                              ; preds = %170
-  ret void
-}
-
-define dso_local void @MAIN__() local_unnamed_addr #0 {
-  %1 = alloca [8 x i64], align 16
-  %2 = alloca i32, align 8
-  %3 = alloca [2 x i8], align 1
-  %4 = alloca [4 x i8], align 1
-  %5 = alloca { double }, align 8
-  %6 = alloca [4 x i8], align 1
-  %7 = alloca { double }, align 8
-  %8 = alloca [4 x i8], align 1
-  %9 = alloca { double }, align 8
-  %10 = alloca [4 x i8], align 1
-  %11 = alloca { double }, align 8
-  %12 = alloca [4 x i8], align 1
-  %13 = alloca { double }, align 8
-  %14 = tail call i32 @for_set_reentrancy(i32* nonnull @anon.179c04c108271c6ee1aba768bef6092b.0) #5
-  br label %15
-
-15:                                               ; preds = %31, %0
-  %16 = phi i64 [ 1, %0 ], [ %32, %31 ]
-  %17 = phi i32 [ 1325, %0 ], [ %23, %31 ]
-  %18 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %16) #5
-  br label %19
-
-19:                                               ; preds = %19, %15
-  %20 = phi i64 [ 1, %15 ], [ %29, %19 ]
-  %21 = phi i32 [ %17, %15 ], [ %23, %19 ]
-  %22 = mul nsw i32 %21, 3125
-  %23 = srem i32 %22, 65536
-  %24 = sitofp i32 %23 to float
-  %25 = fmul fast float %24, 0x3F10000000000000
-  %26 = fadd fast float %25, -2.000000e+00
-  %27 = fpext float %26 to double
-  %28 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %18, i64 %20) #5
-  store double %27, double* %28, align 1
-  %29 = add nuw nsw i64 %20, 1
-  %30 = icmp eq i64 %29, 2501
-  br i1 %30, label %31, label %19
-
-31:                                               ; preds = %19
-  %32 = add nuw nsw i64 %16, 1
-  %33 = icmp eq i64 %32, 2501
-  br i1 %33, label %34, label %15
-
-34:                                               ; preds = %34, %31
-  %35 = phi i64 [ %37, %34 ], [ 1, %31 ]
-  %36 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %35) #5
-  store double 0.000000e+00, double* %36, align 1
-  %37 = add nuw nsw i64 %35, 1
-  %38 = icmp eq i64 %37, 2501
-  br i1 %38, label %39, label %34
-
-39:                                               ; preds = %51, %34
-  %40 = phi i64 [ %52, %51 ], [ 1, %34 ]
-  %41 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %40) #5
-  br label %42
-
-42:                                               ; preds = %42, %39
-  %43 = phi i64 [ 1, %39 ], [ %49, %42 ]
-  %44 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %43) #5
-  %45 = load double, double* %44, align 1
-  %46 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %41, i64 %43) #5
-  %47 = load double, double* %46, align 1
-  %48 = fadd fast double %47, %45
-  store double %48, double* %44, align 1
-  %49 = add nuw nsw i64 %43, 1
-  %50 = icmp eq i64 %49, 2501
-  br i1 %50, label %51, label %42
-
-51:                                               ; preds = %42
-  %52 = add nuw nsw i64 %40, 1
-  %53 = icmp eq i64 %52, 2501
-  br i1 %53, label %54, label %39
-
-54:                                               ; preds = %51
-  call fastcc void @dgefa_(i32* nonnull %2) #5
-  tail call fastcc void @dgesl_() #5
-  br label %55
-
-55:                                               ; preds = %55, %54
-  %56 = phi i64 [ %62, %55 ], [ 1, %54 ]
-  %57 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %56)
-  %58 = bitcast double* %57 to i64*
-  %59 = load i64, i64* %58, align 1
-  %60 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %56)
-  %61 = bitcast double* %60 to i64*
-  store i64 %59, i64* %61, align 1
-  %62 = add nuw nsw i64 %56, 1
-  %63 = icmp eq i64 %62, 2501
-  br i1 %63, label %64, label %55
-
-64:                                               ; preds = %84, %55
-  %65 = phi double [ %81, %84 ], [ 0.000000e+00, %55 ]
-  %66 = phi i64 [ %85, %84 ], [ 1, %55 ]
-  %67 = phi i32 [ %74, %84 ], [ 1325, %55 ]
-  %68 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %66) #5
-  br label %69
-
-69:                                               ; preds = %69, %64
-  %70 = phi i64 [ 1, %64 ], [ %82, %69 ]
-  %71 = phi double [ %65, %64 ], [ %81, %69 ]
-  %72 = phi i32 [ %67, %64 ], [ %74, %69 ]
-  %73 = mul nsw i32 %72, 3125
-  %74 = srem i32 %73, 65536
-  %75 = sitofp i32 %74 to float
-  %76 = fmul fast float %75, 0x3F10000000000000
-  %77 = fadd fast float %76, -2.000000e+00
-  %78 = fpext float %77 to double
-  %79 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %68, i64 %70) #5
-  store double %78, double* %79, align 1
-  %80 = fcmp fast ole double %71, %78
-  %81 = select fast i1 %80, double %78, double %71
-  %82 = add nuw nsw i64 %70, 1
-  %83 = icmp eq i64 %82, 2501
-  br i1 %83, label %84, label %69
-
-84:                                               ; preds = %69
-  %85 = add nuw nsw i64 %66, 1
-  %86 = icmp eq i64 %85, 2501
-  br i1 %86, label %87, label %64
-
-87:                                               ; preds = %87, %84
-  %88 = phi i64 [ %90, %87 ], [ 1, %84 ]
-  %89 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %88) #5
-  store double 0.000000e+00, double* %89, align 1
-  %90 = add nuw nsw i64 %88, 1
-  %91 = icmp eq i64 %90, 2501
-  br i1 %91, label %92, label %87
-
-92:                                               ; preds = %104, %87
-  %93 = phi i64 [ %105, %104 ], [ 1, %87 ]
-  %94 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 20008, double* elementtype(double) getelementptr inbounds ([2500 x [2501 x double]], [2500 x [2501 x double]]* @"linpk_$A", i64 0, i64 0, i64 0), i64 %93) #5
-  br label %95
-
-95:                                               ; preds = %95, %92
-  %96 = phi i64 [ 1, %92 ], [ %102, %95 ]
-  %97 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %96) #5
-  %98 = load double, double* %97, align 1
-  %99 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %94, i64 %96) #5
-  %100 = load double, double* %99, align 1
-  %101 = fadd fast double %100, %98
-  store double %101, double* %97, align 1
-  %102 = add nuw nsw i64 %96, 1
-  %103 = icmp eq i64 %102, 2501
-  br i1 %103, label %104, label %95
-
-104:                                              ; preds = %95
-  %105 = add nuw nsw i64 %93, 1
-  %106 = icmp eq i64 %105, 2501
-  br i1 %106, label %107, label %92
-
-107:                                              ; preds = %107, %104
-  %108 = phi i64 [ %112, %107 ], [ 1, %104 ]
-  %109 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %108)
-  %110 = load double, double* %109, align 1
-  %111 = fneg fast double %110
-  store double %111, double* %109, align 1
-  %112 = add nuw nsw i64 %108, 1
-  %113 = icmp eq i64 %112, 2501
-  br i1 %113, label %114, label %107
-
-114:                                              ; preds = %107
-  tail call fastcc void @dmxpy_() #5
-  br label %115
-
-115:                                              ; preds = %115, %114
-  %116 = phi i64 [ %127, %115 ], [ 1, %114 ]
-  %117 = phi double [ %122, %115 ], [ 0.000000e+00, %114 ]
-  %118 = phi double [ %126, %115 ], [ 0.000000e+00, %114 ]
-  %119 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$B", i64 0, i64 0), i64 %116)
-  %120 = load double, double* %119, align 1
-  %121 = tail call fast double @llvm.fabs.f64(double %120)
-  %122 = tail call fast double @llvm.maxnum.f64(double %117, double %121)
-  %123 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 %116)
-  %124 = load double, double* %123, align 1
-  %125 = tail call fast double @llvm.fabs.f64(double %124)
-  %126 = tail call fast double @llvm.maxnum.f64(double %118, double %125)
-  %127 = add nuw nsw i64 %116, 1
-  %128 = icmp eq i64 %127, 2501
-  br i1 %128, label %129, label %115
-
-129:                                              ; preds = %115
-  %130 = fmul fast double %81, 0x3D63880000000000
-  %131 = fmul fast double %130, %126
-  %132 = fdiv fast double %122, %131
-  %133 = getelementptr inbounds [2 x i8], [2 x i8]* %3, i64 0, i64 0
-  store i8 1, i8* %133, align 1
-  %134 = getelementptr inbounds [2 x i8], [2 x i8]* %3, i64 0, i64 1
-  store i8 0, i8* %134, align 1
-  %135 = bitcast [8 x i64]* %1 to i8*
-  %136 = call i32 (i8*, i32, i64, i8*, i8*, i8*, ...) @for_write_seq_fmt(i8* nonnull %135, i32 -1, i64 1239157112576, i8* nonnull %133, i8* null, i8* getelementptr inbounds ([120 x i8], [120 x i8]* @"linpk_$format_pack", i64 0, i64 32)) #5
-  %137 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 0
-  store i8 48, i8* %137, align 1
-  %138 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 1
-  store i8 1, i8* %138, align 1
-  %139 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 2
-  store i8 2, i8* %139, align 1
-  %140 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 3
-  store i8 0, i8* %140, align 1
-  %141 = getelementptr inbounds { double }, { double }* %5, i64 0, i32 0
-  store double %132, double* %141, align 8
-  %142 = bitcast { double }* %5 to i8*
-  %143 = call i32 (i8*, i32, i64, i8*, i8*, i8*, ...) @for_write_seq_fmt(i8* nonnull %135, i32 -1, i64 1239157112576, i8* nonnull %137, i8* nonnull %142, i8* getelementptr inbounds ([120 x i8], [120 x i8]* @"linpk_$format_pack", i64 0, i64 0)) #5
-  %144 = getelementptr inbounds [4 x i8], [4 x i8]* %6, i64 0, i64 0
-  store i8 48, i8* %144, align 1
-  %145 = getelementptr inbounds [4 x i8], [4 x i8]* %6, i64 0, i64 1
-  store i8 1, i8* %145, align 1
-  %146 = getelementptr inbounds [4 x i8], [4 x i8]* %6, i64 0, i64 2
-  store i8 2, i8* %146, align 1
-  %147 = getelementptr inbounds [4 x i8], [4 x i8]* %6, i64 0, i64 3
-  store i8 0, i8* %147, align 1
-  %148 = getelementptr inbounds { double }, { double }* %7, i64 0, i32 0
-  store double %122, double* %148, align 8
-  %149 = bitcast { double }* %7 to i8*
-  %150 = call i32 @for_write_seq_fmt_xmit(i8* nonnull %135, i8* nonnull %144, i8* nonnull %149) #5
-  %151 = getelementptr inbounds [4 x i8], [4 x i8]* %8, i64 0, i64 0
-  store i8 48, i8* %151, align 1
-  %152 = getelementptr inbounds [4 x i8], [4 x i8]* %8, i64 0, i64 1
-  store i8 1, i8* %152, align 1
-  %153 = getelementptr inbounds [4 x i8], [4 x i8]* %8, i64 0, i64 2
-  store i8 2, i8* %153, align 1
-  %154 = getelementptr inbounds [4 x i8], [4 x i8]* %8, i64 0, i64 3
-  store i8 0, i8* %154, align 1
-  %155 = getelementptr inbounds { double }, { double }* %9, i64 0, i32 0
-  store double 0x3CB0000000000000, double* %155, align 8
-  %156 = bitcast { double }* %9 to i8*
-  %157 = call i32 @for_write_seq_fmt_xmit(i8* nonnull %135, i8* nonnull %151, i8* nonnull %156) #5
-  %158 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 1)
-  %159 = bitcast double* %158 to i64*
-  %160 = load i64, i64* %159, align 1
-  %161 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 0
-  store i8 48, i8* %161, align 1
-  %162 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 1
-  store i8 1, i8* %162, align 1
-  %163 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 2
-  store i8 2, i8* %163, align 1
-  %164 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 3
-  store i8 0, i8* %164, align 1
-  %165 = bitcast { double }* %11 to i64*
-  store i64 %160, i64* %165, align 8
-  %166 = bitcast { double }* %11 to i8*
-  %167 = call i32 @for_write_seq_fmt_xmit(i8* nonnull %135, i8* nonnull %161, i8* nonnull %166) #5
-  %168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([2500 x double], [2500 x double]* @"linpk_$X", i64 0, i64 0), i64 2500)
-  %169 = bitcast double* %168 to i64*
-  %170 = load i64, i64* %169, align 1
-  %171 = getelementptr inbounds [4 x i8], [4 x i8]* %12, i64 0, i64 0
-  store i8 48, i8* %171, align 1
-  %172 = getelementptr inbounds [4 x i8], [4 x i8]* %12, i64 0, i64 1
-  store i8 1, i8* %172, align 1
-  %173 = getelementptr inbounds [4 x i8], [4 x i8]* %12, i64 0, i64 2
-  store i8 1, i8* %173, align 1
-  %174 = getelementptr inbounds [4 x i8], [4 x i8]* %12, i64 0, i64 3
-  store i8 0, i8* %174, align 1
-  %175 = bitcast { double }* %13 to i64*
-  store i64 %170, i64* %175, align 8
-  %176 = bitcast { double }* %13 to i8*
-  %177 = call i32 @for_write_seq_fmt_xmit(i8* nonnull %135, i8* nonnull %171, i8* nonnull %176) #5
-  ret void
-}
-
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 %0, i64 %1, i64 %2, double* %3, i64 %4)
-
-declare double @llvm.fabs.f64(double %0)
-
-declare double @llvm.maxnum.f64(double %0, double %1)
-
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 %0, i64 %1, i64 %2, i32* %3, i64 %4)
-
-declare dso_local i32 @for_set_reentrancy(i32* %0) local_unnamed_addr
-
-declare dso_local i32 @for_write_seq_fmt(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4, i8* %5, ...) local_unnamed_addr
-
-declare dso_local i32 @for_write_seq_fmt_xmit(i8* %0, i8* %1, i8* %2) local_unnamed_addr
-
 @anon.179c04c108271c6ee1aba768bef6092b.0 = internal unnamed_addr constant i32 2
 @"linpk_$A" = internal unnamed_addr global [2500 x [2501 x double]] zeroinitializer, align 16
 @"linpk_$B" = internal unnamed_addr global [2500 x double] zeroinitializer, align 16
@@ -867,6 +24,836 @@ declare dso_local i32 @for_write_seq_fmt_xmit(i8* %0, i8* %1, i8* %2) local_unna
 @"linpk_$X" = internal unnamed_addr global [2500 x double] zeroinitializer, align 16
 @"linpk_$format_pack" = internal unnamed_addr global [120 x i8] c"6\00\00\00\0A\00\00\00\01\00\00\00\01\00\00\00\1E\00\00\08\05\00\00\00\10\00\00\007\00\00\006\00\00\00\1C\00,\00     norm. resid      resid           machep\1C\00\1B\00         x(1)          x(n)\007\00\00\00", align 4
 
-attributes #0 = { "intel-lang"="fortran" }
+define internal fastcc void @dscal_(ptr noalias nocapture readonly %arg, ptr noalias nocapture readonly %arg1, ptr noalias nocapture %arg2) unnamed_addr #0 {
+bb:
+  %i = load i32, ptr %arg, align 1
+  %i3 = icmp sgt i32 %i, 0
+  br i1 %i3, label %bb47, label %bb50
 
+bb4:                                              ; preds = %bb43, %bb4
+  %i5 = phi i64 [ 1, %bb43 ], [ %i9, %bb4 ]
+  %i6 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg2, i64 %i5)
+  %i7 = load double, ptr %i6, align 1
+  %i8 = fmul fast double %i7, %i44
+  store double %i8, ptr %i6, align 1
+  %i9 = add nuw nsw i64 %i5, 1
+  %i10 = icmp eq i64 %i9, %i46
+  br i1 %i10, label %bb11, label %bb4
+
+bb11:                                             ; preds = %bb4
+  %i12 = icmp sgt i32 %i, 4
+  %i13 = icmp sgt i32 %i, %i48
+  %i14 = and i1 %i12, %i13
+  br i1 %i14, label %bb15, label %bb50
+
+bb15:                                             ; preds = %bb47, %bb11
+  %i16 = load double, ptr %arg1, align 1
+  %i17 = add nuw nsw i32 %i48, 1
+  %i18 = zext i32 %i17 to i64
+  br label %bb19
+
+bb19:                                             ; preds = %bb19, %bb15
+  %i20 = phi i64 [ %i18, %bb15 ], [ %i40, %bb19 ]
+  %i21 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg2, i64 %i20)
+  %i22 = load double, ptr %i21, align 1
+  %i23 = fmul fast double %i22, %i16
+  store double %i23, ptr %i21, align 1
+  %i24 = add nuw nsw i64 %i20, 1
+  %i25 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg2, i64 %i24)
+  %i26 = load double, ptr %i25, align 1
+  %i27 = fmul fast double %i26, %i16
+  store double %i27, ptr %i25, align 1
+  %i28 = add nuw nsw i64 %i20, 2
+  %i29 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg2, i64 %i28)
+  %i30 = load double, ptr %i29, align 1
+  %i31 = fmul fast double %i30, %i16
+  store double %i31, ptr %i29, align 1
+  %i32 = add nuw nsw i64 %i20, 3
+  %i33 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg2, i64 %i32)
+  %i34 = load double, ptr %i33, align 1
+  %i35 = fmul fast double %i34, %i16
+  store double %i35, ptr %i33, align 1
+  %i36 = add nuw nsw i64 %i20, 4
+  %i37 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg2, i64 %i36)
+  %i38 = load double, ptr %i37, align 1
+  %i39 = fmul fast double %i38, %i16
+  store double %i39, ptr %i37, align 1
+  %i40 = add nuw i64 %i20, 5
+  %i41 = trunc i64 %i40 to i32
+  %i42 = icmp slt i32 %i, %i41
+  br i1 %i42, label %bb50, label %bb19
+
+bb43:                                             ; preds = %bb47
+  %i44 = load double, ptr %arg1, align 1
+  %i45 = add nuw nsw i32 %i48, 1
+  %i46 = zext i32 %i45 to i64
+  br label %bb4
+
+bb47:                                             ; preds = %bb
+  %i48 = urem i32 %i, 5
+  %i49 = icmp eq i32 %i48, 0
+  br i1 %i49, label %bb15, label %bb43
+
+bb50:                                             ; preds = %bb19, %bb11, %bb
+  ret void
+}
+
+define internal fastcc void @daxpy_(ptr noalias nocapture readonly %arg, ptr noalias nocapture readonly %arg1, ptr noalias nocapture readonly %arg2, ptr noalias nocapture %arg3) unnamed_addr #0 {
+bb:
+  %i = load i32, ptr %arg, align 1
+  %i4 = icmp sgt i32 %i, 0
+  br i1 %i4, label %bb60, label %bb63
+
+bb5:                                              ; preds = %bb54, %bb5
+  %i6 = phi i64 [ 1, %bb54 ], [ %i13, %bb5 ]
+  %i7 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg3, i64 %i6)
+  %i8 = load double, ptr %i7, align 1
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg2, i64 %i6)
+  %i10 = load double, ptr %i9, align 1
+  %i11 = fmul fast double %i10, %i61
+  %i12 = fadd fast double %i11, %i8
+  store double %i12, ptr %i7, align 1
+  %i13 = add nuw nsw i64 %i6, 1
+  %i14 = icmp eq i64 %i13, %i56
+  br i1 %i14, label %bb15, label %bb5
+
+bb15:                                             ; preds = %bb5
+  %i16 = icmp slt i32 %i, 4
+  br i1 %i16, label %bb63, label %bb19
+
+bb17:                                             ; preds = %bb57
+  %i18 = icmp sgt i32 %i, 3
+  br i1 %i18, label %bb19, label %bb63
+
+bb19:                                             ; preds = %bb17, %bb15
+  %i20 = add nuw nsw i32 %i58, 1
+  %i21 = zext i32 %i20 to i64
+  %i22 = zext i32 %i to i64
+  br label %bb23
+
+bb23:                                             ; preds = %bb23, %bb19
+  %i24 = phi i64 [ %i21, %bb19 ], [ %i52, %bb23 ]
+  %i25 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg3, i64 %i24)
+  %i26 = load double, ptr %i25, align 1
+  %i27 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg2, i64 %i24)
+  %i28 = load double, ptr %i27, align 1
+  %i29 = fmul fast double %i28, %i61
+  %i30 = fadd fast double %i29, %i26
+  store double %i30, ptr %i25, align 1
+  %i31 = add nuw nsw i64 %i24, 1
+  %i32 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg3, i64 %i31)
+  %i33 = load double, ptr %i32, align 1
+  %i34 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg2, i64 %i31)
+  %i35 = load double, ptr %i34, align 1
+  %i36 = fmul fast double %i35, %i61
+  %i37 = fadd fast double %i36, %i33
+  store double %i37, ptr %i32, align 1
+  %i38 = add nuw nsw i64 %i24, 2
+  %i39 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg3, i64 %i38)
+  %i40 = load double, ptr %i39, align 1
+  %i41 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg2, i64 %i38)
+  %i42 = load double, ptr %i41, align 1
+  %i43 = fmul fast double %i42, %i61
+  %i44 = fadd fast double %i43, %i40
+  store double %i44, ptr %i39, align 1
+  %i45 = add nuw nsw i64 %i24, 3
+  %i46 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg3, i64 %i45)
+  %i47 = load double, ptr %i46, align 1
+  %i48 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg2, i64 %i45)
+  %i49 = load double, ptr %i48, align 1
+  %i50 = fmul fast double %i49, %i61
+  %i51 = fadd fast double %i50, %i47
+  store double %i51, ptr %i46, align 1
+  %i52 = add nuw nsw i64 %i24, 4
+  %i53 = icmp ugt i64 %i52, %i22
+  br i1 %i53, label %bb63, label %bb23
+
+bb54:                                             ; preds = %bb57
+  %i55 = add nuw nsw i32 %i58, 1
+  %i56 = zext i32 %i55 to i64
+  br label %bb5
+
+bb57:                                             ; preds = %bb60
+  %i58 = and i32 %i, 3
+  %i59 = icmp eq i32 %i58, 0
+  br i1 %i59, label %bb17, label %bb54
+
+bb60:                                             ; preds = %bb
+  %i61 = load double, ptr %arg1, align 1
+  %i62 = fcmp fast ueq double %i61, 0.000000e+00
+  br i1 %i62, label %bb63, label %bb57
+
+bb63:                                             ; preds = %bb60, %bb23, %bb17, %bb15, %bb
+  ret void
+}
+
+define internal fastcc void @dgefa_(ptr noalias nocapture %arg) unnamed_addr #0 {
+bb:
+  %i = alloca double, align 8
+  %i1 = alloca i32, align 4
+  %i2 = alloca i32, align 4
+  store i32 0, ptr %arg, align 1
+  br label %bb4
+
+bb4:                                              ; preds = %bb81, %bb
+  %i5 = phi i64 [ 1, %bb ], [ %i7, %bb81 ]
+  %i6 = phi i64 [ 2, %bb ], [ %i84, %bb81 ]
+  %i7 = add nuw i64 %i5, 1
+  %i8 = trunc i64 %i5 to i32
+  %i9 = sub nsw i32 2500, %i8
+  %i10 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i5)
+  %i11 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i10, i64 %i5)
+  %i12 = icmp slt i32 %i8, 2501
+  br i1 %i12, label %bb33, label %bb35
+
+bb13:                                             ; preds = %bb26, %bb13
+  %i14 = phi i64 [ 2, %bb26 ], [ %i24, %bb13 ]
+  %i15 = phi double [ %i29, %bb26 ], [ %i21, %bb13 ]
+  %i16 = phi i32 [ 1, %bb26 ], [ %i23, %bb13 ]
+  %i17 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %i11, i64 %i14)
+  %i18 = load double, ptr %i17, align 1
+  %i19 = tail call fast double @llvm.fabs.f64(double %i18)
+  %i20 = fcmp fast ogt double %i19, %i15
+  %i21 = select i1 %i20, double %i19, double %i15
+  %i22 = trunc i64 %i14 to i32
+  %i23 = select i1 %i20, i32 %i22, i32 %i16
+  %i24 = add nuw nsw i64 %i14, 1
+  %i25 = icmp eq i64 %i24, %i32
+  br i1 %i25, label %bb35, label %bb13
+
+bb26:                                             ; preds = %bb33
+  %i27 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i11, i64 1)
+  %i28 = load double, ptr %i27, align 1
+  %i29 = tail call fast double @llvm.fabs.f64(double %i28)
+  %i30 = shl i64 %i5, 32
+  %i31 = sub i64 10746008174592, %i30
+  %i32 = ashr exact i64 %i31, 32
+  br label %bb13
+
+bb33:                                             ; preds = %bb4
+  %i34 = icmp eq i32 %i9, 0
+  br i1 %i34, label %bb35, label %bb26
+
+bb35:                                             ; preds = %bb33, %bb13, %bb4
+  %i36 = phi i32 [ 1, %bb33 ], [ 0, %bb4 ], [ %i23, %bb13 ]
+  %i37 = add i32 %i8, -1
+  %i38 = add i32 %i37, %i36
+  %i39 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) @"linpk_$IPVT", i64 %i5)
+  store i32 %i38, ptr %i39, align 1
+  %i40 = sext i32 %i38 to i64
+  %i41 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i10, i64 %i40)
+  %i42 = load double, ptr %i41, align 1
+  %i43 = fcmp fast oeq double %i42, 0.000000e+00
+  br i1 %i43, label %bb77, label %bb78
+
+bb44:                                             ; preds = %bb78
+  store double %i42, ptr %i, align 8
+  %i46 = load i64, ptr %i11, align 1
+  store i64 %i46, ptr %i41, align 1
+  store double %i42, ptr %i11, align 1
+  br label %bb48
+
+bb48:                                             ; preds = %bb78, %bb44
+  %i49 = load double, ptr %i11, align 1
+  %i50 = fdiv fast double -1.000000e+00, %i49
+  store double %i50, ptr %i, align 8
+  %i51 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %i10, i64 %i7)
+  store i32 %i9, ptr %i1, align 4
+  call fastcc void @dscal_(ptr nonnull %i1, ptr nonnull %i, ptr %i51)
+  %i52 = icmp slt i64 %i5, 2500
+  br i1 %i52, label %bb53, label %bb81
+
+bb53:                                             ; preds = %bb48
+  br i1 %i80, label %bb54, label %bb67
+
+bb54:                                             ; preds = %bb54, %bb53
+  %i55 = phi i64 [ %i64, %bb54 ], [ %i6, %bb53 ]
+  %i56 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr nonnull elementtype(double) @"linpk_$A", i64 %i55)
+  %i57 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i56, i64 %i40)
+  %i59 = load i64, ptr %i57, align 1
+  store i64 %i59, ptr %i, align 8
+  %i60 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i56, i64 %i5)
+  %i62 = load i64, ptr %i60, align 1
+  store i64 %i62, ptr %i57, align 1
+  store i64 %i59, ptr %i60, align 1
+  %i63 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i56, i64 %i7)
+  store i32 %i9, ptr %i2, align 4
+  call fastcc void @daxpy_(ptr nonnull %i1, ptr nonnull %i, ptr nonnull %i, ptr %i63)
+  %i64 = add i64 %i55, 1
+  %i65 = trunc i64 %i64 to i32
+  %i66 = icmp sgt i32 %i65, 2500
+  br i1 %i66, label %bb81, label %bb54
+
+bb67:                                             ; preds = %bb67, %bb53
+  %i68 = phi i64 [ %i74, %bb67 ], [ %i6, %bb53 ]
+  %i69 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr nonnull elementtype(double) @"linpk_$A", i64 %i68)
+  %i70 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i69, i64 %i40)
+  %i72 = load i64, ptr %i70, align 1
+  store i64 %i72, ptr %i, align 8
+  %i73 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i69, i64 %i7)
+  store i32 %i9, ptr %i2, align 4
+  call fastcc void @daxpy_(ptr nonnull %i2, ptr nonnull %i, ptr nonnull %i51, ptr %i73)
+  %i74 = add i64 %i68, 1
+  %i75 = trunc i64 %i74 to i32
+  %i76 = icmp sgt i32 %i75, 2500
+  br i1 %i76, label %bb81, label %bb67
+
+bb77:                                             ; preds = %bb35
+  store i32 %i8, ptr %arg, align 1
+  br label %bb81
+
+bb78:                                             ; preds = %bb35
+  %i79 = zext i32 %i38 to i64
+  %i80 = icmp ne i64 %i5, %i79
+  br i1 %i80, label %bb44, label %bb48
+
+bb81:                                             ; preds = %bb77, %bb67, %bb54, %bb48
+  %i82 = trunc i64 %i7 to i32
+  %i83 = icmp slt i32 %i82, 2500
+  %i84 = add i64 %i6, 1
+  br i1 %i83, label %bb4, label %bb85
+
+bb85:                                             ; preds = %bb81
+  %i86 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) @"linpk_$IPVT", i64 2500)
+  store i32 2500, ptr %i86, align 1
+  %i87 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 2500)
+  %i88 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i87, i64 2500)
+  %i89 = load double, ptr %i88, align 1
+  %i90 = fcmp fast oeq double %i89, 0.000000e+00
+  br i1 %i90, label %bb91, label %bb92
+
+bb91:                                             ; preds = %bb85
+  store i32 2500, ptr %arg, align 1
+  br label %bb92
+
+bb92:                                             ; preds = %bb91, %bb85
+  ret void
+}
+
+define internal fastcc void @dgesl_() unnamed_addr #0 {
+bb:
+  %i = alloca double, align 8
+  %i1 = alloca i32, align 4
+  %i2 = alloca i32, align 4
+  br label %bb4
+
+bb4:                                              ; preds = %bb18, %bb
+  %i5 = phi i64 [ 1, %bb ], [ %i21, %bb18 ]
+  %i6 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) @"linpk_$IPVT", i64 %i5)
+  %i7 = load i32, ptr %i6, align 1
+  %i8 = sext i32 %i7 to i64
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$B", i64 %i8)
+  %i11 = load i64, ptr %i9, align 1
+  store i64 %i11, ptr %i, align 8
+  %i12 = zext i32 %i7 to i64
+  %i13 = icmp eq i64 %i5, %i12
+  br i1 %i13, label %bb18, label %bb14
+
+bb14:                                             ; preds = %bb4
+  %i15 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) @"linpk_$B", i64 %i5)
+  %i17 = load i64, ptr %i15, align 1
+  store i64 %i17, ptr %i9, align 1
+  store i64 %i11, ptr %i15, align 1
+  br label %bb18
+
+bb18:                                             ; preds = %bb14, %bb4
+  %i19 = trunc i64 %i5 to i32
+  %i20 = sub nsw i32 2500, %i19
+  %i21 = add nuw i64 %i5, 1
+  %i22 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i5)
+  %i23 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i22, i64 %i21)
+  %i24 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) @"linpk_$B", i64 %i21)
+  store i32 %i20, ptr %i1, align 4
+  call fastcc void @daxpy_(ptr nonnull %i1, ptr nonnull %i23, ptr %i23, ptr %i24)
+  %i25 = trunc i64 %i21 to i32
+  %i26 = icmp slt i32 %i25, 2500
+  br i1 %i26, label %bb4, label %bb27
+
+bb27:                                             ; preds = %bb18
+  %i28 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$B", i64 1)
+  br label %bb29
+
+bb29:                                             ; preds = %bb29, %bb27
+  %i30 = phi i64 [ 1, %bb27 ], [ %i44, %bb29 ]
+  %i31 = trunc i64 %i30 to i32
+  %i32 = shl i64 %i30, 32
+  %i33 = sub i64 10741713207296, %i32
+  %i34 = ashr exact i64 %i33, 32
+  %i35 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$B", i64 %i34)
+  %i36 = load double, ptr %i35, align 1
+  %i37 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i34)
+  %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i37, i64 %i34)
+  %i39 = load double, ptr %i38, align 1
+  %i40 = fdiv fast double %i36, %i39
+  store double %i40, ptr %i35, align 1
+  %i41 = fneg fast double %i40
+  store double %i41, ptr %i, align 8
+  %i42 = sub i32 2500, %i31
+  %i43 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i37, i64 1)
+  store i32 %i42, ptr %i2, align 4
+  call fastcc void @daxpy_(ptr nonnull %i2, ptr nonnull %i, ptr %i43, ptr %i28)
+  %i44 = add nuw i64 %i30, 1
+  %i45 = icmp sgt i64 %i44, 2500
+  br i1 %i45, label %bb46, label %bb29
+
+bb46:                                             ; preds = %bb29
+  ret void
+}
+
+define internal fastcc void @dmxpy_() unnamed_addr {
+bb:
+  %i = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 1)
+  %i1 = load double, ptr %i, align 1
+  %i2 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 1)
+  %i3 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 2)
+  %i4 = load double, ptr %i3, align 1
+  %i5 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 2)
+  %i6 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 3)
+  %i7 = load double, ptr %i6, align 1
+  %i8 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 3)
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 4)
+  %i10 = load double, ptr %i9, align 1
+  %i11 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 4)
+  br label %bb12
+
+bb12:                                             ; preds = %bb12, %bb
+  %i13 = phi i64 [ 1, %bb ], [ %i32, %bb12 ]
+  %i14 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$B", i64 %i13)
+  %i15 = load double, ptr %i14, align 1
+  %i16 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i2, i64 %i13)
+  %i17 = load double, ptr %i16, align 1
+  %i18 = fmul fast double %i17, %i1
+  %i19 = fadd fast double %i18, %i15
+  %i20 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i5, i64 %i13)
+  %i21 = load double, ptr %i20, align 1
+  %i22 = fmul fast double %i21, %i4
+  %i23 = fadd fast double %i19, %i22
+  %i24 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i8, i64 %i13)
+  %i25 = load double, ptr %i24, align 1
+  %i26 = fmul fast double %i25, %i7
+  %i27 = fadd fast double %i23, %i26
+  %i28 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i11, i64 %i13)
+  %i29 = load double, ptr %i28, align 1
+  %i30 = fmul fast double %i29, %i10
+  %i31 = fadd fast double %i27, %i30
+  store double %i31, ptr %i14, align 1
+  %i32 = add nuw nsw i64 %i13, 1
+  %i33 = icmp eq i64 %i32, 2501
+  br i1 %i33, label %bb34, label %bb12
+
+bb34:                                             ; preds = %bb169, %bb12
+  %i35 = phi i64 [ %i170, %bb169 ], [ 20, %bb12 ]
+  %i36 = add nsw i64 %i35, -15
+  %i37 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i36)
+  %i38 = load double, ptr %i37, align 1
+  %i39 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i36)
+  %i40 = add nsw i64 %i35, -14
+  %i41 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i40)
+  %i42 = load double, ptr %i41, align 1
+  %i43 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i40)
+  %i44 = add nsw i64 %i35, -13
+  %i45 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i44)
+  %i46 = load double, ptr %i45, align 1
+  %i47 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i44)
+  %i48 = add nsw i64 %i35, -12
+  %i49 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i48)
+  %i50 = load double, ptr %i49, align 1
+  %i51 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i48)
+  %i52 = add nsw i64 %i35, -11
+  %i53 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i52)
+  %i54 = load double, ptr %i53, align 1
+  %i55 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i52)
+  %i56 = add nsw i64 %i35, -10
+  %i57 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i56)
+  %i58 = load double, ptr %i57, align 1
+  %i59 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i56)
+  %i60 = add nsw i64 %i35, -9
+  %i61 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i60)
+  %i62 = load double, ptr %i61, align 1
+  %i63 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i60)
+  %i64 = add nsw i64 %i35, -8
+  %i65 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i64)
+  %i66 = load double, ptr %i65, align 1
+  %i67 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i64)
+  %i68 = add nsw i64 %i35, -7
+  %i69 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i68)
+  %i70 = load double, ptr %i69, align 1
+  %i71 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i68)
+  %i72 = add nsw i64 %i35, -6
+  %i73 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i72)
+  %i74 = load double, ptr %i73, align 1
+  %i75 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i72)
+  %i76 = add nsw i64 %i35, -5
+  %i77 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i76)
+  %i78 = load double, ptr %i77, align 1
+  %i79 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i76)
+  %i80 = add nsw i64 %i35, -4
+  %i81 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i80)
+  %i82 = load double, ptr %i81, align 1
+  %i83 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i80)
+  %i84 = add nsw i64 %i35, -3
+  %i85 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i84)
+  %i86 = load double, ptr %i85, align 1
+  %i87 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i84)
+  %i88 = add nsw i64 %i35, -2
+  %i89 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i88)
+  %i90 = load double, ptr %i89, align 1
+  %i91 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i88)
+  %i92 = add nsw i64 %i35, -1
+  %i93 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i92)
+  %i94 = load double, ptr %i93, align 1
+  %i95 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i92)
+  %i96 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i35)
+  %i97 = load double, ptr %i96, align 1
+  %i98 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i35)
+  br label %bb99
+
+bb99:                                             ; preds = %bb99, %bb34
+  %i100 = phi i64 [ 1, %bb34 ], [ %i167, %bb99 ]
+  %i101 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$B", i64 %i100)
+  %i102 = load double, ptr %i101, align 1
+  %i103 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i39, i64 %i100)
+  %i104 = load double, ptr %i103, align 1
+  %i105 = fmul fast double %i104, %i38
+  %i106 = fadd fast double %i105, %i102
+  %i107 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i43, i64 %i100)
+  %i108 = load double, ptr %i107, align 1
+  %i109 = fmul fast double %i108, %i42
+  %i110 = fadd fast double %i106, %i109
+  %i111 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i47, i64 %i100)
+  %i112 = load double, ptr %i111, align 1
+  %i113 = fmul fast double %i112, %i46
+  %i114 = fadd fast double %i110, %i113
+  %i115 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i51, i64 %i100)
+  %i116 = load double, ptr %i115, align 1
+  %i117 = fmul fast double %i116, %i50
+  %i118 = fadd fast double %i114, %i117
+  %i119 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i55, i64 %i100)
+  %i120 = load double, ptr %i119, align 1
+  %i121 = fmul fast double %i120, %i54
+  %i122 = fadd fast double %i118, %i121
+  %i123 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i59, i64 %i100)
+  %i124 = load double, ptr %i123, align 1
+  %i125 = fmul fast double %i124, %i58
+  %i126 = fadd fast double %i122, %i125
+  %i127 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i63, i64 %i100)
+  %i128 = load double, ptr %i127, align 1
+  %i129 = fmul fast double %i128, %i62
+  %i130 = fadd fast double %i126, %i129
+  %i131 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i67, i64 %i100)
+  %i132 = load double, ptr %i131, align 1
+  %i133 = fmul fast double %i132, %i66
+  %i134 = fadd fast double %i130, %i133
+  %i135 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i71, i64 %i100)
+  %i136 = load double, ptr %i135, align 1
+  %i137 = fmul fast double %i136, %i70
+  %i138 = fadd fast double %i134, %i137
+  %i139 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i75, i64 %i100)
+  %i140 = load double, ptr %i139, align 1
+  %i141 = fmul fast double %i140, %i74
+  %i142 = fadd fast double %i138, %i141
+  %i143 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i79, i64 %i100)
+  %i144 = load double, ptr %i143, align 1
+  %i145 = fmul fast double %i144, %i78
+  %i146 = fadd fast double %i142, %i145
+  %i147 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i83, i64 %i100)
+  %i148 = load double, ptr %i147, align 1
+  %i149 = fmul fast double %i148, %i82
+  %i150 = fadd fast double %i146, %i149
+  %i151 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i87, i64 %i100)
+  %i152 = load double, ptr %i151, align 1
+  %i153 = fmul fast double %i152, %i86
+  %i154 = fadd fast double %i150, %i153
+  %i155 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i91, i64 %i100)
+  %i156 = load double, ptr %i155, align 1
+  %i157 = fmul fast double %i156, %i90
+  %i158 = fadd fast double %i154, %i157
+  %i159 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i95, i64 %i100)
+  %i160 = load double, ptr %i159, align 1
+  %i161 = fmul fast double %i160, %i94
+  %i162 = fadd fast double %i158, %i161
+  %i163 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i98, i64 %i100)
+  %i164 = load double, ptr %i163, align 1
+  %i165 = fmul fast double %i164, %i97
+  %i166 = fadd fast double %i162, %i165
+  store double %i166, ptr %i101, align 1
+  %i167 = add nuw nsw i64 %i100, 1
+  %i168 = icmp eq i64 %i167, 2501
+  br i1 %i168, label %bb169, label %bb99
+
+bb169:                                            ; preds = %bb99
+  %i170 = add nuw nsw i64 %i35, 16
+  %i171 = icmp ugt i64 %i35, 2484
+  br i1 %i171, label %bb172, label %bb34
+
+bb172:                                            ; preds = %bb169
+  ret void
+}
+
+define dso_local void @MAIN__() local_unnamed_addr #0 {
+bb:
+  %i = alloca [8 x i64], align 16
+  %i1 = alloca i32, align 8
+  %i2 = alloca [2 x i8], align 1
+  %i3 = alloca [4 x i8], align 1
+  %i4 = alloca { double }, align 8
+  %i5 = alloca [4 x i8], align 1
+  %i6 = alloca { double }, align 8
+  %i7 = alloca [4 x i8], align 1
+  %i8 = alloca { double }, align 8
+  %i9 = alloca [4 x i8], align 1
+  %i10 = alloca { double }, align 8
+  %i11 = alloca [4 x i8], align 1
+  %i12 = alloca { double }, align 8
+  %i13 = tail call i32 @for_set_reentrancy(ptr nonnull @anon.179c04c108271c6ee1aba768bef6092b.0)
+  br label %bb14
+
+bb14:                                             ; preds = %bb30, %bb
+  %i15 = phi i64 [ 1, %bb ], [ %i31, %bb30 ]
+  %i16 = phi i32 [ 1325, %bb ], [ %i22, %bb30 ]
+  %i17 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i15)
+  br label %bb18
+
+bb18:                                             ; preds = %bb18, %bb14
+  %i19 = phi i64 [ 1, %bb14 ], [ %i28, %bb18 ]
+  %i20 = phi i32 [ %i16, %bb14 ], [ %i22, %bb18 ]
+  %i21 = mul nsw i32 %i20, 3125
+  %i22 = srem i32 %i21, 65536
+  %i23 = sitofp i32 %i22 to float
+  %i24 = fmul fast float %i23, 0x3F10000000000000
+  %i25 = fadd fast float %i24, -2.000000e+00
+  %i26 = fpext float %i25 to double
+  %i27 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i17, i64 %i19)
+  store double %i26, ptr %i27, align 1
+  %i28 = add nuw nsw i64 %i19, 1
+  %i29 = icmp eq i64 %i28, 2501
+  br i1 %i29, label %bb30, label %bb18
+
+bb30:                                             ; preds = %bb18
+  %i31 = add nuw nsw i64 %i15, 1
+  %i32 = icmp eq i64 %i31, 2501
+  br i1 %i32, label %bb33, label %bb14
+
+bb33:                                             ; preds = %bb33, %bb30
+  %i34 = phi i64 [ %i36, %bb33 ], [ 1, %bb30 ]
+  %i35 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$B", i64 %i34)
+  store double 0.000000e+00, ptr %i35, align 1
+  %i36 = add nuw nsw i64 %i34, 1
+  %i37 = icmp eq i64 %i36, 2501
+  br i1 %i37, label %bb38, label %bb33
+
+bb38:                                             ; preds = %bb50, %bb33
+  %i39 = phi i64 [ %i51, %bb50 ], [ 1, %bb33 ]
+  %i40 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i39)
+  br label %bb41
+
+bb41:                                             ; preds = %bb41, %bb38
+  %i42 = phi i64 [ 1, %bb38 ], [ %i48, %bb41 ]
+  %i43 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) @"linpk_$B", i64 %i42)
+  %i44 = load double, ptr %i43, align 1
+  %i45 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i40, i64 %i42)
+  %i46 = load double, ptr %i45, align 1
+  %i47 = fadd fast double %i46, %i44
+  store double %i47, ptr %i43, align 1
+  %i48 = add nuw nsw i64 %i42, 1
+  %i49 = icmp eq i64 %i48, 2501
+  br i1 %i49, label %bb50, label %bb41
+
+bb50:                                             ; preds = %bb41
+  %i51 = add nuw nsw i64 %i39, 1
+  %i52 = icmp eq i64 %i51, 2501
+  br i1 %i52, label %bb53, label %bb38
+
+bb53:                                             ; preds = %bb50
+  call fastcc void @dgefa_(ptr nonnull %i1)
+  tail call fastcc void @dgesl_()
+  br label %bb54
+
+bb54:                                             ; preds = %bb54, %bb53
+  %i55 = phi i64 [ %i61, %bb54 ], [ 1, %bb53 ]
+  %i56 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$B", i64 %i55)
+  %i58 = load i64, ptr %i56, align 1
+  %i59 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i55)
+  store i64 %i58, ptr %i59, align 1
+  %i61 = add nuw nsw i64 %i55, 1
+  %i62 = icmp eq i64 %i61, 2501
+  br i1 %i62, label %bb63, label %bb54
+
+bb63:                                             ; preds = %bb83, %bb54
+  %i64 = phi double [ %i80, %bb83 ], [ 0.000000e+00, %bb54 ]
+  %i65 = phi i64 [ %i84, %bb83 ], [ 1, %bb54 ]
+  %i66 = phi i32 [ %i73, %bb83 ], [ 1325, %bb54 ]
+  %i67 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i65)
+  br label %bb68
+
+bb68:                                             ; preds = %bb68, %bb63
+  %i69 = phi i64 [ 1, %bb63 ], [ %i81, %bb68 ]
+  %i70 = phi double [ %i64, %bb63 ], [ %i80, %bb68 ]
+  %i71 = phi i32 [ %i66, %bb63 ], [ %i73, %bb68 ]
+  %i72 = mul nsw i32 %i71, 3125
+  %i73 = srem i32 %i72, 65536
+  %i74 = sitofp i32 %i73 to float
+  %i75 = fmul fast float %i74, 0x3F10000000000000
+  %i76 = fadd fast float %i75, -2.000000e+00
+  %i77 = fpext float %i76 to double
+  %i78 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i67, i64 %i69)
+  store double %i77, ptr %i78, align 1
+  %i79 = fcmp fast ole double %i70, %i77
+  %i80 = select fast i1 %i79, double %i77, double %i70
+  %i81 = add nuw nsw i64 %i69, 1
+  %i82 = icmp eq i64 %i81, 2501
+  br i1 %i82, label %bb83, label %bb68
+
+bb83:                                             ; preds = %bb68
+  %i84 = add nuw nsw i64 %i65, 1
+  %i85 = icmp eq i64 %i84, 2501
+  br i1 %i85, label %bb86, label %bb63
+
+bb86:                                             ; preds = %bb86, %bb83
+  %i87 = phi i64 [ %i89, %bb86 ], [ 1, %bb83 ]
+  %i88 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$B", i64 %i87)
+  store double 0.000000e+00, ptr %i88, align 1
+  %i89 = add nuw nsw i64 %i87, 1
+  %i90 = icmp eq i64 %i89, 2501
+  br i1 %i90, label %bb91, label %bb86
+
+bb91:                                             ; preds = %bb103, %bb86
+  %i92 = phi i64 [ %i104, %bb103 ], [ 1, %bb86 ]
+  %i93 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20008, ptr elementtype(double) @"linpk_$A", i64 %i92)
+  br label %bb94
+
+bb94:                                             ; preds = %bb94, %bb91
+  %i95 = phi i64 [ 1, %bb91 ], [ %i101, %bb94 ]
+  %i96 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) @"linpk_$B", i64 %i95)
+  %i97 = load double, ptr %i96, align 1
+  %i98 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %i93, i64 %i95)
+  %i99 = load double, ptr %i98, align 1
+  %i100 = fadd fast double %i99, %i97
+  store double %i100, ptr %i96, align 1
+  %i101 = add nuw nsw i64 %i95, 1
+  %i102 = icmp eq i64 %i101, 2501
+  br i1 %i102, label %bb103, label %bb94
+
+bb103:                                            ; preds = %bb94
+  %i104 = add nuw nsw i64 %i92, 1
+  %i105 = icmp eq i64 %i104, 2501
+  br i1 %i105, label %bb106, label %bb91
+
+bb106:                                            ; preds = %bb106, %bb103
+  %i107 = phi i64 [ %i111, %bb106 ], [ 1, %bb103 ]
+  %i108 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$B", i64 %i107)
+  %i109 = load double, ptr %i108, align 1
+  %i110 = fneg fast double %i109
+  store double %i110, ptr %i108, align 1
+  %i111 = add nuw nsw i64 %i107, 1
+  %i112 = icmp eq i64 %i111, 2501
+  br i1 %i112, label %bb113, label %bb106
+
+bb113:                                            ; preds = %bb106
+  tail call fastcc void @dmxpy_()
+  br label %bb114
+
+bb114:                                            ; preds = %bb114, %bb113
+  %i115 = phi i64 [ %i126, %bb114 ], [ 1, %bb113 ]
+  %i116 = phi double [ %i121, %bb114 ], [ 0.000000e+00, %bb113 ]
+  %i117 = phi double [ %i125, %bb114 ], [ 0.000000e+00, %bb113 ]
+  %i118 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$B", i64 %i115)
+  %i119 = load double, ptr %i118, align 1
+  %i120 = tail call fast double @llvm.fabs.f64(double %i119)
+  %i121 = tail call fast double @llvm.maxnum.f64(double %i116, double %i120)
+  %i122 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 %i115)
+  %i123 = load double, ptr %i122, align 1
+  %i124 = tail call fast double @llvm.fabs.f64(double %i123)
+  %i125 = tail call fast double @llvm.maxnum.f64(double %i117, double %i124)
+  %i126 = add nuw nsw i64 %i115, 1
+  %i127 = icmp eq i64 %i126, 2501
+  br i1 %i127, label %bb128, label %bb114
+
+bb128:                                            ; preds = %bb114
+  %i129 = fmul fast double %i80, 0x3D63880000000000
+  %i130 = fmul fast double %i129, %i125
+  %i131 = fdiv fast double %i121, %i130
+  %i132 = getelementptr inbounds [2 x i8], ptr %i2, i64 0, i64 0
+  store i8 1, ptr %i132, align 1
+  %i133 = getelementptr inbounds [2 x i8], ptr %i2, i64 0, i64 1
+  store i8 0, ptr %i133, align 1
+  %i135 = call i32 (ptr, i32, i64, ptr, ptr, ptr, ...) @for_write_seq_fmt(ptr nonnull %i, i32 -1, i64 1239157112576, ptr nonnull %i132, ptr null, ptr getelementptr inbounds ([120 x i8], ptr @"linpk_$format_pack", i64 0, i64 32))
+  %i136 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 0
+  store i8 48, ptr %i136, align 1
+  %i137 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 1
+  store i8 1, ptr %i137, align 1
+  %i138 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 2
+  store i8 2, ptr %i138, align 1
+  %i139 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 3
+  store i8 0, ptr %i139, align 1
+  %i140 = getelementptr inbounds { double }, ptr %i4, i64 0, i32 0
+  store double %i131, ptr %i140, align 8
+  %i142 = call i32 (ptr, i32, i64, ptr, ptr, ptr, ...) @for_write_seq_fmt(ptr nonnull %i, i32 -1, i64 1239157112576, ptr nonnull %i136, ptr nonnull %i4, ptr @"linpk_$format_pack")
+  %i143 = getelementptr inbounds [4 x i8], ptr %i5, i64 0, i64 0
+  store i8 48, ptr %i143, align 1
+  %i144 = getelementptr inbounds [4 x i8], ptr %i5, i64 0, i64 1
+  store i8 1, ptr %i144, align 1
+  %i145 = getelementptr inbounds [4 x i8], ptr %i5, i64 0, i64 2
+  store i8 2, ptr %i145, align 1
+  %i146 = getelementptr inbounds [4 x i8], ptr %i5, i64 0, i64 3
+  store i8 0, ptr %i146, align 1
+  %i147 = getelementptr inbounds { double }, ptr %i6, i64 0, i32 0
+  store double %i121, ptr %i147, align 8
+  %i149 = call i32 @for_write_seq_fmt_xmit(ptr nonnull %i, ptr nonnull %i143, ptr nonnull %i6)
+  %i150 = getelementptr inbounds [4 x i8], ptr %i7, i64 0, i64 0
+  store i8 48, ptr %i150, align 1
+  %i151 = getelementptr inbounds [4 x i8], ptr %i7, i64 0, i64 1
+  store i8 1, ptr %i151, align 1
+  %i152 = getelementptr inbounds [4 x i8], ptr %i7, i64 0, i64 2
+  store i8 2, ptr %i152, align 1
+  %i153 = getelementptr inbounds [4 x i8], ptr %i7, i64 0, i64 3
+  store i8 0, ptr %i153, align 1
+  %i154 = getelementptr inbounds { double }, ptr %i8, i64 0, i32 0
+  store double 0x3CB0000000000000, ptr %i154, align 8
+  %i156 = call i32 @for_write_seq_fmt_xmit(ptr nonnull %i, ptr nonnull %i150, ptr nonnull %i8)
+  %i157 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 1)
+  %i159 = load i64, ptr %i157, align 1
+  %i160 = getelementptr inbounds [4 x i8], ptr %i9, i64 0, i64 0
+  store i8 48, ptr %i160, align 1
+  %i161 = getelementptr inbounds [4 x i8], ptr %i9, i64 0, i64 1
+  store i8 1, ptr %i161, align 1
+  %i162 = getelementptr inbounds [4 x i8], ptr %i9, i64 0, i64 2
+  store i8 2, ptr %i162, align 1
+  %i163 = getelementptr inbounds [4 x i8], ptr %i9, i64 0, i64 3
+  store i8 0, ptr %i163, align 1
+  store i64 %i159, ptr %i10, align 8
+  %i166 = call i32 @for_write_seq_fmt_xmit(ptr nonnull %i, ptr nonnull %i160, ptr nonnull %i10)
+  %i167 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) @"linpk_$X", i64 2500)
+  %i169 = load i64, ptr %i167, align 1
+  %i170 = getelementptr inbounds [4 x i8], ptr %i11, i64 0, i64 0
+  store i8 48, ptr %i170, align 1
+  %i171 = getelementptr inbounds [4 x i8], ptr %i11, i64 0, i64 1
+  store i8 1, ptr %i171, align 1
+  %i172 = getelementptr inbounds [4 x i8], ptr %i11, i64 0, i64 2
+  store i8 1, ptr %i172, align 1
+  %i173 = getelementptr inbounds [4 x i8], ptr %i11, i64 0, i64 3
+  store i8 0, ptr %i173, align 1
+  store i64 %i169, ptr %i12, align 8
+  %i176 = call i32 @for_write_seq_fmt_xmit(ptr nonnull %i, ptr nonnull %i170, ptr nonnull %i12)
+  ret void
+}
+
+; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
+declare double @llvm.fabs.f64(double) #1
+
+; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
+declare double @llvm.maxnum.f64(double, double) #1
+
+declare dso_local i32 @for_set_reentrancy(ptr) local_unnamed_addr
+
+declare dso_local i32 @for_write_seq_fmt(ptr, i32, i64, ptr, ptr, ptr, ...) local_unnamed_addr
+
+declare dso_local i32 @for_write_seq_fmt_xmit(ptr, ptr, ptr) local_unnamed_addr
+
+; Function Attrs: nounwind readnone speculatable
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #2
+
+attributes #0 = { "intel-lang"="fortran" }
+attributes #1 = { nocallback nofree nosync nounwind readnone speculatable willreturn }
+attributes #2 = { nounwind readnone speculatable }
 ; end INTEL_FEATURE_SW_ADVANCED

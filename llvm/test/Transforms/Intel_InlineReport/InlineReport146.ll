@@ -1,5 +1,5 @@
-; RUN: opt -passes='cgscc(inline)' -inline-report=0x1e807 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x1e886 -S < %s 2>&1 | FileCheck %s  --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0x1e807 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x1e886 -S < %s 2>&1 | FileCheck %s  --check-prefixes=CHECK,CHECK-MD
 
 ; Check demangling option for Windows style C++ demangling
 
@@ -19,12 +19,12 @@ target triple = "x86_64-pc-windows-msvc19.29.30133"
 $"??0two_ints@@QEAA@HH@Z" = comdat any
 
 ; Function Attrs: mustprogress uwtable
-define dso_local void @"?init@@YAXQEAVtwo_ints@@HV1@1@Z"(%class.two_ints* noundef %a, i32 noundef %n, i64 %value_one.coerce, i64 %value_two.coerce) local_unnamed_addr #0 {
+define dso_local void @"?init@@YAXQEAVtwo_ints@@HV1@1@Z"(ptr noundef %a, i32 noundef %n, i64 %value_one.coerce, i64 %value_two.coerce) local_unnamed_addr #0 {
 entry:
   %value_one = alloca i64, align 8
-  %tmpcast = bitcast i64* %value_one to %class.two_ints*
+  %tmpcast = bitcast ptr %value_one to ptr
   %ref.tmp = alloca %class.two_ints, align 4
-  store i64 %value_one.coerce, i64* %value_one, align 8
+  store i64 %value_one.coerce, ptr %value_one, align 8
   br label %for.cond
 
 for.cond:                                         ; preds = %for.body, %entry
@@ -33,19 +33,19 @@ for.cond:                                         ; preds = %for.body, %entry
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %0 = bitcast %class.two_ints* %ref.tmp to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %0) #5
-  call void @"??Htwo_ints@@QEAA?AV0@V0@@Z"(%class.two_ints* noundef nonnull align 4 dereferenceable(8) %tmpcast, %class.two_ints* nonnull sret(%class.two_ints) align 4 %ref.tmp, i64 %value_two.coerce)
+  %i = bitcast ptr %ref.tmp to ptr
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i) #5
+  call void @"??Htwo_ints@@QEAA?AV0@V0@@Z"(ptr noundef nonnull align 4 dereferenceable(8) %tmpcast, ptr nonnull sret(%class.two_ints) align 4 %ref.tmp, i64 %value_two.coerce)
   %idxprom = zext i32 %i.0 to i64
-  %1 = getelementptr inbounds %class.two_ints, %class.two_ints* %ref.tmp, i64 0, i32 0
-  %2 = getelementptr inbounds %class.two_ints, %class.two_ints* %a, i64 %idxprom, i32 0
-  %3 = load i32, i32* %1, align 4, !tbaa !4
-  store i32 %3, i32* %2, align 4, !tbaa !4
-  %4 = getelementptr inbounds %class.two_ints, %class.two_ints* %ref.tmp, i64 0, i32 1
-  %5 = getelementptr inbounds %class.two_ints, %class.two_ints* %a, i64 %idxprom, i32 1
-  %6 = load i32, i32* %4, align 4, !tbaa !4
-  store i32 %6, i32* %5, align 4, !tbaa !4
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %0) #5
+  %i1 = getelementptr inbounds %class.two_ints, ptr %ref.tmp, i64 0, i32 0
+  %i2 = getelementptr inbounds %class.two_ints, ptr %a, i64 %idxprom, i32 0
+  %i3 = load i32, ptr %i1, align 4, !tbaa !4
+  store i32 %i3, ptr %i2, align 4, !tbaa !4
+  %i4 = getelementptr inbounds %class.two_ints, ptr %ref.tmp, i64 0, i32 1
+  %i5 = getelementptr inbounds %class.two_ints, ptr %a, i64 %idxprom, i32 1
+  %i6 = load i32, ptr %i4, align 4, !tbaa !4
+  store i32 %i6, ptr %i5, align 4, !tbaa !4
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %i) #5
   %inc = add nuw nsw i32 %i.0, 1
   br label %for.cond, !llvm.loop !8
 
@@ -53,22 +53,13 @@ for.end:                                          ; preds = %for.cond
   ret void
 }
 
-; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
-
-declare dso_local void @"??Htwo_ints@@QEAA?AV0@V0@@Z"(%class.two_ints* noundef nonnull align 4 dereferenceable(8), %class.two_ints* sret(%class.two_ints) align 4, i64) local_unnamed_addr #2
-
-; Function Attrs: argmemonly mustprogress nocallback nofree nounwind willreturn
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg) #3
-
-; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare dso_local void @"??Htwo_ints@@QEAA?AV0@V0@@Z"(ptr noundef nonnull align 4 dereferenceable(8), ptr sret(%class.two_ints) align 4, i64) local_unnamed_addr #1
 
 ; Function Attrs: mustprogress uwtable
-define dso_local void @"?mysum@@YA?AVtwo_ints@@QEAV1@H@Z"(%class.two_ints* noalias sret(%class.two_ints) align 4 %agg.result, %class.two_ints* noundef %a, i32 noundef %n) local_unnamed_addr #0 {
+define dso_local void @"?mysum@@YA?AVtwo_ints@@QEAV1@H@Z"(ptr noalias sret(%class.two_ints) align 4 %agg.result, ptr noundef %a, i32 noundef %n) local_unnamed_addr #0 {
 entry:
   %ref.tmp = alloca %class.two_ints, align 4
-  %call = call noundef %class.two_ints* @"??0two_ints@@QEAA@HH@Z"(%class.two_ints* noundef nonnull align 4 dereferenceable(8) %agg.result, i32 noundef 0, i32 noundef 0)
+  %call = call noundef ptr @"??0two_ints@@QEAA@HH@Z"(ptr noundef nonnull align 4 dereferenceable(8) %agg.result, i32 noundef 0, i32 noundef 0)
   br label %for.cond
 
 for.cond:                                         ; preds = %for.body, %entry
@@ -77,22 +68,22 @@ for.cond:                                         ; preds = %for.body, %entry
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %0 = bitcast %class.two_ints* %ref.tmp to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %0) #5
+  %i = bitcast ptr %ref.tmp to ptr
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i) #5
   %idxprom = zext i32 %i.0 to i64
-  %arrayidx = getelementptr inbounds %class.two_ints, %class.two_ints* %a, i64 %idxprom
-  %agg.tmp.sroa.0.0..sroa_cast = bitcast %class.two_ints* %arrayidx to i64*
-  %agg.tmp.sroa.0.0.copyload = load i64, i64* %agg.tmp.sroa.0.0..sroa_cast, align 4, !tbaa.struct !10
-  call void @"??Htwo_ints@@QEAA?AV0@V0@@Z"(%class.two_ints* noundef nonnull align 4 dereferenceable(8) %agg.result, %class.two_ints* nonnull sret(%class.two_ints) align 4 %ref.tmp, i64 %agg.tmp.sroa.0.0.copyload)
-  %1 = getelementptr inbounds %class.two_ints, %class.two_ints* %ref.tmp, i64 0, i32 0
-  %2 = getelementptr inbounds %class.two_ints, %class.two_ints* %agg.result, i64 0, i32 0
-  %3 = load i32, i32* %1, align 4, !tbaa !4
-  store i32 %3, i32* %2, align 4, !tbaa !4
-  %4 = getelementptr inbounds %class.two_ints, %class.two_ints* %ref.tmp, i64 0, i32 1
-  %5 = getelementptr inbounds %class.two_ints, %class.two_ints* %agg.result, i64 0, i32 1
-  %6 = load i32, i32* %4, align 4, !tbaa !4
-  store i32 %6, i32* %5, align 4, !tbaa !4
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %0) #5
+  %arrayidx = getelementptr inbounds %class.two_ints, ptr %a, i64 %idxprom
+  %agg.tmp.sroa.0.0..sroa_cast = bitcast ptr %arrayidx to ptr
+  %agg.tmp.sroa.0.0.copyload = load i64, ptr %agg.tmp.sroa.0.0..sroa_cast, align 4, !tbaa.struct !10
+  call void @"??Htwo_ints@@QEAA?AV0@V0@@Z"(ptr noundef nonnull align 4 dereferenceable(8) %agg.result, ptr nonnull sret(%class.two_ints) align 4 %ref.tmp, i64 %agg.tmp.sroa.0.0.copyload)
+  %i1 = getelementptr inbounds %class.two_ints, ptr %ref.tmp, i64 0, i32 0
+  %i2 = getelementptr inbounds %class.two_ints, ptr %agg.result, i64 0, i32 0
+  %i3 = load i32, ptr %i1, align 4, !tbaa !4
+  store i32 %i3, ptr %i2, align 4, !tbaa !4
+  %i4 = getelementptr inbounds %class.two_ints, ptr %ref.tmp, i64 0, i32 1
+  %i5 = getelementptr inbounds %class.two_ints, ptr %agg.result, i64 0, i32 1
+  %i6 = load i32, ptr %i4, align 4, !tbaa !4
+  store i32 %i6, ptr %i5, align 4, !tbaa !4
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %i) #5
   %inc = add nuw nsw i32 %i.0, 1
   br label %for.cond, !llvm.loop !11
 
@@ -101,20 +92,29 @@ for.end:                                          ; preds = %for.cond
 }
 
 ; Function Attrs: nounwind uwtable
-define linkonce_odr dso_local noundef %class.two_ints* @"??0two_ints@@QEAA@HH@Z"(%class.two_ints* noundef nonnull returned align 4 dereferenceable(8) %this, i32 noundef %int_one, i32 noundef %int_two) unnamed_addr #4 comdat align 2 {
+define linkonce_odr dso_local noundef ptr @"??0two_ints@@QEAA@HH@Z"(ptr noundef nonnull returned align 4 dereferenceable(8) %this, i32 noundef %int_one, i32 noundef %int_two) unnamed_addr #2 comdat align 2 {
 entry:
-  %_int_one = getelementptr inbounds %class.two_ints, %class.two_ints* %this, i64 0, i32 0, !intel-tbaa !12
-  store i32 %int_one, i32* %_int_one, align 4, !tbaa !12
-  %_int_two = getelementptr inbounds %class.two_ints, %class.two_ints* %this, i64 0, i32 1, !intel-tbaa !14
-  store i32 %int_two, i32* %_int_two, align 4, !tbaa !14
-  ret %class.two_ints* %this
+  %_int_one = getelementptr inbounds %class.two_ints, ptr %this, i64 0, i32 0, !intel-tbaa !12
+  store i32 %int_one, ptr %_int_one, align 4, !tbaa !12
+  %_int_two = getelementptr inbounds %class.two_ints, ptr %this, i64 0, i32 1, !intel-tbaa !14
+  store i32 %int_two, ptr %_int_two, align 4, !tbaa !14
+  ret ptr %this
 }
 
+; Function Attrs: argmemonly nocallback nofree nosync nounwind willreturn
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #3
+
+; Function Attrs: argmemonly nocallback nofree nounwind willreturn
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #4
+
+; Function Attrs: argmemonly nocallback nofree nosync nounwind willreturn
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #3
+
 attributes #0 = { mustprogress uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { argmemonly mustprogress nocallback nofree nosync nounwind willreturn }
-attributes #2 = { "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #3 = { argmemonly mustprogress nocallback nofree nounwind willreturn }
-attributes #4 = { nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #1 = { "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #2 = { nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #3 = { argmemonly nocallback nofree nosync nounwind willreturn }
+attributes #4 = { argmemonly nocallback nofree nounwind willreturn }
 attributes #5 = { nounwind }
 
 !llvm.module.flags = !{!0, !1, !2}

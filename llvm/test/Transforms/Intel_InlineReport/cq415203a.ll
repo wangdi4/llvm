@@ -3,13 +3,10 @@
 ; function is still there, and that the call to @llvm.va_arg_pack_len
 ; has been removed, so that the main function returns 4.
 
-; ModuleID = 'cq415203a.cpp'
-source_filename = "cq415203a.cpp"
-
 ; Inline report
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe801 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-CL,CHECK
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe801 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-CL,CHECK
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe880 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe880 -S | opt -passes='inlinereportemitter' -inline-report=0xe880 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK
+; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe880 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe880 -S | opt -passes='inlinereportemitter' -inline-report=0xe880 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK
 
 ; CHECK-MD: -> INLINE: {{.*}}bar{{.*}}
 ; CHECK-MD: DEAD STATIC FUNC: {{.*}}bar{{.*}}
@@ -18,6 +15,7 @@ source_filename = "cq415203a.cpp"
 ; CHECK: ret i32 4
 ; CHECK-CL: DEAD STATIC FUNC: {{.*}}bar{{.*}}
 ; CHECK-CL: -> INLINE: {{.*}}bar{{.*}}
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -25,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define i32 @main() #0 {
 entry:
   %retval = alloca i32, align 4
-  store i32 0, i32* %retval, align 4
+  store i32 0, ptr %retval, align 4
   %call = call i32 (i32, ...) @_ZL3bariz(i32 1, i32 2, i32 3, i32 4, i32 5)
   ret i32 %call
 }
@@ -34,9 +32,9 @@ entry:
 define internal i32 @_ZL3bariz(i32 %x, ...) #1 {
 entry:
   %x.addr = alloca i32, align 4
-  store i32 %x, i32* %x.addr, align 4
-  %0 = call i32 @llvm.va_arg_pack_len()
-  ret i32 %0
+  store i32 %x, ptr %x.addr, align 4
+  %i = call i32 @llvm.va_arg_pack_len()
+  ret i32 %i
 }
 
 ; Function Attrs: nounwind

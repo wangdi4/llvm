@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt  -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; This test checks that the two calls to _ZN12cMessageHeap11removeFirstEv and
 ; the calls to _ZN12cMessageHeap7shiftupEi inside
@@ -41,232 +41,177 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-%class.cNamedObject = type <{ %class.cObject, i8*, i16, i16, [4 x i8] }>
-%class.cMessageHeap = type { %class.cOwnedObject.base, %class.cMessage**, i32, i32, i64 }
-%class.cOwnedObject.base = type <{ %class.cNamedObject.base, [4 x i8], %class.cObject*, i32 }>
-%class.cNamedObject.base = type <{ %class.cObject, i8*, i16, i16 }>
-%class.cObject = type { i32 (...)** }
-%class.cMessage = type { %class.cOwnedObject.base, i16, i16, i16, %class.cArray*, %class.cObject*, i8*, i32, i32, i32, i32, %class.SimTime, %class.SimTime, %class.SimTime, %class.SimTime, i32, i64, i64, i64, i64 }
-%class.cArray = type { %class.cOwnedObject.base, %class.cObject**, i32, i32, i32, i32 }
-%class.SimTime = type { i64 }
-%class.cSimulation = type { %class.cNoncopyableOwnedObject.base, i32, i32, %class.cModule**, i32, %class.cEnvir*, %class.cModule*, %class.cSimpleModule*, %class.cComponent*, i32, %class.cModuleType*, %class.cScheduler*, %class.SimTime, i64, %class.cMessage*, %class.cException*, %class.cHasher*, %class.cMessageHeap }
-%class.cModule = type { %class.cComponent, i8*, i32, %class.cModule*, %class.cModule*, %class.cModule*, %class.cModule*, i32, %"struct.cGate::Desc"*, i32, i32 }
-%class.cComponent = type { %class.cDefaultList, %class.cComponentType*, i16, i32*, i16, i16, %class.cPar*, %class.cDisplayString* }
+%class.cSimulation = type { %class.cNoncopyableOwnedObject.base, i32, i32, ptr, i32, ptr, ptr, ptr, ptr, i32, ptr, ptr, %class.SimTime, i64, ptr, ptr, ptr, %class.cMessageHeap }
 %class.cNoncopyableOwnedObject.base = type { %class.cOwnedObject.base }
-%class.cEnvir = type { i32 (...)**, i8, i8, i8, %"class.std::basic_ostream" }
-%class.cSimpleModule = type { %class.cModule, %class.cMessage*, %class.cCoroutine* }
-%class.cModuleType = type { %class.cComponentType }
-%class.cScheduler = type { %class.cObject, %class.cSimulation* }
-%class.cException = type <{ %"class.std::exception", i32, [4 x i8], %"class.std::basic_string", i8, [7 x i8], %"class.std::basic_string", %"class.std::basic_string", i32, [4 x i8] }>
-%class.cHasher = type { i32 }
-%class.cGate = type { %class.cObject, %"struct.cGate::Desc"*, i32, %class.cChannel*, %class.cGate*, %class.cGate* }
-%"struct.cGate::Desc" = type { %class.cModule*, %"struct.cGate::Name"*, i32, %union.anon.112, %union.anon.112 }
-%"struct.cGate::Name" = type <{ %class.opp_string, %class.opp_string, %class.opp_string, i32, [4 x i8] }>
-%class.cDefaultList = type { %class.cNoncopyableOwnedObject.base, %class.cOwnedObject**, i32, i32 }
-%class.cComponentType = type { %class.cNoncopyableOwnedObject.base, %"class.std::basic_string", %"class.std::map", %"class.std::set" }
-%class.cPar = type { %class.cObject, %class.cComponent*, %class.cParImpl* }
-%class.cParImpl = type { %class.cNamedObject.base, i8* }
-%class.cDisplayString = type { i8*, i8*, %"struct.cDisplayString::Tag"*, i32, i8*, i8, %class.cComponent* }
-%"struct.cDisplayString::Tag" = type { i8*, i32, [16 x i8*] }
-%"class.std::basic_ostream.base" = type { i32 (...)** }
-%class.cCoroutine = type { i32 (...)**, %struct._Task* }
-%struct._Task = type { i64, [1 x %struct.__jmp_buf_tag], [1 x %struct.__jmp_buf_tag], i32, i32, %struct._Task*, void (i8*)*, i8*, i32, %struct._Task*, i64 }
-%struct.__jmp_buf_tag = type { [8 x i64], i32, %struct.__sigset_t }
-%struct.__sigset_t = type { [16 x i64] }
-%"class.std::exception" = type { i32 (...)** }
-%"class.std::basic_string" = type { %"struct.std::basic_string<char, std::char_traits<char>, std::allocator<char> >::_Alloc_hider" }
-%"struct.std::basic_string<char, std::char_traits<char>, std::allocator<char> >::_Alloc_hider" = type { i8* }
-%union.anon.112 = type { %class.cGate* }
-%"class.std::map" = type { %"class.std::_Rb_tree" }
-%"class.std::set" = type { %"class.std::_Rb_tree" }
-%class.opp_string_map = type { %"class.std::map" }
-%"class.std::_Rb_tree" = type { i32 (...)** }
-%class.cSequentialScheduler = type { %class.cScheduler }
-%class.opp_string = type { i8* }
-%class.cChannel = type <{ %class.cComponent, %class.cGate*, i32, [4 x i8] }>
-%class.cRealTimeScheduler = type { %class.cScheduler, i8, double, %struct.timeval }
-%struct.timeval = type { i64, i64 }
-%class.cOwnedObject = type <{ %class.cNamedObject.base, [4 x i8], %class.cObject*, i32, [4 x i8] }>
-%"class.std::basic_ostream" = type { i32 (...)**, %"class.std::basic_ios" }
-%"class.std::basic_ios" = type { %"class.std::ios_base", %"class.std::basic_ostream"*, i8, i8, %"class.std::basic_streambuf"*, %"class.std::ctype"*, %"class.std::num_put"*, %"class.std::num_get"* }
-%"class.std::ios_base" = type { i32 (...)**, i64, i64, i32, i32, i32, %"struct.std::ios_base::_Callback_list"*, %"struct.std::ios_base::_Words", [8 x %"struct.std::ios_base::_Words"], i32, %"struct.std::ios_base::_Words"*, %"class.std::locale" }
-%"struct.std::ios_base::_Callback_list" = type { %"struct.std::ios_base::_Callback_list"*, void (i32, %"class.std::ios_base"*, i32)*, i32, i32 }
-%"struct.std::ios_base::_Words" = type { i8*, i64 }
-%"class.std::num_put" = type { %"class.std::locale::facet.base", [4 x i8] }
-%"class.std::locale::facet.base" = type <{ i32 (...)**, i32 }>
-%"class.std::num_get" = type { %"class.std::locale::facet.base", [4 x i8] }
-%"class.std::basic_streambuf" = type { i32 (...)**, i8*, i8*, i8*, i8*, i8*, i8*, %"class.std::locale" }
-%"class.std::locale" = type { %"class.std::locale::_Impl"* }
-%"class.std::locale::_Impl" = type { i32, %"class.std::locale::facet"**, i64, %"class.std::locale::facet"**, i8** }
-%"class.std::locale::facet" = type <{ i32 (...)**, i32, [4 x i8] }>
-%"class.std::ctype" = type <{ %"class.std::locale::facet.base", [4 x i8], %struct.__locale_struct*, i8, [7 x i8], i32*, i32*, i16*, i8, [256 x i8], [256 x i8], i8, [6 x i8] }>
-%struct.__locale_struct = type { [13 x %struct.__locale_data*], i16*, i32*, i32*, [13 x i8*] }
-%struct.__locale_data = type opaque
+%class.cOwnedObject.base = type <{ %class.cNamedObject.base, [4 x i8], ptr, i32 }>
+%class.cNamedObject.base = type <{ %class.cObject, ptr, i16, i16 }>
+%class.cObject = type { ptr }
+%class.SimTime = type { i64 }
+%class.cMessageHeap = type { %class.cOwnedObject.base, ptr, i32, i32, i64 }
+%class.cMessage = type { %class.cOwnedObject.base, i16, i16, i16, ptr, ptr, ptr, i32, i32, i32, i32, %class.SimTime, %class.SimTime, %class.SimTime, %class.SimTime, i32, i64, i64, i64, i64 }
+%class.cNamedObject = type <{ %class.cObject, ptr, i16, i16, [4 x i8] }>
 
-declare dso_local %class.cMessage* @_ZN18cRealTimeScheduler12getNextEventEv(%class.cRealTimeScheduler* nocapture readonly) unnamed_addr #0 align 2
+declare dso_local ptr @_ZN18cRealTimeScheduler12getNextEventEv(ptr nocapture readonly) unnamed_addr align 2
 
-declare dso_local %class.cMessage* @_ZN20cSequentialScheduler12getNextEventEv(%class.cSequentialScheduler* nocapture readonly) unnamed_addr #0 align 2
+declare dso_local ptr @_ZN20cSequentialScheduler12getNextEventEv(ptr nocapture readonly) unnamed_addr align 2
 
-declare dso_local i32 @_ZgtR8cMessageS0_(%class.cMessage* dereferenceable(160) %a, %class.cMessage* dereferenceable(160) %b)
+declare dso_local i32 @_ZgtR8cMessageS0_(ptr dereferenceable(160), ptr dereferenceable(160))
 
 declare dso_local i32 @__gxx_personality_v0(...)
 
-declare void @llvm.assume(i1) #2
+; Function Attrs: inaccessiblememonly nocallback nofree nosync nounwind willreturn
+declare void @llvm.assume(i1 noundef) #0
 
-declare i1 @llvm.intel.wholeprogramsafe() #2
+; Function Attrs: nounwind
+declare i1 @llvm.intel.wholeprogramsafe() #1
 
-declare i1 @llvm.type.test(i8*, metadata) #6
+; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
+declare i1 @llvm.type.test(ptr, metadata) #2
 
-define dso_local %class.cSimpleModule* @_ZN11cSimulation16selectNextModuleEv(%class.cSimulation*) #0 align 2 {
-  %2 = getelementptr inbounds %class.cSimulation, %class.cSimulation* %0, i64 0, i32 11
-  %3 = getelementptr inbounds %class.cSimulation, %class.cSimulation* %0, i64 0, i32 3
-  %4 = getelementptr inbounds %class.cSimulation, %class.cSimulation* %0, i64 0, i32 17
-  br label %5
+define dso_local ptr @_ZN11cSimulation16selectNextModuleEv(ptr %arg) align 2 {
+bb:
+  %i = getelementptr inbounds %class.cSimulation, ptr %arg, i64 0, i32 11
+  %i1 = getelementptr inbounds %class.cSimulation, ptr %arg, i64 0, i32 3
+  %i2 = getelementptr inbounds %class.cSimulation, ptr %arg, i64 0, i32 17
+  br label %bb3
 
-; <label>:5:                                      ; preds = %45, %1
-  %6 = load %class.cScheduler*, %class.cScheduler** %2, align 8
-  %7 = bitcast %class.cScheduler* %6 to %class.cMessage* (%class.cScheduler*)***
-  %8 = load %class.cMessage* (%class.cScheduler*)**, %class.cMessage* (%class.cScheduler*)*** %7, align 8
-  %9 = getelementptr inbounds %class.cMessage* (%class.cScheduler*)*, %class.cMessage* (%class.cScheduler*)** %8, i64 23
-  %10 = load %class.cMessage* (%class.cScheduler*)*, %class.cMessage* (%class.cScheduler*)** %9, align 8
-  %11 = bitcast %class.cMessage* (%class.cScheduler*)* %10 to i8*
-  %12 = bitcast %class.cMessage* (%class.cRealTimeScheduler*)* @_ZN18cRealTimeScheduler12getNextEventEv to i8*
-  %13 = icmp eq i8* %11, %12
-  br i1 %13, label %14, label %16
+bb3:                                              ; preds = %bb44, %bb
+  %i4 = load ptr, ptr %i, align 8
+  %i6 = load ptr, ptr %i4, align 8
+  %i7 = getelementptr inbounds ptr, ptr %i6, i64 23
+  %i8 = load ptr, ptr %i7, align 8
+  %i11 = icmp eq ptr %i8, @_ZN18cRealTimeScheduler12getNextEventEv
+  br i1 %i11, label %bb12, label %bb14
 
-; <label>:14:                                     ; preds = %5
-  %15 = tail call %class.cMessage* bitcast (%class.cMessage* (%class.cRealTimeScheduler*)* @_ZN18cRealTimeScheduler12getNextEventEv to %class.cMessage* (%class.cScheduler*)*)(%class.cScheduler* %6)
-  br label %18
+bb12:                                             ; preds = %bb3
+  %i13 = tail call ptr @_ZN18cRealTimeScheduler12getNextEventEv(ptr %i4)
+  br label %bb16
 
-; <label>:16:                                     ; preds = %5
-  %17 = tail call %class.cMessage* bitcast (%class.cMessage* (%class.cSequentialScheduler*)* @_ZN20cSequentialScheduler12getNextEventEv to %class.cMessage* (%class.cScheduler*)*)(%class.cScheduler* %6)
-  br label %18
+bb14:                                             ; preds = %bb3
+  %i15 = tail call ptr @_ZN20cSequentialScheduler12getNextEventEv(ptr %i4)
+  br label %bb16
 
-; <label>:18:                                     ; preds = %16, %14
-  %19 = phi %class.cMessage* [ %15, %14 ], [ %17, %16 ]
-  br label %20
+bb16:                                             ; preds = %bb14, %bb12
+  %i17 = phi ptr [ %i13, %bb12 ], [ %i15, %bb14 ]
+  br label %bb18
 
-; <label>:20:                                     ; preds = %18
-  %21 = icmp eq %class.cMessage* %19, null
-  br i1 %21, label %53, label %22
+bb18:                                             ; preds = %bb16
+  %i19 = icmp eq ptr %i17, null
+  br i1 %i19, label %bb51, label %bb20
 
-; <label>:22:                                     ; preds = %20
-  %23 = load %class.cModule**, %class.cModule*** %3, align 8
-  %24 = getelementptr inbounds %class.cMessage, %class.cMessage* %19, i64 0, i32 9
-  %25 = load i32, i32* %24, align 8
-  %26 = sext i32 %25 to i64
-  %27 = getelementptr inbounds %class.cModule*, %class.cModule** %23, i64 %26
-  %28 = bitcast %class.cModule** %27 to %class.cSimpleModule**
-  %29 = load %class.cSimpleModule*, %class.cSimpleModule** %28, align 8
-  %30 = icmp eq %class.cSimpleModule* %29, null
-  br i1 %30, label %37, label %31
+bb20:                                             ; preds = %bb18
+  %i21 = load ptr, ptr %i1, align 8
+  %i22 = getelementptr inbounds %class.cMessage, ptr %i17, i64 0, i32 9
+  %i23 = load i32, ptr %i22, align 8
+  %i24 = sext i32 %i23 to i64
+  %i25 = getelementptr inbounds ptr, ptr %i21, i64 %i24
+  %i27 = load ptr, ptr %i25, align 8
+  %i28 = icmp eq ptr %i27, null
+  br i1 %i28, label %bb35, label %bb29
 
-; <label>:31:                                     ; preds = %22
-  %32 = bitcast %class.cSimpleModule* %29 to %class.cNamedObject*
-  %33 = getelementptr inbounds %class.cNamedObject, %class.cNamedObject* %32, i64 0, i32 2
-  %34 = load i16, i16* %33, align 8
-  %35 = and i16 %34, 1024
-  %36 = icmp eq i16 %35, 0
-  br i1 %36, label %46, label %37
+bb29:                                             ; preds = %bb20
+  %i31 = getelementptr inbounds %class.cNamedObject, ptr %i27, i64 0, i32 2
+  %i32 = load i16, ptr %i31, align 8
+  %i33 = and i16 %i32, 1024
+  %i34 = icmp eq i16 %i33, 0
+  br i1 %i34, label %bb44, label %bb35
 
-; <label>:37:                                     ; preds = %31, %22
-  %38 = tail call %class.cMessage* @_ZN12cMessageHeap11removeFirstEv(%class.cMessageHeap* nonnull %4)
-  %39 = icmp eq %class.cMessage* %38, null
-  br i1 %39, label %46, label %40
+bb35:                                             ; preds = %bb29, %bb20
+  %i36 = tail call ptr @_ZN12cMessageHeap11removeFirstEv(ptr nonnull %i2)
+  %i37 = icmp eq ptr %i36, null
+  br i1 %i37, label %bb44, label %bb38
 
-; <label>:40:                                     ; preds = %37
-  %t38 = tail call %class.cMessage* @_ZN12cMessageHeap11removeFirstEv(%class.cMessageHeap* nonnull %4)
-  %t39 = icmp eq %class.cMessage* %t38, null
-  br i1 %39, label %46, label %41
+bb38:                                             ; preds = %bb35
+  %t38 = tail call ptr @_ZN12cMessageHeap11removeFirstEv(ptr nonnull %i2)
+  %t39 = icmp eq ptr %t38, null
+  br i1 %i37, label %bb44, label %bb39
 
-; <label>:41:                                     ; preds = %40
-  %42 = bitcast %class.cMessage* %38 to void (%class.cMessage*)***
-  %43 = load void (%class.cMessage*)**, void (%class.cMessage*)*** %42, align 8
-  %44 = getelementptr inbounds void (%class.cMessage*)*, void (%class.cMessage*)** %43, i64 4
-  %45 = load void (%class.cMessage*)*, void (%class.cMessage*)** %44, align 8
-  tail call void %45(%class.cMessage* nonnull %38)
-  br label %46
+bb39:                                             ; preds = %bb38
+  %i41 = load ptr, ptr %i36, align 8
+  %i42 = getelementptr inbounds ptr, ptr %i41, i64 4
+  %i43 = load ptr, ptr %i42, align 8
+  tail call void %i43(ptr nonnull %i36)
+  br label %bb44
 
-; <label>:46:                                     ; preds = %40, %37
-  br label %5
+bb44:                                             ; preds = %bb39, %bb38, %bb35, %bb29
+  br label %bb3
 
-; <label>:47:                                     ; preds = %31
-  %48 = getelementptr inbounds %class.cMessage, %class.cMessage* %19, i64 0, i32 13
-  %49 = getelementptr inbounds %class.SimTime, %class.SimTime* %48, i64 0, i32 0
-  %50 = load i64, i64* %49, align 8
-  %51 = getelementptr inbounds %class.cSimulation, %class.cSimulation* %0, i64 0, i32 12
-  %52 = getelementptr inbounds %class.SimTime, %class.SimTime* %51, i64 0, i32 0
-  store i64 %50, i64* %52, align 8
-  br label %53
+bb45:                                             ; No predecessors!
+  %i46 = getelementptr inbounds %class.cMessage, ptr %i17, i64 0, i32 13
+  %i47 = getelementptr inbounds %class.SimTime, ptr %i46, i64 0, i32 0
+  %i48 = load i64, ptr %i47, align 8
+  %i49 = getelementptr inbounds %class.cSimulation, ptr %arg, i64 0, i32 12
+  %i50 = getelementptr inbounds %class.SimTime, ptr %i49, i64 0, i32 0
+  store i64 %i48, ptr %i50, align 8
+  br label %bb51
 
-; <label>:53:                                     ; preds = %47, %20
-  %54 = phi %class.cSimpleModule* [ %29, %47 ], [ null, %20 ]
-  ret %class.cSimpleModule* %54
+bb51:                                             ; preds = %bb45, %bb18
+  %i52 = phi ptr [ %i27, %bb45 ], [ null, %bb18 ]
+  ret ptr %i52
 }
 
-define internal %class.cMessage* @_ZN12cMessageHeap11removeFirstEv(%class.cMessageHeap*) #0 align 2 {
-  %2 = getelementptr inbounds %class.cMessageHeap, %class.cMessageHeap* %0, i64 0, i32 2
-  %3 = load i32, i32* %2, align 8
-  %4 = icmp sgt i32 %3, 0
-  br i1 %4, label %5, label %22
+define internal ptr @_ZN12cMessageHeap11removeFirstEv(ptr %arg) align 2 {
+bb:
+  %i = getelementptr inbounds %class.cMessageHeap, ptr %arg, i64 0, i32 2
+  %i1 = load i32, ptr %i, align 8
+  %i2 = icmp sgt i32 %i1, 0
+  br i1 %i2, label %bb3, label %bb20
 
-; <label>:5:                                      ; preds = %1
-  %6 = getelementptr inbounds %class.cMessageHeap, %class.cMessageHeap* %0, i64 0, i32 1
-  %7 = load %class.cMessage**, %class.cMessage*** %6, align 8
-  %8 = getelementptr inbounds %class.cMessage*, %class.cMessage** %7, i64 1
-  %9 = load %class.cMessage*, %class.cMessage** %8, align 8
-  %10 = add nsw i32 %3, -1
-  store i32 %10, i32* %2, align 8
-  %11 = sext i32 %3 to i64
-  %12 = getelementptr inbounds %class.cMessage*, %class.cMessage** %7, i64 %11
-  %13 = load %class.cMessage*, %class.cMessage** %12, align 8
-  store %class.cMessage* %13, %class.cMessage** %8, align 8
-  %14 = getelementptr inbounds %class.cMessage, %class.cMessage* %13, i64 0, i32 15
-  store i32 1, i32* %14, align 8
-  tail call void @_ZN12cMessageHeap7shiftupEi(%class.cMessageHeap* nonnull %0, i32 1)
-  %15 = getelementptr inbounds %class.cMessageHeap, %class.cMessageHeap* %0, i64 0, i32 0, i32 0, i32 0
-  %16 = bitcast %class.cMessage* %9 to %class.cOwnedObject*
-  %17 = bitcast %class.cMessageHeap* %0 to void (%class.cObject*, %class.cOwnedObject*)***
-  %18 = load void (%class.cObject*, %class.cOwnedObject*)**, void (%class.cObject*, %class.cOwnedObject*)*** %17, align 8
-  %19 = getelementptr inbounds void (%class.cObject*, %class.cOwnedObject*)*, void (%class.cObject*, %class.cOwnedObject*)** %18, i64 13
-  %20 = load void (%class.cObject*, %class.cOwnedObject*)*, void (%class.cObject*, %class.cOwnedObject*)** %19, align 8
-  tail call void %20(%class.cObject* %15, %class.cOwnedObject* %16)
-  %21 = getelementptr inbounds %class.cMessage, %class.cMessage* %9, i64 0, i32 15
-  store i32 -1, i32* %21, align 8
-  br label %22
+bb3:                                              ; preds = %bb
+  %i4 = getelementptr inbounds %class.cMessageHeap, ptr %arg, i64 0, i32 1
+  %i5 = load ptr, ptr %i4, align 8
+  %i6 = getelementptr inbounds ptr, ptr %i5, i64 1
+  %i7 = load ptr, ptr %i6, align 8
+  %i8 = add nsw i32 %i1, -1
+  store i32 %i8, ptr %i, align 8
+  %i9 = sext i32 %i1 to i64
+  %i10 = getelementptr inbounds ptr, ptr %i5, i64 %i9
+  %i11 = load ptr, ptr %i10, align 8
+  store ptr %i11, ptr %i6, align 8
+  %i12 = getelementptr inbounds %class.cMessage, ptr %i11, i64 0, i32 15
+  store i32 1, ptr %i12, align 8
+  tail call void @_ZN12cMessageHeap7shiftupEi(ptr nonnull %arg, i32 1)
+  %i13 = getelementptr inbounds %class.cMessageHeap, ptr %arg, i64 0, i32 0, i32 0, i32 0
+  %i16 = load ptr, ptr %arg, align 8
+  %i17 = getelementptr inbounds ptr, ptr %i16, i64 13
+  %i18 = load ptr, ptr %i17, align 8
+  tail call void %i18(ptr %i13, ptr %i7)
+  %i19 = getelementptr inbounds %class.cMessage, ptr %i7, i64 0, i32 15
+  store i32 -1, ptr %i19, align 8
+  br label %bb20
 
-; <label>:22:                                     ; preds = %5, %1
-  %23 = phi %class.cMessage* [ %9, %5 ], [ null, %1 ]
-  ret %class.cMessage* %23
+bb20:                                             ; preds = %bb3, %bb
+  %i21 = phi ptr [ %i7, %bb3 ], [ null, %bb ]
+  ret ptr %i21
 }
 
-define dso_local void @_ZN12cMessageHeap7shiftupEi(%class.cMessageHeap* %this, i32 %from) #0 align 2 {
+define dso_local void @_ZN12cMessageHeap7shiftupEi(ptr %this, i32 %from) align 2 {
 entry:
   br label %while.cond
 
 while.cond:                                       ; preds = %if.then15, %entry
   %i.0 = phi i32 [ %from, %entry ], [ %j.0, %if.then15 ]
   %shl = shl i32 %i.0, 1
-  %n = getelementptr inbounds %class.cMessageHeap, %class.cMessageHeap* %this, i32 0, i32 2
-  %0 = load i32, i32* %n, align 8
-  %cmp = icmp sle i32 %shl, %0
+  %n = getelementptr inbounds %class.cMessageHeap, ptr %this, i32 0, i32 2
+  %i = load i32, ptr %n, align 8
+  %cmp = icmp sle i32 %shl, %i
   br i1 %cmp, label %while.body, label %while.end
 
 while.body:                                       ; preds = %while.cond
-  %cmp3 = icmp slt i32 %shl, %0
+  %cmp3 = icmp slt i32 %shl, %i
   br i1 %cmp3, label %land.lhs.true, label %if.end
 
 land.lhs.true:                                    ; preds = %while.body
-  %h = getelementptr inbounds %class.cMessageHeap, %class.cMessageHeap* %this, i32 0, i32 1
-  %1 = load %class.cMessage**, %class.cMessage*** %h, align 8
+  %h = getelementptr inbounds %class.cMessageHeap, ptr %this, i32 0, i32 1
+  %i1 = load ptr, ptr %h, align 8
   %idxprom = sext i32 %shl to i64
-  %arrayidx = getelementptr inbounds %class.cMessage*, %class.cMessage** %1, i64 %idxprom
-  %2 = load %class.cMessage*, %class.cMessage** %arrayidx, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %i1, i64 %idxprom
+  %i2 = load ptr, ptr %arrayidx, align 8
   %add = add nsw i32 %shl, 1
   %idxprom5 = sext i32 %add to i64
-  %arrayidx6 = getelementptr inbounds %class.cMessage*, %class.cMessage** %1, i64 %idxprom5
-  %3 = load %class.cMessage*, %class.cMessage** %arrayidx6, align 8
-  %call = call i32 @_ZgtR8cMessageS0_(%class.cMessage* dereferenceable(160) %2, %class.cMessage* dereferenceable(160) %3)
+  %arrayidx6 = getelementptr inbounds ptr, ptr %i1, i64 %idxprom5
+  %i3 = load ptr, ptr %arrayidx6, align 8
+  %call = call i32 @_ZgtR8cMessageS0_(ptr dereferenceable(160) %i2, ptr dereferenceable(160) %i3)
   %tobool = icmp ne i32 %call, 0
   br i1 %tobool, label %if.then, label %if.end
 
@@ -275,36 +220,39 @@ if.then:                                          ; preds = %land.lhs.true
 
 if.end:                                           ; preds = %if.then, %land.lhs.true, %while.body
   %j.0 = phi i32 [ %add, %if.then ], [ %shl, %land.lhs.true ], [ %shl, %while.body ]
-  %h7 = getelementptr inbounds %class.cMessageHeap, %class.cMessageHeap* %this, i32 0, i32 1
-  %4 = load %class.cMessage**, %class.cMessage*** %h7, align 8
+  %h7 = getelementptr inbounds %class.cMessageHeap, ptr %this, i32 0, i32 1
+  %i4 = load ptr, ptr %h7, align 8
   %idxprom8 = sext i32 %i.0 to i64
-  %arrayidx9 = getelementptr inbounds %class.cMessage*, %class.cMessage** %4, i64 %idxprom8
-  %5 = load %class.cMessage*, %class.cMessage** %arrayidx9, align 8
+  %arrayidx9 = getelementptr inbounds ptr, ptr %i4, i64 %idxprom8
+  %i5 = load ptr, ptr %arrayidx9, align 8
   %idxprom11 = sext i32 %j.0 to i64
-  %arrayidx12 = getelementptr inbounds %class.cMessage*, %class.cMessage** %4, i64 %idxprom11
-  %6 = load %class.cMessage*, %class.cMessage** %arrayidx12, align 8
-  %call13 = call i32 @_ZgtR8cMessageS0_(%class.cMessage* dereferenceable(160) %5, %class.cMessage* dereferenceable(160) %6)
+  %arrayidx12 = getelementptr inbounds ptr, ptr %i4, i64 %idxprom11
+  %i6 = load ptr, ptr %arrayidx12, align 8
+  %call13 = call i32 @_ZgtR8cMessageS0_(ptr dereferenceable(160) %i5, ptr dereferenceable(160) %i6)
   %tobool14 = icmp ne i32 %call13, 0
   br i1 %tobool14, label %if.then15, label %while.end
 
 if.then15:                                        ; preds = %if.end
-  %7 = load %class.cMessage**, %class.cMessage*** %h7, align 8
-  %arrayidx18 = getelementptr inbounds %class.cMessage*, %class.cMessage** %7, i64 %idxprom11
-  %8 = load %class.cMessage*, %class.cMessage** %arrayidx18, align 8
-  %arrayidx21 = getelementptr inbounds %class.cMessage*, %class.cMessage** %7, i64 %idxprom8
-  %9 = load %class.cMessage*, %class.cMessage** %arrayidx21, align 8
-  store %class.cMessage* %9, %class.cMessage** %arrayidx18, align 8
-  %heapindex = getelementptr inbounds %class.cMessage, %class.cMessage* %9, i32 0, i32 15
-  store i32 %j.0, i32* %heapindex, align 8
-  %10 = load %class.cMessage**, %class.cMessage*** %h7, align 8
-  %arrayidx27 = getelementptr inbounds %class.cMessage*, %class.cMessage** %10, i64 %idxprom8
-  store %class.cMessage* %8, %class.cMessage** %arrayidx27, align 8
-  %heapindex28 = getelementptr inbounds %class.cMessage, %class.cMessage* %8, i32 0, i32 15
-  store i32 %i.0, i32* %heapindex28, align 8
+  %i7 = load ptr, ptr %h7, align 8
+  %arrayidx18 = getelementptr inbounds ptr, ptr %i7, i64 %idxprom11
+  %i8 = load ptr, ptr %arrayidx18, align 8
+  %arrayidx21 = getelementptr inbounds ptr, ptr %i7, i64 %idxprom8
+  %i9 = load ptr, ptr %arrayidx21, align 8
+  store ptr %i9, ptr %arrayidx18, align 8
+  %heapindex = getelementptr inbounds %class.cMessage, ptr %i9, i32 0, i32 15
+  store i32 %j.0, ptr %heapindex, align 8
+  %i10 = load ptr, ptr %h7, align 8
+  %arrayidx27 = getelementptr inbounds ptr, ptr %i10, i64 %idxprom8
+  store ptr %i8, ptr %arrayidx27, align 8
+  %heapindex28 = getelementptr inbounds %class.cMessage, ptr %i8, i32 0, i32 15
+  store i32 %i.0, ptr %heapindex28, align 8
   br label %while.cond
 
 while.end:                                        ; preds = %if.end, %while.cond
   ret void
 }
 
+attributes #0 = { inaccessiblememonly nocallback nofree nosync nounwind willreturn }
+attributes #1 = { nounwind }
+attributes #2 = { nocallback nofree nosync nounwind readnone speculatable willreturn }
 ; end INTEL_FEATURE_SW_ADVANCED

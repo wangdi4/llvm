@@ -1,8 +1,8 @@
 ; Inline report
-; RUN: opt -passes='cgscc(inline)' -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
-; UNSUPPORTED: system-windows 
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-threshold=5 -inlinehint-threshold=6 -double-callsite-inlinehint-threshold=675 -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; UNSUPPORTED: system-windows
 
 ; Test for -double-callsite-inlinehint-threshold. @mydoublecallee0 should be
 ; inlined because it is a double callsite linkonce_odr function with an

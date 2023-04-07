@@ -5341,8 +5341,11 @@ void VPOCodeGen::emitRemarksForScalarLoops() {
       ORBuilder(*ScalarLp, *LI).addOrigin(R.RemarkID);
 
     for (const auto &R : ScalarLpVPI->getGeneralRemarks())
-      ORBuilder(*ScalarLp, *LI)
-          .addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
+      if (R.Arg.empty())
+        ORBuilder(*ScalarLp, *LI).addRemark(R.MessageVerbosity, R.RemarkID);
+      else
+        ORBuilder(*ScalarLp, *LI)
+            .addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
   }
 }
 

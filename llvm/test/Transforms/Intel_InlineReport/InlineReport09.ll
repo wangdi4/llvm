@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 < %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 < %s -disable-output 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 < %s -S 2>&1 | FileCheck %s
+; RUN: opt  -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 < %s -S 2>&1 | FileCheck %s
 
 ; CQ378383: Test to see that a single branch with a test for a global against
 ; a constant is tolerated when we are inlining with -Os (inline threshold 15).
@@ -20,16 +20,16 @@ target triple = "x86_64-unknown-linux-gnu"
 @Ch_1_Glob = common global i8 0, align 1
 
 ; Function Attrs: nounwind optsize uwtable
-define i32 @Proc_2(i32* nocapture %Int_Par_Ref) #0 {
+define i32 @Proc_2(ptr nocapture %Int_Par_Ref) #0 {
 entry:
-  %0 = load i8, i8* @Ch_1_Glob, align 1
+  %0 = load i8, ptr @Ch_1_Glob, align 1
   %cmp = icmp eq i8 %0, 65
   br i1 %cmp, label %if.then, label %do.end
 
 if.then:                                          ; preds = %entry
-  %1 = load i32, i32* %Int_Par_Ref, align 4
+  %1 = load i32, ptr %Int_Par_Ref, align 4
   %sub = add nsw i32 %1, 9
-  store i32 %sub, i32* %Int_Par_Ref, align 4
+  store i32 %sub, ptr %Int_Par_Ref, align 4
   br label %do.end
 
 do.end:                                           ; preds = %if.then, %entry
@@ -41,9 +41,9 @@ define i32 @main() #1 {
 entry:
   %retval = alloca i32, align 4
   %Int_1_Loc = alloca i32, align 4
-  store i32 0, i32* %retval, align 4
-  store i32 3, i32* %Int_1_Loc, align 4
-  %call = call i32 @Proc_2(i32* %Int_1_Loc)
+  store i32 0, ptr %retval, align 4
+  store i32 3, ptr %Int_1_Loc, align 4
+  %call = call i32 @Proc_2(ptr %Int_1_Loc)
   ret i32 %call
 }
 

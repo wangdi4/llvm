@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -dtrans-inline-heuristics -intel-libirc-allowed -passes='cgscc(inline)' -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefix=CHECK-CL
-; RUN: opt -dtrans-inline-heuristics -intel-libirc-allowed -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -opaque-pointers < %s -dtrans-inline-heuristics -intel-libirc-allowed -passes='cgscc(inline)' -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefix=CHECK-CL
+; RUN: opt -opaque-pointers -dtrans-inline-heuristics -intel-libirc-allowed -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; Check that foo() is not inlined when -dtrans-inline-heuristics -intel-libirc-allowed is specified,
 ; because it ends in an unreachable instruction. NOTE: The check for '>1'
@@ -35,17 +35,17 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
+; Function Attrs: noreturn
 declare dso_local void @exit(i32 noundef) #0
 
 define i32 @main() {
 entry:
   %retval = alloca i32, align 4
-  store i32 0, i32* %retval
+  store i32 0, ptr %retval, align 4
   call void @foo()
   call void @foo()
   ret i32 0
 }
-
 
 define internal void @foo() {
 entry:

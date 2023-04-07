@@ -1,5 +1,5 @@
-; RUN: opt < %s -passes='require<profile-summary>,cgscc(inline)' -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -passes='inlinereportsetup,require<profile-summary>,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -opaque-pointers < %s -passes='require<profile-summary>,cgscc(inline)' -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,require<profile-summary>,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Check that @callee is not inlined and recognized as a cold callsite.
 
@@ -15,31 +15,35 @@
 ; CHECK-MD-LABEL: define i32 @caller2(i32 %y1)
 ; CHECK-MD: call i32 @callee1(i32 %y1)
 
-define i32 @callee1(i32 %x) "function-inline-cost"="80" {
+define i32 @callee1(i32 %x) #0 {
+bb:
   ret i32 %x
 }
 
 define i32 @caller2(i32 %y1) {
-  %y3 = call i32 @callee1(i32 %y1), !prof !21
+bb:
+  %y3 = call i32 @callee1(i32 %y1), !prof !14
   ret i32 %y3
 }
 
 declare i32 @__gxx_personality_v0(...)
 
-!llvm.module.flags = !{!1}
-!21 = !{!"branch_weights", i64 0}
+attributes #0 = { "function-inline-cost"="80" }
 
-!1 = !{i32 1, !"ProfileSummary", !2}
-!2 = !{!3, !4, !5, !6, !7, !8, !9, !10}
-!3 = !{!"ProfileFormat", !"SampleProfile"}
-!4 = !{!"TotalCount", i64 10000}
-!5 = !{!"MaxCount", i64 1000}
-!6 = !{!"MaxInternalCount", i64 1}
-!7 = !{!"MaxFunctionCount", i64 1000}
-!8 = !{!"NumCounts", i64 3}
-!9 = !{!"NumFunctions", i64 3}
-!10 = !{!"DetailedSummary", !11}
-!11 = !{!12, !13, !14}
-!12 = !{i32 10000, i64 100, i32 1}
-!13 = !{i32 999000, i64 100, i32 1}
-!14 = !{i32 999999, i64 1, i32 2}
+!llvm.module.flags = !{!0}
+
+!0 = !{i32 1, !"ProfileSummary", !1}
+!1 = !{!2, !3, !4, !5, !6, !7, !8, !9}
+!2 = !{!"ProfileFormat", !"SampleProfile"}
+!3 = !{!"TotalCount", i64 10000}
+!4 = !{!"MaxCount", i64 1000}
+!5 = !{!"MaxInternalCount", i64 1}
+!6 = !{!"MaxFunctionCount", i64 1000}
+!7 = !{!"NumCounts", i64 3}
+!8 = !{!"NumFunctions", i64 3}
+!9 = !{!"DetailedSummary", !10}
+!10 = !{!11, !12, !13}
+!11 = !{i32 10000, i64 100, i32 1}
+!12 = !{i32 999000, i64 100, i32 1}
+!13 = !{i32 999999, i64 1, i32 2}
+!14 = !{!"branch_weights", i64 0}

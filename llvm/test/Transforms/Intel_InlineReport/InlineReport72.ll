@@ -1,5 +1,5 @@
-; RUN: opt -passes='default<O3>' -inline-report=0xe807 -inline-threshold=-100 < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes='default<O3>' -inline-report=0xe886 -inline-threshold=-100 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='default<O3>' -inline-report=0xe807 -inline-threshold=-100 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='default<O3>' -inline-report=0xe886 -inline-threshold=-100 -S < %s 2>&1 | FileCheck %s
 
 ; Check that by default at -O3, the quality non-inlining messages are not
 ; overwritten in standard and metadata inlining reports by the always inliner.
@@ -40,9 +40,9 @@ return:                                           ; preds = %entry, %if.end
 
 define dso_local i32 @main() #0 {
 entry:
-  %0 = load i32, i32* @glob1, align 4
+  %0 = load i32, ptr @glob1, align 4
   %call = call i32 @foo1(i32 %0)
-  %1 = load i32, i32* @glob2, align 4
+  %1 = load i32, ptr @glob2, align 4
   %call1 = call i32 @foo2(i32 %1)
   %add = add nsw i32 %call, %call1
   ret i32 %add
