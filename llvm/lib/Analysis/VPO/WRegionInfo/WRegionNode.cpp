@@ -557,6 +557,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveDetach())
     PrintedSomething |= getDetach().print(OS, Depth, Verbosity);
 
+  if (canHaveAffinity())
+    PrintedSomething |= vpo::printAffArray(this, OS, Depth, Verbosity);
+
   if (canHaveDepend()) {
     PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
     PrintedSomething |= vpo::printDepArray(this, OS, Depth, Verbosity);
@@ -1841,6 +1844,15 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     setDepArrayNumDeps(Args[0]);
     setDepArray(Args[1]);
     break;
+  case QUAL_OMP_AFFARRAY:
+    assert(NumArgs == 2 && "Expected 2 operands in AFFARRAY qual.");
+    assert(isa<IntegerType>(Args[0]->getType()) &&
+           "AffArraySize should be of integer type.");
+    assert(isa<PointerType>(Args[1]->getType()) &&
+           "AffArray should be of pointer type.");
+    setAffArraySize(Args[0]);
+    setAffArray(Args[1]);
+    break;
   case QUAL_OMP_ORDERED: {
     assert(isa<ConstantInt>(Args[0]) &&
            "Non-constant Value of N for ordered(N).");
@@ -2593,6 +2605,15 @@ bool WRegionNode::canHaveUseDevicePtr() const {
   return false;
 }
 
+bool WRegionNode::canHaveAffinity() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTask:
+    return true;
+  }
+  return false;
+}
+
 bool WRegionNode::canHaveDepend() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
@@ -2866,6 +2887,32 @@ bool vpo::printDepArray(WRegionNode const *W, formatted_raw_ostream &OS,
 
   if (Verbosity >= 1) {
     OS.indent(Indent) << "DEPARRAY: UNSPECIFIED\n";
+    return true;
+  }
+
+  return false;
+}
+
+// Prints AFFARRAY( i32 Num , i8* Array )
+bool vpo::printAffArray(WRegionNode const *W, formatted_raw_ostream &OS,
+                             int Depth, unsigned Verbosity) {
+  assert((W->getAffArraySize() && W->getAffArray() ||
+          !W->getAffArraySize() && !W->getAffArray()) &&
+         "Corrupt AFFARRAY IR: args must be both null or both non-null");
+
+  unsigned Indent = 2 * Depth;
+
+  if (W->getAffArraySize()) {
+    OS.indent(Indent) << "AFFARRAY( ";
+    W->getAffArraySize()->printAsOperand(OS);
+    OS << " , ";
+    W->getAffArray()->printAsOperand(OS);
+    OS << " )\n";
+    return true;
+  }
+
+  if (Verbosity >= 1) {
+    OS.indent(Indent) << "AFFARRAY: UNSPECIFIED\n";
     return true;
   }
 

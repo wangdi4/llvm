@@ -1788,6 +1788,23 @@ void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
   }
 }
 
+// The  routine to generate the call __kmpc_omp_reg_task_with_affinity
+void VPOParoptTransform::genTaskAffinity(WRegionNode *W, StructType *IdentTy,
+                                         Value *TidPtr, Value *TaskAlloc,
+                                         Instruction *InsertPt) {
+  Value *AffArray =
+      W->getAffArray(); // pointer to the beginning of the affinity array
+  if (!AffArray)
+    return;
+
+  Value *AffArraySize =
+      W->getAffArraySize(); // number of elements in the affinity array
+  assert(AffArraySize && "Corrupt AFFARRAY IR: missing AffArraySize");
+  VPOParoptUtils::genKmpcTaskWithAffinity(W, IdentTy, TidPtr, TaskAlloc,
+                                          AffArray, AffArraySize, InsertPt,
+                                          "__kmpc_omp_reg_task_with_affinity");
+}
+
 // The wrapper routine to generate the call __kmpc_omp_task_with_deps
 void VPOParoptTransform::genTaskDeps(WRegionNode *W, StructType *IdentTy,
                                      Value *TidPtr, Value *TaskAlloc,
@@ -1913,6 +1930,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   resetValueInOmpClauseGeneric(W, W->getFinal());
   resetValueInOmpClauseGeneric(W, W->getPriority());
   resetValueInTaskDependClause(W);
+  resetValueInTaskAffinityClause(W);
   if (isa<WRNTaskloopNode>(W)) {
     resetValueInOmpClauseGeneric(W, W->getNumTasks());
     resetValueInOmpClauseGeneric(W, W->getGrainsize());
@@ -1990,6 +2008,9 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       Mode & OmpTbb);
   TaskAllocCI->setName(".task.alloc");
 
+  if (W->getAffArray())
+    genTaskAffinity(W, IdentTy, TidPtrHolder, TaskAllocCI, NewCall);
+
   if (!W->getDetach().empty())
     genDetachCode(W, TaskAllocCI, NewCall);
 
@@ -2025,8 +2046,8 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
         VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
                                     NewCall);
       else
-        genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                    DummyTaskTDependRec, NewCall, false);
+        genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI, DummyTaskTDependRec,
+                    NewCall, false);
     } else {
 
       Instruction *ThenTerm, *ElseTerm;
@@ -2037,8 +2058,8 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
         VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
                                     ThenTerm);
       else {
-        genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                    DummyTaskTDependRec, ThenTerm, false);
+        genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI, DummyTaskTDependRec,
+                    ThenTerm, false);
         genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
                     DummyTaskTDependRec, ElseTerm, true);
       }

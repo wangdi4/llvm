@@ -11499,6 +11499,22 @@ static void resetTypedNumElementsInSharedClause(WRegionNode *W) {
           removeAllUsesInClauses<QUAL_OMP_SHARED>(EntryDir, NumElements);
 }
 
+void VPOParoptTransform::resetValueInTaskAffinityClause(WRegionNode *W) {
+  if (!W->canHaveAffinity())
+    return;
+  Value *AffArray = W->getAffArray();
+
+  if (!AffArray)
+    return;
+
+  Value *NumAff = W->getAffArraySize();
+  assert(NumAff && "Corrupt AFFARRAY IR");
+  auto *EntryDir = cast<IntrinsicInst>(W->getEntryDirective());
+  removeAllUsesInClauses<QUAL_OMP_AFFARRAY>(EntryDir, AffArray);
+  if (!isa<ConstantInt>(NumAff))
+    removeAllUsesInClauses<QUAL_OMP_AFFARRAY>(EntryDir, NumAff);
+}
+
 bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMultiThreadedCode\n");
 

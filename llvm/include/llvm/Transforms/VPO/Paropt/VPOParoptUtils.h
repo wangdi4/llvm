@@ -1444,6 +1444,21 @@ public:
                                           Value *Dep, Value *NumDeps,
                                           Instruction *InsertPt,
                                           StringRef FnName);
+  /// Generate a call to `__kmpc_omp_reg_task_with_affinity`. Example:
+  /// \code
+  ///    void @__kmpc_omp_reg_task_with_affinity(
+  ///          { i32, i32, i32, i32, i8* }* /* &loc */,
+  ///           i32 /* tid */,
+  ///           i8* /*thunk_temp */,
+  ///           i32 /* affinity_array_size */,
+  ///          i8* /* &affinity */)
+  /// \endcode
+  static CallInst *genKmpcTaskWithAffinity(WRegionNode *W, StructType *IdentTy,
+                                           Value *TidPtr, Value *TaskAlloc,
+                                           Value *AffArray,
+                                           Value *AffArraySize,
+                                           Instruction *InsertPt,
+                                           StringRef FnName);
 
   /// Generic function to support generation of `__kmpc_task`,
   /// `__kmpc_omp_task_begin_if0` and `__kmpc_omp_task_complete_if0` calls.

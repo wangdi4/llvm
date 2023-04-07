@@ -2196,6 +2196,61 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
   return TaskCall;
 }
 
+// This function generates a call as follows.
+//    void @__kmpc_omp_reg_task_with_affinity(
+//           { i32, i32, i32, i32, i8* }* /* &loc */,
+//           i32 /* tid */,
+//           i8* /*thunk_temp */,
+//           i32 /* affinity_array_size */,
+//           i8* /* &affinity */)
+
+CallInst *VPOParoptUtils::genKmpcTaskWithAffinity(
+    WRegionNode *W, StructType *IdentTy, Value *TidPtr, Value *TaskAlloc,
+    Value *AffArray, Value *AffArraySize, Instruction *InsertPt,
+    StringRef FnName) {
+
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  int Flags = KMP_IDENT_KMPC;
+  Type *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  Type *RetTy =  Builder.getVoidTy();
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
+
+  SmallVector<Value *, 5> TaskArgs;
+  TaskArgs.push_back(Loc);
+  TaskArgs.push_back(Builder.CreateLoad(Int32Ty, TidPtr));
+  if (TaskAlloc)
+    TaskArgs.push_back(TaskAlloc);
+  TaskArgs.push_back(AffArraySize);
+  TaskArgs.push_back(AffArray);
+
+  SmallVector<Type *, 5> TypeParams;
+  TypeParams.push_back(Loc->getType());
+  TypeParams.push_back(Int32Ty);
+  if (TaskAlloc)
+    TypeParams.push_back(Int8PtrTy);
+  TypeParams.push_back(Int32Ty);
+  TypeParams.push_back(Int8PtrTy);
+
+  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
+
+  Function *FnTask = M->getFunction(FnName);
+
+  if (!FnTask)
+    FnTask = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+
+  CallInst *TaskCall = CallInst::Create(FnTy, FnTask, TaskArgs, "", InsertPt);
+  setFuncCallingConv(TaskCall, M);
+  TaskCall->setTailCall(false);
+  addFuncletOperandBundle(TaskCall, W->getDT(), InsertPt);
+
+  return TaskCall;
+}
+
 // This is a generic function to support the generation of
 //   __kmpc_task, __kmpc_omp_task_begin_if0 and __kmpc_omp_task_complete_if0.
 CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,

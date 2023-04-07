@@ -1294,6 +1294,9 @@ private:
   DependClause Depend;            // from "QUAL.OMP.DEPEND"
   EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
   EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
+  EXPR AffArray = nullptr;        // Arr in "QUAL.OMP.AFFARRAY"(i32 N, i8* Arr)
+  EXPR AffArraySize =
+      nullptr; // N above; ie, number of affinity-items in Arr
   EXPR Final;
   EXPR IfExpr;
   EXPR Priority;
@@ -1314,6 +1317,8 @@ public:
 protected:
   void setDepArray(EXPR E) override { DepArray = E; }
   void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
+  void setAffArray(EXPR E) override { AffArray = E; }
+  void setAffArraySize(EXPR E) override { AffArraySize = E; }
   void setFinal(EXPR E) override { Final = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setPriority(EXPR E) override { Priority = E; }
@@ -1336,6 +1341,8 @@ public:
 
   EXPR getDepArray() const override { return DepArray; }
   EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
+  EXPR getAffArray() const override { return AffArray; }
+  EXPR getAffArraySize() const override { return AffArraySize; }
   EXPR getFinal() const override { return Final; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getPriority() const override { return Priority; }
