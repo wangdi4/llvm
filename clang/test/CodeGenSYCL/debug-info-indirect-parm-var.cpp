@@ -34,9 +34,7 @@ int my_host() {
 // CHECK:   call void @llvm.dbg.declare(
 // CHECK-SAME: metadata %struct.S addrspace(4)* %[[AS_CAST]],
 // CHECK-SAME: metadata [[MY_PARAM:![0-9]+]],
-// INTEL
-// CHECK-SAME:     metadata !DIExpression()
-// INTEL
+// CHECK-SAME: metadata !DIExpression(DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef)
 // CHECK-SAME: )
 // CHECK: }
 

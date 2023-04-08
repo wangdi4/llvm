@@ -156,6 +156,7 @@
 #include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/DebugInfo/Intel_Debug/Intel_Debug.h"
 #include "llvm/IRPrinter/IRPrintingPasses.h"
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h"
 #include "llvm/Transforms/IPO/Intel_AggInliner.h"
@@ -1777,6 +1778,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
     MPM.addPass(ModuleMemProfilerPass());
   }
+
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(Intel_DebugPass(TM));
+#endif // INTEL_CUSTOMIZATION
 
   return MPM;
 }
@@ -3818,6 +3823,10 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
 
   if (PTO.OptimizeSYCLFramework)
     addDefaultSYCLFrameworkOptimizationPipeline(MPM);
+
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(Intel_DebugPass(TM));
+#endif // INTEL_CUSTOMIZATION
 
   return MPM;
 }

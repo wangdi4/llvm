@@ -37,16 +37,12 @@ int my_host() {
 // CHECK:        call void @llvm.dbg.declare(
 // CHECK-SAME:     metadata ptr %my_param.addr,
 // CHECK-SAME:     metadata [[MY_PARAM:![0-9]+]],
-// INTEL
-// CHECK-SAME:     metadata !DIExpression()
-// INTEL
+// CHECK-SAME:     metadata !DIExpression(DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef)
 // CHECK-SAME:     )
 // CHECK:        call void @llvm.dbg.declare(
 // CHECK-SAME:     metadata ptr %my_local,
 // CHECK-SAME:     metadata [[MY_LOCAL:![0-9]+]],
-// INTEL
-// CHECK-SAME:     metadata !DIExpression()
-// INTEL
+// CHECK-SAME:     metadata !DIExpression(DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef)
 // CHECK-SAME:     )
 // CHECK:      }
 

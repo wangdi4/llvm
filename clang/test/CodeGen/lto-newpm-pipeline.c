@@ -50,6 +50,7 @@
 // CHECK-FULL-O0-NEXT: Running pass: NameAnonGlobalPass
 // CHECK-FULL-O0-NEXT: Running pass: AnnotationRemarksPass
 // CHECK-FULL-O0-NEXT: Running analysis: TargetLibraryAnalysis
+// CHECK-FULL-O0-NEXT: Running pass: Intel_DebugPass
 // CHECK-FULL-O0-NEXT: Running pass: VerifierPass
 // CHECK-FULL-O0-NEXT: Running analysis: VerifierAnalysis
 // CHECK-FULL-O0-NEXT: Running pass: BitcodeWriterPass
@@ -64,6 +65,7 @@
 // CHECK-THIN-O0-NEXT: Running pass: NameAnonGlobalPass
 // CHECK-THIN-O0-NEXT: Running pass: AnnotationRemarksPass
 // CHECK-THIN-O0-NEXT: Running analysis: TargetLibraryAnalysis
+// CHECK-THIN-O0-NEXT: Running pass: Intel_DebugPass ;INTEL
 // CHECK-THIN-O0-NEXT: Running pass: VerifierPass
 // CHECK-THIN-O0-NEXT: Running analysis: VerifierAnalysis
 // CHECK-THIN-O0-NEXT: Running pass: ThinLTOBitcodeWriterPass

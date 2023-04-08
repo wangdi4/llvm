@@ -100,6 +100,7 @@
 #include "llvm/Analysis/ValueTracking.h" // INTEL
 #include "llvm/CodeGen/HardwareLoops.h"
 #include "llvm/CodeGen/TypePromotion.h"
+#include "llvm/DebugInfo/Intel_Debug/Intel_Debug.h" // INTEL
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/PassManager.h"

@@ -187,6 +187,7 @@
 ; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: GlobalDCEPass
+; CHECK-POSTLINK-O-NEXT: Running pass: Intel_DebugPass ;INTEL
 ; CHECK-POSTLINK-O3-NEXT: Running pass: ArgNoAliasPropPass ;INTEL
 ; CHECK-POSTLINK-O3-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
 ; CHECK-POSTLINK-O-NEXT: Running pass: StdContainerOptPass ;INTEL

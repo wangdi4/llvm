@@ -1,4 +1,3 @@
-# INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
 #
@@ -14,13 +13,20 @@
 # or implied warranties, other than those that are expressly stated in the
 # License.
 #
-# end INTEL_CUSTOMIZATION
-add_subdirectory(DWARF)
-add_subdirectory(GSYM)
-add_subdirectory(LogicalView)
-add_subdirectory(MSF)
-add_subdirectory(CodeView)
-add_subdirectory(Intel_Debug)     # INTEL
-add_subdirectory(Intel_TraceBack) # INTEL
-add_subdirectory(PDB)
-add_subdirectory(Symbolize)
+set(INTEL_SOURCE_FILES_TO_BUILD)
+intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
+  COMPLEMENT LLVM_OPTIONAL_SOURCES
+  Intel_Debug.cpp
+  IntelDebugRemoveXDeref.cpp
+  )
+add_llvm_component_library(LLVMIntel_Debug
+  ${INTEL_SOURCE_FILES_TO_BUILD}
+
+  DEPENDS
+  intrinsics_gen
+
+  LINK_COMPONENTS
+  Core
+  Support
+  )
+

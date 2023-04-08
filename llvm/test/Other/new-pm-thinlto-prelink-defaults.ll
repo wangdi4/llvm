@@ -189,6 +189,9 @@
 ; CHECK-O-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: Intel_DebugPass
+; end INTEL_CUSTOMIZATION
 ; CHECK-EXT: Running pass: {{.*}}::Bye
 ; CHECK-EP-OPT-EARLY-NEXT: Running pass: NoOpModulePass
 ; CHECK-EP-OPT-LAST-NEXT: Running pass: NoOpModulePass
