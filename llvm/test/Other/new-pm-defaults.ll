@@ -249,6 +249,7 @@
 ; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
+; CHECK-O-NEXT: Running pass: Intel_DebugPass on [module] ;INTEL
 ; CHECK-O3-NEXT: Running pass: ArgNoAliasPropPass ;INTEL
 ; CHECK-O-NEXT: Running pass: StdContainerOptPass ;INTEL
 ; CHECK-O-NEXT: Running pass: CleanupFakeLoadsPass{{.*}} ;INTEL

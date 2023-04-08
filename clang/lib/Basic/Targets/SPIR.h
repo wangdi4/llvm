@@ -207,11 +207,7 @@ public:
 
   std::optional<unsigned>
   getDWARFAddressSpace(unsigned AddressSpace) const override {
-#if INTEL_CUSTOMIZATION
-    return std::nullopt;
-#else
     return AddressSpace;
-#endif // INTEL_CUSTOMIZATION
   }
 
   CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {

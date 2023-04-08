@@ -98,6 +98,7 @@ MODULE_ALIAS_ANALYSIS("anders-aa", AndersensAA())    // INTEL
 #if INTEL_CUSTOMIZATION
 MODULE_PASS("vec-clone",VecClonePass());
 MODULE_PASS("vplan-pragma-omp-ordered-simd-extract", VPlanPragmaOmpOrderedSimdExtractPass());
+MODULE_PASS("intel-debug", Intel_DebugPass(TM))
 #endif //INTEL_CUSTOMIZATION
 
 MODULE_PASS("sycl-kernel-add-function-attrs", AddFunctionAttrsPass())

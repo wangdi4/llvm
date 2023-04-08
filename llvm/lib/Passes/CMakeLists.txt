@@ -52,6 +52,7 @@ add_llvm_component_library(LLVMPasses
   Vectorize
   Instrumentation
 # INTEL_CUSTOMIZATION
+  Intel_Debug
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml

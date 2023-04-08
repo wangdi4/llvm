@@ -60,6 +60,7 @@
 #include "SPIRVToOCL.h"
 
 #if INTEL_CUSTOMIZATION
+#include "llvm/DebugInfo/Intel_Debug/Intel_Debug.h"
 #include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
@@ -748,6 +749,10 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     UnrollOpts.setPartial(false).setRuntime(false).setThreshold(4); // INTEL
     MPM.addPass(createModuleToFunctionPassAdaptor(LoopUnrollPass(UnrollOpts)));
   }
+
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(Intel_DebugPass(Config.GetTargetMachine()));
+#endif // INTEL_CUSTOMIZATION
 }
 
 void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
