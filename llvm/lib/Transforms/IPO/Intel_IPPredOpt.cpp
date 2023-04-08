@@ -47,11 +47,13 @@
 //
 
 #include "llvm/Transforms/IPO/Intel_IPPredOpt.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -90,9 +92,10 @@ raw_ostream &operator<<(raw_ostream &OS, const ControlCond &C) {
 // handle multiple candidates.
 class PredCandidate {
 public:
-  PredCandidate(BasicBlock *ExitBB, BasicBlock *ThenBB, DominatorTree &DT,
-                PostDominatorTree &PDT)
-      : ExitBB(ExitBB), ThenBB(ThenBB), DT(DT), PDT(PDT) {}
+  PredCandidate(BasicBlock *ExitBB, BasicBlock *ThenBB, CallBase *CondCall,
+                DominatorTree &DT, PostDominatorTree &PDT, AssumptionCache &AC)
+      : ExitBB(ExitBB), ThenBB(ThenBB), CondCall(CondCall), DT(DT), PDT(PDT),
+        AC(AC) {}
   ~PredCandidate() {}
 
   bool collectExecutedBlocks();
@@ -100,6 +103,16 @@ public:
   bool collectControlCondsForBlocks();
   bool isControlCondSame(const ControlCond &C1, const ControlCond &C2);
   bool checkLegalityIssues();
+  bool canBeMovedTo(Value *V, Instruction *Loc,
+                    SmallPtrSetImpl<Instruction *> &Visited);
+  bool isHoistableSimpleLoad(Value *V,
+                             SmallVectorImpl<Instruction *> &HoistingInst);
+  bool isHoistableFieldVtableLoad(Value *V, Constant *C,
+                                  SmallVectorImpl<Instruction *> &HoistingInst);
+  bool checkAllHoistingInstInControlBlocks(
+      SmallVectorImpl<Instruction *> &HoistingInst);
+  bool checkPointerHasNonNullValue(Value *V);
+  bool guaranteedToBeNonNullOnCondCallEntry(Value *V);
   PredCandidate(const PredCandidate &) = delete;
   PredCandidate(PredCandidate &&) = delete;
   PredCandidate &operator=(const PredCandidate &) = delete;
@@ -116,9 +129,14 @@ private:
   // Starting basic block of candidate's CFG.
   BasicBlock *ThenBB = nullptr;
 
+  // Main control condtion call.
+  CallBase *CondCall = nullptr;
+
   DominatorTree &DT;
 
   PostDominatorTree &PDT;
+
+  AssumptionCache &AC;
 
   // Basic blocks that are controlled under inside condition statements.
   SmallSetVector<BasicBlock *, 2> ExecutedBlocks;
@@ -136,8 +154,10 @@ class IPPredOptImpl {
 public:
   IPPredOptImpl(Module &M, WholeProgramInfo &WPInfo,
                 function_ref<DominatorTree &(Function &)> DTGetter,
-                function_ref<PostDominatorTree &(Function &)> PDTGetter)
-      : M(M), WPInfo(WPInfo), DTGetter(DTGetter), PDTGetter(PDTGetter){};
+                function_ref<PostDominatorTree &(Function &)> PDTGetter,
+                function_ref<AssumptionCache &(Function &)> ACGetter)
+      : M(M), WPInfo(WPInfo), DTGetter(DTGetter), PDTGetter(PDTGetter),
+        ACGetter(ACGetter){};
   ~IPPredOptImpl(){};
   bool run(void);
 
@@ -148,6 +168,7 @@ private:
   WholeProgramInfo &WPInfo;
   function_ref<DominatorTree &(Function &)> DTGetter;
   function_ref<PostDominatorTree &(Function &)> PDTGetter;
+  function_ref<AssumptionCache &(Function &)> ACGetter;
   DenseMap<Metadata *, SmallSet<std::pair<GlobalVariable *, uint64_t>, 4>>
       TypeIdMap;
   SmallPtrSet<PredCandidate *, MaxNumCandidates> Candidates;
@@ -290,6 +311,33 @@ void IPPredOptImpl::dumpTargetFunctions(void) {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// Returns true if "V" can be moved before "Loc" instruction.
+bool PredCandidate::canBeMovedTo(Value *V, Instruction *Loc,
+                                 SmallPtrSetImpl<Instruction *> &Visited) {
+
+  // Check if instruction's type is hoistable.
+  auto IsHoistableInstType = [](Instruction *I) -> bool {
+    return isa<GetElementPtrInst>(I) || isa<BinaryOperator>(I) ||
+           isa<CastInst>(I) || isa<SelectInst>(I);
+  };
+
+  auto *Inst = dyn_cast<Instruction>(V);
+  if (!Inst || DT.dominates(Inst, Loc) || Visited.count(Inst))
+    return true;
+
+  if (!IsHoistableInstType(Inst))
+    return false;
+
+  if (!isSafeToSpeculativelyExecute(Inst, Loc, &AC, &DT) ||
+      Inst->mayReadFromMemory())
+    return false;
+
+  Visited.insert(Inst);
+
+  return all_of(Inst->operands(),
+                [&](Value *Op) { return canBeMovedTo(Op, Loc, Visited); });
+}
+
 // Returns true if C1 and C2 are same. This is used to reduce
 // number of conditions to be hoisted.
 bool PredCandidate::isControlCondSame(const ControlCond &C1,
@@ -333,7 +381,7 @@ bool PredCandidate::collectControlConds(BasicBlock *BB) {
 
     const BranchInst *BI = dyn_cast<BranchInst>(CurrDom->getTerminator());
     // For now, allow only conditional branches.
-    if (!BI || !BI->isConditional())
+    if (!BI || !BI->isConditional() || !isa<ICmpInst>(BI->getCondition()))
       return false;
 
     if (PDT.dominates(CurBlock, BI->getSuccessor(0)))
@@ -374,6 +422,194 @@ bool PredCandidate::collectControlCondsForBlocks() {
   return true;
 }
 
+// Returns true if all instructions in "HoistingInstis" are defined
+// in ControlBlocks.
+bool PredCandidate::checkAllHoistingInstInControlBlocks(
+    SmallVectorImpl<Instruction *> &HoistingInsts) {
+  for (auto *I : HoistingInsts)
+    if (!ControlBlocks.count(I->getParent()))
+      return false;
+  return true;
+}
+
+// Returns true if we can prove "V" has non-null value at CondCall.
+// Prove that "V" is used to load / store in entry block (guaranteed
+// to be executed) of CondCall.
+// This helps to avoid generating non-null checks for hoisting conditions.
+//
+// Ex:
+//  Makes sure %arg is used to load / store in entry block.
+//
+//  contains(..., %arg, ...) {
+//    entry:
+//       ...
+//       %i = getelementptr inbounds %ValueStore, ptr %arg, i64 0, i32 4
+//       load ptr, ptr %i
+//       ...
+//    BB:
+//  }
+//  ...
+//  tail call contains(...,ptr %V, )
+//
+bool PredCandidate::guaranteedToBeNonNullOnCondCallEntry(Value *V) {
+  // Return argument position of "Ptr" if "Ptr" is passed as argument to "CB".
+  // Otherwise, return arg_size().
+  auto GetArgNoInCall = [](CallBase *CB, Value *Ptr) -> unsigned {
+    for (unsigned I = 0; I < CB->arg_size(); ++I)
+      if (CB->getArgOperand(I) == Ptr)
+        return I;
+    return CB->arg_size();
+  };
+
+  auto *GEP = dyn_cast<GetElementPtrInst>(V);
+  if (!GEP)
+    return false;
+  Value *Ptr = GEP->getPointerOperand();
+
+  // Get argument position of "Ptr" if passed as argument to CondCall.
+  unsigned ArgNo = GetArgNoInCall(CondCall, Ptr);
+  Function *CondCallee = CondCall->getCalledFunction();
+  if (ArgNo >= CondCall->arg_size() || ArgNo >= CondCallee->arg_size())
+    return false;
+
+  Argument *Arg = CondCallee->getArg(ArgNo);
+  for (Instruction &I : CondCallee->getEntryBlock()) {
+    Value *PtrOp = getLoadStorePointerOperand(&I);
+    if (!PtrOp)
+      continue;
+    auto *LdStAddr = dyn_cast<GetElementPtrInst>(PtrOp);
+    if (!LdStAddr)
+      continue;
+    // Check NumIndices and SourceElementType are same for GEP instruction in
+    // Callee and caller.
+    if (GEP->getNumIndices() != LdStAddr->getNumIndices() ||
+        GEP->getSourceElementType() != LdStAddr->getSourceElementType())
+      continue;
+
+    if (LdStAddr->getPointerOperand() == Arg)
+      return true;
+  }
+  return false;
+}
+
+// Check if "V" is simple load instruction that can be hoisted.
+// All hoistable instructions are collected in HoistingInst
+//
+// Ex:
+//     %i317 = getelementptr %ValueStore, ptr %i28, i64 0, i32 0
+// V:  %i318 = load i8, ptr %i317
+//     %i319 = icmp eq i8 %i318, 0
+bool PredCandidate::isHoistableSimpleLoad(
+    Value *V, SmallVectorImpl<Instruction *> &HoistingInst) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  HoistingInst.push_back(LI);
+
+  // If pointer operand of LI already dominates CondCall, no
+  // need to do any further checks.
+  if (DT.dominates(LI->getPointerOperand(), CondCall))
+    return true;
+
+  // Check if pointer operand of LI can be hoisted.
+  SmallPtrSet<Instruction *, 32> Visited;
+  if (!canBeMovedTo(LI->getPointerOperand(), CondCall, Visited))
+    return false;
+  // Makes sure pointer operand of LI is non-null value at CondCall.
+  if (!guaranteedToBeNonNullOnCondCallEntry(LI->getPointerOperand()))
+    return false;
+
+  HoistingInst.push_back(cast<Instruction>(LI->getPointerOperand()));
+  return true;
+}
+
+// Check if "V" is loading address from VTable and "C" is a function.
+// Prove only object load can be hoisted to CondCall. No need to
+// prove VTable load can be hoisted as it is implied.
+// FieldLI: Runtime check is generated to make sure FieldLI is non-null
+// as there is no easy way to prove at compile-time.
+// All hoistable instructions are collected in HoistingInst.
+//
+//    %i321 = getelementptr inbounds %ValueStore, ptr %i28, i64 0, i32 2
+//    %i322 = load ptr, ptr %i321   ; FieldLI
+//    %i323 = getelementptr IdConstraint, ptr %i322, i64 0, i32 0, i32 0
+//    %i324 = load ptr, ptr %i323   ; VTLoad
+//    %i325 = tail call i1 @llvm.type.test(ptr %i324, metadata !"E")
+//    tail call void @llvm.assume(i1 %i325)
+//    %i326 = getelementptr inbounds ptr, ptr %i324, i64 5
+// V: %i327 = load ptr, ptr %i326
+//    %i328 = icmp eq ptr %i327, @func
+//
+bool PredCandidate::isHoistableFieldVtableLoad(
+    Value *V, Constant *C, SmallVectorImpl<Instruction *> &HoistingInst) {
+
+  // Check LI is used by type_test and assume intrinsics.
+  auto IsVtableLoad = [](LoadInst *LI, GetElementPtrInst *GEPUse) -> bool {
+    Value *UseInTypeTest = nullptr;
+    for (auto *U : LI->users()) {
+      if (U == GEPUse)
+        continue;
+      if (UseInTypeTest)
+        return false;
+      UseInTypeTest = U;
+    }
+    if (!UseInTypeTest)
+      return false;
+    auto II = dyn_cast<IntrinsicInst>(UseInTypeTest);
+    if (!II || II->getIntrinsicID() != Intrinsic::type_test)
+      return false;
+    if (!II->hasOneUse())
+      return false;
+    auto AssumeII = dyn_cast<IntrinsicInst>(II->user_back());
+    if (!AssumeII || AssumeII->getIntrinsicID() != Intrinsic::assume)
+      return false;
+    return true;
+  };
+
+  if (!isa<Function>(C))
+    return false;
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  HoistingInst.push_back(LI);
+  auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+  if (!GEP)
+    return false;
+  if (GEP->getNumIndices() != 1)
+    return false;
+  HoistingInst.push_back(GEP);
+  auto *VTLoad = dyn_cast<LoadInst>(GEP->getPointerOperand());
+  if (!VTLoad)
+    return false;
+  if (!IsVtableLoad(VTLoad, GEP))
+    return false;
+  HoistingInst.push_back(VTLoad);
+
+  auto *NormGEP = dyn_cast<GetElementPtrInst>(VTLoad->getPointerOperand());
+  if (!NormGEP || !NormGEP->hasAllZeroIndices())
+    return false;
+  HoistingInst.push_back(NormGEP);
+  // No further checks are needed if pointer operand of NormGEP already
+  // dominates CondCall.
+  if (DT.dominates(NormGEP->getPointerOperand(), CondCall))
+    return true;
+
+  // If FieldLI is load from another address, makes sure the load
+  // can be hoisted.
+  auto *FieldLI = dyn_cast<LoadInst>(NormGEP->getPointerOperand());
+  if (!FieldLI)
+    return false;
+  SmallPtrSet<Instruction *, 32> Visited;
+  if (!canBeMovedTo(FieldLI->getPointerOperand(), CondCall, Visited))
+    return false;
+  if (!guaranteedToBeNonNullOnCondCallEntry(FieldLI->getPointerOperand()))
+    return false;
+
+  HoistingInst.push_back(FieldLI);
+  HoistingInst.push_back(cast<Instruction>(FieldLI->getPointerOperand()));
+  return true;
+}
+
 // Check legality issues to hoist conditions.
 bool PredCandidate::checkLegalityIssues() {
   // Makes sure all basic blocks between ThenBB and ExitBB are either
@@ -383,6 +619,46 @@ bool PredCandidate::checkLegalityIssues() {
     if (!ExecutedBlocks.count(&BB) && !ControlBlocks.count(&BB))
       return false;
 
+  // Check if all needed conditions can be hoisted to CondCall.
+  for (auto *BB : ControlBlocks) {
+    auto *BI = cast<BranchInst>(BB->getTerminator());
+    auto *IC = cast<ICmpInst>(BI->getCondition());
+    auto *C1 = dyn_cast<Constant>(IC->getOperand(0));
+    auto *C2 = dyn_cast<Constant>(IC->getOperand(1));
+    Value *V = nullptr;
+    Constant *C = nullptr;
+    if (C1 && !C2) {
+      V = IC->getOperand(1);
+      C = C1;
+    } else if (!C1 && C2) {
+      V = IC->getOperand(0);
+      C = C2;
+    }
+    if (!V || !C)
+      return false;
+
+    LLVM_DEBUG(dbgs() << "Check legality for hoisting: " << *V << "\n");
+    SmallPtrSet<Instruction *, 32> Visited;
+    if (canBeMovedTo(V, CondCall, Visited)) {
+      LLVM_DEBUG(dbgs() << "      Hoisting can be done \n");
+      continue;
+    }
+    SmallVector<Instruction *, 8> HoistingInst;
+    if (isHoistableSimpleLoad(V, HoistingInst)) {
+      if (!checkAllHoistingInstInControlBlocks(HoistingInst))
+        return false;
+      LLVM_DEBUG(dbgs() << "      Simple Load Hoisting  \n");
+      continue;
+    }
+    if (isHoistableFieldVtableLoad(V, C, HoistingInst)) {
+      if (!checkAllHoistingInstInControlBlocks(HoistingInst))
+        return false;
+      LLVM_DEBUG(dbgs() << "      Field Vtable Load Hoisting  \n");
+      continue;
+    }
+    LLVM_DEBUG(dbgs() << "      Hoisting can't be done \n");
+    return false;
+  }
   return true;
 }
 
@@ -501,6 +777,7 @@ void IPPredOptImpl::gatherCandidates(Function &F) {
 
   DominatorTree &DT = DTGetter(F);
   PostDominatorTree &PDT = PDTGetter(F);
+  AssumptionCache &AC = ACGetter(F);
 
   for (auto &BB : F) {
     // Checking for code with this pattern to find candidates.
@@ -552,7 +829,7 @@ void IPPredOptImpl::gatherCandidates(Function &F) {
       continue;
 
     std::unique_ptr<PredCandidate> CandD(
-        new PredCandidate(ExitBB, ThenBB, DT, PDT));
+        new PredCandidate(ExitBB, ThenBB, CI, DT, PDT, AC));
 
     // Collect ExecutedBB if there are any.
     if (!CandD->collectExecutedBlocks())
@@ -611,8 +888,11 @@ PreservedAnalyses IPPredOptPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto PDTGetter = [&FAM](Function &F) -> PostDominatorTree & {
     return FAM.getResult<PostDominatorTreeAnalysis>(F);
   };
+  auto ACGetter = [&FAM](Function &F) -> AssumptionCache & {
+    return FAM.getResult<AssumptionAnalysis>(F);
+  };
 
-  IPPredOptImpl IPPredOptI(M, WPInfo, DTGetter, PDTGetter);
+  IPPredOptImpl IPPredOptI(M, WPInfo, DTGetter, PDTGetter, ACGetter);
   if (!IPPredOptI.run())
     return PreservedAnalyses::all();
   auto PA = PreservedAnalyses();
