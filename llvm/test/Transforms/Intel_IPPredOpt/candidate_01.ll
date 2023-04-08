@@ -15,6 +15,10 @@
 ; CHECK:      [  %i328 = icmp eq ptr %i327, @_ZNK11xercesc_2_76IC_Key7getTypeEv, false]
 ; CHECK:      [  %i319 = icmp eq i8 %i318, 0, false]
 ;
+; CHECK-DAG: Field Vtable Load Hoisting
+; CHECK-DAG: Simple Load Hoisting
+; CHECK-DAG: Field Vtable Load Hoisting
+;
 ; CHECK:  Found candidate
 
 
