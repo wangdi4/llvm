@@ -112,6 +112,7 @@ target_link_libraries(
   LLVMDebugInfoDWARF
   LLVMDebugInfoTraceBack
   LLVMInterpreterPluggable
+  LLVMIntel_Debug
   LLVMMC
   LLVMMCDisassembler
   LLVMMCParser

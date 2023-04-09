@@ -16,6 +16,7 @@ set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
   LLVMDebugInfoDWARF
   LLVMDebugInfoTraceBack
   LLVMIntelJITEvents
+  LLVMIntel_Debug
   LLVMMC
   LLVMMCDisassembler
   LLVMMCParser
