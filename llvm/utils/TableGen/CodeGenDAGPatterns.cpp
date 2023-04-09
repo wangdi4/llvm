@@ -3966,9 +3966,8 @@ void CodeGenDAGPatterns::parseInstructionPattern(
   // Create and insert the instruction.
   // FIXME: InstImpResults should not be part of DAGInstruction.
   Record *R = I.getRecord();
-  DAGInsts.emplace(std::piecewise_construct, std::forward_as_tuple(R),
-                   std::forward_as_tuple(Results, Operands, InstImpResults,
-                                         SrcPattern, ResultPattern));
+  DAGInsts.try_emplace(R, Results, Operands, InstImpResults, SrcPattern,
+                       ResultPattern);
 
   LLVM_DEBUG(I.dump());
 }
@@ -4009,8 +4008,7 @@ void CodeGenDAGPatterns::ParseInstructions() {
 
       // Create and insert the instruction.
       std::vector<Record*> ImpResults;
-      Instructions.insert(std::make_pair(Instr,
-                            DAGInstruction(Results, Operands, ImpResults)));
+      Instructions.try_emplace(Instr, Results, Operands, ImpResults);
       continue;  // no pattern.
     }
 
