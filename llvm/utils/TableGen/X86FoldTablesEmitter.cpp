@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -302,7 +302,11 @@ public:
     const Record *MemRec = MemInst->TheDef;
 
     // EVEX_B means different things for memory and register forms.
-    if (RegRI.HasEVEX_B || MemRI.HasEVEX_B)
+#if INTEL_CUSTOMIZATION
+    if (((RegRI.HasEVEX_B || MemRI.HasEVEX_B) &&
+         RegRI.OpMap != X86Local::T_MAP4) ||
+        RegRI.HasEVEX_B != MemRI.HasEVEX_B)
+#endif // INTEL_CUSTOMIZATION
       return false;
 
     if (!mayFoldFromLeftToRight(RegRI.Form, MemRI.Form))
