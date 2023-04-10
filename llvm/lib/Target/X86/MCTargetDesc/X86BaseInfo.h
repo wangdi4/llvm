@@ -1221,6 +1221,16 @@ namespace X86II {
     case X86II::PrefixByte:
       return -1;
     case X86II::MRMDestMem:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      return (TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
+                     (TSFlags & X86II::EVEX_B)
+                 ? 1
+                 : 0;
+#else // INTEL_FEATURE_ISA_APX_F
+      return 0;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86II::MRMDestMemFSIB:
 #if INTEL_CUSTOMIZATION
     case X86II::MRMDestMemImm8:

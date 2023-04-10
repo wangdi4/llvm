@@ -599,6 +599,12 @@ void RecognizableInstr::emitInstructionSpecifier() {
     ++additionalOperands;
 #endif
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  bool IsND = OpMap == X86Local::T_MAP4 && HasEVEX_B;
+
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   switch (Form) {
   default: llvm_unreachable("Unhandled form");
   case X86Local::PrefixByte:
@@ -648,11 +654,23 @@ void RecognizableInstr::emitInstructionSpecifier() {
            numPhysicalOperands <= 3 + additionalOperands &&
            "Unexpected number of operands for MRMDestRegFrm");
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (IsND)
+      HANDLE_OPERAND(vvvvRegister)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(rmRegister)
     if (HasEVEX_K)
       HANDLE_OPERAND(writemaskRegister)
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (!IsND && HasVEX_4V)
+#else  // INTEL_FEATURE_ISA_APX_F
     if (HasVEX_4V)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       // FIXME: In AVX, the register below becomes the one encoded
       // in ModRMVEX and the one above the one in the VEX.VVVV field
       HANDLE_OPERAND(vvvvRegister)
@@ -713,12 +731,24 @@ void RecognizableInstr::emitInstructionSpecifier() {
            numPhysicalOperands <= 3 + additionalOperands &&
            "Unexpected number of operands for MRMDestMemFrm with VEX_4V");
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (IsND)
+      HANDLE_OPERAND(vvvvRegister)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(memory)
 
     if (HasEVEX_K)
       HANDLE_OPERAND(writemaskRegister)
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (!IsND && HasVEX_4V)
+#else  // INTEL_FEATURE_ISA_APX_F
     if (HasVEX_4V)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       // FIXME: In AVX, the register below becomes the one encoded
       // in ModRMVEX and the one above the one in the VEX.VVVV field
       HANDLE_OPERAND(vvvvRegister)
