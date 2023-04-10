@@ -2359,17 +2359,13 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   if (GEP.hasAllConstantIndices() &&
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
   if (PtrTy->isOpaquePointerTy() && GEP.hasAllConstantIndices() &&
-<<<<<<< HEAD
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_CUSTOMIZATION
       // Skip offset folding in pre_loopopt mode as it loses struct offset
       // information needed by loopopt.
       (Src->hasOneUse() || Src->hasAllConstantIndices()) &&
       !GEP.getParent()->getParent()->isPreLoopOpt()) {
 #endif // INTEL_CUSTOMIZATION
-=======
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-      (Src->hasOneUse() || Src->hasAllConstantIndices())) {
->>>>>>> 44805e4f6ef2e18d6ab372227da8fa53bca431a5
     // Split Src into a variable part and a constant suffix.
     gep_type_iterator GTI = gep_type_begin(*Src);
     Type *BaseType = GTI.getIndexedType();
