@@ -2355,7 +2355,11 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   // For constant GEPs, use a more general offset-based folding approach.
   // Only do this for opaque pointers, as the result element type may change.
   Type *PtrTy = Src->getType()->getScalarType();
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  if (GEP.hasAllConstantIndices() &&
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   if (PtrTy->isOpaquePointerTy() && GEP.hasAllConstantIndices() &&
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_CUSTOMIZATION
       // Skip offset folding in pre_loopopt mode as it loses struct offset
       // information needed by loopopt.
