@@ -8530,7 +8530,8 @@ multiclass avx512_fma3p_213_rm<bits<8> opc, string OpcodeStr, SDPatternOperator 
           OpcodeStr, "$src3, $src2", "$src2, $src3",
           (_.VT (OpNode _.RC:$src2, _.RC:$src1, (_.LdFrag addr:$src3))),
           (_.VT (MaskOpNode _.RC:$src2, _.RC:$src1, (_.LdFrag addr:$src3))), 1, 0>,
-          EVEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
+          EVEX_4V, Sched<[sched.Folded, sched.ReadAfterFold,
+                          sched.ReadAfterFold]>;
 
   defm mb: AVX512_maskable_fma<opc, MRMSrcMem, _, (outs _.RC:$dst),
             (ins _.RC:$src2, _.ScalarMemOp:$src3),
@@ -8540,7 +8541,8 @@ multiclass avx512_fma3p_213_rm<bits<8> opc, string OpcodeStr, SDPatternOperator 
              _.RC:$src1,(_.VT (_.BroadcastLdFrag addr:$src3))),
             (MaskOpNode _.RC:$src2,
              _.RC:$src1,(_.VT (_.BroadcastLdFrag addr:$src3))), 1, 0>,
-            EVEX_4V, EVEX_B, Sched<[sched.Folded, sched.ReadAfterFold]>;
+            EVEX_4V, EVEX_B, Sched<[sched.Folded, sched.ReadAfterFold,
+                                    sched.ReadAfterFold]>;
   }
 }
 
@@ -8629,7 +8631,8 @@ multiclass avx512_fma3p_231_rm<bits<8> opc, string OpcodeStr, SDPatternOperator 
           OpcodeStr, "$src3, $src2", "$src2, $src3",
           (_.VT (OpNode _.RC:$src2, (_.LdFrag addr:$src3), _.RC:$src1)),
           (_.VT (MaskOpNode _.RC:$src2, (_.LdFrag addr:$src3), _.RC:$src1)), 1, 0>,
-          EVEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
+          EVEX_4V, Sched<[sched.Folded, sched.ReadAfterFold,
+                          sched.ReadAfterFold]>;
 
   defm mb: AVX512_maskable_fma<opc, MRMSrcMem, _, (outs _.RC:$dst),
          (ins _.RC:$src2, _.ScalarMemOp:$src3),
@@ -8641,7 +8644,8 @@ multiclass avx512_fma3p_231_rm<bits<8> opc, string OpcodeStr, SDPatternOperator 
          (_.VT (MaskOpNode _.RC:$src2,
                            (_.VT (_.BroadcastLdFrag addr:$src3)),
                            _.RC:$src1)), 1, 0>, EVEX_4V, EVEX_B,
-         Sched<[sched.Folded, sched.ReadAfterFold]>;
+         Sched<[sched.Folded, sched.ReadAfterFold,
+                sched.ReadAfterFold]>;
   }
 }
 
@@ -8731,7 +8735,8 @@ multiclass avx512_fma3p_132_rm<bits<8> opc, string OpcodeStr, SDPatternOperator 
           OpcodeStr, "$src3, $src2", "$src2, $src3",
           (_.VT (OpNode (_.LdFrag addr:$src3), _.RC:$src1, _.RC:$src2)),
           (_.VT (MaskOpNode (_.LdFrag addr:$src3), _.RC:$src1, _.RC:$src2)), 1, 0>,
-          EVEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
+          EVEX_4V, Sched<[sched.Folded, sched.ReadAfterFold,
+                          sched.ReadAfterFold]>;
 
   // Pattern is 312 order so that the load is in a different place from the
   // 213 and 231 patterns this helps tablegen's duplicate pattern detection.
@@ -8743,7 +8748,8 @@ multiclass avx512_fma3p_132_rm<bits<8> opc, string OpcodeStr, SDPatternOperator 
                        _.RC:$src1, _.RC:$src2)),
          (_.VT (MaskOpNode (_.VT (_.BroadcastLdFrag addr:$src3)),
                            _.RC:$src1, _.RC:$src2)), 1, 0>,
-         EVEX_4V, EVEX_B, Sched<[sched.Folded, sched.ReadAfterFold]>;
+         EVEX_4V, EVEX_B, Sched<[sched.Folded, sched.ReadAfterFold,
+                                 sched.ReadAfterFold]>;
   }
 }
 
@@ -8827,7 +8833,8 @@ let Constraints = "$src1 = $dst", hasSideEffects = 0 in {
   defm m_Int: AVX512_maskable_3src_scalar<opc, MRMSrcMem, _, (outs _.RC:$dst),
           (ins _.RC:$src2, _.IntScalarMemOp:$src3), OpcodeStr,
           "$src3, $src2", "$src2, $src3", (null_frag), 1, 1>,
-          EVEX_4V, Sched<[SchedWriteFMA.Scl.Folded, SchedWriteFMA.Scl.ReadAfterFold]>, SIMD_EXC;
+          EVEX_4V, Sched<[SchedWriteFMA.Scl.Folded, SchedWriteFMA.Scl.ReadAfterFold,
+                          SchedWriteFMA.Scl.ReadAfterFold]>, SIMD_EXC;
 
   let Uses = [MXCSR] in
   defm rb_Int: AVX512_maskable_3src_scalar<opc, MRMSrcReg, _, (outs _.RC:$dst),
@@ -8845,7 +8852,8 @@ let Constraints = "$src1 = $dst", hasSideEffects = 0 in {
                     (ins _.FRC:$src1, _.FRC:$src2, _.ScalarMemOp:$src3),
                     !strconcat(OpcodeStr,
                                "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
-                    [RHS_m]>, Sched<[SchedWriteFMA.Scl.Folded, SchedWriteFMA.Scl.ReadAfterFold]>, EVEX_4V, SIMD_EXC;
+                    [RHS_m]>, Sched<[SchedWriteFMA.Scl.Folded, SchedWriteFMA.Scl.ReadAfterFold,
+                                     SchedWriteFMA.Scl.ReadAfterFold]>, EVEX_4V, SIMD_EXC;
 
     let Uses = [MXCSR] in
     def rb    : AVX512<opc, MRMSrcReg, (outs _.FRC:$dst),
@@ -9182,7 +9190,8 @@ multiclass avx512_pmadd52_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
           (ins _.RC:$src2, _.MemOp:$src3),
           OpcodeStr, "$src3, $src2", "$src2, $src3",
           (_.VT (OpNode _.RC:$src2, (_.LdFrag addr:$src3), _.RC:$src1))>,
-          T8PD, EVEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
+          T8PD, EVEX_4V, Sched<[sched.Folded, sched.ReadAfterFold,
+                                sched.ReadAfterFold]>;
 
   defm mb: AVX512_maskable_3src<opc, MRMSrcMem, _, (outs _.RC:$dst),
             (ins _.RC:$src2, _.ScalarMemOp:$src3),
@@ -9191,7 +9200,8 @@ multiclass avx512_pmadd52_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
             (OpNode _.RC:$src2,
                     (_.VT (_.BroadcastLdFrag addr:$src3)),
                     _.RC:$src1)>,
-            T8PD, EVEX_4V, EVEX_B, Sched<[sched.Folded, sched.ReadAfterFold]>;
+            T8PD, EVEX_4V, EVEX_B, Sched<[sched.Folded, sched.ReadAfterFold,
+                                          sched.ReadAfterFold]>;
   }
 }
 } // Constraints = "$src1 = $dst"
