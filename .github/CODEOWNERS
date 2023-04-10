@@ -186,6 +186,7 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/CodeGen/LexicalScopes.h @bwyma @stevemerr
 /llvm/include/llvm/DebugInfo/CodeView/ @bwyma @stevemerr
 /llvm/include/llvm/DebugInfo/DWARF/ @bwyma @stevemerr
+/llvm/include/llvm/DebugInfo/Intel_Debug/ @bwyma @stevemerr
 /llvm/lib/IR/Debug* @bwyma @stevemerr
 /llvm/lib/CodeGen/AsmPrinter/CodeView* @bwyma @stevemerr
 /llvm/lib/CodeGen/AsmPrinter/Dbg* @bwyma @stevemerr
@@ -197,10 +198,12 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/CodeGen/LiveDebugVariables* @bwyma @stevemerr
 /llvm/lib/DebugInfo/CodeView/ @bwyma @stevemerr
 /llvm/lib/DebugInfo/DWARF/ @bwyma @stevemerr
+/llvm/lib/DebugInfo/Intel_Debug/ @bwyma @stevemerr
 /llvm/lib/ObjectYAML/CodeViewYAMLTypes.cpp @bwyma @stevemerr
 /llvm/test/DebugInfo/COFF/ @bwyma @stevemerr
 /llvm/test/DebugInfo/Generic/ @bwyma @stevemerr
 /llvm/test/DebugInfo/X86/ @bwyma @stevemerr
+/llvm/test/DebugInfo/Intel_Debug/ @bwyma @stevemerr
 /llvm/tools/llvm-pdbutil/ @bwyma @stevemerr
 /llvm/unittests/DebugInfo/ @bwyma @stevemerr
 /llvm/lib/MC/MCDwarf.cpp @bwyma @stevemerr
