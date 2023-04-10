@@ -558,6 +558,13 @@ void X86FoldTablesEmitter::run(raw_ostream &o) {
     if (NoFoldSet.find(Rec->getName()) != NoFoldSet.end())
       continue;
 
+#if INTEL_CUSTOMIZATION
+    if (byteFromBitsInit(Rec->getValueAsBitsInit("OpMapBits")) ==
+            X86Local::T_MAP4 &&
+        Rec->getValueAsBit("EmitVEXOrEVEXPrefix"))
+      continue;
+#endif // INTEL_CUSTOMIZATION
+
     // - Instructions including RST register class operands are not relevant
     //   for memory folding (for further details check the explanation in
     //   lib/Target/X86/X86InstrFPStack.td file).
