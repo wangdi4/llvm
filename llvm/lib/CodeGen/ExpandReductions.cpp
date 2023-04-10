@@ -163,44 +163,6 @@ bool expandReductions(Function &F, const TargetTransformInfo *TTI) {
       }
       break;
     }
-#if  0
-    case Intrinsic::vector_reduce_and:
-    case Intrinsic::vector_reduce_or: {
-      Value *Vec = II->getArgOperand(0);
-      // Transform reduce.or/reduce.and to bitcast+icmp when the scalar type
-      // is i1:
-      // %out = reduce.or/and(<vN x i1> %in)
-      // ==>
-      // %iN = bitcast <vN x i1> %in to iN
-      // %out = icmp.ne/eq %iN, 0/-1
-      if (TTI->isAdvancedOptEnabled(
-              TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42)) {
-        auto VecTy = cast<FixedVectorType>(Vec->getType());
-        Type *ScalarTy = VecTy->getElementType();
-
-        if (ScalarTy->isIntegerTy() && ScalarTy->getIntegerBitWidth() == 1) {
-          unsigned BitWidth = VecTy->getNumElements();
-          Value *BitCast = Builder.CreateBitCast(
-              Vec, Type::getIntNTy(II->getContext(), BitWidth));
-
-          ICmpInst::Predicate Pred =
-              ID == Intrinsic::vector_reduce_or
-                  ? ICmpInst::ICMP_NE
-                  : ICmpInst::ICMP_EQ;
-
-          Value *CmpValue =
-              ID == Intrinsic::vector_reduce_or
-                  ? Constant::getNullValue(BitCast->getType())
-                  : Constant::getAllOnesValue(BitCast->getType());
-
-          Rdx = Builder.CreateICmp(Pred, BitCast, CmpValue);
-          break;
-        }
-      }
-    }
-    LLVM_FALLTHROUGH;
-#endif
-
     case Intrinsic::vector_reduce_and:
     case Intrinsic::vector_reduce_or: {
       // Canonicalize logical or/and reductions:
