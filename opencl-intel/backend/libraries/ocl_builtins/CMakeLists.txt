@@ -298,27 +298,6 @@ function(
   set(PRECOMPILED_OUTPUT_FILE
       ${OCL_LIBRARY_TARGET_NAME}${ARCH}${OCL_PRECOMPILED_OUTPUT_EXTENSION})
 
-  # link shared rtl and particular BI rtl image callback rtl must be linked with
-  # built-ins RTL statically, we have two built-ins rtls: shared
-  # (clbltfnshared.rtl) and particular lib (for  example, clbltfnl9.rtl), but
-  # image optimizer takes only one runtime lib as argument, so we have to link
-  # clbltfnshared.rtl and particular (clbltfnl9.rtl, for instance) together to
-  # temporary TMP_LINKED_RTL_OUTPUT and then link image callback rtl
-  # (${OUTPUT_FILE}_noopt) with this TMP_LINKED_RTL_OUTPUT We also allow symbols
-  # from target-specific rtl (e.g. clbltfnl9.rtl) to override defined symbol in
-  # shared rtl.
-  add_custom_command(
-    OUTPUT ${TMP_LINKED_RTL_OUTPUT}
-    COMMENT "Linking tmp rtl ${TMP_LINKED_RTL}"
-    COMMAND
-      ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${TMP_LINKED_RTL_OUTPUT}
-      --override=${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
-      ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
-    DEPENDS
-      ${LLVM_LINK} ${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
-      ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
-    VERBATIM)
-
   if(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     set(OPT_PASSES "function(infer-address-spaces),")
   endif()
@@ -328,14 +307,17 @@ function(
     COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
     COMMAND
       ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB}
-      -sycl-kernel-builtin-lib=${TMP_LINKED_RTL_OUTPUT}
+      # Import target library before shared library since there are duplicate symbols in them. TODO remove duplicate symbols.
+      -sycl-kernel-builtin-lib=${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION},${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
       -sycl-kernel-cpu-prefix=${ARCH}
       "-passes=${OPT_PASSES}sycl-kernel-builtin-import,function(sycl-kernel-builtin-call-to-inst)"
       -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
     COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas ${CL_OPT_LEVEL}
             -disable-intel-proprietary-opts # INTEL
 	    -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
-    DEPENDS ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB} ${TMP_LINKED_RTL_OUTPUT}
+    DEPENDS ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB}
+      ${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
+      ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
     VERBATIM)
 
   # link with kernel rtl
