@@ -14,6 +14,7 @@
 ; CHECK: MRC PredicateOpt: HoistNo: {18,21}
 ; CHECK: MRC Predicate Opt: Hoistable: T
 ; CHECK: MRC Predicate Opt: FindMultiLoop: T
+; CHECK: MRC PredicateOpt: Loop Stores To: {{.*}} alloca %struct._ZTS18_MagickPixelPacket._MagickPixelPacket, align 8
 ; CHECK: MRC Predicate Opt: ValidateMultiLoop: T
 ; CHECK: MRC PredicateOpt: Loop Depth = 5
 ; CHECK: BaseF: GetVirtualPixelsFromNexus
