@@ -1504,8 +1504,12 @@ Instruction *InstCombinerImpl::foldBinOpIntoSelectOrPhi(BinaryOperator &I) {
   return nullptr;
 }
 
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
+=======
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> 08e752e23a6bab09b8f7cff7cb38a34258d08fc8
 /// Given a pointer type and a constant offset, determine whether or not there
 /// is a sequence of GEP indices into the pointed type that will land us at the
 /// specified offset. If so, fill them into NewIndices and return the resultant
@@ -1527,7 +1531,11 @@ static Type *findElementAtOffset(PointerType *PtrTy, int64_t IntOffset,
     NewIndices.push_back(ConstantInt::get(PtrTy->getContext(), Index));
   return Ty;
 }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> 08e752e23a6bab09b8f7cff7cb38a34258d08fc8
 
 static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
   // If this GEP has only 0 indices, it is the same pointer as
@@ -2503,7 +2511,11 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   return nullptr;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> 08e752e23a6bab09b8f7cff7cb38a34258d08fc8
 // Note that we may have also stripped an address space cast in between.
 Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
                                                  GetElementPtrInst &GEP) {
@@ -2608,6 +2620,7 @@ Instruction *InstCombinerImpl::visitGEPOfBitcast(BitCastInst *BCI,
 
   return nullptr;
 }
+<<<<<<< HEAD
 
 // Transform:
 // %V = mul i64 %N, 4
@@ -2686,6 +2699,10 @@ InstCombinerImpl::convertOpaqueGEPToLoadStoreType(GetElementPtrInst &GEP) {
   return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
+>>>>>>> 08e752e23a6bab09b8f7cff7cb38a34258d08fc8
 Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   Value *PtrOp = GEP.getOperand(0);
   SmallVector<Value *, 8> Indices(GEP.indices());
@@ -2922,6 +2939,7 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   if (GEPType->isVectorTy())
     return nullptr;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Handle gep(bitcast x) and gep(gep x, 0, 0, 0).
   Value *StrippedPtr = PtrOp->stripPointerCasts();
@@ -3100,6 +3118,9 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     }
   }
 
+=======
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> 08e752e23a6bab09b8f7cff7cb38a34258d08fc8
   // addrspacecast between types is canonicalized as a bitcast, then an
   // addrspacecast. To take advantage of the below bitcast + struct GEP, look
   // through the addrspacecast.
@@ -3116,8 +3137,12 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   if (auto *BCI = dyn_cast<BitCastInst>(ASCStrippedPtrOp))
     if (Instruction *I = visitGEPOfBitcast(BCI, GEP))
       return I;
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
 
+=======
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> 08e752e23a6bab09b8f7cff7cb38a34258d08fc8
   if (!GEP.isInBounds()) {
     unsigned IdxWidth =
         DL.getIndexSizeInBits(PtrOp->getType()->getPointerAddressSpace());
