@@ -2771,7 +2771,11 @@ bool HIRRegionIdentification::hasNonGEPAccess(
   // Trace pointers starting from PhiUpdateInst until we reach AddRecPhi.
   while (Inst != AddRecPtrPhi) {
     if (auto GEPInst = dyn_cast<GEPOrSubsOperator>(Inst)) {
-      Inst = cast<Instruction>(GEPInst->getPointerOperand());
+      Inst = dyn_cast<Instruction>(GEPInst->getPointerOperand());
+
+      if (!Inst) {
+        return false;
+      }
     } else {
       // Some other kind of instruction is involved, probably a bitcast
       // instruction.
