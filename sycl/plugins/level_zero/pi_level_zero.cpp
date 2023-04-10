@@ -921,11 +921,7 @@ _pi_queue::_pi_queue(std::vector<ze_command_queue_handle_t> &ComputeQueues,
   // Set the type of commandlists the queue will use.
   bool Default = !ImmediateCommandlistEnvVarIsSet;
   UsingImmCmdLists = Device->useImmediateCommandLists();
-<<<<<<< HEAD
   urPrint("ImmCmdList env var is set (%s), OldAPI (%s)\n",
-=======
-  zePrint("ImmCmdList env var is set (%s), OldAPI (%s)\n",
->>>>>>> 138d856cbc0f9aa6ebeaf670ce82f5079cbf20cb
           (ImmediateCommandlistEnvVarIsSet ? "YES" : "NO"),
           (OldAPI ? "YES" : "NO"));
 
@@ -933,11 +929,7 @@ _pi_queue::_pi_queue(std::vector<ze_command_queue_handle_t> &ComputeQueues,
     // The default when called from pre-compiled binaries is to not use
     // immediate command lists.
     UsingImmCmdLists = false;
-<<<<<<< HEAD
   urPrint("ImmCmdList setting (%s)\n", (UsingImmCmdLists ? "YES" : "NO"));
-=======
-  zePrint("ImmCmdList setting (%s)\n", (UsingImmCmdLists ? "YES" : "NO"));
->>>>>>> 138d856cbc0f9aa6ebeaf670ce82f5079cbf20cb
 
   // Compute group initialization.
   // First, see if the queue's device allows for round-robin or it is
@@ -1624,11 +1616,7 @@ pi_result _pi_queue::executeCommandList(pi_command_list_ptr_t CommandList,
   }
 
   // Check global control to make every command blocking for debugging.
-<<<<<<< HEAD
   if (IsBlocking || (UrL0Serialize & UrL0SerializeBlock) != 0) {
-=======
-  if (IsBlocking || (ZeSerialize & ZeSerializeBlock) != 0) {
->>>>>>> 138d856cbc0f9aa6ebeaf670ce82f5079cbf20cb
     if (UsingImmCmdLists) {
       synchronize();
     } else {
@@ -2926,34 +2914,6 @@ pi_result piextQueueGetNativeHandle(pi_queue Queue,
   auto &QueueGroup = Queue->getQueueGroup(false /*compute*/);
   uint32_t QueueGroupOrdinalUnused;
   *ZeQueue = QueueGroup.getZeQueue(&QueueGroupOrdinalUnused);
-  return PI_SUCCESS;
-}
-
-pi_result piextQueueGetNativeHandle2(pi_queue Queue,
-                                     pi_native_handle *NativeHandle,
-                                     int32_t *NativeHandleDesc) {
-  PI_ASSERT(Queue, PI_ERROR_INVALID_QUEUE);
-  PI_ASSERT(NativeHandle, PI_ERROR_INVALID_VALUE);
-  PI_ASSERT(NativeHandleDesc, PI_ERROR_INVALID_VALUE);
-
-  // Lock automatically releases when this goes out of scope.
-  std::shared_lock<pi_shared_mutex> lock(Queue->Mutex);
-
-  // Get handle to this thread's queue group.
-  auto &QueueGroup = Queue->getQueueGroup(false /*compute*/);
-
-  if (Queue->UsingImmCmdLists) {
-    auto ZeCmdList = pi_cast<ze_command_list_handle_t *>(NativeHandle);
-    // Extract the Level Zero command list handle from the given PI queue
-    *ZeCmdList = QueueGroup.getImmCmdList()->first;
-    *NativeHandleDesc = true;
-  } else {
-    auto ZeQueue = pi_cast<ze_command_queue_handle_t *>(NativeHandle);
-    // Extract a Level Zero compute queue handle from the given PI queue
-    uint32_t QueueGroupOrdinalUnused;
-    *ZeQueue = QueueGroup.getZeQueue(&QueueGroupOrdinalUnused);
-    *NativeHandleDesc = false;
-  }
   return PI_SUCCESS;
 }
 
