@@ -23975,7 +23975,7 @@ RValue CodeGenFunction::EmitBuiltinGenerateSIMDVariant(const CallExpr *E) {
   QualType VariantFuncT = VariantArg->getType()->getPointeeType();
 
   std::string MangledVariantName = createMangledSIMDName(
-      VariantFuncT->getAs<FunctionProtoType>(), VLen, FuncName);
+      VariantFuncT->castAs<FunctionProtoType>(), VLen, FuncName);
 
   Value *Arg = CGM.GetAddrOfFunction(FD);
 
@@ -24007,6 +24007,7 @@ RValue CodeGenFunction::EmitBuiltinCallSIMDVariant(const CallExpr *E) {
 
   const TemplateSpecializationType *TST =
       VLengthArgType->getAs<TemplateSpecializationType>();
+  assert(TST && "expected list of vector lengths");
 
   std::string AllNames;
   for (const auto &TArg : TST->template_arguments()) {

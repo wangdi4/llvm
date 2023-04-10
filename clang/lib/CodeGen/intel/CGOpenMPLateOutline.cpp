@@ -3270,7 +3270,7 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
   UseTypedClauses = CGF.CGM.getCodeGenOpts().OpenMPTypedClauses;
 
   if (isOpenMPLoopDirective(CurrentDirectiveKind)) {
-    auto *LoopDir = dyn_cast<OMPLoopDirective>(&D);
+    auto *LoopDir = cast<OMPLoopDirective>(&D);
 
     // If this loop was transformed by a tile directive, find the original
     // loop variables and mark them private.
