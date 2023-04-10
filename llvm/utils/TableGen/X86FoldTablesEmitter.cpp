@@ -303,9 +303,18 @@ public:
 
     // EVEX_B means different things for memory and register forms.
 #if INTEL_CUSTOMIZATION
+<<<<<<< HEAD
     if (((RegRI.HasEVEX_B || MemRI.HasEVEX_B) &&
          RegRI.OpMap != X86Local::T_MAP4) ||
         RegRI.HasEVEX_B != MemRI.HasEVEX_B)
+=======
+#if INTEL_FEATURE_ISA_APX_F
+    if ((RegRI.HasEVEX_B != 0 || MemRI.HasEVEX_B != 0) &&
+        (RegRI.OpMap != X86Local::T_MAP4 || MemRI.OpMap != X86Local::T_MAP4))
+#else  // INTEL_FEATURE_ISA_APX_F
+    if (RegRI.HasEVEX_B != 0 || MemRI.HasEVEX_B != 0)
+#endif // INTEL_FEATURE_ISA_APX_F
+>>>>>>> 14c1a4defae2bffdc658659b5c9c8f3395c9e02d
 #endif // INTEL_CUSTOMIZATION
       return false;
 
@@ -555,9 +564,21 @@ void X86FoldTablesEmitter::run(raw_ostream &o) {
     if (!Rec->isSubClassOf("X86Inst") || Rec->getValueAsBit("isAsmParserOnly"))
       continue;
 
+<<<<<<< HEAD
     if (NoFoldSet.find(Rec->getName()) != NoFoldSet.end())
       continue;
 
+=======
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (getValueFromBitsInit(Rec->getValueAsBitsInit("OpMapBits")) ==
+            X86Local::T_MAP4 &&
+        Rec->getValueAsBit("EmitVEXOrEVEXPrefix"))
+      continue;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+    // - Do not proceed if the instruction is marked as notMemoryFoldable.
+>>>>>>> 14c1a4defae2bffdc658659b5c9c8f3395c9e02d
     // - Instructions including RST register class operands are not relevant
     //   for memory folding (for further details check the explanation in
     //   lib/Target/X86/X86InstrFPStack.td file).
