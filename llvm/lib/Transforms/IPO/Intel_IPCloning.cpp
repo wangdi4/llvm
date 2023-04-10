@@ -4972,8 +4972,8 @@ Loop *PredicateOpt::findMultiLoop(CallBase *CB) {
 //   call void @llvm.lifetime.end.p0(i64 56, ptr nonnull %8)
 // and being passed to a function:
 //   call void @GetMagickPixelPacket(ptr noundef %0, ptr noundef nonnull %8)
-// where it is used to store constants to the structure fields:
-//   %3 = getelementptr inbounds %S, ptr %1, i64 0, i32 0, !intel-tbaa !4550
+// where it is used to store values to the structure fields:
+//   %3 = getelementptr inbounds %S, ptr %1, i64 0, i32 0
 //   store i32 1, ptr %3, align 8
 //   %4 = getelementptr inbounds %S, ptr %1, i64 0, i32 1
 //   store i32 13, ptr %4, align 4
@@ -4993,6 +4993,14 @@ Loop *PredicateOpt::findMultiLoop(CallBase *CB) {
 //   store float 0.000000e+00, ptr %11, align 4
 //   %12 = getelementptr inbounds %S, ptr %1, i64 0, i32 9
 //   store float 0.000000e+00, ptr %12, align 8
+//   ...
+//   store i32 %16, ptr %3, align 8
+//   store i32 %18, ptr %4, align 4
+//   store i32 %20, ptr %5, align 8
+//   store double %24, ptr %6, align 8
+//   store i64 %22, ptr %7, align 8
+// The key point is that %7 should not be stored some place
+// where it can be accessed from the variables we want to hoist.
 //
 // validateMultiLoop walks through the IR for 'L' and @GetMagickPixelPacket
 // and returns 'true' if all of thse conditions are met.
@@ -5016,11 +5024,11 @@ bool PredicateOpt::validateMultiLoop(Loop *L, Function *WrapperF) {
   };
 
   // Return 'true' if 'GEPI' is a simple three operand 'GEPI' with pointer
-  // operand 'AI', argument 1 equal to 0, and argument 2 equal to a constant.
-  auto IsSimpleGEPI = [](GetElementPtrInst *GEPI, AllocaInst *AI) -> bool {
+  // operand 'PO', argument 1 equal to 0, and argument 2 equal to a constant.
+  auto IsSimpleGEPI = [](GetElementPtrInst *GEPI, Value *PO) -> bool {
     if (GEPI->getNumOperands() != 3)
       return false;
-    if (GEPI->getPointerOperand() != AI)
+    if (GEPI->getPointerOperand() != PO)
       return false;
     auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
     if (!CI1 || !CI1->isZero())
@@ -5031,13 +5039,13 @@ bool PredicateOpt::validateMultiLoop(Loop *L, Function *WrapperF) {
   };
 
   // Return 'true' if 'CB' calls a function where the actual argument 'AI'
-  // has contants written to its fields.
-  auto JustStoresConstants = [&IsSimpleGEPI](CallBase *CB,
-                                             AllocaInst *AI) -> bool {
+  // has values read from or written to its fields.
+  auto JustLoadsOrStoresValues = [&IsSimpleGEPI](CallBase *CB,
+                                                 AllocaInst *AI) -> bool {
     unsigned Limit = CB->getNumOperands();
     unsigned ArgNo = Limit;
     for (unsigned I = 0; I < Limit; ++I)
-      if (CB->getArgOperand(I)) {
+      if (CB->getArgOperand(I) == AI) {
         ArgNo = I;
         break;
       }
@@ -5049,16 +5057,18 @@ bool PredicateOpt::validateMultiLoop(Loop *L, Function *WrapperF) {
     Argument *Arg = Callee->getArg(ArgNo);
     for (User *U : Arg->users()) {
       auto GEPI = dyn_cast<GetElementPtrInst>(U);
-      if (!GEPI || !IsSimpleGEPI(GEPI, AI))
+      if (!GEPI || !IsSimpleGEPI(GEPI, Arg))
         return false;
       for (User *UU : GEPI->users()) {
-        auto SI = dyn_cast<StoreInst>(UU);
-        if (!SI)
+        if (auto LI = dyn_cast<LoadInst>(UU)) {
+          if (LI->getPointerOperand() != GEPI)
+            return false;
+        } else if (auto SI = dyn_cast<StoreInst>(UU)) {
+          if (SI->getPointerOperand() != GEPI)
+            return false;
+        } else {
           return false;
-        if (SI->getPointerOperand() != GEPI)
-          return false;
-        if (!isa<Constant>(SI->getValueOperand()))
-          return false;
+        }
       }
     }
     return true;
@@ -5089,7 +5099,7 @@ bool PredicateOpt::validateMultiLoop(Loop *L, Function *WrapperF) {
     return false;
   // Check that the users of 'AI' are just simple GEPs which feed loads
   // and stores, lifetime start and end calls, and an actual argument
-  // to a function where the fields of 'AI' are loaded with constants.
+  // to a function where the fields of 'AI' are loaded or stored.
   for (User *U : AI->users()) {
     if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
       if (!IsSimpleGEPI(GEPI, AI))
@@ -5099,12 +5109,16 @@ bool PredicateOpt::validateMultiLoop(Loop *L, Function *WrapperF) {
           return false;
     } else if (auto CB = dyn_cast<CallBase>(U)) {
       if (!CB->isLifetimeStartOrEnd())
-        if (!JustStoresConstants(CB, AI))
+        if (!JustLoadsOrStoresValues(CB, AI))
           return false;
     } else {
       return false;
     }
   }
+  LLVM_DEBUG({
+    dbgs() << "MRC PredicateOpt: Loop Stores To:";
+    AI->dump();
+  });
   return true;
 }
 
