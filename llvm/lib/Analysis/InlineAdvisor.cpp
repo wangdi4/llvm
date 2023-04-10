@@ -248,6 +248,10 @@ bool InlineAdvisorAnalysis::Result::tryCreate(
     Advisor.reset(DA.Factory(M, FAM, Params, IC));
     return !!Advisor;
   }
+  auto GetDefaultAdvice = [&FAM, Params](CallBase &CB) {
+    auto OIC = getDefaultInlineAdvice(CB, FAM, Params);
+    return OIC.has_value();
+  };
   switch (Mode) {
   case InliningAdvisorMode::Default:
     LLVM_DEBUG(dbgs() << "Using default inliner heuristic.\n");
@@ -263,6 +267,7 @@ bool InlineAdvisorAnalysis::Result::tryCreate(
   case InliningAdvisorMode::Development:
 #ifdef LLVM_HAVE_TFLITE
     LLVM_DEBUG(dbgs() << "Using development-mode inliner policy.\n");
+<<<<<<< HEAD
     Advisor =
         llvm::getDevelopmentModeAdvisor(M, MAM, [&FAM, Params](CallBase &CB) {
 #if INTEL_CUSTOMIZATION
@@ -270,11 +275,14 @@ bool InlineAdvisorAnalysis::Result::tryCreate(
           return IC.getIsRecommended();
 #endif // INTEL_CUSTOMIZATION
         });
+=======
+    Advisor = llvm::getDevelopmentModeAdvisor(M, MAM, GetDefaultAdvice);
+>>>>>>> ab2e7666c20d00a43b958e91c24991c973c81393
 #endif
     break;
   case InliningAdvisorMode::Release:
     LLVM_DEBUG(dbgs() << "Using release-mode inliner policy.\n");
-    Advisor = llvm::getReleaseModeAdvisor(M, MAM);
+    Advisor = llvm::getReleaseModeAdvisor(M, MAM, GetDefaultAdvice);
     break;
   }
 
