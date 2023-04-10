@@ -1563,6 +1563,13 @@ public:
         LLVM_DEBUG(dbgs() << "Replaced const array load: "; Ref->dump();
                    dbgs() << "\n";);
         ReplacedNode = HIRTransformUtils::replaceOperand(Ref, ConstantRef);
+
+        auto *ParentLp = dyn_cast<HLLoop>(CurrLoopOrRegion);
+
+        while (ParentLp) {
+          ParentLp->addLiveInTemp(ConstantRef);
+          ParentLp = ParentLp->getParentLoop();
+        }
       }
     }
     return ReplacedNode;
