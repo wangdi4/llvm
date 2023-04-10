@@ -36,6 +36,7 @@
 
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/Support/ModRef.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -55,59 +56,110 @@ static bool isGuardedByThreadCheck(const Instruction *I) {
   return I->hasMetadata(GuardedByThreadCheckMDStr);
 }
 
-/// If \p I writes to thread-local memory, returns a pointer to the memory
-/// written to.
+namespace {
+
+/// Returns the base pointer of \p Pointer if it is in the private address
+/// space.
 ///
-/// Otherwise, returns nullptr.
-static Value *privateStorePointerOperand(Instruction *I) {
+/// Otherwise returns nullptr.
+static Value *privateBasePointer(Value *Pointer) {
+  Value *RootPointer = Pointer->stripPointerCasts();
+  if (cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
+          vpo::ADDRESS_SPACE_PRIVATE ||
+      cast<PointerType>(Pointer->getType())->getAddressSpace() ==
+          vpo::ADDRESS_SPACE_PRIVATE)
+    return RootPointer;
+  return nullptr;
+}
+
+/// The two values returned by getPossiblePrivatePointersStoredToBy.
+struct PrivatePointersStoredResult {
+
+  /// The list of thread-local pointers that could be stored to by the
+  /// instruction.
+  SmallVector<Value *, 1> PrivatePointersStored;
+
+  /// Whether the instruction can only store to thread-local memory.
+  bool NoNonPrivateStores;
+};
+
+/// Determines what thread-local memory could be written by \p I and whether
+/// non-thread-local memory could also be stored.
+static PrivatePointersStoredResult
+getPossiblePrivatePointersStoredToBy(Instruction *I) {
 
   // Handle normal stores.
   if (auto *const StoreI = dyn_cast<StoreInst>(I)) {
     Value *StorePointer = StoreI->getPointerOperand();
-    Value *RootPointer = StorePointer->stripInBoundsOffsets();
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Store op::" << *StorePointer
                       << "\n");
-
-    if (cast<PointerType>(StorePointer->getType())->getAddressSpace() ==
-            vpo::ADDRESS_SPACE_PRIVATE ||
-        cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
-            vpo::ADDRESS_SPACE_PRIVATE)
-      return RootPointer;
-    return nullptr;
+    if (Value *const PrivateBase = privateBasePointer(StorePointer))
+      return {{PrivateBase}, true};
+    return {{}, false};
   }
 
+  // Handle calls based on their attributes.
   if (auto *const CallI = dyn_cast<CallInst>(I)) {
 
-    // Handle memcpy/memmove/memset.
-    if (auto *const II = dyn_cast<AnyMemIntrinsic>(CallI)) {
-      Value *Arg0 = II->getArgOperand(0)->stripPointerCasts();
-      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Destination operand::" << *Arg0
-                        << "\n");
-      if (cast<PointerType>(Arg0->getType())->getAddressSpace() ==
-          vpo::ADDRESS_SPACE_PRIVATE)
-        return Arg0;
-      return nullptr;
-    }
-
-    // Handle calls with these function attributes which can behave like
-    // thread-local stores.
+    // Calls with these attributes are defined to only store to their first
+    // operand.
     if (CallI->hasFnAttr("openmp-privatization-constructor") ||
         CallI->hasFnAttr("openmp-privatization-destructor") ||
         CallI->hasFnAttr("openmp-privatization-copyconstructor") ||
         CallI->hasFnAttr("openmp-privatization-copyassign")) {
-      Value *CheckArgument = CallI->getArgOperand(0);
-      Value *RootPointer = CheckArgument->stripInBoundsOffsets();
-      if (cast<PointerType>(CheckArgument->getType())->getAddressSpace() ==
-              vpo::ADDRESS_SPACE_PRIVATE ||
-          cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
-              vpo::ADDRESS_SPACE_PRIVATE)
-        return RootPointer;
+      if (Value *const PrivateBase =
+              privateBasePointer(CallI->getArgOperand(0)))
+        return {{PrivateBase}, true};
+      return {{}, false};
     }
-    return nullptr;
+
+    // If the call only reads from memory, there are no stores to
+    // non-thread-local memory and we don't need to check for argument stores.
+    if (!CallI->mayWriteToMemory())
+      return {{}, true};
+
+    // If the call could write to any non-argument memory, it might write to
+    // non-thread-local memory.
+    // TODO: It could also store to any thread-local memory too; we don't have a
+    // good way of handling this properly yet.
+    if (!CallI->getMemoryEffects()
+             .getWithoutLoc(MemoryEffects::ArgMem)
+             .onlyReadsMemory())
+      return {{}, false};
+
+    // Check each pointer argument to the call.
+    SmallVector<Value *, 1> PrivateArgsStored;
+    bool OnlyPrivateArgs = true;
+    for (const auto Arg : enumerate(CallI->args())) {
+      if (!Arg.value()->getType()->isPointerTy())
+        continue;
+
+      // Ignore arguments that are not written.
+      if (CallI->onlyReadsMemory(Arg.index()))
+        continue;
+
+      LLVM_DEBUG({
+        dbgs() << __FUNCTION__ << ": Argument " << Arg.index() << " (";
+        Arg.value()->printAsOperand(dbgs());
+        dbgs() << ") may be stored to by" << *CallI << "\n";
+      });
+
+      // Check if the memory this argument might write to is thread-local.
+      if (Value *const PrivateBase = privateBasePointer(Arg.value()))
+        PrivateArgsStored.push_back(PrivateBase);
+      else
+        OnlyPrivateArgs = false;
+    }
+    return {PrivateArgsStored, OnlyPrivateArgs};
   }
 
-  return nullptr;
+  // Other types of instructions aren't handled yet, and should be assumed to
+  // possibly store to non-thread-local memory.
+  // TODO: They could also store to thread-local memory.
+  return {{}, false};
 }
+
+} // namespace
 
 bool llvm::vpo::needsMasterThreadGuard(Instruction *I) {
 
@@ -159,8 +211,9 @@ bool llvm::vpo::needsMasterThreadGuard(Instruction *I) {
   }
 
   // Instructions which only write to thread-local memory do not need to be
-  // guarded.
-  if (privateStorePointerOperand(I))
+  // guarded, unless they might throw exceptions.
+  if (!I->mayThrow() &&
+      getPossiblePrivatePointersStoredToBy(I).NoNonPrivateStores)
     return false;
 
   return true;
