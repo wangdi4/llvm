@@ -26,20 +26,34 @@ int main(void) {
   constexpr unsigned Size = 1024 * 128;
   constexpr unsigned VL = 16;
 
+<<<<<<< HEAD
   float *A = new float[Size];
   float *B = new float[Size];
   float *C = new float[Size];
+=======
+  std::vector<float> A(Size);
+  std::vector<float> B(Size);
+  std::vector<float> C(Size);
+>>>>>>> 072b080390f59bebb224eaf891ebb23cc8971709
 
   for (unsigned i = 0; i < Size; ++i) {
     A[i] = B[i] = i;
     C[i] = 0.0f;
   }
 
+<<<<<<< HEAD
   try {
     buffer<float, 1> bufa(A, range<1>(Size));
     buffer<float, 1> bufb(B, range<1>(Size));
     buffer<float, 1> bufc(C, range<1>(Size));
 
+=======
+  buffer<float, 1> bufa(A.data(), A.size());
+  buffer<float, 1> bufb(B.data(), B.size());
+  buffer<float, 1> bufc(C.data(), C.size());
+
+  try {
+>>>>>>> 072b080390f59bebb224eaf891ebb23cc8971709
     // We need that many workgroups
     range<1> GlobalRange{Size / VL};
 
@@ -77,6 +91,7 @@ int main(void) {
   } catch (sycl::exception const &e) {
     std::cout << "SYCL exception caught: " << e.what() << '\n';
 
+<<<<<<< HEAD
     delete[] A;
     delete[] B;
     delete[] C;
@@ -90,6 +105,21 @@ int main(void) {
       if (++err_cnt < 10) {
         std::cout << "failed at index " << i << ", " << C[i] << " != " << A[i]
                   << " + " << B[i] << "\n";
+=======
+    return 1;
+  }
+
+  sycl::host_accessor A_acc(bufa);
+  sycl::host_accessor B_acc(bufb);
+  sycl::host_accessor C_acc(bufc);
+  int err_cnt = 0;
+
+  for (unsigned i = 0; i < Size; ++i) {
+    if (A_acc[i] + B_acc[i] != C_acc[i]) {
+      if (++err_cnt < 10) {
+        std::cout << "failed at index " << i << ", " << C_acc[i]
+                  << " != " << A_acc[i] << " + " << B_acc[i] << "\n";
+>>>>>>> 072b080390f59bebb224eaf891ebb23cc8971709
       }
     }
   }
@@ -99,10 +129,13 @@ int main(void) {
               << (Size - err_cnt) << "/" << Size << ")\n";
   }
 
+<<<<<<< HEAD
   delete[] A;
   delete[] B;
   delete[] C;
 
+=======
+>>>>>>> 072b080390f59bebb224eaf891ebb23cc8971709
   std::cout << (err_cnt > 0 ? "FAILED\n" : "Passed\n");
   return err_cnt > 0 ? 1 : 0;
 }
