@@ -2929,7 +2929,6 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   Value *StrippedPtr = PtrOp->stripPointerCasts();
   PointerType *StrippedPtrTy = cast<PointerType>(StrippedPtr->getType());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // This is opaque ptr version of some of the code inside the section below
   // which optimizes bitcasts + geps using Descale().
@@ -2939,8 +2938,6 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       return NewGEP;
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 403abfb08982e7c9312c8d6d9edbae6eafd85280
   // TODO: The basic approach of these folds is not compatible with opaque
   // pointers, because we can't use bitcasts as a hint for a desirable GEP
   // type. Instead, we should perform canonicalization directly on the GEP
@@ -3105,10 +3102,6 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       }
     }
   }
-<<<<<<< HEAD
-
-=======
->>>>>>> 403abfb08982e7c9312c8d6d9edbae6eafd85280
   // addrspacecast between types is canonicalized as a bitcast, then an
   // addrspacecast. To take advantage of the below bitcast + struct GEP, look
   // through the addrspacecast.
