@@ -23,7 +23,7 @@
 
 ; CHECK-DAG: FLOOR.LATCH
 ; CHECK-DAG: FLOOR.PREHEAD
-; CHECK-DAG: @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %"test_$I", i32 0, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %floor_iv, i64 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %floor_ub, i64 0), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %floor_lb, i64 0, i32 1) ]
+; CHECK-DAG: @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %"test_$I", i32 0, i32 1), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %omp.pdo.norm.lb, i32 0, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %floor_iv, i64 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %floor_ub, i64 0), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %floor_lb, i64 0, i32 1) ]
 ; CHECK-DAG: FLOOR.HEAD
 
 ; ModuleID = 'do1_tile1.f90'
@@ -57,8 +57,13 @@ alloca_0:
   br label %bb_new2
 
 bb_new2:  ; preds = %alloca_0
+;  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
+;     "QUAL.OMP.PRIVATE:TYPED"(ptr %"test_$I", i32 0, i32 1) ]
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
-     "QUAL.OMP.PRIVATE:TYPED"(ptr %"test_$I", i32 0, i32 1) ]
+     "QUAL.OMP.PRIVATE:TYPED"(ptr %"test_$I", i32 0, i32 1),
+     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %omp.pdo.norm.lb, i32 0, i32 1),
+     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %omp.pdo.norm.iv, i32 0),
+     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %omp.pdo.norm.ub, i32 0) ]
   br label %bb_new7
 
 bb_new7:  ; preds = %bb_new2
