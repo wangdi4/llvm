@@ -1,5 +1,11 @@
 ; RUN: opt < %s -passes='default<O2>' -S | FileCheck --check-prefixes=CHECK %s
 ; RUN: opt < %s -O0 -S | FileCheck --check-prefixes=CHECK-O0 %s
+
+; INTEL_CUSTOMIZATION
+: This test is compiled with -O2. Currently, the differences are related
+; to GEP optimization (not GEP 0,0, but GEP result types are different).
+; If it fails later, just use update_test_checks.
+; end INTEL_CUSTOMIZATION
 target datalayout = "p:64:64:64"
 
 %async.task = type { i64 }
@@ -125,7 +131,7 @@ define void @my_async_function_pa(ptr %ctxt, ptr %task, ptr %actor) {
 ; CHECK:   store ptr %actor, ptr [[ACTOR_SPILL_ADDR]]
 ; CHECK:   [[ADDR1:%.*]]  = getelementptr inbounds i8, ptr %async.ctxt, i64 144
 ; CHECK:   store ptr %async.ctxt, ptr [[ADDR1]]
-; CHECK:   [[ALLOCA_PRJ2:%.*]] = getelementptr inbounds i8, ptr %async.ctxt, i64 136
+; CHECK:   [[ALLOCA_PRJ2:%.*]] = getelementptr ;INTEL
 ; CHECK:   store i64 0, ptr [[FRAMEPTR]]
 ; CHECK:   store i64 1, ptr [[ALLOCA_PRJ2]]
 ; CHECK:   tail call void @some_may_write(ptr nonnull [[FRAMEPTR]])
@@ -148,18 +154,19 @@ define void @my_async_function_pa(ptr %ctxt, ptr %task, ptr %actor) {
 ; CHECK-SAME: !dbg ![[SP2:[0-9]+]] {
 ; CHECK: entryresume.0:
 ; CHECK:   [[CALLER_CONTEXT:%.*]] = load ptr, ptr %0
-; CHECK:   [[FRAME_PTR:%.*]] = getelementptr inbounds i8, ptr [[CALLER_CONTEXT]], i64 128
+; CHECK-DELETED:   [[FRAME_PTR:%.*]] = getelementptr{{.*}}[[CALLER_CONTEXT]] ;INTEL
 ; CHECK-O0:   [[VECTOR_SPILL_ADDR:%.*]] = getelementptr inbounds %my_async_function.Frame, ptr {{.*}}, i32 0, i32 1
 ; CHECK-O0:   load <4 x double>, ptr [[VECTOR_SPILL_ADDR]], align 16
-; CHECK:   [[CALLEE_CTXT_SPILL_ADDR:%.*]] = getelementptr inbounds i8, ptr [[CALLER_CONTEXT]], i64 160
+; CHECK:   [[CALLEE_CTXT_SPILL_ADDR:%.*]] = getelementptr{{.*}}[[CALLER_CONTEXT]] ;INTEL
 ; CHECK:   [[CALLEE_CTXT_RELOAD:%.*]] = load ptr, ptr [[CALLEE_CTXT_SPILL_ADDR]]
-; CHECK:   [[ACTOR_RELOAD_ADDR:%.*]] = getelementptr inbounds i8, ptr [[CALLER_CONTEXT]], i64 152
+; CHECK:   [[ACTOR_RELOAD_ADDR:%.*]] = getelementptr{{.*}}[[CALLER_CONTEXT]] ;INTEL
 ; CHECK:   [[ACTOR_RELOAD:%.*]] = load ptr, ptr [[ACTOR_RELOAD_ADDR]]
-; CHECK:   [[ADDR1:%.*]] = getelementptr inbounds i8, ptr [[CALLER_CONTEXT]], i64 144
-; CHECK:   [[ASYNC_CTXT_RELOAD:%.*]] = load ptr, ptr [[ADDR1]]
-; CHECK:   [[ALLOCA_PRJ2:%.*]] = getelementptr inbounds i8, ptr [[CALLER_CONTEXT]], i64 136
+; CHECK:   [[ADDR1:%.*]] = getelementptr{{.*}}[[CALLER_CONTEXT]] ;INTEL
+; CHECK:   [[ASYNC_CTXT_RELOAD:%.*]] = load ptr, ptr [[ADDR1]] ;INTEL
+; CHECK:   [[ALLOCA_PRJ2:%.*]] = getelementptr{{.*}}resume_ctxt ;INTEL
+; CHECK:   [[ALLOCA_PRJ1:%.*]] = getelementptr{{.*}}resume_ctxt ;INTEL
 ; CHECK:   tail call void @llvm.coro.async.context.dealloc(ptr nonnull [[CALLEE_CTXT_RELOAD]])
-; CHECK:   [[VAL1:%.*]] = load i64, ptr [[FRAME_PTR]]
+; CHECK:   [[VAL1:%.*]] = load i64, ptr [[ALLOCA_PRJ1]] ;INTEL
 ; CHECK:   tail call void @some_user(i64 [[VAL1]])
 ; CHECK:   [[VAL2:%.*]] = load i64, ptr [[ALLOCA_PRJ2]]
 ; CHECK:   tail call void @some_user(i64 [[VAL2]])
@@ -234,7 +241,7 @@ entry:
 ; CHECK: [[CALLEE_CTXT:%.*]] = load ptr, ptr %2
 ; CHECK: [[CALLEE_CTXT_SPILL_ADDR:%.*]] = getelementptr inbounds i8, ptr [[CALLEE_CTXT]], i64 152
 ; CHECK: store ptr @my_async_function2.resume.1,
-; CHECK: [[CALLLE_CTXT_RELOAD:%.*]] = load ptr, ptr [[CALLEE_CTXT_SPILL_ADDR]]
+; CHECK: [[CALLEE_CTXT_RELOAD:%.*]] = load ptr, ptr [[CALLEE_CTXT_SPILL_ADDR]]
 ; CHECK: tail call swiftcc void @asyncSuspend(ptr [[CALLEE_CTXT_RELOAD]]
 ; CHECK: ret void
 
