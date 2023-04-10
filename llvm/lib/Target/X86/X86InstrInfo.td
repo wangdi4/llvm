@@ -1257,9 +1257,6 @@ def HasAMXMOVRS    : Predicate<"Subtarget->hasAMXMOVRS()">;
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 def HasAMXMEMADVISEEVEX : Predicate<"Subtarget->hasAMXMEMADVISEEVEX()">;
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-def HasAMXCOMPLEX : Predicate<"Subtarget->hasAMXCOMPLEX()">;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
 def HasAMXTF32 : Predicate<"Subtarget->hasAMXTF32()">;
 #endif // INTEL_FEATURE_ISA_AMX_TF32
@@ -1444,6 +1441,7 @@ def HasTSXLDTRK  : Predicate<"Subtarget->hasTSXLDTRK()">;
 def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
 def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
 def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
+def HasAMXCOMPLEX : Predicate<"Subtarget->hasAMXCOMPLEX()">;
 def HasUINTR     : Predicate<"Subtarget->hasUINTR()">;
 def HasCRC32     : Predicate<"Subtarget->hasCRC32()">;
 

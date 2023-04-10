@@ -177,6 +177,8 @@ TARGET_BUILTIN(__builtin_ia32_tilestored64_internal, "vUsUsv*zV256i", "n", "amx-
 TARGET_BUILTIN(__builtin_ia32_tilezero_internal, "V256iUsUs", "n", "amx-tile")
 TARGET_BUILTIN(__builtin_ia32_tdpbf16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-bf16")
 TARGET_BUILTIN(__builtin_ia32_tdpfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-fp16")
+TARGET_BUILTIN(__builtin_ia32_tcmmimfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
+TARGET_BUILTIN(__builtin_ia32_tcmmrlfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
 // AMX
 TARGET_BUILTIN(__builtin_ia32_tile_loadconfig, "vvC*", "n", "amx-tile")
 TARGET_BUILTIN(__builtin_ia32_tile_storeconfig, "vvC*", "n", "amx-tile")
@@ -423,13 +425,6 @@ TARGET_BUILTIN(__builtin_ia32_tcvtps2ph, "vv*zIUc", "n", "amx-convert")
 // AMX_TILE2
 TARGET_BUILTIN(__builtin_ia32_tilemov, "vIUcIUc", "n", "amx-tile2")
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-TARGET_BUILTIN(__builtin_ia32_tcmmimfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
-TARGET_BUILTIN(__builtin_ia32_tcmmrlfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
-
-TARGET_BUILTIN(__builtin_ia32_tcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
-TARGET_BUILTIN(__builtin_ia32_tcmmrlfp16ps, "vIUcIUcIUc", "n", "amx-complex")
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 
 #if INTEL_FEATURE_ISA_AMX_TF32
 TARGET_BUILTIN(__builtin_ia32_tmmultf32ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-tf32")
@@ -512,6 +507,8 @@ LANGBUILTIN(read_pipe, "i.", "tn", INTEL_FPGA_PIPE1X)
 LANGBUILTIN(write_pipe, "i.", "tn", INTEL_FPGA_PIPE1X)
 #undef LANGBUILTIN
 #endif // INTEL_CUSTOMIZATION
+TARGET_BUILTIN(__builtin_ia32_tcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
+TARGET_BUILTIN(__builtin_ia32_tcmmrlfp16ps, "vIUcIUcIUc", "n", "amx-complex")
 
 TARGET_BUILTIN(__builtin_ia32_prefetchi, "vvC*Ui", "nc", "prefetchi")
 TARGET_BUILTIN(__builtin_ia32_cmpccxadd32, "Siv*SiSiIi", "n", "cmpccxadd")

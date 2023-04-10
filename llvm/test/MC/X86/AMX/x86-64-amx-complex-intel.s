@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_amx_complex
 // RUN: llvm-mc -triple x86_64-unknown-unknown -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 
 // CHECK:      tcmmimfp16ps tmm6, tmm5, tmm4

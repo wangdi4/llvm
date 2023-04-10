@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_amx_complex
 // RUN: %clang_cc1 %s -flax-vector-conversions=none -ffreestanding -triple=x86_64-unknown-unknown  -target-feature +avx512f  -target-feature +amx-bf16  \
 // RUN: -target-feature +amx-complex \
 // RUN: -emit-llvm -o - -Werror -pedantic | FileCheck %s --check-prefixes=CHECK

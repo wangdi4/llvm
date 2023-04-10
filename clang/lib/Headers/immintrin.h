@@ -1119,15 +1119,6 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_TILE2 */
 
-/* INTEL_FEATURE_ISA_AMX_COMPLEX */
-#if defined(__AMXCOMPLEX_SUPPORTED__)
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXCOMPLEX__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <amxcomplex/amxcomplexintrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_AMX_COMPLEX */
-
 /* INTEL_FEATURE_ISA_AMX_TF32 */
 #if defined(__AMXTF32_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
@@ -1348,6 +1339,11 @@ defined(__AVX512MOVZXC__) || defined(__M_INTRINSIC_PROMOTE__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMX_TILE__) || defined(__AMX_INT8__) || defined(__AMX_BF16__)
 #include <amxintrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMX_COMPLEX__)
+#include <amxcomplexintrin.h>
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \

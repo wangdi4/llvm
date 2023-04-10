@@ -468,10 +468,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-tile2") {
       HasAMXTILE2 = true;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-    } else if (Feature == "+amx-complex") {
-      HasAMXCOMPLEX = true;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
     } else if (Feature == "+amx-tf32") {
       HasAMXTF32 = true;
@@ -666,6 +662,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512MOVZXC = true;
 #endif // INTEL_FEATURE_ISA_AVX512_MOVZXC
 #endif // INTEL_CUSTOMIZATION
+    } else if (Feature == "+amx-complex") {
+      HasAMXCOMPLEX = true;
     } else if (Feature == "+cmpccxadd") {
       HasCMPCCXADD = true;
     } else if (Feature == "+raoint") {
@@ -1261,11 +1259,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXTILE2__");
   Builder.defineMacro("__AMXTILE2_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-  if (HasAMXCOMPLEX)
-    Builder.defineMacro("__AMXCOMPLEX__");
-  Builder.defineMacro("__AMXCOMPLEX_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
   if (HasAMXTF32)
     Builder.defineMacro("__AMXTF32__");
@@ -1513,6 +1506,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #endif // INTEL_CUSTOMIZATION
   if (HasAMXFP16)
     Builder.defineMacro("__AMX_FP16__");
+  if (HasAMXCOMPLEX)
+    Builder.defineMacro("__AMX_COMPLEX__");
   if (HasCMPCCXADD)
     Builder.defineMacro("__CMPCCXADD__");
   if (HasRAOINT)
@@ -1637,6 +1632,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("adx", true)
       .Case("aes", true)
       .Case("amx-bf16", true)
+      .Case("amx-complex", true)
       .Case("amx-fp16", true)
       .Case("amx-int8", true)
       .Case("amx-tile", true)
@@ -1684,9 +1680,6 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_TILE2
       .Case("amx-tile2", true)
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-      .Case("amx-complex", true)
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
       .Case("amx-tf32", true)
 #endif // INTEL_FEATURE_ISA_AMX_TF32
@@ -1956,6 +1949,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("adx", HasADX)
       .Case("aes", HasAES)
       .Case("amx-bf16", HasAMXBF16)
+      .Case("amx-complex", HasAMXCOMPLEX)
       .Case("amx-fp16", HasAMXFP16)
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
@@ -2002,9 +1996,6 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_TILE2
       .Case("amx-tile2", HasAMXTILE2)
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-      .Case("amx-complex", HasAMXCOMPLEX)
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
       .Case("amx-tf32", HasAMXTF32)
 #endif // INTEL_FEATURE_ISA_AMX_TF32

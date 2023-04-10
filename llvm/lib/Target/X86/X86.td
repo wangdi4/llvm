@@ -482,11 +482,6 @@ def FeatureAMXTILE2 : SubtargetFeature<"amx-tile2", "HasAMXTILE2", "true",
                                        "Support AMX amx-tile2 instructions",
                                        [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-def FeatureAMXCOMPLEX : SubtargetFeature<"amx-complex", "HasAMXCOMPLEX", "true",
-                                          "Support AMX-COMPLEX instructions",
-                                          [FeatureAMXTILE]>;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
 def FeatureAMXTF32 : SubtargetFeature<"amx-tf32", "HasAMXTF32", "true",
                                       "Support AMX-TF32 instructions",
@@ -663,6 +658,9 @@ def FeatureAVX512VNNIFP8 :
                        [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 #endif // INTEL_CUSTOMIZATION
+def FeatureAMXCOMPLEX : SubtargetFeature<"amx-complex", "HasAMXCOMPLEX", "true",
+                                         "Support AMX-COMPLEX instructions",
+                                         [FeatureAMXTILE]>;
 def FeatureCMPCCXADD : SubtargetFeature<"cmpccxadd", "HasCMPCCXADD", "true",
                                         "Support CMPCCXADD instructions">;
 def FeatureRAOINT : SubtargetFeature<"raoint", "HasRAOINT", "true",
@@ -1513,7 +1511,8 @@ def ProcessorFeatures {
 
   // Graniterapids
   list<SubtargetFeature> GNRAdditionalFeatures = [FeatureAMXFP16,
-                                                  FeaturePREFETCHI];
+                                                  FeaturePREFETCHI,
+                                                  FeatureAMXCOMPLEX];
   list<SubtargetFeature> GNRFeatures =
     !listconcat(SPRFeatures, GNRAdditionalFeatures);
 
@@ -1574,9 +1573,6 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
                                                   FeatureAMXAVX512TILE16MOV,
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_TILE16MOV
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-                                                  FeatureAMXCOMPLEX,
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
                                                   FeatureAMXTF32
 #endif // INTEL_FEATURE_ISA_AMX_TF32

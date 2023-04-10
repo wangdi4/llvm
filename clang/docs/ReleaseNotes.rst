@@ -300,6 +300,9 @@ AMDGPU Support
 X86 Support
 ^^^^^^^^^^^
 
+- Add ISA of ``AMX-COMPLEX`` which supports ``tcmmimfp16ps`` and
+  ``tcmmrlfp16ps``.
+
 Arm and AArch64 Support
 ^^^^^^^^^^^^^^^^^^^^^^^
 

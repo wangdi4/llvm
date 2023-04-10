@@ -220,9 +220,6 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_AMX_TILE2
   bool HasAMXTILE2 = false;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-  bool HasAMXCOMPLEX = false;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
   bool HasAMXTF32 = false;
 #endif // INTEL_FEATURE_ISA_AMX_TF32
@@ -386,6 +383,7 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAMXTILE = false;
   bool HasAMXINT8 = false;
   bool HasAMXBF16 = false;
+  bool HasAMXCOMPLEX = false;
   bool HasSERIALIZE = false;
   bool HasTSXLDTRK = false;
   bool HasUINTR = false;
