@@ -152,7 +152,7 @@ void DefaultInlineAdvice::recordInliningImpl() {
 
 #if INTEL_CUSTOMIZATION
 llvm::InlineCost static getDefaultInlineAdvice(
-    CallBase &CB, FunctionAnalysisManager &FAM, InlineParams &Params,
+    CallBase &CB, FunctionAnalysisManager &FAM, const InlineParams &Params,
     InliningLoopInfoCache *ILIC, WholeProgramInfo *WPI) {
 #endif // INTEL_CUSTOMIZATION
   Function &Caller = *CB.getCaller();
@@ -249,8 +249,10 @@ bool InlineAdvisorAnalysis::Result::tryCreate(
     return !!Advisor;
   }
   auto GetDefaultAdvice = [&FAM, Params](CallBase &CB) {
-    auto OIC = getDefaultInlineAdvice(CB, FAM, Params);
-    return OIC.has_value();
+#if INTEL_CUSTOMIZATION
+          InlineCost IC = getDefaultInlineAdvice(CB, FAM, Params, nullptr, nullptr);
+          return IC.getIsRecommended();
+#endif // INTEL_CUSTOMIZATION
   };
   switch (Mode) {
   case InliningAdvisorMode::Default:
@@ -267,17 +269,7 @@ bool InlineAdvisorAnalysis::Result::tryCreate(
   case InliningAdvisorMode::Development:
 #ifdef LLVM_HAVE_TFLITE
     LLVM_DEBUG(dbgs() << "Using development-mode inliner policy.\n");
-<<<<<<< HEAD
-    Advisor =
-        llvm::getDevelopmentModeAdvisor(M, MAM, [&FAM, Params](CallBase &CB) {
-#if INTEL_CUSTOMIZATION
-          InlineCost IC = getDefaultInlineAdvice(CB, FAM, Params);
-          return IC.getIsRecommended();
-#endif // INTEL_CUSTOMIZATION
-        });
-=======
     Advisor = llvm::getDevelopmentModeAdvisor(M, MAM, GetDefaultAdvice);
->>>>>>> ab2e7666c20d00a43b958e91c24991c973c81393
 #endif
     break;
   case InliningAdvisorMode::Release:
