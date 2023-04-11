@@ -1634,8 +1634,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     MPM.addPass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
     // Do not invoke ICP in the LTOPrelink phase as it makes it hard
     // for the profile annotation to be accurate in the LTO backend.
-    if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink &&
-        Phase != ThinOrFullLTOPhase::FullLTOPreLink)
+    if (!isLTOPreLink(Phase))
       // We perform early indirect call promotion here, before globalopt.
       // This is important for the ThinLTO backend phase because otherwise
       // imported available_externally functions look unreferenced and are
@@ -1673,8 +1672,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
               IPSCCPOptions(/*AllowFuncSpec=*/
                             Level != OptimizationLevel::Os &&
                             Level != OptimizationLevel::Oz &&
-                            Phase != ThinOrFullLTOPhase::ThinLTOPreLink &&
-                            Phase != ThinOrFullLTOPhase::FullLTOPreLink)));
+                            !isLTOPreLink(Phase))));
 
   // Attach metadata to indirect call sites indicating the set of functions
   // they may target at run-time. This should follow IPSCCP.
@@ -2622,8 +2620,7 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
 ModulePassManager
 PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
                                              ThinOrFullLTOPhase LTOPhase) {
-  const bool LTOPreLink = (LTOPhase == ThinOrFullLTOPhase::ThinLTOPreLink ||
-                           LTOPhase == ThinOrFullLTOPhase::FullLTOPreLink);
+  const bool LTOPreLink = isLTOPreLink(LTOPhase);
   ModulePassManager MPM;
 
   // Run partial inlining pass to partially inline functions that have
@@ -2879,12 +2876,12 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   // Force any function attributes we want the rest of the pipeline to observe.
   MPM.addPass(ForceFunctionAttrsPass());
 
+  if (PGOOpt && PGOOpt->DebugInfoForProfiling)
+    MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
+
   // Apply module pipeline start EP callback.
   for (auto &C : PipelineStartEPCallbacks)
     C(MPM, Level);
-
-  if (PGOOpt && PGOOpt->DebugInfoForProfiling)
-    MPM.addPass(createModuleToFunctionPassAdaptor(AddDiscriminatorsPass()));
 
   const ThinOrFullLTOPhase LTOPhase = LTOPreLink
                                           ? ThinOrFullLTOPhase::FullLTOPreLink
