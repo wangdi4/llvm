@@ -364,17 +364,28 @@ def may_add(exp, max_line, ref, comment, ref_commit=None):
     add(exp, max_line, ref, comment)
 
 
-def update(exp, max_line=3, ref=None, comment=True):
-    """Update intel markup for a file (Do nothing if there is an explicit INTEL_MARKUP=0) """
+def update(exp, max_line=3, comment=True):
+    """Update intel markup for a file. The env variable INTEL_MARKUP has an
+       impact on the behavior
+         a. Nothing is done when INTEL_MARKUP=0
+         b. Default INTEL_MARKUP=1
+         c. Log is printed when INTEL_MARKUP=2"""
     markup = os.environ.get('INTEL_MARKUP', '1')
     if markup == '0':
         return
+
     # No error b/c the API may be called by a LIT test
     if not check_git_sed(False):
         return
+    default_level = logging.root.getEffectiveLevel()
+    # Enable the logging at debug level
+    if markup == '2':
+        logging.root.setLevel(logging.DEBUG)
 
     drop(exp)
-    may_add(exp, max_line, ref, comment)
+    may_add(exp, max_line, None, comment)
+    # Restore the previous logging level
+    logging.root.setLevel(default_level)
 
 
 def check_file(file):
