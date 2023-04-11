@@ -1681,6 +1681,7 @@ cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel> &pKernel,
                                 m_ulMaxMemAllocSize / 2, ptr, 0, &clErr);
         if (CL_SUCCESS != clErr)
           return clErr;
+        m_usmSystemBufferMap[pParamValue].push_back(usmPtr);
         buf = m_usmBuffers[usmPtr];
       }
       usmBufs.push_back(buf);
@@ -2052,6 +2053,10 @@ cl_int Context::USMFree(void *usmPtr) {
     LOG_ERROR(TEXT("usmPtr isn't an USM buffer"));
     return CL_INVALID_VALUE;
   }
+  // If usm ptr has mapped to shared system buffers, we need to free them
+  // firstly.
+  for (auto &systemBuffer : m_usmSystemBufferMap[usmPtr])
+    m_usmBuffers.erase(systemBuffer);
   m_usmBuffers.erase(usmPtr);
   return CL_SUCCESS;
 }

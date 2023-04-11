@@ -1752,8 +1752,8 @@ struct RTLOptionTy {
     //  <PoolInfoList> := <PoolInfo>[,<PoolInfoList>]
     //  <PoolInfo>     := <MemType>[,<AllocMax>[,<Capacity>[,<PoolSize>]]]
     //  <MemType>      := all | device | host | shared
-    //  <AllocMax>     := positive integer or empty, max allocation size in MB
-    //                    (default: 1)
+    //  <AllocMax>     := non-negative integer or empty, max allocation size in
+    //                    MB (default: 1)
     //  <Capacity>     := positive integer or empty, number of allocations from
     //                    a single block (default: 4)
     //  <PoolSize>     := positive integer or empty, max pool size in MB
@@ -1790,9 +1790,11 @@ struct RTLOptionTy {
             Valid = 2;
           } else if (Offset < 3 && MemType >= 0) {
             int32_t Num = std::atoi(Token.c_str());
-            if (Num > 0 && MemType == AllMemType)
+            bool ValidNum =
+                (Num >= 0 && Offset == 0) || (Num > 0 && Offset > 0);
+            if (ValidNum && MemType == AllMemType)
               AllInfo[Offset++] = Num;
-            else if (Num > 0)
+            else if (ValidNum)
               PoolInfo[MemType][Offset++] = Num;
             else if (Token.size() == 0)
               Offset++;
@@ -1803,16 +1805,23 @@ struct RTLOptionTy {
           }
         }
         if (Valid > 0) {
-          MemPoolInfo.clear();
           if (Valid == 2) {
             // "all" is specified -- ignore other inputs
-            MemPoolInfo.emplace(TARGET_ALLOC_DEVICE, AllInfo);
-            MemPoolInfo.emplace(TARGET_ALLOC_HOST, AllInfo);
-            MemPoolInfo.emplace(TARGET_ALLOC_SHARED, AllInfo);
+            if (AllInfo[0] > 0) {
+              MemPoolInfo[TARGET_ALLOC_DEVICE] = AllInfo;
+              MemPoolInfo[TARGET_ALLOC_HOST] = AllInfo;
+              MemPoolInfo[TARGET_ALLOC_SHARED] = AllInfo;
+            } else {
+              MemPoolInfo.clear();
+            }
           } else {
-            // Only enable what user specified
-            for (auto &I : PoolInfo)
-              MemPoolInfo.emplace(I.first, I.second);
+            // Use user-specified configuration
+            for (auto &I : PoolInfo) {
+              if (I.second[0] > 0)
+                MemPoolInfo[I.first] = I.second;
+              else
+                MemPoolInfo.erase(I.first);
+            }
           }
         } else {
           DP("Ignoring incorrect memory pool configuration "
@@ -1823,7 +1832,7 @@ struct RTLOptionTy {
           DP("  <PoolInfo>     := "
              "<MemType>[,<AllocMax>[,<Capacity>[,<PoolSize>]]]\n");
           DP("  <MemType>      := all | device | host | shared\n");
-          DP("  <AllocMax>     := positive integer or empty, "
+          DP("  <AllocMax>     := non-negative integer or empty, "
              "max allocation size in MB (default: 1)\n");
           DP("  <Capacity>     := positive integer or empty, "
              "number of allocations from a single block (default: 4)\n");
