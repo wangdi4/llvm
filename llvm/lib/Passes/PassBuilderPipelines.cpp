@@ -1512,6 +1512,8 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
 ModulePassManager
 PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                                                ThinOrFullLTOPhase Phase) {
+  assert(Level != OptimizationLevel::O0 &&
+         "Should not be used for O0 pipeline");
   ModulePassManager MPM;
 
   // Place pseudo probe instrumentation as the first pass of the pipeline to
@@ -1647,10 +1649,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #if INTEL_COLLAB
   // If OpenMP codegen is to be done by Paropt after the inliner,
   // then OpenMPOpt cannot be run here, before the inliner.
-  if (Level != OptimizationLevel::O0 &&
-      (!RunVPOParopt || RunVPOOpt == InvokeParoptBeforeInliner))
-#else // INTEL_COLLAB
-  if (Level != OptimizationLevel::O0)
+  if (!RunVPOParopt || RunVPOOpt == InvokeParoptBeforeInliner)
 #endif // INTEL_COLLAB
     MPM.addPass(OpenMPOptPass());
 
