@@ -185,6 +185,7 @@ CPUDeviceConfig::GetExtensionsWithVersion() {
 
   if (FPGA_EMU_DEVICE == GetDeviceMode()) {
     GetExtVer(OCL_EXT_INTEL_FPGA_HOST_PIPE, 1, 0, 0);
+    GetExtVer(OCL_EXT_INTEL_PROGRAM_SCOPE_HOST_PIPE, 1, 0, 0);
     GetExtVer(OCL_EXT_ES_KHR_INT64, 1, 0, 0);
 
     // In FPGA HW: Since some of the extensions are either partially supported,

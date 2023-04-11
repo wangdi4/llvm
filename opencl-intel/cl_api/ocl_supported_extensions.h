@@ -40,6 +40,7 @@
 
 #define OCL_EXT_INTEL_CHANNELS "cl_intel_channels"
 #define OCL_EXT_INTEL_FPGA_HOST_PIPE "cl_intel_fpga_host_pipe"
+#define OCL_EXT_INTEL_PROGRAM_SCOPE_HOST_PIPE "cl_intel_program_scope_host_pipe"
 
 #define OCL_EXT_INTEL_GLOBAL_VARIABLE_POINTER                                  \
   "cl_intel_global_variable_pointers_preview"

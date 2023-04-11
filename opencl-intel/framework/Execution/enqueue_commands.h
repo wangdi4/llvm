@@ -23,6 +23,7 @@
 #include "queue_event.h"
 #include "task_executor.h"
 
+#include <CL/cl_fpga_ext.h>
 #include <Logger.h>
 #include <cl_device_api.h>
 #include <cl_types.h>
@@ -333,6 +334,60 @@ public:
 
 private:
   SharedPtr<QueueEvent> m_pQueueEvent;
+};
+
+class ReadHostPipeIntelFPGACommand : public Command {
+public:
+  ReadHostPipeIntelFPGACommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+                               void *pDst, void *pipeBS, size_t size);
+
+  ~ReadHostPipeIntelFPGACommand() {}
+
+  cl_err_code Init() override { return CL_SUCCESS; }
+
+  cl_err_code Execute() override;
+
+  cl_err_code CommandDone() override { return CL_SUCCESS; }
+
+  ECommandExecutionType GetExecutionType() const override {
+    return DEVICE_EXECUTION_TYPE;
+  }
+
+  const char *GetCommandName() const override {
+    return "CL_COMMAND_READ_HOST_PIPE_INTEL_FPGA";
+  }
+
+protected:
+  void *m_pDst;
+  void *m_pipeBS;
+  size_t m_size;
+};
+
+class WriteHostPipeIntelFPGACommand : public Command {
+public:
+  WriteHostPipeIntelFPGACommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+                                void *pipeBS, const void *pSrc, size_t size);
+
+  ~WriteHostPipeIntelFPGACommand() {}
+
+  cl_err_code Init() override { return CL_SUCCESS; }
+
+  cl_err_code Execute() override;
+
+  cl_err_code CommandDone() override { return CL_SUCCESS; }
+
+  ECommandExecutionType GetExecutionType() const override {
+    return DEVICE_EXECUTION_TYPE;
+  }
+
+  const char *GetCommandName() const override {
+    return "CL_COMMAND_WRITE_HOST_PIPE_INTEL_FPGA";
+  }
+
+protected:
+  void *m_pipeBS;
+  const void *m_pSrc;
+  size_t m_size;
 };
 
 class ReadGVCommand : public Command {

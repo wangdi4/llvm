@@ -3981,6 +3981,102 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
   return CL_SUCCESS;
 }
 
+cl_err_code ExecutionModule::EnqueueReadHostPipeINTEL(
+    cl_command_queue command_queue, cl_program program, const char *pipe_symbol,
+    cl_bool blocking_read, void *ptr, size_t size,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event, ApiLogger *apiLogger) {
+  if (nullptr == pipe_symbol || nullptr == ptr)
+    return CL_INVALID_VALUE;
+
+  SharedPtr<IOclCommandQueueBase> queue =
+      GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
+  if (nullptr == queue.GetPtr())
+    return CL_INVALID_QUEUE;
+
+  cl_err_code err =
+      CheckEventList(queue, num_events_in_wait_list, event_wait_list);
+  if (CL_FAILED(err))
+    return err;
+
+  size_t gvSize;
+  void *gvPipeBS;
+  // Retrive the program scope pipe backstore. The name suffix is attached.
+  std::string gvName = std::string(pipe_symbol) + SYCLPIPE_BS;
+  err = m_pContextModule->GetDeviceGlobalVariablePointer(
+      queue->GetDefaultDevice()->GetHandle(), program, gvName.c_str(), &gvSize,
+      &gvPipeBS);
+
+  if (CL_FAILED(err))
+    return err;
+
+  if (!gvPipeBS)
+    return CL_INVALID_MEM_OBJECT;
+
+  Command *readHostPipeCmd =
+      new ReadHostPipeIntelFPGACommand(queue, ptr, gvPipeBS, size);
+  if (nullptr == readHostPipeCmd)
+    return CL_OUT_OF_HOST_MEMORY;
+
+  err = readHostPipeCmd->EnqueueSelf(blocking_read, num_events_in_wait_list,
+                                     event_wait_list, event, apiLogger);
+
+  if (CL_FAILED(err)) {
+    delete readHostPipeCmd;
+    return err;
+  }
+
+  return CL_SUCCESS;
+}
+
+cl_err_code ExecutionModule::EnqueueWriteHostPipeINTEL(
+    cl_command_queue command_queue, cl_program program, const char *pipe_symbol,
+    cl_bool blocking_write, const void *ptr, size_t size,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event, ApiLogger *apiLogger) {
+  if (nullptr == pipe_symbol || nullptr == ptr)
+    return CL_INVALID_VALUE;
+
+  SharedPtr<IOclCommandQueueBase> queue =
+      GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
+  if (nullptr == queue.GetPtr())
+    return CL_INVALID_QUEUE;
+
+  cl_err_code err =
+      CheckEventList(queue, num_events_in_wait_list, event_wait_list);
+  if (CL_FAILED(err))
+    return err;
+
+  size_t gvSize;
+  void *gvPipeBS;
+  // Retrive the program scope pipe backstore. The name suffix is attached.
+  std::string gvName = std::string(pipe_symbol) + SYCLPIPE_BS;
+  err = m_pContextModule->GetDeviceGlobalVariablePointer(
+      queue->GetDefaultDevice()->GetHandle(), program, gvName.c_str(), &gvSize,
+      &gvPipeBS);
+  if (CL_FAILED(err))
+    return err;
+
+  if (!gvPipeBS)
+    return CL_INVALID_MEM_OBJECT;
+
+  Command *writeHostPipeCmd =
+      new WriteHostPipeIntelFPGACommand(queue, gvPipeBS, ptr, size);
+
+  if (nullptr == writeHostPipeCmd)
+    return CL_OUT_OF_HOST_MEMORY;
+
+  err = writeHostPipeCmd->EnqueueSelf(blocking_write, num_events_in_wait_list,
+                                      event_wait_list, event, apiLogger);
+
+  if (CL_FAILED(err)) {
+    delete writeHostPipeCmd;
+    return err;
+  }
+
+  return CL_SUCCESS;
+}
+
 cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
     cl_command_queue command_queue, cl_program program, const char *name,
     bool blocking_read, size_t size, size_t offset, void *ptr,
