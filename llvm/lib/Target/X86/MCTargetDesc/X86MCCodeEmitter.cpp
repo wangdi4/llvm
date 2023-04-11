@@ -1801,13 +1801,13 @@ PrefixKind X86MCCodeEmitter::emitOpcodePrefix(int MemOperand, const MCInst &MI,
   // Emit the XuCC opcode prefix.
   switch (TSFlags & X86II::XuCCOpPrefixMask) {
   case X86II::XuCCPD: // 66
-    emitByte(0x66, OS);
+    emitByte(0x66, CB);
     break;
   case X86II::XuCCXS: // F3
-    emitByte(0xF3, OS);
+    emitByte(0xF3, CB);
     break;
   case X86II::XuCCXD: // F2
-    emitByte(0xF2, OS);
+    emitByte(0xF2, CB);
     break;
   }
 #endif // INTEL_FEATURE_XUCC
@@ -2224,9 +2224,9 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
   case X86II::MRM6rImmAAA: {
     if (HasVEX_4V) // Skip the register dst (which is encoded in VEX_VVVV).
       ++CurOp;
-    emitByte(BaseOpcode, OS);
+    emitByte(BaseOpcode, CB);
     emitRegModRMByte(MI.getOperand(CurOp++),
-                     (Form == X86II::MRM0rImmAAA) ? 0 : 6, OS);
+                     (Form == X86II::MRM0rImmAAA) ? 0 : 6, CB);
     CurOp += 2; // Skip the immediates (which is encoded in EVEX_aaa)
     break;
   }
