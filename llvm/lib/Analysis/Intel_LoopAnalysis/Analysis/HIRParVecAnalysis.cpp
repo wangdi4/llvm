@@ -642,8 +642,10 @@ void DDWalk::visit(HLDDNode *Node) {
           // TODO: Check if ephemeral values (ones whose use-chain ends only in
           //       calls to @llvm.assumes) should be handled too here.
           // TODO: Update cost model so that ephemeral values are ignored.
-          IsVectorizable = isTriviallyVectorizable(IntrinsicId) ||
-                           IntrinsicId == Intrinsic::assume;
+          IsVectorizable =
+              isTriviallyVectorizable(IntrinsicId) ||
+              IntrinsicId == Intrinsic::assume ||
+              IntrinsicId == Intrinsic::intel_directive_elementsize;
         } else {
           IsVectorizable = TLI.isFunctionVectorizable(Func->getName()) ||
               Func->hasFnAttribute("vector-variants");

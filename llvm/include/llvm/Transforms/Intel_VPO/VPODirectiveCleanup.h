@@ -32,6 +32,7 @@ public:
 
 private:
   bool removeScanFence(Function &F);
+  bool removeElementsizeIntrinsics(Function &F);
 };
 
 namespace vpo {

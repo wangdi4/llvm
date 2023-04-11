@@ -207,11 +207,12 @@ bool VPSOAAnalysis::isSOASupportedTy(Type *Ty) {
 bool VPSOAAnalysis::SOASafetyChecker::isSafePointerEscapeFunction(
     const VPCallInstruction *VPCall) {
 
-  // Only lifetime_start/end and invariant_start/end intrinsics are considered
-  // safe.
+  // Only lifetime_start/end, invariant_start/end, and elementsize intrinsics
+  // are considered safe.
   return VPCall->isIntrinsicFromList(
       {Intrinsic::lifetime_start, Intrinsic::lifetime_end,
-       Intrinsic::invariant_start, Intrinsic::invariant_end});
+       Intrinsic::invariant_start, Intrinsic::invariant_end,
+       Intrinsic::intel_directive_elementsize});
 }
 
 // Returns true if any of the following instruction with specific constraints

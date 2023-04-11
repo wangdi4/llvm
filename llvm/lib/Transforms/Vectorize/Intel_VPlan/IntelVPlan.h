@@ -2218,6 +2218,11 @@ public:
         {Intrinsic::lifetime_start, Intrinsic::lifetime_end});
   }
 
+  /// Return \p true if this call is a call to llvm.intel.directive.elementsize
+  bool isElementsizeIntrinsic() const {
+    return isIntrinsicFromList({Intrinsic::intel_directive_elementsize});
+  }
+
   /// Return \p true if this call is a intrinsic from the given list \p
   /// IntrinsicsList.
   bool isIntrinsicFromList(ArrayRef<Intrinsic::ID> IntrinsicsList) const {

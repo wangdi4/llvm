@@ -408,6 +408,12 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     }
   }
 
+  // llvm.intel.directive elementsize intrinsics should not be widened.
+  if (VPCall->isElementsizeIntrinsic()) {
+    VPCall->setShouldNotBeWidened();
+    return;
+  }
+
   StringRef CalledFuncName = F->getName();
   // Currently we assume CallVecDecisions analysis is run after predication. So
   // call is masked only if its parent VPBB has predicate.
