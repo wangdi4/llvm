@@ -106,7 +106,8 @@ bool IntelDebugRemoveXDeref::run(DbgVariableIntrinsic &DVI) {
   // Eventually we'll need to support variable location lists.
   if (!DVI.hasArgList()) {
     Value *Op = DVI.getVariableLocationOp(0);
-    if (auto P = dyn_cast<PointerType>(Op->getType()))
+    // Malformed IR can result in an invalid location operand. Check Op first.
+    if (auto P = Op ? dyn_cast<PointerType>(Op->getType()) : nullptr)
       SrcAS = P->getPointerAddressSpace();
   }
 

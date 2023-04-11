@@ -71,6 +71,9 @@
 ; CHECK:        call void @llvm.dbg.declare(metadata ptr %ASGEN
 ; UNMOD-SAME:    !DIExpression(DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef)
 ; MODIF-SAME:    !DIExpression()
+; CHECK:        call void @llvm.dbg.value(metadata !{{[0-9]+}}
+; UNMOD-SAME:    !DIExpression(DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef)
+; MODIF-SAME:    !DIExpression()
 ; CHECK:      }
 ;
 ; CHECK:      define {{.*}} void @_Z9local_ptrPU3AS3i
@@ -154,11 +157,13 @@ entry:
   call spir_func void @_Z9local_ptrPU3AS3i(ptr addrspace(3) noundef %0) #3, !dbg !31
   %1 = load ptr addrspace(3), ptr addrspace(4) %ASLOC.ascast, align 8, !dbg !32
   call spir_func void @_Z9local_refRU3AS3i(ptr addrspace(3) noundef align 4 dereferenceable(4) %1) #3, !dbg !33
+  call void @llvm.dbg.value(metadata !7, metadata !27, metadata !DIExpression(DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef)), !dbg !29
   ret void, !dbg !34
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
+declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
 ; Function Attrs: convergent mustprogress noinline norecurse nounwind optnone
 define dso_local spir_func void @_Z9local_ptrPU3AS3i(ptr addrspace(3) noundef %Arg) #2 !dbg !35 !srcloc !38 {
