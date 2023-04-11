@@ -1646,19 +1646,12 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
   // Try to perform OpenMP specific optimizations on the module. This is a
   // (quick!) no-op if there are no OpenMP runtime calls present in the module.
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // If OpenMP codegen is to be done by Paropt after the inliner,
   // then OpenMPOpt cannot be run here, before the inliner.
-  if (Level != OptimizationLevel::O0 &&
-      (!RunVPOParopt || RunVPOOpt == InvokeParoptBeforeInliner))
-#else // INTEL_COLLAB
-  if (Level != OptimizationLevel::O0)
+  if (!RunVPOParopt || RunVPOOpt == InvokeParoptBeforeInliner)
 #endif // INTEL_COLLAB
     MPM.addPass(OpenMPOptPass());
-=======
-  MPM.addPass(OpenMPOptPass());
->>>>>>> 721a914fae275100fca450abccdcea6c28c09c4f
 
   if (AttributorRun & AttributorRunOption::MODULE)
     MPM.addPass(AttributorPass());
