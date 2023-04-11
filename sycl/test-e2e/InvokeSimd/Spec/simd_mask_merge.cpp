@@ -22,11 +22,7 @@ constexpr int VL = 16;
 SIMD_CALLEE(simd<float, VL> va, simd_mask<float, VL> mask) SYCL_ESIMD_FUNCTION {
   esimd::simd<float, VL> ret(0);
   esimd::simd_mask<VL> emask;
-<<<<<<< HEAD
-  for(int i = 0; i < VL; i++)
-=======
   for (int i = 0; i < VL; i++)
->>>>>>> ff676abae9d631d79f7a8079435967fec90e5dec
     emask[i] = static_cast<bool>(mask[i]);
   ret.merge(va, !emask);
   return ret;
