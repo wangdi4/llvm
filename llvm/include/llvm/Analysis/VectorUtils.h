@@ -404,6 +404,11 @@ public:
   /// `recomputeNames()` will recompute the values of `VectorName` and
   /// `FullName` to reflect the updated properties.
   void recomputeNames() {
+    // Note that we do mangle with gcc specific name mangling.
+    // So rise alarm if we are about to switch VFABI encoding.
+    assert(!isIntelVFABIMangling(VectorName) &&
+           "Changing Vector ABI is not allowed");
+
     std::string EncodedName = encodeFromParts(getISA(), isMasked(), getVF(),
                                               getParameters(), ScalarName);
     if (VFInfo::isVectorVariant(VectorName)) {
@@ -412,6 +417,26 @@ public:
     } else {
       FullName = (std::move(EncodedName) + "(" + VectorName + ")");
     }
+  }
+
+  /// Return true if given vector variant name is encoded with Intel VFABI.
+  /// Specifically means that ISA class encoded with 'x', 'y', 'Y' or 'Z'.
+  static bool isIntelVFABIMangling(StringRef MangledName) {
+
+    if (!MangledName.consume_front(PREFIX))
+      return false;
+    if (MangledName.empty())
+      return false;
+    switch (MangledName.front()) {
+    case 'x':
+    case 'y':
+    case 'Y':
+    case 'Z':
+      return true;
+    default:
+      break;
+    }
+    return false;
   }
 
 private:
