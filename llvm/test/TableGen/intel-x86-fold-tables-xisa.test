@@ -1,5 +1,5 @@
 // INTEL_FEATURE_XISA_COMMON
-// REQUIRES: intel_feature_xisa_common,target=x86{{.*}}
+// REQUIRES: intel_feature_xisa_common,x86-registered-target
 
 // Steps to fix this test if it fails:
 //   1. Update X86ManualFoldTables.def to manually correct the entries in fold tables, or
