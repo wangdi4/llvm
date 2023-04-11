@@ -275,7 +275,7 @@ public:
   void SetRequiredSubGroupSize(const size_t value) {
     m_reqdSubGroupSize = value;
   }
-  void SetCpuMaxWGSize(const size_t value) { m_cpuMaxWGSize = value; }
+  void SetDeviceMaxWGSize(const size_t value) { m_deviceMaxWGSize = value; }
   void SetSubGroupConstructionMode(const int value) {
     m_subGroupConstructionMode = value;
   }
@@ -292,7 +292,7 @@ public:
   unsigned int GetVectorizedDimention() const {
     return m_verctorizeOnDimention;
   }
-  size_t GetCpuMaxWGSize() const { return m_cpuMaxWGSize; }
+  size_t GetDeviceMaxWGSize() const { return m_deviceMaxWGSize; }
   size_t GetVectorizationWidth() const { return m_vectorizationWidth; }
   int GetSubGroupConstructionMode() const { return m_subGroupConstructionMode; }
 
@@ -339,7 +339,7 @@ protected:
   unsigned int m_verctorizeOnDimention;
   bool m_debugInfo;
   DeviceMode m_targetDevice = CPU_DEVICE;
-  size_t m_cpuMaxWGSize = 0;
+  size_t m_deviceMaxWGSize = 0;
   int m_subGroupConstructionMode;
 
 private:

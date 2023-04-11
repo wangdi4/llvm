@@ -2055,13 +2055,13 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
       if (!deviceKernel)
         return CL_INVALID_PROGRAM_EXECUTABLE;
       unsigned dim = std::min((unsigned)forcedWGSizes.size(), uiWorkDim);
-      size_t cpuMaxWGSize =
-          FrameworkProxy::Instance()->GetOCLConfig()->GetCpuMaxWGSize();
+      size_t deviceMaxWGSize =
+          FrameworkProxy::Instance()->GetOCLConfig()->GetDeviceMaxWGSize(
+              isFPGAEmulator);
       for (unsigned i = 0; i < dim; ++i) {
         int size = forcedWGSizes[i];
         if (size <= 0 || (size_t)size > cpszGlobalWorkSize[i] ||
-            (isFPGAEmulator && size > FPGA_MAX_WORK_GROUP_SIZE) ||
-            (!isFPGAEmulator && (size_t)size > cpuMaxWGSize))
+            ((size_t)size > deviceMaxWGSize))
           return CL_INVALID_WORK_GROUP_SIZE;
         if (!deviceKernel->GetKernelNonUniformWGSizeSupport() &&
             (0 != cpszGlobalWorkSize[i] % size))
