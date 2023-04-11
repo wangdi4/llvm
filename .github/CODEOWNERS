@@ -131,7 +131,7 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/MC/COFF/ @phoebewang
 /llvm/test/MC/Disassembler/X86/ @KanRobert
 /llvm/test/MC/ELF/ @KanRobert
-/llvm/test/TableGen/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/test/TableGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/test/Transforms/Intel_Float128Expand/X86/ @yubingex007-a11y
 /llvm/test/Transforms/Intel_FoldLoadsToGather/ @gpei-dev
 /llvm/test/Transforms/Intel_IVSplit/ @williamweixiao
