@@ -96,6 +96,7 @@ private:
 
   public:
     SOASafetyChecker(const SOASafetyChecker &) = delete;
+    SOASafetyChecker &operator=(const SOASafetyChecker &) = delete;
 
     SOASafetyChecker(VPSOAAnalysis &A, VPAllocatePrivate *Priv)
         : Analysis(A), Private(Priv) {}
