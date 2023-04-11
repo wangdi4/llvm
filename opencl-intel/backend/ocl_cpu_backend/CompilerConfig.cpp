@@ -152,7 +152,7 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(
 
 void CompilerConfig::LoadDefaults() {
   m_cpuArch = CPU_ARCH_AUTO;
-  m_cpuMaxWGSize = CPU_MAX_WORK_GROUP_SIZE;
+  m_deviceMaxWGSize = CPU_MAX_WORK_GROUP_SIZE;
   m_transposeSize = TRANSPOSE_SIZE_NOT_SET;
   m_rtLoopUnrollFactor = 1;
   m_cpuFeatures = "";
@@ -201,8 +201,8 @@ void CompilerConfig::ApplyRuntimeOptions(
       (int)CL_DEV_BACKEND_OPTION_SUBDEVICE, m_cpuArch.c_str());
   m_cpuFeatures = pBackendOptions->GetStringValue(
       (int)CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, m_cpuFeatures.c_str());
-  m_cpuMaxWGSize = (size_t)pBackendOptions->GetIntValue(
-      (int)CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE, (int)m_cpuMaxWGSize);
+  m_deviceMaxWGSize = (size_t)pBackendOptions->GetIntValue(
+      (int)CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE, (int)m_deviceMaxWGSize);
 
   m_transposeSize = parseTransposeSize(pBackendOptions->GetIntValue(
       (int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, m_transposeSize));

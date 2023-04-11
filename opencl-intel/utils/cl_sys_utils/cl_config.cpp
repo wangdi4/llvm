@@ -347,14 +347,15 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const {
   return s_ver;
 }
 
-size_t BasicCLConfigWrapper::GetCpuMaxWGSize() const {
-  size_t cpuMaxWGSize = m_pConfigFile->Read<size_t>(
-      "CL_CONFIG_CPU_FORCE_MAX_WORK_GROUP_SIZE", CPU_MAX_WORK_GROUP_SIZE);
-  if (cpuMaxWGSize < CPU_MAX_WORK_GROUP_SIZE)
-    cpuMaxWGSize = CPU_MAX_WORK_GROUP_SIZE;
-  if (cpuMaxWGSize > CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND)
-    cpuMaxWGSize = CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND;
-  return cpuMaxWGSize;
+size_t BasicCLConfigWrapper::GetDeviceMaxWGSize(bool IsFPGAEmulator) const {
+  size_t MaxWGSize = m_pConfigFile->Read<size_t>(
+      "CL_CONFIG_CPU_FORCE_MAX_WORK_GROUP_SIZE",
+      IsFPGAEmulator ? FPGA_MAX_WORK_GROUP_SIZE : CPU_MAX_WORK_GROUP_SIZE);
+  if (MaxWGSize < CPU_MAX_WORK_GROUP_SIZE_LOWER_BOUND)
+    MaxWGSize = CPU_MAX_WORK_GROUP_SIZE_LOWER_BOUND;
+  if (MaxWGSize > CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND)
+    MaxWGSize = CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND;
+  return MaxWGSize;
 }
 
 unsigned BasicCLConfigWrapper::GetNumTBBWorkers() const {

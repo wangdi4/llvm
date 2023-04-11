@@ -3826,6 +3826,73 @@ cl_int CL_API_CALL clWritePipeIntelFPGA(cl_mem pipe, const void *ptr) {
 SET_ALIAS(clWritePipeIntelFPGA);
 REGISTER_EXTENSION_FUNCTION(clWritePipeIntelFPGA, clWritePipeIntelFPGA);
 
+cl_int CL_API_CALL clEnqueueReadHostPipeINTEL(
+    cl_command_queue command_queue, cl_program program, const char *pipe_symbol,
+    cl_bool blocking_read, void *ptr, size_t size,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event) {
+  if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
+    START_LOG_API(clEnqueueReadHostPipeINTEL);
+    apiLogger << "cl_command_queue command_queue: " << command_queue
+              << ", cl_program program: " << program
+              << ", const char* pipe_symbol: " << pipe_symbol
+              << ", cl_bool blocking_write: " << blocking_read
+              << ", void* ptr: " << ptr << ", size_t size: " << size
+              << ", cl_unit num_events_in_wait_list: "
+              << num_events_in_wait_list
+              << ", const cl_event* event_wait_list: " << event_wait_list
+              << ", cl_event* event: " << event;
+
+    CALL_INSTRUMENTED_API_LOGGER(
+        EXECUTION_MODULE, cl_int,
+        EnqueueReadHostPipeINTEL(
+            command_queue, program, pipe_symbol, blocking_read, ptr, size,
+            num_events_in_wait_list, event_wait_list, event, &apiLogger));
+  } else {
+    CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int,
+                          EnqueueReadHostPipeINTEL(
+                              command_queue, program, pipe_symbol,
+                              blocking_read, ptr, size, num_events_in_wait_list,
+                              event_wait_list, event, nullptr));
+  }
+}
+SET_ALIAS(clEnqueueReadHostPipeINTEL);
+REGISTER_EXTENSION_FUNCTION(clEnqueueReadHostPipeINTEL,
+                            clEnqueueReadHostPipeINTEL);
+
+cl_int CL_API_CALL clEnqueueWriteHostPipeINTEL(
+    cl_command_queue command_queue, cl_program program, const char *pipe_symbol,
+    cl_bool blocking_write, const void *ptr, size_t size,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event) {
+  if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
+    START_LOG_API(clEnqueueWriteHostPipeINTEL);
+    apiLogger << "cl_command_queue command_queue: " << command_queue
+              << ", cl_program program: " << program
+              << ", const char* pipe_symbol: " << pipe_symbol
+              << ", cl_bool blocking_write: " << blocking_write
+              << ", void* ptr: " << ptr << ", size_t size: " << size
+              << ", cl_unit num_events_in_wait_list: "
+              << num_events_in_wait_list
+              << ", const cl_event* event_wait_list: " << event_wait_list
+              << ", cl_event* event: " << event;
+    CALL_INSTRUMENTED_API_LOGGER(
+        EXECUTION_MODULE, cl_int,
+        EnqueueWriteHostPipeINTEL(
+            command_queue, program, pipe_symbol, blocking_write, ptr, size,
+            num_events_in_wait_list, event_wait_list, event, &apiLogger));
+  } else {
+    CALL_INSTRUMENTED_API(
+        EXECUTION_MODULE, cl_int,
+        EnqueueWriteHostPipeINTEL(
+            command_queue, program, pipe_symbol, blocking_write, ptr, size,
+            num_events_in_wait_list, event_wait_list, event, nullptr));
+  }
+}
+SET_ALIAS(clEnqueueWriteHostPipeINTEL);
+REGISTER_EXTENSION_FUNCTION(clEnqueueWriteHostPipeINTEL,
+                            clEnqueueWriteHostPipeINTEL);
+
 cl_int CL_API_CALL clGetProfileDataDeviceIntelFPGA(
     cl_device_id device_id, cl_program program, cl_bool read_enqueue_kernels,
     cl_bool read_auto_enqueued, cl_bool clear_counters_after_readback,
@@ -3954,7 +4021,7 @@ cl_int CL_API_CALL clEnqueueWriteGlobalVariableINTEL(
     cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
     cl_event *event) {
   if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
-    ApiLogger apiLogger("clEnqueueReadGlobalVariableINTEL");
+    ApiLogger apiLogger("clEnqueueWriteGlobalVariableINTEL");
     apiLogger << "cl_command_queue command_queue" << command_queue
               << "cl_program program" << program << "const char *name" << name
               << "cl_bool blocking_read" << blocking_write << "size_t size"

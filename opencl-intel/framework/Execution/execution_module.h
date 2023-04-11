@@ -310,6 +310,20 @@ public:
       cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
       cl_event *event, Utils::ApiLogger *apiLogger);
 
+  cl_err_code EnqueueReadHostPipeINTEL(
+      cl_command_queue command_queue, cl_program program,
+      const char *pipe_symbol, cl_bool blocking_write, void *ptr, size_t size,
+      cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+      cl_event *event, Utils::ApiLogger *apiLogger);
+
+  cl_err_code
+  EnqueueWriteHostPipeINTEL(cl_command_queue command_queue, cl_program program,
+                            const char *pipe_symbol, cl_bool blocking_write,
+                            const void *ptr, size_t size,
+                            cl_uint num_events_in_wait_list,
+                            const cl_event *event_wait_list, cl_event *event,
+                            Utils::ApiLogger *apiLogger);
+
   // Profiling
   cl_err_code GetEventProfilingInfo(cl_event clEvent,
                                     cl_profiling_info clParamName,

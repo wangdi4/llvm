@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////
 
 #include "program_config.h"
+#include "common_dev_limits.h"
 #include "cpu_config.h"
 
 using namespace Intel::OpenCL::Utils;
@@ -33,7 +34,8 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig &cpuConfig) {
   m_useAutoMemory = cpuConfig.UseAutoMemory();
   m_channelDepthEmulationMode = cpuConfig.GetChannelDepthEmulationMode();
   m_serializeWorkGroups = (cpuConfig.GetNumTBBWorkers() == 1);
-  m_cpuMaxWGSize = cpuConfig.GetCpuMaxWGSize();
+  m_deviceMaxWGSize =
+      cpuConfig.GetDeviceMaxWGSize(m_targetDevice == FPGA_EMU_DEVICE);
   m_streamingAlways = cpuConfig.GetStreamingAlways();
   m_expensiveMemOpts = cpuConfig.GetExpensiveMemOpts();
   m_passManagerType = cpuConfig.GetPassManagerType();

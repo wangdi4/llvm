@@ -591,7 +591,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   //
   pProps->SetTargetDevice(m_targetDevice);
 
-  pProps->SetCpuMaxWGSize(m_config->GetCpuMaxWGSize());
+  pProps->SetDeviceMaxWGSize(m_config->GetDeviceMaxWGSize());
 
   // OpenCL 2.0 related properties
   if (CompilationUtils::OclVersion::CL_VER_2_0 <=

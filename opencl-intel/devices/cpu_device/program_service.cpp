@@ -756,6 +756,8 @@ cl_dev_err_code ProgramService::GetKernelInfo(
       (int)param > CL_DEV_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL)
     return CL_DEV_INVALID_VALUE;
 
+  bool IsFPGAEmulator = FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode();
+
   switch (param) {
   case CL_DEV_KERNEL_NAME:
     pValue = const_cast<char *>(pKernel->GetKernelName());
@@ -785,24 +787,21 @@ cl_dev_err_code ProgramService::GetKernelInfo(
     // the stack dynamic local buffers.
     //       But take it into account if the available stack frame size is known
     //       at RT. I.e.:
-    //          GetMaxWorkGroupSize(GetCpuMaxWGSize(), stackFrameSize -
+    //          GetMaxWorkGroupSize(GetDeviceMaxWGSize(), stackFrameSize -
     //          CPU_DEV_LCL_MEM_SIZE);
     {
       size_t maxPrivateMemSize = (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
                                      ? m_pCPUConfig->GetForcedPrivateMemSize()
                                      : CPU_DEV_MAX_WG_PRIVATE_SIZE;
-      if (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode()) {
+      if (IsFPGAEmulator) {
         if (m_pCPUConfig->UseAutoMemory()) {
           maxPrivateMemSize = (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
                                   ? m_pCPUConfig->GetForcedPrivateMemSize()
                                   : FPGA_DEV_MAX_WG_PRIVATE_SIZE;
         }
-        ullValue = pKernelProps->GetMaxWorkGroupSize(FPGA_MAX_WORK_GROUP_SIZE,
-                                                     maxPrivateMemSize);
-      } else {
-        ullValue = pKernelProps->GetMaxWorkGroupSize(
-            m_pCPUConfig->GetCpuMaxWGSize(), maxPrivateMemSize);
       }
+      ullValue = pKernelProps->GetMaxWorkGroupSize(
+          m_pCPUConfig->GetDeviceMaxWGSize(IsFPGAEmulator), maxPrivateMemSize);
       // According to OpenCL spec, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE
       // query should be less then or equal to CL_KERNEL_WORK_GROUP_SIZE query.
       if (param == CL_DEV_KERNEL_WG_SIZE) {
@@ -873,32 +872,24 @@ cl_dev_err_code ProgramService::GetKernelInfo(
       size_t maxPrivateMemSize = (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
                                      ? m_pCPUConfig->GetForcedPrivateMemSize()
                                      : CPU_DEV_MAX_WG_PRIVATE_SIZE;
-      if (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode()) {
+      if (IsFPGAEmulator) {
         if (m_pCPUConfig->UseAutoMemory()) {
           maxPrivateMemSize = (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
                                   ? m_pCPUConfig->GetForcedPrivateMemSize()
                                   : FPGA_DEV_MAX_WG_PRIVATE_SIZE;
         }
-        pKernelProps->GetLocalSizeForSubGroupCount(
-            desiredSGCount, FPGA_MAX_WORK_GROUP_SIZE, maxPrivateMemSize,
-            &vValues[0], dim);
-      } else {
-        pKernelProps->GetLocalSizeForSubGroupCount(
-            desiredSGCount, m_pCPUConfig->GetCpuMaxWGSize(), maxPrivateMemSize,
-            &vValues[0], dim);
       }
+      pKernelProps->GetLocalSizeForSubGroupCount(
+          desiredSGCount, m_pCPUConfig->GetDeviceMaxWGSize(IsFPGAEmulator),
+          maxPrivateMemSize, &vValues[0], dim);
     }
     stValSize =
         (nullptr != value && nullptr != input_value) ? sizeof(size_t) * dim : 0;
     break;
   }
   case CL_DEV_KERNEL_MAX_NUM_SUB_GROUPS: {
-    if (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode()) {
-      ullValue = pKernelProps->GetMaxNumSubGroups(FPGA_MAX_WORK_GROUP_SIZE);
-    } else {
-      ullValue =
-          pKernelProps->GetMaxNumSubGroups(m_pCPUConfig->GetCpuMaxWGSize());
-    }
+    ullValue = pKernelProps->GetMaxNumSubGroups(
+        m_pCPUConfig->GetDeviceMaxWGSize(IsFPGAEmulator));
     stValSize = sizeof(size_t);
     break;
   }

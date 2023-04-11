@@ -59,6 +59,7 @@ TEST_F(CheckExtensions, FPGADevice) {
   StringSet<> extRefFPGA{OCL_EXT_ES_KHR_INT64,
                          OCL_EXT_INTEL_CHANNELS,
                          OCL_EXT_INTEL_FPGA_HOST_PIPE,
+                         OCL_EXT_INTEL_PROGRAM_SCOPE_HOST_PIPE,
                          OCL_EXT_KHR_3D_IMAGE_WRITES,
                          OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE,
                          OCL_EXT_KHR_DEPTH_IMAGES,

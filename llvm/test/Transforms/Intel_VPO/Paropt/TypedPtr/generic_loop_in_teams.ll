@@ -1,7 +1,7 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
 
-; This test checks that the "loop" construct is mapped to "distribute"
+; This test checks that the "loop" construct is mapped to "distribute parallel for"
 ; after prepare pass.
 
 ; int aaa[1000];
@@ -60,9 +60,9 @@ for.body:                                         ; preds = %for.cond
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %7) #1
   store i32 99, i32* %.omp.ub, align 4, !tbaa !3
 
-; Verify that DIR.OMP.GENERICLOOP is mapped to DIR.OMP.DISTRIBUTE
+; Verify that DIR.OMP.GENERICLOOP is mapped to DIR.OMP.DISTRIBUTE.PARLOOP
 ; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.FIRSTPRIVATE"({{.*}}), "QUAL.OMP.NORMALIZED.IV"({{.*}}), "QUAL.OMP.NORMALIZED.UB"({{.*}}), "QUAL.OMP.PRIVATE"({{.*}})
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.FIRSTPRIVATE"({{.*}}), "QUAL.OMP.NORMALIZED.IV"({{.*}}), "QUAL.OMP.NORMALIZED.UB"({{.*}}), "QUAL.OMP.PRIVATE"({{.*}}), "QUAL.OMP.SHARED"({{.*}}), "QUAL.OMP.SHARED"({{.*}})
 
   %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SHARED"(i32* %i), "QUAL.OMP.SHARED"([1000 x i32]* @aaa) ]
   %9 = load i32, i32* %.omp.lb, align 4, !tbaa !3
@@ -110,7 +110,7 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
 
 ; CHECK-NOT: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.GENERICLOOP"() {{.*}}
-; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE"() {{.*}}
+; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() {{.*}}
 
   call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.GENERICLOOP"() ]
   %20 = bitcast i32* %.omp.ub to i8*

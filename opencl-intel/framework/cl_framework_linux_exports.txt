@@ -119,6 +119,8 @@
         clUnmapHostPipeIntelFPGA;
         clReadPipeIntelFPGA;
         clWritePipeIntelFPGA;
+        clEnqueueReadHostPipeINTEL;
+        clEnqueueWriteHostPipeINTEL;
         clGetProfileDataDeviceIntelFPGA;
 
         clCreateCommandQueueWithProperties;

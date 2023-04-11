@@ -139,10 +139,6 @@ GetCPUDevInfo(CPUDeviceConfig &config) {
   return &CPUDevInfo;
 }
 
-static const size_t FPGA_MAX_WORK_ITEM_SIZES[CPU_MAX_WORK_ITEM_DIMENSIONS] = {
-    FPGA_MAX_WORK_GROUP_SIZE, FPGA_MAX_WORK_GROUP_SIZE,
-    FPGA_MAX_WORK_GROUP_SIZE};
-
 static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = {
     CL_DEVICE_PARTITION_BY_COUNTS, CL_DEVICE_PARTITION_EQUALLY,
     CL_DEVICE_PARTITION_BY_NAMES_INTEL,
@@ -1276,14 +1272,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
       auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
       if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
         return CL_DEV_INVALID_VALUE;
-      switch (deviceMode) {
-      case CPU_DEVICE:
-        *(size_t *)paramVal = m_CPUDeviceConfig.GetCpuMaxWGSize();
-        break;
-      case FPGA_EMU_DEVICE:
-        *(size_t *)paramVal = FPGA_MAX_WORK_GROUP_SIZE;
-        break;
-      }
+      *(size_t *)paramVal =
+          m_CPUDeviceConfig.GetDeviceMaxWGSize(deviceMode == FPGA_EMU_DEVICE);
     }
     return CL_DEV_SUCCESS;
   }
@@ -1297,19 +1287,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
       auto deviceMode = m_CPUDeviceConfig.GetDeviceMode();
       if (deviceMode != CPU_DEVICE && deviceMode != FPGA_EMU_DEVICE)
         return CL_DEV_INVALID_VALUE;
-      switch (deviceMode) {
-      case CPU_DEVICE: {
-        size_t cpuMaxWGSize = m_CPUDeviceConfig.GetCpuMaxWGSize();
-        const size_t cpuMaxWISizes[CPU_MAX_WORK_ITEM_DIMENSIONS] = {
-            cpuMaxWGSize, cpuMaxWGSize, cpuMaxWGSize};
-        MEMCPY_S(paramVal, valSize, cpuMaxWISizes, *pinternalRetunedValueSize);
-        break;
-      }
-      case FPGA_EMU_DEVICE:
-        MEMCPY_S(paramVal, valSize, FPGA_MAX_WORK_ITEM_SIZES,
-                 *pinternalRetunedValueSize);
-        break;
-      }
+      size_t MaxWGSize =
+          m_CPUDeviceConfig.GetDeviceMaxWGSize(deviceMode == FPGA_EMU_DEVICE);
+      const size_t MaxWISizes[CPU_MAX_WORK_ITEM_DIMENSIONS] = {
+          MaxWGSize, MaxWGSize, MaxWGSize};
+      MEMCPY_S(paramVal, valSize, MaxWISizes, *pinternalRetunedValueSize);
     }
     return CL_DEV_SUCCESS;
   }
@@ -2001,7 +1983,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         // This value depends on pipe algorithm limitations,
         // max. compute units and max. work-group size.
         cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
-        size_t cpuMaxWGSize = m_CPUDeviceConfig.GetCpuMaxWGSize();
+        size_t cpuMaxWGSize =
+            m_CPUDeviceConfig.GetDeviceMaxWGSize(/*IsFPGAEmulator = */ false);
         *(cl_uint *)paramVal = totalPerPipeReservationsLimit /
                                (GetNumberOfProcessors() * cpuMaxWGSize);
         break;
@@ -2085,7 +2068,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         return CL_DEV_INVALID_VALUE;
       }
       if (nullptr != paramVal) {
-        *(cl_uint *)paramVal = m_CPUDeviceConfig.GetCpuMaxWGSize() >> 2;
+        *(cl_uint *)paramVal =
+            m_CPUDeviceConfig.GetDeviceMaxWGSize(/*IsFPGAEmulator = */ false) >>
+            2;
       }
       return CL_DEV_SUCCESS;
     }

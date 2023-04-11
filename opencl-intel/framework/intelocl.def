@@ -121,6 +121,8 @@ EXPORTS
   clGetKernelSubGroupInfoKHR
   clReadPipeIntelFPGA
   clWritePipeIntelFPGA
+  clEnqueueReadHostPipeINTEL
+  clEnqueueWriteHostPipeINTEL
   clMapHostPipeIntelFPGA
   clUnmapHostPipeIntelFPGA
   clGetProfileDataDeviceIntelFPGA

@@ -598,9 +598,9 @@ public:
   }
 
   /**
-   * @returns maximum work-group size for cpu device.
+   * @returns maximum work-group size for cpu or fpga emulator device.
    */
-  size_t GetCpuMaxWGSize() const;
+  size_t GetDeviceMaxWGSize(bool IsFPGAEmulator = false) const;
 
   std::string GetForcedWGSize() const {
     std::string WGSize;

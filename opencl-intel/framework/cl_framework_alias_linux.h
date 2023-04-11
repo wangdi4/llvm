@@ -145,6 +145,8 @@ DECLARE_ALIAS(clMapHostPipeIntelFPGA);
 DECLARE_ALIAS(clUnmapHostPipeIntelFPGA);
 DECLARE_ALIAS(clReadPipeIntelFPGA);
 DECLARE_ALIAS(clWritePipeIntelFPGA);
+DECLARE_ALIAS(clEnqueueReadHostPipeINTEL);
+DECLARE_ALIAS(clEnqueueWriteHostPipeINTEL);
 DECLARE_ALIAS(clGetDeviceFunctionPointerINTEL);
 DECLARE_ALIAS(clGetDeviceGlobalVariablePointerINTEL);
 DECLARE_ALIAS(clEnqueueReadGlobalVariableINTEL);

@@ -14,6 +14,7 @@
 
 #include "enqueue_commands.h"
 #include "MemoryAllocator/MemoryObject.h"
+#include "PipeCommon.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
 #include "cl_types.h"
@@ -1952,6 +1953,56 @@ void NDRangeKernelCommand::GPA_WriteWorkMetadata(
 }
 #endif // GPA
 #endif // end INTEL_CUSTOMIZATION
+
+ReadHostPipeIntelFPGACommand::ReadHostPipeIntelFPGACommand(
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue, void *pDst, void *pipeBS,
+    size_t size)
+    : Command(cmdQueue), m_pDst(pDst), m_pipeBS(pipeBS), m_size(size) {
+  m_commandType = CL_COMMAND_READ_HOST_PIPE_INTEL;
+}
+
+cl_err_code ReadHostPipeIntelFPGACommand::Execute() {
+  if (nullptr == m_pDst || nullptr == m_pDst)
+    return CL_INVALID_VALUE;
+
+  NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
+                         Intel::OpenCL::Utils::HostTime());
+
+  if (__read_pipe_2_fpga(m_pipeBS, m_pDst, m_size, m_size))
+    return CL_PIPE_EMPTY;
+
+  __flush_read_pipe(m_pipeBS);
+
+  NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
+                         Intel::OpenCL::Utils::HostTime());
+
+  return CL_SUCCESS;
+}
+
+WriteHostPipeIntelFPGACommand::WriteHostPipeIntelFPGACommand(
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue, void *pipeBS,
+    const void *pSrc, size_t size)
+    : Command(cmdQueue), m_pipeBS(pipeBS), m_pSrc(pSrc), m_size(size) {
+  m_commandType = CL_COMMAND_WRITE_HOST_PIPE_INTEL;
+}
+
+cl_err_code WriteHostPipeIntelFPGACommand::Execute() {
+  if (nullptr == m_pipeBS || nullptr == m_pSrc)
+    return CL_INVALID_VALUE;
+
+  NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
+                         Intel::OpenCL::Utils::HostTime());
+  // The m_size should be the packet size of this pipe.
+  if (__write_pipe_2_fpga(m_pipeBS, m_pSrc, m_size, m_size))
+    return CL_PIPE_EMPTY;
+
+  __flush_write_pipe(m_pipeBS);
+
+  NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
+                         Intel::OpenCL::Utils::HostTime());
+
+  return CL_SUCCESS;
+}
 
 ReadGVCommand::ReadGVCommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,
                              void *pDst, const void *pSrc, size_t size)

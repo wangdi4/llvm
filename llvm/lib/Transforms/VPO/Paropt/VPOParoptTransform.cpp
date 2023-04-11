@@ -332,11 +332,9 @@ static cl::opt<bool> DefaultNDRangeTripcountHeuristic(
     cl::desc("Use profitability heuristic when passing tripcount"
              "with default ND-range"));
 
-static cl::opt<bool> MapLoopReductionBindTeamsToDistribute(
-    "vpo-paropt-map-loop-reduction-bind-teams-to-distribute", cl::Hidden,
-    cl::init(false),
-    cl::desc("Map loop construct to distribute when bound to teams "
-             "and reduction clause is specified"));
+static cl::opt<bool> MapLoopBindTeamsToDistribute(
+    "vpo-paropt-map-loop-bind-teams-to-distribute", cl::Hidden, cl::init(false),
+    cl::desc("Map loop construct to distribute when bound to teams"));
 
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
@@ -13797,29 +13795,30 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   bool ReplaceShared = (MappedDir == DIR_OMP_LOOP || MappedDir == DIR_OMP_SIMD);
   bool ReplaceFirstPrivate = (MappedDir == DIR_OMP_SIMD);
 
-  // For GenericLoop with TEAMS binding, the mapped directive is
-  // DIR_OMP_DISTRIBUTE therefore:
-  // * SHARED clauses will be dropped as DISTRIBUTE currently doesn't support
-  //   LIVEIN clauses for replacement
+  // For GenericLoop with TEAMS binding, mapped directive is
+  // DIR_OMP_DISTRIBUTE_PARLOOP which is non-conforming to 5.2 spec.
+  // Users can override to enable conformant behavior (DIR_OMP_DISTRIBUTE)
+  // using flag (vpo-paropt-map-loop-bind-teams-to-distribute=true).
+  // This will become the eventual default after validating final
+  // implementation.
+  // * If DISTRIBUTE is mapped, SHARED clauses will be dropped as LIVEIN
+  //   clauses for replacement are not supported on DISTRIBUTE
   //
-  // For GenericLoop with TEAMS binding containing a REDUCTION clause, we
-  // have the following behavior:
-  // * (Default) Override DISTRIBUTE directive with DISTRIBUTE_PARLOOP (old
-  //   behavior) until FE implements fix to move REDUCTION from LOOP
-  //   to a perfectly nested enclosing TEAMS
-  // * If option flag vpo-paropt-map-loop-reduction-bind-teams-to-distribute
-  //   is passed, disable override and use DISTRIBUTE. Once FE fix is
-  //   implemented this should become default. Emit error if REDUCTION
-  //   clause is specified as this is not supported for both host and
-  //   non-hosts. Frontend should eventually emit error for this case.
+  // For GenericLoop with TEAMS binding containing a REDUCTION clause, if
+  // vpo-paropt-map-loop-bind-teams-to-distribute=true:
+  // * Emit error for REDUCTION clause on LOOP construct. This is not
+  //   supported for both host and non-hosts.
+  //
+  // TODO: If LOOP construct is perfectly nested in a TEAMS construct,
+  //   FE is expected to move REDUCTION clause to TEAMS parent construct.
   bool IsDistributeLoopBindTeams = (MappedDir == DIR_OMP_DISTRIBUTE);
   bool HasReduction = !WL->getRed().empty();
 
-  if (IsDistributeLoopBindTeams && HasReduction) {
-    if (!MapLoopReductionBindTeamsToDistribute) {
+  if (IsDistributeLoopBindTeams) {
+    if (!MapLoopBindTeamsToDistribute) {
       MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
       IsDistributeLoopBindTeams = false;
-    } else {
+    } else if (HasReduction) {
       std::string ErrorMsg = "'reduction' clause on a 'loop' construct with "
                              "'teams' binding is not supported";
       F->getContext().diagnose(DiagnosticInfoUnsupported(*F, ErrorMsg));
