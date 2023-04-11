@@ -416,6 +416,7 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/docs/Intel/VPO/ @sguggill @skozhukh @mamasten @offsake
 /llvm/include/llvm/IR/Intel_SVML.td @mamasten @skozhukh @karthik-senthil
 /llvm/include/llvm/Transforms/Vectorize/ @sguggill @skozhukh @mamasten @offsake
+/llvm/include/llvm/Transforms/Vectorize/IntelVPlanDriver.h @sguggill @skozhukh @mamasten @offsake @wjschmidt
 /llvm/include/llvm/Transforms/Vectorize.h @sguggill @skozhukh @mamasten @offsake
 /llvm/include/llvm/Analysis/VectorUtils.h @mamasten @skozhukh @sguggill @karthik-senthil
 /llvm/include/llvm/Analysis/VecFuncs.def @sguggill @skozhukh @karthik-senthil @mamasten
@@ -434,7 +435,12 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR @sguggill @skozhukh @karthik-senthil @mamasten
 
 # VPO vectorizer file based code owner overrides
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationLegality.cpp @sguggill @skozhukh @mamasten @offsake @wjschmidt
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationLegality.h @sguggill @skozhukh @mamasten @offsake @wjschmidt
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationPlanner.cpp @sguggill @skozhukh @mamasten @offsake @wjschmidt
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelLoopVectorizationPlanner.h @sguggill @skozhukh @mamasten @offsake @wjschmidt
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVolcanoOpenCL.h @turinevgeny @sguggill @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanLegalityDescr.h @sguggill @skozhukh @mamasten @offsake @wjschmidt
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAlignmentAnalysis.cpp @skozhukh @mamasten @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAlignmentAnalysis.h @skozhukh @mamasten @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanAllZeroBypass.cpp @mamasten @skozhukh @offsake
@@ -448,6 +454,7 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModelHeuristics.h @offsake @skozhukh @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDivergenceAnalysis.cpp @mamasten @karthik-senthil @skozhukh @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDivergenceAnalysis.h @mamasten @karthik-senthil @skozhukh @sguggill
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanDriver.cpp @sguggill @skozhukh @mamasten @offsake @wjschmidt
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanEvaluator.cpp @skozhukh @offsake @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanEvaluator.h @skozhukh @offsake @sguggill
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanFunctionVectorizer.cpp @mamasten @skozhukh @sguggill
@@ -489,6 +496,9 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSTransform.h @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPTransformLibraryCalls.cpp @tylanphear @karthik-senthil @sguggill @skozhukh @mamasten @offsake
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPTransformLibraryCalls.h @tylanphear @karthik-senthil @sguggill @skozhukh @mamasten @offsake
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp @sguggill @skozhukh @mamasten @offsake @wjschmidt
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.h @sguggill @skozhukh @mamasten @offsake @wjschmidt
+
 /llvm/test/Transforms/Intel_VPO/Vecopt/vls/ @skozhukh @sguggill @karthik-senthil
 
 /llvm/include/llvm/Transforms/SYCLTransforms/SYCLKernelVecClone.h @mamasten @turinevgeny @skozhukh
