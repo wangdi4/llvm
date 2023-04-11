@@ -1,9 +1,6 @@
-<<<<<<< HEAD
 // TODO: Re-enable this test on Windows after fixing the following issue:
 // https://github.com/intel/llvm/issues/8975
 // UNSUPPORTED: windows
-=======
->>>>>>> e12df430c3d4b829b50943378c3e67c7e3ad4139
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
