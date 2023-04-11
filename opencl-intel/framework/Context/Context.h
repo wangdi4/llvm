@@ -709,6 +709,7 @@ protected:
   bool m_bSupportsUsmSharedCross = false;
   bool m_bSupportsUsmSharedSystem = false;
   std::map<void *, SharedPtr<USMBuffer>> m_usmBuffers;
+  std::map<const void *, std::vector<void *>> m_usmSystemBufferMap;
   mutable Intel::OpenCL::Utils::OclReaderWriterLock m_usmBuffersRwlock;
 
   // Holds the backend library program.
