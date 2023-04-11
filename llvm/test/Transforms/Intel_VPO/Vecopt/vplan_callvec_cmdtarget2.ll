@@ -14,8 +14,8 @@ declare nofpclass(nan inf) double @Interpolate(double noundef nofpclass(nan inf)
 define dso_local void @run_test.S(ptr noundef %vals, ptr nocapture noundef readonly %src, ptr nocapture noundef writeonly %dst) local_unnamed_addr #2 {
 ; CHECK-LABEL: VPlan after CallVecDecisions analysis for merged CFG:
 ; CHECK-NEXT:  VPlan IR for: run_test.S:omp.inner.for.body.#1
-; FIXME - Has to be YMM1(AVX) vector variant call
-; CHECK:       [DA: Div] double [[VP0:%.*]] = call double [[VP1:%.*]] ptr %vals ptr @Interpolate [Serial]
+; YMM1(AVX) vector variant call
+; CHECK:       [DA: Div] double [[VP0:%.*]] = call double [[VP1:%.*]] ptr %vals _ZGVyN4vu_Interpolate [x 1]
 
 entry:
   %i.linear.iv = alloca i32, align 4

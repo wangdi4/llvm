@@ -61,6 +61,12 @@ ParseRet tryParseISA(StringRef &MangledName, VFISAKind &ISA) {
               .Case("c", VFISAKind::AVX)
               .Case("d", VFISAKind::AVX2)
               .Case("e", VFISAKind::AVX512)
+#if INTEL_CUSTOMIZATION
+              .Case("x", VFISAKind::SSE)
+              .Case("y", VFISAKind::AVX)
+              .Case("Y", VFISAKind::AVX2)
+              .Case("Z", VFISAKind::AVX512)
+#endif // INTEL_CUSTOMIZATION
               .Default(VFISAKind::Unknown);
     MangledName = MangledName.drop_front(1);
   }
