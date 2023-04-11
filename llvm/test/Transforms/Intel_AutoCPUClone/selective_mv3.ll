@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
 
 ; The test ensures that functions, that are called transitively from loop bodies,
 ; are considered for multi-versioning.
