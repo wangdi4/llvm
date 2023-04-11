@@ -1,5 +1,7 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=true -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck -check-prefix=CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck -check-prefix=CONFM %s 
 
 ; Test src:
 ;
@@ -13,8 +15,23 @@
 ;   }
 ; }
 
-; This test checks that the "loop" construct is mapped to "distribute"
-; after prepare pass, if binding rule is teams.
+; This test checks "loop" construct mapping after prepare pass if binding rule is teams.
+; For conforming behavior, loop is mapped to "distribute" and for non-conforming mapping mapping is 
+; "distribute parallel for" which can be toggled using flag '-vpo-paropt-map-loop-bind-teams-to-distribute'
+
+; NON-CONFM-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
+; NON-CONFM: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(),
+; NON-CONFM-NOT: "QUAL.OMP.BIND.TEAMS"
+; NON-CONFM-SAME:  "QUAL.OMP.SHARED:TYPED"({{.*}}), "QUAL.OMP.SHARED:TYPED"({{.*}}, "QUAL.OMP.NORMALIZED.IV:TYPED"({{.*}}), "QUAL.OMP.FIRSTPRIVATE:TYPED"({{.*}}), "QUAL.OMP.NORMALIZED.UB:TYPED"({{.*}}), "QUAL.OMP.PRIVATE:TYPED"({{.*}})
+; NON-CONFM-NOT: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.GENERICLOOP"() {{.*}}
+; NON-CONFM: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() {{.*}}
+
+; CONFM-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
+; CONFM: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(),
+; CONFM-NOT: "QUAL.OMP.BIND.TEAMS"
+; CONFM-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"({{.*}}), "QUAL.OMP.FIRSTPRIVATE:TYPED"({{.*}}), "QUAL.OMP.NORMALIZED.UB:TYPED"({{.*}}), "QUAL.OMP.PRIVATE:TYPED"({{.*}})
+; CONFM-NOT: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.GENERICLOOP"() {{.*}}
+; CONFM: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE"() {{.*}}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -49,12 +66,6 @@ for.body:                                         ; preds = %for.cond
   store i32 0, ptr %.omp.lb, align 4, !tbaa !4
   call void @llvm.lifetime.start.p0(i64 4, ptr %.omp.ub) #2
   store i32 99, ptr %.omp.ub, align 4, !tbaa !4
-
-; Verify that DIR.OMP.GENERICLOOP is mapped to DIR.OMP.DISTRIBUTE
-; CHECK-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(),
-; CHECK-NOT: "QUAL.OMP.BIND.TEAMS
-; CHECK-SAME: "QUAL.OMP.NORMALIZED.IV:TYPED"({{.*}}), "QUAL.OMP.FIRSTPRIVATE:TYPED"({{.*}}), "QUAL.OMP.NORMALIZED.UB:TYPED"({{.*}}), "QUAL.OMP.PRIVATE:TYPED"({{.*}})
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(),
     "QUAL.OMP.BIND.TEAMS"(),
@@ -106,8 +117,6 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
 
-; CHECK-NOT: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.GENERICLOOP"() {{.*}}
-; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.DISTRIBUTE"() {{.*}}
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.GENERICLOOP"() ]
   call void @llvm.lifetime.end.p0(i64 4, ptr %.omp.ub) #2

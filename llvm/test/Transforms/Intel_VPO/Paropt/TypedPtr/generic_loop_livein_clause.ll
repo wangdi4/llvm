@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
 
 ; void foo() {
 ;   int a[100], n, m;
@@ -14,7 +14,7 @@
 ;     a[i] = n;
 ;
 ;   // case 3
-;   #pragma omp loop bind(teams) // -> DISTRIBUTE
+;   #pragma omp loop bind(teams) // -> DISTRIBUTE PARALLEL FOR
 ;   for (int i=0; i<100; i++)
 ;     a[i] = n;
 ; }
@@ -30,8 +30,8 @@
 ;    b. FIRSTPRIVATE --> unchanged
 ;    c. variables are renamed with OPERAND.ADDR
 ;
-; case 3: GenericLoop --> DISTRIBUTE; check that
-;    a. SHARED --> clauses removed
+; case 3: GenericLoop --> DISTRIBUTE PARALLEL FOR; check that
+;    a. SHARED --> unchanged
 ;    b. FIRSTPRIVATE --> unchanged
 ;    c. variables are renamed with OPERAND.ADDR
 ;
@@ -154,7 +154,7 @@ omp.loop.exit19:                                  ; preds = %omp.inner.for.end18
 
   %17 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.BIND.TEAMS"(), "QUAL.OMP.SHARED"([100 x i32]* %a), "QUAL.OMP.SHARED"(i32* %n), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv21), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb22), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub23), "QUAL.OMP.PRIVATE"(i32* %i27) ]
 
-; CHECK: "DIR.OMP.DISTRIBUTE"(), {{.*}}, "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb22), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(i32* %.omp.lb22, i32** %.omp.lb22.addr), "QUAL.OMP.OPERAND.ADDR"([100 x i32]* %a, [100 x i32]** %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(i32* %n, i32** %n.addr{{[0-9]*}})
+; CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.SHARED"([100 x i32]* %a), "QUAL.OMP.SHARED"(i32* %n), {{.*}}, "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb22), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(i32* %.omp.lb22, i32** %.omp.lb22.addr), "QUAL.OMP.OPERAND.ADDR"([100 x i32]* %a, [100 x i32]** %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(i32* %n, i32** %n.addr{{[0-9]*}})
 
   %18 = load i32, i32* %.omp.lb22, align 4
   store i32 %18, i32* %.omp.iv21, align 4

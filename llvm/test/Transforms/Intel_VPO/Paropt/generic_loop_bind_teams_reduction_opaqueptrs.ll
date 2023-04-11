@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-reduction-bind-teams-to-distribute=false -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-reduction-bind-teams-to-distribute=false -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=false -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;
