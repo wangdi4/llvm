@@ -394,10 +394,10 @@ public:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
     case REX2:
-      emitByte(0xD5, OS);
+      emitByte(0xD5, CB);
       emitByte(M << 7 | EVEX_R2 << 6 | EVEX_P10 << 5 | B2 << 4 | W << 3 |
                    R << 2 | X << 1 | B,
-               OS);
+               CB);
       return;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
@@ -413,29 +413,23 @@ public:
       return;
     case EVEX:
       assert(VEX_5M && !(VEX_5M & 0x8) && "invalid mmm fields for EVEX!");
-<<<<<<< HEAD
-      emitByte(0x62, OS);
+      emitByte(0x62, CB);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-      emitByte(FirstPayload | ((~EVEX_R2) & 0x1) << 4 | B2 << 3 | VEX_5M, OS);
+      emitByte(FirstPayload | ((~EVEX_R2) & 0x1) << 4 | B2 << 3 | VEX_5M, CB);
 #else // INTEL_FEATURE_ISA_APX_F
-      emitByte(FirstPayload | ((~EVEX_R2) & 0x1) << 4 | VEX_5M, OS);
+      emitByte(FirstPayload | ((~EVEX_R2) & 0x1) << 4 | VEX_5M, CB);
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
       emitByte(W << 7 | ((~VEX_4V) & 0xf) << 3 | ((~EVEX_P10) & 0x1) << 2 |
                    VEX_PP,
-               OS);
+               CB);
 #else // INTEL_FEATURE_ISA_AVX256P
-      emitByte(W << 7 | ((~VEX_4V) & 0xf) << 3 | 1 << 2 | VEX_PP, OS);
+      emitByte(W << 7 | ((~VEX_4V) & 0xf) << 3 | 1 << 2 | VEX_PP, CB);
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-=======
-      emitByte(0x62, CB);
-      emitByte(FirstPayload | ((~EVEX_R2) & 0x1) << 4 | VEX_5M, CB);
-      emitByte(W << 7 | ((~VEX_4V) & 0xf) << 3 | 1 << 2 | VEX_PP, CB);
->>>>>>> 3d86ab9d462fbde82197ca095df6510b83d83eb7
       emitByte(EVEX_z << 7 | EVEX_L2 << 6 | VEX_L << 5 | EVEX_b << 4 |
                    ((~EVEX_V2) & 0x1) << 3 | EVEX_aaa,
                CB);
@@ -489,13 +483,8 @@ private:
                             const MCSubtargetInfo &STI,
                             SmallVectorImpl<char> &CB) const;
 
-<<<<<<< HEAD
   PrefixKind emitVEXOpcodePrefix(int MemOperand, const MCInst &MI, const MCSubtargetInfo &STI, // INTEL
-                                 raw_ostream &OS) const;
-=======
-  PrefixKind emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
                                  SmallVectorImpl<char> &CB) const;
->>>>>>> 3d86ab9d462fbde82197ca095df6510b83d83eb7
 
   void emitSegmentOverridePrefix(unsigned SegOperand, const MCInst &MI,
                                  SmallVectorImpl<char> &CB) const;
@@ -936,15 +925,9 @@ void X86MCCodeEmitter::emitMemModRMByte(
     // disp8 if the {disp32} pseudo prefix is present.
     if (Disp.isImm() && AllowDisp8) {
       int ImmOffset = 0;
-<<<<<<< HEAD
       if (isDispOrCDisp8(TSFlags, Disp.getImm(), ImmOffset, ForceSIB)) { // INTEL
-        emitByte(modRMByte(1, RegOpcodeField, BaseRegNo), OS);
-        emitImmediate(Disp, MI.getLoc(), 1, FK_Data_1, StartByte, OS, Fixups,
-=======
-      if (isDispOrCDisp8(TSFlags, Disp.getImm(), ImmOffset)) {
         emitByte(modRMByte(1, RegOpcodeField, BaseRegNo), CB);
         emitImmediate(Disp, MI.getLoc(), 1, FK_Data_1, StartByte, CB, Fixups,
->>>>>>> 3d86ab9d462fbde82197ca095df6510b83d83eb7
                       ImmOffset);
         return;
       }
@@ -1085,13 +1068,8 @@ PrefixKind X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
   // REX prefix is optional, but if used must be immediately before the opcode
   // Encoding type for this instruction.
   return (TSFlags & X86II::EncodingMask)
-<<<<<<< HEAD
-             ? emitVEXOpcodePrefix(MemoryOperand, MI, STI, OS) // INTEL
-             : emitOpcodePrefix(MemoryOperand, MI, STI, OS);
-=======
-             ? emitVEXOpcodePrefix(MemoryOperand, MI, CB)
+             ? emitVEXOpcodePrefix(MemoryOperand, MI, STI, CB) // INTEL
              : emitOpcodePrefix(MemoryOperand, MI, STI, CB);
->>>>>>> 3d86ab9d462fbde82197ca095df6510b83d83eb7
 }
 
 // AVX instructions are encoded using an encoding scheme that combines
@@ -1107,15 +1085,9 @@ PrefixKind X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
 
 /// Emit XOP, VEX2, VEX3 or EVEX prefix.
 /// \returns the used prefix.
-<<<<<<< HEAD
 PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
                                                  const MCInst &MI, const MCSubtargetInfo &STI, // INTEL
-                                                 raw_ostream &OS) const {
-=======
-PrefixKind
-X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
-                                      SmallVectorImpl<char> &CB) const {
->>>>>>> 3d86ab9d462fbde82197ca095df6510b83d83eb7
+                                                 SmallVectorImpl<char> &CB) const {
   const MCInstrDesc &Desc = MCII.get(MI.getOpcode());
   uint64_t TSFlags = Desc.TSFlags;
 
@@ -2023,27 +1995,27 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
   }
 #if INTEL_CUSTOMIZATION
   case X86II::MRMDestReg4VOp3: {
-    emitByte(BaseOpcode, OS);
+    emitByte(BaseOpcode, CB);
     unsigned SrcRegNum = CurOp + 1;
     emitRegModRMByte(MI.getOperand(CurOp),
-                     getX86RegNum(MI.getOperand(SrcRegNum)), OS);
+                     getX86RegNum(MI.getOperand(SrcRegNum)), CB);
     CurOp = SrcRegNum + 1;
     ++CurOp;  // Skip 2nd src (which is encoded in VEX_VVVV)
     break;
   }
   case X86II::MRMDestMem4VOp3:
   case X86II::MRMDestMem4VOp2FSIB: {
-    emitByte(BaseOpcode, OS);
+    emitByte(BaseOpcode, CB);
     unsigned SrcRegNum = CurOp + X86::AddrNumOperands;
     emitMemModRMByte(MI, CurOp, getX86RegNum(MI.getOperand(SrcRegNum)), TSFlags,
-                     Kind, StartByte, OS, Fixups, STI,
+                     Kind, StartByte, CB, Fixups, STI,
                      Form == X86II::MRMDestMem4VOp2FSIB);
     CurOp = SrcRegNum + 2; // skip VEX_V4
     break;
   }
   case X86II::MRMDestMemImm8: {
-    emitByte(BaseOpcode, OS);
-    emitMemModRMByte(MI, CurOp, 0, TSFlags, Kind, StartByte, OS, Fixups, STI);
+    emitByte(BaseOpcode, CB);
+    emitMemModRMByte(MI, CurOp, 0, TSFlags, Kind, StartByte, CB, Fixups, STI);
     CurOp += X86::AddrNumOperands;
     break;
   }
@@ -2168,12 +2140,8 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
 #if INTEL_CUSTOMIZATION
     bool BFSIB = (Form == X86II::MRMSrcMem4VOp3FSIB);
     emitMemModRMByte(MI, FirstMemOp, getX86RegNum(MI.getOperand(CurOp)),
-<<<<<<< HEAD
-                     TSFlags, Kind, StartByte, OS, Fixups, STI, BFSIB);
+                     TSFlags, Kind, StartByte, CB, Fixups, STI, BFSIB);
 #endif // INTEL_CUSTOMIZATION
-=======
-                     TSFlags, Kind, StartByte, CB, Fixups, STI);
->>>>>>> 3d86ab9d462fbde82197ca095df6510b83d83eb7
     CurOp = FirstMemOp + X86::AddrNumOperands;
     ++CurOp; // Encoded in VEX.VVVV.
     break;
