@@ -312,7 +312,7 @@ and is being deprecated.
   <PoolInfoList> := <PoolInfo>[,<PoolInfoList>]
   <PoolInfo>     := <MemType>[,<AllocMax>[,<Capacity>[,<PoolSize>]]]
   <MemType>      := all | device | host | shared
-  <AllocMax>     := positive integer or empty, max allocation size in MB
+  <AllocMax>     := non-negative integer or empty, max allocation size in MB
   <Capacity>     := positive integer or empty, number of allocations from a
                     single block
   <PoolSize>     := positive integer or empty, max pool size in MB
@@ -320,7 +320,10 @@ and is being deprecated.
 Controls how reusable memory pool is configured.
 Pool is a list of memory blocks that can serve at least ``<Capacity>``
 allocations of up to ``<AllocMax>`` size from a single block, with total size
-not exceeding ``<PoolSize>``.
+not exceeding ``<PoolSize>``. When ``<PoolInfoList>`` only contains a subset of
+``{device, host, shared}`` configurations, the default configurations are used
+for the unspecified memory types, and memory pool for a specific memory type can
+be disabled by specifying 0 for ``<AllocMax>`` for the memory type.
 
 **Default**: Equivalent to ``<Option>=device,1,4,256,host,1,4,256,shared,8,4,256``
 
