@@ -802,8 +802,9 @@ bool VPlanDriverImpl::runStandardMode(Function &Fn) {
         LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
         assert(BD.BailoutID &&
                "isSupported() failed to provide bailout data!\n");
-        VPlanOptReportBuilder(ORBuilder, LI)
-            .addRemark(Lp, BD.BailoutLevel, BD.BailoutID, BD.BailoutMessage);
+        VPlanOptReportBuilder VPORB(ORBuilder, LI);
+        (void)bailout(VPORB, Lp, WRLp, BD.BailoutLevel, BD.BailoutID,
+                      BD.BailoutMessage);
         continue;
       }
 
@@ -853,8 +854,9 @@ bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
         LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
         assert(BD.BailoutID &&
                "isSupported() failed to provide bailout data!\n");
-        VPlanOptReportBuilder(ORBuilder, LI)
-            .addRemark(Lp, BD.BailoutLevel, BD.BailoutID, BD.BailoutMessage);
+        VPlanOptReportBuilder VPORB(ORBuilder, LI);
+        (void)bailout(VPORB, Lp, WRLp, BD.BailoutLevel, BD.BailoutID,
+                      BD.BailoutMessage);
         continue;
       }
 
