@@ -996,10 +996,6 @@ def TruePredicate : Predicate<"true">;
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-// Placeholder for APX, Predicate need to be different
-def FalsePredicateNDD : Predicate<"!(true || Subtarget->hasNOPL())">;
-def FalsePredicateNF : Predicate<"!(true || Subtarget->canUseCMOV())">;
-
 def HasNDD : Predicate<"Subtarget->hasNDD()">;
 def NoNDD : Predicate<"!Subtarget->hasNDD()">;
 #endif // INTEL_FEATURE_ISA_APX_F
