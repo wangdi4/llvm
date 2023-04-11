@@ -322,16 +322,11 @@ static void loadInput(const WeightedFile &Input, SymbolRemapper *Remapper,
   auto FS = vfs::getRealFileSystem();
   auto ReaderOrErr = InstrProfReader::create(Input.Filename, *FS, Correlator);
   if (Error E = ReaderOrErr.takeError()) {
-<<<<<<< HEAD
-    // Skip the empty profiles by returning sliently.
+    // Skip the empty profiles by returning silently.
 #if INTEL_CUSTOMIZATION
     instrprof_error IPE;
     std::string Message;
     std::tie(IPE, Message) = InstrProfError::takeWithMessage(std::move(E));
-=======
-    // Skip the empty profiles by returning silently.
-    instrprof_error IPE = InstrProfError::take(std::move(E));
->>>>>>> 244be0b0de198fbe8a0861bb8f75509f610b57a4
     if (IPE != instrprof_error::empty_raw_profile)
       WC->Errors.emplace_back(make_error<InstrProfError>(IPE, Message),
                               Filename);

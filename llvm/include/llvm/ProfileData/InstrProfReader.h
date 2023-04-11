@@ -327,13 +327,9 @@ private:
   /// If available, this hold the ProfileData array used to correlate raw
   /// instrumentation data to their functions.
   const InstrProfCorrelatorImpl<IntPtrT> *Correlator;
-<<<<<<< HEAD
-  bool ShouldSwapBytes = false; // INTEL
-=======
   /// A list of timestamps paired with a function name reference.
   std::vector<std::pair<uint64_t, uint64_t>> TemporalProfTimestamps;
-  bool ShouldSwapBytes;
->>>>>>> 244be0b0de198fbe8a0861bb8f75509f610b57a4
+  bool ShouldSwapBytes = false; // INTEL
   // The value of the version field of the raw profile data header. The lower 56
   // bits specifies the format version and the most significant 8 bits specify
   // the variant types of the profile.
