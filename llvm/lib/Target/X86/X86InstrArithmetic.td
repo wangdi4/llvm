@@ -469,63 +469,59 @@ class UnaryOpR<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info,
 //  UnaryOpM_NDD - Unary instructions with a memory operand, NDD version.
 class UnaryOpM_NDD<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info,
                    list<dag> pattern>
-  : ITy<opcode, f, info, (outs info.RegClass:$dst), (ins info.MemOperand:$src1), 
+  : ITy<opcode, f, info, (outs info.RegClass:$dst), (ins info.MemOperand:$src1),
         mnemonic, "{$src1, $dst|$dst, $src1}", pattern>;
 
 //  UnaryOpR_NDD - Unary instructions with a register, NDD version.
 class UnaryOpR_NDD<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info,
                    list<dag> pattern>
-  : ITy<opcode, f, info, (outs info.RegClass:$dst), (ins info.RegClass:$src1), 
+  : ITy<opcode, f, info, (outs info.RegClass:$dst), (ins info.RegClass:$src1),
         mnemonic, "$src1, $dst|$dst, $src1", pattern>;
 
 multiclass INCDECR<Format f, string mnemonic, X86TypeInfo info,
                    SDPatternOperator node>{
 let Defs = [EFLAGS] in {
-let Constraints = "$src1 = $dst", isConvertibleToThreeAddress = 1, 
-    CodeSize = 2, Predicates = [TruePredicate] in
+let Constraints = "$src1 = $dst", isConvertibleToThreeAddress = 1,
+    CodeSize = 2, Predicates = [NoNDD] in
   def NAME : UnaryOpR<0xFE, f, mnemonic, info,
-                      [(set info.RegClass:$dst, EFLAGS, 
+                      [(set info.RegClass:$dst, EFLAGS,
                        (node info.RegClass:$src1, 1))]>;
-let Constraints = "$src1 = $dst", isConvertibleToThreeAddress = 1, 
+let Constraints = "$src1 = $dst", isConvertibleToThreeAddress = 1,
     CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_EVEX : UnaryOpR<0xFE, f, mnemonic, info, []>;
-let Predicates = [FalsePredicateNDD], CodeSize = 2, 
+let Predicates = [HasNDD], CodeSize = 2,
     isCodeGenOnly = 1 in
   def NAME#_ND : UnaryOpR_NDD<0xFE, f, mnemonic, info,
-                              [(set info.RegClass:$dst, EFLAGS, 
+                              [(set info.RegClass:$dst, EFLAGS,
                                (node info.RegClass:$src1, 1))]>;
 }
-let Constraints = "$src1 = $dst", isConvertibleToThreeAddress = 1, 
-    Predicates = [FalsePredicateNF], CodeSize = 2, isCodeGenOnly = 1 in 
-  def NAME#_NF : UnaryOpR<0xFE, f, "{nf}\t"#mnemonic, info, []>;
-let Predicates = [FalsePredicateNDD, FalsePredicateNF], 
+let Constraints = "$src1 = $dst", isConvertibleToThreeAddress = 1,
     CodeSize = 2, isCodeGenOnly = 1 in
+  def NAME#_NF : UnaryOpR<0xFE, f, "{nf}\t"#mnemonic, info, []>;
+let CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_ND_NF : UnaryOpR_NDD<0xFE, f, "{nf}\t"#mnemonic, info, []>;
 }
 
 //  INCDECM - Instructions like "inc [mem]".
 multiclass INCDECM<Format f, string mnemonic, X86TypeInfo info, int num>{
 let Defs = [EFLAGS] in{
-let CodeSize = 2, Predicates = !if(info.HasREX_W, 
+let CodeSize = 2, Predicates = !if(info.HasREX_W,
                                [UseIncDec, In64BitMode], [UseIncDec]) in
   def NAME : UnaryOpM<0xFE, f, mnemonic, info,
                       [(store (add (info.LoadNode addr:$dst), num), addr:$dst),
                        (implicit EFLAGS)]>;
 let CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_EVEX : UnaryOpM<0xFE, f, mnemonic, info, []>;
-let mayLoad = 1, Predicates = [UseIncDec, FalsePredicateNDD], 
+let mayLoad = 1, Predicates = [UseIncDec, HasNDD],
     CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_ND : UnaryOpM_NDD<0xFE, f, mnemonic, info,
-                              [(set info.RegClass:$dst, 
+                              [(set info.RegClass:$dst,
                                (add (info.LoadNode addr:$src1), num)),
                                (implicit EFLAGS)]>;
 }
-let Predicates = [UseIncDec, FalsePredicateNF], 
-    CodeSize = 2, isCodeGenOnly = 1 in
+let CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_NF : UnaryOpM<0xFE, f, "{nf}\t"#mnemonic, info, []>;
-let mayLoad = 1, 
-    Predicates = [UseIncDec, FalsePredicateNDD, FalsePredicateNF], 
-    CodeSize = 2, isCodeGenOnly = 1 in
+let mayLoad = 1, CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_ND_NF : UnaryOpM_NDD<0xFE, f, "{nf}\t"#mnemonic, info, []>;
 }
 #else // INTEL_FEATURE_ISA_APX_F
@@ -554,175 +550,165 @@ class INCDECR_ALT<bits<8> opcode, string mnemonic, X86TypeInfo info>
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 //  MulOpR - Instructions like "mul reg".
-multiclass MulOpR<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info, 
-                  Register reg1, Register reg2, X86FoldableSchedWrite sched, 
+multiclass MulOpR<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info,
+                  Register reg1, Register reg2, X86FoldableSchedWrite sched,
                   list<dag> pattern>{
-let Defs = !if(!eq(info.InstrSuffix, "b"), [reg1, EFLAGS, reg2], 
-                                           [reg1, reg2, EFLAGS]), 
+let Defs = !if(!eq(info.InstrSuffix, "b"), [reg1, EFLAGS, reg2],
+                                           [reg1, reg2, EFLAGS]),
     Uses = [reg1] in{
-let Predicates = [TruePredicate] in
-  def NAME : ITy<opcode, f, info, (outs), (ins info.RegClass:$src), mnemonic, 
-                 "$src", pattern>, 
+let Predicates = [NoNDD] in
+  def NAME : ITy<opcode, f, info, (outs), (ins info.RegClass:$src), mnemonic,
+                 "$src", pattern>,
              Sched<[sched]>;
 let isCodeGenOnly = 1 in
-  def NAME#_EVEX : ITy<opcode, f, info, (outs), (ins info.RegClass:$src), 
-                       mnemonic, "$src", []>, 
+  def NAME#_EVEX : ITy<opcode, f, info, (outs), (ins info.RegClass:$src),
+                       mnemonic, "$src", []>,
                    Sched<[sched]>;
 }
-let Defs = [reg1, reg2], Uses = [reg1], Predicates = [FalsePredicateNF], 
-    isCodeGenOnly = 1 in
-  def NAME#_NF : ITy<opcode, f, info, (outs), (ins info.RegClass:$src), 
-                     "{nf}\t"#mnemonic, "$src", []>, 
+let Defs = [reg1, reg2], Uses = [reg1], isCodeGenOnly = 1 in
+  def NAME#_NF : ITy<opcode, f, info, (outs), (ins info.RegClass:$src),
+                     "{nf}\t"#mnemonic, "$src", []>,
                  Sched<[sched]>;
 }
 
 //  MulOpM - Instructions like "mul [mem]".
-multiclass MulOpM<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info, 
-                  Register reg1, Register reg2, X86FoldableSchedWrite sched, 
+multiclass MulOpM<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info,
+                  Register reg1, Register reg2, X86FoldableSchedWrite sched,
                   list<dag> pattern>{
-let Defs = !if(!eq(info.InstrSuffix, "b"), [reg1, EFLAGS, reg2], 
-                                           [reg1, reg2, EFLAGS]), 
+let Defs = !if(!eq(info.InstrSuffix, "b"), [reg1, EFLAGS, reg2],
+                                           [reg1, reg2, EFLAGS]),
     Uses = [reg1] in {
-let Predicates = !if(info.HasREX_W, [TruePredicate, In64BitMode], 
-                                    [TruePredicate]) in
-  def NAME : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src), mnemonic, 
-                 "$src", pattern>, 
+let Predicates = !if(info.HasREX_W, [NoNDD, In64BitMode],
+                                    [NoNDD]) in
+  def NAME : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src), mnemonic,
+                 "$src", pattern>,
              SchedLoadReg<sched>;
 let isCodeGenOnly = 1 in
-  def NAME#_EVEX : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src), 
-                       mnemonic, "$src", []>, 
+  def NAME#_EVEX : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src),
+                       mnemonic, "$src", []>,
                    SchedLoadReg<sched>;
 }
-let Defs = [reg1, reg2], Uses = [reg1], Predicates = [FalsePredicateNF], 
-    isCodeGenOnly = 1 in
-  def NAME#_NF : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src), 
-                     "{nf}\t"#mnemonic, "$src", []>, 
+let Defs = [reg1, reg2], Uses = [reg1], isCodeGenOnly = 1 in
+  def NAME#_NF : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src),
+                     "{nf}\t"#mnemonic, "$src", []>,
                  SchedLoadReg<sched>;
 }
 
 //  DivOpR - Instructions like "div reg".
-multiclass DivOpR<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info, 
-                  Register reg1, Register reg2, list<Register> uses, 
+multiclass DivOpR<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info,
+                  Register reg1, Register reg2, list<Register> uses,
                   X86FoldableSchedWrite sched, list<dag> pattern>{
 let Defs = [reg1, reg2, EFLAGS], Uses = uses in {
-let Predicates = [TruePredicate] in
-  def NAME : ITy<opcode, f, info, (outs), (ins info.RegClass:$src), mnemonic, 
-                 "$src", pattern>, 
+let Predicates = [NoNDD] in
+  def NAME : ITy<opcode, f, info, (outs), (ins info.RegClass:$src), mnemonic,
+                 "$src", pattern>,
              Sched<[sched]>;
-let isCodeGenOnly = 1 in 
-  def NAME#_EVEX : ITy<opcode, f, info, (outs), (ins info.RegClass:$src), 
-                       mnemonic, "$src", []>, 
+let isCodeGenOnly = 1 in
+  def NAME#_EVEX : ITy<opcode, f, info, (outs), (ins info.RegClass:$src),
+                       mnemonic, "$src", []>,
                    Sched<[sched]>;
 }
-let Defs = [reg1, reg2], Uses = uses, Predicates = [FalsePredicateNF], 
-    isCodeGenOnly = 1 in
-  def NAME#_NF : ITy<opcode, f, info, (outs), (ins info.RegClass:$src), 
-                     "{nf}\t"#mnemonic, "$src", []>, 
+let Defs = [reg1, reg2], Uses = uses, isCodeGenOnly = 1 in
+  def NAME#_NF : ITy<opcode, f, info, (outs), (ins info.RegClass:$src),
+                     "{nf}\t"#mnemonic, "$src", []>,
                  Sched<[sched]>;
 }
 
 //  DivOpM - Instructions like "div [mem]".
-multiclass DivOpM<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info, 
-                  Register reg1, Register reg2, list<Register> uses, 
+multiclass DivOpM<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info,
+                  Register reg1, Register reg2, list<Register> uses,
                   X86FoldableSchedWrite sched, list<dag> pattern>{
 let Defs = [reg1, reg2, EFLAGS], Uses = uses in {
-let Predicates = !if(info.HasREX_W, [TruePredicate, In64BitMode], 
-                                    [TruePredicate]) in
-  def NAME : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src), mnemonic, 
-                 "$src", pattern>, 
+let Predicates = !if(info.HasREX_W, [NoNDD, In64BitMode],
+                                    [NoNDD]) in
+  def NAME : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src), mnemonic,
+                 "$src", pattern>,
              SchedLoadReg<sched>;
 let isCodeGenOnly = 1 in
-  def NAME#_EVEX : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src), 
-                       mnemonic, "$src", []>, 
+  def NAME#_EVEX : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src),
+                       mnemonic, "$src", []>,
                    SchedLoadReg<sched>;
 }
-let Defs = [reg1, reg2], Uses = uses, Predicates = [FalsePredicateNF], 
-    isCodeGenOnly = 1 in
-  def NAME#_NF : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src), 
-                     "{nf}\t"#mnemonic, "$src", []>, 
+let Defs = [reg1, reg2], Uses = uses, isCodeGenOnly = 1 in
+  def NAME#_NF : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src),
+                     "{nf}\t"#mnemonic, "$src", []>,
                  SchedLoadReg<sched>;
 }
 
 //  NegOpR - Instructions like "neg reg".
 multiclass NegOpR<bits<8> opcode, string mnemonic, X86TypeInfo info>{
 let Defs = [EFLAGS] in {
-let CodeSize = 2, Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+let CodeSize = 2, Constraints = "$src1 = $dst", Predicates = [NoNDD] in
   def NAME : UnaryOpR<opcode, MRM3r, mnemonic, info,
                       [(set info.RegClass:$dst, (ineg info.RegClass:$src1)),
                        (implicit EFLAGS)]>;
 let Constraints = "$src1 = $dst", CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_EVEX : UnaryOpR<opcode, MRM3r, mnemonic, info, []>;
-let Predicates = [FalsePredicateNDD], CodeSize = 2, isCodeGenOnly = 1 in
+let Predicates = [HasNDD], CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_ND : UnaryOpR_NDD<opcode, MRM3r, mnemonic, info,
-                              [(set info.RegClass:$dst, 
+                              [(set info.RegClass:$dst,
                                (ineg info.RegClass:$src1)), (implicit EFLAGS)]>;
 }
-let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF],
-    CodeSize = 2, isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_NF : UnaryOpR<opcode, MRM3r, "{nf}\t"#mnemonic, info, []>;
-let Predicates = [FalsePredicateNDD, FalsePredicateNF],
-    CodeSize = 2, isCodeGenOnly = 1 in
+let CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_ND_NF : UnaryOpR_NDD<opcode, MRM3r, "{nf}\t"#mnemonic, info, []>;
 }
 
 //  NotOpR - Instructions like "not reg".
 multiclass NotOpR<bits<8> opcode, string mnemonic, X86TypeInfo info>{
-let CodeSize = 2, Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+let CodeSize = 2, Constraints = "$src1 = $dst", Predicates = [NoNDD] in
   def NAME : UnaryOpR<opcode, MRM2r, mnemonic, info,
                       [(set info.RegClass:$dst, (not info.RegClass:$src1))]>;
 let Constraints = "$src1 = $dst", CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_EVEX : UnaryOpR<opcode, MRM2r, mnemonic, info, []>;
-let Predicates = [FalsePredicateNDD], CodeSize = 2, isCodeGenOnly = 1 in
+let Predicates = [HasNDD], CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_ND : UnaryOpR_NDD<opcode, MRM2r, mnemonic, info,
-                              [(set info.RegClass:$dst, 
+                              [(set info.RegClass:$dst,
                                (not info.RegClass:$src1))]>;
-let Constraints = "$src1 = $dst", 
-    Predicates = [FalsePredicateNF], CodeSize = 2, isCodeGenOnly = 1 in
+let Constraints = "$src1 = $dst", CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_NF : UnaryOpR<opcode, MRM2r, "{nf}\t"#mnemonic, info, []>;
-let Predicates = [FalsePredicateNDD, FalsePredicateNF],
-    CodeSize = 2, isCodeGenOnly = 1 in
+let CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_ND_NF : UnaryOpR_NDD<opcode, MRM2r, "{nf}\t"#mnemonic, info, []>;
 }
 
 //  NegOpM - Instructions like "neg [mem]".
 multiclass NegOpM<bits<8> opcode, string mnemonic, X86TypeInfo info>{
 let Defs = [EFLAGS] in {
-let CodeSize = 2, Predicates = !if(info.HasREX_W, 
-                               [TruePredicate, In64BitMode], [TruePredicate]) in
+let CodeSize = 2, Predicates = !if(info.HasREX_W,
+                               [NoNDD, In64BitMode], [NoNDD]) in
   def NAME : UnaryOpM<opcode, MRM3m, mnemonic, info,
                       [(store (ineg (info.LoadNode addr:$dst)), addr:$dst),
                        (implicit EFLAGS)]>;
 let CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_EVEX : UnaryOpM<opcode, MRM3m, mnemonic, info, []>;
-let Predicates = [FalsePredicateNDD], CodeSize = 2, isCodeGenOnly = 1 in
+let Predicates = [HasNDD], CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_ND : UnaryOpM_NDD<opcode, MRM3m, mnemonic, info,
-                              [(set info.RegClass:$dst, 
-                               (ineg (info.LoadNode addr:$src1))), 
+                              [(set info.RegClass:$dst,
+                               (ineg (info.LoadNode addr:$src1))),
                                (implicit EFLAGS)]>;
 }
-let Predicates = [FalsePredicateNF], CodeSize = 2, isCodeGenOnly = 1 in
+let CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_NF : UnaryOpM<opcode, MRM3m, "{nf}\t"#mnemonic, info, []>;
-let Predicates = [FalsePredicateNDD, FalsePredicateNF], 
-    CodeSize = 2, isCodeGenOnly = 1 in
+let CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_ND_NF : UnaryOpM_NDD<opcode, MRM3m, "{nf}\t"#mnemonic, info, []>;
 }
 
 //  NotOpM - Instructions like "not [mem]".
 multiclass NotOpM<bits<8> opcode, string mnemonic, X86TypeInfo info>{
-let CodeSize = 2, Predicates = !if(info.HasREX_W, 
-                               [TruePredicate, In64BitMode], [TruePredicate]) in
+let CodeSize = 2, Predicates = !if(info.HasREX_W,
+                               [NoNDD, In64BitMode], [NoNDD]) in
   def NAME : UnaryOpM<opcode, MRM2m, mnemonic, info,
                       [(store (not (info.LoadNode addr:$dst)), addr:$dst)]>;
 let CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_EVEX : UnaryOpM<opcode, MRM2m, mnemonic, info, []>;
-let Predicates = [FalsePredicateNDD], CodeSize = 2, isCodeGenOnly = 1 in
+let Predicates = [HasNDD], CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_ND : UnaryOpM_NDD<opcode, MRM2m, mnemonic, info,
-                              [(set info.RegClass:$dst, 
+                              [(set info.RegClass:$dst,
                                (not (info.LoadNode addr:$src1)))]>;
-let Predicates = [FalsePredicateNF], CodeSize = 2, isCodeGenOnly = 1 in
+let CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_NF : UnaryOpM<opcode, MRM2m, "{nf}\t"#mnemonic, info, []>;
-let Predicates = [FalsePredicateNDD, FalsePredicateNF], 
-    CodeSize = 2, isCodeGenOnly = 1 in
+let CodeSize = 2, isCodeGenOnly = 1 in
   def NAME#_ND_NF : UnaryOpM_NDD<opcode, MRM2m, "{nf}\t"#mnemonic, info, []>;
 }
 #else // INTEL_FEATURE_ISA_APX_F
@@ -796,175 +782,172 @@ class BinOpRM_NDD<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info,
         (ins info.RegClass:$src1, info.MemOperand:$src2),
         mnemonic, "{$src2, $src1, $dst|$dst, $src1, $src2}", pattern>;
 
-multiclass IMulOpRR<bits<8> opcode, string mnemonic, X86TypeInfo info, 
+multiclass IMulOpRR<bits<8> opcode, string mnemonic, X86TypeInfo info,
                     X86FoldableSchedWrite sched>{
 let Defs = [EFLAGS] in{
-  let Constraints = "$src1 = $dst", isCommutable = 1, 
-      Predicates = [TruePredicate] in
+  let Constraints = "$src1 = $dst", isCommutable = 1,
+      Predicates = [NoNDD] in
   def NAME : BinOpRR_C<opcode, MRMSrcReg, mnemonic, info,
                        [(set info.RegClass:$dst, EFLAGS,
-                        (X86smul_flag info.RegClass:$src1, 
-                        info.RegClass:$src2))]>, 
+                        (X86smul_flag info.RegClass:$src1,
+                        info.RegClass:$src2))]>,
              Sched<[sched]>, TB;
-  let Constraints = "$src1 = $dst", isCommutable = 1, 
+  let Constraints = "$src1 = $dst", isCommutable = 1,
       isCodeGenOnly = 1 in
-  def NAME#_EVEX : BinOpRR_C<opcode, MRMSrcReg, mnemonic, info, []>, 
+  def NAME#_EVEX : BinOpRR_C<opcode, MRMSrcReg, mnemonic, info, []>,
                    Sched<[sched]>, TB;
-  let Predicates = [FalsePredicateNDD], isCommutable = 1, isCodeGenOnly = 1 in
-  def NAME#_ND : BinOpRR_NDD<opcode, MRMSrcReg, mnemonic, info, 
+  let Predicates = [HasNDD], isCommutable = 1, isCodeGenOnly = 1 in
+  def NAME#_ND : BinOpRR_NDD<opcode, MRMSrcReg, mnemonic, info,
                                [(set info.RegClass:$dst, EFLAGS,
-                                (X86smul_flag info.RegClass:$src1, 
-                                info.RegClass:$src2))]>, 
+                                (X86smul_flag info.RegClass:$src1,
+                                info.RegClass:$src2))]>,
                  Sched<[sched]>, TB;
 }
-  let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
-      isCommutable = 1, isCodeGenOnly = 1 in
-  def NAME#_NF : BinOpRR_C<opcode, MRMSrcReg, "{nf}\t"#mnemonic, info, []>, 
+  let Constraints = "$src1 = $dst", isCommutable = 1, isCodeGenOnly = 1 in
+  def NAME#_NF : BinOpRR_C<opcode, MRMSrcReg, "{nf}\t"#mnemonic, info, []>,
                  Sched<[sched]>, TB;
-  let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCommutable = 1, 
-      isCodeGenOnly = 1 in
-  def NAME#_ND_NF : BinOpRR_NDD<opcode, MRMSrcReg, "{nf}\t"#mnemonic, 
-                                  info, []>, 
+  let isCommutable = 1, isCodeGenOnly = 1 in
+  def NAME#_ND_NF : BinOpRR_NDD<opcode, MRMSrcReg, "{nf}\t"#mnemonic,
+                                  info, []>,
                     Sched<[sched]>, TB;
 }
 
 // IMulOpRM - Instructions like "imul reg, reg, [mem]".
-multiclass IMulOpRM<bits<8> opcode, string mnemonic, X86TypeInfo info, 
+multiclass IMulOpRM<bits<8> opcode, string mnemonic, X86TypeInfo info,
                     X86FoldableSchedWrite sched>{
 let Defs = [EFLAGS] in{
-  let Constraints = "$src1 = $dst", Predicates = [TruePredicate] in
+  let Constraints = "$src1 = $dst", Predicates = [NoNDD] in
   def NAME : BinOpRM_C<opcode, MRMSrcMem, mnemonic, info,
                        [(set info.RegClass:$dst, EFLAGS,
-                        (X86smul_flag info.RegClass:$src1, 
+                        (X86smul_flag info.RegClass:$src1,
                         (info.LoadNode addr:$src2)))]>,
              Sched<[sched.Folded, sched.ReadAfterFold]>, TB;
   let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
   def NAME#_EVEX : BinOpRM_C<opcode, MRMSrcMem, mnemonic, info, []>,
                    Sched<[sched.Folded, sched.ReadAfterFold]>, TB;
-  let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
+  let Predicates = [HasNDD], isCodeGenOnly = 1 in
   def NAME#_ND : BinOpRM_NDD<opcode, MRMSrcMem, mnemonic, info,
                                [(set info.RegClass:$dst, EFLAGS,
-                                (X86smul_flag info.RegClass:$src1, 
+                                (X86smul_flag info.RegClass:$src1,
                                 (info.LoadNode addr:$src2)))]>,
                   Sched<[sched.Folded, sched.ReadAfterFold]>, TB;
 }
-  let Constraints = "$src1 = $dst", Predicates = [FalsePredicateNF], 
-      isCodeGenOnly = 1 in
+  let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
   def NAME#_NF : BinOpRM_C<opcode, MRMSrcMem, "{nf}\t"#mnemonic, info, []>,
                  Sched<[sched.Folded, sched.ReadAfterFold]>, TB;
-  let Predicates = [FalsePredicateNDD, FalsePredicateNF], isCodeGenOnly = 1 in
+  let isCodeGenOnly = 1 in
   def NAME#_ND_NF : BinOpRM_NDD<opcode, MRMSrcMem, "{nf}\t"#mnemonic, info, []>,
                     Sched<[sched.Folded, sched.ReadAfterFold]>, TB;
 }
 
 // IMulOpRRI8 - Instructions like "imul reg, reg, i8".
-multiclass IMulOpRRI8<bits<8> opcode, string mnemonic, X86TypeInfo info, 
+multiclass IMulOpRRI8<bits<8> opcode, string mnemonic, X86TypeInfo info,
                       X86FoldableSchedWrite sched>{
 let ImmT = Imm8 in {
-let Defs = [EFLAGS], Predicates = [TruePredicate] in
+let Defs = [EFLAGS], Predicates = [NoNDD] in
   def NAME : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
-                 (ins info.RegClass:$src1, 
+                 (ins info.RegClass:$src1,
                   info.Imm8Operand:$src2), mnemonic,
                  "{$src2, $src1, $dst|$dst, $src1, $src2}",
                  [(set info.RegClass:$dst, EFLAGS,
-                  (X86smul_flag info.RegClass:$src1, 
-                   info.Imm8NoSuOperator:$src2))]>, 
+                  (X86smul_flag info.RegClass:$src1,
+                   info.Imm8NoSuOperator:$src2))]>,
              Sched<[sched]>;
 let Defs = [EFLAGS], isCodeGenOnly = 1 in
   def NAME#_EVEX : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
-                      (ins info.RegClass:$src1, 
+                      (ins info.RegClass:$src1,
                        info.Imm8Operand:$src2), mnemonic,
-                      "{$src2, $src1, $dst|$dst, $src1, $src2}", []>, 
+                      "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
                    Sched<[sched]>;
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let isCodeGenOnly = 1 in
   def NAME#_NF : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
-                     (ins info.RegClass:$src1, 
+                     (ins info.RegClass:$src1,
                       info.Imm8Operand:$src2), "{nf}\t"#mnemonic,
-                     "{$src2, $src1, $dst|$dst, $src1, $src2}", []>, 
+                     "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
                  Sched<[sched]>;
 }
 }
 
 // IMulOpRRI - Instructions like "imul reg, reg, i16/i32/i64".
-multiclass IMulOpRRI<bits<8> opcode, string mnemonic, X86TypeInfo info, 
+multiclass IMulOpRRI<bits<8> opcode, string mnemonic, X86TypeInfo info,
                      X86FoldableSchedWrite sched>{
 let ImmT = info.ImmEncoding in {
-let Defs = [EFLAGS], Predicates = [TruePredicate] in
+let Defs = [EFLAGS], Predicates = [NoNDD] in
   def NAME : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
-                 (ins info.RegClass:$src1, 
-                  info.ImmOperand:$src2), mnemonic, 
+                 (ins info.RegClass:$src1,
+                  info.ImmOperand:$src2), mnemonic,
                  "{$src2, $src1, $dst|$dst, $src1, $src2}",
                  [(set info.RegClass:$dst, EFLAGS,
-                  (X86smul_flag info.RegClass:$src1, 
-                    info.ImmNoSuOperator:$src2))]>, 
+                  (X86smul_flag info.RegClass:$src1,
+                    info.ImmNoSuOperator:$src2))]>,
              Sched<[sched]>;
 let Defs = [EFLAGS], isCodeGenOnly = 1 in
   def NAME#_EVEX : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
-                       (ins info.RegClass:$src1, 
-                        info.ImmOperand:$src2), mnemonic, 
-                       "{$src2, $src1, $dst|$dst, $src1, $src2}", []>, 
+                       (ins info.RegClass:$src1,
+                        info.ImmOperand:$src2), mnemonic,
+                       "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
              Sched<[sched]>;
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let isCodeGenOnly = 1 in
   def NAME#_NF : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
-                     (ins info.RegClass:$src1, 
-                      info.ImmOperand:$src2), "{nf}\t"#mnemonic, 
-                      "{$src2, $src1, $dst|$dst, $src1, $src2}", []>, 
+                     (ins info.RegClass:$src1,
+                      info.ImmOperand:$src2), "{nf}\t"#mnemonic,
+                      "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
                  Sched<[sched]>;
 }
 }
 
 // IMulOpRMI8 - Instructions like "imul reg, [mem], i8".
-multiclass IMulOpRMI8<bits<8> opcode, string mnemonic, X86TypeInfo info, 
+multiclass IMulOpRMI8<bits<8> opcode, string mnemonic, X86TypeInfo info,
                       X86FoldableSchedWrite sched>{
 let ImmT = Imm8 in {
-let Defs = [EFLAGS], Predicates = [TruePredicate] in
+let Defs = [EFLAGS], Predicates = [NoNDD] in
   def NAME : ITy<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
-                 (ins info.MemOperand:$src1, 
-                  info.Imm8Operand:$src2), mnemonic, 
+                 (ins info.MemOperand:$src1,
+                  info.Imm8Operand:$src2), mnemonic,
                  "{$src2, $src1, $dst|$dst, $src1, $src2}",
                  [(set info.RegClass:$dst, EFLAGS,
                   (X86smul_flag (info.LoadNode addr:$src1),
-                   info.Imm8NoSuOperator:$src2))]>, 
+                   info.Imm8NoSuOperator:$src2))]>,
              Sched<[sched.Folded]>;
 let Defs = [EFLAGS], isCodeGenOnly = 1 in
   def NAME#_EVEX : ITy<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
-                       (ins info.MemOperand:$src1, 
-                       info.Imm8Operand:$src2), mnemonic, 
-                       "{$src2, $src1, $dst|$dst, $src1, $src2}", []>, 
+                       (ins info.MemOperand:$src1,
+                       info.Imm8Operand:$src2), mnemonic,
+                       "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
                    Sched<[sched.Folded]>;
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let isCodeGenOnly = 1 in
   def NAME#_NF : ITy<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
-                     (ins info.MemOperand:$src1, 
-                      info.Imm8Operand:$src2), "{nf}\t"#mnemonic, 
-                     "{$src2, $src1, $dst|$dst, $src1, $src2}", []>, 
+                     (ins info.MemOperand:$src1,
+                      info.Imm8Operand:$src2), "{nf}\t"#mnemonic,
+                     "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
                  Sched<[sched.Folded]>;
 }
 }
 
 // IMulOpRMI - Instructions like "imul reg, reg, i16/i32/i64".
-multiclass IMulOpRMI<bits<8> opcode, string mnemonic, X86TypeInfo info, 
+multiclass IMulOpRMI<bits<8> opcode, string mnemonic, X86TypeInfo info,
                      X86FoldableSchedWrite sched>{
 let ImmT = info.ImmEncoding in {
-let Defs = [EFLAGS], Predicates = [TruePredicate] in
+let Defs = [EFLAGS], Predicates = [NoNDD] in
   def NAME : ITy<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
                  (ins info.MemOperand:$src1,
-                  info.ImmOperand:$src2), mnemonic, 
+                  info.ImmOperand:$src2), mnemonic,
                  "{$src2, $src1, $dst|$dst, $src1, $src2}",
                  [(set info.RegClass:$dst, EFLAGS,
                   (X86smul_flag (info.LoadNode addr:$src1),
-                  info.ImmNoSuOperator:$src2))]>, 
+                  info.ImmNoSuOperator:$src2))]>,
                  Sched<[sched.Folded]>;
 let isCodeGenOnly = 1 in
   def NAME#_EVEX : ITy<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
                        (ins info.MemOperand:$src1,
-                        info.ImmOperand:$src2), mnemonic, 
-                       "{$src2, $src1, $dst|$dst, $src1, $src2}", []>, 
+                        info.ImmOperand:$src2), mnemonic,
+                       "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
                    Sched<[sched.Folded]>;
-let Predicates = [FalsePredicateNF], isCodeGenOnly = 1 in
+let isCodeGenOnly = 1 in
   def NAME#_NF : ITy<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
                      (ins info.MemOperand:$src1,
-                      info.ImmOperand:$src2), "{nf}\t"#mnemonic, 
-                     "{$src2, $src1, $dst|$dst, $src1, $src2}", []>, 
+                      info.ImmOperand:$src2), "{nf}\t"#mnemonic,
+                     "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
                  Sched<[sched.Folded]>;
 }
 }
@@ -1101,7 +1084,7 @@ let SchedRW = [WriteALURMW] in {
 // AL is really implied by AX, but the registers in Defs must match the
 // SDNode results (i8, i32).
 // AL,AH = AL*GR8
-defm MUL8r  : MulOpR<0xF6, MRM4r, "mul", Xi8, AL, AX, WriteIMul8, 
+defm MUL8r  : MulOpR<0xF6, MRM4r, "mul", Xi8, AL, AX, WriteIMul8,
                // FIXME: Used for 8-bit mul, ignore result upper 8 bits.
                // This probably ought to be moved to a def : Pat<> if the
                // syntax can be accepted.
@@ -2248,26 +2231,26 @@ class ADCOXOpRM_NDD<bits<8> opcode, string mnemonic, X86TypeInfo info>
 }
 
 multiclass ADCOXOpRR<bits<8> opcode, string mnemonic, X86TypeInfo info>{
-let Constraints = "$src1 = $dst", isCommutable = 1, 
-    Predicates = [TruePredicate, HasADX] in
+let Constraints = "$src1 = $dst", isCommutable = 1,
+    Predicates = [NoNDD, HasADX] in
   def NAME : ADCOXOpRR<opcode, mnemonic, info>;
-let Constraints = "$src1 = $dst", isCommutable = 1, 
+let Constraints = "$src1 = $dst", isCommutable = 1,
     isCodeGenOnly = 1 in
   def NAME#_EVEX : ADCOXOpRR<opcode, mnemonic, info>;
-let Predicates=[FalsePredicateNDD], isCodeGenOnly = 1 in
+let Predicates=[HasNDD, HasADX], isCodeGenOnly = 1 in
   def NAME#_ND : ADCOXOpRR_NDD<opcode, mnemonic, info>;
 }
 
 multiclass ADCOXOpRM <bits<8> opcode, string mnemonic, X86TypeInfo info>{
-let Constraints = "$src1 = $dst", Predicates = [TruePredicate, HasADX] in
+let Constraints = "$src1 = $dst", Predicates = [NoNDD, HasADX] in
   def NAME : ADCOXOpRM<opcode, mnemonic, info>;
 let Constraints = "$src1 = $dst", isCodeGenOnly = 1 in
   def NAME#_EVEX : ADCOXOpRM<opcode, mnemonic, info>;
-let Predicates = [FalsePredicateNDD], isCodeGenOnly = 1 in
+let Predicates = [HasNDD, HasADX], isCodeGenOnly = 1 in
   def NAME#_ND : ADCOXOpRM_NDD<opcode, mnemonic, info>;
 }
 
-let Predicates = [HasADX], Defs = [EFLAGS], Uses = [EFLAGS], 
+let Predicates = [HasADX], Defs = [EFLAGS], Uses = [EFLAGS],
     hasSideEffects = 0 in {
   let SchedRW = [WriteADC] in {
   defm ADCX32rr : ADCOXOpRR<0xF6, "adcx", Xi32>, T8PD;
