@@ -2,7 +2,7 @@
 ; RUN: opt < %s -O0 -S | FileCheck --check-prefixes=CHECK-O0 %s
 
 ; INTEL_CUSTOMIZATION
-: This test is compiled with -O2. Currently, the differences are related
+; This test is compiled with -O2. Currently, the differences are related
 ; to GEP optimization (not GEP 0,0, but GEP result types are different).
 ; If it fails later, just use update_test_checks.
 ; end INTEL_CUSTOMIZATION
