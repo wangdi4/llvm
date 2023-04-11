@@ -630,7 +630,8 @@ public:
   // completely retired.
   bool isIgnoredCall(const CallInst *Call) {
     Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
-    return ID == Intrinsic::lifetime_start || ID == Intrinsic::lifetime_end;
+    return ID == Intrinsic::lifetime_start || ID == Intrinsic::lifetime_end ||
+           ID == Intrinsic::intel_directive_elementsize;
   }
 
   // Set "llvm.loop.isvectorized" on outgoing scalar HLLoops that already have

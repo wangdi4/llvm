@@ -3752,7 +3752,8 @@ bool VPEntityImportDescr::hasRealUserInLoop(VPValue *Val, const VPLoop *Loop,
         if (CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_start ||
             CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_end ||
             CalleeFunc->getIntrinsicID() == Intrinsic::invariant_start ||
-            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_end)
+            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_end ||
+            CalleeFunc->getIntrinsicID() == Intrinsic::intel_directive_elementsize)
           continue;
     }
     return true;
