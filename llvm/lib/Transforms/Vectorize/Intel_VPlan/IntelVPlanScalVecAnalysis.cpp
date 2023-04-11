@@ -543,6 +543,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::AllocateDVBuffer: {
+    SVABits SetBits = getAllSetBitsFromUsers(Inst);
+    setSVABitsForInst(Inst, SetBits);
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::Pred: {
     // Block predicate is just used to track current BasicBlock's mask value, it
     // is not lowered into any instruction in CG. Set instruction as vector and
@@ -1122,6 +1129,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ReductionFinalCmplx:
   case VPInstruction::Pred:
   case VPInstruction::AllocatePrivate:
+  case VPInstruction::AllocateDVBuffer:
   case VPInstruction::AllZeroCheck:
   case VPInstruction::VectorTripCountCalculation:
   case VPInstruction::OrigTripCountCalculation:

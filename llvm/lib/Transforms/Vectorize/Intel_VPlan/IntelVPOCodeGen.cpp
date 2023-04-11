@@ -1748,6 +1748,10 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     vectorizeAllocatePrivate(cast<VPAllocatePrivate>(VPInst));
     return;
   }
+  case VPInstruction::AllocateDVBuffer: {
+    serializeAllocateMem(cast<VPAllocateDVBuffer>(VPInst));
+    return;
+  }
   case VPInstruction::OrigTripCountCalculation: {
     // TODO: Inline getOrCreateTripCount's implementation to here once we
     // complete transition to an explicit CFG representation in VPlan.
@@ -5013,6 +5017,25 @@ void VPOCodeGen::vectorizeSelectCmpReductionFinal(VPReductionFinal *RedFinal) {
   VPScalarMap[RedFinal][0] = Ret;
 }
 
+void VPOCodeGen::serializeAllocateMem(VPAllocateMemBase *V) {
+  Type *OrigTy = V->getAllocatedType();
+  Align OrigAlignment = V->getOrigAlignment();
+  Value *PtrsVector = UndefValue::get(getWidenedType(V->getType(), VF));
+  Value *Size = nullptr;
+  if (!isa<VPAllocatePrivate>(V))
+    Size = getScalarValue(V->getOperand(0), 0);
+
+  for (unsigned I = 0; I < VF; ++I) {
+    AllocaInst *SerialPrivArr = Builder.CreateAlloca(
+        OrigTy, Size, V->getOrigName() + ".lane." + Twine(I));
+    SerialPrivArr->setAlignment(OrigAlignment);
+    PtrsVector = Builder.CreateInsertElement(
+        PtrsVector, SerialPrivArr, I, V->getOrigName() + ".insert." + Twine(I));
+  }
+  VPWidenMap[V] = PtrsVector;
+  return;
+}
+
 void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   // Private memory is a pointer. We need to get element type
   // and allocate VF elements.
@@ -5020,8 +5043,8 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
 
   Type *VecTyForAlloca;
   std::string VarName = Twine(V->getOrigName() + ".vec").str();
-  // TODO. We should handle the case when original alloca has the size argument,
-  // e.g. it's like alloca i32, i32 4.
+  // TODO. We should handle the case when original alloca has the size
+  // argument, e.g. it's like alloca i32, i32 4.
   if (OrigTy->isAggregateType())
     if (V->isSOALayout()) {
       // TODO: Compute the correct alignment value.
@@ -5054,13 +5077,12 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   assert(FirstBB.getTerminator() &&
          "Expect the 'entry' basic-block to be well-formed.");
   Builder.SetInsertPoint(FirstBB.getTerminator());
-  // Track if this a private alloca is for an array (inscan) reduction variable.
-  // We don't want to serialize such allocas since the initialization algorithm
-  // assumes contiguous allocation of elements.
+  // Track if this a private alloca is for an array (inscan) reduction
+  // variable. We don't want to serialize such allocas since the
+  // initialization algorithm assumes contiguous allocation of elements.
   bool IsArrayRedn = (V->getEntityKind() == VPLoopEntity::Reduction ||
                       V->getEntityKind() == VPLoopEntity::InscanReduction) &&
                      isa<ArrayType>(OrigTy);
-
   // TODO: We potentially need additional divisibility-based checks here to
   // ensure that correct alignment is set for each vector lane. Check JIRA :
   // CMPLRLLVM-11372.
@@ -5097,19 +5119,8 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
     else
       VPWidenMap[V] = createVectorPrivatePtrs(V);
   } else {
-    // If preferred alignment is less than original alignment, generate VF
-    // copies of original alloca (one for each lane) and construct the
-    // corresponding vector of pointers.
-    Value *PtrsVector = UndefValue::get(getWidenedType(V->getType(), VF));
-    for (unsigned I = 0; I < VF; ++I) {
-      AllocaInst *SerialPrivArr = Builder.CreateAlloca(
-          OrigTy, nullptr, V->getOrigName() + ".lane." + Twine(I));
-      SerialPrivArr->setAlignment(OrigAlignment);
-      PtrsVector =
-          Builder.CreateInsertElement(PtrsVector, SerialPrivArr, I,
-                                      V->getOrigName() + ".insert." + Twine(I));
-    }
-    VPWidenMap[V] = PtrsVector;
+    // If preferred alignment is less than original alignment, then serialize.
+    serializeAllocateMem(V);
   }
 }
 

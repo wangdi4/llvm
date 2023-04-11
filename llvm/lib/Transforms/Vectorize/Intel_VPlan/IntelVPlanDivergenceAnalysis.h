@@ -53,7 +53,7 @@ class VPPHINode;
 class VPCmpInst;
 class VPBlendInst;
 class VPLoopEntityList;
-class VPAllocatePrivate;
+class VPAllocateMemBase;
 class VPInductionInit;
 class VPInductionInitStep;
 class VPLoadStoreInst;
@@ -431,9 +431,9 @@ private:
   /// Computes vector shape for call instructions.
   VPVectorShape computeVectorShapeForCallInst(const VPInstruction *I);
 
-  /// Computes vector shape for AllocatePrivate instructions.
-  VPVectorShape
-  computeVectorShapeForAllocatePrivateInst(const VPAllocatePrivate *AI);
+  /// Computes vector shape for AllocatePrivate and AllocateDVBuffer
+  /// instructions.
+  VPVectorShape computeVectorShapeForAllocateInst(const VPAllocateMemBase *AI);
 
   /// Computes vector shape for induction-init instruction.
   VPVectorShape computeVectorShapeForInductionInit(const VPInductionInit *Init);

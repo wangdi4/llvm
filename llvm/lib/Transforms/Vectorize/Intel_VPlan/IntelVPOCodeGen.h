@@ -405,6 +405,10 @@ private:
   /// elements of the private element type.
   void vectorizeAllocatePrivate(VPAllocatePrivate *V);
 
+  /// Generate VF copies of original alloca (one for each lane) and
+  /// construct the corresponding vector of pointers.
+  void serializeAllocateMem(VPAllocateMemBase *V);
+
   /// Vectorize unconditional last private final value calculation.
   void vectorizePrivateFinalUncond(VPInstruction *VPInst);
 
