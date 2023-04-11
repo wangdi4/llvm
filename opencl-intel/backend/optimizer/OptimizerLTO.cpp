@@ -601,18 +601,22 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM,
   if (Level != OptimizationLevel::O0 || EnableO0Vectorization) { // INTEL
     MPM.addPass(ReplaceScalarWithMaskPass());
 
-    // Resolve subgreoup call introduced by ReplaceScalarWithMask pass.
+    // Resolve subgroup call introduced by ReplaceScalarWithMask pass.
     MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
+  }
 
-    if (Level != OptimizationLevel::O0) { // INTEL
-      FunctionPassManager FPM;
+  {
+    FunctionPassManager FPM;
+    if (Level != OptimizationLevel::O0) {
       FPM.addPass(DCEPass());
       FPM.addPass(SimplifyCFGPass());
       FPM.addPass(PromotePass());
-      FPM.addPass(PhiCanonicalization());
-      FPM.addPass(RedundantPhiNode());
-      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     }
+    FPM.addPass(PhiCanonicalization());
+    if (Level != OptimizationLevel::O0) {
+      FPM.addPass(RedundantPhiNode());
+    }
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
 
   MPM.addPass(GroupBuiltinPass());
