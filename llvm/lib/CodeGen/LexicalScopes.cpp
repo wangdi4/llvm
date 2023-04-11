@@ -57,7 +57,7 @@ using namespace llvm;
 static cl::opt<bool> EnableLineZeroLocations(
     "use-line-zero-locations", cl::Hidden,
     cl::desc("Allow line zero entries to be included in a lexical scope tree."),
-    cl::init(true));
+    cl::init(false));
 #endif
 
 /// reset - Reset the instance so that it's prepared for another function.
