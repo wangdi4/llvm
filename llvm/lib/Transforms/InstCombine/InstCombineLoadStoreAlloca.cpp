@@ -282,8 +282,8 @@ namespace {
 // instruction.
 class PointerReplacer {
 public:
-  PointerReplacer(InstCombinerImpl &IC, Instruction &Root)
-    : IC(IC), Root(Root) {}
+  PointerReplacer(InstCombinerImpl &IC, Instruction &Root, unsigned SrcAS)
+      : IC(IC), Root(Root), FromAS(SrcAS) {}
 
   bool collectUsers();
   void replacePointer(Value *V);
@@ -296,11 +296,21 @@ private:
     return I == &Root || Worklist.contains(I);
   }
 
+  bool isEqualOrValidAddrSpaceCast(const Instruction *I,
+                                   unsigned FromAS) const {
+    const auto *ASC = dyn_cast<AddrSpaceCastInst>(I);
+    if (!ASC)
+      return false;
+    unsigned ToAS = ASC->getDestAddressSpace();
+    return (FromAS == ToAS) || IC.isValidAddrSpaceCast(FromAS, ToAS);
+  }
+
   SmallPtrSet<Instruction *, 32> ValuesToRevisit;
   SmallSetVector<Instruction *, 4> Worklist;
   MapVector<Value *, Value *> WorkMap;
   InstCombinerImpl &IC;
   Instruction &Root;
+  unsigned FromAS;
 };
 } // end anonymous namespace
 
@@ -363,6 +373,8 @@ bool PointerReplacer::collectUsersRecursive(Instruction &I) {
     } else if (auto *MI = dyn_cast<MemTransferInst>(Inst)) {
       if (MI->isVolatile())
         return false;
+      Worklist.insert(Inst);
+    } else if (isEqualOrValidAddrSpaceCast(Inst, FromAS)) {
       Worklist.insert(Inst);
     } else if (Inst->isLifetimeStartOrEnd()) {
       continue;
@@ -449,6 +461,22 @@ void PointerReplacer::replace(Instruction *I) {
 
     IC.eraseInstFromFunction(*MemCpy);
     WorkMap[MemCpy] = NewI;
+  } else if (auto *ASC = dyn_cast<AddrSpaceCastInst>(I)) {
+    auto *V = getReplacement(ASC->getPointerOperand());
+    assert(V && "Operand not replaced");
+    assert(isEqualOrValidAddrSpaceCast(
+               ASC, V->getType()->getPointerAddressSpace()) &&
+           "Invalid address space cast!");
+    auto *NewV = V;
+    if (V->getType()->getPointerAddressSpace() !=
+        ASC->getType()->getPointerAddressSpace()) {
+      auto *NewI = new AddrSpaceCastInst(V, ASC->getType(), "");
+      NewI->takeName(ASC);
+      IC.InsertNewInstWith(NewI, *ASC);
+      NewV = NewI;
+    }
+    IC.replaceInstUsesWith(*ASC, NewV);
+    IC.eraseInstFromFunction(*ASC);
   } else {
     llvm_unreachable("should never reach here");
   }
@@ -541,7 +569,7 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
         return NewI;
       }
 
-      PointerReplacer PtrReplacer(*this, AI);
+      PointerReplacer PtrReplacer(*this, AI, SrcAddrSpace);
       if (PtrReplacer.collectUsers()) {
         for (Instruction *Delete : ToDelete)
           eraseInstFromFunction(*Delete);
