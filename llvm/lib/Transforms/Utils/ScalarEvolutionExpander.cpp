@@ -280,7 +280,10 @@ Value *SCEVExpander::InsertBinop(Instruction::BinaryOps Opcode,
   }
 
   // Save the original insertion point so we can restore it when we're done.
-  DebugLoc Loc = Builder.GetInsertPoint()->getDebugLoc();
+#if INTEL_CUSTOMIZATION
+  DebugLoc Loc = isHIRExpander() ? Builder.getCurrentDebugLocation()
+                                 : Builder.GetInsertPoint()->getDebugLoc();
+#endif // INTEL_CUSTOMIZATION
   SCEVInsertPointGuard Guard(Builder, this);
 
   if (IsSafeToHoist) {
@@ -770,8 +773,47 @@ public:
 };
 
 }
+#if INTEL_CUSTOMIZATION
+// This class uses the RAII mechanism to modify/restore the debug-loc for the
+// IRBuilder by looking up the instruction corresponding to the SCEV for which
+// code is being generated. This is only used by HIRSCEVExpander.
+class SCEVExpander::ScopeDbgLoc {
+  SCEVExpander &Expander;
+  DebugLoc OldDbgLoc;
 
+public:
+  ScopeDbgLoc(const ScopeDbgLoc &) = delete;
+
+  ScopeDbgLoc(SCEVExpander &Expander, const SCEV *SC) : Expander(Expander) {
+
+    OldDbgLoc = Expander.Builder.getCurrentDebugLocation();
+
+    // See if the current instruction has debug-loc as a shortcut to see if
+    // debug-info is present for any instruction.
+    if (!OldDbgLoc || !Expander.isHIRExpander()) {
+      return;
+    }
+
+    // For HIRCodeGen, check if this SCEV corresponds to a single instruction in
+    // the incoming IR, if so use that instruction's debug loc.
+    auto ValSet = Expander.SE.getSCEVValues(SC);
+
+    if (ValSet.size() != 1) {
+      return;
+    }
+
+    auto *Inst = dyn_cast<Instruction>(ValSet[0]);
+
+    if (Inst) {
+      Expander.Builder.SetCurrentDebugLocation(Inst->getDebugLoc());
+    }
+  }
+
+  ~ScopeDbgLoc() { Expander.Builder.SetCurrentDebugLocation(OldDbgLoc); }
+};
+#endif // INTEL_CUSTOMIZATION
 Value *SCEVExpander::visitAddExpr(const SCEVAddExpr *S) {
+  ScopeDbgLoc SDL(*this, S); // INTEL
   Type *Ty = SE.getEffectiveSCEVType(S->getType());
 
   // Collect all the add operands in a loop, along with their associated loops.
@@ -837,6 +879,7 @@ Value *SCEVExpander::visitAddExpr(const SCEVAddExpr *S) {
 }
 
 Value *SCEVExpander::visitMulExpr(const SCEVMulExpr *S) {
+  ScopeDbgLoc SDL(*this, S); // INTEL
   Type *Ty = SE.getEffectiveSCEVType(S->getType());
 
   // Collect all the mul operands in a loop, along with their associated loops.
@@ -931,6 +974,7 @@ Value *SCEVExpander::visitMulExpr(const SCEVMulExpr *S) {
 }
 
 Value *SCEVExpander::visitUDivExpr(const SCEVUDivExpr *S) {
+  ScopeDbgLoc SDL(*this, S); // INTEL
   Type *Ty = SE.getEffectiveSCEVType(S->getType());
 
   Value *LHS = expandCodeForImpl(S->getLHS(), Ty);
@@ -1691,6 +1735,7 @@ Value *SCEVExpander::visitAddRecExpr(const SCEVAddRecExpr *S) {
 }
 
 Value *SCEVExpander::visitPtrToIntExpr(const SCEVPtrToIntExpr *S) {
+  ScopeDbgLoc SDL(*this, S); // INTEL
   Value *V =
       expandCodeForImpl(S->getOperand(), S->getOperand()->getType());
   return ReuseOrCreateCast(V, S->getType(), CastInst::PtrToInt,
@@ -1698,6 +1743,7 @@ Value *SCEVExpander::visitPtrToIntExpr(const SCEVPtrToIntExpr *S) {
 }
 
 Value *SCEVExpander::visitTruncateExpr(const SCEVTruncateExpr *S) {
+  ScopeDbgLoc SDL(*this, S); // INTEL
   Type *Ty = SE.getEffectiveSCEVType(S->getType());
   Value *V = expandCodeForImpl(
       S->getOperand(), SE.getEffectiveSCEVType(S->getOperand()->getType())
@@ -1706,6 +1752,7 @@ Value *SCEVExpander::visitTruncateExpr(const SCEVTruncateExpr *S) {
 }
 
 Value *SCEVExpander::visitZeroExtendExpr(const SCEVZeroExtendExpr *S) {
+  ScopeDbgLoc SDL(*this, S); // INTEL
   Type *Ty = SE.getEffectiveSCEVType(S->getType());
   Value *V = expandCodeForImpl(
       S->getOperand(), SE.getEffectiveSCEVType(S->getOperand()->getType())
@@ -1714,6 +1761,7 @@ Value *SCEVExpander::visitZeroExtendExpr(const SCEVZeroExtendExpr *S) {
 }
 
 Value *SCEVExpander::visitSignExtendExpr(const SCEVSignExtendExpr *S) {
+  ScopeDbgLoc SDL(*this, S); // INTEL
   Type *Ty = SE.getEffectiveSCEVType(S->getType());
   Value *V = expandCodeForImpl(
       S->getOperand(), SE.getEffectiveSCEVType(S->getOperand()->getType())
@@ -1725,6 +1773,7 @@ Value *SCEVExpander::visitSignExtendExpr(const SCEVSignExtendExpr *S) {
 Value *SCEVExpander::expandMinMaxExpr(const SCEVNAryExpr *S,
                                       Intrinsic::ID IntrinID, Twine Name,
                                       bool IsSequential) {
+  ScopeDbgLoc SDL(*this, S); // INTEL
   Value *LHS = expand(S->getOperand(S->getNumOperands() - 1));
   Type *Ty = LHS->getType();
   if (IsSequential)
