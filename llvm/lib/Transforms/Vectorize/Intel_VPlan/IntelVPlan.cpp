@@ -283,6 +283,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "reduction-final-cmplx";
   case VPInstruction::AllocatePrivate:
     return "allocate-priv";
+  case VPInstruction::AllocateDVBuffer:
+    return "allocate-dv-buffer";
   case VPInstruction::Subscript:
     return "subscript";
   case VPInstruction::Blend:
@@ -717,15 +719,18 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
              isa<VPCallInstruction>(this)) {
     // Nothing to print, operands are already printed for these instructions.
   } else {
-    if (getOpcode() == VPInstruction::AllocatePrivate) {
+    if (getOpcode() == VPInstruction::AllocateDVBuffer ||
+        getOpcode() == VPInstruction::AllocatePrivate) {
       O << " ";
       getType()->print(O);
-      O << ", OrigAlign = "
-        << cast<VPAllocatePrivate>(this)->getOrigAlignment().value();
     }
     for (const VPValue *Operand : operands()) {
       O << " ";
       Operand->printAsOperand(O);
+    }
+    if (auto *AllocMem = dyn_cast<VPAllocateMemBase>(this)) {
+      O << ", OrigAlign = ";
+      O << AllocMem->getOrigAlignment().value();
     }
     switch (getOpcode()) {
     case Instruction::ZExt:

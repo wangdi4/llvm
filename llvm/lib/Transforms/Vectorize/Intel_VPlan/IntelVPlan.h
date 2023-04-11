@@ -613,6 +613,7 @@ public:
     ReductionFinalArr,    // Custom finalization of array reductions.
     ReductionFinalCmplx,  // Custom finalization of complex type reductions.
     AllocatePrivate,
+    AllocateDVBuffer,
     Subscript,
     Blend,
     HIRCopy,
@@ -3992,23 +3993,15 @@ private:
   void updateUBInHIROrigLiveOut();
 };
 
-// VPInstruction to allocate private memory. This is translated into
-// allocation of a private memory in the function entry block. This instruction
-// is not supposed to vectorize alloca instructions that appear inside the loop
-// for arrays of a variable size.
-class VPAllocatePrivate : public VPInstruction {
-  // VPLoopEntityList is allowed to set EntityKind.
-  friend class VPLoopEntityList;
+// Base class for VPAllocateDVbuffer and VPAllocatePrivate classes.
+// Only derived classes objects are expected to be used in source.
+class VPAllocateMemBase : public VPInstruction {
 
 public:
-  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment)
-      : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}),
-        AllocatedTy(AllocatedTy), IsSOASafe(false), IsSOAProfitable(false),
-        OrigAlignment(OrigAlignment), EntityKind(0) {}
-
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::AllocatePrivate;
+    return V->getOpcode() == VPInstruction::AllocateDVBuffer ||
+           V->getOpcode() == VPInstruction::AllocatePrivate;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -4041,30 +4034,100 @@ public:
 
   Type *getAllocatedType() const { return AllocatedTy; }
 
-  unsigned getEntityKind() const { return EntityKind; }
-
 protected:
+  VPAllocateMemBase(unsigned Opcode, Type *Ty, Type *AllocatedTy,
+                    Align OrigAlignment, ArrayRef<VPValue *> Operands)
+      : VPInstruction(Opcode, Ty, {Operands}), AllocatedTy(AllocatedTy),
+        IsSOASafe(false), IsSOAProfitable(false), OrigAlignment(OrigAlignment) {}
 
-  VPAllocatePrivate *cloneImpl() const override {
-    auto Ret = new VPAllocatePrivate(
-      getType(), getAllocatedType(), getOrigAlignment());
-    Ret->setSOASafe(isSOASafe());
-    if (isSOAProfitable())
-      Ret->setSOAProfitable();
-    Ret->setEntityKind(getEntityKind());
-    return Ret;
+  VPAllocateMemBase *cloneImpl() const override {
+    assert(false && "not expected to clone");
+    return nullptr;
   }
-
-private:
-  /// Set the opcode of the Entity related to this Alloca.
-  void setEntityKind(unsigned Kind) { EntityKind = Kind; }
 
 private:
   Type *AllocatedTy;
   bool IsSOASafe;
   bool IsSOAProfitable;
   Align OrigAlignment;
+};
+
+// VPInstruction to allocate memory buffer for dope vector. This is translated
+// into allocation of a VF allocas in the loop preheader. Allocate memeory is
+// expected to be alive only for loop's lifetime and requires explicitly saving
+// and restoring on stack.
+class VPAllocateDVBuffer : public VPAllocateMemBase {
+
+public:
+  VPAllocateDVBuffer(Type *Ty, Type *AllocatedTy, Align OrigAlignment,
+                     ArrayRef<VPValue *> Operands)
+      : VPAllocateMemBase(VPInstruction::AllocateDVBuffer, Ty, AllocatedTy,
+                          OrigAlignment, {Operands}) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::AllocateDVBuffer;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  VPAllocateDVBuffer *cloneImpl() const override {
+    auto Ret = new VPAllocateDVBuffer(getType(), getAllocatedType(),
+                                      getOrigAlignment(), {});
+    Ret->setSOASafe(isSOASafe());
+    if (isSOAProfitable())
+      Ret->setSOAProfitable();
+    for (auto &O : operands())
+      Ret->addOperand(O);
+    return Ret;
+  }
+};
+
+// VPInstruction to allocate private memory. This is translated into
+// allocation of a private memory in the function entry block. This instruction
+// is not supposed to vectorize alloca instructions that appear inside the loop
+// for arrays of a variable size.
+class VPAllocatePrivate : public VPAllocateMemBase {
+  // VPLoopEntityList is allowed to set EntityKind.
+  friend class VPLoopEntityList;
+
+public:
+  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment)
+      : VPAllocateMemBase(VPInstruction::AllocatePrivate, Ty, AllocatedTy,
+                          OrigAlignment, {}),
+        EntityKind(0) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::AllocatePrivate;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+  unsigned getEntityKind() const { return EntityKind; }
+
+private:
+  /// Set the opcode of the Entity related to this Alloca.
+  void setEntityKind(unsigned Kind) { EntityKind = Kind; }
+
   unsigned EntityKind;
+
+protected:
+  VPAllocatePrivate *cloneImpl() const override {
+    auto Ret = new VPAllocatePrivate(getType(), getAllocatedType(),
+                                     getOrigAlignment());
+    Ret->setSOASafe(isSOASafe());
+    if (isSOAProfitable())
+      Ret->setSOAProfitable();
+    Ret->setEntityKind(getEntityKind());
+    return Ret;
+  }
 };
 
 /// Return index of some active lane. Currently we use the first one but users

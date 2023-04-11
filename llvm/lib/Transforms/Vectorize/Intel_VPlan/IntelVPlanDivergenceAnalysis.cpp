@@ -1444,9 +1444,9 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCallInst(
   return getRandomVectorShape();
 }
 
-// Computes vector shape for AllocatePrivate instruction.
-VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocatePrivateInst(
-    const VPAllocatePrivate *AI) {
+// Computes vector shape for AllocatePrivate and AllocateDVBuffer instructions.
+VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocateInst(
+    const VPAllocateMemBase *AI) {
   // Allocate-private is of a pointer type. Get the pointee size and set a
   // tentative shape.
   Type *PointeeTy = AI->getAllocatedType();
@@ -1649,9 +1649,10 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateLastValueArrayNonPODMasked)
     NewShape = getUniformVectorShape();
-  else if (Opcode == VPInstruction::AllocatePrivate)
-    NewShape = computeVectorShapeForAllocatePrivateInst(
-        cast<const VPAllocatePrivate>(I));
+  else if (Opcode == VPInstruction::AllocateDVBuffer ||
+           Opcode == VPInstruction::AllocatePrivate)
+    NewShape =
+        computeVectorShapeForAllocateInst(cast<const VPAllocateMemBase>(I));
   else if (Opcode == VPInstruction::OrigTripCountCalculation)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::VectorTripCountCalculation)
