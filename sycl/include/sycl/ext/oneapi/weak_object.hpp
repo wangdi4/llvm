@@ -51,12 +51,8 @@ public:
 
   weak_object &operator=(const SYCLObjT &SYCLObj) noexcept {
     // Create weak_ptr from the shared_ptr to SYCLObj's implementation object.
-<<<<<<< HEAD
     this->MObjWeakPtr =
         detail::weak_object_base<SYCLObjT>::GetWeakImpl(SYCLObj);
-=======
-    this->MObjWeakPtr = GetWeakImpl(SYCLObj);
->>>>>>> dc6b92f2b8607afcdbc632a713a0df1cf70c53f9
     return *this;
   }
   weak_object &operator=(const weak_object &Other) noexcept = default;
@@ -109,12 +105,8 @@ public:
 
   weak_object &operator=(const buffer_type &SYCLObj) noexcept {
     // Create weak_ptr from the shared_ptr to SYCLObj's implementation object.
-<<<<<<< HEAD
     this->MObjWeakPtr = detail::weak_object_base<
         buffer<T, Dimensions, AllocatorT>>::GetWeakImpl(SYCLObj);
-=======
-    this->MObjWeakPtr = GetWeakImpl(SYCLObj);
->>>>>>> dc6b92f2b8607afcdbc632a713a0df1cf70c53f9
     this->MRange = SYCLObj.Range;
     this->MOffsetInBytes = SYCLObj.OffsetInBytes;
     this->MIsSubBuffer = SYCLObj.IsSubBuffer;
@@ -123,7 +115,6 @@ public:
   weak_object &operator=(const weak_object &Other) noexcept = default;
   weak_object &operator=(weak_object &&Other) noexcept = default;
 
-<<<<<<< HEAD
   void swap(weak_object &Other) noexcept {
     this->MObjWeakPtr.swap(Other.MObjWeakPtr);
     std::swap(MRange, Other.MRange);
@@ -131,8 +122,6 @@ public:
     std::swap(MIsSubBuffer, Other.MIsSubBuffer);
   }
 
-=======
->>>>>>> dc6b92f2b8607afcdbc632a713a0df1cf70c53f9
 #ifndef __SYCL_DEVICE_ONLY__
   std::optional<buffer_type> try_lock() const noexcept {
     auto MObjImplPtr = this->MObjWeakPtr.lock();
