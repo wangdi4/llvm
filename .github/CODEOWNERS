@@ -95,9 +95,9 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /clang/lib/Basic/Targets/X86.cpp @phoebewang @FreddyLeaf
 /clang/lib/Headers/ @phoebewang @FreddyLeaf
 /clang/test/CodeGen/X86/ @phoebewang @FreddyLeaf
-/llvm/include/llvm/Support/X86TargetParser.def @phoebewang @FreddyLeaf
 /llvm/include/llvm/Support/X86DisassemblerDecoderCommon.h @phoebewang @KanRobert
-/llvm/lib/Support/X86TargetParser.cpp @phoebewang @FreddyLeaf
+/llvm/include/llvm/TargetParser/X86TargetParser.def @phoebewang @FreddyLeaf
+/llvm/lib/TargetParser/X86TargetParser.cpp @phoebewang @FreddyLeaf
 /llvm/lib/CodeGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/lib/Transforms/Intel_MapIntrinToIml/ @tianqingw @KanRobert @FreddyLeaf
