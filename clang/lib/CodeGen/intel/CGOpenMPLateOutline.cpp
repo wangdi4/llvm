@@ -1244,6 +1244,9 @@ void OpenMPLateOutliner::addImplicitClauses() {
         emitImplicit(VD, ICK_shared);
       else
         emitImplicit(VD, ICK_firstprivate);
+    } else if (VD->hasAttr<OMPThreadPrivateDeclAttr>() &&
+               isOpenMPTaskingDirective(CurrentDirectiveKind)) {
+      emitImplicit(VD, ICK_livein);
     } else if (CurrentDirectiveKind == OMPD_loop ||
                isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
                                            CGF.getLangOpts().OpenMP)) {
