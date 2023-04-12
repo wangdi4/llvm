@@ -4871,6 +4871,11 @@ private:
   // indices in 'HoistYes' and 'HoistNo'.
   bool findHoistableFields(Function *F, Value *V, std::set<unsigned> &HoistYes,
                            std::set<unsigned> &HoistNo);
+  // Return a pointer to a newly created hoisted restrict variable that
+  // can be used in the condition testing for the optimized code.
+  LoadInst *makeHoistedRestrictVar();
+  // Make the condition which tests for the optimized code.
+  Value *makeOptTest(LoadInst *CacheInfo);
   // Return Function with cold code extracted from 'OptBaseF'.
   Function *extractColdCode(Function *OptBaseF);
 };
@@ -5449,7 +5454,10 @@ bool PredicateOpt::isRestrictVarHoistablePastWrapperF(Function *BaseF,
     return false;
   if (GEPI1->getPrevNonDebugInstruction())
     return false;
-  return isa<Argument>(GEPI1->getPointerOperand());
+  auto Arg = dyn_cast<Argument>(GEPI1->getPointerOperand());
+  if (!Arg)
+    return false;
+  return isa<Instruction>(BigLoopCB->getArgOperand(Arg->getArgNo()));
 }
 
 //
@@ -5744,6 +5752,110 @@ Function *PredicateOpt::extractColdCode(Function *OptBaseF) {
 }
 
 //
+// Return a pointer to a newly created hoisted restrict variable that
+// can be used in the condition testing for the optimized code.
+//
+// The returned value will have the form of %3 below:
+//   %i29 = tail call ptr @AcquireVirtualCacheView(...)
+//   %0 = getelementptr %struct._ZTS10_CacheView._CacheView, ptr %i29, i64 0,
+//     i32 0
+//   %1 = load ptr, ptr %0, align 8
+//   %2 = getelementptr %struct._ZTS6_Image._Image, ptr %1, i64 0, i32 49
+//   %3 = load ptr, ptr %2, align 8
+//
+LoadInst *PredicateOpt::makeHoistedRestrictVar() {
+
+  // Return a pointer to a GetElementPtrInst which is a copy of
+  // 'GEPIIn' by with pointer operand 'PO'. Insert it before
+  // instruction 'II'.
+  auto MakeGEPIFromGEPI = [](GetElementPtrInst *GEPIIn, Value *PO,
+                             Instruction *II) -> GetElementPtrInst * {
+    SmallVector<Value *, 2> Indices;
+    BasicBlock *BB = II->getParent();
+    auto Int32Ty = Type::getInt32Ty(BB->getContext());
+    auto Int64Ty = Type::getInt64Ty(BB->getContext());
+    auto CIIn1 = cast<ConstantInt>(GEPIIn->getOperand(1));
+    unsigned GO1 = CIIn1->getZExtValue();
+    auto CI1 = ConstantInt::get(Int64Ty, GO1, true);
+    Indices.push_back(CI1);
+    auto CIIn2 = cast<ConstantInt>(GEPIIn->getOperand(2));
+    unsigned GO2 = CIIn2->getZExtValue();
+    auto CI2 = ConstantInt::get(Int32Ty, GO2, true);
+    Indices.push_back(CI2);
+    Type *GEPITy = GEPIIn->getSourceElementType();
+    return GetElementPtrInst::Create(GEPITy, PO, Indices, "", II);
+  };
+
+  auto GEPIInner = cast<GetElementPtrInst>(LIRestrict->getPointerOperand());
+  auto ArgInner = cast<Argument>(GEPIInner->getPointerOperand());
+  unsigned ArgNoInner = ArgInner->getArgNo();
+  auto LIOuter = cast<LoadInst>(WrapperCB->getArgOperand(ArgNoInner));
+  auto GEPIOuter = cast<GetElementPtrInst>(LIOuter->getPointerOperand());
+  auto ArgOuter = cast<Argument>(GEPIOuter->getPointerOperand());
+  unsigned ArgNoOuter = ArgOuter->getArgNo();
+  auto VInst = cast<Instruction>(BigLoopCB->getArgOperand(ArgNoOuter));
+  auto II = VInst->getNextNonDebugInstruction();
+  auto NewGEPIOuter = MakeGEPIFromGEPI(GEPIOuter, VInst, II);
+  auto NewLIOuter = new LoadInst(LIOuter->getType(), NewGEPIOuter, "", II);
+  auto NewGEPIInner = MakeGEPIFromGEPI(GEPIInner, NewLIOuter, II);
+  auto NewLIInner = new LoadInst(LIRestrict->getType(), NewGEPIInner, "", II);
+  return NewLIInner;
+}
+
+//
+// Make the condition which tests for the optimized code.
+//
+// At this point the condition is simply %11 below:
+//   %4 = getelementptr %struct._ZTS6_Image._Image, ptr %3, i64 0, i32 0
+//   %5 = load i32, ptr %4, align 4
+//   %6 = icmp eq i32 %5, 2
+//   %7 = getelementptr %struct._ZTS6_Image._Image, ptr %3, i64 0, i32 1
+//   %8 = load i32, ptr %7, align 4
+//   %9 = icmp eq i32 %8, 12
+//   %10 = or i1 %6, %9
+//   %11 = xor i1 %10, true
+// Where %3 is 'CacheInfo' returned by makeHoistedRestrictVar().
+//
+// We will expand it in future change sets to make it complete.
+//
+Value *PredicateOpt::makeOptTest(LoadInst *CacheInfo) {
+
+  // Make a GetElementPtr, Load, ICmp sequence where 'PO' is the pointer
+  // operand of the GetElementPtrInst, 'Ty' is the source element type of
+  // the GetElementPtrInst, 'FieldNo' is the field of the structure
+  // accessed by the GetElementPtrInst, and V is the integer value
+  // tested by the ICmp against the structure field value. Insert the
+  // created instructions before 'II'.
+  auto MakeGEPILoadICmp = [](Instruction *II, Value *PO, StructType *Ty,
+                             unsigned FieldNo, unsigned V) -> CmpInst * {
+    SmallVector<Value *, 2> Indices;
+    BasicBlock *BB = II->getParent();
+    auto Int32Ty = Type::getInt32Ty(BB->getContext());
+    auto Int64Ty = Type::getInt64Ty(BB->getContext());
+    auto CI1 = ConstantInt::get(Int64Ty, 0, true);
+    Indices.push_back(CI1);
+    auto CI2 = ConstantInt::get(Int32Ty, FieldNo, true);
+    Indices.push_back(CI2);
+    auto GEPI = GetElementPtrInst::Create(Ty, PO, Indices, "", II);
+    Type *TyFieldNo = Ty->getTypeAtIndex((unsigned)FieldNo);
+    auto LI = new LoadInst(TyFieldNo, GEPI, "", II);
+    auto CI = ConstantInt::get(LI->getType(), V);
+    auto IC =
+        CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_EQ, LI, CI, "", II);
+    return IC;
+  };
+
+  auto II = CacheInfo->getNextNonDebugInstruction();
+  auto GEPI = cast<GetElementPtrInst>(CacheInfo->getPointerOperand());
+  auto GEPITy = cast<StructType>(GEPI->getSourceElementType());
+  CmpInst *IC0 = MakeGEPILoadICmp(II, CacheInfo, GEPITy, 0, 2);
+  CmpInst *IC1 = MakeGEPILoadICmp(II, CacheInfo, GEPITy, 1, 12);
+  auto BOr = BinaryOperator::CreateOr(IC0, IC1, "", II);
+  auto BNot = BinaryOperator::CreateNot(BOr, "", II);
+  return BNot;
+}
+
+//
 // Attempt to perform the predicate opt. Return 'true' if it was possible.
 // NOTE: Right now we simply emit a trace indicating the key elements
 // on the hot path, and the extracted and enclosing functions.
@@ -5776,6 +5888,7 @@ bool PredicateOpt::doPredicateOpt() {
   DominatorTree &DT = (*GetDT)(*FxnOuter);
   BlockFrequencyInfo &BFI = (*GetBFI)(*FxnOuter);
   BranchProbabilityInfo &BPI = (*GetBPI)(*FxnOuter);
+  LoadInst *CacheInfo = makeHoistedRestrictVar();
   RegionSplitter MultiLoopSplitter(DT, BFI, BPI);
   Function *NoOptF = MultiLoopSplitter.splitRegion(*MultiLoop);
   CallBase *NoOptCB = cast<CallBase>(NoOptF->user_back());
@@ -5786,9 +5899,8 @@ bool PredicateOpt::doPredicateOpt() {
   BasicBlock *BBPred = NoOptCB->getParent();
   BBPred->splitBasicBlock(NoOptCB);
   BBPred->getTerminator()->eraseFromParent();
-  Module *M = NoOptCB->getFunction()->getParent();
-  ConstantInt *TInt = ConstantInt::getTrue(M->getContext());
-  makeBlocks(NoOptCB, OptCB, TInt, BBPred);
+  Value *OptTest = makeOptTest(CacheInfo);
+  makeBlocks(NoOptCB, OptCB, OptTest, BBPred);
   LLVM_DEBUG(dbgs() << "MRC Predicate: OptF: " << OptF->getName() << "\n");
   LLVM_DEBUG(dbgs() << "MRC Predicate: NoOptF: " << NoOptF->getName() << "\n");
   CallBase *OptWrapperCB = findUniqueCB(OptF, WrapperF);
