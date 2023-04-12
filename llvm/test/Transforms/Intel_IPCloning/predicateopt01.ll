@@ -30,7 +30,22 @@
 
 ; This is the beginning of the "spine" being optimized.
 ; CHECK-LABEL: define internal {{.*}} @MeanShiftImage(
-; CHECK: br i1 true, label %[[L0:[A-Za-z0-9.]+]], label %[[L1:[A-Za-z0-9.]+]]
+; This is the test to determine if we run the optimized or unoptimized version.
+; CHECK: %[[IA0:[A-Za-z0-9]+]] = tail call ptr @AcquireVirtualCacheView(
+; CHECK: %[[IA1:[A-Za-z0-9]+]] = tail call ptr @AcquireVirtualCacheView(
+; CHECK: %[[I0:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheView._CacheView, ptr %[[IA1]], i64 0, i32 0
+; CHECK: %[[I1:[A-Za-z0-9]+]] = load ptr, ptr %[[I0]], align 8
+; CHECK: %[[I2:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I1]], i64 0, i32 49
+; CHECK: %[[I3:[A-Za-z0-9]+]] = load ptr, ptr %[[I2]], align 8
+; CHECK: %[[I4:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I3]], i64 0, i32 0
+; CHECK: %[[I5:[A-Za-z0-9]+]] = load i32, ptr %[[I4]], align 4
+; CHECK: %[[I6:[A-Za-z0-9]+]] = icmp eq i32 %[[I5]], 2
+; CHECK: %[[I7:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I3]], i64 0, i32 1
+; CHECK: %[[I8:[A-Za-z0-9]+]] = load i32, ptr %[[I7]], align 4
+; CHECK: %[[I9:[A-Za-z0-9]+]] = icmp eq i32 %[[I8]], 12
+; CHECK: %[[I10:[A-Za-z0-9]+]] = or i1 %[[I6]], %[[I9]]
+; CHECK: %[[I11:[A-Za-z0-9]+]] = xor i1 %[[I10]], true
+; CHECK: br i1 %[[I11]], label %[[L0:[A-Za-z0-9.]+]], label %[[L1:[A-Za-z0-9.]+]]
 ; CHECK: [[L1]]:
 ; This is the branch to the non-predicate optimized version.
 ; CHECK: call void @MeanShiftImage.bb123
