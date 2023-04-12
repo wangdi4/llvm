@@ -359,7 +359,7 @@ size_t BasicCLConfigWrapper::GetDeviceMaxWGSize(bool IsFPGAEmulator) const {
 }
 
 unsigned BasicCLConfigWrapper::GetNumTBBWorkers() const {
-  unsigned numWorkers;
+  unsigned numWorkers = 0;
 
   std::string strEnv;
   if (getEnvVar(strEnv, "SYCL_CPU_NUM_CUS") ||
