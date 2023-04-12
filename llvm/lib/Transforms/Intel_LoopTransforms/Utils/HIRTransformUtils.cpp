@@ -2594,6 +2594,17 @@ bool HIRTransformUtils::propagateSingleUseLoads(HLLoop *Lp) {
     return false;
   }
 
+  // Bail out on loops with distribute point as we do not track whether we are
+  // crossing a distribute point due to substitution. For example-
+  //
+  // t1 = A[i];
+  // t2 = C[i];  <distribute_point>
+  //
+  // B[i] = t1;
+  if (Lp->hasDistributePoint()) {
+    return false;
+  }
+
   SingleUseLoadPropagator SULP(Lp);
 
   return SULP.propagateLoads();
