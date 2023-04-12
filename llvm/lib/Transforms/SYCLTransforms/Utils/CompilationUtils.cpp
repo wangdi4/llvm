@@ -1116,12 +1116,13 @@ std::pair<bool, unsigned> isTIDGenerator(const CallInst *CI) {
 
 StructType *getStructFromTypePtr(Type *Ty) {
   auto *PtrTy = dyn_cast<PointerType>(Ty);
-  if (!PtrTy)
+  if (!PtrTy || PtrTy->isOpaque())
     return nullptr;
   // Handle also pointer to pointer to ...
-  while (auto *PtrTyNext = dyn_cast<PointerType>(PtrTy->getElementType()))
+  while (auto *PtrTyNext =
+             dyn_cast<PointerType>(PtrTy->getNonOpaquePointerElementType()))
     PtrTy = PtrTyNext;
-  return dyn_cast<StructType>(PtrTy->getElementType());
+  return dyn_cast<StructType>(PtrTy->getNonOpaquePointerElementType());
 }
 
 bool isSameStructType(StructType *STy1, StructType *STy2) {
@@ -1152,8 +1153,12 @@ PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy) {
 
   assert(SrcPTy && DstTy && "Invalid types!");
 
+  if (SrcPTy->isOpaque())
+    return PointerType::get(DstTy, SrcPTy->getAddressSpace());
+
   SmallVector<PointerType *, 2> Types{SrcPTy};
-  while ((SrcPTy = dyn_cast<PointerType>(SrcPTy->getElementType())))
+  while ((SrcPTy =
+              dyn_cast<PointerType>(SrcPTy->getNonOpaquePointerElementType())))
     Types.push_back(SrcPTy);
 
   for (auto It = Types.rbegin(), E = Types.rend(); It != E; ++It)
@@ -1172,10 +1177,15 @@ Function *importFunctionDecl(Module *Dst, const Function *Orig,
 
   SmallVector<Type *, 8> NewArgTypes;
   bool Changed = false;
-  for (auto *ArgTy : Orig->getFunctionType()->params()) {
+  for (const auto &Arg : Orig->args()) {
+    auto *ArgTy = Arg.getType();
     NewArgTypes.push_back(ArgTy);
 
-    auto *STy = getStructFromTypePtr(ArgTy);
+    StructType *STy = nullptr;
+    if (isa<PointerType>(ArgTy))
+      STy = dyn_cast_or_null<StructType>(Arg.getParamByValType());
+    if (!STy)
+      STy = getStructFromTypePtr(ArgTy);
     if (!STy)
       continue;
 
@@ -1617,9 +1627,7 @@ Type *getWorkGroupInfoElementType(LLVMContext &C,
   return StructType::get(C, WGInfoMembersTypes, false);
 }
 
-Type *getWorkGroupIDElementType(Module *M) {
-  return PointerType::get(LoopUtils::getIndTy(M), 0);
-}
+Type *getWorkGroupIDElementType(Module *M) { return LoopUtils::getIndTy(M); }
 
 GlobalVariable *getTLSGlobal(Module *M, unsigned Idx) {
   assert(M && "Module cannot be null");
@@ -1628,14 +1636,13 @@ GlobalVariable *getTLSGlobal(Module *M, unsigned Idx) {
 
 StringRef getTLSLocalIdsName() { return NAME_TLS_LOCAL_IDS; }
 
-Value *createGetPtrToLocalId(Value *LocalIdValues, Value *Dim,
+Value *createGetPtrToLocalId(Value *LocalIdValues, Type *LIdsTy, Value *Dim,
                              IRBuilderBase &Builder) {
   SmallVector<Value *, 4> Indices;
   Indices.push_back(Builder.getInt64(0));
   Indices.push_back(Dim);
   return Builder.CreateInBoundsGEP(
-      LocalIdValues->getType()->getScalarType()->getPointerElementType(),
-      LocalIdValues, Indices,
+      LIdsTy, LocalIdValues, Indices,
       CompilationUtils::AppendWithDimension("pLocalId_", Dim));
 }
 
@@ -1675,7 +1682,7 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
       if ((i == 0) && KIMD.BlockLiteralSize.hasValue()) {
         auto *PTy = dyn_cast<PointerType>(pArg->getType());
-        if (!PTy || !PTy->getElementType()->isIntegerTy(8))
+        if (!PTy || !PTy->getNonOpaquePointerElementType()->isIntegerTy(8))
           continue;
 
         CurArg.Ty = KRNL_ARG_PTR_BLOCK_LITERAL;
@@ -1684,25 +1691,25 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       }
 
       PointerType *PTy = cast<PointerType>(arg_it->getType());
-      if (pArg->hasByValAttr() && isa<VectorType>(PTy->getElementType())) {
+      if (pArg->hasByValAttr()) {
         // Check by pointer vector passing, used in long16 and double16
-        FixedVectorType *Vector = cast<FixedVectorType>(PTy->getElementType());
-        unsigned int uiNumElem = (unsigned int)Vector->getNumElements();
-        ;
-        unsigned int uiElemSize =
-            Vector->getContainedType(0)->getPrimitiveSizeInBits() / 8;
-        // assert( ((uiElemSize*uiNumElem) < 8 || (uiElemSize*uiNumElem) > 4*16)
-        // &&
-        //  "We have byval pointer for legal vector type larger than 64bit");
-        CurArg.Ty = KRNL_ARG_VECTOR_BY_REF;
-        CurArg.SizeInBytes = uiNumElem & 0xFFFF;
-        CurArg.SizeInBytes |= (uiElemSize << 16);
-        break;
+        if (auto *VTy = dyn_cast<FixedVectorType>(pArg->getParamByValType())) {
+          unsigned int uiNumElem = (unsigned int)VTy->getNumElements();
+          unsigned int uiElemSize =
+              VTy->getContainedType(0)->getPrimitiveSizeInBits() / 8;
+          CurArg.Ty = KRNL_ARG_VECTOR_BY_REF;
+          CurArg.SizeInBytes = uiNumElem & 0xFFFF;
+          CurArg.SizeInBytes |= (uiElemSize << 16);
+          break;
+        }
       }
       CurArg.SizeInBytes = M->getDataLayout().getPointerSize(0);
       // Detect pointer qualifier
       // Test for opaque types: images, queue_t, pipe_t
-      StructType *ST = dyn_cast<StructType>(PTy->getElementType());
+      StructType *ST =
+          PTy->isOpaque()
+              ? nullptr
+              : dyn_cast<StructType>(PTy->getNonOpaquePointerElementType());
       if (ST && ST->hasName()) {
         char const oclOpaquePref[] = "opencl.";
         const size_t oclOpaquePrefLen =
@@ -1773,21 +1780,22 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
           // Check this is a special OpenCL C opaque type.
           if (KRNL_ARG_INT != CurArg.Ty)
             break;
-        } else if (dyn_cast<PointerType>(PTy->getElementType())) {
+        } else if (!PTy->isOpaque() &&
+                   dyn_cast<PointerType>(
+                       PTy->getNonOpaquePointerElementType())) {
           // Pointer to pointer case.
           assert(false &&
                  "pointer to pointer is not allowed in kernel arguments");
         }
       }
 
-      Type *Ty = PTy->getContainedType(0);
-      // Calculate size for a struct pointer with byval attribute
-      if (pArg->hasByValAttr() && Ty->isStructTy()) // struct or struct*
-      {
+      // Calculate size for a struct pointer with byval attribute.
+      if (pArg->hasByValAttr() && pArg->getParamByValType()->isStructTy()) {
+        // struct or struct*
         // Deal with structs passed by value. These are user-defined structs and
         // ndrange_t.
         if (PTy->getAddressSpace() == 0) {
-          StructType *STy = cast<StructType>(Ty);
+          StructType *STy = cast<StructType>(pArg->getParamByValType());
           assert(
               !STy->isOpaque() &&
               "cannot handle user-defined opaque types with an unknown size");
@@ -1814,6 +1822,13 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       default:
         assert(0);
       }
+    } break;
+
+    case Type::TargetExtTyID: {
+      auto *TETy = cast<TargetExtType>(pArg->getType());
+      CurArg.SizeInBytes =
+          M->getDataLayout().getTypeAllocSize(TETy->getLayoutType());
+      assert(0 && "unhandled TargetExtType");
     } break;
 
     case Type::IntegerTyID: {
@@ -2345,7 +2360,8 @@ static std::string getMangledTypeStr(Type *Ty, bool &HasUnnamedType) {
     // Opaque pointer doesn't have pointee type information, so we just mangle
     // address space for opaque pointer.
     if (!PTyp->isOpaque())
-      Result += getMangledTypeStr(PTyp->getElementType(), HasUnnamedType);
+      Result += getMangledTypeStr(PTyp->getNonOpaquePointerElementType(),
+                                  HasUnnamedType);
   } else if (ArrayType *ATyp = dyn_cast<ArrayType>(Ty)) {
     Result += "a" + utostr(ATyp->getNumElements()) +
               getMangledTypeStr(ATyp->getElementType(), HasUnnamedType);

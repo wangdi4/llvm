@@ -98,6 +98,8 @@ private:
   IntegerType *I8Ty = nullptr;
   IntegerType *I32Ty = nullptr;
 
+  Type *ArgsBufferValueTy = nullptr;
+
   /// Use TLS globals instead of implicit arguments.
   bool UseTLSGlobals;
 };

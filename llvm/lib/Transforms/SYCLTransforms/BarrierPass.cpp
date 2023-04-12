@@ -1038,9 +1038,7 @@ Value *KernelBarrier::getAddressInSpecialBuffer(unsigned int Offset,
   CurrSB = B.CreateNUWAdd(CurrSB, OffsetVal, "SB_LocalId_Offset");
   Value *Idxs[1] = {CurrSB};
   Value *AddrInSBinBytes = B.CreateInBoundsGEP(
-      CurrentBarrierKeyValues->SpecialBufferValue->getType()
-          ->getScalarType()
-          ->getPointerElementType(),
+      Utils.getSpecialBufferValueTy(),
       CurrentBarrierKeyValues->SpecialBufferValue, ArrayRef<Value *>(Idxs));
   // Bitcast pointer according to alloca type!
   Value *AddrInSpecialBuffer =

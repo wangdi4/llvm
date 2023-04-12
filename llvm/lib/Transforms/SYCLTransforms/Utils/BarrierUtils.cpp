@@ -20,10 +20,7 @@
 using namespace llvm;
 using namespace SYCLKernelMetadataAPI;
 
-BarrierUtils::BarrierUtils()
-    : M(nullptr), UISizeT(0), SizetTy(nullptr), I32Ty(nullptr) {
-  clean();
-}
+BarrierUtils::BarrierUtils() : M(nullptr), UISizeT(0) { clean(); }
 
 void BarrierUtils::init(Module *M) {
   assert(M && "Trying to initialize BarrierUtils with NULL module");
@@ -35,6 +32,7 @@ void BarrierUtils::init(Module *M) {
   assert(UISizeT == 32 || UISizeT == 64);
   I32Ty = Type::getInt32Ty(M->getContext());
   SizetTy = IntegerType::get(M->getContext(), UISizeT);
+  SpecialBufferValueTy = IntegerType::get(M->getContext(), 8);
 }
 
 void BarrierUtils::clean() {
@@ -277,8 +275,8 @@ Instruction *BarrierUtils::createGetSpecialBuffer(Instruction *InsertBefore) {
            "module!!!");
 
     // Create one
-    Type *Result = PointerType::get(IntegerType::get(M->getContext(), 8),
-                                    SPECIAL_BUFFER_ADDR_SPACE);
+    Type *Result =
+        PointerType::get(SpecialBufferValueTy, SPECIAL_BUFFER_ADDR_SPACE);
     GetSpecialBufferFunc = createFunctionDeclaration(
         CompilationUtils::nameSpecialBuffer(), Result, {});
     SetFunctionAttributeReadNone(GetSpecialBufferFunc);

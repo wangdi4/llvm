@@ -380,7 +380,7 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
           CompilationUtils::ADDRESS_SPACE_CONSTANT != AS)
         continue;
 
-      size_t Size = DL.getTypeAllocSize(PT->getContainedType(0));
+      size_t Size = DL.getTypeAllocSize(GV.getValueType());
       GlobalVariableTotalSize += Size;
 
       // Global variable with common or external linkage

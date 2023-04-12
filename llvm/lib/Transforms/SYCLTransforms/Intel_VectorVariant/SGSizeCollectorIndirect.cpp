@@ -149,8 +149,8 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
 
       Type *ParamTy = FuncTy->getParamType(0);
       PointerType *Pointer = cast<PointerType>(ParamTy);
-      Pointer = cast<PointerType>(Pointer->getElementType());
-      FuncTy = cast<FunctionType>(Pointer->getElementType());
+      Pointer = cast<PointerType>(Pointer->getNonOpaquePointerElementType());
+      FuncTy = cast<FunctionType>(Pointer->getNonOpaquePointerElementType());
 
       // Update attributes.
       Attrs = Attrs.addFnAttribute(
