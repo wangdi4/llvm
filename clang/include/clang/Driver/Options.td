@@ -932,13 +932,15 @@ def Xopenmp_backend : Separate<["-"], "Xopenmp-target-backend">,
   HelpText<"Pass <arg> to the OpenMP based target backend.">,
   MetaVarName<"<arg>">, Flags<[CoreOption]>;
 def Xopenmp_backend_EQ : JoinedAndSeparate<["-"], "Xopenmp-target-backend=">,
-  HelpText<"Pass <arg> to the OpenMP based backend identified by <triple>.">,
+  HelpText<"Pass <arg> to the OpenMP based backend identified by <triple>. "
+  "Depending on the triple (spir64, spir64_gen, spir64_x86_64), the arg passed "
+  "will be interpreted by the corresponding AOT tool or runtime consumer.">,
   MetaVarName<"<triple> <arg>">, Flags<[CoreOption]>;
 def Xopenmp_frontend : Separate<["-"], "Xopenmp-target-frontend">,
   HelpText<"Pass <arg> to the OpenMP based target frontend.">,
   Alias<Xopenmp_target>, Flags<[CoreOption]>;
 def Xopenmp_frontend_EQ : JoinedAndSeparate<["-"], "Xopenmp-target-frontend=">,
-  HelpText<"Pass <arg> to the OpenMPbased target frontend identified by "
+  HelpText<"Pass <arg> to the OpenMP based target frontend identified by "
   "<triple>.">, Alias<Xopenmp_target_EQ>, Flags<[CoreOption]>;
 def Xopenmp_linker : Separate<["-"], "Xopenmp-target-linker">,
   HelpText<"Pass <arg> to the SYCL based target linker.">,
@@ -949,7 +951,10 @@ def Xopenmp_linker_EQ : JoinedAndSeparate<["-"], "Xopenmp-target-linker=">,
 def Xsycl_backend : Separate<["-"], "Xsycl-target-backend">,
   HelpText<"Pass <arg> to the SYCL based target backend.">, MetaVarName<"<arg>">, Flags<[CoreOption, DpcppOption]>;
 def Xsycl_backend_EQ : JoinedAndSeparate<["-"], "Xsycl-target-backend=">,
-  HelpText<"Pass <arg> to the SYCL based backend identified by <triple>.">,
+  HelpText<"Pass <arg> to the SYCL based backend identified by <triple>. "
+  "Depending on the triple (spir64, spir64_gen, spir64_x86_64, spir64_fpga), "
+  "the arg passed will be interpreted by the corresponding AOT tool or runtime "
+  "consumer.">,
   MetaVarName<"<triple> <arg>">, Flags<[CoreOption, DpcppOption]>;
 def Xsycl_frontend : Separate<["-"], "Xsycl-target-frontend">,
   HelpText<"Pass <arg> to the SYCL based target frontend.">, MetaVarName<"<arg>">, Flags<[CoreOption, DpcppOption]>;
@@ -3103,8 +3108,13 @@ def fopenmp_use_tls : Flag<["-"], "fopenmp-use-tls">, Group<f_Group>,
   Flags<[NoArgumentUnused, HelpHidden]>;
 def fnoopenmp_use_tls : Flag<["-"], "fnoopenmp-use-tls">, Group<f_Group>,
   Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
-def fopenmp_targets_EQ : CommaJoined<["-"], "fopenmp-targets=">, Flags<[NoXarchOption, CC1Option]>,
-  HelpText<"Specify comma-separated list of triples OpenMP offloading targets to be supported">;
+#if INTEL_CUSTOMIZATION
+def fopenmp_targets_EQ : CommaJoined<["-"], "fopenmp-targets=">,
+  Flags<[NoXarchOption, CC1Option]>,
+  HelpText<"Specify comma-separated list of triples that correspond to OpenMP "
+  "offloading targets to be supported.  Valid triples include spir64_gen, "
+  "spir64_x86_64 and spir64">;
+#endif // INTEL_CUSTOMIZATION
 def fopenmp_relocatable_target : Flag<["-"], "fopenmp-relocatable-target">,
   Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
 def fnoopenmp_relocatable_target : Flag<["-"], "fnoopenmp-relocatable-target">,
@@ -3495,7 +3505,9 @@ defm sycl_esimd_force_stateless_mem : BoolFOption<"sycl-esimd-force-stateless-me
     BothFlags<[CC1Option, CoreOption], "">>;
 
 def fsycl_targets_EQ : CommaJoined<["-"], "fsycl-targets=">, Flags<[NoXarchOption, CC1Option, CoreOption, DpcppOption]>,
-  HelpText<"Specify comma-separated list of triples SYCL offloading targets to be supported">;
+  HelpText<"Specify comma-separated list of triples that correspond to SYCL "
+  "offloading targets to be supported. Valid triples include spir64_gen, "
+  "spir64_x86_64, spir64_fpga and spir64">;
 def fsycl_add_targets_EQ : CommaJoined<["-"], "fsycl-add-targets=">,
   Flags<[NoXarchOption, CoreOption, Deprecated, DpcppOption]>,
   HelpText<"Specify comma-separated list of triple and device binary image "
@@ -9144,8 +9156,9 @@ def _SLASH_Qiopenmp_simd : CLFlag<"Qiopenmp-simd">, Alias<fiopenmp_simd>;
 def _SLASH_Qopenmp_targets_EQ : CLCommaJoined<"Qopenmp-targets=">,
   Alias<fopenmp_targets_EQ>;
 def _SLASH_Qopenmp_targets_COL : CLCommaJoined<"Qopenmp-targets:">,
-  Alias<fopenmp_targets_EQ>, HelpText<"Specify comma-separated list of triples"
-  " OpenMP offloading targets to be supported">;
+  Alias<fopenmp_targets_EQ>, HelpText<"Specify comma-separated list of triples "
+  "that correspond to OpenMP offloading targets to be supported.  Valid "
+  "triples include spir64_gen, spir64_x86_64 and spir64">;
 def _SLASH_Qopenmp_version_EQ : CLJoined<"Qopenmp-version=">,
   Alias<fopenmp_version_EQ>;
 def _SLASH_Qopenmp_version_COL : CLJoined<"Qopenmp-version:">,
