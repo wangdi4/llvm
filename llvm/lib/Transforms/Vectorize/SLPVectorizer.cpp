@@ -1249,11 +1249,8 @@ namespace slpvectorizer {
 class BoUpSLP {
   struct TreeEntry;
   struct ScheduleData;
-<<<<<<< HEAD
   struct BlockScheduling; // INTEL
-=======
   class ShuffleCostEstimator;
->>>>>>> d00158cd284597165f1dd4245fa3e9ae2fe82eb5
   class ShuffleInstructionBuilder;
 
 public:
