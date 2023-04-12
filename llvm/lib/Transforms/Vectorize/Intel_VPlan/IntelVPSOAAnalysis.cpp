@@ -32,7 +32,7 @@ static cl::opt<bool, true> VPlanDisplaySOAAnalysisInformationOpt(
 
 // Flag to bailout on any phi-node.
 static cl::opt<bool> VPlanAllowSOAPhis(
-    "vplan-enable-soa-phis", cl::init(false), cl::Hidden,
+    "vplan-enable-soa-phis", cl::init(true), cl::Hidden,
     cl::desc("Allow phi nodes for SOA pointers. I.e. if it's disabled the only "
              "accesses like a[i] for SOA arrays are allowed, any constructions "
              "like *a++ will bailout of SOA transformation."));

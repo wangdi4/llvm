@@ -20,18 +20,18 @@ define void @baz() {
 ; The number of steps in const-step-vector needs to be 4(VF) and not 8(VF*UF).
 ; The test uses simdlen(4) and vplan-forced-uf(2).
 ;
-; CHECK:          [DA: Div] i64 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:4}
-; CHECK-NEXT:     [DA: Div] ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [4 x i64], ptr [[VP_ARR_PRIV:%.*]] i64 0 i64 [[VP_REM:%.*]] i64 [[VP_CONST_STEP]]
-; CHECK-NEXT:     [DA: Div] store i64 1111 ptr [[VP_ARRAYIDX2]]
+; CHECK:          [DA: Div] i32 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:4}
+; CHECK-NEXT:     [DA: Div] ptr [[VP1:%.*]] = getelementptr i64, ptr [[VP_ARRAYIDX2:%.*]] i32 0 i32 [[VP_CONST_STEP]]
+; CHECK-NEXT:     [DA: Div] store i64 1111 ptr [[VP1]]
 ;
 ; CHECK:  define void @baz() {
 ; CHECK:       vector.body:
-; CHECK:       VPlannedBB3:
+; CHECK:       VPlannedBB4:
 ;
 ; The indices all need to be vectors of size 4.
 ;
-; CHECK:         [[SOA_VECTORGEP50:%.*]] = getelementptr inbounds [4 x <4 x i64>], ptr [[ARR_PRIV_SOA_VEC0:%.*]], <4 x i64> zeroinitializer, <4 x i64> [[TMP4:%.*]], <4 x i64> <i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:    call void @llvm.masked.scatter.v4i64.v4p0(<4 x i64> <i64 1111, i64 1111, i64 1111, i64 1111>, <4 x ptr> [[SOA_VECTORGEP50]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
+; CHECK:         [[SOA_VECTORGEP70:%.*]] = getelementptr <4 x i64>, <4 x ptr> [[SOA_VECTORGEP60:%.*]], <4 x i32> zeroinitializer, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    call void @llvm.masked.scatter.v4i64.v4p0(<4 x i64> <i64 1111, i64 1111, i64 1111, i64 1111>, <4 x ptr> [[SOA_VECTORGEP70]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ;
 entry:
   %arr.priv = alloca [4 x i64], align 16

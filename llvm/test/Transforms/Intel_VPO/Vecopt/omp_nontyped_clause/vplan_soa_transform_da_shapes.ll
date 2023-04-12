@@ -24,22 +24,22 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: [Shape: SOA Unit Stride, Stride: i64 8]] i64* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
-; CHECK-NEXT:       [DA: [Shape: SOA Unit Stride, Stride: i64 8]] i64* [[VP_UNI_ELSE_1:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
-; CHECK-NEXT:       [DA: [Shape: Random]] i64 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
-; CHECK-NEXT:       [DA: [Shape: SOA Converted]] i64* [[VP0:%.*]] = getelementptr i64* [[VP_UNI_ELSE_1]] i64 0 i64 [[VP_CONST_STEP]]
 ; CHECK-NEXT:       [DA: [Shape: Random]] i64 [[VP_LD_ELSE:%.*]] = load i64* [[VP_UNI_ELSE]]
 ; CHECK-NEXT:       [DA: [Shape: Uniform]] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: [Shape: Random]] i64 [[VP_CONST_STEP_1:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
-; CHECK-NEXT:       [DA: [Shape: SOA Converted]] i64* [[VP_STR_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]] i64 [[VP_CONST_STEP_1]]
+; CHECK-NEXT:       [DA: [Shape: SOA Strided, Stride: VF x i64 8]] i64* [[VP_STR_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]]
 ; CHECK-NEXT:       [DA: [Shape: Uniform]] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]], [[BB4]]
-; CHECK-NEXT:     [DA: [Shape: Random]] i64* [[VP_PHI_MIX_UNI:%.*]] = phi  [ i64* [[VP0]], [[BB5]] ],  [ i64* [[VP_STR_IF]], [[BB4]] ]
-; CHECK-NEXT:     [DA: [Shape: Random]] i64 [[VP_LD:%.*]] = load i64* [[VP_PHI_MIX_UNI]]
-; CHECK-NEXT:     [DA: [Shape: Random]] i64* [[VP_GEP_MIX_UNI:%.*]] = getelementptr inbounds i64* [[VP_PHI_MIX_UNI]] i64 [[VP_LD]]
-; CHECK-NEXT:     [DA: [Shape: Random]] i64 [[VP_LD_PHI_DERIVED:%.*]] = load i64* [[VP_GEP_MIX_UNI]]
+; CHECK-NEXT:     [DA: [Shape: SOA Random]] i64* [[VP_PHI_MIX_UNI:%.*]] = phi  [ i64* [[VP_UNI_ELSE]], [[BB5]] ],  [ i64* [[VP_STR_IF]], [[BB4]] ]
+; CHECK-NEXT:     [DA: [Shape: Random]] i32 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
+; CHECK-NEXT:     [DA: [Shape: SOA Converted]] i64* [[VP1:%.*]] = getelementptr i64* [[VP_PHI_MIX_UNI]] i32 0 i32 [[VP_CONST_STEP]]
+; CHECK-NEXT:     [DA: [Shape: Random]] i64 [[VP_LD:%.*]] = load i64* [[VP1]]
+; CHECK-NEXT:     [DA: [Shape: SOA Random]] i64* [[VP_GEP_MIX_UNI:%.*]] = getelementptr inbounds i64* [[VP_PHI_MIX_UNI]] i64 [[VP_LD]]
+; CHECK-NEXT:     [DA: [Shape: Random]] i32 [[VP_CONST_STEP_1:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
+; CHECK-NEXT:     [DA: [Shape: SOA Converted]] i64* [[VP2:%.*]] = getelementptr i64* [[VP_GEP_MIX_UNI]] i32 0 i32 [[VP_CONST_STEP_1]]
+; CHECK-NEXT:     [DA: [Shape: Random]] i64 [[VP_LD_PHI_DERIVED:%.*]] = load i64* [[VP2]]
 ; CHECK-NEXT:     [DA: [Shape: Unit Stride, Stride: i64 1]] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: [Shape: Uniform]] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: [Shape: Uniform]] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB6:BB[0-9]+]]

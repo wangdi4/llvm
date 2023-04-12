@@ -1861,6 +1861,7 @@ public:
   VPValue *getPointerOperand() const {
     return getOperand(getPointerOperandIndex());
   }
+
   /// Get type of the pointer operand. Note that it might be either PointerType
   /// or VectorType.
   Type *getPointerOperandType() const { return getPointerOperand()->getType(); }

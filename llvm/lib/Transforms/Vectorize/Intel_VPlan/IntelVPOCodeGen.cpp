@@ -1027,11 +1027,11 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   case VPInstruction::ConstStepVector: {
     // This would be a vector <i64 0, ..., i64 UB-1>.
     VPConstStepVector *CV = cast<VPConstStepVector>(VPInst);
+    Type *Ty = VPInst->getType();
     SmallVector<Constant *, 16> Indices;
     for (int I = CV->getStart(), J = 0; J != CV->getNumSteps();
          I += CV->getStep(), ++J)
-      Indices.push_back(
-          ConstantInt::get(Type::getInt64Ty(*Plan->getLLVMContext()), I));
+      Indices.push_back(ConstantInt::get(Ty, I));
 
     Constant *Cv = ConstantVector::get(Indices);
     VPWidenMap[CV] = Cv;
@@ -3848,7 +3848,8 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
         !SVA->instNeedsVectorCode(VInst);
     assert(!VInst || !requiresUnsupportedSVAFeatures(VInst, Plan) &&
            "Bcast of (F L) sequence of SVA bits is not supported.");
-    if (IsUniform || NeedsFirstLaneBcastForNonSVADrivenCG ||
+    if (IsUniform || isSOAAccess(V, Plan) ||
+        NeedsFirstLaneBcastForNonSVADrivenCG ||
         NeedsLastLaneBcastForNonSVADrivenCG) {
       unsigned Lane = NeedsLastLaneBcastForNonSVADrivenCG ? VF - 1 : 0;
       Value *ScalarValue = VPScalarMap[V][Lane];
@@ -3875,7 +3876,16 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
       UpdateInsertPoint(ScalarValue);
       VectorValue = joinVectors(Parts, Builder);
     } else {
-      VectorValue = UndefValue::get(FixedVectorType::get(V->getType(), VF));
+      Type *NewTy = V->getType();
+      if (isSOAAccess(V, Plan)) {
+        auto *NewPtrTy = cast<PointerType>(NewTy);
+        if (!NewPtrTy->isOpaque()) {
+          Type *ElemTy = NewTy->getPointerElementType();
+          NewTy = PointerType::get(getSOAType(ElemTy, VF),
+                                   NewPtrTy->getAddressSpace());
+        }
+      }
+      VectorValue = UndefValue::get(FixedVectorType::get(NewTy, VF));
       for (unsigned Lane = 0; Lane < VF; ++Lane) {
         Value *ScalarValue = VPScalarMap[V][Lane];
         assert(isa<Instruction>(ScalarValue) &&
