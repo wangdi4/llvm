@@ -72,9 +72,10 @@ bool PrepareKernelArgsPass::runImpl(
 Function *PrepareKernelArgsPass::createWrapper(Function *F) {
   // Create new function's argument type list
   SmallVector<Type *, 3> NewArgsVec;
+  ArgsBufferValueTy = I8Ty;
   // The new function receives the following arguments:
   // i8* pBuffer
-  NewArgsVec.push_back(PointerType::get(I8Ty, 0));
+  NewArgsVec.push_back(PointerType::get(ArgsBufferValueTy, 0));
   // GID argument
   NewArgsVec.push_back(IAInfo->getArgType(ImplicitArgsUtils::IA_WORK_GROUP_ID));
   // Runtime context
@@ -118,12 +119,10 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   const DataLayout &DL = M->getDataLayout();
   // TODO :  get common code from the following 2 for loops into a function
   // Handle explicit arguments
-  Type *ArgsBufferElementTy =
-      ArgsBuffer->getType()->getScalarType()->getPointerElementType();
   for (unsigned ArgNo = 0; ArgNo < Arguments.size(); ++ArgNo) {
     KernelArgument KArg = Arguments[ArgNo];
     //  %0 = getelementptr i8* %pBuffer, i32 CurrOffset
-    Value *GEP = Builder.CreateGEP(ArgsBufferElementTy, ArgsBuffer,
+    Value *GEP = Builder.CreateGEP(ArgsBufferValueTy, ArgsBuffer,
                                    ConstantInt::get(I32Ty, KArg.OffsetInBytes));
 
     Value *Arg;
@@ -372,7 +371,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       const ImplicitArgProperties &ImplicitArgProp =
           ImplicitArgsUtils::getImplicitArgProps(I);
       // %0 = getelementptr i8* %pBuffer, i32 CurrOffset
-      Value *GEP = Builder.CreateGEP(ArgsBufferElementTy, ArgsBuffer,
+      Value *GEP = Builder.CreateGEP(ArgsBufferValueTy, ArgsBuffer,
                                      ConstantInt::get(I32Ty, CurrOffset));
       Arg = Builder.CreatePointerCast(GEP, IAInfo->getArgType(I));
       WGInfo = Arg;

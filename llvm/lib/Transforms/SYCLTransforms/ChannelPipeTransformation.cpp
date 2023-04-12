@@ -482,7 +482,8 @@ static void replaceChannelCallResult(CallInst *ChannelCall, ChannelKind CK,
 
       unsigned IsValidIdx = UsesStruct ? 2 : 1;
       auto *IsValid = ChannelCall->getArgOperand(IsValidIdx);
-      auto *IsValidTy = cast<PointerType>(IsValid->getType())->getElementType();
+      auto *IsValidTy = cast<PointerType>(IsValid->getType())
+                            ->getNonOpaquePointerElementType();
       Builder.CreateStore(Builder.CreateZExt(BoolRet, IsValidTy), IsValid);
     } else {
       // bool write_channel_nb(channel, <value ty>)

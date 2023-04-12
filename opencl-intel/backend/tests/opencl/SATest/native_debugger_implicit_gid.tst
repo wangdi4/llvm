@@ -16,6 +16,6 @@
 ; CHECK: [[GID2_ADDR:%__ocl_dbg_gid2.*]] = alloca i64, align 8
 
 ; store gids
-; CHECK: store volatile i64 %GlobalID{{.*}}, i64* [[GID0_ADDR]]
-; CHECK: store volatile i64 %GlobalID{{.*}}, i64* [[GID1_ADDR]]
-; CHECK: store volatile i64 %GlobalID{{.*}}, i64* [[GID2_ADDR]]
+; CHECK: store volatile i64 %GlobalID{{.*}}, {{.*}} [[GID0_ADDR]]
+; CHECK: store volatile i64 %GlobalID{{.*}}, {{.*}} [[GID1_ADDR]]
+; CHECK: store volatile i64 %GlobalID{{.*}}, {{.*}} [[GID2_ADDR]]

@@ -55,13 +55,12 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-
-#define DEBUG_TYPE "OpenCLReferenceRunner"
-#include "llvm/Support/Debug.h"
 
 #include <algorithm>
 #include <list>
@@ -75,6 +74,8 @@
 #elif defined(_WIN32)
 #include <windows.h>
 #endif
+
+#define DEBUG_TYPE "OpenCLReferenceRunner"
 
 extern "C" void LLVMLinkInInterpreterPluggable();
 
@@ -436,6 +437,9 @@ void OpenCLReferenceRunner::ReadKernelArgs(
     throw TestReferenceRunnerException(kernelName + " kernel not found!");
   }
 
+  SYCLKernelMetadataAPI::KernelMetadataAPI KMD(m_pKernel);
+  assert(KMD.ArgBaseTypeList.hasValue() && "expect kernel_arg_type");
+
   // Obtain parameters definition and prepare argument values.
   const std::size_t numOfArguments = currContainer->GetMemoryObjectCount();
 
@@ -511,8 +515,9 @@ void OpenCLReferenceRunner::ReadKernelArgs(
         break;
       }
       case Type::PointerTyID: {
-        currArg.PointerVal = GetPointerToTheArgValues(currBuffer, outputBuffer,
-                                                      arg_it->getType());
+        StringRef ArgTyStr = KMD.ArgBaseTypeList.getItem(i);
+        currArg.PointerVal = GetPointerToTheArgValues(
+            currBuffer, outputBuffer, arg_it->getType(), ArgTyStr);
       } break;
       case Type::IntegerTyID: {
         uint64_t uVal;
@@ -630,13 +635,30 @@ void OpenCLReferenceRunner::ReadKernelArgs(
   }
 }
 
-void *
-OpenCLReferenceRunner::GetPointerToTheArgValues(const IMemoryObject *buffer,
-                                                IMemoryObject *outBuffer,
-                                                const llvm::Type *argType) {
+void *OpenCLReferenceRunner::GetPointerToTheArgValues(
+    const IMemoryObject *buffer, IMemoryObject *outBuffer,
+    const llvm::Type *argType, StringRef ArgTyStr) {
   BufferDesc buffDsc = GetBufferDescription(buffer->GetMemoryObjectDesc());
   const PointerType *ptr = cast<PointerType>(argType);
-  switch (ptr->getElementType()->getTypeID()) {
+  if (ptr->isOpaque()) {
+    auto NumStar = ArgTyStr.count('*');
+    if (NumStar == 1) {
+      std::copy((char *)(buffer->GetDataPtr()),
+                (char *)(buffer->GetDataPtr()) + buffDsc.GetSizeInBytes(),
+                (char *)(outBuffer->GetDataPtr()));
+      m_pointerArgs.push_back(outBuffer->GetDataPtr());
+    } else if (NumStar > 1) {
+      throw TestReferenceRunnerException(
+          "According to OCL specifications 1.1"
+          "rev 36. Arguments to __kernel functions in a program cannot be"
+          "declared as a pointer to a pointer(s).");
+    } else {
+      throw TestReferenceRunnerException("Unhandled parameter type");
+    }
+    return m_pointerArgs[m_pointerArgs.size() - 1];
+  }
+
+  switch (argType->getNonOpaquePointerElementType()->getTypeID()) {
   case Type::HalfTyID:
   case Type::FloatTyID:
   case Type::DoubleTyID:

@@ -413,8 +413,10 @@ bool isOpaquePtrPair(Type *X, Type *Y) {
   PointerType *XPtr = dyn_cast<PointerType>(X);
   PointerType *YPtr = dyn_cast<PointerType>(Y);
   if (XPtr && YPtr) {
-    StructType *XStructEl = dyn_cast<StructType>(XPtr->getElementType());
-    StructType *YStructEl = dyn_cast<StructType>(YPtr->getElementType());
+    StructType *XStructEl =
+        dyn_cast<StructType>(XPtr->getNonOpaquePointerElementType());
+    StructType *YStructEl =
+        dyn_cast<StructType>(YPtr->getNonOpaquePointerElementType());
     if (XStructEl && YStructEl) {
       return ( // in apple the samplers have slightly differnet function names
                // between rt module and kernels IR so I skip checking that name

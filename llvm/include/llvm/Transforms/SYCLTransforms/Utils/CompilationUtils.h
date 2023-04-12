@@ -674,7 +674,7 @@ GlobalVariable *getTLSGlobal(Module *M, unsigned Idx);
 StringRef getTLSLocalIdsName();
 
 /// Create GEP of TLS LocalIds.
-Value *createGetPtrToLocalId(Value *LocalIdValues, Value *Dim,
+Value *createGetPtrToLocalId(Value *LocalIdValues, Type *LIdsTy, Value *Dim,
                              IRBuilderBase &Builder);
 
 /// @brief Moves alloca instructions from FromBB to ToBB

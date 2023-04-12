@@ -2,7 +2,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "spir64-unknown-unknown"
 
 ; Function Attrs: nounwind
-define spir_kernel void @foo(i32 addrspace(1)* %subdevice_id, i32 addrspace(1)* %hwthread_id) #0 {
+define spir_kernel void @foo(i32 addrspace(1)* %subdevice_id, i32 addrspace(1)* %hwthread_id) #0 !kernel_arg_type !10 !kernel_arg_base_type !10 {
 entry:
   %0 = call spir_func i32 @_Z31__spirv_BuiltInSubDeviceIDINTELv() #1
   %1 = call spir_func i32 @_Z36__spirv_BuiltInGlobalHWThreadIDINTELv() #1
@@ -39,3 +39,4 @@ attributes #1 = { nounwind readnone willreturn }
 !7 = !{!"int*", !"class.cl::sycl::id"}
 !8 = !{!"", !""}
 !9 = !{i32 8}
+!10 = !{!"int*", !"int*"}

@@ -38,7 +38,7 @@ if.else:
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local spir_kernel void @test_bar(i32 addrspace(1)* %m) #2 {
+define dso_local spir_kernel void @test_bar(i32 addrspace(1)* %m) #2 !kernel_arg_type !22 !kernel_arg_base_type !22 {
 entry:
   %call = call spir_func i64 @_Z12get_local_idj(i32 0) #5
   %conv = trunc i64 %call to i32
@@ -48,7 +48,7 @@ entry:
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local spir_kernel void @test_foo(i32 addrspace(1)* %m) #2 {
+define dso_local spir_kernel void @test_foo(i32 addrspace(1)* %m) #2 !kernel_arg_type !22 !kernel_arg_base_type !22 {
 entry:
   %call = call spir_func i64 @_Z12get_local_idj(i32 0) #5
   %conv = trunc i64 %call to i32
@@ -103,3 +103,4 @@ attributes #5 = { convergent nounwind readnone }
 !19 = !{!20, !20, i64 0}
 !20 = !{!"any pointer", !11, i64 0}
 !21 = !{i32 4, i32 100000}
+!22 = !{!"int*"}
