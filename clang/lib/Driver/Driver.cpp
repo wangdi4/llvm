@@ -5373,6 +5373,8 @@ class OffloadingActionBuilder final {
           // so the stubs must be linked after them.
           { "libomp-itt-stubs",
             LinkITT }};
+      if (IsMSVC)
+        omp_device_libs.push_back({"libomp-msvc-math", LinkFP32});
       if (Args.hasArg(options::OPT_fopenmp_target_simd))
         omp_device_libs.push_back({"libomp-device-svml", LinkFP32 | LinkFP64});
 
