@@ -280,9 +280,12 @@ int DDRefUtils::compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
   return compareOffsets(Offsets1, Offsets2);
 }
 
-bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2) {
-  assert(haveEqualBaseAndShape(Ref1, Ref2, true) &&
-         "Same base and shape expected!");
+bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                                  unsigned NumIgnorableDims,
+                                  bool IgnoreBaseCE) {
+  assert(
+      haveEqualBaseAndShape(Ref1, Ref2, true, NumIgnorableDims, IgnoreBaseCE) &&
+      "Same base and shape expected!");
 
   for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
     if (compareOffsets(Ref1, Ref2, I)) {
@@ -296,7 +299,8 @@ bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2) {
 // TODO: merge with areEqualImpl.
 bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
                                        const RegDDRef *Ref2, bool RelaxedMode,
-                                       unsigned NumIgnorableDims) {
+                                       unsigned NumIgnorableDims,
+                                       bool IgnoreBaseCE) {
   assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
          "Ref1 and Ref2 should be GEP DDRef");
 
@@ -313,8 +317,9 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
   auto BaseCE2 = Ref2->getBaseCE();
 
   unsigned NumDims = Ref1->getNumDimensions();
-  if (!CanonExprUtils::areEqual(BaseCE1, BaseCE2, RelaxedMode) ||
-      (NumDims != Ref2->getNumDimensions())) {
+  if ((NumDims != Ref2->getNumDimensions()) ||
+      (!IgnoreBaseCE &&
+       !CanonExprUtils::areEqual(BaseCE1, BaseCE2, RelaxedMode))) {
     return false;
   }
 
