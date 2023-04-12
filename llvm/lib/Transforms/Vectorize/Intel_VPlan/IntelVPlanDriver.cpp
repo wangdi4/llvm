@@ -700,6 +700,16 @@ bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
 }
 
 template <>
+bool VPlanDriverImpl::bailout<vpo::HLLoop>(VPlanOptReportBuilder &VPORB,
+                                           vpo::HLLoop *Lp,
+                                           WRNVecLoopNode *WRLp,
+                                           OptReportVerbosity::Level Level,
+                                           unsigned ID, std::string Reason) {
+  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
+  return Self->bailout(VPORB, Lp, WRLp, Level, ID, Reason);
+}
+
+template <>
 bool VPlanDriverImpl::processLoop<vpo::HLLoop>(vpo::HLLoop *Lp, Function &Fn,
                                                WRNVecLoopNode *WRLp) {
   auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
