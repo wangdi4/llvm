@@ -2693,6 +2693,13 @@ static bool hoistGEP(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
   if (!Src || !Src->hasOneUse() || !L.contains(Src))
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // The transform doesn't work for typed pointers (GEP type mismatch)
+  auto *SrcType = dyn_cast<PointerType>(Src->getType()->getScalarType());
+  if (!SrcType || !SrcType->isOpaquePointerTy())
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   Value *SrcPtr = Src->getPointerOperand();
   auto LoopInvariant = [&](Value *V) { return L.isLoopInvariant(V); };
   if (!L.isLoopInvariant(SrcPtr) || !all_of(GEP->indices(), LoopInvariant))
