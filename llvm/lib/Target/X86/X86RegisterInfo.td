@@ -825,6 +825,20 @@ def GR32_NOREX_NOSP : RegisterClass<"X86", [i32], 32,
 def GR64_NOREX_NOSP : RegisterClass<"X86", [i64], 64,
                                     (and GR64_NOREX, GR64_NOSP)>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let GeneratePressureSet = 0 in {
+// GR32_NOREX2_NOSP - GR32_NOREX2 registers except ESP.
+def GR32_NOREX2_NOSP : RegisterClass<"X86", [i32], 32,
+                                    (sub GR32_NOREX2, ESP)>;
+
+// GR64_NOREX2_NOSP - GR64_NOREX2 registers except RSP, RIP.
+def GR64_NOREX2_NOSP : RegisterClass<"X86", [i64], 64,
+                                    (sub GR64_NOREX2, RSP, RIP)>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 // Register classes used for ABIs that use 32-bit address accesses,
 // while using the whole x84_64 ISA.
 

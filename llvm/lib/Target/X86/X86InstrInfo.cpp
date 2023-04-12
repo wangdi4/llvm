@@ -144,6 +144,71 @@ bool X86InstrInfo::shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
   }
   return true;
 }
+
+#if INTEL_FEATURE_ISA_APX_F
+const TargetRegisterClass *
+X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
+                          const TargetRegisterInfo *TRI,
+                          const MachineFunction &MF) const {
+  auto *RC = TargetInstrInfo::getRegClass(MCID, OpNum, TRI, MF);
+  // If the target does not have egpr, then r16-r31 will be resereved for all
+  // instructions.
+  if (!RC || !Subtarget.hasEGPR())
+    return RC;
+
+  uint64_t TSFlags = MCID.TSFlags;
+  uint64_t Encoding = TSFlags & X86II::EncodingMask;
+  // EVEX can always use egpr.
+  if (Encoding == X86II::EVEX)
+    return RC;
+
+  // MAP 0/1 in legacy encoding space can always use egpr except XSAVE*/XRSTOR*.
+  unsigned Opcode = MCID.Opcode;
+  bool IsSpecial = false;
+  switch (Opcode) {
+  default:
+    // To be conservative, egpr is not used for all pseudo instructions because
+    // we are not sure what instruction it will become.
+    // FIXME: Could we improve it in X86ExpandPseudo?
+    IsSpecial = X86II::isPseudo(TSFlags);
+    break;
+  case X86::XSAVE:
+  case X86::XSAVE64:
+  case X86::XSAVEOPT:
+  case X86::XSAVEOPT64:
+  case X86::XSAVEC:
+  case X86::XSAVEC64:
+  case X86::XSAVES:
+  case X86::XSAVES64:
+  case X86::XRSTOR:
+  case X86::XRSTOR64:
+  case X86::XRSTORS:
+  case X86::XRSTORS64:
+    IsSpecial = true;
+    break;
+  }
+  uint64_t OpMap = TSFlags & X86II::OpMapMask;
+  if (!Encoding && (OpMap == X86II::OB || OpMap == X86II::TB) && !IsSpecial)
+    return RC;
+
+  switch (RC->getID()) {
+  default:
+    return RC;
+  case X86::GR8RegClassID:
+    return &X86::GR8_NOREX2RegClass;
+  case X86::GR16RegClassID:
+    return &X86::GR16_NOREX2RegClass;
+  case X86::GR32RegClassID:
+    return &X86::GR32_NOREX2RegClass;
+  case X86::GR64RegClassID:
+    return &X86::GR64_NOREX2RegClass;
+  case X86::GR32_NOSPRegClassID:
+    return &X86::GR32_NOREX2_NOSPRegClass;
+  case X86::GR64_NOSPRegClassID:
+    return &X86::GR64_NOREX2_NOSPRegClass;
+  }
+}
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 bool
