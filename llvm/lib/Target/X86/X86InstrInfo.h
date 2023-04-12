@@ -172,6 +172,12 @@ public:
   // precision tolerance.
   bool shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
                                bool DisableGFMAForPrecision) const override;
+#if INTEL_FEATURE_ISA_APX_F
+  const TargetRegisterClass *
+  getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
+              const TargetRegisterInfo *TRI,
+              const MachineFunction &MF) const override;
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
