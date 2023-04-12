@@ -201,14 +201,16 @@ private:
   }
   Instruction *createGetLocalId(Value *LocalIdValues, Value *Dim,
                                 IRBuilder<> &B) {
-    Value *Ptr = CompilationUtils::createGetPtrToLocalId(LocalIdValues, Dim, B);
+    Value *Ptr = CompilationUtils::createGetPtrToLocalId(
+        LocalIdValues, LocalIdArrayTy, Dim, B);
     return B.CreateLoad(SizeTTy, Ptr,
                         CompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createGetLocalId(Value *LocalIdValues, unsigned Dim,
                                 IRBuilder<> &B) {
     Value *Ptr = CompilationUtils::createGetPtrToLocalId(
-        LocalIdValues, ConstantInt::get(I32Ty, APInt(32, Dim)), B);
+        LocalIdValues, LocalIdArrayTy, ConstantInt::get(I32Ty, APInt(32, Dim)),
+        B);
     return B.CreateLoad(SizeTTy, Ptr,
                         CompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
@@ -244,7 +246,8 @@ private:
         LocalIdValues = CurrentBarrierKeyValues->LocalIdValues;
       }
       *Ptr = CompilationUtils::createGetPtrToLocalId(
-          LocalIdValues, ConstantInt::get(I32Ty, APInt(32, Dim)), LB);
+          LocalIdValues, LocalIdArrayTy,
+          ConstantInt::get(I32Ty, APInt(32, Dim)), LB);
     }
     return *Ptr;
   }

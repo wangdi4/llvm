@@ -146,7 +146,8 @@ std::optional<Value *> computePeelCount(BasicBlock &EntryBB, BasicBlock &VectorE
   // SCEV is not able to give this information here, so we use type alloc size.
   assert(PeelPtr && PeelPtr->getType()->isPointerTy() &&
          "Peeling target is expected to have pointer type");
-  Type *VTy = cast<PointerType>(PeelPtr->getType())->getElementType();
+  Type *VTy =
+      cast<PointerType>(PeelPtr->getType())->getNonOpaquePointerElementType();
   assert(isa<VectorType>(VTy) &&
          "Peeling target is expected to be pointer to vector");
   Type *ETy = cast<VectorType>(VTy)->getElementType();

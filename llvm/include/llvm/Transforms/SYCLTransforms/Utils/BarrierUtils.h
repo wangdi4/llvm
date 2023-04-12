@@ -190,6 +190,8 @@ public:
 
   Type *getSizetTy() const { return SizetTy; }
 
+  Type *getSpecialBufferValueTy() const { return SpecialBufferValueTy; }
+
 private:
   /// \brief Clean all collected values and assure re-collecting them on the
   /// next access to them
@@ -269,8 +271,9 @@ private:
   /// This holds the all function of the module with internal calls
   FuncSet FunctionsWithNonInlinedCalls;
 
-  Type *SizetTy;
-  Type *I32Ty;
+  Type *SizetTy = nullptr;
+  Type *I32Ty = nullptr;
+  Type *SpecialBufferValueTy = nullptr;
 };
 
 } // namespace llvm

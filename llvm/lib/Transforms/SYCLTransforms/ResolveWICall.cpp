@@ -534,7 +534,7 @@ void ResolveWICallPass::updatePrefetch(CallInst *CI) {
   // Distinguish element size.
   PointerType *PTy = dyn_cast<PointerType>(CI->getArgOperand(0)->getType());
   assert(PTy && "Must be a pointer");
-  Type *PT = PTy->getElementType();
+  Type *PT = PTy->getNonOpaquePointerElementType();
 
   assert(PT->getPrimitiveSizeInBits() &&
          "Not primitive type, not valid calculation");
@@ -677,7 +677,7 @@ static bool isPointerToStructType(Type *Ty) {
   if (!Ty->isPointerTy())
     return false;
 
-  Type *PtrTy = cast<PointerType>(Ty)->getElementType();
+  Type *PtrTy = cast<PointerType>(Ty)->getNonOpaquePointerElementType();
   // pointer type is struct.
   if (!PtrTy->isStructTy())
     return false;
@@ -708,7 +708,8 @@ Value *ResolveWICallPass::updateEnqueueKernelFunction(
     // check it is pointer.
     if (!NewParamTy->isPointerTy())
       llvm_unreachable("Unsupported type of argument");
-    Type *PtrTy = cast<PointerType>(NewParamTy)->getElementType();
+    Type *PtrTy =
+        cast<PointerType>(NewParamTy)->getNonOpaquePointerElementType();
     // pointer type is struct.
     if (PtrTy->isStructTy()) {
       *It = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "", CI);
@@ -718,7 +719,7 @@ Value *ResolveWICallPass::updateEnqueueKernelFunction(
     if (!PtrTy->isPointerTy())
       llvm_unreachable("Unsupported type of argument");
     // double pointer points to structure.
-    Type *PPtrTy = cast<PointerType>(PtrTy)->getElementType();
+    Type *PPtrTy = cast<PointerType>(PtrTy)->getNonOpaquePointerElementType();
     if (PPtrTy->isStructTy()) {
       NewParam = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "", CI);
       continue;

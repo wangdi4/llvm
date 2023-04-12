@@ -414,11 +414,11 @@ int InstCountResultImpl::getPreferredVectorizationWidth(
       continue;
 
     // Pointer to vector of i16?
-    Type *PointedType = PtrArgType->getElementType();
-    if (!PointedType->isVectorTy())
+    Type *VTy = dyn_cast_or_null<VectorType>(Arg.getParamByValType());
+    if (!VTy)
       continue;
 
-    if (!PointedType->getScalarType()->isIntegerTy(16))
+    if (!VTy->getScalarType()->isIntegerTy(16))
       continue;
 
     // Last thing to check - that this buffer is not trivially dead.

@@ -535,7 +535,8 @@ void WGLoopCreatorImpl::fixTIDCallInNotInlinedFuncs(InstVec &TIDCalls) {
       LIDAddr = Builder.CreateAlloca(
           IndTy, nullptr, Twine("lid") + Twine(Dim) + Twine(".addr"));
       if (UseTLSGlobals) {
-        Value *Ptr = createGetPtrToLocalId(LocalIds, DimVal, Builder);
+        Value *Ptr =
+            createGetPtrToLocalId(LocalIds, LIDArrayTy, DimVal, Builder);
         LID = Builder.CreateLoad(IndTy, Ptr, AppendWithDimension("lid", Dim));
       } else {
         auto *LIDArg = &*(F->arg_end() - 1);
@@ -1488,7 +1489,8 @@ std::pair<LoopRegion, Value *> WGLoopCreatorImpl::addWGLoops(
     if (UseTLSGlobals) {
       Builder.SetInsertPoint(Head->getFirstNonPHI());
       Value *Ptr = createGetPtrToLocalId(
-          LocalIds, ConstantInt::get(Type::getInt32Ty(Ctx), Dim), Builder);
+          LocalIds, LIDArrayTy, ConstantInt::get(Type::getInt32Ty(Ctx), Dim),
+          Builder);
       Builder.CreateStore(LIDPhi, Ptr);
     }
 

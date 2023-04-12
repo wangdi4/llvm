@@ -309,9 +309,8 @@ void DataPerValue::calculateOffsets(Function &F) {
   for (Value *Val : AllocaValues) {
     AllocaInst *AI = cast<AllocaInst>(Val);
     // Get Offset of alloca instruction contained type.
-    ValueOffsetMap[Val] =
-        getValueOffset(Val, Val->getType()->getContainedType(0),
-                       AI->getAlign().value(), BufferData);
+    ValueOffsetMap[Val] = getValueOffset(Val, AI->getAllocatedType(),
+                                         AI->getAlign().value(), BufferData);
   }
 }
 
