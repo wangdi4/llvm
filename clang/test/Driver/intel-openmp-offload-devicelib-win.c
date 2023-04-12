@@ -53,14 +53,16 @@
 // CHK-PHASES: 37: clang-offload-unbundler, {36}, object
 // CHK-PHASES: 38: input, "{{.*libomp-itt-stubs.obj}}", object
 // CHK-PHASES: 39: clang-offload-unbundler, {38}, object
-// CHK-PHASES: 40: linker, {9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39}, ir, (device-openmp)
-// CHK-PHASES: 41: sycl-post-link, {40}, ir, (device-openmp)
-// CHK-PHASES: 42: llvm-spirv, {41}, spirv, (device-openmp)
-// CHK-PHASES: 43: offload, "device-openmp (spir64)" {42}, ir
-// CHK-PHASES: 44: clang-offload-wrapper, {43}, ir, (host-openmp)
-// CHK-PHASES: 45: backend, {44}, assembler, (host-openmp)
-// CHK-PHASES: 46: assembler, {45}, object, (host-openmp)
-// CHK-PHASES: 47: linker, {4, 46}, image, (host-openmp)
+// CHK-PHASES: 40: input, "{{.*libomp-msvc-math.obj}}", object
+// CHK-PHASES: 41: clang-offload-unbundler, {40}, object
+// CHK-PHASES: 42: linker, {9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41}, ir, (device-openmp)
+// CHK-PHASES: 43: sycl-post-link, {42}, ir, (device-openmp)
+// CHK-PHASES: 44: llvm-spirv, {43}, spirv, (device-openmp)
+// CHK-PHASES: 45: offload, "device-openmp (spir64)" {44}, ir
+// CHK-PHASES: 46: clang-offload-wrapper, {45}, ir, (host-openmp)
+// CHK-PHASES: 47: backend, {46}, assembler, (host-openmp)
+// CHK-PHASES: 48: assembler, {47}, object, (host-openmp)
+// CHK-PHASES: 49: linker, {4, 48}, image, (host-openmp)
 
 /// Check explicit linking for libc
 // RUN:   %clang -ccc-print-phases -fiopenmp -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -fno-openmp-device-lib=all -fopenmp-device-lib=libc %s 2>&1 \
@@ -142,16 +144,18 @@
 // CHK-PHASES-SIMD: 37: clang-offload-unbundler, {36}, object
 // CHK-PHASES-SIMD: 38: input, "{{.*libomp-itt-stubs.obj}}", object
 // CHK-PHASES-SIMD: 39: clang-offload-unbundler, {38}, object
-// CHK-PHASES-SIMD: 40: input, "{{.*libomp-device-svml.obj}}", object
+// CHK-PHASES-SIMD: 40: input, "{{.*libomp-msvc-math.obj}}", object
 // CHK-PHASES-SIMD: 41: clang-offload-unbundler, {40}, object
-// CHK-PHASES-SIMD: 42: linker, {9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41}, ir, (device-openmp)
-// CHK-PHASES-SIMD: 43: sycl-post-link, {42}, ir, (device-openmp)
-// CHK-PHASES-SIMD: 44: llvm-spirv, {43}, spirv, (device-openmp)
-// CHK-PHASES-SIMD: 45: offload, "device-openmp (spir64)" {44}, ir
-// CHK-PHASES-SIMD: 46: clang-offload-wrapper, {45}, ir, (host-openmp)
-// CHK-PHASES-SIMD: 47: backend, {46}, assembler, (host-openmp)
-// CHK-PHASES-SIMD: 48: assembler, {47}, object, (host-openmp)
-// CHK-PHASES-SIMD: 49: linker, {4, 48}, image, (host-openmp)
+// CHK-PHASES-SIMD: 42: input, "{{.*libomp-device-svml.obj}}", object
+// CHK-PHASES-SIMD: 43: clang-offload-unbundler, {42}, object
+// CHK-PHASES-SIMD: 44: linker, {9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43}, ir, (device-openmp)
+// CHK-PHASES-SIMD: 45: sycl-post-link, {44}, ir, (device-openmp)
+// CHK-PHASES-SIMD: 46: llvm-spirv, {45}, spirv, (device-openmp)
+// CHK-PHASES-SIMD: 47: offload, "device-openmp (spir64)" {46}, ir
+// CHK-PHASES-SIMD: 48: clang-offload-wrapper, {47}, ir, (host-openmp)
+// CHK-PHASES-SIMD: 49: backend, {48}, assembler, (host-openmp)
+// CHK-PHASES-SIMD: 50: assembler, {49}, object, (host-openmp)
+// CHK-PHASES-SIMD: 51: linker, {4, 50}, image, (host-openmp)
 
 /// Check that -fopenmp-device-lib does not affect separate compilation:
 // RUN:   %clang -### -ccc-print-phases -fiopenmp -c -o %t.obj -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 -fopenmp-device-lib=all %s 2>&1 \
