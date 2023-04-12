@@ -45,12 +45,8 @@ extern dx5x5_t extern_matrix(dx5x5_t);
 // CFINITEONLY-NEXT:    ret float [[ADD]]
 //
 // INTEL_CUSTOMIZATION
-<<<<<<< HEAD
-// Add "convergent" flag
-=======
 // When testing with -x cl option, this test case generates the "convergent" attribute after the call to
 // createFPBuiltinCallWithAttrs (this is called in xmain only) in function emitTernaryMayBeConstrainedFPBultin.
->>>>>>> 5c671dc9d9bb99d87af41bf3e1a50b17bd066153
 // CLFINITEONLY: Function Attrs: convergent mustprogress nofree norecurse nosync nounwind willreturn memory(none)
 // end INTEL_CUSTOMIZATION
 // CLFINITEONLY-LABEL: define dso_local nofpclass(nan inf) float @defined_func_f32
