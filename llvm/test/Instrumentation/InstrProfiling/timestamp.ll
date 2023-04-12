@@ -1,4 +1,6 @@
-; RUN: opt < %s -passes=instrprof -S | FileCheck %s
+; INTEL_CUSTOMIZATION
+; RUN: opt -opaque-pointers < %s -passes=instrprof -S | FileCheck %s
+; end INTEL_CUSTOMIZATION
 
 target triple = "aarch64-unknown-linux-gnu"
 
