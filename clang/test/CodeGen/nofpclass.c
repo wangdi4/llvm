@@ -48,7 +48,11 @@ extern dx5x5_t extern_matrix(dx5x5_t);
 // CFINITEONLY-NEXT:    [[ADD:%.*]] = fadd nnan ninf float [[TMP3]], 4.000000e+00
 // CFINITEONLY-NEXT:    ret float [[ADD]]
 //
-// CLFINITEONLY: Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn memory(none)
+// INTEL_CUSTOMIZATION
+// When testing with -x cl option, this test case generates the "convergent" attribute after the call to
+// createFPBuiltinCallWithAttrs (this is called in xmain only) in function emitTernaryMayBeConstrainedFPBultin.
+// CLFINITEONLY: Function Attrs: convergent mustprogress nofree norecurse nosync nounwind willreturn memory(none)
+// end INTEL_CUSTOMIZATION
 // CLFINITEONLY-LABEL: define dso_local nofpclass(nan inf) float @defined_func_f32
 // CLFINITEONLY-SAME: (float noundef nofpclass(nan inf) [[A:%.*]], float noundef nofpclass(nan inf) [[B:%.*]], float noundef nofpclass(nan inf) [[C:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
 // CLFINITEONLY-NEXT:  entry:
