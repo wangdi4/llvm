@@ -24,6 +24,8 @@ export module mod;
 #pragma detect_mismatch("myLib_version", "1")
 import mod;
 
-// CHECK: ![[NUM:[0-9]+]] ={{.*}}FAILIFMISMATCH{{.*}}myLib_version=1
-// CHECK: ![[NUM:[0-9]+]] ={{.*}}msvcprt.lib
+// INTEL_CUSTOMIZATION
+// CHECK-DAG: ![[NUM:[0-9]+]] ={{.*}}FAILIFMISMATCH{{.*}}myLib_version=1
+// CHECK-DAG: ![[NUM:[0-9]+]] ={{.*}}msvcprt.lib
+// end INTEL_CUSTOMIZATION
 // CHECK: ![[NUM:[0-9]+]] ={{.*}}FAILIFMISMATCH{{.*}}myLib_version=9
