@@ -73,7 +73,7 @@ bool IntelDebugRemoveXDeref::run(Module &M) {
     return false;
 
   // Currently, CLANG only emits XDeref opcodes for SPIRV.
-  if (!M.getNamedMetadata("spirv.Source"))
+  if (!M.getNamedMetadata("opencl.spir.version"))
     return false;
 
   bool Changed = false;
