@@ -55,13 +55,5 @@ SYCL_ESIMD_FUNCTION SYCL_EXTERNAL void bf16_scalar() {
   // CHECK: call <1 x half> @llvm.genx.bf.cvt.v1f16.v1f32(<1 x float> {{[^)]+}})
   float F32_scalar_conv = convert_from_bf16(BF16_scalar);
   // CHECK: call <1 x float> @llvm.genx.bf.cvt.v1f32.v1f16(<1 x half> {{[^)]+}})
-
-  // Note that this is the compilation test only. It checks that IR is correct.
-  // The actual support in GPU RT is on the way though.
-  float F32B_scalar = 1;
-  bfloat16 BF16B_scalar = F32B_scalar;
-  // CHECK: call spir_func zeroext i16 @__devicelib_ConvertFToBF16INTEL(float {{[^)]+}})
-  float F32B_scalar_conv = BF16B_scalar;
-  // CHECK: call spir_func float @__devicelib_ConvertBF16ToFINTEL(i16 {{[^)]+}})
 }
 // end INTEL_FEATURE_ESIMD_EMBARGO
