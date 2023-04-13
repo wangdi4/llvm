@@ -1,5 +1,5 @@
 ; RUN: opt -passes="sycl-kernel-analysis,sycl-kernel-wg-loop-bound" %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -passes="sycl-kernel-analysis,sycl-kernel-wg-loop-bound" %s -S -debug -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes="sycl-kernel-analysis,sycl-kernel-wg-loop-bound" %s -S -debug 2>&1 | FileCheck %s
 
 ; The source code for the test is:
 ; #define lid(N) ((int) get_local_id(N))
@@ -8,12 +8,13 @@
 ; }
 
 ; CHECK: WGLoopBoundaries
-; CHECK: found 2 early exit boundaries
-; CHECK: Dim=0, Contains=T, IsGID=F, IsSigned=T, IsUpperBound=T
-; CHECK-SAME: %to_tid_type = sext i32 %final_right_bound to i64
-; CHECK-NEXT: Dim=0, Contains=T, IsGID=F, IsSigned=T, IsUpperBound=F
-; CHECK-SAME: %to_tid_type1 = sext i32 %final_left_bound to i64
-; CHECK: found 0 uniform early exit conditions
+; CHECK:  found 2 early exit boundaries
+; CHECK:    Dim=0, Contains=F, IsGID=F, IsSigned=T, IsUpperBound=T, Bound="  %to_tid_type = sext i32 %final_right_bound to i64"
+; CHECK:    Dim=0, Contains=T, IsGID=F, IsSigned=T, IsUpperBound=F, Bound="  %to_tid_type1 = sext i32 %final_left_bound to i64"
+; CHECK:  found 0 uniform early exit conditions
+
+; CHECK: %bound.0.reverse = sub i32 0, -11
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
@@ -25,7 +26,7 @@ entry:
   %call = tail call i64 @_Z12get_local_idj(i32 noundef 0) #3
   %conv = trunc i64 %call to i32
   %add = sub i32 %n1, %conv
-  %cmp = icmp sgt i32 %add, -1
+  %cmp = icmp sgt i32 %add, -11
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
@@ -70,7 +71,7 @@ attributes #4 = { convergent nobuiltin nounwind }
 !9 = !{i1 false}
 !10 = !{i1 true}
 
-; DEBUGIFY-COUNT-14: Instruction with empty DebugLoc in function test
-; DEBUGIFY-COUNT-46: Instruction with empty DebugLoc in function WG.boundaries.test
+; DEBUGIFY-COUNT-12: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-43: Instruction with empty DebugLoc in function WG.boundaries.test
 ; DEBUGIFY-COUNT-1: Missing line
 ; DEBUGIFY-NOT: WARNING
