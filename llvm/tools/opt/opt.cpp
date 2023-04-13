@@ -328,6 +328,7 @@ static cl::list<std::string>
     PassPlugins("load-pass-plugin",
                 cl::desc("Load passes from plugin library"));
 
+#ifdef INTEL_CUSTOMIZATION
 static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
   // Add the pass to the pass manager...
   PM.add(P);
@@ -337,7 +338,6 @@ static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
     PM.add(createVerifierPass());
 }
 
-#ifdef INTEL_CUSTOMIZATION
 /// This routine adds optimization passes based on selected optimization level,
 /// OptLevel.
 ///
@@ -787,9 +787,8 @@ int main(int argc, char **argv) {
 #endif // INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
     if (legacy::debugPassSpecified()) {
-      errs()
-          << "-debug-pass does not work with the new PM, either use "
-             "-debug-pass-manager, or use the legacy PM (-enable-new-pm=0)\n";
+      errs() << "-debug-pass does not work with the new PM, either use "
+                "-debug-pass-manager, or use the legacy PM\n";
       return 1;
     }
 #endif // !INTEL_PRODUCT_RELEASE
@@ -925,8 +924,8 @@ int main(int argc, char **argv) {
     }
   }
 
-  std::unique_ptr<legacy::FunctionPassManager> FPasses;
 #ifdef INTEL_CUSTOMIZATION
+  std::unique_ptr<legacy::FunctionPassManager> FPasses;
   if (OptLevelO0 || OptLevelO1 || OptLevelO2 || OptLevelOs || OptLevelOz ||
       OptLevelO3) {
     FPasses.reset(new legacy::FunctionPassManager(M.get()));
@@ -975,7 +974,6 @@ int main(int argc, char **argv) {
       OptLevelO3 = false;
     }
 
-#endif
     const PassInfo *PassInf = PassList[i];
     Pass *P = nullptr;
     if (PassInf->getNormalCtor())
@@ -983,8 +981,7 @@ int main(int argc, char **argv) {
     else
       errs() << argv[0] << ": cannot create pass: "
              << PassInf->getPassName() << "\n";
-#if INTEL_CUSTOMIZATION
-   if (P) {
+    if (P) {
       PassKind Kind = P->getPassKind();
       addPass(Passes, P);
 
@@ -1030,12 +1027,12 @@ int main(int argc, char **argv) {
   if (OptLevelO3)
     AddOptimizationPasses(Passes, *FPasses, TM.get(), 3, 0);
 
-#endif // INTEL_CUSTOMIZATION
   if (FPasses) {
     FPasses->doInitialization();
     for (Function &F : *M)
       FPasses->run(F);
     FPasses->doFinalization();
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Check that the module is well formed on completion of optimization
