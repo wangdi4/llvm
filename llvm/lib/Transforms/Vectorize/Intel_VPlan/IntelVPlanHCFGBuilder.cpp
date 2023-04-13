@@ -256,9 +256,8 @@ protected:
 
     return llvm::any_of(Inst->users(), [&](Value *User) {
       Instruction *Inst = cast<Instruction>(User);
-      return Builder.contains(Inst) ||
-             ((isTrivialPointerAliasingInst(Inst) || isa<SelectInst>(Inst)) &&
-              AliasesWithinLoopImpl(Inst, Visited));
+      return Builder.contains(Inst) || (isTrivialPointerAliasingInst(Inst) &&
+                                        AliasesWithinLoopImpl(Inst, Visited));
     });
   }
 
@@ -297,8 +296,7 @@ protected:
         Visited.insert(Use);
         Instruction *Inst = cast<Instruction>(Use);
 
-        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst) ||
-             isa<SelectInst>(Inst)) &&
+        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst)) &&
             AliasesWithinLoop(Inst)) {
           auto *NewVPOperand = Builder.getOrCreateVPOperand(Inst);
           assert((isa<VPExternalDef>(NewVPOperand) ||

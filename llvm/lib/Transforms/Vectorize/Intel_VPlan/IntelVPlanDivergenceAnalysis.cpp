@@ -150,12 +150,16 @@ GepConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
 
 const VPVectorShape::VPShapeDescriptor
 SelectConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
-  /*            Uni,   Seq,   Str,   Rnd,   Undef */
-  /* Uni   */  {Uni,   Str,   Str,   Rnd,   Undef},
-  /* Seq   */  {Str,   Seq,   Str,   Rnd,   Undef},
-  /* Str   */  {Str,   Str,   Str,   Rnd,   Undef},
-  /* Rnd   */  {Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Undef */  {Undef, Undef, Undef, Undef, Undef}
+  /*            Uni,   Seq,   Str,   Rnd,   SOASeq, SOAStr, SOARnd, SOACVT, Undef */
+  /* Uni    */ {Uni,   Str,   Str,   Rnd,   Undef,  Undef,  Undef,  Undef,  Undef},
+  /* Seq    */ {Str,   Seq,   Str,   Rnd,   Undef,  Undef,  Undef,  Undef,  Undef},
+  /* Str    */ {Str,   Str,   Str,   Rnd,   Undef,  Undef,  Undef,  Undef,  Undef},
+  /* Rnd    */ {Rnd,   Rnd,   Rnd,   Rnd,   Undef,  Undef,  Undef,  Undef,  Undef},
+  /* SOASeq */ {Undef, Undef, Undef, Undef, SOASeq, SOAStr, SOARnd, SOACvt, Undef},
+  /* SOAStr */ {Undef, Undef, Undef, Undef, SOAStr, SOAStr, SOARnd, SOACvt, Undef},
+  /* SOARnd */ {Undef, Undef, Undef, Undef, SOARnd, SOARnd, SOARnd, SOACvt, Undef},
+  /* SOACvt */ {Undef, Undef, Undef, Undef, SOACvt, SOACvt, SOACvt, SOACvt, Undef},
+  /* Undef  */ {Undef, Undef, Undef, Undef, Undef,  Undef,  Undef,  Undef,  Undef}
 };
 
 // Undefine the defines used in table initialization. Code below is
