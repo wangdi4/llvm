@@ -28,6 +28,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenDAGPatterns.h"
+#include "CodeGenInstruction.h"
 #include "CodeGenRegisters.h"
 #include "CodeGenTarget.h"
 #include "DAGISelMatcher.h"
@@ -795,7 +796,9 @@ EmitMatcher(const Matcher *N, const unsigned Indent, unsigned CurrentIdx,
     if (CompressVTs)
       OS << EN->getNumVTs();
 
-    OS << ", TARGET_VAL(" << EN->getOpcodeName() << "), 0";
+    const CodeGenInstruction &CGI = EN->getInstruction();
+    OS << ", TARGET_VAL(" << CGI.Namespace << "::" << CGI.TheDef->getName()
+       << "), 0";
 
     if (EN->hasChain())   OS << "|OPFL_Chain";
     if (EN->hasInGlue())  OS << "|OPFL_GlueInput";
