@@ -54,6 +54,8 @@ private:
     BI_SDIV,
     BI_UREM,
     BI_SREM,
+    BI_WG_SORT,
+    BI_SG_SORT,
     BI_NOT_SUPPORTED
   };
 
@@ -90,6 +92,9 @@ private:
 
   /// Handle scalar integer div/rem calls.
   void handleDivRemCalls(CallInst *CI, BuiltinType DivRemTy);
+
+  /// Handle workgroup and subgroup calls.
+  void handleSortCalls(CallInst *CI, BuiltinType DivRemTy);
 
   /// A vector holding all supported built-in calls with their type.
   std::vector<std::pair<CallInst *, BuiltinType>> BuiltinCalls;

@@ -143,6 +143,7 @@ set(OCL_CPU_BACKEND_SOURCE_FILES
     ProgramBuilder.cpp
     ServiceFactory.cpp
     cpu_builtin_functions.cpp
+    opencl_sort_impl.cpp
     debuggingservicewrapper.cpp
     dllmain.cpp
     ocl_debug_builtins.cpp

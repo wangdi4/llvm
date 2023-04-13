@@ -13,6 +13,7 @@
 
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Attributes.h"
@@ -23,6 +24,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/SYCLTransforms/KernelArgType.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 
 namespace llvm {
 class IRBuilderBase;
@@ -377,6 +379,13 @@ bool isWorkGroupMul(StringRef S);
 bool isAsyncWorkGroupCopy(StringRef S);
 bool isAsyncWorkGroupStridedCopy(StringRef S);
 bool isWorkGroupBarrier(StringRef S);
+bool isWorkGroupSort(StringRef S);
+bool isWorkGroupKeyOnlySort(StringRef S);
+bool isWorkGroupJointSort(StringRef S);
+bool isWorkGroupPrivateSort(StringRef S);
+bool isWorkGroupKeyValueSort(StringRef S);
+bool isWorkGroupKeyValueJointSort(StringRef S);
+bool isWorkGroupKeyValuePrivateSort(StringRef S);
 /// }@
 
 /// Returns true if \p S is a name of workgroup builtin, and it's uniform inside
@@ -444,6 +453,9 @@ Function *importFunctionDecl(Module *Dst, const Function *Orig,
 
 /// Returns the mangled name of the function atomic_work_item_fence.
 std::string mangledAtomicWorkItemFence();
+
+/// Returns the copy function name corresponding to workgroup sort builtin.
+std::string getWorkGroupSortCopyName(StringRef SortFuncName, bool ToScratch);
 
 /// Returns the mangled name of the function get_global_id.
 std::string mangledGetGID();
@@ -529,6 +541,7 @@ bool isSubGroupReduceMax(StringRef S);
 bool isSubGroupScanExclusiveMax(StringRef S);
 bool isSubGroupScanInclusiveMax(StringRef S);
 bool isSubGroupScan(StringRef S);
+bool isSubGroupSort(StringRef S);
 /// }@
 
 /// Returns true if \p S is a name of subgroup builtin, and it's uniform inside
@@ -750,6 +763,8 @@ void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
 #if INTEL_CUSTOMIZATION
 /// Check whether the given FixedVectorType represents a valid SYCL matrix.
 bool isValidMatrixType(FixedVectorType *MatrixType);
+
+reflection::TypePrimitiveEnum getPrimitiveTypeOfString(StringRef T);
 
 /// Create a get_sub_group_slice_length.() call.
 /// SIGNATURE:

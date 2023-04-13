@@ -235,6 +235,8 @@ defm f16 : _OCLTYPE2_<"f16", 16, "half">;
 defm f32 : _OCLTYPE2_<"f32", 32, "float">;
 defm f64 : _OCLTYPE2_<"f64", 64, "double">;
 def size_t : OclType<"size_t", "size_t", 1, 0, 0>;
+def ptr_char  : OclType<"ptr_char", "char*", 1, 0, 0>;
+def ptr_int  : OclType<"ptr_int", "__local int*", 1, 0, 0>;
 def uint  : OclType<"uint", "uint", 1, 0, 0>;
 def int32   : OclType<"int", "int", 1, 0, 0>;
 defm intptr_t : _OCLTYPE1_<"intptr_t", 1, 0, "intptr_t">;
@@ -341,17 +343,17 @@ def ocl_types : TypeNameList<[
   sampler_t.TypeName, event_t.TypeName,
 
   //The following is needed due to KNC conversions
-   pv1i8.TypeName,  pv2i8.TypeName,  pv3i8.TypeName,  pv4i8.TypeName,  pv8i8.TypeName,  pv16i8.TypeName,
-   pv1u8.TypeName,  pv2u8.TypeName,  pv3u8.TypeName,  pv4u8.TypeName,  pv8u8.TypeName,  pv16u8.TypeName,
-  pv1i16.TypeName, pv2i16.TypeName, pv3i16.TypeName, pv4i16.TypeName, pv8i16.TypeName, pv16i16.TypeName,
-  pv1u16.TypeName, pv2u16.TypeName, pv3u16.TypeName, pv4u16.TypeName, pv8u16.TypeName, pv16u16.TypeName,
-  pv1i32.TypeName, pv2i32.TypeName, pv3i32.TypeName, pv4i32.TypeName, pv8i32.TypeName, pv16i32.TypeName,
-  pv1u32.TypeName, pv2u32.TypeName, pv3u32.TypeName, pv4u32.TypeName, pv8u32.TypeName, pv16u32.TypeName,
-  pv1i64.TypeName, pv2i64.TypeName, pv3i64.TypeName, pv4i64.TypeName, pv8i64.TypeName, pv16i64.TypeName,
-  pv1u64.TypeName, pv2u64.TypeName, pv3u64.TypeName, pv4u64.TypeName, pv8u64.TypeName, pv16u64.TypeName,
+   pv1i8.TypeName,  pv2i8.TypeName,  pv3i8.TypeName,  pv4i8.TypeName,  pv8i8.TypeName,  pv16i8.TypeName, pv32i8.TypeName, pv64i8.TypeName,
+   pv1u8.TypeName,  pv2u8.TypeName,  pv3u8.TypeName,  pv4u8.TypeName,  pv8u8.TypeName,  pv16u8.TypeName, pv32u8.TypeName, pv64u8.TypeName,
+  pv1i16.TypeName, pv2i16.TypeName, pv3i16.TypeName, pv4i16.TypeName, pv8i16.TypeName, pv16i16.TypeName, pv32i16.TypeName, pv64i16.TypeName,
+  pv1u16.TypeName, pv2u16.TypeName, pv3u16.TypeName, pv4u16.TypeName, pv8u16.TypeName, pv16u16.TypeName, pv32u16.TypeName, pv64u16.TypeName,
+  pv1i32.TypeName, pv2i32.TypeName, pv3i32.TypeName, pv4i32.TypeName, pv8i32.TypeName, pv16i32.TypeName, pv32i32.TypeName, pv64i32.TypeName,
+  pv1u32.TypeName, pv2u32.TypeName, pv3u32.TypeName, pv4u32.TypeName, pv8u32.TypeName, pv16u32.TypeName, pv32u32.TypeName, pv64u32.TypeName,
+  pv1i64.TypeName, pv2i64.TypeName, pv3i64.TypeName, pv4i64.TypeName, pv8i64.TypeName, pv16i64.TypeName, pv32i64.TypeName, pv64i64.TypeName,
+  pv1u64.TypeName, pv2u64.TypeName, pv3u64.TypeName, pv4u64.TypeName, pv8u64.TypeName, pv16u64.TypeName, pv32u64.TypeName, pv64u64.TypeName,
   pv1f16.TypeName, pv2f16.TypeName, pv3f16.TypeName, pv4f16.TypeName, pv8f16.TypeName, pv16f16.TypeName, pv32f16.TypeName, pv64f16.TypeName,
-  pv1f32.TypeName, pv2f32.TypeName, pv3f32.TypeName, pv4f32.TypeName, pv8f32.TypeName, pv16f32.TypeName,
-  pv1f64.TypeName, pv2f64.TypeName, pv3f64.TypeName, pv4f64.TypeName, pv8f64.TypeName, pv16f64.TypeName,
+  pv1f32.TypeName, pv2f32.TypeName, pv3f32.TypeName, pv4f32.TypeName, pv8f32.TypeName, pv16f32.TypeName, pv32f32.TypeName, pv64f32.TypeName,
+  pv1f64.TypeName, pv2f64.TypeName, pv3f64.TypeName, pv4f64.TypeName, pv8f64.TypeName, pv16f64.TypeName, pv32f64.TypeName, pv64f64.TypeName,
 
   //The following are needed for atom2gentype
   patom_v1f16.TypeName,
