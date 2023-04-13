@@ -28,6 +28,7 @@
 ; RUN:     -passes='lto<O3>' -S  %s -passes-ep-peephole='no-op-function' 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-EP-Peephole
 
+<<<<<<< HEAD
 ; CHECK-O: Running pass: Annotation2Metadata
 ; CHECK-EP-NEXT: Running pass: NoOpModulePass
 ; CHECK-O-NEXT: Running pass: CrossDSOCFIPass
@@ -40,6 +41,10 @@
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Function
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-EP: Running pass: NoOpModulePass
+; CHECK-O: Running pass: CrossDSOCFIPass
+>>>>>>> 4bf9ca5eec24a4379fc7021c0aa1e810e32c50a6
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
