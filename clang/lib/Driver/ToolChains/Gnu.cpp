@@ -3824,10 +3824,11 @@ void Generic_GCC::AddIntelLibimfLibArgs(
 }
 
 std::string Generic_GCC::GetIntelLibPath() const {
-  SmallString<128> LibDir(llvm::sys::path::parent_path(getDriver().Dir));
+  SmallString<128> LibDir(getDriver().Dir);
+  llvm::sys::path::append(LibDir, "..");
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
   // The driver is located in <installdir>/bin/compiler
-  LibDir = llvm::sys::path::parent_path(LibDir);
+  llvm::sys::path::append(LibDir, "..");
   if (getTriple().getArch() == llvm::Triple::x86_64)
     // lib location is in <installdir>/lib.
     llvm::sys::path::append(LibDir, "lib");
