@@ -4641,9 +4641,8 @@ void ASTDeclReader::UpdateDecl(Decl *D,
       break;
 
     case UPD_DECL_MARKED_OPENMP_THREADPRIVATE:
-      D->addAttr(OMPThreadPrivateDeclAttr::CreateImplicit(
-          Reader.getContext(), readSourceRange(),
-          AttributeCommonInfo::AS_Pragma));
+      D->addAttr(OMPThreadPrivateDeclAttr::CreateImplicit(Reader.getContext(),
+                                                          readSourceRange()));
       break;
 
 #if INTEL_COLLAB
@@ -4662,8 +4661,7 @@ void ASTDeclReader::UpdateDecl(Decl *D,
       Expr *Alignment = Record.readExpr();
       SourceRange SR = readSourceRange();
       D->addAttr(OMPAllocateDeclAttr::CreateImplicit(
-          Reader.getContext(), AllocatorKind, Allocator, Alignment, SR,
-          AttributeCommonInfo::AS_Pragma));
+          Reader.getContext(), AllocatorKind, Allocator, Alignment, SR));
       break;
     }
 
@@ -4684,7 +4682,7 @@ void ASTDeclReader::UpdateDecl(Decl *D,
       unsigned Level = Record.readInt();
       D->addAttr(OMPDeclareTargetDeclAttr::CreateImplicit(
           Reader.getContext(), MapType, DevType, IndirectE, Indirect, Level,
-          readSourceRange(), AttributeCommonInfo::AS_Pragma));
+          readSourceRange()));
       break;
     }
 
