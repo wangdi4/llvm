@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that liveout value %indvars.iv.out is only added to the exit it is really liveout from (%loopexit).
 ; It is not added to the other early exit (%cleanup.loopexit) or to the postexit of the loop.

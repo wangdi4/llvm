@@ -475,16 +475,6 @@ def RetCC_X86_64_AnyReg : CallingConv<[
   CCCustom<"CC_X86_AnyReg_Error">
 ]>;
 
-// X86-64 HHVM return-value convention.
-def RetCC_X86_64_HHVM: CallingConv<[
-  // Promote all types to i64
-  CCIfType<[i8, i16, i32], CCPromoteToType<i64>>,
-
-  // Return: could return in any GP register save RSP and R12.
-  CCIfType<[i64], CCAssignToReg<[RBX, RBP, RDI, RSI, RDX, RCX, R8, R9,
-                                 RAX, R10, R11, R13, R14, R15]>>
-]>;
-
 
 defm X86_32_RegCall :
 	 X86_RegCall_base<RC_X86_32_RegCall>;
@@ -527,9 +517,6 @@ def RetCC_X86_64 : CallingConv<[
 
   // Handle Vectorcall CC
   CCIfCC<"CallingConv::X86_VectorCall", CCDelegateTo<RetCC_X86_64_Vectorcall>>,
-
-  // Handle HHVM calls.
-  CCIfCC<"CallingConv::HHVM", CCDelegateTo<RetCC_X86_64_HHVM>>,
 
   CCIfCC<"CallingConv::X86_RegCall",
           CCIfSubtarget<"isTargetWin64()",
@@ -724,23 +711,6 @@ def CC_X86_64_C : CallingConv<[
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
            CCAssignToStack<64, 64>>
-]>;
-
-// Calling convention for X86-64 HHVM.
-def CC_X86_64_HHVM : CallingConv<[
-  // Use all/any GP registers for args, except RSP.
-  CCIfType<[i64], CCAssignToReg<[RBX, R12, RBP, R15,
-                                 RDI, RSI, RDX, RCX, R8, R9,
-                                 RAX, R10, R11, R13, R14]>>
-]>;
-
-// Calling convention for helper functions in HHVM.
-def CC_X86_64_HHVM_C : CallingConv<[
-  // Pass the first argument in RBP.
-  CCIfType<[i64], CCAssignToReg<[RBP]>>,
-
-  // Otherwise it's the same as the regular C calling convention.
-  CCDelegateTo<CC_X86_64_C>
 ]>;
 
 // Calling convention used on Win64
@@ -1373,8 +1343,6 @@ def CC_X86_64 : CallingConv<[
   CCIfCC<"CallingConv::Win64", CCDelegateTo<CC_X86_Win64_C>>,
   CCIfCC<"CallingConv::X86_64_SysV", CCDelegateTo<CC_X86_64_C>>,
   CCIfCC<"CallingConv::X86_VectorCall", CCDelegateTo<CC_X86_Win64_VectorCall>>,
-  CCIfCC<"CallingConv::HHVM", CCDelegateTo<CC_X86_64_HHVM>>,
-  CCIfCC<"CallingConv::HHVM_C", CCDelegateTo<CC_X86_64_HHVM_C>>,
   CCIfCC<"CallingConv::X86_RegCall",
     CCIfSubtarget<"isTargetWin64()", CCDelegateTo<CC_X86_Win64_RegCall>>>,
   CCIfCC<"CallingConv::X86_RegCall", CCDelegateTo<CC_X86_SysV64_RegCall>>,
@@ -1449,11 +1417,11 @@ def CSR_64_CXX_TLS_Darwin_PE : CalleeSavedRegs<(add RBP)>;
 // CSRs that are handled explicitly via copies.
 def CSR_64_CXX_TLS_Darwin_ViaCopy : CalleeSavedRegs<(sub CSR_64_TLS_Darwin, RBP)>;
 
-// All GPRs - except r11
+// All GPRs - except r11 and return registers.
 def CSR_64_RT_MostRegs : CalleeSavedRegs<(add CSR_64, RAX, RCX, RDX, RSI, RDI,
                                               R8, R9, R10)>;
 
-// All registers - except r11
+// All registers - except r11 and return registers.
 def CSR_64_RT_AllRegs     : CalleeSavedRegs<(add CSR_64_RT_MostRegs,
                                                  (sequence "XMM%u", 0, 15))>;
 def CSR_64_RT_AllRegs_AVX : CalleeSavedRegs<(add CSR_64_RT_MostRegs,
@@ -1597,10 +1565,6 @@ def CSR_64_Intel_Features_Init : CalleeSavedRegs<(add CSR_Win64_NoSSE, RCX, RDX,
                                                   R8, R9, R10, R11,
                                                   (sequence "XMM%u", 0, 15))>;
 // endif INTEL_CUSTOMIZATION
-
-// Only R12 is preserved for PHP calls in HHVM.
-def CSR_64_HHVM : CalleeSavedRegs<(add R12)>;
-
 // Register calling convention preserves few GPR and XMM8-15
 def CSR_32_RegCall_NoSSE : CalleeSavedRegs<(add ESI, EDI, EBX, EBP)>;
 def CSR_32_RegCall       : CalleeSavedRegs<(add CSR_32_RegCall_NoSSE,

@@ -112,7 +112,7 @@ void ArraySectionInfo::print(raw_ostream &OS) const {
       OS << "*";
     }
 
-    for (auto IndexI : enumerate(IndicesVec)) {
+    for (const auto IndexI : enumerate(IndicesVec)) {
       IndexI.value()->print(OS, false);
       if (IndexI.index() != IndicesVec.size() - 1) {
         OS << ",";
@@ -531,7 +531,7 @@ void ArraySectionAnalysisResult::print(formatted_raw_ostream &OS,
     }
   }
 
-  for (auto &Pair : enumerate(ArraySections)) {
+  for (const auto &Pair : enumerate(ArraySections)) {
     if (Lp) {
       Lp->indent(OS, Lp->getNestingLevel());
     }

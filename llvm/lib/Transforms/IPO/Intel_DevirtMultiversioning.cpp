@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_DTRANS
 //=- Intel_DevirtMultiversioning.cpp - Intel Devirtualization Multiversion --=//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -167,7 +167,7 @@ IntelDevirtMultiversion::IntelDevirtMultiversion(
 // Add a new target function into the list of targets. If the target is a
 // libfunc or an external function then set VCallsData.HasLibFuncAsTarget
 // as true.
-void IntelDevirtMultiversion::addTarget(Function *Fn) {
+void IntelDevirtMultiversion::addTarget(GlobalValue *Fn) {
   if (!Fn)
     return;
 
@@ -189,6 +189,9 @@ void IntelDevirtMultiversion::addVirtualCallSite(CallBase *VCallSite) {
   const Value *CalledOperand =
       VCallSite->getCalledOperand()->stripPointerCasts();
   if (isa<Function>(CalledOperand))
+    return;
+  auto A = dyn_cast<GlobalAlias>(CalledOperand);
+  if (A && isa<Function>(A->getAliasee()))
     return;
 
   VCallsData.VirtualCallSites.push_back(VCallSite);
@@ -261,18 +264,23 @@ bool IntelDevirtMultiversion::basedDerivedFunctionTypeMatches(
 //                      target functions
 bool IntelDevirtMultiversion::createCallSiteBasicBlocks(
     Module &M, std::vector<TargetData *> &TargetVector, CallBase *VCallSite,
-    const SetVector<Function *> &TargetFunctions, MDNode *Node) {
+    const SetVector<GlobalValue *> &TargetFunctions, MDNode *Node) {
 
   IRBuilder<> Builder(M.getContext());
   StringRef BaseName = StringRef("BBDevirt_");
   Instruction *CSInst = VCallSite;
   Function *Func = CSInst->getFunction();
-  SmallPtrSet<Function *, 10> FuncsProcessed;
+  SmallPtrSet<GlobalValue *, 10> FuncsProcessed;
   bool AllTargetsAreNotTheSame = false;
 
   // Add all the function addresses and create the BasicBlocks
   // with the direct calls
-  for (auto TargetFunc : TargetFunctions) {
+  for (auto GV : TargetFunctions) {
+
+    auto TargetFunc = dyn_cast<Function>(GV);
+    auto A = dyn_cast<GlobalAlias>(GV);
+    if (!TargetFunc && A)
+      TargetFunc = cast<Function>(A->getAliasee());
 
     // CMPLRLLVM-22269: The TargetsForSlot array can have repeated
     // entries. This is caused by the process in tryFindVirtualCallTargets,
@@ -660,7 +668,7 @@ void IntelDevirtMultiversion::generatePhiNodes(
 // whole program safe or not.
 void IntelDevirtMultiversion::multiversionVCallSite(
     Module &M, CallBase *VCallSite, bool LibFuncFound,
-    const SetVector<Function *> &TargetFunctions) {
+    const SetVector<GlobalValue *> &TargetFunctions) {
 
   if (TargetFunctions.empty() || !EnableDevirtMultiversion)
     return;
@@ -728,7 +736,7 @@ void IntelDevirtMultiversion::multiversionVCallSite(
 // downcasting. In this case, we are going to multiversion the call with the
 // default target included. Else, return false.
 bool IntelDevirtMultiversion::tryAddingDefaultTargetIntoVCallSite(
-    CallBase *VCallSite, Function *TargetFunc, Function *CallerFunc) {
+    CallBase *VCallSite, GlobalValue *TargetFunc, GlobalValue *CallerFunc) {
 
   if (!EnableDevirtMultiversion)
     return false;
@@ -745,7 +753,7 @@ bool IntelDevirtMultiversion::tryAddingDefaultTargetIntoVCallSite(
   if (!LibFuncFound && !TypeNotAvailable)
     return false;
 
-  SetVector<Function *> TargetFunction;
+  SetVector<GlobalValue *> TargetFunction;
   TargetFunction.insert(TargetFunc);
   multiversionVCallSite(M, VCallSite, true /* LibFuncFound */, TargetFunction);
 
@@ -793,7 +801,12 @@ bool IntelDevirtMultiversion::tryMultiVersionDevirt() {
 
 // Return true if the input function is a LibFunc or a function
 // that wasn't internalized, except main.
-bool IntelDevirtMultiversion::functionIsLibFuncOrExternal(Function *F) {
+bool IntelDevirtMultiversion::functionIsLibFuncOrExternal(GlobalValue *V) {
+  auto F = dyn_cast<Function>(V);
+  auto A = dyn_cast<GlobalAlias>(V);
+  if (!F && A)
+    F = dyn_cast<Function>(A->getAliasee());
+
   if (!F)
     return false;
 
@@ -846,8 +859,7 @@ void IntelDevirtMultiversion::collectAssumeCallSitesNonOpaque(
 
     // We can use getElementType here since we have typed pointers.
     while (RootType && RootType->isPointerTy()) {
-      PointerType *PtrTy = cast<PointerType>(RootType);
-      RootType = PtrTy->getElementType();
+      RootType = RootType->getNonOpaquePointerElementType();
     }
 
     return RootType;

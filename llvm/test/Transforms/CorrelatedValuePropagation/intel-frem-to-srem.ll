@@ -1,4 +1,4 @@
-; RUN: opt < %s -correlated-propagation -S | FileCheck %s
+; RUN: opt -passes="correlated-propagation" < %s -S | FileCheck %s
 
 ; CHECK-LABEL: @frem_loop(
 ; CHECK:         [[PHI:%.*]] = phi double [ 1.415900e+04, %entry ], [ [[RESULT_FP:%.*]], %loop ]

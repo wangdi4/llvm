@@ -151,6 +151,17 @@ public:
   /// instruction.
   void recordPotentialSIMDDescrUpdate(HLInst *UpdateInst);
 
+  /// Set bail-out reason information.
+  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
+                      std::string Message) {
+    BD.BailoutLevel = Level;
+    BD.BailoutID = ID;
+    BD.BailoutMessage = Message;
+  }
+
+  /// Return the reason for bailing out.
+  VPlanBailoutData &getBailoutData() { return BD; }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Debug print utility to display contents of the descriptor lists
   void dump(raw_ostream &OS) const;
@@ -159,7 +170,7 @@ public:
 
 private:
   /// Reports a reason for vectorization bailout. Always returns false.
-  bool bailout(BailoutReason Code);
+  bool bailout(OptReportVerbosity::Level, unsigned, std::string, std::string);
 
   /// Add an explicit non-POD private to PrivatesList
   /// TODO: Use Constr, Destr and CopyAssign for non-POD privates.
@@ -186,20 +197,21 @@ private:
   }
   /// Add an explicit reduction variable
   void addReduction(RegDDRef *V, RecurKind Kind,
-                    Optional<InscanReductionKind> InscanDescr) {
+                    std::optional<InscanReductionKind> InscanDescr,
+                    bool IsComplex) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
     assert(!InscanDescr && "TODO: Inscan for HIR is not supported!");
 
     // TODO: Consider removing IsSigned field from RedDescr struct since it is
     // unused and can basically be deducted from the recurrence kind.
-    ReductionList.emplace_back(V, Kind, false /*IsSigned*/);
+    ReductionList.emplace_back(V, Kind, false /*IsSigned*/, IsComplex);
   }
 
   /// Add an explicit user-defined reduction variable.
-  void
-  addReduction(RegDDRef *V, Function *Combiner, Function *Initializer,
-               Function *Constr, Function *Destr,
-               Optional<InscanReductionKind> InscanRedKind = std::nullopt) {
+  void addReduction(
+      RegDDRef *V, Function *Combiner, Function *Initializer, Function *Constr,
+      Function *Destr,
+      std::optional<InscanReductionKind> InscanRedKind = std::nullopt) {
     UDRList.emplace_back(V, Combiner, Initializer, Constr, Destr,
                          InscanRedKind);
   }

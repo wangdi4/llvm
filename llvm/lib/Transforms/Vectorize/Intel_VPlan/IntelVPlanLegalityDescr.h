@@ -335,10 +335,12 @@ template <typename Value> class RedDescr : public DescrWithInitValue<Value> {
 private:
   RecurKind Kind;
   bool IsSigned;
+  bool IsComplex;
 
 public:
-  RedDescr(Value *RegV, RecurKind KindV, bool Signed)
-      : DescrWithInitValue<Value>(RegV), Kind(KindV), IsSigned(Signed) {}
+  RedDescr(Value *RegV, RecurKind KindV, bool Signed, bool Complex)
+      : DescrWithInitValue<Value>(RegV), Kind(KindV), IsSigned(Signed),
+        IsComplex(Complex) {}
 
   // Move constructor
   RedDescr(RedDescr &&Other) = default;
@@ -349,6 +351,9 @@ public:
   void setIsSigned(bool V) { IsSigned = V; }
   bool isSigned() const { return IsSigned; }
 
+  void setIsComplex(bool V) { IsComplex = V; }
+  bool isComplex() const { return IsComplex; }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
     DescrWithInitValue<Value>::print(OS);
@@ -356,7 +361,8 @@ public:
     OS << "{Kind: "
        << llvm::Instruction::getOpcodeName(
               RecurrenceDescriptorData::getOpcode(Kind))
-       << ", IsSigned: " << ((isSigned()) ? "1" : "0");
+       << ", IsSigned: " << ((isSigned()) ? "1" : "0")
+       << ", IsComplex: " << ((isComplex()) ? "1" : "0");
     OS << "}\n";
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -370,13 +376,14 @@ private:
   Function *Initializer = nullptr;
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
-  Optional<InscanReductionKind> InscanRedKind = std::nullopt;
+  std::optional<InscanReductionKind> InscanRedKind = std::nullopt;
 
 public:
   RedDescrUDR(Value *RegV, Function *Combiner, Function *Initializer,
               Function *Ctor, Function *Dtor,
-              Optional<InscanReductionKind> InscanRedKind = std::nullopt)
-      : RedDescr<Value>(RegV, RecurKind::Udr, false /*Signed*/),
+              std::optional<InscanReductionKind> InscanRedKind = std::nullopt)
+      : RedDescr<Value>(RegV, RecurKind::Udr, false /*Signed*/,
+                        false /*Complex*/),
         Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor),
         InscanRedKind(InscanRedKind) {}
 
@@ -392,7 +399,7 @@ public:
   /// Get destructor function for UDR datatype.
   Function *getDtor() const { return Dtor; }
   /// Get inscan reduction type (optional).
-  Optional<InscanReductionKind> getInscanReductionKind() const {
+  std::optional<InscanReductionKind> getInscanReductionKind() const {
     return InscanRedKind;
   }
 

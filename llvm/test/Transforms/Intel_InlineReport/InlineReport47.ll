@@ -1,9 +1,9 @@
 ; Inline report
-; RUN: opt -passes='cgscc(inline)' -inline-report=0x7 < %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=0x207 < %s -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-INTRIN
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0x7 < %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0x207 < %s -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-INTRIN
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x286 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-INTRIN
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
+; RUN: opt  -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x286 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-INTRIN
 
 ; This test checks that setting DontSkipIntrin bit in the -inline-report option
 ; forces including the llvm.dbg.value call site info into inline report.
@@ -22,7 +22,7 @@ entry:
 
 define dso_local i32 @main() local_unnamed_addr !dbg !20 {
 entry:
-  %0 = load i32, i32* @N, align 4, !dbg !23, !tbaa !24
+  %0 = load i32, ptr @N, align 4, !dbg !23, !tbaa !24
   %call = call i32 @foo(i32 %0), !dbg !28
   ret i32 %call, !dbg !29
 }

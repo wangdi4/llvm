@@ -1,0 +1,13 @@
+# RUN: llc -O2 < %s | FileCheck --check-prefixes=COMMON,O2 %s ;INTEL
+# RUN: llc -O3 < %s | FileCheck %s ;INTEL
+--- |
+; RUN: llc -O0 < %s | FileCheck --check-prefixes=COMMON,O0 %s ;INTEL
+...
+---
+# COMMON: a ;INTEL
+# O0: b ;INTEL
+# O2: c ;INTEL
+# CHECK: d ;INTEL
+# O0 comment # INTEL
+## O2 comment # INTEL
+MIR # INTEL

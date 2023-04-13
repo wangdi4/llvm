@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
+; RUN: opt -mtriple=x86_64-unknown-unknown -mattr=+sse4.2 -enable-intel-advanced-opts \
 ; RUN:     -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" \
 ; RUN      -padded-pointer-prop -allow-memory-speculation \
 ; RUN:     -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s

@@ -1,5 +1,5 @@
 ; INTEL_FEATURE_CSA
-; RUN: opt < %s -domtree -loops -lcssa-verification -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt -S | FileCheck %s
+; RUN: opt -passes="require<vpo-wrninfo>,require<vpo-wrncollection>,require<domtree>,vpo-paropt" < %s -lcssa-verification -S | FileCheck %s
 ; REQUIRES: csa-registered-target
 ;
 ; Check paropt lowering of "omp parallel for" for CSA target.

@@ -22,14 +22,12 @@
 #include "program_service.h"
 #include "task_executor.h"
 #include <builtin_kernels.h>
-#include <cl_synch_objects.h>
 #include <cl_thread.h>
 
 #include <atomic>
 #include <list>
 #include <map> //should be hash_map but cant compile #include <hash_map>
-
-using namespace Intel::OpenCL::TaskExecutor;
+#include <mutex>
 
 #ifdef __INLCUDE_MKL__
 #ifndef __OMP2TBB__
@@ -58,7 +56,7 @@ typedef struct _cl_dev_internal_subdevice_id {
   // Task dispatcher for this sub-device
   Intel::OpenCL::Utils::AtomicCounter ref_count;
   volatile bool is_acquired;
-  SharedPtr<ITEDevice> pSubDevice;
+  SharedPtr<TaskExecutor::ITEDevice> pSubDevice;
 } cl_dev_internal_subdevice_id;
 
 class IAffinityChangeObserver {
@@ -95,12 +93,15 @@ public:
                  IAffinityChangeObserver *pObsserver);
   virtual ~TaskDispatcher();
 
+  TaskDispatcher(const TaskDispatcher &) = delete;
+  TaskDispatcher &operator=(const TaskDispatcher &) = delete;
+
   virtual cl_dev_err_code init();
 
   virtual cl_dev_err_code
   SetDefaultCommandList(const SharedPtr<ITaskList> IN list);
   virtual cl_dev_err_code createCommandList(cl_dev_cmd_list_props IN props,
-                                            ITEDevice *IN pDevice,
+                                            TaskExecutor::ITEDevice *IN pDevice,
                                             SharedPtr<ITaskList> *OUT list);
   virtual cl_dev_err_code
   commandListExecute(const SharedPtr<ITaskList> &IN list,
@@ -118,15 +119,15 @@ public:
     return ((nullptr != pSubDevID) && pSubDevID->is_by_names);
   }
 
-  void waitUntilEmpty(ITEDevice *pSubdev);
+  void waitUntilEmpty(TaskExecutor::ITEDevice *pSubdev);
 
-  ITaskExecutor &getTaskExecutor() { return *m_pTaskExecutor; }
+  TaskExecutor::ITaskExecutor &getTaskExecutor() { return *m_pTaskExecutor; }
 
   queue_t GetDefaultQueue() { return m_pDefaultQueue.GetPtr(); }
 
   queue_t GetTaskSeqQueue() {
     if (!m_pTaskSeqQueue) {
-      OclAutoMutex lock(&TaskSeqQueueMutex);
+      std::lock_guard<std::recursive_mutex> lock(TaskSeqQueueMutex);
       if (!m_pTaskSeqQueue) {
         cl_dev_err_code err = createCommandList(
             CL_DEV_LIST_ENABLE_OOO, GetRootDevice(), &m_pTaskSeqQueue);
@@ -140,11 +141,12 @@ public:
 
   unsigned int GetNumThreads() const { return m_uiNumThreads; }
 
-  ITEDevice *GetRootDevice() { return m_pRootDevice.GetPtr(); }
+  TaskExecutor::ITEDevice *GetRootDevice() { return m_pRootDevice.GetPtr(); }
   // ITaskExecutorObserver
   void *OnThreadEntry(bool registerThread) override;
   void OnThreadExit(void *currentThreadData) override;
-  TE_BOOLEAN_ANSWER MayThreadLeaveDevice(void *currentThreadData) override;
+  TaskExecutor::TE_BOOLEAN_ANSWER
+  MayThreadLeaveDevice(void *currentThreadData) override;
 
   CPUDeviceConfig *getCPUDeviceConfig() { return m_pCPUDeviceConfig; }
 
@@ -162,8 +164,8 @@ protected:
   ProgramService *m_pProgramService;
   MemoryAllocator *m_pMemoryAllocator;
   CPUDeviceConfig *m_pCPUDeviceConfig;
-  ITaskExecutor *m_pTaskExecutor;
-  SharedPtr<ITEDevice> m_pRootDevice;
+  TaskExecutor::ITaskExecutor *m_pTaskExecutor;
+  SharedPtr<TaskExecutor::ITEDevice> m_pRootDevice;
   unsigned int m_uiNumThreads;
   bool m_bTEActivated;
 
@@ -182,7 +184,7 @@ protected:
                                  int iErr);
 
   // Get preferred scheduling, i.e. TBB partitioner
-  TE_CMD_LIST_PREFERRED_SCHEDULING getPreferredScheduling();
+  TaskExecutor::TE_CMD_LIST_PREFERRED_SCHEDULING getPreferredScheduling();
 
   // Task failure notification
   class TaskFailureNotification : public ITask {
@@ -211,7 +213,9 @@ protected:
     bool Execute() override { return Shoot(CL_DEV_ERROR_FAIL); }
     void Cancel() override { Shoot(CL_DEV_COMMAND_CANCELLED); }
     long Release() override { return 0; }
-    TASK_PRIORITY GetPriority() const override { return TASK_PRIORITY_MEDIUM; }
+    TaskExecutor::TASK_PRIORITY GetPriority() const override {
+      return TaskExecutor::TASK_PRIORITY_MEDIUM;
+    }
     Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup *
     GetNDRangeChildrenTaskGroup() override {
       return nullptr;
@@ -237,12 +241,10 @@ protected:
 #endif
 
 private:
-  TaskDispatcher(const TaskDispatcher &);
-  TaskDispatcher &operator=(const TaskDispatcher &);
-  Intel::OpenCL::Utils::OclSpinMutex TaskSeqQueueMutex;
+  std::recursive_mutex TaskSeqQueueMutex;
 };
 
-class AffinitizeThreads : public ITaskSet {
+class AffinitizeThreads : public TaskExecutor::ITaskSet {
 public:
   PREPARE_SHARED_PTR(AffinitizeThreads)
 
@@ -264,20 +266,22 @@ public:
                        size_t firstWGID[], size_t lastWGID[]) override;
   void DetachFromThread(void *data) override;
   bool ExecuteIteration(size_t x, size_t y, size_t z, void *data) override;
-  bool Finish(FINISH_REASON /*reason*/) override {
+  bool Finish(TaskExecutor::FINISH_REASON /*reason*/) override {
     ++m_endBarrier;
     return false;
   }
   long Release() override { return 0; }
-  void Cancel() override { Finish(FINISH_EXECUTION_FAILED); };
+  void Cancel() override { Finish(TaskExecutor::FINISH_EXECUTION_FAILED); };
   Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup *
   GetNDRangeChildrenTaskGroup() override {
     return nullptr;
   }
 
-  TASK_PRIORITY GetPriority() const override { return TASK_PRIORITY_MEDIUM; }
-  TASK_SET_OPTIMIZATION OptimizeBy() const override {
-    return TASK_SET_OPTIMIZE_DEFAULT;
+  TaskExecutor::TASK_PRIORITY GetPriority() const override {
+    return TaskExecutor::TASK_PRIORITY_MEDIUM;
+  }
+  TaskExecutor::TASK_SET_OPTIMIZATION OptimizeBy() const override {
+    return TaskExecutor::TASK_SET_OPTIMIZE_DEFAULT;
   }
   size_t PreferredSequentialItemsPerThread() const override { return 1; }
   bool PreferNumaNodes() const override { return false; }

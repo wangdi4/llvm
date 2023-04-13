@@ -12,7 +12,7 @@ define dso_local void @foo(i32* nocapture %p) {
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP__OMP_IV_0:%.*]] = phi  [ i32 [[VP__OMP_IV_0_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP_ADD1:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_P_ADDR_06:%.*]] = phi  [ i32* [[VP_P_ADDR_06_IND_INIT:%.*]], [[BB1]] ],  [ i32* [[VP0:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP__OMP_IV_0]] i32* [[VP_P_ADDR_06]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store i32 [[VP__OMP_IV_0]] i32* [[VP_P_ADDR_06]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP0]] = getelementptr inbounds i32* [[VP_P_ADDR_06]] i64 [[VP_P_ADDR_06_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_ADD1]] = add i32 [[VP__OMP_IV_0]] i32 [[VP__OMP_IV_0_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i32 [[VP_ADD1]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
@@ -59,7 +59,7 @@ define dso_local void @foo2(i32* %p1, i32* %p2, i32* %p3, i32* %p4) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_P1_ADDR:%.*]] = phi  [ i32* [[VP_P1_ADDR_IND_INIT:%.*]], [[BB1]] ],  [ i32* [[VP1:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_P2_ADDR:%.*]] = phi  [ i32* [[VP_P2_ADDR_IND_INIT:%.*]], [[BB1]] ],  [ i32* [[VP2:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -16] i32* [[VP_P4_ADDR:%.*]] = phi  [ i32* [[VP_P4_ADDR_IND_INIT:%.*]], [[BB1]] ],  [ i32* [[VP3:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP_IV]] i32* [[VP_P1_ADDR]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] store i32 [[VP_IV]] i32* [[VP_P1_ADDR]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_INCPTR1:%.*]] = getelementptr inbounds i32* [[VP_P1_ADDR]] i64 1
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP1]] = getelementptr inbounds i32* [[VP_P1_ADDR]] i64 [[VP_P1_ADDR_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i32* [[VP_INCPTR2:%.*]] = getelementptr inbounds i32* [[VP_INCPTR1]] i64 1

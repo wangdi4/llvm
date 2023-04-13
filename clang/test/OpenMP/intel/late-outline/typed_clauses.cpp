@@ -191,26 +191,9 @@ void test_array_sections(unsigned long n, unsigned long m) {
   // Typed array sections arguments are:
   // p# %vla, <type specifier>, i# %number_of_elements, i# %offset_in_elements
 
-//CHECK: [[AI:%.*]] = getelementptr inbounds [[YT]], ptr [[Y_ARRAY]], i64 0, i64 7
-//CHECK-NEXT: [[AI1:%.*]] = getelementptr inbounds [42 x [100 x i32]], ptr [[AI]], i64 0, i64 0
-//CHECK-NEXT: [[ARRAYDECAY:%.*]] = getelementptr inbounds [100 x i32], ptr [[AI1]], i64 0, i64 0
-//CHECK-NEXT: [[AI2:%.*]] = getelementptr inbounds i32, ptr [[ARRAYDECAY]], i64 0
-//CHECK-NEXT: [[SEC_BASE_CAST:%.*]] = ptrtoint ptr [[Y_ARRAY]] to i64
-//CHECK-NEXT: [[SEC_LOWER_CAST:%.*]] = ptrtoint ptr [[AI2]] to i64
-//CHECK-NEXT: [[AI3:%.*]] = getelementptr inbounds [[YT]], ptr [[Y_ARRAY]], i64 0, i64 7
-//CHECK-NEXT: [[AI4:%.*]] = getelementptr inbounds [42 x [100 x i32]], ptr [[AI3]], i64 0, i64 5
-//CHECK-NEXT: [[ARRAYDECAY5:%.*]] = getelementptr inbounds [100 x i32], ptr [[AI4]], i64 0, i64 0
-//CHECK-NEXT: [[AI6:%.*]] = getelementptr inbounds i32, ptr [[ARRAYDECAY5]], i64 99
-//CHECK-NEXT: [[SEC_UPPER_CAST:%.*]] = ptrtoint ptr [[AI6]] to i64
-//CHECK-NEXT: [[TMP0:%.*]] = sub i64 [[SEC_UPPER_CAST]], [[SEC_LOWER_CAST]]
-//CHECK-NEXT: [[TMP1:%.*]] = sdiv exact i64 [[TMP0]], 4
-//CHECK-NEXT: [[SEC_NUMBER_OF_ELEMENTS:%.*]] = add i64 [[TMP1]], 1
-//CHECK-NEXT: [[TMP2:%.*]] = sub i64 [[SEC_LOWER_CAST]], [[SEC_BASE_CAST]]
-//CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS:%.*]] = sdiv exact i64 [[TMP2]], 4
 //CHECK: "DIR.OMP.PARALLEL.LOOP"()
 //CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"
-//CHECK-SAME: ptr [[Y_ARRAY]], i32 0,
-//CHECK-SAME: i64 [[SEC_NUMBER_OF_ELEMENTS]], i64 [[SEC_OFFSET_IN_ELEMENTS]])
+//CHECK-SAME: ptr [[Y_ARRAY]], i32 0, i64 600, i64 29400)
   #pragma omp parallel for reduction(+:y_Array[7][:6][:]) // 7 * 42 * 100 + 0 * 100+0
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 4; j++) {
@@ -221,17 +204,9 @@ void test_array_sections(unsigned long n, unsigned long m) {
   }
 //CHECK: "DIR.OMP.END.PARALLEL.LOOP"()
 
-//CHECK: [[AI:%.*]] = getelementptr inbounds [[YT]], ptr [[Y_ARRAY]], i64 0, i64 6
-//CHECK: [[AI1:%.*]] = getelementptr inbounds [42 x [100 x i32]], ptr [[AI]], i64 0, i64 21
-//CHECK: [[AI2:%.*]] = getelementptr inbounds [100 x i32], ptr [[AI1]], i64 0, i64 4
-//CHECK: [[SEC_BASE_CAST:%sec.base.cast.*]] = ptrtoint ptr [[Y_ARRAY]] to i64
-//CHECK: [[SEC_LOWER_CAST:%.*]] = ptrtoint ptr [[AI2]] to i64
-//CHECK: [[TMP0:%.*]] = sub i64 [[SEC_LOWER_CAST]], [[SEC_BASE_CAST]]
-//CHECK: [[SEC_OFFSET_IN_ELEMENTS:%.*]] = sdiv exact i64 [[TMP0]], 4
 //CHECK: "DIR.OMP.PARALLEL.LOOP"()
 //CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"
-//CHECK-SAME: ptr [[Y_ARRAY]], i32 0, i64 1,
-//CHECK-SAME: i64 [[SEC_OFFSET_IN_ELEMENTS]])
+//CHECK-SAME: ptr [[Y_ARRAY]], i32 0, i64 1, i64 27304)
 #pragma omp parallel for reduction(+:y_Array[6][21][4])
 for (int i = 0; i < 3; i++) {
   for (int j = 0; j < 4; j++) {
@@ -322,140 +297,51 @@ void test_ptr_array_sections(int *yp, short *zp, short (&parr)[100]) {
 // CHECK: [[YARRPTR:%yarrptr.*]] = alloca ptr, align 8
 // CHECK: [[YARRPTRREF:%yarrptrref.*]] = alloca ptr, align 8
 
-// CHECK: [[TMP0:%.*]] = load ptr, ptr [[YP_ADDR]], align 8
-// CHECK-NEXT: [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[TMP0]], i64 25
-// CHECK-NEXT: [[TMP1:%.*]] = load ptr, ptr [[YP_ADDR]], align 8
-// CHECK-NEXT: [[SEC_BASE_CAST:%.*]] = ptrtoint ptr [[TMP1]] to i64
-// CHECK-NEXT: [[SEC_LOWER_CAST:%.*]] = ptrtoint ptr [[ARRAYIDX]] to i64
-// CHECK-NEXT: [[TMP2:%.*]] = load ptr, ptr [[YP_ADDR]], align 8
-// CHECK-NEXT: [[ARRAYIDX1:%.*]] = getelementptr inbounds i32, ptr [[TMP2]], i64 49
-// CHECK-NEXT: [[SEC_UPPER_CAST:%.*]] = ptrtoint ptr [[ARRAYIDX1]] to i64
-// CHECK-NEXT: [[TMP3:%.*]] = sub i64 [[SEC_UPPER_CAST]], [[SEC_LOWER_CAST]]
-// CHECK-NEXT: [[TMP4:%.*]] = sdiv exact i64 [[TMP3]], 4
-// CHECK-NEXT: [[SEC_NUMBER_OF_ELEMENTS:%.*]] = add i64 [[TMP4]], 1
-// CHECK-NEXT: [[TMP5:%.*]] = sub i64 [[SEC_LOWER_CAST]], [[SEC_BASE_CAST]]
-// CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS:%.*]] = sdiv exact i64 [[TMP5]], 4
-// CHECK-NEXT: "DIR.OMP.PARALLEL.LOOP"(),
-// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr [[YP_ADDR]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS]], i64 [[SEC_OFFSET_IN_ELEMENTS]])
+// CHECK: "DIR.OMP.PARALLEL.LOOP"(),
+// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr [[YP_ADDR]], i32 0, i64 25, i64 25)
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for reduction(+:yp[25:25])
   for(int i=0; i < 25; ++i) {}
 
-// CHECK: [[TMP12:%.*]] = load ptr, ptr [[ZP_ADDR]], align 8
-// CHECK-NEXT: [[ARRAYIDX7:%.*]] = getelementptr inbounds i16, ptr [[TMP12]], i64 25
-// CHECK-NEXT: [[TMP13:%.*]] = load ptr, ptr [[ZP_ADDR]], align 8
-// CHECK-NEXT: [[SEC_BASE_CAST8:%.*]] = ptrtoint ptr [[TMP13]] to i64
-// CHECK-NEXT: [[SEC_LOWER_CAST9:%.*]] = ptrtoint ptr [[ARRAYIDX7]] to i64
-// CHECK-NEXT: [[TMP14:%.*]] = load ptr, ptr [[ZP_ADDR]], align 8
-// CHECK-NEXT: [[ARRAYIDX10:%.*]] = getelementptr inbounds i16, ptr [[TMP14]], i64 49
-// CHECK-NEXT: [[SEC_UPPER_CAST11:%.*]] = ptrtoint ptr [[ARRAYIDX10]] to i64
-// CHECK-NEXT: [[TMP15:%.*]] = sub i64 [[SEC_UPPER_CAST11]], [[SEC_LOWER_CAST9]]
-// CHECK-NEXT: [[TMP16:%.*]] = sdiv exact i64 [[TMP15]], 2
-// CHECK-NEXT: [[SEC_NUMBER_OF_ELEMENTS12:%.*]] = add i64 [[TMP16]], 1
-// CHECK-NEXT: [[TMP17:%.*]] = sub i64 [[SEC_LOWER_CAST9]], [[SEC_BASE_CAST8]]
-// CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS13:%.*]] = sdiv exact i64 [[TMP17]], 2
-// CHECK-NEXT: "DIR.OMP.PARALLEL.LOOP"
-// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr [[ZP_ADDR]], i16 0, i64 [[SEC_NUMBER_OF_ELEMENTS12]], i64 [[SEC_OFFSET_IN_ELEMENTS13]])
+// CHECK: "DIR.OMP.PARALLEL.LOOP"
+// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr [[ZP_ADDR]], i16 0, i64 25, i64 25)
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for reduction(+:zp[25:25])
   for(int i=0; i < 25; ++i) {}
 
-// CHECK: [[TMP24:%.*]] = load ptr, ptr [[RYP]], align 8
-// CHECK-NEXT: [[TMP25:%.*]] = load ptr, ptr [[RYP]], align 8
-// CHECK-NEXT: [[TMP26:%.*]] = load ptr, ptr [[TMP25]], align 8
-// CHECK-NEXT: [[ARRAYIDX29:%.*]] = getelementptr inbounds i32, ptr [[TMP26]], i64 25
-// CHECK-NEXT: [[TMP27:%.*]] = load ptr, ptr [[RYP]], align 8
-// CHECK-NEXT: [[TMP28:%.*]] = load ptr, ptr [[TMP27]], align 8
-// CHECK-NEXT: [[SEC_BASE_CAST30:%.*]] = ptrtoint ptr [[TMP28]] to i64
-// CHECK-NEXT: [[SEC_LOWER_CAST31:%.*]] = ptrtoint ptr [[ARRAYIDX29]] to i64
-// CHECK-NEXT: [[TMP29:%.*]] = load ptr, ptr [[RYP]], align 8
-// CHECK-NEXT: [[TMP30:%.*]] = load ptr, ptr [[TMP29]], align 8
-// CHECK-NEXT: [[ARRAYIDX32:%.*]] = getelementptr inbounds i32, ptr [[TMP30]], i64 49
-// CHECK-NEXT: [[SEC_UPPER_CAST33:%.*]] = ptrtoint ptr [[ARRAYIDX32]] to i64
-// CHECK-NEXT: [[TMP31:%.*]] = sub i64 [[SEC_UPPER_CAST33]], [[SEC_LOWER_CAST31]]
-// CHECK-NEXT: [[TMP32:%.*]] = sdiv exact i64 [[TMP31]], 4
-// CHECK-NEXT: [[SEC_NUMBER_OF_ELEMENTS34:%.*]] = add i64 [[TMP32]], 1
-// CHECK-NEXT: [[TMP33:%.*]] = sub i64 [[SEC_LOWER_CAST31]], [[SEC_BASE_CAST30]]
-// CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS35:%.*]] = sdiv exact i64 [[TMP33]], 4
-// CHECK-NEXT: "DIR.OMP.PARALLEL.LOOP"
-// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.PTR_TO_PTR.TYPED"(ptr [[RYP]], i32 0, i64 [[SEC_NUMBER_OF_ELEMENTS34]], i64 [[SEC_OFFSET_IN_ELEMENTS35]])
+// CHECK: "DIR.OMP.PARALLEL.LOOP"
+// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.PTR_TO_PTR.TYPED"(ptr [[RYP]], i32 0, i64 25, i64 25)
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   int *(&ryp) = yp;
   #pragma omp parallel for reduction(+:ryp[25:25])
   for(int i=0; i < 25; ++i) {}
 
-// CHECK: [[TMP40:%.*]] = load ptr, ptr [[PARR_ADDR]], align 8
-// CHECK-NEXT: [[TMP41:%.*]] = load ptr, ptr [[PARR_ADDR]], align 8
-// CHECK-NEXT: [[ARRAYIDX51:%.*]] = getelementptr inbounds [100 x i16], ptr [[TMP41]], i64 0, i64 25
-// CHECK-NEXT: [[TMP42:%.*]] = load ptr, ptr [[PARR_ADDR]], align 8
-// CHECK-NEXT: [[SEC_BASE_CAST52:%.*]] = ptrtoint ptr [[TMP42]] to i64
-// CHECK-NEXT: [[SEC_LOWER_CAST53:%.*]] = ptrtoint ptr [[ARRAYIDX51]] to i64
-// CHECK-NEXT: [[TMP43:%.*]] = load ptr, ptr [[PARR_ADDR]], align 8
-// CHECK-NEXT: [[ARRAYIDX54:%.*]] = getelementptr inbounds [100 x i16], ptr [[TMP43]], i64 0, i64 49
-// CHECK-NEXT: [[SEC_UPPER_CAST55:%.*]] = ptrtoint ptr [[ARRAYIDX54]] to i64
-// CHECK-NEXT: [[TMP44:%.*]] = sub i64 [[SEC_UPPER_CAST55]], [[SEC_LOWER_CAST53]]
-// CHECK-NEXT: [[TMP45:%.*]] = sdiv exact i64 [[TMP44]], 2
-// CHECK-NEXT: [[SEC_NUMBER_OF_ELEMENTS56:%.*]] = add i64 [[TMP45]], 1
-// CHECK-NEXT: [[TMP46:%.*]] = sub i64 [[SEC_LOWER_CAST53]], [[SEC_BASE_CAST52]]
-// CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS57:%.*]] = sdiv exact i64 [[TMP46]], 2
-// CHECK-NEXT: "DIR.OMP.PARALLEL.LOOP"
-// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.TYPED"(ptr [[PARR_ADDR]], i16 0, i64 [[SEC_NUMBER_OF_ELEMENTS56]], i64 [[SEC_OFFSET_IN_ELEMENTS57]])
+// CHECK: "DIR.OMP.PARALLEL.LOOP"
+// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.TYPED"(ptr [[PARR_ADDR]], i16 0, i64 25, i64 25)
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for reduction(+:parr[25:25])
   for(int i=0; i < 25; ++i) {}
 
-// CHECK: [[TMP53:%.*]] = load ptr, ptr [[YP_ADDR]], align 8
-// CHECK-NEXT: [[ARRAYIDX73:%.*]] = getelementptr inbounds i32, ptr [[TMP53]], i64 23
-// CHECK-NEXT: [[TMP54:%.*]] = load ptr, ptr [[YP_ADDR]], align 8
-// CHECK-NEXT: [[SEC_BASE_CAST74:%.*]] = ptrtoint ptr [[TMP54]] to i64
-// CHECK-NEXT: [[SEC_LOWER_CAST75:%.*]] = ptrtoint ptr [[ARRAYIDX73]] to i64
-// CHECK-NEXT: [[TMP55:%.*]] = sub i64 [[SEC_LOWER_CAST75]], [[SEC_BASE_CAST74]]
-// CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS76:%.*]] = sdiv exact i64 [[TMP55]], 4
-// CHECK-NEXT: "DIR.OMP.PARALLEL.LOOP"
-// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr [[YP_ADDR]], i32 0, i64 1, i64 [[SEC_OFFSET_IN_ELEMENTS76]])
+// CHECK: "DIR.OMP.PARALLEL.LOOP"
+// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr [[YP_ADDR]], i32 0, i64 1, i64 23)
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for reduction(+:yp[23])
   for(int i=0; i < 25; ++i) {}
 
-// CHECK: [[TMP62:%.*]] = load ptr, ptr [[ZP_ADDR]], align 8
-// CHECK-NEXT: [[ARRAYIDX92:%.*]] = getelementptr inbounds i16, ptr [[TMP62]], i64 23
-// CHECK-NEXT: [[TMP63:%.*]] = load ptr, ptr [[ZP_ADDR]], align 8
-// CHECK-NEXT: [[SEC_BASE_CAST93:%.*]] = ptrtoint ptr [[TMP63]] to i64
-// CHECK-NEXT: [[SEC_LOWER_CAST94:%.*]] = ptrtoint ptr [[ARRAYIDX92]] to i64
-// CHECK-NEXT: [[TMP64:%.*]] = sub i64 [[SEC_LOWER_CAST94]], [[SEC_BASE_CAST93]]
-// CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS95:%.*]] = sdiv exact i64 [[TMP64]], 2
-// CHECK-NEXT: "DIR.OMP.PARALLEL.LOOP"
-// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr [[ZP_ADDR]], i16 0, i64 1, i64 [[SEC_OFFSET_IN_ELEMENTS95]])
+// CHECK: "DIR.OMP.PARALLEL.LOOP"
+// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.PTR_TO_PTR.TYPED"(ptr [[ZP_ADDR]], i16 0, i64 1, i64 23)
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for reduction(+:zp[23])
   for(int i=0; i < 25; ++i) {}
 
-// CHECK: [[TMP71:%.*]] = load ptr, ptr [[RYP]], align 8
-// CHECK-NEXT: [[TMP72:%.*]] = load ptr, ptr [[RYP]], align 8
-// CHECK-NEXT: [[TMP73:%.*]] = load ptr, ptr [[TMP72]], align 8
-// CHECK-NEXT: [[ARRAYIDX111:%.*]] = getelementptr inbounds i32, ptr [[TMP73]], i64 23
-// CHECK-NEXT: [[TMP74:%.*]] = load ptr, ptr [[RYP]], align 8
-// CHECK-NEXT: [[TMP75:%.*]] = load ptr, ptr [[TMP74]], align 8
-// CHECK-NEXT: [[SEC_BASE_CAST112:%.*]] = ptrtoint ptr [[TMP75]] to i64
-// CHECK-NEXT: [[SEC_LOWER_CAST113:%.*]] = ptrtoint ptr [[ARRAYIDX111]] to i64
-// CHECK-NEXT: [[TMP76:%.*]] = sub i64 [[SEC_LOWER_CAST113]], [[SEC_BASE_CAST112]]
-// CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS114:%.*]] = sdiv exact i64 [[TMP76]], 4
-// CHECK-NEXT: "DIR.OMP.PARALLEL.LOOP"
-// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.PTR_TO_PTR.TYPED"(ptr [[RYP]], i32 0, i64 1, i64 [[SEC_OFFSET_IN_ELEMENTS114]])
+// CHECK: "DIR.OMP.PARALLEL.LOOP"
+// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.PTR_TO_PTR.TYPED"(ptr [[RYP]], i32 0, i64 1, i64 23)
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for reduction(+:ryp[23])
   for(int i=0; i < 25; ++i) {}
 
-// CHECK: [[TMP83:%.*]] = load ptr, ptr [[PARR_ADDR]], align 8
-// CHECK-NEXT: [[TMP84:%.*]] = load ptr, ptr [[PARR_ADDR]], align 8
-// CHECK-NEXT: [[ARRAYIDX130:%.*]] = getelementptr inbounds [100 x i16], ptr [[TMP84]], i64 0, i64 23
-// CHECK-NEXT: [[TMP85:%.*]] = load ptr, ptr [[PARR_ADDR]], align 8
-// CHECK-NEXT: [[SEC_BASE_CAST131:%.*]] = ptrtoint ptr [[TMP85]] to i64
-// CHECK-NEXT: [[SEC_LOWER_CAST132:%.*]] = ptrtoint ptr [[ARRAYIDX130]] to i64
-// CHECK-NEXT: [[TMP86:%.*]] = sub i64 [[SEC_LOWER_CAST132]], [[SEC_BASE_CAST131]]
-// CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS133:%.*]] = sdiv exact i64 [[TMP86]], 2
-// CHECK-NEXT: "DIR.OMP.PARALLEL.LOOP"
-// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.TYPED"(ptr [[PARR_ADDR]], i16 0, i64 1, i64 [[SEC_OFFSET_IN_ELEMENTS133]])
+// CHECK: "DIR.OMP.PARALLEL.LOOP"
+// CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:BYREF.ARRSECT.TYPED"(ptr [[PARR_ADDR]], i16 0, i64 1, i64 23)
 // CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   #pragma omp parallel for reduction(+:parr[23])
   for(int i=0; i < 25; ++i) {}
@@ -540,7 +426,9 @@ void foo_linear_clauses()
   //CHECK: [[XP:%xp.*]] = alloca ptr, align 8
   //CHECK: [[Y:%y.*]] = alloca ptr, align 8
   //CHECK: [[CP:%cp.*]] = alloca ptr, align 8
+  //CHECK: [[X1:%x1.*]] = alloca ptr, align 8
   //CHECK: [[Z6:%z6.*]] = alloca i32, align 4
+  //CHECK: [[IT:%it.*]] = alloca ptr, align 8
 
   int i;
   int &j = i;
@@ -548,6 +436,7 @@ void foo_linear_clauses()
   int **xp = &x;
   int *(&y) = x;
   char *cp;
+  int *x1 = x;
 
   //CHECK: "DIR.OMP.PARALLEL.LOOP"()
   //CHECK-SAME: "QUAL.OMP.LINEAR:TYPED"(ptr [[I]], i32 0, i32 1, i32 2)
@@ -562,6 +451,11 @@ void foo_linear_clauses()
                                 linear(y) linear(cp:3)
   for (int z6=0; z6 < 10; ++z6) { }
 
+  //CHECK: "DIR.OMP.SIMD"()
+  //CHECK-SAME: "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(ptr [[X1]], i32 0, i32 1, i32 1)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:PTR_TO_PTR.IV.TYPED"(ptr [[IT]], i32 0, i32 1, i32 1)
+  #pragma omp simd linear(x1)
+  for (int *it = x; it != x + 4; ++it) { }
 }
 
 //CHECK: define {{.*}}foo_shared_clauses
@@ -644,5 +538,24 @@ void foo_shared_clauses(int n)
       implicit_shared_fixed[4] = 1;
     }
   }
+}
+
+// These two generate the same LLVM-IR
+typedef void (*fp)(int);
+void func2(fp f, int *i) {
+  //CHECK: DIR.OMP.PARALLEL{{.*}}"QUAL.OMP.SHARED:TYPED"(ptr %f.addr, ptr null, i32 1)
+  //CHECK: [[L1:%[0-9]+]] = load ptr, ptr %f.addr, align 8
+  //CHECK: call void [[L1]]
+  #pragma omp parallel
+  f(*i);
+}
+
+typedef void (&fr)(int);
+void func1(fr f, int *i) {
+  //CHECK: DIR.OMP.PARALLEL{{.*}}"QUAL.OMP.SHARED:TYPED"(ptr %f.addr, ptr null, i32 1)
+  //CHECK: [[L1:%[0-9]+]] = load ptr, ptr %f.addr, align 8
+  //CHECK: call void [[L1]]
+  #pragma omp parallel
+  f(*i);
 }
 // end INTEL_COLLAB

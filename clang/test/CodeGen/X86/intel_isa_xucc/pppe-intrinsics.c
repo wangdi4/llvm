@@ -182,9 +182,9 @@ void test_loadseg_cs(loadstoreseg_param_t seginfo) {
 loadstoreseg_param_t test_storeseg_cs(void) {
   // CHECK-LABEL: test_storeseg_cs
   // CHECK:      #APP
-  // CHECK-NEXT: storeseg %cs:-8(%rsp)
+  // CHECK-NEXT: storeseg %cs:-4(%rsp)
   // CHECK-NEXT: #NO_APP
-  // CHECK-NEXT: movl    -8(%rsp), %eax
+  // CHECK-NEXT: movl    -4(%rsp), %eax
   return _storeseg_cs();
 }
 
@@ -199,9 +199,9 @@ void test_loadseg_ds(loadstoreseg_param_t seginfo) {
 loadstoreseg_param_t test_storeseg_ds(void) {
   // CHECK-LABEL: test_storeseg_ds
   // CHECK:      #APP
-  // CHECK-NEXT: storeseg %ds:-8(%rsp)
+  // CHECK-NEXT: storeseg %ds:-4(%rsp)
   // CHECK-NEXT: #NO_APP
-  // CHECK-NEXT: movl    -8(%rsp), %eax
+  // CHECK-NEXT: movl    -4(%rsp), %eax
   return _storeseg_ds();
 }
 
@@ -216,9 +216,9 @@ void test_loadseg_es(loadstoreseg_param_t seginfo) {
 loadstoreseg_param_t test_storeseg_es(void) {
   // CHECK-LABEL: test_storeseg_es
   // CHECK:      #APP
-  // CHECK-NEXT: storeseg %es:-8(%rsp)
+  // CHECK-NEXT: storeseg %es:-4(%rsp)
   // CHECK-NEXT: #NO_APP
-  // CHECK-NEXT: movl    -8(%rsp), %eax
+  // CHECK-NEXT: movl    -4(%rsp), %eax
   return _storeseg_es();
 }
 
@@ -233,9 +233,9 @@ void test_loadseg_fs(loadstoreseg_param_t seginfo) {
 loadstoreseg_param_t test_storeseg_fs(void) {
   // CHECK-LABEL: test_storeseg_fs
   // CHECK:      #APP
-  // CHECK-NEXT: storeseg %fs:-8(%rsp)
+  // CHECK-NEXT: storeseg %fs:-4(%rsp)
   // CHECK-NEXT: #NO_APP
-  // CHECK-NEXT: movl    -8(%rsp), %eax
+  // CHECK-NEXT: movl    -4(%rsp), %eax
   return _storeseg_fs();
 }
 
@@ -250,9 +250,9 @@ void test_loadseg_gs(loadstoreseg_param_t seginfo) {
 loadstoreseg_param_t test_storeseg_gs(void) {
   // CHECK-LABEL: test_storeseg_gs
   // CHECK:      #APP
-  // CHECK-NEXT: storeseg %gs:-8(%rsp)
+  // CHECK-NEXT: storeseg %gs:-4(%rsp)
   // CHECK-NEXT: #NO_APP
-  // CHECK-NEXT: movl    -8(%rsp), %eax
+  // CHECK-NEXT: movl    -4(%rsp), %eax
   return _storeseg_gs();
 }
 
@@ -267,9 +267,9 @@ void test_loadseg_ss(loadstoreseg_param_t seginfo) {
 loadstoreseg_param_t test_storeseg_ss(void) {
   // CHECK-LABEL: test_storeseg_ss
   // CHECK:      #APP
-  // CHECK-NEXT: storeseg %ss:-8(%rsp)
+  // CHECK-NEXT: storeseg %ss:-4(%rsp)
   // CHECK-NEXT: #NO_APP
-  // CHECK-NEXT: movl    -8(%rsp), %eax
+  // CHECK-NEXT: movl    -4(%rsp), %eax
   return _storeseg_ss();
 }
 

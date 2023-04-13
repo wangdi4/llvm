@@ -1,7 +1,7 @@
 ; RUN: opt -passes="loop(loop-rotate),hir-cg" < %s -force-hir-cg -S | FileCheck %s
 ;          BEGIN REGION { }
 ;<18>         + DO i1 = 0, 4, 1   <DO_LOOP>
-;<2>          |   if (undef #UNDEF# undef)
+;<2>          |   if (undef != 0)
 ;<2>          |   {
 ;<8>          |      (%A)[0][i1] = i1;
 ;<2>          |   }

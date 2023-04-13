@@ -44,6 +44,9 @@ public:
 
   virtual ~LogMessage();
 
+  LogMessage(const LogMessage &) = delete;
+  LogMessage &operator=(const LogMessage &other) = delete;
+
   bool IsUnicode() { return m_bUnicodeMessage; }
 
   // return message body
@@ -81,8 +84,6 @@ private:
   // m_formattedMsg
   void CreateFormattedMessage();
   void CreateFormattedMessageW();
-  LogMessage(const LogMessage &);
-  LogMessage &operator=(const LogMessage &other);
 
   bool m_bUnicodeMessage;
 

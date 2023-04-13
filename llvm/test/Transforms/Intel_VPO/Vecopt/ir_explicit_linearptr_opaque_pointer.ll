@@ -149,25 +149,25 @@ define dso_local void @foo(i64* %x, i32* %y, i16** %z) #0 {
 ; CHECK-NEXT: VPlannedBB1:                                      ; preds = %VPlannedBB
 ; CHECK:        %0 = load ptr, ptr [[X_LINEAR_PTR]], align 1
 ; CHECK-NEXT:   %1 = load ptr, ptr [[X_LINEAR_PTR]], align 1
-; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr %0, i32 0
+; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr %0, i64 0
 ; CHECK-NEXT:   [[IND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x ptr> [[IND_START_BCAST_SPLATINSERT]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VECTOR_GEP:%.*]] = getelementptr inbounds i8, <2 x ptr> [[IND_START_BCAST_SPLAT]], <2 x i64> <i64 0, i64 8>
 ; CHECK-NEXT:   store <2 x ptr> [[VECTOR_GEP]], ptr [[X_LINEAR_PTR_VEC]], align 1
 ; CHECK-NEXT:   %2 = load ptr, ptr [[Y_LINEAR_PTR]], align 1
 ; CHECK-NEXT:   %3 = load ptr, ptr [[Y_LINEAR_PTR]], align 1
-; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT2:%.*]] = insertelement <2 x ptr> poison, ptr %2, i32 0
+; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT2:%.*]] = insertelement <2 x ptr> poison, ptr %2, i64 0
 ; CHECK-NEXT:   [[IND_START_BCAST_SPLAT3:%.*]] = shufflevector <2 x ptr> [[IND_START_BCAST_SPLATINSERT2]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VECTOR_GEP4:%.*]] = getelementptr inbounds i8, <2 x ptr> [[IND_START_BCAST_SPLAT3]], <2 x i64> <i64 0, i64 4>
 ; CHECK-NEXT:   store <2 x ptr> [[VECTOR_GEP4]], ptr [[Y_LINEAR_PTR_VEC]], align 1
 ; CHECK-NEXT:   %4 = load ptr, ptr [[Z_LINEAR_PTR]], align 1
 ; CHECK-NEXT:   %5 = load ptr, ptr [[Z_LINEAR_PTR]], align 1
-; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT5:%.*]] = insertelement <2 x ptr> poison, ptr %4, i32 0
+; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT5:%.*]] = insertelement <2 x ptr> poison, ptr %4, i64 0
 ; CHECK-NEXT:   [[IND_START_BCAST_SPLAT6:%.*]] = shufflevector <2 x ptr> [[IND_START_BCAST_SPLATINSERT5]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VECTOR_GEP7:%.*]] = getelementptr inbounds i8, <2 x ptr> [[IND_START_BCAST_SPLAT6]], <2 x i64> <i64 0, i64 8>
 ; CHECK-NEXT:   store <2 x ptr> [[VECTOR_GEP7]], ptr [[Z_LINEAR_PTR_VEC]], align 1
 ; CHECK-NEXT:   %6 = load i32, ptr [[I_LINEAR_IV_PTR]], align 1
 ; CHECK-NEXT:   %7 = load i32, ptr [[I_LINEAR_IV_PTR]], align 1
-; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT8:%.*]] = insertelement <2 x i32> poison, i32 %6, i32 0
+; CHECK-NEXT:   [[IND_START_BCAST_SPLATINSERT8:%.*]] = insertelement <2 x i32> poison, i32 %6, i64 0
 ; CHECK-NEXT:   [[IND_START_BCAST_SPLAT9:%.*]] = shufflevector <2 x i32> [[IND_START_BCAST_SPLATINSERT8]], <2 x i32> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   %8 = add <2 x i32> [[IND_START_BCAST_SPLAT9]], <i32 0, i32 1>
 ; CHECK-NEXT:   store <2 x i32> %8, ptr [[I_LINEAR_IV_PTR_VEC]], align 1
@@ -190,10 +190,12 @@ define dso_local void @foo(i64* %x, i32* %y, i16** %z) #0 {
 ; CHECK-NEXT:   store <2 x ptr> [[VEC_PHI12:%.*]], ptr [[X_LINEAR_PTR_VEC]], align 1
 ; CHECK-NEXT:   store <2 x i32> [[VEC_PHI:%.*]], ptr [[I_LINEAR_IV_PTR_VEC]], align 4
 ; CHECK-NEXT:   [[WIDE_LOAD:%.*]] = load <2 x ptr>, ptr [[Y_LINEAR_PTR_VEC]], align 4
-; CHECK-NEXT:   %wide.masked.gather = call <2 x i32> @llvm.masked.gather.v2i32.v2p0(<2 x ptr> [[WIDE_LOAD]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> poison)
+; CHECK-NEXT:   [[WIDE_LOAD_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[WIDE_LOAD]], i32 0
+; CHECK-NEXT:   %wide.load19 = load <2 x i32>, ptr [[WIDE_LOAD_EXTRACT_0]], align 4
 ; CHECK-NEXT:   [[WIDE_LOAD19:%.*]] = load <2 x i32>, ptr [[I_LINEAR_IV_PTR_VEC]], align 4
-; CHECK-NEXT:   [[MM_VECTORGEP:%.*]] = getelementptr inbounds [10 x i32], <2 x ptr> <ptr @arr, ptr @arr>, <2 x i64> zeroinitializer, <2 x i32> [[WIDE_LOAD19]]
-; CHECK-NEXT:   call void @llvm.masked.scatter.v2i32.v2p0(<2 x i32> %wide.masked.gather, <2 x ptr> [[MM_VECTORGEP]], i32 4, <2 x i1> <i1 true, i1 true>)
+; CHECK-NEXT:   [[WIDE_LOAD19_EXTRACT_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD19]], i32 0
+; CHECK-NEXT:   [[SCALAR_GEP:%.*]] = getelementptr inbounds [10 x i32], ptr @arr, i64 0, i32 [[WIDE_LOAD19_EXTRACT_0]]
+; CHECK-NEXT:   store <2 x i32> %wide.load19, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:   [[WIDE_LOAD20:%.*]] = load <2 x ptr>, ptr [[X_LINEAR_PTR_VEC]], align 4
 ; CHECK-NEXT:   [[WIDE_LOAD20_EXTRACT1:%.*]] = extractelement <2 x ptr> [[WIDE_LOAD20]], i32 1
 ; CHECK-NEXT:   [[WIDE_LOAD20_EXTRACT0:%.*]] = extractelement <2 x ptr> [[WIDE_LOAD20]], i32 0
@@ -202,8 +204,8 @@ define dso_local void @foo(i64* %x, i32* %y, i16** %z) #0 {
 ; CHECK-NEXT:   [[WIDE_LOAD21_EXTRACT0:%.*]] = extractelement <2 x ptr> [[WIDE_LOAD21]], i32 0
 ; CHECK-NEXT:   call void @_Z3bazPcPc(ptr nonnull [[WIDE_LOAD20_EXTRACT0]], ptr nonnull [[WIDE_LOAD21_EXTRACT0]])
 ; CHECK-NEXT:   call void @_Z3bazPcPc(ptr nonnull [[WIDE_LOAD20_EXTRACT1]], ptr nonnull [[WIDE_LOAD21_EXTRACT1]])
-; CHECK-NEXT:   %9 = add nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
-; CHECK-NEXT:   %10 = add nsw i32 [[UNI_PHI]], 2
+; CHECK-NEXT:   %9 = add nuw nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
+; CHECK-NEXT:   %10 = add nuw nsw i32 [[UNI_PHI]], 2
 ; CHECK-NEXT:   [[MM_VECTORGEP22]] = getelementptr inbounds i8, <2 x ptr> [[VEC_PHI12]], <2 x i64> <i64 16, i64 16>
 ; CHECK-NEXT:   [[MM_VECTORGEP22_EXTRACT0]] = extractelement <2 x ptr> [[MM_VECTORGEP22]], i32 0
 ; CHECK-NEXT:   [[MM_VECTORGEP23]] = getelementptr inbounds i8, <2 x ptr> [[VEC_PHI14]], <2 x i64> <i64 8, i64 8>

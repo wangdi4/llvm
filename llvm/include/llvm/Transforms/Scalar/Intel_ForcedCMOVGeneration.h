@@ -1,6 +1,6 @@
 //===- Intel_ForcedCMOVGeneration.cpp - CMOV generation for special cases -===//
 //
-// Copyright (C) 2019 - 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019 - 2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -77,8 +77,6 @@ public:
   
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addPreserved<ScalarEvolutionWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
   }
 };

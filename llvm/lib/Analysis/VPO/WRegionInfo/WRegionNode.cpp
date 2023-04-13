@@ -557,16 +557,19 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveDetach())
     PrintedSomething |= getDetach().print(OS, Depth, Verbosity);
 
+  if (canHaveAffinity())
+    PrintedSomething |= vpo::printAffArray(this, OS, Depth, Verbosity);
+
   if (canHaveDepend()) {
     PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
     PrintedSomething |= vpo::printDepArray(this, OS, Depth, Verbosity);
   }
 
-  if (canHaveDepSrcSink())
-    PrintedSomething |= getDepSink().print(OS, Depth, Verbosity);
+  if (canHaveDoacrossSrcSink())
+    PrintedSomething |= getDoacrossSink().print(OS, Depth, Verbosity);
 
-  if (canHaveDepSrcSink())
-    PrintedSomething |= getDepSource().print(OS, Depth, Verbosity);
+  if (canHaveDoacrossSrcSink())
+    PrintedSomething |= getDoacrossSource().print(OS, Depth, Verbosity);
 
   if (canHaveAligned())
     PrintedSomething |= getAligned().print(OS, Depth, Verbosity);
@@ -819,12 +822,13 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_BIND_THREAD:
     setLoopBind(WRNLoopBindThread);
     break;
-  case QUAL_OMP_ORDER_CONCURRENT:
-    setLoopOrder(WRNLoopOrderConcurrent);
+  case QUAL_OMP_ORDER_CONCURRENT: {
+    if (ClauseInfo.getIsReproducible())
+      setLoopOrder(WRNLoopOrderConcurrentReproducible);
+    else
+      setLoopOrder(WRNLoopOrderConcurrentUnconstrained);
     break;
-  case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE:
-    getWRNLoopInfo().setKnownNDRange();
-    break;
+  }
   case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
     setHasTeamsReduction();
     break;
@@ -930,6 +934,10 @@ void WRegionNode::handleQualOpnd(const ClauseSpecifier &ClauseInfo, Value *V) {
     InteropAction.add(V);
     InteropActionItem *InteropI = InteropAction.back();
     InteropI->setIsUse();
+  } break;
+  case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE: {
+    getWRNLoopInfo().setKnownNDRange();
+    getWRNLoopInfo().setLoopNestCompletelyCollapsed(N);
   } break;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1516,6 +1524,11 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsInReduction(IsInReduction);
     RI->setIsPointerToPointer(ClauseInfo.getIsPointerToPointer());
     RI->setIsByRef(ClauseInfo.getIsByRef());
+#if INTEL_CUSTOMIZATION
+    if (!CurrentBundleDDRefs.empty() &&
+        WRegionUtils::supportsRegDDRefs(C.getClauseID()))
+      RI->setHOrig(CurrentBundleDDRefs[0]);
+#endif // INTEL_CUSTOMIZATION
     if (InscanIdx) {
       RI->setIsInscan(true);
       RI->setInscanIdx(InscanIdx);
@@ -1823,13 +1836,22 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_DETACH: {
     assert(ClauseInfo.getIsTyped() &&
            "Expected TYPED arguments with the Detach clause.");
-    extractQualOpndList<SharedClause>(Args, NumArgs, ClauseInfo, getShared());
+    extractQualOpndList<DetachClause>(Args, NumArgs, ClauseInfo, getDetach());
     break;
   }
   case QUAL_OMP_DEPARRAY:
     assert(NumArgs == 2 && "Expected 2 operands in DEPARRAY qual");
     setDepArrayNumDeps(Args[0]);
     setDepArray(Args[1]);
+    break;
+  case QUAL_OMP_AFFARRAY:
+    assert(NumArgs == 2 && "Expected 2 operands in AFFARRAY qual.");
+    assert(isa<IntegerType>(Args[0]->getType()) &&
+           "AffArraySize should be of integer type.");
+    assert(isa<PointerType>(Args[1]->getType()) &&
+           "AffArray should be of pointer type.");
+    setAffArraySize(Args[0]);
+    setAffArray(Args[1]);
     break;
   case QUAL_OMP_ORDERED: {
     assert(isa<ConstantInt>(Args[0]) &&
@@ -1851,24 +1873,26 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       addOrderedTripCount(Args[I]);
 
   } break;
+  case QUAL_OMP_DOACROSS_SINK:
   case QUAL_OMP_DEPEND_SINK: {
     setIsDoacross(true);
     SmallVector<Value *, 3> SinkExprs;
     for (unsigned I = 0; I < NumArgs; ++I)
       SinkExprs.push_back(Args[I]);
 
-    getDepSink().add(new DepSinkItem(std::move(SinkExprs)));
+    getDoacrossSink().add(new DoacrossSinkItem(std::move(SinkExprs)));
   } break;
+  case QUAL_OMP_DOACROSS_SOURCE:
   case QUAL_OMP_DEPEND_SOURCE: {
     setIsDoacross(true);
-    assert(getDepSource().empty() &&
-           "More than one 'depend(source)' on the same directive.");
+    assert(getDoacrossSource().empty() &&
+           "More than one 'doacross(source)' on the same directive.");
 
     SmallVector<Value *, 3> SrcExprs;
     for (unsigned I = 0; I < NumArgs; ++I)
       SrcExprs.push_back(Args[I]);
 
-    getDepSource().add(new DepSourceItem(std::move(SrcExprs)));
+    getDoacrossSource().add(new DoacrossSourceItem(std::move(SrcExprs)));
   } break;
   case QUAL_OMP_HAS_DEVICE_ADDR:
   case QUAL_OMP_IS_DEVICE_PTR: {
@@ -1886,7 +1910,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
       assert(isa<ConstantInt>(V) &&
-           "Non-constant argument in need_device_ptr clause.");
+             "Non-constant argument in need_device_ptr clause.");
       ConstantInt *CI = cast<ConstantInt>(V);
       unsigned N = CI->getZExtValue();
       NDP->insert(N);
@@ -2581,6 +2605,15 @@ bool WRegionNode::canHaveUseDevicePtr() const {
   return false;
 }
 
+bool WRegionNode::canHaveAffinity() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTask:
+    return true;
+  }
+  return false;
+}
+
 bool WRegionNode::canHaveDepend() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
@@ -2606,10 +2639,10 @@ bool WRegionNode::canHaveDetach() const {
   return false;
 }
 
-bool WRegionNode::canHaveDepSrcSink() const {
+bool WRegionNode::canHaveDoacrossSrcSink() const {
   unsigned SubClassID = getWRegionKindID();
-  // Only WRNOrderedNode can have a 'depend(src)' or 'depend(sink : vec)'
-  // clause, but but only if its "IsDoacross" field is true.
+  // Only WRNOrderedNode can have a 'doacross(src)' or 'doacross(sink : vec)'
+  // clause, but only if its "IsDoacross" field is true.
   if(SubClassID==WRNOrdered)
     return getIsDoacross();
 
@@ -2750,6 +2783,7 @@ bool WRegionNode::canHaveLivein() const {
   case WRNTargetData:
   case WRNTile:
   case WRNGuardMemMotion:
+  case WRNTask:
     return true;
   }
   return false;
@@ -2853,6 +2887,32 @@ bool vpo::printDepArray(WRegionNode const *W, formatted_raw_ostream &OS,
 
   if (Verbosity >= 1) {
     OS.indent(Indent) << "DEPARRAY: UNSPECIFIED\n";
+    return true;
+  }
+
+  return false;
+}
+
+// Prints AFFARRAY( i32 Num , i8* Array )
+bool vpo::printAffArray(WRegionNode const *W, formatted_raw_ostream &OS,
+                             int Depth, unsigned Verbosity) {
+  assert((W->getAffArraySize() && W->getAffArray() ||
+          !W->getAffArraySize() && !W->getAffArray()) &&
+         "Corrupt AFFARRAY IR: args must be both null or both non-null");
+
+  unsigned Indent = 2 * Depth;
+
+  if (W->getAffArraySize()) {
+    OS.indent(Indent) << "AFFARRAY( ";
+    W->getAffArraySize()->printAsOperand(OS);
+    OS << " , ";
+    W->getAffArray()->printAsOperand(OS);
+    OS << " )\n";
+    return true;
+  }
+
+  if (Verbosity >= 1) {
+    OS.indent(Indent) << "AFFARRAY: UNSPECIFIED\n";
     return true;
   }
 
@@ -2965,24 +3025,23 @@ void vpo::printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
   OS << Num << "\n";
 }
 
-// Auxiliary function to print a set of uint in a WRN dump.
-// If the set is empty:
+// Auxiliary function to print an ArrayRef of unsigned in a WRN dump.
+// If the array is empty:
 //    Verbosity == 0: don't printing anything
 //    Verbosity >= 1: print "Title: UNSPECIFIED"
-void vpo::printSetOfUint(StringRef Title,
-                         const SmallSetVector<unsigned, 8> &Set,
-                         formatted_raw_ostream &OS, int Indent,
-                         unsigned Verbosity) {
-  if (Verbosity==0 && Set.empty())
+void vpo::printArrayOfUint(StringRef Title, const ArrayRef<unsigned> &Array,
+                           formatted_raw_ostream &OS, int Indent,
+                           unsigned Verbosity) {
+  if (Verbosity == 0 && Array.empty())
     return;
 
   OS.indent(Indent) << Title << ": ";
-  if (Set.empty()) {
+  if (Array.empty()) {
     OS << "UNSPECIFIED\n";
     return;
   }
   bool First = true;
-  for (unsigned N : Set) {
+  for (unsigned N : Array) {
     if (First)
       First = false;
     else

@@ -1141,7 +1141,7 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignedLinearMemref) {
         %gep.i64.null = getelementptr i64, i64* null, i32 %iv
         %iv.next = add nuw nsw i32 %iv, 1
         %cond = icmp eq i32 %iv.next, 256
-        br i1 %cond, label %for.body, label %exit
+        br i1 %cond, label %exit, label %for.body
       exit:
         ret void
       })");

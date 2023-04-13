@@ -13,11 +13,11 @@
 // License.
 
 #include "cl_config.h"
-
 #include "cl_cpu_detect.h"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include "task_executor.h"
+#include "llvm/Support/Threading.h"
 
 #include <cassert>
 #ifdef _WIN32
@@ -331,7 +331,7 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const {
   default:
     break;
   }
-#endif // NDEBUG
+#endif // INTEL_PRODUCT_RELEASE
 
   if (FPGA_EMU_DEVICE == GetDeviceMode()) {
     s_ver = OPENCL_VERSION_1_2;
@@ -347,23 +347,38 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const {
   return s_ver;
 }
 
-size_t BasicCLConfigWrapper::GetCpuMaxWGSize() const {
-  size_t cpuMaxWGSize = m_pConfigFile->Read<size_t>(
-      "CL_CONFIG_CPU_FORCE_MAX_WORK_GROUP_SIZE", CPU_MAX_WORK_GROUP_SIZE);
-  if (cpuMaxWGSize < CPU_MAX_WORK_GROUP_SIZE)
-    cpuMaxWGSize = CPU_MAX_WORK_GROUP_SIZE;
-  if (cpuMaxWGSize > CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND)
-    cpuMaxWGSize = CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND;
-  return cpuMaxWGSize;
+size_t BasicCLConfigWrapper::GetDeviceMaxWGSize(bool IsFPGAEmulator) const {
+  size_t MaxWGSize = m_pConfigFile->Read<size_t>(
+      "CL_CONFIG_CPU_FORCE_MAX_WORK_GROUP_SIZE",
+      IsFPGAEmulator ? FPGA_MAX_WORK_GROUP_SIZE : CPU_MAX_WORK_GROUP_SIZE);
+  if (MaxWGSize < CPU_MAX_WORK_GROUP_SIZE_LOWER_BOUND)
+    MaxWGSize = CPU_MAX_WORK_GROUP_SIZE_LOWER_BOUND;
+  if (MaxWGSize > CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND)
+    MaxWGSize = CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND;
+  return MaxWGSize;
 }
 
 unsigned BasicCLConfigWrapper::GetNumTBBWorkers() const {
-  unsigned numWorkers;
+  unsigned numWorkers = 0;
 
   std::string strEnv;
-  if (getEnvVar(strEnv, "DPCPP_CPU_NUM_CUS"))
-    numWorkers = (unsigned)std::stoi(strEnv);
-  else {
+  if (getEnvVar(strEnv, "SYCL_CPU_NUM_CUS") ||
+      getEnvVar(strEnv, "DPCPP_CPU_NUM_CUS")) {
+    try {
+      int num = std::stoi(strEnv);
+      if (num < 0) {
+        numWorkers = num;
+        throw std::logic_error(std::to_string(numWorkers) + " is used.");
+      }
+    } catch (const std::exception &e) {
+      static llvm::once_flag OnceFlag;
+      llvm::call_once(OnceFlag, [&]() {
+        reportWarning(
+            std::string("SYCL_CPU_NUM_CUS: Value is invalid; ignored. ") +
+            e.what());
+      });
+    }
+  } else {
     // OCL_TBB_NUM_WORKERS is deprecated and should be removed.
     if (getEnvVar(strEnv, "OCL_TBB_NUM_WORKERS"))
       numWorkers = (unsigned)std::stoi(strEnv);

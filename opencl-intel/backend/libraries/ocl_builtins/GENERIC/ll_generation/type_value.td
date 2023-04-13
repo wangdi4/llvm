@@ -88,7 +88,7 @@ defset list<Type> all_scalar_types = {
   // Integer types: bool, char, short, int, long
   // e.g. def name of char: i8
   defset list<IntType> scalar_int_types = {
-    foreach bitwidth = [1, 8, 16, 32, 64] in {
+    foreach bitwidth = [1, 4, 8, 16, 32, 64, 128] in {
       def i # bitwidth : IntType<bitwidth>;
     }
   }

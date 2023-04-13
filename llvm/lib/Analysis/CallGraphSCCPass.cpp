@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -292,15 +292,7 @@ bool CGPassManager::RefreshCallGraph(const CallGraphSCC &CurSCC, CallGraph &CG,
           // If we've already seen this call site, then the FunctionPass RAUW'd
           // one call with another, which resulted in two "uses" in the edge
           // list of the same call.
-          Calls.count(Call) ||
-
-          // If the call edge is not from a call or invoke, or it is a
-          // intrinsic call, then the function pass RAUW'd a call with
-          // another value. This can happen when constant folding happens
-          // of well known functions etc.
-          (Call->getCalledFunction() &&
-           Call->getCalledFunction()->isIntrinsic() &&
-           Intrinsic::isLeaf(Call->getCalledFunction()->getIntrinsicID()))) {
+          Calls.count(Call)) {
         assert(!CheckingMode &&
                "CallGraphSCCPass did not update the CallGraph correctly!");
 
@@ -690,7 +682,6 @@ void CallGraphSCCPass::assignPassManager(PMStack &PMS,
 void CallGraphSCCPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<CallGraphWrapperPass>();
   AU.addPreserved<CallGraphWrapperPass>();
-  AU.addPreserved<WholeProgramWrapperPass>();  // INTEL
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL

@@ -31,9 +31,6 @@
 
 #include "cpu_config.h"
 
-using namespace Intel::OpenCL::Utils;
-using namespace Intel::OpenCL::DeviceBackend;
-
 namespace Intel {
 namespace OpenCL {
 namespace CPUDevice {
@@ -43,7 +40,7 @@ class ProgramService {
 public:
   ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallbacks,
                  IOCLDevLogDescriptor *logDesc, CPUDeviceConfig *config,
-                 ICLDevBackendServiceFactory *pBackendFactory);
+                 DeviceBackend::ICLDevBackendServiceFactory *pBackendFactory);
   virtual ~ProgramService();
 
   // Delete copy & move constructor
@@ -131,15 +128,15 @@ public:
                                            cl_image_format *OUT formats,
                                            cl_uint *OUT numEntriesRet);
 
-  ICLDevBackendCompilationService *GetCompilationService() {
+  DeviceBackend::ICLDevBackendCompilationService *GetCompilationService() {
     return m_pBackendCompiler;
   }
 
-  ICLDevBackendExecutionService *GetExecutionService() {
+  DeviceBackend::ICLDevBackendExecutionService *GetExecutionService() {
     return m_pBackendExecutor;
   }
 
-  ICLDevBackendImageService *GetImageService() {
+  DeviceBackend::ICLDevBackendImageService *GetImageService() {
     return m_pBackendImageService;
   }
 
@@ -153,7 +150,7 @@ public:
                                  size_t OUT *gvCount) const;
 
   struct KernelMapEntry {
-    const ICLDevBackendKernel_ *pBEKernel;
+    const DeviceBackend::ICLDevBackendKernel_ *pBEKernel;
 #if defined(USE_ITT)
     __itt_string_handle *ittTaskNameHandle; // name string for ITT tasks
 #endif
@@ -167,7 +164,7 @@ protected:
     PTBackendLibraryProgram,
   };
   struct TProgramEntry {
-    ICLDevBackendProgram_ *pProgram;
+    DeviceBackend::ICLDevBackendProgram_ *pProgram;
     tProgramType programType;
     cl_build_status clBuildStatus;
     TName2IdMap mapKernels;
@@ -180,10 +177,10 @@ protected:
   IOCLDevLogDescriptor *m_pLogDescriptor;
   cl_int m_iLogHandle;
   IOCLFrameworkCallbacks *m_pCallBacks;
-  ICLDevBackendServiceFactory *m_pBackendFactory;
-  ICLDevBackendCompilationService *m_pBackendCompiler;
-  ICLDevBackendExecutionService *m_pBackendExecutor;
-  ICLDevBackendImageService *m_pBackendImageService;
+  DeviceBackend::ICLDevBackendServiceFactory *m_pBackendFactory;
+  DeviceBackend::ICLDevBackendCompilationService *m_pBackendCompiler;
+  DeviceBackend::ICLDevBackendExecutionService *m_pBackendExecutor;
+  DeviceBackend::ICLDevBackendImageService *m_pBackendImageService;
   CPUDeviceConfig *m_pCPUConfig;
 };
 

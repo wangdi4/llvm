@@ -291,10 +291,12 @@ public:
 
   void Acquire() { ++m_refCount; }
 
-private:
+public:
   CPUDevice() = delete;
+  CPUDevice &operator=(const CPUDevice &) = delete;
   CPUDevice(const CPUDevice &) = delete;
-  CPUDevice(const CPUDevice &&) = delete;
+  CPUDevice &operator=(CPUDevice &&) = delete;
+  CPUDevice(CPUDevice &&) = delete;
 };
 
 } // namespace CPUDevice

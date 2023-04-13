@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; Inline report
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -passes='cgscc(inline),module(ip-cloning)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck  --check-prefix=CHECK-NEW %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline),module(ip-cloning)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck  --check-prefix=CHECK-NEW %s
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),module(ip-cloning),inlinereportemitter' -inline-report=0xe886 < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-OLD
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),module(ip-cloning),inlinereportemitter' -inline-report=0xe886 < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-OLD
 
 ; Test that @mynoclone is inlined even though it is a potential candidate
 ; for cloning for specialization, as cloning for specialization will not
@@ -36,8 +36,8 @@ for.cond:                                         ; preds = %for.body, %entry
   br i1 %cmp, label %for.body, label %for.end
 for.body:                                         ; preds = %for.cond
   %idxprom = sext i32 %i.0 to i64
-  %arrayidx = getelementptr inbounds [500 x i32], [500 x i32]* @myglobalarray, i64 0, i64 %idxprom
-  store i32 23, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [500 x i32], ptr @myglobalarray, i64 0, i64 %idxprom
+  store i32 23, ptr %arrayidx, align 4
   %inc = add nsw i32 %i.0, 1
   br label %for.cond
 for.end:                                          ; preds = %for.cond

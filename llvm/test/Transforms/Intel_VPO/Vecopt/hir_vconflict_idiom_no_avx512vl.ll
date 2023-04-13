@@ -30,7 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; VEC-NEXT:         + END LOOP
 ; VEC-NEXT:   END REGION
 
-; NO-VEC: There is no VF found that all VConflict idioms in loop can be optimized for.
+; NO-VEC: No vectorization factor was found that can satisfy all VConflict idioms in the loop.
 ; NO-VEC:    + DO i1 = 0, 1023, 1   <DO_LOOP>
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress

@@ -18,7 +18,6 @@
 
 using namespace Intel::OpenCL::DeviceCommands;
 using Intel::OpenCL::Utils::AccurateHostTime;
-using Intel::OpenCL::Utils::OclAutoMutex;
 
 void DeviceCommand::SetError(cl_dev_err_code err) {
   // if some child has nofitied us of some failure, we don't care if other
@@ -38,10 +37,9 @@ bool DeviceCommand::AddWaitListDependencies(const clk_event_t *pEventWaitList,
   m_commandsThisIsWaitingFor.resize(uiNumEventsInWaitList);
   for (cl_uint i = 0; i < uiNumEventsInWaitList; i++) {
     DeviceCommand &waitingForCmd = *(DeviceCommand *)pEventWaitList[i];
-    OclAutoMutex mutex(
-        &waitingForCmd.m_mutex); // we must protect from a race between
-                                 // waitingForCmd.m_bCompleted becoming true and
-                                 // adding this to its m_waitingCommandsForThis
+    std::lock_guard<std::recursive_mutex> mutex(waitingForCmd.m_mutex);
+    // we must protect from a race between waitingForCmd.m_bCompleted becoming
+    // true and adding this to its m_waitingCommandsForThis
     if (!waitingForCmd.m_bCompleted) {
       bAllEventsCompleted = false;
     }
@@ -88,9 +86,9 @@ void DeviceCommand::SignalComplete(cl_dev_err_code err) {
   }
 
   SetError(err);
-  OclAutoMutex mutex(
-      &m_mutex); // m_bCompleted and m_waitingCommandsForThis are protected
-                 // together (see AddWaitListDependencies)
+  std::lock_guard<std::recursive_mutex> mutex(m_mutex);
+  // m_bCompleted and m_waitingCommandsForThis are protected together (see
+  // AddWaitListDependencies)
   m_bCompleted = true;
 
   for (std::vector<SharedPtr<DeviceCommand>>::iterator iter =
@@ -121,7 +119,7 @@ void DeviceCommand::StopExecutionProfiling() {
 }
 
 bool DeviceCommand::SetExecTimeUserPtr(volatile void *pExecTimeUserPtr) {
-  OclAutoMutex mutex(&m_mutex);
+  std::lock_guard<std::recursive_mutex> mutex(m_mutex);
   if (m_bCompleted) {
     return false;
   }

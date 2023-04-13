@@ -231,7 +231,7 @@ bool VPlanAllZeroBypass::isStricterOrEqualPred(const VPValue *MaybePred,
         return HeaderPhi->getIncomingValue(Preheader) == BaseCond;
     }
   }
-  if (MaybePredInst && MaybePredInst->getOpcode() == Instruction::And) {
+  if (MaybePredInst && MaybePredInst->getOpcode() == Instruction::Select) {
     return (isStricterOrEqualPred(MaybePredInst->getOperand(0), BaseCond) ||
             isStricterOrEqualPred(MaybePredInst->getOperand(1), BaseCond));
   }
@@ -451,7 +451,7 @@ VPValue* VPlanAllZeroBypass::loopWasMadeUniform(VPLoop *VPLp) {
 void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
     RegionsCollectedTy &RegionsCollected, VPlanCostModelInterface *CM,
-    Optional<unsigned> VF) {
+    std::optional<unsigned> VF) {
 
   // Probability is very low that for large VFs all lanes are 0.
   if (VF && *VF >= 32)
@@ -558,13 +558,13 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
       }
 
       // Bypass region will include blocks that only compute predicates and
-      // blocks where the block-predicate is anded with the one from the block
-      // that will start the bypass (CandidateBlock). For example, after
-      // predication, we can have the following VPlan snippet. Assuming the
-      // region will include blocks beginning at BB20, the block-predicate
-      // forming the all-zero bypass will be %vp7392. As long as each
-      // subsequent block uses %vp7392 as a block-predicate or is anded with
-      // it (or is an empty block), the region will include that block. So,
+      // blocks where the block-predicate is anded(using select) with the one
+      // from the block that will start the bypass (CandidateBlock). For
+      // example, after predication, we can have the following VPlan snippet.
+      // Assuming the region will include blocks beginning at BB20, the
+      // block-predicate forming the all-zero bypass will be %vp7392. As long as
+      // each subsequent block uses %vp7392 as a block-predicate or is anded
+      // with it (or is an empty block), the region will include that block. So,
       // here a region can be formed around all blocks, BB20, BB6, and BB24.
       // Otherwise, the region ends at the block that is the predecessor of
       // where these conditions are not met.
@@ -582,8 +582,8 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
       // PREDECESSORS(1): BB20
       //
       // BB24:
-      //  [DA: Div] i1 %vp42384 = and i1 %vp7392 i1 %vp41904
-      //  [DA: Div] i1 %vp42800 = and i1 %vp7392 i1 %vp18976
+      //  [DA: Div] i1 %vp42384 = select i1 %vp7392 i1 %vp41904 i1 false
+      //  [DA: Div] i1 %vp42800 = select i1 %vp7392 i1 %vp18976 i1 false
       // SUCCESSORS(1):BB9
       // PREDECESSORS(1): BB6
       //
@@ -624,14 +624,14 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     // Temporary workaround for CMPLRLLVM-30680:
     //
     // Probability of the mask being all-zero should take its part in the
-    // decision to bypass. Ideally, we'd like to keep track of all ANDs/ORs and
-    // known non-allzero masks in the expression tree (due to an earlier
+    // decision to bypass. Ideally, we'd like to keep track of all Selects/ORs
+    // and known non-allzero masks in the expression tree (due to an earlier
     // bypass), but we're not there. For now, special case for a condition based
     // on a uniform value.
     unsigned EffectiveThreshold = RegionThreshold;
     auto *BlockPredI = dyn_cast<VPInstruction>(CandidateBlockPred);
     if (!BlockPredI ||
-        (BlockPredI->getOpcode() == Instruction::And &&
+        (BlockPredI->getOpcode() == Instruction::Select &&
          (Plan.getVPlanDA()->isUniform(*BlockPredI->getOperand(0)) ||
           Plan.getVPlanDA()->isUniform(*BlockPredI->getOperand(1)))))
       if (VF)

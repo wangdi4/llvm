@@ -570,7 +570,7 @@ public:
     int32_t IntShuffleMask[MaxNumElems];
     uint32_t MaskIndex = 0;
 
-    uint32_t Op2StartIndex;
+    uint32_t Op2StartIndex = 0;
     // Traverse through the incoming edges, collect the input vectors and the
     // correspondent vector indices
     for (Edge *E : IncomingEdges) {
@@ -1309,6 +1309,9 @@ static void splitMrfsStep(OVLSMemref *Memref,
     if (Memref->getAccessKind() != SetFirstMrf->getAccessKind())
       continue;
 
+    if (Memref->isMasked() != SetFirstMrf->isMasked())
+      continue;
+
     if (Memref->getNumElements() != SetFirstMrf->getNumElements())
       continue;
 
@@ -1323,9 +1326,44 @@ static void splitMrfsStep(OVLSMemref *Memref,
     // Eg-Mrfs :int32 a[2*i+1] , a[2*i]
     //    FirstSeenMrf : a[2*i+1].
     //    Memref : a[2*i], Dist = -4.
-    Optional<int64_t> Dist = Memref->getConstDistanceFrom(*SetFirstMrf);
+    std::optional<int64_t> Dist = Memref->getConstDistanceFrom(*SetFirstMrf);
     if (!Dist)
       continue;
+
+    // VLS transformation currently only handles groups where the group stride
+    // matches the bit width of the group's access mask. As an example, a group
+    // containing refs {a[2 * i], a[2 * i + 1], a[2 * i + 2]} is not handled.
+    // ICC handles such a group by applying VLS optimization to refs {a[2 * i],
+    // a[2 * i + 1] and doing a gather/scatter for a[2 * i + 2]. For now, do
+    // the same in xmain by not considering a[2 * i + 2] for the group. This is
+    // done by skipping over refs whose distance from any of the refs in the
+    // group is >= group stride. We can do a better job handling a group with
+    // all such refs by doing an appropriate wide access and avoiding the
+    // gather/scatter altogether. This is now being done currently for unmasked
+    // loads with positive stride in xmain.
+    // TODO: We need to look into doing this for stores, negative stride loads
+    // and masked loads.
+    std::optional<int64_t> FirstRefStride = SetFirstMrf->getConstStride();
+    if (FirstRefStride &&
+        (SetFirstMrf->getAccessKind().isStore() || SetFirstMrf->isMasked() ||
+         (SetFirstMrf->getAccessKind().isLoad() && *FirstRefStride < 0))) {
+      auto DistExceedsStride =
+          find_if(*AdjMemrefSet, [Memref, SetFirstMrf](auto &x) {
+            std::optional<int64_t> TDist =
+                Memref->getConstDistanceFrom(*x.first);
+            if (!TDist)
+              return false;
+
+            return std::abs(*TDist) >= std::abs(*SetFirstMrf->getConstStride());
+          });
+
+      if (DistExceedsStride != AdjMemrefSet->end()) {
+        OVLSDebug(OVLSdbgs() << "Skipping: " << *Memref
+                             << " as distance >= group stride from: "
+                             << *(DistExceedsStride->first) << "\n");
+        continue;
+      }
+    }
 
     // Found a possible set. Check if the memref overlaps any of the memrefs
     // already in the set.
@@ -1425,7 +1463,7 @@ static bool isSupported(const OVLSGroup &Group) {
     return false;
   }
 
-  Optional<int64_t> Stride = Group.getConstStride();
+  std::optional<int64_t> Stride = Group.getConstStride();
   if (!Stride) {
     OVLSDebug(
         OVLSdbgs() << "Optimized sequence is only supported for a group"
@@ -1478,7 +1516,7 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
   const uint32_t MaxNumElems = 256;
   assert(NumElems <= MaxNumElems && "Increase MaxNumElems");
 
-  Optional<int64_t> Stride = Mrf.getConstStride();
+  std::optional<int64_t> Stride = Mrf.getConstStride();
   assert(Stride && "Constant stride is expected");
 
   int32_t IntShuffleMask[MaxNumElems];
@@ -1503,7 +1541,7 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
 /// FIXME: Support masked gathers/scatters.
 static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
                              GraphNodeToOVLSMemrefMap &NodeToMemrefMap) {
-  Optional<int64_t> Stride = Group.getConstStride();
+  std::optional<int64_t> Stride = Group.getConstStride();
   assert(Stride && "Group with a variable stride is not supported");
 
   // If it's not a group of gathers that means it's a group of scatters.
@@ -1738,10 +1776,10 @@ APInt OVLSGroup::computeByteAccessMask() const {
   auto NBytes = *LastMrf->getConstDistanceFrom(*FirstMrf) +
                 LastMrf->getType().getElementSize() / 8;
 
-  auto Mask = APInt::getNullValue(NBytes);
+  auto Mask = APInt::getZero(NBytes);
   for (OVLSMemref *Mrf : MemrefVec) {
     auto MrfSize = Mrf->getType().getElementSize() / 8;
-    Optional<int64_t> MrfOffset = Mrf->getConstDistanceFrom(*FirstMrf);
+    std::optional<int64_t> MrfOffset = Mrf->getConstDistanceFrom(*FirstMrf);
     Mask.setBits(*MrfOffset, *MrfOffset + MrfSize);
   }
 
@@ -2472,7 +2510,7 @@ bool OptVLSInterface::getSequencePredefined(
   // Memaccess is Strided Load.
   // No target specific information is needed here. The sequence is target
   // independent for now.
-  Optional<int64_t> Stride = Group.getConstStride();
+  std::optional<int64_t> Stride = Group.getConstStride();
   if (!Stride)
     return false;
 

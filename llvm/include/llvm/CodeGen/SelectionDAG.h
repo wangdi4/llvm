@@ -88,7 +88,6 @@ class FunctionLoweringInfo;
 class FunctionVarLocs;
 class GlobalValue;
 struct KnownBits;
-class LegacyDivergenceAnalysis;
 class LLVMContext;
 class MachineBasicBlock;
 class MachineConstantPoolValue;
@@ -105,6 +104,11 @@ class TargetLowering;
 class TargetMachine;
 class TargetSubtargetInfo;
 class Value;
+
+template <typename T> class GenericSSAContext;
+using SSAContext = GenericSSAContext<Function>;
+template <typename T> class GenericUniformityInfo;
+using UniformityInfo = GenericUniformityInfo<SSAContext>;
 
 class SDVTListNode : public FoldingSetNode {
   friend struct FoldingSetTrait<SDVTListNode>;
@@ -246,7 +250,7 @@ class SelectionDAG {
   LLVMContext *Context;
   CodeGenOpt::Level OptLevel;
 
-  LegacyDivergenceAnalysis * DA = nullptr;
+  UniformityInfo *UA = nullptr;
   FunctionLoweringInfo * FLI = nullptr;
 
   /// The function-level optimization remark emitter.  Used to emit remarks
@@ -309,9 +313,6 @@ class SelectionDAG {
   /// it adds unneeded complexity without noticeable
   /// benefits (see discussion with @thakis in D120714).
   uint16_t NextPersistentId = 0;
-
-  /// Are instruction referencing variable locations desired for this function?
-  bool UseInstrRefDebugInfo = false;
 
 public:
   /// Clients of various APIs that cause global effects on
@@ -471,7 +472,7 @@ public:
   /// Prepare this SelectionDAG to process code in the given MachineFunction.
   void init(MachineFunction &NewMF, OptimizationRemarkEmitter &NewORE,
             Pass *PassPtr, const TargetLibraryInfo *LibraryInfo,
-            LegacyDivergenceAnalysis *Divergence, ProfileSummaryInfo *PSIin,
+            UniformityInfo *UA, ProfileSummaryInfo *PSIin,
             BlockFrequencyInfo *BFIin, FunctionVarLocs const *FnVarLocs);
 
   void setFunctionLoweringInfo(FunctionLoweringInfo * FuncInfo) {
@@ -494,7 +495,7 @@ public:
   const TargetLowering &getTargetLoweringInfo() const { return *TLI; }
   const TargetLibraryInfo &getLibInfo() const { return *LibInfo; }
   const SelectionDAGTargetInfo &getSelectionDAGInfo() const { return *TSI; }
-  const LegacyDivergenceAnalysis *getDivergenceAnalysis() const { return DA; }
+  const UniformityInfo *getUniformityInfo() const { return UA; }
   /// Returns the result of the AssignmentTrackingAnalysis pass if it's
   /// available, otherwise return nullptr.
   const FunctionVarLocs *getFunctionVarLocs() const { return FnVarLocs; }
@@ -802,7 +803,7 @@ public:
     SDVTList VTs = getVTList(MVT::Other, MVT::Glue);
     SDValue Ops[] = { Chain, getRegister(Reg, N.getValueType()), N, Glue };
     return getNode(ISD::CopyToReg, dl, VTs,
-                   makeArrayRef(Ops, Glue.getNode() ? 4 : 3));
+                   ArrayRef(Ops, Glue.getNode() ? 4 : 3));
   }
 
   // Similar to last getCopyToReg() except parameter Reg is a SDValue
@@ -811,7 +812,7 @@ public:
     SDVTList VTs = getVTList(MVT::Other, MVT::Glue);
     SDValue Ops[] = { Chain, Reg, N, Glue };
     return getNode(ISD::CopyToReg, dl, VTs,
-                   makeArrayRef(Ops, Glue.getNode() ? 4 : 3));
+                   ArrayRef(Ops, Glue.getNode() ? 4 : 3));
   }
 
   SDValue getCopyFromReg(SDValue Chain, const SDLoc &dl, unsigned Reg, EVT VT) {
@@ -828,7 +829,7 @@ public:
     SDVTList VTs = getVTList(VT, MVT::Other, MVT::Glue);
     SDValue Ops[] = { Chain, getRegister(Reg, VT), Glue };
     return getNode(ISD::CopyFromReg, dl, VTs,
-                   makeArrayRef(Ops, Glue.getNode() ? 3 : 2));
+                   ArrayRef(Ops, Glue.getNode() ? 3 : 2));
   }
 
   SDValue getCondCode(ISD::CondCode Cond);
@@ -921,6 +922,38 @@ public:
   /// float type VT, by either extending or rounding (by truncation).
   std::pair<SDValue, SDValue>
   getStrictFPExtendOrRound(SDValue Op, SDValue Chain, const SDLoc &DL, EVT VT);
+
+  /// Convert *_EXTEND_VECTOR_INREG to *_EXTEND opcode.
+  static unsigned getOpcode_EXTEND(unsigned Opcode) {
+    switch (Opcode) {
+    case ISD::ANY_EXTEND:
+    case ISD::ANY_EXTEND_VECTOR_INREG:
+      return ISD::ANY_EXTEND;
+    case ISD::ZERO_EXTEND:
+    case ISD::ZERO_EXTEND_VECTOR_INREG:
+      return ISD::ZERO_EXTEND;
+    case ISD::SIGN_EXTEND:
+    case ISD::SIGN_EXTEND_VECTOR_INREG:
+      return ISD::SIGN_EXTEND;
+    }
+    llvm_unreachable("Unknown opcode");
+  }
+
+  /// Convert *_EXTEND to *_EXTEND_VECTOR_INREG opcode.
+  static unsigned getOpcode_EXTEND_VECTOR_INREG(unsigned Opcode) {
+    switch (Opcode) {
+    case ISD::ANY_EXTEND:
+    case ISD::ANY_EXTEND_VECTOR_INREG:
+      return ISD::ANY_EXTEND_VECTOR_INREG;
+    case ISD::ZERO_EXTEND:
+    case ISD::ZERO_EXTEND_VECTOR_INREG:
+      return ISD::ZERO_EXTEND_VECTOR_INREG;
+    case ISD::SIGN_EXTEND:
+    case ISD::SIGN_EXTEND_VECTOR_INREG:
+      return ISD::SIGN_EXTEND_VECTOR_INREG;
+    }
+    llvm_unreachable("Unknown opcode");
+  }
 
   /// Convert Op, which must be of integer type, to the
   /// integer type VT, by either any-extending or truncating it.
@@ -1049,12 +1082,8 @@ public:
   }
 
   /// Return a node that represents the runtime scaling 'MulImm * RuntimeVL'.
-  SDValue getVScale(const SDLoc &DL, EVT VT, APInt MulImm) {
-    assert(MulImm.getMinSignedBits() <= VT.getSizeInBits() &&
-           "Immediate does not fit VT");
-    return getNode(ISD::VSCALE, DL, VT,
-                   getConstant(MulImm.sextOrTrunc(VT.getSizeInBits()), DL, VT));
-  }
+  SDValue getVScale(const SDLoc &DL, EVT VT, APInt MulImm,
+                    bool ConstantFold = true);
 
   /// Return a GLOBAL_OFFSET_TABLE node. This does not have a useful SDLoc.
   SDValue getGLOBAL_OFFSET_TABLE(EVT VT) {
@@ -1294,6 +1323,8 @@ public:
                   const AAMDNodes &AAInfo = AAMDNodes(),
                   const MDNode *Ranges = nullptr);
   /// FIXME: Remove once transition to Align is over.
+  LLVM_DEPRECATED("Use the getLoad function that takes a MaybeAlign instead",
+                  "")
   inline SDValue
   getLoad(EVT VT, const SDLoc &dl, SDValue Chain, SDValue Ptr,
           MachinePointerInfo PtrInfo, unsigned Alignment,
@@ -1311,16 +1342,6 @@ public:
              MaybeAlign Alignment = MaybeAlign(),
              MachineMemOperand::Flags MMOFlags = MachineMemOperand::MONone,
              const AAMDNodes &AAInfo = AAMDNodes());
-  /// FIXME: Remove once transition to Align is over.
-  inline SDValue
-  getExtLoad(ISD::LoadExtType ExtType, const SDLoc &dl, EVT VT, SDValue Chain,
-             SDValue Ptr, MachinePointerInfo PtrInfo, EVT MemVT,
-             unsigned Alignment,
-             MachineMemOperand::Flags MMOFlags = MachineMemOperand::MONone,
-             const AAMDNodes &AAInfo = AAMDNodes()) {
-    return getExtLoad(ExtType, dl, VT, Chain, Ptr, PtrInfo, MemVT,
-                      MaybeAlign(Alignment), MMOFlags, AAInfo);
-  }
   SDValue getExtLoad(ISD::LoadExtType ExtType, const SDLoc &dl, EVT VT,
                      SDValue Chain, SDValue Ptr, EVT MemVT,
                      MachineMemOperand *MMO);
@@ -1344,6 +1365,8 @@ public:
                    Ranges);
   }
   /// FIXME: Remove once transition to Align is over.
+  LLVM_DEPRECATED("Use the getLoad function that takes a MaybeAlign instead",
+                  "")
   inline SDValue
   getLoad(ISD::MemIndexedMode AM, ISD::LoadExtType ExtType, EVT VT,
           const SDLoc &dl, SDValue Chain, SDValue Ptr, SDValue Offset,
@@ -1378,6 +1401,7 @@ public:
                     MMOFlags, AAInfo);
   }
   /// FIXME: Remove once transition to Align is over.
+  LLVM_DEPRECATED("Use the version that takes a MaybeAlign instead", "")
   inline SDValue
   getStore(SDValue Chain, const SDLoc &dl, SDValue Val, SDValue Ptr,
            MachinePointerInfo PtrInfo, unsigned Alignment,
@@ -1404,6 +1428,7 @@ public:
                          AAInfo);
   }
   /// FIXME: Remove once transition to Align is over.
+  LLVM_DEPRECATED("Use the version that takes a MaybeAlign instead", "")
   inline SDValue
   getTruncStore(SDValue Chain, const SDLoc &dl, SDValue Val, SDValue Ptr,
                 MachinePointerInfo PtrInfo, EVT SVT, unsigned Alignment,
@@ -1888,16 +1913,6 @@ public:
   /// function mirrors \c llvm::salvageDebugInfo.
   void salvageDebugInfo(SDNode &N);
 
-  /// Signal whether instruction referencing variable locations are desired for
-  /// this function's debug-info.
-  void useInstrRefDebugInfo(bool Flag) {
-    UseInstrRefDebugInfo = Flag;
-  }
-
-  bool getUseInstrRefDebugInfo() const {
-    return UseInstrRefDebugInfo;
-  }
-
   void dump() const;
 
   /// In most cases this function returns the ABI alignment for a given type,
@@ -1958,6 +1973,10 @@ public:
   /// Op and Mask are known to be the same type.
   bool MaskedValueIsAllOnes(SDValue Op, const APInt &Mask,
                             unsigned Depth = 0) const;
+
+  /// For each demanded element of a vector, see if it is known to be zero.
+  APInt computeVectorKnownZeroElements(SDValue Op, const APInt &DemandedElts,
+                                       unsigned Depth = 0) const;
 
   /// Determine which bits of Op are known to be either zero or one and return
   /// them in Known. For vectors, the known bits are those that are shared by

@@ -57,12 +57,12 @@ public:
   virtual cl_err_code EnqueueCommand(Command *pCommand, cl_bool bBlocking,
                                      cl_uint uNumEventsInWaitList,
                                      const cl_event *cpEeventWaitList,
-                                     cl_event *pEvent, ApiLogger *apiLogger);
-  virtual cl_err_code
-  EnqueueRuntimeCommandWaitEvents(RUNTIME_COMMAND_TYPE type, Command *pCommand,
-                                  cl_uint uNumEventsInWaitList,
-                                  const cl_event *pEventWaitList,
-                                  cl_event *pEvent, ApiLogger *pApiLogger);
+                                     cl_event *pEvent,
+                                     Utils::ApiLogger *apiLogger);
+  virtual cl_err_code EnqueueRuntimeCommandWaitEvents(
+      RUNTIME_COMMAND_TYPE type, Command *pCommand,
+      cl_uint uNumEventsInWaitList, const cl_event *pEventWaitList,
+      cl_event *pEvent, Utils::ApiLogger *pApiLogger);
   virtual cl_err_code
   WaitForCompletion(const SharedPtr<QueueEvent> &pEvent) override;
   virtual ocl_gpa_data *GetGPAData() const override {

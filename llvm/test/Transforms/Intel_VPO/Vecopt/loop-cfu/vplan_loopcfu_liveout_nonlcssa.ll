@@ -64,7 +64,7 @@ define dso_local void @foo_non_lcssa(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_UPDATE_USE]] i64 [[VP_PHI_UPDATE_USE_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_PHI_USE]] i64 [[VP_PHI_USE_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND_NOT:%.*]] = not i1 [[VP_TAKE_BACKEDGE_COND]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP0]], [[BB8:BB[0-9]+]], [[BB4]]
 ; CHECK-EMPTY:
@@ -154,7 +154,7 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB5]], [[BB1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_INNER_DEF_LCSSA]] i64 [[VP_INNER_DEF_LCSSA_LIVE_OUT_PREV]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP_NOT:%.*]] = not i1 [[VP_SOME_CMP]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_SOME_CMP_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_SOME_CMP_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP0]], [[BB6:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:

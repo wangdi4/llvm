@@ -1,4 +1,4 @@
-; RUN: opt < %s -instcombine -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 ; Verify that %cmp6 in @foo is not optimized due to presence of "pre_loopopt"
 ; attribute.

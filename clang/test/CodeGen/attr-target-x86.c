@@ -1,7 +1,7 @@
 // INTEL_CUSTOMIZATION
-// INTEL_FEATURE_ISA_AMX_LNC
-// UNSUPPORTED: intel_feature_isa_amx_lnc
-// end INTEL_FEATURE_ISA_AMX_LNC
+// INTEL_FEATURE_ISA_AMX_TRANSPOSE
+// UNSUPPORTED: intel_feature_isa_amx_transpose
+// end INTEL_FEATURE_ISA_AMX_TRANSPOSE
 // end INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -triple i686-linux-gnu -target-cpu i686 -tune-cpu i686 -emit-llvm %s -o - | FileCheck %s
 

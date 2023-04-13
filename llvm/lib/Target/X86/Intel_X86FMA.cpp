@@ -45,6 +45,8 @@ static cl::opt<unsigned> FMAControl("x86-global-fma-control",
                                     cl::desc("FMA heuristics control."),
                                     cl::init(0), cl::Hidden);
 
+#define MAX_NUM_FOR_BUILD_TIME 4000
+
 namespace {
 
 class X86FMAImmediateTerm;
@@ -507,8 +509,8 @@ const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::EVEXOpcodes[15][12] = {
 const FMAOpcodesInfo::FMAOpcodeDesc *
 FMAOpcodesInfo::findByOpcode(unsigned Opcode, FMAOpcodeKind OpcodeKind,
                              bool EVEX) {
-  ArrayRef<FMAOpcodeDesc> Table = EVEX ? makeArrayRef(EVEXOpcodes[OpcodeKind])
-                                       : makeArrayRef(VEXOpcodes[OpcodeKind]);
+  ArrayRef<FMAOpcodeDesc> Table = EVEX ? ArrayRef(EVEXOpcodes[OpcodeKind])
+                                       : ArrayRef(VEXOpcodes[OpcodeKind]);
   auto I = llvm::find_if(Table, [Opcode](const FMAOpcodeDesc &OD) {
     return OD.RegOpc == Opcode || OD.MemOpc == Opcode;
   });
@@ -520,8 +522,8 @@ FMAOpcodesInfo::findByOpcode(unsigned Opcode, FMAOpcodeKind OpcodeKind,
 
 const FMAOpcodesInfo::FMAOpcodeDesc *
 FMAOpcodesInfo::findByVT(MVT VT, FMAOpcodeKind OpcodeKind, bool EVEX) {
-  ArrayRef<FMAOpcodeDesc> Table = EVEX ? makeArrayRef(EVEXOpcodes[OpcodeKind])
-                                       : makeArrayRef(VEXOpcodes[OpcodeKind]);
+  ArrayRef<FMAOpcodeDesc> Table = EVEX ? ArrayRef(EVEXOpcodes[OpcodeKind])
+                                       : ArrayRef(VEXOpcodes[OpcodeKind]);
   auto I = llvm::find_if(Table,
                          [VT](const FMAOpcodeDesc &OD) { return OD.VT == VT; });
   if (I != Table.end())
@@ -539,7 +541,9 @@ static bool isADDSUBMULIntrinsic(const MCInstrDesc &Desc) {
 
   // Check the register class of the destination. If it's 128-bit register
   // this is an intrinsic.
-  int16_t RegClassID = Desc.OpInfo[0].RegClass;
+  auto OpInfo =
+      reinterpret_cast<const MCOperandInfo *>(&Desc + Desc.Opcode + 1);
+  int16_t RegClassID = (OpInfo + Desc.OpInfoOffset)[0].RegClass;
   if (RegClassID == X86::VR128RegClassID ||
       RegClassID == X86::VR128XRegClassID)
     return true;
@@ -690,6 +694,16 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(const X86Subtarget *ST,
     switch (VT.getSizeInBits()) {
     case 16:
       return X86::AVX512_FsFLD0SH;
+#if INTEL_FEATURE_ISA_AVX256P
+    case 32:
+      return ST->hasAVX3() ? X86::AVX512_FsFLD0SS : X86::FsFLD0SS;
+    case 64:
+      return ST->hasAVX3() ? X86::AVX512_FsFLD0SD : X86::FsFLD0SD;
+    case 128:
+      return ST->hasAVX3() ? X86::AVX512_128_SET0 : X86::V_SET0;
+    case 256:
+      return ST->hasAVX3() ? X86::AVX512_256_SET0 : X86::AVX_SET0;
+#else // INTEL_FEATURE_ISA_AVX256P
     case 32:
       return ST->hasAVX512() ? X86::AVX512_FsFLD0SS : X86::FsFLD0SS;
     case 64:
@@ -698,6 +712,7 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(const X86Subtarget *ST,
       return ST->hasAVX512() ? X86::AVX512_128_SET0 : X86::V_SET0;
     case 256:
       return ST->hasAVX512() ? X86::AVX512_256_SET0 : X86::AVX_SET0;
+#endif // INTEL_FEATURE_ISA_AVX256P
     case 512:
       assert(ST->hasAVX512() && "Expected AVX512!");
       return X86::AVX512_512_SET0;
@@ -707,8 +722,14 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(const X86Subtarget *ST,
     llvm_unreachable("GlobalFMA: Cannot choose appropriate ZERO opcode.");
   }
 
+#if INTEL_FEATURE_ISA_AVX256P
+  bool HasVLX = ST->hasVLX() || ST->hasAVX256P();
+  bool EVEX =
+      (VT.is128BitVector() || VT.is256BitVector()) ? HasVLX : ST->hasAVX3();
+#else // INTEL_FEATURE_ISA_AVX256P
   bool EVEX = (VT.is128BitVector() || VT.is256BitVector()) ? ST->hasVLX()
                                                            : ST->hasAVX512();
+#endif // INTEL_FEATURE_ISA_AVX256P
   const FMAOpcodeDesc *OD = findByVT(VT, OpcodeKind, EVEX);
   assert(OD != nullptr && "Didn't find in table!");
   return OD->RegOpc;
@@ -972,6 +993,10 @@ public:
   /// The parameter \p MRI is passed to this method to make it possible
   /// to find virtual registers associated with FMARegisterTerms and
   /// having uses that are not recognized as FMAExpr operations.
+  /// TODO: Refine the algorithm for building time. Current global FMA
+  /// algorithm recursively optimate very node when it change (consumed).
+  /// So, we also let parseBasicBlock return 0 to escape go to long time
+  /// optimation when the BB is huge.
   unsigned parseBasicBlock(MachineRegisterInfo *MRI);
 
   /// Updates the <isKill> attribute to machine operands associated with the
@@ -1059,6 +1084,10 @@ unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI) {
     MVT VT;
     FMAOpcodesInfo::FMAOpcodeKind OpcodeKind;
     bool IsMem;
+
+    if (getFMAs().size() > MAX_NUM_FOR_BUILD_TIME)
+      return 0;
+
     if (!FMAOpcodesInfo::recognizeInstr(MI, VT, OpcodeKind, IsMem))
       continue;
     // Sometimes the fast flags lost during the instruction lowering.
@@ -1194,7 +1223,11 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   // have correct latency values for SKL-client and Broadwell without
   // using FMA internal switches. The latency must be already set/written
   // properly to the opcode information, just need to extract/use it properly.
+#if INTEL_FEATURE_ISA_AVX256P
+  if ((ST->hasAVX3() &&
+#else // INTEL_FEATURE_ISA_AVX256P
   if ((ST->hasAVX512() &&
+#endif // INTEL_FEATURE_ISA_AVX256P
        !checkAnyOfFMAFeatures(FMAControls::TargetFMAsMask)) ||
       checkAllFMAFeatures(FMAControls::SkylakeFMAs)) {
     AddSubLatency = 4;
@@ -1627,11 +1660,19 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
     } else if (FK == IsF32) {
       R = MRI->createVirtualRegister(
           ST->getTargetLowering()->getRegClassFor(VT));
+#if INTEL_FEATURE_ISA_AVX256P
+      Opc = ST->hasAVX3() ? X86::VMOVDI2SSZrr : X86::VMOVDI2SSrr;
+#else // INTEL_FEATURE_ISA_AVX256P
       Opc = ST->hasAVX512() ? X86::VMOVDI2SSZrr : X86::VMOVDI2SSrr;
+#endif // INTEL_FEATURE_ISA_AVX256P
     } else {
       R = MRI->createVirtualRegister(
           ST->getTargetLowering()->getRegClassFor(VT));
+#if INTEL_FEATURE_ISA_AVX256P
+      Opc = ST->hasAVX3() ? X86::VMOV64toSDZrr : X86::VMOV64toSDrr;
+#else // INTEL_FEATURE_ISA_AVX256P
       Opc = ST->hasAVX512() ? X86::VMOV64toSDZrr : X86::VMOV64toSDrr;
+#endif // INTEL_FEATURE_ISA_AVX256P
     }
 
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
@@ -1641,8 +1682,13 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   }
 
   // Use a broadcast from GPR if such is available in the target ISA.
+#if INTEL_FEATURE_ISA_AVX256P
+  if (ST->hasAVX3()) {
+    bool UseVLX = (ST->hasVLX() || ST->hasAVX256P()) && VTBitSize <= 256;
+#else // INTEL_FEATURE_ISA_AVX256P
   if (ST->hasAVX512()) {
     bool UseVLX = ST->hasVLX() && VTBitSize <= 256;
+#endif // INTEL_FEATURE_ISA_AVX256P
     unsigned VecBitSize = UseVLX ? VTBitSize : 512;
     unsigned ElemSize =
         FK == IsF16 ? 16 :
@@ -1678,10 +1724,17 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   // For vectors we need to insert into 128 bits and then broadcast.
   unsigned R128 = MRI->createVirtualRegister(&X86::VR128RegClass);
   assert(FK != IsF16 && "FP16 should be handled upper");
+#if INTEL_FEATURE_ISA_AVX256P
+  if (FK == IsF32)
+    Opc = ST->hasAVX3() ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
+  else
+    Opc = ST->hasAVX3() ? X86::VMOV64toPQIZrr : X86::VMOV64toPQIrr;
+#else // INTEL_FEATURE_ISA_AVX256P
   if (FK == IsF32)
     Opc = ST->hasAVX512() ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
   else
     Opc = ST->hasAVX512() ? X86::VMOV64toPQIZrr : X86::VMOV64toPQIrr;
+#endif // INTEL_FEATURE_ISA_AVX256P
   BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
       .addReg(GPReg, RegState::Kill);
 
@@ -1713,41 +1766,54 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   // Get opcode and type for the created const.
   unsigned Opc;
   Type *Ty;
+#if INTEL_FEATURE_ISA_AVX256P
+  bool HasVLX = ST->hasVLX() || ST->hasAVX256P();
+#else  // INTEL_FEATURE_ISA_AVX256P
+  bool HasVLX = ST->hasVLX();
+#endif // INTEL_FEATURE_ISA_AVX256P
   switch (VT.SimpleTy) {
   case MVT::f16:
     Opc = X86::VMOVSHZrm_alt;
     Ty = Type::getHalfTy(Context);
     break;
   case MVT::f32:
+#if INTEL_FEATURE_ISA_AVX256P
+    Opc = ST->hasAVX3() ? X86::VMOVSSZrm_alt : X86::VMOVSSrm_alt;
+#else // INTEL_FEATURE_ISA_AVX256P
     Opc = ST->hasAVX512() ? X86::VMOVSSZrm_alt : X86::VMOVSSrm_alt;
+#endif // INTEL_FEATURE_ISA_AVX256P
     Ty = Type::getFloatTy(Context);
     break;
   case MVT::f64:
+#if INTEL_FEATURE_ISA_AVX256P
+    Opc = ST->hasAVX3() ? X86::VMOVSDZrm_alt : X86::VMOVSDrm_alt;
+#else // INTEL_FEATURE_ISA_AVX256P
     Opc = ST->hasAVX512() ? X86::VMOVSDZrm_alt : X86::VMOVSDrm_alt;
+#endif // INTEL_FEATURE_ISA_AVX256P
     Ty = Type::getDoubleTy(Context);
     break;
   case MVT::v8f16:
-    Opc = ST->hasVLX() ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
+    Opc = HasVLX ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
     Ty = FixedVectorType::get(Type::getHalfTy(Context), 8);
     break;
   case MVT::v4f32:
-    Opc = ST->hasVLX() ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
+    Opc = HasVLX ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
     Ty = FixedVectorType::get(Type::getFloatTy(Context), 4);
     break;
   case MVT::v2f64:
-    Opc = ST->hasVLX() ? X86::VMOVAPDZ128rm : X86::VMOVAPDrm;
+    Opc = HasVLX ? X86::VMOVAPDZ128rm : X86::VMOVAPDrm;
     Ty = FixedVectorType::get(Type::getDoubleTy(Context), 2);
     break;
   case MVT::v16f16:
-    Opc = ST->hasVLX() ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
+    Opc = HasVLX ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
     Ty = FixedVectorType::get(Type::getHalfTy(Context), 16);
     break;
   case MVT::v8f32:
-    Opc = ST->hasVLX() ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
+    Opc = HasVLX ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
     Ty = FixedVectorType::get(Type::getFloatTy(Context), 8);
     break;
   case MVT::v4f64:
-    Opc = ST->hasVLX() ? X86::VMOVAPDZ256rm : X86::VMOVAPDYrm;
+    Opc = HasVLX ? X86::VMOVAPDZ256rm : X86::VMOVAPDYrm;
     Ty = FixedVectorType::get(Type::getDoubleTy(Context), 4);
     break;
   case MVT::v32f16:

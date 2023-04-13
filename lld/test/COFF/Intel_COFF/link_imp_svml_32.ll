@@ -25,11 +25,7 @@
 target datalayout = "e-m:x-p:32:32-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:32-n8:16:32-a:0:32-S32"
 target triple = "i386-pc-windows-msvc"
 
-@llvm.compiler.used = appending global [6 x i8*] [i8* bitcast (<2 x float> (<2 x float>)* @__svml_atanf2 to i8*), i8*
- bitcast (<4 x float> (<4 x float>)* @__svml_atanf4 to i8*), i8* bitcast (<8 x float> (<8 x float>)* @__svml_atanf8
-to i8*), i8* bitcast (<16 x float> (<16 x float>)* @__svml_atanf16 to i8*), i8* bitcast (<32 x float> (<32 x float>
-)* @__svml_atanf32 to i8*), i8* bitcast (<64 x float> (<64 x float>)* @__svml_atanf64 to i8*)], section "llvm.metadata"
-
+@llvm.compiler.used = appending global [6 x ptr] [ptr @__svml_atanf2, ptr @__svml_atanf4, ptr @__svml_atanf8, ptr @__svml_atanf16, ptr @__svml_atanf32, ptr @__svml_atanf64], section "llvm.metadata"
 @_fltused = dllexport local_unnamed_addr global i32 0, align 4
 
 define i32 @main(float %x) {
@@ -39,14 +35,13 @@ entry:
   ret i32 %tmp2
 }
 
-declare dllimport float @atanf(float %x) #0
+declare dllimport float @atanf(float) #0
+declare dllimport <2 x float> @__svml_atanf2(<2 x float>) local_unnamed_addr #0
+declare dllimport <4 x float> @__svml_atanf4(<4 x float>) local_unnamed_addr #0
+declare dllimport <8 x float> @__svml_atanf8(<8 x float>) local_unnamed_addr #0
+declare dllimport <16 x float> @__svml_atanf16(<16 x float>) local_unnamed_addr #0
+declare dllimport <32 x float> @__svml_atanf32(<32 x float>) local_unnamed_addr #0
+declare dllimport <64 x float> @__svml_atanf64(<64 x float>) local_unnamed_addr #0
 
-declare dllimport  <2 x float> @__svml_atanf2(<2 x float>) local_unnamed_addr #0
-declare dllimport  <4 x float> @__svml_atanf4(<4 x float>) local_unnamed_addr #0
-declare dllimport  <8 x float> @__svml_atanf8(<8 x float>) local_unnamed_addr #0
-declare dllimport  <16 x float> @__svml_atanf16(<16 x float>) local_unnamed_addr #0
-declare dllimport  <32 x float> @__svml_atanf32(<32 x float>) local_unnamed_addr #0
-declare dllimport  <64 x float> @__svml_atanf64(<64 x float>) local_unnamed_addr #0
-
-attributes #0 = { nofree nosync nounwind readnone willreturn mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="pentium4" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { nounwind readnone willreturn "vector-function-abi-variant"="_ZGV_LLVM_N2v_atanf(__svml_atanf2),_ZGV_LLVM_N4v_atanf(__svml_atanf4),_ZGV_LLVM_N8v_atanf(__svml_atanf8),_ZGV_LLVM_N16v_atanf(__svml_atanf16),_ZGV_LLVM_N32v_atanf(__svml_atanf32),_ZGV_LLVM_N64v_atanf(__svml_atanf64)" }
+attributes #0 = { mustprogress nofree nosync nounwind willreturn memory(none) "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="pentium4" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #1 = { nounwind willreturn memory(none) "vector-function-abi-variant"="_ZGV_LLVM_N2v_atanf(__svml_atanf2),_ZGV_LLVM_N4v_atanf(__svml_atanf4),_ZGV_LLVM_N8v_atanf(__svml_atanf8),_ZGV_LLVM_N16v_atanf(__svml_atanf16),_ZGV_LLVM_N32v_atanf(__svml_atanf32),_ZGV_LLVM_N64v_atanf(__svml_atanf64)" }

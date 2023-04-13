@@ -24,45 +24,45 @@
 
 #ifndef _WIN32
 extern IOCLDeviceAgent *dev_entry;
-extern std::string gDPCPPAffinity;
-extern std::string gDPCPPPlace;
-extern unsigned int gNumProcessors;
-extern bool gUseHalfProcessors;
+extern std::string SYCLAffinity;
+extern std::string SYCLPlace;
+extern unsigned int NumProcessors;
+extern bool UseHalfProcessors;
 
-class DPCPPAffinityTest : public ::testing::Test {};
+class SYCLAffinityTest : public ::testing::Test {};
 
 #if 0 // temporarily disable this case.
-TEST_F(DPCPPAffinityTest, affinity) {
+TEST_F(SYCLAffinityTest, affinity) {
   const unsigned int *computeUnitMap;
   size_t count;
   dev_entry->clDevGetComputeUnitMap(&computeUnitMap, &count);
-  ASSERT_EQ(gNumProcessors, (unsigned int)count);
+  ASSERT_EQ(NumProcessors, (unsigned int)count);
 
   unsigned int numSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
-  unsigned int numCoresPerSocket = gNumProcessors / numSockets;
-  unsigned int numCoresHalf = gNumProcessors / 2;
+  unsigned int numCoresPerSocket = NumProcessors / numSockets;
+  unsigned int numCoresHalf = NumProcessors / 2;
   unsigned int numUsedProcessors =
-      gUseHalfProcessors ? numCoresHalf : gNumProcessors;
+      UseHalfProcessors ? numCoresHalf : NumProcessors;
 
   std::string errMsg =
-      "Combination of DPCPP_CPU_PLACES=" + gDPCPPPlace +
-      ", DPCPP_CPU_CU_AFFINITY=" + gDPCPPAffinity +
-      " and DPCPP_CPU_NUM_CUS=" + std::to_string(numUsedProcessors) + "/" +
-      std::to_string(gNumProcessors) + " failed at index ";
+      "Combination of SYCL_CPU_PLACES=" + SYCLPlace +
+      ", SYCL_CPU_CU_AFFINITY=" + SYCLAffinity +
+      " and SYCL_CPU_NUM_CUS=" + std::to_string(numUsedProcessors) + "/" +
+      std::to_string(NumProcessors) + " failed at index ";
   for (unsigned int i = 0; i < numUsedProcessors; ++i) {
     unsigned int cpuId = i;
-    if ("close" == gDPCPPAffinity) {
-      if (gUseHalfProcessors)
+    if ("close" == SYCLAffinity) {
+      if (UseHalfProcessors)
         cpuId = i * 2;
-      else if ("cores" == gDPCPPPlace)
+      else if ("cores" == SYCLPlace)
         cpuId = (i % numCoresHalf) * 2 + (i / numCoresHalf);
-    } else if ("spread" == gDPCPPAffinity) {
+    } else if ("spread" == SYCLAffinity) {
       cpuId = (i % numSockets) * numCoresPerSocket;
-      if (gUseHalfProcessors)
+      if (UseHalfProcessors)
         cpuId += (i / numSockets) * 2;
       else {
         if (Intel::OpenCL::Utils::IsHyperThreadingEnabled() &&
-            "cores" == gDPCPPPlace) {
+            "cores" == SYCLPlace) {
           cpuId += ((i - (i % numSockets)) % numCoresHalf) / numSockets * 2 +
                    (i / numCoresHalf);
         } else

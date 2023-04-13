@@ -29,7 +29,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 
 #include <algorithm>
 #include <cmath>

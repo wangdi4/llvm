@@ -37,7 +37,7 @@ ProgramWithIL::ProgramWithIL(SharedPtr<Context> pContext,
 
     for (size_t i = 0; i < m_szNumAssociatedDevices; ++i) {
       // std::unique_ptr<DeviceProgram>& pDevProgram = *I;
-      unique_ptr<DeviceProgram> &pDevProgram = m_ppDevicePrograms[i];
+      std::unique_ptr<DeviceProgram> &pDevProgram = m_ppDevicePrograms[i];
       // pDevProgram.reset(new DeviceProgram());
       pDevProgram.reset(new DeviceProgram());
 

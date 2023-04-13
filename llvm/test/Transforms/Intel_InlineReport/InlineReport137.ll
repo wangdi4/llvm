@@ -1,48 +1,47 @@
-; RUN: opt -passes='function(mem2reg),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup,function(mem2reg),inlinereportemitter' -inline-report=0xea86 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='function(mem2reg),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
+ ; RUN: opt -opaque-pointers -passes='inlinereportsetup,function(mem2reg),inlinereportemitter' -inline-report=0xea86 -S < %s 2>&1 | FileCheck %s
 
 ; Check that llvm.lifetime.start.p0i8 is deleted as dead code.
 
 ; CHECK-LABEL: COMPILE FUNC: i_putchar
-; CHECK: DELETE: llvm.lifetime.start.p0i8 {{.*}}Dead code
+; CHECK: DELETE: llvm.lifetime.start.p0 {{.*}}Dead code
 ; CHECK: EXTERN: fputc
 ; CHECK: EXTERN: fputc
 
-%struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, %struct._IO_codecvt*, %struct._IO_wide_data*, %struct._IO_FILE*, i8*, i64, i32, [20 x i8] }
-%struct._IO_marker = type opaque
-%struct._IO_codecvt = type opaque
-%struct._IO_wide_data = type opaque
+@stdout = external dso_local local_unnamed_addr global ptr, align 8
 
-@stdout = external dso_local local_unnamed_addr global %struct._IO_FILE*, align 8
+declare i32 @fputc(i32, ptr)
 
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+define internal i32 @i_putchar(i8 noundef signext %arg) {
+bb:
+  %i = alloca i8, align 1
+  %i1 = alloca i8, align 1
+  store i8 %arg, ptr %i, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr %i1)
+  store i8 13, ptr %i1, align 1
+  %i2 = icmp eq i8 %arg, 10
+  br i1 %i2, label %bb3, label %bb8
 
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+bb3:                                              ; preds = %bb
+  %i4 = load ptr, ptr @stdout, align 8
+  %i5 = load i8, ptr %i1, align 1
+  %i6 = sext i8 %i5 to i32
+  %i7 = call i32 @fputc(i32 %i6, ptr %i4)
+  br label %bb8
 
-declare i32 @fputc(i32, %struct._IO_FILE*)
-
-define internal i32 @i_putchar(i8 noundef signext %0) #15 {
-  %2 = alloca i8, align 1
-  %3 = alloca i8, align 1
-  store i8 %0, i8* %2, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* %3)
-  store i8 13, i8* %3, align 1
-  %4 = icmp eq i8 %0, 10
-  br i1 %4, label %5, label %10
-
-5:                                                ; preds = %1
-  %6 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %7 = load i8, i8* %3, align 1
-  %8 = sext i8 %7 to i32
-  %9 = call i32 @fputc(i32 %8, %struct._IO_FILE* %6)
-  br label %10
-
-10:                                               ; preds = %5, %1
-  %11 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %12 = load i8, i8* %2, align 1
-  %13 = sext i8 %12 to i32
-  %14 = call i32 @fputc(i32 %13, %struct._IO_FILE* %11)
-  %15 = zext i8 %12 to i32
-  ret i32 %15
+bb8:                                              ; preds = %bb3, %bb
+  %i9 = load ptr, ptr @stdout, align 8
+  %i10 = load i8, ptr %i, align 1
+  %i11 = sext i8 %i10 to i32
+  %i12 = call i32 @fputc(i32 %i11, ptr %i9)
+  %i13 = zext i8 %i10 to i32
+  ret i32 %i13
 }
 
+; Function Attrs: argmemonly nocallback nofree nosync nounwind willreturn
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #0
+
+; Function Attrs: argmemonly nocallback nofree nosync nounwind willreturn
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #0
+
+attributes #0 = { argmemonly nocallback nofree nosync nounwind willreturn }

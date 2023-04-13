@@ -1,4 +1,4 @@
-; RUN: opt -passes=lower-invoke-simd -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=lower-invoke-simd -S < %s | FileCheck %s
 ; This test checks basic functionality of the LowerInvokeSimd pass:
 ; - __builtin_invoke_simd gets lowered as expected
 ; - actual call targets are successfully deduced in practical cases where they

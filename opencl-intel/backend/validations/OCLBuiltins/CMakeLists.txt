@@ -112,7 +112,7 @@ add_opencl_library(
   ${VALIDATIONS_ROOT}/REFALU
   ${REF_CL_BUILTIN_SOURCE_DIR}
   LINK_LIBS
-  LLVMIntel_DPCPPKernelTransforms
+  LLVMSYCLTransforms
   REFALU)
 
 add_dependencies(OCLBuiltinsRef ${TARGET_NAME})

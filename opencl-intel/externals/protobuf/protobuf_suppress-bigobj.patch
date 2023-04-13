@@ -1,0 +1,44 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 04cb3303a..ff548679e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -32,15 +32,6 @@ if(protobuf_DEPRECATED_CMAKE_SUBDIRECTORY_USAGE)
+   get_filename_component(protobuf_SOURCE_DIR ${protobuf_SOURCE_DIR} DIRECTORY)
+ endif()
+ 
+-# Add c++11 flags
+-if (CYGWIN)
+-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
+-else()
+-  set(CMAKE_CXX_STANDARD 11)
+-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+-  set(CMAKE_CXX_EXTENSIONS OFF)
+-endif()
+-
+ # The Intel compiler isn't able to deal with noinline member functions of
+ # template classes defined in headers.  As such it spams the output with
+ #   warning #2196: routine is both "inline" and "noinline"
+@@ -243,9 +234,9 @@ if (MSVC)
+   if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+     # Build with multiple processes
+     add_definitions(/MP)
++    # Set source file and execution character sets to UTF-8
++    add_definitions(/utf-8)
+   endif()
+-  # Set source file and execution character sets to UTF-8
+-  add_definitions(/utf-8)
+   # MSVC warning suppressions
+   add_definitions(
+     /wd4065 # switch statement contains 'default' but no 'case' labels
+@@ -262,7 +253,7 @@ if (MSVC)
+     /wd4996 # The compiler encountered a deprecated declaration.
+   )
+   # Allow big object
+-  add_definitions(/bigobj)
++  add_compile_options(/bigobj)
+   string(REPLACE "/" "\\" PROTOBUF_SOURCE_WIN32_PATH ${protobuf_SOURCE_DIR})
+   string(REPLACE "/" "\\" PROTOBUF_BINARY_WIN32_PATH ${protobuf_BINARY_DIR})
+   string(REPLACE "." ","  protobuf_RC_FILEVERSION "${protobuf_VERSION}")
+-- 
+2.39.1
+

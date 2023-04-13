@@ -32,6 +32,9 @@ public:
         pContext, uiNumStrings, pSources, pszLengths, piRet));
   }
 
+  ProgramWithSource(const ProgramWithSource &) = delete;
+  ProgramWithSource &operator=(const ProgramWithSource &) = delete;
+
   cl_err_code GetInfo(cl_int param_name, size_t param_value_size,
                       void *param_value,
                       size_t *param_value_size_ret) const override;
@@ -53,9 +56,6 @@ protected:
                          const size_t *pszLengths);
 
 private:
-  ProgramWithSource(const ProgramWithSource &);
-  ProgramWithSource &operator=(const ProgramWithSource &);
-
   std::string m_SourceString;
 };
 } // namespace Framework

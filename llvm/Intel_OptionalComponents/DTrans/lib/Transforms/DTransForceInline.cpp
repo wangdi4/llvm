@@ -1,6 +1,6 @@
 //===----- DTransForceInline.cpp - Force inlining/noninling for DTrans ----===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,7 +10,6 @@
 
 #include "Intel_DTrans/Transforms/DTransForceInline.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/MemManageInfoImpl.h"
 #include "Intel_DTrans/Transforms/StructOfArraysInfoImpl.h"
 #include "llvm/IR/InstIterator.h"
@@ -185,21 +184,6 @@ bool DTransForceInline::run(Module &M) {
   return true;
 }
 
-class DTransForceInlineWrapper : public ModulePass {
-public:
-  static char ID;
-
-  DTransForceInlineWrapper() : ModulePass(ID) {
-    initializeDTransForceInlineWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-
-private:
-  DTransForceInlinePass Impl;
-};
-
 } // end anonymous namespace
 
 namespace llvm {
@@ -218,12 +202,3 @@ bool DTransForceInlinePass::runImpl(Module &M) {
 
 } // end namespace dtrans
 } // end namespace llvm
-
-char DTransForceInlineWrapper::ID = 0;
-INITIALIZE_PASS(DTransForceInlineWrapper,
-                "dtrans-force-inline",
-                "DTrans force inline and noinline", false, false)
-
-ModulePass *llvm::createDTransForceInlineWrapperPass() {
-  return new DTransForceInlineWrapper();
-}

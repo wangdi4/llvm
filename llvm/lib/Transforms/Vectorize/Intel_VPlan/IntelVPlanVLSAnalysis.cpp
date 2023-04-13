@@ -17,11 +17,8 @@
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSTransform.h"
-#if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#endif // INTEL_CUSTOMIZATION
-
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-vls-analysis"
@@ -45,6 +42,16 @@ cl::opt<VPlanVLSLevelVariant> VPlanVLSLevel(
                           "Always run OptVLS during loop vectorization")),
     cl::init(VPlanVLSRunAuto));
 
+VPlanVLSAnalysis::VPlanVLSAnalysis(const Loop *MainLoop, LLVMContext &Context,
+                                   const DataLayout &DL,
+                                   TargetTransformInfo *TTI)
+    : MainLoop(MainLoop), Context(Context), DL(DL), TTI(TTI) {
+  // If compiling for -xcore-avx512 and VPlanVLSLevel is set to auto
+  // only allow stride-2 accesses.
+  if (VPlanVLSLevel == VPlanVLSRunAuto &&
+      TTI->isAdvancedOptEnabled(TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512))
+    ForceStride2VLS = true;
+}
 OVLSMemref *
 VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
                                   const unsigned VF,
@@ -71,11 +78,20 @@ VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
 
   // At this point we are not sure if this memref should be created. Perform
   // a check first and only create the memref if it would be constant strided.
+  std::optional<int64_t> Stride;
   if (VPVLSClientMemref::isConstStride(
-          VPInst, static_cast<const VPlanScalarEvolutionLLVM *>(VPSE))) {
+          VPInst, static_cast<const VPlanScalarEvolutionLLVM *>(VPSE),
+          Stride)) {
+
+    // Return null when stride != 2 and Stride2 accesses are forced. Stride is
+    // in bytes and AccessSize is in bits.
+    if (getForceStride2VLS() && ((*Stride / (AccessSize / 8)) != 2))
+      return nullptr;
+
+    bool IsMasked = VPInst->getParent()->getBlockPredicate() != nullptr;
     return VPVLSClientMemref::create(OptVLSContext,
                                      OVLSMemref::VLSK_VPlanVLSClientMemref,
-                                     AccKind, Ty, VPInst, this);
+                                     AccKind, Ty, VPInst, this, IsMasked);
   }
   return nullptr;
 }
@@ -85,7 +101,8 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
 
   // VPlanVLSLevel option allows users to override TTI::isVPlanVLSProfitable().
   if (VPlanVLSLevel == VPlanVLSRunNever ||
-      (VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable()))
+      (VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable() &&
+       !getForceStride2VLS()))
     return;
 
   if (!TTI->isAggressiveVLSProfitable())
@@ -207,7 +224,7 @@ void VPVLSClientMemref::print(raw_ostream &OS, unsigned Indent) const {
 /// memory reference in the \p Group.
 int computeInterleaveIndex(const OVLSMemref *Memref, OVLSGroup *Group) {
   const OVLSMemref *FirstMemref = Group->getFirstMemref();
-  Optional<int64_t> Offset = Memref->getConstDistanceFrom(*FirstMemref);
+  std::optional<int64_t> Offset = Memref->getConstDistanceFrom(*FirstMemref);
   assert(Offset && "Memref is from another group?");
 
   auto ElementSizeInBits = Memref->getType().getElementSize();
@@ -220,7 +237,7 @@ int computeInterleaveIndex(const OVLSMemref *Memref, OVLSGroup *Group) {
 
 /// InterleaveFactor is a stride of a \p Memref (in elements).
 int computeInterleaveFactor(const OVLSMemref *Memref) {
-  Optional<int64_t> Stride = Memref->getConstStride();
+  std::optional<int64_t> Stride = Memref->getConstStride();
   assert(Stride && "Interleave factor requested for non-strided accesses");
 
   auto ElementSizeInBits = Memref->getType().getElementSize();

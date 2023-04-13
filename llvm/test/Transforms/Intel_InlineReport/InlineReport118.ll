@@ -1,7 +1,7 @@
-; RUN: opt < %s -passes='require<profile-summary>,cgscc(inline)' -S -inline-report=0xe807 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -passes='inlinereportsetup,require<profile-summary>,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -opaque-pointers < %s -passes='require<profile-summary>,cgscc(inline)' -S -inline-report=0xe807 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,require<profile-summary>,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
-; Test that functions with attribute Hot are inlined while the 
+; Test that functions with attribute Hot are inlined while the
 ; same function without attribute Hot will not be inlined.
 
 ; CHECK-CL-LABEL: define i32 @simpleFunction(i32 %a)
@@ -30,38 +30,38 @@
 
 @a = global i32 4
 
-; This function should be greater than the default threshold (225).
 ; Function Attrs: nounwind readnone uwtable
-define i32 @simpleFunction(i32 %a) #0 "function-inline-cost"="1000" {
+define i32 @simpleFunction(i32 %a) #0 {
 entry:
   ret i32 %a
 }
 
-; This function should be smaller than the default threshold (225).
-; Function Attrs: nounwind cold readnone uwtable
-define i32 @HotFunction(i32 %a) #1 "function-inline-cost"="220" {
+; Function Attrs: hot nounwind readnone uwtable
+define i32 @HotFunction(i32 %a) #1 {
 entry:
   ret i32 %a
 }
 
-; This function should be larger than the default threshold (225), but
-; smaller than the hot threshold (325).
-define i32 @HotFunction2(i32 %a) #1 "function-inline-cost"="320" {
+; Function Attrs: hot nounwind readnone uwtable
+define i32 @HotFunction2(i32 %a) #2 {
 entry:
   ret i32 %a
 }
 
 ; Function Attrs: nounwind readnone uwtable
-define i32 @bar(i32 %a) #0 {
+define i32 @bar(i32 %a) #3 {
 entry:
-  %0 = tail call i32 @HotFunction(i32 5)
-  %1 = tail call i32 @simpleFunction(i32 6)
-  %2 = tail call i32 @HotFunction2(i32 5)
-  %3 = add i32 %0, %1
-  %add = add i32 %2, %3
+  %i = tail call i32 @HotFunction(i32 5)
+  %i1 = tail call i32 @simpleFunction(i32 6)
+  %i2 = tail call i32 @HotFunction2(i32 5)
+  %i3 = add i32 %i, %i1
+  %add = add i32 %i2, %i3
   ret i32 %add
 }
 
 declare void @extern()
-attributes #0 = { nounwind readnone uwtable }
-attributes #1 = { nounwind hot readnone uwtable }
+
+attributes #0 = { nounwind readnone uwtable "function-inline-cost"="1000" }
+attributes #1 = { hot nounwind readnone uwtable "function-inline-cost"="220" }
+attributes #2 = { hot nounwind readnone uwtable "function-inline-cost"="320" }
+attributes #3 = { nounwind readnone uwtable }

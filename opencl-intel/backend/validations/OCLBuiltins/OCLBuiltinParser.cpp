@@ -21,9 +21,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 #include <iostream>
 #include <map>
 #include <sstream>
@@ -146,6 +146,9 @@ std::map<OCLBuiltinParser::BasicArgType, reflection::TypePrimitiveEnum>
 // taken from source http://www.yolinux.com/TUTORIALS/C++Singleton.html
 template <class T> class Singleton {
 public:
+  Singleton(Singleton const &) = delete;
+  Singleton &operator=(Singleton const &) = delete;
+
   static T *Instance() {
     if (!m_pInstance)
       m_pInstance = new T;
@@ -158,8 +161,6 @@ protected:
   ~Singleton();
 
 private:
-  Singleton(Singleton const &);
-  Singleton &operator=(Singleton const &);
   static T *m_pInstance;
 };
 template <class T> T *Singleton<T>::m_pInstance = NULL;

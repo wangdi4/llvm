@@ -1,7 +1,11 @@
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
-; This lit test checks that a resolver function carries the same target-cpu,
-; tune-cpu and target-features attributes of the cloned function.
+; This lit test checks that a resolver function's "target-cpu" and "tune-cpu" attributes
+; are set to the "target-cpu" and "tune-cpu" attributes of the cloned function respectively.
+;
+; This lit test also checks that a resolver function's "target-features" attribute
+; is set to the feature-set of the "target-cpu", and never copied over from the
+; "target-features" attribute of the base/generic clone.
 ;
 ; Source for this LLVM IR:
 ; int f1 () { return 0; }
@@ -20,7 +24,8 @@ entry:
   ret i32 0
 }
 
-attributes #0 = { nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #0 = { nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+avx,+avx2,+avx512f,+crc32,+cx8,+f16c,+fma,+fxsr,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+
 
 !0 = !{!1}
 !1 = !{!"auto-cpu-dispatch-target", !"skylake-avx512"}

@@ -37,35 +37,9 @@ public:
   void transformSOAGEPs(unsigned InVF);
 
 private:
-  /// Return \true if the given GEP is not a SOA-unit-stride GEP.
-  bool isSOANonUnitStridedGEP(VPInstruction *I);
-
-  /// Return \true if the given GEP is a SOA-unit-stride GEP.
-  bool isSOAUnitStridedGEP(VPInstruction *I);
-
-  /// Update the shape of dependent PHIs.
-  void updateDependentPHIs(VPInstruction *I);
-
-  /// Method which clones the instruction if predicate \p Pred is false for its
-  /// users. The cloned instruction is replaced in all users for which \p Pred
-  /// is false.
-  void cloneAndReplaceUses(VPInstruction *I,
-                           std::function<bool(const VPUser *)> Pred);
-
-  /// Transform SOA-unitstride GEPs to GEPs which return a vector of pointers to
-  /// the base-addresses of each element.
-  void transformSOAUnitStrideGEPs(VPGEPInstruction *I);
-
-  /// Transform SOA-non-unitstride GEPs to GEPs which return a vector of pointers
-  /// to the base-addresses of each element.
-  void transformSOANonUnitStrideGEPs(VPGEPInstruction *I);
-
   VPlanVector &Plan;
-
   VPlanDivergenceAnalysis &DA;
-
   unsigned VF;
-
   VPBuilder Builder;
 };
 

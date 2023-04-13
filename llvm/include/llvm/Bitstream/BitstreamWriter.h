@@ -1,4 +1,21 @@
 //===- BitstreamWriter.h - Low-level bitstream writer interface -*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -111,8 +128,8 @@ public:
   /// valid. Flushing only occurs at (sub)block boundaries.
   BitstreamWriter(SmallVectorImpl<char> &O, raw_fd_stream *FS = nullptr,
                   uint32_t FlushThreshold = 512)
-      : Out(O), FS(FS), FlushThreshold(FlushThreshold << 20), CurBit(0),
-        CurValue(0), CurCodeSize(2) {}
+      : Out(O), FS(FS), FlushThreshold(uint64_t(FlushThreshold) << 20), // INTEL
+        CurBit(0), CurValue(0), CurCodeSize(2) {}                       // INTEL
 
   ~BitstreamWriter() {
     assert(CurBit == 0 && "Unflushed data remaining");
@@ -385,12 +402,12 @@ private:
       const BitCodeAbbrevOp &Op = Abbv->getOperandInfo(i++);
 
       if (Op.isLiteral())
-        EmitAbbreviatedLiteral(Op, Code.value());
+        EmitAbbreviatedLiteral(Op, *Code);
       else {
         assert(Op.getEncoding() != BitCodeAbbrevOp::Array &&
                Op.getEncoding() != BitCodeAbbrevOp::Blob &&
                "Expected literal or scalar");
-        EmitAbbreviatedField(Op, Code.value());
+        EmitAbbreviatedField(Op, *Code);
       }
     }
 
@@ -474,7 +491,7 @@ public:
       Out.push_back(0);
   }
   void emitBlob(StringRef Bytes, bool ShouldEmitSize = true) {
-    emitBlob(makeArrayRef((const uint8_t *)Bytes.data(), Bytes.size()),
+    emitBlob(ArrayRef((const uint8_t *)Bytes.data(), Bytes.size()),
              ShouldEmitSize);
   }
 
@@ -485,7 +502,7 @@ public:
     if (!Abbrev) {
       // If we don't have an abbrev to use, emit this in its fully unabbreviated
       // form.
-      auto Count = static_cast<uint32_t>(makeArrayRef(Vals).size());
+      auto Count = static_cast<uint32_t>(std::size(Vals));
       EmitCode(bitc::UNABBREV_RECORD);
       EmitVBR(Code, 6);
       EmitVBR(Count, 6);
@@ -494,7 +511,7 @@ public:
       return;
     }
 
-    EmitRecordWithAbbrevImpl(Abbrev, makeArrayRef(Vals), StringRef(), Code);
+    EmitRecordWithAbbrevImpl(Abbrev, ArrayRef(Vals), StringRef(), Code);
   }
 
   /// EmitRecordWithAbbrev - Emit a record with the specified abbreviation.
@@ -502,8 +519,7 @@ public:
   /// the first entry.
   template <typename Container>
   void EmitRecordWithAbbrev(unsigned Abbrev, const Container &Vals) {
-    EmitRecordWithAbbrevImpl(Abbrev, makeArrayRef(Vals), StringRef(),
-                             std::nullopt);
+    EmitRecordWithAbbrevImpl(Abbrev, ArrayRef(Vals), StringRef(), std::nullopt);
   }
 
   /// EmitRecordWithBlob - Emit the specified record to the stream, using an
@@ -514,12 +530,12 @@ public:
   template <typename Container>
   void EmitRecordWithBlob(unsigned Abbrev, const Container &Vals,
                           StringRef Blob) {
-    EmitRecordWithAbbrevImpl(Abbrev, makeArrayRef(Vals), Blob, std::nullopt);
+    EmitRecordWithAbbrevImpl(Abbrev, ArrayRef(Vals), Blob, std::nullopt);
   }
   template <typename Container>
   void EmitRecordWithBlob(unsigned Abbrev, const Container &Vals,
                           const char *BlobData, unsigned BlobLen) {
-    return EmitRecordWithAbbrevImpl(Abbrev, makeArrayRef(Vals),
+    return EmitRecordWithAbbrevImpl(Abbrev, ArrayRef(Vals),
                                     StringRef(BlobData, BlobLen), std::nullopt);
   }
 
@@ -528,14 +544,13 @@ public:
   template <typename Container>
   void EmitRecordWithArray(unsigned Abbrev, const Container &Vals,
                            StringRef Array) {
-    EmitRecordWithAbbrevImpl(Abbrev, makeArrayRef(Vals), Array, std::nullopt);
+    EmitRecordWithAbbrevImpl(Abbrev, ArrayRef(Vals), Array, std::nullopt);
   }
   template <typename Container>
   void EmitRecordWithArray(unsigned Abbrev, const Container &Vals,
                            const char *ArrayData, unsigned ArrayLen) {
-    return EmitRecordWithAbbrevImpl(Abbrev, makeArrayRef(Vals),
-                                    StringRef(ArrayData, ArrayLen),
-                                    std::nullopt);
+    return EmitRecordWithAbbrevImpl(
+        Abbrev, ArrayRef(Vals), StringRef(ArrayData, ArrayLen), std::nullopt);
   }
 
   //===--------------------------------------------------------------------===//

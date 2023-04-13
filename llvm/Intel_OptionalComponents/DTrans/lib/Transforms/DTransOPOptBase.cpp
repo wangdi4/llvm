@@ -1,6 +1,6 @@
 //===--- DTransOPOptBase.cpp - Base class for DTrans Transforms -----==//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -188,7 +188,8 @@ DTransOPTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
     return CurMapping;
 
   if (SrcTy->isPointerTy() && !UsingOpaquePtrs) {
-    Type *ReplTy = computeReplacementType(SrcTy->getPointerElementType());
+    Type *ReplTy =
+        computeReplacementType(SrcTy->getNonOpaquePointerElementType());
     if (!ReplTy)
       return nullptr;
     return ReplTy->getPointerTo();
@@ -233,7 +234,7 @@ DTransOPTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
     }
 
     if (NeedsReplaced)
-      return FunctionType::get(ReplRetTy, makeArrayRef(DataTypes),
+      return FunctionType::get(ReplRetTy, ArrayRef(DataTypes),
                                FunctionTy->isVarArg());
   }
 
@@ -924,7 +925,7 @@ void DTransOPOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
   // have been processed. The aliases need to be processed before the global
   // variable initializers are remapped in case a variable makes use of an
   // alias instead of the original variable or function.
-  for (auto &Alias : M.getAliasList()) {
+  for (auto &Alias : M.aliases()) {
     Constant *Aliasee = Alias.getAliasee();
     // If the Aliasee is being mapped to something other than itself,
     // then this GlobalAlias needs to be updated.
@@ -1022,7 +1023,7 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
             CInfo, cast<Instruction>(TheVMap[CInfo->getInstruction()]));
 
       dtrans::CallInfoElementTypes &ElementTypes = CInfo->getElementTypesRef();
-      for (auto &I : enumerate(ElementTypes))
+      for (const auto &I : enumerate(ElementTypes))
         ElementTypes.setElemType(
             I.index(), TheTypeRemapper.remapType(I.value().getDTransType()));
     }
@@ -1223,7 +1224,7 @@ void DTransOPOptBase::updateAttributeTypes(Function *F) {
   };
 
   LLVMContext &Context = F->getContext();
-  for (auto &A : enumerate(F->args())) {
+  for (const auto &A : enumerate(F->args())) {
     // The attributes are mutually exclusive. Just find if any are present,
     // and update the type if needed.
     if (A.value().hasByValAttr()) {

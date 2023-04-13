@@ -22,8 +22,6 @@
 #include <cl_types.h>
 #include <list>
 
-using namespace std;
-
 namespace Intel {
 namespace OpenCL {
 namespace Framework {

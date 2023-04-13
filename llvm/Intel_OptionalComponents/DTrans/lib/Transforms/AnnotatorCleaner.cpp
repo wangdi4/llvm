@@ -1,6 +1,6 @@
 //===-----------AnnotatorCleaner.cpp - AnnotatorCleanerPass----------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,7 +18,6 @@
 
 #include "Intel_DTrans/Transforms/AnnotatorCleaner.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
@@ -26,30 +25,6 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "dtrans-annotatorcleaner"
-
-namespace {
-class DTransAnnotatorCleanerWrapper : public ModulePass {
-private:
-  dtrans::AnnotatorCleanerPass Impl;
-
-public:
-  static char ID;
-
-  DTransAnnotatorCleanerWrapper() : ModulePass(ID) {
-    initializeDTransAnnotatorCleanerWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    return Impl.runImpl(M, getAnalysis<WholeProgramWrapperPass>().getResult());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-} //  end anonymous namespace
 
 PreservedAnalyses dtrans::AnnotatorCleanerPass::run(Module &M,
                                                     ModuleAnalysisManager &AM) {
@@ -110,15 +85,4 @@ bool dtrans::AnnotatorCleanerPass::cleanFunction(Function &F) {
   }
 
   return Changed;
-}
-
-char DTransAnnotatorCleanerWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransAnnotatorCleanerWrapper, "dtrans-annotator-cleaner",
-                "DTrans annotator cleaner", false, false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransAnnotatorCleanerWrapper, "dtrans-annotator-cleaner",
-  "DTrans annotator cleaner", false, false)
-
-ModulePass *llvm::createDTransAnnotatorCleanerWrapperPass() {
-  return new DTransAnnotatorCleanerWrapper();
 }

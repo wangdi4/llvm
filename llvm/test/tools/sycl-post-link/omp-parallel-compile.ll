@@ -49,8 +49,8 @@ target triple = "spir64"
 
 @arr = protected target_declare addrspace(1) global i32 0, align 4
 @brr = internal addrspace(1) global i32 0, align 4
-@__omp_offloading_fc09_26904c__Z4main_l19_kernel_info = weak target_declare local_unnamed_addr addrspace(1) constant %0 { i32 4, i32 2, [2 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
-@__omp_offloading_fc09_26904c__Z4main_l24_kernel_info = weak target_declare local_unnamed_addr addrspace(1) constant %0 { i32 4, i32 2, [2 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
+@__omp_offloading_fc09_26904c__Z4main_l19_kernel_info = weak target_declare local_unnamed_addr addrspace(1) constant %0 { i32 5, i32 2, [2 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
+@__omp_offloading_fc09_26904c__Z4main_l24_kernel_info = weak target_declare local_unnamed_addr addrspace(1) constant %0 { i32 5, i32 2, [2 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
 @.omp_offloading.entry_name = internal target_declare unnamed_addr addrspace(2) constant [7 x i8] c"_Z3arr\00"
 @.omp_offloading.entry._Z3arr = weak target_declare local_unnamed_addr addrspace(1) constant %struct.__tgt_offload_entry { i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i32 addrspace(1)* @arr to i8 addrspace(1)*) to i8 addrspace(4)*), i8 addrspace(2)* getelementptr inbounds ([7 x i8], [7 x i8] addrspace(2)* @.omp_offloading.entry_name, i32 0, i32 0), i64 4, i32 0, i32 0, i64 7 }, section "omp_offloading_entries"
 @.omp_offloading.entry_name.1 = internal target_declare unnamed_addr addrspace(2) constant [7 x i8] c"_Z3brr\00"

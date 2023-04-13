@@ -35,6 +35,7 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 
 #if INTEL_COLLAB
 /// API functions that can access host-to-target data map need to load device
@@ -110,6 +111,20 @@ EXTERN void llvm_omp_target_free_shared(void *Ptre, int DeviceNum) {
 EXTERN void *llvm_omp_target_dynamic_shared_alloc() { return nullptr; }
 EXTERN void *llvm_omp_get_dynamic_shared() { return nullptr; }
 
+#if INTEL_CUSTOMIZATION
+EXTERN_ATTR([[nodiscard]])
+void *llvm_omp_target_lock_mem(void *Ptr, size_t Size, int DeviceNum) {
+#else  // INTEL_CUSTOMIZATION
+EXTERN [[nodiscard]] void *llvm_omp_target_lock_mem(void *Ptr, size_t Size,
+                                                    int DeviceNum) {
+#endif // INTEL_CUSTOMIZATION
+  return targetLockExplicit(Ptr, Size, DeviceNum, __func__);
+}
+
+EXTERN void llvm_omp_target_unlock_mem(void *Ptr, int DeviceNum) {
+  targetUnlockExplicit(Ptr, DeviceNum, __func__);
+}
+
 EXTERN int omp_target_is_present(const void *Ptr, int DeviceNum) {
   TIMESCOPE();
   DP("Call to omp_target_is_present for device %d and address " DPxMOD "\n",
@@ -138,16 +153,13 @@ EXTERN int omp_target_is_present(const void *Ptr, int DeviceNum) {
 #endif // INTEL_COLLAB
 
   DeviceTy &Device = *PM->Devices[DeviceNum];
-  bool IsLast; // not used
-  bool IsHostPtr;
   // omp_target_is_present tests whether a host pointer refers to storage that
   // is mapped to a given device. However, due to the lack of the storage size,
   // only check 1 byte. Cannot set size 0 which checks whether the pointer (zero
   // lengh array) is mapped instead of the referred storage.
-  TargetPointerResultTy TPR =
-      Device.getTgtPtrBegin(const_cast<void *>(Ptr), 1, IsLast,
-                            /*UpdateRefCount=*/false,
-                            /*UseHoldRefCount=*/false, IsHostPtr);
+  TargetPointerResultTy TPR = Device.getTgtPtrBegin(const_cast<void *>(Ptr), 1,
+                                                    /*UpdateRefCount=*/false,
+                                                    /*UseHoldRefCount=*/false);
   int Rc = TPR.isPresent();
   DP("Call to omp_target_is_present returns %d\n", Rc);
   return Rc;
@@ -232,6 +244,42 @@ EXTERN int omp_target_memcpy(void *Dst, const void *Src, size_t Length,
   return Rc;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Use optimized copy methods if device supports.
+static int memcpyRect3D(void *Dst, const void *Src, size_t ElementSize,
+                        int NumDims, const size_t *Volume,
+                        const size_t *DstOffsets, const size_t *SrcOffsets,
+                        const size_t *DstDims, const size_t *SrcDims,
+                        int DstDevice, int SrcDevice) {
+  // Only 2D or 3D volume is expected here
+  if (NumDims != 2 && NumDims != 3)
+    return OFFLOAD_FAIL;
+  if (!Dst || !Src || ElementSize == 0 || !Volume || !DstOffsets ||
+      !SrcOffsets || !DstDims || !SrcDims)
+    return OFFLOAD_FAIL;
+
+  int InitDevice = omp_get_initial_device();
+  int DeviceNum = InitDevice;
+  if (DstDevice != InitDevice) {
+    DeviceNum = DstDevice;
+  } else if (SrcDevice != InitDevice) {
+    DeviceNum = SrcDevice;
+  } else {
+    return OFFLOAD_FAIL; // Let omp_target_memcpy_rect() handle this case
+  }
+
+  if (!deviceIsReady(DeviceNum)) {
+    REPORT("Device %" PRId32 " is not ready.\n", DeviceNum);
+    return OFFLOAD_FAIL;
+  }
+
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+
+  return Device.memcpyRect3D(Dst, Src, ElementSize, NumDims, Volume, DstOffsets,
+                             SrcOffsets, DstDims, SrcDims);
+}
+#endif // INTEL_CUSTOMIZATION
+
 EXTERN int
 omp_target_memcpy_rect(void *Dst, const void *Src, size_t ElementSize,
                        int NumDims, const size_t *Volume,
@@ -269,6 +317,15 @@ omp_target_memcpy_rect(void *Dst, const void *Src, size_t ElementSize,
                            ElementSize * DstOffsets[0],
                            ElementSize * SrcOffsets[0], DstDevice, SrcDevice);
   } else {
+#if INTEL_CUSTOMIZATION
+    if (NumDims <= 3) {
+      Rc = memcpyRect3D(Dst, Src, ElementSize, NumDims, Volume, DstOffsets,
+                        SrcOffsets, DstDimensions, SrcDimensions, DstDevice,
+                        SrcDevice);
+      if (Rc == OFFLOAD_SUCCESS)
+        return Rc;
+    }
+#endif // INTEL_CUSTOMIZATION
     size_t DstSliceSize = ElementSize;
     size_t SrcSliceSize = ElementSize;
     for (int I = 1; I < NumDims; ++I) {
@@ -360,38 +417,8 @@ EXTERN int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum) {
   DP("omp_target_disassociate_ptr returns %d\n", Rc);
   return Rc;
 }
+
 #if INTEL_COLLAB
-EXTERN void *omp_get_mapped_ptr(void *HostPtr, int DeviceNum) {
-  DP("Call to omp_get_mapped_ptr with host pointer " DPxMOD
-     ", device number %d\n", DPxPTR(HostPtr), DeviceNum);
-
-  if (!HostPtr) {
-    DP("Call to omp_get_mapped_ptr with invalid host pointer\n");
-    return NULL;
-  }
-
-  if (DeviceNum == omp_get_initial_device()) {
-    DP("omp_get_mapped_ptr: Mapped pointer is same as host\n");
-    return HostPtr;
-  }
-
-  if (!deviceIsReady(DeviceNum)) {
-    DP("omp_get_mapped_ptr: returns NULL\n");
-    return NULL;
-  }
-  CHECK_DEVICE_AND_CTORS_RET(DeviceNum, NULL);
-
-  DeviceTy& Device = *PM->Devices[DeviceNum];
-  bool IsLast, IsHostPtr;
-  TargetPointerResultTy TPR = Device.getTgtPtrBegin(HostPtr, 1, IsLast, false,
-                                                    false, IsHostPtr);
-  void *TgtPtr = TPR.TargetPointer;
-  if (TgtPtr == NULL)
-    DP("omp_get_mapped_ptr: cannot find device pointer\n");
-  DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(TgtPtr));
-  return TgtPtr;
-}
-
 EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
                                     int DeviceNum) {
   TIMESCOPE();
@@ -932,5 +959,75 @@ EXTERN int ompx_target_prefetch_shared_mem(
 
   return Ret;
 }
-#endif  // INTEL_COLLAB
 
+EXTERN int ompx_get_device_from_ptr(const void *Ptr) {
+  int Ret = omp_get_initial_device();
+
+  // Use the first device to access the RTL
+  if (!Ptr || !deviceIsReady(0)) {
+    DP("%s returns initial device for the pointer " DPxMOD "\n", __func__,
+       DPxPTR(Ptr));
+    return Ret;
+  }
+
+  DeviceTy &Device = *PM->Devices[0];
+  if (!Device.RTL->get_device_from_ptr)
+    return Ret;
+
+  int DeviceNum = Device.RTL->get_device_from_ptr(Ptr);
+  // Expect RTL returning negative value if Ptr does not belong to any device
+  if (DeviceNum >= 0)
+    Ret = DeviceNum;
+
+  return Ret;
+}
+#endif // INTEL_COLLAB
+
+EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum) {
+  TIMESCOPE();
+  DP("Call to omp_get_mapped_ptr with ptr " DPxMOD ", device_num %d.\n",
+     DPxPTR(Ptr), DeviceNum);
+
+  if (!Ptr) {
+    REPORT("Call to omp_get_mapped_ptr with nullptr.\n");
+    return nullptr;
+  }
+
+  if (DeviceNum == omp_get_initial_device()) {
+    REPORT("Device %d is initial device, returning Ptr " DPxMOD ".\n",
+           DeviceNum, DPxPTR(Ptr));
+    return const_cast<void *>(Ptr);
+  }
+
+  int DevicesSize = omp_get_initial_device();
+  {
+    std::lock_guard<std::mutex> LG(PM->RTLsMtx);
+    DevicesSize = PM->Devices.size();
+  }
+  if (DevicesSize <= DeviceNum) {
+    DP("DeviceNum %d is invalid, returning nullptr.\n", DeviceNum);
+    return nullptr;
+  }
+
+  if (!deviceIsReady(DeviceNum)) {
+    REPORT("Device %d is not ready, returning nullptr.\n", DeviceNum);
+    return nullptr;
+  }
+#if INTEL_COLLAB
+  CHECK_DEVICE_AND_CTORS_RET(DeviceNum, nullptr);
+#endif // INTEL_COLLAB
+
+  auto &Device = *PM->Devices[DeviceNum];
+  TargetPointerResultTy TPR = Device.getTgtPtrBegin(const_cast<void *>(Ptr), 1,
+                                                    /*UpdateRefCount=*/false,
+                                                    /*UseHoldRefCount=*/false);
+  if (!TPR.isPresent()) {
+    DP("Ptr " DPxMOD "is not present on device %d, returning nullptr.\n",
+       DPxPTR(Ptr), DeviceNum);
+    return nullptr;
+  }
+
+  DP("omp_get_mapped_ptr returns " DPxMOD ".\n", DPxPTR(TPR.TargetPointer));
+
+  return TPR.TargetPointer;
+}

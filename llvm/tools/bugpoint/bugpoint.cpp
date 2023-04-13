@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -47,12 +47,8 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/DTransCommon.h"
-#endif // INTEL_FEATURE_SW_DTRANS
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif // INTEL_CUSTOMIZATION
 
 // Enable this macro to debug bugpoint itself.
@@ -139,26 +135,6 @@ public:
 };
 }
 
-// This routine adds optimization passes based on selected optimization level,
-// OptLevel.
-//
-// OptLevel - Optimization Level
-static void AddOptimizationPasses(legacy::FunctionPassManager &FPM,
-                                  unsigned OptLevel,
-                                  unsigned SizeLevel) {
-  PassManagerBuilder Builder;
-  Builder.OptLevel = OptLevel;
-  Builder.SizeLevel = SizeLevel;
-
-  if (OptLevel > 1)
-    Builder.Inliner = createFunctionInliningPass(OptLevel, SizeLevel, false);
-  else
-    Builder.Inliner = createAlwaysInlinerLegacyPass();
-
-  Builder.populateFunctionPassManager(FPM);
-  Builder.populateModulePassManager(FPM);
-}
-
 #define HANDLE_EXTENSION(Ext)                                                  \
   llvm::PassPluginLibraryInfo get##Ext##PluginInfo();
 #include "llvm/Support/Extension.def"
@@ -187,9 +163,6 @@ int main(int argc, char **argv) {
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
-#if INTEL_FEATURE_SW_DTRANS
-  initializeDTransPasses(Registry);
-#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
@@ -245,21 +218,9 @@ int main(int argc, char **argv) {
 #ifdef INTEL_CUSTOMIZATION
   if (StandardLinkOpts) {
     PassManagerBuilder Builder;
-    Builder.Inliner = createFunctionInliningPass();
     Builder.populateLTOPassManager(PM);
   }
 #endif // INTEL_CUSTOMIZATION
-
-  if (OptLevelO1)
-    AddOptimizationPasses(PM, 1, 0);
-  else if (OptLevelO2)
-    AddOptimizationPasses(PM, 2, 0);
-  else if (OptLevelO3)
-    AddOptimizationPasses(PM, 3, 0);
-  else if (OptLevelOs)
-    AddOptimizationPasses(PM, 2, 1);
-  else if (OptLevelOz)
-    AddOptimizationPasses(PM, 2, 2);
 
   for (const PassInfo *PI : PassList)
     D.addPass(std::string(PI->getPassArgument()));

@@ -1,6 +1,6 @@
 //===---- SOAToAOSOPPrepare.cpp - SOAToAOSOPPreparePass -------------------===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -211,7 +211,6 @@
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 
@@ -796,7 +795,7 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
                                 DTransOPTypeRemapper &TypeRemapper) {
     dtrans::CallInfoElementTypes &ElementTypes = CInfo->getElementTypesRef();
 
-    for (auto &I : enumerate(ElementTypes))
+    for (const auto &I : enumerate(ElementTypes))
       ElementTypes.setElemType(
           I.index(), TypeRemapper.remapType(I.value().getDTransType()));
   };
@@ -1500,7 +1499,7 @@ Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
     }
 
     // Get function body for NF.
-    NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+    NF->splice(NF->begin(), F);
 
     // Fix argument usages since dead arg is moved at the end of param list,
     Pos = 0;
@@ -2040,7 +2039,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     // Load base array of vector
     Value *GEP = IRB.CreateInBoundsGEP(NewLLVMElemTy, ThisPtr, Indices, "");
     auto Align =
-        MaybeAlign(M.getDataLayout().getABITypeAlignment(Elem->getType()));
+        MaybeAlign(M.getDataLayout().getABITypeAlign(Elem->getType()));
     LoadInst *Load =
         IRB.CreateAlignedLoad(Elem->getType()->getPointerTo(0), GEP, Align, "");
     Value *NewIdx = IRB.CreateZExtOrTrunc(Idx, IRB.getInt64Ty());
@@ -2530,7 +2529,7 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
 
   updateCallBase(CB, NewPAL, NF, NewArgs);
 
-  NF->getBasicBlockList().splice(NF->begin(), AppendFunc->getBasicBlockList());
+  NF->splice(NF->begin(), AppendFunc);
 
   // Update argument uses.
   unsigned Pos = 0;
@@ -2810,68 +2809,3 @@ PreservedAnalyses SOAToAOSOPPreparePass::run(Module &M,
 
 } // namespace dtransOP
 } // end namespace llvm
-
-namespace {
-class DTransSOAToAOSOPPrepareWrapper : public ModulePass {
-private:
-  dtransOP::SOAToAOSOPPreparePass Impl;
-
-public:
-  static char ID;
-
-  DTransSOAToAOSOPPrepareWrapper() : ModulePass(ID) {
-    initializeDTransSOAToAOSOPPrepareWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto &DTAnalysisWrapper = getAnalysis<DTransSafetyAnalyzerWrapper>();
-    DTransSafetyInfo &DTInfo = DTAnalysisWrapper.getDTransSafetyInfo(M);
-    SOADominatorTreeType GetDT = [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-    auto GetTLI = [this](const Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    auto GetBFI = [this](Function &F) -> BlockFrequencyInfo & {
-      return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
-    };
-
-    bool Changed = Impl.runImpl(
-        M, DTInfo, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(),
-        GetDT, GetBFI);
-
-    // TODO: Need to set setInvalidated() when Changed is true.
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransSafetyAnalyzerWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addRequired<BlockFrequencyInfoWrapperPass>();
-  }
-};
-
-} // namespace
-
-char DTransSOAToAOSOPPrepareWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransSOAToAOSOPPrepareWrapper,
-                      "dtrans-soatoaosop-prepare", "DTrans soatoaosOP prepare",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
-INITIALIZE_PASS_END(DTransSOAToAOSOPPrepareWrapper, "dtrans-soatoaosop-prepare",
-                    "DTrans soatoaosOP prepare", false, false)
-
-ModulePass *llvm::createDTransSOAToAOSOPPrepareWrapperPass() {
-  return new DTransSOAToAOSOPPrepareWrapper();
-}

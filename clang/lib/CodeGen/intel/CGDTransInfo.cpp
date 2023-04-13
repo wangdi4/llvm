@@ -801,8 +801,7 @@ llvm::Metadata *DTransInfoGenerator::CreateElementMD(QualType ClangType,
   // FIXME: Doesn't handle vector-type pointees, but that doesn't seem to show
   // up in any of the reproducers.  When we're sure it is necessary, we can add
   // that in.
-  assert(!ClangType->isPointerType() && !ClangType->isVectorType() &&
-         "Shouldn't get here");
+  assert(!ClangType->isPointerType() && "Shouldn't get here");
 
   switch (LLVMType->getTypeID()) {
   case llvm::Type::FunctionTyID:
@@ -811,11 +810,16 @@ llvm::Metadata *DTransInfoGenerator::CreateElementMD(QualType ClangType,
     return CreateArrayTypeMD(ClangType, LLVMType, InitExpr);
   case llvm::Type::StructTyID:
     return CreateStructMD(ClangType, LLVMType, InitExpr);
+  case llvm::Type::FixedVectorTyID:
+    return CreateVectorTypeMD(ClangType, LLVMType);
   case llvm::Type::VoidTyID:
     // Void encoding is: !{!"void", i32 <pointer level> }
     // Since we're treating this as a normal 'type', the pointer level gets
     // taken care of by the caller.
     return llvm::MDString::get(Ctx, "void");
+  case llvm::Type::ScalableVectorTyID:
+    llvm_unreachable("ScalableVectorTy not handled for dtrans metadata.");
+    LLVM_FALLTHROUGH;
   default:
   return llvm::ConstantAsMetadata::get(llvm::Constant::getNullValue(LLVMType));
   }
@@ -1028,7 +1032,7 @@ llvm::MDNode *DTransInfoGenerator::CreateVectorTypeMD(QualType ClangType,
   VecMD.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
       llvm::Type::getInt32Ty(Ctx), VT->getNumElements())));
 
-  const VectorType *VTy = cast<VectorType>(ClangType.getTypePtr());
+  const VectorType *VTy = ClangType->castAs<VectorType>();
   assert(VTy->getNumElements() == VT->getNumElements() &&
          "Mismatched vector type sizes");
 
@@ -1067,13 +1071,11 @@ llvm::MDNode *DTransInfoGenerator::CreateFunctionTypeMD(QualType ClangType,
   assert(LLVMType->isFunctionTy() && "Not a function type?");
   ClangType = ClangType.getCanonicalType();
   const CGFunctionInfo *FI = nullptr;
-  if (const FunctionProtoType *FPT =
-          dyn_cast<FunctionProtoType>(ClangType.getTypePtr())) {
+  if (const FunctionProtoType *FPT = ClangType->getAs<FunctionProtoType>()) {
     FI = &CGM.getTypes().arrangeFreeFunctionType(
         CanQual<FunctionProtoType>::CreateUnsafe(QualType(FPT, 0)));
   } else {
-    const FunctionNoProtoType *FNPT =
-        cast<FunctionNoProtoType>(ClangType.getTypePtr());
+    const FunctionNoProtoType *FNPT = ClangType->castAs<FunctionNoProtoType>();
     FI = &CGM.getTypes().arrangeFreeFunctionType(
         CanQual<FunctionNoProtoType>::CreateUnsafe(QualType(FNPT, 0)));
   }
@@ -1084,7 +1086,7 @@ llvm::MDNode *DTransInfoGenerator::CreateFunctionTypeMD(const FunctionDecl *FD,
                                                         llvm::Type *LLVMType) {
   assert(LLVMType->isFunctionTy() && "Not a function type?");
   if (auto *MD = dyn_cast<CXXMethodDecl>(FD)) {
-    const FunctionProtoType *FPT = cast<FunctionProtoType>(MD->getType());
+    const FunctionProtoType *FPT = MD->getType()->castAs<FunctionProtoType>();
     const CGFunctionInfo *FI = &CGM.getTypes().arrangeCXXMethodType(
         MD->getParent(), FPT, MD);
     return CreateFunctionTypeMD(FI, LLVMType);
@@ -1136,7 +1138,12 @@ DTransInfoGenerator::CreateFunctionTypeMD(const CGFunctionInfo *CallInfo,
     // just give up.
     if (FuncTy->getNumParams() <= Idx)
       break;
-    FuncMD.push_back(CreateTypeMD(Ty, FuncTy->getParamType(Idx), nullptr));
+    if (Idx == FuncInfo.InAllocaIdx)
+      FuncMD.push_back(
+          AddInAllocaLiteral(FuncInfo.InAllocaTypes, FuncInfo.InAllocaStruct));
+    else
+      FuncMD.push_back(CreateTypeMD(Ty, FuncTy->getParamType(Idx), nullptr));
+
     ++Idx;
   }
 

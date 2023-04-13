@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
   Analysis
   Core
   Support
+  TargetParser
   )
 add_llvm_tool(intelovls-test
   intelovls-test.cpp

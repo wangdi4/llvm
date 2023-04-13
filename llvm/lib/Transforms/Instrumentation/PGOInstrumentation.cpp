@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -73,14 +73,12 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFG.h"
-#include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryProfileInfo.h"
@@ -95,6 +93,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/EHPersonalities.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalValue.h"
@@ -127,7 +126,9 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/HashBuilder.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/MisExpect.h"
@@ -147,8 +148,6 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -367,7 +366,7 @@ static std::string getBranchCondString(Instruction *TI) {
 
   std::string result;
   raw_string_ostream OS(result);
-  OS << CmpInst::getPredicateName(CI->getPredicate()) << "_";
+  OS << CI->getPredicate() << "_";
   CI->getOperand(0)->getType()->print(OS, true);
 
   Value *RHS = CI->getOperand(1);
@@ -480,126 +479,7 @@ struct SelectInstVisitor : public InstVisitor<SelectInstVisitor> {
   unsigned getNumOfSelectInsts() const { return NSIs; }
 };
 
-#if INTEL_CUSTOMIZATION
-class PGOInstrumentationGenLegacyPass : public ModulePass {
-public:
-  static char ID;
-
-  PGOInstrumentationGenLegacyPass(bool IsCS = false)
-      : ModulePass(ID), IsCS(IsCS) {
-    initializePGOInstrumentationGenLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "PGOInstrumentationGenPass"; }
-
-private:
-  // Is this is context-sensitive instrumentation.
-  bool IsCS;
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BlockFrequencyInfoWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-  }
-};
-
-class PGOInstrumentationUseLegacyPass : public ModulePass {
-public:
-  static char ID;
-
-  // Provide the profile filename as the parameter.
-  PGOInstrumentationUseLegacyPass(std::string Filename = "", bool IsCS = false)
-      : ModulePass(ID), ProfileFileName(std::move(Filename)), IsCS(IsCS) {
-    if (!PGOTestProfileFile.empty())
-      ProfileFileName = PGOTestProfileFile;
-    initializePGOInstrumentationUseLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  StringRef getPassName() const override { return "PGOInstrumentationUsePass"; }
-
-private:
-  std::string ProfileFileName;
-  // Is this is context-sensitive instrumentation use.
-  bool IsCS;
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ProfileSummaryInfoWrapperPass>();
-    AU.addRequired<BlockFrequencyInfoWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-  }
-};
-
-class PGOInstrumentationGenCreateVarLegacyPass : public ModulePass {
-public:
-  static char ID;
-  StringRef getPassName() const override {
-    return "PGOInstrumentationGenCreateVarPass";
-  }
-  PGOInstrumentationGenCreateVarLegacyPass(std::string CSInstrName = "")
-      : ModulePass(ID), InstrProfileOutput(CSInstrName) {
-    initializePGOInstrumentationGenCreateVarLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-private:
-  bool runOnModule(Module &M) override {
-    createProfileFileNameVar(M, InstrProfileOutput);
-    // The variable in a comdat may be discarded by LTO. Ensure the
-    // declaration will be retained.
-    appendToCompilerUsed(M, createIRLevelProfileFlagVar(M, /*IsCS=*/true));
-    return false;
-  }
-  std::string InstrProfileOutput;
-};
-#endif // INTEL_CUSTOMIZATION
 } // end anonymous namespace
-
-#if INTEL_CUSTOMIZATION
-char PGOInstrumentationGenLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(PGOInstrumentationGenLegacyPass, "pgo-instr-gen",
-                      "PGO instrumentation.", false, false)
-INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(PGOInstrumentationGenLegacyPass, "pgo-instr-gen",
-                    "PGO instrumentation.", false, false)
-
-ModulePass *llvm::createPGOInstrumentationGenLegacyPass(bool IsCS) {
-  return new PGOInstrumentationGenLegacyPass(IsCS);
-}
-
-char PGOInstrumentationUseLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(PGOInstrumentationUseLegacyPass, "pgo-instr-use",
-                      "Read PGO instrumentation profile.", false, false)
-INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
-INITIALIZE_PASS_END(PGOInstrumentationUseLegacyPass, "pgo-instr-use",
-                    "Read PGO instrumentation profile.", false, false)
-
-ModulePass *llvm::createPGOInstrumentationUseLegacyPass(StringRef Filename,
-                                                        bool IsCS) {
-  return new PGOInstrumentationUseLegacyPass(Filename.str(), IsCS);
-}
-
-char PGOInstrumentationGenCreateVarLegacyPass::ID = 0;
-
-INITIALIZE_PASS(PGOInstrumentationGenCreateVarLegacyPass,
-                "pgo-instr-gen-create-var",
-                "Create PGO instrumentation version variable for CSPGO.", false,
-                false)
-
-ModulePass *
-llvm::createPGOInstrumentationGenCreateVarLegacyPass(StringRef CSInstrName) {
-  return new PGOInstrumentationGenCreateVarLegacyPass(std::string(CSInstrName));
-}
-#endif // INTEL_CUSTOMIZATION
 
 namespace {
 
@@ -1240,7 +1120,7 @@ private:
 
   // The maximum count value in the profile. This is only used in PGO use
   // compilation.
-  uint64_t ProgramMaxCount;
+  uint64_t ProgramMaxCount = 0; // INTEL
 
   // Position of counter that remains to be read.
   uint32_t CountPosition = 0;
@@ -2079,24 +1959,6 @@ PGOInstrumentationGenCreateVar::run(Module &M, ModuleAnalysisManager &AM) {
   return PreservedAnalyses::all();
 }
 
-#if INTEL_CUSTOMIZATION
-bool PGOInstrumentationGenLegacyPass::runOnModule(Module &M) {
-  if (skipModule(M))
-    return false;
-
-  auto LookupTLI = [this](Function &F) -> TargetLibraryInfo & {
-    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-  auto LookupBPI = [this](Function &F) {
-    return &this->getAnalysis<BranchProbabilityInfoWrapperPass>(F).getBPI();
-  };
-  auto LookupBFI = [this](Function &F) {
-    return &this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
-  };
-  return InstrumentAllFunctions(M, LookupTLI, LookupBPI, LookupBFI, IsCS);
-}
-#endif // INTEL_CUSTOMIZATION
-
 PreservedAnalyses PGOInstrumentationGen::run(Module &M,
                                              ModuleAnalysisManager &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
@@ -2241,6 +2103,7 @@ static void verifyFuncBFI(PGOUseFunc &Func, LoopInfo &LI,
 
 static bool annotateAllFunctions(
     Module &M, StringRef ProfileFileName, StringRef ProfileRemappingFileName,
+    vfs::FileSystem &FS,
     function_ref<TargetLibraryInfo &(Function &)> LookupTLI,
     function_ref<BranchProbabilityInfo *(Function &)> LookupBPI,
     function_ref<BlockFrequencyInfo *(Function &)> LookupBFI,
@@ -2248,8 +2111,8 @@ static bool annotateAllFunctions(
   LLVM_DEBUG(dbgs() << "Read in profile counters: ");
   auto &Ctx = M.getContext();
   // Read the counter array from file.
-  auto ReaderOrErr =
-      IndexedInstrProfReader::create(ProfileFileName, ProfileRemappingFileName);
+  auto ReaderOrErr = IndexedInstrProfReader::create(ProfileFileName, FS,
+                                                    ProfileRemappingFileName);
   if (Error E = ReaderOrErr.takeError()) {
     handleAllErrors(std::move(E), [&](const ErrorInfoBase &EI) {
       Ctx.diagnose(
@@ -2446,15 +2309,18 @@ static bool annotateAllFunctions(
   return true;
 }
 
-PGOInstrumentationUse::PGOInstrumentationUse(std::string Filename,
-                                             std::string RemappingFilename,
-                                             bool IsCS)
+PGOInstrumentationUse::PGOInstrumentationUse(
+    std::string Filename, std::string RemappingFilename, bool IsCS,
+    IntrusiveRefCntPtr<vfs::FileSystem> VFS)
     : ProfileFileName(std::move(Filename)),
-      ProfileRemappingFileName(std::move(RemappingFilename)), IsCS(IsCS) {
+      ProfileRemappingFileName(std::move(RemappingFilename)), IsCS(IsCS),
+      FS(std::move(VFS)) {
   if (!PGOTestProfileFile.empty())
     ProfileFileName = PGOTestProfileFile;
   if (!PGOTestProfileRemappingFile.empty())
     ProfileRemappingFileName = PGOTestProfileRemappingFile;
+  if (!FS)
+    FS = vfs::getRealFileSystem();
 }
 
 PreservedAnalyses PGOInstrumentationUse::run(Module &M,
@@ -2473,33 +2339,12 @@ PreservedAnalyses PGOInstrumentationUse::run(Module &M,
 
   auto *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
 
-  if (!annotateAllFunctions(M, ProfileFileName, ProfileRemappingFileName,
+  if (!annotateAllFunctions(M, ProfileFileName, ProfileRemappingFileName, *FS,
                             LookupTLI, LookupBPI, LookupBFI, PSI, IsCS))
     return PreservedAnalyses::all();
 
   return PreservedAnalyses::none();
 }
-
-#if INTEL_CUSTOMIZATION
-bool PGOInstrumentationUseLegacyPass::runOnModule(Module &M) {
-  if (skipModule(M))
-    return false;
-
-  auto LookupTLI = [this](Function &F) -> TargetLibraryInfo & {
-    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-  auto LookupBPI = [this](Function &F) {
-    return &this->getAnalysis<BranchProbabilityInfoWrapperPass>(F).getBPI();
-  };
-  auto LookupBFI = [this](Function &F) {
-    return &this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
-  };
-
-  auto *PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
-  return annotateAllFunctions(M, ProfileFileName, "", LookupTLI, LookupBPI,
-                              LookupBFI, PSI, IsCS);
-}
-#endif // INTEL_CUSTOMIZATION
 
 static std::string getSimpleNodeName(const BasicBlock *Node) {
   if (!Node->getName().empty())

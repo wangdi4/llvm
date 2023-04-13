@@ -1,6 +1,6 @@
 //===--------------- CommuteCond.cpp - CommuteCondPass-------------===//
 //
-// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -78,7 +78,6 @@
 //===----------------------------------------------------------------------===//
 #include "Intel_DTrans/Transforms/CommuteCond.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
-#include "Intel_DTrans/DTransCommon.h"
 
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/PatternMatch.h"
@@ -102,76 +101,6 @@ static cl::opt<bool>
                                      cl::init(false), cl::ReallyHidden);
 
 namespace {
-
-// This pass is treated as ModulePass even though it is not necessary to
-// avoid running FunctionPass in the middle of all other DTrans ModulePasses.
-// Legacy pass manager wrapper for invoking the CommuteCond pass.
-class DTransCommuteCondWrapper : public ModulePass {
-private:
-  dtrans::CommuteCondPass Impl;
-
-public:
-  static char ID;
-  DTransCommuteCondWrapper() : ModulePass(ID) {
-    initializeDTransCommuteCondWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    DTransAnalysisInfo &DTInfo =
-        getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M);
-
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-
-    return Impl.runImpl(M, DTInfo, WPInfo);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    // Swapping operands of AND should not invalidate any analysis.
-    AU.setPreservesAll();
-  }
-};
-
-// This pass is treated as ModulePass even though it is not necessary to
-// avoid running FunctionPass in the middle of all other DTrans ModulePasses.
-// Legacy pass manager wrapper for invoking the CommuteCond pass.
-class DTransCommuteCondOPWrapper : public ModulePass {
-private:
-  dtransOP::CommuteCondOPPass Impl;
-
-public:
-  static char ID;
-  DTransCommuteCondOPWrapper() : ModulePass(ID) {
-    initializeDTransCommuteCondOPWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto &DTAnalysisWrapper =
-        getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
-    dtransOP::DTransSafetyInfo &DTInfo =
-        DTAnalysisWrapper.getDTransSafetyInfo(M);
-
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-
-    return Impl.runImpl(M, DTInfo, WPInfo);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    // Swapping operands of AND should not invalidate any analysis.
-    AU.setPreservesAll();
-  }
-};
 
 template <class InfoClass>
 class CommuteCondImpl : public InstVisitor<CommuteCondImpl<InfoClass>> {
@@ -463,29 +392,3 @@ bool CommuteCondOPPass::runImpl(Module &M, DTransSafetyInfo &DTInfo,
 } // end namespace dtransOP
 
 } // end namespace llvm
-
-char DTransCommuteCondWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransCommuteCondWrapper, "dtrans-commutecond",
-                      "DTrans CommuteCond", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransCommuteCondWrapper, "dtrans-commutecond",
-                    "DTrans CommuteCond", false, false)
-
-ModulePass *llvm::createDTransCommuteCondWrapperPass() {
-  return new DTransCommuteCondWrapper();
-}
-
-char DTransCommuteCondOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransCommuteCondOPWrapper, "dtrans-commutecondop",
-                      "DTrans CommuteCond with opaque pointer support",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransCommuteCondOPWrapper, "dtrans-commutecondop",
-                    "DTrans CommuteCond with opaque pointer support",
-                    false, false)
-
-ModulePass *llvm::createDTransCommuteCondOPWrapperPass() {
-  return new DTransCommuteCondOPWrapper();
-}

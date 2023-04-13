@@ -1,12 +1,6 @@
 # exectuable name
 set(TARGET_NAME OclRecorderTest)
 
-# recorder_test has to use deprecated OpenCL API functions.
-if(WIN32)
-  add_definitions(-wd4996 # Suppress 'function': was declared deprecated'
-  )
-endif(WIN32)
-
 # setting the path to the recorder we test
 if(WIN32)
   set(DORDER_INSTALL "")
@@ -34,7 +28,15 @@ add_opencl_executable(
 # linking
 link_directories(${TBB_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/bin/)
 
-target_link_libraries(${TARGET_NAME} llvm_gtest cl_logger OpenCL-ICD)
+target_link_libraries(${TARGET_NAME}
+  LLVMSupport
+  LLVMTargetParser
+  llvm_gtest
+  cl_logger
+  cl_hw_utils
+  cl_sys_utils
+  OpenCL-ICD
+  )
 
 if(NOT WIN32)
   target_link_libraries(${TARGET_NAME} ${PTHREAD_LIB})

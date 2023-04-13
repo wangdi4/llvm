@@ -76,18 +76,18 @@ __attribute__((stall_free(0))) //expected-error{{'stall_free' attribute takes no
 __kernel void kernel_4i(int a) {
 }
 
-//expected-error@+2{{'reqd_work_group_size' attribute requires a positive integral compile time constant expression}}
+//expected-error@+2{{'reqd_work_group_size' attribute requires a non-negative integral compile time constant expression}}
 //expected-error@+2{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
 __attribute__((reqd_work_group_size(-10, 10, 10)))
 __attribute__((autorun))
 __kernel void kernel_4j() {}
 
-__attribute__((reqd_work_group_size(10.f, 10, 10))) //expected-error{{integer constant expression must have integer type, not 'float'}}
+__attribute__((reqd_work_group_size(10.f, 10, 10))) //expected-error{{'reqd_work_group_size' attribute requires parameter 0 to be an integer constant}}
 __attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
 __kernel void kernel_4k() {
 }
 
-__attribute__((reqd_work_group_size(0, 32, 32))) //expected-error{{'reqd_work_group_size' attribute requires a positive integral compile time constant expression}}
+__attribute__((reqd_work_group_size(0, 32, 32))) //expected-error{{'reqd_work_group_size' attribute must be greater than 0}}
 __attribute__((autorun)) //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
 __kernel void kernel_4l() {
 }
@@ -97,13 +97,13 @@ __attribute__((autorun))                       //expected-note{{conflicting attr
 __kernel void kernel_4m() {
 }
 
-__attribute__((reqd_work_group_size())) //expected-error{{'reqd_work_group_size' attribute takes at least 1 argument}}
+__attribute__((reqd_work_group_size())) //expected-error{{'reqd_work_group_size' attribute requires exactly 3 arguments}}
 __attribute__((autorun))  //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
 __kernel void kernel_4n() {
 }
 
 int foo();
-__attribute__((reqd_work_group_size(foo() + 32, foo() + 32, foo() + 32))) //expected-error 3{{expression is not an integer constant expression}}
+__attribute__((reqd_work_group_size(foo() + 32, foo() + 32, foo() + 32))) //expected-error {{'reqd_work_group_size' attribute requires parameter 0 to be an integer constant}}
 __attribute__((autorun))  //expected-error{{'autorun' attribute requires 'reqd_work_group_size' or 'max_global_work_dim' attribute to be specified}}
 __kernel void kernel_4o() {
 }
@@ -212,13 +212,13 @@ __attribute__((num_simd_work_items(3))) // expected-error{{'num_simd_work_items'
 __kernel void kernel_8f() {
 }
 
-__attribute__((reqd_work_group_size(5.f, 5, 5))) //expected-error{{integer constant expression must have integer type, not 'float'}}
+__attribute__((reqd_work_group_size(5.f, 5, 5))) //expected-error{{'reqd_work_group_size' attribute requires parameter 0 to be an integer constant}}
 __attribute__((num_simd_work_items(3.f))) //expected-error{{integer constant expression must have integer type, not 'float'}}
 __kernel void kernel_8g() {
 }
 
 __attribute__((num_simd_work_items(-3))) //expected-error{{'num_simd_work_items' attribute requires a positive integral compile time constant expression}}
-__attribute__((reqd_work_group_size(-5, 5, 5))) //expected-error{{'reqd_work_group_size' attribute requires a positive integral compile time constant expression}}
+__attribute__((reqd_work_group_size(-5, 5, 5))) //expected-error{{'reqd_work_group_size' attribute requires a non-negative integral compile time constant expression}}
 __kernel void kernel_8h() {
 }
 
@@ -227,17 +227,17 @@ __kernel void kernel_8i() {
 }
 
 __attribute__((num_simd_work_items(4)))
-__attribute__((reqd_work_group_size(0, 64, 64))) //expected-error{{'reqd_work_group_size' attribute requires a positive integral compile time constant expression}}
+__attribute__((reqd_work_group_size(0, 64, 64))) //expected-error{{'reqd_work_group_size' attribute must be greater than 0}}
 __kernel void kernel_8j() {
 }
 
 __attribute__((num_simd_work_items(6)))
-__attribute__((reqd_work_group_size())) //expected-error{{'reqd_work_group_size' attribute takes at least 1 argument}}
+__attribute__((reqd_work_group_size())) //expected-error{{'reqd_work_group_size' attribute requires exactly 3 arguments}}
 __kernel void kernel_8k() {
 }
 
 int foo1();
-__attribute__((reqd_work_group_size(foo1() + 64, foo1() + 64, foo1() + 64))) //expected-error 3{{expression is not an integer constant expression}}
+__attribute__((reqd_work_group_size(foo1() + 64, foo1() + 64, foo1() + 64))) //expected-error {{'reqd_work_group_size' attribute requires parameter 0 to be an integer constant}}
 __attribute__((num_simd_work_items(4)))
 __kernel void kernel_8l() {
 }

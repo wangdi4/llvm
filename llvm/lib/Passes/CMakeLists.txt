@@ -36,6 +36,7 @@ add_llvm_component_library(LLVMPasses
   LINK_COMPONENTS
   AggressiveInstCombine
   Analysis
+  CodeGen
   Core
   Coroutines
   IPO
@@ -45,16 +46,16 @@ add_llvm_component_library(LLVMPasses
   Scalar
   Support
   SYCLLowerIR
+  SYCLTransforms
   Target
   TransformUtils
   Vectorize
   Instrumentation
 # INTEL_CUSTOMIZATION
-  Intel_DPCPPKernelTransforms
+  Intel_Debug
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
-  Intel_OpenCLTransforms
   VPOAnalysis
   VPOTransforms
 # end INTEL_CUSTOMIZATION

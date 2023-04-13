@@ -1,8 +1,8 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -O0 -mtriple=amdgcn--amdhsa -disable-output -disable-verify -debug-pass=Structure -enable-new-pm=0 %s 2>&1 | FileCheck -check-prefix=GCN-O0 %s
-; RUN: opt -O1 -mtriple=amdgcn--amdhsa -disable-output -disable-verify -debug-pass=Structure -enable-new-pm=0 %s 2>&1 | FileCheck -check-prefix=GCN-O1 %s
-; RUN: opt -O2 -mtriple=amdgcn--amdhsa -disable-output -disable-verify -debug-pass=Structure -enable-new-pm=0 %s 2>&1 | FileCheck -check-prefix=GCN-O2 %s
-; RUN: opt -O3 -mtriple=amdgcn--amdhsa -disable-output -disable-verify -debug-pass=Structure -enable-new-pm=0 %s 2>&1 | FileCheck -check-prefix=GCN-O3 %s
+; RUN: opt -O0 -mtriple=amdgcn--amdhsa -disable-output -disable-verify -debug-pass=Structure -bugpoint-enable-legacy-pm %s 2>&1 | FileCheck -check-prefix=GCN-O0 %s
+; RUN: opt -O1 -mtriple=amdgcn--amdhsa -disable-output -disable-verify -debug-pass=Structure -bugpoint-enable-legacy-pm %s 2>&1 | FileCheck -check-prefix=GCN-O1 %s
+; RUN: opt -O2 -mtriple=amdgcn--amdhsa -disable-output -disable-verify -debug-pass=Structure -bugpoint-enable-legacy-pm %s 2>&1 | FileCheck -check-prefix=GCN-O2 %s
+; RUN: opt -O3 -mtriple=amdgcn--amdhsa -disable-output -disable-verify -debug-pass=Structure -bugpoint-enable-legacy-pm %s 2>&1 | FileCheck -check-prefix=GCN-O3 %s
 
 ; INTEL_CUSTOMIZATION: This test fails in xmain.  JR CMPLRS-49716
 ; XFAIL: *

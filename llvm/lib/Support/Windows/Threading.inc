@@ -1,21 +1,4 @@
 //===- Windows/Threading.inc - Win32 Threading Implementation - -*- C++ -*-===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2022 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -43,7 +26,7 @@
 namespace llvm {
 HANDLE
 llvm_execute_on_thread_impl(unsigned(__stdcall *ThreadFunc)(void *), void *Arg,
-                            llvm::Optional<unsigned> StackSizeInBytes) {
+                            std::optional<unsigned> StackSizeInBytes) {
   HANDLE hThread = (HANDLE)::_beginthreadex(NULL, StackSizeInBytes.value_or(0),
                                             ThreadFunc, Arg, 0, NULL);
 
@@ -176,6 +159,22 @@ static bool IterateProcInfo(LOGICAL_PROCESSOR_RELATIONSHIP Relationship, F Fn) {
   return true;
 }
 
+static std::optional<std::vector<USHORT>> getActiveGroups() {
+  USHORT Count = 0;
+  if (::GetProcessGroupAffinity(GetCurrentProcess(), &Count, nullptr))
+    return std::nullopt;
+
+  if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+    return std::nullopt;
+
+  std::vector<USHORT> Groups;
+  Groups.resize(Count);
+  if (!::GetProcessGroupAffinity(GetCurrentProcess(), &Count, Groups.data()))
+    return std::nullopt;
+
+  return Groups;
+}
+
 static ArrayRef<ProcessorGroup> getProcessorGroups() {
   auto computeGroups = []() {
     SmallVector<ProcessorGroup, 4> Groups;
@@ -210,32 +209,34 @@ static ArrayRef<ProcessorGroup> getProcessorGroups() {
     if (!IterateProcInfo(RelationProcessorCore, HandleProc))
       return std::vector<ProcessorGroup>();
 
+    auto ActiveGroups = getActiveGroups();
+    if (!ActiveGroups)
+      return std::vector<ProcessorGroup>();
+
     // If there's an affinity mask set, assume the user wants to constrain the
     // current process to only a single CPU group. On Windows, it is not
     // possible for affinity masks to cross CPU group boundaries.
     DWORD_PTR ProcessAffinityMask = 0, SystemAffinityMask = 0;
     if (::GetProcessAffinityMask(GetCurrentProcess(), &ProcessAffinityMask,
-                                 &SystemAffinityMask) &&
-        ProcessAffinityMask != SystemAffinityMask) {
-      // We don't expect more that 4 CPU groups on Windows (256 processors).
-      USHORT GroupCount = 4;
-      USHORT GroupArray[4]{};
-      if (::GetProcessGroupAffinity(GetCurrentProcess(), &GroupCount,
-                                    GroupArray)) {
-#if INTEL_CUSTOMIZATION
-        //assert(GroupCount == 1 &&
-        //"On startup, a program is expected to be assigned only to "
-        //"one processor group!");
-#endif
-        unsigned CurrentGroupID = GroupArray[0];
+                                 &SystemAffinityMask)) {
+
+      if (ProcessAffinityMask != SystemAffinityMask) {
+        if (llvm::RunningWindows11OrGreater() && ActiveGroups->size() > 1) {
+          // The process affinity mask is spurious, due to an OS bug, ignore it.
+          return std::vector<ProcessorGroup>(Groups.begin(), Groups.end());
+        }
+
+        assert(ActiveGroups->size() == 1 &&
+               "When an affinity mask is set, the process is expected to be "
+               "assigned to a single processor group!");
+        unsigned CurrentGroupID = (*ActiveGroups)[0];
         ProcessorGroup NewG{Groups[CurrentGroupID]};
         NewG.Affinity = ProcessAffinityMask;
-        NewG.UsableThreads = countPopulation(ProcessAffinityMask);
+        NewG.UsableThreads = llvm::popcount(ProcessAffinityMask);
         Groups.clear();
         Groups.push_back(NewG);
       }
     }
-
     return std::vector<ProcessorGroup>(Groups.begin(), Groups.end());
   };
   static auto Groups = computeGroups();
@@ -292,6 +293,12 @@ llvm::ThreadPoolStrategy::compute_cpu_socket(unsigned ThreadPoolNum) const {
 // Assign the current thread to a more appropriate CPU socket or CPU group
 void llvm::ThreadPoolStrategy::apply_thread_strategy(
     unsigned ThreadPoolNum) const {
+
+  // After Windows 11 and Windows Server 2022, let the OS do the scheduling,
+  // since a process automatically gains access to all processor groups.
+  if (llvm::RunningWindows11OrGreater())
+    return;
+
   std::optional<unsigned> Socket = compute_cpu_socket(ThreadPoolNum);
   if (!Socket)
     return;

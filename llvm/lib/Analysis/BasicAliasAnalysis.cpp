@@ -92,13 +92,15 @@ using namespace llvm;
 static cl::opt<bool> EnableRecPhiAnalysis("basic-aa-recphi", cl::Hidden,
                                           cl::init(true));
 
-
 #if INTEL_CUSTOMIZATION
 cl::opt<unsigned> BasicAAResult::OptPtrMaxUsesToExplore(
     "basicaa-opt-ptr-max-uses", cl::Hidden, cl::init(80u),
     cl::desc(
         "Maximum number of pointer uses to explore when checking for capture"));
 #endif // INTEL_CUSTOMIZATION
+
+static cl::opt<bool> EnableSeparateStorageAnalysis("basic-aa-separate-storage",
+                                                   cl::Hidden, cl::init(false));
 
 /// SearchLimitReached / SearchTimes shows how often the limit of
 /// to decompose GEPs is reached. It will affect the precision
@@ -109,7 +111,13 @@ STATISTIC(SearchTimes, "Number of times a GEP is decomposed");
 
 // The max limit of the search depth in DecomposeGEPExpression() and
 // getUnderlyingObject().
-static const unsigned MaxLookupSearchDepth = 6;
+#if INTEL_CUSTOMIZATION
+// static const unsigned MaxLookupSearchDepth = 6;
+static cl::opt<unsigned> MaxLookupSearchDepth(
+    "basic-aa-max-lookup-search-depth", cl::Hidden, cl::init(6),
+    cl::desc("Max limit of the search depth in DecomposeGEPExpression() and "
+             "getUnderlyingObject() for Basic-AA"));
+#endif // INTEL_CUSTOMIZATION
 
 bool BasicAAResult::invalidate(Function &Fn, const PreservedAnalyses &PA,
                                FunctionAnalysisManager::Invalidator &Inv) {
@@ -717,6 +725,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
   unsigned MaxIndexSize = DL.getMaxIndexSizeInBits();
   DecomposedGEP Decomposed;
   Decomposed.Offset = APInt(MaxIndexSize, 0);
+  SmallPtrSet<const Value *, 6> VisitedOp; // INTEL
   do {
     // See if this is a bitcast or GEP.
     const Operator *Op = dyn_cast<Operator>(V);
@@ -731,6 +740,18 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
       Decomposed.Base = V;
       return Decomposed;
     }
+
+#if INTEL_CUSTOMIZATION
+    if (isa<AddressOperator>(V)) {
+      // We need to track the visited AddressOperators in order to prevent
+      // an infinite loop
+      if (!VisitedOp.insert(V).second) {
+        Decomposed.Base = V;
+        return Decomposed;
+      }
+      ++MaxLookup;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (Op->getOpcode() == Instruction::BitCast ||
         Op->getOpcode() == Instruction::AddrSpaceCast) {
@@ -837,7 +858,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
           return Decomposed;
         }
 
-        Decomposed.Offset += AllocTypeSize.getFixedSize() *
+        Decomposed.Offset += AllocTypeSize.getFixedValue() *
                              CIdx->getValue().sextOrTrunc(MaxIndexSize);
         continue;
       }
@@ -859,7 +880,7 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
           CastedValue(Index, 0, SExtBits, TruncBits), DL, 0, AC, DT);
 
       // Scale by the type size.
-      unsigned TypeSize = AllocTypeSize.getFixedSize();
+      unsigned TypeSize = AllocTypeSize.getFixedValue();
       LE = LE.mul(APInt(IndexSize, TypeSize), GEPOp->isInBounds());
       Decomposed.Offset += LE.Offset.sext(MaxIndexSize);
       APInt Scale = LE.Scale.sext(MaxIndexSize);
@@ -1049,11 +1070,11 @@ static bool notDifferentParent(const Value *O1, const Value *O2) {
 #endif
 
 AliasResult BasicAAResult::alias(const MemoryLocation &LocA,
-                                 const MemoryLocation &LocB,
-                                 AAQueryInfo &AAQI) {
+                                 const MemoryLocation &LocB, AAQueryInfo &AAQI,
+                                 const Instruction *CtxI) {
   assert(notDifferentParent(LocA.Ptr, LocB.Ptr) &&
          "BasicAliasAnalysis doesn't support interprocedural queries.");
-  return aliasCheck(LocA.Ptr, LocA.Size, LocB.Ptr, LocB.Size, AAQI);
+  return aliasCheck(LocA.Ptr, LocA.Size, LocB.Ptr, LocB.Size, AAQI, CtxI);
 }
 
 /// Checks to see if the specified callsite can clobber the specified memory
@@ -1391,8 +1412,8 @@ AliasResult BasicAAResult::aliasGEP(
     const APInt &Scale = Index.Scale;
     APInt ScaleForGCD = Scale;
     if (!Index.IsNSW)
-      ScaleForGCD = APInt::getOneBitSet(Scale.getBitWidth(),
-                                        Scale.countTrailingZeros());
+      ScaleForGCD =
+          APInt::getOneBitSet(Scale.getBitWidth(), Scale.countr_zero());
 
     if (i == 0)
       GCD = ScaleForGCD.abs();
@@ -1522,32 +1543,9 @@ bool BasicAAResult::valueIsNotCapturedBeforeOrAt(const Value *O1,
   if (!isIdentifiedFunctionLocal(O1))
     return false;
 
-  auto *Call = dyn_cast<CallBase>(O2);
-  if (!Call)
+  auto *Inst = dyn_cast<Instruction>(O2);
+  if (!Inst)
     return false;
-
-  // Calls to subscript intrinsics are a form of GEP.
-  // TODO: Subscript instructions shouldn't be here. The function isEscapeSource
-  // calls isIntrinsicReturningPointerAliasingArgumentWithoutCapturing, and it
-  // needs to be updated to consider subscript intrinsics (CMPLRLLVM-42509).
-  if(isa<SubscriptInst>(O2))
-    return false;
-
-  // We currently don't process indirect calls and/or varargs to save compile
-  // time. The function isNotCapturedBeforeOrAt is expensive.
-  auto *F = Call->getCalledFunction();
-  if (Call->isIndirectCall() || !F || F->isVarArg())
-    return false;
-
-  // Do some simple check in case the value is passed to the call.
-  //
-  // NOTE: This is conservative, perhaps we could relax for no-capture and/or
-  // read-only attributes. Also, we may want to check that the call doesn't
-  // have operand bundles too.
-  for (Value *Arg : Call->args()) {
-    if (Arg == O1)
-      return false;
-  }
 
   // AAQI.CI in BasicAA uses SimpleCaptureInfo, which won't identify if the
   // captured instruction happens after the value. We are going to use
@@ -1555,7 +1553,7 @@ bool BasicAAResult::valueIsNotCapturedBeforeOrAt(const Value *O1,
   // after the value.
   const SmallPtrSet<const Value *, 4> EphValues;
   EarliestEscapeInfo EI(*DT, EphValues);
-  return EI.isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL, Call);
+  return EI.isNotCapturedBeforeOrAt(O1, PtrCaptureMaxUses, DL, Inst);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1933,7 +1931,8 @@ static const Value* getArgumentBasePtr(const Value* U, const DataLayout &DL) {
 /// array references.
 AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
                                       const Value *V2, LocationSize V2Size,
-                                      AAQueryInfo &AAQI) {
+                                      AAQueryInfo &AAQI,
+                                      const Instruction *CtxI) {
   // If either of the memory references is empty, it doesn't matter what the
   // pointer values are.
   if (V1Size.isZero() || V2Size.isZero())
@@ -2101,6 +2100,33 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
           TLI, NullIsValidLocation)))
     return AliasResult::NoAlias;
 
+  if (CtxI && EnableSeparateStorageAnalysis) {
+    for (auto &AssumeVH : AC.assumptions()) {
+      if (!AssumeVH)
+        continue;
+
+      AssumeInst *Assume = cast<AssumeInst>(AssumeVH);
+
+      for (unsigned Idx = 0; Idx < Assume->getNumOperandBundles(); Idx++) {
+        OperandBundleUse OBU = Assume->getOperandBundleAt(Idx);
+        if (OBU.getTagName() == "separate_storage") {
+          assert(OBU.Inputs.size() == 2);
+          const Value *Hint1 = OBU.Inputs[0].get();
+          const Value *Hint2 = OBU.Inputs[1].get();
+          // This is often a no-op; instcombine rewrites this for us. No-op
+          // getUnderlyingObject calls are fast, though.
+          const Value *HintO1 = getUnderlyingObject(Hint1);
+          const Value *HintO2 = getUnderlyingObject(Hint2);
+
+          if (((O1 == HintO1 && O2 == HintO2) ||
+               (O1 == HintO2 && O2 == HintO1)) &&
+              isValidAssumeForContext(Assume, CtxI, DT))
+            return AliasResult::NoAlias;
+        }
+      }
+    }
+  }
+
   // If one the accesses may be before the accessed pointer, canonicalize this
   // by using unknown after-pointer sizes for both accesses. This is
   // equivalent, because regardless of which pointer is lower, one of them
@@ -2236,7 +2262,7 @@ AliasResult BasicAAResult::loopCarriedAlias(const MemoryLocation &LocA,
                                             const MemoryLocation &LocB,
                                             AAQueryInfo &AAQI) {
   assert(AAQI.NeedLoopCarried && "Unexpectedly missing dynamic query flag");
-  return alias(LocA, LocB, AAQI);
+  return alias(LocA, LocB, AAQI, nullptr);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2385,8 +2411,7 @@ INITIALIZE_PASS_BEGIN(BasicAAWrapperPass, "basic-aa",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass)     // INTEL
-INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass) // INTEL
+INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass) // INTEL
 INITIALIZE_PASS_END(BasicAAWrapperPass, "basic-aa",
                     "Basic Alias Analysis (stateless AA impl)", true, true)
 
@@ -2399,12 +2424,14 @@ bool BasicAAWrapperPass::runOnFunction(Function &F) {
   auto &TLIWP = getAnalysis<TargetLibraryInfoWrapperPass>();
   auto &DTWP = getAnalysis<DominatorTreeWrapperPass>();
   auto *PVWP = getAnalysisIfAvailable<PhiValuesWrapperPass>(); // INTEL
-  auto &XOL = getAnalysis<XmainOptLevelWrapperPass>(); // INTEL
 
   Result.reset(new BasicAAResult(F.getParent()->getDataLayout(), F,
                                  TLIWP.getTLI(F), ACT.getAssumptionCache(F),
                                  &DTWP.getDomTree(),
-                                 XOL.getOptLevel(),                     // INTEL
+#if INTEL_CUSTOMIZATION
+                                 0, // Placeholder because
+                                    // XmainOptLevelWrapperPass is removed.
+#endif                              // INTEL_CUSTOMIZATION
                                  PVWP ? &PVWP->getResult() : nullptr)); // INTEL
 
   return false;
@@ -2416,15 +2443,15 @@ void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addUsedIfAvailable<PhiValuesWrapperPass>(); // INTEL
-  AU.addRequired<XmainOptLevelWrapperPass>(); // INTEL
 }
 
 BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
   return BasicAAResult(
       F.getParent()->getDataLayout(), F,
       P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
-      P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F), // INTEL
-      nullptr,                                                       // INTEL
-      P.getAnalysis<XmainOptLevelWrapperPass>().getOptLevel(),       // INTEL
-      nullptr);                                                      // INTEL
+#if INTEL_CUSTOMIZATION
+      P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F), nullptr,
+      0, // Placeholder because XmainOptLevelWrapperPass is removed.
+      nullptr);
+#endif // INTEL_CUSTOMIZATION
 }

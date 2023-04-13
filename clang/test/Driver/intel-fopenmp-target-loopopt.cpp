@@ -13,6 +13,7 @@
 // LOOPOPT_ENABLED: clang{{.*}} "-triple" "spir64"
 // LOOPOPT_ENABLED-NOT: "-dtrans-mem-layout-level={{.*}}"
 // LOOPOPT_ENABLED: "-mllvm" "-loopopt=1"
+// LOOPOPT_ENABLED-SAME: "-floopopt-pipeline=light"
 
 // RUN: %clangxx --intel -fiopenmp -fopenmp-targets=spir64 \
 // RUN:          -fopenmp-target-loopopt -### %s 2>&1 \

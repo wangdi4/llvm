@@ -113,7 +113,10 @@ namespace {
         : EphValues(EphValues), ReturnCaptures(ReturnCaptures),
         IgnoreNoAliasArgStCaptured(IgnoreFlag) {} // INTEL
 
-    void tooManyUses() override { Captured = true; }
+    void tooManyUses() override {
+      LLVM_DEBUG(dbgs() << "Captured due to too many uses\n");
+      Captured = true;
+    }
 
     bool captured(const Use *U) override {
       if (isa<ReturnInst>(U->getUser()) && !ReturnCaptures)
@@ -133,6 +136,8 @@ namespace {
 
       if (EphValues.contains(U->getUser()))
         return false;
+
+      LLVM_DEBUG(dbgs() << "Captured by: " << *U->getUser() << "\n");
 
       Captured = true;
       return true;
@@ -225,25 +230,10 @@ namespace {
       if (EphValues.contains(I))
         return false;
 
-      if (!EarliestCapture) {
+      if (!EarliestCapture)
         EarliestCapture = I;
-      } else if (EarliestCapture->getParent() == I->getParent()) {
-        if (I->comesBefore(EarliestCapture))
-          EarliestCapture = I;
-      } else {
-        BasicBlock *CurrentBB = I->getParent();
-        BasicBlock *EarliestBB = EarliestCapture->getParent();
-        if (DT.dominates(EarliestBB, CurrentBB)) {
-          // EarliestCapture already comes before the current use.
-        } else if (DT.dominates(CurrentBB, EarliestBB)) {
-          EarliestCapture = I;
-        } else {
-          // Otherwise find the nearest common dominator and use its terminator.
-          auto *NearestCommonDom =
-              DT.findNearestCommonDominator(CurrentBB, EarliestBB);
-          EarliestCapture = NearestCommonDom->getTerminator();
-        }
-      }
+      else
+        EarliestCapture = DT.findNearestCommonDominator(EarliestCapture, I);
       Captured = true;
 
       // Return false to continue analysis; we need to see all potential
@@ -298,14 +288,18 @@ bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
   // take advantage of this.
   (void)StoreCaptures;
 
+  LLVM_DEBUG(dbgs() << "Captured?: " << *V << " = ");
+
   SimpleCaptureTracker SCT(EphValues, ReturnCaptures,           // INTEL
                            IgnoreStoreCapturesByNoAliasArgument // INTEL
                            );                                   // INTEL
   PointerMayBeCaptured(V, &SCT, MaxUsesToExplore);
   if (SCT.Captured)
     ++NumCaptured;
-  else
+  else {
     ++NumNotCaptured;
+    LLVM_DEBUG(dbgs() << "not captured\n");
+  }
   return SCT.Captured;
 }
 
@@ -485,12 +479,7 @@ UseCaptureKind llvm::DetermineUseCaptureKind(
           return UseCaptureKind::NO_CAPTURE;
       }
     }
-    // Comparison against value stored in global variable. Given the pointer
-    // does not escape, its value cannot be guessed and stored separately in a
-    // global variable.
-    auto *LI = dyn_cast<LoadInst>(I->getOperand(OtherIdx));
-    if (LI && isa<GlobalVariable>(LI->getPointerOperand()))
-      return UseCaptureKind::NO_CAPTURE;
+
     // Otherwise, be conservative. There are crazy ways to capture pointers
     // using comparisons.
     return UseCaptureKind::MAY_CAPTURE;

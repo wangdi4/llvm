@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-cg -force-hir-cg 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-cg" -force-hir-cg 2>&1 | FileCheck %s
 
 ; Verify that noalias intrinsics are eliminated in HIR.

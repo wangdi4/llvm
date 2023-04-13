@@ -1,9 +1,9 @@
 ;
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=SOA
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=SOA
 ;
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output -vplan-force-vf=4 -vplan-enable-soa-hir=0 < %s 2>&1 | FileCheck %s --check-prefix=NOSOA
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 -vplan-enable-soa-hir=0 < %s 2>&1 | FileCheck %s --check-prefix=NOSOA
+;
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -vplan-force-vf=4 -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 ;
 ; SOA transformation for privates is not implemented currently in the VPlan HIR
 ; path. This can lead to performance regressions in cases where we go through
@@ -18,6 +18,7 @@
 ;
 ; SOA:         DO i1 = 0, 99, 1   <DO_LOOP> <simd> <vectorize>
 ; NOSOA:       DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
+; OPTRPTHI: remark #15436: loop was not vectorized: HIR: SOA transformation for privates is not yet supported on this path.
 ;
 define void @test_array(i64 %n)  {
 entry:

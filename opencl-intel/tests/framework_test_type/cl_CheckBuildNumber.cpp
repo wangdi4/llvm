@@ -47,7 +47,7 @@ bool cl_CheckBuildNumber() {
                            nullptr);
     CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
-    cout << "CL_DRIVER_VERSION: " << DriverVersion << '\n';
+    std::cout << "CL_DRIVER_VERSION: " << DriverVersion << '\n';
 
     // The expected string in Buffer should be 'YYYY.L{1,}.MM.0',
     // where YYYY - current year, L{1,} - latest LLVM release version,

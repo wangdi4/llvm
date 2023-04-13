@@ -18,4 +18,6 @@
 type = Tool
 name = sycl-post-link
 parent = Tools
-required_libraries = AsmParser BitReader BitWriter IRReader IPO Support
+; INTEL_CUSTOMIZATION
+required_libraries = AsmParser BitReader BitWriter IRReader IPO Support TargetParser
+; end INTEL_CUSTOMIZATION

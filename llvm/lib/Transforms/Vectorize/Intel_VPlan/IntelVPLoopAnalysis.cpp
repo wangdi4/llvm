@@ -39,6 +39,7 @@ static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
 void VPReduction::dump(raw_ostream &OS) const {
   OS << (isIntegerRecurrenceKind(getRecurrenceKind()) && isSigned() ? " signed "
                                                                     : " ");
+  OS << (isComplex() ? " complex " : " ");
   switch (getRecurrenceKind()) {
   default:
     OS << "unknown";
@@ -395,18 +396,20 @@ void VPLoopEntityList::replaceDuplicateInductionPHIs() {
   DuplicateInductionPHIs.clear();
 }
 
-VPReduction *VPLoopEntityList::addReduction(
-    VPInstruction *Instr, VPValue *Incoming, VPInstruction *Exit,
-    RecurKind Kind, FastMathFlags FMF, Type *RedTy, bool Signed,
-    VPEntityAliasesTy &MemAliases, Optional<InscanReductionKind> InscanRedKind,
-    VPValue *AI, bool ValidMemOnly) {
+VPReduction *
+VPLoopEntityList::addReduction(VPInstruction *Instr, VPValue *Incoming,
+                               VPInstruction *Exit, RecurKind Kind,
+                               FastMathFlags FMF, Type *RedTy, bool Signed,
+                               VPEntityAliasesTy &MemAliases,
+                               std::optional<InscanReductionKind> InscanRedKind,
+                               bool IsComplex, VPValue *AI, bool ValidMemOnly) {
   VPReduction *Red =
       InscanRedKind.has_value()
           ? new VPInscanReduction(InscanRedKind.value(), Incoming, Exit, Kind,
                                   FMF, RedTy, Signed, std::move(MemAliases),
-                                  ValidMemOnly)
+                                  IsComplex, ValidMemOnly)
           : new VPReduction(Incoming, Exit, Kind, FMF, RedTy, Signed,
-                            std::move(MemAliases), ValidMemOnly);
+                            std::move(MemAliases), IsComplex, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
   linkValue(ReductionMap, Red, Exit);
@@ -440,7 +443,7 @@ VPUserDefinedReduction *VPLoopEntityList::addUserDefinedReduction(
     Function *Combiner, Function *Initializer, Function *Ctor, Function *Dtor,
     VPValue *Incoming, FastMathFlags FMF, Type *RedTy, bool Signed,
     VPEntityAliasesTy &MemAliases, VPValue *AI, bool ValidMemOnly,
-    Optional<InscanReductionKind> InscanRedKind) {
+    std::optional<InscanReductionKind> InscanRedKind) {
   // Create a new VPEntity to represent UDR.
   VPUserDefinedReduction *Red =
       !InscanRedKind.has_value()
@@ -556,32 +559,53 @@ void VPLoopEntityList::createMemDescFor(VPLoopEntity *E, VPValue *AI) {
 
 /// Returns identity corresponding to the RecurrenceKind.
 VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
-  switch (Red->getRecurrenceKind()) {
-  case RecurKind::Xor:
-  case RecurKind::Add:
-  case RecurKind::Or:
-  case RecurKind::Mul:
-  case RecurKind::And:
-  case RecurKind::FMul:
-  case RecurKind::FMulAdd:
-  case RecurKind::FAdd: {
-    Constant *C = VPReduction::getConstRecurrenceIdentity(Red->getRecurrenceKind(),
-                                                     Red->getRecurrenceType(),
-                                                     Red->getFastMathFlags());
-    return Plan.getVPConstant(C);
-  }
-  case RecurKind::SMin:
-  case RecurKind::SMax:
-  case RecurKind::UMin:
-  case RecurKind::UMax:
-  case RecurKind::FMin:
-  case RecurKind::FMax:
-  case RecurKind::SelectICmp:
-  case RecurKind::SelectFCmp:
-  case RecurKind::Udr:
-    return Red->getRecurrenceStartValue();
-  case RecurKind::None:
-    llvm_unreachable("Unknown recurrence kind");
+  if (Red->isComplex()) {
+    // Capture the unique element type of complex type.
+    auto *RecTy = cast<StructType>(Red->getRecurrenceType());
+    assert(RecTy->hasIdenticalElementTypes() &&
+           "Expected same type struct for complex type reduction.");
+    Type *ElemTy = RecTy->getElementType(0);
+
+    // TODO: Currently only FAdd kind is expected here.
+    switch (Red->getRecurrenceKind()) {
+    case RecurKind::FAdd: {
+      // Identity for complex add reduction would be <0.0, 0.0>.
+      Constant *ValueZero = ConstantFP::get(ElemTy, 0.0);
+      Constant *C = ConstantVector::get({ValueZero, ValueZero});
+      return Plan.getVPConstant(C);
+    }
+    default:
+      llvm_unreachable(
+          "Unexpected reduction operator for complex type reduction.");
+    }
+  } else {
+    switch (Red->getRecurrenceKind()) {
+    case RecurKind::Xor:
+    case RecurKind::Add:
+    case RecurKind::Or:
+    case RecurKind::Mul:
+    case RecurKind::And:
+    case RecurKind::FMul:
+    case RecurKind::FMulAdd:
+    case RecurKind::FAdd: {
+      Constant *C = VPReduction::getConstRecurrenceIdentity(
+          Red->getRecurrenceKind(), Red->getRecurrenceType(),
+          Red->getFastMathFlags());
+      return Plan.getVPConstant(C);
+    }
+    case RecurKind::SMin:
+    case RecurKind::SMax:
+    case RecurKind::UMin:
+    case RecurKind::UMax:
+    case RecurKind::FMin:
+    case RecurKind::FMax:
+    case RecurKind::SelectICmp:
+    case RecurKind::SelectFCmp:
+    case RecurKind::Udr:
+      return Red->getRecurrenceStartValue();
+    case RecurKind::None:
+      llvm_unreachable("Unknown recurrence kind");
+    }
   }
 }
 
@@ -730,7 +754,7 @@ static ConstantInt *getAllocationSize(AllocaInst *AI, const DataLayout *DL) {
     if (AllocaArraySize != 0 && !AllocaTypeSize.isScalable() &&
         AllocaArraySize != std::numeric_limits<uint64_t>::max() &&
         std::numeric_limits<uint64_t>::max() / AllocaArraySize >=
-            AllocaTypeSize.getFixedSize()) {
+            AllocaTypeSize.getFixedValue()) {
       return ConstantInt::get(Type::getInt64Ty(AI->getContext()),
                               AllocaArraySize * AllocaTypeSize);
     }
@@ -761,11 +785,7 @@ static void createLifetimeMarker(VPBuilder &Builder, VPlanVector &Plan,
 
     Function *LMFn = Intrinsic::getDeclaration(AI->getParent()->getModule(),
                                                LMIntrinsicFn, {PrivateMemTy});
-    auto *VPLMFn = Plan.getVPConstant(cast<Constant>(LMFn));
-    auto *VPLMCall =
-        new VPCallInstruction(VPLMFn, LMFn->getFunctionType(),
-                              {Plan.getVPConstant(AllocaSize), LMOp});
-    Builder.insert(VPLMCall);
+    Builder.createCall(LMFn, {Plan.getVPConstant(AllocaSize), LMOp});
   }
 }
 
@@ -844,7 +864,6 @@ static void relinkLiveOuts(VPValue *From, VPValue *To, const VPLoop &Loop) {
   });
 }
 
-#if INTEL_CUSTOMIZATION
 static void updateHIROperand(VPValue *AI, VPLoadStoreInst *V) {
   if (auto *ExtDef = dyn_cast<VPExternalDef>(AI)) {
     unsigned ExtDefSym = ExtDef->HIR().getSymbase();
@@ -852,14 +871,13 @@ static void updateHIROperand(VPValue *AI, VPLoadStoreInst *V) {
       V->HIR().setSymbase(ExtDefSym);
   }
 }
-#endif // INTEL_CUSTOMIZATION
 
 void VPLoopEntityList::processFinalValue(VPLoopEntity &E, VPValue *AI,
                                          VPBuilder &Builder, VPValue &Final,
                                          Type *Ty, VPValue *Exit) {
   if (AI) {
     VPLoadStoreInst *V = Builder.createStore(&Final, AI);
-    updateHIROperand(AI, V); // INTEL
+    updateHIROperand(AI, V);
     linkValue(&E, V);
   }
 
@@ -944,10 +962,14 @@ void VPLoopEntityList::insertRunningInscanReductionInstrs(
   // Process each inscan reduction one by one.
   VPBuilder::InsertPointGuard Guard(Builder);
   for (const VPReduction *Red : InscanReductions) {
-    if (isa<VPInscanReduction>(Red))
-      processRunningInscanReduction(cast<VPInscanReduction>(Red), FenceBlock,
-                                    Builder);
-    else if (isa<VPUserDefinedScanReduction>(Red))
+    if (isa<VPInscanReduction>(Red)) {
+      if (Red->getRecurrenceType()->isArrayTy())
+       processRunningInscanArrReduction(cast<VPInscanReduction>(Red),
+                                        FenceBlock, Builder);
+      else
+       processRunningInscanReduction(cast<VPInscanReduction>(Red), FenceBlock,
+                                     Builder);
+    } else if (isa<VPUserDefinedScanReduction>(Red))
       processRunningUDS(cast<VPUserDefinedScanReduction>(Red), FenceBlock,
                         Builder);
     else
@@ -1079,22 +1101,255 @@ void VPLoopEntityList::processRunningInscanReduction(
   InscanAccumPhi->addIncoming(CarryOver, Loop.getLoopLatch());
 }
 
-// Helper method to create custom function VPCalls with given args. Currently
-// used to emit ctor/dtor/initializer calls for non-POD privates and UDRs.
-static void createCustomFunctionCall(Function *F, ArrayRef<VPValue *> Args,
-                                     VPBuilder &Builder, VPlanVector &Plan) {
-  assert(
-      F->arg_size() == Args.size() && Args.size() >= 1 &&
-      "Number of input arguments should match number of Function arguments.");
+// Handles array inscan reduction variable by emitting a loop to iterate over
+// each element of the array and inserting corresponding running reduction
+// sequence for them. Accumulator (or carry-over) values are tracked in-memory
+// by reusing original scalar array. Effectively it mimics processing of scalar
+// inscan reductions (check processRunningInscanReduction) but repeated for each
+// element of array being reduced upon. Pseudo VPlan IR looks like -
+//
+// Original array: [3 x i32]* %arr.red
+//
+// Preheader:
+//   ptr %vp.arr.red = allocate-priv ptr
+//   br Header
+//
+// Header:
+//   i64 %vp.iv = phi ...
+//   reduction-init-arr i32 0 ptr %vp.arr.red
+//   ...
+//
+// Prescan:
+//   ...
+//
+// RunningRednLoop:
+//   i64 %arr.idx = phi [ i64 0, Prescan ], [ i64 %arr.idx.next, RunningRedn ]
+//   ptr %cur.idx.ptrs = gep [3 x i32] ptr %vp.arr.red i64 0 i64 %arr.idx
+//   i32 %arr.idx.vals = load ptr %cur.idx.ptrs
+//   ptr %cur.idx.accum.ptr = gep [3 x i32] ptr %arr.red i64 0 i64 %arr.idx
+//   i32 %cur.idx.accum = load ptr %cur.idx.accum.ptr
+//   i32 %vp.scan = running-{in|ex}clusive-reduction{add} i32 %arr.idx.vals
+//                                                        i32 %cur.idx.accum
+//                                                        i32 0
+//   store i32 %vp.scan ptr %cur.idx.ptrs
+//
+//   ; For inclusive scan
+//   %accum.next = extract-last-vector-lane i32 %vp.scan
+//   ; For exclusive scan, we need last lane of input to reduce with last lane
+//   of running reduction.
+//   ; %input.last = extract-last-vector-lane i32 %cur.idx.vals
+//   ; %redn.last = extract-last-vector-lane i32 %vp.scan
+//   ; %accum.next = add i32 %input.last, %redn.last
+//
+//   store i32 %accum.next ptr %cur.idx.accum.ptr
+//   i64 %arr.idx.next = add %arr.idx, 1
+//   %running.done = icmp eq i64 %arr.idx.next, 3
+//   br i1 %running.done label PostScan label RunningRednLoop
+//
+// PostScan:
+//   ...
+//
+// Since everything is done in memory, this reduction does not need any
+// initialization/finalization instructions.
+void VPLoopEntityList::processRunningInscanArrReduction(
+    const VPInscanReduction *ArrInscanRedConst, VPBasicBlock *FenceBlock,
+    VPBuilder &Builder) {
+  VPInscanReduction *ArrInscanRed =
+      const_cast<VPInscanReduction *>(ArrInscanRedConst);
+  auto *ArrTy = cast<ArrayType>(ArrInscanRed->getRecurrenceType());
+  Type *ElemTy = ArrTy->getElementType();
+  unsigned NumElems = ArrTy->getNumElements();
 
-  assert(llvm::all_of(Args, [](VPValue *Arg) { return Arg != nullptr; }) &&
-         "All of input args are expected to be non-null.");
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
 
-  auto *VPFunc = Plan.getVPConstant(cast<Constant>(F));
+  VPBasicBlock *Preheader = Loop.getLoopPreheader();
+  Builder.setInsertPoint(Preheader);
+  Builder.setCurrentDebugLocation(
+      Preheader->getTerminator()->getDebugLocation());
 
-  auto *VPCall = new VPCallInstruction(VPFunc, F->getFunctionType(), Args);
+  VPValue *OrigArr = nullptr;
+  VPAllocatePrivate *PrivateMem =
+      createPrivateMemory(*ArrInscanRed, Builder, OrigArr, Preheader);
+  assert(PrivateMem && "Private memory expected for array inscan reduction.");
 
-  Builder.insert(VPCall);
+  // Add memory aliases (if any) collected for this array inscan reduction.
+  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  insertEntityMemoryAliases(ArrInscanRed, Preheader, AddedAliasInstrs, Builder);
+
+  // Replace all uses of original array with private memory.
+  OrigArr->replaceAllUsesWithInBlock(PrivateMem, *Preheader);
+  OrigArr->replaceAllUsesWithInLoop(PrivateMem, Loop);
+
+  // Initialize the private array with constant identity value in loop header.
+  Constant *ConstId = VPReduction::getConstRecurrenceIdentity(
+      ArrInscanRed->getRecurrenceKind(), ElemTy,
+      ArrInscanRed->getFastMathFlags());
+  auto *Identity = Plan.getVPConstant(ConstId);
+
+  VPBasicBlock *Header = Loop.getHeader();
+  Builder.setInsertPointFirstNonPhi(Header);
+  Builder.setCurrentDebugLocation(Header->getTerminator()->getDebugLocation());
+  Builder.createNaryOp(VPInstruction::ReductionInitArr,
+                       Type::getVoidTy(*Plan.getLLVMContext()),
+                       {Identity, PrivateMem});
+
+  // Create running reduction loop iterating over each element in the array.
+
+  assert((FenceBlock->getSinglePredecessor() &&
+          FenceBlock->getSingleSuccessor()) &&
+         "Fence BB in scan region is expected to have single predecessor and "
+         "successor.");
+  assert(FenceBlock->size() == 1 &&
+         "Fence BB expected to have only terminator instruction.");
+
+  VPLoopInfo *VPLI = Plan.getVPLoopInfo();
+  VPLoop *ArrRednLoop = VPLI->AllocateLoop();
+  Loop.addChildLoop(ArrRednLoop);
+  VPLI->changeLoopFor(FenceBlock, ArrRednLoop);
+  ArrRednLoop->addBlockEntry(FenceBlock);
+
+  // Set insertion point to the fence block.
+  Builder.setInsertPoint(FenceBlock);
+  Builder.setCurrentDebugLocation(
+      FenceBlock->getTerminator()->getDebugLocation());
+
+  Type *I64Ty = Type::getInt64Ty(*Plan.getLLVMContext());
+  auto *ZeroConst = Plan.getVPConstant(ConstantInt::get(I64Ty, 0));
+
+  auto *ArrIdxPhi = Builder.createPhiInstruction(I64Ty, "scan.arr.idx");
+  ArrIdxPhi->addIncoming(ZeroConst, FenceBlock->getSinglePredecessor());
+  // Generate GEP to obtain pointer for current input element in array.
+  auto *CurIdxInputPtr =
+      Builder.createGEP(ArrTy /*SrcElemTy*/, ElemTy /*ResElemTy*/, PrivateMem,
+                        {ZeroConst, ArrIdxPhi}, nullptr /*Underlying*/);
+  CurIdxInputPtr->setName("scan.arr.ip.ptr");
+  // Load the input element.
+  auto *CurIdxInput = Builder.createLoad(ElemTy, CurIdxInputPtr,
+                                         nullptr /*Underlying*/, "scan.arr.ip");
+  // Generate GEP to obtain pointer for current accumulator element. Note that
+  // we re-use original array reduction variable for this.
+  auto *CurIdxAccumPtr =
+      Builder.createGEP(ArrTy /*SrcElemTy*/, ElemTy /*ResElemTy*/, OrigArr,
+                        {ZeroConst, ArrIdxPhi}, nullptr /*Underlying*/);
+  CurIdxAccumPtr->setName("scan.arr.accum.ptr");
+  // Load the accumulator element.
+  auto *CurIdxAccum = Builder.createLoad(
+      ElemTy, CurIdxAccumPtr, nullptr /*Underlying*/, "scan.arr.accum");
+
+  // Issue the running reduction instruction based on the inscan kind.
+  unsigned BinOpcode = ArrInscanRed->getReductionOpcode();
+  bool IsInclusive =
+      (ArrInscanRed->getInscanKind() == InscanReductionKind::Inclusive);
+  VPInstruction *RunningReduction =
+      IsInclusive
+          ? Builder.create<VPRunningInclusiveReduction>(
+                "arr.scan.incl", BinOpcode, CurIdxInput, CurIdxAccum, Identity)
+          : Builder.create<VPRunningExclusiveReduction>(
+                "arr.scan.excl", BinOpcode, CurIdxInput, CurIdxAccum, Identity);
+  // Attach FastMathFlags to running reduction.
+  FastMathFlags FMF = ArrInscanRed->getFastMathFlags();
+  if (FMF.any())
+    RunningReduction->setFastMathFlags(FMF);
+  Builder.createStore(RunningReduction, CurIdxInputPtr);
+
+  // Extract last lane to update accumulator.
+  auto *CarryOver =
+      Builder.createNaryOp(VPInstruction::ExtractLastVectorLane,
+                           RunningReduction->getType(), {RunningReduction});
+  // If we deal with exclusive scan reduction, reduce carry-over with the last
+  // lane of reduction.
+  if (!IsInclusive) {
+    auto *RedInputLastLane =
+        Builder.createNaryOp(VPInstruction::ExtractLastVectorLane,
+                             CurIdxInput->getType(), {CurIdxInput});
+    CarryOver =
+        Builder.createNaryOp(BinOpcode, ElemTy, {CarryOver, RedInputLastLane});
+    if (FMF.any())
+      CarryOver->setFastMathFlags(FMF);
+  }
+
+  // Update current accumulator element for next iteration.
+  Builder.createStore(CarryOver, CurIdxAccumPtr);
+
+  // Increment array loop IV and update the PHI.
+  auto *OneConst = Plan.getVPConstant(ConstantInt::get(I64Ty, 1));
+  auto *NumElemsConst = Plan.getVPConstant(ConstantInt::get(I64Ty, NumElems));
+  auto *ArrIdxNext = Builder.createAdd(ArrIdxPhi, OneConst, "scan.arr.idx.nxt");
+  ArrIdxPhi->addIncoming(ArrIdxNext, FenceBlock);
+
+  // Generate array loop exit condition and update BB's terminator with it.
+  auto *ArrLpExitCond = Builder.createCmpInst(
+      CmpInst::ICMP_EQ, ArrIdxNext, NumElemsConst, "scan.arr.running.done");
+  FenceBlock->setTerminator(FenceBlock->getSingleSuccessor() /*trueBB*/,
+                            FenceBlock /*falseBB*/, ArrLpExitCond);
+
+  // Replace uses of external defs associated with memory aliases.
+  replaceUsesOfExtDefWithMemoryAliases(ArrInscanRed, Preheader, Loop,
+                                       AddedAliasInstrs);
+}
+
+void VPLoopEntityList::assignDebugLocToReductionInstrs(VPReductionFinal *Final,
+                                                       bool IsMemOnly) {
+
+  VPInstruction *Reducer = nullptr;
+  std::queue<VPInstruction *> WorkList;
+  SmallSet<VPInstruction *, 8> Visited;
+  VPInstruction *First = dyn_cast<VPInstruction>(Final->getReducingOperand());
+  assert(First && "Reducing operand is not instruction!");
+  WorkList.push(First);
+
+  while (!WorkList.empty()) {
+    VPInstruction *Cand = WorkList.front();
+    WorkList.pop();
+    Visited.insert(Cand);
+
+    if (auto *Phi = dyn_cast<VPPHINode>(Cand)) {
+      for (auto Opnd : Phi->operands()) {
+       if (auto *I = dyn_cast<VPInstruction>(Opnd))
+          if (Loop.contains(I) && !Visited.contains(I))
+            WorkList.push(I);
+      }
+    } else if (Reducer) {
+      Reducer = nullptr;
+      break;
+    } else {
+      Reducer = Cand;
+    }
+  }
+
+  // If we can't infer a single reducing instruction, make no changes.
+  if (!Reducer)
+    return;
+
+  // Associate the reduction-final with the reducing instruction.
+  auto DebugLoc = Reducer->getDebugLocation();
+  Final->setDebugLocation(DebugLoc);
+
+  // Don't attempt to mark phis for in-memory reductions.
+  if (IsMemOnly || isa<VPLoadStoreInst>(First))
+    return;
+
+  // All phis encountered in the above search should be associated with the
+  // reducing instruction.
+  bool HeaderPhiFound = false;
+  for (auto *I : Visited)
+    if (auto *Phi = dyn_cast<VPPHINode>(I)) {
+      Phi->setDebugLocation(DebugLoc);
+      if (Phi->getParent() == Loop.getHeader())
+        HeaderPhiFound = true;
+    }
+
+  // Find the header phi for the reduction and associate it with the
+  // reducing instruction.
+  if (!HeaderPhiFound)
+    for (auto *Val : First->users())
+      if (auto *Phi = dyn_cast<VPPHINode>(Val))
+        if (Phi->getParent() == Loop.getHeader()) {
+          Phi->setDebugLocation(DebugLoc);
+          HeaderPhiFound = true;
+        }
+  assert(HeaderPhiFound && "No header phi found for reduction!");
 }
 
 void VPLoopEntityList::insertOneReductionVPInstructions(
@@ -1115,9 +1370,11 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   Type *Ty = Reduction->getRecurrenceType();
   VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI, Preheader);
   if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity)) {
+    assert(!Reduction->isComplex() &&
+           "Complex type reduction is not expected here.");
     // min/max in-memory reductions. Need to generate a load.
     VPLoadStoreInst *V = Builder.createLoad(Ty, AI);
-    updateHIROperand(AI, V); // INTEL
+    updateHIROperand(AI, V);
     Identity = V;
   }
 
@@ -1138,6 +1395,10 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   }
   bool StartIncluded = (!Ty->isFloatingPointTy() && !Reduction->isMinMax()) ||
                         IsInscan;
+  // For complex type reduction start value is not needed for initialization. We
+  // account for it during finalization.
+  if (Reduction->isComplex())
+    StartIncluded = false;
   VPValue *StartValue =
       StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
   bool UseStart = StartValue != nullptr || Reduction->isMinMax();
@@ -1149,13 +1410,13 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     assert(isa<PointerType>(StartValue->getType()) &&
            "Expected pointer type here.");
     VPLoadStoreInst *V = Builder.createLoad(Ty, StartValue);
-    updateHIROperand(StartValue, V); // INTEL
+    updateHIROperand(StartValue, V);
     StartValue = V;
   }
 
   VPInstruction *Init = Builder.createReductionInit(
       Identity, StartValue, UseStart, IsInscan /*IsScalar*/,
-      Name + Reduction->getNameSuffix() + ".init");
+      Reduction->isComplex(), Name + Reduction->getNameSuffix() + ".init");
 
   processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                    *Reduction->getRecurrenceStartValue(), IsInscan);
@@ -1178,39 +1439,48 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     Builder.setCurrentDebugLocation(
         PostExit->getTerminator()->getDebugLocation());
 
-  if (Reduction->getIsMemOnly() || !Exit)
+  // Load from private memory is not needed for complex-type reduction
+  // finalization.
+  if ((Reduction->getIsMemOnly() || !Exit) && !Reduction->isComplex())
     Exit = Builder.createLoad(Ty, PrivateMem);
 
   VPValue *ChangeValue = nullptr;
   if (Reduction->isSelectCmp()) {
     // A simple SelectICmp or SelectFCmp pattern has a select for the Exit
-    // instruction.  The pattern may also recognize two logically ANDed
-    // conditions, in which case we must look through a PHI.  No more complex
-    // conditions are recognized.  In the PHI case, one of the predecessor
-    // blocks will be the loop header.  The other block will contain the
-    // select.
+    // instruction.  In more complex cases the Exit instruction is a PHI.
+    // The PHI may have any number of predecessors, but only one of them
+    // is a select; the rest produce the PHI recurrence from the loop
+    // header.
     VPInstruction *Select = Exit;
     VPBasicBlock *Header = Loop.getHeader();
     if (auto *Phi = dyn_cast<VPPHINode>(Select)) {
-      assert(Phi->getNumOperands() == 2 && "Phi must have 2 arguments!");
-      VPBasicBlock *BB0 = Phi->getIncomingBlock((unsigned)0);
-      unsigned Index = BB0 == Header ? 1 : 0;
-      VPValue *Incoming = Phi->getIncomingValue(Index);
-      if (!(Select = dyn_cast<VPInstruction>(Incoming)))
-        llvm_unreachable("Phi predecessor isn't an instruction!");
+      for (unsigned K = 0; K < Phi->getNumOperands(); K++) {
+       VPValue *Incoming = Phi->getIncomingValue(K);
+       auto *IncPhi = dyn_cast<VPPHINode>(Incoming);
+       if (IncPhi) {
+          assert(IncPhi->getParent() == Header &&
+                 "Incoming Phi must be in loop header!");
+       } else {
+          VPInstruction *IncSel = dyn_cast<VPInstruction>(Incoming);
+          assert(IncSel && IncSel->getOpcode() == Instruction::Select &&
+                 "Incoming value must be Phi or Select!");
+          assert(Select == Exit && "Multiple incoming selects not allowed!");
+          Select = IncSel;
+       }
+      }
     }
-    assert(Select->getOpcode() == Instruction::Select
-           && "Exit is not a select!");
+    assert(Select->getOpcode() == Instruction::Select &&
+           "Exit is not a select!");
     // One of the operands comes from the PHI recurrence.  The other is
     // the change value.  Note the change value can come from a PHI
     // outside the loop, so we have to make sure we have the right PHI.
     ChangeValue = Select->getOperand(1);
-    if (isa<VPPHINode>(ChangeValue)
-        && cast<VPInstruction>(ChangeValue)->getParent() == Header)
+    if (isa<VPPHINode>(ChangeValue) &&
+        cast<VPInstruction>(ChangeValue)->getParent() == Header)
       ChangeValue = Select->getOperand(2);
   }
 
-  VPReductionFinal *Final = nullptr;
+  VPInstruction *Final = nullptr;
   std::string FinName = (Name + Reduction->getNameSuffix() + ".final").str();
   if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
     const VPReduction *Parent = IndexRed->getParentReduction();
@@ -1221,12 +1491,21 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
         FinName, Reduction->getReductionOpcode(), Exit, ParentExit, ParentFinal,
         Reduction->isSigned());
     if (IndexRed->isLinearIndex())
-      Final->setIsLinearIndex();
+      cast<VPReductionFinal>(Final)->setIsLinearIndex();
   } else if (IsInscan) {
       Final = Builder.create<VPReductionFinalInscan>(
         FinName, Reduction->getReductionOpcode(), Exit);
+  } else if (Reduction->isComplex()) {
+      // Finalize complex type reduction by emitting a reduction-final-cmplx
+      // instruction. Pseudo IR -
+      //
+      // PostExit:
+      //   CmplxTy %fin = reduction-final-cmplx %cmplx.red.vec, %cmplx.red.orig
+      Final = Builder.create<VPReductionFinalCmplx>(
+          "red.final.cmplx", Reduction->getRecurrenceType(),
+          ArrayRef<VPValue *>{PrivateMem, AI}, Reduction->getReductionOpcode());
   } else {
-    if (Reduction->isSelectCmp())
+      if (Reduction->isSelectCmp())
       Final = Builder.create<VPReductionFinal>(
           FinName, Reduction->getReductionOpcode(), Exit,
           Reduction->getRecurrenceStartValue(), ChangeValue,
@@ -1241,7 +1520,7 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
         assert(isa<PointerType>(FinalStartValue->getType()) &&
                "Expected pointer type here.");
         VPLoadStoreInst *V  = Builder.createLoad(Ty, FinalStartValue);
-        updateHIROperand(AI, V); // INTEL
+        updateHIROperand(AI, V);
         FinalStartValue = V;
       }
       Final = Builder.create<VPReductionFinal>(
@@ -1254,7 +1533,10 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   if (FMF.any())
     Final->setFastMathFlags(FMF);
 
-  processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+  if (auto *VPRedFinal = dyn_cast<VPReductionFinal>(Final)) {
+    assignDebugLocToReductionInstrs(VPRedFinal, Reduction->getIsMemOnly());
+    processFinalValue(*Reduction, AI, Builder, *VPRedFinal, Ty, Exit);
+  }
 
   if (PrivateMem) {
     assert(AI && "Expected non-null original pointer");
@@ -1263,7 +1545,8 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
                          Intrinsic::lifetime_end);
   }
 
-  RedExitMap[Reduction] = Exit;
+  if (!Reduction->isComplex())
+    RedExitMap[Reduction] = Exit;
   ProcessedReductions.insert(Reduction);
 }
 
@@ -1329,10 +1612,10 @@ void VPLoopEntityList::insertUDRVPInstructions(
 
   // Initialize UDR by calling constructor (if present) and initializer.
   if (auto *CtorFn = UDR->getCtor())
-    createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
+    Builder.createCall(CtorFn, {PrivateMem});
 
   if (auto *InitFn = UDR->getInitializer())
-    createCustomFunctionCall(InitFn, {PrivateMem, AI}, Builder, Plan);
+    Builder.createCall(InitFn, {PrivateMem, AI});
 
   // Finalize UDR by emitting a reduction-final-udr instruction and call to
   // destructor (if present).
@@ -1344,7 +1627,7 @@ void VPLoopEntityList::insertUDRVPInstructions(
       ArrayRef<VPValue *>{PrivateMem, AI}, UDR->getCombiner());
 
   if (auto *DtorFn = UDR->getDtor())
-    createCustomFunctionCall(DtorFn, {PrivateMem}, Builder, Plan);
+    Builder.createCall(DtorFn, {PrivateMem});
 
   ProcessedReductions.insert(UDR);
 }
@@ -1413,6 +1696,11 @@ void VPLoopEntityList::insertArrayRedVPInstructions(
     VPReduction *ArrRed, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
     SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
+  // ArrayType scan reductions are handled separately downstream, nothing to do
+  // here.
+  if (isa<VPInscanReduction>(ArrRed))
+    return;
+
   // Note: the insert location guard also guards builder debug location.
   VPBuilder::InsertPointGuard Guard(Builder);
 
@@ -1520,9 +1808,10 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
 // TODO: implement without initializer.
 //
 // Preheader:
-//   %uds.temp = allocate-private %UDSType
+//   %uds.temp = allocate-private %UDSType ;; for exclusive scan
 //   %uds.vec = allocate-private %UDSType
-//   lifetime.start(%uds.temp)
+//   lifetime.start(%uds.temp)             ;; for exclusive scan
+//   lifetime.start(%uds.vec)
 //
 // Loop:
 //   call @udr.ctor(%uds.vec)
@@ -1539,7 +1828,8 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
 //   br i1 %cond
 //
 // Postexit:
-//   lifetime.end(%uds.temp)
+//   lifetime.end(%uds.temp)               ;; for exclusive scan
+//   lifetime.end(%uds.vec)
 void VPLoopEntityList::processRunningUDS(const VPUserDefinedScanReduction *UDS,
                                          VPBasicBlock *FenceBlock,
                                          VPBuilder &Builder) {
@@ -1555,17 +1845,15 @@ void VPLoopEntityList::processRunningUDS(const VPUserDefinedScanReduction *UDS,
   // Replace all uses of original UDS with the created private memory.
   AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
 
-  // Create temp memory.
+  bool IsExclusive = (UDS->getInscanKind() == InscanReductionKind::Exclusive);
+  // Create temp memory for exclusive UDS.
   // TODO: Ideally, we can emit it as scalar, so far rely on further opts to
   // clean it.
-  auto *Temp = Builder.create<VPAllocatePrivate>(
-      AI->getName() + ".temp", AI->getType(), PrivateMem->getAllocatedType(),
-      PrivateMem->getOrigAlignment());
-  Temp->setDebugLocation({});
-  // Create a lifetime.start marker for the temp.
-  auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
-  createLifetimeMarker(Builder, Plan, Preheader, Temp, OrigAI,
-                       Intrinsic::lifetime_start);
+  VPAllocatePrivate *Temp = nullptr;
+  if (IsExclusive) {
+    Temp = createPrivateMemory(*const_cast<VPUserDefinedScanReduction *>(UDS),
+                               Builder, AI, Preheader);
+  }
 
   VPBasicBlock *Header = Loop.getHeader();
   Builder.setInsertPointFirstNonPhi(Header);
@@ -1574,25 +1862,24 @@ void VPLoopEntityList::processRunningUDS(const VPUserDefinedScanReduction *UDS,
   // Initialize private memory by calling constructor (if present) and
   // initializer (if present).
   if (auto *CtorFn = UDS->getCtor())
-    createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
+    Builder.createCall(CtorFn, {PrivateMem});
   if (auto *InitFn = UDS->getInitializer())
-    createCustomFunctionCall(InitFn, {PrivateMem, AI}, Builder, Plan);
+    Builder.createCall(InitFn, {PrivateMem, AI});
 
   // Create running UDS instructions.
   Builder.setInsertPoint(FenceBlock);
   Builder.setCurrentDebugLocation(
       FenceBlock->getTerminator()->getDebugLocation());
 
-  bool IsInclusive = (UDS->getInscanKind() == InscanReductionKind::Inclusive);
-  if (IsInclusive) {
-    Builder.create<VPRunningInclusiveUDS>(
-        ".running.incl.uds", Type::getVoidTy(*Plan.getLLVMContext()),
-        ArrayRef<VPValue *>{PrivateMem, AI}, UDS->getCombiner(),
-        UDS->getInitializer(), UDS->getCtor(), UDS->getDtor());
-  } else {
+  if (IsExclusive) {
     Builder.create<VPRunningExclusiveUDS>(
         ".running.excl.uds", Type::getVoidTy(*Plan.getLLVMContext()),
         ArrayRef<VPValue *>{PrivateMem, AI, Temp}, UDS->getCombiner(),
+        UDS->getInitializer(), UDS->getCtor(), UDS->getDtor());
+  } else {
+    Builder.create<VPRunningInclusiveUDS>(
+        ".running.incl.uds", Type::getVoidTy(*Plan.getLLVMContext()),
+        ArrayRef<VPValue *>{PrivateMem, AI}, UDS->getCombiner(),
         UDS->getInitializer(), UDS->getCtor(), UDS->getDtor());
   }
 
@@ -1601,12 +1888,16 @@ void VPLoopEntityList::processRunningUDS(const VPUserDefinedScanReduction *UDS,
     VPBasicBlock *Latch = Loop.getLoopLatch();
     Builder.setInsertPoint(Latch);
     Builder.setCurrentDebugLocation(Latch->getTerminator()->getDebugLocation());
-    createCustomFunctionCall(DtorFn, {PrivateMem}, Builder, Plan);
+    Builder.createCall(DtorFn, {PrivateMem});
   }
 
   // Create a lifetime.end marker for the temp.
+  auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
   VPBasicBlock *PostExit = Loop.getUniqueExitBlock();
-  createLifetimeMarker(Builder, Plan, PostExit, Temp, OrigAI,
+  if (IsExclusive)
+    createLifetimeMarker(Builder, Plan, PostExit, Temp, OrigAI,
+                         Intrinsic::lifetime_end);
+  createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
                        Intrinsic::lifetime_end);
 }
 
@@ -1776,7 +2067,7 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     Type *Ty = Start->getType();
     if (Induction->getIsMemOnly()) {
       VPLoadStoreInst *V = Builder.createLoad(Ty, AI);
-      updateHIROperand(AI, V); // INTEL
+      updateHIROperand(AI, V);
       Start = V;
     }
 
@@ -2134,9 +2425,9 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
               ArrayRef<VPValue *>{PrivateMem}, PrivateNonPOD->getCtor());
         } else {
           if (PrivateNonPOD->isF90())
-            createCustomFunctionCall(CtorFn, {PrivateMem, AI}, Builder, Plan);
+            Builder.createCall(CtorFn, {PrivateMem, AI});
           else
-            createCustomFunctionCall(CtorFn, {PrivateMem}, Builder, Plan);
+            Builder.createCall(CtorFn, {PrivateMem});
         }
       }
 
@@ -2186,7 +2477,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
               ".priv.nonpod.array", Type::getVoidTy(*Plan.getLLVMContext()),
               ArrayRef<VPValue *>{PrivateMem}, DtorFn);
         } else {
-          createCustomFunctionCall(DtorFn, {PrivateMem}, Builder, Plan);
+          Builder.createCall(DtorFn, {PrivateMem});
         }
       }
     } else if (Private->isLast()) {
@@ -2423,7 +2714,8 @@ static bool checkLastPrivPhiUsers(const VPPHINode *VPhi,
 // is <nullptr, PrivateKind::Last>, and for non-vectorizable cases the return
 // value is std::nullopt.
 
-using PrivKindPair = Optional<std::pair<VPValue *, VPPrivate::PrivateKind>>;
+using PrivKindPair =
+    std::optional<std::pair<VPValue *, VPPrivate::PrivateKind>>;
 
 static PrivKindPair getPrivateKind(VPInstruction *Inst, VPLoopEntityList *LE) {
   const VPBasicBlock *HeaderBB = LE->getLoop().getHeader();
@@ -2777,12 +3069,23 @@ bool ReductionDescr::isDuplicate(const VPlanVector *Plan, const VPLoop *Loop) co
 
 VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
                                                    const VPLoop *Loop) {
+  // We follow phi-user chains that potentially lead us to the live-out
+  // instruction VPInst.  We skip the phis in the loop headers as they are
+  // usually not live-out, and the cases when they are used by other,
+  // live-out, phis are covered by finding non-header phis.
+  // TODO: Consider the cases when a header phi is live-out itself from
+  // an inner loop (e.g., when the inner loop is multi-exit).  See
+  // CMPLRLLVM-44940.
   SetVector<VPPHINode *> Worklist;
-  auto AddPHIUsersToWorklist = [&Worklist, Loop](VPInstruction *VPI) -> void {
+  SmallVector<VPBasicBlock *, 4> HeaderBBs;
+  for (auto *InnerLoop : Loop->getLoopsInPreorder())
+    HeaderBBs.push_back(InnerLoop->getHeader());
+  auto AddPHIUsersToWorklist = [&Worklist, Loop,
+                                &HeaderBBs](VPInstruction *VPI) -> void {
     for (auto *U : VPI->users()) {
       if (auto *PhiUser = dyn_cast<VPPHINode>(U))
         if (checkInstructionInLoop(PhiUser, Loop) &&
-            PhiUser->getParent() != Loop->getHeader())
+            llvm::count(HeaderBBs, PhiUser->getParent()) == 0)
           Worklist.insert(PhiUser);
     }
   };
@@ -3060,9 +3363,21 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
         auto *CurrVal = Worklist.pop_back_val();
 
         for (auto *User : CurrVal->users()) {
-          // If we encounter a GEP operating on alloca, then add to worklist.
+          // If user is a memory alias, add the corresponding external def to
+          // the worklist.
+          if (auto *UserI = dyn_cast<VPInstruction>(User)) {
+            for (auto &KeyValPair : MemAliases) {
+              if (UserI == KeyValPair.second.first)
+                Worklist.push_back(KeyValPair.first);
+            }
+          }
+
+          // If we encounter a GEP/subscript operating on alloca, then add to
+          // worklist.
           if (auto *VPGEP = dyn_cast<VPGEPInstruction>(User))
             Worklist.push_back(VPGEP);
+          if (auto *VPSub = dyn_cast<VPSubscriptInst>(User))
+            Worklist.push_back(VPSub);
 
           auto *VPLS = dyn_cast<VPLoadStoreInst>(User);
           if (!VPLS)
@@ -3088,9 +3403,9 @@ void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
         Combiner, Initializer, Ctor, Dtor, Start, RedFMF, RT, Signed,
         MemAliases, AllocaInst, ValidMemOnly, InscanRedKind);
   } else if (LinkPhi == nullptr) {
-    VPRed =
-        LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
-                         MemAliases, InscanRedKind, AllocaInst, ValidMemOnly);
+    VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
+                             MemAliases, InscanRedKind, IsComplex, AllocaInst,
+                             ValidMemOnly);
   } else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");
@@ -3437,7 +3752,8 @@ bool VPEntityImportDescr::hasRealUserInLoop(VPValue *Val, const VPLoop *Loop,
         if (CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_start ||
             CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_end ||
             CalleeFunc->getIntrinsicID() == Intrinsic::invariant_start ||
-            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_end)
+            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_end ||
+            CalleeFunc->getIntrinsicID() == Intrinsic::intel_directive_elementsize)
           continue;
     }
     return true;
@@ -3697,6 +4013,7 @@ void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
       V = Start;
       UpdateVPInsts = Alias.value().UpdateVPInsts;
     }
+    assert(V && "Unexpected null induction operand");
     for (auto User : V->users())
       if (auto Instr = dyn_cast<VPPHINode>(User))
         if (Loop->contains(Instr) && getLiveInOrConstOperand(Instr, *Loop)) {
@@ -3781,7 +4098,7 @@ void CompressExpandIdiomDescr::tryToCompleteByVPlan(VPlanVector *Plan,
   for (VPInstruction *Increment : Increments)
     if (!GatherIdiomInfo(Increment)) {
       VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
-      LE->setImportingError(VPLoopEntityList::ImportError::ComressExpand);
+      LE->setImportingError(VPLoopEntityList::ImportError::CompressExpand);
       return;
     }
 

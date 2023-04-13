@@ -1,6 +1,6 @@
 //===-- DTransOptBase.cpp - Common base classes for DTrans Transforms---==//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -17,7 +17,6 @@
 
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/DebugInfo.h"
@@ -123,7 +122,8 @@ DTransTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
     return CurMapping;
 
   if (SrcTy->isPointerTy()) {
-    Type *ReplTy = computeReplacementType(SrcTy->getPointerElementType());
+    Type *ReplTy =
+        computeReplacementType(SrcTy->getNonOpaquePointerElementType());
     if (!ReplTy)
       return nullptr;
     return ReplTy->getPointerTo();
@@ -169,7 +169,7 @@ DTransTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
     }
 
     if (NeedsReplaced) {
-      return FunctionType::get(ReplRetTy, makeArrayRef(DataTypes),
+      return FunctionType::get(ReplRetTy, ArrayRef(DataTypes),
                                FunctionTy->isVarArg());
     }
   }
@@ -829,7 +829,7 @@ void DTransOptBase::createCloneFunctionDeclarations(Module &M) {
     Type *RetTy = FuncSig->getReturnType();
 
     if (RetTy->isPointerTy())
-      RetTy = RetTy->getPointerElementType();
+      RetTy = RetTy->getNonOpaquePointerElementType();
 
     if (RetTy->isStructTy())
       return RetTy->getStructName();
@@ -1006,7 +1006,7 @@ void DTransOptBase::convertGlobalVariables(Module &M, ValueMapper &Mapper) {
   // have been processed. The aliases need to be processed before the global
   // variable initializers are remapped in case a variable makes use of an
   // alias instead of the original variable or function.
-  for (auto &Alias : M.getAliasList()) {
+  for (auto &Alias : M.aliases()) {
     Constant *Aliasee = Alias.getAliasee();
     // If the Aliasee is being mapped to something other than itself,
     // then this GlobalAlias needs to be updated.

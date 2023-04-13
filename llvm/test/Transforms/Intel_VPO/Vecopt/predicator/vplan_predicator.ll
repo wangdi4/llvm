@@ -160,8 +160,8 @@ define void @test_nested_if_else() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: bb2
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_BB2_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_BB2_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING_NOT:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[VP_BB2_VARYING_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[VP_BB2_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb6
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb6: # preds: [[BB0]]
@@ -179,8 +179,8 @@ define void @test_nested_if_else() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: bb1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_BB1_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT:%.*]] = select i1 [[VP_VARYING]] i1 [[VP_BB1_VARYING_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING:%.*]] = select i1 [[VP_VARYING]] i1 [[VP_BB1_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb4
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb4: # preds: [[BB1]]
@@ -325,7 +325,7 @@ define void @test_two_linearized_pathes_merge(i1 *%uniform.ptr) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB0]]: # preds: bb3
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB3_BR_VP_BB3_VARYING_NOT:%.*]] = and i1 [[VP_BB1_VARYING]] i1 [[VP_BB3_VARYING_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB3_BR_VP_BB3_VARYING_NOT:%.*]] = select i1 [[VP_BB1_VARYING]] i1 [[VP_BB3_VARYING_NOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br bb4
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      bb4: # preds: [[BB0]]
@@ -813,7 +813,7 @@ define dso_local void @test_divergent_loop_with_double_top_test(i32 %N, i32 *%a,
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: bb1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_SECOND_TEST_NOT:%.*]] = and i1 [[VP_SKIP_LOOP]] i1 [[VP_SECOND_TEST_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_SECOND_TEST_NOT:%.*]] = select i1 [[VP_SKIP_LOOP]] i1 [[VP_SECOND_TEST_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb2
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb2: # preds: [[BB0]]
@@ -828,7 +828,7 @@ define dso_local void @test_divergent_loop_with_double_top_test(i32 %N, i32 *%a,
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: header
-; CHECK-NEXT:     [DA: Div] i1 [[VP_HEADER_BR_VP_LOOP_MASK:%.*]] = and i1 [[VP_BB1_BR_VP_SECOND_TEST_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_HEADER_BR_VP_LOOP_MASK:%.*]] = select i1 [[VP_BB1_BR_VP_SECOND_TEST_NOT]] i1 [[VP_LOOP_MASK]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -844,7 +844,7 @@ define dso_local void @test_divergent_loop_with_double_top_test(i32 %N, i32 *%a,
 ; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB1_BR_VP_SECOND_TEST_NOT]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i32 [[VP_IV]] i32 [[VP_IV_LIVE_OUT_PREV]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_EXITCOND_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP5]], bb3, header
 ; CHECK-EMPTY:
@@ -975,7 +975,7 @@ define void @test_use_dom_instead_of_direct_succ() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: bb6
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB6_BR_VP_BB6_VARYING:%.*]] = and i1 [[VP_BB0_VARYING_NOT]] i1 [[VP_BB6_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB6_BR_VP_BB6_VARYING:%.*]] = select i1 [[VP_BB0_VARYING_NOT]] i1 [[VP_BB6_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb7
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb7: # preds: [[BB0]]
@@ -985,7 +985,7 @@ define void @test_use_dom_instead_of_direct_succ() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: bb7
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB7_BR_VP_BB7_VARYING_NOT:%.*]] = and i1 [[VP_BB6_BR_VP_BB6_VARYING]] i1 [[VP_BB7_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB7_BR_VP_BB7_VARYING_NOT:%.*]] = select i1 [[VP_BB6_BR_VP_BB6_VARYING]] i1 [[VP_BB7_VARYING_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb8
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb8: # preds: [[BB1]]
@@ -999,7 +999,7 @@ define void @test_use_dom_instead_of_direct_succ() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: bb1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT:%.*]] = and i1 [[VP_BB0_VARYING]] i1 [[VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT:%.*]] = select i1 [[VP_BB0_VARYING]] i1 [[VP_BB1_VARYING_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb2
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb2: # preds: [[BB2]]
@@ -1009,8 +1009,8 @@ define void @test_use_dom_instead_of_direct_succ() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: bb2
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING_NOT:%.*]] = and i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT]] i1 [[VP_BB2_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING:%.*]] = and i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT]] i1 [[VP_BB2_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING_NOT:%.*]] = select i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT]] i1 [[VP_BB2_VARYING_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING:%.*]] = select i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT]] i1 [[VP_BB2_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb3
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb3: # preds: [[BB3]]
@@ -1105,8 +1105,8 @@ define void @test_triple_pred_in_single_linearized_flow() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: bb1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT:%.*]] = and i1 [[VP_BB0_VARYING]] i1 [[VP_BB1_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING:%.*]] = and i1 [[VP_BB0_VARYING]] i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT:%.*]] = select i1 [[VP_BB0_VARYING]] i1 [[VP_BB1_VARYING_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING:%.*]] = select i1 [[VP_BB0_VARYING]] i1 [[VP_BB1_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb3
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb3: # preds: [[BB0]]
@@ -1185,7 +1185,7 @@ define void @test_linearized_chain() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: bb2
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING:%.*]] = and i1 [[VP_BB0_VARYING_NOT]] i1 [[VP_BB2_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING:%.*]] = select i1 [[VP_BB0_VARYING_NOT]] i1 [[VP_BB2_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb1: # preds: [[BB0]]
@@ -1257,7 +1257,7 @@ define void @test_reuse_idom() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: bb2
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING:%.*]] = and i1 [[VP_BB0_VARYING_NOT]] i1 [[VP_BB2_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_BR_VP_BB2_VARYING:%.*]] = select i1 [[VP_BB0_VARYING_NOT]] i1 [[VP_BB2_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb1: # preds: [[BB0]]
@@ -1267,7 +1267,7 @@ define void @test_reuse_idom() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: bb1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT:%.*]] = and i1 [[VP_BB0_VARYING]] i1 [[VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_BR_VP_BB1_VARYING_NOT:%.*]] = select i1 [[VP_BB0_VARYING]] i1 [[VP_BB1_VARYING_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb3
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb3: # preds: [[BB1]]
@@ -1278,8 +1278,8 @@ define void @test_reuse_idom() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: bb3
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_BB3_VARYING_NOT:%.*]] = and i1 [[VP2]] i1 [[VP_BB3_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_BB3_VARYING:%.*]] = and i1 [[VP2]] i1 [[VP_BB3_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_BB3_VARYING_NOT:%.*]] = select i1 [[VP2]] i1 [[VP_BB3_VARYING_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_BB3_VARYING:%.*]] = select i1 [[VP2]] i1 [[VP_BB3_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb4
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb4: # preds: [[BB2]]
@@ -1369,7 +1369,7 @@ define void @test_blend_splitting_for_early_path_join(i1 %uniform) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB0]]: # preds: bb3
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB3_BR_VP_BB3_VARYING_NOT:%.*]] = and i1 [[VP_BB2_VARYING_NOT]] i1 [[VP_BB3_VARYING_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB3_BR_VP_BB3_VARYING_NOT:%.*]] = select i1 [[VP_BB2_VARYING_NOT]] i1 [[VP_BB3_VARYING_NOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br [[BLEND_BB0:blend.bb[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB0]]: # preds: [[BB0]]
@@ -1388,7 +1388,7 @@ define void @test_blend_splitting_for_early_path_join(i1 %uniform) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: bb4
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB4_BR_VP_BB4_VARYING_NOT:%.*]] = and i1 [[VP_BB1_VARYING_NOT]] i1 [[VP_BB4_VARYING_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_BB4_BR_VP_BB4_VARYING_NOT:%.*]] = select i1 [[VP_BB1_VARYING_NOT]] i1 [[VP_BB4_VARYING_NOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br [[BLEND_BB1:blend.bb[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB1]]: # preds: [[BB1]]
@@ -1654,7 +1654,7 @@ define void @uniform_br_under_outer_mask_1(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING]] i1 [[UNIFORM0:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING]] i1 [[UNIFORM0:%.*]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br i1 [[UNIFORM0]], if.then, if.end
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      if.then: # preds: [[BB0]]
@@ -1714,7 +1714,7 @@ define void @uniform_br_under_outer_mask_2(i1 *%uniform.ptr) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_UNIFORM]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING]] i1 [[VP_UNIFORM]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.then
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.then: # preds: [[BB0]]
@@ -1776,7 +1776,7 @@ define void @uniform_br_under_outer_mask_3(i1 *%uniform.ptr) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_UNIFORM]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING]] i1 [[VP_UNIFORM]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.then
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.then: # preds: [[BB0]]
@@ -1831,7 +1831,7 @@ define void @uniform_br_under_outer_mask_4(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0:%.*]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.then
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.then: # preds: [[BB0]]
@@ -1878,8 +1878,8 @@ define void @uniform_br_under_outer_mask_5(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br i1 [[UNIFORM0]], if.then, if.else
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      if.else: # preds: [[BB0]]
@@ -1958,8 +1958,8 @@ define void @uniform_br_under_outer_mask_6(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.else
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.else: # preds: [[BB0]]
@@ -2030,8 +2030,8 @@ define void @uniform_br_under_outer_mask_7(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.else
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.else: # preds: [[BB0]]
@@ -2041,8 +2041,8 @@ define void @uniform_br_under_outer_mask_7(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: if.else
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_ELSE_VARYING_NOT:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[VP_ELSE_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_ELSE_VARYING:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[VP_ELSE_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_ELSE_VARYING_NOT:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[VP_ELSE_VARYING_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_ELSE_VARYING:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[VP_ELSE_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.then
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.then: # preds: [[BB1]]
@@ -2052,8 +2052,8 @@ define void @uniform_br_under_outer_mask_7(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: if.then
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_THEN_VARYING_NOT:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[VP_THEN_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_THEN_VARYING:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[VP_THEN_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_THEN_VARYING_NOT:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[VP_THEN_VARYING_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_THEN_VARYING:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[VP_THEN_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb2
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb2: # preds: [[BB2]]
@@ -2130,8 +2130,8 @@ define void @uniform_br_under_outer_mask_8(i1 %uniform, i1 %u.then, i1 %u.else) 
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.else
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.else: # preds: [[BB0]]
@@ -2139,8 +2139,8 @@ define void @uniform_br_under_outer_mask_8(i1 %uniform, i1 %u.then, i1 %u.else) 
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: if.else
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_U_ELSE_NOT:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[VP_U_ELSE_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_U_ELSE:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[U_ELSE0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_U_ELSE_NOT:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[VP_U_ELSE_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_U_ELSE:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[U_ELSE0]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.then
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.then: # preds: [[BB1]]
@@ -2148,8 +2148,8 @@ define void @uniform_br_under_outer_mask_8(i1 %uniform, i1 %u.then, i1 %u.else) 
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: if.then
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_U_THEN_NOT:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[VP_U_THEN_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_U_THEN:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[U_THEN0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_U_THEN_NOT:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[VP_U_THEN_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_U_THEN:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[U_THEN0]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb2
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb2: # preds: [[BB2]]
@@ -2223,8 +2223,8 @@ define void @uniform_br_under_outer_mask_9(i1 %uniform, i1 %u.else) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.else
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.else: # preds: [[BB0]]
@@ -2232,8 +2232,8 @@ define void @uniform_br_under_outer_mask_9(i1 %uniform, i1 %u.else) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: if.else
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_U_ELSE_NOT:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[VP_U_ELSE_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_U_ELSE:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[U_ELSE0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_U_ELSE_NOT:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[VP_U_ELSE_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_ELSE_BR_VP_U_ELSE:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM_NOT]] i1 [[U_ELSE0]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.then
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.then: # preds: [[BB1]]
@@ -2243,8 +2243,8 @@ define void @uniform_br_under_outer_mask_9(i1 %uniform, i1 %u.else) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: if.then
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_THEN_VARYING_NOT:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[VP_THEN_VARYING_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_THEN_VARYING:%.*]] = and i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[VP_THEN_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_THEN_VARYING_NOT:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[VP_THEN_VARYING_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_THEN_BR_VP_THEN_VARYING:%.*]] = select i1 [[VP_IF_BR_VP_UNIFORM]] i1 [[VP_THEN_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb2
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb2: # preds: [[BB2]]
@@ -2317,7 +2317,7 @@ define void @uniform_br_under_outer_mask_10(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0:%.*]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb0: # preds: [[BB0]]
@@ -2327,7 +2327,7 @@ define void @uniform_br_under_outer_mask_10(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: bb0
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB0_BR_VP_VARYING2_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_VARYING2_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB0_BR_VP_VARYING2_NOT:%.*]] = select i1 [[VP_VARYING]] i1 [[VP_VARYING2_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.then
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.then: # preds: [[BB1]]
@@ -2390,7 +2390,7 @@ define void @uniform_br_under_outer_mask_11(i1 %u0, i1 %u1) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if1
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF1_BR_VP_U1:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[U10:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF1_BR_VP_U1:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[U10:%.*]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if0: # preds: [[BB0]]
@@ -2398,7 +2398,7 @@ define void @uniform_br_under_outer_mask_11(i1 %u0, i1 %u1) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: if0
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF0_BR_VP_U0_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_U0_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF0_BR_VP_U0_NOT:%.*]] = select i1 [[VP_VARYING]] i1 [[VP_U0_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb: # preds: [[BB1]]
@@ -2449,8 +2449,8 @@ define void @uniform_br_under_outer_mask_12(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[VP_UNIFORM_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[UNIFORM0]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.else
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.else: # preds: [[BB0]]
@@ -2515,8 +2515,8 @@ define void @uniform_br_under_outer_mask_13(i1 %uniform) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_VARYING]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = and i1 [[VP_VARYING]] i1 [[UNIFORM0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM_NOT:%.*]] = select i1 [[VP_VARYING]] i1 [[VP_UNIFORM_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_UNIFORM:%.*]] = select i1 [[VP_VARYING]] i1 [[UNIFORM0]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br if.else
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    if.else: # preds: [[BB0]]
@@ -2573,7 +2573,7 @@ define void @uniform_br_under_outer_mask_14(i1 %u0, i1 %u1) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: else
-; CHECK-NEXT:     [DA: Div] i1 [[VP_ELSE_BR_VP_U1:%.*]] = and i1 [[VP_VARYING_NOT]] i1 [[U10:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_ELSE_BR_VP_U1:%.*]] = select i1 [[VP_VARYING_NOT]] i1 [[U10:%.*]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb1: # preds: [[BB0]]
@@ -2585,7 +2585,7 @@ define void @uniform_br_under_outer_mask_14(i1 %u0, i1 %u1) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: if
-; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_U0:%.*]] = and i1 [[VP_VARYING]] i1 [[U00:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_IF_BR_VP_U0:%.*]] = select i1 [[VP_VARYING]] i1 [[U00:%.*]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br bb0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    bb0: # preds: [[BB1]]

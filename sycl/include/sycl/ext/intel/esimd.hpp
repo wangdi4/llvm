@@ -1,4 +1,19 @@
-//==------------ esimd.hpp - DPC++ Explicit SIMD API -----------------------==//
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+// //==------------ esimd.hpp - DPC++ Explicit SIMD API --------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -79,10 +94,17 @@
 #pragma clang diagnostic ignored "-Wpsabi"
 #endif // !defined(__SYCL_DEVICE_ONLY__) && defined(__clang__)
 
+#include <sycl/detail/type_traits.hpp>
 #include <sycl/ext/intel/esimd/alt_ui.hpp>
 #include <sycl/ext/intel/esimd/common.hpp>
 #include <sycl/ext/intel/esimd/detail/bfloat16_type_traits.hpp>
 #include <sycl/ext/intel/esimd/detail/half_type_traits.hpp>
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+#include <sycl/ext/intel/esimd/detail/bf8_type_traits.hpp>
+#include <sycl/ext/intel/esimd/detail/hf8_type_traits.hpp>
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 #include <sycl/ext/intel/esimd/detail/tfloat32_type_traits.hpp>
 #include <sycl/ext/intel/esimd/simd.hpp>
 #include <sycl/ext/intel/esimd/simd_view.hpp>

@@ -23,7 +23,7 @@
 #include "queue_event.h"
 #include "task_executor.h"
 
-#include <CL/cl.h>
+#include <CL/cl_fpga_ext.h>
 #include <Logger.h>
 #include <cl_device_api.h>
 #include <cl_types.h>
@@ -60,6 +60,11 @@ class Command : public ICmdStatusChangedObserver {
 public:
   Command(const SharedPtr<IOclCommandQueueBase> &cmdQueue);
   virtual ~Command();
+
+  // disable possibility to create two instances of Command with the same logger
+  // pointer.
+  Command(const Command &s) = delete;
+  Command &operator=(const Command &s) = delete;
 
   //
   // Use this function to initiate the command local data set by a command
@@ -150,7 +155,8 @@ public:
   virtual cl_err_code EnqueueSelf(cl_bool bBlocking,
                                   cl_uint uNumEventsInWaitList,
                                   const cl_event *cpEeventWaitList,
-                                  cl_event *pEvent, ApiLogger *apiLogger);
+                                  cl_event *pEvent,
+                                  Utils::ApiLogger *apiLogger);
 
   // Prefix and Postfix Runtime commands
   // Each command may schedule prefix and postfix runtime commands for itself.
@@ -222,7 +228,7 @@ protected:
           access_rights_realy_used(MemoryObject::MEMOBJ_USAGES_COUNT){};
   };
 
-  typedef vector<MemoryObjectArg> MemoryObjectArgList;
+  typedef std::vector<MemoryObjectArg> MemoryObjectArgList;
 
   static void
   AddToMemoryObjectArgList(MemoryObjectArgList &argList, MemoryObject *pMemObj,
@@ -281,10 +287,6 @@ protected:
   DECLARE_LOGGER_CLIENT;
 
 private:
-  // disable possibility to create two instances of Command with the same logger
-  // pointer.
-  Command(const Command &s);
-  Command &operator=(const Command &s);
   // return CL_SUCCESS if ready and succeeded, CL_NOT_READY if not ready yet and
   // succeeded, other error code in case of error
   cl_err_code
@@ -332,6 +334,60 @@ public:
 
 private:
   SharedPtr<QueueEvent> m_pQueueEvent;
+};
+
+class ReadHostPipeIntelFPGACommand : public Command {
+public:
+  ReadHostPipeIntelFPGACommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+                               void *pDst, void *pipeBS, size_t size);
+
+  ~ReadHostPipeIntelFPGACommand() {}
+
+  cl_err_code Init() override { return CL_SUCCESS; }
+
+  cl_err_code Execute() override;
+
+  cl_err_code CommandDone() override { return CL_SUCCESS; }
+
+  ECommandExecutionType GetExecutionType() const override {
+    return DEVICE_EXECUTION_TYPE;
+  }
+
+  const char *GetCommandName() const override {
+    return "CL_COMMAND_READ_HOST_PIPE_INTEL_FPGA";
+  }
+
+protected:
+  void *m_pDst;
+  void *m_pipeBS;
+  size_t m_size;
+};
+
+class WriteHostPipeIntelFPGACommand : public Command {
+public:
+  WriteHostPipeIntelFPGACommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,
+                                void *pipeBS, const void *pSrc, size_t size);
+
+  ~WriteHostPipeIntelFPGACommand() {}
+
+  cl_err_code Init() override { return CL_SUCCESS; }
+
+  cl_err_code Execute() override;
+
+  cl_err_code CommandDone() override { return CL_SUCCESS; }
+
+  ECommandExecutionType GetExecutionType() const override {
+    return DEVICE_EXECUTION_TYPE;
+  }
+
+  const char *GetCommandName() const override {
+    return "CL_COMMAND_WRITE_HOST_PIPE_INTEL_FPGA";
+  }
+
+protected:
+  void *m_pipeBS;
+  const void *m_pSrc;
+  size_t m_size;
 };
 
 class ReadGVCommand : public Command {
@@ -904,6 +960,9 @@ public:
                    size_t *pszImageSlicePitch);
   virtual ~MapMemObjCommand();
 
+  MapMemObjCommand(const MapMemObjCommand &) = delete;
+  MapMemObjCommand &operator=(const MapMemObjCommand &) = delete;
+
   virtual cl_err_code Init() override;
   virtual cl_err_code Execute() override;
   virtual cl_err_code CommandDone() override;
@@ -916,7 +975,7 @@ public:
                                   cl_uint uNumEventsInWaitList,
                                   const cl_event *cpEeventWaitList,
                                   cl_event *pEvent,
-                                  ApiLogger *apiLogger) override;
+                                  Utils::ApiLogger *apiLogger) override;
   virtual cl_err_code PostfixExecute() override;
 
   // Object only function
@@ -934,13 +993,8 @@ protected:
   ECommandExecutionType m_ExecutionType;
 
   // postfix-related. Created in init, pointer zeroed at enqueue.
-  ocl_entry_points *m_pOclEntryPoints;
   PrePostFixRuntimeCommand *m_pPostfixCommand;
   bool m_bResourcesAllocated;
-
-private:
-  MapMemObjCommand(const MapMemObjCommand &);
-  MapMemObjCommand &operator=(const MapMemObjCommand &);
 };
 
 /******************************************************************
@@ -993,13 +1047,16 @@ public:
                         void *pMappedRegion);
   virtual ~UnmapMemObjectCommand();
 
+  UnmapMemObjectCommand(const UnmapMemObjectCommand &) = delete;
+  UnmapMemObjectCommand &operator=(const UnmapMemObjectCommand &) = delete;
+
   cl_err_code Init() override;
   cl_err_code Execute() override;
   cl_err_code CommandDone() override;
 
   cl_err_code EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList,
                           const cl_event *cpEeventWaitList, cl_event *pEvent,
-                          ApiLogger *apiLogger) override;
+                          Utils::ApiLogger *apiLogger) override;
   cl_err_code PrefixExecute() override;
 
   ECommandExecutionType GetExecutionType() const override {
@@ -1014,10 +1071,7 @@ private:
 
   // prefix-related. Created in init, pointer zeroed at enqueue.
   PrePostFixRuntimeCommand *m_pPrefixCommand;
-  ocl_entry_points *m_pOclEntryPoints;
   bool m_bResourcesAllocated;
-  UnmapMemObjectCommand(const UnmapMemObjectCommand &);
-  UnmapMemObjectCommand &operator=(const UnmapMemObjectCommand &);
 };
 
 class UnmapSvmBufferCommand : public UnmapMemObjectCommand {
@@ -1087,10 +1141,12 @@ protected:
   std::vector<IOCLDevMemoryObject *> m_nonArgUsmBuffersVec;
   // Record device descriptor of buffers in order to release them
   std::vector<IOCLDevMemoryObject *> m_argDevDescMemObjects;
+#if INTEL_CUSTOMIZATION
 #if defined(USE_ITT)
   void GPA_WriteWorkMetadata(const size_t *pWorkMetadata,
                              __itt_string_handle *keyStrHandle) const;
 #endif
+#endif // end INTEL_CUSTOMIZATION
 
   // Callback function that will be called when this command is done and
   // this command is restricted by kernel serialization due to FPGA pipe.
@@ -1217,7 +1273,7 @@ class MigrateUSMMemCommand : public Command {
 
 public:
   MigrateUSMMemCommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,
-                       cl_mem_migration_flags_intel clFlags, const void *ptr,
+                       cl_mem_migration_flags clFlags, const void *ptr,
                        size_t size);
 
   virtual ~MigrateUSMMemCommand() {}

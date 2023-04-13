@@ -1,6 +1,6 @@
 //===- Intel_GlobalOpt.cpp - Optimize Global Variables --------------------===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -337,7 +337,6 @@ public:
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<SCEVAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
   };
   static char ID;
   NonLTOGlobalOptLegacyPass() : FunctionPass(ID) {
@@ -355,7 +354,6 @@ INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)
 INITIALIZE_PASS_END(NonLTOGlobalOptLegacyPass, "nonltoglobalopt",
                     "Global Variable Optimizer under -O2 and above", false,
                     false)

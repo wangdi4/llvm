@@ -2,6 +2,10 @@
 REQUIRES: system-windows
 REQUIRES: libompdevice
 
+// See CMPLRLIBS-34404: Test only fails in windows debug build,
+// temporarily marking as unsupported on windows.
+// UNSUPPORTED: system-windows
+
 Verify that the wrapper functions and the fallback functions are not marked
 with noinline attribute.
 

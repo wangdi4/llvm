@@ -262,9 +262,8 @@ private:
   void collapse(FuseEdgeHeap &Heap, unsigned NodeV,
                 const CollapseRangeTy &CollapseRange);
 
-  // Call demand driven DD to refine dependence vector between Src and Dst.
-  RefinedDependence refineDependency(DDRef *Src, DDRef *Dst,
-                                     unsigned CommonLevel,
+  // Call demand driven DD to refine dependence vector for Edge.
+  RefinedDependence refineDependency(const DDEdge &Edge, unsigned CommonLevel,
                                      unsigned MaxLevel) const;
 
   // Returns true if \p Edge is profitable for fusion.

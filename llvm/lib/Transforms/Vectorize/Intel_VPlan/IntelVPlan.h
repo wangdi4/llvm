@@ -3,13 +3,13 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2021-2022 Intel Corporation
+ * Copyright (C) 2021-2023 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise, you may not
- * use, modify, copy, publish, distribute, disclose or transmit this software or
- * the related documents without Intel's prior written permission.
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
  * This software and the related documents are provided as is, with no express
  * or implied warranties, other than those that are expressly stated in the
@@ -46,6 +46,7 @@
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanExternals.h"
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlanNoCostInstructionAnalysis.h"
 #include "IntelVPlanScalVecAnalysis.h"
 #include "IntelVPlanValue.h"
 #include "IntelVPlanValueTracking.h"
@@ -117,13 +118,11 @@ class VPOCodeGenHIR;
 class VPOVectorizationLegality;
 class VPDominatorTree;
 class VPPostDominatorTree;
-#if INTEL_CUSTOMIZATION
 // To be later declared as a friend
 class VPlanCostModelInterface;
 namespace VPlanCostModelHeuristics {
 class HeuristicSLP;
 } // namespace VPlanCostModelHeuristics
-#endif // INTEL_CUSTOMIZATION
 class VPlanDivergenceAnalysis;
 class VPlanBranchDependenceAnalysis;
 class VPValueMapper;
@@ -161,6 +160,8 @@ public:
 
   DominatorTree *getDominatorTree() { return DT; }
   const DataLayout *getDataLayout() { return DL; }
+
+  void populateVPlanAnalyses(VPlanVector &Plan);
 };
 
 class VPAnalysesFactory final : public VPAnalysesFactoryBase {
@@ -275,7 +276,7 @@ struct VPTransformState {
   /// Hold the indices to generate specific scalar instructions. Null indicates
   /// that all instances are to be generated, using either scalar or vector
   /// instructions.
-  Optional<VPIteration> Instance;
+  std::optional<VPIteration> Instance;
 
   struct DataState {
     /// A type for vectorized values in the new loop. Each value from the
@@ -355,7 +356,6 @@ struct VPTransformState {
 /// of IR instructions when executed, these instructions would always form a
 /// single-def expression as the VPInstruction is also a single def-use vertex.
 ///
-#if INTEL_CUSTOMIZATION
 /// For HIR, we classify VPInstructions into 3 sub-types:
 ///   1) Master VPInstruction: It has underlying HIR data attached and its
 ///      operands could have been decomposed or not. If so, this VPInstruction
@@ -389,7 +389,6 @@ struct VPTransformState {
 /// VPInstructionHIR sub-class would be complicated because VPInstruction also
 /// has sub-classes (VPCmpInst, VPPHINode, etc.) that would need to be
 /// replicated under the VPInstructionHIR.
-#endif
 class VPInstruction : public VPUser,
                       public ilist_node_with_parent<VPInstruction, VPBasicBlock,
                                              ilist_sentinel_tracking<true>> {
@@ -417,7 +416,6 @@ class VPInstruction : public VPUser,
   friend class VPlanCostModelHeuristics::HeuristicSLP;
   friend class VPlanIdioms;
 
-#if INTEL_CUSTOMIZATION
   friend class HIRSpecifics;
   friend class VPBuilderHIR;
   friend class VPDecomposerHIR;
@@ -425,7 +423,6 @@ class VPInstruction : public VPUser,
   // To get underlying HIRData until we have proper VPType.
   friend class VPVLSClientMemrefHIR;
   friend class VPOCodeGenHIR;
-#endif // INTEL_CUSTOMIZATION
 
   /// Central class to capture and differentiate operator-specific attributes
   /// that are attached to an instruction. All operators in LLVM are mutually
@@ -497,6 +494,7 @@ class VPInstruction : public VPUser,
       case VPInstruction::ReductionFinal:
       case VPInstruction::ReductionFinalInscan:
       case VPInstruction::ReductionFinalArr:
+      case VPInstruction::ReductionFinalCmplx:
       case VPInstruction::TreeConflict:
       case VPInstruction::RunningInclusiveReduction:
       case VPInstruction::RunningExclusiveReduction: {
@@ -507,6 +505,12 @@ class VPInstruction : public VPUser,
 
         while (ArrayType *ArrTy = dyn_cast<ArrayType>(InstTy))
           InstTy = ArrTy->getElementType();
+
+        // Instructions that return StructType with a unique element type can be
+        // treated as FPMathOperator based on the elment type.
+        if (auto *StructTy = dyn_cast<StructType>(InstTy))
+          if (StructTy->hasIdenticalElementTypes())
+            InstTy = StructTy->getElementType(0);
 
         if (InstTy->isFPOrFPVectorTy())
           return FlagsKind::VPFastMathFlags;
@@ -607,10 +611,12 @@ public:
                           // calls to combiner function.
     ReductionFinalInscan, // Reduction finalization (noop for scan).
     ReductionFinalArr,    // Custom finalization of array reductions.
+    ReductionFinalCmplx,  // Custom finalization of complex type reductions.
     AllocatePrivate,
+    AllocateDVBuffer,
     Subscript,
     Blend,
-    HIRCopy, // INTEL
+    HIRCopy,
     OrigTripCountCalculation,
     VectorTripCountCalculation,
     ActiveLane,
@@ -735,9 +741,7 @@ private:
   void generateInstruction(VPTransformState &State, unsigned Part);
 
   void copyUnderlyingFrom(const VPInstruction &Inst) {
-#if INTEL_CUSTOMIZATION
     HIR().cloneFrom(Inst.HIR());
-#endif // INTEL_CUSTOMIZATION
     Value *V = Inst.getUnderlyingValue();
     if (V)
       setUnderlyingValue(*V);
@@ -762,13 +766,11 @@ protected:
     return cast_or_null<Instruction>(getUnderlyingValue());
   }
 
-#if INTEL_CUSTOMIZATION
   /// Return true if this is a new VPInstruction (i.e., an VPInstruction that is
   /// not coming from the underlying IR.
   bool isNew() const {
     return getUnderlyingValue() == nullptr && !HIR().isSet();
   }
-#endif
 
   virtual VPInstruction *cloneImpl() const {
     VPInstruction *Cloned = new VPInstruction(Opcode, getType(), {});
@@ -921,9 +923,7 @@ public:
   /// TODO: We currently execute only per-part unless a specific instance is
   /// provided.
   virtual void execute(VPTransformState &State);
-#if INTEL_CUSTOMIZATION
   virtual void executeHIR(VPOCodeGenHIR *CG);
-#endif
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &O) const override;
   void printWithoutAnalyses(raw_ostream &O) const;
@@ -1268,6 +1268,14 @@ public:
   /// the "true" will be used as the predicate.
   void addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan = nullptr);
 
+  auto incomingValues() {
+    return map_range(make_filter_range(llvm::enumerate(operands()),
+                                       [](const auto &Arg) {
+                                         return (Arg.index() & 1) == 0;
+                                       }),
+                     [](const auto &Arg) { return Arg.value(); });
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printImpl(raw_ostream &O) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -1414,9 +1422,9 @@ public:
   }
 
   /// Return Optional index for a given basic block \p Block.
-  Optional<unsigned> getBlockIndexOrNone(const VPBasicBlock *BB) const {
+  std::optional<unsigned> getBlockIndexOrNone(const VPBasicBlock *BB) const {
     int Idx = getBlockIndex(BB);
-    return Idx != -1 ? Optional<unsigned>(Idx) : std::nullopt;
+    return Idx != -1 ? std::optional<unsigned>(Idx) : std::nullopt;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1853,6 +1861,7 @@ public:
   VPValue *getPointerOperand() const {
     return getOperand(getPointerOperandIndex());
   }
+
   /// Get type of the pointer operand. Note that it might be either PointerType
   /// or VectorType.
   Type *getPointerOperandType() const { return getPointerOperand()->getType(); }
@@ -2004,7 +2013,7 @@ private:
     unsigned VF = 0;
     std::unique_ptr<const VFInfo> MatchedVecVariant;
     unsigned MatchedVecVariantIndex = 0;
-    Optional<StringRef> VectorLibraryFn = std::nullopt;
+    std::optional<StringRef> VectorLibraryFn = std::nullopt;
     Intrinsic::ID VectorIntrinsic = Intrinsic::not_intrinsic;
     unsigned PumpFactor = 1;
     // Specifies if masked version of a vector variant should be used to
@@ -2208,6 +2217,11 @@ public:
   bool isLifetimeStartOrEndIntrinsic() const {
     return isIntrinsicFromList(
         {Intrinsic::lifetime_start, Intrinsic::lifetime_end});
+  }
+
+  /// Return \p true if this call is a call to llvm.intel.directive.elementsize
+  bool isElementsizeIntrinsic() const {
+    return isIntrinsicFromList({Intrinsic::intel_directive_elementsize});
   }
 
   /// Return \p true if this call is a intrinsic from the given list \p
@@ -2463,7 +2477,7 @@ public:
 
   /// Returns the VPOperandBundle with the given \p Tag, if one is present.
   /// Asserts if more than one is present.
-  Optional<VPOperandBundle> getOperandBundle(StringRef Tag) const {
+  std::optional<VPOperandBundle> getOperandBundle(StringRef Tag) const {
     if (const CallInst *CI = getUnderlyingCallInst()) {
       assert(CI->countOperandBundlesOfType(Tag) < 2 &&
              "more than one tag present!");
@@ -2785,16 +2799,16 @@ private:
 // perfectly fit this way.
 class VPReductionInit : public VPInstruction {
 public:
-  VPReductionInit(VPValue *Identity, bool UseStart, bool IsScalar = false)
+  VPReductionInit(VPValue *Identity, bool UseStart, bool IsScalar = false,
+                  bool IsComplex = false)
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
                       {Identity}),
-        UsesStartValue(UseStart), IsScalar(IsScalar) {}
+        UsesStartValue(UseStart), IsScalar(IsScalar), IsComplex(IsComplex) {}
 
-  VPReductionInit(VPValue *Identity, VPValue *StartValue,
-                  bool IsScalar = false)
+  VPReductionInit(VPValue *Identity, VPValue *StartValue, bool IsScalar = false)
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
                       {Identity, StartValue}),
-        UsesStartValue(true), IsScalar(IsScalar) {}
+        UsesStartValue(true), IsScalar(IsScalar), IsComplex(false) {}
 
   /// Return operand that corresponds to the indentity value.
   VPValue *getIdentityOperand() const { return getOperand(0);}
@@ -2822,6 +2836,9 @@ public:
     setOperand(Ind, NewVal);
   }
 
+  /// Return true if this is a complex type reduction.
+  bool isComplex() const { return IsComplex; }
+
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::ReductionInit;
@@ -2848,6 +2865,7 @@ protected:
 private:
   bool UsesStartValue;
   bool IsScalar;
+  bool IsComplex;
 };
 
 // VPInstruction for reduction last value calculation.
@@ -3072,21 +3090,21 @@ public:
   }
 };
 
-/// Concrete class to represent last value calculation for array reductions in
-/// VPlan.
-class VPReductionFinalArray : public VPInstruction {
+/// Concrete class to represent last value calculation for array and complex
+/// type reductions in VPlan.
+template <unsigned InstOpcode>
+class VPReductionFinalArrayCmplxImpl : public VPInstruction {
 public:
-  VPReductionFinalArray(Type *BaseTy, ArrayRef<VPValue *> Operands,
-                        unsigned BinOp)
-      : VPInstruction(VPInstruction::ReductionFinalArr, BaseTy, Operands),
-        BinOpcode(BinOp) {}
+  VPReductionFinalArrayCmplxImpl(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                                 unsigned BinOp)
+      : VPInstruction(InstOpcode, BaseTy, Operands), BinOpcode(BinOp) {}
 
   unsigned getBinOpcode() const { return BinOpcode; }
 
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast
   static bool classof(const VPInstruction *VPI) {
-    return VPI->getOpcode() == VPInstruction::ReductionFinalArr;
+    return VPI->getOpcode() == InstOpcode;
   }
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
@@ -3095,12 +3113,18 @@ public:
 protected:
   virtual VPInstruction *cloneImpl() const final {
     SmallVector<VPValue *, 3> Ops(operands());
-    return new VPReductionFinalArray(getType(), Ops, getBinOpcode());
+    return new VPReductionFinalArrayCmplxImpl<InstOpcode>(getType(), Ops,
+                                                          getBinOpcode());
   }
 
 private:
   unsigned BinOpcode;
 };
+
+using VPReductionFinalArray =
+    VPReductionFinalArrayCmplxImpl<VPInstruction::ReductionFinalArr>;
+using VPReductionFinalCmplx =
+    VPReductionFinalArrayCmplxImpl<VPInstruction::ReductionFinalCmplx>;
 
 class VPRunningUDSBase : public VPInstruction {
 protected:
@@ -3418,16 +3442,10 @@ private:
   unsigned UF;
 };
 
-// Base-class for the peel and remainder loop instructions.
-template <class LoopTy, class LiveInOpTy, unsigned PeelRemOpcode>
-class VPPeelRemainderImpl : public VPInstruction {
-
-  /// The original loop.
-  LoopTy *Lp;
-
-  /// The live-in operands list.
-  SmallVector<LiveInOpTy *, 4> OpLiveInMap;
-
+/// Non-templated base class for VPPeelRemainderImpl which contains the common
+/// interface between all child classes, and allows for generic downcasting from
+/// VPInstruction or VPValue.
+class VPScalarLoopBase : public VPInstruction {
   /// Flag to indicate whether the scalar loop has to be cloned. (Because we
   /// need two copies of it and this is the second one.)
   bool NeedsCloning = false;
@@ -3439,6 +3457,7 @@ class VPPeelRemainderImpl : public VPInstruction {
   /// Set of general opt-report remarks for scalar loop.
   SmallVector<OptReportStatsTracker::RemarkRecord, 4> GeneralRemarks;
 
+protected:
   static LLVMContext &getContext(Loop *Lp) {
     return Lp->getHeader()->getContext();
   }
@@ -3446,6 +3465,73 @@ class VPPeelRemainderImpl : public VPInstruction {
   static LLVMContext &getContext(loopopt::HLLoop *Lp) {
     return Lp->getHLNodeUtils().getContext();
   }
+
+  template <typename LoopTy>
+  VPScalarLoopBase(LoopTy *Lp, unsigned Opcode, bool ShouldClone)
+      : VPInstruction(Opcode, Type::getTokenTy(getContext(Lp)),
+                      {} /* Operands */) {
+    assert(isa<VPScalarLoopBase>(this) && "Unknown scalar loop opcode!");
+  }
+
+  VPInstruction *cloneImpl() const override {
+    assert(false && "not expected to clone");
+    return nullptr;
+  }
+
+public:
+  /// Return true if cloning is required.
+  bool isCloningRequired() const { return NeedsCloning; }
+
+  void setCloningRequired() { NeedsCloning = true; }
+
+  /// Add a new origin remark for outgoing scalar loop.
+  void addOriginRemark(OptReportStatsTracker::RemarkRecord R) {
+    OriginRemarks.push_back(R);
+  }
+
+  /// Add a new general remark for outgoing scalar loop.
+  void addGeneralRemark(OptReportStatsTracker::RemarkRecord R) {
+    GeneralRemarks.push_back(R);
+  }
+
+  /// Get all origin remarks for this scalar loop.
+  ArrayRef<OptReportStatsTracker::RemarkRecord> getOriginRemarks() const {
+    return OriginRemarks;
+  }
+
+  /// Get all general remarks for this scalar loop.
+  ArrayRef<OptReportStatsTracker::RemarkRecord> getGeneralRemarks() const {
+    return GeneralRemarks;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  virtual void printImpl(raw_ostream &O) const = 0;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    // NOTE: Must be kept in sync with child classes.
+    return V->getOpcode() == VPInstruction::ScalarPeel ||
+           V->getOpcode() == VPInstruction::ScalarPeelHIR ||
+           V->getOpcode() == VPInstruction::ScalarRemainder ||
+           V->getOpcode() == VPInstruction::ScalarRemainderHIR;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+};
+
+// Templated base-class for the peel and remainder loop instructions.
+template <class LoopTy, class LiveInOpTy, unsigned PeelRemOpcode>
+class VPPeelRemainderImpl : public VPScalarLoopBase {
+
+  /// The original loop.
+  LoopTy *Lp;
+
+  /// The live-in operands list.
+  SmallVector<LiveInOpTy *, 4> OpLiveInMap;
 
 protected:
 
@@ -3468,9 +3554,7 @@ protected:
 
 public:
   VPPeelRemainderImpl(LoopTy *Lp, bool ShouldClone)
-      : VPInstruction(PeelRemOpcode, Type::getTokenTy(getContext(Lp)),
-                      {} /* Operands */),
-        Lp(Lp), NeedsCloning(ShouldClone) {}
+      : VPScalarLoopBase(Lp, PeelRemOpcode, ShouldClone), Lp(Lp) {}
 
   /// Get the original loop.
   LoopTy *getLoop() const { return Lp; }
@@ -3480,11 +3564,6 @@ public:
     assert(L && "unexpected null loop");
     Lp = L;
   }
-
-  /// Return true if cloning is required.
-  bool isCloningRequired() const { return NeedsCloning; }
-
-  void setCloningRequired() { NeedsCloning = true; }
 
   /// Get the live-in value corresponding to the \p Idx.
   LiveInOpTy *getLiveIn(unsigned Idx) const {
@@ -3502,26 +3581,6 @@ public:
     OpLiveInMap[Idx] = U;
   }
 
-  /// Add a new origin remark for outgoing scalar loop.
-  void addOriginRemark(OptReportStatsTracker::RemarkRecord R) {
-    OriginRemarks.push_back(R);
-  }
-
-  /// Add a new general remark for outgoing scalar loop.
-  void addGeneralRemark(OptReportStatsTracker::RemarkRecord R) {
-    GeneralRemarks.push_back(R);
-  }
-
-  /// Get all origin remarks for this scalar loop.
-  ArrayRef<OptReportStatsTracker::RemarkRecord> getOriginRemarks() const {
-    return OriginRemarks;
-  }
-
-  /// Get all general remarks for this scalar loop.
-  ArrayRef<OptReportStatsTracker::RemarkRecord> getGeneralRemarks() const {
-    return GeneralRemarks;
-  }
-
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPInstruction *V) {
     return V->getOpcode() == PeelRemOpcode;
@@ -3530,16 +3589,6 @@ public:
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
-  }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void printImpl(raw_ostream &O) const = 0;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-protected:
-  VPInstruction *cloneImpl() const override {
-    assert(false && "not expected to clone");
-    return nullptr;
   }
 };
 
@@ -3943,30 +3992,22 @@ public:
   }
 
 private:
-  VPValue *getPeelLoop() const;
+  VPScalarLoopBase *getPeelLoop() const;
 
   // Peel loop specific utility for HIR path where we update orig-live-out-hir
   // created for main loop IV when upper bound of peel loop is set.
   void updateUBInHIROrigLiveOut();
 };
 
-// VPInstruction to allocate private memory. This is translated into
-// allocation of a private memory in the function entry block. This instruction
-// is not supposed to vectorize alloca instructions that appear inside the loop
-// for arrays of a variable size.
-class VPAllocatePrivate : public VPInstruction {
-  // VPLoopEntityList is allowed to set EntityKind.
-  friend class VPLoopEntityList;
+// Base class for VPAllocateDVbuffer and VPAllocatePrivate classes.
+// Only derived classes objects are expected to be used in source.
+class VPAllocateMemBase : public VPInstruction {
 
 public:
-  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment)
-      : VPInstruction(VPInstruction::AllocatePrivate, Ty, {}),
-        AllocatedTy(AllocatedTy), IsSOASafe(false), IsSOAProfitable(false),
-        OrigAlignment(OrigAlignment), EntityKind(0) {}
-
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::AllocatePrivate;
+    return V->getOpcode() == VPInstruction::AllocateDVBuffer ||
+           V->getOpcode() == VPInstruction::AllocatePrivate;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -3988,7 +4029,7 @@ public:
   bool isSOAProfitable() const { return IsSOAProfitable; }
 
   /// Set the property of the memory to be SOA-safe.
-  void setSOASafe() { IsSOASafe = true; }
+  void setSOASafe(bool Val) { IsSOASafe = Val; }
 
   /// Set the memory to be profitable for SOA-layout.
   void setSOAProfitable() { IsSOAProfitable = true; }
@@ -3999,31 +4040,100 @@ public:
 
   Type *getAllocatedType() const { return AllocatedTy; }
 
-  unsigned getEntityKind() const { return EntityKind; }
-
 protected:
+  VPAllocateMemBase(unsigned Opcode, Type *Ty, Type *AllocatedTy,
+                    Align OrigAlignment, ArrayRef<VPValue *> Operands)
+      : VPInstruction(Opcode, Ty, {Operands}), AllocatedTy(AllocatedTy),
+        IsSOASafe(false), IsSOAProfitable(false), OrigAlignment(OrigAlignment) {}
 
-  VPAllocatePrivate *cloneImpl() const override {
-    auto Ret = new VPAllocatePrivate(
-      getType(), getAllocatedType(), getOrigAlignment());
-    if (isSOASafe())
-      Ret->setSOASafe();
-    if (isSOAProfitable())
-      Ret->setSOAProfitable();
-    Ret->setEntityKind(getEntityKind());
-    return Ret;
+  VPAllocateMemBase *cloneImpl() const override {
+    assert(false && "not expected to clone");
+    return nullptr;
   }
-
-private:
-  /// Set the opcode of the Entity related to this Alloca.
-  void setEntityKind(unsigned Kind) { EntityKind = Kind; }
 
 private:
   Type *AllocatedTy;
   bool IsSOASafe;
   bool IsSOAProfitable;
   Align OrigAlignment;
+};
+
+// VPInstruction to allocate memory buffer for dope vector. This is translated
+// into allocation of a VF allocas in the loop preheader. Allocate memeory is
+// expected to be alive only for loop's lifetime and requires explicitly saving
+// and restoring on stack.
+class VPAllocateDVBuffer : public VPAllocateMemBase {
+
+public:
+  VPAllocateDVBuffer(Type *Ty, Type *AllocatedTy, Align OrigAlignment,
+                     ArrayRef<VPValue *> Operands)
+      : VPAllocateMemBase(VPInstruction::AllocateDVBuffer, Ty, AllocatedTy,
+                          OrigAlignment, {Operands}) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::AllocateDVBuffer;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  VPAllocateDVBuffer *cloneImpl() const override {
+    auto Ret = new VPAllocateDVBuffer(getType(), getAllocatedType(),
+                                      getOrigAlignment(), {});
+    Ret->setSOASafe(isSOASafe());
+    if (isSOAProfitable())
+      Ret->setSOAProfitable();
+    for (auto &O : operands())
+      Ret->addOperand(O);
+    return Ret;
+  }
+};
+
+// VPInstruction to allocate private memory. This is translated into
+// allocation of a private memory in the function entry block. This instruction
+// is not supposed to vectorize alloca instructions that appear inside the loop
+// for arrays of a variable size.
+class VPAllocatePrivate : public VPAllocateMemBase {
+  // VPLoopEntityList is allowed to set EntityKind.
+  friend class VPLoopEntityList;
+
+public:
+  VPAllocatePrivate(Type *Ty, Type *AllocatedTy, Align OrigAlignment)
+      : VPAllocateMemBase(VPInstruction::AllocatePrivate, Ty, AllocatedTy,
+                          OrigAlignment, {}),
+        EntityKind(0) {}
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::AllocatePrivate;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+  unsigned getEntityKind() const { return EntityKind; }
+
+private:
+  /// Set the opcode of the Entity related to this Alloca.
+  void setEntityKind(unsigned Kind) { EntityKind = Kind; }
+
   unsigned EntityKind;
+
+protected:
+  VPAllocatePrivate *cloneImpl() const override {
+    auto Ret = new VPAllocatePrivate(getType(), getAllocatedType(),
+                                     getOrigAlignment());
+    Ret->setSOASafe(isSOASafe());
+    if (isSOAProfitable())
+      Ret->setSOAProfitable();
+    Ret->setEntityKind(getEntityKind());
+    return Ret;
+  }
 };
 
 /// Return index of some active lane. Currently we use the first one but users
@@ -4213,6 +4323,68 @@ using VPRemainderOrigLiveOutHIR =
     VPOrigLiveOutImpl<VPScalarRemainderHIR, loopopt::DDRef,
                       VPInstruction::RemOrigLiveOutHIR>;
 
+/// Instruction representing base class for various VLS optimization related
+/// instructions. Used to store common pieces to avoid code duplication.
+class VPVLSBaseInst : public VPInstruction {
+protected:
+  // Logical size in Type->getElementType()
+  int GroupSize;
+
+  // Logical stride in Type->getElementType() - the value stored is always
+  // positive. The flag NegStride indicates if the group stride is negative
+  // to begin with.
+  int GroupStride;
+  bool NegStride;
+
+  /// Ty is a post-vectorization wide vector type. Its element type is a
+  /// scalar type such that all the individual elements of the groups and offset
+  /// between could be represented as a multiple of that type's width.
+  ///
+  /// GroupSize, GroupStride is the size, stride of the group in terms
+  /// of Ty's element type.
+  ///
+  VPVLSBaseInst(unsigned Opcode, Type *Ty, int GroupSize, int GroupStride,
+                ArrayRef<VPValue *> Operands)
+      : VPInstruction(Opcode, Ty, Operands), GroupSize(GroupSize),
+        GroupStride(std::abs(GroupStride)), NegStride(GroupStride < 0) {
+    assert(isa<VPVLSBaseInst>(this) && "Invalid VLS instruction");
+  }
+
+  VPInstruction *cloneImpl() const override {
+    assert(false && "not expected to clone");
+    return nullptr;
+  }
+
+public:
+  int getGroupSize() const { return GroupSize; }
+  int getGroupStride() const { return GroupStride; }
+  bool getNegStride() const { return NegStride; }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    // NOTE: Must be kept in sync with child classes.
+    return V->getOpcode() == VPInstruction::VLSLoad ||
+           V->getOpcode() == VPInstruction::VLSStore ||
+           V->getOpcode() == VPInstruction::VLSExtract ||
+           V->getOpcode() == VPInstruction::VLSInsert;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  void printGroupSizeStride(raw_ostream &O) const {
+    O << ", group_size=" << GroupSize;
+    if (GroupStride != GroupSize || NegStride) {
+      O << ", group_stride=";
+      if (NegStride)
+        O << "-";
+      O << GroupStride;
+    }
+  }
+};
+
 /// Instruction representing a wide VLS-optimized (Vector Load/Stores) load. It
 /// takes place of several adjacent loads and substitutes several
 /// non-consecutive accesses with a single wider access.
@@ -4220,9 +4392,7 @@ using VPRemainderOrigLiveOutHIR =
 /// The instruction has a "uniform"/"subgroup cooperative" semantics and is
 /// expected to be a low-level representation used late in the pipeline before
 /// the VPlan CG.
-class VPVLSLoad : public VPInstruction {
-   // Logical size in Type->getElementType()
-  int GroupSize;
+class VPVLSLoad : public VPVLSBaseInst {
   Align Alignment;
    // Number of original loads being optimized. For OptReport purposes.
   int NumOrigLoads;
@@ -4237,12 +4407,6 @@ public:
   /// without gaps. Its type isn't important, it's the CG's job to insert proper
   /// bitcasts if needed (or move to opaque pointer types in future).
   ///
-  /// \p Ty is a post-vectorization wide vector type. Its element type is a
-  /// scalar type such that all the individual elements of the groups and offset
-  /// between could be represented as a multiple of that type's width.
-  ///
-  /// \p GroupSize is the size of the group in terms of \p Ty's element type.
-  ///
   /// \p Alignment is the alignment of the base pointer (the one in the \p Ptr's
   /// 0th lane)
   ///
@@ -4251,15 +4415,15 @@ public:
   ///
   /// Note that this instruction is very low-level (i.e. the VF is implicitly
   /// encoded in the \p Ty) and is expected to be created soon before VPlan CG.
-  VPVLSLoad(VPValue *Ptr, Type *Ty, int GroupSize, Align Alignment,
-            int NumOrigLoads)
-      : VPInstruction(VPInstruction::VLSLoad, Ty, {Ptr}), GroupSize(GroupSize),
+  VPVLSLoad(VPValue *Ptr, Type *Ty, int GroupSize, int GroupStride,
+            Align Alignment, int NumOrigLoads)
+      : VPVLSBaseInst(VPInstruction::VLSLoad, Ty, GroupSize, GroupStride,
+                      {Ptr}),
         Alignment(Alignment), NumOrigLoads(NumOrigLoads) {}
 
   VPValue *getPointerOperand() const { return getOperand(0); }
   Type *getValueType() const { return getType(); }
 
-  int getGroupSize() const { return GroupSize; }
   Align getAlignment() const { return Alignment; }
   int getNumOrigLoads() const { return NumOrigLoads; }
 
@@ -4285,7 +4449,8 @@ public:
   }
 
   VPVLSLoad *cloneImpl() const override {
-    return new VPVLSLoad(getOperand(0), getType(), GroupSize, Alignment, NumOrigLoads);
+    return new VPVLSLoad(getOperand(0), getType(), GroupSize, GroupStride,
+                         Alignment, NumOrigLoads);
   }
 };
 
@@ -4296,9 +4461,7 @@ public:
 /// The instruction has a "uniform"/"subgroup cooperative" semantics and is
 /// expected to be a low-level representation used late in the pipeline before
 /// the VPlan CG.
-class VPVLSStore : public VPInstruction {
-   // Logical size in Type->getElementType()
-  int GroupSize;
+class VPVLSStore : public VPVLSBaseInst {
   Align Alignment;
    // Number of original stores being optimized. For OptReport purposes.
   int NumOrigStores;
@@ -4320,8 +4483,6 @@ public:
   /// without gaps. Its type isn't important, it's the CG's job to insert proper
   /// bitcasts if needed (or move to opaque pointer types in future).
   ///
-  /// \p GroupSize is the size of the group in terms of \p Ty's element type.
-  ///
   /// \p Alignment is the alignment of the base pointer (the one in the \p Ptr's
   /// 0th lane)
   ///
@@ -4330,19 +4491,17 @@ public:
   ///
   /// Note that this instruction is very low-level (i.e. the VF is implicitly
   /// encoded in the \p Val) and is expected to be created soon before VPlan CG.
-  VPVLSStore(VPValue *Val, VPValue *Ptr, int GroupSize, Align Alignment,
-             int NumOrigStores)
-      : VPInstruction(VPInstruction::VLSStore,
-                      Type::getVoidTy(Val->getType()->getContext()),
-                      {Val, Ptr}),
-        GroupSize(GroupSize), Alignment(Alignment),
-        NumOrigStores(NumOrigStores) {}
+  VPVLSStore(VPValue *Val, VPValue *Ptr, int GroupSize, int GroupStride,
+             Align Alignment, int NumOrigStores)
+      : VPVLSBaseInst(VPInstruction::VLSStore,
+                      Type::getVoidTy(Val->getType()->getContext()), GroupSize,
+                      GroupStride, {Val, Ptr}),
+        Alignment(Alignment), NumOrigStores(NumOrigStores) {}
 
   VPValue *getValueOperand() const { return getOperand(0); }
   VPValue *getPointerOperand() const { return getOperand(1); }
   Type *getValueType() const { return getValueOperand()->getType(); }
 
-  int getGroupSize() const { return GroupSize; }
   Align getAlignment() const { return Alignment; }
   int getNumOrigStores() const { return NumOrigStores; }
 
@@ -4369,15 +4528,13 @@ public:
 
   VPVLSStore *cloneImpl() const override {
     return new VPVLSStore(getValueOperand(), getPointerOperand(), GroupSize,
-                          Alignment, NumOrigStores);
+                          GroupStride, Alignment, NumOrigStores);
   }
 };
 
 /// Extract data corresponding to the original non-consecutive load from the
 /// wider VPVLSLoad.
-class VPVLSExtract : public VPInstruction {
-  // Logical size in terms Type->getElementType() elements.
-  int GroupSize;
+class VPVLSExtract : public VPVLSBaseInst {
   int Offset;
 
 public:
@@ -4387,18 +4544,17 @@ public:
   /// \p Ty - type of the data being extracted. Must have the same element type
   /// that \p WideVal has, but will be of smaller size.
   ///
-  /// \p GroupSize - Size of the VLS Group in terms of \p WideVal's element type.
-  ///
   /// \p Offset of the data being extracted inside the group, in terms of \p
   /// WideVal's element type.
-  VPVLSExtract(VPValue *WideVal, Type *Ty, int GroupSize, int Offset)
-      : VPInstruction(VPInstruction::VLSExtract, Ty, {WideVal}),
-        GroupSize(GroupSize), Offset(Offset) {
+  VPVLSExtract(VPValue *WideVal, Type *Ty, int GroupSize, int GroupStride,
+               int Offset)
+      : VPVLSBaseInst(VPInstruction::VLSExtract, Ty, GroupSize, GroupStride,
+                      {WideVal}),
+        Offset(Offset) {
     assert(WideVal->getType()->getScalarType() == Ty->getScalarType() &&
            "Type cast must be explicit in VLS transformation!");
   }
 
-  int getGroupSize() const { return GroupSize; }
   int getOffset() const { return Offset; }
 
   /// How many GroupTy's scalar elements fit into the type of the value
@@ -4415,16 +4571,15 @@ public:
   }
 
   VPVLSExtract *cloneImpl() const override {
-    return new VPVLSExtract(getOperand(0), getType(), GroupSize, Offset);
+    return new VPVLSExtract(getOperand(0), getType(), GroupSize, GroupStride,
+                            Offset);
   }
 };
 
 /// Prepare data to perform a single VLSStore in place of multiple original
 /// stores. The behavior is similar to insertelement/shufflevector but
 /// interfaces are tuned for VLS purposes.
-class VPVLSInsert : public VPInstruction {
-  // Logical size in terms Type->getElementType() elements.
-  int GroupSize;
+class VPVLSInsert : public VPVLSBaseInst {
   int Offset;
 
 public:
@@ -4435,20 +4590,18 @@ public:
   /// \p Element - data corresponding to an element of the group to be inserted
   /// into \p WideVal. It must have the same element type as \p WideVal.
   ///
-  /// \p GroupSize - Size of the VLS Group in terms of \p WideVal's element type.
-  ///
   /// \p Offset of the data being inserted inside the group, in terms of \p
   /// WideVal's element type.
-  VPVLSInsert(VPValue *WideVal, VPValue *Element, int GroupSize, int Offset)
-      : VPInstruction(VPInstruction::VLSInsert, WideVal->getType(),
-                      {WideVal, Element}),
-        GroupSize(GroupSize), Offset(Offset) {
+  VPVLSInsert(VPValue *WideVal, VPValue *Element, int GroupSize,
+              int GroupStride, int Offset)
+      : VPVLSBaseInst(VPInstruction::VLSInsert, WideVal->getType(), GroupSize,
+                      GroupStride, {WideVal, Element}),
+        Offset(Offset) {
     assert(WideVal->getType()->getScalarType() ==
                Element->getType()->getScalarType() &&
            "Type cast must be explicit in VLS transformation!");
   }
 
-  int getGroupSize() const { return GroupSize; }
   int getOffset() const { return Offset; }
 
   /// How many GroupTy's scalar elements fit into the type of the value being
@@ -4465,7 +4618,8 @@ public:
   }
 
   VPVLSInsert *cloneImpl() const override {
-    return new VPVLSInsert(getOperand(0), getOperand(1), GroupSize, Offset);
+    return new VPVLSInsert(getOperand(0), getOperand(1), GroupSize, GroupStride,
+                           Offset);
   }
 };
 
@@ -4982,6 +5136,9 @@ public:
   bool getCompressExpandUsed() const { return CompressExpandUsed; }
   void setCompressExpandUsed() { CompressExpandUsed = true; }
 
+  bool getTreeConflictUsed() const { return TreeConflictUsed; }
+  void setTreeConflictUsed() { TreeConflictUsed = true; }
+
   // VPBasicBlock iterator forwarding functions
   iterator begin() { return VPBasicBlocks.begin(); }
   const_iterator begin() const { return VPBasicBlocks.begin(); }
@@ -5216,6 +5373,11 @@ private:
   /// instructions.
   bool CompressExpandUsed = false;
 
+  /// Flag to indicate that VPlan has conflict idiom related instructions
+  /// that will be lowered into a loop. Currently used to suppress unroll
+  /// of such loops.
+  bool TreeConflictUsed = false;
+
   /// Flag showing that a new scheme of CG for loops and basic blocks
   /// should be used.
   bool ExplicitRemainderUsed = false;
@@ -5259,7 +5421,7 @@ public:
 
   /// Utility to retrieve VPInstruction that represents the scalar loop in this
   /// scalar VPlan.
-  VPInstruction *getScalarLoopInst();
+  VPScalarLoopBase *getScalarLoopInst();
 
 protected:
   VPlanScalar(VPlanKind K, VPExternalValues &E, VPUnlinkedInstructions &UVPI)
@@ -5301,9 +5463,7 @@ public:
   /// Generate the LLVM IR code for this VPlan.
   void execute(struct VPTransformState *State);
 
-#if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG);
-#endif // INTEL_CUSTOMIZATION
 
   VPLoopInfo *getVPLoopInfo() { return VPLInfo.get(); }
 
@@ -5362,6 +5522,16 @@ public:
 
   // Clear results of SVA.
   void clearSVA();
+
+  void setVPlanNCIA(std::unique_ptr<VPlanNoCostInstAnalysis> VPNCIA) {
+    VPlanNCIA = std::move(VPNCIA);
+  }
+
+  VPlanNoCostInstAnalysis *getVPlanNCIA() const { return VPlanNCIA.get(); }
+
+  // Compute no-cost instructions for this VPlan.
+  void runNCIA();
+  void clearNCIA() { VPlanNCIA.reset(); }
 
   void markFullLinearizationForced() { FullLinearizationForced = true; }
   bool isFullLinearizationForced() const { return FullLinearizationForced; }
@@ -5504,6 +5674,7 @@ private:
   std::unique_ptr<VPlanScalarEvolution> VPSE;
   std::unique_ptr<VPlanValueTracking> VPVT;
   std::unique_ptr<VPlanScalVecAnalysisBase> VPlanSVA;
+  std::unique_ptr<VPlanNoCostInstAnalysis> VPlanNCIA;
 
   DenseMap<const VPLoop *, std::unique_ptr<VPLoopEntityList>> LoopEntities;
 

@@ -34,47 +34,48 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/X86TargetParser.h"
+#include "llvm/TargetParser/X86TargetParser.h"
+#include <optional>
 
 namespace clang {
 namespace targets {
 
-const Builtin::Info BuiltinInfoX86[] = {
+static constexpr Builtin::Info BuiltinInfoX86[] = {
 #if INTEL_CUSTOMIZATION
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
 #define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
+  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
 #define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
-  {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::HEADER, LANGS},
 
 #include "clang/Basic/Intel_BuiltinsSVML.def"
 #endif // INTEL_CUSTOMIZATION
 
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
 #define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
+  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
 #define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
-  {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::HEADER, LANGS},
 
 #if INTEL_CUSTOMIZATION
 #define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
-  {#ID, TYPE, ATTRS, nullptr, LANGS, nullptr},
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, LANGS},
 #endif // INTEL_CUSTOMIZATION
 
 #include "clang/Basic/BuiltinsX86.def"
 
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
 #define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
+  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
 #define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
-  {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::HEADER, LANGS},
 
 #if INTEL_CUSTOMIZATION
 #define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
-  {#ID, TYPE, ATTRS, nullptr, LANGS, nullptr},
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, LANGS},
 #endif // INTEL_CUSTOMIZATION
 
 #include "clang/Basic/BuiltinsX86_64.def"
@@ -104,12 +105,12 @@ static const char *const GCCRegNames[] = {
     "bnd0",  "bnd1",  "bnd2",  "bnd3",
     "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
     // Just align with ICC for tmm8-15
     "tmm8",  "tmm9",  "tmm10", "tmm11", "tmm12",   "tmm13", "tmm14", "tmm15",
     "tmm16", "tmm17", "tmm18", "tmm19", "tmm20",   "tmm21", "tmm22", "tmm23",
     "tmm24", "tmm25", "tmm26", "tmm27", "tmm28",   "tmm29", "tmm30", "tmm31",
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -413,10 +414,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-fp8") {
       HasAMXFP8 = true;
 #endif // INTEL_FEATURE_ISA_AMX_FP8
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
-    } else if (Feature == "+amx-memadvise") {
-      HasAMXMEMADVISE = true;
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
+    } else if (Feature == "+amx-movrs") {
+      HasAMXMOVRS = true;
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
     } else if (Feature == "+amx-memadvise-evex") {
       HasAMXMEMADVISEEVEX = true;
@@ -431,10 +432,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-element") {
       HasAMXELEMENT = true;
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
     } else if (Feature == "+amx-transpose") {
       HasAMXTRANSPOSE = true;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
     } else if (Feature == "+amx-memory2") {
       HasAMXMEMORY2 = true;
@@ -467,10 +468,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-tile2") {
       HasAMXTILE2 = true;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-    } else if (Feature == "+amx-complex") {
-      HasAMXCOMPLEX = true;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
     } else if (Feature == "+amx-tf32") {
       HasAMXTF32 = true;
@@ -503,12 +500,12 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avxcompress") {
       HasAVXCOMPRESS = true;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-    } else if (Feature == "+avxmemadvise") {
-      HasAVXMEMADVISE = true;
-    } else if (Feature == "+avx512memadvise") {
-      HasAVX512MEMADVISE = true;
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+    } else if (Feature == "+avxmovrs") {
+      HasAVXMOVRS = true;
+    } else if (Feature == "+avx512movrs") {
+      HasAVX512MOVRS = true;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
     } else if (Feature == "+avx512mediax") {
       HasAVX512MEDIAX = true;
@@ -654,7 +651,19 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512VNNIFP8 = true;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+// AUTO GENERATED BY TOOL
+} else if (Feature == "+avx512neconvertfp8") {
+  HasAVX512NECONVERTFP8 = true;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+#if INTEL_FEATURE_ISA_AVX512_MOVZXC
+    } else if (Feature == "+avx512movzxc") {
+      HasAVX512MOVZXC = true;
+#endif // INTEL_FEATURE_ISA_AVX512_MOVZXC
 #endif // INTEL_CUSTOMIZATION
+    } else if (Feature == "+amx-complex") {
+      HasAMXCOMPLEX = true;
     } else if (Feature == "+cmpccxadd") {
       HasCMPCCXADD = true;
     } else if (Feature == "+raoint") {
@@ -723,9 +732,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
         << (FPMath == FP_SSE ? "sse" : "387");
     return false;
   }
-
-  SimdDefaultAlign =
-      hasFeature("avx512f") ? 512 : hasFeature("avx") ? 256 : 128;
 
   // FIXME: We should allow long double type on 32-bits to match with GCC.
   // This requires backend to be able to lower f80 without x87 first.
@@ -876,9 +882,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_FEATURE_CPU_DMR
   case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_EMR
-  case CK_Emeraldrapids:
-#endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_RYL
   case CK_Royal:
 #endif // INTEL_FEATURE_CPU_RYL
@@ -888,6 +891,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Sierraforest:
   case CK_Grandridge:
   case CK_Graniterapids:
+  case CK_Emeraldrapids:
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -895,9 +899,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     break;
 #if INTEL_CUSTOMIZATION
   case CK_CommonAVX512:
-#if INTEL_FEATURE_ISA_AVX256
+#if INTEL_FEATURE_ISA_AVX256P
   case CK_CommonAVX256:
-#endif // INTEL_FEATURE_ISA_AVX256
+#endif // INTEL_FEATURE_ISA_AVX256P
     break;
 #endif // INTEL_CUSTOMIZATION
   case CK_KNL:
@@ -972,6 +976,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     break;
   case CK_ZNVER3:
     defineCPUMacros(Builder, "znver3");
+    break;
+  case CK_ZNVER4:
+    defineCPUMacros(Builder, "znver4");
     break;
   case CK_Geode:
     defineCPUMacros(Builder, "geode");
@@ -1175,22 +1182,22 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasHRESET)
     Builder.defineMacro("__HRESET__");
   if (HasAMXTILE)
-    Builder.defineMacro("__AMXTILE__");
+    Builder.defineMacro("__AMX_TILE__");
   if (HasAMXINT8)
-    Builder.defineMacro("__AMXINT8__");
+    Builder.defineMacro("__AMX_INT8__");
   if (HasAMXBF16)
-    Builder.defineMacro("__AMXBF16__");
+    Builder.defineMacro("__AMX_BF16__");
   Builder.defineMacro("__AMX_SUPPORTED__");
 #if INTEL_FEATURE_ISA_AMX_FP8
   if (HasAMXFP8)
     Builder.defineMacro("__AMXFP8__");
   Builder.defineMacro("__AMXFP8_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_FP8
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
-  if (HasAMXMEMADVISE)
-    Builder.defineMacro("__AMXMEMADVISE__");
-  Builder.defineMacro("__AMXMEMADVISE_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
+  if (HasAMXMOVRS)
+    Builder.defineMacro("__AMXMOVRS__");
+  Builder.defineMacro("__AMXMOVRS_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
   if (HasAMXMEMADVISEEVEX)
     Builder.defineMacro("__AMXMEMADVISEEVEX__");
@@ -1237,11 +1244,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXELEMENT__");
   Builder.defineMacro("__AMXFUTURE_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   if (HasAMXTRANSPOSE)
     Builder.defineMacro("__AMXTRANSPOSE__");
-  Builder.defineMacro("__AMXLNC_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+  Builder.defineMacro("__AMXTRANSPOSE_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_CONVERT
   if (HasAMXCONVERT)
     Builder.defineMacro("__AMXCONVERT__");
@@ -1252,11 +1259,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMXTILE2__");
   Builder.defineMacro("__AMXTILE2_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-  if (HasAMXCOMPLEX)
-    Builder.defineMacro("__AMXCOMPLEX__");
-  Builder.defineMacro("__AMXCOMPLEX_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
   if (HasAMXTF32)
     Builder.defineMacro("__AMXTF32__");
@@ -1297,14 +1299,14 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVXCOMPRESS__");
   Builder.defineMacro("__AVXCOMPRESS_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-  if (HasAVXMEMADVISE)
-    Builder.defineMacro("__AVXMEMADVISE__");
-  Builder.defineMacro("__AVXMEMADVISE_SUPPORTED__");
-  if (HasAVX512MEMADVISE)
-    Builder.defineMacro("__AVX512MEMADVISE__");
-  Builder.defineMacro("__AVX512MEMADVISE_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+  if (HasAVXMOVRS)
+    Builder.defineMacro("__AVXMOVRS__");
+  Builder.defineMacro("__AVXMOVRS_SUPPORTED__");
+  if (HasAVX512MOVRS)
+    Builder.defineMacro("__AVX512MOVRS__");
+  Builder.defineMacro("__AVX512MOVRS_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
   if (HasAVX512MEDIAX)
     Builder.defineMacro("__AVX512MEDIAX__");
@@ -1476,6 +1478,20 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   Builder.defineMacro("__AVX512VNNIFP8_SUPPORTED__");
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+// AUTO GENERATED BY TOOL
+  if (HasAVX512NECONVERTFP8)
+    Builder.defineMacro("__AVX512NECONVERTFP8__");
+  Builder.defineMacro("__AVX512NECONVERTFP8_SUPPORTED__");
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+#if INTEL_FEATURE_ISA_AVX512_MOVZXC
+// AUTO GENERATED BY TOOL
+  if (HasAVX512MOVZXC)
+    Builder.defineMacro("__AVX512MOVZXC__");
+  Builder.defineMacro("__AVX512MOVZXC_SUPPORTED__");
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX512_MOVZXC
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1489,7 +1505,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   if (HasAMXFP16)
-    Builder.defineMacro("__AMXFP16__");
+    Builder.defineMacro("__AMX_FP16__");
+  if (HasAMXCOMPLEX)
+    Builder.defineMacro("__AMX_COMPLEX__");
   if (HasCMPCCXADD)
     Builder.defineMacro("__CMPCCXADD__");
   if (HasRAOINT)
@@ -1614,6 +1632,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("adx", true)
       .Case("aes", true)
       .Case("amx-bf16", true)
+      .Case("amx-complex", true)
       .Case("amx-fp16", true)
       .Case("amx-int8", true)
       .Case("amx-tile", true)
@@ -1621,9 +1640,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_FP8
       .Case("amx-fp8", true)
 #endif // INTEL_FEATURE_ISA_AMX_FP8
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
-      .Case("amx-memadvise", true)
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
+      .Case("amx-movrs", true)
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
       .Case("amx-memadvise-evex", true)
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
@@ -1634,9 +1653,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("amx-format", true)
       .Case("amx-element", true)
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
       .Case("amx-transpose", true)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
       .Case("amx-memory2", true)
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2
@@ -1661,9 +1680,6 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_TILE2
       .Case("amx-tile2", true)
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-      .Case("amx-complex", true)
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
       .Case("amx-tf32", true)
 #endif // INTEL_FEATURE_ISA_AMX_TF32
@@ -1793,10 +1809,10 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
       .Case("avxcompress", true)
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-      .Case("avxmemadvise", true)
-      .Case("avx512memadvise", true)
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+      .Case("avxmovrs", true)
+      .Case("avx512movrs", true)
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
       .Case("avx512mediax", true)
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
@@ -1914,6 +1930,16 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vnnifp8", true)
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+// AUTO GENERATED BY TOOL
+      .Case("avx512neconvertfp8", true)
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+#if INTEL_FEATURE_ISA_AVX512_MOVZXC
+// AUTO GENERATED BY TOOL
+      .Case("avx512movzxc", true)
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX512_MOVZXC
 #endif // INTEL_CUSTOMIZATION
       .Default(false);
 }
@@ -1923,6 +1949,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("adx", HasADX)
       .Case("aes", HasAES)
       .Case("amx-bf16", HasAMXBF16)
+      .Case("amx-complex", HasAMXCOMPLEX)
       .Case("amx-fp16", HasAMXFP16)
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
@@ -1930,9 +1957,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_FP8
       .Case("amx-fp8", HasAMXFP8)
 #endif // INTEL_FEATURE_ISA_AMX_FP8
-#if INTEL_FEATURE_ISA_AMX_MEMADVISE
-      .Case("amx-memadvise", HasAMXMEMADVISE)
-#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+#if INTEL_FEATURE_ISA_AMX_MOVRS
+      .Case("amx-movrs", HasAMXMOVRS)
+#endif // INTEL_FEATURE_ISA_AMX_MOVRS
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
       .Case("amx-memadvise-evex", HasAMXMEMADVISEEVEX)
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
@@ -1942,9 +1969,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("amx-format", HasAMXFORMAT)
       .Case("amx-element", HasAMXELEMENT)
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
       .Case("amx-transpose", HasAMXTRANSPOSE)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
       .Case("amx-memory2", HasAMXMEMORY)
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2
@@ -1969,9 +1996,6 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_TILE2
       .Case("amx-tile2", HasAMXTILE2)
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-      .Case("amx-complex", HasAMXCOMPLEX)
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
       .Case("amx-tf32", HasAMXTF32)
 #endif // INTEL_FEATURE_ISA_AMX_TF32
@@ -2025,10 +2049,10 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
       .Case("avxcompress", HasAVXCOMPRESS)
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MEMADVISE
-      .Case("avxmemadvise", HasAVXMEMADVISE)
-      .Case("avx512memadvise", HasAVX512MEMADVISE)
-#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+#if INTEL_FEATURE_ISA_AVX512_MOVRS
+      .Case("avxmovrs", HasAVXMOVRS)
+      .Case("avx512movrs", HasAVX512MOVRS)
+#endif // INTEL_FEATURE_ISA_AVX512_MOVRS
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
       .Case("avx512mediax", HasAVX512MEDIAX)
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
@@ -2146,6 +2170,16 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx512vnnifp8", HasAVX512VNNIFP8)
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+// AUTO GENERATED BY TOOL
+      .Case("avx512neconvertfp8", HasAVX512NECONVERTFP8)
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+#if INTEL_FEATURE_ISA_AVX512_MOVZXC
+// AUTO GENERATED BY TOOL
+      .Case("avx512movzxc", HasAVX512MOVZXC)
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX512_MOVZXC
 #endif // INTEL_CUSTOMIZATION
       .Case("avxifma", HasAVXIFMA)
       .Case("avxneconvert", HasAVXNECONVERT)
@@ -2240,7 +2274,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 bool X86TargetInfo::validateCpuSupports(StringRef FeatureStr) const {
   return llvm::StringSwitch<bool>(FeatureStr)
 #define X86_FEATURE_COMPAT(ENUM, STR, PRIORITY) .Case(STR, true)
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
       .Default(false);
 }
 
@@ -2249,7 +2283,7 @@ static llvm::X86::ProcessorFeatures getFeature(StringRef Name) {
 #define X86_FEATURE_COMPAT(ENUM, STR, PRIORITY)                                \
   .Case(STR, llvm::X86::FEATURE_##ENUM)
 
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
       ;
   // Note, this function should only be used after ensuring the value is
   // correct, so it asserts if the value is out of range.
@@ -2274,21 +2308,21 @@ bool X86TargetInfo::validateCPUSpecificCPUDispatch(StringRef Name) const {
   return llvm::StringSwitch<bool>(Name)
 #define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, true)
 #define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, true)
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
       .Default(false);
 }
 
 static StringRef CPUSpecificCPUDispatchNameDealias(StringRef Name) {
   return llvm::StringSwitch<StringRef>(Name)
 #define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, NAME)
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
       .Default(Name);
 }
 
 char X86TargetInfo::CPUSpecificManglingCharacter(StringRef Name) const {
   return llvm::StringSwitch<char>(CPUSpecificCPUDispatchNameDealias(Name))
 #define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, MANGLING)
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
       .Default(0);
 }
 
@@ -2297,7 +2331,7 @@ void X86TargetInfo::getCPUSpecificCPUDispatchFeatures(
   StringRef WholeList =
       llvm::StringSwitch<StringRef>(CPUSpecificCPUDispatchNameDealias(Name))
 #define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, FEATURES)
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
           .Default("");
   WholeList.split(Features, ',', /*MaxSplit=*/-1, /*KeepEmpty=*/false);
 }
@@ -2306,7 +2340,7 @@ StringRef X86TargetInfo::getCPUSpecificTuneName(StringRef Name) const {
   return llvm::StringSwitch<StringRef>(Name)
 #define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, TUNE_NAME)
 #define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, TUNE_NAME)
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
       .Default("");
 }
 
@@ -2321,7 +2355,7 @@ bool X86TargetInfo::validateCpuIs(StringRef FeatureStr) const {
 #define X86_CPU_TYPE(ENUM, STR) .Case(STR, true)
 #define X86_CPU_SUBTYPE_ALIAS(ENUM, ALIAS) .Case(ALIAS, true)
 #define X86_CPU_SUBTYPE(ENUM, STR) .Case(STR, true)
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
       .Default(false);
 }
 
@@ -2473,7 +2507,7 @@ bool X86TargetInfo::validateAsmConstraint(
 // | Knights Landing                    |                      64 | https://software.intel.com/en-us/articles/intel-xeon-phi-processor-7200-family-memory-management-optimizations "The Intel® Xeon Phi™ Processor Architecture" |
 // | Knights Mill                       |                      64 | https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-architectures-optimization-manual.pdf?countrylabel=Colombia "2.5.5.2 L1 DCache "       |
 // +------------------------------------+-------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------+
-Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
+std::optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
   using namespace llvm::X86;
   switch (CPU) {
     // i386
@@ -2537,18 +2571,15 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_IcelakeServer:
 #if INTEL_CUSTOMIZATION
     case CK_CommonAVX512:
-#if INTEL_FEATURE_ISA_AVX256
+#if INTEL_FEATURE_ISA_AVX256P
     case CK_CommonAVX256:
-#endif // INTEL_FEATURE_ISA_AVX256
+#endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
     case CK_Alderlake:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_DMR
     case CK_Diamondrapids:
 #endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_EMR
-    case CK_Emeraldrapids:
-#endif // INTEL_FEATURE_CPU_EMR
 #if INTEL_FEATURE_CPU_RYL
     case CK_Royal:
 #endif // INTEL_FEATURE_CPU_RYL
@@ -2558,6 +2589,7 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Sierraforest:
     case CK_Grandridge:
     case CK_Graniterapids:
+    case CK_Emeraldrapids:
     case CK_KNL:
     case CK_KNM:
     // K7
@@ -2579,6 +2611,7 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_ZNVER1:
     case CK_ZNVER2:
     case CK_ZNVER3:
+    case CK_ZNVER4:
     // Deprecated
     case CK_x86_64:
     case CK_x86_64_v2:
@@ -2732,19 +2765,19 @@ void X86TargetInfo::fillValidTuneCPUList(SmallVectorImpl<StringRef> &Values) con
 }
 
 ArrayRef<const char *> X86TargetInfo::getGCCRegNames() const {
-  return llvm::makeArrayRef(GCCRegNames);
+  return llvm::ArrayRef(GCCRegNames);
 }
 
 ArrayRef<TargetInfo::AddlRegName> X86TargetInfo::getGCCAddlRegNames() const {
-  return llvm::makeArrayRef(AddlRegNames);
+  return llvm::ArrayRef(AddlRegNames);
 }
 
 ArrayRef<Builtin::Info> X86_32TargetInfo::getTargetBuiltins() const {
-  return llvm::makeArrayRef(BuiltinInfoX86, clang::X86::LastX86CommonBuiltin -
-                                                Builtin::FirstTSBuiltin + 1);
+  return llvm::ArrayRef(BuiltinInfoX86, clang::X86::LastX86CommonBuiltin -
+                                            Builtin::FirstTSBuiltin + 1);
 }
 
 ArrayRef<Builtin::Info> X86_64TargetInfo::getTargetBuiltins() const {
-  return llvm::makeArrayRef(BuiltinInfoX86,
-                            X86::LastTSBuiltin - Builtin::FirstTSBuiltin);
+  return llvm::ArrayRef(BuiltinInfoX86,
+                        X86::LastTSBuiltin - Builtin::FirstTSBuiltin);
 }

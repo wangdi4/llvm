@@ -55,7 +55,6 @@
 #define LLVM_ANALYSIS_ALIASANALYSIS_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/MemoryLocation.h"
@@ -65,6 +64,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace llvm {
@@ -609,7 +609,7 @@ public:
   /// call-site mod-ref behavior queries. Otherwise it delegates to the specific
   /// helpers above.
   ModRefInfo getModRefInfo(const Instruction *I,
-                           const Optional<MemoryLocation> &OptLoc) {
+                           const std::optional<MemoryLocation> &OptLoc) {
     SimpleAAQueryInfo AAQIP(*this);
     return getModRefInfo(I, OptLoc, AAQIP);
   }
@@ -683,8 +683,10 @@ public:
     return canInstructionRangeModRef(I1, I2, MemoryLocation(Ptr, Size), Mode);
   }
 
+  // CtxI can be nullptr, in which case the query is whether or not the aliasing
+  // relationship holds through the entire function.
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI);
+                    AAQueryInfo &AAQI, const Instruction *CtxI = nullptr);
 #if INTEL_CUSTOMIZATION
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
                                const MemoryLocation &LocB, AAQueryInfo &AAQI);
@@ -701,30 +703,30 @@ public:
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const VAArgInst *V, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const LoadInst *L, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const StoreInst *S, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const FenceInst *S, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const AtomicCmpXchgInst *CX,
                            const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const AtomicRMWInst *RMW, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const CatchPadInst *I, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const CatchReturnInst *I, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const Instruction *I,
-                           const Optional<MemoryLocation> &OptLoc,
-                           AAQueryInfo &AAQIP, // INTEL
-                           const Optional<LocationSize> &Size = {}); // INTEL
+                           const std::optional<MemoryLocation> &OptLoc,
+                           AAQueryInfo &AAQIP,                       // INTEL
+                           const std::optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo callCapturesBefore(const Instruction *I,
                                 const MemoryLocation &MemLoc, DominatorTree *DT,
                                 AAQueryInfo &AAQIP);
@@ -777,7 +779,7 @@ public:
     return AA.getModRefInfoMask(Loc, AAQI, IgnoreLocals);
   }
   ModRefInfo getModRefInfo(const Instruction *I,
-                           const Optional<MemoryLocation> &OptLoc) {
+                           const std::optional<MemoryLocation> &OptLoc) {
     return AA.getModRefInfo(I, OptLoc, AAQI);
   }
   ModRefInfo getModRefInfo(const Instruction *I, const CallBase *Call2) {
@@ -854,7 +856,8 @@ public:
   /// each other. This is the interface that must be implemented by specific
   /// alias analysis implementations.
   virtual AliasResult alias(const MemoryLocation &LocA,
-                            const MemoryLocation &LocB, AAQueryInfo &AAQI) = 0;
+                            const MemoryLocation &LocB, AAQueryInfo &AAQI,
+                            const Instruction *CtxI) = 0;
 
 #if INTEL_CUSTOMIZATION
   // Returns true if the given value V is escaped.
@@ -930,8 +933,8 @@ public:
   ~Model() override = default;
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI) override {
-    return Result.alias(LocA, LocB, AAQI);
+                    AAQueryInfo &AAQI, const Instruction *CtxI) override {
+    return Result.alias(LocA, LocB, AAQI, CtxI);
   }
 
 #if INTEL_CUSTOMIZATION
@@ -1013,7 +1016,7 @@ protected:
 
 public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI) {
+                    AAQueryInfo &AAQI, const Instruction *I) {
     return AliasResult::MayAlias;
   }
 
@@ -1225,10 +1228,6 @@ ImmutablePass *createExternalAAWrapperPass(
 /// createLegacyPMAAResults, it also needs to call \p addUsedAAAnalyses in \p
 /// getAnalysisUsage.
 AAResults createLegacyPMAAResults(Pass &P, Function &F, BasicAAResult &BAR);
-
-/// A helper for the legacy pass manager to populate \p AU to add uses to make
-/// sure the analyses required by \p createLegacyPMAAResults are available.
-void getAAResultsAnalysisUsage(AnalysisUsage &AU);
 
 } // end namespace llvm
 

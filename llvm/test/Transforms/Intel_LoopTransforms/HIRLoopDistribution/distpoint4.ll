@@ -1,6 +1,6 @@
 ;  Test case  for Opt Report for distribute point pragma
 ;
-;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-memrec,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low 2>&1 %s -disable-output | FileCheck %s  -check-prefix=OPTREPORT
 ;
 ;  for (i =0 ; i<n ; i++) {
 ;    a1[i] += b2  - 11.0;
@@ -11,7 +11,7 @@
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Distributed chunk1>
 ;OPTREPORT:    remark #25483: Distribute point pragma processed
-;OPTREPORT:    remark #25426: Loop distributed (2 way)
+;OPTREPORT:    remark #25427: Loop distributed (2 way) for enabling vectorization on some chunks
 ;OPTREPORT: LOOP END
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Distributed chunk2>

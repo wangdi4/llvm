@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2022 Intel Corporation.
+// Copyright 2007-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,7 +13,6 @@
 // License.
 
 #include "cl_dynamic_lib.h"
-#include "cl_shutdown.h"
 #include "cl_sys_info.h"
 
 #include <windows.h>
@@ -64,14 +63,6 @@ int OclDynamicLib::Load(const char *pLibName) {
     return 1;
   }
 
-  RegisterAtExitNotification_Func AtExitFunc =
-      (RegisterAtExitNotification_Func)GetFunctionPtrByName(
-          OclDynamicLib_AT_EXIT_REGISTER_FUNC_NAME);
-
-  if (nullptr != AtExitFunc) {
-    AtExitFunc(m_atexit_fn);
-  }
-
   return 0;
 }
 
@@ -81,9 +72,7 @@ void OclDynamicLib::Close() {
     return;
   }
 
-  UseShutdownHandler::UnloadingDll(true);
   FreeLibrary((HMODULE)m_hLibrary);
-  UseShutdownHandler::UnloadingDll(false);
   m_hLibrary = nullptr;
 }
 

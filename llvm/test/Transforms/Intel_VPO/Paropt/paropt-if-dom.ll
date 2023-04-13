@@ -4,7 +4,7 @@
 ; The consecutive parallel-if and parallel regions are causing the dominator
 ; tree to be rebuilt incorrectly.
 
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,verify' -vpo-paropt-enable-outline-verification=true -vpo-paropt-strict-outline-verification=true -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,verify' -vpo-paropt-enable-outline-verification=true -vpo-paropt-strict-outline-verification=true -S %s 2>&1 | FileCheck %s
 
 ; CHECK-NOT: DominatorTree is different
 ; CHECK-LABEL: codeRepl

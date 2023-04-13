@@ -17,6 +17,7 @@
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanCostModelHeuristics.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanLoopUnroller.h"
 #include "IntelVPlanPatternMatch.h"
 
 #include <numeric>
@@ -58,6 +59,32 @@ static cl::opt<bool> UseOVLSCM(
   cl::desc("Consider cost returned by OVLSCostModel "
            "for optimized gathers and scatters."));
 
+static cl::opt<bool> VPlanPhiPumping(
+    "vplan-phi-pumping", cl::init(true), cl::Hidden,
+    cl::desc("Account for PHI pumping in counting PHI registers."));
+
+// Control for all unrolling heuristics.
+static cl::opt<bool> CMUseUnrollHeuristics(
+    "vplan-cm-unroll", cl::init(false), cl::Hidden,
+    cl::desc("Enable unrolling heuristic for VPlan cost model"));
+
+// Limit the unrolling heuristic to only apply in the presence
+// of partial sum reductions. This is the initial default to 
+// conservatively limit the scope of unrolling.
+static cl::opt<bool> CMUnrollPartialSumsOnly(
+    "vplan-cm-unroll-partial-sums-only", cl::init(true), cl::Hidden,
+    cl::desc("Limit unroll heuristics to partial sum candidate loops only"));
+
+// Set the minimum cost for a partial sum reduction for the unroll heuristic.
+// The TTI costs for instructions in a reduction are a very conservative
+// estimate as they reflect the reciprocal throughput only,
+// and not the latencies in the cyclic dependences.
+unsigned const CMPartialSumMinCostDefault = 3;
+static cl::opt<float> CMPartialSumMinCost(
+    "vplan-cm-partial-sum-min-cost", cl::Hidden,
+    cl::init(CMPartialSumMinCostDefault),
+    cl::desc("Set minimum cost value for partial sum reductions"));
+
 namespace llvm {
 
 namespace vpo {
@@ -68,6 +95,7 @@ HeuristicBase::HeuristicBase(VPlanTTICostModel *CM, std::string Name) :
   CM(CM) {
   Plan = CM->Plan;
   VF = CM->VF;
+  UF = CM->UF;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   this->Name = Name;
 #else
@@ -352,11 +380,47 @@ VPInstructionCost HeuristicSpillFill::operator()(const VPBasicBlock *VPBlock,
   };
 
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
-  int NumberPHIs = llvm::count_if(PHIs, [&](auto& PHI) {
-    return !SkipInstRes(&PHI);});
   int FreeVecHWRegsNum = CM->TTI.getNumberOfRegisters(
-                             CM->TTI.getRegisterClassForType(SSERegsPressure)) -
-                         NumberPHIs;
+      CM->TTI.getRegisterClassForType(SSERegsPressure));
+
+  // TODO - When accounting for register pressure we only account for the
+  // following cases
+  // - Scalar VPValue use counting towards GPR register pressure
+  // - Vector VPValue use counting towards vector register pressure
+  // However, a scalar floating point type value uses a vector register. This
+  // case is not modeled currently and is something that we need to look into
+  // in future. However, scalar FP recurrences are expected to be rare(FP
+  // induction is an example).
+  for (auto &Phi : PHIs) {
+    if (SkipInstRes(&Phi))
+      continue;
+
+    // If we are not accounting for PHI pumping or computing non-sse register
+    // pressure, assume PHI takes one register.
+    if (!VPlanPhiPumping || !SSERegsPressure) {
+      FreeVecHWRegsNum -= 1;
+      continue;
+    }
+
+    // Estimated # of registers for the PHI value.
+    unsigned PhiHWRegs = 1;
+
+    Type *Ty = Phi.getType();
+    if (isVectorizableTy(Ty->getScalarType()))
+      PhiHWRegs = CM->TTI.getNumberOfParts(getWidenedType(Ty, VF));
+    else
+      // The type will be serialized. Model as VF registers.
+      PhiHWRegs = VF;
+
+    // When unrolling with partial sum reductions, model the
+    // additional accumulator registers required.
+    if (CMUseUnrollHeuristics &&
+        CM->getVPRA().getRecurrenceKind(&Phi) ==
+            RecurrenceAnalysis::RecKind::PartialSumReduction)
+      PhiHWRegs *= UF;
+
+    FreeVecHWRegsNum -= PhiHWRegs;
+  }
 
   for (const VPInstruction &VPInst : reverse(*VPBlock)) {
     // Zero-cost and unknown-cost instructions are ignored.
@@ -514,7 +578,7 @@ VPInstructionCost HeuristicSpillFill::operator()(const VPBasicBlock *VPBlock,
                  }) << " for ";
                VPInst.printWithoutAnalyses(dbgs()); dbgs() << '\n';
                dbgs() << "Live vals:";
-               for (auto LiveValue : LiveValues)
+               for (const auto &LiveValue : LiveValues)
                  if (LiveValue.second) {
                    dbgs() << ' ';
                    LiveValue.first->printAsOperand(dbgs());
@@ -1170,6 +1234,167 @@ void HeuristicOVLSMember::apply(
     Cost = VLSGroupCost;
   } else
     Cost = 0;
+}
+
+void HeuristicUnroll::apply(const VPInstructionCost &TTICost,
+                            VPInstructionCost &Cost, const VPlanVector *Plan,
+                            raw_ostream *OS) const {
+  if (UF <= 1 || !CMUseUnrollHeuristics)
+    return;
+  assert(VF != 1 && "Expected VF > 1");
+
+  auto &VPRA = CM->getVPRA();
+
+  // As we are usually reducing cost here, we collect the reduction
+  // to be subtracted.
+  VPInstructionCost CostReduction = 0;
+
+  // The following scale is used for cost adjustments to effectively
+  // cancel out later scaling by the UF, i.e if Cost = (C + RemCost)
+  // for some C, then:
+  //     UF * (C + RemCost - C * DescaleForUF)
+  //  == UF * (C + RemCost - C + C / UF)
+  //  == UF * RemCost + C
+  VPInstructionCost DescaleForUF = (1. - 1. / (float)UF);
+
+  // Minimum cost to use for partial sum cost reductions.
+  VPInstructionCost PartialSumMinCost = (unsigned)CMPartialSumMinCost;
+
+  // Apply cost adjustments for all recurrences by type to account for
+  // expected unrolling effects.
+  unsigned NumPartialSums = 0;
+  for (const auto &Iter : VPRA.getRecurrences()) {
+    RecurrenceAnalysis::RecKind Kind = Iter.second.first;
+    VPInstructionCost C = Iter.second.second;
+    if (Kind == RecurrenceAnalysis::RecKind::PartialSumReduction) {
+      // For partial sum candidates, we crudely model the benefit by
+      // considering the parallelized reductions after unrolling as
+      // having the same cost as the single reduction before unrolling.
+      assert(C.isValid() && !C.isUnknown() && "Invalid TTIcost for reduction");
+      if (C < PartialSumMinCost)
+        C = PartialSumMinCost;
+      CostReduction += C * DescaleForUF;
+      ++NumPartialSums;
+    }
+  }
+
+  // Identify latch condition comparisons that have no other uses.
+  // Only one instance of these will be live after unrolling.
+  auto *Top = *(Plan->getVPLoopInfo()->begin());
+  for (const VPLoop *VPL : post_order(Top)) {
+    if (VPL->getLoopDepth() != 1)
+      continue;
+    auto *Latch = VPL->getLoopLatch();
+    auto *BranchInst = dyn_cast<VPBranchInst>(Latch->getTerminator());
+    if (BranchInst && BranchInst->isConditional())
+      if (auto *BranchCond =
+              dyn_cast<VPInstruction>(BranchInst->getCondition())) {
+        auto BranchCost = CM->getTTICost(BranchCond);
+        if (BranchCond->getNumUsers() == 1 && BranchCost.isValid() &&
+            !BranchCost.isUnknown())
+          CostReduction += BranchCost * DescaleForUF;
+      }
+  }
+
+  if (NumPartialSums || !CMUnrollPartialSumsOnly)
+    Cost -= CostReduction;
+}
+
+void RecurrenceAnalysis::analyze(VPlanTTICostModel *CM,
+                                 const VPlanVector &Plan) {
+  // Bail out if already analyzed.
+  if (AnalyzedPlan == &Plan)
+    return;
+
+  // Used to collect TTI costs, replacing unknown/invalid costs with
+  // the specified default.
+  auto getTTICost = [CM](const VPInstruction *Inst,
+                         VPInstructionCost Default = VPInstructionCost(1)) {
+    VPInstructionCost C = CM->getTTICost(Inst);
+    return (!C.isValid() || C.isUnknown()) ? Default : C;
+  };
+
+  // Helper to accumulate the TTI costs for a partial sum reduction.
+  // We follow the chain of in-loop instructions from the Phi value to
+  // the Latch block Phi value.
+  auto getReductionCost = [&getTTICost](const VPPHINode &Phi, const VPLoop *VPL,
+                                        const VPBasicBlock *Latch) {
+    auto *LastInst = dyn_cast<VPInstruction>(Phi.getIncomingValue(Latch));
+    assert(LastInst && "expected VPInstruction for latch block value");
+    VPInstructionCost TotalCost = getTTICost(LastInst);
+
+    // We check all uses of the PHI to catch cases like:
+    // %phi = .. [ %c, %latch_bb ]
+    // %a = add %phi, %v1
+    // %b = add %phi, %v2
+    // %c = select %cond, %a, %b
+    for (auto *U : Phi.users()) {
+      if (!isa<VPInstruction>(U))
+        continue;
+      // Collect the cost of in-loop instructions up to, but not
+      // including the latch block PHI value def.
+      VPInstructionCost SeqCost = 0;
+      const VPInstruction *Inst = cast<VPInstruction>(U);
+      if (!VPL->contains(Inst))
+        continue;
+      while (Inst != LastInst && !isa<VPPHINode>(Inst)) {
+        SeqCost += getTTICost(Inst);
+        auto Iter = llvm::find_if(Inst->users(), [VPL](const VPUser *U) {
+          return isa<VPInstruction>(U) && VPL->contains(cast<VPInstruction>(U));
+        });
+        assert(Iter != Inst->user_end() && "Expected use instruction in loop");
+        Inst = cast<VPInstruction>(*Iter);
+      }
+      // Add to the total cost only if we successfully reached LastInst.
+      if (Inst == LastInst)
+        TotalCost += SeqCost;
+    }
+    return TotalCost;
+  };
+
+  AnalyzedPlan = &Plan;
+  RecurrenceInfo.clear();
+  auto *Top = *(Plan.getVPLoopInfo()->begin());
+  for (const VPLoop *VPL : post_order(Top)) {
+    if (VPL->getLoopDepth() != 1)
+      continue;
+
+    VPBasicBlock *Preheader = VPL->getLoopPreheader();
+    VPBasicBlock *Latch = VPL->getLoopLatch();
+    assert(Preheader && "Single pre-header block expected");
+    assert(Latch && "Single latch block expected");
+
+    // Loop through PHI nodes to classify and potentially compute
+    // costs for recurrences.
+    for (const VPPHINode &PhiNode : VPL->getHeader()->getVPPhis()) {
+      assert(PhiNode.getNumIncomingValues() == 2 &&
+             "A loop header is expected to have two predecessors.");
+      Type *Ty = PhiNode.getType();
+      if (!VectorType::isValidElementType(Ty->getScalarType()))
+        continue;
+
+      VPInstruction *LoopVal =
+          dyn_cast<VPInstruction>(PhiNode.getIncomingValue(Latch));
+      VPInstruction *InitVal =
+          dyn_cast<VPInstruction>(PhiNode.getIncomingValue(Preheader));
+
+      if (VPReductionFinal *VPRF =
+              VPlanLoopUnroller::getPartialSumReducFinal(*VPL, PhiNode)) {
+        VPInstructionCost C = getReductionCost(PhiNode, VPL, Latch);
+        RecurrenceInfo[&PhiNode] =
+            std::make_pair(RecKind::PartialSumReduction, C);
+      } else {
+        if (LoopVal && InitVal) {
+          if (auto *VPII = dyn_cast<VPInductionInit>(InitVal))
+            RecurrenceInfo[&PhiNode] =
+                std::make_pair(RecKind::Induction, VPInstructionCost(0));
+          else
+            RecurrenceInfo[&PhiNode] =
+                std::make_pair(RecKind::Other, VPInstructionCost());
+        }
+      }
+    }
+  }
 }
 
 } // namespace VPlanCostModelHeuristics

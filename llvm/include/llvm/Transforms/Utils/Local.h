@@ -251,7 +251,7 @@ inline Align getKnownAlignment(Value *V, const DataLayout &DL,
 /// uses replaced by the new call.
 CallInst *createCallMatchingInvoke(InvokeInst *II);
 
-/// This function converts the specified invoek into a normall call.
+/// This function converts the specified invoke into a normal call.
 CallInst *changeToCall(InvokeInst *II, DomTreeUpdater *DTU = nullptr);
 
 #if INTEL_CUSTOMIZATION
@@ -348,7 +348,7 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
     APInt ElementSize(ConstStride->getBitWidth(), DL.getTypeStoreSize(ElTy));
     APInt Q, R;
     APInt::sdivrem(ConstStride->getValue(), ElementSize, Q, R);
-    IsExact = R.isNullValue();
+    IsExact = R.isZero();
   }
 
   Type *BasePtrTy = BasePtr->getType();
@@ -450,17 +450,17 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
 ///
 
 /// Inserts a llvm.dbg.value intrinsic before a store to an alloca'd value
-/// that has an associated llvm.dbg.declare or llvm.dbg.addr intrinsic.
+/// that has an associated llvm.dbg.declare intrinsic.
 void ConvertDebugDeclareToDebugValue(DbgVariableIntrinsic *DII,
                                      StoreInst *SI, DIBuilder &Builder);
 
 /// Inserts a llvm.dbg.value intrinsic before a load of an alloca'd value
-/// that has an associated llvm.dbg.declare or llvm.dbg.addr intrinsic.
+/// that has an associated llvm.dbg.declare intrinsic.
 void ConvertDebugDeclareToDebugValue(DbgVariableIntrinsic *DII,
                                      LoadInst *LI, DIBuilder &Builder);
 
 /// Inserts a llvm.dbg.value intrinsic after a phi that has an associated
-/// llvm.dbg.declare or llvm.dbg.addr intrinsic.
+/// llvm.dbg.declare intrinsic.
 void ConvertDebugDeclareToDebugValue(DbgVariableIntrinsic *DII,
                                      PHINode *LI, DIBuilder &Builder);
 
@@ -570,11 +570,12 @@ BasicBlock *changeToInvokeAndSplitBasicBlock(CallInst *CI,
 
 /// Replace 'BB's terminator with one that does not have an unwind successor
 /// block. Rewrites `invoke` to `call`, etc. Updates any PHIs in unwind
-/// successor.
+/// successor. Returns the instruction that replaced the original terminator,
+/// which might be a call in case the original terminator was an invoke.
 ///
 /// \param BB  Block whose terminator will be replaced.  Its terminator must
 ///            have an unwind successor.
-void removeUnwindEdge(BasicBlock *BB, DomTreeUpdater *DTU = nullptr);
+Instruction *removeUnwindEdge(BasicBlock *BB, DomTreeUpdater *DTU = nullptr);
 
 /// Remove all blocks that can not be reached from the function's entry.
 ///

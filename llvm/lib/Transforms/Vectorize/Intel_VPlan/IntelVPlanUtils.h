@@ -16,11 +16,9 @@
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
-#endif // INTEL_CUSTOMIZATION
 #include <iterator>
 
 namespace llvm {
@@ -50,6 +48,7 @@ inline bool isTrivialPointerAliasingInst(const InstTy *Inst) {
   return (Inst->getOpcode() == Instruction::BitCast ||
           Inst->getOpcode() == Instruction::AddrSpaceCast ||
           Inst->getOpcode() == Instruction::GetElementPtr ||
+          Inst->getOpcode() == Instruction::Select ||
           Inst->getOpcode() == Instruction::PHI);
 }
 
@@ -299,10 +298,9 @@ inline Type *getInt8OrPointerElementTy(Type *ValTy) {
   assert(ValTy->isPointerTy() && "Expected Pointer type");
   if (ValTy->isOpaquePointerTy())
     return Type::getInt8Ty(ValTy->getContext());
-  return ValTy->getPointerElementType();
+  return ValTy->getNonOpaquePointerElementType();
 }
 
-#if INTEL_CUSTOMIZATION
 // Obtain stride information using loopopt interfaces for the given memory
 // reference MemRef. DDNode specifies the underlying HLDDNode for the
 // load/store VPInstruction. Function returns true if the given memory
@@ -362,7 +360,6 @@ inline void setHLLoopMD(loopopt::HLLoop *Lp, const char *SzAddMD) {
        ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
   Lp->addLoopMetadata({AddMD});
 }
-#endif // INTEL_CUSTOMIZATION
 
 // Add a new depth-first iterator (sese_df_iterator) for traversing the blocks
 // of SESE region.

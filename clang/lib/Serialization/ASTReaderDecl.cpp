@@ -14,6 +14,7 @@
 #include "ASTCommon.h"
 #include "ASTReaderInternals.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/ASTStructuralEquivalence.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/AttrIterator.h"
 #include "clang/AST/Decl.h"
@@ -456,6 +457,9 @@ namespace clang {
     void VisitObjCPropertyImplDecl(ObjCPropertyImplDecl *D);
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
     void VisitOMPAllocateDecl(OMPAllocateDecl *D);
+#if INTEL_COLLAB
+    void VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D);
+#endif // INTEL_COLLAB
     void VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D);
     void VisitOMPDeclareMapperDecl(OMPDeclareMapperDecl *D);
     void VisitOMPRequiresDecl(OMPRequiresDecl *D);
@@ -829,6 +833,7 @@ ASTDeclReader::VisitRecordDeclImpl(RecordDecl *RD) {
 
 void ASTDeclReader::VisitRecordDecl(RecordDecl *RD) {
   VisitRecordDeclImpl(RD);
+  RD->setODRHash(Record.readInt());
 
   // Maintain the invariant of a redeclaration chain containing only
   // a single definition.
@@ -849,6 +854,8 @@ void ASTDeclReader::VisitRecordDecl(RecordDecl *RD) {
       Reader.MergedDeclContexts.insert(std::make_pair(RD, OldDef));
       RD->demoteThisDefinitionToDeclaration();
       Reader.mergeDefinitionVisibility(OldDef, RD);
+      if (OldDef->getODRHash() != RD->getODRHash())
+        Reader.PendingRecordOdrMergeFailures[OldDef].push_back(RD);
     } else {
       OldDef = RD;
     }
@@ -1049,6 +1056,7 @@ void ASTDeclReader::VisitFunctionDecl(FunctionDecl *FD) {
   FD->setTrivialForCall(Record.readInt());
   FD->setDefaulted(Record.readInt());
   FD->setExplicitlyDefaulted(Record.readInt());
+  FD->setIneligibleOrNotSelected(Record.readInt());
   FD->setHasImplicitReturnZero(Record.readInt());
   FD->setConstexprKind(static_cast<ConstexprSpecKind>(Record.readInt()));
   FD->setUsesSEHTry(Record.readInt());
@@ -1203,6 +1211,8 @@ void ASTDeclReader::ReadObjCDefinitionData(
 
   Data.EndLoc = readSourceLocation();
   Data.HasDesignatedInitializers = Record.readInt();
+  Data.ODRHash = Record.readInt();
+  Data.HasODRHash = true;
 
   // Read the directly referenced protocols and their SourceLocations.
   unsigned NumProtocols = Record.readInt();
@@ -1230,13 +1240,16 @@ void ASTDeclReader::ReadObjCDefinitionData(
 void ASTDeclReader::MergeDefinitionData(ObjCInterfaceDecl *D,
          struct ObjCInterfaceDecl::DefinitionData &&NewDD) {
   struct ObjCInterfaceDecl::DefinitionData &DD = D->data();
-  if (DD.Definition != NewDD.Definition) {
-    Reader.MergedDeclContexts.insert(
-        std::make_pair(NewDD.Definition, DD.Definition));
-    Reader.mergeDefinitionVisibility(DD.Definition, NewDD.Definition);
-  }
+  if (DD.Definition == NewDD.Definition)
+    return;
 
-  // FIXME: odr checking?
+  Reader.MergedDeclContexts.insert(
+      std::make_pair(NewDD.Definition, DD.Definition));
+  Reader.mergeDefinitionVisibility(DD.Definition, NewDD.Definition);
+
+  if (D->getODRHash() != NewDD.ODRHash)
+    Reader.PendingObjCInterfaceOdrMergeFailures[DD.Definition].push_back(
+        {NewDD.Definition, &NewDD});
 }
 
 void ASTDeclReader::VisitObjCInterfaceDecl(ObjCInterfaceDecl *ID) {
@@ -1967,7 +1980,7 @@ void ASTDeclReader::MergeDefinitionData(
     Reader.PendingDefinitions.erase(MergeDD.Definition);
     MergeDD.Definition->setCompleteDefinition(false);
     Reader.mergeDefinitionVisibility(DD.Definition, MergeDD.Definition);
-    assert(Reader.Lookups.find(MergeDD.Definition) == Reader.Lookups.end() &&
+    assert(!Reader.Lookups.contains(MergeDD.Definition) &&
            "already loaded pending lookups for merged definition");
   }
 
@@ -2271,7 +2284,7 @@ void ASTDeclReader::VisitImplicitConceptSpecializationDecl(
   VisitDecl(D);
   llvm::SmallVector<TemplateArgument, 4> Args;
   for (unsigned I = 0; I < D->NumTemplateArgs; ++I)
-    Args.push_back(Record.readTemplateArgument(/*Canonicalize=*/false));
+    Args.push_back(Record.readTemplateArgument(/*Canonicalize=*/true));
   D->setTemplateArguments(Args);
 }
 
@@ -2889,6 +2902,13 @@ void ASTDeclReader::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
   VisitDecl(D);
 }
 
+#if INTEL_COLLAB
+void ASTDeclReader::VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D) {
+  Record.readOMPChildren(D->Data);
+  VisitDecl(D);
+}
+#endif // INTEL_COLLAB
+
 void ASTDeclReader::VisitOMPAllocateDecl(OMPAllocateDecl *D) {
   Record.readOMPChildren(D->Data);
   VisitDecl(D);
@@ -3052,8 +3072,13 @@ static bool isConsumerInterestedIn(ASTContext &Ctx, Decl *D, bool HasBody) {
   if (isa<FileScopeAsmDecl, TopLevelStmtDecl, ObjCProtocolDecl, ObjCImplDecl,
           ImportDecl, PragmaCommentDecl, PragmaDetectMismatchDecl>(D))
     return true;
+#if INTEL_COLLAB
+  if (isa<OMPThreadPrivateDecl, OMPDeclareReductionDecl, OMPDeclareMapperDecl,
+          OMPAllocateDecl, OMPRequiresDecl, OMPGroupPrivateDecl>(D))
+#else  // INTEL_COLLAB
   if (isa<OMPThreadPrivateDecl, OMPDeclareReductionDecl, OMPDeclareMapperDecl,
           OMPAllocateDecl, OMPRequiresDecl>(D))
+#endif // INTEL_COLLAB
     return !D->getDeclContext()->isFunctionOrMethod();
   if (const auto *Var = dyn_cast<VarDecl>(D))
     return Var->isFileVarDecl() &&
@@ -3895,6 +3920,15 @@ Decl *ASTReader::ReadDeclRecord(DeclID ID) {
     D = OMPThreadPrivateDecl::CreateDeserialized(Context, ID, NumChildren);
     break;
   }
+#if INTEL_COLLAB
+  case DECL_OMP_GROUPPRIVATE: {
+    Record.skipInts(1);
+    unsigned NumChildren = Record.readInt();
+    Record.skipInts(1);
+    D = OMPGroupPrivateDecl::CreateDeserialized(Context, ID, NumChildren);
+    break;
+  }
+#endif // INTEL_COLLAB
   case DECL_OMP_ALLOCATE: {
     unsigned NumClauses = Record.readInt();
     unsigned NumVars = Record.readInt();
@@ -4172,23 +4206,22 @@ namespace {
       // Check for duplicate categories.
       if (Cat->getDeclName()) {
         ObjCCategoryDecl *&Existing = NameCategoryMap[Cat->getDeclName()];
-        if (Existing &&
-            Reader.getOwningModuleFile(Existing)
-                                          != Reader.getOwningModuleFile(Cat)) {
-          // FIXME: We should not warn for duplicates in diamond:
-          //
-          //   MT     //
-          //  /  \    //
-          // ML  MR   //
-          //  \  /    //
-          //   MB     //
-          //
-          // If there are duplicates in ML/MR, there will be warning when
-          // creating MB *and* when importing MB. We should not warn when
-          // importing.
-          Reader.Diag(Cat->getLocation(), diag::warn_dup_category_def)
-            << Interface->getDeclName() << Cat->getDeclName();
-          Reader.Diag(Existing->getLocation(), diag::note_previous_definition);
+        if (Existing && Reader.getOwningModuleFile(Existing) !=
+                            Reader.getOwningModuleFile(Cat)) {
+          llvm::DenseSet<std::pair<Decl *, Decl *>> NonEquivalentDecls;
+          StructuralEquivalenceContext Ctx(
+              Cat->getASTContext(), Existing->getASTContext(),
+              NonEquivalentDecls, StructuralEquivalenceKind::Default,
+              /*StrictTypeSpelling =*/false,
+              /*Complain =*/false,
+              /*ErrorOnTagTypeMismatch =*/true);
+          if (!Ctx.IsEquivalent(Cat, Existing)) {
+            // Warn only if the categories with the same name are different.
+            Reader.Diag(Cat->getLocation(), diag::warn_dup_category_def)
+                << Interface->getDeclName() << Cat->getDeclName();
+            Reader.Diag(Existing->getLocation(),
+                        diag::note_previous_definition);
+          }
         } else if (!Existing) {
           // Record this category.
           Existing = Cat;
@@ -4540,6 +4573,15 @@ void ASTDeclReader::UpdateDecl(Decl *D,
           Reader.getContext(), readSourceRange(),
           AttributeCommonInfo::AS_Pragma));
       break;
+
+#if INTEL_COLLAB
+    case UPD_DECL_MARKED_OPENMP_GROUPPRIVATE: {
+      auto DevType = Record.readEnum<OMPGroupPrivateDeclAttr::DevTypeTy>();
+      D->addAttr(OMPGroupPrivateDeclAttr::CreateImplicit(
+          Reader.getContext(), DevType, readSourceRange(),
+          AttributeCommonInfo::AS_Pragma));
+    } break;
+#endif // INTEL_COLLAB
 
     case UPD_DECL_MARKED_OPENMP_ALLOCATE: {
       auto AllocatorKind =

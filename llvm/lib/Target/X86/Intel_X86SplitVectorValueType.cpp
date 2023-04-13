@@ -221,15 +221,13 @@ protected:
 // Insert NI before I.
 struct InsertInst : public BinaryInstAction {
   InsertInst(Instruction *I, Instruction *NI) : BinaryInstAction(I, NI) {}
-  void run() { I->getParent()->getInstList().insert(I->getIterator(), NI); }
+  void run() { NI->insertBefore(I); }
 };
 
 // Insert NI after I.
 struct InsertInstAfter : public BinaryInstAction {
   InsertInstAfter(Instruction *I, Instruction *NI) : BinaryInstAction(I, NI) {}
-  void run() {
-    I->getParent()->getInstList().insertAfter(I->getIterator(), NI);
-  }
+  void run() { NI->insertAfter(I); }
 };
 
 // Update I's operands to NI according to OperandList.
@@ -238,13 +236,6 @@ public:
   UpdateInstOperand(Instruction *I, Instruction *NI,
                     SmallVector<unsigned, 2> &&OperandList)
       : BinaryInstAction(I, NI), OperandList(std::move(OperandList)) {}
-
-  UpdateInstOperand(const UpdateInstOperand &&UIO)
-      : BinaryInstAction(std::move(UIO)),
-        OperandList(std::move(UIO.OperandList)) {}
-
-  UpdateInstOperand(const UpdateInstOperand &UIO)
-      : BinaryInstAction(UIO), OperandList(UIO.OperandList) {}
 
   void run() {
     for (unsigned OpI : OperandList)
@@ -859,8 +850,8 @@ bool X86SplitVectorValueType::createSplitConstant(Constant *C, unsigned Depth) {
   for (unsigned I = 0; I < NumElmts; I++)
     ElmtsVec.push_back(C->getAggregateElement(I));
 
-  auto Elmts0 = makeArrayRef(ElmtsVec).drop_back(NumElmts / 2);
-  auto Elmts1 = makeArrayRef(ElmtsVec).drop_front(NumElmts / 2);
+  auto Elmts0 = ArrayRef(ElmtsVec).drop_back(NumElmts / 2);
+  auto Elmts1 = ArrayRef(ElmtsVec).drop_front(NumElmts / 2);
   ConstantMap[C].push_back(ConstantVector::get(Elmts0));
   ConstantMap[C].push_back(ConstantVector::get(Elmts1));
 

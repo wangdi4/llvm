@@ -1,0 +1,4 @@
+; INTEL_CUSTOMIZATION
+; RUN: llc < %s \
+; RUN:  | FileCheck %s
+; end INTEL_CUSTOMIZATION

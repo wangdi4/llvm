@@ -1,6 +1,6 @@
 //===----  Intel_AdvancedFastCall.cpp - Intel Advanced Fast Call   --------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -24,7 +24,7 @@
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
-#include "llvm/ADT/Triple.h" // INTEL_CUSTOMIZATION
+#include "llvm/TargetParser/Triple.h" // INTEL_CUSTOMIZATION
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -301,47 +301,9 @@ void FastCallEnabler::convert(Function *F) {
   }
 }
 
-// Legacy pass manager implementation
-class IntelAdvancedFastCallWrapperPass : public ModulePass {
-public:
-  static char ID;
-  IntelAdvancedFastCallWrapperPass() : ModulePass(ID) {
-    initializeIntelAdvancedFastCallWrapperPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ProfileSummaryInfoWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    ProfileSummaryInfo *PSI =
-        &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
-
-    FastCallEnabler Impl;
-    return Impl.run(M, PSI);
-  }
-};
-
 } // End anonymous namespace
 
-char IntelAdvancedFastCallWrapperPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IntelAdvancedFastCallWrapperPass,
-                      "intel-advancedfastcall", "Intel advanced fastcall",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
-INITIALIZE_PASS_END(IntelAdvancedFastCallWrapperPass, "intel-advancedfastcall",
-                    "Intel advanced fastcall", false, false)
-
 namespace llvm {
-
-ModulePass *createIntelAdvancedFastCallWrapperPass() {
-  return new IntelAdvancedFastCallWrapperPass();
-}
 
 PreservedAnalyses IntelAdvancedFastCallPass::run(Module &M,
                                                  ModuleAnalysisManager &AM) {

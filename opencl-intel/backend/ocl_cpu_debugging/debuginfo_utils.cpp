@@ -323,7 +323,7 @@ public:
 VarTypeDescriptor Generator::GenerateVarTypePointer(const DIType &di_pointee) {
   static const unsigned MAX_PTR_CHASING_DEPTH = 5;
 
-  // !!! Workaround for CSSD100019603 [Debugger]:
+  // !!! Workaround:
   //  OpenCL debugger crashes on struct types with self pointer fields
   //  OclCPUDebugging2.dll enters inifite recursion on types with circular
   //  references

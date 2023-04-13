@@ -27,7 +27,9 @@ namespace Validation {
 //
 class OCLBuilder {
 public:
-  //
+  OCLBuilder(OCLBuilder const &) = delete;
+  OCLBuilder &operator=(OCLBuilder const &) = delete;
+
   // returns a singleton instance of this.
   static OCLBuilder &Instance();
 
@@ -39,7 +41,8 @@ public:
   // sets the OCL source to be compiled
   OCLBuilder &withSource(const char *src);
 
-  OCLBuilder &withExtensions(const char *extentions);
+  OCLBuilder &withExtensions(bool IsFPGA);
+  OCLBuilder &withOpenCLCFeatures();
 
   OCLBuilder &withFP16Support(bool);
   OCLBuilder &withFP64Support(bool);
@@ -56,8 +59,6 @@ public:
 
 private:
   OCLBuilder();
-  OCLBuilder(OCLBuilder const &);
-  OCLBuilder &operator=(OCLBuilder const &);
 
   Intel::OpenCL::Utils::CommonOCLBuilder &m_CommonBuilder;
 };

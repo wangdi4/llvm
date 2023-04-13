@@ -5,7 +5,6 @@
 ; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %t2.o \
 ; RUN:          -filetype=obj
 ; RUN: not ld.lld -e main --lto-O2 \
-; RUN:    -plugin-opt=new-pass-manager  \
 ; RUN:    -mllvm -whole-program-assert \
 ; RUN:    -mllvm -whole-program-assume-executable %t.bc %t2.o -o %t \
 ; RUN:    2>&1 | FileCheck %s
@@ -23,7 +22,7 @@ entry:
 
 declare i32 @sub(i32 %a)
 
-define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
+define i32 @main(i32 %argc, ptr nocapture readnone %argv) {
 entry:
   %call1 = call i32 @add(i32 %argc)
   %call2 = call i32 @sub(i32 %call1)

@@ -1,8 +1,3 @@
-'''
-Created on Feb 20, 2011
-
-@author: vdovleka
-'''
 from __future__ import print_function
 import os
 import shutil

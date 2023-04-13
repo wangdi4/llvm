@@ -1,6 +1,6 @@
 //===----  Intel_IPArrayTranspose.cpp - Intel IPO Array Transpose  --------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -561,7 +561,7 @@ bool ArrayTransposeImpl::computePointerAliases() {
       return false;
 
   // Ensure that all operands of PHI nodes are also in "MallocPtrIncrAliases"
-  for (auto Pair : MallocPtrIncrAliases) {
+  for (const auto &Pair : MallocPtrIncrAliases) {
     auto *PHI = dyn_cast<PHINode>(Pair.first);
     if (!PHI)
       continue;
@@ -710,7 +710,7 @@ bool ArrayTransposeImpl::collectAllMemRefs() {
   };
 
   // Collect all memory references if possible.
-  for (auto Pair : MallocPtrIncrAliases)
+  for (const auto &Pair : MallocPtrIncrAliases)
     if (!CollectPtrMemRefs(Pair.first))
       return false;
 
@@ -1219,7 +1219,7 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
     return false;
   }
   // Make sure pointer increment values are evenly divisible by MaxElemSize.
-  for (auto Pair : MallocPtrIncrAliases) {
+  for (const auto &Pair : MallocPtrIncrAliases) {
     if (Pair.second < 0 || Pair.second % MaxElemSize != 0) {
       LLVM_DEBUG(dbgs() << "     Increment is not divisible by MaxElemSize \n");
       return false;
@@ -1671,61 +1671,9 @@ bool ArrayTransposeImpl::run(void) {
     LLVM_DEBUG(dbgs() << "Created kmp_set_blocktime: " << *CI << "\n");
   return true;
 }
-
-// Legacy pass manager implementation
-class IPArrayTransposeLegacyPass : public ModulePass {
-public:
-  static char ID;
-  IPArrayTransposeLegacyPass() : ModulePass(ID) {
-    initializeIPArrayTransposeLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    auto GetLI = [this](Function &F) -> LoopInfo & {
-      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    };
-    auto GetSE = [this](Function &F) -> ScalarEvolution & {
-      return this->getAnalysis<ScalarEvolutionWrapperPass>(F).getSE();
-    };
-
-    ArrayTransposeImpl Impl(M, WPInfo, GetTLI, GetLI, GetSE, M.getDataLayout());
-    return Impl.run();
-  }
-};
-
 } // End anonymous namespace
 
-char IPArrayTransposeLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IPArrayTransposeLegacyPass, "iparraytranspose",
-                      "LTO Array Transpose", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_END(IPArrayTransposeLegacyPass, "iparraytranspose",
-                    "LTO Array Transpose", false, false)
-
 namespace llvm {
-
-ModulePass *createIPArrayTransposeLegacyPass() {
-  return new IPArrayTransposeLegacyPass();
-}
 
 PreservedAnalyses IPArrayTransposePass::run(Module &M,
                                             ModuleAnalysisManager &AM) {

@@ -1,6 +1,6 @@
 //===------------ Intel_DTransUtils.cpp - Utilities for DTrans ------------===//
 //
-// Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -265,8 +265,8 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
     return false;
   if (!DestTy->isPointerTy() || !SrcTy->isPointerTy())
     return false;
-  llvm::Type *SrcPointeeTy = SrcTy->getPointerElementType();
-  llvm::Type *DestPointeeTy = DestTy->getPointerElementType();
+  llvm::Type *SrcPointeeTy = SrcTy->getNonOpaquePointerElementType();
+  llvm::Type *DestPointeeTy = DestTy->getNonOpaquePointerElementType();
   // This will handle vector types, in addition to structs and arrays,
   // but I don't think we'd get here with a vector type (unless we end
   // up wanting to track vector types).
@@ -291,8 +291,8 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
       auto *TempZeroTy = ElementZeroTy;
       auto *TempDestTy = DestPointeeTy;
       while (TempZeroTy->isPointerTy() && TempDestTy->isPointerTy()) {
-        TempZeroTy = TempZeroTy->getPointerElementType();
-        TempDestTy = TempDestTy->getPointerElementType();
+        TempZeroTy = TempZeroTy->getNonOpaquePointerElementType();
+        TempDestTy = TempDestTy->getNonOpaquePointerElementType();
       }
       if (TempDestTy == llvm::Type::getInt8Ty(SrcTy->getContext())) {
         if (AccessedTy)
@@ -318,7 +318,7 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
     //   %ppc = bitcast %A* %pa to %C**
     //
     if (ElementZeroTy->isPointerTy() &&
-        ElementZeroTy->getPointerElementType()->isAggregateType()) {
+        ElementZeroTy->getNonOpaquePointerElementType()->isAggregateType()) {
       // In this case, tracking the accessed type is tricky because
       // the check is off by a level of indirection. If it's a match
       // we need to record it as element zero of SrcTy.
@@ -361,13 +361,14 @@ bool dtrans::isVTableAccess(llvm::Type *SrcTy, llvm::Type *DestTy) {
   // First we check to see if DestTy is a ptr-to-ptr-to-ptr-to-fn
   if (!DestTy->isPointerTy())
     return false;
-  auto *DestTy2 = DestTy->getPointerElementType();
+  auto *DestTy2 = DestTy->getNonOpaquePointerElementType();
   if (!DestTy2->isPointerTy())
     return false;
-  auto *DestTy3 = DestTy2->getPointerElementType();
+  auto *DestTy3 = DestTy2->getNonOpaquePointerElementType();
   if (!DestTy3->isPointerTy())
     return false;
-  auto *DestFnTy = dyn_cast<FunctionType>(DestTy3->getPointerElementType());
+  auto *DestFnTy =
+      dyn_cast<FunctionType>(DestTy3->getNonOpaquePointerElementType());
   if (!DestFnTy)
     return false;
 
@@ -421,8 +422,8 @@ bool dtrans::isPtrToPtrToElementZeroAccess(llvm::Type *SrcTy,
                                            llvm::Type *DestTy) {
   if (!DestTy->isPointerTy() || !SrcTy->isPointerTy())
     return false;
-  llvm::Type *SrcPointeeTy = SrcTy->getPointerElementType();
-  llvm::Type *DestPointeeTy = DestTy->getPointerElementType();
+  llvm::Type *SrcPointeeTy = SrcTy->getNonOpaquePointerElementType();
+  llvm::Type *DestPointeeTy = DestTy->getNonOpaquePointerElementType();
   if (!SrcPointeeTy->isPointerTy() || !DestPointeeTy->isPointerTy())
     return false;
   return isElementZeroAccess(SrcPointeeTy, DestPointeeTy);
@@ -432,7 +433,7 @@ Type *dtrans::unwrapType(Type *Ty) {
   Type *BaseTy = Ty;
   while (BaseTy->isPointerTy() || BaseTy->isArrayTy() || BaseTy->isVectorTy())
     if (BaseTy->isPointerTy())
-      BaseTy = BaseTy->getPointerElementType();
+      BaseTy = BaseTy->getNonOpaquePointerElementType();
     else if (BaseTy->isArrayTy())
       BaseTy = cast<ArrayType>(BaseTy)->getElementType();
     else if (BaseTy->isVectorTy())
@@ -442,7 +443,7 @@ Type *dtrans::unwrapType(Type *Ty) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
-  assert(countPopulation(SafetyInfo) == 1 &&
+  assert(llvm::popcount(SafetyInfo) == 1 &&
          "More than one safety type detected\n");
 
   if (SafetyInfo & dtrans::BadCasting)
@@ -1451,7 +1452,8 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
 
   // If it is a pointer type - check the pointer element type.
   if (auto *PointerTy = dyn_cast<llvm::PointerType>(Ty))
-    return hasZeroSizedArrayAsLastField(PointerTy->getPointerElementType());
+    return hasZeroSizedArrayAsLastField(
+        PointerTy->getNonOpaquePointerElementType());
 
   return false;
 }
@@ -1617,7 +1619,7 @@ bool dtrans::isDummyFuncWithThisAndIntArgs(const CallBase *Call,
   Type *ZeroArgType = Call->getArgOperand(0)->getType();
   Type *FirstArgType = Call->getArgOperand(1)->getType();
   return (ZeroArgType->isPointerTy() &&
-          ZeroArgType->getPointerElementType()->isStructTy() &&
+          ZeroArgType->getNonOpaquePointerElementType()->isStructTy() &&
           FirstArgType->isIntegerTy());
 }
 
@@ -1630,7 +1632,7 @@ bool dtrans::isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
   Type *ZeroArgType = Call->getArgOperand(0)->getType();
   Type *FirstArgType = Call->getArgOperand(1)->getType();
   return (ZeroArgType->isPointerTy() &&
-          ZeroArgType->getPointerElementType()->isStructTy() &&
+          ZeroArgType->getNonOpaquePointerElementType()->isStructTy() &&
           FirstArgType->isPointerTy());
 }
 
@@ -1756,7 +1758,8 @@ llvm::Type *dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
     if (!Ptr)
       return nullptr;
 
-    StructType *Str = dyn_cast<StructType>(Ptr->getPointerElementType());
+    StructType *Str =
+        dyn_cast<StructType>(Ptr->getNonOpaquePointerElementType());
     return Str;
   };
 
@@ -1769,7 +1772,7 @@ llvm::Type *dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
 
   PointerType *OperandTy = dyn_cast<PointerType>(Load->getPointerOperandType());
   // Make sure that we are loading from a pointer to an integer type
-  if (!OperandTy || !OperandTy->getPointerElementType()->isIntegerTy())
+  if (!OperandTy || !OperandTy->getNonOpaquePointerElementType()->isIntegerTy())
     return nullptr;
 
   // Check the source
@@ -2065,7 +2068,7 @@ llvm::StructType *dtrans::getContainedStructTy(llvm::Type *Ty) {
   auto *BaseTy = Ty;
   while (BaseTy->isPointerTy() || BaseTy->isArrayTy() || BaseTy->isVectorTy()) {
     if (BaseTy->isPointerTy())
-      BaseTy = BaseTy->getPointerElementType();
+      BaseTy = BaseTy->getNonOpaquePointerElementType();
     else if (BaseTy->isArrayTy())
       BaseTy = cast<ArrayType>(BaseTy)->getElementType();
     else

@@ -1,7 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -xmain-opt-level=3 -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=loop-formation 2>&1 | FileCheck %s --check-prefix=LOOP-FORMATION
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -xmain-opt-level=3 -hir-framework-debug=loop-formation 2>&1 | FileCheck %s --check-prefix=LOOP-FORMATION
 
-; RUN: opt < %s -hir-ssa-deconstruction -xmain-opt-level=3 -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser 2>&1 | FileCheck %s --check-prefix=PARSER
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -xmain-opt-level=3 -hir-framework-debug=parser 2>&1 | FileCheck %s --check-prefix=PARSER
 
 ; Verify that the loop in the second region is parsed as a DO loop by

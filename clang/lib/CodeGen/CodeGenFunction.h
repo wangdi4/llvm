@@ -58,6 +58,7 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/SanitizerStats.h"
+#include <optional>
 
 namespace llvm {
 class BasicBlock;
@@ -350,6 +351,7 @@ public:
   // in this header.
   struct CGCoroInfo {
     std::unique_ptr<CGCoroData> Data;
+    bool InSuspendBlock = false;
     CGCoroInfo();
     ~CGCoroInfo();
   };
@@ -357,6 +359,10 @@ public:
 
   bool isCoroutine() const {
     return CurCoro.Data != nullptr;
+  }
+
+  bool inSuspendBlock() const {
+    return isCoroutine() && CurCoro.InSuspendBlock;
   }
 
   /// CurGD - The GlobalDecl for the current function being compiled.
@@ -828,7 +834,7 @@ public:
     FPOptions OldFPFeatures;
     llvm::fp::ExceptionBehavior OldExcept;
     llvm::RoundingMode OldRounding;
-    Optional<CGBuilderTy::FastMathFlagGuard> FMFGuard;
+    std::optional<CGBuilderTy::FastMathFlagGuard> FMFGuard;
   };
   FPOptions CurFPFeatures;
 
@@ -1857,16 +1863,16 @@ public:
   // body of the region.
   class CGVLASizeMapHandler {
     CodeGenFunction &CGF;
-    llvm::DenseMap<const Expr*, llvm::Value*> SavedVLASizeMap;
+    llvm::SmallVector<llvm::DenseMap<const Expr *, llvm::Value *>, 3>
+        SavedVLASizeMaps;
     llvm::MapVector<const Expr*, std::pair<llvm::Value*, CharUnits>> AddressMap;
     CGVLASizeMapHandler *PrevHandler = nullptr;
     bool Initialized = false;
-    bool MapRestored = false;
 
   public:
     CGVLASizeMapHandler(CodeGenFunction &CGF)
         : CGF(CGF), PrevHandler(CGF.VLASizeMapHandler) {
-      SavedVLASizeMap = CGF.VLASizeMap;
+      SavedVLASizeMaps.push_back(CGF.VLASizeMap);
       CGF.VLASizeMapHandler = this;
     }
 
@@ -1875,7 +1881,6 @@ public:
     // than one llvm directive per OMPExecutable directive, use the
     // Initialized field so it happens only at the outermost.
     void ModifyVLASizeMap(const CapturedStmt *CS) {
-      assert(!MapRestored && "VLASizeMap already restored");
       if (Initialized || !CS)
         return;
       Initialized = true;
@@ -1902,8 +1907,9 @@ public:
 
     // Before dumping the captured statement, load the temp and store that
     // value in the VLASizeMap.  Record the value so it will appear in a clause.
-    void EmitVLASizeExpressions() {
-      assert(!MapRestored && "VLASizeMap already restored");
+    void EmitVLASizeExpressions(
+        SmallVectorImpl<std::pair<llvm::Value *, llvm::Type *>> &Refs) {
+      SavedVLASizeMaps.push_back(CGF.VLASizeMap);
       for (auto &Z : AddressMap) {
         const Expr *E = Z.first;
         llvm::Value *V = Z.second.first;
@@ -1911,9 +1917,7 @@ public:
         Address A(V, CGF.ConvertTypeForMem(CGF.getContext().getSizeType()),
                   Align);
         CGF.VLASizeMap[E] = CGF.Builder.CreateLoad(A);
-        if (CGF.CapturedStmtInfo)
-          CGF.CapturedStmtInfo->recordValueReference(A.getPointer(),
-                                                     A.getElementType());
+        Refs.push_back({A.getPointer(), A.getElementType()});
       }
     }
     // Restore the map to the previous state. This must happen before emitting
@@ -1921,13 +1925,12 @@ public:
     // or multiple regions, whether it was restored must be tracked so it is
     // done exactly once.
     void RestoreVLASizeMap() {
-      if (MapRestored)
+      if (SavedVLASizeMaps.empty())
         return;
-      MapRestored = true;
-      CGF.VLASizeMap = SavedVLASizeMap;
+      CGF.VLASizeMap = SavedVLASizeMaps.pop_back_val();
     }
     ~CGVLASizeMapHandler() {
-      if (!MapRestored)
+      if (!SavedVLASizeMaps.empty())
         RestoreVLASizeMap();
       CGF.VLASizeMapHandler = PrevHandler;
     }
@@ -1960,19 +1963,19 @@ public:
     ~TerminateHandlerRAII() {
       if (CGF.TerminateHandler) {
         if (!CGF.TerminateHandler->use_empty())
-          CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateHandler);
+          CGF.CurFn->insert(CGF.CurFn->end(), CGF.TerminateHandler);
         else
           delete CGF.TerminateHandler;
       }
       if (CGF.TerminateLandingPad) {
         if (!CGF.TerminateLandingPad->use_empty())
-          CGF.CurFn->getBasicBlockList().push_back(CGF.TerminateLandingPad);
+          CGF.CurFn->insert(CGF.CurFn->end(), CGF.TerminateLandingPad);
         else
           delete CGF.TerminateLandingPad;
       }
       if (CGF.UnreachableBlock) {
         if (!CGF.UnreachableBlock->use_empty())
-          CGF.CurFn->getBasicBlockList().push_back(CGF.UnreachableBlock);
+          CGF.CurFn->insert(CGF.CurFn->end(), CGF.UnreachableBlock);
         else
           delete CGF.UnreachableBlock;
       }
@@ -3620,7 +3623,8 @@ public:
 
     Address getIndirectAddress() const {
       assert(isIndirect());
-      return Address(Value, ElementType, CharUnits::fromQuantity(Alignment));
+      return Address(Value, ElementType, CharUnits::fromQuantity(Alignment),
+                     KnownNonNull);
     }
   };
 
@@ -4307,8 +4311,13 @@ public:
   /// an LLVM type of the same size of the lvalue's type.  If the lvalue has a
   /// variable length type, this is not possible.
   ///
-  LValue EmitLValue(const Expr *E);
+  LValue EmitLValue(const Expr *E,
+                    KnownNonNull_t IsKnownNonNull = NotKnownNonNull);
 
+private:
+  LValue EmitLValueHelper(const Expr *E, KnownNonNull_t IsKnownNonNull);
+
+public:
   /// Same as EmitLValue but additionally we generate checking code to
   /// guard against undefined behavior.  This is only suitable when we know
   /// that the address will be used to access the object.
@@ -4584,13 +4593,6 @@ public:
 
   void checkTargetFeatures(const CallExpr *E, const FunctionDecl *TargetDecl);
   void checkTargetFeatures(SourceLocation Loc, const FunctionDecl *TargetDecl);
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256
-  void checkTargetVectorWidth(const CallExpr *E, const FunctionDecl *TargetDecl,
-                              unsigned VectorWidth);
-#endif // INTEL_FEATURE_ISA_AVX256
-#endif // INTEL_CUSTOMIZATION
 
   llvm::CallInst *EmitRuntimeCall(llvm::FunctionCallee callee,
                                   const Twine &name = "");
@@ -5426,9 +5428,10 @@ public:
   /// into the address of a local variable.  In such a case, it's quite
   /// reasonable to just ignore the returned alignment when it isn't from an
   /// explicit source.
-  Address EmitPointerWithAlignment(const Expr *Addr,
-                                   LValueBaseInfo *BaseInfo = nullptr,
-                                   TBAAAccessInfo *TBAAInfo = nullptr);
+  Address
+  EmitPointerWithAlignment(const Expr *Addr, LValueBaseInfo *BaseInfo = nullptr,
+                           TBAAAccessInfo *TBAAInfo = nullptr,
+                           KnownNonNull_t IsKnownNonNull = NotKnownNonNull);
 
   /// If \p E references a parameter with pass_object_size info or a constant
   /// array size modifier, emit the object size divided by the size of \p EltTy.
@@ -5462,8 +5465,17 @@ public:
   llvm::BasicBlock *EmitCpuFeaturesInit(llvm::Function *Func);
   static std::array<uint64_t, 2>
   GetCpuFeatureBitmap(ArrayRef<StringRef> FeatureStrs);
-
 #endif // INTEL_CUSTOMIZATION
+
+  void
+  EmitX86MultiVersionResolver(llvm::Function *Resolver,
+#if INTEL_CUSTOMIZATION
+                              ArrayRef<MultiVersionResolverOption> Options,
+                              bool IsCpuDispatch);
+#endif // INTEL_CUSTOMIZATION
+  void
+  EmitAArch64MultiVersionResolver(llvm::Function *Resolver,
+                                  ArrayRef<MultiVersionResolverOption> Options);
 
 private:
   QualType getVarArgType(const Expr *Arg);
@@ -5484,11 +5496,15 @@ private:
   llvm::Value *EmitX86CpuSupports(uint64_t Mask);
   llvm::Value *EmitX86CpuInit();
 #if INTEL_CUSTOMIZATION
-  llvm::Value *FormResolverCondition(const MultiVersionResolverOption &RO,
-                                     bool IsCpuDispatch);
+  llvm::Value *FormX86ResolverCondition(const MultiVersionResolverOption &RO,
+                                        bool IsCpuDispatch);
   llvm::Value *
   EmitX86CpuDispatchLibIrcFeaturesTest(ArrayRef<StringRef> FeaturStrs);
 #endif // INTEL_CUSTOMIZATION
+  llvm::Value *EmitAArch64CpuInit();
+  llvm::Value *
+  FormAArch64ResolverCondition(const MultiVersionResolverOption &RO);
+  llvm::Value *EmitAArch64CpuSupports(ArrayRef<StringRef> FeatureStrs);
 };
 
 
@@ -5498,9 +5514,9 @@ DominatingLLVMValue::save(CodeGenFunction &CGF, llvm::Value *value) {
 
   // Otherwise, we need an alloca.
   auto align = CharUnits::fromQuantity(
-            CGF.CGM.getDataLayout().getPrefTypeAlignment(value->getType()));
+      CGF.CGM.getDataLayout().getPrefTypeAlign(value->getType()));
   Address alloca =
-    CGF.CreateTempAlloca(value->getType(), align, "cond-cleanup.save");
+      CGF.CreateTempAlloca(value->getType(), align, "cond-cleanup.save");
   CGF.Builder.CreateStore(value, alloca);
 
   return saved_type(alloca.getPointer(), true);

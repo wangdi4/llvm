@@ -18,7 +18,7 @@
 
 @gv0 = dso_local global i32 0, align 4
 @gv1 = dso_preemptable global i32 0, align 4
-
+; This is a I*N*T*E*L-O*N*L*Y comment.
 define hidden i32 @"_Z54bar$ompvariant$bar"() {
 ; CHECK: _Z54bar$ompvariant$bar:
 ; CHECK:       # %bb.0: # %entry

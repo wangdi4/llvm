@@ -52,7 +52,6 @@
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
-#include <Windows.h>
 #else
 #include <dlfcn.h>
 #include <unistd.h>
@@ -327,6 +326,10 @@ public:
   }
   bool isAtomicFreeReduction() const {
     return getWGNum();
+  }
+  // TODO: unify codestyle with the code above
+  bool isSpecificNDRange() const {
+    return Version < 5 || (Attributes1 & (1 << 1));
   }
 };
 
@@ -742,10 +745,7 @@ public:
 
 /// RTL flags
 struct RTLFlagsTy {
-  uint64_t CollectDataTransferLatency : 1;
   uint64_t EnableProfile : 1;
-  uint64_t UseInteropQueueInorderAsync : 1;
-  uint64_t UseInteropQueueInorderSharedSync : 1;
   uint64_t UseHostMemForUSM : 1;
   uint64_t UseDriverGroupSizes : 1;
   uint64_t EnableSimd : 1;
@@ -755,23 +755,14 @@ struct RTLFlagsTy {
   uint64_t UseImageOptions : 1;
   uint64_t ShowBuildLog : 1;
   uint64_t LinkLibDevice : 1;
+  uint64_t NDRangeIgnoreTripcount : 1;
   // Add new flags here
-  uint64_t Reserved : 51;
-  RTLFlagsTy() :
-      CollectDataTransferLatency(0),
-      EnableProfile(0),
-      UseInteropQueueInorderAsync(0),
-      UseInteropQueueInorderSharedSync(0),
-      UseHostMemForUSM(0),
-      UseDriverGroupSizes(0),
-      EnableSimd(0),
-      UseSVM(0),
-      UseBuffer(0),
-      UseSingleContext(0),
-      UseImageOptions(1),
-      ShowBuildLog(0),
-      LinkLibDevice(0),
-      Reserved(0) {}
+  uint64_t Reserved : 53;
+  RTLFlagsTy()
+      : EnableProfile(0), UseHostMemForUSM(0), UseDriverGroupSizes(0),
+        EnableSimd(0), UseSVM(0), UseBuffer(0), UseSingleContext(0),
+        UseImageOptions(1), ShowBuildLog(0), LinkLibDevice(0),
+        NDRangeIgnoreTripcount(0), Reserved(0) {}
 };
 
 /// Kernel properties.
@@ -792,6 +783,7 @@ class SpecConstantsTy {
 public:
   SpecConstantsTy() = default;
   SpecConstantsTy(const SpecConstantsTy &) = delete;
+  SpecConstantsTy &operator=(const SpecConstantsTy &) = delete;
   SpecConstantsTy(const SpecConstantsTy &&Other)
     : ConstantIds(std::move(Other.ConstantIds)),
       ConstantValueSizes(std::move(Other.ConstantValueSizes)),
@@ -898,7 +890,7 @@ public:
   }
 
   /// Return allocation information if Ptr belongs to any allocation range.
-  const MemAllocInfoTy *search(void *Ptr) {
+  const MemAllocInfoTy *search(const void *Ptr) {
     std::lock_guard<std::mutex> Lock(Mtx);
     if (Map.size() == 0)
       return nullptr;
@@ -964,9 +956,6 @@ public:
 struct RTLOptionTy {
   /// Binary flags
   RTLFlagsTy Flags;
-
-  /// Emulated data transfer latency in microsecond
-  int32_t DataTransferLatency = 0;
 
   /// Data transfer method when SVM is used
   int32_t DataTransferMethod = DATA_TRANSFER_METHOD_SVMMAP;
@@ -1049,34 +1038,6 @@ struct RTLOptionTy {
   RTLOptionTy() {
     const char *Env;
 
-    // Get global OMP_THREAD_LIMIT for SPMD parallelization.
-    int ThrLimit = omp_get_thread_limit();
-    DP("omp_get_thread_limit() returned %" PRId32 "\n", ThrLimit);
-    // omp_get_thread_limit() would return INT_MAX by default.
-    // NOTE: Windows.h defines max() macro, so we have to guard
-    //       the call with parentheses.
-    ThreadLimit = (ThrLimit > 0 &&
-        ThrLimit != (std::numeric_limits<int32_t>::max)()) ? ThrLimit : 0;
-
-    // Global max number of teams.
-    int NTeams = omp_get_max_teams();
-    DP("omp_get_max_teams() returned %" PRId32 "\n", NTeams);
-    // omp_get_max_teams() would return INT_MAX by default.
-    // NOTE: Windows.h defines max() macro, so we have to guard
-    //       the call with parentheses.
-    NumTeams = (NTeams > 0 &&
-        NTeams != (std::numeric_limits<int32_t>::max)()) ? NTeams : 0;
-
-    // Read LIBOMPTARGET_DATA_TRANSFER_LATENCY (experimental input)
-    if ((Env = readEnvVar("LIBOMPTARGET_DATA_TRANSFER_LATENCY"))) {
-      std::string Value(Env);
-      if (Value.substr(0, 2) == "T,") {
-        Flags.CollectDataTransferLatency = 1;
-        int32_t Usec = std::stoi(Value.substr(2).c_str());
-        DataTransferLatency = (Usec > 0) ? Usec : 0;
-      }
-    }
-
     // Read LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD
     if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD"))) {
       std::string Value(Env);
@@ -1155,29 +1116,6 @@ struct RTLOptionTy {
         WARNING("Invalid or unsupported LIBOMPTARGET_ENABLE_SIMD=%s\n", Env);
     }
 
-    // TODO: deprecate this variable since the default behavior is equivalent
-    //       to "inorder_async" and "inorder_shared_sync".
-    // Read LIBOMPTARGET_OPENCL_INTEROP_QUEUE
-    // Two independent options can be specified as follows.
-    // -- inorder_async: use a new in-order queue for asynchronous case
-    //    (default: shared out-of-order queue)
-    // -- inorder_shared_sync: use the existing shared in-order queue for
-    //    synchronous case (default: new in-order queue).
-    if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_INTEROP_QUEUE",
-                          "LIBOMPTARGET_INTEROP_PIPE"))) {
-      std::istringstream Value(Env);
-      std::string Token;
-      while (std::getline(Value, Token, ',')) {
-        if (Token == "inorder_async") {
-          Flags.UseInteropQueueInorderAsync = 1;
-          DP("    enabled in-order asynchronous separate queue\n");
-        } else if (Token == "inorder_shared_sync") {
-          Flags.UseInteropQueueInorderSharedSync = 1;
-          DP("    enabled in-order synchronous shared queue\n");
-        }
-      }
-    }
-
     if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS"))) {
       UserCompilationOptions += Env;
     }
@@ -1191,9 +1129,8 @@ struct RTLOptionTy {
     // Intel Graphics compilers that do not support that option
     // silently ignore it.
     if (DeviceType == CL_DEVICE_TYPE_GPU) {
-      Env = readEnvVar("LIBOMPTARGET_OPENCL_TARGET_GLOBALS");
-      if (!Env || parseBool(Env) != 0)
-        InternalLinkingOptions += " -cl-take-global-address ";
+      // Always turn this option on for GPU devices
+      InternalLinkingOptions += " -cl-take-global-address ";
       Env = readEnvVar("LIBOMPTARGET_OPENCL_MATCH_SINCOSPI");
       if (!Env || parseBool(Env) != 0)
         InternalLinkingOptions += " -cl-match-sincospi ";
@@ -1272,16 +1209,6 @@ struct RTLOptionTy {
     }
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_INTERNAL_BUILD
-    // Force work group sizes -- for internal experiments
-    if ((Env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE"))) {
-      parseGroupSizes("LIBOMPTARGET_LOCAL_WG_SIZE", Env, ForcedLocalSizes);
-    }
-    if ((Env = readEnvVar("LIBOMPTARGET_GLOBAL_WG_SIZE"))) {
-      parseGroupSizes("LIBOMPTARGET_GLOBAL_WG_SIZE", Env, ForcedGlobalSizes);
-    }
-#endif // INTEL_INTERNAL_BUILD
-
     if (readEnvVar("INTEL_ENABLE_OFFLOAD_ANNOTATIONS")) {
       // To match SYCL RT behavior, we just need to check whether
       // INTEL_ENABLE_OFFLOAD_ANNOTATIONS is set. The actual value
@@ -1330,6 +1257,12 @@ struct RTLOptionTy {
         DP("Using default value: %f\n", ThinThreadsThreshold);
       }
     }
+
+    if ((Env = readEnvVar("LIBOMPTARGET_NDRANGE_IGNORE_TRIPCOUNT"))) {
+      int32_t Value = parseBool(Env);
+      if (Value >= 0 && Value <= 1)
+        Flags.NDRangeIgnoreTripcount = Value;
+    }
   }
 
   /// Read environment variable value with optional deprecated name
@@ -1350,21 +1283,6 @@ struct RTLOptionTy {
     return Value;
   }
 
-#if INTEL_INTERNAL_BUILD
-  void parseGroupSizes(const char *Name, const char *Value, size_t *Sizes) {
-    std::string Str(Value);
-    if (Str.front() != '{' || Str.back() != '}') {
-      WARNING("Ignoring invalid %s=%s\n", Name, Value);
-      return;
-    }
-    std::istringstream Strm(Str.substr(1, Str.size() - 2));
-    uint32_t I = 0;
-    for (std::string Token; std::getline(Strm, Token, ','); I++)
-      if (I < 3)
-        Sizes[I] = std::stoi(Token);
-  }
-#endif // INTEL_INTERNAL_BUILD
-
   /// Parse boolean value
   /// Return 1 for: TRUE, T, 1, ON, YES, ENABLED (case insensitive)
   /// Return 0 for: FALSE, F, 0, OFF, NO, DISABLED (case insensitive)
@@ -1382,6 +1300,30 @@ struct RTLOptionTy {
         Str == "no" || Str == "disabled")
       return 0;
     return -1;
+  }
+
+  /// Read global thread limit and max teams from the host runtime. These values
+  /// are subject to change at any program point, so every kernel execution
+  /// needs to read the most recent values.
+  void readTeamsThreadLimit() {
+    int ThrLimit = omp_get_thread_limit();
+    DP("omp_get_thread_limit() returned %" PRId32 "\n", ThrLimit);
+    // omp_get_thread_limit() would return INT_MAX by default.
+    // NOTE: Windows.h defines max() macro, so we have to guard
+    //       the call with parentheses.
+    ThreadLimit =
+        (ThrLimit > 0 && ThrLimit != (std::numeric_limits<int32_t>::max)())
+            ? ThrLimit
+            : 0;
+
+    int NTeams = omp_get_max_teams();
+    DP("omp_get_max_teams() returned %" PRId32 "\n", NTeams);
+    // omp_get_max_teams() would return INT_MAX by default.
+    // NOTE: Windows.h defines max() macro, so we have to guard
+    //       the call with parentheses.
+    NumTeams = (NTeams > 0 && NTeams != (std::numeric_limits<int32_t>::max)())
+                   ? NTeams
+                   : 0;
   }
 }; // RTLOptionTy
 
@@ -1412,6 +1354,9 @@ class RTLDeviceInfoTy {
 public:
   /// Number of OpenMP devices
   cl_uint NumDevices = 0;
+
+  /// Count loaded device images. Use this to decide when to finalize RTL.
+  std::atomic<int> NumRegisteredImages = 0;
 
   /// List of OpenCLProgramTy objects
   std::vector<std::list<OpenCLProgramTy>> Programs;
@@ -1586,7 +1531,14 @@ __ATTRIBUTE__(constructor(101)) void init() {
   DeviceInfo = new RTLDeviceInfoTy();
 }
 
+/// RTL calls this function as early as possible to avoid finalization issues
+/// in various circumstances (e.g., tracing tool). We use the entry
+/// __tgt_rtl_unregister_lib to call this function if all images were
+/// unregistered. When plugin is unloaded, we also try to finalize if it is not
+/// done already.
 __ATTRIBUTE__(destructor(101)) void deinit() {
+  if (!DeviceInfo)
+    return;
   DP("Deinit OpenCL plugin!\n");
   closeRTL();
   delete DeviceInfo;
@@ -1754,38 +1706,38 @@ public:
 
 /// Clean-up routine to be invoked by destructor.
 static void closeRTL() {
-  for (uint32_t i = 0; i < DeviceInfo->NumDevices; i++) {
-    if (!DeviceInfo->Initialized[i])
+  for (uint32_t I = 0; I < DeviceInfo->NumDevices; I++) {
+    if (!DeviceInfo->Initialized[I])
       continue;
     if (DeviceInfo->Option.Flags.EnableProfile) {
-      for (auto &profile : DeviceInfo->Profiles[i])
-        profile.second.printData(i, profile.first, DeviceInfo->Names[i].data(),
-                                 DeviceInfo->Option.ProfileResolution);
+      for (auto &Prof : DeviceInfo->Profiles[I])
+        Prof.second.printData(I, Prof.first, DeviceInfo->Names[I].data(),
+                              DeviceInfo->Option.ProfileResolution);
     }
 #if INTEL_CUSTOMIZATION
     if (OMPT_ENABLED) {
-      OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
-      OMPT_CALLBACK(ompt_callback_device_finalize, i);
+      OMPT_CALLBACK(ompt_callback_device_unload, I, 0 /* module ID */);
+      OMPT_CALLBACK(ompt_callback_device_finalize, I);
     }
 #endif // INTEL_CUSTOMIZATION
 
-    CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[i]);
+    CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[I]);
 
-    if (DeviceInfo->QueuesInOrder[i])
-      CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->QueuesInOrder[i]);
+    if (DeviceInfo->QueuesInOrder[I])
+      CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->QueuesInOrder[I]);
 
-    for (auto mem : DeviceInfo->OwnedMemory[i])
-      CALL_CL_EXT_VOID(i, clMemFreeINTEL, DeviceInfo->getContext(i), mem);
+    for (auto &Mem : DeviceInfo->OwnedMemory[I])
+      CALL_CL_EXT_VOID(I, clMemFreeINTEL, DeviceInfo->getContext(I), Mem);
 
     if (!DeviceInfo->Option.Flags.UseSingleContext)
-      CALL_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->Contexts[i]);
+      CALL_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->Contexts[I]);
 
-    DeviceInfo->Programs[i].clear();
+    DeviceInfo->Programs[I].clear();
   }
 
   if (DeviceInfo->Option.Flags.UseSingleContext)
-    for (auto platformInfo : DeviceInfo->PlatformInfos)
-      CALL_CL_EXIT_FAIL(clReleaseContext, platformInfo.second.Context);
+    for (auto &PLFI : DeviceInfo->PlatformInfos)
+      CALL_CL_EXIT_FAIL(clReleaseContext, PLFI.second.Context);
 
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->ProfileLocks;
@@ -1813,15 +1765,6 @@ static std::string getDeviceRTLPath(const char *BaseName) {
   size_t Split = RTLPath.find_last_of("/\\");
   RTLPath.replace(Split + 1, std::string::npos, BaseName);
   return RTLPath;
-}
-
-static inline void addDataTransferLatency() {
-  if (!DeviceInfo->Option.Flags.CollectDataTransferLatency)
-    return;
-  double goal = omp_get_wtime() + 1e-6 * DeviceInfo->Option.DataTransferLatency;
-  // Naive spinning should be enough
-  while (omp_get_wtime() < goal)
-    ;
 }
 
 // FIXME: move this to llvm/BinaryFormat/ELF.h and elf.h:
@@ -2089,9 +2032,6 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
   auto &Queue = DeviceInfo->Queues[DeviceId];
 
-  // Add synthetic delay for experiments
-  addDataTransferLatency();
-
   const char *ProfileKey = "DataWrite (Host to Device)";
   cl_event Event = nullptr;
 
@@ -2163,9 +2103,6 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
     return OFFLOAD_SUCCESS;
 
   auto &Queue = DeviceInfo->Queues[DeviceId];
-
-  // Add synthetic delay for experiments
-  addDataTransferLatency();
 
   const char *ProfileKey = "DataRead (Device to Host)";
   cl_event Event = nullptr;
@@ -2448,9 +2385,10 @@ static void decideLoopKernelGroupArguments(
   std::copy(GRPSizes, GRPSizes + 3, GroupSizes);
 }
 
-static void decideKernelGroupArguments(
-    int32_t DeviceId, int32_t NumTeams, int32_t ThreadLimit,
-    cl_kernel Kernel, size_t *GroupSizes, size_t *GroupCounts) {
+static void decideKernelGroupArguments(int32_t DeviceId, int32_t NumTeams,
+                                       int32_t ThreadLimit, cl_kernel Kernel,
+                                       size_t *GroupSizes, size_t *GroupCounts,
+                                       size_t LoopTripcount) {
   auto &DevicePR = DeviceInfo->DeviceProperties[DeviceId];
 #if INTEL_CUSTOMIZATION
   // Default to best GEN9 GT4 configuration initially.
@@ -2640,6 +2578,7 @@ static void decideKernelGroupArguments(
 
   GroupCounts[0] = MaxGroupCount;
   GroupCounts[1] = GroupCounts[2] = 1;
+  bool UsedReductionSubscriptionRate = false;
   if (!MaxGroupCountForced) {
     if (KInfo && KInfo->getHasTeamsReduction() &&
         DeviceInfo->Option.ReductionSubscriptionRate) {
@@ -2650,22 +2589,31 @@ static void decideKernelGroupArguments(
         // clause. Basically, for non-discrete devices, the reduction
         // subscription rate is 1.
 #endif // INTEL_CUSTOMIZATION
-      if (!KInfo->isAtomicFreeReduction() ||
-          !DeviceInfo->Option.ReductionSubscriptionRateIsDefault) {
-        // Use reduction subscription rate 1 for kernels using
-        // atomic-free reductions, unless user forced reduction subscription
-        // rate via environment.
-        GroupCounts[0] /= DeviceInfo->Option.ReductionSubscriptionRate;
-        GroupCounts[0] = (std::max)(GroupCounts[0], size_t(1));
-      }
+        if (!KInfo->isAtomicFreeReduction() ||
+            !DeviceInfo->Option.ReductionSubscriptionRateIsDefault) {
+          // Use reduction subscription rate 1 for kernels using
+          // atomic-free reductions, unless user forced reduction subscription
+          // rate via environment.
+          GroupCounts[0] /= DeviceInfo->Option.ReductionSubscriptionRate;
+          GroupCounts[0] = (std::max)(GroupCounts[0], size_t(1));
+          UsedReductionSubscriptionRate = true;
+        }
 #if INTEL_CUSTOMIZATION
       }
 #endif // INTEL_CUSTOMIZATION
     } else {
       GroupCounts[0] *= DeviceInfo->Option.SubscriptionRate;
     }
-  }
 
+    if (LoopTripcount && !UsedReductionSubscriptionRate) {
+      size_t AdjustedGroupCount =
+          (LoopTripcount + GroupSizes[0] - 1) / GroupSizes[0];
+      if (AdjustedGroupCount < GroupCounts[0]) {
+        DP("Preventing oversubscription using the loop tripcount\n");
+        GroupCounts[0] = AdjustedGroupCount;
+      }
+    }
+  }
   if (KInfo && KInfo->getWGNum()) {
     GroupCounts[0] =
         (std::min)(KInfo->getWGNum(), static_cast<uint64_t>(GroupCounts[0]));
@@ -2708,16 +2656,44 @@ static inline int32_t runTargetTeamNDRegion(
   DP("Kernel local mem size: %zu\n", KernelLocalMemSize);
 #endif // INTEL_INTERNAL_BUILD
 
+  // Read the most recent global thread limit and max teams.
+  DeviceInfo->Option.readTeamsThreadLimit();
+
   // Decide group sizes and counts
   size_t LocalWorkSize[3] = {1, 1, 1};
   size_t NumWorkGroups[3] = {1, 1, 1};
-  if (LoopDesc) {
+
+  const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
+  if (!KInfo) {
+    DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
+       DPxPTR(Kernel));
+  }
+
+  if (LoopDesc && (!KInfo || KInfo->isSpecificNDRange())) {
     decideLoopKernelGroupArguments(DeviceId, ThreadLimit,
                                    (TgtNDRangeDescTy *)LoopDesc, Kernel,
                                    LocalWorkSize, NumWorkGroups);
   } else {
+    size_t LoopTC = 0;
+    if (LoopDesc && !DeviceInfo->Option.Flags.NDRangeIgnoreTripcount) {
+      // TODO: consider other possible LoopDesc uses
+      DP("Loop desciptor provided but specific ND-range is disabled\n");
+      TgtNDRangeDescTy *LI = (TgtNDRangeDescTy *)LoopDesc;
+      // TODO: get rid of this constraint
+      if (LI->NumLoops > 1) {
+        DP("More than 1 loop found (%" PRIu32 "), ignoring loop info\n",
+           LI->NumLoops);
+      } else if (LI->Levels[0].Ub >= LI->Levels[0].Lb) {
+        LoopTC = (LI->Levels[0].Ub - LI->Levels[0].Lb + LI->Levels[0].Stride) /
+                 LI->Levels[0].Stride;
+        DP("Loop TC = (%" PRId64 " - %" PRId64 " + %" PRId64 ") / %" PRId64
+           " = %zu\n",
+           LI->Levels[0].Ub, LI->Levels[0].Lb, LI->Levels[0].Stride,
+           LI->Levels[0].Stride, LoopTC);
+      }
+    }
     decideKernelGroupArguments(DeviceId, NumTeams, ThreadLimit, Kernel,
-                               LocalWorkSize, NumWorkGroups);
+                               LocalWorkSize, NumWorkGroups, LoopTC);
   }
 
   size_t GlobalWorkSize[3];
@@ -2746,7 +2722,7 @@ static inline int32_t runTargetTeamNDRegion(
      GlobalWorkSize[2] / LocalWorkSize[2]);
 
   // Protect thread-unsafe OpenCL API calls
-  DeviceInfo->Mutexes[DeviceId].lock();
+  std::unique_lock<std::mutex> KernelLock(DeviceInfo->Mutexes[DeviceId]);
 
   // Set kernel args
   for (int32_t I = 0; I < NumArgs; ++I) {
@@ -2898,7 +2874,7 @@ static inline int32_t runTargetTeamNDRegion(
                    Kernel, 3, nullptr, GlobalWorkSize,
                    LocalWorkSize, 0, nullptr, &Event);
   if (IsDiscrete)
-    DeviceInfo->Mutexes[DeviceId].unlock();
+    KernelLock.unlock();
 
   DP("Started executing kernel.\n");
 
@@ -2909,7 +2885,7 @@ static inline int32_t runTargetTeamNDRegion(
   // overlapping kernel execution anyway with this plugin, so protect the kernel
   // execution only on integrated devices.
   if (!IsDiscrete)
-    DeviceInfo->Mutexes[DeviceId].unlock();
+    KernelLock.unlock();
 
 #if INTEL_CUSTOMIZATION
   OCL_KERNEL_END(DeviceId);
@@ -3869,7 +3845,7 @@ bool OpenCLProgramTy::readKernelInfo(const __tgt_offload_entry &KernelEntry) {
     DP("Error: version 0 of kernel info structure is illegal.\n");
     return false;
   }
-  if (Version > 4) {
+  if (Version > 5) {
     DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
        Version);
     DP("Error: please use newer OpenMP offload runtime.\n");
@@ -4505,50 +4481,33 @@ int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
   return OFFLOAD_SUCCESS;
 }
 
-int32_t __tgt_rtl_run_target_team_region(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
-    uint64_t LoopTripCount /*not used*/) {
+int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
+                                void **TgtArgs, ptrdiff_t *TgtOffsets,
+                                KernelArgsTy *KernelArgs,
+                                __tgt_async_info *AsyncInfo) {
+  assert(!KernelArgs->NumTeams[1] && !KernelArgs->NumTeams[2] &&
+         !KernelArgs->ThreadLimit[1] && !KernelArgs->ThreadLimit[2] &&
+         "Only one dimensional kernels supported.");
   return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                               NumArgs, NumTeams, ThreadLimit, nullptr);
-}
-
-int32_t __tgt_rtl_run_target_team_region_async(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
-    uint64_t LoopTripCount /*not used*/,
-    __tgt_async_info *AsyncInfo /*not used*/) {
-  return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
-                               NumArgs, NumTeams, ThreadLimit, nullptr);
-}
-
-int32_t __tgt_rtl_run_target_region(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs) {
-  // use one team!
-  return __tgt_rtl_run_target_team_region(DeviceId, TgtEntryPtr, TgtArgs,
-                                          TgtOffsets, NumArgs, 1, 0, 0);
-}
-
-int32_t __tgt_rtl_run_target_region_async(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, __tgt_async_info *AsyncInfo /*not used*/) {
-  // use one team!
-  return __tgt_rtl_run_target_team_region(DeviceId, TgtEntryPtr, TgtArgs,
-                                          TgtOffsets, NumArgs, 1, 0, 0);
+                               KernelArgs->NumArgs, KernelArgs->NumTeams[0],
+                               KernelArgs->ThreadLimit[0], nullptr);
 }
 
 int32_t __tgt_rtl_synchronize(int32_t device_id, __tgt_async_info *AsyncInfo) {
   return OFFLOAD_SUCCESS;
 }
 
-#ifdef _WIN32
-EXTERN int32_t __tgt_rtl_unregister_lib(__tgt_bin_desc *Desc) {
-  static std::once_flag Flag;
-  std::call_once(Flag, deinit);
+EXTERN int32_t __tgt_rtl_register_lib(__tgt_bin_desc *Desc) {
+  DeviceInfo->NumRegisteredImages.fetch_add(1);
   return OFFLOAD_SUCCESS;
 }
-#endif // _WIN32
+
+EXTERN int32_t __tgt_rtl_unregister_lib(__tgt_bin_desc *Desc) {
+  DeviceInfo->NumRegisteredImages.fetch_sub(1);
+  if (DeviceInfo->NumRegisteredImages == 0)
+    deinit();
+  return OFFLOAD_SUCCESS;
+}
 
 ///
 /// Extended plugin interface
@@ -4677,9 +4636,12 @@ void *__tgt_rtl_data_aligned_alloc(int32_t DeviceId, size_t Align, size_t Size,
   return dataAllocExplicit(DeviceId, Size, AllocKind, Align);
 }
 
-int32_t __tgt_rtl_run_target_team_nd_region(
-    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
-    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc) {
+int32_t __tgt_rtl_run_target_team_nd_region(int32_t DeviceId, void *TgtEntryPtr,
+                                            void **TgtArgs,
+                                            ptrdiff_t *TgtOffsets,
+                                            int32_t NumArgs, int32_t NumTeams,
+                                            int32_t ThreadLimit, void *LoopDesc,
+                                            __tgt_async_info *AsyncInfo) {
   return runTargetTeamNDRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
                                NumArgs, NumTeams, ThreadLimit, LoopDesc);
 }
@@ -5155,4 +5117,13 @@ int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
   return OFFLOAD_SUCCESS;
 }
 
+int32_t __tgt_rtl_get_device_from_ptr(const void *Ptr) {
+  for (uint32_t ID = 0; ID < DeviceInfo->NumDevices; ID++) {
+    auto *AllocInfo = DeviceInfo->MemAllocInfo[ID]->search(Ptr);
+    if (AllocInfo)
+      return AllocInfo->Kind == TARGET_ALLOC_HOST ? -1 : ID;
+  }
+
+  return -1;
+}
 #endif // INTEL_COLLAB

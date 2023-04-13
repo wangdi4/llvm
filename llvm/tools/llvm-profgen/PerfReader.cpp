@@ -1,4 +1,21 @@
 //===-- PerfReader.cpp - perfscript reader  ---------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -319,7 +336,7 @@ bool VirtualUnwinder::unwind(const PerfSample *Sample, uint64_t Repeat) {
 
 std::unique_ptr<PerfReaderBase>
 PerfReaderBase::create(ProfiledBinary *Binary, PerfInputFile &PerfInput,
-                       Optional<uint32_t> PIDFilter) {
+                       std::optional<uint32_t> PIDFilter) {
   std::unique_ptr<PerfReaderBase> PerfReader;
 
   if (PerfInput.Format == PerfFormat::UnsymbolizedProfile) {
@@ -350,8 +367,10 @@ PerfReaderBase::create(ProfiledBinary *Binary, PerfInputFile &PerfInput,
   return PerfReader;
 }
 
-PerfInputFile PerfScriptReader::convertPerfDataToTrace(
-    ProfiledBinary *Binary, PerfInputFile &File, Optional<uint32_t> PIDFilter) {
+PerfInputFile
+PerfScriptReader::convertPerfDataToTrace(ProfiledBinary *Binary,
+                                         PerfInputFile &File,
+                                         std::optional<uint32_t> PIDFilter) {
   StringRef PerfData = File.InputFile;
   // Run perf script to retrieve PIDs matching binary we're interested in.
   auto PerfExecutable = sys::Process::FindInEnvPath("PATH", "perf");
@@ -401,9 +420,24 @@ PerfInputFile PerfScriptReader::convertPerfDataToTrace(
   return {PerfTraceFile, PerfFormat::PerfScript, PerfContent::UnknownContent};
 }
 
+#if INTEL_CUSTOMIZATION
+static StringRef filename(StringRef Path, bool IsCOFF) {
+  llvm::sys::path::Style PathStyle =
+      IsCOFF ? llvm::sys::path::Style::windows_backslash
+             : llvm::sys::path::Style::native;
+  StringRef FileName = llvm::sys::path::filename(Path, PathStyle);
+
+  // In case this file use \r\n as newline.
+  if (IsCOFF && FileName.back() == '\r')
+    return FileName.drop_back();
+
+  return FileName;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void PerfScriptReader::updateBinaryAddress(const MMapEvent &Event) {
   // Drop the event which doesn't belong to user-provided binary
-  StringRef BinaryName = llvm::sys::path::filename(Event.BinaryPath);
+  StringRef BinaryName = filename(Event.BinaryPath, Binary->isCOFF()); // INTEL
   if (Binary->getName() != BinaryName)
     return;
 
@@ -959,18 +993,28 @@ bool PerfScriptReader::extractMMap2EventForBinary(ProfiledBinary *Binary,
   if (!R) {
     std::string WarningMsg = "Cannot parse mmap event: " + Line.str() + " \n";
     WithColor::warning() << WarningMsg;
+    return false; // INTEL
   }
-  Fields[PID].getAsInteger(10, MMap.PID);
-  Fields[MMAPPED_ADDRESS].getAsInteger(0, MMap.Address);
-  Fields[MMAPPED_SIZE].getAsInteger(0, MMap.Size);
-  Fields[PAGE_OFFSET].getAsInteger(0, MMap.Offset);
+#if INTEL_CUSTOMIZATION
+  // The regular expression match has validated that the fields are integer
+  // fields, but not that the value does not overflow.
+  if (Fields[PID].getAsInteger(10, MMap.PID))
+    return false;
+  if (Fields[MMAPPED_ADDRESS].getAsInteger(0, MMap.Address))
+    return false;
+  if (Fields[MMAPPED_SIZE].getAsInteger(0, MMap.Size))
+    return false;
+  if (Fields[PAGE_OFFSET].getAsInteger(0, MMap.Offset))
+    return false;
+#endif // INTEL_CUSTOMIZATION
   MMap.BinaryPath = Fields[BINARY_PATH];
   if (ShowMmapEvents) {
     outs() << "Mmap: Binary " << MMap.BinaryPath << " loaded at "
            << format("0x%" PRIx64 ":", MMap.Address) << " \n";
   }
 
-  StringRef BinaryName = llvm::sys::path::filename(MMap.BinaryPath);
+  StringRef BinaryName = filename(MMap.BinaryPath, Binary->isCOFF()); // INTEL
+
   return Binary->getName() == BinaryName;
 }
 

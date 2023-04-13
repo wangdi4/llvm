@@ -59,6 +59,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/Threading.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Target/CGPassBuilderOption.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar.h"
@@ -921,8 +922,7 @@ void TargetPassConfig::addIRPasses() {
 
   // For MachO, lower @llvm.global_dtors into @llvm.global_ctors with
   // __cxa_atexit() calls to avoid emitting the deprecated __mod_term_func.
-  if (TM->getTargetTriple().isOSBinFormatMachO() &&
-      TM->Options.LowerGlobalDtorsViaCxaAtExit)
+  if (TM->getTargetTriple().isOSBinFormatMachO())
     addPass(createLowerGlobalDtorsLegacyPass());
 
   // Make sure that no unreachable blocks are instruction selected.
@@ -1032,6 +1032,8 @@ void TargetPassConfig::addISelPrepare() {
   // Force codegen to run according to the callgraph.
   if (requiresCodeGenSCCOrder())
     addPass(new DummyCGSCCPass);
+
+  addPass(createCallBrPass());
 
   // Add both the safe stack and the stack protection passes: each of them will
   // only protect functions that have corresponding attributes.
@@ -1143,6 +1145,7 @@ bool TargetPassConfig::addISelPasses() {
   addPass(createExpandLargeDivRemPass());
   addPass(createExpandLargeFpConvertPass());
   addIRPasses();
+  addPass(createFPBuiltinFnSelectionPass());
   addCodeGenPrepare();
   addPassesToHandleExceptions();
   addISelPrepare();
@@ -1205,9 +1208,9 @@ void TargetPassConfig::addMachinePasses() {
         sampleprof::FSDiscriminatorPass::Pass1));
     const std::string ProfileFile = getFSProfileFile(TM);
     if (!ProfileFile.empty() && !DisableRAFSProfileLoader)
-      addPass(
-          createMIRProfileLoaderPass(ProfileFile, getFSRemappingFile(TM),
-                                     sampleprof::FSDiscriminatorPass::Pass1));
+      addPass(createMIRProfileLoaderPass(ProfileFile, getFSRemappingFile(TM),
+                                         sampleprof::FSDiscriminatorPass::Pass1,
+                                         nullptr));
   }
 
   // Run register allocation and passes that are tightly coupled with it,
@@ -1337,6 +1340,8 @@ void TargetPassConfig::addMachinePasses() {
 
   if (!DisableCFIFixup && TM->Options.EnableCFIFixup)
     addPass(createCFIFixup());
+
+  PM->add(createStackFrameLayoutAnalysisPass());
 
   // Add passes that directly emit MI after all other MI passes.
   addPreEmitPass2();
@@ -1615,9 +1620,9 @@ void TargetPassConfig::addBlockPlacement() {
         sampleprof::FSDiscriminatorPass::Pass2));
     const std::string ProfileFile = getFSProfileFile(TM);
     if (!ProfileFile.empty() && !DisableLayoutFSProfileLoader)
-      addPass(
-          createMIRProfileLoaderPass(ProfileFile, getFSRemappingFile(TM),
-                                     sampleprof::FSDiscriminatorPass::Pass2));
+      addPass(createMIRProfileLoaderPass(ProfileFile, getFSRemappingFile(TM),
+                                         sampleprof::FSDiscriminatorPass::Pass2,
+                                         nullptr));
   }
   if (addPass(&MachineBlockPlacementID)) {
     // Run a separate pass to collect block placement statistics.

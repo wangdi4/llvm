@@ -27,8 +27,8 @@
 #include <framework_proxy.h>
 
 using namespace std;
-using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
 
 PlatformModule *Device::m_pPlatformModule = nullptr;
 
@@ -62,7 +62,7 @@ Device::~Device() { LOG_DEBUG(TEXT("%s"), TEXT("Device destructor enter")); }
 
 void Device::Cleanup(bool /*bIsTerminate*/) {
   // release logger clients
-  map<cl_int, LoggerClient *>::iterator it = m_mapDeviceLoggerClinets.begin();
+  auto it = m_mapDeviceLoggerClinets.begin();
   while (it != m_mapDeviceLoggerClinets.end()) {
     LoggerClient *pLoggerClient = it->second;
     if (nullptr != pLoggerClient) {
@@ -80,8 +80,8 @@ cl_ulong Device::GetDeviceTimer() const { return clDevGetDeviceTimer(); }
 cl_err_code Device::GetInfo(cl_int param_name, size_t param_value_size,
                             void *param_value,
                             size_t *param_value_size_ret) const {
-  LOG_DEBUG(TEXT("Enter Device::GetInfo (param_name=%d, param_value_size=%d, "
-                 "param_value=%d, param_value_size_ret=%d"),
+  LOG_DEBUG(TEXT("Enter Device::GetInfo (param_name=%d, param_value_size=%zu, "
+                 "param_value=%p, param_value_size_ret=%p"),
             param_name, param_value_size, param_value, param_value_size_ret);
 
   int clDevErr = CL_DEV_SUCCESS;
@@ -138,7 +138,7 @@ cl_err_code Device::GetInfo(cl_int param_name, size_t param_value_size,
 
   // if param_value_size < actual value size return CL_INVALID_VALUE
   if (param_value && (param_value_size < szParamValueSize)) {
-    LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"),
+    LOG_ERROR(TEXT("param_value_size (=%zu) < szParamValueSize (=%zu)"),
               param_value_size, szParamValueSize);
     return CL_INVALID_VALUE;
   }
@@ -290,7 +290,7 @@ cl_err_code Device::CreateInstance() {
   LOG_DEBUG(
       TEXT("%s"),
       TEXT("Need to create a new device instance (Device::CreateInstance)"));
-  OclAutoMutex CS(&m_deviceInitializationMutex);
+  std::lock_guard<std::recursive_mutex> CS(m_deviceInitializationMutex);
   if (0 == m_pDeviceRefCount) {
     LOG_DEBUG(TEXT("%s"),
               TEXT("Creating new device instance (Device::CreateInstance)"));
@@ -318,7 +318,7 @@ cl_err_code Device::CreateInstance() {
 }
 
 cl_err_code Device::CloseDeviceInstance() {
-  OclAutoMutex CS(&m_deviceInitializationMutex);
+  std::lock_guard<std::recursive_mutex> CS(m_deviceInitializationMutex);
   LOG_DEBUG(TEXT("%s"), TEXT("CloseDeviceInstance enter"));
   if (0 == --m_pDeviceRefCount) {
     if (!m_bTerminate) {
@@ -355,8 +355,7 @@ cl_int Device::clLogCreateClient(cl_int /*device_id*/, const char *client_name,
 }
 
 cl_int Device::clLogReleaseClient(cl_int client_id) {
-  map<cl_int, LoggerClient *>::iterator it =
-      m_mapDeviceLoggerClinets.find(client_id);
+  auto it = m_mapDeviceLoggerClinets.find(client_id);
   if (it == m_mapDeviceLoggerClinets.end()) {
     return CL_ERR_KEY_NOT_FOUND;
   }
@@ -370,17 +369,17 @@ cl_int Device::clLogReleaseClient(cl_int client_id) {
 cl_int Device::clLogAddLine(cl_int client_id, cl_int log_level,
                             const char *IN source_file,
                             const char *IN function_name, cl_int line_num,
-                            const char *IN message, ...) {
-  map<cl_int, LoggerClient *>::iterator it =
-      m_mapDeviceLoggerClinets.find(client_id);
+                            ...) {
+  auto it = m_mapDeviceLoggerClinets.find(client_id);
   if (it == m_mapDeviceLoggerClinets.end()) {
     return CL_ERR_KEY_NOT_FOUND;
   }
   LoggerClient *pLoggerClient = it->second;
   if (nullptr != pLoggerClient) {
     va_list va;
-    va_start(va, message);
-
+    va_start(va, line_num);
+    const char *message = va_arg(va, char *);
+    assert(message && "Printf-style format string in CPUINFOLOG is NULL");
     pLoggerClient->LogArgList((ELogLevel)log_level, source_file, function_name,
                               line_num, message, va);
 
@@ -468,7 +467,7 @@ void Device::InitFECompiler() const {
 
 const SharedPtr<FrontEndCompiler> &Device::GetFrontEndCompiler() const {
   if (!m_bFrontEndCompilerDone) {
-    OclAutoMutex CS(&m_deviceInitializationMutex);
+    std::lock_guard<std::recursive_mutex> CS(m_deviceInitializationMutex);
     if (!m_bFrontEndCompilerDone) {
       InitFECompiler();
       m_bFrontEndCompilerDone = true;
@@ -679,7 +678,7 @@ bool FissionableDevice::IsImageFormatSupported(
   cl_image_format *const pFormats = new cl_image_format[uiNumEntries];
 
   if (nullptr == pFormats) {
-    LOG_ERROR(TEXT("out of memory"), "");
+    LOG_ERROR(TEXT("out of memory"));
     return false;
   }
   clErr = GetDeviceAgent()->clDevGetSupportedImageFormats(
@@ -811,7 +810,7 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size,
 
   // if param_value_size < actual value size return CL_INVALID_VALUE
   if (nullptr != param_value && param_value_size < szParamValueSize) {
-    LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"),
+    LOG_ERROR(TEXT("param_value_size (=%zu) < szParamValueSize (=%zu)"),
               param_value_size, szParamValueSize);
     return CL_INVALID_VALUE;
   }

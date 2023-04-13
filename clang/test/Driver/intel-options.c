@@ -108,9 +108,9 @@
 // Behavior with qopenmp/Qopenmp option
 // RUN: %clang -### -c -target x86_64-linux-gnu -qopenmp %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP %s
 // RUN: %clang_cl -### -c -target x86_64-windows-gnu /Qopenmp %s 2>&1 | FileCheck -check-prefixes=CHECK-QOPENMP,CHECK-QOPENMP-WIN %s
-// RUN: %clang -### -target x86_64-linux-gnu --intel -qopenmp %s -o %t 2>&1 | FileCheck %s -check-prefix CHECK-LD-IOMP5
+// RUN: %clang -### -target x86_64-linux-gnu --intel -qopenmp %s -o %t 2>&1 | FileCheck %s -check-prefixes=CHECK-LD-IOMP5
 // Default behavior with -fopenmp should be liomp5
-// RUN: %clang -### -target x86_64-linux-gnu -fopenmp %s -o %t 2>&1 | FileCheck %s -check-prefix CHECK-LD-IOMP5
+// RUN: %clang -### -target x86_64-linux-gnu -fopenmp %s -o %t 2>&1 | FileCheck %s -check-prefixes=CHECK-LD-IOMP5
 // CHECK-QOPENMP-WIN: "--dependent-lib=libiomp5md"
 // CHECK-QOPENMP: "-fopenmp-late-outline"
 // CHECK-QOPENMP: "-fopenmp-threadprivate-legacy"

@@ -676,6 +676,15 @@ namespace X86II {
     ///
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    /// MRM0rImmAAA - This is used for the pop2 instruction, which has two
+    /// immediates encoded in aaa of EVEX.
+    MRM0rImmAAA = 13,
+
+    /// MRM6rImmAAA - This is used for the push2 instruction, which has two
+    /// immediates encoded in aaa of EVEX.
+    MRM6rImmAAA = 14,
+#endif // INTEL_FEATURE_ISA_APX_F
     /// MRMDestMemImm8 - This form is used for instructions that use the Mod/RM
     /// byte to specify a destination which in this case is memory and operand 2
     /// is a 8-bit immediate.
@@ -901,6 +910,7 @@ namespace X86II {
 #if INTEL_CUSTOMIZATION
     // MAP8 - Prefix after the 0x0F prefix.
     T_MAP8 = 10 << OpMapShift,
+    T_MAP4 = 11 << OpMapShift,
 #endif // INTEL_CUSTOMIZATION
 
     //===------------------------------------------------------------------===//
@@ -1062,6 +1072,10 @@ namespace X86II {
     // EVEX_P10 - Set if this instruction has EVEX.P10 field set.
     EVEX_P10Shift = XuCCPrefixShift + 2,
     EVEX_P10      = 1ULL << EVEX_P10Shift,
+
+    // EVEX_NF - Set if this instruction has EVEX.NF field set.
+    EVEX_NFShift = EVEX_P10Shift + 1,
+    EVEX_NF      = 1ULL << EVEX_NFShift,
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   };
@@ -1207,6 +1221,16 @@ namespace X86II {
     case X86II::PrefixByte:
       return -1;
     case X86II::MRMDestMem:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      return (TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
+                     (TSFlags & X86II::EVEX_B)
+                 ? 1
+                 : 0;
+#else // INTEL_FEATURE_ISA_APX_F
+      return 0;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86II::MRMDestMemFSIB:
 #if INTEL_CUSTOMIZATION
     case X86II::MRMDestMemImm8:
@@ -1249,6 +1273,13 @@ namespace X86II {
     case X86II::MRM4r: case X86II::MRM5r:
     case X86II::MRM6r: case X86II::MRM7r:
       return -1;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86II::MRM0rImmAAA:
+    case X86II::MRM6rImmAAA:
+      return -1;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86II::MRM0X: case X86II::MRM1X:
     case X86II::MRM2X: case X86II::MRM3X:
     case X86II::MRM4X: case X86II::MRM5X:
@@ -1288,6 +1319,34 @@ namespace X86II {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  /// \returns true if \p RegNo is an apx extended register.
+  inline bool isApxExtendedReg(unsigned RegNo) {
+    switch (RegNo) {
+    default: return false;
+    case X86::R16B: case X86::R16W: case X86::R16D: case X86::R16:
+    case X86::R17B: case X86::R17W: case X86::R17D: case X86::R17:
+    case X86::R18B: case X86::R18W: case X86::R18D: case X86::R18:
+    case X86::R19B: case X86::R19W: case X86::R19D: case X86::R19:
+    case X86::R20B: case X86::R20W: case X86::R20D: case X86::R20:
+    case X86::R21B: case X86::R21W: case X86::R21D: case X86::R21:
+    case X86::R22B: case X86::R22W: case X86::R22D: case X86::R22:
+    case X86::R23B: case X86::R23W: case X86::R23D: case X86::R23:
+    case X86::R24B: case X86::R24W: case X86::R24D: case X86::R24:
+    case X86::R25B: case X86::R25W: case X86::R25D: case X86::R25:
+    case X86::R26B: case X86::R26W: case X86::R26D: case X86::R26:
+    case X86::R27B: case X86::R27W: case X86::R27D: case X86::R27:
+    case X86::R28B: case X86::R28W: case X86::R28D: case X86::R28:
+    case X86::R29B: case X86::R29W: case X86::R29D: case X86::R29:
+    case X86::R30B: case X86::R30W: case X86::R30D: case X86::R30:
+    case X86::R31B: case X86::R31W: case X86::R31D: case X86::R31:
+      return true;
+    }
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
   /// \returns true if the MachineOperand is a x86-64 extended (r8 or
   /// higher) register,  e.g. r8, xmm8, xmm13, etc.
   inline bool isX86_64ExtendedReg(unsigned RegNo) {
@@ -1295,6 +1354,13 @@ namespace X86II {
         (RegNo >= X86::YMM8 && RegNo <= X86::YMM31) ||
         (RegNo >= X86::ZMM8 && RegNo <= X86::ZMM31))
       return true;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (isApxExtendedReg(RegNo))
+      return true;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     switch (RegNo) {
     default: break;

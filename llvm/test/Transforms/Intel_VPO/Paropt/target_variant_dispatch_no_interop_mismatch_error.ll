@@ -1,10 +1,6 @@
-; RUN: not opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
-; RUN: not opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
+; RUN: not opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
+; RUN: not opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
 
-; XFAIL: *
-; INTEL_CUSTOMIZATION
-; CMPLRLLVM-39070: Need to check why the function type mismatch is not happening.
-; end INTEL_CUSTOMIZATION
 ; Test src:
 ;
 ; void foo_targ(float *A, int n) {}

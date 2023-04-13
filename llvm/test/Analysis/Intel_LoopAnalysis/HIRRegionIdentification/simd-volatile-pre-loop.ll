@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -passes="print<hir-region-identification>" -debug-only=hir-region-identification  2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="print<hir-region-identification>" -debug-only=hir-region-identification  2>&1 | FileCheck %s
 
 ; Verify that we don't form a region for simd loop if pre loop bblocks contain
 ; an unsupported instruction like a volatile store.

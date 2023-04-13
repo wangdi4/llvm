@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -113,7 +113,7 @@ enum class ICFLevel {
 // Global configuration.
 struct Configuration {
   enum ManifestKind { Default, SideBySide, Embed, No };
-  bool is64() { return machine == AMD64 || machine == ARM64; }
+  bool is64() const { return machine == AMD64 || machine == ARM64; }
 
   llvm::COFF::MachineTypes machine = IMAGE_FILE_MACHINE_UNKNOWN;
   size_t wordsize;
@@ -179,6 +179,8 @@ struct Configuration {
 
   // Used for /opt:lldlto=N
   unsigned ltoo = 2;
+  // Used for /opt:lldltocgo=N
+  std::optional<unsigned> ltoCgo;
 
   // Used for /opt:lldltojobs=N
   std::string thinLTOJobs;
@@ -288,7 +290,7 @@ struct Configuration {
   uint32_t minorOSVersion = 0;
   uint32_t majorSubsystemVersion = 6;
   uint32_t minorSubsystemVersion = 0;
-  uint32_t timestamp = 0;
+  uint64_t timestamp = 0; // INTEL
   uint32_t functionPadMin = 0;
   bool dynamicBase = true;
   bool allowBind = true;
@@ -316,9 +318,8 @@ struct Configuration {
   bool autoImport = false;
   bool pseudoRelocs = false;
   bool stdcallFixup = false;
+  bool writeCheckSum = false;
 };
-
-extern std::unique_ptr<Configuration> config;
 
 } // namespace lld::coff
 

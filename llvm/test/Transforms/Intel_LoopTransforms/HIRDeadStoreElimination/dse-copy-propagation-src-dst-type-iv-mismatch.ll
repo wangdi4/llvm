@@ -26,12 +26,12 @@
 ; Print After-
 
 ; CHECK:      modified
-; CHECK: + DO i16 i1 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   %temp = i1 + %t;
-; CHECK: |   %ld = %temp;
-; CHECK: |   %t.02 = %t.02  +  %ld;
-; CHECK: |   (%A)[0] = 5;
-; CHECK: + END LOOP
+; CHECK:     + DO i16 i1 = 0, 99, 1   <DO_LOOP>
+; CHECK:     |   %temp = i1 + %t;
+; CHECK-NOT: |   %ld = %temp;
+; CHECK:     |   %t.02 = %t.02  +  %temp;
+; CHECK:     |   (%A)[0] = 5;
+; CHECK:     + END LOOP
 
 
 define dso_local i32 @foo(i32* nocapture %A, i16 %t) {

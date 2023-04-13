@@ -130,6 +130,15 @@ static cl::opt<bool> PartialUnrollTwice(
       "partail-unroll-twice",
       cl::desc("partail unroll twice for short inner loop"),
       cl::init(true), cl::Hidden);
+static cl::opt<bool> BranchHint(
+    "branch-hint",
+    cl::desc("enable branch hint."),
+    cl::init(false), cl::Hidden);
+static cl::opt<unsigned> BranchHintProbability(
+    "branch-hint-probability",
+    cl::desc("The threshold of probability when enable branch hint "
+            "(e.g 50 means %50, 80 means 80%)."),
+    cl::init(50), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
 static cl::opt<unsigned> AlignAllNonFallThruBlocks(
     "align-all-nofallthru-blocks",
@@ -254,10 +263,9 @@ static cl::opt<bool> RenumberBlocksBeforeView(
         "into a dot graph. Only used when a function is being printed."),
     cl::init(false), cl::Hidden);
 
+namespace llvm {
 extern cl::opt<bool> EnableExtTspBlockPlacement;
 extern cl::opt<bool> ApplyExtTspWithoutProfile;
-
-namespace llvm {
 extern cl::opt<unsigned> StaticLikelyProb;
 extern cl::opt<unsigned> ProfileLikelyProb;
 
@@ -629,6 +637,22 @@ class MachineBlockPlacement : public MachineFunctionPass {
 
   /// Create a single CFG chain from the current block order.
   void createCFGChainExtTsp();
+
+
+#if INTEL_CUSTOMIZATION
+  /// Add hint for condition branchs whose conditional target BB has bigger
+  /// propability than other BB after layout optimization.
+  /// For example:
+  ///         A     B
+  ///         |    /|
+  /// fallthrough / |
+  ///         |  /  |
+  ///         |80%  20%(fallthrough)
+  ///         |/    |
+  ///         C     D
+  ///
+  void tryBranchHint();
+#endif // INTEL_CUSTOMIZATION
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -2061,7 +2085,7 @@ MachineBlockPlacement::FallThroughGains(
      for (MachineBasicBlock *Succ : BestPred->successors()) {
        if ((Succ == NewTop) || (Succ == BestPred) || !LoopBlockSet.count(Succ))
          continue;
-       if (ComputedEdges.find(Succ) != ComputedEdges.end())
+       if (ComputedEdges.contains(Succ))
          continue;
        BlockChain *SuccChain = BlockToChain[Succ];
        if ((SuccChain && (Succ != *SuccChain->begin())) ||
@@ -3103,7 +3127,9 @@ void MachineBlockPlacement::optimizeBranches() {
               TII->duplicate(*NewMBBNext, NewMBBNext->end(), *MI);
             }
             // Update MBBNext's branch and successor
-            TII->reverseBranchCondition(Cond);
+            if (TII->reverseBranchCondition(Cond))
+              continue; // return false on success and true if cannot be
+                        // reversed
             TII->removeBranch(*MBBNext);
             TII->insertBranch(*MBBNext, FMBBNext, nullptr, Cond, dl);
             MBBNext->replaceSuccessor(MBB, NewMBB);
@@ -3812,6 +3838,9 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
       }
     }
   }
+
+  if (BranchHint)
+    tryBranchHint();
 #endif // INTEL_CUSTOMIZATION
   if (ViewBlockLayoutWithBFI != GVDT_None &&
       (ViewBlockFreqFuncName.empty() ||
@@ -3961,6 +3990,34 @@ void MachineBlockPlacement::createCFGChainExtTsp() {
     FunctionChain->merge(&MBB, nullptr);
   }
 }
+
+#if INTEL_CUSTOMIZATION
+void MachineBlockPlacement::tryBranchHint() {
+  for (MachineBasicBlock &MBB : *F) {
+    if (MBB.succ_size() < 2)
+      continue;
+
+    // Loop over the conditional branches.
+    for (MachineBasicBlock::iterator J = MBB.getFirstTerminator();
+         J != MBB.end(); ++J) {
+      MachineInstr &MI = *J;
+
+      if (!MI.isConditionalBranch())
+        continue;
+
+      if (MI.getOpcode() == TargetOpcode::FAULTING_OP)
+        // FAULTING_OP's destination is not encoded in the instruction stream.
+        continue;
+
+      MachineBasicBlock *DestBB = MI.getOperand(0).getMBB();
+      BranchProbability EdgeProb = MBPI->getEdgeProbability(&MBB, DestBB);
+      BranchProbability Threshold(BranchHintProbability, 100);
+      if (EdgeProb > Threshold)
+        MI.setFlag(MachineInstr::MIFlag::BranchHint);
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
 

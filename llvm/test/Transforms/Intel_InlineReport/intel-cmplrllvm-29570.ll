@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -S -passes='cgscc(inline),instcombine,module(post-inline-ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=0xe807 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline),instcombine,module(post-inline-ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -opaque-pointers -S -passes='cgscc(inline),instcombine,module(post-inline-ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=0xe807 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline),instcombine,module(post-inline-ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; CMPLRLLVM-29570: Fix core dump with
 ; tc -r none -t cpu2017ref/527 -l opt_base6_core_avx512 -c " -mllvm -stats -mllvm -inline-report=3" --ignore_rules
@@ -10,7 +10,7 @@
 ; by instcombine (which deletes @llvm.experimental.noalias.scope.decl
 ; intrinsics), followed by cloning.
 
-; CHECK-CL: define {{.*}} @callee(i64* %x)
+; CHECK-CL: define {{.*}} @callee(ptr %x)
 ; CHECK-CL: define internal i32 @caller(i32 %arg)
 ; CHECK-CL: define dso_local i32 @main()
 ; CHECK-CL: call i32 @caller.[[CLI0:[0-9]]](i32 5)
@@ -54,7 +54,7 @@
 ; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
 ; CHECK-MD: INLINE: callee
 
-; CHECK-MD: define {{.*}} @callee(i64* %x)
+; CHECK-MD: define {{.*}} @callee(ptr %x)
 ; CHECK-MD: define internal i32 @caller(i32 %arg)
 ; CHECK-MD: define dso_local i32 @main()
 ; CHECK-MD: call i32 @caller.[[MDI0:[0-9]]](i32 5)
@@ -62,25 +62,29 @@
 ; CHECK-MD: define internal i32 @caller.[[MDI1]](i32 %arg)
 ; CHECK-MD: define internal i32 @caller.[[MDI0]](i32 %arg)
 
-declare { i64* } @opaque_callee()
+declare { ptr } @opaque_callee()
 
-define { i64* } @callee(i64* %x) {
-  %res = insertvalue { i64* } undef, i64* %x, 0
-  ret { i64* } %res
+define { ptr } @callee(ptr %x) {
+bb:
+  %res = insertvalue { ptr } undef, ptr %x, 0
+  ret { ptr } %res
 }
 
-; @opaque_callee() should not receive noalias metadata here.
+; Function Attrs: noinline
 define internal i32 @caller(i32 %arg) #0 {
+bb:
   %cmp = icmp sgt i32 %arg, 5
   br i1 %cmp, label %if.then, label %if.end
-if.then:
+
+if.then:                                          ; preds = %bb
   call void @llvm.experimental.noalias.scope.decl(metadata !0)
   call void @llvm.experimental.noalias.scope.decl(metadata !0)
-  %s = call { i64* } @opaque_callee()
-  %x = extractvalue { i64* } %s, 0
-  call { i64* } @callee(i64* %x), !noalias !0
+  %s = call { ptr } @opaque_callee()
+  %x = extractvalue { ptr } %s, 0
+  %i = call { ptr } @callee(ptr %x), !noalias !0
   ret i32 1
-if.end:
+
+if.end:                                           ; preds = %bb
   ret i32 0
 }
 
@@ -92,11 +96,13 @@ entry:
   ret i32 %add
 }
 
-declare void @llvm.experimental.noalias.scope.decl(metadata)
-
-!0 = !{!1}
-!1 = !{!1, !2, !"scope"}
-!2 = !{!2, !"domain"}
+; Function Attrs: inaccessiblememonly nocallback nofree nosync nounwind willreturn
+declare void @llvm.experimental.noalias.scope.decl(metadata) #1
 
 attributes #0 = { noinline }
+attributes #1 = { inaccessiblememonly nocallback nofree nosync nounwind willreturn }
+
+!0 = !{!1}
+!1 = distinct !{!1, !2, !"scope"}
+!2 = distinct !{!2, !"domain"}
 ; end INTEL_FEATURE_SW_ADVANCED

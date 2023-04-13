@@ -1,5 +1,7 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=true -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=CONFM %s
 
 ; Test src:
 ;
@@ -33,10 +35,18 @@
 ;    b. FIRSTPRIVATE:TYPED --> unchanged
 ;    c. variables are renamed with OPERAND.ADDR
 ;
-; case 3: GenericLoop --> DISTRIBUTE PARALLEL FOR; check that
-;    a. SHARED:TYPED --> unchanged
+; case 3: GenericLoop --> DISTRIBUTE PARALLEL FOR (non-conforming) or DISTRIBUTE (conforming); check that
+;    a. SHARED:TYPED --> unchanged (non-conforming) or clauses removed (conforming)
 ;    b. FIRSTPRIVATE:TYPED --> unchanged
 ;    c. variables are renamed with OPERAND.ADDR
+
+; NON-CONFM: "DIR.OMP.SIMD"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.LIVEIN"(ptr %.omp.lb), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb, ptr %.omp.lb.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr)
+; NON-CONFM: "DIR.OMP.LOOP"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb4, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb4, ptr %.omp.lb4.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
+; NON-CONFM: "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.SHARED:TYPED"(ptr %a, i32 0, i64 100), "QUAL.OMP.SHARED:TYPED"(ptr %n, i32 0, i32 1), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb22, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb22, ptr %.omp.lb22.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
+
+; CONFM: "DIR.OMP.SIMD"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.LIVEIN"(ptr %.omp.lb), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb, ptr %.omp.lb.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr)
+; CONFM: "DIR.OMP.LOOP"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb4, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb4, ptr %.omp.lb4.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
+; CONFM: "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv21, i32 0), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb22, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb22, ptr %.omp.lb22.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -72,8 +82,6 @@ entry:
     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb, i32 0, i32 1),
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0),
     "QUAL.OMP.PRIVATE:TYPED"(ptr %i, i32 0, i32 1) ]
-
-; CHECK: "DIR.OMP.SIMD"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.LIVEIN"(ptr %.omp.lb), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb, ptr %.omp.lb.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr)
 
   %1 = load i32, ptr %.omp.lb, align 4
   store i32 %1, ptr %.omp.iv, align 4
@@ -123,8 +131,6 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub5, i32 0),
     "QUAL.OMP.PRIVATE:TYPED"(ptr %i9, i32 0, i32 1) ]
 
-; CHECK: "DIR.OMP.LOOP"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb4, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb4, ptr %.omp.lb4.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
-
   %9 = load i32, ptr %.omp.lb4, align 4
   store i32 %9, ptr %.omp.iv3, align 4
   br label %omp.inner.for.cond6
@@ -172,8 +178,6 @@ omp.loop.exit18:                                  ; preds = %omp.inner.for.end17
     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb22, i32 0, i32 1),
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub23, i32 0),
     "QUAL.OMP.PRIVATE:TYPED"(ptr %i27, i32 0, i32 1) ]
-
-; CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.SHARED:TYPED"(ptr %a, i32 0, i64 100), "QUAL.OMP.SHARED:TYPED"(ptr %n, i32 0, i32 1), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb22, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb22, ptr %.omp.lb22.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
 
   %17 = load i32, ptr %.omp.lb22, align 4
   store i32 %17, ptr %.omp.iv21, align 4

@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -debug-only=hir-region-identification  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='print<hir-region-identification>' -debug-only=hir-region-identification  2>&1 | FileCheck %s
 
 ; Verify that we detect and skip irreducible cfg. We tried to look for the IV before checking irreducibility which resulted in infinite looping.

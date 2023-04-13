@@ -26,7 +26,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   UpdateInstructions:
 ; CHECK-NEXT:   none
-; CHECK-NEXT:   RedDescr: {Kind: call, IsSigned: 0}
+; CHECK-NEXT:   RedDescr: {Kind: call, IsSigned: 0, IsComplex: 0}
 ; CHECK-NEXT:   RedDescrUDR: {Combiner: .omp_combiner., Initializer: .omp_initializer., Ctor: none, Dtor: none, Inscan: exclusive}
 ; CHECK-NEXT: VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT: VPlan IR for: _Z3udsPfS_:DIR.VPO.END.GUARD.MEM.MOTION.426.#1
@@ -40,9 +40,10 @@
 ; CHECK-NEXT: Memory: ptr %red.red
 
 ; CHECK: ptr [[VP_LINEAR_IV:%vp.*]] = allocate-priv ptr
-; CHECK: ptr [[VP_PRIV:%vp.*]] = allocate-priv ptr
 ; CHECK: ptr [[VP_TEMP:%vp.*]] = allocate-priv ptr
 ; CHECK: call i64 4 ptr [[VP_TEMP]] ptr @llvm.lifetime.start.p0
+; CHECK: ptr [[VP_PRIV:%vp.*]] = allocate-priv ptr
+; CHECK: call i64 4 ptr [[VP_PRIV]] ptr @llvm.lifetime.start.p0
 
 ;; Initialization in the loop.
 ; CHECK: call ptr [[VP_PRIV]] ptr %red.red ptr @.omp_initializer.
@@ -52,6 +53,7 @@
 
 ;; Postexit
 ; CHECK: call i64 4 ptr [[VP_TEMP]] ptr @llvm.lifetime.end.p0
+; CHECK: call i64 4 ptr [[VP_PRIV]] ptr @llvm.lifetime.end.p0
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -48,6 +48,36 @@ void OMPThreadPrivateDecl::setVars(ArrayRef<Expr *> VL) {
   llvm::copy(VL, getVars().begin());
 }
 
+#if INTEL_COLLAB
+//===----------------------------------------------------------------------===//
+// OMPGroupPrivateDecl Implementation.
+//===----------------------------------------------------------------------===//
+
+void OMPGroupPrivateDecl::anchor() {}
+
+OMPGroupPrivateDecl *OMPGroupPrivateDecl::Create(ASTContext &C, DeclContext *DC,
+                                                 SourceLocation L,
+                                                 ArrayRef<Expr *> VL) {
+  auto *D = OMPDeclarativeDirective::createDirective<OMPGroupPrivateDecl>(
+      C, DC, std::nullopt, VL.size(), L);
+  D->setVars(VL);
+  return D;
+}
+
+OMPGroupPrivateDecl *OMPGroupPrivateDecl::CreateDeserialized(ASTContext &C,
+                                                             unsigned ID,
+                                                             unsigned N) {
+  return OMPDeclarativeDirective::createEmptyDirective<OMPGroupPrivateDecl>(
+      C, ID, 0, N);
+}
+
+void OMPGroupPrivateDecl::setVars(ArrayRef<Expr *> VL) {
+  assert(VL.size() == Data->getNumChildren() &&
+         "Number of variables is not the same as the preallocated buffer");
+  llvm::copy(VL, getVars().begin());
+}
+#endif // INTEL_COLLAB
+
 //===----------------------------------------------------------------------===//
 // OMPAllocateDecl Implementation.
 //===----------------------------------------------------------------------===//

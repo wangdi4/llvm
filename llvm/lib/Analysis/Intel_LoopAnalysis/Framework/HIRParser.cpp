@@ -1,6 +1,6 @@
 //===----- HIRParser.cpp - Parses SCEVs into CanonExprs -------------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -66,9 +66,7 @@ const Instruction *HIRParser::getCurInst() const {
     auto Latch = Lp->getLoopLatch();
 
     auto Term = Latch->getTerminator();
-    auto BrInst = dyn_cast<BranchInst>(Term);
-
-    assert(BrInst && "Loop latch is not a branch!");
+    auto BrInst = cast<BranchInst>(Term);
 
     return cast<Instruction>(BrInst->getCondition());
 
@@ -78,7 +76,7 @@ const Instruction *HIRParser::getCurInst() const {
   } else if (auto If = dyn_cast<HLIf>(CurNode)) {
     auto BB = HIRC.getSrcBBlock(If);
     auto Term = BB->getTerminator();
-    auto BrInst = dyn_cast<BranchInst>(Term);
+    auto BrInst = cast<BranchInst>(Term);
 
     if (isa<Instruction>(BrInst->getCondition())) {
       return cast<Instruction>(BrInst->getCondition());
@@ -239,12 +237,7 @@ void HIRParser::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
 
 bool HIRParser::isTempBlob(BlobTy Blob) {
   if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    Type *Ty;
-    Constant *FieldNo;
-
-    if (!UnknownSCEV->isSizeOf(Ty) && !UnknownSCEV->isAlignOf(Ty) &&
-        !UnknownSCEV->isOffsetOf(Ty, FieldNo) &&
-        !HIRScalarSymbaseAssignment::isConstant(UnknownSCEV->getValue()) &&
+    if (!HIRScalarSymbaseAssignment::isConstant(UnknownSCEV->getValue()) &&
         !BlobUtils::isMetadataBlob(Blob, nullptr)) {
       return true;
     }
@@ -702,6 +695,9 @@ public:
   /// value. All the temp blob related processing is performed here.
   const SCEV *visitUnknown(const SCEVUnknown *Unknown);
 
+  /// Returns true if \p Inst can act as a valid substitute inst.
+  bool isValidSubstituteInst(const Instruction *Inst) const;
+
   /// Returns a substitute SCEV for SC. Returns null if it cannot do so.
   const SCEV *getSubstituteSCEV(const SCEV *SC);
 
@@ -898,6 +894,66 @@ const SCEV *HIRParser::BlobProcessor::visitUnknown(const SCEVUnknown *Unknown) {
   return BaseBlob;
 }
 
+// Avoid reverse engineering CurInst in terms of loop header phi if CurInst is
+// not contained in phi's loop. This is because phi would be deconstructed and
+// redefined at the end of the loop body so using it oustide the loop would
+// cause live range violation. This is also true if phi's loop is an unknown
+// loop and CurInst is loop's bottom test. The two cases are shown below.
+//
+// 1)
+//
+//  %iv = 0
+// DO i1
+//   ...
+//   %iv = i1 + 1; // %iv phi was deconstructed and livein copy inserted at
+//    the end of loop
+// END
+//   = %iv // this occurence of %iv causes live-range violation
+//
+// 2)
+//
+//  %iv = 0
+// UNKNOWN i1
+//   L:
+//    ...
+//    %iv = i1 + 1; // %iv phi was deconstructed and livein copy inserted at
+//    the end of loop
+//   if (%iv < %n) { // this occurence of %iv causes live-range violation
+//     goto L:
+//   }
+// END
+bool HIRParser::BlobProcessor::isValidSubstituteInst(
+    const Instruction *Inst) const {
+
+  if (!Inst) {
+    return false;
+  }
+
+  auto *Phi = dyn_cast<PHINode>(Inst);
+
+  if (!Phi || !HIRP->RI.isHeaderPhi(Phi)) {
+    return true;
+  }
+
+  auto *PhiLp = HIRP->LI.getLoopFor(Phi->getParent());
+  auto *CurInst = HIRP->getCurInst();
+
+  // Case #1 in comments above.
+  if (!PhiLp->contains(CurInst)) {
+    return false;
+  }
+
+  auto *CurIf = dyn_cast<HLIf>(HIRP->getCurNode());
+
+  // Case #2 in comments above.
+  if (CurIf && CurIf->isUnknownLoopBottomTest() &&
+      (PhiLp == HIRP->LI.getLoopFor(CurInst->getParent()))) {
+    return false;
+  }
+
+  return true;
+}
+
 const SCEV *HIRParser::BlobProcessor::getSubstituteSCEV(const SCEV *SC) {
   const Instruction *OrigInst = nullptr;
   SCEV *Additive = nullptr;
@@ -910,17 +966,10 @@ const SCEV *HIRParser::BlobProcessor::getSubstituteSCEV(const SCEV *SC) {
     return nullptr;
   }
 
-  // Avoid substitution of AddRec operand into Unknown loop bottom test.
-  if (HIRP->ScopedSE.containsAddRecurrence(SC) &&
-      isa<HLIf>(HIRP->getCurNode()) &&
-      cast<HLIf>(HIRP->getCurNode())->isUnknownLoopBottomTest()) {
-    return nullptr;
-  }
-
   OrigInst = findOrigInst(nullptr, SC, &IsTruncOrSExt, &IsZExt, &IsNegation,
                           &ConstMultiplier, &Additive);
 
-  if (!OrigInst) {
+  if (!isValidSubstituteInst(OrigInst)) {
     return nullptr;
   }
 
@@ -1411,7 +1460,7 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
     OS << ")";
 
   } else if (auto NArySCEV = dyn_cast<SCEVNAryExpr>(Blob)) {
-    const char *OpStr;
+    const char *OpStr = nullptr;
 
     if (isa<SCEVAddExpr>(NArySCEV)) {
       OS << "(";
@@ -1438,12 +1487,10 @@ void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
       llvm_unreachable("Blob contains AddRec!");
     }
 
-    for (auto I = NArySCEV->op_begin(), E = NArySCEV->op_end(); I != E; ++I) {
-      printBlob(OS, *I);
-
-      if (std::next(I) != E) {
-        OS << OpStr;
-      }
+    ListSeparator LS(OpStr);
+    for (auto &I : NArySCEV->operands()) {
+      OS << LS;
+      printBlob(OS, I);
     }
     OS << ")";
 
@@ -1792,9 +1839,8 @@ bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
   if (auto *ConstOp = dyn_cast<SCEVConstant>(MulBlob->getOperand(0))) {
     SmallVector<BlobTy, 4> Ops;
 
-    for (auto I = MulBlob->op_begin() + 1, E = MulBlob->op_end(); I != E; ++I) {
-      Ops.push_back(*I);
-    }
+    for (unsigned I = 1, E = MulBlob->getNumOperands(); I < E; I++)
+      Ops.push_back(MulBlob->getOperand(I));
 
     *Multiplier = getSCEVConstantValue(ConstOp);
     *NewBlob = ScopedSE.getMulExpr(Ops, MulBlob->getNoWrapFlags());
@@ -1809,8 +1855,8 @@ bool HIRParser::breakConstantMultiplierMulBlob(const SCEVMulExpr *MulBlob,
   SmallVector<BlobTy, 4> Ops;
   bool FoundMultiplier = false;
 
-  for (auto I = MulBlob->op_begin(), E = MulBlob->op_end(); I != E; ++I) {
-    BlobTy Op = *I;
+  for (auto &I : MulBlob->operands()) {
+    BlobTy Op = I;
 
     int64_t OpMultiplier;
     BlobTy NewOp;
@@ -1877,10 +1923,9 @@ bool HIRParser::breakConstantMultiplierCommutativeBlob(BlobTy Blob,
   SmallVector<BlobTy, 4> Ops;
   SmallVector<int64_t, 4> OpMultipliers;
 
-  for (auto I = CommutativeBlob->op_begin(), E = CommutativeBlob->op_end();
-       I != E; ++I) {
+  for (auto I : CommutativeBlob->operands()) {
 
-    BlobTy Op = *I;
+    BlobTy Op = I;
 
     BlobTy NewOp;
     int64_t OpMultiplier;
@@ -2003,69 +2048,11 @@ bool HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
   return true;
 }
 
-// Validates SCEV returned by getSCEVAtScope(). If the returned SCEV contains a
-// phi which is defined in the current loop, we invalidate the SCEV as it can
-// potentially cause live range issues.
-//
-// NOTE: This check does not belong to parser. It is the job of SSA
-// deconstruction to only let valid incoming SCEVs to parser but the solutions
-// I can think of are either too conservative or too compile time expensive.
-//
-// TODO: Find a way to handle this in SSA deconstruction.
-class HIRParser::ScopeSCEVValidator {
-private:
-  const HIRParser &HIRP;
-  bool IsValid;
-  const Instruction *CurInst;
-  const Loop *CurLp;
-
-public:
-  ScopeSCEVValidator(const HIRParser &HIRP) : HIRP(HIRP), IsValid(true) {
-    CurInst = HIRP.getCurInst();
-    CurLp = HIRP.LI.getLoopFor(CurInst->getParent());
-  }
-
-  bool follow(const SCEV *SC) {
-
-    if (!HIRP.isTempBlob(SC)) {
-      return true;
-    }
-
-    auto Val = cast<SCEVUnknown>(SC)->getValue();
-    auto Phi = dyn_cast<PHINode>(Val);
-
-    if (!Phi) {
-      return true;
-    }
-
-    if (!CurLp->contains(Phi)) {
-      return true;
-    }
-
-    IsValid = false;
-    return IsValid;
-  }
-
-  bool isDone() const { return !isValid(); }
-
-  bool isValid() const { return IsValid; }
-};
-
-bool HIRParser::isValidScopeSCEV(const SCEV *SC) const {
-  ScopeSCEVValidator SSV(*this);
-  SCEVTraversal<ScopeSCEVValidator> Validator(SSV);
-  Validator.visitAll(SC);
-
-  return SSV.isValid();
-}
-
 const SCEV *HIRParser::getSCEVAtScope(const SCEV *SC) const {
   auto ParHLoop = CurNode->getLexicalParentLoop();
   const Loop *ParLoop = ParHLoop ? ParHLoop->getLLVMLoop() : nullptr;
 
-  auto NewSC = ScopedSE.getSCEVAtScope(SC, ParLoop);
-
-  return isValidScopeSCEV(NewSC) ? NewSC : SC;
+  return ScopedSE.getSCEVAtScope(SC, ParLoop);
 }
 
 bool HIRParser::parseAddRec(const SCEVAddRecExpr *RecSCEV, CanonExpr *CE,
@@ -2116,9 +2103,8 @@ bool HIRParser::parseAddRec(const SCEVAddRecExpr *RecSCEV, CanonExpr *CE,
       std::unique_ptr<CanonExpr> NewCE(getCanonExprUtils().createExtCanonExpr(
           CE->getSrcType(), CE->getDestType(), CE->isSExt()));
 
-      if (parseRecursive(NewSC, NewCE.get(), Level, false, true, true)) {
-        getCanonExprUtils().add(CE, NewCE.get());
-      } else {
+      if (!parseRecursive(NewSC, NewCE.get(), Level, false, true, true) ||
+          !CanonExprUtils::add(CE, NewCE.get())) {
         return parseBlob(RecSCEV, CE, Level, 0, IndicateFailure);
       }
 
@@ -2236,8 +2222,8 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
       return parseBlob(AddSCEV, CE, Level, 0, IndicateFailure);
 
     } else {
-      for (auto I = AddSCEV->op_begin(), E = AddSCEV->op_end(); I != E; ++I) {
-        if (!parseRecursive(*I, CE, Level, false, UnderCast, IndicateFailure)) {
+      for (auto &I : AddSCEV->operands()) {
+        if (!parseRecursive(I, CE, Level, false, UnderCast, IndicateFailure)) {
           return false;
         }
       }
@@ -2786,13 +2772,6 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     }
   }
 
-  if (isa<UndefValue>(Cond)) {
-    Preds.push_back(UNDEFINED_PREDICATE);
-    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
-    Refs.push_back(getDDRefUtils().createUndefDDRef(Cond->getType()));
-    return;
-  }
-
   if (auto *ConstVal = dyn_cast<ConstantInt>(Cond)) {
     if (ConstVal->isOneValue()) {
       Preds.push_back(PredicateTy::FCMP_TRUE);
@@ -3225,7 +3204,7 @@ public:
         assert(!SubOverflow && "Unexpected (index - lower) overflow");
       }
 
-      if (ZeroBasedIndex.isNullValue()) {
+      if (ZeroBasedIndex.isZero()) {
         if (Indices.size() > 0) {
           return;
         }
@@ -3331,6 +3310,43 @@ public:
 
   iterator begin() const { return Dimensions.begin(); }
   iterator end() const { return Dimensions.end(); }
+
+  // Returns constant extent information for dimension \p DimNum by either
+  // getting it irectly from the dimension if available for by dividing stride
+  // of next dimension by this one.
+  //
+  // Returns 0 if no information is available.
+  unsigned getExtent(unsigned DimNum) const {
+    assert(DimNum >= getMinRank() && DimNum <= getMaxRank() && "Invalid rank");
+
+    auto &CurDim = getDim(DimNum);
+
+    unsigned Extent = CurDim.getExtent();
+
+    if (Extent) {
+      return Extent;
+    }
+
+    auto *CurStride = dyn_cast<ConstantInt>(CurDim.getStride());
+
+    if (CurStride && !CurStride->isZero()) {
+
+      // We find the next available stride from higher dimensions because
+      // sometimes info for some dimensions is just missing.
+      for (unsigned I = DimNum + 1, E = getMaxRank(); I <= E; ++I) {
+
+        if (auto *NextStride = getDim(I).getStride()) {
+          if (auto *ConstNextStride = dyn_cast<ConstantInt>(NextStride)) {
+            return ConstNextStride->getZExtValue() / CurStride->getZExtValue();
+          }
+
+          break;
+        }
+      }
+    }
+
+    return 0;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD
@@ -3680,6 +3696,7 @@ bool HIRParser::GEPChain::isCompatible(
   // %0 subscript will not share any ranks with existing information.
   unsigned MaxCommonRank = std::min(NextArr.getMaxRank(), CurArr.getMaxRank());
   unsigned MinCommonRank = std::max(NextArr.getMinRank(), CurArr.getMinRank());
+
   for (auto Rank = MinCommonRank; Rank <= MaxCommonRank; ++Rank) {
     auto *CurDimStride = CurArr.getDim(Rank).getStride();
     auto *NextDimStride = NextArr.getDim(Rank).getStride();
@@ -3699,6 +3716,17 @@ bool HIRParser::GEPChain::isCompatible(
     assert(NextDimStride && "Unexpected stride gaps in NextArr");
 
     if (CurDimStride != NextDimStride) {
+      return false;
+    }
+
+    auto CurArrDimExtent = CurArr.getExtent(Rank);
+    auto NextArrDimExtent = NextArr.getExtent(Rank);
+
+    // Give up if both dimensions have extent information and they mismatch.
+    // This is an attempt to detect changes in array shape at src level which
+    // can happen across subroutines.
+    if ((CurArrDimExtent != 0) && (NextArrDimExtent != 0) &&
+        (CurArrDimExtent != NextArrDimExtent)) {
       return false;
     }
   }
@@ -4056,14 +4084,16 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     CanonExpr *IndexCE = nullptr;
     unsigned ElementSize = 0;
 
-    auto SC = ScopedSE.getSCEV(const_cast<PHINode *>(CurBasePhi));
+    if (RI.isHeaderPhi(CurBasePhi)) {
+      auto SC = ScopedSE.getSCEV(const_cast<PHINode *>(CurBasePhi));
 
-    if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-      const Value *PhiInitVal = RI.getHeaderPhiInitVal(CurBasePhi);
+      if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
+        const Value *PhiInitVal = RI.getHeaderPhiInitVal(CurBasePhi);
 
-      if (RecSCEV->isAffine()) {
-        IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level, &ElemTy);
-        BaseVal = getValidPhiBaseVal(PhiInitVal, ElemTy, &InitGEPOp);
+        if (RecSCEV->isAffine()) {
+          IndexCE = createHeaderPhiIndexCE(CurBasePhi, Level, &ElemTy);
+          BaseVal = getValidPhiBaseVal(PhiInitVal, ElemTy, &InitGEPOp);
+        }
       }
     }
 
@@ -4142,7 +4172,7 @@ static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
     auto *PtrBaseCETy = cast<PointerType>(BaseCETy);
 
     if (!PtrBaseCETy->isOpaque()) {
-      ElementTy = BaseCETy->getPointerElementType();
+      ElementTy = BaseCETy->getNonOpaquePointerElementType();
     }
   }
 
@@ -4247,7 +4277,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   }
 
   if (HasDestTy && !cast<PointerType>(DestTy)->isOpaque()) {
-    Ref->setBitCastDestVecOrElemType(DestTy->getPointerElementType());
+    Ref->setBitCastDestVecOrElemType(DestTy->getNonOpaquePointerElementType());
   }
 
   populateBlobDDRefs(Ref, Level);
@@ -4325,6 +4355,7 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     // If lval DDRef's symbase and blob's symbase don't match, we need to add a
     // blob DDRef.
     else if (Symbase != SB) {
+      IsSelfBlob = false;
       populateBlobDDRefs(Ref, Level);
     }
 
@@ -4406,7 +4437,7 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
     // This condition is comparing two pointer types so it can only be true for
     // non-opaque pointers.
     if (Ref->getDestType() != OpTy) {
-      Ref->setBitCastDestVecOrElemType(OpTy->getPointerElementType());
+      Ref->setBitCastDestVecOrElemType(OpTy->getNonOpaquePointerElementType());
     }
 
     assert((Ref->isSelfGEPRef(true) || Ref->getBasePtrElementType()) &&
@@ -4624,7 +4655,7 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
     return true;
   }
 
-  bool IsBegin;
+  bool IsBegin = false;
 
   if (isBlockLoopEndDirective(Intrin) || isPrefetchLoopEndDirective(Intrin)) {
     IsBegin = false;
@@ -5032,7 +5063,7 @@ uint64_t HIRParser::getPossibleMaxPointerDimensionSize(const Value *Ptr) {
   return MaxSize;
 }
 
-Optional<HIRParser::DelinearizedCoeffBlobIndex>
+std::optional<HIRParser::DelinearizedCoeffBlobIndex>
 HIRParser::delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
                                 SmallVectorImpl<BlobTy> &DimSizes) {
 

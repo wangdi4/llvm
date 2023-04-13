@@ -134,10 +134,11 @@ __ESIMD_INTRIN __ESIMD_raw_vec_t(T, N)
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
 template <int N>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<uint32_t, N>
-__esimd_tf32_cvt(__ESIMD_DNS::vector_type_t<float, N> src)
+__DPCPP_SYCL_EXTERNAL
+    SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<uint32_t, N>
+    __esimd_tf32_cvt(__ESIMD_DNS::vector_type_t<float, N> src)
 #ifdef __SYCL_DEVICE_ONLY__
-    ;
+        ;
 #else
 {
   throw sycl::feature_not_supported();
@@ -146,7 +147,7 @@ __esimd_tf32_cvt(__ESIMD_DNS::vector_type_t<float, N> src)
 #endif // __SYCL_DEVICE_ONLY__
 
 template <int N, typename DstType, typename SrcType>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
+__DPCPP_SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
 __esimd_qf_cvt(__ESIMD_DNS::vector_type_t<SrcType, N> src)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
@@ -158,7 +159,19 @@ __esimd_qf_cvt(__ESIMD_DNS::vector_type_t<SrcType, N> src)
 #endif // __SYCL_DEVICE_ONLY__
 
 template <int N, typename DstType, typename SrcType>
-SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
+__DPCPP_SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
+__esimd_hf8_cvt(__ESIMD_DNS::vector_type_t<SrcType, N> src)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else
+{
+  throw sycl::feature_not_supported();
+  return {};
+}
+#endif // __SYCL_DEVICE_ONLY__
+
+template <int N, typename DstType, typename SrcType>
+__DPCPP_SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __ESIMD_DNS::vector_type_t<DstType, N>
 __esimd_srnd(__ESIMD_DNS::vector_type_t<SrcType, N> src1,
              __ESIMD_DNS::vector_type_t<SrcType, N> src2)
 #ifdef __SYCL_DEVICE_ONLY__
@@ -482,6 +495,8 @@ __esimd_dpas_bits_precision(__ESIMD_XMX_NS::dpas_argument_type precisionType) {
          /* INTEL_CUSTOMIZATION */
          /* INTEL_FEATURE_ESIMD_EMBARGO */
          : precisionType == __ESIMD_XMX_NS::dpas_argument_type::df ? 64
+         : precisionType == __ESIMD_XMX_NS::dpas_argument_type::hf8 ? 8
+         : precisionType == __ESIMD_XMX_NS::dpas_argument_type::bf8 ? 8
          /* end INTEL_FEATURE_ESIMD_EMBARGO */
          /* end INTEL_CUSTOMIZATION */
          : precisionType == __ESIMD_XMX_NS::dpas_argument_type::bf16 ||
@@ -811,6 +826,60 @@ __esimd_dpasw_nosrc0(__ESIMD_DNS::vector_type_t<T1, N1> src1,
                      __ESIMD_DNS::vector_type_t<T2, N2> src2)
 #ifdef __SYCL_DEVICE_ONLY__
     ;
+#else  // !__SYCL_DEVICE_ONLY__
+{
+  __ESIMD_UNSUPPORTED_ON_HOST;
+  return __ESIMD_DNS::vector_type_t<T, N>();
+}
+#endif // !__SYCL_DEVICE_ONLY__
+
+template <typename T, int N>
+__ESIMD_INTRIN std::pair<__ESIMD_DNS::vector_type_t<T, N>,
+                         __ESIMD_DNS::vector_type_t<T, N>>
+__esimd_addc(__ESIMD_DNS::vector_type_t<T, N> src0,
+             __ESIMD_DNS::vector_type_t<T, N> src1)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else  // !__SYCL_DEVICE_ONLY__
+{
+  __ESIMD_NS::simd<uint64_t, N> Result64 = __ESIMD_NS::simd<T, N>(src0);
+  Result64 += __ESIMD_NS::simd<T, N>(src1);
+  auto Result32 = Result64.template bit_cast_view<T>();
+  __ESIMD_NS::simd<uint32_t, N> CarryV = Result32.template select<N, 2>(1);
+  __ESIMD_NS::simd<uint32_t, N> ResV = Result32.template select<N, 2>(0);
+  std::pair<__ESIMD_DNS::vector_type_t<T, N>, __ESIMD_DNS::vector_type_t<T, N>>
+      ReturnValue = std::make_pair(CarryV.data(), ResV.data());
+  return ReturnValue;
+}
+#endif // !__SYCL_DEVICE_ONLY__
+
+template <typename T, int N>
+__ESIMD_INTRIN std::pair<__ESIMD_DNS::vector_type_t<T, N>,
+                         __ESIMD_DNS::vector_type_t<T, N>>
+__esimd_subb(__ESIMD_DNS::vector_type_t<T, N> src0,
+             __ESIMD_DNS::vector_type_t<T, N> src1)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else  // !__SYCL_DEVICE_ONLY__
+{
+  __ESIMD_NS::simd<uint64_t, N> Result64 = __ESIMD_NS::simd<T, N>(src0);
+  Result64 -= __ESIMD_NS::simd<T, N>(src1);
+  auto Result32 = Result64.template bit_cast_view<T>();
+  __ESIMD_NS::simd<uint32_t, N> BorrowV =
+      __ESIMD_NS::simd<T, N>(src0) < __ESIMD_NS::simd<T, N>(src1);
+  __ESIMD_NS::simd<uint32_t, N> ResV = Result32.template select<N, 2>(0);
+  std::pair<__ESIMD_DNS::vector_type_t<T, N>, __ESIMD_DNS::vector_type_t<T, N>>
+      ReturnValue = std::make_pair(BorrowV.data(), ResV.data());
+  return ReturnValue;
+}
+#endif // !__SYCL_DEVICE_ONLY__
+
+template <uint8_t FuncControl, typename T, int N>
+__ESIMD_INTRIN __ESIMD_raw_vec_t(T, N)
+    __esimd_bfn(__ESIMD_raw_vec_t(T, N) src0, __ESIMD_raw_vec_t(T, N) src1,
+                __ESIMD_raw_vec_t(T, N) src2)
+#ifdef __SYCL_DEVICE_ONLY__
+        ;
 #else  // !__SYCL_DEVICE_ONLY__
 {
   __ESIMD_UNSUPPORTED_ON_HOST;

@@ -40,7 +40,7 @@ else()
   set(LIBIGFXCMRT_EMU ${LLVM_BINARY_DIR}/pi_esimd_emulator_deps/lib/libigfxcmrt_emu${CMAKE_SHARED_LIBRARY_SUFFIX})
 endif()
 
-set (DEFAULT_CM_EMU_PREBUILT_PACKAGE "https://github.com/intel/cm-cpu-emulation/releases/download/v2022-07-06/intel-cmemu-1.0.23.u20.04-release.x86_64.tar.xz")
+set (DEFAULT_CM_EMU_PREBUILT_PACKAGE "https://github.com/intel/cm-cpu-emulation/releases/download/1.0.23/intel-cmemu-1.0.23.u20.04-release.x86_64.tar.xz")
 
 if (INTEL_CUSTOMIZATION)
 set (DEFAULT_CM_EMU_PREBUILT_PACKAGE "/rdrive/ref/opencl/libcm/linux/1.0.23/")
@@ -135,6 +135,8 @@ add_sycl_plugin(esimd_emulator
     ${LIBIGFXCMRT_EMU}
     #TODO remove cyclic dependency
     sycl
+  HEADER
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/features.hpp
 )
 
 # INTEL_CUSTOMIZATION

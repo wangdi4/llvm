@@ -111,7 +111,7 @@ bool VPlanIdioms::isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block) {
       map_range(*Block, [](const VPInstruction &Inst) { return &Inst; }));
   if (Insts.size() != 2)
     return false;
-  if (Insts[0]->getOpcode() != Instruction::And)
+  if (Insts[0]->getOpcode() != Instruction::Select)
     return false;
   if (Insts[1]->getOpcode() != Instruction::Br)
     return false;

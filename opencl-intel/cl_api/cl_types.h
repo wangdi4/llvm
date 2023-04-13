@@ -15,12 +15,10 @@
 #pragma once
 /*******************************************************************************
  *  cl_types.h
- *  Created on: 10-Dec-2008 11:42:24 AM
  *  Implementation of the Class OpenCLFramework
- *  Original author: ulevy
  ******************************************************************************/
 
-#include "cl_device_api.h"
+#include "llvm/Transforms/SYCLTransforms/DevLimits.h"
 #include <CL/cl.h>
 #include <tmmintrin.h>
 
@@ -111,6 +109,8 @@ typedef void(CL_CALLBACK *mem_dtor_fn)(cl_mem, void *);
 #define CL_COMMAND_FILL_MEM_OBJECT 1502
 #define CL_COMMAND_RUNTIME 1503
 #define CL_COMMAND_WAIT_FOR_EVENTS 1504
+/* deprecated USM cl_command_type (internal use)*/
+#define CL_COMMAND_MEMSET_INTEL 0x4204
 
 ///////////////////////////////////////
 // Memory runtime declaration

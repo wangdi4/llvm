@@ -58,7 +58,6 @@ TEST_F(BuildProgramWithSourceTest, basic) {
   ASSERT_OCL_SUCCESS(err, "clGetProgramInfo(CL_PROGRAM_BINARIES)");
   delete[] binaries;
 
-  // CSSD100011901
   cl_kernel kern = clCreateKernel(program, "test_kernel", &err);
   ASSERT_OCL_SUCCESS(err, "clCreateKernel");
   err = clSetKernelArg(kern, 2, sizeof(cl_mem), nullptr);

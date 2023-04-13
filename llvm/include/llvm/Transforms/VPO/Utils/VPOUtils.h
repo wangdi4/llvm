@@ -111,9 +111,9 @@ public:
   static bool CFGRestructuring(Function &F, DominatorTree *DT = nullptr,
                                LoopInfo *LI = nullptr);
 
-  /// Create a pointer, store address of \p V to the pointer, and replace uses
-  /// of \p V with a load from that pointer.
-  static Value *replaceWithStoreThenLoad(
+  // Create a pointer, store address of V to the pointer, and replace uses
+  // of V with a load from that pointer.
+  static std::pair<Value *, LoadInst *> replaceWithStoreThenLoad(
       WRegionNode *W, Value *V, Instruction *InsertPtForStore,
       bool ReplaceUses = true, bool EmitLoadEvenIfNoUses = false,
       bool InsertLoadInBeginningOfEntryBB = false,
@@ -191,9 +191,8 @@ public:
   /// exist, then add corresponding directives to the loop.
   static CallInst *getOrCreateLoopGuardForMemMotion(Loop *L);
 
-  /// Return the starting guard directives (DIR.VPO.GUARD.MEM.MOTION) created
-  /// for the loop \p L to prohibit memory motion. Input and scan phase are
-  /// enclosed in the guard directives.
+  /// Input and scan phases are enclosed using separate begin/end guard
+  /// DIR.VPO.GUARD.MEM.MOTION directive pairs.
   static std::pair<CallInst *, CallInst *>
   createInscanLoopGuardForMemMotion(Loop *L);
 

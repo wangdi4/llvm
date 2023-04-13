@@ -16,11 +16,7 @@
 # system libarary directories
 include(embed.rpath)
 
-# this component has to use deprecated OpenCL API functions.
-if(WIN32)
-  add_definitions(-wd4996 # Suppress 'function': was declared deprecated'
-  )
-endif(WIN32)
+use_rtti(TRUE)
 
 include_directories(
   BEFORE
@@ -84,7 +80,6 @@ set(FRAMEWORK_LINK_LIBS
     CacheBinaryHandler
     Context
     Execution
-    LoopUtils
     MemoryAllocator
     ObjDump
     OclBackendUtils
@@ -92,7 +87,6 @@ set(FRAMEWORK_LINK_LIBS
     OclPluginManager
     Platform
     Tracing
-    cl_sys_utils
     dynamic_load
     emutls
     reflection_module
@@ -106,12 +100,13 @@ add_opencl_library(
   COMPONENTS
   OclCpuBackEnd
   builtin_kernels
+  cl_hw_utils
   cl_logger
   cl_sys_utils
   clang_compiler
   cpu_device
   device_commands
-  task_executor${BUILD_PLATFORM}
+  task_executor
   LINK_LIBS
   ${FRAMEWORK_LINK_LIBS}
   ${LINK_LIBS}
@@ -127,12 +122,13 @@ add_opencl_library(
   COMPONENTS
   OclCpuBackEnd
   builtin_kernels
-  cl_logger_${OUTPUT_EMU_SUFF}
+  cl_hw_utils
+  cl_logger
   cl_sys_utils
   clang_compiler
   cpu_device
   device_commands
-  task_executor${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+  task_executor
   LINK_LIBS
   ${FRAMEWORK_LINK_LIBS}
   ${LINK_LIBS}
@@ -150,6 +146,15 @@ endif(WIN32)
 
 set(CL_CFG_OUTPUT_DIR ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
 set(CL_CFG_INSTALL_DIR ${OCL_INSTALL_LIBRARY_DIR})
+
+# INTEL_CUSTOMIZATION
+# Intel new unified requires different TBB version
+if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  set(CL_CONFIG_TBB_VERSION 2021.11.0-beta)
+else()
+  set(CL_CONFIG_TBB_VERSION 2021.10.0)
+endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
+# end INTEL_CUSTOMIZATION
 
 # For cpu
 set(CL_CONFIG_DEVICES cpu)
@@ -176,22 +181,12 @@ install(
   COMPONENT ocl-config)
 
 if(WIN32)
-  set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS
-    "/DELAYLOAD:task_executor${BUILD_PLATFORM}.dll /DELAYLOAD:${COMMON_CLANG}.dll")
-  get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
-  set_target_properties(
-    ${TARGET_NAME} PROPERTIES LINK_FLAGS_DEBUG
-                              "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT")
-  set_target_properties(
-    ${TARGET_NAME_EMU}
-    PROPERTIES
-      LINK_FLAGS
-      "/DELAYLOAD:task_executor${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}.dll")
-  get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME_EMU} LINK_FLAGS_DEBUG)
-  set_target_properties(
-    ${TARGET_NAME_EMU} PROPERTIES LINK_FLAGS_DEBUG
-                                  "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT")
+  set_property(TARGET ${TARGET_NAME} APPEND_STRING PROPERTY LINK_FLAGS
+    " /DELAYLOAD:${COMMON_CLANG}.dll ")
 endif(WIN32)
+
+link_target_with_tbb_library(${TARGET_NAME})
+link_target_with_tbb_library(${TARGET_NAME_EMU})
 
 set_linux_exports_file(${TARGET_NAME} cl_framework_linux_exports.txt)
 set_linux_exports_file(${TARGET_NAME_EMU} cl_framework_linux_exports.txt)

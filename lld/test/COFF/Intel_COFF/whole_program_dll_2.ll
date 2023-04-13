@@ -26,7 +26,7 @@ target triple = "x86_64-pc-windows-msvc"
 
 declare dllimport i32 @exportfn(i32)
 
-define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
+define i32 @main(i32 %argc, ptr nocapture readnone %argv) {
 entry:
   %call1 = call i32 @exportfn(i32 %argc)
   ret i32 %call1

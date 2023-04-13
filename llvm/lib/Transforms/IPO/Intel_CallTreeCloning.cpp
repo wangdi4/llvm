@@ -1,6 +1,6 @@
 //===---------- Intel_CallTreeCloning.cpp - Call Tree Cloning -------------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -117,10 +117,6 @@ using namespace llvm;
 #define PASS_NAME_STR "call-tree-clone"
 
 namespace {
-const char *PASS_NAME = PASS_NAME_STR;
-const char *PASS_DESC =
-    "clone functions in call trees specializing by constant parameter sets of "
-    "the calls at the top of the tree";
 #ifndef NDEBUG
 const StringRef CTCSectionName = "Call-Tree Cloning";
 const StringRef PPSectionName = "Post Processing";
@@ -1106,13 +1102,9 @@ public:
   bool hasSetCoveredBy(const ConstParamVec &ConstParams) const {
     ParamIndSet ConstParamsInds = ConstParams.getParamIndSet();
 
-    for (auto S : *this) {
-      if (S.size() < ConstParamsInds.size())
-        S.resize(ConstParamsInds.size());
-
+    for (const auto &S : *this)
       if ((ConstParamsInds & S) == S)
         return true;
-    }
     return false;
   }
 
@@ -1951,7 +1943,6 @@ void CTCLoopBasedCostModel::gatherParamDepsForFoldableLoopBounds(
 }
 
 // This class actually implements the call-tree cloner.
-// Both CallTreeCloningPass and CallTreeCloningLegacyPass delegate to it.
 class CallTreeCloningImpl {
   friend class PostProcessor;
   friend class MultiVersionImpl;
@@ -2441,23 +2432,6 @@ std::string MultiVersionImpl::toString(void) const {
 }
 #endif
 
-namespace llvm {
-// The call-tree cloning transformation ModulePass
-class CallTreeCloningLegacyPass : public ModulePass {
-public:
-  CallTreeCloningLegacyPass();
-  bool runOnModule(Module &M) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  StringRef getPassName() const override {
-    return "Call-Tree Cloning (with MultiVersioning)";
-  }
-
-public:
-  static char ID;
-};
-} // end of namespace llvm
-
 bool CallTreeCloningImpl::run(
     Module &M, Analyses &Anls,
     std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
@@ -2590,28 +2564,6 @@ bool CallTreeCloningImpl::run(
   // the module - CTCResult is guaranteed to be true if we reach this point,
   // thus true is returned
   return true;
-}
-
-bool llvm::CallTreeCloningLegacyPass::runOnModule(Module &M) {
-  if (skipModule(M) || (CTCloningMaxDepth == 0) || DisableCallTreeCloning)
-    return false;
-
-  Analyses Anls([&](Function &F) -> LoopInfo & {
-    return getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-  });
-  auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
-    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-  PreservedAnalyses PA;
-  CallTreeCloningImpl Impl;
-  bool ModuleChanged = Impl.run(M, Anls, GetTLI, PA);
-
-  // Verify Module if there is any change on the LLVM IR
-#ifndef NDEBUG
-  doVerification(ModuleChanged, M);
-#endif
-
-  return ModuleChanged;
 }
 
 namespace {
@@ -4252,37 +4204,6 @@ bool MultiVersionImpl::run(void) {
 // Pass creation and registration code
 ////////////////////////////////////////////////////////////////////////////////
 
-// ---------- Old Pass Manager
-
-namespace llvm {
-void initializeCallTreeCloningLegacyPassPass(PassRegistry &);
-ModulePass *createCallTreeCloningPass();
-} // end of namespace llvm
-
-llvm::CallTreeCloningLegacyPass::CallTreeCloningLegacyPass() : ModulePass(ID) {
-  initializeCallTreeCloningLegacyPassPass(*PassRegistry::getPassRegistry());
-}
-
-void CallTreeCloningLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addPreserved<WholeProgramWrapperPass>();
-  AU.addRequired<LoopInfoWrapperPass>();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-}
-
-llvm::ModulePass *llvm::createCallTreeCloningPass() {
-  CallTreeCloningLegacyPass *Res = new llvm::CallTreeCloningLegacyPass();
-  return Res;
-}
-
-char llvm::CallTreeCloningLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(CallTreeCloningLegacyPass, PASS_NAME, PASS_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_END(CallTreeCloningLegacyPass, PASS_NAME, PASS_DESC, false,
-                    false)
-
-// ---------- New Pass Manager
 PreservedAnalyses CallTreeCloningPass::run(Module &M,
                                            ModuleAnalysisManager &MAM) {
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();

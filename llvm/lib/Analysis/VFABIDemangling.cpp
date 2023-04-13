@@ -43,6 +43,13 @@ ParseRet tryParseISA(StringRef &MangledName, VFISAKind &ISA) {
   if (MangledName.empty())
     return ParseRet::Error;
 
+#if INTEL_CUSTOMIZATION
+  if (MangledName.startswith(VFABI::_Unknown_)) {
+    MangledName = MangledName.drop_front(strlen(VFABI::_Unknown_));
+    ISA = VFISAKind::Unknown;
+    return ParseRet::OK;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (MangledName.startswith(VFABI::_LLVM_)) {
     MangledName = MangledName.drop_front(strlen(VFABI::_LLVM_));
     ISA = VFISAKind::LLVM;
@@ -54,6 +61,12 @@ ParseRet tryParseISA(StringRef &MangledName, VFISAKind &ISA) {
               .Case("c", VFISAKind::AVX)
               .Case("d", VFISAKind::AVX2)
               .Case("e", VFISAKind::AVX512)
+#if INTEL_CUSTOMIZATION
+              .Case("x", VFISAKind::SSE)
+              .Case("y", VFISAKind::AVX)
+              .Case("Y", VFISAKind::AVX2)
+              .Case("Z", VFISAKind::AVX512)
+#endif // INTEL_CUSTOMIZATION
               .Default(VFISAKind::Unknown);
     MangledName = MangledName.drop_front(1);
   }
@@ -333,13 +346,13 @@ ElementCount getECFromSignature(FunctionType *Signature) {
 VFInfo VFABI::demangleForVFABI(StringRef MangledName) {
   return VFABI::tryDemangleForVFABI(MangledName).value();
 }
-Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
-                                            const Module &M) {
+std::optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
+                                                 const Module &M) {
   return VFABI::tryDemangleForVFABI(MangledName, &M);
 }
 
-Optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
-                                            const Module *M) {
+std::optional<VFInfo> VFABI::tryDemangleForVFABI(StringRef MangledName,
+                                                 const Module *M) {
 #endif
   const StringRef OriginalName = MangledName;
   // Assume there is no custom name <redirection>, and therefore the

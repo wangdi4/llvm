@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_CSA
-; RUN: opt < %s -domtree -loops -lcssa-verification -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt -S | FileCheck --check-prefixes=CHECK-COMMON,CHECK-DEFAULT %s
-; RUN: opt < %s -domtree -loops -lcssa-verification -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt -csa-omp-loop-workers-default=2 -S | FileCheck --check-prefixes=CHECK-COMMON,CHECK-WORKERS %s
-; RUN: opt < %s -domtree -loops -lcssa-verification -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt -csa-omp-loop-workers-default=3 -csa-omp-loop-spmd-mode-default=4 -S | FileCheck --check-prefixes=CHECK-COMMON,CHECK-MODE %s
+; RUN: opt -passes="require<vpo-wrninfo>,require<vpo-wrncollection>,require<domtree>,vpo-paropt" < %s -lcssa-verification -S | FileCheck --check-prefixes=CHECK-COMMON,CHECK-DEFAULT %s
+; RUN: opt -passes="require<vpo-wrninfo>,require<vpo-wrncollection>,require<domtree>,vpo-paropt" < %s -lcssa-verification -csa-omp-loop-workers-default=2 -S | FileCheck --check-prefixes=CHECK-COMMON,CHECK-WORKERS %s
+; RUN: opt -passes="require<vpo-wrninfo>,require<vpo-wrncollection>,require<domtree>,vpo-paropt" < %s -lcssa-verification -csa-omp-loop-workers-default=3 -csa-omp-loop-spmd-mode-default=4 -S | FileCheck --check-prefixes=CHECK-COMMON,CHECK-MODE %s
 ; REQUIRES: csa-registered-target
 ;
 ; Test internal options which specify default number of workers and default

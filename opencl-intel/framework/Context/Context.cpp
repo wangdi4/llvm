@@ -41,14 +41,8 @@
 #include <framework_proxy.h>
 
 using namespace std;
-using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
-
-#ifdef __GNUC__
-#define UNUSED_ATTR __attribute__((unused))
-#else
-#define UNUSED_ATTR
-#endif
+using namespace Intel::OpenCL::Utils;
 
 // Function to compare two image formats.
 static bool compareImageFormats(cl_image_format f1, cl_image_format f2);
@@ -392,8 +386,8 @@ Context::~Context() {
 cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size,
                              void *param_value,
                              size_t *param_value_size_ret) const {
-  LOG_DEBUG(TEXT("Context::GetInfo enter. param_name=%d, param_value_size=%d, "
-                 "param_value=%d, param_value_size_ret=%d"),
+  LOG_DEBUG(TEXT("Context::GetInfo enter. param_name=%d, param_value_size=%zu, "
+                 "param_value=%p, param_value_size_ret=%p"),
             param_name, param_value_size, param_value, param_value_size_ret);
 
   size_t szParamValueSize = 0;
@@ -427,7 +421,7 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size,
 
   // if param_value_size < actual value size return CL_INVALID_VALUE
   if (nullptr != param_value && param_value_size < szParamValueSize) {
-    LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"),
+    LOG_ERROR(TEXT("param_value_size (=%zu) < szParamValueSize (=%zu)"),
               param_value_size, szParamValueSize);
     return CL_INVALID_VALUE;
   }
@@ -455,7 +449,7 @@ cl_err_code Context::CreateProgramWithIL(const unsigned char *pIL,
 
   // check input parameters
   if (nullptr == ppProgram) {
-    LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
+    LOG_ERROR(TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
     return CL_INVALID_VALUE;
   }
   cl_err_code clErrRet = CL_SUCCESS;
@@ -494,13 +488,13 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount,
                                              const char **ppcStrings,
                                              const size_t *szLengths,
                                              SharedPtr<Program> *ppProgram) {
-  LOG_DEBUG(TEXT("CreateProgramWithSource enter. uiCount=%d, ppcStrings=%d, "
-                 "szLengths=%d, ppProgram=%d"),
+  LOG_DEBUG(TEXT("CreateProgramWithSource enter. uiCount=%u, ppcStrings=%p, "
+                 "szLengths=%p, ppProgram=%p"),
             uiCount, ppcStrings, szLengths, ppProgram);
 
   // check input parameters
   if (nullptr == ppProgram) {
-    LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
+    LOG_ERROR(TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
     return CL_INVALID_VALUE;
   }
   cl_err_code clErrRet = CL_SUCCESS;
@@ -527,21 +521,21 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount,
 cl_err_code Context::CreateProgramForLink(cl_uint IN uiNumDevices,
                                           const cl_device_id *IN pclDeviceList,
                                           SharedPtr<Program> *OUT ppProgram) {
-  LOG_DEBUG(TEXT("CreateProgramFromLink enter. uiNumDevices=%d, "
-                 "pclDeviceList=%d, ppProgram=%d"),
+  LOG_DEBUG(TEXT("CreateProgramFromLink enter. uiNumDevices=%u, "
+                 "pclDeviceList=%p, ppProgram=%p"),
             uiNumDevices, pclDeviceList, ppProgram);
 
   cl_err_code clErrRet = CL_SUCCESS;
 
   // check input parameters
   if (nullptr == ppProgram) {
-    LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
+    LOG_ERROR(TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
     return CL_INVALID_VALUE;
   }
 
   if (nullptr == pclDeviceList || 0 == uiNumDevices) {
     // invalid input args
-    LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices"));
+    LOG_ERROR(TEXT("NULL == pclDeviceList || 0 == uiNumDevices"));
     return CL_INVALID_VALUE;
   }
 
@@ -550,15 +544,14 @@ cl_err_code Context::CreateProgramForLink(cl_uint IN uiNumDevices,
       new SharedPtr<FissionableDevice>[uiNumDevices];
   if (nullptr == ppDevices) {
     // can't allocate memory for devices
-    LOG_ERROR(TEXT("%s"), TEXT("Can't allocated memory for devices"));
+    LOG_ERROR(TEXT("Can't allocated memory for devices"));
     return CL_OUT_OF_HOST_MEMORY;
   }
 
   // check devices
   bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
   if (false == bRes) {
-    LOG_ERROR(TEXT("%s"),
-              TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
+    LOG_ERROR(TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
     delete[] ppDevices;
     return CL_INVALID_DEVICE;
   }
@@ -569,7 +562,7 @@ cl_err_code Context::CreateProgramForLink(cl_uint IN uiNumDevices,
   delete[] ppDevices;
 
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("%s"), TEXT("Out of memory for creating program"));
+    LOG_ERROR(TEXT("Out of memory for creating program"));
     return CL_OUT_OF_HOST_MEMORY;
   }
   pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
@@ -592,7 +585,7 @@ cl_err_code Context::CompileProgram(
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProg.GetPtr()) {
-    LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+    LOG_ERROR(TEXT("program %p isn't valid program"), clProgram);
     return CL_INVALID_PROGRAM;
   }
 
@@ -611,7 +604,7 @@ cl_err_code Context::CompileProgram(
               .DynamicCast<Program>();
       if (NULL == ppHeaders[i].GetPtr()) {
         delete[] ppHeaders;
-        LOG_ERROR(TEXT("One of the header programs %d isn't valid program"),
+        LOG_ERROR(TEXT("One of the header programs %p isn't valid program"),
                   clProgram);
         return CL_INVALID_PROGRAM;
       }
@@ -638,7 +631,7 @@ Context::LinkProgram(cl_program IN clProgram, cl_uint IN uiNumDevices,
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProg.GetPtr()) {
-    LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+    LOG_ERROR(TEXT("program %p isn't valid program"), clProgram);
     return CL_INVALID_PROGRAM;
   }
 
@@ -657,7 +650,7 @@ Context::LinkProgram(cl_program IN clProgram, cl_uint IN uiNumDevices,
               .DynamicCast<Program>();
       if (NULL == ppBinaries[i].GetPtr()) {
         delete[] ppBinaries;
-        LOG_ERROR(TEXT("One of the binaries programs %d isn't valid program"),
+        LOG_ERROR(TEXT("One of the binaries programs %p isn't valid program"),
                   clProgram);
         return CL_INVALID_PROGRAM;
       }
@@ -684,7 +677,7 @@ cl_err_code Context::BuildProgram(cl_program IN clProgram,
       m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
           .DynamicCast<Program>();
   if (NULL == pProg.GetPtr()) {
-    LOG_ERROR(TEXT("program %d isn't valid program"), clProgram);
+    LOG_ERROR(TEXT("program %p isn't valid program"), clProgram);
     return CL_INVALID_PROGRAM;
   }
 
@@ -706,11 +699,11 @@ SharedPtr<FissionableDevice> Context::GetDeviceByIndex(cl_uint uiDeviceIndex) {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 bool Context::CheckDevices(cl_uint uiNumDevices,
                            const cl_device_id *pclDevices) {
-  LOG_DEBUG(TEXT("CheckDevices enter. uiNumDevices=%d, pclDevices=%d"),
+  LOG_DEBUG(TEXT("CheckDevices enter. uiNumDevices=%u, pclDevices=%p"),
             uiNumDevices, pclDevices);
   if (0 == uiNumDevices || nullptr == pclDevices) {
     // invalid inputs
-    LOG_ERROR(TEXT("%s"), TEXT("0 == uiNumDevices || NULL == pclDevices"));
+    LOG_ERROR(TEXT("0 == uiNumDevices || NULL == pclDevices"));
     return false;
   }
   for (cl_uint ui = 0; ui < uiNumDevices; ++ui) {
@@ -718,7 +711,7 @@ bool Context::CheckDevices(cl_uint uiNumDevices,
         m_mapDevices.GetOCLObject((_cl_device_id_int *)pclDevices[ui])
             .DynamicCast<FissionableDevice>();
     if (NULL == pDevice.GetPtr()) {
-      LOG_ERROR(TEXT("device %d wasn't found in this context"), pclDevices[ui]);
+      LOG_ERROR(TEXT("device %p wasn't found in this context"), pclDevices[ui]);
       return false;
     }
   }
@@ -731,11 +724,11 @@ bool Context::CheckDevices(cl_uint uiNumDevices,
 bool Context::GetDevicesFromList(cl_uint uiNumDevices,
                                  const cl_device_id *pclDevices,
                                  SharedPtr<FissionableDevice> *ppDevices) {
-  LOG_DEBUG(TEXT("GetDeviceFromList enter. uiNumDevices=%d, pclDevices=%d"),
+  LOG_DEBUG(TEXT("GetDeviceFromList enter. uiNumDevices=%u, pclDevices=%p"),
             uiNumDevices, pclDevices);
   if (0 == uiNumDevices || nullptr == pclDevices) {
     // invalid inputs
-    LOG_ERROR(TEXT("%s"), TEXT("0 == uiNumDevices || NULL == pclDevices"));
+    LOG_ERROR(TEXT("0 == uiNumDevices || NULL == pclDevices"));
     return false;
   }
 
@@ -744,7 +737,7 @@ bool Context::GetDevicesFromList(cl_uint uiNumDevices,
         m_mapDevices.GetOCLObject((_cl_device_id_int *)pclDevices[ui])
             .DynamicCast<FissionableDevice>();
     if (NULL == ppDevices[ui].GetPtr()) {
-      LOG_ERROR(TEXT("device %d wasn't found in this context"), pclDevices[ui]);
+      LOG_ERROR(TEXT("device %p wasn't found in this context"), pclDevices[ui]);
       return false;
     }
   }
@@ -766,8 +759,8 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices,
                                              cl_int *piBinaryStatus,
                                              SharedPtr<Program> *ppProgram) {
   LOG_DEBUG(
-      TEXT("CreateProgramWithBinary enter. uiNumDevices=%d, pclDeviceList=%d, "
-           "pszLengths=%d, ppBinaries=%d, piBinaryStatus=%d, ppProgram=%d"),
+      TEXT("CreateProgramWithBinary enter. uiNumDevices=%u, pclDeviceList=%p, "
+           "pszLengths=%p, ppBinaries=%p, piBinaryStatus=%p, ppProgram=%p"),
       uiNumDevices, pclDeviceList, pszLengths, ppBinaries, piBinaryStatus,
       ppProgram);
 
@@ -776,8 +769,8 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices,
   if (nullptr == pclDeviceList || 0 == uiNumDevices || nullptr == pszLengths ||
       nullptr == ppBinaries) {
     // invalid input args
-    LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || "
-                               "NULL == pszLengths || NULL == ppBinaries"));
+    LOG_ERROR(TEXT("NULL == pclDeviceList || 0 == uiNumDevices || "
+                   "NULL == pszLengths || NULL == ppBinaries"));
     return CL_INVALID_VALUE;
   }
   // check items in pszLengths and in ppBinaries
@@ -796,15 +789,14 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices,
       new SharedPtr<FissionableDevice>[uiNumDevices];
   if (nullptr == ppDevices) {
     // can't allocate memory for devices
-    LOG_ERROR(TEXT("%s"), TEXT("Can't allocated memory for devices"));
+    LOG_ERROR(TEXT("Can't allocated memory for devices"));
     return CL_OUT_OF_HOST_MEMORY;
   }
 
   // check devices
   bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
   if (false == bRes) {
-    LOG_ERROR(TEXT("%s"),
-              TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
+    LOG_ERROR(TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
     delete[] ppDevices;
     return CL_INVALID_DEVICE;
   }
@@ -816,7 +808,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices,
   delete[] ppDevices;
 
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("%s"), TEXT("Out of memory for creating program"));
+    LOG_ERROR(TEXT("Out of memory for creating program"));
     return CL_OUT_OF_HOST_MEMORY;
   }
   pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
@@ -840,7 +832,7 @@ cl_err_code Context::CreateProgramWithLibraryKernels(
   SharedPtr<Program> Prog = ProgramWithLibraryKernels::Allocate(
       this, NumDevices, Devices, KernelNames, &Err);
   if (CL_SUCCESS != Err) {
-    LOG_ERROR(TEXT("%S"), TEXT("Failed to create library program"));
+    LOG_ERROR(TEXT("Failed to create library program"));
     return Err;
   }
 
@@ -857,7 +849,7 @@ cl_err_code Context::CreateProgramWithLibraryKernels(
 cl_err_code Context::CreateProgramWithBuiltInKernels(
     cl_uint IN uiNumDevices, const cl_device_id *IN pclDeviceList,
     const char IN *szKernelNames, SharedPtr<Program> *OUT ppProgram) {
-  LOG_DEBUG(TEXT("CreateProgramWithBuiltInKernels enter. uiNumDevices=%d, "
+  LOG_DEBUG(TEXT("CreateProgramWithBuiltInKernels enter. uiNumDevices=%u, "
                  "pclDeviceList=%p, ppProgram=%p"),
             uiNumDevices, pclDeviceList, ppProgram);
 
@@ -866,8 +858,8 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(
   if (nullptr == pclDeviceList || 0 == uiNumDevices ||
       nullptr == szKernelNames || nullptr == ppProgram) {
     // invalid input args
-    LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || "
-                               "NULL == szKernelNames || NULL == ppProgram"));
+    LOG_ERROR(TEXT("NULL == pclDeviceList || 0 == uiNumDevices || "
+                   "NULL == szKernelNames || NULL == ppProgram"));
     return CL_INVALID_VALUE;
   }
 
@@ -876,15 +868,16 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(
       new SharedPtr<FissionableDevice>[uiNumDevices];
   if (nullptr == ppDevices) {
     // can't allocate memory for devices
-    LOG_ERROR(TEXT("%S"), TEXT("Can't allocated memory for devices"));
+    LOG_ERROR(TEXT("Can't allocated memory for devices"));
     return CL_OUT_OF_HOST_MEMORY;
   }
 
   // check devices
   bool bRes = GetDevicesFromList(uiNumDevices, pclDeviceList, ppDevices);
   if (false == bRes) {
-    LOG_ERROR(TEXT("%S"),
-              TEXT("GetDevicesFromList(uiNumDevices, pclDeviceList) = false"));
+    LOG_ERROR(TEXT("GetDevicesFromList(uiNumDevices (%u), pclDeviceList (%p)) "
+                   "= false"),
+              uiNumDevices, pclDeviceList);
     delete[] ppDevices;
     return CL_INVALID_DEVICE;
   }
@@ -895,7 +888,7 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(
   delete[] ppDevices;
 
   if (NULL == pProgram.GetPtr()) {
-    LOG_ERROR(TEXT("%S"), TEXT("Out of memory for creating program"));
+    LOG_ERROR(TEXT("Out of memory for creating program"));
     return CL_OUT_OF_HOST_MEMORY;
   }
   pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
@@ -909,7 +902,7 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(
 // Context::RemoveProgram
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::RemoveProgram(cl_program clProgramId) {
-  LOG_DEBUG(TEXT("Enter RemoveProgram (clProgramId=%d)"), clProgramId);
+  LOG_DEBUG(TEXT("Enter RemoveProgram (clProgramId = %p)"), clProgramId);
 
   return m_mapPrograms.RemoveObject((_cl_program_int *)clProgramId);
 }
@@ -917,7 +910,7 @@ cl_err_code Context::RemoveProgram(cl_program clProgramId) {
 // Context::RemoveMemObject
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::RemoveMemObject(cl_mem clMem) {
-  LOG_DEBUG(TEXT("Enter RemoveMemObject (clMem=%d)"), clMem);
+  LOG_DEBUG(TEXT("Enter RemoveMemObject (clMem=%p)"), clMem);
 
   return m_mapMemObjects.RemoveObject((_cl_mem_int *)clMem);
 }
@@ -925,7 +918,7 @@ cl_err_code Context::RemoveMemObject(cl_mem clMem) {
 // Context::RemoveSampler
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::RemoveSampler(cl_sampler clSampler) {
-  LOG_DEBUG(TEXT("Enter RemoveSampler (clSampler=%d)"), clSampler);
+  LOG_DEBUG(TEXT("Enter RemoveSampler (clSampler=%p)"), clSampler);
 
   return m_mapSamplers.RemoveObject((_cl_sampler_int *)clSampler);
 }
@@ -935,8 +928,8 @@ cl_err_code Context::RemoveSampler(cl_sampler clSampler) {
 cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize,
                                   void *pHostPtr,
                                   SharedPtr<MemoryObject> *ppBuffer) {
-  LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%llu, szSize=%u, "
-                 "pHostPtr=%d, ppBuffer=%d)"),
+  LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%llu, szSize=%zu, "
+                 "pHostPtr=%p, ppBuffer=%p)"),
             (unsigned long long)clFlags, szSize, pHostPtr, ppBuffer);
 
   assert(nullptr != ppBuffer);
@@ -976,8 +969,8 @@ cl_err_code Context::CreateSubBuffer(SharedPtr<MemoryObject> pBuffer,
                                      const void *buffer_create_info,
                                      SharedPtr<MemoryObject> *ppBuffer,
                                      bool RequireAlign) {
-  LOG_DEBUG(TEXT("Enter CreateSubBuffer (cl_mem_flags=%d, "
-                 "buffer_create_type=%d, ppBuffer=%d)"),
+  LOG_DEBUG(TEXT("Enter CreateSubBuffer (cl_mem_flags=%llu, "
+                 "buffer_create_type=%u, ppBuffer=%p)"),
             (unsigned long long)clFlags, buffer_create_type, ppBuffer);
 
   assert(nullptr != ppBuffer);
@@ -1140,18 +1133,19 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
                                               cl_uint uiNumEntries,
                                               cl_image_format *pclImageFormats,
                                               cl_uint *puiNumImageFormats) {
-  LOG_DEBUG(TEXT("Enter GetSupportedImageFormats(clFlags=%d, clType=%d, "
-                 "uiNumEntries=%d, pclImageFormats=%d, puiNumImageFormats=%d"),
-            clFlags, clType, uiNumEntries, pclImageFormats, puiNumImageFormats);
+  LOG_DEBUG(TEXT("Enter GetSupportedImageFormats(clFlags=%llu, clType=%u, "
+                 "uiNumEntries=%u, pclImageFormats=%p, puiNumImageFormats=%p"),
+            (unsigned long long)clFlags, clType, uiNumEntries, pclImageFormats,
+            puiNumImageFormats);
 
   if ((uiNumEntries == 0 && pclImageFormats != nullptr)) {
-    LOG_ERROR(TEXT("%s"), TEXT("uiNumEntries == 0 && pclImageFormats != NULL"));
+    LOG_ERROR(TEXT("uiNumEntries == 0 && pclImageFormats != NULL"));
     return CL_INVALID_VALUE;
   }
 
   if (CL_MEM_OBJECT_BUFFER == clType || CL_MEM_OBJECT_PIPE == clType) {
-    LOG_ERROR(TEXT("%s"), TEXT("clType != CL_MEM_OBJECT_IMAGE2D && clType != "
-                               "CL_MEM_OBJECT_IMAGE3D"));
+    LOG_ERROR(TEXT("clType != CL_MEM_OBJECT_IMAGE2D && clType != "
+                   "CL_MEM_OBJECT_IMAGE3D"));
     return CL_INVALID_VALUE;
   }
 
@@ -1340,7 +1334,7 @@ cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords,
                                    SharedPtr<Sampler> *ppSampler) {
   assert(nullptr != ppSampler);
   LOG_DEBUG(TEXT("Enter CreateSampler (bNormalizedCoords=%d, "
-                 "clAddressingMode=%d, clFilterMode=%d, ppSampler=%d)"),
+                 "clAddressingMode=%u, clFilterMode=%u, ppSampler=%p)"),
             bNormalizedCoords, clAddressingMode, clFilterMode, ppSampler);
 
 #ifdef _DEBUG
@@ -1429,7 +1423,7 @@ Context::CheckSupportedImageFormat(const cl_image_format *pclImageFormat,
 
   tImageFormatMap::iterator mapIT;
   { // Critical section
-    OclAutoMutex mu(&m_muFormatsMap);
+    std::lock_guard<std::recursive_mutex> mu(m_muFormatsMap);
     mapIT = m_mapSupportedFormats.find(key);
     // First access to the key, need to get formats from devices
     if (m_mapSupportedFormats.end() == mapIT) {
@@ -1466,7 +1460,7 @@ size_t Context::CalculateSupportedImageFormats(const cl_mem_flags clMemFlags,
   // Calculate supported format key
   cl_mem_flags key = getFormatsKey(clObjType, clMemFlags);
 
-  OclAutoMutex mu(&m_muFormatsMap);
+  std::lock_guard<std::recursive_mutex> mu(m_muFormatsMap);
 
   tImageFormatMap::iterator mapIT = m_mapSupportedFormats.find(key);
 
@@ -1582,7 +1576,8 @@ Intel::OpenCL::Utils::OclOsDependentEvent *Context::GetOSEvent() {
   if (!exists) {
     pOsEvent = new Intel::OpenCL::Utils::OclOsDependentEvent();
     if (nullptr != pOsEvent) {
-      bool UNUSED_ATTR initOK = pOsEvent->Init();
+      bool initOK = pOsEvent->Init();
+      (void)initOK;
       assert(initOK && "OclEvent Failed to setup OS_DEPENDENT event");
     }
   }
@@ -1686,6 +1681,7 @@ cl_int Context::SetKernelExecInfo(const SharedPtr<Kernel> &pKernel,
                                 m_ulMaxMemAllocSize / 2, ptr, 0, &clErr);
         if (CL_SUCCESS != clErr)
           return clErr;
+        m_usmSystemBufferMap[pParamValue].push_back(usmPtr);
         buf = m_usmBuffers[usmPtr];
       }
       usmBufs.push_back(buf);
@@ -1735,8 +1731,7 @@ void *Context::SVMAlloc(cl_svm_mem_flags flags, size_t size,
   if (oldMemFlags != 0 && oldMemFlags != CL_MEM_READ_WRITE &&
       oldMemFlags != CL_MEM_WRITE_ONLY && oldMemFlags != CL_MEM_READ_ONLY) {
     LOG_ERROR(TEXT("CL_MEM_READ_WRITE or CL_MEM_WRITE_ONLY and "
-                   "CL_MEM_READ_ONLY are mutually exclusive"),
-              "");
+                   "CL_MEM_READ_ONLY are mutually exclusive"));
     return nullptr;
   }
 
@@ -1759,11 +1754,9 @@ void *Context::SVMAlloc(cl_svm_mem_flags flags, size_t size,
          !(devSvmCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER)) ||
         ((flags & CL_MEM_SVM_ATOMICS) &&
          !(devSvmCapabilities & CL_DEVICE_SVM_ATOMICS))) {
-      LOG_ERROR(
-          TEXT(
-              "CL_MEM_SVM_FINE_GRAIN_BUFFER or CL_MEM_SVM_ATOMICS is specified "
-              "in flags and these are not supported by all devices in context"),
-          "");
+      LOG_ERROR(TEXT(
+          "CL_MEM_SVM_FINE_GRAIN_BUFFER or CL_MEM_SVM_ATOMICS is specified in "
+          "flags and these are not supported by all devices in context"));
       return nullptr;
     }
   }
@@ -1796,7 +1789,7 @@ void *Context::SVMAlloc(cl_svm_mem_flags flags, size_t size,
 void Context::SVMFree(void *pSvmPtr) {
   OclAutoWriter mu(&m_svmBuffersRwlock);
   if (m_svmBuffers.find(pSvmPtr) == m_svmBuffers.end()) {
-    LOG_ERROR(TEXT("pSvmPtr isn't an SVM buffer"), "");
+    LOG_ERROR(TEXT("pSvmPtr isn't an SVM buffer"));
     return;
   }
   m_svmBuffers.erase(pSvmPtr);
@@ -1843,8 +1836,7 @@ Context::ParseUSMAllocProperties(const cl_mem_properties_intel *properties,
 
     while (0 != properties[i]) {
       if (propertyMap.find(properties[i]) != propertyMap.end()) {
-        LOG_ERROR(TEXT("%s"),
-                  TEXT("the same property name is specified more than once"));
+        LOG_ERROR(TEXT("the same property name is specified more than once"));
         *errcode_ret = CL_INVALID_PROPERTY;
         return flags;
       }
@@ -1857,8 +1849,7 @@ Context::ParseUSMAllocProperties(const cl_mem_properties_intel *properties,
                        [currentProperty](const cl_context_properties &prop) {
                          return prop == currentProperty;
                        })) {
-        LOG_ERROR(TEXT("%s"),
-                  TEXT("property name is not a supported property name"));
+        LOG_ERROR(TEXT("property name is not a supported property name"));
         *errcode_ret = CL_INVALID_PROPERTY;
         return flags;
       }
@@ -1925,12 +1916,12 @@ void *Context::USMAlloc(cl_unified_shared_memory_type_intel type,
     numDevices = 1;
     bool res = GetDevicesFromList(numDevices, &device, &pDevice);
     if (false == res) {
-      LOG_ERROR(TEXT("%s"), TEXT("GetDevicesFromList returns false"));
+      LOG_ERROR(TEXT("GetDevicesFromList returns false"));
       USM_ALLOC_ERR_RET(CL_INVALID_DEVICE);
     }
     pDevices = &pDevice;
   } else if (CL_MEM_TYPE_DEVICE_INTEL == type) {
-    LOG_ERROR(TEXT("%s"), TEXT("device is nullptr"));
+    LOG_ERROR(TEXT("device is nullptr"));
     USM_ALLOC_ERR_RET(CL_INVALID_DEVICE);
   } else {
     numDevices = m_mapDevices.Count();
@@ -1983,7 +1974,7 @@ void *Context::USMAlloc(cl_unified_shared_memory_type_intel type,
     }
   }
   if (!capSupported) {
-    LOG_ERROR(TEXT("no devices support this type of USM allocation"), "");
+    LOG_ERROR(TEXT("no devices support this type of USM allocation"));
     USM_ALLOC_ERR_RET(CL_INVALID_OPERATION);
   }
 
@@ -2059,9 +2050,13 @@ void *Context::USMSharedAlloc(cl_device_id device,
 cl_int Context::USMFree(void *usmPtr) {
   OclAutoWriter mu(&m_usmBuffersRwlock);
   if (m_usmBuffers.find(usmPtr) == m_usmBuffers.end()) {
-    LOG_ERROR(TEXT("usmPtr isn't an USM buffer"), "");
+    LOG_ERROR(TEXT("usmPtr isn't an USM buffer"));
     return CL_INVALID_VALUE;
   }
+  // If usm ptr has mapped to shared system buffers, we need to free them
+  // firstly.
+  for (auto &systemBuffer : m_usmSystemBufferMap[usmPtr])
+    m_usmBuffers.erase(systemBuffer);
   m_usmBuffers.erase(usmPtr);
   return CL_SUCCESS;
 }

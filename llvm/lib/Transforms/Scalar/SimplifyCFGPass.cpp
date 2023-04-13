@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -134,12 +134,12 @@ performBlockTailMerging(Function &F, ArrayRef<BasicBlock *> BBs,
       std::get<1>(I) = PHINode::Create(std::get<0>(I)->getType(),
                                        /*NumReservedValues=*/BBs.size(),
                                        CanonicalBB->getName() + ".op");
-      std::get<1>(I)->insertAt(CanonicalBB, CanonicalBB->end());
+      std::get<1>(I)->insertInto(CanonicalBB, CanonicalBB->end());
     }
     // Make it so that this canonical block actually has the right
     // terminator.
     CanonicalTerm = Term->clone();
-    CanonicalTerm->insertAt(CanonicalBB, CanonicalBB->end());
+    CanonicalTerm->insertInto(CanonicalBB, CanonicalBB->end());
     // If the canonical terminator has operands, rewrite it to take PHI's.
     for (auto I : zip(NewOps, CanonicalTerm->operands()))
       std::get<1>(I) = std::get<0>(I);
@@ -375,8 +375,8 @@ void SimplifyCFGPass::printPipeline(
     raw_ostream &OS, function_ref<StringRef(StringRef)> MapClassName2PassName) {
   static_cast<PassInfoMixin<SimplifyCFGPass> *>(this)->printPipeline(
       OS, MapClassName2PassName);
-  OS << "<";
-  OS << "bonus-inst-threshold=" << Options.BonusInstThreshold << ";";
+  OS << '<';
+  OS << "bonus-inst-threshold=" << Options.BonusInstThreshold << ';';
   OS << (Options.ForwardSwitchCondToPhi ? "" : "no-") << "forward-switch-cond;";
   OS << (Options.ConvertSwitchRangeToICmp ? "" : "no-")
      << "switch-range-to-icmp;";
@@ -385,7 +385,7 @@ void SimplifyCFGPass::printPipeline(
   OS << (Options.NeedCanonicalLoop ? "" : "no-") << "keep-loops;";
   OS << (Options.HoistCommonInsts ? "" : "no-") << "hoist-common-insts;";
   OS << (Options.SinkCommonInsts ? "" : "no-") << "sink-common-insts";
-  OS << ">";
+  OS << '>';
 }
 
 PreservedAnalyses SimplifyCFGPass::run(Function &F,
@@ -449,8 +449,6 @@ struct CFGSimplifyPass : public FunctionPass {
     if (RequireAndPreserveDomTree)
       AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();     // INTEL
-    AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
     if (RequireAndPreserveDomTree)
       AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();

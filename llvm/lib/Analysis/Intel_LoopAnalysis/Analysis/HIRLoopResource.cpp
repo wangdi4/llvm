@@ -311,6 +311,10 @@ public:
   void visitCouldNotCompute(const SCEVCouldNotCompute *CNC) {
     llvm_unreachable("Found could not compute!!");
   }
+
+  void visitVScale(const SCEVVScale *SC) {
+    llvm_unreachable("Found SCEVVScale!");
+  }
 };
 
 void LoopResourceInfo::LoopResourceVisitor::visit(unsigned BlobIndex,
@@ -662,6 +666,48 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
 
   } else if (Inst->mayReadOrWriteMemory()) {
     return LoopResourceInfo::OperationCost::MemOp;
+
+  } else if (isa<CallInst>(Inst)) {
+
+    auto *Intrin = dyn_cast<IntrinsicInst>(Inst);
+
+    // Assume like intrinsics 'annotate' IR so they do not cost anything.
+    // TODO: Add other calls (like region.entry/region/exit intrinsics) that may
+    // be classified as free.
+    if (Intrin && Intrin->isAssumeLikeIntrinsic()) {
+      return LoopResourceInfo::OperationCost::FreeOp;
+    }
+
+    return LoopResourceInfo::OperationCost::BasicOp;
+
+  } else if (isa<InsertElementInst>(Inst) || isa<ExtractElementInst>(Inst)) {
+
+    auto *VecType = HInst->getOperandDDRef(1)->getDestType();
+    auto *IndexRef = HInst->getOperandDDRef(2);
+    unsigned Index = -1;
+    int64_t Val = 0;
+    if (IndexRef->isIntConstant(&Val)) {
+      Index = Val;
+    }
+
+    Cost = TTI.getVectorInstrCost(Inst->getOpcode(), VecType,
+                                  TTI::TCK_SizeAndLatency, Index);
+
+  } else if (isa<ShuffleVectorInst>(Inst)) {
+    return LoopResourceInfo::OperationCost::ExpensiveOp;
+
+  } else if (isa<InsertValueInst>(Inst) || isa<ExtractValueInst>(Inst) ||
+             isa<AllocaInst>(Inst) ||
+             (Inst->getOpcode() == Instruction::FNeg)) {
+    return LoopResourceInfo::OperationCost::BasicOp;
+
+  } else if (isa<FreezeInst>(Inst) || isa<ReturnInst>(Inst) ||
+             isa<UnreachableInst>(Inst)) {
+    return LoopResourceInfo::OperationCost::FreeOp;
+
+  } else {
+    LLVM_DEBUG(HInst->dump());
+    llvm_unreachable("Could not compute cost of instruction!");
   }
 
   return getNormalizedCost(Cost);

@@ -57,6 +57,9 @@ public:
        for (int i = 0; i < Csize; ++i)
           d.C[i] = 1;
      }
+     #pragma omp target map(from:d.C[0:Csize])
+     for (int i = 0; i < Csize; ++i)
+        d.C[i] = 1;
    }
 };
 
@@ -125,6 +128,8 @@ void foo() {
 // CHECK-NEXT:    [[CSIZE:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[D_MAP_PTR_TMP:%.*]] = alloca ptr, align 8
 // CHECK-NEXT:    [[I:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[D_MAP_PTR_TMP14:%.*]] = alloca ptr, align 8
+// CHECK-NEXT:    [[I15:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    store ptr [[THIS]], ptr [[THIS_ADDR]], align 8
 // CHECK-NEXT:    store ptr [[D]], ptr [[D_ADDR]], align 8
 // CHECK-NEXT:    [[THIS1:%.*]] = load ptr, ptr [[THIS_ADDR]], align 8
@@ -197,11 +202,52 @@ void foo() {
 // CHECK-NEXT:    [[TMP37:%.*]] = load i32, ptr [[I]], align 4
 // CHECK-NEXT:    [[INC:%.*]] = add nsw i32 [[TMP37]], 1
 // CHECK-NEXT:    store i32 [[INC]], ptr [[I]], align 4
-// CHECK-NEXT:    br label [[FOR_COND]], !llvm.loop [[LOOP5:![0-9]+]]
+// CHECK-NEXT:    br label [[FOR_COND]], !llvm.loop [[LOOP6:![0-9]+]]
 // CHECK:       for.end:
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP31]]) [ "DIR.OMP.END.TEAMS"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP29]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP25]]) [ "DIR.OMP.END.TARGET.DATA"() ]
+// CHECK-NEXT:    [[TMP38:%.*]] = load ptr, ptr [[D_ADDR]], align 8
+// CHECK-NEXT:    [[TMP39:%.*]] = load ptr, ptr [[D_ADDR]], align 8
+// CHECK-NEXT:    [[TMP40:%.*]] = load ptr, ptr [[D_ADDR]], align 8
+// CHECK-NEXT:    [[C10:%.*]] = getelementptr inbounds [[STRUCT_DESCRIPTOR]], ptr [[TMP40]], i32 0, i32 1
+// CHECK-NEXT:    [[TMP41:%.*]] = load ptr, ptr [[D_ADDR]], align 8
+// CHECK-NEXT:    [[C11:%.*]] = getelementptr inbounds [[STRUCT_DESCRIPTOR]], ptr [[TMP41]], i32 0, i32 1
+// CHECK-NEXT:    [[TMP42:%.*]] = load ptr, ptr [[C11]], align 8
+// CHECK-NEXT:    [[ARRAYIDX12:%.*]] = getelementptr inbounds float, ptr [[TMP42]], i64 0
+// CHECK-NEXT:    [[TMP43:%.*]] = load i32, ptr [[CSIZE]], align 4
+// CHECK-NEXT:    [[CONV13:%.*]] = zext i32 [[TMP43]] to i64
+// CHECK-NEXT:    [[TMP44:%.*]] = mul nuw i64 [[CONV13]], 4
+// CHECK-NEXT:    [[TMP45:%.*]] = getelementptr ptr, ptr [[C10]], i32 1
+// CHECK-NEXT:    [[TMP46:%.*]] = ptrtoint ptr [[TMP45]] to i64
+// CHECK-NEXT:    [[TMP47:%.*]] = ptrtoint ptr [[C10]] to i64
+// CHECK-NEXT:    [[TMP48:%.*]] = sub i64 [[TMP46]], [[TMP47]]
+// CHECK-NEXT:    [[TMP49:%.*]] = sdiv exact i64 [[TMP48]], ptrtoint (ptr getelementptr (i8, ptr null, i32 1) to i64)
+// CHECK-NEXT:    [[TMP50:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 2), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP39]], ptr [[C10]], i64 [[TMP49]], i64 32, ptr null, ptr null), "QUAL.OMP.MAP.FROM:CHAIN"(ptr [[C10]], ptr [[ARRAYIDX12]], i64 [[TMP44]], i64 281474976710674, ptr null, ptr null), "QUAL.OMP.FIRSTPRIVATE"(ptr [[CSIZE]]), "QUAL.OMP.PRIVATE"(ptr [[I15]]), "QUAL.OMP.PRIVATE"(ptr [[D_MAP_PTR_TMP14]]) ]
+// CHECK-NEXT:    store ptr [[TMP39]], ptr [[D_MAP_PTR_TMP14]], align 8
+// CHECK-NEXT:    store i32 0, ptr [[I15]], align 4
+// CHECK-NEXT:    br label [[FOR_COND16:%.*]]
+// CHECK:       for.cond16:
+// CHECK-NEXT:    [[TMP51:%.*]] = load i32, ptr [[I15]], align 4
+// CHECK-NEXT:    [[TMP52:%.*]] = load i32, ptr [[CSIZE]], align 4
+// CHECK-NEXT:    [[CMP17:%.*]] = icmp ult i32 [[TMP51]], [[TMP52]]
+// CHECK-NEXT:    br i1 [[CMP17]], label [[FOR_BODY18:%.*]], label [[FOR_END24:%.*]]
+// CHECK:       for.body18:
+// CHECK-NEXT:    [[TMP53:%.*]] = load ptr, ptr [[D_MAP_PTR_TMP14]], align 8
+// CHECK-NEXT:    [[C19:%.*]] = getelementptr inbounds [[STRUCT_DESCRIPTOR]], ptr [[TMP53]], i32 0, i32 1
+// CHECK-NEXT:    [[TMP54:%.*]] = load ptr, ptr [[C19]], align 8
+// CHECK-NEXT:    [[TMP55:%.*]] = load i32, ptr [[I15]], align 4
+// CHECK-NEXT:    [[IDXPROM20:%.*]] = sext i32 [[TMP55]] to i64
+// CHECK-NEXT:    [[ARRAYIDX21:%.*]] = getelementptr inbounds float, ptr [[TMP54]], i64 [[IDXPROM20]]
+// CHECK-NEXT:    store float 1.000000e+00, ptr [[ARRAYIDX21]], align 4
+// CHECK-NEXT:    br label [[FOR_INC22:%.*]]
+// CHECK:       for.inc22:
+// CHECK-NEXT:    [[TMP56:%.*]] = load i32, ptr [[I15]], align 4
+// CHECK-NEXT:    [[INC23:%.*]] = add nsw i32 [[TMP56]], 1
+// CHECK-NEXT:    store i32 [[INC23]], ptr [[I15]], align 4
+// CHECK-NEXT:    br label [[FOR_COND16]], !llvm.loop [[LOOP8:![0-9]+]]
+// CHECK:       for.end24:
+// CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP50]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    ret void
 //
 //

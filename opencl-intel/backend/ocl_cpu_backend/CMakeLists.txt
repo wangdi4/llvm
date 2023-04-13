@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2021-2022 Intel Corporation
+# Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -143,13 +143,14 @@ set(OCL_CPU_BACKEND_SOURCE_FILES
     ProgramBuilder.cpp
     ServiceFactory.cpp
     cpu_builtin_functions.cpp
+    opencl_sort_impl.cpp
     debuggingservicewrapper.cpp
     dllmain.cpp
     ocl_debug_builtins.cpp
     opencl20_ext_execution.cpp
     opencl_cpu_printf_ext.cpp
     opencl_printf_ext.cpp
-    opencl_task_sequence.cpp
+    Intel_opencl_task_sequence.cpp  # INTEL
     AsmCompiler.cpp)
 if(WIN32)
   list(APPEND OCL_CPU_BACKEND_INCLUDE_FILES LLDJITBuilder.h LLDJIT.h)
@@ -162,6 +163,7 @@ endif(WIN32)
 # Add include directories
 set(INCLUDE_DIRS
     ${LLVM_INCLUDE_DIRS}
+    ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib
     ${CL_API_HEADERS}
     ${OCL_CPU_BACKEND_DIR}
     ${OCL_SOURCE_DIR}/utils/cache_binary_handler
@@ -169,7 +171,6 @@ set(INCLUDE_DIRS
     ${OCL_SOURCE_DIR}/utils/CLElfLib
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export
     ${BACKEND_ROOT_DIR}/arch_headers
-    ${BACKEND_ROOT_DIR}/vectorizer/Utils
     ${BACKEND_ROOT_DIR}/optimizer
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/dynamic_lib

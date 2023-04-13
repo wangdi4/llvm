@@ -117,10 +117,16 @@ exit:
 ; {17,+,-1,+,2} -> X=-3, Y=20, Z=2
 ;
 ; CHECK-LABEL: Printing analysis 'Scalar Evolution Analysis' for function 'test03':
-; CHECK: {{.*}}GetQuadraticEquation{{.*}}: analyzing quadratic addrec: {1,+,-1,+,2}<%loop>
+; INTEL_CUSTOMIZATION
+; Initial value of AddRec changed from 1 to 0 due to an intel customization but
+; the result seems to be the same.
+; CHECK: {{.*}}GetQuadraticEquation{{.*}}: analyzing quadratic addrec: {0,+,-1,+,2}<%loop>
+; end INTEL_CUSTOMIZATION
 ; CHECK: {{.*}}GetQuadraticEquation{{.*}}: addrec coeff bw: 4
-; CHECK: {{.*}}GetQuadraticEquation{{.*}}: equation 2x^2 + -4x + 2, coeff bw: 5, multiplied by 2
-; CHECK: {{.*}}SolveQuadraticAddRecExact{{.*}}: solving for unsigned overflow
+; INTEL_CUSTOMIZATION
+; CHECK: {{.*}}GetQuadraticEquation{{.*}}: equation 2x^2 + -4x + 0, coeff bw: 5, multiplied by 2
+; CHECK: {{.*}}SolveQuadraticAddRecRange{{.*}}: solving for unsigned overflow
+; end INTEL_CUSTOMIZATION
 ; CHECK: {{.*}}SolveQuadraticEquationWrap{{.*}}: solving 2x^2 + -4x + 2, rw:5
 ; CHECK: {{.*}}SolveQuadraticEquationWrap{{.*}}: updated coefficients 2x^2 + -4x + 2, rw:5
 ; CHECK: {{.*}}SolveQuadraticEquationWrap{{.*}}: solution (root): 1

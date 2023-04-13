@@ -146,6 +146,39 @@ TRACE_FN_DEF(zeCommandListAppendMemoryCopy)(
   return rc;
 }
 
+TRACE_FN_DEF(zeCommandListAppendMemoryCopyRegion)(
+    ze_command_list_handle_t hCommandList,
+    void *dstptr,
+    const ze_copy_region_t *dstRegion,
+    uint32_t dstPitch,
+    uint32_t dstSlicePitch,
+    const void *srcptr,
+    const ze_copy_region_t *srcRegion,
+    uint32_t srcPitch,
+    uint32_t srcSlicePitch,
+    ze_event_handle_t hSignalEvent,
+    uint32_t numWaitEvents,
+    ze_event_handle_t *phWaitEvents) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hCommandList);
+  TRACE_FN_ARG_PTR(dstptr);
+  TRACE_FN_ARG_PTR(dstRegion);
+  TRACE_FN_ARG_UINT(dstPitch);
+  TRACE_FN_ARG_UINT(dstSlicePitch);
+  TRACE_FN_ARG_PTR(srcptr);
+  TRACE_FN_ARG_PTR(srcRegion);
+  TRACE_FN_ARG_UINT(srcPitch);
+  TRACE_FN_ARG_UINT(srcSlicePitch);
+  TRACE_FN_ARG_PTR(hSignalEvent);
+  TRACE_FN_ARG_UINT(numWaitEvents);
+  TRACE_FN_ARG_PTR(phWaitEvents);
+  TRACE_FN_ARG_END();
+  return zeCommandListAppendMemoryCopyRegion(
+      hCommandList, dstptr, dstRegion, dstPitch, dstSlicePitch, srcptr,
+      srcRegion, srcPitch, srcSlicePitch, hSignalEvent, numWaitEvents,
+      phWaitEvents);
+}
+
 TRACE_FN_DEF(zeCommandListAppendMemoryPrefetch)(
     ze_command_list_handle_t hCommandList,
     const void *ptr,

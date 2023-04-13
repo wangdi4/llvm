@@ -1,15 +1,14 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
 ; Verify that we are able to parse the load of %0 successfully even though the pointer operand of base GEP %int_cst13.i is unsupported. This is done by restricting parser from tracing back to the unsupported type.
 
 ; CHECK: + DO i1 = 0, 49, 1   <DO_LOOP>
-; CHECK: |   if (undef #UNDEF# undef)
+; CHECK: |   if (undef == 0)
 ; CHECK: |   {
 ; CHECK: |      %1 = (i64*)(%int_cst13.i)[2];
 ; CHECK: |   }
-; CHECK: |   if (undef #UNDEF# undef)
+; CHECK: |   if (undef == 0)
 ; CHECK: |   {
 ; CHECK: |   }
 ; CHECK: + END LOOP

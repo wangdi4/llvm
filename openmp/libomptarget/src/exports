@@ -26,6 +26,8 @@ VERS1.0 {
     __tgt_target_teams_nowait_mapper;
     __tgt_target_kernel;
     __tgt_target_kernel_nowait;
+    __tgt_target_nowait_query;
+    __tgt_target_kernel_replay;
     __tgt_mapper_num_components;
     __tgt_push_mapper_component;
 # INTEL_COLLAB
@@ -50,6 +52,9 @@ VERS1.0 {
     __tgt_target_alloc_per_hw_thread_scratch;
     __tgt_target_free_per_hw_thread_scratch;
 # end INTEL_COLLAB
+    __kmpc_push_target_tripcount;
+    __kmpc_push_target_tripcount_mapper;
+    omp_get_mapped_ptr;
     omp_get_num_devices;
     omp_get_device_num;
     omp_get_initial_device;
@@ -61,7 +66,6 @@ VERS1.0 {
     omp_target_associate_ptr;
     omp_target_disassociate_ptr;
 # INTEL_COLLAB
-    omp_get_mapped_ptr;
     omp_target_is_accessible;
     omp_target_alloc_device;
     omp_target_alloc_host;
@@ -92,10 +96,8 @@ VERS1.0 {
     ompx_get_device_info;
     ompx_target_aligned_alloc_shared_with_hint;
     ompx_target_prefetch_shared_mem;
+    ompx_get_device_from_ptr;
 # end INTEL_COLLAB
-    __kmpc_push_target_tripcount;
-    __kmpc_push_target_tripcount;
-    __kmpc_push_target_tripcount_mapper;
     llvm_omp_target_alloc_host;
     llvm_omp_target_alloc_shared;
     llvm_omp_target_alloc_device;
@@ -103,6 +105,8 @@ VERS1.0 {
     llvm_omp_target_free_shared;
     llvm_omp_target_free_device;
     llvm_omp_target_dynamic_shared_alloc;
+    llvm_omp_target_lock_mem;
+    llvm_omp_target_unlock_mem;
     __tgt_set_info_flag;
     __tgt_print_device_info;
     omp_get_interop_ptr;
@@ -123,4 +127,3 @@ VERS1.0 {
   local:
     *;
 };
-

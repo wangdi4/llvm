@@ -37,7 +37,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Process.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include <mutex>
 
 #include "lld/Common/Driver.h"
@@ -213,7 +213,7 @@ static void dllExportGlobalCtors(Module *M) {
   if (!GV)
     return;
 
-  auto *Ctors = dyn_cast<ConstantArray>(GV->getInitializer());
+  auto *Ctors = cast<ConstantArray>(GV->getInitializer());
 
   for (Value *CtorVal : Ctors->operand_values()) {
     Constant *Ctor = cast<Constant>(CtorVal);

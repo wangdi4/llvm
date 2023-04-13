@@ -18,15 +18,11 @@ define <8 x double> @test(<2 x double> %x0, <4 x double> %x1, <4 x double> %x2, 
 ; CHECK-NEXT:    vmovapd {{.*#+}} ymm0 = [4,0,1,2]
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %ymm2 # 32-byte Reload
 ; CHECK-NEXT:    vpermi2pd {{[-0-9]+}}(%r{{[sb]}}p), %ymm2, %ymm0 # 32-byte Folded Reload
-; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
-; CHECK-NEXT:    vpermpd {{.*#+}} ymm1 = ymm2[3,3,3,3]
-; CHECK-NEXT:    vmovapd %ymm2, %ymm3
-; CHECK-NEXT:    vblendpd $2, {{[-0-9]+}}(%r{{[sb]}}p), %xmm1, %xmm1 # 16-byte Folded Reload
-; CHECK-NEXT:    # xmm1 = xmm1[0],mem[1]
-; CHECK-NEXT:    vmovapd {{.*#+}} ymm2 = <0,1,7,u>
-; CHECK-NEXT:    vpermi2pd %ymm3, %ymm1, %ymm2
-; CHECK-NEXT:    vbroadcastsd (%rsp), %ymm1 # 16-byte Folded Reload
-; CHECK-NEXT:    vblendpd {{.*#+}} ymm1 = ymm2[0,1,2],ymm1[3]
+; CHECK-NEXT:    vbroadcasti128 {{.*#+}} ymm1 = [3,5,3,5]
+; CHECK-NEXT:    # ymm1 = mem[0,1,0,1]
+; CHECK-NEXT:    vpermi2pd {{[-0-9]+}}(%r{{[sb]}}p), %ymm2, %ymm1 # 32-byte Folded Reload
+; CHECK-NEXT:    vbroadcastsd (%rsp), %ymm2 # 16-byte Folded Reload
+; CHECK-NEXT:    vblendpd {{.*#+}} ymm1 = ymm1[0,1,2],ymm2[3]
 ; CHECK-NEXT:    addq $120, %rsp
 ; CHECK-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-NEXT:    retq

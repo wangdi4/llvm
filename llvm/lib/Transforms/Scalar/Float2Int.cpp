@@ -70,36 +70,6 @@ MaxIntegerBW("float2int-max-integer-bw", cl::init(64), cl::Hidden,
              cl::desc("Max integer bitwidth to consider in float2int"
                       "(default=64)"));
 
-namespace {
-  struct Float2IntLegacyPass : public FunctionPass {
-    static char ID; // Pass identification, replacement for typeid
-    Float2IntLegacyPass() : FunctionPass(ID) {
-      initializeFloat2IntLegacyPassPass(*PassRegistry::getPassRegistry());
-    }
-
-    bool runOnFunction(Function &F) override {
-      if (skipFunction(F))
-        return false;
-
-      const DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-      return Impl.runImpl(F, DT);
-    }
-
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.setPreservesCFG();
-      AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addPreserved<GlobalsAAWrapperPass>();
-      AU.addPreserved<AndersensAAWrapperPass>();       // INTEL
-    }
-
-  private:
-    Float2IntPass Impl;
-  };
-}
-
-char Float2IntLegacyPass::ID = 0;
-INITIALIZE_PASS(Float2IntLegacyPass, "float2int", "Float to int", false, false)
-
 // Given a FCmp predicate, return a matching ICmp predicate if one
 // exists, otherwise return BAD_ICMP_PREDICATE.
 static CmpInst::Predicate mapFCmpPred(CmpInst::Predicate P) {
@@ -209,7 +179,7 @@ void Float2IntPass::walkBackwards() {
     Instruction *I = Worklist.back();
     Worklist.pop_back();
 
-    if (SeenInsts.find(I) != SeenInsts.end())
+    if (SeenInsts.contains(I))
       // Seen already.
       continue;
 
@@ -258,7 +228,7 @@ void Float2IntPass::walkBackwards() {
 
 // Calculate result range from operand ranges.
 // Return std::nullopt if the range cannot be calculated yet.
-Optional<ConstantRange> Float2IntPass::calcRange(Instruction *I) {
+std::optional<ConstantRange> Float2IntPass::calcRange(Instruction *I) {
   SmallVector<ConstantRange, 4> OpRanges;
   for (Value *O : I->operands()) {
     if (Instruction *OI = dyn_cast<Instruction>(O)) {
@@ -357,7 +327,7 @@ void Float2IntPass::walkForwards() {
     Instruction *I = Worklist.back();
     Worklist.pop_back();
 
-    if (Optional<ConstantRange> Range = calcRange(I))
+    if (std::optional<ConstantRange> Range = calcRange(I))
       seen(I, *Range);
     else
       Worklist.push_front(I); // Reprocess later.
@@ -393,7 +363,7 @@ bool Float2IntPass::validateAndTransform() {
           ConvertedToTy = I->getType();
         for (User *U : I->users()) {
           Instruction *UI = dyn_cast<Instruction>(U);
-          if (!UI || SeenInsts.find(UI) == SeenInsts.end()) {
+          if (!UI || !SeenInsts.contains(UI)) {
             LLVM_DEBUG(dbgs() << "F2I: Failing because of " << *U << "\n");
             Fail = true;
             break;
@@ -413,8 +383,9 @@ bool Float2IntPass::validateAndTransform() {
 
     // The number of bits required is the maximum of the upper and
     // lower limits, plus one so it can be signed.
-    unsigned MinBW = std::max(R.getLower().getMinSignedBits(),
-                              R.getUpper().getMinSignedBits()) + 1;
+    unsigned MinBW = std::max(R.getLower().getSignificantBits(),
+                              R.getUpper().getSignificantBits()) +
+                     1;
     LLVM_DEBUG(dbgs() << "F2I: MinBitwidth=" << MinBW << ", R: " << R << "\n");
 
     // If we've run off the realms of the exactly representable integers,
@@ -449,7 +420,7 @@ bool Float2IntPass::validateAndTransform() {
 }
 
 Value *Float2IntPass::convert(Instruction *I, Type *ToTy) {
-  if (ConvertedInsts.find(I) != ConvertedInsts.end())
+  if (ConvertedInsts.contains(I))
     // Already converted this instruction.
     return ConvertedInsts[I];
 
@@ -550,9 +521,6 @@ bool Float2IntPass::runImpl(Function &F, const DominatorTree &DT) {
   return Modified;
 }
 
-namespace llvm {
-FunctionPass *createFloat2IntPass() { return new Float2IntLegacyPass(); }
-
 PreservedAnalyses Float2IntPass::run(Function &F, FunctionAnalysisManager &AM) {
   const DominatorTree &DT = AM.getResult<DominatorTreeAnalysis>(F);
   if (!runImpl(F, DT))
@@ -562,4 +530,3 @@ PreservedAnalyses Float2IntPass::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserveSet<CFGAnalyses>();
   return PA;
 }
-} // End namespace llvm

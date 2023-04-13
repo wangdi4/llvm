@@ -1,6 +1,7 @@
-//===-- VPODirectiveCleanup.cpp-----------------------------------------------------===//
+//===--
+//VPODirectiveCleanup.cpp-----------------------------------------------------===//
 //
-//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -33,9 +34,7 @@ static cl::opt<bool>
                                cl::Hidden,
                                cl::desc("Disable VPO directive cleanup"));
 
-
 void VPODirectiveCleanup::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addPreserved<AndersensAAWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
 }
 
@@ -60,6 +59,9 @@ bool VPODirectiveCleanupPass::runImpl(Function &F) {
 
   // Remove compiler generated fence between the scan directives, if present.
   bool Changed = removeScanFence(F);
+
+  // Remove llvm.intel.directive.elementsize intrinsics, if present.
+  Changed |= removeElementsizeIntrinsics(F);
 
   // Remove calls to directive intrinsics since the LLVM back end does not know
   // how to translate them.
@@ -133,6 +135,21 @@ bool VPODirectiveCleanupPass::removeScanFence(Function &F) {
   }
 
   return Changed;
+}
+
+bool VPODirectiveCleanupPass::removeElementsizeIntrinsics(Function &F) {
+  SmallVector<Instruction *, 2> ToRemove;
+  for (Instruction &I : instructions(F)) {
+    // Remove any calls to llvm.intel.directive.elementsize intrinsics
+    if (auto *II = dyn_cast<IntrinsicInst>(&I))
+      if (II->getIntrinsicID() == Intrinsic::intel_directive_elementsize)
+        ToRemove.push_back(&I);
+  }
+
+  for (auto *II : ToRemove)
+    II->eraseFromParent();
+
+  return ToRemove.size() > 0;
 }
 
 INITIALIZE_PASS_BEGIN(VPODirectiveCleanup, "VPODirectiveCleanup",

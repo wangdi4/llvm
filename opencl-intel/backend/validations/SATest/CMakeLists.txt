@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -77,7 +77,6 @@ endif()
 add_opencl_executable(
   ${TARGET_NAME}
   EXCLUDE_FROM_ALL_BUILD
-  ${VALIDATIONS_ROOT}/Common/md5.cpp
   OpenCLArgsBuffer.cpp
   OpenCLBackendRunner.cpp
   OpenCLBackendWrapper.cpp
@@ -94,7 +93,6 @@ add_opencl_executable(
   RunnerFactoryGenerator.cpp
   SATest.cpp
   dbg_utils.cpp
-  dllmain.cpp
   main.cpp
   mem_utils.cpp)
 
@@ -109,8 +107,20 @@ target_link_libraries(
   DataManager
   DataVersion
   ImathLibd
+  LLVMAsmParser
+  LLVMBinaryFormat
+  LLVMDebugInfoDWARF
+  LLVMDebugInfoTraceBack
   LLVMInterpreterPluggable
-  LoopUtils
+  LLVMIntel_Debug
+  LLVMMC
+  LLVMMCDisassembler
+  LLVMMCParser
+  LLVMObject
+  LLVMOrcTargetProcess
+  LLVMTargetParser
+  LLVMVPOTransforms
+  LLVMVectorize
   NEAT
   OCLBuilder
   OCLBuiltinsRef
@@ -124,6 +134,7 @@ target_link_libraries(
   PlugInNEAT
   ProgramConfiguration
   REFALU
+  cl_hw_utils
   cl_logger
   cl_sys_utils
   clang_compiler
@@ -135,8 +146,10 @@ target_link_libraries(
 
 if(WIN32)
   target_link_libraries(${TARGET_NAME} lldCOFF lldCommon)
-endif(WIN32)
-
-if(NOT WIN32)
+else()
   add_dependencies(${TARGET_NAME} ImathLibd)
-endif(NOT WIN32)
+endif()
+
+if(HAVE_LIBPTHREAD)
+  target_link_libraries(${TARGET_NAME} pthread)
+endif()

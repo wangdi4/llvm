@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_PartialInline.cpp - Intel Partial Inlining      -*------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -686,74 +686,6 @@ bool PartialInliner::runImpl() {
   }
 
   return true;
-}
-
-namespace {
-
-struct IntelPartialInlineLegacyPass : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  IntelPartialInlineLegacyPass() : ModulePass(ID) {
-    initializeIntelPartialInlineLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addRequired<BlockFrequencyInfoWrapperPass>();
-
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-
-    if (skipModule(M))
-      return false;
-
-    // Lambda function to find the LoopInfo related to an input function
-    PartialInliner::LoopInfoFuncType GetLoopInfo =
-        [this](Function &F) -> LoopInfo & {
-      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    };
-
-    WholeProgramInfo *WPInfo =
-        &getAnalysis<WholeProgramWrapperPass>().getResult();
-
-    std::function<BlockFrequencyInfo &(Function &)> GetBFI =
-      [this](Function &F) -> BlockFrequencyInfo & {
-      return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
-    };
-
-    std::function<BranchProbabilityInfo &(Function &)> GetBPI =
-      [this](Function &F) -> BranchProbabilityInfo & {
-      return this->getAnalysis<BranchProbabilityInfoWrapperPass>(F).getBPI();
-    };
-
-    std::function<DominatorTree &(Function &)> GetDT =
-      [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-
-    // Implementation of the optimization
-    return PartialInliner(M, GetLoopInfo, &GetBFI, &GetBPI, &GetDT,
-                          WPInfo).runImpl();
-  }
-};
-
-} // namespace
-
-char IntelPartialInlineLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IntelPartialInlineLegacyPass, "intel-partialinline",
-                      "Intel partial inlining", false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
-INITIALIZE_PASS_END(IntelPartialInlineLegacyPass, "intel-partialinline",
-                    "Intel partial inlining", false, false)
-
-ModulePass *llvm::createIntelPartialInlineLegacyPass() {
-  return new IntelPartialInlineLegacyPass();
 }
 
 IntelPartialInlinePass::IntelPartialInlinePass() {}

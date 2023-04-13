@@ -37,10 +37,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
+using namespace llvm;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
-
-using namespace std;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // DeviceKernel C'tor
@@ -451,8 +450,8 @@ Kernel::~Kernel() {
 cl_err_code Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize,
                             void *pParamValue,
                             size_t *pszParamValueSizeRet) const {
-  LOG_DEBUG(TEXT("Enter Kernel::GetInfo (iParamName=%d, szParamValueSize=%d, "
-                 "pParamValue=%d, pszParamValueSizeRet=%d)"),
+  LOG_DEBUG(TEXT("Enter Kernel::GetInfo (iParamName=%d, szParamValueSize=%zu, "
+                 "pParamValue=%p, pszParamValueSizeRet=%p)"),
             iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
   size_t szParamSize = 0;
@@ -532,7 +531,7 @@ cl_err_code Kernel::GetSubGroupInfo(const SharedPtr<FissionableDevice> &device,
                                     const void *input_value, void *pParamValue,
                                     size_t *pszParamValueSizeRet) {
   LOG_DEBUG(TEXT("Enter Kernel::GetSubGroupInfo (pDevice=%p, iParamName=%d,\
-                    szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+                    szParamValueSize=%zu, pParamValue=%p, pszParamValueSizeRet=%p)"),
             device.GetPtr(), iParamName, szParamValueSize, pParamValue,
             pszParamValueSizeRet);
   assert("No context assigned to the kernel" && (NULL != m_pProgram.GetPtr()) &&
@@ -616,7 +615,7 @@ cl_err_code Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice> &device,
                                      size_t *pszParamValueSizeRet) {
   LOG_DEBUG(
       TEXT("Enter Kernel::GetWorkGroupInfo (pDevice=%p, iParamName=%d, "
-           "szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+           "szParamValueSize=%zu, pParamValue=%p, pszParamValueSizeRet=%p)"),
       device.GetPtr(), iParamName, szParamValueSize, pParamValue,
       pszParamValueSizeRet);
 
@@ -699,7 +698,7 @@ cl_err_code Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice> &device,
 // Kernel::CreateDeviceKernels
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Kernel::CreateDeviceKernels(
-    std::vector<unique_ptr<DeviceProgram>> &ppDevicePrograms) {
+    std::vector<std::unique_ptr<DeviceProgram>> &ppDevicePrograms) {
   if (ppDevicePrograms.empty()) {
     return CL_INVALID_VALUE;
   }
@@ -854,7 +853,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel *pDeviceKernel) {
     size_t numArgs = m_sKernelPrototype.m_vArguments.size();
     m_vArgumentsInfo.resize(numArgs);
 
-    llvm::SmallVector<cl_kernel_argument_info> argInfoArray(numArgs);
+    SmallVector<cl_kernel_argument_info> argInfoArray(numArgs);
 
     cl_dev_err_code clDevErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(
         pDeviceKernel->GetId(), CL_DEV_KERNEL_ARG_INFO, 0, nullptr,

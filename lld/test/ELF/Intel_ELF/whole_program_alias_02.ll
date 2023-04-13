@@ -5,7 +5,6 @@
 
 ; RUN: opt %s -o %t_wp2alias.bc
 ; RUN: ld.lld -e main --lto-O2 \
-; RUN:     -plugin-opt=new-pass-manager \
 ; RUN:     -mllvm -debug-only=whole-program-analysis \
 ; RUN:     -mllvm -whole-program-assume-executable %t_wp2alias.bc -o %t_wp2alias \
 ; RUN:     2>&1 | FileCheck %s
@@ -24,8 +23,8 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-@aliassub = unnamed_addr alias i32 (i32), i32 (i32)* @sub
-@aliassub2 = unnamed_addr alias i32 (i32), i32 (i32)* @aliassub
+@aliassub = unnamed_addr alias i32 (i32), ptr @sub
+@aliassub2 = unnamed_addr alias i32 (i32), ptr @aliassub
 
 define internal i32 @add(i32 %a) {
 entry:
@@ -39,7 +38,7 @@ entry:
   ret i32 %sub
 }
 
-define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
+define i32 @main(i32 %argc, ptr nocapture readnone %argv) {
 entry:
   %call1 = call i32 @add(i32 %argc)
   %call2 = call i32 @aliassub2(i32 %call1)

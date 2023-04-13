@@ -1,6 +1,6 @@
 //=-- Intel_MathLibrariesDeclaration.cpp - Add math function declaration -*--=//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -411,48 +411,4 @@ IntelMathLibrariesDeclarationPass::run(Module &M, ModuleAnalysisManager &AM) {
   MathLibsDecl.run();
 
   return PreservedAnalyses::all();
-}
-
-// Legacy pass manager
-namespace {
-
-class IntelMathLibrariesDeclarationWrapper : public ModulePass {
-public:
-  static char ID;
-
-  IntelMathLibrariesDeclarationWrapper() : ModulePass(ID) {
-    initializeIntelMathLibrariesDeclarationWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    TargetTransformInfoWrapperPass *TTIWP =
-        &getAnalysis<TargetTransformInfoWrapperPass>();
-    auto GetTTI = [&TTIWP](Function &F) -> TargetTransformInfo & {
-      return TTIWP->getTTI(F);
-    };
-    MathLibrariesDeclImpl MathLibsDecl(M, GetTTI);
-    return MathLibsDecl.run();
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
-} // end of anonymous namespace
-
-char IntelMathLibrariesDeclarationWrapper::ID = 0;
-
-INITIALIZE_PASS_BEGIN(IntelMathLibrariesDeclarationWrapper, DEBUG_TYPE,
-                      "Intel Math Libraries Declaration", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(IntelMathLibrariesDeclarationWrapper, DEBUG_TYPE,
-                    "Intel Math Libraries Declaration", false, false)
-
-ModulePass *llvm::createIntelMathLibrariesDeclarationWrapperPass() {
-  return new IntelMathLibrariesDeclarationWrapper();
 }

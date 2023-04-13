@@ -201,11 +201,7 @@ void DirectivesEmitter::run(raw_ostream &OS) {
   emitClausesIdsTable(OS);
 }
 
-namespace llvm {
-
-void EmitDirectives(RecordKeeper &RK, raw_ostream &OS) {
-  DirectivesEmitter(RK).run(OS);
-}
-
-} // End llvm namespace
+static TableGen::Emitter::OptClass<DirectivesEmitter>
+    X("gen-directives", "Generate directive enums and tables for "
+                        "parallel/vector constructs and regions");
 #endif // INTEL_COLLAB

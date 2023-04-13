@@ -1,4 +1,3 @@
-; RUN: opt -O3 -opt-bisect-limit=0 -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='default<O3>' -opt-bisect-limit=0 -S < %s 2>&1 | FileCheck %s
 
 ; Verify that the test passes when HIR deconstruction is disabled in opt-bisect mode.

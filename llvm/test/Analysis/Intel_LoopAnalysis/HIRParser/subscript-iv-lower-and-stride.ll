@@ -1,5 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-details-dims | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details-dims -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details-dims -disable-output 2>&1 | FileCheck %s
 
 ; Check that (%p) with IV LB and (%q) with IV stride are parsed with LB/Stride as a blob.
 

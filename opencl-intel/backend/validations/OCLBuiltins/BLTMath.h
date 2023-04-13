@@ -136,9 +136,9 @@ llvm::GenericValue lle_X_rootn(llvm::FunctionType *FT,
   return R;
 }
 
-// TODO: to check this functions with n != nj after CSSD100006419 will be
-// resolved (OCL backend can't build program with external function "gentype
-// ldexp (gentype x, int n)")
+// TODO: to check this functions with n != nj after the issue is resolved (OCL
+// backend can't build program with external function
+// "gentype ldexp (gentype x, int n)")
 template <typename T, int32_t n, int32_t nj>
 llvm::GenericValue lle_X_ldexp(llvm::FunctionType *FT,
                                llvm::ArrayRef<llvm::GenericValue> Args) {

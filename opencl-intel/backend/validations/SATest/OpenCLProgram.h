@@ -27,6 +27,10 @@ namespace llvm {
 class LLVMContext;
 }
 namespace Validation {
+
+// FIXME 'using namespace' shouldn't be used in header file.
+using namespace Intel::OpenCL::DeviceBackend;
+
 /// @brief This class contains OpenCL test program information
 class OpenCLProgram : public IProgram {
 public:

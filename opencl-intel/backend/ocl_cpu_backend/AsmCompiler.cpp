@@ -32,7 +32,6 @@
 #include "llvm/Support/Compression.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
@@ -40,6 +39,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/WithColor.h"
+#include "llvm/TargetParser/Host.h"
 #include <mutex>
 
 using namespace llvm;
@@ -139,6 +139,7 @@ int AsmCompiler::compileAsmToObjectFile(std::unique_ptr<MemoryBuffer> BufferPtr,
 
   MCCodeEmitter *CE = TheTarget->createMCCodeEmitter(*MCII, Ctx);
   MCAsmBackend *MAB = TheTarget->createMCAsmBackend(*STI, *MRI, MCOptions);
+  assert(MAB && "create MCAsmBackend failed!");
   Str.reset(TheTarget->createMCObjectStreamer(
       TheTriple, Ctx, std::unique_ptr<MCAsmBackend>(MAB),
       MAB->createObjectWriter(*OS), std::unique_ptr<MCCodeEmitter>(CE), *STI,

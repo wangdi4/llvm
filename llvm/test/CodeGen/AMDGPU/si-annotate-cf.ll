@@ -3,7 +3,7 @@
 ; RUN: llc < %s -march=amdgcn -mcpu=verde -verify-machineinstrs -mbb-optreport-opt=false | FileCheck --check-prefix=SI %s
 ; RUN: llc < %s -march=amdgcn -mcpu=tonga -mattr=-flat-for-global -verify-machineinstrs -mbb-optreport-opt=false | FileCheck --check-prefix=FLAT %s
 
-define amdgpu_kernel void @break_inserted_outside_of_loop(i32 addrspace(1)* %out, i32 %a) {
+define amdgpu_kernel void @break_inserted_outside_of_loop(ptr addrspace(1) %out, i32 %a) {
 ; SI-LABEL: break_inserted_outside_of_loop:
 ; SI:       ; %bb.0: ; %main_body
 ; SI-NEXT:    s_load_dword s2, s[0:1], 0xb
@@ -60,7 +60,7 @@ main_body:
   br label %ENDIF
 
 ENDLOOP:
-  store i32 0, i32 addrspace(1)* %out
+  store i32 0, ptr addrspace(1) %out
   ret void
 
 ENDIF:
@@ -140,7 +140,7 @@ exit:
   ret void
 }
 
-define amdgpu_kernel void @switch_unreachable(i32 addrspace(1)* %g, i8 addrspace(3)* %l, i32 %x) nounwind {
+define amdgpu_kernel void @switch_unreachable(ptr addrspace(1) %g, ptr addrspace(3) %l, i32 %x) nounwind {
 ; SI-LABEL: switch_unreachable:
 ; SI:       ; %bb.0: ; %centry
 ;
@@ -315,7 +315,7 @@ entry:
   br label %while.cond.outer
 
 while.cond.outer:
-  %tmp = load float, float addrspace(1)* undef
+  %tmp = load float, ptr addrspace(1) undef
   br label %while.cond
 
 while.cond:
@@ -332,7 +332,7 @@ if.end:
   br i1 %cmp2, label %if.else, label %while.cond.outer
 
 if.else:
-  store volatile i32 3, i32 addrspace(1)* undef, align 4
+  store volatile i32 3, ptr addrspace(1) undef, align 4
   br label %while.cond
 
 for.cond:

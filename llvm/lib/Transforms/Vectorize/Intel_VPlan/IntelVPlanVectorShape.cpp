@@ -57,6 +57,8 @@ VPVectorShape VPVectorShape::joinShapes(VPVectorShape Shape1,
     else
       return {VPVectorShape::Str, Shape1.getStride()};
   }
+  if (Shape1.isSOAShape() != Shape2.isSOAShape())
+    return getUndef();
 
   // We want to return SOARand for the following inputs
   // Shape1 = SOAStr, Shape2 = SOASeq

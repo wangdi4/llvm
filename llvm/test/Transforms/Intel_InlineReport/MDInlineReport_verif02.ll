@@ -1,4 +1,4 @@
-; RUN: opt -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
 
 ; This test checks that verification correctly works with deleted call sites.
 ; Note: the test depends on particular number for NinlrDeleted reason. In case
@@ -44,7 +44,6 @@
 ; CHECK-NEXT: [[L_A2_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[L_NAME:![0-9]+]], null, [[IS_INLINED_0:![0-9]+]], [[REASON_34:![0-9]+]], [[INLINE_COST_NEG1:![0-9]+]], [[OUTER_INLINE_COST_NEG1:![0-9]+]], [[INLINE_THRESHOLD:![0-9]+]], [[EARLY_EXIST_COST:![0-9]+]], [[EARLY_EXIST_THRESHOLD:![0-9]+]], [[LINE_COL_00:![^\!]+]], [[MODULE_NAME:![0-9]+]], [[SUPPRESS_PRINT:![0-9]+]]}
 ; CHECK-NEXT: [[Y_B2_MAIN_CS]] = distinct !{!"intel.callsite.inlining.report", [[Y_NAME:![0-9]+]], null, [[IS_INLINED_0:![0-9]+]], [[REASON_34:![0-9]+]], [[INLINE_COST_NEG1:![0-9]+]], [[OUTER_INLINE_COST_NEG1:![0-9]+]], [[INLINE_THRESHOLD:![0-9]+]], [[EARLY_EXIST_COST:![0-9]+]], [[EARLY_EXIST_THRESHOLD:![0-9]+]], [[LINE_COL_00:![^\!]+]], [[MODULE_NAME:![0-9]+]], [[SUPPRESS_PRINT:![0-9]+]]}
 
-
 ;IR with call site inlining reports unlinked from call instructions.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -67,11 +66,11 @@ if.end:                                           ; preds = %if.else, %if.then
   ret void
 }
 
-declare !intel.function.inlining.report !20 dso_local void @k(...) local_unnamed_addr
+declare !intel.function.inlining.report !21 dso_local void @k(...) local_unnamed_addr
 
-declare !intel.function.inlining.report !22 dso_local void @l(...) local_unnamed_addr
+declare !intel.function.inlining.report !23 dso_local void @l(...) local_unnamed_addr
 
-define dso_local void @b(i32 %n) local_unnamed_addr !intel.function.inlining.report !23 {
+define dso_local void @b(i32 %n) local_unnamed_addr !intel.function.inlining.report !24 {
 entry:
   %cmp = icmp slt i32 %n, 3
   br i1 %cmp, label %if.then, label %if.else
@@ -88,11 +87,11 @@ if.end:                                           ; preds = %if.else, %if.then
   ret void
 }
 
-declare !intel.function.inlining.report !30 dso_local void @x(...) local_unnamed_addr
+declare !intel.function.inlining.report !31 dso_local void @x(...) local_unnamed_addr
 
-declare !intel.function.inlining.report !31 dso_local void @y(...) local_unnamed_addr
+declare !intel.function.inlining.report !32 dso_local void @y(...) local_unnamed_addr
 
-define dso_local void @main() local_unnamed_addr !intel.function.inlining.report !32 {
+define dso_local void @main() local_unnamed_addr !intel.function.inlining.report !33 {
 entry:
   tail call void (...) @k()
   tail call void (...) @x()
@@ -103,17 +102,17 @@ entry:
 
 !llvm.module.flags = !{!0}
 !llvm.ident = !{!1}
-!intel.module.inlining.report = !{!2, !20, !22, !23, !30, !31, !32}
+!intel.module.inlining.report = !{!2, !21, !23, !24, !31, !32, !33}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{!"icx (ICX) dev.8.x.0"}
-!2 = distinct !{!"intel.function.inlining.report", !3, !4, !14, !17, !18, !19, !56}
+!2 = distinct !{!"intel.function.inlining.report", !3, !4, !14, !17, !18, !19, !20}
 !3 = !{!"name: a"}
 !4 = distinct !{!"intel.callsites.inlining.report", !5, !15}
 !5 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !6 = !{!"name: k"}
 !7 = !{!"isInlined: 0"}
-!8 = !{!"reason: 34"}                         ;NinlrExtern
+!8 = !{!"reason: 34"}
 !9 = !{!"inlineCost: -1"}
 !10 = !{!"outerInlineCost: -1"}
 !11 = !{!"inlineThreshold: -1"}
@@ -125,41 +124,40 @@ entry:
 !17 = !{!"isDead: 0"}
 !18 = !{!"isDeclaration: 0"}
 !19 = !{!"linkage: A"}
-!56 = !{!"language: C"}
-!20 = distinct !{!"intel.function.inlining.report", !6, null, !14, !17, !21, !19, !56}
-!21 = !{!"isDeclaration: 1"}
-!22 = distinct !{!"intel.function.inlining.report", !16, null, !14, !17, !21, !19, !56}
-!23 = distinct !{!"intel.function.inlining.report", !24, !25, !14, !17, !18, !19, !56}
-!24 = !{!"name: b"}
-!25 = distinct !{!"intel.callsites.inlining.report", !26, !28}
-!26 = distinct !{!"intel.callsite.inlining.report", !27, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!27 = !{!"name: x"}
-!28 = distinct !{!"intel.callsite.inlining.report", !29, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!29 = !{!"name: y"}
-!30 = distinct !{!"intel.function.inlining.report", !27, null, !14, !17, !21, !19, !56}
-!31 = distinct !{!"intel.function.inlining.report", !29, null, !14, !17, !21, !19, !56}
-!32 = distinct !{!"intel.function.inlining.report", !33, !34, !14, !17, !18, !19, !56}
-!33 = !{!"name: main"}
-!34 = distinct !{!"intel.callsites.inlining.report", !35, !44, !48, !52}
-!35 = distinct !{!"intel.callsite.inlining.report", !3, !36, !40, !41, !42, !10, !43, !12, !13, !"line: 0 col: 0", !14}
-!36 = distinct !{!"intel.callsites.inlining.report", !37, !38}
-!37 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!38 = distinct !{!"intel.callsite.inlining.report", !16, null, !7, !39, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!39 = !{!"reason: 31"}                          ;NinlrDeleted
-!40 = !{!"isInlined: 1"}
-!41 = !{!"reason: 9"}                           ;InlrSingleBasicBlock
-!42 = !{!"inlineCost: -5"}
-!43 = !{!"inlineThreshold: 337"}
-!44 = distinct !{!"intel.callsite.inlining.report", !24, !45, !40, !41, !42, !10, !43, !12, !13, !"line: 0 col: 0", !14}
-!45 = distinct !{!"intel.callsites.inlining.report", !46, !47}
-!46 = distinct !{!"intel.callsite.inlining.report", !27, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!47 = distinct !{!"intel.callsite.inlining.report", !29, null, !7, !39, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!48 = distinct !{!"intel.callsite.inlining.report", !3, !49, !40, !41, !42, !10, !43, !12, !13, !"line: 0 col: 0", !14}
-!49 = distinct !{!"intel.callsites.inlining.report", !50, !51}
-!50 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !39, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!51 = distinct !{!"intel.callsite.inlining.report", !16, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!52 = distinct !{!"intel.callsite.inlining.report", !24, !53, !40, !41, !42, !10, !43, !12, !13, !"line: 0 col: 0", !14}
-!53 = distinct !{!"intel.callsites.inlining.report", !54, !55}
-!54 = distinct !{!"intel.callsite.inlining.report", !27, null, !7, !39, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-!55 = distinct !{!"intel.callsite.inlining.report", !29, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
-
+!20 = !{!"language: C"}
+!21 = distinct !{!"intel.function.inlining.report", !6, null, !14, !17, !22, !19, !20}
+!22 = !{!"isDeclaration: 1"}
+!23 = distinct !{!"intel.function.inlining.report", !16, null, !14, !17, !22, !19, !20}
+!24 = distinct !{!"intel.function.inlining.report", !25, !26, !14, !17, !18, !19, !20}
+!25 = !{!"name: b"}
+!26 = distinct !{!"intel.callsites.inlining.report", !27, !29}
+!27 = distinct !{!"intel.callsite.inlining.report", !28, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
+!28 = !{!"name: x"}
+!29 = distinct !{!"intel.callsite.inlining.report", !30, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
+!30 = !{!"name: y"}
+!31 = distinct !{!"intel.function.inlining.report", !28, null, !14, !17, !22, !19, !20}
+!32 = distinct !{!"intel.function.inlining.report", !30, null, !14, !17, !22, !19, !20}
+!33 = distinct !{!"intel.function.inlining.report", !34, !35, !14, !17, !18, !19, !20}
+!34 = !{!"name: main"}
+!35 = distinct !{!"intel.callsites.inlining.report", !36, !45, !49, !53}
+!36 = distinct !{!"intel.callsite.inlining.report", !3, !37, !41, !42, !43, !10, !44, !12, !13, !"line: 0 col: 0", !14}
+!37 = distinct !{!"intel.callsites.inlining.report", !38, !39}
+!38 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
+!39 = distinct !{!"intel.callsite.inlining.report", !16, null, !7, !40, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
+!40 = !{!"reason: 31"}
+!41 = !{!"isInlined: 1"}
+!42 = !{!"reason: 9"}
+!43 = !{!"inlineCost: -5"}
+!44 = !{!"inlineThreshold: 337"}
+!45 = distinct !{!"intel.callsite.inlining.report", !25, !46, !41, !42, !43, !10, !44, !12, !13, !"line: 0 col: 0", !14}
+!46 = distinct !{!"intel.callsites.inlining.report", !47, !48}
+!47 = distinct !{!"intel.callsite.inlining.report", !28, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
+!48 = distinct !{!"intel.callsite.inlining.report", !30, null, !7, !40, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
+!49 = distinct !{!"intel.callsite.inlining.report", !3, !50, !41, !42, !43, !10, !44, !12, !13, !"line: 0 col: 0", !14}
+!50 = distinct !{!"intel.callsites.inlining.report", !51, !52}
+!51 = distinct !{!"intel.callsite.inlining.report", !6, null, !7, !40, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
+!52 = distinct !{!"intel.callsite.inlining.report", !16, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
+!53 = distinct !{!"intel.callsite.inlining.report", !25, !54, !41, !42, !43, !10, !44, !12, !13, !"line: 0 col: 0", !14}
+!54 = distinct !{!"intel.callsites.inlining.report", !55, !56}
+!55 = distinct !{!"intel.callsite.inlining.report", !28, null, !7, !40, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
+!56 = distinct !{!"intel.callsite.inlining.report", !30, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}

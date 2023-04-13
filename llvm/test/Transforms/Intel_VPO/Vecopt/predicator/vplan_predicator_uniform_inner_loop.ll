@@ -22,7 +22,7 @@ define void @foo(i32 %n1, i32 %n2, i64 %vf) {
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_CMP1:%.*]] = and i1 [[VP_LOOP_MASK]] i1 [[VP_CMP1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_CMP1:%.*]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_CMP1]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
@@ -50,7 +50,7 @@ define void @foo(i32 %n1, i32 %n2, i64 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB8]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND15_NOT:%.*]] = not i1 [[VP_EXITCOND15]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND15_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_EXITCOND15_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP7]], [[BB9:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:

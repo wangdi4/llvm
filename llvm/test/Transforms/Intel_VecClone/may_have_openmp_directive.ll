@@ -1,6 +1,6 @@
 ; Check to make sure that 'may-have-openmp-directive' appears after VecClone.
 
-; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: <4 x i32> @_ZGVbN4u_foo(i32 %b) #1
 ; CHECK: simd.begin.region:

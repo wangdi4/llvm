@@ -1615,8 +1615,10 @@ public:
 //   SubdeviceItem (for the Subdevice clause)
 //   DependItem    (for the depend  clause in task, taskwait and target
 //                  constructs)
-//   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
-//   DepSourceItem (for the depend(source) clause in ordered constructs)
+//   DoacrossSinkItem (for the doacross(sink:<vec>) clause in ordered
+//                     constructs)
+//   DoacrossSourceItem (for the doacross(source) clause in ordered
+//                       constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
 //   FlushItem     (for the flush clause)
 //   SizesItem     (for the sizes clause in tile constructs)
@@ -1628,7 +1630,7 @@ public:
 //   NontemporalItem (for the nontemporal clause in simd constructs)
 //
 // Clang collapses the 'n' loops for 'ordered(n)'. So VPO always
-// receives a single EXPR for depend(sink:sink_expr), which is already in
+// receives a single EXPR for doacross(sink:sink_expr), which is already in
 // the form ' IV +/- offset'.
 //
 class SubdeviceItem
@@ -1761,34 +1763,37 @@ class DetachItem : public Item {
     static bool classof(const Item *I) { return I->getKind() == IK_Detach; }
 };
 
-class DepSrcSinkItem {
-private:
-  SmallVector<Value *, 3> DepExprs;
+class DoacrossSrcSinkItem {
+  private:
+    SmallVector<Value *, 3> DoacrossExprs;
 
-public:
-  DepSrcSinkItem(SmallVectorImpl<Value *> &&DEs) : DepExprs(std::move(DEs)) {}
-  const SmallVectorImpl<Value *> &getDepExprs() const { return DepExprs; }
-
-  void print(formatted_raw_ostream &OS, bool PrintType = true) const {
-    OS << "(";
-    for (const auto *E : DepExprs) {
-      E->printAsOperand(OS, PrintType);
-      OS << " ";
+  public:
+    DoacrossSrcSinkItem(SmallVectorImpl<Value *> &&DEs)
+        : DoacrossExprs(std::move(DEs)) {}
+    const SmallVectorImpl<Value *> &getDoacrossExprs() const {
+      return DoacrossExprs;
     }
-    OS << ") ";
-  }
+
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
+      OS << "(";
+      for (const auto *E : DoacrossExprs) {
+        E->printAsOperand(OS, PrintType);
+        OS << " ";
+      }
+      OS << ") ";
+    }
 };
 
-class DepSourceItem: public DepSrcSinkItem {
-public:
-  DepSourceItem(SmallVectorImpl<Value *> &&DEs)
-      : DepSrcSinkItem(std::move(DEs)) {}
+class DoacrossSourceItem : public DoacrossSrcSinkItem {
+  public:
+    DoacrossSourceItem(SmallVectorImpl<Value *> &&DEs)
+        : DoacrossSrcSinkItem(std::move(DEs)) {}
 };
 
-class DepSinkItem: public DepSrcSinkItem {
-public:
-  DepSinkItem(SmallVectorImpl<Value *> &&DEs)
-      : DepSrcSinkItem(std::move(DEs)) {}
+class DoacrossSinkItem : public DoacrossSrcSinkItem {
+  public:
+    DoacrossSinkItem(SmallVectorImpl<Value *> &&DEs)
+        : DoacrossSrcSinkItem(std::move(DEs)) {}
 };
 
 class AlignedItem
@@ -2173,9 +2178,7 @@ template <typename ClauseItem> class Clause
         delete CI;
       C.clear();
     }
-    ~Clause() {
-      clear();
-    }
+    ~Clause() { clear(); }
 
   protected:
     /// Create a new item for VAR V and append it to the clause
@@ -2276,8 +2279,8 @@ typedef Clause<SubdeviceItem>       SubdeviceClause;
 typedef Clause<InteropActionItem>   InteropActionClause;
 typedef Clause<DependItem>          DependClause;
 typedef Clause<DetachItem>          DetachClause;
-typedef Clause<DepSinkItem>         DepSinkClause;
-typedef Clause<DepSourceItem>       DepSourceClause;
+typedef Clause<DoacrossSinkItem>    DoacrossSinkClause;
+typedef Clause<DoacrossSourceItem>  DoacrossSourceClause;
 typedef Clause<AlignedItem>         AlignedClause;
 typedef Clause<NontemporalItem>     NontemporalClause;
 typedef Clause<FlushItem>           FlushSet;
@@ -2305,8 +2308,8 @@ typedef std::vector<SubdeviceItem>::iterator       SubdeviceIter;
 typedef std::vector<InteropActionItem>::iterator   InteropActionIter;
 typedef std::vector<DependItem>::iterator          DependIter;
 typedef std::vector<DetachItem>::iterator          DetachIter;
-typedef std::vector<DepSinkItem>::iterator         DepSinkIter;
-typedef std::vector<DepSourceItem>::iterator       DepSourceIter;
+typedef std::vector<DoacrossSinkItem>::iterator    DoacrossSinkIter;
+typedef std::vector<DoacrossSourceItem>::iterator  DoacrossSourceIter;
 typedef std::vector<AlignedItem>::iterator         AlignedIter;
 typedef std::vector<NontemporalItem>::iterator     NontemporalIter;
 typedef std::vector<FlushItem>::iterator           FlushIter;
@@ -2397,7 +2400,9 @@ typedef enum WRNLoopBindKind {
 //
 typedef enum WRNLoopOrderKind {
   WRNLoopOrderAbsent = 0,
-  WRNLoopOrderConcurrent = 1
+  WRNLoopOrderConcurrentUnconstrained =
+      1, // for both order(concurrent) and order(unconstrained:concurrent)
+  WRNLoopOrderConcurrentReproducible = 2 // order(reporducible:concurrent)
 } WRNLoopOrderKind;
 
 //

@@ -16,7 +16,7 @@
 #ifndef __OPENCL_BACKEND_SERIALIZER_COMPATIBILITY__
 #define __OPENCL_BACKEND_SERIALIZER_COMPATIBILITY__
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelArgType.h"
+#include "llvm/Transforms/SYCLTransforms/KernelArgType.h"
 
 namespace Intel {
 namespace OpenCL {

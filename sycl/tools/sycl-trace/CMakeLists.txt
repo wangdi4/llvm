@@ -1,3 +1,20 @@
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2021 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 add_executable(sycl-trace main.cpp)
 
 target_include_directories(sycl-trace PRIVATE
@@ -26,35 +43,52 @@ endif()
 add_library(sycl_pi_trace_collector SHARED
   collector.cpp
   pi_trace_collector.cpp
+  sycl_trace_collector.cpp
   ${EXTRA_SRC}
 )
 
 find_package(Python3 REQUIRED)
 
 add_custom_target(pi-pretty-printers
+  DEPENDS 
+  ${CMAKE_CURRENT_BINARY_DIR}/pi_printers.def
+  ${CMAKE_CURRENT_BINARY_DIR}/pi_structs.hpp
+  )
+add_custom_command(
+  OUTPUT
+  ${CMAKE_CURRENT_BINARY_DIR}/pi_printers.def
+  ${CMAKE_CURRENT_BINARY_DIR}/pi_structs.hpp
   COMMAND ${Python3_EXECUTABLE}
   ${CMAKE_CURRENT_SOURCE_DIR}/generate_pi_pretty_printers.py
   ${sycl_inc_dir}/sycl/detail/pi.h
-  SOURCES ${sycl_inc_dir}/sycl/detail/pi.h
-  BYPRODUCTS
-    ${CMAKE_CURRENT_BINARY_DIR}/pi_structs.hpp
-    ${CMAKE_CURRENT_BINARY_DIR}/pi_printers.def
+  DEPENDS ${sycl_inc_dir}/sycl/detail/pi.h
   )
+
+if (INTEL_CUSTOMIZATION)
+  if (DEFINED L0_INCLUDE_DIR)
+     set(LEVEL_ZERO_INCLUDE_DIR ${L0_INCLUDE_DIR}/level_zero)
+  endif()
+endif (INTEL_CUSTOMIZATION)
 
 # To get L0 loader
 if ("level_zero" IN_LIST SYCL_ENABLE_PLUGINS)
   add_dependencies(sycl_pi_trace_collector pi_level_zero)
 
-  target_link_libraries(sycl_pi_trace_collector PRIVATE LevelZeroLoader::Headers)
+  target_link_libraries(sycl_pi_trace_collector PRIVATE LevelZeroLoader-Headers)
   target_compile_definitions(sycl_pi_trace_collector PRIVATE SYCL_HAS_LEVEL_ZERO)
 
   add_custom_target(ze-pretty-printers
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ze_printers.def
+    )
+  add_custom_command(
+    OUTPUT
+    ${CMAKE_CURRENT_BINARY_DIR}/ze_printers.def
     COMMAND ${Python3_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/generate_ze_pretty_printers.py
-    ${SYCL_INCLUDE_BUILD_DIR}/sycl/level_zero/ze_api.h
-    DEPENDS pi_level_zero
-    BYPRODUCTS
-      ${CMAKE_CURRENT_BINARY_DIR}/ze_printers.def
+    ${LEVEL_ZERO_INCLUDE_DIR}/ze_api.h
+    DEPENDS
+    pi_level_zero
+    ${LEVEL_ZERO_INCLUDE_DIR}/ze_api.h
     )
 
   add_dependencies(sycl_pi_trace_collector ze-pretty-printers)
@@ -113,13 +147,16 @@ if(SYCL_BUILD_PI_CUDA)
       NO_DEFAULT_PATH)
 
   if( EXISTS "${GEN_CUDA_META_H_DIR}/generated_cuda_meta.h" )
-  add_custom_target(cuda-pretty-printers
-    COMMAND ${Python3_EXECUTABLE}
-    ${CMAKE_CURRENT_SOURCE_DIR}/generate_cuda_pretty_printers.py
-    ${GEN_CUDA_META_H_DIR}/generated_cuda_meta.h
-    DEPENDS pi_cuda
-    BYPRODUCTS
-      ${CMAKE_CURRENT_BINARY_DIR}/cuda_printers.def
+    add_custom_target(cuda-pretty-printers
+      DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/cuda_printers.def)
+    add_custom_command(
+      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cuda_printers.def
+      COMMAND ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/generate_cuda_pretty_printers.py
+      ${GEN_CUDA_META_H_DIR}/generated_cuda_meta.h
+      DEPENDS
+      pi_cuda
+      ${GEN_CUDA_META_H_DIR}/generated_cuda_meta.h
     )
   else()
     message(WARNING "generated_cuda_meta.h not FOUND!")

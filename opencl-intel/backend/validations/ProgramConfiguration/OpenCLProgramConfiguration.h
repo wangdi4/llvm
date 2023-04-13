@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -91,19 +91,13 @@ public:
 
   /// @brief save stamp, insert it into the reference file name and mark it as
   /// "inserted"
-  void SetReferenceStamp(const std::vector<uint8_t> stamp) {
+  void SetReferenceStamp(llvm::ArrayRef<uint8_t> &&stamp) {
     m_referenceStamp = stamp;
   }
 
   /// @brief save stamp, insert it into the neat file name and mark it as
   /// "inserted"
-  void SetNeatStamp(const std::vector<uint8_t> stamp) { m_neatStamp = stamp; }
-  ///  @brief get reference stamp
-  const std::vector<uint8_t> GetReferenceStamp() const {
-    return m_referenceStamp;
-  }
-  ///  @brief get neat stamp
-  const std::vector<uint8_t> GetNeatStamp() const { return m_neatStamp; }
+  void SetNeatStamp(llvm::ArrayRef<uint8_t> &&stamp) { m_neatStamp = stamp; }
 
   ///  @brief get reference file name with stamp
   std::string GetStampedPathReference() {
@@ -139,9 +133,7 @@ private:
     if (stamp.size() > 0) {
       ss << '.';
       ss << std::hex << std::uppercase << std::setfill('0');
-      for (std::vector<uint8_t>::const_iterator i = stamp.begin(),
-                                                e = stamp.end();
-           i != e; ++i)
+      for (auto i = stamp.begin(), e = stamp.end(); i != e; ++i)
         ss << std::setw(2) << int(*i);
     }
     return ss.str();

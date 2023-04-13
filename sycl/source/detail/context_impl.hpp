@@ -22,6 +22,8 @@
 
 #include <map>
 #include <memory>
+#include <optional>
+#include <set>
 
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
@@ -197,6 +199,24 @@ public:
   // Returns true if buffer_location property is supported by devices
   bool isBufferLocationSupported() const;
 
+  /// Adds an associated device global to the tracked associates.
+  void addAssociatedDeviceGlobal(const void *DeviceGlobalPtr);
+
+  /// Adds a device global initializer.
+  void addDeviceGlobalInitializer(RT::PiProgram Program,
+                                  const std::vector<device> &Devs,
+                                  const RTDeviceBinaryImage *BinImage);
+
+  /// Initializes device globals for a program on the associated queue.
+  std::vector<RT::PiEvent>
+  initializeDeviceGlobals(pi::PiProgram NativePrg,
+                          const std::shared_ptr<queue_impl> &QueueImpl);
+
+  /// Gets a program associated with a device global from the cache.
+  std::optional<RT::PiProgram>
+  getProgramForDeviceGlobal(const device &Device,
+                            DeviceGlobalMapEntry *DeviceGlobalEntry);
+
   enum PropertySupport { NotSupported = 0, Supported = 1, NotChecked = 2 };
 
 private:
@@ -210,7 +230,61 @@ private:
   std::mutex MCachedLibProgramsMutex;
   mutable KernelProgramCache MKernelProgramCache;
   mutable PropertySupport MSupportBufferLocationByDevices;
+
+  std::set<const void *> MAssociatedDeviceGlobals;
+  std::mutex MAssociatedDeviceGlobalsMutex;
+
+  struct DeviceGlobalInitializer {
+    DeviceGlobalInitializer() = default;
+    DeviceGlobalInitializer(const RTDeviceBinaryImage *BinImage)
+        : MBinImage(BinImage) {
+      // If there are no device globals, they are trivially fully initialized.
+      // Note: Lock is not needed during construction.
+      MDeviceGlobalsFullyInitialized = BinImage->getDeviceGlobals().size() == 0;
+    }
+
+    /// Clears all events of the initializer. This will not acquire the lock.
+    void ClearEvents(const plugin &Plugin);
+
+    /// The binary image of the program.
+    const RTDeviceBinaryImage *MBinImage = nullptr;
+
+    /// Mutex for protecting initialization of device globals for the image.
+    std::mutex MDeviceGlobalInitMutex;
+
+    /// Flag signalling whether or not the device globals have been initialized.
+    /// This is effectively the same as checking that MDeviceGlobalInitEvents
+    /// is empty, however it does not require MDeviceGlobalInitMutex to be held
+    /// when checked as it will only be true when initialization is guaranteed
+    /// to be done.
+    /// MDeviceGlobalInitMutex must be held when determining if initialization
+    /// has been begun or when setting the value.
+    bool MDeviceGlobalsFullyInitialized = false;
+
+    /// A vector of events associated with the initialization of device globals.
+    /// MDeviceGlobalInitMutex must be held when accessing this.
+    std::vector<RT::PiEvent> MDeviceGlobalInitEvents;
+  };
+
+  std::map<std::pair<RT::PiProgram, RT::PiDevice>, DeviceGlobalInitializer>
+      MDeviceGlobalInitializers;
+  std::mutex MDeviceGlobalInitializersMutex;
 };
+
+template <typename T, typename Capabilities>
+void GetCapabilitiesIntersectionSet(const std::vector<sycl::device> &Devices,
+                                    std::vector<T> &CapabilityList) {
+  for (const sycl::device &Device : Devices) {
+    std::vector<T> NewCapabilityList;
+    std::vector<T> DeviceCapabilities = Device.get_info<Capabilities>();
+    std::set_intersection(
+        CapabilityList.begin(), CapabilityList.end(),
+        DeviceCapabilities.begin(), DeviceCapabilities.end(),
+        std::inserter(NewCapabilityList, NewCapabilityList.begin()));
+    CapabilityList = NewCapabilityList;
+  }
+  CapabilityList.shrink_to_fit();
+}
 
 } // namespace detail
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)

@@ -34,8 +34,10 @@
 #define LLVM_UTILS_TABLEGEN_X86RECOGNIZABLEINSTR_H
 
 #include "CodeGenInstruction.h"
-#include "llvm/Support/DataTypes.h"
 #include "llvm/Support/X86DisassemblerDecoderCommon.h"
+#include <cstdint>
+#include <string>
+#include <vector>
 
 struct InstructionSpecifier;
 
@@ -123,11 +125,17 @@ namespace X86Local {
     RawFrmImm16   = 8,
     AddCCFrm      = 9,
     PrefixByte    = 10,
-    MRMDestMemImm8      = 15, // INTEL
-    MRMDestReg4VOp3     = 16, // INTEL
-    MRMDestMem4VOp3     = 17, // INTEL
-    MRMDestMem4VOp2FSIB = 18, // INTEL
-    MRMSrcMem4VOp3FSIB  = 19, // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    MRM0rImmAAA = 13,
+    MRM6rImmAAA = 14,
+#endif // INTEL_FEATURE_ISA_APX_F
+    MRMDestMemImm8      = 15,
+    MRMDestReg4VOp3     = 16,
+    MRMDestMem4VOp3     = 17,
+    MRMDestMem4VOp2FSIB = 18,
+    MRMSrcMem4VOp3FSIB  = 19,
+#endif // INTEL_CUSTOMIZATION
     MRMDestMem4VOp3CC = 20,
     MRMr0          = 21,
     MRMSrcMemFSIB  = 22,
@@ -157,7 +165,10 @@ namespace X86Local {
 
   enum {
     OB = 0, TB = 1, T8 = 2, TA = 3, XOP8 = 4, XOP9 = 5, XOPA = 6, ThreeDNow = 7,
-    T_MAP5 = 8, T_MAP6 = 9, T_MAP8 = 10
+#if INTEL_CUSTOMIZATION
+    T_MAP5 = 8, T_MAP6 = 9,
+    T_MAP8 = 10, T_MAP4 = 11
+#endif // INTEL_CUSTOMIZATION
   };
 
   enum {
@@ -250,6 +261,10 @@ struct RecognizableInstrBase {
   /// The HasEVEX_P10 field from the record
   bool HasEVEX_P10;
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+  /// The hasEVEX_NF field from the record
+  bool HasEVEX_NF;
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   /// \param insn The CodeGenInstruction to extract information from.

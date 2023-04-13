@@ -1,4 +1,4 @@
-; RUN: opt < %s -instcombine -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 ; Verify that the backedge comparison is not modified by instconmbine in the
 ; presence of "pre_loopopt" attribute. This helps ScalarEvolution deduce that

@@ -1,4 +1,4 @@
-; RUN: opt -passes=ESIMDLowerLoadStore -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=ESIMDLowerLoadStore -S < %s | FileCheck %s
 
 %"class._ZTSN2cm3gen4simdIiLi16EEE.cm::gen::simd" = type { <16 x i32> }
 

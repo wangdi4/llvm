@@ -4,7 +4,7 @@
 ;   check VPlan driver pass is not run when VPlan is enabled in buildPerModuleDefaultPipeline.
 ;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
-; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
+; CHECK:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
@@ -15,7 +15,7 @@
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 #endif // #ifndef NDEBUG
 
-; CHECK:      Running pass: DPCPPEqualizerPass
+; CHECK:      Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
@@ -44,7 +44,7 @@
 ; CHECK-NEXT: Running pass: InferArgumentAliasPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: WGLoopBoundariesPass
 ; CHECK:      Running pass: DCEPass
@@ -67,11 +67,10 @@
 ; CHECK:      Running pass: VectorCombinePass
 ; CHECK:      Running pass: JumpThreadingPass
 
-; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
-; CHECK:      Running pass: IndirectCallLowering
+; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
+; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
-; CHECK:      Running pass: RemoveRegionDirectivesPass
 ; CHECK:      Running pass: UnifyFunctionExitNodesPass
 
 ; CHECK:      Running pass: ReplaceScalarWithMaskPass
@@ -133,7 +132,6 @@
 ; CHECK:      Running pass: LICMPass
 ; CHECK:      Running pass: LoopIdiomRecognizePass
 ; CHECK:      Running pass: LoopDeletionPass
-; CHECK:      Running pass: LoopStridedCodeMotionPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PrepareKernelArgsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis

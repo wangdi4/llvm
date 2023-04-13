@@ -2,7 +2,6 @@
 
 ; UNSUPPORTED: system-windows
 
-; RUN: opt -force-hir-cg -hir-runtime-dd-dbg -hir-ssa-deconstruction -hir-runtime-dd -hir-cg < %s | lli | FileCheck %s --check-prefix=RUNTIME
 ; RUN: opt -force-hir-cg -hir-runtime-dd-dbg -passes="hir-ssa-deconstruction,hir-runtime-dd,hir-cg" -aa-pipeline="basic-aa" < %s | lli | FileCheck %s --check-prefix=RUNTIME
 
 ; Check that -hir-runtime-dd-dbg adds a call to 'puts'.

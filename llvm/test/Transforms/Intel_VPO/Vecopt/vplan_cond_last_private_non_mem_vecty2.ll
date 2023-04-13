@@ -3,12 +3,16 @@
 ; Test for registerized last private of a vector type. Bailout for now.
 ;
 ; RUN: opt %s -disable-output -passes="vplan-vec" -debug-only=vpo-ir-loop-vectorize-legality 2>&1 | FileCheck %s
+; RUN: opt %s -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=medium 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+; RUN: opt %s -disable-output -passes=vplan-vec,intel-ir-optreport-emitter -intel-opt-report=high 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 ; TODO: Enable test for HIR when vectors are supported by loopopt
-; R_UN: opt %s -enable-new-pm=0 -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -debug-only=HIRLegality 2>&1 | FileCheck %s
 ; R_UN: opt %s -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -debug-only=HIRLegality 2>&1 | FileCheck %s
 
 ; CHECK: Conditional lastprivate of a vector type is not supported
 ; CHECK-NOT: <16 x i8>
+; OPTRPTMED: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized: Conditional lastprivate of a vector type is not supported.
 ;
 define <2 x i64> @foo(<2 x i64>* nocapture %larr, <2 x i64>* %mm) {
 entry:

@@ -8,7 +8,7 @@
 ; REQUIRES: asserts
 
 ; CHECK: SOA profitability:
-; CHECK: SOAUnsafe = value.priv
+; CHECK: SOAUnsafe = [[VP_VALUE_PRIV:%.*]] (value.priv)
 
 %struct.ClassA = type { i32 }
 

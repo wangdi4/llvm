@@ -1,5 +1,6 @@
 set(LLVM_LINK_COMPONENTS
   Support
+  TargetParser
   )
 #if INTEL_CUSTOMIZATION
 list(APPEND LLVM_OPTIONAL_SOURCES IntelVfsTestLib.cpp)

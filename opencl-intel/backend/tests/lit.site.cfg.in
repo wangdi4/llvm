@@ -13,6 +13,7 @@ config.intree_build = "@OPENCL_INTREE_BUILD@"
 config.llvm_tools_dir = "@LLVM_TOOLS_DIR@"
 config.llvm_libs_dir = "@LLVM_LIBS_DIR@"
 config.host_arch = "@HOST_ARCH@"
+config.build_type = "@CMAKE_BUILD_TYPE@"
 
 if 4 == @CMAKE_SIZEOF_VOID_P@:
     config.available_features.add("32bit")

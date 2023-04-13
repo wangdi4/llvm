@@ -1,4 +1,4 @@
-; RUN: opt -O0 -paropt=11 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -O0 -paropt=11 -S %s | FileCheck %s
 
 ; Verify that removeBranchesFromBeginToEndDirective is called under -fiopenmp-simd
 ;

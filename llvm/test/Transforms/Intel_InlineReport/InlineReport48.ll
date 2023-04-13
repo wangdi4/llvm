@@ -1,7 +1,7 @@
 ; Inline report
-; RUN: opt -passes='cgscc(inline)' -inline-report=1 < %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=1 < %s -disable-output 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x80 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x80 -S < %s 2>&1 | FileCheck %s
 
 ; This test checks that metadata-based inline report correctly handles
 ; llvm.dbg.declare intrinsic during inlining process, when it is deleted
@@ -33,9 +33,9 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata)
 define internal i32 @y(i32 %i) !dbg !22 {
 entry:
   %i.addr = alloca i32, align 4
-  store i32 %i, i32* %i.addr, align 4, !tbaa !25
-  call void @llvm.dbg.declare(metadata i32* %i.addr, metadata !24, metadata !DIExpression()), !dbg !29
-  %0 = load i32, i32* %i.addr, align 4, !dbg !30, !tbaa !25
+  store i32 %i, ptr %i.addr, align 4, !tbaa !25
+  call void @llvm.dbg.declare(metadata ptr %i.addr, metadata !24, metadata !DIExpression()), !dbg !29
+  %0 = load i32, ptr %i.addr, align 4, !dbg !30, !tbaa !25
   %add = add nsw i32 %0, 1, !dbg !31
   ret i32 %add, !dbg !32
 }

@@ -7,16 +7,16 @@
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
-@g_fptr1 = internal global void (i32, i32)* @test1
-@g_fptr2 = internal global i32 (i32, i32)* zeroinitializer
-@g_fptr3 = internal global i32 (i32, ...)* @test3
-@g_fptr4 = internal global i32 (i32)* @test4
+@g_fptr1 = internal global ptr @test1
+@g_fptr2 = internal global ptr null
+@g_fptr3 = internal global ptr @test3
+@g_fptr4 = internal global ptr @test4
 
 ; Verify the address taken function was the wrapper function
-; CHECK: @g_fptr1 = internal global void (i32, i32)* @test1
-; CHECK: @g_fptr2 = internal global i32 (i32, i32)* null
-; CHECK: @g_fptr3 = internal global i32 (i32, ...)* @test3
-; CHECK: @g_fptr4 = internal global i32 (i32)* @test4
+; CHECK: @g_fptr1 = internal global ptr @test1
+; CHECK: @g_fptr2 = internal global ptr null
+; CHECK: @g_fptr3 = internal global ptr @test3
+; CHECK: @g_fptr4 = internal global ptr @test4
 
 define internal void @test1(i32 %a1, i32 %a2) {
   ret void
@@ -61,13 +61,12 @@ define i32 @test4(i32 %a1) {
 
 ; Check that the direct calls are changed to the new function.
 define i32 @main() {
-  store i32 (i32, i32)* @test2, i32 (i32, i32)** @g_fptr2
-
+  store ptr @test2, ptr @g_fptr2, align 4
   call void @test1(i32 0, i32 8)
   %call2 = call i32 @test2(i32 0, i32 8)
   %call3 = call i32 (i32, ...) @test3(i32 3, i32 2, i32 1, i32 0)
   %call4 = call i32 @test4(i32 0)
-  ret i32 0;
+  ret i32 0
 }
 
 ; Verify the clones were called for test1 and test2.

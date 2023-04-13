@@ -74,7 +74,7 @@ class NDRangeDimSimple(DebuggerTestCase):
 
         self.client.debug_run_finish()
 
-    # Expected to fail due to CSSD100014059
+    # Expected to fail
     # In larger kernels like this one, the overhead to evaluate a conditional
     # breakpoint causes a timeout.
     @expectedFailureCDB

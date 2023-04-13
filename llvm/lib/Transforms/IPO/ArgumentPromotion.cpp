@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -84,6 +84,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include <algorithm>
 #include <cassert>
@@ -254,7 +255,7 @@ static Function *doPromotion(
   for (auto *I : Params)
     if (auto *VT = dyn_cast<llvm::VectorType>(I))
       LargestVectorWidth = std::max(
-          LargestVectorWidth, VT->getPrimitiveSizeInBits().getKnownMinSize());
+          LargestVectorWidth, VT->getPrimitiveSizeInBits().getKnownMinValue());
 
   // Recompute the parameter attributes list based on the new arguments for
   // the function.
@@ -269,6 +270,8 @@ static Function *doPromotion(
   // Loop over all the callers of the function, transforming the call sites to
   // pass in the loaded pointers.
   SmallVector<Value *, 16> Args;
+  SmallVector<WeakTrackingVH, 16> DeadArgs;
+
   while (!F->use_empty()) {
 #if INTEL_CUSTOMIZATION
     AbstractCallSite ACS(&*F->use_begin());
@@ -360,6 +363,9 @@ static Function *doPromotion(
           Args.push_back(MaybeCastTo(LI, *I)); // INTEL
           ArgAttrVec.push_back(AttributeSet());
         }
+      } else {
+        assert(ArgsToPromote.count(&*I) && I->use_empty());
+        DeadArgs.emplace_back(AI->get());
       }
     }
 
@@ -425,11 +431,12 @@ static Function *doPromotion(
   if (OldCount.has_value())
     NF->setEntryCount(OldCount->getCount());
 #endif // INTEL_CUSTOMIZATION
+  RecursivelyDeleteTriviallyDeadInstructionsPermissive(DeadArgs);
 
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
-  NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+  NF->splice(NF->begin(), F);
 #if INTEL_CUSTOMIZATION
   if (F->hasComdat()) {
     NF->setComdat(F->getComdat());
@@ -977,6 +984,13 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
   if (F->getAttributes().hasAttrSomewhere(Attribute::InAlloca))
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-43424: Inhibit argument promotion on the function if it has
+  // vector variants, because the signature of the variants is predetermined
+  // in the front end.
+  if (F->hasFnAttribute("vector-variants"))
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
   // First check: see if there are any pointer arguments!  If not, quick exit.
   SmallVector<Argument *, 16> PointerArgs;
   for (Argument &I : F->args())

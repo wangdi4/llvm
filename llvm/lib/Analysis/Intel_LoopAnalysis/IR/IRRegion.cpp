@@ -52,6 +52,12 @@ IRRegion::IRRegion(IRRegion &&Reg)
       IsFunctionLevel(Reg.IsFunctionLevel) {}
 
 IRRegion &IRRegion::operator=(IRRegion &&Reg) {
+
+  // Avoid self-assignment which can cause corruption
+  if (&Reg == this) {
+    return *this;
+  }
+
   EntryBBlock = Reg.EntryBBlock;
   ExitBBlock = Reg.ExitBBlock;
   BBlocks = std::move(Reg.BBlocks);

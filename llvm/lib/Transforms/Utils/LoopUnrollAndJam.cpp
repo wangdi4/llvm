@@ -154,25 +154,28 @@ static bool partitionOuterLoopBlocks(Loop *L, Loop *SubLoop,
 template <typename T>
 static bool processHeaderPhiOperands(BasicBlock *Header, BasicBlock *Latch,
                                      BasicBlockSet &AftBlocks, T Visit) {
-  SmallVector<Instruction *, 8> Worklist;
   SmallPtrSet<Instruction *, 8> VisitedInstr;
-  for (auto &Phi : Header->phis()) {
-    Value *V = Phi.getIncomingValueForBlock(Latch);
-    if (Instruction *I = dyn_cast<Instruction>(V))
-      Worklist.push_back(I);
-  }
 
-  while (!Worklist.empty()) {
-    Instruction *I = Worklist.pop_back_val();
-    if (!Visit(I))
-      return false;
+  std::function<bool(Instruction * I)> ProcessInstr = [&](Instruction *I) {
+    if (VisitedInstr.count(I))
+      return true;
+
     VisitedInstr.insert(I);
 
     if (AftBlocks.count(I->getParent()))
       for (auto &U : I->operands())
         if (Instruction *II = dyn_cast<Instruction>(U))
-          if (!VisitedInstr.count(II))
-            Worklist.push_back(II);
+          if (!ProcessInstr(II))
+            return false;
+
+    return Visit(I);
+  };
+
+  for (auto &Phi : Header->phis()) {
+    Value *V = Phi.getIncomingValueForBlock(Latch);
+    if (Instruction *I = dyn_cast<Instruction>(V))
+      if (!ProcessInstr(I))
+        return false;
   }
 
   return true;
@@ -185,20 +188,12 @@ static void moveHeaderPhiOperandsToForeBlocks(BasicBlock *Header,
                                               BasicBlockSet &AftBlocks) {
   // We need to ensure we move the instructions in the correct order,
   // starting with the earliest required instruction and moving forward.
-  std::vector<Instruction *> Visited;
   processHeaderPhiOperands(Header, Latch, AftBlocks,
-                           [&Visited, &AftBlocks](Instruction *I) {
+                           [&AftBlocks, &InsertLoc](Instruction *I) {
                              if (AftBlocks.count(I->getParent()))
-                               Visited.push_back(I);
+                               I->moveBefore(InsertLoc);
                              return true;
                            });
-
-  // Move all instructions in program order to before the InsertLoc
-  BasicBlock *InsertLocBB = InsertLoc->getParent();
-  for (Instruction *I : reverse(Visited)) {
-    if (I->getParent() != InsertLocBB)
-      I->moveBefore(InsertLoc);
-  }
 }
 
 /*
@@ -288,7 +283,7 @@ llvm::UnrollAndJamLoop(Loop *L, unsigned Count, unsigned TripCount,
   // if not outright eliminated.
   if (SE) {
     SE->forgetLoop(L);
-    SE->forgetLoop(SubLoop);
+    SE->forgetBlockAndLoopDispositions();
   }
 
   using namespace ore;
@@ -376,7 +371,8 @@ llvm::UnrollAndJamLoop(Loop *L, unsigned Count, unsigned TripCount,
 
   // When a FSDiscriminator is enabled, we don't need to add the multiply
   // factors to the discriminators.
-  if (Header->getParent()->isDebugInfoForProfiling() && !EnableFSDiscriminator)
+  if (Header->getParent()->shouldEmitDebugInfoForProfiling() &&
+      !EnableFSDiscriminator)
     for (BasicBlock *BB : L->getBlocks())
       for (Instruction &I : *BB)
         if (!isa<DbgInfoIntrinsic>(&I))
@@ -402,7 +398,7 @@ llvm::UnrollAndJamLoop(Loop *L, unsigned Count, unsigned TripCount,
     for (LoopBlocksDFS::RPOIterator BB = BlockBegin; BB != BlockEnd; ++BB) {
       ValueToValueMapTy VMap;
       BasicBlock *New = CloneBasicBlock(*BB, VMap, "." + Twine(It));
-      Header->getParent()->getBasicBlockList().push_back(New);
+      Header->getParent()->insert(Header->getParent()->end(), New);
 
       // Tell LI about New.
       addClonedBlockToLoopInfo(*BB, New, LI, NewLoops);
@@ -789,11 +785,11 @@ checkDependencies(Loop &Root, const BasicBlockSet &SubLoopBlocks,
                   DependenceInfo &DI, LoopInfo &LI) {
   SmallVector<BasicBlockSet, 8> AllBlocks;
   for (Loop *L : Root.getLoopsInPreorder())
-    if (ForeBlocksMap.find(L) != ForeBlocksMap.end())
+    if (ForeBlocksMap.contains(L))
       AllBlocks.push_back(ForeBlocksMap.lookup(L));
   AllBlocks.push_back(SubLoopBlocks);
   for (Loop *L : Root.getLoopsInPreorder())
-    if (AftBlocksMap.find(L) != AftBlocksMap.end())
+    if (AftBlocksMap.contains(L))
       AllBlocks.push_back(AftBlocksMap.lookup(L));
 
   unsigned LoopDepth = Root.getLoopDepth();

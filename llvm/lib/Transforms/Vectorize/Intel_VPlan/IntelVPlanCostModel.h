@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -54,7 +54,6 @@ class VPInstruction;
 #define CM_DEBUG(OS, X)
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-#if INTEL_CUSTOMIZATION
 class VPlanVLSCostModel : public OVLSCostModel {
 public:
   explicit VPlanVLSCostModel(unsigned VF,
@@ -70,7 +69,6 @@ public:
 protected:
   unsigned VF;
 };
-#endif // INTEL_CUSTOMIZATION
 
 // VPlanTTICostModel defines interface and its implementation, that is to be
 // used by Cost Model heuristics.  Also all Heuristics independent code goes
@@ -107,6 +105,9 @@ public:
   const DataLayout *const DL;
   const TargetTransformInfo &TTI;
   const VPlanVLSAnalysis *const VLSA;
+
+  /// \Returns if the given instruction \p VPInst is zero-cost in this context.
+  bool hasZeroCost(const VPInstruction *VPInst) const;
 
   /// \Returns the alignment of the load/store \p LoadStore.
   ///
@@ -145,8 +146,18 @@ public:
                                                  const Type *ScalarTy,
                                                  const unsigned VF);
 
+#if INTEL_FEATURE_SW_ADVANCED
+  /// \Returns the RecurrenceAnalysis for Plan.
+  const VPlanCostModelHeuristics::RecurrenceAnalysis &getVPRA() {
+    // analyze() is a noop after the first invocation on Plan.
+    VPRA.analyze(this, *Plan);
+    return VPRA;
+  }
+#endif // INTEL_FEATURE_SW_ADVANCED
+
 protected:
   VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
+  bool ComputingForPeel = false;
 
   VPlanTTICostModel(const VPlanVector *Plan, const unsigned VF,
                     const unsigned UF, const TargetTransformInfo *TTIin,
@@ -165,6 +176,9 @@ protected:
     // accurately in CM.
     const_cast<VPlanVector *>(Plan)->runSVA(VF);
 
+    // Ensure NCIA is available for zero-cost checking.
+    const_cast<VPlanVector *>(Plan)->runNCIA();
+
     // Collect VLS Groups once VLSA is specified. Heuristics can query VLS
     // Groups when VLSA is available.
     if (VLSAin)
@@ -180,6 +194,12 @@ protected:
 
 private:
   VPlanAlignmentAnalysis VPAA;
+
+#if INTEL_FEATURE_SW_ADVANCED
+  // Shared analysis of recurrences (i.e. reductions/inductions) for
+  // heuristics. This is populated when a heuristic calls getRecurrences().
+  VPlanCostModelHeuristics::RecurrenceAnalysis VPRA;
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   // The utility checks whether the Cost Model can assume that 32-bit indexes
   // will be used instead of 64-bit indexes for gather/scatter HW instructions.
@@ -326,8 +346,9 @@ public:
   /// Get the pair of Costs (iteration cost and preheader/postexit cost) for
   /// VPlan with optionally specified peeling \p PeelingVariant and optionally
   /// specified pointer to output stream \p OS if debug output is requested.
-  virtual VPlanCostPair getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
-                                 raw_ostream *OS = nullptr) = 0;
+  virtual VPlanCostPair getCost(bool ForPeel = false,
+                                VPlanPeelingVariant *PeelingVariant = nullptr,
+                                raw_ostream *OS = nullptr) = 0;
 
   /// Return the cost of Load/Store VPInstruction given VF and Alignment
   /// on input.
@@ -372,9 +393,9 @@ private:
   // The method applies the heuristics from input heuristics list modifing
   // the input Cost and returns adjusted cost.
   template <typename HeuristicsListTy, typename ScopeTy>
-  VPInstructionCost applyHeuristics(
-    HeuristicsListTy HeuristicsList, ScopeTy *Scope,
-    const VPInstructionCost &Cost, raw_ostream *OS = nullptr) {
+  VPInstructionCost
+  applyHeuristics(HeuristicsListTy &HeuristicsList, ScopeTy *Scope,
+                  const VPInstructionCost &Cost, raw_ostream *OS = nullptr) {
     VPInstructionCost RetCost = Cost;
     HeuristicsList.apply(Cost, RetCost, Scope, OS);
     return RetCost;
@@ -542,10 +563,12 @@ public:
     return Cost;
   }
 
-  VPlanCostPair getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
+  VPlanCostPair getCost(bool ForPeel = false,
+                        VPlanPeelingVariant *PeelingVariant = nullptr,
                         raw_ostream *OS = nullptr) final {
+    SaveAndRestore<bool> RestoreComputingForPeel(ComputingForPeel, ForPeel);
     // Assume no peeling if it is not specified.
-    SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
+    SaveAndRestore<VPlanPeelingVariant *> RestoreOnExit(
         DefaultPeelingVariant,
         PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
 
@@ -577,6 +600,13 @@ public:
         getBlockRangeCost(getVPlanAfterLoopBeginEndBlocks(),
                           nullptr /* peeling */, OS, "Loop postexit");
 
+    // If the loop is going to be unrolled, scale up total cost by UF
+    // as a starting approximation. We were not doing this before which
+    // artificially inflates benefit from unrolling. TODO - consider
+    // refining loop iteration cost by considering benefits of unrolling.
+    if (UF > 1 && TotCost.isValid())
+      TotCost *= UF;
+
     return std::make_pair(TotCost, PostExitCost + PreHdrCost);
   }
 
@@ -600,7 +630,8 @@ using VPlanCostModelBase = VPlanCostModelWithHeuristics<
   HeuristicsList<const VPBasicBlock>,  // empty list
   HeuristicsList<const VPlanVector,
                  VPlanCostModelHeuristics::HeuristicSLP,
-                 VPlanCostModelHeuristics::HeuristicSpillFill>>;
+                 VPlanCostModelHeuristics::HeuristicSpillFill,
+                 VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 // TODO: lightweight mode CostModel heuristics set to be tuned yet.
 using VPlanCostModelLite = VPlanCostModelWithHeuristics<
@@ -611,7 +642,8 @@ using VPlanCostModelLite = VPlanCostModelWithHeuristics<
     VPlanCostModelHeuristics::HeuristicSLP,
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,
-    VPlanCostModelHeuristics::HeuristicPsadbw>>;
+    VPlanCostModelHeuristics::HeuristicPsadbw,
+    VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 using VPlanCostModelFull = VPlanCostModelWithHeuristics<
   HeuristicsList<
@@ -624,13 +656,15 @@ using VPlanCostModelFull = VPlanCostModelWithHeuristics<
     VPlanCostModelHeuristics::HeuristicSLP,
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,
-    VPlanCostModelHeuristics::HeuristicPsadbw>>;
+    VPlanCostModelHeuristics::HeuristicPsadbw,
+    VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 using VPlanCostModelBaseNoSLP = VPlanCostModelWithHeuristics<
   HeuristicsList<const VPInstruction>, // empty list
   HeuristicsList<const VPBasicBlock>,  // empty list
   HeuristicsList<const VPlanVector,
-                 VPlanCostModelHeuristics::HeuristicSpillFill>>;
+                 VPlanCostModelHeuristics::HeuristicSpillFill,
+                 VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 using VPlanCostModelLiteNoSLP = VPlanCostModelWithHeuristics<
   HeuristicsList<const VPInstruction>, // empty list
@@ -639,7 +673,8 @@ using VPlanCostModelLiteNoSLP = VPlanCostModelWithHeuristics<
     const VPlanVector,
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,
-    VPlanCostModelHeuristics::HeuristicPsadbw>>;
+    VPlanCostModelHeuristics::HeuristicPsadbw,
+    VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 using VPlanCostModelFullNoSLP = VPlanCostModelWithHeuristics<
   HeuristicsList<
@@ -651,7 +686,8 @@ using VPlanCostModelFullNoSLP = VPlanCostModelWithHeuristics<
     const VPlanVector,
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,
-    VPlanCostModelHeuristics::HeuristicPsadbw>>;
+    VPlanCostModelHeuristics::HeuristicPsadbw,
+    VPlanCostModelHeuristics::HeuristicUnroll>>;
 
 #else // INTEL_FEATURE_SW_ADVANCED
 

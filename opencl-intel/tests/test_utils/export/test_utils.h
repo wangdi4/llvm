@@ -136,7 +136,8 @@ std::string GetCapturedStderr();
 
 // Split the expected and the actual outputs to lines, sort the lines and
 // compare them.
-bool compare_kernel_output(const string &expected, const string &actual);
+bool compare_kernel_output(const std::string &expected,
+                           const std::string &actual);
 
 cl_ulong trySetStackSize(cl_ulong size);
 

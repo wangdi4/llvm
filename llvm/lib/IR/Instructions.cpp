@@ -48,6 +48,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/ProfDataUtils.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
@@ -83,8 +84,8 @@ static cl::opt<bool> DisableI2pP2iOpt(
 //===----------------------------------------------------------------------===//
 
 std::optional<TypeSize>
-AllocaInst::getAllocationSizeInBits(const DataLayout &DL) const {
-  TypeSize Size = DL.getTypeAllocSizeInBits(getAllocatedType());
+AllocaInst::getAllocationSize(const DataLayout &DL) const {
+  TypeSize Size = DL.getTypeAllocSize(getAllocatedType());
   if (isArrayAllocation()) {
     auto *C = dyn_cast<ConstantInt>(getArraySize());
     if (!C)
@@ -93,6 +94,14 @@ AllocaInst::getAllocationSizeInBits(const DataLayout &DL) const {
     Size *= C->getZExtValue();
   }
   return Size;
+}
+
+std::optional<TypeSize>
+AllocaInst::getAllocationSizeInBits(const DataLayout &DL) const {
+  std::optional<TypeSize> Size = getAllocationSize(DL);
+  if (Size)
+    return *Size * 8;
+  return std::nullopt;
 }
 
 //===----------------------------------------------------------------------===//
@@ -133,7 +142,7 @@ PHINode::PHINode(const PHINode &PN)
       ReservedSpace(PN.getNumOperands()) {
   allocHungoffUses(PN.getNumOperands());
   std::copy(PN.op_begin(), PN.op_end(), op_begin());
-  std::copy(PN.block_begin(), PN.block_end(), block_begin());
+  copyIncomingBlocks(make_range(PN.block_begin(), PN.block_end()));
   SubclassOptionalData = PN.SubclassOptionalData;
 }
 
@@ -148,7 +157,7 @@ Value *PHINode::removeIncomingValue(unsigned Idx, bool DeletePHIIfEmpty) {
   // clients might not expect this to happen.  The code as it is thrashes the
   // use/def lists, which is kinda lame.
   std::copy(op_begin() + Idx + 1, op_end(), op_begin() + Idx);
-  std::copy(block_begin() + Idx + 1, block_end(), block_begin() + Idx);
+  copyIncomingBlocks(make_range(block_begin() + Idx + 1, block_end()), Idx);
 
   // Nuke the last value.
   Op<-1>().set(nullptr);
@@ -341,6 +350,22 @@ Intrinsic::ID CallBase::getIntrinsicID() const {
   if (auto *F = getCalledFunction())
     return F->getIntrinsicID();
   return Intrinsic::not_intrinsic;
+}
+
+FPClassTest CallBase::getRetNoFPClass() const {
+  FPClassTest Mask = Attrs.getRetNoFPClass();
+
+  if (const Function *F = getCalledFunction())
+    Mask |= F->getAttributes().getRetNoFPClass();
+  return Mask;
+}
+
+FPClassTest CallBase::getParamNoFPClass(unsigned i) const {
+  FPClassTest Mask = Attrs.getParamNoFPClass(i);
+
+  if (const Function *F = getCalledFunction())
+    Mask |= F->getAttributes().getParamNoFPClass(i);
+  return Mask;
 }
 
 bool CallBase::isReturnNonNull() const {
@@ -899,7 +924,7 @@ static Instruction *createMalloc(Instruction *InsertBefore,
     MCall = CallInst::Create(MallocFunc, AllocSize, OpB, "malloccall");
     Result = MCall;
     if (Result->getType() != AllocPtrType) {
-      MCall->insertAt(InsertAtEnd, InsertAtEnd->end());
+      MCall->insertInto(InsertAtEnd, InsertAtEnd->end());
       // Create a cast instruction to convert to the right type...
       Result = new BitCastInst(MCall, AllocPtrType, Name);
     }
@@ -1586,7 +1611,7 @@ bool AllocaInst::isStaticAlloca() const {
 
   // Must be in the entry block.
   const BasicBlock *Parent = getParent();
-  return Parent == &Parent->getParent()->front() && !isUsedWithInAlloca();
+  return Parent->isEntryBlock() && !isUsedWithInAlloca();
 }
 
 //===----------------------------------------------------------------------===//
@@ -1868,6 +1893,10 @@ StringRef AtomicRMWInst::getOperationName(BinOp Op) {
     return "fmax";
   case AtomicRMWInst::FMin:
     return "fmin";
+  case AtomicRMWInst::UIncWrap:
+    return "uinc_wrap";
+  case AtomicRMWInst::UDecWrap:
+    return "udec_wrap";
   case AtomicRMWInst::BAD_BINOP:
     return "<invalid operation>";
   }
@@ -2563,10 +2592,10 @@ bool ShuffleVectorInst::isInsertSubvectorMask(ArrayRef<int> Mask,
 
   // Determine lo/hi span ranges.
   // TODO: How should we handle undefs at the start of subvector insertions?
-  int Src0Lo = Src0Elts.countTrailingZeros();
-  int Src1Lo = Src1Elts.countTrailingZeros();
-  int Src0Hi = NumMaskElts - Src0Elts.countLeadingZeros();
-  int Src1Hi = NumMaskElts - Src1Elts.countLeadingZeros();
+  int Src0Lo = Src0Elts.countr_zero();
+  int Src1Lo = Src1Elts.countr_zero();
+  int Src0Hi = NumMaskElts - Src0Elts.countl_zero();
+  int Src1Hi = NumMaskElts - Src1Elts.countl_zero();
 
   // If src0 is in place, see if the src1 elements is inplace within its own
   // span.
@@ -2774,6 +2803,98 @@ bool ShuffleVectorInst::isOneUseSingleSourceMask(int VF) const {
   return isOneUseSingleSourceMask(ShuffleMask, VF);
 }
 
+bool ShuffleVectorInst::isInterleave(unsigned Factor) {
+  FixedVectorType *OpTy = dyn_cast<FixedVectorType>(getOperand(0)->getType());
+  // shuffle_vector can only interleave fixed length vectors - for scalable
+  // vectors, see the @llvm.experimental.vector.interleave2 intrinsic
+  if (!OpTy)
+    return false;
+  unsigned OpNumElts = OpTy->getNumElements();
+
+  return isInterleaveMask(ShuffleMask, Factor, OpNumElts * 2);
+}
+
+bool ShuffleVectorInst::isInterleaveMask(
+    ArrayRef<int> Mask, unsigned Factor, unsigned NumInputElts,
+    SmallVectorImpl<unsigned> &StartIndexes) {
+  unsigned NumElts = Mask.size();
+  if (NumElts % Factor)
+    return false;
+
+  unsigned LaneLen = NumElts / Factor;
+  if (!isPowerOf2_32(LaneLen))
+    return false;
+
+  StartIndexes.resize(Factor);
+
+  // Check whether each element matches the general interleaved rule.
+  // Ignore undef elements, as long as the defined elements match the rule.
+  // Outer loop processes all factors (x, y, z in the above example)
+  unsigned I = 0, J;
+  for (; I < Factor; I++) {
+    unsigned SavedLaneValue;
+    unsigned SavedNoUndefs = 0;
+
+    // Inner loop processes consecutive accesses (x, x+1... in the example)
+    for (J = 0; J < LaneLen - 1; J++) {
+      // Lane computes x's position in the Mask
+      unsigned Lane = J * Factor + I;
+      unsigned NextLane = Lane + Factor;
+      int LaneValue = Mask[Lane];
+      int NextLaneValue = Mask[NextLane];
+
+      // If both are defined, values must be sequential
+      if (LaneValue >= 0 && NextLaneValue >= 0 &&
+          LaneValue + 1 != NextLaneValue)
+        break;
+
+      // If the next value is undef, save the current one as reference
+      if (LaneValue >= 0 && NextLaneValue < 0) {
+        SavedLaneValue = LaneValue;
+        SavedNoUndefs = 1;
+      }
+
+      // Undefs are allowed, but defined elements must still be consecutive:
+      // i.e.: x,..., undef,..., x + 2,..., undef,..., undef,..., x + 5, ....
+      // Verify this by storing the last non-undef followed by an undef
+      // Check that following non-undef masks are incremented with the
+      // corresponding distance.
+      if (SavedNoUndefs > 0 && LaneValue < 0) {
+        SavedNoUndefs++;
+        if (NextLaneValue >= 0 &&
+            SavedLaneValue + SavedNoUndefs != (unsigned)NextLaneValue)
+          break;
+      }
+    }
+
+    if (J < LaneLen - 1)
+      return false;
+
+    int StartMask = 0;
+    if (Mask[I] >= 0) {
+      // Check that the start of the I range (J=0) is greater than 0
+      StartMask = Mask[I];
+    } else if (Mask[(LaneLen - 1) * Factor + I] >= 0) {
+      // StartMask defined by the last value in lane
+      StartMask = Mask[(LaneLen - 1) * Factor + I] - J;
+    } else if (SavedNoUndefs > 0) {
+      // StartMask defined by some non-zero value in the j loop
+      StartMask = SavedLaneValue - (LaneLen - 1 - SavedNoUndefs);
+    }
+    // else StartMask remains set to 0, i.e. all elements are undefs
+
+    if (StartMask < 0)
+      return false;
+    // We must stay within the vectors; This case can happen with undefs.
+    if (StartMask + LaneLen > NumInputElts)
+      return false;
+
+    StartIndexes[I] = StartMask;
+  }
+
+  return true;
+}
+
 //===----------------------------------------------------------------------===//
 //                             InsertValueInst Class
 //===----------------------------------------------------------------------===//
@@ -2890,7 +3011,7 @@ UnaryOperator *UnaryOperator::Create(UnaryOps Op, Value *S,
                                      const Twine &Name,
                                      BasicBlock *InsertAtEnd) {
   UnaryOperator *Res = Create(Op, S, Name);
-  Res->insertAt(InsertAtEnd, InsertAtEnd->end());
+  Res->insertInto(InsertAtEnd, InsertAtEnd->end());
   return Res;
 }
 
@@ -3021,7 +3142,7 @@ BinaryOperator *BinaryOperator::Create(BinaryOps Op, Value *S1, Value *S2,
                                        const Twine &Name,
                                        BasicBlock *InsertAtEnd) {
   BinaryOperator *Res = Create(Op, S1, S2, Name);
-  Res->insertAt(InsertAtEnd, InsertAtEnd->end());
+  Res->insertInto(InsertAtEnd, InsertAtEnd->end());
   return Res;
 }
 
@@ -3661,7 +3782,7 @@ bool CastInst::isBitCastable(Type *SrcTy, Type *DestTy) {
 
   // Could still have vectors of pointers if the number of elements doesn't
   // match
-  if (SrcBits.getKnownMinSize() == 0 || DestBits.getKnownMinSize() == 0)
+  if (SrcBits.getKnownMinValue() == 0 || DestBits.getKnownMinValue() == 0)
     return false;
 
   if (SrcBits != DestBits)
@@ -4200,6 +4321,11 @@ StringRef CmpInst::getPredicateName(Predicate Pred) {
   }
 }
 
+raw_ostream &llvm::operator<<(raw_ostream &OS, CmpInst::Predicate Pred) {
+  OS << CmpInst::getPredicateName(Pred);
+  return OS;
+}
+
 ICmpInst::Predicate ICmpInst::getSignedPredicate(Predicate pred) {
   switch (pred) {
     default: llvm_unreachable("Unknown icmp predicate!");
@@ -4639,15 +4765,6 @@ void SwitchInst::growOperands() {
   growHungoffUses(ReservedSpace);
 }
 
-MDNode *
-SwitchInstProfUpdateWrapper::getProfBranchWeightsMD(const SwitchInst &SI) {
-  if (MDNode *ProfileData = SI.getMetadata(LLVMContext::MD_prof))
-    if (auto *MDName = dyn_cast<MDString>(ProfileData->getOperand(0)))
-      if (MDName->getString() == "branch_weights")
-        return ProfileData;
-  return nullptr;
-}
-
 MDNode *SwitchInstProfUpdateWrapper::buildProfBranchWeightsMD() {
   assert(Changed && "called only if metadata has changed");
 
@@ -4657,16 +4774,16 @@ MDNode *SwitchInstProfUpdateWrapper::buildProfBranchWeightsMD() {
   assert(SI.getNumSuccessors() == Weights->size() &&
          "num of prof branch_weights must accord with num of successors");
 
-  bool AllZeroes = all_of(Weights.value(), [](uint32_t W) { return W == 0; });
+  bool AllZeroes = all_of(*Weights, [](uint32_t W) { return W == 0; });
 
-  if (AllZeroes || Weights.value().size() < 2)
+  if (AllZeroes || Weights->size() < 2)
     return nullptr;
 
   return MDBuilder(SI.getParent()->getContext()).createBranchWeights(*Weights);
 }
 
 void SwitchInstProfUpdateWrapper::init() {
-  MDNode *ProfileData = getProfBranchWeightsMD(SI);
+  MDNode *ProfileData = getBranchWeightMDNode(SI);
   if (!ProfileData)
     return;
 
@@ -4676,11 +4793,8 @@ void SwitchInstProfUpdateWrapper::init() {
   }
 
   SmallVector<uint32_t, 8> Weights;
-  for (unsigned CI = 1, CE = SI.getNumSuccessors(); CI <= CE; ++CI) {
-    ConstantInt *C = mdconst::extract<ConstantInt>(ProfileData->getOperand(CI));
-    uint32_t CW = C->getValue().getZExtValue();
-    Weights.push_back(CW);
-  }
+  if (!extractBranchWeights(ProfileData, Weights))
+    return;
   this->Weights = std::move(Weights);
 }
 
@@ -4693,8 +4807,8 @@ SwitchInstProfUpdateWrapper::removeCase(SwitchInst::CaseIt I) {
     // Copy the last case to the place of the removed one and shrink.
     // This is tightly coupled with the way SwitchInst::removeCase() removes
     // the cases in SwitchInst::removeCase(CaseIt).
-    Weights.value()[I->getCaseIndex() + 1] = Weights.value().back();
-    Weights.value().pop_back();
+    (*Weights)[I->getCaseIndex() + 1] = Weights->back();
+    Weights->pop_back();
   }
   return SI.removeCase(I);
 }
@@ -4707,10 +4821,10 @@ void SwitchInstProfUpdateWrapper::addCase(
   if (!Weights && W && *W) {
     Changed = true;
     Weights = SmallVector<uint32_t, 8>(SI.getNumSuccessors(), 0);
-    Weights.value()[SI.getNumSuccessors() - 1] = *W;
+    (*Weights)[SI.getNumSuccessors() - 1] = *W;
   } else if (Weights) {
     Changed = true;
-    Weights.value().push_back(W.value_or(0));
+    Weights->push_back(W.value_or(0));
   }
   if (Weights)
     assert(SI.getNumSuccessors() == Weights->size() &&
@@ -4753,7 +4867,7 @@ void SwitchInstProfUpdateWrapper::setSuccessorWeight(
 SwitchInstProfUpdateWrapper::CaseWeightOpt
 SwitchInstProfUpdateWrapper::getSuccessorWeight(const SwitchInst &SI,
                                                 unsigned idx) {
-  if (MDNode *ProfileData = getProfBranchWeightsMD(SI))
+  if (MDNode *ProfileData = getBranchWeightMDNode(SI))
     if (ProfileData->getNumOperands() == SI.getNumSuccessors() + 1)
       return mdconst::extract<ConstantInt>(ProfileData->getOperand(idx + 1))
           ->getValue()

@@ -15,9 +15,7 @@
 #ifndef __COMMON_DEV_LIMITES_H__
 #define __COMMON_DEV_LIMITES_H__
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
-
-using namespace llvm;
+#include "llvm/Transforms/SYCLTransforms/DevLimits.h"
 
 // List of supported devices that differs from the a given one in cl.h
 enum DeviceMode { CPU_DEVICE = 0, FPGA_EMU_DEVICE = 1 };

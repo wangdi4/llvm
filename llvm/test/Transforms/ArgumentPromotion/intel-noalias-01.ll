@@ -3,7 +3,7 @@
 ; in "fn" function by ignoring AA since the argument is marked as
 ; noalias. %p2 argument is not promoted as it is not marked as noalias.
 
-; RUN: opt < %s -passes=argpromotion -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=argpromotion -S | FileCheck %s
 
 @a = global i32 0, align 4
 @b = global i32 0, align 4

@@ -1,8 +1,8 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
 
-; RUN: opt -vpo-paropt-dispatch-codegen-version=1 -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
-; RUN: opt -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s -check-prefix=NCG
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s -check-prefix=NCG
 
 ; // C++ source
 ; // #include <stdio.h>
@@ -27,6 +27,11 @@
 ; be it __tgt_create_interop_obj (for codegen ver=0) or __tgt_get_interop_obj (ver=1)
 ; CHECK-NOT: __tgt_create_interop_obj
 ; CHECK-NOT: __tgt_get_interop_obj
+
+; When the interop clause is specified __tgt_interop_use_async should be usend instead of
+; __tgt_target_sync
+; NCG: __tgt_interop_use_async
+; NCG-NOT: __tgt_target_sync
 
 ; When interop(iop) clause is specified and device clause is not, the device
 ; is obtained via the runtime call omp_get_interop_int(iop, -5, nullptr)

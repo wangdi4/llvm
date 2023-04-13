@@ -39,8 +39,6 @@ class OclCommandQueue;
  * Class name:    ContextModule
  *
  * Description:    context module class
- * Author:        Uri Levy
- * Date:            December 2008
  ******************************************************************************/
 class ContextModule {
 
@@ -49,8 +47,6 @@ public:
    * Function:     ContextModule
    * Description:    The Context Module class constructor
    * Arguments:    pPlatformModule [in] -    pointer to the platform module
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   ContextModule(PlatformModule *pPlatformModule);
 
@@ -58,18 +54,17 @@ public:
    * Function:     ~ContextModule
    * Description:    The Context Module class destructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   virtual ~ContextModule();
+
+  ContextModule(const ContextModule &) = delete;
+  ContextModule &operator=(const ContextModule &) = delete;
 
   /*****************************************************************************
    * Function:     Initialize
    * Description: Initialize the context module object and load devices
    * Arguments:
    * Return value:    CL_SUCCESS - The initializtion operation succeded
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   cl_err_code Initialize(ocl_entry_points *pOclEntryPoints,
                          ocl_gpa_data *pGPAData);
@@ -79,8 +74,6 @@ public:
    * Description:    Release the context module's resources
    * Arguments:
    * Return value:    CL_SUCCESS - The release operation succeded
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   cl_err_code Release(bool bTerminate);
 
@@ -419,7 +412,8 @@ public:
   cl_int GetDeviceGlobalVariablePointer(cl_device_id device, cl_program program,
                                         const char *gv_name,
                                         size_t *gv_size_ret,
-                                        void **gv_pointer_ret);
+                                        void **gv_pointer_ret,
+                                        cl_prog_gv *gv_ret = nullptr);
 
   ///////////////////////////////////////////////////////////////////////
   // cl_intel_unified_shared_memory functions
@@ -461,9 +455,6 @@ public:
   void UnregisterUSMFreeWaitEvent(const void *usmPtr, cl_event event);
 
 private:
-  ContextModule(const ContextModule &);
-  ContextModule &operator=(const ContextModule &);
-
   cl_err_code CheckMemObjectParameters(
       cl_mem_flags clMemFlags, const cl_image_format *clImageFormat,
       cl_mem_object_type clMemObjType, size_t szImageWidth,
@@ -574,11 +565,12 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
                                  size_t szImageSlicePitch, void *pHostPtr,
                                  cl_int *pErrcodeRet, bool bIsImageBuffer) {
   assert(DIM >= 1 && DIM <= 3);
-  LOG_INFO(TEXT("Enter CreateScalarImage (clContext=%p, clFlags=0x%X, "
-                "cl_data_type=0x%x, cl_channel_order=0x%x, szImageWidth=%d, "
-                "szImageHeight=%d, szImageDepth=%d, szImageRowPitch=%d, "
-                "szImageSlicePitch=%d, pHostPtr=%p, pErrcodeRet=%x)"),
-           (void *)clContext, clFlags, clImageFormat->image_channel_data_type,
+  LOG_INFO(TEXT("Enter CreateScalarImage (clContext=%p, clFlags=%llu, "
+                "cl_data_type=%u, cl_channel_order=%u, szImageWidth=%zu, "
+                "szImageHeight=%zu, szImageDepth=%zu, szImageRowPitch=%zu, "
+                "szImageSlicePitch=%zu, pHostPtr=%p, pErrcodeRet=%p)"),
+           clContext, (unsigned long long)clFlags,
+           clImageFormat->image_channel_data_type,
            clImageFormat->image_channel_order, szImageWidth, szImageHeight,
            szImageDepth, szImageRowPitch, szImageSlicePitch, pHostPtr,
            pErrcodeRet);
@@ -587,7 +579,7 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
       m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
           .DynamicCast<Context>();
   if (0 == pContext) {
-    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
+    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%p) = NULL"), clContext);
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_CONTEXT;
     }
@@ -606,7 +598,7 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
       clFlags, clImageFormat, OBJ_TYPE, szImageWidth, szImageHeight,
       szImageDepth, szImageRowPitch, szImageSlicePitch, 0, pHostPtr, pContext);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("%s"), TEXT("Parameter check failed"));
+    LOG_ERROR(TEXT("Parameter check failed"));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = clErr;
     }
@@ -616,7 +608,7 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
   clErr = CheckContextSpecificParameters(pContext, OBJ_TYPE, szImageWidth,
                                          szImageHeight, szImageDepth, 0);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"));
+    LOG_ERROR(TEXT("Context specific parameter check failed"));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = clErr;
     }
@@ -631,11 +623,11 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
                                                szDims, szPitches, &pImage,
                                                bIsImageBuffer);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(
-        TEXT("pContext->CreateImage(%d, %d, %d, %d, %d, %d, %d, %d, %d) = %s"),
-        clFlags, clImageFormat, pHostPtr, szImageWidth, szImageHeight,
-        szImageDepth, szImageRowPitch, szImageSlicePitch, &pImage,
-        ClErrTxt(clErr));
+    LOG_ERROR(TEXT("pContext->CreateImage(%llu, %p, %p, %zu, %zu, %zu, %zu, "
+                   "%zu, %p) = %s"),
+              (unsigned long long)clFlags, clImageFormat, pHostPtr,
+              szImageWidth, szImageHeight, szImageDepth, szImageRowPitch,
+              szImageSlicePitch, &pImage, ClErrTxt(clErr));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_ERR_OUT(clErr);
     }
@@ -643,7 +635,7 @@ ContextModule::CreateScalarImage(cl_context clContext, cl_mem_flags clFlags,
   }
   clErr = m_mapMemObjects.AddObject(pImage, false);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"),
+    LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%p, %p, false) = %s"),
               pImage.GetPtr(), pImage->GetHandle(), ClErrTxt(clErr))
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_ERR_OUT(clErr);
@@ -669,7 +661,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
           .DynamicCast<Context>();
 
   if (0 == pContext) {
-    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), context);
+    LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%p) = NULL"), context);
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_CONTEXT;
     }
@@ -680,7 +672,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
       m_mapMemObjects.GetOCLObject((_cl_mem_int *)buffer)
           .DynamicCast<GenericMemObject>();
   if (CL_FAILED(clErr) || 0 == pBuffer) {
-    LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), buffer, &pBuffer,
+    LOG_ERROR(TEXT("GetOCLObject(%p, %p) returned %s"), buffer, &pBuffer,
               ClErrTxt(clErr));
     if (pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
@@ -701,7 +693,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
        (clFlags & CL_MEM_HOST_WRITE_ONLY)) ||
       ((bufFlags & CL_MEM_HOST_NO_ACCESS) &&
        (clFlags & (CL_MEM_HOST_READ_ONLY | CL_MEM_HOST_WRITE_ONLY)))) {
-    LOG_ERROR(TEXT("invalid flags (%d)"), clFlags);
+    LOG_ERROR(TEXT("invalid flags (%llu)"), (unsigned long long)clFlags);
     if (pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_VALUE;
     }
@@ -713,7 +705,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
       desc.image_height, desc.image_depth, desc.image_array_size,
       pBuffer->GetHostPtr(), bufFlags);
   if (CL_FAILED(clErr)) {
-    LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"), "");
+    LOG_ERROR(TEXT("Context specific parameter check failed"));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = clErr;
     }
@@ -725,8 +717,8 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
   if (GenericMemObjectBackingStore::calculate_size(
           clGetPixelBytesCount(clImageFormat), DIM, szDims, szPitches) >
       pBuffer->GetSize()) {
-    LOG_ERROR(TEXT("Size of image must be <= size of buffer object data store"),
-              "");
+    LOG_ERROR(
+        TEXT("Size of image must be <= size of buffer object data store"));
     if (pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
     }
@@ -737,8 +729,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context,
       !Check2DImageFromBufferPitch(pBuffer, desc, *clImageFormat)) {
     LOG_ERROR(TEXT("pitch isn't a multiple of the maximum of the "
                    "CL_DEVICE_IMAGE_PITCH_ALIGNMENT value for all devices in "
-                   "the context associated with image_desc->buffer"),
-              "");
+                   "the context associated with image_desc->buffer"));
     if (NULL != pErrcodeRet) {
       *pErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
     }

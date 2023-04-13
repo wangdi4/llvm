@@ -201,7 +201,7 @@ bool DTransTypeMetadataPropagator::identifyFieldRange(
   unsigned BeginFieldNum = SL->getElementContainingOffset(Offset);
   Type *ElementTy = OrigStructTy->getElementType(BeginFieldNum);
   uint64_t ElementOffset = Offset - SL->getElementOffset(BeginFieldNum);
-  uint64_t ElementSize = DL.getTypeAllocSize(ElementTy).getFixedSize();
+  uint64_t ElementSize = DL.getTypeAllocSize(ElementTy).getFixedValue();
   if (ElementOffset >= ElementSize) {
     // This should not occur when processing SROA generated types.
     LLVM_DEBUG(dbgs() << "Warning: Metadata propagation not supported - offset "

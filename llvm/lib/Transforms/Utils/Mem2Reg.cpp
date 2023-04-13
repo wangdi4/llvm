@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -127,6 +127,7 @@ namespace {
 struct PromoteLegacyPass : public FunctionPass {
   // Pass identification, replacement for typeid
   static char ID;
+  bool ForcePass; /// If true, forces pass to execute, instead of skipping.
 
 #if INTEL_CUSTOMIZATION
   bool Unskippable;
@@ -140,7 +141,6 @@ struct PromoteLegacyPass : public FunctionPass {
   // runOnFunction - To run this pass, first we calculate the alloca
   // instructions that are safe for promotion, then we promote each one.
   bool runOnFunction(Function &F) override {
-
 #if INTEL_CUSTOMIZATION
     if (!Unskippable && skipFunction(F))
       return false;
@@ -159,11 +159,9 @@ struct PromoteLegacyPass : public FunctionPass {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.setPreservesCFG();
 #if INTEL_CUSTOMIZATION
-    AU.addPreserved<AndersensAAWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
 #endif // INTEL_CUSTOMIZATION
-    AU.addPreserved<GlobalsAAWrapperPass>();       // INTEL
-    AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
+    AU.addPreserved<GlobalsAAWrapperPass>(); // INTEL
   }
 };
 
@@ -176,7 +174,6 @@ INITIALIZE_PASS_BEGIN(PromoteLegacyPass, "mem2reg", "Promote Memory to "
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)    // INTEL
 INITIALIZE_PASS_END(PromoteLegacyPass, "mem2reg", "Promote Memory to Register",
                     false, false)
 

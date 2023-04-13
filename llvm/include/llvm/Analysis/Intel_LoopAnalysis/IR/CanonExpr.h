@@ -796,6 +796,9 @@ public:
   /// TODO: Can we set it for DD too?
   void simplify(bool SimplifyCast, bool IsUnsignedOrNonNegative);
 
+  /// Returns true if we can multiply by a constant \p Val.
+  bool canMultiplyByConstant(int64_t Val) const;
+
   /// Multiplies the canon expr by Val. Returns false if the result expression
   /// can not be represented as a single CanonExpr.
   bool multiplyByConstant(int64_t Val);

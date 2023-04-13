@@ -31,6 +31,7 @@
 #include "clang/AST/Attr.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/Type.h"
+#include <optional>
 using namespace clang;
 
 void LoopHintAttr::printPrettyPragma(raw_ostream &OS,
@@ -193,6 +194,11 @@ void OMPDeclareSimdDeclAttr::printPrettyPragma(
     ++I;
     ++MI;
   }
+#if INTEL_CUSTOMIZATION
+  for (auto *P : processors()) {
+    OS << " ompx_processor(" << P->getName() << ")";
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void OMPDeclareTargetDeclAttr::printPrettyPragma(
@@ -211,7 +217,7 @@ void OMPDeclareTargetDeclAttr::printPrettyPragma(
   }
 }
 
-llvm::Optional<OMPDeclareTargetDeclAttr *>
+std::optional<OMPDeclareTargetDeclAttr *>
 OMPDeclareTargetDeclAttr::getActiveAttr(const ValueDecl *VD) {
   if (!VD->hasAttrs())
     return std::nullopt;
@@ -228,29 +234,59 @@ OMPDeclareTargetDeclAttr::getActiveAttr(const ValueDecl *VD) {
   return std::nullopt;
 }
 
-llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy>
+std::optional<OMPDeclareTargetDeclAttr::MapTypeTy>
 OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(const ValueDecl *VD) {
-  llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr = getActiveAttr(VD);
+  std::optional<OMPDeclareTargetDeclAttr *> ActiveAttr = getActiveAttr(VD);
   if (ActiveAttr)
-    return ActiveAttr.value()->getMapType();
+    return (*ActiveAttr)->getMapType();
   return std::nullopt;
 }
 
-llvm::Optional<OMPDeclareTargetDeclAttr::DevTypeTy>
+std::optional<OMPDeclareTargetDeclAttr::DevTypeTy>
 OMPDeclareTargetDeclAttr::getDeviceType(const ValueDecl *VD) {
-  llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr = getActiveAttr(VD);
+  std::optional<OMPDeclareTargetDeclAttr *> ActiveAttr = getActiveAttr(VD);
   if (ActiveAttr)
-    return ActiveAttr.value()->getDevType();
+    return (*ActiveAttr)->getDevType();
   return std::nullopt;
 }
 
-llvm::Optional<SourceLocation>
+std::optional<SourceLocation>
 OMPDeclareTargetDeclAttr::getLocation(const ValueDecl *VD) {
-  llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr = getActiveAttr(VD);
+  std::optional<OMPDeclareTargetDeclAttr *> ActiveAttr = getActiveAttr(VD);
   if (ActiveAttr)
-    return ActiveAttr.value()->getRange().getBegin();
+    return (*ActiveAttr)->getRange().getBegin();
   return std::nullopt;
 }
+
+#if INTEL_COLLAB
+std::optional<OMPGroupPrivateDeclAttr *>
+OMPGroupPrivateDeclAttr::getGroupPrivateDeclAttr(const ValueDecl *VD) {
+  if (!VD->hasAttr<OMPGroupPrivateDeclAttr>())
+    return std::nullopt;
+  specific_attr_iterator<OMPGroupPrivateDeclAttr> ItB =
+      VD->specific_attr_begin<OMPGroupPrivateDeclAttr>();
+  OMPGroupPrivateDeclAttr *Attr = *ItB;
+  if (Attr)
+    return Attr;
+  return std::nullopt;
+}
+
+std::optional<OMPGroupPrivateDeclAttr::DevTypeTy>
+OMPGroupPrivateDeclAttr::getDeviceType(const ValueDecl *VD) {
+  std::optional<OMPGroupPrivateDeclAttr *> Attr = getGroupPrivateDeclAttr(VD);
+  if (Attr)
+    return Attr.value()->getDevType();
+  return std::nullopt;
+}
+
+std::optional<SourceLocation>
+OMPGroupPrivateDeclAttr::getLocation(const ValueDecl *VD) {
+  std::optional<OMPGroupPrivateDeclAttr *> Attr = getGroupPrivateDeclAttr(VD);
+  if (Attr)
+    return Attr.value()->getRange().getBegin();
+  return std::nullopt;
+}
+#endif // INTEL_COLLAB
 
 namespace clang {
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const OMPTraitInfo &TI);

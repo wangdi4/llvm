@@ -17,14 +17,12 @@
 #include "ocl_itt.h"
 #include "queue_event.h"
 #include <cl_object.h>
-#include <cl_synch_objects.h>
 #include <cl_types.h>
+#include <mutex>
 
 namespace Intel {
 namespace OpenCL {
 namespace Framework {
-
-using Intel::OpenCL::Utils::OclSpinMutex;
 
 class Command;
 
@@ -34,8 +32,6 @@ class Command;
  * Description:
  *      TODO
  *
- * Author:      Doron Singer
- * Date:        July 2010
  ******************************************************************************/
 class QueueEvent : public OclEvent {
 
@@ -112,7 +108,7 @@ protected:
   bool m_bVisibleToUser;
   Command *m_pCommand; // Pointer to the command represented by this event
 
-  mutable OclSpinMutex m_queueLock;
+  mutable std::recursive_mutex m_queueLock;
   SharedPtr<IOclCommandQueueBase>
       m_pEventQueue; // Pointer to the queue that this event was enqueued on
   cl_command_queue m_pEventQueueHandle; // A cached copy of m_pEventQueue's

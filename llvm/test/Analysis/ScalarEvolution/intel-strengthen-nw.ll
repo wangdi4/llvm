@@ -1,4 +1,4 @@
-; RUN: opt < %s -scalar-evolution -analyze -enable-new-pm=0 | FileCheck %s
+; RUN: opt < %s -scalar-evolution -analyze -bugpoint-enable-legacy-pm | FileCheck %s
 ; RUN: opt < %s -disable-output "-passes=print<scalar-evolution>" 2>&1 | FileCheck %s
 
 ; Check that ScalarEvolution can determine that the entire addition tree does

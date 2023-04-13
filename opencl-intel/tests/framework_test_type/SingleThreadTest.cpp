@@ -78,8 +78,8 @@ protected:
 /// This test checks that there is no divide by zero in
 /// CPUDevice::calculateComputeUnitMap.
 TEST_F(SingleThreadTest, AffinityClosePlacesCores) {
-  ASSERT_TRUE(SETENV("DPCPP_CPU_CU_AFFINITY", "close"));
-  ASSERT_TRUE(SETENV("DPCPP_CPU_PLACES", "cores"));
+  ASSERT_TRUE(SETENV("SYCL_CPU_CU_AFFINITY", "close"));
+  ASSERT_TRUE(SETENV("SYCL_CPU_PLACES", "cores"));
 
   cl_int err;
   m_context = clCreateContext(NULL, 1, &m_device, NULL, NULL, &err);

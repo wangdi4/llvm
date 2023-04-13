@@ -59,6 +59,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #endif // INTEL_CUSTOMIZATION
 
+#include <optional>
 using namespace clang;
 using namespace CodeGen;
 using namespace llvm::omp;
@@ -99,7 +100,7 @@ class OMPLexicalScope : public CodeGenFunction::LexicalScope {
 public:
   OMPLexicalScope(
       CodeGenFunction &CGF, const OMPExecutableDirective &S,
-      const llvm::Optional<OpenMPDirectiveKind> CapturedRegion = std::nullopt,
+      const std::optional<OpenMPDirectiveKind> CapturedRegion = std::nullopt,
       const bool EmitPreInitStmt = true)
       : CodeGenFunction::LexicalScope(CGF, S.getSourceRange()),
         InlinedShareds(CGF) {
@@ -757,8 +758,9 @@ void CodeGenFunction::EmitOMPAggregateAssign(
   llvm::Value *SrcBegin = SrcAddr.getPointer();
   llvm::Value *DestBegin = DestAddr.getPointer();
   // Cast from pointer to array type to pointer to single element.
-  llvm::Value *DestEnd =
-      Builder.CreateGEP(DestAddr.getElementType(), DestBegin, NumElements);
+  llvm::Value *DestEnd = Builder.CreateInBoundsGEP(DestAddr.getElementType(),
+                                                   DestBegin, NumElements);
+
   // The basic structure here is a while-do loop.
   llvm::BasicBlock *BodyBB = createBasicBlock("omp.arraycpy.body");
   llvm::BasicBlock *DoneBB = createBasicBlock("omp.arraycpy.done");
@@ -5351,6 +5353,7 @@ void CodeGenFunction::EmitOMPTaskwaitDirective(const OMPTaskwaitDirective &S) {
   OMPTaskDataTy Data;
   // Build list of dependences
   buildDependences(S, Data);
+  Data.HasNowaitClause = S.hasClausesOfKind<OMPNowaitClause>();
   CGM.getOpenMPRuntime().emitTaskwaitCall(*this, S.getBeginLoc(), Data);
 }
 
@@ -5414,8 +5417,8 @@ void CodeGenFunction::EmitOMPFlushDirective(const OMPFlushDirective &S) {
       *this,
       [&S]() -> ArrayRef<const Expr *> {
         if (const auto *FlushClause = S.getSingleClause<OMPFlushClause>())
-          return llvm::makeArrayRef(FlushClause->varlist_begin(),
-                                    FlushClause->varlist_end());
+          return llvm::ArrayRef(FlushClause->varlist_begin(),
+                                FlushClause->varlist_end());
         return std::nullopt;
       }(),
       S.getBeginLoc(), AO);
@@ -6172,15 +6175,6 @@ static std::pair<bool, RValue> emitOMPAtomicRMW(CodeGenFunction &CGF, LValue X,
     if (T->isIntegerTy())
       return true;
 
-#if INTEL_COLLAB
-    // INTEL atomic fadd/fsub not supported with SPIR-V. See CMPLRLLVM-37966.
-    llvm::Triple::ArchType AT =
-        CGF.getContext().getTargetInfo().getTriple().getArch();
-    if (T->isFloatingPointTy() &&
-        (AT == llvm::Triple::spir64 || AT == llvm::Triple::spir))
-      return false;
-#endif // INTEL_COLLAB
-
     if (T->isFloatingPointTy() && (BO == BO_Add || BO == BO_Sub))
       return llvm::isPowerOf2_64(CGF.CGM.getDataLayout().getTypeStoreSize(T));
 
@@ -6685,6 +6679,9 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_nowait:
   case OMPC_untied:
   case OMPC_threadprivate:
+#if INTEL_COLLAB
+  case OMPC_groupprivate:
+#endif // INTEL_COLLAB
   case OMPC_depend:
   case OMPC_mergeable:
   case OMPC_device:
@@ -6757,6 +6754,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_bind:
   case OMPC_align:
   case OMPC_cancellation_construct_type:
+  default:
     llvm_unreachable("Clause is not allowed in 'omp atomic'.");
   }
 }
@@ -7448,7 +7446,7 @@ void CodeGenFunction::EmitOMPUseDevicePtrClause(
       // OMPCapturedExprDecl are used to privative fields of the current
       // structure.
       const auto *ME = cast<MemberExpr>(OED->getInit());
-      assert(isa<CXXThisExpr>(ME->getBase()) &&
+      assert(isa<CXXThisExpr>(ME->getBase()->IgnoreImpCasts()) &&
              "Base should be the current struct!");
       MatchingVD = ME->getMemberDecl();
     }
@@ -7562,16 +7560,13 @@ void CodeGenFunction::EmitOMPTargetDataDirective(
   };
   DevicePointerPrivActionTy PrivAction(PrivatizeDevicePointers);
 
-  auto &&CodeGen = [&S, &Info, &PrivatizeDevicePointers](
-                       CodeGenFunction &CGF, PrePostActionTy &Action) {
+  auto &&CodeGen = [&](CodeGenFunction &CGF, PrePostActionTy &Action) {
     auto &&InnermostCodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
       CGF.EmitStmt(S.getInnermostCapturedStmt()->getCapturedStmt());
     };
 
     // Codegen that selects whether to generate the privatization code or not.
-    auto &&PrivCodeGen = [&S, &Info, &PrivatizeDevicePointers,
-                          &InnermostCodeGen](CodeGenFunction &CGF,
-                                             PrePostActionTy &Action) {
+    auto &&PrivCodeGen = [&](CodeGenFunction &CGF, PrePostActionTy &Action) {
       RegionCodeGenTy RCG(InnermostCodeGen);
       PrivatizeDevicePointers = false;
 
@@ -7591,7 +7586,28 @@ void CodeGenFunction::EmitOMPTargetDataDirective(
         (void)PrivateScope.Privatize();
         RCG(CGF);
       } else {
-        OMPLexicalScope Scope(CGF, S, OMPD_unknown);
+        // If we don't have target devices, don't bother emitting the data
+        // mapping code.
+        std::optional<OpenMPDirectiveKind> CaptureRegion;
+        if (CGM.getLangOpts().OMPTargetTriples.empty()) {
+          // Emit helper decls of the use_device_ptr/use_device_addr clauses.
+          for (const auto *C : S.getClausesOfKind<OMPUseDevicePtrClause>())
+            for (const Expr *E : C->varlists()) {
+              const Decl *D = cast<DeclRefExpr>(E)->getDecl();
+              if (const auto *OED = dyn_cast<OMPCapturedExprDecl>(D))
+                CGF.EmitVarDecl(*OED);
+            }
+          for (const auto *C : S.getClausesOfKind<OMPUseDeviceAddrClause>())
+            for (const Expr *E : C->varlists()) {
+              const Decl *D = getBaseDecl(E);
+              if (const auto *OED = dyn_cast<OMPCapturedExprDecl>(D))
+                CGF.EmitVarDecl(*OED);
+            }
+        } else {
+          CaptureRegion = OMPD_unknown;
+        }
+
+        OMPLexicalScope Scope(CGF, S, CaptureRegion);
         RCG(CGF);
       }
     };
@@ -8280,6 +8296,8 @@ void CodeGenFunction::HoistTeamsClausesIfPossible(
             C == Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass)
           Dir = cast<OMPExecutableDirective>(CS);
       }
+      // thread_limit clause is allowed on 'target' construct since OpenMP 5.1
+      EnsureAddressableClauseExpr(S.getSingleClause<OMPThreadLimitClause>());
       break;
     default:
       break;
@@ -8588,7 +8606,19 @@ void CodeGenFunction::EmitOMPGenericLoopDirective(
     const OMPGenericLoopDirective &S) {
   // Unimplemented, just inline the underlying statement for now.
   auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &Action) {
-    CGF.EmitStmt(cast<CapturedStmt>(S.getAssociatedStmt())->getCapturedStmt());
+    // Emit the loop iteration variable.
+    const Stmt *CS =
+        cast<CapturedStmt>(S.getAssociatedStmt())->getCapturedStmt();
+    const auto *ForS = dyn_cast<ForStmt>(CS);
+    if (ForS && !isa<DeclStmt>(ForS->getInit())) {
+      OMPPrivateScope LoopScope(CGF);
+      CGF.EmitOMPPrivateLoopCounters(S, LoopScope);
+      (void)LoopScope.Privatize();
+      CGF.EmitStmt(CS);
+      LoopScope.restoreMap();
+    } else {
+      CGF.EmitStmt(CS);
+    }
   };
   OMPLexicalScope Scope(*this, S, OMPD_unknown);
   CGM.getOpenMPRuntime().emitInlinedDirective(*this, OMPD_loop, CodeGen);

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -19,7 +19,6 @@
 #include "GenericMemObj.h"
 #include "cl_logger.h"
 #include "cl_shared_ptr.hpp"
-#include "cl_shutdown.h"
 #include "llvm/Support/Compiler.h" // LLVM_FALLTHROUGH
 
 using namespace std;
@@ -30,12 +29,12 @@ using namespace Intel::OpenCL::Utils;
 // Lock managent - reuse global generic mem-object lock
 //
 inline void GenericMemObject::acquire_data_sharing_lock() {
-  m_global_lock.Lock();
+  m_global_lock.lock();
 }
 
 inline SharedPtr<OclEvent> GenericMemObject::release_data_sharing_lock(
     DataCopyEventWrapper *returned_event) {
-  m_global_lock.Unlock();
+  m_global_lock.unlock();
 
   if (returned_event && returned_event->completionReq) {
     assert(NULL != returned_event->ev.GetPtr() &&
@@ -1190,16 +1189,15 @@ void GenericMemObjectSubBuffer::ZombieFlashToParent() {
 
   acquireBufferSyncLock();
 
-  if ((getUpdateParentFlag() && isSecondLevelBufferSyncLock()) ||
-      (IsShuttingDown())) {
+  if (getUpdateParentFlag() && isSecondLevelBufferSyncLock()) {
     // Ooooops! We entered zombie mode during parent update and from inside
     // thread that already holds
-    //          BufferSyncLock lock. As with current implementation this may
-    //          happen only because of races between parent update and SubBuffer
-    //          deletion and only at the very end of updating process. We assume
-    //          that there is no need in additional parent update, but we need
-    //          to remove ourselve from parent sub-buffers list to force real
-    //          sub-buffer removal
+    // BufferSyncLock lock. As with current implementation this may
+    // happen only because of races between parent update and SubBuffer
+    // deletion and only at the very end of updating process. We assume
+    // that there is no need in additional parent update, but we need
+    // to remove ourselve from parent sub-buffers list to force real
+    // sub-buffer removal
     TSubBufferList *pSubBuffersList = getSubBuffersListPtr();
     SharedPtr<GenericMemObjectSubBuffer> Me = this;
     for (TSubBufferList::iterator it = pSubBuffersList->begin();
@@ -1225,7 +1223,7 @@ void GenericMemObjectSubBuffer::ZombieFlashToParent() {
   cl_err_code errCode =
       updateParent(devSharingGroupId, READ_ONLY, false, retEvent);
   // If retEvent is not NULL it means that asynch operation was launched. We
-  // need to wait until it's end. This operation will also loclOnDeviceInt() on
+  // need to wait until it's end. This operation will also lockOnDeviceInt() on
   // our sub-buffer because we are the initializers, so we need to unlock
   if ((NULL != retEvent.GetPtr()) && (CL_SUCCESS == errCode)) {
     retEvent->Wait();

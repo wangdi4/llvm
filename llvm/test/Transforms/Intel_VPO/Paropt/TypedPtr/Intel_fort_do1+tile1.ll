@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-;RUN: opt -enable-new-pm=0 -vpo-paropt-loop-transform -disable-vpo-paropt-tile=false -S < %s  | FileCheck %s
-;RUN: opt -passes='function(vpo-paropt-loop-transform)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
+;RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-loop-transform -disable-vpo-paropt-tile=false -S < %s  | FileCheck %s
+;RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-loop-transform)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
 
 ; Verify that omp loop tile construct is in effect. Notice that normalized
 ; induction variables and loop upperbound have to be added to the outer region's
@@ -22,7 +22,7 @@
 ; CHECK-DAG: FLOOR.LATCH
 ; CHECK-DAG: FLOOR.PREHEAD
 ; CHECK-DAG: FLOOR.HEAD
-; CHECK-DAG: @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.PRIVATE"(i32* %"test_$I"), "QUAL.OMP.NORMALIZED.IV:TYPED"(i64* %floor_iv, i64 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i64* %floor_ub, i64 0), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i64* %floor_lb, i64 0, i32 1) ]
+; CHECK-DAG: @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.PRIVATE"(i32* %"test_$I"), "QUAL.OMP.FIRSTPRIVATE"(i64* %omp.pdo.norm.lb), "QUAL.OMP.NORMALIZED.IV:TYPED"(i64* %floor_iv, i64 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i64* %floor_ub, i64 0), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i64* %floor_lb, i64 0, i32 1) ]
 
 ; ModuleID = 'do1_tile1.f90'
 source_filename = "do1_tile1.f90"
@@ -56,7 +56,11 @@ alloca_0:
 
 bb_new2:  ; preds = %alloca_0
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
-     "QUAL.OMP.PRIVATE"(i32* %"test_$I") ]
+     "QUAL.OMP.PRIVATE"(i32* %"test_$I"),
+     "QUAL.OMP.FIRSTPRIVATE"(i64* %omp.pdo.norm.lb),
+     "QUAL.OMP.NORMALIZED.IV"(i64* %omp.pdo.norm.iv),
+     "QUAL.OMP.NORMALIZED.UB"(i64* %omp.pdo.norm.ub) ]
+
   br label %bb_new7
 
 bb_new7:  ; preds = %bb_new2

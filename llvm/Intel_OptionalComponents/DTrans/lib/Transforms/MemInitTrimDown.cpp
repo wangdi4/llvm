@@ -1,6 +1,6 @@
 //===---------------- MemInitTrimDown.cpp - DTransMemInitTrimDownPass -----===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,7 +16,6 @@
 #include "Intel_DTrans/Transforms/MemInitTrimDown.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
-#include "Intel_DTrans/DTransCommon.h"
 
 #include "SOAToAOSClassInfo.h"
 
@@ -37,66 +36,6 @@ cl::opt<bool>
     DTransMemInitRecognizeAll("dtrans-meminit-recognize-all", cl::init(false),
                               cl::Hidden,
                               cl::desc("Recognize All member functions"));
-
-namespace {
-
-class DTransMemInitTrimDownWrapper : public ModulePass {
-private:
-  dtrans::MemInitTrimDownPass Impl;
-
-public:
-  static char ID;
-
-  DTransMemInitTrimDownWrapper() : ModulePass(ID) {
-    initializeDTransMemInitTrimDownWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    DTransAnalysisWrapper &DTAnalysisWrapper =
-        getAnalysis<DTransAnalysisWrapper>();
-    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-
-    dtrans::SOADominatorTreeType GetDT =
-        [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-    auto GetTLI = [this](const Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    bool Changed =
-        Impl.runImpl(M, DTInfo, GetTLI,
-                     getAnalysis<WholeProgramWrapperPass>().getResult(), GetDT);
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
-} // end anonymous namespace
-
-char DTransMemInitTrimDownWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransMemInitTrimDownWrapper, "dtrans-meminittrimdown",
-                      "DTrans Mem Init Trim Down", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransMemInitTrimDownWrapper, "dtrans-meminittrimdown",
-                    "DTrans Mem Init Trim Down", false, false)
-
-ModulePass *llvm::createDTransMemInitTrimDownWrapperPass() {
-  return new DTransMemInitTrimDownWrapper();
-}
 
 namespace llvm {
 

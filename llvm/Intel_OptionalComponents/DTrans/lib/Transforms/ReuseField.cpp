@@ -1,6 +1,6 @@
 //===---------------- ReuseField.cpp - DTransReuseFieldPass -------------===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,7 +16,6 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -29,44 +28,6 @@ using namespace llvm;
 #define DEBUG_TYPE "dtrans-reusefield"
 
 namespace {
-
-class DTransReuseFieldWrapper : public ModulePass {
-private:
-  dtrans::ReuseFieldPass Impl;
-
-public:
-  static char ID;
-
-  DTransReuseFieldWrapper() : ModulePass(ID) {
-    initializeDTransReuseFieldWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    DTransAnalysisWrapper &DTAnalysisWrapper =
-        getAnalysis<DTransAnalysisWrapper>();
-    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-    bool Changed = Impl.runImpl(M, DTInfo, GetTLI, WPInfo);
-    if (Changed)
-      DTAnalysisWrapper.setInvalidated();
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // TODO: Mark the actual required and preserved analyses.
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
 
 class ReuseFieldImpl {
 public:
@@ -131,20 +92,6 @@ private:
 };
 
 } // end anonymous namespace
-
-char DTransReuseFieldWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransReuseFieldWrapper, DEBUG_TYPE,
-                      "DTrans reuse field", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransReuseFieldWrapper, DEBUG_TYPE,
-                    "DTrans reuse field", false, false)
-
-ModulePass *llvm::createDTransReuseFieldWrapperPass() {
-  return new DTransReuseFieldWrapper();
-}
-
 
 template <class T>
 static SmallVector<T> disjoint(SmallVectorImpl<T> &SetA,

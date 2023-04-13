@@ -1,5 +1,5 @@
-; RUN: opt < %s -passes='cgscc(inline),module(call-tree-clone)' -inline-report=0xe807 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),module(call-tree-clone),inlinereportemitter' -inline-report=0xe886 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt -opaque-pointers < %s -passes='cgscc(inline),module(call-tree-clone)' -inline-report=0xe807 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),module(call-tree-clone),inlinereportemitter' -inline-report=0xe886 -call-tree-clone-do-mv=false -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; Check that call tree clones appear in the inlining report, when inlining
 ; precedes call tree cloning.
@@ -246,7 +246,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
 define internal void @foo(i32, i32, i32, i32) #0 {
-  tail call void @printf4(i8* getelementptr inbounds ([27 x i8], [27 x i8]* @.str, i64 0, i64 0), i32 %0, i32 %1, i32 %2, i32 %3) #3
+  tail call void @printf4(ptr getelementptr inbounds ([27 x i8], ptr @.str, i64 0, i64 0), i32 %0, i32 %1, i32 %2, i32 %3) #3
   %5 = add i32 %1, %0
   %6 = icmp sgt i32 %5, 0
   br i1 %6, label %14, label %7
@@ -264,14 +264,14 @@ define internal void @foo(i32, i32, i32, i32) #0 {
 
 ; <label>:14:                                     ; preds = %14, %4
   %15 = phi i32 [ %16, %14 ], [ 0, %4 ]
-  tail call void @printf1(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.1, i64 0, i64 0), i32 %15) #3
+  tail call void @printf1(ptr getelementptr inbounds ([18 x i8], ptr @.str.1, i64 0, i64 0), i32 %15) #3
   %16 = add nuw nsw i32 %15, 1
   %17 = icmp eq i32 %16, %5
   br i1 %17, label %7, label %14
 
 ; <label>:18:                                     ; preds = %18, %11
   %19 = phi i32 [ %20, %18 ], [ 0, %11 ]
-  tail call void @printf1(i8* getelementptr inbounds ([18 x i8], [18 x i8]* @.str.2, i64 0, i64 0), i32 %19) #3
+  tail call void @printf1(ptr getelementptr inbounds ([18 x i8], ptr @.str.2, i64 0, i64 0), i32 %19) #3
   %20 = add nuw nsw i32 %19, 1
   %21 = icmp eq i32 %20, %13
   br i1 %21, label %22, label %18
@@ -280,13 +280,13 @@ define internal void @foo(i32, i32, i32, i32) #0 {
   ret void
 }
 
-declare dso_local void @printf4(i8*, i32, i32, i32, i32) local_unnamed_addr #1
+declare dso_local void @printf4(ptr, i32, i32, i32, i32) local_unnamed_addr #1
 
-declare dso_local void @printf1(i8*, i32) local_unnamed_addr #1
+declare dso_local void @printf1(ptr, i32) local_unnamed_addr #1
 
 ; Function Attrs: noinline nounwind uwtable
 define internal void @bar(i32, i32, i32) #0 {
-  tail call void @printf3(i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str.3, i64 0, i64 0), i32 %0, i32 %1, i32 %2) #3
+  tail call void @printf3(ptr getelementptr inbounds ([21 x i8], ptr @.str.3, i64 0, i64 0), i32 %0, i32 %1, i32 %2) #3
   %4 = add nsw i32 %1, 1
   %5 = add nsw i32 %2, %0
   tail call void @foo(i32 %4, i32 %0, i32 %5, i32 2)
@@ -296,12 +296,12 @@ define internal void @bar(i32, i32, i32) #0 {
   ret void
 }
 
-declare dso_local void @printf3(i8*, i32, i32, i32) local_unnamed_addr #1
+declare dso_local void @printf3(ptr, i32, i32, i32) local_unnamed_addr #1
 
 ; Function Attrs: noinline nounwind uwtable
 define internal void @gee(i32, i32, i32) #0 {
-  tail call void @printf3(i8* getelementptr inbounds ([19 x i8], [19 x i8]* @.str.4, i64 0, i64 0), i32 %0, i32 %1, i32 %2) #3
-  %4 = load i32, i32* @glob, align 4, !tbaa !2
+  tail call void @printf3(ptr getelementptr inbounds ([19 x i8], ptr @.str.4, i64 0, i64 0), i32 %0, i32 %1, i32 %2) #3
+  %4 = load i32, ptr @glob, align 4, !tbaa !2
   %5 = add nsw i32 %1, 1
   %6 = add nsw i32 %2, 1
   tail call void @bar(i32 %4, i32 %5, i32 %6)
@@ -311,9 +311,9 @@ define internal void @gee(i32, i32, i32) #0 {
 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @main(i32, i8** nocapture readnone) #2 {
-  store i32 %0, i32* @glob, align 4, !tbaa !2
-  tail call void @printf0(i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.5, i64 0, i64 0)) #3
+define dso_local i32 @main(i32, ptr nocapture readnone) #2 {
+  store i32 %0, ptr @glob, align 4, !tbaa !2
+  tail call void @printf0(ptr getelementptr inbounds ([6 x i8], ptr @.str.5, i64 0, i64 0)) #3
   tail call void @gee(i32 2, i32 4, i32 5)
   tail call void @gee(i32 1, i32 2, i32 3)
   tail call void @gee(i32 2, i32 4, i32 5)
@@ -321,7 +321,7 @@ define dso_local i32 @main(i32, i8** nocapture readnone) #2 {
   ret i32 0
 }
 
-declare dso_local void @printf0(i8*) local_unnamed_addr #1
+declare dso_local void @printf0(ptr) local_unnamed_addr #1
 
 attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

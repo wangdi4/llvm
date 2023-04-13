@@ -5,70 +5,64 @@
 ; Vectorized tree contained these nodes:
 ; 3.
 ; Scalars:
-;     %i148 = load float, float* %i54, align 4
-;     %i149 = load float, float* %i55, align 4
-;     %i151 = load float, float* %i56, align 4
-;     %i152 = load float, float* %i57, align 4
+;     %i148 = load float, ptr %i54, align 4
+;     %i149 = load float, ptr %i55, align 4
+;     %i151 = load float, ptr %i56, align 4
+;     %i152 = load float, ptr %i57, align 4
 ; State: NeedToGather
 ; 4.
 ; Scalars:
-;     %i137 = load float, float* %i54, align 4
-;     %i138 = load float, float* %i55, align 4
-;     %i140 = load float, float* %i56, align 4
-;     %i141 = load float, float* %i57, align 4
+;     %i137 = load float, ptr %i54, align 4
+;     %i138 = load float, ptr %i55, align 4
+;     %i140 = load float, ptr %i56, align 4
+;     %i141 = load float, ptr %i57, align 4
 ; State: NeedToGather
 ; Both nodes are gathering ones but these nodes started to affect horizontal reordering
 ; after https://reviews.llvm.org/D122145. As the result the split-load node got a reordering
 ; mask but it turned out that support of that was missed (an assertion fired).
 ;
-define void @test(float* nocapture readonly %p1, float* nocapture readonly %p2) {
-; CHECK-LABEL: @test(
+define void @test(ptr nocapture readonly %p1, ptr nocapture readonly %p2) {
+; CHECK-LABEL: define {{[^@]+}}@test(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[BB39:%.*]]
 ; CHECK:       bb39:
 ; CHECK-NEXT:    br i1 undef, label [[BB45:%.*]], label [[BB53:%.*]]
 ; CHECK:       bb45:
-; CHECK-NEXT:    [[I:%.*]] = getelementptr float, float* [[P1:%.*]], i32 0
-; CHECK-NEXT:    [[I49:%.*]] = getelementptr float, float* [[P1]], i32 1
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[I]] to <2 x float>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x float>, <2 x float>* [[TMP0]], align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast float* [[I49]] to <2 x float>*
-; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x float>, <2 x float>* [[TMP2]], align 4
-; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <2 x float> [[TMP1]], <2 x float> [[TMP3]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[I:%.*]] = getelementptr float, ptr [[P1:%.*]], i32 0
+; CHECK-NEXT:    [[I49:%.*]] = getelementptr float, ptr [[P1]], i32 1
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x float>, ptr [[I]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x float>, ptr [[I49]], align 4
+; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <2 x float> [[TMP0]], <2 x float> [[TMP1]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br label [[BB63:%.*]]
 ; CHECK:       bb53:
-; CHECK-NEXT:    [[I54:%.*]] = getelementptr float, float* null, i32 0
-; CHECK-NEXT:    [[I56:%.*]] = getelementptr float, float* [[P2:%.*]], i32 1
+; CHECK-NEXT:    [[I54:%.*]] = getelementptr float, ptr null, i32 0
+; CHECK-NEXT:    [[I56:%.*]] = getelementptr float, ptr [[P2:%.*]], i32 1
 ; CHECK-NEXT:    br i1 undef, label [[BB146:%.*]], label [[BB136:%.*]]
 ; CHECK:       bb58:
-; CHECK-NEXT:    [[TMP4:%.*]] = phi <4 x float> [ [[TMP15:%.*]], [[BB147:%.*]] ], [ [[TMP19:%.*]], [[BB150:%.*]] ], [ [[TMP12:%.*]], [[BB139:%.*]] ]
+; CHECK-NEXT:    [[TMP2:%.*]] = phi <4 x float> [ [[TMP10:%.*]], [[BB147:%.*]] ], [ [[TMP13:%.*]], [[BB150:%.*]] ], [ [[TMP8:%.*]], [[BB139:%.*]] ]
 ; CHECK-NEXT:    br label [[BB63]]
 ; CHECK:       bb63:
-; CHECK-NEXT:    [[TMP5:%.*]] = phi <4 x float> [ [[TMP4]], [[BB58:%.*]] ], [ [[SPLITLOADSHUFFLE]], [[BB45]] ]
+; CHECK-NEXT:    [[TMP3:%.*]] = phi <4 x float> [ [[TMP2]], [[BB58:%.*]] ], [ [[SPLITLOADSHUFFLE]], [[BB45]] ]
 ; CHECK-NEXT:    br label [[BB39]]
 ; CHECK:       bb136:
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast float* [[I54]] to <2 x float>*
-; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x float>, <2 x float>* [[TMP6]], align 4
+; CHECK-NEXT:    [[TMP4:%.*]] = load <2 x float>, ptr [[I54]], align 4
 ; CHECK-NEXT:    br label [[BB139]]
 ; CHECK:       bb139:
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast float* [[I56]] to <2 x float>*
-; CHECK-NEXT:    [[TMP9:%.*]] = load <2 x float>, <2 x float>* [[TMP8]], align 4
-; CHECK-NEXT:    [[TMP10:%.*]] = shufflevector <2 x float> [[TMP7]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP11:%.*]] = shufflevector <2 x float> [[TMP9]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP12]] = shufflevector <4 x float> [[TMP10]], <4 x float> [[TMP11]], <4 x i32> <i32 0, i32 1, i32 4, i32 5>
+; CHECK-NEXT:    [[TMP5:%.*]] = load <2 x float>, ptr [[I56]], align 4
+; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <2 x float> [[TMP4]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <2 x float> [[TMP5]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP8]] = shufflevector <4 x float> [[TMP6]], <4 x float> [[TMP7]], <4 x i32> <i32 0, i32 1, i32 4, i32 5>
 ; CHECK-NEXT:    br i1 undef, label [[BB58]], label [[BB146]]
 ; CHECK:       bb146:
 ; CHECK-NEXT:    br i1 undef, label [[BB159:%.*]], label [[BB147]]
 ; CHECK:       bb147:
-; CHECK-NEXT:    [[TMP13:%.*]] = bitcast float* [[I54]] to <2 x float>*
-; CHECK-NEXT:    [[TMP14:%.*]] = load <2 x float>, <2 x float>* [[TMP13]], align 4
-; CHECK-NEXT:    [[TMP15]] = shufflevector <2 x float> [[TMP14]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP9:%.*]] = load <2 x float>, ptr [[I54]], align 4
+; CHECK-NEXT:    [[TMP10]] = shufflevector <2 x float> [[TMP9]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
 ; CHECK-NEXT:    br i1 undef, label [[BB150]], label [[BB58]]
 ; CHECK:       bb150:
-; CHECK-NEXT:    [[TMP16:%.*]] = bitcast float* [[I56]] to <2 x float>*
-; CHECK-NEXT:    [[TMP17:%.*]] = load <2 x float>, <2 x float>* [[TMP16]], align 4
-; CHECK-NEXT:    [[TMP18:%.*]] = shufflevector <2 x float> [[TMP17]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP19]] = shufflevector <4 x float> [[TMP15]], <4 x float> [[TMP18]], <4 x i32> <i32 0, i32 1, i32 4, i32 5>
+; CHECK-NEXT:    [[TMP11:%.*]] = load <2 x float>, ptr [[I56]], align 4
+; CHECK-NEXT:    [[TMP12:%.*]] = shufflevector <2 x float> [[TMP11]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP13]] = shufflevector <4 x float> [[TMP10]], <4 x float> [[TMP12]], <4 x i32> <i32 0, i32 1, i32 4, i32 5>
 ; CHECK-NEXT:    br i1 undef, label [[BB58]], label [[BB159]]
 ; CHECK:       bb159:
 ; CHECK-NEXT:    br i1 undef, label [[BB124:%.*]], label [[BB39]]
@@ -82,21 +76,21 @@ bb39:                                             ; preds = %bb159, %bb63, %entr
   br i1 undef, label %bb45, label %bb53
 
 bb45:                                             ; preds = %bb39
-  %i = getelementptr float, float* %p1, i32 0
-  %i46 = load float, float* %i, align 4
-  %i47 = getelementptr float, float* %p1, i32 1
-  %i48 = load float, float* %i47, align 4
-  %i49 = getelementptr float, float* %p1, i32 1
-  %i50 = load float, float* %i49, align 4
-  %i51 = getelementptr float, float* %p1, i32 2
-  %i52 = load float, float* %i51, align 4
+  %i = getelementptr float, ptr %p1, i32 0
+  %i46 = load float, ptr %i, align 4
+  %i47 = getelementptr float, ptr %p1, i32 1
+  %i48 = load float, ptr %i47, align 4
+  %i49 = getelementptr float, ptr %p1, i32 1
+  %i50 = load float, ptr %i49, align 4
+  %i51 = getelementptr float, ptr %p1, i32 2
+  %i52 = load float, ptr %i51, align 4
   br label %bb63
 
 bb53:                                             ; preds = %bb39
-  %i54 = getelementptr float, float* null, i32 0
-  %i55 = getelementptr float, float* null, i32 1
-  %i56 = getelementptr float, float* %p2, i32 1
-  %i57 = getelementptr float, float* %p2, i32 2
+  %i54 = getelementptr float, ptr null, i32 0
+  %i55 = getelementptr float, ptr null, i32 1
+  %i56 = getelementptr float, ptr %p2, i32 1
+  %i57 = getelementptr float, ptr %p2, i32 2
   br i1 undef, label %bb146, label %bb136
 
 bb58:                                             ; preds = %bb150, %bb147, %bb139
@@ -114,26 +108,26 @@ bb63:                                             ; preds = %bb58, %bb45
   br label %bb39
 
 bb136:                                            ; preds = %bb53
-  %i137 = load float, float* %i54, align 4
-  %i138 = load float, float* %i55, align 4
+  %i137 = load float, ptr %i54, align 4
+  %i138 = load float, ptr %i55, align 4
   br label %bb139
 
 bb139:                                            ; preds = %bb136
-  %i140 = load float, float* %i56, align 4
-  %i141 = load float, float* %i57, align 4
+  %i140 = load float, ptr %i56, align 4
+  %i141 = load float, ptr %i57, align 4
   br i1 undef, label %bb58, label %bb146
 
 bb146:                                            ; preds = %bb139, %bb53
   br i1 undef, label %bb159, label %bb147
 
 bb147:                                            ; preds = %bb146
-  %i148 = load float, float* %i54, align 4
-  %i149 = load float, float* %i55, align 4
+  %i148 = load float, ptr %i54, align 4
+  %i149 = load float, ptr %i55, align 4
   br i1 undef, label %bb150, label %bb58
 
 bb150:                                            ; preds = %bb147
-  %i151 = load float, float* %i56, align 4
-  %i152 = load float, float* %i57, align 4
+  %i151 = load float, ptr %i56, align 4
+  %i152 = load float, ptr %i57, align 4
   br i1 undef, label %bb58, label %bb159
 
 bb159:                                            ; preds = %bb150, %bb146

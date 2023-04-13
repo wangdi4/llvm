@@ -12,22 +12,22 @@
 
 declare void @llvm.dbg.value(metadata, metadata, metadata) #0
 
-define internal i32 @callee(i1 %param1, i32* align 4 %param2) !dbg !4 {
+define internal i32 @callee(i1 %param1, ptr align 4 %param2) !dbg !4 {
 entry:
   br i1 %param1, label %if.then, label %return
 
 if.then:                                          ; preds = %entry
-  call void @llvm.dbg.value(metadata i32* %param2, metadata !17, metadata !DIExpression()), !dbg !18
-  store i32 42, i32* %param2, align 4
+  call void @llvm.dbg.value(metadata ptr %param2, metadata !17, metadata !DIExpression()), !dbg !18
+  store i32 42, ptr %param2, align 4
   br label %return
 
 return:                                           ; preds = %if.then, %entry
   ret i32 0
 }
 
-define internal i32 @caller(i1 %param1, i32* align 2 %param2) !dbg !19 {
+define internal i32 @caller(i1 %param1, ptr align 2 %param2) !dbg !19 {
 entry:
-  %val = call i32 @callee(i1 %param1, i32* %param2), !dbg !20
+  %val = call i32 @callee(i1 %param1, ptr %param2), !dbg !20
   ret i32 %val
 }
 

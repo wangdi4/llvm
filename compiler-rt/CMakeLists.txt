@@ -20,6 +20,36 @@
 # An important constraint of the build is that it only produces libraries
 # based on the ability of the host toolchain to target various platforms.
 
+
+# INTEL_CUSTOMIZATION
+#
+# Compiler-RT Deployment Status
+#
+# This comment is used to keep track of current compiler-rt deployment status so
+# that we know which projects are included in our products.
+# Or you can search `clang_rt` in `llvm/CMakeLists.txt`.
+#
+# - profile
+#   - owned & used by PGO team
+#   - Linux & Windows
+# - sanitizers(CMPLRLLVM-41239)
+#   - Address Sanitizer(asan)
+#     - Linux & Windows
+#   - Leak Sanitizer(lsan)
+#     - Linux
+#   - Memory Sanitizer(msan)
+#     - Linux
+#   - Thread Sanitizer(tsan)
+#     - Linux
+#   - Undefined behaviors Sanitizer(ubsan)
+#     - Linux & Windows
+# - fuzzer(CMPLRLLVM-44636)
+#   - Linux
+# - cfi(CMPLRLLVM-43351)
+#   - Linux & Windows
+#
+# end INTEL_CUSTOMIZATION
+
 cmake_minimum_required(VERSION 3.13.4)
 
 # Check if compiler-rt is built as a standalone project.
@@ -59,6 +89,8 @@ include(CMakeDependentOption)
 
 option(COMPILER_RT_BUILD_BUILTINS "Build builtins" ON)
 mark_as_advanced(COMPILER_RT_BUILD_BUILTINS)
+option(COMPILER_RT_DISABLE_AARCH64_FMV "Disable AArch64 Function Multi Versioning support" OFF)
+mark_as_advanced(COMPILER_RT_DISABLE_AARCH64_FMV)
 option(COMPILER_RT_BUILD_CRT "Build crtbegin.o/crtend.o" ON)
 mark_as_advanced(COMPILER_RT_BUILD_CRT)
 option(COMPILER_RT_CRT_USE_EH_FRAME_REGISTRY "Use eh_frame in crtbegin.o/crtend.o" ON)
@@ -287,13 +319,12 @@ if (CMAKE_CXX_FLAGS MATCHES "-fprofile-arcs" AND CMAKE_CXX_FLAGS MATCHES "-ftest
 endif()
 
 # Libirc is not ready when running lit tests, so we disable using it.
+# Set flag to variable here, test if flag available in config-ix.cmake, and 
+# apply the flag later in this file.
 if(MSVC)
-  # Using MSVC-like command-line arguments
-  string(APPEND CMAKE_C_FLAGS " /Q_no-use-libirc")
-  string(APPEND CMAKE_CXX_FLAGS " /Q_no-use-libirc")
+  set(INTEL_NO_USE_LIBIRC_FLAG " /Q_no-use-libirc")
 else()
-  string(APPEND CMAKE_C_FLAGS " -i_no-use-libirc")
-  string(APPEND CMAKE_CXX_FLAGS " -i_no-use-libirc")
+  set(INTEL_NO_USE_LIBIRC_FLAG " -i_no-use-libirc")
 endif()
 # end INTEL_CUSTOMIZATION
 
@@ -353,6 +384,11 @@ include(config-ix)
 #================================
 # Setup Compiler Flags
 #================================
+
+# INTEL_CUSTOMIZATION
+# Libirc is not ready when running lit tests, so we disable using it.
+append_string_if(COMPILER_RT_HAS_INTEL_NO_USE_LIBIRC_FLAG ${INTEL_NO_USE_LIBIRC_FLAG} CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+# end INTEL_CUSTOMIZATION
 
 # fcf-protection is a gcc/clang option for CET support on Linux platforms.
 # We need to handle MSVC CET option on Windows platforms.
@@ -468,16 +504,12 @@ endif()
 
 append_list_if(COMPILER_RT_DEBUG -DSANITIZER_DEBUG=1 SANITIZER_COMMON_CFLAGS)
 
-if(CMAKE_CXX_COMPILER_ID MATCHES Clang)
-  list(APPEND THREAD_SAFETY_FLAGS
-      "-Wthread-safety"
-      "-Wthread-safety-reference"
-      "-Wthread-safety-beta"
-  )
-  list(APPEND SANITIZER_COMMON_CFLAGS ${THREAD_SAFETY_FLAGS})
-  string(REPLACE ";" " " thread_safety_flags_space_sep "${THREAD_SAFETY_FLAGS}")
-  string(APPEND COMPILER_RT_TEST_COMPILER_CFLAGS " ${thread_safety_flags_space_sep}")
-endif()
+append_list_if(COMPILER_RT_HAS_WTHREAD_SAFETY_FLAG -Wthread-safety THREAD_SAFETY_FLAGS)
+append_list_if(COMPILER_RT_HAS_WTHREAD_SAFETY_REFERENCE_FLAG -Wthread-safety-reference THREAD_SAFETY_FLAGS)
+append_list_if(COMPILER_RT_HAS_WTHREAD_SAFETY_BETA_FLAG -Wthread-safety-beta THREAD_SAFETY_FLAGS)
+list(APPEND SANITIZER_COMMON_CFLAGS ${THREAD_SAFETY_FLAGS})
+string(REPLACE ";" " " thread_safety_flags_space_sep "${THREAD_SAFETY_FLAGS}")
+string(APPEND COMPILER_RT_TEST_COMPILER_CFLAGS " ${thread_safety_flags_space_sep}")
 
 # If we're using MSVC,
 # always respect the optimization flags set by CMAKE_BUILD_TYPE instead.

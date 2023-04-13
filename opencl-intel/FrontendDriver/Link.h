@@ -27,10 +27,8 @@ namespace Intel {
 namespace OpenCL {
 namespace ClangFE {
 
-using namespace llvm;
-
 // Derived from llvm::opt::OptTable because it has protected constructor
-class OpenCLLinkOptTable : public llvm::opt::OptTable {
+class OpenCLLinkOptTable : public llvm::opt::GenericOptTable {
 public:
   OpenCLLinkOptTable();
 };

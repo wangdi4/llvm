@@ -1,4 +1,21 @@
 //===-- X86InstrShiftRotate.td - Shift and Rotate Instrs ---*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,6 +27,1290 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// The class below named I_* means it's an Instruction inherited by ITy,
+// The chars behind underline represent their inputs and outputs, use a '_' to
+// connect. In it, R means Register, M means mem, I means Imm, so I_R_R means
+// this class denotes an instruction with one output reg and one input reg.
+class I_R_R<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
+            string operands, list<dag> patterns>
+  : ITy<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+        (ins typeinfo.RegClass:$src1), mnemonic, operands, patterns>;
+class I_R_R_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
+                 string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+            (ins typeinfo.RegClass:$src1), mnemonic, operands, patterns>;
+
+class I_R_RI<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
+             string operands, list<dag> patterns>
+  : ITy<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+        (ins typeinfo.RegClass:$src1, u8imm:$src2),
+        mnemonic, operands, patterns>;
+class I_R_RI_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
+                  string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+        (ins typeinfo.RegClass:$src1, u8imm:$src2),
+        mnemonic, operands, patterns>;
+
+class I_N_M<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
+            string operands, list<dag> patterns>
+  : ITy<opcode, f, typeinfo, (outs), (ins typeinfo.MemOperand:$dst),
+        mnemonic, operands, patterns>;
+class I_N_M_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+                 string mnemonic, string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs), (ins typeinfo.MemOperand:$dst),
+             mnemonic, operands, patterns>;
+
+class I_R_M_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+                 string mnemonic, string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+             (ins typeinfo.MemOperand:$src1), mnemonic, operands, patterns>;
+
+class I_N_MI<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
+             string operands, list<dag> patterns>
+  : ITy<opcode, f, typeinfo, (outs),
+        (ins typeinfo.MemOperand:$dst, u8imm:$src),
+        mnemonic, operands, patterns>;
+class I_N_MI_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+                  string mnemonic, string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs),
+             (ins typeinfo.MemOperand:$dst, u8imm:$src),
+             mnemonic, operands, patterns>;
+
+class I_R_MI_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+                  string mnemonic, string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+             (ins typeinfo.MemOperand:$src1, u8imm:$src2),
+             mnemonic, operands, patterns>;
+
+class I_R_RR<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
+             string operands, list<dag> patterns>
+  : ITy<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+        (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2), mnemonic,
+        operands, patterns>;
+class I_R_RR_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+                  string mnemonic, string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+             (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2), mnemonic,
+             operands, patterns>;
+
+class I_R_RRI<bits<8> opcode, Format f, X86TypeInfo typeinfo, string mnemonic,
+              string operands, list<dag> patterns>
+  : ITy<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+        (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2, u8imm:$src3),
+        mnemonic, operands, patterns>;
+class I_R_RRI_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+                   string mnemonic, string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+             (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2, u8imm:$src3),
+              mnemonic, operands, patterns>;
+
+class I_N_MR<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+             string mnemonic, string operands, list<dag> patterns>
+  : ITy<opcode, f, typeinfo, (outs),
+        (ins typeinfo.MemOperand:$dst, typeinfo.RegClass:$src2),
+        mnemonic, operands, patterns>;
+class I_N_MR_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+             string mnemonic, string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs),
+             (ins typeinfo.MemOperand:$dst, typeinfo.RegClass:$src2),
+              mnemonic, operands, patterns>;
+
+class I_R_MR_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+                  string mnemonic, string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+             (ins typeinfo.MemOperand:$src1, typeinfo.RegClass:$src2),
+              mnemonic, operands, patterns>;
+
+class I_N_MRI<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+              string mnemonic, string operands, list<dag> patterns>
+  : ITy<opcode, f, typeinfo, (outs),
+        (ins typeinfo.MemOperand:$dst, typeinfo.RegClass:$src2, u8imm:$src3),
+        mnemonic, operands, patterns>;
+class I_N_MRI_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+                   string mnemonic, string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs),
+             (ins typeinfo.MemOperand:$dst,
+              typeinfo.RegClass:$src2, u8imm:$src3),
+             mnemonic, operands, patterns>;
+
+class I_R_MRI_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo,
+                   string mnemonic, string operands, list<dag> patterns>
+  : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+             (ins typeinfo.MemOperand:$src1,
+              typeinfo.RegClass:$src2, u8imm:$src3),
+             mnemonic, operands, patterns>;
+
+class shift_rCL<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                X86TypeInfo typeinfo>
+  : I_R_R<opcode, f, typeinfo, mnemonic,"{%cl, $dst|$dst, cl}",
+          [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1, CL))]>;
+
+class shift_rCL_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                    X86TypeInfo typeinfo>
+  : I_R_R_EVEX<opcode, f, typeinfo, mnemonic,
+               "{%cl, $src1, $dst|$dst, $src1, cl}",
+               [(set typeinfo.RegClass:$dst,
+                (node typeinfo.RegClass:$src1, CL))]>;
+
+class shift_rCL_NoPat<bits<8> opcode, Format f, string mnemonic,
+                      X86TypeInfo typeinfo>
+  : I_R_R_EVEX<opcode, f, typeinfo, mnemonic, "{%cl, $dst|$dst, cl}", []>;
+
+class shift_rCL_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                          X86TypeInfo typeinfo>
+  : I_R_R_EVEX<opcode, f, typeinfo, mnemonic,
+               "{%cl, $src1, $dst|$dst, $src1, cl}", []>;
+
+multiclass mshift_rCL<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                      X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst" in {
+let Predicates = [NoNDD] in
+  def NAME : shift_rCL<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shift_rCL_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+}
+let Predicates = [HasNDD] in
+  def _ND : shift_rCL_NDD<opcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+let Constraints = "$src1 = $dst" in
+  def _NF : shift_rCL_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_rCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+class shift_ri<bits<8> opcode, Format f, string mnemonic, SDNode node,
+               X86TypeInfo typeinfo>
+  : I_R_RI<opcode, f, typeinfo, mnemonic, "{$src2, $dst|$dst, $src2}",
+           [(set typeinfo.RegClass:$dst,
+            (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]> {
+  let ImmT = Imm8;
+}
+
+class shift_ri_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_R_RI_EVEX<opcode, f, typeinfo, mnemonic,
+                "{$src2, $src1, $dst|$dst, $src1, $src2}",
+                [(set typeinfo.RegClass:$dst,
+                 (node typeinfo.RegClass:$src1, (i8 imm:$src2)))]> {
+  let ImmT = Imm8;
+}
+
+class shift_ri_NoPat<bits<8> opcode, Format f, string mnemonic,
+                     X86TypeInfo typeinfo>
+  : I_R_RI_EVEX<opcode, f, typeinfo, mnemonic, "{$src2, $dst|$dst, $src2}", []> {
+  let ImmT = Imm8;
+}
+
+class shift_ri_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_R_RI_EVEX<opcode, f, typeinfo, mnemonic,
+                "{$src2, $src1, $dst|$dst, $src1, $src2}", []> {
+  let ImmT = Imm8;
+}
+
+multiclass mshift_ri<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                      X86TypeInfo typeinfo> {
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst" in {
+let Predicates = [NoNDD] in
+  def NAME : shift_ri<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+}
+let Predicates = [HasNDD] in
+  def _ND : shift_ri_NDD<opcode, f, mnemonic, node, typeinfo>,
+            EVEX_B4V;
+}
+let Constraints = "$src1 = $dst" in
+  def _NF : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_ri_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+class shiftl_r1<bits<8> opcode, Format f, X86TypeInfo typeinfo>
+  : I_R_R_EVEX<opcode, f, typeinfo, "shl", "$dst", []>;
+
+class shiftl_r1_NDD<bits<8> opcode, Format f, X86TypeInfo typeinfo>
+  : I_R_R_EVEX<opcode, f, typeinfo, "shl", "{$src1, $dst|$dst, $src1}", []>;
+
+multiclass mshiftl_r1<bits<8> opcode, Format f, X86TypeInfo typeinfo> {
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst" in {
+  def NAME: I_R_R<opcode, f, typeinfo, "shl", "$dst", []>;
+  def _EVEX : shiftl_r1<opcode, f, typeinfo>, EmitVEXOrEVEXPrefix;
+}
+let Predicates = [HasNDD] in
+  def _ND : shiftl_r1_NDD<opcode, f, typeinfo>, EVEX_B4V;
+}
+let Constraints = "$src1 = $dst" in
+  def _NF : shiftl_r1<opcode, f, typeinfo>, EVEX_NF;
+  def _ND_NF : shiftl_r1_NDD<opcode, f, typeinfo>, EVEX_B4V, EVEX_NF;
+}
+
+let Uses = [CL], SchedRW = [WriteShiftCL] in {
+defm SHL8rCL  : mshift_rCL<0xD2, MRM4r, "shl", shl, Xi8>;
+defm SHL16rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi16>;
+defm SHL32rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi32>;
+defm SHL64rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi64>;
+} // Uses = [CL], SchedRW
+
+let SchedRW = [WriteShift], isConvertibleToThreeAddress = 1 in {
+defm SHL8ri   : mshift_ri<0xC0, MRM4r, "shl", shl, Xi8>;
+defm SHL16ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi16>;
+defm SHL32ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi32>;
+defm SHL64ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi64>;
+} // SchedRW
+
+// NOTE: We don't include patterns for shifts of a register by one, because
+// 'add reg,reg' is cheaper (and we have a Pat pattern for shift-by-one).
+let hasSideEffects = 0, SchedRW = [WriteShift] in {
+defm SHL8r1   : mshiftl_r1<0xD0, MRM4r, Xi8>;
+defm SHL16r1  : mshiftl_r1<0xD1, MRM4r, Xi16>;
+defm SHL32r1  : mshiftl_r1<0xD1, MRM4r, Xi32>;
+defm SHL64r1  : mshiftl_r1<0xD1, MRM4r, Xi64>;
+} // hasSideEffects = 0
+
+// FIXME: Why do we need an explicit "Uses = [CL]" when the instr has a pattern
+// using CL?
+
+class shift_mCL<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                X86TypeInfo typeinfo>
+  : I_N_M<opcode, f, typeinfo, mnemonic, "{%cl, $dst|$dst, cl}",
+          [(store (node (typeinfo.LoadNode addr:$dst), CL), addr:$dst)]>;
+
+class shift_mCL_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                    X86TypeInfo typeinfo>
+  : I_R_M_EVEX<opcode, f, typeinfo, mnemonic,
+               "{%cl, $src1, $dst|$dst, $src1, cl}",
+               [(set typeinfo.RegClass:$dst,
+                (node (typeinfo.LoadNode addr:$src1), CL))]>;
+
+class shift_mCL_NoPat<bits<8> opcode, Format f, string mnemonic,
+                      X86TypeInfo typeinfo>
+  : I_N_M_EVEX<opcode, f, typeinfo, mnemonic, "{%cl, $dst|$dst, cl}", []>;
+
+class shift_mCL_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                          X86TypeInfo typeinfo>
+  : I_R_M_EVEX<opcode, f, typeinfo, mnemonic,
+               "{%cl, $src1, $dst|$dst, $src1, cl}", []>;
+
+multiclass mshift_mCL<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                      X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode],
+                                        [NoNDD]) in
+  def NAME : shift_mCL<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shift_mCL_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+let Predicates = [HasNDD] in
+  def _ND : shift_mCL_NDD<opcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+  def _NF : shift_mCL_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_mCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW] in {
+defm SHL8mCL  : mshift_mCL<0xD2, MRM4m, "shl", shl, Xi8>;
+defm SHL16mCL : mshift_mCL<0xD3, MRM4m, "shl", shl, Xi16>;
+defm SHL32mCL : mshift_mCL<0xD3, MRM4m, "shl", shl, Xi32>;
+defm SHL64mCL : mshift_mCL<0xD3, MRM4m, "shl", shl, Xi64>;
+}
+
+class shift_mi<bits<8> opcode, Format f, string mnemonic, SDNode node,
+               X86TypeInfo typeinfo>
+  : I_N_MI<opcode, f, typeinfo, mnemonic, "{$src, $dst|$dst, $src}",
+           [(store (node (typeinfo.LoadNode addr:$dst),
+                            (i8 imm:$src)), addr:$dst)]>{
+  let ImmT = Imm8;
+}
+
+class shift_mi_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_R_MI_EVEX<opcode, f, typeinfo, mnemonic,
+                "{$src2, $src1, $dst|$dst, $src1, $src2}",
+                [(set typeinfo.RegClass:$dst,
+                 (node (typeinfo.LoadNode addr:$src1), (i8 imm:$src2)))]>{
+  let ImmT = Imm8;
+}
+
+class shift_mi_NoPat_legacy<bits<8> opcode, Format f, string mnemonic,
+                            X86TypeInfo typeinfo>
+  : I_N_MI<opcode, f, typeinfo, mnemonic, "{$src, $dst|$dst, $src}", []>{
+  let ImmT = Imm8;
+}
+
+class shift_mi_NoPat<bits<8> opcode, Format f, string mnemonic,
+                     X86TypeInfo typeinfo>
+  : I_N_MI_EVEX<opcode, f, typeinfo, mnemonic, "{$src, $dst|$dst, $src}", []>{
+  let ImmT = Imm8;
+}
+
+class shift_mi_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_R_MI_EVEX<opcode, f, typeinfo, mnemonic,
+                "{$src2, $src1, $dst|$dst, $src1, $src2}", []>{
+  let ImmT = Imm8;
+}
+
+multiclass mshift_mi<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                     X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode],
+                                        [NoNDD]) in
+  def NAME : shift_mi<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shift_mi_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+let Predicates = [HasNDD] in
+  def _ND : shift_mi_NDD<opcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+  def _NF : shift_mi_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_mi_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+class shift_m1_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_R_M_EVEX<opcode, f, typeinfo, mnemonic, "{$src1, $dst|$dst, $src1}",
+               [(set typeinfo.RegClass:$dst,
+                (node (typeinfo.LoadNode addr:$src1), (i8 1)))]>;
+
+class shift_m1_NoPat<bits<8> opcode, Format f, string mnemonic,
+                     X86TypeInfo typeinfo>
+  : I_N_M_EVEX<opcode, f, typeinfo, mnemonic, "$dst", []>;
+
+class shift_m1_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_R_M_EVEX<opcode, f, typeinfo, mnemonic, "{$src1, $dst|$dst, $src1}", []>;
+
+multiclass mshift_m1<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                     X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode],
+                                        [NoNDD]) in
+  def NAME : I_N_M<opcode, f, typeinfo, mnemonic, "$dst",
+                   [(store (node (typeinfo.LoadNode addr:$dst),
+                                            (i8 1)),addr:$dst)]>;
+  def _EVEX : shift_m1_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+let Predicates = [HasNDD] in
+  def _ND : shift_m1_NDD<opcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+  def _NF : shift_m1_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_m1_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+let SchedRW = [WriteShiftLd, WriteRMW] in {
+defm SHL8mi   : mshift_mi<0xC0, MRM4m, "shl", shl, Xi8>;
+defm SHL16mi  : mshift_mi<0xC1, MRM4m, "shl", shl, Xi16>;
+defm SHL32mi  : mshift_mi<0xC1, MRM4m, "shl", shl, Xi32>;
+defm SHL64mi  : mshift_mi<0xC1, MRM4m, "shl", shl, Xi64>;
+
+// Shift by 1
+defm SHL8m1   : mshift_m1<0xD0, MRM4m, "shl", shl, Xi8>;
+defm SHL16m1  : mshift_m1<0xD1, MRM4m, "shl", shl, Xi16>;
+defm SHL32m1  : mshift_m1<0xD1, MRM4m, "shl", shl, Xi32>;
+defm SHL64m1  : mshift_m1<0xD1, MRM4m, "shl", shl, Xi64>;
+} // SchedRW
+
+//=======================SHR==========================
+class shift_r1<bits<8> opcode, Format f, string mnemonic, SDNode node,
+               X86TypeInfo typeinfo>
+  : I_R_R<opcode, f, typeinfo, mnemonic, "$dst",
+          [(set typeinfo.RegClass:$dst,
+           (node typeinfo.RegClass:$src1, (i8 1)))]>;
+
+class shift_r1_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_R_R_EVEX<opcode, f, typeinfo, mnemonic, "{$src1, $dst|$dst, $src1}",
+               [(set typeinfo.RegClass:$dst,
+                (node typeinfo.RegClass:$src1, (i8 1)))]>;
+
+class shift_r1_NoPat<bits<8> opcode, Format f, string mnemonic,
+                     X86TypeInfo typeinfo>
+  : I_R_R_EVEX<opcode, f, typeinfo, mnemonic, "$dst", []>;
+
+class shift_r1_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_R_R_EVEX<opcode, f, typeinfo, mnemonic, "{$src1, $dst|$dst, $src1}", []>;
+
+multiclass mshift_r1<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                     X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst" in {
+let Predicates = [NoNDD] in
+  def NAME : shift_r1<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shift_r1_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+}
+let Predicates = [HasNDD] in
+  def _ND : shift_r1_NDD<opcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+let Constraints = "$src1 = $dst" in
+  def _NF : shift_r1_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_r1_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+let Uses = [CL], SchedRW = [WriteShiftCL] in {
+defm SHR8rCL  : mshift_rCL<0xD2, MRM5r, "shr", srl, Xi8>;
+defm SHR16rCL : mshift_rCL<0xD3, MRM5r, "shr", srl, Xi16>;
+defm SHR32rCL : mshift_rCL<0xD3, MRM5r, "shr", srl, Xi32>;
+defm SHR64rCL : mshift_rCL<0xD3, MRM5r, "shr", srl, Xi64>;
+} // Uses = [CL], SchedRW
+
+let SchedRW = [WriteShift]in {
+defm SHR8ri   : mshift_ri<0xC0, MRM5r, "shr", srl, Xi8>;
+defm SHR16ri  : mshift_ri<0xC1, MRM5r, "shr", srl, Xi16>;
+defm SHR32ri  : mshift_ri<0xC1, MRM5r, "shr", srl, Xi32>;
+defm SHR64ri  : mshift_ri<0xC1, MRM5r, "shr", srl, Xi64>;
+
+defm SHR8r1   : mshift_r1<0xD0, MRM5r, "shr", srl, Xi8>;
+defm SHR16r1  : mshift_r1<0xD1, MRM5r, "shr", srl, Xi16>;
+defm SHR32r1  : mshift_r1<0xD1, MRM5r, "shr", srl, Xi32>;
+defm SHR64r1  : mshift_r1<0xD1, MRM5r, "shr", srl, Xi64>;
+} // SchedRW
+
+let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW] in {
+defm SHR8mCL  : mshift_mCL<0xD2, MRM5m, "shr", srl, Xi8>;
+defm SHR16mCL : mshift_mCL<0xD3, MRM5m, "shr", srl, Xi16>;
+defm SHR32mCL : mshift_mCL<0xD3, MRM5m, "shr", srl, Xi32>;
+defm SHR64mCL : mshift_mCL<0xD3, MRM5m, "shr", srl, Xi64>;
+}
+
+let SchedRW = [WriteShiftLd, WriteRMW] in {
+defm SHR8mi   : mshift_mi<0xC0, MRM5m, "shr", srl, Xi8>;
+defm SHR16mi  : mshift_mi<0xC1, MRM5m, "shr", srl, Xi16>;
+defm SHR32mi  : mshift_mi<0xC1, MRM5m, "shr", srl, Xi32>;
+defm SHR64mi  : mshift_mi<0xC1, MRM5m, "shr", srl, Xi64>;
+
+// Shift by 1
+defm SHR8m1   : mshift_m1<0xD0, MRM5m, "shr", srl, Xi8>;
+defm SHR16m1  : mshift_m1<0xD1, MRM5m, "shr", srl, Xi16>;
+defm SHR32m1  : mshift_m1<0xD1, MRM5m, "shr", srl, Xi32>;
+defm SHR64m1  : mshift_m1<0xD1, MRM5m, "shr", srl, Xi64>;
+} // SchedRW
+
+//====================SAR=======================
+let Uses = [CL], SchedRW = [WriteShiftCL] in {
+defm SAR8rCL  : mshift_rCL<0xD2, MRM7r, "sar", sra, Xi8>;
+defm SAR16rCL : mshift_rCL<0xD3, MRM7r, "sar", sra, Xi16>;
+defm SAR32rCL : mshift_rCL<0xD3, MRM7r, "sar", sra, Xi32>;
+defm SAR64rCL : mshift_rCL<0xD3, MRM7r, "sar", sra, Xi64>;
+} // Uses = [CL], SchedRW
+
+let SchedRW = [WriteShift]in {
+defm SAR8ri   : mshift_ri<0xC0, MRM7r, "sar", sra, Xi8>;
+defm SAR16ri  : mshift_ri<0xC1, MRM7r, "sar", sra, Xi16>;
+defm SAR32ri  : mshift_ri<0xC1, MRM7r, "sar", sra, Xi32>;
+defm SAR64ri  : mshift_ri<0xC1, MRM7r, "sar", sra, Xi64>;
+} // SchedRW
+
+// NOTE: We don't include patterns for shifts of a register by one, because
+// 'add reg,reg' is cheaper (and we have a Pat pattern for shift-by-one).
+let SchedRW = [WriteShift] in {
+defm SAR8r1   : mshift_r1<0xD0, MRM7r, "sar", sra, Xi8>;
+defm SAR16r1  : mshift_r1<0xD1, MRM7r, "sar", sra, Xi16>;
+defm SAR32r1  : mshift_r1<0xD1, MRM7r, "sar", sra, Xi32>;
+defm SAR64r1  : mshift_r1<0xD1, MRM7r, "sar", sra, Xi64>;
+} // hasSideEffects = 0
+
+let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW] in {
+defm SAR8mCL  : mshift_mCL<0xD2, MRM7m, "sar", sra, Xi8>;
+defm SAR16mCL : mshift_mCL<0xD3, MRM7m, "sar", sra, Xi16>;
+defm SAR32mCL : mshift_mCL<0xD3, MRM7m, "sar", sra, Xi32>;
+defm SAR64mCL : mshift_mCL<0xD3, MRM7m, "sar", sra, Xi64>;
+}
+
+let SchedRW = [WriteShiftLd, WriteRMW] in {
+defm SAR8mi   : mshift_mi<0xC0, MRM7m, "sar", sra, Xi8>;
+defm SAR16mi  : mshift_mi<0xC1, MRM7m, "sar", sra, Xi16>;
+defm SAR32mi  : mshift_mi<0xC1, MRM7m, "sar", sra, Xi32>;
+defm SAR64mi  : mshift_mi<0xC1, MRM7m, "sar", sra, Xi64>;
+
+// Shift by 1
+defm SAR8m1   : mshift_m1<0xD0, MRM7m, "sar", sra, Xi8>;
+defm SAR16m1  : mshift_m1<0xD1, MRM7m, "sar", sra, Xi16>;
+defm SAR32m1  : mshift_m1<0xD1, MRM7m, "sar", sra, Xi32>;
+defm SAR64m1  : mshift_m1<0xD1, MRM7m, "sar", sra, Xi64>;
+} // SchedRW
+
+//===----------------------------------------------------------------------===//
+// Rotate instructions
+//===----------------------------------------------------------------------===//
+
+multiclass mshift_rCL_NoNF<bits<8> opcode, Format f, string mnemonic,
+                           X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst" in {
+let Predicates = [NoNDD] in
+  def NAME : I_R_R<opcode, f, typeinfo, mnemonic, "{%cl, $dst|$dst, cl}", []>;
+  def _EVEX : shift_rCL_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+}
+let Predicates = [HasNDD] in
+  def _ND : shift_rCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_B4V;
+}
+}
+
+multiclass mshift_ri_NoNF<bits<8> opcode, Format f, string mnemonic,
+                          X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst" in {
+let ImmT = Imm8 in
+  def NAME : I_R_RI<opcode, f, typeinfo, mnemonic,
+                    "{$src2, $dst|$dst, $src2}", []>;
+  def _EVEX : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+}
+  def _ND : shift_ri_NDD_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_B4V;
+}
+}
+
+multiclass mshift_r1_NoNF<bits<8> opcode, Format f, string mnemonic,
+                          X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst" in {
+let Predicates = [NoNDD] in
+  def NAME : I_R_R<opcode, f, typeinfo, mnemonic, "$dst", []>;
+  def _EVEX : shift_r1_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+}
+let Predicates = [HasNDD] in
+  def _ND : shift_r1_NDD_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_B4V;
+}
+}
+
+multiclass mshift_mCL_NoNF<bits<8> opcode, Format f, string mnemonic,
+                           X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode],
+                                        [NoNDD]) in
+  def NAME : I_N_M<opcode, f, typeinfo, mnemonic, "{%cl, $dst|$dst, cl}", []>;
+  def _EVEX : shift_mCL_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+let Predicates = [HasNDD] in
+  def _ND : shift_mCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_B4V;
+}
+}
+
+multiclass mshift_mi_NoNF<bits<8> opcode, Format f, string mnemonic,
+                          X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode],
+                                        [NoNDD]) in
+  def NAME : shift_mi_NoPat_legacy<opcode, f, mnemonic, typeinfo>;
+  def _EVEX : shift_mi_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+let Predicates = [HasNDD] in
+  def _ND : shift_mi_NDD_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_B4V;
+}
+}
+
+multiclass mshift_m1_NoNF<bits<8> opcode, Format f, string mnemonic,
+                          X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode],
+                                        [NoNDD]) in
+  def NAME : I_N_M<opcode, f, typeinfo, mnemonic, "$dst", []>;
+  def _EVEX : shift_m1_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+let Predicates = [HasNDD] in
+  def _ND : shift_m1_NDD_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_B4V;
+}
+}
+
+multiclass mshift_rCL_NoPat<bits<8> opcode, Format f, string mnemonic,
+                            X86TypeInfo typeinfo>{
+  defm : mshift_rCL_NoNF<opcode, f, mnemonic, typeinfo>;
+let Constraints = "$src1 = $dst" in
+  def _NF : shift_rCL_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_rCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+multiclass mshift_ri_NoPat<bits<8> opcode, Format f, string mnemonic,
+                           X86TypeInfo typeinfo>{
+  defm : mshift_ri_NoNF<opcode, f, mnemonic, typeinfo>;
+let Constraints = "$src1 = $dst" in
+  def _NF : shift_ri_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_ri_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+multiclass mshift_r1_NoPat<bits<8> opcode, Format f, string mnemonic,
+                           X86TypeInfo typeinfo>{
+  defm : mshift_r1_NoNF<opcode, f, mnemonic, typeinfo>;
+let Constraints = "$src1 = $dst" in
+  def _NF : shift_r1_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_r1_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+multiclass mshift_mCL_NoPat<bits<8> opcode, Format f, string mnemonic,
+                            X86TypeInfo typeinfo>{
+  defm : mshift_mCL_NoNF<opcode, f, mnemonic, typeinfo>;
+  def _NF : shift_mCL_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_mCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+multiclass mshift_mi_NoPat<bits<8> opcode, Format f, string mnemonic,
+                           X86TypeInfo typeinfo>{
+  defm : mshift_mi_NoNF<opcode, f, mnemonic, typeinfo>;
+  def _NF : shift_mi_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shift_mi_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+multiclass mshift_m1_NoPat<bits<8> opcode, Format f, string mnemonic,
+                           X86TypeInfo typeinfo>{
+  defm : mshift_m1_NoNF<opcode, f, mnemonic, typeinfo>;
+  def _NF : shift_m1_NoPat<opcode, f, mnemonic, typeinfo>,
+            EVEX_NF;
+  def _ND_NF : shift_m1_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+let hasSideEffects = 0 in {
+let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCL] in {
+defm RCL8rCL  : mshift_rCL_NoNF<0xD2, MRM2r, "rcl", Xi8>;
+defm RCL16rCL : mshift_rCL_NoNF<0xD3, MRM2r, "rcl", Xi16>;
+defm RCL32rCL : mshift_rCL_NoNF<0xD3, MRM2r, "rcl", Xi32>;
+defm RCL64rCL : mshift_rCL_NoNF<0xD3, MRM2r, "rcl", Xi64>;
+} // Uses = [CL, EFLAGS], SchedRW
+
+let Uses = [EFLAGS], SchedRW = [WriteRotate]in {
+defm RCL8ri   : mshift_ri_NoNF<0xC0, MRM2r, "rcl", Xi8>;
+defm RCL16ri  : mshift_ri_NoNF<0xC1, MRM2r, "rcl", Xi16>;
+defm RCL32ri  : mshift_ri_NoNF<0xC1, MRM2r, "rcl", Xi32>;
+defm RCL64ri  : mshift_ri_NoNF<0xC1, MRM2r, "rcl", Xi64>;
+} // SchedRW
+
+let Uses = [EFLAGS], SchedRW = [WriteRotate] in {
+defm RCL8r1   : mshift_r1_NoNF<0xD0, MRM2r, "rcl", Xi8>;
+defm RCL16r1  : mshift_r1_NoNF<0xD1, MRM2r, "rcl", Xi16>;
+defm RCL32r1  : mshift_r1_NoNF<0xD1, MRM2r, "rcl", Xi32>;
+defm RCL64r1  : mshift_r1_NoNF<0xD1, MRM2r, "rcl", Xi64>;
+} // hasSideEffects = 0
+
+let mayStore = 1 in {
+let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCLLd, WriteRMW] in {
+defm RCL8mCL  : mshift_mCL_NoNF<0xD2, MRM2m, "rcl", Xi8>;
+defm RCL16mCL : mshift_mCL_NoNF<0xD3, MRM2m, "rcl", Xi16>;
+defm RCL32mCL : mshift_mCL_NoNF<0xD3, MRM2m, "rcl", Xi32>;
+defm RCL64mCL : mshift_mCL_NoNF<0xD3, MRM2m, "rcl", Xi64>;
+}
+
+let Uses = [EFLAGS], SchedRW = [WriteRotateLd, WriteRMW] in {
+defm RCL8mi   : mshift_mi_NoNF<0xC0, MRM2m, "rcl", Xi8>;
+defm RCL16mi  : mshift_mi_NoNF<0xC1, MRM2m, "rcl", Xi16>;
+defm RCL32mi  : mshift_mi_NoNF<0xC1, MRM2m, "rcl", Xi32>;
+defm RCL64mi  : mshift_mi_NoNF<0xC1, MRM2m, "rcl", Xi64>;
+
+// Shift by 1
+defm RCL8m1   : mshift_m1_NoNF<0xD0, MRM2m, "rcl", Xi8>;
+defm RCL16m1  : mshift_m1_NoNF<0xD1, MRM2m, "rcl", Xi16>;
+defm RCL32m1  : mshift_m1_NoNF<0xD1, MRM2m, "rcl", Xi32>;
+defm RCL64m1  : mshift_m1_NoNF<0xD1, MRM2m, "rcl", Xi64>;
+} // SchedRW
+} // mayStore
+
+// =====================RCR=========================
+
+let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCL] in {
+defm RCR8rCL  : mshift_rCL_NoNF<0xD2, MRM3r, "rcr", Xi8>;
+defm RCR16rCL : mshift_rCL_NoNF<0xD3, MRM3r, "rcr", Xi16>;
+defm RCR32rCL : mshift_rCL_NoNF<0xD3, MRM3r, "rcr", Xi32>;
+defm RCR64rCL : mshift_rCL_NoNF<0xD3, MRM3r, "rcr", Xi64>;
+} // Uses = [CL, EFLAGS], SchedRW
+
+let Uses = [EFLAGS], SchedRW = [WriteRotate]in {
+defm RCR8ri   : mshift_ri_NoNF<0xC0, MRM3r, "rcr", Xi8>;
+defm RCR16ri  : mshift_ri_NoNF<0xC1, MRM3r, "rcr", Xi16>;
+defm RCR32ri  : mshift_ri_NoNF<0xC1, MRM3r, "rcr", Xi32>;
+defm RCR64ri  : mshift_ri_NoNF<0xC1, MRM3r, "rcr", Xi64>;
+} // SchedRW
+
+let Uses = [EFLAGS], SchedRW = [WriteRotate] in {
+defm RCR8r1   : mshift_r1_NoNF<0xD0, MRM3r, "rcr", Xi8>;
+defm RCR16r1  : mshift_r1_NoNF<0xD1, MRM3r, "rcr", Xi16>;
+defm RCR32r1  : mshift_r1_NoNF<0xD1, MRM3r, "rcr", Xi32>;
+defm RCR64r1  : mshift_r1_NoNF<0xD1, MRM3r, "rcr", Xi64>;
+} // hasSideEffects = 0
+
+let mayStore = 1 in {
+let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCLLd, WriteRMW] in {
+defm RCR8mCL  : mshift_mCL_NoNF<0xD2, MRM3m, "rcr", Xi8>;
+defm RCR16mCL : mshift_mCL_NoNF<0xD3, MRM3m, "rcr", Xi16>;
+defm RCR32mCL : mshift_mCL_NoNF<0xD3, MRM3m, "rcr", Xi32>;
+defm RCR64mCL : mshift_mCL_NoNF<0xD3, MRM3m, "rcr", Xi64>;
+}
+
+let Uses = [EFLAGS], SchedRW = [WriteRotateLd, WriteRMW] in {
+defm RCR8mi   : mshift_mi_NoNF<0xC0, MRM3m, "rcr", Xi8>;
+defm RCR16mi  : mshift_mi_NoNF<0xC1, MRM3m, "rcr", Xi16>;
+defm RCR32mi  : mshift_mi_NoNF<0xC1, MRM3m, "rcr", Xi32>;
+defm RCR64mi  : mshift_mi_NoNF<0xC1, MRM3m, "rcr", Xi64>;
+
+// Shift by 1
+defm RCR8m1   : mshift_m1_NoNF<0xD0, MRM3m, "rcr", Xi8>;
+defm RCR16m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi16>;
+defm RCR32m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi32>;
+defm RCR64m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi64>;
+} // SchedRW
+} // mayStore
+} // hasSideEffects = 0
+
+// ================== ROL =======================
+let Uses = [CL], SchedRW = [WriteRotateCL] in {
+defm ROL8rCL  : mshift_rCL<0xD2, MRM0r, "rol", rotl, Xi8>;
+defm ROL16rCL : mshift_rCL<0xD3, MRM0r, "rol", rotl, Xi16>;
+defm ROL32rCL : mshift_rCL<0xD3, MRM0r, "rol", rotl, Xi32>;
+defm ROL64rCL : mshift_rCL<0xD3, MRM0r, "rol", rotl, Xi64>;
+} // Uses = [CL], SchedRW
+
+let SchedRW = [WriteRotate]in {
+defm ROL8ri   : mshift_ri<0xC0, MRM0r, "rol", rotl, Xi8>;
+defm ROL16ri  : mshift_ri<0xC1, MRM0r, "rol", rotl, Xi16>;
+defm ROL32ri  : mshift_ri<0xC1, MRM0r, "rol", rotl, Xi32>;
+defm ROL64ri  : mshift_ri<0xC1, MRM0r, "rol", rotl, Xi64>;
+} // SchedRW
+
+let SchedRW = [WriteRotate] in {
+defm ROL8r1   : mshift_r1<0xD0, MRM0r, "rol", rotl, Xi8>;
+defm ROL16r1  : mshift_r1<0xD1, MRM0r, "rol", rotl, Xi16>;
+defm ROL32r1  : mshift_r1<0xD1, MRM0r, "rol", rotl, Xi32>;
+defm ROL64r1  : mshift_r1<0xD1, MRM0r, "rol", rotl, Xi64>;
+} // hasSideEffects = 0
+
+let Uses = [CL], SchedRW = [WriteRotateCLLd, WriteRMW] in {
+defm ROL8mCL  : mshift_mCL<0xD2, MRM0m, "rol", rotl, Xi8>;
+defm ROL16mCL : mshift_mCL<0xD3, MRM0m, "rol", rotl, Xi16>;
+defm ROL32mCL : mshift_mCL<0xD3, MRM0m, "rol", rotl, Xi32>;
+defm ROL64mCL : mshift_mCL<0xD3, MRM0m, "rol", rotl, Xi64>;
+}
+
+let SchedRW = [WriteRotateLd, WriteRMW] in {
+defm ROL8mi   : mshift_mi<0xC0, MRM0m, "rol", rotl, Xi8>;
+defm ROL16mi  : mshift_mi<0xC1, MRM0m, "rol", rotl, Xi16>;
+defm ROL32mi  : mshift_mi<0xC1, MRM0m, "rol", rotl, Xi32>;
+defm ROL64mi  : mshift_mi<0xC1, MRM0m, "rol", rotl, Xi64>;
+
+// Shift by 1
+defm ROL8m1   : mshift_m1<0xD0, MRM0m, "rol", rotl, Xi8>;
+defm ROL16m1  : mshift_m1<0xD1, MRM0m, "rol", rotl, Xi16>;
+defm ROL32m1  : mshift_m1<0xD1, MRM0m, "rol", rotl, Xi32>;
+defm ROL64m1  : mshift_m1<0xD1, MRM0m, "rol", rotl, Xi64>;
+} // SchedRW
+
+// ================== ROL =======================
+let Uses = [CL], SchedRW = [WriteRotateCL] in {
+defm ROR8rCL  : mshift_rCL<0xD2, MRM1r, "ror", rotr, Xi8>;
+defm ROR16rCL : mshift_rCL<0xD3, MRM1r, "ror", rotr, Xi16>;
+defm ROR32rCL : mshift_rCL<0xD3, MRM1r, "ror", rotr, Xi32>;
+defm ROR64rCL : mshift_rCL<0xD3, MRM1r, "ror", rotr, Xi64>;
+} // Uses = [CL], SchedRW
+
+let SchedRW = [WriteRotate]in {
+defm ROR8ri   : mshift_ri<0xC0, MRM1r, "ror", rotr, Xi8>;
+defm ROR16ri  : mshift_ri<0xC1, MRM1r, "ror", rotr, Xi16>;
+defm ROR32ri  : mshift_ri<0xC1, MRM1r, "ror", rotr, Xi32>;
+defm ROR64ri  : mshift_ri<0xC1, MRM1r, "ror", rotr, Xi64>;
+} // SchedRW
+
+let SchedRW = [WriteRotate] in {
+defm ROR8r1   : mshift_r1<0xD0, MRM1r, "ror", rotr, Xi8>;
+defm ROR16r1  : mshift_r1<0xD1, MRM1r, "ror", rotr, Xi16>;
+defm ROR32r1  : mshift_r1<0xD1, MRM1r, "ror", rotr, Xi32>;
+defm ROR64r1  : mshift_r1<0xD1, MRM1r, "ror", rotr, Xi64>;
+} // hasSideEffects = 0
+
+let Uses = [CL], SchedRW = [WriteRotateCLLd, WriteRMW] in {
+defm ROR8mCL  : mshift_mCL<0xD2, MRM1m, "ror", rotr, Xi8>;
+defm ROR16mCL : mshift_mCL<0xD3, MRM1m, "ror", rotr, Xi16>;
+defm ROR32mCL : mshift_mCL<0xD3, MRM1m, "ror", rotr, Xi32>;
+defm ROR64mCL : mshift_mCL<0xD3, MRM1m, "ror", rotr, Xi64>;
+}
+
+let SchedRW = [WriteRotateLd, WriteRMW] in {
+defm ROR8mi   : mshift_mi<0xC0, MRM1m, "ror", rotr, Xi8>;
+defm ROR16mi  : mshift_mi<0xC1, MRM1m, "ror", rotr, Xi16>;
+defm ROR32mi  : mshift_mi<0xC1, MRM1m, "ror", rotr, Xi32>;
+defm ROR64mi  : mshift_mi<0xC1, MRM1m, "ror", rotr, Xi64>;
+
+// Shift by 1
+defm ROR8m1   : mshift_m1<0xD0, MRM1m, "ror", rotr, Xi8>;
+defm ROR16m1  : mshift_m1<0xD1, MRM1m, "ror", rotr, Xi16>;
+defm ROR32m1  : mshift_m1<0xD1, MRM1m, "ror", rotr, Xi32>;
+defm ROR64m1  : mshift_m1<0xD1, MRM1m, "ror", rotr, Xi64>;
+} // SchedRW
+
+//===----------------------------------------------------------------------===//
+// Double shift instructions (generalizations of rotate)
+//===----------------------------------------------------------------------===//
+class shiftLD_rrCL<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_R_RR<opcode, f, typeinfo, mnemonic,
+           "{%cl, $src2, $dst|$dst, $src2, cl}",
+           [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1,
+                                         typeinfo.RegClass:$src2, CL))]>,
+    TB{
+  let Opcode = opcode;
+}
+
+class shiftLD_rrCL_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                       X86TypeInfo typeinfo>
+  : I_R_RR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1,
+                                              typeinfo.RegClass:$src2, CL))]>{
+  let Opcode = opcode;
+}
+
+class shiftLD_rrCL_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_R_RR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $dst|$dst, $src2, cl}", []>{
+  let Opcode = opcode;
+}
+
+class shiftLD_rrCL_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                             X86TypeInfo typeinfo>
+  : I_R_RR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}", []>{
+  let Opcode = opcode;
+}
+
+multiclass mshiftLD_rrCL<bits<8> opcode, Format f, string mnemonic,
+                         SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst" in {
+let Predicates = [NoNDD] in
+  def NAME : shiftLD_rrCL<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shiftLD_rrCL_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+}
+let Predicates = [HasNDD] in
+  def _ND : shiftLD_rrCL_NDD<opcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+let Constraints = "$src1 = $dst" in
+  def _NF : shiftLD_rrCL_NoPat<opcode, f, mnemonic, typeinfo>,
+            EVEX_NF;
+  def _ND_NF : shiftLD_rrCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+class shiftRD_rrCL<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_R_RR<opcode, f, typeinfo, mnemonic,
+           "{%cl, $src2, $dst|$dst, $src2, cl}",
+           [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2,
+                                            typeinfo.RegClass:$src1, CL))]>,
+    TB{
+  let Opcode = opcode;
+}
+
+class shiftRD_rrCL_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                       X86TypeInfo typeinfo>
+  : I_R_RR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2,
+                                              typeinfo.RegClass:$src1, CL))]>{
+  let Opcode = opcode;
+}
+
+class shiftRD_rrCL_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_R_RR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $dst|$dst, $src2, cl}", []>{
+  let Opcode = opcode;
+}
+
+class shiftRD_rrCL_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                            X86TypeInfo typeinfo>
+  : I_R_RR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}", []>{
+  let Opcode = opcode;
+}
+
+multiclass mshiftRD_rrCL<bits<8> opcode, Format f, string mnemonic,
+                         SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst" in {
+let Predicates = [NoNDD] in
+  def NAME : shiftRD_rrCL<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shiftRD_rrCL_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+}
+let Predicates = [HasNDD] in
+  def _ND : shiftRD_rrCL_NDD<opcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+let Constraints = "$src1 = $dst" in
+  def _NF : shiftRD_rrCL_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shiftRD_rrCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+let Uses = [CL], SchedRW = [WriteSHDrrcl] in {
+defm SHLD16rrCL : mshiftLD_rrCL<0xA5, MRMDestReg, "shld", X86fshl, Xi16>;
+defm SHLD32rrCL : mshiftLD_rrCL<0xA5, MRMDestReg, "shld", fshl, Xi32>;
+defm SHLD64rrCL : mshiftLD_rrCL<0xA5, MRMDestReg, "shld", fshl, Xi64>;
+
+defm SHRD16rrCL : mshiftRD_rrCL<0xAD, MRMDestReg, "shrd", X86fshr, Xi16>;
+defm SHRD32rrCL : mshiftRD_rrCL<0xAD, MRMDestReg, "shrd", fshr, Xi32>;
+defm SHRD64rrCL : mshiftRD_rrCL<0xAD, MRMDestReg, "shrd", fshr, Xi64>;
+}
+
+class shiftLD_rri8<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_R_RRI<opcode, f, typeinfo, mnemonic,
+            "{$src3, $src2, $dst|$dst, $src2, $src3}",
+            [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1,
+                                typeinfo.RegClass:$src2, (i8 imm:$src3)))]>,
+    TB{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftLD_rri8_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                       X86TypeInfo typeinfo>
+  : I_R_RRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src1,
+                                typeinfo.RegClass:$src2, (i8 imm:$src3)))]>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftLD_rri8_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_R_RRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $dst|$dst, $src2, $src3}", []>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftLD_rri8_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                             X86TypeInfo typeinfo>
+  : I_R_RRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}", []>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+multiclass mshiftLD_rri8<bits<8> opcode, bits<8> newcode, Format f,
+                         string mnemonic, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst" in {
+let Predicates = [NoNDD] in
+  def NAME : shiftLD_rri8<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shiftLD_rri8_NoPat<newcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+}
+let Predicates = [HasNDD] in
+  def _ND : shiftLD_rri8_NDD<newcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+let Constraints = "$src1 = $dst" in
+  def _NF : shiftLD_rri8_NoPat<newcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shiftLD_rri8_NDD_NoPat<newcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+class shiftRD_rri8<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_R_RRI<opcode, f, typeinfo, mnemonic,
+            "{$src3, $src2, $dst|$dst, $src2, $src3}",
+            [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2,
+                                typeinfo.RegClass:$src1, (i8 imm:$src3)))]>,
+    TB{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftRD_rri8_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                       X86TypeInfo typeinfo>
+  : I_R_RRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                 [(set typeinfo.RegClass:$dst, (node typeinfo.RegClass:$src2,
+                                typeinfo.RegClass:$src1, (i8 imm:$src3)))]>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftRD_rri8_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_R_RRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $dst|$dst, $src2, $src3}", []>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftRD_rri8_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                             X86TypeInfo typeinfo>
+  : I_R_RRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}", []>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+multiclass mshiftRD_rri8<bits<8> opcode, bits<8> newcode, Format f,
+                         string mnemonic, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Constraints = "$src1 = $dst" in {
+let Predicates = [NoNDD] in
+  def NAME : shiftRD_rri8<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shiftRD_rri8_NoPat<newcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+}
+let Predicates = [HasNDD] in
+  def _ND : shiftRD_rri8_NDD<newcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+let Constraints = "$src1 = $dst" in
+  def _NF : shiftRD_rri8_NoPat<newcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shiftRD_rri8_NDD_NoPat<newcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+let isCommutable = 1, SchedRW = [WriteSHDrri] in {
+defm SHLD16rri8 : mshiftLD_rri8<0xA4, 0x24, MRMDestReg, "shld", X86fshl, Xi16>;
+defm SHLD32rri8 : mshiftLD_rri8<0xA4, 0x24, MRMDestReg, "shld", fshl, Xi32>;
+defm SHLD64rri8 : mshiftLD_rri8<0xA4, 0x24, MRMDestReg, "shld", fshl, Xi64>;
+
+defm SHRD16rri8 : mshiftRD_rri8<0xAC, 0x2C, MRMDestReg, "shrd", X86fshr, Xi16>;
+defm SHRD32rri8 : mshiftRD_rri8<0xAC, 0x2C, MRMDestReg, "shrd", fshr, Xi32>;
+defm SHRD64rri8 : mshiftRD_rri8<0xAC, 0x2C, MRMDestReg, "shrd", fshr, Xi64>;
+}
+
+class shiftLD_mrCL<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_N_MR<opcode, f, typeinfo, mnemonic,
+           "{%cl, $src2, $dst|$dst, $src2, cl}",
+           [(store (node (typeinfo.LoadNode addr:$dst),
+                    typeinfo.RegClass:$src2, CL), addr:$dst)]>,
+    TB{
+  let Opcode = opcode;
+}
+
+class shiftLD_mrCL_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                       X86TypeInfo typeinfo>
+  : I_R_MR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                [(set typeinfo.RegClass:$dst,
+                 (node (typeinfo.LoadNode addr:$src1),
+                        typeinfo.RegClass:$src2, CL))]>{
+  let Opcode = opcode;
+}
+
+class shiftLD_mrCL_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_N_MR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $dst|$dst, $src2, cl}", []>{
+  let Opcode = opcode;
+}
+
+class shiftLD_mrCL_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                             X86TypeInfo typeinfo>
+  : I_R_MR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}", []>{
+  let Opcode = opcode;
+}
+
+multiclass mshiftLD_mrCL<bits<8> opcode, Format f, string mnemonic,
+                         SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [NoNDD] in
+  def NAME : shiftLD_mrCL<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shiftLD_mrCL_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+let Predicates = [HasNDD] in
+  def _ND : shiftLD_mrCL_NDD<opcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+  def _NF : shiftLD_mrCL_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shiftLD_mrCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+class shiftRD_mrCL<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_N_MR<opcode, f, typeinfo, mnemonic,
+           "{%cl, $src2, $dst|$dst, $src2, cl}",
+           [(store (node typeinfo.RegClass:$src2,
+                   (typeinfo.LoadNode addr:$dst), CL), addr:$dst)]>,
+    TB{
+  let Opcode = opcode;
+}
+
+class shiftRD_mrCL_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_N_MR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $dst|$dst, $src2, cl}", []>{
+  let Opcode = opcode;
+}
+
+class shiftRD_mrCL_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                       X86TypeInfo typeinfo>
+  : I_R_MR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}",
+                [(set typeinfo.RegClass:$dst,
+                 (node typeinfo.RegClass:$src2,
+                 (typeinfo.LoadNode addr:$src1), CL))]>{
+  let Opcode = opcode;
+}
+
+class shiftRD_mrCL_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                             X86TypeInfo typeinfo>
+  : I_R_MR_EVEX<opcode, f, typeinfo, mnemonic,
+                "{%cl, $src2, $src1, $dst|$dst, $src1, $src2, cl}", []>{
+  let Opcode = opcode;
+}
+
+multiclass mshiftRD_mrCL<bits<8> opcode, Format f, string mnemonic,
+                         SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [NoNDD] in
+  def NAME : shiftRD_mrCL<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shiftRD_mrCL_NoPat<opcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+let Predicates = [HasNDD] in
+  def _ND : shiftRD_mrCL_NDD<opcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+  def _NF : shiftRD_mrCL_NoPat<opcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shiftRD_mrCL_NDD_NoPat<opcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+let Uses = [CL], SchedRW = [WriteSHDmrcl] in {
+defm SHLD16mrCL : mshiftLD_mrCL<0xA5, MRMDestMem, "shld", X86fshl, Xi16>;
+defm SHLD32mrCL : mshiftLD_mrCL<0xA5, MRMDestMem, "shld", fshl, Xi32>;
+defm SHLD64mrCL : mshiftLD_mrCL<0xA5, MRMDestMem, "shld", fshl, Xi64>;
+
+defm SHRD16mrCL : mshiftRD_mrCL<0xAD, MRMDestMem, "shrd", X86fshr, Xi16>;
+defm SHRD32mrCL : mshiftRD_mrCL<0xAD, MRMDestMem, "shrd", fshr, Xi32>;
+defm SHRD64mrCL : mshiftRD_mrCL<0xAD, MRMDestMem, "shrd", fshr, Xi64>;
+}
+
+class shiftLD_mri8<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_N_MRI<opcode, f, typeinfo, mnemonic,
+            "{$src3, $src2, $dst|$dst, $src2, $src3}",
+            [(store (node (typeinfo.LoadNode addr:$dst),
+                  typeinfo.RegClass:$src2, (i8 imm:$src3)), addr:$dst)]>,
+    TB{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftLD_mri8_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                       X86TypeInfo typeinfo>
+  : I_R_MRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                 [(set typeinfo.RegClass:$dst,
+                  (node (typeinfo.LoadNode addr:$src1),
+                    typeinfo.RegClass:$src2, (i8 imm:$src3)))]>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftLD_mri8_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_N_MRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $dst|$dst, $src2, $src3}", []>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftLD_mri8_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                             X86TypeInfo typeinfo>
+  : I_R_MRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}", []>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+multiclass mshiftLD_mri8<bits<8> opcode, bits<8> newcode, Format f,
+                         string mnemonic, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [NoNDD] in
+  def NAME : shiftLD_mri8<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shiftLD_mri8_NoPat<newcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+let Predicates = [HasNDD] in
+  def _ND : shiftLD_mri8_NDD<newcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+  def _NF : shiftLD_mri8_NoPat<newcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shiftLD_mri8_NDD_NoPat<newcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+class shiftRD_mri8<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                   X86TypeInfo typeinfo>
+  : I_N_MRI<opcode, f, typeinfo, mnemonic,
+            "{$src3, $src2, $dst|$dst, $src2, $src3}",
+            [(store (node typeinfo.RegClass:$src2,
+                  (typeinfo.LoadNode addr:$dst), (i8 imm:$src3)), addr:$dst)]>,
+    TB{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftRD_mri8_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
+                       X86TypeInfo typeinfo>
+  : I_R_MRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                 [(set typeinfo.RegClass:$dst,
+                  (node typeinfo.RegClass:$src2,
+                  (typeinfo.LoadNode addr:$src1), (i8 imm:$src3)))]>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftRD_mri8_NoPat<bits<8> opcode, Format f, string mnemonic,
+                         X86TypeInfo typeinfo>
+  : I_N_MRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $dst|$dst, $src2, $src3}", []>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+class shiftRD_mri8_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
+                             X86TypeInfo typeinfo>
+  : I_R_MRI_EVEX<opcode, f, typeinfo, mnemonic,
+                 "{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}", []>{
+  let Opcode = opcode;
+  let ImmT = Imm8;
+}
+
+multiclass mshiftRD_mri8<bits<8> opcode, bits<8> newcode, Format f,
+                         string mnemonic, SDNode node, X86TypeInfo typeinfo>{
+let Defs = [EFLAGS] in {
+let Predicates = [NoNDD] in
+  def NAME : shiftRD_mri8<opcode, f, mnemonic, node, typeinfo>;
+  def _EVEX : shiftRD_mri8_NoPat<newcode, f, mnemonic, typeinfo>,
+              EmitVEXOrEVEXPrefix;
+let Predicates = [HasNDD] in
+  def _ND : shiftRD_mri8_NDD<newcode, f, mnemonic, node, typeinfo>, EVEX_B4V;
+}
+  def _NF : shiftRD_mri8_NoPat<newcode, f, mnemonic, typeinfo>, EVEX_NF;
+  def _ND_NF : shiftRD_mri8_NDD_NoPat<newcode, f, mnemonic, typeinfo>,
+               EVEX_B4V, EVEX_NF;
+}
+
+let SchedRW = [WriteSHDmri] in {
+defm SHLD16mri8 : mshiftLD_mri8<0xA4, 0x24, MRMDestMem, "shld", X86fshl, Xi16>;
+defm SHLD32mri8 : mshiftLD_mri8<0xA4, 0x24, MRMDestMem, "shld", fshl, Xi32>;
+defm SHLD64mri8 : mshiftLD_mri8<0xA4, 0x24, MRMDestMem, "shld", fshl, Xi64>;
+
+defm SHRD16mri8 : mshiftRD_mri8<0xAC, 0x2C, MRMDestMem, "shrd", X86fshr, Xi16>;
+defm SHRD32mri8 : mshiftRD_mri8<0xAC, 0x2C, MRMDestMem, "shrd", fshr, Xi32>;
+defm SHRD64mri8 : mshiftRD_mri8<0xAC, 0x2C, MRMDestMem, "shrd", fshr, Xi64>;
+}
+
+#else // INTEL_FEATURE_ISA_APX_F
 // FIXME: Someone needs to smear multipattern goodness all over this file.
 
 let Defs = [EFLAGS] in {
@@ -817,7 +2118,49 @@ def SHRD64mri8 : RIi8<0xAC, MRMDestMem,
 } // SchedRW
 
 } // Defs = [EFLAGS]
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+multiclass opposite_rotate_r1_pattern<SDNode FromNode, I ToNode,
+                                      bits<8> offset, RegisterClass RC>{
+let Predicates = [NoNDD] in
+def : Pat<(FromNode RC:$src1,  (i8 offset)),  (ToNode  RC:$src1)>;
+let Predicates = [HasNDD] in
+def : Pat<(FromNode RC:$src1,  (i8 offset)),
+          (!cast<I>(ToNode#_ND)  RC:$src1)>;
+}
+
+
+multiclass opposite_rotate_m1_pattern<SDNode FromNode, I ToNode, int offset,
+                                      PatFrag LoadNode>{
+let Predicates = [NoNDD] in
+def : Pat<(store (FromNode (LoadNode addr:$dst), (i8 offset)), addr:$dst),
+          (ToNode addr:$dst)>;
+let Predicates = [HasNDD] in
+def : Pat<(FromNode (LoadNode addr:$src1), (i8 offset)),
+          (!cast<I>(ToNode#_ND) addr:$src1)>;
+}
+
+defm : opposite_rotate_r1_pattern<rotl, ROR8r1 , 7,  GR8>;
+defm : opposite_rotate_r1_pattern<rotl, ROR16r1, 15, GR16>;
+defm : opposite_rotate_r1_pattern<rotl, ROR32r1, 31, GR32>;
+defm : opposite_rotate_r1_pattern<rotl, ROR64r1, 63, GR64>;
+defm : opposite_rotate_r1_pattern<rotr, ROL8r1 , 7,  GR8>;
+defm : opposite_rotate_r1_pattern<rotr, ROL16r1, 15, GR16>;
+defm : opposite_rotate_r1_pattern<rotr, ROL32r1, 31, GR32>;
+defm : opposite_rotate_r1_pattern<rotr, ROL64r1, 63, GR64>;
+
+defm : opposite_rotate_m1_pattern<rotl, ROR8m1, 7,  loadi8>;
+defm : opposite_rotate_m1_pattern<rotl, ROR16m1, 15, loadi16>;
+defm : opposite_rotate_m1_pattern<rotl, ROR32m1, 31, loadi32>;
+defm : opposite_rotate_m1_pattern<rotl, ROR64m1, 63, loadi64>;
+defm : opposite_rotate_m1_pattern<rotr, ROL8m1, 7,  loadi8>;
+defm : opposite_rotate_m1_pattern<rotr, ROL16m1, 15, loadi16>;
+defm : opposite_rotate_m1_pattern<rotr, ROL32m1, 31, loadi32>;
+defm : opposite_rotate_m1_pattern<rotr, ROL64m1, 63, loadi64>;
+#else // INTEL_FEATURE_ISA_APX_F
 // Use the opposite rotate if allows us to use the rotate by 1 instruction.
 def : Pat<(rotl GR8:$src1,  (i8 7)),  (ROR8r1  GR8:$src1)>;
 def : Pat<(rotl GR16:$src1, (i8 15)), (ROR16r1 GR16:$src1)>;
@@ -845,6 +2188,8 @@ def : Pat<(store (rotr (loadi32 addr:$dst), (i8 31)), addr:$dst),
           (ROL32m1 addr:$dst)>;
 def : Pat<(store (rotr (loadi64 addr:$dst), (i8 63)), addr:$dst),
           (ROL64m1 addr:$dst)>, Requires<[In64BitMode]>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // Sandy Bridge and newer Intel processors support faster rotates using
 // SHLD to avoid a partial flag update on the normal rotate instructions.
@@ -927,7 +2272,6 @@ let Predicates = [HasBMI2] in {
               (RORX32ri GR32:$src, imm:$shamt)>;
     def : Pat<(rotr GR64:$src, (i8 imm:$shamt)),
               (RORX64ri GR64:$src, imm:$shamt)>;
-
     def : Pat<(rotl GR32:$src, (i8 imm:$shamt)),
               (RORX32ri GR32:$src, (ROT32L2R_imm8 imm:$shamt))>;
     def : Pat<(rotl GR64:$src, (i8 imm:$shamt)),
@@ -1024,6 +2368,28 @@ let Predicates = [HasBMI2] in {
                         (i64 (IMPLICIT_DEF)), GR8:$src2, sub_8bit))>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+multiclass SHXXri_pattern<SDNode FromNode, string ToNode, X86TypeInfo info>{
+let Predicates = [NoNDD] in
+  def : Pat<(FromNode info.RegClass:$src1, (i8 relocImm:$src2)),
+            (!cast<Instruction>(ToNode) info.RegClass:$src1,
+                                              relocImm:$src2)>;
+let Predicates = [HasNDD] in
+  def : Pat<(FromNode info.RegClass:$src1, (i8 relocImm:$src2)),
+            (!cast<Instruction>(ToNode#_ND) info.RegClass:$src1,
+                                                  relocImm:$src2)>;
+}
+defm : SHXXri_pattern<rotl, "ROL8ri", Xi8>;
+defm : SHXXri_pattern<rotl, "ROL16ri", Xi16>;
+defm : SHXXri_pattern<rotl, "ROL32ri", Xi32>;
+defm : SHXXri_pattern<rotl, "ROL64ri", Xi64>;
+
+defm : SHXXri_pattern<rotr, "ROR8ri", Xi8>;
+defm : SHXXri_pattern<rotr, "ROR16ri", Xi16>;
+defm : SHXXri_pattern<rotr, "ROR32ri", Xi32>;
+defm : SHXXri_pattern<rotr, "ROR64ri", Xi64>;
+#else // INTEL_FEATURE_ISA_APX_F
 def : Pat<(rotl GR8:$src1, (i8 relocImm:$src2)),
           (ROL8ri GR8:$src1, relocImm:$src2)>;
 def : Pat<(rotl GR16:$src1, (i8 relocImm:$src2)),
@@ -1041,3 +2407,5 @@ def : Pat<(rotr GR32:$src1, (i8 relocImm:$src2)),
           (ROR32ri GR32:$src1, relocImm:$src2)>;
 def : Pat<(rotr GR64:$src1, (i8 relocImm:$src2)),
           (ROR64ri GR64:$src1, relocImm:$src2)>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION

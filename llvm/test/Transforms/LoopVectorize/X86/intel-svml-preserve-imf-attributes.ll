@@ -1,6 +1,6 @@
 ; Check that call site attributes are preserved when a function call is vectorized in LV.
 
-; RUN: opt -vector-library=SVML -inject-tli-mappings -loop-vectorize -force-vector-width=4 -force-vector-interleave=1 -mattr=avx -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="inject-tli-mappings,loop-vectorize" -vector-library=SVML -force-vector-width=4 -force-vector-interleave=1 -mattr=avx -S < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: @foo
 ; CHECK: {{.*}} = call <4 x double> @__svml_sin4(<4 x double> {{.*}}) #1

@@ -54,6 +54,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -67,14 +68,18 @@ namespace {
 class FlattenedSpelling {
   std::string V, N, NS;
   bool K = false;
+  const Record &OriginalSpelling;
 
 public:
   FlattenedSpelling(const std::string &Variety, const std::string &Name,
-                    const std::string &Namespace, bool KnownToGCC) :
-    V(Variety), N(Name), NS(Namespace), K(KnownToGCC) {}
+                    const std::string &Namespace, bool KnownToGCC,
+                    const Record &OriginalSpelling)
+      : V(Variety), N(Name), NS(Namespace), K(KnownToGCC),
+        OriginalSpelling(OriginalSpelling) {}
   explicit FlattenedSpelling(const Record &Spelling)
       : V(std::string(Spelling.getValueAsString("Variety"))),
-        N(std::string(Spelling.getValueAsString("Name"))) {
+        N(std::string(Spelling.getValueAsString("Name"))),
+        OriginalSpelling(Spelling) {
     assert(V != "GCC" && V != "Clang" &&
            "Given a GCC spelling, which means this hasn't been flattened!");
     if (V == "CXX11" || V == "C2x" || V == "Pragma")
@@ -85,6 +90,7 @@ public:
   const std::string &name() const { return N; }
   const std::string &nameSpace() const { return NS; }
   bool knownToGCC() const { return K; }
+  const Record &getSpellingRecord() const { return OriginalSpelling; }
 };
 
 } // end anonymous namespace
@@ -111,15 +117,15 @@ GetFlattenedSpellings(const Record &Attr) {
     StringRef Variety = Spelling->getValueAsString("Variety");
     StringRef Name = Spelling->getValueAsString("Name");
     if (Variety == "GCC") {
-      Ret.emplace_back("GNU", std::string(Name), "", true);
-      Ret.emplace_back("CXX11", std::string(Name), "gnu", true);
+      Ret.emplace_back("GNU", std::string(Name), "", true, *Spelling);
+      Ret.emplace_back("CXX11", std::string(Name), "gnu", true, *Spelling);
       if (Spelling->getValueAsBit("AllowInC"))
-        Ret.emplace_back("C2x", std::string(Name), "gnu", true);
+        Ret.emplace_back("C2x", std::string(Name), "gnu", true, *Spelling);
     } else if (Variety == "Clang") {
-      Ret.emplace_back("GNU", std::string(Name), "", false);
-      Ret.emplace_back("CXX11", std::string(Name), "clang", false);
+      Ret.emplace_back("GNU", std::string(Name), "", false, *Spelling);
+      Ret.emplace_back("CXX11", std::string(Name), "clang", false, *Spelling);
       if (Spelling->getValueAsBit("AllowInC"))
-        Ret.emplace_back("C2x", std::string(Name), "clang", false);
+        Ret.emplace_back("C2x", std::string(Name), "clang", false, *Spelling);
     } else
       Ret.push_back(FlattenedSpelling(*Spelling));
   }
@@ -213,7 +219,8 @@ static ParsedAttrMap getParsedAttrList(const RecordKeeper &Records,
 #endif // INTEL_CUSTOMIZATION
     if (Attr->getValueAsBit("SemaHandler")) {
       std::string AN;
-      if (Attr->isSubClassOf("TargetSpecificAttr") &&
+      if ((Attr->isSubClassOf("TargetSpecificAttr") ||
+           Attr->isSubClassOf("LanguageOptionsSpecificAttr")) &&
           !Attr->isValueUnset("ParseKind")) {
         AN = std::string(Attr->getValueAsString("ParseKind"));
 
@@ -1071,13 +1078,14 @@ namespace {
 
       OS << "bool " << getAttrName() << "Attr::ConvertStrTo" << type
          << "(StringRef Val, " << type << " &Out) {\n";
-      OS << "  Optional<" << type << "> R = llvm::StringSwitch<Optional<";
+      OS << "  std::optional<" << type
+         << "> R = llvm::StringSwitch<std::optional<";
       OS << type << ">>(Val)\n";
       for (size_t I = 0; I < enums.size(); ++I) {
         OS << "    .Case(\"" << values[I] << "\", ";
         OS << getAttrName() << "Attr::" << enums[I] << ")\n";
       }
-      OS << "    .Default(Optional<" << type << ">());\n";
+      OS << "    .Default(std::optional<" << type << ">());\n";
       OS << "  if (R) {\n";
       OS << "    Out = *R;\n      return true;\n    }\n";
       OS << "  return false;\n";
@@ -1192,13 +1200,14 @@ namespace {
       OS << "bool " << getAttrName() << "Attr::ConvertStrTo" << type
          << "(StringRef Val, ";
       OS << type << " &Out) {\n";
-      OS << "  Optional<" << type << "> R = llvm::StringSwitch<Optional<";
+      OS << "  std::optional<" << type
+         << "> R = llvm::StringSwitch<std::optional<";
       OS << type << ">>(Val)\n";
       for (size_t I = 0; I < enums.size(); ++I) {
         OS << "    .Case(\"" << values[I] << "\", ";
         OS << getAttrName() << "Attr::" << enums[I] << ")\n";
       }
-      OS << "    .Default(Optional<" << type << ">());\n";
+      OS << "    .Default(std::optional<" << type << ">());\n";
       OS << "  if (R) {\n";
       OS << "    Out = *R;\n      return true;\n    }\n";
       OS << "  return false;\n";
@@ -2192,7 +2201,7 @@ bool PragmaClangAttributeSupport::isAttributedSupported(
   for (const auto *Subject : Subjects) {
     if (!isSupportedPragmaClangAttributeSubject(*Subject))
       continue;
-    if (SubjectsToRules.find(Subject) == SubjectsToRules.end())
+    if (!SubjectsToRules.contains(Subject))
       return false;
     HasAtLeastOneValidSubject = true;
   }
@@ -2268,7 +2277,7 @@ PragmaClangAttributeSupport::generateStrictConformsTo(const Record &Attr,
 
 void PragmaClangAttributeSupport::generateParsingHelpers(raw_ostream &OS) {
   // Generate routines that check the names of sub-rules.
-  OS << "Optional<attr::SubjectMatchRule> "
+  OS << "std::optional<attr::SubjectMatchRule> "
         "defaultIsAttributeSubjectMatchSubRuleFor(StringRef, bool) {\n";
   OS << "  return std::nullopt;\n";
   OS << "}\n\n";
@@ -2282,12 +2291,13 @@ void PragmaClangAttributeSupport::generateParsingHelpers(raw_ostream &OS) {
   }
 
   for (const auto &SubMatchRule : SubMatchRules) {
-    OS << "Optional<attr::SubjectMatchRule> isAttributeSubjectMatchSubRuleFor_"
+    OS << "std::optional<attr::SubjectMatchRule> "
+          "isAttributeSubjectMatchSubRuleFor_"
        << SubMatchRule.first->getValueAsString("Name")
        << "(StringRef Name, bool IsUnless) {\n";
     OS << "  if (IsUnless)\n";
     OS << "    return "
-          "llvm::StringSwitch<Optional<attr::SubjectMatchRule>>(Name).\n";
+          "llvm::StringSwitch<std::optional<attr::SubjectMatchRule>>(Name).\n";
     for (const auto &Rule : SubMatchRule.second) {
       if (Rule.isNegatedSubRule())
         OS << "    Case(\"" << Rule.getName() << "\", " << Rule.getEnumValue()
@@ -2295,7 +2305,7 @@ void PragmaClangAttributeSupport::generateParsingHelpers(raw_ostream &OS) {
     }
     OS << "    Default(std::nullopt);\n";
     OS << "  return "
-          "llvm::StringSwitch<Optional<attr::SubjectMatchRule>>(Name).\n";
+          "llvm::StringSwitch<std::optional<attr::SubjectMatchRule>>(Name).\n";
     for (const auto &Rule : SubMatchRule.second) {
       if (!Rule.isNegatedSubRule())
         OS << "  Case(\"" << Rule.getName() << "\", " << Rule.getEnumValue()
@@ -2306,12 +2316,12 @@ void PragmaClangAttributeSupport::generateParsingHelpers(raw_ostream &OS) {
   }
 
   // Generate the function that checks for the top-level rules.
-  OS << "std::pair<Optional<attr::SubjectMatchRule>, "
-        "Optional<attr::SubjectMatchRule> (*)(StringRef, "
+  OS << "std::pair<std::optional<attr::SubjectMatchRule>, "
+        "std::optional<attr::SubjectMatchRule> (*)(StringRef, "
         "bool)> isAttributeSubjectMatchRule(StringRef Name) {\n";
   OS << "  return "
-        "llvm::StringSwitch<std::pair<Optional<attr::SubjectMatchRule>, "
-        "Optional<attr::SubjectMatchRule> (*) (StringRef, "
+        "llvm::StringSwitch<std::pair<std::optional<attr::SubjectMatchRule>, "
+        "std::optional<attr::SubjectMatchRule> (*) (StringRef, "
         "bool)>>(Name).\n";
   for (const auto &Rule : Rules) {
     if (Rule.isSubRule())
@@ -2617,6 +2627,7 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
     for (const auto &Super : llvm::reverse(Supers)) {
       const Record *R = Super.first;
       if (R->getName() != "TargetSpecificAttr" &&
+          R->getName() != "LanguageOptionsSpecificAttr" &&
           R->getName() != "DeclOrTypeAttr" && SuperName.empty())
         SuperName = std::string(R->getName());
       if (R->getName() == "InheritableAttr")
@@ -3296,11 +3307,9 @@ void EmitClangAttrList(RecordKeeper &Records, raw_ostream &OS) {
   // Add defaulting macro definitions.
   Hierarchy.emitDefaultDefines(OS);
   emitDefaultDefine(OS, "PRAGMA_SPELLING_ATTR", nullptr);
-  emitDefaultDefine(OS, "DEPENDENT_STMT_ATTR", nullptr);
 
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
   std::vector<Record *> PragmaAttrs;
-  std::vector<Record *> DependentStmtAttrs;
   for (auto *Attr : Attrs) {
     if (!Attr->getValueAsBit("ASTNode"))
       continue;
@@ -3313,9 +3322,6 @@ void EmitClangAttrList(RecordKeeper &Records, raw_ostream &OS) {
     if (AttrHasPragmaSpelling(Attr))
       PragmaAttrs.push_back(Attr);
 
-    if (Attr->getValueAsBit("IsStmtDependent"))
-      DependentStmtAttrs.push_back(Attr);
-
     // Place it in the hierarchy.
     Hierarchy.classifyAttr(Attr);
   }
@@ -3325,7 +3331,6 @@ void EmitClangAttrList(RecordKeeper &Records, raw_ostream &OS) {
 
   // Emit the ad hoc groups.
   emitAttrList(OS, "PRAGMA_SPELLING_ATTR", PragmaAttrs);
-  emitAttrList(OS, "DEPENDENT_STMT_ATTR", DependentStmtAttrs);
 
   // Emit the attribute ranges.
   OS << "#ifdef ATTR_RANGE\n";
@@ -3334,7 +3339,6 @@ void EmitClangAttrList(RecordKeeper &Records, raw_ostream &OS) {
   OS << "#endif\n";
 
   Hierarchy.emitUndefs(OS);
-  OS << "#undef DEPENDENT_STMT_ATTR\n";
   OS << "#undef PRAGMA_SPELLING_ATTR\n";
 }
 
@@ -3539,18 +3543,31 @@ static void GenerateHasAttrSpellingStringSwitch(
     // C2x-style attributes have the same kind of version information
     // associated with them. The unscoped attribute version information should
     // be taken from the specification of the attribute in the C Standard.
+    //
+    // Clang-specific attributes have the same kind of version information
+    // associated with them. This version is typically the default value (1).
+    // These version values are clang-specific and should typically be
+    // incremented once the attribute changes its syntax and/or semantics in a
+    // a way that is impactful to the end user.
     int Version = 1;
 
-    if (Variety == "CXX11" || Variety == "C2x") {
-      std::vector<Record *> Spellings = Attr->getValueAsListOfDefs("Spellings");
-      for (const auto &Spelling : Spellings) {
-        if (Spelling->getValueAsString("Variety") == Variety) {
-          Version = static_cast<int>(Spelling->getValueAsInt("Version"));
-          if (Scope.empty() && Version == 1)
-            PrintError(Spelling->getLoc(), "Standard attributes must have "
-                                           "valid version information.");
-          break;
-        }
+    std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(*Attr);
+    for (const auto &Spelling : Spellings) {
+      if (Spelling.variety() == Variety &&
+          (Spelling.nameSpace().empty() || Scope == Spelling.nameSpace())) {
+        Version = static_cast<int>(
+            Spelling.getSpellingRecord().getValueAsInt("Version"));
+        // Verify that explicitly specified CXX11 and C2x spellings (i.e.
+        // not inferred from Clang/GCC spellings) have a version that's
+        // different than the default (1).
+        bool RequiresValidVersion =
+            (Variety == "CXX11" || Variety == "C2x") &&
+            Spelling.getSpellingRecord().getValueAsString("Variety") == Variety;
+        if (RequiresValidVersion && Scope.empty() && Version == 1)
+          PrintError(Spelling.getSpellingRecord().getLoc(),
+                     "Standard attributes must have "
+                     "valid version information.");
+        break;
       }
     }
 
@@ -3572,9 +3589,9 @@ static void GenerateHasAttrSpellingStringSwitch(
     else if (Variety == "C2x")
       Test = "LangOpts.DoubleSquareBracketAttributes";
 
-    std::string TestStr =
-        !Test.empty() ? Test + " ? " + llvm::itostr(Version) + " : 0" : "1";
-    std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(*Attr);
+    std::string TestStr = !Test.empty()
+                              ? Test + " ? " + llvm::itostr(Version) + " : 0"
+                              : llvm::itostr(Version);
     for (const auto &S : Spellings)
       if (Variety.empty() || (Variety == S.variety() &&
                               (Scope.empty() || Scope == S.nameSpace())))
@@ -4319,10 +4336,35 @@ emitAttributeMatchRules(PragmaClangAttributeSupport &PragmaAttributeSupport,
 }
 
 static void GenerateLangOptRequirements(const Record &R,
+                                        const ParsedAttrMap &Dupes,
                                         raw_ostream &OS) {
   // If the attribute has an empty or unset list of language requirements,
   // use the default handler.
   std::vector<Record *> LangOpts = R.getValueAsListOfDefs("LangOpts");
+
+  // Attributes inheriting from LanguageOptionsSpecificAttr may share their
+  // ParseKind name with other attributes. Attributes like these are considered
+  // valid for a given language option if any of the attributes they share
+  // ParseKind with accepts it.
+  if (R.isSubClassOf("LanguageOptionsSpecificAttr")) {
+    assert(!R.isValueUnset("ParseKind") &&
+           "Attributes deriving from LanguageOptionsSpecificAttr must all "
+           "define a ParseKind string value.");
+    assert(!R.isValueUnset("LangOpts") &&
+           "Attributes deriving from LanguageOptionsSpecificAttr must all "
+           "define a LangOpts list.");
+    const StringRef APK = R.getValueAsString("ParseKind");
+    for (const auto &I : Dupes) {
+      if (I.first == APK) {
+        assert(!I.second->isValueUnset("LangOpts") &&
+               "Attributes deriving from LanguageOptionsSpecificAttr must all "
+               "define a LangOpts list.");
+        std::vector<Record *> LO = I.second->getValueAsListOfDefs("LangOpts");
+        LangOpts.insert(LangOpts.end(), LO.begin(), LO.end());
+      }
+    }
+  }
+
   if (LangOpts.empty())
     return;
 
@@ -4588,7 +4630,7 @@ void EmitClangAttrParsedAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << ") {}\n";
     GenerateAppertainsTo(Attr, OS);
     GenerateMutualExclusionsChecks(Attr, Records, OS, MergeDeclOS, MergeStmtOS);
-    GenerateLangOptRequirements(Attr, OS);
+    GenerateLangOptRequirements(Attr, Dupes, OS);
     GenerateTargetRequirements(Attr, Dupes, OS);
     GenerateSpellingIndexToSemanticSpelling(Attr, OS);
     PragmaAttributeSupport.generateStrictConformsTo(*I->second, OS);
@@ -4664,7 +4706,8 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
       // generate a list of string to match based on the syntax, and emit
       // multiple string matchers depending on the syntax used.
       std::string AttrName;
-      if (Attr.isSubClassOf("TargetSpecificAttr") &&
+      if ((Attr.isSubClassOf("TargetSpecificAttr") ||
+           Attr.isSubClassOf("LanguageOptionsSpecificAttr")) &&
           !Attr.isValueUnset("ParseKind")) {
         AttrName = std::string(Attr.getValueAsString("ParseKind"));
         if (!Seen.insert(AttrName).second)

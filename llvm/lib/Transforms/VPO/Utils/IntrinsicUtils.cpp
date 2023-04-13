@@ -56,10 +56,9 @@ static cl::opt<unsigned>
     RefsThreshold("refs-threshold", cl::Hidden, cl::init(500),
                     cl::desc("The number of references threshold"));
 
-// Can't make it default until all the passes in the MiddleEnd can support it
-// and the VLA allocas (2-operand) are supported in this file.
+// TODO: Handle VLA allocas
 static cl::opt<bool> AddTypedPrivates(
-    "vpo-utils-add-typed-privates", cl::Hidden, cl::init(false),
+    "vpo-utils-add-typed-privates", cl::Hidden, cl::init(true),
     cl::desc("Use TYPED OMP clause when adding privates in CodeExtractor."));
 
 // Return the <ElementType, NumElements> pair for the alloca AI.
@@ -746,13 +745,11 @@ static CallInst *CreateBeginDirectiveCall(OMP_DIRECTIVES DirID,
   Function *DirIntrin = Intrinsic::getDeclaration(
       InsertBefore->getModule(), Intrinsic::directive_region_entry);
 
-  SmallVector<OperandBundleDef, 1> IntrinOpBundle;
-  OperandBundleDef OpBundle(
-      std::string(IntrinsicUtils::getDirectiveString(DirID)), {});
-  IntrinOpBundle.push_back(OpBundle);
+  OperandBundleDef OpBundle(IntrinsicUtils::getDirectiveString(DirID).str(),
+                            {});
 
   return IRBuilder<>(InsertBefore)
-      .CreateCall(DirIntrin, /*Args=*/{}, IntrinOpBundle, CallName);
+      .CreateCall(DirIntrin, /*Args=*/{}, {OpBundle}, CallName);
 }
 
 /// Emit a call to the region exit directive corresponding to the entry
@@ -770,14 +767,11 @@ static CallInst *CreateEndDirectiveCall(CallInst *BeginDirective,
   int EndDirID = VPOAnalysisUtils::getMatchingEndDirective(
       VPOAnalysisUtils::getDirectiveID(BeginDirective));
 
-  SmallVector<OperandBundleDef, 1> IntrinOpBundle;
-  OperandBundleDef OpBundle(
-      std::string(IntrinsicUtils::getDirectiveString(EndDirID)), {});
-  IntrinOpBundle.push_back(OpBundle);
+  OperandBundleDef OpBundle(IntrinsicUtils::getDirectiveString(EndDirID).str(),
+                            {});
 
   return IRBuilder<>(InsertBefore)
-      .CreateCall(DirIntrin, /*Args=*/{BeginDirective}, IntrinOpBundle,
-                  CallName);
+      .CreateCall(DirIntrin, /*Args=*/{BeginDirective}, {OpBundle}, CallName);
 }
 
 /// Obtain the first basic block of the loop body (LoopBodyBB).
@@ -908,13 +902,13 @@ VPOUtils::createInscanLoopGuardForMemMotion(Loop *L) {
 
   // Create the first region.
   CallInst *FirstGuardBegin = CreateBeginDirectiveCall(
-      DIR_VPO_GUARD_MEM_MOTION, BeginInsertPt, "phase1.guard.start");
+      DIR_VPO_GUARD_MEM_MOTION, BeginInsertPt, "pre.scan.guard.start");
   CreateEndDirectiveCall(FirstGuardBegin, ScanBegin);
 
   // Create the second region.
   CallInst *SecondGuardBegin = CreateBeginDirectiveCall(
       DIR_VPO_GUARD_MEM_MOTION, ScanEnd->getParent()->getTerminator(),
-      "phase2.guard.start");
+      "post.scan.guard.start");
   auto *EndInstPoint =
       L->getLoopLatch()->getSinglePredecessor()->getTerminator();
   CreateEndDirectiveCall(SecondGuardBegin, EndInstPoint);

@@ -99,11 +99,34 @@ static void getCartesianProduct(std::vector<std::vector<VFParameter>> &Scratch,
   // CurrentEncodings = { l, R, U, L }
   // Scratch = { ul, uR, uU, uL }
   for (auto &PreviousEncodings : Result) {
-    for (auto ParamEncoding : CurrentEncodings) {
+    for (auto &ParamEncoding : CurrentEncodings) {
       Scratch.push_back(PreviousEncodings);
       Scratch.back().push_back(ParamEncoding);
     }
   }
+}
+
+static VPVectorShape getShapeFromTrunc(VPlanVector &Plan,
+                                       VPInstruction *Trunc) {
+  auto *TruncOp = Trunc->getOperand(0);
+  // KnownBits can only be computed for integral types
+  auto *VPVT = Plan.getVPVT();
+  auto *DA = Plan.getVPlanDA();
+  if (VPVT && TruncOp->getType()->isIntegerTy()) {
+    auto OpKB = VPVT->getKnownBits(TruncOp, Trunc);
+    if (!OpKB.isUnknown()) {
+      // Does value fit into signed range bits?
+      auto MinSignedVal = OpKB.getSignedMinValue();
+      auto MaxSignedVal = OpKB.getSignedMaxValue();
+      Type *ToTy = Trunc->getType();
+      unsigned ToSize = ToTy->getScalarSizeInBits();
+      if (ToSize == 32 &&
+          (MinSignedVal.getSExtValue() >= INT_MIN &&
+           MaxSignedVal.getSExtValue() <= INT_MAX))
+        return DA->getVectorShape(*TruncOp);
+    }
+  }
+  return DA->getVectorShape(*Trunc);
 }
 
 void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
@@ -119,6 +142,12 @@ void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
   for (unsigned I = SkippedArgs; I < VPCall->getNumArgOperands(); ++I) {
     auto *CallArg = VPCall->getOperand(I);
     auto CallArgShape = DA->getVectorShape(*CallArg);
+    // TODO: this is a workaround for CMPLRLLVM-43350 until the more robust
+    // DA solution is ready.
+    if (auto *Inst = dyn_cast<VPInstruction>(CallArg)) {
+      if (Inst->getOpcode() == Instruction::Trunc)
+        CallArgShape = getShapeFromTrunc(Plan, Inst);
+    }
     auto ParamPos = I - SkippedArgs;
     const VPValue* LinearPrivMem = nullptr;
     std::vector<VFParameter> ParamEncodings;
@@ -242,7 +271,7 @@ void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
   }
 }
 
-llvm::Optional<std::pair<VFInfo, unsigned>>
+std::optional<std::pair<VFInfo, unsigned>>
 VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
                                           bool Masked, unsigned VF,
                                           const TargetTransformInfo *TTI) {
@@ -365,6 +394,23 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     VPCall->setSerializationReason(VPCallInstruction::
         SerializationReasonTy::INDIRECT_CALL);
     VPCall->setShouldBeSerialized();
+    return;
+  }
+
+  // lifetime_start/end intrinsics operating on private memory optimized for
+  // SOA-layout are not widened.
+  if (VPCall->isLifetimeStartOrEndIntrinsic()) {
+    auto *PrivPtr = dyn_cast_or_null<VPAllocatePrivate>(
+        getVPValuePrivateMemoryPtr(VPCall->getOperand(1)));
+    if (PrivPtr && PrivPtr->isSOALayout()) {
+      VPCall->setShouldNotBeWidened();
+      return;
+    }
+  }
+
+  // llvm.intel.directive elementsize intrinsics should not be widened.
+  if (VPCall->isElementsizeIntrinsic()) {
+    VPCall->setShouldNotBeWidened();
     return;
   }
 
@@ -497,17 +543,6 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
           {Intrinsic::experimental_noalias_scope_decl})) {
     VPCall->setShouldNotBeWidened();
     return;
-  }
-
-  // lifetime_start/end intrinsics operating on private memory optimized for
-  // SOA-layout are not widened.
-  if (VPCall->isLifetimeStartOrEndIntrinsic()) {
-    auto *PrivPtr = dyn_cast_or_null<VPAllocatePrivate>(
-        getVPValuePrivateMemoryPtr(VPCall->getOperand(1)));
-    if (PrivPtr && PrivPtr->isSOALayout()) {
-      VPCall->setShouldNotBeWidened();
-      return;
-    }
   }
 
   // All other cases implies default properties i.e. call serialization.

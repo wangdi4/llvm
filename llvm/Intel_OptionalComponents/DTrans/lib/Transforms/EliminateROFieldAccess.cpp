@@ -1,6 +1,6 @@
 //===--------------------   EliminateROFieldAccess.cpp   ------------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -73,7 +73,6 @@
 #include "Intel_DTrans/Transforms/EliminateROFieldAccess.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/CFG.h"
@@ -352,112 +351,6 @@ bool EliminateROFieldAccessImpl<InfoClass>::run(Module &M,
       if (visit(&BB))
         Changed = true;
   }
-  return Changed;
-}
-
-namespace {
-
-class DTransEliminateROFieldAccessWrapper : public ModulePass {
-private:
-  dtrans::EliminateROFieldAccessPass Impl;
-
-public:
-  static char ID;
-  DTransEliminateROFieldAccessWrapper() : ModulePass(ID) {
-    initializeDTransEliminateROFieldAccessWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-  bool runOnModule(Module &M) override;
-  StringRef getPassName() const override {
-    return "DTrans eliminate read only field access";
-  }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-  }
-};
-
-class DTransEliminateROFieldAccessOPWrapper : public ModulePass {
-private:
-  dtransOP::EliminateROFieldAccessPass Impl;
-
-public:
-  static char ID;
-  DTransEliminateROFieldAccessOPWrapper() : ModulePass(ID) {
-    initializeDTransEliminateROFieldAccessOPWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-  bool runOnModule(Module &M) override;
-  StringRef getPassName() const override {
-    return "DTrans eliminate read only field access";
-  }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
-} // end anonymous namespace
-
-char DTransEliminateROFieldAccessWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(
-    DTransEliminateROFieldAccessWrapper, "dtrans-elim-ro-field-access",
-    "Eliminate condition accessing structure field which is only read", false,
-    false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(
-    DTransEliminateROFieldAccessWrapper, "dtrans-elim-ro-field-access",
-    "Eliminate condition accessing structure field which is only read", false,
-    false)
-
-ModulePass *llvm::createDTransEliminateROFieldAccessWrapperPass() {
-  return new DTransEliminateROFieldAccessWrapper();
-}
-
-using dtransOP::DTransSafetyAnalyzerWrapper;
-char DTransEliminateROFieldAccessOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(
-    DTransEliminateROFieldAccessOPWrapper, "dtrans-elim-ro-field-access-op",
-    "Eliminate condition accessing structure field which is only read", false,
-    false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(
-    DTransEliminateROFieldAccessOPWrapper, "dtrans-elim-ro-field-access-op",
-    "Eliminate condition accessing structure field which is only read", false,
-    false)
-
-ModulePass *llvm::createDTransEliminateROFieldAccessOPWrapperPass() {
-  return new DTransEliminateROFieldAccessOPWrapper();
-}
-
-bool DTransEliminateROFieldAccessWrapper::runOnModule(Module &M) {
-  if (skipModule(M))
-    return false;
-
-  auto &DTAnalysisWrapper
-      = getAnalysis<DTransAnalysisWrapper>();
-  auto &DTransInfo = DTAnalysisWrapper.getDTransInfo(M);
-  auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-  bool Changed = Impl.runImpl(M, DTransInfo, WPInfo);
-  if (Changed)
-    DTAnalysisWrapper.setInvalidated();
-  return Changed;
-}
-
-bool DTransEliminateROFieldAccessOPWrapper::runOnModule(Module &M) {
-  if (skipModule(M))
-    return false;
-
-  auto &DTAnalysisWrapper
-      = getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
-  auto &DTransInfo = DTAnalysisWrapper.getDTransSafetyInfo(M);
-  auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-  bool Changed = Impl.runImpl(M, DTransInfo, WPInfo);
   return Changed;
 }
 

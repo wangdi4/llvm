@@ -1,5 +1,5 @@
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -S < %s  2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-MOLD %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 -S < %s  2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-MOLD %s
 
 ; CHECK-OLD: COMPILE FUNC: bf_musttail
 ; CHECK-OLD: llvm.icall.branch.funnel {{.*}}Callee is intrinsic{{.*}}
@@ -41,31 +41,31 @@
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
 
-@vt1_1 = constant [1 x i8*] [i8* bitcast (i32 (i8*, i32)* @vf1_1 to i8*)], !type !0
-@vt1_2 = constant [1 x i8*] [i8* bitcast (i32 (i8*, i32)* @vf1_2 to i8*)], !type !0
-declare i32 @vf1_1(i8*, i32)
+@vt1_1 = constant [1 x ptr] [ptr @vf1_1], !type !0
+@vt1_2 = constant [1 x ptr] [ptr @vf1_2], !type !0
+declare i32 @vf1_1(ptr, i32)
 
-declare i32 @vf1_2(i8*, i32)
+declare i32 @vf1_2(ptr, i32)
 
 declare void @llvm.icall.branch.funnel(...)
 
-define void @fn_musttail(i8* %0, ...) #0 {
-  musttail call void (i8*, ...) @bf_musttail(i8* %0, ...)
+define void @fn_musttail(ptr %0, ...) #0 {
+  musttail call void (ptr, ...) @bf_musttail(ptr %0, ...)
   ret void
 }
 
-define hidden void @bf_musttail(i8* nest %0, ...) alwaysinline {
-  musttail call void (...) @llvm.icall.branch.funnel(i8* %0, i8* bitcast ([1 x i8*]* @vt1_1 to i8*), i32 (i8*, i32)* @vf1_1, i8* bitcast ([1 x i8*]* @vt1_2 to i8*), i32 (i8*, i32)* @vf1_2, ...)
+define hidden void @bf_musttail(ptr nest %0, ...) alwaysinline {
+  musttail call void (...) @llvm.icall.branch.funnel(ptr %0, ptr @vt1_1, ptr @vf1_1, ptr @vt1_2, ptr @vf1_2, ...)
   ret void
 }
 
-define void @fn_musttail_always(i8* %0, ...) #0 {
-  musttail call void (i8*, ...) @bf_musttail_always(i8* %0, ...)
+define void @fn_musttail_always(ptr %0, ...) #0 {
+  musttail call void (ptr, ...) @bf_musttail_always(ptr %0, ...)
   ret void
 }
 
-define hidden void @bf_musttail_always(i8* nest %0, ...) alwaysinline {
-  musttail call void (...) @llvm.icall.branch.funnel(i8* %0, i8* bitcast ([1 x i8*]* @vt1_1 to i8*), i32 (i8*, i32)* @vf1_1, i8* bitcast ([1 x i8*]* @vt1_2 to i8*), i32 (i8*, i32)* @vf1_2, ...)
+define hidden void @bf_musttail_always(ptr nest %0, ...) alwaysinline {
+  musttail call void (...) @llvm.icall.branch.funnel(ptr %0, ptr @vt1_1, ptr @vf1_1, ptr @vt1_2, ptr @vf1_2, ...)
   ret void
 }
 

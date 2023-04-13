@@ -28,7 +28,7 @@
 ;   return Sum;
 ; }
 ;
-; RUN: opt -passes="transform-sin-cos-calls" -enable-transform-sin-cos-double -S 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="transform-sin-cos-calls" -enable-transform-sin-cos-double -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK-LABEL: @ComputeQCPU(
 ; CHECK-NEXT:  entry:

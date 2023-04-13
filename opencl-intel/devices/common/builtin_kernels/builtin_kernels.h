@@ -187,7 +187,7 @@ protected:
   static BuiltInKernelRegistry *g_pMKLRegistery;
 };
 
-cl_kernel_arg_address_qualifier ArgType2AddrQual(KernelArgumentType type);
+cl_kernel_arg_address_qualifier ArgType2AddrQual(llvm::KernelArgumentType type);
 
 #define REGISTER_BUILTIN_KERNEL(BI_KENREL_NAME, BI_CREATOR_FUNCTION)           \
   struct BI_KENREL_NAME##CreatorClassRegister {                                \
@@ -217,8 +217,8 @@ public:
 protected:
   OMPExecutorThread(unsigned int uiNumOfThreads);
 
-  typedef pair<Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor *,
-               Intel::OpenCL::Utils::OclOsDependentEvent *>
+  typedef std::pair<Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor *,
+                    Intel::OpenCL::Utils::OclOsDependentEvent *>
       ExecutionRecord;
 
   // Queue of execution requests for the MKL library

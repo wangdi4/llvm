@@ -1,13 +1,14 @@
 set(TARGET debugger_test_type)
 
-# some debugger tests have to use deprecated OpenCL API functions.
-if(WIN32)
-  add_definitions(-wd4996 # Suppress 'function': was declared deprecated'
-  )
-endif(WIN32)
-
 find_sources()
 calculate_target_sources()
+include_directories(${opencl-cpp-header_SOURCE_DIR}/include)
+
+set(nowarning_flags "-Wno-suggest-override -Wno-cast-qual -Wno-missing-field-initializers")
+check_cxx_compiler_flag("${nowarning_flags}" CXX_SUPPORTS_FLAGS)
+if(CXX_SUPPORTS_FLAGS)
+  set_source_files_properties(${TARGET_SOURCES} PROPERTIES COMPILE_FLAGS "${nowarning_flags}")
+endif()
 
 add_opencl_executable(
   ${TARGET}
@@ -19,7 +20,10 @@ add_opencl_executable(
   ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
   LINK_LIBS
+  LLVMSupport
+  LLVMTargetParser
   OpenCL-ICD
+  cl_hw_utils
   cl_sys_utils)
 
 #

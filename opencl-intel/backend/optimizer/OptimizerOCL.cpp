@@ -1,4 +1,4 @@
-// Copyright (C) 2022 Intel Corporation
+// Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -11,7 +11,6 @@
 // License.
 
 #include "OptimizerOCL.h"
-#include "VecConfig.h"
 
 #include "llvm/Analysis/TargetTransformInfo.h"
 #ifndef NDEBUG
@@ -29,8 +28,7 @@
 #include "llvm/Transforms/IPO/SCCP.h"
 #include "llvm/Transforms/IPO/StripDeadPrototypes.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
-#include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
+#include "llvm/Transforms/SYCLTransforms/Passes.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/CorrelatedValuePropagation.h"
 #include "llvm/Transforms/Scalar/DCE.h"
@@ -40,7 +38,6 @@
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
-#include "llvm/Transforms/Scalar/Intel_RemoveRegionDirectives.h"
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopDeletion.h"
@@ -57,21 +54,23 @@
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
-#include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
-#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 
 #include "SPIRVLowerConstExpr.h"
 #include "SPIRVToOCL.h"
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/DebugInfo/Intel_Debug/Intel_Debug.h"
+#include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
+#include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
+#include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
-extern cl::opt<DebugLogging> DebugPM;
-extern cl::opt<bool> VerifyEachPass;
-extern bool DPCPPForceOptnone;
-extern cl::opt<bool> DisableVPlanCM;
-extern cl::opt<bool> EnableO0Vectorization;
+extern bool SYCLForceOptnone;
+extern cl::opt<bool> EnableO0Vectorization; // INTEL
 
 namespace Intel {
 namespace OpenCL {
@@ -98,12 +97,17 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
 
   std::optional<PGOOptions> PGOOpt;
   PassInstrumentationCallbacks PIC;
-  bool DebugPassManager = DebugPM != DebugLogging::None;
+  bool DebugPassManager = getDebugPM() != DebugLogging::None;
   PrintPassOptions PrintPassOpts;
-  PrintPassOpts.Verbose = DebugPM == DebugLogging::Verbose;
-  PrintPassOpts.SkipAnalyses = DebugPM == DebugLogging::Quiet;
+  PrintPassOpts.Verbose = getDebugPM() == DebugLogging::Verbose;
+  PrintPassOpts.SkipAnalyses = getDebugPM() == DebugLogging::Quiet;
+#if INTEL_CUSTOMIZATION
+  vpo::VPlanDriverPass::setRunForSycl(m_IsSYCL);
+  vpo::VPlanDriverPass::setRunForO0(EnableO0Vectorization &&
+                                    Level == OptimizationLevel::O0);
+#endif // INTEL_CUSTOMIZATION
   StandardInstrumentations SI(m_M.getContext(), DebugPassManager,
-                              VerifyEachPass, PrintPassOpts);
+                              getVerifyEachPass(), PrintPassOpts);
   SI.registerCallbacks(PIC);
   PassBuilder PB(TM, PTO, PGOOpt, &PIC);
 
@@ -116,7 +120,7 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
   FAM.registerPass([&] {
     AAManager AAM = PB.buildDefaultAAPipeline();
     if (Config.EnableOCLAA())
-      AAM.registerFunctionAnalysis<DPCPPAliasAnalysis>();
+      AAM.registerFunctionAnalysis<SYCLAliasAnalysis>();
     return AAM;
   });
 
@@ -156,7 +160,7 @@ void OptimizerOCL::materializerPM(ModulePassManager &MPM) const {
     MPM.addPass(SPIRVToOCL20Pass());
 
   MPM.addPass(NameAnonGlobalPass());
-  MPM.addPass(DPCPPEqualizerPass());
+  MPM.addPass(SYCLEqualizerPass());
   Triple TargetTriple(m_M.getTargetTriple());
   if (TargetTriple.isArch64Bit()) {
     if (TargetTriple.isOSLinux())
@@ -258,7 +262,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
     // everything in the top-most loop), cost threshold, explicit unroll
     // count, allow partial unrolling, allow runtime unrolling.
     LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-    UnrollOpts.setPartial(false).setRuntime(false).setThreshold(512);
+    UnrollOpts.setPartial(false).setRuntime(false).setThreshold(512); // INTEL
     FPM3.addPass(LoopUnrollPass(UnrollOpts));
 
     // unroll loops with non-constant trip count
@@ -269,7 +273,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
       const unsigned threshold = thresholdBase * RTLoopUnrollFactor;
       // RTLoopUnrollFactor is to customize Count. However, LoopUnrollOptions
       // doesn't allow the customization.
-      UnrollOpts.setPartial(false).setRuntime(true).setThreshold(threshold);
+      UnrollOpts.setPartial(false).setRuntime(true).setThreshold(threshold); // INTEL
       FPM3.addPass(LoopUnrollPass(UnrollOpts));
     }
   }
@@ -345,7 +349,7 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
       Config.GetSubGroupConstructionMode())));
 
   if (m_IsFpgaEmulator) {
-    MPM.addPass(DPCPPRewritePipesPass());
+    MPM.addPass(SYCLRewritePipesPass());
     MPM.addPass(ChannelPipeTransformationPass());
     MPM.addPass(PipeIOTransformationPass());
     MPM.addPass(PipeOrderingPass());
@@ -402,6 +406,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     // non-inlined functions left - then we don't have to inline new ones.
   }
 
+#if INTEL_CUSTOMIZATION
   if (m_IsSYCL)
     MPM.addPass(TaskSeqAsyncHandling());
 
@@ -411,7 +416,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     MPM.addPass(ResolveMatrixLayoutPass());
     MPM.addPass(ResolveMatrixWISlicePass());
   }
-
+#endif // INTEL_CUSTOMIZATION
   // Run few more passes after GenericAddressStaticResolution
   if (Level != OptimizationLevel::O0)
     MPM.addPass(InferArgumentAliasPass());
@@ -422,7 +427,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   MPM.addPass(DuplicateCalledKernelsPass());
 
-  MPM.addPass(DPCPPKernelAnalysisPass(
+  MPM.addPass(SYCLKernelAnalysisPass(
       Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasAMX()));
   if (Level != OptimizationLevel::O0) {
     MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
@@ -434,33 +439,35 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     MPM.addPass(DeduceMaxWGDimPass());
   }
 
+#if INTEL_CUSTOMIZATION
   if (Config.GetTransposeSize() != 1 &&
       (Level != OptimizationLevel::O0 || EnableO0Vectorization)) {
-    // In profiling mode remove llvm.dbg.value calls before vectorizer.
-    if (isProfiling)
-      MPM.addPass(ProfilingInfoPass());
+    if (Level != OptimizationLevel::O0) {
+      // In profiling mode remove llvm.dbg.value calls before vectorizer.
+      if (isProfiling)
+        MPM.addPass(ProfilingInfoPass());
 
-    FunctionPassManager FPM1;
-    FPM1.addPass(SinCosFoldPass());
+      FunctionPassManager FPM1;
+      FPM1.addPass(SinCosFoldPass());
 
-    // Replace 'div' and 'rem' instructions with calls to optimized library
-    // functions
-    FPM1.addPass(MathLibraryFunctionsReplacementPass());
+      // Replace 'div' and 'rem' instructions with calls to optimized library
+      // functions
+      FPM1.addPass(MathLibraryFunctionsReplacementPass());
 
-    // Merge returns : this pass ensures that the function has at most one
-    // return instruction.
-    FPM1.addPass(UnifyFunctionExitNodesPass());
-    FPM1.addPass(SimplifyCFGPass(SimplifyCFGOptions()
-                                     .bonusInstThreshold(1)
-                                     .forwardSwitchCondToPhi(false)
-                                     .convertSwitchToLookupTable(false)
-                                     .needCanonicalLoops(true)
-                                     .sinkCommonInsts(true)));
-    FPM1.addPass(InstCombinePass());
-    FPM1.addPass(GVNHoistPass());
-    FPM1.addPass(DCEPass());
-    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM1)));
-
+      // Merge returns : this pass ensures that the function has at most one
+      // return instruction.
+      FPM1.addPass(UnifyFunctionExitNodesPass());
+      FPM1.addPass(SimplifyCFGPass(SimplifyCFGOptions()
+                                       .bonusInstThreshold(1)
+                                       .forwardSwitchCondToPhi(false)
+                                       .convertSwitchToLookupTable(false)
+                                       .needCanonicalLoops(true)
+                                       .sinkCommonInsts(true)));
+      FPM1.addPass(InstCombinePass());
+      FPM1.addPass(GVNHoistPass());
+      FPM1.addPass(DCEPass());
+      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM1)));
+    }
     MPM.addPass(ReqdSubGroupSizePass());
     // This pass may throw VFAnalysisDiagInfo error if VF checking fails.
     MPM.addPass(SetVectorizationFactorPass(ISA));
@@ -474,7 +481,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     if (!m_IsSYCL)
       MPM.addPass(
           RequireAnalysisPass<VectorizationDimensionAnalysis, Module>());
-    MPM.addPass(DPCPPKernelVecClonePass(Optimizer::getVectInfos(), ISA,
+    MPM.addPass(SYCLKernelVecClonePass(Optimizer::getVectInfos(), ISA,
                                         !m_IsSYCL && !m_IsOMP));
 
     MPM.addPass(VectorVariantFillIn());
@@ -482,14 +489,16 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
     // Call VPlan
     FunctionPassManager FPM2;
-    FPM2.addPass(PromotePass());
-    FPM2.addPass(LowerSwitchPass());
-    FPM2.addPass(LoopSimplifyPass());
-    FPM2.addPass(LCSSAPass());
-    FPM2.addPass(createFunctionToLoopPassAdaptor(
-        LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
-                 /*AllowSpeculation*/ true),
-        /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+    if (Level != OptimizationLevel::O0) {
+      FPM2.addPass(PromotePass());
+      FPM2.addPass(LowerSwitchPass());
+      FPM2.addPass(LoopSimplifyPass());
+      FPM2.addPass(LCSSAPass());
+      FPM2.addPass(createFunctionToLoopPassAdaptor(
+          LICMPass(SetLicmMssaOptCap, SetLicmMssaNoAccForPromotionCap,
+                   /*AllowSpeculation*/ true),
+          /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+    }
     FPM2.addPass(VPOCFGRestructuringPass());
     // TODO support FatalErrorHandler
     // [](Function *F) {
@@ -498,15 +507,17 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     // }
     FPM2.addPass(vpo::VPlanDriverPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM2)));
-    MPM.addPass(DPCPPKernelPostVecPass());
+    MPM.addPass(SYCLKernelPostVecPass());
 
     // Final cleaning up
     FunctionPassManager FPM3;
     FPM3.addPass(VPODirectiveCleanupPass());
-    FPM3.addPass(InstCombinePass());
-    FPM3.addPass(SimplifyCFGPass());
-    FPM3.addPass(PromotePass());
-    FPM3.addPass(ADCEPass());
+    if (Level != OptimizationLevel::O0) {
+      FPM3.addPass(InstCombinePass());
+      FPM3.addPass(SimplifyCFGPass());
+      FPM3.addPass(PromotePass());
+      FPM3.addPass(ADCEPass());
+    }
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM3)));
 
     // Add cost model to discard vectorized kernels if they have higher
@@ -516,12 +527,16 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     // fastest moving dimension (that maps to get_global_id(0) for LLVM IR
     // in our implementation). The vec/no-vec decision belongs to the
     // programmer.
-    if (!m_IsSYCL && !DisableVPlanCM &&
+    if (!m_IsSYCL && !getDisableVPlanCM() &&
         Config.GetTransposeSize() == TRANSPOSE_SIZE_NOT_SET)
       MPM.addPass(VectorKernelEliminationPass());
 
-    MPM.addPass(HandleVPlanMask(&Optimizer::getVPlanMaskedFuncs()));
+    if (Level != OptimizationLevel::O0)
+      MPM.addPass(HandleVPlanMask(&Optimizer::getVPlanMaskedFuncs()));
   } else {
+#else // INTEL_CUSTOMIZATION
+  {
+#endif // INTEL_CUSTOMIZATION
     // When forced VF equals 1 or in O0 case, check subgroup semantics AND
     // prepare subgroup_emu_size for sub-group emulation.
     MPM.addPass(ReqdSubGroupSizePass());
@@ -540,7 +555,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   if (Level != OptimizationLevel::O0) {
     if (UnrollLoops) {
       LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-      UnrollOpts.setPartial(false).setRuntime(false).setThreshold(16);
+      UnrollOpts.setPartial(false).setRuntime(false).setThreshold(16); // INTEL
       FPM1.addPass(LoopUnrollPass(UnrollOpts));
     }
 
@@ -571,10 +586,9 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   if (m_debugType == intel::Native)
     MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ false));
-  MPM.addPass(DPCPPKernelWGLoopCreatorPass(m_UseTLSGlobals));
+  MPM.addPass(SYCLKernelWGLoopCreatorPass(m_UseTLSGlobals));
 
-  MPM.addPass(IndirectCallLowering());
-
+  MPM.addPass(IndirectCallLowering()); // INTEL
   // Clean up scalar kernel after WGLoop for native subgroups.
   if (Level != OptimizationLevel::O0) {
     FunctionPassManager FPM;
@@ -586,10 +600,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   if (m_IsFpgaEmulator)
     MPM.addPass(InfiniteLoopCreatorPass());
 
-  // Barrier pass can't work with a token type, so here we remove region
-  // directives
   FunctionPassManager FPM2;
-  FPM2.addPass(RemoveRegionDirectivesPass());
   FPM2.addPass(UnifyFunctionExitNodesPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM2)));
 
@@ -735,9 +746,13 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   // Unroll small loops
   if (UnrollLoops && Level != OptimizationLevel::O0) {
     LoopUnrollOptions UnrollOpts(Level.getSpeedupLevel());
-    UnrollOpts.setPartial(false).setRuntime(false).setThreshold(4);
+    UnrollOpts.setPartial(false).setRuntime(false).setThreshold(4); // INTEL
     MPM.addPass(createModuleToFunctionPassAdaptor(LoopUnrollPass(UnrollOpts)));
   }
+
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(Intel_DebugPass(Config.GetTargetMachine()));
+#endif // INTEL_CUSTOMIZATION
 }
 
 void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
@@ -768,23 +783,24 @@ void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
     MPM.addPass(RemoveDuplicatedBarrierPass(m_debugType == intel::Native));
   }
 
-  // Begin sub-group emulation
-  MPM.addPass(SGBuiltinPass(getVectInfos()));
-  MPM.addPass(SGBarrierPropagatePass());
-  MPM.addPass(SGBarrierSimplifyPass());
-  // Insert ImplicitGIDPass in the middle of subgroup emulation
-  // to track GIDs in emulation loops
-  if (m_debugType == intel::Native)
-    MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ true));
+  if (!EnableO0Vectorization) { // INTEL
+    // Begin sub-group emulation
+    MPM.addPass(SGBuiltinPass(getVectInfos()));
+    MPM.addPass(SGBarrierPropagatePass());
+    MPM.addPass(SGBarrierSimplifyPass());
+    // Insert ImplicitGIDPass in the middle of subgroup emulation
+    // to track GIDs in emulation loops
+    if (m_debugType == intel::Native)
+      MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ true));
 
-  // Resume sub-group emulation
-  MPM.addPass(SGValueWidenPass());
-  MPM.addPass(SGLoopConstructPass());
+    // Resume sub-group emulation
+    MPM.addPass(SGValueWidenPass());
+    MPM.addPass(SGLoopConstructPass());
 #ifdef _DEBUG
-  MPM.addPass(VerifierPass());
+    MPM.addPass(VerifierPass());
 #endif
-  // End sub-group emulation
-
+    // End sub-group emulation
+  }
   // Since previous passes didn't resolve sub-group barriers, we need to
   // resolve them here.
   MPM.addPass(ResolveSubGroupWICallPass(/*ResolveSGBarrier*/ true));

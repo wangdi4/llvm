@@ -1,5 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -loop-simplify | opt -analyze -enable-new-pm=0 -hir-scc-formation | FileCheck %s
-
 ; We use the --allow-empty flag with FileCheck for the new-format opt because:
 ;
 ; - new-format opt output is empty for this test, (old-format opt emits just one

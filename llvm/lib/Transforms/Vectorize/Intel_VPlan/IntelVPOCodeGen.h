@@ -405,6 +405,10 @@ private:
   /// elements of the private element type.
   void vectorizeAllocatePrivate(VPAllocatePrivate *V);
 
+  /// Generate VF copies of original alloca (one for each lane) and
+  /// construct the corresponding vector of pointers.
+  void serializeAllocateMem(VPAllocateMemBase *V);
+
   /// Vectorize unconditional last private final value calculation.
   void vectorizePrivateFinalUncond(VPInstruction *VPInst);
 
@@ -587,7 +591,7 @@ private:
   // Set of scalar loop header blocks generated in outgoing vector code. We also
   // track the scalar loop VPInstruction to identify its type i.e. peel or
   // remainder.
-  SmallVector<std::pair<VPInstruction *, BasicBlock *>, 2>
+  SmallVector<std::pair<VPScalarLoopBase *, BasicBlock *>, 2>
       OutgoingScalarLoopHeaders;
 
   // Get alignment for VPLoadStoreInst using underlying llvm::Instruction if it
@@ -645,12 +649,6 @@ private:
 
   // Widen Shuffle instruction - loop re-vectorization.
   void vectorizeShuffle(VPInstruction *VPInst);
-  // Get the mask of a VPInstruction representing shuffle (before widening) as a
-  // vector of ints.
-  SmallVector<int, 16> getVPShuffleOriginalMask(const VPInstruction *VPI);
-  // Utility to get VPValue that is broadcasted if the input \p V is a splat
-  // vector. Functionality is same as VectorUtils::getSplatValue.
-  const VPValue *getOrigSplatVPValue(const VPValue *V);
 
   /// Adjust arguments passed to SVML functions to handle masks. \p
   /// CallMaskValue defines the mask being applied to the current SVML call
@@ -736,7 +734,8 @@ private:
 
   /// Create a mask to be used in @llvm.masked.[load|store] for the wide VLS
   /// memory operation. Returns nullptr if operation is unmasked.
-  Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);
+  Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize,
+                             int GroupStride);
 
   /// Generate sequence for obtaining the last active lane index.
   /// The index can be used for extracting values in the last active lane.
@@ -780,8 +779,10 @@ private:
 
   FatalErrorHandlerTy FatalErrorHandler;
 
-  // True if loop has any UDR variables and/or inscan reductions.
-  bool LoopHasUDRsOrInscan = false;
+  // True if loop has any entity for which a memory guard region is expected.
+  // For example, UDRs, inscan reductions, array section reductions and complex
+  // type reductions.
+  bool LoopHasEntityWithMemGuard = false;
 };
 
 } // namespace vpo

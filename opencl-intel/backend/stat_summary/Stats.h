@@ -19,11 +19,9 @@
 
 #include <assert.h>
 
-using namespace std;
-
-typedef map<const string, unsigned> StatValueMap;
-typedef map<string, StatValueMap> NamedStatValueMap;
-typedef map<const string, string> StatDescrMap;
+typedef std::map<const std::string, unsigned> StatValueMap;
+typedef std::map<std::string, StatValueMap> NamedStatValueMap;
+typedef std::map<const std::string, std::string> StatDescrMap;
 
 class StatValueMapC {
 public:
@@ -34,48 +32,48 @@ public:
     }
   }
 
-  static void dumpStatValueMapHead(stringstream &str,
+  static void dumpStatValueMapHead(std::stringstream &str,
                                    const StatValueMap &statNames);
-  static void dumpStatValueMapValue(stringstream &str,
+  static void dumpStatValueMapValue(std::stringstream &str,
                                     const StatValueMap &statNames,
                                     const StatValueMap &values);
 };
 
 class ModuleStats {
 public:
-  ModuleStats(const string &ver, const string &time, const string &wname,
-              const string &mname)
+  ModuleStats(const std::string &ver, const std::string &time,
+              const std::string &wname, const std::string &mname)
       : runtimeVersion(ver), collectedTime(time), workloadName(wname),
         moduleName(mname) {}
 
-  const string &getCollectedTime() const { return collectedTime; }
+  const std::string &getCollectedTime() const { return collectedTime; }
 
-  const string &getModuleName() const { return moduleName; }
+  const std::string &getModuleName() const { return moduleName; }
 
-  const string &getRuntimeVersion() const { return runtimeVersion; }
+  const std::string &getRuntimeVersion() const { return runtimeVersion; }
 
-  const string &getWorkloadName() const { return workloadName; }
+  const std::string &getWorkloadName() const { return workloadName; }
 
-  StatValueMap &getFunctionStats(const string &functionName) {
+  StatValueMap &getFunctionStats(const std::string &functionName) {
     return functionStats[functionName];
   }
 
   const StatValueMap &getModuleStats() const { return moduleStats; }
 
-  void addStatValue(const string statName, unsigned value) {
+  void addStatValue(const std::string statName, unsigned value) {
     moduleStats[statName] += value;
   }
 
-  unsigned getStatValue(const string &name) { return moduleStats[name]; }
+  unsigned getStatValue(const std::string &name) { return moduleStats[name]; }
 
-  void dumpStats(stringstream &str, const StatValueMap &names,
+  void dumpStats(std::stringstream &str, const StatValueMap &names,
                  unsigned levels) const;
 
 private:
-  string runtimeVersion;
-  string collectedTime;
-  string workloadName;
-  string moduleName;
+  std::string runtimeVersion;
+  std::string collectedTime;
+  std::string workloadName;
+  std::string moduleName;
 
   StatValueMap moduleStats;        // Module stat summary
   NamedStatValueMap functionStats; // stats per function
@@ -83,15 +81,15 @@ private:
 
 class WorkloadInfo {
 public:
-  static const string &getWorkloadID(const string &location,
-                                     const string &name);
+  static const std::string &getWorkloadID(const std::string &location,
+                                          const std::string &name);
 
-  void setId(const string &name) { id = name; }
+  void setId(const std::string &name) { id = name; }
 
-  const string &getId() const { return id; }
+  const std::string &getId() const { return id; }
 
-  ModuleStats &addModule(const string &ver, const string &time,
-                         const string &wname, const string &mname) {
+  ModuleStats &addModule(const std::string &ver, const std::string &time,
+                         const std::string &wname, const std::string &mname) {
     ModuleStats *MS = new ModuleStats(ver, time, wname, mname);
     statList.push_back(MS);
     return *MS;
@@ -105,13 +103,13 @@ public:
 
   const StatValueMap &getWorkloadStats() const { return workloadStats; }
 
-  void dumpStats(stringstream &str, const StatValueMap &names,
+  void dumpStats(std::stringstream &str, const StatValueMap &names,
                  unsigned levels) const;
 
 private:
-  string id;
+  std::string id;
   StatValueMap workloadStats;     // workload stats
-  vector<ModuleStats *> statList; // stats per module in this workload
+  std::vector<ModuleStats *> statList; // stats per module in this workload
 };
 
 // ExperimentInfo - information of all workloads in this experiment
@@ -119,13 +117,13 @@ class ExperimentInfo {
 public:
   ExperimentInfo() {}
 
-  WorkloadInfo &getWorkloadInfo(const string &workloadId) {
+  WorkloadInfo &getWorkloadInfo(const std::string &workloadId) {
     if (workloads.find(workloadId) == workloads.end())
       workloads[workloadId].setId(workloadId);
     return workloads[workloadId];
   }
 
-  void addStatDescription(const string &name, const string &descr) {
+  void addStatDescription(const std::string &name, const std::string &descr) {
     if (allStats.find(name) != allStats.end())
       return;
 
@@ -142,10 +140,10 @@ public:
     }
   }
 
-  void dumpStats(stringstream &str, unsigned levels);
+  void dumpStats(std::stringstream &str, unsigned levels);
 
 private:
-  typedef map<string, WorkloadInfo> WorkloadMap;
+  typedef std::map<std::string, WorkloadInfo> WorkloadMap;
   StatDescrMap statDescriptions; // description of stats
   StatValueMap allStats;         // totals of stats from all modules
   WorkloadMap workloads;         // map from workload name to its info

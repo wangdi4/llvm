@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-deletion -S | FileCheck %s
+; RUN: opt -passes="loop(loop-deletion)" < %s -S | FileCheck %s
 
 ; CHECK: while.body.neg:
 ; CHECK: while.body.neg2:

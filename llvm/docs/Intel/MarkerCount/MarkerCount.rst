@@ -178,19 +178,19 @@ What components support MarkerCount
 Representations of MarkerCount
 ==============================
 
-===========    ================================== ================== ====================== ====================
-Position       Intrinsic                          Pseudo instruction ASM of X86             ASM of other targets
-prolog         call void @llvm.mark.prolog()      PSEUDO_PROLOG      markercount_function   # PROLOG
-epilog         call void @llvm.mark.epilog()      PSEUDO_EPILOG      markercount_function   # EPILOG
-loop header    call void @llvm.mark.loop.header() PSEUDO_LOOP_HEADER markercount_loopheader # LOOP_HEADER
-===========    ================================== ================== ====================== ====================
+===========    ================================== ================== =============== ====================
+Position       Intrinsic                          Pseudo instruction ASM of X86      ASM of other targets
+prolog         call void @llvm.mark.prolog()      PSEUDO_PROLOG      marker_function # PROLOG
+epilog         call void @llvm.mark.epilog()      PSEUDO_EPILOG      marker_function # EPILOG
+loop header    call void @llvm.mark.loop.header() PSEUDO_LOOP_HEADER marker_loop     # LOOP_HEADER
+===========    ================================== ================== =============== ====================
 
 X86 MarkerCount instructions reuse invalid one-byte opcode in 64-bit mode
 
-========  ====================== =======
-0x0e      markercount_function   PUSH CS
-0x37      markercount_loopheader AAA
-========  ====================== =======
+========  =============== =======
+0x0e      marker_function PUSH CS
+0x37      marker_loop     AAA
+========  =============== =======
 
 
 How to build xmain with MarkerCount support

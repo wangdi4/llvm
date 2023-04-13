@@ -6,7 +6,7 @@
 ; Check for proper peel base address broadcast and that loop is vectorized.
 ;
 ; CHECK-LABEL: peel.check{{.*}}:
-; CHECK-NEXT:    [[SPLATINSERT:%.*]] = insertelement <2 x i64*> poison, i64* %inv.mem, i32 0
+; CHECK-NEXT:    [[SPLATINSERT:%.*]] = insertelement <2 x i64*> poison, i64* %inv.mem, i64 0
 ; CHECK-NEXT:    [[SPLAT:%.*]] = shufflevector <2 x i64*> [[SPLATINSERT]], <2 x i64*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[PTRTOINT:%.*]] = ptrtoint <2 x i64*> [[SPLAT]] to <2 x i64>
 ;

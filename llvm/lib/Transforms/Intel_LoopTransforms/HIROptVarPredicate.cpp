@@ -70,7 +70,7 @@
 
 #include "llvm/ADT/Statistic.h"
 #if INTEL_FEATURE_CSA
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #endif // INTEL_FEATURE_CSA
 
 #include "llvm/IR/Function.h"
@@ -648,7 +648,7 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
       return nullptr;
     }
 
-    bool Overflow;
+    bool Overflow = false;
     APInt RHSConstAP(RHSType->getPrimitiveSizeInBits(), RHSConst, true);
     APInt LHSConstAP(LHSType->getPrimitiveSizeInBits(), -LHSConst, true);
     (void)RHSConstAP.sadd_ov(LHSConstAP, Overflow);
@@ -772,7 +772,7 @@ void HIROptVarPredicate::updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
   // Cast split point to an IV type, to use in loop bounds.
   SplitPointBlob = castBlob(SplitPointBlob, Loop->getIVType(), IsSigned);
 
-  unsigned MinBlobIndex;
+  unsigned MinBlobIndex = InvalidBlobIndex;
   BlobTy MinBlob;
   bool BlobsAreConst =
       isa<SCEVConstant>(UpperBlob) && isa<SCEVConstant>(SplitPointBlob);
@@ -795,7 +795,7 @@ void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
   // Cast split point to an IV type, to use in loop bounds.
   SplitPointBlob = castBlob(SplitPointBlob, Loop->getIVType(), IsSigned);
 
-  unsigned MaxBlobIndex;
+  unsigned MaxBlobIndex = InvalidBlobIndex;
   BlobTy MaxBlob;
   bool BlobsAreConst =
       isa<SCEVConstant>(LowerBlob) && isa<SCEVConstant>(SplitPointBlob);
@@ -915,7 +915,7 @@ void HIROptVarPredicate::splitLoop(
   ThenContainers.resize(Candidates.size());
   ElseContainers.resize(Candidates.size());
 
-  for (auto CI : enumerate(Candidates)) {
+  for (auto const &CI : enumerate(Candidates)) {
     // Invalidate If's container before moving nodes around.
     HLLoop *ParentLoop = CI.value()->getParentLoop();
     HIRInvalidationUtils::invalidateBody(ParentLoop);
@@ -944,7 +944,7 @@ void HIROptVarPredicate::splitLoop(
   HLLoop *SecondLoop = Loop->clone(&CloneMapper);
 
   // Replace nodes back.
-  for (auto &CI : enumerate(Candidates)) {
+  for (const auto &CI : enumerate(Candidates)) {
     auto &ThenContainer = ThenContainers[CI.index()];
     auto &ElseContainer = ElseContainers[CI.index()];
 

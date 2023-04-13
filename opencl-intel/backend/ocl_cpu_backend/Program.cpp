@@ -35,8 +35,10 @@ Program::Program()
 Program::~Program() {
   m_kernels.reset(nullptr);
 
-  for (auto &gv : m_globalVariables)
+  for (auto &gv : m_globalVariables) {
     free(gv.name);
+    free(gv.deco_name);
+  }
 
   delete m_pObjectCodeContainer;
   delete m_pIRCodeContainer;
@@ -207,6 +209,11 @@ void Program::Serialize(IOutputStream &ost, SerializationStatus *stats) const {
   for (auto &gv : m_globalVariables) {
     std::string name = gv.name;
     Serializer::SerialString(name, ost);
+    if (OCL_CACHED_BINARY_VERSION >= 19) {
+      std::string deco_name = gv.deco_name;
+      Serializer::SerialString(deco_name, ost);
+      Serializer::SerialPrimitive<unsigned int>(&gv.host_access, ost);
+    }
     tmp = (unsigned long long int)gv.size;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
   }
@@ -257,6 +264,13 @@ void Program::Deserialize(IInputStream &ist, SerializationStatus *stats) {
     std::string name;
     Serializer::DeserialString(name, ist);
     m_globalVariables[i].name = STRDUP(name.c_str());
+    if (OCL_CACHED_BINARY_VERSION >= 19) {
+      std::string deco_name;
+      Serializer::DeserialString(deco_name, ist);
+      m_globalVariables[i].deco_name = STRDUP(deco_name.c_str());
+      Serializer::DeserialPrimitive<unsigned int>(
+          &m_globalVariables[i].host_access, ist);
+    }
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_globalVariables[i].size = (size_t)tmp;
   }

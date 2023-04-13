@@ -1,11 +1,17 @@
 # FIXME: Disabled on Windows because -fPIC cannot be used to compile for Windows.
-UNSUPPORTED: windows
+UNSUPPORTED: target={{.*windows.*}}
 # FIXME: CreatePCArray() emits PLT stub addresses for entry blocks, which are ignored by TracePC::PrintCoverage().
-UNSUPPORTED: s390x
+UNSUPPORTED: target=s390x{{.*}}
 RUN: %cpp_compiler -mllvm -use-unknown-locations=Disable  %S/NullDerefTest.cpp -o %t-NullDerefTest
 RUN: %cpp_compiler -mllvm -use-unknown-locations=Disable %S/DSO1.cpp -fPIC %ld_flags_rpath_so1 -O0 -shared -o %dynamiclib1
 RUN: %cpp_compiler -mllvm -use-unknown-locations=Disable %S/DSO2.cpp -fPIC %ld_flags_rpath_so2 -O0 -shared -o %dynamiclib2
-RUN: %cpp_compiler -mllvm -use-unknown-locations=Disable %S/DSOTestMain.cpp %S/DSOTestExtra.cpp %ld_flags_rpath_exe1 %ld_flags_rpath_exe2 -o %t-DSOTest
+# INTEL_CUSTOMIZATION
+# JIRA: CMPLRLLVM-18393
+# In our default test env, lld is used, which will cause this lit test to fail, so use bfd manually
+# It seems lld will do some optimizations which will change the execution flow, producing a different coveage information
+# that will make FileCheck fail.
+RUN: %cpp_compiler -fuse-ld=bfd -mllvm -use-unknown-locations=Disable %S/DSOTestMain.cpp %S/DSOTestExtra.cpp %ld_flags_rpath_exe1 %ld_flags_rpath_exe2 -o %t-DSOTest
+# end INTEL_CUSTOMIZATION
 
 CHECK: COVERAGE:
 CHECK: COVERED_FUNC: {{.*}}LLVMFuzzerTestOneInput {{.*}}NullDerefTest.cpp:14

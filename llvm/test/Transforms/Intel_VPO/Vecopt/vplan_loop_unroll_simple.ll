@@ -12,10 +12,10 @@
 ; }
 
 ; OPTREPORT:        LOOP BEGIN
-; OPTREPORT-NEXT;     Remark: LOOP WAS VECTORIZED
-; OPTREPORT-NEXT;     Remark: vectorization support: vector length 4
-; OPTREPORT-NEXT;     Remark: vectorization support: unroll factor 3
-; OPTREPORT-NEXT;   LOOP END
+; OPTREPORT-NEXT:       remark #15301: SIMD LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:       remark #15305: vectorization support: vector length 4
+; OPTREPORT-NEXT:       remark #15399: vectorization support: unroll factor 3
+; OPTREPORT-NEXT:   LOOP END
 
 define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlan loop unrolling:

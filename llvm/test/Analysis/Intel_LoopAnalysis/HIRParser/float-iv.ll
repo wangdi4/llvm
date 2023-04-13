@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that the pseudo floating point IV is handled correctly.
@@ -15,7 +14,6 @@
 
 ; Verify that we set HasSignedIV flag for this constant trip count loop.
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s --check-prefix=DETAILS
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s --check-prefix=DETAILS
 
 ; DETAILS: HasSignedIV: Yes

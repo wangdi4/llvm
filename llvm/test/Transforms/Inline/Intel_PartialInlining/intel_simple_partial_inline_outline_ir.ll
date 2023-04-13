@@ -84,7 +84,7 @@
 ;
 ; This test case will check that the outlined function was created correctly.
 ;
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -S 2>&1 | FileCheck %s
 
 ; Check that the call site of foo was replaced with foo.1
 ; CHECK: define i1 @bar(%struct.Node* %List) #0

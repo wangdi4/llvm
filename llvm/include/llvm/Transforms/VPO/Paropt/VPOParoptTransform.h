@@ -43,7 +43,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Pass.h"
 
 #include "llvm/ADT/EquivalenceClasses.h"
@@ -540,6 +540,9 @@ private:
   /// WRNTaskLoopNode WRegion
   bool addFirstprivateForNormalizedUB(WRegionNode *W);
 
+  /// Add a Firstprivate clause for the Detach clause on a WRNTask WRegion
+  bool addFirstprivateForDetach(WRegionNode *W);
+
   /// Generate code for firstprivate variables.
   /// If \p OnlyParoptGeneratedFPForNonPtrCaptures is true, then Only those
   /// Firtstprivate items are handled that were added to capture non-pointers to
@@ -576,19 +579,19 @@ private:
   /// by \p AllocaAddrSpace.
   //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  Value *genPrivatizationAlloca(
-      Item *I, Instruction *InsertPt,
-      const Twine &NameSuffix = "",
-      llvm::Optional<unsigned> AllocaAddrSpace = std::nullopt,
-      bool PreserveAddressSpace = true) const;
+  Value *
+  genPrivatizationAlloca(Item *I, Instruction *InsertPt,
+                         const Twine &NameSuffix = "",
+                         std::optional<unsigned> AllocaAddrSpace = std::nullopt,
+                         bool PreserveAddressSpace = true) const;
 
   /// Returns address space that should be used for privatizing variable
   /// referenced in the [FIRST]PRIVATE clause \p I of the given region \p W.
   /// If the return value is std::nullopt, then the address space
   /// should be equal to default alloca address space, as defined
   /// by DataLayout.
-  llvm::Optional<unsigned> getPrivatizationAllocaAddrSpace(
-      const WRegionNode *W, const Item *I) const;
+  std::optional<unsigned> getPrivatizationAllocaAddrSpace(const WRegionNode *W,
+                                                          const Item *I) const;
 
   /// Replace the variable with the privatized variable.
   /// If \p ExcludeEntryDirective is true, then uses in the entry
@@ -691,7 +694,7 @@ private:
   /// otherwise.
   static bool addPrivateClausesToRegion(
       WRegionNode *W,
-      ArrayRef<std::pair<Value *, llvm::Optional<ElementTypeAndNumElements>>>
+      ArrayRef<std::pair<Value *, std::optional<ElementTypeAndNumElements>>>
           ToPrivatize);
 
   /// Update references of use_device_ptr operands in tgt data region to use the
@@ -798,21 +801,30 @@ private:
 
   /// Generate local update loop for atomic-free GPU reduction
   bool genAtomicFreeReductionLocalFini(WRegionNode *W, ReductionItem *RedI,
-                                       LoadInst *Rhs1, LoadInst *Rhs2,
-                                       StoreInst *RedStore,
+                                       Instruction *Rhs1, Instruction *Rhs2,
+                                       Instruction *CombinerCopyout,
                                        IRBuilder<> &Builder, DominatorTree *DT);
 
   /// Generate global update loop for atomic-free GPU reduction
   bool genAtomicFreeReductionGlobalFini(
-      WRegionNode *W, ReductionItem *RedI, StoreInst *RedStore,
+      WRegionNode *W, ReductionItem *RedI, Instruction *CombinerCopyout,
       Instruction *RedVarToLoad, Instruction *RedValToLoad, PHINode *RedSumPhi,
       bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT);
+
+  /// Insert code to increment teams_counter once a team is done writing its
+  /// value to the `red_buffer` array and check if the current team is
+  /// responsible for combining of cross-team atomic-free reduction buffers
+  /// based on the global teams reduction combiner selector.
+  std::pair<BasicBlock *, Value *>
+  genTeamsCounterCheck(WRegionNode *W, GlobalVariable *GlobalCounter,
+                       Instruction *InsertPt);
 
   // Insert code to Reset the teams_counter to zero when generating code for
   // the global (teams) stage of atomic-free reduction.
   void resetTeamsCounterAfterCopyingBackRedItem(GlobalVariable *TeamsCounter,
                                                 bool IsArrayOrArraySection,
-                                                StoreInst *CopyoutStore,
+                                                bool IsUdr,
+                                                Instruction *InsertPt,
                                                 BasicBlock *CopyoutLoopHeader);
 
   /// Generate code for the aligned clause.
@@ -849,8 +861,8 @@ private:
                              Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
 
   /// Generate calling reduction update function for user-defined reduction.
-  bool genReductionUdrFini(ReductionItem *RedI, Value *ReductionVar,
-                           Value *ReductionValueLoc, IRBuilder<> &Builder);
+  CallInst *genReductionUdrFini(ReductionItem *RedI, Value *ReductionVar,
+                                Value *ReductionValueLoc, IRBuilder<> &Builder);
 
   /// Generate the reduction update instructions.
   /// Returns true iff critical section is required around the generated
@@ -930,6 +942,9 @@ private:
       Item *I, StructType *KmpPrivatesTy, Value *PrivatesGep,
       Value *TaskTWithPrivates, IRBuilder<> &Builder);
 
+  /// Generate the code of the Detach(e) clause on task.
+  void genDetachCode(WRegionNode *W, CallInst *TaskAllocCI, CallInst *NewCall);
+
   /// Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences
   bool genTaskLoopInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
@@ -982,6 +997,10 @@ private:
   void genTaskDeps(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
                    Value *TaskAlloc, AllocaInst *DummyTaskTDependRec,
                    Instruction *InsertPt, bool IsTaskWait);
+
+  /// The routine to generate the call __kmpc_omp_reg_task_with_affinity
+  void genTaskAffinity(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
+                       Value *TaskAlloc, Instruction *InsertPt);
 
   /// Create a struct to contain all shared data for the task. This is allocated
   /// in the caller of the task, and is populated with pointers to shared
@@ -1160,7 +1179,7 @@ private:
                                       Function *NFn);
 
   /// Utility to find Alignment of the COPYIN Variable passed.
-  unsigned getAlignmentCopyIn(Value *V, const DataLayout DL);
+  unsigned getAlignmentCopyIn(Value *V, const DataLayout &DL);
 
   /// Generate the copy code for the copyin variables.
   void genTpvCopyIn(WRegionNode *W,
@@ -1179,6 +1198,9 @@ private:
 
   /// Reset the expression value of task depend clause to be empty.
   void resetValueInTaskDependClause(WRegionNode *W);
+
+  /// Reset the expression value of task Affinity clause to be empty.
+  void resetValueInTaskAffinityClause(WRegionNode *W);
 
   /// Reset the value of NumElements of VLA (including array section) for TYPED
   /// clauses in private, firstprivate, lastprivate, in_reduction, and
@@ -1252,8 +1274,15 @@ private:
   /// Generate the code for the directive omp target
   bool genTargetOffloadingCode(WRegionNode *W);
 
-  /// Collect the data mapping information for the given region \p W
-  /// based on the \p Call instruction created during the region outlining.
+  /// Generate SPIRV-specific omp target code for genTargetOffloadingCode.
+  void genTargetSPIRVOffloadingCode(WRNTargetNode *WT, Function *NewF,
+                                    CallInst *NewCall);
+
+  /// Collect the data mapping information for the given region \p W.
+  /// For constructs like "target [enter/exit] data" and "target update", it is
+  /// done simply based on the map clauses in \p W, whereas for constructs that
+  /// require outlining, like "target", it is done based on the \p Call
+  /// instruction created during the region outlining.
   /// The method populates \p ConstSizes, \p MapTypes, \p Names and \p Mappers
   /// vectors with the mapping information for each argument of \p Call.
   /// See genTgtInformationForPtrs() for more details about the meaning
@@ -1387,7 +1416,7 @@ private:
   /// region execution order
   bool genOrderedThreadCode(WRegionNode *W);
 
-  /// Emit __kmpc_doacross_post/wait call for an 'ordered depend(source/sink)'
+  /// Emit __kmpc_doacross_post/wait call for an 'ordered doacross(source/sink)'
   /// construct.
   bool genDoacrossWaitOrPost(WRNOrderedNode *W);
 
@@ -1974,7 +2003,7 @@ private:
   /// Generate the target intialization code for the pointers based
   /// on the order of the map clause.
   void genOffloadArraysInitForClause(WRegionNode *W, TgDataInfo *Info,
-                                     CallInst *Call, Instruction *InsertPt,
+                                     Instruction *InsertPt,
                                      SmallVectorImpl<Constant *> &ConstSizes,
                                      bool hasRuntimeEvaluationCaptureSize,
                                      Value *BPVal, bool &Match,
@@ -2015,16 +2044,6 @@ private:
   /// TODO: We should add a way to drop this metadata after
   /// guardSideEffectStatements() is done.
   static void markAsGuardedByThreadCheck(Instruction *I);
-
-  /// Return true if the Instruction \p I has metadata indicating that it is
-  /// already guarded by a thread-check like `if (thread_id == xyz)` to ensure
-  /// that only one thread executes it.
-  static bool isGuardedByThreadCheck(const Instruction *I);
-
-  // Returns true if the instruction should be ignored when guarding
-  // side-effect statements with master-thread checks, even if it has
-  // side-effects.
-  static bool ignoreWhenGuardingSideEffectStatements(const Instruction *I);
 
   /// Guard each instruction that has a side effect with master thread id
   /// check, so that only the master thread (id == 0) in the team executes
@@ -2236,14 +2255,14 @@ private:
   /// adjust_args(need_device_ptr:...) and append_args(interop(...)) clauses.
   StringRef getVariantInfo(WRegionNode *W, CallInst *BaseCall,
                            StringRef &MatchConstruct, uint64_t &DeviceArchs,
-                           llvm::Optional<uint64_t> &InteropPositionOut,
+                           std::optional<uint64_t> &InteropPositionOut,
                            StringRef &NeedDevicePtrStr, StringRef &InteropStr);
 
   /// Get substrings from the "openmp-variant" string attribute to support
   /// the TARGET VARIANT DISPATCH construct
   StringRef getVariantInfo(WRegionNode *W, CallInst *BaseCall,
                            StringRef &MatchConstruct, uint64_t &DeviceArchs,
-                           llvm::Optional<uint64_t> &InteropPositionOut);
+                           std::optional<uint64_t> &InteropPositionOut);
 
   /// Emit code to get device pointers for variant dispatch
   void getAndReplaceDevicePtrs(WRegionNode *W, CallInst *VariantCall,
@@ -2324,16 +2343,26 @@ private:
   /// fixupKnownNDRange(), so that their behavior is synchronized
   /// regarding the loop paritioning and the actual specific vs default
   /// ND-range used for the kernel invocation.
-  bool shouldNotUseKnownNDRange(WRegionNode *W) const;
+  /// Despite removing QUAL_OMP_OFFLOAD_KNOWN_NDRANGE, QUAL_OMP_OFFLOAD_NDRANGE
+  /// should be kept to supply loop tripcounts to runtime to possibly limit
+  /// number of teams the kernel is run with to reduce launch latency for
+  /// kernels with short loops only.
+  bool shouldNotUseKnownNDRange(const WRegionNode *W) const;
 
   /// Checks if the given OpenMP loop region may use SPIR paritioning
   /// with known loop(s) bounds and if it is profitable.
   /// It analyzes only QUAL_OMP_OFFLOAD_KNOWN_NDRANGE loops, which means
   /// that the loops' bounds may be computed before the enclosing target region.
   /// If known loop bounds may/must not be used, then the routine deletes
-  /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE from the loop region, and also
-  /// deletes QUAL_OMP_OFFLOAD_NDRANGE from the enclosing target region.
+  /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE from the loop region.
   bool fixupKnownNDRange(WRegionNode *W) const;
+
+  /// Propagates existing QUAL_OMP_OFFLOAD_KNOWN_NDRANGE clause on loop
+  /// constructs (if any) to the enclosing target region so that it would be
+  /// possible to generate binary attributes to instruct RT how to use the
+  /// provided loop descriptor (based on target region's
+  /// QUAL_OMP_OFFLOAD_NDRANGE).
+  bool propagateKnownNDRange(WRegionNode *W) const;
 
   /// Analyzes the current Function's WRegionList and sets starting
   /// ND-range dimensions for OpenMP loop regions. It also sets
@@ -2395,7 +2424,8 @@ template <> struct OptReportTraits<vpo::WRegionNode> {
     return Handle.first.getEntryDirective()->getDebugLoc();
   }
 
-  static Optional<std::string> getOptReportTitle(const ObjectHandleTy &Handle) {
+  static std::optional<std::string>
+  getOptReportTitle(const ObjectHandleTy &Handle) {
     return "OMP " + Handle.first.getSourceName().upper();
   }
 

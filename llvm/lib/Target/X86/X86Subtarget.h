@@ -34,9 +34,9 @@
 #include "X86ISelLowering.h"
 #include "X86InstrInfo.h"
 #include "X86SelectionDAGInfo.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/CallingConv.h"
+#include "llvm/TargetParser/Triple.h"
 #include <climits>
 #include <memory>
 
@@ -68,7 +68,13 @@ enum class Style {
 
 class X86Subtarget final : public X86GenSubtargetInfo {
   enum X86SSEEnum {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    NoSSE, SSE1, SSE2, SSE3, SSSE3, SSE41, SSE42, AVX, AVX2, AVX3
+#else // INTEL_FEATURE_ISA_AVX256P
     NoSSE, SSE1, SSE2, SSE3, SSSE3, SSE41, SSE42, AVX, AVX2, AVX512
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   };
 
 #if INTEL_CUSTOMIZATION
@@ -133,13 +139,6 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 
   /// Required vector width from function attribute.
   unsigned RequiredVectorWidth;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256
-  /// True if "target-cpu" is "common-avx256".
-  bool IsAVX256 = false;
-#endif // INTEL_FEATURE_ISA_AVX256
-#endif // INTEL_CUSTOMIZATION
 
   X86SelectionDAGInfo TSInfo;
   // Ordering here is important. X86InstrInfo initializes X86RegisterInfo which
@@ -242,8 +241,11 @@ public:
   bool hasAVX2() const { return X86SSELevel >= AVX2; }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-  // FIXME: Should change the name to hasEVEX?
-  bool hasAVX512() const { return X86SSELevel >= AVX512 || hasAVX256P(); }
+  // AVX3 is a intersection set of AVX256P and AVX512F. Only scalar instructions
+  // in AVX512F belong to this set.
+  bool hasAVX3() const { return X86SSELevel >= AVX3; }
+  // Replace hasAVX512 when hasAVX512F and remove this when upstream.
+  bool hasAVX512() const { return hasAVX512F(); }
 #else // INTEL_FEATURE_ISA_AVX256P
   bool hasAVX512() const { return X86SSELevel >= AVX512; }
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -295,30 +297,31 @@ public:
   // TODO: Currently we're always allowing widening on CPUs without VLX,
   // because for many cases we don't have a better option.
   bool canExtendTo512DQ() const {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256
-    return X86SSELevel >= AVX512 && !IsAVX256 &&
-#else  // INTEL_FEATURE_ISA_AVX256
-    return hasAVX512() &&
-#endif // INTEL_FEATURE_ISA_AVX256
-           (!hasVLX() || getPreferVectorWidth() >= 512);
-#endif // INTEL_CUSTOMIZATION
+    return hasAVX512() && (!hasVLX() || getPreferVectorWidth() >= 512);
   }
   bool canExtendTo512BW() const  {
     return hasBWI() && canExtendTo512DQ();
   }
 
+  bool hasNoDomainDelay() const { return NoDomainDelay; }
+  bool hasNoDomainDelayMov() const {
+      return hasNoDomainDelay() || NoDomainDelayMov;
+  }
+  bool hasNoDomainDelayBlend() const {
+      return hasNoDomainDelay() || NoDomainDelayBlend;
+  }
+  bool hasNoDomainDelayShuffle() const {
+      return hasNoDomainDelay() || NoDomainDelayShuffle;
+  }
+
   // If there are no 512-bit vectors and we prefer not to use 512-bit registers,
   // disable them in the legalizer.
   bool useAVX512Regs() const {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256
-    return X86SSELevel >= AVX512 && !IsAVX256 &&
-#else  // INTEL_FEATURE_ISA_AVX256
-    return hasAVX512() &&
-#endif // INTEL_FEATURE_ISA_AVX256
-           (canExtendTo512DQ() || RequiredVectorWidth > 256);
-#endif // INTEL_CUSTOMIZATION
+    return hasAVX512() && (canExtendTo512DQ() || RequiredVectorWidth > 256);
+  }
+
+  bool useLight256BitInstructions() const {
+    return getPreferVectorWidth() >= 256 || AllowLight256Bit;
   }
 
   bool useBWIRegs() const {

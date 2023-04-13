@@ -30,7 +30,7 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-NEXT:  VPlannedBB2:
 ; MASKED-PEEL-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VPLANNEDBB10]] ], [ [[TMP4:%.*]], [[NEW_LATCH0:%.*]] ]
 ; MASKED-PEEL-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB10]] ], [ [[TMP3:%.*]], [[NEW_LATCH0]] ]
-; MASKED-PEEL-NEXT:    [[TMP1:%.*]] = add <4 x i32> [[VEC_PHI0]], zeroinitializer
+; MASKED-PEEL-NEXT:    [[TMP1:%.*]] = add nuw nsw <4 x i32> [[VEC_PHI0]], zeroinitializer
 ; MASKED-PEEL-NEXT:    [[TMP2:%.*]] = icmp ult <4 x i32> [[VEC_PHI0]], <i32 1, i32 1, i32 1, i32 1>
 ; MASKED-PEEL-NEXT:    br label [[VPLANNEDBB30:%.*]]
 ; MASKED-PEEL-EMPTY:
@@ -38,8 +38,8 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-NEXT:    br label [[NEW_LATCH0]]
 ; MASKED-PEEL-EMPTY:
 ; MASKED-PEEL-NEXT:  new_latch:
-; MASKED-PEEL-NEXT:    [[TMP3]] = add nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; MASKED-PEEL-NEXT:    [[TMP4]] = add nsw i32 [[UNI_PHI0]], 4
+; MASKED-PEEL-NEXT:    [[TMP3]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; MASKED-PEEL-NEXT:    [[TMP4]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; MASKED-PEEL-NEXT:    [[TMP5:%.*]] = icmp ult <4 x i32> [[TMP3]], <i32 1, i32 1, i32 1, i32 1>
 ; MASKED-PEEL-NEXT:    [[TMP6:%.*]] = bitcast <4 x i1> [[TMP5]] to i4
 ; MASKED-PEEL-NEXT:    [[TMP7:%.*]] = icmp eq i4 [[TMP6]], 0
@@ -63,7 +63,7 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-NEXT:    br label [[VPLANNEDBB90:%.*]]
 ; MASKED-PEEL-EMPTY:
 ; MASKED-PEEL-NEXT:  VPlannedBB9:
-; MASKED-PEEL-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI60]], i32 0
+; MASKED-PEEL-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI60]], i64 0
 ; MASKED-PEEL-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[UNI_PHI6IND_START_BCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-PEEL-NEXT:    [[TMP9:%.*]] = add <4 x i32> [[UNI_PHI6IND_START_BCAST_SPLAT0]], <i32 0, i32 1, i32 2, i32 3>
 ; MASKED-PEEL-NEXT:    [[N_ADJST0:%.*]] = sub nuw nsw i32 [[N0]], 1
@@ -74,8 +74,8 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-NEXT:  vector.body:
 ; MASKED-PEEL-NEXT:    [[UNI_PHI110:%.*]] = phi i32 [ [[UNI_PHI60]], [[VPLANNEDBB90]] ], [ [[TMP11:%.*]], [[VECTOR_BODY0]] ]
 ; MASKED-PEEL-NEXT:    [[VEC_PHI120:%.*]] = phi <4 x i32> [ [[TMP9]], [[VPLANNEDBB90]] ], [ [[TMP10:%.*]], [[VECTOR_BODY0]] ]
-; MASKED-PEEL-NEXT:    [[TMP10]] = add nsw <4 x i32> [[VEC_PHI120]], <i32 4, i32 4, i32 4, i32 4>
-; MASKED-PEEL-NEXT:    [[TMP11]] = add nsw i32 [[UNI_PHI110]], 4
+; MASKED-PEEL-NEXT:    [[TMP10]] = add nuw nsw <4 x i32> [[VEC_PHI120]], <i32 4, i32 4, i32 4, i32 4>
+; MASKED-PEEL-NEXT:    [[TMP11]] = add nuw nsw i32 [[UNI_PHI110]], 4
 ; MASKED-PEEL-NEXT:    [[TMP12:%.*]] = icmp uge i32 [[TMP11]], [[N_VEC0]]
 ; MASKED-PEEL-NEXT:    br i1 [[TMP12]], label [[VPLANNEDBB130:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; MASKED-PEEL-EMPTY:
@@ -145,8 +145,8 @@ define void @main(i32 %N) {
 ; MASKED-REMAINDER-NEXT:  vector.body:
 ; MASKED-REMAINDER-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VPLANNEDBB20]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
 ; MASKED-REMAINDER-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB20]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
-; MASKED-REMAINDER-NEXT:    [[TMP3]] = add nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; MASKED-REMAINDER-NEXT:    [[TMP4]] = add nsw i32 [[UNI_PHI0]], 4
+; MASKED-REMAINDER-NEXT:    [[TMP3]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; MASKED-REMAINDER-NEXT:    [[TMP4]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; MASKED-REMAINDER-NEXT:    [[TMP5:%.*]] = icmp uge i32 [[TMP4]], [[TMP2]]
 ; MASKED-REMAINDER-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB40:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; MASKED-REMAINDER-EMPTY:
@@ -164,7 +164,7 @@ define void @main(i32 %N) {
 ; MASKED-REMAINDER-EMPTY:
 ; MASKED-REMAINDER-NEXT:  [[MERGE_BLK0]]:
 ; MASKED-REMAINDER-NEXT:    [[UNI_PHI70:%.*]] = phi i32 [ [[TMP7]], [[VPLANNEDBB60]] ], [ 0, [[VPLANNEDBB0]] ]
-; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI70]], i32 0
+; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI70]], i64 0
 ; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-REMAINDER-NEXT:    br label [[VPLANNEDBB80:%.*]]
 ; MASKED-REMAINDER-EMPTY:
@@ -173,14 +173,14 @@ define void @main(i32 %N) {
 ; MASKED-REMAINDER-EMPTY:
 ; MASKED-REMAINDER-NEXT:  VPlannedBB9:
 ; MASKED-REMAINDER-NEXT:    [[TMP9:%.*]] = sub i32 [[N0]], [[UNI_PHI70]]
-; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT130:%.*]] = insertelement <4 x i32> poison, i32 [[TMP9]], i32 0
+; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT130:%.*]] = insertelement <4 x i32> poison, i32 [[TMP9]], i64 0
 ; MASKED-REMAINDER-NEXT:    [[BROADCAST_SPLAT140:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT130]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-REMAINDER-NEXT:    br label [[VPLANNEDBB100:%.*]]
 ; MASKED-REMAINDER-EMPTY:
 ; MASKED-REMAINDER-NEXT:  VPlannedBB10:
 ; MASKED-REMAINDER-NEXT:    [[UNI_PHI110:%.*]] = phi i32 [ 0, [[VPLANNEDBB90]] ], [ [[TMP13:%.*]], [[NEW_LATCH0:%.*]] ]
 ; MASKED-REMAINDER-NEXT:    [[VEC_PHI120:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB90]] ], [ [[TMP12:%.*]], [[NEW_LATCH0]] ]
-; MASKED-REMAINDER-NEXT:    [[TMP10:%.*]] = add <4 x i32> [[VEC_PHI120]], [[BROADCAST_SPLAT0]]
+; MASKED-REMAINDER-NEXT:    [[TMP10:%.*]] = add nuw nsw <4 x i32> [[VEC_PHI120]], [[BROADCAST_SPLAT0]]
 ; MASKED-REMAINDER-NEXT:    [[TMP11:%.*]] = icmp ult <4 x i32> [[VEC_PHI120]], [[BROADCAST_SPLAT140]]
 ; MASKED-REMAINDER-NEXT:    br label [[VPLANNEDBB150:%.*]]
 ; MASKED-REMAINDER-EMPTY:
@@ -188,8 +188,8 @@ define void @main(i32 %N) {
 ; MASKED-REMAINDER-NEXT:    br label [[NEW_LATCH0]]
 ; MASKED-REMAINDER-EMPTY:
 ; MASKED-REMAINDER-NEXT:  new_latch:
-; MASKED-REMAINDER-NEXT:    [[TMP12]] = add nsw <4 x i32> [[VEC_PHI120]], <i32 4, i32 4, i32 4, i32 4>
-; MASKED-REMAINDER-NEXT:    [[TMP13]] = add nsw i32 [[UNI_PHI110]], 4
+; MASKED-REMAINDER-NEXT:    [[TMP12]] = add nuw nsw <4 x i32> [[VEC_PHI120]], <i32 4, i32 4, i32 4, i32 4>
+; MASKED-REMAINDER-NEXT:    [[TMP13]] = add nuw nsw i32 [[UNI_PHI110]], 4
 ; MASKED-REMAINDER-NEXT:    [[TMP14:%.*]] = icmp ult <4 x i32> [[TMP12]], [[BROADCAST_SPLAT140]]
 ; MASKED-REMAINDER-NEXT:    [[TMP15:%.*]] = bitcast <4 x i1> [[TMP14]] to i4
 ; MASKED-REMAINDER-NEXT:    [[TMP16:%.*]] = icmp eq i4 [[TMP15]], 0
@@ -248,7 +248,7 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-REMAINDER-NEXT:  VPlannedBB2:
 ; MASKED-PEEL-REMAINDER-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VPLANNEDBB10]] ], [ [[TMP4:%.*]], [[NEW_LATCH0:%.*]] ]
 ; MASKED-PEEL-REMAINDER-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB10]] ], [ [[TMP3:%.*]], [[NEW_LATCH0]] ]
-; MASKED-PEEL-REMAINDER-NEXT:    [[TMP1:%.*]] = add <4 x i32> [[VEC_PHI0]], zeroinitializer
+; MASKED-PEEL-REMAINDER-NEXT:    [[TMP1:%.*]] = add nuw nsw <4 x i32> [[VEC_PHI0]], zeroinitializer
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP2:%.*]] = icmp ult <4 x i32> [[VEC_PHI0]], <i32 1, i32 1, i32 1, i32 1>
 ; MASKED-PEEL-REMAINDER-NEXT:    br label [[VPLANNEDBB30:%.*]]
 ; MASKED-PEEL-REMAINDER-EMPTY:
@@ -256,8 +256,8 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-REMAINDER-NEXT:    br label [[NEW_LATCH0]]
 ; MASKED-PEEL-REMAINDER-EMPTY:
 ; MASKED-PEEL-REMAINDER-NEXT:  new_latch:
-; MASKED-PEEL-REMAINDER-NEXT:    [[TMP3]] = add nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; MASKED-PEEL-REMAINDER-NEXT:    [[TMP4]] = add nsw i32 [[UNI_PHI0]], 4
+; MASKED-PEEL-REMAINDER-NEXT:    [[TMP3]] = add nuw nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; MASKED-PEEL-REMAINDER-NEXT:    [[TMP4]] = add nuw nsw i32 [[UNI_PHI0]], 4
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP5:%.*]] = icmp ult <4 x i32> [[TMP3]], <i32 1, i32 1, i32 1, i32 1>
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP6:%.*]] = bitcast <4 x i1> [[TMP5]] to i4
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP7:%.*]] = icmp eq i4 [[TMP6]], 0
@@ -281,7 +281,7 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-REMAINDER-NEXT:    br label [[VPLANNEDBB90:%.*]]
 ; MASKED-PEEL-REMAINDER-EMPTY:
 ; MASKED-PEEL-REMAINDER-NEXT:  VPlannedBB9:
-; MASKED-PEEL-REMAINDER-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI60]], i32 0
+; MASKED-PEEL-REMAINDER-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI60]], i64 0
 ; MASKED-PEEL-REMAINDER-NEXT:    [[UNI_PHI6IND_START_BCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[UNI_PHI6IND_START_BCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP9:%.*]] = add <4 x i32> [[UNI_PHI6IND_START_BCAST_SPLAT0]], <i32 0, i32 1, i32 2, i32 3>
 ; MASKED-PEEL-REMAINDER-NEXT:    [[N_ADJST0:%.*]] = sub nuw nsw i32 [[N0]], 1
@@ -292,8 +292,8 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-REMAINDER-NEXT:  vector.body:
 ; MASKED-PEEL-REMAINDER-NEXT:    [[UNI_PHI110:%.*]] = phi i32 [ [[UNI_PHI60]], [[VPLANNEDBB90]] ], [ [[TMP11:%.*]], [[VECTOR_BODY0]] ]
 ; MASKED-PEEL-REMAINDER-NEXT:    [[VEC_PHI120:%.*]] = phi <4 x i32> [ [[TMP9]], [[VPLANNEDBB90]] ], [ [[TMP10:%.*]], [[VECTOR_BODY0]] ]
-; MASKED-PEEL-REMAINDER-NEXT:    [[TMP10]] = add nsw <4 x i32> [[VEC_PHI120]], <i32 4, i32 4, i32 4, i32 4>
-; MASKED-PEEL-REMAINDER-NEXT:    [[TMP11]] = add nsw i32 [[UNI_PHI110]], 4
+; MASKED-PEEL-REMAINDER-NEXT:    [[TMP10]] = add nuw nsw <4 x i32> [[VEC_PHI120]], <i32 4, i32 4, i32 4, i32 4>
+; MASKED-PEEL-REMAINDER-NEXT:    [[TMP11]] = add nuw nsw i32 [[UNI_PHI110]], 4
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP12:%.*]] = icmp uge i32 [[TMP11]], [[N_VEC0]]
 ; MASKED-PEEL-REMAINDER-NEXT:    br i1 [[TMP12]], label [[VPLANNEDBB130:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; MASKED-PEEL-REMAINDER-EMPTY:
@@ -311,7 +311,7 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-REMAINDER-EMPTY:
 ; MASKED-PEEL-REMAINDER-NEXT:  [[MERGE_BLK0]]:
 ; MASKED-PEEL-REMAINDER-NEXT:    [[UNI_PHI160:%.*]] = phi i32 [ [[TMP14]], [[VPLANNEDBB150]] ], [ 0, %[[PEEL_CHECKV0]] ], [ [[UNI_PHI60]], [[VPLANNEDBB70]] ]
-; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI160]], i32 0
+; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[UNI_PHI160]], i64 0
 ; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-PEEL-REMAINDER-NEXT:    br label [[VPLANNEDBB170:%.*]]
 ; MASKED-PEEL-REMAINDER-EMPTY:
@@ -320,14 +320,14 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-REMAINDER-EMPTY:
 ; MASKED-PEEL-REMAINDER-NEXT:  VPlannedBB18:
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP16:%.*]] = sub i32 [[N0]], [[UNI_PHI160]]
-; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT220:%.*]] = insertelement <4 x i32> poison, i32 [[TMP16]], i32 0
+; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLATINSERT220:%.*]] = insertelement <4 x i32> poison, i32 [[TMP16]], i64 0
 ; MASKED-PEEL-REMAINDER-NEXT:    [[BROADCAST_SPLAT230:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT220]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; MASKED-PEEL-REMAINDER-NEXT:    br label [[VPLANNEDBB190:%.*]]
 ; MASKED-PEEL-REMAINDER-EMPTY:
 ; MASKED-PEEL-REMAINDER-NEXT:  VPlannedBB19:
 ; MASKED-PEEL-REMAINDER-NEXT:    [[UNI_PHI200:%.*]] = phi i32 [ 0, [[VPLANNEDBB180]] ], [ [[TMP20:%.*]], [[NEW_LATCH170:%.*]] ]
 ; MASKED-PEEL-REMAINDER-NEXT:    [[VEC_PHI210:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB180]] ], [ [[TMP19:%.*]], [[NEW_LATCH170]] ]
-; MASKED-PEEL-REMAINDER-NEXT:    [[TMP17:%.*]] = add <4 x i32> [[VEC_PHI210]], [[BROADCAST_SPLAT0]]
+; MASKED-PEEL-REMAINDER-NEXT:    [[TMP17:%.*]] = add nuw nsw <4 x i32> [[VEC_PHI210]], [[BROADCAST_SPLAT0]]
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP18:%.*]] = icmp ult <4 x i32> [[VEC_PHI210]], [[BROADCAST_SPLAT230]]
 ; MASKED-PEEL-REMAINDER-NEXT:    br label [[VPLANNEDBB240:%.*]]
 ; MASKED-PEEL-REMAINDER-EMPTY:
@@ -335,8 +335,8 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-REMAINDER-NEXT:    br label [[NEW_LATCH170]]
 ; MASKED-PEEL-REMAINDER-EMPTY:
 ; MASKED-PEEL-REMAINDER-NEXT:  new_latch17:
-; MASKED-PEEL-REMAINDER-NEXT:    [[TMP19]] = add nsw <4 x i32> [[VEC_PHI210]], <i32 4, i32 4, i32 4, i32 4>
-; MASKED-PEEL-REMAINDER-NEXT:    [[TMP20]] = add nsw i32 [[UNI_PHI200]], 4
+; MASKED-PEEL-REMAINDER-NEXT:    [[TMP19]] = add nuw nsw <4 x i32> [[VEC_PHI210]], <i32 4, i32 4, i32 4, i32 4>
+; MASKED-PEEL-REMAINDER-NEXT:    [[TMP20]] = add nuw nsw i32 [[UNI_PHI200]], 4
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP21:%.*]] = icmp ult <4 x i32> [[TMP19]], [[BROADCAST_SPLAT230]]
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP22:%.*]] = bitcast <4 x i1> [[TMP21]] to i4
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP23:%.*]] = icmp eq i4 [[TMP22]], 0

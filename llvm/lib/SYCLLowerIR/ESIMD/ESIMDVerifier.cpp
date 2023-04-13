@@ -1,4 +1,21 @@
-//===---------- ESIMDVerifier.cpp - ESIMD-specific IR verification --------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+// //===---------- ESIMDVerifier.cpp - ESIMD-specific IR verification -----===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -54,7 +71,14 @@ static const char *LegalSYCLFunctions[] = {
     "^sycl::_V1::ext::oneapi::sub_group::.+",
     "^sycl::_V1::ext::oneapi::experimental::spec_constant<.+>::.+",
     "^sycl::_V1::ext::oneapi::experimental::this_sub_group",
-    "^sycl::_V1::ext::oneapi::bfloat16::.+"};
+    "^sycl::_V1::ext::oneapi::bfloat16::.+",
+    /* INTEL_CUSTOMIZATION */
+    /* INTEL_FEATURE_ESIMD_EMBARGO */
+    "^sycl::_V1::ext::intel::experimental::experimental::hf8::.+",
+    "^sycl::_V1::ext::intel::experimental::experimental::bf8::.+",
+    /* end INTEL_FEATURE_ESIMD_EMBARGO */
+    /* end INTEL_CUSTOMIZATION */
+    "^sycl::_V1::ext::oneapi::experimental::if_architecture_is"};
 
 static const char *LegalSYCLFunctionsInStatelessMode[] = {
     "^sycl::_V1::multi_ptr<.+>::get",

@@ -23,13 +23,10 @@
 #include <Logger.h>
 #include <cl_device_api.h>
 #include <cl_object.h>
-#include <cl_synch_objects.h>
 #include <list>
+#include <mutex>
 #include <stack>
 #include <vector>
-
-// Using namespace here for mutex support in inline functions
-using namespace Intel::OpenCL::Utils;
 
 namespace Intel {
 namespace OpenCL {
@@ -50,8 +47,6 @@ const unsigned int
  * Inherit:        MemoryObject
  * Description:    Represents a memory object that operates with multiple
  *                 devices with either unified and/or descrete memories
- * Author:         Dmitry Kaptsenel
- * Date:           August 2011
  ******************************************************************************/
 class GenericMemObject : public MemoryObject, public IOCLDevRTMemObjectService {
 
@@ -194,7 +189,7 @@ public:
 protected:
   unsigned int m_active_groups_count; // groups with allocated device objects
 
-  typedef vector<SharedPtr<GenericMemObjectSubBuffer>> TSubBufferList;
+  typedef std::vector<SharedPtr<GenericMemObjectSubBuffer>> TSubBufferList;
 
   enum hierarchical_memory_mode {
     MEMORY_MODE_NORMAL = 0,
@@ -306,7 +301,7 @@ protected:
   // Get m_eventOfSubBufferInUpdateProcessList of this hierarchical memory
   // group. (use 'm_updateParentInProcessSubBufferList' only by getting it from
   // this method.)
-  inline vector<SharedPtr<OclEvent>> *
+  inline std::vector<SharedPtr<OclEvent>> *
   getEventsOfSubBuffersInUpdateProcessListPtr() {
     return &(getParentMemObj()
                  .m_updateParentStruct.m_eventOfSubBufferInUpdateProcessList);
@@ -438,7 +433,7 @@ private:
 
     // Set the updateChildEventList.
     inline void setUpdateChildEventList(
-        const vector<SharedPtr<OclEvent>> &updateChildEventList) {
+        const std::vector<SharedPtr<OclEvent>> &updateChildEventList) {
       assert(m_updateParentEventList.size() == 0 &&
              "The size of m_updateParentList must be 0 when calling to "
              "setUpdateChildList()");
@@ -446,7 +441,7 @@ private:
     }
 
     // Get the updateChildEventList.
-    inline vector<SharedPtr<OclEvent>> &getUpdateChildEventList() {
+    inline std::vector<SharedPtr<OclEvent>> &getUpdateChildEventList() {
       return m_updateParentEventList;
     }
 
@@ -462,7 +457,8 @@ private:
     }
 
     // Get the parentChildList.
-    inline vector<SharedPtr<GenericMemObjectSubBuffer>> &getParentChildList() {
+    inline std::vector<SharedPtr<GenericMemObjectSubBuffer>> &
+    getParentChildList() {
       return m_subBuffersList;
     }
 
@@ -514,7 +510,7 @@ private:
         PARENT_STAGE_MOVE_UPDATE_CHILD_LIST_AND_ZOMBIES_TO_PARENT_DEVICE;
     unsigned int m_parentValidGroupId;
 
-    vector<SharedPtr<OclEvent>> m_updateParentEventList;
+    std::vector<SharedPtr<OclEvent>> m_updateParentEventList;
     TSubBufferList m_subBuffersList;
 
     bool m_hasZombieUpdate;
@@ -699,7 +695,7 @@ protected:
 
 private:
   DataValidState m_data_valid_state;      // overall state - sum of all devices
-  OclNonReentrantSpinMutex m_global_lock; // lock for control structures changes
+  std::mutex m_global_lock;               // lock for control structures changes
 
   cl_err_code allocate_object_for_sharing_group(unsigned int group_id);
   const DeviceDescriptor *get_device(const FissionableDevice *dev) const;
@@ -730,7 +726,7 @@ private:
 
   // define the current memory mode status (Of all hierarchical group). Use only
   // the parent instance.
-  AtomicCounter m_hierarchicalMemoryMode;
+  Utils::AtomicCounter m_hierarchicalMemoryMode;
 
   // Vector of all my sub-buffers. Use only the parent instance.
   TSubBufferList m_subBuffersList;
@@ -750,17 +746,17 @@ private:
 
     // Vector of DataCopyEvent(s) for each event that create due to update
     // parent of m_updateParentList or zombies. Use only the parent instance.
-    vector<SharedPtr<OclEvent>> m_eventOfSubBufferInUpdateProcessList;
+    std::vector<SharedPtr<OclEvent>> m_eventOfSubBufferInUpdateProcessList;
 
     unsigned int m_parentValidSharingGroupIdDuringUpdate;
 
-    AtomicCounter m_updateParentFlag;
+    Utils::AtomicCounter m_updateParentFlag;
   };
 
   update_parent_struct m_updateParentStruct;
 
   // Mutex for parent buffer / sub-buffers sync. Use only the parent instance.
-  OclSpinMutex m_buffersSyncLock;
+  Utils::OclRecursiveMutex m_buffersSyncLock;
 
   // Call it when new sub-buffer creates.
   // pSubBuffer is the sub-buffer that created.
@@ -834,6 +830,11 @@ public:
                             cl_mem_object_type clObjType,
                             GenericMemObject &buffer);
 
+  // do not implement
+  GenericMemObjectSubBuffer(const GenericMemObjectSubBuffer &) = delete;
+  GenericMemObjectSubBuffer &
+  operator=(const GenericMemObjectSubBuffer &) = delete;
+
   static SharedPtr<GenericMemObjectSubBuffer>
   Allocate(const SharedPtr<Context> &pContext,
            ocl_entry_points *pOclEntryPoints, cl_mem_object_type clObjType,
@@ -904,10 +905,6 @@ protected:
   // synch me with my parent
   void ZombieFlashToParent();
 
-  // do not implement
-  GenericMemObjectSubBuffer(const GenericMemObjectSubBuffer &);
-  GenericMemObjectSubBuffer &operator=(const GenericMemObjectSubBuffer &);
-
 private:
   const GenericMemObject
       &m_rBuffer; // the same info is returned by MemoryObject::GetParent() but
@@ -922,7 +919,7 @@ public:
                                unsigned int dim_count, const size_t *dimension,
                                const size_t *pitches, void *pHostPtr,
                                size_t alignment, size_t preferred_alignment,
-                               bool used_by_DMA, ClHeap heap,
+                               bool used_by_DMA, Utils::ClHeap heap,
                                cl_rt_memobj_creation_flags creation_flags,
                                IOCLDevRawMemoryAllocator *pRawMemoryAllocator);
 
@@ -999,11 +996,11 @@ private:
   size_t m_preferred_alignment;
   size_t m_raw_data_size;
 
-  ClHeap m_heap;
+  Utils::ClHeap m_heap;
   IOCLDevRawMemoryAllocator *m_pRawMemoryAllocator;
 
   IOCLDevBackingStore *m_parent;
-  AtomicCounter m_refCount;
+  Utils::AtomicCounter m_refCount;
 };
 
 //

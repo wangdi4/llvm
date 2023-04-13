@@ -1,6 +1,6 @@
 //=---- Intel_VecClone.cpp - Vector function to loop transform -*- C++ -*----=//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -146,8 +146,8 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -155,6 +155,7 @@
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
@@ -176,6 +177,180 @@ static cl::opt<bool>
     EmitTypedOMP("vec-clone-typed-omp", cl::init(true), cl::Hidden,
                  cl::desc("Emit 'TYPED' version of OMP clauses."));
 
+static constexpr const char *VectorDispatchAttrName = "vector-dispatch";
+
+/// Get all functions marked for vectorization in module \p M, and populate
+/// map FuncVars that maps each such function to corresponding list of variants.
+static void getFunctionsToVectorize(
+    llvm::Module &M, MapVector<Function *, std::vector<StringRef>> &FuncVars) {
+
+  // FuncVars will contain a 1-many mapping between the original scalar
+  // function and the vector variant encoding strings (represented as
+  // attributes). The encodings correspond to functions that will be created by
+  // the caller of this function as vector versions of the original function.
+  // For example, if foo() is a function marked as a simd function, it will have
+  // several vector variant encodings like: "_ZGVbM4_foo", "_ZGVbN4_foo",
+  // "_ZGVcM8_foo", "_ZGVcN8_foo", "_ZGVdM8_foo", "_ZGVdN8_foo", "_ZGVeM16_foo",
+  // "_ZGVeN16_foo". The caller of this function will then clone foo() and name
+  // the clones using the above name manglings. The variant encodings correspond
+  // to differences in masked/non-masked execution, vector length, and target
+  // vector register size, etc. For more details on the vector function
+  // encodings, please refer to 'vector-function-abi-variant' attribute
+  // description at https://llvm.org/docs/LangRef.html#call-site-attributes
+
+  for (auto It = M.begin(), End = M.end(); It != End; ++It) {
+    Function &F = *It;
+    if (F.hasFnAttribute(VectorUtils::VectorVariantsAttrName) &&
+        !F.isDeclaration()) {
+      Attribute Attr = F.getFnAttribute(VectorUtils::VectorVariantsAttrName);
+      StringRef VariantsStr = Attr.getValueAsString();
+      SmallVector<StringRef, 8> Variants;
+      VariantsStr.split(Variants, ',');
+      for (unsigned i = 0; i < Variants.size(); i++) {
+        FuncVars[&F].push_back(Variants[i]);
+      }
+    }
+  }
+}
+// Populate \p CPUDispatchMap with vector variants CPU dispatching data (if any)
+// for function \p F.
+static void getVariantsCPUDispatchData(
+    const Function &F,
+    SmallDenseMap<StringRef, SmallVector<StringRef>> &CPUDispatchMap) {
+  if (!F.hasFnAttribute(VectorDispatchAttrName))
+    return;
+
+  // CPUDispatchMap will contain a one-to-many mapping between a vector variant
+  // and a list of CPU targets that the variant have to be specialized for.
+  // CPU dispatch data for vector variants are separated by semicolon.
+  // CPU dispatch target list for a variant is coma separated and can have just
+  // a single entry. For example:
+  //  _ZGVYN8v__Z4funcPi:haswell;_ZGVZN16v__Z4funcPi:skylake_avx512,tigerlake
+
+  Attribute Attr = F.getFnAttribute(VectorDispatchAttrName);
+  StringRef VariantsStr = Attr.getValueAsString();
+  SmallVector<StringRef, 8> Variants;
+  VariantsStr.split(Variants, ';');
+  assert(!Variants.empty() && "Empty CPU dispatch data.");
+  // Now parse data for each vector variant.
+  for (StringRef VariantData : Variants) {
+    size_t ColonPos = VariantData.find_first_of(':');
+    assert(ColonPos != StringRef::npos &&
+           "CPU dispatch data for vector variants is broken.");
+    StringRef VectorVariant = VariantData.substr(0, ColonPos);
+    assert(VFInfo::isVectorVariant(VectorVariant) &&
+           "CPU dispatch data expected to be for a vector variant.");
+    StringRef DispatchList = VariantData.substr(ColonPos + 1);
+    assert(!DispatchList.empty() && "Empty CPU dispatch list.");
+
+    SmallVector<StringRef, 4> DispatchTargets;
+    DispatchList.split(DispatchTargets, ',');
+    SmallVector<StringRef> &DispatchVec = CPUDispatchMap[VectorVariant];
+    for (StringRef TargetCPU : DispatchTargets)
+      DispatchVec.push_back(TargetCPU);
+  }
+}
+
+#ifndef NDEBUG
+// Check that the name is valid for X86 target parser.
+static bool isValidCPUName(StringRef Name, const Module *M) {
+  if (Name.empty())
+    return false;
+  const Triple TT{M->getTargetTriple()};
+  return X86::parseTuneCPU(Name, TT.getArch() != llvm::Triple::x86) !=
+         llvm::X86::CK_None;
+}
+#endif // NDEBUG
+
+// Resolve target CPU name into name which is consumable by X86 target parser.
+static StringRef resolveCPUName(StringRef CPUName, const Module *M) {
+  // Lookup through additional aliases, if any.
+  // I.e. resolve "corei7" to "core_i7_sse4_2".
+  auto AliasName = [=](StringRef Name) -> StringRef {
+    return StringSwitch<StringRef>(Name)
+#define CPU_SPECIFIC_ALIAS_ADDITIONAL(NEW_NAME, NAME) .Case(NEW_NAME, NAME)
+#include "llvm/TargetParser/X86TargetParser.def"
+        .Default(Name);
+  };
+  auto GetTuneName = [=](StringRef Name) -> StringRef {
+    return StringSwitch<StringRef>(AliasName(Name))
+#define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, TUNE_NAME)
+#define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, TUNE_NAME)
+#include "llvm/TargetParser/X86TargetParser.def"
+        .Default("");
+  };
+
+  // An important note!
+  // This is rather strange that there are two tables used to lookup a CPU
+  // names. X86 target parser uses array of CPUs defined separately and it is
+  // just a subset of those defined in X86TargetParser.def. But clang front-end
+  // looks through the latter when resolving CPU name for dispatch-targets
+  // attribute. That particularly creates a problem that we cannot apply that
+  // name directly for "target-cpu"/"tune-cpu" attributes because
+  // parseArchX86/parseTuneCPU do lookups at the smaller table. For example
+  // "core_i7_sse4_2" is accepted for ompx_processor clause of simd declare
+  // pragma while "corei7" or "nehalem" is not accepted. So in order to generate
+  // valid attribute value we need to convert "core_i7_sse4_2" to another name,
+  // the alias that the X86 target parser would accept. Using tune name for
+  // that purpose does not sound like the right fit but it actually does exactly
+  // what we want. Looking via an alias name before further lookup is just
+  // a safety measure which technically is not required. So we will keep it
+  // for a case if pragma implementation changed to allow more aliases.
+  StringRef TargetCpu = GetTuneName(CPUName);
+  LLVM_DEBUG(dbgs() << "Dispatch target CPU " << CPUName << " resolved into "
+                    << TargetCpu << "\n");
+  assert(isValidCPUName(TargetCpu, M) && "Unsupported CPU name");
+  return TargetCpu;
+}
+
+// This routine does actually apply CPU-specific settings for a new clone
+// according to "target-dispatch" attribute data of the scalar function.
+static void applyTargetCPUData(
+    Function *Clone,
+    const SmallDenseMap<StringRef, SmallVector<StringRef>> &CPUDispatchMap) {
+  if (CPUDispatchMap.empty())
+    return;
+  auto It = CPUDispatchMap.find(Clone->getName());
+  // Should we consider this to be an error?
+  if (It == CPUDispatchMap.end())
+    return;
+  ArrayRef<StringRef> TargetCpuList = It->second;
+  if (TargetCpuList.size() == 1) {
+    // Targeted for specific CPU
+    StringRef TargetCpu =
+        resolveCPUName(TargetCpuList.front(), Clone->getParent());
+    LLVM_DEBUG(dbgs() << "Targeting " << Clone->getName() << " for "
+                      << TargetCpu << "\n");
+    SmallVector<StringRef, 64> TargetCPUFeatures;
+    X86::getFeaturesForCPU(TargetCpu, TargetCPUFeatures);
+
+    Clone->addFnAttr("target-features", "+" + join(TargetCPUFeatures, ",+"));
+
+    Clone->removeFnAttr("target-cpu");
+    Clone->addFnAttr("target-cpu", TargetCpu);
+
+    Clone->removeFnAttr("tune-cpu");
+    Clone->addFnAttr("tune-cpu", TargetCpu);
+
+    return;
+  }
+
+  // We have multiple targets. So schedule the routine for auto-cpu dispatch.
+
+  LLVM_DEBUG(dbgs() << "Auto-cpu dispatching " << Clone->getName() << "\n");
+  LLVMContext &Ctx = Clone->getContext();
+  Metadata *MagicStr = MDString::get(Ctx, "auto-cpu-dispatch-target");
+
+  SmallVector<Metadata *> TargetMDs;
+  for (StringRef TargetCPU : TargetCpuList) {
+    StringRef TargetCpu = resolveCPUName(TargetCPU, Clone->getParent());
+    SmallVector<Metadata *> Ops = {MagicStr, MDString::get(Ctx, TargetCpu)};
+    TargetMDs.push_back(MDNode::get(Ctx, Ops));
+  }
+  MDNode *AutoCPUMultiVersionMetadata = MDNode::get(Ctx, TargetMDs);
+  Clone->addMetadata("llvm.auto.cpu.dispatch", *AutoCPUMultiVersionMetadata);
+}
+
 VecClone::VecClone() : ModulePass(ID) {
   initializeVecClonePass(*PassRegistry::getPassRegistry());
 }
@@ -186,7 +361,6 @@ bool VecClone::runOnModule(Module &M) {
   return Impl.runImpl(M, &ORBuilder, getLimiter());
 }
 
-#if INTEL_CUSTOMIZATION
 // The following two functions are virtual and they are overloaded when
 // VecClone is called by language-specific optimizations. Their default
 // implementation is empty.
@@ -196,10 +370,10 @@ void VecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                        const VFInfo &Variant) {}
 
 void VecCloneImpl::languageSpecificInitializations(Module &M) {}
-#endif // INTEL_CUSTOMIZATION
 
 Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
-                                      ValueToValueMapTy &VMap) {
+                                      ValueToValueMapTy &VMap,
+                                      ValueToValueMapTy &ReverseVMap) {
 
   LLVM_DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
   LLVM_DEBUG(F.dump());
@@ -244,38 +418,21 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   Function* Clone = getOrInsertVectorVariantFunction(&F, V.getVF(), ParmTypes,
                                                      &V, V.isMasked());
 
-  // Remove vector variant attributes from the original function. They are
-  // not needed for the cloned function and it prevents any attempts at
-  // trying to clone the function again in case the pass is called more than
-  // once.
-  AttributeMask AB;
-  for (const auto &Attr : getVectorVariantAttributes(F)) {
-    AB.addAttribute(Attr);
-  }
-
-  F.removeFnAttrs(AB);
-
-  // Copy all the attributes from the scalar function to its vector version
-  // except for the vector variant attributes.
+  // Copy all the attributes from the scalar function to its vector version.
+  // Vector variants attribute will be stripped off later in this routine.
   Clone->copyAttributesFrom(&F);
 
   // Remove incompatible argument attributes (applied to the scalar argument,
   // does not apply to its vector counterpart).
-  Function::arg_iterator ArgIt = Clone->arg_begin();
-  Function::arg_iterator ArgEnd = Clone->arg_end();
-  // TODO (Dave Kreitzer): Once we pull down the changes that add the
-  //   Function::removeParamAttrs method, we should use it in lieu of
-  //   Function::removeAttributes. We just need to change the Idx
-  //   initialization here to start at 0.
-  for (uint64_t Idx = 1; ArgIt != ArgEnd; ++ArgIt, ++Idx) {
-    Type* ArgType = (*ArgIt).getType();
-    Clone->removeFnAttrs(AttributeFuncs::typeIncompatible(ArgType));
-  }
+  for (unsigned Idx = 0, End = F.arg_size(); Idx < End; ++Idx)
+    Clone->removeParamAttrs(
+        Idx, AttributeFuncs::typeIncompatible(Clone->getArg(Idx)->getType()));
 
   Function::arg_iterator NewArgIt = Clone->arg_begin();
   for (Argument &Arg : F.args()) {
     NewArgIt->setName(Arg.getName());
     VMap[&Arg] = &*NewArgIt;
+    ReverseVMap[&*NewArgIt] = &Arg;
     ++NewArgIt;
   }
 
@@ -287,12 +444,19 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   SmallVector<ReturnInst*, 8> Returns;
   CloneFunctionInto(Clone, &F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Returns);
+
+  AttributeMask AM;
+  AM.addAttribute(VectorUtils::VectorVariantsAttrName);
+  if (F.hasFnAttribute(VectorDispatchAttrName))
+    AM.addAttribute(VectorDispatchAttrName);
+  Clone->removeFnAttrs(AM);
+
   // For some reason, this causes DCE to remove calls to these functions.
   // Disable for now.
   //Clone->setCallingConv(CallingConv::X86_RegCall);
 
   /// Add the 'align' attribute to any params with specified alignment.
-  for (auto &It : enumerate(Clone->args())) {
+  for (const auto &It : enumerate(Clone->args())) {
     Argument &Arg = It.value();
 
     MaybeAlign ParamAlign = V.getParameters()[It.index()].Alignment;
@@ -333,6 +497,18 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   LLVM_DEBUG(Clone->dump());
 
   return Clone;
+}
+
+bool VecCloneImpl::vlaAllocasExist(Function &F) {
+  for (auto BBIt = F.front().begin(), BBEnd = F.front().end(); BBIt != BBEnd;
+       ++BBIt) {
+    if (auto *Alloca = dyn_cast<AllocaInst>(BBIt)) {
+      if (Alloca->isArrayAllocation() &&
+          !isa<ConstantInt>(Alloca->getArraySize()))
+        return true;
+    }
+  }
+  return false;
 }
 
 BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, const VFInfo &V,
@@ -750,7 +926,9 @@ Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
 
 Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
                                                Instruction *ArgUser,
-                                               Value *Stride, PHINode *Phi) {
+                                               Value *Stride, PHINode *Phi,
+                                               const VFParameter &Parm,
+                                               ValueToValueMapTy &ReverseVMap) {
   // For linear values, a mul + add/gep sequence is needed to generate the
   // correct value. i.e., val = linear_var + stride * loop_index;
 
@@ -782,13 +960,33 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
       // loop phi that is inserted by this pass. No cast on Mul is necessary
       // because gep can use a base address of one type with an index of
       // another type.
-      Value *LinearArgGep = Builder.CreateGEP(
-          ArgTy->getPointerElementType(), Arg, Mul, Arg->getName() + ".gep");
+      Value *LinearArgGep =
+          Builder.CreateGEP(ArgTy->getNonOpaquePointerElementType(), Arg, Mul,
+                            Arg->getName() + ".gep");
 
       return LinearArgGep;
     }
-    auto *Mul = Builder.CreateMul(Stride, Phi, "stride.mul");
-    auto *Gep = Builder.CreateGEP(Builder.getInt8Ty(), Arg, Mul,
+    Value *ByteStride = Stride;
+    if (Parm.isVariableStride()) {
+      // If stride is a variable for opaque pointer, then it is specified as
+      // as a stride in number of elements. Since we generate an i8* gep, the
+      // stride needs to be specified in bytes. E.g., if %c is the element
+      // stride, then the stride in bytes is %c * pointee size. The pointee
+      // size information is obtained via the
+      // llvm.intel.directive.elementsize intrinsic.
+      Value *EltSize = PointeeTypeSize[ReverseVMap[Arg]];
+      assert(EltSize && "No llvm.intel.directive.elementsize intrinsic?");
+      // TODO: We can change VecClone to generate i64 phis for the loop iv and
+      // make the last conversion unnecessary. This will also remove a
+      // potential trunc from the incoming IR to VPlan. EltSize is always
+      // generated as i64.
+      ByteStride = Builder.CreateSExt(ByteStride, EltSize->getType());
+      ByteStride = Builder.CreateMul(ByteStride, EltSize);
+      ByteStride = Builder.CreateSExtOrTrunc(ByteStride, Phi->getType());
+    }
+    // GEP index should be %c * pointee size * loopiv
+    ByteStride = Builder.CreateMul(ByteStride, Phi, "stride.bytes");
+    auto *Gep = Builder.CreateGEP(Builder.getInt8Ty(), Arg, ByteStride,
                                   Arg->getName() + ".gep");
     return Gep;
   }
@@ -937,7 +1135,8 @@ void VecCloneImpl::processUniformArgs(Function *Clone, const VFInfo &V,
 
 void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
                                      PHINode *Phi, BasicBlock *EntryBlock,
-                                     BasicBlock *LoopPreHeader) {
+                                     BasicBlock *LoopPreHeader,
+                                     ValueToValueMapTy &ReverseVMap) {
   // Add stride to arguments marked as linear. These instructions are added
   // before the arg user and uses are updated accordingly.
   ArrayRef<VFParameter> Parms = V.getParameters();
@@ -956,11 +1155,16 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
           if (!PtrTy->isOpaque()) {
             const DataLayout &DL = Clone->getParent()->getDataLayout();
             unsigned PointeeEltSize =
-                DL.getTypeAllocSize(PtrTy->getPointerElementType());
+                DL.getTypeAllocSize(PtrTy->getNonOpaquePointerElementType());
             assert(Stride % PointeeEltSize == 0 &&
                    "Stride is expected to be a multiple of element size!");
             Stride /= PointeeEltSize;
           }
+          // For opaque pointers with constant stride, the pointee type
+          // information is already "baked" into the variant encoding because
+          // since the stride is specified in bytes and we will generate an i8*
+          // gep in generateStrideForArgument(). Thus, no need to adjust the
+          // stride in that case.
           StrideVal = ConstantInt::get(Phi->getType(), Stride);
         } else {
           assert(!Parm.isLinearRef() &&
@@ -1002,8 +1206,8 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
             continue;
         }
 
-        Value *StrideInst =
-            generateStrideForArgument(Clone, ArgVal, User, StrideVal, Phi);
+        Value *StrideInst = generateStrideForArgument(
+            Clone, ArgVal, User, StrideVal, Phi, Parm, ReverseVMap);
         User->setOperand(U.getOperandNo(), StrideInst);
       }
     } else if (Parm.isLinearUVal() || Parm.isLinearVal()) {
@@ -1213,9 +1417,8 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
       for (auto *ArgValLoad : ArgValLoads) {
         for (auto &U:  make_early_inc_range(ArgValLoad->uses())) {
           auto *User = cast<Instruction>(U.getUser());
-          Value *StrideInst =
-              generateStrideForArgument(Clone, ArgValLoad, User, StrideVal,
-                                        Phi);
+          Value *StrideInst = generateStrideForArgument(
+              Clone, ArgValLoad, User, StrideVal, Phi, Parm, ReverseVMap);
           User->setOperand(U.getOperandNo(), StrideInst);
         }
       }
@@ -1551,12 +1754,10 @@ PreservedAnalyses VecClonePass::run(Module &M, ModuleAnalysisManager &AM) {
 }
 
 void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
-  // VecClone pass does not make any changes in the existing functions and
-  // Andersens analysis is conservative on new functions. So we can consider it
-  // as preserved.
-  AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
+  // VecClone pass does not make any changes in the existing functions.
+  // So we can consider it as preserved.
   AU.addPreserved<GlobalsAAWrapperPass>();
-  AU.addRequired<OptReportOptionsPass>(); // INTEL
+  AU.addRequired<OptReportOptionsPass>();
 }
 
 bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
@@ -1564,10 +1765,8 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
 
   LLVM_DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
-#if INTEL_CUSTOMIZATION
   // Language specific hook
   languageSpecificInitializations(M);
-#endif // INTEL_CUSTOMIZATION
 
   MapVector<Function *, std::vector<StringRef>> FunctionsToVectorize;
   getFunctionsToVectorize(M, FunctionsToVectorize);
@@ -1578,9 +1777,49 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
     if (!doesLoopOptPipelineAllowToRun(Limiter, F))
       continue;
 
+    if (vlaAllocasExist(F)) {
+      LLVM_DEBUG(dbgs() << "Bail out due to presence of array alloca(s)\n");
+      F.removeFnAttr(VectorUtils::VectorVariantsAttrName);
+      if (F.hasFnAttribute(VectorDispatchAttrName))
+        F.removeFnAttr(VectorDispatchAttrName);
+      if (ORBuilder)
+        (*ORBuilder)(F).addRemark(OptReportVerbosity::Medium,
+                                  "'omp declare' vector variants were "
+                                  "skipped due to presence of "
+                                  "unsupported variable-length array "
+                                  "allocations.");
+      continue;
+    }
+
+    // Get pointee type information for linear ptr args and cache for later
+    // use when generating a gep for them in processLinearArgs(). Then, remove
+    // these intrinsics from the original function so they don't cause a
+    // crash downstream. Plus, removing them here in the original function
+    // before cloning will ensure they don't make it into the vector versions
+    // of the function.
+    SmallVector<IntrinsicInst *, 2> IntrinsicsToRemove;
+    PointeeTypeSize.clear();
+    for (auto &Inst : instructions(F)) {
+      Instruction *I = &Inst;
+      if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+        if (II->getIntrinsicID() == Intrinsic::intel_directive_elementsize) {
+          Value *Arg = II->getOperand(0);
+          Value *ElemSize = II->getOperand(1);
+          PointeeTypeSize[Arg] = ElemSize;
+          IntrinsicsToRemove.push_back(II);
+        }
+      }
+    }
+
+    for (auto II : IntrinsicsToRemove)
+      II->eraseFromParent();
+
     auto Variants = map_range(VarIt.second, [](StringRef Name) {
         return VFABI::demangleForVFABI(Name);
     });
+
+    SmallDenseMap<StringRef, SmallVector<StringRef>> CPUDispatchMap;
+    getVariantsCPUDispatchData(F, CPUDispatchMap);
 
     for (const VFInfo &Variant : Variants) {
       // VecClone runs after OCLVecClone. Hence, VecClone will be triggered
@@ -1595,12 +1834,15 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       LLVM_DEBUG(dbgs() << "Before SIMD Function Cloning\n");
       LLVM_DEBUG(F.dump());
       ValueToValueMapTy VMap;
-      Function *Clone = CloneFunction(F, Variant, VMap);
-      BasicBlock *EntryBlock = &Clone->front();
+      ValueToValueMapTy ReverseVMap;
+      Function *Clone = CloneFunction(F, Variant, VMap, ReverseVMap);
+
+      applyTargetCPUData(Clone, CPUDispatchMap);
 
       if (isSimpleFunction(Clone))
         continue;
 
+      BasicBlock *EntryBlock = &Clone->front();
       BasicBlock *LoopHeader = splitEntryIntoLoop(Clone, Variant, EntryBlock);
 
       BasicBlock *LoopPreHeader = EntryBlock->splitBasicBlock(
@@ -1655,7 +1897,8 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       // function also updates the users of the argument with the new
       // calculation involving the stride. Also mark linear memory for SIMD
       // directives.
-      processLinearArgs(Clone, Variant, Phi, EntryBlock, LoopPreHeader);
+      processLinearArgs(Clone, Variant, Phi, EntryBlock, LoopPreHeader,
+                        ReverseVMap);
 
       // Remove the old scalar instructions associated with the return and
       // replace with packing instructions.
@@ -1667,10 +1910,8 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
         insertSplitForMaskedVariant(Clone, LoopHeader, LoopLatch, Mask, Phi);
       }
 
-#if INTEL_CUSTOMIZATION
       // Language specific hook.
       handleLanguageSpecifics(F, Phi, Clone, EntryBlock, Variant);
-#endif // INTEL_CUSTOMIZATION
 
       // Insert the basic blocks that mark the beginning/end of the SIMD loop.
       insertDirectiveIntrinsics(M, Clone, F, Variant, EntryBlock, LoopPreHeader,
@@ -1688,6 +1929,10 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       // Disable unrolling from kicking in on the simd loop.
       disableLoopUnrolling(LoopLatch);
     } // End of function cloning for the variant
+
+    if (F.hasFnAttribute(VectorDispatchAttrName))
+      F.removeFnAttr(VectorDispatchAttrName);
+    // TODO: Remove "vector-variants" attribute as we are done with cloning.
   } // End of function cloning for all variants
 
   //FIXME: return false if all functions were skipped or IR was not modified.

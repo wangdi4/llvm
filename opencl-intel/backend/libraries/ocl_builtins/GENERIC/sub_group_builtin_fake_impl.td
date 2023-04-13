@@ -1,3 +1,15 @@
+// Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 list<OclType> sub_group_types_all_any_scalar = [v1i32];
 
 list<OclType> sub_group_types_broadcast_scalar = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
@@ -55,12 +67,6 @@ OclBuiltinImpl intel_sub_group_ballot_fake = OclBuiltinImpl<intel_sub_group_ball
 
 OclBuiltinImpl sub_group_all_fake = OclBuiltinImpl<sub_group_all, sub_group_types_all_any_scalar, 0, DummyReturn>;
 OclBuiltinImpl sub_group_any_fake = OclBuiltinImpl<sub_group_any, sub_group_types_all_any_scalar, 0, DummyReturn>;
-
-// broadcast
-
-OclBuiltinImpl sub_group_broadcast_fake = OclBuiltinImpl<sub_group_broadcast, sub_group_types_broadcast_scalar, 0, DummyReturn>;
-OclBuiltinImpl sub_group_broadcast_cs_fake = OclBuiltinImpl<sub_group_broadcast_cs, [v1i8, v1u8, v1i16, v1u16], 0, DummyReturn>;
-OclBuiltinImpl sub_group_broadcast_extended_fake = OclBuiltinImpl<sub_group_broadcast_extended, sub_group_types_broadcast_extended_scalar, 0, DummyReturn>;
 
 // non uniform arithmetic
 list<OclType> sub_group_non_uniform_arithmetic_scalar_types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];

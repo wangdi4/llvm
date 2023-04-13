@@ -23,7 +23,7 @@
 ;    printf ("%f\n", B[5]);
 ; }
 ;
-; RUN: opt -S -passes="loop(loop-reduce)" %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="loop(loop-reduce)" %s | FileCheck %s
 ;
 ; CHECK-LABEL: @__omp_offloading_3b_d7a6801f__Z3foo_l8(
 ; CHECK-NEXT:  newFuncRoot:
@@ -71,7 +71,7 @@ target device_triples = "spir64"
 %1 = type { i32, i32 }
 %struct.__tgt_offload_entry.0 = type { i8 addrspace(4)*, i8 addrspace(2)*, i64, i32, i32, i64 }
 
-@__omp_offloading_3b_d7a6801f__Z3foo_l8_kernel_info = weak target_declare local_unnamed_addr addrspace(1) constant %0 { i32 4, i32 4, [4 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
+@__omp_offloading_3b_d7a6801f__Z3foo_l8_kernel_info = weak target_declare local_unnamed_addr addrspace(1) constant %0 { i32 5, i32 4, [4 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
 @.omp_offloading.entry_name = internal target_declare unnamed_addr addrspace(2) constant [39 x i8] c"__omp_offloading_3b_d7a6801f__Z3foo_l8\00"
 @.omp_offloading.entry.__omp_offloading_3b_d7a6801f__Z3foo_l8 = weak target_declare local_unnamed_addr addrspace(1) constant %struct.__tgt_offload_entry.0 { i8 addrspace(4)* null, i8 addrspace(2)* getelementptr inbounds ([39 x i8], [39 x i8] addrspace(2)* @.omp_offloading.entry_name, i32 0, i32 0), i64 0, i32 0, i32 0, i64 39 }, section "omp_offloading_entries"
 

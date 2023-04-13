@@ -14,7 +14,7 @@
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModelHeuristics.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.h"
 #include "IntelVPlanTestBase.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -81,7 +81,7 @@ declare i32 @llvm.abs.i32(i32, i1))";
   auto *DA = Plan->getVPlanDA();
   Plan->computeDT();
   Plan->computePDT();
-  DA->compute(Plan.get(), OuterMostVPL, Plan->getVPLoopInfo(),
+  DA->compute(Plan.get(), OuterMostVPL, Plan->getVPLoopInfo(), nullptr /*VPVT*/,
               *Plan->getDT(), *Plan->getPDT(), false /*Not in LCSSA form.*/);
 
   auto TM = createTargetMachine("skx", "");

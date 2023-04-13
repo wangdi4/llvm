@@ -10,13 +10,14 @@
 
 #include "llvm/Transforms/IPO/Intel_AutoCPUClone.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/Intel_CPU_utils.h"
-#include "llvm/Support/X86TargetParser.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Triple.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -57,36 +58,22 @@ static StringRef getTargetCPUFromMD(MDNode *TargetInfoMD) {
 static std::string getTargetFeatures(StringRef TargetCpu) {
   SmallVector<StringRef, 16> CPUFeatures;
   X86::getFeaturesForCPU(TargetCpu, CPUFeatures);
-
-  ListSeparator LS(",");
-  std::string TargetFeaturesStr;
-  raw_string_ostream TargetFeatures(TargetFeaturesStr);
-  for (const auto &Feature : CPUFeatures)
-    TargetFeatures << LS << "+" << Feature;
-
-  return TargetFeatures.str();
+  llvm::sort(CPUFeatures);
+  return "+" + llvm::join(CPUFeatures, ",+");
 }
 
-static Twine getTargetSuffix(StringRef TargetCpu) {
-  return Twine(StringSwitch<char>(TargetCpu)
+static char getTargetSuffix(StringRef TargetCpu) {
+  return StringSwitch<char>(TargetCpu)
 #define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, MANGLING)
-#include "llvm/Support/X86TargetParser.def"
-                   .Default(0));
-}
-
-static StringRef getLibIRCDispatchFeatures(StringRef TargetCpu) {
-  StringRef Features = StringSwitch<StringRef>(TargetCpu)
-#define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, FEATURES)
-#include "llvm/Support/X86TargetParser.def"
-                            .Default("");
-  return Features;
+#include "llvm/TargetParser/X86TargetParser.def"
+      .Default(0);
 }
 
 static StringRef CPUSpecificCPUDispatchNameDealias(StringRef Name) {
   return llvm::StringSwitch<StringRef>(Name)
 #define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, NAME)
 #define CPU_SPECIFIC_ALIAS_ADDITIONAL(NEW_NAME, NAME) .Case(NEW_NAME, NAME)
-#include "llvm/Support/X86TargetParser.def"
+#include "llvm/TargetParser/X86TargetParser.def"
       .Default(Name);
 }
 
@@ -102,27 +89,93 @@ libIRCMVResolverOptionComparator(const MultiVersionResolverOption &LHS,
 }
 
 static void
+setResolverAttributes(Function *Resolver, Function &Fn) {
+
+  if (Fn.hasFnAttribute("tune-cpu"))
+    Resolver->addFnAttr(Fn.getFnAttribute("tune-cpu"));
+
+  // Set Resolver's "target-features" attribute to the feature-set supported
+  // by the "target-cpu".
+  if (Fn.hasFnAttribute("target-cpu")) {
+    const Attribute Attr = Fn.getFnAttribute("target-cpu");
+    Resolver->addFnAttr(Attr);
+    StringRef TargetCPU = Attr.getValueAsString();
+    Resolver->addFnAttr("target-features", getTargetFeatures(TargetCPU));
+  }
+
+  if (Fn.hasFnAttribute("advanced-optim"))
+    Resolver->addFnAttr(Fn.getFnAttribute("advanced-optim"));
+}
+
+static void
+emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
+                           GlobalVariable *DispatchPtr,
+                           Function*& Dispatcher) {
+
+  // Create the dispatcher function through cloning Fn.
+  // This will make sure all attributes and properties of Fn are cloned/copied
+  // over to the dispatcher function.
+  ValueToValueMapTy VMap;
+  Dispatcher = CloneFunction(&Fn, VMap, nullptr, true);
+  Dispatcher->setName(OrigName);
+
+  // Now, create the body for the Dispatcher.
+  LLVMContext &Ctx = Fn.getContext();
+  BasicBlock *CurBlock = BasicBlock::Create(Ctx, "", Dispatcher);
+  IRBuilder<> Builder(CurBlock, CurBlock->begin());
+
+  // Create a load of the dispatch pointer.
+  auto DispatchPtrVal = Builder.CreateAlignedLoad(DispatchPtr->getType(),
+                                                  DispatchPtr, MaybeAlign(8));
+
+  // Create an indirect call through the dispatch pointer.
+  SmallVector<Value *, 10> Args;
+  for_each(Dispatcher->args(), [&](Argument &Arg) { Args.push_back(&Arg); });
+  CallInst *Result =
+      Builder.CreateCall(FunctionCallee(Fn.getFunctionType(), DispatchPtrVal),
+                         Args);
+  Result->setCallingConv(Fn.getCallingConv());
+  Result->setAttributes(Fn.getAttributes());
+
+  Dispatcher->setMetadata("llvm.acd.dispatcher", MDNode::get(Ctx, {}));
+  DispatchPtr->setMetadata("llvm.acd.dispatcher", MDNode::get(Ctx, {}));
+
+  // Create a return.
+  if (Fn.getReturnType()->isVoidTy())
+    Builder.CreateRetVoid();
+  else
+    Builder.CreateRet(Result);
+}
+
+static void
 emitWrapperBasedResolver(Function &Fn, std::string OrigName,
                          SmallVector<MultiVersionResolverOption> &MVOptions,
-                         Function*& Resolver, GlobalValue*& Dispatcher) {
+                         Function*& Resolver, GlobalValue*& Dispatcher,
+                         GlobalVariable*& DispatchPtr) {
 
-  ValueToValueMapTy VMap;
-  // Create the resolver function through cloning Fn.
-  // This will make sure all attributes and properties of Fn are cloned/copied
-  // over to the resolver function.
-  Resolver = CloneFunction(&Fn, VMap);
-  // Delete the body of Resolver function. The implementation of the resolver
-  // will be generated later by emitMultiVersionResolver() function.
-  Resolver->deleteBody();
-  Resolver->setName(OrigName);
-  // Call to deleteBody() set Resolver's linkage to ExternalLinkage.
-  // Reset the linkage of Resolver back to that of Fn's.
-  Resolver->setLinkage(Fn.getLinkage());
+  Module *M = Fn.getParent();
+  Resolver = M->getFunction("__intel.acd.resolver");
+  if (!Resolver) {
+    LLVMContext &Ctx = Fn.getContext();
+    FunctionType *ResolverTy = FunctionType::get(Type::getVoidTy(Ctx), false);
+    Resolver = Function::Create(ResolverTy, GlobalValue::InternalLinkage,
+                                "__intel.acd.resolver", M);
+    Resolver->setDSOLocal(true);
+    setResolverAttributes(Resolver, Fn);
+    appendToGlobalCtors(*M, Resolver, 500 /* Some number > 0 */);
+  }
 
-  Dispatcher = Resolver;
+  std::string DispatchPtrName = OrigName + ".ptr";
+  Type *DispatchPtrType = Fn.getFunctionType()->getPointerTo();
+  DispatchPtr =
+      new GlobalVariable(*M, DispatchPtrType, false, GlobalValue::InternalLinkage,
+                         Constant::getNullValue(DispatchPtrType), DispatchPtrName);
+  DispatchPtr->setDSOLocal(true);
 
-  emitMultiVersionResolver(Resolver, MVOptions, false /*UseIFunc*/,
-                           true /*UseLibIRC*/);
+  emitMultiVersionResolver(Resolver, DispatchPtr, MVOptions,
+                           false /*UseIFunc*/, true /*UseLibIRC*/);
+
+  emitWrapperBasedDispatcher(Fn, OrigName, DispatchPtr, (Function*&)Dispatcher);
 }
 
 static void
@@ -141,8 +194,9 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
   Dispatcher->setVisibility(Fn.getVisibility());
   Dispatcher->setDSOLocal(Fn.isDSOLocal());
 
-  emitMultiVersionResolver(Resolver, MVOptions, true /*UseIFunc*/,
-                           true /*UseLibIRC*/);
+  emitMultiVersionResolver(Resolver, nullptr /*DispatchPtr*/, MVOptions,
+                           true /*UseIFunc*/, true /*UseLibIRC*/);
+  setResolverAttributes(Resolver, Fn);
 }
 
 static bool
@@ -219,23 +273,32 @@ CollectCalledFunctions(SetVector<Function*>& MVFunctions, unsigned StartIndex) {
 static bool
 cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
                function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-               function_ref<TargetTransformInfo &(Function &)> GetTTI) {
+               function_ref<TargetTransformInfo &(Function &)> GetTTI,
+               function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+               ProfileSummaryInfo &PSI) {
 
   // Form a set of all functions that are candidates for multi-versioning.
   SetVector<Function*> MVCandidates;
+  SetVector<Function*> MVFunctionsCallableFromLoops;
   for (Function &Fn : M) {
-    if (Fn.isDeclaration() || MVCandidates.contains(&Fn))
+    if (Fn.isDeclaration() || MVFunctionsCallableFromLoops.contains(&Fn))
       continue;
     // If selective multiversioning is enabled, multi-version only the
-    //   1) functions that contain non-annotation like intrinsics,
-    //   2) functions that contain loops, or
-    //   3) functions that are callable from loop bodies.
+    //   1) functions that carry Attribute::Hot,
+    //   2) functions that contain hot code per available profile data,
+    //   3) functions that contain non-annotation like intrinsics,
+    //   4) functions that contain loops, or
+    //   5) functions that are callable from loop bodies.
     if (!EnableSelectiveMultiVersioning) {
       MVCandidates.insert(&Fn);
       continue;
     }
-    // Collect functions that contain non-annotation like intrinsics.
-    if (any_of(instructions(Fn),
+    // Collect functions that carry Attribute::Hot.
+    if (Fn.hasFnAttribute(Attribute::Hot) ||
+        // Collect functions that contain hot code per available profile data.
+        PSI.isFunctionHotInCallGraph(&Fn, GetBFI(Fn)) ||
+        // Collect functions that contain non-annotation like intrinsics.
+        any_of(instructions(Fn),
                [&](Instruction &I) {
                  auto *Inst = dyn_cast<IntrinsicInst>(&I);
                  return Inst && !Inst->isAssumeLikeIntrinsic();
@@ -247,7 +310,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       continue;
     MVCandidates.insert(&Fn);
     // Collect functions that are callable from loop bodies.
-    int StartIndex = MVCandidates.size();
+    int StartIndex = MVFunctionsCallableFromLoops.size();
     for (inst_iterator It = inst_begin(Fn), End = inst_end(Fn); It != End; ++It) {
       auto *CInst = dyn_cast<CallBase>(&*It);
       if (!CInst)
@@ -258,10 +321,11 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       Function* Callee = CInst->getCalledFunction();
       if (!Callee || Callee->isDeclaration())
         continue;
-      MVCandidates.insert(Callee);
+      MVFunctionsCallableFromLoops.insert(Callee);
     }
-    CollectCalledFunctions(MVCandidates, StartIndex);
+    CollectCalledFunctions(MVFunctionsCallableFromLoops, StartIndex);
   }
+  MVCandidates.set_union(MVFunctionsCallableFromLoops);
 
   // Collect functions that have GlobalAlias(es) and are in MVCandidates.
   std::set<Function*> HasGlobalAliasSet;
@@ -275,7 +339,8 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
   // Maps that are used to do to RAUW later.
   std::map</*OrigFunc*/ GlobalValue *,
-           std::tuple</*Resolver*/ GlobalValue *, /*Dispatch*/ GlobalValue *,
+           std::tuple</*Resolver*/ GlobalValue *, /*Dispatcher*/ GlobalValue *,
+                      /*DispatchPtr*/ GlobalVariable *,
                       /*Target extension to multivesioned func*/
                       std::map<std::string, GlobalValue *>>>
       Orig2MultiFuncs;
@@ -305,6 +370,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       continue;
 
     MDNode *AutoCPUDispatchMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
+    // Remove llvm.auto.cpu.dispatch metadata here, to prevent cloning it
+    // unnecessarily during multi-versioning as well as dispatcher code generation.
+    Fn->setMetadata("llvm.auto.cpu.dispatch", nullptr);
+
     if (AutoCPUDispatchMD)
       LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *AutoCPUDispatchMD << "\n");
 
@@ -316,40 +385,35 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       const StringRef TargetCpu =
           getTargetCPUFromMD(cast<MDNode>(TargetInfoIt.get()));
 
-      // Get llvm/Support/X86TargetParser.def friendly target name.
+      // Get llvm/TargetParser/X86TargetParser.def friendly target name.
       const StringRef TargetCpuDealiased =
           CPUSpecificCPUDispatchNameDealias(TargetCpu);
 
-      const StringRef LibIRCDispatchFeatures =
-          getLibIRCDispatchFeatures(TargetCpuDealiased);
-      // Skip target if it is not recognized by
-      // llvm/Support/X86TargetParser.def.
-      assert(LibIRCDispatchFeatures != "" && "A target is not recognized!");
-      if (LibIRCDispatchFeatures == "")
+      auto TargetCpuSuffix = getTargetSuffix(TargetCpuDealiased);
+      // Skip target if not recognized by llvm/TargetParser/X86TargetParser.def
+      assert(TargetCpuSuffix != '\0' && "A target is not recognized!");
+      if (TargetCpuSuffix == '\0')
         continue;
 
       ValueToValueMapTy VMap;
       Function *New = CloneFunction(Fn, VMap);
 
-      New->setMetadata("llvm.auto.cpu.dispatch", nullptr);
-      New->setMetadata("llvm.acd.clone", MDNode::get(New->getContext(), {}));
-
-      std::string Features = LibIRCDispatchFeatures.str();
-
       const Attribute Attr = New->getFnAttribute("target-features");
       const StringRef OldFeatures = Attr.getValueAsString();
 
-      // Keep old target features as some of them can be added as a result
-      // of command line arguments(e.g. -msha)
-      if (OldFeatures.empty()) {
-        New->addFnAttr("target-features", Features);
-      }
-      else {
-        SmallString<256> Appended(OldFeatures);
-        Appended.push_back(',');
-        Appended.append(Features);
-        New->addFnAttr("target-features", Appended);
-      }
+      SmallVector<StringRef, 64> NewFeatures;
+      OldFeatures.split(NewFeatures, ",", -1, false);
+
+      // Drop leading "+".
+      transform(NewFeatures, NewFeatures.begin(),
+                [](StringRef Str) { return Str.substr(1); });
+
+      X86::getFeaturesForCPU(TargetCpu, NewFeatures);
+      llvm::sort(NewFeatures);
+      auto Last = std::unique(NewFeatures.begin(), NewFeatures.end());
+      NewFeatures.erase(Last, NewFeatures.end());
+
+      New->addFnAttr("target-features", "+" + llvm::join(NewFeatures, ",+"));
 
       New->removeFnAttr("target-cpu");
       New->addFnAttr("target-cpu", TargetCpu);
@@ -360,16 +424,11 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       New->addFnAttr("loopopt-pipeline", "full");
       New->addFnAttr("advanced-optim", "true");
 
-      New->setName(Fn->getName() + "." + getTargetSuffix(TargetCpuDealiased));
+      New->setMetadata("llvm.acd.clone", MDNode::get(New->getContext(), {}));
 
-      SmallVector<StringRef> FeaturesArray;
-      LibIRCDispatchFeatures.split(FeaturesArray, ',', /*MaxSplit=*/-1,
-                                   /*KeepEmpty=*/false);
-      // Drop leading "+".
-      transform(FeaturesArray, FeaturesArray.begin(),
-                [](StringRef Str) { return Str.substr(1); });
+      New->setName(Fn->getName() + "." + Twine(TargetCpuSuffix));
 
-      MVOptions.emplace_back(New, "" /* Op(1)? */, FeaturesArray);
+      MVOptions.emplace_back(New, "" /* Op(1)? */, NewFeatures);
 
       MultiFunc2TargetExt[New] = TargetCpu.str();
       Clones[TargetCpu.str()] = New;
@@ -395,32 +454,26 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       }
     }
 
+    // Set advanced-optim attribute here. Fn's attributes will be used to set
+    // the attributes of resolver/dispatcher functions.
+    Fn->addFnAttr("advanced-optim",
+                  GetTTI(*Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
+
     MVOptions.emplace_back(Fn, "", ArrayRef<StringRef>()); // generic.
     stable_sort(MVOptions, libIRCMVResolverOptionComparator);
 
     Function* Resolver = nullptr;
     GlobalValue* Dispatcher = nullptr;
+    GlobalVariable* DispatchPtr = nullptr;
     if (UseWrapperBasedResolver)
-      emitWrapperBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher);
+      emitWrapperBasedResolver(*Fn, OrigName, MVOptions, Resolver,
+                               Dispatcher, DispatchPtr);
     else
       emitIFuncBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher);
 
-    Orig2MultiFuncs[Fn] = {Resolver, Dispatcher, std::move(Clones)};
-    Fn->setMetadata("llvm.auto.cpu.dispatch", nullptr);
+    Orig2MultiFuncs[Fn] = {Resolver, Dispatcher, DispatchPtr, std::move(Clones)};
+
     Fn->setMetadata("llvm.acd.clone", MDNode::get(Fn->getContext(), {}));
-
-    std::string FnAttr = GetTTI(*Fn).isIntelAdvancedOptimEnabled() ? "true" : "false";
-    Fn->addFnAttr("advanced-optim", FnAttr);
-    Resolver->addFnAttr("advanced-optim", FnAttr);
-
-    if (Fn->hasFnAttribute("tune-cpu"))
-      Resolver->addFnAttr(Fn->getFnAttribute("tune-cpu"));
-
-    if (Fn->hasFnAttribute("target-cpu"))
-      Resolver->addFnAttr(Fn->getFnAttribute("target-cpu"));
-
-    if (Fn->hasFnAttribute("target-features"))
-      Resolver->addFnAttr(Fn->getFnAttribute("target-features"));
 
     Changed = true;
   }
@@ -454,11 +507,11 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
     // Make clones of GA each aliasing a version of Fn.
     std::map<std::string, GlobalValue *> GAClones;
-    std::map<std::string, GlobalValue *> &FnClones = std::get<2>(Orig2MultiFuncs[Fn]);
+    std::map<std::string, GlobalValue *> &FnClones = std::get<3>(Orig2MultiFuncs[Fn]);
     for (auto& I : FnClones) {
       const StringRef TargetCpu = I.first;
 
-      // Get llvm/Support/X86TargetParser.def friendly target name.
+      // Get llvm/TargetParser/X86TargetParser.def friendly target name.
       const StringRef TargetCpuDealiased = CPUSpecificCPUDispatchNameDealias(TargetCpu);
 
       auto *NewGA =
@@ -476,7 +529,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       GAClones[I.first] = NewGA;
     }
 
-    Orig2MultiFuncs[&GA] = {nullptr, DispatcherGA, std::move(GAClones)};
+    Orig2MultiFuncs[&GA] = {nullptr, DispatcherGA, nullptr, std::move(GAClones)};
     GlobalAliasWorklist.push_back(&GA);
   }
 
@@ -495,7 +548,8 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     GlobalValue *Fn = Entry.first;
     const GlobalValue *Resolver = std::get<0>(Entry.second);
     GlobalValue *Dispatcher = std::get<1>(Entry.second);
-    std::map<std::string, GlobalValue *> &Clones = std::get<2>(Entry.second);
+    GlobalVariable *DispatchPtr = std::get<2>(Entry.second);
+    std::map<std::string, GlobalValue *> &Clones = std::get<3>(Entry.second);
 
     Fn->replaceUsesWithIf(Dispatcher, [&](Use &IFUse) {
 
@@ -557,6 +611,9 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
       llvm_unreachable("Unhandled case!");
     }
+
+    if (DispatchPtr)
+      DispatchPtr->setInitializer(Fn);
   }
 
   // Iterate over GlobalAliases once more.
@@ -585,13 +642,15 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
   for (Function &Fn : M) {
     if (Fn.isDeclaration())
       continue;
-    // Remove "llvm.auto.cpu.dispatch" metadata from functions that're skipped and
-    // not multi-versioned.
+    // Remove "llvm.auto.cpu.dispatch" metadata from functions that are
+    // skipped and not multi-versioned.
     if (Fn.hasMetadata("llvm.auto.cpu.dispatch"))
       Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
-    // Add "advanced-optim" attribute on functions that are skipped and not multi-versioned.
+    // Add "advanced-optim" attribute on functions that are skipped
+    // and not multi-versioned.
     if (!Fn.hasFnAttribute("advanced-optim"))
-      Fn.addFnAttr("advanced-optim", GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
+      Fn.addFnAttr("advanced-optim",
+                   GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
   }
 
   // If we are here then we have done modifications.
@@ -610,57 +669,13 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   auto GetTTI = [&FAM](Function &F) -> TargetTransformInfo & {
     return FAM.getResult<TargetIRAnalysis>(F);
   };
+  auto GetBFI = [&FAM](Function &F) -> BlockFrequencyInfo & {
+    return FAM.getResult<BlockFrequencyAnalysis>(F);
+  };
+  ProfileSummaryInfo &PSI = AM.getResult<ProfileSummaryAnalysis>(M);
 
-  if (cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI))
+  if (cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI, GetBFI, PSI))
     return PreservedAnalyses::none();
 
   return PreservedAnalyses::all();
-}
-
-namespace {
-class AutoCPUCloneLegacyPass : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid.
-  explicit AutoCPUCloneLegacyPass() : ModulePass(ID) {
-    initializeAutoCPUCloneLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-
-    auto GetLoopInfo = [this](Function &F) -> LoopInfo & {
-      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    };
-    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    auto GetTTI = [this](Function &F) -> TargetTransformInfo & {
-      return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-    };
-
-    if (skipModule(M))
-      return false;
-
-    bool anyFunctionsCloned = cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI);
-    return anyFunctionsCloned;
-  }
-};
-} // namespace
-
-char AutoCPUCloneLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(AutoCPUCloneLegacyPass, "auto-cpu-clone",
-                      "Clone functions for Auto CPU Dispatch", false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(AutoCPUCloneLegacyPass, "auto-cpu-clone",
-                    "Clone functions for Auto CPU Dispatch", false, false)
-
-Pass *llvm::createAutoCPUCloneLegacyPass() {
-  return new AutoCPUCloneLegacyPass();
 }

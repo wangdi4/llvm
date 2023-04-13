@@ -13,7 +13,7 @@
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModelHeuristics.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanCostModel.h"
 #include "IntelVPlanTestBase.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -76,8 +76,9 @@ entry:
   // CM runs SVA, which in turn needs DA, which then needs VPLoopInfo.
   Plan->setVPlanDA(std::make_unique<VPlanDivergenceAnalysis>());
   auto *DA = Plan->getVPlanDA();
-  DA->compute(Plan.get(), nullptr, Plan->getVPLoopInfo(),
-              *Plan->getDT(), *Plan->getPDT(), false /*Not in LCSSA form.*/);
+  DA->compute(Plan.get(), nullptr /*RegionLoop*/, Plan->getVPLoopInfo(),
+              nullptr /*VPVT*/, *Plan->getDT(), *Plan->getPDT(),
+              false /*Not in LCSSA form.*/);
   auto *EntryBB = &Plan->getEntryBlock();
   VPBuilder Builder;
   Builder.setInsertPoint(EntryBB, EntryBB->begin());

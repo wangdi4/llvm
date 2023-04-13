@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg" -force-hir-cg -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg" -force-hir-cg -S %s 2>&1 | FileCheck %s
 
 ; Verify that we generate code for this addressOf ref successfully:
 ; &((<4 x float>*)(%reg_save_area)[%fp_offset])

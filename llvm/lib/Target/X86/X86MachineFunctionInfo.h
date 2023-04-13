@@ -1,4 +1,21 @@
 //===-- X86MachineFunctionInfo.h - X86 machine function info ----*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -117,6 +134,20 @@ class X86MachineFunctionInfo : public MachineFunctionInfo {
   /// determine if we should insert tilerelease in frame lowering.
   bool HasVirtualTileReg = false;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  /// Ajust stack for push2/pop2
+  bool PadForPush2Pop2 = false;
+
+  /// Offset for push2/pop2 to adjust stack
+  unsigned OffsetForPush2Pop2 = 0;
+
+  /// Candidate registers for push2/pop2
+  std::set<Register> CandidatesForPush2Pop2;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+  MachineInstr *StackPtrSaveMI = nullptr;
+
   std::optional<int> SwiftAsyncContextFrameIdx;
 
   // Preallocated fields are only used during isel.
@@ -132,9 +163,9 @@ private:
 
 public:
   X86MachineFunctionInfo() = default;
+  X86MachineFunctionInfo(const Function &F, const TargetSubtargetInfo *STI) {}
 
-  explicit X86MachineFunctionInfo(MachineFunction &MF) {}
-  explicit X86MachineFunctionInfo(const X86MachineFunctionInfo &) = default;
+  X86MachineFunctionInfo(const X86MachineFunctionInfo &) = default;
 
   MachineFunctionInfo *
   clone(BumpPtrAllocator &Allocator, MachineFunction &DestMF,
@@ -149,6 +180,9 @@ public:
 
   bool getRestoreBasePointer() const { return RestoreBasePointerOffset!=0; }
   void setRestoreBasePointer(const MachineFunction *MF);
+  void setRestoreBasePointer(unsigned CalleeSavedFrameSize) {
+    RestoreBasePointerOffset = -CalleeSavedFrameSize;
+  }
   int getRestoreBasePointerOffset() const {return RestoreBasePointerOffset; }
 
   DenseMap<int, unsigned>& getWinEHXMMSlotInfo() { return WinEHXMMSlotInfo; }
@@ -221,6 +255,28 @@ public:
 
   bool hasVirtualTileReg() const { return HasVirtualTileReg; }
   void setHasVirtualTileReg(bool v) { HasVirtualTileReg = v; }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  bool padForPush2Pop2() const { return PadForPush2Pop2; }
+  void setPadForPush2Pop2(bool V) { PadForPush2Pop2 = V; }
+
+  unsigned getOffsetForPush2Pop2() const { return OffsetForPush2Pop2; }
+  void setOffsetForPush2Pop2(unsigned V) { OffsetForPush2Pop2 = V; }
+
+  bool isCandidateForPush2Pop2(Register Reg) const {
+    return CandidatesForPush2Pop2.find(Reg) != CandidatesForPush2Pop2.end();
+  }
+  void addCandidateForPush2Pop2(Register Reg) {
+    CandidatesForPush2Pop2.insert(Reg);
+  }
+  size_t getNumCandidatesForPush2Pop2() const {
+    return CandidatesForPush2Pop2.size();
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+  void setStackPtrSaveMI(MachineInstr *MI) { StackPtrSaveMI = MI; }
+  MachineInstr *getStackPtrSaveMI() const { return StackPtrSaveMI; }
 
   std::optional<int> getSwiftAsyncContextFrameIdx() const {
     return SwiftAsyncContextFrameIdx;

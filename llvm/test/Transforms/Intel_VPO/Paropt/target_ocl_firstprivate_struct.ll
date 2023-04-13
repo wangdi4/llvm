@@ -1,9 +1,9 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=DEF %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=DEF %s
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -vpo-paropt-kernel-args-size-limit=0 -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=DIS %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -vpo-paropt-kernel-args-size-limit=0 -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=DIS %s
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -vpo-paropt-kernel-args-size-limit=1 -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=PART %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -vpo-paropt-kernel-args-size-limit=1 -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=PART %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=DEF %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=DEF %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -vpo-paropt-kernel-args-size-limit=0 -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=DIS %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -vpo-paropt-kernel-args-size-limit=0 -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=DIS %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -vpo-paropt-kernel-args-size-limit=1 -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=PART %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -vpo-paropt-kernel-args-size-limit=1 -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck --check-prefixes=PART %s
 
 ; Original code:
 ; struct s1 {
@@ -20,7 +20,7 @@
 ;}
 
 ; By default both arguments must be passed by value:
-; DEF: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 4, i32 2, [2 x %1] [%1 { i32 1, i32 1 }, %1 { i32 1, i32 8 }], i64 0, i64 0, i64 0 }
+; DEF: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 5, i32 2, [2 x %1] [%1 { i32 1, i32 1 }, %1 { i32 1, i32 8 }], i64 0, i64 0, i64 0 }
 ; DEF: define weak dso_local spir_kernel void @__omp_offloading_805_be228f__Z3foo_l10(
 ; DEF-SAME: <{ [1 x i8] }>* byval(<{ [1 x i8] }>){{[% A-Za-z_.0-9]*}},
 ; DEF-SAME: <{ [1 x i64] }>* byval(<{ [1 x i64] }>){{[% A-Za-z_.0-9]*}})
@@ -28,14 +28,14 @@
 ; By value passing is disabled:
 ; DIS: %struct.s1 = type { i8 }
 ; DIS: %struct.s2 = type { double }
-; DIS: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 4, i32 2, [2 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
+; DIS: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 5, i32 2, [2 x %1] [%1 { i32 0, i32 8 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
 ; DIS: define weak dso_local spir_kernel void @__omp_offloading_805_be228f__Z3foo_l10(
 ; DIS-SAME: %struct.s1 addrspace(1)*{{[% A-Za-z_.0-9]*}},
 ; DIS-SAME: %struct.s2 addrspace(1)*{{[% A-Za-z_.0-9]*}})
 
 ; Only the first argument must be passed by value:
 ; PART: %struct.s2 = type { double }
-; PART: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 4, i32 2, [2 x %1] [%1 { i32 1, i32 1 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
+; PART: @__omp_offloading_805_be228f__Z3foo_l10_kernel_info = weak target_declare addrspace(1) constant %0 { i32 5, i32 2, [2 x %1] [%1 { i32 1, i32 1 }, %1 { i32 0, i32 8 }], i64 0, i64 0, i64 0 }
 ; PART: define weak dso_local spir_kernel void @__omp_offloading_805_be228f__Z3foo_l10(
 ; PART-SAME: <{ [1 x i8] }>* byval(<{ [1 x i8] }>){{[% A-Za-z_.0-9]*}},
 ; PART-SAME: %struct.s2 addrspace(1)*{{[% A-Za-z_.0-9]*}})

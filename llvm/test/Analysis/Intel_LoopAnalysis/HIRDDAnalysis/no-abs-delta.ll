@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction  -analyze -enable-new-pm=0 -hir-dd-analysis -hir-dd-analysis-verify=Region -debug-only=hir-dd-test -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -debug-only=hir-dd-test -S < %s 2>&1 | FileCheck %s
 
 ; Test check that we bailout when trying to compute the AbsDelta

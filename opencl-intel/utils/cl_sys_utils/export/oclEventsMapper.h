@@ -51,7 +51,7 @@ private:
 
   typedef cl_event UserEvent;
   typedef cl_event NotifierEvent;
-  typedef map<UserEvent, NotifierEvent> EventsMap;
+  typedef std::map<UserEvent, NotifierEvent> EventsMap;
 
   EventsMap m_eventsMap;
 };

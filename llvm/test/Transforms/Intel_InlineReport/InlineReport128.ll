@@ -1,10 +1,10 @@
-; RUN: opt -passes=inline -inline-report=0x2819 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes=inline -inline-report=0xf859 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-IND
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x2898 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8d8 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-IND
+; RUN: opt -opaque-pointers -passes=inline -inline-report=0x2819 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=inline -inline-report=0xf859 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-IND
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x2898 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8d8 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-IND
 
-; CMPLRLLVM-38989; Check that the inlining report generated at opt report "med" level
-; does not include indirect calls, but does at "max" level.
+; CMPLRLLVM-38989: Check that the inlining report generated at opt report "med"
+; level does not include indirect calls, but does at "max" level.
 
 ; CHECK: COMPILE FUNC: main
 ; CHECK: INLINE: foo
@@ -13,19 +13,18 @@
 ; CHECK-IND: INDIRECT:
 ; CHECK: INLINE: foo
 
-source_filename = "sm.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @myglobal = dso_local local_unnamed_addr global i32 0, align 4
-@myfp = dso_local local_unnamed_addr global void (...)* bitcast (void ()* @bar to void (...)*), align 8
+@myfp = dso_local local_unnamed_addr global ptr @bar, align 8
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @bar() #0 {
 entry:
-  %0 = load i32, i32* @myglobal, align 4, !tbaa !3
-  %dec = add nsw i32 %0, -1
-  store i32 %dec, i32* @myglobal, align 4, !tbaa !3
+  %i = load i32, ptr @myglobal, align 4, !tbaa !3
+  %dec = add nsw i32 %i, -1
+  store i32 %dec, ptr @myglobal, align 4, !tbaa !3
   ret void
 }
 
@@ -34,10 +33,10 @@ define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
   call fastcc void @foo()
   call fastcc void @foo()
-  %0 = load void (...)*, void (...)** @myfp, align 8, !tbaa !7
-  call void (...) %0() #1
-  %1 = load void (...)*, void (...)** @myfp, align 8, !tbaa !7
-  call void (...) %1() #1
+  %i = load ptr, ptr @myfp, align 8, !tbaa !7
+  call void (...) %i() #1
+  %i1 = load ptr, ptr @myfp, align 8, !tbaa !7
+  call void (...) %i1() #1
   call fastcc void @foo()
   ret i32 0
 }
@@ -45,9 +44,9 @@ entry:
 ; Function Attrs: nounwind uwtable
 define internal fastcc void @foo() unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* @myglobal, align 4, !tbaa !3
-  %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* @myglobal, align 4, !tbaa !3
+  %i = load i32, ptr @myglobal, align 4, !tbaa !3
+  %inc = add nsw i32 %i, 1
+  store i32 %inc, ptr @myglobal, align 4, !tbaa !3
   ret void
 }
 

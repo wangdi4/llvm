@@ -24,7 +24,11 @@ bool VecTypeHintTest() {
       "kernel __attribute__((vec_type_hint(short16))) void kernel7(global int "
       "*a) { a[get_global_id(0)] = 0; }\n"};
   const int num_kernels = 7;
+#if INTEL_CUSTOMIZATION
   const bool expectedRes[] = {true, true, true, true, false, false, false};
+#else  // INTEL_CUSTOMIZATION
+  const bool expectedRes[] = {false, false, false, false, false, false, false};
+#endif // INTEL_CUSTOMIZATION
   const char trueString[] = " successfully vectorized";
   const char falseString[] = " not vectorized";
 
@@ -113,7 +117,7 @@ bool VecTypeHintTest() {
       std::string patternStr = patternStrStream.str();
 
       size_t new_place = strLog.find(patternStr, place) + patternStr.size();
-      if (new_place == string::npos) {
+      if (new_place == std::string::npos) {
         printf("ERROR: Cannot find log about kernel%d!\n", i + 1);
         bResult = false;
       }

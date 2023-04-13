@@ -14,27 +14,28 @@
 #
 # Global setup file for OpenCL CMake
 #
-cmake_minimum_required(VERSION 3.4.3)
+cmake_minimum_required(VERSION 3.16)
 cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 cmake_policy(SET CMP0054 OLD)
 
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-  set(OPENCL_INTREE_BUILD FALSE)
+  set(OPENCL_INTREE_BUILD OFF)
   project(OCL C CXX ASM)
 else()
-  set(OPENCL_INTREE_BUILD TRUE)
+  set(OPENCL_INTREE_BUILD ON)
 endif()
+
+include(FetchContent)
 
 # Project-wise options
 option(GIT_REVISIONS "Make package version from git revision" ON)
-option(BUILD_QTGUI "Build the QT related projects" OFF)
 option(USE_ITT_INTERNAL "Report internal tasks start/stop to VTune" OFF)
 option(USE_HARD_TRAPPING "Use hard trapping for workers on CPU device" ON)
 option(BUILD_LLVM_FROM_SOURCE "Build the llvm package from source instead of
                                using pre-installed binaries" OFF)
 option(LLVM_BUILD_OCL_CPU_BACKEND "Build OpenCL CPU backend DLL." ON)
-option(USE_GPA "Enable GPA support" OFF)
+option(USE_GPA "Enable GPA support" OFF) # INTEL
 option(USE_ITT "Enable ITT support" ON)
 
 # validation
@@ -53,6 +54,34 @@ option(OPENCL_RT_BUILD_TESTS "Build OpenCL RT unittests. Defaults to OFF.
 
 set(OCL_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(OCL_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+
+if(INTEL_CUSTOMIZATION)
+  if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
+    STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
+  else()
+    set(GITSERVER "https://github.com/intel-innersource")
+  endif()
+ set(OPENCL_CLANG_REPO
+   "${GITSERVER}/applications.compilers.source.ocl-common-clang")
+endif(INTEL_CUSTOMIZATION)
+
+# Download opencl-clang
+set(OPENCL_CLANG_TAG e78e711ec4ae0ec5c9a1f2a161869e6c2ef828c9)
+# PCH_EXTENSION can override PCH extension map in opencl-clang/options_compile.cpp
+set(PCH_EXTENSION "cl_khr_3d_image_writes,cl_khr_depth_images,cl_khr_global_int32_base_atomics,cl_khr_global_int32_extended_atomics,cl_khr_int64_base_atomics,cl_khr_int64_extended_atomics,cl_khr_local_int32_base_atomics,cl_khr_local_int32_extended_atomics,cl_intel_subgroups,cl_intel_subgroups_short" CACHE STRING "")
+
+message(STATUS "Will fetch opencl-clang from ${OPENCL_CLANG_REPO}")
+FetchContent_Declare(
+  opencl-clang
+  GIT_REPOSITORY ${OPENCL_CLANG_REPO}
+  GIT_TAG ${OPENCL_CLANG_TAG}
+)
+
+FetchContent_MakeAvailable(opencl-clang)
+
+if (NOT EXISTS ${opencl-clang_SOURCE_DIR})
+  message(FATAL_ERROR "opencl-clang is not fetched from ${OPENCL_CLANG_REPO}")
+endif()
 
 # Set path to the CMAKE modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
@@ -94,10 +123,12 @@ else()
   include(CMake_linux_tools)
 endif()
 
+# INTEL_CUSTOMIZATION
 # Common defines
 if(INTEL_PRODUCT_RELEASE)
   add_definitions(-DINTEL_PRODUCT_RELEASE)
 endif(INTEL_PRODUCT_RELEASE)
+# end INTEL_CUSTOMIZATION
 
 if((NOT WIN32) AND USE_HARD_TRAPPING)
   add_definitions(-D__HARD_TRAPPING__)
@@ -181,8 +212,7 @@ if(WIN32 AND NOT OPENCL_INTREE_BUILD)
   )
 endif()
 
-# See llvm commit adc4af6a5b70c31110559bdeb2f3f52646600b90 Author: Edwin Vane
-# <edwin.vane@intel.com> Date:   Thu Jan 31 18:05:54 2013 +0000
+# See llvm community commit c64108430f43dc98b1c8aa9d45215003e7a6fc58
 #
 # Turn off missing field initializer warnings for gcc to avoid noise from false
 # positives with empty {}. Turn them on otherwise (they're off by default for
@@ -224,8 +254,11 @@ else(WIN32)
   set(BUILD_PLATFORM "")
 endif(WIN32)
 
-set_property(GLOBAL PROPERTY CXX_STANDARD 14)
-set_property(GLOBAL PROPERTY C_STANDARD 99)
+if(NOT OPENCL_INTREE_BUILD)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
+set(CMAKE_C_STANDARD 99)
 
 set(COMMON_CLANG common_clang${BUILD_PLATFORM})
 if(OPENCL_INTREE_BUILD)
@@ -233,8 +266,8 @@ if(OPENCL_INTREE_BUILD)
 
   get_target_property(COMMON_CLANG_H_LOC ${COMMON_CLANG} SOURCE_DIR)
   if((NOT COMMON_CLANG_H_LOC) OR (NOT EXISTS
-                                  "${COMMON_CLANG_H_LOC}/common_clang.h"))
-    message(FATAL_ERROR "Cannot find common_clang.h from common_clang project (in ${COMMON_CLANG_H_LOC}).")
+                                  "${COMMON_CLANG_H_LOC}/opencl_clang.h"))
+    message(FATAL_ERROR "Cannot find opencl_clang.h from opencl_clang project (in ${COMMON_CLANG_H_LOC}).")
   endif()
   set(CCLANG_DEV_INCLUDE_DIRS ${COMMON_CLANG_H_LOC})
   set(LLVM_INCLUDE_DIRS ${LLVM_MAIN_INCLUDE_DIR})
@@ -298,7 +331,13 @@ endif(${ZERO_POS} STREQUAL "0")
 set(PRODUCTVER_MINOR "${PRODUCTVER_MINOR}.0")
 
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
-set(BUILDVER_16_BIT_MINOR "$ENV{BUILDDATE}")
+if(DEFINED ENV{BUILDDATE})
+  set(BUILDVER_16_BIT_MINOR "$ENV{BUILDDATE}")
+else()
+  string(TIMESTAMP MONTH "%m")
+  string(TIMESTAMP DAY "%d")
+  set(BUILDVER_16_BIT_MINOR ${MONTH}${DAY})
+endif()
 message("BUILDVER_16_BIT_MAJOR: ${BUILDVER_16_BIT_MAJOR}")
 message("BUILDVER_16_BIT_MINOR: ${BUILDVER_16_BIT_MINOR}")
 
@@ -389,9 +428,8 @@ llvm_map_components_to_libnames(
   Symbolize
   Target
   TransformUtils
-  Vectorizer
-  Intel_DPCPPKernelTransforms
-  Intel_OpenCLTransforms)
+  SYCLTransforms
+  )
 
 # Prepare common_clang dynamic library
 if(OPENCL_INTREE_BUILD)
@@ -456,22 +494,26 @@ endif()
 if(WIN32)
   set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/vc14)
   set(TBB_LIBRARY_DIR ${TBB_ROOT_DIR}/redist/${TBB_ARCH}/vc14)
-
-  # Copy TBB libraries to deploy and build folder. This is to support windows
-  # QA. TBB is used by task_executor.
-  set(TBB_BINARIES_BUILD_DIR
-      ${CMAKE_CURRENT_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
-  add_custom_target(
-    tbb ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${TBB_LIBRARY_DIR}
-            ${TBB_BINARIES_BUILD_DIR}
-    COMMENT "Copying tbb libraries from ${TBB_LIBRARY_DIR} to ${TBB_BINARIES_BUILD_DIR}")
-
-  install_to(${TBB_LIBRARY_DIR}/ COMPONENT ocl-task_executor DESTINATION
-             ${OCL_INSTALL_LIBRARY_DIR})
 else(WIN32)
-  set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/gcc4.8)
+  if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+    set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib)
+  else(INTEL_DEPLOY_UNIFIED_LAYOUT)
+    set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/gcc4.8)
+  endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
   set(TBB_LIBRARY_DIR ${TBB_LIB_DIR})
+  # Import tbb/tbbmalloc library
+  add_library(tbb SHARED IMPORTED)
+  set_target_properties(tbb PROPERTIES
+    IMPORTED_LOCATION_RELEASE
+      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX}
+    IMPORTED_LOCATION_DEBUG
+      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX})
+  add_library(tbbmalloc SHARED IMPORTED)
+  set_target_properties(tbbmalloc PROPERTIES
+    IMPORTED_LOCATION_RELEASE
+      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX}
+    IMPORTED_LOCATION_DEBUG
+      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX})
 endif(WIN32)
 
 if((NOT TBB_LIB_DIR) OR (NOT EXISTS ${TBB_LIB_DIR}))
@@ -489,7 +531,8 @@ set(TBB_INCLUDE_DIRS ${TBB_INC_DIR} utils/task_executor/enhancements)
 # paths
 add_llvm_external_project(opencl)
 set(CL_API_HEADERS ${OpenCL_INCLUDE_DIR} ${OCL_SOURCE_DIR}/framework/inc)
-set(CL_LOADER ${OpenCL_LOADER_DIR})
+# OPENCL_ICD_LOADER_HEADERS_DIR is defined in opencl/CMakeLists.txt
+set(CL_LOADER ${OPENCL_ICD_LOADER_HEADERS_DIR}/../ocl-icd-src/)
 
 get_property(SPIRV_HEADERS_DIR GLOBAL PROPERTY spirv_headers_dir_property)
 include_directories(
@@ -548,8 +591,34 @@ include_directories(BEFORE ${OCL_GLOBAL_INCLUDE})
 
 add_subdirectory(externals)
 
-# An umbrella target for all tests inside current folder.
+include(FetchContent)
+
 if(OPENCL_BE_INCLUDE_TESTS OR OPENCL_RT_INCLUDE_TESTS)
+  # Download opencl cpp headers for tests
+  if(INTEL_CUSTOMIZATION)
+    if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
+      STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
+    else()
+      set(GITSERVER "https://github.com/intel-innersource")
+    endif()
+    set(OPENCL_CPP_HEADER_REPO "${GITSERVER}/applications.compilers.source.opencl-clhpp.git")
+  endif(INTEL_CUSTOMIZATION)
+
+  set(OPENCL_CPP_HEADER_TAG 4a1157466afe72a87e8abc59537ef577534ccadf)
+
+  message(STATUS "Will fetch opencl c++ header from ${OPENCL_CPP_HEADER_REPO}")
+  FetchContent_Declare(
+    opencl-cpp-header
+    GIT_REPOSITORY ${OPENCL_CPP_HEADER_REPO}
+    GIT_TAG ${OPENCL_CPP_HEADER_TAG}
+    GIT_SUBMODULES "docs"
+  )
+  FetchContent_Populate(opencl-cpp-header)
+
+  if (NOT EXISTS ${opencl-cpp-header_SOURCE_DIR})
+    message(FATAL_ERROR "opencl cpp header is not fetched from ${OPENCL_CPP_HEADER_REPO}")
+  endif()
+  # An umbrella target for all tests inside current folder.
   umbrella_lit_testsuite_begin(check-ocl-all)
 endif()
 
@@ -579,58 +648,68 @@ if(OPENCL_BE_INCLUDE_TESTS OR OPENCL_RT_INCLUDE_TESTS)
   set_target_properties(check-ocl-all PROPERTIES FOLDER "Tests")
 endif()
 
+# Entry target for ocl cpu compilation.
+add_custom_target(opencl-cpu-rt
+  COMMENT "Compile all OpenCL CPU RT libraries."
+  DEPENDS process-intrin-headers common_clang${BUILD_PLATFORM} intelocl${BUILD_PLATFORM} cllibrary OpenCL-ICD
+)
+
+# Entry target for fpga emulator compilation
+add_custom_target(opencl-fpga-emu
+  COMMENT "Compile all OpenCL FPGA emulator libraries."
+  DEPENDS process-intrin-headers common_clang${BUILD_PLATFORM} intelocl${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF} cllibrary OpenCL-ICD
+)
+
+set(INTEL_DEPLOY_COMPONENTS_SHARED
+    OpenCL-ICD
+    ocl-library-kernel
+    ocl-builtins
+    ocl-builtins-shared
+    ocl-common_clang
+    ocl-config
+    ocl-gdb-plugin
+    ocl-svml
+    ocl-tbb)
+
+if(WIN32)
+  set(INTEL_DEPLOY_COMPONENTS_SHARED
+      ${INTEL_DEPLOY_COMPONENTS_SHARED}
+      ocl-${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION})
+endif(WIN32)
+
+set(INTEL_DEPLOY_COMPONENTS_CPU_RT
+    ocl-intelocl${BUILD_PLATFORM}
+    ${INTEL_DEPLOY_COMPONENTS_SHARED})
+
+set(INTEL_DEPLOY_COMPONENTS_FPGA_EMU
+    ocl-intelocl${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+    ${INTEL_DEPLOY_COMPONENTS_SHARED})
+
+# This command is used for creating a fake dependency in order to force
+# another command(s) to execute. Its output is never produced as a result thus
+# each other command that depends on it will always be executed. We use this
+# to force running deploy installation regardless of manifest files state.
+add_custom_command(OUTPUT __force_it COMMAND "${CMAKE_COMMAND}" -E echo)
+
+# Deploy OpenCL CPU RT
+deploy_ocl_components(deploy-ocl-cpu "${INTEL_DEPLOY_COMPONENTS_CPU_RT}" opencl-cpu-rt)
+# Deploy FPGA Emu
+deploy_ocl_components(deploy-fpga-emu "${INTEL_DEPLOY_COMPONENTS_FPGA_EMU}" opencl-fpga-emu )
+# This target is added for not intree build. For example, win32 compilation.
+# INTEL_CUSTOMIZATION
 if(NOT OPENCL_INTREE_BUILD)
-  set(INTEL_DEPLOY_COMPONENTS
-      ocl-builtins
-      ocl-svml
-      OpenCL-ICD
-      ocl-intelocl${BUILD_PLATFORM}
-      ocl-config
-      ocl-task_executor${BUILD_PLATFORM}
-      ocl-common_clang
-      ocl-builtins-shared
-      ocl-cl_logger
-      ocl-gdb-plugin)
+  deploy_ocl_components(deploy "${INTEL_DEPLOY_COMPONENTS_CPU_RT}" opencl-cpu-rt)
+endif(NOT OPENCL_INTREE_BUILD)
+# end INTEL_CUSTOMIZATION
 
-  if(WIN32)
-    set(INTEL_DEPLOY_COMPONENTS
-        ${INTEL_DEPLOY_COMPONENTS}
-        ocl-${DEBUGGING_DLL_NAME}${DEBUGGING_DLL_VERSION})
-  endif(WIN32)
-
-  # This command is used for creating a fake dependency in order to force
-  # another command(s) to execute. Its output is never produced as a result thus
-  # each other command that depends on it will always be executed. We use this
-  # to force running deploy installation regardless of manifest files state.
-  add_custom_command(OUTPUT __force_it COMMAND "${CMAKE_COMMAND}" -E echo)
-
-  if(DEFINED INTEL_DEPLOY_COMPONENTS)
-    set(manifest_list)
-
-    foreach(comp ${INTEL_DEPLOY_COMPONENTS})
-      message(STATUS "Adding component ${comp} to deploy")
-
-      set(manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest_${comp}.txt)
-      add_custom_command(
-        OUTPUT ${manifest}
-        COMMAND "${CMAKE_COMMAND}" "-DCMAKE_INSTALL_COMPONENT=${comp}" -P
-                "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-        DEPENDS __force_it
-        COMMENT "Deploying component ${comp}"
-        USES_TERMINAL)
-      list(APPEND manifest_list ${manifest})
-    endforeach(comp)
-
-    add_custom_target(deploy DEPENDS ${manifest_list})
-  else()
-    # no specific components was given so do full installation
-    set(manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
-    add_custom_command(
-      OUTPUT ${manifest}
-      COMMAND "${CMAKE_COMMAND}" -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
-      DEPENDS __force_it
-      COMMENT "Performing deploy operation..."
-      USES_TERMINAL)
-    add_custom_target(deploy DEPENDS ${manifest})
-  endif()
+if(NOT DEFINED INTEL_DEPLOY_COMPONENTS_CPU_RT AND NOT DEFINED INTEL_DEPLOY_COMPONENTS_FPGA_EMU)
+  # no specific components was given so do full installation
+  set(manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
+  add_custom_command(
+    OUTPUT ${manifest}
+    COMMAND "${CMAKE_COMMAND}" -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+    DEPENDS __force_it
+    COMMENT "Performing deploy operation..."
+    USES_TERMINAL)
+  add_custom_target(deploy DEPENDS ${manifest})
 endif()

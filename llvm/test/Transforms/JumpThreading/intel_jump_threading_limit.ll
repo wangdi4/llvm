@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -debug-only=jump-threading -jump-threading -S 2>&1 | FileCheck %s
+; RUN: opt -passes="jump-threading" < %s -debug-only=jump-threading -S 2>&1 | FileCheck %s
 ; CHECK: JT: Too many DT updates
 
 ; Jump threading connects the "a1 =" blocks at the top, directly to

@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cond-ldst-motion,print<hir>" -aa-pipeline="basic-aa"  < %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cond-ldst-motion,print<hir>" -aa-pipeline="basic-aa"  < %s -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that HIRConditionalLoadStoreMotion is able to appropriately
 ; bitcast between matching values that support it and not choke on ones that
@@ -49,9 +49,9 @@
 ; CHECK:       |      %[[SUNKPTR]] = &((%Ai32ptr.else)[0]);
 ; CHECK:       |      %[[SUNKAS1PTR]] = &((%Ai64as1ptr.else)[0]);
 ; CHECK:       |   }
-; CHECK:       |   (double*)(%B)[i1] = %[[SUNK64]];
-; CHECK:       |   (i32**)(%B)[i1 + 2] = %[[SUNKPTR]];
 ; CHECK:       |   (i64 addrspace(1)**)(%B)[i1 + 3] = %[[SUNKAS1PTR]];
+; CHECK:       |   (i32**)(%B)[i1 + 2] = %[[SUNKPTR]];
+; CHECK:       |   (double*)(%B)[i1] = %[[SUNK64]];
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 

@@ -1,6 +1,6 @@
 ; Test multiple indirect prefetching with assigned prefetch dist and hint.
 ;
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
 ;
 ;#pragma  prefetch A
 ;#pragma  prefetch B

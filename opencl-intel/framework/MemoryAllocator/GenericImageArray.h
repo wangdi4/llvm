@@ -68,8 +68,6 @@ private:
   GetEquivalentSingleImageType(cl_mem_object_type clMemObjType);
 };
 
-using namespace Intel::OpenCL::Framework;
-
 /**
  * @fn GenericImageArray<ELEM_IMAGE_NUM_DIM>::GetNumObjects() const
  */

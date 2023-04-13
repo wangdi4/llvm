@@ -3,42 +3,41 @@
 define void @merge_uniform_strided_soa_geps() {
 ; CHECK-LABEL: @merge_uniform_strided_soa_geps(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[ARR_SOA_PRIV64:%.*]] = alloca [1024 x i64], align 4
-; CHECK-NEXT:    [[ARR_SOA_PRIV64_SOA_VEC:%.*]] = alloca [1024 x <2 x i64>], align 16
-; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
+; CHECK-NEXT:    [[ARR_SOA_PRIV640:%.*]] = alloca [1024 x i64], align 4
+; CHECK-NEXT:    [[ARR_SOA_PRIV64_SOA_VEC0:%.*]] = alloca [1024 x <2 x i64>], align 16
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x ptr> poison, ptr [[ARR_SOA_PRIV64_SOA_VEC0]], i64 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x ptr> [[BROADCAST_SPLATINSERT0]], <2 x ptr> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK:       simd.begin.region:
-; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER0:%.*]]
 ; CHECK:       simd.loop.preheader:
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16384, ptr [[ARR_SOA_PRIV64_SOA_VEC]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16384, ptr [[ARR_SOA_PRIV64_SOA_VEC0]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VPLANNEDBB8:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP0:%.*]], [[VPLANNEDBB8]] ]
-; CHECK-NEXT:    br i1 true, label [[VPLANNEDBB3:%.*]], label [[VPLANNEDBB4:%.*]]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VPLANNEDBB50:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP0:%.*]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    br i1 true, label [[VPLANNEDBB30:%.*]], label [[VPLANNEDBB40:%.*]]
 ; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    [[SOA_SCALAR_GEP5:%.*]] = getelementptr inbounds [1024 x <2 x i64>], ptr [[ARR_SOA_PRIV64_SOA_VEC]], i64 0, i64 1
-; CHECK-NEXT:    [[SOA_SCALAR_GEP6:%.*]] = getelementptr inbounds [1024 x <2 x i64>], ptr [[ARR_SOA_PRIV64_SOA_VEC]], i64 0, i64 1
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr <2 x i64>, ptr [[SOA_SCALAR_GEP6]], <2 x i64> zeroinitializer, <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    [[WIDE_LOAD7:%.*]] = load <2 x i64>, ptr [[SOA_SCALAR_GEP5]], align 4
-; CHECK-NEXT:    br label [[VPLANNEDBB8]]
+; CHECK-NEXT:    [[SOA_SCALAR_GEP0:%.*]] = getelementptr inbounds [1024 x <2 x i64>], ptr [[ARR_SOA_PRIV64_SOA_VEC0]], i64 0, i64 1
+; CHECK-NEXT:    [[SOA_VECTORGEP0:%.*]] = getelementptr inbounds [1024 x <2 x i64>], <2 x ptr> [[BROADCAST_SPLAT0]], <2 x i64> zeroinitializer, <2 x i64> <i64 1, i64 1>
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i64>, ptr [[SOA_SCALAR_GEP0]], align 4
+; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK:       VPlannedBB3:
-; CHECK-NEXT:    [[MM_VECTORGEP9:%.*]] = getelementptr inbounds [1024 x <2 x i64>], ptr [[ARR_SOA_PRIV64_SOA_VEC]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]], <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    br label [[VPLANNEDBB8]]
-; CHECK:       VPlannedBB6:
-; CHECK-NEXT:    [[VEC_PHI10:%.*]] = phi <2 x ptr> [ [[MM_VECTORGEP]], [[VPLANNEDBB4]] ], [ [[MM_VECTORGEP9]], [[VPLANNEDBB3]] ]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[VEC_PHI10]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
-; CHECK-NEXT:    [[MM_VECTORGEP11:%.*]] = getelementptr inbounds i64, <2 x ptr> [[VEC_PHI10]], <2 x i64> [[WIDE_MASKED_GATHER]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER12:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[MM_VECTORGEP11]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
-; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 1024
-; CHECK-NEXT:    br i1 [[TMP2]], label [[VECTOR_BODY]], label [[VPLANNEDBB13:%.*]], !llvm.loop [[LOOP2:![0-9]+]]
-; CHECK:       VPlannedBB10:
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16384, ptr [[ARR_SOA_PRIV64_SOA_VEC]])
+; CHECK-NEXT:    [[SOA_VECTORGEP60:%.*]] = getelementptr inbounds [1024 x <2 x i64>], ptr [[ARR_SOA_PRIV64_SOA_VEC0]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI0]]
+; CHECK-NEXT:    br label [[VPLANNEDBB50]]
+; CHECK:       VPlannedBB5:
+; CHECK-NEXT:    [[VEC_PHI70:%.*]] = phi <2 x ptr> [ [[SOA_VECTORGEP0]], [[VPLANNEDBB40]] ], [ [[SOA_VECTORGEP60]], [[VPLANNEDBB30]] ]
+; CHECK-NEXT:    [[SOA_VECTORGEP80:%.*]] = getelementptr <2 x i64>, <2 x ptr> [[VEC_PHI70]], <2 x i32> zeroinitializer, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[SOA_VECTORGEP80]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
+; CHECK-NEXT:    [[SOA_VECTORGEP90:%.*]] = getelementptr inbounds <2 x i64>, <2 x ptr> [[VEC_PHI70]], <2 x i64> [[WIDE_MASKED_GATHER0]]
+; CHECK-NEXT:    [[SOA_VECTORGEP100:%.*]] = getelementptr <2 x i64>, <2 x ptr> [[SOA_VECTORGEP90]], <2 x i32> zeroinitializer, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER110:%.*]] = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> [[SOA_VECTORGEP100]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i64> poison)
+; CHECK:       VPlannedBB12:
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16384, ptr [[ARR_SOA_PRIV64_SOA_VEC0]])
 ;
 entry:
   %arr.soa.priv64 = alloca [1024 x i64], align 4

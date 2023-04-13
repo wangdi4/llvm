@@ -40,6 +40,7 @@
 
 #define OCL_EXT_INTEL_CHANNELS "cl_intel_channels"
 #define OCL_EXT_INTEL_FPGA_HOST_PIPE "cl_intel_fpga_host_pipe"
+#define OCL_EXT_INTEL_PROGRAM_SCOPE_HOST_PIPE "cl_intel_program_scope_host_pipe"
 
 #define OCL_EXT_INTEL_GLOBAL_VARIABLE_POINTER                                  \
   "cl_intel_global_variable_pointers_preview"
@@ -58,8 +59,7 @@
 #define OCL_EXT_INTEL_SPIRV_SUBGROUPS "cl_intel_spirv_subgroups"
 #define OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE "cl_intel_required_subgroup_size"
 
-#define OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY                                    \
-  "cl_intel_unified_shared_memory_preview"
+#define OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY "cl_intel_unified_shared_memory"
 
 #define OCL_EXT_INTEL_CREATE_BUFFER_WITH_PROPERTIES                            \
   "cl_intel_create_buffer_with_properties"

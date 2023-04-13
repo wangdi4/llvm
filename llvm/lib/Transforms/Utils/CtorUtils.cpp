@@ -71,7 +71,7 @@ static void removeGlobalCtors(GlobalVariable *GCL, const BitVector &CtorsToRemov
   GlobalVariable *NGV =
       new GlobalVariable(CA->getType(), GCL->isConstant(), GCL->getLinkage(),
                          CA, "", GCL->getThreadLocalMode());
-  GCL->getParent()->getGlobalList().insert(GCL->getIterator(), NGV);
+  GCL->getParent()->insertGlobalVariable(GCL->getIterator(), NGV);
   NGV->takeName(GCL);
 
 #if INTEL_CUSTOMIZATION

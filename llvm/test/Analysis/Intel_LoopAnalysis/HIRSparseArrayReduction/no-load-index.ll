@@ -3,7 +3,6 @@
 ;   f[foff + at1] += i;
 ; }
 
-; RUN: opt < %s -analyze -enable-new-pm=0 -force-hir-sparse-array-reduction-analysis -hir-sparse-array-reduction-analysis | FileCheck %s
 ; RUN: opt < %s -passes="loop-simplify,hir-ssa-deconstruction,print<hir-sparse-array-reduction-analysis>" -force-hir-sparse-array-reduction-analysis -disable-output 2>&1 | FileCheck %s
 ; CHECK:   No Sparse Array Reduction
 

@@ -61,13 +61,10 @@ public:
   void doSOAAnalysis(SmallPtrSetImpl<VPInstruction *> &SOAVars);
 
 private:
-  using WorkList = SetVector<const VPInstruction *>;
-
-  // The running worklist of all the instructions which we want to track.
-  WorkList WL;
-
-  // Set to avoid repeat-processing in case of cyclic Use-Def chains.
-  DenseSet<const VPInstruction *> AnalyzedInsts;
+  using AllocaToPhiMapTy =
+      DenseMap<VPAllocatePrivate *, DenseSet<const VPInstruction *>>;
+  using PhiToAllocaMapTy =
+      DenseMap<const VPInstruction *, DenseSet<VPAllocatePrivate *>>;
 
   // Cache to hold previously-determined profitable/unprofitable mem-accesses.
   DenseMap<const VPInstruction *, bool> AccessProfitabilityInfo;
@@ -78,40 +75,77 @@ private:
   // VPLoop object.
   const VPLoop &Loop;
 
-  /// \returns true if \p UseInst is a safe operation. This would evaluate
-  /// to see if \p UseInst is a trivial pointer aliasing instruction,
-  /// or a safe function-call.
-  bool isSafeUse(const VPInstruction *UseInst,
-                 const VPInstruction *CurrentI,
-                 Type *AllocatedType);
+  // Maps VPAllocaPrivate to a vector of VPInstructions that mix it with other
+  // VPAllocatePrivate (VPPHINode or Select).
+  AllocaToPhiMapTy AllocaToPhiMap;
 
-  /// \returns true if \p UseInst is a safe instruction. Load/Stores are
-  /// tested for various constraints to determine safety and every other
-  /// instruction is considered unsafe.
-  bool isSafeLoadStore(const VPLoadStoreInst *LSI,
-                       const VPInstruction *CurrentI,
-                       Type *PrivElemSize);
+  // Maps VPPHINode or Select to their operands which are [derived from]
+  // VPAllocatePrivate.
+  PhiToAllocaMapTy PhiToAllocaMap;
 
-  /// \returns true is \p VPGEP is a safe instruction.
-  bool isSafeGEPInst(const VPGEPInstruction *VPGEP,
-                     Type *AllocatedType,
-                     Type *PrivElemSize) const;
+  class SOASafetyChecker {
+    // The running worklist of all the instructions which we want to track.
+    using WorkList = SetVector<const VPInstruction *>;
+    WorkList WL;
 
-  /// \returns true is \p VPS is a safe instruction.
-  bool isSafeVPSubscriptInst(const VPSubscriptInst *VPS,
-                             Type *AllocatedType,
-                             Type *PrivElemSize) const;
+    // Set to avoid repeat-processing in case of cyclic Use-Def chains.
+    DenseSet<const VPInstruction *> AnalyzedInsts;
 
-  /// Determine if the memory pointed to by the Alloca escapes.
-  bool memoryEscapes(const VPAllocatePrivate *Alloca);
+    VPSOAAnalysis &Analysis;
+    VPAllocatePrivate *Private;
 
-  /// \returns true if \p UseInst is any function call that we know is a
-  /// safe-function, i.e., passing a private-pointer would not result in
-  /// change of data-layout on the pointee.
-  bool isSafePointerEscapeFunction(const VPCallInstruction *VPCall);
+  public:
+    SOASafetyChecker(const SOASafetyChecker &) = delete;
+    SOASafetyChecker &operator=(const SOASafetyChecker &) = delete;
 
-  /// \returns true if \p Val's pointee-type is a scalar.
-  bool isSOASupportedTy(Type *Ty);
+    SOASafetyChecker(VPSOAAnalysis &A, VPAllocatePrivate *Priv)
+        : Analysis(A), Private(Priv) {}
+
+    // Determine if the layout of the \Private may escape or
+    // may change during memory read/writes.
+    // The layout of a pointer to private can escape by several reasons:
+    //  - storing it into a memory
+    //  - passing it to a function
+    //  - mixing it with a non-private pointer in a phi or select.
+    // The layout is changed e.g. when an array of i32 is read as
+    // an array of i8, i.e. when the width of access is changed.
+    //
+    bool isSafeForSOA();
+
+    /// \returns true if \p UseInst is a safe operation. This would evaluate
+    /// to see if \p UseInst is a trivial pointer aliasing instruction,
+    /// or a safe function-call.
+    bool isSafeUse(const VPInstruction *UseInst, const VPInstruction *CurrentI,
+                   Type *AllocatedType);
+
+    /// \returns true if \p UseInst is a safe instruction. Load/Stores are
+    /// tested for various constraints to determine safety and every other
+    /// instruction is considered unsafe.
+    bool isSafeLoadStore(const VPLoadStoreInst *LSI,
+                         const VPInstruction *CurrentI, Type *PrivElemSize);
+
+    /// \returns true is \p VPGEP is a safe instruction.
+    bool isSafeGEPInst(const VPGEPInstruction *VPGEP, Type *AllocatedType,
+                       Type *PrivElemSize) const;
+
+    /// \returns true is \p VPS is a safe instruction.
+    bool isSafeVPSubscriptInst(const VPSubscriptInst *VPS, Type *AllocatedType,
+                               Type *PrivElemSize) const;
+
+    /// \returns true if \p UseInst is any function call that we know is a
+    /// safe-function, i.e., passing a private-pointer would not result in
+    /// change of data-layout on the pointee.
+    bool isSafePointerEscapeFunction(const VPCallInstruction *VPCall);
+
+    /// \return true if \p Inst is safe for soa layout.
+    /// It's assumed that Inst is a PHI or Select.
+    bool isMergeSafeForSOA(const VPInstruction *Inst);
+
+    // Check whether \p V is a chain of VPInstructions started with
+    // VPAllocatePrivate(s) - in case of phi/select we check for all operands be
+    // derived from VPAllocatePrivate.
+    bool isDerivedFromAllocatePriv(const VPValue *V);
+  };
 
   /// \return true if the incoming instruction is in the relevant scope.
   /// Specifically, we check if the instruction is non-null pointer and
@@ -120,22 +154,28 @@ private:
   /// b) In the loop.
   bool isInstructionInRelevantScope(const VPInstruction *UseInst);
 
+  /// Determine if the memory pointed to by the Alloca escapes.
+  bool memoryEscapes(VPAllocatePrivate *Alloca);
+
+  /// \returns true if \p Val's pointee-type is a scalar.
+  bool isSOASupportedTy(Type *Ty);
+
   /// Determine whether there is a data-access profitable with SOA layout to
   /// the private memory pointed to by the Alloca. Profitability is determined
   /// by the vector shape of access. Only uniform accesses are considered
   /// profitable.
   bool isSOAProfitable(VPAllocatePrivate *Alloca);
 
-  /// \return true if the given instruction does not break profitability of SOA
-  /// layout.
+  /// \return true if the given instruction does not break profitability of
+  /// SOA layout.
   bool isProfitableForSOA(const VPInstruction *I);
 
   /// Collect all the loads/stores resulting from a given private \p Alloca.
   void collectLoadStores(const VPAllocatePrivate *Alloca,
                          DenseSet<VPLoadStoreInst *> &LoadStores);
 
-  /// Return the iterator-range to the list of currently analyzed SOA-profitable
-  // instructions.
+  /// Return the iterator-range to the list of currently analyzed
+  /// SOA-profitable instructions.
   decltype(auto) analyzedMemAccessInsts() const {
     return make_range(AccessProfitabilityInfo.begin(),
                       AccessProfitabilityInfo.end());

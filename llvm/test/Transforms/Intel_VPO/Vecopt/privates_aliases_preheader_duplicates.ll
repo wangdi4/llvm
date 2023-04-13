@@ -3,8 +3,9 @@
 ;; Test that we do not create duplicated instructions when collecting private aliases
 ;; Since the incorrect behavior was crash at VPlan destructor, check that the
 ;; imported aliases make sense.
+;; Also check SOA layout enabled for the private.
 
-; RUN: opt -vplan-print-after-vpentity-instrs -S -passes=vplan-vec -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-print-after-vpentity-instrs -passes=vplan-vec -vplan-dump-soa-info -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -12,8 +13,21 @@ target triple = "x86_64-pc-linux"
 declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
-;; Case with select having two pointers from different pivates.
-
+; Case with select having two pointers from same private.
+;
+; The source code looks like below.
+;
+; int64_t a[32];
+; int64_t *p1 = a;
+; int64_t *p2 = &a[1];
+; void select_two_privates(int *ptr, bool pred) {
+;   int64_t *p = pred ? p1 : p2;
+;   #pragma omp simd private(a) simdlen(16)
+;   for (int i = 0; i < 16; i++) {
+;     ptr[i] = *p;
+;   }
+; }
+;
 define void @select_two_privates(i64 %init1, i64 %init2, i64* %ptr, i1 zeroext %pred) {
 ; CHECK:          [32 x i64]* [[VP_PRIV:%.*]] = allocate-priv [32 x i64]*, OrigAlign = 8
 ; CHECK-NEXT:     i8* [[VP_PRIV_BCAST:%.*]] = bitcast [32 x i64]* [[VP_PRIV]]
@@ -24,6 +38,9 @@ define void @select_two_privates(i64 %init1, i64 %init2, i64* %ptr, i1 zeroext %
 ; CHECK-NEXT:     i64 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
+;
+; CHECK:       SOA profitability
+; CHECK-NEXT:  SOASafe = [[VP_PRIV]] (priv) Profitable = 1
 ;
 entry:
   %priv = alloca [32 x i64], align 8

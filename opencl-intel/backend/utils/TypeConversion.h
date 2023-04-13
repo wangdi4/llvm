@@ -17,7 +17,7 @@
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 
 namespace intel {
 llvm::Type *reflectionToLLVM(llvm::LLVMContext &,

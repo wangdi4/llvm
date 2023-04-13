@@ -33,6 +33,44 @@ static cl::opt<bool> DisablePass("disable-" DEBUG_TYPE, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable VPO Rename Operands pass"));
 
+/// Replace all uses of \p Src with \p Dst in the list of instructions/exprs \p
+/// UserInsts and \p UserExprs that use \p Src.
+bool replaceUsesOfWithIn(Value *Src, Value *Dst,
+                         SmallVectorImpl<Instruction *> &&UserInsts,
+                         SmallPtrSetImpl<ConstantExpr *> &&UserExprs) {
+  if (UserInsts.empty())
+    return false;
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacing uses of `";
+             Src->printAsOperand(dbgs()); dbgs() << "' with '";
+             Dst->printAsOperand(dbgs()); dbgs() << "'.\n");
+
+  // Replace uses of Src with Dst
+  while (!UserInsts.empty()) {
+    Instruction *User = UserInsts.pop_back_val();
+    User->replaceUsesOfWith(Src, Dst);
+
+    if (UserExprs.empty())
+      continue;
+
+    // If a Use of Src is in a ConstantExpr, and the User is the instruction
+    // using the ConstantExpr. For example, the Use of @u below is
+    // a GEP expression (a ConstantExpr), not the instruction itself, so
+    // doing User->replaceUsesOfWith(Src, Dst) would not replace @u.
+    //
+    //     %12 = load i32, i32* getelementptr inbounds (%struct.t_union_,
+    //           %struct.t_union_* @u, i32 0, i32 0), align 4
+    //
+    // The solution is to access the ConstantExpr as Instruction(s) in order to
+    // do the replacement. NewInstArr below keeps such Instruction(s).
+    SmallVector<Instruction *, 2> NewInstArr;
+    GeneralUtils::breakExpressions(User, &NewInstArr, &UserExprs);
+    for (Instruction *NewInst : NewInstArr)
+      UserInsts.push_back(NewInst);
+  }
+  return true;
+}
+
 /// Create a pointer, store address of \p V to the pointer, and replace uses
 /// of \p V with a load from that pointer.
 ///
@@ -74,14 +112,19 @@ static cl::opt<bool> DisablePass("disable-" DEBUG_TYPE, cl::init(false),
 /// If \p CastToAddrSpaceGeneric is \b true, then `%v.addr` is casted to
 /// address space generic (4) before doing the store/load.
 ///
-/// \returns the pointer where \p V is stored (`%v.addr` above).
-Value *VPOUtils::replaceWithStoreThenLoad(
+/// \returns a pair of Values, representing:
+/// 1. the pointer for  \p V is stored (`%v.addr` above), and
+/// 2. the load from that address (`%v1` above), if emitted, null otherwise.
+std::pair<Value *, LoadInst *> VPOUtils::replaceWithStoreThenLoad(
     WRegionNode *W, Value *V, Instruction *InsertPtForStore, bool ReplaceUses,
     bool EmitLoadEvenIfNoUses, bool InsertLoadInBeginningOfEntryBB,
     bool SelectAllocaInsertPtBasedOnParentWRegion,
     bool CastToAddrSpaceGeneric) {
   Function *F = InsertPtForStore->getParent()->getParent();
   assert(F && "Function cannot be nullptr.");
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Processing input value '";
+             V->printAsOperand(dbgs()); dbgs() << "'.\n");
 
   // Find instructions in W that use V
   SmallVector<Instruction *, 8> UserInsts;
@@ -116,9 +159,14 @@ Value *VPOUtils::replaceWithStoreThenLoad(
              dbgs() << "' to '"; VAddr->printAsOperand(dbgs());
              dbgs() << "'.\n";);
 
-  if (UserInsts.empty() && !EmitLoadEvenIfNoUses)
-    return VAddr; // Nothing to replace inside the region. Just capture the
-                  // address of V to VAddr and return it.
+  if (UserInsts.empty() && !EmitLoadEvenIfNoUses) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": No uses of '";
+               V->printAsOperand(dbgs());
+               dbgs() << "' inside the region. Not emitting any load from '";
+               VAddr->printAsOperand(dbgs()); dbgs() << "'.\n");
+    return {VAddr, nullptr}; // Nothing to replace inside the region. Just
+                             // capture the address of V to VAddr and return it.
+  }
 
   BasicBlock *EntryBB = W->getEntryBBlock();
   Instruction *InsertPtForLoad = InsertLoadInBeginningOfEntryBB
@@ -148,32 +196,12 @@ Value *VPOUtils::replaceWithStoreThenLoad(
   VRenamed->setName(V->getName());
 
   // Replace uses of V with VRenamed
-  while (!UserInsts.empty()) {
-    Instruction *User = UserInsts.pop_back_val();
-    User->replaceUsesOfWith(V, VRenamed);
+  replaceUsesOfWithIn(V, VRenamed, std::move(UserInsts), std::move(UserExprs));
 
-    if (UserExprs.empty())
-      continue;
-
-    // Some uses of V are in a ConstantExpr, in which case the User is the
-    // instruction using the ConstantExpr. For example, the use of @u below is
-    // the GEP expression (a ConstantExpr), not the instruction itself, so
-    // doing User->replaceUsesOfWith(V, NewI) does not replace @u
-    //
-    //     %12 = load i32, i32* getelementptr inbounds (%struct.t_union_,
-    //           %struct.t_union_* @u, i32 0, i32 0), align 4
-    //
-    // The solution is to access the ConstantExpr as instruction(s) in order to
-    // do the replacement. NewInstArr below keeps such instruction(s).
-    SmallVector<Instruction *, 2> NewInstArr;
-    GeneralUtils::breakExpressions(User, &NewInstArr, &UserExprs);
-    for (Instruction *NewInst : NewInstArr)
-      UserInsts.push_back(NewInst);
-  }
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Loaded '";
              VAddr->printAsOperand(dbgs()); dbgs() << "' into '";
              VRenamed->printAsOperand(dbgs()); dbgs() << "'.\n";);
-  return VAddr;
+  return {VAddr, VRenamed};
 }
 
 /// Rename operands of various clauses by replacing them with a
@@ -227,6 +255,7 @@ bool VPOUtils::renameOperandsUsingStoreThenLoad(WRegionNode *W,
   W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
 
   SmallPtrSet<Value *, 16> HandledVals;
+  DenseMap<Value *, std::pair<Value *, LoadInst *>> RenamedAddrAndValForOrigMap;
   using OpndAddrPairTy = SmallVector<Value *, 2>;
   SmallVector<OpndAddrPairTy, 16> OpndAddrPairs;
   auto rename = [&](Value *Orig, bool CheckAlreadyHandled,
@@ -235,12 +264,23 @@ bool VPOUtils::renameOperandsUsingStoreThenLoad(WRegionNode *W,
       return false;
 
     HandledVals.insert(Orig);
-    Value *RenamedAddr =
-        replaceWithStoreThenLoad(W, Orig, InsertBefore, ReplaceUses);
-    if (!RenamedAddr)
+
+    // If Orig is some constexpr pointer/bit cast on a global, like:
+    //   ptr getelementptr inbounds (@gvar, i32 0, i32 0)
+    // that global `@gvar` might have uses inside the region that don't match
+    // the expr Orig. So, we need to create a renamed value of Orig even if no
+    // uses for Orig are found in the region, so that we can later check if the
+    // base expr of Orig (`@gvar` here) has uses in the region.
+    const bool EmitRenamedLoadEvenIfNoUses =
+        isa<ConstantExpr>(Orig) && Orig->stripPointerCasts() != Orig;
+
+    const auto &RenamedAddrAndVal = replaceWithStoreThenLoad(
+        W, Orig, InsertBefore, ReplaceUses, EmitRenamedLoadEvenIfNoUses);
+    if (!RenamedAddrAndVal.first)
       return false;
 
-    OpndAddrPairs.push_back({Orig, RenamedAddr});
+    RenamedAddrAndValForOrigMap.insert({Orig, RenamedAddrAndVal});
+    OpndAddrPairs.push_back({Orig, RenamedAddrAndVal.first});
     return true;
   };
 
@@ -330,6 +370,62 @@ bool VPOUtils::renameOperandsUsingStoreThenLoad(WRegionNode *W,
   // map[+private], but W->getIsDevicePtr().items().empty()
   // is still not empty. Just do nothing for these items.
 
+  SmallPtrSet<Value *, 8> HandledConstExprBases;
+  // Lastly, for every constant-expr that was renamed, check if it can have
+  // references inside the region without the pointer/bitcasts in that constant
+  // expr. e.g. For this:
+  //  store [4 x i8]* bitcast ([8 x i8]* @VBase to [4 x i8]*), [4 x i8]** %addr
+  //
+  //  "QUAL.OMP.PRIVATE"([4 x i8]* bitcast ([8 x i8]* @VBase to [4 x i8]*)) ; V
+  //
+  //  %VRenamed = load volatile [4 x i8]*, [4 x i8]** %addr ;                (1)
+  //  %VBaseRenamed = bitcast [4 x i8]* %VRenamed to [8 x i8]* ;             (2)
+  //
+  //  <Replace all uses of @VBase in the region with %VBaseRenamed> ;        (3)
+  //
+  for (Value *V : HandledVals) {
+    if (!isa<ConstantExpr>(V))
+      continue;
+
+    Value *VBase = V->stripPointerCasts();
+    if (VBase == V)
+      continue;
+
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Processing base of const-expr `";
+               V->printAsOperand(dbgs()); dbgs() << "' : '";
+               VBase->printAsOperand(dbgs()); dbgs() << "'.\n");
+
+    if (HandledConstExprBases.find(VBase) != HandledConstExprBases.end()) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Already handled.\n");
+      continue;
+    }
+    HandledConstExprBases.insert(VBase);
+
+    SmallVector<Instruction *, 8> UserInsts;
+    SmallPtrSet<ConstantExpr *, 8> UserExprs;
+    WRegionUtils::findUsersInRegion(W, VBase, &UserInsts,
+                                    /*ExcludeEntryDirective=*/true, &UserExprs);
+    if (UserInsts.empty()) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": No users.\n");
+      continue;
+    }
+
+    LoadInst *VRenamed = RenamedAddrAndValForOrigMap[V].second; //           (1)
+    assert(VRenamed &&
+           "Renamed value of a const-expr that has no-op pointer/bitcasts "
+           "should have been created, even if it has no uses in the region.");
+    Value *VBaseRenamed = IRBuilder<>(VRenamed->getParent()) //              (2)
+                              .CreatePointerBitCastOrAddrSpaceCast(
+                                  VRenamed, VBase->getType(), VBase->getName());
+    if (VBaseRenamed != VRenamed)
+      if (auto *VBaseRenamedInst = dyn_cast<Instruction>(VBaseRenamed))
+        VBaseRenamedInst->moveAfter(VRenamed);
+
+    // Replace VBase with VBaseRenamed
+    replaceUsesOfWithIn(VBase, VBaseRenamed, std::move(UserInsts), //        (3)
+                        std::move(UserExprs));
+  }
+
   W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
 
   if (!Changed)
@@ -342,7 +438,7 @@ bool VPOUtils::renameOperandsUsingStoreThenLoad(WRegionNode *W,
       VPOAnalysisUtils::getClauseString(QUAL_OMP_OPERAND_ADDR);
   for (auto &OpndAddrPair : OpndAddrPairs)
     BundleOpndAddrs.emplace_back(OperandAddrClauseString,
-                                 makeArrayRef(OpndAddrPair));
+                                 ArrayRef(OpndAddrPair));
 
   CI = VPOUtils::addOperandBundlesInCall(CI, BundleOpndAddrs);
   W->setEntryDirective(CI);

@@ -1,4 +1,4 @@
-; RUN: opt -loop-rotate %s -S | FileCheck %s
+; RUN: opt -passes="loop(loop-rotate)" %s -S | FileCheck %s
 
 ; CMPLRLLVM-32873
 ; This case has a loop with an exit through an invoke+unwind to bb14.

@@ -1,4 +1,21 @@
 //===- DLL.h ----------------------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -23,7 +40,7 @@ public:
   void add(DefinedImportData *sym) { imports.push_back(sym); }
   bool empty() { return imports.empty(); }
 
-  void create();
+  void create(COFFLinkerContext &ctx);
 
   std::vector<DefinedImportData *> imports;
   std::vector<Chunk *> dirs;
@@ -37,12 +54,15 @@ public:
 // DelayLoadContents creates all chunks for the delay-load DLL import table.
 class DelayLoadContents {
 public:
+  DelayLoadContents(COFFLinkerContext &ctx) : ctx(ctx) {}
   void add(DefinedImportData *sym) { imports.push_back(sym); }
   bool empty() { return imports.empty(); }
-  void create(COFFLinkerContext &ctx, Defined *helper);
+  void create(Defined *helper);
   std::vector<Chunk *> getChunks();
   std::vector<Chunk *> getDataChunks();
   ArrayRef<Chunk *> getCodeChunks() { return thunks; }
+  ArrayRef<Chunk *> getCodePData() { return pdata; }
+  ArrayRef<Chunk *> getCodeUnwindInfo() { return unwindinfo; }
 
   uint64_t getDirRVA() { return dirs[0]->getRVA(); }
   uint64_t getDirSize();
@@ -50,8 +70,10 @@ public:
 private:
   Chunk *newThunkChunk(DefinedImportData *s, Chunk *tailMerge);
   Chunk *newTailMergeChunk(Chunk *dir);
+  Chunk *newTailMergePDataChunk(Chunk *tm, Chunk *unwind);
+  Chunk *newTailMergeUnwindInfoChunk();
 
-  Defined *helper;
+  Defined *helper = nullptr; // INTEL
   std::vector<DefinedImportData *> imports;
   std::vector<Chunk *> dirs;
   std::vector<Chunk *> moduleHandles;
@@ -59,20 +81,26 @@ private:
   std::vector<Chunk *> names;
   std::vector<Chunk *> hintNames;
   std::vector<Chunk *> thunks;
+  std::vector<Chunk *> pdata;
+  std::vector<Chunk *> unwindinfo;
   std::vector<Chunk *> dllNames;
+
+  COFFLinkerContext &ctx;
 };
 
 // Windows-specific.
 // EdataContents creates all chunks for the DLL export table.
 class EdataContents {
 public:
-  EdataContents();
+  EdataContents(COFFLinkerContext &ctx);
   std::vector<Chunk *> chunks;
 
   uint64_t getRVA() { return chunks[0]->getRVA(); }
   uint64_t getSize() {
     return chunks.back()->getRVA() + chunks.back()->getSize() - getRVA();
   }
+
+  COFFLinkerContext &ctx;
 };
 
 } // namespace lld::coff

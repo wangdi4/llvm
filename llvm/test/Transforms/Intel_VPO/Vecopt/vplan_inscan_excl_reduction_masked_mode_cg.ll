@@ -34,17 +34,17 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr [[DOTVEC_BASE_ADDR_EXTRACT_0_:%.*]])
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr [[DOTVEC31_BASE_ADDR_EXTRACT_0_:%.*]])
 ; CHECK-NEXT:    [[TMP25:%.*]] = load float, ptr [[X_RED]], align 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT83:%.*]] = insertelement <2 x float> poison, float [[TMP25]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT83:%.*]] = insertelement <2 x float> poison, float [[TMP25]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT84:%.*]] = shufflevector <2 x float> [[BROADCAST_SPLATINSERT83]], <2 x float> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP26:%.*]] = load float, ptr [[X_RED]], align 1
 ; CHECK-NEXT:    [[TMP27:%.*]] = load i32, ptr [[I_LINEAR_IV:%.*]], align 1
 ; CHECK-NEXT:    [[TMP28:%.*]] = load i32, ptr [[I_LINEAR_IV]], align 1
-; CHECK-NEXT:    [[IND_START_BCAST_SPLATINSERT32:%.*]] = insertelement <2 x i32> poison, i32 [[TMP27]], i32 0
+; CHECK-NEXT:    [[IND_START_BCAST_SPLATINSERT32:%.*]] = insertelement <2 x i32> poison, i32 [[TMP27]], i64 0
 ; CHECK-NEXT:    [[IND_START_BCAST_SPLAT33:%.*]] = shufflevector <2 x i32> [[IND_START_BCAST_SPLATINSERT32]], <2 x i32> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP29:%.*]] = add <2 x i32> [[IND_START_BCAST_SPLAT33]], <i32 0, i32 1>
 ; CHECK-NEXT:    store <2 x i32> [[TMP29]], ptr [[DOTVEC:%.*]], align 1
 ; CHECK-NEXT:    [[TMP30:%.*]] = sub i64 1024, [[UNI_PHI28:%.*]]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT42:%.*]] = insertelement <2 x i64> poison, i64 [[TMP30]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT42:%.*]] = insertelement <2 x i64> poison, i64 [[TMP30]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT43:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT42]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB34:%.*]]
 ; CHECK:       VPlannedBB34:
@@ -53,7 +53,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[VEC_PHI37:%.*]] = phi <2 x float> [ [[BROADCAST_SPLAT84]], [[VPLANNEDBB30]] ], [ [[PREDBLEND73:%.*]], [[NEW_LATCH67]] ]
 ; CHECK-NEXT:    [[UNI_PHI38:%.*]] = phi i32 [ [[TMP27]], [[VPLANNEDBB30]] ], [ [[PREDBLEND70_EXTRACT_0_:%.*]], [[NEW_LATCH67]] ]
 ; CHECK-NEXT:    [[VEC_PHI39:%.*]] = phi <2 x i32> [ [[TMP29]], [[VPLANNEDBB30]] ], [ [[PREDBLEND70:%.*]], [[NEW_LATCH67]] ]
-; CHECK-NEXT:    [[TMP31:%.*]] = add <2 x i64> [[VEC_PHI36]], [[BROADCAST_SPLAT41:%.*]]
+; CHECK-NEXT:    [[TMP31:%.*]] = add nuw nsw  <2 x i64> [[VEC_PHI36]], [[BROADCAST_SPLAT41:%.*]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <2 x i64> [[TMP31]], i32 0
 ; CHECK-NEXT:    store <2 x float> zeroinitializer, ptr [[DOTVEC31]], align 1
 ; CHECK-NEXT:    [[TMP32:%.*]] = icmp ult i64 [[UNI_PHI35]], [[TMP30]]
@@ -73,21 +73,22 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK:       VPlannedBB48:
 ; CHECK-NEXT:    [[WIDE_LOAD49:%.*]] = load <2 x i32>, ptr [[DOTVEC]], align 4
 ; CHECK-NEXT:    [[TMP35:%.*]] = sext <2 x i32> [[WIDE_LOAD49]] to <2 x i64>
-; CHECK-NEXT:    [[MM_VECTORGEP52:%.*]] = getelementptr inbounds float, <2 x ptr> [[BROADCAST_SPLAT51:%.*]], <2 x i64> [[TMP35]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER53:%.*]] = call <2 x float> @llvm.masked.gather.v2f32.v2p0(<2 x ptr> [[MM_VECTORGEP52]], i32 4, <2 x i1> [[TMP33]], <2 x float> poison)
+; CHECK-NEXT:    [[TMP35_EXTRACT_0:%.*]] = extractelement <2 x i64> [[TMP35]], i32 0
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, ptr [[A0:%.*]], i64 [[TMP35_EXTRACT_0]]
+; CHECK-NEXT:    [[WIDE_LOAD52:%.*]] = call <2 x float> @llvm.masked.load.v2f32.p0(ptr [[SCALAR_GEP]], i32 4, <2 x i1> [[TMP33]], <2 x float> poison)
 ; CHECK-NEXT:    [[WIDE_LOAD54:%.*]] = load <2 x float>, ptr [[DOTVEC31]], align 4
-; CHECK-NEXT:    [[TMP36:%.*]] = fadd fast <2 x float> [[WIDE_LOAD54]], [[WIDE_MASKED_GATHER53]]
+; CHECK-NEXT:    [[TMP36:%.*]] = fadd fast <2 x float> [[WIDE_LOAD54]], [[WIDE_LOAD52]]
 ; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0(<2 x float> [[TMP36]], ptr [[DOTVEC31]], i32 4, <2 x i1> [[TMP33]])
+; CHECK-NEXT:    br label [[VPLANNEDBB53:%.*]]
+; CHECK:       VPlannedBB53:
+; CHECK-NEXT:    br label [[VPLANNEDBB54:%.*]]
+; CHECK:       VPlannedBB54:
+; CHECK-NEXT:    [[TMP37:%.*]] = add <2 x i32> [[VEC_PHI39]], <i32 2, i32 2>
+; CHECK-NEXT:    [[TMP38:%.*]] = add i32 [[UNI_PHI38]], 2
 ; CHECK-NEXT:    br label [[VPLANNEDBB55:%.*]]
 ; CHECK:       VPlannedBB55:
 ; CHECK-NEXT:    br label [[VPLANNEDBB56:%.*]]
 ; CHECK:       VPlannedBB56:
-; CHECK-NEXT:    [[TMP37:%.*]] = add <2 x i32> [[VEC_PHI39]], <i32 2, i32 2>
-; CHECK-NEXT:    [[TMP38:%.*]] = add i32 [[UNI_PHI38]], 2
-; CHECK-NEXT:    br label [[VPLANNEDBB57:%.*]]
-; CHECK:       VPlannedBB57:
-; CHECK-NEXT:    br label [[VPLANNEDBB58:%.*]]
-; CHECK:       VPlannedBB58:
 ; CHECK-NEXT:    [[WIDE_LOAD59:%.*]] = load <2 x float>, ptr [[DOTVEC31]], align 1
 ; CHECK-NEXT:    [[TMP39:%.*]] = shufflevector <2 x float> [[WIDE_LOAD59]], <2 x float> zeroinitializer, <2 x i32> <i32 2, i32 0>
 ; CHECK-NEXT:    [[TMP40:%.*]] = fadd fast <2 x float> [[WIDE_LOAD59]], [[TMP39]]
@@ -103,21 +104,21 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[TMP46:%.*]] = sub i2 1, [[CTLZ60]]
 ; CHECK-NEXT:    [[LAST_ACTIVE_LANE61:%.*]] = extractelement <2 x float> [[WIDE_LOAD59]], i2 [[TMP46]]
 ; CHECK-NEXT:    [[TMP47:%.*]] = fadd float [[LAST_ACTIVE_LANE]], [[LAST_ACTIVE_LANE61]]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT71:%.*]] = insertelement <2 x float> poison, float [[TMP47]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT71:%.*]] = insertelement <2 x float> poison, float [[TMP47]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT72:%.*]] = shufflevector <2 x float> [[BROADCAST_SPLATINSERT71]], <2 x float> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    br label [[VPLANNEDBB62:%.*]]
-; CHECK:       VPlannedBB62:
-; CHECK-NEXT:    br label [[VPLANNEDBB63:%.*]]
-; CHECK:       VPlannedBB63:
+; CHECK-NEXT:    br label [[VPLANNEDBB60:%.*]]
+; CHECK:       VPlannedBB60:
+; CHECK-NEXT:    br label [[VPLANNEDBB61:%.*]]
+; CHECK:       VPlannedBB61:
 ; CHECK-NEXT:    [[WIDE_LOAD64:%.*]] = load <2 x float>, ptr [[DOTVEC31]], align 4
 ; CHECK-NEXT:    [[SCALAR_GEP65:%.*]] = getelementptr inbounds float, ptr [[B:%.*]], i64 [[DOTEXTRACT_0_]]
 ; CHECK-NEXT:    call void @llvm.masked.store.v2f32.p0(<2 x float> [[WIDE_LOAD64]], ptr [[SCALAR_GEP65]], i32 4, <2 x i1> [[TMP33]])
-; CHECK-NEXT:    br label [[VPLANNEDBB66:%.*]]
-; CHECK:       VPlannedBB66:
+; CHECK-NEXT:    br label [[VPLANNEDBB65:%.*]]
+; CHECK:       VPlannedBB65:
 ; CHECK-NEXT:    br label [[NEW_LATCH32:%.*]]
 ; CHECK:       new_latch32:
-; CHECK-NEXT:    br label [[NEW_LATCH67]]
-; CHECK:       new_latch67:
+; CHECK-NEXT:    br label [[NEW_LATCH66:%.*]]
+; CHECK:       new_latch66:
 ; CHECK-NEXT:    [[PREDBLEND:%.*]] = select <2 x i1> [[TMP33]], <2 x float> [[TMP36]], <2 x float> [[BROADCAST_SPLAT69:%.*]]
 ; CHECK-NEXT:    [[PREDBLEND70]] = select <2 x i1> [[TMP33]], <2 x i32> [[TMP37]], <2 x i32> [[VEC_PHI39]]
 ; CHECK-NEXT:    [[PREDBLEND70_EXTRACT_0_]] = extractelement <2 x i32> [[PREDBLEND70]], i32 0
@@ -128,8 +129,8 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[TMP50:%.*]] = icmp ult <2 x i64> [[TMP48]], [[BROADCAST_SPLAT43]]
 ; CHECK-NEXT:    [[TMP51:%.*]] = bitcast <2 x i1> [[TMP50]] to i2
 ; CHECK-NEXT:    [[TMP52:%.*]] = icmp eq i2 [[TMP51]], 0
-; CHECK-NEXT:    br i1 [[TMP52]], label [[VPLANNEDBB74:%.*]], label [[VPLANNEDBB34]]
-; CHECK:       VPlannedBB74:
+; CHECK-NEXT:    br i1 [[TMP52]], label [[VPLANNEDBB73:%.*]], label [[VPLANNEDBB34]]
+; CHECK:       VPlannedBB73:
 ; CHECK-NEXT:    store float [[PREDBLEND73_EXTRACT_0_]], ptr [[X_RED]], align 1
 ;
 DIR.OMP.SIMD.1:

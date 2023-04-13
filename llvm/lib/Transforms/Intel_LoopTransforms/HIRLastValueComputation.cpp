@@ -114,8 +114,9 @@ bool HIRLastValueComputation::isLegalAndProfitable(
   return true;
 }
 
-static bool isLiveOutOfEdge(unsigned Symbase, BasicBlock *SrcBB,
-                            BasicBlock *TargetBB, HLRegion *ParRegion) {
+static bool isLiveOutOfEdge(unsigned Symbase, const BasicBlock *SrcBB,
+                            const BasicBlock *TargetBB,
+                            const HLRegion *ParRegion) {
   bool IsLiveout = false;
 
   // Check if the symbase of any liveout value going from src -> target bblock
@@ -136,7 +137,7 @@ static bool isLiveOutOfEdge(unsigned Symbase, BasicBlock *SrcBB,
   return IsLiveout;
 }
 
-static bool isLiveOutOfNormalExit(unsigned Symbase, HLLoop *Lp) {
+static bool isLiveOutOfNormalExit(unsigned Symbase, const HLLoop *Lp) {
 
   auto *ParRegion = Lp->getParentRegion();
 
@@ -163,33 +164,95 @@ static bool isLiveOutOfNormalExit(unsigned Symbase, HLLoop *Lp) {
   return isLiveOutOfEdge(Symbase, SrcBB, TargetBB, ParRegion);
 }
 
-static bool isLiveOutOfGoto(unsigned Symbase, HLGoto *Goto,
-                            HLRegion *ParRegion) {
+struct TempFinder final : public HLNodeVisitorBase {
+  unsigned TempSymbase;
+  const HLGoto *EndGoto;
+  bool ReachedEndGoto;
+  bool FoundTempDef;
+
+  TempFinder(unsigned TempSymbase, const HLGoto *EndGoto)
+      : TempSymbase(TempSymbase), EndGoto(EndGoto), ReachedEndGoto(false),
+        FoundTempDef(false) {}
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+
+  void visit(const HLInst *Inst) {
+
+    if (auto *LvalRef = Inst->getLvalDDRef()) {
+      if (LvalRef->getSymbase() == TempSymbase) {
+        FoundTempDef = true;
+      }
+    }
+  }
+
+  void visit(const HLGoto *Goto) {
+    if (Goto == EndGoto) {
+      ReachedEndGoto = true;
+    }
+  }
+
+  bool foundTempDef() const { return FoundTempDef; }
+  bool isDone() const { return (ReachedEndGoto || FoundTempDef); }
+};
+
+// Returns two booleans as a result. First boolean indicates that \p Symbase is
+// liveout of this \p Goto exit. Second boolean indicates that \p Symbase is
+// liveout using \p KnownDef and not some other temp def.
+static std::pair<bool, bool>
+isLiveOutOfGoto(unsigned Symbase, const HLInst *KnownDef, const HLGoto *Goto,
+                const HLLoop *Lp, const HLRegion *ParRegion) {
+
+  bool IsKnownDefBeforeGoto =
+      (KnownDef->getTopSortNum() < Goto->getTopSortNum());
+
   if (!Goto->isExternal()) {
-    // This information cannot be computed easily for internal jumps so we give
-    // up.
-    return true;
+    // TODO: could there still be another definition of temp after KnownDef
+    // requiring us to always use TempFinder?
+    if (IsKnownDefBeforeGoto) {
+      return std::make_pair(true, true);
+    }
+
+    TempFinder TF(Symbase, Goto);
+    HLNodeUtils::visitRange(TF, Lp->child_begin(), Lp->child_end());
+
+    return std::make_pair(TF.foundTempDef(), false);
   }
 
   auto *SrcBB = Goto->getSrcBBlock();
   auto *TargetBB = Goto->getTargetBBlock();
 
-  return isLiveOutOfEdge(Symbase, SrcBB, TargetBB, ParRegion);
+  bool IsLiveOut = isLiveOutOfEdge(Symbase, SrcBB, TargetBB, ParRegion);
+
+  if (IsLiveOut) {
+    return std::make_pair(true, IsKnownDefBeforeGoto);
+  }
+
+  return std::make_pair(false, false);
 }
 
+/// Returns true if lval of HInst is liveout of any early exit of the loop.
 static bool
 processEarlyExits(SmallVectorImpl<HLGoto *> &Gotos, HLInst *HInst,
+                  const HLLoop *Lp,
                   SmallDenseMap<HLGoto *, HLNode *, 16> &GotoInsertPosition) {
 
   auto *ParRegion = HInst->getParentRegion();
   unsigned LvalSymbase = HInst->getLvalDDRef()->getSymbase();
-  bool Cloned = false;
+  bool IsLiveOutOfEarlyExit = false;
 
   for (auto &Goto : Gotos) {
     HLInst *CloneInst = HInst->clone();
 
-    if (HInst->getTopSortNum() < Goto->getTopSortNum() &&
-        isLiveOutOfGoto(LvalSymbase, Goto, ParRegion)) {
+    bool IsLiveOut = false;
+    bool IsLiveOutUsingInst = false;
+
+    std::tie(IsLiveOut, IsLiveOutUsingInst) =
+        isLiveOutOfGoto(LvalSymbase, HInst, Goto, Lp, ParRegion);
+
+    IsLiveOutOfEarlyExit = IsLiveOutOfEarlyExit || IsLiveOut;
+
+    if (IsLiveOutUsingInst) {
 
       // We are transforming this-
       //
@@ -218,11 +281,10 @@ processEarlyExits(SmallVectorImpl<HLGoto *> &Gotos, HLInst *HInst,
       }
 
       GotoInsertPosition[Goto] = CloneInst;
-      Cloned = true;
     }
   }
 
-  return Cloned;
+  return IsLiveOutOfEarlyExit;
 }
 
 bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
@@ -300,9 +362,10 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
     unsigned LvalSymbase = HInst->getLvalDDRef()->getSymbase();
 
     if (IsMultiExit) {
-      bool Cloned = processEarlyExits(Gotos, HInst, GotoInsertPosition);
+      bool IsLiveOutOfEarlyExit =
+          processEarlyExits(Gotos, HInst, Lp, GotoInsertPosition);
 
-      if (!Cloned) {
+      if (!IsLiveOutOfEarlyExit) {
         Lp->removeLiveOutTemp(LvalSymbase);
       }
 

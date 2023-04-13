@@ -193,10 +193,5 @@ void LibmvecVariantsEmitter::run(raw_ostream &OS) {
   emitLibmvecVariants(OS);
 }
 
-namespace llvm {
-
-void EmitLibmvecVariants(RecordKeeper &RK, raw_ostream &OS) {
-  LibmvecVariantsEmitter(RK).run(OS);
-}
-
-} // End llvm namespace
+static TableGen::Emitter::OptClass<LibmvecVariantsEmitter>
+    X("gen-libmvec", "Generate Libmvec variant function names");

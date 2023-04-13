@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSCommon.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -90,7 +90,7 @@ protected:
 
     auto *ATy =
         dyn_cast<PointerType>(S.Method->getFunctionType()->getParamType(ArgNo));
-    if (!ATy || ATy->getElementType() != S.StrType)
+    if (!ATy || ATy->getNonOpaquePointerElementType() != S.StrType)
       return false;
 
     if (FieldInd >= S.StrType->getNumElements())
@@ -156,13 +156,13 @@ protected:
     if (!isa<PointerType>(Out))
       return false;
 
-    if (Out->getPointerElementType() != S.MemoryInterface)
+    if (Out->getNonOpaquePointerElementType() != S.MemoryInterface)
       return false;
 
     if (D->Arg1->Kind == Dep::DK_Argument) {
       assert(S.Method->getFunctionType()
                      ->getParamType(D->Arg1->Const)
-                     ->getPointerElementType() == S.MemoryInterface &&
+                     ->getNonOpaquePointerElementType() == S.MemoryInterface &&
              "Unexpected type cast");
       return true;
     }
@@ -178,7 +178,7 @@ protected:
     if (!isa<PointerType>(F))
       return false;
 
-    return F->getPointerElementType() == S.MemoryInterface;
+    return F->getNonOpaquePointerElementType() == S.MemoryInterface;
   }
 
   // Whether D is represents returned pointer of Allocation.
@@ -205,7 +205,7 @@ protected:
     if (!ATy)
       return false;
 
-    return ATy->getPointerElementType() == S.StrType;
+    return ATy->getNonOpaquePointerElementType() == S.StrType;
   }
 
   // Some function of several recursive load relative to S.MemoryInterface:
@@ -238,7 +238,7 @@ protected:
       // 2. Access pointer to vtable.
       // 3. Access pointer to function.
       if (Deref <= 3 && isFieldAddr(A, S, Out) && Out->isPointerTy() &&
-          Out->getPointerElementType() == S.MemoryInterface) {
+          Out->getNonOpaquePointerElementType() == S.MemoryInterface) {
         return true;
       }
     }
@@ -248,7 +248,8 @@ protected:
 
     if (auto *Out = dyn_cast<PointerType>(
             S.Method->getFunctionType()->getParamType(A->Const)))
-      if (Deref <= 2 && Out->getPointerElementType() == S.MemoryInterface)
+      if (Deref <= 2 &&
+          Out->getNonOpaquePointerElementType() == S.MemoryInterface)
         return true;
 
     return false;

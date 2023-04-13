@@ -2,13 +2,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -36,17 +36,13 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/Analysis/AliasSetTracker.h"
-#include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/PhiValues.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Debug.h"
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
@@ -54,8 +50,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Scalar/InferAddressSpaces.h"
-#include "llvm/Transforms/Scalar/SROA.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include "llvm/Analysis/VPO/VPOParoptConstants.h"
@@ -66,6 +60,7 @@
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 
+#include <algorithm>
 #include <optional>
 
 using namespace llvm;
@@ -100,10 +95,6 @@ static cl::opt<uint32_t> DispatchCodegenVersion(
     "vpo-paropt-dispatch-codegen-version", cl::Hidden, cl::init(0),
     cl::desc("Codegen version for dispatch construct."));
 
-static cl::opt<uint32_t> FixedSIMDWidth(
-    "vpo-paropt-fixed-simd-width", cl::Hidden, cl::init(0),
-    cl::desc("Fixed SIMD width for all target regions in the module."));
-
 static cl::opt<bool> SimulateGetNumThreadsInTarget(
     "vpo-paropt-simulate-get-num-threads-in-target", cl::Hidden, cl::init(true),
     cl::desc("Simulate support for omp_get_num_threads in OpenMP target "
@@ -133,28 +124,6 @@ static cl::opt<bool>
                                      "outlined target function arguments"));
 #endif // INTEL_CUSTOMIZATION
 
-static cl::opt<bool> DisableParallelBarriers(
-    "vpo-paropt-disable-parallel-workgroup-barriers", cl::Hidden,
-    cl::init(false), cl::ZeroOrMore,
-    cl::desc("Disable adding workgroup barriers after parallel regions"));
-
-static cl::opt<bool> ExcludeGlobalFenceFromBarriers(
-    "vpo-paropt-exclude-global-fence-from-workgroup-barriers", cl::Hidden,
-    cl::init(false), cl::ZeroOrMore,
-    cl::desc("Exclude global fence when adding workgroup barriers after "
-             "parallel regions"));
-
-static cl::opt<bool> SimplifyBarrierFences(
-    "vpo-paropt-simplify-workgroup-barrier-fences", cl::Hidden, cl::init(true),
-    cl::ZeroOrMore,
-    cl::desc(
-        "Try to eliminate global fences when adding workgroup barriers after "
-        "parallel regions"));
-
-static cl::opt<uint64_t> KernelArgsSizeLimit(
-    "vpo-paropt-kernel-args-size-limit", cl::Hidden, cl::init(1024),
-    cl::desc("Maximum total size in bytes of the arguments for a kernel"));
-
 cl::opt<uint32_t> AtomicFreeRedGlobalBufSize(
     "vpo-paropt-atomic-free-red-global-buf-size", cl::Hidden, cl::init(1024),
     cl::desc("Maximum number of elements (and teams) in the global buffer for "
@@ -165,8 +134,6 @@ cl::opt<uint32_t> AtomicFreeRedLocalBufSize(
              "buffer used for tree-like local update in"
              "atomic-free reduction"));
 
-
-extern cl::opt<bool> AtomicFreeReduction;
 extern cl::opt<bool> AtomicFreeReductionUseSLM;
 extern cl::opt<bool> AtomicFreeRedUseFPTeamsCounter;
 
@@ -360,499 +327,6 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
     I->eraseFromParent();
 }
 
-Function *VPOParoptTransform::finalizeKernelFunction(
-    WRNTargetNode *WT, Function *Fn, CallInst *&Call,
-    const SmallVectorImpl<uint64_t> &MapTypes,
-#if INTEL_CUSTOMIZATION
-    const SmallVectorImpl<bool> &IsWILocalFirstprivate,
-#endif // INTEL_CUSTOMIZATION
-    const SmallVectorImpl<bool> &IsFunctionPtr,
-    const SmallVectorImpl<Constant *> &ConstSizes) {
-
-  assert(isTargetSPIRV() &&
-         "finalizeKernelFunction called for non-SPIRV target.");
-
-  FunctionType *FnTy = Fn->getFunctionType();
-  auto &C = Fn->getContext();
-  Module *M = Fn->getParent();
-  const DataLayout &DL = M->getDataLayout();
-  SmallVector<Type *, 8> ParamsTy;
-
-  unsigned AddrSpaceGlobal = vpo::ADDRESS_SPACE_GLOBAL;
-
-  // Initialize a descriptor for each kernel argument.
-  struct KernelArgInfoDesc {
-    // If true, then the argument is passed "by value" rather than
-    // as a pointer.
-    bool IsByVal = false;
-    // Size of the argument in bytes, which is a size of the argument data
-    // for "by value" arguments, and a size of a pointer for pointer arguments.
-    uint32_t Size = 0;
-    // If the argument is passed "by value", then it specifies the new data type
-    // for the argument, otherwise it is nullptr.
-    // For example, if the original argument is 'struct { int x; }* %arg', then
-    // it is passed "by value" as 'struct { char xx[4]; }* byval(...) %arg',
-    // and the ByValTy is 'struct { char xx[4]; }'.
-    Type *ByValTy = nullptr;
-    KernelArgInfoDesc(bool IsByVal, uint32_t Size, Type *ByValTy = nullptr)
-      : IsByVal(IsByVal), Size(Size), ByValTy(ByValTy) {
-      assert((!IsByVal || ByValTy) &&
-             "Must specify ByValTy for IsByVal arguments.");
-    }
-  };
-  std::vector<KernelArgInfoDesc> KernelArgInfo;
-
-  // Maximum total size in bytes of the arguments passed by value.
-  uint64_t ByValLimit = KernelArgsSizeLimit + 1;
-
-  // For the given argument of the kernel return the corresponding index
-  // in the mapping structures.
-  auto GetMapIdxForArgNum =
-      [&MapTypes](uint32_t ArgNum) {
-        uint32_t Idx = 0;
-        for (auto MT : MapTypes) {
-          if ((MT & TGT_MAP_TARGET_PARAM) != 0) {
-            if (ArgNum == 0)
-              return Idx;
-            --ArgNum;
-          }
-          ++Idx;
-        }
-        llvm_unreachable("kernel argument without a map descriptor.");
-      };
-
-  // Generate '<kernel-name>_kernel_info' global variable that specifies
-  // whether a kernel argument is passed by value or not.
-  // Versions 1-4 of the data structure use the following format:
-  //   struct KernelInfoTy {
-  //     uint32_t Version = [1 .. 2];
-  //     uint32_t ArgsNum = <number of the kernel arguments>;
-  //     struct ArgDescTy {
-  //       uint32_t IsByVal = 0/1;
-  //       uint32_t Size = <argument size>;
-  //     } ArgsDesc[ArgsNum];
-  //     uint64_t Attributes1; // Since version 2.
-  //     uint64_t WGNum;       // Since version 3.
-  //     uint64_t WINum;       // Since version 4.
-  //   };
-  auto GenerateKernelArgInfoVar =
-      [this, &WT](const std::vector<KernelArgInfoDesc> &KernelArgInfo,
-                  Function *Fn, bool HasTeamsReduction,
-                  bool HasLocalAFReduction, bool HasGlobalAFReduction) {
-        auto &C = Fn->getContext();
-        size_t ArgsNum = KernelArgInfo.size();
-        assert(ArgsNum == Fn->getFunctionType()->params().size() &&
-               "Missing param description.");
-        assert(ArgsNum <= std::numeric_limits<uint32_t>::max() &&
-               "Too many kernel arguments for version 1 kernel info.");
-        SmallVector<Type *, 3> KernelInfoInitMemberTypes;
-        SmallVector<Constant *, 10> KernelInfoInitBuffer;
-
-        // The current version is 4.
-        KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
-        KernelInfoInitBuffer.push_back(
-            ConstantInt::get(Type::getInt32Ty(C), 4));
-        // Specify the number of kernel argument.
-        KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
-        KernelInfoInitBuffer.push_back(
-            ConstantInt::get(Type::getInt32Ty(C), ArgsNum));
-
-        StructType *KernelInfoInitTy;
-
-        if (ArgsNum > 0) {
-          StructType *KernelArgInfoTy =
-              StructType::create({Type::getInt32Ty(C), Type::getInt32Ty(C)});
-
-          SmallVector<Constant *, 10> KernelArgInfoInitBuffer;
-          for (auto &ArgInfo : KernelArgInfo) {
-            // For each argument specify whether it is passed by value
-            // and the argument size.
-            Constant *ArgInit = ConstantStruct::get(KernelArgInfoTy,
-                {ConstantInt::get(KernelArgInfoTy->getElementType(0),
-                                  ArgInfo.IsByVal),
-                 ConstantInt::get(KernelArgInfoTy->getElementType(1),
-                                  ArgInfo.Size)});
-            KernelArgInfoInitBuffer.push_back(ArgInit);
-          }
-          ArrayType *KernelArgInfoInitArrayTy = ArrayType::get(KernelArgInfoTy,
-                                                               ArgsNum);
-          Constant *KernelArgInfoInitArray =
-              ConstantArray::get(KernelArgInfoInitArrayTy,
-                                 KernelArgInfoInitBuffer);
-          KernelInfoInitMemberTypes.push_back(KernelArgInfoInitArrayTy);
-          KernelInfoInitBuffer.push_back(KernelArgInfoInitArray);
-        }
-
-        // Init Attributes1.
-        uint64_t Attributes1 = 0;
-        Attributes1 |= (HasTeamsReduction ? 1 : 0);
-
-        KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
-        KernelInfoInitBuffer.push_back(
-            ConstantInt::get(Type::getInt64Ty(C), Attributes1));
-
-        uint64_t UseGPURedWGLimit =
-            ((HasTeamsReduction && HasGlobalAFReduction) ||
-             (!AtomicFreeReductionUseSLM && HasLocalAFReduction))
-                ? AtomicFreeRedGlobalBufSize
-                : 0;
-        KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
-        KernelInfoInitBuffer.push_back(
-            ConstantInt::get(Type::getInt64Ty(C), UseGPURedWGLimit));
-
-        uint64_t UseGPURedWILimit =
-            (AtomicFreeReduction && HasLocalAFReduction &&
-             UsedLocalTreeReduction.count(WT))
-                ? AtomicFreeRedLocalBufSize
-                : 0;
-        KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
-        KernelInfoInitBuffer.push_back(
-            ConstantInt::get(Type::getInt64Ty(C), UseGPURedWILimit));
-
-        KernelInfoInitTy = StructType::create(KernelInfoInitMemberTypes);
-        Constant *KernelInfoInit =
-          ConstantStruct::get(KernelInfoInitTy, KernelInfoInitBuffer);
-
-        GlobalVariable *KernelInfoVar =
-            new GlobalVariable(*Fn->getParent(), KernelInfoInitTy,
-                               /*isConstant=*/true, GlobalValue::WeakAnyLinkage,
-                               KernelInfoInit, Fn->getName() + "_kernel_info",
-                               /*InsertBefore=*/nullptr,
-                               GlobalValue::ThreadLocalMode::NotThreadLocal,
-                               SpirvOffloadEntryAddSpace);
-        KernelInfoVar->setTargetDeclare(true);
-      };
-
-  // Modify the kernel function declaration so that function pointer arguments
-  // are received by the kernel as cl_ulong values, and all other pointer
-  // arguments are in addrspace(1). This also requires aligning the new argument
-  // types with the original uses of the arguments inside the function body.
-  // For example, cl_ulong function pointer arguments must be casted
-  // to their original pointer types, and all other pointer arguments
-  // must be addrspacecasted to their original address spaces.
-  for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
-       ArgTyI != ArgTyE; ++ArgTyI) {
-    auto ArgNum = std::distance(FnTy->param_begin(), ArgTyI);
-    auto MapIdx = GetMapIdxForArgNum(ArgNum);
-    bool IsFunctionPointer = IsFunctionPtr[MapIdx];
-    uint64_t ArgSize = 0;
-    if (auto *PtrTy = dyn_cast<PointerType>(*ArgTyI)) {
-      if (IsFunctionPointer ||
-          (!PtrTy->isOpaque() &&
-           isa<FunctionType>(PtrTy->getNonOpaquePointerElementType()))) {
-        // Kernel arguments representing function pointers
-        // must be declared as 64-bit integers.
-        Type *ArgTy = Type::getInt64Ty(C);
-        ParamsTy.push_back(ArgTy);
-        ArgSize = DL.getTypeStoreSize(ArgTy).getFixedSize();
-        KernelArgInfo.emplace_back(false, ArgSize);
-      } else {
-#if INTEL_CUSTOMIZATION
-        // Check if we can pass this argument "by value". We have to be sure
-        // that libomptarget will be actually able to pass it by value,
-        // so we have to do the same checks as in libomptarget (e.g. see
-        // the member-of check below).
-        ConstantInt *MapSize = cast<ConstantInt>(ConstSizes[MapIdx]);
-        uint64_t MapType = MapTypes[MapIdx];
-        // We can only apply the optimization to WILOCAL variables.
-        // If the whole variable needs to be "visible" by all threads,
-        // then making it a kernel argument will not work correctly.
-        bool IsWILocal = IsWILocalFirstprivate[MapIdx];
-        uint64_t MapSizeVal = MapSize->getLimitedValue(ByValLimit);
-        const auto MapMask =
-            TGT_MAP_TO | TGT_MAP_TARGET_PARAM | TGT_MAP_PRIVATE;
-        if (MapSizeVal != 0 && MapSizeVal < ByValLimit &&
-            IsWILocal &&(MapType & MapMask) == MapMask &&
-            (MapIdx + 1 >= MapTypes.size() ||
-             (MapTypes[MapIdx + 1] & TGT_MAP_MEMBER_OF) == 0)) {
-          // We can pass it by value, but we have to adjust the data type.
-          // It turns out some device compilers do not pass the by value
-          // argument objects to the kernels in contiguous manner, e.g.
-          // for types like { i8, i8 } they may use 2 4-byte registers
-          // for passing the members. To make the register usage more
-          // efficient, we represent any user type as a structure
-          // with the following members:
-          //   { [K x i64], [L x i32], [M x i16], [N x i8] }, where
-          // K >= 0, 0 <= L <= 1, 0 <= M <= 1, 0 <= N <= 1
-          unsigned ChunkWidth = 8;
-          uint64_t RemainingSize = MapSizeVal;
-          SmallVector<Type *, 4> ChunkTys;
-          while (ChunkWidth >= 1 && RemainingSize > 0) {
-            uint64_t ChunkSize = RemainingSize / ChunkWidth;
-            if (ChunkSize > 0)
-              ChunkTys.push_back(
-                  ArrayType::get(Type::getIntNTy(C, ChunkWidth * 8),
-                                 ChunkSize));
-
-            RemainingSize = (RemainingSize % ChunkWidth);
-            ChunkWidth >>= 1;
-          }
-          Type *AggrTy = StructType::get(C, ChunkTys, /*isPacked=*/true);
-
-          // ByVal pointer arguments must be in addrspace(0).
-          ParamsTy.push_back(PointerType::get(AggrTy,
-                                              vpo::ADDRESS_SPACE_PRIVATE));
-          KernelArgInfo.emplace_back(true, MapSizeVal, AggrTy);
-          ArgSize = MapSizeVal;
-        } else {
-#endif // INTEL_CUSTOMIZATION
-          // This is a pointer argument.
-          ArgSize = DL.getPointerSize(AddrSpaceGlobal);
-          KernelArgInfo.emplace_back(false, ArgSize);
-          ParamsTy.push_back(
-              PointerType::getWithSamePointeeType(PtrTy, AddrSpaceGlobal));
-#if INTEL_CUSTOMIZATION
-        }
-#endif // INTEL_CUSTOMIZATION
-      }
-    } else {
-      // A non-pointer argument may appear as a result of scalar
-      // FIRSTPRIVATE.
-      ParamsTy.push_back(*ArgTyI);
-      ArgSize = DL.getTypeStoreSize(*ArgTyI).getFixedSize();
-      KernelArgInfo.emplace_back(false, ArgSize);
-    }
-    ByValLimit -= std::min(ByValLimit, ArgSize);
-  }
-
-  GenerateKernelArgInfoVar(KernelArgInfo, Fn, WT->getHasTeamsReduction(),
-                           WT->getHasLocalAtomicFreeReduction(),
-                           WT->getHasGlobalAtomicFreeReduction());
-
-  Type *RetTy = FnTy->getReturnType();
-  FunctionType *NFnTy = FunctionType::get(RetTy, ParamsTy, false);
-  Function *NFn = Function::Create(NFnTy, GlobalValue::WeakAnyLinkage);
-  NFn->copyAttributesFrom(Fn);
-  NFn->setCallingConv(CallingConv::SPIR_KERNEL);
-  NFn->addFnAttr("target.declare", "true");
-
-  Fn->getParent()->getFunctionList().insert(Fn->getIterator(), NFn);
-  NFn->takeName(Fn);
-  NFn->getBasicBlockList().splice(NFn->begin(), Fn->getBasicBlockList());
-
-  // Everything including the routine name has been moved to the new routine.
-  // Do the same with the debug information.
-  NFn->setSubprogram(Fn->getSubprogram());
-  Fn->setSubprogram(nullptr);
-
-  IRBuilder<> Builder(NFn->getEntryBlock().getFirstNonPHI());
-  Function::arg_iterator NewArgI = NFn->arg_begin();
-  for (Function::arg_iterator I = Fn->arg_begin(), E = Fn->arg_end(); I != E;
-       ++I) {
-    auto ArgV = &*NewArgI;
-    Value *NewArgV = ArgV;
-    auto ArgNum = std::distance(Fn->arg_begin(), I);
-    auto MapIdx = GetMapIdxForArgNum(ArgNum);
-    bool IsFunctionPointer = IsFunctionPtr[MapIdx];
-    if (PointerType *OldArgPtrTy = dyn_cast<PointerType>(I->getType())) {
-      if (IsFunctionPointer ||
-          (!OldArgPtrTy->isOpaque() &&
-           isa<FunctionType>(OldArgPtrTy->getNonOpaquePointerElementType()))) {
-        // The new argument has 64-bit integer type.
-        // We need to cast it to a function pointer type of the original
-        // argument.
-        NewArgV = Builder.CreateIntToPtr(
-            ArgV, OldArgPtrTy, ArgV->getName() + Twine(".cast"));
-      } else {
-        KernelArgInfoDesc &ArgDesc =
-            KernelArgInfo[std::distance(Fn->arg_begin(), I)];
-        if (ArgDesc.IsByVal) {
-          ArgV->addAttr(Attribute::getWithByValType(Builder.getContext(),
-                                                    ArgDesc.ByValTy));
-          NewArgV = Builder.CreateInBoundsGEP(ArgDesc.ByValTy, ArgV,
-                                              {Builder.getInt32(0),
-                                               Builder.getInt32(0)},
-                                              ArgV->getName() +
-                                              Twine(".byval.base"));
-        }
-        // Create an address space cast for pointer argument.
-        unsigned NewAddressSpace =
-            cast<PointerType>(ArgV->getType())->getAddressSpace();
-        unsigned OldAddressSpace = OldArgPtrTy->getAddressSpace();
-
-        if (NewAddressSpace != OldAddressSpace) {
-          // Assert the correct addrspacecast here instead of failing
-          // during SPIRV emission.
-          assert(OldAddressSpace == vpo::ADDRESS_SPACE_GENERIC &&
-                 "finalizeKernelFunction: OpenCL global addrspaces can only be "
-                 "casted to generic.");
-          NewArgV = Builder.CreatePointerBitCastOrAddrSpaceCast(
-              ArgV, I->getType(), ArgV->getName() + Twine(".ascast"));
-        }
-      }
-    }
-    I->replaceAllUsesWith(NewArgV);
-    NewArgI->takeName(&*I);
-    ++NewArgI;
-  }
-
-  int SimdWidth = WT->getSPIRVSIMDWidth();
-#if INTEL_CUSTOMIZATION
-  const VPOParoptConfig *VPC = WI->getVPOParoptConfig();
-  if (VPC) {
-    uint8_t KernelSimdWidth = VPC->getKernelSPMDSIMDWidth(NFn->getName());
-    if (KernelSimdWidth > 0)
-      SimdWidth = KernelSimdWidth;
-    vpo::RegisterAllocationMode RegisterAllocMode =
-        VPC->getRegisterAllocMode(NFn->getName());
-    if (RegisterAllocMode != RegisterAllocationMode::DEFAULT) {
-      Metadata *AttrMDArgs[] = {ConstantAsMetadata::get(
-          Builder.getInt32(static_cast<int>(RegisterAllocMode)))};
-      NFn->setMetadata("RegisterAllocMode",
-                       MDNode::get(NFn->getContext(), AttrMDArgs));
-    }
-  }
-
-#endif // INTEL_CUSTOMIZATION
-  if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
-    SimdWidth = 1;
-    NFn->setMetadata("omp_simd_kernel", MDNode::get(NFn->getContext(), {}));
-  }
-
-  if (SimdWidth > 0) {
-    Metadata *AttrMDArgs[] = {
-        ConstantAsMetadata::get(Builder.getInt32(SimdWidth)) };
-    NFn->setMetadata("intel_reqd_sub_group_size",
-                     MDNode::get(NFn->getContext(), AttrMDArgs));
-  }
-
-  // Under this option, adding metadate needed by GPU Back-End compiler to
-  // generate block loads
-  if (VPOParoptUtils::enableDeviceBlockLoad()) {
-    Metadata *AttrMDArgs[] = {
-        ConstantAsMetadata::get(Builder.getInt32(0)),
-        ConstantAsMetadata::get(Builder.getInt32(1)),
-        ConstantAsMetadata::get(Builder.getInt32(2)) };
-    NFn->setMetadata("intel_reqd_workgroup_walk_order",
-                     MDNode::get(NFn->getContext(), AttrMDArgs));
-  }
-
-  return NFn;
-}
-
-/// This function checks if the instruction is an intrinsic instruction,
-/// and depending on the boolean flag, whether it is target, parallel
-/// parallel loop or simd loop.
-static bool isParOrTargetDirective(Instruction *Inst,
-                                   bool isTarget = false, bool isSIMD = false) {
-  auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
-
-  if (!IntrinInst || !IntrinInst->hasOperandBundles()) {
-    return false;
-  }
-
-  int ID = VPOAnalysisUtils::getDirectiveID(Inst);
-
-  if (isSIMD)
-    return ID==DIR_OMP_SIMD;
-
-  if (isTarget)
-    return ID==DIR_OMP_TARGET;
-
-  switch (ID) {
-    case DIR_OMP_PARALLEL:
-    case DIR_OMP_PARALLEL_LOOP:
-    case DIR_OMP_PARALLEL_SECTIONS:
-    case DIR_OMP_DISTRIBUTE_PARLOOP:
-    case DIR_OMP_SIMD:
-      // DIR_OMP_TEAMS used to be here, but it prevented guarding
-      // instructions with side effects inside OpenMP teams regions.
-      // We may want to get it back here, so that we insert barriers
-      // around OpenMP teams region. This is currently not required,
-      // since there may not be any code between "target" and "teams".
-      return true;
-  }
-
-  return false;
-}
-
-/// This function checks if the instruction is a SIMD intrinsic instruction,
-static bool isSimdDirective(Instruction *Inst) {
-  auto IntrinInst = dyn_cast<IntrinsicInst>(Inst);
-
-  if (!IntrinInst || !IntrinInst->hasOperandBundles()) {
-    return false;
-  }
-
-  int ID = VPOAnalysisUtils::getDirectiveID(Inst);
-
-  if (ID == DIR_OMP_SIMD || ID == DIR_OMP_END_SIMD)
-     return true;
-
-  return false;
-}
-
-/// Get the exit region directive intrinsic instruction, corresponding
-/// to the begin region directive. The user instruction of the
-/// begin region is the exit region directive. If \p DirectiveBegin is same
-/// as \p KernelEntryDir, then returns \p KernelExitDir.
-static Instruction *getExitInstruction(Instruction *DirectiveBegin,
-                                       Instruction *KernelEntryDir,
-                                       Instruction *KernelExitDir) {
-  assert(DirectiveBegin && isa<IntrinsicInst>(DirectiveBegin) &&
-         "Unexpected begin directive.");
-
-  if (DirectiveBegin == KernelEntryDir)
-    return KernelExitDir;
-
-  // Assumption: Every intrinsic instruction that begins a directive
-  // has a single exit directive corresponding to it.
-  // So, if we iterate through its users, then the
-  // intrinsic instruction that uses it must be the exit directive.
-  // For KernelEntryDir, it's possible to not have any use, as the use is
-  // replaced with 'token none' before invoking CodeExtractor, but it has
-  // already been handled above.
-  for (auto U : DirectiveBegin->users()) {
-    if (auto DEnd = dyn_cast<IntrinsicInst>(U)) {
-      LLVM_DEBUG(dbgs() << "\n Directive End::" << *DEnd << "\n");
-      return DEnd;
-    }
-  }
-  return nullptr;
-}
-
-/// If the given \p CallI is a __kmpc_critical call,
-/// then this function will return its pairing __kmpc_end_critical call,
-/// otherwise, it will return nullptr.
-/// The function assumes that there are no early exits from the critical
-/// region, which is a valid assumption for SPIR targets (where we can
-/// only support well-formed critical regions).
-static CallInst *getCriticalEndCall(CallInst *CallI) {
-  auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
-
-  if (!CalledF || !CalledF->hasName() ||
-      CalledF->getName() != "__kmpc_critical" ||
-      CalledF->getName() != "__kmpc_critical_simd")
-    return nullptr;
-
-  SmallVector<BasicBlock *, 32> WorkStack{CallI->getParent()};
-  SmallPtrSet<BasicBlock *, 32> Visited;
-  while (!WorkStack.empty()) {
-    BasicBlock *BB = WorkStack.pop_back_val();
-
-    for (auto &I : *BB)
-      if (auto *EndCallI = dyn_cast<CallInst>(&I)) {
-        auto CalledF = EndCallI->getCalledOperand()->stripPointerCasts();
-
-        if (CalledF && CalledF->hasName() &&
-            (CalledF->getName() == "__kmpc_end_critical" ||
-             CalledF->getName() == "__kmpc_critical_simd"))
-          return EndCallI;
-      }
-
-    Visited.insert(BB);
-    assert(BB->getTerminator()->getNumSuccessors() > 0 &&
-           "Block inside critical section has zero successors.");
-    // Place the successors into the work stack.
-    for (auto *SBB : successors(BB))
-      if (Visited.count(SBB) == 0)
-        WorkStack.push_back(SBB);
-  }
-
-  llvm_unreachable("OpenMP critical region is malformed.");
-  return nullptr;
-}
-
 // Add "paropt_guarded_by_thread_check" metadata to the Instruction to mark that
 // it is already guarded by a check to ensure that only one thread executes it.
 void VPOParoptTransform::markAsGuardedByThreadCheck(Instruction *I) {
@@ -860,711 +334,6 @@ void VPOParoptTransform::markAsGuardedByThreadCheck(Instruction *I) {
   Constant *One = ConstantInt::get(Type::getInt32Ty(C), 1);
   I->setMetadata(GuardedByThreadCheckMDStr,
                  MDNode::get(C, ConstantAsMetadata::get(One)));
-}
-
-// Return true if the Instruction has metadata indicating that it is already
-// guarded by a check to ensure that only one thread executes it.
-bool VPOParoptTransform::isGuardedByThreadCheck(const Instruction *I) {
-  return I->hasMetadata(GuardedByThreadCheckMDStr);
-}
-
-/// Returns true for instructions that can be ignored by
-/// guardSideEffectStatements(), even if they have side effects.
-/// Returns true if the call instruction is a special call.
-/// Returns true if the call instruction is a intrinsic call, except for memcpy
-/// intrinsic, the destination operand is not allocated locally in the thread.
-/// Returns true if the store address is an alloca instruction,
-/// that is allocated locally in the thread, or if it has already been marked as
-/// being executed under its own master thread check.
-bool VPOParoptTransform::ignoreWhenGuardingSideEffectStatements(
-    const Instruction *I) {
-  //   Ignore calls to the following OpenCL functions
-  const std::set<std::string> IgnoreCalls = {
-      "_Z13get_global_idj",  "_Z12get_local_idj",   "_Z14get_local_sizej",
-      "_Z14get_num_groupsj", "_Z12get_group_idj",
-      "_Z22__spirv_ControlBarrieriii",
-      "_Z9mem_fencej",       "_Z14read_mem_fencej", "_Z15write_mem_fencej",
-#if INTEL_CUSTOMIZATION
-      "_f90_dope_vector_init", "_f90_firstprivate_copy",
-      "_f90_dope_vector_size", "_f90_lastprivate_copy",
-#endif // INTEL_CUSTOMIZATION
-      "omp_get_thread_num"};
-
-  if (auto II = dyn_cast<IntrinsicInst>(I)) {
-    if (II->getIntrinsicID() == Intrinsic::memcpy) {
-      auto Arg0 = II->getArgOperand(0)->stripPointerCasts();
-      LLVM_DEBUG(dbgs() << "Destination operand:: " << *Arg0 << "\n");
-      if (cast<PointerType>(Arg0->getType())->getAddressSpace() !=
-          vpo::ADDRESS_SPACE_PRIVATE)
-        return false;
-    }
-    return true;
-  } else if (auto CallI = dyn_cast<CallInst>(I)) {
-    // Unprototyped function calls may result in a call of a bitcasted
-    // Function.
-    auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
-    assert(CalledF != nullptr && "Called Function not found.");
-    if (CalledF->hasName() &&
-        IgnoreCalls.find(std::string(CalledF->getName())) != IgnoreCalls.end())
-      return true;
-
-    if (CallI->hasFnAttr("openmp-privatization-constructor") ||
-        CallI->hasFnAttr("openmp-privatization-destructor") ||
-        CallI->hasFnAttr("openmp-privatization-copyconstructor") ||
-        CallI->hasFnAttr("openmp-privatization-copyassign")) {
-      const Value *CheckArgument = CallI->getArgOperand(0);
-      const Value *RootPointer = CheckArgument->stripInBoundsOffsets();
-      if (cast<PointerType>(CheckArgument->getType())->getAddressSpace() ==
-              vpo::ADDRESS_SPACE_PRIVATE ||
-          cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
-              vpo::ADDRESS_SPACE_PRIVATE)
-        return true;
-    }
-  } else if (auto StoreI = dyn_cast<StoreInst>(I)) {
-    const Value *StorePointer = StoreI->getPointerOperand();
-    const Value *RootPointer = StorePointer->stripInBoundsOffsets();
-    LLVM_DEBUG(dbgs() << "Store op:: " << *StorePointer << "\n");
-
-    // Ignore stores that are already guarded by master-thread checks. e.g.
-    // atomic-free reduction implementation's global update loop
-    // is executed only by the master thread of a single team
-    // so no additional guarding is required.
-    if (isGuardedByThreadCheck(StoreI))
-      return true;
-
-    // We must not guard stores through private pointers. The store must
-    // happen in each work item, so that the variable is initialized
-    // in each work item. For values privatized as local allocas RootPointer
-    // will be the AllocaInst with private address space, so there is no need
-    // for special handling of the regions' private values.
-    if (cast<PointerType>(StorePointer->getType())->getAddressSpace() ==
-            vpo::ADDRESS_SPACE_PRIVATE ||
-        cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
-            vpo::ADDRESS_SPACE_PRIVATE)
-      return true;
-  }
-  return false;
-}
-
-namespace {
-// Address space-aware AlisSetTracker which takes into account aliasing rules
-// for different address spaces on SPIR-V target.
-class AliasSetTrackerSPIRV {
-  std::array<std::unique_ptr<AliasSetTracker>, vpo::ADDRESS_SPACE_GENERIC> ASTs;
-
-  void add(unsigned AS, Instruction &I) {
-    if (AS == vpo::ADDRESS_SPACE_GENERIC) {
-      ASTs[vpo::ADDRESS_SPACE_PRIVATE]->add(&I);
-      ASTs[vpo::ADDRESS_SPACE_LOCAL]->add(&I);
-      ASTs[vpo::ADDRESS_SPACE_GLOBAL]->add(&I);
-      return;
-    }
-    ASTs[AS]->add(&I);
-  }
-
-public:
-  AliasSetTrackerSPIRV(BatchAAResults &BAAR) {
-    ASTs[ADDRESS_SPACE_PRIVATE] = std::make_unique<AliasSetTracker>(BAAR);
-    ASTs[ADDRESS_SPACE_GLOBAL] = std::make_unique<AliasSetTracker>(BAAR);
-    ASTs[ADDRESS_SPACE_CONSTANT] = std::make_unique<AliasSetTracker>(BAAR);
-    ASTs[ADDRESS_SPACE_LOCAL] = std::make_unique<AliasSetTracker>(BAAR);
-  }
-
-  void add(Instruction &I) {
-    if (!I.mayReadOrWriteMemory() || VPOAnalysisUtils::isOpenMPDirective(&I))
-      return;
-    if (auto *LI = dyn_cast<LoadInst>(&I)) {
-      add(LI->getPointerAddressSpace(), *LI);
-      return;
-    }
-    if (auto *SI = dyn_cast<StoreInst>(&I)) {
-      add(SI->getPointerAddressSpace(), *SI);
-      return;
-    }
-    if (auto *AI = dyn_cast<AtomicCmpXchgInst>(&I)) {
-      add(AI->getPointerAddressSpace(), *AI);
-      return;
-    }
-    if (auto *AI = dyn_cast<AtomicRMWInst>(&I)) {
-      add(AI->getPointerAddressSpace(), *AI);
-      return;
-    }
-    if (auto *MI = dyn_cast<AnyMemSetInst>(&I)) {
-      add(MI->getArgOperand(0)->getType()->getPointerAddressSpace(), *MI);
-      return;
-    }
-    if (auto *MI = dyn_cast<AnyMemTransferInst>(&I)) {
-      add(MI->getArgOperand(0)->getType()->getPointerAddressSpace(), *MI);
-      add(MI->getArgOperand(1)->getType()->getPointerAddressSpace(), *MI);
-      return;
-    }
-    if (auto *CI = dyn_cast<CallBase>(&I)) {
-      static const StringSet<> IgnoreCalls{
-          "_Z13get_global_idj", "_Z12get_local_idj", "_Z14get_local_sizej",
-          "_Z14get_num_groupsj", "_Z12get_group_idj"};
-
-      if (Function *Callee = CI->getCalledFunction()) {
-        if (IgnoreCalls.contains(Callee->getName()))
-          return;
-      }
-
-      // TODO: Perhaps we can do something smarter here taking into account
-      // function and argument attributes, but so far just fall though to the
-      // code that handles unknown instructions.
-    }
-
-    // Conservatively add instruction to all underlying address space specific
-    // alias sets.
-    for (auto &AST : ASTs)
-      AST->add(&I);
-  }
-
-  // Return alias sets for the given address space.
-  const ilist<AliasSet> &getAliasSets(unsigned AS) const {
-    return ASTs[AS]->getAliasSets();
-  }
-};
-} // anonymous namespace
-
-bool VPOParoptTransform::needBarriersAfterParallel(
-    WRegionNode *W, Function *KernelF,
-    SmallDenseMap<Instruction *, bool> &InsertBarrierAt) {
-  if (DisableParallelBarriers)
-    return false;
-
-  // With side-effects instructions barriers will be inserted after each
-  // parallel region, but if there are no such instructions we need to
-  // recompute places that require a barrier for correctness.
-  InsertBarrierAt.clear();
-
-  DenseMap<BasicBlock *, WRegionNode *> Exit2ParRegion;
-
-  // Find all parallel regions at any nesting level inside the target region,
-  // but skip parallel regions nested inside another parallel. Adding a
-  // barrier after such regions may cause a deadlock.
-  SmallVector<WRegionNode *, 8> Worklist;
-  copy(W->getChildren(), std::back_inserter(Worklist));
-  while (!Worklist.empty()) {
-    WRegionNode *W = Worklist.pop_back_val();
-    if (W->getIsPar()) {
-      if (W->getParent()->getIsPar())
-        continue;
-      Exit2ParRegion[W->getExitBBlock()] = W;
-    }
-    copy(W->getChildren(), std::back_inserter(Worklist));
-  }
-
-  // No need to add barriers if there is only one or no parallel regions.
-  if (Exit2ParRegion.size() <= 1)
-    return false;
-
-  // Setup AA for the outlined function.
-  DominatorTree DT(*KernelF);
-  BasicAAResult BAR(KernelF->getParent()->getDataLayout(), *KernelF, *TLI, *AC,
-                    &DT, OptLevel);
-  AAResults AAR(*TLI);
-  AAR.addAAResult(BAR);
-  BatchAAResults BAAR(AAR);
-
-  SmallDenseMap<WRegionNode *, std::unique_ptr<AliasSetTrackerSPIRV>> ASTs;
-  auto GetAliasSets = [&ASTs, &BAAR](WRegionNode *W,
-                                     unsigned AS) -> const ilist<AliasSet> & {
-    auto P = ASTs.insert({W, nullptr});
-    if (P.second) {
-      P.first->second = std::make_unique<AliasSetTrackerSPIRV>(BAAR);
-
-      W->populateBBSet();
-      for (BasicBlock *BB : W->blocks()) {
-        if (W->getExitDirective() == &BB->front())
-          continue;
-
-        Instruction *I1 = (BB == W->getEntryBBlock())
-                              ? W->getEntryDirective()->getNextNode()
-                              : &BB->front();
-        Instruction *I2 = (BB == W->getExitBBlock())
-                              ? W->getExitDirective()->getPrevNode()
-                              : &BB->back();
-
-        for (auto &I : make_range(I1->getIterator(), ++I2->getIterator()))
-          P.first->second->add(I);
-      }
-    }
-    return P.first->second->getAliasSets(AS);
-  };
-
-  // Otherwise for each of parallel region walk predecessors to see if we can
-  // find any parallel region on all paths to the target region entry. All
-  // regions that we find require a barrier.
-  for (auto &P : Exit2ParRegion) {
-    SmallPtrSet<BasicBlock *, 8> Visited{W->getEntryBBlock()};
-    std::queue<BasicBlock *> Worklist;
-    auto GrowWorklist = [&Worklist, &Visited](BasicBlock *BB) {
-      if (Visited.insert(BB).second)
-        for (BasicBlock *PredBB : predecessors(BB))
-          if (!Visited.contains(PredBB))
-            Worklist.push(PredBB);
-    };
-    GrowWorklist(P.second->getEntryBBlock());
-
-    while (!Worklist.empty()) {
-      BasicBlock *BB = Worklist.front();
-      Worklist.pop();
-
-      // If this is an exit block of a parallel region then this region
-      // needs a barrier.
-      auto It = Exit2ParRegion.find(BB);
-      if (It != Exit2ParRegion.end()) {
-        bool &IsGlobal = InsertBarrierAt
-                             .insert({It->second->getExitDirective(),
-                                      OptLevel < 3 || !SimplifyBarrierFences})
-                             .first->second;
-        if (!IsGlobal) {
-          // Global fence is needed if either the parallel region that we are
-          // analysing or the region reacheable though predecessors writes to
-          // global memory while the other one reads from or writes to it. In
-          // that case we add a barrier with global fence after the reacheable
-          // parallel region if both regions access the same memory.
-          const ilist<AliasSet> &ASL1 =
-              GetAliasSets(It->second, vpo::ADDRESS_SPACE_GLOBAL);
-          const ilist<AliasSet> &ASL2 =
-              GetAliasSets(P.second, vpo::ADDRESS_SPACE_GLOBAL);
-
-          IsGlobal |= any_of(ASL1, [&ASL2, &BAAR](const AliasSet &AS1) {
-            if (AS1.isForwardingAliasSet())
-              return false;
-
-            for (const AliasSet &AS2 : ASL2) {
-              if (AS2.isForwardingAliasSet())
-                continue;
-
-              // If any of these alias sets write to memory while the other
-              // one reads from or writes to it, then alias sets may
-              // potentially overlap. In this case we need to check if these
-              // alias sets alias.
-              if ((AS1.isMod() && (AS2.isMod() || AS2.isRef())) ||
-                  (AS2.isMod() && (AS1.isMod() || AS1.isRef()))) {
-                // Check if alias sets alias.
-                if (AS1.aliases(AS2, BAAR))
-                  return true;
-              }
-            }
-            return false;
-          });
-        }
-      }
-
-      GrowWorklist(BB);
-    }
-  }
-
-  return !InsertBarrierAt.empty();
-}
-
-/// Guard instructions that have side effects, so that only master thread
-/// (thread_id == 0) in each team executes it.
-void VPOParoptTransform::guardSideEffectStatements(
-    WRegionNode *W, Function *KernelF) {
-
-  assert(isTargetSPIRV() &&
-         "guardSideEffectStatements() called for non-SPIRV target.");
-
-  Instruction *ParDirectiveBegin    = nullptr;
-  Instruction *ParDirectiveExit     = nullptr;
-  Instruction *TargetDirectiveBegin = nullptr;
-  Instruction *TargetDirectiveExit  = nullptr;
-  CallInst *KernelEntryDir          = cast<CallInst>(W->getEntryDirective());
-  CallInst *KernelExitDir           = cast<CallInst>(W->getExitDirective());
-
-  SmallVector<Instruction *, 6> SideEffectInstructions;
-  SmallDenseMap<Instruction *, bool> InsertBarrierAt;
-  SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
-  SmallVector<Instruction *, 10> EntryDirectivesToDelete;
-  SmallVector<Instruction *, 10> ExitDirectivesToDelete;
-  SmallVector<std::pair<CallInst *, CallInst *>, 10> OmpCriticalCalls;
-
-  auto InsertWorkGroupBarrier = [](Instruction *InsertPt, bool GlobalFence) {
-    LLVMContext &C = InsertPt->getContext();
-
-    LLVM_DEBUG(dbgs() << "\nInsert Barrier before:" << *InsertPt << "\n");
-
-    uint64_t MemSemanticsFlags =
-        spirv::SequentiallyConsistent | spirv::WorkgroupMemory;
-    // Experimental option is used to remove global memory fence from the
-    // barrier instruction.
-    if (GlobalFence && !ExcludeGlobalFenceFromBarriers)
-      MemSemanticsFlags |= spirv::CrossWorkgroupMemory;
-
-    // TODO: we only need global fences for side effect instructions
-    //       inside "omp target" and outside of the enclosed regions.
-    //       Moreover, it probably makes sense to guard such instructions
-    //       with (get_group_id() == 0) vs (get_local_id() == 0).
-    CallInst *CI = VPOParoptUtils::genCall(
-        "_Z22__spirv_ControlBarrieriii", Type::getVoidTy(C),
-        // The arguments are:
-        //   (Scope Execution, Scope Memory, MemorySemantics Semantics)
-        //
-        // work_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE)
-        // translates into:
-        // __spirv_ControlBarrier(
-        //     vpo::spirv::Scope::Workgroup,
-        //     vpo::spirv::Scope::Workgroup,
-        //     vpo::spirv::MemorySemantics::SequentiallyConsistent |
-        //     vpo::spirv::MemorySemantics::WorkgroupMemory |
-        //     vpo::spirv::MemorySemantics::CrossWorkgroupMemory)
-        {ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
-         ConstantInt::get(Type::getInt32Ty(C), spirv::Workgroup),
-         ConstantInt::get(Type::getInt32Ty(C), MemSemanticsFlags)},
-        InsertPt);
-    // __spirv_ControlBarrier() is a convergent call.
-    CI->getCalledFunction()->setConvergent();
-  };
-
-  // Find the parallel region begin and end directives,
-  // and add barriers at the entry and exit of parallel region.
-  for (inst_iterator I = inst_begin(KernelF), E = inst_end(KernelF);
-       I != E; ++I) {
-
-    // Collect OpenMP directive calls so that we can delete them
-    // later. We may want to keep SIMD directives at some point,
-    // but right now they are not supported for SPIR-V targets.
-    // Moreover, llvm-spirv is not able to translate llvm.directive.region
-    // intrinsic calls.
-    if (VPOAnalysisUtils::isOpenMPDirective(&*I) &&
-        // Target directives require special processing (see below).
-        &*I != KernelEntryDir && &*I != KernelExitDir) {
-      // Distinguish between entry and other directives, since
-      // we want to delete the entry directives after their
-      // exit companions.
-      if (!VPOParoptUtils::enableDeviceSimdCodeGen() ||
-          !isSimdDirective(&*I)) {
-        if (VPOAnalysisUtils::isBeginDirective(&*I))
-          EntryDirectivesToDelete.push_back(&*I);
-        else
-          ExitDirectivesToDelete.push_back(&*I);
-      }
-    }
-
-    if (isParOrTargetDirective(&*I) &&
-        // Barriers must not be inserted around SIMD loops.
-        !isParOrTargetDirective(&*I, false, true)) {
-
-      ParDirectiveBegin = &*I;
-      ParDirectiveExit =
-          getExitInstruction(ParDirectiveBegin, KernelEntryDir, KernelExitDir);
-      assert(ParDirectiveExit && "Par region exit directive not found.");
-
-      SmallVector<BasicBlock *, 10> TempParBBVec;
-      GeneralUtils::collectBBSet(ParDirectiveBegin->getParent(),
-                                 ParDirectiveExit->getParent(), TempParBBVec);
-      ParBBVector.append(TempParBBVec.begin(), TempParBBVec.end());
-
-      // Insert a barrier after the region exit. This barrier synchronizes
-      // all side effects that might have happened inside the region
-      // with all the consumers of this side effects that are reachable
-      // from the region's exit. Note that we do not need a barrier
-      // before the region, since we insert barriers after all side effect
-      // instructions that may reach the region's entry.
-      InsertBarrierAt.insert({ParDirectiveExit, true});
-
-      ParDirectiveBegin = nullptr;
-      ParDirectiveExit = nullptr;
-    } else if (TargetDirectiveBegin == nullptr &&
-               isParOrTargetDirective(&*I, true)) {
-      TargetDirectiveBegin = &*I;
-      TargetDirectiveExit = getExitInstruction(TargetDirectiveBegin,
-                                               KernelEntryDir, KernelExitDir);
-      assert(TargetDirectiveExit && "Target region exit directive not found.");
-
-      GeneralUtils::collectBBSet(TargetDirectiveBegin->getParent(),
-          TargetDirectiveExit->getParent(), TargetBBSet);
-    } else if (auto *CallI = dyn_cast<CallInst>(&*I))
-      if (auto *EndCallI = getCriticalEndCall(CallI))
-        // Collect critical regions. If a side-effect instruction
-        // inside a critical region must be guarded (e.g. the critical
-        // region is inside a teams region), then there must be no
-        // barrier at the merge point.
-        //
-        // FIXME: this is not really needed, because we guard the
-        //        lock acqure/release calls with the master thread checks
-        //        as well. For some reason specACCEL/552 hangs with
-        //        the barrier calls.
-        OmpCriticalCalls.push_back({CallI, EndCallI});
-  }
-
-  SmallPtrSet<BasicBlock *, 10> ParBBSet(ParBBVector.begin(),
-                                         ParBBVector.end());
-  SmallPtrSet<BasicBlock *, 10> CriticalBBSet;
-  SmallPtrSet<Instruction *, 10> SideEffectsInCritical;
-
-  if (!VPOParoptUtils::enableDeviceSimdCodeGen()) {
-    for (auto &CriticalPair : OmpCriticalCalls) {
-      SmallVector<BasicBlock *, 32> BBSet;
-      GeneralUtils::collectBBSet(CriticalPair.first->getParent(),
-                                 CriticalPair.second->getParent(),
-                                 BBSet);
-      CriticalBBSet.insert(BBSet.begin(), BBSet.end());
-    }
-  }
-
-  // Iterate over all instructions and add the side effect instructions
-  // to the set "SideEffectInstructions".
-
-  TargetDirectiveBegin = nullptr;
-  TargetDirectiveExit = nullptr;
-
-  for (auto BB : TargetBBSet) {
-    if (ParBBSet.find(BB) != ParBBSet.end())
-      continue;
-
-    for (auto &I : *BB) {
-      if (TargetDirectiveBegin == nullptr &&
-          isParOrTargetDirective(&I, true)) {
-        TargetDirectiveBegin = &I;
-        TargetDirectiveExit = getExitInstruction(TargetDirectiveBegin,
-                                                 KernelEntryDir, KernelExitDir);
-      }
-
-      if (TargetDirectiveBegin == nullptr)
-        continue;
-      if (TargetDirectiveExit == &I)
-        break;
-      if (I.mayThrow() || I.mayWriteToMemory()) {
-        if (ignoreWhenGuardingSideEffectStatements(&I))
-          continue;
-
-        LLVM_DEBUG(dbgs() << "\nInstruction has side effect::" << I
-                          << "\nBasicBlock: " << I.getParent() << "\n");
-        SideEffectInstructions.push_back(&I);
-        if (CriticalBBSet.find(BB) != CriticalBBSet.end())
-          SideEffectsInCritical.insert(&I);
-      }
-    }
-  }
-
-  auto I = SideEffectInstructions.begin();
-  auto IE = SideEffectInstructions.end();
-  Value *MasterCheckPredicate = nullptr;
-
-  if (I != IE) {
-    // Prepare the master check predicate, which looks like
-    //   (get_local_id(0) == 0 && get_local_id(1) == 0 &&
-    //    get_local_id(2) == 0)
-    //
-    // TODO: we may optimize this later, based on the number of dimensions
-    //       used for the target region.
-    IRBuilder<> Builder(KernelEntryDir);
-    auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
-    Value *LocalId = nullptr;
-
-    for (unsigned Dim = 0; Dim < 3; ++Dim) {
-      if (VPOParoptUtils::enableDeviceSimdCodeGen())
-        LocalId = VPOParoptUtils::genSPIRVLocalIdCall(Dim, KernelEntryDir);
-      else {
-        auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
-        LocalId = VPOParoptUtils::genOCLGenericCall(
-          "_Z12get_local_idj", GeneralUtils::getSizeTTy(F),
-          { Arg }, KernelEntryDir);
-      }
-      Value *Predicate = Builder.CreateICmpEQ(LocalId, ZeroConst);
-
-      if (!MasterCheckPredicate) {
-        MasterCheckPredicate = Predicate;
-        continue;
-      }
-
-      MasterCheckPredicate = Builder.CreateAnd(MasterCheckPredicate, Predicate);
-    }
-
-    MasterCheckPredicate->setName("is.master.thread");
-  }
-
-  while (I != IE) {
-
-    Instruction *StartI = *I;
-    bool StartIHasUses = StartI->hasNUsesOrMore(1);
-
-    // Collect a consecutive set of Instructions with side effects
-    // from the same block. We want to guard them all at once.
-    // Note that we cannot easily guard any intermediate instructions.
-    // For example, we cannot guard a store to addrspace(0), because
-    // we want it to be executed in each WI. We cannot guard
-    // loads from addrspace(1|3) as well, since they may be loading
-    // from the memory we are about to guard, and the memory may be outdated
-    // in non-master WIs.
-    // Instructions with uses are guarded separately.
-    if (!StartIHasUses)
-      while (std::next(I) != IE &&
-             *std::next(I) == (*I)->getNextNonDebugInstruction() &&
-             !((*std::next(I))->hasNUsesOrMore(1))) {
-        I = std::next(I);
-      }
-
-    // I is pointing to the last instruction in the sequence.
-    Instruction *StopI = *I;
-
-    // Split the basic block after StopI, into 2 blocks (1st and 2nd Block).
-    // Insert a check, before StartI if the thread id is not equal to zero,
-    // then jump to the 2nd block, else jump to StartI. StopI will fall
-    // through to the 2nd block:
-    //   if(MasterCheckPredicate) {
-    //   master.thread.code:
-    //     <start instruction>
-    //     ...
-    //     <stop instruction>
-    //   }
-    //   master.thread.fallthru:
-
-    LLVM_DEBUG(dbgs() << "\nGuarding instructions from:\n"
-                      << *StartI << "\nto:\n"
-                      << *StopI << "\n");
-
-    // For the following code:
-    //
-    //   #pragma omp target map(tofrom:a)
-    //     int val = bar(a);
-    //
-    // Generate code like this:
-    //
-    //  @c.broadcast.ptr.__local = internal addrspace(3) global i32 0 //  (1)
-    //
-    //  call spir_func void @_Z22__spirv_ControlBarrieriii(
-    //      i32 2, i32 2, i32 784)                                    //  (2)
-    //  if (is_master) {                                              //  (3)
-    //    %c = call spir_func i32 @_Z3barPi(i32 addrspace(4)* %8)     // StartI
-    //    store i32 %c, i32 addrspace(3)* @c.broadcast.ptr.__local    //  (4)
-    //  }
-    //
-    //  call spir_func void @_Z22__spirv_ControlBarrieriii(
-    //      i32 2, i32 2, i32 784)                                    //  (5)
-    //  %c.new = load i32, i32 addrspace(3)* @c.broadcast.ptr.__local //  (6)
-    //  store i32 %c.new, i32* %val.priv, align 4  // Replaced %c with %c.new
-    //
-    Value *TeamLocalVal = nullptr;
-    auto &DL = StartI->getModule()->getDataLayout();
-    MaybeAlign Alignment = std::nullopt;
-    if (StartI->getType()->isPointerTy()) {
-      Align MinAlign = StartI->getPointerAlignment(DL);
-      if (MinAlign > 1)
-        Alignment = MinAlign;
-    }
-    if (StartIHasUses)
-      TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
-          StartI->getType(), nullptr, Alignment, TargetDirectiveBegin,
-          isTargetSPIRV(), StartI->getName() + ".broadcast.ptr",
-          vpo::ADDRESS_SPACE_LOCAL);
-
-    // Insert barrier right before checking is_master to avoid data race issue.
-    // It ensures all threads reading the same unmodified value in local/global
-    // address space, which may be updated by the following basic block being
-    // executed in master thread. In The example below, master thread may
-    // execute all instructions and wait at barrier(), while other threads will
-    // read modified Z at first load instruction, instead of unmodified value as
-    // expected. So we have to insert barrier() before "br is.master.thread..."
-    // instruction, to ensure all threads read unmodified value Z and then
-    // master thread modify the value Z.
-    // Example:
-    //   start:
-    //     load Z
-    //     call barrier()
-    //     br is.master.thread, master.thread.code, master.thread.fallthru
-    //   master.thread.code:
-    //     store Z
-    //     br master.thread.fallthru
-    //   master.thread.fallthru:
-    //     call barrier()
-    //
-    // If previous instruction is barrier, we don't need to insert barrier
-    // again.
-    Instruction *PrevI = StartI->getPrevNonDebugInstruction();
-    if ((SideEffectsInCritical.count(StartI) == 0) &&
-        (!PrevI || !isa<CallInst>(PrevI) ||
-         dyn_cast<CallInst>(PrevI)->getCalledFunction()->getName() !=
-             "_Z22__spirv_ControlBarrieriii"))
-      InsertWorkGroupBarrier(StartI, true); //                            (2)
-
-    Instruction *ThenTerm = SplitBlockAndInsertIfThen(
-        MasterCheckPredicate, StartI, false, nullptr, DT, LI); //         (3)
-    BasicBlock *ThenBB = ThenTerm->getParent();
-    ThenBB->setName("master.thread.code");
-    Instruction *ElseInst = StopI->getNextNonDebugInstruction();
-    BasicBlock *ElseBB = ElseInst->getParent();
-    ElseBB->setName("master.thread.fallthru");
-    ThenBB->getInstList().splice(
-        ThenTerm->getIterator(), StartI->getParent()->getInstList(),
-        StartI->getIterator(), ElseInst->getIterator());
-
-    Instruction *BarrierInsertPt = ElseBB->getFirstNonPHI();
-
-    if (StartIHasUses) { //                                               (4)
-      Type *StartITy = StartI->getType();
-      Align StartIAlign = DL.getABITypeAlign(StartITy);
-      StoreInst *StoreGuardedInstValue =
-          new StoreInst(StartI, TeamLocalVal, false /*volatile*/, StartIAlign);
-      StoreGuardedInstValue->insertAfter(StartI);
-
-      LoadInst *LoadSavedValue = //                                       (6)
-          new LoadInst(StartITy, TeamLocalVal, StartI->getName() + ".new",
-                       false /*volatile*/, StartIAlign);
-      LoadSavedValue->insertBefore(BarrierInsertPt);
-      BarrierInsertPt = LoadSavedValue;
-
-      StartI->replaceAllUsesWith(LoadSavedValue);
-      StoreGuardedInstValue->replaceUsesOfWith(LoadSavedValue, StartI);
-    }
-
-    // Insert group barrier at the merge point.
-    if (SideEffectsInCritical.count(StartI) == 0)
-      InsertWorkGroupBarrier(BarrierInsertPt, true); //                   (5)
-
-    I = std::next(I);
-  }
-
-  if (!SideEffectInstructions.empty() ||
-      // FIXME: if there are multiple parallel regions,
-      //        then we need to synchronize between them, otherwise
-      //        some data written in a parallel region
-      //        may be out of date for reading in the succeeding
-      //        parallel region. The check here is not enough,
-      //        because we may read data written in a parallel region
-      //        in "omp target" code succeeding the parallel region.
-      //        For now to avoid performance regressions, we insert
-      //        barriers only when there are multiple regions inside
-      //        "omp target" at any nesting level. The complete fix would
-      //        be to check if any load operation after a parallel region
-      //        may read data that was potentially updated inside
-      //        the parallel region. Can we use alias information for that?
-      needBarriersAfterParallel(W, KernelF, InsertBarrierAt)) {
-    for (auto &InsertPt : InsertBarrierAt) {
-      LLVM_DEBUG(dbgs() << "Insert Barrier with "
-                        << (InsertPt.second ? "global" : "local")
-                        << " fence at :" << InsertPt.first << "\n");
-      InsertWorkGroupBarrier(InsertPt.first, InsertPt.second);
-    }
-  }
-
-  // Delete the directives.
-  // The target directives will be removed by paroptTransforms().
-  for (auto *I : ExitDirectivesToDelete)
-    VPOUtils::stripDirectives(*I->getParent());
-  for (auto *I : EntryDirectivesToDelete)
-    VPOUtils::stripDirectives(*I->getParent());
-
-  // Remove all clauses from the "omp target" entry directive.
-  // The extra references in the clauses may prevent address space
-  // inferring. We cannot remove the directive call yet, because
-  // the removal in paroptTransforms() will complain.
-  OperandBundleDef B(
-      std::string(VPOAnalysisUtils::getDirectiveString(KernelEntryDir)), std::nullopt);
-  // The following call clones the original directive call
-  // with just the directive name in the operand bundles.
-  auto *NewEntryDir = CallInst::Create(KernelEntryDir, {B}, KernelEntryDir);
-  NewEntryDir->copyMetadata(*KernelEntryDir);
-  KernelEntryDir->replaceAllUsesWith(NewEntryDir);
-  KernelEntryDir->eraseFromParent();
-  W->setEntryDirective(NewEntryDir);
-
-  if (VPOParoptUtils::enableDeviceSimdCodeGen())
-    VPOUtils::stripDirectives(*KernelExitDir->getParent());
 }
 
 bool VPOParoptTransform::callBeginEndSpmdParallelAtRegionBoundary(
@@ -1695,61 +464,6 @@ void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
   }
 }
 
-bool VPOParoptTransform::removeClausesFromNestedRegionsExceptSIMD(
-    WRegionNode *W, bool &FoundSIMD) const {
-  bool Changed = false;
-  FoundSIMD = false;
-  SmallVector<WRegionNode *, 8> Worklist{W};
-  do {
-    WRegionNode *W = Worklist.pop_back_val();
-    if (W->getDirID() == DIR_OMP_SIMD) {
-      W->setEntryDirective(nullptr);
-      W->setExitDirective(nullptr);
-      FoundSIMD = true;
-    }
-
-    if (CallInst *OldEntry = cast_or_null<CallInst>(W->getEntryDirective())) {
-      OperandBundleDef Bundles(
-          VPOAnalysisUtils::getDirectiveString(OldEntry).str(), std::nullopt);
-      CallInst *NewEntry = CallInst::Create(OldEntry, Bundles, OldEntry);
-      NewEntry->copyMetadata(*OldEntry);
-      OldEntry->replaceAllUsesWith(NewEntry);
-      OldEntry->eraseFromParent();
-      W->setEntryDirective(NewEntry);
-      Changed = true;
-    }
-
-    copy(W->getChildren(), std::back_inserter(Worklist));
-  } while (!Worklist.empty());
-  return Changed;
-}
-
-// Remove SIMD directives from the function body.
-static void removeSimdDirectives(Function *F) {
-  for (BasicBlock &BB : *F)
-    for (auto I = BB.begin(), E = BB.end(); I != E;)
-      if (auto *II = dyn_cast<IntrinsicInst>(I++)) {
-        int ID = VPOAnalysisUtils::getDirectiveID(II);
-        if (ID == DIR_OMP_SIMD)
-          II->replaceAllUsesWith(UndefValue::get(II->getType()));
-        if (ID == DIR_OMP_SIMD || ID == DIR_OMP_END_SIMD)
-          II->eraseFromParent();
-      }
-}
-
-// Run SROA pass on the given function.
-static void runSROA(Function *F) {
-  FunctionAnalysisManager FAM;
-  FAM.registerPass([&] { return PassInstrumentationAnalysis(); });
-  FAM.registerPass([&] { return DominatorTreeAnalysis(); });
-  FAM.registerPass([&] { return AssumptionAnalysis(); });
-  FAM.registerPass([&] { return TargetIRAnalysis(); });
-
-  FunctionPassManager FPM;
-  FPM.addPass(SROAPass(SROAPass(SROAOptions::ModifyCFG)));
-  FPM.run(*F, FAM);
-}
-
 // Generate the code for the directive omp target
 bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
@@ -1763,59 +477,70 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   resetValueInPrivateClause(W);
   resetValueInLiveinClause(W);
   resetValueInMapClause(W);
+  if (isa<WRNTargetNode>(W))
+    resetValueInOmpClauseGeneric(W, W->getThreadLimit());
 
   renameDuplicateBasesInMapClauses(W);
 
-  // Set up Fn Attr for the new function
-  Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
+  // Outlining is not needed for target enter/exit data, target update.
+  bool GenOutlinedFunction = W->needsOutlining();
 
-  LLVM_DEBUG(
-      dbgs()
-      << "\nEnter VPOParoptTransform::genTargetOffloadingCode: Dump Func::\n"
-      << *NewF);
-  if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
-    NewF->addFnAttr("target.declare", "true");
+  // Set up Fn Attr for the new function
+  Function *NewF = nullptr;
+  CallInst *NewCall = nullptr;
+  if (GenOutlinedFunction) {
+    NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
+
+    LLVM_DEBUG(
+        dbgs()
+        << "\nEnter VPOParoptTransform::genTargetOffloadingCode: Dump Func::\n"
+        << *NewF);
+    if (!VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
+      NewF->addFnAttr("target.declare", "true");
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-  if (isTargetCSA()) {
-    // Add "target.entry" attribute to the outlined function.
-    NewF->addFnAttr("omp.target.entry");
-    NewF->setLinkage(GlobalValue::WeakAnyLinkage);
-  }
+    if (isTargetCSA()) {
+      // Add "target.entry" attribute to the outlined function.
+      NewF->addFnAttr("omp.target.entry");
+      NewF->setLinkage(GlobalValue::WeakAnyLinkage);
+    }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-  CallInst *NewCall = cast<CallInst>(NewF->user_back());
-
+    NewCall = cast<CallInst>(NewF->user_back());
 #if INTEL_CUSTOMIZATION
-  if (EnableTargetArgsNoAlias) {
-    // Add noalias attribute to outlined function's pointer arguments. It should
-    // be safe to do it if actual value that is passed to the outlined region
-    // - is function local object that does not alias with any other object
-    // - is not captured before the call
-    // - does not alias with any other actual argument
-    SmallVector<Argument *, 16u> PtrArgs;
-    for (Argument &A : NewF->args())
-      if (isa<PointerType>(A.getType()))
-        PtrArgs.push_back(&A);
-    for (Argument *Arg : PtrArgs) {
-      Value *Ptr = NewCall->getArgOperand(Arg->getArgNo());
 
-      if (isIdentifiedFunctionLocal(Ptr->stripPointerCasts()) &&
-          !PointerMayBeCapturedBefore(Ptr, /*ReturnCaptures=*/true,
-                                      /*StoreCaptures=*/true, NewCall, DT) &&
-          none_of(PtrArgs, [this, Arg, Ptr, NewCall](const Argument *A) {
-            return A != Arg &&
-                   !AA->isNoAlias(Ptr, NewCall->getArgOperand(A->getArgNo()));
-          }))
-        Arg->addAttr(Attribute::NoAlias);
+    if (EnableTargetArgsNoAlias) {
+      // Add noalias attribute to outlined function's pointer arguments. It
+      // should be safe to do it if actual value that is passed to the outlined
+      // region
+      // - is function local object that does not alias with any other object
+      // - is not captured before the call
+      // - does not alias with any other actual argument
+      SmallVector<Argument *, 16u> PtrArgs;
+      for (Argument &A : NewF->args())
+        if (isa<PointerType>(A.getType()))
+          PtrArgs.push_back(&A);
+      for (Argument *Arg : PtrArgs) {
+        Value *Ptr = NewCall->getArgOperand(Arg->getArgNo());
+
+        if (isIdentifiedFunctionLocal(Ptr->stripPointerCasts()) &&
+            !PointerMayBeCapturedBefore(Ptr, /*ReturnCaptures=*/true,
+                                        /*StoreCaptures=*/true, NewCall, DT) &&
+            none_of(PtrArgs, [this, Arg, Ptr, NewCall](const Argument *A) {
+              return A != Arg &&
+                     !AA->isNoAlias(Ptr, NewCall->getArgOperand(A->getArgNo()));
+            }))
+          Arg->addAttr(Attribute::NoAlias);
+      }
     }
-  }
 #endif // INTEL_CUSTOMIZATION
+  }
 
   Constant *RegionId = nullptr;
   if (auto *WT = dyn_cast<WRNTargetNode>(W)) {
     assert(MT && "target region with no module transform");
+    assert(NewF && "target region was not outlined");
     RegionId = MT->registerTargetRegion(W, NewF);
 
     // Use weak linkage for x86_64 device compilation, which is needed for NewF
@@ -1827,84 +552,8 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
     // Please note that the name of NewF is updated in the
     // function registerTargetRegion.
-    if (isTargetSPIRV()) {
-      SmallVector<Constant *, 16> ConstSizes;
-      SmallVector<uint64_t, 16> MapTypes;
-      SmallVector<GlobalVariable *, 16> Names;
-      SmallVector<Value *, 16> Mappers;
-#if INTEL_CUSTOMIZATION
-      SmallVector<bool> IsWILocalFirstprivate;
-#endif // INTEL_CUSTOMIZATION
-      SmallVector<bool> IsFunctionPtr;
-      bool HasRuntimeEvaluationCaptureSize = false;
-      (void)getTargetDataInfo(W, NewCall, ConstSizes, MapTypes, Names, Mappers,
-#if INTEL_CUSTOMIZATION
-                              IsWILocalFirstprivate,
-#endif // INTEL_CUSTOMIZATION
-                              IsFunctionPtr, HasRuntimeEvaluationCaptureSize);
-      NewF = finalizeKernelFunction(WT, NewF, NewCall, MapTypes,
-#if INTEL_CUSTOMIZATION
-                                    IsWILocalFirstprivate,
-#endif // INTEL_CUSTOMIZATION
-                                    IsFunctionPtr, ConstSizes);
-
-      LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
-                        << *NewF << "\n");
-
-      // CodeExtractor may replace existing SIMD directive entry instructions
-      // with new ones, but it does not update directive entries in WRNs.
-      // Because of that SIMD WRNs may contain invalid entry directive
-      // addresses, so any attempt to dereference SIMD WRNs entry directive
-      // leads to a segfault. Remove all SIMD directives from the function
-      // unless SIMD device codegen is enabled.
-      if (!VPOParoptUtils::enableDeviceSimdCodeGen())
-        removeSimdDirectives(NewF);
-
-      // Remove clauses from all directives in the outlined function in
-      // preparation for the address space inference optimization.
-      // The directives themselves will later be removed in
-      // guardSideEffectStatements() after they are no longer needed.
-      bool ContainsSIMD = false;
-      removeClausesFromNestedRegionsExceptSIMD(W, ContainsSIMD);
-
-      // Cleanup redundant allocas/loads/stores if barrier fences simplification
-      // is enabled. It improves quality of the address space inference
-      // optimization which in turn is needed for simplifying fences.
-      if (OptLevel > 2 && SimplifyBarrierFences)
-        runSROA(NewF);
-
-      // Run address space inference optimization to get rid
-      // of addrspace(4) accesses, which result in run-time dispatches.
-      if (!VPOParoptUtils::enableDeviceSimdCodeGen() || !ContainsSIMD) {
-        // When W contains a SIMD directive (and SIMD device codegen
-        // is enabled), we don't run InferAddrSpaces as it can cause
-        // mismatches in the Values on the clause list, and those used
-        // in the region. e.g.
-        //    Before                           |        After
-        // ------------------------------------+------------------------------
-        //  %x1 = addrspacecast i32* %x        | %x1 = addrspacecast i32* %x
-        //            to i32 addrspace(4)*     |          to i32 addrspace(4)*
-        //                                     |
-        //  ...["SIMD",...,"PRIVATE"(%x1)      | ...["SIMD",...,"PRIVATE"(%x1)
-        //                                     |
-        //  store i32 0, i32 addrspace(4)* %x1 | store i32 0, i32* %x
-        //                                     |
-        InferAddrSpaces(AC, DT, TTI, vpo::ADDRESS_SPACE_GENERIC, *NewF);
-        LLVM_DEBUG(dbgs() << "\nAfter InferAddrSpaces the function ::"
-                          << *NewF);
-      }
-
-      // Run guardSideEffectStatements() after finalizeKernelFunction(),
-      // because the latter may modify some of the kernel arguments,
-      // e.g. change arguments that were originally outlined as addrspace(1)
-      // pointer argument into byval arguments from addrspace(0).
-      // We must not guard accesses through such pointer arguments with
-      // the master-thread checks, otherwise, the code may produce
-      // wrong results.
-      guardSideEffectStatements(W, NewF);
-      LLVM_DEBUG(dbgs() << "\nAfter guardSideEffectStatements the function ::"
-                        << *NewF);
-    }
+    if (isTargetSPIRV())
+      genTargetSPIRVOffloadingCode(WT, NewF, NewCall);
   }
 
   if (hasOffloadCompilation())
@@ -1921,7 +570,19 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
   Value *VIf = W->getIf();
   CallInst *Call;
-  Instruction *InsertPt = NewCall;
+  Instruction *APIInsertPt = nullptr;
+  if (GenOutlinedFunction) {
+    APIInsertPt = NewCall;
+  } else {
+    // If no outlining is done (target enter/exit data and target update),
+    // we create an empty BB inside the region, and use that for inserting the
+    // code generated, like the tgt_target_... API calls etc.
+    Instruction *ExitDirective = W->getExitDirective();
+    BasicBlock *OldExitBB = ExitDirective->getParent();
+    BasicBlock *NewExitBB = SplitBlock(OldExitBB, ExitDirective, DT, LI);
+    W->setExitBBlock(NewExitBB);
+    APIInsertPt = OldExitBB->getFirstNonPHI();
+  }
 
   if (VIf) {
     // If the target construct has if clause, the compiler will generate a
@@ -1959,12 +620,14 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     // if.end:
     //   ...
     //
-    Builder.SetInsertPoint(NewCall);
+    Instruction *IfInsertPt = APIInsertPt;
+    Builder.SetInsertPoint(IfInsertPt);
     Value *Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
     Instruction *ThenTerm, *ElseTerm;
-    VPOParoptUtils::buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt, DT);
-    InsertPt = ThenTerm;
-    Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
+    VPOParoptUtils::buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, IfInsertPt,
+                                        DT);
+    APIInsertPt = ThenTerm;
+    Call = genTargetInitCode(W, NewCall, RegionId, APIInsertPt);
     Builder.SetInsertPoint(ElseTerm);
     Builder.CreateStore(
         ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), -1),
@@ -1977,12 +640,12 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       Builder.CreateCall(NewF, FnArgs, "");
     }
   } else {
-    Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
+    Call = genTargetInitCode(W, NewCall, RegionId, APIInsertPt);
   }
 
   if (!hasOffloadCompilation()) {
     if (isa<WRNTargetNode>(W)) {
-      Builder.SetInsertPoint(InsertPt);
+      Builder.SetInsertPoint(APIInsertPt);
       Builder.CreateStore(Call, OffloadError);
 
       Builder.SetInsertPoint(NewCall);
@@ -2010,16 +673,6 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       NewCall->removeFromParent();
       NewCall->insertAfter(Call);
       useUpdatedUseDevicePtrsInTgtDataRegion(W, NewCall);
-      if (!NewF->hasFnAttribute(Attribute::OptimizeNone)) {
-        NewF->removeFnAttr(Attribute::NoInline);
-        NewF->addFnAttr(Attribute::AlwaysInline);
-      }
-    } else if (isa<WRNTargetEnterDataNode>(W) ||
-               isa<WRNTargetExitDataNode>(W) ||
-               isa<WRNTargetUpdateNode>(W)) {
-      // We cannot delete the outlined functions, because they
-      // may contain some meaningful code (e.g. InstCombine may put
-      // something into the initially empty blocks).
       if (!NewF->hasFnAttribute(Attribute::OptimizeNone)) {
         NewF->removeFnAttr(Attribute::NoInline);
         NewF->addFnAttr(Attribute::AlwaysInline);
@@ -2146,7 +799,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
                     << " hasRuntimeEvaluationCaptureSize="
                     << hasRuntimeEvaluationCaptureSize << "\n");
 
-  const DataLayout DL = F->getParent()->getDataLayout();
+  const DataLayout &DL = F->getParent()->getDataLayout();
   LLVMContext &C = F->getContext();
 
   bool ForceMapping =
@@ -2444,7 +1097,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
   }
   StructType *CLLoopParameterRecType =
       StructType::get(C,
-                      makeArrayRef(CLLoopParameterRecTypeArgs.begin(),
+                      ArrayRef(CLLoopParameterRecTypeArgs.begin(),
                                    CLLoopParameterRecTypeArgs.end()),
                       false);
   // FIXME: Use getInsertionPtForAllocas() for this alloca.
@@ -2510,7 +1163,11 @@ unsigned VPOParoptTransform::getTargetDataInfo(
     SmallVectorImpl<bool> &IsFunctionPtr,
     bool &HasRuntimeEvaluationCaptureSize) const {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::getTargetDataInfo\n");
-  unsigned NumberOfPtrs = Call->arg_size();
+  auto Exiter = [&MapTypes]() {
+    LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::getTargetDataInfo\n");
+    return MapTypes.size();
+  };
+
   HasRuntimeEvaluationCaptureSize = false;
   bool ForceMapping =
       // These regions will not have any real references to the mapped
@@ -2518,41 +1175,37 @@ unsigned VPOParoptTransform::getTargetDataInfo(
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
 
-  if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
-    NumberOfPtrs++;
-
-  if (NumberOfPtrs || ForceMapping) {
-    if (ForceMapping) {
-      genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
+  if (ForceMapping) {
+    genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
 #if INTEL_CUSTOMIZATION
-                               IsWILocalFirstprivate,
+                             IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
-                               IsFunctionPtr, HasRuntimeEvaluationCaptureSize);
-    } else {
-      for (unsigned II = 0; II < Call->arg_size(); ++II) {
-        Value *BPVal = Call->getArgOperand(II);
-        genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
-#if INTEL_CUSTOMIZATION
-                                 IsWILocalFirstprivate,
-#endif // INTEL_CUSTOMIZATION
-                                 IsFunctionPtr, HasRuntimeEvaluationCaptureSize,
-                                 /*VIsTargetKernelArg=*/isa<WRNTargetNode>(W));
-      }
-      if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
-        genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
-                                 MapTypes, Names, Mappers,
-#if INTEL_CUSTOMIZATION
-                                 IsWILocalFirstprivate,
-#endif // INTEL_CUSTOMIZATION
-                                 IsFunctionPtr, HasRuntimeEvaluationCaptureSize,
-                                 /*VIsTargetKernelArg=*/true);
-    }
-
-    NumberOfPtrs = MapTypes.size();
+                             IsFunctionPtr, HasRuntimeEvaluationCaptureSize);
+    return Exiter();
   }
 
-  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::getTargetDataInfo\n");
-  return NumberOfPtrs;
+  assert(Call && "Call is required to cross reference clauses with call args.");
+
+  for (unsigned II = 0; II < Call->arg_size(); ++II) {
+    Value *BPVal = Call->getArgOperand(II);
+    genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
+#if INTEL_CUSTOMIZATION
+                             IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
+                             IsFunctionPtr, HasRuntimeEvaluationCaptureSize,
+                             /*VIsTargetKernelArg=*/isa<WRNTargetNode>(W));
+  }
+
+  if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
+    genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
+                             MapTypes, Names, Mappers,
+#if INTEL_CUSTOMIZATION
+                             IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
+                             IsFunctionPtr, HasRuntimeEvaluationCaptureSize,
+                             /*VIsTargetKernelArg=*/true);
+
+  return Exiter();
 }
 
 // Generate the initialization code for the directive omp target.
@@ -3019,7 +1672,8 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
 
     bool IsArrayOrArraySection =
         RedI->getIsArraySection() || BufTy->isArrayTy() || NumElems;
-    if (NeedsLocalBuffer && !IsArrayOrArraySection) {
+    bool IsUDR = RedI->getType() == ReductionItem::WRNReductionUdr;
+    if (NeedsLocalBuffer && !IsArrayOrArraySection && !IsUDR) {
       Value *MapLocalSize = ConstantInt::get(
           Type::getInt64Ty(F->getContext()),
           Size * AtomicFreeRedLocalBufSize *
@@ -3561,7 +2215,7 @@ void VPOParoptTransform::genOffloadArraysInitUtil(
 // Generate the target intialization code for the pointers based
 // on the order of the map clause.
 void VPOParoptTransform::genOffloadArraysInitForClause(
-    WRegionNode *W, TgDataInfo *Info, CallInst *Call, Instruction *InsertPt,
+    WRegionNode *W, TgDataInfo *Info, Instruction *InsertPt,
     SmallVectorImpl<Constant *> &ConstSizes,
     bool hasRuntimeEvaluationCaptureSize, Value *BPVal, bool &Match,
     IRBuilder<> &Builder, unsigned &Cnt) {
@@ -3635,7 +2289,7 @@ void VPOParoptTransform::genOffloadArraysInit(
   // Insert allocas for offload arrays in a parent region or the parent
   // function's entry block based on whether there are any parent regions that
   // may be outlined. See target-task.ll, target_map_in_loop.ll for examples.
-  // If InsertPtForAllocas is not provided (null), get it from 
+  // If InsertPtForAllocas is not provided (null), get it from
   // VPOParoptUtils::getInsertionPtForAllocas().
   if (!InsertPtForAllocas)
     InsertPtForAllocas =
@@ -3726,7 +2380,7 @@ void VPOParoptTransform::genOffloadArraysInit(
   if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
       isa<WRNTargetVariantNode>(W) || isa<WRNDispatchNode>(W)) {
-    genOffloadArraysInitForClause(W, Info, Call, InsertPt, ConstSizes,
+    genOffloadArraysInitForClause(W, Info, InsertPt, ConstSizes,
                                   hasRuntimeEvaluationCaptureSize, nullptr,
                                   Match, Builder, Cnt);
     LLVM_DEBUG(dbgs() << "\nExit1 VPOParoptTransform::genOffloadArraysInit:"
@@ -3747,7 +2401,7 @@ void VPOParoptTransform::genOffloadArraysInit(
     BPVal = Call->getArgOperand(II);
 
     Match = false;
-    genOffloadArraysInitForClause(W, Info, Call, InsertPt, ConstSizes,
+    genOffloadArraysInitForClause(W, Info, InsertPt, ConstSizes,
                                   hasRuntimeEvaluationCaptureSize, BPVal, Match,
                                   Builder, Cnt);
 
@@ -4303,16 +2957,6 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
   return Changed;
 }
 
-// Return true if the device triple contains spir64 or spir.
-bool VPOParoptTransform::deviceTriplesHasSPIRV() {
-  for (const auto &T : MT->getDeviceTriples()) {
-    if (T.getArch() == Triple::ArchType::spir ||
-        T.getArch() == Triple::ArchType::spir64)
-      return true;
-  }
-  return false;
-}
-
 Function *VPOParoptTransform::getOmpGetNumThreadsFunctionIfPresent() {
   return F->getParent()->getFunction("omp_get_num_threads");
 }
@@ -4622,7 +3266,7 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 #endif // INTEL_CUSTOMIZATION
 StringRef VPOParoptTransform::getVariantInfo(
     WRegionNode *W, CallInst *BaseCall, StringRef &MatchConstruct,
-    uint64_t &DeviceArchsOut, llvm::Optional<uint64_t> &InteropPositionOut,
+    uint64_t &DeviceArchsOut, std::optional<uint64_t> &InteropPositionOut,
     StringRef &NeedDevicePtrStrOut, StringRef &InteropStrOut) {
 
   assert(BaseCall && "BaseCall is null");
@@ -4835,7 +3479,7 @@ StringRef VPOParoptTransform::getVariantInfo(
 // NeedDevicePtrStr and InteropStr
 StringRef VPOParoptTransform::getVariantInfo(
     WRegionNode *W, CallInst *BaseCall, StringRef &MatchConstruct,
-    uint64_t &DeviceArchs, llvm::Optional<uint64_t> &InteropPositionOut) {
+    uint64_t &DeviceArchs, std::optional<uint64_t> &InteropPositionOut) {
 
   StringRef NeedDevicePtrStr; // unused
   StringRef InteropStr;       // unused
@@ -4945,7 +3589,7 @@ static Value *createAsyncObj(WRegionNode *W, Value *DeviceNum,
                              StructType *IdentTy, Instruction *InsertPt) {
   Function *F = InsertPt->getFunction();
   LLVMContext &C = F->getContext();
-  const DataLayout DL = F->getParent()->getDataLayout();
+  const DataLayout &DL = F->getParent()->getDataLayout();
 
   IRBuilder<> Builder(InsertPt);
   IntegerType *Int32Ty = Builder.getInt32Ty();
@@ -5342,8 +3986,8 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   StringRef MatchConstruct("target_variant_dispatch");
   StringRef VariantName;
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
-  llvm::Optional<uint64_t> InteropPosition =
-      std::nullopt;          // position of interop arg in variant call
+  std::optional<uint64_t> InteropPosition =
+      std::nullopt; // position of interop arg in variant call
 
   CallInst *BaseCall = nullptr;
 
@@ -5441,7 +4085,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   uint64_t InteropPositionIfEmitted = 0; // will be updated by genVariantCall()
   CallInst *VariantCall = VPOParoptUtils::genVariantCall(
       BaseCall, VariantName, InteropObj, InteropPosition,
-      InteropPositionIfEmitted, BaseCall, W);                            // (8)
+      InteropPositionIfEmitted, BaseCall, W); //                            (8)
   if (!IsVoidType)
     VariantCall->setName("variant");
 
@@ -5459,7 +4103,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   assert(BaseCall->use_empty());
 
   Function *WrapperFn = VPOParoptUtils::genOutlineFunction(
-      *W, DT, AC, makeArrayRef(BBSet), (VariantName + ".wrapper").str()); // (5)
+      *W, DT, AC, ArrayRef(BBSet), (VariantName + ".wrapper").str()); //    (5)
   CallInst *VariantWrapperCall = cast<CallInst>(WrapperFn->user_back());
 
   // BaseCall may have arguments with the ByVal attribute, with or without an
@@ -5779,8 +4423,8 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
 
   StringRef MatchConstruct("dispatch");
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
-  llvm::Optional<uint64_t> InteropPosition =
-      std::nullopt;          // position of interop arg in variant call
+  std::optional<uint64_t> InteropPosition =
+      std::nullopt; // position of interop arg in variant call
   StringRef NeedDevicePtrStr;
   StringRef InteropStr;
   StringRef VariantName =
@@ -5873,7 +4517,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   //     A2. Processing of need_device_ptr is the same in both versions.
   //     A3. Call __kmpc_omp_wait_deps, __kmpc_omp_task_begin_if0,
   //         and __kmpc_omp_task_complete_if0 to handle DEPEND.
-  //     A4. Does not call __tgt_target_sync.
+  //     A4. Does not call __tgt_target_sync or __tgt_interop_use_async
   //
   // B. DispatchCodegenVersion > 0 is for the newer implementation that
   //    supports creation of interop obj that honors the prefer_type
@@ -5885,7 +4529,9 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   //     B2. Processing of need_device_ptr is the same in both versions.
   //     B3. Call __kmpc_omp_wait_deps to handle DEPEND, but not
   //         __kmpc_omp_task_begin_if0 and  __kmpc_omp_task_complete_if0.
-  //     B4. Call __tgt_target_sync if NOWAIT is not specified.
+  //     B4. if NOWAIT is not specified
+  //        a) Call __tgt_target_sync if INTEROP is not specified
+  //        b) Call __tgt_interop_use_async if INTEROP is specified
   Instruction *ThenTerm, *ElseTerm;
   VPOParoptUtils::buildCFGForIfClause(Available, ThenTerm, ElseTerm, InsertPt, DT);
 
@@ -5950,7 +4596,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   uint64_t InteropPositionIfEmitted = 0; // will be updated by genVariantCall()
   CallInst *VariantCall = VPOParoptUtils::genVariantCall(
       BaseCall, VariantName, InteropObj, InteropPosition,
-      InteropPositionIfEmitted, ThenTerm, W);  //                           (8)
+      InteropPositionIfEmitted, ThenTerm, W); //                            (8)
   if (!IsVoidType)
     VariantCall->setName("variant");
 
@@ -5970,11 +4616,17 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   genDependForDispatch(W, VariantCall, SupportOMPTTracing);
 
   // (B4) If DispatchCodegenVersion > 0 and the NOWAIT clause is not specified,
-  // emit a call to
+  // if the INTEROP clause was specified emit a call to
+  //   __tgt_interop_use_async(loc, gtid, interop_op, false)
+  // if the INTEROP clause was not specified emit a call to
   //   __tgt_target_sync(loc, gtid, CurrentTask, nullptr);
   if (DispatchCodegenVersion > 0 && !W->getNowait()) {
     LoadTidAndCurrentTask();
-    VPOParoptUtils::genTgtTargetSync(W, IdentTy, Tid, CurrentTask, ThenTerm);
+    if (InteropClauseObj)
+      VPOParoptUtils::genTgtInteropUseAsync(W, IdentTy, TidPtrHolder,
+                                            InteropObj, false, ThenTerm);
+    else
+      VPOParoptUtils::genTgtTargetSync(W, IdentTy, Tid, CurrentTask, ThenTerm);
   }
 
   // Move BaseCall to before ElseTerm
@@ -6000,52 +4652,5 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDispatchCode\n");
   W->resetBBSet(); // Invalidate BBSet after transformations
   return true;
-}
-
-// Set SIMD widening width for the target region based
-// on simdlen() clauses of the enclosed SIMD loops (if any).
-void VPOParoptTransform::propagateSPIRVSIMDWidth() const {
-  for (auto *W : WRegionList) {
-    auto *WT = dyn_cast<WRNTargetNode>(W);
-    if (!WT)
-      continue;
-
-    if (FixedSIMDWidth > 0) {
-      // Override the SIMD width with an option.
-      WT->setSPIRVSIMDWidth(FixedSIMDWidth);
-      continue;
-    }
-
-    // Choose minimum SIMD width, if there are multiple SIMD loops.
-    unsigned MinSIMDLen = 0;
-    SmallVector<WRegionNode*, 32> WorkList{WT};
-    while (!WorkList.empty()) {
-      unsigned CurSIMDLen = 0;
-      auto *WChild = WorkList.pop_back_val();
-
-      if (WChild != WT && isa<WRNTargetNode>(WChild))
-        // If this is an enclosed target region, then
-        // we have already processed it and we can take its
-        // SIMD width without processing the children.
-        CurSIMDLen = cast<WRNTargetNode>(WChild)->getSPIRVSIMDWidth();
-      else if (!isa<WRNVecLoopNode>(WChild)) {
-        WorkList.insert(
-            WorkList.end(), WChild->wrn_child_begin(), WChild->wrn_child_end());
-        continue;
-      } else
-        CurSIMDLen = WChild->getSimdlen();
-
-      if (CurSIMDLen == 0 ||
-          // Ignore unsupported SIMD widths.
-          (CurSIMDLen != 8 && CurSIMDLen != 16 && CurSIMDLen != 32))
-        continue;
-      if (MinSIMDLen == 0 ||
-          MinSIMDLen > CurSIMDLen)
-        MinSIMDLen = CurSIMDLen;
-    }
-
-    if (MinSIMDLen != 0)
-      WT->setSPIRVSIMDWidth(MinSIMDLen);
-  }
 }
 #endif // INTEL_COLLAB

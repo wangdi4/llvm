@@ -70,10 +70,13 @@ public:
   const std::string *bindName() const {
     return bindName_ ? &*bindName_ : nullptr;
   }
+  bool isExplicitBindName() const { return isExplicitBindName_; }
   void set_bindName(std::string &&name) { bindName_ = std::move(name); }
+  void set_isExplicitBindName(bool yes) { isExplicitBindName_ = yes; }
 
 private:
   std::optional<std::string> bindName_;
+  bool isExplicitBindName_{false};
 };
 
 // A subroutine or function definition, or a subprogram interface defined
@@ -257,12 +260,9 @@ public:
   ProcEntityDetails(ProcEntityDetails &&) = default;
   ProcEntityDetails &operator=(const ProcEntityDetails &) = default;
 
-  const ProcInterface &interface() const { return interface_; }
-  ProcInterface &interface() { return interface_; }
-  void set_interface(const ProcInterface &interface) { interface_ = interface; }
-  bool IsInterfaceSet() {
-    return interface_.symbol() != nullptr || interface_.type() != nullptr;
-  }
+  const Symbol *procInterface() const { return procInterface_; }
+  void set_procInterface(const Symbol &sym) { procInterface_ = &sym; }
+  bool IsInterfaceSet() { return procInterface_ || type(); }
   inline bool HasExplicitInterface() const;
 
   // Be advised: !init().has_value() => uninitialized pointer,
@@ -272,7 +272,7 @@ public:
   void set_init(std::nullptr_t) { init_ = nullptr; }
 
 private:
-  ProcInterface interface_;
+  const Symbol *procInterface_{nullptr};
   std::optional<const Symbol *> init_;
   friend llvm::raw_ostream &operator<<(
       llvm::raw_ostream &, const ProcEntityDetails &);
@@ -337,6 +337,7 @@ class ProcBindingDetails : public WithPassArg {
 public:
   explicit ProcBindingDetails(const Symbol &symbol) : symbol_{symbol} {}
   const Symbol &symbol() const { return symbol_; }
+  void ReplaceSymbol(const Symbol &symbol) { symbol_ = symbol; }
 
 private:
   SymbolRef symbol_; // procedure bound to; may be forward
@@ -540,6 +541,7 @@ public:
       LocalityShared, // named in SHARED locality-spec
       InDataStmt, // initialized in a DATA statement, =>object, or /init/
       InNamelist, // in a Namelist group
+      EntryDummyArgument,
       CompilerCreated, // A compiler created symbol
       // For compiler created symbols that are constant but cannot legally have
       // the PARAMETER attribute.
@@ -624,6 +626,8 @@ public:
 
   const std::string *GetBindName() const;
   void SetBindName(std::string &&);
+  bool GetIsExplicitBindName() const;
+  void SetIsExplicitBindName(bool);
   bool IsFuncResult() const;
   bool IsObjectArray() const;
   bool IsSubprogram() const;
@@ -731,7 +735,7 @@ private:
             },
             [](const ObjectEntityDetails &oed) { return oed.shape().Rank(); },
             [&](const ProcEntityDetails &ped) {
-              const Symbol *iface{ped.interface().symbol()};
+              const Symbol *iface{ped.procInterface()};
               return iface ? iface->RankImpl(depth) : 0;
             },
             [](const AssocEntityDetails &aed) {
@@ -794,10 +798,7 @@ private:
 // between the two shared libraries.
 
 inline bool ProcEntityDetails::HasExplicitInterface() const {
-  if (auto *symbol{interface_.symbol()}) {
-    return symbol->HasExplicitInterface();
-  }
-  return false;
+  return procInterface_ && procInterface_->HasExplicitInterface();
 }
 
 inline Symbol &Symbol::GetUltimate() {
@@ -831,8 +832,8 @@ inline const DeclTypeSpec *Symbol::GetTypeImpl(int depth) const {
             return x.isFunction() ? x.result().GetTypeImpl(depth) : nullptr;
           },
           [&](const ProcEntityDetails &x) {
-            const Symbol *symbol{x.interface().symbol()};
-            return symbol ? symbol->GetTypeImpl(depth) : x.interface().type();
+            const Symbol *symbol{x.procInterface()};
+            return symbol ? symbol->GetTypeImpl(depth) : x.type();
           },
           [&](const ProcBindingDetails &x) {
             return x.symbol().GetTypeImpl(depth);

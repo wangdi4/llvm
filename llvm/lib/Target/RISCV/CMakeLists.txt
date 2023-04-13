@@ -36,7 +36,9 @@ add_llvm_target(RISCVCodeGen
   RISCVMergeBaseOffset.cpp
   RISCVRedundantCopyElimination.cpp
   RISCVRegisterInfo.cpp
+  RISCVRVVInitUndef.cpp
   RISCVSExtWRemoval.cpp
+  RISCVStripWSuffix.cpp
   RISCVSubtarget.cpp
   RISCVTargetMachine.cpp
   RISCVTargetObjectFile.cpp
@@ -58,6 +60,7 @@ add_llvm_target(RISCVCodeGen
   SelectionDAG
   Support
   Target
+  TargetParser
   TransformUtils
   GlobalISel
 

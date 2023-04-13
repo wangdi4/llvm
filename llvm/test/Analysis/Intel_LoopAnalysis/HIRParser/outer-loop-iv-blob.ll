@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
@@ -14,6 +13,7 @@
 ; CHECK: |   {
 ; CHECK: |      (%ka)[0] = -1 * i1 + 80;
 ; CHECK: |
+; CHECK: |         %indvars.iv92 = -1 * i1 + 80;
 ; CHECK: |      + DO i2 = 0, i1 + -42, 1   <DO_LOOP>  <MAX_TC_EST = 37>
 ; CHECK: |      |   %13 = zext.i32.i64(i2 + -1);
 ; CHECK: |      |   %inc.lcssa80 = -1 * i1 + 80;
@@ -26,11 +26,10 @@
 ; CHECK: |      |   + END LOOP
 ; CHECK: |      |      %inc.lcssa80 = -1 * i1 + %13 + 81;
 ; CHECK: |      |
-; CHECK: |      |   %indvars.iv.next93 = -1 * i1 + i2 + 80  +  1;
 ; CHECK: |      |   %indvars.iv92 = -1 * i1 + i2 + 81;
 ; CHECK: |      + END LOOP
 ; CHECK: |         (%j8)[0] = %inc.lcssa80;
-; CHECK: |         (%ka)[0] = %indvars.iv.next93;
+; CHECK: |         (%ka)[0] = 39;
 ; CHECK: |   }
 ; CHECK: |   %indvars.iv96 = -1 * i1 + 79;
 ; CHECK: + END LOOP

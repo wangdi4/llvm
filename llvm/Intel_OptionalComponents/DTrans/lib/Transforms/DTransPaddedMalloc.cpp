@@ -1,6 +1,6 @@
 //===------- DtransPaddedMalloc.cpp - DTrans Padded Malloc -*------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,10 +14,9 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
-#include "Intel_DTrans/DTransCommon.h"
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -46,102 +45,6 @@ static cl::opt<unsigned> DTransPaddedMallocSize("dtrans-paddedmalloc-size",
 // Build the global variable and interface if true. Used for testing purposes.
 static cl::opt<bool> DTransTestPaddedMalloc("dtrans-test-paddedmalloc",
                                             cl::init(false), cl::ReallyHidden);
-
-namespace {
-
-class DTransPaddedMallocWrapper : public ModulePass {
-private:
-  dtrans::PaddedMallocPass Impl;
-
-public:
-  static char ID;
-
-  DTransPaddedMallocWrapper() : ModulePass(ID) {
-    initializeDTransPaddedMallocWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  // Analyses needed
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-  }
-
-  // Run the implementation
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    DTransAnalysisInfo &DTInfo =
-        getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M);
-
-    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-
-    // Lambda function to find the LoopInfo related to an input function
-    dtrans::LoopInfoFuncType GetLI =
-        [this](Function &F) -> LoopInfo & {
-      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    };
-
-    return Impl.runImpl(M, DTInfo, GetLI, GetTLI, WPInfo);
-  }
-};
-
-class DTransPaddedMallocOPWrapper : public ModulePass {
-private:
-  dtransOP::PaddedMallocOPPass Impl;
-
-public:
-  static char ID;
-
-  DTransPaddedMallocOPWrapper() : ModulePass(ID) {
-    initializeDTransPaddedMallocOPWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  // Analyses needed
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<dtransOP::DTransSafetyAnalyzerWrapper>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<dtransOP::DTransSafetyAnalyzerWrapper>();
-  }
-
-  // Run the implementation
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto &DTAnalysisWrapper =
-        getAnalysis<dtransOP::DTransSafetyAnalyzerWrapper>();
-    dtransOP::DTransSafetyInfo &DTInfo =
-        DTAnalysisWrapper.getDTransSafetyInfo(M);
-
-    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-
-    // Lambda function to find the LoopInfo related to an input function
-    dtrans::LoopInfoFuncType GetLI =
-        [this](Function &F) -> LoopInfo & {
-      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    };
-
-    return Impl.runImpl(M, DTInfo, GetLI, GetTLI, WPInfo);
-  }
-};
 
 template <class InfoClass>
 class PaddedMallocImpl {
@@ -216,7 +119,6 @@ private:
 
   InfoClass &DTInfo;
 };
-} // end of anonymous namespace
 
 // Traverse through each Function stored in PaddedMallocFuncs and
 // apply the padded malloc optimization.
@@ -739,36 +641,6 @@ bool PaddedMallocImpl<InfoClass>::updateBasicBlock(BasicBlock &BB, Function *F,
   return false;
 }
 
-char DTransPaddedMallocWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransPaddedMallocWrapper, "dtrans-paddedmalloc",
-                      "DTrans padded malloc", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransPaddedMallocWrapper, "dtrans-paddedmalloc",
-                    "DTrans padded malloc", false, false)
-
-ModulePass *llvm::createDTransPaddedMallocWrapperPass() {
-  return new DTransPaddedMallocWrapper();
-}
-
-char DTransPaddedMallocOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransPaddedMallocOPWrapper, "dtrans-paddedmallocop",
-                      "DTrans padded malloc with opaque pointer support",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransPaddedMallocOPWrapper, "dtrans-paddedmallocop",
-                    "DTrans padded malloc with opaque pointer support",
-                    false, false)
-
-ModulePass *llvm::createDTransPaddedMallocOPWrapperPass() {
-  return new DTransPaddedMallocOPWrapper();
-}
-
 unsigned llvm::getPaddedMallocLimit() {
   return DTransPaddedMallocLimit;
 }
@@ -797,8 +669,8 @@ bool PaddedMallocImpl<InfoClass>::run(Module &M,
 
   // Check if the module requires runtime safety checks
   SetVector<Function *> Funcs;
-  unsigned ArgumentIndex;
-  unsigned StructIndex;
+  unsigned ArgumentIndex = 0;
+  unsigned StructIndex = 0;
   if (DTInfo.requiresBadCastValidation(Funcs, ArgumentIndex, StructIndex)) {
     for (auto *Func : Funcs) {
       bool Ret = PaddedMallocData.buildFuncBadCastValidation(
@@ -1088,8 +960,8 @@ bool dtrans::PaddedMallocGlobals<InfoClass>::buildFuncBadCastValidation(
   BasicBlock *CheckBB = BasicBlock::Create(Func->getContext());
   BasicBlock *SetBB = BasicBlock::Create(Func->getContext());
 
-  Func->getBasicBlockList().push_front(SetBB);
-  Func->getBasicBlockList().push_front(CheckBB);
+  Func->insert(Func->begin(), SetBB);
+  Func->insert(Func->begin(), CheckBB);
 
   // Construct BB with a check
   Builder.SetInsertPoint(CheckBB);
@@ -1133,8 +1005,8 @@ void dtrans::PaddedMallocGlobals<InfoClass>::destroyGlobalsInfo(Module &M) {
     GlobalCounter->eraseFromParent();
 
   for (auto *F : BadCastValidatedFuncs) {
-    F->getBasicBlockList().pop_front();
-    F->getBasicBlockList().pop_front();
+    Function::iterator IterBegin = F->begin();
+    F->erase(IterBegin, ++IterBegin);
   }
   BadCastValidatedFuncs.clear();
 }

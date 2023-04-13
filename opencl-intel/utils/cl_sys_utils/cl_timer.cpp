@@ -35,6 +35,7 @@ unsigned long long Timer::GetCurrentTicks() {
 #ifdef _WIN32
   LARGE_INTEGER time0;
   const BOOL ret = QueryPerformanceCounter(&time0);
+  (void)ret;
   assert(0 != ret);
   return time0.QuadPart;
 #else
@@ -62,6 +63,7 @@ unsigned long long Timer::GetTimeInUsecs() {
 #ifdef _WIN32
   LARGE_INTEGER time;
   const BOOL ret = QueryPerformanceCounter(&time);
+  (void)ret;
   assert(0 != ret);
   return time.QuadPart * 1000000 / GetFrequency();
 #else

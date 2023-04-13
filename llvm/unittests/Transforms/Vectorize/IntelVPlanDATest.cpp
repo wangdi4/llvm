@@ -50,7 +50,8 @@ TEST_F(VPlanVPDATest, TestVPlanDAPartialUpdate) {
     Plan->computeDT();
     Plan->computePDT();
     DA->compute(Plan.get(), OuterMostVPL, Plan->getVPLoopInfo(),
-                *Plan->getDT(), *Plan->getPDT(), false /*Not in LCSSA form.*/);
+                nullptr /*VPVT*/, *Plan->getDT(), *Plan->getPDT(),
+                false /*Not in LCSSA form.*/);
 
     VPBuilder Builder;
     VPBasicBlock *VPLHeader = cast<VPBasicBlock>(OuterMostVPL->getHeader());

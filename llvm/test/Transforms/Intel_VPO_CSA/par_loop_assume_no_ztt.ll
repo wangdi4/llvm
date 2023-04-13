@@ -1,7 +1,5 @@
 ; INTEL_FEATURE_CSA
-; RUN: opt -domtree -loops -vpo-wrncollection -vpo-wrninfo -loops -vpo-paropt \
-; RUN:     -opt-remark-emitter -pass-remarks=vpo-paropt-transform-csa \
-; RUN:     -csa-omp-paropt-loop-splitting -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes="require<vpo-wrninfo>,require<vpo-wrncollection>,require<domtree>,vpo-paropt" -opt-remark-emitter -pass-remarks=vpo-paropt-transform-csa -csa-omp-paropt-loop-splitting -disable-output %s 2>&1 | FileCheck %s
 ; REQUIRES: csa-registered-target
 ;
 ; This test check that CSA paropt lowering uses assumption cache for

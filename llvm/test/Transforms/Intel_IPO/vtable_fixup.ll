@@ -29,9 +29,8 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "spir64"
 target device_triples = "spir64"
 
-%struct.__tgt_offload_entry = type { i8 addrspace(4)*, i8 addrspace(2)*, i64, i32, i32, i64 }
-%struct.Derived = type { %struct.Base }
-%struct.Base = type { i32 (...)* addrspace(4)* }
+%struct.__tgt_offload_entry = type { ptr addrspace(4), ptr addrspace(2), i64, i32, i32, i64 }
+%struct.Base = type { ptr addrspace(4) }
 
 $_ZTV7Derived = comdat any
 
@@ -45,69 +44,71 @@ $_ZTI7Derived = comdat any
 
 $_ZTV4Base = comdat any
 
-@_ZTV7Derived = linkonce_odr hidden unnamed_addr addrspace(1) constant { [4 x i8 addrspace(4)*] } { [4 x i8 addrspace(4)*] [i8 addrspace(4)* null, i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)* } addrspace(1)* @_ZTI7Derived to i8 addrspace(1)*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8* bitcast (void (%struct.Derived addrspace(4)*)* @_ZN7DerivedD1Ev to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8* bitcast (void (%struct.Derived addrspace(4)*)* @_ZN7DerivedD0Ev to i8*) to i8 addrspace(4)*)] }, comdat, align 8
+@_ZTV7Derived = linkonce_odr hidden unnamed_addr addrspace(1) constant { [4 x ptr addrspace(4)] } { [4 x ptr addrspace(4)] [ptr addrspace(4) null, ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTI7Derived to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr @_ZN7DerivedD1Ev to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr @_ZN7DerivedD0Ev to ptr addrspace(4))] }, comdat, align 8
 ; Check vtables and typeinfo structures do not reference undefined symbols:
 ; CHECK: @_ZTV7Derived = linkonce_odr hidden unnamed_addr addrspace(1)
-; CHECK-SAME: constant { [4 x i8 addrspace(4)*] } { [4 x i8 addrspace(4)*] [
-; CHECK-SAME: i8 addrspace(4)* null,
-; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)* } addrspace(1)* @_ZTI7Derived to i8 addrspace(1)*) to i8 addrspace(4)*),
-; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8* null to i8 addrspace(4)*),
-; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8* null to i8 addrspace(4)*)] }, comdat, align 8
+; CHECK-SAME: constant { [4 x ptr addrspace(4)] } { [4 x ptr addrspace(4)] [
+; CHECK-SAME: ptr addrspace(4) null,
+; CHECK-SAME: ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTI7Derived to ptr addrspace(4)),
+; CHECK-SAME: ptr addrspace(4) addrspacecast (ptr null to ptr addrspace(4)),
+; CHECK-SAME: ptr addrspace(4) addrspacecast (ptr null to ptr addrspace(4))] }, comdat, align 8
 
-@_ZTVN10__cxxabiv120__si_class_type_infoE = external addrspace(1) global i8 addrspace(4)*
+@_ZTVN10__cxxabiv120__si_class_type_infoE = external addrspace(1) global ptr addrspace(4)
 @_ZTS7Derived = linkonce_odr hidden addrspace(1) constant [9 x i8] c"7Derived\00", comdat, align 1
-@_ZTVN10__cxxabiv117__class_type_infoE = external addrspace(1) global i8 addrspace(4)*
+@_ZTVN10__cxxabiv117__class_type_infoE = external addrspace(1) global ptr addrspace(4)
 @_ZTS4Base = linkonce_odr hidden addrspace(1) constant [6 x i8] c"4Base\00", comdat, align 1
-@_ZTI4Base = linkonce_odr hidden addrspace(1) constant { i8 addrspace(4)*, i8 addrspace(4)* } { i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i8 addrspace(4)* addrspace(1)* getelementptr inbounds (i8 addrspace(4)*, i8 addrspace(4)* addrspace(1)* @_ZTVN10__cxxabiv117__class_type_infoE, i64 2) to i8 addrspace(1)*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* getelementptr inbounds ([6 x i8], [6 x i8] addrspace(1)* @_ZTS4Base, i32 0, i32 0) to i8 addrspace(4)*) }, comdat, align 8
+@_ZTI4Base = linkonce_odr hidden addrspace(1) constant { ptr addrspace(4), ptr addrspace(4) } { ptr addrspace(4) addrspacecast (ptr addrspace(1) getelementptr inbounds (ptr addrspace(4), ptr addrspace(1) @_ZTVN10__cxxabiv117__class_type_infoE, i64 2) to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTS4Base to ptr addrspace(4)) }, comdat, align 8
 ; CHECK: @_ZTI4Base = linkonce_odr hidden addrspace(1)
-; CHECK-SAME: constant { i8 addrspace(4)*, i8 addrspace(4)* } {
-; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i8 addrspace(4)* addrspace(1)* getelementptr inbounds (i8 addrspace(4)*, i8 addrspace(4)* addrspace(1)* null, i64 2) to i8 addrspace(1)*) to i8 addrspace(4)*),
-; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8 addrspace(1)* getelementptr inbounds ([6 x i8], [6 x i8] addrspace(1)* @_ZTS4Base, i32 0, i32 0) to i8 addrspace(4)*) }, comdat, align 8
+; CHECK-SAME: constant { ptr addrspace(4), ptr addrspace(4) } {
+; CHECK-SAME: ptr addrspace(4) addrspacecast (ptr addrspace(1) getelementptr inbounds (ptr addrspace(4),
+; CHECK-SAME: ptr addrspace(1) null, i64 2) to ptr addrspace(4)), 
+; CHECK-SAME: ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTS4Base to ptr addrspace(4)) }, comdat, align 8
 
-@_ZTI7Derived = linkonce_odr hidden addrspace(1) constant { i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)* } { i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i8 addrspace(4)* addrspace(1)* getelementptr inbounds (i8 addrspace(4)*, i8 addrspace(4)* addrspace(1)* @_ZTVN10__cxxabiv120__si_class_type_infoE, i64 2) to i8 addrspace(1)*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* getelementptr inbounds ([9 x i8], [9 x i8] addrspace(1)* @_ZTS7Derived, i32 0, i32 0) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)* } addrspace(1)* @_ZTI4Base to i8 addrspace(1)*) to i8 addrspace(4)*) }, comdat, align 8
+
+@_ZTI7Derived = linkonce_odr hidden addrspace(1) constant { ptr addrspace(4), ptr addrspace(4), ptr addrspace(4) } { ptr addrspace(4) addrspacecast (ptr addrspace(1) getelementptr inbounds (ptr addrspace(4), ptr addrspace(1) @_ZTVN10__cxxabiv120__si_class_type_infoE, i64 2) to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTS7Derived to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTI4Base to ptr addrspace(4)) }, comdat, align 8
 ; CHECK: @_ZTI7Derived = linkonce_odr hidden addrspace(1)
-; CHECK-SAME: constant { i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)* } {
-; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i8 addrspace(4)* addrspace(1)* getelementptr inbounds (i8 addrspace(4)*, i8 addrspace(4)* addrspace(1)* null, i64 2) to i8 addrspace(1)*) to i8 addrspace(4)*),
-; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8 addrspace(1)* getelementptr inbounds ([9 x i8], [9 x i8] addrspace(1)* @_ZTS7Derived, i32 0, i32 0) to i8 addrspace(4)*),
-; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)* } addrspace(1)* @_ZTI4Base to i8 addrspace(1)*) to i8 addrspace(4)*) }, comdat, align 8
+; CHECK-SAME: constant { ptr addrspace(4), ptr addrspace(4), ptr addrspace(4) } {
+; CHECK-SAME: ptr addrspace(4) addrspacecast (ptr addrspace(1) getelementptr inbounds (ptr addrspace(4), ptr addrspace(1) null, i64 2) to ptr addrspace(4)),
+; CHECK-SAME: ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTS7Derived to ptr addrspace(4)),
+; CHECK-SAME: ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTI4Base to ptr addrspace(4)) }, comdat, align 8
 
-@_ZTV4Base = linkonce_odr hidden unnamed_addr addrspace(1) constant { [4 x i8 addrspace(4)*] } { [4 x i8 addrspace(4)*] [i8 addrspace(4)* null, i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)* } addrspace(1)* @_ZTI4Base to i8 addrspace(1)*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8* bitcast (void (%struct.Base addrspace(4)*)* @_ZN4BaseD1Ev to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8* bitcast (void (%struct.Base addrspace(4)*)* @_ZN4BaseD0Ev to i8*) to i8 addrspace(4)*)] }, comdat, align 8
+@_ZTV4Base = linkonce_odr hidden unnamed_addr addrspace(1) constant { [4 x ptr addrspace(4)] } { [4 x ptr addrspace(4)] [ptr addrspace(4) null, ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTI4Base to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr @_ZN4BaseD1Ev to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr @_ZN4BaseD0Ev to ptr addrspace(4))] }, comdat, align 8
 ; CHECK: @_ZTV4Base = linkonce_odr hidden unnamed_addr addrspace(1)
-; CHECK-SAME: constant { [4 x i8 addrspace(4)*] } { [4 x i8 addrspace(4)*] [
-; CHECK-SAME: i8 addrspace(4)* null,
-; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)* } addrspace(1)* @_ZTI4Base to i8 addrspace(1)*) to i8 addrspace(4)*),
-; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8* null to i8 addrspace(4)*),
-; CHECK-SAME: i8 addrspace(4)* addrspacecast (i8* null to i8 addrspace(4)*)] }, comdat, align 8
+; CHECK-SAME: constant { [4 x ptr addrspace(4)] } { [4 x ptr addrspace(4)] [
+; CHECK-SAME: ptr addrspace(4) null,
+; CHECK-SAME: ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZTI4Base to ptr addrspace(4)),
+; CHECK-SAME: ptr addrspace(4) addrspacecast (ptr null to ptr addrspace(4)),
+; CHECK-SAME: ptr addrspace(4) addrspacecast (ptr null to ptr addrspace(4))] }, comdat, align 8
 
 @.omp_offloading.entry_name = internal target_declare unnamed_addr addrspace(2) constant [40 x i8] c"__omp_offloading_805_e20624__Z4main_l18\00"
-@.omp_offloading.entry.__omp_offloading_805_e20624__Z4main_l18 = weak target_declare local_unnamed_addr addrspace(2) constant %struct.__tgt_offload_entry { i8 addrspace(4)* null, i8 addrspace(2)* getelementptr inbounds ([40 x i8], [40 x i8] addrspace(2)* @.omp_offloading.entry_name, i32 0, i32 0), i64 0, i32 0, i32 0, i64 40 }, section "omp_offloading_entries"
+@.omp_offloading.entry.__omp_offloading_805_e20624__Z4main_l18 = weak target_declare local_unnamed_addr addrspace(2) constant %struct.__tgt_offload_entry { ptr addrspace(4) null, ptr addrspace(2) @.omp_offloading.entry_name, i64 0, i32 0, i32 0, i64 40 }, section "omp_offloading_entries"
 
 ; Function Attrs: convergent nounwind
-declare spir_func void @_ZN7DerivedD1Ev(%struct.Derived addrspace(4)* dereferenceable_or_null(8)) unnamed_addr #0
+declare spir_func void @_ZN7DerivedD1Ev(ptr addrspace(4) dereferenceable_or_null(8)) unnamed_addr #0
 
 ; Function Attrs: convergent nounwind
-declare spir_func void @_ZN7DerivedD0Ev(%struct.Derived addrspace(4)* dereferenceable_or_null(8)) unnamed_addr #0
+declare spir_func void @_ZN7DerivedD0Ev(ptr addrspace(4) dereferenceable_or_null(8)) unnamed_addr #0
 
 ; Function Attrs: convergent nounwind
-declare spir_func void @_ZN4BaseD1Ev(%struct.Base addrspace(4)* dereferenceable_or_null(8)) unnamed_addr #0
+declare spir_func void @_ZN4BaseD1Ev(ptr addrspace(4) dereferenceable_or_null(8)) unnamed_addr #0
 
 ; Function Attrs: convergent nounwind
-declare spir_func void @_ZN4BaseD0Ev(%struct.Base addrspace(4)* dereferenceable_or_null(8)) unnamed_addr #0
+declare spir_func void @_ZN4BaseD0Ev(ptr addrspace(4) dereferenceable_or_null(8)) unnamed_addr #0
 
 ; Function Attrs: noinline norecurse nounwind
-define weak dso_local spir_kernel void @__omp_offloading_805_e20624__Z4main_l18(%struct.Base addrspace(1)* %0, %struct.Derived addrspace(1)* %Obj.ascast, %struct.Base addrspace(1)* %1) local_unnamed_addr #1 {
+define weak dso_local spir_kernel void @__omp_offloading_805_e20624__Z4main_l18(ptr addrspace(1) %arg, ptr addrspace(1) %Obj.ascast, ptr addrspace(1) %arg1) local_unnamed_addr #1 {
 DIR.OMP.TARGET.3:
   call void @__itt_offload_wi_start_wrapper()
-  %2 = tail call spir_func i64 @_Z12get_local_idj(i32 0) #3
-  %3 = tail call spir_func i64 @_Z12get_local_idj(i32 1) #3
-  %4 = or i64 %3, %2
-  %5 = tail call spir_func i64 @_Z12get_local_idj(i32 2) #3
-  %6 = or i64 %4, %5
-  %7 = icmp eq i64 %6, 0
+  %i = tail call spir_func i64 @_Z12get_local_idj(i32 0) #3
+  %i2 = tail call spir_func i64 @_Z12get_local_idj(i32 1) #3
+  %i3 = or i64 %i2, %i
+  %i4 = tail call spir_func i64 @_Z12get_local_idj(i32 2) #3
+  %i5 = or i64 %i3, %i4
+  %i6 = icmp eq i64 %i5, 0
   call void @__itt_offload_wg_barrier_wrapper()
   tail call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784) #3
   call void @__itt_offload_wi_resume_wrapper()
-  br i1 %7, label %master.thread.code, label %master.thread.fallthru
+  br i1 %i6, label %master.thread.code, label %master.thread.fallthru
 
 DIR.OMP.END.TARGET.57.exitStub:                   ; preds = %master.thread.code1, %master.thread.fallthru
   call void @__itt_offload_wg_barrier_wrapper()
@@ -117,22 +118,22 @@ DIR.OMP.END.TARGET.57.exitStub:                   ; preds = %master.thread.code1
   ret void
 
 master.thread.code:                               ; preds = %DIR.OMP.TARGET.3
-  %8 = getelementptr %struct.Base, %struct.Base addrspace(1)* %0, i64 0, i32 0
-  store i32 (...)* addrspace(4)* addrspacecast (i32 (...)* addrspace(1)* bitcast (i8 addrspace(4)* addrspace(1)* getelementptr inbounds ({ [4 x i8 addrspace(4)*] }, { [4 x i8 addrspace(4)*] } addrspace(1)* @_ZTV4Base, i64 0, inrange i32 0, i64 2) to i32 (...)* addrspace(1)*) to i32 (...)* addrspace(4)*), i32 (...)* addrspace(4)* addrspace(1)* %8, align 8, !tbaa !6, !alias.scope !9, !noalias !12
+  %i7 = getelementptr %struct.Base, ptr addrspace(1) %arg, i64 0, i32 0
+  store ptr addrspace(4) addrspacecast (ptr addrspace(1) getelementptr inbounds ({ [4 x ptr addrspace(4)] }, ptr addrspace(1) @_ZTV4Base, i64 0, inrange i32 0, i64 2) to ptr addrspace(4)), ptr addrspace(1) %i7, align 8, !tbaa !6, !alias.scope !9, !noalias !12
   br label %master.thread.fallthru
 
-master.thread.fallthru:                           ; preds = %DIR.OMP.TARGET.3, %master.thread.code
+master.thread.fallthru:                           ; preds = %master.thread.code, %DIR.OMP.TARGET.3
   call void @__itt_offload_wg_barrier_wrapper()
   tail call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784) #3
   call void @__itt_offload_wi_resume_wrapper()
   call void @__itt_offload_wg_barrier_wrapper()
   tail call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784) #3
   call void @__itt_offload_wi_resume_wrapper()
-  br i1 %7, label %master.thread.code1, label %DIR.OMP.END.TARGET.57.exitStub
+  br i1 %i6, label %master.thread.code1, label %DIR.OMP.END.TARGET.57.exitStub
 
 master.thread.code1:                              ; preds = %master.thread.fallthru
-  %9 = getelementptr %struct.Base, %struct.Base addrspace(1)* %0, i64 0, i32 0
-  store i32 (...)* addrspace(4)* addrspacecast (i32 (...)* addrspace(1)* bitcast (i8 addrspace(4)* addrspace(1)* getelementptr inbounds ({ [4 x i8 addrspace(4)*] }, { [4 x i8 addrspace(4)*] } addrspace(1)* @_ZTV7Derived, i64 0, inrange i32 0, i64 2) to i32 (...)* addrspace(1)*) to i32 (...)* addrspace(4)*), i32 (...)* addrspace(4)* addrspace(1)* %9, align 8, !tbaa !6, !alias.scope !9, !noalias !12
+  %i8 = getelementptr %struct.Base, ptr addrspace(1) %arg, i64 0, i32 0
+  store ptr addrspace(4) addrspacecast (ptr addrspace(1) getelementptr inbounds ({ [4 x ptr addrspace(4)] }, ptr addrspace(1) @_ZTV7Derived, i64 0, inrange i32 0, i64 2) to ptr addrspace(4)), ptr addrspace(1) %i8, align 8, !tbaa !6, !alias.scope !9, !noalias !12
   br label %DIR.OMP.END.TARGET.57.exitStub
 }
 
@@ -162,7 +163,7 @@ attributes #3 = { nounwind }
 !spirv.Source = !{!5}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{i32 7, !"PIC Level", i32 2}
+!1 = !{i32 8, !"PIC Level", i32 2}
 !2 = !{i32 7, !"frame-pointer", i32 2}
 !3 = !{}
 !4 = !{!"clang version 12.0.0"}

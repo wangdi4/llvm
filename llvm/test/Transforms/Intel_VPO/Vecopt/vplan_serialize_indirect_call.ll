@@ -1,5 +1,5 @@
 ; Test for indirect call serialization.
-; RUN: opt -vplan-enable-soa=false %s -passes=vplan-vec -vplan-force-vf=2 -S | FileCheck %s 
+; RUN: opt -vplan-enable-soa=false %s -passes=vplan-vec -vplan-force-vf=2 -S | FileCheck %s
 ; RUN: opt -vplan-enable-soa=false %s -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -intel-opt-report=high -disable-output 2>&1 | FileCheck %s -check-prefixes=OPTREPORT
 
 ; OPTREPORT:      remark #15485: serialized function calls: 1

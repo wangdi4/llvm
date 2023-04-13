@@ -38,9 +38,10 @@ void FillMemObjDescriptor(cl_mem_obj_descriptor &mem_desc,
 /// @param [OUT] mem_desc output structure
 /// @param [IN] image_desc DataManager's image descriptor
 /// @param [IN] pData pointer to data stored in image
-void FillMemObjDescriptor(cl_mem_obj_descriptor &mem_desc,
-                          const ImageDesc &image_desc, void *pData,
-                          const ICLDevBackendImageService *pImageService);
+void FillMemObjDescriptor(
+    cl_mem_obj_descriptor &mem_desc, const ImageDesc &image_desc, void *pData,
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendImageService
+        *pImageService);
 
 /// @brief This class is responsible for handling the arguments buffer need for
 /// creation of kernel binary
@@ -51,9 +52,10 @@ public:
   /// @param [IN] kernelNumArgs Number of kernel arguments
   /// @param [IN] input Input buffers for the test program
   /// @param {IN] isCheckOOBAccess if true, check for out of bounds access
-  OpenCLArgsBuffer(const KernelArgument *pKernelArgs, cl_uint kernelNumArgs,
-                   IBufferContainerList *input,
-                   const ICLDevBackendImageService *pImageService,
+  OpenCLArgsBuffer(const llvm::KernelArgument *pKernelArgs,
+                   cl_uint kernelNumArgs, IBufferContainerList *input,
+                   const Intel::OpenCL::DeviceBackend::ICLDevBackendImageService
+                       *pImageService,
                    bool isCheckOOBAccess);
 
   /// @brief Destructor
@@ -97,11 +99,12 @@ private:
   size_t m_argsBufferSize;
 
   // Kernel arguments description buffer
-  const KernelArgument *m_pKernelArgs;
+  const llvm::KernelArgument *m_pKernelArgs;
   // Number of kernel arguments
   cl_uint m_kernelNumArgs;
   // Image service to use for image aux data initialization
-  const ICLDevBackendImageService *m_pImageService;
+  const Intel::OpenCL::DeviceBackend::ICLDevBackendImageService
+      *m_pImageService;
 
   // will this buffer self-check for out of bounds access?
   bool m_isCheckOOBAccess;

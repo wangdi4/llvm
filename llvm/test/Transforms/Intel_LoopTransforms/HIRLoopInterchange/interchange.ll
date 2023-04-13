@@ -10,7 +10,6 @@
 ; CHECK-SAME:  ( 2 1 )
 
 ; Check the proper optreport is emitted for Loop Interchange.
-; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN

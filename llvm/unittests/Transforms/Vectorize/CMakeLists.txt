@@ -11,6 +11,7 @@ set(LLVM_LINK_COMPONENTS
   X86Info
   X86Desc
   Target
+  TargetParser
   )
 
 add_llvm_unittest(VectorizeTests
@@ -31,8 +32,10 @@ add_llvm_unittest(VectorizeTests
 # end INTEL_FEATURE_SW_ADVANCED
 # end INTEL_CUSTOMIZATION
   VPlanTest.cpp
+  VPDomTreeTest.cpp
   VPlanHCFGTest.cpp
   VPlanSlpTest.cpp
+  VPlanVerifierTest.cpp
   )
 
 set_property(TARGET VectorizeTests PROPERTY FOLDER "Tests/UnitTests/TransformsTests")

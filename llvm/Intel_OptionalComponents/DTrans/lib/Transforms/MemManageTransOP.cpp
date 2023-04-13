@@ -1,6 +1,6 @@
 //===------------ MemManageTransOP.cpp - DTransMemManageTransPass ---------===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -23,6 +23,7 @@
 #include "Intel_DTrans/Analysis/DTransAllocCollector.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
+#include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Transforms/MemManageInfoOPImpl.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -613,11 +614,18 @@ bool MemManageTransImpl::checkTypesEscaped(
     return GetStructType(DTy, AllocType);
   };
 
-  auto GetStructTypeForGlobal = [this, &GetStructType](GlobalValue *GV) {
-    DTransType *DTy = MDReader.getDTransTypeFromMD(GV);
-    llvm::Type *ValTy = GV->getValueType();
-    return GetStructType(DTy, ValTy);
-  };
+  auto GetStructTypeForGlobal =
+      [this, &GetStructType](GlobalValue *GV, PtrTypeAnalyzer &PtrAnalyzer) {
+        DTransType *DTy = MDReader.getDTransTypeFromMD(GV);
+        // Get type from PtrTypeAnalyzer if metadata doesn't help.
+        if (!DTy) {
+          ValueTypeInfo *Info = PtrAnalyzer.getValueTypeInfo(GV);
+          if (Info)
+            DTy = PtrAnalyzer.getDominantType(*Info, ValueTypeInfo::VAT_Decl);
+        }
+        llvm::Type *ValTy = GV->getValueType();
+        return GetStructType(DTy, ValTy);
+      };
 
   auto FunctionSignatureHasNoTypeOfInterestUses =
       [this, &DTransLibInfo, &IsCandidateRelatedType,
@@ -714,10 +722,14 @@ bool MemManageTransImpl::checkTypesEscaped(
     }
   }
 
+  PtrTypeAnalyzer Analyzer(M.getContext(), TM, MDReader, M.getDataLayout(),
+                           GetTLI);
+  Analyzer.run(M);
+
   // Check whether global variable instantiations use "ReusableArenaAllocator"
   // or any related type.
   for (auto &GV : M.globals()) {
-    MaybeStructType Ty = GetStructTypeForGlobal(&GV);
+    MaybeStructType Ty = GetStructTypeForGlobal(&GV, Analyzer);
     if (Ty.maybeUnknownStructType()) {
       DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANSOP,
                       dbgs() << "    Unknown use by global: " << GV << "\n";);
@@ -4040,7 +4052,7 @@ bool MemManageTransImpl::identifyStrObjDtorCall(Instruction *I,
 //     tail call void @ObjDestCall(ptr %GEP)
 //     %RemovedObjs = add nuw i16 %RemObjsPHI, 1
 //     %BlkSize = load i16, ptr %RABPtr->BlockSize, align 2
-//     %WideBlkSize = zext i16 %BlkSize to i64
+//     %WideBlkSize = zext i16 %BlkSize to i64  ; Not mandatory
 //     br label SomeBB
 //
 bool MemManageTransImpl::identifyRemoveStrObj(
@@ -4048,12 +4060,13 @@ bool MemManageTransImpl::identifyRemoveStrObj(
     Value *RemObjsPHI, Value **WideBlkSizePtr, Value **BlkSizePtr,
     Value **RemovedObjsPtr) {
   Instruction *BI = BB->getTerminator();
-  auto *WideBlkSize =
-      dyn_cast_or_null<ZExtInst>(BI->getPrevNonDebugInstruction());
-  if (!WideBlkSize)
+  Instruction *PrevBI = BI->getPrevNonDebugInstruction();
+  if (!PrevBI)
     return false;
-  auto *BlkSize =
-      dyn_cast_or_null<LoadInst>(WideBlkSize->getPrevNonDebugInstruction());
+  auto *WideBlkSize = dyn_cast<ZExtInst>(PrevBI);
+  if (WideBlkSize)
+    PrevBI = WideBlkSize->getPrevNonDebugInstruction();
+  auto *BlkSize = dyn_cast_or_null<LoadInst>(PrevBI);
   if (!BlkSize || !isBlockSizeLoadFromRAB(BlkSize, RABPtr))
     return false;
   Instruction *RemovedObjs = BlkSize->getPrevNonDebugInstruction();
@@ -4065,12 +4078,14 @@ bool MemManageTransImpl::identifyRemoveStrObj(
   if (!identifyStrObjDtorCall(RemovedObjs->getPrevNonDebugInstruction(),
                               ObjBlkPtr, LoopCountPHI))
     return false;
-  Visited.insert(WideBlkSize);
   Visited.insert(BlkSize);
   Visited.insert(RemovedObjs);
-  *WideBlkSizePtr = WideBlkSize;
   *BlkSizePtr = BlkSize;
   *RemovedObjsPtr = RemovedObjs;
+  if (WideBlkSize) {
+    Visited.insert(WideBlkSize);
+    *WideBlkSizePtr = WideBlkSize;
+  }
   return true;
 }
 
@@ -4121,6 +4136,46 @@ bool MemManageTransImpl::identifyRemoveStrObj(
 //  %RemPHI = phi [ %RemovedObjs, %CondThreeTBB ], [ %RemObjsPHI, %CondTwoTBB ]
 //  %LatchLValue = add nuw nsw i64 %LoopCountPHI, 1
 //  %ic4 = icmp ult i64 %LatchLValue, %WideBSizePHI
+//  br i1 %ic4, label %LoopH, label %LoopExitBB
+//
+// Or
+//
+// PreHead:
+//  br label %LoopH
+//
+// LoopH:
+//  br label %Succ
+//
+// Succ:
+//  %LoopCountPHI = phi i64 [ 0, %Pred ], [ %LatchLValue, %LoopH ]
+//  %BlkSizePHI = phi i16 [ %BSize, %Pred ], [ %BSizePHI, %LoopH ]
+//  %RemObjsPHI = phi i16 [ 0, %Pred ], [ %RemPHI, %LoopH ]
+//  %BlockSize = load i16, i16* %RABPtr->BlockSize
+//  %ic0 = icmp ult i16 %RemObjsPHI, %BlockSize
+//  br i1 %ic0, label %CheckOneBB, label %LoopExitBB
+//
+// CheckOneBB:
+//  %ObjBlkLoad = load ptr, ptr %RABPtr
+//  %GEP = getelementptr %"ObjStr", ptr %ObjBlkLoad, i64 %LoopCountPHI
+//  %GEP2 = getelementptr %"NextBlock", ptr %GEP, i64 0, i32 1
+//  %CondTwoLValue = load i32, ptr %GEP2, align 4
+//  %ic2 = icmp eq i32 %CondTwoLValue, -2228259
+//  %GEP3 = getelementptr %"NextBlock", ptr %GEP, i64 0, i32 0
+//  %CondThreeLValue = load i16, ptr %GEP3, align 4
+//  %ic3 = icmp ugt i16 %CondThreeLValue, %BlkSizePHI
+//  %ic4 = slect %ic3 true, %ic2
+//  br i1 %ic4, label %CondThreeTBB, label %CondThreeFBB
+//
+// CondThreeTBB:
+//  identifyRemoveStrObj(..., &WideBlkSize, &BlkSize, &RemovedObjs)
+//  br label %CondThreeFBB
+//
+// CondThreeFBB:
+//  %BSizePHI = phi [ %BlkSize, %CondThreeTBB ], [ %BlkSizePHI, %CondTwoTBB ]
+//  %RemPHI = phi [ %RemovedObjs, %CondThreeTBB ], [ %RemObjsPHI, %CondTwoTBB ]
+//  %LatchLValue = add nuw nsw i64 %LoopCountPHI, 1
+//  %ZextBSize = zext %BSizePHI to I64
+//  %ic4 = icmp ult i64 %LatchLValue, %ZextBSize
 //  br i1 %ic4, label %LoopH, label %LoopExitBB
 
 bool MemManageTransImpl::identifyRABDtorInnerLoop(BasicBlock *LoopH,
@@ -4335,20 +4390,25 @@ bool MemManageTransImpl::identifyRABDtorInnerLoop(BasicBlock *LoopH,
   BasicBlock *CondOneTBB = nullptr;
   BasicBlock *CondOneFBB = nullptr;
   ICmpInst::Predicate CondOneP = ICmpInst::ICMP_NE;
-  if (!processBBTerminator(CheckOneBB, &CondOneLValue, &CondOneRValue,
-                           &CondOneTBB, &CondOneFBB, &CondOneP))
-    return false;
-  if (CondOneP != ICmpInst::ICMP_ULT)
-    return false;
-  auto *ZExt = dyn_cast<ZExtInst>(CondOneRValue);
-  if (!ZExt)
-    return false;
-  if (BlkSizePHI != ZExt->getOperand(0))
-    return false;
-  if (LoopCountPHI != CondOneLValue)
-    return false;
-  Visited.insert(ZExt);
-  Visited.insert(ObjBlkLoad);
+  // Check if CheckOneBB has terminator with "if (BlkSizePHI < LoopCountPHI)".
+  // If not, treat CondOneTBB as CheckOneBB since CondOneTBB and CheckOneBB
+  // are merged into single basicblock.
+  if (processBBTerminator(CheckOneBB, &CondOneLValue, &CondOneRValue,
+                          &CondOneTBB, &CondOneFBB, &CondOneP)) {
+    if (CondOneP != ICmpInst::ICMP_ULT)
+      return false;
+    auto *ZExt = dyn_cast<ZExtInst>(CondOneRValue);
+    if (!ZExt)
+      return false;
+    if (BlkSizePHI != ZExt->getOperand(0))
+      return false;
+    if (LoopCountPHI != CondOneLValue)
+      return false;
+    Visited.insert(ZExt);
+    Visited.insert(ObjBlkLoad);
+  } else {
+    CondOneTBB = CheckOneBB;
+  }
 
   BasicBlock *CondThreeTBB = nullptr;
   BasicBlock *CondThreeFBB = nullptr;
@@ -4358,7 +4418,7 @@ bool MemManageTransImpl::identifyRABDtorInnerLoop(BasicBlock *LoopH,
       !CheckSeparateCondBBs(CondOneTBB, ObjBlkLoad, LoopCountPHI, BlkSizePHI,
                             &PredBB, &CondThreeTBB, &CondThreeFBB))
     return false;
-  if (CondThreeTBB != CondOneFBB)
+  if (CondOneFBB && CondThreeTBB != CondOneFBB)
     return false;
   Value *WideBlkSize = nullptr;
   Value *BlkSize = nullptr;
@@ -4403,9 +4463,14 @@ bool MemManageTransImpl::identifyRABDtorInnerLoop(BasicBlock *LoopH,
       return false;
     }
   }
-  if (!WideBSizePHI || !BSizePHI || !RemPHI)
+  if (!BSizePHI || !RemPHI)
     return false;
-  Visited.insert(WideBSizePHI);
+  // Check for 3rd PHI node only if WideBlkSize is valid.
+  if (WideBlkSize) {
+    if (!WideBSizePHI)
+      return false;
+    Visited.insert(WideBSizePHI);
+  }
   Visited.insert(BSizePHI);
   Visited.insert(RemPHI);
 
@@ -4426,12 +4491,22 @@ bool MemManageTransImpl::identifyRABDtorInnerLoop(BasicBlock *LoopH,
     return false;
   if (AddOp != LoopCountPHI)
     return false;
-  if (LatchRValue != WideBSizePHI)
-    return false;
   if (LatchTBB != LoopH)
     return false;
   if (LatchFBB != LoopExitBB)
     return false;
+
+  if (WideBSizePHI) {
+    if (LatchRValue != WideBSizePHI)
+      return false;
+  } else {
+    auto *ZExt = dyn_cast<ZExtInst>(LatchRValue);
+    if (!ZExt)
+      return false;
+    Visited.insert(ZExt);
+    if (BSizePHI != ZExt->getOperand(0))
+      return false;
+  }
 
   *LoopEndBB = LoopExitBB;
 

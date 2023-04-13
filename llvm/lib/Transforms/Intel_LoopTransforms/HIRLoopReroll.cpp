@@ -420,10 +420,9 @@ bool SequenceChecker::areEqualBlobTyForReroll(const BlobTy &Blob1,
                                       NArySCEV2->getOperand(0)));
     }
 
-    for (auto I1 = NArySCEV1->op_begin(), I2 = NArySCEV2->op_begin(),
-              E1 = NArySCEV1->op_end(), E2 = NArySCEV2->op_end();
-         I1 != E1 && I2 != E2; ++I1, ++I2) {
-      if (!areEqualBlobTyForReroll(*I1, *I2)) {
+    for (auto const &Ops :
+         llvm::zip(NArySCEV1->operands(), NArySCEV2->operands())) {
+      if (!areEqualBlobTyForReroll(std::get<0>(Ops), std::get<1>(Ops))) {
         return false;
       }
     }
@@ -695,14 +694,28 @@ bool SequenceChecker::isSequenceMatched(const unsigned II,
   // Kinds of opcodes sequence should be the same.
   for (unsigned J = 0; J < II; J++) {
     for (unsigned K = J; K + II < VecSize; K += II) {
-      bool IsSameOps =
-          std::equal(VecSeq[K].Opcodes.begin(), VecSeq[K].Opcodes.end(),
-                     VecSeq[K + II].Opcodes.begin());
+      bool IsSameOps = std::equal(
+          VecSeq[K].Opcodes.begin(), VecSeq[K].Opcodes.end(),
+          VecSeq[K + II].Opcodes.begin(), VecSeq[K + II].Opcodes.end());
       if (!IsSameOps) {
         return false;
       }
     }
   }
+
+  // Make sure GepRefs have the same shape and the number of dimensions.
+  // BaseCEs doesn't have to be same because the checks are differed.
+  for (unsigned J = 0; J < II; J++)
+    for (unsigned K = J; K + II < VecSize; K += II)
+      if (!std::equal(VecSeq[K].MemRefs.begin(), VecSeq[K].MemRefs.end(),
+                      VecSeq[K + II].MemRefs.begin(),
+                      VecSeq[K + II].MemRefs.end(),
+                      [](const RegDDRef *R1, const RegDDRef *R2) {
+                        return DDRefUtils::haveEqualBaseAndShapeAndOffsets(
+                            R1, R2, false /* relaxed mode */, 0,
+                            true /* ignore Base CE */);
+                      }))
+        return false;
 
   // CEs in adjacent sequences should be in right distance apart.
   unsigned RF = VecSize / II;
@@ -1298,8 +1311,7 @@ private:
       // Currently, only ADD reductions are covered.
       assert(NArySCEV->getSCEVType() == scAddExpr);
 
-      for (auto ChildBlob :
-           make_range(NArySCEV->op_begin(), NArySCEV->op_end())) {
+      for (auto &ChildBlob : NArySCEV->operands()) {
         // Nary-SCEV for the first-depth only
         // If not a reduction var
         if (ChildBlob == RedSCEV) {

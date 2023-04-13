@@ -1,6 +1,6 @@
 ; Check to see that __svml_sinf2 is translated to a __svml_sinf2 medium accuracy variant call.
 
-; RUN: opt -enable-new-pm=0 -vector-library=SVML -iml-trans -S < %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
 ; CHECK call <2 x float> @__svml_sinf2(

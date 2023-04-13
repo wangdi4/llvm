@@ -64,7 +64,7 @@ define dso_local void @_Z1cv() local_unnamed_addr #0 {
 ; CHECK:       loop.39:
 ; CHECK-NEXT:    store float 5.000000e-01, float* [[T19]], align 4
 ; CHECK-NEXT:    [[T19_:%.*]] = load float, float* [[T19]], align 4
-; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <1 x float> poison, float [[T19_]], i32 0
+; CHECK-NEXT:    [[DOTSPLATINSERT:%.*]] = insertelement <1 x float> poison, float [[T19_]], i64 0
 ; CHECK-NEXT:    [[DOTSPLAT:%.*]] = shufflevector <1 x float> [[DOTSPLATINSERT]], <1 x float> poison, <1 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = call svml_cc { <1 x float>, <1 x float> } @__svml_sincosf1(<1 x float> noundef [[DOTSPLAT]]) #[[ATTR5]]
 ; CHECK-NEXT:    store { <1 x float>, <1 x float> } [[TMP2]], { <1 x float>, <1 x float> }* [[T20]], align 4

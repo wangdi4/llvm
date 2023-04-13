@@ -46,7 +46,7 @@
 ; else
 ;   call Derived2::foo
 
-; RUN: opt < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -whole-program-assume -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -whole-program-assume -S 2>&1 | FileCheck %s
 
 %"class.std::ios_base::Init" = type { i8 }
 %class.Base = type { i32 (...)** }

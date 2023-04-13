@@ -35,8 +35,6 @@ class IOclCommandQueueBase;
  * Description:
  *      TODO
  *
- * Author:        Arnon Peleg
- * Date:        December 2008
  ******************************************************************************/
 class EventsManager {
 public:

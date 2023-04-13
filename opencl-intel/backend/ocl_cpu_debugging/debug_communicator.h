@@ -21,9 +21,6 @@
 #include "debugservermessages_wrapper.h"
 #include <iostream>
 
-using namespace Intel::OpenCL::Utils;
-using namespace debugservermessages;
-
 // #define DEBUG_SERVER_LOG_ON
 
 inline void DEBUG_SERVER_LOG(const std::string &s) {
@@ -32,7 +29,7 @@ inline void DEBUG_SERVER_LOG(const std::string &s) {
 #endif // DEBUG_SERVER_LOG
 }
 
-class DebugCommunicator : private OclThread {
+class DebugCommunicator : private Intel::OpenCL::Utils::OclThread {
 public:
   DebugCommunicator(unsigned short port);
   ~DebugCommunicator();
@@ -52,18 +49,19 @@ public:
 
   // Send a message to the client
   //
-  void sendMessage(const ServerToClientMessage &msg);
+  void sendMessage(const debugservermessages::ServerToClientMessage &msg);
 
   // Receive a message from the client - blocking
   //
-  ClientToServerMessage receiveMessage();
+  debugservermessages::ClientToServerMessage receiveMessage();
 
 protected:
   // These methods are executed inside a separate thread
   //
   virtual RETURN_TYPE_ENTRY_POINT Run() override;
-  bool do_receive_message(ClientToServerMessage &recv_msg);
-  bool do_send_message(const ServerToClientMessage &send_msg);
+  bool do_receive_message(debugservermessages::ClientToServerMessage &recv_msg);
+  bool
+  do_send_message(const debugservermessages::ServerToClientMessage &send_msg);
   void log_and_terminate(std::string msg);
   void set_state(State s);
 
@@ -74,17 +72,22 @@ private:
 
   // Queue for passing commands to the thread
   //
-  typedef OclNaiveConcurrentQueue<ThreadCommand> ThreadCommandQueue;
+  typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<ThreadCommand>
+      ThreadCommandQueue;
   ThreadCommandQueue m_cmd_queue;
 
   // Queue for passing messages to send to the thread
   //
-  typedef OclNaiveConcurrentQueue<ServerToClientMessage> MessageSendQueue;
+  typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<
+      debugservermessages::ServerToClientMessage>
+      MessageSendQueue;
   MessageSendQueue m_msg_send_queue;
 
   // Queue for passing received messages from the thread
   //
-  typedef OclNaiveConcurrentQueue<ClientToServerMessage> MessageRecvQueue;
+  typedef Intel::OpenCL::Utils::OclNaiveConcurrentQueue<
+      debugservermessages::ClientToServerMessage>
+      MessageRecvQueue;
   MessageRecvQueue m_msg_recv_queue;
 
   unsigned short m_port;
@@ -97,15 +100,15 @@ private:
 
   // Event used to signal that a message was received
   //
-  OclBinarySemaphore m_recv_event;
+  Intel::OpenCL::Utils::OclBinarySemaphore m_recv_event;
 
   // Event used to signal that the communicator started listening on the port
   //
-  OclBinarySemaphore m_listen_event;
+  Intel::OpenCL::Utils::OclBinarySemaphore m_listen_event;
 
   // Event used to signal that a client has connected
   //
-  OclBinarySemaphore m_connect_event;
+  Intel::OpenCL::Utils::OclBinarySemaphore m_connect_event;
 };
 
 #endif // DEBUG_COMMUNICATOR_H

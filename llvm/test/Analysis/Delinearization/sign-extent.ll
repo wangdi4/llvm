@@ -1,5 +1,5 @@
 ; INTEL
-; RUN: opt < %s -analyze -enable-new-pm=0 -delinearize
+; RUN: opt < %s -analyze -bugpoint-enable-legacy-pm -delinearize
 
 ; Try to delinearize %p[*][m][n] array when %m, %n are i32 and require signed extensions.
 

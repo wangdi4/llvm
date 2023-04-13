@@ -4,7 +4,7 @@
 ; This test checks that devirtualization with multiversioning will be applied
 ; for target functions that contain exception handling.
 
-; RUN: opt -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=true %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=true %s | FileCheck %s
 
 ; Check that the intrinsic for branch funnel wasn't created
 ; CHECK-NOT: declare void @llvm.icall.branch.funnel(...)

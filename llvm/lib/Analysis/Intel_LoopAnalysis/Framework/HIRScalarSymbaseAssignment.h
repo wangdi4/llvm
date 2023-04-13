@@ -133,7 +133,7 @@ public:
   HIRScalarSymbaseAssignment(LoopInfo &LI, ScalarEvolution &SE,
                              HIRRegionIdentification &RI, HIRSCCFormation &SCCF,
                              HIRLoopFormation &LF, HLNodeUtils &HNU)
-      : LI(LI), SE(SE), RI(RI), SCCF(SCCF), LF(LF), HNU(HNU) {}
+      : Func(nullptr), LI(LI), SE(SE), RI(RI), SCCF(SCCF), LF(LF), HNU(HNU) {}
 
   void run();
 

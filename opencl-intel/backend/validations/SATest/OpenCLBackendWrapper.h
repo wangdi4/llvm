@@ -19,10 +19,11 @@
 #include "cl_device_api.h"
 #include <BE_DynamicLib.h>
 
-using namespace Intel::OpenCL::DeviceBackend;
-
 namespace Validation {
 class BERunOptions;
+
+// FIXME 'using namespace' shouldn't be used in header file.
+using namespace Intel::OpenCL::DeviceBackend;
 
 /// @brief This class hides the internals of loading and calling OCL CPU Backend
 //

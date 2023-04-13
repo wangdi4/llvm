@@ -59,6 +59,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <numeric>
+#include <optional>
 
 #if INTEL_COLLAB
 #include "intel/CGOpenMPLateOutline.h"
@@ -66,6 +67,7 @@
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 #include "llvm/Support/MD5.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace clang;
@@ -522,11 +524,6 @@ enum OpenMPOffloadingRequiresDirFlags : int64_t {
   LLVM_MARK_AS_BITMASK_ENUM(/*LargestValue=*/OMP_REQ_DYNAMIC_ALLOCATORS)
 };
 
-enum OpenMPOffloadingReservedDeviceIDs {
-  /// Device ID if the device was not defined, runtime should get it
-  /// from environment variables in the spec.
-  OMP_DEVICEID_UNDEF = -1,
-};
 } // anonymous namespace
 
 /// Describes ident structure that describes a source location.
@@ -987,7 +984,7 @@ static Address castToBase(CodeGenFunction &CGF, QualType BaseTy, QualType ElTy,
 
   Addr = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
       Addr, OriginalBaseAddress.getType());
-  return OriginalBaseAddress.withPointer(Addr);
+  return OriginalBaseAddress.withPointer(Addr, NotKnownNonNull);
 }
 
 static const VarDecl *getBaseDecl(const Expr *Ref, const DeclRefExpr *&DE) {
@@ -1083,7 +1080,7 @@ static FieldDecl *addFieldToRecordDecl(ASTContext &C, DeclContext *DC,
 }
 
 CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM)
-    : CGM(CGM), OMPBuilder(CGM.getModule()), OffloadEntriesInfoManager() {
+    : CGM(CGM), OMPBuilder(CGM.getModule()) {
   KmpCriticalNameTy = llvm::ArrayType::get(CGM.Int32Ty, /*NumElements*/ 8);
   llvm::OpenMPIRBuilderConfig Config(CGM.getLangOpts().OpenMPIsDevice, false,
                                      hasRequiresUnifiedSharedMemory(),
@@ -1091,7 +1088,6 @@ CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM)
   // Initialize Types used in OpenMPIRBuilder from OMPKinds.def
   OMPBuilder.initialize();
   OMPBuilder.setConfig(Config);
-  OffloadEntriesInfoManager.setConfig(Config);
   loadOffloadInfoMetadata();
 }
 
@@ -1705,7 +1701,7 @@ getTargetEntryUniqueInfo(ASTContext &C, SourceLocation Loc,
 Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
   if (CGM.getLangOpts().OpenMPSimd)
     return Address::invalid();
-  llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+  std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
   if (Res && (*Res == OMPDeclareTargetDeclAttr::MT_Link ||
               ((*Res == OMPDeclareTargetDeclAttr::MT_To ||
@@ -1939,7 +1935,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
       !CGM.getLangOpts().OpenMPIsDevice)
     return false;
-  Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+  std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
   if (!Res || *Res == OMPDeclareTargetDeclAttr::MT_Link ||
       ((*Res == OMPDeclareTargetDeclAttr::MT_To ||
@@ -1961,7 +1957,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
   auto EntryInfo =
       getTargetEntryUniqueInfo(CGM.getContext(), Loc, VD->getName());
   SmallString<128> Buffer, Out;
-  OffloadEntriesInfoManager.getTargetRegionEntryFnName(Buffer, EntryInfo);
+  OMPBuilder.OffloadInfoManager.getTargetRegionEntryFnName(Buffer, EntryInfo);
 
   const Expr *Init = VD->getAnyInitializer();
   if (CGM.getLangOpts().CPlusPlus && PerformInit) {
@@ -2033,7 +2029,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
     Out.clear();
     auto CtorEntryInfo = EntryInfo;
     CtorEntryInfo.ParentName = Twine(Buffer, "_ctor").toStringRef(Out);
-    OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
+    OMPBuilder.OffloadInfoManager.registerTargetRegionEntryInfo(
         CtorEntryInfo, Ctor, ID,
         llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryCtor);
   }
@@ -2106,7 +2102,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
     Out.clear();
     auto DtorEntryInfo = EntryInfo;
     DtorEntryInfo.ParentName = Twine(Buffer, "_dtor").toStringRef(Out);
-    OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
+    OMPBuilder.OffloadInfoManager.registerTargetRegionEntryInfo(
         DtorEntryInfo, Dtor, ID,
         llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryDtor);
   }
@@ -3099,7 +3095,7 @@ enum KmpTaskTFields {
 void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
   // If we are in simd mode or there are no entries, we don't need to do
   // anything.
-  if (CGM.getLangOpts().OpenMPSimd || OffloadEntriesInfoManager.empty())
+  if (CGM.getLangOpts().OpenMPSimd || OMPBuilder.OffloadInfoManager.empty())
     return;
 
   llvm::OpenMPIRBuilder::EmitMetadataErrorReportFunctionTy &&ErrorReportFn =
@@ -3143,14 +3139,15 @@ void CGOpenMPRuntime::createOffloadEntriesAndInfoMetadata() {
     }
   };
 
-  OMPBuilder.createOffloadEntriesAndInfoMetadata(
 #if INTEL_COLLAB
+  OMPBuilder.createOffloadEntriesAndInfoMetadata(
 #if INTEL_CUSTOMIZATION
       CGM.getLangOpts().OpenMPLateOutlineTarget &&
 #endif // INTEL_CUSTOMIZATION
-      CGM.getLangOpts().OpenMPLateOutline,
+      CGM.getLangOpts().OpenMPLateOutline, ErrorReportFn);
+#else // INTEL_COLLAB
+  OMPBuilder.createOffloadEntriesAndInfoMetadata(ErrorReportFn);
 #endif // INTEL_COLLAB
-  OffloadEntriesInfoManager, ErrorReportFn);
 }
 
 /// Loads all the offload entries information from the host IR
@@ -3184,7 +3181,7 @@ void CGOpenMPRuntime::loadOffloadInfoMetadata() {
     return;
   }
 
-  OMPBuilder.loadOffloadInfoMetadata(*ME.get(), OffloadEntriesInfoManager);
+  OMPBuilder.loadOffloadInfoMetadata(*ME.get());
 }
 
 void CGOpenMPRuntime::emitKmpRoutineEntryT(QualType KmpInt32Ty) {
@@ -4852,7 +4849,7 @@ void CGOpenMPRuntime::emitUpdateClause(CodeGenFunction &CGF, LValue DepobjLVal,
   llvm::PHINode *ElementPHI =
       CGF.Builder.CreatePHI(Begin.getType(), 2, "omp.elementPast");
   ElementPHI->addIncoming(Begin.getPointer(), EntryBB);
-  Begin = Begin.withPointer(ElementPHI);
+  Begin = Begin.withPointer(ElementPHI, KnownNonNull);
   Base = CGF.MakeAddrLValue(Begin, KmpDependInfoTy, Base.getBaseInfo(),
                             Base.getTBAAInfo());
   // deps[i].flags = NewDepKind;
@@ -4940,7 +4937,7 @@ void CGOpenMPRuntime::emitTaskCall(CodeGenFunction &CGF, SourceLocation Loc,
       Region->emitUntiedSwitch(CGF);
   };
 
-  llvm::Value *DepWaitTaskArgs[6];
+  llvm::Value *DepWaitTaskArgs[7];
   if (!Data.Dependences.empty()) {
     DepWaitTaskArgs[0] = UpLoc;
     DepWaitTaskArgs[1] = ThreadID;
@@ -4948,6 +4945,8 @@ void CGOpenMPRuntime::emitTaskCall(CodeGenFunction &CGF, SourceLocation Loc,
     DepWaitTaskArgs[3] = DependenciesArray.getPointer();
     DepWaitTaskArgs[4] = CGF.Builder.getInt32(0);
     DepWaitTaskArgs[5] = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+    DepWaitTaskArgs[6] =
+        llvm::ConstantInt::get(CGF.Int32Ty, Data.HasNowaitClause);
   }
   auto &M = CGM.getModule();
   auto &&ElseCodeGen = [this, &M, &TaskArgs, ThreadID, NewTaskNewTaskTTy,
@@ -4959,9 +4958,9 @@ void CGOpenMPRuntime::emitTaskCall(CodeGenFunction &CGF, SourceLocation Loc,
     // ndeps_noalias, kmp_depend_info_t *noalias_dep_list); if dependence info
     // is specified.
     if (!Data.Dependences.empty())
-      CGF.EmitRuntimeCall(
-          OMPBuilder.getOrCreateRuntimeFunction(M, OMPRTL___kmpc_omp_wait_deps),
-          DepWaitTaskArgs);
+      CGF.EmitRuntimeCall(OMPBuilder.getOrCreateRuntimeFunction(
+                              M, OMPRTL___kmpc_omp_taskwait_deps_51),
+                          DepWaitTaskArgs);
     // Call proxy_task_entry(gtid, new_task);
     auto &&CodeGen = [TaskEntry, ThreadID, NewTaskNewTaskTTy,
                       Loc](CodeGenFunction &CGF, PrePostActionTy &Action) {
@@ -6009,24 +6008,26 @@ void CGOpenMPRuntime::emitTaskwaitCall(CodeGenFunction &CGF, SourceLocation Loc,
     llvm::Value *NumOfElements;
     std::tie(NumOfElements, DependenciesArray) =
         emitDependClause(CGF, Data.Dependences, Loc);
-    llvm::Value *DepWaitTaskArgs[6];
     if (!Data.Dependences.empty()) {
+      llvm::Value *DepWaitTaskArgs[7];
       DepWaitTaskArgs[0] = UpLoc;
       DepWaitTaskArgs[1] = ThreadID;
       DepWaitTaskArgs[2] = NumOfElements;
       DepWaitTaskArgs[3] = DependenciesArray.getPointer();
       DepWaitTaskArgs[4] = CGF.Builder.getInt32(0);
       DepWaitTaskArgs[5] = llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
+      DepWaitTaskArgs[6] =
+          llvm::ConstantInt::get(CGF.Int32Ty, Data.HasNowaitClause);
 
       CodeGenFunction::RunCleanupsScope LocalScope(CGF);
 
-      // Build void __kmpc_omp_wait_deps(ident_t *, kmp_int32 gtid,
+      // Build void __kmpc_omp_taskwait_deps_51(ident_t *, kmp_int32 gtid,
       // kmp_int32 ndeps, kmp_depend_info_t *dep_list, kmp_int32
-      // ndeps_noalias, kmp_depend_info_t *noalias_dep_list); if dependence info
-      // is specified.
-      CGF.EmitRuntimeCall(
-          OMPBuilder.getOrCreateRuntimeFunction(M, OMPRTL___kmpc_omp_wait_deps),
-          DepWaitTaskArgs);
+      // ndeps_noalias, kmp_depend_info_t *noalias_dep_list,
+      // kmp_int32 has_no_wait); if dependence info is specified.
+      CGF.EmitRuntimeCall(OMPBuilder.getOrCreateRuntimeFunction(
+                              M, OMPRTL___kmpc_omp_taskwait_deps_51),
+                          DepWaitTaskArgs);
 
     } else {
 
@@ -6188,7 +6189,7 @@ int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
       getTargetEntryUniqueInfo(CGM.getContext(), D.getBeginLoc(), ParentName);
 
   // Register the information for the entry associated with this target region.
-  int Index = OffloadEntriesInfoManager.registerTargetRegionEntryInfo(
+  int Index = OMPBuilder.OffloadInfoManager.registerTargetRegionEntryInfo(
       EntryInfo, nullptr, nullptr,
       llvm::OffloadEntriesInfoManager::OMPTargetRegionEntryTargetRegion);
   if (Index == -1)
@@ -6322,10 +6323,9 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
   getNumTeamsExprForTargetDirective(CGF, D, DefaultValTeams);
   getNumThreadsExprForTargetDirective(CGF, D, DefaultValThreads);
 
-  OMPBuilder.emitTargetRegionFunction(OffloadEntriesInfoManager, EntryInfo,
-                                      GenerateOutlinedFunction, DefaultValTeams,
-                                      DefaultValThreads, IsOffloadEntry,
-                                      OutlinedFn, OutlinedFnID);
+  OMPBuilder.emitTargetRegionFunction(EntryInfo, GenerateOutlinedFunction,
+                                      DefaultValTeams, DefaultValThreads,
+                                      IsOffloadEntry, OutlinedFn, OutlinedFnID);
 
   if (OutlinedFn != nullptr)
     CGM.getTargetCodeGenInfo().setTargetAttributes(nullptr, OutlinedFn, CGM);
@@ -6649,10 +6649,8 @@ static llvm::Value *getNumThreads(CodeGenFunction &CGF, const CapturedStmt *CS,
     }
     if (isOpenMPSimdDirective(Dir->getDirectiveKind()))
       return CGF.Builder.getInt32(1);
-    return DefaultThreadLimitVal;
   }
-  return DefaultThreadLimitVal ? DefaultThreadLimitVal
-                               : CGF.Builder.getInt32(0);
+  return DefaultThreadLimitVal;
 }
 
 const Expr *CGOpenMPRuntime::getNumThreadsExprForTargetDirective(
@@ -6795,12 +6793,14 @@ llvm::Value *CGOpenMPRuntime::emitNumThreadsForTargetDirective(
       return NumThreads;
     const Stmt *Child = CGOpenMPRuntime::getSingleCompoundChild(
         CGF.getContext(), CS->getCapturedStmt());
+    // TODO: The standard is not clear how to resolve two thread limit clauses,
+    //       let's pick the teams one if it's present, otherwise the target one.
+    const auto *ThreadLimitClause = D.getSingleClause<OMPThreadLimitClause>();
     if (const auto *Dir = dyn_cast_or_null<OMPExecutableDirective>(Child)) {
-      if (Dir->hasClausesOfKind<OMPThreadLimitClause>()) {
+      if (const auto *TLC = Dir->getSingleClause<OMPThreadLimitClause>()) {
+        ThreadLimitClause = TLC;
         CGOpenMPInnerExprInfo CGInfo(CGF, *CS);
         CodeGenFunction::CGCapturedStmtRAII CapInfoRAII(CGF, &CGInfo);
-        const auto *ThreadLimitClause =
-            Dir->getSingleClause<OMPThreadLimitClause>();
         CodeGenFunction::LexicalScope Scope(
             CGF, ThreadLimitClause->getThreadLimit()->getSourceRange());
         if (const auto *PreInit =
@@ -6815,11 +6815,15 @@ llvm::Value *CGOpenMPRuntime::emitNumThreadsForTargetDirective(
             }
           }
         }
-        llvm::Value *ThreadLimit = CGF.EmitScalarExpr(
-            ThreadLimitClause->getThreadLimit(), /*IgnoreResultAssign=*/true);
-        ThreadLimitVal =
-            Bld.CreateIntCast(ThreadLimit, CGF.Int32Ty, /*isSigned=*/false);
       }
+    }
+    if (ThreadLimitClause) {
+      llvm::Value *ThreadLimit = CGF.EmitScalarExpr(
+          ThreadLimitClause->getThreadLimit(), /*IgnoreResultAssign=*/true);
+      ThreadLimitVal =
+          Bld.CreateIntCast(ThreadLimit, CGF.Int32Ty, /*isSigned=*/false);
+    }
+    if (const auto *Dir = dyn_cast_or_null<OMPExecutableDirective>(Child)) {
       if (isOpenMPTeamsDirective(Dir->getDirectiveKind()) &&
           !isOpenMPDistributeDirective(Dir->getDirectiveKind())) {
         CS = Dir->getInnermostCapturedStmt();
@@ -6870,7 +6874,10 @@ llvm::Value *CGOpenMPRuntime::emitNumThreadsForTargetDirective(
       ThreadLimitVal =
           Bld.CreateIntCast(ThreadLimit, CGF.Int32Ty, /*isSigned=*/false);
     }
-    return getNumThreads(CGF, D.getInnermostCapturedStmt(), ThreadLimitVal);
+    if (llvm::Value *NumThreads =
+            getNumThreads(CGF, D.getInnermostCapturedStmt(), ThreadLimitVal))
+      return NumThreads;
+    return Bld.getInt32(0);
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
   case OMPD_target_parallel_for_simd:
@@ -7016,71 +7023,13 @@ LLVM_ENABLE_BITMASK_ENUMS_IN_NAMESPACE();
 // code for that information.
 class MappableExprsHandler {
 public:
-  /// Values for bit flags used to specify the mapping type for
-  /// offloading.
-  enum OpenMPOffloadMappingFlags : uint64_t {
-    /// No flags
-    OMP_MAP_NONE = 0x0,
-    /// Allocate memory on the device and move data from host to device.
-    OMP_MAP_TO = 0x01,
-    /// Allocate memory on the device and move data from device to host.
-    OMP_MAP_FROM = 0x02,
-    /// Always perform the requested mapping action on the element, even
-    /// if it was already mapped before.
-    OMP_MAP_ALWAYS = 0x04,
-    /// Delete the element from the device environment, ignoring the
-    /// current reference count associated with the element.
-    OMP_MAP_DELETE = 0x08,
-    /// The element being mapped is a pointer-pointee pair; both the
-    /// pointer and the pointee should be mapped.
-    OMP_MAP_PTR_AND_OBJ = 0x10,
-    /// This flags signals that the base address of an entry should be
-    /// passed to the target kernel as an argument.
-    OMP_MAP_TARGET_PARAM = 0x20,
-    /// Signal that the runtime library has to return the device pointer
-    /// in the current position for the data being mapped. Used when we have the
-    /// use_device_ptr or use_device_addr clause.
-    OMP_MAP_RETURN_PARAM = 0x40,
-    /// This flag signals that the reference being passed is a pointer to
-    /// private data.
-    OMP_MAP_PRIVATE = 0x80,
-    /// Pass the element to the device by value.
-    OMP_MAP_LITERAL = 0x100,
-    /// Implicit map
-    OMP_MAP_IMPLICIT = 0x200,
-    /// Close is a hint to the runtime to allocate memory close to
-    /// the target device.
-    OMP_MAP_CLOSE = 0x400,
-    /// 0x800 is reserved for compatibility with XLC.
-    /// Produce a runtime error if the data is not already allocated.
-    OMP_MAP_PRESENT = 0x1000,
-    // Increment and decrement a separate reference counter so that the data
-    // cannot be unmapped within the associated region.  Thus, this flag is
-    // intended to be used on 'target' and 'target data' directives because they
-    // are inherently structured.  It is not intended to be used on 'target
-    // enter data' and 'target exit data' directives because they are inherently
-    // dynamic.
-    // This is an OpenMP extension for the sake of OpenACC support.
-    OMP_MAP_OMPX_HOLD = 0x2000,
-#if INTEL_CUSTOMIZATION
-    /// allocate memory in host USM
-    OMP_MAP_HOST_MEM = 0x8000,
-#endif // INTEL_CUSTOMIZATION
-    /// Signal that the runtime library should use args as an array of
-    /// descriptor_dim pointers and use args_size as dims. Used when we have
-    /// non-contiguous list items in target update directive
-    OMP_MAP_NON_CONTIG = 0x100000000000,
-    /// The 16 MSBs of the flags indicate whether the entry is member of some
-    /// struct/class.
-    OMP_MAP_MEMBER_OF = 0xffff000000000000,
-    LLVM_MARK_AS_BITMASK_ENUM(/* LargestFlag = */ OMP_MAP_MEMBER_OF),
-  };
-
   /// Get the offset of the OMP_MAP_MEMBER_OF field.
   static unsigned getFlagMemberOffset() {
     unsigned Offset = 0;
-    for (uint64_t Remain = OMP_MAP_MEMBER_OF; !(Remain & 1);
-         Remain = Remain >> 1)
+    for (uint64_t Remain =
+             static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                 OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF);
+         !(Remain & 1); Remain = Remain >> 1)
       Offset++;
     return Offset;
   }
@@ -7350,7 +7299,8 @@ private:
       ArrayRef<OpenMPMotionModifierKind> MotionModifiers, bool IsImplicit,
       bool AddPtrFlag, bool AddIsTargetParamFlag, bool IsNonContiguous) const {
     OpenMPOffloadMappingFlags Bits =
-        IsImplicit ? OMP_MAP_IMPLICIT : OMP_MAP_NONE;
+        IsImplicit ? OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT
+                   : OpenMPOffloadMappingFlags::OMP_MAP_NONE;
     switch (MapType) {
     case OMPC_MAP_alloc:
     case OMPC_MAP_release:
@@ -7360,35 +7310,36 @@ private:
       // type modifiers.
       break;
     case OMPC_MAP_to:
-      Bits |= OMP_MAP_TO;
+      Bits |= OpenMPOffloadMappingFlags::OMP_MAP_TO;
       break;
     case OMPC_MAP_from:
-      Bits |= OMP_MAP_FROM;
+      Bits |= OpenMPOffloadMappingFlags::OMP_MAP_FROM;
       break;
     case OMPC_MAP_tofrom:
-      Bits |= OMP_MAP_TO | OMP_MAP_FROM;
+      Bits |= OpenMPOffloadMappingFlags::OMP_MAP_TO |
+              OpenMPOffloadMappingFlags::OMP_MAP_FROM;
       break;
     case OMPC_MAP_delete:
-      Bits |= OMP_MAP_DELETE;
+      Bits |= OpenMPOffloadMappingFlags::OMP_MAP_DELETE;
       break;
     case OMPC_MAP_unknown:
       llvm_unreachable("Unexpected map type!");
     }
     if (AddPtrFlag)
-      Bits |= OMP_MAP_PTR_AND_OBJ;
+      Bits |= OpenMPOffloadMappingFlags::OMP_MAP_PTR_AND_OBJ;
     if (AddIsTargetParamFlag)
-      Bits |= OMP_MAP_TARGET_PARAM;
+      Bits |= OpenMPOffloadMappingFlags::OMP_MAP_TARGET_PARAM;
     if (llvm::is_contained(MapModifiers, OMPC_MAP_MODIFIER_always))
-      Bits |= OMP_MAP_ALWAYS;
+      Bits |= OpenMPOffloadMappingFlags::OMP_MAP_ALWAYS;
     if (llvm::is_contained(MapModifiers, OMPC_MAP_MODIFIER_close))
-      Bits |= OMP_MAP_CLOSE;
+      Bits |= OpenMPOffloadMappingFlags::OMP_MAP_CLOSE;
     if (llvm::is_contained(MapModifiers, OMPC_MAP_MODIFIER_present) ||
         llvm::is_contained(MotionModifiers, OMPC_MOTION_MODIFIER_present))
-      Bits |= OMP_MAP_PRESENT;
+      Bits |= OpenMPOffloadMappingFlags::OMP_MAP_PRESENT;
     if (llvm::is_contained(MapModifiers, OMPC_MAP_MODIFIER_ompx_hold))
-      Bits |= OMP_MAP_OMPX_HOLD;
+      Bits |= OpenMPOffloadMappingFlags::OMP_MAP_OMPX_HOLD;
     if (IsNonContiguous)
-      Bits |= OMP_MAP_NON_CONTIG;
+      Bits |= OpenMPOffloadMappingFlags::OMP_MAP_NON_CONTIG;
     return Bits;
   }
 
@@ -7460,6 +7411,7 @@ public:
     // double d;
     // int i[100];
     // float *p;
+    // int **a = &i;
     //
     // struct S1 {
     //   int i;
@@ -7492,6 +7444,14 @@ public:
     // &p, &p[1], 24*sizeof(float), TARGET_PARAM | TO | FROM | PTR_AND_OBJ
     // in unified shared memory mode or for local pointers
     // p, &p[1], 24*sizeof(float), TARGET_PARAM | TO | FROM
+    //
+    // map((*a)[0:3])
+    // &(*a), &(*a), sizeof(pointer), TARGET_PARAM | TO | FROM
+    // &(*a), &(*a)[0], 3*sizeof(int), PTR_AND_OBJ | TO | FROM
+    //
+    // map(**a)
+    // &(*a), &(*a), sizeof(pointer), TARGET_PARAM | TO | FROM
+    // &(*a), &(**a), sizeof(int), PTR_AND_OBJ | TO | FROM
     //
     // map(s)
     // &s, &s, sizeof(S2), TARGET_PARAM | TO | FROM
@@ -7679,7 +7639,7 @@ public:
       BP = CGF.EmitOMPSharedLValue(AssocExpr).getAddress(CGF);
       if (const auto *VD =
               dyn_cast_or_null<VarDecl>(I->getAssociatedDeclaration())) {
-        if (llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+        if (std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
                 OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD)) {
           if ((*Res == OMPDeclareTargetDeclAttr::MT_Link) ||
               ((*Res == OMPDeclareTargetDeclAttr::MT_To ||
@@ -7825,7 +7785,9 @@ public:
       bool IsMemberReference = isa<MemberExpr>(I->getAssociatedExpression()) &&
                                MapDecl &&
                                MapDecl->getType()->isLValueReferenceType();
-      bool IsNonDerefPointer = IsPointer && !UO && !BO && !IsNonContiguous;
+      bool IsNonDerefPointer = IsPointer &&
+                               !(UO && UO->getOpcode() != UO_Deref) && !BO &&
+                               !IsNonContiguous;
 
       if (OASE)
         ++DimSize;
@@ -7938,7 +7900,7 @@ public:
           std::swap(PartialStruct.PreliminaryMapData, CombinedInfo);
           // Emit data for non-overlapped data.
           OpenMPOffloadMappingFlags Flags =
-              OMP_MAP_MEMBER_OF |
+              OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF |
               getMapTypeBits(MapType, MapModifiers, MotionModifiers, IsImplicit,
                              /*AddPtrFlag=*/false,
                              /*AddIsTargetParamFlag=*/false, IsNonContiguous);
@@ -8036,13 +7998,16 @@ public:
             // If we have a PTR_AND_OBJ pair where the OBJ is a pointer as well,
             // then we reset the TO/FROM/ALWAYS/DELETE/CLOSE flags.
             if (IsPointer || (IsMemberReference && Next != CE))
-              Flags &= ~(OMP_MAP_TO | OMP_MAP_FROM | OMP_MAP_ALWAYS |
-                         OMP_MAP_DELETE | OMP_MAP_CLOSE);
+              Flags &= ~(OpenMPOffloadMappingFlags::OMP_MAP_TO |
+                         OpenMPOffloadMappingFlags::OMP_MAP_FROM |
+                         OpenMPOffloadMappingFlags::OMP_MAP_ALWAYS |
+                         OpenMPOffloadMappingFlags::OMP_MAP_DELETE |
+                         OpenMPOffloadMappingFlags::OMP_MAP_CLOSE);
 
             if (ShouldBeMemberOf) {
               // Set placeholder value MEMBER_OF=FFFF to indicate that the flag
               // should be later updated with the correct value of MEMBER_OF.
-              Flags |= OMP_MAP_MEMBER_OF;
+              Flags |= OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF;
               // From now on, all subsequent PTR_AND_OBJ entries should not be
               // marked as MEMBER_OF.
               ShouldBeMemberOf = false;
@@ -8314,7 +8279,7 @@ private:
   /// Return the adjusted map modifiers if the declaration a capture refers to
   /// appears in a first-private clause. This is expected to be used only with
   /// directives that start with 'target'.
-  MappableExprsHandler::OpenMPOffloadMappingFlags
+  OpenMPOffloadMappingFlags
   getMapModifiersForPrivateClauses(const CapturedStmt::Capture &Cap) const {
     assert(Cap.capturesVariable() && "Expected capture by reference only!");
 
@@ -8323,10 +8288,10 @@ private:
     // declaration is known as first-private in this handler.
     if (FirstPrivateDecls.count(Cap.getCapturedVar())) {
       if (Cap.getCapturedVar()->getType()->isAnyPointerType())
-        return MappableExprsHandler::OMP_MAP_TO |
-               MappableExprsHandler::OMP_MAP_PTR_AND_OBJ;
-      return MappableExprsHandler::OMP_MAP_PRIVATE |
-             MappableExprsHandler::OMP_MAP_TO;
+        return OpenMPOffloadMappingFlags::OMP_MAP_TO |
+               OpenMPOffloadMappingFlags::OMP_MAP_PTR_AND_OBJ;
+      return OpenMPOffloadMappingFlags::OMP_MAP_PRIVATE |
+             OpenMPOffloadMappingFlags::OMP_MAP_TO;
     }
     auto I = LambdasMap.find(Cap.getCapturedVar()->getCanonicalDecl());
     if (I != LambdasMap.end())
@@ -8337,8 +8302,8 @@ private:
           /*AddPtrFlag=*/false,
           /*AddIsTargetParamFlag=*/false,
           /*isNonContiguous=*/false);
-    return MappableExprsHandler::OMP_MAP_TO |
-           MappableExprsHandler::OMP_MAP_FROM;
+    return OpenMPOffloadMappingFlags::OMP_MAP_TO |
+           OpenMPOffloadMappingFlags::OMP_MAP_FROM;
   }
 
   static OpenMPOffloadMappingFlags getMemberOfFlag(unsigned Position) {
@@ -8352,13 +8317,16 @@ private:
     // If the entry is PTR_AND_OBJ but has not been marked with the special
     // placeholder value 0xFFFF in the MEMBER_OF field, then it should not be
     // marked as MEMBER_OF.
-    if ((Flags & OMP_MAP_PTR_AND_OBJ) &&
-        ((Flags & OMP_MAP_MEMBER_OF) != OMP_MAP_MEMBER_OF))
+    if (static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+            Flags & OpenMPOffloadMappingFlags::OMP_MAP_PTR_AND_OBJ) &&
+        static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+            (Flags & OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF) !=
+            OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF))
       return;
 
     // Reset the placeholder value to prepare the flag for the assignment of the
     // proper MEMBER_OF value.
-    Flags &= ~OMP_MAP_MEMBER_OF;
+    Flags &= ~OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF;
     Flags |= MemberOfFlag;
   }
 
@@ -8538,7 +8506,8 @@ private:
           UseDeviceDataCombinedInfo.Pointers.push_back(Ptr);
           UseDeviceDataCombinedInfo.Sizes.push_back(
               llvm::Constant::getNullValue(CGF.Int64Ty));
-          UseDeviceDataCombinedInfo.Types.push_back(OMP_MAP_RETURN_PARAM);
+          UseDeviceDataCombinedInfo.Types.push_back(
+              OpenMPOffloadMappingFlags::OMP_MAP_RETURN_PARAM);
           UseDeviceDataCombinedInfo.Mappers.push_back(nullptr);
 #if INTEL_COLLAB
           UseDeviceDataCombinedInfo.VarChain.push_back(
@@ -8708,7 +8677,8 @@ private:
 
             CurInfo.BasePointers[CurrentBasePointersIdx].setDevicePtrDecl(
                 RelevantVD);
-            CurInfo.Types[CurrentBasePointersIdx] |= OMP_MAP_RETURN_PARAM;
+            CurInfo.Types[CurrentBasePointersIdx] |=
+                OpenMPOffloadMappingFlags::OMP_MAP_RETURN_PARAM;
           }
         }
       }
@@ -8729,7 +8699,9 @@ private:
             // Entry is RETURN_PARAM. Also, set the placeholder value
             // MEMBER_OF=FFFF so that the entry is later updated with the
             // correct value of MEMBER_OF.
-            CurInfo.Types.push_back(OMP_MAP_RETURN_PARAM | OMP_MAP_MEMBER_OF);
+            CurInfo.Types.push_back(
+                OpenMPOffloadMappingFlags::OMP_MAP_RETURN_PARAM |
+                OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF);
           } else {
             BasePtr = this->CGF.EmitLValue(L.IE).getPointer(CGF);
             Ptr = this->CGF.EmitLoadOfScalar(this->CGF.EmitLValue(L.IE),
@@ -8737,8 +8709,10 @@ private:
             // Entry is PTR_AND_OBJ and RETURN_PARAM. Also, set the
             // placeholder value MEMBER_OF=FFFF so that the entry is later
             // updated with the correct value of MEMBER_OF.
-            CurInfo.Types.push_back(OMP_MAP_PTR_AND_OBJ | OMP_MAP_RETURN_PARAM |
-                                    OMP_MAP_MEMBER_OF);
+            CurInfo.Types.push_back(
+                OpenMPOffloadMappingFlags::OMP_MAP_PTR_AND_OBJ |
+                OpenMPOffloadMappingFlags::OMP_MAP_RETURN_PARAM |
+                OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF);
           }
           CurInfo.Exprs.push_back(L.VD);
           CurInfo.BasePointers.emplace_back(BasePtr, L.VD);
@@ -8758,7 +8732,8 @@ private:
       // individual members mapped. Emit an extra combined entry.
       if (PartialStruct.Base.isValid()) {
         CurInfo.NonContigInfo.Dims.push_back(0);
-        emitCombinedEntry(CombinedInfo, CurInfo.Types, PartialStruct, VD);
+        emitCombinedEntry(CombinedInfo, CurInfo.Types, PartialStruct,
+                          /*IsMapThis*/ !VD, VD);
       }
 
 #if INTEL_COLLAB
@@ -8834,11 +8809,12 @@ public:
   /// individual struct members.
   void emitCombinedEntry(MapCombinedInfoTy &CombinedInfo,
                          MapFlagsArrayTy &CurTypes,
-                         const StructRangeInfoTy &PartialStruct,
+                         const StructRangeInfoTy &PartialStruct, bool IsMapThis,
                          const ValueDecl *VD = nullptr,
                          bool NotTargetParams = true) const {
     if (CurTypes.size() == 1 &&
-        ((CurTypes.back() & OMP_MAP_MEMBER_OF) != OMP_MAP_MEMBER_OF) &&
+        ((CurTypes.back() & OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF) !=
+         OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF) &&
 #if INTEL_COLLAB
         !PartialStruct.HasVTPtr &&
 #endif  // INTEL_COLLAB
@@ -8858,8 +8834,7 @@ public:
     const CXXMethodDecl *MD =
         CGF.CurFuncDecl ? dyn_cast<CXXMethodDecl>(CGF.CurFuncDecl) : nullptr;
     const CXXRecordDecl *RD = MD ? MD->getParent() : nullptr;
-    // When VD is not null, it is not field of class, skip generating this[:1].
-    bool HasBaseClass = RD && !VD ? RD->getNumBases() > 0 : false;
+    bool HasBaseClass = RD && IsMapThis ? RD->getNumBases() > 0 : false;
     // There should not be a mapper for a combined entry.
     if (HasBaseClass) {
       // OpenMP 5.2 148:21:
@@ -8890,17 +8865,19 @@ public:
     }
     CombinedInfo.Mappers.push_back(nullptr);
     // Map type is always TARGET_PARAM, if generate info for captures.
-    CombinedInfo.Types.push_back(NotTargetParams ? OMP_MAP_NONE
-                                                 : OMP_MAP_TARGET_PARAM);
+    CombinedInfo.Types.push_back(
+        NotTargetParams ? OpenMPOffloadMappingFlags::OMP_MAP_NONE
+                        : OpenMPOffloadMappingFlags::OMP_MAP_TARGET_PARAM);
     // If any element has the present modifier, then make sure the runtime
     // doesn't attempt to allocate the struct.
     if (CurTypes.end() !=
         llvm::find_if(CurTypes, [](OpenMPOffloadMappingFlags Type) {
-          return Type & OMP_MAP_PRESENT;
+          return static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+              Type & OpenMPOffloadMappingFlags::OMP_MAP_PRESENT);
         }))
-      CombinedInfo.Types.back() |= OMP_MAP_PRESENT;
+      CombinedInfo.Types.back() |= OpenMPOffloadMappingFlags::OMP_MAP_PRESENT;
     // Remove TARGET_PARAM flag from the first element
-    (*CurTypes.begin()) &= ~OMP_MAP_TARGET_PARAM;
+    (*CurTypes.begin()) &= ~OpenMPOffloadMappingFlags::OMP_MAP_TARGET_PARAM;
     // If any element has the ompx_hold modifier, then make sure the runtime
     // uses the hold reference count for the struct as a whole so that it won't
     // be unmapped by an extra dynamic reference count decrement.  Add it to all
@@ -8909,11 +8886,12 @@ public:
     // individual elements.
     if (CurTypes.end() !=
         llvm::find_if(CurTypes, [](OpenMPOffloadMappingFlags Type) {
-          return Type & OMP_MAP_OMPX_HOLD;
+          return static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+              Type & OpenMPOffloadMappingFlags::OMP_MAP_OMPX_HOLD);
         })) {
-      CombinedInfo.Types.back() |= OMP_MAP_OMPX_HOLD;
+      CombinedInfo.Types.back() |= OpenMPOffloadMappingFlags::OMP_MAP_OMPX_HOLD;
       for (auto &M : CurTypes)
-        M |= OMP_MAP_OMPX_HOLD;
+        M |= OpenMPOffloadMappingFlags::OMP_MAP_OMPX_HOLD;
     }
 
     // All other current entries will be MEMBER_OF the combined entry
@@ -8976,8 +8954,11 @@ public:
       CombinedInfo.Sizes.push_back(
           CGF.Builder.CreateIntCast(CGF.getTypeSize(CGF.getContext().VoidPtrTy),
                                     CGF.Int64Ty, /*isSigned=*/true));
-      CombinedInfo.Types.push_back(OMP_MAP_PTR_AND_OBJ | OMP_MAP_LITERAL |
-                                   OMP_MAP_MEMBER_OF | OMP_MAP_IMPLICIT);
+      CombinedInfo.Types.push_back(
+          OpenMPOffloadMappingFlags::OMP_MAP_PTR_AND_OBJ |
+          OpenMPOffloadMappingFlags::OMP_MAP_LITERAL |
+          OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF |
+          OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT);
       CombinedInfo.Mappers.push_back(nullptr);
     }
     for (const LambdaCapture &LC : RD->captures()) {
@@ -9009,35 +8990,44 @@ public:
         CombinedInfo.Pointers.push_back(VarRVal.getScalarVal());
         CombinedInfo.Sizes.push_back(llvm::ConstantInt::get(CGF.Int64Ty, 0));
       }
-      CombinedInfo.Types.push_back(OMP_MAP_PTR_AND_OBJ | OMP_MAP_LITERAL |
-                                   OMP_MAP_MEMBER_OF | OMP_MAP_IMPLICIT);
+      CombinedInfo.Types.push_back(
+          OpenMPOffloadMappingFlags::OMP_MAP_PTR_AND_OBJ |
+          OpenMPOffloadMappingFlags::OMP_MAP_LITERAL |
+          OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF |
+          OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT);
       CombinedInfo.Mappers.push_back(nullptr);
     }
   }
 
 #if INTEL_COLLAB
+  static bool hasOffloadMappingFlag(OpenMPOffloadMappingFlags Types,
+                                    OpenMPOffloadMappingFlags Flag) {
+    return static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+        Types & Flag);
+  }
+
   static SmallVector<OpenMPMapModifierKind, 1>
-  getMapModifiers(MappableExprsHandler::OpenMPOffloadMappingFlags Types) {
+  getMapModifiers(OpenMPOffloadMappingFlags Types) {
     SmallVector<OpenMPMapModifierKind, 1> MD;
-    if ((Types & MappableExprsHandler::OMP_MAP_ALWAYS))
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_ALWAYS))
       MD.push_back(OMPC_MAP_MODIFIER_always);
-    if ((Types & MappableExprsHandler::OMP_MAP_CLOSE))
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_CLOSE))
       MD.push_back(OMPC_MAP_MODIFIER_close);
-    if ((Types & MappableExprsHandler::OMP_MAP_PRESENT))
+    if (hasOffloadMappingFlag(Types,
+                              OpenMPOffloadMappingFlags::OMP_MAP_PRESENT))
       MD.push_back(OMPC_MAP_MODIFIER_present);
     return MD;
   }
 
-  static OpenMPMapClauseKind
-  getMapType(MappableExprsHandler::OpenMPOffloadMappingFlags Types) {
-    if ((Types & MappableExprsHandler::OMP_MAP_TO) &&
-        (Types & MappableExprsHandler::OMP_MAP_FROM))
+  static OpenMPMapClauseKind getMapType(OpenMPOffloadMappingFlags Types) {
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_TO) &&
+        hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_FROM))
       return OMPC_MAP_tofrom;
-    if ((Types & MappableExprsHandler::OMP_MAP_TO))
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_TO))
       return OMPC_MAP_to;
-    if ((Types & MappableExprsHandler::OMP_MAP_FROM))
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_FROM))
       return OMPC_MAP_from;
-    if ((Types & MappableExprsHandler::OMP_MAP_DELETE))
+    if (hasOffloadMappingFlag(Types, OpenMPOffloadMappingFlags::OMP_MAP_DELETE))
       return OMPC_MAP_delete;
     return OMPC_MAP_tofrom;
   }
@@ -9057,14 +9047,14 @@ public:
       llvm::Value *VPtrValue = CGF.GetVptr(Vptr, This);
       if (!VPtrValue)
         continue;
-      MappableExprsHandler::OpenMPOffloadMappingFlags Type =
-          MappableExprsHandler::OMP_MAP_MEMBER_OF |
-          MappableExprsHandler::OMP_MAP_PTR_AND_OBJ;
+      OpenMPOffloadMappingFlags Type =
+          OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF |
+          OpenMPOffloadMappingFlags::OMP_MAP_PTR_AND_OBJ;
       if (VD && isFirstPrivateDecls(VD))
-        Type |= MappableExprsHandler::OMP_MAP_IMPLICIT |
-                 MappableExprsHandler::OMP_MAP_LITERAL;
+        Type |= OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT |
+                OpenMPOffloadMappingFlags::OMP_MAP_LITERAL;
       else
-        Type |= MappableExprsHandler::OMP_MAP_TO;
+        Type |= OpenMPOffloadMappingFlags::OMP_MAP_TO;
       CurInfo.Exprs.emplace_back(VD ? VD : CurInfo.Exprs[0]);
       CurInfo.BasePointers.push_back(BP);
       CurInfo.Pointers.push_back(VPtrValue);
@@ -9112,8 +9102,10 @@ public:
       MapFlagsArrayTy &Types) const {
     for (unsigned I = 0, E = Types.size(); I < E; ++I) {
       // Set correct member_of idx for all implicit lambda captures.
-      if (Types[I] != (OMP_MAP_PTR_AND_OBJ | OMP_MAP_LITERAL |
-                       OMP_MAP_MEMBER_OF | OMP_MAP_IMPLICIT))
+      if (Types[I] != (OpenMPOffloadMappingFlags::OMP_MAP_PTR_AND_OBJ |
+                       OpenMPOffloadMappingFlags::OMP_MAP_LITERAL |
+                       OpenMPOffloadMappingFlags::OMP_MAP_MEMBER_OF |
+                       OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT))
         continue;
       llvm::Value *BasePtr = LambdaPointers.lookup(*BasePointers[I]);
       assert(BasePtr && "Unable to find base lambda address.");
@@ -9206,8 +9198,10 @@ public:
           CGF.getTypeSize(CGF.getContext().VoidPtrTy), CGF.Int64Ty,
           /*isSigned=*/true));
       CombinedInfo.Types.push_back(
-          (Cap->capturesVariable() ? OMP_MAP_TO : OMP_MAP_LITERAL) |
-          OMP_MAP_TARGET_PARAM);
+          (Cap->capturesVariable()
+               ? OpenMPOffloadMappingFlags::OMP_MAP_TO
+               : OpenMPOffloadMappingFlags::OMP_MAP_LITERAL) |
+          OpenMPOffloadMappingFlags::OMP_MAP_TARGET_PARAM);
       CombinedInfo.Mappers.push_back(nullptr);
       return;
     }
@@ -9285,7 +9279,7 @@ public:
       std::tie(Components, MapType, MapModifiers, IsImplicit, Mapper, VarRef) =
           L;
       ++Count;
-      for (const MapData &L1 : makeArrayRef(DeclComponentLists).slice(Count)) {
+      for (const MapData &L1 : ArrayRef(DeclComponentLists).slice(Count)) {
         OMPClauseMappableExprCommon::MappableExprComponentListRef Components1;
         std::tie(Components1, MapType, MapModifiers, IsImplicit, Mapper,
                  VarRef) = L1;
@@ -9459,7 +9453,8 @@ public:
           CGF.Builder.CreateIntCast(CGF.getTypeSize(PtrTy->getPointeeType()),
                                     CGF.Int64Ty, /*isSigned=*/true));
       // Default map type.
-      CombinedInfo.Types.push_back(OMP_MAP_TO | OMP_MAP_FROM);
+      CombinedInfo.Types.push_back(OpenMPOffloadMappingFlags::OMP_MAP_TO |
+                                   OpenMPOffloadMappingFlags::OMP_MAP_FROM);
     } else if (CI.capturesVariableByCopy()) {
       const VarDecl *VD = CI.getCapturedVar();
       CombinedInfo.Exprs.push_back(VD->getCanonicalDecl());
@@ -9468,13 +9463,14 @@ public:
       if (!RI.getType()->isAnyPointerType()) {
         // We have to signal to the runtime captures passed by value that are
         // not pointers.
-        CombinedInfo.Types.push_back(OMP_MAP_LITERAL);
+        CombinedInfo.Types.push_back(
+            OpenMPOffloadMappingFlags::OMP_MAP_LITERAL);
         CombinedInfo.Sizes.push_back(CGF.Builder.CreateIntCast(
             CGF.getTypeSize(RI.getType()), CGF.Int64Ty, /*isSigned=*/true));
       } else {
         // Pointers are implicitly mapped with a zero size and no flags
         // (other than first map that is added for all implicit maps).
-        CombinedInfo.Types.push_back(OMP_MAP_NONE);
+        CombinedInfo.Types.push_back(OpenMPOffloadMappingFlags::OMP_MAP_NONE);
         CombinedInfo.Sizes.push_back(llvm::Constant::getNullValue(CGF.Int64Ty));
       }
       auto I = FirstPrivateDecls.find(VD);
@@ -9506,11 +9502,12 @@ public:
         IsImplicit = I->getSecond();
     }
     // Every default map produces a single argument which is a target parameter.
-    CombinedInfo.Types.back() |= OMP_MAP_TARGET_PARAM;
+    CombinedInfo.Types.back() |=
+        OpenMPOffloadMappingFlags::OMP_MAP_TARGET_PARAM;
 
     // Add flag stating this is an implicit map.
     if (IsImplicit)
-      CombinedInfo.Types.back() |= OMP_MAP_IMPLICIT;
+      CombinedInfo.Types.back() |= OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT;
 
     // No user-defined mapper for default mapping.
     CombinedInfo.Mappers.push_back(nullptr);
@@ -9676,8 +9673,10 @@ static void emitOffloadingArrays(
     for (unsigned I = 0, E = CombinedInfo.Sizes.size(); I < E; ++I) {
       if (auto *CI = dyn_cast<llvm::Constant>(CombinedInfo.Sizes[I])) {
         if (!isa<llvm::ConstantExpr>(CI) && !isa<llvm::GlobalValue>(CI)) {
-          if (IsNonContiguous && (CombinedInfo.Types[I] &
-                                  MappableExprsHandler::OMP_MAP_NON_CONTIG))
+          if (IsNonContiguous &&
+              static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                  CombinedInfo.Types[I] &
+                  OpenMPOffloadMappingFlags::OMP_MAP_NON_CONTIG))
             ConstSizes[I] = llvm::ConstantInt::get(
                 CGF.Int64Ty, CombinedInfo.NonContigInfo.Dims[I]);
           else
@@ -9724,8 +9723,11 @@ static void emitOffloadingArrays(
 
     // The map types are always constant so we don't need to generate code to
     // fill arrays. Instead, we create an array constant.
-    SmallVector<uint64_t, 4> Mapping(CombinedInfo.Types.size(), 0);
-    llvm::copy(CombinedInfo.Types, Mapping.begin());
+    SmallVector<uint64_t, 4> Mapping;
+    for (auto mapFlag : CombinedInfo.Types)
+      Mapping.push_back(
+          static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+              mapFlag));
     std::string MaptypesName =
         CGM.getOpenMPRuntime().getName({"offload_maptypes"});
     auto *MapTypesArrayGbl =
@@ -9755,8 +9757,12 @@ static void emitOffloadingArrays(
     if (Info.separateBeginEndCalls()) {
       bool EndMapTypesDiffer = false;
       for (uint64_t &Type : Mapping) {
-        if (Type & MappableExprsHandler::OMP_MAP_PRESENT) {
-          Type &= ~MappableExprsHandler::OMP_MAP_PRESENT;
+        if (Type &
+            static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                OpenMPOffloadMappingFlags::OMP_MAP_PRESENT)) {
+          Type &=
+              ~static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                  OpenMPOffloadMappingFlags::OMP_MAP_PRESENT);
           EndMapTypesDiffer = true;
         }
       }
@@ -9909,13 +9915,13 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         // expressions for each partial piece.  The call to emitCombinedEntry
         // creates the base that covers all the pieces.
         MEHandler.emitCombinedEntry(
-            CombinedInfo, CurInfo.Types, PartialStruct, nullptr,
-            !PartialStruct.PreliminaryMapData.BasePointers.empty());
+            CombinedInfo, CurInfo.Types, PartialStruct, CI->capturesThis(),
+            nullptr, !PartialStruct.PreliminaryMapData.BasePointers.empty());
         if (VD && PartialStruct.HasVTPtr && MEHandler.isFirstPrivateDecls(VD))
           CombinedInfo.Types.back() =
-              MappableExprsHandler::OMP_MAP_PRIVATE |
-              MappableExprsHandler::OMP_MAP_TARGET_PARAM |
-              MappableExprsHandler::OMP_MAP_TO;
+              OpenMPOffloadMappingFlags::OMP_MAP_PRIVATE |
+              OpenMPOffloadMappingFlags::OMP_MAP_TARGET_PARAM |
+              OpenMPOffloadMappingFlags::OMP_MAP_TO;
       }
       if (CurInfo.BasePointers.size() > 0)
         CurInfo.VarChain.push_back(std::make_pair(VD, false));
@@ -9943,13 +9949,15 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         for (unsigned int I = 0, E = CombinedInfo.BasePointers.size(); I < E;
              ++I)
           if (!CombinedInfo.VarChain[I].second &&
-              (CombinedInfo.Types[I] &
-               MappableExprsHandler::OMP_MAP_IMPLICIT)) {
+              MappableExprsHandler::hasOffloadMappingFlag(
+                  CombinedInfo.Types[I],
+                  OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT)) {
             auto It = ReductionExprs.find(CombinedInfo.Exprs[I].getMapDecl());
             if (It != ReductionExprs.end()) {
               if (!CombinedInfo.Exprs[I].getMapExpr() ||
                   It->second == CombinedInfo.Exprs[I].getMapExpr())
-                CombinedInfo.Types[I] |= MappableExprsHandler::OMP_MAP_HOST_MEM;
+                CombinedInfo.Types[I] |=
+                    OpenMPOffloadMappingFlags::OMP_MAP_HOST_MEM;
             }
           }
     }
@@ -9972,14 +9980,18 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
     Info->push_back(
         {*CombinedInfo.BasePointers[I], CombinedInfo.Pointers[I],
          CombinedInfo.Sizes[I],
-         llvm::ConstantInt::get(CGF.CGM.Int64Ty, CombinedInfo.Types[I]),
+         llvm::ConstantInt::get(
+             CGF.CGM.Int64Ty,
+             static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                 CombinedInfo.Types[I])),
          MappableExprsHandler::getMapModifiers(CombinedInfo.Types[I]),
          MappableExprsHandler::getMapType(CombinedInfo.Types[I]),
          CombinedInfo.VarChain[I].first, CombinedInfo.VarChain[I].second,
          InfoMap[I] ? InfoMap[I]->stripPointerCasts() : nullptr,
          CombinedInfo.Mappers[I], CombinedInfo.Exprs[I].getMapDecl(),
-         static_cast<bool>(CombinedInfo.Types[I] &
-                           MappableExprsHandler::OMP_MAP_IMPLICIT)});
+         MappableExprsHandler::hasOffloadMappingFlag(
+             CombinedInfo.Types[I],
+             OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT)});
   }
 }
 #endif // INTEL_COLLAB
@@ -10283,7 +10295,9 @@ void CGOpenMPRuntime::emitUserDefinedMapper(const OMPDeclareMapperDecl *D,
             : emitMappingInformation(MapperCGF, OMPBuilder, Info.Exprs[I]);
 
     // Extract the MEMBER_OF field from the map type.
-    llvm::Value *OriMapType = MapperCGF.Builder.getInt64(Info.Types[I]);
+    llvm::Value *OriMapType = MapperCGF.Builder.getInt64(
+        static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+            Info.Types[I]));
     llvm::Value *MemberMapType =
         MapperCGF.Builder.CreateNUWAdd(OriMapType, ShiftedPreviousSize);
 
@@ -10301,8 +10315,10 @@ void CGOpenMPRuntime::emitUserDefinedMapper(const OMPDeclareMapperDecl *D,
     // tofrom | alloc |  to   | from  | tofrom | release | delete
     llvm::Value *LeftToFrom = MapperCGF.Builder.CreateAnd(
         MapType,
-        MapperCGF.Builder.getInt64(MappableExprsHandler::OMP_MAP_TO |
-                                   MappableExprsHandler::OMP_MAP_FROM));
+        MapperCGF.Builder.getInt64(
+            static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                OpenMPOffloadMappingFlags::OMP_MAP_TO |
+                OpenMPOffloadMappingFlags::OMP_MAP_FROM)));
     llvm::BasicBlock *AllocBB = MapperCGF.createBasicBlock("omp.type.alloc");
     llvm::BasicBlock *AllocElseBB =
         MapperCGF.createBasicBlock("omp.type.alloc.else");
@@ -10316,30 +10332,40 @@ void CGOpenMPRuntime::emitUserDefinedMapper(const OMPDeclareMapperDecl *D,
     MapperCGF.EmitBlock(AllocBB);
     llvm::Value *AllocMapType = MapperCGF.Builder.CreateAnd(
         MemberMapType,
-        MapperCGF.Builder.getInt64(~(MappableExprsHandler::OMP_MAP_TO |
-                                     MappableExprsHandler::OMP_MAP_FROM)));
+        MapperCGF.Builder.getInt64(
+            ~static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                OpenMPOffloadMappingFlags::OMP_MAP_TO |
+                OpenMPOffloadMappingFlags::OMP_MAP_FROM)));
     MapperCGF.Builder.CreateBr(EndBB);
     MapperCGF.EmitBlock(AllocElseBB);
     llvm::Value *IsTo = MapperCGF.Builder.CreateICmpEQ(
         LeftToFrom,
-        MapperCGF.Builder.getInt64(MappableExprsHandler::OMP_MAP_TO));
+        MapperCGF.Builder.getInt64(
+            static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                OpenMPOffloadMappingFlags::OMP_MAP_TO)));
     MapperCGF.Builder.CreateCondBr(IsTo, ToBB, ToElseBB);
     // In case of to, clear OMP_MAP_FROM.
     MapperCGF.EmitBlock(ToBB);
     llvm::Value *ToMapType = MapperCGF.Builder.CreateAnd(
         MemberMapType,
-        MapperCGF.Builder.getInt64(~MappableExprsHandler::OMP_MAP_FROM));
+        MapperCGF.Builder.getInt64(
+            ~static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                OpenMPOffloadMappingFlags::OMP_MAP_FROM)));
     MapperCGF.Builder.CreateBr(EndBB);
     MapperCGF.EmitBlock(ToElseBB);
     llvm::Value *IsFrom = MapperCGF.Builder.CreateICmpEQ(
         LeftToFrom,
-        MapperCGF.Builder.getInt64(MappableExprsHandler::OMP_MAP_FROM));
+        MapperCGF.Builder.getInt64(
+            static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                OpenMPOffloadMappingFlags::OMP_MAP_FROM)));
     MapperCGF.Builder.CreateCondBr(IsFrom, FromBB, EndBB);
     // In case of from, clear OMP_MAP_TO.
     MapperCGF.EmitBlock(FromBB);
     llvm::Value *FromMapType = MapperCGF.Builder.CreateAnd(
         MemberMapType,
-        MapperCGF.Builder.getInt64(~MappableExprsHandler::OMP_MAP_TO));
+        MapperCGF.Builder.getInt64(
+            ~static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                OpenMPOffloadMappingFlags::OMP_MAP_TO)));
     // In case of tofrom, do nothing.
     MapperCGF.EmitBlock(EndBB);
     LastBB = EndBB;
@@ -10414,7 +10440,9 @@ void CGOpenMPRuntime::emitUDMapperArrayInitOrDel(
       Size, MapperCGF.Builder.getInt64(1), "omp.arrayinit.isarray");
   llvm::Value *DeleteBit = MapperCGF.Builder.CreateAnd(
       MapType,
-      MapperCGF.Builder.getInt64(MappableExprsHandler::OMP_MAP_DELETE));
+      MapperCGF.Builder.getInt64(
+          static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+              OpenMPOffloadMappingFlags::OMP_MAP_DELETE)));
   llvm::Value *DeleteCond;
   llvm::Value *Cond;
   if (IsInit) {
@@ -10429,7 +10457,9 @@ void CGOpenMPRuntime::emitUDMapperArrayInitOrDel(
     // IsPtrAndObj?
     llvm::Value *PtrAndObjBit = MapperCGF.Builder.CreateAnd(
         MapType,
-        MapperCGF.Builder.getInt64(MappableExprsHandler::OMP_MAP_PTR_AND_OBJ));
+        MapperCGF.Builder.getInt64(
+            static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+                OpenMPOffloadMappingFlags::OMP_MAP_PTR_AND_OBJ)));
     PtrAndObjBit = MapperCGF.Builder.CreateIsNotNull(PtrAndObjBit);
     BaseIsBegin = MapperCGF.Builder.CreateAnd(BaseIsBegin, PtrAndObjBit);
 #if INTEL_COLLAB
@@ -10455,11 +10485,15 @@ void CGOpenMPRuntime::emitUDMapperArrayInitOrDel(
   // memory allocation/deletion purpose only.
   llvm::Value *MapTypeArg = MapperCGF.Builder.CreateAnd(
       MapType,
-      MapperCGF.Builder.getInt64(~(MappableExprsHandler::OMP_MAP_TO |
-                                   MappableExprsHandler::OMP_MAP_FROM)));
+      MapperCGF.Builder.getInt64(
+          ~static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+              OpenMPOffloadMappingFlags::OMP_MAP_TO |
+              OpenMPOffloadMappingFlags::OMP_MAP_FROM)));
   MapTypeArg = MapperCGF.Builder.CreateOr(
       MapTypeArg,
-      MapperCGF.Builder.getInt64(MappableExprsHandler::OMP_MAP_IMPLICIT));
+      MapperCGF.Builder.getInt64(
+          static_cast<std::underlying_type_t<OpenMPOffloadMappingFlags>>(
+              OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT)));
 
   // Call the runtime API __tgt_push_mapper_component to fill up the runtime
   // data structure.
@@ -10594,9 +10628,29 @@ void CGOpenMPRuntime::emitTargetCall(
     llvm::Value *NumIterations =
         emitTargetNumIterationsCall(CGF, D, SizeEmitter);
 
+    llvm::Value *DynCGroupMem = CGF.Builder.getInt32(0);
+    if (auto *DynMemClause = D.getSingleClause<OMPXDynCGroupMemClause>()) {
+      CodeGenFunction::RunCleanupsScope DynCGroupMemScope(CGF);
+      llvm::Value *DynCGroupMemVal = CGF.EmitScalarExpr(
+          DynMemClause->getSize(), /*IgnoreResultAssign=*/true);
+      DynCGroupMem = CGF.Builder.CreateIntCast(DynCGroupMemVal, CGF.Int32Ty,
+                                               /*isSigned=*/false);
+    }
+
+    llvm::Value *ZeroArray =
+        llvm::Constant::getNullValue(llvm::ArrayType::get(CGF.CGM.Int32Ty, 3));
+
+    bool HasNoWait = D.hasClausesOfKind<OMPNowaitClause>();
+    llvm::Value *Flags = CGF.Builder.getInt64(HasNoWait);
+
+    llvm::Value *NumTeams3D =
+        CGF.Builder.CreateInsertValue(ZeroArray, NumTeams, {0});
+    llvm::Value *NumThreads3D =
+        CGF.Builder.CreateInsertValue(ZeroArray, NumThreads, {0});
+
     // Arguments for the target kernel.
     SmallVector<llvm::Value *> KernelArgs{
-        CGF.Builder.getInt32(/* Version */ 1),
+        CGF.Builder.getInt32(/* Version */ 2),
         PointerNum,
         InputInfo.BasePointersArray.getPointer(),
         InputInfo.PointersArray.getPointer(),
@@ -10604,17 +10658,15 @@ void CGOpenMPRuntime::emitTargetCall(
         MapTypesArray,
         MapNamesArray,
         InputInfo.MappersArray.getPointer(),
-        NumIterations};
-
-    // Arguments passed to the 'nowait' variant.
-    SmallVector<llvm::Value *> NoWaitKernelArgs{
-        CGF.Builder.getInt32(0),
-        llvm::ConstantPointerNull::get(CGM.VoidPtrTy),
-        CGF.Builder.getInt32(0),
-        llvm::ConstantPointerNull::get(CGM.VoidPtrTy),
+        NumIterations,
+        Flags,
+        NumTeams3D,
+        NumThreads3D,
+        DynCGroupMem,
     };
 
-    bool HasNoWait = D.hasClausesOfKind<OMPNowaitClause>();
+    llvm::OpenMPIRBuilder::InsertPointTy AllocaIP(
+        CGF.AllocaInsertPt->getParent(), CGF.AllocaInsertPt->getIterator());
 
     // The target region is an outlined function launched by the runtime
     // via calls to __tgt_target_kernel().
@@ -10629,13 +10681,9 @@ void CGOpenMPRuntime::emitTargetCall(
     // __tgt_target_teams() launches a GPU kernel with the requested number
     // of teams and threads so no additional calls to the runtime are required.
     // Check the error code and execute the host version if required.
-    CGF.Builder.restoreIP(
-        HasNoWait ? OMPBuilder.emitTargetKernel(
-                        CGF.Builder, Return, RTLoc, DeviceID, NumTeams,
-                        NumThreads, OutlinedFnID, KernelArgs, NoWaitKernelArgs)
-                  : OMPBuilder.emitTargetKernel(CGF.Builder, Return, RTLoc,
-                                                DeviceID, NumTeams, NumThreads,
-                                                OutlinedFnID, KernelArgs));
+    CGF.Builder.restoreIP(OMPBuilder.emitTargetKernel(
+        CGF.Builder, AllocaIP, Return, RTLoc, DeviceID, NumTeams, NumThreads,
+        OutlinedFnID, KernelArgs));
 
     llvm::BasicBlock *OffloadFailedBlock =
         CGF.createBasicBlock("omp_offload.failed");
@@ -10685,9 +10733,10 @@ void CGOpenMPRuntime::emitTargetCall(
         CurInfo.Sizes.push_back(CGF.Builder.CreateIntCast(
             CGF.getTypeSize(RI->getType()), CGF.Int64Ty, /*isSigned=*/true));
         // Copy to the device as an argument. No need to retrieve it.
-        CurInfo.Types.push_back(MappableExprsHandler::OMP_MAP_LITERAL |
-                                MappableExprsHandler::OMP_MAP_TARGET_PARAM |
-                                MappableExprsHandler::OMP_MAP_IMPLICIT);
+        CurInfo.Types.push_back(
+            OpenMPOffloadMappingFlags::OMP_MAP_LITERAL |
+            OpenMPOffloadMappingFlags::OMP_MAP_TARGET_PARAM |
+            OpenMPOffloadMappingFlags::OMP_MAP_IMPLICIT);
         CurInfo.Mappers.push_back(nullptr);
       } else {
         // If we have any information in the map clause, we use it, otherwise we
@@ -10719,8 +10768,8 @@ void CGOpenMPRuntime::emitTargetCall(
       if (PartialStruct.Base.isValid()) {
         CombinedInfo.append(PartialStruct.PreliminaryMapData);
         MEHandler.emitCombinedEntry(
-            CombinedInfo, CurInfo.Types, PartialStruct, nullptr,
-            !PartialStruct.PreliminaryMapData.BasePointers.empty());
+            CombinedInfo, CurInfo.Types, PartialStruct, CI->capturesThis(),
+            nullptr, !PartialStruct.PreliminaryMapData.BasePointers.empty());
       }
 
       // We need to append the results of this capture to what we already have.
@@ -10813,7 +10862,7 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
 
     // Is this a target region that should not be emitted as an entry point? If
     // so just signal we are done with this target region.
-    if (!OffloadEntriesInfoManager.hasTargetRegionEntryInfo(EntryInfo))
+    if (!OMPBuilder.OffloadInfoManager.hasTargetRegionEntryInfo(EntryInfo))
 #if INTEL_COLLAB
       return false;
     if (CGM.getLangOpts().OpenMPLateOutline)
@@ -10821,7 +10870,7 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
       if (CGM.getLangOpts().OpenMPLateOutlineTarget)
 #endif // INTEL_CUSTOMIZATION
       return true;
-#else
+#else // INTEL_COLLAB
       return;
 #endif // INTEL_COLLAB
 
@@ -10977,7 +11026,7 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
 }
 
 static bool isAssumedToBeNotEmitted(const ValueDecl *VD, bool IsDevice) {
-  Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
+  std::optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
       OMPDeclareTargetDeclAttr::getDeviceType(VD);
   if (!DevTy)
     return false;
@@ -11074,7 +11123,7 @@ bool CGOpenMPRuntime::emitTargetFunctionsForLateOutlining(GlobalDecl GD) {
       return false;
     }
 
-    Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
+    std::optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
         OMPDeclareTargetDeclAttr::getDeviceType(FD);
     // Do not emit device_type(nohost) functions for the host.
     if (DevTy && *DevTy == OMPDeclareTargetDeclAttr::DT_Host)
@@ -11148,7 +11197,7 @@ bool CGOpenMPRuntime::emitTargetGlobalVariable(GlobalDecl GD) {
 #endif // INTEL_COLLAB
 
   // Do not to emit variable if it is not marked as declare target.
-  llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+  std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(
           cast<VarDecl>(GD.getDecl()));
   if (!Res || *Res == OMPDeclareTargetDeclAttr::MT_Link ||
@@ -11167,9 +11216,19 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
   // For OpenMP backend outlining, the globals in a declare target region must
   // be marked with the target_declare attribute so they're not optimized away
   // by backend optimizations.
+  std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+      OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
   if (CGM.getLangOpts().OpenMPLateOutline &&
       VD->hasAttr<OMPDeclareTargetDeclAttr>())
-    cast<llvm::GlobalVariable>(Addr)->setTargetDeclare(true);
+    // Skip set target_declare attribute for local variable on host.
+    if (!(!CGM.getLangOpts().OpenMPIsDevice && Res &&
+          *Res == OMPDeclareTargetDeclAttr::MT_Local))
+      cast<llvm::GlobalVariable>(Addr)->setTargetDeclare(true);
+
+  if (Res && *Res == OMPDeclareTargetDeclAttr::MT_Local)
+    return;
+  if (VD->hasAttr<OMPGroupPrivateDeclAttr>())
+    return;
 #endif // INTEL_COLLAB
 
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
@@ -11177,13 +11236,15 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
     return;
 
   // If we have host/nohost variables, they do not need to be registered.
-  Optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
+  std::optional<OMPDeclareTargetDeclAttr::DevTypeTy> DevTy =
       OMPDeclareTargetDeclAttr::getDeviceType(VD);
   if (DevTy && *DevTy != OMPDeclareTargetDeclAttr::DT_Any)
     return;
 
-  llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+#if !defined(INTEL_COLLAB)
+  std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
+#endif // !INTEL_COLLAB
   if (!Res) {
     if (CGM.getLangOpts().OpenMPIsDevice) {
       // Register non-target variables being emitted in device code (debug info
@@ -11227,10 +11288,12 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
     }
     Linkage = CGM.getLLVMLinkageVarDefinition(VD, /*IsConstant=*/false);
     // Temp solution to prevent optimizations of the internal variables.
-    if (CGM.getLangOpts().OpenMPIsDevice && !VD->isExternallyVisible()) {
+    if (CGM.getLangOpts().OpenMPIsDevice &&
+        (!VD->isExternallyVisible() ||
+         Linkage == llvm::GlobalValue::LinkOnceODRLinkage)) {
       // Do not create a "ref-variable" if the original is not also available
       // on the host.
-      if (!OffloadEntriesInfoManager.hasDeviceGlobalVarEntryInfo(VarName))
+      if (!OMPBuilder.OffloadInfoManager.hasDeviceGlobalVarEntryInfo(VarName))
         return;
       std::string RefName = getName({VarName, "ref"});
       if (!CGM.GetGlobalValue(RefName)) {
@@ -11270,7 +11333,7 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
     Linkage = llvm::GlobalValue::WeakAnyLinkage;
   }
 
-  OffloadEntriesInfoManager.registerDeviceGlobalVarEntryInfo(
+  OMPBuilder.OffloadInfoManager.registerDeviceGlobalVarEntryInfo(
       VarName, Addr, VarSize, Flags, Linkage);
 }
 
@@ -11280,7 +11343,7 @@ void CGOpenMPRuntime::registerTargetIndirectFn(StringRef FnName,
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
       !CGM.getLangOpts().OpenMPIsDevice)
     return;
-  OffloadEntriesInfoManager.registerDeviceIndirectFnEntryInfo(
+  OMPBuilder.OffloadInfoManager.registerDeviceIndirectFnEntryInfo(
       FnName, Addr, CGM.getLangOpts().OpenMPIsDevice);
 }
 
@@ -11289,7 +11352,7 @@ void CGOpenMPRuntime::registerTargetVtableGlobalVar(StringRef VarName,
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
       !CGM.getLangOpts().OpenMPIsDevice)
     return;
-  OffloadEntriesInfoManager.registerDeviceGlobalVarEntryInfo(
+  OMPBuilder.OffloadInfoManager.registerDeviceGlobalVarEntryInfo(
       VarName, Addr, CGM.getPointerSize().getQuantity(),
       llvm::OffloadEntriesInfoManager::OMPTargetGlobalVarEntryTo,
       llvm::GlobalValue::ExternalLinkage);
@@ -11306,10 +11369,14 @@ bool CGOpenMPRuntime::emitTargetGlobal(GlobalDecl GD) {
 
 void CGOpenMPRuntime::emitDeferredTargetDecls() const {
   for (const VarDecl *VD : DeferredGlobalVariables) {
-    llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+    std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
         OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
     if (!Res)
       continue;
+#if INTEL_COLLAB
+    if (*Res == OMPDeclareTargetDeclAttr::MT_Local)
+      continue;
+#endif // INTEL_COLLAB
     if ((*Res == OMPDeclareTargetDeclAttr::MT_To ||
          *Res == OMPDeclareTargetDeclAttr::MT_Enter) &&
         !HasRequiresUnifiedSharedMemory) {
@@ -11470,9 +11537,8 @@ llvm::Function *CGOpenMPRuntime::emitRequiresDirectiveRegFun() {
   // don't need to do anything.
   if (CGM.getLangOpts().OMPTargetTriples.empty() ||
       CGM.getLangOpts().OpenMPSimd || CGM.getLangOpts().OpenMPIsDevice ||
-      (OffloadEntriesInfoManager.empty() &&
-       !HasEmittedDeclareTargetRegion &&
-       !HasEmittedTargetRegion))
+      (OMPBuilder.OffloadInfoManager.empty() &&
+       !HasEmittedDeclareTargetRegion && !HasEmittedTargetRegion))
     return nullptr;
 
   // Create and register the function that handles the requires directives.
@@ -11493,9 +11559,8 @@ llvm::Function *CGOpenMPRuntime::emitRequiresDirectiveRegFun() {
     // passed to the runtime. This avoids the runtime from throwing an error
     // for mismatching requires clauses across compilation units that don't
     // contain at least 1 target region.
-    assert((HasEmittedTargetRegion ||
-            HasEmittedDeclareTargetRegion ||
-            !OffloadEntriesInfoManager.empty()) &&
+    assert((HasEmittedTargetRegion || HasEmittedDeclareTargetRegion ||
+            !OMPBuilder.OffloadInfoManager.empty()) &&
            "Target or declare target region expected.");
     if (HasRequiresUnifiedSharedMemory)
       Flags = OMP_REQ_UNIFIED_SHARED_MEMORY;
@@ -11919,6 +11984,7 @@ struct ParamAttrTy {
 } // namespace
 
 static unsigned evaluateCDTSize(const FunctionDecl *FD,
+                                bool &IsFloatingPoint, // INTEL
                                 ArrayRef<ParamAttrTy> ParamAttrs) {
   // Every vector variant of a SIMD-enabled function has a vector length (VLEN).
   // If OpenMP clause "simdlen" is used, the VLEN is the value of the argument
@@ -11967,6 +12033,7 @@ static unsigned evaluateCDTSize(const FunctionDecl *FD,
   CDT = CDT->getCanonicalTypeUnqualified();
   if (CDT->isRecordType() || CDT->isUnionType())
     CDT = C.IntTy;
+  IsFloatingPoint = CDT->isFloatingType(); // INTEL
   return C.getTypeSize(CDT);
 }
 
@@ -12016,41 +12083,30 @@ static std::string mangleVectorParameters(ArrayRef<ParamAttrTy> ParamAttrs) {
   return std::string(Out.str());
 }
 
+#if !INTEL_CUSTOMIZATION
 static void
 emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
                            const llvm::APSInt &VLENVal,
                            ArrayRef<ParamAttrTy> ParamAttrs,
-#if INTEL_CUSTOMIZATION
-    OMPDeclareSimdDeclAttr::BranchStateTy State,
-    bool UseSPIRMangling) {
-  QualType RetTy = FD->getReturnType();
-  if (RetTy->isComplexType() || RetTy->isStructureType())
-    return;
-  for (const auto &PD : FD->parameters())
-    if (PD->getType()->isComplexType() || PD->getType()->isStructureType())
-      return;
-#endif // INTEL_CUSTOMIZATION
-
+                           OMPDeclareSimdDeclAttr::BranchStateTy State) {
   struct ISADataTy {
     char ISA;
     unsigned VecRegSize;
   };
-
-#if INTEL_CUSTOMIZATION
-  SmallVector<ISADataTy, 4> ISAData;
-  if (UseSPIRMangling) {
-    ISAData.push_back({'x', 8});
-    ISAData.push_back({'x', 16});
-    // TODO: support by SPIR-V
-    // ISAData.push_back({'x', 32});
-  } else {
-    ISAData.push_back({'b', 128}); // SSE
-    ISAData.push_back({'c', 256}); // AVX
-    ISAData.push_back({'d', 256}); // AVX2
-    ISAData.push_back({'e', 512}); // AVX512
-  }
-
-#endif // INTEL_CUSTOMIZATION
+  ISADataTy ISAData[] = {
+      {
+          'b', 128
+      }, // SSE
+      {
+          'c', 256
+      }, // AVX
+      {
+          'd', 256
+      }, // AVX2
+      {
+          'e', 512
+      }, // AVX512
+  };
   llvm::SmallVector<char, 2> Masked;
   switch (State) {
   case OMPDeclareSimdDeclAttr::BS_Undefined:
@@ -12064,55 +12120,25 @@ emitX86DeclareSimdFunction(const FunctionDecl *FD, llvm::Function *Fn,
     Masked.push_back('M');
     break;
   }
-#if INTEL_CUSTOMIZATION
-  std::string Buffer;
-  llvm::raw_string_ostream Out(Buffer);
-
-  for (auto Mask : Masked) {
-    for (auto &Data : ISAData) {
-      if (!Out.str().empty())
-        Out << ",";
-#endif // INTEL_CUSTOMIZATION
+  for (char Mask : Masked) {
+    for (const ISADataTy &Data : ISAData) {
+      SmallString<256> Buffer;
+      llvm::raw_svector_ostream Out(Buffer);
       Out << "_ZGV" << Data.ISA << Mask;
       if (!VLENVal) {
-#if INTEL_CUSTOMIZATION
-        if (UseSPIRMangling) {
-          Out << llvm::APSInt::getUnsigned(Data.VecRegSize);
-        } else {
-          unsigned NumElts = evaluateCDTSize(FD, ParamAttrs);
-          assert(NumElts && "Non-zero simdlen/cdtsize expected");
-          Out << llvm::APSInt::getUnsigned(Data.VecRegSize / NumElts);
-        }
-#endif // INTEL_CUSTOMIZATION
+        unsigned NumElts = evaluateCDTSize(FD, ParamAttrs);
+        assert(NumElts && "Non-zero simdlen/cdtsize expected");
+        Out << llvm::APSInt::getUnsigned(Data.VecRegSize / NumElts);
       } else {
         Out << VLENVal;
       }
       Out << mangleVectorParameters(ParamAttrs);
       Out << '_' << Fn->getName();
-      Out.flush(); // INTEL
+      Fn->addFnAttr(Out.str());
     }
   }
-#if INTEL_CUSTOMIZATION
-  if (!Out.str().empty()) {
-    std::string Buf;
-    if (Fn->hasFnAttribute("vector-variants")) {
-      llvm::Attribute Attr = Fn->getFnAttribute("vector-variants");
-      Buf = Attr.getValueAsString().str();
-    }
-    llvm::raw_string_ostream VecAttrs(Buf);
-    // Append current set of vector-variants attr to vector sets attribute.
-    if(VecAttrs.str().empty())
-      VecAttrs << Out.str();
-    else if (Buf.find(Out.str()) == std::string::npos) {
-      VecAttrs << ",";
-      VecAttrs << Out.str();
-    }
-    VecAttrs.flush();
-    Out.flush();
-    Fn->addFnAttr("vector-variants", VecAttrs.str());
-  }
-#endif  // INTEL_CUSTOMIZATION
 }
+#endif // INTEL_CUSTOMIZATION
 
 // This are the Functions that are needed to mangle the name of the
 // vector functions generated by the compiler, according to the rules
@@ -12377,10 +12403,127 @@ static void emitAArch64DeclareSimdFunction(
   }
 }
 
+#if INTEL_CUSTOMIZATION
+static std::string getVectorABIMangling(char ISA, char Mask,
+                                        const llvm::APSInt &VLen,
+                                        ArrayRef<ParamAttrTy> ParamAttrs,
+                                        StringRef FuncName) {
+  std::string Buffer;
+  llvm::raw_string_ostream Out(Buffer);
+
+  if (ISA == '*')
+    Out << "_ZGV_unknown_" << Mask << VLen;
+  else
+    Out << "_ZGV" << ISA << Mask << VLen;
+  Out << mangleVectorParameters(ParamAttrs);
+  Out << '_' << FuncName;
+  Out.flush();
+
+  return Out.str();
+}
+
+typedef std::set<StringRef> CPUList;
+typedef llvm::MapVector<std::string, CPUList, llvm::StringMap<unsigned>>
+    VariantMap;
+
+/// Add a specific variant to the collection of variants. To eliminate
+/// possible duplicates caused by overlapping omp_processor clauses or
+/// command-line options, all entries are processed before emitting
+/// the metadata.
+static void addVectorVariant(VariantMap &Variants, const FunctionDecl *FD,
+                             llvm::Function *Fn, char ISA,
+                             const llvm::APSInt &VLen,
+                             ArrayRef<ParamAttrTy> ParamAttrs,
+                             OMPDeclareSimdDeclAttr::BranchStateTy State,
+                             StringRef CPUName = "") {
+
+  // Functions with complex or struct return types are not supported.
+  QualType RetTy = FD->getReturnType();
+  if (RetTy->isComplexType() || RetTy->isStructureType())
+    return;
+
+  // Functions with complex or struct parameter types are not supported.
+  for (const auto &PD : FD->parameters())
+    if (PD->getType()->isComplexType() || PD->getType()->isStructureType())
+      return;
+
+  llvm::SmallVector<char, 2> Masked;
+  switch (State) {
+  case OMPDeclareSimdDeclAttr::BS_Undefined:
+    Masked.push_back('N');
+    Masked.push_back('M');
+    break;
+  case OMPDeclareSimdDeclAttr::BS_Notinbranch:
+    Masked.push_back('N');
+    break;
+  case OMPDeclareSimdDeclAttr::BS_Inbranch:
+    Masked.push_back('M');
+    break;
+  }
+
+  for (char Mask : Masked) {
+    std::string MangledName =
+        getVectorABIMangling(ISA, Mask, VLen, ParamAttrs, Fn->getName());
+
+    auto It = Variants.find(MangledName);
+    if (It != Variants.end()) {
+      // The variant already exists so just add a CPUName if given.
+      if (!CPUName.empty())
+        It->second.insert(CPUName);
+    } else {
+      // A new variant. Add it along with the CPU if given.
+      CPUList NewCPU;
+      if (!CPUName.empty())
+        NewCPU.insert(CPUName);
+      Variants.insert({MangledName, std::move(NewCPU)});
+    }
+  }
+}
+
+static void addVectorVariantAttr(VariantMap &Variants, llvm::Function *Fn) {
+  if (!Variants.empty()) {
+    std::string VariantBuf;
+    std::string DispatchBuf;
+    llvm::raw_string_ostream VariantAttrs(VariantBuf);
+    llvm::raw_string_ostream DispatchAttrs(DispatchBuf);
+
+    bool FirstVariant = true;
+    for (auto &Variant : Variants) {
+      if (!FirstVariant)
+        VariantAttrs << ",";
+      VariantAttrs << Variant.first;
+
+      if (!Variant.second.empty()) {
+        bool FirstCPU = true;
+        if (!FirstVariant)
+          DispatchAttrs << ";";
+        DispatchAttrs << Variant.first << ":";
+        for (auto &CPU : Variant.second) {
+          if (!FirstCPU)
+            DispatchAttrs << ",";
+          DispatchAttrs << CPU;
+          FirstCPU = false;
+        }
+      }
+      FirstVariant = false;
+    }
+    VariantAttrs.flush();
+    DispatchAttrs.flush();
+    if (!VariantAttrs.str().empty())
+      Fn->addFnAttr("vector-variants", VariantAttrs.str());
+    if (!DispatchAttrs.str().empty())
+      Fn->addFnAttr("vector-dispatch", DispatchAttrs.str());
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
                                               llvm::Function *Fn) {
   ASTContext &C = CGM.getContext();
   FD = FD->getMostRecentDecl();
+#if INTEL_CUSTOMIZATION
+  VariantMap Variants;
+#endif // INTEL_CUSTOMIZATION
   while (FD) {
     // Map params to their positions in function decl.
     llvm::DenseMap<const Decl *, unsigned> ParamPositions;
@@ -12515,10 +12658,64 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
       OMPDeclareSimdDeclAttr::BranchStateTy State = Attr->getBranchState();
 #if INTEL_CUSTOMIZATION
       if (CGM.getTriple().isX86() || CGM.getTriple().isSPIR()) {
-        emitX86DeclareSimdFunction(
-            FD, Fn, VLENVal, ParamAttrs, State,
-            CGM.getTriple().isSPIR() &&
-                CGM.getCodeGenOpts().OpenMPDeclareSIMDSPIR);
+        bool IsFloatingPoint = false;
+        unsigned NumElts =
+            VLENExpr ? 0 : evaluateCDTSize(FD, IsFloatingPoint, ParamAttrs);
+        llvm::APSInt VL;
+
+        if (CGM.getCodeGenOpts().VecABICmdTarget) {
+          SmallVector<StringRef, 4> ProcessorNames;
+          // From option: -x<code>
+          StringRef CPUName = CGM.getTarget().getTargetOpts().CPU;
+          if (!CPUName.empty())
+            ProcessorNames.push_back(CPUName);
+          // From option: -ax<code>[,<code>]...
+          for (StringRef AutoName :
+               CGM.getTarget().getTargetOpts().AutoMultiVersionTargets)
+            ProcessorNames.push_back(AutoName);
+          // From ompx_processor clauses.
+          for (auto *P : Attr->processors())
+            ProcessorNames.push_back(P->getName());
+
+          for (StringRef Name : ProcessorNames) {
+            if (auto AI = llvm::X86::VectorAbiIsaInfo::getByName(Name)) {
+              size_t VSize = IsFloatingPoint ? AI->MaxFPVecRegByteSize
+                                             : AI->MaxIntVecRegByteSize;
+              addVectorVariant(
+                  Variants, FD, Fn, AI->IntelISA,
+                  NumElts ? llvm::APSInt::getUnsigned(VSize * 8 / NumElts)
+                          : VLENVal,
+                  ParamAttrs, State, AI->TargetName);
+            }
+          }
+        } else if (CGM.getTriple().isSPIR() &&
+                   CGM.getCodeGenOpts().OpenMPDeclareSIMDSPIR) {
+          // A minor HACK in order to limit customizations:
+          // we need a way to encode _unknown_ as a wildcard for ISA class
+          // using just single character. '*' serves this purpose.
+          if (VLENExpr) {
+            addVectorVariant(Variants, FD, Fn, '*', VLENVal, ParamAttrs, State);
+          } else {
+            addVectorVariant(Variants, FD, Fn, '*',
+                             llvm::APSInt::getUnsigned(8), ParamAttrs, State);
+            addVectorVariant(Variants, FD, Fn, '*',
+                             llvm::APSInt::getUnsigned(16), ParamAttrs, State);
+          }
+        } else {
+          llvm::APSInt VL;
+          // SSE
+          VL = VLENExpr ? VLENVal : llvm::APSInt::getUnsigned(128 / NumElts);
+          addVectorVariant(Variants, FD, Fn, 'b', VL, ParamAttrs, State);
+          // AVX
+          VL = VLENExpr ? VLENVal : llvm::APSInt::getUnsigned(256 / NumElts);
+          addVectorVariant(Variants, FD, Fn, 'c', VL, ParamAttrs, State);
+          // AVX2
+          VL = VLENExpr ? VLENVal : llvm::APSInt::getUnsigned(256 / NumElts);
+          addVectorVariant(Variants, FD, Fn, 'd', VL, ParamAttrs, State);
+          // AVX512
+          VL = VLENExpr ? VLENVal : llvm::APSInt::getUnsigned(512 / NumElts);
+          addVectorVariant(Variants, FD, Fn, 'e', VL, ParamAttrs, State);
+        }
 #endif // INTEL_CUSTOMIZATION
       } else if (CGM.getTriple().getArch() == llvm::Triple::aarch64) {
         unsigned VLEN = VLENVal.getExtValue();
@@ -12526,13 +12723,16 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
         if (CGM.getTarget().hasFeature("sve"))
           emitAArch64DeclareSimdFunction(CGM, FD, VLEN, ParamAttrs, State,
                                          MangledName, 's', 128, Fn, ExprLoc);
-        if (CGM.getTarget().hasFeature("neon"))
+        else if (CGM.getTarget().hasFeature("neon"))
           emitAArch64DeclareSimdFunction(CGM, FD, VLEN, ParamAttrs, State,
                                          MangledName, 'n', 128, Fn, ExprLoc);
       }
     }
     FD = FD->getPreviousDecl();
   }
+#if INTEL_CUSTOMIZATION
+  addVectorVariantAttr(Variants, Fn);
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace {
@@ -12628,7 +12828,7 @@ void CGOpenMPRuntime::emitDoacrossInit(CodeGenFunction &CGF,
   llvm::FunctionCallee FiniRTLFn = OMPBuilder.getOrCreateRuntimeFunction(
       CGM.getModule(), OMPRTL___kmpc_doacross_fini);
   CGF.EHStack.pushCleanup<DoacrossCleanupTy>(NormalAndEHCleanup, FiniRTLFn,
-                                             llvm::makeArrayRef(FiniArgs));
+                                             llvm::ArrayRef(FiniArgs));
 }
 
 void CGOpenMPRuntime::emitDoacrossOrdered(CodeGenFunction &CGF,
@@ -12719,7 +12919,7 @@ static llvm::Value *getAllocatorVal(CodeGenFunction &CGF,
 
 /// Return the alignment from an allocate directive if present.
 static llvm::Value *getAlignmentValue(CodeGenModule &CGM, const VarDecl *VD) {
-  llvm::Optional<CharUnits> AllocateAlignment = CGM.getOMPAllocateAlignment(VD);
+  std::optional<CharUnits> AllocateAlignment = CGM.getOMPAllocateAlignment(VD);
 
   if (!AllocateAlignment)
     return nullptr;

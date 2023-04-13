@@ -12,6 +12,10 @@ list(
   ocl-tblgen
   llvm-as
   FileCheck
+  count
+  not
+  llvm-nm
+  llvm-extract
   OclCpuBackEnd
   clang_compiler
   ${OCL_BUILTIN_LIBS})

@@ -16,6 +16,7 @@
 #include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/SaveAndRestore.h"
 #include <queue>
 
 #define DEBUG_TYPE "vpsoa-analysis"
@@ -31,7 +32,7 @@ static cl::opt<bool, true> VPlanDisplaySOAAnalysisInformationOpt(
 
 // Flag to bailout on any phi-node.
 static cl::opt<bool> VPlanAllowSOAPhis(
-    "vplan-enable-soa-phis", cl::init(false), cl::Hidden,
+    "vplan-enable-soa-phis", cl::init(true), cl::Hidden,
     cl::desc("Allow phi nodes for SOA pointers. I.e. if it's disabled the only "
              "accesses like a[i] for SOA arrays are allowed, any constructions "
              "like *a++ will bailout of SOA transformation."));
@@ -60,18 +61,131 @@ void VPSOAAnalysis::doSOAAnalysis(SmallPtrSetImpl<VPInstruction *> &SOAVars) {
                               "before running of SOAAnalysis.");
 
   VPBasicBlock *Preheader = Loop.getLoopPreheader();
+  SmallVector<VPAllocatePrivate *, 4> AllocaList;
   // Iterate through all the instructions in the loop-preheader, and for
-  // VPAllocatePrivate instruction check if that instruction itself or any of
-  // its possible uses, escapes.
+  // VPAllocatePrivate instruction check if the allocated private is safe to
+  // convert it to SOA format.
   for (VPInstruction &VInst : *Preheader) {
-    if (VPAllocatePrivate *AllocaPriv = dyn_cast<VPAllocatePrivate>(&VInst))
+    if (VPAllocatePrivate *AllocaPriv = dyn_cast<VPAllocatePrivate>(&VInst)) {
+      LLVM_DEBUG(dbgs() << "Analyzing "; AllocaPriv->printAsOperand(dbgs());
+                 dbgs() << "\n");
+      AllocaList.push_back(AllocaPriv);
       if (!memoryEscapes(AllocaPriv)) {
-        AllocaPriv->setSOASafe();
-        if (isSOAProfitable(AllocaPriv)) {
-          AllocaPriv->setSOAProfitable();
-          SOAVars.insert(AllocaPriv);
-        }
+        AllocaPriv->setSOASafe(true);
       }
+      LLVM_DEBUG(dbgs() << (AllocaPriv->isSOASafe() ? "Safe\n" : "Unsafe\n"););
+    }
+  }
+  // During previous analysis we assume all VPAllocatePrivate encountered
+  // as phi operands are safe. Now, we need to propagate the non-safety
+  // through phis which use unsafe allocate private.
+  // E.g. suppose we have the following.
+  //
+  //  %p1 = allocate_private i32
+  //  %p2 = allocate_private i32
+  //
+  //  ...
+  //  ; safe  uses of %p1
+  //  ...
+  //  ; unsafe use of %p2
+  //
+  //  %phi1 = phi i32* [%p1, %b1], [%p2, b2]
+  //
+  // At the moment when we analyze %p1 we don't know that %p2 is unsafe
+  // and mark %p1 as safe. Thus we need to propagate unsafety of %p2
+  // to %p1. For that we put such phis in the AllocaToPhiMap and in the
+  // PhiToAllocaMap.
+  //
+
+  std::queue<VPAllocatePrivate *> UnsafeAllocas;
+  for (VPAllocatePrivate *AP : AllocaList) {
+    // Register as unsafe if so.
+    if (!AP->isSOASafe())
+      UnsafeAllocas.push(AP);
+
+    // Simple scalars are always safe, no need to update maps.
+    if (isScalarTy(AP->getAllocatedType()))
+      continue;
+
+    // Update maps for propagation.
+    for (auto It = df_begin<VPUser *>(AP), End = df_end<VPUser *>(AP);
+         It != End;) {
+      // Users of the loads and calls are not interesting.
+      if (isa<VPLoadStoreInst>(*It) || isa<VPCallInstruction>(*It)) {
+        It.skipChildren();
+        continue;
+      }
+      if (isa<VPPHINode>(*It)) {
+        auto *Inst = cast<VPInstruction>(*It);
+        PhiToAllocaMap[Inst].insert(AP);
+        AllocaToPhiMap[AP].insert(Inst);
+      }
+      ++It;
+    }
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DEBUG(
+      SaveAndRestore<bool> EnableP(VPlanDisplaySOAAnalysisInformation, true);
+      dbgs() << "After safety analysis\n"; dump(dbgs()););
+#endif
+
+  while (!UnsafeAllocas.empty()) {
+    auto *AP = UnsafeAllocas.front();
+    UnsafeAllocas.pop();
+    auto PhiIter = AllocaToPhiMap.find(AP);
+    if (PhiIter == AllocaToPhiMap.end())
+      continue;
+    // Unsafe alloca is used by a phi: propagate the unsafety to
+    // other allocas if they are used by the same phis.
+    for (const VPInstruction *I : PhiIter->second) {
+      auto AllocaIter = PhiToAllocaMap.find(I);
+      assert(AllocaIter != PhiToAllocaMap.end() &&
+             "Expected non null iterator");
+      for (VPAllocatePrivate *DepAlloca : AllocaIter->second)
+        if (DepAlloca != AP && DepAlloca->isSOASafe()) {
+          DepAlloca->setSOASafe(false);
+          UnsafeAllocas.push(DepAlloca);
+        }
+    }
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DEBUG(
+      SaveAndRestore<bool> EnableP(VPlanDisplaySOAAnalysisInformation, true);
+      dbgs() << "After propagation\n"; dump(dbgs()););
+#endif
+
+  auto PropagateProfitability = [this,
+                                 &SOAVars](VPAllocatePrivate *AP) -> void {
+    auto PhiIter = AllocaToPhiMap.find(AP);
+    if (PhiIter == AllocaToPhiMap.end())
+      return;
+    for (const VPInstruction *I : PhiIter->second) {
+      auto AllocaIter = PhiToAllocaMap.find(I);
+      assert(AllocaIter != PhiToAllocaMap.end() &&
+             "Expected non null iterator");
+      for (VPAllocatePrivate *DepAlloca : AllocaIter->second)
+        if (DepAlloca != AP) {
+          assert(DepAlloca->isSOASafe() && "Expected SOASafe linked private");
+          DepAlloca->setSOAProfitable();
+          SOAVars.insert(DepAlloca);
+        }
+    }
+  };
+
+  for (VPAllocatePrivate *AllocaPriv : AllocaList) {
+    if (!AllocaPriv->isSOASafe())
+      continue;
+    if (!AllocaPriv->isSOAProfitable()) {
+      // If not propagated already, calculate profitability
+      if (isSOAProfitable(AllocaPriv)) {
+        AllocaPriv->setSOAProfitable();
+        SOAVars.insert(AllocaPriv);
+      }
+    }
+    if (AllocaPriv->isSOAProfitable())
+      PropagateProfitability(AllocaPriv);
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -79,32 +193,33 @@ void VPSOAAnalysis::doSOAAnalysis(SmallPtrSetImpl<VPInstruction *> &SOAVars) {
 #endif
 }
 
-// Returns true if the pointee type of the alloca-inst is a scalar value.
+// Returns true if the pointee type of the alloca-inst is a scalar or an array
+// of scalars.
 bool VPSOAAnalysis::isSOASupportedTy(Type *Ty) {
 
-  // If it is an array-type, check the element-type and return true only for
-  // scalar-type.
-  return (isa<ArrayType>(Ty) &&
-          (isScalarTy(cast<ArrayType>(Ty)->getElementType())));
+  return isScalarTy(Ty) ||
+         isa<ArrayType>(Ty) &&
+             isScalarTy(cast<ArrayType>(Ty)->getElementType());
 }
 
 // Returns true if UseInst is any function call, that we know is safe to pass a
 // private-pointer to and does not change the data-layout.
-bool VPSOAAnalysis::isSafePointerEscapeFunction(
+bool VPSOAAnalysis::SOASafetyChecker::isSafePointerEscapeFunction(
     const VPCallInstruction *VPCall) {
 
-  // Only lifetime_start/end and invariant_start/end intrinsics are considered
-  // safe.
+  // Only lifetime_start/end, invariant_start/end, and elementsize intrinsics
+  // are considered safe.
   return VPCall->isIntrinsicFromList(
       {Intrinsic::lifetime_start, Intrinsic::lifetime_end,
-       Intrinsic::invariant_start, Intrinsic::invariant_end});
+       Intrinsic::invariant_start, Intrinsic::invariant_end,
+       Intrinsic::intel_directive_elementsize});
 }
 
 // Returns true if any of the following instruction with specific constraints
 // are encountered.
-bool VPSOAAnalysis::isSafeLoadStore(const VPLoadStoreInst *LSI,
-                                    const VPInstruction *CurrentI,
-                                    Type *PrivElemSize) {
+bool VPSOAAnalysis::SOASafetyChecker::isSafeLoadStore(
+    const VPLoadStoreInst *LSI, const VPInstruction *CurrentI,
+    Type *PrivElemSize) {
   // If this is a non-simple (e.g. volatile) load/store, treat this as
   // unsafe.
   if (!LSI->isSimple())
@@ -130,13 +245,13 @@ bool VPSOAAnalysis::isSafeLoadStore(const VPLoadStoreInst *LSI,
   // less than an element type. However, it is not profitable
   // as it causes gathers, it is also difficult to calculate
   // strides for load/store without the underlying type knowledge.
-  return areTypeSizesEqual(Plan.getDataLayout(),
-                           LSI->getValueType(), PrivElemSize);
+  return areTypeSizesEqual(Analysis.Plan.getDataLayout(), LSI->getValueType(),
+                           PrivElemSize);
 }
 
-bool VPSOAAnalysis::isSafeGEPInst(const VPGEPInstruction *VPGEP,
-                                  Type *AllocatedType,
-                                  Type *PrivElemSize) const {
+bool VPSOAAnalysis::SOASafetyChecker::isSafeGEPInst(
+    const VPGEPInstruction *VPGEP, Type *AllocatedType,
+    Type *PrivElemSize) const {
   // Any GEP with original type is safe.
   if (VPGEP->getSourceElementType() == AllocatedType)
     return true;
@@ -155,13 +270,12 @@ bool VPSOAAnalysis::isSafeGEPInst(const VPGEPInstruction *VPGEP,
   //
   // TODO: for struct aggregates, check if the type is the same as the
   // original private element type.
-  return areTypeSizesEqual(Plan.getDataLayout(),
+  return areTypeSizesEqual(Analysis.Plan.getDataLayout(),
                            VPGEP->getSourceElementType(), PrivElemSize);
 }
 
-bool VPSOAAnalysis::isSafeVPSubscriptInst(const VPSubscriptInst *VPS,
-                                          Type *AllocatedType,
-                                          Type *PrivElemSize) const {
+bool VPSOAAnalysis::SOASafetyChecker::isSafeVPSubscriptInst(
+    const VPSubscriptInst *VPS, Type *AllocatedType, Type *PrivElemSize) const {
   if (isSelfAddressOfInst(VPS))
     return true;
 
@@ -179,14 +293,120 @@ bool VPSOAAnalysis::isSafeVPSubscriptInst(const VPSubscriptInst *VPS,
   // The type of the 0 dimension should have the same width,
   // and the type of 1 should be equal to Allocated type.
   return (Dim1Ty == AllocatedType) &&
-          areTypeSizesEqual(Plan.getDataLayout(), Dim0Ty, PrivElemSize);
+         areTypeSizesEqual(Analysis.Plan.getDataLayout(), Dim0Ty, PrivElemSize);
+}
+
+// Check whether \p V is a chain of VPInstructions started with
+// VPAllocatePrivate(s) - in case of phi/select we check for all operands be
+// derived from VPAllocatePrivate.
+//
+// The "true" case (considering %merge):
+//   %p1 = allocate_private
+//   %p2 = allocate_private
+//   ...
+//   %p1_cast = getelementptr %p1...
+//   ...
+//   %merge = phi ptr [%p1_cast, %some_block], [%p2, %other_block]
+//
+// The "false" case (considering %merge):
+//   %p1 = allocate_private
+//   ...
+//   %p1_cast = getelementptr %p1...
+//   ...
+//   %p2_cast = getelementptr %global_ptr...
+//
+//   %merge = phi ptr [%p1_cast, %some_block], [%p2_cast, %other_block]
+//
+bool VPSOAAnalysis::SOASafetyChecker::isDerivedFromAllocatePriv(
+    const VPValue *V) {
+  // Early quick-check to see if this is a VPAllocatePrivate.
+  if (isa<VPAllocatePrivate>(V))
+    return true;
+
+  SmallVector<const VPValue *, 20> WL;
+  SmallPtrSet<const VPValue *, 20> Visited;
+  WL.push_back(V);
+
+  while (!WL.empty()) {
+    const VPValue *CurrentI = WL.pop_back_val();
+
+    // If this instruction/value has been encountered before, continue.
+    if (!Visited.insert(CurrentI).second)
+      continue;
+
+    // Skip casts, geps, and subscripts.
+    auto SkipPointerTransforms = [](const VPValue *Val) -> const VPValue * {
+      auto *VPI = dyn_cast<VPInstruction>(Val);
+      if (!VPI)
+        return Val;
+      while (VPI->isCast() || isa<VPGEPInstruction>(VPI) ||
+             isa<VPSubscriptInst>(VPI)) {
+        auto Op = VPI->getOperand(0);
+        if (isa<VPAllocatePrivate>(Op))
+          return Op;
+        if (!(VPI = dyn_cast<VPInstruction>(Op)))
+          return Op;
+      }
+      return VPI;
+    };
+
+    CurrentI = SkipPointerTransforms(CurrentI);
+
+    // If we encounter VPAllocatePrivate just skip.
+    if (isa<VPAllocatePrivate>(CurrentI)) {
+      continue;
+    }
+
+    auto ProcessOperand =
+        [&WL, &SkipPointerTransforms](const VPValue *InVal) -> void {
+      InVal = SkipPointerTransforms(InVal);
+      WL.push_back(InVal);
+    };
+
+    if (auto *PHI = dyn_cast<VPPHINode>(CurrentI)) {
+      for (auto *InVal : PHI->incoming_values())
+        ProcessOperand(InVal);
+      continue;
+    }
+
+    if (auto VPI = dyn_cast<VPInstruction>(CurrentI))
+      if (VPI->getOpcode() == Instruction::Select) {
+        for (unsigned I = 1; I < VPI->getNumOperands(); I++)
+          ProcessOperand(VPI->getOperand(I));
+        continue;
+      }
+
+    // Other cases, like ptrtoint or load, are not supported
+    return false;
+  }
+  // Nothing on stack means all the ways lead to a VPAllocatePrivate.
+  return true;
+}
+
+bool VPSOAAnalysis::SOASafetyChecker::isMergeSafeForSOA(
+    const VPInstruction *Inst) {
+  assert((Inst->getOpcode() == Instruction::Select ||
+          Inst->getOpcode() == Instruction::PHI) &&
+         "Expected phi or select");
+
+  unsigned Start = Inst->getOpcode() == Instruction::Select ? 1 : 0;
+  for (unsigned I = Start; I < Inst->getNumOperands(); I++) {
+    auto *Operand = Inst->getOperand(I);
+    if (Operand == Private) {
+      continue;
+    }
+    if (!isDerivedFromAllocatePriv(Operand))
+      return false;
+  }
+
+  return true;
 }
 
 // An umbrella function to determine the safety of an operation.
 // Return false when we want to report that the memory escapes.
-bool VPSOAAnalysis::isSafeUse(const VPInstruction *UseInst,
-                              const VPInstruction *CurrentI,
-                              Type *AllocatedType) {
+bool VPSOAAnalysis::SOASafetyChecker::isSafeUse(const VPInstruction *UseInst,
+                                                const VPInstruction *CurrentI,
+                                                Type *AllocatedType) {
   Type *PrivElemSize = cast<ArrayType>(AllocatedType)->getElementType();
 
   switch (UseInst->getOpcode()) {
@@ -210,10 +430,15 @@ bool VPSOAAnalysis::isSafeUse(const VPInstruction *UseInst,
   case Instruction::Store:
     return isSafeLoadStore(cast<VPLoadStoreInst>(UseInst),
                            CurrentI, PrivElemSize);
+
   case Instruction::PHI:
-    // Temporary until we fix the issues with incorrect handling of SOA pointers
-    // that are modified inside the loop, see CMPLRLLVM-41092.
-    return VPlanAllowSOAPhis;
+  case Instruction::Select:
+    return VPlanAllowSOAPhis && isMergeSafeForSOA(UseInst);
+
+  case VPInstruction::ReductionInitArr:
+    // Array reduction initialization does not affect layout. It's currently
+    // implemented as a scalar loop.
+    return true;
 
   case VPInstruction::InductionInit:
     // Intentionally use isa<> to make assert non-trivial,
@@ -237,8 +462,18 @@ bool VPSOAAnalysis::isInstructionInRelevantScope(const VPInstruction *UseInst) {
           (checkInstructionInLoop(UseInst, Loop)));
 }
 
-// Function which determines if the given loop-entity escapes.
-bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
+bool VPSOAAnalysis::memoryEscapes(VPAllocatePrivate *Alloca) {
+  // Non-array aggregate types are currently not supported. Conservatively, just
+  // return 'true', i.e., the memory escapes.
+  // TODO: add support for non-scalar types.
+  if (!isSOASupportedTy(Alloca->getAllocatedType()))
+    return true;
+
+  SOASafetyChecker Chk(*this, Alloca);
+  return !Chk.isSafeForSOA();
+}
+
+bool VPSOAAnalysis::SOASafetyChecker::isSafeForSOA() {
 
   // Clear the WorkList and AnalyzedInsts of contents of the earlier run.
   WL.clear();
@@ -246,18 +481,12 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
 
   // If this is a scalar-private, just return. The real memory layout for simple
   // scalars is identical for both SOA and AOS, it's just vector of elements.
-  Type *AllocatedType = Alloca->getAllocatedType();
+  Type *AllocatedType = Private->getAllocatedType();
   if (isScalarTy(AllocatedType))
-    return false;
-
-  // Non-array aggregate types are currently not supported. Conservatively, just
-  // return 'true', i.e., the memory escapes.
-  // TODO: add support for non-scalar types.
-  if (!isSOASupportedTy(AllocatedType))
     return true;
 
   // Initialize the WorkList with the memory-pointer.
-  WL.insert(Alloca);
+  WL.insert(Private);
 
   // Get all the Uses of these instructions. Consider the use as safe under
   // the following conditions,
@@ -284,17 +513,26 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
     for (VPValue *User : CurrentI->users()) {
       const VPInstruction *UseInst = cast<VPInstruction>(User);
 
+      // Array reduction finalization assumes AOS layout strictly.
+      // TODO: Remove this when array reduction finalization is updated to
+      // handle SOA layout memory.
+      if (isa<VPReductionFinalArray>(UseInst))
+        return false;
+
       // We are only interested in pointer or its alias which is either in the
       // Loop-preheader of within the loop itself.
       // TODO: this seems fragile, it is better to use an explicit check,
       // in case VPlan evolves in the future.
-      if (!isInstructionInRelevantScope(UseInst))
+      if (!Analysis.isInstructionInRelevantScope(UseInst))
         continue;
 
       // Determine if the instruction is potentially unsafe.
-      if (!isSafeUse(UseInst, CurrentI, AllocatedType))
-        return true;
-
+      LLVM_DEBUG(dbgs() << "Checking use "; UseInst->printAsOperand(dbgs()););
+      if (!isSafeUse(UseInst, CurrentI, AllocatedType)) {
+        LLVM_DEBUG(dbgs() << " unsafe\n";);
+        return false;
+      }
+      LLVM_DEBUG(dbgs() << " safe\n";);
       // If we already pushed the users of the UseInst then skip them.
       if (!AnalyzedInsts.insert(UseInst).second)
         continue;
@@ -306,8 +544,8 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
     }
   }
   // All encountered uses to the pointer or its aliases are safe instructions.
-  // We can say that it is SOASafe and return false.
-  return false;
+  // We can say that it is SOASafe.
+  return true;
 }
 
 // Return true if the given memory-access would be profitable under
@@ -324,10 +562,26 @@ bool VPSOAAnalysis::isProfitableForSOA(const VPInstruction *I) {
   if (AccessProfitabilityInfo.count(I))
     return AccessProfitabilityInfo[I];
 
+  auto OpRangeIsOk = [this](VPUser::const_operand_range Operands) {
+    return all_of(Operands, [this](const VPValue *V) {
+      assert(V->getType()->isPointerTy() && "Expected ptr");
+      if (auto *VI = dyn_cast<VPInstruction>(V))
+        return isProfitableForSOA(VI);
+      return false;
+    });
+  };
+
   // A pointer-op/alias running into a PHI denotes a pointer-induction of some
-  // sort. For now, just treat this as unprofitable.
-  if (I->getOpcode() == Instruction::PHI)
-    return AccessProfitabilityInfo[I] = false;
+  // sort. For now, treat this as profitable if it's uniform.
+  if (I->getOpcode() == Instruction::PHI) {
+    AccessProfitabilityInfo[I] = true; // avoid cyclic dependencies
+    return AccessProfitabilityInfo[I] =
+               OpRangeIsOk(make_range(I->op_begin(), I->op_end()));
+  }
+  if (I->getOpcode() == Instruction::Select) {
+    bool IsProfitable = OpRangeIsOk(make_range(I->op_begin() + 1, I->op_end()));
+    return AccessProfitabilityInfo[I] = IsProfitable;
+  }
 
   // For bitcast and addrspacecast instruction, recur on the source-operand.
   if (I->getOpcode() == Instruction::BitCast ||
@@ -360,8 +614,7 @@ bool VPSOAAnalysis::isProfitableForSOA(const VPInstruction *I) {
     return false;
   }
 
-  if ((isa<VPGEPInstruction>(PtrOp) || isa<VPSubscriptInst>(PtrOp)) &&
-      !isProfitableForSOA(cast<VPInstruction>(PtrOp)))
+  if (!isProfitableForSOA(cast<VPInstruction>(PtrOp)))
     return AccessProfitabilityInfo[I] = false;
 
   auto *DA = Plan.getVPlanDA();
@@ -461,11 +714,20 @@ void VPSOAAnalysis::dump(raw_ostream &OS) const {
     if (VPAllocatePrivate *VPAllocaPriv =
             dyn_cast<VPAllocatePrivate>(&VPInst)) {
 
-      if (VPAllocaPriv->isSOASafe())
-        OS << "SOASafe = " << VPAllocaPriv->getOrigName()
-           << " Profitable = " << VPAllocaPriv->isSOAProfitable() << "\n";
-      else
-        OS << "SOAUnsafe = " << VPAllocaPriv->getOrigName() << "\n";
+      StringRef OrigName = VPAllocaPriv->getOrigName();
+      if (VPAllocaPriv->isSOASafe()) {
+        OS << "SOASafe = ";
+        VPAllocaPriv->printAsOperandNoType(OS);
+        if (!OrigName.empty())
+          OS << " (" << OrigName << ")";
+        OS << " Profitable = " << VPAllocaPriv->isSOAProfitable() << "\n";
+      } else {
+        OS << "SOAUnsafe = ";
+        VPAllocaPriv->printAsOperandNoType(OS);
+        if (!OrigName.empty())
+          OS << " (" << OrigName << ")";
+        OS << "\n";
+      }
     }
   }
 }

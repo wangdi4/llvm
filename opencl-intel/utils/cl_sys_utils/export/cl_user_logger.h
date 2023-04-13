@@ -14,11 +14,13 @@
 
 #pragma once
 
-#include "cl_synch_objects.h"
 #include "cl_timer.h"
+#include "cl_utils.h"
+#include "hw_utils.h"
 #include "llvm/Support/ManagedStatic.h"
 
 #include <fstream>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -34,9 +36,6 @@ namespace Utils {
 class FrameworkUserLogger {
 public:
   static FrameworkUserLogger *GetInstance();
-  static void Destroy(void) {
-    llvm::llvm_shutdown();
-  }
 
   /**
    * Constructor
@@ -107,7 +106,8 @@ private:
   bool m_bLogApis;
   std::ofstream m_logFile;
   std::ostream *m_pOutput;
-  mutable OclSpinMutex m_outputMutex; // Synchronize writing to m_pOutput
+  mutable std::recursive_mutex
+      m_outputMutex; // Synchronize writing to m_pOutput
 };
 
 /**
@@ -135,7 +135,7 @@ public:
    * Destructor
    */
   ~ApiLogger() {
-    m_stream << endl;
+    m_stream << std::endl;
     FrameworkUserLogger::GetInstance()->PrintString(m_stream.str());
   }
 
@@ -236,7 +236,7 @@ public:
       m_strStream << "nullptr";
       return *this;
     }
-    m_strStream << "[" << hex;
+    m_strStream << "[" << std::hex;
     int i = 0;
     while (properties[i] != 0) {
       m_strStream << "0x" << properties[i++] << ", ";
@@ -303,7 +303,7 @@ public:
   void SetCmdId(cl_int id) { m_iCmdId = id; }
 
 private:
-  void StartApiFuncInternal(const string &funcName);
+  void StartApiFuncInternal(const std::string &funcName);
 
   void PrintParamTypeAndName(const char *sParamTypeAndName);
 
@@ -414,7 +414,7 @@ inline void ApiLogger::EndApiFunc() {
   EndApiFuncInternal();
 }
 
-inline void ApiLogger::StartApiFunc(const string &funcName) {
+inline void ApiLogger::StartApiFunc(const std::string &funcName) {
   if (!m_bLogApis) {
     return;
   }

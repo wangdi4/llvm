@@ -1,14 +1,14 @@
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
-//CHECK: _ZGVbN2__Z3foov 
-//CHECK: _ZGVcN4__Z3foov
-//CHECK: _ZGVdN4__Z3foov
-//CHECK: _ZGVeN8__Z3foov
-//CHECK: _ZGVbM2__Z3foov
-//CHECK: _ZGVcM4__Z3foov
-//CHECK: _ZGVdM4__Z3foov
-//CHECK: _ZGVeM8__Z3foov
+//CHECK-DAG: _ZGVbN2__Z3foov
+//CHECK-DAG: _ZGVcN4__Z3foov
+//CHECK-DAG: _ZGVdN4__Z3foov
+//CHECK-DAG: _ZGVeN8__Z3foov
+//CHECK-DAG: _ZGVbM2__Z3foov
+//CHECK-DAG: _ZGVcM4__Z3foov
+//CHECK-DAG: _ZGVdM4__Z3foov
+//CHECK-DAG: _ZGVeM8__Z3foov
 
 struct Object {
 public:
@@ -26,4 +26,3 @@ Object* foo() {
   o->c = 3;
   return o;
 }
- 

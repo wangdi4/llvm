@@ -1,4 +1,4 @@
-; RUN: opt -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
 
 ; This test checks that verification passes if all callsites and functions have metadata attached even if callsites are shuffled.
 
@@ -28,13 +28,11 @@
 ; CHECK: [[B_FIR]] = distinct !{!"intel.function.inlining.report", [[B_NAME]], null, {{.*}}
 ; CHECK: [[C_FIR]] = distinct !{!"intel.function.inlining.report", [[C_NAME]], null, {{.*}}
 
-
 ; Inline report call sites and IR call sites go in a different order.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
 define dso_local void @main() local_unnamed_addr !intel.function.inlining.report !2 {
 entry:
   tail call void (...) @c(), !intel.callsite.inlining.report !17
@@ -79,4 +77,3 @@ declare !intel.function.inlining.report !25 dso_local void @c(...) local_unnamed
 !23 = !{!"isDeclaration: 1"}
 !24 = distinct !{!"intel.function.inlining.report", !16, null, !14, !19, !23, !21}
 !25 = distinct !{!"intel.function.inlining.report", !18, null, !14, !19, !23, !21}
-

@@ -43,14 +43,14 @@
 ; CHECK-NEXT: END LOOP
 ; CHECK: END REGION
 
-;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-loopnest,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-opt-report=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
+;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-loopnest,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-opt-report=low -disable-output 2>&1 < %s | FileCheck %s  -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Distributed chunk1>
-;OPTREPORT:     remark #25426: Loop distributed (2 way)
+;OPTREPORT:     remark #25426: Loop distributed (2 way) for perfect loopnest formation
 ;OPTREPORT:     LOOP BEGIN
 ;OPTREPORT:     <Distributed chunk1>
-;OPTREPORT:         remark #25426: Loop distributed (2 way)
+;OPTREPORT:         remark #25426: Loop distributed (2 way) for perfect loopnest formation
 ;OPTREPORT:     LOOP END
 ;OPTREPORT: LOOP END
 ;OPTREPORT: LOOP BEGIN

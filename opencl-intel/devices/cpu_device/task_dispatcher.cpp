@@ -53,7 +53,7 @@
 
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::TaskExecutor;
-using Intel::OpenCL::Utils::SharedPtr;
+using namespace Intel::OpenCL::Utils;
 
 class InPlaceTaskList : public ITaskList {
 public:
@@ -349,18 +349,22 @@ TE_CMD_LIST_PREFERRED_SCHEDULING TaskDispatcher::getPreferredScheduling() {
   TE_CMD_LIST_PREFERRED_SCHEDULING scheduling =
       TE_CMD_LIST_PREFERRED_SCHEDULING_DYNAMIC;
 
-  // DPCPP_CPU_SCHEDULE = {dynamic | affinity | static} controls which TBB
+  // SYCL_CPU_SCHEDULE = {dynamic | affinity | static} controls which TBB
   // partitioner to use.
   //   dynamic (default) : auto_partitioner
   //   affinity          : affinity_partitioner
   //   static            : static_partitioner
-  std::string env_dpcpp_schedule;
-  if (Intel::OpenCL::Utils::getEnvVar(env_dpcpp_schedule,
-                                      "DPCPP_CPU_SCHEDULE")) {
-    if ("affinity" == env_dpcpp_schedule)
+  std::string env_sycl_schedule;
+  using namespace Intel::OpenCL::Utils;
+  if (getEnvVar(env_sycl_schedule, "SYCL_CPU_SCHEDULE") ||
+      getEnvVar(env_sycl_schedule, "DPCPP_CPU_SCHEDULE")) {
+    if ("affinity" == env_sycl_schedule)
       scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_PRESERVE_TASK_AFFINITY;
-    else if ("static" == env_dpcpp_schedule)
+    else if ("static" == env_sycl_schedule)
       scheduling = TE_CMD_LIST_PREFERRED_SCHEDULING_STATIC;
+    else if ("dynamic" != env_sycl_schedule)
+      reportWarning("SYCL_CPU_SCHEDULE: Value is invalid; ignored. Valid "
+                    "values are dynamic, affinity and static.");
   }
 
   return scheduling;
@@ -413,12 +417,11 @@ TaskDispatcher::createCommandList(cl_dev_cmd_list_props IN props,
         InPlaceTaskList::Allocate(GetTaskExecutor()->CreateTaskGroup(pDevice));
   }
   if (0 == *list) {
-    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("TaskList creation failed"),
-              list->GetPtr());
+    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("TaskList creation failed"));
     return CL_DEV_OUT_OF_MEMORY;
   }
 
-  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"),
+  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%p"),
             list->GetPtr());
   return CL_DEV_SUCCESS;
 }
@@ -461,7 +464,7 @@ cl_dev_err_code
 TaskDispatcher::commandListExecute(const SharedPtr<ITaskList> &IN list,
                                    cl_dev_cmd_desc *IN *cmds,
                                    cl_uint IN count) {
-  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - List:%X"),
+  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter - List:%p"),
             list.GetPtr());
 
   ITaskList *pList = list.GetPtr();
@@ -479,7 +482,7 @@ TaskDispatcher::commandListExecute(const SharedPtr<ITaskList> &IN list,
     pLocalList->Flush();
   }
 
-  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%X"),
+  CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Exit - List:%p"),
             list.GetPtr());
   return ret;
 }
@@ -492,7 +495,7 @@ cl_dev_err_code TaskDispatcher::NotifyFailure(ITaskList *pList,
                                               cl_int iRetCode) {
   CpuErrLog(
       m_pLogDescriptor, m_iLogHandle,
-      TEXT("Failed to submit command[id:%d,type:%d] to execution, Err:<%d>"),
+      TEXT("Failed to submit command[id:%p,type:%d] to execution, Err:<%d>"),
       pCmd->id, pCmd->type, iRetCode);
 
   SharedPtr<ITaskBase> pTask =
@@ -658,6 +661,8 @@ void AffinitizeThreads::DetachFromThread(void * /*pWgContext*/) { return; }
 
 bool AffinitizeThreads::ExecuteIteration(size_t /*x*/, size_t /*y*/,
                                          size_t /*z*/, void * /*pWgContext*/) {
+  using namespace std::chrono_literals;
+
   if (m_failed)
     return true;
 

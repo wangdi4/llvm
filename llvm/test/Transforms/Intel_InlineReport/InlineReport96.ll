@@ -2,9 +2,9 @@
 ; REQUIRES: intel_feature_sw_advanced
 
 ; Inline report
-; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0xe807 -forced-inline-opt-level=3 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NPM,CHECK-AFTER
+; RUN: opt -opaque-pointers -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0xe807 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NPM,CHECK-AFTER
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -forced-inline-opt-level=3 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-NPM,CHECK-AFTER
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -forced-inline-opt-level=3 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-NPM,CHECK-AFTER
 
 ; Check that all instances of @wolff_ are inlined due to the inline budget and
 ; single callsite local linkage heuristics. This is the same test case as
@@ -22,145 +22,152 @@
 ; CHECK-NPM: INLINE: wolff_{{.*}}Callee has single callsite and local linkage
 ; CHECK-NPM-NOT: call{{.*}}@wolff_
 
-declare double @fmod(double %0, double %1) local_unnamed_addr
+@"_unnamed_main$$_$IN1" = internal global [16 x i32] zeroinitializer, align 16
+@"_unnamed_main$$_$IP1" = internal global [16 x i32] zeroinitializer, align 16
+@"_unnamed_main$$_$ISTACK" = internal global [2 x [256 x i32]] zeroinitializer, align 16
+@"_unnamed_main$$_$IZ" = internal global [16 x [16 x i32]] zeroinitializer, align 16
+@"wolff_$NN" = internal unnamed_addr global [2 x [4 x i32]] zeroinitializer, align 16
 
-define internal fastcc void @wolff_(double %0, double* noalias nocapture %1, i32* noalias nocapture %2, i32* noalias nocapture %3) unnamed_addr #0 {
-  store i32 0, i32* %2, align 1
-  store i32 1, i32* %3, align 1
-  %5 = load double, double* %1, align 1
-  %6 = fmul fast double %5, 1.680700e+04
-  %7 = frem fast double %6, 0x41DFFFFFFFC00000
-  %8 = fmul fast double %7, 0x3E00000000200000
-  %9 = fptrunc double %8 to float
-  %10 = fmul fast double %7, 1.680700e+04
-  %11 = frem fast double %10, 0x41DFFFFFFFC00000
-  store double %11, double* %1, align 1
-  %12 = fmul fast double %11, 0x3E00000000200000
-  %13 = fptrunc double %12 to float
-  %14 = fmul fast float %9, 1.600000e+01
-  %15 = fadd fast float %14, 1.000000e+00
-  %16 = fptosi float %15 to i32
-  %17 = icmp slt i32 16, %16
-  %18 = select i1 %17, i32 16, i32 %16
-  %19 = fmul fast float %13, 1.600000e+01
-  %20 = fadd fast float %19, 1.000000e+00
-  %21 = fptosi float %20 to i32
-  %22 = icmp slt i32 16, %21
-  %23 = select i1 %22, i32 16, i32 %21
-  %24 = sext i32 %18 to i64
-  %25 = sext i32 %23 to i64
-  %26 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 64, i32* elementtype(i32) nonnull getelementptr inbounds ([16 x [16 x i32]], [16 x [16 x i32]]* @"_unnamed_main$$_$IZ", i64 0, i64 0, i64 0), i64 %25)
-  %27 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %26, i64 %24)
-  %28 = load i32, i32* %27, align 1
-  %29 = sub nsw i32 0, %28
-  store i32 %29, i32* %27, align 1
-  %30 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 16, i32* elementtype(i32) getelementptr inbounds ([2 x [4 x i32]], [2 x [4 x i32]]* @"wolff_$NN", i64 0, i64 0, i64 0), i64 1)
-  %31 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %30, i64 1)
-  %32 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 16, i32* elementtype(i32) getelementptr inbounds ([2 x [4 x i32]], [2 x [4 x i32]]* @"wolff_$NN", i64 0, i64 0, i64 0), i64 2)
-  %33 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %32, i64 1)
-  %34 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %30, i64 2)
-  %35 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %32, i64 2)
-  %36 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %30, i64 3)
-  %37 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %32, i64 3)
-  %38 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %30, i64 4)
-  %39 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %32, i64 4)
-  %40 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 1024, i32* elementtype(i32) nonnull getelementptr inbounds ([2 x [256 x i32]], [2 x [256 x i32]]* @"_unnamed_main$$_$ISTACK", i64 0, i64 0, i64 0), i64 1)
-  %41 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 1024, i32* elementtype(i32) nonnull getelementptr inbounds ([2 x [256 x i32]], [2 x [256 x i32]]* @"_unnamed_main$$_$ISTACK", i64 0, i64 0, i64 0), i64 2)
-  br label %42
+declare double @fmod(double, double) local_unnamed_addr
 
-42:                                               ; preds = %99, %4
-  %43 = phi i32 [ 1, %4 ], [ %90, %99 ]
-  %44 = phi double [ %11, %4 ], [ %91, %99 ]
-  %45 = phi i32 [ 1, %4 ], [ %92, %99 ]
-  %46 = phi i32 [ 0, %4 ], [ %105, %99 ]
-  %47 = phi i32 [ %18, %4 ], [ %102, %99 ]
-  %48 = phi i32 [ %23, %4 ], [ %104, %99 ]
-  store i32 %47, i32* %31, align 1
-  %49 = sext i32 %48 to i64
-  %50 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull getelementptr inbounds ([16 x i32], [16 x i32]* @"_unnamed_main$$_$IN1", i64 0, i64 0), i64 %49)
-  %51 = load i32, i32* %50, align 1
-  store i32 %51, i32* %33, align 1
-  store i32 %47, i32* %34, align 1
-  %52 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull getelementptr inbounds ([16 x i32], [16 x i32]* @"_unnamed_main$$_$IP1", i64 0, i64 0), i64 %49)
-  %53 = load i32, i32* %52, align 1
-  store i32 %53, i32* %35, align 1
-  %54 = sext i32 %47 to i64
-  %55 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull getelementptr inbounds ([16 x i32], [16 x i32]* @"_unnamed_main$$_$IN1", i64 0, i64 0), i64 %54)
-  %56 = load i32, i32* %55, align 1
-  store i32 %56, i32* %36, align 1
-  store i32 %48, i32* %37, align 1
-  %57 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull getelementptr inbounds ([16 x i32], [16 x i32]* @"_unnamed_main$$_$IP1", i64 0, i64 0), i64 %54)
-  %58 = load i32, i32* %57, align 1
-  store i32 %58, i32* %38, align 1
-  store i32 %48, i32* %39, align 1
-  br label %59
+define internal fastcc void @wolff_(double %arg, ptr noalias nocapture %arg1, ptr noalias nocapture %arg2, ptr noalias nocapture %arg3) unnamed_addr #0 {
+bb:
+  store i32 0, ptr %arg2, align 1
+  store i32 1, ptr %arg3, align 1
+  %i = load double, ptr %arg1, align 1
+  %i4 = fmul fast double %i, 1.680700e+04
+  %i5 = frem fast double %i4, 0x41DFFFFFFFC00000
+  %i6 = fmul fast double %i5, 0x3E00000000200000
+  %i7 = fptrunc double %i6 to float
+  %i8 = fmul fast double %i5, 1.680700e+04
+  %i9 = frem fast double %i8, 0x41DFFFFFFFC00000
+  store double %i9, ptr %arg1, align 1
+  %i10 = fmul fast double %i9, 0x3E00000000200000
+  %i11 = fptrunc double %i10 to float
+  %i12 = fmul fast float %i7, 1.600000e+01
+  %i13 = fadd fast float %i12, 1.000000e+00
+  %i14 = fptosi float %i13 to i32
+  %i15 = icmp slt i32 16, %i14
+  %i16 = select i1 %i15, i32 16, i32 %i14
+  %i17 = fmul fast float %i11, 1.600000e+01
+  %i18 = fadd fast float %i17, 1.000000e+00
+  %i19 = fptosi float %i18 to i32
+  %i20 = icmp slt i32 16, %i19
+  %i21 = select i1 %i20, i32 16, i32 %i19
+  %i22 = sext i32 %i16 to i64
+  %i23 = sext i32 %i21 to i64
+  %i24 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 64, ptr nonnull elementtype(i32) @"_unnamed_main$$_$IZ", i64 %i23)
+  %i25 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i24, i64 %i22)
+  %i26 = load i32, ptr %i25, align 1
+  %i27 = sub nsw i32 0, %i26
+  store i32 %i27, ptr %i25, align 1
+  %i28 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 16, ptr elementtype(i32) @"wolff_$NN", i64 1)
+  %i29 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i28, i64 1)
+  %i30 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 16, ptr elementtype(i32) @"wolff_$NN", i64 2)
+  %i31 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i30, i64 1)
+  %i32 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i28, i64 2)
+  %i33 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i30, i64 2)
+  %i34 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i28, i64 3)
+  %i35 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i30, i64 3)
+  %i36 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i28, i64 4)
+  %i37 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i30, i64 4)
+  %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 1024, ptr nonnull elementtype(i32) @"_unnamed_main$$_$ISTACK", i64 1)
+  %i39 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 1024, ptr nonnull elementtype(i32) @"_unnamed_main$$_$ISTACK", i64 2)
+  br label %bb40
 
-59:                                               ; preds = %89, %42
-  %60 = phi i32 [ %90, %89 ], [ %43, %42 ]
-  %61 = phi double [ %91, %89 ], [ %44, %42 ]
-  %62 = phi i64 [ %94, %89 ], [ 1, %42 ]
-  %63 = phi i32 [ %92, %89 ], [ %45, %42 ]
-  %64 = phi i32 [ %93, %89 ], [ %46, %42 ]
-  %65 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %30, i64 %62)
-  %66 = load i32, i32* %65, align 1
-  %67 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 %62)
-  %68 = load i32, i32* %67, align 1
-  %69 = sext i32 %66 to i64
-  %70 = sext i32 %68 to i64
-  %71 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 64, i32* elementtype(i32) nonnull getelementptr inbounds ([16 x [16 x i32]], [16 x [16 x i32]]* @"_unnamed_main$$_$IZ", i64 0, i64 0, i64 0), i64 %70)
-  %72 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %71, i64 %69)
-  %73 = load i32, i32* %72, align 1
-  %74 = icmp eq i32 %28, %73
-  br i1 %74, label %75, label %89
+bb40:                                             ; preds = %bb97, %bb
+  %i41 = phi i32 [ 1, %bb ], [ %i88, %bb97 ]
+  %i42 = phi double [ %i9, %bb ], [ %i89, %bb97 ]
+  %i43 = phi i32 [ 1, %bb ], [ %i90, %bb97 ]
+  %i44 = phi i32 [ 0, %bb ], [ %i103, %bb97 ]
+  %i45 = phi i32 [ %i16, %bb ], [ %i100, %bb97 ]
+  %i46 = phi i32 [ %i21, %bb ], [ %i102, %bb97 ]
+  store i32 %i45, ptr %i29, align 1
+  %i47 = sext i32 %i46 to i64
+  %i48 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) @"_unnamed_main$$_$IN1", i64 %i47)
+  %i49 = load i32, ptr %i48, align 1
+  store i32 %i49, ptr %i31, align 1
+  store i32 %i45, ptr %i32, align 1
+  %i50 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) @"_unnamed_main$$_$IP1", i64 %i47)
+  %i51 = load i32, ptr %i50, align 1
+  store i32 %i51, ptr %i33, align 1
+  %i52 = sext i32 %i45 to i64
+  %i53 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) @"_unnamed_main$$_$IN1", i64 %i52)
+  %i54 = load i32, ptr %i53, align 1
+  store i32 %i54, ptr %i34, align 1
+  store i32 %i46, ptr %i35, align 1
+  %i55 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) @"_unnamed_main$$_$IP1", i64 %i52)
+  %i56 = load i32, ptr %i55, align 1
+  store i32 %i56, ptr %i36, align 1
+  store i32 %i46, ptr %i37, align 1
+  br label %bb57
 
-75:                                               ; preds = %59
-  %76 = add nsw i32 %63, 1
-  %77 = fmul fast double %61, 1.680700e+04
-  %78 = frem fast double %77, 0x41DFFFFFFFC00000
-  store double %78, double* %1, align 1
-  %79 = fmul fast double %78, 0x3E00000000200000
-  %80 = fptrunc double %79 to float
-  %81 = fpext float %80 to double
-  %82 = fcmp fast olt double %0, %81
-  br i1 %82, label %89, label %83
+bb57:                                             ; preds = %bb87, %bb40
+  %i58 = phi i32 [ %i88, %bb87 ], [ %i41, %bb40 ]
+  %i59 = phi double [ %i89, %bb87 ], [ %i42, %bb40 ]
+  %i60 = phi i64 [ %i92, %bb87 ], [ 1, %bb40 ]
+  %i61 = phi i32 [ %i90, %bb87 ], [ %i43, %bb40 ]
+  %i62 = phi i32 [ %i91, %bb87 ], [ %i44, %bb40 ]
+  %i63 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i28, i64 %i60)
+  %i64 = load i32, ptr %i63, align 1
+  %i65 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i30, i64 %i60)
+  %i66 = load i32, ptr %i65, align 1
+  %i67 = sext i32 %i64 to i64
+  %i68 = sext i32 %i66 to i64
+  %i69 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 64, ptr nonnull elementtype(i32) @"_unnamed_main$$_$IZ", i64 %i68)
+  %i70 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i69, i64 %i67)
+  %i71 = load i32, ptr %i70, align 1
+  %i72 = icmp eq i32 %i26, %i71
+  br i1 %i72, label %bb73, label %bb87
 
-83:                                               ; preds = %75
-  store i32 %29, i32* %72, align 1
-  %84 = add nsw i32 %60, 1
-  store i32 %84, i32* %3, align 1
-  %85 = add nsw i32 %64, 1
-  %86 = sext i32 %85 to i64
-  %87 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %40, i64 %86)
-  store i32 %66, i32* %87, align 1
-  %88 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %41, i64 %86)
-  store i32 %68, i32* %88, align 1
-  br label %89
+bb73:                                             ; preds = %bb57
+  %i74 = add nsw i32 %i61, 1
+  %i75 = fmul fast double %i59, 1.680700e+04
+  %i76 = frem fast double %i75, 0x41DFFFFFFFC00000
+  store double %i76, ptr %arg1, align 1
+  %i77 = fmul fast double %i76, 0x3E00000000200000
+  %i78 = fptrunc double %i77 to float
+  %i79 = fpext float %i78 to double
+  %i80 = fcmp fast olt double %arg, %i79
+  br i1 %i80, label %bb87, label %bb81
 
-89:                                               ; preds = %83, %75, %59
-  %90 = phi i32 [ %60, %59 ], [ %60, %75 ], [ %84, %83 ]
-  %91 = phi double [ %61, %59 ], [ %78, %75 ], [ %78, %83 ]
-  %92 = phi i32 [ %63, %59 ], [ %76, %75 ], [ %76, %83 ]
-  %93 = phi i32 [ %64, %59 ], [ %64, %75 ], [ %85, %83 ]
-  %94 = add nuw nsw i64 %62, 1
-  %95 = icmp eq i64 %94, 5
-  br i1 %95, label %96, label %59
+bb81:                                             ; preds = %bb73
+  store i32 %i27, ptr %i70, align 1
+  %i82 = add nsw i32 %i58, 1
+  store i32 %i82, ptr %arg3, align 1
+  %i83 = add nsw i32 %i62, 1
+  %i84 = sext i32 %i83 to i64
+  %i85 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i38, i64 %i84)
+  store i32 %i64, ptr %i85, align 1
+  %i86 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i39, i64 %i84)
+  store i32 %i66, ptr %i86, align 1
+  br label %bb87
 
-96:                                               ; preds = %89
-  %97 = icmp eq i32 %93, 0
-  br i1 %97, label %98, label %99
+bb87:                                             ; preds = %bb81, %bb73, %bb57
+  %i88 = phi i32 [ %i58, %bb57 ], [ %i58, %bb73 ], [ %i82, %bb81 ]
+  %i89 = phi double [ %i59, %bb57 ], [ %i76, %bb73 ], [ %i76, %bb81 ]
+  %i90 = phi i32 [ %i61, %bb57 ], [ %i74, %bb73 ], [ %i74, %bb81 ]
+  %i91 = phi i32 [ %i62, %bb57 ], [ %i62, %bb73 ], [ %i83, %bb81 ]
+  %i92 = add nuw nsw i64 %i60, 1
+  %i93 = icmp eq i64 %i92, 5
+  br i1 %i93, label %bb94, label %bb57
 
-98:                                               ; preds = %96
-  store i32 %92, i32* %2, align 1
+bb94:                                             ; preds = %bb87
+  %i95 = icmp eq i32 %i91, 0
+  br i1 %i95, label %bb96, label %bb97
+
+bb96:                                             ; preds = %bb94
+  store i32 %i90, ptr %arg2, align 1
   ret void
 
-99:                                               ; preds = %96
-  %100 = sext i32 %93 to i64
-  %101 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %40, i64 %100)
-  %102 = load i32, i32* %101, align 1
-  %103 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %41, i64 %100)
-  %104 = load i32, i32* %103, align 1
-  %105 = add nsw i32 %93, -1
-  br label %42
+bb97:                                             ; preds = %bb94
+  %i98 = sext i32 %i91 to i64
+  %i99 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i38, i64 %i98)
+  %i100 = load i32, ptr %i99, align 1
+  %i101 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i39, i64 %i98)
+  %i102 = load i32, ptr %i101, align 1
+  %i103 = add nsw i32 %i91, -1
+  br label %bb40
 }
 
 define dso_local void @MAIN__() local_unnamed_addr #0 {
@@ -170,40 +177,38 @@ L00:
   %t04 = alloca i32, align 8
   %t05 = alloca i32, align 8
   br label %L01
-L01:
+
+L01:                                              ; preds = %L01, %L00
   %t10 = phi i32 [ 0, %L00 ], [ %t12, %L01 ]
-  call fastcc void @wolff_(double 0x3FE2BEC33301885C, double* nonnull %t02, i32* nonnull %t05, i32* nonnull %t04)
-  %t11 = load i32, i32* %t05, align 8
+  call fastcc void @wolff_(double 0x3FE2BEC33301885C, ptr nonnull %t02, ptr nonnull %t05, ptr nonnull %t04)
+  %t11 = load i32, ptr %t05, align 8
   %t12 = add nsw i32 %t11, %t10
   %t13 = icmp slt i32 %t12, 256
   br i1 %t13, label %L01, label %L02
-L02:
+
+L02:                                              ; preds = %L02, %L01
   %t20 = phi i32 [ 0, %L01 ], [ %t22, %L02 ]
-  call fastcc void @wolff_(double 0x3FE2BEC33301885C, double* nonnull %t02, i32* nonnull %t05, i32* nonnull %t04)
-  %t21 = load i32, i32* %t05, align 8
+  call fastcc void @wolff_(double 0x3FE2BEC33301885C, ptr nonnull %t02, ptr nonnull %t05, ptr nonnull %t04)
+  %t21 = load i32, ptr %t05, align 8
   %t22 = add nsw i32 %t21, %t10
   %t23 = icmp slt i32 %t22, 256
   br i1 %t23, label %L02, label %L03
-L03:
+
+L03:                                              ; preds = %L03, %L02
   %t30 = phi i32 [ 0, %L02 ], [ %t32, %L03 ]
-  call fastcc void @wolff_(double 0x3FE2BEC33301885C, double* nonnull %t02, i32* nonnull %t05, i32* nonnull %t04)
-  %t31 = load i32, i32* %t05, align 8
+  call fastcc void @wolff_(double 0x3FE2BEC33301885C, ptr nonnull %t02, ptr nonnull %t05, ptr nonnull %t04)
+  %t31 = load i32, ptr %t05, align 8
   %t32 = add nsw i32 %t31, %t10
   %t33 = icmp slt i32 %t32, 256
   br i1 %t33, label %L03, label %L04
-L04:
+
+L04:                                              ; preds = %L03
   ret void
 }
 
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 %0, i64 %1, i64 %2, i32* %3, i64 %4)
-
-@"_unnamed_main$$_$IN1" = internal global [16 x i32] zeroinitializer, align 16
-@"_unnamed_main$$_$IP1" = internal global [16 x i32] zeroinitializer, align 16
-@"_unnamed_main$$_$ISTACK" = internal global [2 x [256 x i32]] zeroinitializer, align 16
-@"_unnamed_main$$_$IZ" = internal global [16 x [16 x i32]] zeroinitializer, align 16
-
-@"wolff_$NN" = internal unnamed_addr global [2 x [4 x i32]] zeroinitializer, align 16
+; Function Attrs: nounwind readnone speculatable
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { "intel-lang"="fortran" }
-
+attributes #1 = { nounwind readnone speculatable }
 ; end INTEL_FEATURE_SW_ADVANCED

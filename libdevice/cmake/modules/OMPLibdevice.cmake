@@ -165,6 +165,13 @@ add_obj_file(
   ${binary_dir}/libomp-cmath${objext}
   DEPENDS device_math.h device.h
   )
+if(WIN32)
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/msvc_math.cpp
+  ${binary_dir}/libomp-msvc-math${objext}
+  DEPENDS device.h
+  )
+endif(WIN32)
 add_obj_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cmath.cpp
   ${binary_dir}/libomp-fallback-cmath${objext}

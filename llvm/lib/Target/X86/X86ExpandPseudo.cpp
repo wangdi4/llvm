@@ -35,29 +35,17 @@
 #include "X86InstrInfo.h"
 #include "X86MachineFunctionInfo.h"
 #include "X86Subtarget.h"
-#include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/Passes.h" // For IDs of passes that are preserved.
+#include "llvm/IR/EHPersonalities.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/Target/TargetMachine.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "x86-pseudo"
 #define X86_EXPAND_PSEUDO_NAME "X86 pseudo instruction expansion pass"
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-// This option is for test only. Xmain only supports x86 target by default, but
-// we need to check that pseudo marker count is emitted as a comment when it is
-// not expanded, e.g, aarch64, so that we can compare ISA across different
-// targets.
-static cl::opt<bool> X86ExpandPseudoMarkerCount(
-    "x86-expand-pseudo-marker-count", cl::init(true), cl::Hidden,
-    cl::desc("Expand pseudo marker count to x86 instructions."));
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 
 namespace {
 class X86ExpandPseudo : public MachineFunctionPass {
@@ -293,8 +281,8 @@ static unsigned getLoadStoreRegOpcode(const X86Subtarget *STI,
                                       bool Load,
                                       bool IsStackAligned = true) {
   bool HasAVX = STI->hasAVX();
-  bool HasAVX512 = STI->hasAVX512();
-  bool HasVLX = STI->hasVLX();
+  bool HasAVX512 = STI->hasAVX512F();
+  bool HasVLX = STI->hasVLX() || STI->hasAVX256P();
   switch (SubSpillSize) {
   default:
     llvm_unreachable("Unknown expected spill size");
@@ -683,21 +671,126 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     return true;
   }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  // TILEPAIRLOAD is just for TILEPair spill, we don't have corresponding
+  // AMX instruction to support it. So, split it to 2 load instructions:
+  // "TILEPAIRLOAD TMM0:TMM1, Base, Scale, Index, Offset, Segment" -->
+  // "TILELOAD TMM0, Base, Scale, Index, Offset, Segment" +
+  // "TILELOAD TMM1, Base, Scale, Index, Offset + TMM_SIZE, Segment"
+  case X86::PTILEPAIRLOAD: {
+    int64_t Disp = MBBI->getOperand(1 + X86::AddrDisp).getImm();
+    Register TReg = MBBI->getOperand(0).getReg();
+    bool DstIsDead = MBBI->getOperand(0).isDead();
+    Register TReg0 = TRI->getSubReg(TReg, X86::sub_t0);
+    Register TReg1 = TRI->getSubReg(TReg, X86::sub_t1);
+    unsigned TmmSize = TRI->getRegSizeInBits(X86::TILERegClass) / 8;
+
+    MachineInstrBuilder MIBLo =
+      BuildMI(MBB, MBBI, DL, TII->get(X86::TILELOADD))
+      .addReg(TReg0, RegState::Define | getDeadRegState(DstIsDead));
+    MachineInstrBuilder MIBHi =
+      BuildMI(MBB, MBBI, DL, TII->get(X86::TILELOADD))
+      .addReg(TReg1, RegState::Define | getDeadRegState(DstIsDead));
+
+    for (int i = 0; i < X86::AddrNumOperands; ++i) {
+      MIBLo.add(MBBI->getOperand(1 + i));
+      if (i == X86::AddrDisp)
+        MIBHi.addImm(Disp + TmmSize);
+      else
+        MIBHi.add(MBBI->getOperand(1 + i));
+    }
+
+    // Make sure the first stride reg used in first tileload is alive.
+    MachineOperand &Stride = MIBLo.getInstr()->getOperand(1 + X86::AddrIndexReg);
+    Stride.setIsKill(false);
+
+    // Split the memory operand, adjusting the offset and size for the halves.
+    MachineMemOperand *OldMMO = MBBI->memoperands().front();
+    MachineFunction *MF = MBB.getParent();
+    MachineMemOperand *MMOLo = MF->getMachineMemOperand(OldMMO, 0, TmmSize);
+    MachineMemOperand *MMOHi =
+      MF->getMachineMemOperand(OldMMO, TmmSize, TmmSize);
+
+    MIBLo.setMemRefs(MMOLo);
+    MIBHi.setMemRefs(MMOHi);
+
+    // Delete the pseudo.
+    MBB.erase(MBBI);
+    return true;
+  }
+  // Smilar with TILEPAIRLOAD, TILEPAIRSTORE is just for TILEPair spill, no
+  // corresponding AMX instruction to support it. So, split it too:
+  // "TILEPAIRSTORE Base, Scale, Index, Offset, Segment, TMM0:TMM1" -->
+  // "TILESTORE Base, Scale, Index, Offset, Segment, TMM0" +
+  // "TILESTORE Base, Scale, Index, Offset + TMM_SIZE, Segment, TMM1"
+  case X86::PTILEPAIRSTORE: {
+    int64_t Disp = MBBI->getOperand(X86::AddrDisp).getImm();
+    Register TReg = MBBI->getOperand(X86::AddrNumOperands).getReg();
+    bool SrcIsKill = MBBI->getOperand(X86::AddrNumOperands).isKill();
+    Register TReg0 = TRI->getSubReg(TReg, X86::sub_t0);
+    Register TReg1 = TRI->getSubReg(TReg, X86::sub_t1);
+    unsigned TmmSize = TRI->getRegSizeInBits(X86::TILERegClass) / 8;
+
+    MachineInstrBuilder MIBLo = BuildMI(MBB, MBBI, DL, TII->get(X86::TILESTORED));
+    MachineInstrBuilder MIBHi = BuildMI(MBB, MBBI, DL, TII->get(X86::TILESTORED));
+
+    for (int i = 0; i < X86::AddrNumOperands; ++i) {
+      MIBLo.add(MBBI->getOperand(i));
+      if (i == X86::AddrDisp)
+        MIBHi.addImm(Disp + TmmSize);
+      else
+        MIBHi.add(MBBI->getOperand(i));
+    }
+    MIBLo.addReg(TReg0, getKillRegState(SrcIsKill));
+    MIBHi.addReg(TReg1, getKillRegState(SrcIsKill));
+
+    // Make sure the first stride reg used in first tilestore is alive.
+    MachineOperand &Stride = MIBLo.getInstr()->getOperand(X86::AddrIndexReg);
+    Stride.setIsKill(false);
+
+    // Split the memory operand, adjusting the offset and size for the halves.
+    MachineMemOperand *OldMMO = MBBI->memoperands().front();
+    MachineFunction *MF = MBB.getParent();
+    MachineMemOperand *MMOLo = MF->getMachineMemOperand(OldMMO, 0, TmmSize);
+    MachineMemOperand *MMOHi =
+      MF->getMachineMemOperand(OldMMO, TmmSize, TmmSize);
+
+    MIBLo.setMemRefs(MMOLo);
+    MIBHi.setMemRefs(MMOHi);
+
+    // Delete the pseudo.
+    MBB.erase(MBBI);
+    return true;
+  }
+  case X86::PT2RPNTLVWZ0V:
+  case X86::PT2RPNTLVWZ0T1V:
+  case X86::PT2RPNTLVWZ1V:
+  case X86::PT2RPNTLVWZ1T1V: {
+    for (unsigned i = 3; i > 0; --i)
+      MI.removeOperand(i);
+    unsigned Opc;
+    switch (Opcode) {
+    case X86::PT2RPNTLVWZ0V:   Opc = X86::T2RPNTLVWZ0;   break;
+    case X86::PT2RPNTLVWZ0T1V: Opc = X86::T2RPNTLVWZ0T1; break;
+    case X86::PT2RPNTLVWZ1V:   Opc = X86::T2RPNTLVWZ1;   break;
+    case X86::PT2RPNTLVWZ1T1V: Opc = X86::T2RPNTLVWZ1T1; break;
+    default: llvm_unreachable("Impossible Opcode!");
+    }
+    MI.setDesc(TII->get(Opc));
+    return true;
+  }
   case X86::PTTDPBF16PSV:
   case X86::PTTDPFP16PSV:
-#endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-  case X86::PTCMMIMFP16PSV:
-  case X86::PTCMMRLFP16PSV:
   case X86::PTCONJTCMMIMFP16PSV:
   case X86::PTTCMMIMFP16PSV:
   case X86::PTTCMMRLFP16PSV:
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_TF32
   case X86::PTMMULTF32PSV:
   case X86::PTTMMULTF32PSV:
 #endif // INTEL_FEATURE_ISA_AMX_TF32
+  case X86::PTCMMIMFP16PSV:
+  case X86::PTCMMRLFP16PSV:
   case X86::PTDPBSSDV:
   case X86::PTDPBSUDV:
   case X86::PTDPBUSDV:
@@ -709,21 +802,19 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
       MI.removeOperand(i);
     unsigned Opc;
     switch (Opcode) {
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-    case X86::PTCMMIMFP16PSV:    Opc = X86::TCMMIMFP16PS; break;
-    case X86::PTCMMRLFP16PSV:    Opc = X86::TCMMRLFP16PS; break;
-    case X86::PTCONJTCMMIMFP16PSV: Opc = X86::TCONJTCMMIMFP16PS; break;
-    case X86::PTTCMMIMFP16PSV:   Opc = X86::TTCMMIMFP16PS; break;
-    case X86::PTTCMMRLFP16PSV:   Opc = X86::TTCMMRLFP16PS; break;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_TF32
     case X86::PTMMULTF32PSV:     Opc = X86::TMMULTF32PS; break;
     case X86::PTTMMULTF32PSV:    Opc = X86::TTMMULTF32PS; break;
 #endif // INTEL_FEATURE_ISA_AMX_TF32
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
     case X86::PTTDPBF16PSV:      Opc = X86::TTDPBF16PS; break;
     case X86::PTTDPFP16PSV:      Opc = X86::TTDPFP16PS; break;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+    case X86::PTCONJTCMMIMFP16PSV: Opc = X86::TCONJTCMMIMFP16PS; break;
+    case X86::PTTCMMIMFP16PSV:   Opc = X86::TTCMMIMFP16PS; break;
+    case X86::PTTCMMRLFP16PSV:   Opc = X86::TTCMMRLFP16PS; break;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+    case X86::PTCMMIMFP16PSV:  Opc = X86::TCMMIMFP16PS; break;
+    case X86::PTCMMRLFP16PSV:  Opc = X86::TCMMRLFP16PS; break;
     case X86::PTDPBSSDV:   Opc = X86::TDPBSSD; break;
     case X86::PTDPBSUDV:   Opc = X86::TDPBSUD; break;
     case X86::PTDPBUSDV:   Opc = X86::TDPBUSD; break;
@@ -748,14 +839,12 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     MI.setDesc(TII->get(X86::TILEZERO));
     return true;
   }
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   case X86::PTILEMOVROWrreV:
   case X86::PTILEMOVROWrriV:
   case X86::PTTRANSPOSEDV:
-#endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
   case X86::PTCONJTFP16V:
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_AVX512
   case X86::PTCVTROWD2PSrreV:
   case X86::PTCVTROWD2PSrriV:
@@ -775,14 +864,12 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     unsigned Opc;
     switch (Opcode) {
 #endif // INTEL_FEATURE_XISA_COMMON
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
     case X86::PTILEMOVROWrreV:           Opc = X86::TILEMOVROWrre; break;
     case X86::PTILEMOVROWrriV:           Opc = X86::TILEMOVROWrri; break;
-    case X86::PTTRANSPOSEDV:              Opc = X86::TTRANSPOSED; break;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
-    case X86::PTCONJTFP16V:                Opc = X86::TCONJTFP16; break;
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+    case X86::PTTRANSPOSEDV:             Opc = X86::TTRANSPOSED; break;
+    case X86::PTCONJTFP16V:              Opc = X86::TCONJTFP16; break;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_AVX512
     case X86::PTCVTROWD2PSrreV:          Opc = X86::TCVTROWD2PSrre; break;
     case X86::PTCVTROWD2PSrriV:          Opc = X86::TCVTROWD2PSrri; break;
@@ -828,25 +915,6 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     MI.eraseFromParent();
     return true;
   }
-#if INTEL_FEATURE_MARKERCOUNT
-  case TargetOpcode::PSEUDO_FUNCTION_PROLOG:
-    if (!X86ExpandPseudoMarkerCount)
-      return false;
-    MI.setDesc(TII->get(X86::MARKER_COUNT_FUNCTION));
-    MI.setAsmPrinterFlag(X86::AC_PROLOG);
-    return true;
-  case TargetOpcode::PSEUDO_FUNCTION_EPILOG:
-    if (!X86ExpandPseudoMarkerCount)
-      return false;
-    MI.setDesc(TII->get(X86::MARKER_COUNT_FUNCTION));
-    MI.setAsmPrinterFlag(X86::AC_EPILOG);
-    return true;
-  case TargetOpcode::PSEUDO_LOOP_HEADER:
-    if (!X86ExpandPseudoMarkerCount)
-      return false;
-    MI.setDesc(TII->get(X86::MARKER_COUNT_LOOP_HEADER));
-    return true;
-#endif // INTEL_FEATURE_MARKERCOUNT
 #if INTEL_FEATURE_XISA_COMMON
   // Expand vector pair load, take XMMPAIRLOAD for example:
   // XMMPAIRLOAD is just for XMMPair spill, we don't have corresponding
@@ -1082,8 +1150,7 @@ void X86ExpandPseudo::ExpandVastartSaveXmmRegs(
         NewMI.add(VAStartPseudoInstr->getOperand(i + 1));
     }
     NewMI.addReg(VAStartPseudoInstr->getOperand(OpndIdx).getReg());
-    assert(Register::isPhysicalRegister(
-        VAStartPseudoInstr->getOperand(OpndIdx).getReg()));
+    assert(VAStartPseudoInstr->getOperand(OpndIdx).getReg().isPhysical());
   }
 
   // The original block will now fall through to the GuardedRegsBlk.

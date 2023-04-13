@@ -1,6 +1,6 @@
 //===-- IntelVPlanFunctionVectorizer.cpp ----------------------------------===//
 //
-//   Copyright (C) 2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -117,8 +117,9 @@ public:
 
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
-    Plan->getVPlanDA()->compute(Plan.get(), nullptr, VPLInfo, *Plan->getDT(), *Plan->getPDT(),
-                  false /*Not in LCSSA form*/);
+    Plan->getVPlanDA()->compute(Plan.get(), nullptr /*RegionLoop*/, VPLInfo,
+                                nullptr /*VPVT*/, *Plan->getDT(),
+                                *Plan->getPDT(), false /*Not in LCSSA form*/);
 
     VPLAN_DUMP(DADumpControl, *Plan);
 
@@ -177,7 +178,6 @@ VPlanFunctionVectorizerLegacyPass::VPlanFunctionVectorizerLegacyPass()
 
 void VPlanFunctionVectorizerLegacyPass::getAnalysisUsage(
     AnalysisUsage &AU) const {
-  AU.addPreserved<AndersensAAWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
 }
 

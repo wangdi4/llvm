@@ -31,11 +31,16 @@
 #ifndef _OMPTARGET_H_
 #define _OMPTARGET_H_
 
+#include <cstdint>
 #include <deque>
+#include <functional>
 #include <stddef.h>
 #include <stdint.h>
+#include <type_traits>
 
 #include <SourceInfo.h>
+
+#include "llvm/ADT/SmallVector.h"
 
 #define OFFLOAD_SUCCESS (0)
 #define OFFLOAD_FAIL (~0)
@@ -154,20 +159,31 @@ enum AllocOptionTy : int32_t {
 #endif // INTEL_COLLAB
 
 /// This struct contains all of the arguments to a target kernel region launch.
-struct __tgt_kernel_arguments {
-  int32_t Version;    // Version of this struct for ABI compatibility.
-  int32_t NumArgs;    // Number of arguments in each input pointer.
-  void **ArgBasePtrs; // Base pointer of each argument (e.g. a struct).
-  void **ArgPtrs;     // Pointer to the argument data.
-  int64_t *ArgSizes;  // Size of the argument data in bytes.
-  int64_t *ArgTypes;  // Type of the data (e.g. to / from).
-  void **ArgNames;    // Name of the data for debugging, possibly null.
-  void **ArgMappers;  // User-defined mappers, possibly null.
-  int64_t Tripcount;  // Tripcount for the teams / distribute loop, 0 otherwise.
+struct KernelArgsTy {
+  uint32_t Version;       // Version of this struct for ABI compatibility.
+  uint32_t NumArgs;       // Number of arguments in each input pointer.
+  void **ArgBasePtrs;     // Base pointer of each argument (e.g. a struct).
+  void **ArgPtrs;         // Pointer to the argument data.
+  int64_t *ArgSizes;      // Size of the argument data in bytes.
+  int64_t *ArgTypes;      // Type of the data (e.g. to / from).
+  void **ArgNames;        // Name of the data for debugging, possibly null.
+  void **ArgMappers;      // User-defined mappers, possibly null.
+  uint64_t Tripcount;     // Tripcount for the teams / distribute loop, 0 otherwise.
+  struct {
+    uint64_t NoWait : 1;  // Was this kernel spawned with a `nowait` clause.
+    uint64_t Unused : 63;
+  } Flags;
+  uint32_t NumTeams[3];    // The number of teams (for x,y,z dimension).
+  uint32_t ThreadLimit[3]; // The number of threads (for x,y,z dimension).
+  uint32_t DynCGroupMem;   // Amount of dynamic cgroup memory requested.
 };
-static_assert(sizeof(__tgt_kernel_arguments) == 64 ||
-                  sizeof(__tgt_kernel_arguments) == 40,
+static_assert(sizeof(KernelArgsTy().Flags) == sizeof(uint64_t),
               "Invalid struct size");
+static_assert(sizeof(KernelArgsTy) == (8 * sizeof(int32_t) + 3 * sizeof(int64_t) + 4 * sizeof(void**) + 2 * sizeof(int64_t*)),
+              "Invalid struct size");
+inline KernelArgsTy CTorDTorKernelArgs = {1,       0,       nullptr,   nullptr,
+	     nullptr, nullptr, nullptr,   nullptr,
+	     0,      {0,0},       {1, 0, 0}, {1, 0, 0}, 0};
 
 #if INTEL_COLLAB
 struct __tgt_interop_obj {
@@ -322,7 +338,6 @@ struct __tgt_memory_info {
   (((uint64_t)I64) >> (LOW)) & (((uint64_t)1 << ((HIGH) - (LOW) + 1)) - 1)
 #endif // INTEL_COLLAB
 
-
 /// This struct is a record of an entry point or global. For a function
 /// entry point the size is expected to be zero
 struct __tgt_offload_entry {
@@ -369,22 +384,19 @@ typedef struct __omp_offloading_fptr_map_t {
 } __omp_offloading_fptr_map_t;
 
 #ifdef __cplusplus
+#define EXTERN_C extern "C"
+#else
+#define EXTERN_C extern
+#endif
 
 #if _WIN32
-#define EXTERN extern "C" __declspec(dllexport)
-#else   // !_WIN32
-#define EXTERN extern "C"
-#endif  // !_WIN32
+#define EXTERN_ATTR(Attr) EXTERN_C Attr __declspec(dllexport)
+#define EXTERN EXTERN_C __declspec(dllexport)
+#else
+#define EXTERN_ATTR(Attr) EXTERN_C Attr
+#define EXTERN EXTERN_C
+#endif
 
-#else   // !__cplusplus
-
-#if _WIN32
-#define EXTERN extern __declspec(dllexport)
-#else   // !_WIN32
-#define EXTERN extern
-#endif  // !_WIN32
-
-#endif  // !__cplusplus
 #endif  // INTEL_COLLAB
 // clang-format on
 
@@ -403,16 +415,35 @@ struct DeviceTy;
 /// associated with a libomptarget layer device. RAII semantics to avoid
 /// mistakes.
 class AsyncInfoTy {
+public:
+  enum class SyncTy { BLOCKING, NON_BLOCKING };
+
+private:
   /// Locations we used in (potentially) asynchronous calls which should live
   /// as long as this AsyncInfoTy object.
   std::deque<void *> BufferLocations;
+
+  /// Post-processing operations executed after a successful synchronization.
+  /// \note the post-processing function should return OFFLOAD_SUCCESS or
+  /// OFFLOAD_FAIL appropriately.
+  using PostProcFuncTy = std::function<int()>;
+  llvm::SmallVector<PostProcFuncTy> PostProcessingFunctions;
 
   __tgt_async_info AsyncInfo;
   DeviceTy &Device;
 
 public:
-  AsyncInfoTy(DeviceTy &Device) : Device(Device) {}
+  /// Synchronization method to be used.
+  SyncTy SyncType;
+
+  AsyncInfoTy(DeviceTy &Device, SyncTy SyncType = SyncTy::BLOCKING)
+      : Device(Device), SyncType(SyncType) {}
+#if INTEL_CUSTOMIZATION
+  // [Coverity] Return value is not checked
+  ~AsyncInfoTy() { (void)synchronize(); }
+#else  // INTEL_CUSTOMIZATION
   ~AsyncInfoTy() { synchronize(); }
+#endif // INTEL_CUSTOMIZATION
 
   /// Implicit conversion to the __tgt_async_info which is used in the
   /// plugin interface.
@@ -420,12 +451,54 @@ public:
 
   /// Synchronize all pending actions.
   ///
+  /// \note synchronization will be performance in a blocking or non-blocking
+  /// manner, depending on the SyncType.
+  ///
+  /// \note if the operations are completed, the registered post-processing
+  /// functions will be executed once and unregistered afterwards.
+  ///
   /// \returns OFFLOAD_FAIL or OFFLOAD_SUCCESS appropriately.
   int synchronize();
 
   /// Return a void* reference with a lifetime that is at least as long as this
   /// AsyncInfoTy object. The location can be used as intermediate buffer.
   void *&getVoidPtrLocation();
+
+  /// Check if all asynchronous operations are completed.
+  ///
+  /// \note only a lightweight check. If needed, use synchronize() to query the
+  /// status of AsyncInfo before checking.
+  ///
+  /// \returns true if there is no pending asynchronous operations, false
+  /// otherwise.
+  bool isDone() const;
+
+  /// Add a new post-processing function to be executed after synchronization.
+  ///
+  /// \param[in] Function is a templated function (e.g., function pointers,
+  /// lambdas, std::function) that can be convertible to a PostProcFuncTy (i.e.,
+  /// it must have int() as its function signature).
+  template <typename FuncTy> void addPostProcessingFunction(FuncTy &&Function) {
+    static_assert(std::is_convertible_v<FuncTy, PostProcFuncTy>,
+                  "Invalid post-processing function type. Please check "
+                  "function signature!");
+    PostProcessingFunctions.emplace_back(Function);
+  }
+
+private:
+  /// Run all the post-processing functions sequentially.
+  ///
+  /// \note after a successful execution, all previously registered functions
+  /// are unregistered.
+  ///
+  /// \returns OFFLOAD_FAIL if any post-processing function failed,
+  /// OFFLOAD_SUCCESS otherwise.
+  int32_t runPostProcessing();
+
+  /// Check if the internal asynchronous info queue is empty or not.
+  ///
+  /// \returns true if empty, false otherwise.
+  bool isQueueEmpty() const;
 };
 
 /// This struct is a record of non-contiguous information
@@ -494,7 +567,7 @@ EXTERN
 int omp_target_disassociate_ptr(const void *HostPtr, int DeviceNum);
 
 #if INTEL_COLLAB
-EXTERN void * omp_get_mapped_ptr(void *HostPtr, int DeviceNum);
+EXTERN void *omp_get_mapped_ptr(const void *Ptr, int DeviceNum);
 
 EXTERN int omp_target_is_accessible(const void *Ptr, size_t Size,
                                     int DeviceNum);
@@ -555,6 +628,9 @@ EXTERN void *ompx_target_aligned_alloc_shared_with_hint(
     size_t Align, size_t Size, int AccessHint, int DeviceNum);
 EXTERN int ompx_target_prefetch_shared_mem(
     size_t NumPtrs, void **Ptrs, size_t *Sizes, int DeviceNum);
+
+/// Return device ID that owns the specified memory location
+EXTERN int ompx_get_device_from_ptr(const void *Ptr);
 #endif // INTEL_COLLAB
 
 /// Explicit target memory allocators
@@ -727,16 +803,7 @@ void __tgt_target_data_update_nowait_mapper(
 EXTERN
 #endif  // INTEL_COLLAB
 int __tgt_target_kernel(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
-                        int32_t ThreadLimit, void *HostPtr,
-                        __tgt_kernel_arguments *Args);
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-int __tgt_target_kernel_nowait(ident_t *Loc, int64_t DeviceId, int32_t NumTeams,
-                               int32_t ThreadLimit, void *HostPtr,
-                               __tgt_kernel_arguments *Args, int32_t DepNum,
-                               void *DepList, int32_t NoAliasDepNum,
-                               void *NoAliasDepList);
+                        int32_t ThreadLimit, void *HostPtr, KernelArgsTy *Args);
 
 #if INTEL_COLLAB
 EXTERN int32_t __tgt_is_device_available(int64_t DeviceNum, void *DeviceType);
@@ -818,6 +885,30 @@ EXTERN void __tgt_target_free_per_hw_thread_scratch(
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
+
+// Non-blocking synchronization for target nowait regions. This function
+// acquires the asynchronous context from task data of the current task being
+// executed and tries to query for the completion of its operations. If the
+// operations are still pending, the function returns immediately. If the
+// operations are completed, all the post-processing procedures stored in the
+// asynchronous context are executed and the context is removed from the task
+// data.
+void __tgt_target_nowait_query(void **AsyncHandle);
+
+#if INTEL_COLLAB
+EXTERN
+#endif // INTEL_COLLAB
+/// Executes a target kernel by replaying recorded kernel arguments and
+/// device memory.
+int __tgt_target_kernel_replay(ident_t *Loc, int64_t DeviceId, void *HostPtr,
+                               void *DeviceMemory, int64_t DeviceMemorySize,
+                               void **TgtArgs, ptrdiff_t *TgtOffsets,
+                               int32_t NumArgs, int32_t NumTeams,
+                               int32_t ThreadLimit, uint64_t LoopTripCount);
+
+#if INTEL_COLLAB
+EXTERN
+#endif // INTEL_COLLAB
 void __tgt_set_info_flag(uint32_t);
 
 #if INTEL_COLLAB

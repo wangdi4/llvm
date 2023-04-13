@@ -1,4 +1,21 @@
 //===-- X86TileConfig.cpp - Tile Register Configure----------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -76,6 +93,69 @@ INITIALIZE_PASS_DEPENDENCY(VirtRegMap)
 INITIALIZE_PASS_END(X86TileConfig, DEBUG_TYPE, "Tile Register Configure", false,
                     false)
 
+#if INTEL_CUSTOMIZATION
+unsigned getAMXRegNum(MachineRegisterInfo *MRI, Register Reg) {
+  if (Reg.isVirtual()) {
+    unsigned RegClassID = MRI->getRegClass(Reg)->getID();
+    if (RegClassID == X86::TILERegClassID)
+      return 1;
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+    if (RegClassID == X86::TILEPAIRRegClassID)
+      return 2;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  } else {
+    if (Reg >= X86::TMM0 && Reg <= X86::TMM7)
+      return 1;
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+    if (Reg >= X86::TMM0_TMM1 && Reg <= X86::TMM6_TMM7)
+      return 2;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  }
+  return 0;
+}
+
+static bool isAMXRegClass(MachineRegisterInfo *MRI, Register Reg) {
+  return getAMXRegNum(MRI, Reg) > 0;
+}
+
+static void collectVirtRegShapes(MachineRegisterInfo *MRI,
+                                 VirtRegMap &VRM,
+                                 Register VirtReg,
+                                 SmallVector<ShapeT, 8> &Phys2Shapes) {
+  unsigned Num = getAMXRegNum(MRI, VirtReg);
+
+  if (Num == 1) {
+    unsigned Index = VRM.getPhys(VirtReg) - X86::TMM0;
+    if (!Phys2Shapes[Index].isValid()) {
+      ShapeT Shape = VRM.getShape(VirtReg);
+      Phys2Shapes[Index] = Shape;
+      return;
+    }
+  }
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  // Split tile pair shape info to 2 single tile shape info. e.g:
+  // Put TMM0_TMM1's Shape to TMM0's shape + TMM1's Shape in Phys2Shapes.
+  if (Num == 2) {
+    unsigned Index0 = (VRM.getPhys(VirtReg) - X86::TMM0_TMM1) * 2;
+    unsigned Index1 = (VRM.getPhys(VirtReg) - X86::TMM0_TMM1) * 2 + 1;
+
+    ShapeT Shape = VRM.getShape(VirtReg);
+    assert(Shape.getShapeNum() == 2 && "Unexpected shape number!");
+
+    if (!Phys2Shapes[Index0].isValid()) {
+      ShapeT Shape0(Shape.getRow(0), Shape.getCol(0), MRI);
+      Phys2Shapes[Index0] = Shape0;
+    }
+
+    if (!Phys2Shapes[Index1].isValid()) {
+      ShapeT Shape1(Shape.getRow(1), Shape.getCol(1), MRI);
+      Phys2Shapes[Index1] = Shape1;
+    }
+  }
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool X86TileConfig::runOnMachineFunction(MachineFunction &MF) {
   const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
   const TargetRegisterInfo *TRI = ST.getRegisterInfo();
@@ -116,28 +196,26 @@ bool X86TileConfig::runOnMachineFunction(MachineFunction &MF) {
   assert(ConstMI && "Cannot find an insertion point");
 
   unsigned AMXRegNum = TRI->getRegClass(X86::TILERegClassID)->getNumRegs();
-  SmallVector<Register, 8> Phys2Virt(AMXRegNum, 0);
+  SmallVector<ShapeT, 8> Phys2Shapes(AMXRegNum, ShapeT()); // INTEL
   for (unsigned I = 0, E = MRI.getNumVirtRegs(); I != E; ++I) {
     Register VirtReg = Register::index2VirtReg(I);
     if (MRI.reg_nodbg_empty(VirtReg))
       continue;
-    if (MRI.getRegClass(VirtReg)->getID() != X86::TILERegClassID)
+    if (!isAMXRegClass(&MRI, VirtReg)) // INTEL
       continue;
     if (VRM.getPhys(VirtReg) == VirtRegMap::NO_PHYS_REG)
       continue;
-    unsigned Index = VRM.getPhys(VirtReg) - X86::TMM0;
-    if (!Phys2Virt[Index])
-      Phys2Virt[Index] = VirtReg;
+    collectVirtRegShapes(&MRI, VRM, VirtReg, Phys2Shapes); // INTEL
   }
 
   // Fill in the shape of each tile physical register.
   for (unsigned I = 0; I < AMXRegNum; ++I) {
-    if (!Phys2Virt[I])
+    ShapeT Shape = Phys2Shapes[I]; // INTEL
+    if (!Shape.isValid()) // INTEL
       continue;
     DebugLoc DL;
     bool IsRow = true;
     MachineInstr *NewMI = nullptr;
-    ShapeT Shape = VRM.getShape(Phys2Virt[I]);
     for (auto &R : {Shape.getRow()->getReg(), Shape.getCol()->getReg()}) {
       // Here is the data format for the tile config.
       // 0      palette

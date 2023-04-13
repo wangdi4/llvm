@@ -1,5 +1,5 @@
-; RUN: opt < %s -passes='cgscc(inline)' -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -opaque-pointers < %s -passes='cgscc(inline)' -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Check that bar is inlined into foo and then baz is inlined in bar when
 ; #pragma inline recursive is used
@@ -46,35 +46,44 @@
 ; CHECK-MD-NOT: call i32 bar
 ; CHECK-MD-NOT: call i32 baz
 
-declare i32 @jazz(i32 %y1)
+declare i32 @jazz(i32)
 
-define i32 @baz(i32 %y1)  "function-inline-cost"="3000" {
+define i32 @baz(i32 %y1) #0 {
 entry:
   %cmp = icmp ugt i32 %y1, 0
   br i1 %cmp, label %call, label %ret
-call:
+
+call:                                             ; preds = %entry
   %y3 = call i32 @jazz(i32 %y1)
   br label %ret
-ret:
+
+ret:                                              ; preds = %call, %entry
   %y4 = phi i32 [ %y1, %entry ], [ %y3, %call ]
   ret i32 %y4
 }
 
-define i32 @bar(i32 %y1)  "function-inline-cost"="3000" alwaysinline_recursive {
+; Function Attrs: alwaysinline_recursive
+define i32 @bar(i32 %y1) #1 {
 entry:
   %cmp = icmp ugt i32 %y1, 0
   br i1 %cmp, label %call, label %ret
-call:
+
+call:                                             ; preds = %entry
   %y3 = call i32 @baz(i32 %y1)
   br label %ret
-ret:
+
+ret:                                              ; preds = %call, %entry
   %y4 = phi i32 [ %y1, %entry ], [ %y3, %call ]
   ret i32 %y4
 }
 
 define i32 @foo(i32 %y1) {
+bb:
   %y3 = call i32 @bar(i32 %y1)
   %y4 = call i32 @bar(i32 %y1)
   %y5 = add i32 %y3, %y4
   ret i32 %y5
 }
+
+attributes #0 = { "function-inline-cost"="3000" }
+attributes #1 = { alwaysinline_recursive "function-inline-cost"="3000" }

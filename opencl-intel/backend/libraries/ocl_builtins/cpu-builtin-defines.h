@@ -22,6 +22,14 @@
 // half type returned
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
+#ifndef CLK_CHANNEL_MEM_FENCE
+/**
+ * Queue a memory fence to ensure correct
+ * ordering of memory operations to channel
+ **/
+#define CLK_CHANNEL_MEM_FENCE 0x04
+#endif
+
 // integers masks
 extern const constant char char_MSB_mask;
 extern const constant int int_MSB_mask;
@@ -32,21 +40,19 @@ extern const constant long long_even_mask;
 // "magic numbers" for popcount parallel algorithm
 extern const constant int magic_num_S[6];
 extern const constant long magic_num_B[6];
-// sse - relational
-extern const constant int fnan_min;  // or numeric_limits<float>::quiet_NaN();
-extern const constant int abs_inf;   // or numeric_limits<float>::quiet_NaN();
-extern const constant long dnan_min; // or numeric_limits<float>::quiet_NaN();
-extern const constant long dnan_max; // or numeric_limits<float>::quiet_NaN();
-extern const constant int fexp_mask;
-extern const constant int fman_mask;
-extern const constant long dexp_mask;
+// relational
+extern const constant short h_nan_max;
+extern const constant int f_nan_max;
+extern const constant long d_nan_max;
+extern const constant short h_exp_mask;
+extern const constant int f_exp_mask;
+extern const constant long d_exp_mask;
 extern const constant float fltm;
 extern const constant int fsign_mask;
 extern const constant long dsign_mask;
-extern const constant long FF;
-
-// avx-relational
-extern const constant int FFFMask8;
+extern const constant short h_mask;
+extern const constant int f_mask;
+extern const constant long d_mask;
 
 // shuffle and shuffle2
 extern const constant uchar16 _shuffle_epi16_smask;

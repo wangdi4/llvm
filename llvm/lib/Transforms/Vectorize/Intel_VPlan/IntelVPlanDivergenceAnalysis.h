@@ -35,6 +35,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 
 #include "llvm/Analysis/SyncDependenceAnalysis.h"
+#include "IntelVPlanValueTracking.h"
 #include "IntelVPlanVectorShape.h"
 #include "llvm/ADT/DenseSet.h"
 #include <queue>
@@ -47,17 +48,15 @@ class VPlanVector;
 class VPInstruction;
 class VPLoop;
 class VPLoopInfo;
-#if INTEL_CUSTOMIZATION
 class VPVectorShape;
 class VPPHINode;
 class VPCmpInst;
+class VPBlendInst;
 class VPLoopEntityList;
-class VPAllocatePrivate;
+class VPAllocateMemBase;
 class VPInductionInit;
 class VPInductionInitStep;
 class VPLoadStoreInst;
-#endif // INTEL_CUSTOMIZATION
-
 class VPDominatorTree;
 class VPPostDominatorTree;
 
@@ -166,8 +165,8 @@ public:
   // Note: this compute is a public interface for VPlan because we may want to
   // compute DA on demand after other VPlan transformations.
   void compute(VPlanVector *Plan, VPLoop *RegionLoop, VPLoopInfo *VPLI,
-               VPDominatorTree &DT, VPPostDominatorTree &PDT,
-               bool IsLCSSA = true);
+               VPlanValueTracking *VPVT, VPDominatorTree &DT,
+               VPPostDominatorTree &PDT, bool IsLCSSA = true);
 
   /// Recomputes the shapes of all the instructions in the \p Seeds set and
   /// triggers the recomputation of all dependent instructions.
@@ -178,6 +177,7 @@ public:
   // whether verification and printing of DA information has to be done as
   // part of invocation of this function.
   void recomputeShapes(SmallPtrSetImpl<VPInstruction *> &Seeds,
+                       bool FullRecompute = false,
                        bool EnableFullDAVerificationAndPrint = false);
 
   /// Mark \p DivVal as a value that is always divergent.
@@ -399,13 +399,22 @@ private:
 
   VPVectorShape computeVectorShapeForSOAGepInst(const VPInstruction *I);
 
+  /// Go through operands of Phi or Blend instructions and compute their
+  /// "joined" shape.
+  template <typename PhiOrBlend>
+  VPVectorShape joinOperandShapes(const PhiOrBlend *Inst);
+
   /// Computes vector shapes for phi nodes.
   VPVectorShape computeVectorShapeForPhiNode(const VPPHINode *Phi);
+
+  /// Computes vector shapes for blend instruction.
+  VPVectorShape computeVectorShapeForBlend(const VPBlendInst *Blend);
 
   /// Computes vector shape for load instructions.
   VPVectorShape computeVectorShapeForLoadInst(const VPInstruction *I);
 
   /// Computes vector shape for store instructions.
+  /// The result is always the shape of the pointer operand.
   VPVectorShape computeVectorShapeForStoreInst(const VPInstruction *I);
 
   /// Computes vector shape for the different types of cmp instructions.
@@ -422,9 +431,9 @@ private:
   /// Computes vector shape for call instructions.
   VPVectorShape computeVectorShapeForCallInst(const VPInstruction *I);
 
-  /// Computes vector shape for AllocatePrivate instructions.
-  VPVectorShape
-  computeVectorShapeForAllocatePrivateInst(const VPAllocatePrivate *AI);
+  /// Computes vector shape for AllocatePrivate and AllocateDVBuffer
+  /// instructions.
+  VPVectorShape computeVectorShapeForAllocateInst(const VPAllocateMemBase *AI);
 
   /// Computes vector shape for induction-init instruction.
   VPVectorShape computeVectorShapeForInductionInit(const VPInductionInit *Init);
@@ -468,6 +477,9 @@ private:
   /// by underlying IR.
   void improveStrideUsingIR();
 
+  /// Cache the VPInductionInit associated with induction memory pointers.
+  void cacheInductionInitPtrs();
+
   VPlanVector *Plan = nullptr;
 
   // If regionLoop != nullptr, analysis is only performed within \p RegionLoop.
@@ -481,6 +493,7 @@ private:
   VPDominatorTree *DT = nullptr;
   VPPostDominatorTree *PDT = nullptr;
   VPLoopInfo *VPLI = nullptr;
+  VPlanValueTracking *VPVT = nullptr;
 
   // Recognized divergent loops
   DenseSet<const VPLoop *> DivergentLoops;
@@ -505,6 +518,9 @@ private:
 
   // Disable DA recalculation.
   bool DARecomputationDisabled = false;
+
+  // Cache VPInductionInit associated with induction memory pointers.
+  DenseMap<const VPValue *, const VPInductionInit *> InductionInitPtrCache;
 };
 
 } // namespace vpo

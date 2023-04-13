@@ -1051,16 +1051,6 @@
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
 // RUN:   | FileCheck --check-prefix=CHECK-ANDROID %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mipsel-linux-android -rtlib=platform --unwindlib=platform \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID %s
-// RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-linux-android -rtlib=platform --unwindlib=platform \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID %s
-// RUN: %clang -### %s -no-pie 2>&1 \
 // RUN:     --target=i686-linux-android -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
@@ -1106,18 +1096,6 @@
 // RUN:     -shared \
 // RUN:   | FileCheck --check-prefix=CHECK-ANDROID-SO %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mipsel-linux-android -rtlib=platform --unwindlib=platform \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:     -shared \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-SO %s
-// RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-linux-android -rtlib=platform --unwindlib=platform \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:     -shared \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-SO %s
-// RUN: %clang -### %s -no-pie 2>&1 \
 // RUN:     --target=i686-linux-android -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
@@ -1159,18 +1137,6 @@
 // RUN:   | FileCheck --check-prefix=CHECK-ANDROID-STATIC %s
 // RUN: %clang -### %s -no-pie 2>&1 \
 // RUN:     --target=arm64-linux-android -rtlib=platform --unwindlib=platform \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:     -static \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-STATIC %s
-// RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mipsel-linux-android -rtlib=platform --unwindlib=platform \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:     -static \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-STATIC %s
-// RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-linux-android -rtlib=platform --unwindlib=platform \
-// RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
 // RUN:     -static \
 // RUN:   | FileCheck --check-prefix=CHECK-ANDROID-STATIC %s
@@ -1221,18 +1187,6 @@
 // RUN:     -pie \
 // RUN:   | FileCheck --check-prefix=CHECK-ANDROID-PIE %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mipsel-linux-android -rtlib=platform --unwindlib=platform \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:     -pie \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-PIE %s
-// RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-linux-android -rtlib=platform --unwindlib=platform \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:     -pie \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-PIE %s
-// RUN: %clang -### %s -no-pie 2>&1 \
 // RUN:     --target=i686-linux-android -rtlib=platform --unwindlib=platform \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
@@ -1264,22 +1218,12 @@
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
 // RUN:   | FileCheck --check-prefix=CHECK-ANDROID-32 %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mipsel-linux-android \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-32 %s
-// RUN: %clang -### %s -no-pie 2>&1 \
 // RUN:     --target=aarch64-linux-android \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
 // RUN:   | FileCheck --check-prefix=CHECK-ANDROID-64 %s
 // RUN: %clang -### %s -no-pie 2>&1 \
 // RUN:     --target=arm64-linux-android \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-64 %s
-// RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-linux-android \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
 // RUN:   | FileCheck --check-prefix=CHECK-ANDROID-64 %s
@@ -1318,15 +1262,6 @@
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
 // RUN:   | FileCheck --check-prefix=CHECK-ANDROID-PTHREAD %s
 // RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mipsel-linux-android -pthread \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-PTHREAD %s
-// RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-linux-android -pthread \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-PTHREAD %s
-// RUN: %clang -### %s -no-pie 2>&1 \
 // RUN:     --target=i686-linux-android -pthread \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
@@ -1356,18 +1291,6 @@
 // RUN:   | FileCheck --check-prefix=CHECK-ANDROID-PTHREAD %s
 // RUN: %clang -### %s -no-pie 2>&1 \
 // RUN:     --target=arm64-linux-android -pthread \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:     -shared \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-PTHREAD %s
-// RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mipsel-linux-android -pthread \
-// RUN:     --gcc-toolchain="" \
-// RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
-// RUN:     -shared \
-// RUN:   | FileCheck --check-prefix=CHECK-ANDROID-PTHREAD %s
-// RUN: %clang -### %s -no-pie 2>&1 \
-// RUN:     --target=mips64el-linux-android -pthread \
 // RUN:     --gcc-toolchain="" \
 // RUN:     --sysroot=%S/Inputs/basic_android_tree/sysroot \
 // RUN:     -shared \

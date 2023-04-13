@@ -511,6 +511,12 @@ $_ZN11xalanc_1_1023XalanDummyMemoryManager10deallocateEPv = comdat any
 
 declare dso_local i32 @__gxx_personality_v0(...)
 
+@GV = hidden unnamed_addr constant { [7 x ptr] } { [7 x ptr] [ptr null, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null] }, !intel_dtrans_type !1191
+
+@A1 = unnamed_addr alias ptr, getelementptr inbounds ({ [7 x ptr] }, ptr @GV, i32 0, i32 0, i32 1)
+
+@foo = internal global { ptr, i64 } { ptr @A1, i64 5 }, align 8
+
 ; Function Attrs: nofree
 declare !intel.dtrans.func.type !1062 dso_local "intel_dtrans_func_index"="1" ptr @__cxa_begin_catch(ptr "intel_dtrans_func_index"="2") local_unnamed_addr #0
 
@@ -3587,3 +3593,6 @@ attributes #23 = { noreturn nounwind }
 !1187 = !{%__SOADT_AR_struct.Arr zeroinitializer, i32 1}  ; %__SOADT_AR_struct.Arr*
 !1188 = !{%__SOADT_EL_class.F zeroinitializer, i32 1}  ; %__SOADT_EL_class.F*
 !1189 = !{float 0.0e+00, i32 1}  ; float*
+!1190 = !{i8 0, i32 1}
+!1191 = !{!"L", i32 1, !1192}
+!1192 = !{!"A", i32 7, !1190}

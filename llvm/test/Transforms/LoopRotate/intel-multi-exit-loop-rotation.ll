@@ -1,4 +1,4 @@
-; RUN: opt -loop-rotate -S < %s | FileCheck %s
+; RUN: opt -passes="loop(loop-rotate)" -S < %s | FileCheck %s
 
 ; Verify that we rotate the loop so that the loop latch has IV comparison check.
 ; This makes the loop countable for loopopt.

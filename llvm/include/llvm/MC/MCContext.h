@@ -173,7 +173,7 @@ private:
   unsigned GetInstance(unsigned LocalLabelVal);
 
   /// LLVM_BB_ADDR_MAP version to emit.
-  uint8_t BBAddrMapVersion = 1;
+  uint8_t BBAddrMapVersion = 2;
 
   /// The file name of the log file from the environment variable
   /// AS_SECURE_LOG_FILE.  Which must be set before the .secure_log_unique
@@ -190,8 +190,7 @@ private:
   SmallString<128> CompilationDir;
 
   /// Prefix replacement map for source file information.
-  std::map<std::string, const std::string, std::greater<std::string>>
-      DebugPrefixMap;
+  std::map<std::string, const std::string, std::greater<>> DebugPrefixMap;
 
   /// The main file name if passed in explicitly.
   std::string MainFileName;
@@ -507,17 +506,17 @@ public:
   /// variable after codegen.
   ///
   /// \param Idx - The index of a local variable passed to \@llvm.localescape.
-  MCSymbol *getOrCreateFrameAllocSymbol(StringRef FuncName, unsigned Idx);
+  MCSymbol *getOrCreateFrameAllocSymbol(const Twine &FuncName, unsigned Idx);
 
-  MCSymbol *getOrCreateParentFrameOffsetSymbol(StringRef FuncName);
+  MCSymbol *getOrCreateParentFrameOffsetSymbol(const Twine &FuncName);
 
-  MCSymbol *getOrCreateLSDASymbol(StringRef FuncName);
+  MCSymbol *getOrCreateLSDASymbol(const Twine &FuncName);
 
   /// Get the symbol for \p Name, or null.
   MCSymbol *lookupSymbol(const Twine &Name) const;
 
   /// Set value for a symbol.
-  void setSymbolValue(MCStreamer &Streamer, StringRef Sym, uint64_t Val);
+  void setSymbolValue(MCStreamer &Streamer, const Twine &Sym, uint64_t Val);
 
   /// getSymbols - Get a reference for the symbol table for clients that
   /// want to, for example, iterate over all symbols. 'const' because we
@@ -665,7 +664,7 @@ public:
   MCSectionWasm *getWasmSection(const Twine &Section, SectionKind K,
                                 unsigned Flags, const MCSymbolWasm *Group,
                                 unsigned UniqueID, const char *BeginSymName);
-  
+
   /// Get the section for the provided Section name
   MCSectionDXContainer *getDXContainerSection(StringRef Section, SectionKind K);
 

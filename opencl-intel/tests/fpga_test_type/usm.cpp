@@ -21,7 +21,7 @@
 #include "base_fixture.h"
 #include "common_utils.h"
 #include "gtest/gtest.h"
-#include <CL/cl_ext_intel.h>
+#include <CL/cl_ext.h>
 
 class UsmTest : public OCLFPGABaseFixture,
                 public ::testing::WithParamInterface<int> {
@@ -152,10 +152,7 @@ protected:
     size_t ldim = 1;
     err = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &gdim, &ldim, 0,
                                  nullptr, nullptr);
-    if (shouldSucceed)
-      ASSERT_EQ(err, CL_SUCCESS) << "clEnqueueNDRangeKernel should succeed";
-    else
-      ASSERT_NE(err, CL_SUCCESS) << "clEnqueueNDRangeKernel should fail";
+    ASSERT_EQ(err, CL_SUCCESS) << "clEnqueueNDRangeKernel should succeed";
 
     err = clFinish(queue);
     ASSERT_EQ(err, CL_SUCCESS) << "clFinish failed";

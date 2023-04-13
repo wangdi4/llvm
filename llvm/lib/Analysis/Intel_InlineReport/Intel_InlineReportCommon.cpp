@@ -1,6 +1,6 @@
 //===--------- Intel_InlineReportCommon.cpp - Inlining Reporti utils  ----===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -33,7 +33,9 @@ StringRef llvm::getOpStr(Metadata *Node, StringRef Front) {
     StrMD = cast<MDString>(Node);
 
   StringRef Res = StrMD->getString();
-  Res.consume_front(Front);
+  bool RV = Res.consume_front(Front);
+  (void)RV;
+  assert(RV && "Expecting string on front");
   return Res;
 }
 
@@ -41,7 +43,9 @@ void llvm::getOpVal(Metadata *Node, StringRef Front, int64_t *Val) {
   assert(Val && "Empty value storage");
   StringRef Res = getOpStr(Node, Front);
   assert(!Res.empty() && "Incomplete inlining report metadata");
-  Res.getAsInteger(10, *Val);
+  bool Failed = Res.getAsInteger(10, *Val);
+  (void)Failed;
+  assert(!Failed && "Expecting integer value");
 }
 
 // Print the inlining option values
@@ -75,7 +79,6 @@ bool llvm::shouldSkipIntrinsic(IntrinsicInst *II) {
   switch (Intrin) {
   default:
     return false;
-  case Intrinsic::dbg_addr:
   case Intrinsic::dbg_declare:
   case Intrinsic::dbg_value:
   case Intrinsic::intel_subscript:

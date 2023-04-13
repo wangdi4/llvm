@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -print-after=hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print,print<hir>" 2>&1 | FileCheck %s
 
 ; There are two loops with header %for.cond.cleanup3 and
@@ -17,7 +16,7 @@
 ; CHECK:  END REGION
 
 ; CHECK:  BEGIN REGION { }
-; CHECK:   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%d8.linear.iv)[0])1) ]
+; CHECK:   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%d8.linear.iv)[0]), 1) ]
 ; CHECK:   @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
 ; CHECK: END REGION
 

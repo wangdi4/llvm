@@ -209,6 +209,8 @@ public:
   // See comment about workaround below.
   static bool isBranchInst(const VPUser *U) { return isa<VPBranchInst>(U); }
 
+  VPBasicBlock *getPredecessor(unsigned idx) const;
+
   // Return iterator range of VPBasicBlock predecessors.
   // In make_filter_range, the static function is used instead of a lambda to
   // workaround a build error with Microsoft VS.
@@ -216,14 +218,12 @@ public:
     return map_range(make_filter_range(users(), isBranchInst), getVPUserParent);
   }
 
- #if INTEL_CUSTOMIZATION
   size_t getNumSuccessors() const;
 
   size_t getNumPredecessors() const {
     return llvm::count_if(users(),
                           [](const VPUser *U) { return isa<VPBranchInst>(U); });
   }
-#endif // INTEL_CUSTOMIZATION
 
   /// \Return the successor of this VPBasicBlock if it has a single successor.
   /// Otherwise return a null pointer.
@@ -332,9 +332,7 @@ public:
   /// this VPBasicBlock in the vectorized version, thereby "executing" the
   /// VPlan.
   void execute(struct VPTransformState *State);
-#if INTEL_CUSTOMIZATION
   void executeHIR(VPOCodeGenHIR *CG);
-#endif
 
   /// Retrieve the list of VPInstructions that belong to this VPBasicBlock.
   const VPInstructionListTy &getInstructions() const { return Instructions; }

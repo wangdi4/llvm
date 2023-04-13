@@ -53,7 +53,7 @@ attributes #0 = { "target-cpu"="x86-64" }
 ;CHECK-LABEL: sum:
 ;CHECK:       # %bb.0:
 ;CHECK:       prefetcht0 (%rdi,%rax,4)
-;CHECK-NEXT:  movl (%rdi,%rax,4), %eax
+;CHECK:       movl (%rdi,%rax,4), %eax ;INTEL
 ;CHECK-NEXT:  .loc 1 2 20 discriminator 2  # test.cc:2:20
 ;CHECK-NEXT:  addl (%rdi,%rcx,4), %eax
 ;CHECK-NEXT:  .loc 1 2 3                   # test.cc:2:3
@@ -61,8 +61,8 @@ attributes #0 = { "target-cpu"="x86-64" }
 ;NOBYPASS-LABEL: sum:
 ;NOBYPASS:       # %bb.0:
 ;NOBYPASS:       prefetcht0 (%rdi,%rax,4)
-;NOBYPASS-NEXT: .loc 1 2 22
+;NOBYPASS:      .loc 1 2 22 ;INTEL
 ;NOBYPASS-NEXT:  movl (%rdi,%rax,4), %eax
-;NOBYPASS-NEXT:  .loc 1 2 20 {{.*}} discriminator 2  # test.cc:2:20
+;NOBYPASS-NEXT:  .loc 1 2 20 discriminator 2  # test.cc:2:20 ;INTEL
 ;NOBYPASS-NEXT:  addl (%rdi,%rcx,4), %eax
 ;NOBYPASS-NEXT:  .loc 1 2 3                   # test.cc:2:3

@@ -40,6 +40,16 @@
 namespace llvm {
 class TargetLibraryInfo;
 
+#if INTEL_CUSTOMIZATION
+namespace VectorUtils {
+// The attribute provides a list of vector variants for a scalar function.
+// When attached to a function definition the list specifies vector variants
+// need to be generated from the original (scalar) version.
+// When attached to a call, tells loop vectorizer about available vector
+// variants for the call.
+constexpr const char *VectorVariantsAttrName = "vector-variants";
+} // namespace VectorUtils
+#endif // INTEL_CUSTOMIZATION
 /// Describes the type of Parameters
 enum class VFParamKind {
   Vector,            // No semantic information.
@@ -100,7 +110,7 @@ struct VFParameter {
   int LinearStepOrPos = 0;   // Step or Position of the Parameter.
 #if INTEL_CUSTOMIZATION
   MaybeAlign Alignment = std::nullopt; // Optional alignment in bytes.
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Comparison operator.
   bool operator==(const VFParameter &Other) const {
@@ -325,7 +335,7 @@ struct VFShape {
   /// vector variants that we generate during call vec decisions.
   /// (TODO: remove once this behavior has been properly implemented.)
   bool hasValidParameterList(bool Permissive = false) const;
-#endif
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Holds the VFShape for a specific scalar to vector function mapping.
@@ -382,11 +392,6 @@ public:
     recomputeNames();
   }
 
-  /// \brief Is this a masked vector function variant?
-  bool isMasked() const {
-    return Shape.Parameters.size() > 0 && Shape.Parameters.back().isMask();
-  }
-
   /// \brief Get the parameters of the vector variant.
   ArrayRef<VFParameter> getParameters() const { return Shape.Parameters; }
 
@@ -399,6 +404,11 @@ public:
   /// `recomputeNames()` will recompute the values of `VectorName` and
   /// `FullName` to reflect the updated properties.
   void recomputeNames() {
+    // Note that we do mangle with gcc specific name mangling.
+    // So rise alarm if we are about to switch VFABI encoding.
+    assert(!isIntelVFABIMangling(VectorName) &&
+           "Changing Vector ABI is not allowed");
+
     std::string EncodedName = encodeFromParts(getISA(), isMasked(), getVF(),
                                               getParameters(), ScalarName);
     if (VFInfo::isVectorVariant(VectorName)) {
@@ -407,6 +417,26 @@ public:
     } else {
       FullName = (std::move(EncodedName) + "(" + VectorName + ")");
     }
+  }
+
+  /// Return true if given vector variant name is encoded with Intel VFABI.
+  /// Specifically means that ISA class encoded with 'x', 'y', 'Y' or 'Z'.
+  static bool isIntelVFABIMangling(StringRef MangledName) {
+
+    if (!MangledName.consume_front(PREFIX))
+      return false;
+    if (MangledName.empty())
+      return false;
+    switch (MangledName.front()) {
+    case 'x':
+    case 'y':
+    case 'Y':
+    case 'Z':
+      return true;
+    default:
+      break;
+    }
+    return false;
   }
 
 private:
@@ -494,6 +524,20 @@ public:
       const VFInfo &Other, int &MaxArg, const Module *M,
       const ArrayRef<bool> ArgIsLinearPrivateMem) const;
 #endif // INTEL_CUSTOMIZATION
+  /// Returns the index of the first parameter with the kind 'GlobalPredicate',
+  /// if any exist.
+  std::optional<unsigned> getParamIndexForOptionalMask() const {
+    unsigned ParamCount = Shape.Parameters.size();
+    for (unsigned i = 0; i < ParamCount; ++i)
+      if (Shape.Parameters[i].ParamKind == VFParamKind::GlobalPredicate)
+        return i;
+
+    return std::nullopt;
+  }
+
+  /// Returns true if at least one of the operands to the vectorized function
+  /// has the kind 'GlobalPredicate'.
+  bool isMasked() const { return getParamIndexForOptionalMask().has_value(); }
 };
 
 namespace VFABI {
@@ -506,6 +550,11 @@ static constexpr char const *_LLVM_ = "_LLVM_";
 /// vectorizer to vectorize the scalar call `foo`, and to scalarize
 /// it once vectorization is done.
 static constexpr char const *_LLVM_Scalarize_ = "_LLVM_Scalarize_";
+#if INTEL_CUSTOMIZATION
+/// Intel-specific VFABI ISA token for vector functions that indicates
+/// incomplete (i.e. yet to be defined) ISA class specification.
+static constexpr char const *_Unknown_ = "_unknown_";
+#endif // INTEL_CUSTOMIZATION
 
 /// Function to construct a VFInfo out of a mangled names in the
 /// following format:
@@ -533,13 +582,14 @@ static constexpr char const *_LLVM_Scalarize_ = "_LLVM_Scalarize_";
 /// name. At the moment, this parameter is needed only to retrieve the
 /// Vectorization Factor of scalable vector functions from their
 /// respective IR declarations.
-Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName, const Module &M);
+std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
+                                          const Module &M);
 
 #if INTEL_CUSTOMIZATION
 VFInfo demangleForVFABI(StringRef MangledName);
-Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
-                                     const Module *M = nullptr);
-#endif
+std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
+                                          const Module *M = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
 /// This routine mangles the given VectorName according to the LangRef
 /// specification for vector-function-abi-variant attribute and is specific to
@@ -605,16 +655,16 @@ class VFDatabase {
     if (ListOfStrings.empty())
       return;
     for (const auto &MangledName : ListOfStrings) {
-      const Optional<VFInfo> Shape =
+      const std::optional<VFInfo> Shape =
           VFABI::tryDemangleForVFABI(MangledName, *(CI.getModule()));
       // A match is found via scalar and vector names, and also by
       // ensuring that the variant described in the attribute has a
       // corresponding definition or declaration of the vector
       // function in the Module M.
-      if (Shape && (Shape.value().ScalarName == ScalarName)) {
-        assert(CI.getModule()->getFunction(Shape.value().VectorName) &&
+      if (Shape && (Shape->ScalarName == ScalarName)) {
+        assert(CI.getModule()->getFunction(Shape->VectorName) &&
                "Vector function is missing.");
-        Mappings.push_back(Shape.value());
+        Mappings.push_back(*Shape);
       }
     }
   }
@@ -783,6 +833,11 @@ void narrowShuffleMaskElts(int Scale, ArrayRef<int> Mask,
 bool widenShuffleMaskElts(int Scale, ArrayRef<int> Mask,
                           SmallVectorImpl<int> &ScaledMask);
 
+/// Repetitively apply `widenShuffleMaskElts()` for as long as it succeeds,
+/// to get the shuffle mask with widest possible elements.
+void getShuffleMaskWithWidestElts(ArrayRef<int> Mask,
+                                  SmallVectorImpl<int> &ScaledMask);
+
 /// Splits and processes shuffle mask depending on the number of input and
 /// output registers. The function does 2 main things: 1) splits the
 /// source/destination vectors into real registers; 2) do the mask analysis to
@@ -855,11 +910,6 @@ typedef std::vector<std::string> DeclaredVariants;
 
 /// @brief Contains a mapping of a function to its vector function variants
 typedef std::map<Function*, DeclaredVariants> FunctionVariants;
-
-/// @brief Get all function attributes that specify a vector variant
-/// @param F Function to inspect
-/// @return A vector of all matching attributes
-std::vector<Attribute> getVectorVariantAttributes(Function& F);
 
 /// \brief Determine the characteristic type of the vector function as
 /// specified according to the vector function ABI.
@@ -935,11 +985,6 @@ inline FixedVectorType *getWidenedType(const Type *Ty, unsigned VF) {
       Ty->isVectorTy() ? cast<FixedVectorType>(Ty)->getNumElements() * VF : VF;
   return FixedVectorType::get(Ty->getScalarType(), NumElts);
 }
-
-/// \brief Get all functions marked for vectorization in module and their
-/// list of variants.
-void getFunctionsToVectorize(
-  Module &M, MapVector<Function*, std::vector<StringRef> > &FuncVars);
 
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.
@@ -1173,7 +1218,7 @@ SmallVector<int, 64> createVectorInterleaveMask(unsigned VF, unsigned NumVecs,
 ///     <(3, 4, 5), (12, 13, 14), (21, 22, 23), (30, 31, 32)>.
 SmallVector<int, 64> createVectorStrideMask(unsigned Start, unsigned Stride,
                                             unsigned VF, unsigned VecWidth);
-#endif /* INTEL_CUSTOMIZATION */
+#endif // INTEL_CUSTOMIZATION
 
 /// Create a sequential shuffle mask.
 ///
@@ -1424,7 +1469,7 @@ public:
 
   /// Check if \p Instr belongs to any interleave group.
   bool isInterleaved(Instruction *Instr) const {
-    return InterleaveGroupMap.find(Instr) != InterleaveGroupMap.end();
+    return InterleaveGroupMap.contains(Instr);
   }
 
   /// Get the interleave group that \p Instr belongs to.
@@ -1588,8 +1633,7 @@ private:
 
     // If we know there is a dependence from source to sink, assume the
     // instructions can't be reordered. Otherwise, reordering is legal.
-    return Dependences.find(Src) == Dependences.end() ||
-           !Dependences.lookup(Src).count(Sink);
+    return !Dependences.contains(Src) || !Dependences.lookup(Src).count(Sink);
   }
 
   /// Collect the dependences from LoopAccessInfo.

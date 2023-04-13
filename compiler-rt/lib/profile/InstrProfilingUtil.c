@@ -10,13 +10,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -88,17 +88,24 @@ void __llvm_profile_recursive_mkdir(char *path) {
 #endif
 
   for (i = start; path[i] != '\0'; ++i) {
+    int status; // INTEL
     char save = path[i];
     if (!IS_DIR_SEPARATOR(path[i]))
       continue;
     path[i] = '\0';
 #ifdef _WIN32
-    _mkdir(path);
+    status = _mkdir(path); // INTEL
 #else
     /* Some of these will fail, ignore it. */
-    mkdir(path, __llvm_profile_get_dir_mode());
+    status = mkdir(path, __llvm_profile_get_dir_mode()); // INTEL
 #endif
     path[i] = save;
+#if INTEL_CUSTOMIZATION
+    // Only ignore a mkdir failure if was due to there already being an existing
+    // directory.
+    if (status == -1 && errno != EEXIST)
+      break;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

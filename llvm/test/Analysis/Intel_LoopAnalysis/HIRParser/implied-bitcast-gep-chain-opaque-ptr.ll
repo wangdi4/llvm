@@ -1,4 +1,3 @@
-; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework  | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Verify that parser deduces an implied bitcast (type mismatch) between

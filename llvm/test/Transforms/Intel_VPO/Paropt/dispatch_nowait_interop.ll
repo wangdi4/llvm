@@ -1,5 +1,7 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s -check-prefix=NCG
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s -check-prefix=NCG
 
 ; // C++ source:
 ; void __attribute__((nothrow,noinline))  foo_gpu(int aaa, int *bbb, void* interop) {
@@ -32,6 +34,12 @@
 ; CHECK: [[ASYNCOBJ:%[a-zA-Z._0-9]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* {{.*}}, i32 0, i32 16, i64 24, i64 0, i8* null)
 ; CHECK: [[INTEROPASYNC:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_interop_obj(i64 0, i8 1, i8* [[ASYNCOBJ]])
 ; CHECK: call void @_Z7foo_gpuiPiPv(i32 0, i32* {{.*}}, i8* [[INTEROPASYNC]])
+
+; When the nowait clause is specified neither __tgt_target_sync nor 
+; __tgt_interop_use_async should be used
+; NCG-NOT: __tgt_interop_use_async
+; NCG-NOT: __tgt_target_sync
+
 
 ; ModuleID = 'dispatch_nowait_interop.cpp'
 source_filename = "dispatch_nowait_interop.cpp"

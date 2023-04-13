@@ -1,4 +1,4 @@
-//===-- RISCV.h - Top-level interface for RISCV -----------------*- C++ -*-===//
+//===-- RISCV.h - Top-level interface for RISC-V ----------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -18,9 +18,6 @@
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm {
-class RISCVRegisterBankInfo;
-class RISCVSubtarget;
-class RISCVTargetMachine;
 class AsmPrinter;
 class FunctionPass;
 class InstructionSelector;
@@ -29,6 +26,9 @@ class MCOperand;
 class MachineInstr;
 class MachineOperand;
 class PassRegistry;
+class RISCVRegisterBankInfo;
+class RISCVSubtarget;
+class RISCVTargetMachine;
 
 FunctionPass *createRISCVCodeGenPreparePass();
 void initializeRISCVCodeGenPreparePass(PassRegistry &);
@@ -50,6 +50,9 @@ void initializeRISCVGatherScatterLoweringPass(PassRegistry &);
 FunctionPass *createRISCVSExtWRemovalPass();
 void initializeRISCVSExtWRemovalPass(PassRegistry &);
 
+FunctionPass *createRISCVStripWSuffixPass();
+void initializeRISCVStripWSuffixPass(PassRegistry &);
+
 FunctionPass *createRISCVMergeBaseOffsetOptPass();
 void initializeRISCVMergeBaseOffsetOptPass(PassRegistry &);
 
@@ -68,9 +71,14 @@ void initializeRISCVInsertVSETVLIPass(PassRegistry &);
 FunctionPass *createRISCVRedundantCopyEliminationPass();
 void initializeRISCVRedundantCopyEliminationPass(PassRegistry &);
 
+FunctionPass *createRISCVInitUndefPass();
+void initializeRISCVInitUndefPass(PassRegistry &);
+extern char &RISCVInitUndefID;
+
 InstructionSelector *createRISCVInstructionSelector(const RISCVTargetMachine &,
                                                     RISCVSubtarget &,
                                                     RISCVRegisterBankInfo &);
-}
+void initializeRISCVDAGToDAGISelPass(PassRegistry &);
+} // namespace llvm
 
 #endif

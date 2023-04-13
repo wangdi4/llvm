@@ -1,6 +1,6 @@
 //===--------------------DTransSafetyAnalyzer.h--------------------------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -321,6 +321,10 @@ private:
   // A mapping from DTransTypes to the TypeInfo object that is used to
   // store information and safety bits about the types.
   DenseMap<DTransType *, dtrans::TypeInfo *> TypeInfoMap;
+
+  // List of TypeInfo object allocations that need to be destroyed upon
+  // DTransSafetyInfo destruction.
+  SmallVector<dtrans::TypeInfo *, 256> TypeInfoAllocs;
 
   // A mapping from function calls that special information is collected for
   // (malloc, free, memset, etc) to the information stored about those calls.

@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser -hir-details <%s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details -hir-framework-debug=parser -disable-output <%s  2>&1 | FileCheck %s
 
 ; Test checks that HIR parser does not assert when it cannot calculate a stride for header phi index CE.

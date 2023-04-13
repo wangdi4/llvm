@@ -1,6 +1,6 @@
 //===- Intel_AddSubReassociate.cpp - Reassociate AddSub expressions -------===//
 //
-// Copyright (C) 2018 - 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018 - 2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -769,8 +769,9 @@ void Group::sort() {
 }
 
 // Begin of AddSubReassociatePass
-Optional<int64_t> AddSubReassociate::findLoadDistance(Value *V1, Value *V2,
-                                                      unsigned MaxDepth) const {
+std::optional<int64_t>
+AddSubReassociate::findLoadDistance(Value *V1, Value *V2,
+                                    unsigned MaxDepth) const {
 
   SmallVector<std::tuple<Value *, Value *, unsigned>, 4> Stack(1, {V1, V2, 0});
 
@@ -818,9 +819,9 @@ int64_t AddSubReassociate::getSumAbsDistances(const CanonForm &G1,
        ++G1It, ++G2It) {
     Value *V1 = G1It->getLeaf();
     Value *V2 = G2It->getLeaf();
-    Optional<int64_t> Distance = findLoadDistance(V1, V2);
+    std::optional<int64_t> Distance = findLoadDistance(V1, V2);
     if (Distance)
-      Sum += std::abs(Distance.value());
+      Sum += std::abs(*Distance);
     else
       return MAX_DISTANCE;
   }
@@ -1144,7 +1145,7 @@ void AddSubReassociate::buildMaxReuseGroups(
       // be fine since current cluster size is limited to 16).
       for (size_t I = 0; I < CandidateTreesNum - GroupWidth + 1; ++I) {
         size_t FoundTreeNum = 0;
-        Optional<OpcodeData> GroupOpcode = std::nullopt;
+        std::optional<OpcodeData> GroupOpcode;
         for (size_t J = I; J < CandidateTreesNum && FoundTreeNum < GroupWidth;
              ++J) {
           Tree *CandidateTree = CandidateTrees[J].first;
@@ -1834,7 +1835,6 @@ void AddSubReassociateLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.setPreservesCFG();
   AU.addPreserved<GlobalsAAWrapperPass>();
-  AU.addPreserved<AndersensAAWrapperPass>();
 }
 
 INITIALIZE_PASS_BEGIN(AddSubReassociateLegacyPass, "addsub-reassoc",

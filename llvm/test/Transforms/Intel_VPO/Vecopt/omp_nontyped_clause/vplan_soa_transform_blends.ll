@@ -11,7 +11,7 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Div] [1024 x i32]* [[VP_ARR_SOA_PRIV32:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
 ; CHECK-NEXT:     [DA: Div] i8* [[VP_ARR_SOA_PRIV32_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_SOA_PRIV32]]
-; CHECK-NEXT:     [DA: Div] call i64 4096 i8* [[VP_ARR_SOA_PRIV32_BCAST:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial]
+; CHECK-NEXT:     [DA: Div] call i64 4096 i8* [[VP_ARR_SOA_PRIV32_BCAST:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 4, UF = 1
@@ -25,52 +25,48 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_COND]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_COND]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = load i1* [[UNIFORM_PTR0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[VP_UNIFORM]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = and i1 [[VP_COND]] i1 [[VP_UNIFORM_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = and i1 [[VP_COND]] i1 [[VP_UNIFORM]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM_NOT:%.*]] = select i1 [[VP_COND]] i1 [[VP_UNIFORM_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_UNIFORM:%.*]] = select i1 [[VP_COND]] i1 [[VP_UNIFORM]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_UNIFORM_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_UNIFORM_NOT]]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 2
-; CHECK-NEXT:     [DA: Div] i32* [[VP_UNI_ELSE_1:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 2
-; CHECK-NEXT:     [DA: Div] i64 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
-; CHECK-NEXT:     [DA: Div] i32* [[VP2:%.*]] = getelementptr i32* [[VP_UNI_ELSE_1]] i64 0 i64 [[VP_CONST_STEP]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_ELSE:%.*]] = load i32* [[VP_UNI_ELSE]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_CONST_STEP_1:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
-; CHECK-NEXT:     [DA: Div] i32* [[VP_RND_ELSE:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i32 [[VP_LD]] i64 [[VP_CONST_STEP_1]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_RND_ELSE:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i32 [[VP_LD]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_UNIFORM]]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_UNI_IF:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP_UNI_IF_1:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 1
-; CHECK-NEXT:     [DA: Div] i64 [[VP_CONST_STEP_2:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
-; CHECK-NEXT:     [DA: Div] i32* [[VP4:%.*]] = getelementptr i32* [[VP_UNI_IF_1]] i64 0 i64 [[VP_CONST_STEP_2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_IF:%.*]] = load i32* [[VP_UNI_IF]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_CONST_STEP_3:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
-; CHECK-NEXT:     [DA: Div] i32* [[VP_STR_IF:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 [[VP_IV]] i64 [[VP_CONST_STEP_3]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_STR_IF:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 [[VP_IV]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_BLEND_BLEND_BB5:%.*]] = blend [ i64 2, i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i64 1, i1 [[VP_BB3_BR_VP_UNIFORM]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_BLENDPTRUNI_BLEND_BB5:%.*]] = blend [ i32* [[VP2]], i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i32* [[VP4]], i1 [[VP_BB3_BR_VP_UNIFORM]] ]
+; CHECK-NEXT:     [DA: Div] i32* [[VP_BLENDPTRUNI_BLEND_BB5:%.*]] = blend [ i32* [[VP_UNI_ELSE]], i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i32* [[VP_UNI_IF]], i1 [[VP_BB3_BR_VP_UNIFORM]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_BLENDPTRRND_BLEND_BB5:%.*]] = blend [ i32* [[VP_RND_ELSE]], i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i32* [[VP_STR_IF]], i1 [[VP_BB3_BR_VP_UNIFORM]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
+; CHECK-NEXT:     [DA: Div] i32* [[VP4:%.*]] = getelementptr i32* [[VP_BLENDPTRRND_BLEND_BB5]] i32 0 i32 [[VP_CONST_STEP]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_CONST_STEP_1:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
+; CHECK-NEXT:     [DA: Div] i32* [[VP5:%.*]] = getelementptr i32* [[VP_BLENDPTRUNI_BLEND_BB5]] i32 0 i32 [[VP_CONST_STEP_1]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_COND_ACTIVE:%.*]] = active-lane i1 [[VP_COND]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_BLEND_BLEND_BB5_ACTIVE:%.*]] = lane-extract i64 [[VP_BLEND_BLEND_BB5]] i1 [[VP_COND_ACTIVE]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_COND]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_UNI:%.*]] = load i32* [[VP_BLENDPTRUNI_BLEND_BB5]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_RND:%.*]] = load i32* [[VP_BLENDPTRRND_BLEND_BB5]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_COND]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_UNI:%.*]] = load i32* [[VP5]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_RND:%.*]] = load i32* [[VP4]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VAL:%.*]] = add i64 [[VP_BLEND_BLEND_BB5_ACTIVE]] i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_COND]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_COND]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB9]]

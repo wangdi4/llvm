@@ -1,4 +1,4 @@
-; RUN: opt -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
 
 ; This test checks that metadata corresponding to the inlining report
 ; will be properly linked back to the IR.
@@ -58,9 +58,6 @@
 ; CHECK: [[Y_CSs]] = distinct !{!"intel.callsites.inlining.report", [[Z_Y_CS:![0-9]+]]}
 ; CHECK: [[Z_Y_CS]] = distinct !{!"intel.callsite.inlining.report", [[Z_NAME]], null, [[IS_INL_0]]{{.*}}
 ; CHECK: [[Z_FIR]] = distinct !{!"intel.function.inlining.report", [[Z_NAME]], null{{.*}}
-
-
-;IR with call site inlining reports unlinked from call instructions.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -148,4 +145,3 @@ declare !intel.function.inlining.report !55 dso_local void @z(...) local_unnamed
 !53 = !{!"isDead: 1"}
 !54 = !{!"linkage: L"}
 !55 = distinct !{!"intel.function.inlining.report", !22, null, !17, !37, !41, !39}
-

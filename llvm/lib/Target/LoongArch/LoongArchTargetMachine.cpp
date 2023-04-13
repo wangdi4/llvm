@@ -12,12 +12,14 @@
 
 #include "LoongArchTargetMachine.h"
 #include "LoongArch.h"
+#include "LoongArchMachineFunctionInfo.h"
 #include "MCTargetDesc/LoongArchBaseInfo.h"
 #include "TargetInfo/LoongArchTargetInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Transforms/Scalar.h"
 #include <optional>
 
 using namespace llvm;
@@ -30,7 +32,13 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeLoongArchTarget() {
   RegisterTargetMachine<LoongArchTargetMachine> Y(getTheLoongArch64Target());
   auto *PR = PassRegistry::getPassRegistry();
   initializeLoongArchPreRAExpandPseudoPass(*PR);
+  initializeLoongArchDAGToDAGISelPass(*PR);
 }
+
+static cl::opt<bool>
+    EnableLoopDataPrefetch("loongarch-enable-loop-data-prefetch", cl::Hidden,
+                           cl::desc("Enable the loop data prefetch pass"),
+                           cl::init(false));
 
 static std::string computeDataLayout(const Triple &TT) {
   if (TT.isArch64Bit())
@@ -93,6 +101,13 @@ LoongArchTargetMachine::getSubtargetImpl(const Function &F) const {
   return I.get();
 }
 
+MachineFunctionInfo *LoongArchTargetMachine::createMachineFunctionInfo(
+    BumpPtrAllocator &Allocator, const Function &F,
+    const TargetSubtargetInfo *STI) const {
+  return LoongArchMachineFunctionInfo::create<LoongArchMachineFunctionInfo>(
+      Allocator, F, STI);
+}
+
 namespace {
 class LoongArchPassConfig : public TargetPassConfig {
 public:
@@ -117,6 +132,12 @@ LoongArchTargetMachine::createPassConfig(PassManagerBase &PM) {
 }
 
 void LoongArchPassConfig::addIRPasses() {
+  // Run LoopDataPrefetch
+  //
+  // Run this before LSR to remove the multiplies involved in computing the
+  // pointer values N iterations ahead.
+  if (TM->getOptLevel() != CodeGenOpt::None && EnableLoopDataPrefetch)
+    addPass(createLoopDataPrefetchPass());
   addPass(createAtomicExpandPass());
 
   TargetPassConfig::addIRPasses();

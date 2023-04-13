@@ -1,6 +1,6 @@
 //===--------------- ResolveTypes.cpp - DTransResolveTypesPass ------------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -45,7 +45,6 @@
 #include "Intel_DTrans/Transforms/ResolveTypes.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/EquivalenceClasses.h"
@@ -56,8 +55,8 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/Pass.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
 using namespace llvm;
 using dtrans::collectAllStructTypes;
@@ -82,36 +81,6 @@ bool typesHaveSameBaseName(StructType *StTyA, StructType *StTyB) {
   return getTypeBaseName(StTyA->getName())
       .equals(getTypeBaseName(StTyB->getName()));
 }
-
-class DTransResolveTypesWrapper : public ModulePass {
-private:
-  dtrans::ResolveTypesPass Impl;
-
-public:
-  static char ID;
-
-  DTransResolveTypesWrapper() : ModulePass(ID) {
-    initializeDTransResolveTypesWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-    return Impl.runImpl(M, GetTLI, WPInfo);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
 
 class ResolveTypesImpl : public DTransOptBase {
 public:
@@ -451,7 +420,7 @@ public:
       auto referencesTypeOfInterest = [&](Type *Ty) {
         auto *BaseTy = Ty;
         while (BaseTy->isPointerTy())
-          BaseTy = BaseTy->getPointerElementType();
+          BaseTy = BaseTy->getNonOpaquePointerElementType();
         if (isTypeOfInterest(BaseTy))
           return true;
         return false;
@@ -467,8 +436,8 @@ public:
         return false;
       };
 
-      auto *SrcTy = Cast->getSrcTy()->getPointerElementType();
-      auto *DestTy = Cast->getDestTy()->getPointerElementType();
+      auto *SrcTy = Cast->getSrcTy()->getNonOpaquePointerElementType();
+      auto *DestTy = Cast->getDestTy()->getNonOpaquePointerElementType();
 
       // It's possible that the source type was not a function type pointer.
       // In that case, we can't really deduce anything from the call site.
@@ -734,7 +703,8 @@ private:
   // possible for these uses to form a cycle, so no recursion guard is needed.
   void visitGlobalValueUsers(Constant *C) {
     auto *Ty = C->getType();
-    if (!Ty->isPointerTy() || !isTypeOfInterest(Ty->getPointerElementType()))
+    if (!Ty->isPointerTy() ||
+        !isTypeOfInterest(Ty->getNonOpaquePointerElementType()))
       return;
     for (auto *U : C->users()) {
       if (auto *GEP = dyn_cast<GEPOperator>(U))
@@ -895,8 +865,8 @@ private:
         return;
       if (isVTableCast(SrcTy, DestTy))
         return;
-      SrcTy = SrcTy->getPointerElementType();
-      DestTy = DestTy->getPointerElementType();
+      SrcTy = SrcTy->getNonOpaquePointerElementType();
+      DestTy = DestTy->getNonOpaquePointerElementType();
     }
     recordTypeCasting(SrcTy, DestTy, /*IsCall=*/false);
     DEBUG_WITH_TYPE(DTRT_COMPAT_VERBOSE,
@@ -921,8 +891,8 @@ private:
            (SrcBaseTy->isArrayTy() && DestBaseTy->isArrayTy()) ||
            (SrcBaseTy->isVectorTy() && DestBaseTy->isVectorTy())) {
       if (SrcBaseTy->isPointerTy()) {
-        SrcBaseTy = SrcBaseTy->getPointerElementType();
-        DestBaseTy = DestBaseTy->getPointerElementType();
+        SrcBaseTy = SrcBaseTy->getNonOpaquePointerElementType();
+        DestBaseTy = DestBaseTy->getNonOpaquePointerElementType();
       } else if (SrcBaseTy->isArrayTy()) {
         SrcBaseTy = cast<ArrayType>(SrcBaseTy)->getElementType();
         DestBaseTy = cast<ArrayType>(DestBaseTy)->getElementType();
@@ -989,18 +959,6 @@ private:
 };
 
 } // end anonymous namespace
-
-char DTransResolveTypesWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransResolveTypesWrapper, "dtrans-resolvetypes",
-                      "DTrans resolve types", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransResolveTypesWrapper, "dtrans-resolvetypes",
-                    "DTrans resolve types", false, false)
-
-ModulePass *llvm::createDTransResolveTypesWrapperPass() {
-  return new DTransResolveTypesWrapper();
-}
 
 // This function walks over the structure types in the specified module and
 // identifies types which we would like to remap to one another. At this point
@@ -1611,8 +1569,8 @@ void ResolveTypesImpl::collectDependentTypeMappings(
            (SrcBaseTy->isArrayTy() && DestBaseTy->isArrayTy()) ||
            (SrcBaseTy->isVectorTy() && DestBaseTy->isVectorTy())) {
       if (SrcBaseTy->isPointerTy()) {
-        SrcBaseTy = SrcBaseTy->getPointerElementType();
-        DestBaseTy = DestBaseTy->getPointerElementType();
+        SrcBaseTy = SrcBaseTy->getNonOpaquePointerElementType();
+        DestBaseTy = DestBaseTy->getNonOpaquePointerElementType();
       } else if (SrcBaseTy->isArrayTy()) {
         SrcBaseTy = cast<ArrayType>(SrcBaseTy)->getElementType();
         DestBaseTy = cast<ArrayType>(DestBaseTy)->getElementType();
@@ -1699,7 +1657,7 @@ void ResolveTypesImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
       return;
 
     while (SrcTy->isPointerTy())
-      SrcTy = SrcTy->getPointerElementType();
+      SrcTy = SrcTy->getNonOpaquePointerElementType();
 
     if (!SrcTy->isStructTy())
       return;
@@ -1917,8 +1875,8 @@ ResolveTypesImpl::CompareResult ResolveTypesImpl::compareTypeMembers(
           return CompareResult::Distinct;
         }
         // Otherwise, drill down on both pointers.
-        ElemATy = ElemATy->getPointerElementType();
-        ElemBTy = ElemBTy->getPointerElementType();
+        ElemATy = ElemATy->getNonOpaquePointerElementType();
+        ElemBTy = ElemBTy->getNonOpaquePointerElementType();
         ComparingPointerElements = true;
       } else {
         assert((ElemATy->isArrayTy() || ElemATy->isVectorTy()) &&

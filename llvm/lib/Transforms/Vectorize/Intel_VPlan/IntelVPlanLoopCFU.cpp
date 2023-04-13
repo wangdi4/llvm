@@ -139,9 +139,13 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   }
 
   // Combine the bottom test with the current loop body mask - inactive
-  // lanes need to to remain inactive.
-  BottomTest = Builder.createAnd(BottomTest, LoopBodyMask,
-                                 LoopBodyMask->getName() + ".next");
+  // lanes need to to remain inactive. We need to do an 'And' operation.
+  // In order to avoid propagating poison value from bottom test, we
+  // use a select operation.
+  VPValue *FalseVal =
+      Plan.getVPConstant(ConstantInt::getFalse(LoopBodyMask->getType()));
+  BottomTest = Builder.createSelect(LoopBodyMask, BottomTest, FalseVal,
+                                    LoopBodyMask->getName() + ".next");
   VPDA->markDivergent(*BottomTest);
 
   // Compute and set the new condition bit in the loop latch. If all the

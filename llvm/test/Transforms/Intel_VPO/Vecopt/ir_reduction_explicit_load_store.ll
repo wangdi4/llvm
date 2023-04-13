@@ -7,25 +7,32 @@
 
 define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-LABEL: @load_store_reduction_add(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[X:%.*]] = alloca float, align 4
+; CHECK-NEXT:    store float 2.000000e+00, float* [[X]], align 4
+; CHECK-NEXT:    [[X_VEC:%.*]] = alloca <8 x float>, align 32
+; CHECK-NEXT:    [[X_VEC_BC:%.*]] = bitcast <8 x float>* [[X_VEC]] to float*
+; CHECK-NEXT:    [[X_VEC_BASE_ADDR:%.*]] = getelementptr float, float* [[X_VEC_BC]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[X_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <8 x float*> [[X_VEC_BASE_ADDR]], i32 0
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[VEC_PHI3:%.*]] = phi <8 x float> [ zeroinitializer, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, float* [[A:%.*]], i64 [[UNI_PHI1]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[SCALAR_GEP]] to <8 x float>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <8 x float>, <8 x float>* [[TMP0]], align 4
-; CHECK-NEXT:    [[TMP1]] = fadd fast <8 x float> [[VEC_PHI3]], [[WIDE_LOAD]]
-; CHECK-NEXT:    store <8 x float> [[TMP1]], <8 x float>* [[X_VEC:%.*]], align 4
-; CHECK-NEXT:    [[TMP2]] = add nuw nsw <8 x i64> [[VEC_PHI]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
-; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI1]], 8
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 1000
-; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB4:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI3:%.*]] = phi <8 x float> [ zeroinitializer, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, float* [[A:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast float* [[SCALAR_GEP]] to <8 x float>*
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <8 x float>, <8 x float>* [[TMP1]], align 4
+; CHECK-NEXT:    [[TMP2]] = fadd fast <8 x float> [[VEC_PHI3]], [[WIDE_LOAD]]
+; CHECK-NEXT:    store <8 x float> [[TMP2]], <8 x float>* [[X_VEC]], align 4
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw <8 x i64> [[VEC_PHI]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI]], 8
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], 1000
+; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB4:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    [[TMP5:%.*]] = call fast float @llvm.vector.reduce.fadd.v8f32(float [[X_PROMOTED:%.*]], <8 x float> [[TMP1]])
-; CHECK-NEXT:    store float [[TMP5]], float* [[X:%.*]], align 1
-; CHECK-NEXT:    [[X_VEC_BCAST:%.*]] = bitcast <8 x float>* [[X_VEC]] to i8* 
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 32, i8* [[X_VEC_BCAST]])
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
+; CHECK-NEXT:    [[TMP6:%.*]] = call fast float @llvm.vector.reduce.fadd.v8f32(float [[X_PROMOTED:%.*]], <8 x float> [[TMP2]])
+; CHECK-NEXT:    store float [[TMP6]], float* [[X:%.*]], align 1
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast float* [[X_VEC_BASE_ADDR_EXTRACT_0_]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 32, i8* [[TMP7]])
+
 ;
 entry:
   %x = alloca float, align 4

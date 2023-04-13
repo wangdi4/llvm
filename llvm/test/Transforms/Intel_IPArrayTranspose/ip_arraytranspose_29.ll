@@ -6,44 +6,43 @@
 
 ; REQUIRES: asserts
 ; RUN: opt < %s -disable-output -passes='module(iparraytranspose)' -whole-program-assume -debug-only=iparraytranspose -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -disable-output -passes='module(iparraytranspose)' -whole-program-assume -debug-only=iparraytranspose -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK:    Failed: MemRefs validation failed
 
-%struct.ident_t = type { i32, i32, i32, i32, i8* }
+%struct.ident_t = type { i32, i32, i32, i32, ptr }
 @.source.0.0.9 = private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
-@.kmpc_loc.0.0.10 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0.9, i32 0, i32 0) }
+@.kmpc_loc.0.0.10 = private unnamed_addr global %struct.ident_t { i32 0, i32 838860802, i32 0, i32 0, ptr @.source.0.0.9 }
 
 define i32 @main() #0 {
 b0:
-  %p1 = tail call i8* @malloc(i64 214400000)
-  %pinc = getelementptr inbounds i8, i8* %p1, i64 320000
-  %bc0 = bitcast i8* %pinc to double*
-  call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%struct.ident_t* nonnull @.kmpc_loc.0.0.10, i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, double*, i64, i64)* @foo to void (i32*, i32*, ...)*), double* %bc0, i64 0, i64 263)
+  %p1 = tail call ptr @malloc(i64 214400000)
+  %pinc = getelementptr inbounds i8, ptr %p1, i64 320000
+  %bc0 = bitcast ptr %pinc to ptr
+  call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr nonnull @.kmpc_loc.0.0.10, i32 3, ptr @foo, ptr %bc0, i64 0, i64 263)
   br label %b1
 
 b1:                                               ; preds = %b0
-  tail call void @free(i8* nonnull %p1)
+  tail call void @free(ptr nonnull %p1)
   ret i32 0
 }
 
-define void @foo(i32* nocapture readonly %arg, i32* nocapture readnone %arg1, double* nocapture %arg2, i64 %arg3, i64 %arg4) {
+define void @foo(ptr nocapture readonly %arg, ptr nocapture readnone %arg1, ptr nocapture %arg2, i64 %arg3, i64 %arg4) {
 bb:
   %tmp = alloca i32, align 4
   %tmp5 = alloca i32, align 4
   %tmp6 = alloca i32, align 4
   %tmp7 = alloca i32, align 4
-  store i32 0, i32* %tmp, align 4
-  %tmp8 = load i32, i32* %arg, align 4
-  store i32 0, i32* %tmp5, align 4
-  store i32 263, i32* %tmp6, align 4
-  store i32 1, i32* %tmp7, align 4
-  call void @__kmpc_for_static_init_4(%struct.ident_t* nonnull @.kmpc_loc.0.0.10, i32 %tmp8, i32 34, i32* nonnull %tmp, i32* nonnull %tmp5, i32* nonnull %tmp6, i32* nonnull %tmp7, i32 1, i32 1)
-  %tmp9 = load i32, i32* %tmp5, align 4
-  %tmp10 = load i32, i32* %tmp6, align 4
+  store i32 0, ptr %tmp, align 4
+  %tmp8 = load i32, ptr %arg, align 4
+  store i32 0, ptr %tmp5, align 4
+  store i32 263, ptr %tmp6, align 4
+  store i32 1, ptr %tmp7, align 4
+  call void @__kmpc_for_static_init_4(ptr nonnull @.kmpc_loc.0.0.10, i32 %tmp8, i32 34, ptr nonnull %tmp, ptr nonnull %tmp5, ptr nonnull %tmp6, ptr nonnull %tmp7, i32 1, i32 1)
+  %tmp9 = load i32, ptr %tmp5, align 4
+  %tmp10 = load i32, ptr %tmp6, align 4
   %tmp11 = icmp sgt i32 %tmp9, %tmp10
   br i1 %tmp11, label %bb18, label %bb12
 
@@ -74,8 +73,8 @@ bb25:                                             ; preds = %bb25, %bb19
   %tmp29 = mul nsw i32 %tmp28, 20
   %tmp30 = add nsw i32 %tmp29, 19
   %tmp31 = sext i32 %tmp30 to i64
-  %tmp32 = getelementptr inbounds double, double* %arg2, i64 %tmp31
-  %tmp34 = load double, double* %tmp32, align 4
+  %tmp32 = getelementptr inbounds double, ptr %arg2, i64 %tmp31
+  %tmp34 = load double, ptr %tmp32, align 4
   %tmp33 = bitcast double %tmp34 to i64
   %tmp36 = icmp eq i64 %tmp26, 199
   %tmp37 = add nuw nsw i64 %tmp26, 1
@@ -118,9 +117,9 @@ bb52:                                             ; preds = %bb50, %bb19
   %tmp55 = mul nsw i32 %tmp54, 10
   %tmp56 = add nsw i32 %tmp55, 19
   %tmp57 = sext i32 %tmp56 to i64
-  %tmp58 = getelementptr inbounds double, double* %arg2, i64 %tmp57
-  %tmp59 = bitcast double* %tmp58 to i32*
-  store i32 1, i32* %tmp59, align 4
+  %tmp58 = getelementptr inbounds double, ptr %arg2, i64 %tmp57
+  %tmp59 = bitcast ptr %tmp58 to ptr
+  store i32 1, ptr %tmp59, align 4
   br i1 %tmp24, label %bb65, label %bb62
 
 bb62:                                             ; preds = %bb52
@@ -134,10 +133,11 @@ bb65:                                             ; preds = %bb52
   br i1 %tmp67, label %bb50, label %bb46
 }
 
-declare noalias i8* @malloc(i64) #1
-declare void @free(i8* nocapture) #2
-declare void @__kmpc_fork_call(%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...)
-declare void @__kmpc_for_static_init_4(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i32* nocapture, i32* nocapture, i32* nocapture, i32, i32)
+declare noalias ptr @malloc(i64) #1
+declare void @free(ptr nocapture) #2
+declare void @__kmpc_fork_call(ptr, i32, ptr, ...)
+declare void @__kmpc_for_static_init_4(ptr nocapture readonly, i32, i32, ptr nocapture, ptr nocapture, ptr nocapture, ptr nocapture, i32, i32)
+
 
 attributes #0 = { norecurse }
 attributes #1 = { inaccessiblememonly mustprogress nofree nounwind willreturn allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }

@@ -26,9 +26,11 @@ define dso_local void @foo() {
 ; CHECK:       Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:           BEGIN REGION { modified }
-; CHECK-NEXT:                 [[DOTVEC0:%.*]] = (<2 x i32>*)(@a)[0][0]
-; CHECK-NEXT:                 [[DOTVEC10:%.*]] = (<2 x i32>*)(@a)[0][2]
-; CHECK:                END REGION
+; CHECK-NEXT:                 %.vec = (<2 x i32>*)(@a)[0][0];
+; CHECK-NEXT:                 %.vec1 = (<2 x i32>*)(@a)[0][4];
+; CHECK-NEXT:                 %.vec2 = (<2 x i32>*)(@a)[0][2];
+; CHECK-NEXT:                 %.vec3 = (<2 x i32>*)(@a)[0][6];
+; CHECK-NEXT:           END REGION
 ;
 entry:
   br label %for.body
@@ -37,6 +39,9 @@ for.body:                                         ; preds = %entry, %for.body
   %iv = phi i32 [ 0, %entry ], [ %iv.next, %for.body ]
   %idx = getelementptr inbounds [4 x i32], [4 x i32]* @a, i32 0, i32 %iv
   %0 = load i32, i32* %idx, align 4
+  %add = add i32 %iv, 4
+  %idx2 = getelementptr inbounds [4 x i32], [4 x i32]* @a, i32 0, i32 %add
+  %1 = load i32, i32* %idx2, align 4
   %iv.next = add nuw nsw i32 %iv, 1
   %exitcond = icmp ne i32 %iv.next, 4
   br i1 %exitcond, label %for.body, label %for.end, !llvm.loop !0

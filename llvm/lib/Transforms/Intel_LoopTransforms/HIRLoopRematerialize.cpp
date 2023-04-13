@@ -245,7 +245,6 @@ private:
 
   /// Minimal checks to see if Seqs are by grouped by II consecutive sequences.
   /// Common logic to reroll.
-  /// TODO: refactor the common part.
   bool preliminaryChecks(const unsigned II, const VecCEOpSeqTy &VecSeq) const;
 
   /// See if all II-sized sequence groups have matching distances.
@@ -327,10 +326,9 @@ bool SequenceChecker::areEqualBlobTyForReroll(const BlobTy &Blob1,
                                       NArySCEV2->getOperand(0)));
     }
 
-    for (auto I1 = NArySCEV1->op_begin(), I2 = NArySCEV2->op_begin(),
-              E1 = NArySCEV1->op_end(), E2 = NArySCEV2->op_end();
-         I1 != E1 && I2 != E2; ++I1, ++I2) {
-      if (!areEqualBlobTyForReroll(*I1, *I2)) {
+    for (auto const &Ops :
+         llvm::zip(NArySCEV1->operands(), NArySCEV2->operands())) {
+      if (!areEqualBlobTyForReroll(std::get<0>(Ops), std::get<1>(Ops))) {
         return false;
       }
     }
@@ -344,6 +342,9 @@ bool SequenceChecker::areEqualBlobTyForReroll(const BlobTy &Blob1,
            areEqualBlobTyForReroll(UDivSCEV1->getRHS(), UDivSCEV2->getRHS());
   }
 
+  // This is the main end condition of the recursion.
+  // A difference from some existing util.
+  // TODO: See if an exisiting util can be adapted to this.
   if (isa<SCEVUnknown>(Blob1)) {
     if (InvariantBlobs.find(Blob1) == InvariantBlobs.end()) {
       // Defer the comparison towards its defining instruction.
@@ -372,7 +373,13 @@ bool SequenceChecker::isBlobsMathchedForReroll(const CanonExpr *CE1,
 
   const CanonExpr *CEs[2] = {CE1, CE2};
   for (int I = 0; I < 2; I++) {
+    LLVM_DEBUG(dbgs() << "CE's blob coeff and index: ");
+    LLVM_DEBUG(CEs[I]->dump(1); dbgs() << "\n");
+
     for (auto &Blob : make_range(CEs[I]->blob_begin(), CEs[I]->blob_end())) {
+      LLVM_DEBUG(dbgs() << "Blob.Coeff:" << Blob.Coeff << " Blob.Index:");
+      LLVM_DEBUG(CEs[0]->getBlobUtils().getBlob(Blob.Index)->dump());
+
       CoeffIDs[I].push_back(std::make_pair(Blob.Coeff, Blob.Index));
     }
   }
@@ -458,16 +465,31 @@ bool SequenceChecker::getDistance(const VecCEsTy &CEList1,
       continue;
     }
 
-    if (CE1->isConstant() || CE2->isConstant()) {
-      // Purely different constants
+    // Notice that CE1 and CE2 don't have const distance.
+    // Only allowed differences are
+    // differences in temp blobs, which can lead to
+    // expressions at valid distance.
+    // e.g.
+    //
+    // %0 = (%b)[0];
+    // (%a)[0] = (%n * %n * %0);
+    // %1 = (%b)[1];
+    // (%a)[1] = (%n * %n * %1);
+    //
+    // For CE1, CE2, (%n * %n * %0) and (%n * %n * %1)
+    // differnces in %0 and %1 can lead to
+    // (%b)[0] and (%b)[1], which we allow here.
+    // Currently, %0 and %1 are supposed to be region live-ins.
+    // With all other differences give up at this point.
+
+    // Purely different constants
+    if (CE1->isConstant() || CE2->isConstant())
       return false;
-    }
 
     // They are not pure constants but may have constant parts
     // e.g. %a + 1 or %b - 1
-    if (CE1->getConstant() != CE2->getConstant()) {
+    if (CE1->getConstant() != CE2->getConstant())
       return false;
-    }
 
     // If there were differences in IVs, return false
     for (auto Level :
@@ -478,16 +500,14 @@ bool SequenceChecker::getDistance(const VecCEsTy &CEList1,
       CEs[0]->getIVCoeff(Level, &Indexes[0], &Coeffs[0]);
       CEs[1]->getIVCoeff(Level, &Indexes[1], &Coeffs[1]);
 
-      if (Indexes[0] != Indexes[1] || Coeffs[0] != Coeffs[1]) {
-
+      if (Indexes[0] != Indexes[1] || Coeffs[0] != Coeffs[1])
         return false;
-      }
     }
 
-    // No blob difference
-    if (!isBlobsMathchedForReroll(CE1, CE2)) {
+    // No blob difference OR allowed difference
+    // as shown in the comments above.
+    if (!isBlobsMathchedForReroll(CE1, CE2))
       return false;
-    }
 
     // These blobs passed isBlobMatchedForReroll.
     // Record the distance as 0.
@@ -499,41 +519,12 @@ bool SequenceChecker::getDistance(const VecCEsTy &CEList1,
   return true;
 }
 
-bool isSameTrailingOffsets(const VecRefsTy &MemRefs1,
-                           const VecRefsTy &MemRefs2) {
-
-  unsigned Size = MemRefs1.size();
-  if (Size != MemRefs2.size()) {
-    return false;
-  }
-
-  // Skip inspecting baseCEs, since will be done later.
-  // Inspect trailing offsets.
-  for (VecRefsTy::const_iterator I1 = MemRefs1.begin(), I2 = MemRefs2.begin(),
-                                 E1 = MemRefs1.end();
-       I1 != E1; ++I1, ++I2) {
-    unsigned NumDims = (*I1)->getNumDimensions();
-    if (NumDims != (*I2)->getNumDimensions()) {
-      return false;
-    }
-
-    for (unsigned J = 1; J <= NumDims; J++) {
-      ArrayRef<unsigned> Offsets1 = (*I1)->getTrailingStructOffsets(J);
-      ArrayRef<unsigned> Offsets2 = (*I2)->getTrailingStructOffsets(J);
-      if (Offsets1.size() != Offsets2.size() ||
-          !std::equal(Offsets1.begin(), Offsets1.end(), Offsets2.begin())) {
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
 bool SequenceChecker::preliminaryChecks(const unsigned II,
                                         const VecCEOpSeqTy &VecSeq) const {
 
   unsigned VecSize = VecSeq.size();
+
+  // Checks from lower to higher costs.
 
   // Sequence lengths should be the same.
   for (unsigned J = 0; J < II; J++) {
@@ -542,34 +533,33 @@ bool SequenceChecker::preliminaryChecks(const unsigned II,
     unsigned LeadNumRefs = VecSeq[J].numRefs();
     unsigned LeadOpSize = VecSeq[J].opSize();
     // Instructions in the second initiation interval and so on.
-    for (unsigned K = J + II; K < VecSize; K += II) {
+    for (unsigned K = J + II; K < VecSize; K += II)
       // Every instance of a chunk must have the same nums of DDRefs
       if (VecSeq[K].size() != LeadSize || VecSeq[K].numRefs() != LeadNumRefs ||
-          VecSeq[K].opSize() != LeadOpSize) {
+          VecSeq[K].opSize() != LeadOpSize)
         return false;
-      }
-    }
   }
 
   // Kinds of opcodes sequence should be the same.
-  for (unsigned J = 0; J < II; J++) {
-    for (unsigned K = J; K + II < VecSize; K += II) {
-      bool IsSameOps =
-          std::equal(VecSeq[K].Opcodes.begin(), VecSeq[K].Opcodes.end(),
-                     VecSeq[K + II].Opcodes.begin());
-      if (!IsSameOps) {
+  for (unsigned J = 0; J < II; J++)
+    for (unsigned K = J; K + II < VecSize; K += II)
+      if (!std::equal(VecSeq[K].Opcodes.begin(), VecSeq[K].Opcodes.end(),
+                      VecSeq[K + II].Opcodes.begin(),
+                      VecSeq[K + II].Opcodes.end()))
         return false;
-      }
-    }
-  }
 
-  for (unsigned J = 0; J < II; J++) {
-    for (unsigned K = J; K + II < VecSize; K += II) {
-      if (!isSameTrailingOffsets(VecSeq[K].MemRefs, VecSeq[K + II].MemRefs)) {
+  // Make sure GepRefs have the same shape and the number of dimensions.
+  for (unsigned J = 0; J < II; J++)
+    for (unsigned K = J; K + II < VecSize; K += II)
+      if (!std::equal(VecSeq[K].MemRefs.begin(), VecSeq[K].MemRefs.end(),
+                      VecSeq[K + II].MemRefs.begin(),
+                      VecSeq[K + II].MemRefs.end(),
+                      [](const RegDDRef *R1, const RegDDRef *R2) {
+                        return DDRefUtils::haveEqualBaseAndShape(R1, R2,
+                                                                 false) &&
+                               DDRefUtils::haveEqualOffsets(R1, R2);
+                      }))
         return false;
-      }
-    }
-  }
 
   return true;
 }

@@ -1,6 +1,6 @@
 //===---------------- WeakAlign.cpp - DTransWeakAlignPass -----------------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,7 +16,6 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -54,42 +53,13 @@ const int32_t WeakAlignEnableValue = 0;
 // error. It will be used later.
 // const int32_t WeakAlignDisableValue = 1;
 
-class DTransWeakAlignWrapper : public ModulePass {
-private:
-  dtrans::WeakAlignPass Impl;
-
-public:
-  static char ID;
-
-  DTransWeakAlignWrapper() : ModulePass(ID) {
-    initializeDTransWeakAlignWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    return Impl.runImpl(M, GetTLI, WPInfo);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
 } //  end anonymous namespace
 
 PreservedAnalyses dtrans::WeakAlignPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
-    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   if (!runImpl(M, GetTLI, WPInfo))
@@ -106,24 +76,24 @@ namespace dtrans {
 
 class WeakAlignImpl {
 public:
+  WeakAlignImpl(
+      std::function<const TargetLibraryInfo &(const Function &)> GetTLI)
+      : GetTLI(GetTLI) {}
+
   // Analyze and perform the transform, if possible. Return 'true'
   // if IR changes are made.
-  bool run(Module &M,
-           std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
+  bool run(Module &M);
 
 private:
-  bool analyzeModule(
-      Module &M,
-      std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
+  bool analyzeModule(Module &M);
   bool analyzeFunction(Function &F);
   bool isSupportedIntrinsicInst(IntrinsicInst *II);
   bool willAssumeHold(IntrinsicInst *II);
+  bool checkAssumeAllocPtr(Value *V);
 
   // Identify the "mallopt" function, if it exists on the target being compiled
   // for.
-  FunctionCallee getMalloptFunction(
-      Module &M,
-      std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
+  FunctionCallee getMalloptFunction(Module &M);
 
   // Insert the necessary calls to mallopt.
   void insertMalloptCalls();
@@ -133,6 +103,8 @@ private:
   // to that instruction. Returns the newly created function call.
   CallInst *createMalloptCall(int32_t Param, int32_t Val,
                               Instruction *InsertBefore);
+
+  std::function<const TargetLibraryInfo &(const Function &)> GetTLI;
 
   // Handle to mallopt function, which this transformation will be generating
   // calls to.
@@ -144,11 +116,9 @@ private:
   llvm::Type *PtrSizedIntTy = nullptr;
 };
 
-bool WeakAlignImpl::run(
-    Module &M,
-    std::function<const TargetLibraryInfo &(const Function &)> GetTLI) {
+bool WeakAlignImpl::run(Module &M) {
   // Make sure the mallopt function is available before analyzing the IR.
-  MalloptFunc = getMalloptFunction(M, GetTLI);
+  MalloptFunc = getMalloptFunction(M);
   if (!MalloptFunc)
     return false;
 
@@ -156,7 +126,7 @@ bool WeakAlignImpl::run(
       M.getContext(), M.getDataLayout().getPointerSizeInBits());
 
   // Check for safety issues that prevent the transform.
-  if (!analyzeModule(M, GetTLI))
+  if (!analyzeModule(M))
     return false;
 
   LLVM_DEBUG(
@@ -169,9 +139,7 @@ bool WeakAlignImpl::run(
 
 // Get a handle the mallopt() function, if it is available. Otherwise,
 // return nullptr.
-FunctionCallee WeakAlignImpl::getMalloptFunction(
-    Module &M,
-    std::function<const TargetLibraryInfo &(const Function &)> GetTLI) {
+FunctionCallee WeakAlignImpl::getMalloptFunction(Module &M) {
 
   // Find the main function, then get the TLI for it.
   Function *MainFunc = nullptr;
@@ -220,9 +188,7 @@ FunctionCallee WeakAlignImpl::getMalloptFunction(
 // Check if there are issues within the module that should inhibit setting
 // qkmalloc allocator to use the weak memory allocation mode. Return 'true'
 // if the function is safe, 'false' otherwise.
-bool WeakAlignImpl::analyzeModule(
-    Module &M,
-    std::function<const TargetLibraryInfo &(const Function &)> GetTLI) {
+bool WeakAlignImpl::analyzeModule(Module &M) {
 
   // List of allocation functions that are allowed to be seen in the program.
   // Any reference to an allocation function (as identified in the
@@ -243,7 +209,7 @@ bool WeakAlignImpl::analyzeModule(
   };
 
   auto IsSupportedAllocationFn = [](LibFunc LF) {
-    auto Fns = makeArrayRef(SupportedAllocFns);
+    auto Fns = ArrayRef(SupportedAllocFns);
     return std::any_of(Fns.begin(), Fns.end(),
                        [&LF](LibFunc Elem) { return Elem == LF; });
   };
@@ -422,7 +388,6 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
   case Intrinsic::lifetime_end:
   case Intrinsic::lifetime_start:
   case Intrinsic::icall_branch_funnel:
-  case Intrinsic::dbg_addr:
   case Intrinsic::dbg_declare:
   case Intrinsic::dbg_label:
   case Intrinsic::dbg_value:
@@ -477,6 +442,7 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
   case Intrinsic::uadd_with_overflow:
   case Intrinsic::ssub_with_overflow:
   case Intrinsic::usub_with_overflow:
+  case Intrinsic::usub_sat:
   case Intrinsic::smul_with_overflow:
   case Intrinsic::umul_with_overflow:
   case Intrinsic::experimental_constrained_ceil:
@@ -533,6 +499,11 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
     // call.
     auto Input = dyn_cast<IntrinsicInst>(II->getArgOperand(0));
     if (Input && Input->getIntrinsicID() == Intrinsic::type_test)
+      return true;
+
+    // Return true if the operand of the llvm.assume intrinsic call is
+    // recognized as just nullptr check of memory allocation calls.
+    if (checkAssumeAllocPtr(II->getArgOperand(0)))
       return true;
     bool SafeAssume = willAssumeHold(II);
     if (!SafeAssume)
@@ -768,6 +739,58 @@ bool WeakAlignImpl::willAssumeHold(IntrinsicInst *II) {
   return true;
 }
 
+// Return 'true' if 'V' is recognized as just nullptr check of memory
+// allocation calls.
+// Ex:
+//  bb2:
+//   %p1 = call ptr @alloc1(i64 8)
+//   br label %bb3
+//
+// dummy:
+//   %p2 = call ptr @alloc2(i64 8)
+//   br label %bb3
+//
+// bb3:
+//   %phi = phi ptr [ %p1, %bb2 ], [ %p2, %dummy ]
+//   %ic = icmp ne ptr %phi, null
+//   call void @llvm.assume(i1 %ic)
+//
+bool WeakAlignImpl::checkAssumeAllocPtr(Value *V) {
+  using namespace llvm::PatternMatch;
+  Value *CmpOp;
+  ICmpInst::Predicate Pred = CmpInst::Predicate::ICMP_EQ;
+
+  if (!match(V, m_c_ICmp(Pred, m_Value(CmpOp), m_Zero())) ||
+      Pred != ICmpInst::ICMP_NE)
+    return false;
+  auto PHI = dyn_cast<PHINode>(CmpOp);
+  if (!PHI)
+    return false;
+  for (auto &Use : PHI->incoming_values()) {
+    auto *CB = dyn_cast<CallBase>(Use.get());
+    if (!CB)
+      return false;
+    auto *FCalled = getCalledFunction(*CB);
+    if (!FCalled)
+      return false;
+    for (BasicBlock &BB : *FCalled) {
+      auto *Ret = dyn_cast<ReturnInst>(BB.getTerminator());
+      if (!Ret)
+        continue;
+      auto *RetCB = dyn_cast_or_null<CallBase>(Ret->getReturnValue());
+      if (!RetCB)
+        return false;
+      auto *RetCallee = getCalledFunction(*RetCB);
+      if (!RetCallee)
+        return false;
+      const TargetLibraryInfo &TLI = GetTLI(*RetCallee);
+      if (!llvm::IntelMemoryBuiltins::isAllocLikeFn(RetCallee, &TLI))
+        return false;
+    }
+  }
+  return true;
+}
+
 // To enable qkmalloc to use weak alignment, all that is necessary is to make a
 // call to mallopt with the enabling value. This will allow small allocations
 // with a size that is not a multiple of 8-bytes to be allocated with 4-byte
@@ -785,8 +808,7 @@ void WeakAlignImpl::insertMalloptCalls() {
 }
 
 // Utility function to generate and insert a call to mallopt.
-CallInst *WeakAlignImpl::createMalloptCall(int32_t Param,
-                                           int32_t Val,
+CallInst *WeakAlignImpl::createMalloptCall(int32_t Param, int32_t Val,
                                            Instruction *InsertBefore) {
   LLVMContext &Ctx = MalloptFunc.getCallee()->getContext();
   llvm::Type *Int32Ty = IntegerType::getInt32Ty(Ctx);
@@ -808,21 +830,9 @@ bool WeakAlignPass::runImpl(
     return false;
   }
 
-  WeakAlignImpl Impl;
-  return Impl.run(M, GetTLI);
+  WeakAlignImpl Impl(GetTLI);
+  return Impl.run(M);
 }
 
 } // end namespace dtrans
 } // end namespace llvm
-
-char DTransWeakAlignWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransWeakAlignWrapper, "dtrans-weakalign",
-                      "DTrans weak align", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransWeakAlignWrapper, "dtrans-weakalign",
-                    "DTrans weak align", false, false)
-
-ModulePass *llvm::createDTransWeakAlignWrapperPass() {
-  return new DTransWeakAlignWrapper();
-}

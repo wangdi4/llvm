@@ -83,10 +83,12 @@ add_llvm_component_library(LLVMVPOTransforms
   Paropt/VPOParoptLoopCollapse.cpp
   Paropt/VPOParoptLoopTransform.cpp
   Paropt/VPOParoptLowerSimd.cpp
+  Paropt/VPOParoptMasterThreadRegion.cpp
   Paropt/VPOParoptModuleTransform.cpp
   Paropt/VPOParoptPrepare.cpp
   Paropt/VPOParoptTpv.cpp
   Paropt/VPOParoptTarget.cpp
+  Paropt/VPOParoptTargetSPIRV.cpp
   Paropt/VPOParoptTask.cpp
   Paropt/VPOParoptTileLoops.cpp
   Paropt/VPOParoptTransform.cpp
@@ -119,6 +121,7 @@ add_llvm_component_library(LLVMVPOTransforms
 # end INTEL_CUSTOMIZATION
   Scalar
   Support
+  TargetParser
   TransformUtils
   VPOAnalysis
 )

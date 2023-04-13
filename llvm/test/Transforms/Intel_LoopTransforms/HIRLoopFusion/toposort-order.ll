@@ -1,9 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-fusion,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
-; XFAIL: *
-; todo: investigate why DD returns dependency on fusenodes 69/70 even though
-; bounds test should result in independence for (@b)[0][5 * i2] & (@b)[0][i2]
-; since the UB is 4.
 ; Verify nodes are placed in topological order after fusion of the 2nd and 3rd
 ; i2 loops.
 
@@ -25,10 +21,9 @@
 ;    |
 ;    |   %and43 = %and43  &&  -2135488334;
 ;    |   %and22 = %and43  &&  %0;
-;    |   %add = 560 * (zext.i8.i32((-8 * trunc.i32.i8(%hir.de.ssa.copy1.out))) * %and22)  ||  -8 * trunc.i32.i8(%hir.de.ssa.copy1.out);
 ;    |
-;    |   + DO i2 = 0, 1, 1   <DO_LOOP>
-;    |   |   (@b)[0][5 * i2] = %add;
+;    |   + DO i2 = 0, 2, 1   <DO_LOOP>
+;    |   |   (@b)[0][i2] = (zext.i8.i16((-8 * trunc.i32.i8(%hir.de.ssa.copy1.out))) * (1 + (560 * trunc.i32.i16(%and22))));
 ;    |   + END LOOP
 ;    |
 ;    |   %1 = 0;
@@ -38,11 +33,11 @@
 ; CHECK: modified
 ; CHECK: %and43 =
 ; CHECK: %and22 = %and43
-; CHECK: %add =
+; CHECK: DO i2
+; CHECK: (@b)[0][i2] = -1
+; CHECK-NEXT: (@b)[0][i2] =
 ; CHECK-SAME: %and22
 
-; CHECK: DO i2
-; CHECK: (@b)[0][5 * i2] = %add;
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -120,8 +115,8 @@ for.body19:                                       ; preds = %for.cond16.preheade
   %indvars.iv46 = phi i64 [ 0, %for.cond16.preheader ], [ %indvars.iv.next47, %for.body19 ]
   %arrayidx28 = getelementptr inbounds [5 x i16], [5 x i16]* @b, i64 0, i64 %indvars.iv46
   store i16 %conv26, i16* %arrayidx28, align 2
-  %indvars.iv.next47 = add nuw nsw i64 %indvars.iv46, 5
-  %cmp17 = icmp ult i64 %indvars.iv.next47, 5
+  %indvars.iv.next47 = add nuw nsw i64 %indvars.iv46, 1
+  %cmp17 = icmp ult i64 %indvars.iv.next47, 3
   %indvars.iv46.in52 = bitcast i64 %indvars.iv.next47 to i64
   br i1 %cmp17, label %for.body19, label %for.inc32
 

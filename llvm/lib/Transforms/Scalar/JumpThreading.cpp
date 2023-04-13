@@ -31,7 +31,6 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -41,7 +40,6 @@
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/ConstantFolding.h"
-#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/GuardUtils.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -49,6 +47,7 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryLocation.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -58,6 +57,7 @@
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
@@ -159,75 +159,6 @@ ConservativeJumpThreading("conservative-jump-threading",
                    "thread regions"),
           cl::init(true), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
-
-namespace {
-
-  /// This pass performs 'jump threading', which looks at blocks that have
-  /// multiple predecessors and multiple successors.  If one or more of the
-  /// predecessors of the block can be proven to always jump to one of the
-  /// successors, we forward the edge from the predecessor to the successor by
-  /// duplicating the contents of this block.
-  ///
-  /// An example of when this can occur is code like this:
-  ///
-  ///   if () { ...
-  ///     X = 4;
-  ///   }
-  ///   if (X < 3) {
-  ///
-  /// In this case, the unconditional branch at the end of the first if can be
-  /// revectored to the false side of the second if.
-  class JumpThreading : public FunctionPass {
-    JumpThreadingPass Impl;
-
-  public:
-    static char ID; // Pass identification
-
-    JumpThreading(int T = -1,                                            // INTEL
-                  bool AllowCFGSimps = true) :                           // INTEL
-       FunctionPass(ID),                                                 // INTEL
-       Impl(T, AllowCFGSimps) {                                          // INTEL
-      initializeJumpThreadingPass(*PassRegistry::getPassRegistry());
-    }
-
-    bool runOnFunction(Function &F) override;
-
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addPreserved<DominatorTreeWrapperPass>();
-      AU.addRequired<AAResultsWrapperPass>();
-      AU.addRequired<LazyValueInfoWrapperPass>();
-      AU.addPreserved<LazyValueInfoWrapperPass>();
-      AU.addPreserved<GlobalsAAWrapperPass>();
-      AU.addPreserved<AndersensAAWrapperPass>();                        // INTEL
-      AU.addPreserved<WholeProgramWrapperPass>();                       // INTEL
-      AU.addRequired<TargetLibraryInfoWrapperPass>();
-      AU.addRequired<TargetTransformInfoWrapperPass>();
-      AU.addRequired<PostDominatorTreeWrapperPass>();                   // INTEL
-    }
-
-    void releaseMemory() override { Impl.releaseMemory(); }
-  };
-
-} // end anonymous namespace
-
-char JumpThreading::ID = 0;
-
-INITIALIZE_PASS_BEGIN(JumpThreading, "jump-threading",
-                "Jump Threading", false, false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LazyValueInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass) // INTEL
-INITIALIZE_PASS_END(JumpThreading, "jump-threading",
-                "Jump Threading", false, false)
-
-// Public interface to the Jump Threading pass
-FunctionPass *llvm::createJumpThreadingPass(int Threshold,              // INTEL
-                                            bool AllowCFGSimps) {       // INTEL
-  return new JumpThreading(Threshold, AllowCFGSimps);                   // INTEL
-}                                                                       // INTEL
 
 JumpThreadingPass::JumpThreadingPass(int T,                             // INTEL
                                      bool AllowCFGSimps) {              // INTEL
@@ -361,43 +292,6 @@ static void updatePredecessorProfileMetadata(PHINode *PN, BasicBlock *BB) {
   }
 }
 
-/// runOnFunction - Toplevel algorithm.
-bool JumpThreading::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
-  auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  // Jump Threading has no sense for the targets with divergent CF
-  if (TTI->hasBranchDivergence())
-    return false;
-  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-#if INTEL_CUSTOMIZATION
-  // If we need structured CFGs, disable jump threading, since it generally
-  // tends to destructure them.
-  if (TTI->needsStructuredCFG())
-    return false;
-  auto *PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-#endif
-  auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  auto LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
-  auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-  DomTreeUpdater DTU(*DT, DomTreeUpdater::UpdateStrategy::Lazy);
-  std::unique_ptr<BlockFrequencyInfo> BFI;
-  std::unique_ptr<BranchProbabilityInfo> BPI;
-  if (F.hasProfileData()) {
-    LoopInfo LI{*DT};
-    BPI.reset(new BranchProbabilityInfo(F, LI, TLI));
-    BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
-  }
-
-  bool Changed = Impl.runImpl(F, TLI, TTI, LVI, AA, &DTU, F.hasProfileData(),
-                              std::move(BFI), std::move(BPI), PDT); // INTEL
-  if (PrintLVIAfterJumpThreading) {
-    dbgs() << "LVI for function '" << F.getName() << "':\n";
-    LVI->printLVI(F, DTU.getDomTree(), dbgs());
-  }
-  return Changed;
-}
-
 PreservedAnalyses JumpThreadingPass::run(Function &F,
                                          FunctionAnalysisManager &AM) {
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
@@ -405,71 +299,82 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   if (TTI.hasBranchDivergence())
     return PreservedAnalyses::all();
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
-  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &LVI = AM.getResult<LazyValueAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
+
+  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &PDT = AM.getResult<PostDominatorTreeAnalysis>(F); // INTEL
-  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
 
-  std::unique_ptr<BlockFrequencyInfo> BFI;
-  std::unique_ptr<BranchProbabilityInfo> BPI;
-  if (F.hasProfileData()) {
-    LoopInfo LI{DT};
-    BPI.reset(new BranchProbabilityInfo(F, LI, &TLI));
-    BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
-  }
-
-  bool Changed = runImpl(F, &TLI, &TTI, &LVI, &AA, &DTU, F.hasProfileData(),
-                         std::move(BFI), std::move(BPI), &PDT); // INTEL
+  bool Changed =
+      runImpl(F, &AM, &TLI, &TTI, &LVI, &AA,
+              std::make_unique<DomTreeUpdater>(
+                  &DT, nullptr, DomTreeUpdater::UpdateStrategy::Lazy),
+              std::nullopt, std::nullopt, &PDT); // INTEL
 
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
-    LVI.printLVI(F, DTU.getDomTree(), dbgs());
+    LVI.printLVI(F, getDomTreeUpdater()->getDomTree(), dbgs());
   }
 
   if (!Changed)
     return PreservedAnalyses::all();
-  PreservedAnalyses PA;
-  PA.preserve<DominatorTreeAnalysis>();
-  PA.preserve<LazyValueAnalysis>();
-  PA.preserve<AndersensAA>();         // INTEL
-  PA.preserve<WholeProgramAnalysis>();// INTEL
-  return PA;
+
+  getDomTreeUpdater()->flush();
+
+#if defined(EXPENSIVE_CHECKS)
+  assert(getDomTreeUpdater()->getDomTree().verify(
+             DominatorTree::VerificationLevel::Full) &&
+         "DT broken after JumpThreading");
+  assert((!getDomTreeUpdater()->hasPostDomTree() ||
+          getDomTreeUpdater()->getPostDomTree().verify(
+              PostDominatorTree::VerificationLevel::Full)) &&
+         "PDT broken after JumpThreading");
+#else
+  assert(getDomTreeUpdater()->getDomTree().verify(
+             DominatorTree::VerificationLevel::Fast) &&
+         "DT broken after JumpThreading");
+  assert((!getDomTreeUpdater()->hasPostDomTree() ||
+          getDomTreeUpdater()->getPostDomTree().verify(
+              PostDominatorTree::VerificationLevel::Fast)) &&
+         "PDT broken after JumpThreading");
+#endif
+
+  PreservedAnalyses PA;                 // INTEL
+  PA.preserve<AndersensAA>();           // INTEL
+  PA.preserve<WholeProgramAnalysis>();  // INTEL
+
+  return getPreservedAnalysis();
 }
 
-bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
+bool JumpThreadingPass::runImpl(Function &F_, FunctionAnalysisManager *FAM_,
+                                TargetLibraryInfo *TLI_,
                                 TargetTransformInfo *TTI_, LazyValueInfo *LVI_,
-                                AliasAnalysis *AA_, DomTreeUpdater *DTU_,
-                                bool HasProfileData_,
-                                std::unique_ptr<BlockFrequencyInfo> BFI_,
-                                std::unique_ptr<BranchProbabilityInfo> BPI_, // INTEL
-                                PostDominatorTree *PDT_) { // INTEL
-  LLVM_DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
+                                AliasAnalysis *AA_,
+                                std::unique_ptr<DomTreeUpdater> DTU_,
+                                std::optional<BlockFrequencyInfo *> BFI_,
+                                std::optional<BranchProbabilityInfo *> BPI_, // INTEL
+                                PostDominatorTree *PDT_) {  // INTEL
+  LLVM_DEBUG(dbgs() << "Jump threading on function '" << F_.getName() << "'\n");
+  F = &F_;
+  FAM = FAM_;
   TLI = TLI_;
   TTI = TTI_;
   LVI = LVI_;
   AA = AA_;
-  DTU = DTU_;
-  BFI.reset();
-  BPI.reset();
+  DTU = std::move(DTU_);
+  BFI = BFI_;
+  BPI = BPI_;
   PDT = PDT_;// INTEL
   BlockThreadCount.clear(); // INTEL
-  // When profile data is available, we need to update edge weights after
-  // successful jump threading, which requires both BPI and BFI being available.
-  HasProfileData = HasProfileData_;
-  auto *GuardDecl = F.getParent()->getFunction(
+  auto *GuardDecl = F->getParent()->getFunction(
       Intrinsic::getName(Intrinsic::experimental_guard));
   HasGuards = GuardDecl && !GuardDecl->use_empty();
-  if (HasProfileData) {
-    BPI = std::move(BPI_);
-    BFI = std::move(BFI_);
-  }
 
   // Reduce the number of instructions duplicated when optimizing strictly for
   // size.
   if (BBDuplicateThreshold.getNumOccurrences())
     BBDupThreshold = BBDuplicateThreshold;
-  else if (F.hasFnAttribute(Attribute::MinSize))
+  else if (F->hasFnAttribute(Attribute::MinSize))
     BBDupThreshold = 3;
   else
     BBDupThreshold = DefaultBBDupThreshold;
@@ -480,22 +385,22 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   assert(DTU && "DTU isn't passed into JumpThreading before using it.");
   assert(DTU->hasDomTree() && "JumpThreading relies on DomTree to proceed.");
   DominatorTree &DT = DTU->getDomTree();
-  for (auto &BB : F)
+  for (auto &BB : *F)
     if (!DT.isReachableFromEntry(&BB))
       Unreachable.insert(&BB);
 
   if (!ThreadAcrossLoopHeaders)
-    findLoopHeaders(F);
+    findLoopHeaders(*F);
 
 #if INTEL_CUSTOMIZATION
-  unsigned FnSize = F.size(); // linear time
+  unsigned FnSize = F->size(); // linear time
 #endif // INTEL_CUSTOMIZATION
 
   bool EverChanged = false;
   bool Changed;
   do {
     Changed = false;
-    for (auto &BB : F) {
+    for (auto &BB : *F) {
       if (Unreachable.count(&BB))
         continue;
 #if INTEL_CUSTOMIZATION
@@ -505,7 +410,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
       // memory with DT updates. Stop jump threading completely.
       if ((FnSize > 100) && (DTU->numPendingUpdates() > (FnSize * 10))) {
         LLVM_DEBUG(dbgs() << "  JT: Too many DT updates. "
-                          << DTU->numPendingUpdates() << ", Fsize: " << F.size()
+                          << DTU->numPendingUpdates() << ", Fsize: " << F->size()
                           << "\n");
         EverChanged |= Changed;
         Changed = false;
@@ -513,7 +418,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
       }
 #endif // INTEL_CUSTOMIZATION
       while (processBlock(&BB)) // Thread all of the branches we can over BB.
-        Changed = true;
+        Changed = ChangedSinceLastAnalysisUpdate = true;
 
       // Jump threading may have introduced redundant debug values into BB
       // which should be removed.
@@ -523,7 +428,7 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
       // Stop processing BB if it's the entry or is now deleted. The following
       // routines attempt to eliminate BB and locating a suitable replacement
       // for the entry is non-trivial.
-      if (&BB == &F.getEntryBlock() || DTU->isBBPendingDeletion(&BB))
+      if (&BB == &F->getEntryBlock() || DTU->isBBPendingDeletion(&BB))
         continue;
 
       if (pred_empty(&BB)) {
@@ -536,8 +441,8 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
         CountableSingleExitLoopLatches.erase(&BB);   // INTEL
         CountableSingleExitLoopHeaders.erase(&BB);   // INTEL
         LVI->eraseBlock(&BB);
-        DeleteDeadBlock(&BB, DTU);
-        Changed = true;
+        DeleteDeadBlock(&BB, DTU.get());
+        Changed = ChangedSinceLastAnalysisUpdate = true;
         continue;
       }
 
@@ -552,14 +457,14 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
             // Don't alter Loop headers and latches to ensure another pass can
             // detect and transform nested loops later.
             !LoopHeaders.count(&BB) && !LoopHeaders.count(Succ) &&
-            TryToSimplifyUncondBranchFromEmptyBlock(&BB, DTU)) {
+            TryToSimplifyUncondBranchFromEmptyBlock(&BB, DTU.get())) {
           RemoveRedundantDbgInstrs(Succ);
           // BB is valid for cleanup here because we passed in DTU. F remains
           // BB's parent until a DTU->getDomTree() event.
           LVI->eraseBlock(&BB);
           CountableSingleExitLoopLatches.erase(&BB);   // INTEL
           CountableSingleExitLoopHeaders.erase(&BB);   // INTEL
-          Changed = true;
+          Changed = ChangedSinceLastAnalysisUpdate = true;
         }
       }
     }
@@ -1487,8 +1392,8 @@ bool JumpThreadingPass::processBlock(BasicBlock *BB) {
                       << "' folding terminator: " << *BB->getTerminator()
                       << '\n');
     ++NumFolds;
-    ConstantFoldTerminator(BB, true, nullptr, DTU);
-    if (HasProfileData)
+    ConstantFoldTerminator(BB, true, nullptr, DTU.get());
+    if (auto *BPI = getBPI())
       BPI->eraseBlock(BB);
     return true;
   }
@@ -1860,7 +1765,7 @@ bool JumpThreadingPass::processImpliedCondition(BasicBlock *BB) {
       return false;
 
     bool CondIsTrue = PBI->getSuccessor(0) == CurrentBB;
-    Optional<bool> Implication =
+    std::optional<bool> Implication =
         isImpliedCondition(PBI->getCondition(), Cond, DL, CondIsTrue);
 
     // If the branch condition of BB (which is Cond) and CurrentPred are
@@ -1883,7 +1788,7 @@ bool JumpThreadingPass::processImpliedCondition(BasicBlock *BB) {
         FICond->eraseFromParent();
 
       DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, RemoveSucc}});
-      if (HasProfileData)
+      if (auto *BPI = getBPI())
         BPI->eraseBlock(BB);
       return true;
     }
@@ -2375,7 +2280,7 @@ bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
       ++NumFolds;
       Term->eraseFromParent();
       DTU->applyUpdatesPermissive(Updates);
-      if (HasProfileData)
+      if (auto *BPI = getBPI())
         BPI->eraseBlock(BB);
 
       // If the condition is now dead due to the removal of the old terminator,
@@ -2577,7 +2482,7 @@ bool JumpThreadingPass::processBranchOnXOR(BinaryOperator *BO) {
       // If all preds provide undef, just nuke the xor, because it is undef too.
       BO->replaceAllUsesWith(UndefValue::get(BO->getType()));
       BO->eraseFromParent();
-    } else if (SplitVal->isZero()) {
+    } else if (SplitVal->isZero() && BO != BO->getOperand(isLHS)) {
       // If all preds provide 0, replace the xor with the other input.
       BO->replaceAllUsesWith(BO->getOperand(isLHS));
       BO->eraseFromParent();
@@ -2659,7 +2564,7 @@ bool JumpThreadingPass::maybeMergeBasicBlockIntoOnlyPred(BasicBlock *BB) {
   CountableSingleExitLoopLatches.erase(SinglePred);   // INTEL
   CountableSingleExitLoopHeaders.erase(SinglePred);   // INTEL
   LVI->eraseBlock(SinglePred);
-  MergeBasicBlockIntoOnlyPred(BB, DTU);
+  MergeBasicBlockIntoOnlyPred(BB, DTU.get());
 
   // Now that BB is merged into SinglePred (i.e. SinglePred code followed by
   // BB code within one basic block `BB`), we need to invalidate the LVI
@@ -2704,6 +2609,7 @@ void JumpThreadingPass::updateSSA(
   // PHI insertion, of which we are prepared to do, clean these up now.
   SSAUpdater SSAUpdate;
   SmallVector<Use *, 16> UsesToRename;
+  SmallVector<DbgValueInst *, 4> DbgValues;
 
   for (Instruction &I : *BB) {
     // Scan all uses of this instruction to see if it is used outside of its
@@ -2719,8 +2625,16 @@ void JumpThreadingPass::updateSSA(
       UsesToRename.push_back(&U);
     }
 
+    // Find debug values outside of the block
+    findDbgValues(DbgValues, &I);
+    DbgValues.erase(remove_if(DbgValues,
+                              [&](const DbgValueInst *DbgVal) {
+                                return DbgVal->getParent() == BB;
+                              }),
+                    DbgValues.end());
+
     // If there are no uses outside the block, we're done with this instruction.
-    if (UsesToRename.empty())
+    if (UsesToRename.empty() && DbgValues.empty())
       continue;
     LLVM_DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
 
@@ -2733,6 +2647,11 @@ void JumpThreadingPass::updateSSA(
 
     while (!UsesToRename.empty())
       SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
+    if (!DbgValues.empty()) {
+      SSAUpdate.UpdateDebugValues(&I, DbgValues);
+      DbgValues.clear();
+    }
+
     LLVM_DEBUG(dbgs() << "\n");
   }
 }
@@ -2748,6 +2667,30 @@ JumpThreadingPass::cloneInstructions(BasicBlock::iterator BI,
   // copy of the block 'NewBB'.  If there are PHI nodes in the source basic
   // block, evaluate them to account for entry from PredBB.
   DenseMap<Instruction *, Value *> ValueMapping;
+
+  // Retargets llvm.dbg.value to any renamed variables.
+  auto RetargetDbgValueIfPossible = [&](Instruction *NewInst) -> bool {
+    auto DbgInstruction = dyn_cast<DbgValueInst>(NewInst);
+    if (!DbgInstruction)
+      return false;
+
+    SmallSet<std::pair<Value *, Value *>, 16> OperandsToRemap;
+    for (auto DbgOperand : DbgInstruction->location_ops()) {
+      auto DbgOperandInstruction = dyn_cast<Instruction>(DbgOperand);
+      if (!DbgOperandInstruction)
+        continue;
+
+      auto I = ValueMapping.find(DbgOperandInstruction);
+      if (I != ValueMapping.end()) {
+        OperandsToRemap.insert(
+            std::pair<Value *, Value *>(DbgOperand, I->second));
+      }
+    }
+
+    for (auto &[OldOp, MappedOp] : OperandsToRemap)
+      DbgInstruction->replaceVariableLocationOp(OldOp, MappedOp);
+    return true;
+  };
 
   // Clone the phi nodes of the source basic block into NewBB.  The resulting
   // phi nodes are trivial since NewBB only has one predecessor, but SSAUpdater
@@ -2773,9 +2716,12 @@ JumpThreadingPass::cloneInstructions(BasicBlock::iterator BI,
   for (; BI != BE; ++BI) {
     Instruction *New = BI->clone();
     New->setName(BI->getName());
-    New->insertAt(NewBB, NewBB->end());
+    New->insertInto(NewBB, NewBB->end());
     ValueMapping[&*BI] = New;
     adaptNoAliasScopes(New, ClonedScopes, Context);
+
+    if (RetargetDbgValueIfPossible(New))
+      continue;
 
     // Remap operands to patch up intra-block references.
     for (unsigned i = 0, e = New->getNumOperands(); i != e; ++i)
@@ -3058,6 +3004,11 @@ void JumpThreadingPass::threadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
   LLVM_DEBUG(dbgs() << "  Threading through '" << PredBB->getName() << "' and '"
                     << BB->getName() << "'\n");
 
+  // Build BPI/BFI before any changes are made to IR.
+  bool HasProfile = doesBlockHaveProfileData(BB);
+  auto *BFI = getOrCreateBFI(HasProfile);
+  auto *BPI = getOrCreateBPI(BFI != nullptr);
+
   BranchInst *CondBr = cast<BranchInst>(BB->getTerminator());
   BranchInst *PredBBBranch = cast<BranchInst>(PredBB->getTerminator());
 
@@ -3067,7 +3018,8 @@ void JumpThreadingPass::threadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
   NewBB->moveAfter(PredBB);
 
   // Set the block frequency of NewBB.
-  if (HasProfileData) {
+  if (BFI) {
+    assert(BPI && "It's expected BPI to exist along with BFI");
     auto NewBBFreq = BFI->getBlockFreq(PredPredBB) *
                      BPI->getEdgeProbability(PredPredBB, PredBB);
     BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
@@ -3080,7 +3032,7 @@ void JumpThreadingPass::threadThroughTwoBasicBlocks(BasicBlock *PredPredBB,
       cloneInstructions(PredBB->begin(), PredBB->end(), NewBB, PredPredBB);
 
   // Copy the edge probabilities from PredBB to NewBB.
-  if (HasProfileData)
+  if (BPI)
     BPI->copyEdgeProbabilities(PredBB, NewBB);
 
   // Update the terminator of PredPredBB to jump to NewBB instead of PredBB.
@@ -3268,6 +3220,11 @@ void JumpThreadingPass::threadEdge(
   BasicBlock *RegionTop = RegionInfo.back().first;
   BasicBlock *RegionBottom = RegionInfo.front().second;
 
+  // Build BPI/BFI before any changes are made to IR.
+  bool HasProfile = doesBlockHaveProfileData(RegionTop);
+  auto *BFI = getOrCreateBFI(HasProfile);
+  auto *BPI = getOrCreateBPI(BFI != nullptr);
+
   // And finally, do it!  Start by factoring the predecessors if needed.
   BasicBlock *PredBB;
   if (PredBBs.size() == 1)
@@ -3331,10 +3288,19 @@ void JumpThreadingPass::threadEdge(
          ++BI) {
       Instruction *New = BI->clone();
       New->setName(BI->getName());
-      NewBB->getInstList().push_back(New);
+      New->insertInto(NewBB, NewBB->end());
       ValueMapping[&*BI] = New;
       adaptNoAliasScopes(New, ClonedScopes, Context);
     }
+
+    // Set the block frequency of NewBB.
+    if (BFI) {
+      assert(BPI && "It's expected BPI to exist along with BFI");
+      auto NewBBFreq =
+          BFI->getBlockFreq(PredBB) * BPI->getEdgeProbability(PredBB, OldBB);
+      BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+    }
+
   }
 
   // Remap operands to patch up intra-thread-region references.
@@ -3500,7 +3466,10 @@ void JumpThreadingPass::threadEdge(
   // up now.
   SSAUpdater SSAUpdate;
   SmallVector<Use*, 16> UsesToRename;
+  SmallVector<DbgValueInst *, 4> DbgValues;
 
+  // I am not sure exactly why we can't use updateSSA here, but now if there
+  // are any changes to that function, they need to be merged here.
   for (auto OldBB : RegionBlocks) {
     for (auto &I : *OldBB) {
       UsesToRename.clear();
@@ -3521,9 +3490,17 @@ void JumpThreadingPass::threadEdge(
         UsesToRename.push_back(&U);
       }
 
+      // Find debug values outside of the block
+      findDbgValues(DbgValues, &I);
+      DbgValues.erase(remove_if(DbgValues,
+                               [&](const DbgValueInst *DbgVal) {
+                                 return DbgVal->getParent() == OldBB;
+                               }),
+                      DbgValues.end());
+
       // If there are no uses outside the block, we're done with this
       // instruction.
-      if (UsesToRename.empty())
+      if (UsesToRename.empty() && DbgValues.empty())
         continue;
 
       LLVM_DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
@@ -3544,6 +3521,12 @@ void JumpThreadingPass::threadEdge(
 
       for (auto U : UsesToRename)
         SSAUpdate.RewriteUse(*U);
+
+      if (!DbgValues.empty()) {
+        SSAUpdate.UpdateDebugValues(&I, DbgValues);
+        DbgValues.clear();
+      }
+
       LLVM_DEBUG(dbgs() << "\n");
     }
   }
@@ -3556,7 +3539,7 @@ void JumpThreadingPass::threadEdge(
 
   // Update the edge weights and block frequencies.
   updateRegionBlockFreqAndEdgeWeight(PredBB, SuccBB, RegionInfo, RegionBlocks,
-                                     BlockMapping);
+                                     BlockMapping, BFI, BPI, HasProfile);
 
   // Threaded an edge!
   ++BlockThreadCount[RegionBottom];
@@ -3575,10 +3558,13 @@ BasicBlock *JumpThreadingPass::splitBlockPreds(BasicBlock *BB,
   // Collect the frequencies of all predecessors of BB, which will be used to
   // update the edge weight of the result of splitting predecessors.
   DenseMap<BasicBlock *, BlockFrequency> FreqMap;
-  if (HasProfileData)
+  auto *BFI = getBFI();
+  if (BFI) {
+    auto *BPI = getOrCreateBPI(true);
     for (auto *Pred : Preds)
       FreqMap.insert(std::make_pair(
           Pred, BFI->getBlockFreq(Pred) * BPI->getEdgeProbability(Pred, BB)));
+  }
 
   // In the case when BB is a LandingPad block we create 2 new predecessors
   // instead of just one.
@@ -3597,17 +3583,11 @@ BasicBlock *JumpThreadingPass::splitBlockPreds(BasicBlock *BB,
     for (auto *Pred : predecessors(NewBB)) {
       Updates.push_back({DominatorTree::Delete, Pred, BB});
       Updates.push_back({DominatorTree::Insert, Pred, NewBB});
-      if (HasProfileData) // Update frequencies between Pred -> NewBB.
+      if (BFI) // Update frequencies between Pred -> NewBB.
         NewBBFreq += FreqMap.lookup(Pred);
     }
-    if (HasProfileData) {
-      // Apply the summed frequency to NewBB.
+    if (BFI) { // Apply the summed frequency to NewBB.
       BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
-
-      // NewBB has exactly one successor.
-      SmallVector<BranchProbability, 1> BBSuccProbs;
-      BBSuccProbs.push_back(BranchProbability::getOne());
-      BPI->setEdgeProbability(NewBB, BBSuccProbs);
     }
   }
 
@@ -3617,19 +3597,10 @@ BasicBlock *JumpThreadingPass::splitBlockPreds(BasicBlock *BB,
 
 bool JumpThreadingPass::doesBlockHaveProfileData(BasicBlock *BB) {
   const Instruction *TI = BB->getTerminator();
-  assert(TI->getNumSuccessors() > 1 && "not a split");
-
-  MDNode *WeightsNode = TI->getMetadata(LLVMContext::MD_prof);
-  if (!WeightsNode)
+  if (!TI || TI->getNumSuccessors() < 2)
     return false;
 
-  MDString *MDName = cast<MDString>(WeightsNode->getOperand(0));
-  if (MDName->getString() != "branch_weights")
-    return false;
-
-  // Ensure there are weights for all of the successors. Note that the first
-  // operand to the metadata node is a name, not a weight.
-  return WeightsNode->getNumOperands() == TI->getNumSuccessors() + 1;
+  return hasValidBranchWeightMD(*TI);
 }
 
 #if INTEL_CUSTOMIZATION
@@ -3642,11 +3613,17 @@ void JumpThreadingPass::updateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
                                                            BasicBlock *SuccBB,
                        const ThreadRegionInfo &RegionInfo,
                        const SmallVectorImpl<BasicBlock*> &RegionBlocks,
-                       DenseMap<BasicBlock*, BasicBlock*> &BlockMapping) {
-  if (!HasProfileData)
-    return;
+                       DenseMap<BasicBlock*, BasicBlock*> &BlockMapping,
+                       BlockFrequencyInfo *BFI, BranchProbabilityInfo *BPI,
+                       bool HasProfile) {
+  assert(((BFI && BPI) || (!BFI && !BFI)) &&
+         "Both BFI & BPI should either be set or unset");
 
-  assert(BFI && BPI && "BFI & BPI should have been created here");
+  if (!BFI) {
+    assert(!HasProfile &&
+           "It's expected to have BFI/BPI when profile info exists");
+    return;
+  }
 
   BasicBlock *RegionTop = RegionInfo.back().first;
   BasicBlock *RegionBottom = RegionInfo.front().second;
@@ -3922,7 +3899,7 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
     if (New) {
       // Otherwise, insert the new instruction into the block.
       New->setName(BI->getName());
-      New->insertAt(PredBB, OldPredBranch->getIterator());
+      New->insertInto(PredBB, OldPredBranch->getIterator());
       // Update Dominance from simplified New instruction operands.
       for (unsigned i = 0, e = New->getNumOperands(); i != e; ++i)
         if (BasicBlock *SuccBB = dyn_cast<BasicBlock>(New->getOperand(i)))
@@ -3946,7 +3923,7 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
 
   // Remove the unconditional branch at the end of the PredBB block.
   OldPredBranch->eraseFromParent();
-  if (HasProfileData)
+  if (auto *BPI = getBPI())
     BPI->copyEdgeProbabilities(BB, PredBB);
   DTU->applyUpdatesPermissive(Updates);
 
@@ -3976,12 +3953,40 @@ void JumpThreadingPass::unfoldSelectInstr(BasicBlock *Pred, BasicBlock *BB,
                                          BB->getParent(), BB);
   // Move the unconditional branch to NewBB.
   PredTerm->removeFromParent();
-  PredTerm->insertAt(NewBB, NewBB->end());
+  PredTerm->insertInto(NewBB, NewBB->end());
   // Create a conditional branch and update PHI nodes.
   auto *BI = BranchInst::Create(NewBB, BB, SI->getCondition(), Pred);
   BI->applyMergedLocation(PredTerm->getDebugLoc(), SI->getDebugLoc());
+  BI->copyMetadata(*SI, {LLVMContext::MD_prof});
   SIUse->setIncomingValue(Idx, SI->getFalseValue());
   SIUse->addIncoming(SI->getTrueValue(), NewBB);
+
+  uint64_t TrueWeight = 1;
+  uint64_t FalseWeight = 1;
+  auto *BPI = getBPI();             // INTEL
+  // Copy probabilities from 'SI' to created conditional branch in 'Pred'.
+  if (extractBranchWeights(*SI, TrueWeight, FalseWeight) &&
+      (TrueWeight + FalseWeight) != 0) {
+    SmallVector<BranchProbability, 2> BP;
+    BP.emplace_back(BranchProbability::getBranchProbability(
+        TrueWeight, TrueWeight + FalseWeight));
+    BP.emplace_back(BranchProbability::getBranchProbability(
+        FalseWeight, TrueWeight + FalseWeight));
+    // Update BPI if exists.
+    if (BPI)  // INTEL
+      BPI->setEdgeProbability(Pred, BP);
+  }
+  // Set the block frequency of NewBB.
+  if (auto *BFI = getBFI()) {
+    if ((TrueWeight + FalseWeight) == 0) {
+      TrueWeight = 1;
+      FalseWeight = 1;
+    }
+    BranchProbability PredToNewBBProb = BranchProbability::getBranchProbability(
+        TrueWeight, TrueWeight + FalseWeight);
+    auto NewBBFreq = BFI->getBlockFreq(Pred) * PredToNewBBProb;
+    BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
+  }
 
   // The select is now dead.
   SI->eraseFromParent();
@@ -3994,12 +3999,14 @@ void JumpThreadingPass::unfoldSelectInstr(BasicBlock *Pred, BasicBlock *BB,
     if (Phi != SIUse)
       Phi->addIncoming(Phi->getIncomingValueForBlock(Pred), NewBB);
 
-  if (HasProfileData) {
+#if INTEL_CUSTOMIZATION
+  if (BPI) {
     // NewBB has exactly one successor.
     SmallVector<BranchProbability, 1> BBSuccProbs;
     BBSuccProbs.push_back(BranchProbability::getOne());
     BPI->setEdgeProbability(NewBB, BBSuccProbs);
   }
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool JumpThreadingPass::tryToUnfoldSelect(SwitchInst *SI, BasicBlock *BB) {
@@ -4308,4 +4315,94 @@ bool JumpThreadingPass::threadGuard(BasicBlock *BB, IntrinsicInst *Guard,
     Inst->eraseFromParent();
   }
   return true;
+}
+
+PreservedAnalyses JumpThreadingPass::getPreservedAnalysis() const {
+  PreservedAnalyses PA;
+  PA.preserve<LazyValueAnalysis>();
+  PA.preserve<DominatorTreeAnalysis>();
+
+  // TODO: We would like to preserve BPI/BFI. Enable once all paths update them.
+  // TODO: Would be nice to verify BPI/BFI consistency as well.
+  return PA;
+}
+
+template <typename AnalysisT>
+typename AnalysisT::Result *JumpThreadingPass::runExternalAnalysis() {
+  assert(FAM && "Can't run external analysis without FunctionAnalysisManager");
+
+  // If there were no changes since last call to 'runExternalAnalysis' then all
+  // analysis is either up to date or explicitly invalidated. Just go ahead and
+  // run the "external" analysis.
+  if (!ChangedSinceLastAnalysisUpdate) {
+    assert(!DTU->hasPendingUpdates() &&
+           "Lost update of 'ChangedSinceLastAnalysisUpdate'?");
+    // Run the "external" analysis.
+    return &FAM->getResult<AnalysisT>(*F);
+  }
+  ChangedSinceLastAnalysisUpdate = false;
+
+  auto PA = getPreservedAnalysis();
+  // TODO: This shouldn't be needed once 'getPreservedAnalysis' reports BPI/BFI
+  // as preserved.
+  PA.preserve<BranchProbabilityAnalysis>();
+  PA.preserve<BlockFrequencyAnalysis>();
+  // Report everything except explicitly preserved as invalid.
+  FAM->invalidate(*F, PA);
+  // Update DT/PDT.
+  DTU->flush();
+  // Make sure DT/PDT are valid before running "external" analysis.
+  assert(DTU->getDomTree().verify(DominatorTree::VerificationLevel::Fast));
+  assert((!DTU->hasPostDomTree() ||
+          DTU->getPostDomTree().verify(
+              PostDominatorTree::VerificationLevel::Fast)));
+  // Run the "external" analysis.
+  auto *Result = &FAM->getResult<AnalysisT>(*F);
+  // Update analysis JumpThreading depends on and not explicitly preserved.
+  TTI = &FAM->getResult<TargetIRAnalysis>(*F);
+  TLI = &FAM->getResult<TargetLibraryAnalysis>(*F);
+  AA = &FAM->getResult<AAManager>(*F);
+
+  return Result;
+}
+
+BranchProbabilityInfo *JumpThreadingPass::getBPI() {
+  if (!BPI) {
+    assert(FAM && "Can't create BPI without FunctionAnalysisManager");
+    BPI = FAM->getCachedResult<BranchProbabilityAnalysis>(*F);
+  }
+  return *BPI;
+}
+
+BlockFrequencyInfo *JumpThreadingPass::getBFI() {
+  if (!BFI) {
+    assert(FAM && "Can't create BFI without FunctionAnalysisManager");
+    BFI = FAM->getCachedResult<BlockFrequencyAnalysis>(*F);
+  }
+  return *BFI;
+}
+
+// Important note on validity of BPI/BFI. JumpThreading tries to preserve
+// BPI/BFI as it goes. Thus if cached instance exists it will be updated.
+// Otherwise, new instance of BPI/BFI is created (up to date by definition).
+BranchProbabilityInfo *JumpThreadingPass::getOrCreateBPI(bool Force) {
+  auto *Res = getBPI();
+  if (Res)
+    return Res;
+
+  if (Force)
+    BPI = runExternalAnalysis<BranchProbabilityAnalysis>();
+
+  return *BPI;
+}
+
+BlockFrequencyInfo *JumpThreadingPass::getOrCreateBFI(bool Force) {
+  auto *Res = getBFI();
+  if (Res)
+    return Res;
+
+  if (Force)
+    BFI = runExternalAnalysis<BlockFrequencyAnalysis>();
+
+  return *BFI;
 }

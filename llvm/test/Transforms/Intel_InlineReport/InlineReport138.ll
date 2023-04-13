@@ -1,5 +1,5 @@
-; RUN: opt -passes='function(instcombine),print<inline-report>' -disable-output -inline-report=0xe807 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='inlinereportsetup,function(instcombine),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='function(instcombine),print<inline-report>' -disable-output -inline-report=0xe807 < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,function(instcombine),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
 
 ; Check that various calls to fputc are deleted as dead code.
 
@@ -33,357 +33,355 @@
 @.str.86 = private unnamed_addr constant [35 x i8] c"Uuencode buffer parameters error.\0A\00", align 1
 @.str.2.90 = private unnamed_addr constant [6 x i8] c"end\0A\0A\00", align 1
 @uu_std = internal unnamed_addr constant [64 x i8] c"`!\22#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_", align 16
+@stdout = external dso_local local_unnamed_addr global ptr, align 8
 
-%struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, %struct._IO_codecvt*, %struct._IO_wide_data*, %struct._IO_FILE*, i8*, i64, i32, [20 x i8] }
-%struct._IO_marker = type opaque
-%struct._IO_codecvt = type opaque
-%struct._IO_wide_data = type opaque
+declare void @t_printf(ptr nocapture noundef readonly, ...)
 
-@stdout = external dso_local local_unnamed_addr global %struct._IO_FILE*, align 8
+declare noundef i32 @fputc(i32 noundef, ptr nocapture noundef)
 
-declare void @t_printf(i8* nocapture noundef readonly %0, ...) 
+define internal i32 @i_send_buf_as_file(ptr noundef %arg, i64 noundef %arg1, ptr noundef %arg2) {
+bb:
+  %i = alloca i8, align 1
+  %i3 = alloca i8, align 1
+  %i4 = alloca i8, align 1
+  %i5 = alloca i8, align 1
+  %i6 = alloca i8, align 1
+  %i7 = alloca i8, align 1
+  %i8 = alloca i8, align 1
+  %i9 = alloca i8, align 1
+  %i10 = alloca i8, align 1
+  %i11 = alloca i8, align 1
+  %i12 = alloca i8, align 1
+  %i13 = alloca i8, align 1
+  %i14 = alloca i8, align 1
+  %i15 = alloca i8, align 1
+  %i16 = alloca i8, align 1
+  %i17 = alloca i8, align 1
+  %i18 = alloca [80 x i8], align 16
+  %i19 = trunc i64 %arg1 to i32
+  tail call void (ptr, ...) @t_printf(ptr noundef @.str.1.89, i64 noundef 384, ptr noundef %arg2)
+  %i20 = getelementptr inbounds [80 x i8], ptr %i18, i64 0, i64 0
+  call void @llvm.lifetime.start.p0(i64 80, ptr nonnull %i20)
+  %i21 = icmp sgt i32 %i19, 0
+  %i22 = icmp ne ptr %arg, null
+  %i23 = and i1 %i21, %i22
+  br i1 %i23, label %bb25, label %bb24
 
-declare void @llvm.lifetime.start.p0i8(i64 immarg %0, i8* nocapture %1)
+bb24:                                             ; preds = %bb
+  tail call void (ptr, ...) @t_printf(ptr noundef @.str.86)
+  br label %bb219
 
-declare noundef i32 @fputc(i32 noundef %0, %struct._IO_FILE* nocapture noundef %1)
+bb25:                                             ; preds = %bb
+  %i26 = and i64 %arg1, 4294967295
+  br label %bb27
 
-declare void @llvm.lifetime.end.p0i8(i64 immarg %0, i8* nocapture %1)
+bb27:                                             ; preds = %bb142, %bb25
+  %i28 = phi i64 [ %i44, %bb142 ], [ 0, %bb25 ]
+  br label %bb29
 
-; Function Attrs: nounwind uwtable
-define internal i32 @i_send_buf_as_file(i8* noundef %0, i64 noundef %1, i8* noundef %2) #0 {
-  %4 = alloca i8, align 1
-  %5 = alloca i8, align 1
-  %6 = alloca i8, align 1
-  %7 = alloca i8, align 1
-  %8 = alloca i8, align 1
-  %9 = alloca i8, align 1
-  %10 = alloca i8, align 1
-  %11 = alloca i8, align 1
-  %12 = alloca i8, align 1
-  %13 = alloca i8, align 1
-  %14 = alloca i8, align 1
-  %15 = alloca i8, align 1
-  %16 = alloca i8, align 1
-  %17 = alloca i8, align 1
-  %18 = alloca i8, align 1
-  %19 = alloca i8, align 1
-  %20 = alloca [80 x i8], align 16
-  %21 = trunc i64 %1 to i32
-  tail call void (i8*, ...) @t_printf(i8* noundef getelementptr inbounds ([14 x i8], [14 x i8]* @.str.1.89, i64 0, i64 0), i64 noundef 384, i8* noundef %2) #27
-  %22 = getelementptr inbounds [80 x i8], [80 x i8]* %20, i64 0, i64 0
-  call void @llvm.lifetime.start.p0i8(i64 80, i8* nonnull %22) #27
-  %23 = icmp sgt i32 %21, 0
-  %24 = icmp ne i8* %0, null
-  %25 = and i1 %23, %24
-  br i1 %25, label %27, label %26
+bb29:                                             ; preds = %bb33, %bb27
+  %i30 = phi i64 [ 0, %bb27 ], [ %i37, %bb33 ]
+  %i31 = add nuw nsw i64 %i30, %i28
+  %i32 = icmp slt i64 %i31, %i26
+  br i1 %i32, label %bb33, label %bb39
 
-26:                                               ; preds = %3
-  tail call void (i8*, ...) @t_printf(i8* noundef getelementptr inbounds ([35 x i8], [35 x i8]* @.str.86, i64 0, i64 0)) #27
-  br label %221
+bb33:                                             ; preds = %bb29
+  %i34 = getelementptr inbounds i8, ptr %arg, i64 %i31
+  %i35 = load i8, ptr %i34, align 1
+  %i36 = getelementptr inbounds [80 x i8], ptr %i18, i64 0, i64 %i30
+  store i8 %i35, ptr %i36, align 1
+  %i37 = add nuw nsw i64 %i30, 1
+  %i38 = icmp eq i64 %i37, 45
+  br i1 %i38, label %bb42, label %bb29
 
-27:                                               ; preds = %3
-  %28 = and i64 %1, 4294967295
-  br label %29
+bb39:                                             ; preds = %bb29
+  %i40 = trunc i64 %i30 to i32
+  %i41 = icmp eq i32 %i40, 0
+  br i1 %i41, label %bb212, label %bb42
 
-29:                                               ; preds = %144, %27
-  %30 = phi i64 [ %46, %144 ], [ 0, %27 ]
-  br label %31
+bb42:                                             ; preds = %bb39, %bb33
+  %i43 = phi i32 [ %i40, %bb39 ], [ 45, %bb33 ]
+  %i44 = add nuw i64 %i28, 45
+  %i45 = and i32 %i43, 63
+  %i46 = zext i32 %i45 to i64
+  %i47 = getelementptr inbounds [64 x i8], ptr @uu_std, i64 0, i64 %i46
+  %i48 = load i8, ptr %i47, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i16)
+  store i8 %i48, ptr %i16, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i17)
+  store i8 13, ptr %i17, align 1
+  br i1 false, label %bb49, label %bb54
 
-31:                                               ; preds = %35, %29
-  %32 = phi i64 [ 0, %29 ], [ %39, %35 ]
-  %33 = add nuw nsw i64 %32, %30
-  %34 = icmp slt i64 %33, %28
-  br i1 %34, label %35, label %41
+bb49:                                             ; preds = %bb42
+  %i50 = load ptr, ptr @stdout, align 8
+  %i51 = load i8, ptr %i17, align 1
+  %i52 = sext i8 %i51 to i32
+  %i53 = call i32 @fputc(i32 %i52, ptr %i50)
+  br label %bb54
 
-35:                                               ; preds = %31
-  %36 = getelementptr inbounds i8, i8* %0, i64 %33
-  %37 = load i8, i8* %36, align 1
-  %38 = getelementptr inbounds [80 x i8], [80 x i8]* %20, i64 0, i64 %32
-  store i8 %37, i8* %38, align 1
-  %39 = add nuw nsw i64 %32, 1
-  %40 = icmp eq i64 %39, 45
-  br i1 %40, label %44, label %31
+bb54:                                             ; preds = %bb49, %bb42
+  %i55 = load ptr, ptr @stdout, align 8
+  %i56 = load i8, ptr %i16, align 1
+  %i57 = sext i8 %i56 to i32
+  %i58 = call i32 @fputc(i32 %i57, ptr %i55)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i17)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i16)
+  %i59 = icmp sgt i32 %i43, 2
+  br i1 %i59, label %bb60, label %bb138
 
-41:                                               ; preds = %31
-  %42 = trunc i64 %32 to i32
-  %43 = icmp eq i32 %42, 0
-  br i1 %43, label %214, label %44
+bb60:                                             ; preds = %bb130, %bb54
+  %i61 = phi i32 [ %i135, %bb130 ], [ %i43, %bb54 ]
+  %i62 = phi ptr [ %i136, %bb130 ], [ %i20, %bb54 ]
+  %i63 = load i8, ptr %i62, align 1
+  %i64 = lshr i8 %i63, 2
+  %i65 = zext i8 %i64 to i64
+  %i66 = getelementptr inbounds [64 x i8], ptr @uu_std, i64 0, i64 %i65
+  %i67 = load i8, ptr %i66, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i14)
+  store i8 %i67, ptr %i14, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i15)
+  store i8 13, ptr %i15, align 1
+  br i1 false, label %bb68, label %bb73
 
-44:                                               ; preds = %41, %35
-  %45 = phi i32 [ %42, %41 ], [ 45, %35 ]
-  %46 = add nuw i64 %30, 45
-  %47 = and i32 %45, 63
-  %48 = zext i32 %47 to i64
-  %49 = getelementptr inbounds [64 x i8], [64 x i8]* @uu_std, i64 0, i64 %48
-  %50 = load i8, i8* %49, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %18)
-  store i8 %50, i8* %18, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %19) #27
-  store i8 13, i8* %19, align 1
-  br i1 false, label %51, label %56
+bb68:                                             ; preds = %bb60
+  %i69 = load ptr, ptr @stdout, align 8
+  %i70 = load i8, ptr %i15, align 1
+  %i71 = sext i8 %i70 to i32
+  %i72 = call i32 @fputc(i32 %i71, ptr %i69)
+  br label %bb73
 
-51:                                               ; preds = %44
-  %52 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %53 = load i8, i8* %19, align 1
-  %54 = sext i8 %53 to i32
-  %55 = call i32 @fputc(i32 %54, %struct._IO_FILE* %52)
-  br label %56
+bb73:                                             ; preds = %bb68, %bb60
+  %i74 = load ptr, ptr @stdout, align 8
+  %i75 = load i8, ptr %i14, align 1
+  %i76 = sext i8 %i75 to i32
+  %i77 = call i32 @fputc(i32 %i76, ptr %i74)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i15)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i14)
+  %i78 = load i8, ptr %i62, align 1
+  %i79 = sext i8 %i78 to i64
+  %i80 = shl nsw i64 %i79, 4
+  %i81 = and i64 %i80, 48
+  %i82 = getelementptr inbounds i8, ptr %i62, i64 1
+  %i83 = load i8, ptr %i82, align 1
+  %i84 = lshr i8 %i83, 4
+  %i85 = zext i8 %i84 to i64
+  %i86 = or i64 %i81, %i85
+  %i87 = getelementptr inbounds [64 x i8], ptr @uu_std, i64 0, i64 %i86
+  %i88 = load i8, ptr %i87, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i12)
+  store i8 %i88, ptr %i12, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i13)
+  store i8 13, ptr %i13, align 1
+  br i1 false, label %bb89, label %bb94
 
-56:                                               ; preds = %51, %44
-  %57 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %58 = load i8, i8* %18, align 1
-  %59 = sext i8 %58 to i32
-  %60 = call i32 @fputc(i32 %59, %struct._IO_FILE* %57)
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %19) #27
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %18)
-  %61 = icmp sgt i32 %45, 2
-  br i1 %61, label %62, label %140
+bb89:                                             ; preds = %bb73
+  %i90 = load ptr, ptr @stdout, align 8
+  %i91 = load i8, ptr %i13, align 1
+  %i92 = sext i8 %i91 to i32
+  %i93 = call i32 @fputc(i32 %i92, ptr %i90)
+  br label %bb94
 
-62:                                               ; preds = %132, %56
-  %63 = phi i32 [ %137, %132 ], [ %45, %56 ]
-  %64 = phi i8* [ %138, %132 ], [ %22, %56 ]
-  %65 = load i8, i8* %64, align 1
-  %66 = lshr i8 %65, 2
-  %67 = zext i8 %66 to i64
-  %68 = getelementptr inbounds [64 x i8], [64 x i8]* @uu_std, i64 0, i64 %67
-  %69 = load i8, i8* %68, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %16)
-  store i8 %69, i8* %16, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %17) #27
-  store i8 13, i8* %17, align 1
-  br i1 false, label %70, label %75
+bb94:                                             ; preds = %bb89, %bb73
+  %i95 = load ptr, ptr @stdout, align 8
+  %i96 = load i8, ptr %i12, align 1
+  %i97 = sext i8 %i96 to i32
+  %i98 = call i32 @fputc(i32 %i97, ptr %i95)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i13)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i12)
+  %i99 = load i8, ptr %i82, align 1
+  %i100 = sext i8 %i99 to i64
+  %i101 = shl nsw i64 %i100, 2
+  %i102 = and i64 %i101, 60
+  %i103 = getelementptr inbounds i8, ptr %i62, i64 2
+  %i104 = load i8, ptr %i103, align 1
+  %i105 = lshr i8 %i104, 6
+  %i106 = zext i8 %i105 to i64
+  %i107 = or i64 %i102, %i106
+  %i108 = getelementptr inbounds [64 x i8], ptr @uu_std, i64 0, i64 %i107
+  %i109 = load i8, ptr %i108, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i10)
+  store i8 %i109, ptr %i10, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i11)
+  store i8 13, ptr %i11, align 1
+  br i1 false, label %bb110, label %bb115
 
-70:                                               ; preds = %62
-  %71 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %72 = load i8, i8* %17, align 1
-  %73 = sext i8 %72 to i32
-  %74 = call i32 @fputc(i32 %73, %struct._IO_FILE* %71)
-  br label %75
+bb110:                                            ; preds = %bb94
+  %i111 = load ptr, ptr @stdout, align 8
+  %i112 = load i8, ptr %i11, align 1
+  %i113 = sext i8 %i112 to i32
+  %i114 = call i32 @fputc(i32 %i113, ptr %i111)
+  br label %bb115
 
-75:                                               ; preds = %70, %62
-  %76 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %77 = load i8, i8* %16, align 1
-  %78 = sext i8 %77 to i32
-  %79 = call i32 @fputc(i32 %78, %struct._IO_FILE* %76)
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %17) #27
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %16)
-  %80 = load i8, i8* %64, align 1
-  %81 = sext i8 %80 to i64
-  %82 = shl nsw i64 %81, 4
-  %83 = and i64 %82, 48
-  %84 = getelementptr inbounds i8, i8* %64, i64 1
-  %85 = load i8, i8* %84, align 1
-  %86 = lshr i8 %85, 4
-  %87 = zext i8 %86 to i64
-  %88 = or i64 %83, %87
-  %89 = getelementptr inbounds [64 x i8], [64 x i8]* @uu_std, i64 0, i64 %88
-  %90 = load i8, i8* %89, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %14)
-  store i8 %90, i8* %14, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %15) #27
-  store i8 13, i8* %15, align 1
-  br i1 false, label %91, label %96
+bb115:                                            ; preds = %bb110, %bb94
+  %i116 = load ptr, ptr @stdout, align 8
+  %i117 = load i8, ptr %i10, align 1
+  %i118 = sext i8 %i117 to i32
+  %i119 = call i32 @fputc(i32 %i118, ptr %i116)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i11)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i10)
+  %i120 = load i8, ptr %i103, align 1
+  %i121 = and i8 %i120, 63
+  %i122 = zext i8 %i121 to i64
+  %i123 = getelementptr inbounds [64 x i8], ptr @uu_std, i64 0, i64 %i122
+  %i124 = load i8, ptr %i123, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i8)
+  store i8 %i124, ptr %i8, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i9)
+  store i8 13, ptr %i9, align 1
+  br i1 false, label %bb125, label %bb130
 
-91:                                               ; preds = %75
-  %92 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %93 = load i8, i8* %15, align 1
-  %94 = sext i8 %93 to i32
-  %95 = call i32 @fputc(i32 %94, %struct._IO_FILE* %92)
-  br label %96
+bb125:                                            ; preds = %bb115
+  %i126 = load ptr, ptr @stdout, align 8
+  %i127 = load i8, ptr %i9, align 1
+  %i128 = sext i8 %i127 to i32
+  %i129 = call i32 @fputc(i32 %i128, ptr %i126)
+  br label %bb130
 
-96:                                               ; preds = %91, %75
-  %97 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %98 = load i8, i8* %14, align 1
-  %99 = sext i8 %98 to i32
-  %100 = call i32 @fputc(i32 %99, %struct._IO_FILE* %97)
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %15) #27
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %14)
-  %101 = load i8, i8* %84, align 1
-  %102 = sext i8 %101 to i64
-  %103 = shl nsw i64 %102, 2
-  %104 = and i64 %103, 60
-  %105 = getelementptr inbounds i8, i8* %64, i64 2
-  %106 = load i8, i8* %105, align 1
-  %107 = lshr i8 %106, 6
-  %108 = zext i8 %107 to i64
-  %109 = or i64 %104, %108
-  %110 = getelementptr inbounds [64 x i8], [64 x i8]* @uu_std, i64 0, i64 %109
-  %111 = load i8, i8* %110, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %12)
-  store i8 %111, i8* %12, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %13) #27
-  store i8 13, i8* %13, align 1
-  br i1 false, label %112, label %117
+bb130:                                            ; preds = %bb125, %bb115
+  %i131 = load ptr, ptr @stdout, align 8
+  %i132 = load i8, ptr %i8, align 1
+  %i133 = sext i8 %i132 to i32
+  %i134 = call i32 @fputc(i32 %i133, ptr %i131)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i9)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i8)
+  %i135 = add nsw i32 %i61, -3
+  %i136 = getelementptr inbounds i8, ptr %i62, i64 3
+  %i137 = icmp sgt i32 %i61, 5
+  br i1 %i137, label %bb60, label %bb138
 
-112:                                              ; preds = %96
-  %113 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %114 = load i8, i8* %13, align 1
-  %115 = sext i8 %114 to i32
-  %116 = call i32 @fputc(i32 %115, %struct._IO_FILE* %113)
-  br label %117
+bb138:                                            ; preds = %bb130, %bb54
+  %i139 = phi ptr [ %i20, %bb54 ], [ %i136, %bb130 ]
+  %i140 = phi i32 [ %i43, %bb54 ], [ %i135, %bb130 ]
+  %i141 = icmp eq i32 %i140, 0
+  br i1 %i141, label %bb142, label %bb147
 
-117:                                              ; preds = %112, %96
-  %118 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %119 = load i8, i8* %12, align 1
-  %120 = sext i8 %119 to i32
-  %121 = call i32 @fputc(i32 %120, %struct._IO_FILE* %118)
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %13) #27
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %12)
-  %122 = load i8, i8* %105, align 1
-  %123 = and i8 %122, 63
-  %124 = zext i8 %123 to i64
-  %125 = getelementptr inbounds [64 x i8], [64 x i8]* @uu_std, i64 0, i64 %124
-  %126 = load i8, i8* %125, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %10)
-  store i8 %126, i8* %10, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %11) #27
-  store i8 13, i8* %11, align 1
-  br i1 false, label %127, label %132
+bb142:                                            ; preds = %bb138
+  %i143 = load ptr, ptr @stdout, align 8
+  %i144 = call i32 @fputc(i32 13, ptr %i143)
+  %i145 = load ptr, ptr @stdout, align 8
+  %i146 = call i32 @fputc(i32 10, ptr %i145)
+  br label %bb27
 
-127:                                              ; preds = %117
-  %128 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %129 = load i8, i8* %11, align 1
-  %130 = sext i8 %129 to i32
-  %131 = call i32 @fputc(i32 %130, %struct._IO_FILE* %128)
-  br label %132
+bb147:                                            ; preds = %bb138
+  %i148 = load i8, ptr %i139, align 1
+  %i149 = icmp eq i32 %i140, 1
+  br i1 %i149, label %bb154, label %bb150
 
-132:                                              ; preds = %127, %117
-  %133 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %134 = load i8, i8* %10, align 1
-  %135 = sext i8 %134 to i32
-  %136 = call i32 @fputc(i32 %135, %struct._IO_FILE* %133)
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %11) #27
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %10)
-  %137 = add nsw i32 %63, -3
-  %138 = getelementptr inbounds i8, i8* %64, i64 3
-  %139 = icmp sgt i32 %63, 5
-  br i1 %139, label %62, label %140
+bb150:                                            ; preds = %bb147
+  %i151 = getelementptr inbounds i8, ptr %i139, i64 1
+  %i152 = load i8, ptr %i151, align 1
+  %i153 = sext i8 %i152 to i32
+  br label %bb154
 
-140:                                              ; preds = %132, %56
-  %141 = phi i8* [ %22, %56 ], [ %138, %132 ]
-  %142 = phi i32 [ %45, %56 ], [ %137, %132 ]
-  %143 = icmp eq i32 %142, 0
-  br i1 %143, label %144, label %149
+bb154:                                            ; preds = %bb150, %bb147
+  %i155 = phi i32 [ %i153, %bb150 ], [ 0, %bb147 ]
+  %i156 = sext i8 %i148 to i32
+  %i157 = lshr i32 %i156, 2
+  %i158 = and i32 %i157, 63
+  %i159 = zext i32 %i158 to i64
+  %i160 = getelementptr inbounds [64 x i8], ptr @uu_std, i64 0, i64 %i159
+  %i161 = load i8, ptr %i160, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i6)
+  store i8 %i161, ptr %i6, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i7)
+  store i8 13, ptr %i7, align 1
+  br i1 false, label %bb162, label %bb167
 
-144:                                              ; preds = %140
-  %145 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %146 = call i32 @fputc(i32 13, %struct._IO_FILE* %145)
-  %147 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %148 = call i32 @fputc(i32 10, %struct._IO_FILE* %147)
-  br label %29
+bb162:                                            ; preds = %bb154
+  %i163 = load ptr, ptr @stdout, align 8
+  %i164 = load i8, ptr %i7, align 1
+  %i165 = sext i8 %i164 to i32
+  %i166 = call i32 @fputc(i32 %i165, ptr %i163)
+  br label %bb167
 
-149:                                              ; preds = %140
-  %150 = load i8, i8* %141, align 1
-  %151 = icmp eq i32 %142, 1
-  br i1 %151, label %156, label %152
+bb167:                                            ; preds = %bb162, %bb154
+  %i168 = load ptr, ptr @stdout, align 8
+  %i169 = load i8, ptr %i6, align 1
+  %i170 = sext i8 %i169 to i32
+  %i171 = call i32 @fputc(i32 %i170, ptr %i168)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i7)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i6)
+  %i172 = shl nsw i32 %i156, 4
+  %i173 = and i32 %i172, 48
+  %i174 = lshr i32 %i155, 4
+  %i175 = and i32 %i174, 15
+  %i176 = or i32 %i173, %i175
+  %i177 = zext i32 %i176 to i64
+  %i178 = getelementptr inbounds [64 x i8], ptr @uu_std, i64 0, i64 %i177
+  %i179 = load i8, ptr %i178, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i4)
+  store i8 %i179, ptr %i4, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i5)
+  store i8 13, ptr %i5, align 1
+  br i1 false, label %bb180, label %bb185
 
-152:                                              ; preds = %149
-  %153 = getelementptr inbounds i8, i8* %141, i64 1
-  %154 = load i8, i8* %153, align 1
-  %155 = sext i8 %154 to i32
-  br label %156
+bb180:                                            ; preds = %bb167
+  %i181 = load ptr, ptr @stdout, align 8
+  %i182 = load i8, ptr %i5, align 1
+  %i183 = sext i8 %i182 to i32
+  %i184 = call i32 @fputc(i32 %i183, ptr %i181)
+  br label %bb185
 
-156:                                              ; preds = %152, %149
-  %157 = phi i32 [ %155, %152 ], [ 0, %149 ]
-  %158 = sext i8 %150 to i32
-  %159 = lshr i32 %158, 2
-  %160 = and i32 %159, 63
-  %161 = zext i32 %160 to i64
-  %162 = getelementptr inbounds [64 x i8], [64 x i8]* @uu_std, i64 0, i64 %161
-  %163 = load i8, i8* %162, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %8)
-  store i8 %163, i8* %8, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %9) #27
-  store i8 13, i8* %9, align 1
-  br i1 false, label %164, label %169
+bb185:                                            ; preds = %bb180, %bb167
+  %i186 = load ptr, ptr @stdout, align 8
+  %i187 = load i8, ptr %i4, align 1
+  %i188 = sext i8 %i187 to i32
+  %i189 = call i32 @fputc(i32 %i188, ptr %i186)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i5)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i4)
+  %i190 = shl nsw i32 %i155, 2
+  %i191 = and i32 %i190, 60
+  %i192 = select i1 %i149, i32 0, i32 %i191
+  %i193 = zext i32 %i192 to i64
+  %i194 = getelementptr [64 x i8], ptr @uu_std, i64 0, i64 %i193
+  %i195 = load i8, ptr %i194, align 4
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i)
+  store i8 %i195, ptr %i, align 1
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %i3)
+  store i8 13, ptr %i3, align 1
+  br i1 false, label %bb196, label %bb201
 
-164:                                              ; preds = %156
-  %165 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %166 = load i8, i8* %9, align 1
-  %167 = sext i8 %166 to i32
-  %168 = call i32 @fputc(i32 %167, %struct._IO_FILE* %165)
-  br label %169
+bb196:                                            ; preds = %bb185
+  %i197 = load ptr, ptr @stdout, align 8
+  %i198 = load i8, ptr %i3, align 1
+  %i199 = sext i8 %i198 to i32
+  %i200 = call i32 @fputc(i32 %i199, ptr %i197)
+  br label %bb201
 
-169:                                              ; preds = %164, %156
-  %170 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %171 = load i8, i8* %8, align 1
-  %172 = sext i8 %171 to i32
-  %173 = call i32 @fputc(i32 %172, %struct._IO_FILE* %170)
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %9) #27
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %8)
-  %174 = shl nsw i32 %158, 4
-  %175 = and i32 %174, 48
-  %176 = lshr i32 %157, 4
-  %177 = and i32 %176, 15
-  %178 = or i32 %175, %177
-  %179 = zext i32 %178 to i64
-  %180 = getelementptr inbounds [64 x i8], [64 x i8]* @uu_std, i64 0, i64 %179
-  %181 = load i8, i8* %180, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %6)
-  store i8 %181, i8* %6, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %7) #27
-  store i8 13, i8* %7, align 1
-  br i1 false, label %182, label %187
+bb201:                                            ; preds = %bb196, %bb185
+  %i202 = load ptr, ptr @stdout, align 8
+  %i203 = load i8, ptr %i, align 1
+  %i204 = sext i8 %i203 to i32
+  %i205 = call i32 @fputc(i32 %i204, ptr %i202)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i3)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %i)
+  %i206 = load ptr, ptr @stdout, align 8
+  %i207 = call i32 @fputc(i32 96, ptr %i206)
+  %i208 = load ptr, ptr @stdout, align 8
+  %i209 = call i32 @fputc(i32 13, ptr %i208)
+  %i210 = load ptr, ptr @stdout, align 8
+  %i211 = call i32 @fputc(i32 10, ptr %i210)
+  br label %bb212
 
-182:                                              ; preds = %169
-  %183 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %184 = load i8, i8* %7, align 1
-  %185 = sext i8 %184 to i32
-  %186 = call i32 @fputc(i32 %185, %struct._IO_FILE* %183)
-  br label %187
+bb212:                                            ; preds = %bb201, %bb39
+  %i213 = load ptr, ptr @stdout, align 8
+  %i214 = call i32 @fputc(i32 96, ptr %i213)
+  %i215 = load ptr, ptr @stdout, align 8
+  %i216 = call i32 @fputc(i32 13, ptr %i215)
+  %i217 = load ptr, ptr @stdout, align 8
+  %i218 = call i32 @fputc(i32 10, ptr %i217)
+  br label %bb219
 
-187:                                              ; preds = %182, %169
-  %188 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %189 = load i8, i8* %6, align 1
-  %190 = sext i8 %189 to i32
-  %191 = call i32 @fputc(i32 %190, %struct._IO_FILE* %188)
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %7) #27
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %6)
-  %192 = shl nsw i32 %157, 2
-  %193 = and i32 %192, 60
-  %194 = select i1 %151, i32 0, i32 %193
-  %195 = zext i32 %194 to i64
-  %196 = getelementptr [64 x i8], [64 x i8]* @uu_std, i64 0, i64 %195
-  %197 = load i8, i8* %196, align 4
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %4)
-  store i8 %197, i8* %4, align 1
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %5) #27
-  store i8 13, i8* %5, align 1
-  br i1 false, label %198, label %203
-
-198:                                              ; preds = %187
-  %199 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %200 = load i8, i8* %5, align 1
-  %201 = sext i8 %200 to i32
-  %202 = call i32 @fputc(i32 %201, %struct._IO_FILE* %199)
-  br label %203
-
-203:                                              ; preds = %198, %187
-  %204 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %205 = load i8, i8* %4, align 1
-  %206 = sext i8 %205 to i32
-  %207 = call i32 @fputc(i32 %206, %struct._IO_FILE* %204)
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %5) #27
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %4)
-  %208 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %209 = call i32 @fputc(i32 96, %struct._IO_FILE* %208)
-  %210 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %211 = call i32 @fputc(i32 13, %struct._IO_FILE* %210)
-  %212 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %213 = call i32 @fputc(i32 10, %struct._IO_FILE* %212)
-  br label %214
-
-214:                                              ; preds = %203, %41
-  %215 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %216 = call i32 @fputc(i32 96, %struct._IO_FILE* %215)
-  %217 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %218 = call i32 @fputc(i32 13, %struct._IO_FILE* %217)
-  %219 = load %struct._IO_FILE*, %struct._IO_FILE** @stdout, align 8
-  %220 = call i32 @fputc(i32 10, %struct._IO_FILE* %219)
-  br label %221
-
-221:                                              ; preds = %26, %214
-  call void @llvm.lifetime.end.p0i8(i64 80, i8* nonnull %22) #27
-  tail call void (i8*, ...) @t_printf(i8* noundef getelementptr inbounds ([6 x i8], [6 x i8]* @.str.2.90, i64 0, i64 0)) #27
+bb219:                                            ; preds = %bb212, %bb24
+  call void @llvm.lifetime.end.p0(i64 80, ptr nonnull %i20)
+  tail call void (ptr, ...) @t_printf(ptr noundef @.str.2.90)
   ret i32 0
 }
+
+; Function Attrs: argmemonly nocallback nofree nosync nounwind willreturn
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #0
+
+; Function Attrs: argmemonly nocallback nofree nosync nounwind willreturn
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #0
+
+attributes #0 = { argmemonly nocallback nofree nosync nounwind willreturn }

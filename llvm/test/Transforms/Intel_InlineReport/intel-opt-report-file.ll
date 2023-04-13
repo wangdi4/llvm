@@ -1,11 +1,11 @@
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xf859 -intel-opt-report-file=stdout < %s -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xf859 -intel-opt-report-file=stderr < %s -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xf859 -intel-opt-report-file=%t < %s -disable-output
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xf859 -intel-opt-report-file=stdout < %s -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xf859 -intel-opt-report-file=stderr < %s -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xf859 -intel-opt-report-file=%t < %s -disable-output
 ; RUN: FileCheck %s --check-prefixes=CHECK,CHECK-INLREP < %t
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-opt-report-file=stdout -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-opt-report-file=stderr -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
-; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-opt-report-file=%t -disable-output
+; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-opt-report-file=stdout -disable-output | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-opt-report-file=stderr -disable-output 2>&1 >%tout | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xf8d8 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8d8 -S | opt -passes='inlinereportemitter' -inline-report=0xf8d8 -intel-opt-report-file=%t -disable-output
 ; RUN: FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP < %t
 
 ; This tests the setting for the inline report with -qopt-report=3, with an
@@ -29,24 +29,19 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, %struct._IO_codecvt*, %struct._IO_wide_data*, %struct._IO_FILE*, i8*, i64, i32, [20 x i8] }
-%struct._IO_marker = type opaque
-%struct._IO_codecvt = type opaque
-%struct._IO_wide_data = type opaque
-
 @acox = dso_local local_unnamed_addr global [100 x [100 x i32]] zeroinitializer, align 16
 @bcox = dso_local local_unnamed_addr global [100 x [100 x i32]] zeroinitializer, align 16
-@stderr = external dso_local local_unnamed_addr global %struct._IO_FILE*, align 8
+@stderr = external dso_local local_unnamed_addr global ptr, align 8
 @.str = private unnamed_addr constant [7 x i8] c"%d %d\0A\00", align 1
 
-; Function Attrs: nofree norecurse nosync nounwind uwtable writeonly
+; Function Attrs: nofree norecurse nosync nounwind writeonly uwtable
 define dso_local void @foo() local_unnamed_addr #0 !dbg !8 {
 entry:
   br label %for.cond1.preheader, !dbg !10
 
-for.cond1.preheader:                              ; preds = %entry, %for.cond.cleanup3
+for.cond1.preheader:                              ; preds = %for.cond.cleanup3, %entry
   %indvars.iv34 = phi i64 [ 0, %entry ], [ %indvars.iv.next35, %for.cond.cleanup3 ]
-  %0 = shl nuw i64 %indvars.iv34, 1, !dbg !11
+  %i = shl nuw i64 %indvars.iv34, 1, !dbg !11
   br label %for.body4, !dbg !12
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
@@ -57,17 +52,17 @@ for.cond.cleanup3:                                ; preds = %for.body4
   %exitcond37.not = icmp eq i64 %indvars.iv.next35, 100, !dbg !15
   br i1 %exitcond37.not, label %for.cond.cleanup, label %for.cond1.preheader, !dbg !10, !llvm.loop !16
 
-for.body4:                                        ; preds = %for.cond1.preheader, %for.body4
+for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %1 = mul nuw nsw i64 %indvars.iv, 3, !dbg !19
-  %2 = add nuw nsw i64 %1, %0, !dbg !20
-  %arrayidx7 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @acox, i64 0, i64 %indvars.iv34, i64 %indvars.iv, !dbg !21, !intel-tbaa !22
-  %3 = trunc i64 %2 to i32, !dbg !28
-  store i32 %3, i32* %arrayidx7, align 4, !dbg !28, !tbaa !22
-  %4 = sub nsw i64 %0, %1, !dbg !29
-  %arrayidx13 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @bcox, i64 0, i64 %indvars.iv34, i64 %indvars.iv, !dbg !30, !intel-tbaa !22
-  %5 = trunc i64 %4 to i32, !dbg !31
-  store i32 %5, i32* %arrayidx13, align 4, !dbg !31, !tbaa !22
+  %i1 = mul nuw nsw i64 %indvars.iv, 3, !dbg !19
+  %i2 = add nuw nsw i64 %i1, %i, !dbg !20
+  %arrayidx7 = getelementptr inbounds [100 x [100 x i32]], ptr @acox, i64 0, i64 %indvars.iv34, i64 %indvars.iv, !dbg !21, !intel-tbaa !22
+  %i3 = trunc i64 %i2 to i32, !dbg !28
+  store i32 %i3, ptr %arrayidx7, align 4, !dbg !28, !tbaa !22
+  %i4 = sub nsw i64 %i, %i1, !dbg !29
+  %arrayidx13 = getelementptr inbounds [100 x [100 x i32]], ptr @bcox, i64 0, i64 %indvars.iv34, i64 %indvars.iv, !dbg !30, !intel-tbaa !22
+  %i5 = trunc i64 %i4 to i32, !dbg !31
+  store i32 %i5, ptr %arrayidx13, align 4, !dbg !31, !tbaa !22
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !32
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100, !dbg !33
   br i1 %exitcond.not, label %for.cond.cleanup3, label %for.body4, !dbg !12, !llvm.loop !34
@@ -77,17 +72,17 @@ for.body4:                                        ; preds = %for.cond1.preheader
 define dso_local i32 @main() local_unnamed_addr #1 !dbg !35 {
 entry:
   call void @foo(), !dbg !36
-  %0 = load %struct._IO_FILE*, %struct._IO_FILE** @stderr, align 8, !dbg !37, !tbaa !38
-  %1 = load i32, i32* getelementptr inbounds ([100 x [100 x i32]], [100 x [100 x i32]]* @acox, i64 0, i64 1, i64 2), align 8, !dbg !40, !tbaa !22
-  %2 = load i32, i32* getelementptr inbounds ([100 x [100 x i32]], [100 x [100 x i32]]* @bcox, i64 0, i64 3, i64 4), align 16, !dbg !41, !tbaa !22
-  %call = call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %0, i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i64 0, i64 0), i32 %1, i32 %2) #3, !dbg !42
+  %i = load ptr, ptr @stderr, align 8, !dbg !37, !tbaa !38
+  %i1 = load i32, ptr getelementptr inbounds ([100 x [100 x i32]], ptr @acox, i64 0, i64 1, i64 2), align 8, !dbg !40, !tbaa !22
+  %i2 = load i32, ptr getelementptr inbounds ([100 x [100 x i32]], ptr @bcox, i64 0, i64 3, i64 4), align 16, !dbg !41, !tbaa !22
+  %call = call i32 (ptr, ptr, ...) @fprintf(ptr %i, ptr @.str, i32 %i1, i32 %i2) #3, !dbg !42
   ret i32 0, !dbg !43
 }
 
 ; Function Attrs: nofree nounwind
-declare dso_local noundef i32 @fprintf(%struct._IO_FILE* nocapture noundef %0, i8* nocapture noundef readonly %1, ...) local_unnamed_addr #2
+declare dso_local noundef i32 @fprintf(ptr nocapture noundef, ptr nocapture noundef readonly, ...) local_unnamed_addr #2
 
-attributes #0 = { nofree norecurse nosync nounwind uwtable writeonly "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
+attributes #0 = { nofree norecurse nosync nounwind writeonly uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #2 = { nofree nounwind "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #3 = { cold }

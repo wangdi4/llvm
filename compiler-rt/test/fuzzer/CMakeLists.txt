@@ -48,15 +48,18 @@ macro(test_fuzzer stdlib)
     set(STDLIB_CAPITALIZED "${STDLIB_CAPITALIZED}${part}")
   endforeach()
   foreach(arch ${FUZZER_TEST_ARCH})
-    if(INTEL_CUSTOMIZATION)
-      # Disable for i386/x86
-      # Reopen when llvm issue fixed
-      if("${arch}" MATCHES "i[2-6]86|x86")
-        continue()
-      endif()
-    endif()
     set(LIBFUZZER_TEST_COMPILER ${COMPILER_RT_TEST_COMPILER})
     get_test_cc_for_arch(${arch} LIBFUZZER_TEST_COMPILER LIBFUZZER_TEST_FLAGS)
+    
+    # INTEL_CUSTOMIZATION
+    # We want clang to use the gcc toolchain on rdrive instead of the system
+    # default.
+    if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+      get_filename_component(COMPILER_ROOT "gcc" PROGRAM)
+      string(REGEX REPLACE "/bin/[^/]*" "" COMPILER_ROOT "${COMPILER_ROOT}")
+      append("--gcc-toolchain=${COMPILER_ROOT}" LIBFUZZER_TEST_FLAGS)
+    endif()
+    # end INTEL_CUSTOMIZATION
 
     set(LIBFUZZER_TEST_TARGET_ARCH ${arch})
     set(LIBFUZZER_TEST_APPLE_PLATFORM "osx")

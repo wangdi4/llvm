@@ -11,6 +11,13 @@
 #ifndef _OPENCL_CTH_
 #define _OPENCL_CTH_
 
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)
+#define cl_intel_device_attribute_query 1
+#define cl_intel_required_subgroup_size 1
+#define cl_intel_subgroups_char 1
+#define cl_intel_subgroups_long 1
+#endif
+
 //
 // Float atomics
 //

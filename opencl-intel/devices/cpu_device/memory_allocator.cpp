@@ -29,6 +29,7 @@
 // #define _ENABLE_LOCK_OBJECTS_
 
 using namespace Intel::OpenCL::CPUDevice;
+using namespace Intel::OpenCL::DeviceBackend;
 
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc,
                                  cl_ulong maxAllocSize,
@@ -86,8 +87,9 @@ cl_dev_err_code MemoryAllocator::CreateObject(
     cl_dev_subdevice_id node_id, cl_mem_flags flags,
     const cl_image_format *format, size_t dim_count, const size_t *dim,
     IOCLDevRTMemObjectService *pRTMemObjService, IOCLDevMemoryObject **memObj) {
-  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter node_id:%d, flags:%x"),
-             node_id, flags);
+  CpuInfoLog(m_pLogDescriptor, m_iLogHandle,
+             TEXT("Enter node_id:%p, flags:%llu"), node_id,
+             (unsigned long long)flags);
 
   assert(nullptr != memObj);
   assert(nullptr != dim);
@@ -99,8 +101,8 @@ cl_dev_err_code MemoryAllocator::CreateObject(
       m_iLogHandle, m_pLogDescriptor, node_id, flags, format, dim_count, dim,
       pRTMemObjService, m_pImageService);
   if (nullptr == pMemObj) {
-    CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
-              "Memory Object allocation failed");
+    CpuErrLog(m_pLogDescriptor, m_iLogHandle,
+              TEXT("Memory Object allocation failed"));
     return CL_DEV_OBJECT_ALLOC_FAIL;
   }
 

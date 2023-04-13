@@ -31,7 +31,6 @@
 #ifndef LLVM_TRANSFORMS_IPO_PASSMANAGERBUILDER_H
 #define LLVM_TRANSFORMS_IPO_PASSMANAGERBUILDER_H
 
-#include "llvm-c/Transforms/PassManagerBuilder.h"
 #include "llvm/Support/Intel_WP_utils.h"   // INTEL
 #include <functional>
 #include <string>
@@ -119,7 +118,6 @@ public:
   bool ForgetAllSCEVInLoopUnroll;
   bool VerifyInput;
   bool VerifyOutput;
-  bool MergeFunctions;
   bool DivergentTarget;
   unsigned LicmMssaOptCap;
   unsigned LicmMssaNoAccForPromotionCap;
@@ -203,13 +201,11 @@ public:
 #endif // INTEL_CUSTOMIZATION
 };
 
-inline PassManagerBuilder *unwrap(LLVMPassManagerBuilderRef P) {
-    return reinterpret_cast<PassManagerBuilder*>(P);
-}
-
-inline LLVMPassManagerBuilderRef wrap(PassManagerBuilder *P) {
-  return reinterpret_cast<LLVMPassManagerBuilderRef>(P);
-}
-
+#if INTEL_CUSTOMIZATION
+typedef struct LLVMOpaquePassManagerBuilder *LLVMPassManagerBuilderRef;
+  inline PassManagerBuilder *unwrap(LLVMPassManagerBuilderRef P) {
+      return reinterpret_cast<PassManagerBuilder*>(P);
+  }
+#endif // INTEL_CUSTOMIZATION
 } // end namespace llvm
 #endif

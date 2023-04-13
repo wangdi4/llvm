@@ -86,8 +86,43 @@ static bool isSIMDDescriptorDDRef(const RegDDRef *DescrRef, const DDRef *Ref) {
     // Base CE of the memref %s[0]
     auto *DescrRefCE = DescrRef->getBaseCE();
     if (auto *BDDR = dyn_cast<BlobDDRef>(Ref)) {
+      // Additional checks for when the SIMD descriptor DDRef has struct offsets
+      // associated with it. A descriptor ref like &(%s[0].field) shouldn't
+      // match with %s, so if the descriptor ref has struct offsets then we need
+      // to check whether the incoming ref matches those.
+      // Example HIR:
+      // %tok = ... region.entry(); [ ...,
+      //     QUAL.OMP.LINEAR:IV.TYPED(&((%struct.var)[0].1.3)011) ] %smax =
+      //     @llvm.smax.i32(%.lb,  %.ub);
+      // + DO i1 = 0, ... , 1   <DO_LOOP>
+      // |   (%struct.var)[0].1.0[i1 + sext.i32.i64(trunc.i64.i32(%.lb))] = i1;
+      // + END LOOP
+      // (%struct.var)[0].1.3 = %smax + 1;
+      // @llvm.directive.region.exit(%tok); [ DIR.OMP.END.SIMD() ]
+      bool RefsMatchWithStructOffsets = false;
+      if (DescrRef->hasTrailingStructOffsets()) {
+        // Try to get struct fields of incoming ref, if they exist
+        auto *ParentRef = BDDR->getParentDDRef();
+        if (!ParentRef->hasGEPInfo())
+          return false;
+        if (ParentRef->getNumDimensions() == DescrRef->getNumDimensions() + 1) {
+          // Consider cases where descriptor ref looks like &(%s[0].field) while
+          // the ref being matched against looks like %s[0].field[i1]. Instead
+          // of simply comparing the base pointer operand, we drop the last
+          // dimension of the incoming ref and compare the two refs to ensure
+          // that they match along with the struct offsets.
+          auto *ParentRefClone = ParentRef->clone();
+          ParentRefClone->removeDimension(1);
+          ParentRef = ParentRefClone;
+        }
+        RefsMatchWithStructOffsets =
+            DDRefUtils::areEqualWithoutAddressOf(DescrRef, ParentRef);
+      } else {
+        RefsMatchWithStructOffsets = true;
+      }
       auto *RefCE = BDDR->getSingleCanonExpr();
-      if (CanonExprUtils::areEqual(DescrRefCE, RefCE))
+      if (RefsMatchWithStructOffsets &&
+          CanonExprUtils::areEqual(DescrRefCE, RefCE))
         return true;
     }
   }
@@ -218,14 +253,23 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
   }
 }
 
-bool HIRVectorizationLegality::bailout(BailoutReason Code) {
-    DEBUG_WITH_TYPE("HIRLegality", dbgs() << getBailoutReasonStr(Code));
-    return false;
+bool HIRVectorizationLegality::bailout(OptReportVerbosity::Level Level,
+                                       unsigned ID, std::string Message,
+                                       std::string Debug = "") {
+  if (Debug == "")
+    DEBUG_WITH_TYPE("HIRLegality", dbgs() << Message << "\n");
+  else
+    DEBUG_WITH_TYPE("HIRLegality", dbgs() << Debug << "\n");
+  setBailoutData(Level, ID, Message);
+  return false;
 }
 
 bool HIRVectorizationLegality::canVectorize(const WRNVecLoopNode *WRLp) {
   // Send explicit data from WRLoop to the Legality.
-  return EnterExplicitData(WRLp);
+  bool RetVal = EnterExplicitData(WRLp);
+  assert((RetVal || BD.BailoutID) &&
+         "EnterExplicitData didn't set bailout data!");
+  return RetVal;
 }
 
 void HIRVectorizationLegality::findAliasDDRefs(HLNode *BeginNode,
@@ -1570,9 +1614,22 @@ public:
         int64_t Size =
             static_cast<int64_t>(DL.getTypeAllocSize(PointerElementType));
         assert(Size > 0 && "Can't determine size of pointed-to type");
-        assert(StrideCE->isConstant() &&
-               "Variable stride for opaque pointer inductions not supported");
-        Stride = Stride * Size;
+        if (StrideCE->isConstant()) {
+          Stride = Stride * Size;
+        } else {
+          // Make the appropriate stride adjustment for opaque pointer
+          // inductions because the pointer element type for opaque pointers
+          // is i8. For non-opaque cases, this adjustment is not needed because
+          // getPointerElementType() can be used. setStepType is called here so
+          // that the correct type is used when generating the mul instruction
+          // for the stride adjustment. The step type set here should match the
+          // type of CurrValue.Step because this is the same type used when
+          // creating the VPExternalDef for the stride (see StrideExtDef below).
+          // Otherwise, the operands of the mul created later can have different
+          // types.
+          Descriptor.setStepType(CurrValue.Step->getDestType());
+          Descriptor.setStepMultiplier(Size);
+        }
       }
       IndTy = DL.getIntPtrType(IndTy);
     }
@@ -1697,6 +1754,7 @@ public:
     Descriptor.setSigned(CurrValue.isSigned());
     Descriptor.setLinkPhi(nullptr);
     Descriptor.setIsLinearIndex(false);
+    Descriptor.setIsComplex(CurrValue.isComplex());
   }
 
   /// Fill in the data from list of user defined reductions

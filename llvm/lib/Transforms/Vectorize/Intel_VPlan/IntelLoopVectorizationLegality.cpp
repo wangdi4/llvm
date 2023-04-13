@@ -37,11 +37,6 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-static cl::opt<bool, true> ForceComplexTyReductionVecOpt(
-    "vplan-force-complex-type-reduction-vectorization",
-    cl::location(ForceComplexTyReductionVec), cl::Hidden,
-    cl::desc("Force vectorization of reduction involving complex type."));
-
 static cl::opt<bool, true>
     ForceUDSReductionVecOpt("vplan-force-uds-reduction-vectorization",
                             cl::location(ForceUDSReductionVec), cl::Hidden,
@@ -51,9 +46,14 @@ static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
                     cl::desc("use simd versions of read/write pipe functions"));
 
+// Currently only for testing purposes, can be enabled when we start to support
+// vectorizing nested SIMD directives
+static cl::opt<bool>
+    EnableNestedRegions("vplan-enable-nested-simd", cl::init(false), cl::Hidden,
+                    cl::desc("Allow nesting of different SIMD regions"));
+
 namespace llvm {
 namespace vpo {
-bool ForceComplexTyReductionVec = false;
 bool ForceUDSReductionVec = true;
 } // namespace vpo
 } // namespace llvm
@@ -111,7 +111,7 @@ static bool isOrHasScalableTy(Type *InTy) {
 
     if (auto *CastTy = dyn_cast<PointerType>(Ty))
       if (!CastTy->isOpaque())
-        WL.insert(CastTy->getPointerElementType());
+        WL.insert(CastTy->getNonOpaquePointerElementType());
 
     if (auto *CastTy = dyn_cast<VectorType>(Ty))
       WL.insert(CastTy->getElementType());
@@ -318,7 +318,9 @@ bool VPOVectorizationLegality::isInMemoryReductionPattern(
   SmallVector<Value *, 4> Users;
   CallOrStore = nullptr;
   CallInst *Call = nullptr;
-  collectAllRelevantUsers(RedVarPtr, Users);
+  // Collect relevant users of the reduction variable or any of its memory
+  // aliases (casts).
+  collectAllRelevantUsers(RedVarPtr->stripPointerCasts(), Users);
   for (auto U : Users) {
     if (auto SI = dyn_cast<StoreInst>(U))
       if (!TheLoop->isLoopInvariant(SI)) {
@@ -468,7 +470,7 @@ bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
 
 void VPOVectorizationLegality::parseMinMaxReduction(
     Value *RedVarPtr, RecurKind Kind,
-    Optional<InscanReductionKind> InscanRedKind) {
+    std::optional<InscanReductionKind> InscanRedKind) {
 
   // Analyzing some possible scenarios:
   // (1)
@@ -539,13 +541,16 @@ void VPOVectorizationLegality::parseMinMaxReduction(
                             false /*Ordered*/, CastInsts, -1U);
     ExplicitReductions[LoopHeaderPhiNode] = {
         RD, RedVarPtr, std::nullopt /*InscanReductionKind*/};
-  } else if (isInMemoryReductionPattern(RedVarPtr, ReductionUse))
-    InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse};
+  } else if (isInMemoryReductionPattern(RedVarPtr, ReductionUse)) {
+    // Min/max opcodes are not expected for complex type reductions.
+    InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse,
+                                     false /*IsComplex*/};
+  }
 }
 
 void VPOVectorizationLegality::parseBinOpReduction(
     Value *RedVarPtr, RecurKind Kind,
-    Optional<InscanReductionKind> InscanRedKind) {
+    std::optional<InscanReductionKind> InscanRedKind, bool IsComplex) {
 
   // Analyzing 3 possible scenarios:
   // (1) -- Reduction Phi nodes, the new value is in reg
@@ -586,19 +591,13 @@ void VPOVectorizationLegality::parseBinOpReduction(
     Instruction *Combiner = cast<Instruction>(CombinerV);
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
-    if (InscanRedKind) {
-      UseMemory = isInMemoryReductionPattern(RedVarPtr, ReductionUse);
-      // TODO: make this assert to be a proper bailout in prod.
-      assert(UseMemory &&
-             "Fully registerized inscan reduction is not supported!");
-      (void)UseMemory;
-    }
     RecurrenceDescriptor RD(StartV, Combiner, nullptr /*IntermediateStore*/,
                             Kind, FMF, nullptr, ReductionPhi->getType(),
                             true /*Signed*/, false /*Ordered*/, CastInsts, -1U);
     ExplicitReductions[ReductionPhi] = {RD, RedVarPtr, InscanRedKind};
   } else if ((UseMemory = isInMemoryReductionPattern(RedVarPtr, ReductionUse)))
-    InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse};
+    InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse,
+                                     IsComplex};
 
   if (!UsePhi && !UseMemory)
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
@@ -606,7 +605,7 @@ void VPOVectorizationLegality::parseBinOpReduction(
 
 void VPOVectorizationLegality::addReduction(
     Value *RedVarPtr, RecurKind Kind,
-    Optional<InscanReductionKind> InscanRedKind) {
+    std::optional<InscanReductionKind> InscanRedKind, bool IsComplex) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
 
@@ -616,67 +615,83 @@ void VPOVectorizationLegality::addReduction(
     return;
   }
 
-  parseBinOpReduction(RedVarPtr, Kind, InscanRedKind);
+  parseBinOpReduction(RedVarPtr, Kind, InscanRedKind, IsComplex);
 }
 
 bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
   return ExplicitReductions.count(Phi);
 }
 
-bool VPOVectorizationLegality::bailout(BailoutReason Code) {
-  LLVM_DEBUG(dbgs() << getBailoutReasonStr(Code));
+bool VPOVectorizationLegality::bailout(OptReportVerbosity::Level Level,
+                                       unsigned ID, std::string Message,
+                                       std::string Debug = "") {
+  if (Debug == "")
+    LLVM_DEBUG(dbgs() << Message << '\n');
+  else
+    LLVM_DEBUG(dbgs() << Debug << '\n');
+  setBailoutData(Level, ID, Message);
   return false;
 }
 
 bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
                                             const WRNVecLoopNode *WRLp) {
-    IsSimdLoop = WRLp;
+  IsSimdLoop = WRLp;
 
   // Import explicit data from WRLoop.
   // Decision about loop vectorization is based on this data.
-  if (!EnterExplicitData(WRLp))
+  if (!EnterExplicitData(WRLp)) {
+    assert(BD.BailoutID && "EnterExplicitData didn't set bailout data!");
     return false;
+  }
 
   if (IsSimdLoop) {
     collectPreLoopDescrAliases();
     collectPostExitLoopDescrAliases();
   }
 
-  if (TheLoop->getNumBackEdges() != 1 || !TheLoop->getExitingBlock()) {
-    LLVM_DEBUG(dbgs() << "loop control flow is not understood by vectorizer");
-    return false;
-  }
+  if (TheLoop->getNumBackEdges() != 1 || !TheLoop->getExitingBlock())
+    return bailout(OptReportVerbosity::Medium,
+                   VPlanDriverImpl::ComplexFlowRemarkID,
+                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                   "Loop control flow is not understood by vectorizer");
+
   // We only handle bottom-tested loops, i.e. loop in which the condition is
   // checked at the end of each iteration. With that we can assume that all
   // instructions in the loop are executed the same number of times.
-  if (TheLoop->getExitingBlock() != TheLoop->getLoopLatch()) {
-    LLVM_DEBUG(dbgs() << "loop control flow is not understood by vectorizer");
-    return false;
-  }
+  if (TheLoop->getExitingBlock() != TheLoop->getLoopLatch())
+    return bailout(OptReportVerbosity::Medium,
+                   VPlanDriverImpl::ComplexFlowRemarkID,
+                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                   "Loop control flow is not understood by vectorizer");
+
   // ScalarEvolution needs to be able to find the exit count.
   const SCEV *ExitCount = PSE.getBackedgeTakenCount();
-  if (ExitCount == PSE.getSE()->getCouldNotCompute()) {
-    LLVM_DEBUG(dbgs() << "LV: SCEV could not compute the loop exit count.\n");
-    return false;
-  }
+  if (ExitCount == PSE.getSE()->getCouldNotCompute())
+    return bailout(OptReportVerbosity::High, VPlanDriverImpl::LoopIVRemarkID,
+                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                   "LV: SCEV could not compute the loop iteration count.");
 
   // Check if aliasing of privates is safe outside of the loop.
   CallInst *RegionEntry =
       WRLp ? cast<CallInst>(WRLp->getEntryDirective()) : nullptr;
 
-  if (!isAliasingSafe(DT, RegionEntry)) {
-    LLVM_DEBUG(dbgs() << "LV: Safety of aliasing of privates outside of the "
-                         "loop cannot be accertained. \n");
-    return false;
-  }
+  if (!isAliasingSafe(DT, RegionEntry))
+    return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                   "Aliasing of privates outside the loop can't be determined "
+                   "to be safe.");
 
   BasicBlock *Header = TheLoop->getHeader();
   // For each block in the loop.
   for (BasicBlock *BB : TheLoop->blocks()) {
     // Scan the instructions in the block and look for hazards.
     for (Instruction &I : *BB) {
+
       if (!isSupportedInstructionType(I))
-        return false;
+        return bailout(OptReportVerbosity::Medium,
+                       VPlanDriverImpl::BadTypeRemarkID,
+                       WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                       "Instruction contains unsupported data type");
+
       if (auto *Phi = dyn_cast<PHINode>(&I)) {
 
         // If this PHINode is not in the header block, then we know that we
@@ -703,16 +718,20 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
                   [&](PHINode *Phi) { return Inductions.count(Phi); }))
             continue;
 
-          LLVM_DEBUG(dbgs() << "LV: PHI value could not be identified as"
-                            << " an induction or reduction." << *Phi << "\n");
-          return false;
+          return bailout(OptReportVerbosity::Medium,
+                         VPlanDriverImpl::BadLiveOutRemarkID,
+                         WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                         "Loop contains a live-out value that could not be "
+                         "identified as an induction or reduction.");
         }
 
         // We only allow if-converted PHIs with exactly two incoming values.
-        if (Phi->getNumIncomingValues() != 2) {
-          LLVM_DEBUG(dbgs() << "LV: Found an invalid PHI.\n");
-          return false;
-        }
+        if (Phi->getNumIncomingValues() != 2)
+          return bailout(OptReportVerbosity::Medium,
+                         VPlanDriverImpl::ComplexFlowRemarkID,
+                         WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                         "Loop contains a recurrent computation without "
+                         "exactly two predecessors.");
 
         if (isExplicitReductionPhi(Phi))
           continue;
@@ -726,7 +745,18 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
 
         InductionDescriptor ID;
         if (InductionDescriptor::isInductionPHI(Phi, TheLoop, PSE, ID, false,
-                                                false /* OnlyConstPtrStep */)) {
+                                                false /* OnlyConstPtrStep */) &&
+            // The induction auto-recognizer can produce an induction in a
+            // form that our framework doesn't handle when a variable-step
+            // add recurrence is bypassed by a uniform compare from the
+            // header to the latch.  In such cases when the comparison is
+            // less or greater, scalar evolution correctly identifies the
+            // step recurrence as one of the SCEVMinMaxExpr types.  The
+            // current framework doesn't know what to do with this.  Since
+            // it only happens for variable-step inductions, the problem
+            // isn't observed in the community vectorizer.  It's best for
+            // us to bail out in such cases.  See CMPLRLLVM-44206.
+            !isa<SCEVMinMaxExpr>(ID.getStep())) {
           addInductionPhi(Phi, ID, AllowedExit);
           continue;
         }
@@ -735,7 +765,11 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
           continue;
 
         LLVM_DEBUG(dbgs() << "LV: Found an unidentified PHI." << *Phi << "\n");
-        return false;
+        return bailout(OptReportVerbosity::Medium,
+                       VPlanDriverImpl::BadRecurPhiRemarkID,
+                       WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                       "Loop contains a recurrent computation that could not "
+                       "be identified as an induction or reduction.");
       } // end of PHI handling
 
       // Bail out if we need to scalarize the read/write pipe OpenCL calls. We
@@ -756,28 +790,40 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
               DIR_VPO_GUARD_MEM_MOTION)
             continue;
 
+          if (EnableNestedRegions)
+            continue;
+
           // Most probably DIR.OMP.ORDERED, which we have to support in future.
           // But even any other directive is unexpected here, so be safe.
-          LLVM_DEBUG(dbgs()
-                     << (VPOAnalysisUtils::getDirectiveID(Call) ==
-                                 DIR_OMP_ORDERED
-                             ? "LV: Unimplemented omp simd ordered support."
-                             : "LV: Unsupported nested region directive.")
-                     << *Call << "\n");
-          return false;
+          bool OmpOrd =
+              VPOAnalysisUtils::getDirectiveID(Call) == DIR_OMP_ORDERED;
+          LLVM_DEBUG(dbgs() << "LV: For call " << *Call << ":\n");
+          if (OmpOrd)
+            return bailout(OptReportVerbosity::Medium,
+                           VPlanDriverImpl::BailoutRemarkID,
+                           "#pragma omp simd ordered is not yet supported.");
+          else
+            return bailout(OptReportVerbosity::Medium,
+                           VPlanDriverImpl::NestedSimdRemarkID,
+                           WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                           "Unsupported nested OpenMP (simd) loop or region.");
         }
 
         if ((isOpenCLReadChannel(F->getName()) ||
              isOpenCLWriteChannel(F->getName())) &&
-            !UseSimdChannels)
-          return false;
+            !UseSimdChannels) {
+          return bailout(OptReportVerbosity::High,
+                         VPlanDriverImpl::BailoutRemarkID,
+                         "OpenCL read/write channel is not enabled.");
+        }
       }
     }
   }
-  if (!Induction && Inductions.empty()) {
-    LLVM_DEBUG(dbgs() << "LV: Did not find one integer induction var.\n");
-    return false;
-  }
+  if (!Induction && Inductions.empty())
+    return bailout(OptReportVerbosity::High, VPlanDriverImpl::LoopIVRemarkID,
+                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                   "LV: Did not find one integer induction var.");
+
   return true;
 }
 

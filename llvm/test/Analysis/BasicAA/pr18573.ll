@@ -1,6 +1,6 @@
 ; RUN: opt %s -O2 -S | FileCheck %s
 ; INTEL
-; RUN: opt -convert-to-subscript -S %s | opt -O2 -S | FileCheck %s
+; RUN: opt -passes=convert-to-subscript -S %s | opt -O2 -S | FileCheck %s
 
 ; Check that llvm.x86.avx2.gather.d.ps.256 intrinsic is not eliminated as gather and store memory accesses are based on arr.ptr
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

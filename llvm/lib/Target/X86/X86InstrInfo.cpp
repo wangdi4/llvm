@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -60,6 +60,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetOptions.h"
+#include <optional>
 
 using namespace llvm;
 
@@ -143,6 +144,71 @@ bool X86InstrInfo::shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
   }
   return true;
 }
+
+#if INTEL_FEATURE_ISA_APX_F
+const TargetRegisterClass *
+X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
+                          const TargetRegisterInfo *TRI,
+                          const MachineFunction &MF) const {
+  auto *RC = TargetInstrInfo::getRegClass(MCID, OpNum, TRI, MF);
+  // If the target does not have egpr, then r16-r31 will be resereved for all
+  // instructions.
+  if (!RC || !Subtarget.hasEGPR())
+    return RC;
+
+  uint64_t TSFlags = MCID.TSFlags;
+  uint64_t Encoding = TSFlags & X86II::EncodingMask;
+  // EVEX can always use egpr.
+  if (Encoding == X86II::EVEX)
+    return RC;
+
+  // MAP 0/1 in legacy encoding space can always use egpr except XSAVE*/XRSTOR*.
+  unsigned Opcode = MCID.Opcode;
+  bool IsSpecial = false;
+  switch (Opcode) {
+  default:
+    // To be conservative, egpr is not used for all pseudo instructions because
+    // we are not sure what instruction it will become.
+    // FIXME: Could we improve it in X86ExpandPseudo?
+    IsSpecial = X86II::isPseudo(TSFlags);
+    break;
+  case X86::XSAVE:
+  case X86::XSAVE64:
+  case X86::XSAVEOPT:
+  case X86::XSAVEOPT64:
+  case X86::XSAVEC:
+  case X86::XSAVEC64:
+  case X86::XSAVES:
+  case X86::XSAVES64:
+  case X86::XRSTOR:
+  case X86::XRSTOR64:
+  case X86::XRSTORS:
+  case X86::XRSTORS64:
+    IsSpecial = true;
+    break;
+  }
+  uint64_t OpMap = TSFlags & X86II::OpMapMask;
+  if (!Encoding && (OpMap == X86II::OB || OpMap == X86II::TB) && !IsSpecial)
+    return RC;
+
+  switch (RC->getID()) {
+  default:
+    return RC;
+  case X86::GR8RegClassID:
+    return &X86::GR8_NOREX2RegClass;
+  case X86::GR16RegClassID:
+    return &X86::GR16_NOREX2RegClass;
+  case X86::GR32RegClassID:
+    return &X86::GR32_NOREX2RegClass;
+  case X86::GR64RegClassID:
+    return &X86::GR64_NOREX2RegClass;
+  case X86::GR32_NOSPRegClassID:
+    return &X86::GR32_NOREX2_NOSPRegClass;
+  case X86::GR64_NOSPRegClassID:
+    return &X86::GR64_NOREX2_NOSPRegClass;
+  }
+}
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 bool
@@ -1190,6 +1256,7 @@ bool X86InstrInfo::classifyLEAReg(MachineInstr &MI, const MachineOperand &Src,
     ImplicitOp.setImplicit();
 
     NewSrc = getX86SubSuperRegister(SrcReg, 64);
+    assert(NewSrc.isValid() && "Invalid Operand");
     assert(!Src.isUndef() && "Undef op doesn't need optimization");
   } else {
     // Virtual register of the wrong class, we have to create a temporary 64-bit
@@ -2187,8 +2254,8 @@ MachineInstr *X86InstrInfo::commuteInstructionImpl(MachineInstr &MI, bool NewMI,
     // We can commute insertps if we zero 2 of the elements, the insertion is
     // "inline" and we don't override the insertion with a zero.
     if (DstIdx == SrcIdx && (ZMask & (1 << DstIdx)) == 0 &&
-        countPopulation(ZMask) == 2) {
-      unsigned AltIdx = findFirstSet((ZMask | (1 << DstIdx)) ^ 15);
+        llvm::popcount(ZMask) == 2) {
+      unsigned AltIdx = llvm::countr_zero((ZMask | (1 << DstIdx)) ^ 15);
       assert(AltIdx < 4 && "Illegal insertion index");
       unsigned AltImm = (AltIdx << 6) | (AltIdx << 4) | ZMask;
       auto &WorkingMI = cloneIfNew(MI);
@@ -3554,6 +3621,11 @@ static unsigned CopyToFromAsymmetricReg(unsigned DestReg, unsigned SrcReg,
                                         const X86Subtarget &Subtarget) {
   bool HasAVX = Subtarget.hasAVX();
   bool HasAVX512 = Subtarget.hasAVX512();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  HasAVX512 = Subtarget.hasAVX3();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   // SrcReg(MaskReg) -> DestReg(GR64)
   // SrcReg(MaskReg) -> DestReg(GR32)
@@ -3755,11 +3827,23 @@ static unsigned getLoadStoreOpcodeForFP16(bool Load, const X86Subtarget &STI) {
 #endif // INTEL_CUSTOMIZATION
     return Load ? X86::VMOVSHZrm_alt : X86::VMOVSHZmr;
   if (Load)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    return STI.hasAVX3() ? X86::VMOVSSZrm
+#else  // INTEL_FEATURE_ISA_AVX256P
     return STI.hasAVX512() ? X86::VMOVSSZrm
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
            : STI.hasAVX()  ? X86::VMOVSSrm
                            : X86::MOVSSrm;
   else
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    return STI.hasAVX3() ? X86::VMOVSSZmr
+#else  // INTEL_FEATURE_ISA_AVX256P
     return STI.hasAVX512() ? X86::VMOVSSZmr
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
            : STI.hasAVX()  ? X86::VMOVSSmr
                            : X86::MOVSSmr;
 }
@@ -3772,6 +3856,7 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
   bool HasAVX512 = STI.hasAVX512();
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
+  bool HasAVX3 = STI.hasAVX3();
   bool HasVLX = STI.hasVLX() || STI.hasAVX256P();
 #else  // INTEL_FEATURE_ISA_AVX256P
   bool HasVLX = STI.hasVLX();
@@ -3799,16 +3884,35 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
       return Load ? X86::MOV32rm : X86::MOV32mr;
     if (X86::FR32XRegClass.hasSubClassEq(RC))
       return Load ?
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        (HasAVX3 ? X86::VMOVSSZrm_alt :
+#else  // INTEL_FEATURE_ISA_AVX256P
         (HasAVX512 ? X86::VMOVSSZrm_alt :
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
          HasAVX    ? X86::VMOVSSrm_alt :
                      X86::MOVSSrm_alt) :
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        (HasAVX3 ? X86::VMOVSSZmr :
+#else  // INTEL_FEATURE_ISA_AVX256P
         (HasAVX512 ? X86::VMOVSSZmr :
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
          HasAVX    ? X86::VMOVSSmr :
                      X86::MOVSSmr);
     if (X86::RFP32RegClass.hasSubClassEq(RC))
       return Load ? X86::LD_Fp32m : X86::ST_Fp32m;
     if (X86::VK32RegClass.hasSubClassEq(RC)) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      assert((STI.hasBWI() || STI.hasAVX256P()) &&
+             "KMOVD requires BWI or AVX256P");
+#else  // INTEL_FEATURE_ISA_AVX256P
       assert(STI.hasBWI() && "KMOVD requires BWI");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return Load ? X86::KMOVDkm : X86::KMOVDmk;
     }
     // All of these mask pair classes have the same spill size, the same kind
@@ -3836,10 +3940,22 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
       return Load ? X86::MOV64rm : X86::MOV64mr;
     if (X86::FR64XRegClass.hasSubClassEq(RC))
       return Load ?
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        (HasAVX3 ? X86::VMOVSDZrm_alt :
+#else  // INTEL_FEATURE_ISA_AVX256P
         (HasAVX512 ? X86::VMOVSDZrm_alt :
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
          HasAVX    ? X86::VMOVSDrm_alt :
                      X86::MOVSDrm_alt) :
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        (HasAVX3 ? X86::VMOVSDZmr :
+#else  // INTEL_FEATURE_ISA_AVX256P
         (HasAVX512 ? X86::VMOVSDZmr :
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
          HasAVX    ? X86::VMOVSDmr :
                      X86::MOVSDmr);
     if (X86::VR64RegClass.hasSubClassEq(RC))
@@ -3928,6 +4044,14 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
     assert(X86::TILERegClass.hasSubClassEq(RC) && "Unknown 1024-byte regclass");
     assert(STI.hasAMXTILE() && "Using 8*1024-bit register requires AMX-TILE");
     return Load ? X86::TILELOADD : X86::TILESTORED;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  case 2048:
+    assert(X86::TILEPAIRRegClass.hasSubClassEq(RC) && "Unknown 2048-byte regclass");
+    assert(STI.hasAMXTILE() && "Using 2048-bit register requires AMX-TILE");
+    return Load ? X86::PTILEPAIRLOAD : X86::PTILEPAIRSTORE;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -4090,6 +4214,12 @@ static bool isAMXOpcode(unsigned Opc) {
     return false;
   case X86::TILELOADD:
   case X86::TILESTORED:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  case X86::PTILEPAIRLOAD:
+  case X86::PTILEPAIRSTORE:
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
 }
@@ -4101,6 +4231,12 @@ void X86InstrInfo::loadStoreTileReg(MachineBasicBlock &MBB,
   switch (Opc) {
   default:
     llvm_unreachable("Unexpected special opcode!");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  case X86::PTILEPAIRSTORE:
+    // tilepairstore %tmm, (%sp, %idx)
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+#endif // INTEL_CUSTOMIZATION
   case X86::TILESTORED: {
     // tilestored %tmm, (%sp, %idx)
     MachineRegisterInfo &RegInfo = MBB.getParent()->getRegInfo();
@@ -4114,6 +4250,12 @@ void X86InstrInfo::loadStoreTileReg(MachineBasicBlock &MBB,
     MO.setIsKill(true);
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  case X86::PTILEPAIRLOAD:
+    // tilepairload (%sp, %idx), %tmm
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+#endif // INTEL_CUSTOMIZATION
   case X86::TILELOADD: {
     // tileloadd (%sp, %idx), %tmm
     MachineRegisterInfo &RegInfo = MBB.getParent()->getRegInfo();
@@ -4129,12 +4271,10 @@ void X86InstrInfo::loadStoreTileReg(MachineBasicBlock &MBB,
   }
 }
 
-void X86InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
-                                       MachineBasicBlock::iterator MI,
-                                       Register SrcReg, bool isKill,
-                                       int FrameIdx,
-                                       const TargetRegisterClass *RC,
-                                       const TargetRegisterInfo *TRI) const {
+void X86InstrInfo::storeRegToStackSlot(
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, Register SrcReg,
+    bool isKill, int FrameIdx, const TargetRegisterClass *RC,
+    const TargetRegisterInfo *TRI, Register VReg) const {
   const MachineFunction &MF = *MBB.getParent();
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   assert(MFI.getObjectSize(FrameIdx) >= TRI->getSpillSize(*RC) &&
@@ -4157,7 +4297,8 @@ void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                         MachineBasicBlock::iterator MI,
                                         Register DestReg, int FrameIdx,
                                         const TargetRegisterClass *RC,
-                                        const TargetRegisterInfo *TRI) const {
+                                        const TargetRegisterInfo *TRI,
+                                        Register VReg) const {
   const MachineFunction &MF = *MBB.getParent();
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   assert(MFI.getObjectSize(FrameIdx) >= TRI->getSpillSize(*RC) &&
@@ -5306,6 +5447,45 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
 
+  case X86::RDFLAGS32:
+  case X86::RDFLAGS64: {
+    unsigned Is64Bit = MI.getOpcode() == X86::RDFLAGS64;
+    MachineBasicBlock &MBB = *MIB->getParent();
+
+    MachineInstr *NewMI =
+        BuildMI(MBB, MI, MIB->getDebugLoc(),
+                get(Is64Bit ? X86::PUSHF64 : X86::PUSHF32))
+            .getInstr();
+
+    // Permit reads of the EFLAGS and DF registers without them being defined.
+    // This intrinsic exists to read external processor state in flags, such as
+    // the trap flag, interrupt flag, and direction flag, none of which are
+    // modeled by the backend.
+    assert(NewMI->getOperand(2).getReg() == X86::EFLAGS &&
+           "Unexpected register in operand! Should be EFLAGS.");
+    NewMI->getOperand(2).setIsUndef();
+    assert(NewMI->getOperand(3).getReg() == X86::DF &&
+           "Unexpected register in operand! Should be DF.");
+    NewMI->getOperand(3).setIsUndef();
+
+    MIB->setDesc(get(Is64Bit ? X86::POP64r : X86::POP32r));
+    return true;
+  }
+
+  case X86::WRFLAGS32:
+  case X86::WRFLAGS64: {
+    unsigned Is64Bit = MI.getOpcode() == X86::WRFLAGS64;
+    MachineBasicBlock &MBB = *MIB->getParent();
+
+    BuildMI(MBB, MI, MIB->getDebugLoc(),
+            get(Is64Bit ? X86::PUSH64r : X86::PUSH32r))
+        .addReg(MI.getOperand(0).getReg());
+    BuildMI(MBB, MI, MIB->getDebugLoc(),
+            get(Is64Bit ? X86::POPF64 : X86::POPF32));
+    MI.eraseFromParent();
+    return true;
+  }
+
   // KNL does not recognize dependency-breaking idioms for mask registers,
   // so kxnor %k1, %k1, %k2 has a RAW dependence on %k1.
   // Using %k0 as the undef input register is a performance heuristic based
@@ -6054,8 +6234,7 @@ unsigned
 X86InstrInfo::getUndefRegClearance(const MachineInstr &MI, unsigned OpNum,
                                    const TargetRegisterInfo *TRI) const {
   const MachineOperand &MO = MI.getOperand(OpNum);
-  if (Register::isPhysicalRegister(MO.getReg()) &&
-      hasUndefRegUpdate(MI.getOpcode(), OpNum))
+  if (MO.getReg().isPhysical() && hasUndefRegUpdate(MI.getOpcode(), OpNum))
     return UndefRegClearance;
 
   return 0;
@@ -6087,7 +6266,13 @@ void X86InstrInfo::breakPartialRegDependency(
     MI.addRegisterKilled(Reg, TRI, true);
   } else if (X86::VR128XRegClass.contains(Reg)) {
     // Only handle VLX targets.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (!Subtarget.hasVLX() && !Subtarget.hasAVX256P())
+#else // INTEL_FEATURE_ISA_AVX256P
     if (!Subtarget.hasVLX())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return;
     // Since vxorps requires AVX512DQ, vpxord should be the best choice.
     BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(X86::VPXORDZ128rr), Reg)
@@ -6097,7 +6282,13 @@ void X86InstrInfo::breakPartialRegDependency(
   } else if (X86::VR256XRegClass.contains(Reg) ||
              X86::VR512RegClass.contains(Reg)) {
     // Only handle VLX targets.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (!Subtarget.hasVLX() && !Subtarget.hasAVX256P())
+#else // INTEL_FEATURE_ISA_AVX256P
     if (!Subtarget.hasVLX())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       return;
     // Use vpxord to clear the full ymm/zmm register.
     // It wants to read and write the xmm sub-register.
@@ -7514,10 +7705,23 @@ extractStoreMMOs(ArrayRef<MachineMemOperand *> MMOs, MachineFunction &MF) {
 static unsigned getBroadcastOpcode(const X86MemoryFoldTableEntry *I,
                                    const TargetRegisterClass *RC,
                                    const X86Subtarget &STI) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  assert(STI.hasAVX3() && "Expected at least AVX3!");
+#else  // INTEL_FEATURE_ISA_AVX256P
   assert(STI.hasAVX512() && "Expected at least AVX512!");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   unsigned SpillSize = STI.getRegisterInfo()->getSpillSize(*RC);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  assert((SpillSize == 64 || STI.hasVLX() || STI.hasAVX256P()) &&
+         "Can't broadcast less than 64 bytes without AVX512VL or AVX256P!");
+#else  // INTEL_FEATURE_ISA_AVX256P
   assert((SpillSize == 64 || STI.hasVLX()) &&
          "Can't broadcast less than 64 bytes without AVX512VL!");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   switch (I->Flags & TB_BCAST_MASK) {
   default: llvm_unreachable("Unexpected broadcast type!");
@@ -8158,6 +8362,26 @@ bool X86InstrInfo::isSchedulingBoundary(const MachineInstr &MI,
 
   return TargetInstrInfo::isSchedulingBoundary(MI, MBB, MF);
 }
+
+#if INTEL_CUSTOMIZATION
+bool X86InstrInfo::isPrefetchInstr(const MachineInstr &MI) const {
+  unsigned Opcode = MI.getOpcode();
+  switch (Opcode) {
+  default:
+    return TargetInstrInfo::isPrefetchInstr(MI);
+  case X86::PREFETCH:
+  case X86::PREFETCHIT0:
+  case X86::PREFETCHIT1:
+  case X86::PREFETCHNTA:
+  case X86::PREFETCHT0:
+  case X86::PREFETCHT1:
+  case X86::PREFETCHT2:
+  case X86::PREFETCHW:
+  case X86::PREFETCHWT1:
+    return true;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool X86InstrInfo::
 reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
@@ -9074,7 +9298,13 @@ void X86InstrInfo::setExecutionDomain(MachineInstr &MI, unsigned Domain) const {
     table = lookup(MI.getOpcode(), dom, ReplaceableInstrsAVX2InsertExtract);
   }
   if (!table) { // try the AVX512 table
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    assert(Subtarget.hasAVX3() && "Requires AVX3");
+#else  // INTEL_FEATURE_ISA_AVX256P
     assert(Subtarget.hasAVX512() && "Requires AVX-512");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     table = lookupAVX512(MI.getOpcode(), dom, ReplaceableInstrsAVX512);
     // Don't change integer Q instructions to D instructions.
     if (table && Domain == 3 && table[3] == MI.getOpcode())
@@ -9851,8 +10081,8 @@ X86InstrInfo::describeLoadedValue(const MachineInstr &MI, Register Reg) const {
 
     const MachineOperand &Op1 = MI.getOperand(1);
     const MachineOperand &Op2 = MI.getOperand(3);
-    assert(Op2.isReg() && (Op2.getReg() == X86::NoRegister ||
-                           Register::isPhysicalRegister(Op2.getReg())));
+    assert(Op2.isReg() &&
+           (Op2.getReg() == X86::NoRegister || Op2.getReg().isPhysical()));
 
     // Omit situations like:
     // %rsi = lea %rsi, 4, ...
@@ -10050,7 +10280,7 @@ X86InstrInfo::getSerializableDirectMachineOperandTargetFlags() const {
       {MO_TLVP_PIC_BASE, "x86-tlvp-pic-base"},
       {MO_SECREL, "x86-secrel"},
       {MO_COFFSTUB, "x86-coffstub"}};
-  return makeArrayRef(TargetFlags);
+  return ArrayRef(TargetFlags);
 }
 
 namespace {
@@ -10312,7 +10542,8 @@ enum MachineOutlinerClass {
   MachineOutlinerTailCall
 };
 
-outliner::OutlinedFunction X86InstrInfo::getOutliningCandidateInfo(
+std::optional<outliner::OutlinedFunction>
+X86InstrInfo::getOutliningCandidateInfo(
     std::vector<outliner::Candidate> &RepeatedSequenceLocs) const {
   unsigned SequenceSize =
       std::accumulate(RepeatedSequenceLocs[0].front(),
@@ -10345,7 +10576,7 @@ outliner::OutlinedFunction X86InstrInfo::getOutliningCandidateInfo(
         C.getMF()->getFrameInstructions();
 
     if (CFICount > 0 && CFICount != CFIInstructions.size())
-      return outliner::OutlinedFunction();
+      return std::nullopt;
   }
 
   // FIXME: Use real size in bytes for call and ret instructions.
@@ -10360,7 +10591,7 @@ outliner::OutlinedFunction X86InstrInfo::getOutliningCandidateInfo(
   }
 
   if (CFICount > 0)
-    return outliner::OutlinedFunction();
+    return std::nullopt;
 
   for (outliner::Candidate &C : RepeatedSequenceLocs)
     C.setCallInfo(MachineOutlinerDefault, 1);
@@ -10392,31 +10623,14 @@ bool X86InstrInfo::isFunctionSafeToOutlineFrom(MachineFunction &MF,
 }
 
 outliner::InstrType
-X86InstrInfo::getOutliningType(MachineBasicBlock::iterator &MIT,  unsigned Flags) const {
+X86InstrInfo::getOutliningTypeImpl(MachineBasicBlock::iterator &MIT,  unsigned Flags) const {
   MachineInstr &MI = *MIT;
-  // Don't allow debug values to impact outlining type.
-  if (MI.isDebugInstr() || MI.isIndirectDebugValue())
-    return outliner::InstrType::Invisible;
 
-  // At this point, KILL instructions don't really tell us much so we can go
-  // ahead and skip over them.
-  if (MI.isKill())
-    return outliner::InstrType::Invisible;
-
-  // Is this a tail call? If yes, we can outline as a tail call.
-  if (isTailCall(MI))
+  // Is this a terminator for a basic block?
+  if (MI.isTerminator())
+    // TargetInstrInfo::getOutliningType has already filtered out anything
+    // that would break this, so we can allow it here.
     return outliner::InstrType::Legal;
-
-  // Is this the terminator of a basic block?
-  if (MI.isTerminator() || MI.isReturn()) {
-
-    // Does its parent have any successors in its MachineFunction?
-    if (MI.getParent()->succ_empty())
-      return outliner::InstrType::Legal;
-
-    // It does, so we can't tail call it.
-    return outliner::InstrType::Illegal;
-  }
 
   // Don't outline anything that modifies or reads from the stack pointer.
   //
@@ -10438,15 +10652,9 @@ X86InstrInfo::getOutliningType(MachineBasicBlock::iterator &MIT,  unsigned Flags
       MI.getDesc().hasImplicitDefOfPhysReg(X86::RIP))
     return outliner::InstrType::Illegal;
 
-  // Positions can't safely be outlined.
-  if (MI.isPosition())
+  // Don't outline CFI instructions.
+  if (MI.isCFIInstruction())
     return outliner::InstrType::Illegal;
-
-  // Make sure none of the operands of this instruction do anything tricky.
-  for (const MachineOperand &MOP : MI.operands())
-    if (MOP.isCPI() || MOP.isJTI() || MOP.isCFIIndex() || MOP.isFI() ||
-        MOP.isTargetIndex())
-      return outliner::InstrType::Illegal;
 
   return outliner::InstrType::Legal;
 }

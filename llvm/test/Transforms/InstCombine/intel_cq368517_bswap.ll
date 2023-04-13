@@ -1,6 +1,6 @@
 ; Test that the bswap recognition and conversion works correctly.
 ;
-; RUN: opt < %s -instcombine -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

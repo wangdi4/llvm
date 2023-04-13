@@ -38,10 +38,10 @@ using namespace Intel::OpenCL::Utils;
 #include "hw_utils.h"
 
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/Valgrind.h"
+#include "llvm/TargetParser/Host.h"
 
 using namespace llvm;
 using namespace llvm::sys;
@@ -63,7 +63,7 @@ unsigned long long Intel::OpenCL::Utils::TotalVirtualSize() {
     unsigned long long totalPhys =
         tSysInfoStruct.totalram * tSysInfoStruct.mem_unit;
 
-    vsize = min(totalPhys, totalVirtual);
+    vsize = std::min(totalPhys, totalVirtual);
   }
   return vsize;
 }
@@ -156,9 +156,11 @@ unsigned long long Intel::OpenCL::Utils::HostTime() {
 // CurrentProcessName
 /////////////////////////////////////////////////////////////////////////////////////////
 void Intel::OpenCL::Utils::GetProcessName(char *pProcName, size_t strLen) {
-  const int readChars = readlink("/proc/self/exe", pProcName, strLen);
+  const int readChars = readlink("/proc/self/exe", pProcName, strLen - 1);
   if (-1 == readChars) {
     pProcName[0] = 0;
+  } else {
+    pProcName[readChars] = 0;
   }
 }
 
@@ -226,22 +228,22 @@ int Intel::OpenCL::Utils::GetModulePathName(const void *modulePtr,
   if ((fileName == nullptr) || (strLen <= 0)) {
     return 0;
   }
-  ifstream ifs("/proc/self/maps", ifstream::in);
+  std::ifstream ifs("/proc/self/maps", std::ifstream::in);
   if (!ifs.good()) {
     fileName[0] = 0;
     return 0;
   }
-  string address, perms, offset, dev, inode, pathName;
+  std::string address, perms, offset, dev, inode, pathName;
 
   char buff[MAX_PATH + 1024];
   while (ifs.getline(buff, MAX_PATH + 1024)) {
-    istringstream strStream(buff);
+    std::istringstream strStream(buff);
     address = "\0";
     pathName = "\0";
     strStream >> address >> perms >> offset >> dev >> inode >> pathName;
     if ((address != "\0") && (pathName != "\0")) {
-      string::size_type pos = address.find("-");
-      if (pos != string::npos) {
+      auto pos = address.find("-");
+      if (pos != std::string::npos) {
         size_t from = 0;
         size_t to = 0;
         bool legalAddress = true;
@@ -516,7 +518,7 @@ std::map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
     if (!FD)
       assert(false && toString(FD.takeError()).c_str());
     if (Expected<size_t> BytesRead = fs::readNativeFile(
-            *FD, makeMutableArrayRef(&*Buf.begin(), Buf.size())))
+            *FD, MutableArrayRef(&*Buf.begin(), Buf.size())))
       Buf = Buf.substr(0, *BytesRead);
     else
       assert(false && toString(BytesRead.takeError()).c_str());

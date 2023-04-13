@@ -106,10 +106,19 @@ private:
   // Structure holding thresholds for complete unroll.
   UnrollThresholds Limits;
 
-  // Maps alloca stores (represented by base ptr blob index) from previous
-  // profitable loopnests to their parent loops. This is used to evaluate
-  // profitability for alloca loads in later loopnests.
-  DenseMap<unsigned, const HLLoop *> PrevLoopnestAllocaStores;
+  struct SimplifiableStoreInfo {
+    const RegDDRef *StoreRef;
+    const HLLoop *TopLevelParentLoop;
+  };
+
+  // Maps stores (mapped by base ptr blob index) from previous
+  // profitable loopnests. This is used to evaluate
+  // profitability for loads in later loopnests. We intentionally store
+  // base ptr blob indices instead of storing store symbases because
+  // symbases for same base ptr based refs can be different across regions so
+  // A[i1] in previous region can have a different symbase than A[i1] in the
+  // next region.
+  DenseMap<unsigned, SimplifiableStoreInfo> PrevLoopnestSimplifiableStores;
 
 private:
   /// Returns true if loop is eligible for complete unrolling.

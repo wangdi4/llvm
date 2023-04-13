@@ -189,6 +189,8 @@ def "DIR.PRAGMA.BLOCK_LOOP" : Directive;
 def "DIR.PRAGMA.END.BLOCK_LOOP" : Directive;
 def "DIR.PRAGMA.DISTRIBUTE_POINT" : Directive;
 def "DIR.PRAGMA.END.DISTRIBUTE_POINT" : Directive;
+def "DIR.PRAGMA.PREFETCH_LOOP" : Directive;
+def "DIR.PRAGMA.END.PREFETCH_LOOP" : Directive;
 #endif // INTEL_CUSTOMIZATION
 
 def "DIR.VPO.GUARD.MEM.MOTION" : Directive;
@@ -313,11 +315,14 @@ def "QUAL.OMP.MAP.ALWAYS.TOFROM" : Clause;
 def "QUAL.OMP.MAP.ALWAYS.ALLOC" : Clause;
 def "QUAL.OMP.MAP.ALWAYS.RELEASE" : Clause;
 def "QUAL.OMP.MAP.ALWAYS.DELETE" : Clause;
+def "QUAL.OMP.AFFARRAY" : Clause;
 def "QUAL.OMP.DEPEND.IN" : Clause;
 def "QUAL.OMP.DEPEND.OUT" : Clause;
 def "QUAL.OMP.DEPEND.INOUT" : Clause;
-def "QUAL.OMP.DEPEND.SOURCE" : Clause;
-def "QUAL.OMP.DEPEND.SINK" : Clause;
+def "QUAL.OMP.DEPEND.SOURCE" : Clause; // TODO: remove when FE stops emitting.
+def "QUAL.OMP.DEPEND.SINK" : Clause; // TODO: remove when FE stops emitting.
+def "QUAL.OMP.DOACROSS.SOURCE" : Clause;
+def "QUAL.OMP.DOACROSS.SINK" : Clause;
 def "QUAL.OMP.DEPARRAY" : Clause;
 def "QUAL.OMP.DETACH" : Clause;
 def "QUAL.OMP.ORDERED.THREADS" : Clause;

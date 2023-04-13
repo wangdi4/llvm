@@ -46,6 +46,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Transforms/Utils/SanitizerStats.h"
+#include <optional>
 
 using namespace clang;
 using namespace CodeGen;
@@ -155,7 +156,7 @@ Address CodeGenFunction::LoadCXXThisAddress() {
   }
 
   llvm::Type *Ty = ConvertType(MD->getThisType()->getPointeeType());
-  return Address(LoadCXXThis(), Ty, CXXThisAlignment);
+  return Address(LoadCXXThis(), Ty, CXXThisAlignment, KnownNonNull);
 }
 
 /// Emit the address of a field using a member data pointer.
@@ -408,7 +409,7 @@ Address CodeGenFunction::GetAddressOfBaseClass(
     llvm::PHINode *PHI = Builder.CreatePHI(BasePtrTy, 2, "cast.result");
     PHI->addIncoming(Value.getPointer(), notNullBB);
     PHI->addIncoming(llvm::Constant::getNullValue(BasePtrTy), origBB);
-    Value = Value.withPointer(PHI);
+    Value = Value.withPointer(PHI, NotKnownNonNull);
   }
 
   return Value;
@@ -1674,7 +1675,7 @@ namespace {
   class DeclAsInlineDebugLocation {
     CGDebugInfo *DI;
     llvm::MDNode *InlinedAt;
-    llvm::Optional<ApplyDebugLocation> Location;
+    std::optional<ApplyDebugLocation> Location;
 
   public:
     DeclAsInlineDebugLocation(CodeGenFunction &CGF, const NamedDecl &Decl)
@@ -1696,7 +1697,7 @@ namespace {
 
   static void EmitSanitizerDtorCallback(
       CodeGenFunction &CGF, StringRef Name, llvm::Value *Ptr,
-      llvm::Optional<CharUnits::QuantityType> PoisonSize = {}) {
+      std::optional<CharUnits::QuantityType> PoisonSize = {}) {
     CodeGenFunction::SanitizerScope SanScope(&CGF);
     // Pass in void pointer and size of region as arguments to runtime
     // function
@@ -1830,7 +1831,7 @@ namespace {
    ASTContext &Context;
    EHScopeStack &EHStack;
    const CXXDestructorDecl *DD;
-   llvm::Optional<unsigned> StartIndex;
+   std::optional<unsigned> StartIndex;
 
  public:
    SanitizeDtorCleanupBuilder(ASTContext &Context, EHScopeStack &EHStack,
@@ -1844,15 +1845,15 @@ namespace {
        if (!StartIndex)
          StartIndex = FieldIndex;
      } else if (StartIndex) {
-       EHStack.pushCleanup<SanitizeDtorFieldRange>(
-           NormalAndEHCleanup, DD, StartIndex.value(), FieldIndex);
+       EHStack.pushCleanup<SanitizeDtorFieldRange>(NormalAndEHCleanup, DD,
+                                                   *StartIndex, FieldIndex);
        StartIndex = std::nullopt;
      }
    }
    void End() {
      if (StartIndex)
        EHStack.pushCleanup<SanitizeDtorFieldRange>(NormalAndEHCleanup, DD,
-                                                   StartIndex.value(), -1);
+                                                   *StartIndex, -1);
    }
  };
 } // end anonymous namespace

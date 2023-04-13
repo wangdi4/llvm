@@ -124,6 +124,9 @@ private:
 // CPU detection class (singleton)
 class CPUDetect {
 public:
+  CPUDetect(const CPUDetect &) = delete;
+  CPUDetect &operator=(const CPUDetect &) = delete;
+
   static const std::vector<std::string> CPUArchStr;
   static CPUDetect *GetInstance();
   // This is to reset CPU according to ICompilerConfig when
@@ -262,8 +265,6 @@ public:
   CPUId GetCPUIdForKernelPropertiesSerialize() const;
 
 private:
-  CPUDetect &operator=(const CPUDetect &);
-  CPUDetect(const CPUDetect &);
   CPUDetect();
   ~CPUDetect(){};
   void GetHostCPUBrandInfo();

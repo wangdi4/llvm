@@ -1,6 +1,6 @@
 //===-------DTransFieldModRef.h - DTrans Field ModRef Analysis-------------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -162,37 +162,6 @@ public:
                    WholeProgramInfo &WPInfo, FieldModRefResult &Result);
 };
 
-// Old pass manager style pass that does the analysis, and saves the results
-// into a FieldModRefResult object.
-class DTransFieldModRefAnalysisWrapper : public ModulePass {
-private:
-  DTransModRefAnalyzer Impl;
-
-public:
-  static char ID;
-
-  DTransFieldModRefAnalysisWrapper();
-
-  bool runOnModule(Module &M) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-};
-
-// Legacy pass manager style pass that does the field mod/ref analysis with
-// support for IR containing opaque pointer types, and saves the results into a
-// FieldModRefResult object.
-class DTransFieldModRefOPAnalysisWrapper : public ModulePass {
-private:
-  DTransModRefAnalyzer Impl;
-
-public:
-  static char ID;
-
-  DTransFieldModRefOPAnalysisWrapper();
-
-  bool runOnModule(Module &M) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-};
-
 // New pass manager style pass.
 class DTransFieldModRefAnalysis
     : public AnalysisInfoMixin<DTransFieldModRefAnalysis> {
@@ -219,22 +188,6 @@ public:
   Result run(Module &M, ModuleAnalysisManager &AM);
 };
 
-// This class is for communicating results to LoopOpt by having an ImmutablePass
-// that LoopOpt can make calls to. This may be removed in the future with use
-// of an alias analysis pass, but that will require modifying all the existing
-// passes to mark them as preserving the information.
-class DTransFieldModRefResultWrapper : public ImmutablePass {
-  FieldModRefResult Result;
-
-public:
-  static char ID;
-
-  DTransFieldModRefResultWrapper();
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  FieldModRefResult &getResult() { return Result; }
-};
-
 class DTransFieldModRefResult
     : public AnalysisInfoMixin<DTransFieldModRefResult> {
   friend AnalysisInfoMixin<DTransFieldModRefResult>;
@@ -244,10 +197,6 @@ public:
   typedef FieldModRefResult Result;
   Result run(Module &M, ModuleAnalysisManager &AM);
 };
-
-ModulePass *createDTransFieldModRefAnalysisWrapperPass();
-ModulePass *createDTransFieldModRefOPAnalysisWrapperPass();
-ImmutablePass *createDTransFieldModRefResultWrapperPass();
 
 } // end namespace llvm
 

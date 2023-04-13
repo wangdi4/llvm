@@ -1,7 +1,7 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=ALL
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=ALL
 
 ; Test src:
 ;
@@ -14,10 +14,10 @@
 ;   for (i = 1; i < 5; i++) {
 ;     for (j = 2; j < 4; j++) {
 ;
-; #pragma omp ordered depend(sink : i - 1, j - 1) depend(sink : i, j - 2)
+; #pragma omp ordered doacross(sink : i - 1, j - 1) doacross(sink : i, j - 2)
 ;       (*v_ptr)[i][j] = (*v_ptr)[i - 1][j - 1] + (*v_ptr)[i][j - 2];
 ;
-; #pragma omp ordered depend(source)
+; #pragma omp ordered doacross(source)
 ;     }
 ;   }
 ; }
@@ -25,8 +25,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @foo(ptr noundef %v_ptr) #0 {
+define dso_local void @foo(ptr noundef %v_ptr) {
 entry:
   %v_ptr.addr = alloca ptr, align 8
   %i = alloca i32, align 4
@@ -93,8 +92,8 @@ for.body:                                         ; preds = %for.cond
   %sub9 = sub nsw i32 %sub8, 2
   %div10 = sdiv i32 %sub9, 1
   %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(),
-    "QUAL.OMP.DEPEND.SINK"(i32 %div, i32 %div5),
-    "QUAL.OMP.DEPEND.SINK"(i32 %div7, i32 %div10) ]
+    "QUAL.OMP.DOACROSS.SINK"(i32 %div, i32 %div5),
+    "QUAL.OMP.DOACROSS.SINK"(i32 %div7, i32 %div10) ]
 ; ALL-DAG: call void @__kmpc_doacross_wait({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, ptr %{{[a-zA-Z._0-9]+}})
 ; ALL-DAG: call void @__kmpc_doacross_wait({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, ptr %{{[a-zA-Z._0-9]+}})
   call void @llvm.directive.region.exit(token %10) [ "DIR.OMP.END.ORDERED"() ]
@@ -133,7 +132,7 @@ for.body:                                         ; preds = %for.cond
   %sub27 = sub nsw i32 %23, 2
   %div28 = sdiv i32 %sub27, 1
   %24 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(),
-    "QUAL.OMP.DEPEND.SOURCE"(i32 %div26, i32 %div28) ]
+    "QUAL.OMP.DOACROSS.SOURCE"(i32 %div26, i32 %div28) ]
 ; ALL-DAG: call void @__kmpc_doacross_post({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, ptr %{{[a-zA-Z._0-9]+}})
   call void @llvm.directive.region.exit(token %24) [ "DIR.OMP.END.ORDERED"() ]
   br label %for.inc
@@ -166,20 +165,9 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
+declare void @llvm.directive.region.exit(token)
 
-attributes #0 = { noinline nounwind optnone uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { nounwind }
-
-!llvm.module.flags = !{!0, !1, !2, !3}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{i32 7, !"openmp", i32 51}
-!2 = !{i32 7, !"uwtable", i32 2}
-!3 = !{i32 7, !"frame-pointer", i32 2}
 !5 = distinct !{!5, !6}
 !6 = !{!"llvm.loop.mustprogress"}

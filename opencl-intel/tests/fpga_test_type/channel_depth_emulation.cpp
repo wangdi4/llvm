@@ -224,6 +224,7 @@ protected:
     }
   }
 
+#if INTEL_CUSTOMIZATION
   void doVPOTest(std::vector<cl_int> &input, int depth) {
     const std::string program_sources = "                                    \n\
         #pragma OPENCL EXTENSION cl_intel_channels: enable                   \n\
@@ -279,6 +280,7 @@ protected:
           << " verification failed for " << i << "-th element of array";
     }
   }
+#endif // INTEL_CUSTOMIZATION
 };
 
 class TestChannelDepthEmulationWithEmptyEnv : public TestChannelDepthEmulation {
@@ -286,7 +288,9 @@ class TestChannelDepthEmulationWithEmptyEnv : public TestChannelDepthEmulation {
 
 enum ChannelDepthMode { STRICT_MODE, DEFAULT_MODE, IGNOREDEPTH_MODE };
 
-template <ChannelDepthMode mode, bool vpo>
+template <ChannelDepthMode mode
+, bool vpo // INTEL
+>
 class TestChannelDepthEmulationEnvHelper : public TestChannelDepthEmulation {
 protected:
   typedef TestChannelDepthEmulation parent_t;
@@ -313,18 +317,25 @@ protected:
 };
 
 class TestChannelDepthEmulationWithStrictEnv
-    : public TestChannelDepthEmulationEnvHelper<STRICT_MODE, false> {};
+    : public TestChannelDepthEmulationEnvHelper<STRICT_MODE
+      , false // INTEL
+      > {};
 class TestChannelDepthEmulationWithDefaultEnv
-    : public TestChannelDepthEmulationEnvHelper<DEFAULT_MODE, false> {};
+    : public TestChannelDepthEmulationEnvHelper<DEFAULT_MODE
+      , false // INTEL
+      > {};
 class TestChannelDepthEmulationWithIgnoreDepthEnv
-    : public TestChannelDepthEmulationEnvHelper<IGNOREDEPTH_MODE, false> {};
+    : public TestChannelDepthEmulationEnvHelper<IGNOREDEPTH_MODE
+      , false // INTEL
+      > {};
+#if INTEL_CUSTOMIZATION
 class TestChannelDepthEmulationVPOWithStrictEnv
     : public TestChannelDepthEmulationEnvHelper<STRICT_MODE, true> {};
 class TestChannelDepthEmulationVPOWithDefaultEnv
     : public TestChannelDepthEmulationEnvHelper<DEFAULT_MODE, true> {};
 class TestChannelDepthEmulationVPOWithIgnoreDepthEnv
     : public TestChannelDepthEmulationEnvHelper<IGNOREDEPTH_MODE, true> {};
-
+#endif // INTEL_CUSTOMIZATION
 TEST_F(TestChannelDepthEmulationWithEmptyEnv, ChannelsWithDepth) {
   std::vector<cl_int> data(129);
   std::iota(data.begin(), data.end(), 0);
@@ -421,6 +432,7 @@ TEST_F(TestChannelDepthEmulationWithIgnoreDepthEnv, PipesWithoutDepth) {
   ASSERT_NO_FATAL_FAILURE(doPipesTest(1, data, 129, 0));
 }
 
+#if INTEL_CUSTOMIZATION
 TEST_F(TestChannelDepthEmulationVPOWithStrictEnv, ChannelsWithDepth) {
   std::vector<cl_int> data(128);
   std::iota(data.begin(), data.end(), 0);
@@ -456,6 +468,7 @@ TEST_F(TestChannelDepthEmulationVPOWithIgnoreDepthEnv, ChannelsWithoutDepth) {
   std::iota(data.begin(), data.end(), 0);
   ASSERT_NO_FATAL_FAILURE(doVPOTest(data, 0));
 }
+#endif // INTEL_CUSTOMIZATION
 
 TEST_F(TestChannelDepthEmulationWithDefaultEnv, CheckDiagnosticMessage) {
   const char *program_sources = "                                            \n\

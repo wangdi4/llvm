@@ -18,7 +18,7 @@ define float @test_v2f32(<2 x float> %a0) {
 define float @test_v4f32(<4 x float> %a0) {
 ; CHECK-LABEL: test_v4f32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpermilps {{.*#+}} xmm1 = xmm0[3,3,3,3]
+; CHECK-NEXT:    vshufps {{.*#+}} xmm1 = xmm0[3,3,3,3]
 ; CHECK-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm0[1,0]
 ; CHECK-NEXT:    vmovshdup {{.*#+}} xmm3 = xmm0[1,1,3,3]
 ; CHECK-NEXT:    vminss %xmm0, %xmm3, %xmm4
@@ -39,10 +39,10 @@ define float @test_v8f32(<8 x float> %a0) {
 ; CHECK-LABEL: test_v8f32:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vextractf128 $1, %ymm0, %xmm1
-; CHECK-NEXT:    vpermilps {{.*#+}} xmm2 = xmm1[3,3,3,3]
+; CHECK-NEXT:    vshufps {{.*#+}} xmm2 = xmm1[3,3,3,3]
 ; CHECK-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm1[1,0]
 ; CHECK-NEXT:    vmovshdup {{.*#+}} xmm4 = xmm1[1,1,3,3]
-; CHECK-NEXT:    vpermilps {{.*#+}} xmm5 = xmm0[3,3,3,3]
+; CHECK-NEXT:    vshufps {{.*#+}} xmm5 = xmm0[3,3,3,3]
 ; CHECK-NEXT:    vpermilpd {{.*#+}} xmm6 = xmm0[1,0]
 ; CHECK-NEXT:    vmovshdup {{.*#+}} xmm7 = xmm0[1,1,3,3]
 ; CHECK-NEXT:    vminss %xmm0, %xmm7, %xmm8

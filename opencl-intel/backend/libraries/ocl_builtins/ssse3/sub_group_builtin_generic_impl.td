@@ -46,26 +46,6 @@ return 0;
 
 OclBuiltinImpl sub_group_any_generic = OclBuiltinImpl<sub_group_any_vec, sub_group_any_vec.Types, 0, generic_any>;
 
-// Broadcast
-OclBuiltinImpl sub_group_broadcast_generic = OclBuiltinImpl<sub_group_broadcast_vec, sub_group_broadcast_vec.Types,  0,
-  [{
-    return $Arg0VarName[$Arg1VarName];
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_cs_generic = OclBuiltinImpl<sub_group_broadcast_vec_cs, sub_group_broadcast_vec_cs.Types,  0,
-  [{
-    return $Arg0VarName[$Arg1VarName];
-  }]>;
-
-// Broadcast assume uniform wrapper
-OclBuiltinImpl sub_group_broadcast_assume_uniform_vec_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_vec, sub_group_broadcast_assume_uniform_vec.Types, 0, AssumeUniform3_2>;
-OclBuiltinImpl sub_group_broadcast_assume_uniform_vec_cs_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_vec_cs, sub_group_broadcast_assume_uniform_vec_cs.Types, 0, AssumeUniform3_2>;
-OclBuiltinImpl sub_group_broadcast_assume_uniform_extended_avx_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_extended_avx, sub_group_broadcast_assume_uniform_extended_avx.Types, 0, AssumeUniform3_2>;
-OclBuiltinImpl sub_group_broadcast_assume_uniform_extended_avx2_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_extended_avx2, sub_group_broadcast_assume_uniform_extended_avx2.Types, 0, AssumeUniform3_2>;
-OclBuiltinImpl sub_group_broadcast_assume_uniform_extended_avx512_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_extended_avx512, sub_group_broadcast_assume_uniform_extended_avx512.Types, 0, AssumeUniform3_2>;
-OclBuiltinImpl sub_group_broadcast_assume_uniform_extended_x32_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_extended_x32, sub_group_broadcast_assume_uniform_extended_x32.Types, 0, AssumeUniform3_2>;
-OclBuiltinImpl sub_group_broadcast_assume_uniform_extended_x64_generic = OclBuiltinImpl<sub_group_broadcast_assume_uniform_extended_x64, sub_group_broadcast_assume_uniform_extended_x64.Types, 0, AssumeUniform3_2>;
-
 // Reduce add
 code generic_reduce_add = [{
 $Arg0BaseType init = 0;

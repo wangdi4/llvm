@@ -216,8 +216,6 @@ void HLNode::printPredicate(raw_ostream &OS, PredicateTy Pred) {
     OS << " ORDERED ";
   } else if (Pred == PredicateTy::FCMP_UNO) {
     OS << " UNORDERED ";
-  } else if (Pred == UNDEFINED_PREDICATE) {
-    OS << " #UNDEF# ";
   } else {
     llvm_unreachable("Unexpected predicate!");
   }

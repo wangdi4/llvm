@@ -17,7 +17,7 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataStatsAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/MetadataStatsAPI.h"
 
 #include <algorithm>
 #include <fstream>
@@ -26,14 +26,14 @@
 #include "Stats.h"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace SYCLKernelMetadataAPI;
 
 extern "C" LLVMContextRef LLVMGetGlobalContext(void);
 
 enum DumpLevel { S = 1, W = 2, M = 3, F = 4 };
 
 namespace Intel {
-bool getIRFileNames(const char *dirname, vector<string> &fname);
+bool getIRFileNames(const char *dirname, std::vector<std::string> &fname);
 }
 
 static cl::opt<DumpLevel> dumpLevel(
@@ -45,24 +45,24 @@ static cl::opt<DumpLevel> dumpLevel(
         clEnumVal(F, "Dump counter summary per workload, module & function")),
     cl::init(W));
 
-static cl::opt<string> outFileName("o", cl::desc("Output file name"),
-                                   cl::value_desc("filename"),
-                                   cl::init("Experiment.csv"));
+static cl::opt<std::string> outFileName("o", cl::desc("Output file name"),
+                                        cl::value_desc("filename"),
+                                        cl::init("Experiment.csv"));
 
 static cl::list<std::string> inDirs(cl::Positional, cl::OneOrMore,
                                     cl::desc("<directory-names>"));
 
-bool getFlist(vector<string> &flist) {
+bool getFlist(std::vector<std::string> &flist) {
   bool result = true;
   for (unsigned i = 0; i != inDirs.size(); i++) {
     result = result && Intel::getIRFileNames(inDirs[i].c_str(), flist);
   }
-  cout << "Found " << flist.size() << " files in " << inDirs.size()
-       << " directories.\n";
+  std::cout << "Found " << flist.size() << " files in " << inDirs.size()
+            << " directories.\n";
   return result;
 }
 
-bool readStatFiles(vector<string> &flist, ExperimentInfo &expr) {
+bool readStatFiles(std::vector<std::string> &flist, ExperimentInfo &expr) {
   LLVMContext Ctx;
   // for each file
   for (unsigned i = 0; i < flist.size(); i++) {
@@ -75,12 +75,12 @@ bool readStatFiles(vector<string> &flist, ExperimentInfo &expr) {
     // check module stat info metadata presence
     auto msimd = ModuleStatMetadataAPI(M);
     if (!msimd.StatType.hasValue()) {
-      cout << "IR file " << flist[i] << " contains no stats\n";
+      std::cout << "IR file " << flist[i] << " contains no stats\n";
       continue;
     }
 
     assert(msimd.WorkloadName.hasValue() && "No Workload Name Stat Metadata!");
-    string workloadName(msimd.WorkloadName.get());
+    std::string workloadName(msimd.WorkloadName.get());
 
     // compose unique workload id
     WorkloadInfo &WI = expr.getWorkloadInfo(
@@ -115,31 +115,31 @@ bool readStatFiles(vector<string> &flist, ExperimentInfo &expr) {
   return true;
 }
 
-bool openStatFile(ofstream &ofs) {
+bool openStatFile(std::ofstream &ofs) {
 
-  ofs.open(outFileName.c_str(), ofstream::out);
+  ofs.open(outFileName.c_str(), std::ofstream::out);
   if (!ofs.is_open()) {
-    cout << "Can't open output file " << outFileName << ".\n";
+    std::cout << "Can't open output file " << outFileName << ".\n";
     return false;
   }
 
   return true;
 }
 
-void transposeDump(stringstream &dump, string &lineStr) {
-  vector<stringstream *> trans;
+void transposeDump(std::stringstream &dump, std::string &lineStr) {
+  std::vector<std::stringstream *> trans;
 
   getline(dump, lineStr);
   for (unsigned i = 0; i < lineStr.size(); i++) {
     if (lineStr[i] == ',') {
-      trans.push_back(new stringstream());
+      trans.push_back(new std::stringstream());
     }
   }
-  trans.push_back(new stringstream());
+  trans.push_back(new std::stringstream());
 
   while (lineStr.size() > 0) {
     unsigned i = 0;
-    string val;
+    std::string val;
     unsigned row = 0;
     while (i < lineStr.size()) {
       while (i < lineStr.size() && lineStr[i] != ',') {
@@ -155,7 +155,7 @@ void transposeDump(stringstream &dump, string &lineStr) {
   }
   lineStr = "";
   for (unsigned i = 0; i < trans.size(); i++) {
-    string tmp = trans[i]->str();
+    std::string tmp = trans[i]->str();
     tmp[tmp.size() - 1] = '\n';
     lineStr += tmp;
   }
@@ -163,12 +163,12 @@ void transposeDump(stringstream &dump, string &lineStr) {
 
 bool dumpStats(ExperimentInfo &exp) {
 
-  ofstream file;
+  std::ofstream file;
   if (!openStatFile(file))
     return false;
 
-  stringstream str;
-  string result;
+  std::stringstream str;
+  std::string result;
 
   exp.dumpStats(str, dumpLevel);
 
@@ -202,7 +202,7 @@ void parseCL(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
   parseCL(argc, argv);
-  vector<string> flist;
+  std::vector<std::string> flist;
 
   ExperimentInfo *experiment = new ExperimentInfo();
 

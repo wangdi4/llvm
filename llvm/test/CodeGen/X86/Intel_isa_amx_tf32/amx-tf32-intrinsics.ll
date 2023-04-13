@@ -6,7 +6,7 @@
 define void @test_tmmultf32ps() {
 ; CHECK-LABEL: test_tmmultf32ps:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    tmmultf32ps %tmm3, %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x69,0x6d,0xcb]
+; CHECK-NEXT:    tmmultf32ps %tmm3, %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x61,0x48,0xca]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.tmmultf32ps(i8 1, i8 2, i8 3)
   ret  void
@@ -16,7 +16,7 @@ declare void @llvm.x86.tmmultf32ps(i8 %A, i8 %B, i8 %C)
 define void @test_ttmmultf32ps() {
 ; CHECK-LABEL: test_ttmmultf32ps:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    ttmmultf32ps %tmm3, %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x6a,0x6d,0xcb]
+; CHECK-NEXT:    ttmmultf32ps %tmm3, %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x60,0x48,0xca]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   call void @llvm.x86.ttmmultf32ps(i8 1, i8 2, i8 3)
   ret  void

@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Copyright (C) 2021-2022 Intel Corporation
+// Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -33,7 +33,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPAssumptionCache.h"
@@ -47,9 +46,6 @@
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
-#else
-#include "VPlan.h"
-#endif // INTEL_CUSTOMIZATION
 
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/BasicBlock.h"
@@ -58,17 +54,12 @@
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
-#if INTEL_CUSTOMIZATION
 #define DEBUG_TYPE "intel-vplan"
-#else
-#define DEBUG_TYPE "vplan"
-#endif
 
 using namespace llvm;
 using namespace llvm::vpo;
 
 std::atomic<unsigned> VPlanUtils::NextOrdinal{1};
-#if INTEL_CUSTOMIZATION
 // Replace dot print output with plain print.
 static cl::opt<bool>
     DumpPlainVPlanIR("vplan-plain-dump", cl::init(false), cl::Hidden,
@@ -130,7 +121,6 @@ raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   return OS;
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif
 
 // When a VPBasicBlock is added in VPlan, the parent pointer needs to be
 // updated.
@@ -188,7 +178,6 @@ void VPInstruction::generateInstruction(VPTransformState &State,
   State.ILV->processInstruction(this);
 }
 
-#if INTEL_CUSTOMIZATION
 void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   // TODO: For the reuse/invalidation of the underlying HIR to be working
   // properly, we need to do an independent traversal of all the VPInstructions
@@ -201,7 +190,6 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   // Propagate debug location for the generated HIR construct.
   CG->propagateDebugLocation(this);
 }
-#endif // INTEL_CUSTOMIZATION
 
 void VPInstruction::execute(VPTransformState &State) {
   assert(!State.Instance && "VPInstruction executing an Instance");
@@ -253,7 +241,6 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
   switch (Opcode) {
   case VPInstruction::Not:
     return "not";
-#if INTEL_CUSTOMIZATION
   case VPInstruction::Abs:
     return "abs";
   case VPInstruction::AllZeroCheck:
@@ -292,8 +279,12 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "reduction-final-inscan";
   case VPInstruction::ReductionFinalArr:
     return "reduction-final-arr";
+  case VPInstruction::ReductionFinalCmplx:
+    return "reduction-final-cmplx";
   case VPInstruction::AllocatePrivate:
     return "allocate-priv";
+  case VPInstruction::AllocateDVBuffer:
+    return "allocate-dv-buffer";
   case VPInstruction::Subscript:
     return "subscript";
   case VPInstruction::Blend:
@@ -410,7 +401,6 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "transform-lib-call";
   case VPInstruction::SOAExtractValue:
     return "soa-extract-value";
-#endif
   default:
     return Instruction::getOpcodeName(Opcode);
   }
@@ -556,6 +546,8 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     break;
   case VPInstruction::ReductionInit: {
     O << getOpcodeName(getOpcode());
+    if (cast<const VPReductionInit>(this)->isComplex())
+      O << "-cmplx";
     if (cast<const VPReductionInit>(this)->isScalar())
       O << "-scalar";
     break;
@@ -624,23 +616,8 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     O << getOpcodeName(getOpcode());
   }
 
-  if (auto *ScalarLp = dyn_cast<VPScalarPeel>(this)) {
+  if (auto *ScalarLp = dyn_cast<VPScalarLoopBase>(this)) {
     ScalarLp->printImpl(O);
-    return;
-  }
-
-  if (auto *ScalarLp = dyn_cast<VPScalarRemainder>(this)) {
-    ScalarLp->printImpl(O);
-    return;
-  }
-
-  if (auto *ScalarLpHIR = dyn_cast<VPScalarPeelHIR>(this)) {
-    ScalarLpHIR->printImpl(O);
-    return;
-  }
-
-  if (auto *ScalarLpHIR = dyn_cast<VPScalarRemainderHIR>(this)) {
-    ScalarLpHIR->printImpl(O);
     return;
   }
 
@@ -742,15 +719,18 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
              isa<VPCallInstruction>(this)) {
     // Nothing to print, operands are already printed for these instructions.
   } else {
-    if (getOpcode() == VPInstruction::AllocatePrivate) {
+    if (getOpcode() == VPInstruction::AllocateDVBuffer ||
+        getOpcode() == VPInstruction::AllocatePrivate) {
       O << " ";
       getType()->print(O);
-      O << ", OrigAlign = "
-        << cast<VPAllocatePrivate>(this)->getOrigAlignment().value();
     }
     for (const VPValue *Operand : operands()) {
       O << " ";
       Operand->printAsOperand(O);
+    }
+    if (auto *AllocMem = dyn_cast<VPAllocateMemBase>(this)) {
+      O << ", OrigAlign = ";
+      O << AllocMem->getOrigAlignment().value();
     }
     switch (getOpcode()) {
     case Instruction::ZExt:
@@ -789,26 +769,26 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     }
     case VPInstruction::VLSLoad: {
       auto *VLSLoad = cast<VPVLSLoad>(this);
-      O << ", group_size=" << VLSLoad->getGroupSize()
-        << ", align=" << VLSLoad->getAlignment().value();
+      VLSLoad->printGroupSizeStride(O);
+      O << ", align=" << VLSLoad->getAlignment().value();
       break;
     }
     case VPInstruction::VLSStore: {
       auto *VLSStore = cast<VPVLSStore>(this);
-      O << ", group_size=" << VLSStore->getGroupSize()
-        << ", align=" << VLSStore->getAlignment().value();
+      VLSStore->printGroupSizeStride(O);
+      O << ", align=" << VLSStore->getAlignment().value();
       break;
     }
     case VPInstruction::VLSExtract: {
       auto *Extract = cast<VPVLSExtract>(this);
-      O << ", group_size=" << Extract->getGroupSize()
-        << ", offset=" << Extract->getOffset();
+      Extract->printGroupSizeStride(O);
+      O << ", offset=" << Extract->getOffset();
       break;
     }
     case VPInstruction::VLSInsert: {
       auto *Insert = cast<VPVLSInsert>(this);
-      O << ", group_size=" << Insert->getGroupSize()
-        << ", offset=" << Insert->getOffset();
+      Insert->printGroupSizeStride(O);
+      O << ", offset=" << Insert->getOffset();
       break;
     }
     case VPInstruction::GeneralMemOptConflict: {
@@ -836,7 +816,6 @@ unsigned VPInstruction::getNumSuccessors() const {
   return cast<VPBranchInst>(this)->getNumSuccessors();
 }
 
-#if INTEL_CUSTOMIZATION
 VPlanVector::VPlanVector(VPlanKind K, VPExternalValues &E,
                          VPUnlinkedInstructions &UVPI)
     : VPlan(K, E, UVPI) {}
@@ -868,7 +847,13 @@ void VPlanVector::computePDT(void) {
   PlanPDT->recalculate(*this);
 }
 
-#endif // INTEL_CUSTOMIZATION
+void VPlanVector::runNCIA() {
+  if (getVPlanNCIA())
+    return;
+  auto NCIA = std::make_unique<VPlanNoCostInstAnalysis>();
+  NCIA->analyze(*this);
+  setVPlanNCIA(std::move(NCIA));
+}
 
 void VPlanVector::runSVA(unsigned VF) {
   if (!EnableScalVecAnalysis)
@@ -949,7 +934,6 @@ void VPlanVector::execute(VPTransformState *State) {
   }
 }
 
-#if INTEL_CUSTOMIZATION
 void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(&getEntryBlock());
 
@@ -958,7 +942,6 @@ void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
     VPBB->executeHIR(CG);
   }
 }
-#endif
 
 void VPlanVector::setVPSE(std::unique_ptr<VPlanScalarEvolution> A) {
   VPSE = std::move(A);
@@ -1014,8 +997,8 @@ VPlanAdapter::VPlanAdapter(unsigned Opcode, VPlan &P)
     : VPInstruction(Opcode, Type::getTokenTy(*P.getLLVMContext()), {}),
       Plan(P) {}
 
-VPValue *VPlanPeelAdapter::getPeelLoop() const {
-  VPInstruction *LoopI = cast<VPlanScalar>(Plan).getScalarLoopInst();
+VPScalarLoopBase *VPlanPeelAdapter::getPeelLoop() const {
+  VPScalarLoopBase *LoopI = cast<VPlanScalar>(Plan).getScalarLoopInst();
   assert((isa<VPScalarPeel>(LoopI) || isa<VPScalarPeelHIR>(LoopI)) &&
          "Scalar loop instruction expected for peel adapter VPlan.");
   return LoopI;
@@ -1051,7 +1034,7 @@ void VPlanPeelAdapter::updateUBInHIROrigLiveOut() {
 }
 
 const VPValue *VPlanPeelAdapter::getUpperBound() const {
-  VPValue *PeelLp = getPeelLoop();
+  VPScalarLoopBase *PeelLp = getPeelLoop();
   if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
     return IRPeel->getUpperBound();
   return cast<VPScalarPeelHIR>(PeelLp)->getUpperBound();
@@ -1059,7 +1042,7 @@ const VPValue *VPlanPeelAdapter::getUpperBound() const {
 
 void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
   if (isa<VPlanScalarPeel>(Plan)) {
-    VPValue *PeelLp = getPeelLoop();
+    VPScalarLoopBase *PeelLp = getPeelLoop();
     if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
       IRPeel->setUpperBound(TC);
     else {
@@ -1181,12 +1164,10 @@ void VPlan::printLiveOuts(raw_ostream &OS) const {
 void VPlanPrinter::dump(bool CFGOnly) {
   if (!Plan.isPrintingEnabled())
     return;
-#if INTEL_CUSTOMIZATION
   if (DumpPlainVPlanIR) {
     Plan.dump(OS);
     return;
   }
-#endif /* INTEL_CUSTOMIZATION */
 
   Depth = 1;
   bumpIndent(0);
@@ -1276,32 +1257,19 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB, bool SkipInstructions)
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-#if INTEL_CUSTOMIZATION
-
 void VPlanScalar::setNeedCloneOrigLoop(bool V) {
   NeedCloneOrigLoop = V;
-  if (!V)
-    return;
-
-  VPInstruction *LoopI = getScalarLoopInst();
-  if (auto *IRPeel = dyn_cast<VPScalarPeel>(&*LoopI))
-    IRPeel->setCloningRequired();
-  else if (auto *IRRem = dyn_cast<VPScalarRemainder>(&*LoopI))
-    IRRem->setCloningRequired();
-  else if (auto *HIRPeel = dyn_cast<VPScalarPeelHIR>(&*LoopI))
-    HIRPeel->setCloningRequired();
-  else
-    cast<VPScalarRemainderHIR>(*LoopI).setCloningRequired();
+  if (V)
+    getScalarLoopInst()->setCloningRequired();
 }
 
-VPInstruction *VPlanScalar::getScalarLoopInst() {
+VPScalarLoopBase *VPlanScalar::getScalarLoopInst() {
   auto It = llvm::find_if(vpinstructions(this), [](VPInstruction &I) {
-    return isa<VPScalarPeel>(&I) || isa<VPScalarPeelHIR>(&I) ||
-           isa<VPScalarRemainder>(&I) || isa<VPScalarRemainderHIR>(&I);
+    return isa<VPScalarLoopBase>(&I);
   });
 
   if (It != vpinstructions(this).end())
-    return &*It;
+    return cast<VPScalarLoopBase>(&*It);
   llvm_unreachable("can't find scalar loop instruction");
 }
 
@@ -1567,13 +1535,13 @@ template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
 
 using VPPostDomTree = PostDomTreeBase<VPBasicBlock>;
 template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
-#endif
 
 void VPlanVector::computeDA() {
   VPLoopInfo *VPLInfo = getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
   auto *DA = getVPlanDA();
-  DA->compute(this, CandidateLoop, VPLInfo, *getDT(), *getPDT(),
+  auto *VPVT = getVPVT();
+  DA->compute(this, CandidateLoop, VPLInfo, VPVT, *getDT(), *getPDT(),
               false /*Not in LCSSA form*/);
   if (isSOAAnalysisEnabled()) {
     // Do SOA-analysis for loop-privates.
@@ -1581,7 +1549,21 @@ void VPlanVector::computeDA() {
     VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
     SmallPtrSet<VPInstruction *, 32> SOAVars;
     VPSOAA.doSOAAnalysis(SOAVars);
-    DA->recomputeShapes(SOAVars, true /*EnableVerifyAndPrintDA*/);
+    // For correct propagation of SOA shapes we need a full recomputation
+    // of DA. Consider the following pointer induction.
+    //  %p1 = allocate-priv ..  ; SOA profitable
+    //
+    //  %ptr = ptr phi [%p1, %b1], [%p2, %b2]
+    //  %p2 = ptr getelementptr inbounds i32, ptr %ptr i64 1
+    //
+    // During the first run all pointers above will be assigned UnitStride
+    // shape. Suppose SOA analysis decided that %p1 should have SOA layout.
+    // During the second run of DA, if we leave the previously calculated shape,
+    // e.g., on %p2 then the %ptr will never get SOA shape, while it should take
+    // it from %p1.
+    //
+    DA->recomputeShapes(SOAVars, true /*FullRecompute*/,
+                        true /*EnableVerifyAndPrintDA*/);
   }
 }
 
@@ -1712,4 +1694,11 @@ VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactoryBase &VPAF,
 
   copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
+}
+
+void VPAnalysesFactoryBase::populateVPlanAnalyses(VPlanVector &Plan) {
+  if (!Plan.getVPSE())
+    Plan.setVPSE(createVPSE());
+  if (!Plan.getVPVT())
+    Plan.setVPVT(createVPVT(Plan.getVPSE(), Plan.getVPAC(), Plan.getDT()));
 }

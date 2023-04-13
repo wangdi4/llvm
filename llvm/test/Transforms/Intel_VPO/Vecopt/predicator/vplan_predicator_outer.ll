@@ -25,7 +25,7 @@ define void @test_2_level_loop_nest(i64 %vf) local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_OUTER_LOOP_VARYING:%.*]] = and i1 [[VP_LOOP_MASK]] i1 [[VP_OUTER_LOOP_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_OUTER_LOOP_VARYING:%.*]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_OUTER_LOOP_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
@@ -53,7 +53,7 @@ define void @test_2_level_loop_nest(i64 %vf) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB8]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26_NOT:%.*]] = not i1 [[VP_EXITCOND26]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND26_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_EXITCOND26_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP7]], [[BB9:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:
@@ -123,7 +123,7 @@ define void @test_2_level_loop_nest_swap_inner_branch(i64 %vf) local_unnamed_add
 ; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_OUTER_LOOP_VARYING:%.*]] = and i1 [[VP_LOOP_MASK]] i1 [[VP_OUTER_LOOP_VARYING]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_OUTER_LOOP_VARYING:%.*]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_OUTER_LOOP_VARYING]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
@@ -152,7 +152,7 @@ define void @test_2_level_loop_nest_swap_inner_branch(i64 %vf) local_unnamed_add
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB8]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26_NOT:%.*]] = not i1 [[VP_EXITCOND26]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND26_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_EXITCOND26_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP8]], [[BB9:BB[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:

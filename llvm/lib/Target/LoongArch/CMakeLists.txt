@@ -35,9 +35,11 @@ add_llvm_target(LoongArchCodeGen
   MC
   LoongArchDesc
   LoongArchInfo
+  Scalar
   SelectionDAG
   Support
   Target
+  TargetParser
 
   ADD_TO_COMPONENT
   LoongArch

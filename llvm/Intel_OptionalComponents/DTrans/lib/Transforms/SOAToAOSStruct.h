@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSStruct.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -166,7 +166,7 @@ protected:
       return false;
 
     return isa<PointerType>(OutType) &&
-           OutType->getPointerElementType() == S.MemoryInterface;
+           OutType->getNonOpaquePointerElementType() == S.MemoryInterface;
   }
 
   // Returns type array type accessed.
@@ -198,7 +198,7 @@ protected:
     if (!isa<PointerType>(FieldType))
       return nullptr;
 
-    auto *FPointeeTy = FieldType->getPointerElementType();
+    auto *FPointeeTy = FieldType->getNonOpaquePointerElementType();
 
     // Layout restriction.
     // See
@@ -220,7 +220,7 @@ private:
     auto *Ty = S.Method->getFunctionType()->getParamType(D->Const);
     // Simple check that Ty is not related to S.S
     if (isa<PointerType>(Ty))
-      Ty = Ty->getPointerElementType();
+      Ty = Ty->getNonOpaquePointerElementType();
 
     // For transformation, it is sufficient that only elements
     // of array, integers and (float for tests) are permitted.
@@ -901,8 +901,8 @@ private:
       if (!isa<PointerType>(T1) || !isa<PointerType>(T2))
         return false;
 
-      IsElemA1 = T1->getPointerElementType() == ElementType1;
-      IsElemA2 = T2->getPointerElementType() == ElementType2;
+      IsElemA1 = T1->getNonOpaquePointerElementType() == ElementType1;
+      IsElemA2 = T2->getNonOpaquePointerElementType() == ElementType2;
       if (IsElemA1 != IsElemA2)
         return false;
       if (IsElemA1)
@@ -1350,7 +1350,7 @@ private:
 
     // Exception paths have the same common successor blocks,
     // which results in immediate return from dtors caller.
-    for (auto P : zip_first(successors(BB1), successors(BB2))) {
+    for (const auto &P : zip_first(successors(BB1), successors(BB2))) {
       // Exception paths should be confluent.
       if (std::get<0>(P) != std::get<1>(P))
         return false;
@@ -2057,7 +2057,7 @@ private:
     if (!StructIdioms::isFieldAddr(DM.getApproximation(Address), S, PArray))
       return nullptr;
     if (auto *Ptr = dyn_cast<PointerType>(PArray))
-      return dyn_cast<StructType>(Ptr->getElementType());
+      return dyn_cast<StructType>(Ptr->getNonOpaquePointerElementType());
 
     return nullptr;
   }
@@ -2413,7 +2413,7 @@ private:
       }
 
       if (auto *Ptr = dyn_cast<PointerType>(Param))
-        if (Ptr->getElementType() == ElementType) {
+        if (Ptr->getNonOpaquePointerElementType() == ElementType) {
           for (auto *CI : SortedAppends)
             Args.push_back(CI->getArgOperand(Offset));
           continue;

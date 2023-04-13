@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm" -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm" -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
 
 ; Verify that hir-lmm is able to replace store and load of (%A)[0][5] with temp
 ; by using the hint from lifetime.start/end intrinsics without hoisting 

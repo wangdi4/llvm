@@ -160,7 +160,7 @@ define <4 x float> @f3(<4 x float> %p, i32 %q)
 ; X64_AVX512F-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm0[1,0]
 ; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm3, %xmm3
 ; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],xmm3[0],xmm2[3]
-; X64_AVX512F-NEXT:    vpermilps {{.*#+}} xmm0 = xmm0[3,3,3,3]
+; X64_AVX512F-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[3,3,3,3]
 ; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm0, %xmm0
 ; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm0 = xmm2[0,1,2],xmm0[0]
 ; X64_AVX512F-NEXT:    retq

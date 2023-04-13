@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -28,8 +28,8 @@ set_unicode_off()
 # Include the ASM sources
 if(BUILD_X64)
   if(WIN32)
-    create_asm_rules(UTILS_ASM_ADD_TO_SOURCES_LIST kernel_execute_64.asm
-                     chkstk_ms_64.asm)
+    create_asm_rules(UTILS_ASM_ADD_TO_SOURCES_LIST chkstk_ms_64.asm
+                                                   kernel_execute_64.asm)
   else(WIN32)
     create_asm_rules(UTILS_ASM_ADD_TO_SOURCES_LIST linux64_utils.s)
   endif(WIN32)
@@ -38,9 +38,6 @@ else()
     create_asm_rules(UTILS_ASM_ADD_TO_SOURCES_LIST chkstk_ms_32.asm)
   endif(WIN32)
 endif()
-
-# cpu id detect uses llvm::Support algorithms
-set(LINK_LIBS LLVMSupport)
 
 # add a target named ${TARGET_NAME}
 add_opencl_library(
@@ -54,23 +51,13 @@ add_opencl_library(
   ${CL_API_HEADERS}
   ${OCL_BINARY_DIR}
   ${OCL_SOURCE_DIR}/FrontendDriver
-  ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
-  LINK_LIBS
-  ${LINK_LIBS}
-  INSTALL_PATH
-  ${OUTPUT_ARCH_SUFF})
+  ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export)
+
 
 if(USE_NUMA AND NOT WIN32)
   add_definitions(-DUSE_NUMA=1)
   target_link_libraries(${TARGET_NAME} numa)
 endif(USE_NUMA AND NOT WIN32)
-
-# add Version.lib in Windows for GetModuleProductVersion()
-if(WIN32)
-  target_link_libraries(${TARGET_NAME} Version.lib cl_hw_utils)
-else(WIN32)
-  target_link_libraries(${TARGET_NAME} cl_hw_utils rt dl)
-endif(WIN32)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME})
 

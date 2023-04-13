@@ -1,11 +1,10 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
 ; Verify that we are able to successfully parse the loop. This was failing during lexical link formation because the loop header for.body9.i dominated bblocks for.cond35.L2_crit_edge.i and L2.preheader.i which are part of an irreducible cycle outside the region. HIR framework cannot handle irreducible cfg. The fix is to not process bblocks outside the region.
 
 ; CHECK: + DO i1 = 0, 1, 1   <DO_MULTI_EXIT_LOOP>
-; CHECK: |   if (undef #UNDEF# undef)
+; CHECK: |   if (undef == 0)
 ; CHECK: |   {
 ; CHECK: |      goto if.then14.i;
 ; CHECK: |   }

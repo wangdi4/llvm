@@ -121,7 +121,7 @@ void KernelProperties::Serialize(IOutputStream &ost,
   Serializer::SerialPrimitive<bool>(&m_bIsTask, ost);
   Serializer::SerialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ost);
   Serializer::SerialPrimitive<DeviceMode>(&m_targetDevice, ost);
-  tmp = (unsigned long long int)m_cpuMaxWGSize;
+  tmp = (unsigned long long int)m_deviceMaxWGSize;
   Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
   if (OCL_CACHED_BINARY_VERSION >= 18)
     Serializer::SerialPrimitive<int>(&m_subGroupConstructionMode, ost);
@@ -201,7 +201,7 @@ void KernelProperties::Deserialize(IInputStream &ist,
   Serializer::DeserialPrimitive<bool>(&m_bCanUseGlobalWorkOffset, ist);
   Serializer::DeserialPrimitive<DeviceMode>(&m_targetDevice, ist);
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-  m_cpuMaxWGSize = (size_t)tmp;
+  m_deviceMaxWGSize = (size_t)tmp;
   if (stats->m_binaryVersion >= 18)
     Serializer::DeserialPrimitive<int>(&m_subGroupConstructionMode, ist);
 }
@@ -378,7 +378,7 @@ size_t KernelProperties::GetMaxWorkGroupSize(
     // Private memory requirements exceed available resources.
     maxWorkGroupSize = 0;
   } else if (GetBarrierBufferSize() > 0) {
-    // TODO: CSSD100016517 workaround:
+    // TODO: workaround
     //       At the moment GetPrivateMemorySize() returns here the same value as
     //       GetBarrierBufferSize(). It is not what it must to do. See the
     //       declaration.
@@ -461,7 +461,7 @@ void KernelProperties::Print() const {
   outs().indent(NS) << "targetDevice: "
                     << ((m_targetDevice == CPU_DEVICE) ? "cpu" : "fpga-emu")
                     << "\n";
-  outs().indent(NS) << "cpuMaxWGSize: " << m_cpuMaxWGSize << "\n";
+  outs().indent(NS) << "deviceMaxWGSize: " << m_deviceMaxWGSize << "\n";
   outs().indent(NS) << "subGroupConstructionMode: "
                     << m_subGroupConstructionMode << "\n";
 }

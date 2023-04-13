@@ -1,6 +1,6 @@
 //===----- HIRSSADeconstruction.cpp - Deconstructs SSA for HIR ------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -65,7 +65,9 @@ namespace {
 
 class HIRSSADeconstruction {
 public:
-  HIRSSADeconstruction() : ModifiedIR(false), NamingCounter(0) {}
+  HIRSSADeconstruction()
+      : DT(nullptr), LI(nullptr), RI(nullptr), ScopedSE(nullptr), SCCF(nullptr),
+        ModifiedIR(false), NamingCounter(0), CurRegIt(0) {}
 
   bool run(Function &F, DominatorTree &DT, LoopInfo &LI,
            HIRRegionIdentification &RI, HIRSCCFormation &SCCF);
@@ -119,8 +121,15 @@ private:
   bool processPhiLiveins(PHINode *Phi, const HIRSCCFormation::SCC *ParSCC,
                          StringRef Name);
 
-  /// \brief Returns true if we need to insert a liveout copy for this
-  /// standalone phi.
+  /// Returns true if this standalone phi is used by another phi in same bblock.
+  /// This can happen when the bblock is the loop header block.
+  bool usedBySameBBlockPhi(const PHINode *StandAlonePhi) const;
+
+  /// Returns true if \p StandAlonePhi is a header phi which is indirectly
+  /// liveout of the parent loop through a SCEV.
+  bool isIndirectlyLoopLiveoutHeaderPhi(const PHINode *StandAlonePhi) const;
+
+  /// Returns true if we need to insert a liveout copy for this standalone phi.
   bool liveoutCopyRequired(const PHINode *StandAlonePhi) const;
 
   /// Returns true if Inst has non-SCEVable uses in ParentBB. Returns the last
@@ -240,7 +249,6 @@ public:
     AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<HIRRegionIdentificationWrapperPass>();
     AU.addPreserved<HIRSCCFormationWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
   }
 };
@@ -448,7 +456,7 @@ HIRSSADeconstruction::getPhiSCC(PHINode *Phi) const {
 // A phi can be indirectly used in another phi so we need to check the SCEV for
 // SCEVable phis.
 //
-bool HIRSSADeconstruction::liveoutCopyRequired(
+bool HIRSSADeconstruction::usedBySameBBlockPhi(
     const PHINode *StandAlonePhi) const {
 
   const Value *PhiVal = StandAlonePhi;
@@ -497,6 +505,102 @@ bool HIRSSADeconstruction::liveoutCopyRequired(
   }
 
   return false;
+}
+
+// Loop header phis which are being deconstructed might be indirectly liveout
+// from the loop by being present in the SCEV form of a liveout temp. This can
+// happen because we now allow ScalarEvolution to trace through LCSSA phis. For
+// example, %tphi is indirectly liveout from %add1 in the following case-
+//
+// loop.outer:
+//  br label %loop.inner
+//
+// loop.inner:                               ; preds = %loop.inner, %loop.outer
+//  %tphi = phi i32 [ %ld, %loop.inner ], [ %tstart, %loop.outer ]
+//  %add1 = add nuw nsw i32 %tadd, %tphi
+//  %ld = load %ptr
+//  br i1 %cmp, label %latch.outer, %loop.inner
+//
+// latch.outer:
+//  %t.out = phi i32 [ %add1, %loop.inner ]
+//
+//
+// To handle the case correctly, we need to add a liveout copy for %tphi-
+//
+//
+// loop.outer:
+//  br label %loop.inner
+//
+// loop.inner:                                ; preds = %loop.inner, %loop.outer
+//  %tphi = phi i32 [ %ld, %loop.inner ], [ %tstart, %loop.outer ]
+//  %tphi.out = llvm.ssa.copy(%tphi),  !out.de.ssa
+//  %add1 = add nuw nsw i32 %tadd, %tphi.out
+//  %ld = load %ptr
+//  %tphi.in = llvm.ssa.copy(%ld), !in.de.ssa
+//  br i1 %cmp, label %latch.outer, %loop.inner
+//
+// latch.outer:
+//  %t.out = phi i32 [ %add1, %loop.inner ] // SCEV form of %add1 uses %tphi.out
+bool HIRSSADeconstruction::isIndirectlyLoopLiveoutHeaderPhi(
+    const PHINode *StandAlonePhi) const {
+  // Non-SCEVable types cannot be indirectly liveout
+  if (!ScopedSE->isSCEVable(StandAlonePhi->getType())) {
+    return false;
+  }
+
+  auto *ParentBB = StandAlonePhi->getParent();
+  auto *Lp = LI->getLoopFor(ParentBB);
+
+  // Can ignore non-header phis.
+  if (!Lp || (Lp->getHeader() != ParentBB)) {
+    return false;
+  }
+
+  auto *StandAlonePhiSC =
+      ScopedSE->getUnknown(const_cast<PHINode *>(StandAlonePhi));
+
+  SmallVector<BasicBlock *, 6> ExitBlocks;
+  Lp->getUniqueExitBlocks(ExitBlocks);
+
+  for (auto *ExitBB : ExitBlocks) {
+    // We are okay if the exit block is outside the region as it won't cause
+    // live-range violation.
+    if (!CurRegIt->containsBBlock(ExitBB)) {
+      continue;
+    }
+
+    for (auto &LoopExitPhi : ExitBB->phis()) {
+
+      if (!ScopedSE->isSCEVable(LoopExitPhi.getType())) {
+        continue;
+      }
+
+      for (unsigned I = 0, E = LoopExitPhi.getNumIncomingValues(); I != E;
+           ++I) {
+        auto *LoopExitPhiOp = LoopExitPhi.getIncomingValue(I);
+        auto *LoopExitPhiOpInst = dyn_cast<Instruction>(LoopExitPhiOp);
+
+        if (!LoopExitPhiOpInst) {
+          continue;
+        }
+
+        auto *LoopExitPhiOpSC =
+            ScopedSE->getSCEV(const_cast<Instruction *>(LoopExitPhiOpInst));
+
+        if (ScopedSE->hasOperand(LoopExitPhiOpSC, StandAlonePhiSC)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+bool HIRSSADeconstruction::liveoutCopyRequired(
+    const PHINode *StandAlonePhi) const {
+  return usedBySameBBlockPhi(StandAlonePhi) ||
+         isIndirectlyLoopLiveoutHeaderPhi(StandAlonePhi);
 }
 
 bool HIRSSADeconstruction::hasNonSCEVableUses(Instruction **Inst,

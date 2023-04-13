@@ -65,7 +65,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
       IsIV(false), IsInitTarget(false), IsInitTargetSync(false),
       IsInitPrefer(false), IsStrict(false), IsTask(false), IsInscan(false),
-      IsTyped(false) {
+      IsReproducible(false), IsTyped(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
   // Split Name into the BaseName and Modifier substrings
@@ -182,6 +182,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
         else if (ModSubString[i] ==
                  "STRICT") // for grainsize or numtasks clause
           setIsStrict();
+        else if (ModSubString[i] == "REPRODUCIBLE") // for order clause
+          setIsReproducible();
+        else if (ModSubString[i] == "UNCONSTRAINED") // for order clause
+          continue;
         else if (ModSubString[i] == "VARLEN")
           setIsVarLen();
         else if (ModSubString[i] == "UNSIGNED")    // for reduction clause
@@ -337,6 +341,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_PRAGMA_IVDEP:
   case DIR_PRAGMA_BLOCK_LOOP:
   case DIR_PRAGMA_DISTRIBUTE_POINT:
+  case DIR_PRAGMA_PREFETCH_LOOP:
 #endif // INTEL_CUSTOMIZATION
   case DIR_VPO_GUARD_MEM_MOTION:
     return true;
@@ -368,7 +373,13 @@ bool VPOAnalysisUtils::isBeginLoopDirective(int DirID) {
   case DIR_OMP_DISTRIBUTE_PARLOOP:
   case DIR_OMP_GENERICLOOP:
   case DIR_OMP_TILE:
+#if INTEL_CUSTOMIZATION
+  case DIR_VPO_AUTO_VEC:
+  case DIR_PRAGMA_IVDEP:
   case DIR_PRAGMA_BLOCK_LOOP:
+  case DIR_PRAGMA_DISTRIBUTE_POINT:
+  case DIR_PRAGMA_PREFETCH_LOOP:
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
   return false;
@@ -419,6 +430,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_PRAGMA_END_IVDEP:
   case DIR_PRAGMA_END_BLOCK_LOOP:
   case DIR_PRAGMA_END_DISTRIBUTE_POINT:
+  case DIR_PRAGMA_END_PREFETCH_LOOP:
 #endif // INTEL_CUSTOMIZATION
   case DIR_VPO_END_GUARD_MEM_MOTION:
     return true;
@@ -450,7 +462,13 @@ bool VPOAnalysisUtils::isEndLoopDirective(int DirID) {
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
   case DIR_OMP_END_GENERICLOOP:
   case DIR_OMP_END_TILE:
+#if INTEL_CUSTOMIZATION
+  case DIR_VPO_END_AUTO_VEC:
+  case DIR_PRAGMA_IVDEP:
   case DIR_PRAGMA_END_BLOCK_LOOP:
+  case DIR_PRAGMA_END_DISTRIBUTE_POINT:
+  case DIR_PRAGMA_END_PREFETCH_LOOP:
+#endif // INTEL_CUSTOMIZATION
     return true;
   }
   return false;
@@ -643,6 +661,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_PRAGMA_END_BLOCK_LOOP;
   case DIR_PRAGMA_DISTRIBUTE_POINT:
     return DIR_PRAGMA_END_DISTRIBUTE_POINT;
+  case DIR_PRAGMA_PREFETCH_LOOP:
+    return DIR_PRAGMA_END_PREFETCH_LOOP;
 #endif // INTEL_CUSTOMIZATION
 
   case DIR_VPO_GUARD_MEM_MOTION:
@@ -895,7 +915,6 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_BIND_PARALLEL:
     case QUAL_OMP_BIND_THREAD:
     case QUAL_OMP_ORDER_CONCURRENT:
-    case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE:
     case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
 #if INTEL_CUSTOMIZATION
     case QUAL_EXT_DO_CONCURRENT:
@@ -921,6 +940,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_OFFLOAD_ENTRY_IDX:
     case QUAL_OMP_USE:
     case QUAL_OMP_DESTROY:
+    case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     case QUAL_OMP_SA_NUM_WORKERS:

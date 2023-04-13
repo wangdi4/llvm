@@ -1,4 +1,21 @@
 //===-- X86FastPreTileConfig.cpp - Fast Tile Register Configure------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -208,7 +225,8 @@ void X86FastPreTileConfig::spill(MachineBasicBlock::iterator Before,
   const TargetRegisterClass &RC = *MRI->getRegClass(VirtReg);
   // Don't need shape information for tile store, becasue it is adjacent to
   // the tile def instruction.
-  TII->storeRegToStackSlot(*MBB, Before, VirtReg, Kill, FI, &RC, TRI);
+  TII->storeRegToStackSlot(*MBB, Before, VirtReg, Kill, FI, &RC, TRI,
+                           Register());
   ++NumStores;
 
   // TODO: update DBG_VALUEs
@@ -268,25 +286,43 @@ void X86FastPreTileConfig::reload(MachineBasicBlock::iterator UseMI,
                     << printReg(TileReg, TRI) << '\n');
 }
 
+#if INTEL_CUSTOMIZATION
+unsigned getTileDefNum(MachineRegisterInfo *MRI, Register Reg) {
+  if (Reg.isVirtual()) {
+    unsigned RegClassID = MRI->getRegClass(Reg)->getID();
+    if (RegClassID == X86::TILERegClassID)
+      return 1;
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+    if (RegClassID == X86::TILEPAIRRegClassID)
+      return 2;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  } else {
+    if (Reg >= X86::TMM0 && Reg <= X86::TMM7)
+      return 1;
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+    if (Reg >= X86::TMM0_TMM1 && Reg <= X86::TMM6_TMM7)
+      return 2;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  }
+  return 0;
+}
+
+static bool isTileRegister(MachineRegisterInfo *MRI, Register VirtReg) {
+    return getTileDefNum(MRI, VirtReg) > 0;
+}
+
 static bool isTileDef(MachineRegisterInfo *MRI, MachineInstr &MI) {
   // The instruction must have 3 operands: tile def, row, col.
   if (MI.isDebugInstr() || MI.getNumOperands() < 3 || !MI.isPseudo())
     return false;
   MachineOperand &MO = MI.getOperand(0);
 
-  if (MO.isReg()) {
-    Register Reg = MO.getReg();
-    // FIXME it may be used after Greedy RA and the physical
-    // register is not rewritten yet.
-    if (Reg.isVirtual() &&
-        MRI->getRegClass(Reg)->getID() == X86::TILERegClassID)
-      return true;
-    if (Reg >= X86::TMM0 && Reg <= X86::TMM7)
-      return true;
-  }
+  if (!MO.isReg())
+    return false;
 
-  return false;
+  return getTileDefNum(MRI, MO.getReg()) > 0;
 }
+#endif // INTEL_CUSTOMIZATION
 
 static ShapeT getShape(MachineRegisterInfo *MRI, Register TileReg) {
   MachineInstr *MI = MRI->getVRegDef(TileReg);
@@ -425,7 +461,7 @@ void X86FastPreTileConfig::convertPHI(MachineBasicBlock *MBB,
 static bool isTileRegDef(MachineRegisterInfo *MRI, MachineInstr &MI) {
   MachineOperand &MO = MI.getOperand(0);
   if (MO.isReg() && MO.getReg().isVirtual() &&
-      MRI->getRegClass(MO.getReg())->getID() == X86::TILERegClassID)
+      isTileRegister(MRI, MO.getReg()))  // INTEL
     return true;
   return false;
 }
@@ -524,8 +560,7 @@ bool X86FastPreTileConfig::configBasicBlock(MachineBasicBlock &MBB) {
       if (!MO.isReg())
         continue;
       Register Reg = MO.getReg();
-      if (Reg.isVirtual() &&
-          MRI->getRegClass(Reg)->getID() == X86::TILERegClassID)
+      if (Reg.isVirtual() && isTileRegister(MRI, Reg)) // INTEL
         return true;
     }
     return false;
@@ -617,6 +652,22 @@ bool X86FastPreTileConfig::configBasicBlock(MachineBasicBlock &MBB) {
       else if (dominates(MBB, LastShapeMI, ColMI))
         LastShapeMI = ColMI;
     }
+#if INTEL_CUSTOMIZATION
+    unsigned TileDefNum = getTileDefNum(MRI, MI.getOperand(0).getReg());
+    if (TileDefNum > 1) {
+      for (unsigned I = 1; I < TileDefNum; I++) {
+        MachineOperand *ColxMO = &MI.getOperand(2 + I);
+        MachineInstr *ColxMI = MRI->getVRegDef(ColxMO->getReg());
+        if (ColxMI->getParent() == &MBB) {
+          if (!LastShapeMI)
+            LastShapeMI = ColxMI;
+          else if (dominates(MBB, LastShapeMI, ColxMI))
+            LastShapeMI = ColxMI;
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+
     // If there is user live out of the tilecfg, spill it and reload in
     // before the user.
     Register TileReg = MI.getOperand(0).getReg();
@@ -667,7 +718,7 @@ bool X86FastPreTileConfig::runOnMachineFunction(MachineFunction &MFunc) {
   bool HasVirtTileReg = false;
   for (unsigned I = 0, E = NumVirtRegs; I != E; ++I) {
     Register VirtReg = Register::index2VirtReg(I);
-    if (MRI->getRegClass(VirtReg)->getID() == X86::TILERegClassID) {
+    if (isTileRegister(MRI, VirtReg)) { // INTEL
       HasVirtTileReg = true;
       break;
     }

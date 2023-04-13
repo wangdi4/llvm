@@ -37,8 +37,7 @@ public:
 
   static LibraryProgramManager *getInstance();
 
-  cl_dev_err_code createProgram(IAbstractBackendFactory *Factory,
-                                CPUProgramBuilder &PB);
+  void createProgram(IAbstractBackendFactory *Factory, CPUProgramBuilder &PB);
 
   void release() { m_program.reset(nullptr); }
 

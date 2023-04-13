@@ -52,7 +52,7 @@ OclCommandQueue::OclCommandQueue(const SharedPtr<Context> &pContext,
   // Set logger
   INIT_LOGGER_CLIENT(TEXT("OclCommandQueue Logger Client"), LL_DEBUG);
 
-  LOG_INFO(TEXT("OclCommandQueue created: 0x%X"), this);
+  LOG_INFO(TEXT("OclCommandQueue created: %p"), this);
 
   // Set GPA data
   m_pGPAData = m_pContext->GetGPAData();
@@ -62,7 +62,7 @@ OclCommandQueue::OclCommandQueue(const SharedPtr<Context> &pContext,
  *
  ******************************************************************/
 OclCommandQueue::~OclCommandQueue() {
-  LOG_INFO(TEXT("OclCommandQueue delete: 0x%X"), this);
+  LOG_INFO(TEXT("OclCommandQueue delete: %p"), this);
 
   if (0 != m_clDevCmdListId) {
     m_pDefaultDevice->GetDeviceAgent()->clDevReleaseCommandList(
@@ -219,6 +219,7 @@ cl_err_code OclCommandQueue::Initialize() {
 cl_int OclCommandQueue::GetContextId() const { return m_pContext->GetId(); }
 
 cl_err_code OclCommandQueue::GPA_InitializeQueue() {
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
   if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) &&
       (m_pGPAData->bEnableContextTracing)) {
@@ -242,16 +243,19 @@ cl_err_code OclCommandQueue::GPA_InitializeQueue() {
                            m_pOclGpaQueue->m_pStrHndl, __itt_track_type_queue);
   }
 #endif
+#endif // end INTEL_CUSTOMIZATION
   return CL_SUCCESS;
 }
 
 cl_err_code OclCommandQueue::GPA_ReleaseQueue() {
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
   if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA) &&
       (m_pGPAData->bEnableContextTracing)) {
     delete m_pOclGpaQueue;
   }
 #endif
+#endif // end INTEL_CUSTOMIZATION
   return CL_SUCCESS;
 }
 

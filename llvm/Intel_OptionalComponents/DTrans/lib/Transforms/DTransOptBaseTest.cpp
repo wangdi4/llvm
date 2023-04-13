@@ -1,6 +1,6 @@
 //===---DTransOptBaseTest.cpp - Test pass for DTransOptBase functionality--===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -19,7 +19,6 @@
 
 #include "Intel_DTrans/Transforms/DTransOptBaseTest.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringExtras.h"
@@ -46,38 +45,6 @@ static cl::opt<bool>
                                  cl::init(true), cl::ReallyHidden);
 
 namespace {
-
-class DTransOptBaseTestWrapper : public ModulePass {
-private:
-  dtrans::OptBaseTestPass Impl;
-
-public:
-  static char ID;
-
-  DTransOptBaseTestWrapper() : ModulePass(ID) {
-    initializeDTransOptBaseTestWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    DTransAnalysisInfo *DTInfo =
-        DTransOptBaseTestUseAnalysis
-            ? &getAnalysis<DTransAnalysisWrapper>().getDTransInfo(M)
-            : nullptr;
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    WholeProgramInfo &WPInfo =
-      getAnalysis<WholeProgramWrapperPass>().getResult();
-    return Impl.runImpl(M, DTInfo, GetTLI, WPInfo);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
 
 // This class tests and demonstrates usage of the DTransOptBase class.
 class DTransOptBaseTest : public DTransOptBase {
@@ -158,19 +125,6 @@ private:
   TypeToTypeMap OrigToNewTypeMapping;
 };
 } // end anonymous namespace
-
-char DTransOptBaseTestWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransOptBaseTestWrapper, "dtrans-optbasetest",
-                      "DTrans optimization base class tester", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransOptBaseTestWrapper, "dtrans-optbasetest",
-                    "DTrans optimization base class tester", false, false)
-
-ModulePass *llvm::createDTransOptBaseTestWrapperPass() {
-  return new DTransOptBaseTestWrapper();
-}
 
 bool dtrans::OptBaseTestPass::runImpl(
     Module &M, DTransAnalysisInfo *DTInfo,

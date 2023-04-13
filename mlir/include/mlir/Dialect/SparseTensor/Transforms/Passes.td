@@ -81,6 +81,9 @@ def SparsificationPass : Pass<"sparsification", "ModuleOp"> {
   ];
   // TODO(57514): These enum options are duplicated in Passes.h.
   let options = [
+    Option<"enableIndexReduction", "enable-index-reduction", "bool",
+           "false",
+           "Enable dependent index reduction based algorithm to handle non-trivial index expressions on sparse inputs (experimental features)">,
     Option<"parallelization", "parallelization-strategy", "mlir::SparseParallelizationStrategy",
            "mlir::SparseParallelizationStrategy::kNone",
            "Set the parallelization strategy", [{llvm::cl::values(
@@ -217,6 +220,12 @@ def SparseTensorCodegen : Pass<"sparse-tensor-codegen", "ModuleOp"> {
   let options = [
     Option<"enableBufferInitialization", "enable-buffer-initialization", "bool",
            "false", "Enable zero-initialization of the memory buffers">,
+    Option<"createSparseDeallocs", "create-sparse-deallocs", "bool",
+           "true", "Specify if the temporary buffers created by the sparse "
+                   "compiler should be deallocated. For compatibility with core "
+                   "bufferization passes. "
+                   "This option is only used when enable-runtime-library=false. "
+                   "See also create-deallocs for BufferizationOption.">,
   ];
 }
 
@@ -298,6 +307,30 @@ def SparseVectorization : Pass<"sparse-vectorization", "ModuleOp"> {
            "false", "Enable vector length agnostic vectorization">,
     Option<"enableSIMDIndex32", "enable-simd-index32", "bool", "false",
            "Enable i32 indexing into vectors (for efficient gather/scatter)">,
+  ];
+}
+
+def StorageSpecifierToLLVM : Pass<"sparse-storage-specifier-to-llvm", "ModuleOp"> {
+  let summary = "Lower sparse storage specifer to llvm structure";
+  let description = [{
+     This pass rewrites sparse tensor storage specifier-related operations into
+     LLVMDialect, and converts sparse tensor storage specifier into an llvm.struct.
+
+     Example of the conversion:
+     ```mlir
+     Before:
+       %0 = sparse_tensor.storage_specifier.get %arg0 dim_sz at 0
+       : !sparse_tensor.storage_specifier<#CSR> to i64
+
+     After:
+       %0 = llvm.extractvalue %arg0[0, 0] : !llvm.struct<(array<2 x i64>, array<3 x i64>)>
+     ```
+  }];
+  let constructor = "mlir::createStorageSpecifierToLLVMPass()";
+  let dependentDialects = [
+    "arith::ArithDialect",
+    "LLVM::LLVMDialect",
+    "sparse_tensor::SparseTensorDialect",
   ];
 }
 

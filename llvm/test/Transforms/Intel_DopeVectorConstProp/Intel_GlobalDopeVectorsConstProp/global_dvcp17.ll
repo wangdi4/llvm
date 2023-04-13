@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; Check that dope vector constant propagation will happen for the loads
 ; indicated in the trace, but that it will not happen within @myoutput,

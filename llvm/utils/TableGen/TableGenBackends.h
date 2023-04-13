@@ -1,18 +1,3 @@
-/*
- * INTEL CONFIDENTIAL
- *
- * Modifications, Copyright (C) 2021 Intel Corporation
- *
- * This software and the related documents are Intel copyrighted materials, and
- * your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise, you may not
- * use, modify, copy, publish, distribute, disclose or transmit this software or
- * the related documents without Intel's prior written permission.
- *
- * This software and the related documents are provided as is, with no express
- * or implied warranties, other than those that are expressly stated in the
- * License.
- */
 //===- TableGenBackends.h - Declarations for LLVM TableGen Backends -------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -29,6 +14,8 @@
 
 #ifndef LLVM_UTILS_TABLEGEN_TABLEGENBACKENDS_H
 #define LLVM_UTILS_TABLEGEN_TABLEGENBACKENDS_H
+
+#include <string>
 
 // A TableGen backend is a function that looks like
 //
@@ -76,52 +63,12 @@ namespace llvm {
 class raw_ostream;
 class RecordKeeper;
 
-void EmitIntrinsicEnums(RecordKeeper &RK, raw_ostream &OS);
-void EmitIntrinsicImpl(RecordKeeper &RK, raw_ostream &OS);
-void EmitAsmMatcher(RecordKeeper &RK, raw_ostream &OS);
-void EmitAsmWriter(RecordKeeper &RK, raw_ostream &OS);
-void EmitCallingConv(RecordKeeper &RK, raw_ostream &OS);
-void EmitCodeEmitter(RecordKeeper &RK, raw_ostream &OS);
-void EmitDAGISel(RecordKeeper &RK, raw_ostream &OS);
-void EmitDFAPacketizer(RecordKeeper &RK, raw_ostream &OS);
-void EmitDisassembler(RecordKeeper &RK, raw_ostream &OS);
-void EmitFastISel(RecordKeeper &RK, raw_ostream &OS);
-void EmitInstrInfo(RecordKeeper &RK, raw_ostream &OS);
-void EmitInstrDocs(RecordKeeper &RK, raw_ostream &OS);
-void EmitPseudoLowering(RecordKeeper &RK, raw_ostream &OS);
-void EmitCompressInst(RecordKeeper &RK, raw_ostream &OS);
-void EmitRegisterInfo(RecordKeeper &RK, raw_ostream &OS);
-void EmitSubtarget(RecordKeeper &RK, raw_ostream &OS);
 void EmitMapTable(RecordKeeper &RK, raw_ostream &OS);
-void EmitOptParser(RecordKeeper &RK, raw_ostream &OS);
-void EmitOptRST(RecordKeeper &RK, raw_ostream &OS);
-void EmitCTags(RecordKeeper &RK, raw_ostream &OS);
-void EmitAttributes(RecordKeeper &RK, raw_ostream &OS);
-#if INTEL_COLLAB
-void EmitDirectives(RecordKeeper &RK, raw_ostream &OS);
-#endif // INTEL_COLLAB
-#if INTEL_CUSTOMIZATION
-void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS,
-                      bool IsDevice = false); // TODO: VEC to COLLAB
-void EmitLibmvecVariants(RecordKeeper &RK, raw_ostream &OS);
-void EmitMAPatterns(RecordKeeper &RK, raw_ostream &OS);
-#if INTEL_FEATURE_CSA
-void EmitCSAOpTypes(RecordKeeper &RK, raw_ostream &OS);
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-void EmitSearchableTables(RecordKeeper &RK, raw_ostream &OS);
-void EmitGlobalISel(RecordKeeper &RK, raw_ostream &OS);
-void EmitGICombiner(RecordKeeper &RK, raw_ostream &OS);
-void EmitX86EVEX2VEXTables(RecordKeeper &RK, raw_ostream &OS);
-void EmitX86FoldTables(RecordKeeper &RK, raw_ostream &OS);
-void EmitX86MnemonicTables(RecordKeeper &RK, raw_ostream &OS);
-void EmitRegisterBank(RecordKeeper &RK, raw_ostream &OS);
-void EmitExegesis(RecordKeeper &RK, raw_ostream &OS);
-void EmitAutomata(RecordKeeper &RK, raw_ostream &OS);
-void EmitDirectivesDecl(RecordKeeper &RK, raw_ostream &OS);
-void EmitDirectivesImpl(RecordKeeper &RK, raw_ostream &OS);
-void EmitDXILOperation(RecordKeeper &RK, raw_ostream &OS);
 
-} // End llvm namespace
+// Defined in DecoderEmitter.cpp
+void EmitDecoder(RecordKeeper &RK, raw_ostream &OS,
+                 const std::string &PredicateNamespace);
+
+} // namespace llvm
 
 #endif

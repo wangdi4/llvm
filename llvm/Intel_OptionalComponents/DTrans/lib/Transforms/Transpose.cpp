@@ -1,6 +1,6 @@
 //===--------------- Transpose.cpp - DTransTransposePass------------------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,7 +14,6 @@
 //===----------------------------------------------------------------------===//
 #include "Intel_DTrans/Transforms/Transpose.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringExtras.h"
@@ -99,7 +98,7 @@ public:
                      uint64_t ElementSize, llvm::Type *ElementType,
                      dtrans::TransposeTLIType GetTLI,
                      DopeVectorInfo *DVI = nullptr,
-                     Optional<uint64_t> NestedFieldNum = std::nullopt)
+                     std::optional<uint64_t> NestedFieldNum = std::nullopt)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         ElementSize(ElementSize),
@@ -129,7 +128,7 @@ public:
 
   StringRef getName() const { return GV->getName(); }
 
-  Optional<uint64_t> getNestedFieldNumber() const {
+  std::optional<uint64_t> getNestedFieldNumber() const {
     return NestedFieldNumber;
   }
 
@@ -910,7 +909,7 @@ private:
   bool IsGlobalDV;
 
   // If present, the field in the structure containing the candidate
-  Optional<uint64_t> NestedFieldNumber;
+  std::optional<uint64_t> NestedFieldNumber;
 
   // This vector stores the stride values used when operating on the complete
   // array. For this optimization, we do not support cases where a sub-object is
@@ -1164,7 +1163,7 @@ public:
       for (auto &Cand : Candidates) {
         DEBUG_WITH_TYPE(DEBUG_TRANSFORM, {
           dbgs() << "Transform candidate: " << Cand.getName();
-          Optional<uint64_t> NFN = Cand.getNestedFieldNumber();
+          std::optional<uint64_t> NFN = Cand.getNestedFieldNumber();
           if (NFN)
             dbgs() << "[" << *NFN << "]";
           dbgs() << "\n";
@@ -1429,62 +1428,7 @@ private:
   }
 };
 
-// Legacy pass manager wrapper for invoking the Transpose pass.
-class DTransTransposeWrapper : public ModulePass {
-private:
-  dtrans::TransposePass Impl;
-
-public:
-  static char ID;
-  DTransTransposeWrapper() : ModulePass(ID) {
-    initializeDTransTransposeWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto GetLI = [this](Function &F) -> LoopInfo & {
-      return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-    };
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    return Impl.runImpl(M, GetLI, GetTLI);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // Note, this transformation is not dependent on Whole Program Analysis.
-    // The only candidates that may be selected for the transformation will
-    // have internal linkage, and the analysis will be verifying all uses of
-    // the candidate, which will ensure that the candidate is not escaped to
-    // an external routine.
-
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-
-    // The swapping of the stride values in the dope vectors and
-    // llvm.intel.subscript intrinsic call should not invalidate any analysis.
-    AU.setPreservesAll();
-  }
-};
-
 } // end anonymous namespace
-
-char DTransTransposeWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransTransposeWrapper, "dtrans-transpose",
-                      "DTrans multi-dimensional array transpose for Fortran",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(DTransTransposeWrapper, "dtrans-transpose",
-                    "DTrans multi-dimensional array transpose for Fortran",
-                    false, false)
-
-ModulePass *llvm::createDTransTransposeWrapperPass() {
-  return new DTransTransposeWrapper();
-}
 
 namespace llvm {
 

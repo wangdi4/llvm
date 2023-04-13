@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-deletion -S | FileCheck %s
+; RUN: opt -passes="loop(loop-deletion)" < %s -S | FileCheck %s
 
 ; Test checks that loop deletion will also deletes region directives
 

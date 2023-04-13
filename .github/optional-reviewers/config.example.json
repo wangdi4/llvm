@@ -1,0 +1,27 @@
+[
+  {
+    "ids": [
+      "id1"
+    ],
+    "match": "clang/lib/CodeGen/BackendUtil.cpp"
+  },
+  {
+    "ids": [
+      "id2"
+    ],
+    "match": "clang/.*"
+  },
+  {
+    "ids": [
+      "id2",
+      "id3"
+    ],
+    "match": ".*HIR.*"
+  },
+  {
+    "ids": [
+      "id2"
+    ],
+    "match": "llvm/.*"
+  }
+]

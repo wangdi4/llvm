@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2021-2022 Intel Corporation
+# Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -14,7 +14,6 @@
 #
 set(TARGET_NAME OclBackendUtils)
 
-add_subdirectory(LoopUtils)
 add_subdirectory(objdump)
 
 set(TARGET_EXTRA_SOURCE_FILES SystemInfo.cpp)
@@ -24,9 +23,8 @@ set(TARGET_EXTRA_INCLUDE_FILES
 
 set(TARGET_INCLUDE_FILES
     BackendUtils.h
-    BlockUtils.h
     debuggingservicetype.h
-    OCLAddressSpace.h
+    OptimizerConfig.h
     SerializerCompatibility.h
     TypeConversion.h
     VectorizerUtils.h
@@ -36,13 +34,14 @@ set(TARGET_INCLUDE_FILES
     ${TARGET_EXTRA_INCLUDE_FILES})
 
 set(TARGET_SOURCE_FILES
+    Atomics.cpp
     BackendUtils.cpp
-    BlockUtils.cpp
-    debuggingservicetype.cpp
+    GDBRegistrationListener.cpp
+    OptimizerConfig.cpp
     SerializerCompatibility.cpp
     TypeConversion.cpp
     VectorizerUtils.cpp
-    Atomics.cpp
+    debuggingservicetype.cpp
     ${TARGET_EXTRA_SOURCE_FILES})
 
 include_directories(
@@ -62,7 +61,7 @@ include_directories(${BACKEND_ROOT_DIR}/arch_headers)
 add_opencl_library(${TARGET_NAME} STATIC ${TARGET_INCLUDE_FILES}
                    ${TARGET_SOURCE_FILES} ${UTILS_ASM_ADD_TO_SOURCES_LIST})
 
-target_link_libraries(${TARGET_NAME} LLVMIntel_DPCPPKernelTransforms LLVMOrcJIT
+target_link_libraries(${TARGET_NAME} LLVMSYCLTransforms LLVMOrcJIT
                       LLVMSupport)
 
 if(OPENCL_INTREE_BUILD)

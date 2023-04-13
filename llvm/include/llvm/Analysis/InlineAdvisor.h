@@ -3,7 +3,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Modifications, Copyright (C) 2021-2022 Intel Corporation
+ * Modifications, Copyright (C) 2021-2023 Intel Corporation
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -47,7 +47,7 @@ struct ReplayInlinerSettings;
 
 using namespace InlineReportTypes; // INTEL
 
-/// There are 3 scenarios we can use the InlineAdvisor:
+/// There are 4 scenarios we can use the InlineAdvisor:
 /// - Default - use manual heuristics.
 ///
 /// - Release mode, the expected mode for production, day to day deployments.
@@ -60,6 +60,8 @@ using namespace InlineReportTypes; // INTEL
 /// requires the full C Tensorflow API library, and evaluates models
 /// dynamically. This mode also permits generating training logs, for offline
 /// training.
+///
+/// - Dynamically load an advisor via a plugin (PluginInlineAdvisorAnalysis)
 enum class InliningAdvisorMode : int { Default, Release, Development };
 
 // Each entry represents an inline driver.
@@ -102,6 +104,10 @@ public:
 #endif // INTEL_CUSTOMIZATION
   InlineAdvice(InlineAdvice &&) = delete;
   InlineAdvice(const InlineAdvice &) = delete;
+#if INTEL_CUSTOMIZATION
+  InlineAdvice &operator=(const InlineAdvice &) = delete;
+  InlineAdvice &operator=(InlineAdvice &&) = delete;
+#endif // INTEL_CUSTOMIZATION
   virtual ~InlineAdvice() {
     assert(Recorded && "InlineAdvice should have been informed of the "
                        "inliner's decision in all cases");
@@ -192,6 +198,10 @@ private:
 class InlineAdvisor {
 public:
   InlineAdvisor(InlineAdvisor &&) = delete;
+#if INTEL_CUSTOMIZATION
+  InlineAdvisor &operator=(const InlineAdvisor &) = delete;
+  InlineAdvisor &operator=(InlineAdvisor &&) = delete;
+#endif // INTEL_CUSTOMIZATION
   virtual ~InlineAdvisor();
 
   /// Get an InlineAdvice containing a recommendation on whether to
@@ -233,7 +243,7 @@ public:
 
 protected:
   InlineAdvisor(Module &M, FunctionAnalysisManager &FAM,
-                Optional<InlineContext> IC = std::nullopt);
+                std::optional<InlineContext> IC = std::nullopt);
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice>
   getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
@@ -245,7 +255,7 @@ protected:
 
   Module &M;
   FunctionAnalysisManager &FAM;
-  const Optional<InlineContext> IC;
+  const std::optional<InlineContext> IC;
   const std::string AnnotatedInlinePassName;
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
 
@@ -278,6 +288,79 @@ private:
 #endif // INTEL_CUSTOMIZATION
 
   InlineParams Params;
+};
+
+/// Used for dynamically registering InlineAdvisors as plugins
+///
+/// An advisor plugin adds a new advisor at runtime by registering an instance
+/// of PluginInlineAdvisorAnalysis in the current ModuleAnalysisManager.
+/// For example, the following code dynamically registers a
+/// DefaultInlineAdvisor:
+///
+/// namespace {
+///
+/// InlineAdvisor *defaultAdvisorFactory(Module &M, FunctionAnalysisManager
+/// &FAM,
+///                                      InlineParams Params, InlineContext IC)
+///                                      {
+///   return new DefaultInlineAdvisor(M, FAM, Params, IC);
+/// }
+///
+/// struct DefaultDynamicAdvisor : PassInfoMixin<DefaultDynamicAdvisor> {
+///   PreservedAnalyses run(Module &, ModuleAnalysisManager &MAM) {
+///     PluginInlineAdvisorAnalysis PA(defaultAdvisorFactory);
+///     MAM.registerPass([&] { return PA; });
+///     return PreservedAnalyses::all();
+///   }
+/// };
+///
+/// } // namespace
+///
+/// extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo
+/// llvmGetPassPluginInfo() {
+///   return {LLVM_PLUGIN_API_VERSION, "DynamicDefaultAdvisor",
+///   LLVM_VERSION_STRING,
+///           [](PassBuilder &PB) {
+///             PB.registerPipelineStartEPCallback(
+///                 [](ModulePassManager &MPM, OptimizationLevel Level) {
+///                   MPM.addPass(DefaultDynamicAdvisor());
+///                 });
+///           }};
+/// }
+///
+/// A plugin must implement an AdvisorFactory and register it with a
+/// PluginInlineAdvisorAnlysis to the provided ModuleanAlysisManager.
+///
+/// If such a plugin has been registered
+/// InlineAdvisorAnalysis::Result::tryCreate will return the dynamically loaded
+/// advisor.
+///
+class PluginInlineAdvisorAnalysis
+    : public AnalysisInfoMixin<PluginInlineAdvisorAnalysis> {
+public:
+  static AnalysisKey Key;
+  static bool HasBeenRegistered;
+
+  typedef InlineAdvisor *(*AdvisorFactory)(Module &M,
+                                           FunctionAnalysisManager &FAM,
+                                           InlineParams Params,
+                                           InlineContext IC);
+
+  PluginInlineAdvisorAnalysis(AdvisorFactory Factory) : Factory(Factory) {
+    HasBeenRegistered = true;
+    assert(Factory != nullptr &&
+           "The plugin advisor factory should not be a null pointer.");
+  }
+
+  struct Result {
+    AdvisorFactory Factory;
+  };
+
+  Result run(Module &M, ModuleAnalysisManager &MAM) { return {Factory}; }
+  Result getResult() { return {Factory}; }
+
+private:
+  AdvisorFactory Factory;
 };
 
 /// The InlineAdvisorAnalysis is a module pass because the InlineAdvisor

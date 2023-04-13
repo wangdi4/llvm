@@ -1,6 +1,6 @@
 //===- HIRCompleteUnroll.cpp - Implements CompleteUnroll class ------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -432,7 +432,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
     bool HasUnrollableStandAloneIV = false;
   };
 
-  class InvalidAllocaRefFinder;
+  class InvalidBasePtrRefFinder;
 
   HIRCompleteUnroll &HCU;
   const HLLoop *CurLoop;
@@ -479,11 +479,11 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   // refs of OuterLoop.
   HIRCompleteUnroll::MemRefGatherer::MapTy &OuterLoopMemRefMap;
 
-  // Set of simplifiable alloca stores discovered in this loopnest.
-  DenseMap<unsigned, const RegDDRef *> &AllocaStores;
+  // Set of simplifiable stores discovered in this loopnest.
+  DenseMap<unsigned, const RegDDRef *> &SimplifiableStores;
 
-  // Map of alloca stores and the profitability to propagate them.
-  SmallDenseMap<unsigned, bool, 8> ProfitableAllocaStores;
+  // Map of stores and the profitability to propagate them.
+  SmallDenseMap<unsigned, bool, 8> ProfitableSimplifiableStores;
 
 #if INTEL_FEATURE_SW_DTRANS
   DTransImmutableInfo *DTII;
@@ -499,7 +499,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
       unsigned ParentLoopNestTripCount,
       SmallVector<SimplifiedTempBlob, 8> &SimplifiedBlobs,
       HIRCompleteUnroll::MemRefGatherer::MapTy &MemRefMap,
-      DenseMap<unsigned, const RegDDRef *> &AllocaStores,
+      DenseMap<unsigned, const RegDDRef *> &SimplifiableStores,
 #if INTEL_FEATURE_SW_DTRANS
       DTransImmutableInfo *DTII,
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -509,7 +509,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
         ScaledSavings(0), GEPCost(0), GEPSavings(0), NumMemRefs(0),
         NumDDRefs(0), NumSimplifiedMemRefs(0),
         SimplifiedTempBlobs(SimplifiedBlobs), OuterLoopMemRefMap(MemRefMap),
-        AllocaStores(AllocaStores),
+        SimplifiableStores(SimplifiableStores),
 #if INTEL_FEATURE_SW_DTRANS
         DTII(DTII),
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -620,14 +620,14 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   /// Returns percentage savings achieved by unrolling the loopnest.
   float getSavingsInPercentage() const;
 
-  /// Returns true if we find a simplified alloca store with base ptr blob index
-  /// \p BaseIndex which dominates \p AllocaLoadRef in a previous loopnest.
-  bool foundSimplifiedDominatingStoreInPreviousLoopnest(
-      const RegDDRef *AllocaLoadRef, unsigned BaseIndex);
+  /// Returns true if we find a simplified store with base ptr blob index
+  /// \p BaseIndex which dominates \p LoadRef in a previous loopnest.
+  bool foundSimplifiedDominatingStoreInPreviousLoopnest(const RegDDRef *LoadRef,
+                                                        unsigned BaseIndex);
 
-  /// Returns true if we find a simplified alloca store with base ptr blob index
-  /// \p BaseIndex which dominates \p AllocaLoadRef in current loopnest.
-  bool foundSimplifiedDominatingStore(const RegDDRef *AllocaLoadRef,
+  /// Returns true if we find a simplified store with base ptr blob index
+  /// \p BaseIndex which dominates \p LoadRef in current loopnest.
+  bool foundSimplifiedDominatingStore(const RegDDRef *LoadRef,
                                       unsigned BaseIndex);
 
   /// Returns true if a simplified store with base ptr blob index \p BaseIndex
@@ -635,10 +635,10 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   bool foundSimplifiedDominatingStoreBeforeLoop(unsigned BaseIndex) const;
 
   /// Returns true if it should be considered profitable to propagate this
-  /// alloca store. \p IsOptimistic indicates whether we are returning true
+  /// store. \p IsOptimistic indicates whether we are returning true
   /// based on an optimistic assumption.
-  bool profitableToPropagateAllocaStore(const RegDDRef *AllocaStore,
-                                        unsigned BaseIndex, bool &IsOptimistic);
+  bool profitableToPropagateStore(const RegDDRef *StoreRef, unsigned BaseIndex,
+                                  bool &IsOptimistic);
 
   /// Returns true if simplifiable \p MemRef can be optimized away. \p
   /// CanSimplifySubs indicates whether all its subscripts can be simplified to
@@ -671,13 +671,13 @@ public:
       HIRCompleteUnroll &HCU, const HLLoop *CurLp,
       SmallVector<SimplifiedTempBlob, 8> &SimplifiedTempBlobs,
       HIRCompleteUnroll::MemRefGatherer::MapTy &MemRefMap,
-      DenseMap<unsigned, const RegDDRef *> &AllocaStores,
+      DenseMap<unsigned, const RegDDRef *> &SimplifiableStores,
 #if INTEL_FEATURE_SW_DTRANS
       DTransImmutableInfo *DTII,
 #endif // INTEL_FEATURE_SW_DTRANS
       SmallPtrSet<const HLNode *, 8> &SimplifiedNonLoopParents)
       : ProfitabilityAnalyzer(HCU, CurLp, CurLp, 1, SimplifiedTempBlobs,
-                              MemRefMap, AllocaStores,
+                              MemRefMap, SimplifiableStores,
 #if INTEL_FEATURE_SW_DTRANS
                               DTII,
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -955,7 +955,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLLoop *Lp) {
   // Analyze child loop.
   ProfitabilityAnalyzer PA(HCU, Lp, OuterLoop, LoopNestTripCount,
                            SimplifiedTempBlobs, OuterLoopMemRefMap,
-                           AllocaStores,
+                           SimplifiableStores,
 #if INTEL_FEATURE_SW_DTRANS
                            DTII,
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -1594,17 +1594,18 @@ HIRCompleteUnroll::ProfitabilityAnalyzer::computeGEPInfo(const RegDDRef *Ref,
   return GEPRefInfo(UniqueOccurences, TotalOccurences, IsIndependent);
 }
 
-class IntermediateAllocaStoreFinder final : public HLNodeVisitorBase {
-  unsigned AllocaBaseIndex;
+// Looks for a store with the same base ptr as BaseIndex in the visit range.
+class IntermediateSameBaseStoreFinder final : public HLNodeVisitorBase {
+  unsigned BaseIndex;
   const HLNode *EndNode;
   const RegDDRef *FoundStoreRef;
   bool FoundEndNode;
 
 public:
-  IntermediateAllocaStoreFinder(unsigned AllocaBaseIndex,
-                                const HLNode *EndNode = nullptr)
-      : AllocaBaseIndex(AllocaBaseIndex), EndNode(EndNode),
-        FoundStoreRef(nullptr), FoundEndNode(false) {}
+  IntermediateSameBaseStoreFinder(unsigned BaseIndex,
+                                  const HLNode *EndNode = nullptr)
+      : BaseIndex(BaseIndex), EndNode(EndNode), FoundStoreRef(nullptr),
+        FoundEndNode(false) {}
 
   bool visit(const HLNode *Node) {
     FoundEndNode = (Node == EndNode);
@@ -1621,7 +1622,7 @@ public:
   const RegDDRef *getIntermediateStore() const { return FoundStoreRef; }
 };
 
-void IntermediateAllocaStoreFinder::visit(const HLInst *Inst) {
+void IntermediateSameBaseStoreFinder::visit(const HLInst *Inst) {
 
   if (visit(static_cast<const HLNode *>(Inst))) {
     return;
@@ -1629,26 +1630,35 @@ void IntermediateAllocaStoreFinder::visit(const HLInst *Inst) {
 
   auto LvalRef = Inst->getLvalDDRef();
 
-  if (!LvalRef || !LvalRef->isMemRef() || !LvalRef->accessesAlloca()) {
+  if (!LvalRef || !LvalRef->isMemRef()) {
     return;
   }
 
-  if (LvalRef->getBasePtrBlobIndex() == AllocaBaseIndex) {
+  if (LvalRef->getBasePtrBlobIndex() == BaseIndex) {
     FoundStoreRef = LvalRef;
   }
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::
-    foundSimplifiedDominatingStoreInPreviousLoopnest(
-        const RegDDRef *AllocaLoadRef, unsigned BaseIndex) {
-  auto It = HCU.PrevLoopnestAllocaStores.find(BaseIndex);
+    foundSimplifiedDominatingStoreInPreviousLoopnest(const RegDDRef *LoadRef,
+                                                     unsigned BaseIndex) {
+  auto It = HCU.PrevLoopnestSimplifiableStores.find(BaseIndex);
 
-  if (It != HCU.PrevLoopnestAllocaStores.end()) {
-    auto PrevParentLoop = It->second;
-    auto PrevRegion = PrevParentLoop->getParentRegion();
-    auto CurRegion = OuterLoop->getParentRegion();
+  if (It != HCU.PrevLoopnestSimplifiableStores.end()) {
 
-    auto LoadNode = AllocaLoadRef->getHLDDNode();
+    auto *StoreRef = It->second.StoreRef;
+
+    if (!DDRefUtils::haveEqualBaseAndShapeAndOffsets(StoreRef, LoadRef,
+                                                     false)) {
+      HCU.PrevLoopnestSimplifiableStores.erase(It);
+      return false;
+    }
+
+    auto *PrevParentLoop = It->second.TopLevelParentLoop;
+    auto *PrevRegion = PrevParentLoop->getParentRegion();
+    auto *CurRegion = OuterLoop->getParentRegion();
+
+    auto *LoadNode = LoadRef->getHLDDNode();
 
     const HLNode *FirstNode = nullptr;
     const HLNode *LastNode = nullptr;
@@ -1661,7 +1671,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
                             CurRegion->getEntryBBlock())) {
         // Previous region does not dominate current region so we remove store's
         // entry.
-        HCU.PrevLoopnestAllocaStores.erase(It);
+        HCU.PrevLoopnestSimplifiableStores.erase(It);
         return false;
       }
 
@@ -1671,19 +1681,19 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
           !HLNodeUtils::dominates(PrevParentLoop, LastRegionChild)) {
         // Store is not executed unconditionally in previous region so we remove
         // its entry.
-        HCU.PrevLoopnestAllocaStores.erase(It);
+        HCU.PrevLoopnestSimplifiableStores.erase(It);
         return false;
       }
 
       if (PrevParentLoop != LastRegionChild) {
         // Visit from PrevParentLoop's next node to end of region looking for
-        // intermediate alloca stores.
-        IntermediateAllocaStoreFinder IASF(BaseIndex);
-        HLNodeUtils::visitRange(IASF, PrevParentLoop->getNextNode(),
+        // intermediate same base ptr stores.
+        IntermediateSameBaseStoreFinder ISBSF(BaseIndex);
+        HLNodeUtils::visitRange(ISBSF, PrevParentLoop->getNextNode(),
                                 LastRegionChild);
 
-        if (IASF.foundIntermediateStore()) {
-          HCU.PrevLoopnestAllocaStores.erase(It);
+        if (ISBSF.foundIntermediateStore()) {
+          HCU.PrevLoopnestSimplifiableStores.erase(It);
           return false;
         }
       }
@@ -1695,7 +1705,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
       if (!HLNodeUtils::dominates(PrevParentLoop, LoadNode)) {
         // Since the simplified store does not dominate this ref, we are most
         // likely out of its lexical scope. Hence, we remove its entry.
-        HCU.PrevLoopnestAllocaStores.erase(It);
+        HCU.PrevLoopnestSimplifiableStores.erase(It);
         return false;
       }
 
@@ -1714,7 +1724,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
       // previous loop is inside a constant trip sibling loop of current loop.
       // Give up in those cases.
       if (!TmpNode) {
-        HCU.PrevLoopnestAllocaStores.erase(It);
+        HCU.PrevLoopnestSimplifiableStores.erase(It);
         return false;
       }
 
@@ -1722,13 +1732,13 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
       LastNode = OuterNode;
     }
 
-    // Look for intermediate alloca stores which would invalidate the existing
+    // Look for intermediate stores which would invalidate the existing
     // entry.
-    IntermediateAllocaStoreFinder IASF(BaseIndex, LoadNode);
-    HLNodeUtils::visitRange(IASF, FirstNode, LastNode);
+    IntermediateSameBaseStoreFinder ISBSF(BaseIndex, LoadNode);
+    HLNodeUtils::visitRange(ISBSF, FirstNode, LastNode);
 
-    if (IASF.foundIntermediateStore()) {
-      HCU.PrevLoopnestAllocaStores.erase(It);
+    if (ISBSF.foundIntermediateStore()) {
+      HCU.PrevLoopnestSimplifiableStores.erase(It);
       return false;
     }
 
@@ -1756,12 +1766,12 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
     return false;
   }
 
-  IntermediateAllocaStoreFinder IASF(BaseIndex);
+  IntermediateSameBaseStoreFinder ISBSF(BaseIndex);
   // Traverse backwards to get the store closest to the loop.
   HLNodeUtils::visitRange<true, true, false>(
-      IASF, FirstNode->getIterator(), PerfectOutermostLoop->getIterator());
+      ISBSF, FirstNode->getIterator(), PerfectOutermostLoop->getIterator());
 
-  auto *StoreRef = IASF.getIntermediateStore();
+  auto *StoreRef = ISBSF.getIntermediateStore();
 
   if (!StoreRef || StoreRef->hasIV() ||
       !HLNodeUtils::dominates(StoreRef->getHLDDNode(), PerfectOutermostLoop)) {
@@ -1775,32 +1785,31 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::foundSimplifiedDominatingStore(
-    const RegDDRef *AllocaLoadRef, unsigned BaseIndex) {
+    const RegDDRef *LoadRef, unsigned BaseIndex) {
 
   // First, look for simplified refs in current loopnest.
-  auto It = AllocaStores.find(BaseIndex);
+  auto It = SimplifiableStores.find(BaseIndex);
 
-  if (It != AllocaStores.end()) {
+  if (It != SimplifiableStores.end()) {
     auto SimplifiedStore = It->second;
 
-    int64_t Dist;
-    // We found an alloca load/store combination where either-
-    // 1) There is no constant distance (like A[i1], A[i2]) so we give up on
-    // them. Or 2) There is no reuse between them. For example-
+    // We found identical load/store combination. We can return true if store
+    // dominates load.
+    //
+    // The case where these is reuse between them is handled by a different path
+    // 'isDDIndependentInLoop()' which can compute more precise
+    // 'RefinedOccurences'. Example scenario for reuse case-
     //   A[i1] =
     //         = A[i1+1]
-    if (!DDRefUtils::getConstIterationDistance(SimplifiedStore, AllocaLoadRef,
-                                               AllocaLoadRef->getNodeLevel(),
-                                               &Dist) ||
-        (Dist < 0)) {
+    if (!DDRefUtils::areEqual(SimplifiedStore, LoadRef, false)) {
       return false;
     }
 
     if (!HLNodeUtils::dominates(SimplifiedStore->getHLDDNode(),
-                                AllocaLoadRef->getHLDDNode())) {
+                                LoadRef->getHLDDNode())) {
       // Since the simplified store does not dominate this ref, we are most
       // likely out of its lexical scope. Hence, we remove its entry.
-      AllocaStores.erase(It);
+      SimplifiableStores.erase(It);
       return false;
     }
 
@@ -1808,8 +1817,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::foundSimplifiedDominatingStore(
   }
 
   // Now look for simplified refs in previous loopnests.
-  if (foundSimplifiedDominatingStoreInPreviousLoopnest(AllocaLoadRef,
-                                                       BaseIndex)) {
+  if (foundSimplifiedDominatingStoreInPreviousLoopnest(LoadRef, BaseIndex)) {
     return true;
   }
 
@@ -1823,11 +1831,13 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::foundSimplifiedDominatingStore(
   return false;
 }
 
-class HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder final
+// Looks for use of BaseIndex based ref in the visit range which would prevent
+// propagation of CurStore to subsequent unrollable loopnest(s).
+class HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder final
     : public HLNodeVisitorBase {
   HIRCompleteUnroll::ProfitabilityAnalyzer &PA;
-  unsigned AllocaBaseIndex;
-  const RegDDRef *CurAllocaStore;
+  unsigned BaseIndex;
+  const RegDDRef *CurStore;
   BasicBlock *StartBBlock;
   bool IsStartLoop;
   bool FoundInvalidRef;
@@ -1844,12 +1854,12 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder final
   }
 
 public:
-  InvalidAllocaRefFinder(HIRCompleteUnroll::ProfitabilityAnalyzer &PA,
-                         unsigned AllocaBaseIndex, const RegDDRef *AllocaStore,
-                         BasicBlock *StartBBlock)
-      : PA(PA), AllocaBaseIndex(AllocaBaseIndex), CurAllocaStore(AllocaStore),
-        StartBBlock(StartBBlock), IsStartLoop(true), FoundInvalidRef(false),
-        FoundIdenticalUse(false), IsDone(false) {}
+  InvalidBasePtrRefFinder(HIRCompleteUnroll::ProfitabilityAnalyzer &PA,
+                          unsigned BaseIndex, const RegDDRef *Store,
+                          BasicBlock *StartBBlock)
+      : PA(PA), BaseIndex(BaseIndex), CurStore(Store), StartBBlock(StartBBlock),
+        IsStartLoop(true), FoundInvalidRef(false), FoundIdenticalUse(false),
+        IsDone(false) {}
 
   void visit(const HLNode *Node) {}
 
@@ -1864,7 +1874,7 @@ public:
                        bool *FoundProfitableUse = nullptr);
 };
 
-void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::visit(
+void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
     const HLRegion *Reg) {
 
   if (!PA.HCU.DT.dominates(StartBBlock, Reg->getEntryBBlock())) {
@@ -1872,14 +1882,14 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::visit(
   }
 }
 
-void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::visit(
+void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
     const HLInst *Inst) {
 
   for (auto It = Inst->op_ddref_begin(), E = Inst->op_ddref_end(); It != E;
        ++It) {
     auto *Ref = *It;
 
-    if (!Ref->isMemRef() || (Ref->getBasePtrBlobIndex() != AllocaBaseIndex)) {
+    if (!Ref->isMemRef() || (Ref->getBasePtrBlobIndex() != BaseIndex)) {
       continue;
     }
 
@@ -1894,11 +1904,11 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::visit(
 
     if (Ref->isLval()) {
       if (IsStartLoop) {
-        // Keep looking for alloca refs if we found a simplifiable alloca store
+        // Keep looking for refs if we found a simplifiable store
         // in start loop.
         continue;
       } else {
-        // Assume profitability if simplified alloca store is found.
+        // Assume profitability if simplified store is found.
         // TODO: This may need to be changed as it is optimisitc.
         IsDone = true;
         break;
@@ -1921,7 +1931,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::visit(
     if (IsCandidateLoop) {
       if (!PA.HCU.IsPreVec || !((PA.HCU.HLS.getSelfLoopStatistics(ParLoop))
                                     .hasProfitableVectorizableCalls())) {
-        FoundIdenticalUse = DDRefUtils::areEqual(CurAllocaStore, Ref);
+        FoundIdenticalUse = DDRefUtils::areEqual(CurStore, Ref);
       }
     } else {
       FoundInvalidRef = true;
@@ -1932,7 +1942,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::visit(
   }
 }
 
-bool HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::
     foundInvalidUse(const HLNode *PrevNode, bool IsStartLoop,
                     bool *FoundProfitableUse) {
 
@@ -1963,55 +1973,55 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidAllocaRefFinder::
   return foundInvalidRef();
 }
 
-bool HIRCompleteUnroll::ProfitabilityAnalyzer::profitableToPropagateAllocaStore(
-    const RegDDRef *AllocaStore, unsigned BaseIndex, bool &IsOptimistic) {
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::profitableToPropagateStore(
+    const RegDDRef *StoreRef, unsigned BaseIndex, bool &IsOptimistic) {
 
   IsOptimistic = true;
 
-  auto It = ProfitableAllocaStores.find(BaseIndex);
+  auto It = ProfitableSimplifiableStores.find(BaseIndex);
 
-  if (It != ProfitableAllocaStores.end()) {
+  if (It != ProfitableSimplifiableStores.end()) {
     return It->second;
   }
 
   auto *CurRegion = OuterLoop->getParentRegion();
 
-  InvalidAllocaRefFinder IARF(*this, BaseIndex, AllocaStore,
-                              CurRegion->getExitBBlock());
+  InvalidBasePtrRefFinder IBPRF(*this, BaseIndex, StoreRef,
+                                CurRegion->getExitBBlock());
 
   // Look for invalid use in current loop.
-  if (IARF.foundInvalidUse(AllocaStore->getHLDDNode(), true)) {
-    ProfitableAllocaStores[BaseIndex] = false;
+  if (IBPRF.foundInvalidUse(StoreRef->getHLDDNode(), true)) {
+    ProfitableSimplifiableStores[BaseIndex] = false;
     return false;
   }
 
   // Look for invalid use in current region.
   bool FoundProfitableUse = false;
-  if (IARF.foundInvalidUse(OuterLoop, false, &FoundProfitableUse)) {
-    ProfitableAllocaStores[BaseIndex] = false;
+  if (IBPRF.foundInvalidUse(OuterLoop, false, &FoundProfitableUse)) {
+    ProfitableSimplifiableStores[BaseIndex] = false;
     return false;
   }
 
   if (FoundProfitableUse) {
     IsOptimistic = false;
-    ProfitableAllocaStores[BaseIndex] = true;
+    ProfitableSimplifiableStores[BaseIndex] = true;
     return true;
   }
 
   // Give up on conditional loops.
   if (OuterLoop->getParent() != CurRegion) {
-    ProfitableAllocaStores[BaseIndex] = false;
+    ProfitableSimplifiableStores[BaseIndex] = false;
     return false;
   }
 
   // Look for invalid use in subsequent regions.
-  if (IARF.foundInvalidUse(CurRegion, false)) {
-    ProfitableAllocaStores[BaseIndex] = false;
+  if (IBPRF.foundInvalidUse(CurRegion, false)) {
+    ProfitableSimplifiableStores[BaseIndex] = false;
     return false;
   }
 
-  ProfitableAllocaStores[BaseIndex] = true;
-  // We did not find any invalid alloca load/store in HIR regions. Assume
+  ProfitableSimplifiableStores[BaseIndex] = true;
+  // We did not find any invalid load/store in HIR regions. Assume
   // profitability.
   return true;
 }
@@ -2030,26 +2040,24 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
     return true;
 #endif // INTEL_FEATURE_SW_DTRANS
 
-  if (!MemRef->accessesAlloca()) {
-    return false;
-  }
-
   unsigned BaseIndex = MemRef->getBasePtrBlobIndex();
+
+  bool IsAlloca = MemRef->accessesAlloca();
 
   if (MemRef->isLval()) {
     bool IsOptimistic = true;
     if (CanSimplifySubs &&
-        profitableToPropagateAllocaStore(MemRef, BaseIndex, IsOptimistic)) {
-      // Alloca stores can be eliminated after unrolling by propagating the
+        profitableToPropagateStore(MemRef, BaseIndex, IsOptimistic)) {
+      // Stores can be eliminated after unrolling by propagating the
       // assigned value directly into corresponding loads.
-      AllocaStores[BaseIndex] = MemRef;
+      SimplifiableStores[BaseIndex] = MemRef;
 
-      return (!IsOptimistic || !HCU.IsPreVec);
+      return (IsAlloca && (!IsOptimistic || !HCU.IsPreVec));
     } else {
-      // We encountered a non-simplifiable alloca store. Invalidate its entry
+      // We encountered a non-simplifiable store. Invalidate its entry
       // from the data structures.
-      AllocaStores.erase(BaseIndex);
-      HCU.PrevLoopnestAllocaStores.erase(BaseIndex);
+      SimplifiableStores.erase(BaseIndex);
+      HCU.PrevLoopnestSimplifiableStores.erase(BaseIndex);
       return false;
     }
 
@@ -2068,17 +2076,21 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
   // First we check whether the current region has any alloca stores before
   // this node. If so, we have invalidating stores so we have to give up.
   //
-  if (AllocaStores.count(BaseIndex)) {
+  if (SimplifiableStores.count(BaseIndex)) {
+    return false;
+  }
+
+  if (!IsAlloca) {
     return false;
   }
 
   auto CurRegion = OuterLoop->getParentRegion();
-  IntermediateAllocaStoreFinder IASF(BaseIndex, OuterLoop);
+  IntermediateSameBaseStoreFinder ISBSF(BaseIndex, OuterLoop);
 
-  HLNodeUtils::visitRange(IASF, CurRegion->child_begin(),
+  HLNodeUtils::visitRange(ISBSF, CurRegion->child_begin(),
                           CurRegion->child_end());
 
-  if (IASF.foundIntermediateStore()) {
+  if (ISBSF.foundIntermediateStore()) {
     return false;
   }
 
@@ -2238,8 +2250,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
 
     NumSimplifiedMemRefs += LoopNestTripCount;
 
-    // Double savings for lval allocas assuming that unrolling the loop will
-    // help eliminate at least 1 corresponding load alloca.
+    // Double savings for stores assuming that unrolling the loop will
+    // help eliminate at least 1 corresponding load.
     if (Ref->isLval()) {
       SimplifiedToConstSavings *= 2;
     }
@@ -2948,7 +2960,11 @@ struct AllVectorCodeChecker final : public HLNodeVisitorBase {
     auto *LvalRef = HInst->getLvalDDRef();
 
     if (!isa<InsertElementInst>(Inst) && !isa<ExtractElementInst>(Inst) &&
-        (!LvalRef || !LvalRef->getDestType()->isVectorTy())) {
+        // Vector loads/stores are likely to be generated by vectorizer pass in
+        // HIR. Here we are checking for vector code coming from incoming IR so
+        // exclude these to minimize false positives.
+        (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) || !LvalRef ||
+         !LvalRef->getDestType()->isVectorTy())) {
       IsAllVectorCode = false;
     }
   }
@@ -3344,7 +3360,7 @@ HIRCompleteUnroll::performTripCountAnalysis(HLLoop *Loop) {
 bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
   SmallVector<SimplifiedTempBlob, 8> SimplifiedTempBlobs;
   MemRefGatherer::MapTy MemRefMap;
-  DenseMap<unsigned, const RegDDRef *> AllocaStores;
+  DenseMap<unsigned, const RegDDRef *> SimplifiableStores;
   SmallPtrSet<const HLNode *, 8> SimplifiedNonLoopParents;
 
   // Skipping profitability check for pragma enabled loops can affect
@@ -3355,7 +3371,7 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
   }
 
   ProfitabilityAnalyzer PA(*this, Loop, SimplifiedTempBlobs, MemRefMap,
-                           AllocaStores,
+                           SimplifiableStores,
 #if INTEL_FEATURE_SW_DTRANS
                            DTII,
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -3364,11 +3380,12 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) {
   PA.analyze();
 
   if (PA.isProfitable()) {
-    // Store unconditional simplifiable alloca stores to be used in
+    // Store unconditional simplifiable stores to be used in
     // profitability checks for subsequent loopnests.
-    for (auto &Pair : AllocaStores) {
-      if (PA.isUnconditionallyExecuted(Pair.second, Loop)) {
-        PrevLoopnestAllocaStores[Pair.first] = Loop;
+    for (auto &Pair : SimplifiableStores) {
+      auto *StoreRef = Pair.second;
+      if (PA.isUnconditionallyExecuted(StoreRef, Loop)) {
+        PrevLoopnestSimplifiableStores[Pair.first] = {StoreRef, Loop};
       }
     }
 
@@ -3449,22 +3466,27 @@ void HIRCompleteUnroll::transformLoops() {
       continue;
     }
 
-    bool HasParentLoop = true;
-    HLNode *ParentNode = Loop->getParentLoop();
+    HLLoop *ParentLoop = Loop->getParentLoop();
+    HLNode *ParentNode = ParentLoop;
     if (!ParentNode) {
-      HasParentLoop = false;
       ParentNode = Loop->getParentRegion();
     }
 
     doUnroll(Loop);
 
-    if ((IsPreVec && HasParentLoop) || ForceConstantPropagation) {
+    bool HasParentLoop = (IsPreVec && ParentLoop);
+
+    if (HasParentLoop || ForceConstantPropagation) {
       HIRTransformUtils::doConstantAndCopyPropagation(ParentNode
 #if INTEL_FEATURE_SW_DTRANS
                                                       ,
                                                       DTII
 #endif // INTEL_FEATURE_SW_DTRANS
       );
+    }
+
+    if (HasParentLoop) {
+      HIRTransformUtils::propagateSingleUseLoads(ParentLoop);
     }
 
     HLNodeUtils::removeRedundantNodes(ParentNode);
@@ -3640,37 +3662,4 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
     HLNodeUtils::moveBefore(Loop, Loop->child_begin(), Loop->child_end());
     HLNodeUtils::remove(Loop);
   }
-}
-
-void HIRCompleteUnrollLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
-  AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-  AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-  AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-#if INTEL_FEATURE_SW_DTRANS
-  AU.addRequiredTransitive<DTransImmutableAnalysisWrapper>();
-#endif // INTEL_FEATURE_SW_DTRANS
-}
-
-bool HIRCompleteUnrollLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F)) {
-    LLVM_DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
-    return false;
-  }
-
-  return HIRCompleteUnroll(
-             getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-             getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
-             getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
-             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-             getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-             getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
-#if INTEL_FEATURE_SW_DTRANS
-             &getAnalysis<DTransImmutableAnalysisWrapper>().getResult(),
-#endif // INTEL_FEATURE_SW_DTRANS
-             OptLevel, IsPreVec, PragmaOnlyUnroll)
-      .run();
 }

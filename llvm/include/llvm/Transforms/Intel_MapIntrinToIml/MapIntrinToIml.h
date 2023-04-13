@@ -67,7 +67,7 @@ class MapIntrinToImlImpl {
   /// SVML function and it's VL. If there is no SVML function that satisfies
   /// the requirement, None is returned. If \p Masked is true, a masked variant
   /// is returned.
-  Optional<std::pair<StringRef, unsigned>>
+  std::optional<std::pair<StringRef, unsigned>>
   searchX86SVMLVariantWithMinVL(TargetTransformInfo *TTI,
                                 StringRef ScalarFuncName,
                                 unsigned ComponentBitWidth, unsigned LogicalVL,

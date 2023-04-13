@@ -361,8 +361,10 @@
 
 /// -S -emit-llvm should generate textual IR for device.
 // RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -S -emit-llvm %s 2>&1 \
-// RUN:   | FileCheck -check-prefix=CHECK_S_LLVM %s
-// CHECK_S_LLVM: clang{{.*}} "-triple" "spir64"{{.*}} "-emit-llvm"{{.*}} "-o" "[[DEVICE:.+\.ll]]"
+// RUN:   | FileCheck -check-prefix=CHECK_S_LLVM -DOMP_TARGET=spir64 %s
+// RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=x86_64 -S -emit-llvm %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK_S_LLVM -DOMP_TARGET=x86_64 %s
+// CHECK_S_LLVM: clang{{.*}} "-triple" "[[OMP_TARGET]]"{{.*}} "-emit-llvm"{{.*}} "-o" "[[DEVICE:.+\.ll]]"
 // CHECK_S_LLVM: clang{{.*}} "-triple" "x86_64-unknown-linux-gnu"{{.*}} "-emit-llvm"{{.*}} "-o" "[[HOST:.+\.ll]]"
 // CHECK_S_LLVM: clang-offload-bundler{{.*}} "-type=ll"{{.*}} "-input=[[DEVICE]]" "-input=[[HOST]]"
 
@@ -380,3 +382,12 @@
 // RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -O1 -fopenmp-targets=spir64 -fno-openmp-device-lib=all  %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-SPIRV-OPT %s
 // CHK-SPIRV-OPT: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu"{{.*}} "-mllvm" "-spirv-opt"
+
+/// use of spir shouldn't error with -fveclib=SVML
+// RUN: %clangxx -### -fiopenmp -fopenmp-targets=spir64 -fveclib=SVML -c \
+// RUN:    -target x86_64-unknown-linux-gnu %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=NO_SVML_ERROR %s
+// RUN: %clangxx -### -fiopenmp -fopenmp-targets=spir -fveclib=SVML \
+// RUN:    -target i386-unknown-linux-gnu -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=NO_SVML_ERROR %s
+// NO_SVML_ERROR-NOT: unsupported option 'SVML' for target

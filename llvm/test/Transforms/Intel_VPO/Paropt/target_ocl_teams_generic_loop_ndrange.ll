@@ -1,5 +1,7 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt-prepare -S <%s | FileCheck %s
-; RUN: opt -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=true -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=CONFM %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=CONFM %s
 
 ; Check that VPO Paropt Prepare pass does not remove
 ; the "QUAL.OMP.OFFLOAD.NDRANGE" qualifier from the TARGET construct or
@@ -11,6 +13,12 @@
 ;     for (auto j = 0; j < 100; ++j)
 ;       A[j] = 1.23;
 ; }
+
+; NON-CONFM: @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), {{.*}}, "QUAL.OMP.OFFLOAD.NDRANGE"({{.*}})
+; NON-CONFM: @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), {{.*}}, "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"({{.*}})
+
+; CONFM: @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), {{.*}}, "QUAL.OMP.OFFLOAD.NDRANGE"({{.*}})
+; CONFM: @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), {{.*}}, "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"({{.*}})
 
 source_filename = "lit.cpp"
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
@@ -49,8 +57,6 @@ DIR.OMP.TARGET.2:                                 ; preds = %DIR.OMP.TARGET.1
 DIR.OMP.TARGET.12:                                ; preds = %DIR.OMP.TARGET.2
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.IS_DEVICE_PTR:PTR_TO_PTR"(float addrspace(4)* addrspace(4)* %A.addr.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %j.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast), "QUAL.OMP.OFFLOAD.NDRANGE"(i32 addrspace(4)* %.omp.ub.ascast, i32 0) ]
 
-; CHECK: @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), {{.*}}, "QUAL.OMP.OFFLOAD.NDRANGE"({{.*}})
-
   br label %DIR.OMP.TARGET.3
 
 DIR.OMP.TARGET.3:                                 ; preds = %DIR.OMP.TARGET.12
@@ -64,10 +70,7 @@ DIR.OMP.TEAMS.2:                                  ; preds = %DIR.OMP.TEAMS.4
   br label %DIR.OMP.TEAMS.5
 
 DIR.OMP.TEAMS.5:                                  ; preds = %DIR.OMP.TEAMS.2
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.SHARED"(float addrspace(4)* addrspace(4)* %A.addr.ascast), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %j.ascast), "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"() ]
-
-; Note: Prepare pass changes the GENERICLOOP to a DISTRIBUTE.PARLOOP
-; CHECK: @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), {{.*}}, "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"()
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), "QUAL.OMP.SHARED"(float addrspace(4)* addrspace(4)* %A.addr.ascast), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %j.ascast), "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(i1 false) ]
 
 
   br label %DIR.OMP.GENERICLOOP.6

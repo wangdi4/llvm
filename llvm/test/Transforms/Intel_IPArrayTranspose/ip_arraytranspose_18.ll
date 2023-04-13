@@ -13,17 +13,17 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse
 define i32 @main() #0 {
 b0:
-  %p1 = tail call i8* @malloc(i64 214400020)
-  %pinc = getelementptr inbounds i8, i8* %p1, i64 320000
-  %bc0 = bitcast i8* %pinc to double*
+  %p1 = tail call ptr @malloc(i64 214400020)
+  %pinc = getelementptr inbounds i8, ptr %p1, i64 320000
+  %bc0 = bitcast ptr %pinc to ptr
   br label %b1
 
 b1:                                                ; preds = %b2, %b0
   %ph1 = phi i64 [ 0, %b0 ], [ %inc, %b2 ]
   %inc1 = add nuw nsw i64 %ph1, 19
-  %gep1 = getelementptr inbounds double, double* %bc0, i64 %inc1
-  %bc1 = bitcast double* %gep1 to i32*
-  %ld = load i32, i32* %bc1, align 4
+  %gep1 = getelementptr inbounds double, ptr %bc0, i64 %inc1
+  %bc1 = bitcast ptr %gep1 to ptr
+  %ld = load i32, ptr %bc1, align 4
   %cmp0 = icmp eq i32 %ld, 0
   br i1 %cmp0, label %b2, label %b2
 
@@ -33,12 +33,12 @@ b2:                                               ; preds = %b1, %b1
   br i1 %cmp, label %b1, label %b3
 
 b3:                                               ; preds = %b2
-  tail call void @free(i8* nonnull %p1)
+  tail call void @free(ptr nonnull %p1)
   ret i32 0
 }
 
-declare dso_local noalias i8* @malloc(i64) #1
-declare dso_local void @free(i8* nocapture) #2
+declare dso_local noalias ptr @malloc(i64) #1
+declare dso_local void @free(ptr nocapture) #2
 
 attributes #0 = { norecurse }
 attributes #1 = { inaccessiblememonly mustprogress nofree nounwind willreturn allockind("alloc,uninitialized") allocsize(0) "alloc-family"="malloc" "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }

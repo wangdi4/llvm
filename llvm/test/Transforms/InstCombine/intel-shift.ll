@@ -2,7 +2,7 @@
 ; This test makes sure that this optimization is applied:
 ; ((X << C) + Y) >> C  ->  (X + (Y >> C)) & (~0 >> C)
 ;
-; RUN: opt < %s -instcombine -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 define i32 @test1(i32 %a, i32 %b) {
 ; CHECK-LABEL: @test1(

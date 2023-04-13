@@ -94,16 +94,6 @@ See details in the `OpenMP specification`_.
 
 .. _`OpenMP specification`: https://www.openmp.org/spec-html/5.1/openmp.html
 
-``LIBOMPTARGET_INTEROP_USE_SINGLE_QUEUE=<Enable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Allows user to use a single level0 queue when asynchronous dispatch is
-invoked.  
-
-.. code-block:: rst
-  <Enable> := 1
-
-**Default**: Disabled
-
 
 Plugin Common
 -------------
@@ -132,13 +122,6 @@ invocations, and other plugin-dependent actions.
 
 ``<Num>=2:`` Additionally displays which GPU runtime API functions are invoked
 with which arguments/parameters.
-
-**Default**: Disabled
-
-``LIBOMPTARGET_DATA_TRANSFER_LATENCY=T,<Num>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Adds artificial data transfer latency, <Num> microseconds, for each memory
-copy operations.
 
 **Default**: Disabled
 
@@ -247,6 +230,23 @@ in the kernel should decrease.
 
 **Default**: 0.1
 
+``LIBOMPTARGET_NDRANGE_IGNORE_TRIPCOUNT=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Enable> := 1 | T | t
+
+Loop kernels without known ND-range may still benefit
+from considering loop tripcount to better align
+ND-range with the actual code being run. Currently compiler
+passes loop information when possible and when it is
+considered to be potentially beneficial. This option controls
+whether that information is to be ignored by the runtime and
+use the default unassisted ND-range calculation.
+This is mostly for experimental purposes.
+
+**Default**: Disabled
+
 Plugin LevelZero
 ----------------
 
@@ -254,17 +254,6 @@ Plugin LevelZero
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Passes ``<Options>`` when building native target program binaries.
 ``<Options>`` may include valid OpenCL/Level Zero build options.
-
-``LIBOMPTARGET_LEVEL0_TARGET_GLOBALS=<Disable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Disable> := 0 | F | f
-
-Disables passing ``-cl-take-global-address`` option when building target
-program binaries. Disabling this may result in incorrect program behavior.
-
-| **Default**: Enabled
 
 ``LIBOMPTARGET_LEVEL0_MATCH_SINCOSPI=<Disable>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -323,7 +312,7 @@ and is being deprecated.
   <PoolInfoList> := <PoolInfo>[,<PoolInfoList>]
   <PoolInfo>     := <MemType>[,<AllocMax>[,<Capacity>[,<PoolSize>]]]
   <MemType>      := all | device | host | shared
-  <AllocMax>     := positive integer or empty, max allocation size in MB
+  <AllocMax>     := non-negative integer or empty, max allocation size in MB
   <Capacity>     := positive integer or empty, number of allocations from a
                     single block
   <PoolSize>     := positive integer or empty, max pool size in MB
@@ -331,7 +320,10 @@ and is being deprecated.
 Controls how reusable memory pool is configured.
 Pool is a list of memory blocks that can serve at least ``<Capacity>``
 allocations of up to ``<AllocMax>`` size from a single block, with total size
-not exceeding ``<PoolSize>``.
+not exceeding ``<PoolSize>``. When ``<PoolInfoList>`` only contains a subset of
+``{device, host, shared}`` configurations, the default configurations are used
+for the unspecified memory types, and memory pool for a specific memory type can
+be disabled by specifying 0 for ``<AllocMax>`` for the memory type.
 
 **Default**: Equivalent to ``<Option>=device,1,4,256,host,1,4,256,shared,8,4,256``
 
@@ -362,16 +354,6 @@ Decides memory type returned by ``omp_target_alloc`` routine.
 
 **Default**: device
 
-``LIBOMPTARGET_LEVEL0_USE_DEVICE_MEM=<Enable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Enable> := 1 | T | t
-
-Uses device memory type for ``omp_target_alloc`` routine.
-
-**Note**: Default is already *device*, so we should remove this
-
 ``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE=<Num>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Sets over-subscription parameter that is used when computing the team
@@ -391,17 +373,6 @@ counts for a target region that requires cross-team reduction updates.
 
 **Default**: 8 for discrete devices, 1 for non-discrete devices or/and
 for kernels that use atomic-free reductions.
-
-``LIBOMPTARGET_LEVEL0_KERNEL_WIDTH=<Width>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Width> := 8 | 16 | 32
-
-Forces use of ``<Width>`` when computing the team size/counts for a target
-region.
-
-**Default**: Use existing kernel property
 
 ``LIBOMPTARGET_LEVEL0_STAGING_BUFFER_SIZE=<Num>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -489,6 +460,23 @@ Controls how dedicated reduction scratch pool is configured.
 
 **Default**: Equivalent to ``<PooInfo>=256,8,8192``
 
+``LIBOMPTARGET_LEVEL_ZERO_COMMAND_MODE=<Mode>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Mode> := sync | async | async_ordered
+
+Determines how each commands in a target region are executed when immediate
+command list is fully enabled by setting
+``LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=all``.
+
+``sync``: Host waits for completion of the current submitted command
+``async``: Host does not wait for completion of the current submitted command,
+and synchronization occurs later when it is required
+``async_ordered``: Same as ``async``, but command execution is ordered
+
+**Default**: ``sync``
+
 Plugin OpenCL
 -------------
 
@@ -538,25 +526,6 @@ for kernels that use atomic-free reductions.
 
 TODO
 
-``LIBOMPTARGET_OPENCL_INTEROP_QUEUE=<QueueType>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <QueueType> := inorder_async | inorder_shared_sync
-
-Decides queue properties used in a custom interop object.
-Custom interop is different from OpenMP 5.1 interop and is not user-facing
-interface.
-
-``<QueueType>=inorder_async``: Returns a new in-order OpenCL queue for interop
-objects created for asynchronous usage.
-
-``<QueueType>=inorder_shared_sync``: Returns an existing in-order OpenCL queue
-for interop obejcts created for synchronous usage.
-
-**Default**: New in-order queue for synchronous, existing out-of-order queue for
-asynchronous usage.
-
 ``LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS=<Options>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Passes ``<Options>`` when compiling target programs.
@@ -566,17 +535,6 @@ Passes ``<Options>`` when compiling target programs.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Passes ``<Options>`` when linking target programs.
 ``<Options>`` may include valid OpenCL build options.
-
-``LIBOMPTARGET_OPENCL_TARGET_GLOBALS=<Disable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Disable> := 0 | F | f
-
-Disables passing ``-cl-take-global-address`` option when building target program
-binaries. Disabling this may result in incorrect program behavior.
-
-**Default**: Enabled
 
 ``LIBOMPTARGET_OPENCL_MATCH_SINCOSPI=<Disable>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -643,24 +601,5 @@ Experimental
 Dumps target binaries embeded in the fat binary to the current directory.
 
 **Default**: Disabled
-
-``LIBOMPTARGET_LOCAL_WG_SIZE=<SizeDesc>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <SizeDesc> := {<NumX>,<NumY>,<NumZ>}
-
-Forces using the specified size description for local work size (team size).
-This is for internal experiments and may not work correctly in certain cases.
-
-``LIBOMPTARGET_GLOBAL_WG_SIZE=<SizeDesc>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <SizeDesc> := {<NumX>,<NumY>,<NumZ>}
-
-Forces using the specified size description for global work size (team size *
-team count). This is for internal experiments and may not work correctly in
-certain cases.
 
 .. END INTEL_CUSTOMIZATION

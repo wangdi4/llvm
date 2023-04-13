@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes=partial-inliner -force-run-lto-partial-inline -force-enable-special-cases-partial-inline -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes=partial-inliner -force-run-lto-partial-inline -force-enable-special-cases-partial-inline -S | FileCheck %s
 
 ; Check that the special case @foo() is partially inlined into @main
 

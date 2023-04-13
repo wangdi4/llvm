@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-use-fp-team-counter=false -S %s | FileCheck %s
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-use-fp-team-counter=false -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-red-use-fp-team-counter=false -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-red-use-fp-team-counter=false -S %s | FileCheck %s
 
 ; Test src:
 ;
@@ -77,14 +77,7 @@
 
 ; CHECK: atomic.free.red.global.update.pretree.latch:      ; preds = %atomic.free.red.global.update.header
 ; CHECK: %[[TEAMS_IDX_INC]] = add i64 %[[TEAMS_IDX_PHI]], %[[LOCAL_SIZE]]
-; CHECK: %[[THR_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
-; CHECK: %[[MTT:[^,]+]] = icmp ne i64 %[[THR_ID]], 0
-; CHECK: br i1 %[[MTT]], label %[[JOIN_BB:[^,]+]], label %[[LOAD_BB:[^,]+]]
-
-; CHECK: %[[PREV:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_GEP]], align 4
-; CHECK-NEXT: br label %[[JOIN_BB]]
-
-; CHECK: %[[TMP_RES:[^,]+]] = phi i32 [ undef, %atomic.free.red.global.update.pretree.latch ], [ %[[PREV]], %[[LOAD_BB]] ]
+; CHECK: %[[TMP_RES:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_GEP]], align 4
 ; CHECK: %[[RES_INC]] = add i32 %[[TMP_RES]], %[[RES_PHI]]
 ; CHECK: br label %atomic.free.red.global.pretree.header
 

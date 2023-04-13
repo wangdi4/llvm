@@ -17,14 +17,11 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZATIONPLANNER_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZATIONPLANNER_H
 
-#if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelVPlanLoopUnroller.h"
-#else
-#include "VPlan.h"
-#endif
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 
 namespace llvm {
 class Loop;
@@ -40,10 +37,8 @@ class DDGraph;
 using namespace llvm::loopopt;
 
 namespace vpo {
-#if INTEL_CUSTOMIZATION
 class VPlanVLSAnalysis;
 class WRNVecLoopNode;
-#endif
 class VPOCodeGen;
 class VPOVectorizationLegality;
 class WRNVecLoopNode;
@@ -248,8 +243,8 @@ class CfgMergerPlanDescr : public VPlanLoopDescr {
 public:
   using LoopType = VPlanLoopDescr::LoopType;
 
-  CfgMergerPlanDescr(LoopType LT, unsigned F, VPlan *P)
-      : VPlanLoopDescr(LT, F, isa<VPlanMasked>(P)), Plan(P) {}
+  CfgMergerPlanDescr(LoopType LT, unsigned VF, unsigned UF, VPlan *P)
+      : VPlanLoopDescr(LT, VF, UF, isa<VPlanMasked>(P)), Plan(P) {}
 
   VPlan *getVPlan() const { return Plan; }
 
@@ -297,8 +292,10 @@ private:
       return "";
     };
     OS << "VPlan: " << Plan->getName() << "\n";
-    OS << " Kind: " << getLoopTypeName(getLoopType()) << " VF:" << getVF()
-       << " TC:" << getTC() << "\n";
+    OS << " Kind: " << getLoopTypeName(getLoopType()) << " VF:" << getVF();
+    if (getUF() > 1)
+      OS << " UF:" << getUF();
+    OS << " TC:" << getTC() << "\n";
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
@@ -327,7 +324,6 @@ protected:
   };
 
 public:
-#if INTEL_CUSTOMIZATION
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
                            const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI, const DataLayout *DL,
@@ -337,7 +333,6 @@ public:
                            BlockFrequencyInfo *BFI = nullptr)
       : VectorlengthMD(nullptr), WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL),
         Legal(Legal), VLSA(VLSA), DT(DT), TheLoop(Lp), LI(LI), BFI(BFI) {}
-#endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
   /// Build initial VPlans according to the information gathered by Legal
@@ -345,6 +340,7 @@ public:
   /// Returns the number of VPlans built, zero if failed.
   unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
                               std::string VPlanName, AssumptionCache &AC,
+                              VPAnalysesFactoryBase &VPAF,
                               ScalarEvolution *SE = nullptr,
                               bool IsLegalToVec = true);
 
@@ -507,6 +503,17 @@ public:
   /// Execute peephole optimizations before predicator.
   void runPeepholeBeforePredicator();
 
+  static int getVPlanOrderNumber() { return VPlanOrderNumber; }
+
+  /// Accessors for bail-out reason.
+  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
+                      std::string Message) const {
+    BD.BailoutLevel = Level;
+    BD.BailoutID = ID;
+    BD.BailoutMessage = Message;
+  }
+  VPlanBailoutData &getBailoutData() { return BD; }
+
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan
@@ -526,7 +533,7 @@ protected:
   /// with values from metadata. Else if "llvm.loop.vector.vectorlength"
   /// metadata is not specified, defines MinVF and MaxVF and fills vector of VFs
   /// with default vector values between MinVF and MaxVF.
-  int setDefaultVectorFactors();
+  void setDefaultVectorFactors();
 
   /// Returns true if the loop has normalized induction:
   /// - the main induction is integer
@@ -557,7 +564,7 @@ protected:
   /// Contains true or false value from "llvm.loop.vector.vecremainder" metadata
   /// if it was set on the loop or false if forced by disableVecRemainder call.
   /// Otherwise, it is std::nullopt.
-  Optional<bool> IsVecRemainder;
+  std::optional<bool> IsVecRemainder;
 
   /// Contains true or false value from "llvm.loop.vectorize.dynamic_align"
   /// metadata
@@ -566,7 +573,7 @@ protected:
   /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
   /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
   ///  no such metadata, returns std::nullopt.
-  Optional<bool> readVecRemainderEnabled();
+  std::optional<bool> readVecRemainderEnabled();
 
   /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/
   /// "llvm.loop.intel.vector.nodynamic_align" metadata is specified. If there
@@ -582,6 +589,10 @@ protected:
 
   /// Create VPLiveIn/VPLiveOut lists for VPEntities.
   virtual void createLiveInOutLists(VPlanVector &Plan);
+
+  // Checks whether a call is to an OMP construct, and if so whether it's valid
+  // inside of a SIMD region
+  bool isInvalidOMPConstructInSIMD(VPCallInstruction* VPCall) const;
 
   /// Check whether everything in the loop body is supported at the moment.
   /// We can have some unimplemented things and it's better to gracefully
@@ -606,6 +617,10 @@ protected:
   /// for details). The scalar loops are skipped due to we don't have VPLoops
   /// for them and they are created only during CG
   void fillLoopDescrs();
+
+  /// Set the bailout reason for this loop and optionally print a debug msg.
+  void bailout(OptReportVerbosity::Level Level, unsigned ID,
+               std::string Message, std::string Debug = "") const;
 
   /// Go through all VPlans and run \p ProcessPlan on each of them.
   template <class F> void transformAllVPlans(F &ProcessPlan) {
@@ -663,10 +678,8 @@ protected:
   // Storage for VPInstructions that have been removed from VPlan and unlinked.
   std::unique_ptr<VPUnlinkedInstructions> UnlinkedVPInsts;
 
-#if INTEL_CUSTOMIZATION
   /// VPlan VLS Analysis.
   VPlanVLSAnalysis *VLSA;
-#endif // INTEL_CUSTOMIZATION
 
   /// The dominator tree.
   class DominatorTree *DT;
@@ -679,11 +692,16 @@ protected:
   // creates VPlan list for merging. No info for inner loops is kept here.
   VPLoopDescrMap TopLoopDescrs;
 
+  // Bail-out reason data.
+  mutable VPlanBailoutData BD;
+
   struct VPCostSummary {
     VPInstructionCost ScalarIterationCost;
     VPInstructionCost VectorIterationCost;
     VPInstructionCost Speedup;
     VPInstructionCost LoopOverhead;
+
+    VPCostSummary() = default;
 
     VPCostSummary(VPInstructionCost ScalarIterationCost,
                   VPInstructionCost VectorIterationCost,
@@ -770,6 +788,10 @@ private:
   /// VF selection and kept in this member. Is not expected to be updated
   /// once calculated.
   VPInstructionCost ScalarIterationCost;
+
+  /// Internal loop number. The loops are numbered sequentially throughout
+  /// one compilation. The loop numbers can be used for debugging.
+  static int VPlanOrderNumber;
 };
 
 } // namespace vpo

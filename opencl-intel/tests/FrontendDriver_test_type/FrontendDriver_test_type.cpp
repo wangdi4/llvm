@@ -21,10 +21,10 @@
 #include "FrontendDriver.h"
 #include "FrontendDriverFixture.h"
 #include "clang_device_info.h"
-#include "common_clang.h"
 #include "common_utils.h"
 #include "frontend_api.h"
 #include "gtest_wrapper.h"
+#include "opencl_clang.h"
 #include <CL/cl.h>
 
 #include "SPIRV/libSPIRV/spirv_internal.hpp"
@@ -36,6 +36,7 @@
 #include <fstream>
 #include <string>
 
+using namespace llvm;
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
@@ -149,7 +150,7 @@ TEST_F(ClangCompilerTestType, Test_CTSSPIR12) {
 }
 
 TEST_F(ClangCompilerTestType, Test_PlainSpirvConversion)
-// take a simple spirv file and make FE Compiler convert it to llvm::Module
+// take a simple spirv file and make FE Compiler convert it to Module
 {
   const char *build_options = "";
 
@@ -207,12 +208,19 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
       spv::CapabilityInt64Atomics, SPIRVOpCapability, spv::CapabilityAsmINTEL,
       SPIRVOpCapability, spv::CapabilityVariableLengthArrayINTEL,
       SPIRVOpCapability, spv::internal::CapabilityJointMatrixINTEL,
+      SPIRVOpCapability,
+      spv::internal::CapabilityJointMatrixWIInstructionsINTEL,
+      SPIRVOpCapability,
+      spv::internal::CapabilityJointMatrixTF32ComponentTypeINTEL,
+      SPIRVOpCapability,
+      spv::internal::CapabilityJointMatrixBF16ComponentTypeINTEL,
       SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
       SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
       SPIRVOpCapability,
       spv::internal::CapabilityGlobalVariableDecorationsINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
       SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
+      SPIRVOpCapability, spv::internal::CapabilityTensorFloat32RoundingINTEL,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical32,
@@ -283,6 +291,12 @@ TEST_F(ClangCompilerTestType,
       spv::CapabilityInt64Atomics, SPIRVOpCapability, spv::CapabilityAsmINTEL,
       SPIRVOpCapability, spv::CapabilityVariableLengthArrayINTEL,
       SPIRVOpCapability, spv::internal::CapabilityJointMatrixINTEL,
+      SPIRVOpCapability,
+      spv::internal::CapabilityJointMatrixWIInstructionsINTEL,
+      SPIRVOpCapability,
+      spv::internal::CapabilityJointMatrixTF32ComponentTypeINTEL,
+      SPIRVOpCapability,
+      spv::internal::CapabilityJointMatrixBF16ComponentTypeINTEL,
       SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
       SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
       SPIRVOpCapability,
@@ -295,7 +309,7 @@ TEST_F(ClangCompilerTestType,
       spv::MemoryModelOpenCL};
   // Swap byte order of SPIR-V BC
   for (auto &word : spvBC)
-    word = llvm::ByteSwap_32(word);
+    word = byteswap(word);
 
   auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
 
@@ -341,6 +355,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP64AndImages) {
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       true,  // images support
       false, // fp16 support
       true,  // fp64 support
@@ -374,6 +389,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       true,  // images support
       false, // fp16 support
       false, // fp64 support
@@ -396,6 +412,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOFP64) {
 TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       false, // images support
       false, // fp16 support
       true,  // fp64 support
@@ -446,6 +463,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP16) {
 
   CLANG_DEV_INFO devInfo1 = {
       "",    // extensions
+      "",    // features
       false, // images support
       false, // fp16 support
       false, // fp64 support
@@ -464,6 +482,7 @@ TEST_F(ClangCompilerTestType, Test_SpirvWithFP16) {
 
   CLANG_DEV_INFO devInfo2 = {
       "",    // extensions
+      "",    // features
       false, // images support
       true,  // fp16 support
       false, // fp64 support
@@ -547,16 +566,18 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
       spv::CapabilityFPGAClusterAttributesINTEL, SPIRVOpCapability,
       spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
       spv::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL,
-      SPIRVOpCapability, spv::internal::CapabilityFPArithmeticFenceINTEL,
-      SPIRVOpCapability, spv::CapabilityLongConstantCompositeINTEL,
-      SPIRVOpCapability, spv::internal::CapabilityTaskSequenceINTEL, // INTEL
+      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAKernelAttributesv2INTEL, SPIRVOpCapability,
+      spv::internal::CapabilityFPArithmeticFenceINTEL, SPIRVOpCapability,
+      spv::CapabilityLongConstantCompositeINTEL, SPIRVOpCapability,
+      spv::internal::CapabilityTaskSequenceINTEL, // INTEL
       SPIRVOpCapability, spv::internal::CapabilityBfloat16ConversionINTEL,
       SPIRVOpCapability,
       spv::internal::CapabilityGlobalVariableDecorationsINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
       SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
-      SPIRVOpCapability, spv::CapabilityAtomicFloat64AddEXT,
+      SPIRVOpCapability, spv::CapabilityAtomicFloat64AddEXT, SPIRVOpCapability,
+      spv::CapabilityFPGAArgumentInterfacesINTEL,
 
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
@@ -566,6 +587,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       false, // images support
       false, // fp16 support
       true,  // fp64 support
@@ -599,6 +621,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnFPGA) {
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       false, // images support
       false, // fp16 support
       true,  // fp64 support
@@ -641,7 +664,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       spv::CapabilityIndirectReferencesINTEL, SPIRVOpCapability,
       spv::CapabilityAsmINTEL, SPIRVOpCapability,
       spv::CapabilityVariableLengthArrayINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityVectorVariantsINTEL, SPIRVOpCapability,
+      spv::internal::CapabilityVectorVariantsINTEL, SPIRVOpCapability, // INTEL
       spv::CapabilityExpectAssumeKHR, SPIRVOpCapability,
       spv::CapabilityVectorAnyINTEL, SPIRVOpCapability,
       spv::CapabilityUnstructuredLoopControlsINTEL, SPIRVOpCapability,
@@ -660,6 +683,8 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       spv::internal::CapabilityBfloat16ConversionINTEL, SPIRVOpCapability,
       spv::internal::CapabilityGlobalVariableDecorationsINTEL,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
+      SPIRVOpCapability, spv::CapabilityGroupNonUniformShuffle,
+      SPIRVOpCapability, spv::CapabilityGroupNonUniformShuffleRelative,
       SPIRVOpCapability, spv::CapabilityGroupUniformArithmeticKHR,
       SPIRVOpCapability, spv::internal::CapabilityMaskedGatherScatterINTEL,
       SPIRVOpCapability, spv::CapabilityAtomicFloat64AddEXT,
@@ -673,6 +698,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
   for (int i = 0; i < 2; i++) {
     CLANG_DEV_INFO devInfo = {
         "",    // extensions
+        "",    // features
         false, // images support
         false, // fp16 support
         true,  // fp64 support
@@ -716,9 +742,11 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
       spv::CapabilityFPGAClusterAttributesINTEL, SPIRVOpCapability,
       spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
       spv::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
-      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL,
-      SPIRVOpCapability, spv::internal::CapabilityFPArithmeticFenceINTEL,
-      SPIRVOpCapability, spv::internal::CapabilityTaskSequenceINTEL, // INTEL
+      spv::CapabilityFPGAInvocationPipeliningAttributesINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAKernelAttributesv2INTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAArgumentInterfacesINTEL, SPIRVOpCapability,
+      spv::internal::CapabilityFPArithmeticFenceINTEL, SPIRVOpCapability,
+      spv::internal::CapabilityTaskSequenceINTEL, // INTEL
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
 
@@ -727,6 +755,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
 
   CLANG_DEV_INFO devInfo = {
       "",    // extensions
+      "",    // features
       false, // images support
       false, // fp16 support
       true,  // fp64 support

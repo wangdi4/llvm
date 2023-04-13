@@ -26,7 +26,7 @@ const unsigned int MAX_UINT = 0xffffffff;
 /************************************************************************
  * Creates thread object. Doesn't create
  ************************************************************************/
-OclThread::OclThread(string name, bool bAutoDelete)
+OclThread::OclThread(std::string name, bool bAutoDelete)
     : m_threadHandle(nullptr), m_threadId(MAX_UINT), m_running(false),
       m_bAutoDelete(bAutoDelete), m_Name(name) {}
 

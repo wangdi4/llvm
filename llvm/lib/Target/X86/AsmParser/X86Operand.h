@@ -297,6 +297,26 @@ struct X86Operand final : public MCParsedAsmOperand {
     return isImmSExti64i32Value(CE->getValue());
   }
 
+#if INTEL_CUSTOMIZATION
+  bool isImmUnsignedi1() const {
+    if (!isImm()) return false;
+    // If this isn't a constant expr, reject it. The immediate byte is shared
+    // with a register encoding. We can't have it affected by a relocation.
+    const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
+    if (!CE) return false;
+    return isImmUnsignedi1Value(CE->getValue());
+  }
+
+  bool isImmUnsignedi2() const {
+    if (!isImm()) return false;
+    // If this isn't a constant expr, reject it. The immediate byte is shared
+    // with a register encoding. We can't have it affected by a relocation.
+    const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
+    if (!CE) return false;
+    return isImmUnsignedi2Value(CE->getValue());
+  }
+#endif // INTEL_CUSTOMIZATION
+
   bool isImmUnsignedi4() const {
     if (!isImm()) return false;
     // If this isn't a constant expr, reject it. The immediate byte is shared
@@ -396,6 +416,40 @@ struct X86Operand final : public MCParsedAsmOperand {
   }
   bool isMem512_RC512() const {
     return isMem512() && isMemIndexReg(X86::ZMM0, X86::ZMM31);
+  }
+  bool isMem512_GR16() const {
+    if (!isMem512())
+      return false;
+    if (getMemBaseReg() &&
+        !X86MCRegisterClasses[X86::GR16RegClassID].contains(getMemBaseReg()))
+      return false;
+    return true;
+  }
+  bool isMem512_GR32() const {
+    if (!isMem512())
+      return false;
+    if (getMemBaseReg() &&
+        !X86MCRegisterClasses[X86::GR32RegClassID].contains(getMemBaseReg()) &&
+        getMemBaseReg() != X86::EIP)
+      return false;
+    if (getMemIndexReg() &&
+        !X86MCRegisterClasses[X86::GR32RegClassID].contains(getMemIndexReg()) &&
+        getMemIndexReg() != X86::EIZ)
+      return false;
+    return true;
+  }
+  bool isMem512_GR64() const {
+    if (!isMem512())
+      return false;
+    if (getMemBaseReg() &&
+        !X86MCRegisterClasses[X86::GR64RegClassID].contains(getMemBaseReg()) &&
+        getMemBaseReg() != X86::RIP)
+      return false;
+    if (getMemIndexReg() &&
+        !X86MCRegisterClasses[X86::GR64RegClassID].contains(getMemIndexReg()) &&
+        getMemIndexReg() != X86::RIZ)
+      return false;
+    return true;
   }
 
   bool isAbsMem() const {
@@ -606,7 +660,7 @@ struct X86Operand final : public MCParsedAsmOperand {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   bool isTILEPair() const {
     return Kind == Register &&
       X86MCRegisterClasses[X86::TILERegClassID].contains(getReg());
@@ -729,7 +783,7 @@ struct X86Operand final : public MCParsedAsmOperand {
     unsigned Reg = (((getReg() - X86::ZMM0) / 16) * 16) + X86::ZMM0;
     Inst.addOperand(MCOperand::createReg(Reg));
   }
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
 #if INTEL_FEATURE_XISA_COMMON
   bool isXMMPair() const {

@@ -42,7 +42,6 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/MC/MCTargetOptions.h"
@@ -54,10 +53,12 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/TargetParser.h"
 #include "llvm/Support/VersionTuple.h"
 #include "llvm/Support/VirtualFileSystem.h"
+#include "llvm/TargetParser/TargetParser.h"
+#include "llvm/TargetParser/Triple.h"
 #include <cassert>
 #include <cstddef>
 #include <cstring>
@@ -109,6 +110,33 @@ ToolChain::ToolChain(const Driver &D, const llvm::Triple &T,
   for (const auto &Path : getStdlibPaths())
     addIfExists(getFilePaths(), Path);
   addIfExists(getFilePaths(), getArchSpecificLibPath());
+}
+
+llvm::Expected<std::unique_ptr<llvm::MemoryBuffer>>
+ToolChain::executeToolChainProgram(StringRef Executable) const {
+  llvm::SmallString<64> OutputFile;
+  llvm::sys::fs::createTemporaryFile("toolchain-program", "txt", OutputFile);
+  llvm::FileRemover OutputRemover(OutputFile.c_str());
+  std::optional<llvm::StringRef> Redirects[] = {
+      {""},
+      OutputFile.str(),
+      {""},
+  };
+
+  std::string ErrorMessage;
+  if (llvm::sys::ExecuteAndWait(Executable, {}, {}, Redirects,
+                                /* SecondsToWait */ 0,
+                                /*MemoryLimit*/ 0, &ErrorMessage))
+    return llvm::createStringError(std::error_code(),
+                                   Executable + ": " + ErrorMessage);
+
+  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> OutputBuf =
+      llvm::MemoryBuffer::getFile(OutputFile.c_str());
+  if (!OutputBuf)
+    return llvm::createStringError(OutputBuf.getError(),
+                                   "Failed to read stdout of " + Executable +
+                                       ": " + OutputBuf.getError().message());
+  return std::move(*OutputBuf);
 }
 
 void ToolChain::setTripleEnvironment(llvm::Triple::EnvironmentType Env) {
@@ -173,9 +201,9 @@ ToolChain::getSanitizerArgs(const llvm::opt::ArgList &JobArgs) const {
 }
 
 const XRayArgs& ToolChain::getXRayArgs() const {
-  if (!XRayArguments.get())
+  if (!XRayArguments)
     XRayArguments.reset(new XRayArgs(*this, Args));
-  return *XRayArguments.get();
+  return *XRayArguments;
 }
 
 namespace {
@@ -473,6 +501,7 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
   case Action::LipoJobClass:
   case Action::DsymutilJobClass:
   case Action::VerifyDebugInfoJobClass:
+  case Action::BinaryAnalyzeJobClass:
     llvm_unreachable("Invalid tool kind.");
 
   case Action::CompileJobClass:
@@ -658,6 +687,27 @@ ToolChain::path_list ToolChain::getRuntimePaths() const {
   };
 
   addPathForTriple(getTriple());
+
+  // When building with per target runtime directories, various ways of naming
+  // the Arm architecture may have been normalised to simply "arm".
+  // For example "armv8l" (Armv8 AArch32 little endian) is replaced with "arm".
+  // Since an armv8l system can use libraries built for earlier architecture
+  // versions assuming endian and float ABI match.
+  //
+  // Original triple: armv8l-unknown-linux-gnueabihf
+  //  Runtime triple: arm-unknown-linux-gnueabihf
+  //
+  // We do not do this for armeb (big endian) because doing so could make us
+  // select little endian libraries. In addition, all known armeb triples only
+  // use the "armeb" architecture name.
+  //
+  // M profile Arm is bare metal and we know they will not be using the per
+  // target runtime directory layout.
+  if (getTriple().getArch() == Triple::arm && !getTriple().isArmMClass()) {
+    llvm::Triple ArmTriple = getTriple();
+    ArmTriple.setArch(Triple::arm);
+    addPathForTriple(ArmTriple);
+  }
 
   // Android targets may include an API level at the end. We still want to fall
   // back on a path without the API level.
@@ -1174,6 +1224,15 @@ void ToolChain::AddCCKextLibArgs(const ArgList &Args,
 }
 
 #if INTEL_CUSTOMIZATION
+std::string ToolChain::GetIntelLibPath() const {
+  SmallString<128> LibDir(llvm::sys::path::parent_path(getDriver().Dir));
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  LibDir = llvm::sys::path::parent_path(LibDir);
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
+  llvm::sys::path::append(LibDir, "lib");
+  return std::string(LibDir.str());
+}
+
 void ToolChain::AddIntelLibimfLibArgs(const ArgList &Args,
                                       ArgStringList &CmdArgs) const {
   CmdArgs.push_back("-limf");
@@ -1690,6 +1749,11 @@ bool ToolChain::addFastMathRuntimeIfAvailable(const ArgList &Args,
   return false;
 }
 
+Expected<SmallVector<std::string>>
+ToolChain::getSystemGPUArchs(const llvm::opt::ArgList &Args) const {
+  return SmallVector<std::string>();
+}
+
 SanitizerMask ToolChain::getSupportedSanitizers() const {
   // Return sanitizers which don't require runtime support and are not
   // platform dependent.
@@ -1952,9 +2016,6 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
       }
     }
 
-    if (!XOffloadTargetArg)
-      continue;
-
     XOffloadTargetArg->setBaseArg(A);
     A = XOffloadTargetArg.release();
     AllocatedArgs.push_back(A);
@@ -2070,17 +2131,17 @@ llvm::opt::DerivedArgList *ToolChain::TranslateXarchArgs(
   DerivedArgList *DAL = new DerivedArgList(Args.getBaseArgs());
   bool Modified = false;
 
-  bool IsGPU = OFK == Action::OFK_Cuda || OFK == Action::OFK_HIP;
+  bool IsDevice = OFK != Action::OFK_None && OFK != Action::OFK_Host;
   for (Arg *A : Args) {
     bool NeedTrans = false;
     bool Skip = false;
     if (A->getOption().matches(options::OPT_Xarch_device)) {
-      NeedTrans = IsGPU;
-      Skip = !IsGPU;
+      NeedTrans = IsDevice;
+      Skip = !IsDevice;
     } else if (A->getOption().matches(options::OPT_Xarch_host)) {
-      NeedTrans = !IsGPU;
-      Skip = IsGPU;
-    } else if (A->getOption().matches(options::OPT_Xarch__) && IsGPU) {
+      NeedTrans = !IsDevice;
+      Skip = IsDevice;
+    } else if (A->getOption().matches(options::OPT_Xarch__) && IsDevice) {
       // Do not translate -Xarch_ options for non CUDA/HIP toolchain since
       // they may need special translation.
       // Skip this argument unless the architecture matches BoundArch

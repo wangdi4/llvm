@@ -752,11 +752,6 @@ def OR32mi8Locked  : Ii8<0x83, MRM1m, (outs), (ins i32mem:$dst, i32i8imm:$zero),
                          Requires<[Not64BitMode]>, OpSize32, LOCK,
                          Sched<[WriteALURMW]>;
 
-let hasSideEffects = 1, isMeta = 1 in
-def Int_MemBarrier : I<0, Pseudo, (outs), (ins),
-                     "#MEMBARRIER",
-                     [(X86MemBarrier)]>, Sched<[WriteLoad]>;
-
 // RegOpc corresponds to the mr version of the instruction
 // ImmOpc corresponds to the mi version of the instruction
 // ImmOpc8 corresponds to the mi8 version of the instruction
@@ -940,6 +935,17 @@ def x86btc : SDNode<"X86ISD::LBTC", X86LBTest,
 def x86btr : SDNode<"X86ISD::LBTR", X86LBTest,
                     [SDNPHasChain, SDNPMayLoad, SDNPMayStore, SDNPMemOperand]>;
 
+def X86LBTestRM : SDTypeProfile<1, 2, [SDTCisVT<0, i32>, SDTCisPtrTy<1>,
+                                       SDTCisInt<2>]>;
+
+def x86_rm_bts : SDNode<"X86ISD::LBTS_RM", X86LBTestRM,
+                        [SDNPHasChain, SDNPMayLoad, SDNPMayStore, SDNPMemOperand]>;
+def x86_rm_btc : SDNode<"X86ISD::LBTC_RM", X86LBTestRM,
+                        [SDNPHasChain, SDNPMayLoad, SDNPMayStore, SDNPMemOperand]>;
+def x86_rm_btr : SDNode<"X86ISD::LBTR_RM", X86LBTestRM,
+                        [SDNPHasChain, SDNPMayLoad, SDNPMayStore, SDNPMemOperand]>;
+
+
 multiclass ATOMIC_LOGIC_OP<Format Form, string s> {
   let Defs = [EFLAGS], mayLoad = 1, mayStore = 1, isCodeGenOnly = 1,
       SchedRW = [WriteBitTestSetRegRMW]  in {
@@ -958,9 +964,32 @@ multiclass ATOMIC_LOGIC_OP<Format Form, string s> {
   }
 }
 
+multiclass ATOMIC_LOGIC_OP_RM<bits<8> Opc8, string s> {
+  let Defs = [EFLAGS], mayLoad = 1, mayStore = 1, isCodeGenOnly = 1,
+      SchedRW = [WriteBitTestSetRegRMW]  in {
+    def 16rm : I<Opc8, MRMDestMem, (outs), (ins i16mem:$src1, GR16:$src2),
+                  !strconcat(s, "{w}\t{$src2, $src1|$src1, $src2}"),
+                  [(set EFLAGS, (!cast<SDNode>("x86_rm_" # s) addr:$src1, GR16:$src2))]>,
+               OpSize16, TB, LOCK;
+    def 32rm : I<Opc8, MRMDestMem, (outs), (ins i32mem:$src1, GR32:$src2),
+                  !strconcat(s, "{l}\t{$src2, $src1|$src1, $src2}"),
+                  [(set EFLAGS, (!cast<SDNode>("x86_rm_" # s) addr:$src1, GR32:$src2))]>,
+               OpSize32, TB, LOCK;
+    def 64rm : RI<Opc8, MRMDestMem, (outs), (ins i64mem:$src1, GR64:$src2),
+                   !strconcat(s, "{q}\t{$src2, $src1|$src1, $src2}"),
+                   [(set EFLAGS, (!cast<SDNode>("x86_rm_" # s) addr:$src1, GR64:$src2))]>,
+               TB, LOCK;
+  }
+}
+
+
 defm LOCK_BTS : ATOMIC_LOGIC_OP<MRM5m, "bts">;
 defm LOCK_BTC : ATOMIC_LOGIC_OP<MRM7m, "btc">;
 defm LOCK_BTR : ATOMIC_LOGIC_OP<MRM6m, "btr">;
+
+defm LOCK_BTS_RM : ATOMIC_LOGIC_OP_RM<0xAB, "bts">;
+defm LOCK_BTC_RM : ATOMIC_LOGIC_OP_RM<0xBB, "btc">;
+defm LOCK_BTR_RM : ATOMIC_LOGIC_OP_RM<0xB3, "btr">;
 
 // Atomic compare and swap.
 multiclass LCMPXCHG_BinOp<bits<8> Opc8, bits<8> Opc, Format Form,
@@ -1722,12 +1751,12 @@ def : Pat<(and GR64:$src, 0xff),
 
 def BTRXForm : SDNodeXForm<imm, [{
   // Transformation function: Find the lowest 0.
-  return getI64Imm((uint8_t)N->getAPIntValue().countTrailingOnes(), SDLoc(N));
+  return getI64Imm((uint8_t)N->getAPIntValue().countr_one(), SDLoc(N));
 }]>;
 
 def BTCBTSXForm : SDNodeXForm<imm, [{
   // Transformation function: Find the lowest 1.
-  return getI64Imm((uint8_t)N->getAPIntValue().countTrailingZeros(), SDLoc(N));
+  return getI64Imm((uint8_t)N->getAPIntValue().countr_zero(), SDLoc(N));
 }]>;
 
 def BTRMask64 : ImmLeaf<i64, [{
@@ -2140,6 +2169,11 @@ def : Pat<(sub GR64:$src1, i64immSExt8:$src2),
 def : Pat<(sub GR64:$src1, i64immSExt32:$src2),
           (SUB64ri32 GR64:$src1, i64immSExt32:$src2)>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [NoNDD] in {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 // sub 0, reg
 def : Pat<(X86sub_flag 0, GR8 :$src), (NEG8r  GR8 :$src)>;
 def : Pat<(X86sub_flag 0, GR16:$src), (NEG16r GR16:$src)>;
@@ -2161,6 +2195,33 @@ def : Pat<(mul GR32:$src1, (loadi32 addr:$src2)),
           (IMUL32rm GR32:$src1, addr:$src2)>;
 def : Pat<(mul GR64:$src1, (loadi64 addr:$src2)),
           (IMUL64rm GR64:$src1, addr:$src2)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+}
+
+let Predicates = [HasNDD] in {
+def : Pat<(X86sub_flag 0, GR8 :$src), (NEG8r_ND  GR8 :$src)>;
+def : Pat<(X86sub_flag 0, GR16:$src), (NEG16r_ND GR16:$src)>;
+def : Pat<(X86sub_flag 0, GR32:$src), (NEG32r_ND GR32:$src)>;
+def : Pat<(X86sub_flag 0, GR64:$src), (NEG64r_ND GR64:$src)>;
+
+def : Pat<(mul GR16:$src1, GR16:$src2),
+          (IMUL16rr_ND GR16:$src1, GR16:$src2)>;
+def : Pat<(mul GR32:$src1, GR32:$src2),
+          (IMUL32rr_ND GR32:$src1, GR32:$src2)>;
+def : Pat<(mul GR64:$src1, GR64:$src2),
+          (IMUL64rr_ND GR64:$src1, GR64:$src2)>;
+
+// mul reg, mem
+def : Pat<(mul GR16:$src1, (loadi16 addr:$src2)),
+          (IMUL16rm_ND GR16:$src1, addr:$src2)>;
+def : Pat<(mul GR32:$src1, (loadi32 addr:$src2)),
+          (IMUL32rm_ND GR32:$src1, addr:$src2)>;
+def : Pat<(mul GR64:$src1, (loadi64 addr:$src2)),
+          (IMUL64rm_ND GR64:$src1, addr:$src2)>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // mul reg, imm
 def : Pat<(mul GR16:$src1, imm:$src2),
@@ -2192,7 +2253,13 @@ def : Pat<(mul (loadi64 addr:$src1), i64immSExt32:$src2),
 
 // Increment/Decrement reg.
 // Do not make INC/DEC if it is slow
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [UseIncDec, NoNDD] in {
+#else  // INTEL_FEATURE_ISA_APX_F
 let Predicates = [UseIncDec] in {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(add GR8:$src, 1),   (INC8r GR8:$src)>;
   def : Pat<(add GR16:$src, 1),  (INC16r GR16:$src)>;
   def : Pat<(add GR32:$src, 1),  (INC32r GR32:$src)>;
@@ -2211,6 +2278,30 @@ let Predicates = [UseIncDec] in {
   def : Pat<(X86sub_flag_nocf GR32:$src, -1), (INC32r GR32:$src)>;
   def : Pat<(X86sub_flag_nocf GR64:$src, -1), (INC64r GR64:$src)>;
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+
+let Predicates = [UseIncDec, HasNDD] in {
+  def : Pat<(add GR8:$src, 1),   (INC8r_ND GR8:$src)>;
+  def : Pat<(add GR16:$src, 1),  (INC16r_ND GR16:$src)>;
+  def : Pat<(add GR32:$src, 1),  (INC32r_ND GR32:$src)>;
+  def : Pat<(add GR64:$src, 1),  (INC64r_ND GR64:$src)>;
+  def : Pat<(add GR8:$src, -1),  (DEC8r_ND GR8:$src)>;
+  def : Pat<(add GR16:$src, -1), (DEC16r_ND GR16:$src)>;
+  def : Pat<(add GR32:$src, -1), (DEC32r_ND GR32:$src)>;
+  def : Pat<(add GR64:$src, -1), (DEC64r_ND GR64:$src)>;
+
+  def : Pat<(X86add_flag_nocf GR8:$src, -1),  (DEC8r_ND GR8:$src)>;
+  def : Pat<(X86add_flag_nocf GR16:$src, -1), (DEC16r_ND GR16:$src)>;
+  def : Pat<(X86add_flag_nocf GR32:$src, -1), (DEC32r_ND GR32:$src)>;
+  def : Pat<(X86add_flag_nocf GR64:$src, -1), (DEC64r_ND GR64:$src)>;
+  def : Pat<(X86sub_flag_nocf GR8:$src, -1),  (INC8r_ND GR8:$src)>;
+  def : Pat<(X86sub_flag_nocf GR16:$src, -1), (INC16r_ND GR16:$src)>;
+  def : Pat<(X86sub_flag_nocf GR32:$src, -1), (INC32r_ND GR32:$src)>;
+  def : Pat<(X86sub_flag_nocf GR64:$src, -1), (INC64r_ND GR64:$src)>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // or reg/reg.
 def : Pat<(or GR8 :$src1, GR8 :$src2), (OR8rr  GR8 :$src1, GR8 :$src2)>;

@@ -1,4 +1,4 @@
-; RUN: opt -passes="function(vpo-paropt-prepare)" -pass-remarks-output=%t -S %s
+; RUN: opt -opaque-pointers=0 -passes="function(vpo-paropt-prepare)" -pass-remarks-output=%t -S %s
 ; RUN: FileCheck --input-file %t %s
 ; FIXME: This fails with new pass manager as genGlobalPrivatizationLaunderIntrin()
 ; inserts an empty basic block even when there is nothing to be laundered, which

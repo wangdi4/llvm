@@ -97,6 +97,10 @@ macro(add_sycl_unittest test_dirname link_variant)
     )
 # end INTEL_CUSTOMIZATION
 
+  if(SYCL_ENABLE_KERNEL_FUSION)
+    target_link_libraries(${test_dirname} PRIVATE sycl-fusion)
+  endif(SYCL_ENABLE_KERNEL_FUSION)
+  
   target_include_directories(${test_dirname}
     PRIVATE SYSTEM
       ${sycl_inc_dir}

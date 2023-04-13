@@ -18,4 +18,4 @@
 type = Library
 name = SYCLLowerIR
 parent = Libraries
-required_libraries = Core Support
+required_libraries = Core Support TargetParser

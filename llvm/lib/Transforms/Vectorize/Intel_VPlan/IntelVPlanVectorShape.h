@@ -180,9 +180,12 @@ public:
   static bool shapesHaveSameStride(VPVectorShape Shape1, VPVectorShape Shape2);
 
   static VPVectorShape getUndef() { return {VPShapeDescriptor::Undef}; }
+  static VPVectorShape makeRandom(VPVectorShape Shape) {
+    return Shape.isSOAShape() ? VPShapeDescriptor::SOARnd
+                              : VPShapeDescriptor::Rnd;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#if INTEL_CUSTOMIZATION
   void print(raw_ostream &OS) const {
     OS << "[Shape: " << getShapeDescriptorStr();
     if (isAnyStrided()) {
@@ -197,7 +200,6 @@ public:
     }
     OS << ']';
   }
-#endif
 #endif
 
 private:

@@ -2,12 +2,15 @@
 ; Test for a bug (CQ377860) in Andersens analysis that caused crash when 
 ; Instruction::Select is used as operand in Instruction::Store
 @fp = external global i32 ()*, align 8
+; CMPLRLLVM-45955: Moved out "select" instruction out of "store" instruction
+; since select is removed as ConstantExpr.
 
 ; Function Attrs: nounwind uwtable
 define i32 @foo1() #0 {
 entry:
   %retval = alloca i32, align 4
-  store i32 ()* select (i1 icmp eq (i32 ()* inttoptr (i64 3 to i32 ()*), i32 ()* @foo), i32 ()* @foo, i32 ()* @bar), i32 ()** @fp, align 8
+  %s = select i1 icmp eq (i32 ()* inttoptr (i64 3 to i32 ()*), i32 ()* @foo), i32 ()* @foo, i32 ()* @bar
+  store i32 ()* %s, i32 ()** @fp, align 8
   %0 = load i32, i32* %retval, align 4
   ret i32 %0
 }

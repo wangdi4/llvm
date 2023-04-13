@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -vector-library=SVML | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser -vector-library=SVML | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -vector-library=SVML -disable-output  2>&1 | FileCheck %s
 
 ; Check that we build HIR for loop containing vectorizble sinf() call.

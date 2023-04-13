@@ -12,7 +12,7 @@
 ;<8>                |   %d.fpriv538.priv.sroa.0.0 = 0;
 ;<9>                |   if (%4 > %3)
 ;<9>                |   {
-;<15>               |      %7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%d.fpriv538.red)[0])),  QUAL.OMP.LINEAR:IV(&((%k.fpriv.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
+;<15>               |      %7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%d.fpriv538.red)[0])),  QUAL.OMP.LINEAR:IV(&((%k.fpriv.linear.iv)[0]), 1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
 ;<16>               |      (%d.fpriv538.red)[0] = 0.000000e+00;
 ;<18>               |      %d.fpriv538.priv.sroa.0.1 = 0;
 ;<19>               |      if (-1 * %3 + %4 + -1 >= 0)
@@ -52,7 +52,7 @@
 ; CHECK:           |   %d.fpriv538.priv.sroa.0.0 = 0;
 ; CHECK:           |   if (%4 > %3)
 ; CHECK:           |   {
-; CHECK:           |      %7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%d.fpriv538.red)[0])),  QUAL.OMP.LINEAR:IV(&((%k.fpriv.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
+; CHECK:           |      %7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%d.fpriv538.red)[0])),  QUAL.OMP.LINEAR:IV(&((%k.fpriv.linear.iv)[0]), 1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
 ; CHECK:           |      (%d.fpriv538.red)[0] = 0.000000e+00;
 ; CHECK:           |      %d.fpriv538.priv.sroa.0.1 = 0;
 ; CHECK:           |      if (-1 * %3 + %4 + -1 >= 0)
@@ -64,11 +64,10 @@
 ; CHECK:           |         |   %mul358 = (%a.map.ptr.tmp308.priv.v)[i2 + sext.i32.i64(%3)]  *  (%z.map.ptr.tmp309.priv.v)[%13];
 ; CHECK:           |         |   %11 = %11  +  %mul358;
 ; CHECK:           |         + END LOOP
-; CHECK:           |            %12 = zext.i32.i64(smax(1, ((-1 * %3) + %4))) + -1  +  %3;
 ; CHECK:           |
-; CHECK:           |         (%k.fpriv.linear.iv)[0] = trunc.i64.i32(%12) + 1;
+; CHECK:           |         (%k.fpriv.linear.iv)[0] = %3 + smax(1, ((-1 * %3) + %4));
 ; CHECK:           |         (%d.fpriv538.red)[0] = %11;
-; CHECK:           |         (%k.fpriv)[0] = trunc.i64.i32(%12) + 1;
+; CHECK:           |         (%k.fpriv)[0] = %3 + smax(1, ((-1 * %3) + %4));
 ; CHECK:           |         %18 = %11  +  0.000000e+00;
 ; CHECK:           |         %19 = bitcast.double.i64(%18);
 ; CHECK:           |         %d.fpriv538.priv.sroa.0.1 = %19;

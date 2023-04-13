@@ -19,10 +19,10 @@
 #define LLVM_BINARYFORMAT_TRACE_H
 
 #include <cstdint>
+#include <optional>
 
 namespace llvm {
 class StringRef;
-template <typename> class Optional;
 
 /// A uniform namespace for the entities in .trace section.
 namespace traceback {
@@ -70,7 +70,8 @@ Tag getOptimalPCTag(uint32_t DeltaPC);
 
 /// \returns the optimal correlation tag with given delta line \p DeltaLine
 /// and delta pc \p DeltaPC.
-Optional<Tag> getOptimalCorrelationTag(int32_t DeltaLine, uint32_t DeltaPC);
+std::optional<Tag> getOptimalCorrelationTag(int32_t DeltaLine,
+                                            uint32_t DeltaPC);
 
 } // namespace traceback
 } // namespace llvm

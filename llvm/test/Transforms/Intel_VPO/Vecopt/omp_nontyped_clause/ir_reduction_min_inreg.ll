@@ -12,18 +12,18 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK-NEXT:    [[MIN_VEC:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[MIN_VEC_BC:%.*]] = bitcast <4 x i32>* [[MIN_VEC]] to i32*
 ; CHECK-NEXT:    [[MIN_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[MIN_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    br label [[DIR_OMP_SIMD_1:%.*]]
+; CHECK:         br label [[DIR_OMP_SIMD_1:%.*]]
 ; CHECK:       DIR.OMP.SIMD.1:
 ; CHECK-NEXT:    br label [[DIR_QUAL_LIST_END_2:%.*]]
 ; CHECK:       DIR.QUAL.LIST.END.2:
 ; CHECK-NEXT:    [[DOTPRE:%.*]] = load i32, i32* [[MIN]], align 4
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[DOTPRE]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[DOTPRE]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[MIN_VEC_BCAST:%.*]] = bitcast <4 x i32>* [[MIN_VEC]] to i8*
+; CHECK-NEXT:    [[MIN_VEC_BCAST:%.*]] = bitcast i32* [[MIN_VEC_BC_E:%.*]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[MIN_VEC_BCAST]])
 ; CHECK-NEXT:    store <4 x i32> [[BROADCAST_SPLAT]], <4 x i32>* [[MIN_VEC]], align 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
@@ -48,7 +48,7 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @llvm.vector.reduce.smin.v4i32(<4 x i32> [[PREDBLEND]])
 ; CHECK-NEXT:    store i32 [[TMP7]], i32* [[MIN]], align 1
-; CHECK-NEXT:    [[MIN_VEC_BCAST1:%.*]] = bitcast <4 x i32>* [[MIN_VEC]] to i8*
+; CHECK-NEXT:    [[MIN_VEC_BCAST1:%.*]] = bitcast i32* [[MIN_VEC_BC_E3:%.*]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[MIN_VEC_BCAST1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB7:%.*]]
 ; CHECK:       VPlannedBB7:

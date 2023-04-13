@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2022 Intel Corporation
+# Copyright (C) 2011-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -45,7 +45,7 @@ endif()
 
 # Version of cached binary. This value should be incremented each time cached
 # binary format changes.
-add_definitions(-DOCL_CACHED_BINARY_VERSION=18)
+add_definitions(-DOCL_CACHED_BINARY_VERSION=19)
 
 set(OCL_OUTPUT_EXTENSION .rtl)
 set(OCL_PRECOMPILED_OUTPUT_EXTENSION .o)
@@ -86,7 +86,6 @@ if(LLVM_BUILD_OCL_CPU_BACKEND)
                    "${CMAKE_CURRENT_BINARY_DIR}/reflection_module")
   add_subdirectory(stat_summary "${CMAKE_CURRENT_BINARY_DIR}/stat_summary")
   add_subdirectory(utils "${CMAKE_CURRENT_BINARY_DIR}/utils")
-  add_subdirectory(vectorizer "${CMAKE_CURRENT_BINARY_DIR}/vectorizer")
 endif(LLVM_BUILD_OCL_CPU_BACKEND)
 
 if(BACKEND_BUILD_VERIFICATION_LIB)

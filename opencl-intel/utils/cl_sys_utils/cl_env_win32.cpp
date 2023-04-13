@@ -19,7 +19,7 @@ using namespace Intel::OpenCL::Utils;
 #include <windows.h>
 
 bool Intel::OpenCL::Utils::getEnvVar(std::string &EnvVal,
-                                     const std::string EnvName) {
+                                     const std::string &EnvName) {
   // An environment variable has a maximum size limit of 32,767 characters,
   // including the null-terminating character (MSDN).
   DWORD BufferSize = 32767 * sizeof(CHAR);

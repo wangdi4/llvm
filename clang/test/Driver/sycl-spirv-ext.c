@@ -46,6 +46,9 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_variable_length_array,+SPV_INTEL_fp_fast_math_mode
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_long_constant_composite
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_arithmetic_fence
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_buffer_location
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_argument_interfaces
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_task_sequence ;INTEL
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_optnone ;INTEL
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_token_type
@@ -76,13 +79,13 @@
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_variable_length_array,+SPV_INTEL_fp_fast_math_mode
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_long_constant_composite
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_arithmetic_fence
+// CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_buffer_location
+// CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_argument_interfaces
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_task_sequence ;INTEL
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_optnone ;INTEL
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_usm_storage_classes
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_runtime_aligned
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse
-// CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_buffer_location
-// CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_dsp_control
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_memory_accesses
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_memory_attributes ;INTEL

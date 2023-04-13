@@ -3219,7 +3219,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
   unsigned BitWidth = 64;
 
-  APInt RunningGCD = APInt::getNullValue(BitWidth);
+  APInt RunningGCD = APInt::getZero(BitWidth);
 
   // Examine Src coefficients.
   // Compute running GCD and record source constant.
@@ -3284,7 +3284,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
   const CanonExpr *DstConst = getInvariant(Dst);
 
-  APInt ExtraGCD = APInt::getNullValue(BitWidth);
+  APInt ExtraGCD = APInt::getZero(BitWidth);
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
   if (!Delta) {
     return false;
@@ -5075,9 +5075,28 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     }
     LLVM_DEBUG(dbgs() << "may alias\n");
 
+    // In ForFusion mode when being called from refineDV(), DD is assuming that
+    // fusion happens one level at a time so loop fusion only cares about DV at
+    // the fusion level. This means we can ignore inner dimensions (containing
+    // inner loop IVs) which are invariant w.r.t fusion level.
+    // This is only important when we compare collapsed and non-collapsed refs.
+    unsigned NumInvariantDims = 0;
+    unsigned NumDims = SrcRegDDRef->getNumDimensions();
+    if (ForFusion && (NumDims == DstRegDDRef->getNumDimensions()) &&
+        (SrcRegDDRef->isCollapsed() != DstRegDDRef->isCollapsed())) {
+      for (unsigned DimI = 1; DimI <= NumDims; ++DimI, ++NumInvariantDims) {
+        if (!SrcRegDDRef->getDimensionIndex(DimI)->isInvariantAtLevel(
+                RefiningLevel, true) ||
+            !DstRegDDRef->getDimensionIndex(DimI)->isInvariantAtLevel(
+                RefiningLevel, true)) {
+          break;
+        }
+      }
+    }
+
     // TODO: MaxLoopNestLevel should be computed from InputDV.
-    EqualBaseAndShape =
-        DDRefUtils::haveEqualBaseAndShape(SrcRegDDRef, DstRegDDRef, true);
+    EqualBaseAndShape = DDRefUtils::haveEqualBaseAndShape(
+        SrcRegDDRef, DstRegDDRef, true, NumInvariantDims);
   }
 
   LLVM_DEBUG(dbgs() << "\ncommon nesting levels = " << CommonLevels << "\n");
@@ -5128,15 +5147,49 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
     }
   }
 
-  if (!EqualBaseAndShape || (NoCommonNest && !ForFusion)) {
-    LLVM_DEBUG(dbgs() << "\nDiff dim,  base, or no common nests\n");
+  const HLLoop *SrcLoop = SrcDDRef->getHLDDNode()->getParentLoop();
+  const HLLoop *DstLoop = DstDDRef->getHLDDNode()->getParentLoop();
+
+  if (!EqualBaseAndShape) {
+    LLVM_DEBUG(dbgs() << "\nDiff base or shape\n");
+    // DV has been initialized as *
+    return std::make_unique<Dependences>(Result);
+
+  } else if (NoCommonNest && !ForFusion) {
+    assert(SrcRegDDRef->getHLDDNode()->getTopSortNum() <=
+               DstRegDDRef->getHLDDNode()->getTopSortNum() &&
+           "Src is not before Dst!");
+
+    // Return independant for cases where the distance between refs is bigger
+    // than the iteration space of SrcLoop.
+    //
+    // For example-
+    //
+    // DO i1 = 0, 99
+    //   A[i1] = // SrcRef
+    // END DO
+    //
+    // DO i1 = 0, 99
+    //   A[i1 + 100] = // DstRef
+    // END DO
+    //
+    uint64_t TC = 0;
+    int64_t Dist = 0;
+    if (SrcLoop && (SrcLoop->getNestingLevel() == 1) &&
+        SrcLoop->isConstTripLoop(&TC) && !SrcRegDDRef->isFake() &&
+        DDRefUtils::getConstByteDistance(DstRegDDRef, SrcRegDDRef, &Dist) &&
+        (Dist > 0) &&
+        ((uint64_t)Dist >= (TC * SrcRegDDRef->getDestTypeSizeInBytes()))) {
+      return nullptr;
+    }
+
+    LLVM_DEBUG(dbgs() << "\nNo common nest\n");
     // DV has been initialized as *
     return std::make_unique<Dependences>(Result);
   }
 
   // Same base subscripts with different types could cause a dependency
-  if (TestingMemRefs && EqualBaseAndShape &&
-      mayIntersectDueToTypeCast(SrcRegDDRef, DstRegDDRef))
+  if (EqualBaseAndShape && mayIntersectDueToTypeCast(SrcRegDDRef, DstRegDDRef))
     return std::make_unique<Dependences>(Result);
 
   unsigned Pairs = SrcRegDDRef->getNumDimensions();
@@ -5171,19 +5224,6 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   // Note: Couple of original functionality were skipped
   //  UnifyingSubscriptType due to different sign extension
-
-  const HLLoop *SrcLoop = nullptr;
-  const HLLoop *DstLoop = nullptr;
-
-  HLLoop *SrcParent = SrcDDRef->getHLDDNode()->getParentLoop();
-  HLLoop *DstParent = DstDDRef->getHLDDNode()->getParentLoop();
-
-  if (SrcParent) {
-    SrcLoop = SrcParent;
-  }
-  if (DstParent) {
-    DstLoop = DstParent;
-  }
 
   if (TestingMemRefs &&
       tryDelinearize(SrcRegDDRef, DstRegDDRef, InputDV, Pair, ForDDGBuild)) {
@@ -5313,7 +5353,8 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
 
   NewConstraint.setAny();
 
-  bool IsCollapsedRefs = (SrcRegDDRef->isCollapsed() && DstRegDDRef->isCollapsed());
+  bool IsCollapsedRefs =
+      (SrcRegDDRef->isCollapsed() && DstRegDDRef->isCollapsed());
   bool IsCollapsedWithDifferentHigherDim = false;
   if (!ForFusion) {
     // test separable subscripts
@@ -5817,7 +5858,8 @@ void DDTest::adjustDV(Dependences &Result, bool SameBase,
   }
 
   // Adjust DV for backward dependency between collapsed mem refs.
-  if (SrcRegDDRef->isCollapsed() && DstRegDDRef->isCollapsed()) {
+  if (SrcRegDDRef->getNumCollapsedLevels() ==
+      DstRegDDRef->getNumCollapsedLevels()) {
     int64_t VecLen1 = SrcRegDDRef->getMaxVecLenAllowed();
     int64_t VecLen2 = DstRegDDRef->getMaxVecLenAllowed();
     int64_t FinalVecLen = (VecLen1 < VecLen2) ? VecLen1 : VecLen2;

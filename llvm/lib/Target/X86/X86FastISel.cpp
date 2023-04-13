@@ -350,7 +350,16 @@ bool X86FastISel::X86FastEmitLoad(MVT VT, X86AddressMode &AM,
   bool HasSSE41 = Subtarget->hasSSE41();
   bool HasAVX = Subtarget->hasAVX();
   bool HasAVX2 = Subtarget->hasAVX2();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+#ifndef NDEBUG
   bool HasAVX512 = Subtarget->hasAVX512();
+#endif
+  bool HasAVX3 = Subtarget->hasAVX3();
+#else // INTEL_FEATURE_ISA_AVX256P
+  bool HasAVX512 = Subtarget->hasAVX512();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   bool HasVLX = Subtarget->hasVLX();
   bool IsNonTemporal = MMO && MMO->isNonTemporal();
 
@@ -376,13 +385,25 @@ bool X86FastISel::X86FastEmitLoad(MVT VT, X86AddressMode &AM,
     Opc = X86::MOV64rm;
     break;
   case MVT::f32:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    Opc = HasAVX3 ? X86::VMOVSSZrm_alt
+#else // INTEL_FEATURE_ISA_AVX256P
     Opc = HasAVX512 ? X86::VMOVSSZrm_alt
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
           : HasAVX  ? X86::VMOVSSrm_alt
           : HasSSE1 ? X86::MOVSSrm_alt
                     : X86::LD_Fp32m;
     break;
   case MVT::f64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    Opc = HasAVX3 ? X86::VMOVSDZrm_alt
+#else // INTEL_FEATURE_ISA_AVX256P
     Opc = HasAVX512 ? X86::VMOVSDZrm_alt
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
           : HasAVX  ? X86::VMOVSDrm_alt
           : HasSSE2 ? X86::MOVSDrm_alt
                     : X86::LD_Fp64m;
@@ -511,7 +532,16 @@ bool X86FastISel::X86FastEmitStore(EVT VT, unsigned ValReg, X86AddressMode &AM,
   bool HasSSE2 = Subtarget->hasSSE2();
   bool HasSSE4A = Subtarget->hasSSE4A();
   bool HasAVX = Subtarget->hasAVX();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+#ifndef NDEBUG
   bool HasAVX512 = Subtarget->hasAVX512();
+#endif
+  bool HasAVX3 = Subtarget->hasAVX3();
+#else // INTEL_FEATURE_ISA_AVX256P
+  bool HasAVX512 = Subtarget->hasAVX512();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   bool HasVLX = Subtarget->hasVLX();
   bool IsNonTemporal = MMO && MMO->isNonTemporal();
 
@@ -543,7 +573,13 @@ bool X86FastISel::X86FastEmitStore(EVT VT, unsigned ValReg, X86AddressMode &AM,
       if (IsNonTemporal && HasSSE4A)
         Opc = X86::MOVNTSS;
       else
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        Opc = HasAVX3 ? X86::VMOVSSZmr :
+#else // INTEL_FEATURE_ISA_AVX256P
         Opc = HasAVX512 ? X86::VMOVSSZmr :
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
               HasAVX ? X86::VMOVSSmr : X86::MOVSSmr;
     } else
       Opc = X86::ST_Fp32m;
@@ -553,7 +589,13 @@ bool X86FastISel::X86FastEmitStore(EVT VT, unsigned ValReg, X86AddressMode &AM,
       if (IsNonTemporal && HasSSE4A)
         Opc = X86::MOVNTSD;
       else
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+        Opc = HasAVX3 ? X86::VMOVSDZmr :
+#else // INTEL_FEATURE_ISA_AVX256P
         Opc = HasAVX512 ? X86::VMOVSDZmr :
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
               HasAVX ? X86::VMOVSDmr : X86::MOVSDmr;
     } else
       Opc = X86::ST_Fp64m;
@@ -1379,6 +1421,12 @@ bool X86FastISel::X86SelectLoad(const Instruction *I) {
 
 static unsigned X86ChooseCmpOpcode(EVT VT, const X86Subtarget *Subtarget) {
   bool HasAVX512 = Subtarget->hasAVX512();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // FIXME: Change name to HasAVX3.
+  HasAVX512 = Subtarget->hasAVX3();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   bool HasAVX = Subtarget->hasAVX();
   bool HasSSE1 = Subtarget->hasSSE1();
   bool HasSSE2 = Subtarget->hasSSE2();
@@ -2432,6 +2480,12 @@ bool X86FastISel::X86SelectIntToFP(const Instruction *I, bool IsSigned) {
   // Early exit if the subtarget doesn't have AVX.
   // Unsigned conversion requires avx512.
   bool HasAVX512 = Subtarget->hasAVX512();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // FIXME: Change name to HasAVX3.
+  HasAVX512 = Subtarget->hasAVX3();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   if (!Subtarget->hasAVX() || (!IsSigned && !HasAVX512))
     return false;
 
@@ -2524,6 +2578,12 @@ bool X86FastISel::X86SelectFPExt(const Instruction *I) {
   if (Subtarget->hasSSE2() && I->getType()->isDoubleTy() &&
       I->getOperand(0)->getType()->isFloatTy()) {
     bool HasAVX512 = Subtarget->hasAVX512();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    // FIXME: Change name to HasAVX3.
+    HasAVX512 = Subtarget->hasAVX3();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     // fpext from float to double.
     unsigned Opc =
         HasAVX512 ? X86::VCVTSS2SDZrr
@@ -2538,6 +2598,12 @@ bool X86FastISel::X86SelectFPTrunc(const Instruction *I) {
   if (Subtarget->hasSSE2() && I->getType()->isFloatTy() &&
       I->getOperand(0)->getType()->isDoubleTy()) {
     bool HasAVX512 = Subtarget->hasAVX512();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    // FIXME: Change name to HasAVX3.
+    HasAVX512 = Subtarget->hasAVX3();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     // fptrunc from double to float.
     unsigned Opc =
         HasAVX512 ? X86::VCVTSD2SSZrr
@@ -3803,6 +3869,12 @@ unsigned X86FastISel::X86MaterializeFP(const ConstantFP *CFP, MVT VT) {
   bool HasSSE2 = Subtarget->hasSSE2();
   bool HasAVX = Subtarget->hasAVX();
   bool HasAVX512 = Subtarget->hasAVX512();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // FIXME: Change name to HasAVX3.
+  HasAVX512 = Subtarget->hasAVX3();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   switch (VT.SimpleTy) {
   default: return 0;
   case MVT::f32:
@@ -3974,6 +4046,12 @@ unsigned X86FastISel::fastMaterializeFloatZero(const ConstantFP *CF) {
   bool HasSSE1 = Subtarget->hasSSE1();
   bool HasSSE2 = Subtarget->hasSSE2();
   bool HasAVX512 = Subtarget->hasAVX512();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // FIXME: Change name to HasAVX3.
+  HasAVX512 = Subtarget->hasAVX3();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   unsigned Opc = 0;
   switch (VT.SimpleTy) {
   default: return 0;
@@ -4078,8 +4156,9 @@ unsigned X86FastISel::fastEmitInst_rrrr(unsigned MachineInstOpcode,
         .addReg(Op1)
         .addReg(Op2)
         .addReg(Op3);
-    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD,
-            TII.get(TargetOpcode::COPY), ResultReg).addReg(II.ImplicitDefs[0]);
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD, TII.get(TargetOpcode::COPY),
+            ResultReg)
+        .addReg(II.implicit_defs()[0]);
   }
   return ResultReg;
 }

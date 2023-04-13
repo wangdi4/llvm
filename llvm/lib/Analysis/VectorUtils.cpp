@@ -55,18 +55,18 @@ static cl::opt<unsigned> MaxInterleaveGroupFactor(
     cl::init(8));
 
 #if INTEL_CUSTOMIZATION
-static char encodeISAClass(VFISAKind Isa) {
+static StringRef encodeISAClass(VFISAKind Isa) {
   switch (Isa) {
   case VFISAKind::SSE:
-    return 'b';
+    return "b";
   case VFISAKind::AVX:
-    return 'c';
+    return "c";
   case VFISAKind::AVX2:
-    return 'd';
+    return "d";
   case VFISAKind::AVX512:
-    return 'e';
+    return "e";
   case VFISAKind::Unknown:
-    return 'x';
+    return "_unknown_";
   case VFISAKind::AdvancedSIMD:
   case VFISAKind::SVE:
   case VFISAKind::LLVM:
@@ -145,7 +145,6 @@ std::string llvm::VFInfo::encodeFromParts(VFISAKind Isa, bool Mask, unsigned VF,
     encodeParam(OS, *It);
 
   OS << "_" << ScalarName;
-  
   return VectorName;
 }
 
@@ -822,6 +821,20 @@ bool llvm::widenShuffleMaskElts(int Scale, ArrayRef<int> Mask,
   return true;
 }
 
+void llvm::getShuffleMaskWithWidestElts(ArrayRef<int> Mask,
+                                        SmallVectorImpl<int> &ScaledMask) {
+  std::array<SmallVector<int, 16>, 2> TmpMasks;
+  SmallVectorImpl<int> *Output = &TmpMasks[0], *Tmp = &TmpMasks[1];
+  ArrayRef<int> InputMask = Mask;
+  for (unsigned Scale = 2; Scale <= InputMask.size(); ++Scale) {
+    while (widenShuffleMaskElts(Scale, InputMask, *Output)) {
+      InputMask = *Output;
+      std::swap(Output, Tmp);
+    }
+  }
+  ScaledMask.assign(InputMask.begin(), InputMask.end());
+}
+
 void llvm::processShuffleMasks(
     ArrayRef<int> Mask, unsigned NumOfSrcRegs, unsigned NumOfDestRegs,
     unsigned NumOfUsedRegs, function_ref<void()> NoInputAction,
@@ -1040,11 +1053,9 @@ llvm::computeMinimumValueSizes(ArrayRef<BasicBlock *> Blocks, DemandedBits &DB,
     for (Value *M : llvm::make_range(ECs.member_begin(I), ECs.member_end()))
       LeaderDemandedBits |= DBits[M];
 
-    uint64_t MinBW = (sizeof(LeaderDemandedBits) * 8) -
-                     llvm::countLeadingZeros(LeaderDemandedBits);
+    uint64_t MinBW = llvm::bit_width(LeaderDemandedBits);
     // Round up to a power of 2
-    if (!isPowerOf2_64((uint64_t)MinBW))
-      MinBW = NextPowerOf2(MinBW);
+    MinBW = llvm::bit_ceil(MinBW);
 
     // We don't modify the types of PHIs. Reductions will already have been
     // truncated if possible, and inductions' sizes will have been chosen by
@@ -1126,14 +1137,6 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
   }
 }
 
-std::vector<Attribute> llvm::getVectorVariantAttributes(Function &F) {
-  auto Variants = llvm::make_filter_range(
-      F.getAttributes().getFnAttrs(), [](const Attribute &A) {
-        return A.isStringAttribute() && VFInfo::isVectorVariant(A.getKindAsString());
-      });
-  return {Variants.begin(), Variants.end()};
-}
-
 Type *llvm::calcCharacteristicType(Function &F, const VFInfo &Variant) {
   return calcCharacteristicType(F.getReturnType(), F.args(), Variant,
                                 F.getParent()->getDataLayout());
@@ -1168,38 +1171,6 @@ void llvm::createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
   } else {
     VecArgs.push_back(MaskExt);
     VecArgTys.push_back(VecToType);
-  }
-}
-
-void llvm::getFunctionsToVectorize(
-  llvm::Module &M, MapVector<Function*, std::vector<StringRef> > &FuncVars) {
-
-  // FuncVars will contain a 1-many mapping between the original scalar
-  // function and the vector variant encoding strings (represented as
-  // attributes). The encodings correspond to functions that will be created by
-  // the caller of this function as vector versions of the original function.
-  // For example, if foo() is a function marked as a simd function, it will have
-  // several vector variant encodings like: "_ZGVbM4_foo", "_ZGVbN4_foo",
-  // "_ZGVcM8_foo", "_ZGVcN8_foo", "_ZGVdM8_foo", "_ZGVdN8_foo", "_ZGVeM16_foo",
-  // "_ZGVeN16_foo". The caller of this function will then clone foo() and name
-  // the clones using the above name manglings. The variant encodings correspond
-  // to differences in masked/non-masked execution, vector length, and target
-  // vector register size, etc. For more details, please refer to the following
-  // reference for details on the vector function encodings.
-  // https://www.cilkplus.org/sites/default/files/open_specifications/
-  // Intel-ABI-Vector-Function-2012-v0.9.5.pdf
-
-  for (auto It = M.begin(), End = M.end(); It != End; ++It) {
-    Function &F = *It;
-    if (F.hasFnAttribute("vector-variants") && !F.isDeclaration()) {
-      Attribute Attr = F.getFnAttribute("vector-variants");
-      StringRef VariantsStr = Attr.getValueAsString();
-      SmallVector<StringRef, 8> Variants;
-      VariantsStr.split(Variants, ',');
-      for (unsigned i = 0; i < Variants.size(); i++) {
-        FuncVars[&F].push_back(Variants[i]);
-      }
-    }
   }
 }
 
@@ -1332,14 +1303,15 @@ template Value *llvm::getPtrThruCast<BitCastInst>(Value *Ptr);
 template Value *llvm::getPtrThruCast<AddrSpaceCastInst>(Value *Ptr);
 
 void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall) {
-  VecCall->setAttributes(Attrs.removeAttribute(
-      VecCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
+  VecCall->setAttributes(
+      Attrs.removeAttribute(VecCall->getContext(), AttributeList::FunctionIndex,
+                            VectorUtils::VectorVariantsAttrName));
 }
 
 void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
                                  ArrayRef<AttributeSet> ArgAttrs) {
   AttributeSet FnAttrs = Attrs.getFnAttrs().removeAttribute(
-      VecCall->getContext(), "vector-variants");
+      VecCall->getContext(), VectorUtils::VectorVariantsAttrName);
 
   VecCall->setAttributes(AttributeList::get(VecCall->getContext(), FnAttrs,
                                             Attrs.getRetAttrs(), ArgAttrs));
@@ -1418,7 +1390,7 @@ Function *llvm::getOrInsertVectorLibFunction(
     assert(!RetTy->isVoidTy() && "Expected non-void function");
     SmallVector<Type *, 1> TysForDecl;
     TysForDecl.push_back(VecRetTy);
-    for (auto &I : enumerate(ArgTys))
+    for (const auto &I : enumerate(ArgTys))
       if (isVectorIntrinsicWithOverloadTypeAtArg(ID, I.index()))
         TysForDecl.push_back(I.value());
     return Intrinsic::getDeclaration(M, ID, TysForDecl);
@@ -2396,9 +2368,10 @@ void VFABI::getVectorVariantNames(
   for (const auto &S : SetVector<StringRef>(ListAttr.begin(), ListAttr.end())) {
 #ifndef NDEBUG
     LLVM_DEBUG(dbgs() << "VFABI: adding mapping '" << S << "'\n");
-    Optional<VFInfo> Info = VFABI::tryDemangleForVFABI(S, *(CI.getModule()));
+    std::optional<VFInfo> Info =
+        VFABI::tryDemangleForVFABI(S, *(CI.getModule()));
     assert(Info && "Invalid name for a VFABI variant.");
-    assert(CI.getModule()->getFunction(Info.value().VectorName) &&
+    assert(CI.getModule()->getFunction(Info->VectorName) &&
            "Vector function is missing.");
 #endif
     VariantMappings.push_back(std::string(S));

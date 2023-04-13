@@ -15,6 +15,9 @@ define void @test01(i64 %in) {
   ret void
 }
 
+; CHECK-LABEL: define i32 @main()
+; CHECK: %mo = call i32 @mallopt(i32 3225, i32 0)
+
 define i32 @main() {
   call void @test01(i64 2)
   ret i32 0

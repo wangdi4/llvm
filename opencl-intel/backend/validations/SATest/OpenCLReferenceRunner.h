@@ -85,7 +85,8 @@ private:
   /// @return Pointer to the argument value.
   void *GetPointerToTheArgValues(const IMemoryObject *inBuffer,
                                  IMemoryObject *outBuffer,
-                                 const llvm::Type *argType);
+                                 const llvm::Type *argType,
+                                 llvm::StringRef ArgTyStr);
 
   /// @brief Reads integer value from buffer of vectors, copies it to the
   ///        outBuffer.

@@ -33,6 +33,7 @@
 
 #include <memory>
 
+using namespace llvm;
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::ELFUtils;
 
@@ -48,20 +49,23 @@ enum LINK_OPT_ID {
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)                                      \
   OPT_LINK_##ID,
-#include "opencl_link_options.inc"
+#include "OpenCLLinkOptions.inc"
   OPT_LINK_LAST_OPTION
 #undef OPTION
 #undef PREFIX
 };
 
-#define PREFIX(NAME, VALUE) const char *const NAME[] = VALUE;
+#define PREFIX(NAME, VALUE)                                                    \
+  static constexpr StringLiteral NAME##_init[] = VALUE;                        \
+  static constexpr ArrayRef<StringLiteral> NAME(NAME##_init,                   \
+                                                std::size(NAME##_init) - 1);
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)
-#include "opencl_link_options.inc"
+#include "OpenCLLinkOptions.inc"
 #undef OPTION
 #undef PREFIX
 
-static const llvm::opt::OptTable::Info ClangOptionsInfoTable[] = {
+static constexpr opt::OptTable::Info ClangOptionsInfoTable[] = {
 #define PREFIX(NAME, VALUE)
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
                HELPTEXT, METAVAR, VALUES)                                      \
@@ -70,25 +74,25 @@ static const llvm::opt::OptTable::Info ClangOptionsInfoTable[] = {
    HELPTEXT,                                                                   \
    METAVAR,                                                                    \
    OPT_LINK_##ID,                                                              \
-   llvm::opt::Option::KIND##Class,                                             \
+   opt::Option::KIND##Class,                                                   \
    PARAM,                                                                      \
    FLAGS,                                                                      \
    OPT_LINK_##GROUP,                                                           \
    OPT_LINK_##ALIAS,                                                           \
    ALIASARGS,                                                                  \
    VALUES},
-#include "opencl_link_options.inc"
+#include "OpenCLLinkOptions.inc"
 #undef OPTION
 #undef PREFIX
 };
 
 OpenCLLinkOptTable::OpenCLLinkOptTable()
-    : llvm::opt::OptTable(ClangOptionsInfoTable) {}
+    : opt::GenericOptTable(ClangOptionsInfoTable) {}
 
 ClangLinkOptions::ClangLinkOptions(const char *pszOptions) {
   BumpPtrAllocator A;
-  llvm::StringSaver Saver(A);
-  llvm::cl::TokenizeGNUCommandLine(pszOptions, Saver, m_Args);
+  StringSaver Saver(A);
+  cl::TokenizeGNUCommandLine(pszOptions, Saver, m_Args);
   m_pArgs.reset(new opt::InputArgList(
       m_optTbl.ParseArgs(m_Args, m_missingArgIndex, m_missingArgCount)));
 }
@@ -97,7 +101,7 @@ bool ClangLinkOptions::checkOptions(char *pszUnknownOptions,
                                     size_t uiUnknownOptionsSize) {
 
   // Copy option spelling to pszUnknownOptions.
-  auto copyOpt = [&](llvm::StringRef Spelling) {
+  auto copyOpt = [&](StringRef Spelling) {
     auto *end = std::copy_n(Spelling.data(),
                             std::min(Spelling.size(), uiUnknownOptionsSize - 1),
                             pszUnknownOptions);
@@ -111,13 +115,13 @@ bool ClangLinkOptions::checkOptions(char *pszUnknownOptions,
   }
 
   // check for unknown options
-  if (llvm::opt::Arg *A = m_pArgs->getLastArgNoClaim(OPT_LINK_UNKNOWN)) {
+  if (opt::Arg *A = m_pArgs->getLastArgNoClaim(OPT_LINK_UNKNOWN)) {
     copyOpt(A->getSpelling());
     return false;
   }
 
   // we do not support input options
-  if (llvm::opt::Arg *A = m_pArgs->getLastArgNoClaim(OPT_LINK_INPUT)) {
+  if (opt::Arg *A = m_pArgs->getLastArgNoClaim(OPT_LINK_INPUT)) {
     copyOpt(A->getSpelling());
     return false;
   }
@@ -127,19 +131,19 @@ bool ClangLinkOptions::checkOptions(char *pszUnknownOptions,
 
 bool ClangLinkOptions::hasArg(int id) const { return m_pArgs->hasArg(id); }
 
-// Check whether the module contains OpenCL or DPCPP version metadata.
-// Add "not-ocl-dpcpp" attribute to functions from neither ocl nor dpcpp
+// Check whether the module contains OpenCL or SYCL version metadata.
+// Add "not-ocl-sycl" attribute to functions from neither ocl nor sycl
 // binary.
-void addAttrForNoneOCLDPCPPCode(llvm::Module *M) {
+void addAttrForNoneOCLSYCLCode(Module *M) {
   if (M->getNamedMetadata("opencl.ocl.version") == nullptr &&
       M->getNamedMetadata("spirv.Source") == nullptr) {
     for (auto &F : M->getFunctionList()) {
-      F.addFnAttr("not-ocl-dpcpp", "true");
+      F.addFnAttr("not-ocl-sycl", "true");
     }
   }
 }
 
-static bool isSameType(llvm::Type *A, llvm::Type *B, std::string &Message) {
+static bool isSameType(Type *A, Type *B, std::string &Message) {
   if (A == B)
     return true;
   // If both types are struct, we need to check if their layouts are identical.
@@ -174,12 +178,12 @@ static bool isSameType(llvm::Type *A, llvm::Type *B, std::string &Message) {
   //
   // Therefore we end up with a function ptr bitcast here, but it doesn't imply
   // a semantical signature mismatch.
-  auto *StructTyA = llvm::dyn_cast<llvm::StructType>(A);
-  auto *StructTyB = llvm::dyn_cast<llvm::StructType>(B);
+  auto *StructTyA = dyn_cast<StructType>(A);
+  auto *StructTyB = dyn_cast<StructType>(B);
   if (StructTyA && StructTyB && StructTyA->isLayoutIdentical(StructTyB))
     return true;
-  auto *PtrTyA = llvm::dyn_cast<llvm::PointerType>(A);
-  auto *PtrTyB = llvm::dyn_cast<llvm::PointerType>(B);
+  auto *PtrTyA = dyn_cast<PointerType>(A);
+  auto *PtrTyB = dyn_cast<PointerType>(B);
   if (PtrTyA && PtrTyB &&
       isSameType(PtrTyA->getElementType(), PtrTyB->getElementType(), Message)) {
     if (PtrTyA->getAddressSpace() != PtrTyB->getAddressSpace()) {
@@ -192,8 +196,8 @@ static bool isSameType(llvm::Type *A, llvm::Type *B, std::string &Message) {
   return false;
 }
 
-static bool checkFuncCallArgs(const llvm::FunctionType *FuncTy,
-                              llvm::ArrayRef<llvm::Value *> CIArgs,
+static bool checkFuncCallArgs(const FunctionType *FuncTy,
+                              ArrayRef<Value *> CIArgs,
                               std::string &BadSigDesc) {
   assert(FuncTy && "Func type not specified");
 
@@ -218,47 +222,46 @@ static bool checkFuncCallArgs(const llvm::FunctionType *FuncTy,
 }
 
 // If function signature in definition and declaration in two modules differ
-// then llvm::Linker selects signature in definition and updates function
+// then Linker selects signature in definition and updates function
 // call with bitcast instruction that casts pointer on called function to
 // a function pointer with signature at definition.
 // Example:
 //   call void bitcast (void (i32, i32)* @func to void (i32)*)(i32 sret %38)
 // Check that there is no such function pointers bitcasts.
-static bool checkAndThrowIfCallFuncCast(const llvm::Module &linkedModule,
+static bool checkAndThrowIfCallFuncCast(const Module &linkedModule,
                                         std::string &funcSigErr) {
   bool funcCallsValid = true;
 
-  for (const llvm::Function &SF : linkedModule) {
-    for (const llvm::BasicBlock &BB : SF) {
-      for (const llvm::Instruction &I : BB) {
+  for (const Function &SF : linkedModule) {
+    for (const BasicBlock &BB : SF) {
+      for (const Instruction &I : BB) {
         // process ptr callinsts
-        const auto *CI = llvm::dyn_cast<llvm::CallInst>(&I);
+        const auto *CI = dyn_cast<CallInst>(&I);
         if (!CI || CI->getCalledFunction())
           continue;
 
-        const llvm::Value *VI = CI->getCalledOperand();
+        const Value *VI = CI->getCalledOperand();
         if (!VI->getType()->isPointerTy())
           continue;
 
         // look through bitcast
-        if (const auto *CE = llvm::dyn_cast<llvm::ConstantExpr>(VI)) {
-          if (CE->getOpcode() == llvm::Instruction::BitCast)
+        if (const auto *CE = dyn_cast<ConstantExpr>(VI)) {
+          if (CE->getOpcode() == Instruction::BitCast)
             VI = CE->getOperand(0);
-        } else if (const auto *BCI = llvm::dyn_cast<llvm::BitCastInst>(VI))
+        } else if (const auto *BCI = dyn_cast<BitCastInst>(VI))
           VI = BCI->getOperand(0);
         else
           continue;
 
-        const auto *CF = llvm::dyn_cast<llvm::Function>(VI);
+        const auto *CF = dyn_cast<Function>(VI);
         if (!CF)
           continue;
 
-        const auto *RFuncTy = llvm::cast<llvm::FunctionType>(
-            llvm::cast<llvm::PointerType>(CF->getType())->getElementType());
-        llvm::SmallVector<llvm::Value *, 4> params(CI->arg_begin(),
-                                                   CI->arg_end());
+        const auto *RFuncTy = cast<FunctionType>(
+            cast<PointerType>(CF->getType())->getElementType());
+        SmallVector<Value *, 4> params(CI->arg_begin(), CI->arg_end());
         std::string BadSigDesc;
-        if (!checkFuncCallArgs(RFuncTy, llvm::ArrayRef<llvm::Value *>(params),
+        if (!checkFuncCallArgs(RFuncTy, ArrayRef<Value *>(params),
                                BadSigDesc)) {
           funcCallsValid = false;
           funcSigErr.append(CF->getName().str())
@@ -273,14 +276,14 @@ static bool checkAndThrowIfCallFuncCast(const llvm::Module &linkedModule,
   return funcCallsValid;
 }
 
-static void saveKernelNames(llvm::Module *M, std::string *KernelsName) {
+static void saveKernelNames(Module *M, std::string *KernelsName) {
   if (KernelsName == nullptr)
     return;
 
   // Names between input programs are separated by ';'
   // Names in a program are separated by ','
   for (auto &F : M->getFunctionList())
-    if (F.getCallingConv() == llvm::CallingConv::SPIR_KERNEL) {
+    if (F.getCallingConv() == CallingConv::SPIR_KERNEL) {
       KernelsName->append(F.getName().data());
       KernelsName->append(",");
     }
@@ -290,7 +293,8 @@ static void saveKernelNames(llvm::Module *M, std::string *KernelsName) {
 OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
                                 unsigned int uiNumBinaries,
                                 const size_t *puiBinariesSizes,
-                                const char *pszOptions, string *pKernelsName) {
+                                const char *pszOptions,
+                                std::string *pKernelsName) {
 
   std::unique_ptr<OCLFEBinaryResult> pResult;
 
@@ -302,45 +306,45 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
     }
 
     // Prepare the LLVM Context
-    std::unique_ptr<llvm::LLVMContext> context(new llvm::LLVMContext());
+    std::unique_ptr<LLVMContext> context(new LLVMContext());
 
     // Initialize the module with the first binary
-    llvm::StringRef InputBinary(static_cast<const char *>(pInputBinaries[0]),
-                                puiBinariesSizes[0]);
-    auto pBinBuff(llvm::MemoryBuffer::getMemBuffer(InputBinary, "", false));
+    StringRef InputBinary(static_cast<const char *>(pInputBinaries[0]),
+                          puiBinariesSizes[0]);
+    auto pBinBuff(MemoryBuffer::getMemBuffer(InputBinary, "", false));
     auto ModuleOr =
         parseBitcodeFile(pBinBuff.get()->getMemBufferRef(), *context);
     if (!ModuleOr) {
       throw ModuleOr.takeError();
     }
-    std::unique_ptr<llvm::Module> composite = std::move(ModuleOr.get());
+    std::unique_ptr<Module> composite = std::move(ModuleOr.get());
 
     saveKernelNames(composite.get(), pKernelsName);
 
-    // Add not-ocl-dpcpp attribute to functions from neither ocl nor dpcpp
+    // Add not-ocl-sycl attribute to functions from neither ocl nor sycl
     // binary.
-    addAttrForNoneOCLDPCPPCode(composite.get());
+    addAttrForNoneOCLSYCLCode(composite.get());
     // Parse options
     ClangLinkOptions optionsParser(pszOptions);
 
     for (unsigned int i = 1; i < uiNumBinaries; ++i) {
-      llvm::StringRef InputBinary(static_cast<const char *>(pInputBinaries[i]),
-                                  puiBinariesSizes[i]);
-      auto pBinBuff(llvm::MemoryBuffer::getMemBuffer(InputBinary, "", false));
+      StringRef InputBinary(static_cast<const char *>(pInputBinaries[i]),
+                            puiBinariesSizes[i]);
+      auto pBinBuff(MemoryBuffer::getMemBuffer(InputBinary, "", false));
       auto ModuleOr =
           parseBitcodeFile(pBinBuff.get()->getMemBufferRef(), *context);
       if (!ModuleOr) {
         throw ModuleOr.takeError();
       }
-      std::unique_ptr<llvm::Module> module = std::move(ModuleOr.get());
+      std::unique_ptr<Module> module = std::move(ModuleOr.get());
 
       saveKernelNames(module.get(), pKernelsName);
 
-      // Add not-ocl-dpcpp attribute to functions from neither ocl nor dpcpp
+      // Add not-ocl-sycl attribute to functions from neither ocl nor sycl
       // binary.
-      addAttrForNoneOCLDPCPPCode(module.get());
+      addAttrForNoneOCLSYCLCode(module.get());
 
-      if (llvm::Linker::linkModules(*composite, std::move(module))) {
+      if (Linker::linkModules(*composite, std::move(module))) {
         throw std::string("Linking has failed");
       }
     }
@@ -358,8 +362,8 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
                              : IR_TYPE_EXECUTABLE;
     pResult->setIRType(binaryType);
 
-    llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
-    llvm::WriteBitcodeToFile(*composite.get(), ir_ostream);
+    raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
+    WriteBitcodeToFile(*composite.get(), ir_ostream);
     pResult->setResult(CL_SUCCESS);
 
     return pResult.release();
@@ -374,10 +378,10 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
     pResult->setLog(err);
     pResult->setResult(CL_LINK_PROGRAM_FAILURE);
     return pResult.release();
-  } catch (llvm::Error &err) {
+  } catch (Error &err) {
     std::string Message;
     handleAllErrors(std::move(err),
-                    [&](llvm::ErrorInfoBase &EIB) { Message = EIB.message(); });
+                    [&](ErrorInfoBase &EIB) { Message = EIB.message(); });
 
     pResult->setLog(Message);
     pResult->setResult(CL_LINK_PROGRAM_FAILURE);

@@ -781,6 +781,10 @@ private:
   void DeclarationMarkedOpenMPDeclareTarget(const Decl *D,
                                             const Attr *Attr) override;
   void DeclarationMarkedOpenMPAllocate(const Decl *D, const Attr *A) override;
+#if INTEL_COLLAB
+  void DeclarationMarkedOpenMPGroupPrivate(const Decl *D,
+                                           const Attr *A) override;
+#endif // INTEL_COLLAB
   void RedefinedHiddenDefinition(const NamedDecl *D, Module *M) override;
   void AddedAttributeToRecord(const Attr *Attr,
                               const RecordDecl *Record) override;

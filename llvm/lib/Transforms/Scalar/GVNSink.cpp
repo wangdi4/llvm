@@ -37,7 +37,6 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -155,7 +154,7 @@ public:
 
   void restrictToBlocks(SmallSetVector<BasicBlock *, 4> &Blocks) {
     for (auto II = Insts.begin(); II != Insts.end();) {
-      if (!llvm::is_contained(Blocks, (*II)->getParent())) {
+      if (!Blocks.contains((*II)->getParent())) {
         ActiveBlocks.remove((*II)->getParent());
         II = Insts.erase(II);
       } else {
@@ -273,7 +272,7 @@ public:
     auto VI = Values.begin();
     while (BI != Blocks.end()) {
       assert(VI != Values.end());
-      if (!llvm::is_contained(NewBlocks, *BI)) {
+      if (!NewBlocks.contains(*BI)) {
         BI = Blocks.erase(BI);
         VI = Values.erase(VI);
       } else {
@@ -599,7 +598,7 @@ private:
   /// The main heuristic function. Analyze the set of instructions pointed to by
   /// LRI and return a candidate solution if these instructions can be sunk, or
   /// std::nullopt otherwise.
-  Optional<SinkingInstructionCandidate> analyzeInstructionForSinking(
+  std::optional<SinkingInstructionCandidate> analyzeInstructionForSinking(
       LockstepReverseIterator &LRI, unsigned &InstNum, unsigned &MemoryInstNum,
       ModelledPHISet &NeededPHIs, SmallPtrSetImpl<Value *> &PHIContents);
 
@@ -639,9 +638,12 @@ private:
   }
 };
 
-Optional<SinkingInstructionCandidate> GVNSink::analyzeInstructionForSinking(
-  LockstepReverseIterator &LRI, unsigned &InstNum, unsigned &MemoryInstNum,
-  ModelledPHISet &NeededPHIs, SmallPtrSetImpl<Value *> &PHIContents) {
+std::optional<SinkingInstructionCandidate>
+GVNSink::analyzeInstructionForSinking(LockstepReverseIterator &LRI,
+                                      unsigned &InstNum,
+                                      unsigned &MemoryInstNum,
+                                      ModelledPHISet &NeededPHIs,
+                                      SmallPtrSetImpl<Value *> &PHIContents) {
   auto Insts = *LRI;
   LLVM_DEBUG(dbgs() << " -- Analyzing instruction set: [\n"; for (auto *I
                                                                   : Insts) {
@@ -884,29 +886,6 @@ void GVNSink::sinkLastInstruction(ArrayRef<BasicBlock *> Blocks,
   NumRemoved += Insts.size() - 1;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Pass machinery / boilerplate
-
-class GVNSinkLegacyPass : public FunctionPass {
-public:
-  static char ID;
-
-  GVNSinkLegacyPass() : FunctionPass(ID) {
-    initializeGVNSinkLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
-      return false;
-    GVNSink G;
-    return G.run(F);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<GlobalsAAWrapperPass>();
-  }
-};
-
 } // end anonymous namespace
 
 PreservedAnalyses GVNSinkPass::run(Function &F, FunctionAnalysisManager &AM) {
@@ -915,14 +894,3 @@ PreservedAnalyses GVNSinkPass::run(Function &F, FunctionAnalysisManager &AM) {
     return PreservedAnalyses::all();
   return PreservedAnalyses::none();
 }
-
-char GVNSinkLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(GVNSinkLegacyPass, "gvn-sink",
-                      "Early GVN sinking of Expressions", false, false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_END(GVNSinkLegacyPass, "gvn-sink",
-                    "Early GVN sinking of Expressions", false, false)
-
-FunctionPass *llvm::createGVNSinkPass() { return new GVNSinkLegacyPass(); }

@@ -35,7 +35,6 @@
 #include "X86MacroFusion.h"
 #include "X86RegisterBankInfo.h"
 #include "X86TargetMachine.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/GlobalISel/CallLowering.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
@@ -51,6 +50,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/TargetParser/Triple.h"
 
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -300,6 +300,13 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef TuneCPU,
   // Parse features string and set the CPU.
   ParseSubtargetFeatures(CPU, TuneCPU, FullFS);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (hasAVX256P() || hasAVX512F())
+    X86SSELevel = AVX3;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
+
   // All CPUs that implement SSE4.2 or SSE4A support unaligned accesses of
   // 16-bytes and under that are reasonably fast. These features were
   // introduced with Intel's Nehalem/Silvermont and AMD's Family10h
@@ -330,13 +337,6 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef TuneCPU,
     PreferVectorWidth = 128;
   else if (Prefer256Bit)
     PreferVectorWidth = 256;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256
-  if (CPU == "common-avx256")
-    IsAVX256 = true;
-#endif // INTEL_FEATURE_ISA_AVX256
-#endif // INTEL_CUSTOMIZATION
 }
 
 X86Subtarget &X86Subtarget::initializeSubtargetDependencies(StringRef CPU,

@@ -314,6 +314,24 @@ static bool lowerDirectiveRegionEntryExit(Function &F) {
 
   return Changed;
 }
+
+static bool lowerIntelDirectiveElementsize(Function &F) {
+  if (F.use_empty())
+    return false;
+
+  bool Changed = false;
+
+  for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
+    auto *CI = dyn_cast<IntrinsicInst>(I->getUser());
+    ++I;
+    assert(CI && CI->getCalledOperand() == &F &&
+           "Function use is expected to be an intrinsic call");
+    CI->eraseFromParent();
+    Changed = true;
+  }
+
+  return Changed;
+}
 #endif // INTEL_CUSTOMIZATION
 
 static bool lowerIntrinsics(Module &M) {
@@ -348,6 +366,9 @@ static bool lowerIntrinsics(Module &M) {
     if (F.getIntrinsicID() == Intrinsic::directive_region_entry ||
         F.getIntrinsicID() == Intrinsic::directive_region_exit)
       Changed |= lowerDirectiveRegionEntryExit(F);
+
+    if (F.getIntrinsicID() == Intrinsic::intel_directive_elementsize)
+      Changed |= lowerIntelDirectiveElementsize(F);
 #endif // INTEL_CUSTOMIZATION
 
     switch (F.getIntrinsicID()) {

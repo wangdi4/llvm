@@ -19,8 +19,8 @@
 // problem reports or change requests be submitted to it directly.
 
 #include "FrontendDriverFixture.h"
-#include "common_clang.h"
 #include "common_utils.h"
+#include "opencl_clang.h"
 
 #include <llvm/Support/MemoryBuffer.h>
 
@@ -31,49 +31,33 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
 
 void ClangCompilerTestType::SetUp() {
-  GetTestSPIRVProgram(m_spirv_program_binary);
+  ASSERT_NO_FATAL_FAILURE(GetTestSPIRVProgram(m_spirv_program_binary));
 
-  std::vector<char> pszDeviceInfoVec;
-  pszDeviceInfoVec.resize(sizeof(CLANG_DEV_INFO), 0);
-  // stub with zeros
-  memset(&pszDeviceInfoVec[0], 0, sizeof(CLANG_DEV_INFO));
-  // fix up CLANG_DEV_INFO.sExtensionStrings
-  CLANG_DEV_INFO *pszDeviceInfo =
-      reinterpret_cast<CLANG_DEV_INFO *>(&pszDeviceInfoVec[0]);
-  pszDeviceInfo->sExtensionStrings = "";
-
-  int failure = CreateFrontEndInstance(&pszDeviceInfo[0],
-                                       pszDeviceInfoVec.size(), &m_fe_compiler);
-  if (failure) {
-    printf("Error while instantiating CreateFrontEndInstance: error #%d",
-           failure);
-    exit(1);
-  }
-
+  CLANG_DEV_INFO DevInfo;
+  DevInfo.sExtensionStrings = "";
+  DevInfo.sOpenCLCFeatureStrings = "";
+  int failure =
+      CreateFrontEndInstance(&DevInfo, sizeof(DevInfo), &m_fe_compiler);
+  ASSERT_EQ(failure, CL_SUCCESS) << "CreateFrontEndInstance failed";
   m_llvm_context = new llvm::LLVMContext();
 }
 
 void ClangCompilerTestType::TearDown() {
-  if (nullptr != m_fe_compiler) {
+  if (m_fe_compiler)
     m_fe_compiler->Release();
-    m_fe_compiler = nullptr;
-  }
 
-  delete m_llvm_context;
+  if (m_llvm_context)
+    delete m_llvm_context;
 
-  if (nullptr != m_binary_result) {
+  if (m_binary_result)
     m_binary_result->Release();
-    m_binary_result = nullptr;
-  }
 }
 
 void ClangCompilerTestType::GetTestSPIRVProgram(std::vector<char> &spirv) {
   std::fstream spirv_file(get_exe_dir() + SPIRV_TEST_FILE,
                           std::fstream::in | std::fstream::binary);
-  if (!spirv_file.is_open()) {
-    printf("Error while opening test spirv file: %s\n", SPIRV_TEST_FILE);
-    exit(1);
-  }
+  ASSERT_TRUE(spirv_file.is_open())
+      << "Failed to open test spirv file: " << SPIRV_TEST_FILE;
 
   std::copy(std::istreambuf_iterator<char>(spirv_file),
             std::istreambuf_iterator<char>(), std::back_inserter(spirv));

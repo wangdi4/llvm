@@ -33,9 +33,10 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 
+#include <exception>
+#include <fstream>
 #include <iostream>
 #include <iterator>
-#include <fstream>
 #include <list>
 #include <set>
 #include <system_error>
@@ -439,7 +440,7 @@ static int linkProgram() {
     cur = Binaries.find_first_of(',', prev);
   }
   binaries.push_back(Binaries.substr(prev, cur - prev));
-  DEBUG(unsigned i = 0; for (auto it
+  DEBUG(unsigned i = 0; for (auto &it
                              : binaries) {
     dbgs() << "Binary[" << i++ << "]: " << it << '\n';
   });
@@ -598,81 +599,90 @@ private:
 
 // main - Entry point for the aocl-ioc64 command
 int main(int argc, char **argv) {
+  try {
 #if INTEL_PRODUCT_RELEASE
-  // --help option implementation is disabled in LLVM CommandLine
-  // library for xmain release builds, adding custom --help implementation
-  StringMap<cl::Option *> &OptionsMap = cl::getRegisteredOptions();
-  HelpPrinter HelpPrinterInstance(OptionsMap);
-  cl::opt<HelpPrinter, true, cl::parser<bool>> OptHelp(
-      "help", cl::desc("Display available options"),
-      cl::location(HelpPrinterInstance), cl::ValueDisallowed);
-  cl::alias OptHelpA("h", cl::desc("Alias for --help"), cl::aliasopt(OptHelp));
+    // --help option implementation is disabled in LLVM CommandLine
+    // library for xmain release builds, adding custom --help implementation
+    StringMap<cl::Option *> &OptionsMap = cl::getRegisteredOptions();
+    HelpPrinter HelpPrinterInstance(OptionsMap);
+    cl::opt<HelpPrinter, true, cl::parser<bool>> OptHelp(
+        "help", cl::desc("Display available options"),
+        cl::location(HelpPrinterInstance), cl::ValueDisallowed);
+    cl::alias OptHelpA("h", cl::desc("Alias for --help"),
+                       cl::aliasopt(OptHelp));
 #endif // INTEL_PRODUCT_RELEASE
 
-  fixOptions();
-  cl::ParseCommandLineOptions(argc, argv,
-                              "This is the emulator compiler/linker");
+    fixOptions();
+    cl::ParseCommandLineOptions(argc, argv,
+                                "This is the emulator compiler/linker");
 
-  // Handle -version option
-  if (Version) {
-    std::cout << "Intel(R) SDK for OpenCL(TM) - offline compiler command line, "
-                 "version 1.0\n";
-    exit(0);
-  }
+    // Handle -version option
+    if (Version) {
+      std::cout
+          << "Intel(R) SDK for OpenCL(TM) - offline compiler command line, "
+             "version 1.0\n";
+      exit(0);
+    }
 
-  if (!Command.getNumOccurrences()) {
-    std::cerr << "-cmd option must be specified\n";
-    exit(1);
-  }
+    if (!Command.getNumOccurrences()) {
+      std::cerr << "-cmd option must be specified\n";
+      exit(1);
+    }
 
-  if (!Device.getNumOccurrences()) {
-    std::cerr << "-device must be specified\n";
-    exit(1);
-  }
+    if (!Device.getNumOccurrences()) {
+      std::cerr << "-device must be specified\n";
+      exit(1);
+    }
 
-  int retcode = 0;
-  if (Command == compile) {
-    if (!Input.getNumOccurrences()) {
-      std::cerr << "-cmd=compile needs -input option\n";
-      exit(1);
+    int retcode = 0;
+    if (Command == compile) {
+      if (!Input.getNumOccurrences()) {
+        std::cerr << "-cmd=compile needs -input option\n";
+        exit(1);
+      }
+      if (!IR.getNumOccurrences()) {
+        std::cerr << "-cmd=compile needs -ir option\n";
+        exit(1);
+      }
+      retcode = compileProgram();
+    } else if (Command == Commands::link) {
+      if (!Binaries.getNumOccurrences() && !SPIRV.getNumOccurrences()) {
+        std::cerr << "-cmd=link needs -binary or -spv option\n";
+        exit(1);
+      }
+      // Ensure we don't have both
+      if (Binaries.getNumOccurrences() && SPIRV.getNumOccurrences()) {
+        std::cerr << "-cmd=link accepts only one of -binary or -spv option\n";
+        exit(1);
+      }
+      if (!IR.getNumOccurrences()) {
+        std::cerr << "-cmd=link needs -ir option\n";
+        exit(1);
+      }
+      retcode = linkProgram();
+    } else if (Command == build) {
+      if (!Input.getNumOccurrences() && !Binaries.getNumOccurrences()) {
+        std::cerr << "-cmd=build needs -input or -binary option\n";
+        exit(1);
+      }
+      // Ensure we don't have both
+      if (Input.getNumOccurrences() && Binaries.getNumOccurrences()) {
+        std::cerr
+            << "-cmd=build accepts only one of -binary or -input option\n";
+        exit(1);
+      }
+      if (!IR.getNumOccurrences()) {
+        std::cerr << "-cmd=build needs -ir option\n";
+        exit(1);
+      }
+      retcode = buildProgram();
     }
-    if (!IR.getNumOccurrences()) {
-      std::cerr << "-cmd=compile needs -ir option\n";
-      exit(1);
-    }
-    retcode = compileProgram();
-  } else if (Command == Commands::link) {
-    if (!Binaries.getNumOccurrences() && !SPIRV.getNumOccurrences()) {
-      std::cerr << "-cmd=link needs -binary or -spv option\n";
-      exit(1);
-    }
-    // Ensure we don't have both
-    if (Binaries.getNumOccurrences() && SPIRV.getNumOccurrences()) {
-      std::cerr << "-cmd=link accepts only one of -binary or -spv option\n";
-      exit(1);
-    }
-    if (!IR.getNumOccurrences()) {
-      std::cerr << "-cmd=link needs -ir option\n";
-      exit(1);
-    }
-    retcode = linkProgram();
-  } else if (Command == build) {
-    if (!Input.getNumOccurrences() && !Binaries.getNumOccurrences()) {
-      std::cerr << "-cmd=build needs -input or -binary option\n";
-      exit(1);
-    }
-    // Ensure we don't have both
-    if (Input.getNumOccurrences() && Binaries.getNumOccurrences()) {
-      std::cerr << "-cmd=build accepts only one of -binary or -input option\n";
-      exit(1);
-    }
-    if (!IR.getNumOccurrences()) {
-      std::cerr << "-cmd=build needs -ir option\n";
-      exit(1);
-    }
-    retcode = buildProgram();
+    return retcode;
+  } catch (std::exception &e) {
+    // catch std::bad_alloc and std::bad_array_new_length exception
+    std::cerr << e.what() << std::endl;
+    return -1;
   }
-  return retcode;
 }
 
 static void fixOptions() {
@@ -704,7 +714,7 @@ static void fixOptions() {
   optionsToHide.erase("version");
 
   // And hide the rest
-  for (auto it : optionsToHide) {
+  for (auto &it : optionsToHide) {
     Map[it]->setHiddenFlag(cl::ReallyHidden);
   }
 
@@ -986,7 +996,7 @@ cl_program_sptr getProgramsFromBinaries(const std::list<std::string> &lst,
   cl_program_sptr guard(progArr, deleter);
 
   int pos = 0;
-  for (auto iter : lst) {
+  for (auto &iter : lst) {
     std::ifstream irFile(iter.c_str(), std::ios::in | std::ios::binary);
     if (irFile.is_open()) {
       // get binary file data size and read its content to the buffer

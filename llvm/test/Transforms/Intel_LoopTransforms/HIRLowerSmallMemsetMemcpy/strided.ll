@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lower-small-memset-memcpy,print<hir>" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lower-small-memset-memcpy,print<hir>" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
 
 ; The test checks that HIR Lower Small Memset/Memcpy pass does not
 ; transform memset with strided mem ref. (%A)[0] has stride of 8 while

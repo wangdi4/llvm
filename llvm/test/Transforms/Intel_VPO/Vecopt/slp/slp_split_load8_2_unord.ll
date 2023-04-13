@@ -4,100 +4,92 @@
 
 %struct.S = type { [8 x i32], [8 x i32], [16 x i32] }
 
-define dso_local void @_Z4testP1S(%struct.S* %p) local_unnamed_addr {
-; CHECK-LABEL: @_Z4testP1S(
+define void @_Z4testP1S(ptr %p) {
+; CHECK-LABEL: define {{[^@]+}}@_Z4testP1S(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], %struct.S* [[P:%.*]], i64 0, i32 1, i64 0
-; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 0
-; CHECK-NEXT:    [[ARRAYIDX20:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 2, i64 4
-; CHECK-NEXT:    [[ARRAYIDX27:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 2, i64 12
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[ARRAYIDX]] to <8 x i32>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <8 x i32>, <8 x i32>* [[TMP0]], align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[ARRAYIDX20]] to <4 x i32>*
-; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[ARRAYIDX27]] to <4 x i32>*
-; CHECK-NEXT:    [[TMP5:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4
-; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> [[TMP5]], <8 x i32> <i32 7, i32 3, i32 2, i32 0, i32 4, i32 5, i32 6, i32 1>
-; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <8 x i32> [[SPLITLOADSHUFFLE]], [[TMP1]]
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
-; CHECK-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 1, i64 0
+; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 0
+; CHECK-NEXT:    [[ARRAYIDX20:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 2, i64 4
+; CHECK-NEXT:    [[ARRAYIDX27:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 2, i64 12
+; CHECK-NEXT:    [[TMP0:%.*]] = load <8 x i32>, ptr [[ARRAYIDX]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, ptr [[ARRAYIDX20]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x i32>, ptr [[ARRAYIDX27]], align 4
+; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP1]], <4 x i32> [[TMP2]], <8 x i32> <i32 7, i32 3, i32 2, i32 0, i32 4, i32 5, i32 6, i32 1>
+; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <8 x i32> [[SPLITLOADSHUFFLE]], [[TMP0]]
+; CHECK-NEXT:    store <8 x i32> [[TMP3]], ptr [[ARRAYIDX2]], align 4
 ; CHECK-NEXT:    ret void
 ;
-; COST-LABEL: @_Z4testP1S(
+; COST-LABEL: define {{[^@]+}}@_Z4testP1S(
 ; COST-NEXT:  entry:
-; COST-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], %struct.S* [[P:%.*]], i64 0, i32 1, i64 0
-; COST-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 0
-; COST-NEXT:    [[ARRAYIDX20:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 2, i64 4
-; COST-NEXT:    [[ARRAYIDX27:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 2, i64 12
-; COST-NEXT:    [[TMP0:%.*]] = bitcast i32* [[ARRAYIDX]] to <8 x i32>*
-; COST-NEXT:    [[TMP1:%.*]] = load <8 x i32>, <8 x i32>* [[TMP0]], align 4
-; COST-NEXT:    [[TMP2:%.*]] = bitcast i32* [[ARRAYIDX20]] to <4 x i32>*
-; COST-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
-; COST-NEXT:    [[TMP4:%.*]] = bitcast i32* [[ARRAYIDX27]] to <4 x i32>*
-; COST-NEXT:    [[TMP5:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4
-; COST-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> [[TMP5]], <8 x i32> <i32 7, i32 3, i32 2, i32 0, i32 4, i32 5, i32 6, i32 1>
-; COST-NEXT:    [[TMP6:%.*]] = add nsw <8 x i32> [[SPLITLOADSHUFFLE]], [[TMP1]]
-; COST-NEXT:    [[TMP7:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
-; COST-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4
+; COST-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 1, i64 0
+; COST-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 0
+; COST-NEXT:    [[ARRAYIDX20:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 2, i64 4
+; COST-NEXT:    [[ARRAYIDX27:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 2, i64 12
+; COST-NEXT:    [[TMP0:%.*]] = load <8 x i32>, ptr [[ARRAYIDX]], align 4
+; COST-NEXT:    [[TMP1:%.*]] = load <4 x i32>, ptr [[ARRAYIDX20]], align 4
+; COST-NEXT:    [[TMP2:%.*]] = load <4 x i32>, ptr [[ARRAYIDX27]], align 4
+; COST-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP1]], <4 x i32> [[TMP2]], <8 x i32> <i32 7, i32 3, i32 2, i32 0, i32 4, i32 5, i32 6, i32 1>
+; COST-NEXT:    [[TMP3:%.*]] = add nsw <8 x i32> [[SPLITLOADSHUFFLE]], [[TMP0]]
+; COST-NEXT:    store <8 x i32> [[TMP3]], ptr [[ARRAYIDX2]], align 4
 ; COST-NEXT:    ret void
 ;
 entry:
-  %arrayidx = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 0
-  %i = load i32, i32* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 2, i64 15
-  %i1 = load i32, i32* %arrayidx1, align 4
+  %arrayidx = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 1, i64 0
+  %i = load i32, ptr %arrayidx, align 4
+  %arrayidx1 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 2, i64 15
+  %i1 = load i32, ptr %arrayidx1, align 4
   %add = add nsw i32 %i1, %i
-  %arrayidx2 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 0
-  store i32 %add, i32* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 1
-  %i2 = load i32, i32* %arrayidx4, align 4
-  %arrayidx6 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 2, i64 7
-  %i3 = load i32, i32* %arrayidx6, align 4
+  %arrayidx2 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 0
+  store i32 %add, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 1, i64 1
+  %i2 = load i32, ptr %arrayidx4, align 4
+  %arrayidx6 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 2, i64 7
+  %i3 = load i32, ptr %arrayidx6, align 4
   %add7 = add nsw i32 %i3, %i2
-  %arrayidx9 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 1
-  store i32 %add7, i32* %arrayidx9, align 4
-  %arrayidx11 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 2
-  %i4 = load i32, i32* %arrayidx11, align 4
-  %arrayidx13 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 2, i64 6
-  %i5 = load i32, i32* %arrayidx13, align 4
+  %arrayidx9 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 1
+  store i32 %add7, ptr %arrayidx9, align 4
+  %arrayidx11 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 1, i64 2
+  %i4 = load i32, ptr %arrayidx11, align 4
+  %arrayidx13 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 2, i64 6
+  %i5 = load i32, ptr %arrayidx13, align 4
   %add14 = add nsw i32 %i5, %i4
-  %arrayidx16 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 2
-  store i32 %add14, i32* %arrayidx16, align 4
-  %arrayidx18 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 3
-  %i6 = load i32, i32* %arrayidx18, align 4
-  %arrayidx20 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 2, i64 4
-  %i7 = load i32, i32* %arrayidx20, align 4
+  %arrayidx16 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 2
+  store i32 %add14, ptr %arrayidx16, align 4
+  %arrayidx18 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 1, i64 3
+  %i6 = load i32, ptr %arrayidx18, align 4
+  %arrayidx20 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 2, i64 4
+  %i7 = load i32, ptr %arrayidx20, align 4
   %add21 = add nsw i32 %i7, %i6
-  %arrayidx23 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 3
-  store i32 %add21, i32* %arrayidx23, align 4
-  %arrayidx25 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 4
-  %i8 = load i32, i32* %arrayidx25, align 4
-  %arrayidx27 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 2, i64 12
-  %i9 = load i32, i32* %arrayidx27, align 4
+  %arrayidx23 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 3
+  store i32 %add21, ptr %arrayidx23, align 4
+  %arrayidx25 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 1, i64 4
+  %i8 = load i32, ptr %arrayidx25, align 4
+  %arrayidx27 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 2, i64 12
+  %i9 = load i32, ptr %arrayidx27, align 4
   %add28 = add nsw i32 %i9, %i8
-  %arrayidx30 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 4
-  store i32 %add28, i32* %arrayidx30, align 4
-  %arrayidx32 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 5
-  %i10 = load i32, i32* %arrayidx32, align 4
-  %arrayidx34 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 2, i64 13
-  %i11 = load i32, i32* %arrayidx34, align 4
+  %arrayidx30 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 4
+  store i32 %add28, ptr %arrayidx30, align 4
+  %arrayidx32 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 1, i64 5
+  %i10 = load i32, ptr %arrayidx32, align 4
+  %arrayidx34 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 2, i64 13
+  %i11 = load i32, ptr %arrayidx34, align 4
   %add35 = add nsw i32 %i11, %i10
-  %arrayidx37 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 5
-  store i32 %add35, i32* %arrayidx37, align 4
-  %arrayidx39 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 6
-  %i12 = load i32, i32* %arrayidx39, align 4
-  %arrayidx41 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 2, i64 14
-  %i13 = load i32, i32* %arrayidx41, align 4
+  %arrayidx37 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 5
+  store i32 %add35, ptr %arrayidx37, align 4
+  %arrayidx39 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 1, i64 6
+  %i12 = load i32, ptr %arrayidx39, align 4
+  %arrayidx41 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 2, i64 14
+  %i13 = load i32, ptr %arrayidx41, align 4
   %add42 = add nsw i32 %i13, %i12
-  %arrayidx44 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 6
-  store i32 %add42, i32* %arrayidx44, align 4
-  %arrayidx46 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 1, i64 7
-  %i14 = load i32, i32* %arrayidx46, align 4
-  %arrayidx48 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 2, i64 5
-  %i15 = load i32, i32* %arrayidx48, align 4
+  %arrayidx44 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 6
+  store i32 %add42, ptr %arrayidx44, align 4
+  %arrayidx46 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 1, i64 7
+  %i14 = load i32, ptr %arrayidx46, align 4
+  %arrayidx48 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 2, i64 5
+  %i15 = load i32, ptr %arrayidx48, align 4
   %add49 = add nsw i32 %i15, %i14
-  %arrayidx51 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 7
-  store i32 %add49, i32* %arrayidx51, align 4
+  %arrayidx51 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 7
+  store i32 %add49, ptr %arrayidx51, align 4
   ret void
 }
 
@@ -107,142 +99,131 @@ entry:
 ; (3) these loads vectorized as a part of tree that is seeded by stores
 ; and with VF=8.
 
-define dso_local void @test_unordered_splits(%struct.S* nocapture %p) local_unnamed_addr {
-; CHECK-LABEL: @test_unordered_splits(
+define void @test_unordered_splits(ptr nocapture %p) {
+; CHECK-LABEL: define {{[^@]+}}@test_unordered_splits(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[P1:%.*]] = alloca [16 x i32], align 16
 ; CHECK-NEXT:    [[P2:%.*]] = alloca [16 x i32], align 16
-; CHECK-NEXT:    [[G10:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P1]], i32 0, i64 4
-; CHECK-NEXT:    [[G20:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P2]], i32 0, i64 12
-; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], %struct.S* [[P:%.*]], i64 0, i32 0, i64 0
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[G10]] to <4 x i32>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[G20]] to <4 x i32>*
-; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP1]], <4 x i32> [[TMP3]], <8 x i32> <i32 1, i32 0, i32 2, i32 3, i32 7, i32 5, i32 6, i32 4>
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
-; CHECK-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE]], <8 x i32>* [[TMP4]], align 4
+; CHECK-NEXT:    [[G10:%.*]] = getelementptr inbounds [16 x i32], ptr [[P1]], i32 0, i64 4
+; CHECK-NEXT:    [[G20:%.*]] = getelementptr inbounds [16 x i32], ptr [[P2]], i32 0, i64 12
+; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 0, i64 0
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, ptr [[G10]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, ptr [[G20]], align 4
+; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> [[TMP1]], <8 x i32> <i32 1, i32 0, i32 2, i32 3, i32 7, i32 5, i32 6, i32 4>
+; CHECK-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE]], ptr [[ARRAYIDX2]], align 4
 ; CHECK-NEXT:    ret void
 ;
-; COST-LABEL: @test_unordered_splits(
+; COST-LABEL: define {{[^@]+}}@test_unordered_splits(
 ; COST-NEXT:  entry:
 ; COST-NEXT:    [[P1:%.*]] = alloca [16 x i32], align 16
 ; COST-NEXT:    [[P2:%.*]] = alloca [16 x i32], align 16
-; COST-NEXT:    [[G10:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P1]], i32 0, i64 4
-; COST-NEXT:    [[G20:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P2]], i32 0, i64 12
-; COST-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], %struct.S* [[P:%.*]], i64 0, i32 0, i64 0
-; COST-NEXT:    [[TMP0:%.*]] = bitcast i32* [[G10]] to <4 x i32>*
-; COST-NEXT:    [[TMP1:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
-; COST-NEXT:    [[TMP2:%.*]] = bitcast i32* [[G20]] to <4 x i32>*
-; COST-NEXT:    [[TMP3:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
-; COST-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP1]], <4 x i32> [[TMP3]], <8 x i32> <i32 1, i32 0, i32 2, i32 3, i32 7, i32 5, i32 6, i32 4>
-; COST-NEXT:    [[TMP4:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
-; COST-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE]], <8 x i32>* [[TMP4]], align 4
+; COST-NEXT:    [[G10:%.*]] = getelementptr inbounds [16 x i32], ptr [[P1]], i32 0, i64 4
+; COST-NEXT:    [[G20:%.*]] = getelementptr inbounds [16 x i32], ptr [[P2]], i32 0, i64 12
+; COST-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 0, i64 0
+; COST-NEXT:    [[TMP0:%.*]] = load <4 x i32>, ptr [[G10]], align 4
+; COST-NEXT:    [[TMP1:%.*]] = load <4 x i32>, ptr [[G20]], align 4
+; COST-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> [[TMP1]], <8 x i32> <i32 1, i32 0, i32 2, i32 3, i32 7, i32 5, i32 6, i32 4>
+; COST-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE]], ptr [[ARRAYIDX2]], align 4
 ; COST-NEXT:    ret void
 ;
 entry:
   %p1 = alloca [16 x i32], align 16
   %p2 = alloca [16 x i32], align 16
-  %g10 = getelementptr inbounds [16 x i32], [16 x i32]* %p1, i32 0, i64 4
-  %g11 = getelementptr inbounds [16 x i32], [16 x i32]* %p1, i32 0, i64 5
-  %g12 = getelementptr inbounds [16 x i32], [16 x i32]* %p1, i32 0, i64 6
-  %g13 = getelementptr inbounds [16 x i32], [16 x i32]* %p1, i32 0, i64 7
-  %g20 = getelementptr inbounds [16 x i32], [16 x i32]* %p2, i32 0, i64 12
-  %g21 = getelementptr inbounds [16 x i32], [16 x i32]* %p2, i32 0, i64 13
-  %g22 = getelementptr inbounds [16 x i32], [16 x i32]* %p2, i32 0, i64 14
-  %g23 = getelementptr inbounds [16 x i32], [16 x i32]* %p2, i32 0, i64 15
-  %i1 = load i32, i32* %g11, align 4
-  %arrayidx2 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 0
-  store i32 %i1, i32* %arrayidx2, align 4
-  %i3 = load i32, i32* %g10, align 4
-  %arrayidx9 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 1
-  store i32 %i3, i32* %arrayidx9, align 4
-  %i5 = load i32, i32* %g12, align 4
-  %arrayidx16 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 2
-  store i32 %i5, i32* %arrayidx16, align 4
-  %i7 = load i32, i32* %g13, align 4
-  %arrayidx23 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 3
-  store i32 %i7, i32* %arrayidx23, align 4
-  %i9 = load i32, i32* %g23, align 4
-  %arrayidx30 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 4
-  store i32 %i9, i32* %arrayidx30, align 4
-  %i11 = load i32, i32* %g21, align 4
-  %arrayidx37 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 5
-  store i32 %i11, i32* %arrayidx37, align 4
-  %i13 = load i32, i32* %g22, align 4
-  %arrayidx44 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 6
-  store i32 %i13, i32* %arrayidx44, align 4
-  %i15 = load i32, i32* %g20, align 4
-  %arrayidx51 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 7
-  store i32 %i15, i32* %arrayidx51, align 4
+  %g10 = getelementptr inbounds [16 x i32], ptr %p1, i32 0, i64 4
+  %g11 = getelementptr inbounds [16 x i32], ptr %p1, i32 0, i64 5
+  %g12 = getelementptr inbounds [16 x i32], ptr %p1, i32 0, i64 6
+  %g13 = getelementptr inbounds [16 x i32], ptr %p1, i32 0, i64 7
+  %g20 = getelementptr inbounds [16 x i32], ptr %p2, i32 0, i64 12
+  %g21 = getelementptr inbounds [16 x i32], ptr %p2, i32 0, i64 13
+  %g22 = getelementptr inbounds [16 x i32], ptr %p2, i32 0, i64 14
+  %g23 = getelementptr inbounds [16 x i32], ptr %p2, i32 0, i64 15
+  %i1 = load i32, ptr %g11, align 4
+  %arrayidx2 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 0
+  store i32 %i1, ptr %arrayidx2, align 4
+  %i3 = load i32, ptr %g10, align 4
+  %arrayidx9 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 1
+  store i32 %i3, ptr %arrayidx9, align 4
+  %i5 = load i32, ptr %g12, align 4
+  %arrayidx16 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 2
+  store i32 %i5, ptr %arrayidx16, align 4
+  %i7 = load i32, ptr %g13, align 4
+  %arrayidx23 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 3
+  store i32 %i7, ptr %arrayidx23, align 4
+  %i9 = load i32, ptr %g23, align 4
+  %arrayidx30 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 4
+  store i32 %i9, ptr %arrayidx30, align 4
+  %i11 = load i32, ptr %g21, align 4
+  %arrayidx37 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 5
+  store i32 %i11, ptr %arrayidx37, align 4
+  %i13 = load i32, ptr %g22, align 4
+  %arrayidx44 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 6
+  store i32 %i13, ptr %arrayidx44, align 4
+  %i15 = load i32, ptr %g20, align 4
+  %arrayidx51 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 7
+  store i32 %i15, ptr %arrayidx51, align 4
   ret void
 }
 
-define dso_local void @test_cost_splits(%struct.S* nocapture %p) local_unnamed_addr {
-; CHECK-LABEL: @test_cost_splits(
+define void @test_cost_splits(ptr nocapture %p) {
+; CHECK-LABEL: define {{[^@]+}}@test_cost_splits(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[P1:%.*]] = alloca [16 x i32], align 16
 ; CHECK-NEXT:    [[P2:%.*]] = alloca [16 x i32], align 16
 ; CHECK-NEXT:    [[P3:%.*]] = alloca [16 x i32], align 16
 ; CHECK-NEXT:    [[P4:%.*]] = alloca [16 x i32], align 16
-; CHECK-NEXT:    [[G10:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P1]], i32 0, i64 4
-; CHECK-NEXT:    [[G12:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P2]], i32 0, i64 6
-; CHECK-NEXT:    [[G20:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P3]], i32 0, i64 12
-; CHECK-NEXT:    [[G22:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P4]], i32 0, i64 14
-; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], %struct.S* [[P:%.*]], i64 0, i32 0, i64 0
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[G10]] to <2 x i32>*
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[G12]] to <2 x i32>*
-; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[G20]] to <2 x i32>*
-; CHECK-NEXT:    [[TMP5:%.*]] = load <2 x i32>, <2 x i32>* [[TMP4]], align 4
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[G22]] to <2 x i32>*
-; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x i32>, <2 x i32>* [[TMP6]], align 4
-; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <2 x i32> [[TMP1]], <2 x i32> [[TMP3]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[SPLITLOADSHUFFLE1:%.*]] = shufflevector <2 x i32> [[TMP5]], <2 x i32> [[TMP7]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[G10:%.*]] = getelementptr inbounds [16 x i32], ptr [[P1]], i32 0, i64 4
+; CHECK-NEXT:    [[G12:%.*]] = getelementptr inbounds [16 x i32], ptr [[P2]], i32 0, i64 6
+; CHECK-NEXT:    [[G20:%.*]] = getelementptr inbounds [16 x i32], ptr [[P3]], i32 0, i64 12
+; CHECK-NEXT:    [[G22:%.*]] = getelementptr inbounds [16 x i32], ptr [[P4]], i32 0, i64 14
+; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 0, i64 0
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[G10]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[G12]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x i32>, ptr [[G20]], align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i32>, ptr [[G22]], align 4
+; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <2 x i32> [[TMP0]], <2 x i32> [[TMP1]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[SPLITLOADSHUFFLE1:%.*]] = shufflevector <2 x i32> [[TMP2]], <2 x i32> [[TMP3]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[SPLITLOADSHUFFLE2:%.*]] = shufflevector <4 x i32> [[SPLITLOADSHUFFLE]], <4 x i32> [[SPLITLOADSHUFFLE1]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast i32* [[ARRAYIDX2]] to <8 x i32>*
-; CHECK-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE2]], <8 x i32>* [[TMP8]], align 4
+; CHECK-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE2]], ptr [[ARRAYIDX2]], align 4
 ; CHECK-NEXT:    ret void
 ;
-; COST-LABEL: @test_cost_splits(
+; COST-LABEL: define {{[^@]+}}@test_cost_splits(
 ; COST-NEXT:  entry:
 ; COST-NEXT:    [[P1:%.*]] = alloca [16 x i32], align 16
 ; COST-NEXT:    [[P2:%.*]] = alloca [16 x i32], align 16
 ; COST-NEXT:    [[P3:%.*]] = alloca [16 x i32], align 16
 ; COST-NEXT:    [[P4:%.*]] = alloca [16 x i32], align 16
-; COST-NEXT:    [[G10:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P1]], i32 0, i64 4
-; COST-NEXT:    [[G11:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P1]], i32 0, i64 5
-; COST-NEXT:    [[G12:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P2]], i32 0, i64 6
-; COST-NEXT:    [[G13:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P2]], i32 0, i64 7
-; COST-NEXT:    [[G20:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P3]], i32 0, i64 12
-; COST-NEXT:    [[G21:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P3]], i32 0, i64 13
-; COST-NEXT:    [[G22:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P4]], i32 0, i64 14
-; COST-NEXT:    [[G23:%.*]] = getelementptr inbounds [16 x i32], [16 x i32]* [[P4]], i32 0, i64 15
-; COST-NEXT:    [[I1:%.*]] = load i32, i32* [[G10]], align 4
-; COST-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], %struct.S* [[P:%.*]], i64 0, i32 0, i64 0
-; COST-NEXT:    store i32 [[I1]], i32* [[ARRAYIDX2]], align 4
-; COST-NEXT:    [[I3:%.*]] = load i32, i32* [[G11]], align 4
-; COST-NEXT:    [[ARRAYIDX9:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 1
-; COST-NEXT:    store i32 [[I3]], i32* [[ARRAYIDX9]], align 4
-; COST-NEXT:    [[I5:%.*]] = load i32, i32* [[G12]], align 4
-; COST-NEXT:    [[ARRAYIDX16:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 2
-; COST-NEXT:    store i32 [[I5]], i32* [[ARRAYIDX16]], align 4
-; COST-NEXT:    [[I7:%.*]] = load i32, i32* [[G13]], align 4
-; COST-NEXT:    [[ARRAYIDX23:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 3
-; COST-NEXT:    store i32 [[I7]], i32* [[ARRAYIDX23]], align 4
-; COST-NEXT:    [[I9:%.*]] = load i32, i32* [[G20]], align 4
-; COST-NEXT:    [[ARRAYIDX30:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 4
-; COST-NEXT:    store i32 [[I9]], i32* [[ARRAYIDX30]], align 4
-; COST-NEXT:    [[I11:%.*]] = load i32, i32* [[G21]], align 4
-; COST-NEXT:    [[ARRAYIDX37:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 5
-; COST-NEXT:    store i32 [[I11]], i32* [[ARRAYIDX37]], align 4
-; COST-NEXT:    [[I13:%.*]] = load i32, i32* [[G22]], align 4
-; COST-NEXT:    [[ARRAYIDX44:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 6
-; COST-NEXT:    store i32 [[I13]], i32* [[ARRAYIDX44]], align 4
-; COST-NEXT:    [[I15:%.*]] = load i32, i32* [[G23]], align 4
-; COST-NEXT:    [[ARRAYIDX51:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[P]], i64 0, i32 0, i64 7
-; COST-NEXT:    store i32 [[I15]], i32* [[ARRAYIDX51]], align 4
+; COST-NEXT:    [[G10:%.*]] = getelementptr inbounds [16 x i32], ptr [[P1]], i32 0, i64 4
+; COST-NEXT:    [[G11:%.*]] = getelementptr inbounds [16 x i32], ptr [[P1]], i32 0, i64 5
+; COST-NEXT:    [[G12:%.*]] = getelementptr inbounds [16 x i32], ptr [[P2]], i32 0, i64 6
+; COST-NEXT:    [[G13:%.*]] = getelementptr inbounds [16 x i32], ptr [[P2]], i32 0, i64 7
+; COST-NEXT:    [[G20:%.*]] = getelementptr inbounds [16 x i32], ptr [[P3]], i32 0, i64 12
+; COST-NEXT:    [[G21:%.*]] = getelementptr inbounds [16 x i32], ptr [[P3]], i32 0, i64 13
+; COST-NEXT:    [[G22:%.*]] = getelementptr inbounds [16 x i32], ptr [[P4]], i32 0, i64 14
+; COST-NEXT:    [[G23:%.*]] = getelementptr inbounds [16 x i32], ptr [[P4]], i32 0, i64 15
+; COST-NEXT:    [[I1:%.*]] = load i32, ptr [[G10]], align 4
+; COST-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 0, i64 0
+; COST-NEXT:    store i32 [[I1]], ptr [[ARRAYIDX2]], align 4
+; COST-NEXT:    [[I3:%.*]] = load i32, ptr [[G11]], align 4
+; COST-NEXT:    [[ARRAYIDX9:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 1
+; COST-NEXT:    store i32 [[I3]], ptr [[ARRAYIDX9]], align 4
+; COST-NEXT:    [[I5:%.*]] = load i32, ptr [[G12]], align 4
+; COST-NEXT:    [[ARRAYIDX16:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 2
+; COST-NEXT:    store i32 [[I5]], ptr [[ARRAYIDX16]], align 4
+; COST-NEXT:    [[I7:%.*]] = load i32, ptr [[G13]], align 4
+; COST-NEXT:    [[ARRAYIDX23:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 3
+; COST-NEXT:    store i32 [[I7]], ptr [[ARRAYIDX23]], align 4
+; COST-NEXT:    [[I9:%.*]] = load i32, ptr [[G20]], align 4
+; COST-NEXT:    [[ARRAYIDX30:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 4
+; COST-NEXT:    store i32 [[I9]], ptr [[ARRAYIDX30]], align 4
+; COST-NEXT:    [[I11:%.*]] = load i32, ptr [[G21]], align 4
+; COST-NEXT:    [[ARRAYIDX37:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 5
+; COST-NEXT:    store i32 [[I11]], ptr [[ARRAYIDX37]], align 4
+; COST-NEXT:    [[I13:%.*]] = load i32, ptr [[G22]], align 4
+; COST-NEXT:    [[ARRAYIDX44:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 6
+; COST-NEXT:    store i32 [[I13]], ptr [[ARRAYIDX44]], align 4
+; COST-NEXT:    [[I15:%.*]] = load i32, ptr [[G23]], align 4
+; COST-NEXT:    [[ARRAYIDX51:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 7
+; COST-NEXT:    store i32 [[I15]], ptr [[ARRAYIDX51]], align 4
 ; COST-NEXT:    ret void
 ;
 entry:
@@ -250,37 +231,37 @@ entry:
   %p2 = alloca [16 x i32], align 16
   %p3 = alloca [16 x i32], align 16
   %p4 = alloca [16 x i32], align 16
-  %g10 = getelementptr inbounds [16 x i32], [16 x i32]* %p1, i32 0, i64 4
-  %g11 = getelementptr inbounds [16 x i32], [16 x i32]* %p1, i32 0, i64 5
-  %g12 = getelementptr inbounds [16 x i32], [16 x i32]* %p2, i32 0, i64 6
-  %g13 = getelementptr inbounds [16 x i32], [16 x i32]* %p2, i32 0, i64 7
-  %g20 = getelementptr inbounds [16 x i32], [16 x i32]* %p3, i32 0, i64 12
-  %g21 = getelementptr inbounds [16 x i32], [16 x i32]* %p3, i32 0, i64 13
-  %g22 = getelementptr inbounds [16 x i32], [16 x i32]* %p4, i32 0, i64 14
-  %g23 = getelementptr inbounds [16 x i32], [16 x i32]* %p4, i32 0, i64 15
-  %i1 = load i32, i32* %g10, align 4
-  %arrayidx2 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 0
-  store i32 %i1, i32* %arrayidx2, align 4
-  %i3 = load i32, i32* %g11, align 4
-  %arrayidx9 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 1
-  store i32 %i3, i32* %arrayidx9, align 4
-  %i5 = load i32, i32* %g12, align 4
-  %arrayidx16 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 2
-  store i32 %i5, i32* %arrayidx16, align 4
-  %i7 = load i32, i32* %g13, align 4
-  %arrayidx23 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 3
-  store i32 %i7, i32* %arrayidx23, align 4
-  %i9 = load i32, i32* %g20, align 4
-  %arrayidx30 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 4
-  store i32 %i9, i32* %arrayidx30, align 4
-  %i11 = load i32, i32* %g21, align 4
-  %arrayidx37 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 5
-  store i32 %i11, i32* %arrayidx37, align 4
-  %i13 = load i32, i32* %g22, align 4
-  %arrayidx44 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 6
-  store i32 %i13, i32* %arrayidx44, align 4
-  %i15 = load i32, i32* %g23, align 4
-  %arrayidx51 = getelementptr inbounds %struct.S, %struct.S* %p, i64 0, i32 0, i64 7
-  store i32 %i15, i32* %arrayidx51, align 4
+  %g10 = getelementptr inbounds [16 x i32], ptr %p1, i32 0, i64 4
+  %g11 = getelementptr inbounds [16 x i32], ptr %p1, i32 0, i64 5
+  %g12 = getelementptr inbounds [16 x i32], ptr %p2, i32 0, i64 6
+  %g13 = getelementptr inbounds [16 x i32], ptr %p2, i32 0, i64 7
+  %g20 = getelementptr inbounds [16 x i32], ptr %p3, i32 0, i64 12
+  %g21 = getelementptr inbounds [16 x i32], ptr %p3, i32 0, i64 13
+  %g22 = getelementptr inbounds [16 x i32], ptr %p4, i32 0, i64 14
+  %g23 = getelementptr inbounds [16 x i32], ptr %p4, i32 0, i64 15
+  %i1 = load i32, ptr %g10, align 4
+  %arrayidx2 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 0
+  store i32 %i1, ptr %arrayidx2, align 4
+  %i3 = load i32, ptr %g11, align 4
+  %arrayidx9 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 1
+  store i32 %i3, ptr %arrayidx9, align 4
+  %i5 = load i32, ptr %g12, align 4
+  %arrayidx16 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 2
+  store i32 %i5, ptr %arrayidx16, align 4
+  %i7 = load i32, ptr %g13, align 4
+  %arrayidx23 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 3
+  store i32 %i7, ptr %arrayidx23, align 4
+  %i9 = load i32, ptr %g20, align 4
+  %arrayidx30 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 4
+  store i32 %i9, ptr %arrayidx30, align 4
+  %i11 = load i32, ptr %g21, align 4
+  %arrayidx37 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 5
+  store i32 %i11, ptr %arrayidx37, align 4
+  %i13 = load i32, ptr %g22, align 4
+  %arrayidx44 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 6
+  store i32 %i13, ptr %arrayidx44, align 4
+  %i15 = load i32, ptr %g23, align 4
+  %arrayidx51 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 7
+  store i32 %i15, ptr %arrayidx51, align 4
   ret void
 }

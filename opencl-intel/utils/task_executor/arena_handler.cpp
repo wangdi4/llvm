@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2020 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -16,7 +16,6 @@
 
 #include "base_command_list.h"
 #include "cl_shared_ptr.hpp"
-#include "cl_shutdown.h"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include "hw_utils.h"
@@ -110,7 +109,7 @@ unsigned int ArenaHandler::AllocateThreadPosition() {
   // assign to thread. Even if this thread is not from the upper level but just
   // worker that joined arena, we cannot use tbb slot as this number may be
   // already saved by some another upper level thread.
-  OclAutoMutex lock(&m_lock);
+  std::lock_guard<std::recursive_mutex> lock(m_lock);
 
   unsigned int pos = m_freePositions.back();
   m_freePositions.pop_back();
@@ -119,7 +118,7 @@ unsigned int ArenaHandler::AllocateThreadPosition() {
 
 void ArenaHandler::FreeThreadPosition(unsigned int pos) {
   if (0 != m_uiLevel) {
-    OclAutoMutex lock(&m_lock);
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     m_freePositions.push_back(pos);
   }
 }
@@ -240,53 +239,47 @@ void TEDevice::ShutDown() {
   }
 
   // 1. Count down until all threads stopped
-  if (!IsShutdownMode()) {
-    TBB_PerActiveThreadData *tls =
-        m_taskExecutor.GetThreadManager().GetCurrentThreadDescriptor();
-    int remainder = ((nullptr == tls) || (tls->device != this))
-                        ? 0
-                        : 1; // how many threads may remain inside arena
+  TBB_PerActiveThreadData *tls =
+      m_taskExecutor.GetThreadManager().GetCurrentThreadDescriptor();
+  int remainder = ((nullptr == tls) || (tls->device != this))
+                      ? 0
+                      : 1; // how many threads may remain inside arena
 
-    while ((m_numOfActiveThreads > remainder) &&
-           (m_numOfActiveThreads <= (int)m_maxNumOfActiveThreads)) {
-      hw_pause();
-    }
+  while ((m_numOfActiveThreads > remainder) &&
+         (m_numOfActiveThreads <= (int)m_maxNumOfActiveThreads)) {
+    hw_pause();
+  }
 
-    // if current thread is inside TE Device - notify about exit manually
-    if (0 != remainder) {
-      assert((nullptr != tls->attached_arenas[tls->attach_level]) &&
-             "NULL arena pointer at attach level");
-      on_scheduler_exit(!(tls->is_master),
-                        *(tls->attached_arenas[tls->attach_level]));
-    }
+  // if current thread is inside TE Device - notify about exit manually
+  if (0 != remainder) {
+    assert((nullptr != tls->attached_arenas[tls->attach_level]) &&
+           "NULL arena pointer at attach level");
+    on_scheduler_exit(!(tls->is_master),
+                      *(tls->attached_arenas[tls->attach_level]));
   }
 
   // 2. Signal all now-entring threads that we are exiting
   m_state = DISABLE_NEW_THREADS;
 
   // 3. new threads may enter before disabling - wait all to exit
-  if (!IsShutdownMode()) {
-    while ((m_numOfActiveThreads > 0) &&
-           (m_numOfActiveThreads <= (int)m_maxNumOfActiveThreads)) {
-      hw_pause();
-    }
+  while ((m_numOfActiveThreads > 0) &&
+         (m_numOfActiveThreads <= (int)m_maxNumOfActiveThreads)) {
+    hw_pause();
   }
   // now all threads that we allocated data for exited from TEDevice
 
   // 4. Stop all observers
   //    observer stopping blocks if any observer callback is in process
-  if (!IsShutdownMode()) {
-    for (unsigned int i = m_deviceDescriptor.uiNumOfLevels - 1; i > 0; --i) {
-      ArenaHandler *ar = m_lowLevelArenas[i - 1];
-      assert((nullptr != ar) &&
-             "Low level arena array in NULL for hierarchical arenas?");
-      for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[i - 1];
-           ++j) {
-        ar[j].StopMonitoring();
-      }
+  for (unsigned int i = m_deviceDescriptor.uiNumOfLevels - 1; i > 0; --i) {
+    ArenaHandler *ar = m_lowLevelArenas[i - 1];
+    assert((nullptr != ar) &&
+           "Low level arena array in NULL for hierarchical arenas?");
+    for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[i - 1];
+         ++j) {
+      ar[j].StopMonitoring();
     }
-    m_mainArena.StopMonitoring();
   }
+  m_mainArena.StopMonitoring();
   m_userData = nullptr; // to be on the safe side
 
   // 5. Signal all arenas to terminate
@@ -453,7 +446,7 @@ void TEDevice::on_scheduler_entry(bool bIsWorker, ArenaHandler &arena) {
        significantly reduces the probability for it. This also applies to the
        same flag checking in other methods. */
     {
-      if ((nullptr != m_observer) && (!IsShutdownMode())) {
+      if (nullptr != m_observer) {
         // per thread user data recides inside per-thread descriptor
         tls->user_tls = m_observer->OnThreadEntry(registerThread);
         tls->enter_reported = true;
@@ -488,7 +481,7 @@ void TEDevice::on_scheduler_exit(bool /*bIsWorker*/, ArenaHandler &arena) {
 
   // now the only case - we are leaving our attach_level - out from device
   if (tls->enter_reported) {
-    if ((nullptr != m_observer) && (!IsShutdownMode())) {
+    if (nullptr != m_observer) {
       // per thread user data recides inside per-thread descriptor
       m_observer->OnThreadExit(tls->user_tls);
     }
@@ -519,7 +512,7 @@ bool TEDevice::on_scheduler_leaving(ArenaHandler & /*arena*/) {
     assert((this == tls->device) && "Something wrong with observers - thread "
                                     "tries to leave the wrong device");
 
-    if ((nullptr != m_observer) && (!IsShutdownMode())) {
+    if (nullptr != m_observer) {
       user_answer = m_observer->MayThreadLeaveDevice(&(tls->user_tls));
     }
   }

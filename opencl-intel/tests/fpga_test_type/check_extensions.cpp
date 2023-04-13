@@ -19,9 +19,11 @@
 // problem reports or change requests be submitted to it directly
 
 #include "base_fixture.h"
-#include <algorithm>
-#include <iterator>
-#include <sstream>
+#include "ocl_supported_extensions.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringSet.h"
+
+using namespace llvm;
 
 class CheckExtensions : public OCLFPGABaseFixture {};
 
@@ -49,42 +51,33 @@ TEST_F(CheckExtensions, FPGADevice) {
                         &extensions[0], nullptr);
   ASSERT_EQ(CL_SUCCESS, err) << "clGetDeviceInfo failed";
 
-  ASSERT_TRUE(extensionsPlatform == extensions)
+  ASSERT_EQ(extensionsPlatform, extensions)
       << "Expected that platform and device extensions are equal!";
 
   // Reference FPGA extensions. Update this list if supported extension names
   // changes.
-  std::set<std::string> extRefFPGA = {"cl_khr_icd",
-                                      "cl_khr_byte_addressable_store",
-                                      "cl_intel_fpga_host_pipe",
-                                      "cles_khr_int64",
-                                      "cl_khr_il_program",
-                                      "cl_khr_global_int32_base_atomics",
-                                      "cl_khr_global_int32_extended_atomics",
-                                      "cl_khr_local_int32_base_atomics",
-                                      "cl_khr_local_int32_extended_atomics",
-                                      "cl_khr_spirv_linkonce_odr",
-                                      "cl_khr_fp64"};
+  StringSet<> extRefFPGA{OCL_EXT_ES_KHR_INT64,
+                         OCL_EXT_INTEL_CHANNELS,
+                         OCL_EXT_INTEL_FPGA_HOST_PIPE,
+                         OCL_EXT_INTEL_PROGRAM_SCOPE_HOST_PIPE,
+                         OCL_EXT_KHR_3D_IMAGE_WRITES,
+                         OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE,
+                         OCL_EXT_KHR_DEPTH_IMAGES,
+                         OCL_EXT_KHR_FP16,
+                         OCL_EXT_KHR_FP64,
+                         OCL_EXT_KHR_GLOBAL_BASE_ATOMICS,
+                         OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS,
+                         OCL_EXT_KHR_ICD,
+                         OCL_EXT_KHR_IL_PROGRAM,
+                         OCL_EXT_KHR_LOCAL_BASE_ATOMICS,
+                         OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS,
+                         OCL_EXT_KHR_SPIRV_LINKONCE_ODR};
+  StringRef exts{extensions};
+  SmallVector<StringRef, 64> extensionVec;
+  SplitString(exts.substr(0, exts.find_first_of('\0')), extensionVec);
+  ASSERT_EQ(extensionVec.size(), extRefFPGA.size());
 
-  // Remove trailing '\0'
-  extensions.erase(std::find(extensions.begin(), extensions.end(), '\0'),
-                   extensions.end());
-  // Check each queried extension is present in reference extensions
-  std::istringstream extss(extensions);
-  for (auto i = std::istream_iterator<std::string>(extss),
-            e = std::istream_iterator<std::string>();
-       i != e; ++i) {
-    ASSERT_EQ(extRefFPGA.count(*i), 1U)
-        << ("Expect " + (*i) + " exists once in reference extensions");
-    extRefFPGA.erase(*i);
-  }
-
-  // Check extRefFPGA is empty
-  if (!extRefFPGA.empty()) {
-    std::ostringstream ss;
-    std::copy(extRefFPGA.begin(), extRefFPGA.end(),
-              std::ostream_iterator<std::string>(ss, ","));
-    FAIL() << ("Reference extensions " + ss.str() +
-               " are not in extensions queried from clGetDeviceInfo");
-  }
+  for (const auto &ext : extensionVec)
+    ASSERT_TRUE(extRefFPGA.contains(ext))
+        << ext.str() << " not found in reference extensions";
 }

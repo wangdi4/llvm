@@ -1,6 +1,6 @@
 //===- IntelVPAssumptionCacheTest.cpp ---------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -109,6 +109,41 @@ TEST_F(VPAssumptionCacheTest, AssumeOutsidePlan) {
 
   EXPECT_EQ(cast<AssumeInst>(AffectingAssumes.front()),
             cast<AssumeInst>(Assumes.front()));
+}
+
+TEST_F(VPAssumptionCacheTest, AssumeOp) {
+  buildVPlanFromString(R"(
+      declare void @llvm.assume(i1)
+      define void @foo(i32* %p) {
+      entry:
+        br label %for.body
+      for.body:
+        %ind = phi i32 [ 0, %entry ], [ %ind.next, %for.body ]
+        %gep = getelementptr i32, i32* %p, i32 %ind
+        %elem = load i32, i32* %p, align 4
+        %eq = icmp eq i32 %elem, 0
+        call void @llvm.assume(i1 %eq)
+        %ind.next = add nuw nsw i32 %ind, 1
+        %cond = icmp eq i32 %ind.next, 256
+        br i1 %cond, label %for.body, label %exit
+      exit:
+        ret void
+      })");
+
+  const auto Assumes = Plan->getVPAC()->assumptions();
+  ASSERT_EQ(Assumes.size(), (size_t)1);
+
+  const auto *AssumeCall = dyn_cast<VPCallInstruction>(Assumes[0]);
+  EXPECT_TRUE(AssumeCall);
+  EXPECT_EQ(Assumes[0].Index, VPAssumptionCache::ExprResultIdx);
+
+  const auto *AssumeOp = dyn_cast<VPCmpInst>(AssumeCall->getArgOperand(0));
+  EXPECT_TRUE(AssumeOp);
+
+  const auto AssumesForCmp = Plan->getVPAC()->assumptionsFor(AssumeOp);
+  ASSERT_EQ(AssumesForCmp.size(), (size_t)1);
+  EXPECT_EQ(dyn_cast<VPCallInstruction>(AssumesForCmp[0]), AssumeCall);
+  EXPECT_EQ(AssumesForCmp[0].Index, VPAssumptionCache::ExprResultIdx);
 }
 
 } // namespace

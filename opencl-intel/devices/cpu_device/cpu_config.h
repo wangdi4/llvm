@@ -52,6 +52,9 @@ public:
   CPUDeviceConfig();
   ~CPUDeviceConfig();
 
+  CPUDeviceConfig(const CPUDeviceConfig &) = delete;
+  CPUDeviceConfig &operator=(const CPUDeviceConfig &) = delete;
+
   cl_err_code Initialize(std::string filename) override;
 
   cl_ulong GetForcedGlobalMemSize() const;
@@ -79,9 +82,10 @@ public:
   bool IsSpirSupported() const;
   bool IsHalfSupported() const;
   bool IsDoubleSupported() const;
-  const char *GetExtensions() const;
-  const std::vector<cl_name_version> &GetExtensionsWithVersion() const;
-  const std::vector<cl_name_version> &GetOpenCLCFeatures() const;
+  const char *GetExtensions();
+  const char *GetOpenCLCFeatures();
+  const std::vector<cl_name_version> &GetExtensionsWithVersion();
+  const std::vector<cl_name_version> &GetOpenCLCFeaturesWithVersion();
 
 #ifdef __HARD_TRAPPING__
   bool UseTrapping() const {
@@ -89,11 +93,9 @@ public:
   }
 #endif
 private:
-  CPUDeviceConfig(const CPUDeviceConfig &);
-  CPUDeviceConfig &operator=(const CPUDeviceConfig &);
-
   static std::mutex m_mutex;
   static std::string m_extensionsName;
+  static std::string m_OpenCLCFeatureNames;
   static std::vector<cl_name_version> m_extensions;
   static std::vector<cl_name_version> m_c_features;
 };

@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-cond-ldst-motion" -print-before=hir-cond-ldst-motion -print-after=hir-cond-ldst-motion -hir-details < %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-cond-ldst-motion" -print-before=hir-cond-ldst-motion -print-after=hir-cond-ldst-motion -hir-details < %s -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we do not sink (%A)[i1 + 1] out of if-else because the refs are
 ; not really equal. The ref in if case has a zext() in the subscript which can

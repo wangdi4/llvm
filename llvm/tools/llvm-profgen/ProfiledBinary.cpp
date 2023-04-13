@@ -1,4 +1,21 @@
 //===-- ProfiledBinary.cpp - Binary decoder ---------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -8,15 +25,17 @@
 
 #include "ProfiledBinary.h"
 #include "ErrorHandling.h"
+#include "MissingFrameInferrer.h"
 #include "ProfileGenerator.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/DebugInfo/Symbolize/SymbolizableModule.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/TargetParser/Triple.h"
 #include <optional>
 
 #define DEBUG_TYPE "load-binary"
@@ -54,6 +73,7 @@ static cl::list<std::string> DisassembleFunctions(
              "names only. Only work with show-disassembly-only"));
 
 extern cl::opt<bool> ShowDetailedWarning;
+extern cl::opt<bool> InferMissingFrames;
 
 namespace llvm {
 namespace sampleprof {
@@ -98,7 +118,7 @@ BinarySizeContextTracker::getFuncSizeForContext(const ContextTrieNode *Node) {
     PrevNode = CurrNode;
     CurrNode = CurrNode->getChildContext(CallSiteLoc, Node->getFuncName());
     if (CurrNode && CurrNode->getFunctionSize())
-      Size = CurrNode->getFunctionSize().value();
+      Size = *CurrNode->getFunctionSize();
     CallSiteLoc = Node->getCallSiteLoc();
     Node = Node->getParentContext();
   }
@@ -112,12 +132,12 @@ BinarySizeContextTracker::getFuncSizeForContext(const ContextTrieNode *Node) {
     while (!Size && CurrNode && !CurrNode->getAllChildContext().empty()) {
       CurrNode = &CurrNode->getAllChildContext().begin()->second;
       if (CurrNode->getFunctionSize())
-        Size = CurrNode->getFunctionSize().value();
+        Size = *CurrNode->getFunctionSize();
     }
   }
 
   assert(Size && "We should at least find one context size.");
-  return Size.value();
+  return *Size;
 }
 
 void BinarySizeContextTracker::trackInlineesOptimizedAway(
@@ -159,6 +179,20 @@ void BinarySizeContextTracker::trackInlineesOptimizedAway(
   ProbeContext.pop_back();
 }
 
+ProfiledBinary::ProfiledBinary(const StringRef ExeBinPath,
+                             const StringRef DebugBinPath)
+    : Path(ExeBinPath), DebugBinaryPath(DebugBinPath), ProEpilogTracker(this),
+      TrackFuncContextSize(EnableCSPreInliner && UseContextCostForPreInliner) {
+  // Point to executable binary if debug info binary is not specified.
+  SymbolizerPath = DebugBinPath.empty() ? ExeBinPath : DebugBinPath;
+  setupSymbolizer();
+  if (InferMissingFrames)
+    MissingContextInferrer = std::make_unique<MissingFrameInferrer>(this);
+  load();
+}
+
+ProfiledBinary::~ProfiledBinary() {}
+
 void ProfiledBinary::warnNoFuncEntry() {
   uint64_t NoFuncEntryNum = 0;
   for (auto &F : BinaryFunctions) {
@@ -192,10 +226,14 @@ void ProfiledBinary::load() {
   OwningBinary<Binary> OBinary = unwrapOrError(createBinary(Path), Path);
   Binary &ExeBinary = *OBinary.getBinary();
 
-  auto *Obj = dyn_cast<ELFObjectFileBase>(&ExeBinary);
-  if (!Obj)
-    exitWithError("not a valid Elf image", Path);
+#if INTEL_CUSTOMIZATION
+  auto *ELFObj = dyn_cast<ELFObjectFileBase>(&ExeBinary);
+  IsCOFF = isa<COFFObjectFile>(&ExeBinary);
+  if (!ELFObj && !IsCOFF)
+    exitWithError("not a valid Elf/COFF image", Path);
 
+  auto *Obj = cast<ObjectFile>(&ExeBinary);
+#endif // INTEL_CUSTOMIZATION
   TheTriple = Obj->makeTriple();
   // Current only support X86
   if (!TheTriple.isX86())
@@ -219,13 +257,16 @@ void ProfiledBinary::load() {
   DisassembleFunctionSet.insert(DisassembleFunctions.begin(),
                                 DisassembleFunctions.end());
 
-  checkPseudoProbe(Obj);
+#if INTEL_CUSTOMIZATION
+  if (ELFObj) {
+    checkPseudoProbe(ELFObj);
+    if (UsePseudoProbes)
+      populateElfSymbolAddressList(ELFObj);
 
-  if (UsePseudoProbes)
-    populateElfSymbolAddressList(Obj);
-
-  if (ShowDisassemblyOnly)
-    decodePseudoProbe(Obj);
+    if (ShowDisassemblyOnly)
+      decodePseudoProbe(ELFObj);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Disassemble the text sections.
   disassemble(Obj);
@@ -318,19 +359,38 @@ void ProfiledBinary::setPreferredTextSegmentAddresses(const ELFFile<ELFT> &Obj,
     exitWithError("no executable segment found", FileName);
 }
 
-void ProfiledBinary::setPreferredTextSegmentAddresses(
-    const ELFObjectFileBase *Obj) {
+#if INTEL_CUSTOMIZATION
+void ProfiledBinary::setPreferredTextSegmentAddresses(const COFFObjectFile *Obj,
+                                                      StringRef FileName) {
+  uint64_t ImageBase = Obj->getImageBase();
+  if (!ImageBase)
+    exitWithError("Not a COFF image", FileName);
+
+  PreferredTextSegmentAddresses.push_back(ImageBase);
+  FirstLoadableAddress = ImageBase;
+
+  for (SectionRef Section : Obj->sections()) {
+    const coff_section *Sec = Obj->getCOFFSection(Section);
+    if (Sec->Characteristics & COFF::IMAGE_SCN_CNT_CODE)
+      TextSegmentOffsets.push_back(Sec->VirtualAddress);
+  }
+}
+
+void ProfiledBinary::setPreferredTextSegmentAddresses(const ObjectFile *Obj) {
   if (const auto *ELFObj = dyn_cast<ELF32LEObjectFile>(Obj))
     setPreferredTextSegmentAddresses(ELFObj->getELFFile(), Obj->getFileName());
   else if (const auto *ELFObj = dyn_cast<ELF32BEObjectFile>(Obj))
     setPreferredTextSegmentAddresses(ELFObj->getELFFile(), Obj->getFileName());
   else if (const auto *ELFObj = dyn_cast<ELF64LEObjectFile>(Obj))
     setPreferredTextSegmentAddresses(ELFObj->getELFFile(), Obj->getFileName());
-  else if (const auto *ELFObj = cast<ELF64BEObjectFile>(Obj))
+  else if (const auto *ELFObj = dyn_cast<ELF64BEObjectFile>(Obj))
     setPreferredTextSegmentAddresses(ELFObj->getELFFile(), Obj->getFileName());
+  else if (const auto *COFFObj = dyn_cast<COFFObjectFile>(Obj))
+    setPreferredTextSegmentAddresses(COFFObj, Obj->getFileName());
   else
-    llvm_unreachable("invalid ELF object format");
+    llvm_unreachable("invalid object format");
 }
+#endif // INTEL_CUSTOMIZATION
 
 void ProfiledBinary::checkPseudoProbe(const ELFObjectFileBase *Obj) {
   if (UseDwarfCorrelation)
@@ -425,14 +485,12 @@ void ProfiledBinary::decodePseudoProbe(const ELFObjectFileBase *Obj) {
 void ProfiledBinary::decodePseudoProbe() {
   OwningBinary<Binary> OBinary = unwrapOrError(createBinary(Path), Path);
   Binary &ExeBinary = *OBinary.getBinary();
-  auto *Obj = dyn_cast<ELFObjectFileBase>(&ExeBinary);
-  decodePseudoProbe(Obj);
+  if (auto *Obj = dyn_cast<ELFObjectFileBase>(&ExeBinary)) // INTEL
+    decodePseudoProbe(Obj);                                // INTEL
 }
 
-void ProfiledBinary::setIsFuncEntry(uint64_t Address, StringRef RangeSymName) {
-  // Note that the start address of each ELF section can be a non-function
-  // symbol, we need to binary search for the start of a real function range.
-  auto *FuncRange = findFuncRange(Address);
+void ProfiledBinary::setIsFuncEntry(FuncRange *FuncRange,
+                                    StringRef RangeSymName) {
   // Skip external function symbol.
   if (!FuncRange)
     return;
@@ -453,9 +511,8 @@ bool ProfiledBinary::dissassembleSymbol(std::size_t SI, ArrayRef<uint8_t> Bytes,
   uint64_t StartAddress = Symbols[SI].Addr;
   uint64_t NextStartAddress =
       (SI + 1 < SE) ? Symbols[SI + 1].Addr : SectionAddress + SectSize;
-  setIsFuncEntry(StartAddress,
-                 FunctionSamples::getCanonicalFnName(Symbols[SI].Name));
-
+  FuncRange *FRange = findFuncRange(StartAddress);
+  setIsFuncEntry(FRange, FunctionSamples::getCanonicalFnName(Symbols[SI].Name));
   StringRef SymbolName =
       ShowCanonicalFnName
           ? FunctionSamples::getCanonicalFnName(Symbols[SI].Name)
@@ -526,6 +583,43 @@ bool ProfiledBinary::dissassembleSymbol(std::size_t SI, ArrayRef<uint8_t> Bytes,
         BranchAddressSet.insert(Address);
       }
 
+      // Record potential call targets for tail frame inference later-on.
+      if (InferMissingFrames && FRange) {
+        uint64_t Target = 0;
+        MIA->evaluateBranch(Inst, Address, Size, Target);
+        if (MCDesc.isCall()) {
+          // Indirect call targets are unknown at this point. Recording the
+          // unknown target (zero) for further LBR-based refinement.
+          MissingContextInferrer->CallEdges[Address].insert(Target);
+        } else if (MCDesc.isUnconditionalBranch()) {
+          assert(Target &&
+                 "target should be known for unconditional direct branch");
+          // Any inter-function unconditional jump is considered tail call at
+          // this point. This is not 100% accurate and could further be
+          // optimized based on some source annotation.
+          FuncRange *ToFRange = findFuncRange(Target);
+          if (ToFRange && ToFRange->Func != FRange->Func)
+            MissingContextInferrer->TailCallEdges[Address].insert(Target);
+          LLVM_DEBUG({
+            dbgs() << "Direct Tail call: " << format("%8" PRIx64 ":", Address);
+            IPrinter->printInst(&Inst, Address + Size, "", *STI.get(), dbgs());
+            dbgs() << "\n";
+          });
+        } else if (MCDesc.isIndirectBranch() && MCDesc.isBarrier()) {
+          // This is an indirect branch but not necessarily an indirect tail
+          // call. The isBarrier check is to filter out conditional branch.
+          // Similar with indirect call targets, recording the unknown target
+          // (zero) for further LBR-based refinement.
+          MissingContextInferrer->TailCallEdges[Address].insert(Target);
+          LLVM_DEBUG({
+            dbgs() << "Indirect Tail call: "
+                   << format("%8" PRIx64 ":", Address);
+            IPrinter->printInst(&Inst, Address + Size, "", *STI.get(), dbgs());
+            dbgs() << "\n";
+          });
+        }
+      }
+
       if (InvalidInstLength) {
         WarnInvalidInsts(Address - InvalidInstLength, Address - 1);
         InvalidInstLength = 0;
@@ -546,7 +640,7 @@ bool ProfiledBinary::dissassembleSymbol(std::size_t SI, ArrayRef<uint8_t> Bytes,
   return true;
 }
 
-void ProfiledBinary::setUpDisassembler(const ELFObjectFileBase *Obj) {
+void ProfiledBinary::setUpDisassembler(const ObjectFile *Obj) { // INTEL
   const Target *TheTarget = getTarget(Obj);
   std::string TripleName = TheTriple.getTriple();
   StringRef FileName = Obj->getFileName();
@@ -560,9 +654,11 @@ void ProfiledBinary::setUpDisassembler(const ELFObjectFileBase *Obj) {
   if (!AsmInfo)
     exitWithError("no assembly info for target " + TripleName, FileName);
 
-  SubtargetFeatures Features = Obj->getFeatures();
+  Expected<SubtargetFeatures> Features = Obj->getFeatures();
+  if (!Features)
+    exitWithError(Features.takeError(), FileName);
   STI.reset(
-      TheTarget->createMCSubtargetInfo(TripleName, "", Features.getString()));
+      TheTarget->createMCSubtargetInfo(TripleName, "", Features->getString()));
   if (!STI)
     exitWithError("no subtarget info for target " + TripleName, FileName);
 
@@ -586,7 +682,7 @@ void ProfiledBinary::setUpDisassembler(const ELFObjectFileBase *Obj) {
   IPrinter->setPrintBranchImmAsAddress(true);
 }
 
-void ProfiledBinary::disassemble(const ELFObjectFileBase *Obj) {
+void ProfiledBinary::disassemble(const ObjectFile *Obj) { // INTEL
   // Set up disassembler and related components.
   setUpDisassembler(Obj);
 
@@ -638,7 +734,7 @@ void ProfiledBinary::disassemble(const ELFObjectFileBase *Obj) {
              << "]:\n\n";
     }
 
-    if (SectionName == ".plt")
+    if (isa<ELFObjectFileBase>(Obj) && SectionName == ".plt") // INTEL
       continue;
 
     // Get the section data.
@@ -656,7 +752,10 @@ void ProfiledBinary::disassemble(const ELFObjectFileBase *Obj) {
   }
 
   // Dissassemble rodata section to check if FS discriminator symbol exists.
-  checkUseFSDiscriminator(Obj, AllSymbols);
+#if INTEL_CUSTOMIZATION
+  if (auto *ELFObj = dyn_cast<ELFObjectFileBase>(Obj))
+    checkUseFSDiscriminator(ELFObj, AllSymbols);
+#endif // INTEL_CUSTOMIZATION
 }
 
 void ProfiledBinary::checkUseFSDiscriminator(
@@ -874,6 +973,12 @@ void ProfiledBinary::computeInlinedContextSizeForFunc(
                                                  ProbeContext);
     }
   }
+}
+
+void ProfiledBinary::inferMissingFrames(
+    const SmallVectorImpl<uint64_t> &Context,
+    SmallVectorImpl<uint64_t> &NewContext) {
+  MissingContextInferrer->inferMissingFrames(Context, NewContext);
 }
 
 InstructionPointer::InstructionPointer(const ProfiledBinary *Binary,

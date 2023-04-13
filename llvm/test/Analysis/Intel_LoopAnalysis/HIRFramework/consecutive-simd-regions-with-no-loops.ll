@@ -8,14 +8,14 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:       + DO i1 = 0, 3, 1   <DO_LOOP>
-; CHECK:       |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%i.i.i.i.linear.iv)[0])1) ]
+; CHECK:       |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%i.i.i.i.linear.iv)[0]), 1) ]
 ; CHECK:       |   @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:       + DO i1 = 0, 3, 1   <DO_LOOP>
-; CHECK:       |   %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%i.i.i.i8.linear.iv)[0])1) ]
+; CHECK:       |   %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%i.i.i.i8.linear.iv)[0]), 1) ]
 ; CHECK:       |   @llvm.directive.region.exit(%1); [ DIR.OMP.END.SIMD() ]
 ; CHECK:       + END LOOP
 ; CHECK: END REGION

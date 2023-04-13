@@ -13,9 +13,13 @@
 // License.
 
 #include "base_command_list.h"
-#include "cl_user_logger.h"
 
-using Intel::OpenCL::Utils::ApiLogger;
-using namespace Intel::OpenCL::TaskExecutor;
+namespace Intel {
+namespace OpenCL {
+namespace TaskExecutor {
 
 template <typename Func> void TbbTaskGroup::Run(Func &f) { m_tskGrp->run(f); }
+
+} // namespace TaskExecutor
+} // namespace OpenCL
+} // namespace Intel

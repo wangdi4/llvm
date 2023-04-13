@@ -1,7 +1,7 @@
 ; Verify that LV does not vectorize libcalls without readnone attribute into
 ; SVML variants.
 
-; RUN: opt -vector-library=SVML -inject-tli-mappings -loop-vectorize -vectorize-non-readonly-libcalls=false -force-vector-width=2 -force-vector-interleave=1 -mattr=avx -S < %s | FileCheck %s
+; RUN: opt -passes="inject-tli-mappings,loop-vectorize" -vector-library=SVML -vectorize-non-readonly-libcalls=false -force-vector-width=2 -force-vector-interleave=1 -mattr=avx -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -1,7 +1,5 @@
-; TODO: Indirect-Call-Conv needs to be improved to convert the indirect
-; to direct calls with a fallback case.
-; This test verifies that the indirect call is not converted to
-; direct calls with -opaque-pointers.
+; This test verifies that the indirect call is converted to direct calls
+; without fallback case.
 
 ; RUN: opt  -opaque-pointers -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
 
@@ -58,8 +56,17 @@ if.end:                                           ; preds = %if.else.end, %if.el
   ret i32 %call
 }
 
-; CHECK: if.end:
-; CHECK:   %1 = load ptr, ptr @fptr, align 8
-; CHECK:   %call = call i32 %1(ptr null)
-; CHECK:   ret i32 %call
+; CHECK: .indconv.cmp.add_fun:
+; CHECK:   %.indconv.c = icmp eq ptr %1, @add_fun
+; CHECK:  br i1 %.indconv.c, label %.indconv.call.add_fun, label %.indconv.call.sub_fun
 
+; CHECK:.indconv.call.add_fun:
+; CHECK:  %call.indconv = call i32 @add_fun(ptr null)
+; CHECK:  br label %.indconv.sink.
+
+; CHECK:.indconv.call.sub_fun:
+; CHECK:  %call.indconv1 = call i32 @sub_fun(ptr null)
+; CHECK:  br label %.indconv.sink.
+
+; CHECK:.indconv.sink.:
+; CHECK:  %.indconv.ret = phi i32 [ %call.indconv, %.indconv.call.add_fun ], [ %call.indconv1, %.indconv.call.sub_fun ]

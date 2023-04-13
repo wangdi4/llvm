@@ -16,6 +16,8 @@
 # system library directories
 include(embed.rpath)
 
+use_rtti(TRUE)
+
 # Add OpenMP on top TBB library
 if(INCLUDE_MKL)
   message(STATUS "Including MKL library")

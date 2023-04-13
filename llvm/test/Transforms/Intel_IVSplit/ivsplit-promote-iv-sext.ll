@@ -1,4 +1,4 @@
-; RUN: opt < %s -iv-split -iv-split-loop-depth-threshold=2 -iv-sext-promote-scale-threshold=8 -S | FileCheck %s
+; RUN: opt -passes="iv-split" < %s -iv-split-loop-depth-threshold=2 -iv-sext-promote-scale-threshold=8 -S | FileCheck %s
 ; This test case checks optimization which transforms following sequence:
 ;
 ; %6155 = load i32, i32* getelementptr ...

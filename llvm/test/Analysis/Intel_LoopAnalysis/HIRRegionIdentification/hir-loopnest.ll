@@ -1,6 +1,4 @@
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification | FileCheck %s
 ; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -enable-new-pm=0 -analyze -hir-region-identification | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes='print<hir-region-identification>' -disable-output 2>&1 | FileCheck %s
 
 ; Check output of hir-regions
@@ -21,9 +19,7 @@
 
 ; Verify that region is throttled if the instruction threshold is too low.
 
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -hir-region-inst-threshold=1 | FileCheck %s --check-prefix=INST-THRESHOLD
 ; RUN: opt < %s -passes='print<hir-region-identification>' -hir-region-inst-threshold=1 | FileCheck %s --check-prefix=INST-THRESHOLD
-; RUN: opt < %s -opaque-pointers -enable-new-pm=0 -analyze -hir-region-identification -hir-region-inst-threshold=1 | FileCheck %s --check-prefix=INST-THRESHOLD
 ; RUN: opt < %s -opaque-pointers -passes='print<hir-region-identification>' -hir-region-inst-threshold=1 | FileCheck %s --check-prefix=INST-THRESHOLD
 
 ; INST-THRESHOLD-NOT: Region 1

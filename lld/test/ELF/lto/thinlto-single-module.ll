@@ -3,7 +3,9 @@
 ; RUN: opt -thinlto-bc -o main.o %s
 ; RUN: opt -thinlto-bc -o thin1.o %S/Inputs/thin1.ll
 ; RUN: opt -thinlto-bc -o thin2.o %S/Inputs/thin2.ll
-; RUN: llvm-ar qcT thin.a thin1.o thin2.o
+; INTEL_CUSTOMIZATION
+; RUN: llvm-ar qcT -opaque-pointers thin.a thin1.o thin2.o
+; end INTEL_CUSTOMIZATION
 
 ;; --thinlto-single-module=main.o should result in only main.o compiled, of which
 ;; the object code is saved in single1.o1. Note that single1.o is always the dummy

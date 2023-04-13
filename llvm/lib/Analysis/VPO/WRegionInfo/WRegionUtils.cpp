@@ -447,6 +447,8 @@ bool WRegionUtils::skipDirFromWrnConstruction(int DirID) {
   case DIR_PRAGMA_END_BLOCK_LOOP:
   case DIR_PRAGMA_DISTRIBUTE_POINT:
   case DIR_PRAGMA_END_DISTRIBUTE_POINT:
+  case DIR_PRAGMA_PREFETCH_LOOP:
+  case DIR_PRAGMA_END_PREFETCH_LOOP:
 #endif // INTEL_CUSTOMIZATION
     return true;
   }
@@ -1372,30 +1374,21 @@ bool WRegionUtils::supportsLocalAtomicFreeReduction(const WRegionNode *W) {
   if (!WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget))
     return false;
 
-  // Presence of KnownNDRange clause should disable atomic-free reduction,
-  // for teams it's handled in fixupKnowNDRange, but for par+loop it'd
-  // be incorrect as well since it may cause spawn of multiple teams w/o
-  // an actual teams clause. Here we also handle of a 'parallel' directive
-  // with an inner 'loop' one with an ndrange clause on the latter.
   if (W->getIsParLoop())
-    return !W->getWRNLoopInfo().isKnownNDRange();
+    return true;
 
   if (auto *GW = dyn_cast<WRNGenericLoopNode>(W)) {
     if (GW->getMappedDir() == DIR_OMP_DISTRIBUTE_PARLOOP ||
         GW->getMappedDir() == DIR_OMP_PARALLEL_LOOP)
-      return !GW->getWRNLoopInfo().isKnownNDRange();
+      return true;
   }
+
+  if (auto *LW = dyn_cast<WRNWksLoopNode>(W))
+    return WRegionUtils::getParentRegion(W, WRegionNode::WRNParallel);
 
   // No constructs other than par/parloop are allowed for local atomic-free
   // reduction.
   if (!isa<WRNParallelNode>(W))
-    return false;
-
-  auto WLoopIt =
-      std::find_if(W->getChildren().begin(), W->getChildren().end(),
-                   [](WRegionNode *SW) { return SW->getIsOmpLoop(); });
-  if (WLoopIt != W->getChildren().end() &&
-      (*WLoopIt)->getWRNLoopInfo().isKnownNDRange())
     return false;
 
   return true;

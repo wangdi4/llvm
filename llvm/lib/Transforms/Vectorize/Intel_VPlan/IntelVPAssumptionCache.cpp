@@ -1,6 +1,6 @@
 //===- IntelVPAssumptionCache.cpp -------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -22,15 +22,22 @@ using namespace vpo;
 #define DEBUG_TYPE "IntelVPAssumptionCache"
 
 static bool isAssumeCall(const VPCallInstruction &Call) {
-  return Call.getCalledFunction()->getIntrinsicID() == Intrinsic::assume;
+  if (auto *Func = Call.getCalledFunction())
+    return Func->getIntrinsicID() == Intrinsic::assume;
+  return false;
+}
+static std::string idxToString(unsigned Idx) {
+  if (Idx == VPAssumptionCache::ExprResultIdx)
+    return std::string("<expr>");
+  return std::to_string(Idx);
 }
 
 std::unique_ptr<VPAssumptionCache>
 VPAssumptionCache::clone(const VPValueMapper &Mapper) const {
   auto *Clone = new VPAssumptionCache(*getLLVMCache(), DT);
 
-  for (auto It : AffectedValues)
-    for (auto Assumption : It.second) {
+  for (auto &It : AffectedValues)
+    for (auto &Assumption : It.second) {
       if (auto *RemappedVal = Mapper.getRemappedValue(It.first))
         Clone->insertAssume(RemappedVal, Assumption.Assume, Assumption.Index);
     }
@@ -60,7 +67,7 @@ void VPAssumptionCache::insertAssume(const VPValue *V, AssumeT Assume,
   LLVM_DEBUG(dbgs() << "Inserting assumption cache elem for '";
              V->printAsOperand(dbgs()); dbgs() << "':\n";
              dbgs() << "  Assume: " << Assume << '\n';
-             dbgs() << "  Index:  " << Index << '\n');
+             dbgs() << "  Index:  " << idxToString(Index) << '\n');
 
   ResultElem Elem{Assume, Index};
   Assumes.push_back(Elem);
@@ -72,11 +79,22 @@ void VPAssumptionCache::registerAssumption(const VPCallInstruction &Assume) {
 
   LLVM_DEBUG(dbgs() << "Registering assumption: " << Assume << '\n');
 
+  const auto AddValue = [this, &Assume](const VPValue *V, unsigned Idx) {
+    if (isa<VPConstant>(V)) {
+      // Don't add affected constant values (e.g. the `i1 true` dummy arg which
+      // is used for unconditional assumes.)
+      return;
+    }
+    insertAssume(V, &Assume, Idx);
+  };
+
   SmallVector<VPOperandBundle, 1> Bundles;
   Assume.getOperandBundles(Bundles);
   for (const auto &[Idx, Bundle] : enumerate(Bundles))
     if (Bundle.Inputs.size() > ABA_WasOn && Bundle.Tag != IgnoreBundleTag)
-      insertAssume(Bundle.Inputs[ABA_WasOn], &Assume, Idx);
+      AddValue(Bundle.Inputs[ABA_WasOn], Idx);
+
+  AddValue(Assume.getArgOperand(0), ExprResultIdx);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

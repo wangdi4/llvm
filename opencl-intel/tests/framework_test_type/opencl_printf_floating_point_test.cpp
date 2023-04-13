@@ -15,14 +15,15 @@
 
 // Use the OpenCL C++ bindings, with exceptions enabled. For MSVC, disable
 // warning 4290 (C++ exception specifications ignored) that's emitted from
-// CL/cl.hpp
-//
-#define __CL_ENABLE_EXCEPTIONS
+// CL/opencl.hpp
+#define CL_HPP_ENABLE_EXCEPTIONS
+#define CL_HPP_TARGET_OPENCL_VERSION 200
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4290)
 #endif // _MSC_VER
-#include "CL/cl.hpp"
+#include "CL/opencl.hpp"
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif // _MSC_VER
@@ -83,8 +84,7 @@ bool opencl_printf_floating_point_test() {
 
     cl::CommandQueue queue(context, devices[0], 0, &err);
 
-    cl::Program::Sources source(
-        1, make_pair(kernel_code.c_str(), strlen(kernel_code.c_str())));
+    cl::Program::Sources source(1, kernel_code);
     cl::Program program_ = cl::Program(context, source);
 
     if (CL_SUCCESS != program_.build(devices, "-cl-std=CL1.2")) {

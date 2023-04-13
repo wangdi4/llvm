@@ -55,15 +55,11 @@ cl::opt<unsigned> ScalarExpansionCost(
         "Number of mem operations in loop when to enable scalar expansion."),
     cl::Hidden, cl::init(20));
 
-enum PragmaReturnCode {
-  NotProcessed,
-  NoDistribution,
-  Success,
-  UnsupportedStmts,
-  TooComplex,
-  TooManyDistributePoints,
-  Last
-};
+cl::opt<bool> AlwaysStripmine(
+    "hir-loop-distribute-always-stripmine",
+    cl::desc(
+        "Forces HIR Loop Distribution to always allow stripmine if possible."),
+    cl::Hidden, cl::init(false));
 
 const std::string DistributeLoopnestEnable =
     "intel.loop.distribute.loopnest.enable";
@@ -77,7 +73,7 @@ const unsigned OptReportMsg[Last] = {
     25483u,
     //"Distribute point pragma not processed: Unsupported constructs in loops",
     25484u,
-    //"Distribute point pragma not processed: Loop is too complex",
+    //"Distribute point pragma not processed: Loopnest too large for stripmine",
     25485u,
     //"Distribute point pragma not processed: Too many Distribute points"
     25486u};
@@ -115,8 +111,8 @@ bool HIRLoopDistribution::run() {
     }
 
     if (Lp->hasDistributePoint()) {
-      unsigned RC = distributeLoopForDirective(Lp);
-      if (RC != NotProcessed) {
+      PragmaReturnCode RC = distributeLoopForDirective(Lp);
+      if (RC != Last) {
         ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, OptReportMsg[RC]);
       }
       continue;
@@ -160,14 +156,6 @@ bool HIRLoopDistribution::run() {
       continue;
     }
 
-    if (PG->hasControlDependences() && Lp->isStripmineRequired(StripmineSize) &&
-        !Lp->canStripmine(StripmineSize)) {
-      // Assume stripmine is required
-      LLVM_DEBUG(dbgs() << "Stripmine is not possible but assumed to be "
-                           "required for loops with control dependencies\n");
-      continue;
-    }
-
     LLVM_DEBUG_DDG(dbgs() << "DDG dump:\n");
     LLVM_DEBUG_DDG(DDA.getGraph(Lp).dump());
 
@@ -189,6 +177,36 @@ bool HIRLoopDistribution::run() {
 
     SmallVector<PiBlockList, 8> NewOrdering;
     findDistPoints(Lp, PG, NewOrdering);
+
+    LLVM_DEBUG(Analysis.dumpResult(););
+
+    // Heuristic: if we cannot do normal stripmine and distribution is only
+    // splitting loops due to memref count with control flow, just give up as
+    // it's unlikely to help performance. Can override with AlwaysStripmine.
+    if (!AlwaysStripmine && PG->hasControlDependences() &&
+        Lp->isStripmineRequired(StripmineSize) &&
+        !Lp->canStripmine(StripmineSize) && Analysis.onlyForMemRefCount()) {
+      // Assume stripmine is required
+      LLVM_DEBUG(
+          dbgs() << "Distribution likely not profitable for control flow with "
+                    "special stripmine for default memref heuristic\n";);
+      continue;
+    }
+
+    // TODO: This is a workaround that should be removed (JR43683)
+    if (!AlwaysStripmine && Lp->isStripmineRequired(StripmineSize) &&
+        !Lp->canStripmine(StripmineSize) && Analysis.UserCall) {
+      continue;
+    }
+
+    // Stripmine should be possible with extra setup, but not always needed.
+    // In rare cases we should bail out for max depth loopnests before doing
+    // the transformation below.
+    bool StripmineRequiresExtraSetup = !Lp->canStripmine(StripmineSize, false);
+    if (StripmineRequiresExtraSetup && !Lp->canStripmine(StripmineSize, true)) {
+      LLVM_DEBUG(dbgs() << "\tStripmine failed for distribution\n";);
+      continue;
+    }
 
     if (NewOrdering.size() > 1 && NewOrdering.size() < MaxDistributedLoop) {
       SmallVector<HLDDNodeList, 8> DistributedLoops;
@@ -247,7 +265,8 @@ bool HIRLoopDistribution::run() {
         }
       }
 
-      distributeLoop(Lp, DistributedLoops, SCEX, ORBuilder, false);
+      distributeLoop(Lp, DistributedLoops, SCEX, ORBuilder,
+                     StripmineRequiresExtraSetup, false);
 
       Modified = true;
     } else {
@@ -395,13 +414,13 @@ static void updateLiveInAllocaTemp(HLLoop *Loop, unsigned SB) {
   }
 }
 
-RegDDRef *ScalarExpansion::createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
-                                                unsigned OrigLoopLevel) {
+RegDDRef *ScalarExpansion::createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef) {
 
   // Generates  TEMP[i] = tx
-  //  tx may be from assignments of this form:
-  //  tx = ty   ;  tx = 1000
-  //  Make it a self-blob to avoid IR validation error
+  // iv must be for innermostloop
+  // tx may be from assignments of this form:
+  // tx = ty   ;  tx = 1000
+  // Make it a self-blob to avoid IR validation error
 
   HLDDNode *TempRefDDNode = TempRef->getHLDDNode();
 
@@ -413,9 +432,10 @@ RegDDRef *ScalarExpansion::createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
   RegDDRef *TmpArrayRef =
       HNU.getDDRefUtils().createMemRef(ArrTy, AllocaBlobIdx);
 
+  unsigned Level = TempRef->getParentLoop()->getNestingLevel();
   auto IVType = Lp->getIVType();
   CanonExpr *FirstCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
-  FirstCE->addIV(OrigLoopLevel, 0, 1);
+  FirstCE->addIV(Level, 0, 1);
 
   //  Create constant of 0
   CanonExpr *SecondCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);
@@ -768,8 +788,7 @@ void ScalarExpansion::computeInsertNodes() {
   }
 }
 
-void ScalarExpansion::replaceWithArrayTemps(
-    unsigned OrigLoopLevel, SmallSet<unsigned, 12> &TempArraySB) {
+void ScalarExpansion::replaceWithArrayTemps() {
   // Used to skip SBs that are already scalar expanded
   SymbaseLoopSetTy ProcessedSBs;
 
@@ -805,13 +824,12 @@ void ScalarExpansion::replaceWithArrayTemps(
         HLLoop *Lp = TmpDef->getLexicalParentLoop();
 
         if (!TmpArrayRef) {
-          TmpArrayRef = createTempArrayStore(Lp, TmpDef, OrigLoopLevel);
+          TmpArrayRef = createTempArrayStore(Lp, TmpDef);
         } else {
           insertTempArrayStore(Lp, TmpDef, TmpArrayRef->clone(),
                                TmpDef->getHLDDNode());
         }
       }
-      TempArraySB.insert(TmpArrayRef->getSymbase());
 
       // Insert tx = TEMP[i]
       assert(TmpArrayRef && "Temp Store missing");
@@ -1016,7 +1034,7 @@ getPreheaderLoopIndex(HLLoop *Loop,
 
   // Iterate through loop nodes and return the first loop which uses preheader
   // temp.
-  for (auto &List : enumerate(DistributedLoops)) {
+  for (const auto &List : enumerate(DistributedLoops)) {
     unsigned LoopIndex = List.index();
 
     // We are already at the last loop, just return its index.
@@ -1080,7 +1098,8 @@ getPreheaderLoopIndex(HLLoop *Loop,
 
 void HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
-    ScalarExpansion &SCEX, OptReportBuilder &ORBuilder, bool ForDirective) {
+    ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
+    bool StripmineRequiresExtraSetup, bool ForDirective) {
   assert(DistributedLoops.size() < MaxDistributedLoop &&
          "Number of distributed chunks exceed threshold. Expected the caller "
          "to check before calling this function.");
@@ -1090,20 +1109,13 @@ void HIRLoopDistribution::distributeLoop(
   LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION : " << LoopCount
                     << " way distributed\n");
 
-  TempArraySB.clear();
   HLLoop *LoopNode;
-  unsigned LoopLevel = Loop->getNestingLevel();
   HLRegion *RegionNode = Loop->getParentRegion();
-
-  bool ShouldStripmine = Loop->isStripmineRequired(StripmineSize);
-  if (ShouldStripmine && !Loop->canStripmine(StripmineSize)) {
-    return;
-  }
 
   unsigned PreheaderLoopIndex =
       getPreheaderLoopIndex(Loop, DistributedLoops, DistCostModel);
 
-  for (auto &List : enumerate(DistributedLoops)) {
+  for (const auto &List : enumerate(DistributedLoops)) {
     // Each PiBlockList forms a new loop
     // Clone Empty Loop. Copy preheader for 1st loop and
     // postexit for last loop
@@ -1118,9 +1130,15 @@ void HIRLoopDistribution::distributeLoop(
         ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
                                        OptReportMsg[Success]);
       }
-      // Loop distributed (%d way)
-      ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25426u,
-                                     LoopCount);
+
+      // Loop distributed (%d way) for <Reason>
+      if (DistCostModel == DistHeuristics::NestFormation) {
+        ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25426u,
+                                       LoopCount);
+      } else {
+        ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25427u,
+                                       LoopCount);
+      }
     }
 
     if (CurLoopIndex == PreheaderLoopIndex) {
@@ -1158,16 +1176,16 @@ void HIRLoopDistribution::distributeLoop(
 
   if (SCEX.isScalarExpansionRequired()) {
     SCEX.computeInsertNodes();
-    SCEX.replaceWithArrayTemps(LoopLevel, TempArraySB);
-    LLVM_DEBUG(dbgs() << "Scalar Expansion analysis:\n"; SCEX.dump(););
-
     // For constant trip count <= StripmineSize, no stripmine is done
-    if (SCEX.isTempRequired() && ShouldStripmine) {
+    if (SCEX.isTempRequired() && Loop->isStripmineRequired(StripmineSize)) {
       HIRTransformUtils::stripmine(NewLoops[0], NewLoops[LoopCount - 1],
-                                   StripmineSize);
-      // Fix TempArray index if stripmine is peformed: 64 * i1 + i2 => i2
-      fixTempArrayCoeff(NewLoops[0]->getParentLoop());
+                                   StripmineSize, StripmineRequiresExtraSetup);
+      // Loop stripmined by <StripmineSize>
+      ORBuilder(*NewLoops[0]->getParentLoop()).addOrigin(25428u, StripmineSize);
     }
+
+    SCEX.replaceWithArrayTemps();
+    LLVM_DEBUG(dbgs() << "Scalar Expansion analysis:\n"; SCEX.dump(););
   }
 
   for (unsigned I = 0; I < LoopCount; ++I) {
@@ -1193,28 +1211,6 @@ void HIRLoopDistribution::distributeLoop(
 
   LLVM_DEBUG(dbgs() << "New Region with Transformed Loops:\n";
              RegionNode->dump(););
-}
-
-void HIRLoopDistribution::fixTempArrayCoeff(HLLoop *Loop) {
-
-  // After stripemine, change coeff from  of TempArray
-  //  from  i1 * 64 + i2  to   i2
-  unsigned Level = Loop->getNestingLevel();
-
-  ForEach<HLDDNode>::visitRange(
-      Loop->child_begin(), Loop->child_end(), [this, Level](HLDDNode *Node) {
-        for (RegDDRef *Ref :
-             llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
-          if (!TempArraySB.count(Ref->getSymbase())) {
-            continue;
-          }
-
-          for (CanonExpr *CE :
-               llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
-            CE->removeIV(Level);
-          }
-        }
-      });
 }
 
 // Form perfect loop candidates by grouping stmt only piblocks
@@ -1496,7 +1492,9 @@ bool preventsVectorization(PiBlock *Blk, DDGraph DDG, unsigned LoopLevel) {
 
 void HIRLoopDistribution::breakPiBlockRecurrences(
     const HLLoop *Lp, std::unique_ptr<PiGraph> const &PGraph,
-    SmallVectorImpl<PiBlockList> &DistPoints) const {
+    SmallVectorImpl<PiBlockList> &DistPoints) {
+
+  Analysis.reset();
 
   PiBlockList CurLoopPiBlkList;
   // Walk through topsorted nodes of Pigraph, keeping in mind the fact that each
@@ -1548,6 +1546,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
       // If there is no outgoing dependencies from sparse array reduction block,
       // we can combine such blocks at the end.
       if (NoOutgoingDeps) {
+        Analysis.SAR = true;
         DistributedBlocks.push_back(SrcBlk);
         continue;
       }
@@ -1555,6 +1554,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
 
     if (preventsVectorization(SrcBlk, DDG, Lp->getNestingLevel())) {
       if (NoOutgoingDeps) {
+        Analysis.PreventsVec = true;
         DistributedBlocks.push_back(SrcBlk);
         continue;
       }
@@ -1592,12 +1592,14 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
 
     // Split loops over blocks containing user calls.
     if (!CurLoopPiBlkList.empty() && PrevUserCallSeen && !UserCallSeen) {
+      Analysis.UserCall = true;
       CommitCurrentBlockList();
     }
 
     CurLoopPiBlkList.push_back(SrcBlk);
 
     if (NumRefCounter >= MaxMemResourceToDistribute) {
+      Analysis.MemRef = true;
       CommitCurrentBlockList();
       continue;
     }
@@ -1613,6 +1615,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
       // the only concern, we can iterate over all dd edges indirectly by
       // looking at distppedges whos src/sink are in piblock
       if (piEdgeIsMemRecurrence(Lp, *Edge)) {
+        Analysis.Recurrence = true;
         CommitCurrentBlockList();
         break;
       }
@@ -1632,7 +1635,7 @@ void HIRLoopDistribution::breakPiBlockRecurrences(
 
 void HIRLoopDistribution::findDistPoints(
     const HLLoop *Lp, std::unique_ptr<PiGraph> const &PGraph,
-    SmallVectorImpl<PiBlockList> &DistPoints) const {
+    SmallVectorImpl<PiBlockList> &DistPoints) {
 
   if (DistCostModel == DistHeuristics::BreakMemRec) {
     breakPiBlockRecurrences(Lp, PGraph, DistPoints);
@@ -1648,7 +1651,7 @@ void HIRLoopDistribution::findDistPoints(
                     << " Loops\n");
 }
 
-unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
+PragmaReturnCode HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
 
   //  Process user pragma Loop Directive for distribution
   //  - No data dependency checking is needed
@@ -1661,8 +1664,9 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
     return NotProcessed;
   }
 
-  if (!Lp->canStripmine(StripmineSize)) {
-    return TooComplex;
+  bool StripmineRequiresExtraSetup = !Lp->canStripmine(StripmineSize, false);
+  if (StripmineRequiresExtraSetup && !Lp->canStripmine(StripmineSize, true)) {
+    return CannotStripmine;
   }
 
   HLDDNode *Node = cast<HLDDNode>(Lp->getFirstChild());
@@ -1743,7 +1747,8 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
   collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
   ScalarExpansion SCEX(Lp, true, DistributedLoops);
   invalidateLoop(Lp);
-  distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(), true);
+  distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(),
+                 StripmineRequiresExtraSetup, true);
   return Success;
 }
 

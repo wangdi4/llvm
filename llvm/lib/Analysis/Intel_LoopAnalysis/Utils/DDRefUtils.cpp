@@ -280,9 +280,12 @@ int DDRefUtils::compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
   return compareOffsets(Offsets1, Offsets2);
 }
 
-bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2) {
-  assert(haveEqualBaseAndShape(Ref1, Ref2, true) &&
-         "Same base and shape expected!");
+bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                                  unsigned NumIgnorableDims,
+                                  bool IgnoreBaseCE) {
+  assert(
+      haveEqualBaseAndShape(Ref1, Ref2, true, NumIgnorableDims, IgnoreBaseCE) &&
+      "Same base and shape expected!");
 
   for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
     if (compareOffsets(Ref1, Ref2, I)) {
@@ -295,31 +298,104 @@ bool DDRefUtils::haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2) {
 
 // TODO: merge with areEqualImpl.
 bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
-                                       const RegDDRef *Ref2, bool RelaxedMode) {
+                                       const RegDDRef *Ref2, bool RelaxedMode,
+                                       unsigned NumIgnorableDims,
+                                       bool IgnoreBaseCE) {
   assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
          "Ref1 and Ref2 should be GEP DDRef");
 
-  if (Ref1->getBasePtrElementType() != Ref2->getBasePtrElementType()) {
+  auto *BasePtrTy1 = Ref1->getBasePtrElementType();
+  auto *BasePtrTy2 = Ref2->getBasePtrElementType();
+  // Fake refs cloned from self AddressOf refs will not have base ptr element
+  // type so we will give up on refs like A[0] and A[5] if we don't skip null
+  // base ptr element types.
+  if (BasePtrTy1 && BasePtrTy2 && BasePtrTy1 != BasePtrTy2) {
     return false;
   }
 
   auto BaseCE1 = Ref1->getBaseCE();
   auto BaseCE2 = Ref2->getBaseCE();
 
-  if (!CanonExprUtils::areEqual(BaseCE1, BaseCE2, RelaxedMode) ||
-      Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
+  unsigned NumDims = Ref1->getNumDimensions();
+  if ((NumDims != Ref2->getNumDimensions()) ||
+      (!IgnoreBaseCE &&
+       !CanonExprUtils::areEqual(BaseCE1, BaseCE2, RelaxedMode))) {
+    return false;
+  }
+
+  // The only case we want to relax haveEqualBaseAndShape() check is under
+  // ForFusion mode (basically it means that we call refineDV() on the edge for
+  // particular fusion level). We calculate number of dimensions that are
+  // invariant w.r.t. this level and provide it to haveEqualBaseAndShape(). Now
+  // in haveEqualBaseAndShape() if we compare collapsed and non-collapsed refs
+  // AND one of the refs have more collapsed level than those that could be
+  // ignored, we bail out.
+  //
+  // Example: we have a three-level loopnest:
+  // DO i1 {
+  //   DO i2 {
+  //     DO i3 {
+  //       A[][][] = ...
+  //     }
+  //   }
+  //   DO i2 {
+  //     ... = A[][][]
+  //   }
+  // }
+  // DO i1 {
+  //   ... = A[][][]
+  // }
+  //
+  // After collapsing i2-i3 loops we have following structure:
+  //
+  // DO i1 {
+  //   DO i2 {  <collapsed i2-i3>
+  //      A[][][] =..      <collapsed>
+  //   }
+  //   DO i2 {
+  //     ... = A[][][] < non-collapsed>
+  //   }
+  // }
+  // DO i1 {
+  //   ... = A[][][] <non-collapsed>
+  // }
+  //
+  // It is not safe to consider fusion on i2 level since that level was
+  // collapsed and we cannot compute the DV correctly at this level. It is safe
+  // to consider fusion on i1 level since we are not interested in computation
+  // of dependences on lower (collapsed) levels.
+  // Previously we just bail out for any attempt to compare collapsed and
+  // non-collapsed refs. Which was over conservative.
+  unsigned Ref1CollapsedLevels = Ref1->getNumCollapsedLevels();
+  unsigned Ref2CollapsedLevels = Ref2->getNumCollapsedLevels();
+  if ((Ref1CollapsedLevels != Ref2CollapsedLevels) &&
+      ((Ref1CollapsedLevels > NumIgnorableDims) ||
+       (Ref2CollapsedLevels > NumIgnorableDims))) {
     return false;
   }
 
   // Check that dimension lowers and strides are the same.
-  for (unsigned DimI = 1, DimE = Ref1->getNumDimensions(); DimI <= DimE;
-       ++DimI) {
+  for (unsigned DimI = 1; DimI <= NumDims; ++DimI) {
     if (!CanonExprUtils::areEqual(Ref1->getDimensionLower(DimI),
-                                  Ref2->getDimensionLower(DimI), RelaxedMode) ||
-        !CanonExprUtils::areEqual(Ref1->getDimensionStride(DimI),
-                                  Ref2->getDimensionStride(DimI),
-                                  RelaxedMode)) {
+                                  Ref2->getDimensionLower(DimI), RelaxedMode)) {
       return false;
+    }
+
+    auto *Stride1 = Ref1->getDimensionStride(DimI);
+    auto *Stride2 = Ref2->getDimensionStride(DimI);
+
+    if (!CanonExprUtils::areEqual(Stride1, Stride2, RelaxedMode)) {
+      // In the highest dimension, allow mismatch if the stride and index is 0
+      // as that dimension is a no-op. This can happen with fake refs which are
+      // created by cloning self AddressOf refs.
+      if (DimI != NumDims) {
+        return false;
+      }
+
+      if ((!Stride1->isZero() || !Ref1->getDimensionIndex(DimI)->isZero()) &&
+          (!Stride2->isZero() || !Ref2->getDimensionIndex(DimI)->isZero())) {
+        return false;
+      }
     }
   }
 
@@ -604,8 +680,8 @@ Type *DDRefUtils::getOffsetType(Type *Ty, ArrayRef<unsigned> Offsets) {
 // 5) if (equiv(a,b)==true) equiv(b,a)==true
 // 6) if (equiv(a,b)==true && equiv(b,c)==true) equiv(a,c)==true
 //
-static Optional<bool> compareMemRefImpl(const RegDDRef *Ref1,
-                                        const RegDDRef *Ref2) {
+static std::optional<bool> compareMemRefImpl(const RegDDRef *Ref1,
+                                             const RegDDRef *Ref2) {
   assert(Ref1->isMemRef() && Ref2->isMemRef() &&
          "Both RegDDRefs are expected to be memory references.");
 

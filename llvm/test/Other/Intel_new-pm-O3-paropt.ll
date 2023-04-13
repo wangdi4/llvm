@@ -1,5 +1,5 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -disable-verify -disable-output -verify-cfg-preserved=0 \
+; RUN: opt -disable-verify -disable-output -verify-analysis-invalidation=0 \
 ; RUN:     -debug-pass-manager  -passes='default<O3>' \
 ; RUN:     -paropt=31 -S %s 2>&1 | FileCheck %s
 
@@ -13,7 +13,7 @@
 ;            Running pass: InferFunctionAttrsPass on [module]
 ;            Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module> on [module]
 ;            Running analysis: TargetLibraryAnalysis on bar
-;CHECK:      Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis, llvm::Module> on [module] ;INTEL
+;CHECK:      Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis{{.*Module.*}}> on [module] ;INTEL
 ;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]                                      ;INTEL
 ;            Running pass: InlineReportSetupPass on [module]  ;INTEL
 ;            Running pass: InlineListsPass on [module]        ;INTEL

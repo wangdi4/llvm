@@ -1,7 +1,7 @@
 ; Inline report
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe821 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe821 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-INLREP
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe8a0 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe8a0 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD-INLREP
 
 ; Generated with clang -c -S -emit-llvm sm1.c
 ; Inline inlineoptsize-threshold will be overriden and will print as 0.
@@ -27,7 +27,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define i32 @main() #0 {
 entry:
   %retval = alloca i32, align 4
-  store i32 0, i32* %retval
+  store i32 0, ptr %retval
   %call = call i32 @foo()
   ret i32 %call
 }

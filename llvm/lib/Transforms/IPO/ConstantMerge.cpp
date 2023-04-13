@@ -276,38 +276,3 @@ PreservedAnalyses ConstantMergePass::run(Module &M, ModuleAnalysisManager &) {
 
   return PA;                            // INTEL
 }
-
-namespace {
-
-struct ConstantMergeLegacyPass : public ModulePass {
-  static char ID; // Pass identification, replacement for typeid
-
-  ConstantMergeLegacyPass() : ModulePass(ID) {
-    initializeConstantMergeLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-#if INTEL_CUSTOMIZATION
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  // For this pass, process all of the globals in the module, eliminating
-  // duplicate constants.
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    return mergeConstants(M);
-  }
-};
-
-} // end anonymous namespace
-
-char ConstantMergeLegacyPass::ID = 0;
-
-INITIALIZE_PASS(ConstantMergeLegacyPass, "constmerge",
-                "Merge Duplicate Global Constants", false, false)
-
-ModulePass *llvm::createConstantMergePass() {
-  return new ConstantMergeLegacyPass();
-}

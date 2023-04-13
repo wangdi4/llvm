@@ -59,11 +59,13 @@ public:
     LTPeel,
   };
 
-  VPlanLoopDescr(LoopType Ty, unsigned VF, bool Masked)
-      : Type(Ty), VF(VF), IsMasked(Masked), TripCount(0) {}
+  VPlanLoopDescr(LoopType Ty, unsigned VF, unsigned UF, bool Masked)
+      : Type(Ty), VF(VF), UF(UF), IsMasked(Masked), TripCount(0) {}
 
   LoopType getLoopType() const { return Type; }
   unsigned getVF() const { return VF; }
+  unsigned getUF() const { return UF; }
+  unsigned getVFUF() const { return VF * UF; }
   bool isMasked() const { return IsMasked; }
   TripCountInfo::TripCountTy getTC() const { return TripCount; }
   bool isTCKnown() const { return TripCount != 0; }
@@ -73,6 +75,7 @@ public:
 private:
   LoopType Type;
   unsigned VF; // vector factor
+  unsigned UF; // unroll factor
   bool IsMasked;
 
   // Vector iterations count, is set to non-zero only when we know
@@ -212,7 +215,7 @@ private:
   // the loop induction increment. In case of LckUnknown IndIncr is nullptr.
   LatchCondDescr classifyLatchCond() const;
 
-  Optional<bool> HasNormalizedInduction;
+  std::optional<bool> HasNormalizedInduction;
   // Flag indicating how the loop iteration count is related to the
   // upper bound (invariant operand of the latch condition). False means
   // trip count is equal to upper bound + 1, true means trip count is
@@ -281,7 +284,8 @@ template <> struct OptReportTraits<vpo::VPLoop> {
     return DebugLoc();
   }
 
-  static Optional<std::string> getOptReportTitle(const ObjectHandleTy &Handle) {
+  static std::optional<std::string>
+  getOptReportTitle(const ObjectHandleTy &Handle) {
     return std::nullopt;
   }
 

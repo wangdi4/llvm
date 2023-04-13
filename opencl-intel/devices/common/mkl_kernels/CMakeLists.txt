@@ -22,7 +22,6 @@
 set(TARGET_NAME mkl_kernels)
 if(NOT WIN32)
   set(HW_UTILS_HEADERS ../../utils/cl_hw_utils/export)
-  set(HW_UTILS_PROJ_NAME cl_hw_utils)
 endif(NOT WIN32)
 
 add_definitions(-DMKL_ILP64)
@@ -40,11 +39,6 @@ add_opencl_library(
   INCLUDE_DIRS
   ${MKL_DIR}/include
   ${HW_UTILS_HEADERS}
-  ../builtin_kernels
-  LINK_LIBS
-  ${HW_UTILS_PROJ_NAME}
-  cl_sys_utils
-  COMPONENTS
-  cl_logger${OPENCL_BINARY_POSTFIX})
+  ../builtin_kernels)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME})

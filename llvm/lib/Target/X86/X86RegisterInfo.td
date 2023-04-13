@@ -48,12 +48,12 @@ let Namespace = "X86" in {
   def sub_mask_0   : SubRegIndex<-1>;
   def sub_mask_1   : SubRegIndex<-1, -1>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
-  def sub_t0   : SubRegIndex<-1>;
-  def sub_t1   : SubRegIndex<-1, -1>;
-  def sub_t2   : SubRegIndex<-1, -1>;
-  def sub_t3   : SubRegIndex<-1, -1>;
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  def sub_t0   : SubRegIndex<8192>;
+  def sub_t1   : SubRegIndex<8192, 8192>;
+  def sub_t2   : SubRegIndex<8192, 16384>;
+  def sub_t3   : SubRegIndex<8192, 24576>;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
 #if INTEL_FEATURE_XISA_COMMON
   def sub_x0   : SubRegIndex<128>;
@@ -124,6 +124,52 @@ def R13B : X86Reg<"r13b", 13>;
 def R14B : X86Reg<"r14b", 14>;
 def R15B : X86Reg<"r15b", 15>;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// RAGreedy prefers to select a cheaper register
+// For x86,
+//   Cost(caller-save reg) < Cost(callee-save reg)
+// b/c callee-save register needs push/pop in prolog/epilog.
+// If both registers are callee-saved or caller-saved,
+//   Cost(short-encoding reg) < Cost(long-encoding reg)
+//
+// To achieve this, we do the following things:
+//   1. Set CostPerUse=1 for registers that need prefix
+//   2. Consider callee-save register is never cheaper than a register w/ cost 1
+//   3. List caller-save register before callee-save regsiter in RegisterClass
+//      or AllocationOrder
+//
+// NOTE:
+//   D133902 stopped assigning register costs for R8-R15, which brought gain
+//   and regression. We don't know if we should assign cost to R16-R31 w/o
+//   performance data.
+// TODO:
+//   Update the comment/cost after tuning.
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// APX only, requires REX2 or EVEX.
+def R16B : X86Reg<"r16b", 16>;
+def R17B : X86Reg<"r17b", 17>;
+def R18B : X86Reg<"r18b", 18>;
+def R19B : X86Reg<"r19b", 19>;
+def R20B : X86Reg<"r20b", 20>;
+def R21B : X86Reg<"r21b", 21>;
+def R22B : X86Reg<"r22b", 22>;
+def R23B : X86Reg<"r23b", 23>;
+def R24B : X86Reg<"r24b", 24>;
+def R25B : X86Reg<"r25b", 25>;
+def R26B : X86Reg<"r26b", 26>;
+def R27B : X86Reg<"r27b", 27>;
+def R28B : X86Reg<"r28b", 28>;
+def R29B : X86Reg<"r29b", 29>;
+def R30B : X86Reg<"r30b", 30>;
+def R31B : X86Reg<"r31b", 31>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 let isArtificial = 1 in {
 // High byte of the low 16 bits of the super-register:
 def SIH   : X86Reg<"", -1>;
@@ -138,6 +184,26 @@ def R12BH : X86Reg<"", -1>;
 def R13BH : X86Reg<"", -1>;
 def R14BH : X86Reg<"", -1>;
 def R15BH : X86Reg<"", -1>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def R16BH : X86Reg<"", -1>;
+def R17BH : X86Reg<"", -1>;
+def R18BH : X86Reg<"", -1>;
+def R19BH : X86Reg<"", -1>;
+def R20BH : X86Reg<"", -1>;
+def R21BH : X86Reg<"", -1>;
+def R22BH : X86Reg<"", -1>;
+def R23BH : X86Reg<"", -1>;
+def R24BH : X86Reg<"", -1>;
+def R25BH : X86Reg<"", -1>;
+def R26BH : X86Reg<"", -1>;
+def R27BH : X86Reg<"", -1>;
+def R28BH : X86Reg<"", -1>;
+def R29BH : X86Reg<"", -1>;
+def R30BH : X86Reg<"", -1>;
+def R31BH : X86Reg<"", -1>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 // High word of the low 32 bits of the super-register:
 def HAX   : X86Reg<"", -1>;
 def HDX   : X86Reg<"", -1>;
@@ -156,6 +222,26 @@ def R12WH : X86Reg<"", -1>;
 def R13WH : X86Reg<"", -1>;
 def R14WH : X86Reg<"", -1>;
 def R15WH : X86Reg<"", -1>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def R16WH : X86Reg<"", -1>;
+def R17WH : X86Reg<"", -1>;
+def R18WH : X86Reg<"", -1>;
+def R19WH : X86Reg<"", -1>;
+def R20WH : X86Reg<"", -1>;
+def R21WH : X86Reg<"", -1>;
+def R22WH : X86Reg<"", -1>;
+def R23WH : X86Reg<"", -1>;
+def R24WH : X86Reg<"", -1>;
+def R25WH : X86Reg<"", -1>;
+def R26WH : X86Reg<"", -1>;
+def R27WH : X86Reg<"", -1>;
+def R28WH : X86Reg<"", -1>;
+def R29WH : X86Reg<"", -1>;
+def R30WH : X86Reg<"", -1>;
+def R31WH : X86Reg<"", -1>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 }
 
 // 16-bit registers
@@ -185,6 +271,30 @@ def R14W : X86Reg<"r14w", 14, [R14B,R14BH]>;
 def R15W : X86Reg<"r15w", 15, [R15B,R15BH]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// APX only, requires REX2 or EVEX.
+let SubRegIndices = [sub_8bit, sub_8bit_hi_phony], CoveredBySubRegs = 1 in {
+def R16W : X86Reg<"r16w", 16, [R16B,R16BH]>;
+def R17W : X86Reg<"r17w", 17, [R17B,R17BH]>;
+def R18W : X86Reg<"r18w", 18, [R18B,R18BH]>;
+def R19W : X86Reg<"r19w", 19, [R19B,R19BH]>;
+def R20W : X86Reg<"r20w", 20, [R20B,R20BH]>;
+def R21W : X86Reg<"r21w", 21, [R21B,R21BH]>;
+def R22W : X86Reg<"r22w", 22, [R22B,R22BH]>;
+def R23W : X86Reg<"r23w", 23, [R23B,R23BH]>;
+def R24W : X86Reg<"r24w", 24, [R24B,R24BH]>;
+def R25W : X86Reg<"r25w", 25, [R25B,R25BH]>;
+def R26W : X86Reg<"r26w", 26, [R26B,R26BH]>;
+def R27W : X86Reg<"r27w", 27, [R27B,R27BH]>;
+def R28W : X86Reg<"r28w", 28, [R28B,R28BH]>;
+def R29W : X86Reg<"r29w", 29, [R29B,R29BH]>;
+def R30W : X86Reg<"r30w", 30, [R30B,R30BH]>;
+def R31W : X86Reg<"r31w", 31, [R31B,R31BH]>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 // 32-bit registers
 let SubRegIndices = [sub_16bit, sub_16bit_hi], CoveredBySubRegs = 1 in {
 def EAX : X86Reg<"eax", 0, [AX, HAX]>, DwarfRegNum<[-2, 0, 0]>;
@@ -210,6 +320,30 @@ def R14D : X86Reg<"r14d", 14, [R14W,R14WH]>;
 def R15D : X86Reg<"r15d", 15, [R15W,R15WH]>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// APX only, requires REX2 or EVEX.
+let SubRegIndices = [sub_16bit, sub_16bit_hi], CoveredBySubRegs = 1 in {
+def R16D : X86Reg<"r16d", 16, [R16W,R16WH]>;
+def R17D : X86Reg<"r17d", 17, [R17W,R17WH]>;
+def R18D : X86Reg<"r18d", 18, [R18W,R18WH]>;
+def R19D : X86Reg<"r19d", 19, [R19W,R19WH]>;
+def R20D : X86Reg<"r20d", 20, [R20W,R20WH]>;
+def R21D : X86Reg<"r21d", 21, [R21W,R21WH]>;
+def R22D : X86Reg<"r22d", 22, [R22W,R22WH]>;
+def R23D : X86Reg<"r23d", 23, [R23W,R23WH]>;
+def R24D : X86Reg<"r24d", 24, [R24W,R24WH]>;
+def R25D : X86Reg<"r25d", 25, [R25W,R25WH]>;
+def R26D : X86Reg<"r26d", 26, [R26W,R26WH]>;
+def R27D : X86Reg<"r27d", 27, [R27W,R27WH]>;
+def R28D : X86Reg<"r28d", 28, [R28W,R28WH]>;
+def R29D : X86Reg<"r29d", 29, [R29W,R29WH]>;
+def R30D : X86Reg<"r30d", 30, [R30W,R30WH]>;
+def R31D : X86Reg<"r31d", 31, [R31W,R31WH]>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 // 64-bit registers, X86-64 only
 let SubRegIndices = [sub_32bit] in {
 def RAX : X86Reg<"rax", 0, [EAX]>, DwarfRegNum<[0, -2, -2]>;
@@ -231,6 +365,28 @@ def R13 : X86Reg<"r13", 13, [R13D]>, DwarfRegNum<[13, -2, -2]>;
 def R14 : X86Reg<"r14", 14, [R14D]>, DwarfRegNum<[14, -2, -2]>;
 def R15 : X86Reg<"r15", 15, [R15D]>, DwarfRegNum<[15, -2, -2]>;
 def RIP : X86Reg<"rip",  0, [EIP]>,  DwarfRegNum<[16, -2, -2]>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// APX only, requires REX2 or EVEX.
+def R16 : X86Reg<"r16", 16, [R16D]>, DwarfRegNum<[130, -2, -2]>;
+def R17 : X86Reg<"r17", 17, [R17D]>, DwarfRegNum<[131, -2, -2]>;
+def R18 : X86Reg<"r18", 18, [R18D]>, DwarfRegNum<[132, -2, -2]>;
+def R19 : X86Reg<"r19", 19, [R19D]>, DwarfRegNum<[133, -2, -2]>;
+def R20 : X86Reg<"r20", 20, [R20D]>, DwarfRegNum<[134, -2, -2]>;
+def R21 : X86Reg<"r21", 21, [R21D]>, DwarfRegNum<[135, -2, -2]>;
+def R22 : X86Reg<"r22", 22, [R22D]>, DwarfRegNum<[136, -2, -2]>;
+def R23 : X86Reg<"r23", 23, [R23D]>, DwarfRegNum<[137, -2, -2]>;
+def R24 : X86Reg<"r24", 24, [R24D]>, DwarfRegNum<[138, -2, -2]>;
+def R25 : X86Reg<"r25", 25, [R25D]>, DwarfRegNum<[139, -2, -2]>;
+def R26 : X86Reg<"r26", 26, [R26D]>, DwarfRegNum<[140, -2, -2]>;
+def R27 : X86Reg<"r27", 27, [R27D]>, DwarfRegNum<[141, -2, -2]>;
+def R28 : X86Reg<"r28", 28, [R28D]>, DwarfRegNum<[142, -2, -2]>;
+def R29 : X86Reg<"r29", 29, [R29D]>, DwarfRegNum<[143, -2, -2]>;
+def R30 : X86Reg<"r30", 30, [R30D]>, DwarfRegNum<[144, -2, -2]>;
+def R31 : X86Reg<"r31", 31, [R31D]>, DwarfRegNum<[145, -2, -2]>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 }
 
 // MMX Registers. These are actually aliased to ST0 .. ST7
@@ -389,19 +545,24 @@ def MXCSR : X86Reg<"mxcsr", 0>;
 // reading and updating those flags independently of all the others. We don't
 // want to create false dependencies between these instructions and so we use
 // a separate register to model them.
-def EFLAGS : X86Reg<"flags", 0>;
+def EFLAGS : X86Reg<"flags", 0>, DwarfRegNum<[49, 9, 9]>;
+def _EFLAGS : X86Reg<"eflags", 0>, DwarfRegAlias<EFLAGS>;
+def RFLAGS : X86Reg<"rflags", 0>, DwarfRegNum<[49, -2, -2]>;
 
 // The direction flag.
 def DF : X86Reg<"dirflag", 0>;
 
 
 // Segment registers
-def CS : X86Reg<"cs", 1>;
-def DS : X86Reg<"ds", 3>;
-def SS : X86Reg<"ss", 2>;
-def ES : X86Reg<"es", 0>;
-def FS : X86Reg<"fs", 4>;
-def GS : X86Reg<"gs", 5>;
+def CS : X86Reg<"cs", 1>, DwarfRegNum<[51, -2, 41]>;
+def DS : X86Reg<"ds", 3>, DwarfRegNum<[53, -2, 43]>;
+def SS : X86Reg<"ss", 2>, DwarfRegNum<[52, -2, 42]>;
+def ES : X86Reg<"es", 0>, DwarfRegNum<[50, -2, 40]>;
+def FS : X86Reg<"fs", 4>, DwarfRegNum<[54, -2, 44]>;
+def GS : X86Reg<"gs", 5>, DwarfRegNum<[55, -2, 45]>;
+
+def FS_BASE : X86Reg<"fs.base", 0>, DwarfRegNum<[58, -2, -2]>;
+def GS_BASE : X86Reg<"gs.base", 0>, DwarfRegNum<[59, -2, -2]>;
 
 // Debug registers
 def DR0  : X86Reg<"dr0",   0>;
@@ -463,6 +624,19 @@ def SSP : X86Reg<"ssp", 0>;
 // instruction requiring a REX prefix, while SIL, DIL, BPL, R8D, etc.
 // require a REX prefix. For example, "addb %ah, %dil" and "movzbl %ah, %r8d"
 // cannot be encoded.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GR8 : RegisterClass<"X86", [i8], 8,
+                        (add AL, CL, DL, AH, CH, DH, BL, BH, SIL, DIL, BPL, SPL,
+                         R8B, R9B, R10B, R11B, R16B, R17B, R18B, R19B, R20B,
+                         R21B, R22B, R23B, R24B, R25B, R26B, R27B, R28B, R29B,
+                         R30B, R31B, R14B, R15B, R12B, R13B)> {
+  let AltOrders = [(sub GR8, AH, BH, CH, DH)];
+  let AltOrderSelect = [{
+    return MF.getSubtarget<X86Subtarget>().is64Bit();
+  }];
+}
+#else // INTEL_FEATURE_ISA_APX_F
 def GR8 : RegisterClass<"X86", [i8],  8,
                         (add AL, CL, DL, AH, CH, DH, BL, BH, SIL, DIL, BPL, SPL,
                              R8B, R9B, R10B, R11B, R14B, R15B, R12B, R13B)> {
@@ -471,40 +645,103 @@ def GR8 : RegisterClass<"X86", [i8],  8,
     return MF.getSubtarget<X86Subtarget>().is64Bit();
   }];
 }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 let isAllocatable = 0 in
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GRH8 : RegisterClass<"X86", [i8], 8,
+                         (add SIH, DIH, BPH, SPH, R8BH, R9BH, R10BH, R11BH,
+                          R12BH, R13BH, R14BH, R15BH, R16BH, R17BH, R18BH,
+                          R19BH, R20BH, R21BH, R22BH, R23BH, R24BH, R25BH,
+                          R26BH, R27BH, R28BH, R29BH, R30BH, R31BH)>;
+#else // INTEL_FEATURE_ISA_APX_F
 def GRH8 : RegisterClass<"X86", [i8],  8,
                          (add SIH, DIH, BPH, SPH, R8BH, R9BH, R10BH, R11BH,
                               R12BH, R13BH, R14BH, R15BH)>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GR16 : RegisterClass<"X86", [i16], 16,
+                         (add AX, CX, DX, SI, DI, BX, BP, SP, R8W, R9W, R10W,
+                          R11W, R16W, R17W, R18W, R19W, R20W, R21W, R22W, R23W,
+                          R24W, R25W, R26W, R27W, R28W, R29W, R30W, R31W, R14W,
+                          R15W, R12W, R13W)>;
+#else // INTEL_FEATURE_ISA_APX_F
 def GR16 : RegisterClass<"X86", [i16], 16,
                          (add AX, CX, DX, SI, DI, BX, BP, SP,
                               R8W, R9W, R10W, R11W, R14W, R15W, R12W, R13W)>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 let isAllocatable = 0 in
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GRH16 : RegisterClass<"X86", [i16], 16,
+                    (add HAX, HCX, HDX, HSI, HDI, HBX, HBP, HSP, HIP, R8WH,
+                     R9WH, R10WH, R11WH, R12WH, R13WH, R14WH, R15WH, R16WH,
+                     R17WH, R18WH, R19WH, R20WH, R21WH, R22WH, R23WH, R24WH,
+                     R25WH, R26WH, R27WH, R28WH, R29WH, R30WH, R31WH)>;
+#else // INTEL_FEATURE_ISA_APX_F
 def GRH16 : RegisterClass<"X86", [i16], 16,
                           (add HAX, HCX, HDX, HSI, HDI, HBX, HBP, HSP, HIP,
                                R8WH, R9WH, R10WH, R11WH, R12WH, R13WH, R14WH,
                                R15WH)>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GR32 : RegisterClass<"X86", [i32], 32,
+                         (add EAX, ECX, EDX, ESI, EDI, EBX, EBP, ESP, R8D, R9D,
+                          R10D, R11D, R16D, R17D, R18D, R19D, R20D, R21D, R22D,
+                          R23D, R24D, R25D, R26D, R27D, R28D, R29D, R30D, R31D,
+                          R14D, R15D, R12D, R13D)>;
+#else // INTEL_FEATURE_ISA_APX_F
 def GR32 : RegisterClass<"X86", [i32], 32,
                          (add EAX, ECX, EDX, ESI, EDI, EBX, EBP, ESP,
                               R8D, R9D, R10D, R11D, R14D, R15D, R12D, R13D)>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // GR64 - 64-bit GPRs. This oddly includes RIP, which isn't accurate, since
 // RIP isn't really a register and it can't be used anywhere except in an
 // address, but it doesn't cause trouble.
 // FIXME: it *does* cause trouble - CheckBaseRegAndIndexReg() has extra
 // tests because of the inclusion of RIP in this register class.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def GR64 : RegisterClass<"X86", [i64], 64,
+                    (add RAX, RCX, RDX, RSI, RDI, R8, R9, R10, R11, R16, R17,
+                     R18, R19, R20, R21, R22, R23, R24, R25, R26, R27, R28, R29,
+                     R30, R31, RBX, R14, R15, R12, R13, RBP, RSP, RIP)>;
+#else // INTEL_FEATURE_ISA_APX_F
 def GR64 : RegisterClass<"X86", [i64], 64,
                          (add RAX, RCX, RDX, RSI, RDI, R8, R9, R10, R11,
                               RBX, R14, R15, R12, R13, RBP, RSP, RIP)>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // GR64PLTSafe - 64-bit GPRs without R10, R11, RSP and RIP. Could be used when
 // emitting code for intrinsics, which use implict input registers.
 def GR64PLTSafe : RegisterClass<"X86", [i64], 64,
                               (add RAX, RCX, RDX, RSI, RDI, R8, R9,
                                    RBX, R14, R15, R12, R13, RBP)>;
+
+// It includes the GPR that are used as scratch register for Linux64 calling
+// convention.
+def GR64_ArgRef: RegisterClass<"X86", [i64], 64, (add R10, R11)> {
+  let GeneratePressureSet = 0;
+}
+
+// It includes the GPR that are used as scratch register for Linux32 calling
+// convention.
+def GR32_ArgRef: RegisterClass<"X86", [i32], 32, (add ECX, EDX)> {
+  let GeneratePressureSet = 0;
+}
 
 // Segment registers for use by MOV instructions (and others) that have a
 //   segment register as one operand.  Always contain a 16-bit segment
@@ -552,6 +789,26 @@ def GR32_NOREX : RegisterClass<"X86", [i32], 32,
 // GR64_NOREX - GR64 registers which do not require a REX prefix.
 def GR64_NOREX : RegisterClass<"X86", [i64], 64,
                             (add RAX, RCX, RDX, RSI, RDI, RBX, RBP, RSP, RIP)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// GeneratePressureSet = 0 here is a temporary workaround for lots of
+// LIT fail for xisa. Whether enabling when upstraming still needs discussion.
+let GeneratePressureSet = 0 in {
+// GR8_NOREX2 - GR8 registers which do not require a REX2 prefix.
+def GR8_NOREX2 : RegisterClass<"X86", [i8], 8,
+                               (sub GR8,  (sequence "R%uB", 16, 31))>;
+// GR16_NOREX2 - GR16 registers which do not require a REX2 prefix.
+def GR16_NOREX2 : RegisterClass<"X86", [i16], 16,
+                               (sub GR16,  (sequence "R%uW", 16, 31))>;
+// GR32_NOREX2 - GR32 registers which do not require a REX2 prefix.
+def GR32_NOREX2 : RegisterClass<"X86", [i32], 32,
+                               (sub GR32,  (sequence "R%uD", 16, 31))>;
+// GR64_NOREX2 - GR64 registers which do not require a REX2 prefix.
+def GR64_NOREX2 : RegisterClass<"X86", [i64], 64,
+                               (sub GR64,  (sequence "R%u", 16, 31))>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // GR32_NOSP - GR32 registers except ESP.
 def GR32_NOSP : RegisterClass<"X86", [i32], 32, (sub GR32, ESP)>;
@@ -567,6 +824,20 @@ def GR32_NOREX_NOSP : RegisterClass<"X86", [i32], 32,
 // GR64_NOREX_NOSP - GR64_NOREX registers except RSP.
 def GR64_NOREX_NOSP : RegisterClass<"X86", [i64], 64,
                                     (and GR64_NOREX, GR64_NOSP)>;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let GeneratePressureSet = 0 in {
+// GR32_NOREX2_NOSP - GR32_NOREX2 registers except ESP.
+def GR32_NOREX2_NOSP : RegisterClass<"X86", [i32], 32,
+                                    (sub GR32_NOREX2, ESP)>;
+
+// GR64_NOREX2_NOSP - GR64_NOREX2 registers except RSP, RIP.
+def GR64_NOREX2_NOSP : RegisterClass<"X86", [i64], 64,
+                                    (sub GR64_NOREX2, RSP, RIP)>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // Register classes used for ABIs that use 32-bit address accesses,
 // while using the whole x84_64 ISA.
@@ -720,19 +991,20 @@ def VK32WM  : RegisterClass<"X86", [v32i1], 32, (add VK16WM)> {let Size = 32;}
 def VK64WM  : RegisterClass<"X86", [v64i1], 64, (add VK32WM)> {let Size = 64;}
 
 // Tiles
+// TODO: Change to small alignment (catch line size)
 let CopyCost = -1 in // Don't allow copying of tile registers
 def TILE : RegisterClass<"X86", [x86amx], 8192,
                          (sequence "TMM%u", 0, 7)> {let Size = 8192;}
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 // TMM register pairs
 def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
                             [(add TMM0, TMM2, TMM4, TMM6),
                              (add TMM1, TMM3, TMM5, TMM7)]>;
 
 // Need check alignment 3rd operand size=1024*2*8
-let isAllocatable = 0 in
-def TILEPAIR : RegisterClass<"X86", [untyped], 0, (add TPAIRS)> {let Size = 16384;}
+let isAllocatable = 1 in
+def TILEPAIR : RegisterClass<"X86", [untyped], 512, (add TPAIRS)> {let Size = 16384;}
 
 // FIXME: Now we only support ZMM16-ZMM31 for ZMM16TUPLES, but the tile16move
 // can also choose ZMM0-ZMM15, so we should support ZMM0-ZMM15 too.
@@ -748,7 +1020,7 @@ def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, 
 
 // Need check alignment 3rd operand size=512*16
 def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Size = 8196;}
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 // Tiles
 let isAllocatable = 1 in

@@ -240,11 +240,10 @@ public:
   void setOptReport(OptReport R) { OR = R; }
   void eraseOptReport() { OR = nullptr; }
 
-  /// Returns true if all uses of \p Alloca are within the region. If \p
-  /// IgnoreStores is true, any store to alloca outside the region is not
-  /// considered as a use.
-  bool containsAllUses(const AllocaInst *Alloca,
-                       bool IgnoreStores = false) const;
+  /// Returns true if all dereferences of \p Alloca are within the region. If \p
+  /// IgnoreStores is true, any store to alloca outside the region is ignored.
+  bool containsAllDereferences(const AllocaInst *Alloca,
+                               bool IgnoreStores = false) const;
 };
 
 } // End namespace loopopt
@@ -267,7 +266,7 @@ template <> struct OptReportTraits<loopopt::HLRegion> {
     return R.getDebugLoc();
   }
 
-  static Optional<std::string> getOptReportTitle(const loopopt::HLRegion &R) {
+  static std::optional<std::string> getOptReportTitle(const loopopt::HLRegion &R) {
     return std::nullopt;
   }
 };

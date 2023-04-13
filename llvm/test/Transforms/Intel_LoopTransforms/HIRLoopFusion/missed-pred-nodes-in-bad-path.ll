@@ -5,7 +5,7 @@
 
 ;   BEGIN REGION { }
 ;         + DO i1 = 0, 0, 1   <DO_LOOP>
-;         |   if (undef #UNDEF# undef)
+;         |   if (undef == 0)
 ;         |   {
 ;         |      + DO i2 = 0, undef + -2, 1   <DO_LOOP>  <MAX_TC_EST = 4>
 ; 0       |      |   (i64*)(%tmp113)[0][undef][i2] = undef;
@@ -19,28 +19,28 @@
 ; 2       |      %tmp230 = 0xFFF0000000000000;
 ;         |
 ;         |      + DO i2 = 0, undef + -2, 1   <DO_LOOP>  <MAX_TC_EST = 4>
-; 3       |      |   %tmp230 = (undef #UNDEF# undef) ? (%tmp113)[0][undef][i2] : %tmp230;
+; 3       |      |   %tmp230 = (undef != 0) ? (%tmp113)[0][undef][i2] : %tmp230;
 ;         |      + END LOOP
 ;         |
 ; 4       |      (undef)[0] = %tmp230;
 ; 5       |      %tmp241 = 0x7FF0000000000000;
 ;         |
 ;         |      + DO i2 = 0, undef + -2, 1   <DO_LOOP>  <MAX_TC_EST = 4>
-; 6       |      |   %tmp241 = (undef #UNDEF# undef) ? (%tmp113)[0][undef][i2] : %tmp241;
+; 6       |      |   %tmp241 = (undef != 0) ? (%tmp113)[0][undef][i2] : %tmp241;
 ;         |      + END LOOP
 ;         |
 ; 7       |      (undef)[0] = %tmp241;
 ; 8       |      %tmp251 = 0xFFF0000000000000;
 ;         |
 ;         |      + DO i2 = 0, undef + -2, 1   <DO_LOOP>  <MAX_TC_EST = 4>
-; 9       |      |   %tmp251 = (undef #UNDEF# undef) ? (%tmp)[0][undef][i2] : %tmp251;
+; 9       |      |   %tmp251 = (undef != 0) ? (%tmp)[0][undef][i2] : %tmp251;
 ;         |      + END LOOP
 ;         |
 ; 10      |      (undef)[0] = %tmp251;
 ; 11      |      %tmp261 = 0x7FF0000000000000;
 ;         |
 ;         |      + DO i2 = 0, undef + -2, 1   <DO_LOOP>  <MAX_TC_EST = 4>
-; 12      |      |   %tmp261 = (undef #UNDEF# undef) ? (%tmp)[0][undef][i2] : %tmp261;
+; 12      |      |   %tmp261 = (undef != 0) ? (%tmp)[0][undef][i2] : %tmp261;
 ;         |      + END LOOP
 ;         |   }
 ;         + END LOOP
@@ -48,15 +48,15 @@
 
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK-NEXT:       + DO i1 = 0, 0, 1   <DO_LOOP>
-; CHECK-NEXT:       |   if (undef #UNDEF# undef)
+; CHECK-NEXT:       |   if (undef == 0)
 ; CHECK-NEXT:       |   {
 ; CHECK-NEXT:       |      %tmp230 = 0xFFF0000000000000;
 ; CHECK-NEXT:       |      %tmp241 = 0x7FF0000000000000;
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       |      + DO i2 = 0, undef + -2, 1   <DO_LOOP>  <MAX_TC_EST = 4>
 ; CHECK-NEXT:       |      |   (i64*)(%tmp113)[0][undef][i2] = undef;
-; CHECK-DAG:        |      |   %tmp241 = (undef #UNDEF# undef) ? (%tmp113)[0][undef][i2] : %tmp241;
-; CHECK-DAG:        |      |   %tmp230 = (undef #UNDEF# undef) ? (%tmp113)[0][undef][i2] : %tmp230;
+; CHECK-DAG:        |      |   %tmp241 = (undef != 0) ? (%tmp113)[0][undef][i2] : %tmp241;
+; CHECK-DAG:        |      |   %tmp230 = (undef != 0) ? (%tmp113)[0][undef][i2] : %tmp230;
 ; CHECK-NEXT:       |      + END LOOP
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       |
@@ -70,8 +70,8 @@
 ; CHECK-NEXT:       |      %tmp261 = 0x7FF0000000000000;
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       |      + DO i2 = 0, undef + -2, 1   <DO_LOOP>  <MAX_TC_EST = 4>
-; CHECK-DAG:        |      |   %tmp251 = (undef #UNDEF# undef) ? (%tmp)[0][undef][i2] : %tmp251;
-; CHECK-DAG:        |      |   %tmp261 = (undef #UNDEF# undef) ? (%tmp)[0][undef][i2] : %tmp261;
+; CHECK-DAG:        |      |   %tmp251 = (undef != 0) ? (%tmp)[0][undef][i2] : %tmp251;
+; CHECK-DAG:        |      |   %tmp261 = (undef != 0) ? (%tmp)[0][undef][i2] : %tmp261;
 ; CHECK-NEXT:       |      + END LOOP
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       |      (undef)[0] = %tmp251;

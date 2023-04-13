@@ -11,9 +11,9 @@
 ; PSEUDO: PSEUDO_FUNCTION_EPILOG
 
 ; CHECK: g:
-; CHECK: markercount_function
-; CHECK: markercount_loopheader
-; CHECK: markercount_function
+; CHECK: marker_function
+; CHECK: marker_loop
+; CHECK: marker_function
 
 define i32 @g(i1 %cmp) local_unnamed_addr #0 {
 entry:

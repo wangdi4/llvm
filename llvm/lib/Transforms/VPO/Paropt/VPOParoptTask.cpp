@@ -577,8 +577,8 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 
   StructType *KmpTaskTTWithPrivatesTy =
       StructType::create(C,
-                         makeArrayRef(KmpTaksTWithPrivatesTyArgs.begin(),
-                                      KmpTaksTWithPrivatesTyArgs.end()),
+                         ArrayRef(KmpTaksTWithPrivatesTyArgs.begin(),
+                                  KmpTaksTWithPrivatesTyArgs.end()),
                          "__struct.kmp_task_t_with_privates", false);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Task thunk type for privates: '"
@@ -1019,7 +1019,7 @@ void VPOParoptTransform::copySharedStructToTaskThunk(
 
     Value *Size;
 
-    const DataLayout DL = F->getParent()->getDataLayout();
+    const DataLayout &DL = F->getParent()->getDataLayout();
     if (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
       Size = Builder.getInt64(
           DL.getTypeAllocSize(Src->getAllocatedType()));
@@ -1529,15 +1529,15 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
 
   StructType *KmpTaskTDependVecTy =
       StructType::create(C,
-                         makeArrayRef(KmpTaskTDependVecTyArgs.begin(),
-                                      KmpTaskTDependVecTyArgs.end()),
+                         ArrayRef(KmpTaskTDependVecTyArgs.begin(),
+                                  KmpTaskTDependVecTyArgs.end()),
                          "__struct.kmp_task_depend_vec", false);
 
   IRBuilder<> Builder(InsertBefore);
   AllocaInst *DummyTaskTDependVec =
       Builder.CreateAlloca(KmpTaskTDependVecTy, nullptr, "task.depend.vec");
 
-  const DataLayout DL = F->getParent()->getDataLayout();
+  const DataLayout &DL = F->getParent()->getDataLayout();
   unsigned Count = 0;
   for (DependItem *DepI : DepClause.items()) {
     Value *Orig = DepI->getOrig();
@@ -1650,10 +1650,10 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
   AllocaInst *DummyTaskTRedRec =
       Builder.CreateAlloca(KmpTaskTTRedRecTy, nullptr, "taskt.red.rec");
 
-  const DataLayout DL = F->getParent()->getDataLayout();
+  const DataLayout &DL = F->getParent()->getDataLayout();
   unsigned Count = 0;
-  unsigned Idx = 0;
   for (ReductionItem *RedI : RedClause.items()) {
+    unsigned Idx = 0;
 
     // For non-taskgroups, computeArraySectionTypeOffsetSize is called as part
     // of genTaskInitCode/genTaskLoopInitCode.
@@ -1788,6 +1788,23 @@ void VPOParoptTransform::resetValueInTaskDependClause(WRegionNode *W) {
   }
 }
 
+// The  routine to generate the call __kmpc_omp_reg_task_with_affinity
+void VPOParoptTransform::genTaskAffinity(WRegionNode *W, StructType *IdentTy,
+                                         Value *TidPtr, Value *TaskAlloc,
+                                         Instruction *InsertPt) {
+  Value *AffArray =
+      W->getAffArray(); // pointer to the beginning of the affinity array
+  if (!AffArray)
+    return;
+
+  Value *AffArraySize =
+      W->getAffArraySize(); // number of elements in the affinity array
+  assert(AffArraySize && "Corrupt AFFARRAY IR: missing AffArraySize");
+  VPOParoptUtils::genKmpcTaskWithAffinity(W, IdentTy, TidPtr, TaskAlloc,
+                                          AffArray, AffArraySize, InsertPt,
+                                          "__kmpc_omp_reg_task_with_affinity");
+}
+
 // The wrapper routine to generate the call __kmpc_omp_task_with_deps
 void VPOParoptTransform::genTaskDeps(WRegionNode *W, StructType *IdentTy,
                                      Value *TidPtr, Value *TaskAlloc,
@@ -1826,6 +1843,36 @@ void VPOParoptTransform::genTaskDeps(WRegionNode *W, StructType *IdentTy,
   else
     VPOParoptUtils::genKmpcTaskWaitDeps(W, IdentTy, TidPtr, Dep, NumDeps,
                                         InsertPt);
+}
+
+// Generate for Detach(e) clause the call __kmpc_task_allow_completion_event and
+// initialize the original "e" (i.e. %e.priv of the parent parallel region)
+// %.event = call i8* @__kmpc_task_allow_completion_event(%struct.ident_t* ...,
+// i32 %0, i8* %.task.alloc)
+// %.event.cast = ptrtoint i8* %.event to i64
+// store i64 %event.cast, i64* %e.priv ;
+void VPOParoptTransform::genDetachCode(WRegionNode *W, CallInst *TaskAllocCI,
+                                       CallInst *NewCall) {
+  CallInst *CompletionEventCI = VPOParoptUtils::genKmpcAllowCompletionEvent(
+      W, IdentTy, TidPtrHolder, TaskAllocCI, NewCall);
+  CompletionEventCI->setName(".event");
+
+  IRBuilder<> Builder(NewCall);
+  DetachItem *DetachI = W->getDetach().front();
+  Value *Dst = DetachI->getOrig();
+
+  if (DetachI->getIsByRef()) {
+    Type *ElementType = nullptr;
+    std::tie(ElementType, std::ignore, std::ignore) =
+        VPOParoptUtils::getItemInfo(DetachI);
+    Dst = Builder.CreateLoad(ElementType->getPointerTo(0), Dst,
+                             Dst->getName() + Twine(".orig.deref"));
+  }
+
+  Value *DstC = Builder.CreateBitCast(
+      Dst, PointerType::get(CompletionEventCI->getType(), 0),
+      Dst->getName() + Twine(".cast"));
+  Builder.CreateStore(CompletionEventCI, DstC);
 }
 
 // Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop_5 or
@@ -1883,6 +1930,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   resetValueInOmpClauseGeneric(W, W->getFinal());
   resetValueInOmpClauseGeneric(W, W->getPriority());
   resetValueInTaskDependClause(W);
+  resetValueInTaskAffinityClause(W);
   if (isa<WRNTaskloopNode>(W)) {
     resetValueInOmpClauseGeneric(W, W->getNumTasks());
     resetValueInOmpClauseGeneric(W, W->getGrainsize());
@@ -1936,7 +1984,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, NewCall);
 
-  const DataLayout DL = NewF->getParent()->getDataLayout();
+  const DataLayout &DL = NewF->getParent()->getDataLayout();
   int KmpTaskTTWithPrivatesTySz =
       DL.getTypeAllocSize(KmpTaskTTWithPrivatesTy);
   int KmpSharedTySz = DL.getTypeAllocSize(KmpSharedTy);
@@ -1959,6 +2007,12 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
       Mode & OmpTbb);
   TaskAllocCI->setName(".task.alloc");
+
+  if (W->getAffArray())
+    genTaskAffinity(W, IdentTy, TidPtrHolder, TaskAllocCI, NewCall);
+
+  if (!W->getDetach().empty())
+    genDetachCode(W, TaskAllocCI, NewCall);
 
   copySharedStructToTaskThunk(W, SharedAggrStruct, TaskAllocCI, KmpSharedTy,
                               KmpTaskTTWithPrivatesTy, DestrThunk, NewCall);
@@ -1992,8 +2046,8 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
         VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
                                     NewCall);
       else
-        genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                    DummyTaskTDependRec, NewCall, false);
+        genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI, DummyTaskTDependRec,
+                    NewCall, false);
     } else {
 
       Instruction *ThenTerm, *ElseTerm;
@@ -2004,8 +2058,8 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
         VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
                                     ThenTerm);
       else {
-        genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                    DummyTaskTDependRec, ThenTerm, false);
+        genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI, DummyTaskTDependRec,
+                    ThenTerm, false);
         genTaskDeps(W, IdentTy, TidPtrHolder, TaskAllocCI,
                     DummyTaskTDependRec, ElseTerm, true);
       }

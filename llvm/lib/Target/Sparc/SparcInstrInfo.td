@@ -850,15 +850,8 @@ class BranchPredictAlways<dag ins, string asmstr, list<dag> pattern>
   : F2_3<0b001, 0, 1, (outs), ins, asmstr, pattern>;
 }
 
-let cond = 8 in {
-  // If we're compiling for v9, prefer BPA rather than BA
-  // TODO: Disallow BA emission when FeatureV8Deprecated isn't enabled
-  let Predicates = [HasV9], cc = 0b00 in
-    def BPA : BranchPredictAlways<(ins bprtarget:$imm19),
-      "ba %icc, $imm19", [(br bb:$imm19)]>;
-
+let cond = 8 in
   def BA : BranchAlways<(ins brtarget:$imm22), "ba $imm22", [(br bb:$imm22)]>;
-}
 
 let isBranch = 1, isTerminator = 1, hasDelaySlot = 1 in {
 
@@ -1782,8 +1775,7 @@ let Predicates = [HasV9] in {
 //===----------------------------------------------------------------------===//
 
 // Zero immediate.
-def : Pat<(i32 0),
-          (ORrr (i32 G0), (i32 G0))>;
+def : Pat<(i32 0), (COPY (i32 G0))>;
 // Small immediates.
 def : Pat<(i32 simm13:$val),
           (ORri (i32 G0), imm:$val)>;
@@ -1863,6 +1855,16 @@ def : Pat<(atomic_store_16 ADDRrr:$dst, i32:$val), (STHrr ADDRrr:$dst, $val)>;
 def : Pat<(atomic_store_16 ADDRri:$dst, i32:$val), (STHri ADDRri:$dst, $val)>;
 def : Pat<(atomic_store_32 ADDRrr:$dst, i32:$val), (STrr ADDRrr:$dst, $val)>;
 def : Pat<(atomic_store_32 ADDRri:$dst, i32:$val), (STri ADDRri:$dst, $val)>;
+
+// A register pair with zero upper half.
+// The upper part is done with ORrr instead of `COPY G0`
+// or a normal register copy, since `COPY G0`s in that place
+// will be converted into `COPY G0_G1` later on, which is not
+// what we want in this case.
+def : Pat<(build_vector (i32 0), (i32 IntRegs:$a2)),
+          (INSERT_SUBREG (INSERT_SUBREG (v2i32 (IMPLICIT_DEF)),
+            (ORrr (i32 G0), (i32 G0)), sub_even),
+            (i32 IntRegs:$a2), sub_odd)>;
 
 // extract_vector
 def : Pat<(extractelt (v2i32 IntPair:$Rn), 0),

@@ -1,6 +1,6 @@
 //===---------------- CodeAlign.cpp - DTransCodeAlignPass -----------------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -34,7 +34,6 @@
 #include "Intel_DTrans/Transforms/CodeAlign.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/MemManageInfoImpl.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -44,35 +43,6 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "dtrans-codealign"
-
-namespace {
-
-class DTransCodeAlignWrapper : public ModulePass {
-private:
-  dtrans::CodeAlignPass Impl;
-
-public:
-  static char ID;
-
-  DTransCodeAlignWrapper() : ModulePass(ID) {
-    initializeDTransCodeAlignWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    return Impl.runImpl(M, WPInfo);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-} //  end anonymous namespace
 
 PreservedAnalyses dtrans::CodeAlignPass::run(Module &M,
                                              ModuleAnalysisManager &AM) {
@@ -444,14 +414,3 @@ bool CodeAlignPass::runImpl(Module &M, WholeProgramInfo &WPInfo) {
 
 } // end namespace dtrans
 } // end namespace llvm
-
-char DTransCodeAlignWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransCodeAlignWrapper, "dtrans-codealign",
-                      "DTrans code align", false, false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransCodeAlignWrapper, "dtrans-codealign",
-                    "DTrans code align", false, false)
-
-ModulePass *llvm::createDTransCodeAlignWrapperPass() {
-  return new DTransCodeAlignWrapper();
-}

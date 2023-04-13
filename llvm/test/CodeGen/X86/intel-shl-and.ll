@@ -10,7 +10,7 @@ define i64 @foo(i64* %arg, i16* %arg1, i32 %arg2) {
 ; CHECK-NEXT:    movslq %edx, %rax
 ; CHECK-NEXT:    movzwl (%rsi,%rax,2), %eax
 ; CHECK-NEXT:    movzbl %al, %eax
-; CHECK-NEXT:    shlq $4, %rax
+; CHECK-NEXT:    shll $4, %eax
 ; CHECK-NEXT:    movq (%rdi,%rax), %rax
 ; CHECK-NEXT:    retq
 bb:

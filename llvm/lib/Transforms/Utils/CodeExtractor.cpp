@@ -1303,6 +1303,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::AllocKind:
       case Attribute::PresplitCoroutine:
       case Attribute::Memory:
+      case Attribute::NoFPClass:
         continue;
       // Those attributes should be safe to propagate to the extracted function.
       case Attribute::AlwaysInline:
@@ -1388,7 +1389,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
 
     newFunction->addFnAttr(Attr);
   }
-  newFunction->getBasicBlockList().push_back(newRootNode);
+  newFunction->insert(newFunction->end(), newRootNode);
 
   // Create scalar and aggregate iterators to name all of the arguments we
   // inserted.
@@ -1527,32 +1528,20 @@ static void insertLifetimeMarkersSurroundingCall(
     Module *M, ArrayRef<Value *> LifetimesStart, ArrayRef<Value *> LifetimesEnd,
     CallInst *TheCall) {
   LLVMContext &Ctx = M->getContext();
-  auto Int8PtrTy = Type::getInt8PtrTy(Ctx);
   auto NegativeOne = ConstantInt::getSigned(Type::getInt64Ty(Ctx), -1);
   Instruction *Term = TheCall->getParent()->getTerminator();
 
-  // The memory argument to a lifetime marker must be a i8*. Cache any bitcasts
-  // needed to satisfy this requirement so they may be reused.
-  DenseMap<Value *, Value *> Bitcasts;
-
   // Emit lifetime markers for the pointers given in \p Objects. Insert the
   // markers before the call if \p InsertBefore, and after the call otherwise.
-  auto insertMarkers = [&](Function *MarkerFunc, ArrayRef<Value *> Objects,
+  auto insertMarkers = [&](Intrinsic::ID MarkerFunc, ArrayRef<Value *> Objects,
                            bool InsertBefore) {
     for (Value *Mem : Objects) {
       assert((!isa<Instruction>(Mem) || cast<Instruction>(Mem)->getFunction() ==
                                             TheCall->getFunction()) &&
              "Input memory not defined in original function");
-      Value *&MemAsI8Ptr = Bitcasts[Mem];
-      if (!MemAsI8Ptr) {
-        if (Mem->getType() == Int8PtrTy)
-          MemAsI8Ptr = Mem;
-        else
-          MemAsI8Ptr =
-              CastInst::CreatePointerCast(Mem, Int8PtrTy, "lt.cast", TheCall);
-      }
 
-      auto Marker = CallInst::Create(MarkerFunc, {NegativeOne, MemAsI8Ptr});
+      Function *Func = Intrinsic::getDeclaration(M, MarkerFunc, Mem->getType());
+      auto Marker = CallInst::Create(Func, {NegativeOne, Mem});
       if (InsertBefore)
         Marker->insertBefore(TheCall);
       else
@@ -1561,15 +1550,13 @@ static void insertLifetimeMarkersSurroundingCall(
   };
 
   if (!LifetimesStart.empty()) {
-    auto StartFn = llvm::Intrinsic::getDeclaration(
-        M, llvm::Intrinsic::lifetime_start, Int8PtrTy);
-    insertMarkers(StartFn, LifetimesStart, /*InsertBefore=*/true);
+    insertMarkers(Intrinsic::lifetime_start, LifetimesStart,
+                  /*InsertBefore=*/true);
   }
 
   if (!LifetimesEnd.empty()) {
-    auto EndFn = llvm::Intrinsic::getDeclaration(
-        M, llvm::Intrinsic::lifetime_end, Int8PtrTy);
-    insertMarkers(EndFn, LifetimesEnd, /*InsertBefore=*/false);
+    insertMarkers(Intrinsic::lifetime_end, LifetimesEnd,
+                  /*InsertBefore=*/false);
   }
 }
 
@@ -1654,7 +1641,7 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
         Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), i);
         GetElementPtrInst *GEP = GetElementPtrInst::Create(
             StructArgTy, Struct, Idx, "gep_" + StructValues[i]->getName());
-        GEP->insertAt(codeReplacer, codeReplacer->end());
+        GEP->insertInto(codeReplacer, codeReplacer->end());
         new StoreInst(StructValues[i], GEP, codeReplacer);
         NumAggregatedInputs++;
       }
@@ -1672,7 +1659,7 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
     if (auto DL = newFunction->getEntryBlock().getTerminator()->getDebugLoc())
       call->setDebugLoc(DL);
   }
-  call->insertAt(codeReplacer, codeReplacer->end());
+  call->insertInto(codeReplacer, codeReplacer->end());
 
   // Set swifterror parameter attributes.
   for (unsigned SwiftErrArgNo : SwiftErrorArgs) {
@@ -1692,7 +1679,7 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
       Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), aggIdx);
       GetElementPtrInst *GEP = GetElementPtrInst::Create(
           StructArgTy, Struct, Idx, "gep_reload_" + outputs[i]->getName());
-      GEP->insertAt(codeReplacer, codeReplacer->end());
+      GEP->insertInto(codeReplacer, codeReplacer->end());
       Output = GEP;
       ++aggIdx;
     } else {
@@ -1881,21 +1868,17 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
 }
 
 void CodeExtractor::moveCodeToFunction(Function *newFunction) {
-  Function *oldFunc = (*Blocks.begin())->getParent();
-  Function::BasicBlockListType &oldBlocks = oldFunc->getBasicBlockList();
-  Function::BasicBlockListType &newBlocks = newFunction->getBasicBlockList();
-
   auto newFuncIt = newFunction->front().getIterator();
   for (BasicBlock *Block : Blocks) {
     // Delete the basic block from the old function, and the list of blocks
-    oldBlocks.remove(Block);
+    Block->removeFromParent();
 
     // Insert this basic block into the new function
     // Insert the original blocks after the entry block created
     // for the new function. The entry block may be followed
     // by a set of exit blocks at this point, but these exit
     // blocks better be placed at the end of the new function.
-    newFuncIt = newBlocks.insertAfter(newFuncIt, Block);
+    newFuncIt = newFunction->insert(std::next(newFuncIt), Block);
   }
 }
 
@@ -2027,7 +2010,7 @@ static void updateDebugPostExtraction(Function *OldF, Function *NewF,
     }
 
     // Handle cases where the DVI and storage end up in different functions.
-    if (isa<DbgDeclareInst>(DVI) || isa<DbgAddrIntrinsic>(DVI)) {
+    if (isa<DbgDeclareInst>(DVI)) {
       Function *MoveTo = DVI->getFunction() == OldF ? NewF : OldF;
       for (const Value *Storage : DVI->location_ops()) {
         const Function *SF;
@@ -2355,6 +2338,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     // Force assumptions in the old function to be rescanned on the next access.
     AC->clear();
 #else // INTEL_CUSTOMIZATION
+
   // Remove @llvm.assume calls that will be moved to the new function from the
   // old function's assumption cache.
   for (BasicBlock *Block : Blocks) {
@@ -2428,7 +2412,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
       });
     });
   }
-  BranchI->insertAt(newFuncRoot, newFuncRoot->end());
+  BranchI->insertInto(newFuncRoot, newFuncRoot->end());
 
   ValueSet SinkingCands, HoistingCands;
   BasicBlock *CommonExit = nullptr;
@@ -2520,7 +2504,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     auto Count = BFI->getProfileCountFromFreq(EntryFreq.getFrequency());
     if (Count)
       newFunction->setEntryCount(
-          ProfileCount(Count.value(), Function::PCT_Real)); // FIXME
+          ProfileCount(*Count, Function::PCT_Real)); // FIXME
     BFI->setBlockFreq(codeReplacer, EntryFreq.getFrequency());
   }
 

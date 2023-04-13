@@ -3,7 +3,7 @@
 ; AndersensAA was incorrectly computing points-to info for %notconst
 ; because it was not handling ifuncs.
 
-; RUN: opt < %s -passes="require<anders-aa>,instcombine" -S  2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="require<anders-aa>,instcombine" -S  2>&1 | FileCheck %s
 
 ; Check store instruction in @bar is not eliminated.
 ; CHECK: define internal fastcc void @bar()

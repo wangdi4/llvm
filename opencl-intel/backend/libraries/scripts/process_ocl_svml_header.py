@@ -86,8 +86,7 @@ typedef double double1;
 '''
 
 const_attr = '__attribute__((const))'
-
-
+# INTEL_CUSTOMIZATION
 def get_cc_attr(cc):
     if not cc:
         return ''
@@ -96,7 +95,7 @@ def get_cc_attr(cc):
     else:
         cc = '_' + cc
     return '__attribute__((intel_ocl_bicc{}))'.format(cc)
-
+# end INTEL_CUSTOMIZATION
 
 def process_file(inputfile, outputfile, generate_shared_header):
     with open(inputfile, 'r') as f:

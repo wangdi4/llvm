@@ -1,7 +1,7 @@
 ; INTEL_CUSTOMIZATION
 
-; RUN: opt -enable-new-pm=0 -vpo-paropt -S -pass-remarks-missed=openmp -switch-to-offload %s 2>&1 | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -S -pass-remarks-missed=openmp -switch-to-offload %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt -S -pass-remarks-missed=openmp -switch-to-offload %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -passes='vpo-paropt' -S -pass-remarks-missed=openmp -switch-to-offload %s 2>&1 | FileCheck %s
 
 ; Check for remarks about the loop construct being optimized away and ignored.
 ; CHECK: remark:{{.*}}distribute parallel loop construct's associated loop was optimized away.
@@ -234,7 +234,7 @@ DIR.OMP.DISTRIBUTE.PARLOOP.12:                    ; preds = %DIR.OMP.DISTRIBUTE.
  "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %omp.pdo.norm.lb, i32 0, i32 1),
  "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr addrspace(4) %omp.pdo.norm.iv, i32 0, ptr addrspace(4) %do.norm.iv, i32 0),
  "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) %omp.pdo.norm.ub, i32 0, ptr addrspace(4) %do.norm.ub, i32 0),
- "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(),
+ "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(i1 true),
  "QUAL.OMP.JUMP.TO.END.IF"(ptr %end.dir.temp),
  "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %"ascast$a$C$_1", i32 0, i32 1),
  "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %"ascast$a$B$_1", i32 0, i32 1),

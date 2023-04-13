@@ -23,8 +23,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include <utility>
 
 using namespace llvm::reflection;

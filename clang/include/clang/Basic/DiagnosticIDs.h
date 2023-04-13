@@ -34,6 +34,7 @@
 #include "clang/Basic/LLVM.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/StringRef.h"
+#include <optional>
 #include <vector>
 
 namespace clang {
@@ -47,7 +48,7 @@ namespace clang {
     // Size of each of the diagnostic categories.
     enum {
       DIAG_SIZE_COMMON        =  300,
-      DIAG_SIZE_DRIVER        =  350, // INTEL
+      DIAG_SIZE_DRIVER        =  350,
       DIAG_SIZE_FRONTEND      =  250, // INTEL
       DIAG_SIZE_SERIALIZATION =  120,
       DIAG_SIZE_LEX           =  400,
@@ -254,10 +255,10 @@ public:
   /// Given a group ID, returns the flag that toggles the group.
   /// For example, for "deprecated-declarations", returns
   /// Group::DeprecatedDeclarations.
-  static llvm::Optional<diag::Group> getGroupForWarningOption(StringRef);
+  static std::optional<diag::Group> getGroupForWarningOption(StringRef);
 
   /// Return the lowest-level group that contains the specified diagnostic.
-  static llvm::Optional<diag::Group> getGroupForDiag(unsigned DiagID);
+  static std::optional<diag::Group> getGroupForDiag(unsigned DiagID);
 
   /// Return the lowest-level warning option that enables the specified
   /// diagnostic.

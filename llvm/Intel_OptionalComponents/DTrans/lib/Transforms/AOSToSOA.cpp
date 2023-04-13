@@ -1,6 +1,6 @@
 //===---------------- AOSToSOA.cpp - DTransAOStoSOAPass -------------------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -17,7 +17,6 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/StringExtras.h"
@@ -567,7 +566,7 @@ public:
   }
 
   bool checkConversionNeeded(PtrToIntInst *PTI) {
-    Type *Ty = PTI->getOperand(0)->getType()->getPointerElementType();
+    Type *Ty = PTI->getOperand(0)->getType()->getNonOpaquePointerElementType();
     return isTypeToTransform(Ty);
   }
 
@@ -578,7 +577,7 @@ public:
     if (!BC->getType()->isPointerTy())
       return false;
 
-    if (isTypeToTransform(BC->getDestTy()->getPointerElementType())) {
+    if (isTypeToTransform(BC->getDestTy()->getNonOpaquePointerElementType())) {
       // We only expect bitcasts to be with i8* due to the safety checks, assert
       // this to be sure.
       assert(BC->getSrcTy() == getInt8PtrType() &&
@@ -586,7 +585,7 @@ public:
       return true;
     }
 
-    Type *Ty = BC->getSrcTy()->getPointerElementType();
+    Type *Ty = BC->getSrcTy()->getNonOpaquePointerElementType();
     bool ShouldTransform = isTypeToTransform(Ty);
     if (!ShouldTransform)
       return false;
@@ -623,8 +622,9 @@ public:
   bool checkConversionNeeded(LoadInst *LI) {
     auto *Ty = LI->getType();
     if (auto *PTy = dyn_cast<llvm::PointerType>(Ty))
-      if (isTypeToTransform(PTy->getPointerElementType()))
-        InstructionsToAnnotate.push_back({LI, PTy->getPointerElementType()});
+      if (isTypeToTransform(PTy->getNonOpaquePointerElementType()))
+        InstructionsToAnnotate.push_back(
+            {LI, PTy->getNonOpaquePointerElementType()});
 
     if (!isPointerShrinkingEnabled())
       return false;
@@ -637,7 +637,7 @@ public:
       return false;
 
     while (ActualTy->isPointerTy())
-      ActualTy = ActualTy->getPointerElementType();
+      ActualTy = ActualTy->getNonOpaquePointerElementType();
 
     return isTypeToTransform(ActualTy);
   }
@@ -653,8 +653,9 @@ public:
   bool checkConversionNeeded(StoreInst *SI) {
     auto *Ty = SI->getValueOperand()->getType();
     if (auto *PTy = dyn_cast<llvm::PointerType>(Ty))
-      if (isTypeToTransform(PTy->getPointerElementType()))
-        InstructionsToAnnotate.push_back({SI, PTy->getPointerElementType()});
+      if (isTypeToTransform(PTy->getNonOpaquePointerElementType()))
+        InstructionsToAnnotate.push_back(
+            {SI, PTy->getNonOpaquePointerElementType()});
 
     if (!isPointerShrinkingEnabled())
       return false;
@@ -667,7 +668,7 @@ public:
       return false;
 
     while (ActualTy->isPointerTy())
-      ActualTy = ActualTy->getPointerElementType();
+      ActualTy = ActualTy->getNonOpaquePointerElementType();
 
     return isTypeToTransform(ActualTy);
   }
@@ -911,7 +912,7 @@ public:
 
     // We know all elements of the peeled structure are pointer types.
     // Get the type that it points to.
-    Type *FieldElementTy = cast<PointerType>(PeelFieldTy)->getElementType();
+    Type *FieldElementTy = PeelFieldTy->getNonOpaquePointerElementType();
 
     // Extend the index back to a 64-bit value for use in the GEP instruction
     // because the pointer-type size used as the base is a 64-bit type.
@@ -1115,7 +1116,7 @@ public:
     // if it is a ptr-to-ptr for the peeling index.
     if (NewLI->getType()->isIntegerTy())
       InstructionsToAnnotate.push_back(
-          {NewLI, ActualPtrTy->getPointerElementType()});
+          {NewLI, ActualPtrTy->getNonOpaquePointerElementType()});
 
     LLVM_DEBUG(dbgs() << "After convert:\n  " << *NewPtrOp << "\n  " << *NewLI
                       << "\n  " << *Repl << "\n");
@@ -1209,7 +1210,7 @@ public:
     // if it is a ptr-to-ptr for the peeling index.
     if (RemapTy->isIntegerTy())
       InstructionsToAnnotate.push_back(
-        {NewSI, ActualPtrTy->getPointerElementType()});
+          {NewSI, ActualPtrTy->getNonOpaquePointerElementType()});
 
     LLVM_DEBUG(dbgs() << "After convert:\n  " << *NewValOp << "\n  "
                       << *NewPtrOp << "\n  " << *NewSI << "\n");
@@ -1408,7 +1409,7 @@ public:
         // The only time we expect processing a function to change a pointer
         // type to an integer type is when the original argument was pointer to
         // the type being transformed, and integer type is the peeled type.
-        assert(isTypeToTransform(OrigRetTy->getPointerElementType()) &&
+        assert(isTypeToTransform(OrigRetTy->getNonOpaquePointerElementType()) &&
                "Expected original return type to be a type being transformed");
         assert(CloneRetTy == getPeeledIndexType() &&
                "Expected clone return type to be peeling index type");
@@ -1427,7 +1428,8 @@ public:
         llvm::Type *OrigArgType = OrigArgIt->getType();
         if (!CloneArgType->isPointerTy() && OrigArgType->isPointerTy()) {
           assert(
-              isTypeToTransform(OrigArgType->getPointerElementType()) &&
+              isTypeToTransform(
+                  OrigArgType->getNonOpaquePointerElementType()) &&
               "Expected original argument type to be a type being transformed");
           assert(CloneArgType == getPeeledIndexType() &&
                  "Expected clone argument type to be peeling index type");
@@ -1844,7 +1846,7 @@ private:
     unsigned int NumElements = PeelTy->getNumElements();
     for (unsigned FieldNum = 0; FieldNum < NumElements; ++FieldNum) {
       Type *PeelFieldType = PeelTy->getElementType(FieldNum);
-      Type *ArrayElemType = PeelFieldType->getPointerElementType();
+      Type *ArrayElemType = PeelFieldType->getNonOpaquePointerElementType();
 
       if (FieldNum != 0) {
         // Compute the offset for the next array based on the size
@@ -1860,8 +1862,8 @@ private:
         // Update the offset value to account for any padding that may be
         // needed, if this element has a stricter alignment requirement than the
         // previous element.
-        uint64_t PrevFieldAlign = DL.getABITypeAlignment(PrevArrayElemType);
-        uint64_t FieldAlign = DL.getABITypeAlignment(ArrayElemType);
+        uint64_t PrevFieldAlign = DL.getABITypeAlign(PrevArrayElemType).value();
+        uint64_t FieldAlign = DL.getABITypeAlign(ArrayElemType).value();
         if (FieldAlign > PrevFieldAlign) {
           Value *Numerator = IRB.CreateAdd(
               AddrOffset, ConstantInt::get(ArithType, FieldAlign - 1));
@@ -1875,9 +1877,10 @@ private:
       // Compute the address in the memory block where the array for this field
       // will begin:
       //   %BlockAddr = getelementptr i8, i8* %AllocCallInst, i64/i32 %Offset
-      Value *BlockAddr = IRB.CreateGEP(
-          AllocCallInst->getType()->getScalarType()->getPointerElementType(),
-          AllocCallInst, AddrOffset);
+      Value *BlockAddr = IRB.CreateGEP(AllocCallInst->getType()
+                                           ->getScalarType()
+                                           ->getNonOpaquePointerElementType(),
+                                       AllocCallInst, AddrOffset);
 
       // Annotate the GEP into the allocated block to allow subsequent runs
       // of DTransAnalysis to resolve the type as a pointer to an array of
@@ -1887,7 +1890,7 @@ private:
       llvm::Type *BaseTy = PeelFieldType;
       while (BaseTy->isPointerTy()) {
         ++PtrLevel;
-        BaseTy = BaseTy->getPointerElementType();
+        BaseTy = BaseTy->getNonOpaquePointerElementType();
       }
       DTransAnnotator::createDTransTypeAnnotation(*cast<Instruction>(BlockAddr),
                                                   BaseTy, PtrLevel);
@@ -2043,7 +2046,7 @@ private:
       // Compute the number of bytes to be written: CountToSet * sizeof(field)
       llvm::Type *FieldType =
           cast<llvm::PointerType>(PeelTy->getElementType(FieldNum))
-              ->getPointerElementType();
+              ->getNonOpaquePointerElementType();
       Value *BytesToSet = IRB.CreateMul(
           CountToSet,
           ConstantInt::get(SizeType, DL.getTypeStoreSize(FieldType)));
@@ -2144,7 +2147,7 @@ private:
 
       llvm::Type *FieldType =
           cast<llvm::PointerType>(PeelTy->getElementType(FieldNum))
-              ->getPointerElementType();
+              ->getNonOpaquePointerElementType();
 
       // Offset the address from the start of the array to the index
       Value *DestPtrAddr = IRB.CreateGEP(FieldType, FieldAddr, DestPeelIndex);
@@ -2211,7 +2214,7 @@ private:
         CastInst::CreateBitOrPointerCast(ToInt, BC->getType(), "", BC);
 
     // Mark one of the casts for remove, and steal the name for the other
-    if (isTypeToTransform(BC->getType()->getPointerElementType())) {
+    if (isTypeToTransform(BC->getType()->getNonOpaquePointerElementType())) {
       PtrConverts.push_back(ToPtr);
       ToInt->takeName(BC);
     } else {
@@ -2417,10 +2420,10 @@ private:
 
     Type *OrigRetTy = Call->getType();
     if (OrigRetTy->isPointerTy() &&
-        isTypeToTransform(OrigRetTy->getPointerElementType())) {
+        isTypeToTransform(OrigRetTy->getNonOpaquePointerElementType())) {
       // Argument index 0 is used for return type attributes
-      Attrs = Attrs.removeAttributesAtIndex(Context, 0,
-                                            IncompatiblePeelTypeAttrs);
+      Attrs =
+          Attrs.removeAttributesAtIndex(Context, 0, IncompatiblePeelTypeAttrs);
       Changed = true;
     }
 
@@ -2429,7 +2432,7 @@ private:
     for (auto &Arg : Call->args()) {
       Type *ArgTy = Arg->getType();
       if (ArgTy->isPointerTy() &&
-          isTypeToTransform(ArgTy->getPointerElementType())) {
+          isTypeToTransform(ArgTy->getNonOpaquePointerElementType())) {
         Attrs = Attrs.removeAttributesAtIndex(Context, Idx,
                                               IncompatiblePeelTypeAttrs);
         Changed = true;
@@ -2523,68 +2526,7 @@ private:
   SmallVector<std::pair<Instruction *, Type *>, 16> InstructionsToAnnotate;
 };
 
-class DTransAOSToSOAWrapper : public ModulePass {
-private:
-  dtrans::AOSToSOAPass Impl;
-
-public:
-  static char ID;
-
-  DTransAOSToSOAWrapper() : ModulePass(ID) {
-    initializeDTransAOSToSOAWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    auto &DTAnalysisWrapper = getAnalysis<DTransAnalysisWrapper>();
-    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    // This lambda function is to allow getting the DominatorTree analysis for a
-    // specific function to allow analysis of loops for the dynamic allocation
-    // of the structure.
-    dtrans::AOSToSOAPass::DominatorTreeFuncType GetDT =
-        [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-
-    bool Changed = Impl.runImpl(M, DTInfo, GetTLI, WPInfo, GetDT);
-    if (Changed)
-      DTAnalysisWrapper.setInvalidated();
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // TODO: Mark the actual required and preserved analyses.
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
 } // end anonymous namespace
-
-char DTransAOSToSOAWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransAOSToSOAWrapper, "dtrans-aostosoa",
-                      "DTrans array of structs to struct of arrays", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransAOSToSOAWrapper, "dtrans-aostosoa",
-                    "DTrans array of structs to struct of arrays", false, false)
-
-ModulePass *llvm::createDTransAOSToSOAWrapperPass() {
-  return new DTransAOSToSOAWrapper();
-}
 
 namespace llvm {
 namespace dtrans {

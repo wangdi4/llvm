@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-loop-transform -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-transform)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-transform -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-transform)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
 
 ; Verify that omp loop tile construct is in effect. Notice that normalized
 ; induction variables and loop upperbound have to be added to the outer region's
@@ -23,7 +23,7 @@
 
 ; CHECK-DAG: FLOOR.LATCH
 ; CHECK-DAG: FLOOR.PREHEAD
-; CHECK-DAG: @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %"test_$I", i32 0, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %floor_iv, i64 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %floor_ub, i64 0), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %floor_lb, i64 0, i32 1) ]
+; CHECK-DAG: @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %"test_$I", i32 0, i32 1), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %omp.pdo.norm.lb, i32 0, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %floor_iv, i64 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %floor_ub, i64 0), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %floor_lb, i64 0, i32 1) ]
 ; CHECK-DAG: FLOOR.HEAD
 
 ; ModuleID = 'do1_tile1.f90'
@@ -57,8 +57,13 @@ alloca_0:
   br label %bb_new2
 
 bb_new2:  ; preds = %alloca_0
+;  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
+;     "QUAL.OMP.PRIVATE:TYPED"(ptr %"test_$I", i32 0, i32 1) ]
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
-     "QUAL.OMP.PRIVATE:TYPED"(ptr %"test_$I", i32 0, i32 1) ]
+     "QUAL.OMP.PRIVATE:TYPED"(ptr %"test_$I", i32 0, i32 1),
+     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %omp.pdo.norm.lb, i32 0, i32 1),
+     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %omp.pdo.norm.iv, i32 0),
+     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %omp.pdo.norm.ub, i32 0) ]
   br label %bb_new7
 
 bb_new7:  ; preds = %bb_new2

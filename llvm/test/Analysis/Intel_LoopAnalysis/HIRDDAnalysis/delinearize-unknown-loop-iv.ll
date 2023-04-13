@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-cost-model-throttling=0 -hir-ssa-deconstruction -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -hir-cost-model-throttling=0 -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region 2>&1 | FileCheck %s
 
 ; Verify the test case compiles successfully. It was incorrectly accessing upper

@@ -1,6 +1,6 @@
 //===-----------TypeMetadataReader.cpp - Decode metadata annotations-------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,7 +14,6 @@
 #include "Intel_DTrans/Analysis/DTransTypeMetadataConstants.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Constants.h"
@@ -22,6 +21,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "dtrans-typemetadatareader"
 
@@ -33,6 +33,13 @@ static llvm::cl::opt<bool> EnableStrictCheck(
 
 namespace llvm {
 namespace dtransOP {
+
+bool isDTransSkippableType(StructType *Ty) {
+  if (!Ty || !Ty->hasName())
+    return false;
+  StringRef Name = Ty->getName();
+  return Name.startswith("rtti.") || Name.startswith("eh.");
+}
 
 bool TypeMetadataReader::hasDTransTypesMetadata(Module &M) {
   return getDTransTypesMetadata(M) != nullptr;
@@ -116,7 +123,8 @@ MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
   return nullptr;
 }
 
-bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
+bool TypeMetadataReader::initialize(Module &M, bool StrictCheck,
+                                    bool SkipSpecial) {
   NamedMDNode *DTMDTypes = getDTransTypesMetadata(M);
   if (!DTMDTypes)
     return false;
@@ -144,7 +152,7 @@ bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
 
     if (!HasPointer) {
       TypeRecoveryState.insert(std::make_pair(StTy, MS_RecoveryNotNeeded));
-    } else {
+    } else if (!isDTransSkippableType(StTy)) {
       TypeRecoveryState.insert(std::make_pair(StTy, MS_RecoveryNeeded));
     }
   }
@@ -206,7 +214,8 @@ bool TypeMetadataReader::initialize(Module &M, bool StrictCheck) {
     // because we are referencing the type within the metadata. If the encoding
     // is switched to just use string names for the types, then the type may no
     // longer exist.
-    llvm::StructType *StTy = populateDTransStructType(M, MD, DTStTy);
+    llvm::StructType *StTy =
+        populateDTransStructType(M, MD, DTStTy, SkipSpecial);
     if (StTy)
       TypeRecoveryState[StTy] = MS_RecoveryComplete;
   }
@@ -356,9 +365,8 @@ DTransStructType *TypeMetadataReader::constructDTransStructType(MDNode *MD) {
 
 // Populate the body of the \p DTStTy based on the metadata. If a body is
 // populated and the type corresponds to a llvm::StructType, return it.
-llvm::StructType *
-TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
-                                             DTransStructType *DTStTy) {
+llvm::StructType *TypeMetadataReader::populateDTransStructType(
+    Module &M, MDNode *MD, DTransStructType *DTStTy, bool SkipSpecial) {
   // Metadata is of the form:
   //   { !"S", struct.type zeroinitializer, i32 NumFields [,!MDRef[,!MDRef]* ] }
   const unsigned FieldTyStartPos = DTransStructMDConstants::FieldNodeOffset;
@@ -408,6 +416,8 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
   llvm::StructType *StTy = cast<llvm::StructType>(DTStTy->getLLVMType());
   assert(StTy && "DTransStructType incorrectly initialized during "
                  "constructDTransStructType");
+  if (SkipSpecial && isDTransSkippableType(StTy))
+    return StTy;
 
   // Check that the metadata information matches with the structure definition.
   if (FieldCountU != StTy->getNumElements()) {
@@ -472,7 +482,7 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
 // must be simple types. i.e. none of the members contain pointer references.
 void TypeMetadataReader::populateDTransStructTypeFromLLVMType(
     llvm::StructType *STy, DTransStructType *DSTy) {
-  for (auto &Elem : enumerate(STy->elements())) {
+  for (const auto &Elem : enumerate(STy->elements())) {
     DTransType *DTFieldTy = TM.getOrCreateSimpleType(Elem.value());
     assert(DTFieldTy && "Expected structure fields to be simple types");
     DTransFieldMember &Field = DSTy->getField(Elem.index());
@@ -1260,38 +1270,6 @@ public:
 } // end namespace llvm
 
 using namespace llvm;
-
-// This pass is just for testing the TypeMetadataReader class. This pass will
-// not be part of the compiler pipeline.
-class DTransTypeMetadataReaderTestWrapper : public ModulePass {
-
-public:
-  static char ID;
-
-  DTransTypeMetadataReaderTestWrapper() : ModulePass(ID) {
-    initializeDTransTypeMetadataReaderTestWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    dtransOP::TypeMetadataTester Tester(M.getContext());
-    Tester.runTest(M);
-    return false;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
-char DTransTypeMetadataReaderTestWrapper::ID = 0;
-INITIALIZE_PASS(DTransTypeMetadataReaderTestWrapper,
-                "dtrans-typemetadatareader",
-                "DTrans type metadata reader tester", false, false)
-
-ModulePass *llvm::createDTransMetadataReaderTestWrapperPass() {
-  return new DTransTypeMetadataReaderTestWrapper();
-}
 
 namespace llvm {
 namespace dtransOP {

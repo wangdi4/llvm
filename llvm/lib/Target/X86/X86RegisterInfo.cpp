@@ -158,7 +158,13 @@ X86RegisterInfo::getLargestLegalSuperClass(const TargetRegisterClass *RC,
     case X86::FR32RegClassID:
     case X86::FR64RegClassID:
       // If AVX-512 isn't supported we should only inflate to these classes.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if (!Subtarget.hasAVX3() &&
+#else  // INTEL_FEATURE_ISA_AVX256P
       if (!Subtarget.hasAVX512() &&
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
           getRegSizeInBits(*Super) == getRegSizeInBits(*RC))
         return Super;
       break;
@@ -191,7 +197,13 @@ X86RegisterInfo::getLargestLegalSuperClass(const TargetRegisterClass *RC,
     case X86::FR32XRegClassID:
     case X86::FR64XRegClassID:
       // If AVX-512 isn't support we shouldn't inflate to these classes.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+      if (!Subtarget.hasAVX3() &&
+#else  // INTEL_FEATURE_ISA_AVX256P
       if (Subtarget.hasAVX512() &&
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
           getRegSizeInBits(*Super) == getRegSizeInBits(*RC))
         return Super;
       break;
@@ -199,6 +211,14 @@ X86RegisterInfo::getLargestLegalSuperClass(const TargetRegisterClass *RC,
     case X86::GR16RegClassID:
     case X86::GR32RegClassID:
     case X86::GR64RegClassID:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86::GR8_NOREX2RegClassID:
+    case X86::GR16_NOREX2RegClassID:
+    case X86::GR32_NOREX2RegClassID:
+    case X86::GR64_NOREX2RegClassID:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86::RFP32RegClassID:
     case X86::RFP64RegClassID:
     case X86::RFP80RegClassID:
@@ -324,6 +344,12 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   bool HasSSE = Subtarget.hasSSE1();
   bool HasAVX = Subtarget.hasAVX();
   bool HasAVX512 = Subtarget.hasAVX512();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // FIXME: Change to HasAVX3 when upstream.
+  HasAVX512 = Subtarget.hasAVX3();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
   bool CallsEHReturn = MF->callsEHReturn();
 
   CallingConv::ID CC = F.getCallingConv();
@@ -374,10 +400,6 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     if (!IsWin64 && Is64Bit)
       return CSR_64_Intel_OCL_BI_SaveList;
     break;
-#endif // INTEL_CUSTOMIZATION
-  case CallingConv::HHVM:
-    return CSR_64_HHVM_SaveList;
-#if INTEL_CUSTOMIZATION
   case CallingConv::SVML:
     if (!Is64Bit)
       return CSR_32_Intel_SVML_SaveList;
@@ -512,6 +534,12 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
   bool HasSSE = Subtarget.hasSSE1();
   bool HasAVX = Subtarget.hasAVX();
   bool HasAVX512 = Subtarget.hasAVX512();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  // FIXME: Change to HasAVX3 when upstream.
+  HasAVX512 = Subtarget.hasAVX3();
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
   switch (CC) {
   case CallingConv::GHC:
@@ -548,10 +576,6 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
     if (!IsWin64 && Is64Bit)
       return CSR_64_Intel_OCL_BI_RegMask;
     break;
-#endif // INTEL_CUSTOMIZATION
-  case CallingConv::HHVM:
-    return CSR_64_HHVM_RegMask;
-#if INTEL_CUSTOMIZATION
   case CallingConv::SVML:
     if (!Is64Bit)
       return CSR_32_Intel_SVML_RegMask;
@@ -755,12 +779,29 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
         Reserved.set(*AI);
     }
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  if (!Is64Bit || !MF.getSubtarget<X86Subtarget>().hasAVX3()) {
+#else // INTEL_FEATURE_ISA_AVX256P
   if (!Is64Bit || !MF.getSubtarget<X86Subtarget>().hasAVX512()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     for (unsigned n = 16; n != 32; ++n) {
       for (MCRegAliasIterator AI(X86::XMM0 + n, this, true); AI.isValid(); ++AI)
         Reserved.set(*AI);
     }
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  // Reserve the extended general purpose registers.
+  if (!MF.getSubtarget<X86Subtarget>().hasEGPR()) {
+    for (unsigned n = 0; n != 16; ++n) {
+      for (MCRegAliasIterator AI(X86::R16 + n, this, true); AI.isValid(); ++AI)
+        Reserved.set(*AI);
+    }
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   assert(checkAllSuperRegsMarked(Reserved,
                                  {X86::SIL, X86::DIL, X86::BPL, X86::SPL,
@@ -825,7 +866,17 @@ bool X86RegisterInfo::isFixedRegister(const MachineFunction &MF,
 }
 
 bool X86RegisterInfo::isTileRegisterClass(const TargetRegisterClass *RC) const {
-  return RC->getID() == X86::TILERegClassID;
+#if INTEL_CUSTOMIZATION
+  if (RC->getID() == X86::TILERegClassID)
+    return true;
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  // Specially do greedy reg allocate for tilepair and tile.
+  // TODO: Merge the if when disclose.
+  if (RC->getID() == X86::TILEPAIRRegClassID)
+    return true;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  return false;
+#endif // INTEL_CUSTOMIZATION
 }
 
 void X86RegisterInfo::adjustStackMapLiveOutMask(uint32_t *Mask) const {
@@ -854,6 +905,11 @@ static bool CantUseSP(const MachineFrameInfo &MFI) {
 
 bool X86RegisterInfo::hasBasePointer(const MachineFunction &MF) const {
   const X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
+  // We have a virtual register to reference argument, and don't need base
+  // pointer.
+  if (X86FI->getStackPtrSaveMI() != nullptr)
+    return false;
+
   if (X86FI->hasPreallocatedCall())
     return true;
 
@@ -928,6 +984,45 @@ static bool isFuncletReturnInstr(MachineInstr &MI) {
     return false;
   }
   llvm_unreachable("impossible");
+}
+
+void X86RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+                                          unsigned FIOperandNum,
+                                          Register BaseReg,
+                                          int FIOffset) const {
+  MachineInstr &MI = *II;
+  unsigned Opc = MI.getOpcode();
+  if (Opc == TargetOpcode::LOCAL_ESCAPE) {
+    MachineOperand &FI = MI.getOperand(FIOperandNum);
+    FI.ChangeToImmediate(FIOffset);
+    return;
+  }
+
+  MI.getOperand(FIOperandNum).ChangeToRegister(BaseReg, false);
+
+  // The frame index format for stackmaps and patchpoints is different from the
+  // X86 format. It only has a FI and an offset.
+  if (Opc == TargetOpcode::STACKMAP || Opc == TargetOpcode::PATCHPOINT) {
+    assert(BasePtr == FramePtr && "Expected the FP as base register");
+    int64_t Offset = MI.getOperand(FIOperandNum + 1).getImm() + FIOffset;
+    MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
+    return;
+  }
+
+  if (MI.getOperand(FIOperandNum + 3).isImm()) {
+    // Offset is a 32-bit integer.
+    int Imm = (int)(MI.getOperand(FIOperandNum + 3).getImm());
+    int Offset = FIOffset + Imm;
+    assert((!Is64Bit || isInt<32>((long long)FIOffset + Imm)) &&
+           "Requesting 64-bit offset in 32-bit immediate!");
+    if (Offset != 0 || !tryOptimizeLEAtoMOV(II))
+      MI.getOperand(FIOperandNum + 3).ChangeToImmediate(Offset);
+  } else {
+    // Offset is symbolic. This is extremely rare.
+    uint64_t Offset =
+        FIOffset + (uint64_t)MI.getOperand(FIOperandNum + 3).getOffset();
+    MI.getOperand(FIOperandNum + 3).setOffset(Offset);
+  }
 }
 
 bool
@@ -1114,32 +1209,83 @@ static ShapeT getTileShape(Register VirtReg, VirtRegMap *VRM,
   case X86::PTILEZEROV:
   case X86::PTDPBF16PSV:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   case X86::PTTRANSPOSEDV:
   case X86::PTTDPBF16PSV:
   case X86::PTTDPFP16PSV:
-#endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_COMPLEX
   case X86::PTCONJTFP16V:
   case X86::PTCONJTCMMIMFP16PSV:
-  case X86::PTCMMIMFP16PSV:
-  case X86::PTCMMRLFP16PSV:
   case X86::PTTCMMIMFP16PSV:
   case X86::PTTCMMRLFP16PSV:
-#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_TF32
   case X86::PTMMULTF32PSV:
   case X86::PTTMMULTF32PSV:
 #endif // INTEL_FEATURE_ISA_AMX_TF32
 #endif // INTEL_CUSTOMIZATION
   case X86::PTDPFP16PSV:
+  case X86::PTCMMIMFP16PSV:
+  case X86::PTCMMRLFP16PSV: {
     MachineOperand &MO1 = MI->getOperand(1);
     MachineOperand &MO2 = MI->getOperand(2);
     ShapeT Shape(&MO1, &MO2, MRI);
     VRM->assignVirt2Shape(VirtReg, Shape);
     return Shape;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  case X86::PT2RPNTLVWZ0V:
+  case X86::PT2RPNTLVWZ0T1V:
+  case X86::PT2RPNTLVWZ1V:
+  case X86::PT2RPNTLVWZ1T1V: {
+    MachineOperand &MO1 = MI->getOperand(1);
+    MachineOperand &MO2 = MI->getOperand(2);
+    MachineOperand &MO3 = MI->getOperand(3);
+    ShapeT Shape({&MO1, &MO2, &MO1, &MO3}, MRI);
+    VRM->assignVirt2Shape(VirtReg, Shape);
+    return Shape;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+  }
+#endif // INTEL_CUSTOMIZATION
 }
+
+#if INTEL_CUSTOMIZATION
+// Can PhysReg with PhysShape be hint for VirtReg with VirtShape.
+static bool canHintShape(ShapeT &PhysShape, ShapeT &VirtShape) {
+  unsigned PhysShapeNum = PhysShape.getShapeNum();
+  unsigned VirtShapeNum = VirtShape.getShapeNum();
+
+  if (PhysShapeNum < VirtShapeNum)
+    return false;
+
+  if (PhysShapeNum == VirtShapeNum) {
+    if (PhysShapeNum == 1)
+      return PhysShape == VirtShape;
+
+    for (unsigned I = 0; I < PhysShapeNum; I++) {
+      ShapeT PShape(PhysShape.getRow(I), PhysShape.getCol(I));
+      ShapeT VShape(VirtShape.getRow(I), VirtShape.getCol(I));
+      if (VShape != PShape)
+        return false;
+    }
+    return true;
+  }
+
+  // Hint subreg of mult-tile reg to single tile reg.
+  if (VirtShapeNum == 1) {
+    for (unsigned I = 0; I < PhysShapeNum; I++) {
+      ShapeT PShape(PhysShape.getRow(I), PhysShape.getCol(I));
+      if (VirtShape == PShape)
+        return true;
+    }
+  }
+
+  // Note: Currently we have no requirement for case of
+  // (VirtShapeNum > 1 and PhysShapeNum > VirtShapeNum)
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
                                             ArrayRef<MCPhysReg> Order,
@@ -1152,10 +1298,17 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
   bool BaseImplRetVal = TargetRegisterInfo::getRegAllocationHints(
       VirtReg, Order, Hints, MF, VRM, Matrix);
 
-  if (RC.getID() != X86::TILERegClassID)
+#if INTEL_CUSTOMIZATION
+  if (RC.getID() != X86::TILERegClassID
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
+      && RC.getID() != X86::TILEPAIRRegClassID
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+     )
     return BaseImplRetVal;
 
   ShapeT VirtShape = getTileShape(VirtReg, const_cast<VirtRegMap *>(VRM), MRI);
+#endif // INTEL_CUSTOMIZATION
+
   auto AddHint = [&](MCPhysReg PhysReg) {
     Register VReg = Matrix->getOneVReg(PhysReg);
     if (VReg == MCRegister::NoRegister) { // Not allocated yet
@@ -1163,7 +1316,7 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
       return;
     }
     ShapeT PhysShape = getTileShape(VReg, const_cast<VirtRegMap *>(VRM), MRI);
-    if (PhysShape == VirtShape)
+    if (canHintShape(PhysShape, VirtShape)) // INTEL
       Hints.push_back(PhysReg);
   };
 

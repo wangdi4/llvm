@@ -29,9 +29,15 @@ using namespace llvm::vpo;
 static cl::opt<bool> DisablePass("disable-" DEBUG_TYPE, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " PASS_NAME " pass"));
-static cl::opt<bool> RunForScansOpt("insert-guards-for-scan", cl::init(false),
-                                    cl::Hidden,
-                                    cl::desc("Process scan pointers"));
+// Toggles below are to be deprecated once frontends are able to generate the
+// same region structure for inscan reductions.
+static cl::opt<bool> RunForScansOpt(
+    "vpo-paropt-guard-memory-motion-for-scan", cl::init(false), cl::Hidden,
+    cl::desc("Process scan reductions if true, regular reductions if false"));
+static cl::opt<bool> DisableGuardGenerationForScan(
+    "vpo-paropt-disable-guard-memory-motion-for-scan", cl::init(false),
+    cl::Hidden,
+    cl::desc("Disable memory guard generation for scan in IR optimizations"));
 
 namespace {
 class VPOParoptGuardMemoryMotion : public FunctionPass {
@@ -97,21 +103,31 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
     StringRef LiveInClauseString =
         VPOAnalysisUtils::getClauseString(QUAL_OMP_LIVEIN);
 
-    // If a loop has inscan reduction-modifier is used, reduction clause without
-    // the inscan modifier must not appear on the same construct. That means
-    // that inscan and regular reduction cannot be present on the same loop.
-    // Detect, whether we are dealing with inscan or regular reduction loop.
+    // If a SIMD loop has an inscan reduction operand, other reduction
+    // operands without the inscan modifier must not appear on the same
+    // construct. That means that inscan and regular reduction cannot be
+    // present on the same loop.
+
+    // Detect whether we are dealing with a SIMD construct with inscan or
+    // regular reduction.
     bool IsInscanLoop =
         any_of(VecNode->getRed().items(),
                [](const ReductionItem *Item) { return Item->getIsInscan(); });
-    bool IsUDRLoop =
+    // SIMD entities which need memory guard feature -
+    // 1. User-defined reductions
+    // 2. Array section reductions
+    // 3. Complex type reductions
+    bool LoopHasNonScanReductionsNeedingGuard =
         any_of(VecNode->getRed().items(), [](const ReductionItem *Item) {
-          return Item->getType() == ReductionItem::WRNReductionUdr;
+          return Item->getType() == ReductionItem::WRNReductionUdr ||
+                 Item->getIsArraySection() || Item->getIsComplex();
         });
 
-    // Guarding is needed only for UDR variables or inscan reductions.
+    // Guarding is needed only for loops with guard-requiring entities or inscan
+    // reductions.
     if (!((RunForScans && IsInscanLoop) ||
-       (!RunForScans && !IsInscanLoop && IsUDRLoop)))
+          (!RunForScans && !IsInscanLoop &&
+           LoopHasNonScanReductionsNeedingGuard)))
       continue;
 
     Changed = true;
@@ -119,9 +135,9 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
     // Inscan loops require guards for mem motion for both input and scan phases
     // of the loop. We can process inscan loop seperately as such loop must have
     // all reductions as inscan ones, according to the stetement above.
-    if (!IsInscanLoop)
+    if (!IsInscanLoop) {
       GuardDirectives.push_back(VPOUtils::getOrCreateLoopGuardForMemMotion(Lp));
-    else {
+    } else {
       auto BeginPair = VPOUtils::createInscanLoopGuardForMemMotion(Lp);
       GuardDirectives.push_back(BeginPair.first);
       GuardDirectives.push_back(BeginPair.second);
@@ -129,7 +145,8 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
 
     for (ReductionItem *Item : VecNode->getRed().items()) {
       if (Item->getType() == ReductionItem::WRNReductionUdr ||
-          Item->getIsInscan()) {
+          Item->getIsInscan() || Item->getIsArraySection() ||
+          Item->getIsComplex()) {
         // Add the variable as QUAL.OMP.LIVEIN operand to the directive.
         LiveinBundles.push_back({LiveInClauseString, {Item->getOrig()}});
       }
@@ -137,7 +154,7 @@ static bool guardMemoryMotion(Function &F, WRegionInfo &WI, bool RunForScans = f
 
     for (auto *GuardDirective : GuardDirectives)
       GuardDirective = VPOUtils::addOperandBundlesInCall(
-          GuardDirective, makeArrayRef(LiveinBundles));
+          GuardDirective, ArrayRef(LiveinBundles));
   }
 
   return Changed;
@@ -168,12 +185,15 @@ VPOParoptGuardMemoryMotionPass::run(Function &F, FunctionAnalysisManager &AM) {
   WRegionInfo &WI = AM.getResult<WRegionInfoAnalysis>(F);
 
   LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-  if (!guardMemoryMotion(F, WI, RunForScans || RunForScansOpt))
-    return PreservedAnalyses::all();
+
+  bool Changed = false;
+  bool ForScans = RunForScans || RunForScansOpt;
+  if (!ForScans || !DisableGuardGenerationForScan)
+    Changed = guardMemoryMotion(F, WI, ForScans);
 
   LLVM_DEBUG(dbgs() << "\n\n====== Exit  " << PASS_NAME << " ======\n\n");
 
-  return PreservedAnalyses::none();
+  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
 #endif // INTEL_COLLAB

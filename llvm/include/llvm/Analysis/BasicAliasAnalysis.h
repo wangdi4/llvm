@@ -126,7 +126,7 @@ public:
                   FunctionAnalysisManager::Invalidator &Inv);
 
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
-                    AAQueryInfo &AAQI);
+                    AAQueryInfo &AAQI, const Instruction *CtxI);
 
 #if INTEL_COLLAB
   AliasResult loopCarriedAlias(const MemoryLocation &LocA,
@@ -214,9 +214,9 @@ private:
   bool valueIsNotCapturedBeforeOrAt(const Value *O1, const Value *O2);
 #endif // INTEL_CUSTOMIZATION
 
-  AliasResult aliasCheck(const Value *V1, LocationSize V1Size,
-                         const Value *V2, LocationSize V2Size,
-                         AAQueryInfo &AAQI);
+  AliasResult aliasCheck(const Value *V1, LocationSize V1Size, const Value *V2,
+                         LocationSize V2Size, AAQueryInfo &AAQI,
+                         const Instruction *CtxI);
 
   const Value* getBaseValue(const Value *V1); // INTEL
 

@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2022 Intel Corporation
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -44,12 +44,16 @@ function(llvm_create_cross_target project_name target_name toolchain buildtype)
     # INTEL_PASSTHROUGH_VARIABLES list below.
     set(INTEL_PASSTHROUGH_VARIABLES
       LLVM_INTEL_FEATURES
+      IL0_COMPILER
       IL0_PREBUILT_COMPONENTS_PREFIX
+      IL0_PREBUILT_COMPONENTS_STRUCTURE
+      IL0_PREBUILT_LIBIRC_COMPONENTS_PREFIX
       HOST_LINUX
       HOST_WINNT
       HOST_EFI2
       HOST_ARCH
       HOST_OS
+      LIBCLC_TARGETS_TO_BUILD
       )
 
     # Append the passthrough variables, accounting for nested lists and
@@ -129,6 +133,8 @@ function(llvm_create_cross_target project_name target_name toolchain buildtype)
         -DLLVM_ENABLE_RUNTIMES="${llvm_enable_runtimes_arg}"
         ${external_project_source_dirs}
         -DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN="${LLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN}"
+        -DLLVM_INCLUDE_BENCHMARKS=OFF
+        -DLLVM_INCLUDE_TESTS=OFF
         ${build_type_flags} ${linker_flag} ${external_clang_dir}
         ${ARGN}
     WORKING_DIRECTORY ${${project_name}_${target_name}_BUILD}

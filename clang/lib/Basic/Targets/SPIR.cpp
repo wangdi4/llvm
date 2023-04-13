@@ -57,29 +57,29 @@ void SPIR64TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_CUSTOMIZATION
 const Builtin::Info SPIR32INTELFpgaTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  { #ID, TYPE, ATTRS, nullptr, ALL_OCL_LANGUAGES, nullptr },
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, ALL_OCL_LANGUAGES},
 #define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
-  { #ID, TYPE, ATTRS, nullptr, LANGS, nullptr },
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, LANGS},
 #include "clang/Basic/intel/BuiltinsSPIRINTELFpga.def"
 };
 
 ArrayRef<Builtin::Info>
 SPIR32INTELFpgaTargetInfo::getTargetBuiltins() const {
-  return llvm::makeArrayRef(BuiltinInfo,
+  return llvm::ArrayRef(BuiltinInfo,
       clang::SPIRINTELFpga::LastTSBuiltin - Builtin::FirstTSBuiltin);
 }
 
 const Builtin::Info SPIR64INTELFpgaTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  { #ID, TYPE, ATTRS, nullptr, ALL_OCL_LANGUAGES, nullptr },
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, ALL_OCL_LANGUAGES},
 #define LANGBUILTIN(ID, TYPE, ATTRS, LANGS)                                    \
-  { #ID, TYPE, ATTRS, nullptr, LANGS, nullptr },
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, LANGS},
 #include "clang/Basic/intel/BuiltinsSPIRINTELFpga.def"
 };
 
 ArrayRef<Builtin::Info>
 SPIR64INTELFpgaTargetInfo::getTargetBuiltins() const {
-  return llvm::makeArrayRef(BuiltinInfo,
+  return llvm::ArrayRef(BuiltinInfo,
       clang::SPIRINTELFpga::LastTSBuiltin - Builtin::FirstTSBuiltin);
 }
 

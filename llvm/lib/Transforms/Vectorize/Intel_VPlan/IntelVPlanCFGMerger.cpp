@@ -156,6 +156,7 @@ void VPlanCFGMerger::updateMergeBlockIncomings(PlanDescr &Descr,
         MergeVals[PN.getMergeId()] = Plan.getLiveOutValue(PN.getMergeId());
     }
   } else {
+    assert(Src && "Unexpected null basic block");
     // It's a merge block after VPlan. Make its phis feeding the MergeBlock
     for (auto &PN : Src->getVPPhis())
       MergeVals[PN.getMergeId()] = &PN;
@@ -584,7 +585,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
     // loop for remainder and create a clone for peel if that's needed.
     ScalarPlan->setNeedCloneOrigLoop(ScalarUsed);
     CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
-    PlanDescrs.push_front({LT::LTPeel, 1, CurPlan});
+    PlanDescrs.push_front({LT::LTPeel, 1 /* VF */, 1 /* UF */, CurPlan});
     PlanDescrs.front().setMaxTripCount(MainVF - 1);
     dumpNewVPlan(CurPlan);
     break;
@@ -601,7 +602,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       dumpExistingVPlan(CurPlan);
     }
     UsedPlans.insert(CurPlan);
-    PlanDescrs.push_front({LT::LTPeel, Scen.getPeelVF(), CurPlan});
+    PlanDescrs.push_front({LT::LTPeel, Scen.getPeelVF(), 1 /* UF */, CurPlan});
     PlanDescrs.front().setMaxTripCount(1);
     break;
   case LK::LKVector:
@@ -611,13 +612,13 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
 
   CurPlan = NewMainPlan;
   unsigned MainUF = Scen.getMainUF();
-  unsigned PrevVF = MainVF * MainUF;
-  PlanDescrs.push_front({LT::LTMain, PrevVF, CurPlan});
+  unsigned PrevVFUF = MainVF * MainUF;
+  PlanDescrs.push_front({LT::LTMain, MainVF, MainUF, CurPlan});
   auto TCInfo = cast<VPlanVector>(CurPlan)
                     ->getMainLoop(true /* StrictCheck */)
                     ->getTripCountInfo();
   if (!TCInfo.IsEstimated)
-    PlanDescrs.front().setMaxTripCount(TCInfo.TripCount / PrevVF);
+    PlanDescrs.front().setMaxTripCount(TCInfo.TripCount / PrevVFUF);
   dumpExistingVPlan(CurPlan);
 
   // The order of insertion of remainders in the list is important. We insert
@@ -632,8 +633,8 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       ScalarRemainderVPlanFab Fab;
       auto ScalarPlan = Fab.create(MainPlan, OrigLoop);
       CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
-      PlanDescrs.push_front({LT::LTRemainder, 1, CurPlan});
-      PlanDescrs.front().setMaxTripCount(PrevVF - 1);
+      PlanDescrs.push_front({LT::LTRemainder, 1 /* VF */, 1 /* UF */, CurPlan});
+      PlanDescrs.front().setMaxTripCount(PrevVFUF - 1);
       dumpNewVPlan(CurPlan);
       break;
     }
@@ -648,7 +649,8 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       } else {
         dumpExistingVPlan(CurPlan);
       }
-      PlanDescrs.insert(AnchorIter, {LT::LTRemainder, Rem.VF, CurPlan});
+      PlanDescrs.insert(AnchorIter,
+                        {LT::LTRemainder, Rem.VF, 1 /* UF */, CurPlan});
       // Non-masked remainder can execute one more iteration when we have a
       // peel. That is due to we don't execute peel and main loop when scalar TC
       // is less than main VF + PeelCnt.
@@ -659,7 +661,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       // the main loop. Yes, it can happen that more than 2 iterations, but that
       // does not matter much, for us it's only important that it is not 1
       std::prev(AnchorIter, 1)
-          ->setMaxTripCount((PrevVF - 1) / Rem.VF + (Scen.hasPeel() ? 1 : 0));
+          ->setMaxTripCount((PrevVFUF - 1) / Rem.VF + (Scen.hasPeel() ? 1 : 0));
       UsedPlans.insert(CurPlan);
       break;
     case LK::LKMasked:
@@ -673,12 +675,13 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       } else {
         dumpExistingVPlan(CurPlan);
       }
-      PlanDescrs.insert(AnchorIter, {LT::LTRemainder, Rem.VF, CurPlan});
+      PlanDescrs.insert(AnchorIter,
+                        {LT::LTRemainder, Rem.VF, 1 /* UF */, CurPlan});
       // Masked remainder can execute more than one iteration when we have a
       // peel. That is due to we don't execute peel and main loop when scalar TC
       // is less than main VF + PeelCnt. See comment above.
       std::prev(AnchorIter, 1)
-          ->setMaxTripCount(PrevVF / Rem.VF + (Scen.hasPeel() ? 1 : 0));
+          ->setMaxTripCount(PrevVFUF / Rem.VF + (Scen.hasPeel() ? 1 : 0));
       UsedPlans.insert(CurPlan);
     }
 

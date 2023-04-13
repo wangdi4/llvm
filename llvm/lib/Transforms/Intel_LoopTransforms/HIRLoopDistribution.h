@@ -43,13 +43,70 @@ const unsigned StripmineSize = 64;
 // For stress testing, use small max resource
 // const unsigned MaxMemResourceToDistribute = 2;
 
+enum PragmaReturnCode {
+  NotProcessed,
+  NoDistribution,
+  Success,
+  UnsupportedStmts,
+  CannotStripmine,
+  TooManyDistributePoints,
+  Last
+};
+
 enum class DistHeuristics : unsigned char {
   NotSpecified = 0, // Default enum for command line option. Will be overridden
                     // by pass constructor argument
-  MaximalDist,      // Everytime you can, do it. Testing only
   NestFormation,    // Try to form perfect loop nests
   BreakMemRec,      // Break recurrence among mem refs ie A[i] -> A[i+i]
-  BreakScalarRec    // Break recurrence among scalars. Requires scalar expansion
+};
+
+struct DistAnalysis {
+  bool MemRef;      // Break loop due to excessive Memref count
+  bool UserCall;    // Distribute User calls to different loop
+  bool SAR;         // Distribute away Sparse Array Reduction from loop
+  bool Recurrence;  // Break recurrence among scalars.
+  bool PreventsVec; // Distribute vectorization-preventing edge from loop
+
+  DistAnalysis() { reset(); }
+
+  void reset() {
+    MemRef = false;
+    UserCall = false;
+    SAR = false;
+    Recurrence = false;
+    PreventsVec = false;
+  }
+
+  bool onlyForMemRefCount() const {
+    return MemRef && !UserCall && !SAR && !Recurrence && !PreventsVec;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD void dumpResult() {
+    bool Distributed = MemRef || UserCall || SAR || Recurrence || PreventsVec;
+    if (!Distributed) {
+      dbgs() << "Loop was not Distributed!\n";
+    } else {
+      dbgs() << "Loop was Distributed due to";
+      if (MemRef) {
+        dbgs() << " - MemRef Count";
+      }
+      if (UserCall) {
+        dbgs() << " - UserCall";
+      }
+      if (SAR) {
+        dbgs() << " - SparseArrayReduction";
+      }
+      if (Recurrence) {
+        dbgs() << " - Recurrence";
+      }
+      if (PreventsVec) {
+        dbgs() << " - Vec Preventing Edge";
+      }
+      dbgs() << "\n";
+    }
+  }
+#endif
 };
 
 typedef SmallVector<DDRef *, 8> DDRefList;
@@ -99,21 +156,21 @@ public:
       dbgs() << ") (In/Out " << IsLiveIn;
       dbgs() << "/" << IsLiveOut;
       dbgs() << ") (";
-      for (auto &TmpDef : enumerate(TmpDefs)) {
+      for (const auto &TmpDef : enumerate(TmpDefs)) {
         dbgs() << TmpDef.value()->getHLDDNode()->getNumber();
         if (TmpDef.index() != TmpDefs.size() - 1) {
           dbgs() << ",";
         }
       }
       dbgs() << ") -> (";
-      for (auto &TmpUse : enumerate(TmpUses)) {
+      for (const auto &TmpUse : enumerate(TmpUses)) {
         dbgs() << TmpUse.value().Ref->getHLDDNode()->getNumber();
         if (TmpUse.index() != TmpUses.size() - 1) {
           dbgs() << ",";
         }
       }
       dbgs() << ") Recompute: " << SafeToRecompute << "\n";
-      for (auto &Entry : enumerate(SCEXDefsForUse)) {
+      for (const auto &Entry : enumerate(SCEXDefsForUse)) {
         dbgs() << " ( ";
 
         for (auto &Def : Entry.value().second) {
@@ -151,8 +208,7 @@ public:
                   ArrayRef<HLDDNodeList> Chunks);
 
   // After scalar expansion, scalar temps is need to be replaced with Array Temp
-  void replaceWithArrayTemps(unsigned OrigLoopLevel,
-                             SmallSet<unsigned, 12> &TempArraySB);
+  void replaceWithArrayTemps();
 
   bool isTempRequired() const {
     return std::any_of(Candidates.begin(), Candidates.end(),
@@ -200,8 +256,7 @@ private:
   bool isScalarExpansionCandidate(const DDRef *Ref) const;
 
   // Create TEMP[i] = temp and insert
-  RegDDRef *createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
-                                 unsigned OrigLoopLevel);
+  RegDDRef *createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef);
 
   // Insert an assignment TEMP[i] = temp after DDNode
   void insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
@@ -241,8 +296,8 @@ private:
   HIRLoopLocality &HLL;
 
   DistHeuristics DistCostModel;
+  DistAnalysis Analysis;
   HLLoop *NewLoops[MaxDistributedLoop];
-  SmallSet<unsigned, 12> TempArraySB;
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, InsertOrMove>, 16>
       DistDirectiveNodeMap;
 
@@ -250,7 +305,7 @@ private:
 
 private:
   void findDistPoints(const HLLoop *L, std::unique_ptr<PiGraph> const &PGraph,
-                      SmallVectorImpl<PiBlockList> &DistPoints) const;
+                      SmallVectorImpl<PiBlockList> &DistPoints);
 
   // Returns true if this edge contains dd edge with (<) at loop level
   // Such an edge would be eliminated by distributing the src sink piblocks
@@ -267,7 +322,7 @@ private:
   // important considerations such as trip count, predicted vectorizability
   void breakPiBlockRecurrences(const HLLoop *L,
                                std::unique_ptr<PiGraph> const &PiGraph,
-                               SmallVectorImpl<PiBlockList> &DistPoints) const;
+                               SmallVectorImpl<PiBlockList> &DistPoints);
 
   // Breaks up pigraph with intent to form perfect loop nests, even at cost
   // of skipping creation of potentially vectorizable loops
@@ -286,7 +341,7 @@ private:
   void distributeLoop(HLLoop *L,
                       SmallVectorImpl<HLDDNodeList> &DistributedLoops,
                       ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
-                      bool ForDirective);
+                      bool ExtraStripmineSetup, bool ForDirective);
 
   // After calling Stripmining util, temp iv coeffs need to fixed
   // as single IV:  TEMP[i2], while other indexes have i1, i2
@@ -294,7 +349,7 @@ private:
 
   // Process pragma for Loop directive Distribute Point
 
-  unsigned distributeLoopForDirective(HLLoop *Lp);
+  PragmaReturnCode distributeLoopForDirective(HLLoop *Lp);
 
   // Collect HNodes that match LoopNum
   void

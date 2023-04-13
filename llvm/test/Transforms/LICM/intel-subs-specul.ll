@@ -8,7 +8,7 @@
 ; isDereferenceableAndAlignedPointer can see that the access is always
 ; dereferenceable.
 
-; RUN: opt -S -licm %s | FileCheck %s
+; RUN: opt -passes="loop-mssa(licm)" -S %s | FileCheck %s
 ; CHECK-LABEL: loop_test33.loop_body38_crit_edge
 ; CHECK: store{{.*}}lcssa{{.*}}var$5
 

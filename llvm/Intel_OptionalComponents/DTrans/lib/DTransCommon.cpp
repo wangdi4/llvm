@@ -1,6 +1,6 @@
 //===----------------- DTransCommon.cpp - Shared DTrans code --------------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,12 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/DTransCommon.h"
-#include "Intel_DTrans/DTransPasses.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#include "Intel_DTrans/DTransPasses.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IRPrinter/IRPrintingPasses.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/CommandLine.h"
 #include <algorithm>
@@ -205,57 +204,6 @@ constexpr bool EnableResolveTypes = true;
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-void llvm::initializeDTransPasses(PassRegistry &PR) {
-  initializeDTransAnalysisWrapperPass(PR);
-  initializeDTransFieldModRefAnalysisWrapperPass(PR);
-  initializeDTransFieldModRefOPAnalysisWrapperPass(PR);
-  initializeDTransFieldModRefResultWrapperPass(PR);
-  initializeDTransSafetyAnalyzerWrapperPass(PR);
-  initializeDTransImmutableAnalysisWrapperPass(PR);
-  initializeDTransPaddedMallocWrapperPass(PR);
-  initializeDTransPaddedMallocOPWrapperPass(PR);
-  initializePaddedPtrPropWrapperPass(PR);
-  initializePaddedPtrPropOPWrapperPass(PR);
-  initializeDTransResolveTypesWrapperPass(PR);
-  initializeDTransSOAToAOSPrepareWrapperPass(PR);
-  initializeDTransSOAToAOSOPPrepareWrapperPass(PR);
-  initializeDTransSOAToAOSWrapperPass(PR);
-  initializeDTransSOAToAOSOPWrapperPass(PR);
-  initializeDTransReuseFieldWrapperPass(PR);
-  initializeDTransDeleteFieldWrapperPass(PR);
-  initializeDTransDeleteFieldOPWrapperPass(PR);
-  initializeDTransReorderFieldsWrapperPass(PR);
-  initializeDTransReorderFieldsOPWrapperPass(PR);
-  initializeDTransAOSToSOAWrapperPass(PR);
-  initializeDTransAOSToSOAOPWrapperPass(PR);
-  initializeDTransEliminateROFieldAccessWrapperPass(PR);
-  initializeDTransEliminateROFieldAccessOPWrapperPass(PR);
-  initializeDTransDynCloneWrapperPass(PR);
-  initializeDTransDynCloneOPWrapperPass(PR);
-  initializeDTransAnnotatorCleanerWrapperPass(PR);
-  initializeDTransWeakAlignWrapperPass(PR);
-  initializeDTransMemInitTrimDownWrapperPass(PR);
-  initializeDTransMemInitTrimDownOPWrapperPass(PR);
-  initializeDTransMemManageTransWrapperPass(PR);
-  initializeDTransCodeAlignWrapperPass(PR);
-  initializeDTransCodeAlignOPWrapperPass(PR);
-  initializeDTransTransposeWrapperPass(PR);
-  initializeDTransCommuteCondWrapperPass(PR);
-  initializeDTransCommuteCondOPWrapperPass(PR);
-  initializeRemoveAllDTransTypeMetadataWrapperPass(PR);
-  initializeRemoveDeadDTransTypeMetadataWrapperPass(PR);
-  initializeDTransForceInlineWrapperPass(PR);
-  initializeDTransForceInlineOPWrapperPass(PR);
-  initializeDTransNormalizeOPWrapperPass(PR);
-
-#if !INTEL_PRODUCT_RELEASE
-  initializeDTransOPOptBaseTestWrapperPass(PR);
-  initializeDTransOptBaseTestWrapperPass(PR);
-  initializeDTransTypeMetadataReaderTestWrapperPass(PR);
-  initializeDTransPtrTypeAnalyzerTestWrapperPass(PR);
-#endif // !INTEL_PRODUCT_RELEASE
-}
-
 // Add a new pass manager type pass. Add module dumps before/after
 // the pass, if requested.
 template <typename PassT>
@@ -349,84 +297,6 @@ void llvm::addDTransPasses(ModulePassManager &MPM) {
     MPM.addPass(PrintModulePass(dbgs(), "; Module After Early DTrans\n"));
 }
 
-// Add a legacy pass manager type pass. Add module dumps before/after
-// the pass, if requested.
-static void addPass(legacy::PassManagerBase &PM, DumpModuleDTransValues Phase,
-                    Pass *P) {
-  assert(Phase <= late && "Phase value out of range");
-  if (hasDumpModuleBeforeDTransValue(Phase))
-    PM.add(createPrintModulePass(
-        dbgs(),
-        "; Module Before " + std::string(DumpModuleDTransNames[Phase]) + "\n"));
-
-  PM.add(P);
-
-  if (hasDumpModuleAfterDTransValue(Phase))
-    PM.add(createPrintModulePass(
-        dbgs(),
-        "; Module After " + std::string(DumpModuleDTransNames[Phase]) + "\n"));
-}
-
-void llvm::addDTransLegacyPasses(legacy::PassManagerBase &PM) {
-  if (hasDumpModuleBeforeDTransValue(early))
-    PM.add(createPrintModulePass(dbgs(), "; Module Before Early DTrans\n"));
-
-  // Try to run the typed-pointer passes. These passes should be no-ops when
-  // opaque pointers are in use.
-  // TODO: These will be removed when only opaque pointers are supported.
-
-  // Start of typed pointer passes
-  // This must run before any other pass that depends on DTransAnalysis.
-  if (EnableResolveTypes)
-    addPass(PM, resolvetypes, createDTransResolveTypesWrapperPass());
-
-  if (EnableTranspose)
-    addPass(PM, transpose, createDTransTransposeWrapperPass());
-  addPass(PM, commutecond, createDTransCommuteCondWrapperPass());
-  if (EnableMemInitTrimDown)
-    addPass(PM, meminittrimdown, createDTransMemInitTrimDownWrapperPass());
-  if (EnableSOAToAOSPrepare)
-    addPass(PM, soatoaosprepare, createDTransSOAToAOSPrepareWrapperPass());
-  if (EnableSOAToAOS)
-    addPass(PM, soatoaos, createDTransSOAToAOSWrapperPass());
-  if (EnableMemManageTrans)
-    addPass(PM, memmanagetrans, createDTransMemManageTransWrapperPass());
-  addPass(PM, codealign, createDTransCodeAlignWrapperPass());
-  addPass(PM, weakalign, createDTransWeakAlignWrapperPass());
-  if (EnableDeleteFields)
-    addPass(PM, deletefield, createDTransDeleteFieldWrapperPass());
-  addPass(PM, reorderfields, createDTransReorderFieldsWrapperPass());
-  addPass(PM, aostosoa, createDTransAOSToSOAWrapperPass());
-  if (EnableReuseFields) {
-    addPass(PM, reusefield, createDTransReuseFieldWrapperPass());
-    addPass(PM, deletefield, createDTransDeleteFieldWrapperPass());
-  }
-
-  addPass(PM, elimrofieldaccess,
-          createDTransEliminateROFieldAccessWrapperPass());
-  addPass(PM, dynclone, createDTransDynCloneWrapperPass());
-  // End of typed pointer passes
-
-  // Try to run the opaque pointer passes
-
-  addPass(PM, deadmdremover, createRemoveDeadDTransTypeMetadataWrapperPass());
-  addPass(PM, normalize, createDTransNormalizeOPWrapperPass());
-  addPass(PM, commutecond, createDTransCommuteCondOPWrapperPass());
-  addPass(PM, meminittrimdown, createDTransMemInitTrimDownOPWrapperPass());
-  addPass(PM, soatoaosprepare, createDTransSOAToAOSOPPrepareWrapperPass());
-  addPass(PM, codealign, createDTransCodeAlignOPWrapperPass());
-  addPass(PM, deletefield, createDTransDeleteFieldOPWrapperPass());
-  addPass(PM, reorderfields, createDTransReorderFieldsOPWrapperPass());
-  addPass(PM, aostosoa, createDTransAOSToSOAOPWrapperPass());
-  addPass(PM, elimrofieldaccess,
-          createDTransEliminateROFieldAccessOPWrapperPass());
-  addPass(PM, dynclone, createDTransDynCloneOPWrapperPass());
-
-  addPass(PM, annotatorcleaner, createDTransAnnotatorCleanerWrapperPass());
-  if (hasDumpModuleAfterDTransValue(early))
-    PM.add(createPrintModulePass(dbgs(), "; Module After Early DTrans\n"));
-}
-
 void llvm::addLateDTransPasses(ModulePassManager &MPM) {
   if (hasDumpModuleBeforeDTransValue(late))
     MPM.addPass(PrintModulePass(dbgs(), "; Module Before Late DTrans\n"));
@@ -447,74 +317,4 @@ void llvm::addLateDTransPasses(ModulePassManager &MPM) {
 
   if (hasDumpModuleAfterDTransValue(late))
     MPM.addPass(PrintModulePass(dbgs(), "; Module After Late DTrans\n"));
-}
-
-void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
-  if (hasDumpModuleBeforeDTransValue(late))
-    PM.add(createPrintModulePass(dbgs(), "; Module Before Late DTrans\n"));
-
-  // Try to run the typed-pointer passes. These passes should be no-ops when
-  // opaque pointers are in use.
-  // TODO: These will be removed when only opaque pointers are supported.
-  // Start of typed pointer passes
-  if (EnablePaddedPtrProp)
-    PM.add(createPaddedPtrPropWrapperPass());
-  PM.add(createDTransPaddedMallocWrapperPass());
-  // End of typed pointer passes
-
-  // Try to run the opaque pointer passes
-  if (EnablePaddedPtrProp)
-    PM.add(createPaddedPtrPropOPWrapperPass());
-  PM.add(createDTransPaddedMallocOPWrapperPass());
-
-  if (hasDumpModuleAfterDTransValue(late))
-    PM.add(createPrintModulePass(dbgs(), "; Module After Late DTrans\n"));
-}
-
-// This is used by LinkAllPasses.h. The passes are never actually used when
-// created this way.
-void llvm::createDTransPasses() {
-  (void)llvm::createDTransReuseFieldWrapperPass();
-  (void)llvm::createDTransDeleteFieldWrapperPass();
-  (void)llvm::createDTransDeleteFieldOPWrapperPass();
-  (void)llvm::createDTransAOSToSOAWrapperPass();
-  (void)llvm::createDTransAOSToSOAOPWrapperPass();
-  (void)llvm::createDTransAnnotatorCleanerWrapperPass();
-  (void)llvm::createDTransReorderFieldsWrapperPass();
-  (void)llvm::createDTransReorderFieldsOPWrapperPass();
-  (void)llvm::createDTransPaddedMallocWrapperPass();
-  (void)llvm::createDTransPaddedMallocOPWrapperPass();
-  (void)llvm::createDTransEliminateROFieldAccessWrapperPass();
-  (void)llvm::createDTransEliminateROFieldAccessOPWrapperPass();
-  (void)llvm::createPaddedPtrPropWrapperPass();
-  (void)llvm::createPaddedPtrPropOPWrapperPass();
-  (void)llvm::createDTransSOAToAOSPrepareWrapperPass();
-  (void)llvm::createDTransSOAToAOSOPPrepareWrapperPass();
-  (void)llvm::createDTransSOAToAOSWrapperPass();
-  (void)llvm::createDTransSOAToAOSOPWrapperPass();
-  (void)llvm::createDTransAnalysisWrapperPass();
-  (void)llvm::createDTransImmutableAnalysisWrapperPass();
-  (void)llvm::createDTransSafetyAnalyzerTestWrapperPass();
-  (void)llvm::createDTransFieldModRefAnalysisWrapperPass();
-  (void)llvm::createDTransFieldModRefOPAnalysisWrapperPass();
-  (void)llvm::createDTransFieldModRefResultWrapperPass();
-  (void)llvm::createDTransDynCloneWrapperPass();
-  (void)llvm::createDTransDynCloneOPWrapperPass();
-  (void)llvm::createDTransWeakAlignWrapperPass();
-  (void)llvm::createDTransMemInitTrimDownWrapperPass();
-  (void)llvm::createDTransMemManageTransWrapperPass();
-  (void)llvm::createDTransCodeAlignWrapperPass();
-  (void)llvm::createDTransCodeAlignOPWrapperPass();
-  (void)llvm::createDTransTransposeWrapperPass();
-  (void)llvm::createDTransCommuteCondWrapperPass();
-  (void)llvm::createDTransCommuteCondOPWrapperPass();
-  (void)llvm::createRemoveAllDTransTypeMetadataWrapperPass();
-  (void)llvm::createRemoveDeadDTransTypeMetadataWrapperPass();
-  (void)llvm::createDTransNormalizeOPWrapperPass();
-
-#if !INTEL_PRODUCT_RELEASE
-  (void)llvm::createDTransOptBaseTestWrapperPass();
-  (void)llvm::createDTransMetadataReaderTestWrapperPass();
-  (void)llvm::createDTransPtrTypeAnalyzerTestWrapperPass();
-#endif // !INTEL_PRODUCT_RELEASE
 }

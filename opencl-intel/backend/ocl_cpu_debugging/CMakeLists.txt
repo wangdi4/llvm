@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2022 Intel Corporation
+# Copyright (C) 2011-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -32,14 +32,27 @@ if(WIN32)
   set(OCL_CPU_DEBUGGING_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
   set(OCL_CPU_DEBUGGING_IMPORT_DIRS
-      ${OCL_SOURCE_DIR}/externals/protobuf/include
+      ${protobuf_INCLUDE_DIR}
       ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
       ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export)
 
   set(OCL_CPU_DEBUGGING_EXPORT_DIR ${OCL_CPU_DEBUGGING_DIR}/export)
+  
+  ADD_CUSTOM_COMMAND(
+    OUTPUT "debugservermessages.pb.cc" "debugservermessages.pb.h"
+    COMMAND ${protobuf_EXECUTABLE}
+    ARGS --cpp_out ${CMAKE_CURRENT_BINARY_DIR}
+     -I ${CMAKE_CURRENT_SOURCE_DIR}
+     debugservermessages.proto
+    DEPENDS debugservermessages.proto ${protobuf_EXECUTABLE}
+    COMMENT "runing C++ protobuf compiler on debugservermessages.proto"
+    VERBATIM)
 
-  # Create target project
-
+  #protoc is target which to generate protoc.exe
+  ADD_CUSTOM_TARGET(
+    Generate_proto 
+    DEPENDS protoc "debugservermessages.pb.cc" "debugservermessages.pb.h" )
+  
   # Add additional lib direcories
   link_directories(${TBB_LIB_DIR})
 
@@ -53,7 +66,7 @@ if(WIN32)
     debug_communicator.cpp
     debug_server.cpp
     debuginfo_utils.cpp
-    debugservermessages.pb.cc
+    ${CMAKE_CURRENT_BINARY_DIR}/debugservermessages.pb.cc
     protobufpackedmessage.cpp
     INCLUDE_DIRS
     ${LLVM_INCLUDE_DIRS}
@@ -62,13 +75,15 @@ if(WIN32)
     ${OCL_SOURCE_DIR}/externals/tbb/include
     LINK_LIBS
     ${SOCKETLIB}
+    cl_hw_utils
     cl_sys_utils
-    protobuf
+    libprotobuf
     LLVMCore
     LLVMIntelJITEvents
     RC_TEMPLATE
     ${CMAKE_CURRENT_SOURCE_DIR}/OclCpuDebugging.rc.in)
 
+  add_dependencies(${TARGET_NAME} Generate_proto)
   set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})
 
 endif(WIN32)

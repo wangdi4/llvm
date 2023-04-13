@@ -1005,84 +1005,84 @@ def X86vcvtne2ps2phRnd : SDNode<"X86ISD::VCVTNE2PS2PH_RND",
                                               SDTCisVT<3, i32>]>>;
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #if INTEL_FEATURE_ISA_AVX512_SAT_CVT
-def SDTAVX512SATCVT_BF162I_MASK : SDTypeProfile<1, 4, [
+def SDTAVX512SATCVT_BF162I_MASK : SDTypeProfile<1, 3, [
   SDTCVecEltisVT<0, i16>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
-  SDTCisSameAs<0, 3>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 2>
+  SDTCisSameAs<0, 3>, SDTCisSameNumEltsAs<0, 2>
 ]>;
 
-def SDTAVX512SATCVT_BF162I_MASKZ : SDTypeProfile<1, 3, [
+def SDTAVX512SATCVT_BF162I_MASKZ : SDTypeProfile<1, 2, [
   SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, i1>, SDTCisSameAs<0, 2>,
-  SDTCisInt<3>, SDTCisSameNumEltsAs<0, 1>
+  SDTCisSameNumEltsAs<0, 1>
 ]>;
 
-def SDTAVX512SATCVT_PH2I_MASK : SDTypeProfile<1, 4, [
+def SDTAVX512SATCVT_PH2I_MASK : SDTypeProfile<1, 3, [
+  SDTCVecEltisVT<0, i16>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
+  SDTCVecEltisVT<3, f16>, SDTCisSameNumEltsAs<0, 2>
+]>;
+
+def SDTAVX512SATCVT_PH2I_MASKZ : SDTypeProfile<1, 2, [
+  SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f16>,
+  SDTCisSameNumEltsAs<0, 1>
+]>;
+
+def SDTAVX512SATCVT_PH2I_MASK_ROUND : SDTypeProfile<1, 4, [
   SDTCVecEltisVT<0, i16>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
   SDTCVecEltisVT<3, f16>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 2>
 ]>;
 
-def SDTAVX512SATCVT_PH2I_MASKZ : SDTypeProfile<1, 3, [
+def SDTAVX512SATCVT_PH2I_MASKZ_ROUND : SDTypeProfile<1, 3, [
   SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f16>,
   SDTCisInt<3>, SDTCisSameNumEltsAs<0, 1>
 ]>;
 
-def SDTAVX512SATCVT_PH2I_MASK_ROUND : SDTypeProfile<1, 5, [
-  SDTCVecEltisVT<0, i16>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
-  SDTCVecEltisVT<3, f16>, SDTCisInt<4>, SDTCisInt<5>, SDTCisSameNumEltsAs<0, 2>
+def SDTAVX512SATCVT_PS2I_MASK : SDTypeProfile<1, 3, [
+  SDTCVecEltisVT<0, i32>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
+  SDTCVecEltisVT<3, f32>, SDTCisSameNumEltsAs<0, 2>
 ]>;
 
-def SDTAVX512SATCVT_PH2I_MASKZ_ROUND : SDTypeProfile<1, 4, [
-  SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f16>,
-  SDTCisInt<3>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 1>
+def SDTAVX512SATCVT_PS2I_MASKZ : SDTypeProfile<1, 2, [
+  SDTCVecEltisVT<0, i32>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f32>,
+  SDTCisSameNumEltsAs<0, 1>
 ]>;
 
-def SDTAVX512SATCVT_PS2I_MASK : SDTypeProfile<1, 4, [
+def SDTAVX512SATCVT_PS2I_MASK_RND : SDTypeProfile<1, 4, [
   SDTCVecEltisVT<0, i32>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
   SDTCVecEltisVT<3, f32>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 2>
 ]>;
 
-def SDTAVX512SATCVT_PS2I_MASKZ : SDTypeProfile<1, 3, [
+def SDTAVX512SATCVT_PS2I_MASKZ_RND : SDTypeProfile<1, 3, [
   SDTCVecEltisVT<0, i32>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f32>,
   SDTCisInt<3>, SDTCisSameNumEltsAs<0, 1>
 ]>;
 
-def SDTAVX512SATCVT_PS2I_MASK_RND : SDTypeProfile<1, 5, [
-  SDTCVecEltisVT<0, i32>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
-  SDTCVecEltisVT<3, f32>, SDTCisInt<4>, SDTCisInt<5>, SDTCisSameNumEltsAs<0, 2>
-]>;
-
-def SDTAVX512SATCVT_PS2I_MASKZ_RND : SDTypeProfile<1, 4, [
-  SDTCVecEltisVT<0, i32>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f32>,
-  SDTCisInt<3>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 1>
-]>;
-
-def SDTAVX512SATCVT_PH2I_SAE : SDTypeProfile<1, 2, [
-  SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, f16>, SDTCisInt<2>,
+def SDTAVX512SATCVT_PH2I_SAE : SDTypeProfile<1, 1, [
+  SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, f16>,
   SDTCisSameNumEltsAs<0, 1>
 ]>;
 
-def SDTAVX512SATCVT_PH2I_MASK_SAE : SDTypeProfile<1, 4, [
+def SDTAVX512SATCVT_PH2I_MASK_SAE : SDTypeProfile<1, 3, [
   SDTCVecEltisVT<0, i16>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
-  SDTCVecEltisVT<3, f16>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 2>
+  SDTCVecEltisVT<3, f16>, SDTCisSameNumEltsAs<0, 2>
 ]>;
 
-def SDTAVX512SATCVT_PH2I_MASKZ_SAE : SDTypeProfile<1, 3, [
+def SDTAVX512SATCVT_PH2I_MASKZ_SAE : SDTypeProfile<1, 2, [
   SDTCVecEltisVT<0, i16>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f16>,
-  SDTCisInt<3>, SDTCisSameNumEltsAs<0, 1>
-]>;
-
-def SDTAVX512SATCVT_PS2I_SAE : SDTypeProfile<1, 2, [
-  SDTCVecEltisVT<0, i32>, SDTCVecEltisVT<1, f32>, SDTCisInt<2>,
   SDTCisSameNumEltsAs<0, 1>
 ]>;
 
-def SDTAVX512SATCVT_PS2I_MASK_SAE : SDTypeProfile<1, 4, [
-  SDTCVecEltisVT<0, i32>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
-  SDTCVecEltisVT<3, f32>, SDTCisInt<4>, SDTCisSameNumEltsAs<0, 2>
+def SDTAVX512SATCVT_PS2I_SAE : SDTypeProfile<1, 1, [
+  SDTCVecEltisVT<0, i32>, SDTCVecEltisVT<1, f32>,
+  SDTCisSameNumEltsAs<0, 1>
 ]>;
 
-def SDTAVX512SATCVT_PS2I_MASKZ_SAE : SDTypeProfile<1, 3, [
+def SDTAVX512SATCVT_PS2I_MASK_SAE : SDTypeProfile<1, 3, [
+  SDTCVecEltisVT<0, i32>, SDTCisSameAs<0, 1>, SDTCVecEltisVT<2, i1>,
+  SDTCVecEltisVT<3, f32>, SDTCisSameNumEltsAs<0, 2>
+]>;
+
+def SDTAVX512SATCVT_PS2I_MASKZ_SAE : SDTypeProfile<1, 2, [
   SDTCVecEltisVT<0, i32>, SDTCVecEltisVT<1, i1>, SDTCVecEltisVT<2, f32>,
-  SDTCisInt<3>, SDTCisSameNumEltsAs<0, 1>
+  SDTCisSameNumEltsAs<0, 1>
 ]>;
 
 def X86vcvtnebf162ibs
@@ -1241,6 +1241,89 @@ def X86vphramaxs : SDNode<"X86ISD::VPHRAMAXS", SDTAVX512REDUCTIONTernary>;
 def X86vphramin : SDNode<"X86ISD::VPHRAMIN", SDTAVX512REDUCTIONTernary>;
 def X86vphramins : SDNode<"X86ISD::VPHRAMINS", SDTAVX512REDUCTIONTernary>;
 #endif // INTEL_FEATURE_ISA_AVX512_REDUCTION2
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
+def SDTAVX512NECONVERTFP8_I82F16 : SDTypeProfile<1, 3, [
+  // SDTCisVec<0>, SDTCisVec<2>, SDTCVecEltisVT<0, i8>,
+  // SDTCVecEltisVT<2, f16>, SDTCisSameAs<0, 1>, SDTCisSameAs<2, 3>
+  SDTCVecEltisVT<0, i8>, SDTCisSameAs<0, 1>,
+  SDTCVecEltisVT<2, f16>, SDTCisSameAs<2, 3>
+]>;
+
+def SDTAVX512NECONVERTFP8_I82F16_SRCDST : SDTypeProfile<1, 2, [
+  SDTCVecEltisVT<0, i8>, SDTCVecEltisVT<1, f16>, SDTCisSameAs<1, 2>
+]>;
+
+def SDTAVX512NECONVERTFP8_F16I8 : SDTypeProfile<1, 1, [
+  SDTCVecEltisVT<0, f16>, SDTCVecEltisVT<1, i8>
+]>;
+
+def SDTAVX512NECONVERTFP8_I8F16 : SDTypeProfile<1, 1, [
+  SDTCVecEltisVT<0, i8>, SDTCVecEltisVT<1, f16>
+]>;
+
+def SDTAVX512NECONVERTFP8_I8F16_MASK : SDTypeProfile<1, 3, [
+  SDTCVecEltisVT<0, i8>, SDTCVecEltisVT<1, f16>,
+  SDTCisSameAs<0, 2>, SDTCVecEltisVT<3, i1>,
+  SDTCisSameNumEltsAs<1, 3>
+]>;
+// 3op
+def X86vcvtbias2ph2bf8 : SDNode<"X86ISD::VCVTBIAS2PH2BF8",
+                      SDTAVX512NECONVERTFP8_I82F16>;
+def X86vcvtbias2ph2bf8s : SDNode<"X86ISD::VCVTBIAS2PH2BF8S",
+                      SDTAVX512NECONVERTFP8_I82F16>;
+def X86vcvtbias2ph2hf8 : SDNode<"X86ISD::VCVTBIAS2PH2HF8",
+                      SDTAVX512NECONVERTFP8_I82F16>;
+def X86vcvtbias2ph2hf8s : SDNode<"X86ISD::VCVTBIAS2PH2HF8S",
+                      SDTAVX512NECONVERTFP8_I82F16>;
+def X86vcvtne2ph2bf8 : SDNode<"X86ISD::VCVTNE2PH2BF8",
+                      SDTAVX512NECONVERTFP8_I82F16_SRCDST>;
+def X86vcvtne2ph2bf8s : SDNode<"X86ISD::VCVTNE2PH2BF8S",
+                      SDTAVX512NECONVERTFP8_I82F16_SRCDST>;
+def X86vcvtne2ph2hf8 : SDNode<"X86ISD::VCVTNE2PH2HF8",
+                      SDTAVX512NECONVERTFP8_I82F16_SRCDST>;
+def X86vcvtne2ph2hf8s : SDNode<"X86ISD::VCVTNE2PH2HF8S",
+                      SDTAVX512NECONVERTFP8_I82F16_SRCDST>;
+// 2op no broadcast
+def X86vcvtnebf82ph : SDNode<"X86ISD::VCVTNEBF82PH",
+                    SDTAVX512NECONVERTFP8_F16I8>;
+def X86vcvtnehf82ph : SDNode<"X86ISD::VCVTNEHF82PH",
+                    SDTAVX512NECONVERTFP8_F16I8>;
+
+// 2op
+def X86vcvtbiasph2bf8 : SDNode<"X86ISD::VCVTBIASPH2BF8",
+                      SDTAVX512NECONVERTFP8_I8F16>;
+def X86vcvtbiasph2bf8s : SDNode<"X86ISD::VCVTBIASPH2BF8S",
+                      SDTAVX512NECONVERTFP8_I8F16>;
+def X86vcvtbiasph2hf8 : SDNode<"X86ISD::VCVTBIASPH2HF8",
+                      SDTAVX512NECONVERTFP8_I8F16>;
+def X86vcvtbiasph2hf8s : SDNode<"X86ISD::VCVTBIASPH2HF8S",
+                      SDTAVX512NECONVERTFP8_I8F16>;
+def X86vcvtneph2bf8 : SDNode<"X86ISD::VCVTNEPH2BF8",
+                      SDTAVX512NECONVERTFP8_I8F16>;
+def X86vcvtneph2bf8s : SDNode<"X86ISD::VCVTNEPH2BF8S",
+                      SDTAVX512NECONVERTFP8_I8F16>;
+def X86vcvtneph2hf8 : SDNode<"X86ISD::VCVTNEPH2HF8",
+                      SDTAVX512NECONVERTFP8_I8F16>;
+def X86vcvtneph2hf8s : SDNode<"X86ISD::VCVTNEPH2HF8S",
+                      SDTAVX512NECONVERTFP8_I8F16>;
+
+def X86vmcvtbiasph2bf8 : SDNode<"X86ISD::VMCVTBIASPH2BF8",
+                      SDTAVX512NECONVERTFP8_I8F16_MASK>;
+def X86vmcvtbiasph2bf8s : SDNode<"X86ISD::VMCVTBIASPH2BF8S",
+                      SDTAVX512NECONVERTFP8_I8F16_MASK>;
+def X86vmcvtbiasph2hf8 : SDNode<"X86ISD::VMCVTBIASPH2HF8",
+                      SDTAVX512NECONVERTFP8_I8F16_MASK>;
+def X86vmcvtbiasph2hf8s : SDNode<"X86ISD::VMCVTBIASPH2HF8S",
+                      SDTAVX512NECONVERTFP8_I8F16_MASK>;
+def X86vmcvtneph2bf8 : SDNode<"X86ISD::VMCVTNEPH2BF8",
+                      SDTAVX512NECONVERTFP8_I8F16_MASK>;
+def X86vmcvtneph2bf8s : SDNode<"X86ISD::VMCVTNEPH2BF8S",
+                      SDTAVX512NECONVERTFP8_I8F16_MASK>;
+def X86vmcvtneph2hf8 : SDNode<"X86ISD::VMCVTNEPH2HF8",
+                      SDTAVX512NECONVERTFP8_I8F16_MASK>;
+def X86vmcvtneph2hf8s : SDNode<"X86ISD::VMCVTNEPH2HF8S",
+                      SDTAVX512NECONVERTFP8_I8F16_MASK>;
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

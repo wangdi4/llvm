@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-deletion -S | FileCheck %s
+; RUN: opt -passes="loop(loop-deletion)" < %s -S | FileCheck %s
 
 ; CHECK-NOT: while.body.test1
 ; CHECK: sub.ptr.div = lshr {{.*}} i64 2

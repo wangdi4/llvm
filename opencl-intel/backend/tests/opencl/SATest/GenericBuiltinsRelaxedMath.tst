@@ -2,6 +2,6 @@
 
 ; RUN: SATest -BUILD --config=%s.cfg -tsize=0 --dump-llvm-file - | FileCheck %s
 ;
-; CHECK: call fast float @_Z9sincos_rmfPU3AS4f
+; CHECK: call fast nofpclass({{.*}}) float @_Z9sincos_rmfPU3AS4f
 
 ; CHECK: Test program was successfully built.

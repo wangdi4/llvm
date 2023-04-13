@@ -2,7 +2,7 @@
 ; emitted at function-level. For example, remarks added in the format
 ; ORBuilder(*F).addRemark(Verbosity, RemarkID);
 
-; RUN: opt -intel-ir-optreport-emitter -disable-output 2>&1 < %s | FileCheck %s --strict-whitespace
+; RUN: opt -passes="intel-ir-optreport-emitter" -disable-output 2>&1 < %s | FileCheck %s --strict-whitespace
 
 ; CHECK-LABEL: Global optimization report for : foo
 ; CHECK-EMPTY:

@@ -317,13 +317,33 @@ public:
 
   /// Compares struct offsets in \p Ref1 and \p Ref2 and returns true if they
   /// are equal. For example, it will returns true for references like A[0].1
-  /// and A[i1].1. Both refs should have same base and number of dimensions.
-  static bool haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2);
+  /// and A[i1].1. Both refs should have same base and number of dimensions
+  /// except when \p IgnoreBaseCE is true, which will ignore the equalness of
+  /// base CEs.
+  static bool haveEqualOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                               unsigned NumIgnorableDims = 0,
+                               bool IgnoreBaseCE = false);
 
   /// Compares BaseCE and number of dimension.
+  /// \p NumIgnorableDims is a number of innermost dimensions that could be
+  /// ignored when function is called for refineDV() case under ForFusion mode.
   /// Preliminary check for index comparison.
   static bool haveEqualBaseAndShape(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                                    bool RelaxedMode);
+                                    bool RelaxedMode,
+                                    unsigned NumIgnorableDims = 0,
+                                    bool IgnoreBaseCE = false);
+
+  /// Returns true if both haveEqualBaseAndShape() and haveEqualOffsets() are
+  /// true.
+  static bool haveEqualBaseAndShapeAndOffsets(const RegDDRef *Ref1,
+                                              const RegDDRef *Ref2,
+                                              bool RelaxedMode,
+                                              unsigned NumIgnorableDims = 0,
+                                              bool IgnoreBaseCE = false) {
+    return haveEqualBaseAndShape(Ref1, Ref2, RelaxedMode, NumIgnorableDims,
+                                 IgnoreBaseCE) &&
+           haveEqualOffsets(Ref1, Ref2, NumIgnorableDims, IgnoreBaseCE);
+  }
 
   /// Returns true if \p Ref1 and \p Ref2 have equal base and shape and
   /// distances in each pair of dimension indices are constants.

@@ -1,8 +1,6 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 ; This command checks that -hir-ssa-deconstruction invalidates SCEV so that the parser doesn't pick up the cached version. HIR output should be the same as for the above command.
-; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll 2>&1 | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll" -disable-output  2>&1 | FileCheck %s
 
 ; Check parsing output for the loop
@@ -17,7 +15,6 @@
 ; CHECK-NEXT: END LOOP
 
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser -hir-details | FileCheck -check-prefix=DETAIL %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output -hir-details 2>&1 | FileCheck %s -check-prefix=DETAIL
 
 ; Verify that %a.addr.010, %b.addr.07 and %c.addr.08 arer marked as liveins.

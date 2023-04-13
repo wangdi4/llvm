@@ -56,20 +56,28 @@ VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
   // Overrides incoming AT.
   // TODO: remove getAccessType() from this place.
   MemAccessTy AccTy = getAccessType(Ref, Level, &Stride);
+
+  // Return null if we are forcing only stride-2 VLS and the stride
+  // is not equal to 2.
+  int64_t ElemStride = Stride / Ref->getDestTypeSizeInBytes();
+  if (getForceStride2VLS() && ElemStride != 2)
+    return nullptr;
+
   unsigned Opcode = Inst->getOpcode();
+  bool IsMasked = Inst->getParent()->getBlockPredicate() != nullptr;
 
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Load)
     return VPVLSClientMemrefHIR::create(OptVLSContext, OVLSAccessKind::SLoad,
-                                        Ty, Inst, TheLoop, DDA, Ref);
+                                        Ty, Inst, TheLoop, DDA, Ref, IsMasked);
   if (AccTy == MemAccessTy::Strided && Opcode == Instruction::Store)
     return VPVLSClientMemrefHIR::create(OptVLSContext, OVLSAccessKind::SStore,
-                                        Ty, Inst, TheLoop, DDA, Ref);
+                                        Ty, Inst, TheLoop, DDA, Ref, IsMasked);
   if (AccTy == MemAccessTy::Indexed && Opcode == Instruction::Load)
     return VPVLSClientMemrefHIR::create(OptVLSContext, OVLSAccessKind::ILoad,
-                                        Ty, Inst, TheLoop, DDA, Ref);
+                                        Ty, Inst, TheLoop, DDA, Ref, IsMasked);
   if (AccTy == MemAccessTy::Indexed && Opcode == Instruction::Store)
     return VPVLSClientMemrefHIR::create(OptVLSContext, OVLSAccessKind::IStore,
-                                        Ty, Inst, TheLoop, DDA, Ref);
+                                        Ty, Inst, TheLoop, DDA, Ref, IsMasked);
   return nullptr;
 }
 

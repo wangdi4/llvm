@@ -1,6 +1,6 @@
 ; Check that line number of store is preserved after memcpy transform.
 
-; RUN: opt -aa-pipeline="basic-aa,scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-idiom,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -aa-pipeline="basic-aa,scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-idiom,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK: :3>      @llvm.memcpy.p0i8.p0i8.i32(&((i8*)(%a)[0]),  &((i8*)(%a)[100]),  400,  0);

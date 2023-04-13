@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_QsortRecognizer.cpp --------------------------------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -84,36 +84,6 @@ static bool QsortRecognizerImpl(Module &M) {
     }
   }
   return SawQsort;
-}
-
-namespace {
-
-struct QsortRecognizerLegacyPass : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  QsortRecognizerLegacyPass(void) : ModulePass(ID) {
-    initializeQsortRecognizerLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    return QsortRecognizerImpl(M);
-  }
-};
-
-} // namespace
-
-char QsortRecognizerLegacyPass::ID = 0;
-INITIALIZE_PASS(QsortRecognizerLegacyPass, "qsortrecognizer", "QsortRecognizer",
-                false, false)
-
-ModulePass *llvm::createQsortRecognizerLegacyPass(void) {
-  return new QsortRecognizerLegacyPass();
 }
 
 QsortRecognizerPass::QsortRecognizerPass(void) {}

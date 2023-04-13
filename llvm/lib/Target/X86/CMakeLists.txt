@@ -62,6 +62,7 @@ set(sources
   Intel_X86StackRealign.cpp
   Intel_X86HeteroArchOpt.cpp
 # end INTEL_CUSTOMIZATION
+  X86ArgumentStackSlotRebase.cpp
   X86AsmPrinter.cpp
   X86AvoidTrailingCall.cpp
   X86CallFrameOptimization.cpp
@@ -82,6 +83,7 @@ set(sources
   X86FastISel.cpp
   X86FixupBWInsts.cpp
   X86FixupLEAs.cpp
+  X86FixupInstTuning.cpp
   X86AvoidStoreForwardingBlocks.cpp
   X86DynAllocaExpander.cpp
   X86FixupSetCC.cpp
@@ -137,6 +139,7 @@ add_llvm_target(X86CodeGen ${sources}
   SelectionDAG
   Support
   Target
+  TargetParser
   TransformUtils
   X86Desc
   X86Info

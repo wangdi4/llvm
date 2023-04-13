@@ -167,8 +167,10 @@ void VPOParoptUtils::genF90DVInitCode(
   Value *PointeeData = genPrivatizationAlloca(
       DataElementTy, NumElements, OrigAlignment,
       &*AllocBuilder.GetInsertPoint(), IsTargetSPIRV, NamePrefix + ".data");
-  auto *StoreVal = AllocBuilder.CreatePointerBitCastOrAddrSpaceCast(
-      PointeeData, cast<GEPOperator>(Addr0GEP)->getResultElementType());
+
+  auto *Addr0Ty = cast<StructType>(DVType)->getElementType(0);
+  auto *StoreVal =
+      AllocBuilder.CreatePointerBitCastOrAddrSpaceCast(PointeeData, Addr0Ty);
   AllocBuilder.CreateStore(StoreVal, Addr0GEP);
 
   if (!StoreNumElementsToGlobal)
@@ -263,9 +265,9 @@ void VPOParoptUtils::genF90DVReductionInitDstInfo(const Item *I, Value *&NewV,
   auto *Zero = Builder.getInt32(0);
   auto *Addr0GEP = Builder.CreateInBoundsGEP(DVType, NewV, {Zero, Zero},
                                              NamePrefix + ".addr0");
+  auto *Addr0Ty = cast<StructType>(DVType)->getElementType(0);
   DestArrayBeginOut =
-      Builder.CreateLoad(cast<GEPOperator>(Addr0GEP)->getResultElementType(),
-                         Addr0GEP, NamePrefix + ".data");
+      Builder.CreateLoad(Addr0Ty, Addr0GEP, NamePrefix + ".data");
   DestElementTyOut = DataElementTy;
 
   Value *NumElementsFromI = I->getF90DVNumElements();
@@ -306,8 +308,8 @@ void VPOParoptUtils::genF90DVReductionSrcDstInfo(
   auto *Zero = Builder.getInt32(0);
   auto *Addr0GEP = Builder.CreateInBoundsGEP(DVType, DestVal, {Zero, Zero},
                                              NamePrefix + ".addr0");
+  auto *Addr0Ty = cast<StructType>(DVType)->getElementType(0);
   DestArrayBeginOut =
-      Builder.CreateLoad(cast<GEPOperator>(Addr0GEP)->getResultElementType(),
-                         Addr0GEP, NamePrefix + ".data");
+      Builder.CreateLoad(Addr0Ty, Addr0GEP, NamePrefix + ".data");
 }
 #endif // INTEL_CUSTOMIZATION

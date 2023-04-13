@@ -17,7 +17,7 @@
 # end INTEL_CUSTOMIZATION
 
 set(obj_binary_dir "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
-if (WIN32)
+if (MSVC)
   set(lib-suffix obj)
   set(spv_binary_dir "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
   set(install_dest_spv bin)
@@ -61,6 +61,20 @@ set(compile_opts
   -Wno-undefined-internal
   -sycl-std=2020
   )
+
+if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
+  list(APPEND compile_opts "-Xclang" "-no-opaque-pointers")
+endif()
+
+set(SYCL_LIBDEVICE_GCC_TOOLCHAIN "" CACHE PATH "Path to GCC installation")
+
+if (NOT SYCL_LIBDEVICE_GCC_TOOLCHAIN STREQUAL "")
+  list(APPEND compile_opts "--gcc-toolchain=${SYCL_LIBDEVICE_GCC_TOOLCHAIN}")
+endif()
+
+if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
+  list(APPEND compile_opts "-Xclang" "-no-opaque-pointers")
+endif()
 
 if ("NVPTX" IN_LIST LLVM_TARGETS_TO_BUILD)
   string(APPEND sycl_targets_opt ",nvptx64-nvidia-cuda")
@@ -131,7 +145,7 @@ set(complex_obj_deps device_complex.h device.h sycl-compiler)
 set(cmath_obj_deps device_math.h device.h sycl-compiler)
 set(imf_obj_deps device_imf.hpp imf_half.hpp imf_bf16.hpp device.h sycl-compiler)
 set(itt_obj_deps device_itt.h spirv_vars.h device.h sycl-compiler)
-set(bfloat16_obj_deps sycl-compiler)
+set(bfloat16_obj_deps sycl-headers sycl-compiler)
 
 add_devicelib_obj(libsycl-itt-stubs SRC itt_stubs.cpp DEP ${itt_obj_deps})
 add_devicelib_obj(libsycl-itt-compiler-wrappers SRC itt_compiler_wrappers.cpp DEP ${itt_obj_deps})
@@ -146,7 +160,7 @@ add_devicelib_obj(libsycl-imf SRC imf_wrapper.cpp DEP ${imf_obj_deps})
 add_devicelib_obj(libsycl-imf-fp64 SRC imf_wrapper_fp64.cpp DEP ${imf_obj_deps})
 add_devicelib_obj(libsycl-imf-bf16 SRC imf_wrapper_bf16.cpp DEP ${imf_obj_deps})
 add_devicelib_obj(libsycl-bfloat16 SRC bfloat16_wrapper.cpp DEP ${cmath_obj_deps} )
-if(WIN32)
+if(MSVC)
 add_devicelib_obj(libsycl-msvc-math SRC msvc_math.cpp DEP ${cmath_obj_deps})
 endif()
 
@@ -243,6 +257,11 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/nan_s_xa.cpp
                            imf/intel/scalbn_s_xa.cpp
                            imf/intel/signbit_s_xa.cpp
+                           imf/intel/i0_s_ep.cpp
+                           imf/intel/j0_s_ep.cpp
+                           imf/intel/j1_s_ep.cpp
+                           imf/intel/y0_s_ep.cpp
+                           imf/intel/y1_s_ep.cpp
                            # end INTEL_CUSTOMIZATION
                            imf/imf_inline_fp32.cpp)
 set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
@@ -315,6 +334,7 @@ set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/tanh_d_ha.cpp
                            imf/intel/tgamma_d_ep.cpp
                            imf/intel/lgamma_d_ep.cpp
+                           imf/intel/i0_d_ep.cpp
                            # end INTEL_CUSTOMIZATION
                            imf/imf_inline_fp64.cpp)
 set(imf_fallback_bf16_deps device.h device_imf.hpp imf_bf16.hpp
@@ -482,7 +502,8 @@ add_custom_target(imf_fp32_host_obj DEPENDS ${obj_binary_dir}/imf-fp32-host.${li
 add_custom_target(imf_fp64_host_obj DEPENDS ${obj_binary_dir}/imf-fp64-host.${lib-suffix})
 add_custom_target(imf_bf16_host_obj DEPENDS ${obj_binary_dir}/imf-bf16-host.${lib-suffix})
 
-add_custom_target(imf_host_obj
+add_custom_target(imf_host_obj DEPENDS ${obj_binary_dir}/${devicelib_host_static})
+add_custom_command(OUTPUT ${obj_binary_dir}/${devicelib_host_static}
                   COMMAND ${llvm-ar} rcs ${obj_binary_dir}/${devicelib_host_static}
                           ${obj_binary_dir}/imf-fp32-host.${lib-suffix}
                           ${obj_binary_dir}/fallback-imf-fp32-host.${lib-suffix}

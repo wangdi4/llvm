@@ -483,10 +483,10 @@ memoryIsNotModifiedBetween(Instruction *FirstI, Instruction *SecondI,
           "Should not hit the entry block because SI must be dominated by LI");
       for (BasicBlock *Pred : predecessors(B)) {
         PHITransAddr PredAddr = Addr;
-        if (PredAddr.NeedsPHITranslationFromBlock(B)) {
-          if (!PredAddr.IsPotentiallyPHITranslatable())
+        if (PredAddr.needsPHITranslationFromBlock(B)) {
+          if (!PredAddr.isPotentiallyPHITranslatable())
             return false;
-          if (PredAddr.PHITranslateValue(B, Pred, DT, false))
+          if (!PredAddr.translateValue(B, Pred, DT, false))
             return false;
         }
         Value *TranslatedPtr = PredAddr.getAddr();
@@ -541,7 +541,7 @@ static void shortenAssignment(Instruction *Inst, uint64_t OldOffsetInBits,
       LinkToNothing = DIAssignID::getDistinct(Inst->getContext());
     NewAssign->setAssignId(LinkToNothing);
     NewAssign->setExpression(CreateDeadFragExpr());
-    NewAssign->setAddress(UndefValue::get(DAI->getAddress()->getType()));
+    NewAssign->setKillAddress();
   }
 }
 
@@ -751,7 +751,7 @@ tryToMergePartialOverlappingStores(StoreInst *KillingI, StoreInst *DeadI,
 }
 
 namespace {
-// Returns true if \p I is an intrisnic that does not read or write memory.
+// Returns true if \p I is an intrinsic that does not read or write memory.
 bool isNoopIntrinsic(Instruction *I) {
   if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
     switch (II->getIntrinsicID()) {
@@ -761,7 +761,6 @@ bool isNoopIntrinsic(Instruction *I) {
     case Intrinsic::launder_invariant_group:
     case Intrinsic::assume:
       return true;
-    case Intrinsic::dbg_addr:
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_label:
     case Intrinsic::dbg_value:
@@ -1317,7 +1316,7 @@ struct DSEState {
   // there is no such MemoryDef, return std::nullopt. The returned value may not
   // (completely) overwrite \p KillingLoc. Currently we bail out when we
   // encounter an aliasing MemoryUse (read).
-  Optional<MemoryAccess *>
+  std::optional<MemoryAccess *>
   getDomMemoryDef(MemoryDef *KillingDef, MemoryAccess *StartAccess,
                   const MemoryLocation &KillingLoc, const Value *KillingUndObj,
                   unsigned &ScanLimit, unsigned &WalkerStepLimit,
@@ -2103,7 +2102,7 @@ static bool eliminateDeadStores(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
       if (State.SkipStores.count(Current))
         continue;
 
-      Optional<MemoryAccess *> MaybeDeadAccess = State.getDomMemoryDef(
+      std::optional<MemoryAccess *> MaybeDeadAccess = State.getDomMemoryDef(
           KillingDef, Current, KillingLoc, KillingUndObj, ScanLimit,
           WalkerStepLimit, IsMemTerm, PartialLimit);
 
@@ -2262,81 +2261,4 @@ PreservedAnalyses DSEPass::run(Function &F, FunctionAnalysisManager &AM) {
   PA.preserve<MemorySSAAnalysis>();
   PA.preserve<LoopAnalysis>();
   return PA;
-}
-
-namespace {
-
-/// A legacy pass for the legacy pass manager that wraps \c DSEPass.
-class DSELegacyPass : public FunctionPass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  DSELegacyPass() : FunctionPass(ID) {
-    initializeDSELegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
-      return false;
-
-    AliasAnalysis &AA = getAnalysis<AAResultsWrapperPass>().getAAResults();
-    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    const TargetLibraryInfo &TLI =
-        getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    MemorySSA &MSSA = getAnalysis<MemorySSAWrapperPass>().getMSSA();
-    PostDominatorTree &PDT =
-        getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-    AssumptionCache &AC =
-        getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-    LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-
-    bool Changed = eliminateDeadStores(F, AA, MSSA, DT, PDT, AC, TLI, LI);
-
-#ifdef LLVM_ENABLE_STATS
-    if (AreStatisticsEnabled())
-      for (auto &I : instructions(F))
-        NumRemainingStores += isa<StoreInst>(&I);
-#endif
-
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-    AU.addRequired<AAResultsWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();       // INTEL
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addRequired<PostDominatorTreeWrapperPass>();
-    AU.addRequired<MemorySSAWrapperPass>();
-    AU.addPreserved<PostDominatorTreeWrapperPass>();
-    AU.addPreserved<MemorySSAWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addPreserved<LoopInfoWrapperPass>();
-    AU.addRequired<AssumptionCacheTracker>();
-  }
-};
-
-} // end anonymous namespace
-
-char DSELegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(DSELegacyPass, "dse", "Dead Store Elimination", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(MemoryDependenceWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_END(DSELegacyPass, "dse", "Dead Store Elimination", false,
-                    false)
-
-FunctionPass *llvm::createDeadStoreEliminationPass() {
-  return new DSELegacyPass();
 }

@@ -1,6 +1,6 @@
 //=------------- IntelVPlanPragmaOmpOrderedSimdExtract.cpp -*- C++ -*--------=//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -9,11 +9,11 @@
 // ===--------------------------------------------------------------------=== //
 #include "llvm/Transforms/Vectorize/IntelVPlanPragmaOmpOrderedSimdExtract.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanUtils.h"
-#include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
@@ -72,7 +72,6 @@ void VPlanPragmaOmpOrderedSimdExtract::getAnalysisUsage(
     AnalysisUsage &AU) const {
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<WRegionInfoWrapperPass>();
-  AU.addPreserved<AndersensAAWrapperPass>(); // INTEL
   AU.addPreserved<AAResultsWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
 }
@@ -171,23 +170,23 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
         continue;
       }
 
-      // Check whether the name of the newly created function has a mangled name
-      // and remove it.
-      StringRef OldFuncName = NewFunc->getName();
-      if (OldFuncName.startswith("_ZGV") &&
-          NewFunc->hasFnAttribute("vector-variants")) {
-        size_t UnderscoreIdx = OldFuncName.find('_', 1);
-        assert((UnderscoreIdx != StringRef::npos) && "Underscore is expected!");
-        StringRef UnMangledName = OldFuncName.substr(UnderscoreIdx + 1);
-        // Add a enumerator at the end of the function since a function might
-        // have multiple ordered regions.
-        std::string NewFuncName;
-        if (isdigit(static_cast<unsigned char>(UnMangledName[0])))
-          NewFuncName = std::string("_Z") + UnMangledName.str() +
-                        std::string("_") + std::to_string(FnIdx + OrderIdx);
-        else
-          NewFuncName = UnMangledName.str() + std::string("_") +
-                        std::to_string(FnIdx + OrderIdx);
+      // The newly created function inherits its name from parent function.
+      // If that is a vector variant(hence has mangled name), replace it with
+      // name of its scalar ancestor.
+      if (VFInfo::isVectorVariant(F->getName())) {
+        VFInfo Info = VFABI::demangleForVFABI(F->getName());
+        StringRef OldFuncName = NewFunc->getName();
+        size_t Pos = OldFuncName.find(F->getName(), 0);
+        assert(Pos != StringRef::npos &&
+               "Original function name prefix is expected!");
+
+        SmallString<128> NewFuncName;
+        raw_svector_ostream OS(NewFuncName);
+
+        if (isDigit(Info.ScalarName.front()))
+          OS << "_Z";
+        OS << Info.ScalarName << OldFuncName.substr(Pos + F->getName().size())
+           << '_' << FnIdx + OrderIdx;
         NewFunc->setName(NewFuncName);
       }
 
@@ -197,8 +196,8 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
       NewFunc->addFnAttr(Attribute::AlwaysInline);
       // Remove vector-variants attributes to prevent call vectorization of the
       // function that code extractor emits.
-      if (NewFunc->hasFnAttribute("vector-variants"))
-        NewFunc->removeFnAttr("vector-variants");
+      if (NewFunc->hasFnAttribute(VectorUtils::VectorVariantsAttrName))
+        NewFunc->removeFnAttr(VectorUtils::VectorVariantsAttrName);
     }
   }
   //FIXME: return false if all functions were skipped or IR was not modified.

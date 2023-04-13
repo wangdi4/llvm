@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -45,15 +45,13 @@
 #include <list>
 #include <map>
 
-using namespace Intel::OpenCL;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 ///\brief exported creator method - used to create the OCLRecorder plug-in
-OCL_RECORDER_API IPlugin *CreatePlugin(void);
+OCL_RECORDER_API Intel::OpenCL::IPlugin *CreatePlugin(void);
 ///\brief exported destructor method - used to delete the OCLRecorder plug-in
-OCL_RECORDER_API void ReleasePlugin(IPlugin *pPlugin);
+OCL_RECORDER_API void ReleasePlugin(Intel::OpenCL::IPlugin *pPlugin);
 #ifdef __cplusplus
 }
 #endif
@@ -63,6 +61,10 @@ class Function;
 }
 
 namespace Validation {
+
+// FIXME 'using namespace' shouldn't be used in header file.
+using namespace Intel::OpenCL::DeviceBackend;
+
 ///\brief Context maintained for each captured kernel's binary.
 ///       The main purpose to maintain this information is to
 ///       ensure that kernel work size parameters will be
@@ -225,14 +227,6 @@ private:
   static std::atomic<unsigned> s_counter;
 };
 
-class HashComparator {
-public:
-  bool operator()(const MD5Code &lhs, const MD5Code &rhs) const {
-    int result = memcmp(lhs.code(), rhs.code(), 16);
-    return (result < 0) ? true : false;
-  }
-};
-
 ///
 ///\brief OCL Recorder plug-in
 ///
@@ -277,7 +271,7 @@ private: // Internal method
   void RecordProgramConfig(RecorderContext &context);
 
   void RecordSourceCode(RecorderContext &context,
-                        const Frontend::SourceFile &sourceFile);
+                        const Intel::OpenCL::Frontend::SourceFile &sourceFile);
 
   void RecordKernelConfig(RecorderContext &programContext,
                           const KernelContext &kernelContext,
@@ -297,7 +291,7 @@ private: // Internal method
   //
   bool IsRecordedFile(const std::string &) const;
 
-  const std::string *GetPathToInputData(const MD5Code &) const;
+  const std::string *GetPathToInputData(const llvm::MD5::MD5Result &) const;
 
 private: // Utility methods
   // XML configuration handling helper
@@ -327,8 +321,9 @@ private: // Utility methods
   //  configuration file. (valid pointer only if this method returns true).
   // Returns true, if we have a all the pre-requisits for source-level
   // recordings.
-  bool NeedSourceRecording(const MD5Code &code,
-                           OUT Frontend::SourceFile *pSourceFile) const;
+  bool NeedSourceRecording(
+      const llvm::MD5::MD5Result &code,
+      OUT Intel::OpenCL::Frontend::SourceFile *pSourceFile) const;
 
 private: // Data members
   typedef std::map<const ICLDevBackendProgram_ *, RecorderContext *>
@@ -336,7 +331,7 @@ private: // Data members
 
   // files names that has been recorded in this session (avoid overruns)
   std::vector<std::string> m_recordedFiles;
-  std::map<MD5Code, std::string, HashComparator>
+  std::map<llvm::MD5::MD5Result, std::string, MD5HashLess>
       m_hashToPath;                // container for saved hash of used data
   RecorderContextMap m_contexts;   // container for program specific contexts
   llvm::sys::Mutex m_contextsLock; // synchronization for the contexts container

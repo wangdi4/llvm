@@ -1,6 +1,6 @@
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -26,11 +26,12 @@ include_directories(
   ${CL_API_HEADERS}
   ${BACKEND_ROOT_DIR}/barrier/include
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend
-  ${BACKEND_ROOT_DIR}/vectorizer/Utils
   ${BACKEND_ROOT_DIR}/metadata_api
   ${CMAKE_BINARY_DIR}/include/
   ${OCL_BINARY_DIR}/include
-  ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/include)
+  ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/include
+  ${OCL_BINARY_DIR}/../llvm-spirv/SPIRV-Headers/include
+  ${CCLANG_DEV_INCLUDE_DIRS}/../../../../include)
 
 include_directories(
   ${BACKEND_ROOT_DIR}/arch_headers ${BACKEND_ROOT_DIR}/passes/)
@@ -39,7 +40,9 @@ add_opencl_library(${TARGET_NAME} STATIC ${TARGET_INCLUDE_FILES}
                    ${TARGET_SOURCE_FILES})
 
 if(OPENCL_INTREE_BUILD)
-  add_dependencies(${TARGET_NAME} intrinsics_gen directives_gen LLVMSPIRVLib
+  add_dependencies(${TARGET_NAME}
+                   intrinsics_gen directives_gen # INTEL
+		   LLVMSPIRVLib
                    VectorizationInfoGen)
 endif()
 

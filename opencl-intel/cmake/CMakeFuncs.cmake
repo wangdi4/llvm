@@ -12,28 +12,37 @@
 set(__MAKEFUNCS_INCLUDED__ 1)
 
 #
-# Usage FILTER_SOURCES()
+# Usage filter_sources()
 #
 # Filters HEADER_FILES_1, EXPORT_HEADER_FILES_1 and SOURCE_FILES_1 variables to
 # remove Win or Linux files Creates HEADER_FILES, EXPORT_HEADER_FILES and
-# SOURCE_FILES variables
+# SOURCE_FILES variables.
+# TODO FILER_OUT_REGEXP isn't needed when LLVM_OPTIONAL_SOURCES is used.
 #
-macro(FILTER_SOURCES FILER_OUT_REGEXP)
+macro(filter_sources FILER_OUT_REGEXP)
   list(APPEND HEADER_FILES_1 ${EXPORT_HEADER_FILES_1})
 
   if((WIN32) AND (NOT FORCE_LINUX))
     foreach(FILE ${HEADER_FILES_1})
-      if(NOT FILE MATCHES _linux AND NOT FILE MATCHES ${FILER_OUT_REGEXP})
+      if(NOT FILE MATCHES _linux
+         AND NOT FILE MATCHES ${FILER_OUT_REGEXP}
+         AND NOT FILE IN_LIST LLVM_OPTIONAL_SOURCES)
         list(APPEND HEADER_FILES_2 ${FILE})
-      endif(NOT FILE MATCHES _linux AND NOT FILE MATCHES ${FILER_OUT_REGEXP})
+      endif()
+      if(FILE MATCHES _linux)
+        list(APPEND LLVM_OPTIONAL_SOURCES ${FILE})
+      endif()
     endforeach(FILE)
 
     foreach(FILE ${SOURCE_FILES_1})
-      if(NOT FILE MATCHES ^stdafx[.]c.*$|_linux AND NOT FILE MATCHES
-                                                    ${FILER_OUT_REGEXP})
+      if(NOT FILE MATCHES ^stdafx[.]c.*$|_linux
+         AND NOT FILE MATCHES ${FILER_OUT_REGEXP}
+         AND NOT FILE IN_LIST LLVM_OPTIONAL_SOURCES)
         list(APPEND SOURCE_FILES_2 ${FILE})
-      endif(NOT FILE MATCHES ^stdafx[.]c.*$|_linux AND NOT FILE MATCHES
-                                                       ${FILER_OUT_REGEXP})
+      endif()
+      if(FILE MATCHES _linux)
+        list(APPEND LLVM_OPTIONAL_SOURCES ${FILE})
+      endif()
     endforeach(FILE)
 
     file(
@@ -46,18 +55,24 @@ macro(FILTER_SOURCES FILER_OUT_REGEXP)
 
     foreach(FILE ${HEADER_FILES_1})
       if(NOT FILE MATCHES ^resource[.]h$|^stdafx[.]h$|_windows|_win32
-         AND NOT FILE MATCHES ${FILER_OUT_REGEXP})
+         AND NOT FILE MATCHES ${FILER_OUT_REGEXP}
+         AND NOT FILE IN_LIST LLVM_OPTIONAL_SOURCES)
         list(APPEND HEADER_FILES_2 ${FILE})
-      endif(NOT FILE MATCHES ^resource[.]h$|^stdafx[.]h$|_windows|_win32
-            AND NOT FILE MATCHES ${FILER_OUT_REGEXP})
+      endif()
+      if(FILE MATCHES _windows|_win32)
+        list(APPEND LLVM_OPTIONAL_SOURCES ${FILE})
+      endif()
     endforeach(FILE)
 
     foreach(FILE ${SOURCE_FILES_1})
       if(NOT FILE MATCHES ^stdafx[.]c.*$|_windows|_win32
-         AND NOT FILE MATCHES ${FILER_OUT_REGEXP})
+         AND NOT FILE MATCHES ${FILER_OUT_REGEXP}
+         AND NOT FILE IN_LIST LLVM_OPTIONAL_SOURCES)
         list(APPEND SOURCE_FILES_2 ${FILE})
-      endif(NOT FILE MATCHES ^stdafx[.]c.*$|_windows|_win32
-            AND NOT FILE MATCHES ${FILER_OUT_REGEXP})
+      endif()
+      if(FILE MATCHES _windows|_win32)
+        list(APPEND LLVM_OPTIONAL_SOURCES ${FILE})
+      endif()
     endforeach(FILE)
 
   endif((WIN32) AND (NOT FORCE_LINUX))
@@ -81,15 +96,15 @@ macro(FILTER_SOURCES FILER_OUT_REGEXP)
     include_directories(BEFORE export)
   endif(DEFINED EXPORT_HEADER_FILES_1)
 
-endmacro(FILTER_SOURCES)
+endmacro(filter_sources)
 
 #
-# Usage FIND_SOURCES( optional FILER_OUT_REGEXP )
+# Usage find_sources( optional FILER_OUT_REGEXP )
 #
 # Creates HEADER_FILES, EXPORT_HEADER_FILES and SOURCE_FILES variables by
 # globbing CMAKE_CURRENT_SOURCE_DIR
 #
-function(FIND_SOURCES)
+function(find_sources)
   file(
     GLOB HEADER_FILES_1
     RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -110,97 +125,16 @@ function(FIND_SOURCES)
   endif(${ARGC} EQUAL 0)
 
   filter_sources(${FILER_OUT_REGEXP})
-endfunction(FIND_SOURCES)
+  set(LLVM_OPTIONAL_SOURCES ${LLVM_OPTIONAL_SOURCES} PARENT_SCOPE)
+endfunction(find_sources)
 
 #
-# Usage FIND_SOURCES_EX( SOURCE_DIRECTORY optional FILER_OUT_REGEXP )
-#
-# Creates HEADER_FILES, EXPORT_HEADER_FILES and SOURCE_FILES variables by
-# globbing SOURCE_DIRECTORY
-#
-function(FIND_SOURCES_EX SOURCE_DIRECTORY)
-  file(
-    GLOB HEADER_FILES_1
-    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-    ${SOURCE_DIRECTORY}/*.h ${SOURCE_DIRECTORY}/*.hpp)
-  file(
-    GLOB EXPORT_HEADER_FILES_1
-    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-    ${SOURCE_DIRECTORY}/export/*.h ${SOURCE_DIRECTORY}/export/*.hpp)
-  file(
-    GLOB SOURCE_FILES_1
-    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-    ${SOURCE_DIRECTORY}/*.c ${SOURCE_DIRECTORY}/*.cpp ${SOURCE_DIRECTORY}/*.cc)
-
-  if(${ARGC} EQUAL 1)
-    set(FILER_OUT_REGEXP "not used regexp")
-  else()
-    set(FILER_OUT_REGEXP ${ARGV1})
-  endif(${ARGC} EQUAL 1)
-
-  filter_sources(${FILER_OUT_REGEXP})
-endfunction(FIND_SOURCES_EX)
-
-#
-# Usage FIND_SOURCES_IN_FOLDER( optional FOLDER_ARG optional FILER_OUT_REGEXP )
-#
-# Creates HEADER_FILES, EXPORT_HEADER_FILES and SOURCE_FILES variables by
-# globbing CMAKE_CURRENT_SOURCE_DIR
-#
-function(FIND_SOURCES_IN_FOLDER)
-  if(${ARGC} EQUAL 0)
-    set(FOLDER_ARG "not used folder")
-  else()
-    set(FOLDER_ARG ${ARGV0})
-  endif(${ARGC} EQUAL 0)
-
-  file(GLOB HEADER_FILES_1 ${FOLDER_ARG}/*.h ${FOLDER_ARG}/*.hpp)
-  file(GLOB EXPORT_HEADER_FILES_1 ${FOLDER_ARG}/export/*.h
-       ${FOLDER_ARG}/export/*.hpp)
-  file(GLOB SOURCE_FILES_1 ${FOLDER_ARG}/*.c ${FOLDER_ARG}/*.cpp
-       ${FOLDER_ARG}/*.cc)
-
-  if(${ARGC} EQUAL 1 OR ${ARGC} EQUAL 0)
-    set(FILER_OUT_REGEXP "not used regexp")
-  else()
-    set(FILER_OUT_REGEXP ${ARGV1})
-  endif(${ARGC} EQUAL 1 OR ${ARGC} EQUAL 0)
-
-  filter_sources(${FILER_OUT_REGEXP})
-endfunction(FIND_SOURCES_IN_FOLDER)
-
-#
-# Usage FIND_SOURCES_RECURSE( optional FILER_OUT_REGEXP )
-#
-# Creates HEADER_FILES and SOURCE_FILES variables by globbing
-# CMAKE_CURRENT_SOURCE_DIR recursively
-#
-function(FIND_SOURCES_RECURSE)
-  file(
-    GLOB_RECURSE HEADER_FILES_1
-    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-    *.h *.hpp)
-  file(
-    GLOB_RECURSE SOURCE_FILES_1
-    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-    *.c *.cpp *.cc)
-
-  if(${ARGC} EQUAL 0)
-    set(FILER_OUT_REGEXP "not used regexp")
-  else()
-    set(FILER_OUT_REGEXP ${ARGV0})
-  endif(${ARGC} EQUAL 0)
-
-  filter_sources(${FILER_OUT_REGEXP})
-endfunction(FIND_SOURCES_RECURSE)
-
-#
-# Usage CALCULATE_TARGET_SOURCES()
+# Usage calculate_target_sources()
 #
 # Uses HEADER_FILES, EXPORT_HEADER_FILES and SOURCE_FILES variables and creates
 # TARGET_SOURCES
 #
-function(CALCULATE_TARGET_SOURCES)
+function(calculate_target_sources)
   if((WIN32) AND (NOT FORCE_LINUX))
     set(TARGET_SOURCES_1 ${HEADER_FILES} ${SOURCE_FILES})
 
@@ -231,12 +165,12 @@ function(CALCULATE_TARGET_SOURCES)
         PARENT_SCOPE)
   endif(DEFINED TARGET_SOURCES_1)
 
-endfunction(CALCULATE_TARGET_SOURCES)
+endfunction(calculate_target_sources)
 
 #
-# Usage SET_LINUX_EXPORTS_FILE( TARGET_NAME_ FILE_NAME )
+# Usage set_linux_exports_file( TARGET_NAME_ FILE_NAME )
 #
-function(SET_LINUX_EXPORTS_FILE TARGET_NAME_ FILE_NAME)
+function(set_linux_exports_file TARGET_NAME_ FILE_NAME)
   if((NOT WIN32) OR (FORCE_LINUX))
     get_target_property(SOURCE_FILES ${TARGET_NAME_} SOURCES)
     list(GET SOURCE_FILES 0 FIRST_SOURCE)
@@ -251,14 +185,14 @@ function(SET_LINUX_EXPORTS_FILE TARGET_NAME_ FILE_NAME)
         "-Wl,-Bsymbolic -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME}"
     )
   endif((NOT WIN32) OR (FORCE_LINUX))
-endfunction(SET_LINUX_EXPORTS_FILE)
+endfunction(set_linux_exports_file)
 
 #
-# Usage CREATE_ASM_RULES( <ADD_TO_SOURCES_LIST_VAR> ...<asm-files-list>...)
+# Usage create_asm_rules( <ADD_TO_SOURCES_LIST_VAR> ...<asm-files-list>...)
 #
 # Creates ADD_TO_SOURCES_LIST_VAR that should be added to the source files list
 #
-macro(CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR)
+macro(create_asm_rules ADD_TO_SOURCES_LIST_VAR)
 
   if(${ARGC} GREATER 1)
     foreach(FILE ${ARGN})
@@ -304,18 +238,18 @@ macro(CREATE_ASM_RULES ADD_TO_SOURCES_LIST_VAR)
                                                         EXTERNAL_OBJECT TRUE)
   endif(DEFINED OBJ_FILES)
 
-endmacro(CREATE_ASM_RULES)
+endmacro(create_asm_rules)
 
 #
-# Usage: SET_UNICODE_ON() SET_UNICODE_OFF()
+# Usage: set_unicode_on() set_unicode_off()
 #
-macro(SET_UNICODE_ON)
+macro(set_unicode_on)
   add_definitions(-D_UNICODE -DUNICODE)
-endmacro(SET_UNICODE_ON)
+endmacro(set_unicode_on)
 
-macro(SET_UNICODE_OFF)
+macro(set_unicode_off)
   remove_definitions(-D_UNICODE -DUNICODE)
-endmacro(SET_UNICODE_OFF)
+endmacro(set_unicode_off)
 
 #
 # Usage: PRINT_TOOLS()
@@ -480,23 +414,18 @@ endmacro(use_eh)
 # Adds new executable from SOURCE_FILES and links it to LINK_LIBRARIES
 function(add_ocl_unittest test_name)
   cmake_parse_arguments("ARG" "" "" "SOURCE_FILES;LINK_LIBRARIES" ${ARGN})
-  if(NOT OPENCL_RT_BUILD_TESTS)
-    set(EXCLUDE_FROM_ALL ON)
-  endif(NOT OPENCL_RT_BUILD_TESTS)
 
-  include_directories(SYSTEM
-                      ${OCL_SOURCE_DIR}/externals/gtest/googletest/include)
   include_directories(${CL_API_HEADERS})
 
-  if(EXCLUDE_FROM_ALL)
-    add_executable(${test_name} EXCLUDE_FROM_ALL ${ARG_SOURCE_FILES})
-  else(EXCLUDE_FROM_ALL)
-    add_executable(${test_name} ${ARG_SOURCE_FILES})
-  endif(EXCLUDE_FROM_ALL)
+  add_unittest(OCLUnitTests ${test_name} ${ARG_SOURCE_FILES})
 
-  target_link_libraries(${test_name} llvm_gtest ${PTHREAD_LIB})
+  if(NOT OPENCL_RT_BUILD_TESTS)
+    set_target_properties( PROPERTIES EXCLUDE_FROM_ALL on)
+  endif()
+
+  target_link_libraries(${test_name} PRIVATE llvm_gtest ${PTHREAD_LIB})
   if(NOT ARG_LINK_LIBRARIES STREQUAL "")
-    target_link_libraries(${test_name} ${ARG_LINK_LIBRARIES})
+    target_link_libraries(${test_name} PRIVATE ${ARG_LINK_LIBRARIES})
   endif(NOT ARG_LINK_LIBRARIES STREQUAL "")
 
   if(WIN32)
@@ -568,7 +497,9 @@ function(add_ocl_unittest_artifacts)
   endforeach(filename)
 endfunction()
 
-# Get ICS build type: debug | prod | release TODO: support self-build type
+# INTEL_CUSTOMIZATION
+# TODO: support self-build type
+# Get ICS build type: debug | prod | release
 # detection Usage: GET_ICS_BUILD_TYPE(result)
 function(GET_ICS_BUILD_TYPE result)
   # INTEL_PRODUCT_RELEASE for release build
@@ -586,5 +517,21 @@ function(GET_ICS_BUILD_TYPE result)
           "prod"
           PARENT_SCOPE)
     endif()
+  endif()
+endfunction()
+# end INTEL_CUSTOMIZATION
+
+# A handy helper function to link target with tbb library
+function(link_target_with_tbb_library target)
+  if(WIN32)
+    set_property(TARGET ${target} APPEND_STRING PROPERTY LINK_FLAGS_RELEASE
+      " tbbmalloc.lib tbb12${TBB_BINARIES_POSTFIX}.lib \
+      /DELAYLOAD:tbbmalloc.dll /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll ")
+    set_property(TARGET ${target} APPEND_STRING PROPERTY LINK_FLAGS_DEBUG
+      " /NODEFAULTLIB:MSVCRT tbbmalloc_debug.lib \
+      tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbbmalloc_debug.dll \
+      /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll ")
+  else()
+    target_link_libraries(${target} PRIVATE tbb tbbmalloc)
   endif()
 endfunction()

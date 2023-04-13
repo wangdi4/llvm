@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -40,12 +40,10 @@ set(OCL_DATAMANAGER_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/../../validations/DataManager)
 set(OCL_NEAT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../validations/NEAT)
 
-set(OCL_RECORDER_INCLUDE_FILES ocl_recorder.h ocl_source_recorder.h
-                               ${VALIDATIONS_ROOT}/Common/md5.h)
+set(OCL_RECORDER_INCLUDE_FILES ocl_recorder.h ocl_source_recorder.h)
 
 set(OCL_RECORDER_SOURCE_FILES
-    dllmain.cpp ocl_recorder.cpp ocl_source_recorder.cpp
-    ${VALIDATIONS_ROOT}/Common/md5.cpp)
+    dllmain.cpp ocl_recorder.cpp ocl_source_recorder.cpp)
 
 # Add include directories
 set(INCLUDE_DIRS

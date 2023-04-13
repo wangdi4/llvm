@@ -15,6 +15,7 @@
 ;    END REGION
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter" -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
 
 
 ; CHECK-LABEL: Function: autovec_test
@@ -24,6 +25,8 @@
 ; CHECK-NEXT:            |   (@pS)[0][i1] = %pR_fetch;
 ; CHECK-NEXT:            + END LOOP
 ; CHECK-NEXT:      END REGION
+
+; OPTRPTMED: remark #15313: loop was not vectorized: unsupported data type
 
 %complex_64bit = type { float, float }
 

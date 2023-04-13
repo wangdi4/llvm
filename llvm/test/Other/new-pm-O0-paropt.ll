@@ -1,5 +1,5 @@
 ; INTEL_COLLAB
-; RUN: opt -disable-verify -disable-output -verify-cfg-preserved=0 \
+; RUN: opt -disable-verify -disable-output -verify-analysis-invalidation=0 \
 ; RUN:     -debug-pass-manager  -passes='default<O0>' \
 ; RUN:     -paropt=31 -S %s 2>&1 | FileCheck %s
 
@@ -8,7 +8,7 @@
 ; PR #8608 after llorg removed support for opt-level flags for LPM (D137663).
 ;CHECK:      Running pass: XmainOptLevelAnalysisInit on [module]
 ;CHECK-NEXT: Running analysis: XmainOptLevelAnalysis on [module]
-;CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis, llvm::Module> on [module]
+;CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VPOParoptConfigAnalysis{{.*Module.*}}> on [module] ; INTEL
 ;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]
 ;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}> on [module]
 ;CHECK-NEXT: Running pass: LowerSubscriptIntrinsicPass on foo

@@ -8,9 +8,6 @@
 
 ; REQUIRES:asserts
 
-; CHECK-DAG: SOAUnsafe = arr_e.priv
-; CHECK-DAG: SOAUnsafe = arr_e2.priv
-
 ; Source-file: test.c
 ; int arr_e[1024];
 ; int arr_e2[1024];
@@ -39,6 +36,10 @@ target triple = "x86_64-unknown-linux-gnu"
 @arr_e2 = dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 
 define dso_local i32 @foo(i32 %n1) {
+; CHECK-LABEL:  SOA profitability:
+; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_E2_PRIV:%.*]] (arr_e2.priv)
+; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_E_PRIV:%.*]] (arr_e.priv)
+;
 DIR.OMP.SIMD.211:
   %index.linear.iv = alloca i32, align 4
   %arr_e2.priv = alloca [1024 x i32], align 16

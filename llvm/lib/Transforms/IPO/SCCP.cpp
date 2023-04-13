@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -66,11 +66,8 @@ STATISTIC(NumDeadBlocks , "Number of basic blocks unreachable");
 STATISTIC(NumInstReplaced,
           "Number of instructions replaced with (simpler) instruction");
 
-static cl::opt<bool> SpecializeFunctions("specialize-functions",
-    cl::init(false), cl::Hidden, cl::desc("Enable function specialization"));
-
-static cl::opt<unsigned> FuncSpecializationMaxIters(
-    "func-specialization-max-iters", cl::init(1), cl::Hidden, cl::desc(
+static cl::opt<unsigned> FuncSpecMaxIters(
+    "funcspec-max-iters", cl::init(1), cl::Hidden, cl::desc(
     "The maximum number of iterations function specialization is run"));
 
 #if INTEL_CUSTOMIZATION
@@ -122,10 +119,18 @@ static void findReturnsToZap(Function &F,
                if (U->getType()->isStructTy()) {
                  return all_of(Solver.getStructLatticeValueFor(U),
                                [](const ValueLatticeElement &LV) {
-                                 return !isOverdefined(LV);
+                                 return !SCCPSolver::isOverdefined(LV);
                                });
                }
-               return !isOverdefined(Solver.getLatticeValueFor(U));
+
+               // We don't consider assume-like intrinsics to be actual address
+               // captures.
+               if (auto *II = dyn_cast<IntrinsicInst>(U)) {
+                 if (II->isAssumeLikeIntrinsic())
+                   return true;
+               }
+
+               return !SCCPSolver::isOverdefined(Solver.getLatticeValueFor(U));
              }) &&
       "We can only zap functions where all live users have a concrete value");
 
@@ -148,7 +153,8 @@ static bool runIPSCCP(
     std::function<const TargetLibraryInfo &(Function &)> GetTLI,
     std::function<TargetTransformInfo &(Function &)> GetTTI,
     std::function<AssumptionCache &(Function &)> GetAC,
-    function_ref<AnalysisResultsForFn(Function &)> getAnalysis) {
+    function_ref<AnalysisResultsForFn(Function &)> getAnalysis,
+    bool IsFuncSpecEnabled) {
   SCCPSolver Solver(DL, GetTLI, M.getContext());
   FunctionSpecializer Specializer(Solver, M, FAM, GetTLI, GetTTI, GetAC);
 
@@ -194,9 +200,9 @@ static bool runIPSCCP(
   // Solve for constants.
   Solver.solveWhileResolvedUndefsIn(M);
 
-  if (SpecializeFunctions) {
+  if (IsFuncSpecEnabled) {
     unsigned Iters = 0;
-    while (Iters++ < FuncSpecializationMaxIters && Specializer.run());
+    while (Iters++ < FuncSpecMaxIters && Specializer.run());
   }
 
   // Iterate over all of the instructions in the module, replacing them with
@@ -211,7 +217,7 @@ static bool runIPSCCP(
     if (Solver.isBlockExecutable(&F.front())) {
       bool ReplacedPointerArg = false;
       for (Argument &Arg : F.args()) {
-        if (!Arg.use_empty() && tryToReplaceWithConstant(Solver, &Arg)) {
+        if (!Arg.use_empty() && Solver.tryToReplaceWithConstant(&Arg)) {
           ReplacedPointerArg |= Arg.getType()->isPointerTy();
           ++NumArgsElimed;
         }
@@ -257,11 +263,11 @@ static bool runIPSCCP(
         continue;
       }
 
-      MadeChanges |= simplifyInstsInBlock(Solver, BB, InsertedValues,
-                                          NumInstRemoved, NumInstReplaced);
+      MadeChanges |= Solver.simplifyInstsInBlock(
+          BB, InsertedValues, NumInstRemoved, NumInstReplaced);
     }
 
-    DomTreeUpdater DTU = SpecializeFunctions && Specializer.isClonedFunction(&F)
+    DomTreeUpdater DTU = IsFuncSpecEnabled && Specializer.isClonedFunction(&F)
         ? DomTreeUpdater(DomTreeUpdater::UpdateStrategy::Lazy)
         : Solver.getDTU(F);
 
@@ -279,7 +285,7 @@ static bool runIPSCCP(
 
     BasicBlock *NewUnreachableBB = nullptr;
     for (BasicBlock &BB : F)
-      MadeChanges |= removeNonFeasibleEdges(Solver, &BB, DTU, NewUnreachableBB);
+      MadeChanges |= Solver.removeNonFeasibleEdges(&BB, DTU, NewUnreachableBB);
 
     for (BasicBlock *DeadBB : BlocksToErase)
       if (!DeadBB->hasAddressTaken())
@@ -330,13 +336,6 @@ static bool runIPSCCP(
         if (!CB || CB->getCalledFunction() != F)
           continue;
 
-        // Limit to cases where the return value is guaranteed to be neither
-        // poison nor undef. Poison will be outside any range and currently
-        // values outside of the specified range cause immediate undefined
-        // behavior.
-        if (!isGuaranteedNotToBeUndefOrPoison(CB, nullptr, CB))
-          continue;
-
         // Do not touch existing metadata for now.
         // TODO: We should be able to take the intersection of the existing
         // metadata and the inferred range.
@@ -353,7 +352,7 @@ static bool runIPSCCP(
     }
     if (F->getReturnType()->isVoidTy())
       continue;
-    if (isConstant(ReturnValue) || ReturnValue.isUnknownOrUndef())
+    if (SCCPSolver::isConstant(ReturnValue) || ReturnValue.isUnknownOrUndef())
       findReturnsToZap(*F, ReturnsToZap, Solver);
   }
 
@@ -376,24 +375,28 @@ static bool runIPSCCP(
 
   // Remove the returned attribute for zapped functions and the
   // corresponding call sites.
+  // Also remove any attributes that convert an undef return value into
+  // immediate undefined behavior
+  AttributeMask UBImplyingAttributes =
+      AttributeFuncs::getUBImplyingAttributes();
   for (Function *F : FuncZappedReturn) {
     for (Argument &A : F->args())
       F->removeParamAttr(A.getArgNo(), Attribute::Returned);
+    F->removeRetAttrs(UBImplyingAttributes);
     for (Use &U : F->uses()) {
-      // Skip over blockaddr users.
-      if (isa<BlockAddress>(U.getUser()))
+      CallBase *CB = dyn_cast<CallBase>(U.getUser());
+      if (!CB) {
+        assert(isa<BlockAddress>(U.getUser()) ||
+               (isa<Constant>(U.getUser()) &&
+                all_of(U.getUser()->users(), [](const User *UserUser) {
+                  return cast<IntrinsicInst>(UserUser)->isAssumeLikeIntrinsic();
+                })));
         continue;
-#if INTEL_CUSTOMIZATION
-      // The function may be used in a dead ConstantExpr which will get
-      // removed later. Since there is no call site possible we can skip it.
-      // These may appear after 0a67e771.
-      if (auto *BCE = dyn_cast<ConstantExpr>(U.getUser()))
-        if (BCE->user_empty())
-          continue;
-#endif // INTEL_CUSTOMIZATION
-      CallBase *CB = cast<CallBase>(U.getUser());
+      }
+
       for (Use &Arg : CB->args())
         CB->removeParamAttr(CB->getArgOperandNo(&Arg), Attribute::Returned);
+      CB->removeRetAttrs(UBImplyingAttributes);
     }
   }
 
@@ -401,7 +404,7 @@ static bool runIPSCCP(
   // delete the global and any stores that remain to it.
   for (const auto &I : make_early_inc_range(Solver.getTrackedGlobals())) {
     GlobalVariable *GV = I.first;
-    if (isOverdefined(I.second))
+    if (SCCPSolver::isOverdefined(I.second))
       continue;
     LLVM_DEBUG(dbgs() << "Found that GV '" << GV->getName()
                       << "' is constant!\n");
@@ -416,7 +419,7 @@ static bool runIPSCCP(
                         << "' is target-declare and not removed\n");
     else
 #endif // INTEL_COLLAB
-    M.getGlobalList().erase(GV);
+    M.eraseGlobalVariable(GV);
     ++NumGlobalConst;
   }
 
@@ -435,15 +438,16 @@ PreservedAnalyses IPSCCPPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto GetAC = [&FAM](Function &F) -> AssumptionCache & {
     return FAM.getResult<AssumptionAnalysis>(F);
   };
-  auto getAnalysis = [&FAM](Function &F) -> AnalysisResultsForFn {
+  auto getAnalysis = [&FAM, this](Function &F) -> AnalysisResultsForFn {
     DominatorTree &DT = FAM.getResult<DominatorTreeAnalysis>(F);
     return {
         std::make_unique<PredicateInfo>(F, DT, FAM.getResult<AssumptionAnalysis>(F)),
         &DT, FAM.getCachedResult<PostDominatorTreeAnalysis>(F),
-        SpecializeFunctions ? &FAM.getResult<LoopAnalysis>(F) : nullptr };
+        isFuncSpecEnabled() ? &FAM.getResult<LoopAnalysis>(F) : nullptr };
   };
 
-  if (!runIPSCCP(M, DL, &FAM, GetTLI, GetTTI, GetAC, getAnalysis))
+  if (!runIPSCCP(M, DL, &FAM, GetTLI, GetTTI, GetAC, getAnalysis,
+                 isFuncSpecEnabled()))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<DominatorTreeAnalysis>();
@@ -454,76 +458,3 @@ PreservedAnalyses IPSCCPPass::run(Module &M, ModuleAnalysisManager &AM) {
   PA.preserve<AndersensAA>();           // INTEL
   return PA;
 }
-
-namespace {
-
-//===--------------------------------------------------------------------===//
-//
-/// IPSCCP Class - This class implements interprocedural Sparse Conditional
-/// Constant Propagation.
-///
-class IPSCCPLegacyPass : public ModulePass {
-public:
-  static char ID;
-
-  IPSCCPLegacyPass() : ModulePass(ID) {
-    initializeIPSCCPLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    const DataLayout &DL = M.getDataLayout();
-    auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    auto GetTTI = [this](Function &F) -> TargetTransformInfo & {
-      return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-    };
-    auto GetAC = [this](Function &F) -> AssumptionCache & {
-      return this->getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-    };
-    auto getAnalysis = [this](Function &F) -> AnalysisResultsForFn {
-      DominatorTree &DT =
-          this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-      return {
-          std::make_unique<PredicateInfo>(
-              F, DT,
-              this->getAnalysis<AssumptionCacheTracker>().getAssumptionCache(
-                  F)),
-          nullptr,  // We cannot preserve the LI, DT or PDT with the legacy pass
-          nullptr,  // manager, so set them to nullptr.
-          nullptr};
-    };
-
-    return runIPSCCP(M, DL, nullptr, GetTLI, GetTTI, GetAC, getAnalysis);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AssumptionCacheTracker>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
-    AU.addPreserved<GlobalsAAWrapperPass>();        // INTEL
-    AU.addPreserved<AndersensAAWrapperPass>();      // INTEL
-  }
-};
-
-} // end anonymous namespace
-
-char IPSCCPLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(IPSCCPLegacyPass, "ipsccp",
-                      "Interprocedural Sparse Conditional Constant Propagation",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(IPSCCPLegacyPass, "ipsccp",
-                    "Interprocedural Sparse Conditional Constant Propagation",
-                    false, false)
-
-// createIPSCCPPass - This is the public interface to this file.
-ModulePass *llvm::createIPSCCPPass() { return new IPSCCPLegacyPass(); }
-

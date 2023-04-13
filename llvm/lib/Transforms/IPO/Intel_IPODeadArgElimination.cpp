@@ -1,6 +1,6 @@
 //=-- Intel_IPODeadArgElimination.cpp - Simplified dead arg elimination -*-=//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -567,7 +567,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
   // Clone the metadata from the function F to the new function
   SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
   F->getAllMetadata(MDs);
-  for (auto MD : MDs)
+  for (const auto &MD : MDs)
     NF->addMetadata(MD.first, *MD.second);
 
   // Set the inlining report for the new function
@@ -651,7 +651,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
   }
 
   // Move the basic blocks from function F to the new function
-  NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+  NF->splice(NF->begin(), F);
 
   // Replace the users of the old arguments list with the new arguments
   DeadArgI = 0;
@@ -751,7 +751,7 @@ bool IPDeadArgElimination::runImpl(WholeProgramInfo &WPInfo) {
   LLVM_DEBUG({
     dbgs() << "  Candidates collected: " << DeadArgsCandidatesMap.size()
            << "\n";
-    for (auto Pair : DeadArgsCandidatesMap) {
+    for (const auto &Pair : DeadArgsCandidatesMap) {
       dbgs() << "    Function: " << Pair.first->getName() << "\n";
       for (auto *Arg : Pair.second)
         dbgs() << "      Arg[" << Arg->getArgNo() << "]: " << *Arg << "\n";
@@ -807,49 +807,4 @@ IntelIPODeadArgEliminationPass::run(Module &M, ModuleAnalysisManager &AM) {
   PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<LoopAnalysis>();
   return PA;
-}
-
-// Legacy pass manager
-namespace {
-
-class IntelIPODeadArgEliminationWrapper : public ModulePass {
-public:
-  static char ID;
-
-  IntelIPODeadArgEliminationWrapper() : ModulePass(ID) {
-    initializeIntelIPODeadArgEliminationWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    IPDeadArgElimination DeleteDeadArgs(M);
-    auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    return DeleteDeadArgs.runImpl(WPInfo);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addPreserved<LoopInfoWrapperPass>();
-  }
-};
-
-} // end of anonymous namespace
-
-char IntelIPODeadArgEliminationWrapper::ID = 0;
-
-INITIALIZE_PASS_BEGIN(IntelIPODeadArgEliminationWrapper, DEBUG_TYPE,
-                      "Intel IPO Dead Argument Elimination", false, false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(IntelIPODeadArgEliminationWrapper, DEBUG_TYPE,
-                    "Intel IPO Dead Argument Elimination", false, false)
-
-ModulePass *llvm::createIntelIPODeadArgEliminationWrapperPass() {
-  return new IntelIPODeadArgEliminationWrapper();
 }

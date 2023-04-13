@@ -1,7 +1,7 @@
 //=--- DTransForceInlineOP.cpp - Force inlining/noninlining for DTrans ---===//
 //=---------------- Opaque pointer friendly version -------------------------//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,12 +10,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Transforms/DTransForceInlineOP.h"
-#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/DTransTypeMetadataConstants.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/MemManageInfoOPImpl.h"
 #include "Intel_DTrans/Transforms/StructOfArraysOPInfoImpl.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -208,6 +206,14 @@ bool DTransForceInlineOP::run(
   for (auto *Str : M.getIdentifiedStructTypes()) {
     if (!Str->hasName())
       continue;
+    if (isDTransSkippableType(Str)) {
+      DEBUG_WITH_TYPE(DTRANS_LAYOUT_DEBUG_TYPE, {
+        dbgs() << " ; Skippable type ";
+        Str->print(dbgs(), true, true);
+        dbgs() << "\n";
+      });
+      continue;
+    }
     dtransOP::DTransStructType *StrType = TM.getStructType(Str->getName());
     assert(StrType && "Expected DTransStructType");
     dtransOP::soatoaosOP::SOAToAOSOPCFGInfo Info;
@@ -302,6 +308,8 @@ bool DTransForceInlineOP::run(
   FunctionTypeResolver TypeResolver(MDReader, DTransLibInfo);
   for (auto *Str : M.getIdentifiedStructTypes()) {
     if (!Str->hasName())
+      continue;
+    if (isDTransSkippableType(Str))
       continue;
     dtransOP::DTransStructType *StrType = TM.getStructType(Str->getName());
     assert(StrType && "Expected DTransStructType");
@@ -399,25 +407,6 @@ bool DTransForceInlineOP::run(
   return true;
 }
 
-class DTransForceInlineOPWrapper : public ModulePass {
-public:
-  static char ID;
-
-  DTransForceInlineOPWrapper() : ModulePass(ID) {
-    initializeDTransForceInlineOPWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    return Impl.runImpl(M, GetTLI);
-  }
-
-private:
-  DTransForceInlineOPPass Impl;
-};
-
 } // end anonymous namespace
 
 namespace llvm {
@@ -442,13 +431,3 @@ bool DTransForceInlineOPPass::runImpl(
 
 } // end namespace dtransOP
 } // end namespace llvm
-
-char DTransForceInlineOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransForceInlineOPWrapper, "dtrans-force-inline-op",
-                      "DTrans force inline and noinline", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(DTransForceInlineOPWrapper, "dtrans-force-inline-op",
-                    "DTrans force inline and noinline", false, false)
-ModulePass *llvm::createDTransForceInlineOPWrapperPass() {
-  return new DTransForceInlineOPWrapper();
-}

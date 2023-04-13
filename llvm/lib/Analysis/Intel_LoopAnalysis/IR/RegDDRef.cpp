@@ -66,7 +66,7 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 RegDDRef::GEPInfo::GEPInfo()
     : BaseCE(nullptr), BasePtrElementTy(nullptr),
       BitCastDestVecOrElemTy(nullptr), InBounds(false), AddressOf(false),
-      IsCollapsed(false), MaxVecLenAllowed(0), Alignment(0),
+      NumCollapsedLevels(0), MaxVecLenAllowed(0), Alignment(0),
       HighestDimNumElements(0), CanUsePointeeSize(false),
       AnyVarDimStrideMayBeZero(false), DummyGepLoc(nullptr) {}
 
@@ -74,8 +74,8 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BasePtrElementTy(Info.BasePtrElementTy),
       BitCastDestVecOrElemTy(Info.BitCastDestVecOrElemTy),
       InBounds(Info.InBounds), AddressOf(Info.AddressOf),
-      IsCollapsed(Info.IsCollapsed), MaxVecLenAllowed(Info.MaxVecLenAllowed),
-      Alignment(Info.Alignment),
+      NumCollapsedLevels(Info.NumCollapsedLevels),
+      MaxVecLenAllowed(Info.MaxVecLenAllowed), Alignment(Info.Alignment),
       HighestDimNumElements(Info.HighestDimNumElements),
       CanUsePointeeSize(Info.CanUsePointeeSize),
       AnyVarDimStrideMayBeZero(Info.AnyVarDimStrideMayBeZero),
@@ -511,7 +511,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
         // opaque ptrs. Not sure if we can do better.
         return cast<PointerType>(BasePtrTy)->isOpaque()
                    ? Type::getInt8Ty(BasePtrTy->getContext())
-                   : BasePtrTy->getPointerElementType();
+                   : BasePtrTy->getNonOpaquePointerElementType();
 
       } else {
         assert(isSelfAddressOf(true) && "Self AddressOf ref expected!");
@@ -1493,7 +1493,7 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
     unsigned AuxNodeLevel = 0;
 
     if (DefLevel == NonLinearLevel && AuxNode && AuxNode->isAttached() &&
-        AuxRef->isLval() && AuxRef->isSelfBlob()) {
+        AuxRef->isSelfBlob()) {
 
       assert(Index == AuxRef->getSingleCanonExpr()->getSingleBlobIndex());
 
@@ -1757,7 +1757,7 @@ void RegDDRef::replaceIVByConstant(unsigned LoopLevel, int64_t Val) {
 
     // Check for non-unit denominator to skip calling uitlity for compile time
     // savings.
-    if (!IsLoopBound && (CE->getDenominator() != 1)) {
+    if (!IsLoopBound && Node && (CE->getDenominator() != 1)) {
       // Utility may assert for non-attached nodes.
       IsNonNegative =
           (Node->isAttached() && HLNodeUtils::isKnownNonNegative(CE, Node));
@@ -2250,7 +2250,7 @@ Type *RegDDRef::getDereferencedType() const {
 
     // This is an attempt to keep original behavior for non-opaque pointer path.
     if (!DestTy->isOpaquePointerTy()) {
-      DestTy->getPointerElementType();
+      DestTy->getNonOpaquePointerElementType();
     }
 
     // This can return null.

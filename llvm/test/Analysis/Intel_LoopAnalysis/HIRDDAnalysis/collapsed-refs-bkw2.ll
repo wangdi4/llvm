@@ -2,7 +2,7 @@
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>,hir-loop-collapse,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
 ; Test checks that we correctly maintain cross-iteration
-; dependancy during loop collapsing. In this case distance
+; dependency during loop collapsing. In this case distance
 ; is conservatively set to inner loop TC.
 
 ; Before collapsing

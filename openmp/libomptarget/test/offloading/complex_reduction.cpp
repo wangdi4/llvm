@@ -1,5 +1,10 @@
 // RUN: %libomptarget-compilexx-generic -O3 && %libomptarget-run-generic
 // RUN: %libomptarget-compilexx-generic -O3 -ffast-math && %libomptarget-run-generic
+// INTEL_CUSTOMIZATION
+// We are disabling this since some of our NB systems have gcc 4.8.x headers
+// causing compilation issues for std::complex.
+// REQUIRES: correct_and_stable_local_gcc_installation
+// end INTEL_CUSTOMIZATION
 
 #include <complex>
 #include <iostream>

@@ -23,6 +23,8 @@
 #include <assert.h>
 
 using namespace Intel::OpenCL::Framework;
+using namespace Intel::OpenCL::Utils;
+
 ImmediateCommandQueue::ImmediateCommandQueue(
     SharedPtr<Context> pContext, cl_device_id clDefaultDeviceID,
     cl_command_queue_properties clProperties, EventsManager *pEventManager)

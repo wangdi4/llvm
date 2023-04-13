@@ -280,6 +280,15 @@ public:
   /// elimination of instruction.
   static bool hasSideEffects(const CallInst *Call) {
     assert(Call && "Inst is nullptr");
+
+    auto *Intrin = dyn_cast<IntrinsicInst>(Call);
+
+    // Assume like intrinsics are for annotating IR. It should be safe to ignore
+    // them.
+    if (Intrin && Intrin->isAssumeLikeIntrinsic()) {
+      return false;
+    }
+
     return Call->mayHaveSideEffects();
   }
 
@@ -369,6 +378,18 @@ public:
   /// Checks whether the instruction is a call to an auto vectorization
   /// directive.
   bool isAutoVecDirective() const;
+
+  /// Returns true if instruction is lifetime.start intrinsic.
+  bool isLifetimeStartIntrinsic() const {
+    Intrinsic::ID Id;
+    return (isIntrinCall(Id) && (Id == Intrinsic::lifetime_start));
+  }
+
+  /// Returns true if instruction is lifetime.end intrinsic.
+  bool isLifetimeEndIntrinsic() const {
+    Intrinsic::ID Id;
+    return (isIntrinCall(Id) && (Id == Intrinsic::lifetime_end));
+  }
 
   /// Returns true if instruction is either lifetime.start or lifetime.end
   /// intrinsic.

@@ -1,4 +1,4 @@
-# REQUIRES: intel_feature_isa_amx_memadvise
+# REQUIRES: intel_feature_isa_amx_movrs
 # RUN: llvm-mc --disassemble %s -triple=x86_64 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s
 
 # CHECK:      t2rpntlvwz0advisee tmm6, [rbp + 8*r14 + 268435456], 123

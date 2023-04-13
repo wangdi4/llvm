@@ -5,6 +5,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
 ; RUN: opt -S -passes=hir-ssa-deconstruction,hir-vec-dir-insert -hir-cost-model-throttling=0 -debug-only=parvec-analysis -aa-pipeline=tbaa < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-optreport-emitter -hir-cost-model-throttling=0 -aa-pipeline=tbaa -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTREPORT
 declare void @foo(float * ) #1
 
 ;<0>          BEGIN REGION { }
@@ -20,6 +21,10 @@ declare void @foo(float * ) #1
 ; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM1:[0-9]+]]>          (%A)[%0] = %add;
 ; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM2:[0-9]+]]>          @foo(&((%A)[%0]));
 ; CHECK: [VConflict Idiom] Skipped: Sink ref is fake ref.
+
+; OPTREPORT: remark #15344: Loop was not vectorized: vector dependence prevents vectorization
+; OPTREPORT: remark #15346: vector dependence: assumed FLOW dependence
+; OPTREPORT: remark #15346: vector dependence: assumed FLOW dependence
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z4foo15PiS_S_(float* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* nocapture %C) local_unnamed_addr #0 {

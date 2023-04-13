@@ -1,4 +1,4 @@
-; RUN: opt -S -loop-load-elim < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-load-elim" -S < %s 2>&1 | FileCheck %s
 ;
 ; 8547: The odd bitsize types (created by Intel FPGA extensions)
 ; were crashing LoopAccessAnalysis which assumes allocation size and typesize

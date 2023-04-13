@@ -7,28 +7,36 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang-include-cleaner/Analysis.h"
+#include "AnalysisInternal.h"
+#include "TypesInternal.h"
 #include "clang-include-cleaner/Record.h"
 #include "clang-include-cleaner/Types.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/FileManager.h"
+#include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Testing/TestAST.h"
 #include "clang/Tooling/Inclusions/StandardLibrary.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ScopedPrinter.h"
-#include "llvm/Testing/Support/Annotations.h"
+#include "llvm/Testing/Annotations/Annotations.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <cstddef>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace clang::include_cleaner {
 namespace {
+using testing::AllOf;
 using testing::Contains;
 using testing::ElementsAre;
-using testing::AllOf;
 using testing::Pair;
 using testing::UnorderedElementsAre;
 
@@ -103,7 +111,7 @@ TEST_F(WalkUsedTest, Basic) {
   auto PrivateFile = Header(AST.fileManager().getFile("private.h").get());
   auto PublicFile = Header("\"path/public.h\"");
   auto MainFile = Header(SM.getFileEntryForID(SM.getMainFileID()));
-  auto VectorSTL = Header(tooling::stdlib::Header::named("<vector>").value());
+  auto VectorSTL = Header(*tooling::stdlib::Header::named("<vector>"));
   EXPECT_THAT(
       offsetToProviders(AST, SM),
       UnorderedElementsAre(
@@ -176,11 +184,35 @@ TEST_F(WalkUsedTest, MacroRefs) {
           Pair(Code.point("2"), UnorderedElementsAre(HdrFile))));
 }
 
-TEST(Analyze, Basic) {
+class AnalyzeTest : public testing::Test {
+protected:
   TestInputs Inputs;
+  PragmaIncludes PI;
+  RecordedPP PP;
+  AnalyzeTest() {
+    Inputs.MakeAction = [this] {
+      struct Hook : public SyntaxOnlyAction {
+      public:
+        Hook(RecordedPP &PP, PragmaIncludes &PI) : PP(PP), PI(PI) {}
+        bool BeginSourceFileAction(clang::CompilerInstance &CI) override {
+          CI.getPreprocessor().addPPCallbacks(PP.record(CI.getPreprocessor()));
+          PI.record(CI);
+          return true;
+        }
+
+        RecordedPP &PP;
+        PragmaIncludes &PI;
+      };
+      return std::make_unique<Hook>(PP, PI);
+    };
+  }
+};
+
+TEST_F(AnalyzeTest, Basic) {
   Inputs.Code = R"cpp(
 #include "a.h"
 #include "b.h"
+#include "keep.h" // IWYU pragma: keep
 
 int x = a + c;
 )cpp";
@@ -190,33 +222,42 @@ int x = a + c;
     int b;
   )cpp");
   Inputs.ExtraFiles["c.h"] = guard("int c;");
-
-  RecordedPP PP;
-  Inputs.MakeAction = [&PP] {
-    struct Hook : public SyntaxOnlyAction {
-    public:
-      Hook(RecordedPP &PP) : PP(PP) {}
-      bool BeginSourceFileAction(clang::CompilerInstance &CI) override {
-        CI.getPreprocessor().addPPCallbacks(PP.record(CI.getPreprocessor()));
-        return true;
-      }
-
-      RecordedPP &PP;
-    };
-    return std::make_unique<Hook>(PP);
-  };
-
+  Inputs.ExtraFiles["keep.h"] = guard("");
   TestAST AST(Inputs);
   auto Decls = AST.context().getTranslationUnitDecl()->decls();
   auto Results =
       analyze(std::vector<Decl *>{Decls.begin(), Decls.end()},
-              PP.MacroReferences, PP.Includes, /*PragmaIncludes=*/nullptr,
-              AST.sourceManager(), AST.preprocessor().getHeaderSearchInfo());
+              PP.MacroReferences, PP.Includes, &PI, AST.sourceManager(),
+              AST.preprocessor().getHeaderSearchInfo());
 
   const Include *B = PP.Includes.atLine(3);
   ASSERT_EQ(B->Spelled, "b.h");
   EXPECT_THAT(Results.Missing, ElementsAre("\"c.h\""));
   EXPECT_THAT(Results.Unused, ElementsAre(B));
+}
+
+TEST_F(AnalyzeTest, PrivateUsedInPublic) {
+  // Check that umbrella header uses private include.
+  Inputs.Code = R"cpp(#include "private.h")cpp";
+  Inputs.ExtraFiles["private.h"] =
+      guard("// IWYU pragma: private, include \"public.h\"");
+  Inputs.FileName = "public.h";
+  TestAST AST(Inputs);
+  EXPECT_FALSE(PP.Includes.all().empty());
+  auto Results = analyze({}, {}, PP.Includes, &PI, AST.sourceManager(),
+                         AST.preprocessor().getHeaderSearchInfo());
+  EXPECT_THAT(Results.Unused, testing::IsEmpty());
+}
+
+TEST_F(AnalyzeTest, NoCrashWhenUnresolved) {
+  // Check that umbrella header uses private include.
+  Inputs.Code = R"cpp(#include "not_found.h")cpp";
+  Inputs.ErrorOK = true;
+  TestAST AST(Inputs);
+  EXPECT_FALSE(PP.Includes.all().empty());
+  auto Results = analyze({}, {}, PP.Includes, &PI, AST.sourceManager(),
+                         AST.preprocessor().getHeaderSearchInfo());
+  EXPECT_THAT(Results.Unused, testing::IsEmpty());
 }
 
 TEST(FixIncludes, Basic) {
@@ -360,12 +401,24 @@ TEST(WalkUsed, FilterRefsNotSpelledInMainFile) {
     FileID MainFID = SM.getMainFileID();
     if (RefLoc.isValid()) {
       EXPECT_THAT(RefLoc, AllOf(expandedAt(MainFID, Main.point("expand"), &SM),
-                                 spelledAt(MainFID, Main.point("spell"), &SM)))
-          << T.Main;
+                                spelledAt(MainFID, Main.point("spell"), &SM)))
+          << T.Main.str();
     } else {
       EXPECT_THAT(Main.points(), testing::IsEmpty());
     }
   }
+}
+
+TEST(Hints, Ordering) {
+  struct Tag {};
+  auto Hinted = [](Hints Hints) {
+    return clang::include_cleaner::Hinted<Tag>({}, Hints);
+  };
+  EXPECT_LT(Hinted(Hints::None), Hinted(Hints::CompleteSymbol));
+  EXPECT_LT(Hinted(Hints::CompleteSymbol), Hinted(Hints::PublicHeader));
+  EXPECT_LT(Hinted(Hints::PublicHeader), Hinted(Hints::PreferredHeader));
+  EXPECT_LT(Hinted(Hints::CompleteSymbol | Hints::PublicHeader),
+            Hinted(Hints::PreferredHeader));
 }
 
 } // namespace

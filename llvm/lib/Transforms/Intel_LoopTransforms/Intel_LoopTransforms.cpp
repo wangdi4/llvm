@@ -1,6 +1,6 @@
 //===-- Intel_LoopTransforms.cpp-------------------------------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -20,13 +20,10 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRPMSymbolicTripCountCompleteUnrollLegacyPassPass(Registry);
   initializeHIRLoopInterchangeLegacyPassPass(Registry);
   initializeHIROptPredicateLegacyPassPass(Registry);
-  initializeHIRPreVecCompleteUnrollLegacyPassPass(Registry);
-  initializeHIRPostVecCompleteUnrollLegacyPassPass(Registry);
   initializeHIRGeneralUnrollLegacyPassPass(Registry);
   initializeHIRUnrollAndJamLegacyPassPass(Registry);
   initializeHIRDummyTransformationPass(Registry);
   initializeHIRLoopReversalLegacyPassPass(Registry);
-  initializeHIRLMMLegacyPassPass(Registry);
   initializeHIRLoopCollapseLegacyPassPass(Registry);
   initializeHIRRuntimeDDLegacyPassPass(Registry);
   initializeHIRScalarReplArrayLegacyPassPass(Registry);
@@ -61,7 +58,6 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRUndoSinkingForPerfectLoopnestLegacyPassPass(Registry);
   initializeHIRConditionalTempSinkingLegacyPassPass(Registry);
   initializeHIRMemoryReductionSinkingLegacyPassPass(Registry);
-  initializeHIRRowWiseMVLegacyPassPass(Registry);
   initializeHIRConditionalLoadStoreMotionLegacyPassPass(Registry);
   initializeHIRNontemporalMarkingLegacyPassPass(Registry);
   initializeHIRStoreResultIntoTempArrayLegacyPassPass(Registry);

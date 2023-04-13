@@ -1,6 +1,6 @@
 //===-------------- ReorderFieldsOP.cpp - DTransReorderFieldsPass ---------===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,7 +16,6 @@
 #include "Intel_DTrans/Transforms/ReorderFieldsOP.h"
 
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -133,42 +132,6 @@ static bool getConstantFromValue(Value *V, uint64_t &Val) {
 
   return true;
 }
-
-class DTransReorderFieldsOPWrapper : public ModulePass {
-public:
-  static char ID;
-
-  DTransReorderFieldsOPWrapper() : ModulePass(ID) {
-    initializeDTransReorderFieldsOPWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    DTransSafetyAnalyzerWrapper &DTAnalysisWrapper =
-        getAnalysis<DTransSafetyAnalyzerWrapper>();
-    DTransSafetyInfo &DTInfo = DTAnalysisWrapper.getDTransSafetyInfo(M);
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    bool Changed = Impl.runImpl(
-        M, &DTInfo, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult());
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransSafetyAnalyzerWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-
-private:
-  ReorderFieldsOPPass Impl;
-};
 
 // FieldData records a field's alignment, size, index, and access frequency.
 class FieldData {
@@ -1737,7 +1700,7 @@ bool ReorderFieldsAnalyzer::isProfitable(dtrans::TypeInfo *TI,
     SkipField0 = true;
     Type *Ty0 = LLVMStructT->getElementType(0);
     dtrans::FieldInfo &FI = StInfo->getField(0);
-    FD0.set(DL.getABITypeAlignment(Ty0), DL.getTypeStoreSize(Ty0), 0,
+    FD0.set(DL.getABITypeAlign(Ty0).value(), DL.getTypeStoreSize(Ty0), 0,
             FI.getFrequency());
   }
 
@@ -1746,7 +1709,7 @@ bool ReorderFieldsAnalyzer::isProfitable(dtrans::TypeInfo *TI,
   for (; I < E; ++I) {
     Type *FieldTy = LLVMStructT->getElementType(I);
     dtrans::FieldInfo &FI = StInfo->getField(I);
-    FieldData FD(DL.getABITypeAlignment(FieldTy), DL.getTypeStoreSize(FieldTy),
+    FieldData FD(DL.getABITypeAlign(FieldTy).value(), DL.getTypeStoreSize(FieldTy),
                  I, FI.getFrequency());
     Fields.push_back(FD);
   }
@@ -1867,7 +1830,7 @@ bool ReorderFieldsAnalyzer::isProfitable(dtrans::TypeInfo *TI,
     LLVM_DEBUG({ OffsetTrackV.push_back(Offset); });
   }
 
-  uint64_t StructAlign = DL.getABITypeAlignment(LLVMStructT);
+  uint64_t StructAlign = DL.getABITypeAlign(LLVMStructT).value();
   if ((Offset & (StructAlign - 1)) != 0) {
     Offset = alignTo(Offset, StructAlign);
     LLVM_DEBUG({ OffsetTrackV.push_back(Offset); });
@@ -2070,21 +2033,6 @@ bool ReorderFieldsAnalyzer::doCollection(Module &M, DTransSafetyInfo *DTInfo) {
 }
 
 } // end anonymous namespace
-
-char DTransReorderFieldsOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransReorderFieldsOPWrapper, "dtrans-reorderfieldsop",
-                      "DTrans reorder fields with opaque pointer support",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransReorderFieldsOPWrapper, "dtrans-reorderfieldsop",
-                    "DTrans reorder fields with opaque pointer support", false,
-                    false)
-
-ModulePass *llvm::createDTransReorderFieldsOPWrapperPass() {
-  return new DTransReorderFieldsOPWrapper();
-}
 
 PreservedAnalyses ReorderFieldsOPPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {

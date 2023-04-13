@@ -17,7 +17,7 @@ define void @fn(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"cla
 ; CHECK-NEXT:    br i1 [[IS_VISITED0]], label [[INDIRECT_CALL_LOOP_LATCH0]], label [[VECTOR_INDIRECT_CALL0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.indirect.call:
-; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <8 x double (i32, i32)* addrspace(4)*> poison, double (i32, i32)* addrspace(4)* [[CURRENT_FPTR0]], i32 0
+; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <8 x double (i32, i32)* addrspace(4)*> poison, double (i32, i32)* addrspace(4)* [[CURRENT_FPTR0]], i64 0
 ; CHECK-NEXT:    [[CURRENT_FPTR_SPLAT0:%.*]] = shufflevector <8 x double (i32, i32)* addrspace(4)*> [[CURRENT_FPTR_SPLATINSERT0]], <8 x double (i32, i32)* addrspace(4)*> poison, <8 x i32> zeroinitializer
 ; CHECK-NEXT:    [[FUNC_PTR_MASK0:%.*]] = icmp eq <8 x double (i32, i32)* addrspace(4)*> [[CURRENT_FPTR_SPLAT0]], [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <8 x i1> [[FUNC_PTR_MASK0]] to <8 x i64>
@@ -45,8 +45,8 @@ define void @fn(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"cla
 ; CHECK-NEXT:    br label [[VPLANNEDBB130:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB13:
-; CHECK-NEXT:    [[TMP15:%.*]] = add nuw <8 x i32> [[VEC_PHI0:%.*]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
-; CHECK-NEXT:    [[TMP16:%.*]] = add nuw i32 [[UNI_PHI0:%.*]], 8
+; CHECK-NEXT:    [[TMP15:%.*]] = add nuw nsw <8 x i32> [[VEC_PHI0:%.*]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
+; CHECK-NEXT:    [[TMP16:%.*]] = add nuw nsw i32 [[UNI_PHI0:%.*]], 8
 ; CHECK-NEXT:    [[TMP17:%.*]] = icmp ult i32 [[TMP16]], 8
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB140:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:

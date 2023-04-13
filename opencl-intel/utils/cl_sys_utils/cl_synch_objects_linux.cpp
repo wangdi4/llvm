@@ -27,70 +27,6 @@
  ************************************************************************/
 using namespace Intel::OpenCL::Utils;
 
-void Intel::OpenCL::Utils::InnerSpinloopImpl() { hw_pause(); }
-
-/************************************************************************
- * Creates the mutex section object.
- ************************************************************************/
-OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive)
-    : m_uiSpinCount(uiSpinCount), m_bRecursive(recursive) {
-  pthread_mutexattr_t attr;
-  pthread_mutexattr_t *p_attr = nullptr;
-
-  if (m_bRecursive) {
-    p_attr = &attr;
-    if (pthread_mutexattr_init(p_attr) ||
-        pthread_mutexattr_settype(p_attr, PTHREAD_MUTEX_RECURSIVE))
-      assert(false &&
-             "Failed to Set Mutex attribute as PTHREAD_MUTEX_RECURSIVE");
-  }
-
-  if (0 != pthread_mutex_init(&m_mutex, p_attr))
-    assert(false && "Failed to initialize pthread mutex");
-
-  if (nullptr != p_attr && 0 != pthread_mutexattr_destroy(p_attr))
-    assert(false && "Failed to Destroy Mutex attribute");
-}
-
-/************************************************************************
- * Destroys the critical section object.
- ************************************************************************/
-OclMutex::~OclMutex() {
-  if (0 != pthread_mutex_destroy(&m_mutex)) {
-    assert(0 && "Failed destroy pthread mutex");
-  }
-}
-
-/************************************************************************
- * Take the lock on this critical section.
- * If lock is acquired, all other threads are blocked on this lock until
- * the current thread unlocked it.
- ************************************************************************/
-void OclMutex::Lock() { spinCountMutexLock(); }
-/************************************************************************
- * Release the lock
- ************************************************************************/
-void OclMutex::Unlock() { pthread_mutex_unlock(&m_mutex); }
-
-void OclMutex::spinCountMutexLock() {
-  int err = 0;
-  unsigned int i = 0;
-  do {
-    err = pthread_mutex_trylock(&m_mutex);
-    // Mutex lock succeded.
-    if (err == 0) {
-      return;
-    }
-    // The mutex could not be acquired because it was already locked.
-    if (err == EBUSY) {
-      // In order to improve the performance of spin-wait loops.
-      InnerSpinloopImpl();
-    }
-    i++;
-  } while (i < m_uiSpinCount);
-  pthread_mutex_lock(&m_mutex);
-}
-
 /************************************************************************
  *
  ************************************************************************/
@@ -116,12 +52,12 @@ OclCondition::~OclCondition() {
 /************************************************************************
  *
  ************************************************************************/
-COND_RESULT OclCondition::Wait(OclMutex *mutexObj) {
+COND_RESULT OclCondition::Wait(std::mutex *mutexObj) {
   assert(mutexObj && "mutexObj must be valid object");
   if (nullptr == mutexObj) {
     return COND_RESULT_FAIL;
   }
-  if (0 != pthread_cond_wait(&m_condVar, &mutexObj->m_mutex)) {
+  if (0 != pthread_cond_wait(&m_condVar, mutexObj->native_handle())) {
     return COND_RESULT_FAIL;
   }
   return COND_RESULT_OK;

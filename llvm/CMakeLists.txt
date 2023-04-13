@@ -33,7 +33,7 @@ include(${LLVM_COMMON_CMAKE_UTILS}/Modules/CMakePolicy.cmake
 set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 
 if(NOT DEFINED LLVM_VERSION_MAJOR)
-  set(LLVM_VERSION_MAJOR 16)
+  set(LLVM_VERSION_MAJOR 17)
 endif()
 if(NOT DEFINED LLVM_VERSION_MINOR)
   set(LLVM_VERSION_MINOR 0)
@@ -56,6 +56,12 @@ if(NOT DEFINED LLVM_SHLIB_SYMBOL_VERSION)
 endif()
 
 set(INTEL_CUSTOMIZATION ON)
+
+if (INTEL_CUSTOMIZATION)
+# CMP0091 introduces a new "MSVC_RUNTIME_LIBRARY" abstraction to select the
+# MSVC runtime library, but various subprojects are not yet aware of this.
+cmake_policy(SET CMP0091 OLD)
+endif (INTEL_CUSTOMIZATION)
 
 if ((CMAKE_GENERATOR MATCHES "Visual Studio") AND (MSVC_TOOLSET_VERSION LESS 142) AND (CMAKE_GENERATOR_TOOLSET STREQUAL ""))
   message(WARNING "Visual Studio generators use the x86 host compiler by "
@@ -90,7 +96,7 @@ if (INTEL_CUSTOMIZATION)
   else()
     set(DPCPP_VERSION_QUALITY " ")
     set(DPCPP_VERSION_MAJOR "2023")
-    set(DPCPP_VERSION_MINOR "1")
+    set(DPCPP_VERSION_MINOR "2")
   endif()
   set(DPCPP_VERSION_PATCH "0")
   set(VERSION "${DPCPP_VERSION_MAJOR}.${DPCPP_VERSION_MINOR}.${DPCPP_VERSION_PATCH}")
@@ -170,6 +176,17 @@ endif()
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
 # one for llvm+clang+... using the same sources.
+if (INTEL_CUSTOMIZATION)
+  # FIXME: when build opencl cpurt, xtoolsup is always adding ocl-cclang to
+  # LLVM_EXTERNAL_PROJECTS. Now we will start to use github opencl-clang,
+  # this is workaround to remove ocl-cclang. Without the WA, both ocl-cclang and
+  # github opencl-clang will be build and there will be CMake error that same
+  # target name already exists. After the patch is landed, we need to update
+  # xtoolsup to remove ocl-cclang from LLVM_EXTERNAL_PROJECTS, and then the WA
+  # can be removed.
+  string(REPLACE "ocl-cclang;" "" WITHOUT_OCLCCLANG "${LLVM_EXTERNAL_PROJECTS}")
+  set(LLVM_EXTERNAL_PROJECTS "${WITHOUT_OCLCCLANG}")
+endif (INTEL_CUSTOMIZATION)
 set(LLVM_ALL_PROJECTS "bolt;clang;clang-tools-extra;compiler-rt;cross-project-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;mlir;openmp;polly;pstl")
 set(LLVM_ALL_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTERNAL_PROJECTS}")
 # The flang project is not yet part of "all" projects (see C++ requirements)
@@ -179,6 +196,7 @@ set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS}")
 if (INTEL_CUSTOMIZATION)
   # List of Intel specific projects
   set(LLVM_INTEL_EXTRA_PROJECTS "opencl;aocl-ioc64;libdevice")
+  set(OPENCL_CLANG_LIBRARY_NAME "common_clang" CACHE STRING "")
   # List of all known projects in the mono repo
   set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS};${LLVM_INTEL_EXTRA_PROJECTS}")
 endif (INTEL_CUSTOMIZATION)
@@ -221,6 +239,16 @@ foreach(proj IN LISTS LLVM_ENABLE_RUNTIMES)
     message(FATAL_ERROR "Runtime \"${proj}\" is not a supported runtime. Supported runtimes are: ${LLVM_SUPPORTED_RUNTIMES}")
   endif()
 endforeach()
+
+if ("libc" IN_LIST LLVM_ENABLE_RUNTIMES)
+  # To build the libc runtime, we need to be able to build few libc build
+  # tools from the "libc" project. So, we add it to the list of enabled
+  # projects.
+  if (NOT "libc" IN_LIST LLVM_ENABLE_PROJECTS)
+    message(STATUS "Enabling libc project to build libc build tools")
+    list(APPEND LLVM_ENABLE_PROJECTS "libc")
+  endif()
+endif()
 
 # LLVM_ENABLE_PROJECTS_USED is `ON` if the user has ever used the
 # `LLVM_ENABLE_PROJECTS` CMake cache variable.  This exists for
@@ -436,7 +464,7 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 
 if (CMAKE_BUILD_TYPE AND
     NOT uppercase_CMAKE_BUILD_TYPE MATCHES "^(DEBUG|RELEASE|RELWITHDEBINFO|MINSIZEREL)$")
-  message(FATAL_ERROR "Invalid value for CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+  message(WARNING "Unknown value for CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 endif()
 
 # LLVM_INSTALL_PACKAGE_DIR needs to be declared prior to adding the tools
@@ -520,6 +548,7 @@ set(LLVM_ALL_TARGETS
 # end INTEL_CUSTOMIZATION
   Hexagon
   Lanai
+  LoongArch
   Mips
   MSP430
   NVPTX
@@ -752,6 +781,7 @@ set(LLVM_LIT_ARGS "${LIT_ARGS_DEFAULT}" CACHE STRING "Default options for lit")
 if( WIN32 AND NOT CYGWIN )
   set(LLVM_LIT_TOOLS_DIR "" CACHE PATH "Path to GnuWin32 tools")
 endif()
+set(LLVM_NATIVE_TOOL_DIR "" CACHE PATH "Path to a directory containing prebuilt matching native tools (such as llvm-tblgen)")
 
 set(LLVM_INTEGRATED_CRT_ALLOC "" CACHE PATH "Replace the Windows CRT allocator with any of {rpmalloc|mimalloc|snmalloc}. Only works with /MT enabled.")
 if(LLVM_INTEGRATED_CRT_ALLOC)
@@ -789,12 +819,16 @@ option(LLVM_BUILD_EXAMPLES
 option(LLVM_INCLUDE_EXAMPLES "Generate build targets for the LLVM examples" ON)
 
 if(LLVM_BUILD_EXAMPLES)
-  add_definitions(-DBUILD_EXAMPLES)
+  add_compile_definitions(BUILD_EXAMPLES)
 endif(LLVM_BUILD_EXAMPLES)
 
 option(LLVM_BUILD_TESTS
   "Build LLVM unit tests. If OFF, just generate build targets." OFF)
 option(LLVM_INCLUDE_TESTS "Generate build targets for the LLVM unit tests." ON)
+
+option(LLVM_INSTALL_GTEST
+  "Install the llvm gtest library.  This should be on if you want to do
+   stand-alone builds of the other projects and run their unit tests." OFF)
 
 option(LLVM_BUILD_BENCHMARKS "Add LLVM benchmark targets to the list of default
 targets. If OFF, benchmarks still could be built using Benchmarks target." OFF)
@@ -903,8 +937,7 @@ endif()
 set(LLVM_TARGET_TRIPLE_ENV CACHE STRING "The name of environment variable to override default target. Disabled by blank.")
 mark_as_advanced(LLVM_TARGET_TRIPLE_ENV)
 
-# Per target dir not yet supported on Arm 32 bit due to arm vs armhf handling
-if(CMAKE_SYSTEM_NAME MATCHES "BSD|Linux" AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
+if(CMAKE_SYSTEM_NAME MATCHES "BSD|Linux|OS390")
   set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR_default ON)
 else()
   set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR_default OFF)
@@ -945,17 +978,8 @@ else()
   endif()
 endif()
 
-set(LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE_default}" CACHE STRING
-  "Default target for which LLVM will generate code." )
-if (TARGET_TRIPLE)
-  message(WARNING "TARGET_TRIPLE is deprecated and will be removed in a future release. "
-                  "Please use LLVM_DEFAULT_TARGET_TRIPLE instead.")
-  set(LLVM_TARGET_TRIPLE "${TARGET_TRIPLE}")
-else()
-  set(LLVM_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
-endif()
-message(STATUS "LLVM host triple: ${LLVM_HOST_TRIPLE}")
-message(STATUS "LLVM default target triple: ${LLVM_DEFAULT_TARGET_TRIPLE}")
+include(SetTargetTriple)
+set_llvm_target_triple()
 
 # INTEL_CUSTOMIZATION
 if (UWD_BUILD)
@@ -994,11 +1018,16 @@ if(NOT LLVM_ENABLE_NEW_PASS_MANAGER)
 endif()
 endif(INTEL_CUSTOMIZATION)
 
-set(DPCPP_ENABLE_OPAQUE_POINTERS FALSE CACHE BOOL
+set(DPCPP_ENABLE_OPAQUE_POINTERS TRUE CACHE BOOL
    "Enable opaque pointers by default.")
 if (DPCPP_ENABLE_OPAQUE_POINTERS)
   add_definitions("-DENABLE_OPAQUE_POINTERS=1")
 endif(DPCPP_ENABLE_OPAQUE_POINTERS)
+set(SPIRV_ENABLE_OPAQUE_POINTERS FALSE CACHE BOOL
+    "Enable opaque pointers for SPIR-V offload by default.")
+if(SPIRV_ENABLE_OPAQUE_POINTERS)
+  add_definitions("-DSPIRV_ENABLE_OPAQUE_POINTERS=1")
+endif()
 
 include(HandleLLVMOptions)
 
@@ -1157,6 +1186,20 @@ if(INTEL_CUSTOMIZATION)
   if (features_enabled_by_default)
     list(REMOVE_DUPLICATES features_enabled_by_default)
 
+# INTEL_FEATURE_XISA_COMMON
+    if (";${features_enabled_by_default};" MATCHES
+        ";${LLVM_INTELFEATURE_PREFIX}_XISA_EXTRA;")
+      # Expand XISA_EXTRA into a list of top secret ISA features, and also
+      # delete XISA_EXTRA from the list.  Note that XISA_EXTRA is a "macro"
+      # feature and it must never be used to guard any code.
+      list(REMOVE_ITEM features_enabled_by_default
+           "${LLVM_INTELFEATURE_PREFIX}_XISA_EXTRA")
+
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_XUCC)
+    endif()
+#end INTEL_FEATURE_XISA_COMMON
+
     if (";${features_enabled_by_default};" MATCHES
         ";${LLVM_INTELFEATURE_PREFIX}_XISA;")
       # Expand XISA into a list of new non-public ISA features, and also
@@ -1169,10 +1212,6 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_DMR)
 # end INTEL_FEATURE_CPU_DMR
-# INTEL_FEATURE_CPU_EMR
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_CPU_EMR)
-# end INTEL_FEATURE_CPU_EMR
 # INTEL_FEATURE_CPU_RYL
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_RYL)
@@ -1188,10 +1227,10 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_XISA_COMMON)
 #end INTEL_FEATURE_XISA_COMMON
 
-# INTEL_FEATURE_ISA_AMX_MEMADVISE
+# INTEL_FEATURE_ISA_AMX_MOVRS
       list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_MEMADVISE)
-# end INTEL_FEATURE_ISA_AMX_MEMADVISE
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_MOVRS)
+# end INTEL_FEATURE_ISA_AMX_MOVRS
 
 # INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
       list(APPEND features_enabled_by_default
@@ -1203,11 +1242,6 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_FUTURE)
 # end INTEL_FEATURE_ISA_AMX_FUTURE
-
-# INTEL_FEATURE_ISA_AMX_LNC
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_LNC)
-# end INTEL_FEATURE_ISA_AMX_LNC
 
 # INTEL_FEATURE_ISA_AMX_AVX512
       list(APPEND features_enabled_by_default
@@ -1269,11 +1303,6 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_TRANSPOSE)
 # end INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
-# INTEL_FEATURE_ISA_AMX_COMPLEX
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_COMPLEX)
-# end INTEL_FEATURE_ISA_AMX_COMPLEX
-
 # INTEL_FEATURE_ISA_AMX_TF32
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_TF32)
@@ -1314,10 +1343,10 @@ list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_COMPRESS)
 # end INTEL_FEATURE_ISA_AVX_COMPRESS
 
-# INTEL_FEATURE_ISA_AVX_MEMADVISE
+# INTEL_FEATURE_ISA_AVX512_MOVRS
       list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE)
-# end INTEL_FEATURE_ISA_AVX_MEMADVISE
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_MOVRS)
+# end INTEL_FEATURE_ISA_AVX512_MOVRS
 
 # INTEL_FEATURE_ISA_AVX512_MEDIAX
       list(APPEND features_enabled_by_default
@@ -1362,6 +1391,10 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_RAO_FP)
 # end INTEL_FEATURE_ISA_AVX512_RAO_FP
+# INTEL_FEATURE_ISA_AVX512_MOVZXC
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_MOVZXC)
+# end INTEL_FEATURE_ISA_AVX512_MOVZXC
 # INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #AUTO GENERATED BY TOOL
       list(APPEND features_enabled_by_default
@@ -1392,10 +1425,6 @@ list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_DSPV1)
 # end AUTO GENERATED BY TOOL
 # end INTEL_FEATURE_ISA_DSPV1
-# INTEL_FEATURE_ISA_AVX256
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX256)
-# end INTEL_FEATURE_ISA_AVX256
 # INTEL_FEATURE_ISA_AVX256P
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX256P)
@@ -1442,6 +1471,10 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_BF16_BASE)
 # end INTEL_FEATURE_ISA_BF16_BASE
+# INTEL_FEATURE_ISA_APX_F
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_APX_F)
+# end INTEL_FEATURE_ISA_APX_F
 # INTEL_FEATURE_ISA_AVX512_MINMAX
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_MINMAX)
@@ -1491,6 +1524,10 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VPMM)
 # end INTEL_FEATURE_ISA_AVX512_VPMM
+# INTEL_FEATURE_ISA_MOVRS_PREFETCHST2
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_MOVRS_PREFETCHST2)
+# end INTEL_FEATURE_ISA_MOVRS_PREFETCHST2
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
@@ -1650,20 +1687,11 @@ set( CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LLVM_TOOLS_BINARY_DIR} )
 set( CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LLVM_LIBRARY_DIR} )
 set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LLVM_LIBRARY_DIR} )
 
-if(LLVM_INCLUDE_TESTS)
-  include(GetErrcMessages)
-  get_errc_messages(LLVM_LIT_ERRC_MESSAGES)
-endif()
-
 # For up-to-date instructions for installing the TFLite dependency, refer to
 # the bot setup script: https://github.com/google/ml-compiler-opt/blob/main/buildbot/buildbot_init.sh
 set(LLVM_HAVE_TFLITE "" CACHE BOOL "Use tflite")
 if (LLVM_HAVE_TFLITE)
-  find_package(protobuf REQUIRED)
   find_package(tensorflow-lite REQUIRED)
-  set(LLVM_HAVE_TF_API "ON" CACHE BOOL "Full Tensorflow API available")
-  set(LLVM_PROTOBUF_OUT_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/protobuf_gen)
-  include_directories(${LLVM_PROTOBUF_OUT_DIR})
 endif()
 
 # For up-to-date instructions for installing the Tensorflow dependency, refer to
@@ -1679,13 +1707,7 @@ if (NOT TENSORFLOW_AOT_PATH STREQUAL "")
   set(TENSORFLOW_AOT_COMPILER
     "${TENSORFLOW_AOT_PATH}/../../../../bin/saved_model_cli"
     CACHE PATH "Path to the Tensorflow AOT compiler")
-  # This needs to happen to avoid clashing protobuf codegen when building both AOT and development mode.
-  # We plan to replace protobuf with a simpler alternative, so this will go away.
-  file(COPY ${TENSORFLOW_AOT_PATH}/include DESTINATION ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/tensorflow
-    NO_SOURCE_PERMISSIONS
-    PATTERN "google/*" EXCLUDE
-    PATTERN "*.pb.h" EXCLUDE)
-  include_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/tensorflow/include)
+  include_directories(${TENSORFLOW_AOT_PATH}/include)
   add_subdirectory(${TENSORFLOW_AOT_PATH}/xla_aot_runtime_src
     ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/tf_runtime)
   install(TARGETS tf_xla_runtime EXPORT LLVMExports
@@ -1753,8 +1775,8 @@ endif()
 # Build with _XOPEN_SOURCE on AIX, as stray macros in _ALL_SOURCE mode tend to
 # break things. In this case we need to enable the large-file API as well.
 if (UNIX AND ${CMAKE_SYSTEM_NAME} MATCHES "AIX")
-          add_definitions("-D_XOPEN_SOURCE=700")
-          add_definitions("-D_LARGE_FILE_API")
+          add_compile_definitions(_XOPEN_SOURCE=700)
+          add_compile_definitions(_LARGE_FILE_API)
 
   # CMake versions less than 3.16 set default linker flags to include -brtl, as
   # well as setting -G when building libraries, so clear them out. Note we only
@@ -1789,14 +1811,14 @@ endif()
 
 # Build with _XOPEN_SOURCE on z/OS.
 if (CMAKE_SYSTEM_NAME MATCHES "OS390")
-  add_definitions("-D_XOPEN_SOURCE=600")
-  add_definitions("-D_OPEN_SYS") # Needed for process information.
-  add_definitions("-D_OPEN_SYS_FILE_EXT") # Needed for EBCDIC I/O.
+  add_compile_definitions(_XOPEN_SOURCE=600)
+  add_compile_definitions(_OPEN_SYS) # Needed for process information.
+  add_compile_definitions(_OPEN_SYS_FILE_EXT) # Needed for EBCDIC I/O.
 endif()
 
 # Build with _FILE_OFFSET_BITS=64 on Solaris to match g++ >= 9.
 if (UNIX AND ${CMAKE_SYSTEM_NAME} MATCHES "SunOS")
-          add_definitions("-D_FILE_OFFSET_BITS=64")
+          add_compile_definitions(_FILE_OFFSET_BITS=64)
 endif()
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -2083,6 +2105,17 @@ if (INTEL_CUSTOMIZATION)
       bin-llvm-readme
       )
 
+    if (features_enabled_by_default AND (";${features_enabled_by_default};"
+        MATCHES ";${LLVM_INTELFEATURE_PREFIX}_XISA_COMMON;"))
+      list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_XISA_COMMON
+        llvm-objdump llvm-mc
+# end INTEL_FEATURE_XISA_COMMON
+# end INTEL_CUSTOMIZATION
+      )
+    endif()
+
     if (WIN32)
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
         # llvm-lib is a copy of llvm-ar, and it cannot
@@ -2121,6 +2154,9 @@ if (INTEL_CUSTOMIZATION)
         clang_rt.ubsan_standalone-x86_64
         clang_rt.ubsan_standalone_cxx-x86_64
 
+        # Control-flow integrity (CFI) sanitizer
+        clang_rt.cfi-x86_64 clang_rt.cfi_diag-x86_64 cfi
+
         # llvm-symbolizer improves traces from sanitizers.
         llvm-symbolizer
       )
@@ -2147,6 +2183,12 @@ if (INTEL_CUSTOMIZATION)
       endif()
     endif()
 
+    # Deploying fuzzer libraries.
+    list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+      clang_rt.fuzzer-x86_64 clang_rt.fuzzer_no_main-x86_64
+      clang_rt.fuzzer_interceptors-x86_64
+    )
+
     set(INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST
       # Libdev components
       libdev-libirc libdev-frtl libdev-libbfp754 libdev-libifport
@@ -2166,10 +2208,8 @@ if (INTEL_CUSTOMIZATION)
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components
       ocl-common_clang ocl-common_clang_emu ocl-builtins ocl-builtins-shared
-      ocl-config ocl-cl_logger ocl-cl_logger_emu OpenCL-ICD
-      ocl-svml ocl-gdb-plugin ocl-library-kernel
+      ocl-config OpenCL-ICD ocl-svml ocl-gdb-plugin ocl-library-kernel ocl-tbb
       ocl-intelocl ocl-intelocl_emu ocl-intelocl32_emu ocl-intelocl32 ocl-intelocl64_emu ocl-intelocl64
-      ocl-task_executor ocl-task_executor_emu ocl-task_executor32_emu  ocl-task_executor32 ocl-task_executor64_emu  ocl-task_executor64
       )
 
     if (WIN32)

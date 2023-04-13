@@ -99,7 +99,7 @@ TEST_F(CoreAPIsStandardTest, MaterializationSideEffctsOnlyBasic) {
   // results.
 
   std::unique_ptr<MaterializationResponsibility> FooR;
-  Optional<SymbolMap> Result;
+  std::optional<SymbolMap> Result;
 
   cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap(
@@ -260,7 +260,7 @@ TEST_F(CoreAPIsStandardTest, DiscardInitSymbol) {
 
 TEST_F(CoreAPIsStandardTest, LookupWithHiddenSymbols) {
   auto BarHiddenFlags = BarSym.getFlags() & ~JITSymbolFlags::Exported;
-  auto BarHiddenSym = JITEvaluatedSymbol(BarSym.getAddress(), BarHiddenFlags);
+  auto BarHiddenSym = ExecutorSymbolDef(BarSym.getAddress(), BarHiddenFlags);
 
   cantFail(JD.define(absoluteSymbols({{Foo, FooSym}, {Bar, BarHiddenSym}})));
 
@@ -1084,8 +1084,8 @@ TEST_F(CoreAPIsStandardTest, DefineMaterializingSymbol) {
 }
 
 TEST_F(CoreAPIsStandardTest, GeneratorTest) {
-  JITEvaluatedSymbol BazHiddenSym(
-      BazSym.getAddress(), BazSym.getFlags() & ~JITSymbolFlags::Exported);
+  ExecutorSymbolDef BazHiddenSym(BazSym.getAddress(),
+                                 BazSym.getFlags() & ~JITSymbolFlags::Exported);
   cantFail(JD.define(absoluteSymbols({{Foo, FooSym}, {Baz, BazHiddenSym}})));
 
   class TestGenerator : public DefinitionGenerator {

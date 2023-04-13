@@ -31,8 +31,6 @@ class Context;
  *
  * Inherit:    OCLObject
  * Description:  represents a sampler object
- * Author:    Uri Levy
- * Date:      May 2008
  ******************************************************************************/
 class Sampler : public OCLObject<_cl_sampler_int> {
 public:
@@ -46,10 +44,11 @@ public:
    * Function:   Sampler
    * Description:  The Sampler class constructor
    * Arguments:
-   * Author:    Uri Levy
-   * Date:      May 2008
    ****************************************************************************/
   Sampler(_cl_context_int *context);
+
+  Sampler(const Sampler &) = delete;
+  Sampler &operator=(const Sampler &) = delete;
 
   // get image info
   cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
@@ -74,8 +73,6 @@ protected:
    * Function:   ~Sampler
    * Description:  The Sampler class destructor
    * Arguments:
-   * Author:    Uri Levy
-   * Date:      May 2008
    ****************************************************************************/
   virtual ~Sampler();
 
@@ -89,10 +86,6 @@ protected:
   std::vector<cl_sampler_properties> m_clSamplerPropArrays;
 
   DECLARE_LOGGER_CLIENT;
-
-private:
-  Sampler(const Sampler &);
-  Sampler &operator=(const Sampler &);
 };
 
 } // namespace Framework

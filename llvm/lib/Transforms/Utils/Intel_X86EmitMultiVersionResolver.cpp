@@ -10,12 +10,12 @@
 
 #include "llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Intel_CPU_utils.h"
-#include "llvm/Support/X86TargetParser.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
@@ -25,146 +25,98 @@ using namespace llvm::X86;
 Value *llvm::formResolverCondition(IRBuilderBase &Builder,
                                    const MultiVersionResolverOption &RO,
                                    bool UseLibIRC) {
-  llvm::Value *Condition = nullptr;
+  Value *Condition = nullptr;
 
   if (!RO.Conditions.Architecture.empty())
-    Condition = llvm::X86::emitCpuIs(Builder, RO.Conditions.Architecture);
+    Condition = X86::emitCpuIs(Builder, RO.Conditions.Architecture);
+
   if (!RO.Conditions.Features.empty()) {
-    llvm::Value *FeatureCond = nullptr;
+    Value *FeatureCond = nullptr;
     if (UseLibIRC) {
       std::array<uint64_t, 2> Bitmaps =
-          llvm::X86::getCpuFeatureBitmap(RO.Conditions.Features,
-                                         /*OnlyAutoGen=*/true);
-      FeatureCond = llvm::X86::mayIUseCpuFeatureHelper(
-          Builder,
-          {APSInt{APInt(64, Bitmaps[0]), true},
-           APSInt{APInt(64, Bitmaps[1]), true}});
+          X86::getCpuFeatureBitmap(RO.Conditions.Features, /*OnlyAutoGen=*/true);
+      FeatureCond = X86::mayIUseCpuFeatureHelper(
+          Builder, {APSInt{APInt(64, Bitmaps[0]), true},
+                    APSInt{APInt(64, Bitmaps[1]), true}});
     } else
-      FeatureCond = llvm::X86::emitCpuSupports(Builder, RO.Conditions.Features);
+      FeatureCond = X86::emitCpuSupports(Builder, RO.Conditions.Features);
+
     Condition =
         Condition ? Builder.CreateAnd(Condition, FeatureCond) : FeatureCond;
   }
+
   return Condition;
 }
 
-static void CreateMultiVersionResolverReturn(Function *Resolver,
-                                             IRBuilderBase &Builder,
+static void CreateMultiVersionResolverBranch(IRBuilderBase &Builder,
                                              Function *FuncToReturn,
-                                             bool UseIFunc) {
+                                             GlobalVariable *DispatchPtr,
+                                             bool UseIFunc,
+                                             BasicBlock *ExitBlock) {
   if (UseIFunc) {
     Builder.CreateRet(FuncToReturn);
     return;
   }
 
-  Module *M = Resolver->getParent();
-  std::string ResolverPtrName = Resolver->getName().str() + ".ptr";
-  GlobalValue *ResolverPtr = M->getNamedValue(ResolverPtrName);
-  Builder.CreateAlignedStore(FuncToReturn, ResolverPtr, MaybeAlign(8));
-
-  SmallVector<Value *, 10> Args;
-  for_each(Resolver->args(), [&](Argument &Arg) { Args.push_back(&Arg); });
-
-  CallInst *Result = Builder.CreateCall(FuncToReturn, Args);
-  Result->setTailCall();
-  Result->setCallingConv(FuncToReturn->getCallingConv());
-  Result->setAttributes(FuncToReturn->getAttributes());
-
-  if (Resolver->getReturnType()->isVoidTy())
-    Builder.CreateRetVoid();
-  else
-    Builder.CreateRet(Result);
+  Builder.CreateAlignedStore(FuncToReturn, DispatchPtr, MaybeAlign(8));
+  Builder.CreateBr(ExitBlock);
 }
 
-static void emitResolverPtrTest(Function *Resolver, IRBuilderBase &Builder) {
+void llvm::emitMultiVersionResolver(Function *Resolver,
+                                    GlobalVariable *DispatchPtr,
+                                    ArrayRef<MultiVersionResolverOption> Options,
+                                    bool UseIFunc, bool UseLibIRC) {
 
-  Module *M = Resolver->getParent();
-  std::string ResolverPtrName = Resolver->getName().str() + ".ptr";
-
-  Type *ResolverPtrType = Resolver->getFunctionType()->getPointerTo();
-  GlobalVariable *ResolverPtr =
-      new GlobalVariable(*M, ResolverPtrType, false, GlobalValue::InternalLinkage,
-                         Constant::getNullValue(ResolverPtrType), ResolverPtrName);
-  ResolverPtr->setDSOLocal(true);
-
-  auto ResolverPtrVal = Builder.CreateAlignedLoad(ResolverPtrType, ResolverPtr, MaybeAlign(8));
-
-  Value *CmpResult = Builder.CreateICmpNE(ResolverPtrVal, Constant::getNullValue(ResolverPtrType),
-                                          "ptr_compare");
-
-  auto &Ctx = Resolver->getContext();
-  BasicBlock *ThenBlock = BasicBlock::Create(Ctx, "resolver_then", Resolver);
-  BasicBlock *ElseBlock = BasicBlock::Create(Ctx, "resolver_else", Resolver);
-
-  Builder.CreateCondBr(CmpResult, ThenBlock, ElseBlock);
-
-  Builder.SetInsertPoint(ThenBlock);
-
-  SmallVector<Value *, 10> Args;
-  for_each(Resolver->args(), [&](Argument &Arg) { Args.push_back(&Arg); });
-
-  CallInst *Result =
-      Builder.CreateCall(FunctionCallee(Resolver->getFunctionType(), ResolverPtrVal), Args);
-  Result->setTailCall();
-  Result->setCallingConv(Resolver->getCallingConv());
-  Result->setAttributes(Resolver->getAttributes());
-
-  if (Resolver->getReturnType()->isVoidTy())
-    Builder.CreateRetVoid();
-  else
-    Builder.CreateRet(Result);
-
-  Builder.SetInsertPoint(ElseBlock);
-}
-
-void llvm::emitMultiVersionResolver(
-    Function *Resolver, ArrayRef<MultiVersionResolverOption> Options,
-    bool UseIFunc, bool UseLibIRC) {
   assert(Triple(Resolver->getParent()->getTargetTriple()).isX86() &&
          "Only implemented for x86 targets");
 
   auto &Ctx = Resolver->getContext();
-  // Main function's basic block.
-  BasicBlock *CurBlock = BasicBlock::Create(Ctx, "resolver_entry", Resolver);
+
+  BasicBlock *CurBlock = nullptr;
+  if (Resolver->empty())
+    CurBlock = BasicBlock::Create(Ctx, "resolver_entry", Resolver);
+  else {
+    CurBlock = &Resolver->back();
+    CurBlock->erase(CurBlock->begin(), CurBlock->end());
+  }
+
+  BasicBlock *ExitBlock = nullptr;
+  if (!UseIFunc)
+    ExitBlock = BasicBlock::Create(Ctx, "resolver_exit", Resolver);
 
   IRBuilder<> Builder(CurBlock, CurBlock->begin());
-  if (!UseIFunc) {
-    emitResolverPtrTest(Resolver, Builder);
-    CurBlock = Builder.GetInsertBlock();
-  }
+
   if (UseLibIRC)
-    llvm::X86::emitCpuFeaturesInit(Builder, UseIFunc);
+    X86::emitCpuFeaturesInit(Builder, UseIFunc);
   else
-    llvm::X86::emitCPUInit(Builder, UseIFunc);
+    X86::emitCPUInit(Builder, UseIFunc);
 
   for (const MultiVersionResolverOption &RO : Options) {
     Builder.SetInsertPoint(CurBlock);
-    llvm::Value *Condition = formResolverCondition(Builder, RO, UseLibIRC);
+    Value *Condition = formResolverCondition(Builder, RO, UseLibIRC);
 
     // The 'default' or 'generic' case.
     if (!Condition) {
       assert(&RO == Options.end() - 1 &&
              "Default or Generic case must be last");
-      CreateMultiVersionResolverReturn(Resolver, Builder, RO.Fn, UseIFunc);
-      return;
+      CreateMultiVersionResolverBranch(Builder, RO.Fn, DispatchPtr, UseIFunc, ExitBlock);
+      break;
     }
 
-    llvm::BasicBlock *RetBlock =
-        BasicBlock::Create(Ctx, "resolver_return", Resolver);
+    BasicBlock *RetBlock = BasicBlock::Create(Ctx, "resolver_return", Resolver, ExitBlock);
     {
       IRBuilderBase::InsertPointGuard Guard(Builder);
       Builder.SetInsertPoint(RetBlock);
-      CreateMultiVersionResolverReturn(Resolver, Builder, RO.Fn, UseIFunc);
+      CreateMultiVersionResolverBranch(Builder, RO.Fn, DispatchPtr, UseIFunc, ExitBlock);
     }
-    CurBlock = BasicBlock::Create(Ctx, "resolver_else", Resolver);
+    CurBlock = BasicBlock::Create(Ctx, "resolver_else", Resolver, ExitBlock);
     Builder.CreateCondBr(Condition, RetBlock, CurBlock);
   }
 
-  // If no generic/default, emit an unreachable.
-  Builder.SetInsertPoint(CurBlock);
-  CallInst *TrapCall = Builder.CreateIntrinsic(Intrinsic::trap, {}, {});
-  TrapCall->setDoesNotReturn();
-  TrapCall->setDoesNotThrow();
-  Builder.CreateUnreachable();
+  if (!UseIFunc) {
+    Builder.SetInsertPoint(ExitBlock);
+    Builder.CreateRetVoid();
+  }
 }
 
 static Type *getCpuModelType(IRBuilderBase &Builder) {
@@ -218,29 +170,29 @@ static void emitInit(IRBuilderBase &Builder, StringRef FuncName, bool UseIFunc) 
     appendToGlobalCtors(*M, F, 0);
 }
 
-void llvm::X86::emitCPUInit(IRBuilderBase &Builder, bool UseIFunc) {
+void X86::emitCPUInit(IRBuilderBase &Builder, bool UseIFunc) {
   emitInit(Builder, "__cpu_indicator_init", UseIFunc);
 }
 
-void llvm::X86::emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc) {
+void X86::emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc) {
   emitInit(Builder, "__intel_cpu_features_init", UseIFunc);
 }
 
-Value *llvm::X86::emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr) {
+Value *X86::emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr) {
   // Calculate the index needed to access the correct field based on the
   // range. Also adjust the expected value.
   unsigned Index;
   unsigned Val;
   std::tie(Index, Val) = StringSwitch<std::pair<unsigned, unsigned>>(CPUStr)
 #define X86_VENDOR(ENUM, STRING)                                               \
-  .Case(STRING, {0u, static_cast<unsigned>(llvm::X86::ENUM)})
+  .Case(STRING, {0u, static_cast<unsigned>(X86::ENUM)})
 #define X86_CPU_TYPE_ALIAS(ENUM, ALIAS)                                        \
-  .Case(ALIAS, {1u, static_cast<unsigned>(llvm::X86::ENUM)})
+  .Case(ALIAS, {1u, static_cast<unsigned>(X86::ENUM)})
 #define X86_CPU_TYPE(ENUM, STR)                                                \
-  .Case(STR, {1u, static_cast<unsigned>(llvm::X86::ENUM)})
+  .Case(STR, {1u, static_cast<unsigned>(X86::ENUM)})
 #define X86_CPU_SUBTYPE(ENUM, STR)                                             \
-  .Case(STR, {2u, static_cast<unsigned>(llvm::X86::ENUM)})
-#include "llvm/Support/X86TargetParser.def"
+  .Case(STR, {2u, static_cast<unsigned>(X86::ENUM)})
+#include "llvm/TargetParser/X86TargetParser.def"
                              .Default({0, 0});
   assert(Val != 0 && "Invalid CPUStr passed to CpuIs");
 
@@ -257,8 +209,8 @@ Value *llvm::X86::emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr) {
   return Builder.CreateICmpEQ(CpuValue, Builder.getInt32(Val));
 }
 
-Value *llvm::X86::emitCpuSupports(IRBuilderBase &Builder,
-                                  uint64_t FeaturesMask) {
+Value *X86::emitCpuSupports(IRBuilderBase &Builder, uint64_t FeaturesMask) {
+
   uint32_t Features1 = Lo_32(FeaturesMask);
   uint32_t Features2 = Hi_32(FeaturesMask);
 
@@ -301,13 +253,13 @@ Value *llvm::X86::emitCpuSupports(IRBuilderBase &Builder,
   return Result;
 }
 
-Value *llvm::X86::emitCpuSupports(IRBuilderBase &Builder,
-                                  ArrayRef<StringRef> FeatureStrs) {
+Value *X86::emitCpuSupports(IRBuilderBase &Builder,
+                            ArrayRef<StringRef> FeatureStrs) {
   return emitCpuSupports(Builder, getCpuSupportsMask(FeatureStrs));
 }
 
-Value *llvm::X86::mayIUseCpuFeatureHelper(IRBuilderBase &Builder,
-                                          ArrayRef<llvm::APSInt> Pages) {
+Value *X86::mayIUseCpuFeatureHelper(IRBuilderBase &Builder,
+                                    ArrayRef<APSInt> Pages) {
 
   Type *Ty = ArrayType::get(Builder.getInt64Ty() , 2);
   Value *IndicatorPtr = getOrCreateGlobal(

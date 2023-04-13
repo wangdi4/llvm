@@ -86,12 +86,12 @@ bool OCLTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
 int main(int argc, char **argv) {
   sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
-  cl::ParseCommandLineOptions(argc, argv);
-
   int ret = 0;
   try {
+    cl::ParseCommandLineOptions(argc, argv);
     ret = TableGenMain(argv[0], &OCLTableGenMain);
-  } catch (std::bad_array_new_length &e) {
+  } catch (std::exception &e) {
+    // catch std::bad_alloc and std::bad_array_new_length exception
     std::cerr << e.what() << std::endl;
     return -1;
   }

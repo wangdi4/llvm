@@ -1,5 +1,22 @@
 //===- LexicalScopes.cpp - Collecting lexical scope info ------------------===//
 //
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -35,6 +52,13 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "lexicalscopes"
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> EnableLineZeroLocations(
+    "use-line-zero-locations", cl::Hidden,
+    cl::desc("Allow line zero entries to be included in a lexical scope tree."),
+    cl::init(false));
+#endif
 
 /// reset - Reset the instance so that it's prepared for another function.
 void LexicalScopes::reset() {
@@ -93,7 +117,9 @@ void LexicalScopes::extractLexicalScopes(
         continue;
       }
 
-      if (RangeBeginMI) {
+      if (RangeBeginMI &&
+          (MIDL->getLine() != 0 || EnableLineZeroLocations == true)) // INTEL
+      {
         // If we have already seen a beginning of an instruction range and
         // current instruction scope does not match scope of first instruction
         // in this range then create a new instruction range.

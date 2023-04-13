@@ -126,15 +126,15 @@ TEST_F(PrivateMemSizeTest, OutOfResources) {
   cl_ulong stackSize = trySetStackSize(STACK_SIZE);
   ASSERT_TRUE(CheckCondition("trySetStackSize", stackSize != 0));
 
-  bool enabledVectorizer = vectorizerMode(true);
-  ASSERT_TRUE(CheckCondition("vectorizerMode", enabledVectorizer == true));
+  bool disabledVectorizer = vectorizerMode(false);
+  ASSERT_TRUE(CheckCondition("vectorizerMode", disabledVectorizer == true));
 
   cl_ulong expectedPrivateMemSize = trySetPrivateMemSize(STACK_SIZE);
   ASSERT_TRUE(
       CheckCondition("trySetPrivateMemSize", expectedPrivateMemSize != 0));
 
   ASSERT_NO_FATAL_FAILURE(
-      testBody(expectedPrivateMemSize, programSources, true));
+      testBody(expectedPrivateMemSize * 2, programSources, true));
 
   ASSERT_TRUE(UNSETENV("CL_CONFIG_AUTO_MEMORY"));
 }

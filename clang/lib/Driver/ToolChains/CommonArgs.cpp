@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -71,15 +71,15 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/ScopedPrinter.h"
-#include "llvm/Support/TargetParser.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/YAMLParser.h"
+#include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/TargetParser.h"
 #include <optional>
 
 using namespace clang::driver;
@@ -440,25 +440,9 @@ std::string tools::getCPUName(const Driver &D, const ArgList &Args,
   case llvm::Triple::ppc:
   case llvm::Triple::ppcle:
   case llvm::Triple::ppc64:
-  case llvm::Triple::ppc64le: {
-    std::string TargetCPUName = ppc::getPPCTargetCPU(Args);
-    // LLVM may default to generating code for the native CPU,
-    // but, like gcc, we default to a more generic option for
-    // each architecture. (except on AIX)
-    if (!TargetCPUName.empty())
-      return TargetCPUName;
+  case llvm::Triple::ppc64le:
+    return ppc::getPPCTargetCPU(D, Args, T);
 
-    if (T.isOSAIX())
-      TargetCPUName = "pwr7";
-    else if (T.getArch() == llvm::Triple::ppc64le)
-      TargetCPUName = "ppc64le";
-    else if (T.getArch() == llvm::Triple::ppc64)
-      TargetCPUName = "ppc64";
-    else
-      TargetCPUName = "ppc";
-
-    return TargetCPUName;
-  }
   case llvm::Triple::csky:
     if (const Arg *A = Args.getLastArg(options::OPT_mcpu_EQ))
       return A->getValue();
@@ -644,6 +628,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                           const JobAction &JA) {
 #endif // INTEL_CUSTOMIZATION
   const bool IsOSAIX = ToolChain.getTriple().isOSAIX();
+  const bool IsAMDGCN = ToolChain.getTriple().isAMDGCN();
   const char *Linker = Args.MakeArgString(ToolChain.GetLinkerPath());
   const Driver &D = ToolChain.getDriver();
   if (llvm::sys::path::filename(Linker) != "ld.lld" &&
@@ -721,9 +706,12 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
         OOpt = "2";
     } else if (A->getOption().matches(options::OPT_O0))
       OOpt = "0";
-    if (!OOpt.empty())
+    if (!OOpt.empty()) {
       CmdArgs.push_back(
           Args.MakeArgString(Twine(PluginOptPrefix) + ExtraDash + "O" + OOpt));
+      if (IsAMDGCN)
+        CmdArgs.push_back(Args.MakeArgString(Twine("--lto-CGO") + OOpt));
+    }
   }
 
   if (Args.hasArg(options::OPT_gsplit_dwarf))
@@ -877,12 +865,6 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
         Twine(PluginOptPrefix) + "-crash-diagnostics-dir=" + A->getValue()));
 
   addX86AlignBranchArgs(D, Args, CmdArgs, /*IsLTO=*/true, PluginOptPrefix);
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  addMarkerCountArgs(D, Args, CmdArgs, /*IsLTO=*/true, PluginOptPrefix);
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   // Add -code-model for -mcmodel settings.
@@ -1221,26 +1203,26 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       !JA.isDeviceOffloading(Action::OFK_SYCL))
     addllvmOption("-sycl-host");
 
+  bool LoopOptPipelineExplicitOption = llvm::any_of(
+      Args.getAllArgValues(options::OPT_Xclang), [](StringRef Option) {
+        bool Ret = Option.startswith("-floopopt-pipeline=");
+        if (Ret)
+          llvm::dbgs() << Option;
+        return Ret;
+      });
+  auto AddLoopOptPipeline = [LoopOptPipelineExplicitOption, IsLink,
+                             &CmdArgs](const char *Option) -> void {
+    if (LoopOptPipelineExplicitOption)
+      return;
+    if (IsLink)
+      // This is FE option, cannot pass to the linker.
+      return;
+
+    CmdArgs.push_back(Option);
+  };
+
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
   if (TC.getDriver().IsIntelMode() && !TC.getTriple().isSPIR()) {
-    bool LoopOptPipelineExplicitOption = llvm::any_of(
-        Args.getAllArgValues(options::OPT_Xclang), [](StringRef Option) {
-          bool Ret = Option.startswith("-floopopt-pipeline=");
-          if (Ret)
-            llvm::dbgs() << Option;
-          return Ret;
-        });
-    auto AddLoopOptPipeline = [LoopOptPipelineExplicitOption, IsLink,
-                               &CmdArgs](const char *Option) -> void {
-      if (LoopOptPipelineExplicitOption)
-        return;
-      if (IsLink)
-        // This is FE option, cannot pass to the linker.
-        return;
-
-      CmdArgs.push_back(Option);
-    };
-
     bool AddLoopOpt = true;
     for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm)) {
       if (AV.startswith("-loopopt=")) {
@@ -1298,8 +1280,10 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     }
   }
 
-  if (TC.getDriver().IsIntelMode() && SPIRVLoopOptEnabled())
+  if (TC.getDriver().IsIntelMode() && SPIRVLoopOptEnabled()) {
     addllvmOption("-loopopt=1");
+    AddLoopOptPipeline("-floopopt-pipeline=light");
+  }
 
   // -qoverride-limits
   if (Args.hasArg(options::OPT_qoverride_limits))
@@ -1319,9 +1303,14 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 
   // -fno-vectorize
   if (Arg *A = Args.getLastArg(options::OPT_fvectorize,
-                               options::OPT_fno_vectorize))
-    if (A->getOption().matches(options::OPT_fno_vectorize))
+                               options::OPT_fno_vectorize)) {
+    if (A->getOption().matches(options::OPT_fno_vectorize)) {
       addllvmOption("-disable-hir-vec-dir-insert");
+      addllvmOption("-enable-o0-vectorization=false");
+      addllvmOption("-vplan-driver=false");
+      addllvmOption("-vplan-driver-hir=false");
+    }
+  }
 
   // no-global-hoist
   if (Args.hasFlag(options::OPT_no_global_hoist,
@@ -1333,22 +1322,6 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     addllvmOption("-intel-abi-compatible=true");
 }
 #endif // INTEL_CUSTOMIZATION
-
-void tools::addOpenMPRuntimeSpecificRPath(const ToolChain &TC,
-                                          const ArgList &Args,
-                                          ArgStringList &CmdArgs) {
-
-  if (Args.hasFlag(options::OPT_fopenmp_implicit_rpath,
-                   options::OPT_fno_openmp_implicit_rpath, true)) {
-    // Default to clang lib / lib64 folder, i.e. the same location as device
-    // runtime
-    SmallString<256> DefaultLibPath =
-        llvm::sys::path::parent_path(TC.getDriver().Dir);
-    llvm::sys::path::append(DefaultLibPath, CLANG_INSTALL_LIBDIR_BASENAME);
-    CmdArgs.push_back("-rpath");
-    CmdArgs.push_back(Args.MakeArgString(DefaultLibPath));
-  }
-}
 
 void tools::addOpenMPRuntimeLibraryPath(const ToolChain &TC,
                                         const ArgList &Args,
@@ -1440,14 +1413,16 @@ bool tools::addOpenMPRuntime(ArgStringList &CmdArgs, const ToolChain &TC,
   if (IsOffloadingHost)
     CmdArgs.push_back("-lomptarget");
 
-  if (IsOffloadingHost && TC.getDriver().isUsingLTO(/* IsOffload */ true) &&
-      !Args.hasArg(options::OPT_nogpulib))
+#if INTEL_CUSTOMIZATION
+  // TODO: Attempted to use getUseNewOffloadingDriver() but the setting does not
+  // look to be working correctly - using the option directly instead.
+  if (IsOffloadingHost && !Args.hasArg(options::OPT_nogpulib) &&
+      Args.hasFlag(options::OPT_fopenmp_new_driver,
+                   options::OPT_no_offload_new_driver, false))
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lomptarget.devicertl");
 
   addArchSpecificRPath(TC, Args, CmdArgs);
-
-  if (RTKind == Driver::OMPRT_OMP)
-    addOpenMPRuntimeSpecificRPath(TC, Args, CmdArgs);
   addOpenMPRuntimeLibraryPath(TC, Args, CmdArgs);
 
   return true;
@@ -1540,7 +1515,7 @@ void tools::linkSanitizerRuntimeDeps(const ToolChain &TC,
   CmdArgs.push_back(getAsNeededOption(TC, false));
   // There's no libpthread or librt on RTEMS & Android.
   if (TC.getTriple().getOS() != llvm::Triple::RTEMS &&
-      !TC.getTriple().isAndroid()) {
+      !TC.getTriple().isAndroid() && !TC.getTriple().isOHOSFamily()) {
     CmdArgs.push_back("-lpthread");
     if (!TC.getTriple().isOSOpenBSD())
       CmdArgs.push_back("-lrt");
@@ -1973,6 +1948,10 @@ tools::ParsePICArgs(const ToolChain &ToolChain, const ArgList &Args) {
     }
   }
 
+  // OHOS-specific defaults for PIC/PIE
+  if (Triple.isOHOSFamily() && Triple.getArch() == llvm::Triple::aarch64)
+    PIC = true;
+
   // OpenBSD-specific defaults for PIE
   if (Triple.isOSOpenBSD()) {
     switch (ToolChain.getArch()) {
@@ -1994,10 +1973,6 @@ tools::ParsePICArgs(const ToolChain &ToolChain, const ArgList &Args) {
       break;
     }
   }
-
-  // AMDGPU-specific defaults for PIC.
-  if (Triple.getArch() == llvm::Triple::amdgcn)
-    PIC = true;
 
   // The last argument relating to either PIC or PIE wins, and no
   // other argument is used. If the last argument is any flavor of the
@@ -2263,6 +2238,12 @@ static LibGccType getLibGccType(const ToolChain &TC, const Driver &D,
 static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
                              ArgStringList &CmdArgs, const ArgList &Args) {
   ToolChain::UnwindLibType UNW = TC.GetUnwindLibType(Args);
+  // By default OHOS binaries are linked statically to libunwind.
+  if (TC.getTriple().isOHOSFamily() && UNW == ToolChain::UNW_CompilerRT) {
+    CmdArgs.push_back("-l:libunwind.a");
+    return;
+  }
+
   // Targets that don't use unwind libraries.
   if ((TC.getTriple().isAndroid() && UNW == ToolChain::UNW_Libgcc) ||
       TC.getTriple().isOSIAMCU() || TC.getTriple().isOSBinFormatWasm() ||
@@ -2365,22 +2346,29 @@ SmallString<128> tools::getStatsFileName(const llvm::opt::ArgList &Args,
                                          const InputInfo &Input,
                                          const Driver &D) {
   const Arg *A = Args.getLastArg(options::OPT_save_stats_EQ);
-  if (!A)
+  if (!A && !D.CCPrintInternalStats)
     return {};
 
-  StringRef SaveStats = A->getValue();
   SmallString<128> StatsFile;
-  if (SaveStats == "obj" && Output.isFilename()) {
-    StatsFile.assign(Output.getFilename());
-    llvm::sys::path::remove_filename(StatsFile);
-  } else if (SaveStats != "cwd") {
-    D.Diag(diag::err_drv_invalid_value) << A->getAsString(Args) << SaveStats;
-    return {};
-  }
+  if (A) {
+    StringRef SaveStats = A->getValue();
+    if (SaveStats == "obj" && Output.isFilename()) {
+      StatsFile.assign(Output.getFilename());
+      llvm::sys::path::remove_filename(StatsFile);
+    } else if (SaveStats != "cwd") {
+      D.Diag(diag::err_drv_invalid_value) << A->getAsString(Args) << SaveStats;
+      return {};
+    }
 
-  StringRef BaseName = llvm::sys::path::filename(Input.getBaseInput());
-  llvm::sys::path::append(StatsFile, BaseName);
-  llvm::sys::path::replace_extension(StatsFile, "stats");
+    StringRef BaseName = llvm::sys::path::filename(Input.getBaseInput());
+    llvm::sys::path::append(StatsFile, BaseName);
+    llvm::sys::path::replace_extension(StatsFile, "stats");
+  } else {
+    assert(D.CCPrintInternalStats);
+    StatsFile.assign(D.CCPrintInternalStatReportFilename.empty()
+                         ? "-"
+                         : D.CCPrintInternalStatReportFilename);
+  }
   return StatsFile;
 }
 
@@ -2440,34 +2428,6 @@ void tools::addX86AlignBranchArgs(const Driver &D, const ArgList &Args,
     }
   }
 }
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-void tools::addMarkerCountArgs(const Driver &D, const ArgList &Args,
-                               ArgStringList &CmdArgs, bool IsLTO,
-                               const StringRef PluginOptPrefix) {
-  auto addArg = [&, IsLTO](const Twine &Arg) {
-    if (IsLTO) {
-      assert(!PluginOptPrefix.empty() && "Cannot have empty PluginOptPrefix!");
-      CmdArgs.push_back(Args.MakeArgString(PluginOptPrefix + Arg));
-    } else {
-      CmdArgs.push_back("-mllvm");
-      CmdArgs.push_back(Args.MakeArgString(Arg));
-    }
-  };
-
-  if (Args.hasArg(options::OPT_mmark_prolog_epilog))
-    addArg("-mark-prolog-epilog");
-
-  if (Args.hasArg(options::OPT_mmark_loop_header))
-    addArg("-mark-loop-header");
-
-  if (const Arg *A =
-          Args.getLastArg(options::OPT_mfiltered_markercount_file_EQ))
-    addArg("-filtered-markercount-file=" + Twine(A->getValue()));
-}
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
 
 /// SDLSearch: Search for Static Device Library
 /// The search for SDL bitcode files is consistent with how static host
@@ -2802,26 +2762,13 @@ void tools::AddStaticDeviceLibs(Compilation *C, const Tool *T,
 
 static llvm::opt::Arg *
 getAMDGPUCodeObjectArgument(const Driver &D, const llvm::opt::ArgList &Args) {
-  // The last of -mcode-object-v3, -mno-code-object-v3 and
-  // -mcode-object-version=<version> wins.
-  return Args.getLastArg(options::OPT_mcode_object_v3_legacy,
-                         options::OPT_mno_code_object_v3_legacy,
-                         options::OPT_mcode_object_version_EQ);
+  return Args.getLastArg(options::OPT_mcode_object_version_EQ);
 }
 
 void tools::checkAMDGPUCodeObjectVersion(const Driver &D,
                                          const llvm::opt::ArgList &Args) {
   const unsigned MinCodeObjVer = 2;
   const unsigned MaxCodeObjVer = 5;
-
-  // Emit warnings for legacy options even if they are overridden.
-  if (Args.hasArg(options::OPT_mno_code_object_v3_legacy))
-    D.Diag(diag::warn_drv_deprecated_arg) << "-mno-code-object-v3"
-                                          << "-mcode-object-version=2";
-
-  if (Args.hasArg(options::OPT_mcode_object_v3_legacy))
-    D.Diag(diag::warn_drv_deprecated_arg) << "-mcode-object-v3"
-                                          << "-mcode-object-version=3";
 
   if (auto *CodeObjArg = getAMDGPUCodeObjectArgument(D, Args)) {
     if (CodeObjArg->getOption().getID() ==
@@ -2839,17 +2786,8 @@ void tools::checkAMDGPUCodeObjectVersion(const Driver &D,
 unsigned tools::getAMDGPUCodeObjectVersion(const Driver &D,
                                            const llvm::opt::ArgList &Args) {
   unsigned CodeObjVer = 4; // default
-  if (auto *CodeObjArg = getAMDGPUCodeObjectArgument(D, Args)) {
-    if (CodeObjArg->getOption().getID() ==
-        options::OPT_mno_code_object_v3_legacy) {
-      CodeObjVer = 2;
-    } else if (CodeObjArg->getOption().getID() ==
-               options::OPT_mcode_object_v3_legacy) {
-      CodeObjVer = 3;
-    } else {
-      StringRef(CodeObjArg->getValue()).getAsInteger(0, CodeObjVer);
-    }
-  }
+  if (auto *CodeObjArg = getAMDGPUCodeObjectArgument(D, Args))
+    StringRef(CodeObjArg->getValue()).getAsInteger(0, CodeObjVer);
   return CodeObjVer;
 }
 

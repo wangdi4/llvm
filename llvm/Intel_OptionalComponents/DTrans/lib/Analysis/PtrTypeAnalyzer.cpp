@@ -1,6 +1,6 @@
 //===-----------------------PtrTypeAnalyzer.cpp---------------------------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -368,7 +368,7 @@ public:
                               size_t Multiplier);
 
   // Query function for saved results about flattened GEPs.
-  llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+  std::optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
   getFlattenedGEPElement(GEPOperator *GEP) const;
 
   void addAllocationCall(CallBase *Call, dtrans::AllocKind Kind) {
@@ -461,7 +461,7 @@ public:
   // deepest nested aggregate type, and the second element returns the type of
   // element zero of that type.
   using AggregateElementPair = std::pair<DTransType *, DTransType *>;
-  Optional<AggregateElementPair> getElementZeroType(DTransType *Ty);
+  std::optional<AggregateElementPair> getElementZeroType(DTransType *Ty);
 
   void setUnsupportedAddressSpaceSeen() { UnsupportedAddressSpaceSeen = true; }
   bool getUnsupportedAddressSpaceSeen() const {
@@ -785,6 +785,15 @@ public:
                         << GV.getName() << "\n");
     }
 
+    // IFuncs are currently not analyzed because they do not have DTrans type
+    // metadata on them. Mark them as UNHANDLED.
+    for (auto &IF : M.ifuncs()) {
+      ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&IF);
+      Info->setUnhandled();
+      LLVM_DEBUG(dbgs() << "Unable to set ifunc: "
+                        << (IF.hasName() ? IF.getName() : "UNKNOWN") << "\n");
+    }
+
     // Now that types have been set up for the functions and globals, process
     // the uses of them within constant expressions.
     for (auto &F : M)
@@ -1006,7 +1015,7 @@ public:
       //   ...
       //   %NextCount = add nsw i64 %Count, -1
       //   %Cmp = icmp sgt i64 %NextCount, 0
-      if (Count->isOneValue()) {
+      if (Count->isOne()) {
         auto *BasePHI = dyn_cast<PHINode>(Base);
         if (!BasePHI || BasePHI->getParent() != LoopBB) {
           DEBUG_WITH_TYPE_P(
@@ -1032,7 +1041,7 @@ public:
           return false;
         }
       } else {
-        if (!Count->isNullValue()) {
+        if (!Count->isZero()) {
           DEBUG_WITH_TYPE_P(FNFilter, DTRANS_PARTIALPTR,
                             dbgs() << "Not matched. icmp not using 0 or 1!\n");
           return false;
@@ -4869,7 +4878,7 @@ void PtrTypeAnalyzerImpl::addFlattenedGEPMapping(GEPOperator *GEP,
     });
 }
 
-llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+std::optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
 PtrTypeAnalyzerImpl::getFlattenedGEPElement(GEPOperator *GEP) const {
   auto Entry = FlattenedGEPInfoMap.find(GEP);
   if (Entry != FlattenedGEPInfoMap.end())
@@ -5309,7 +5318,7 @@ bool PtrTypeAnalyzerImpl::isPointeeElementZeroAccess(
   return false;
 }
 
-Optional<PtrTypeAnalyzerImpl::AggregateElementPair>
+std::optional<PtrTypeAnalyzerImpl::AggregateElementPair>
 PtrTypeAnalyzerImpl::getElementZeroType(DTransType *Ty) {
   if (!Ty->isAggregateType())
     return std::nullopt;
@@ -5420,7 +5429,7 @@ PtrTypeAnalyzer::getByteFlattenedGEPElement(GEPOperator *GEP) const {
   return Impl->getByteFlattenedGEPElement(GEP);
 }
 
-llvm::Optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
+std::optional<PtrTypeAnalyzer::FlattenedGEPInfoType>
 PtrTypeAnalyzer::getFlattenedGEPElement(GEPOperator *GEP) const {
   return Impl->getFlattenedGEPElement(GEP);
 }

@@ -1,4 +1,4 @@
-; RUN: opt < %s -indvars -S | FileCheck %s
+; RUN: opt -passes="loop(indvars)" < %s -S | FileCheck %s
 
 ; Verify that indvars does not replace %gep1 with %struct.gep in the presence of
 ; "pre_loopopt" attribute even though they have identical SCEVs.

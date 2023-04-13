@@ -57,7 +57,7 @@ define void @simd_loop(i32* %A, i32* %B) {
 ; CHECK-NEXT:    [[PRIVATE_VEC0:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[PRIVATE_VEC_BC0:%.*]] = bitcast <4 x i32>* [[PRIVATE_VEC0]] to i32*
 ; CHECK-NEXT:    [[PRIVATE_VEC_BASE_ADDR0:%.*]] = getelementptr i32, i32* [[PRIVATE_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    br label [[DIR_OMP_SIMD_30]]
+; CHECK:         br label [[DIR_OMP_SIMD_30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.SIMD.3:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
@@ -66,7 +66,7 @@ define void @simd_loop(i32* %A, i32* %B) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[PRIVATE_VEC0_BCAST:%.*]] = bitcast <4 x i32>* [[PRIVATE_VEC0]] to i8*
+; CHECK-NEXT:    [[PRIVATE_VEC0_BCAST:%.*]] = bitcast i32* [[VP_PRIVATE_BCAST2:%.*]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[PRIVATE_VEC0_BCAST]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
@@ -85,7 +85,7 @@ define void @simd_loop(i32* %A, i32* %B) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    [[EXTRACTED_PRIV0:%.*]] = extractelement <4 x i32> [[TMP2]], i64 3
-; CHECK-NEXT:    [[PRIVATE_VEC0_BCAST:%.*]] = bitcast <4 x i32>* [[PRIVATE_VEC0]] to i8*
+; CHECK-NEXT:    [[PRIVATE_VEC0_BCAST:%.*]] = bitcast i32* [[PRIVATE_VEC_BC0_2:%.*]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[PRIVATE_VEC0_BCAST]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:

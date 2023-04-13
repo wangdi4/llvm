@@ -124,6 +124,7 @@ struct OMPTaskDataTy final {
   bool Nogroup = false;
   bool IsReductionWithTaskMod = false;
   bool IsWorksharingReduction = false;
+  bool HasNowaitClause = false;
 };
 
 /// Class intended to support codegen of all kind of the reduction clauses.
@@ -510,9 +511,6 @@ protected:
   ///  kmp_int64 st; // stride
   /// };
   QualType KmpDimTy;
-  /// Entity that registers the offloading constants that were emitted so
-  /// far.
-  llvm::OffloadEntriesInfoManager OffloadEntriesInfoManager;
 
   bool ShouldMarkAsGlobal = true;
   /// List of the emitted declarations.
@@ -729,12 +727,15 @@ public:
                            SmallVectorImpl<LOMapInfo> *Info);
 
   StringRef getNameOfOffloadEntryDeviceGlobalVar(llvm::Constant *Addr) {
-    return OffloadEntriesInfoManager.getNameOfOffloadEntryDeviceGlobalVar(Addr);
+    return OMPBuilder.OffloadInfoManager.getNameOfOffloadEntryDeviceGlobalVar(
+        Addr);
   }
   void updateDeviceGlobalVarEntryInfoAddr(StringRef Name,
                                           llvm::Constant *Addr) {
-    OffloadEntriesInfoManager.updateDeviceGlobalVarEntryInfoAddr(Name, Addr);
+    OMPBuilder.OffloadInfoManager.updateDeviceGlobalVarEntryInfoAddr(Name,
+                                                                     Addr);
   }
+  bool getShouldMarkAsGlobal() const { return ShouldMarkAsGlobal; }
 #endif // INTEL_COLLAB
 
   /// Returns true if the current target is a GPU.

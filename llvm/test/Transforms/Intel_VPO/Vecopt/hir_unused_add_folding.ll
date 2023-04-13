@@ -3,35 +3,53 @@
 ; Test to check that we don't fold unused add. If we fold it then in some cases
 ; we can create an empty loop which leads to verification errors.
 ;
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec" -disable-hir-aggressive-redundant-loop-removal -print-after=hir-vplan-vec -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec" -disable-hir-aggressive-redundant-loop-removal -print-after=hir-vplan-vec -vplan-enable-masked-vectorized-remainder=0 -vplan-enable-non-masked-vectorized-remainder=0 -hir-details %s 2>&1 | FileCheck %s
 
 define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
 ; CHECK-LABEL: Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
 ; CHECK-NEXT:        if ([[C0:%.*]] != 0)
-; CHECK-NEXT:        {
-; CHECK:                + DO i1 = 0, [[LOOP_UB0:%.*]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:           |   (<4 x i64>*)([[A0:%.*]])[i1] = (-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3> + 3)/u2
+; CHECK:             {
+; CHECK:                + DO i64 i1 = 0, [[LOOP_UB0:%.*]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:           | <RVAL-REG> LINEAR i64 [[LOOP_UB0]] {sb:23}
+; CHECK-NEXT:           |
+; CHECK-NEXT:           |   [[VEC0:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3> + -3  /u  -2;
+; CHECK-NEXT:           |   <LVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:24}
+; CHECK-NEXT:           |   <RVAL-REG> LINEAR <4 x i64> i1 + <i64 0, i64 1, i64 2, i64 3> + -3 {sb:2}
+; CHECK-NEXT:           |
+; CHECK-NEXT:           |   (<4 x i64>*)([[A0:%.*]])[i1] = [[VEC0]];
+; CHECK-NEXT:           |   <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR i64* [[A0]])[LINEAR i64 i1] inbounds  {sb:12}
+; CHECK-NEXT:           |      <BLOB> LINEAR i64* [[A0]] {sb:9}
+; CHECK-NEXT:           |   <RVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:24}
+; CHECK-NEXT:           |
 ; CHECK-NEXT:           + END LOOP
-; CHECK:                + DO i1 = [[LB_TMP0:%.*]], [[T0:%.*]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
-; CHECK-NEXT:           |   [[ADD0:%.*]] = i1  +  -3
-; CHECK-NEXT:           |   ([[A0]])[i1] = ([[ADD0]] /u -2)
-; CHECK-NEXT:           + END LOOP
+; CHECK:                + DO i64 i1 = [[LB_TMP0:%.*]], [[T0:%.*]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:                |   [[ADD0:%.*]] = i1  +  -3;
+; CHECK:                |   ([[A0:%.*]])[i1] = ([[ADD0]] /u -2);
+; CHECK:                + END LOOP
 ; CHECK:                [[PHI_TEMP260:%.*]] = [[T0]] + -1
-; CHECK-NEXT:           final.merge.{{.*}}:
-; CHECK-NEXT:        }
+; CHECK:                final.merge.{{.*}}:
+; CHECK:             }
 ; CHECK-NEXT:        else
 ; CHECK-NEXT:        {
-; CHECK:                + DO i1 = 0, [[LOOP_UB450:%.*]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:           |   [[DOTVEC460:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3>  +  -3
-; CHECK-NEXT:           |   [[DOTSCAL0:%.*]] = i1  +  -3
+; CHECK:                + DO i64 i1 = 0, [[LOOP_UB450:%.*]], 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:           | <RVAL-REG> LINEAR i64 [[LOOP_UB450]] {sb:39}
+; CHECK-NEXT:           |
+; CHECK-NEXT:           |   [[DOTVEC0:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3>  +  -3;
+; CHECK-NEXT:           |   <LVAL-REG> NON-LINEAR <4 x i64> [[DOTVEC0]] {sb:40}
+; CHECK-NEXT:           |   <RVAL-REG> LINEAR <4 x i64> i1 + <i64 0, i64 1, i64 2, i64 3> {sb:2}
+; CHECK-NEXT:           |
+; CHECK-NEXT:           |   [[SCAL0:%.*]] = i1  +  -3;
+; CHECK-NEXT:           |   <LVAL-REG> NON-LINEAR i64 [[SCAL0]] {sb:41}
+; CHECK-NEXT:           |   <RVAL-REG> LINEAR i64 i1 {sb:2}
+; CHECK-NEXT:           |
 ; CHECK-NEXT:           + END LOOP
-; CHECK:                + DO i1 = [[LB_TMP300:%.*]], [[T0:%.*]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
-; CHECK-NEXT:           |   [[ADD0:%.*]] = i1  +  -3
-; CHECK-NEXT:           + END LOOP
+; CHECK:                + DO i64 i1 = [[LB_TMP300:%.*]], [[T0:%.*]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3>  <LEGAL_MAX_TC = 3> <vector-remainder> <nounroll> <novectorize> <max_trip_count = 3>
+; CHECK:                |   [[ADD0:%.*]] = i1  +  -3
+; CHECK:                + END LOOP
 ; CHECK:                [[PHI_TEMP660:%.*]] = [[T0]] + -1
-; CHECK-NEXT:           final.merge.{{.*}}:
+; CHECK:                final.merge.{{.*}}:
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:  END REGION
 ;

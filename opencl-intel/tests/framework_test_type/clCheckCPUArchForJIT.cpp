@@ -122,8 +122,9 @@ bool GenerateBinaryFile() {
   clReleaseContext(context);
 
   if (!UNSETENV("CL_CONFIG_CPU_TARGET_ARCH")) {
-    printf("ERROR GenerateBinaryFile: Can't unset VOLCANO_CPU_ARCH environment "
-           "variable. Test FAILED\n");
+    printf(
+        "ERROR GenerateBinaryFile: Can't unset CL_CONFIG_CPU_ARCH environment "
+        "variable. Test FAILED\n");
     return false;
   }
 
@@ -137,7 +138,7 @@ bool clCheckCPUArchForJIT() {
   }
 
   if (!UNSETENV("CL_CONFIG_CPU_TARGET_ARCH")) {
-    printf("ERROR clCheckCPUArchForJIT: Can't unset VOLCANO_CPU_ARCH "
+    printf("ERROR clCheckCPUArchForJIT: Can't unset CL_CONFIG_CPU_ARCH "
            "environment variable. Test FAILED\n");
     return false;
   }

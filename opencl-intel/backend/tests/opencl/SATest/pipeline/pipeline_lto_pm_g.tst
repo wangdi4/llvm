@@ -3,7 +3,7 @@
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
-; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
+; CHECK:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
@@ -14,7 +14,7 @@
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 #endif // #ifndef NDEBUG
 
-; CHECK:      Running pass: DPCPPEqualizerPass
+; CHECK:      Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
@@ -50,7 +50,7 @@
 ; CHECK-NEXT: Running pass: InferArgumentAliasPass
 ; CHECK-NEXT: DuplicateCalledKernels
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: WGLoopBoundariesPass
 ; CHECK:      Running pass: DCEPass
@@ -66,9 +66,9 @@
 ; CHECK-NEXT: Running pass: CreateSimdVariantPropagation
 ; CHECK-NEXT: Running pass: SGSizeCollectorPass
 ; CHECK-NEXT: Running pass: SGSizeCollectorIndirectPass
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VectorizationDimensionAnalysis, llvm::Module>
+; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::VectorizationDimensionAnalysis, llvm::Module
 ; CHECK-NEXT: Running analysis: VectorizationDimensionAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelVecClonePass
+; CHECK-NEXT: Running pass: SYCLKernelVecClonePass
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-NEXT: Invalidating analysis: VFAnalysis
@@ -83,7 +83,7 @@
 ; CHECK-NOT:  Running pass: VecClonePass
 ; CHECK:      Running pass: vpo::VPlanDriverPass
 
-; CHECK:      Running pass: DPCPPKernelPostVecPass
+; CHECK:      Running pass: SYCLKernelPostVecPass
 ; CHECK-NEXT: Running pass: InstCombinePass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PromotePass
@@ -102,11 +102,10 @@
 
 ; CHECK:      Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
-; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
-; CHECK:      Running pass: IndirectCallLowering
+; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
+; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK:      Running pass: DCEPass
 ; CHECK:      Running pass: SimplifyCFGPass
-; CHECK:      Running pass: RemoveRegionDirectivesPass
 ; CHECK:      Running pass: UnifyFunctionExitNodesPass
 
 ; CHECK:      Running pass: ReplaceScalarWithMaskPass
@@ -123,6 +122,8 @@
 ; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SGValueWidenPass
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
@@ -132,7 +133,6 @@
 ; CHECK-NEXT: Running pass: SplitBBonBarrier
 ; CHECK-NEXT: Running pass: ReduceCrossBarrierValues
 ; CHECK:      Running analysis: DataPerValueAnalysis
-; CHECK:      Running analysis: DataPerBarrierAnalysis
 ; CHECK:      Running analysis: WIRelatedValueAnalysis
 ; CHECK:      Running analysis: DominanceFrontierAnalysis
 ; CHECK:      Running analysis: DominatorTreeAnalysis
@@ -150,7 +150,6 @@
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass
 ; CHECK:      Running pass: BuiltinImportPass
 ; CHECK:      Running pass: InternalizeGlobalVariablesPass
@@ -165,7 +164,6 @@
 ; CHECK:      Running pass: LICMPass
 ; CHECK:      Running pass: LoopIdiomRecognizePass
 ; CHECK:      Running pass: LoopDeletionPass
-; CHECK:      Running pass: LoopStridedCodeMotionPass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PrepareKernelArgsPass
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis

@@ -128,6 +128,10 @@ void use() {
 
 // Order changes for Opaque Ptr?
 // OPQ: %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass" = type { ptr } 
+// OPQ: %"struct..?AUContainsBoth@@.ContainsBoth" = type 
+// OPQ-SAME: { %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass", 
+// OPQ-SAME: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" }
+// OPQ: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" = type { { ptr, i32, i32, i32 } }
 // OPQ: %"class..?AVPtrToHas1Base@@.PtrToHas1Base" = type { ptr } 
 // OPQ: %"class..?AVPtrToHas2Base@@.PtrToHas2Base" = type { { ptr, i32 } } 
 // OPQ: %"class..?AVPtrToHas3Base@@.PtrToHas3Base" = type { { ptr, i32 } } 
@@ -135,10 +139,6 @@ void use() {
 // OPQ: %"class..?AVPtrToHas5Base@@.PtrToHas5Base" = type { { ptr, i32 } } 
 // OPQ: %"class..?AVPtrToHas6Base@@.PtrToHas6Base" = type { { ptr, i32 } } 
 // OPQ: %"class..?AVPtrToHas7Base@@.PtrToHas7Base" = type { { ptr, i32 } } 
-// OPQ: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" = type { { ptr, i32, i32, i32 } }
-// OPQ: %"struct..?AUContainsBoth@@.ContainsBoth" = type 
-// OPQ-SAME: { %"class..?AVHasPMFToCompleteClass@@.HasPMFToCompleteClass", 
-// OPQ-SAME: %"class..?AVHasPMFToIncompleteClass@@.HasPMFToIncompleteClass" }
 // OPQ: %"class..?AVVirtualWithBase@@.VirtualWithBase" = type { ptr }
 // OPQ: %"class..?AVVirtual@@.Virtual" = type { ptr } 
 

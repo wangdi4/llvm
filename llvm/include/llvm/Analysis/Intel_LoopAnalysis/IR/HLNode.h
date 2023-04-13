@@ -56,7 +56,6 @@ typedef SmallDenseMap<const HLLabel *, HLLabel *, 16> LabelMapTy;
 
 // Defining predicate type
 typedef CmpInst::Predicate PredicateTy;
-const PredicateTy UNDEFINED_PREDICATE = PredicateTy::BAD_FCMP_PREDICATE;
 
 struct HLPredicate {
   PredicateTy Kind;

@@ -36,6 +36,7 @@
 /// bytes. Since there is no 2D type in llvm IR, we use vector type to
 /// represent 2D tile and the fixed size is maximum amx tile register size.
 typedef int _tile1024i __attribute__((__vector_size__(1024), __aligned__(64)));
+typedef int _tile1024i_1024a __attribute__((__vector_size__(1024), __aligned__(1024)));
 
 /// This struct pack the shape and tile data together for user. We suggest
 /// initializing the struct as early as possible, because compiler depends
@@ -444,7 +445,7 @@ typedef struct __tile1024i_str {
 /* INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS */
 #if defined(__AVXDOTPRODPHPS_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX_DOTPRODPHPS__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__AVXDOTPRODPHPS__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avxdotprodphps/avxdotprodphpsintrin.h>
 #endif
 #endif
@@ -519,28 +520,28 @@ typedef struct __tile1024i_str {
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX_COMPRESS */
-/* INTEL_FEATURE_ISA_AVX_MEMADVISE */
-#if defined(__AVXMEMADVISE_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AVX512_MOVRS */
+#if defined(__AVXMOVRS_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVXMEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <avxmemadvise/avxmemadviseintrin.h>
+    defined(__AVXMOVRS__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512movrs/avxmovrsintrin.h>
 #endif
 #endif
-#if defined(__AVX512MEMADVISE_SUPPORTED__)
+#if defined(__AVX512MOVRS_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512MEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <avxmemadvise/avx512memadviseintrin.h>
+    defined(__AVX512MOVRS__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512movrs/avx512movrsintrin.h>
 #endif
 #endif
-#if defined(__AVXMEMADVISE_SUPPORTED__) || defined(__AVX512MEMADVISE_SUPPORTED__)
+#if defined(__AVXMOVRS_SUPPORTED__) || defined(__AVX512MOVRS_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    (defined(__AVXMEMADVISE__) ||                                              \
-     (defined(__AVX512MEMADVISE__) && defined(__AVX512VL__))) ||                \
+    (defined(__AVXMOVRS__) ||                                              \
+     (defined(__AVX512MOVRS__) && defined(__AVX512VL__))) ||                \
     defined(__M_INTRINSIC_PROMOTE__)
-#include <avxmemadvise/avx512vlmemadviseintrin.h>
+#include <avx512movrs/avx512vlmovrsintrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AVX_MEMADVISE */
+/* end INTEL_FEATURE_ISA_AVX512_MOVRS */
 /* INTEL_FEATURE_ISA_AVX512_MEDIAX */
 #if defined(__AVX512MEDIAX_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
@@ -991,7 +992,7 @@ _storebe_i64(void * __P, long long __D) {
 #include <invpcidintrin.h>
 #endif
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXFP16__)
+    defined(__AMX_FP16__)
 #include <amxfp16intrin.h>
 #endif
 
@@ -1007,14 +1008,14 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_FP8 */
 
-/* INTEL_FEATURE_ISA_AMX_MEMADVISE */
-#if defined(__AMXMEMADVISE_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AMX_MOVRS */
+#if defined(__AMXMOVRS_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXMEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amxmemadviseintrin.h>
+    defined(__AMXMOVRS__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxmovrsintrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX_MEMADVISE */
+/* end INTEL_FEATURE_ISA_AMX_MOVRS */
 
 /* INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX */
 #if defined(__AMXMEMADVISEEVEX_SUPPORTED__)
@@ -1036,15 +1037,15 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_FUTURE */
 
-/* INTEL_FEATURE_ISA_AMX_LNC */
-#if defined(__AMXLNC_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AMX_TRANSPOSE */
+#if defined(__AMXTRANSPOSE_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AMXTRANSPOSE__) || defined(__AMXAVX512__) ||                     \
     defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amxlncintrin.h>
+#include <Intel_amxtransposeintrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX_LNC */
+/* end INTEL_FEATURE_ISA_AMX_TRANSPOSE */
 
 /* INTEL_FEATURE_ISA_AMX_TRANSPOSE2 */
 #if defined(__AMXTRANSPOSE2_SUPPORTED__)
@@ -1117,15 +1118,6 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_TILE2 */
-
-/* INTEL_FEATURE_ISA_AMX_COMPLEX */
-#if defined(__AMXCOMPLEX_SUPPORTED__)
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXCOMPLEX__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <amxcomplex/amxcomplexintrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_AMX_COMPLEX */
 
 /* INTEL_FEATURE_ISA_AMX_TF32 */
 #if defined(__AMXTF32_SUPPORTED__)
@@ -1296,6 +1288,22 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end AUTO GENERATED BY TOOL */
 /* end INTEL_FEATURE_ISA_AVX512_REDUCTION2 */
+
+/* INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8 */
+/* AUTO GENERATED BY TOOL */
+#if defined(__AVX512NECONVERTFP8_SUPPORTED__)
+#if !(defined(_MSC_VER) ||  defined(__SCE__)) || __has_feature(modules) ||     \
+    defined(__AVX512NECONVERTFP8__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512neconvertfp8/avx512neconvertfp8intrin.h>
+#endif
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512NECONVERTFP8__) && defined(__AVX512VL__)) ||              \
+    defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512neconvertfp8/avx512vlneconvertfp8intrin.h>
+#endif
+#endif
+/* end AUTO GENERATED BY TOOL */
+/* end INTEL_FEATURE_ISA_AVX512_NE_CONVERT_FP8 */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_FEATURE_ISA_AVX512_VNNI_FP8 */
@@ -1314,14 +1322,28 @@ _storebe_i64(void * __P, long long __D) {
 /* end AUTO GENERATED BY TOOL */
 /* end INTEL_FEATURE_ISA_AVX512_VNNI_FP8 */
 
+/* INTEL_FEATURE_ISA_AVX512_MOVZXC */
+#if defined(__AVX512MOVZXC_SUPPORTED__)
+#if !(defined(_MSC_VER) ||  defined(__SCE__)) || __has_feature(modules) || \
+defined(__AVX512MOVZXC__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512movzxc/avx512movzxcintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_MOVZXC */
+
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__KL__) || defined(__WIDEKL__)
 #include <keylockerintrin.h>
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)
+    defined(__AMX_TILE__) || defined(__AMX_INT8__) || defined(__AMX_BF16__)
 #include <amxintrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMX_COMPLEX__)
+#include <amxcomplexintrin.h>
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \

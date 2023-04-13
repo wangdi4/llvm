@@ -19,6 +19,7 @@ include "GENERIC/code_float_common.td"
 include "GENERIC/code_integer_common.td"
 include "GENERIC/code_math.td"
 include "GENERIC/code_relational.td"
+include "GENERIC/code_work_group.td"
 
 defvar ret_zero_code = [{
   return 0;
@@ -30,4 +31,8 @@ defvar ret_void_code = [{
 
 defvar ret_arg0_code = [{
   return $Arg0VarName;
+}];
+
+defvar binary_op_code = [{
+  return $Arg0VarName $Op $Arg1VarName;
 }];

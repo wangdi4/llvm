@@ -203,7 +203,7 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR:          i64 [[VP7]] = add i64 [[VP6]] i64 1
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:9:3
 ; VPLAN-IR-NEXT:      OperatorFlags -
-; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
+; VPLAN-IR-NEXT:        FMF: 0, NSW: 1, NUW: 1, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
   %exitcond = icmp eq i64 %indvars.iv.next, 1024, !dbg !42

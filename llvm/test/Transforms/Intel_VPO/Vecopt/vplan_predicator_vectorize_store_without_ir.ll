@@ -26,7 +26,7 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_CMP216_NOT:%.*]] = and i1 [[VP_SKIP_LOOP_NOT]] i1 [[VP_CMP216_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB3_BR_VP_CMP216_NOT:%.*]] = select i1 [[VP_SKIP_LOOP_NOT]] i1 [[VP_CMP216_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -41,7 +41,7 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB4]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_LOOP_MASK:%.*]] = and i1 [[VP_BB3_BR_VP_CMP216_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_LOOP_MASK:%.*]] = select i1 [[VP_BB3_BR_VP_CMP216_NOT]] i1 [[VP_LOOP_MASK]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
@@ -55,8 +55,8 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB10_BR_VP_SOME_CMP_NOT:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_SOME_CMP_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB10_BR_VP_SOME_CMP:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_SOME_CMP]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB10_BR_VP_SOME_CMP_NOT:%.*]] = select i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_SOME_CMP_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB10_BR_VP_SOME_CMP:%.*]] = select i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_SOME_CMP]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
@@ -81,7 +81,7 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i32 [[VP_PHI_USE_BLEND_INTERMEDIATE_BB9]] i32 [[VP_PHI_USE_LIVE_OUT_PREV]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND_NOT:%.*]] = not i1 [[VP_TAKE_BACKEDGE_COND_BLEND_INTERMEDIATE_BB9]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP8]], [[BB10:BB[0-9]+]], [[BB4]]
 ; CHECK-EMPTY:
@@ -89,7 +89,7 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE_LCSSA:%.*]] = phi  [ i32 [[VP_PHI_USE_LIVE_OUT_BLEND]], [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:     [DA: Uni] i32* [[VP_STORE_USER_GEP:%.*]] = getelementptr inbounds i32* [[A0]] i32 0
-; CHECK-NEXT:     [DA: Div] store i32 [[VP_PHI_USE_LCSSA]] i32* [[VP_STORE_USER_GEP]]
+; CHECK-NEXT:     [DA: Uni] store i32 [[VP_PHI_USE_LCSSA]] i32* [[VP_STORE_USER_GEP]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB11]]: # preds: [[BB10]]

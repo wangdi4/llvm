@@ -372,6 +372,7 @@ void WRNDistributeParLoopNode::printExtra(formatted_raw_ostream &OS,
 WRNTargetNode::WRNTargetNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTarget, BB) {
   setIsTarget();
+  setThreadLimit(nullptr);
   setIf(nullptr);
   setDevice(nullptr);
   setParLoopNdInfoAlloca(nullptr);
@@ -382,9 +383,10 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
 // printer
 void WRNTargetNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                unsigned Verbosity) const {
-  vpo::printExtraForTarget(this, OS, Depth, Verbosity);
-#if INTEL_CUSTOMIZATION
   unsigned Indent = 2 * Depth;
+  vpo::printExtraForTarget(this, OS, Depth, Verbosity);
+  vpo::printVal("THREAD_LIMIT", getThreadLimit(), OS, Indent, Verbosity);
+#if INTEL_CUSTOMIZATION
   vpo::printBool("EXT_DO_CONCURRENT", getIsDoConcurrent(), OS, Indent, Verbosity);
 #endif // INTEL_CUSTOMIZATION
 }
@@ -515,10 +517,11 @@ void WRNTargetVariantNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   unsigned Indent = 2 * Depth;
   vpo::printVal("DEVICE", getDevice(), OS, Indent, Verbosity);
   vpo::printBool("NOWAIT", getNowait(), OS, Indent, Verbosity);
-  vpo::printSetOfUint("NEED_DEVICE_PTR", getNeedDevicePtr(), OS, Indent,
-                      Verbosity);
-  vpo::printSetOfUint("NEED_DEVICE_PTR:PTR_TO_PTR", getNeedDevicePtrToPtr(), OS,
-                      Indent, Verbosity);
+  vpo::printArrayOfUint("NEED_DEVICE_PTR", getNeedDevicePtr().getArrayRef(), OS,
+                        Indent, Verbosity);
+  vpo::printArrayOfUint("NEED_DEVICE_PTR:PTR_TO_PTR",
+                        getNeedDevicePtrToPtr().getArrayRef(), OS, Indent,
+                        Verbosity);
 }
 
 //
@@ -545,10 +548,11 @@ void WRNDispatchNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printVal("NOCONTEXT", getNocontext(), OS, Indent, Verbosity);
   vpo::printVal("NOVARIANTS", getNovariants(), OS, Indent, Verbosity);
   vpo::printBool("NOWAIT", getNowait(), OS, Indent, Verbosity);
-  vpo::printSetOfUint("NEED_DEVICE_PTR", getNeedDevicePtr(), OS, Indent,
-                      Verbosity);
-  vpo::printSetOfUint("NEED_DEVICE_PTR:PTR_TO_PTR", getNeedDevicePtrToPtr(), OS,
-                      Indent, Verbosity);
+  vpo::printArrayOfUint("NEED_DEVICE_PTR", getNeedDevicePtr().getArrayRef(), OS,
+                        Indent, Verbosity);
+  vpo::printArrayOfUint("NEED_DEVICE_PTR:PTR_TO_PTR",
+                        getNeedDevicePtrToPtr().getArrayRef(), OS, Indent,
+                        Verbosity);
 }
 
 //
@@ -825,7 +829,10 @@ WRNDistributeNode::WRNDistributeNode(BasicBlock *BB, LoopInfo *Li)
 // printer
 void WRNDistributeNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                    unsigned Verbosity) const {
-  vpo::printInt("COLLAPSE", getCollapse(), OS, 2*Depth, Verbosity);
+  unsigned Indent = 2 * Depth;
+  vpo::printInt("COLLAPSE", getCollapse(), OS, Indent, Verbosity);
+  vpo::printStr("ORDER", WRNLoopOrderName[getLoopOrder()], OS, Indent,
+                Verbosity);
 }
 
 //
@@ -1122,13 +1129,17 @@ WRNGenericLoopNode::WRNGenericLoopNode(BasicBlock *BB, LoopInfo *Li)
 //
 // If BIND is present:
 //   BIND=parallel  ==> change to DIR_OMP_LOOP
-//   BIND=teams     ==> change to DIR_OMP_DISTRIBUTE_PARLOOP
+//   BIND=teams     ==> change to DIR_OMP_DISTRIBUTE
 //   BIND=thread    ==> change to DIR_OMP_SIMD
 //
 // If BIND is absent, then we should look at the immediate parent WRN:
 //   Parent=nullptr            ==> DIR_OMP_SIMD
 //   Parent=Parallel           ==> DIR_OMP_LOOP
-//   Parent=Teams              ==> DIR_OMP_DISTRIBUTE_PARLOOP
+//   Parent=Teams              ==> DIR_OMP_DISTRIBUTE
+#if INTEL_CUSTOMIZATION
+//                             ==> DIR_OMP_DISTRIBUTE_PARLOOP(DO_CONCURRENT
+//                             only)
+#endif // INTEL_CUSTOMIZATION
 //   Parent=Distribute||Target ==> DIR_OMP_PARALLEL_LOOP
 //   Parent=WksLoop||ParallelLoop||DistributeParLoop||Taskloop ==> DIR_OMP_SIMD
 //   Parent=anything else  ==> DIR_OMP_SIMD
@@ -1139,7 +1150,7 @@ bool WRNGenericLoopNode::mapLoopScheme() {
     MappedDir = DIR_OMP_LOOP;
     Mapped = true;
   } else if (getLoopBind() == WRNLoopBindTeams) {
-    MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+    MappedDir = DIR_OMP_DISTRIBUTE;
     Mapped = true;
   } else if (getLoopBind() == WRNLoopBindThread) {
     MappedDir = DIR_OMP_SIMD;
@@ -1161,7 +1172,17 @@ bool WRNGenericLoopNode::mapLoopScheme() {
         MappedDir = DIR_OMP_LOOP;
         Mapped = true;
       } else if (Parent->getWRegionKindID() == WRegionNode::WRNTeams) {
-        MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+        // For GenericLoop enclosed in parent Teams construct, scheme cannot be
+        // parallelism generating.  Spec states 'binding thread set is the set
+        // of initial threads that are executing that region' thus only master
+        // threads and not all threads in all teams
+        MappedDir = DIR_OMP_DISTRIBUTE;
+#if INTEL_CUSTOMIZATION
+        // For DO CONCURRENT, FFE also emits GENERICLOOP directive but we don't
+        // need to follow that restriction.
+        if (getIsDoConcurrent())
+          MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+#endif // INTEL_CUSTOMIZATION
         Mapped = true;
       } else if (Parent->getWRegionKindID() == WRegionNode::WRNDistribute ||
                  Parent->getWRegionKindID() == WRegionNode::WRNTarget) {

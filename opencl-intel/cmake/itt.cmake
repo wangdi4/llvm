@@ -41,6 +41,7 @@ include_directories(SYSTEM ${EXTERNALS_DIR}/itt/include
                     ${EXTERNALS_DIR}/itt/ittnotify/)
 
 # ITT libraries directory suffix
+# INTEL_CUSTOMIZATION
 if(USE_GPA)
   if(BUILD_X64)
     set(GPA_LIB_DIR_SUFFIX x64)
@@ -58,3 +59,4 @@ if(USE_GPA)
 else()
   list(APPEND TARGET_SOURCES ${EXTERNALS_DIR}/itt/ittnotify/ittnotify_static.c)
 endif()
+# end INTEL_CUSTOMIZATION

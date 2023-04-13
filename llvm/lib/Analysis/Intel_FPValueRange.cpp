@@ -238,7 +238,7 @@ FPValueRange FPValueRange::mod(const FPValueRange &LHS,
   llvm_unreachable("Missing branch in mod");
 }
 
-Optional<bool> FPValueRange::isInBitRange(unsigned BitRange) const {
+std::optional<bool> FPValueRange::isInBitRange(unsigned BitRange) const {
   ConstantRange IntRange = ConstantRange::getFull(BitRange);
 
   if (isUndef() || isEmpty())

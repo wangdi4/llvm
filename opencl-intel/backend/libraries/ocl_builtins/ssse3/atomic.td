@@ -1,3 +1,16 @@
+//
+// Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 // In our implementation a work-group is a sequence of work-items executed by a single phy. thread
 // in sequence. So no synchronization is needed among work-items of the same work-group operating on
 // the __local memory.
@@ -820,31 +833,28 @@ OclBuiltinImpl atomic_compare_exchange_weak_expl_scope_l_pp_impl =
   OclBuiltinImpl<atomic_compare_exchange_weak_explicit_scope_l_pp, atomic_compare_exchange_weak_explicit_scope_l_pp.Types, 0, atomic_compare_exchange_l_code>;
 
 // auxiliary code
-code ocl20_binop_code = [{
-    return $Arg0VarName $BINOP $Arg1VarName;
-  }];
 code ocl20_relop_code = [{
     return $Arg0VarName $RELOP $Arg1VarName ? $Arg0VarName : $Arg1VarName;
   }];
 
 // auxiliary functions
-OclBuiltinImpl ocl20_add_impl = OclBuiltinImpl<ocl20_add, ocl20_add.Types, 0, ocl20_binop_code, [["$BINOP","+"]]>;
-OclBuiltinImpl ocl20_sub_impl = OclBuiltinImpl<ocl20_sub, ocl20_sub.Types, 0, ocl20_binop_code, [["$BINOP","-"]]>;
-OclBuiltinImpl ocl20_or_impl  = OclBuiltinImpl<ocl20_or,  ocl20_or.Types,  0, ocl20_binop_code, [["$BINOP","|"]]>;
-OclBuiltinImpl ocl20_xor_impl = OclBuiltinImpl<ocl20_xor, ocl20_xor.Types, 0, ocl20_binop_code, [["$BINOP","^"]]>;
-OclBuiltinImpl ocl20_and_impl = OclBuiltinImpl<ocl20_and, ocl20_and.Types, 0, ocl20_binop_code, [["$BINOP","&"]]>;
+OclBuiltinImpl ocl20_add_impl = OclBuiltinImpl<ocl20_add, ocl20_add.Types, 0, binary_op_code, [["$Op","+"]]>;
+OclBuiltinImpl ocl20_sub_impl = OclBuiltinImpl<ocl20_sub, ocl20_sub.Types, 0, binary_op_code, [["$Op","-"]]>;
+OclBuiltinImpl ocl20_or_impl  = OclBuiltinImpl<ocl20_or,  ocl20_or.Types,  0, binary_op_code, [["$Op","|"]]>;
+OclBuiltinImpl ocl20_xor_impl = OclBuiltinImpl<ocl20_xor, ocl20_xor.Types, 0, binary_op_code, [["$Op","^"]]>;
+OclBuiltinImpl ocl20_and_impl = OclBuiltinImpl<ocl20_and, ocl20_and.Types, 0, binary_op_code, [["$Op","&"]]>;
 OclBuiltinImpl ocl20_min_impl = OclBuiltinImpl<ocl20_min, ocl20_min.Types, 0, ocl20_relop_code, [["$RELOP","<="]]>;
 OclBuiltinImpl ocl20_max_impl = OclBuiltinImpl<ocl20_max, ocl20_max.Types, 0, ocl20_relop_code, [["$RELOP",">="]]>;
-OclBuiltinImpl ocl20_add_uintptr_impl = OclBuiltinImpl<ocl20_add_uintptr, ocl20_add_uintptr.Types, 0, ocl20_binop_code, [["$BINOP","+"]]>;
-OclBuiltinImpl ocl20_sub_uintptr_impl = OclBuiltinImpl<ocl20_sub_uintptr, ocl20_sub_uintptr.Types, 0, ocl20_binop_code, [["$BINOP","-"]]>;
-OclBuiltinImpl ocl20_or_uintptr_impl  = OclBuiltinImpl<ocl20_or_uintptr,  ocl20_or_uintptr.Types,  0, ocl20_binop_code, [["$BINOP","|"]]>;
-OclBuiltinImpl ocl20_xor_uintptr_impl = OclBuiltinImpl<ocl20_xor_uintptr, ocl20_xor_uintptr.Types, 0, ocl20_binop_code, [["$BINOP","^"]]>;
-OclBuiltinImpl ocl20_and_uintptr_impl = OclBuiltinImpl<ocl20_and_uintptr, ocl20_and_uintptr.Types, 0, ocl20_binop_code, [["$BINOP","&"]]>;
+OclBuiltinImpl ocl20_add_uintptr_impl = OclBuiltinImpl<ocl20_add_uintptr, ocl20_add_uintptr.Types, 0, binary_op_code, [["$Op","+"]]>;
+OclBuiltinImpl ocl20_sub_uintptr_impl = OclBuiltinImpl<ocl20_sub_uintptr, ocl20_sub_uintptr.Types, 0, binary_op_code, [["$Op","-"]]>;
+OclBuiltinImpl ocl20_or_uintptr_impl  = OclBuiltinImpl<ocl20_or_uintptr,  ocl20_or_uintptr.Types,  0, binary_op_code, [["$Op","|"]]>;
+OclBuiltinImpl ocl20_xor_uintptr_impl = OclBuiltinImpl<ocl20_xor_uintptr, ocl20_xor_uintptr.Types, 0, binary_op_code, [["$Op","^"]]>;
+OclBuiltinImpl ocl20_and_uintptr_impl = OclBuiltinImpl<ocl20_and_uintptr, ocl20_and_uintptr.Types, 0, binary_op_code, [["$Op","&"]]>;
 OclBuiltinImpl ocl20_min_uintptr_impl = OclBuiltinImpl<ocl20_min_uintptr, ocl20_min_uintptr.Types, 0, ocl20_relop_code, [["$RELOP","<="]]>;
 OclBuiltinImpl ocl20_max_uintptr_impl = OclBuiltinImpl<ocl20_max_uintptr, ocl20_max_uintptr.Types, 0, ocl20_relop_code, [["$RELOP",">="]]>;
-OclBuiltinImpl ocl20_or_intptr_impl  = OclBuiltinImpl<ocl20_or_intptr,  ocl20_or_intptr.Types,  0, ocl20_binop_code, [["$BINOP","|"]]>;
-OclBuiltinImpl ocl20_xor_intptr_impl = OclBuiltinImpl<ocl20_xor_intptr, ocl20_xor_intptr.Types, 0, ocl20_binop_code, [["$BINOP","^"]]>;
-OclBuiltinImpl ocl20_and_intptr_impl = OclBuiltinImpl<ocl20_and_intptr, ocl20_and_intptr.Types, 0, ocl20_binop_code, [["$BINOP","&"]]>;
+OclBuiltinImpl ocl20_or_intptr_impl  = OclBuiltinImpl<ocl20_or_intptr,  ocl20_or_intptr.Types,  0, binary_op_code, [["$Op","|"]]>;
+OclBuiltinImpl ocl20_xor_intptr_impl = OclBuiltinImpl<ocl20_xor_intptr, ocl20_xor_intptr.Types, 0, binary_op_code, [["$Op","^"]]>;
+OclBuiltinImpl ocl20_and_intptr_impl = OclBuiltinImpl<ocl20_and_intptr, ocl20_and_intptr.Types, 0, binary_op_code, [["$Op","&"]]>;
 OclBuiltinImpl ocl20_min_intptr_impl = OclBuiltinImpl<ocl20_min_intptr, ocl20_min_intptr.Types, 0, ocl20_relop_code, [["$RELOP","<="]]>;
 OclBuiltinImpl ocl20_max_intptr_impl = OclBuiltinImpl<ocl20_max_intptr, ocl20_max_intptr.Types, 0, ocl20_relop_code, [["$RELOP",">="]]>;
 

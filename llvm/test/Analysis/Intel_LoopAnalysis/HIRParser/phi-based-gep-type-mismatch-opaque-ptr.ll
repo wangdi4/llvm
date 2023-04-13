@@ -1,4 +1,3 @@
-; RUN: opt < %s -opaque-pointers -hir-ssa-deconstruction -hir-framework -analyze -enable-new-pm=0 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>" 2>&1 -disable-output | FileCheck %s
 
 ; Verify that the the GEP %3 can be parsed as (%g)[i1].1 even though there is

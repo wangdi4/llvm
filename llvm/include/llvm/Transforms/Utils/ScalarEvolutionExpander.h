@@ -125,7 +125,15 @@ class SCEVExpander : public SCEVVisitor<SCEVExpander, Value *> {
   bool LSRMode;
 
   typedef IRBuilder<InstSimplifyFolder, IRBuilderCallbackInserter> BuilderType;
-  protected: // INTEL
+#if INTEL_CUSTOMIZATION
+  protected:
+  // Flag to indicate that we are generating code for HIR.
+  bool IsHIRExpander = false;
+
+  // Refer to description in the class definition.
+  class ScopeDbgLoc;
+#endif // INTEL_CUSTOMIZATION
+
   BuilderType Builder;
 
   private: // INTEL
@@ -384,6 +392,10 @@ public:
     return Builder.getCurrentDebugLocation();
   }
 
+#if INTEL_CUSTOMIZATION
+  // Returns true if we are generating code for HIR.
+  bool isHIRExpander() const { return IsHIRExpander; }
+#endif // INTEL_CUSTOMIZATION
   /// Return true if the specified instruction was inserted by the code
   /// rewriter.  If so, the client should not modify the instruction. Note that
   /// this also includes instructions re-used during expansion.
@@ -475,6 +487,8 @@ private:
                           Twine Name, bool IsSequential = false);
 
   Value *visitConstant(const SCEVConstant *S) { return S->getValue(); }
+
+  Value *visitVScale(const SCEVVScale *S);
 
   Value *visitPtrToIntExpr(const SCEVPtrToIntExpr *S);
 

@@ -1,5 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -hir-details -enable-new-pm=0 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that the load and store have metadata attached.
 ; CHECK: <RVAL-REG> {al:4}(i32*)(LINEAR float* %B)[LINEAR i64 i1] inbounds !tbaa

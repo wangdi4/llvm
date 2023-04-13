@@ -18,7 +18,7 @@ define dso_local float @foo(float %f, i32 %n) local_unnamed_addr #0 {
 ; CHECK-NEXT:    pushq %r13
 ; CHECK-NEXT:    pushq %r12
 ; CHECK-NEXT:    pushq %rbx
-; CHECK-NEXT:    subq $72, %rsp
+; CHECK-NEXT:    subq $56, %rsp
 ; CHECK-NEXT:    cmpl $9, %edi
 ; CHECK-NEXT:    jg .LBB0_2
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -117,7 +117,7 @@ define dso_local float @foo(float %f, i32 %n) local_unnamed_addr #0 {
 ; CHECK-NEXT:    vcvtss2sd %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vmulsd %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    vcvtsd2ss %xmm0, %xmm0, %xmm0
-; CHECK-NEXT:    addq $72, %rsp
+; CHECK-NEXT:    addq $56, %rsp
 ; CHECK-NEXT:    popq %rbx
 ; CHECK-NEXT:    popq %r12
 ; CHECK-NEXT:    popq %r13

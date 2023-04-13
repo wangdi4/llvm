@@ -3,12 +3,11 @@
 ; |   <LVAL-REG> NON-LINEAR i32 %sel {sb:6}
 ; |   <RVAL-REG> LINEAR i32 i1 {sb:3}
 
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser -hir-details | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-details -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: HasSignedIV: Yes
 
-; CHECK:      = (undef #UNDEF# undef) ? i1 : 1
+; CHECK:      = (undef != 0) ? i1 : 1
 
 ; ModuleID = 'select-undef.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

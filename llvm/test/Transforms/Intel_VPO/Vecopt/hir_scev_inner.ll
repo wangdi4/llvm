@@ -34,9 +34,9 @@
 ; CHECK-NEXT:        + END LOOP
 ; CHECK-NEXT:  END REGION
 ; CHECK-EMPTY:
-; CHECK-NEXT:  computeAddressSCEV([DA: Div] i32 %vp{{.*}} = load i32* [[LD_PTR:%.*]])
+; CHECK-NEXT:  computeAddressSCEV(i32 %vp{{.*}} = load i32* [[LD_PTR:%.*]])
 ; CHECK-NEXT:    -> {(8192 * i1 + %src),+,4}
-; CHECK-NEXT:  computeAddressSCEV([DA: Div] store i32 %vp{{.*}} i32* [[ST_PTR:%.*]])
+; CHECK-NEXT:  computeAddressSCEV(store i32 %vp{{.*}} i32* [[ST_PTR:%.*]])
 ; CHECK-NEXT:    -> {(4096 * i1 + %dst),+,4}
 ; CHECK-NEXT:  computeAddressSCEV(i32 %vp{{.*}} = load i32* [[LD_PTR_CLONE:%.*]])
 ; CHECK-NEXT:    -> {(8192 * i1 + %src),+,4}

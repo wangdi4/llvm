@@ -40,7 +40,7 @@
 #include "clang/Basic/Visibility.h"
 #include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #if INTEL_CUSTOMIZATION
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticSema.h"
@@ -50,6 +50,7 @@
 #include "llvm/ADT/StringSwitch.h"
 #include <array>
 #endif // INTEL_CUSTOMIZATION
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -518,7 +519,7 @@ public:
 
   /// C++ ABI to compile with, if specified by the frontend through -fc++-abi=.
   /// This overrides the default ABI used by the target.
-  llvm::Optional<TargetCXXABI::Kind> CXXABI;
+  std::optional<TargetCXXABI::Kind> CXXABI;
 
   /// Indicates whether the front-end is explicitly told that the
   /// input is a header file (i.e. -x c-header).

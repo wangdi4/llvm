@@ -1,4 +1,4 @@
-; RUN: opt -loop-reduce -S < %s | FileCheck %s
+; RUN: opt -passes="loop(loop-reduce)" -S < %s | FileCheck %s
 
 ; CHECK-NOT: select
 ; CHECK-NOT: min

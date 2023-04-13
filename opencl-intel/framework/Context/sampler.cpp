@@ -109,8 +109,8 @@ void Sampler::SetProperties(
 cl_err_code Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize,
                              void *pParamValue,
                              size_t *pszParamValueSizeRet) const {
-  LOG_DEBUG(TEXT("Enter Sampler::GetInfo (iParamName=%d, szParamValueSize=%d, "
-                 "pParamValue=%d, pszParamValueSizeRet=%d)"),
+  LOG_DEBUG(TEXT("Enter Sampler::GetInfo (iParamName=%d, szParamValueSize=%zu, "
+                 "pParamValue=%p, pszParamValueSizeRet=%p)"),
             iParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
   size_t szSize = 0;
@@ -151,7 +151,7 @@ cl_err_code Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize,
 
   // if param_value_size < actual value size return CL_INVALID_VALUE
   if (nullptr != pParamValue && szParamValueSize < szSize) {
-    LOG_ERROR(TEXT("szParamValueSize (=%d) < szSize (=%d)"), szParamValueSize,
+    LOG_ERROR(TEXT("szParamValueSize (=%zu) < szSize (=%zu)"), szParamValueSize,
               szSize);
     return CL_INVALID_VALUE;
   }

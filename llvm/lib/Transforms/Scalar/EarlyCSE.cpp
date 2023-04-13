@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -84,6 +84,9 @@
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
+#if INTEL_COLLAB
+using namespace llvm::vpo;
+#endif // INTEL_COLLAB
 
 #define DEBUG_TYPE "early-cse"
 
@@ -664,8 +667,9 @@ private:
 #if INTEL_COLLAB
   // Maps blocks to their containing OpenMP region entry insts.
   llvm::DenseMap<BasicBlock *, Instruction *> RegionEntryForBlock;
-  // The nesting of OpenMP region entries at the current block, if any.
-  std::stack<Instruction *> CurrentRegionEntry;
+  // The top of this stack, is the currently dominating OpenMP region
+  // directive.
+  std::stack<Instruction *> CurrentRegionDirective;
 #endif // INTEL_COLLAB
   // Almost a POD, but needs to call the constructors for the scoped hash
   // tables so that a new scope gets pushed on. These are RAII so that the
@@ -903,7 +907,7 @@ private:
     // TODO: We could insert relevant casts on type mismatch here.
     if (auto *LI = dyn_cast<LoadInst>(Inst))
       return LI->getType() == ExpectedType ? LI : nullptr;
-    else if (auto *SI = dyn_cast<StoreInst>(Inst)) {
+    if (auto *SI = dyn_cast<StoreInst>(Inst)) {
       Value *V = SI->getValueOperand();
       return V->getType() == ExpectedType ? V : nullptr;
     }
@@ -916,11 +920,14 @@ private:
 
   Value *getOrCreateResultNonTargetMemIntrinsic(IntrinsicInst *II,
                                                 Type *ExpectedType) const {
+    // TODO: We could insert relevant casts on type mismatch here.
     switch (II->getIntrinsicID()) {
     case Intrinsic::masked_load:
-      return II;
-    case Intrinsic::masked_store:
-      return II->getOperand(0);
+      return II->getType() == ExpectedType ? II : nullptr;
+    case Intrinsic::masked_store: {
+      Value *V = II->getOperand(0);
+      return V->getType() == ExpectedType ? V : nullptr;
+    }
     }
     return nullptr;
   }
@@ -1040,8 +1047,34 @@ private:
     // by MemorySSA's getClobberingMemoryAccess.
     MSSAUpdater->removeMemoryAccess(&Inst, true);
   }
-};
 
+#if INTEL_COLLAB
+  // Check whether two instructions are within the same OMP region.
+  bool instsInDifferentRegions(Instruction *I1, Instruction *I2) {
+    if (RegionEntryForBlock.lookup(I1->getParent()) !=
+        RegionEntryForBlock.lookup(I2->getParent()))
+      return true;
+    auto inRegion = [&](Instruction *I) {
+      BasicBlock *BB = I->getParent();
+      bool IsInRegion = RegionEntryForBlock.lookup(BB);
+      for (Instruction &Inst : *BB) {
+        if (llvm::vpo::VPOAnalysisUtils::isRegionDirective(&Inst)) {
+          if (llvm::vpo::VPOAnalysisUtils::isBeginDirective(&Inst)) {
+            IsInRegion = !I->comesBefore(&Inst);
+          } else if (llvm::vpo::VPOAnalysisUtils::isEndDirective(&Inst)) {
+            IsInRegion = !Inst.comesBefore(I);
+          }
+          break;
+        }
+      }
+      return IsInRegion;
+    };
+    bool I1inRegion = inRegion(I1);
+    bool I2inRegion = inRegion(I2);
+    return I1inRegion != I2inRegion;
+  }
+#endif // INTEL_COLLAB
+};
 } // end anonymous namespace
 
 /// Determine if the memory referenced by LaterInst is from the same heap
@@ -1296,10 +1329,16 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
   Instruction *LastStore = nullptr;
 
 #if INTEL_COLLAB
-  // Current block is dominated by a region entry, add it to the region
+  // If the current block is dominated by a region entry, add it to the region
   // map.
-  if (!CurrentRegionEntry.empty())
-    RegionEntryForBlock[BB] = CurrentRegionEntry.top();
+  if (!CurrentRegionDirective.empty()) {
+    auto *DirectiveI = CurrentRegionDirective.top();
+    if (VPOAnalysisUtils::isBeginDirective(DirectiveI)) {
+      LLVM_DEBUG(dbgs() << "OMP region for block: " << BB->getName() << " : "
+                        << *DirectiveI << "\n");
+      RegionEntryForBlock[BB] = DirectiveI;
+    }
+  }
 #endif // INTEL_COLLAB
   // See if any instructions in the block can be eliminated.  If so, do it.  If
   // not, add them to AvailableValues.
@@ -1451,33 +1490,17 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
 
 #if INTEL_COLLAB
     // Prevent CSE across OpenMP outline regions, by tracking which blocks
-    // may be dominated by an OpenMP region entry instruction.
-    // Otherwise, values will be unexpectedly live-in to the region.
-    // VPO CFG restructuring must be done before this, to avoid region splits
-    // inside a block.
-    int OpenMPDirID = llvm::vpo::VPOAnalysisUtils::getRegionDirectiveID(&Inst);
-    if (llvm::vpo::VPOAnalysisUtils::isBeginDirectiveOfRegionsNeedingOutlining(
-            OpenMPDirID)) {
-      // entry directive, at end of its block (by VPO restructuring).
-      // Push a new region (the successor blocks will be part of the region).
-      CurrentRegionEntry.push(&Inst);
-      // Block memory movement as if the entry were a fence.
-      // Values will be blocked below.
+    // are dominated by an OpenMP region entry instruction.
+    // Otherwise, values will be unexpectedly live-in or live-out.
+    if (VPOAnalysisUtils::isRegionDirective(&Inst)) {
+      // This is the current dominating region directive. It is used
+      // to build a map of BBs to regions, called RegionEntryForBlock.
+      CurrentRegionDirective.push(&Inst);
+      // Kill all memory when we see an entry or exit directive.
       ++CurrentGeneration;
       LastStore = nullptr;
-    } else if (llvm::vpo::VPOAnalysisUtils::
-                   isEndDirectiveOfRegionsNeedingOutlining(OpenMPDirID)) {
-      // Exit directive, at start of its block. Pop the current region.
-      // This block will now be part of the enclosing region (if any).
-      if (!CurrentRegionEntry.empty())
-        CurrentRegionEntry.pop();
-      if (CurrentRegionEntry.empty())
-        RegionEntryForBlock.erase(BB);
-      else
-        RegionEntryForBlock[BB] = CurrentRegionEntry.top();
-      // Fence here also, as values cannot be live-out of the region.
-      ++CurrentGeneration;
-      LastStore = nullptr;
+      // We still need the region map, as this "kill" technique does not work
+      // for non-memory values.
     }
 #endif // INTEL_COLLAB
     // If this is a simple instruction that we can value number, process it.
@@ -1496,8 +1519,8 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
         // are of different OpenMP regions, don't CSE, so that values are
         // not live across the outline boundary.
         if (Instruction *I = dyn_cast<Instruction>(V)) {
-          if (RegionEntryForBlock.find(I->getParent()) !=
-              RegionEntryForBlock.find(Inst.getParent())) {
+          if (!CurrentRegionDirective.empty() &&
+              instsInDifferentRegions(I, &Inst)) {
             LLVM_DEBUG(dbgs() << "EarlyCSE: " << Inst
                               << " not in same OMP region as " << *I << "\n");
             // Make the duplicate value the current value, so that we CSE
@@ -1783,6 +1806,16 @@ bool EarlyCSE::run() {
                         AvailableCalls, NodeToProcess->childGeneration(),
                         child, child->begin(), child->end()));
     } else {
+#if INTEL_COLLAB
+      // When we pop a node off the stack, check if it contained the currently
+      // dominating OMP directive. If it did, the OMP directive does not
+      // dominate any more, and the directive stack should be popped.
+      if (!CurrentRegionDirective.empty()) {
+        auto *BB = NodeToProcess->node()->getBlock();
+        if (CurrentRegionDirective.top()->getParent() == BB)
+          CurrentRegionDirective.pop();
+      }
+#endif // INTEL_COLLAB
       // It has been processed, and there are no more children to process,
       // so delete it and pop it off the stack.
       delete NodeToProcess;
@@ -1818,10 +1851,10 @@ void EarlyCSEPass::printPipeline(
     raw_ostream &OS, function_ref<StringRef(StringRef)> MapClassName2PassName) {
   static_cast<PassInfoMixin<EarlyCSEPass> *>(this)->printPipeline(
       OS, MapClassName2PassName);
-  OS << "<";
+  OS << '<';
   if (UseMemorySSA)
     OS << "memssa";
-  OS << ">";
+  OS << '>';
 }
 
 namespace {
@@ -1872,7 +1905,6 @@ public:
       AU.addPreserved<MemorySSAWrapperPass>();
     }
     AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();       // INTEL
     AU.addPreserved<AAResultsWrapperPass>();
     AU.setPreservesCFG();
   }

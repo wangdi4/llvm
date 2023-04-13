@@ -22,7 +22,7 @@
 
 #include "FrameworkTest.h"
 #include <CL/cl.h>
-#include <CL/cl_ext_intel.h>
+#include <CL/cl_ext.h>
 #include <stdio.h>
 
 #define WORK_SIZE 1

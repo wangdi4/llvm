@@ -350,17 +350,19 @@ bool HIRLoopCollapse::doAnalysis(HLLoop *InnermostLp) {
 }
 
 bool HIRLoopCollapse::doPreliminaryChecks(void) {
-  IVType = InnermostLp->getIVType();
+  InnermostIVType = InnermostLp->getIVType();
   uint64_t TripCount = 0;
   HLLoop *CurLp = InnermostLp;
   unsigned Count = 0;
+  auto InnermostIVTypeSize = InnermostIVType->getPrimitiveSizeInBits();
   for (; Count < NumCollapsableLoops; Count++, CurLp = CurLp->getParentLoop()) {
 
     if (!CurLp->isDo() || !CurLp->isNormalized()) {
       break;
     }
 
-    if (CurLp->getIVType() != IVType) {
+    auto CurLoopIVTypeSize = CurLp->getIVType()->getPrimitiveSizeInBits();
+    if (CurLoopIVTypeSize > InnermostIVTypeSize) {
       break;
     }
 
@@ -382,7 +384,12 @@ bool HIRLoopCollapse::doPreliminaryChecks(void) {
     CanonExpr *UB = CurLp->getUpperCanonExpr();
     if (UB->canConvertToStandAloneBlobOrConstant()) {
       CanonExpr *TC = CurLp->getTripCountCanonExpr();
-      const bool CanConvert = TC->convertToStandAloneBlobOrConstant();
+      unsigned TCTypeSize = TC->getDestType()->getPrimitiveSizeInBits();
+      bool CanConvert =
+          (TCTypeSize < InnermostIVTypeSize)
+              ? TC->convertToZExtStandAloneBlobOrConstant(InnermostIVType)
+              : TC->convertToStandAloneBlobOrConstant();
+
       assert(CanConvert && "Expect a good conversion");
       (void)CanConvert;
       TCArry[LoopLevel].set(TC);
@@ -599,14 +606,15 @@ unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
 }
 
 unsigned HIRLoopCollapse::getNumMatchedDimensions(RegDDRef *GEPRef) {
-  assert(IVType && "IVType must have been set by now");
+  assert(InnermostIVType && "InnermostIVType must have been set by now");
   assert(GEPRef->getNumDimensions() > 1 && "Expect a multi-dimension Ref");
 
   unsigned Idx = 1;
   for (unsigned End = std::min(GEPRef->getNumDimensions(), NumCollapsableLoops);
        Idx <= End; ++Idx) {
     CanonExpr *CE = GEPRef->getDimensionIndex(Idx);
-    if ((CE->getSrcType() != IVType) || (CE->getDestType() != IVType)) {
+    if ((CE->getSrcType() != InnermostIVType) ||
+        (CE->getDestType() != InnermostIVType)) {
       break;
     }
   }
@@ -690,7 +698,10 @@ static void adjustIVCoeffs(RegDDRef *Ref, unsigned StartDim, unsigned EndDim,
                                         1);
   Ref->makeConsistent({}, OrigOutermostLevel);
   if (SetCollapsed) {
-    Ref->setCollapsed(true);
+    // Consider following collapsing:
+    //   A[i1][i2][i3][i4][i5] -> A[i1][0][0][0][i2']
+    //   i5 is StartDim, i2 is EndDim. Num collapsed levels is 4.
+    Ref->setCollapsedLevels(EndDim - StartDim + 1);
   }
 }
 
@@ -799,6 +810,59 @@ void HIRLoopCollapse::setMaxVecLenAllowed(HLLoop *const OrigOutermostLp,
   }
 }
 
+// Accumulate max trip count estimate and legal max trip count over each loop
+// in the collapse-able loop nest. Note: if accumulated estimate overflows
+// during calculation, we set it to 0 (meaning no info).
+void HIRLoopCollapse::updateMaxTripCountEstimates(
+    HLLoop *ToCollapseLp, const unsigned OrigInnermostLevel,
+    const unsigned OrigOutermostLevel) {
+  APInt AccumulatedMaxTripCountEstimate(64, 1);
+  APInt AccumulatedLegalMaxTC(64, 1);
+  auto *CurLp = ToCollapseLp;
+  for (unsigned Level = OrigInnermostLevel, E = OrigOutermostLevel; Level >= E;
+       --Level, CurLp = CurLp->getParentLoop()) {
+    bool IsConstCurrTC = TCArry[Level].isConstant();
+
+    // 0 means we met a loop with no info or the overflow happened.
+    if (!AccumulatedMaxTripCountEstimate.isZero()) {
+      bool MaxTCEstOverflow = false;
+      uint64_t CurLpMaxTCEst = IsConstCurrTC ? TCArry[Level].getConstTripCount()
+                                             : CurLp->getMaxTripCountEstimate();
+      AccumulatedMaxTripCountEstimate = AccumulatedMaxTripCountEstimate.umul_ov(
+          APInt(64, CurLpMaxTCEst), MaxTCEstOverflow);
+      if (MaxTCEstOverflow) {
+        AccumulatedMaxTripCountEstimate = APInt(64, 0);
+      }
+    }
+
+    // 0 means we met a loop with no info or the overflow happened.
+    if (!AccumulatedLegalMaxTC.isZero()) {
+      bool LegalTCOverflow = false;
+      uint64_t CurLegalMaxTC = IsConstCurrTC ? TCArry[Level].getConstTripCount()
+                                             : CurLp->getLegalMaxTripCount();
+      AccumulatedLegalMaxTC = AccumulatedLegalMaxTC.umul_ov(
+          APInt(64, CurLegalMaxTC), LegalTCOverflow);
+      if (LegalTCOverflow) {
+        AccumulatedLegalMaxTC = APInt(64, 0);
+      }
+    }
+
+    if (AccumulatedMaxTripCountEstimate.isZero() &&
+        AccumulatedLegalMaxTC.isZero()) {
+      break;
+    }
+  }
+
+  // Set MAX_TC_EST to 0 if it is larger than unsigned int 32.
+  uint64_t MaxInt32 = APInt::getMaxValue(32).getZExtValue();
+  uint64_t MaxTCEstConst = AccumulatedMaxTripCountEstimate.getZExtValue();
+  ToCollapseLp->setMaxTripCountEstimate(
+      (MaxTCEstConst <= MaxInt32) ? MaxTCEstConst : 0);
+  uint64_t LegalMaxTCConst = AccumulatedLegalMaxTC.getZExtValue();
+  ToCollapseLp->setLegalMaxTripCount(
+      (LegalMaxTCConst <= MaxInt32) ? LegalMaxTCConst : 0);
+}
+
 bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
                                   const unsigned OrigInnermostLevel,
                                   const unsigned OrigOutermostLevel) {
@@ -835,6 +899,9 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   CanonExpr *AccumulatedTripCountCE = ToCollapseLp->getUpperCanonExpr();
 
   AccumulatedTripCountCE->addConstant(1, false);
+
+  updateMaxTripCountEstimates(ToCollapseLp, OrigInnermostLevel,
+                              OrigOutermostLevel);
 
   // Accumulate TripCount over each loop in the collapse-able loop nest
   // (exclude the Innermost loop)
@@ -985,7 +1052,7 @@ void HIRLoopCollapse::clearWorkingSetMemory(void) {
   GEPRefVec.clear();
   NumCollapsableLoops = 0;
   initializeTCArry();
-  IVType = nullptr;
+  InnermostIVType = nullptr;
 }
 
 unsigned HIRLoopCollapse::matchSingleDimDynShapeArray(RegDDRef *Ref) {
@@ -1230,15 +1297,15 @@ int HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref, unsigned Level) {
 
 unsigned HIRLoopCollapse::matchCEOnIVLevels(CanonExpr *CE) const {
   int64_t IVConstCoeff = 0;
-  unsigned IVIndex = 0, LevelsMatched = 0;
+  unsigned IVBlobCoeff = 0, LevelsMatched = 0;
 
   // Try to match the 1st level (on InnermostLevel):
-  CE->getIVCoeff(InnermostLevel, &IVIndex, &IVConstCoeff);
-  if ((IVConstCoeff != 1) || (IVIndex != InvalidBlobIndex)) {
+  CE->getIVCoeff(InnermostLevel, &IVBlobCoeff, &IVConstCoeff);
+  if ((IVConstCoeff != 1) || (IVBlobCoeff != InvalidBlobIndex)) {
     return 0;
   }
-  unsigned AccumuConst = IVConstCoeff;
-  unsigned AccumuBlobIndex = IVIndex;
+  unsigned AccumuTCConst = IVConstCoeff;
+  unsigned AccumTCBlob = IVBlobCoeff;
   ++LevelsMatched;
 
   // Try to match each applicable level within [InnermostLevel-1 .. EndLevel]
@@ -1246,31 +1313,51 @@ unsigned HIRLoopCollapse::matchCEOnIVLevels(CanonExpr *CE) const {
        Level >= EndLevel; --Level) {
 
     // Obtain: data from CE on current Level
-    CE->getIVCoeff(Level, &IVIndex, &IVConstCoeff);
+    CE->getIVCoeff(Level, &IVBlobCoeff, &IVConstCoeff);
     unsigned PrevLevel = Level + 1;
 
     if (TCArry[PrevLevel].isConstant()) {
-      AccumuConst *= TCArry[PrevLevel].getConstTripCount();
+      AccumuTCConst *= TCArry[PrevLevel].getConstTripCount();
     } else {
       CanonExpr *TCCE = TCArry[PrevLevel].getTripCount();
       unsigned BlobIndex = TCCE->getSingleBlobIndex();
 
-      // Accumulate Blob into AccumuBlobIndex:
-      if (AccumuBlobIndex == InvalidBlobIndex) {
-        AccumuBlobIndex = BlobIndex;
+      // Accumulate Blob into AccumTCBlob:
+      if (AccumTCBlob == InvalidBlobIndex) {
+        AccumTCBlob = BlobIndex;
       } else {
         unsigned NewBlobIndex = 0;
-        BU->createMulBlob(BU->getBlob(AccumuBlobIndex), BU->getBlob(BlobIndex),
+        BU->createMulBlob(BU->getBlob(AccumTCBlob), BU->getBlob(BlobIndex),
                           true, &NewBlobIndex);
-        AccumuBlobIndex = NewBlobIndex;
+        AccumTCBlob = NewBlobIndex;
       }
     }
 
     // Compare: match CE on current level?
-    if (IVConstCoeff != AccumuConst || IVIndex != AccumuBlobIndex) {
+    if (IVConstCoeff != AccumuTCConst) {
       break;
     }
 
+    // Index mismatch is a result of IV types mismatch, strip ext to compare
+    // blobs.
+    // Ex.:
+    //   DO i1 = 0, %n + -1, 1
+    //     DO i2 = 0, zext.i32.i64(%n) + -1, 1
+    //       (%a)[%n * i1 + i2] = %n;
+    //     END LOOP
+    //   END LOOP
+    //
+    // We are matching i1 coefficient (%n) to TC (zext.i32.i64(%n)).
+    if (IVBlobCoeff != AccumTCBlob) {
+      // If TC is constant, do not try to match blobs.
+      if (AccumTCBlob == InvalidBlobIndex) {
+        break;
+      }
+
+      unsigned TempBlobIndex = BU->getUnderlyingExtBlobIndex(AccumTCBlob);
+      if (IVBlobCoeff != TempBlobIndex)
+        break;
+    }
     // Increase the levels matched
     ++LevelsMatched;
   }

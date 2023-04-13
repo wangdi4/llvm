@@ -6,15 +6,15 @@
 declare double @llvm.sqrt.f64(double) #0
 
 ; Function Attrs: nofree nounwind uwtable
-define hidden void @foo(double* nocapture %p, double* nocapture readonly %p1, double %x, double %b, double %c, double %e) #1 {
+define void @foo(ptr nocapture %p, ptr nocapture readonly %p1, double %x, double %b, double %c, double %e) {
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  bb1:
 ; CHECK-NEXT:    [[SQX:%.*]] = call fast double @llvm.sqrt.f64(double [[X:%.*]])
 ; CHECK-NEXT:    [[I160:%.*]] = fdiv fast double 1.000000e+00, [[SQX]]
 ; CHECK-NEXT:    [[I161:%.*]] = fmul fast double [[I160]], [[I160]]
 ; CHECK-NEXT:    [[I162:%.*]] = fdiv fast double [[X]], [[SQX]]
-; CHECK-NEXT:    [[I163:%.*]] = getelementptr double, double* [[P1:%.*]], i64 0
-; CHECK-NEXT:    [[I164:%.*]] = load double, double* [[I163]], align 8
+; CHECK-NEXT:    [[I163:%.*]] = getelementptr double, ptr [[P1:%.*]], i64 0
+; CHECK-NEXT:    [[I164:%.*]] = load double, ptr [[I163]], align 8
 ; CHECK-NEXT:    [[I165:%.*]] = fadd fast double [[I164]], 3.000000e-01
 ; CHECK-NEXT:    [[I166:%.*]] = fdiv fast double 1.000000e+00, [[I165]]
 ; CHECK-NEXT:    [[I167:%.*]] = fcmp fast ogt double [[I162]], [[E:%.*]]
@@ -35,10 +35,10 @@ define hidden void @foo(double* nocapture %p, double* nocapture readonly %p1, do
 ; CHECK-NEXT:    [[I247:%.*]] = fmul fast double [[I165]], [[I236]]
 ; CHECK-NEXT:    [[I248:%.*]] = call fast double @llvm.sqrt.f64(double [[I247]])
 ; CHECK-NEXT:    [[I249:%.*]] = fadd fast double [[I248]], [[I243]]
-; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr double, double* [[P:%.*]], i32 0
-; CHECK-NEXT:    store double [[I246]], double* [[GEP1]], align 8
-; CHECK-NEXT:    [[GEP2:%.*]] = getelementptr double, double* [[P]], i32 1
-; CHECK-NEXT:    store double [[I249]], double* [[GEP2]], align 8
+; CHECK-NEXT:    [[GEP1:%.*]] = getelementptr double, ptr [[P:%.*]], i32 0
+; CHECK-NEXT:    store double [[I246]], ptr [[GEP1]], align 8
+; CHECK-NEXT:    [[GEP2:%.*]] = getelementptr double, ptr [[P]], i32 1
+; CHECK-NEXT:    store double [[I249]], ptr [[GEP2]], align 8
 ; CHECK-NEXT:    br label [[BB3]]
 ; CHECK:       bb3:
 ; CHECK-NEXT:    ret void
@@ -49,8 +49,8 @@ define hidden void @foo(double* nocapture %p, double* nocapture readonly %p1, do
 ; FORCED-NEXT:    [[I160:%.*]] = fdiv fast double 1.000000e+00, [[SQX]]
 ; FORCED-NEXT:    [[I161:%.*]] = fmul fast double [[I160]], [[I160]]
 ; FORCED-NEXT:    [[I162:%.*]] = fdiv fast double [[X]], [[SQX]]
-; FORCED-NEXT:    [[I163:%.*]] = getelementptr double, double* [[P1:%.*]], i64 0
-; FORCED-NEXT:    [[I164:%.*]] = load double, double* [[I163]], align 8
+; FORCED-NEXT:    [[I163:%.*]] = getelementptr double, ptr [[P1:%.*]], i64 0
+; FORCED-NEXT:    [[I164:%.*]] = load double, ptr [[I163]], align 8
 ; FORCED-NEXT:    [[I165:%.*]] = fadd fast double [[I164]], 3.000000e-01
 ; FORCED-NEXT:    [[I166:%.*]] = fdiv fast double 1.000000e+00, [[I165]]
 ; FORCED-NEXT:    [[I167:%.*]] = fcmp fast ogt double [[I162]], [[E:%.*]]
@@ -58,40 +58,37 @@ define hidden void @foo(double* nocapture %p, double* nocapture readonly %p1, do
 ; FORCED:       bb2:
 ; FORCED-NEXT:    [[TMP0:%.*]] = insertelement <2 x double> poison, double [[I162]], i32 0
 ; FORCED-NEXT:    [[TMP1:%.*]] = insertelement <2 x double> [[TMP0]], double [[I166]], i32 1
-; FORCED-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> poison, double [[B:%.*]], i32 0
-; FORCED-NEXT:    [[TMP3:%.*]] = insertelement <2 x double> [[TMP2]], double [[I166]], i32 1
-; FORCED-NEXT:    [[TMP4:%.*]] = fadd fast <2 x double> [[TMP1]], [[TMP3]]
-; FORCED-NEXT:    [[TMP5:%.*]] = fmul fast <2 x double> [[TMP1]], [[TMP3]]
-; FORCED-NEXT:    [[TMP6:%.*]] = shufflevector <2 x double> [[TMP4]], <2 x double> [[TMP5]], <2 x i32> <i32 0, i32 3>
+; FORCED-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> [[TMP1]], double [[B:%.*]], i32 0
+; FORCED-NEXT:    [[TMP3:%.*]] = fadd fast <2 x double> [[TMP1]], [[TMP2]]
+; FORCED-NEXT:    [[TMP4:%.*]] = fmul fast <2 x double> [[TMP1]], [[TMP2]]
+; FORCED-NEXT:    [[TMP5:%.*]] = shufflevector <2 x double> [[TMP3]], <2 x double> [[TMP4]], <2 x i32> <i32 0, i32 3>
 ; FORCED-NEXT:    [[I237:%.*]] = fmul fast double [[I161]], [[I160]]
-; FORCED-NEXT:    [[TMP7:%.*]] = insertelement <2 x double> poison, double [[X]], i32 0
-; FORCED-NEXT:    [[TMP8:%.*]] = insertelement <2 x double> [[TMP7]], double [[I165]], i32 1
-; FORCED-NEXT:    [[TMP9:%.*]] = insertelement <2 x double> poison, double [[C:%.*]], i32 0
-; FORCED-NEXT:    [[TMP10:%.*]] = insertelement <2 x double> [[TMP9]], double [[I165]], i32 1
-; FORCED-NEXT:    [[TMP11:%.*]] = fadd fast <2 x double> [[TMP8]], [[TMP10]]
-; FORCED-NEXT:    [[TMP12:%.*]] = fmul fast <2 x double> [[TMP8]], [[TMP10]]
-; FORCED-NEXT:    [[TMP13:%.*]] = shufflevector <2 x double> [[TMP11]], <2 x double> [[TMP12]], <2 x i32> <i32 0, i32 3>
-; FORCED-NEXT:    [[TMP14:%.*]] = extractelement <2 x double> [[TMP13]], i32 0
-; FORCED-NEXT:    [[TMP15:%.*]] = extractelement <2 x double> [[TMP13]], i32 1
-; FORCED-NEXT:    [[I240:%.*]] = fsub fast double [[TMP14]], [[TMP15]]
-; FORCED-NEXT:    [[GEP1:%.*]] = getelementptr double, double* [[P:%.*]], i32 0
-; FORCED-NEXT:    [[TMP16:%.*]] = fdiv fast <2 x double> <double 1.000000e+00, double 5.000000e-01>, [[TMP6]]
-; FORCED-NEXT:    [[TMP17:%.*]] = fmul fast <2 x double> <double 1.000000e+00, double 5.000000e-01>, [[TMP6]]
-; FORCED-NEXT:    [[TMP18:%.*]] = shufflevector <2 x double> [[TMP16]], <2 x double> [[TMP17]], <2 x i32> <i32 0, i32 3>
-; FORCED-NEXT:    [[TMP19:%.*]] = insertelement <2 x double> poison, double [[I160]], i32 0
-; FORCED-NEXT:    [[TMP20:%.*]] = insertelement <2 x double> [[TMP19]], double [[I240]], i32 1
-; FORCED-NEXT:    [[TMP21:%.*]] = fmul fast <2 x double> [[TMP18]], [[TMP20]]
-; FORCED-NEXT:    [[TMP22:%.*]] = extractelement <2 x double> [[TMP18]], i32 0
-; FORCED-NEXT:    [[I245:%.*]] = fsub fast double [[TMP22]], [[I160]]
-; FORCED-NEXT:    [[I247:%.*]] = fmul fast double [[I165]], [[TMP22]]
+; FORCED-NEXT:    [[TMP6:%.*]] = insertelement <2 x double> poison, double [[X]], i32 0
+; FORCED-NEXT:    [[TMP7:%.*]] = insertelement <2 x double> [[TMP6]], double [[I165]], i32 1
+; FORCED-NEXT:    [[TMP8:%.*]] = insertelement <2 x double> [[TMP7]], double [[C:%.*]], i32 0
+; FORCED-NEXT:    [[TMP9:%.*]] = fadd fast <2 x double> [[TMP7]], [[TMP8]]
+; FORCED-NEXT:    [[TMP10:%.*]] = fmul fast <2 x double> [[TMP7]], [[TMP8]]
+; FORCED-NEXT:    [[TMP11:%.*]] = shufflevector <2 x double> [[TMP9]], <2 x double> [[TMP10]], <2 x i32> <i32 0, i32 3>
+; FORCED-NEXT:    [[TMP12:%.*]] = extractelement <2 x double> [[TMP11]], i32 0
+; FORCED-NEXT:    [[TMP13:%.*]] = extractelement <2 x double> [[TMP11]], i32 1
+; FORCED-NEXT:    [[I240:%.*]] = fsub fast double [[TMP12]], [[TMP13]]
+; FORCED-NEXT:    [[GEP1:%.*]] = getelementptr double, ptr [[P:%.*]], i32 0
+; FORCED-NEXT:    [[TMP14:%.*]] = fdiv fast <2 x double> <double 1.000000e+00, double 5.000000e-01>, [[TMP5]]
+; FORCED-NEXT:    [[TMP15:%.*]] = fmul fast <2 x double> <double 1.000000e+00, double 5.000000e-01>, [[TMP5]]
+; FORCED-NEXT:    [[TMP16:%.*]] = shufflevector <2 x double> [[TMP14]], <2 x double> [[TMP15]], <2 x i32> <i32 0, i32 3>
+; FORCED-NEXT:    [[TMP17:%.*]] = insertelement <2 x double> poison, double [[I160]], i32 0
+; FORCED-NEXT:    [[TMP18:%.*]] = insertelement <2 x double> [[TMP17]], double [[I240]], i32 1
+; FORCED-NEXT:    [[TMP19:%.*]] = fmul fast <2 x double> [[TMP16]], [[TMP18]]
+; FORCED-NEXT:    [[TMP20:%.*]] = extractelement <2 x double> [[TMP16]], i32 0
+; FORCED-NEXT:    [[I245:%.*]] = fsub fast double [[TMP20]], [[I160]]
+; FORCED-NEXT:    [[I247:%.*]] = fmul fast double [[I165]], [[TMP20]]
 ; FORCED-NEXT:    [[I248:%.*]] = call fast double @llvm.sqrt.f64(double [[I247]])
-; FORCED-NEXT:    [[TMP23:%.*]] = insertelement <2 x double> poison, double [[I245]], i32 0
-; FORCED-NEXT:    [[TMP24:%.*]] = insertelement <2 x double> [[TMP23]], double [[I248]], i32 1
-; FORCED-NEXT:    [[TMP25:%.*]] = fmul fast <2 x double> [[TMP24]], [[TMP21]]
-; FORCED-NEXT:    [[TMP26:%.*]] = fadd fast <2 x double> [[TMP24]], [[TMP21]]
-; FORCED-NEXT:    [[TMP27:%.*]] = shufflevector <2 x double> [[TMP25]], <2 x double> [[TMP26]], <2 x i32> <i32 0, i32 3>
-; FORCED-NEXT:    [[TMP28:%.*]] = bitcast double* [[GEP1]] to <2 x double>*
-; FORCED-NEXT:    store <2 x double> [[TMP27]], <2 x double>* [[TMP28]], align 8
+; FORCED-NEXT:    [[TMP21:%.*]] = insertelement <2 x double> poison, double [[I245]], i32 0
+; FORCED-NEXT:    [[TMP22:%.*]] = insertelement <2 x double> [[TMP21]], double [[I248]], i32 1
+; FORCED-NEXT:    [[TMP23:%.*]] = fmul fast <2 x double> [[TMP22]], [[TMP19]]
+; FORCED-NEXT:    [[TMP24:%.*]] = fadd fast <2 x double> [[TMP22]], [[TMP19]]
+; FORCED-NEXT:    [[TMP25:%.*]] = shufflevector <2 x double> [[TMP23]], <2 x double> [[TMP24]], <2 x i32> <i32 0, i32 3>
+; FORCED-NEXT:    store <2 x double> [[TMP25]], ptr [[GEP1]], align 8
 ; FORCED-NEXT:    br label [[BB3]]
 ; FORCED:       bb3:
 ; FORCED-NEXT:    ret void
@@ -105,8 +102,8 @@ bb1:
 ; do not look same. x/sqrt(x) => sqrt(x) transformation happens late and
 ; such vectorization blocks the optimization.
   %i162 = fdiv fast double %x, %sqx
-  %i163 = getelementptr double, double* %p1, i64 0
-  %i164 = load double, double* %i163, align 8
+  %i163 = getelementptr double, ptr %p1, i64 0
+  %i164 = load double, ptr %i163, align 8
   %i165 = fadd fast double %i164, 3.000000e-01
   %i166 = fdiv fast double 1.000000e+00, %i165
 
@@ -129,10 +126,10 @@ bb2:
   %i247 = fmul fast double %i165, %i236
   %i248 = call fast double @llvm.sqrt.f64(double %i247)
   %i249 = fadd fast double %i248, %i243
-  %gep1 = getelementptr double, double* %p, i32 0
-  store double %i246, double* %gep1, align 8
-  %gep2 = getelementptr double, double* %p, i32 1
-  store double %i249, double* %gep2, align 8
+  %gep1 = getelementptr double, ptr %p, i32 0
+  store double %i246, ptr %gep1, align 8
+  %gep2 = getelementptr double, ptr %p, i32 1
+  store double %i249, ptr %gep2, align 8
   br label %bb3
 
 bb3:
@@ -141,5 +138,4 @@ bb3:
 
 
 attributes #0 = { nofree nosync nounwind readnone speculatable willreturn }
-attributes #1 = { nofree nounwind uwtable }
 

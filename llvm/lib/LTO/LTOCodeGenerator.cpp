@@ -1,21 +1,4 @@
 //===-LTOCodeGenerator.cpp - LLVM Link Time Optimizer ---------------------===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -65,7 +48,6 @@
 #include "llvm/Remarks/HotnessThresholdParser.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Signals.h"
@@ -74,6 +56,7 @@
 #include "llvm/Support/YAMLTraits.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/TargetParser/Host.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
@@ -81,12 +64,6 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <optional>
 #include <system_error>
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/DTransCommon.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 
@@ -224,21 +201,10 @@ void LTOCodeGenerator::setOptLevel(unsigned Level) {
   Config.OptLevel = Level;
   Config.PTO.LoopVectorization = Config.OptLevel > 1;
   Config.PTO.SLPVectorization = Config.OptLevel > 1;
-  switch (Config.OptLevel) {
-  case 0:
-    Config.CGOptLevel = CodeGenOpt::None;
-    return;
-  case 1:
-    Config.CGOptLevel = CodeGenOpt::Less;
-    return;
-  case 2:
-    Config.CGOptLevel = CodeGenOpt::Default;
-    return;
-  case 3:
-    Config.CGOptLevel = CodeGenOpt::Aggressive;
-    return;
-  }
-  llvm_unreachable("Unknown optimization level!");
+  std::optional<CodeGenOpt::Level> CGOptLevelOrNone =
+      CodeGenOpt::getLevel(Config.OptLevel);
+  assert(CGOptLevelOrNone && "Unknown optimization level!");
+  Config.CGOptLevel = *CGOptLevelOrNone;
 }
 
 bool LTOCodeGenerator::writeMergedModules(StringRef Path) {

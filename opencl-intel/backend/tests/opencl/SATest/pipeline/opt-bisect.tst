@@ -8,17 +8,17 @@
 
 ; TODO add subgroup kernel when O0 vectorization is enabled by default.
 
-; CHECK: Running pass: DPCPPEqualizerPass
+; CHECK: Running pass: SYCLEqualizerPass
 ; CHECK: Running pass: LinearIdResolverPass
 ; CHECK: Running pass: ResolveVarTIDCallPass
 ; CHECK: Running pass: SGRemapWICallPass
 ; CHECK: Running pass: BuiltinCallToInstPass
 ; CHECK: Running pass: DetectRecursionPass
 ; CHECK: Running pass: DuplicateCalledKernelsPass
-; CHECK: Running pass: DPCPPKernelAnalysisPass
+; CHECK: Running pass: SYCLKernelAnalysisPass
 ; CHECK: Running pass: ResolveSubGroupWICallPass
 ; CHECK: Running pass: PreventDivCrashesPass
-; CHECK: Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK: Running pass: SYCLKernelWGLoopCreatorPass
 ; CHECK: Running pass: GroupBuiltinPass
 ; CHECK: Running pass: BarrierInFunction
 ; CHECK: Running pass: SplitBBonBarrier

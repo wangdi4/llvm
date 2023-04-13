@@ -1,4 +1,4 @@
-; RUN: opt < %s -indvars -S | FileCheck %s
+; RUN: opt -passes="loop(indvars)" < %s -S | FileCheck %s
 
 ; Verify that we use the original loop limit %mul16 when changing the loop
 ; predicate.

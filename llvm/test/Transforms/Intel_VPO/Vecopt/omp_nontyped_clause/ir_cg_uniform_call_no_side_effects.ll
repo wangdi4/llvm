@@ -32,7 +32,7 @@ define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnam
 ; CHECK-NEXT:    [[TMP6:%.*]] = phi i64 [ undef, [[VPLANNEDBB5]] ], [ [[TMP4]], [[PRED_CALL_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE:%.*]]
 ; CHECK:       pred.call.continue:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT7:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT7:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT8:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT7]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP7:%.*]] = add i64 [[TMP6]], [[GID:%.*]]
 ; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP1]], i64 0
@@ -56,8 +56,8 @@ define void @_ZGVeN2u_testKernel(i64 addrspace(1)* noalias %results) local_unnam
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v2i64.v2p1i64(<2 x i64> [[BROADCAST_SPLAT8]], <2 x i64 addrspace(1)*> [[BROADCAST_SPLAT10:%.*]], i32 8, <2 x i1> [[TMP1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB11]]
 ; CHECK:       VPlannedBB11:
-; CHECK-NEXT:    [[TMP12]] = add nuw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP13]] = add nuw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP12]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP13]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp ult i64 [[TMP13]], 2
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY:%.*]], label [[VPLANNEDBB12:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;

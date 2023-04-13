@@ -15,10 +15,12 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Split the vector memrefs into sub groups of adjacacent memrefs:
 ; CHECK-NEXT:      Distance is (in bytes) from the first memref of the set
-; CHECK-NEXT:    Set #1
+; CHECK:         Set #1
 ; CHECK-NEXT:    #3 <4 x 32> SStore: store i32 3 i32* [[VP_P2]]   Dist: 0
-; CHECK-NEXT:    #2 <4 x 32> SStore: store i32 1 i32* [[VP_P1]]   Dist: -800
-; CHECK-NEXT:    #1 <4 x 32> SStore: store i32 0 i32* [[VP_P0]]   Dist: 800
+; CHECK-NEXT:    Set #2
+; CHECK-NEXT:    #2 <4 x 32> SStore: store i32 1 i32* [[VP_P1]]   Dist: 0
+; CHECK-NEXT:    Set #3
+; CHECK-NEXT:    #1 <4 x 32> SStore: store i32 0 i32* [[VP_P0]]   Dist: 0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Printing Groups- Total Groups 3
 ; CHECK-NEXT:    Group#1:

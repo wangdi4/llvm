@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorConstProp.cpp --------------------------------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -71,28 +71,28 @@ static cl::opt<unsigned> MinNumInlineTileMVCalls("dvcp-tile-mv-min-calls",
 static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
                                    const uint32_t ArrayRank,
                                    const Type *ElementType,
-                                   SmallVectorImpl<Optional<uint64_t>> &LB,
-                                   SmallVectorImpl<Optional<uint64_t>> &ST,
-                                   SmallVectorImpl<Optional<uint64_t>> &EX,
+                                   SmallVectorImpl<std::optional<uint64_t>> &LB,
+                                   SmallVectorImpl<std::optional<uint64_t>> &ST,
+                                   SmallVectorImpl<std::optional<uint64_t>> &EX,
                                    std::function<const TargetLibraryInfo &
                                       (Function &F)> &GetTLI) {
 
   // Map 'V' to its potential integer constant value.
-  auto OValue = [](Value *V) -> Optional<uint64_t> {
+  auto OValue = [](Value *V) -> std::optional<uint64_t> {
     auto CI = dyn_cast_or_null<ConstantInt>(V);
-    return CI ? CI->getZExtValue() : Optional<uint64_t>();
+    return CI ? CI->getZExtValue() : std::optional<uint64_t>();
   };
 
   // Merge two potentially constant values. The result is a constant value
   // only if 'X' and 'Y' are constants with the same value.
-  auto Meet = [](Optional<uint64_t> X, Optional<uint64_t> Y) ->
-      Optional<uint64_t> {
+  auto Meet = [](std::optional<uint64_t> X, std::optional<uint64_t> Y) ->
+      std::optional<uint64_t> {
     return !X.has_value() || !Y.has_value() || X.value() != Y.value() ?
-      Optional<uint64_t>() : X;
+      std::optional<uint64_t>() : X;
   };
 
   // Return 'true' if not all elements of the small vector 'V' are defined.
-  auto IsBottom = [](SmallVectorImpl<Optional<uint64_t>> &V) -> bool {
+  auto IsBottom = [](SmallVectorImpl<std::optional<uint64_t>> &V) -> bool {
     for (unsigned I = 0; I < V.size(); I++)
       if (V[I].has_value())
         return false;
@@ -168,14 +168,14 @@ static bool hasDopeVectorConstants(const Function &F, const Argument &Arg,
 static bool replaceDopeVectorConstants(Argument &Arg,
                                        DopeVectorAnalyzer &DVAFormal,
                                        const uint32_t ArrayRank,
-                                       SmallVectorImpl<Optional<uint64_t>> &LB,
-                                       SmallVectorImpl<Optional<uint64_t>> &ST,
-                                       SmallVectorImpl<Optional<uint64_t>> &EX)
+                                       SmallVectorImpl<std::optional<uint64_t>> &LB,
+                                       SmallVectorImpl<std::optional<uint64_t>> &ST,
+                                       SmallVectorImpl<std::optional<uint64_t>> &EX)
 {
   // Use the 'Values' to replace the 'RFT' (either lower bound, stride, or
   // extent) for the 'GEP' representing an access to the array of lower
   // bound, extent, and stride information.
-  auto ReplaceField = [&](SmallVectorImpl<Optional<uint64_t>> &Values,
+  auto ReplaceField = [&](SmallVectorImpl<std::optional<uint64_t>> &Values,
                           DopeVectorAnalyzer::DopeVectorRankFields RFT,
                           GetElementPtrInst &GEP) -> bool {
     bool Change = false;
@@ -222,9 +222,9 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   // 'true' if at least one field is replaced.
   auto ReplaceFieldsForGEP = [&ReplaceField]
                              (GetElementPtrInst *GEP,
-                              SmallVectorImpl<Optional<uint64_t>> &LB,
-                              SmallVectorImpl<Optional<uint64_t>> &ST,
-                              SmallVectorImpl<Optional<uint64_t>> &EX,
+                              SmallVectorImpl<std::optional<uint64_t>> &LB,
+                              SmallVectorImpl<std::optional<uint64_t>> &ST,
+                              SmallVectorImpl<std::optional<uint64_t>> &EX,
                               DopeVectorAnalyzer &DVAFormal) -> bool {
     bool Change = false;
     // Find the GEP accessing the array of lower bounds, strides, and extents
@@ -792,9 +792,9 @@ static bool DopeVectorConstPropImpl(
         }
         // Collect the constant dope vector lower bounds, strides, and extents
         // into the small vectors.
-        SmallVector<Optional<uint64_t>, 3> LowerBound;
-        SmallVector<Optional<uint64_t>, 3> Stride;
-        SmallVector<Optional<uint64_t>, 3> Extent;
+        SmallVector<std::optional<uint64_t>, 3> LowerBound;
+        SmallVector<std::optional<uint64_t>, 3> Stride;
+        SmallVector<std::optional<uint64_t>, 3> Extent;
         if (!hasDopeVectorConstants(F, Arg, ArRank, ElemType,
             LowerBound, Stride, Extent, GetTLI)) {
           LLVM_DEBUG(dbgs() << "NO CONSTANT DOPE VECTOR FIELDS\n");
@@ -891,49 +891,6 @@ static bool DopeVectorConstPropImpl(
 
   LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
   return Change;
-}
-
-namespace {
-
-struct DopeVectorConstPropLegacyPass : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  DopeVectorConstPropLegacyPass(void)
-      : ModulePass(ID) {
-    initializeDopeVectorConstPropLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    return DopeVectorConstPropImpl(M, WPInfo, GetTLI);
-  }
-};
-
-}
-
-char DopeVectorConstPropLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(DopeVectorConstPropLegacyPass, "dopevectorconstprop",
-    "DopeVectorConstProp", false, false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(DopeVectorConstPropLegacyPass, "dopevectorconstprop",
-    "DopeVectorConstProp", false, false)
-
-ModulePass *llvm::createDopeVectorConstPropLegacyPass(void) {
-  return new DopeVectorConstPropLegacyPass();
 }
 
 DopeVectorConstPropPass::DopeVectorConstPropPass(void) {}

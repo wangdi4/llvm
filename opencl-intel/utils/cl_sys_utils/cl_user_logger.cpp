@@ -80,16 +80,17 @@ static tm GetLocalTime() {
 }
 
 static string GetFormattedHour(bool bUseColonSeperator, const tm &lt) {
-  ostringstream formattedHour;
+  std::ostringstream formattedHour;
   const string timeSeperator = bUseColonSeperator ? ":" : "";
-  formattedHour << setfill('0') << lt.tm_hour << timeSeperator << setw(2)
-                << lt.tm_min << timeSeperator << setw(2) << lt.tm_sec;
+  formattedHour << std::setfill('0') << lt.tm_hour << timeSeperator
+                << std::setw(2) << lt.tm_min << timeSeperator << std::setw(2)
+                << lt.tm_sec;
   return formattedHour.str();
 }
 
 static string GetFormattedTime() {
   const tm lt = GetLocalTime();
-  ostringstream formattedTime;
+  std::ostringstream formattedTime;
   formattedTime << (lt.tm_mon + 1) << "." << lt.tm_mday << "."
                 << (1900 + lt.tm_year) << "_" <<
 #ifdef _WIN32
@@ -105,7 +106,7 @@ static string GetFormattedTime() {
 
 string FrameworkUserLogger::FormatLocalWorkSize(size_t ndim,
                                                 const size_t *localWorkSize) {
-  stringstream stream;
+  std::stringstream stream;
   stream << "[";
   for (size_t i = 0; i < ndim; ++i) {
     stream << localWorkSize[i];
@@ -123,7 +124,7 @@ void FrameworkUserLogger::Setup(const string &filename, bool bLogErrors,
   } else if ("stderr" == filename || filename.empty()) {
     m_pOutput = &cerr;
   } else {
-    ostringstream finalFilename;
+    std::ostringstream finalFilename;
     finalFilename << filename << "_PID" <<
 #ifdef _WIN32
         GetCurrentProcessId()
@@ -181,7 +182,7 @@ void ApiLogger::EndApiFuncInternal(cl_int retVal) {
 }
 
 void ApiLogger::EndApiFuncInternal(const void *retPtr) {
-  m_strStream << ") = 0x" << ios_base::hex << retPtr;
+  m_strStream << ") = 0x" << std::ios_base::hex << retPtr;
   if (nullptr != retPtr) {
     m_iLastRetValue = CL_SUCCESS;
   } else {
@@ -225,7 +226,7 @@ void ApiLogger::PrintOutputParam(const string &name, unsigned paramName,
   if (bIsPtr2Ptr) {
     const void *const *pp = reinterpret_cast<const void *const *>(addr);
     if (nullptr != pp) {
-      m_stream << hex << *pp;
+      m_stream << std::hex << *pp;
     } else {
       m_stream << "NULL";
     }
@@ -297,7 +298,7 @@ void FrameworkUserLogger::PrintError(const string &msg) {
 }
 
 void FrameworkUserLogger::PrintStringInternal(const string &str) {
-  OclAutoMutex mutex(&m_outputMutex);
+  std::lock_guard<std::recursive_mutex> mutex(m_outputMutex);
   *m_pOutput << str;
 }
 
@@ -305,7 +306,7 @@ void FrameworkUserLogger::SetWGSizeCount(cl_dev_cmd_id id, size_t ndim,
                                          const size_t *localSizeUniform,
                                          const size_t *localSizeNonUniform,
                                          const size_t *workgroupCount) {
-  OclAutoMutex mutex(&m_outputMutex);
+  std::lock_guard<std::recursive_mutex> mutex(m_outputMutex);
   *m_pOutput
       << "Internally calculated WG info for NDRangeKernel command with ID "
       << (size_t)id << ": work dimension = " << ndim
@@ -320,13 +321,13 @@ void FrameworkUserLogger::SetWGSizeCount(cl_dev_cmd_id id, size_t ndim,
 // LogMessageWrapper methods:
 
 void LogMessageWrapper::Serialize() {
-  stringstream stream;
+  std::stringstream stream;
   stream << m_id << " " << m_msg << ends;
   m_rawStr = stream.str();
 }
 
 void LogMessageWrapper::Unserialize() {
-  stringstream stream(m_rawStr);
+  std::stringstream stream(m_rawStr);
   stream >> m_id;
 
   stream.seekg(1, ios_base::cur); // skip the space
@@ -390,7 +391,7 @@ void ApiLogger::PrintPtrValue(size_t size, const void *value) {
   //     have size of 16 bytes.
   //   * we can't differentiate cl_ushort16, cl_uint8 and cl_ulong4 because
   //     all of them have size of 32 bytes.
-  m_strStream << " [" << hex;
+  m_strStream << " [" << std::hex;
   if (size == sizeof(void *))
     m_strStream << *reinterpret_cast<const void *const *>(value);
   else if (size == sizeof(cl_uchar))
@@ -468,7 +469,7 @@ void ApiLogger::EndApiFuncEpilog() {
   m_timer.Stop();
   // thread ID
   std::right(m_stream);
-  m_stream << "TID " << setfill(' ') << setw(9) << dec <<
+  m_stream << "TID " << std::setfill(' ') << std::setw(9) << std::dec <<
 #ifdef _WIN32
       GetCurrentThreadId()
 #else
@@ -477,13 +478,14 @@ void ApiLogger::EndApiFuncEpilog() {
       ;
   const unsigned long long ulStartTime = RDTSC();
   // start time in clock ticks
-  m_stream << "    START TIME 0x" << setfill('0') << setw(16) << hex
-           << ulStartTime;
+  m_stream << "    START TIME 0x" << std::setfill('0') << std::setw(16)
+           << std::hex << ulStartTime;
   // duration
-  m_stream << "    DURATION 0x" << setw(16) << m_timer.GetTotalUsecs();
+  m_stream << "    DURATION 0x" << std::setw(16) << m_timer.GetTotalUsecs();
   std::left(m_stream);
   if (m_iCmdId != -1) {
-    m_stream << "    CMD ID " << setfill(' ') << dec << setw(10) << m_iCmdId;
+    m_stream << "    CMD ID " << std::setfill(' ') << std::dec << std::setw(10)
+             << m_iCmdId;
   } else {
     m_stream << "                     ";
   }

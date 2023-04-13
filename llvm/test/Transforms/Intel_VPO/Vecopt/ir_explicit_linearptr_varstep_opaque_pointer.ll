@@ -36,28 +36,28 @@
 ; CHECK: define dso_local void @foo(ptr %x, ptr %y, ptr %z, i64 noundef %step) #0 {
 ; CHECK:       VPlannedBB1:                                      ; preds = %VPlannedBB
 ; CHECK:         [[VP_MUL0:%.*]] = mul i64 %step, 8
-; CHECK:         [[VP_BCAST_SPLATINSERT0:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL0]], i32 0
+; CHECK:         [[VP_BCAST_SPLATINSERT0:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL0]], i64 0
 ; CHECK-NEXT:    [[VP_BCAST_SPLAT0:%.*]] = shufflevector <2 x i64> [[VP_BCAST_SPLATINSERT0]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK:         [[VP_BCAST_SPLAT0_MUL:%.*]] = mul <2 x i64> [[VP_BCAST_SPLAT0]], <i64 0, i64 1>
 ; CHECK-NEXT:    [[VP_VECTOR_GEP0:%.*]] = getelementptr inbounds i8, <2 x ptr> %ind.start.bcast.splat, <2 x i64> [[VP_BCAST_SPLAT0_MUL]]
 ; CHECK:         [[VP_MUL02:%.*]] = mul i64 [[VP_MUL0]], 2
-; CHECK-NEXT:    [[VP_IND_STEP_INIT_SPLATINSERT0:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL02]], i32 0
+; CHECK-NEXT:    [[VP_IND_STEP_INIT_SPLATINSERT0:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL02]], i64 0
 ; CHECK-NEXT:    [[VP_IND_STEP_INIT_SPLAT0:%.*]] = shufflevector <2 x i64> [[VP_IND_STEP_INIT_SPLATINSERT0]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK:         [[VP_MUL1:%.*]] = mul i64 %step, 4
-; CHECK:         [[VP_BCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL1]], i32 0
+; CHECK:         [[VP_BCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL1]], i64 0
 ; CHECK-NEXT:    [[VP_BCAST_SPLAT1:%.*]] = shufflevector <2 x i64> [[VP_BCAST_SPLATINSERT1]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK:         [[VP_BCAST_SPLAT1_MUL:%.*]] = mul <2 x i64> [[VP_BCAST_SPLAT1]], <i64 0, i64 1>
 ; CHECK-NEXT:    [[VP_VECTOR_GEP1:%.*]] = getelementptr inbounds i8, <2 x ptr> %ind.start.bcast.splat3, <2 x i64> [[VP_BCAST_SPLAT1_MUL]]
 ; CHECK:         [[VP_MUL12:%.*]] = mul i64 [[VP_MUL1]], 2
-; CHECK-NEXT:    [[VP_IND_STEP_INIT_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL12]], i32 0
+; CHECK-NEXT:    [[VP_IND_STEP_INIT_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL12]], i64 0
 ; CHECK-NEXT:    [[VP_IND_STEP_INIT_SPLAT1:%.*]] = shufflevector <2 x i64> [[VP_IND_STEP_INIT_SPLATINSERT1]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK:         [[VP_MUL2:%.*]] = mul i64 %step, 8
-; CHECK:         [[VP_BCAST_SPLATINSERT2:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL2]], i32 0
+; CHECK:         [[VP_BCAST_SPLATINSERT2:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL2]], i64 0
 ; CHECK-NEXT:    [[VP_BCAST_SPLAT2:%.*]] = shufflevector <2 x i64> [[VP_BCAST_SPLATINSERT2]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK:         [[VP_BCAST_SPLAT2_MUL:%.*]] = mul <2 x i64> [[VP_BCAST_SPLAT2]], <i64 0, i64 1>
 ; CHECK-NEXT:    [[VP_VECTOR_GEP2:%.*]] = getelementptr inbounds i8, <2 x ptr> %ind.start.bcast.splat10, <2 x i64> [[VP_BCAST_SPLAT2_MUL]]
 ; CHECK:         [[VP_MUL22:%.*]] = mul i64 [[VP_MUL2]], 2
-; CHECK-NEXT:    [[VP_IND_STEP_INIT_SPLATINSERT2:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL22]], i32 0
+; CHECK-NEXT:    [[VP_IND_STEP_INIT_SPLATINSERT2:%.*]] = insertelement <2 x i64> poison, i64 [[VP_MUL22]], i64 0
 ; CHECK-NEXT:    [[VP_IND_STEP_INIT_SPLAT2:%.*]] = shufflevector <2 x i64> [[VP_IND_STEP_INIT_SPLATINSERT2]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK:       vector.body:                                      ; preds = %vector.body, %VPlannedBB1
 ; CHECK:         [[VP_VEC_PHI0:%.*]] = phi <2 x ptr> [ [[VP_VECTOR_GEP0]], %VPlannedBB1 ], [ [[VP_MM_VECTOR_GEP0:%.*]], %vector.body ]
@@ -69,9 +69,9 @@
 ; CHECK-NEXT:    [[VP_MM_VECTOR_GEP1_EXTRACT0:%.*]] = extractelement <2 x ptr> [[VP_MM_VECTOR_GEP1]], i32 0
 ; CHECK-NEXT:    [[VP_MM_VECTOR_GEP2]] = getelementptr inbounds i8, <2 x ptr> [[VP_VEC_PHI2:%.*]], <2 x i64> [[VP_IND_STEP_INIT_SPLAT2]]
 ; CHECK-NEXT:    [[VP_MM_VECTOR_GEP2_EXTRACT0:%.*]] = extractelement <2 x ptr> [[VP_MM_VECTOR_GEP2]], i32 0
-; CHECK:         br i1 %22, label %vector.body, label %VPlannedBB33, !llvm.loop !0
+; CHECK:         br i1 %22, label %vector.body, label %VPlannedBB32, !llvm.loop !0
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB33:                                     ; preds = %vector.body
+; CHECK-NEXT:  VPlannedBB32:                                     ; preds = %vector.body
 ; CHECK:        [[VP_MUL010:%.*]] = mul i64 [[VP_MUL0]], 10
 ; CHECK-NEXT:   [[VP_FINAL_GEP0:%.*]] = getelementptr inbounds i8, ptr [[VP_PTR0:%.*]], i64 [[VP_MUL010]]
 ; CHECK:        [[VP_MUL110:%.*]] = mul i64 [[VP_MUL1]], 10

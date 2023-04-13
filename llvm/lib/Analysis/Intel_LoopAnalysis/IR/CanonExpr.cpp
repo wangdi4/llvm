@@ -201,7 +201,9 @@ bool CanonExpr::isUnitaryBlob() const {
 }
 
 void CanonExpr::setDenominator(int64_t Val) {
-  assert((Val != 0) && "Denominator cannot be zero!");
+  assert(Val != 0 && "Denominator cannot be zero!");
+  assert(Val != std::numeric_limits<int64_t>::min() &&
+         "Denominator out of range!");
 
   // Negate the canon expr instead of storing negative denominators.
   if (Val < 0) {
@@ -1357,6 +1359,11 @@ void CanonExpr::multiplyNumeratorByConstant(int64_t Val, bool Simplify) {
   }
 
   setConstant(getConstant() * Val);
+}
+
+bool CanonExpr::canMultiplyByConstant(int64_t Val) const {
+  return (canMultiplyNumeratorByConstant(Val) ||
+          canConvertToStandAloneBlobOrConstant());
 }
 
 bool CanonExpr::multiplyByConstant(int64_t Val) {

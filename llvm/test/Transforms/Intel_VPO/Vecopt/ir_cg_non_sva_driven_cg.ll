@@ -26,12 +26,12 @@ header:
   ; CG for add is not SVA-driven so we need to bcast %bc from
   ; last lane to emit vector add.
 ; VPLAN-IR:        [DA: Div, SVA: (  L)] i32 [[VP_RES:%.*]] = add i32 [[VP_BC]] i32 [[UNI0:%.*]] (SVAOpBits 0->L 1->L )
-; LLVM-IR-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[TMP1]], i32 0
+; LLVM-IR-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[TMP1]], i64 0
 ; LLVM-IR-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
 ; LLVM-IR-NEXT:    [[TMP2:%.*]] = add <2 x i32> [[BROADCAST_SPLAT]], [[BROADCAST_SPLAT4:%.*]]
   %res = add i32 %bc, %uni
 
-; VPLAN-IR:        [DA: Div, SVA: (  L)] store i32 [[VP_RES]] i32* [[DEST0:%.*]] (SVAOpBits 0->L 1->F )
+; VPLAN-IR:        [DA: Uni, SVA: (  L)] store i32 [[VP_RES]] i32* [[DEST0:%.*]] (SVAOpBits 0->L 1->F )
 ; LLVM-IR-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <2 x i32> [[TMP2]], i32 1
 ; LLVM-IR-NEXT:    store i32 [[DOTEXTRACT_1_]], i32* [[DEST:%.*]], align 4
   store i32 %res, i32* %dest
@@ -69,7 +69,7 @@ merge:
   ; While getting vector value of %phi.v do not rely on its SVA results.
   %res = add i32 %phi.v, %ld
 ; VPLAN-IR:        [DA: Div, SVA: (  L)] i32 [[ADD:%.*]] = add i32 [[PHI]] i32 [[VP_LOAD:%.*]] (SVAOpBits 0->L 1->L )
-; LLVM-IR:         [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[SCAL_PHI]], i32 0
+; LLVM-IR:         [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[SCAL_PHI]], i64 0
 ; LLVM-IR-NEXT:    [[BROADCAST_SPLAT]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
 ; LLVM-IR-NEXT:    [[VEC_ADD:%.*]] = add <2 x i32> [[BROADCAST_SPLAT]], [[WIDE_LOAD:%.*]]
 

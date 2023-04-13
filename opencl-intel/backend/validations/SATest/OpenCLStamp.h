@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,7 +15,6 @@
 #ifndef OpenCLStamp_H
 #define OpenCLStamp_H
 
-#include "md5.h"
 #include <fstream>
 #include <iostream>
 
@@ -23,6 +22,7 @@
 #include "RefALUVER.h"
 
 #include "llvm/Support/DataTypes.h"
+#include "llvm/Support/MD5.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "IRunConfiguration.h"
@@ -41,24 +41,19 @@ public:
            const IProgramConfiguration *pProgramConfiguration,
            const IProgram *pProgram);
 
-  // returns stamp length
-  static int GetStampLen() { return m_stampLen; }
-
   void generateStamps();
 
 private:
-  std::vector<uint8_t> generateMD5(const std::vector<uint8_t> &buffer);
+  llvm::MD5::MD5Result generateMD5(const std::vector<uint8_t> &buffer);
   void readBinaryInputFile(const std::string inputFileName,
                            std::vector<uint8_t> &buffer);
-  std::vector<uint8_t>
+  llvm::MD5::MD5Result
   calcStampKernelRef(const OpenCLKernelConfiguration *const config);
-  std::vector<uint8_t>
+  llvm::MD5::MD5Result
   calcStampKernelNEAT(const OpenCLKernelConfiguration *const config);
 
-  static const int m_stampLen = 16;
-
-  std::vector<uint8_t> m_RefStampCommon;
-  std::vector<uint8_t> m_NeatStampCommon;
+  llvm::MD5::MD5Result m_RefStampCommon;
+  llvm::MD5::MD5Result m_NeatStampCommon;
 
   bool m_useNEAT;
 

@@ -244,10 +244,7 @@ void VPOUtils::singleRegionMultiVersioning(
   // proper place, which is right before NewTail. This is to maintain code
   // or instruction locality. It does not affect CFG.
   BasicBlock *ClonedEntryBB = ClonedBBSet.front();
-  F->getBasicBlockList().splice(NewTail->getIterator(),
-                                F->getBasicBlockList(),
-                                ClonedEntryBB->getIterator(),
-                                F->end());
+  F->splice(NewTail->getIterator(), F, ClonedEntryBB->getIterator(), F->end());
 
   // 4) Hook the cloned region to the CFG.
   //
@@ -318,7 +315,7 @@ void VPOUtils::singleRegionMultiVersioning(
     }
 
     // Second, establish loops hierarchy for the new loops.
-    for (auto MapI : LoopMap) {
+    for (auto &MapI : LoopMap) {
       Loop *OrigLoop = MapI.first;
       Loop *NewLoop = MapI.second;
       if (OrigLoop == ParentLoop)

@@ -13,7 +13,6 @@ extern cl_device_type gDeviceType;
   }
 
 /*******************************************************************************
- * Test based on CSSD100019990:
  * Kernel with invalid code which LLVM correctly identifies (the uninitialized
  *pointer assignment is replaced with 'unreachable'). We expect the vectorizer
  *to avoid this kernel (otherwise the vectorizer crashes) and the entire

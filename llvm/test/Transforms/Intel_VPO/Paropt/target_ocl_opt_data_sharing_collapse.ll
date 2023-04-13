@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-paropt-optimize-data-sharing -S %s | FileCheck %s
-; RUN: opt -switch-to-offload -passes='vpo-paropt-optimize-data-sharing' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-paropt-optimize-data-sharing -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='vpo-paropt-optimize-data-sharing' -S %s | FileCheck %s
 ;
 ; Original code:
 ;
@@ -167,7 +167,7 @@ omp.precond.then.split:                           ; preds = %omp.precond.then
   br label %DIR.OMP.DISTRIBUTE.7131
 
 DIR.OMP.DISTRIBUTE.7131:                          ; preds = %omp.precond.then.split
-  %13 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %Z.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.lb.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %Y.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.iv9.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.lb10.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.ub11.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %X.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp7.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp8.ascast), "QUAL.OMP.PRIVATE"(i64 addrspace(4)* %omp.collapsed.lb.ascast, i64 addrspace(4)* %omp.collapsed.ub.ascast), "QUAL.OMP.PRIVATE"(i64 addrspace(4)* %omp.collapsed.iv.ascast), "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp116) ]
+  %13 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %Z.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.lb.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %Y.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.iv9.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.lb10.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.uncollapsed.ub11.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %X.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp7.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp8.ascast), "QUAL.OMP.PRIVATE"(i64 addrspace(4)* %omp.collapsed.lb.ascast, i64 addrspace(4)* %omp.collapsed.ub.ascast), "QUAL.OMP.PRIVATE"(i64 addrspace(4)* %omp.collapsed.iv.ascast), "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(i1 true), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp116) ]
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(),
 ; CHECK-SAME: "QUAL.OMP.PRIVATE:WILOCAL"(i64 addrspace(4)* %omp.collapsed.lb.ascast, i64 addrspace(4)* %omp.collapsed.ub.ascast)
   br label %DIR.OMP.DISTRIBUTE.8

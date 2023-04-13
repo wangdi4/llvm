@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -271,7 +271,7 @@ static void writeSequence(MutableArrayRef<uint32_t> buf, const char *prefix,
                           ArrayRef<uint32_t> tail) {
   std::vector<Defined *> defined;
   char name[16];
-  int first;
+  int first = 0; // INTEL
   uint32_t *ptr = buf.data();
   for (int r = from; r < 32; ++r) {
     format("%s%d", prefix, r).snprint(name, sizeof(name));
@@ -289,8 +289,8 @@ static void writeSequence(MutableArrayRef<uint32_t> buf, const char *prefix,
   // instructions and write [first,end).
   auto *sec = make<InputSection>(
       nullptr, SHF_ALLOC, SHT_PROGBITS, 4,
-      makeArrayRef(reinterpret_cast<uint8_t *>(buf.data() + first),
-                   4 * (buf.size() - first)),
+      ArrayRef(reinterpret_cast<uint8_t *>(buf.data() + first),
+               4 * (buf.size() - first)),
       ".text");
   ctx.inputSections.push_back(sec);
   for (Defined *sym : defined) {

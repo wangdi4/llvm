@@ -13,6 +13,7 @@
 include "GENERIC/opencl-builtin.td"
 include "GENERIC/opencl-v1.2.td"
 include "GENERIC/opencl-v2.0.td"
+include "GENERIC/opencl-v2.0WG.td"
 include "GENERIC/ll_intrinsics.td"
 include "GENERIC/sycl-spirv.td"
 include "shared/opencl-pipes.td"
@@ -39,6 +40,7 @@ include "shared/integer_impl.td"
 include "shared/math_impl.td"
 include "shared/relational_impl.td"
 include "shared/spirv_impl.td"
+include "shared/work_group_impl.td"
 } // defset shared_impls
 
 class Shared : Generic {

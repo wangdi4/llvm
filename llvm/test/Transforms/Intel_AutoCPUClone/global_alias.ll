@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 ; This test checks that GlobalAliases to a multi-versioned function are also multi-versioned.
 ; This test also checks that aliasees are multiversioned using wrapper-based resolvers.
@@ -15,11 +15,11 @@
 ; CHECK: define dso_local void @_ZN3fooC2Ev(ptr noundef nonnull align 4 dereferenceable(4) %this) unnamed_addr #0 align 2
 
 ; Make sure each clone of main() calls the right clone of GlobalAlias @_ZN3fooC1Ev
-; CHECK: define dso_local noundef i32 @main.a() #3 !llvm.acd.clone !0 {
+; CHECK: define dso_local noundef i32 @main.a() #4 !llvm.acd.clone !0 {
 ; CHECK:   call void @_ZN3fooC1Ev.a(ptr noundef nonnull align 4 dereferenceable(4) %f)
 
 ; Use ifunc-based resolver to multiversion functions that are not aliasees
-; CHECK: define dso_local ptr @main.resolver() #4 {
+; CHECK: define dso_local ptr @main.resolver() #3 {
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

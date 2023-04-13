@@ -6,7 +6,6 @@
 ; |   (@A)[0][i1] = %add3;
 ; + END LOOP
 
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-locality-analysis -hir-spatial-locality | FileCheck %s --check-prefix=SCALAR
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-locality-analysis>" -hir-spatial-locality -disable-output 2>&1 | FileCheck %s --check-prefix=SCALAR
 
 ; Verify the number of cache lines accessed is 7.
@@ -18,7 +17,7 @@
 ; SCALAR: Locality Info for Loop level: 1     NumCacheLines: 7        SpatialCacheLines: 7     TempInvCacheLines: 0     AvgLvalStride: 4         AvgStride: 4
 
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=8 -analyze -enable-new-pm=0 -hir-locality-analysis -hir-spatial-locality | FileCheck %s --check-prefix=VECTOR
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,print<hir-locality-analysis>" -vplan-force-vf=8 -hir-spatial-locality -disable-output 2>&1 | FileCheck %s --check-prefix=VECTOR
 
 ; Verify that the number of cache lines accessed by vectorized loop is the same as the scalar loop but the average stride gets multiplied by vector factor of 8.
 

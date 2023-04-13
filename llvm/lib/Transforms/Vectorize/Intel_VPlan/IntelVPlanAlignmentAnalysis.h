@@ -39,6 +39,12 @@ public:
 
   VPlanPeelingKind getKind() const { return Kind; }
 
+  /// \Returns the maximum number of iterations peeled (i.e. the maximum number
+  /// of iterations of the peel loop). For static peeling, this is the exact
+  /// number of iterations, whereas for dynamic peeling this is just an upper
+  /// bound (see override below for details.)
+  virtual int maxPeelCount() const = 0;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(errs()); }
   virtual void print(raw_ostream &OS) const = 0;
@@ -56,7 +62,8 @@ public:
   VPlanStaticPeeling(int PeelCount)
       : VPlanPeelingVariant(VPPK_StaticPeeling), PeelCount(PeelCount) {}
 
-  int peelCount() { return PeelCount; }
+  int peelCount() const { return PeelCount; }
+  int maxPeelCount() const override { return peelCount(); }
 
   // VPlanStaticPeeling{0}
   static VPlanStaticPeeling NoPeelLoop;
@@ -97,6 +104,10 @@ public:
   Align requiredAlignment() { return RequiredAlignment; }
   Align targetAlignment() { return TargetAlignment; }
   int multiplier() { return Multiplier; }
+
+  int maxPeelCount() const override {
+    return TargetAlignment.value() / RequiredAlignment.value() - 1;
+  }
 
   static bool classof(const VPlanPeelingVariant *Peeling) {
     return Peeling->getKind() == VPPK_DynamicPeeling;
@@ -230,7 +241,7 @@ public:
 
   /// Returns best dynamic peeling variant and its profit. None is returned when
   /// there's no analyzable memrefs in the loop.
-  Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>>
+  std::optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>>
   selectBestDynamicPeelingVariant(int VF, VPlanPeelingCostModel &CM);
 
 private:

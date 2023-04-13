@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_DTRANS
-//===-- Intel_FoldWPIntrinsic.cpp - Intrinsic wholeprogramsafe Lowering -*--===//
+//===-- Intel_FoldWPIntrinsic.cpp - Intrinsic wholeprogramsafe Lowering ---===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -120,59 +120,6 @@ static bool foldIntrinsicWholeProgramSafe(Module &M, unsigned OptLevel,
   updatePublicTypeTestCalls(M, WPInfo->isWholeProgramSafe());
 
   return true;
-}
-
-namespace {
-
-struct IntelFoldWPIntrinsicLegacyPass : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  IntelFoldWPIntrinsicLegacyPass() : ModulePass(ID) {
-    initializeIntelFoldWPIntrinsicLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addRequired<XmainOptLevelWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-
-    WholeProgramInfo *WPInfo =
-        &getAnalysis<WholeProgramWrapperPass>().getResult();
-
-    // NOTE: The legacy pass manager uses two variables to represent the
-    // optimization levels:
-    //
-    //   - OptLevel: stores the optimization level
-    //               0 = -O0, 1 = -O1, 2 = -O2, 3 = -O3
-    //
-    //   - SizeLevel: stores if we are optimizing for size
-    //               0 = no, 1 = Os, 2 = Oz
-    //
-    // The values of OptLevel can be 0, 1, 2 or 3.
-    unsigned OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
-
-    return foldIntrinsicWholeProgramSafe(M, OptLevel, WPInfo);
-  }
-};
-
-} // namespace
-
-char IntelFoldWPIntrinsicLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IntelFoldWPIntrinsicLegacyPass,
-                      "intel-fold-wp-intrinsic", "Intel fold WP intrinsic",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass)
-INITIALIZE_PASS_END(IntelFoldWPIntrinsicLegacyPass,
-                    "intel-fold-wp-intrinsic", "Intel fold WP intrinsic",
-                    false, false)
-
-ModulePass *llvm::createIntelFoldWPIntrinsicLegacyPass() {
-  return new IntelFoldWPIntrinsicLegacyPass();
 }
 
 IntelFoldWPIntrinsicPass::IntelFoldWPIntrinsicPass() {}

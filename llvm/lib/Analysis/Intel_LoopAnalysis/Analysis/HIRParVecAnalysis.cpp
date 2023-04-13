@@ -573,8 +573,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 
     // Input DV set to test for innermost loop vectorization
     // For outer loop vectorization, modification is neeeded here or elsewhere
-    auto RefinedDep =
-        DDA.refineDV(SrcRef, SinkRef, NestLevel, DeepestLevel, false);
+    auto RefinedDep = DDA.refineDV(Edge, NestLevel, DeepestLevel, false);
     if (RefinedDep.isIndependent()) {
       LLVM_DEBUG(dbgs() << "\tis safe to vectorize (indep)\n");
       return;
@@ -643,8 +642,10 @@ void DDWalk::visit(HLDDNode *Node) {
           // TODO: Check if ephemeral values (ones whose use-chain ends only in
           //       calls to @llvm.assumes) should be handled too here.
           // TODO: Update cost model so that ephemeral values are ignored.
-          IsVectorizable = isTriviallyVectorizable(IntrinsicId) ||
-                           IntrinsicId == Intrinsic::assume;
+          IsVectorizable =
+              isTriviallyVectorizable(IntrinsicId) ||
+              IntrinsicId == Intrinsic::assume ||
+              IntrinsicId == Intrinsic::intel_directive_elementsize;
         } else {
           IsVectorizable = TLI.isFunctionVectorizable(Func->getName()) ||
               Func->hasFnAttribute("vector-variants");

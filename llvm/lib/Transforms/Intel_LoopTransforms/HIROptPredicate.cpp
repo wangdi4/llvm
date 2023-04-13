@@ -1,6 +1,6 @@
 //===--- HIROptPredicate.cpp - Implements OptPredicate class --------------===//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -51,7 +51,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #if INTEL_FEATURE_CSA
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #endif // INTEL_FEATURE_CSA
 
 #include "llvm/IR/Function.h"
@@ -232,9 +232,12 @@ struct HoistCandidate {
 
   PUCandidate PUC;
   bool CreatedFromSelect;
+  bool HoistingIncreasesCodeSize;
 
-  HoistCandidate(HLDDNode *Node, unsigned Level, const PUCandidate &PUC)
-      : Node(Node), Level(Level), PUC(PUC), CreatedFromSelect(false) {
+  HoistCandidate(HLDDNode *Node, unsigned Level, const PUCandidate &PUC,
+                 bool HoistingIncreasesCodeSize = true)
+      : Node(Node), Level(Level), PUC(PUC), CreatedFromSelect(false),
+        HoistingIncreasesCodeSize(HoistingIncreasesCodeSize) {
     UType = Bottom;
     if (isa<HLIf>(Node)) {
       UType = UnswitchType::If;
@@ -253,9 +256,8 @@ struct HoistCandidate {
   HoistCandidate(const HoistCandidate &Orig, HLDDNode *CloneNode,
                  const HLNodeMapper &Mapper)
       : Node(CloneNode), Level(Orig.Level), UType(Orig.UType),
-        PUC(Orig.PUC, Mapper), CreatedFromSelect(Orig.CreatedFromSelect) {}
-
-  HoistCandidate() : Level(0) {}
+        PUC(Orig.PUC, Mapper), CreatedFromSelect(Orig.CreatedFromSelect),
+        HoistingIncreasesCodeSize(Orig.HoistingIncreasesCodeSize) {}
 
   bool isIf() const { return UType == UnswitchType::If; }
   bool isSwitch() const { return UType == UnswitchType::Switch; }
@@ -271,6 +273,10 @@ struct HoistCandidate {
   // HLIf and set the candidate's type as UnswitchType::If. This function is
   // used when converting a Select instruction into If/Else to do unswitching.
   void convertSelectToIf();
+
+  // Return true if the candidate may contain any side effect that could
+  // possibly increase the code size.
+  bool mayIncreasesCodeSize() const { return HoistingIncreasesCodeSize; }
 
   bool operator==(const HoistCandidate &Arg) const { return Node == Arg.Node; }
 
@@ -406,7 +412,11 @@ private:
 
   SmallDenseMap<const HLLoop *, unsigned, 16> ThresholdMap;
   SmallVector<HoistCandidate, 16> Candidates;
-  SmallPtrSet<const HLIf *, 4> OuterLoopIfs;
+
+  // Store the HLIfs that are in outer loops and maybe hoisted. The boolean
+  // entry is to identify if applying the transformation will increase code
+  // size or not.
+  SmallDenseMap<const HLIf *, bool, 4> OuterLoopIfs;
 
   // Set used to track which regions has been modified by the optimization.
   SmallSetVector<const HLRegion *, 16> RegionThresholdSet;
@@ -609,8 +619,7 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   void postVisit(const HLNode *Node) {}
 
 private:
-  bool isCandidateForPerfectLoopNest(
-      SmallVectorImpl<const HLNode *> &ChildNodes);
+  bool isProfitableOuterLoop(ArrayRef<const HLNode *> ChildNodes);
 };
 
 // Helper structure used to count the number of nested loops in a region.
@@ -936,6 +945,100 @@ public:
   bool hasUnsafeCall() const { return HasUnsafeCall; }
 };
 
+// Helper class that traverses the outer loop of an HLIf, and all it's child
+// nodes to identify if there is any side effect in the loop but outside of
+// of the condition. This will help to identify is applying the transformation
+// will increase code size or not.
+class SideEffectChecker : public HLNodeVisitorBase {
+  const HLLoop *HoistToLoop;
+  const HLIf *MainIf;
+  const HLNode *SkipNode;
+  bool SideEffectFound;
+
+public:
+  SideEffectChecker(const HLIf *If, const HLLoop *HoistToLoop)
+      : HoistToLoop(HoistToLoop), MainIf(If), SkipNode(If),
+        SideEffectFound(false) {
+
+    if (MainIf && MainIf->hasElseChildren()) {
+      SideEffectChecker SideEffectsThen(nullptr, HoistToLoop);
+      HLNodeUtils::visitRange(SideEffectsThen, MainIf->then_begin(),
+                              MainIf->then_end());
+
+      SideEffectChecker SideEffectsElse(nullptr, HoistToLoop);
+      HLNodeUtils::visitRange(SideEffectsElse, MainIf->else_begin(),
+                              MainIf->else_end());
+
+      // If we didn't found side effect in both sides, then we assume that
+      // hoisting the condition will increase code size since there should be
+      // an instruction that causes side effects later.
+      if (SideEffectsThen.conditionMayHaveSideEffects() ==
+          SideEffectsElse.conditionMayHaveSideEffects())
+        SideEffectFound = true;
+    }
+  }
+
+  void visit(const HLNode *) {}
+  void postVisit(const HLNode *) {}
+
+  void visit(const HLInst *Inst) {
+    if (Inst->isSideEffectsCallInst()) {
+      SideEffectFound = true;
+      return;
+    }
+
+    auto *LVal = Inst->getLvalDDRef();
+    if (LVal) {
+      if (LVal->isMemRef()) {
+        SideEffectFound = true;
+        return;
+      }
+
+      if (HoistToLoop->isLiveOut(LVal->getSymbase())) {
+        SideEffectFound = true;
+        return;
+      }
+    }
+  }
+
+  bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
+
+  bool isDone() const { return conditionMayHaveSideEffects(); }
+
+  bool conditionMayHaveSideEffects() const { return SideEffectFound; }
+};
+
+// Helper function that determines if hoisting the input If condition will
+// increase code size or not. This is determined if the side effect checker
+// identifies one of the following:
+//
+//   * Loop nest from parent loop to hoist level has a temp live out that is
+//     not inside the condition
+//   * Loop nest from parent loop to hoist level has an instruction that is not
+//     inside the input If and it is set as side effect outside
+//   * Loop nest from parent loop to hoist level has a store outside the
+//     condition
+//   * If the condition has Then and Else branches, then both branches will be
+//     analyzed separately with the same rules as before (temp is loop live
+//     out, instruction is set as side effect or store). If the result is
+//     the same for both branches, then the condition will increase size.
+//
+// This analysis is used to determine if we should or shouldn't count the
+// condition to increase the counters used for the thresholds since the code
+// size will or will not increase.
+static bool ifHoistingIncreasesCodeSize(const HLIf *If, unsigned HoistLevel) {
+  assert(If && "trying to analyze side effects without If");
+  assert(If->getNodeLevel() > HoistLevel &&
+         "Node level is lower or equal that hoist level");
+
+  HLLoop *HoistToLoop = If->getParentLoopAtLevel(HoistLevel + 1);
+  SideEffectChecker SideEffectsResult(If, HoistToLoop);
+  HLNodeUtils::visitRange(SideEffectsResult, HoistToLoop->child_begin(),
+                          HoistToLoop->child_end());
+
+  return SideEffectsResult.conditionMayHaveSideEffects();
+}
+
 void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
   // Skip bottom test in unknown loops.
   if (!CurrLoop || CurrLoop->getBottomTest() == If) {
@@ -1043,6 +1146,22 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   // Do not unswitch inner candidates in case of partial unswitching.
   bool WillUnswitchParent = IsCandidate && !PUC.isPURequired();
 
+  bool HoistingIncreaseCodeSize = true;
+  if (WillUnswitchParent && isa<HLIf>(Node)) {
+    auto *If = cast<HLIf>(Node);
+    auto It = Pass.OuterLoopIfs.find(If);
+    if (It != Pass.OuterLoopIfs.end())
+      HoistingIncreaseCodeSize = It->second;
+    else if (!ifHoistingIncreasesCodeSize(If, Level))
+      HoistingIncreaseCodeSize = false;
+
+    LLVM_DEBUG({
+      StringRef ResultString = HoistingIncreaseCodeSize ? " " : " NOT ";
+      dbgs() << "  - Code size will" << ResultString << "increase, thresholds"
+             << ResultString << "needed\n";
+    });
+  }
+
   // Collect candidates within HLIf branches.
   CandidateLookup
       Lookup(Pass, HLS, CurrLoop, WillUnswitchParent, Level, CostOfRegion);
@@ -1052,7 +1171,7 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     return;
   }
 
-  Pass.Candidates.emplace_back(Node, Level, PUC);
+  Pass.Candidates.emplace_back(Node, Level, PUC, HoistingIncreaseCodeSize);
 }
 
 // Function implements "less" predicate for a pair of HLNodes.
@@ -1118,21 +1237,18 @@ void HIROptPredicate::CandidateLookup::visit(HLRegion *Reg) {
   CostOfRegion = RegionSize.getRegionSize();
 }
 
-// Return true if the input vector has only one HLNode entry, the node
-// is HLIf, and the definition level is 0
-bool HIROptPredicate::CandidateLookup::isCandidateForPerfectLoopNest(
-    SmallVectorImpl<const HLNode *> &ChildNodes) {
+// Return true if the input loop is not the innermost, and we can apply
+// the transformation at the current loop level.
+bool HIROptPredicate::CandidateLookup::isProfitableOuterLoop(
+    ArrayRef<const HLNode *> ChildNodes) {
+
+  // TODO: This needs to be checked. If the inner loop is not candidate for
+  // hoist, it shouldn't invalidate the outer loop.
   if (ChildNodes.size() != 1)
     return false;
 
   auto *If = dyn_cast<const HLIf>(ChildNodes[0]);
   if (!If)
-    return false;
-
-  // Don't allow the unswitch if the cost of the region is larger than
-  // the threshold. There is a chance that the size of the function grows
-  // big enough to produce slowdowns.
-  if (CostOfRegion > RegionCostThreshold)
     return false;
 
   PUContext PUC;
@@ -1142,12 +1258,24 @@ bool HIROptPredicate::CandidateLookup::isCandidateForPerfectLoopNest(
   // nest and the other branch without prefect loop nest. This is
   // conservative and can relaxed in the future through profiling and/or
   // branch analysis.
-  bool Result = Pass.getPossibleDefLevel(If, PUC) == 0 &&
-                               !PUC.isPURequired();
-  if (Result)
-    Pass.OuterLoopIfs.insert(If);
+  //
+  // TODO: If HoistingIncreaseCodeSize is false, code size won't increase,
+  // then we can relax this by removing the restriction of HoistLevel == 0.
+  unsigned HoistLevel = Pass.getPossibleDefLevel(If, PUC);
+  if (!(HoistLevel == 0 && !PUC.isPURequired()))
+    return false;
 
-  return Result;
+  // TODO: This needs to move when we are creating a candidate.
+  bool HoistingIncreaseCodeSize = ifHoistingIncreasesCodeSize(If, HoistLevel);
+
+  // Don't allow the unswitch if the cost of the region is larger than
+  // the threshold. There is a chance that the size of the function grows
+  // big enough to produce slowdowns.
+  if (HoistingIncreaseCodeSize && CostOfRegion > RegionCostThreshold)
+    return false;
+
+  Pass.OuterLoopIfs.insert({If, HoistingIncreaseCodeSize});
+  return true;
 }
 
 void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
@@ -1155,6 +1283,7 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   SkipNode = Loop;
 
   bool TransformCurrentLoop = true;
+
   // Handle innermost loops and outer loops, but only if unswitching can make
   // the loopnest perfectly nested. In this case the loop will have only one
   // child.
@@ -1175,7 +1304,7 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
     std::sort(ChildNodes.begin(), ChildNodes.end(), conditionalHLNodeLess);
 
     if (countMaxEqualConditions(ChildNodes) < 3 &&
-        !isCandidateForPerfectLoopNest(ChildNodes))
+        !isProfitableOuterLoop(ChildNodes))
       TransformCurrentLoop = false;
   }
 
@@ -1415,7 +1544,7 @@ bool HIROptPredicate::mustCodeGen() const {
   for (auto &Candidate : Candidates) {
     if (Candidate.isIf()) {
       auto *If = cast<HLIf>(Candidate.getNode());
-      if (!OuterLoopIfs.contains(If))
+      if (OuterLoopIfs.find(If) == OuterLoopIfs.end())
         return true;
     } else {
       return true;
@@ -1945,8 +2074,6 @@ void HIROptPredicate::transformIf(
 
   HLNodeUtils::insertAfter(TargetLoop, NewElseLoop);
 
-  ThresholdMap[NewElseLoop] = ++ThresholdMap[TargetLoop];
-
   HLIf *PivotIf = nullptr;
 
   HLIf *FirstIf = IfCandidates.begin()->getIf();
@@ -1966,15 +2093,27 @@ void HIROptPredicate::transformIf(
   //   END DO
   // }
 
+  // Check if the candidate may increase code size to decide if we need to
+  // count the current If toward the threshold not.
+  bool ThresholdNeeded = false;
+
   // If the If/Else was created from a select instruction then we use a
   // generic opt-report remark
   unsigned OptReportRemark = 25423u;
   for (auto &Candidate : IfCandidates) {
     if (Candidate.createdFromSelect()) {
       OptReportRemark = 25422u;
+      // Select instructions will always create Else branch
+      ThresholdNeeded = true;
       break;
     }
+
+    if (!ThresholdNeeded && Candidate.mayIncreasesCodeSize())
+      ThresholdNeeded = true;
   }
+
+  ThresholdMap[NewElseLoop] =
+      ThresholdNeeded ? ++ThresholdMap[TargetLoop] : ThresholdMap[TargetLoop];
 
   // Invariant [If condition%s | Condition%s] hoisted out of this loop
   addPredicateOptReportRemark(TargetLoop, IfCandidates, OptReportRemark);

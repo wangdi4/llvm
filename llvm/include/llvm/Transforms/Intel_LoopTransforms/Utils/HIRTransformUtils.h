@@ -56,7 +56,8 @@ const StringRef EnableSpecialLoopInterchangeMetaName =
 class HIRTransformUtils {
 public:
   typedef struct ProfInfo {
-    ProfInfo(uint64_t T, uint64_t F) : TrueWeight(T), FalseWeight(F) {}
+    ProfInfo(uint64_t T, uint64_t F)
+        : TrueWeight(T), FalseWeight(F), Quotient(0), Remainder(0) {}
     uint64_t TrueWeight;
     uint64_t FalseWeight;
 
@@ -468,6 +469,25 @@ public:
   ///
   static bool doSpecialSinkForPerfectLoopnest(HLLoop *OuterLp, HLLoop *InnerLp,
                                               HIRDDAnalysis &HDDA);
+
+  /// Propagates single use load temps to their uses and eliminates them. This
+  /// helps memcpy recognition and can help compile time by reducing size of
+  /// HIR. Returns true and invalidates loop body if any changes were made.
+  ///
+  /// For example-
+  //
+  /// DO i1
+  ///   t = A[i1];
+  ///   B[i1] = t;
+  ///  END DO
+  ///
+  /// ==>
+  ///
+  /// DO i1
+  ///   B[i1] = A[i1];
+  /// END DO
+  ///
+  static bool propagateSingleUseLoads(HLLoop *Lp);
 };
 
 } // End namespace loopopt

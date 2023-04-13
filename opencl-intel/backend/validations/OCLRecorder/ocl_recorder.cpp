@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -47,6 +47,8 @@
 
 #define MAX_LOG_PATH 512
 
+using namespace llvm;
+using namespace Intel::OpenCL;
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Validation {
@@ -557,7 +559,7 @@ void OCLRecorder::RemoveProgramContext(const ICLDevBackendProgram_ *pProgram) {
 }
 
 bool OCLRecorder::NeedSourceRecording(
-    const MD5Code &code, OUT Frontend::SourceFile *pSourceFile) const {
+    const MD5::MD5Result &code, OUT Frontend::SourceFile *pSourceFile) const {
   std::string Env;
   if (NULL == m_pSourceRecorder ||
       Intel::OpenCL::Utils::getEnvVar(Env, "OCL_DISABLE_SOURCE_RECORDER"))
@@ -621,8 +623,9 @@ void OCLRecorder::OnCreateProgram(const void *pBinary, size_t uiBinarySize,
   llvm::Module *pModule = (*pModuleOrError).release();
   spContext->m_DL = new llvm::DataLayout(pModule);
   // checking whehter we need source or byte-level recording
-  MD5 md5((unsigned char *)const_cast<void *>(pBinary), uiBinarySize);
-  MD5Code code = md5.digest();
+  MD5 md5;
+  MD5::MD5Result code = md5.hash(
+      ArrayRef<uint8_t>((uint8_t *)const_cast<void *>(pBinary), uiBinarySize));
   Frontend::SourceFile sourceFile;
   if (NeedSourceRecording(code, OUT & sourceFile)) {
     RecordSourceCode(*spContext, sourceFile);
@@ -795,7 +798,7 @@ void OCLRecorder::RecordKernelInputs(const RecorderContext &programContext,
   llvm::Function::const_arg_iterator arg_it =
       kernelContext.getFuncPtr()->arg_begin();
 
-  std::vector<MD5Code> hashes;
+  std::vector<MD5::MD5Result> hashes;
   for (unsigned int i = 0; i < argsCount; ++i) {
     char *pData = NULL;
     size_t size = 0;
@@ -879,16 +882,17 @@ void OCLRecorder::RecordKernelInputs(const RecorderContext &programContext,
     // If argument don't allocate in local address space then calculate md5 hash
     // sum:
     if (pKernelArgs[i].Ty != KRNL_ARG_PTR_LOCAL) {
-      unsigned char *pObject = reinterpret_cast<unsigned char *>(pData);
-      MD5 md5Hash(pObject, size);
-      hashes.push_back(md5Hash.digest());
+      auto *pObject = reinterpret_cast<uint8_t *>(pData);
+      MD5 md5Hash;
+      hashes.push_back(md5Hash.hash(ArrayRef<uint8_t>(pObject, size)));
     }
   }
 
   // Calculate only one md5 hash sum for all hash sums:
-  MD5 md5Hash(reinterpret_cast<unsigned char *>(&hashes.front()),
-              hashes.size() * sizeof(MD5Code));
-  MD5Code hash = md5Hash.digest();
+  MD5 md5Hash;
+  MD5::MD5Result hash = md5Hash.hash(
+      ArrayRef<uint8_t>(reinterpret_cast<uint8_t *>(&hashes.front()),
+                        hashes.size() * sizeof(MD5::MD5Result)));
 
   const std::string *path = GetPathToInputData(hash);
   if (path != 0) {
@@ -905,10 +909,10 @@ void OCLRecorder::RecordKernelInputs(const RecorderContext &programContext,
   bufferWriter.Write(&bufferList);
 }
 
-const std::string *OCLRecorder::GetPathToInputData(const MD5Code &hash) const {
-  std::map<MD5Code, std::string, HashComparator>::const_iterator e;
-  e = m_hashToPath.find(hash);
-  return (e != m_hashToPath.end()) ? &e->second : 0;
+const std::string *
+OCLRecorder::GetPathToInputData(const MD5::MD5Result &hash) const {
+  const auto e = m_hashToPath.find(hash);
+  return (e != m_hashToPath.end()) ? &e->second : nullptr;
 }
 
 void OCLRecorder::AddRecordedFile(const std::string &f) {

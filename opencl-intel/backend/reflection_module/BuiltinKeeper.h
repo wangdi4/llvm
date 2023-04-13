@@ -20,8 +20,8 @@
 #include "utils.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 #include <exception>
 #include <string>
 #include <utility>
@@ -52,6 +52,9 @@ class BuiltinKeeper {
       llvm::reflection::TypePrimitiveEnum PTy);
 
 public:
+  BuiltinKeeper(const BuiltinKeeper &) = delete;
+  BuiltinKeeper &operator=(const BuiltinKeeper &) = delete;
+
   static const BuiltinKeeper *instance();
 
   // Purpose: indicates whether the given string represent the mangled name of a
@@ -80,8 +83,6 @@ public:
 private:
   BuiltinKeeper();
   ~BuiltinKeeper() {}
-  BuiltinKeeper &operator=(const BuiltinKeeper &) const;
-  BuiltinKeeper(const BuiltinKeeper &);
 
   void initNullStrategyEntries();
   void initSoaStrategyEntries();

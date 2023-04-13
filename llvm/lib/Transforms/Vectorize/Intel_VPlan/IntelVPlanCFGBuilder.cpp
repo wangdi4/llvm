@@ -206,11 +206,21 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
     for (Value *Op : Inst->operands())
       VPOperands.push_back(getOrCreateVPOperand(Op));
 
+    // Special processing of instructions without explicit operands. For
+    // example, mask in shufflevector, indices in {insert|extract}value.
+    // TODO: Consider having a separate subclass of VPInstruction to represent
+    // {insert|extract}value and shufflevector instructions.
     if (auto *Shuffle = dyn_cast<ShuffleVectorInst>(Inst)) {
-      // TODO: Once the community cleans up the bitcode representation we'd want
-      // to have a separate subclass of VPInstruction to store the mask.
       VPOperands.push_back(
           getOrCreateVPOperand(Shuffle->getShuffleMaskForBitcode()));
+    } else if (auto *InsertValue = dyn_cast<InsertValueInst>(Inst)) {
+      ArrayRef<unsigned> Idxs = InsertValue->getIndices();
+      auto *IdxsConst = ConstantDataArray::get(*Plan->getLLVMContext(), Idxs);
+      VPOperands.push_back(getOrCreateVPOperand(IdxsConst));
+    } else if (auto *ExtractValue = dyn_cast<ExtractValueInst>(Inst)) {
+      ArrayRef<unsigned> Idxs = ExtractValue->getIndices();
+      auto *IdxsConst = ConstantDataArray::get(*Plan->getLLVMContext(), Idxs);
+      VPOperands.push_back(getOrCreateVPOperand(IdxsConst));
     }
 
     if (CmpInst *CI = dyn_cast<CmpInst>(Inst)) {

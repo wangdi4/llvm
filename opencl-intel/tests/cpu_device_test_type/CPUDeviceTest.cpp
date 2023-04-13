@@ -51,10 +51,10 @@ volatile bool gExecDone = true;
 
 unsigned int gDeviceIdInType = 0;
 
-std::string gDPCPPAffinity;
-std::string gDPCPPPlace;
-unsigned int gNumProcessors;
-bool gUseHalfProcessors;
+std::string SYCLAffinity;
+std::string SYCLPlace;
+unsigned int NumProcessors;
+bool UseHalfProcessors;
 
 void CPUTestCallbacks::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void *data,
                                              cl_int cmd_status,
@@ -762,34 +762,34 @@ CPUTestCallbacks g_dev_callbacks;
 
 void initDpcppAffinity() {
 #ifdef _WIN32
-  gNumProcessors = TE_AUTO_THREADS;
-  gUseHalfProcessors = false;
+  NumProcessors = TE_AUTO_THREADS;
+  UseHalfProcessors = false;
 #else
   // ENV variable must be set before TaskExecutor::init()
 
   std::mt19937 rng(std::random_device{}());
 
   // Tests of master, close and spread can't be executed concurrently in LIT
-  // and DPCPP_CPU_CU_AFFINITY must be set for all tests because CPU device
+  // and SYCL_CPU_CU_AFFINITY must be set for all tests because CPU device
   // instance is only initialized once even if there are multiple calls to
   // clDevCreateDeviceInstance.
   int idx = std::uniform_int_distribution<>{0, 2}(rng);
-  gDPCPPAffinity = (idx == 0) ? "close" : (idx == 1) ? "spread" : "master";
-  SETENV("DPCPP_CPU_CU_AFFINITY", gDPCPPAffinity.c_str());
+  SYCLAffinity = (idx == 0) ? "close" : (idx == 1) ? "spread" : "master";
+  SETENV("SYCL_CPU_CU_AFFINITY", SYCLAffinity.c_str());
   idx = std::uniform_int_distribution<>{0, 2}(rng);
-  gDPCPPPlace = (idx == 0) ? "sockets" : (idx == 1) ? "cores" : "threads";
-  SETENV("DPCPP_CPU_PLACES", gDPCPPPlace.c_str());
+  SYCLPlace = (idx == 0) ? "sockets" : (idx == 1) ? "cores" : "threads";
+  SETENV("SYCL_CPU_PLACES", SYCLPlace.c_str());
 
-  gNumProcessors = (unsigned)Intel::OpenCL::Utils::GetNumberOfProcessors();
-  unsigned numUsedProcessors = gNumProcessors;
-  gUseHalfProcessors = std::uniform_int_distribution<>{0, 1}(rng);
-  if (gUseHalfProcessors)
+  NumProcessors = (unsigned)Intel::OpenCL::Utils::GetNumberOfProcessors();
+  unsigned numUsedProcessors = NumProcessors;
+  UseHalfProcessors = std::uniform_int_distribution<>{0, 1}(rng);
+  if (UseHalfProcessors)
     numUsedProcessors /= 2;
 
-  // DPCPP_CPU_NUM_CUS/CL_CONFIG_CPU_TBB_NUM_WORKERS must be set for all tests
+  // SYCL_CPU_NUM_CUS/CL_CONFIG_CPU_TBB_NUM_WORKERS must be set for all tests
   // because TaskExecutor is only initialized once.
   const char *envNumThreads = std::uniform_int_distribution<>{0, 1}(rng)
-                                  ? "DPCPP_CPU_NUM_CUS"
+                                  ? "SYCL_CPU_NUM_CUS"
                                   : "CL_CONFIG_CPU_TBB_NUM_WORKERS";
   std::string numUsedProcessorsStr = std::to_string(numUsedProcessors);
   SETENV(envNumThreads, numUsedProcessorsStr.c_str());
@@ -803,8 +803,7 @@ void CPUDeviceTest_Init(Intel::OpenCL::Utils::BasicCLConfigWrapper *config) {
   ASSERT_TRUE(pTaskExecutor != NULL);
 
   // Initialize Task Executor
-  unsigned numThreads =
-      gUseHalfProcessors ? (gNumProcessors / 2) : gNumProcessors;
+  unsigned numThreads = UseHalfProcessors ? (NumProcessors / 2) : NumProcessors;
   size_t additionalStackSize = CPU_DEV_TBB_STACK_SIZE;
   int iThreads = pTaskExecutor->Init(numThreads, nullptr, additionalStackSize);
   ASSERT_EQ(pTaskExecutor->GetErrorCode(), 0);

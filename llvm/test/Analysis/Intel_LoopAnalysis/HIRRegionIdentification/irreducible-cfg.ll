@@ -1,5 +1,4 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -debug-only=hir-region-identification  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='print<hir-region-identification>' -debug-only=hir-region-identification  2>&1 | FileCheck %s
 
 ; Verify that we detect and skip irreducible cfg. The bblocks for.cond49.sink.split, for.cond49 and for.body51 constitute a multi-entry loop.

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 ; Calling convention on functions/calls must be consistent after the
 ; transformation (because mismatch is UB and DCE'd later).
@@ -23,4 +23,4 @@ define i32 @bar(i32 %a) {
 }
 
 !0 = !{!1}
-!1 = !{!"auto-cpu-dispatch-target", !"core_i7_sse4_2"}
+!1 = !{!"auto-cpu-dispatch-target", !"corei7"}

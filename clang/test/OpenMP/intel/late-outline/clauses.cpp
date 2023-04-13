@@ -372,20 +372,34 @@ void bar7(float *A, int N, int S)
   for (i=N;i>=0;i=i-8) { call_bar7(&A[i]); }
   //CHECK: "DIR.OMP.END.SIMD"
 
-  //CHECK: [[LC:%[0-9]+]] = load i32, ptr %S.addr,
-  //CHECK-NEXT: store i32 [[LC]], ptr [[CAPS:%.capture_expr.[0-9]*]]
-
-  // non-constant step
-  //CHECK: icmp slt i32 0,
-  //CHECK: [[LC:%[0-9]+]] = load i32, ptr [[CAPS]],
+  //CHECK: [[TMP63:%.*]] = load i32, ptr [[N_ADDR:%N.addr]]
+  //CHECK-NEXT: store i32 [[TMP63]], ptr [[DOTCAPTURE_EXPR_22:%.capture_expr.22]]
+  //CHECK-NEXT:    [[TMP64:%.*]] = load i32, ptr [[S_ADDR:%S.addr]], align 4
+  //CHECK-NEXT:    store i32 [[TMP64]], ptr [[DOTNEW_STEP23:%.new_step23]], align 4
+  //CHECK-NEXT:    [[TMP65:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_22]], align 4
+  //CHECK-NEXT:    [[TMP66:%.*]] = load i32, ptr [[DOTNEW_STEP23]], align 4
+  //CHECK-NEXT:    [[SUB98:%.*]] = sub nsw i32 0, [[TMP66]]
+  //CHECK-NEXT:    [[ADD99:%.*]] = add nsw i32 [[SUB98]], 1
+  //CHECK-NEXT:    [[SUB100:%.*]] = sub nsw i32 [[TMP65]], [[ADD99]]
+  //CHECK-NEXT:    [[TMP67:%.*]] = load i32, ptr [[DOTNEW_STEP23]], align 4
+  //CHECK-NEXT:    [[DIV101:%.*]] = sdiv i32 [[SUB100]], [[TMP67]]
+  //CHECK-NEXT:    [[SUB102:%.*]] = sub nsw i32 [[DIV101]], 1
+  //CHECK-NEXT:    store i32 [[SUB102]], ptr [[DOTCAPTURE_EXPR_24:%.capture_expr.24]], align 4
+  //CHECK-NEXT:    [[TMP68:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_22]], align 4
+  //CHECK-NEXT:    [[CMP103:%.*]] = icmp slt i32 0, [[TMP68]]
+  //CHECK-NEXT:    br i1 [[CMP103]], label [[OMP_PRECOND_THEN104:%.*]], label [[OMP_PRECOND_END120:%.*]]
+  //CHECK:       omp.precond.then104:
+  //CHECK-NEXT:    [[TMP69:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_24]], align 4
+  //CHECK-NEXT:    store i32 [[TMP69]], ptr [[DOTOMP_UB106:%.*]], align 4
+  //CHECK-NEXT:    [[TMP70:%.*]] = load i32, ptr [[DOTNEW_STEP23]], align 4
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I]], i32 0, i32 1, i32 [[LC]])
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[I]], i32 0, i32 1, i32 [[TMP70]])
   //CHECK: call void {{.*}}call_bar7
-  //CHECK: load i32, ptr %.omp.iv
+  //CHECK: load i32, ptr [[DOTOMP_IV105:%.*]], align 4
   //CHECK-NEXT: add nsw i32 {{.*}}1{{$}}
-  //CHECK-NEXT: store i32 {{.*}}%.omp.iv
+  //CHECK-NEXT: store i32 {{.*}}[[DOTOMP_IV105]]
   //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, ptr [[I]]
-  //CHECK-NEXT: [[L2:%[0-9]+]] = load i32, ptr [[CAPS]]
+  //CHECK-NEXT: [[L2:%[0-9]+]] = load i32, ptr [[DOTNEW_STEP23]]
   //CHECK-NEXT: [[ADD1:%add[0-9]*]] = add nsw i32 [[L1]], [[L2]]
   //CHECK-NEXT: store i32 [[ADD1]], ptr [[I]]
   #pragma omp simd
@@ -407,7 +421,7 @@ void bar7(float *A, int N, int S)
   //CHECK: "DIR.OMP.END.SIMD"
 
   //CHECK: "DIR.OMP.SIMD"
-  //CHECK-SAME: "QUAL.OMP.LINEAR:IV.TYPED"(ptr [[FP]], ptr null, i32 1, i32 4)
+  //CHECK-SAME: "QUAL.OMP.LINEAR:PTR_TO_PTR.IV.TYPED"(ptr [[FP]], float 0.000000e+00, i32 1, i32 4)
   //CHECK: call void {{.*}}call_bar7
   //CHECK: load i64, ptr %.omp.iv
   //CHECK-NEXT: add nsw i64 {{.*}}1{{$}}

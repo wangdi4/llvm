@@ -34,11 +34,11 @@
 #define LLVM_ADT_POSTORDERITERATOR_H
 
 #include "llvm/ADT/GraphTraits.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/iterator_range.h"
 #include <iterator>
+#include <optional>
 #include <set>
 #include <utility>
 #include <vector>
@@ -79,7 +79,7 @@ class po_iterator_storage {
 public:
   // Return true if edge destination should be visited.
   template <typename NodeRef>
-  bool insertEdge(Optional<NodeRef> From, NodeRef To) {
+  bool insertEdge(std::optional<NodeRef> From, NodeRef To) {
     return Visited.insert(To).second;
   }
 
@@ -99,7 +99,8 @@ public:
   // Return true if edge destination should be visited, called with From = 0 for
   // the root node.
   // Graph edges can be pruned by specializing this function.
-  template <class NodeRef> bool insertEdge(Optional<NodeRef> From, NodeRef To) {
+  template <class NodeRef>
+  bool insertEdge(std::optional<NodeRef> From, NodeRef To) {
     return Visited.insert(To).second;
   }
 
@@ -130,7 +131,7 @@ private:
 #endif // INTEL_CUSTOMIZATION
 
   po_iterator(NodeRef BB) {
-    this->insertEdge(Optional<NodeRef>(), BB);
+    this->insertEdge(std::optional<NodeRef>(), BB);
     VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
     traverseChild();
   }
@@ -139,7 +140,7 @@ private:
 
   po_iterator(NodeRef BB, SetType &S)
       : po_iterator_storage<SetType, ExtStorage>(S) {
-    if (this->insertEdge(Optional<NodeRef>(), BB)) {
+    if (this->insertEdge(std::optional<NodeRef>(), BB)) {
       VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
       traverseChild();
     }
@@ -152,7 +153,8 @@ private:
   void traverseChild() {
     while (VisitStack.back().second != GT::child_end(VisitStack.back().first)) {
       NodeRef BB = *VisitStack.back().second++;
-      if (this->insertEdge(Optional<NodeRef>(VisitStack.back().first), BB)) {
+      if (this->insertEdge(std::optional<NodeRef>(VisitStack.back().first),
+                           BB)) {
         // If the block is not visited...
         VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
       }

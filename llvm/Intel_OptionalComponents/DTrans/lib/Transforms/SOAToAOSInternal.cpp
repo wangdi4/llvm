@@ -1,6 +1,6 @@
 //===--------------- SOAToAOSInternal.cpp - DTransSOAToAOSPass  -----------===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,13 +20,14 @@ namespace dtrans {
 namespace soatoaos {
 
 StructType *getSOAArrayType(StructType *Struct, unsigned Off) {
-  return cast<StructType>(Struct->getElementType(Off)->getPointerElementType());
+  return cast<StructType>(
+      Struct->getElementType(Off)->getNonOpaquePointerElementType());
 }
 
 PointerType *getSOAElementType(StructType *ArrayType,
                                unsigned BasePointerOffset) {
-  return cast<PointerType>(
-      ArrayType->getElementType(BasePointerOffset)->getPointerElementType());
+  return cast<PointerType>(ArrayType->getElementType(BasePointerOffset)
+                               ->getNonOpaquePointerElementType());
 }
 
 StructType *getStructTypeOfMethod(const Function &F) {
@@ -35,7 +36,7 @@ StructType *getStructTypeOfMethod(const Function &F) {
     return nullptr;
 
   if (auto *PTy = dyn_cast<PointerType>(FTy->getParamType(0)))
-    if (auto *STy = dyn_cast<StructType>(PTy->getPointerElementType()))
+    if (auto *STy = dyn_cast<StructType>(PTy->getNonOpaquePointerElementType()))
       return STy;
 
   return nullptr;
@@ -56,7 +57,7 @@ bool SOAToAOSLayoutInfo::populateLayoutInformation(Type *Ty) {
     if (auto *PTy = dyn_cast_or_null<PointerType>(Ty)) {
       if (PTy->getAddressSpace())
         return nullptr;
-      return PTy->getElementType();
+      return PTy->getNonOpaquePointerElementType();
     }
     return nullptr;
   };
@@ -361,7 +362,7 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
         if (Ty->getPointerAddressSpace())
           return FALSE("array method has non-0 address space pointer.");
 
-        auto *Pointee = Ty->getPointerElementType();
+        auto *Pointee = Ty->getNonOpaquePointerElementType();
         if (Pointee == MemoryInterface)
           continue;
 

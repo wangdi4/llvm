@@ -14,6 +14,7 @@ set(LLVM_LINK_COMPONENTS
   MC
   Support
   Target
+  TargetParser
   )
 
 if(";${LLVM_TARGETS_TO_BUILD};" MATCHES ";X86;")

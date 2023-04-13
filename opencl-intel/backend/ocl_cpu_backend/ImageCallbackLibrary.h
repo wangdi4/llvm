@@ -77,12 +77,12 @@ enum UndefCbkType {
 enum VecSize { SCALAR = 1, SOA4 = 4, SOA8 = 8, SOA16 = 16 };
 
 // Auxiliary functions for image callback names mangling
-const string channelOrderToPrefix(cl_channel_order _co);
-const string samplerToAddrModePrefix(SamplerType _sampler);
-const string imgTypeToDimPrefix(cl_mem_object_type _type);
-const string channelDataTypeToPrefix(cl_channel_type _ct);
-const string VecSizeToPrefix(VecSize _size);
-const string FilterToPrefix(cl_filter_mode _filterMode);
+const std::string channelOrderToPrefix(cl_channel_order _co);
+const std::string samplerToAddrModePrefix(SamplerType _sampler);
+const std::string imgTypeToDimPrefix(cl_mem_object_type _type);
+const std::string channelDataTypeToPrefix(cl_channel_type _ct);
+const std::string VecSizeToPrefix(VecSize _size);
+const std::string FilterToPrefix(cl_filter_mode _filterMode);
 
 class CbkDesc {
 public:

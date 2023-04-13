@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
 
 ; The test checks that functions that have loops or have uses in loops are
 ; multi-versioned and others are not.

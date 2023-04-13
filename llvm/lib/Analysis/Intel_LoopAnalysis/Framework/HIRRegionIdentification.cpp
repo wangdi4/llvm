@@ -1,6 +1,6 @@
 //===- HIRRegionIdentification.cpp - Identifies HIR Regions ---------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -150,7 +150,6 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass)
 INITIALIZE_PASS_END(HIRRegionIdentificationWrapperPass,
                     "hir-region-identification", "HIR Region Identification",
                     false, true)
@@ -171,7 +170,7 @@ bool HIRRegionIdentificationWrapperPass::runOnFunction(Function &F) {
       getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F),
       getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
       getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
-      getAnalysis<XmainOptLevelWrapperPass>().getOptLevel()));
+      0 /* placeholder due to removal of XMainOpt pass */));
 
   return true;
 }
@@ -185,7 +184,6 @@ void HIRRegionIdentificationWrapperPass::getAnalysisUsage(
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
-  AU.addRequiredTransitive<XmainOptLevelWrapperPass>();
 }
 
 HIRRegionIdentificationWrapperPass::HIRRegionIdentificationWrapperPass()
@@ -1551,7 +1549,7 @@ public:
   }
 
   // See LoopBase<>::getNumBackEdges
-  bool isLoopBackedge(Optional<NodeRef> From, NodeRef To) const {
+  bool isLoopBackedge(std::optional<NodeRef> From, NodeRef To) const {
     if (!From) {
       return false;
     }
@@ -1585,7 +1583,7 @@ public:
 
   // Return true if edge destination should be visited.
   // Computes CycleSeen
-  bool insertEdge(Optional<NodeRef> From, NodeRef To) {
+  bool insertEdge(std::optional<NodeRef> From, NodeRef To) {
     if (CycleSeen || DFLoopInfo.isOutgoing(To) ||
         DFLoopInfo.isLoopBackedge(From, To)) {
       return false;
@@ -2773,7 +2771,11 @@ bool HIRRegionIdentification::hasNonGEPAccess(
   // Trace pointers starting from PhiUpdateInst until we reach AddRecPhi.
   while (Inst != AddRecPtrPhi) {
     if (auto GEPInst = dyn_cast<GEPOrSubsOperator>(Inst)) {
-      Inst = cast<Instruction>(GEPInst->getPointerOperand());
+      Inst = dyn_cast<Instruction>(GEPInst->getPointerOperand());
+
+      if (!Inst) {
+        return false;
+      }
     } else {
       // Some other kind of instruction is involved, probably a bitcast
       // instruction.
@@ -2841,7 +2843,8 @@ HIRRegionIdentification::findPhiElementType(const PHINode *AddRecPhi) const {
     // This check will try to keep parsing identical for non-opaque ptrs.
     // Parsing will change in some case with opaque ptrs.
     // See phi-base-with-bitcast-ptr-element-type.ll for an example.
-    return PhiTy->isOpaque() ? nullptr : PhiTy->getPointerElementType();
+    return PhiTy->isOpaque() ? nullptr
+                             : PhiTy->getNonOpaquePointerElementType();
   }
 
   return GEPOp->getResultElementType();

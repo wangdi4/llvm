@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -46,15 +46,8 @@ class X86Subtarget;
 namespace X86 {
 
 enum AsmComments {
-#if INTEL_CUSTOMIZATION
   // For instr that was compressed from EVEX to VEX.
-  AC_EVEX_2_VEX = MachineInstr::TAsmComments,
-#if INTEL_FEATURE_MARKERCOUNT
-  // To distinguish prolog from epilog for MARKER_COUNT_FUNCTION
-  AC_PROLOG = AC_EVEX_2_VEX << 1,
-  AC_EPILOG = AC_PROLOG << 1
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
+  AC_EVEX_2_VEX = MachineInstr::TAsmComments
 };
 
 /// Return a pair of condition code for the given predicate and whether
@@ -179,6 +172,12 @@ public:
   // precision tolerance.
   bool shouldSkipFMA4Precision(MachineInstr *FMAMI, unsigned Shape,
                                bool DisableGFMAForPrecision) const override;
+#if INTEL_FEATURE_ISA_APX_F
+  const TargetRegisterClass *
+  getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
+              const TargetRegisterInfo *TRI,
+              const MachineFunction &MF) const override;
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
@@ -398,12 +397,14 @@ public:
                            MachineBasicBlock::iterator MI, Register SrcReg,
                            bool isKill, int FrameIndex,
                            const TargetRegisterClass *RC,
-                           const TargetRegisterInfo *TRI) const override;
+                           const TargetRegisterInfo *TRI,
+                           Register VReg) const override;
 
   void loadRegFromStackSlot(MachineBasicBlock &MBB,
                             MachineBasicBlock::iterator MI, Register DestReg,
                             int FrameIndex, const TargetRegisterClass *RC,
-                            const TargetRegisterInfo *TRI) const override;
+                            const TargetRegisterInfo *TRI,
+                            Register VReg) const override;
 #if INTEL_CUSTOMIZATION
 
   void loadRegFromAddr(MachineFunction &MF, unsigned DestReg,
@@ -479,6 +480,8 @@ public:
   bool isSchedulingBoundary(const MachineInstr &MI,
                             const MachineBasicBlock *MBB,
                             const MachineFunction &MF) const override;
+
+  bool isPrefetchInstr(const MachineInstr &MI) const override; // INTEL
 
   /// shouldScheduleLoadsNear - This is a used by the pre-regalloc scheduler to
   /// determine (in conjunction with areLoadsFromSameBasePtr) if two loads
@@ -604,14 +607,14 @@ public:
   ArrayRef<std::pair<unsigned, const char *>>
   getSerializableDirectMachineOperandTargetFlags() const override;
 
-  outliner::OutlinedFunction getOutliningCandidateInfo(
+  std::optional<outliner::OutlinedFunction> getOutliningCandidateInfo(
       std::vector<outliner::Candidate> &RepeatedSequenceLocs) const override;
 
   bool isFunctionSafeToOutlineFrom(MachineFunction &MF,
                                    bool OutlineFromLinkOnceODRs) const override;
 
   outliner::InstrType
-  getOutliningType(MachineBasicBlock::iterator &MIT, unsigned Flags) const override;
+  getOutliningTypeImpl(MachineBasicBlock::iterator &MIT, unsigned Flags) const override;
 
   void buildOutlinedFrame(MachineBasicBlock &MBB, MachineFunction &MF,
                           const outliner::OutlinedFunction &OF) const override;

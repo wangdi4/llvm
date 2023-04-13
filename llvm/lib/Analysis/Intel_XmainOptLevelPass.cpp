@@ -1,6 +1,6 @@
 //===------------------ Intel_XmainOptLevelPass.cpp -----------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -30,19 +30,6 @@ AnalysisKey XmainOptLevelAnalysis::Key;
 XmainOptLevel::XmainOptLevel(unsigned OptLevel)
     : OptLevel((ForceXmainOptLevel == unsigned(-1)) ? OptLevel
                                                     : ForceXmainOptLevel) {}
-
-char XmainOptLevelWrapperPass::ID = 0;
-INITIALIZE_PASS(XmainOptLevelWrapperPass, "xmain-opt-level-pass",
-                "Xmain opt level pass", false, true)
-
-XmainOptLevelWrapperPass::XmainOptLevelWrapperPass(unsigned OptLevel)
-    : ImmutablePass(ID), Impl(OptLevel) {
-  initializeXmainOptLevelWrapperPassPass(*PassRegistry::getPassRegistry());
-}
-
-ImmutablePass *llvm::createXmainOptLevelWrapperPass(unsigned OptLevel) {
-  return new XmainOptLevelWrapperPass(OptLevel);
-}
 
 typedef XmainOptLevel Result;
 // Run at module level

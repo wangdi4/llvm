@@ -13,22 +13,39 @@
 // License.
 
 #include "OCLBuilder.h"
+#include "cl_env.h"
 #include "clang_device_info.h"
-#include <cstring>
+#include "opencl_c_features.h"
 #include <ocl_string_exception.h>
 
+using namespace llvm;
 using namespace Intel::OpenCL::FECompilerAPI;
 using namespace Intel::OpenCL;
 using namespace Intel::OpenCL::Utils;
 
 namespace Validation {
 #define BE_FE_COMPILER_USE_EXTENSIONS                                          \
-  "cl_khr_fp64 cl_khr_icd"                                                     \
+  " cl_khr_fp64 cl_khr_icd cl_khr_spirv_linkonce_odr cl_khr_il_program"        \
   " cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics"     \
   " cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics"       \
   " cl_khr_int64_base_atomics cl_khr_int64_extended_atomics"                   \
-  " cl_khr_byte_addressable_store cl_intel_printf cl_ext_device_fission"       \
-  " cl_intel_exec_by_local_thread cl_intel_vec_len_hint"
+  " cl_khr_byte_addressable_store cl_intel_printf cl_ext_device_fission"
+
+#define BE_FE_COMPILER_USE_EXTENSIONS_FPGA                                     \
+  " cl_khr_fp16 cl_intel_channels cl_intel_fpga_host_pipe"                     \
+  " cl_intel_mem_channel_property"
+
+#define BE_FE_COMPILER_USE_EXTENSIONS_CPU                                      \
+  " cl_khr_int64_base_atomics cl_khr_int64_extended_atomics"                   \
+  " cl_intel_exec_by_local_thread cl_intel_vec_len_hint"                       \
+  " cl_intel_device_partition_by_names cl_khr_spir cl_khr_image2d_from_buffer" \
+  " cl_khr_depth_images cl_khr_3d_image_writes"                                \
+  " cl_intel_unified_shared_memory cl_intel_device_attribute_query"            \
+  " cl_intel_subgroups cl_intel_subgroups_char cl_intel_subgroups_short"       \
+  " cl_intel_subgroups_long cl_intel_required_subgroup_size"                   \
+  " cl_intel_spirv_subgroups cl_khr_subgroup_shuffle"                          \
+  " cl_khr_subgroup_shuffle_relative cl_khr_subgroup_extended_types"           \
+  " cl_khr_subgroup_non_uniform_arithmetic"
 
 OCLBuilder &OCLBuilder::Instance() {
   // Statically initialized instance of the builder
@@ -101,6 +118,37 @@ OCLBuilder &OCLBuilder::withFP16Support(bool FP16) {
   }
 }
 
+OCLBuilder &OCLBuilder::withExtensions(bool IsFPGA) {
+  std::string ext = std::string(BE_FE_COMPILER_USE_EXTENSIONS) +
+                    std::string(IsFPGA ? BE_FE_COMPILER_USE_EXTENSIONS_FPGA
+                                       : BE_FE_COMPILER_USE_EXTENSIONS_CPU);
+  std::string Env;
+  if (!IsFPGA &&
+      Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_EXPERIMENTAL_FP16"))
+    ext += " cl_khr_fp16";
+  m_CommonBuilder.withExtensions(ext);
+  return *this;
+}
+
+OCLBuilder &OCLBuilder::withOpenCLCFeatures() {
+  m_CommonBuilder.withOpenCLCFeatures(
+      (Twine(OPENCL_C_3D_IMAGE_WRITES) + Twine(" ") +
+       Twine(OPENCL_C_ATOMIC_ORDER_ACQ_REL) + Twine(" ") +
+       Twine(OPENCL_C_ATOMIC_ORDER_SEQ_CST) + Twine(" ") +
+       Twine(OPENCL_C_ATOMIC_SCOPE_DEVICE) + Twine(" ") +
+       Twine(OPENCL_C_ATOMIC_SCOPE_ALL_DEVICES) + Twine(" ") +
+       Twine(OPENCL_C_DEVICE_ENQUEUE) + Twine(" ") +
+       Twine(OPENCL_C_GENERIC_ADDRESS_SPACE) + Twine(" ") +
+       Twine(OPENCL_C_FP64) + Twine(" ") + Twine(OPENCL_C_IMAGES) + Twine(" ") +
+       Twine(OPENCL_C_INT64) + Twine(" ") + Twine(OPENCL_C_PIPES) + Twine(" ") +
+       Twine(OPENCL_C_PROGRAM_SCOPE_GLOBAL_VARIABLES) + Twine(" ") +
+       Twine(OPENCL_C_READ_WRITE_IMAGES) + Twine(" ") +
+       Twine(OPENCL_C_SUBGROUPS) + Twine(" ") +
+       Twine(OPENCL_C_WORK_GROUP_COLLECTIVE_FUNCTIONS) + Twine(" "))
+          .str());
+  return *this;
+}
+
 // cleanup function
 void OCLBuilder::close() {
   try {
@@ -123,8 +171,6 @@ Intel::OpenCL::ClangFE::IOCLFEBinaryResult *OCLBuilder::build() {
 }
 
 OCLBuilder::OCLBuilder()
-    : m_CommonBuilder(Intel::OpenCL::Utils::CommonOCLBuilder::instance()) {
-  m_CommonBuilder.withExtensions(BE_FE_COMPILER_USE_EXTENSIONS);
-}
+    : m_CommonBuilder(Intel::OpenCL::Utils::CommonOCLBuilder::instance()) {}
 
 } // namespace Validation

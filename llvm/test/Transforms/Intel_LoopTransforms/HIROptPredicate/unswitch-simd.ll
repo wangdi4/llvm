@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that SIMD loop will be unswitched by hir-opt-predicate if the SIMD
 ; directives are part of the pre-header and post-exit nodes of the loop.
@@ -7,7 +7,7 @@
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 99, 1   <DO_LOOP>
-;       |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1) ]
+;       |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0]),1) ]
 ;       |   + DO i2 = 0, %m + -1, 1   <DO_LOOP> <simd>
 ;       |   |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%j.linear.iv)[0]));
 ;       |   |   if (%n != 20)
@@ -26,7 +26,7 @@
 ; CHECK:       if (%n != 20)
 ; CHECK:       {
 ; CHECK:          + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:          |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1) ]
+; CHECK:          |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0]), 1) ]
 ; CHECK:          |   + DO i2 = 0, %m + -1, 1   <DO_LOOP> <simd>
 ; CHECK:          |   |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%j.linear.iv)[0]));
 ; CHECK:          |   |   (%a)[i2] = i2;
@@ -38,11 +38,7 @@
 ; CHECK:       else
 ; CHECK:       {
 ; CHECK:          + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:          |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1) ]
-; CHECK:          |   + DO i2 = 0, %m + -1, 1   <DO_LOOP> <simd>
-; CHECK:          |   |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%j.linear.iv)[0]));
-; CHECK:          |   |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%j.linear.iv)[0]));
-; CHECK:          |   + END LOOP
+; CHECK:          |      %1 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(8),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0]), 1) ]
 ; CHECK:          |      @llvm.directive.region.exit(%1); [ DIR.OMP.END.SIMD() ]
 ; CHECK:          + END LOOP
 ; CHECK:       }

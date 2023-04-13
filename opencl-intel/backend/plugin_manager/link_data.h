@@ -26,8 +26,6 @@ struct IOCLFEBinaryResult;
 } // namespace OpenCL
 } // namespace Intel
 
-using namespace Intel::OpenCL::ClangFE;
-
 namespace Intel {
 namespace OpenCL {
 namespace Frontend {
@@ -63,13 +61,15 @@ public:
     }
   }
 
-  void setBinaryResult(IOCLFEBinaryResult *pResult) { m_pResult = pResult; }
+  void setBinaryResult(ClangFE::IOCLFEBinaryResult *pResult) {
+    m_pResult = pResult;
+  }
 
-  IOCLFEBinaryResult *getBinaryResult() const { return m_pResult; }
+  ClangFE::IOCLFEBinaryResult *getBinaryResult() const { return m_pResult; }
 
 private:
   std::vector<BufferInfo> m_inputBuffers;
-  IOCLFEBinaryResult *m_pResult;
+  ClangFE::IOCLFEBinaryResult *m_pResult;
   std::string m_options;
 };
 } // namespace Frontend

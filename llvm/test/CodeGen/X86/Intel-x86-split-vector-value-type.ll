@@ -1,5 +1,5 @@
-; RUN: opt --mcpu=skylake-avx512 -S --x86-split-vector-value-type --verify < %s | FileCheck %s
-; RUN: opt -o - %s --mcpu=skylake-avx512 -S -debugify --x86-split-vector-value-type -check-debugify 2>&1 | FileCheck %s --check-prefixes=DBG
+; RUN: opt -opaque-pointers=0 --mcpu=skylake-avx512 -S --x86-split-vector-value-type --verify < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -o - %s --mcpu=skylake-avx512 -S -debugify --x86-split-vector-value-type -check-debugify 2>&1 | FileCheck %s --check-prefixes=DBG
 
 ; Tests for x86-split-vector-value-type pass.
 ; If an instruction has name, the split instructions will be name as [original inst name].(l|h)

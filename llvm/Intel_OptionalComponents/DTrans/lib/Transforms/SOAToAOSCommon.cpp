@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSCommon.cpp - Part of SOAToAOSPass -----------===//
 //
-// Copyright (C) 2018 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -47,7 +47,8 @@ SummaryForIdiom getParametersForSOAToAOSMethodsCheckDebug(const Function &F) {
           "Incorrect memory interface specification: type at offset "
           "dtrans-soatoaos-mem-off is not pointer to struct/class.");
 
-    MemoryInterface = dyn_cast<StructType>(PMemInt->getElementType());
+    MemoryInterface =
+        dyn_cast<StructType>(PMemInt->getNonOpaquePointerElementType());
     if (!MemoryInterface)
       report_fatal_error(
           "Incorrect memory interface specification: type at offset "

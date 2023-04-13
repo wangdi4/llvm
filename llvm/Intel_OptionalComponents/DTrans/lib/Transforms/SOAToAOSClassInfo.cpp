@@ -1,6 +1,6 @@
 //===------------- SOAToAOSClassInfo.cpp - SOAToAOS Class Info Analysis ---===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -17,7 +17,6 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
-#include "Intel_DTrans/DTransCommon.h"
 
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -117,7 +116,7 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
   case Type::PointerTyID:
     if (ElemDataTypes.count(RTy) || ElemDataAddrTypes.count(RTy))
       ElemReturn = true;
-    else if (cast<PointerType>(RTy)->getElementType() == ClassTy)
+    else if (RTy->getNonOpaquePointerElementType() == ClassTy)
       ThisReturn = true;
     else
       PtrReturn = true;
@@ -137,9 +136,9 @@ FunctionKind ClassInfo::categorizeFunctionUsingSignature(Function *F,
 
     case Type::PointerTyID: {
       auto *PTy = cast<PointerType>(ArgTy);
-      if (PTy->getElementType() == MemInterTy)
+      if (PTy->getNonOpaquePointerElementType() == MemInterTy)
         MemInterfaceArgs++;
-      else if (PTy->getElementType() == ClassTy)
+      else if (PTy->getNonOpaquePointerElementType() == ClassTy)
         ClassArgs++;
       else if (ElemDataTypes.count(PTy) || ElemDataAddrTypes.count(PTy))
         ElemArgs++;
@@ -310,7 +309,8 @@ bool ClassInfo::checkMemInterfacePointer(Value *V, Argument *Obj) {
   }
   if (auto *Arg = dyn_cast<Argument>(V))
     if (auto *PTy = dyn_cast<PointerType>(Arg->getType()))
-      if (PTy->getElementType() == SOACInfo->getMemInterfaceType())
+      if (PTy->getNonOpaquePointerElementType() ==
+          SOACInfo->getMemInterfaceType())
         return true;
 
   assert(MemIntField != -1 && "Expected valid MemIntField");
@@ -571,7 +571,7 @@ bool ClassInfo::checkVtableLoadOfMemInt(Value *Value, Argument *ThisObj) {
   if (!LI)
     return false;
   auto *PTy = dyn_cast<PointerType>(LI->getType());
-  if (!PTy || !PTy->getElementType()->isFunctionTy())
+  if (!PTy || !PTy->getNonOpaquePointerElementType()->isFunctionTy())
     return false;
   auto *GEP = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
   if (!GEP)
@@ -1740,7 +1740,7 @@ FunctionKind ClassInfo::recognizeConstructor(Function *F) {
 
           // Ignore array pointer field.
           if (GEPTy->isPointerTy() &&
-              cast<PointerType>(GEPTy)->getElementType() == getElementTy())
+              GEPTy->getNonOpaquePointerElementType() == getElementTy())
             continue;
 
           Visited.insert(GEP);
@@ -1772,7 +1772,7 @@ FunctionKind ClassInfo::recognizeConstructor(Function *F) {
               }
             } else if (GEPTy->isPointerTy()) {
               auto *PTy = cast<PointerType>(GEPTy);
-              auto *PtrElemTy = PTy->getElementType();
+              auto *PtrElemTy = PTy->getNonOpaquePointerElementType();
               if (PtrElemTy == SOACInfo->getMemInterfaceType()) {
                 // MemInt field should be assigned with argument.
                 if (!isa<Argument>(ValOp))
@@ -1821,7 +1821,7 @@ FunctionKind ClassInfo::recognizeConstructor(Function *F) {
           if (!isa<PointerType>(GEPTy))
             continue;
           auto *PTy = cast<PointerType>(GEPTy);
-          auto *PtrElemTy = PTy->getElementType();
+          auto *PtrElemTy = PTy->getNonOpaquePointerElementType();
           if (PtrElemTy == SOACInfo->getMemInterfaceType() ||
               isPtrToVFTable(GEPTy))
             continue;

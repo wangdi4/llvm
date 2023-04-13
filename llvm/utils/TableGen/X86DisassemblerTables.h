@@ -65,7 +65,8 @@ private:
   /// [9] fixed length MAP6 opcode
 #if INTEL_CUSTOMIZATION
   /// [10] fixed length opcodes of the form MAP8 __
-  std::unique_ptr<ContextDecision> Tables[11];
+  /// [11] fixed length opcodes of the form MAP4
+  std::unique_ptr<ContextDecision> Tables[12];
 #endif // INTEL_CUSTOMIZATION
 
   // Table of ModRM encodings.

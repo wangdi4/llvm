@@ -174,9 +174,6 @@ class HIRParser {
   /// PointerBlobFinder - Used to find pointer type blobs.
   class PointerBlobFinder;
 
-  /// ScopeSCEVValidator - Validates SCEV returned by getSCEVAtScope().
-  class ScopeSCEVValidator;
-
   /// Visits HIR and calls HIRParser's parse*() utilities. Parsing for
   /// non-essential HLInsts is postponed for phase2. Refer to isEssential().
   struct Phase1Visitor;
@@ -299,9 +296,6 @@ class HIRParser {
   /// indicating parsing success/failure instead of asserting on failures.
   bool parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
                  unsigned IVLevel = 0, bool IndicateFailure = false);
-
-  /// Returns true if the passed in SCEV is valid for use in HIR.
-  bool isValidScopeSCEV(const SCEV *SC) const;
 
   /// Calls SE->getSCEVAtScope() based on the location of CurNode.
   const SCEV *getSCEVAtScope(const SCEV *SC) const;
@@ -714,7 +708,7 @@ class HIRParser {
 
   /// Return the dimension index with the new blob and coeff after blob with \p
   /// BlobIndex being mapped using \p DimSizes.
-  Optional<DelinearizedCoeffBlobIndex>
+  std::optional<DelinearizedCoeffBlobIndex>
   delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
                        SmallVectorImpl<BlobTy> &DimSizes);
 

@@ -13,7 +13,7 @@
 // License.
 
 #pragma once
-
+#if INTEL_CUSTOMIZATION
 // This file contains local definitions required for
 // the GPA instrumentation in the OpenCL framework
 #if defined(USE_GPA)
@@ -35,7 +35,8 @@
 #ifdef USE_ITT
 #include <ittnotify.h>
 #endif
-#endif
+#endif // USE_GPA
+#endif // INTEL_CUSTOMIZATION
 
 #define ITT_SHOW_QUEUED_MARKER 0x1
 #define ITT_SHOW_SUBMITTED_MARKER 0x2
@@ -79,17 +80,21 @@ struct ocl_gpa_data {
   __itt_string_handle *pIsBlocking;
   __itt_string_handle *pNumEventsInWaitList;
 #endif
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
   __itt_track_group *pContextTrackGroup;
   __ittx_task_state *pWaitingTaskState;
   __ittx_task_state *pRunningTaskState;
 #endif
+#endif // INTEL_CUSTOMIZATION
 };
 
 struct ocl_gpa_queue {
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
   __itt_track *m_pTrack;
 #endif
+#endif // INTEL_CUSTOMIZATION
 #ifdef USE_ITT
   __itt_string_handle *m_pStrHndl;
 #endif

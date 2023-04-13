@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: system-windows,intel_feature_sw_advanced
-; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -inline-threshold=0 -inline-tbb-parallel-for-min-funcs=0 -lto-inline-cost < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -inline-threshold=0 -inline-tbb-parallel-for-min-funcs=0 -lto-inline-cost -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 -inline-threshold=0 -inline-tbb-parallel-for-min-funcs=0 -lto-inline-cost < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -inline-threshold=0 -inline-tbb-parallel-for-min-funcs=0 -lto-inline-cost -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Show that ?relax@@YAXPEAH00H@Z is inlined because it is selected as a
 ; candidate using the "TBB parallel for" inlining heuristic on Windows.
@@ -164,13 +164,11 @@ entry:
   br i1 %i, label %dtor.continue, label %dtor.call_delete
 
 dtor.call_delete:                                 ; preds = %entry
-  %i1 = bitcast ptr %this to ptr
-  tail call void @"??3@YAXPEAX@Z"(ptr noundef nonnull %i1)
+  tail call void @"??3@YAXPEAX@Z"(ptr noundef nonnull %this)
   br label %dtor.continue
 
 dtor.continue:                                    ; preds = %dtor.call_delete, %entry
-  %i2 = bitcast ptr %this to ptr
-  ret ptr %i2
+  ret ptr %this
 }
 
 define linkonce_odr dso_local noundef ptr @"?execute@?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@UEAAPEAVtask@234@AEAUexecution_data@234@@Z"(ptr noundef nonnull align 64 dereferenceable(144) %this, ptr noundef nonnull align 8 dereferenceable(16) %ed) comdat align 2 {
@@ -199,10 +197,8 @@ if.end:                                           ; preds = %if.then, %"?is_same
   br i1 %tobool.not.i, label %if.then.i, label %"??$check_being_stolen@U?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@@?$dynamic_grainsize_mode@U?$adaptive_mode@Vauto_partition_type@d1@detail@tbb@@@d1@detail@tbb@@@d1@detail@tbb@@QEAA_NAEAU?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@123@AEBUexecution_data@123@@Z.exit"
 
 if.then.i:                                        ; preds = %if.end
-  %i2 = bitcast ptr %this to ptr
-  %sunkaddr = getelementptr inbounds i8, ptr %i2, i64 112
-  %i3 = bitcast ptr %sunkaddr to ptr
-  store i64 1, ptr %i3, align 16, !tbaa !23
+  %sunkaddr = getelementptr inbounds i8, ptr %this, i64 112
+  store i64 1, ptr %sunkaddr, align 16, !tbaa !23
   %call.i.i.i = tail call noundef i16 @"?execution_slot@r1@detail@tbb@@YAGPEBUexecution_data@d1@23@@Z"(ptr noundef nonnull %ed)
   %original_slot.i.i.i = getelementptr inbounds %"struct.tbb::detail::d1::execution_data", ptr %ed, i64 0, i32 1, !intel-tbaa !26
   %i4 = load i16, ptr %original_slot.i.i.i, align 8, !tbaa !26
@@ -219,10 +215,8 @@ land.lhs.true.i:                                  ; preds = %if.then.i
   br i1 %cmp.i10, label %if.then6.i, label %"??$check_being_stolen@U?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@@?$dynamic_grainsize_mode@U?$adaptive_mode@Vauto_partition_type@d1@detail@tbb@@@d1@detail@tbb@@@d1@detail@tbb@@QEAA_NAEAU?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@123@AEBUexecution_data@123@@Z.exit"
 
 if.then6.i:                                       ; preds = %land.lhs.true.i
-  %i8 = bitcast ptr %this to ptr
-  %sunkaddr54 = getelementptr inbounds i8, ptr %i8, i64 104
-  %i9 = bitcast ptr %sunkaddr54 to ptr
-  %i10 = load ptr, ptr %i9, align 8, !tbaa !27
+  %sunkaddr54 = getelementptr inbounds i8, ptr %this, i64 104
+  %i10 = load ptr, ptr %sunkaddr54, align 8, !tbaa !27
   %i11 = getelementptr inbounds %"struct.tbb::detail::d1::tree_node", ptr %i10, i64 0, i32 2, i32 0, i32 0, i32 0
   store volatile i8 1, ptr %i11, align 1
   %my_max_depth.i = getelementptr inbounds %"struct.tbb::detail::d1::start_for", ptr %this, i64 0, i32 4, i32 0, i32 2
@@ -237,8 +231,7 @@ if.then6.i:                                       ; preds = %land.lhs.true.i
   %my_range = getelementptr inbounds %"struct.tbb::detail::d1::start_for", ptr %this, i64 0, i32 1, !intel-tbaa !40
   %my_grainsize.i.i = getelementptr inbounds %"struct.tbb::detail::d1::start_for", ptr %this, i64 0, i32 1, i32 2
   %i13 = load i64, ptr %my_grainsize.i.i, align 8, !tbaa !41
-  %my_end.i.i.i55 = bitcast ptr %my_range to ptr
-  %i14 = load i32, ptr %my_end.i.i.i55, align 64, !tbaa !42
+  %i14 = load i32, ptr %my_range, align 64, !tbaa !42
   %my_begin.i.i.i = getelementptr inbounds %"struct.tbb::detail::d1::start_for", ptr %this, i64 0, i32 1, i32 1
   %i15 = load i32, ptr %my_begin.i.i.i, align 4, !tbaa !43
   %sub.i.i.i = sub nsw i32 %i14, %i15
@@ -247,10 +240,8 @@ if.then6.i:                                       ; preds = %land.lhs.true.i
   br i1 %cmp.i.i, label %if.then.i11, label %if.end9.i
 
 if.then.i11:                                      ; preds = %"??$check_being_stolen@U?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@@?$dynamic_grainsize_mode@U?$adaptive_mode@Vauto_partition_type@d1@detail@tbb@@@d1@detail@tbb@@@d1@detail@tbb@@QEAA_NAEAU?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@123@AEBUexecution_data@123@@Z.exit"
-  %i16 = bitcast ptr %this to ptr
-  %sunkaddr56 = getelementptr inbounds i8, ptr %i16, i64 112
-  %i17 = bitcast ptr %sunkaddr56 to ptr
-  %i18 = load i64, ptr %i17, align 16, !tbaa !23
+  %sunkaddr56 = getelementptr inbounds i8, ptr %this, i64 112
+  %i18 = load i64, ptr %sunkaddr56, align 16, !tbaa !23
   %cmp.i15.i = icmp ugt i64 %i18, 1
   br i1 %cmp.i15.i, label %"?is_divisible@auto_partition_type@d1@detail@tbb@@QEAA_NXZ.exit.i", label %if.end.i.i
 
@@ -266,13 +257,10 @@ land.lhs.true.i.i:                                ; preds = %if.end.i.i
 
 if.then4.i.i:                                     ; preds = %land.lhs.true.i.i
   %dec.i.i = add i8 %i20, -1
-  %i21 = bitcast ptr %this to ptr
-  %sunkaddr57 = getelementptr inbounds i8, ptr %i21, i64 124
+  %sunkaddr57 = getelementptr inbounds i8, ptr %this, i64 124
   store i8 %dec.i.i, ptr %sunkaddr57, align 4, !tbaa !37
-  %i22 = bitcast ptr %this to ptr
-  %sunkaddr58 = getelementptr inbounds i8, ptr %i22, i64 112
-  %i23 = bitcast ptr %sunkaddr58 to ptr
-  store i64 0, ptr %i23, align 16, !tbaa !23
+  %sunkaddr58 = getelementptr inbounds i8, ptr %this, i64 112
+  store i64 0, ptr %sunkaddr58, align 16, !tbaa !23
   br label %"?is_divisible@auto_partition_type@d1@detail@tbb@@QEAA_NXZ.exit.i"
 
 "?is_divisible@auto_partition_type@d1@detail@tbb@@QEAA_NXZ.exit.i": ; preds = %if.then4.i.i, %if.then.i11
@@ -280,119 +268,82 @@ if.then4.i.i:                                     ; preds = %land.lhs.true.i.i
   br label %do.body.i
 
 do.body.i:                                        ; preds = %if.then4.i30.i, %land.rhs.i, %"?is_divisible@auto_partition_type@d1@detail@tbb@@QEAA_NXZ.exit.i"
-  %i24 = bitcast ptr %ed to ptr
-  %i25 = bitcast ptr %my_body5.i.i.i.i.i to ptr
-  %i26 = bitcast ptr %alloc.i.i.i to ptr
-  %i27 = bitcast ptr %alloc.i.i.i to ptr
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i27)
-  store ptr null, ptr %i26, align 8, !tbaa !44
-  %call.i.i.i.i = call noundef ptr @"?allocate@r1@detail@tbb@@YAPEAXAEAPEAVsmall_object_pool@d1@23@_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 8 dereferenceable(8) %i26, i64 noundef 192, ptr noundef nonnull align 8 dereferenceable(16) %ed)
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %alloc.i.i.i)
+  store ptr null, ptr %alloc.i.i.i, align 8, !tbaa !44
+  %call.i.i.i.i = call noundef ptr @"?allocate@r1@detail@tbb@@YAPEAXAEAPEAVsmall_object_pool@d1@23@_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 8 dereferenceable(8) %alloc.i.i.i, i64 noundef 192, ptr noundef nonnull align 8 dereferenceable(16) %ed)
   %m_version_and_traits.i.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 8
   %arrayinit.end.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 64
-  %i28 = bitcast ptr %m_version_and_traits.i.i.i.i.i.i.i to ptr
-  store <2 x i64> zeroinitializer, ptr %i28, align 8, !tbaa !45
+  store <2 x i64> zeroinitializer, ptr %m_version_and_traits.i.i.i.i.i.i.i, align 8, !tbaa !45
   %i29 = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 24
-  %i30 = bitcast ptr %i29 to ptr
-  store <2 x i64> zeroinitializer, ptr %i30, align 8, !tbaa !45
+  store <2 x i64> zeroinitializer, ptr %i29, align 8, !tbaa !45
   %i31 = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 40
-  %i32 = bitcast ptr %i31 to ptr
-  store <2 x i64> zeroinitializer, ptr %i32, align 8, !tbaa !45
+  store <2 x i64> zeroinitializer, ptr %i31, align 8, !tbaa !45
   %i33 = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 56
-  %i34 = bitcast ptr %i33 to ptr
-  store i64 0, ptr %i34, align 8, !tbaa !45
-  %i35 = bitcast ptr %call.i.i.i.i to ptr
-  store ptr @"??_7?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@6B@", ptr %i35, align 64, !tbaa !46
-  %i36 = bitcast ptr %arrayinit.end.i.i.i.i.i.i to ptr
-  %i37 = bitcast ptr %this to ptr
-  %sunkaddr61 = getelementptr inbounds i8, ptr %i37, i64 64
-  %i38 = bitcast ptr %sunkaddr61 to ptr
-  %i39 = load i32, ptr %i38, align 64, !tbaa !42
-  store i32 %i39, ptr %i36, align 64, !tbaa !42
+  store i64 0, ptr %i33, align 8, !tbaa !45
+  store ptr @"??_7?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@6B@", ptr %call.i.i.i.i, align 64, !tbaa !46
+  %sunkaddr61 = getelementptr inbounds i8, ptr %this, i64 64
+  %i39 = load i32, ptr %sunkaddr61, align 64, !tbaa !42
+  store i32 %i39, ptr %arrayinit.end.i.i.i.i.i.i, align 64, !tbaa !42
   %my_begin.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 68
-  %i40 = bitcast ptr %my_begin.i.i.i.i.i.i to ptr
-  %i41 = bitcast ptr %this to ptr
-  %sunkaddr62 = getelementptr inbounds i8, ptr %i41, i64 68
-  %i42 = bitcast ptr %sunkaddr62 to ptr
-  %i43 = load i32, ptr %i42, align 4, !tbaa !43
-  %i44 = load i32, ptr %i38, align 64, !tbaa !42
+  %sunkaddr62 = getelementptr inbounds i8, ptr %this, i64 68
+  %i43 = load i32, ptr %sunkaddr62, align 4, !tbaa !43
+  %i44 = load i32, ptr %sunkaddr61, align 64, !tbaa !42
   %sub.i.i.i.i.i.i.i = sub nsw i32 %i44, %i43
   %div8.i.i.i.i.i.i.i = lshr i32 %sub.i.i.i.i.i.i.i, 1
   %add.i.i.i.i.i.i.i = add i32 %div8.i.i.i.i.i.i.i, %i43
-  store i32 %add.i.i.i.i.i.i.i, ptr %i38, align 64, !tbaa !42
-  store i32 %add.i.i.i.i.i.i.i, ptr %i40, align 4, !tbaa !43
+  store i32 %add.i.i.i.i.i.i.i, ptr %sunkaddr61, align 64, !tbaa !42
+  store i32 %add.i.i.i.i.i.i.i, ptr %my_begin.i.i.i.i.i.i, align 4, !tbaa !43
   %my_grainsize.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 72
-  %i45 = bitcast ptr %my_grainsize.i.i.i.i.i.i to ptr
-  %i46 = bitcast ptr %this to ptr
-  %sunkaddr63 = getelementptr inbounds i8, ptr %i46, i64 72
-  %i47 = bitcast ptr %sunkaddr63 to ptr
-  %i48 = load i64, ptr %i47, align 8, !tbaa !41
-  store i64 %i48, ptr %i45, align 8, !tbaa !41
+  %sunkaddr63 = getelementptr inbounds i8, ptr %this, i64 72
+  %i48 = load i64, ptr %sunkaddr63, align 8, !tbaa !41
+  store i64 %i48, ptr %my_grainsize.i.i.i.i.i.i, align 8, !tbaa !41
   %my_body.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 80
-  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 16 dereferenceable(24) %my_body.i.i.i.i.i, ptr noundef nonnull align 16 dereferenceable(24) %i25, i64 24, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 16 dereferenceable(24) %my_body.i.i.i.i.i, ptr noundef nonnull align 16 dereferenceable(24) %my_body5.i.i.i.i.i, i64 24, i1 false)
   %my_divisor.i.i.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 112
-  %i49 = bitcast ptr %my_divisor.i.i.i.i.i.i.i.i to ptr
-  %i50 = bitcast ptr %this to ptr
-  %sunkaddr64 = getelementptr inbounds i8, ptr %i50, i64 112
-  %i51 = bitcast ptr %sunkaddr64 to ptr
-  %i52 = load i64, ptr %i51, align 16, !tbaa !23
+  %sunkaddr64 = getelementptr inbounds i8, ptr %this, i64 112
+  %i52 = load i64, ptr %sunkaddr64, align 16, !tbaa !23
   %div2.i.i.i.i.i.i.i.i.i = lshr i64 %i52, 1
-  store i64 %div2.i.i.i.i.i.i.i.i.i, ptr %i51, align 16, !tbaa !23
-  store i64 %div2.i.i.i.i.i.i.i.i.i, ptr %i49, align 16, !tbaa !23
+  store i64 %div2.i.i.i.i.i.i.i.i.i, ptr %sunkaddr64, align 16, !tbaa !23
+  store i64 %div2.i.i.i.i.i.i.i.i.i, ptr %my_divisor.i.i.i.i.i.i.i.i, align 16, !tbaa !23
   %my_delay.i.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 120
-  %i53 = bitcast ptr %my_delay.i.i.i.i.i.i.i to ptr
-  store i32 2, ptr %i53, align 8, !tbaa !48
+  store i32 2, ptr %my_delay.i.i.i.i.i.i.i, align 8, !tbaa !48
   %i54 = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 124
-  %i55 = bitcast ptr %this to ptr
-  %sunkaddr65 = getelementptr inbounds i8, ptr %i55, i64 124
+  %sunkaddr65 = getelementptr inbounds i8, ptr %this, i64 124
   %i56 = load i8, ptr %sunkaddr65, align 4, !tbaa !37
   store i8 %i56, ptr %i54, align 4, !tbaa !37
   %i57 = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 128
-  %i58 = bitcast ptr %i57 to ptr
-  %i59 = load ptr, ptr %i26, align 8, !tbaa !44
-  store ptr %i59, ptr %i58, align 64, !tbaa !49
-  %call.i14.i.i.i = call noundef ptr @"?allocate@r1@detail@tbb@@YAPEAXAEAPEAVsmall_object_pool@d1@23@_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 8 dereferenceable(8) %i26, i64 noundef 32, ptr noundef nonnull align 8 dereferenceable(16) %ed)
-  %i60 = bitcast ptr %this to ptr
-  %sunkaddr66 = getelementptr inbounds i8, ptr %i60, i64 104
-  %i61 = bitcast ptr %sunkaddr66 to ptr
-  %i62 = load ptr, ptr %i61, align 8, !tbaa !27
-  %my_parent.i.i.i.i.i.i = bitcast ptr %call.i14.i.i.i to ptr
-  store ptr %i62, ptr %my_parent.i.i.i.i.i.i, align 8, !tbaa !50
+  %i59 = load ptr, ptr %alloc.i.i.i, align 8, !tbaa !44
+  store ptr %i59, ptr %i57, align 64, !tbaa !49
+  %call.i14.i.i.i = call noundef ptr @"?allocate@r1@detail@tbb@@YAPEAXAEAPEAVsmall_object_pool@d1@23@_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 8 dereferenceable(8) %alloc.i.i.i, i64 noundef 32, ptr noundef nonnull align 8 dereferenceable(16) %ed)
+  %sunkaddr66 = getelementptr inbounds i8, ptr %this, i64 104
+  %i62 = load ptr, ptr %sunkaddr66, align 8, !tbaa !27
+  store ptr %i62, ptr %call.i14.i.i.i, align 8, !tbaa !50
   %_Value2.i.i.i.i.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i14.i.i.i, i64 8
-  %i63 = bitcast ptr %_Value2.i.i.i.i.i.i.i.i.i.i to ptr
-  store i32 2, ptr %i63, align 8, !tbaa !53
+  store i32 2, ptr %_Value2.i.i.i.i.i.i.i.i.i.i, align 8, !tbaa !53
   %i64 = getelementptr inbounds i8, ptr %call.i14.i.i.i, i64 16
-  %i65 = bitcast ptr %i64 to ptr
-  %i66 = load ptr, ptr %i26, align 8, !tbaa !44
-  store ptr %i66, ptr %i65, align 8, !tbaa !49
+  %i66 = load ptr, ptr %alloc.i.i.i, align 8, !tbaa !44
+  store ptr %i66, ptr %i64, align 8, !tbaa !49
   %i67 = getelementptr inbounds i8, ptr %call.i14.i.i.i, i64 24
   store i8 0, ptr %i67, align 8, !tbaa !56
-  %i68 = bitcast ptr %this to ptr
-  %sunkaddr67 = getelementptr inbounds i8, ptr %i68, i64 104
-  %i69 = bitcast ptr %sunkaddr67 to ptr
-  store ptr %call.i14.i.i.i, ptr %i69, align 8, !tbaa !27
+  %sunkaddr67 = getelementptr inbounds i8, ptr %this, i64 104
+  store ptr %call.i14.i.i.i, ptr %sunkaddr67, align 8, !tbaa !27
   %my_parent7.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i, i64 104
-  %i70 = bitcast ptr %my_parent7.i.i.i to ptr
-  store ptr %call.i14.i.i.i, ptr %i70, align 8, !tbaa !27
-  %i71 = load ptr, ptr %i24, align 8, !tbaa !60
-  %i72 = bitcast ptr %call.i.i.i.i to ptr
-  call void @"?spawn@r1@detail@tbb@@YAXAEAVtask@d1@23@AEAVtask_group_context@523@@Z"(ptr noundef nonnull align 64 dereferenceable(64) %i72, ptr noundef nonnull align 8 dereferenceable(128) %i71)
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %i27)
-  %i73 = load i64, ptr %i47, align 8, !tbaa !41
-  %i74 = bitcast ptr %this to ptr
-  %sunkaddr68 = getelementptr inbounds i8, ptr %i74, i64 64
-  %i75 = bitcast ptr %sunkaddr68 to ptr
-  %i76 = load i32, ptr %i75, align 64, !tbaa !42
-  %i77 = load i32, ptr %i42, align 4, !tbaa !43
+  store ptr %call.i14.i.i.i, ptr %my_parent7.i.i.i, align 8, !tbaa !27
+  %i71 = load ptr, ptr %ed, align 8, !tbaa !60
+  call void @"?spawn@r1@detail@tbb@@YAXAEAVtask@d1@23@AEAVtask_group_context@523@@Z"(ptr noundef nonnull align 64 dereferenceable(64) %call.i.i.i.i, ptr noundef nonnull align 8 dereferenceable(128) %i71)
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %alloc.i.i.i)
+  %i73 = load i64, ptr %sunkaddr63, align 8, !tbaa !41
+  %sunkaddr68 = getelementptr inbounds i8, ptr %this, i64 64
+  %i76 = load i32, ptr %sunkaddr68, align 64, !tbaa !42
+  %i77 = load i32, ptr %sunkaddr62, align 4, !tbaa !43
   %sub.i.i19.i = sub nsw i32 %i76, %i77
   %conv.i.i20.i = sext i32 %sub.i.i19.i to i64
   %cmp.i21.i = icmp ult i64 %i73, %conv.i.i20.i
   br i1 %cmp.i21.i, label %land.rhs.i, label %if.end9.i
 
 land.rhs.i:                                       ; preds = %do.body.i
-  %i78 = bitcast ptr %this to ptr
-  %sunkaddr69 = getelementptr inbounds i8, ptr %i78, i64 112
-  %i79 = bitcast ptr %sunkaddr69 to ptr
-  %i80 = load i64, ptr %i79, align 16, !tbaa !23
+  %sunkaddr69 = getelementptr inbounds i8, ptr %this, i64 112
+  %i80 = load i64, ptr %sunkaddr69, align 16, !tbaa !23
   %cmp.i23.i = icmp ugt i64 %i80, 1
   br i1 %cmp.i23.i, label %do.body.i, label %if.end.i25.i
 
@@ -401,21 +352,17 @@ if.end.i25.i:                                     ; preds = %land.rhs.i
   br i1 %tobool.not.i24.i, label %if.end9.i, label %land.lhs.true.i28.i
 
 land.lhs.true.i28.i:                              ; preds = %if.end.i25.i
-  %i81 = bitcast ptr %this to ptr
-  %sunkaddr70 = getelementptr inbounds i8, ptr %i81, i64 124
+  %sunkaddr70 = getelementptr inbounds i8, ptr %this, i64 124
   %i82 = load i8, ptr %sunkaddr70, align 4, !tbaa !37
   %tobool3.not.i27.i = icmp eq i8 %i82, 0
   br i1 %tobool3.not.i27.i, label %if.end9.i, label %if.then4.i30.i
 
 if.then4.i30.i:                                   ; preds = %land.lhs.true.i28.i
   %dec.i29.i = add i8 %i82, -1
-  %i83 = bitcast ptr %this to ptr
-  %sunkaddr71 = getelementptr inbounds i8, ptr %i83, i64 124
+  %sunkaddr71 = getelementptr inbounds i8, ptr %this, i64 124
   store i8 %dec.i29.i, ptr %sunkaddr71, align 4, !tbaa !37
-  %i84 = bitcast ptr %this to ptr
-  %sunkaddr72 = getelementptr inbounds i8, ptr %i84, i64 112
-  %i85 = bitcast ptr %sunkaddr72 to ptr
-  store i64 0, ptr %i85, align 16, !tbaa !23
+  %sunkaddr72 = getelementptr inbounds i8, ptr %this, i64 112
+  store i64 0, ptr %sunkaddr72, align 16, !tbaa !23
   br label %do.body.i
 
 if.end9.i:                                        ; preds = %land.lhs.true.i28.i, %if.end.i25.i, %do.body.i, %land.lhs.true.i.i, %if.end.i.i, %"??$check_being_stolen@U?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@@?$dynamic_grainsize_mode@U?$adaptive_mode@Vauto_partition_type@d1@detail@tbb@@@d1@detail@tbb@@@d1@detail@tbb@@QEAA_NAEAU?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@123@AEBUexecution_data@123@@Z.exit"
@@ -453,38 +400,29 @@ for.body.i.i.i.i:                                 ; preds = %for.body.i.i.i.i, %
   %indvars.iv.i.i.i.i = phi i64 [ %i91, %for.body.lr.ph.i.i.i.i ], [ %indvars.iv.next.i.i.i.i, %for.body.i.i.i.i ]
   %lsr48 = trunc i64 %indvars.iv.i.i.i.i to i32
   call fastcc void @"?delta_stepping@@YAXPEAH00H@Z"(ptr noundef %i92, ptr noundef %i93, ptr noundef %i94, i32 noundef %lsr48)
-  %i95 = bitcast ptr %this to ptr
-  %sunkaddr73 = getelementptr inbounds i8, ptr %i95, i64 80
-  %i96 = bitcast ptr %sunkaddr73 to ptr
-  %i97 = load ptr, ptr %i96, align 16, !tbaa !63
+  %sunkaddr73 = getelementptr inbounds i8, ptr %this, i64 80
+  %i97 = load ptr, ptr %sunkaddr73, align 16, !tbaa !63
   %scevgep47 = getelementptr i32, ptr %i97, i64 %indvars.iv.i.i.i.i
   %i98 = load i32, ptr %scevgep47, align 4, !tbaa !64
-  %i99 = bitcast ptr %this to ptr
-  %sunkaddr74 = getelementptr inbounds i8, ptr %i99, i64 88
-  %i100 = bitcast ptr %sunkaddr74 to ptr
-  %i101 = load ptr, ptr %i100, align 8, !tbaa !62
+  %sunkaddr74 = getelementptr inbounds i8, ptr %this, i64 88
+  %i101 = load ptr, ptr %sunkaddr74, align 8, !tbaa !62
   %scevgep46 = getelementptr i32, ptr %i101, i64 %indvars.iv.i.i.i.i
   %i102 = load i32, ptr %scevgep46, align 4, !tbaa !64
   %add.i.i.i.i = add nsw i32 %i102, %i98
-  %i103 = bitcast ptr %this to ptr
-  %sunkaddr75 = getelementptr inbounds i8, ptr %i103, i64 96
-  %i104 = bitcast ptr %sunkaddr75 to ptr
-  %i105 = load ptr, ptr %i104, align 32, !tbaa !61
+  %sunkaddr75 = getelementptr inbounds i8, ptr %this, i64 96
+  %i105 = load ptr, ptr %sunkaddr75, align 32, !tbaa !61
   %scevgep = getelementptr i32, ptr %i105, i64 %indvars.iv.i.i.i.i
   store i32 %add.i.i.i.i, ptr %scevgep, align 4, !tbaa !64
   %indvars.iv.next.i.i.i.i = add i64 %indvars.iv.i.i.i.i, 1
   %lsr = trunc i64 %indvars.iv.next.i.i.i.i to i32
-  %i106 = bitcast ptr %this to ptr
-  %sunkaddr76 = getelementptr inbounds i8, ptr %i106, i64 64
-  %i107 = bitcast ptr %sunkaddr76 to ptr
-  %i108 = load i32, ptr %i107, align 64, !tbaa !42
+  %sunkaddr76 = getelementptr inbounds i8, ptr %this, i64 64
+  %i108 = load i32, ptr %sunkaddr76, align 64, !tbaa !42
   %cmp.not.i.i.i.i = icmp eq i32 %lsr, %i108
   br i1 %cmp.not.i.i.i.i, label %"??$execute@U?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@V?$blocked_range@H@234@@?$partition_type_base@Vauto_partition_type@d1@detail@tbb@@@d1@detail@tbb@@QEAAXAEAU?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@123@AEAV?$blocked_range@H@123@AEAUexecution_data@123@@Z.exit", label %for.body.i.i.i.i, !llvm.loop !65
 
 if.else.i.i:                                      ; preds = %lor.lhs.false.i.i
-  %i109 = bitcast ptr %range_pool.i.i to ptr
-  call void @llvm.lifetime.start.p0(i64 144, ptr nonnull %i109)
-  store i8 0, ptr %i109, align 8, !tbaa !67
+  call void @llvm.lifetime.start.p0(i64 144, ptr nonnull %range_pool.i.i)
+  store i8 0, ptr %range_pool.i.i, align 8, !tbaa !67
   %my_tail.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::range_vector", ptr %range_pool.i.i, i64 0, i32 1, !intel-tbaa !72
   store i8 0, ptr %my_tail.i.i.i, align 1, !tbaa !72
   %my_size.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::range_vector", ptr %range_pool.i.i, i64 0, i32 2, !intel-tbaa !73
@@ -492,8 +430,7 @@ if.else.i.i:                                      ; preds = %lor.lhs.false.i.i
   %arrayidx.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::range_vector", ptr %range_pool.i.i, i64 0, i32 3, i64 0, !intel-tbaa !74
   store i8 0, ptr %arrayidx.i.i.i, align 1, !tbaa !74
   %i110 = getelementptr inbounds %"class.tbb::detail::d1::range_vector", ptr %range_pool.i.i, i64 0, i32 5, i32 0, i64 0
-  %i111 = bitcast ptr %my_range to ptr
-  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %i110, ptr noundef nonnull align 64 dereferenceable(16) %i111, i64 16, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %i110, ptr noundef nonnull align 64 dereferenceable(16) %my_range, i64 16, i1 false)
   %my_pool.i.i.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::range_vector", ptr %range_pool.i.i, i64 0, i32 5
   %my_body2.i.i.i.i.i.i = getelementptr inbounds %"struct.tbb::detail::d1::start_for", ptr %this, i64 0, i32 2
   br label %do.body.i.i
@@ -502,8 +439,7 @@ do.body.i.i:                                      ; preds = %land.rhs.i.i, %if.e
   %i112 = phi i8 [ %i201, %land.rhs.i.i ], [ 0, %if.else.i.i ]
   %rem.i87110.i.i = phi i8 [ %my_head.i.promoted.i116.i.i, %land.rhs.i.i ], [ 0, %if.else.i.i ]
   %inc33.i89106.i.i = phi i8 [ %inc33.i89104118.i.i, %land.rhs.i.i ], [ 1, %if.else.i.i ]
-  %i113 = bitcast ptr %this to ptr
-  %sunkaddr79 = getelementptr inbounds i8, ptr %i113, i64 124
+  %sunkaddr79 = getelementptr inbounds i8, ptr %this, i64 124
   %i114 = load i8, ptr %sunkaddr79, align 4, !tbaa !37
   %cmp38.i.i.i = icmp ult i8 %inc33.i89106.i.i, 8
   br i1 %cmp38.i.i.i, label %land.rhs.lr.ph.i.i.i, label %"?split_to_fill@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAAXE@Z.exit.i.i"
@@ -528,13 +464,12 @@ land.rhs.i.i.i:                                   ; preds = %while.body.i.i.i
   %idxprom.i.i.i96.i.i = phi i64 [ %rem.i.i.i, %land.rhs.i.i.i ], [ %idxprom.i.i.i90.i.i, %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i.i.preheader" ]
   %rem3739.i95.i.i = phi i8 [ %promoted85, %land.rhs.i.i.i ], [ %rem.i87110.i.i, %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i.i.preheader" ]
   %i116 = phi i8 [ %inc33.i.i.i, %land.rhs.i.i.i ], [ %inc33.i89106.i.i, %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i.i.preheader" ]
-  %i117 = bitcast ptr %my_pool.i.i.i.i.i to ptr
-  %my_grainsize.i.i.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i117, i64 %idxprom.i.i.i96.i.i, i32 2
+  %my_grainsize.i.i.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %idxprom.i.i.i96.i.i, i32 2
   %i118 = load i64, ptr %my_grainsize.i.i.i.i.i, align 8, !tbaa !76
-  %my_end.i.i.i.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i117, i64 %idxprom.i.i.i96.i.i, i32 0
+  %my_end.i.i.i.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %idxprom.i.i.i96.i.i, i32 0
   %i119 = load i32, ptr %my_end.i.i.i.i.i.i, align 8, !tbaa !77
   %conv.i.i.i.i.i.i = sext i32 %i119 to i64
-  %my_begin.i.i.i.i.i34.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i117, i64 %idxprom.i.i.i96.i.i, i32 1
+  %my_begin.i.i.i.i.i34.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %idxprom.i.i.i96.i.i, i32 1
   %i120 = load i32, ptr %my_begin.i.i.i.i.i34.i, align 4, !tbaa !78
   %promoted = sext i32 %i120 to i64
   %sub.i.i.i.i.i.i = sub nsw i64 %conv.i.i.i.i.i.i, %promoted
@@ -542,29 +477,24 @@ land.rhs.i.i.i:                                   ; preds = %while.body.i.i.i
   br i1 %cmp.i.i.i.i.i, label %while.body.i.i.i, label %"?split_to_fill@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAAXE@Z.exit.i.i"
 
 while.body.i.i.i:                                 ; preds = %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i.i"
-  %i121 = bitcast ptr %my_pool.i.i.i.i.i to ptr
   %add.i.i.i = add i8 %rem3739.i95.i.i, 1
   %idx.ext.i.i.i = zext i8 %add.i.i.i to i64
   %rem.i.i.i = and i64 %idx.ext.i.i.i, 7
   %promoted85 = trunc i64 %rem.i.i.i to i8
-  %add.ptr.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i121, i64 %rem.i.i.i, !intel-tbaa !79
-  %i122 = bitcast ptr %add.ptr.i.i.i to ptr
-  %arrayidx.i32.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i121, i64 %idxprom.i.i.i96.i.i
-  %i123 = bitcast ptr %arrayidx.i32.i.i to ptr
-  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %i122, ptr noundef nonnull align 8 dereferenceable(16) %i123, i64 16, i1 false)
-  %my_end.i.i33.i.i81 = bitcast ptr %arrayidx.i32.i.i to ptr
-  %my_end2.i.i.i.i82 = bitcast ptr %add.ptr.i.i.i to ptr
-  %i124 = load i32, ptr %my_end2.i.i.i.i82, align 8, !tbaa !77
-  store i32 %i124, ptr %my_end.i.i33.i.i81, align 8, !tbaa !77
-  %my_begin.i.i.i34.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i121, i64 %rem.i.i.i, i32 1
+  %add.ptr.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %rem.i.i.i, !intel-tbaa !79
+  %arrayidx.i32.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %idxprom.i.i.i96.i.i
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %add.ptr.i.i.i, ptr noundef nonnull align 8 dereferenceable(16) %arrayidx.i32.i.i, i64 16, i1 false)
+  %i124 = load i32, ptr %add.ptr.i.i.i, align 8, !tbaa !77
+  store i32 %i124, ptr %arrayidx.i32.i.i, align 8, !tbaa !77
+  %my_begin.i.i.i34.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %rem.i.i.i, i32 1
   %i125 = load i32, ptr %my_begin.i.i.i34.i.i, align 4, !tbaa !78
-  %i126 = load i32, ptr %my_end2.i.i.i.i82, align 8, !tbaa !77
+  %i126 = load i32, ptr %add.ptr.i.i.i, align 8, !tbaa !77
   %sub.i.i.i.i.i = sub nsw i32 %i126, %i125
   %div8.i.i.i.i.i = lshr i32 %sub.i.i.i.i.i, 1
   %add.i.i.i.i.i = add i32 %div8.i.i.i.i.i, %i125
-  store i32 %add.i.i.i.i.i, ptr %my_end2.i.i.i.i82, align 8, !tbaa !77
+  store i32 %add.i.i.i.i.i, ptr %add.ptr.i.i.i, align 8, !tbaa !77
   store i32 %add.i.i.i.i.i, ptr %my_begin.i.i.i.i.i34.i, align 4, !tbaa !78
-  %my_grainsize4.i.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i121, i64 %rem.i.i.i, i32 2
+  %my_grainsize4.i.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %rem.i.i.i, i32 2
   %i127 = load i64, ptr %my_grainsize4.i.i.i.i, align 8, !tbaa !76
   store i64 %i127, ptr %my_grainsize.i.i.i.i.i, align 8, !tbaa !76
   %i128 = load i8, ptr %arrayidx.i.i.i97.i.i, align 1, !tbaa !74
@@ -578,10 +508,8 @@ while.body.i.i.i:                                 ; preds = %"?is_divisible@?$ra
 "?split_to_fill@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAAXE@Z.exit.i.i": ; preds = %while.body.i.i.i, %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i.i", %land.rhs.i.i.i, %land.rhs.lr.ph.i.i.i, %do.body.i.i
   %rem.i87109.i.i = phi i8 [ %rem.i87110.i.i, %do.body.i.i ], [ %rem.i87110.i.i, %land.rhs.lr.ph.i.i.i ], [ %promoted85, %while.body.i.i.i ], [ %promoted85, %land.rhs.i.i.i ], [ %rem3739.i95.i.i, %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i.i" ]
   %inc33.i89105.i.i = phi i8 [ %inc33.i89106.i.i, %do.body.i.i ], [ %inc33.i89106.i.i, %land.rhs.lr.ph.i.i.i ], [ 8, %while.body.i.i.i ], [ %inc33.i.i.i, %land.rhs.i.i.i ], [ %i116, %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i.i" ]
-  %i129 = bitcast ptr %this to ptr
-  %sunkaddr86 = getelementptr inbounds i8, ptr %i129, i64 104
-  %i130 = bitcast ptr %sunkaddr86 to ptr
-  %i131 = load ptr, ptr %i130, align 8, !tbaa !27
+  %sunkaddr86 = getelementptr inbounds i8, ptr %this, i64 104
+  %i131 = load ptr, ptr %sunkaddr86, align 8, !tbaa !27
   %i132 = getelementptr inbounds %"struct.tbb::detail::d1::tree_node", ptr %i131, i64 0, i32 2, i32 0, i32 0, i32 0
   %i133 = load volatile i8, ptr %i132, align 1
   %i134 = and i8 %i133, 1
@@ -594,83 +522,60 @@ while.body.i.i.i:                                 ; preds = %"?is_divisible@?$ra
 
 if.then9.i.i:                                     ; preds = %"?split_to_fill@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAAXE@Z.exit.i.i"
   %add.i36.i.i = add i8 %i114, 1
-  %i135 = bitcast ptr %this to ptr
-  %sunkaddr87 = getelementptr inbounds i8, ptr %i135, i64 124
+  %sunkaddr87 = getelementptr inbounds i8, ptr %this, i64 124
   store i8 %add.i36.i.i, ptr %sunkaddr87, align 4, !tbaa !37
   %cmp.i35.i = icmp ugt i8 %inc33.i89105.i.i, 1
   br i1 %cmp.i35.i, label %do.cond.i.thread.i, label %if.end.i38.i
 
 do.cond.i.thread.i:                               ; preds = %if.then9.i.i
-  %i136 = bitcast ptr %ed to ptr
-  %i137 = bitcast ptr %my_body2.i.i.i.i.i.i to ptr
-  %i138 = bitcast ptr %alloc.i.i.i.i to ptr
-  %i139 = bitcast ptr %alloc.i.i.i.i to ptr
-  %i140 = bitcast ptr %my_pool.i.i.i.i.i to ptr
   %idxprom.i.i.i = zext i8 %i112 to i64
   %arrayidx.i39.i.i = getelementptr inbounds %"class.tbb::detail::d1::range_vector", ptr %range_pool.i.i, i64 0, i32 3, i64 %idxprom.i.i.i, !intel-tbaa !74
   %i141 = load i8, ptr %arrayidx.i39.i.i, align 1, !tbaa !74
-  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i139)
-  store ptr null, ptr %i138, align 8, !tbaa !44
-  %call.i.i.i.i.i = call noundef ptr @"?allocate@r1@detail@tbb@@YAPEAXAEAPEAVsmall_object_pool@d1@23@_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 8 dereferenceable(8) %i138, i64 noundef 192, ptr noundef nonnull align 8 dereferenceable(16) %ed)
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %alloc.i.i.i.i)
+  store ptr null, ptr %alloc.i.i.i.i, align 8, !tbaa !44
+  %call.i.i.i.i.i = call noundef ptr @"?allocate@r1@detail@tbb@@YAPEAXAEAPEAVsmall_object_pool@d1@23@_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 8 dereferenceable(8) %alloc.i.i.i.i, i64 noundef 192, ptr noundef nonnull align 8 dereferenceable(16) %ed)
   %m_version_and_traits.i.i.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i.i, i64 8
   %arrayinit.end.i.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i.i, i64 64
-  %arrayidx.i42.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i140, i64 %idxprom.i.i.i
-  %i142 = bitcast ptr %call.i.i.i.i.i to ptr
+  %arrayidx.i42.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %idxprom.i.i.i
   call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(56) %m_version_and_traits.i.i.i.i.i.i.i.i, i8 0, i64 56, i1 false)
-  store ptr @"??_7?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@6B@", ptr %i142, align 64, !tbaa !46
-  %i143 = bitcast ptr %arrayidx.i42.i.i to ptr
-  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 64 dereferenceable(16) %arrayinit.end.i.i.i.i.i.i.i, ptr noundef nonnull align 8 dereferenceable(16) %i143, i64 16, i1 false)
+  store ptr @"??_7?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@6B@", ptr %call.i.i.i.i.i, align 64, !tbaa !46
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 64 dereferenceable(16) %arrayinit.end.i.i.i.i.i.i.i, ptr noundef nonnull align 8 dereferenceable(16) %arrayidx.i42.i.i, i64 16, i1 false)
   %my_body.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i.i, i64 80
-  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 16 dereferenceable(24) %my_body.i.i.i.i.i.i, ptr noundef nonnull align 16 dereferenceable(24) %i137, i64 24, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 16 dereferenceable(24) %my_body.i.i.i.i.i.i, ptr noundef nonnull align 16 dereferenceable(24) %my_body2.i.i.i.i.i.i, i64 24, i1 false)
   %my_divisor.i.i.i.i.i.i.i.i36.i = getelementptr inbounds i8, ptr %call.i.i.i.i.i, i64 112
-  %i144 = bitcast ptr %my_divisor.i.i.i.i.i.i.i.i36.i to ptr
-  %i145 = bitcast ptr %this to ptr
-  %sunkaddr88 = getelementptr inbounds i8, ptr %i145, i64 112
-  %i146 = bitcast ptr %sunkaddr88 to ptr
-  %i147 = load i64, ptr %i146, align 16, !tbaa !23
+  %sunkaddr88 = getelementptr inbounds i8, ptr %this, i64 112
+  %i147 = load i64, ptr %sunkaddr88, align 16, !tbaa !23
   %div2.i.i.i.i.i.i.i.i.i.i = lshr i64 %i147, 1
-  store i64 %div2.i.i.i.i.i.i.i.i.i.i, ptr %i146, align 16, !tbaa !23
-  store i64 %div2.i.i.i.i.i.i.i.i.i.i, ptr %i144, align 16, !tbaa !23
+  store i64 %div2.i.i.i.i.i.i.i.i.i.i, ptr %sunkaddr88, align 16, !tbaa !23
+  store i64 %div2.i.i.i.i.i.i.i.i.i.i, ptr %my_divisor.i.i.i.i.i.i.i.i36.i, align 16, !tbaa !23
   %my_delay.i.i.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i.i, i64 120
-  %i148 = bitcast ptr %my_delay.i.i.i.i.i.i.i.i to ptr
-  store i32 2, ptr %i148, align 8, !tbaa !48
+  store i32 2, ptr %my_delay.i.i.i.i.i.i.i.i, align 8, !tbaa !48
   %i149 = getelementptr inbounds i8, ptr %call.i.i.i.i.i, i64 124
-  %i150 = bitcast ptr %this to ptr
-  %sunkaddr89 = getelementptr inbounds i8, ptr %i150, i64 124
+  %sunkaddr89 = getelementptr inbounds i8, ptr %this, i64 124
   %i151 = load i8, ptr %sunkaddr89, align 4, !tbaa !37
   %i152 = getelementptr inbounds i8, ptr %call.i.i.i.i.i, i64 128
-  %i153 = bitcast ptr %i152 to ptr
-  %i154 = load ptr, ptr %i138, align 8, !tbaa !44
-  store ptr %i154, ptr %i153, align 64, !tbaa !49
+  %i154 = load ptr, ptr %alloc.i.i.i.i, align 8, !tbaa !44
+  store ptr %i154, ptr %i152, align 64, !tbaa !49
   %sub.i.i.i.i.i.i37.i = sub i8 %i151, %i141
   store i8 %sub.i.i.i.i.i.i37.i, ptr %i149, align 4, !tbaa !37
-  %call.i16.i.i.i.i = call noundef ptr @"?allocate@r1@detail@tbb@@YAPEAXAEAPEAVsmall_object_pool@d1@23@_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 8 dereferenceable(8) %i138, i64 noundef 32, ptr noundef nonnull align 8 dereferenceable(16) %ed)
-  %i155 = bitcast ptr %this to ptr
-  %sunkaddr90 = getelementptr inbounds i8, ptr %i155, i64 104
-  %i156 = bitcast ptr %sunkaddr90 to ptr
-  %i157 = load ptr, ptr %i156, align 8, !tbaa !27
-  %my_parent.i.i.i.i.i.i.i = bitcast ptr %call.i16.i.i.i.i to ptr
-  store ptr %i157, ptr %my_parent.i.i.i.i.i.i.i, align 8, !tbaa !50
+  %call.i16.i.i.i.i = call noundef ptr @"?allocate@r1@detail@tbb@@YAPEAXAEAPEAVsmall_object_pool@d1@23@_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 8 dereferenceable(8) %alloc.i.i.i.i, i64 noundef 32, ptr noundef nonnull align 8 dereferenceable(16) %ed)
+  %sunkaddr90 = getelementptr inbounds i8, ptr %this, i64 104
+  %i157 = load ptr, ptr %sunkaddr90, align 8, !tbaa !27
+  store ptr %i157, ptr %call.i16.i.i.i.i, align 8, !tbaa !50
   %_Value2.i.i.i.i.i.i.i.i.i.i.i = getelementptr inbounds i8, ptr %call.i16.i.i.i.i, i64 8
-  %i158 = bitcast ptr %_Value2.i.i.i.i.i.i.i.i.i.i.i to ptr
-  store i32 2, ptr %i158, align 8, !tbaa !53
+  store i32 2, ptr %_Value2.i.i.i.i.i.i.i.i.i.i.i, align 8, !tbaa !53
   %i159 = getelementptr inbounds i8, ptr %call.i16.i.i.i.i, i64 16
-  %i160 = bitcast ptr %i159 to ptr
-  %i161 = load ptr, ptr %i138, align 8, !tbaa !44
-  store ptr %i161, ptr %i160, align 8, !tbaa !49
+  %i161 = load ptr, ptr %alloc.i.i.i.i, align 8, !tbaa !44
+  store ptr %i161, ptr %i159, align 8, !tbaa !49
   %i162 = getelementptr inbounds i8, ptr %call.i16.i.i.i.i, i64 24
   store i8 0, ptr %i162, align 8, !tbaa !56
-  %i163 = bitcast ptr %this to ptr
-  %sunkaddr91 = getelementptr inbounds i8, ptr %i163, i64 104
-  %i164 = bitcast ptr %sunkaddr91 to ptr
-  store ptr %call.i16.i.i.i.i, ptr %i164, align 8, !tbaa !27
+  %sunkaddr91 = getelementptr inbounds i8, ptr %this, i64 104
+  store ptr %call.i16.i.i.i.i, ptr %sunkaddr91, align 8, !tbaa !27
   %my_parent9.i.i.i.i = getelementptr inbounds i8, ptr %call.i.i.i.i.i, i64 104
-  %i165 = bitcast ptr %my_parent9.i.i.i.i to ptr
-  store ptr %call.i16.i.i.i.i, ptr %i165, align 8, !tbaa !27
-  %i166 = load ptr, ptr %i136, align 8, !tbaa !60
-  %i167 = bitcast ptr %call.i.i.i.i.i to ptr
-  call void @"?spawn@r1@detail@tbb@@YAXAEAVtask@d1@23@AEAVtask_group_context@523@@Z"(ptr noundef nonnull align 64 dereferenceable(64) %i167, ptr noundef nonnull align 8 dereferenceable(128) %i166)
-  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %i139)
+  store ptr %call.i16.i.i.i.i, ptr %my_parent9.i.i.i.i, align 8, !tbaa !27
+  %i166 = load ptr, ptr %ed, align 8, !tbaa !60
+  call void @"?spawn@r1@detail@tbb@@YAXAEAVtask@d1@23@AEAVtask_group_context@523@@Z"(ptr noundef nonnull align 64 dereferenceable(64) %call.i.i.i.i.i, ptr noundef nonnull align 8 dereferenceable(128) %i166)
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %alloc.i.i.i.i)
   %i168 = add i8 %i112, 1
   %i169 = and i8 %i168, 7
   %inc33.i89104.i44.i = add i8 %inc33.i89105.i.i, -1
@@ -684,13 +589,12 @@ if.end.i38.i:                                     ; preds = %if.then9.i.i
   br i1 %cmp.i48.i.i, label %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i", label %if.end19.i.i
 
 "?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i": ; preds = %if.end.i38.i
-  %i171 = bitcast ptr %my_pool.i.i.i.i.i to ptr
-  %my_grainsize.i.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i171, i64 %idxprom.i.i.i.i, i32 2
+  %my_grainsize.i.i.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %idxprom.i.i.i.i, i32 2
   %i172 = load i64, ptr %my_grainsize.i.i.i.i, align 8, !tbaa !76
-  %my_end.i.i.i49.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i171, i64 %idxprom.i.i.i.i, i32 0
+  %my_end.i.i.i49.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %idxprom.i.i.i.i, i32 0
   %i173 = load i32, ptr %my_end.i.i.i49.i.i, align 8, !tbaa !77
   %conv.i.i.i.i.i = sext i32 %i173 to i64
-  %my_begin.i.i.i50.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i171, i64 %idxprom.i.i.i.i, i32 1
+  %my_begin.i.i.i50.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %idxprom.i.i.i.i, i32 1
   %i174 = load i32, ptr %my_begin.i.i.i50.i.i, align 4, !tbaa !78
   %promoted92 = sext i32 %i174 to i64
   %sub.i.i.i51.i.i = sub nsw i64 %conv.i.i.i.i.i, %promoted92
@@ -699,28 +603,21 @@ if.end.i38.i:                                     ; preds = %if.then9.i.i
 
 if.end19.i.i:                                     ; preds = %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i", %if.end.i38.i, %"?split_to_fill@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAAXE@Z.exit.if.end19_crit_edge.i.i"
   %idxprom.i56.pre-phi.i.i = phi i64 [ %.pre.i.i, %"?split_to_fill@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAAXE@Z.exit.if.end19_crit_edge.i.i" ], [ %idxprom.i.i.i.i, %if.end.i38.i ], [ %idxprom.i.i.i.i, %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i" ]
-  %i175 = bitcast ptr %my_pool.i.i.i.i.i to ptr
-  %my_begin.i.i.i58.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i175, i64 %idxprom.i56.pre-phi.i.i, i32 1
+  %my_begin.i.i.i58.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %idxprom.i56.pre-phi.i.i, i32 1
   %i176 = load i32, ptr %my_begin.i.i.i58.i.i, align 4, !tbaa !78
   %i177 = sext i32 %i176 to i64
-  %my_end.i.i.i59.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %i175, i64 %idxprom.i56.pre-phi.i.i, i32 0
+  %my_end.i.i.i59.i.i = getelementptr inbounds %"class.tbb::detail::d1::blocked_range", ptr %my_pool.i.i.i.i.i, i64 %idxprom.i56.pre-phi.i.i, i32 0
   %i178 = load i32, ptr %my_end.i.i.i59.i.i, align 8, !tbaa !77
   %cmp.not17.i.i60.i.i = icmp eq i32 %i176, %i178
   br i1 %cmp.not17.i.i60.i.i, label %do.cond.i.i, label %for.body.lr.ph.i.i67.i.i
 
 for.body.lr.ph.i.i67.i.i:                         ; preds = %if.end19.i.i
-  %i179 = bitcast ptr %this to ptr
-  %sunkaddr93 = getelementptr inbounds i8, ptr %i179, i64 96
-  %i180 = bitcast ptr %sunkaddr93 to ptr
-  %.pre.i.i64.i.i = load ptr, ptr %i180, align 32, !tbaa !61
-  %i181 = bitcast ptr %this to ptr
-  %sunkaddr94 = getelementptr inbounds i8, ptr %i181, i64 88
-  %i182 = bitcast ptr %sunkaddr94 to ptr
-  %.pre19.i.i65.i.i = load ptr, ptr %i182, align 8, !tbaa !62
-  %i183 = bitcast ptr %this to ptr
-  %sunkaddr95 = getelementptr inbounds i8, ptr %i183, i64 80
-  %i184 = bitcast ptr %sunkaddr95 to ptr
-  %.pre20.i.i66.i.i = load ptr, ptr %i184, align 16, !tbaa !63
+  %sunkaddr93 = getelementptr inbounds i8, ptr %this, i64 96
+  %.pre.i.i64.i.i = load ptr, ptr %sunkaddr93, align 32, !tbaa !61
+  %sunkaddr94 = getelementptr inbounds i8, ptr %this, i64 88
+  %.pre19.i.i65.i.i = load ptr, ptr %sunkaddr94, align 8, !tbaa !62
+  %sunkaddr95 = getelementptr inbounds i8, ptr %this, i64 80
+  %.pre20.i.i66.i.i = load ptr, ptr %sunkaddr95, align 16, !tbaa !63
   br label %for.body.i.i75.i.i
 
 for.body.i.i75.i.i:                               ; preds = %for.body.i.i75.i.i, %for.body.lr.ph.i.i67.i.i
@@ -730,23 +627,17 @@ for.body.i.i75.i.i:                               ; preds = %for.body.i.i75.i.i,
   %indvars.iv.i.i68.i.i = phi i64 [ %i177, %for.body.lr.ph.i.i67.i.i ], [ %indvars.iv.next.i.i73.i.i, %for.body.i.i75.i.i ]
   %lsr53 = trunc i64 %indvars.iv.i.i68.i.i to i32
   call fastcc void @"?delta_stepping@@YAXPEAH00H@Z"(ptr noundef %i185, ptr noundef %i186, ptr noundef %i187, i32 noundef %lsr53)
-  %i188 = bitcast ptr %this to ptr
-  %sunkaddr96 = getelementptr inbounds i8, ptr %i188, i64 80
-  %i189 = bitcast ptr %sunkaddr96 to ptr
-  %i190 = load ptr, ptr %i189, align 16, !tbaa !63
+  %sunkaddr96 = getelementptr inbounds i8, ptr %this, i64 80
+  %i190 = load ptr, ptr %sunkaddr96, align 16, !tbaa !63
   %scevgep51 = getelementptr i32, ptr %i190, i64 %indvars.iv.i.i68.i.i
   %i191 = load i32, ptr %scevgep51, align 4, !tbaa !64
-  %i192 = bitcast ptr %this to ptr
-  %sunkaddr97 = getelementptr inbounds i8, ptr %i192, i64 88
-  %i193 = bitcast ptr %sunkaddr97 to ptr
-  %i194 = load ptr, ptr %i193, align 8, !tbaa !62
+  %sunkaddr97 = getelementptr inbounds i8, ptr %this, i64 88
+  %i194 = load ptr, ptr %sunkaddr97, align 8, !tbaa !62
   %scevgep50 = getelementptr i32, ptr %i194, i64 %indvars.iv.i.i68.i.i
   %i195 = load i32, ptr %scevgep50, align 4, !tbaa !64
   %add.i.i71.i.i = add nsw i32 %i195, %i191
-  %i196 = bitcast ptr %this to ptr
-  %sunkaddr98 = getelementptr inbounds i8, ptr %i196, i64 96
-  %i197 = bitcast ptr %sunkaddr98 to ptr
-  %i198 = load ptr, ptr %i197, align 32, !tbaa !61
+  %sunkaddr98 = getelementptr inbounds i8, ptr %this, i64 96
+  %i198 = load ptr, ptr %sunkaddr98, align 32, !tbaa !61
   %scevgep49 = getelementptr i32, ptr %i198, i64 %indvars.iv.i.i68.i.i
   store i32 %add.i.i71.i.i, ptr %scevgep49, align 4, !tbaa !64
   %indvars.iv.next.i.i73.i.i = add nsw i64 %indvars.iv.i.i68.i.i, 1
@@ -765,8 +656,7 @@ land.rhs.i.i:                                     ; preds = %do.cond.i.i, %"?is_
   %inc33.i89104118.i.i = phi i8 [ %inc33.i89104.i.i, %do.cond.i.i ], [ 1, %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i" ], [ %inc33.i89104.i44.i, %do.cond.i.thread.i ]
   %my_head.i.promoted.i116.i.i = phi i8 [ %i200, %do.cond.i.i ], [ %rem.i87109.i.i, %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i" ], [ %rem.i87109.i.i, %do.cond.i.thread.i ]
   %i201 = phi i8 [ %i112, %do.cond.i.i ], [ %i112, %"?is_divisible@?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA_NE@Z.exit.i.i" ], [ %i169, %do.cond.i.thread.i ]
-  %i202 = bitcast ptr %ed to ptr
-  %i203 = load ptr, ptr %i202, align 8, !tbaa !60
+  %i203 = load ptr, ptr %ed, align 8, !tbaa !60
   %i204 = getelementptr inbounds %"class.tbb::detail::d1::task_group_context", ptr %i203, i64 0, i32 5, i32 0, i32 0, i32 0
   %i205 = load volatile i8, ptr %i204, align 1
   %cmp.i.i.i82.i.i = icmp eq i8 %i205, -1
@@ -777,8 +667,7 @@ land.rhs.i.i:                                     ; preds = %do.cond.i.i, %"?is_
   br i1 %call2.i.i.i, label %"??1?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA@XZ.exit.i.i", label %do.body.i.i, !llvm.loop !80
 
 "??1?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA@XZ.exit.i.i": ; preds = %land.rhs.i.i, %do.cond.i.i
-  %i208 = bitcast ptr %range_pool.i.i to ptr
-  call void @llvm.lifetime.end.p0(i64 144, ptr nonnull %i208)
+  call void @llvm.lifetime.end.p0(i64 144, ptr nonnull %range_pool.i.i)
   br label %"??$execute@U?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@V?$blocked_range@H@234@@?$partition_type_base@Vauto_partition_type@d1@detail@tbb@@@d1@detail@tbb@@QEAAXAEAU?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@123@AEAV?$blocked_range@H@123@AEAUexecution_data@123@@Z.exit"
 
 "??$execute@U?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@V?$blocked_range@H@234@@?$partition_type_base@Vauto_partition_type@d1@detail@tbb@@@d1@detail@tbb@@QEAAXAEAU?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@123@AEAV?$blocked_range@H@123@AEAUexecution_data@123@@Z.exit": ; preds = %"??1?$range_vector@V?$blocked_range@H@d1@detail@tbb@@$07@d1@detail@tbb@@QEAA@XZ.exit.i.i", %for.body.i.i.i.i, %if.then.i.i
@@ -786,8 +675,7 @@ land.rhs.i.i:                                     ; preds = %do.cond.i.i, %"?is_
   %i209 = load ptr, ptr %my_parent.i12, align 8, !tbaa !27
   %i210 = getelementptr inbounds %"struct.tbb::detail::d1::start_for", ptr %this, i64 0, i32 5, i32 0
   %i211 = load ptr, ptr %i210, align 64, !tbaa !49
-  %i212 = bitcast ptr %this to ptr
-  %vtable.i = load ptr, ptr %i212, align 64, !tbaa !46
+  %vtable.i = load ptr, ptr %this, align 64, !tbaa !46
   %i213 = load ptr, ptr %vtable.i, align 8
   %call.i13 = call noundef ptr %i213(ptr noundef nonnull align 64 dereferenceable(144) %this, i32 noundef 0)
   %i214 = getelementptr inbounds %"struct.tbb::detail::d1::node", ptr %i209, i64 0, i32 1, i32 0, i32 0, i32 0, i32 0, i32 0
@@ -801,17 +689,14 @@ if.end.i.i15.preheader:                           ; preds = %"??$execute@U?$star
 
 if.end.i.i15:                                     ; preds = %cleanup.i.i, %if.end.i.i15.preheader
   %n.addr.019.i.i = phi ptr [ %i217, %cleanup.i.i ], [ %i209, %if.end.i.i15.preheader ]
-  %my_parent.i.i99 = bitcast ptr %n.addr.019.i.i to ptr
-  %i217 = load ptr, ptr %my_parent.i.i99, align 8, !tbaa !50
+  %i217 = load ptr, ptr %n.addr.019.i.i, align 8, !tbaa !50
   %tobool.not.i.i14 = icmp eq ptr %i217, null
   br i1 %tobool.not.i.i14, label %for.end.i.i, label %cleanup.i.i
 
 cleanup.i.i:                                      ; preds = %if.end.i.i15
   %m_allocator.i.i = getelementptr inbounds %"struct.tbb::detail::d1::node", ptr %n.addr.019.i.i, i64 1
-  %i218 = bitcast ptr %m_allocator.i.i to ptr
-  %i219 = load ptr, ptr %i218, align 8, !tbaa !49
-  %i220 = bitcast ptr %n.addr.019.i.i to ptr
-  call void @"?deallocate@r1@detail@tbb@@YAXAEAVsmall_object_pool@d1@23@PEAX_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 1 dereferenceable(1) %i219, ptr noundef %i220, i64 noundef 32, ptr noundef nonnull align 8 dereferenceable(16) %ed)
+  %i219 = load ptr, ptr %m_allocator.i.i, align 8, !tbaa !49
+  call void @"?deallocate@r1@detail@tbb@@YAXAEAVsmall_object_pool@d1@23@PEAX_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 1 dereferenceable(1) %i219, ptr noundef %n.addr.019.i.i, i64 noundef 32, ptr noundef nonnull align 8 dereferenceable(16) %ed)
   %i221 = getelementptr inbounds %"struct.tbb::detail::d1::node", ptr %i217, i64 0, i32 1, i32 0, i32 0, i32 0, i32 0, i32 0
   %i222 = atomicrmw sub ptr %i221, i32 1 seq_cst, align 4
   %i223 = add i32 %i222, -1
@@ -820,8 +705,7 @@ cleanup.i.i:                                      ; preds = %if.end.i.i15
 
 for.end.i.i:                                      ; preds = %if.end.i.i15
   %i224 = getelementptr inbounds %"struct.tbb::detail::d1::node", ptr %n.addr.019.i.i, i64 1, i32 1
-  %i225 = bitcast ptr %i224 to ptr
-  %i226 = atomicrmw add ptr %i225, i64 -1 seq_cst, align 8
+  %i226 = atomicrmw add ptr %i224, i64 -1 seq_cst, align 8
   %tobool.not.i.i.i.i = icmp eq i64 %i226, 1
   br i1 %tobool.not.i.i.i.i, label %if.then.i.i.i.i, label %"?finalize@?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@QEAAXAEBUexecution_data@234@@Z.exit"
 
@@ -832,8 +716,7 @@ if.then.i.i.i.i:                                  ; preds = %for.end.i.i
   br label %"?finalize@?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@QEAAXAEBUexecution_data@234@@Z.exit"
 
 "?finalize@?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@QEAAXAEBUexecution_data@234@@Z.exit": ; preds = %if.then.i.i.i.i, %for.end.i.i, %cleanup.i.i, %"??$execute@U?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@V?$blocked_range@H@234@@?$partition_type_base@Vauto_partition_type@d1@detail@tbb@@@d1@detail@tbb@@QEAAXAEAU?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@123@AEAV?$blocked_range@H@123@AEAUexecution_data@123@@Z.exit"
-  %i228 = bitcast ptr %this to ptr
-  call void @"?deallocate@r1@detail@tbb@@YAXAEAVsmall_object_pool@d1@23@PEAX_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 1 dereferenceable(1) %i211, ptr noundef nonnull %i228, i64 noundef 192, ptr noundef nonnull align 8 dereferenceable(16) %ed)
+  call void @"?deallocate@r1@detail@tbb@@YAXAEAVsmall_object_pool@d1@23@PEAX_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 1 dereferenceable(1) %i211, ptr noundef nonnull %this, i64 noundef 192, ptr noundef nonnull align 8 dereferenceable(16) %ed)
   ret ptr null
 }
 
@@ -843,8 +726,7 @@ entry:
   %i = load ptr, ptr %my_parent.i, align 8, !tbaa !27
   %i1 = getelementptr inbounds %"struct.tbb::detail::d1::start_for", ptr %this, i64 0, i32 5, i32 0
   %i2 = load ptr, ptr %i1, align 64, !tbaa !49
-  %i3 = bitcast ptr %this to ptr
-  %vtable.i = load ptr, ptr %i3, align 64, !tbaa !46
+  %vtable.i = load ptr, ptr %this, align 64, !tbaa !46
   %i4 = load ptr, ptr %vtable.i, align 8
   %call.i = tail call noundef ptr %i4(ptr noundef nonnull align 64 dereferenceable(144) %this, i32 noundef 0)
   %i5 = getelementptr inbounds %"struct.tbb::detail::d1::node", ptr %i, i64 0, i32 1, i32 0, i32 0, i32 0, i32 0, i32 0
@@ -858,17 +740,14 @@ if.end.i.i.preheader:                             ; preds = %entry
 
 if.end.i.i:                                       ; preds = %cleanup.i.i, %if.end.i.i.preheader
   %n.addr.019.i.i = phi ptr [ %i8, %cleanup.i.i ], [ %i, %if.end.i.i.preheader ]
-  %my_parent.i.i10 = bitcast ptr %n.addr.019.i.i to ptr
-  %i8 = load ptr, ptr %my_parent.i.i10, align 8, !tbaa !50
+  %i8 = load ptr, ptr %n.addr.019.i.i, align 8, !tbaa !50
   %tobool.not.i.i = icmp eq ptr %i8, null
   br i1 %tobool.not.i.i, label %for.end.i.i, label %cleanup.i.i
 
 cleanup.i.i:                                      ; preds = %if.end.i.i
   %m_allocator.i.i = getelementptr inbounds %"struct.tbb::detail::d1::node", ptr %n.addr.019.i.i, i64 1
-  %i9 = bitcast ptr %m_allocator.i.i to ptr
-  %i10 = load ptr, ptr %i9, align 8, !tbaa !49
-  %i11 = bitcast ptr %n.addr.019.i.i to ptr
-  tail call void @"?deallocate@r1@detail@tbb@@YAXAEAVsmall_object_pool@d1@23@PEAX_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 1 dereferenceable(1) %i10, ptr noundef %i11, i64 noundef 32, ptr noundef nonnull align 8 dereferenceable(16) %ed)
+  %i10 = load ptr, ptr %m_allocator.i.i, align 8, !tbaa !49
+  tail call void @"?deallocate@r1@detail@tbb@@YAXAEAVsmall_object_pool@d1@23@PEAX_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 1 dereferenceable(1) %i10, ptr noundef %n.addr.019.i.i, i64 noundef 32, ptr noundef nonnull align 8 dereferenceable(16) %ed)
   %i12 = getelementptr inbounds %"struct.tbb::detail::d1::node", ptr %i8, i64 0, i32 1, i32 0, i32 0, i32 0, i32 0, i32 0
   %i13 = atomicrmw sub ptr %i12, i32 1 seq_cst, align 4
   %i14 = add i32 %i13, -1
@@ -877,8 +756,7 @@ cleanup.i.i:                                      ; preds = %if.end.i.i
 
 for.end.i.i:                                      ; preds = %if.end.i.i
   %i15 = getelementptr inbounds %"struct.tbb::detail::d1::node", ptr %n.addr.019.i.i, i64 1, i32 1
-  %i16 = bitcast ptr %i15 to ptr
-  %i17 = atomicrmw add ptr %i16, i64 -1 seq_cst, align 8
+  %i17 = atomicrmw add ptr %i15, i64 -1 seq_cst, align 8
   %tobool.not.i.i.i.i = icmp eq i64 %i17, 1
   br i1 %tobool.not.i.i.i.i, label %if.then.i.i.i.i, label %"?finalize@?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@QEAAXAEBUexecution_data@234@@Z.exit"
 
@@ -889,8 +767,7 @@ if.then.i.i.i.i:                                  ; preds = %for.end.i.i
   br label %"?finalize@?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@QEAAXAEBUexecution_data@234@@Z.exit"
 
 "?finalize@?$start_for@V?$blocked_range@H@d1@detail@tbb@@VArraySummer@@$$CBVauto_partitioner@234@@d1@detail@tbb@@QEAAXAEBUexecution_data@234@@Z.exit": ; preds = %if.then.i.i.i.i, %for.end.i.i, %cleanup.i.i, %entry
-  %i19 = bitcast ptr %this to ptr
-  tail call void @"?deallocate@r1@detail@tbb@@YAXAEAVsmall_object_pool@d1@23@PEAX_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 1 dereferenceable(1) %i2, ptr noundef nonnull %i19, i64 noundef 192, ptr noundef nonnull align 8 dereferenceable(16) %ed)
+  tail call void @"?deallocate@r1@detail@tbb@@YAXAEAVsmall_object_pool@d1@23@PEAX_KAEBUexecution_data@523@@Z"(ptr noundef nonnull align 1 dereferenceable(1) %i2, ptr noundef nonnull %this, i64 noundef 192, ptr noundef nonnull align 8 dereferenceable(16) %ed)
   ret ptr null
 }
 

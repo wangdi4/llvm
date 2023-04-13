@@ -16,7 +16,7 @@ define i64 @foo(i64* nocapture %larr, i64* %mm) {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT15:%.*]] = insertelement <4 x i64> poison, i64 [[M1]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT15:%.*]] = insertelement <4 x i64> poison, i64 [[M1]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT16:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT15]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
@@ -45,7 +45,7 @@ define i64 @foo(i64* nocapture %larr, i64* %mm) {
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB9:%.*]], label [[VPLANNEDBB10:%.*]]
 ; CHECK:       VPlannedBB10:
 ; CHECK-NEXT:    [[TMP8:%.*]] = call i64 @llvm.vector.reduce.smax.v4i64(<4 x i64> [[PREDBLEND]])
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[TMP8]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[TMP8]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[PRIV_IDX_CMP:%.*]] = icmp eq <4 x i64> [[PREDBLEND]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = bitcast <4 x i1> [[PRIV_IDX_CMP]] to i4

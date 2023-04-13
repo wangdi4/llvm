@@ -137,7 +137,7 @@ void AssocEntityDetails::set_rank(int rank) { rank_ = rank; }
 void EntityDetails::ReplaceType(const DeclTypeSpec &type) { type_ = &type; }
 
 ObjectEntityDetails::ObjectEntityDetails(EntityDetails &&d)
-    : EntityDetails(d) {}
+    : EntityDetails(std::move(d)) {}
 
 void ObjectEntityDetails::set_shape(const ArraySpec &shape) {
   CHECK(shape_.empty());
@@ -152,11 +152,8 @@ void ObjectEntityDetails::set_coshape(const ArraySpec &coshape) {
   }
 }
 
-ProcEntityDetails::ProcEntityDetails(EntityDetails &&d) : EntityDetails(d) {
-  if (type()) {
-    interface_.set_type(*type());
-  }
-}
+ProcEntityDetails::ProcEntityDetails(EntityDetails &&d)
+    : EntityDetails(std::move(d)) {}
 
 UseErrorDetails::UseErrorDetails(const UseDetails &useDetails) {
   add_occurrence(useDetails.location(), *GetUsedModule(useDetails).scope());
@@ -301,7 +298,7 @@ void Symbol::SetType(const DeclTypeSpec &type) {
                     [&](EntityDetails &x) { x.set_type(type); },
                     [&](ObjectEntityDetails &x) { x.set_type(type); },
                     [&](AssocEntityDetails &x) { x.set_type(type); },
-                    [&](ProcEntityDetails &x) { x.interface().set_type(type); },
+                    [&](ProcEntityDetails &x) { x.set_type(type); },
                     [&](TypeParamDetails &x) { x.set_type(type); },
                     [](auto &) {},
                 },
@@ -328,6 +325,30 @@ void Symbol::SetBindName(std::string &&name) {
       [&](auto &x) {
         if constexpr (HasBindName<decltype(&x)>) {
           x.set_bindName(std::move(name));
+        } else {
+          DIE("bind name not allowed on this kind of symbol");
+        }
+      },
+      details_);
+}
+
+bool Symbol::GetIsExplicitBindName() const {
+  return common::visit(
+      [&](auto &x) -> bool {
+        if constexpr (HasBindName<decltype(&x)>) {
+          return x.isExplicitBindName();
+        } else {
+          return false;
+        }
+      },
+      details_);
+}
+
+void Symbol::SetIsExplicitBindName(bool yes) {
+  common::visit(
+      [&](auto &x) {
+        if constexpr (HasBindName<decltype(&x)>) {
+          x.set_isExplicitBindName(yes);
         } else {
           DIE("bind name not allowed on this kind of symbol");
         }
@@ -401,10 +422,10 @@ llvm::raw_ostream &operator<<(
 
 llvm::raw_ostream &operator<<(
     llvm::raw_ostream &os, const ProcEntityDetails &x) {
-  if (auto *symbol{x.interface_.symbol()}) {
-    os << ' ' << symbol->name();
+  if (x.procInterface_) {
+    os << ' ' << x.procInterface_->name();
   } else {
-    DumpType(os, x.interface_.type());
+    DumpType(os, x.type());
   }
   DumpOptional(os, "bindName", x.bindName());
   DumpOptional(os, "passName", x.passName());

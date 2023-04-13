@@ -1,5 +1,4 @@
-; RUN: opt < %s -S -passes=optimize-dyn-casts | FileCheck %s
-
+; RUN: opt < %s -S -opaque-pointers -passes=optimize-dyn-casts | FileCheck %s
 
 ; Test case with dlopen that loads dynamic library in runtime.
 ; It is expected that whole porgram will not be detected for this
@@ -47,14 +46,10 @@
 ;   return res;
 ; }
 
-
-
-source_filename = "ld-temp.o"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 %"class.std::ios_base::Init" = type { i8 }
-%struct.Parent = type { i32 (...)** }
 
 $_ZTI6Parent = comdat any
 
@@ -64,44 +59,43 @@ $_ZTS7Derived = comdat any
 
 $_ZTS6Parent = comdat any
 
-@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @_GLOBAL__sub_I_test.cpp, i8* null }]
+@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @_GLOBAL__sub_I_test.cpp, ptr null }]
 @_ZStL8__ioinit = internal global %"class.std::ios_base::Init" zeroinitializer, align 1
-@__dso_handle = external dso_local hidden global i8
-@_ZTI6Parent = internal dso_local constant { i8*, i8* } { i8* bitcast (i8** getelementptr inbounds (i8*, i8** @_ZTVN10__cxxabiv117__class_type_infoE, i64 2) to i8*), i8* getelementptr inbounds ([8 x i8], [8 x i8]* @_ZTS6Parent, i32 0, i32 0) }, comdat
-@_ZTI7Derived = internal dso_local constant { i8*, i8*, i8* } { i8* bitcast (i8** getelementptr inbounds (i8*, i8** @_ZTVN10__cxxabiv120__si_class_type_infoE, i64 2) to i8*), i8* getelementptr inbounds ([9 x i8], [9 x i8]* @_ZTS7Derived, i32 0, i32 0), i8* bitcast ({ i8*, i8* }* @_ZTI6Parent to i8*) }, comdat
-@_ZTVN10__cxxabiv120__si_class_type_infoE = external global i8*
-@_ZTS7Derived = internal dso_local constant [9 x i8] c"7Derived\00", comdat
-@_ZTVN10__cxxabiv117__class_type_infoE = external global i8*
-@_ZTS6Parent = internal dso_local constant [8 x i8] c"6Parent\00", comdat
+@__dso_handle = external hidden global i8
+@_ZTI6Parent = internal constant { ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @_ZTVN10__cxxabiv117__class_type_infoE, i64 2), ptr @_ZTS6Parent }, comdat
+@_ZTI7Derived = internal constant { ptr, ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @_ZTVN10__cxxabiv120__si_class_type_infoE, i64 2), ptr @_ZTS7Derived, ptr @_ZTI6Parent }, comdat
+@_ZTVN10__cxxabiv120__si_class_type_infoE = external global ptr
+@_ZTS7Derived = internal constant [9 x i8] c"7Derived\00", comdat
+@_ZTVN10__cxxabiv117__class_type_infoE = external global ptr
+@_ZTS6Parent = internal constant [8 x i8] c"6Parent\00", comdat
 @.str = private unnamed_addr constant [9 x i8] c"./lib.so\00", align 1
 @.str.1 = private unnamed_addr constant [5 x i8] c"func\00", align 1
 
 ; Function Attrs: uwtable
 define internal void @_GLOBAL__sub_I_test.cpp() #0 section ".text.startup" {
 entry:
-  tail call void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"* nonnull @_ZStL8__ioinit)
-  %0 = tail call i32 @__cxa_atexit(void (i8*)* bitcast (void (%"class.std::ios_base::Init"*)* @_ZNSt8ios_base4InitD1Ev to void (i8*)*), i8* getelementptr inbounds (%"class.std::ios_base::Init", %"class.std::ios_base::Init"* @_ZStL8__ioinit, i64 0, i32 0), i8* nonnull @__dso_handle) #3
+  tail call void @_ZNSt8ios_base4InitC1Ev(ptr nonnull @_ZStL8__ioinit)
+  %i = tail call i32 @__cxa_atexit(ptr @_ZNSt8ios_base4InitD1Ev, ptr @_ZStL8__ioinit, ptr nonnull @__dso_handle) #3
   ret void
 }
 
-declare void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"*) unnamed_addr #1
+declare void @_ZNSt8ios_base4InitC1Ev(ptr) unnamed_addr #1
 
 ; Function Attrs: nounwind
-declare void @_ZNSt8ios_base4InitD1Ev(%"class.std::ios_base::Init"*) unnamed_addr #2
+declare void @_ZNSt8ios_base4InitD1Ev(ptr) unnamed_addr #2
 
 ; Function Attrs: nounwind
-declare i32 @__cxa_atexit(void (i8*)*, i8*, i8*) local_unnamed_addr #3
+declare i32 @__cxa_atexit(ptr, ptr, ptr) local_unnamed_addr #3
 
 ; Function Attrs: noinline nounwind readonly uwtable
-define internal dso_local i32 @test(%struct.Parent* readonly %p) #4 {
+define internal i32 @test(ptr readonly %p) #4 {
 ; CHECK-LABEL: @test(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq %struct.Parent* [[P:%.*]], null
+; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq ptr [[P:%.*]], null
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[IF_END:%.*]], label [[DYNAMIC_CAST_NOTNULL:%.*]]
 ; CHECK:       dynamic_cast.notnull:
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast %struct.Parent* [[P]] to i8*
-; CHECK-NEXT:    [[TMP2:%.*]] = tail call i8* @__dynamic_cast(i8* [[TMP1]], i8* bitcast ({ i8*, i8* }* @_ZTI6Parent to i8*), i8* bitcast ({ i8*, i8*, i8* }* @_ZTI7Derived to i8*), i64 0) #3
-; CHECK-NEXT:    [[PHITMP:%.*]] = icmp eq i8* [[TMP2]], null
+; CHECK-NEXT:    [[TMP2:%.*]] = tail call ptr @__dynamic_cast(ptr [[P]], ptr @_ZTI6Parent, ptr @_ZTI7Derived, i64 0) #3
+; CHECK-NEXT:    [[PHITMP:%.*]] = icmp eq ptr [[TMP2]], null
 ; CHECK-NEXT:    br i1 [[PHITMP]], label [[IF_END]], label [[CLEANUP:%.*]]
 ; CHECK:       if.end:
 ; CHECK-NEXT:    br label [[CLEANUP]]
@@ -110,13 +104,12 @@ define internal dso_local i32 @test(%struct.Parent* readonly %p) #4 {
 ; CHECK-NEXT:    ret i32 [[RETVAL_0]]
 ;
 entry:
-  %0 = icmp eq %struct.Parent* %p, null
-  br i1 %0, label %if.end, label %dynamic_cast.notnull
+  %i = icmp eq ptr %p, null
+  br i1 %i, label %if.end, label %dynamic_cast.notnull
 
 dynamic_cast.notnull:                             ; preds = %entry
-  %1 = bitcast %struct.Parent* %p to i8*
-  %2 = tail call i8* @__dynamic_cast(i8* %1, i8* bitcast ({ i8*, i8* }* @_ZTI6Parent to i8*), i8* bitcast ({ i8*, i8*, i8* }* @_ZTI7Derived to i8*), i64 0) #3
-  %phitmp = icmp eq i8* %2, null
+  %i2 = tail call ptr @__dynamic_cast(ptr %p, ptr @_ZTI6Parent, ptr @_ZTI7Derived, i64 0) #3
+  %phitmp = icmp eq ptr %i2, null
   br i1 %phitmp, label %if.end, label %cleanup
 
 if.end:                                           ; preds = %dynamic_cast.notnull, %entry
@@ -128,26 +121,25 @@ cleanup:                                          ; preds = %if.end, %dynamic_ca
 }
 
 ; Function Attrs: nounwind readonly
-declare i8* @__dynamic_cast(i8*, i8*, i8*, i64) local_unnamed_addr #5
+declare ptr @__dynamic_cast(ptr, ptr, ptr, i64) local_unnamed_addr #5
 
 ; Function Attrs: norecurse uwtable
 define dso_local i32 @main() #6 {
 entry:
-  %call = tail call i8* @dlopen(i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i64 0, i64 0), i32 2) #3
-  %call1 = tail call i8* @dlsym(i8* %call, i8* getelementptr inbounds ([5 x i8], [5 x i8]* @.str.1, i64 0, i64 0)) #3
-  %call2 = tail call i8* @dlerror() #3
-  %tobool = icmp eq i8* %call2, null
+  %call = tail call ptr @dlopen(ptr @.str, i32 2) #3
+  %call1 = tail call ptr @dlsym(ptr %call, ptr @.str.1) #3
+  %call2 = tail call ptr @dlerror() #3
+  %tobool = icmp eq ptr %call2, null
   br i1 %tobool, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  %call3 = tail call i32 @dlclose(i8* %call) #3
+  %call3 = tail call i32 @dlclose(ptr %call) #3
   br label %cleanup
 
 if.end:                                           ; preds = %entry
-  %0 = bitcast i8* %call1 to %struct.Parent* ()*
-  %call4 = tail call %struct.Parent* %0()
-  %call5 = tail call i32 @test(%struct.Parent* %call4)
-  %call6 = tail call i32 @dlclose(i8* %call) #3
+  %call4 = tail call ptr %call1()
+  %call5 = tail call i32 @test(ptr %call4)
+  %call6 = tail call i32 @dlclose(ptr %call) #3
   br label %cleanup
 
 cleanup:                                          ; preds = %if.end, %if.then
@@ -156,16 +148,16 @@ cleanup:                                          ; preds = %if.end, %if.then
 }
 
 ; Function Attrs: nounwind
-declare i8* @dlopen(i8*, i32) local_unnamed_addr #2
+declare ptr @dlopen(ptr, i32) local_unnamed_addr #2
 
 ; Function Attrs: nounwind
-declare i8* @dlsym(i8*, i8*) local_unnamed_addr #2
+declare ptr @dlsym(ptr, ptr) local_unnamed_addr #2
 
 ; Function Attrs: nounwind
-declare i8* @dlerror() local_unnamed_addr #2
+declare ptr @dlerror() local_unnamed_addr #2
 
 ; Function Attrs: nounwind
-declare i32 @dlclose(i8*) local_unnamed_addr #2
+declare i32 @dlclose(ptr) local_unnamed_addr #2
 
 attributes #0 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

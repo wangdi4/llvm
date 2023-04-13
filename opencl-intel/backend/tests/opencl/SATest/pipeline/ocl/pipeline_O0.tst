@@ -2,7 +2,7 @@
 
 ; CHECK: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
-; CHECK-NEXT: Running pass: DPCPPEqualizerPass
+; CHECK-NEXT: Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
@@ -14,9 +14,9 @@
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DetectRecursionPass
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module>
+; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
-; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
+; CHECK-NEXT: Running pass: TaskSeqAsyncHandling  ;INTEL
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass
 ; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass
 ; CHECK-NEXT: Running pass: ResolveMatrixWISlicePass
@@ -25,7 +25,7 @@
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernelsPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK-NEXT: Running analysis: LoopAnalysis
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: ReqdSubGroupSizePass
@@ -41,13 +41,11 @@
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: PreventDivCrashesPass
-; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK-NEXT: Running pass: SYCLKernelWGLoopCreatorPass
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: VFAnalysis
-; CHECK:      Running pass: IndirectCallLowering
+; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
-; CHECK-NEXT: Skipping pass RemoveRegionDirectivesPass
-; CHECK-NEXT: Skipping pass: RemoveRegionDirectivesPass
 ; CHECK-NEXT: Skipping pass UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Skipping pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: GroupBuiltinPass

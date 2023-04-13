@@ -21,11 +21,10 @@
 #include "cl_dynamic_lib.h"
 #include "cl_logger.h"
 #include "cl_sys_info.h"
-#include "common_clang.h"
+#include "opencl_clang.h"
 
 #include <Logger.h>
 #include <cl_device_api.h>
-#include <cl_shutdown.h>
 #include <cl_sys_defines.h>
 
 #include "llvm/ADT/StringRef.h"
@@ -42,10 +41,6 @@
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
-
-// the flag must be 'volatile' to prevent caching in a CPU register
-static volatile bool lazyClangCompilerInit = true;
-static llvm::sys::Mutex lazyClangCompilerInitMutex;
 
 #ifdef _WIN32
 static llvm::ManagedStatic<OclDynamicLib> m_dlClangLib;
@@ -89,25 +84,20 @@ static bool LoadCommonClang() {
 }
 
 static bool ClangCompilerInitialize() {
-  bool clangLoadSuccessful = true;
-  if (lazyClangCompilerInit) {
-    llvm::sys::ScopedLock lock(lazyClangCompilerInitMutex);
-
-    if (lazyClangCompilerInit) {
-      clangLoadSuccessful = LoadCommonClang();
-      lazyClangCompilerInit = false;
-    }
-  }
-  return clangLoadSuccessful;
+  // 'volatile' prevents caching in a CPU register.
+  static volatile bool LoadSuccessful = true;
+  static llvm::once_flag OnceFlag;
+  llvm::call_once(OnceFlag, [&]() { LoadSuccessful = LoadCommonClang(); });
+  return LoadSuccessful;
 }
 
 // ClangFECompiler class implementation
 ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
   const CLANG_DEV_INFO *pDevInfo = (const CLANG_DEV_INFO *)pszDeviceInfo;
 
-  memset(&m_sDeviceInfo, 0, sizeof(CLANG_DEV_INFO));
-
   m_sDeviceInfo.sExtensionStrings = STRDUP(pDevInfo->sExtensionStrings);
+  m_sDeviceInfo.sOpenCLCFeatureStrings =
+      STRDUP(pDevInfo->sOpenCLCFeatureStrings);
   m_sDeviceInfo.bImageSupport = pDevInfo->bImageSupport;
   m_sDeviceInfo.bHalfSupport = pDevInfo->bHalfSupport;
   m_sDeviceInfo.bDoubleSupport = pDevInfo->bDoubleSupport;
@@ -120,6 +110,8 @@ ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
 ClangFECompiler::~ClangFECompiler() {
   if (m_sDeviceInfo.sExtensionStrings)
     free((void *)m_sDeviceInfo.sExtensionStrings);
+  if (m_sDeviceInfo.sOpenCLCFeatureStrings)
+    free((void *)m_sDeviceInfo.sOpenCLCFeatureStrings);
 }
 
 int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
@@ -233,7 +225,7 @@ int CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
     RELEASE_LOGGER_CLIENT;
     return CL_SUCCESS;
   } catch (std::bad_alloc &) {
-    LogErrorA("%S", "Can't allocate compiler instance");
+    LogErrorA(TEXT("Can't allocate compiler instance"));
     RELEASE_LOGGER_CLIENT;
     return CL_OUT_OF_HOST_MEMORY;
   }

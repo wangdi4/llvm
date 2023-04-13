@@ -101,7 +101,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:0
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[VP_S_REDRED_INIT]], [[BB1]] ],  [ i32 [[VP_ADD1:%.*]], [[BB2]] ]
-; CHECKVPE-NEXT:      DbgLoc: sum.cpp:0
+; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     call metadata i64 [[INDVARS_IV0:%.*]] metadata !107 metadata !DIExpression() void (metadata, metadata, metadata)* @llvm.dbg.value
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:0

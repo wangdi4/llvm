@@ -163,7 +163,7 @@ public:
   DeviceProgram *GetDeviceProgram(cl_device_id clDeviceId);
 
   // Retrive an array of all device programs
-  std::vector<unique_ptr<DeviceProgram>> &GetProgramsForAllDevices() {
+  std::vector<std::unique_ptr<DeviceProgram>> &GetProgramsForAllDevices() {
     return m_ppDevicePrograms;
   }
 
@@ -185,8 +185,7 @@ public:
   // Retrieve size and pointer of a global variable given by name.
   cl_err_code GetDeviceGlobalVariablePointer(cl_device_id device,
                                              const char *gv_name,
-                                             size_t *gv_size_ret,
-                                             void **gv_pointer_ret);
+                                             cl_prog_gv *gv_ret);
 
   // Free USM wrappers for global variable pointers
   void FreeUSMForGVPointers();
@@ -215,7 +214,7 @@ protected:
   bool Finalize();
 
   SharedPtr<Context> m_pContext;
-  std::vector<unique_ptr<DeviceProgram>> m_ppDevicePrograms;
+  std::vector<std::unique_ptr<DeviceProgram>> m_ppDevicePrograms;
   cl_uint m_szNumAssociatedDevices;
 
   OCLObjectsMap<_cl_kernel_int> m_pKernels; // associated

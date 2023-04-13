@@ -8,10 +8,10 @@
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-version=50 -fopenmp-targets=spir64 -fopenmp-is-device \
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | \
-// RUN:  FileCheck %s 
+// RUN:  FileCheck %s
 
-// CHECK-NOT: atomicrmw fadd float
-// CHECK-NOT: atomicrmw fsub float
+// CHECK: atomicrmw fadd ptr
+// CHECK: atomicrmw fsub ptr
 
 int bar();
 

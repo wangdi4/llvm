@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,11 +13,12 @@
 // License.
 
 #include "OpenCLStamp.h"
+#include "auto_ptr_ex.h"
 #include <algorithm>
+#include <string.h>
 #include <vector>
 
-#include "auto_ptr_ex.h"
-#include <string.h>
+using namespace llvm;
 
 namespace Validation {
 
@@ -89,14 +90,9 @@ OCLStamp::OCLStamp(const IRunComponentConfiguration *pRunConfiguration,
   }
 }
 
-std::vector<uint8_t> OCLStamp::generateMD5(const std::vector<uint8_t> &buffer) {
-  MD5 md5(const_cast<uint8_t *>(&buffer[0]), buffer.size());
-  MD5Code res = md5.digest();
-  uint8_t *pRes = const_cast<uint8_t *>(res.code());
-
-  // set calculated MD5
-  std::vector<uint8_t> outVec(pRes, pRes + m_stampLen);
-  return outVec;
+MD5::MD5Result OCLStamp::generateMD5(const std::vector<uint8_t> &buffer) {
+  MD5 Hash;
+  return Hash.hash(ArrayRef<uint8_t>(buffer));
 }
 
 void OCLStamp::readBinaryInputFile(const std::string inputFileName,
@@ -128,7 +124,7 @@ void OCLStamp::readBinaryInputFile(const std::string inputFileName,
   is.close();
 }
 
-std::vector<uint8_t>
+MD5::MD5Result
 OCLStamp::calcStampKernelRef(const OpenCLKernelConfiguration *const config) {
 
   size_t *pGlobalWorkOffset =
@@ -159,14 +155,15 @@ OCLStamp::calcStampKernelRef(const OpenCLKernelConfiguration *const config) {
                   end_binary(localWorkSize));
   }
 
-  buffer.insert(buffer.end(), m_RefStampCommon.begin(), m_RefStampCommon.end());
+  buffer.insert(buffer.end(), m_RefStampCommon[0],
+                m_RefStampCommon[0] + m_RefStampCommon.size());
 
   // calculate MD5 of buffer
   return generateMD5(buffer);
 }
 
 // neat stamps depends on ref stamp
-std::vector<uint8_t>
+MD5::MD5Result
 OCLStamp::calcStampKernelNEAT(const OpenCLKernelConfiguration *const config) {
 
   std::vector<uint8_t> buffer;
@@ -175,8 +172,8 @@ OCLStamp::calcStampKernelNEAT(const OpenCLKernelConfiguration *const config) {
     readBinaryInputFile(config->GetInputFilePath(), buffer);
   }
 
-  buffer.insert(buffer.end(), m_NeatStampCommon.begin(),
-                m_NeatStampCommon.end());
+  buffer.insert(buffer.end(), m_NeatStampCommon[0],
+                m_NeatStampCommon[0] + m_NeatStampCommon.size());
 
   // calculate MD5 of buffer
   return generateMD5(buffer);
@@ -193,11 +190,10 @@ void OCLStamp::generateStamps() {
       if (m_useNEAT)
         (*it)->SetNeatStamp(calcStampKernelNEAT(*it));
     } else {
-      std::vector<uint8_t> buffer;
-      (*it)->SetReferenceStamp(buffer);
+      (*it)->SetReferenceStamp(ArrayRef<uint8_t>{});
 
       if (m_useNEAT)
-        (*it)->SetNeatStamp(buffer);
+        (*it)->SetNeatStamp(ArrayRef<uint8_t>{});
     }
   }
 }

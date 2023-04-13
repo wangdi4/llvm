@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -passes="globalopt" | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -S -passes="globalopt" | FileCheck %s
 
 ; CMPLRLLVM-28168: Add nullptr check to avoid seg fault when processing
 ; MemTransferInst in CleanupPointerRootUsers in GlobalOpt.cpp.

@@ -149,7 +149,20 @@ function(add_opencl_library name)
                  SOVERSION ${VERSIONSTRING})
   endif(WIN32)
 
-  target_link_libraries(${name} ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
+  target_link_libraries(${name} PRIVATE ${ARG_LINK_LIBS} ${ARG_COMPONENTS})
+
+  # Try to do some link time optimizations to reduce shared library size
+  if(ARG_SHARED)
+    if(WIN32)
+      set_property(TARGET ${name} APPEND_STRING PROPERTY
+        LINK_FLAGS_RELEASE
+        " /OPT:REF /OPT:ICF ")
+    else()
+      set_property(TARGET ${name} APPEND_STRING PROPERTY
+        LINK_FLAGS_RELEASE
+        " -Wl,--gc-sections ")
+    endif(WIN32)
+  endif(ARG_SHARED)
 
   # Deals with pdb on Windows
   if(WIN32 AND ARG_SHARED)
@@ -299,3 +312,32 @@ function(install_to)
     endforeach(name)
   endif()
 endfunction(install_to)
+
+# Function is to create target to do deployment
+#
+# deploy_ocl_components(TARGET_NAME COMP_LIST DEPEND_LIST)
+#
+# TARGET_NAME                 - Target name
+# COMP_LIST                   - The components list to deploy
+# DEPEND_LIST                 - Targets which are depended by this target
+#
+
+function(deploy_ocl_components TARGET_NAME COMP_LIST DEPENDS )
+  set(manifest_list)
+
+  foreach(comp ${COMP_LIST})
+    message(STATUS "Adding component ${comp} to deploy")
+
+    set(manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest_${comp}.txt)
+    add_custom_command(
+      OUTPUT ${manifest}
+      COMMAND "${CMAKE_COMMAND}" "-DCMAKE_INSTALL_COMPONENT=${comp}" -P
+              "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+      DEPENDS __force_it
+      COMMENT "Deploying component ${comp}"
+      USES_TERMINAL)
+    list(APPEND manifest_list ${manifest})
+  endforeach(comp)
+
+  add_custom_target(${TARGET_NAME} DEPENDS ${DEPENDS} ${manifest_list})
+endfunction(deploy_ocl_components)

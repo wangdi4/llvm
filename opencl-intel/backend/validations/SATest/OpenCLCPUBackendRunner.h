@@ -20,13 +20,14 @@
 #include "OpenCLProgramConfiguration.h"
 #include "OpenCLRunConfiguration.h"
 #include "auto_ptr_ex.h"
+#include "cl_dev_backend_api.h"
 #include "mem_utils.h"
 
-#include "cl_dev_backend_api.h"
+namespace Validation {
 
+// FIXME 'using namespace' shouldn't be used in header file.
 using namespace Intel::OpenCL::DeviceBackend;
 
-namespace Validation {
 typedef auto_ptr_ex<ICLDevBackendCompilationService,
                     ReleaseDP<ICLDevBackendCompilationService>>
     ICLDevBackendCompileServicePtr;

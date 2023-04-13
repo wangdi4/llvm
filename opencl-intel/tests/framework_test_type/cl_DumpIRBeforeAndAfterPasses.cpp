@@ -70,7 +70,7 @@ static void CheckOutput(int fd) {
   static const int TEST_NUM = 2;
   static char *refs[TEST_NUM] = {
       "*** IR Dump Before SimplifyCFGPass",
-      "*** IR Dump After DPCPPKernelWGLoopCreatorPass"};
+      "*** IR Dump After SYCLKernelWGLoopCreatorPass"};
 
   size_t size = 256;
   char *buf = (char *)malloc(size);
@@ -97,8 +97,8 @@ void cl_DumpIRBeforeAndAfterPasses() {
   int rc;
 
   rc = setenv(
-      "VOLCANO_LLVM_OPTIONS",
-      "-print-before=simplifycfg -print-after=dpcpp-kernel-wgloop-creator", 1);
+      "CL_CONFIG_LLVM_OPTIONS",
+      "-print-before=simplifycfg -print-after=sycl-kernel-wgloop-creator", 1);
   ASSERT_EQ(rc, 0) << "setenv: " << strerror(errno);
 
   int pipe_fds[2];
@@ -132,7 +132,7 @@ void cl_DumpIRBeforeAndAfterPasses() {
   waitpid(pid, &rc, 0);
   ASSERT_EQ(rc, 0) << "Child process exited with non-zero status";
 
-  rc = unsetenv("VOLCANO_LLVM_OPTIONS");
+  rc = unsetenv("CL_CONFIG_LLVM_OPTIONS");
   ASSERT_EQ(rc, 0) << "Unable to unset environment variable" << strerror(errno);
 }
 #endif // (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)) && !defined(_WIN32)

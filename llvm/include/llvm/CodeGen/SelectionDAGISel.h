@@ -73,15 +73,12 @@ public:
   const TargetLowering *TLI;
   bool FastISelFailed;
   SmallPtrSet<const Instruction *, 4> ElidedArgCopyInstrs;
-  bool UseInstrRefDebugInfo = false;
 
   /// Current optimization remark emitter.
   /// Used to report things like combines and FastISel failures.
   std::unique_ptr<OptimizationRemarkEmitter> ORE;
 
-  static char ID;
-
-  explicit SelectionDAGISel(TargetMachine &tm,
+  explicit SelectionDAGISel(char &ID, TargetMachine &tm,
                             CodeGenOpt::Level OL = CodeGenOpt::Default);
   ~SelectionDAGISel() override;
 
@@ -347,6 +344,7 @@ private:
   void Select_PSEUDO_LOOP_HEADER(SDNode *N);
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
+  void Select_MEMBARRIER(SDNode *N);
 
   void pushStackMapLiveVariable(SmallVectorImpl<SDValue> &Ops, SDValue Operand,
                                 SDLoc DL);
@@ -362,6 +360,9 @@ private:
   /// personality specific tasks. Returns true if the block should be
   /// instruction selected, false if no code should be emitted for it.
   bool PrepareEHLandingPad();
+
+  // Mark and Report IPToState for each Block under AsynchEH
+  void reportIPToStateForBlocks(MachineFunction *Fn);
 
   /// Perform instruction selection on all basic blocks in the function.
   void SelectAllBasicBlocks(const Function &Fn);

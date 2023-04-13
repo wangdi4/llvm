@@ -5,15 +5,6 @@
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/icx-lto%shlibext \
 ; RUN:    -plugin-opt=O3 \
-; RUN:    -plugin-opt=legacy-pass-manager \
-; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
-; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
-; RUN:    --export-dynamic-symbol=add \
-; RUN:    2>&1 | FileCheck %s
-
-; RUN: llvm-as %s -o %t.bc
-; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/icx-lto%shlibext \
-; RUN:    -plugin-opt=O3 \
 ; RUN:    -plugin-opt=new-pass-manager \
 ; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
@@ -21,11 +12,11 @@
 ; RUN:    2>&1 | FileCheck %s
 
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ TRACE
-; CHECK: SYMBOL NAME: main
-; CHECK: RESULT: MAIN | RESOLVED BY LINKER
-
 ; CHECK: SYMBOL NAME: add
 ; CHECK: RESULT: DYNAMIC EXPORT SYMBOL | RESOLVED BY LINKER
+
+; CHECK: SYMBOL NAME: main
+; CHECK: RESULT: MAIN | RESOLVED BY LINKER
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

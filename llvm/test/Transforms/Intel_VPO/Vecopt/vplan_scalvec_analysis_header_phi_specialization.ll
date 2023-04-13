@@ -42,7 +42,7 @@ define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB6]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT_NOT:%.*]] = not i1 [[VP_INNER_EXIT]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_INNER_EXIT_NOT]] i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_INNER_EXIT_NOT]] i1 false (SVAOpBits 0->V 1->V 2->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i1 [[VP1:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP1]], [[BB3]], [[BB4]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
@@ -129,7 +129,7 @@ define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_INNER_IV]] i64* [[A0:%.*]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Uni, SVA: ( V )] store i64 [[VP_INNER_IV]] i64* [[A0:%.*]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_UNI_OP:%.*]] = mul i64 [[B0:%.*]] i64 42 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 [[VP_UNI_OP]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 1024 (SVAOpBits 0->V 1->V )
@@ -137,7 +137,7 @@ define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB6]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_INNER_EXIT_NOT:%.*]] = not i1 [[VP_INNER_EXIT]] (SVAOpBits 0->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_INNER_EXIT_NOT]] i1 [[VP_LOOP_MASK]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_INNER_EXIT_NOT]] i1 false (SVAOpBits 0->V 1->V 2->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i1 [[VP1:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP1]], [[BB3]], [[BB4]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1  -ax=broadwell,skylake-avx512 -triple x86_64-linux-gnu -emit-llvm -o - %s -opaque-pointers -fopenmp -fintel-openmp-region -disable-llvm-passes | FileCheck %s
+// RUN: %clang_cc1 -ax=broadwell,skylake-avx512 -triple x86_64-linux-gnu -emit-llvm -o - %s -fopenmp -fintel-openmp-region -disable-llvm-passes | FileCheck %s
 
 // Declarations are not marked for auto-CPU dispatch
 // CHECK-DAG: declare i32 @foo() #{{[0-9]*}}

@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===- Intel_FunctionRecognizer.cpp - Function Recognizer -------------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -35,6 +35,13 @@ using namespace PatternMatch;
 
 STATISTIC(NumFunctionsRecognized, "Number of Functions Recognized");
 
+// Recognize functions that make up 'qsort'.
+cl::opt<bool> FuncRecQsort("funcrec-qsort", cl::Hidden, cl::init(true),
+                           cl::desc("Function recognition for qsort"));
+
+// Recognize 'MagickRound'.
+cl::opt<bool> FuncRecRound("funcrec-round", cl::Hidden, cl::init(false),
+                           cl::desc("Function recognition for round"));
 //
 // NOTE: The examples below use typed pointers. I will change them to opaque
 // pointers when -opaque-pointers is the default for xmain.
@@ -3249,7 +3256,203 @@ static bool isQsortSpecQsort(Function &F, Function **FSwapFunc,
   return true;
 }
 
+//
+// Return 'true' if 'F' implements MagickRound
+//
+//   double MagickRound(double x) {
+//     if ((x-floor(x)) < (ceil(x)-x))
+//       return(floor(x));
+//     return(ceil(x));
+//   }
+//
+static bool isMagickRound(Function &F) {
+
+  //
+  // Return 'true' if 'F' matches the prototype
+  //
+  //   double @MagickRound(double %x)
+  //
+  // In what follows, any floating point type is allowed to match, not
+  // just 'double'.
+  //
+  auto MatchesPrototype = [](Function &F, Argument **Arg0) -> bool {
+    if (F.isDeclaration() || F.isVarArg() || F.arg_size() != 1)
+      return false;
+    if (!F.getArg(0)->getType()->isFloatingPointTy())
+      return false;
+    *Arg0 = F.getArg(0);
+    if (!F.getReturnType()->isFloatingPointTy())
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'VIntrin' in an IntrinsicInst of the form:
+  //
+  //   %0 = call fast double @llvm.intrinsic.with.IID(double 'Arg0')
+  //
+  auto MatchesIntrinsic = [](Argument *Arg0, Intrinsic::ID IID,
+                             Value *VIntrin) -> bool {
+    auto CBIntrin = dyn_cast<IntrinsicInst>(VIntrin);
+    if (!CBIntrin || CBIntrin->getIntrinsicID() != IID)
+      return false;
+    assert(CBIntrin->arg_size() == 1 && "Expecting 1 argument");
+    if (CBIntrin->getArgOperand(0) != Arg0)
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BB' has 'Count' "real" instructions. (We exclude debug,
+  // pseudo, and lifetime instructions).
+  //
+  auto BBHasThisManyRealInstructions = [](BasicBlock &BB,
+                                          unsigned Count) -> bool {
+    unsigned ActualCount = 0;
+    for (auto &I : BB)
+      if (!I.isDebugOrPseudoInst() && !I.isLifetimeStartOrEnd())
+        if (++ActualCount > Count)
+          return false;
+    return ActualCount == Count;
+  };
+
+  //
+  // Return 'true' if 'BBE' in 'F' is a BasicBlock of the form:
+  //
+  //   %0 = call fast double @llvm.floor.f64(double 'Arg0')
+  //   %sub = fsub fast double 'Arg0', %0
+  //   %1 = call fast double @llvm.ceil.f64(double 'Arg0')
+  //   %sub1 = fsub fast double %1, 'Arg0'
+  //   %cmp = fcmp fast olt double %sub, %sub1
+  //   br i1 %cmp, label 'BB0', label 'BB1'
+  //
+  // If we return 'true', set the values of 'BB0' and 'BB1'.
+  //
+  auto MatchesEntryBlock = [&](BasicBlock &BBE, Argument *Arg0,
+                               BasicBlock **BB0, BasicBlock **BB1) -> bool {
+    if (!BBHasThisManyRealInstructions(BBE, 6))
+      return false;
+    auto BI = dyn_cast<BranchInst>(BBE.getTerminator());
+    if (!BI || !BI->isConditional() || BI->getNumSuccessors() != 2)
+      return false;
+    *BB0 = BI->getSuccessor(0);
+    *BB1 = BI->getSuccessor(1);
+    ICmpInst::Predicate Pred = ICmpInst::BAD_FCMP_PREDICATE;
+    Value *VFloor = nullptr;
+    Value *VCeil = nullptr;
+    if (!match(BI->getCondition(),
+               m_FCmp(Pred, m_FSub(m_Specific(Arg0), m_Value(VFloor)),
+                      m_FSub(m_Value(VCeil), m_Specific(Arg0)))))
+      return false;
+    if (Pred != llvm::CmpInst::FCMP_OLT)
+      return false;
+    if (!MatchesIntrinsic(Arg0, Intrinsic::floor, VFloor))
+      return false;
+    if (!MatchesIntrinsic(Arg0, Intrinsic::ceil, VCeil))
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBIN' in 'F' is a BasicBlock of the form:
+  //
+  //   'PHIIN' = call fast double @llvm.intrinsic.with.IID(double 'Arg0')
+  //   br label 'BBOUT'
+  //
+  // If we return 'true', set the values of 'BBOUT' and 'PHIIN'.
+  //
+  auto MatchesBranch = [](Intrinsic::ID IID, Argument *Arg0, BasicBlock *BBIN,
+                          BasicBlock **BBOUT, Value **PHIIN) -> bool {
+    auto BI = dyn_cast<BranchInst>(BBIN->getTerminator());
+    if (!BI || !BI->isUnconditional() || BI->getNumSuccessors() != 1)
+      return false;
+    *BBOUT = BI->getSuccessor(0);
+    auto II = dyn_cast_or_null<IntrinsicInst>(BI->getPrevNonDebugInstruction());
+    if (!II || II->getIntrinsicID() != IID)
+      return false;
+    assert(II->arg_size() == 1 && "Expecting 1 argument");
+    if (II->getArgOperand(0) != Arg0)
+      return false;
+    *PHIIN = II;
+    if (II->getPrevNonDebugInstruction())
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BBIN' in 'F' is a BasicBlock of the form:
+  //
+  //   %retval.0 = phi double [ 'PHIIN0', 'BB0'], [ 'PHIIN1', 'BB1', %if.end ]
+  //   ret double %retval.0
+  //
+  auto MatchesJoin = [&](BasicBlock *BB0, BasicBlock *BB1, Value *PHIIN0,
+                         Value *PHIIN1) -> bool {
+    if (BB0 != BB1)
+      return false;
+    if (!BBHasThisManyRealInstructions(*BB0, 2))
+      return false;
+    auto RI = dyn_cast<ReturnInst>(BB0->getTerminator());
+    if (!RI)
+      return false;
+    auto PHIN = dyn_cast_or_null<PHINode>(RI->getReturnValue());
+    if (!PHIN || PHIN->getNumIncomingValues() != 2 ||
+        PHIN->getIncomingValue(0) != PHIIN0 ||
+        PHIN->getIncomingValue(1) != PHIIN1)
+      return false;
+    return true;
+  };
+
+  // This is the main code for isMagickRound().
+  Argument *Arg0 = nullptr;
+  if (!MatchesPrototype(F, &Arg0)) {
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE,
+                    dbgs() << "FXNREC: MAGICK-ROUND: " << F.getName()
+                           << ": Does not match prototype.\n");
+    return false;
+  }
+  BasicBlock *BB0 = nullptr;
+  BasicBlock *BB1 = nullptr;
+  BasicBlock *BB2 = nullptr;
+  BasicBlock *BB3 = nullptr;
+  if (!MatchesEntryBlock(F.getEntryBlock(), Arg0, &BB0, &BB1)) {
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE,
+                    dbgs() << "FXNREC: MAGICK-ROUND: " << F.getName()
+                           << ": Does not match entry block.\n");
+    return false;
+  }
+  Value *PHIIN0 = nullptr;
+  if (!MatchesBranch(Intrinsic::floor, Arg0, BB0, &BB2, &PHIIN0)) {
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE,
+                    dbgs() << "FXNREC: MAGICK-ROUND: " << F.getName()
+                           << ": Does not match THEN block.\n");
+    return false;
+  }
+  Value *PHIIN1 = nullptr;
+  if (!MatchesBranch(Intrinsic::ceil, Arg0, BB1, &BB3, &PHIIN1)) {
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE,
+                    dbgs() << "FXNREC: MAGICK-ROUND: " << F.getName()
+                           << ": Does not match ELSE block.\n");
+    return false;
+  }
+  if (!MatchesJoin(BB2, BB3, PHIIN0, PHIIN1)) {
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE,
+                    dbgs() << "FXNREC: MAGICK-ROUND: " << F.getName()
+                           << ": Does not match JOIN block.\n");
+    return false;
+  }
+  return true;
+}
+
 static bool FunctionRecognizerImpl(Function &F) {
+  if (FuncRecRound && isMagickRound(F)) {
+    F.addFnAttr("is-magick-round");
+    NumFunctionsRecognized++;
+    LLVM_DEBUG(dbgs() << "FUNCTION-RECOGNIZER: FOUND MAGICK-ROUND "
+                      << F.getName() << "\n");
+    return true;
+  }
+  if (!FuncRecQsort)
+    return false;
   if (isQsortCompare(F)) {
     F.addFnAttr("is-qsort-compare");
     NumFunctionsRecognized++;
@@ -3289,34 +3492,6 @@ static bool FunctionRecognizerImpl(Function &F) {
     return true;
   }
   return false;
-}
-
-namespace {
-
-struct FunctionRecognizerLegacyPass : public FunctionPass {
-  static char ID; // Pass identification, replacement for typeid
-  FunctionRecognizerLegacyPass(void) : FunctionPass(ID) {
-    initializeFunctionRecognizerLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
-      return false;
-    return FunctionRecognizerImpl(F);
-  }
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-};
-
-} // namespace
-
-char FunctionRecognizerLegacyPass::ID = 0;
-INITIALIZE_PASS(FunctionRecognizerLegacyPass, "functionrecognizer",
-                "Function Recognizer", false, false)
-
-FunctionPass *llvm::createFunctionRecognizerLegacyPass(void) {
-  return new FunctionRecognizerLegacyPass();
 }
 
 PreservedAnalyses FunctionRecognizerPass::run(Function &F,

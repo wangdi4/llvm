@@ -1,5 +1,6 @@
+; INTEL_CUSTOMIZATION
 ; REQUIRES: asserts
-; RUN: opt < %s -debug-only=simplifycfg -simplifycfg -S 2>&1 | FileCheck %s
+; RUN: opt < %s -debug-only=simplifycfg -passes="simplifycfg" -S 2>&1 | FileCheck %s
 ; CHECK: already sorted
 
 ; Blender optimization should bail out here when it sees a constant compare
@@ -109,3 +110,4 @@ return:                                           ; preds = %if.end, %if.then
 }
 
 
+; end INTEL_CUSTOMIZATION

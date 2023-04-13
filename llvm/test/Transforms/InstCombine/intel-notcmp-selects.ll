@@ -1,4 +1,4 @@
-; RUN: opt -S -instcombine -enable-intel-advanced-opts < %s | FileCheck %s
+; RUN: opt -passes="instcombine" -S -enable-intel-advanced-opts < %s | FileCheck %s
 ; CHECK-NOT: select
 ; CHECK-NOT: icmp{{.*}} ne
 ; CHECK: [[CMP:%[0-9a-z.]+]] = icmp{{.*}} eq i32

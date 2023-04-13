@@ -1,4 +1,4 @@
-; RUN: opt -S -jump-threading -distant-jump-threading -conservative-jump-threading=false < %s | FileCheck %s
+; RUN: opt -passes="jump-threading" -S -distant-jump-threading -conservative-jump-threading=false < %s | FileCheck %s
 ;
 target triple = "x86_64-unknown-linux-gnu"
 

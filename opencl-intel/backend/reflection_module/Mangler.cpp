@@ -16,9 +16,9 @@
 #include "Logger.h"
 
 // name mangled related
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/FunctionDescriptor.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/FunctionDescriptor.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 
 #include <cassert>
 #include <sstream>

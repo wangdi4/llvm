@@ -4,24 +4,22 @@
 define void @foo() {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB2:%.+]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.+]] ]
-; CHECK-NEXT:    [[UNI_PHI4:%.*]] = phi i64 [ undef, [[VPLANNEDBB2]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ undef, [[VPLANNEDBB2]] ], [ [[TMP0:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP0]] = add nsw <2 x i64> [[VEC_PHI]], zeroinitializer
-; CHECK-NEXT:    [[TMP1]] = add nsw i64 [[UNI_PHI4]], 0
-; CHECK-NEXT:    [[TMP2]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i64 [[TMP2]], 0
-; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY]], label [[VPLANNEDBB5:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB2:%.+]] ], [ [[TMP1:%.*]], [[VECTOR_BODY:%.+]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB2]] ], [ [[TMP0:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp ult i64 [[TMP1]], 2
+; CHECK-NEXT:    br i1 [[TMP2]], label [[VECTOR_BODY]], label [[VPLANNEDBB5:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %body
 
 body:
-  %1 = phi i64 [ undef, %entry ], [ %3, %body ]
+  %1 = phi i64 [ 0, %entry ], [ %3, %body ]
   %2 = getelementptr inbounds i8, i8* undef, i64 undef
-  %3 = add nsw i64 %1, undef
-  %4 = icmp sgt i64 undef, undef
+  %3 = add nsw i64 %1, 1
+  %4 = icmp sgt i64 3, %3
   br i1 %4, label %body, label %exit
 
 exit:

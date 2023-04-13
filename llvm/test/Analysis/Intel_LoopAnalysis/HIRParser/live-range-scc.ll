@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -hir-framework-debug=parser -enable-new-pm=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that live range issue for the scc (%sub13 -> %add -> %sub13152 -> %dec5 -> %sub13153) is handled correctly by creating liveout copies. The issue here was that the live-range of %add and %sub13 in the scc overlaps.

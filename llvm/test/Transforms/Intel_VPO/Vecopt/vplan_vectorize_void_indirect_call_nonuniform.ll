@@ -34,7 +34,7 @@ define void @foo(i32* nocapture readonly %c, void (i32)** nocapture readonly %fu
 ; CHECK-NEXT:    br i1 [[IS_VISITED0]], label [[INDIRECT_CALL_LOOP_LATCH0]], label [[VECTOR_INDIRECT_CALL0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.indirect.call:
-; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <16 x void (i32)*> poison, void (i32)* [[CURRENT_FPTR0]], i32 0
+; CHECK-NEXT:    [[CURRENT_FPTR_SPLATINSERT0:%.*]] = insertelement <16 x void (i32)*> poison, void (i32)* [[CURRENT_FPTR0]], i64 0
 ; CHECK-NEXT:    [[CURRENT_FPTR_SPLAT0:%.*]] = shufflevector <16 x void (i32)*> [[CURRENT_FPTR_SPLATINSERT0]], <16 x void (i32)*> poison, <16 x i32> zeroinitializer
 ; CHECK-NEXT:    [[FUNC_PTR_MASK0:%.*]] = icmp eq <16 x void (i32)*> [[CURRENT_FPTR_SPLAT0]], [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <16 x i1> [[FUNC_PTR_MASK0]] to <16 x i32>
@@ -55,8 +55,8 @@ define void @foo(i32* nocapture readonly %c, void (i32)** nocapture readonly %fu
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP5]] = add nuw <16 x i32> [[VEC_PHI0]], <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
-; CHECK-NEXT:    [[TMP6]] = add nuw i32 [[UNI_PHI0]], 16
+; CHECK-NEXT:    [[TMP5]] = add nuw nsw <16 x i32> [[VEC_PHI0]], <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
+; CHECK-NEXT:    [[TMP6]] = add nuw nsw i32 [[UNI_PHI0]], 16
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i32 [[TMP6]], 16
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB60:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:

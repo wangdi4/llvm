@@ -1,4 +1,4 @@
-; RUN: opt -passes='inlinereportsetup' -inline-report=0x80 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x80 -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0x80 < %s -S | opt -passes='cgscc(inline)' -inline-report=0x80 -S 2>&1 | FileCheck %s
 
 ; This test checks that metadata corresponding to the inlining report was
 ; updated in accordance with function inlining that happened. a() should
@@ -67,7 +67,6 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
 define dso_local void @a() local_unnamed_addr {
 entry:
   call void (...) @z()
@@ -76,7 +75,6 @@ entry:
 
 declare dso_local void @z(...) local_unnamed_addr
 
-; Function Attrs: nounwind uwtable
 define dso_local void @b(i32 %n) local_unnamed_addr {
 entry:
   %cmp = icmp slt i32 %n, 3
@@ -98,7 +96,6 @@ declare dso_local void @x(...) local_unnamed_addr
 
 declare dso_local void @y(...) local_unnamed_addr
 
-; Function Attrs: nounwind uwtable
 define dso_local void @main() local_unnamed_addr {
 entry:
   call void @a()
@@ -112,4 +109,3 @@ entry:
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{!"icx (ICX) dev.8.x.0"}
-

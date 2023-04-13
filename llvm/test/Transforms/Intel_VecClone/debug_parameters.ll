@@ -1,4 +1,4 @@
-; RUN: opt -S -passes="vec-clone" < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes="vec-clone" < %s | FileCheck %s
 ;
 ; Validate parameter debug information following the -passes=vec-clone pass.
 ; Specifically,

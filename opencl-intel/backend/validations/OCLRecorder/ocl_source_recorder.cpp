@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -17,10 +17,12 @@
 #include <mutex>
 #include <vector>
 
-#include "common_clang.h"
 #include "compile_data.h"
 #include "link_data.h"
 #include "ocl_source_recorder.h"
+#include "opencl_clang.h"
+
+using namespace llvm;
 
 namespace Validation {
 using namespace Intel::OpenCL::Frontend;
@@ -40,14 +42,16 @@ void OclSourceRecorder::OnLink(const LinkData *linkData) {
       it = linkData->beginInputBuffers(),
       ie = linkData->endInputBuffers();
   for (; it != ie; ++it) {
-    unsigned char *pInputBuff = (unsigned char *)const_cast<void *>(it->first);
-    MD5 md5Input(pInputBuff, it->second);
-    MD5Code inputHash = md5Input.digest();
+    auto *pInputBuff = (uint8_t *)const_cast<void *>(it->first);
+    MD5 md5Input;
+    MD5::MD5Result inputHash =
+        md5Input.hash(ArrayRef<uint8_t>(pInputBuff, it->second));
 
-    unsigned char *pOutputBuff = (unsigned char *)const_cast<void *>(
-        linkData->getBinaryResult()->GetIR());
-    MD5 md5Output(pOutputBuff, linkData->getBinaryResult()->GetIRSize());
-    MD5Code outputHash = md5Output.digest();
+    auto *pOutputBuff =
+        (uint8_t *)const_cast<void *>(linkData->getBinaryResult()->GetIR());
+    MD5 md5Output;
+    MD5::MD5Result outputHash = md5Output.hash(ArrayRef<uint8_t>(
+        pOutputBuff, linkData->getBinaryResult()->GetIRSize()));
 
     {
       std::lock_guard<llvm::sys::Mutex> lock(m_sourcemapLock);
@@ -63,10 +67,10 @@ void OclSourceRecorder::OnLink(const LinkData *linkData) {
 void OclSourceRecorder::OnCompile(const CompileData *compileData) {
   assert(compileData && "NULL compileData");
   BinaryBuffer binaryBuffer = compileData->sourceFile().getBinaryBuffer();
-  MD5 md5(reinterpret_cast<unsigned char *>(
-              const_cast<void *>(binaryBuffer.binary)),
-          binaryBuffer.size);
-  MD5Code res = md5.digest();
+  MD5 md5;
+  MD5::MD5Result res = md5.hash(ArrayRef<uint8_t>(
+      reinterpret_cast<uint8_t *>(const_cast<void *>(binaryBuffer.binary)),
+      binaryBuffer.size));
   SourceFilesVector sourceVector;
   sourceVector.push_back(compileData->sourceFile());
   sourceVector.insert(sourceVector.end(), compileData->beginHeaders(),
@@ -77,7 +81,7 @@ void OclSourceRecorder::OnCompile(const CompileData *compileData) {
   }
 }
 
-FileIter OclSourceRecorder::begin(const MD5Code &code) const {
+FileIter OclSourceRecorder::begin(const MD5::MD5Result &code) const {
   FileIter ret;
   {
     std::lock_guard<llvm::sys::Mutex> lock(m_sourcemapLock);
@@ -98,17 +102,13 @@ FileIter OclSourceRecorder::end() const {
   return FileIter::end();
 }
 //
-// CodeLess
+// MD5HashLess
 //
-bool CodeLess::operator()(const MD5Code &x, const MD5Code &y) const {
-  const unsigned char *xcode = x.code();
-  const unsigned char *ycode = y.code();
-  for (int i = 0; i < 16; i++) {
-    if (xcode[i] != ycode[i])
-      return xcode[i] < ycode[i];
-  }
-  // all the digset is actual the same one... (return false)
-  return false;
+bool MD5HashLess::operator()(const MD5::MD5Result &x,
+                             const MD5::MD5Result &y) const {
+  if (x.high() < y.high())
+    return true;
+  return x.high() == y.high() && x.low() < y.low();
 }
 //
 // FileIter

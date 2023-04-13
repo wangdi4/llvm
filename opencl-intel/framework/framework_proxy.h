@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2020 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -27,11 +27,11 @@
 // utils
 #include "Logger.h"
 #include "cl_shutdown.h"
-#include "cl_synch_objects.h"
 #include "cl_thread.h"
 #include "ocl_itt.h"
 
 // system
+#include <mutex>
 #include <set>
 
 namespace Intel {
@@ -43,21 +43,14 @@ namespace Framework {
  *
  * Description: the framework proxy class design to pass the OpenCL api calls to
  *              the framework's modules
- * Author: Uri Levy
- * Date: December 2008
  ******************************************************************************/
-class FrameworkProxy : public Intel::OpenCL::Utils::IAtExitCentralPoint {
-private:
-  enum GLOBAL_STATE { WORKING = 0, TERMINATING, TERMINATED };
-
+class FrameworkProxy {
 public:
   /*****************************************************************************
    * Function:     Instance
    * Description: Get the instance of the framework proxy module.
    * Arguments:
    * Return value:    instance to the framework factory
-   * Author:        Uri Levy
-   * Date:          December 2008
    ****************************************************************************/
   static FrameworkProxy *Instance();
 
@@ -69,8 +62,6 @@ public:
    * Arguments:
    * Return value: pointer to the ContextModule class. NULL if context module
    *               wasn't initialized successfully
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   ContextModule *GetContextModule() const { return m_pContextModule; }
 
@@ -80,8 +71,6 @@ public:
    * Arguments:
    * Return value: pointer to the ExecutionModule class. NULL if module wasn't
    *               initialized successfully
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   ExecutionModule *GetExecutionModule() const { return m_pExecutionModule; }
 
@@ -91,8 +80,6 @@ public:
    * Arguments:
    * Return value: pointer to the PlatformModule class. NULL if module wasn't
    *               initialized successfully
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   PlatformModule *GetPlatformModule() const { return m_pPlatformModule; }
 
@@ -101,8 +88,6 @@ public:
    * Description:    Get global TaskExecutor Interface for Framework
    * Arguments:
    * Return value:
-   * Author:
-   * Date:
    ****************************************************************************/
   Intel::OpenCL::TaskExecutor::ITaskExecutor *GetTaskExecutor() const;
 
@@ -111,8 +96,6 @@ public:
    * Description:    Simple TaskExecutor Interface for Framework
    * Arguments:
    * Return value:    false on error
-   * Author:
-   * Date:
    ****************************************************************************/
   bool ActivateTaskExecutor() const;
 
@@ -121,8 +104,6 @@ public:
    * Description:    Simple TaskExecutor Interface for Framework
    * Arguments:
    * Return value:
-   * Author:
-   * Date:
    ****************************************************************************/
   void DeactivateTaskExecutor() const;
 
@@ -131,8 +112,6 @@ public:
    * Description:    Simple TaskExecutor Interface for Framework
    * Arguments:
    * Return value:
-   * Author:
-   * Date:
    ****************************************************************************/
   void CancelAllTasks(bool wait_for_finish) const;
 
@@ -142,8 +121,6 @@ public:
    *
    * Arguments:
    * Return value:    true for WIN32 and FPGA, false for
-   * Linux Author:
-   * Date:
    ****************************************************************************/
   bool NeedToDisableAPIsAtShutdown() const;
 
@@ -154,8 +131,6 @@ public:
    * Arguments:
    * Return
    * value:    false on error
-   * Author:
-   * Date:
    ****************************************************************************/
   bool Execute(const Intel::OpenCL::Utils::SharedPtr<
                Intel::OpenCL::TaskExecutor::ITaskBase> &pTask) const;
@@ -167,31 +142,12 @@ public:
    *
    * Arguments:
    * Return value:    false on error
-   * Author:
-   * Date:
    ****************************************************************************/
   bool ExecuteImmediate(const Intel::OpenCL::Utils::SharedPtr<
                         Intel::OpenCL::TaskExecutor::ITaskBase> &pTask) const;
 
-  /*****************************************************************************
-   * Function:     ~FrameworkProxy
-   * Description:    The FrameworkProxy class destructor
-   * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
-   ****************************************************************************/
-  bool API_Disabled() const { return (gGlobalState >= TERMINATING); }
+  bool API_Disabled() const { return Intel::OpenCL::Utils::IsShuttingDown(); }
 
-  /*****************************************************************************
-   * Manage process shutdown (IAtExitCentralPoint)
-   ****************************************************************************/
-  void RegisterDllCallback(
-      Intel::OpenCL::Utils::at_exit_dll_callback_fn fn) override;
-  void UnregisterDllCallback(
-      Intel::OpenCL::Utils::at_exit_dll_callback_fn fn) override;
-  void SetDllUnloadingState(bool value) override { m_bIgnoreAtExit = value; }
-  bool isDllUnloadingState() const override { return m_bIgnoreAtExit; }
-  void AtExitTrigger(Intel::OpenCL::Utils::at_exit_dll_callback_fn cb) override;
   const OCLConfig *GetOCLConfig() { return m_pConfig; };
 
 private:
@@ -199,8 +155,6 @@ private:
    * Function:     FrameworkProxy
    * Description:    The FrameworkProxy class constructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   FrameworkProxy();
 
@@ -208,8 +162,6 @@ private:
    * Function:     ~FrameworkProxy
    * Description:    The FrameworkProxy class destructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   virtual ~FrameworkProxy();
 
@@ -251,14 +203,7 @@ private:
   mutable unsigned int m_uiTEActivationCount;
 
   // a lock to prevent double initialization
-  static Intel::OpenCL::Utils::OclSpinMutex m_initializationMutex;
-
-  // Linux shutdown process
-  static void CL_CALLBACK TerminateProcess(bool needToDisableAPI);
-  static volatile GLOBAL_STATE gGlobalState;
-  static std::set<Intel::OpenCL::Utils::at_exit_dll_callback_fn>
-      m_at_exit_cbs; // use m_initializationMutex
-  static THREAD_LOCAL bool m_bIgnoreAtExit;
+  mutable std::recursive_mutex m_initializationMutex;
 
   // handle to the logger client
   DECLARE_LOGGER_CLIENT;

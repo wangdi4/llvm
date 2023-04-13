@@ -59,6 +59,12 @@ template <typename T> constexpr dpas_argument_type dpas_precision_from_type() {
   /* INTEL_FEATURE_ESIMD_EMBARGO */
   else if constexpr (std::is_same_v<T, double>)
     return dpas_argument_type::df;
+  else if constexpr (std::is_same_v < T,
+                     sycl::ext::intel::experimental::esimd::bf8>)
+    return dpas_argument_type::bf8;
+  else if constexpr (std::is_same_v<T,
+                                    sycl::ext::intel::experimental::esimd::hf8>)
+    return dpas_argument_type::hf8;
   /* end INTEL_FEATURE_ESIMD_EMBARGO */
   /* end INTEL_CUSTOMIZATION */
   else
@@ -194,8 +200,8 @@ constexpr int verify_parameters_and_deduce_exec_size() {
                        APrecision == dpas_argument_type::hf8) {
     static_assert(ExecutionSize == 16,
                   "bf8 and hf16 types can be used only with ExecutionSize=16");
-    static_assert(APrecision == BPrecision && std::is_same_v<T, float>() &&
-                      std::is_same_v<CT, float>(),
+    static_assert(APrecision == BPrecision && std::is_same_v<T, float> &&
+                      std::is_same_v<CT, float>,
                   "Unsupported DPAS types! The supported types are:\n"
                   " Result | C |  B  |  A  \n"
                   " f      | f | bf8 | bf8 \n"

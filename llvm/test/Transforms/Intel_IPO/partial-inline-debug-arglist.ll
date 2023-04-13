@@ -20,21 +20,21 @@
 ;
 ; First, validate the debug information from the original routine is retained.
 ;
-; CHECK:      define internal i32 @inlinedFunc(i1 %param1, i32* align 4 %param2)
+; CHECK:      define internal i32 @inlinedFunc(i1 %param1, ptr align 4 %param2)
 ; CHECK-SAME: !dbg [[SP1:![0-9]+]]
-; CHECK:      call void @llvm.dbg.value(metadata i32* %param2
+; CHECK:      call void @llvm.dbg.value(metadata ptr %param2
 ; CHECK-SAME: metadata [[VAR1:![0-9]+]]
 ; CHECK-SAME: metadata !DIExpression())
 ; CHECK-SAME: !dbg [[LOC1:![0-9]+]]
-; CHECK:      call void @llvm.dbg.value(metadata !DIArgList(i32* %param2, i32 42)
+; CHECK:      call void @llvm.dbg.value(metadata !DIArgList(ptr %param2, i32 42)
 ; CHECK-SAME: metadata [[VAR1]]
 ; CHECK-SAME: metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus, DW_OP_stack_value))
 ; CHECK-SAME: !dbg [[LOC1]]
-; CHECK:      call void @llvm.dbg.value(metadata !DIArgList(i32* %param2, i32* %param2)
+; CHECK:      call void @llvm.dbg.value(metadata !DIArgList(ptr %param2, ptr %param2)
 ; CHECK-SAME: metadata [[VAR1]]
 ; CHECK-SAME: metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus, DW_OP_stack_value))
 ; CHECK-SAME: !dbg [[LOC1]]
-; CHECK:      call void @llvm.dbg.value(metadata !DIArgList(i1 %param1, i32* %param2)
+; CHECK:      call void @llvm.dbg.value(metadata !DIArgList(i1 %param1, ptr %param2)
 ; CHECK-SAME: metadata [[VAR1]]
 ; CHECK-SAME: metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus, DW_OP_stack_value))
 ; CHECK-SAME: !dbg [[LOC1]]
@@ -43,17 +43,17 @@
 ;
 ; Second, check the partial inlined routine contains correct debug information.
 ;
-; CHECK:      define internal void @inlinedFunc.1.if.then(i32* %param2)
+; CHECK:      define internal void @inlinedFunc.1.if.then(ptr %param2)
 ; CHECK-SAME: !dbg [[SP2:![0-9]+]]
-; CHECK:      call void @llvm.dbg.value(metadata i32* %param2
+; CHECK:      call void @llvm.dbg.value(metadata ptr %param2
 ; CHECK-SAME: metadata [[VAR2:![0-9]+]]
 ; CHECK-SAME: metadata !DIExpression())
 ; CHECK-SAME: !dbg [[LOC2:![0-9]+]]
-; FIXME:      call void @llvm.dbg.value(metadata !DIArgList(i32* %param2, i32 42)
+; FIXME:      call void @llvm.dbg.value(metadata !DIArgList(ptr %param2, i32 42)
 ; FIXME-SAME: metadata [[VAR2]]
 ; FIXME-SAME: metadata !DIExpression(DW_OP_deref))
 ; FIXME-SAME: !dbg [[LOC2]]
-; FIXME:      call void @llvm.dbg.value(metadata !DIArgList(i32* %param2, i32* %param2)
+; FIXME:      call void @llvm.dbg.value(metadata !DIArgList(ptr %param2, ptr %param2)
 ; FIXME-SAME: metadata [[VAR2]]
 ; FIXME-SAME: metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus, DW_OP_deref, DW_OP_stack_value))
 ; FIXME-SAME: !dbg [[LOC2]]
@@ -75,23 +75,23 @@
 
 declare void @llvm.dbg.value(metadata, metadata, metadata)
 
-define internal i32 @inlinedFunc(i1 %param1, i32* align 4 %param2) !dbg !4 {
+define internal i32 @inlinedFunc(i1 %param1, ptr align 4 %param2) !dbg !4 {
 entry:
   br i1 %param1, label %if.then, label %return
 if.then:
-  call void @llvm.dbg.value(metadata i32* %param2, metadata !11, metadata !DIExpression()), !dbg !12
-  call void @llvm.dbg.value(metadata !DIArgList(i32* %param2, i32 42), metadata !11, metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus, DW_OP_stack_value)), !dbg !12
-  call void @llvm.dbg.value(metadata !DIArgList(i32* %param2, i32* %param2), metadata !11, metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus, DW_OP_stack_value)), !dbg !12
-  call void @llvm.dbg.value(metadata !DIArgList(i1 %param1, i32* %param2), metadata !11, metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus, DW_OP_stack_value)), !dbg !12
-  store i32 10, i32* %param2, align 4
+  call void @llvm.dbg.value(metadata ptr %param2, metadata !11, metadata !DIExpression()), !dbg !12
+  call void @llvm.dbg.value(metadata !DIArgList(ptr %param2, i32 42), metadata !11, metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus, DW_OP_stack_value)), !dbg !12
+  call void @llvm.dbg.value(metadata !DIArgList(ptr %param2, ptr %param2), metadata !11, metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus, DW_OP_stack_value)), !dbg !12
+  call void @llvm.dbg.value(metadata !DIArgList(i1 %param1, ptr %param2), metadata !11, metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_LLVM_arg, 1, DW_OP_plus, DW_OP_stack_value)), !dbg !12
+  store i32 10, ptr %param2, align 4
   br label %return
 return:             ; preds = %entry
   ret i32 0
 }
 
-define internal i32 @caller(i1 %param1, i32* align 2 %param2) !dbg !5 {
+define internal i32 @caller(i1 %param1, ptr align 2 %param2) !dbg !5 {
 entry:
-  %val = call i32 @inlinedFunc(i1 %param1, i32* %param2), !dbg !13
+  %val = call i32 @inlinedFunc(i1 %param1, ptr %param2), !dbg !13
   ret i32 %val
 }
 

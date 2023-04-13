@@ -38,6 +38,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/CommandLine.h" // INTEL
 #include <queue>
+#include <stack>
 
 #define DEBUG_TYPE "general-utils"
 
@@ -82,39 +83,49 @@ Loop *GeneralUtils::getLoopFromLoopInfo(LoopInfo *LI, DominatorTree *DT,
                                         BasicBlock *BB, BasicBlock *ExitBB) {
   Loop *Lp = nullptr;
 
-  // If DFS reached the region's ExitBB, go back
-  if (BB == ExitBB)
-    return nullptr;
+  SmallPtrSet<BasicBlock *, 4> VisitedBBs;
+  std::stack<BasicBlock *> StackedBBs;
+  StackedBBs.push(BB);
+  BasicBlock *ProcessedBB = nullptr;
 
-  // The first BB with 2 predecessors found in the DFS is the loop header.
-  // Return the loop associated with this BB.
-  if (std::distance(pred_begin(BB), pred_end(BB))==2) {
+  while (!StackedBBs.empty()) {
+    ProcessedBB = StackedBBs.top();
+    StackedBBs.pop();
 
-    auto IT = pred_begin(BB);
-    BasicBlock *FirstPred = *IT;
-    IT++;
-    BasicBlock *SecondPred = *IT;
+    if (VisitedBBs.find(ProcessedBB) != VisitedBBs.end())
+      continue;
 
-    if (DT->dominates(BB, FirstPred) ||
-        DT->dominates(BB, SecondPred)) {
-      Lp = LI->getLoopFor(BB);
-      // assert(Lp &&
-      //   "The first BB with 2 predecessors should be the loop header");
-      //
-      // dbgs() << "\n=== getLoopFromLoopInfo found loop : " << *Lp << "\n";
-      return Lp;
+    VisitedBBs.insert(ProcessedBB);
+
+    if (ProcessedBB == ExitBB)
+      continue;
+
+    // The first BB with 2 predecessors found in the DFS is the loop header.
+    // Return the loop associated with this BB.
+    if (std::distance(pred_begin(ProcessedBB), pred_end(ProcessedBB)) == 2) {
+
+      auto IT = pred_begin(ProcessedBB);
+      BasicBlock *FirstPred = *IT;
+      IT++;
+      BasicBlock *SecondPred = *IT;
+
+      if (DT->dominates(ProcessedBB, FirstPred) ||
+          DT->dominates(ProcessedBB, SecondPred)) {
+        Lp = LI->getLoopFor(ProcessedBB);
+        // assert(Lp &&
+        //   "The first BB with 2 predecessors should be the loop header");
+        //
+        // dbgs() << "\n=== getLoopFromLoopInfo found loop : " << *Lp << "\n";
+        return Lp;
+      } else
+        continue;
     }
-    else
-      return nullptr;
-  }
 
-  // BB is not a loop header; continue DFS with BB's successors recursively
-  for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
-    Lp = getLoopFromLoopInfo(LI, DT, *I, ExitBB);
-    if (Lp)
-      return Lp;
+    for (succ_iterator I = succ_begin(ProcessedBB), E = succ_end(ProcessedBB);
+         I != E; ++I) {
+      StackedBBs.push(*I);
+    }
   }
-
   return nullptr;
 }
 

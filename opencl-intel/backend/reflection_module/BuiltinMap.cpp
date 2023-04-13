@@ -14,7 +14,7 @@
 
 #include "BuiltinMap.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 #include <assert.h>
 #include <cctype>
 #include <utility>

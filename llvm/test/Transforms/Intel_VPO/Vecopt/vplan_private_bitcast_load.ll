@@ -4,10 +4,10 @@
 
 ; RUN: opt %s -S -passes=mem2reg,loop-simplify,lcssa,vpo-cfg-restructuring,vplan-vec -vplan-force-vf=4 -vplan-dump-soa-info 2>&1 | FileCheck %s
 
-; CHECK: SOA profitability:
-; CHECK: SOASafe =  Profitable = 1
-; CHECK: SOA profitability:
-; CHECK: SOASafe =  Profitable = 1
+; CHECK:  SOA profitability:
+; CHECK:  SOASafe = [[VP0:%.*]] Profitable = 1
+; CHECK:  SOA profitability:
+; CHECK:  SOASafe = [[VP1:%.*]] Profitable = 1
 
 ; CHECK: [[DOTSOA_VEC0:%.*]] = alloca [2520 x <4 x double>], align 32
 ; CHECK: [[TMP24:%.*]] = bitcast [2520 x <4 x double>]* [[DOTSOA_VEC0]] to <4 x i8>*

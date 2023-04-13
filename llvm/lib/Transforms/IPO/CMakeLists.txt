@@ -89,16 +89,18 @@ add_llvm_component_library(LLVMipo
 # INTEL_CUSTOMIZATION
   ${INTEL_SOURCE_FILES_TO_BUILD}
 #endif // INTEL_CUSTOMIZATION
-  InlineSimple.cpp
   Inliner.cpp
   Internalize.cpp
   LoopExtractor.cpp
   LowerTypeTests.cpp
+  MemProfContextDisambiguation.cpp
   MergeFunctions.cpp
   ModuleInliner.cpp
   OpenMPOpt.cpp
   PartialInlining.cpp
+#if INTEL_CUSTOMIZATION
   PassManagerBuilder.cpp
+#endif // INTEL_CUSTOMIZATION
   SampleContextTracker.cpp
   SampleProfile.cpp
   SampleProfileProbe.cpp
@@ -138,6 +140,7 @@ add_llvm_component_library(LLVMipo
   ProfileData
   Scalar
   Support
+  TargetParser
   TransformUtils
   Vectorize
   Instrumentation
@@ -145,7 +148,6 @@ add_llvm_component_library(LLVMipo
   Intel_LoopTransforms
   Intel_MapIntrinToIml
   VPOTransforms
-  Intel_DPCPPKernelTransforms
 # end INTEL_CUSTOMIZATION
   )
 

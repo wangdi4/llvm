@@ -26,9 +26,11 @@
 #include "cl_dev_backend_api.h"
 #include "llvm/IR/Module.h"
 
+namespace Validation {
+
+// FIXME 'using namespace' shouldn't be used in header file.
 using namespace Intel::OpenCL::DeviceBackend;
 
-namespace Validation {
 /// @brief This class enables to run a single OpenCL test
 class OpenCLBackendRunner : public IProgramRunner {
 public:
@@ -67,7 +69,8 @@ protected:
   /// @param [IN] pKernelArgs Descriptions of kernel's arguments.
   /// @param [IN] kernelNumArgs Number of kernel's arguments.
   void FillIgnoreList(std::vector<bool> &ignoreList,
-                      const KernelArgument *pKernelArgs, int kernelNumArgs);
+                      const llvm::KernelArgument *pKernelArgs,
+                      int kernelNumArgs);
 
 protected:
   ICLDevBackendServiceFactory *m_pServiceFactory;

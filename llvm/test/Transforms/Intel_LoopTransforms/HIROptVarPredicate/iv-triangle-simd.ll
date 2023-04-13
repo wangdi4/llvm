@@ -7,7 +7,7 @@
 ; CHECK:          BEGIN REGION { }
 ; CHECK:                + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK:                |   (%a1.red)[0] = 0.000000e+00;
-; CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LIVEIN(null),  QUAL.OMP.LIVEIN:F90_DV(null) ]
+; CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0]), 1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LIVEIN(null),  QUAL.OMP.LIVEIN:F90_DV(null) ]
 ; CHECK:                |   %1 = (%x)[i1];
 ; CHECK:                |   %conv14 = fpext.float.double(%1);
 ; CHECK:                |   %mul12 = %conv14  *  3.140000e+00;
@@ -43,7 +43,7 @@
 ;CHECK:          BEGIN REGION { modified }
 ;CHECK:                + DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ;CHECK:                |   (%a1.red)[0] = 0.000000e+00;
-;CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LIVEIN(null),  QUAL.OMP.LIVEIN:F90_DV(null) ]
+;CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0]), 1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null),  QUAL.OMP.LIVEIN(null),  QUAL.OMP.LIVEIN:F90_DV(null) ]
 ;CHECK:                |   %1 = (%x)[i1];
 ;CHECK:                |   %conv14 = fpext.float.double(%1);
 ;CHECK:                |   %mul12 = %conv14  *  3.140000e+00;
@@ -69,7 +69,7 @@
 
 ;CHECK:                |   if (smax(0, %ivcopy) < smin((-1 + %n), %ivcopy) + 1)
 ;CHECK:                |    {
-;CHECK:                |       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null), QUAL.OMP.LIVEIN(null), QUAL.OMP.LIVEIN:F90_DV(null) ]
+;CHECK:                |       %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0]), 1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null), QUAL.OMP.LIVEIN(null), QUAL.OMP.LIVEIN:F90_DV(null) ]
 ;CHECK:                |       %2 = (%a1.red)[0];
 
 ;CHECK:                |       %sub7 = %1  -  (%x)[smax(0, %ivcopy)];
@@ -81,7 +81,7 @@
 ;CHECK:                |       @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
 ;CHECK:                |   }
 
-;CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null), QUAL.OMP.LIVEIN(null), QUAL.OMP.LIVEIN:F90_DV(null) ]
+;CHECK:                |   %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.REDUCTION.ADD(&((%a1.red)[0])),  QUAL.OMP.LINEAR:IV(&((%j.linear.iv)[0]), 1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null), QUAL.OMP.LIVEIN(null), QUAL.OMP.LIVEIN:F90_DV(null) ]
 ;CHECK:                |   %2 = (%a1.red)[0];
 ;     :                |
 ;CHECK:                |   + DO i2 = 0, %n + -1 * smax(0, (1 + %ivcopy)) + -1, 1   <DO_LOOP> <simd> <ivdep>

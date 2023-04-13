@@ -15,11 +15,10 @@
 #pragma once
 
 #include "cl_device_api.h"
-#include "cl_shutdown.h"
-#include "cl_synch_objects.h"
 #include "harness_trapper.h"
 #include "task_executor.h"
 
+#include <mutex>
 #include <tbb/task_arena.h>
 #include <tbb/task_group.h>
 #include <tbb/task_scheduler_observer.h>
@@ -44,8 +43,6 @@ namespace TaskExecutor {
 class TBBTaskExecutor;
 class ArenaHandler;
 class TEDevice;
-
-using Intel::OpenCL::Utils::IsShutdownMode;
 
 struct TBB_PerActiveThreadData {
 public:
@@ -83,6 +80,9 @@ public:
    * Destructor
    */
   virtual ~ArenaHandler();
+
+  ArenaHandler(const ArenaHandler &) = delete;
+  ArenaHandler &operator=(const ArenaHandler &) = delete;
 
   /**
    * Enqueue a functor on the arena.
@@ -134,14 +134,10 @@ private:
   unsigned int m_uiLevel;
   unsigned int m_uiPosition[TE_MAX_LEVELS_COUNT];
 
-  Intel::OpenCL::Utils::OclSpinMutex m_lock;
+  std::recursive_mutex m_lock;
   std::vector<unsigned int> m_freePositions;
 
   DECLARE_LOGGER_CLIENT;
-
-  // do not implement:
-  ArenaHandler(const ArenaHandler &);
-  ArenaHandler &operator=(const ArenaHandler &);
 
   friend class DevArenaObserver;
   friend class TEDevice;
@@ -160,6 +156,9 @@ public:
            const Intel::OpenCL::Utils::SharedPtr<TEDevice> &parent = nullptr) {
     return new TEDevice(device_desc, user_data, observer, taskExecutor, parent);
   }
+
+  TEDevice(const TEDevice &) = delete;
+  TEDevice &operator=(const TEDevice &) = delete;
 
   /**
    * @param  uiNumSubdevComputeUnits - number of computing units in the
@@ -333,10 +332,6 @@ private:
 
   ~TEDevice();
 
-  // do not implement:
-  TEDevice(const TEDevice &);
-  TEDevice &operator=(const TEDevice &);
-
   void init_next_arena_level(unsigned int current_level,
                              unsigned int position[]);
   void free_thread_arenas_resources(TBB_PerActiveThreadData *tls,
@@ -373,19 +368,15 @@ private:
 
 // inlines
 inline void ArenaHandler::on_scheduler_entry(bool bIsWorker) {
-  if (!IsShutdownMode()) {
-    m_device->on_scheduler_entry(bIsWorker, *this);
-  }
+  m_device->on_scheduler_entry(bIsWorker, *this);
 }
 
 inline void ArenaHandler::on_scheduler_exit(bool bIsWorker) {
-  if (!IsShutdownMode()) {
-    m_device->on_scheduler_exit(bIsWorker, *this);
-  }
+  m_device->on_scheduler_exit(bIsWorker, *this);
 }
 
 inline bool ArenaHandler::on_scheduler_leaving() {
-  return (IsShutdownMode()) ? true : m_device->on_scheduler_leaving(*this);
+  return m_device->on_scheduler_leaving(*this);
 }
 
 template <class F> class TrappingEnqueueFunctor {

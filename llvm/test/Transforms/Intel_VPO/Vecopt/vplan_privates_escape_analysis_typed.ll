@@ -8,8 +8,8 @@
 
 ; REQUIRES:asserts
 
-; CHECK-DAG: SOAUnsafe = arr_e.priv
-; CHECK-DAG: SOAUnsafe = arr_e2.priv
+; CHECK-DAG: SOAUnsafe = [[VP_ARR_E_PRIV:%.*]] (arr_e.priv)
+; CHECK-DAG: SOAUnsafe = [[VP_ARR_E2_PRIV:%.*]] (arr_e2.priv)
 
 ; Source-file: test.c
 ; int arr_e[1024];

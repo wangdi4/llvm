@@ -44,6 +44,7 @@
 #include "clang/Sema/Scope.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/TimeProfiler.h"
+#include <optional>
 
 using namespace clang;
 
@@ -376,8 +377,11 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, DeclaratorContext Context) {
                 Tok.is(tok::l_brace) ? Tok.getLocation() : SourceLocation());
 
   ParsedAttributes DeclAttrs(AttrFactory);
-  MaybeParseCXX11Attributes(DeclAttrs);
-  ParsedAttributes EmptyDeclSpecAttrs(AttrFactory);
+  ParsedAttributes DeclSpecAttrs(AttrFactory);
+
+  while (MaybeParseCXX11Attributes(DeclAttrs) ||
+         MaybeParseGNUAttributes(DeclSpecAttrs))
+    ;
 
   if (Tok.isNot(tok::l_brace)) {
     // Reset the source range in DS, as the leading "extern"
@@ -386,7 +390,7 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, DeclaratorContext Context) {
     DS.SetRangeEnd(SourceLocation());
     // ... but anyway remember that such an "extern" was seen.
     DS.setExternInLinkageSpec(true);
-    ParseExternalDeclaration(DeclAttrs, EmptyDeclSpecAttrs, &DS);
+    ParseExternalDeclaration(DeclAttrs, DeclSpecAttrs, &DS);
     return LinkageSpec ? Actions.ActOnFinishLinkageSpecification(
                              getCurScope(), LinkageSpec, SourceLocation())
                        : nullptr;
@@ -428,7 +432,7 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, DeclaratorContext Context) {
     default:
       ParsedAttributes DeclAttrs(AttrFactory);
       MaybeParseCXX11Attributes(DeclAttrs);
-      ParseExternalDeclaration(DeclAttrs, EmptyDeclSpecAttrs);
+      ParseExternalDeclaration(DeclAttrs, DeclSpecAttrs);
       continue;
     }
 
@@ -441,7 +445,7 @@ Decl *Parser::ParseLinkage(ParsingDeclSpec &DS, DeclaratorContext Context) {
                      : nullptr;
 }
 
-/// Parse a C++ Modules TS export-declaration.
+/// Parse a standard C++ Modules export-declaration.
 ///
 ///       export-declaration:
 ///         'export' declaration
@@ -468,13 +472,6 @@ Decl *Parser::ParseExportDeclaration() {
 
   BalancedDelimiterTracker T(*this, tok::l_brace);
   T.consumeOpen();
-
-  // The Modules TS draft says "An export-declaration shall declare at least one
-  // entity", but the intent is that it shall contain at least one declaration.
-  if (Tok.is(tok::r_brace) && getLangOpts().ModulesTS) {
-    Diag(ExportLoc, diag::err_export_empty)
-        << SourceRange(ExportLoc, Tok.getLocation());
-  }
 
   while (!tryParseMisplacedModuleImport() && Tok.isNot(tok::r_brace) &&
          Tok.isNot(tok::eof)) {
@@ -985,7 +982,9 @@ Decl *Parser::ParseStaticAssertDeclaration(SourceLocation &DeclEnd) {
     Diag(Tok, diag::ext_c11_feature) << Tok.getName();
   if (Tok.is(tok::kw_static_assert)) {
     if (!getLangOpts().CPlusPlus) {
-      if (!getLangOpts().C2x)
+      if (getLangOpts().C2x)
+        Diag(Tok, diag::warn_c2x_compat_keyword) << Tok.getName();
+      else
         Diag(Tok, diag::ext_ms_static_assert) << FixItHint::CreateReplacement(
             Tok.getLocation(), "_Static_assert");
     } else
@@ -1694,6 +1693,9 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
     ColonProtectionRAIIObject X(*this);
 
     CXXScopeSpec Spec;
+    if (TemplateInfo.TemplateParams)
+      Spec.setTemplateParamLists(*TemplateInfo.TemplateParams);
+
     bool HasValidSpec = true;
     if (ParseOptionalCXXScopeSpecifier(Spec, /*ObjectType=*/nullptr,
                                        /*ObjectHasErrors=*/false,
@@ -2087,7 +2089,7 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
         DSC == DeclSpecContext::DSC_type_specifier,
         DSC == DeclSpecContext::DSC_template_param ||
             DSC == DeclSpecContext::DSC_template_type_arg,
-        &SkipBody);
+        OffsetOfState, &SkipBody);
 
     // If ActOnTag said the type was dependent, try again with the
     // less common call.
@@ -3220,7 +3222,11 @@ ExprResult Parser::ParseCXXMemberInitializer(Decl *D, bool IsFunction,
          "Data member initializer not starting with '=' or '{'");
 
   EnterExpressionEvaluationContext Context(
-      Actions, Sema::ExpressionEvaluationContext::PotentiallyEvaluated, D);
+      Actions,
+      isa_and_present<FieldDecl>(D)
+          ? Sema::ExpressionEvaluationContext::PotentiallyEvaluatedIfUsed
+          : Sema::ExpressionEvaluationContext::PotentiallyEvaluated,
+      D);
   if (TryConsumeToken(tok::equal, EqualLoc)) {
     if (Tok.is(tok::kw_delete)) {
       // In principle, an initializer of '= delete p;' is legal, but it will
@@ -4094,7 +4100,7 @@ void Parser::ParseTrailingRequiresClause(Declarator &D) {
 
   Actions.ActOnStartTrailingRequiresClause(getCurScope(), D);
 
-  llvm::Optional<Sema::CXXThisScopeRAII> ThisScope;
+  std::optional<Sema::CXXThisScopeRAII> ThisScope;
   InitCXXThisScopeForDeclaratorIfRelevant(D, D.getDeclSpec(), ThisScope);
 
   TrailingRequiresClause =
@@ -4519,7 +4525,10 @@ void Parser::ParseCXX11AttributeSpecifierInternal(ParsedAttributes &Attrs,
                                                   CachedTokens &OpenMPTokens,
                                                   SourceLocation *EndLoc) {
   if (Tok.is(tok::kw_alignas)) {
-    Diag(Tok.getLocation(), diag::warn_cxx98_compat_alignas);
+    if (getLangOpts().C2x)
+      Diag(Tok, diag::warn_c2x_compat_keyword) << Tok.getName();
+    else
+      Diag(Tok.getLocation(), diag::warn_cxx98_compat_alignas);
     ParseAlignmentSpecifier(Attrs, EndLoc);
     return;
   }

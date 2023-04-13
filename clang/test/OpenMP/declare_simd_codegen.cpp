@@ -243,10 +243,10 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVdN4v__Z5add_1Pf
 // CHECK-DAG: _ZGVeN8v__Z5add_1Pf
 
-// SPIR-DAG: _ZGVxN8v__Z5add_1Pf
-// SPIR-DAG: _ZGVxN16v__Z5add_1Pf
-// SPIR-NOT: _ZGVxN32v__Z5add_1Pf
-// SPIR-DAG: _ZGVxM32v__Z5add_1Pf
+// SPIR-DAG: _ZGV_unknown_N8v__Z5add_1Pf
+// SPIR-DAG: _ZGV_unknown_N16v__Z5add_1Pf
+// SPIR-NOT: _ZGV_unknown_N32v__Z5add_1Pf
+// SPIR-DAG: _ZGV_unknown_M32v__Z5add_1Pf
 
 // CHECK-NOT: _ZGVbN2vv__Z5add_1Pf
 // CHECK-NOT: _ZGVcN4vv__Z5add_1Pf
@@ -283,10 +283,10 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVeM8va16va16vv__Z1hIfEvPT_S1_S1_S1_
 // CHECK-DAG: _ZGVeN8va16va16vv__Z1hIfEvPT_S1_S1_S1_
 
-// SPIR-DAG: _ZGVxN8vvvv__Z1hIiEvPT_S1_S1_S1_
-// SPIR-DAG: _ZGVxN16vvvv__Z1hIiEvPT_S1_S1_S1_
-// SPIR-DAG: _ZGVxM8vvvv__Z1hIiEvPT_S1_S1_S1_
-// SPIR-DAG: _ZGVxM16vvvv__Z1hIiEvPT_S1_S1_S1_
+// SPIR-DAG: _ZGV_unknown_N8vvvv__Z1hIiEvPT_S1_S1_S1_
+// SPIR-DAG: _ZGV_unknown_N16vvvv__Z1hIiEvPT_S1_S1_S1_
+// SPIR-DAG: _ZGV_unknown_M8vvvv__Z1hIiEvPT_S1_S1_S1_
+// SPIR-DAG: _ZGV_unknown_M16vvvv__Z1hIiEvPT_S1_S1_S1_
 
 // CHECK-DAG: _ZGVbM4uuls1__ZN2VV3addEii
 // CHECK-DAG: _ZGVbN4uuls1__ZN2VV3addEii
@@ -297,10 +297,10 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVeM16uuls1__ZN2VV3addEii
 // CHECK-DAG: _ZGVeN16uuls1__ZN2VV3addEii
 
-// SPIR-DAG: _ZGVxN8uuls1__ZN2VV3addEii
-// SPIR-DAG: _ZGVxN16uuls1__ZN2VV3addEii
-// SPIR-DAG: _ZGVxM8uuls1__ZN2VV3addEii
-// SPIR-DAG: _ZGVxM16uuls1__ZN2VV3addEii
+// SPIR-DAG: _ZGV_unknown_N8uuls1__ZN2VV3addEii
+// SPIR-DAG: _ZGV_unknown_N16uuls1__ZN2VV3addEii
+// SPIR-DAG: _ZGV_unknown_M8uuls1__ZN2VV3addEii
+// SPIR-DAG: _ZGV_unknown_M16uuls1__ZN2VV3addEii
 
 // CHECK-DAG: _ZGVbM4l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
 // CHECK-DAG: _ZGVbN4l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
@@ -311,10 +311,10 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVeM16l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
 // CHECK-DAG: _ZGVeN16l40l4a16R32a4__ZN2VV6taddpfEPfRS0_
 
-// SPIR-DAG: _ZGVxN8l40l4R32a4__ZN2VV6taddpfEPfRS0_
-// SPIR-DAG: _ZGVxN16l40l4R32a4__ZN2VV6taddpfEPfRS0_
-// SPIR-DAG: _ZGVxM8l40l4R32a4__ZN2VV6taddpfEPfRS0_
-// SPIR-DAG: _ZGVxM16l40l4R32a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGV_unknown_N8l40l4R32a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGV_unknown_N16l40l4R32a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGV_unknown_M8l40l4R32a4__ZN2VV6taddpfEPfRS0_
+// SPIR-DAG: _ZGV_unknown_M16l40l4R32a4__ZN2VV6taddpfEPfRS0_
 
 // CHECK-DAG: _ZGVbM4vvU8__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVbN4vvU8__ZN2VV4taddERA_iRi
@@ -333,10 +333,10 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVeM16vva8v__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVeN16vva8v__ZN2VV4taddERA_iRi
 
-// SPIR-DAG: _ZGVxN8vvU8__ZN2VV4taddERA_iRi
-// SPIR-DAG: _ZGVxN16vvU8__ZN2VV4taddERA_iRi
-// SPIR-DAG: _ZGVxM8vvU8__ZN2VV4taddERA_iRi
-// SPIR-DAG: _ZGVxM16vvU8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGV_unknown_N8vvU8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGV_unknown_N16vvU8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGV_unknown_M8vvU8__ZN2VV4taddERA_iRi
+// SPIR-DAG: _ZGV_unknown_M16vvU8__ZN2VV4taddERA_iRi
 
 // CHECK-DAG: _ZGVbM4vva32R128a16__ZN3TVVILi16EfE6taddpfEPfRS1_
 // CHECK-DAG: _ZGVbN4vva32R128a16__ZN3TVVILi16EfE6taddpfEPfRS1_
@@ -348,10 +348,10 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVeN16vva32R128a16__ZN3TVVILi16EfE6taddpfEPfRS1_
 
 // SimdDefaultAlign is 0 for SPIR but 128-512 for x86
-// SPIR-DAG: _ZGVxN8vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
-// SPIR-DAG: _ZGVxN16vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
-// SPIR-DAG: _ZGVxM8vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
-// SPIR-DAG: _ZGVxM16vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGV_unknown_N8vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGV_unknown_N16vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGV_unknown_M8vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
+// SPIR-DAG: _ZGV_unknown_M16vva32R128__ZN3TVVILi16EfE6taddpfEPfRS1_
 
 // CHECK-DAG: _ZGVbM4uu__ZN3TVVILi16EfE4taddEi
 // CHECK-DAG: _ZGVbN4uu__ZN3TVVILi16EfE4taddEi
@@ -370,10 +370,10 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVeM16vv__ZN3TVVILi16EfE4taddEi
 // CHECK-DAG: _ZGVeN16vv__ZN3TVVILi16EfE4taddEi
 
-// SPIR-DAG: _ZGVxN8uu__ZN3TVVILi16EfE4taddEi
-// SPIR-DAG: _ZGVxN16uu__ZN3TVVILi16EfE4taddEi
-// SPIR-DAG: _ZGVxM8uu__ZN3TVVILi16EfE4taddEi
-// SPIR-DAG: _ZGVxM16uu__ZN3TVVILi16EfE4taddEi
+// SPIR-DAG: _ZGV_unknown_N8uu__ZN3TVVILi16EfE4taddEi
+// SPIR-DAG: _ZGV_unknown_N16uu__ZN3TVVILi16EfE4taddEi
+// SPIR-DAG: _ZGV_unknown_M8uu__ZN3TVVILi16EfE4taddEi
+// SPIR-DAG: _ZGV_unknown_M16uu__ZN3TVVILi16EfE4taddEi
 
 // CHECK-DAG: _ZGVbM64va128U64__Z3fooILi64EEvRAT__iRPf
 // CHECK-DAG: _ZGVbN64va128U64__Z3fooILi64EEvRAT__iRPf
@@ -402,10 +402,8 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVeM16vl16__ZN1A7outfuncILi4EfEET0_PS1_
 // CHECK-DAG: _ZGVeN16vl16__ZN1A7outfuncILi4EfEET0_PS1_
 
-// SPIR-DAG: _ZGVxN64va128U64__Z3fooILi64EEvRAT__iRPf
-// SPIR-DAG: _ZGVxN64va128U64__Z3fooILi64EEvRAT__iRPf
-// SPIR-DAG: _ZGVxM64va128U64__Z3fooILi64EEvRAT__iRPf
-// SPIR-DAG: _ZGVxM64va128U64__Z3fooILi64EEvRAT__iRPf
+// SPIR-DAG: _ZGV_unknown_N64va128U64__Z3fooILi64EEvRAT__iRPf
+// SPIR-DAG: _ZGV_unknown_M64va128U64__Z3fooILi64EEvRAT__iRPf
 
 // CHECK-DAG: _ZGVbM4vv__Z3bar2VVPf
 // CHECK-DAG: _ZGVbN4vv__Z3bar2VVPf
@@ -420,10 +418,10 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVdN8vva32__Z3bar2VVPf
 // CHECK-DAG: _ZGVeN16vva32__Z3bar2VVPf
 
-// SPIR-DAG: _ZGVxN8vv__Z3bar2VVPf
-// SPIR-DAG: _ZGVxN16vv__Z3bar2VVPf
-// SPIR-DAG: _ZGVxM8vv__Z3bar2VVPf
-// SPIR-DAG: _ZGVxM16vv__Z3bar2VVPf
+// SPIR-DAG: _ZGV_unknown_N8vv__Z3bar2VVPf
+// SPIR-DAG: _ZGV_unknown_N16vv__Z3bar2VVPf
+// SPIR-DAG: _ZGV_unknown_M8vv__Z3bar2VVPf
+// SPIR-DAG: _ZGV_unknown_M16vv__Z3bar2VVPf
 
 // CHECK-DAG: _ZGVbM4vv__Z3baz2VVPi
 // CHECK-DAG: _ZGVbN4vv__Z3baz2VVPi
@@ -495,16 +493,16 @@ double Six(int a, float *b, int &c, int *&d, char e, char *f, short g) {
 // CHECK-DAG: _ZGVdN4v__Z3food
 // CHECK-DAG: _ZGVeN8v__Z3food
 
-// SPIR-DAG: _ZGVxN8v__Z3food
-// SPIR-DAG: _ZGVxN16v__Z3food
+// SPIR-DAG: _ZGV_unknown_N8v__Z3food
+// SPIR-DAG: _ZGV_unknown_N16v__Z3food
 
 // CHECK-DAG: _ZGVbN2l__Z11constlineari
 // CHECK-DAG: _ZGVcN4l__Z11constlineari
 // CHECK-DAG: _ZGVdN4l__Z11constlineari
 // CHECK-DAG: _ZGVeN8l__Z11constlineari
 
-// SPIR-DAG: _ZGVxN8l__Z11constlineari
-// SPIR-DAG: _ZGVxN16l__Z11constlineari
+// SPIR-DAG: _ZGV_unknown_N8l__Z11constlineari
+// SPIR-DAG: _ZGV_unknown_N16l__Z11constlineari
 
 // CHECK-DAG: _ZGVbM4L2l16l8Ll4l__Z3OneRiPiiS_S0_i
 // CHECK-DAG: _ZGVbN4L2l16l8Ll4l__Z3OneRiPiiS_S0_i

@@ -1,4 +1,21 @@
 //===- CallGraph.h - Build a Module's call graph ----------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -90,6 +107,7 @@ public:
   explicit CallGraph(Module &M);
   CallGraph(CallGraph &&Arg);
   ~CallGraph();
+  CallGraph &operator=(CallGraph &&) = delete; // INTEL
 
   void print(raw_ostream &OS) const;
   void dump() const;
@@ -175,7 +193,7 @@ public:
   /// first field and it is not supposed to be `nullptr`.
   /// Reference edges, for example, are used for connecting broker function
   /// caller to the callback function for callback call sites.
-  using CallRecord = std::pair<Optional<WeakTrackingVH>, CallGraphNode *>;
+  using CallRecord = std::pair<std::optional<WeakTrackingVH>, CallGraphNode *>;
 
 public:
   using CalledFunctionsVector = std::vector<CallRecord>;
@@ -240,11 +258,9 @@ public:
 
   /// Adds a function to the list of functions called by this one.
   void addCalledFunction(CallBase *Call, CallGraphNode *M) {
-    assert(!Call || !Call->getCalledFunction() ||
-           !Call->getCalledFunction()->isIntrinsic() ||
-           !Intrinsic::isLeaf(Call->getCalledFunction()->getIntrinsicID()));
-    CalledFunctions.emplace_back(
-        Call ? Optional<WeakTrackingVH>(Call) : Optional<WeakTrackingVH>(), M);
+    CalledFunctions.emplace_back(Call ? std::optional<WeakTrackingVH>(Call)
+                                      : std::optional<WeakTrackingVH>(),
+                                 M);
     M->AddRef();
   }
 

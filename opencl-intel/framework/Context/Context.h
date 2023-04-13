@@ -26,9 +26,9 @@
 #include "ocl_itt.h"
 #include "sampler.h"
 #include <Logger.h>
-#include <cl_synch_objects.h>
 #include <list>
 #include <map>
+#include <mutex>
 #include <set>
 #include <tuple>
 
@@ -55,8 +55,6 @@ typedef std::set<SharedPtr<Device>> tSetOfDevices;
  *
  * Inherit:      OCLObject
  * Description:  represents a context
- * Author:       Uri Levy
- * Date:         December 2008
  ******************************************************************************/
 class Context : public OCLObject<_cl_context_int> {
 public:
@@ -71,8 +69,6 @@ public:
    *            pfnNotify [in] - error notification function's pointer
    *            pUserData [in] - user date
    * Return: a SharedPtr<Context> holding the new Context
-   * Author:       Aharon Abramson
-   * Date:         March 2012
    ****************************************************************************/
   static SharedPtr<Context>
   Allocate(const cl_context_properties *clProperties, cl_uint uiNumDevices,
@@ -94,8 +90,6 @@ public:
    *               ppDevice [in] - list of devices
    *               pfnNotify [in] - error notification function's pointer
    *               pUserData [in] - user date
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   Context(const cl_context_properties *clProperties, cl_uint uiNumDevices,
           cl_uint uiNumRootDevices, SharedPtr<FissionableDevice> *ppDevice,
@@ -103,12 +97,13 @@ public:
           ocl_entry_points *pOclEntryPoints, ocl_gpa_data *pGPAData,
           ContextModule &contextModule);
 
+  Context(const Context &) = delete;
+  Context &operator=(const Context &) = delete;
+
   /*****************************************************************************
    * Function:     Cleanup
    * Description:  Cleanup devices in the context if terminate is false
    * Arguments:
-   * Author:       Arnon Peleg
-   *
    ****************************************************************************/
   void Cleanup(bool bTerminate = false) override;
 
@@ -122,8 +117,6 @@ public:
    *   param_value [out] parameter's value
    *   param_value_size_ret [out] parameter's value return size
    * Return value: CL_SUCCESS - operation succeeded
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   virtual cl_err_code GetInfo(cl_int param_name, size_t param_value_size,
                               void *param_value,
@@ -148,8 +141,6 @@ public:
    *               CL_INVALID_VALUE if spec_size does not match the size of the
    *                                specialization constant in the module, or if
    *                                spec_value is NULL.
-   * Author:       Alexey Sotkin
-   * Date:         January 2020
    ****************************************************************************/
   cl_err_code SetSpecializationConstant(SharedPtr<Program> pProgram,
                                         cl_uint uiSpecId, size_t szSpecSize,
@@ -159,8 +150,6 @@ public:
    * Description:  creates new program object with source code attached
    * Arguments:
    * Return value:
-   * Author:       Uri Levy
-   * Date:         January 2009
    ****************************************************************************/
   cl_err_code CreateProgramWithSource(cl_uint IN uiCount,
                                       const char **IN ppcStrings,
@@ -178,8 +167,6 @@ public:
    *               CL_SUCCESS if no errors ocured
    *               CL_INVALID_VALUE if memory pIL pointed to is invalid IL
    *                                (SPIR-V) binary
-   * Author:       Vlad Romanov
-   * Date:         September 2015
    ****************************************************************************/
   cl_err_code CreateProgramWithIL(const unsigned char *IN pIL,
                                   const size_t IN length,
@@ -189,8 +176,6 @@ public:
    * Description:  creates new program object with binaries
    * Arguments:
    * Return value:
-   * Author:       Uri Levy
-   * Date:         January 2009
    ****************************************************************************/
   cl_err_code CreateProgramWithBinary(cl_uint IN uiNumDevices,
                                       const cl_device_id *IN pclDeviceList,
@@ -204,8 +189,6 @@ public:
    * Description:  creates new program object with built-in kernels
    * Arguments:
    * Return value:
-   * Author:       Evgeny Fiksman
-   * Date:         June 2012
    ****************************************************************************/
   cl_err_code CreateProgramWithBuiltInKernels(
       cl_uint IN uiNumDevices, const cl_device_id *IN pclDeviceList,
@@ -227,8 +210,6 @@ public:
    * Description:  creates an empty program
    * Arguments:
    * Return value:
-   * Author:       Sagi Shahar
-   * Date:         January 2012
    ****************************************************************************/
   cl_err_code CreateProgramForLink(cl_uint IN uiNumDevices,
                                    const cl_device_id *IN pclDeviceList,
@@ -239,8 +220,6 @@ public:
    * Description:  Compile program from a set of source and headers
    * Arguments:
    * Return value:
-   * Author:       Sagi Shahar
-   * Date:         January 2012
    ****************************************************************************/
   cl_err_code
   CompileProgram(cl_program IN clProgram, cl_uint IN uiNumDevices,
@@ -254,8 +233,6 @@ public:
    * Description:  Link program from a set of binaries
    * Arguments:
    * Return value:
-   * Author:       Sagi Shahar
-   * Date:         January 2012
    ****************************************************************************/
   cl_err_code LinkProgram(cl_program IN clProgram, cl_uint IN uiNumDevices,
                           const cl_device_id *IN pclDeviceList,
@@ -269,8 +246,6 @@ public:
    * Description:  Build program from source or executable binary
    * Arguments:
    * Return value:
-   * Author:       Sagi Shahar
-   * Date:         January 2012
    ****************************************************************************/
   cl_err_code BuildProgram(cl_program IN clProgram, cl_uint IN uiNumDevices,
                            const cl_device_id *IN pclDeviceList,
@@ -309,8 +284,6 @@ public:
    * Arguments: uiDeviceIndex [in]  - Device's index
    * Return value: a SharedPtr<Device> pointing to the device or NULL if the
    *               device index is not associated with the context
-   * Author: Arnon Peleg
-   * Date: January 2009
    ****************************************************************************/
   SharedPtr<FissionableDevice> GetDeviceByIndex(cl_uint uiDeviceIndex);
 
@@ -406,8 +379,6 @@ public:
    *                                information helpful in debugging the error
    *            szCb [in] - length of binary data
    * Return value:
-   * Author:       Uri Levy
-   * Date: January 2009
    ****************************************************************************/
   void NotifyError(const char *pcErrInfo, const void *pPrivateInfo,
                    size_t szCb);
@@ -601,8 +572,6 @@ protected:
    * Function:     ~Device
    * Description:  The Context class destructor
    * Arguments:
-   * Author:       Uri Levy
-   * Date:         December 2008
    ****************************************************************************/
   virtual ~Context();
 
@@ -724,7 +693,7 @@ protected:
 
   typedef std::list<cl_image_format> tImageFormatList;
   typedef std::map<cl_mem_flags, tImageFormatList> tImageFormatMap;
-  Intel::OpenCL::Utils::OclSpinMutex m_muFormatsMap;
+  std::recursive_mutex m_muFormatsMap;
   tImageFormatMap m_mapSupportedFormats;
 
   Intel::OpenCL::Utils::ClHeap m_MemObjectsHeap;
@@ -740,6 +709,7 @@ protected:
   bool m_bSupportsUsmSharedCross = false;
   bool m_bSupportsUsmSharedSystem = false;
   std::map<void *, SharedPtr<USMBuffer>> m_usmBuffers;
+  std::map<const void *, std::vector<void *>> m_usmSystemBufferMap;
   mutable Intel::OpenCL::Utils::OclReaderWriterLock m_usmBuffersRwlock;
 
   // Holds the backend library program.
@@ -759,8 +729,6 @@ protected:
   std::vector<size_t> m_forcedWGSizes;
 
 private:
-  Context(const Context &);
-  Context &operator=(const Context &);
   // Store callback function and its parameters
   std::vector<std::tuple<cl_context, CallbackType *, void *>> m_callbackFuncs;
 };

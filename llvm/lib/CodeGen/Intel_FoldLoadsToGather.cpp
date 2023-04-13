@@ -125,7 +125,7 @@ struct LoadInfo {
 // %GEP1 = getelementptr inbounds i32, i32 addrspace(1)* %base, i32 %E1
 // %V1 = load i32, i32 addrspace(1)* %GEP1, align 4
 // %I1 = insertelement <4 x i32> %I0, i32 %V1, i32 1
-static Optional<LoadInfo> findLoad(Value *I, const BasicBlock *BB) {
+static std::optional<LoadInfo> findLoad(Value *I, const BasicBlock *BB) {
   LoadInfo L;
 
   Value *IEVal = nullptr;
@@ -259,7 +259,7 @@ bool FoldLoadsToGather::run(Instruction& I) {
   auto AddrBaseTy = Load0.AddrBase->getType()->getScalarType();
   auto GEPTy = AddrBaseTy->isOpaquePointerTy()
                    ? AddrBaseTy
-                   : AddrBaseTy->getPointerElementType();
+                   : AddrBaseTy->getNonOpaquePointerElementType();
   auto GEP =
       Builder.CreateGEP(GEPTy, Load0.AddrBase, ArrayRef<Value *>({AddrIndex}));
 

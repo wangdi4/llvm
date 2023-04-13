@@ -1,7 +1,7 @@
 ; CMPLRLLVM-29768: addrspace(256) is reserved by the x86 backend for user
 ; defined segments, and memcpy is not supported.
 
-; RUN: opt -S --loop-idiom %s | FileCheck %s
+; RUN: opt -passes="loop(loop-idiom)" -S %s | FileCheck %s
 ; CHECK: @f1
 ; CHECK-NOT: memcpy
 

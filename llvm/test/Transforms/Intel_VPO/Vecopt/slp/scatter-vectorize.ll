@@ -4,49 +4,48 @@
 ; Test crashed on MultiNode "legality" when scatter vectorize for non-constant
 ; indices was enabled (https://reviews.llvm.org/D127219).
 ;
-define void @test(float* %arg) {
-; CHECK-LABEL: @test(
+define void @test(ptr %arg) {
+; CHECK-LABEL: define {{[^@]+}}@test(
 ; CHECK-NEXT:  bb:
-; CHECK-NEXT:    [[I1:%.*]] = getelementptr inbounds [3 x [3 x float]], [3 x [3 x float]]* undef, i64 0, i64 0, i64 0
-; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <8 x float*> poison, float* [[ARG:%.*]], i32 0
-; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x float*> [[TMP0]], <8 x float*> poison, <8 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr float, <8 x float*> [[SHUFFLE]], <8 x i64> <i64 0, i64 1, i64 2, i64 4, i64 5, i64 6, i64 8, i64 9>
-; CHECK-NEXT:    [[TMP2:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP1]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison)
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast float* [[I1]] to <8 x float>*
-; CHECK-NEXT:    store <8 x float> [[TMP2]], <8 x float>* [[TMP3]], align 16
+; CHECK-NEXT:    [[I1:%.*]] = getelementptr inbounds [3 x [3 x float]], ptr undef, i64 0, i64 0, i64 0
+; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <8 x ptr> poison, ptr [[ARG:%.*]], i32 0
+; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <8 x ptr> [[TMP0]], <8 x ptr> poison, <8 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr float, <8 x ptr> [[SHUFFLE]], <8 x i64> <i64 0, i64 1, i64 2, i64 4, i64 5, i64 6, i64 8, i64 9>
+; CHECK-NEXT:    [[TMP2:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> [[TMP1]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> poison)
+; CHECK-NEXT:    store <8 x float> [[TMP2]], ptr [[I1]], align 16
 ; CHECK-NEXT:    ret void
 ;
 bb:
-  %i = load float, float* %arg, align 4
-  %i1 = getelementptr inbounds [3 x [3 x float]], [3 x [3 x float]]* undef, i64 0, i64 0, i64 0
-  store float %i, float* %i1, align 16
-  %i2 = getelementptr inbounds float, float* %arg, i64 1
-  %i3 = load float, float* %i2, align 4
-  %i4 = getelementptr inbounds [3 x [3 x float]], [3 x [3 x float]]* undef, i64 0, i64 0, i64 1
-  store float %i3, float* %i4, align 4
-  %i5 = getelementptr inbounds float, float* %arg, i64 2
-  %i6 = load float, float* %i5, align 4
-  %i7 = getelementptr inbounds [3 x [3 x float]], [3 x [3 x float]]* undef, i64 0, i64 0, i64 2
-  store float %i6, float* %i7, align 8
-  %i8 = getelementptr inbounds float, float* %arg, i64 4
-  %i9 = load float, float* %i8, align 4
-  %i10 = getelementptr inbounds [3 x [3 x float]], [3 x [3 x float]]* undef, i64 0, i64 1, i64 0
-  store float %i9, float* %i10, align 4
-  %i11 = getelementptr inbounds float, float* %arg, i64 5
-  %i12 = load float, float* %i11, align 4
-  %i13 = getelementptr inbounds [3 x [3 x float]], [3 x [3 x float]]* undef, i64 0, i64 1, i64 1
-  store float %i12, float* %i13, align 16
-  %i14 = getelementptr inbounds float, float* %arg, i64 6
-  %i15 = load float, float* %i14, align 4
-  %i16 = getelementptr inbounds [3 x [3 x float]], [3 x [3 x float]]* undef, i64 0, i64 1, i64 2
-  store float %i15, float* %i16, align 4
-  %i17 = getelementptr inbounds float, float* %arg, i64 8
-  %i18 = load float, float* %i17, align 4
-  %i19 = getelementptr inbounds [3 x [3 x float]], [3 x [3 x float]]* undef, i64 0, i64 2, i64 0
-  store float %i18, float* %i19, align 8
-  %i20 = getelementptr inbounds float, float* %arg, i64 9
-  %i21 = load float, float* %i20, align 4
-  %i22 = getelementptr inbounds [3 x [3 x float]], [3 x [3 x float]]* undef, i64 0, i64 2, i64 1
-  store float %i21, float* %i22, align 4
+  %i = load float, ptr %arg, align 4
+  %i1 = getelementptr inbounds [3 x [3 x float]], ptr undef, i64 0, i64 0, i64 0
+  store float %i, ptr %i1, align 16
+  %i2 = getelementptr inbounds float, ptr %arg, i64 1
+  %i3 = load float, ptr %i2, align 4
+  %i4 = getelementptr inbounds [3 x [3 x float]], ptr undef, i64 0, i64 0, i64 1
+  store float %i3, ptr %i4, align 4
+  %i5 = getelementptr inbounds float, ptr %arg, i64 2
+  %i6 = load float, ptr %i5, align 4
+  %i7 = getelementptr inbounds [3 x [3 x float]], ptr undef, i64 0, i64 0, i64 2
+  store float %i6, ptr %i7, align 8
+  %i8 = getelementptr inbounds float, ptr %arg, i64 4
+  %i9 = load float, ptr %i8, align 4
+  %i10 = getelementptr inbounds [3 x [3 x float]], ptr undef, i64 0, i64 1, i64 0
+  store float %i9, ptr %i10, align 4
+  %i11 = getelementptr inbounds float, ptr %arg, i64 5
+  %i12 = load float, ptr %i11, align 4
+  %i13 = getelementptr inbounds [3 x [3 x float]], ptr undef, i64 0, i64 1, i64 1
+  store float %i12, ptr %i13, align 16
+  %i14 = getelementptr inbounds float, ptr %arg, i64 6
+  %i15 = load float, ptr %i14, align 4
+  %i16 = getelementptr inbounds [3 x [3 x float]], ptr undef, i64 0, i64 1, i64 2
+  store float %i15, ptr %i16, align 4
+  %i17 = getelementptr inbounds float, ptr %arg, i64 8
+  %i18 = load float, ptr %i17, align 4
+  %i19 = getelementptr inbounds [3 x [3 x float]], ptr undef, i64 0, i64 2, i64 0
+  store float %i18, ptr %i19, align 8
+  %i20 = getelementptr inbounds float, ptr %arg, i64 9
+  %i21 = load float, ptr %i20, align 4
+  %i22 = getelementptr inbounds [3 x [3 x float]], ptr undef, i64 0, i64 2, i64 1
+  store float %i21, ptr %i22, align 4
   ret void
 }

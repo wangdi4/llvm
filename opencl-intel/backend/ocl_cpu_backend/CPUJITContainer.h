@@ -37,6 +37,9 @@ public:
                   llvm::Module *pModule, KernelJITProperties *pProps);
   virtual ~CPUJITContainer();
 
+  CPUJITContainer(const CPUJITContainer &) = delete;
+  CPUJITContainer &operator=(const CPUJITContainer &) = delete;
+
   /*
    * ICLDevBackendJITContainer methods
    */
@@ -66,12 +69,6 @@ private:
   llvm::Module *m_pModule; // not owned by the class
 
   KernelJITProperties *m_pProps;
-
-  // Klockwork Issue
-  CPUJITContainer(const CPUJITContainer &x);
-
-  // Klockwork Issue
-  CPUJITContainer &operator=(const CPUJITContainer &x);
 };
 } // namespace DeviceBackend
 } // namespace OpenCL

@@ -1,6 +1,4 @@
-; RUN: opt -enable-new-pm=0 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -vplan-force-vf=4  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CTYPE-MASK
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CTYPE-MASK
-; RUN: opt -enable-new-pm=0 -use-i1-mask-for-simd-funcs -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -vplan-force-vf=4  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-I1-MASK
 ; RUN: opt -use-i1-mask-for-simd-funcs -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -disable-output -vplan-force-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-I1-MASK
 
 ; CHECK-CTYPE-MASK:      %.vec = -1 * i1 + -1 * <i1 false, i1 true, i1 false, i1 true> != 0;

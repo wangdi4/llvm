@@ -70,16 +70,15 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     list(APPEND opencl_flags_spirv -DHAVE_FP64_SUPPORT=1)
   endif()
   if(INTEL_CUSTOMIZATION)
-    # CMPLRLLVM-40052: TODO: make the -no-opaque-pointers here based on
-    # DPCPP_ENABLE_OPAQUE_POINTERS cmake variable
     list(APPEND opencl_flags_spirv
       -DINTEL_CUSTOMIZATION=1
       -disable-intel-proprietary-opts
-      -no-opaque-pointers # SPIR-V is not quite ready with opaque pointers
     )
-    list(PREPEND omp_cpp_flags --intel -DINTEL_CUSTOMIZATION=1
-      -Xclang -no-opaque-pointers # SPIR-V is not quite ready with opaque ptrs
-    )
+    list(PREPEND omp_cpp_flags --intel -DINTEL_CUSTOMIZATION=1)
+    if (NOT SPIRV_ENABLE_OPAQUE_POINTERS)
+      list(APPEND opencl_flags_spirv -no-opaque-pointers)
+      list(PREPEND omp_cpp_flags -Xclang -no-opaque-pointers)
+    endif()
   endif(INTEL_CUSTOMIZATION)
 
   set(opencl_device_rtl_required

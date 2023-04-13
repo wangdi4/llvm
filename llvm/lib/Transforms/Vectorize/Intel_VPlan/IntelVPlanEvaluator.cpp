@@ -70,7 +70,7 @@ using namespace llvm::vpo;
 // Calculates the cost of \p Plan for given \p VF. If \p Plan is not available
 // (nullptr) then this function returns an invalid VPInstructionCost.
 VPlanCostPair VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan,
-                                                bool AddZTT) {
+                                                bool AddZTT, bool ForPeel) {
   if (Plan) {
     raw_ostream *OS = nullptr;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -79,7 +79,7 @@ VPlanCostPair VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan,
     auto CostModel = Planner.createNoSLPCostModel(Plan, VF);
     VPInstructionCost IterCost, Overhead;
     std::tie(IterCost, Overhead) =
-        CostModel->getCost(nullptr /* PeelingVariant */, OS);
+        CostModel->getCost(ForPeel, nullptr /* PeelingVariant */, OS);
     if (AddZTT) {
       VPInstructionCost ZttCost = CostModel->getZTTCost(
           Type::getInt64Ty(*Plan->getExternals().getLLVMContext()));
@@ -88,8 +88,7 @@ VPlanCostPair VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan,
         *OS << "Adding ZTT cost: " << ZttCost << "\n";
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
       Overhead += ZttCost;
-    }
-    else if (OS)
+    } else if (OS)
       *OS << "Not adding Ztt\n";
     return std::make_pair(IterCost, Overhead);
   }
@@ -123,9 +122,9 @@ VPlanPeelEvaluator::PeelLoopKind VPlanPeelEvaluator::calculateBestVariant() {
   // Calculates the total cost of the masked vector peel loop.
   VPlanMasked *MaskedModePlan = Planner.getMaskedVPlanForVF(MainLoopVF);
   VPInstructionCost MaskedVectorIterCost, MaskedVectorOverhead;
-  std::tie(MaskedVectorIterCost, MaskedVectorOverhead) =
-      calculatePlanCost(MainLoopVF, MaskedModePlan,
-                        PeelingVariant->getKind() == VPPK_DynamicPeeling);
+  std::tie(MaskedVectorIterCost, MaskedVectorOverhead) = calculatePlanCost(
+      MainLoopVF, MaskedModePlan,
+      PeelingVariant->getKind() == VPPK_DynamicPeeling, true /* ForPeel */);
 
   unsigned ScalarTC = getScalarPeelTripCount(MainLoopVF);
   if (MaskedVectorIterCost.isValid() && MaskedVectorOverhead.isValid() &&
@@ -253,7 +252,7 @@ VPlanRemainderEvaluator::calculatePumpingOverhead(VPlanMasked *MaskedModePlan) {
 
   unsigned MaxRegWidth =
       TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-          .getFixedSize();
+          .getFixedValue();
 
   for (auto &VPInstR : vpinstructions(MaskedModePlan)) {
     VPInstruction *VPInst = &VPInstR;

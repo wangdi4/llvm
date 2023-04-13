@@ -119,6 +119,10 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // Greate normalized UB and replace induction start with 0.
   VPValue *LowerBound = IndInit->getStartValueOperand();
   VPValue *NormUB = VPBldr.createSub(OrigTC, LowerBound, "norm.ub");
+  // Set nowrap flags for the normalized upper bound since it's known to be
+  // within signed/unsigned range.
+  cast<VPInstruction>(NormUB)->setHasNoUnsignedWrap(true);
+  cast<VPInstruction>(NormUB)->setHasNoSignedWrap(true);
   IndInit->replaceStartValue(
       MaskedVPlan->getVPConstant(ConstantInt::get(LowerBound->getType(), 0)));
 
@@ -173,6 +177,9 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   VPBldr.setInsertPoint(Header);
   VPInstruction *DenormPhi =
       VPBldr.createAdd(VPIndInstVPPhi, LowerBound, "new.ind");
+  // Lower bound for masked mode loop is within signed/unsigned range.
+  DenormPhi->setHasNoUnsignedWrap(true);
+  DenormPhi->setHasNoSignedWrap(true);
   VPIndInstVPPhi->replaceUsesWithIf(
       DenormPhi, [NewBottomTest, DenormPhi, VPIndIncrement](VPUser *U) {
         return U != NewBottomTest && U != VPIndIncrement && U != DenormPhi;
@@ -271,6 +278,7 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
     assert(NewLoopLatchPred != NewLoopLatch->getPredecessors().end() &&
            "Basic block is not a predecessor of the new loop latch.");
     LiveOutVPPhi->addIncoming(LiveOutVal, *NewLoopLatchPred);
+    LiveOutVPPhi->setDebugLocation(LiveOutVal->getDebugLocation());
     VPValue *IncomingValFromHeader = Pair.first;
     if (!IncomingValFromHeader) {
       // Liveout w/o header phi. That can be either -
@@ -290,6 +298,7 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
         assert(RecurPhiFromCopy && "Liveout value expected to have a copy user "
                                    "involved in recurrence.");
         IncomingValFromHeader = RecurPhiFromCopy;
+        LiveOutVPPhi->setDebugLocation(RecurPhiFromCopy->getDebugLocation());
       } else {
         // In such cases we should take the loop incoming value as an
         // operand of the latch phi. Even the unconditional last private does
@@ -419,6 +428,7 @@ bool MaskedModeLoopCreator::mayUseMaskedMode() { return EnableMaskedVariant; }
 VPInstruction *MaskedModeLoopCreator::getInductionVariable(VPLoop *TopVPLoop) {
   VPInstruction *CondBit =
       dyn_cast<VPInstruction>(TopVPLoop->getLoopLatch()->getCondBit());
+  assert(CondBit && "It's expected Loop Latch to have a non-null CondBit.");
   for (unsigned Idx = 0; Idx < CondBit->getNumOperands(); Idx++) {
     VPInstruction *Op = dyn_cast<VPInstruction>(CondBit->getOperand(Idx));
     if (Op && Op->getOpcode() == Instruction::Add &&

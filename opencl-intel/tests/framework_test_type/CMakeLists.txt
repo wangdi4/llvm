@@ -15,26 +15,52 @@ endif(INCLUDE_MKL)
 
 set(TARGET framework_test_type)
 
+# Add opencl cpp header
+include_directories(${opencl-cpp-header_SOURCE_DIR}/include)
+
+set(nowarning_source_files
+  clBuildOptions.cpp
+  opencl_printf_floating_point_test.cpp
+  opencl_printf_test.cpp
+  TbbSetMaxThreads.cpp)
+set(nowarning_flags "-Wno-suggest-override -Wno-cast-qual -Wno-missing-field-initializers")
+check_cxx_compiler_flag("${nowarning_flags}" CXX_SUPPORTS_FLAGS)
+if(CXX_SUPPORTS_FLAGS)
+  set_source_files_properties(${nowarning_source_files} PROPERTIES COMPILE_FLAGS "${nowarning_flags}")
+endif()
+
 include_directories(
   ${OCL_SOURCE_DIR}/framework/export ${OCL_SOURCE_DIR}/framework/Tracing
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export)
 
-set(IGNORE_FILES
-    clBuildCubinProgram|clBuildProgram.cpp|clCreateCudaKernel|clCreateKernelCpuGpu|clCreateQueue
+set(LLVM_OPTIONAL_SOURCES
+  clBuildCubinProgram.cpp
+  clBuildProgram.cpp
+  clCreateCudaKernel.cpp
+  clCreateKernelCpuGpu.cpp
+  clCreateQueue.cpp
 )
 
-find_sources(${IGNORE_FILES})
+find_sources()
 calculate_target_sources()
-
-set(TARGET_LIBS test_utils)
 
 link_directories(${TBB_LIB_DIR})
 
-if(WIN32)
-  set(TARGET_LIBS ${TARGET_LIBS} delayimp)
-endif(WIN32)
+set(TARGET_LIBS
+  LLVMDebugInfoTraceBack
+  LLVMMC
+  LLVMObject
+  LLVMSupport
+  LLVMTargetParser
+  intelocl${BUILD_PLATFORM}
+  cl_hw_utils
+  cl_sys_utils
+  test_utils
+  )
 
-set(TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM})
+if(WIN32)
+  list(APPEND TARGET_LIBS delayimp)
+endif(WIN32)
 
 # In test with private memory we allocate 1MB for array. But due to
 # vectorization stack size depends on width of SIMD and scalar kernel, our
@@ -69,18 +95,11 @@ add_ocl_unittest(${TARGET} SOURCE_FILES ${TARGET_SOURCES} LINK_LIBRARIES
                  ${TARGET_LIBS})
 
 if(WIN32)
-  set_target_properties(
-    ${TARGET}
-    PROPERTIES
-      LINK_FLAGS_RELEASE
-      "${LINK_FLAGS_RELEASE} tbb12${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll"
-      LINK_FLAGS_DEBUG
-      "${LINK_FLAGS_DEBUG} tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll"
-  )
-
   # set 17 MB of stack size
   set_target_properties(${TARGET} PROPERTIES LINK_FLAGS /STACK:"17825792")
 endif(WIN32)
+
+link_target_with_tbb_library(${TARGET})
 
 add_ocl_unittest_artifacts(
   FILES
@@ -98,9 +117,12 @@ add_ocl_unittest_artifacts(
   data/cached_binary_with_wrong_version.bin
   data/code_coverage.bc
   data/code_coverage_linux.bin
+  data/device_global.bc
   data/fp-as-kernel-arg.spv
-  data/replace-module-after-optimizer.ll
-  data/replace-module-before-optimizer.ll
+  data/replace-module-after-optimizer-1.ll
+  data/replace-module-after-optimizer-2.ll
+  data/replace-module-before-optimizer-1.ll
+  data/replace-module-before-optimizer-2.ll
   data/reqd_num_sub_groups_32.bc
   data/reqd_num_sub_groups_64.bc
   data/spec_const.spv

@@ -1,6 +1,6 @@
 //===------      Intel_LoopAttrs.cpp - Compute loop attributes      -*-----===//
 //
-// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -512,7 +512,7 @@ bool LoopAttrsImpl::preferFunctionLevelRegionDueToDV() {
 
   // Collect all the basic blocks that are used for loops
   DenseMap<BasicBlock*, Loop*> TotalLoops;
-  for (auto &BB : F.getBasicBlockList()) {
+  for (auto &BB : F) {
     Loop *Lp = LI->getLoopFor(&BB);
     if (Lp)
       TotalLoops.insert({&BB, Lp});
@@ -640,7 +640,6 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addPreserved<ScalarEvolutionWrapperPass>();

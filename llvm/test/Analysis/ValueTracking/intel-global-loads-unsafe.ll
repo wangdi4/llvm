@@ -2,7 +2,7 @@
 ; Tests for global-loads-unsafe option, which prevents speculation of global
 ; loads (moving the load above a guarding condition).
 
-; RUN: opt -S -global-loads-unsafe -simplifycfg -loops -licm %s | FileCheck %s
+; RUN: opt -passes="simplifycfg,loop-mssa(licm)" -S -global-loads-unsafe %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

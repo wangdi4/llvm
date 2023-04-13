@@ -1,4 +1,4 @@
-; RUN: opt -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=inlinereportsetup -inline-report=0x180 < %s -S 2>&1 | FileCheck %s
 
 ; This test checks that setup pass correctly adds new call sites and functions to the inline report.
 
@@ -64,13 +64,9 @@
 ; CHECK: [[FOO3_FIR]] = distinct !{!"intel.function.inlining.report", [[FOO3_NAME]], null, {{.*}}
 ; CHECK: [[FOO4_FIR]] = distinct !{!"intel.function.inlining.report", [[FOO4_NAME]], null, {{.*}}
 
-
-;IR with new call sites foo1(), foo2(), foo3() and foo4().
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
 define dso_local void @a() local_unnamed_addr !intel.function.inlining.report !2 {
 entry:
   tail call void (...) @k(), !intel.callsite.inlining.report !5
@@ -79,9 +75,9 @@ entry:
 }
 
 declare !intel.function.inlining.report !20 dso_local void @k(...) local_unnamed_addr
+
 declare !intel.function.inlining.report !22 dso_local void @l(...) local_unnamed_addr
 
-; Function Attrs: nounwind uwtable
 define dso_local void @b(i32 %n) local_unnamed_addr !intel.function.inlining.report !23 {
 entry:
   %cmp = icmp slt i32 %n, 3
@@ -100,9 +96,9 @@ if.end:                                           ; preds = %if.else, %if.then
 }
 
 declare !intel.function.inlining.report !30 dso_local void @x(...) local_unnamed_addr
+
 declare !intel.function.inlining.report !31 dso_local void @y(...) local_unnamed_addr
 
-; Function Attrs: nounwind uwtable
 define dso_local void @main() local_unnamed_addr !intel.function.inlining.report !32 {
 entry:
   call void (...) @foo1()
@@ -116,8 +112,11 @@ entry:
 }
 
 declare dso_local void @foo1(...) local_unnamed_addr
+
 declare dso_local void @foo2(...) local_unnamed_addr
+
 declare dso_local void @foo3(...) local_unnamed_addr
+
 declare dso_local void @foo4(...) local_unnamed_addr
 
 !llvm.module.flags = !{!0}
@@ -171,5 +170,3 @@ declare dso_local void @foo4(...) local_unnamed_addr
 !44 = distinct !{!"intel.callsites.inlining.report", !45}
 !45 = distinct !{!"intel.callsite.inlining.report", !27, null, !7, !8, !9, !10, !11, !12, !13, !"line: 0 col: 0", !14}
 !46 = !{!"inlineCost: -5"}
-
-

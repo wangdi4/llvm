@@ -19,21 +19,23 @@
 
 // Use the OpenCL C++ bindings, with exceptions enabled. For MSVC, disable
 // warning 4290 (C++ exception specifications ignored) that's emitted from
-// CL/cl.hpp
+// CL/opencl.hpp
 //
-#define __CL_ENABLE_EXCEPTIONS
+#define CL_HPP_ENABLE_EXCEPTIONS
+#define CL_HPP_TARGET_OPENCL_VERSION 200
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4290)
 #endif // _MSC_VER
 
-// Disable warning 'deprecated-declarations' emitted from CL/cl.hpp
+// Disable warning 'deprecated-declarations' emitted from CL/opencl.hpp
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
-#include "CL/cl.hpp"
+#include "CL/opencl.hpp"
 
 #ifdef _MSC_VER
 #pragma warning(pop)

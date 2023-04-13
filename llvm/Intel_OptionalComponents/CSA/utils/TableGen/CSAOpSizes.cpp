@@ -260,11 +260,10 @@ void CSAOpSizes::emitMIRMatcher(raw_ostream &OS, const ReverseMapTy &ReverseMap,
   OS << "#endif // GET_MIRMATCHERS\n\n";
 }
 
-namespace llvm {
-
-void EmitCSAOpTypes(RecordKeeper &RK, raw_ostream &OS) {
+static void EmitCSAOpTypes(RecordKeeper &RK, raw_ostream &OS) {
   CSAOpSizes(RK).run(OS);
   EmitMapTable(RK, OS);
 }
 
-} // end llvm namespace
+static TableGen::Emitter::Opt X("gen-csa-op-size", EmitCSAOpTypes,
+                                "Generate op size matches for CSA");

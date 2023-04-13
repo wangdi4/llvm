@@ -6,7 +6,7 @@
 ; ((X << C) + Y) >> C  ->  (X + (Y >> C)) & (~0 >> C)
 ; (Y + (X << C)) >> C  ->  ((Y >> C) + X) & (~0 >> C)
 ;
-; RUN: opt < %s -instcombine -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 define <2 x i64> @test1(<2 x i64> %X, <2 x i64> %Y) {
 ; CHECK-LABEL: @test1(

@@ -1,6 +1,11 @@
 # Test fail on device (rdar://99981102)
 XFAIL: tvos && !tvossim
 
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-45394
+UNSUPPORTED: windows && intel-debug-build
+// end INTEL_CUSTOMIZATION
+
 CHECK: AddressSanitizer: stack-overflow
 RUN: %cpp_compiler %S/StackOverflowTest.cpp -o %t-StackOverflowTest
 RUN: not %run %t-StackOverflowTest 2>&1 | FileCheck %s

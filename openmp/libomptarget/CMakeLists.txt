@@ -66,7 +66,6 @@ set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} aarch64-unknown-linux
 set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} aarch64-unknown-linux-gnu-LTO")
 set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} amdgcn-amd-amdhsa")
 set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} amdgcn-amd-amdhsa-oldDriver")
-set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} amdgcn-amd-amdhsa-LTO")
 set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} powerpc64le-ibm-linux-gnu")
 set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} powerpc64le-ibm-linux-gnu-oldDriver")
 set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} powerpc64le-ibm-linux-gnu-LTO")
@@ -79,6 +78,7 @@ set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} x86_64-pc-linux-gnu-L
 set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} nvptx64-nvidia-cuda")
 set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} nvptx64-nvidia-cuda-oldDriver")
 set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} nvptx64-nvidia-cuda-LTO")
+set (LIBOMPTARGET_ALL_TARGETS "${LIBOMPTARGET_ALL_TARGETS} nvptx64-nvidia-cuda-JIT-LTO")
 
 # Once the plugins for the different targets are validated, they will be added to
 # the list of supported targets in the current system.
@@ -101,18 +101,12 @@ endif()
 if(LIBOMPTARGET_ENABLE_DEBUG)
   add_definitions(-DOMPTARGET_DEBUG)
 endif()
-if(INTEL_CUSTOMIZATION)
-  option(LIBOMPTARGET_VERIFY_DLL_SIGNATURE "Verify signature of the loaded plugins" OFF)
-  if(LIBOMPTARGET_VERIFY_DLL_SIGNATURE)
-    add_definitions(-DOMPTARGET_VERIFY_DLL_SIGNATURE=1)
-  endif()
-endif(INTEL_CUSTOMIZATION)
 
 # OMPT support for libomptarget
 # Follow host OMPT support and check if host support has been requested.
 # LIBOMP_HAVE_OMPT_SUPPORT indicates whether host OMPT support has been implemented.
 # LIBOMP_OMPT_SUPPORT indicates whether host OMPT support has been requested (default is ON).
-# LIBOMPTARGET_OMPT_SUPPORT indicates whether target OMPT support has been requested (default is ON). 
+# LIBOMPTARGET_OMPT_SUPPORT indicates whether target OMPT support has been requested (default is ON).
 set(OMPT_TARGET_DEFAULT FALSE)
 if ((LIBOMP_HAVE_OMPT_SUPPORT) AND (LIBOMP_OMPT_SUPPORT) AND (NOT WIN32))
   set (OMPT_TARGET_DEFAULT TRUE)
@@ -143,23 +137,22 @@ if (INTEL_CUSTOMIZATION)
       set(LIBOMP_LIB_NAME iomp5 libiomp5)
     endif()
 
+    # Check both mainline and mainline-flat directory structure
+    set(LIBOMP_RTL_PATH "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler")
+    if(NOT EXISTS ${LIBOMP_RTL_PATH})
+      set(LIBOMP_RTL_PATH "${IL0_PREBUILT_COMPONENTS_PREFIX}")
+      set(LIBOMP_USE_FLAT_IL0 TRUE)
+    endif()
+
     if ((NOT LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER) OR
         (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER}))
-      if ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4")
-        if (WIN32)
-          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
-            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_win")
-        else()
-          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
-            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/ia32_lin")
-        endif()
+      if(LIBOMP_USE_FLAT_IL0)
+        set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER "${LIBOMP_RTL_PATH}/lib")
       else()
         if (WIN32)
-          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
-            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_win")
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER "${LIBOMP_RTL_PATH}/lib/intel64_win")
         else()
-          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER
-            "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/lib/intel64_lin")
+          set(LIBOMPTARGET_OPENMP_TARGET_RTL_FOLDER "${LIBOMP_RTL_PATH}/lib/intel64_lin")
         endif()
       endif()
     endif()
@@ -199,8 +192,7 @@ if (INTEL_CUSTOMIZATION)
 
     if ((NOT LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER) OR
         (NOT EXISTS ${LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER}))
-      set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER
-        "${IL0_PREBUILT_COMPONENTS_PREFIX}/compiler/include")
+      set(LIBOMPTARGET_OPENMP_TARGET_HEADER_FOLDER "${LIBOMP_RTL_PATH}/include")
     endif()
 
     message(STATUS "Looking for omp.h in "
@@ -269,3 +261,4 @@ endif(INTEL_CUSTOMIZATION)
 add_subdirectory(tools)
 
 # Add tests.
+add_subdirectory(test)

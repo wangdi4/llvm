@@ -17,11 +17,11 @@
 @e = dso_local local_unnamed_addr global i32 0, align 4
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local i32 @foo(i32 %t1, i32 %t4) local_unnamed_addr {
+define i32 @foo(i32 %t1, i32 %t4) {
 ; INTADV-LABEL: @foo(
 ; INTADV-NEXT:  entry:
-; INTADV-NEXT:    [[GEPLOAD:%.*]] = load i32, i32* @e, align 4
-; INTADV-NEXT:    [[C_PROMOTED:%.*]] = load i32, i32* @c, align 4
+; INTADV-NEXT:    [[GEPLOAD:%.*]] = load i32, ptr @e, align 4
+; INTADV-NEXT:    [[C_PROMOTED:%.*]] = load i32, ptr @c, align 4
 ; INTADV-NEXT:    [[I1:%.*]] = add i32 [[C_PROMOTED]], [[T1:%.*]]
 ; INTADV-NEXT:    [[DOTNEG300:%.*]] = xor i32 [[I1]], -1
 ; INTADV-NEXT:    [[I2:%.*]] = add i32 [[I1]], 1
@@ -63,8 +63,8 @@ define dso_local i32 @foo(i32 %t1, i32 %t4) local_unnamed_addr {
 ;
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[GEPLOAD:%.*]] = load i32, i32* @e, align 4
-; CHECK-NEXT:    [[C_PROMOTED:%.*]] = load i32, i32* @c, align 4
+; CHECK-NEXT:    [[GEPLOAD:%.*]] = load i32, ptr @e, align 4
+; CHECK-NEXT:    [[C_PROMOTED:%.*]] = load i32, ptr @c, align 4
 ; CHECK-NEXT:    [[I1:%.*]] = add i32 [[C_PROMOTED]], [[T1:%.*]]
 ; CHECK-NEXT:    [[DOTNEG300:%.*]] = xor i32 [[I1]], -1
 ; CHECK-NEXT:    [[I2:%.*]] = add i32 [[I1]], 1
@@ -105,8 +105,8 @@ define dso_local i32 @foo(i32 %t1, i32 %t4) local_unnamed_addr {
 ; CHECK-NEXT:    ret i32 [[OP_RDX5]]
 ;
 entry:
-  %gepload = load i32, i32* @e, align 4
-  %c.promoted = load i32, i32* @c, align 4
+  %gepload = load i32, ptr @e, align 4
+  %c.promoted = load i32, ptr @c, align 4
   %i1 = add i32 %c.promoted, %t1
   %.neg300 = xor i32 %i1, -1
   %i2 = add i32 %i1, 1
@@ -150,4 +150,3 @@ entry:
   %i27 = or i32 %i26, %i25
   ret i32 %i27
 }
-

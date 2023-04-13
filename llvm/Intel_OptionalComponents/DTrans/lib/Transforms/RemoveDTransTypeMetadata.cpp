@@ -1,6 +1,6 @@
 //===----- RemoveDTransTypeMetadata.cpp - Remove DTrans type metadata -----===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,7 +15,6 @@
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -253,44 +252,6 @@ private:
   DenseSet<DTransType *> Visited;
 };
 
-class RemoveAllDTransTypeMetadataWrapper : public ModulePass {
-public:
-  static char ID;
-
-  RemoveAllDTransTypeMetadataWrapper() : ModulePass(ID) {
-    initializeRemoveAllDTransTypeMetadataWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-
-private:
-  dtransOP::RemoveAllDTransTypeMetadataPass Impl;
-};
-
-class RemoveDeadDTransTypeMetadataWrapper : public ModulePass {
-public:
-  static char ID;
-
-  RemoveDeadDTransTypeMetadataWrapper() : ModulePass(ID) {
-    initializeRemoveDeadDTransTypeMetadataWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-
-private:
-  dtransOP::RemoveDeadDTransTypeMetadataPass Impl;
-};
-
 } // end anonymous namespace
 
 namespace llvm {
@@ -330,21 +291,3 @@ bool RemoveDeadDTransTypeMetadataPass::runImpl(Module &M) {
 
 } // end namespace dtransOP
 } // end namespace llvm
-
-char RemoveAllDTransTypeMetadataWrapper::ID = 0;
-INITIALIZE_PASS(RemoveAllDTransTypeMetadataWrapper,
-                "remove-all-dtranstypemetadata",
-                "Remove all DTrans type metadata", false, false)
-
-ModulePass *llvm::createRemoveAllDTransTypeMetadataWrapperPass() {
-  return new RemoveAllDTransTypeMetadataWrapper();
-}
-
-char RemoveDeadDTransTypeMetadataWrapper::ID = 0;
-INITIALIZE_PASS(RemoveDeadDTransTypeMetadataWrapper,
-                "remove-dead-dtranstypemetadata",
-                "Remove dead DTrans type metadata", false, false)
-
-ModulePass *llvm::createRemoveDeadDTransTypeMetadataWrapperPass() {
-  return new RemoveDeadDTransTypeMetadataWrapper();
-}

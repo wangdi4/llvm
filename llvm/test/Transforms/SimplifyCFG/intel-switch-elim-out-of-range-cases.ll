@@ -1,4 +1,4 @@
-; RUN: opt %s -simplifycfg -S | FileCheck %s
+; RUN: opt -passes="simplifycfg" %s -S | FileCheck %s
 
 ; Verify that the out of range switch cases 4 and 8 are eliminated and switch is simplified into a select.
 

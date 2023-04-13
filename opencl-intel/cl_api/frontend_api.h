@@ -52,8 +52,6 @@ struct IOCLFESpecConstInfo {
 } // namespace OpenCL
 } // namespace Intel
 
-using namespace Intel::OpenCL::ClangFE;
-
 namespace Intel {
 namespace OpenCL {
 namespace Utils {
@@ -143,28 +141,28 @@ public:
   // Output: pBinaryResult - The interface to build result
   // Returns: Compile status
   virtual int CompileProgram(FECompileProgramDescriptor *pProgDesc,
-                             IOCLFEBinaryResult **pBinaryResult) = 0;
+                             ClangFE::IOCLFEBinaryResult **pBinaryResult) = 0;
 
   // Synchronous function
   // Input: pProgDesc - descriptor of the programs to link
   // Output: pBinaryResult - The interface to link result
   // Returns: Link status
   virtual int LinkPrograms(FELinkProgramsDescriptor *pProgDesc,
-                           IOCLFEBinaryResult **pBinaryResult) = 0;
+                           ClangFE::IOCLFEBinaryResult **pBinaryResult) = 0;
 
   // Synchronous function
   // Input: pProgDesc - descriptor of the program to parse
   // Output: pBinaryResult - The interface to parse result
   // Returns: SPIR-V parsing status
   virtual int ParseSPIRV(FESPIRVProgramDescriptor *pProgDesc,
-                         IOCLFEBinaryResult **pBinaryResult) = 0;
+                         ClangFE::IOCLFEBinaryResult **pBinaryResult) = 0;
 
   // Synchronous function
   // Input: pProgDesc - descriptor of the program to materialize
   // Output: pBinaryResult - The interface to parse result
   // Returns: SPIR 1.2 materialization status
   virtual int MaterializeSPIR(FESPIRProgramDescriptor *pProgDesc,
-                              IOCLFEBinaryResult **pBinaryResult) = 0;
+                              ClangFE::IOCLFEBinaryResult **pBinaryResult) = 0;
 
   // Synchronous function
   // Input: pBin - the program's binary including the header
@@ -178,7 +176,7 @@ public:
   //          happen)
   virtual int GetKernelArgInfo(const void *pBin, size_t uiBinarySize,
                                const char *szKernelName,
-                               IOCLFEKernelArgInfo **pArgInfo) = 0;
+                               ClangFE::IOCLFEKernelArgInfo **pArgInfo) = 0;
 
   // Synchronous function
   // Input: szOptions - a string representing the compile options
@@ -203,7 +201,7 @@ public:
   // Input: pProgDesc - descriptor of the program created with SPIRV
   // Output: pSpecConstInfo - Interface to specialization constants information
   // foung in the input.
-  virtual std::unique_ptr<IOCLFESpecConstInfo>
+  virtual std::unique_ptr<ClangFE::IOCLFESpecConstInfo>
   GetSpecConstInfo(FESPIRVProgramDescriptor *pProgDesc) = 0;
 
   // release compiler instance

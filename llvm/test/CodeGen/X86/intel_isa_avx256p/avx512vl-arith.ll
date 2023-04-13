@@ -863,3 +863,52 @@ define <2 x double> @test_maskz_broadcast_vaddpd_128(<2 x double> %i, ptr %j, <2
   %r = select <2 x i1> %mask, <2 x double> %x, <2 x double> zeroinitializer
   ret <2 x double> %r
 }
+
+define void @test_broadcast_in_licm(<4 x i64> %src, i64 %n) nounwind {
+; CHECK-LABEL: test_broadcast_in_licm:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    pushq %r14 ## encoding: [0x41,0x56]
+; CHECK-NEXT:    pushq %rbx ## encoding: [0x53]
+; CHECK-NEXT:    subq $40, %rsp ## encoding: [0x48,0x83,0xec,0x28]
+; CHECK-NEXT:    movq %rdi, %rbx ## encoding: [0x48,0x89,0xfb]
+; CHECK-NEXT:    vmovdqu %ymm0, (%rsp) ## 32-byte Spill
+; CHECK-NEXT:    ## EVEX TO VEX Compression encoding: [0xc5,0xfe,0x7f,0x04,0x24]
+; CHECK-NEXT:    xorl %r14d, %r14d ## encoding: [0x45,0x31,0xf6]
+; CHECK-NEXT:    .p2align 4, 0x90
+; CHECK-NEXT:  LBB73_1: ## %loop
+; CHECK-NEXT:    ## =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    vpbroadcastq %r14, %ymm0 ## encoding: [0x62,0xd2,0xfd,0x28,0x7c,0xc6]
+; CHECK-NEXT:    vpmullq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %ymm0, %ymm0 ## encoding: [0x62,0xf2,0xfd,0x38,0x40,0x05,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vpaddq (%rsp), %ymm0, %ymm0 ## 32-byte Folded Reload
+; CHECK-NEXT:    ## EVEX TO VEX Compression encoding: [0xc5,0xfd,0xd4,0x04,0x24]
+; CHECK-NEXT:    callq _foo ## encoding: [0xe8,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 1, value: _foo-4, kind: reloc_branch_4byte_pcrel
+; CHECK-NEXT:    addq $4, %r14 ## encoding: [0x49,0x83,0xc6,0x04]
+; CHECK-NEXT:    cmpq %rbx, %r14 ## encoding: [0x49,0x39,0xde]
+; CHECK-NEXT:    jle LBB73_1 ## encoding: [0x7e,A]
+; CHECK-NEXT:    ## fixup A - offset: 1, value: LBB73_1-1, kind: FK_PCRel_1
+; CHECK-NEXT:  ## %bb.2: ## %exit
+; CHECK-NEXT:    addq $40, %rsp ## encoding: [0x48,0x83,0xc4,0x28]
+; CHECK-NEXT:    popq %rbx ## encoding: [0x5b]
+; CHECK-NEXT:    popq %r14 ## encoding: [0x41,0x5e]
+; CHECK-NEXT:    vzeroupper ## encoding: [0xc5,0xf8,0x77]
+; CHECK-NEXT:    retq ## encoding: [0xc3]
+entry:
+  br label %loop
+
+loop:
+  %idx = phi i64 [ 0, %entry ], [ %next_idx, %loop ]
+  %vec0 = insertelement <4 x i64> poison, i64 %idx, i64 0
+  %vec1 = shufflevector <4 x i64> %vec0, <4 x i64> poison, <4 x i32> zeroinitializer
+  %vec2 = mul <4 x i64> %vec1, <i64 72, i64 72, i64 72, i64 72>
+  %vec3 = add <4 x i64> %src, %vec2
+  call void (<4 x i64>) @foo(<4 x i64> %vec3)
+  %next_idx = add nuw nsw i64 %idx, 4
+  %pred = icmp sgt i64 %next_idx, %n
+  br i1 %pred, label %exit, label %loop
+
+exit:
+  ret void
+}
+declare void @foo(<4 x i64>)

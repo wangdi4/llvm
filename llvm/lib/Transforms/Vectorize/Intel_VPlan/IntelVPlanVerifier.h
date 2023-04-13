@@ -90,10 +90,8 @@ private:
   /// Verify that each user of \p Def has \p Def as an operand.
   static void verifyUsers(const VPValue *Def);
 
-#if INTEL_CUSTOMIZATION
   /// Verify the CFG of the loop.
   static void verifyCFGExternals(const VPlan *Plan);
-#endif
 public:
   VPlanVerifier(const Loop *Lp, const DataLayout &DLObj)
       : TheLoop(Lp), DL(DLObj) {}

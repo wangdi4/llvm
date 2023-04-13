@@ -12,7 +12,7 @@
 ; Check that when prefetchW is enabled, we set 'IsWrite' flag for the previous candidate if there
 ; is any lval ref in the same memory stream, though the previous candidate may not be a lval ref.
 ;
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-trip-count-threshold=500 -hir-prefetching-num-cachelines-threshold=100 -hir-prefetching-skip-AVX2-check="true" -hir-prefetching-prefetchw="true" 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-trip-count-threshold=500 -hir-prefetching-num-cachelines-threshold=100 -hir-prefetching-skip-AVX2-check="true" -hir-prefetching-prefetchw="true" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Prefetching (hir-prefetching) ***
 ;Function: foo

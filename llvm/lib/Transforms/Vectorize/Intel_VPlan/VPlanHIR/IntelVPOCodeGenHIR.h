@@ -28,6 +28,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 
 using namespace llvm::loopopt;
 
@@ -629,7 +630,8 @@ public:
   // completely retired.
   bool isIgnoredCall(const CallInst *Call) {
     Intrinsic::ID ID = getVectorIntrinsicIDForCall(Call, TLI);
-    return ID == Intrinsic::lifetime_start || ID == Intrinsic::lifetime_end;
+    return ID == Intrinsic::lifetime_start || ID == Intrinsic::lifetime_end ||
+           ID == Intrinsic::intel_directive_elementsize;
   }
 
   // Set "llvm.loop.isvectorized" on outgoing scalar HLLoops that already have
@@ -647,6 +649,19 @@ public:
   // Get flag that indicates if tree conflict instructions were lowered to double
   // permute tree reduction.
   bool getTreeConflictsLowered();
+
+  // Bailout data accessors.
+  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
+                      std::string Message) {
+    BD.BailoutLevel = Level;
+    BD.BailoutID = ID;
+    BD.BailoutMessage = Message;
+  }
+  VPlanBailoutData &getBailoutData() { return BD; }
+
+  // Set the bailout reason for this loop and optionally print a debug msg.
+  void bailout(OptReportVerbosity::Level Level, unsigned ID,
+               std::string Message, std::string Debug = "");
 
 private:
   // Target Library Info is used to check for svml.
@@ -809,8 +824,10 @@ private:
   // True if tree conflict lowering was done
   bool TreeConflictsLowered = false;
 
-  // True if loop has any UDR variables and/or inscan reductions.
-  bool LoopHasUDRsOrInscan = false;
+  // True if loop has any entity for which a memory guard region is expected.
+  // For example, UDRs, inscan reductions, array section reductions and complex
+  // type reductions.
+  bool LoopHasEntityWithMemGuard = false;
 
   // Tracker to collect info about loops emitted by CFGMerger.
   MergedCFGInfo &CFGInfo;
@@ -824,13 +841,16 @@ private:
   SmallDenseMap<const VPLoop *, HLLoop *> VPLoopHLLoopMap;
   // TODO: Remove the set when legacy CG is retired.
   // Set of scalar HLLoops generated for outgoing HIR.
-  SmallDenseMap<const VPInstruction *, HLLoop *> OutgoingScalarHLLoopsMap;
+  SmallDenseMap<const VPScalarLoopBase *, HLLoop *> OutgoingScalarHLLoopsMap;
   SmallPtrSet<HLLoop *, 2> OutgoingScalarHLLoops;
 
   // Keep track of which scalar call instructions got replaced with a call to a
   // library function. We need this so we can ensure these calls are also
   // replaced in any scalar peel or remainder loops.
   SmallDenseSet<const CallInst*> VectorizedLibraryCalls;
+
+  // Bail-out information when we can't vectorize the loop.
+  VPlanBailoutData BD;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
@@ -1141,7 +1161,7 @@ private:
     auto *LiveOutRef = const_cast<RegDDRef *>(
         cast<RegDDRef>(LiveOut->getLiveOutVal())->clone());
     auto ScalarLpIt = OutgoingScalarHLLoopsMap.find(
-        cast<VPInstruction>(LiveOut->getOperand(0)));
+        cast<VPScalarLoopBase>(LiveOut->getOperand(0)));
     assert(ScalarLpIt != OutgoingScalarHLLoopsMap.end() &&
            "Outgoing scalar loop not found.");
     HLLoop *ScalarLp = ScalarLpIt->second;
@@ -1159,7 +1179,8 @@ private:
                               0 /*Lane*/);
   }
 
-  RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
+  RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize,
+                                int GroupStride);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.

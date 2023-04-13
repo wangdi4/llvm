@@ -55,6 +55,7 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/ThreadPool.h"
 #include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
@@ -254,21 +255,22 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
                            unsigned OptLevel, bool IsThinLTO,
                            ModuleSummaryIndex *ExportSummary,
                            const ModuleSummaryIndex *ImportSummary) {
+  auto FS = vfs::getRealFileSystem();
   std::optional<PGOOptions> PGOOpt;
   if (!Conf.SampleProfile.empty())
-    PGOOpt = PGOOptions(Conf.SampleProfile, "", Conf.ProfileRemapping,
+    PGOOpt = PGOOptions(Conf.SampleProfile, "", Conf.ProfileRemapping, FS,
                         PGOOptions::SampleUse, PGOOptions::NoCSAction, true);
   else if (Conf.RunCSIRInstr) {
-    PGOOpt = PGOOptions("", Conf.CSIRProfile, Conf.ProfileRemapping,
+    PGOOpt = PGOOptions("", Conf.CSIRProfile, Conf.ProfileRemapping, FS,
                         PGOOptions::IRUse, PGOOptions::CSIRInstr,
                         Conf.AddFSDiscriminator);
   } else if (!Conf.CSIRProfile.empty()) {
-    PGOOpt = PGOOptions(Conf.CSIRProfile, "", Conf.ProfileRemapping,
+    PGOOpt = PGOOptions(Conf.CSIRProfile, "", Conf.ProfileRemapping, FS,
                         PGOOptions::IRUse, PGOOptions::CSIRUse,
                         Conf.AddFSDiscriminator);
     NoPGOWarnMismatch = !Conf.PGOWarnMismatch;
   } else if (Conf.AddFSDiscriminator) {
-    PGOOpt = PGOOptions("", "", "", PGOOptions::NoAction,
+    PGOOpt = PGOOptions("", "", "", nullptr, PGOOptions::NoAction,
                         PGOOptions::NoCSAction, true);
   }
   TM->setPGOOption(PGOOpt);
@@ -280,7 +282,7 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
 
   PassInstrumentationCallbacks PIC;
   StandardInstrumentations SI(Mod.getContext(), Conf.DebugPassManager);
-  SI.registerCallbacks(PIC, &FAM);
+  SI.registerCallbacks(PIC, &MAM);
   PassBuilder PB(TM, Conf.PTO, PGOOpt, &PIC);
 
 #if INTEL_CUSTOMIZATION
@@ -370,11 +372,6 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   PMB.LibraryInfo = new TargetLibraryInfoImpl(Triple(TM->getTargetTriple()));
   if (Conf.Freestanding)
     PMB.LibraryInfo->disableAllFunctions();
-  PMB.Inliner = createFunctionInliningPass(Conf.OptLevel,
-                                           0     /*SizeOptLevel*/,
-                                           false /*DisableInlineHotCallSite*/,
-                                           false /*PrepareForLTO*/,
-                                           true  /*LinkForLTO*/);
 
   // Store the information related to whole program
   PMB.addWholeProgramUtils(Conf.WPUtils);

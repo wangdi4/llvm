@@ -45,7 +45,7 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB5]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_BB6_BR_VP__NOT:%.*]] = and i1 [[VP__NOT]] i1 [[VP__NOT_1]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_BB6_BR_VP__NOT:%.*]] = select i1 [[VP__NOT]] i1 [[VP__NOT_1]] i1 false
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP8]], [[BB2]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB3]]

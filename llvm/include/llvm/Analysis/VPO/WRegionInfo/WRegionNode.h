@@ -94,16 +94,16 @@ private:
   void operator=(const WRegionNode &) = delete;
 
   /// Unique number associated with this WRegionNode.
-  unsigned Number;
+  unsigned Number = 0;
 
   /// Index of the current map Aggr (map-chain-link).
   unsigned CurrentMapAggrIndex = 0;
 
   /// Nesting level of the WRN node in the WRN graph. Outermost level is 0.
-  unsigned Level;
+  unsigned Level = 0;
 
   /// ID to differentitate between concrete subclasses.
-  unsigned SubClassID;
+  unsigned SubClassID = 0;
 
   /// The OMP_DIRECTIVES enum representing the OMP construct. This is useful
   /// for opt reporting, which can't use SubClassID because multiple
@@ -115,13 +115,13 @@ private:
 
   /// Bit vector for attributes such as WRNIsParLoop or WRNIsTask.
   /// The enum WRNAttributes lists the attributes.
-  uint32_t Attributes;
+  uint32_t Attributes = 0;
 
   /// Entry and Exit BBs of this WRN
-  BasicBlock    *EntryBBlock;
-  BasicBlock    *ExitBBlock;
-  Instruction   *EntryDirective;
-  Instruction   *ExitDirective;
+  BasicBlock *EntryBBlock = nullptr;
+  BasicBlock *ExitBBlock = nullptr;
+  Instruction *EntryDirective = nullptr;
+  Instruction *ExitDirective = nullptr;
 
   /// Set containing all the BBs in this WRN.
   /// If BBlockSet is not empty, it must be valid. Therefore, any
@@ -130,7 +130,7 @@ private:
   WRegionBBSetTy BBlockSet;
 
   /// Enclosing parent of WRegionNode in CFG.
-  WRegionNode *Parent;
+  WRegionNode *Parent = nullptr;
 
   /// Children container
   WRContainerTy Children;
@@ -174,7 +174,7 @@ private:
 
 #if INTEL_CUSTOMIZATION
   /// True if the WRN came from HIR; false otherwise
-  bool IsFromHIR;
+  bool IsFromHIR = false;
 
   /// Sets the flag to indicate if WRN came from HIR
   void setIsFromHIR(bool flag) { IsFromHIR = flag; }
@@ -294,8 +294,9 @@ public:
   bool canHaveInterop() const;
   bool canHaveInteropAction() const;
   bool canHaveDepend() const;
+  bool canHaveAffinity() const;
   bool canHaveDetach() const;
-  bool canHaveDepSrcSink() const;
+  bool canHaveDoacrossSrcSink() const;
   bool canHaveAligned() const;
   bool canHaveNontemporal() const;
   bool canHaveFlush() const;
@@ -377,8 +378,10 @@ public:
   virtual DataClause &getData()              {WRNERROR(QUAL_OMP_DATA);        }
   virtual DependClause &getDepend()          {WRNERROR("DEPEND");             }
   virtual DetachClause &getDetach()          {WRNERROR("DETACH");             }
-  virtual DepSinkClause &getDepSink()        {WRNERROR("DEPEND(SINK:..)");    }
-  virtual DepSourceClause &getDepSource()    {WRNERROR("DEPEND(SOURCE)");     }
+  virtual DoacrossSinkClause &getDoacrossSink()
+                                               {WRNERROR("DOACROSS(SINK:..)");}
+  virtual DoacrossSourceClause &getDoacrossSource()
+                                                {WRNERROR("DOACROSS(SOURCE)");}
   virtual FirstprivateClause &getFpriv()     {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual FlushSet &getFlush()               {WRNERROR(QUAL_OMP_FLUSH);       }
   virtual InteropClause &getInterop()        {WRNERROR(QUAL_OMP_INTEROP);     }
@@ -431,10 +434,10 @@ public:
                                            {WRNERROR("DEPEND");             }
   virtual const DetachClause &getDetach() const
                                            {WRNERROR("DETACH");             }
-  virtual const DepSinkClause &getDepSink() const
-                                           {WRNERROR("DEPEND(SINK:..)");    }
-  virtual const DepSourceClause &getDepSource() const
-                                           {WRNERROR("DEPEND(SOURCE)");     }
+  virtual const DoacrossSinkClause &getDoacrossSink() const
+                                             {WRNERROR("DOACROSS(SINK:..)");}
+  virtual const DoacrossSourceClause &getDoacrossSource() const
+                                              {WRNERROR("DOACROSS(SOURCE)");}
   virtual const FirstprivateClause &getFpriv() const
                                            {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
   virtual const FlushSet &getFlush() const {WRNERROR(QUAL_OMP_FLUSH);       }
@@ -510,6 +513,10 @@ public:
   virtual EXPR getDepArray()              const {WRNERROR(QUAL_OMP_DEPARRAY); }
   virtual void setDepArrayNumDeps(EXPR E)       {WRNERROR(QUAL_OMP_DEPARRAY); }
   virtual EXPR getDepArrayNumDeps()       const {WRNERROR(QUAL_OMP_DEPARRAY); }
+  virtual void setAffArray(EXPR E)              {WRNERROR(QUAL_OMP_AFFARRAY); }
+  virtual EXPR getAffArray()              const {WRNERROR(QUAL_OMP_AFFARRAY); }
+  virtual void setAffArraySize(EXPR E)          {WRNERROR(QUAL_OMP_AFFARRAY); }
+  virtual EXPR getAffArraySize()          const {WRNERROR(QUAL_OMP_AFFARRAY); }
   virtual void setDevice(EXPR E)                {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual EXPR getDevice()                const {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual void setFilter(EXPR E)                {WRNERROR(QUAL_OMP_FILTER);   }
@@ -524,8 +531,8 @@ public:
   virtual EXPR getIf()                    const {WRNERROR(QUAL_OMP_IF);       }
   virtual void setIsStrict(bool F)                      { WRNERROR("STRICT"); }
   virtual bool getIsStrict()                      const { WRNERROR("STRICT"); }
-  virtual void setIsDoacross(bool F)         {WRNERROR("DEPEND(SOURCE|SINK)");}
-  virtual bool getIsDoacross()         const {WRNERROR("DEPEND(SOURCE|SINK)");}
+  virtual void setIsDoacross(bool F)     { WRNERROR("DOACROSS(SOURCE|SINK)"); }
+  virtual bool getIsDoacross()     const { WRNERROR("DOACROSS(SOURCE|SINK)"); }
   virtual void setIsSIMD(bool Flag)          {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
   virtual bool getIsSIMD()             const {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
   virtual void setIsTargetTask(bool Flag)     {WRNERROR(QUAL_OMP_TARGET_TASK);}
@@ -610,9 +617,6 @@ public:
       getUncollapsedNDRangeTypes() const {
     WRNERROR("OFFLOAD_NDRANGE");
   }
-  virtual void resetUncollapsedNDRange() {
-    WRNERROR("OFFLOAD_NDRANGE");
-  }
   virtual void setNDRangeDistributeDim(uint8_t Dim) {
     WRNERROR("NDRANGE_DISTRIBUTE_DIM");
   }
@@ -630,6 +634,12 @@ public:
   }
   virtual bool getHasTeamsReduction() const {
     WRNERROR("OFFLOAD_HAS_TEAMS_REDUCTION");
+  }
+  virtual void setHasKnownNDRange(bool V) {
+    WRNERROR("OFFLOAD_HAS_KNOWN_NDRANGE");
+  }
+  virtual bool getHasKnownNDRange() const {
+    WRNERROR("OFFLOAD_HAS_KNOWN_NDRANGE");
   }
 
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
@@ -1086,6 +1096,11 @@ private:
 extern bool printDepArray(WRegionNode const *W, formatted_raw_ostream &OS,
                           int Depth, unsigned Verbosity = 1);
 
+/// Print the AFFARRAY(N, Array) qual
+/// Returns true iff something was printed
+extern bool printAffArray(WRegionNode const *W, formatted_raw_ostream &OS,
+                          int Depth, unsigned Verbosity = 1);
+
 /// Auxiliary function to print a BB in a WRN dump.
 ///
 /// If BB is null:
@@ -1145,15 +1160,14 @@ extern void printValList(StringRef Title, ArrayRef<Value *> const &Vals,
 extern void printInt(StringRef Title, int Num, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1, int Min=1);
 
-/// Auxiliary function to print a set of uint in a WRN dump.
+/// Auxiliary function to print an ArrayRef of unsigned in a WRN dump.
 ///
-/// If \p Set is empty:
+/// If \p Array is empty:
 ///    Verbosity == 0: don't printing anything
 ///    Verbosity >= 1: print "Title: UNSPECIFIED"
-extern void printSetOfUint(StringRef Title,
-                           const SmallSetVector<unsigned, 8> &Set,
-                           formatted_raw_ostream &OS, int Indent,
-                           unsigned Verbosity = 1);
+extern void printArrayOfUint(StringRef Title, const ArrayRef<unsigned> &Array,
+                             formatted_raw_ostream &OS, int Indent,
+                             unsigned Verbosity = 1);
 
 /// Auxiliary function to print a boolean in a WRN dump.
 ///

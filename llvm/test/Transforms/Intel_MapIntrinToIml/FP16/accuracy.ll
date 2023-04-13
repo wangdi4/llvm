@@ -2,7 +2,7 @@
 ; Check IMF precision attribute is handled correctly, and make sure medium
 ; accuracy is used in fast math by default, scalarizarion is used in non-fast-math.
 
-; RUN: opt -enable-new-pm=0 -vector-library=SVML -S -iml-trans < %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vector-library=SVML -S -iml-trans < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

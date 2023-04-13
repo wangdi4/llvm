@@ -87,7 +87,7 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -2152,7 +2152,7 @@ struct HIRLoopBlocking {
   HIRLoopBlocking(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
                   HIRSafeReductionAnalysis &SRA, HIRLoopStatistics &HLS,
                   TargetTransformInfo &TTI, bool SinkForMultiCopy)
-      : HIRF(HIRF), HDDA(HDDA), SRA(SRA), HLS(HLS), TTI(TTI),
+      : HIRF(HIRF), HDDA(HDDA), SRA(SRA), HLS(HLS), TTI(TTI), HasPragma(false),
         SinkForMultiCopy(SinkForMultiCopy && !DisableSinkForMultiCopy) {}
 
   bool run(bool Pragma);

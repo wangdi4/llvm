@@ -24,7 +24,6 @@
 
 ; Further check that reroll can be suppressed using a compiler flag
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll  -print-after=hir-loop-reroll -hir-loop-reroll-size-threshold=3 < %s 2>&1 | FileCheck %s --check-prefix=NOREROLL
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll,print<hir>" -hir-loop-reroll-size-threshold=3 -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s --check-prefix=NOREROLL
 
 ; NOREROLL: Function: foo

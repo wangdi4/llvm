@@ -1,0 +1,14 @@
+# RUN: cp -f %S/Inputs/empty %t.ll
+# RUN: not %intel_update_markup %t.ll --max -1 2>&1 | FileCheck --check-prefix=MAX %s
+
+# RUN: not %intel_update_markup no-such-file.ll 2>&1 | FileCheck --check-prefix=FILE %s
+# RUN: not %intel_update_markup %t.ll --ref no-such-file.ll 2>&1 | FileCheck --check-prefix=FILE %s
+
+# RUN: cp -f %S/Inputs/empty %t.exe
+# RUN: not %intel_update_markup %t.exe 2>&1 | FileCheck --check-prefix=EXT %s
+
+# MAX: ValueError: --max value -1 is less than 0
+
+# FILE: OSError: Non-existing file no-such-file.ll
+
+# EXT: NotImplementedError: Unsupported file extension .exe

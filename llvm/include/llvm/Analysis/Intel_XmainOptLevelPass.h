@@ -1,6 +1,6 @@
 //===-------------------- Intel_XmainOptLevelPass.h -----------------------===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -66,23 +66,6 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
   static bool isRequired() { return true; }
 };
-
-class XmainOptLevelWrapperPass : public ImmutablePass {
-  XmainOptLevel Impl;
-
-public:
-  static char ID;
-
-  XmainOptLevelWrapperPass(unsigned OptLevel = 2);
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-  }
-
-  unsigned getOptLevel() const { return Impl.getOptLevel(); }
-};
-
-ImmutablePass *createXmainOptLevelWrapperPass(unsigned OptLevel = 2);
 
 } // namespace llvm
 

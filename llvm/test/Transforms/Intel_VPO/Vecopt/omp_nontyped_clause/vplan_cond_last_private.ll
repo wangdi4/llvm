@@ -8,6 +8,7 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:    [[RET_LPRIV_VEC:%.*]] = alloca <4 x i8>, align 4
 ; CHECK-NEXT:    [[RET_LPRIV_VEC_BC:%.*]] = bitcast <4 x i8>* [[RET_LPRIV_VEC]] to i8*
 ; CHECK-NEXT:    [[RET_LPRIV_VEC_BASE_ADDR:%.*]] = getelementptr i8, i8* [[RET_LPRIV_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <4 x i8*> [[RET_LPRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK-NEXT:    [[PRIV_IDX_MEM_VEC:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[PRIV_IDX_MEM_VEC_BC:%.*]] = bitcast <4 x i32>* [[PRIV_IDX_MEM_VEC]] to i32*
 ; CHECK-NEXT:    [[PRIV_IDX_MEM_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[PRIV_IDX_MEM_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
@@ -17,8 +18,7 @@ define void @foo(i8* %a) {
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[RET_LPRIV_VEC_BCAST:%.*]] = bitcast <4 x i8>* [[RET_LPRIV_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BCAST]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    store <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>, <4 x i32>* [[PRIV_IDX_MEM_VEC]], align 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
@@ -32,9 +32,9 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[PRED_LOAD_IF:%.*]], label [[TMP5:%.*]]
 ; CHECK:       pred.load.if:
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i8, i8* [[A:%.*]], align 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i8> poison, i8 [[TMP4]], i32 0
-; CHECK-NEXT:    br label [[TMP5:%.*]]
-; CHECK:       6:
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i8> poison, i8 [[TMP4]], i64 0
+; CHECK-NEXT:    br label [[TMP5]]
+; CHECK:       5:
 ; CHECK-NEXT:    [[TMP6:%.*]] = phi <4 x i8> [ poison, [[VPLANNEDBB3]] ], [ [[BROADCAST_SPLATINSERT]], [[PRED_LOAD_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE:%.*]]
 ; CHECK:       pred.load.continue:
@@ -43,8 +43,8 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i8.p0v4i8(<4 x i8> [[BROADCAST_SPLAT]], <4 x i8>* [[RET_LPRIV_VEC]], i32 1, <4 x i1> [[TMP1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB4]]
 ; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    [[TMP7]] = add nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP8]] = add nsw i32 [[UNI_PHI]], 4
+; CHECK-NEXT:    [[TMP7]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP8]] = add nuw nsw i32 [[UNI_PHI]], 4
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i32 [[TMP8]], 100
 ; CHECK-NEXT:    br i1 [[TMP9]], label [[VECTOR_BODY]], label [[VPLANNEDBB5:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB5:
@@ -56,7 +56,7 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:    br i1 [[TMP12]], label [[VPLANNEDBB7:%.*]], label [[VPLANNEDBB8:%.*]]
 ; CHECK:       VPlannedBB8:
 ; CHECK-NEXT:    [[TMP13:%.*]] = call i32 @llvm.vector.reduce.smax.v4i32(<4 x i32> [[WIDE_LOAD6]])
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT9:%.*]] = insertelement <4 x i32> poison, i32 [[TMP13]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT9:%.*]] = insertelement <4 x i32> poison, i32 [[TMP13]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT10:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT9]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[PRIV_IDX_CMP:%.*]] = icmp eq <4 x i32> [[WIDE_LOAD6]], [[BROADCAST_SPLAT10]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = bitcast <4 x i1> [[PRIV_IDX_CMP]] to i4
@@ -65,9 +65,9 @@ define void @foo(i8* %a) {
 ; CHECK-NEXT:    store i8 [[PRIV_EXTRACT]], i8* [[RET_LPRIV]], align 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB7]]
 ; CHECK:       VPlannedBB7:
-; CHECK-NEXT:    [[RET_LPRIV_VEC_BCAST1:%.*]] = bitcast <4 x i8>* [[RET_LPRIV_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BCAST1]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB11:%.*]]
+; CHECK:       VPlannedBB11:
 ;
 entry:
   %ret.lpriv = alloca i8

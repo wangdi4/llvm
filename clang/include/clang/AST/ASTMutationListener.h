@@ -119,6 +119,16 @@ public:
   /// \param D the declaration marked OpenMP threadprivate.
   virtual void DeclarationMarkedOpenMPThreadPrivate(const Decl *D) {}
 
+#if INTEL_COLLAB
+  /// A declaration is marked as OpenMP groupprivate which was not
+  /// previously marked as groupprivate.
+  ///
+  /// \param D the declaration marked OpenMP groupprivate.
+  /// \param Atrr the added attribute.
+  virtual void DeclarationMarkedOpenMPGroupPrivate(const Decl *D,
+                                                   const Attr *Attr) {}
+#endif // INTEL_COLLAB
+
   /// A declaration is marked as OpenMP declaretarget which was not
   /// previously marked as declaretarget.
   ///

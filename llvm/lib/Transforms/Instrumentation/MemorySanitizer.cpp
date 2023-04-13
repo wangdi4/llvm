@@ -169,7 +169,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -207,6 +206,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -418,17 +418,10 @@ static const MemoryMapParams Linux_I386_MemoryMapParams = {
 
 // x86_64 Linux
 static const MemoryMapParams Linux_X86_64_MemoryMapParams = {
-#ifdef MSAN_LINUX_X86_64_OLD_MAPPING
-    0x400000000000, // AndMask
-    0,              // XorMask (not used)
-    0,              // ShadowBase (not used)
-    0x200000000000, // OriginBase
-#else
     0,              // AndMask (not used)
     0x500000000000, // XorMask
     0,              // ShadowBase (not used)
     0x100000000000, // OriginBase
-#endif
 };
 
 // mips64 Linux
@@ -568,9 +561,9 @@ private:
   friend struct VarArgSystemZHelper;
 
   void initializeModule(Module &M);
-  void initializeCallbacks(Module &M);
-  void createKernelApi(Module &M);
-  void createUserspaceApi(Module &M);
+  void initializeCallbacks(Module &M, const TargetLibraryInfo &TLI);
+  void createKernelApi(Module &M, const TargetLibraryInfo &TLI);
+  void createUserspaceApi(Module &M, const TargetLibraryInfo &TLI);
 
   /// True if we're compiling the Linux kernel.
   bool CompileKernel;
@@ -714,7 +707,7 @@ struct MemorySanitizerLegacyPass : public FunctionPass {
   }
   bool doInitialization(Module &M) override;
 
-  Optional<MemorySanitizer> MSan;
+  std::optional<MemorySanitizer> MSan;
   MemorySanitizerOptions Options;
 };
 #endif // INTEL_CUSTOMIZATION
@@ -764,7 +757,7 @@ void MemorySanitizerPass::printPipeline(
     raw_ostream &OS, function_ref<StringRef(StringRef)> MapClassName2PassName) {
   static_cast<PassInfoMixin<MemorySanitizerPass> *>(this)->printPipeline(
       OS, MapClassName2PassName);
-  OS << "<";
+  OS << '<';
   if (Options.Recover)
     OS << "recover;";
   if (Options.Kernel)
@@ -772,7 +765,7 @@ void MemorySanitizerPass::printPipeline(
   if (Options.EagerChecks)
     OS << "eager-checks;";
   OS << "track-origins=" << Options.TrackOrigins;
-  OS << ">";
+  OS << '>';
 }
 
 #if INTEL_CUSTOMIZATION
@@ -805,7 +798,7 @@ static GlobalVariable *createPrivateConstGlobalForString(Module &M,
 }
 
 /// Create KMSAN API callbacks.
-void MemorySanitizer::createKernelApi(Module &M) {
+void MemorySanitizer::createKernelApi(Module &M, const TargetLibraryInfo &TLI) {
   IRBuilder<> IRB(*C);
 
   // These will be initialized in insertKmsanPrologue().
@@ -817,8 +810,10 @@ void MemorySanitizer::createKernelApi(Module &M) {
   VAArgOriginTLS = nullptr;
   VAArgOverflowSizeTLS = nullptr;
 
-  WarningFn = M.getOrInsertFunction("__msan_warning", IRB.getVoidTy(),
-                                    IRB.getInt32Ty());
+  WarningFn = M.getOrInsertFunction("__msan_warning",
+                                    TLI.getAttrList(C, {0}, /*Signed=*/false),
+                                    IRB.getVoidTy(), IRB.getInt32Ty());
+
   // Requests the per-task context state (kmsan_context_state*) from the
   // runtime library.
   MsanContextStateTy = StructType::get(
@@ -869,7 +864,7 @@ static Constant *getOrInsertGlobal(Module &M, StringRef Name, Type *Ty) {
 }
 
 /// Insert declarations for userspace-specific functions and globals.
-void MemorySanitizer::createUserspaceApi(Module &M) {
+void MemorySanitizer::createUserspaceApi(Module &M, const TargetLibraryInfo &TLI) {
   IRBuilder<> IRB(*C);
 
   // Create the callback.
@@ -878,8 +873,9 @@ void MemorySanitizer::createUserspaceApi(Module &M) {
   if (TrackOrigins) {
     StringRef WarningFnName = Recover ? "__msan_warning_with_origin"
                                       : "__msan_warning_with_origin_noreturn";
-    WarningFn =
-        M.getOrInsertFunction(WarningFnName, IRB.getVoidTy(), IRB.getInt32Ty());
+    WarningFn = M.getOrInsertFunction(WarningFnName,
+                                      TLI.getAttrList(C, {0}, /*Signed=*/false),
+                                      IRB.getVoidTy(), IRB.getInt32Ty());
   } else {
     StringRef WarningFnName =
         Recover ? "__msan_warning" : "__msan_warning_noreturn";
@@ -916,23 +912,13 @@ void MemorySanitizer::createUserspaceApi(Module &M) {
        AccessSizeIndex++) {
     unsigned AccessSize = 1 << AccessSizeIndex;
     std::string FunctionName = "__msan_maybe_warning_" + itostr(AccessSize);
-    SmallVector<std::pair<unsigned, Attribute>, 2> MaybeWarningFnAttrs;
-    MaybeWarningFnAttrs.push_back(std::make_pair(
-        AttributeList::FirstArgIndex, Attribute::get(*C, Attribute::ZExt)));
-    MaybeWarningFnAttrs.push_back(std::make_pair(
-        AttributeList::FirstArgIndex + 1, Attribute::get(*C, Attribute::ZExt)));
     MaybeWarningFn[AccessSizeIndex] = M.getOrInsertFunction(
-        FunctionName, AttributeList::get(*C, MaybeWarningFnAttrs),
+        FunctionName, TLI.getAttrList(C, {0, 1}, /*Signed=*/false),
         IRB.getVoidTy(), IRB.getIntNTy(AccessSize * 8), IRB.getInt32Ty());
 
     FunctionName = "__msan_maybe_store_origin_" + itostr(AccessSize);
-    SmallVector<std::pair<unsigned, Attribute>, 2> MaybeStoreOriginFnAttrs;
-    MaybeStoreOriginFnAttrs.push_back(std::make_pair(
-        AttributeList::FirstArgIndex, Attribute::get(*C, Attribute::ZExt)));
-    MaybeStoreOriginFnAttrs.push_back(std::make_pair(
-        AttributeList::FirstArgIndex + 2, Attribute::get(*C, Attribute::ZExt)));
     MaybeStoreOriginFn[AccessSizeIndex] = M.getOrInsertFunction(
-        FunctionName, AttributeList::get(*C, MaybeStoreOriginFnAttrs),
+        FunctionName, TLI.getAttrList(C, {0, 2}, /*Signed=*/false),
         IRB.getVoidTy(), IRB.getIntNTy(AccessSize * 8), IRB.getInt8PtrTy(),
         IRB.getInt32Ty());
   }
@@ -948,7 +934,7 @@ void MemorySanitizer::createUserspaceApi(Module &M) {
 }
 
 /// Insert extern declaration of runtime-provided functions and globals.
-void MemorySanitizer::initializeCallbacks(Module &M) {
+void MemorySanitizer::initializeCallbacks(Module &M, const TargetLibraryInfo &TLI) {
   // Only do this once.
   if (CallbacksInitialized)
     return;
@@ -956,29 +942,31 @@ void MemorySanitizer::initializeCallbacks(Module &M) {
   IRBuilder<> IRB(*C);
   // Initialize callbacks that are common for kernel and userspace
   // instrumentation.
-  MsanChainOriginFn = M.getOrInsertFunction("__msan_chain_origin",
-                                            IRB.getInt32Ty(), IRB.getInt32Ty());
-  MsanSetOriginFn =
-      M.getOrInsertFunction("__msan_set_origin", IRB.getVoidTy(),
-                            IRB.getInt8PtrTy(), IntptrTy, IRB.getInt32Ty());
+  MsanChainOriginFn = M.getOrInsertFunction(
+      "__msan_chain_origin",
+      TLI.getAttrList(C, {0}, /*Signed=*/false, /*Ret=*/true), IRB.getInt32Ty(),
+      IRB.getInt32Ty());
+  MsanSetOriginFn = M.getOrInsertFunction(
+      "__msan_set_origin", TLI.getAttrList(C, {2}, /*Signed=*/false),
+      IRB.getVoidTy(), IRB.getInt8PtrTy(), IntptrTy, IRB.getInt32Ty());
   MemmoveFn =
       M.getOrInsertFunction("__msan_memmove", IRB.getInt8PtrTy(),
                             IRB.getInt8PtrTy(), IRB.getInt8PtrTy(), IntptrTy);
   MemcpyFn =
       M.getOrInsertFunction("__msan_memcpy", IRB.getInt8PtrTy(),
                             IRB.getInt8PtrTy(), IRB.getInt8PtrTy(), IntptrTy);
-  MemsetFn =
-      M.getOrInsertFunction("__msan_memset", IRB.getInt8PtrTy(),
-                            IRB.getInt8PtrTy(), IRB.getInt32Ty(), IntptrTy);
+  MemsetFn = M.getOrInsertFunction(
+      "__msan_memset", TLI.getAttrList(C, {1}, /*Signed=*/true),
+      IRB.getInt8PtrTy(), IRB.getInt8PtrTy(), IRB.getInt32Ty(), IntptrTy);
 
   MsanInstrumentAsmStoreFn =
       M.getOrInsertFunction("__msan_instrument_asm_store", IRB.getVoidTy(),
                             PointerType::get(IRB.getInt8Ty(), 0), IntptrTy);
 
   if (CompileKernel) {
-    createKernelApi(M);
+    createKernelApi(M, TLI);
   } else {
-    createUserspaceApi(M);
+    createUserspaceApi(M, TLI);
   }
   CallbacksInitialized = true;
 }
@@ -1144,10 +1132,14 @@ struct MemorySanitizerVisitor;
 static VarArgHelper *CreateVarArgHelper(Function &Func, MemorySanitizer &Msan,
                                         MemorySanitizerVisitor &Visitor);
 
-static unsigned TypeSizeToSizeIndex(unsigned TypeSize) {
-  if (TypeSize <= 8)
+static unsigned TypeSizeToSizeIndex(TypeSize TS) {
+  if (TS.isScalable())
+    // Scalable types unconditionally take slowpaths.
+    return kNumberOfAccessSizes;
+  unsigned TypeSizeFixed = TS.getFixedValue();
+  if (TypeSizeFixed <= 8)
     return 0;
-  return Log2_32_Ceil((TypeSize + 7) / 8);
+  return Log2_32_Ceil((TypeSizeFixed + 7) / 8);
 }
 
 namespace {
@@ -1215,7 +1207,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     // It's easier to remove unreachable blocks than deal with missing shadow.
     removeUnreachableBlocks(F);
 
-    MS.initializeCallbacks(*F.getParent());
+    MS.initializeCallbacks(*F.getParent(), TLI);
     FnPrologueEnd = IRBuilder<>(F.getEntryBlock().getFirstNonPHI())
                         .CreateIntrinsic(Intrinsic::donothing, {}, {});
 
@@ -1266,12 +1258,29 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
 
   /// Fill memory range with the given origin value.
   void paintOrigin(IRBuilder<> &IRB, Value *Origin, Value *OriginPtr,
-                   unsigned Size, Align Alignment) {
+                   TypeSize TS, Align Alignment) {
     const DataLayout &DL = F.getParent()->getDataLayout();
     const Align IntptrAlignment = DL.getABITypeAlign(MS.IntptrTy);
     unsigned IntptrSize = DL.getTypeStoreSize(MS.IntptrTy);
     assert(IntptrAlignment >= kMinOriginAlignment);
     assert(IntptrSize >= kOriginSize);
+
+    // Note: The loop based formation works for fixed length vectors too,
+    // however we prefer to unroll and specialize alignment below.
+    if (TS.isScalable()) {
+      Value *Size = IRB.CreateTypeSize(IRB.getInt32Ty(), TS);
+      Value *RoundUp = IRB.CreateAdd(Size, IRB.getInt32(kOriginSize - 1));
+      Value *End = IRB.CreateUDiv(RoundUp, IRB.getInt32(kOriginSize));
+      auto [InsertPt, Index] =
+        SplitBlockAndInsertSimpleForLoop(End, &*IRB.GetInsertPoint());
+      IRB.SetInsertPoint(InsertPt);
+
+      Value *GEP = IRB.CreateGEP(MS.OriginTy, OriginPtr, Index);
+      IRB.CreateAlignedStore(Origin, GEP, kMinOriginAlignment);
+      return;
+    }
+
+    unsigned Size = TS.getFixedValue();
 
     unsigned Ofs = 0;
     Align CurrentAlignment = Alignment;
@@ -1300,7 +1309,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
                    Value *OriginPtr, Align Alignment) {
     const DataLayout &DL = F.getParent()->getDataLayout();
     const Align OriginAlignment = std::max(kMinOriginAlignment, Alignment);
-    unsigned StoreSize = DL.getTypeStoreSize(Shadow->getType());
+    TypeSize StoreSize = DL.getTypeStoreSize(Shadow->getType());
     Value *ConvertedShadow = convertShadowToScalar(Shadow, IRB);
     if (auto *ConstantShadow = dyn_cast<Constant>(ConvertedShadow)) {
       if (!ClCheckConstantShadow || ConstantShadow->isZeroValue()) {
@@ -1317,7 +1326,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
       // Fallback to runtime check, which still can be optimized out later.
     }
 
-    unsigned TypeSizeInBits = DL.getTypeSizeInBits(ConvertedShadow->getType());
+    TypeSize TypeSizeInBits = DL.getTypeSizeInBits(ConvertedShadow->getType());
     unsigned SizeIndex = TypeSizeToSizeIndex(TypeSizeInBits);
     if (instrumentWithCalls(ConvertedShadow) &&
         SizeIndex < kNumberOfAccessSizes && !MS.CompileKernel) {
@@ -1413,7 +1422,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
   void materializeOneCheck(IRBuilder<> &IRB, Value *ConvertedShadow,
                            Value *Origin) {
     const DataLayout &DL = F.getParent()->getDataLayout();
-    unsigned TypeSizeInBits = DL.getTypeSizeInBits(ConvertedShadow->getType());
+    TypeSize TypeSizeInBits = DL.getTypeSizeInBits(ConvertedShadow->getType());
     unsigned SizeIndex = TypeSizeToSizeIndex(TypeSizeInBits);
     if (instrumentWithCalls(ConvertedShadow) &&
         SizeIndex < kNumberOfAccessSizes && !MS.CompileKernel) {
@@ -1593,8 +1602,8 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     const DataLayout &DL = F.getParent()->getDataLayout();
     if (VectorType *VT = dyn_cast<VectorType>(OrigTy)) {
       uint32_t EltSize = DL.getTypeSizeInBits(VT->getElementType());
-      return FixedVectorType::get(IntegerType::get(*MS.C, EltSize),
-                                  cast<FixedVectorType>(VT)->getNumElements());
+      return VectorType::get(IntegerType::get(*MS.C, EltSize),
+                             VT->getElementCount());
     }
     if (ArrayType *AT = dyn_cast<ArrayType>(OrigTy)) {
       return ArrayType::get(getShadowTy(AT->getElementType()),
@@ -1612,14 +1621,6 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     return IntegerType::get(*MS.C, TypeSize);
   }
 
-  /// Flatten a vector type.
-  Type *getShadowTyNoVec(Type *ty) {
-    if (VectorType *vt = dyn_cast<VectorType>(ty))
-      return IntegerType::get(*MS.C,
-                              vt->getPrimitiveSizeInBits().getFixedSize());
-    return ty;
-  }
-
   /// Extract combined shadow of struct elements as a bool
   Value *collapseStructShadow(StructType *Struct, Value *Shadow,
                               IRBuilder<> &IRB) {
@@ -1629,8 +1630,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     for (unsigned Idx = 0; Idx < Struct->getNumElements(); Idx++) {
       // Combine by ORing together each element's bool shadow
       Value *ShadowItem = IRB.CreateExtractValue(Shadow, Idx);
-      Value *ShadowInner = convertShadowToScalar(ShadowItem, IRB);
-      Value *ShadowBool = convertToBool(ShadowInner, IRB);
+      Value *ShadowBool = convertToBool(ShadowItem, IRB);
 
       if (Aggregator != FalseVal)
         Aggregator = IRB.CreateOr(Aggregator, ShadowBool);
@@ -1666,11 +1666,14 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
       return collapseStructShadow(Struct, V, IRB);
     if (ArrayType *Array = dyn_cast<ArrayType>(V->getType()))
       return collapseArrayShadow(Array, V, IRB);
-    Type *Ty = V->getType();
-    Type *NoVecTy = getShadowTyNoVec(Ty);
-    if (Ty == NoVecTy)
-      return V;
-    return IRB.CreateBitCast(V, NoVecTy);
+    if (isa<VectorType>(V->getType())) {
+      if (isa<ScalableVectorType>(V->getType()))
+        return convertShadowToScalar(IRB.CreateOrReduce(V), IRB);
+      unsigned BitWidth =
+        V->getType()->getPrimitiveSizeInBits().getFixedValue();
+      return IRB.CreateBitCast(V, IntegerType::get(*MS.C, BitWidth));
+    }
+    return V;
   }
 
   // Convert a scalar value to an i1 by comparing with 0
@@ -1685,28 +1688,28 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
   }
 
   Type *ptrToIntPtrType(Type *PtrTy) const {
-    if (FixedVectorType *VectTy = dyn_cast<FixedVectorType>(PtrTy)) {
-      return FixedVectorType::get(ptrToIntPtrType(VectTy->getElementType()),
-                                  VectTy->getNumElements());
+    if (VectorType *VectTy = dyn_cast<VectorType>(PtrTy)) {
+      return VectorType::get(ptrToIntPtrType(VectTy->getElementType()),
+                             VectTy->getElementCount());
     }
     assert(PtrTy->isIntOrPtrTy());
     return MS.IntptrTy;
   }
 
   Type *getPtrToShadowPtrType(Type *IntPtrTy, Type *ShadowTy) const {
-    if (FixedVectorType *VectTy = dyn_cast<FixedVectorType>(IntPtrTy)) {
-      return FixedVectorType::get(
+    if (VectorType *VectTy = dyn_cast<VectorType>(IntPtrTy)) {
+      return VectorType::get(
           getPtrToShadowPtrType(VectTy->getElementType(), ShadowTy),
-          VectTy->getNumElements());
+          VectTy->getElementCount());
     }
     assert(IntPtrTy == MS.IntptrTy);
     return ShadowTy->getPointerTo();
   }
 
   Constant *constToIntPtr(Type *IntPtrTy, uint64_t C) const {
-    if (FixedVectorType *VectTy = dyn_cast<FixedVectorType>(IntPtrTy)) {
-      return ConstantDataVector::getSplat(
-          VectTy->getNumElements(), constToIntPtr(VectTy->getElementType(), C));
+    if (VectorType *VectTy = dyn_cast<VectorType>(IntPtrTy)) {
+      return ConstantVector::getSplat(
+          VectTy->getElementCount(), constToIntPtr(VectTy->getElementType(), C));
     }
     assert(IntPtrTy == MS.IntptrTy);
     return ConstantInt::get(MS.IntptrTy, C);
@@ -1775,7 +1778,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
                                                             bool isStore) {
     Value *ShadowOriginPtrs;
     const DataLayout &DL = F.getParent()->getDataLayout();
-    int Size = DL.getTypeStoreSize(ShadowTy);
+    TypeSize Size = DL.getTypeStoreSize(ShadowTy);
 
     FunctionCallee Getter = MS.getKmsanShadowOriginAccessFn(isStore, Size);
     Value *AddrCast =
@@ -1802,14 +1805,14 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
                                                        IRBuilder<> &IRB,
                                                        Type *ShadowTy,
                                                        bool isStore) {
-    FixedVectorType *VectTy = dyn_cast<FixedVectorType>(Addr->getType());
+    VectorType *VectTy = dyn_cast<VectorType>(Addr->getType());
     if (!VectTy) {
       assert(Addr->getType()->isPointerTy());
       return getShadowOriginPtrKernelNoVec(Addr, IRB, ShadowTy, isStore);
     }
 
     // TODO: Support callbacs with vectors of addresses.
-    unsigned NumElements = VectTy->getNumElements();
+    unsigned NumElements = cast<FixedVectorType>(VectTy)->getNumElements();
     Value *ShadowPtrs = ConstantInt::getNullValue(
         FixedVectorType::get(ShadowTy->getPointerTo(), NumElements));
     Value *OriginPtrs = nullptr;
@@ -1982,7 +1985,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
             // argument shadow to the underlying memory.
             // Figure out maximal valid memcpy alignment.
             const Align ArgAlign = DL.getValueOrABITypeAlignment(
-                MaybeAlign(FArg.getParamAlignment()), FArg.getParamByValType());
+                FArg.getParamAlign(), FArg.getParamByValType());
             Value *CpShadowPtr, *CpOriginPtr;
             std::tie(CpShadowPtr, CpOriginPtr) =
                 getShadowOriginPtr(V, EntryIRB, EntryIRB.getInt8Ty(), ArgAlign,
@@ -2149,7 +2152,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
         (int)AtomicOrderingCABI::seq_cst;
 
     return ConstantDataVector::get(IRB.getContext(),
-                                   makeArrayRef(OrderingTable, NumOrderings));
+                                   ArrayRef(OrderingTable, NumOrderings));
   }
 
   AtomicOrdering addAcquireOrdering(AtomicOrdering a) {
@@ -2184,7 +2187,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
         (int)AtomicOrderingCABI::seq_cst;
 
     return ConstantDataVector::get(IRB.getContext(),
-                                   makeArrayRef(OrderingTable, NumOrderings));
+                                   ArrayRef(OrderingTable, NumOrderings));
   }
 
   // ------------------- Visitors.
@@ -2455,9 +2458,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
           Constant *ConstOrigin = dyn_cast<Constant>(OpOrigin);
           // No point in adding something that might result in 0 origin value.
           if (!ConstOrigin || !ConstOrigin->isNullValue()) {
-            Value *FlatShadow = MSV->convertShadowToScalar(OpShadow, IRB);
-            Value *Cond =
-                IRB.CreateICmpNE(FlatShadow, MSV->getCleanShadow(FlatShadow));
+            Value *Cond = MSV->convertToBool(OpShadow, IRB);
             Origin = IRB.CreateSelect(Cond, OpOrigin, Origin);
           }
         }
@@ -2522,8 +2523,8 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     if (dstTy->isIntegerTy() && srcTy->isIntegerTy())
       return IRB.CreateIntCast(V, dstTy, Signed);
     if (dstTy->isVectorTy() && srcTy->isVectorTy() &&
-        cast<FixedVectorType>(dstTy)->getNumElements() ==
-            cast<FixedVectorType>(srcTy)->getNumElements())
+        cast<VectorType>(dstTy)->getElementCount() ==
+            cast<VectorType>(srcTy)->getElementCount())
       return IRB.CreateIntCast(V, dstTy, Signed);
     Value *V1 = IRB.CreateBitCast(V, Type::getIntNTy(*MS.C, srcSizeInBits));
     Value *V2 =
@@ -2575,7 +2576,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
         if (ConstantInt *Elt =
                 dyn_cast<ConstantInt>(ConstArg->getAggregateElement(Idx))) {
           const APInt &V = Elt->getValue();
-          APInt V2 = APInt(V.getBitWidth(), 1) << V.countTrailingZeros();
+          APInt V2 = APInt(V.getBitWidth(), 1) << V.countr_zero();
           Elements.push_back(ConstantInt::get(EltTy, V2));
         } else {
           Elements.push_back(ConstantInt::get(EltTy, 1));
@@ -2585,7 +2586,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     } else {
       if (ConstantInt *Elt = dyn_cast<ConstantInt>(ConstArg)) {
         const APInt &V = Elt->getValue();
-        APInt V2 = APInt(V.getBitWidth(), 1) << V.countTrailingZeros();
+        APInt V2 = APInt(V.getBitWidth(), 1) << V.countr_zero();
         ShadowMul = ConstantInt::get(Ty, V2);
       } else {
         ShadowMul = ConstantInt::get(Ty, 1);
@@ -3041,7 +3042,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     Value *Op = I.getArgOperand(0);
     Type *OpType = Op->getType();
     Function *BswapFunc = Intrinsic::getDeclaration(
-        F.getParent(), Intrinsic::bswap, makeArrayRef(&OpType, 1));
+        F.getParent(), Intrinsic::bswap, ArrayRef(&OpType, 1));
     setShadow(&I, IRB.CreateCall(BswapFunc, getShadow(Op)));
     setOrigin(&I, getOrigin(Op));
   }
@@ -3444,7 +3445,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     }
 
     Type *ShadowTy = getShadowTy(&I);
-    Type *ElementShadowTy = cast<FixedVectorType>(ShadowTy)->getElementType();
+    Type *ElementShadowTy = cast<VectorType>(ShadowTy)->getElementType();
     auto [ShadowPtr, OriginPtr] =
         getShadowOriginPtr(Ptr, IRB, ElementShadowTy, {}, /*isStore*/ false);
 
@@ -3470,7 +3471,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
 
     Value *Shadow = getShadow(Values);
     Type *ElementShadowTy =
-        getShadowTy(cast<FixedVectorType>(Values->getType())->getElementType());
+        getShadowTy(cast<VectorType>(Values->getType())->getElementType());
     auto [ShadowPtr, OriginPtrs] =
         getShadowOriginPtr(Ptr, IRB, ElementShadowTy, {}, /*isStore*/ true);
 
@@ -3503,7 +3504,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     }
 
     Type *ShadowTy = getShadowTy(&I);
-    Type *ElementShadowTy = cast<FixedVectorType>(ShadowTy)->getElementType();
+    Type *ElementShadowTy = cast<VectorType>(ShadowTy)->getElementType();
     auto [ShadowPtrs, OriginPtrs] = getShadowOriginPtr(
         Ptrs, IRB, ElementShadowTy, Alignment, /*isStore*/ false);
 
@@ -3536,7 +3537,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
 
     Value *Shadow = getShadow(Values);
     Type *ElementShadowTy =
-        getShadowTy(cast<FixedVectorType>(Values->getType())->getElementType());
+        getShadowTy(cast<VectorType>(Values->getType())->getElementType());
     auto [ShadowPtrs, OriginPtrs] = getShadowOriginPtr(
         Ptrs, IRB, ElementShadowTy, Alignment, /*isStore*/ true);
 
@@ -3608,8 +3609,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     Value *MaskedPassThruShadow = IRB.CreateAnd(
         getShadow(PassThru), IRB.CreateSExt(IRB.CreateNeg(Mask), ShadowTy));
 
-    Value *ConvertedShadow = convertShadowToScalar(MaskedPassThruShadow, IRB);
-    Value *NotNull = convertToBool(ConvertedShadow, IRB, "_mscmp");
+    Value *NotNull = convertToBool(MaskedPassThruShadow, IRB, "_mscmp");
 
     Value *PtrOrigin = IRB.CreateLoad(MS.OriginTy, OriginPtr);
     Value *Origin = IRB.CreateSelect(NotNull, getOrigin(PassThru), PtrOrigin);
@@ -4479,11 +4479,8 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
       // Origins are always i32, so any vector conditions must be flattened.
       // FIXME: consider tracking vector origins for app vectors?
       if (B->getType()->isVectorTy()) {
-        Type *FlatTy = getShadowTyNoVec(B->getType());
-        B = IRB.CreateICmpNE(IRB.CreateBitCast(B, FlatTy),
-                             ConstantInt::getNullValue(FlatTy));
-        Sb = IRB.CreateICmpNE(IRB.CreateBitCast(Sb, FlatTy),
-                              ConstantInt::getNullValue(FlatTy));
+        B = convertToBool(B, IRB);
+        Sb = convertToBool(Sb, IRB);
       }
       // a = select b, c, d
       // Oa = Sb ? Ob : (b ? Oc : Od)
@@ -4578,9 +4575,9 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     }
     if (!ElemTy->isSized())
       return;
-    int Size = DL.getTypeStoreSize(ElemTy);
     Value *Ptr = IRB.CreatePointerCast(Operand, IRB.getInt8PtrTy());
-    Value *SizeVal = ConstantInt::get(MS.IntptrTy, Size);
+    Value *SizeVal =
+      IRB.CreateTypeSize(MS.IntptrTy, DL.getTypeStoreSize(ElemTy));
     IRB.CreateCall(MS.MsanInstrumentAsmStoreFn, {Ptr, SizeVal});
   }
 
@@ -4809,7 +4806,7 @@ struct VarArgAMD64Helper : public VarArgHelper {
         IRB.CreateAlignedStore(Shadow, ShadowBase, kShadowTLSAlignment);
         if (MS.TrackOrigins) {
           Value *Origin = MSV.getOrigin(A);
-          unsigned StoreSize = DL.getTypeStoreSize(Shadow->getType());
+          TypeSize StoreSize = DL.getTypeStoreSize(Shadow->getType());
           MSV.paintOrigin(IRB, Origin, OriginBase, StoreSize,
                           std::max(kShadowTLSAlignment, kMinOriginAlignment));
         }
@@ -5504,6 +5501,7 @@ struct VarArgSystemZHelper : public VarArgHelper {
   Function &F;
   MemorySanitizer &MS;
   MemorySanitizerVisitor &MSV;
+  bool IsSoftFloatABI;
   Value *VAArgTLSCopy = nullptr;
   Value *VAArgTLSOriginCopy = nullptr;
   Value *VAArgOverflowSize = nullptr;
@@ -5522,9 +5520,10 @@ struct VarArgSystemZHelper : public VarArgHelper {
 
   VarArgSystemZHelper(Function &F, MemorySanitizer &MS,
                       MemorySanitizerVisitor &MSV)
-      : F(F), MS(MS), MSV(MSV) {}
+      : F(F), MS(MS), MSV(MSV),
+        IsSoftFloatABI(F.getFnAttribute("use-soft-float").getValueAsBool()) {}
 
-  ArgKind classifyArgument(Type *T, bool IsSoftFloatABI) {
+  ArgKind classifyArgument(Type *T) {
     // T is a SystemZABIInfo::classifyArgumentType() output, and there are
     // only a few possibilities of what it can be. In particular, enums, single
     // element structs and large types have already been taken care of.
@@ -5562,9 +5561,6 @@ struct VarArgSystemZHelper : public VarArgHelper {
   }
 
   void visitCallBase(CallBase &CB, IRBuilder<> &IRB) override {
-    bool IsSoftFloatABI = CB.getCalledFunction()
-                              ->getFnAttribute("use-soft-float")
-                              .getValueAsBool();
     unsigned GpOffset = SystemZGpOffset;
     unsigned FpOffset = SystemZFpOffset;
     unsigned VrIndex = 0;
@@ -5575,7 +5571,7 @@ struct VarArgSystemZHelper : public VarArgHelper {
       // SystemZABIInfo does not produce ByVal parameters.
       assert(!CB.paramHasAttr(ArgNo, Attribute::ByVal));
       Type *T = A->getType();
-      ArgKind AK = classifyArgument(T, IsSoftFloatABI);
+      ArgKind AK = classifyArgument(T);
       if (AK == ArgKind::Indirect) {
         T = PointerType::get(T, 0);
         AK = ArgKind::GeneralPurpose;
@@ -5675,7 +5671,7 @@ struct VarArgSystemZHelper : public VarArgHelper {
       IRB.CreateStore(Shadow, ShadowBase);
       if (MS.TrackOrigins) {
         Value *Origin = MSV.getOrigin(A);
-        unsigned StoreSize = DL.getTypeStoreSize(Shadow->getType());
+        TypeSize StoreSize = DL.getTypeStoreSize(Shadow->getType());
         MSV.paintOrigin(IRB, Origin, OriginBase, StoreSize,
                         kMinOriginAlignment);
       }

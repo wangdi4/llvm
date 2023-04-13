@@ -1,4 +1,4 @@
-; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,print<hir>,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -hir-create-function-level-region -passes="hir-ssa-deconstruction,print<hir>,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that (%ptr)[0] is eliminated even though load and post-dominating store overlap.
 

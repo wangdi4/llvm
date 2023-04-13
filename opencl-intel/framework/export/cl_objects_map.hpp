@@ -29,7 +29,7 @@ HandleType *OCLObjectsMap<HandleType, ParentHandleType>::AddObject(
   assert(hObjectHandle);
   cl_int iObjectId = m_iNextGenKey++;
   pObject->SetId(iObjectId);
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
   /*
   map<HandleType*, OCLObject<HandleType, ParentHandleType>*>::iterator it =
   m_mapObjects.find(hObjectHandle); if (it != m_mapObjects.end())
@@ -46,13 +46,13 @@ HandleType *OCLObjectsMap<HandleType, ParentHandleType>::AddObject(
 
 template <class HandleType, class ParentHandleType>
 void OCLObjectsMap<HandleType, ParentHandleType>::DisableAdding() {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
   m_bDisableAdding = true;
 }
 
 template <class HandleType, class ParentHandleType>
 void OCLObjectsMap<HandleType, ParentHandleType>::EnableAdding() {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
   m_bDisableAdding = false;
 }
 
@@ -68,7 +68,7 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::AddObject(
     pObject->SetId(m_iNextGenKey++);
   }
 
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
 
   if (m_bDisableAdding) {
     return CL_ERR_FAILURE;
@@ -86,7 +86,7 @@ template <class HandleType, class ParentHandleType>
 SharedPtr<OCLObject<HandleType, ParentHandleType>>
 OCLObjectsMap<HandleType, ParentHandleType>::GetOCLObject(
     HandleType *hObjectHandle) {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
 
   HandleTypeMapConstIterator it = m_mapObjects.find(hObjectHandle);
   if (it == m_mapObjects.end()) {
@@ -99,7 +99,7 @@ template <class HandleType, class ParentHandleType>
 OCLObject<HandleType, ParentHandleType> *
 OCLObjectsMap<HandleType, ParentHandleType>::GetOCLObjectPtr(
     HandleType *hObjectHandle) {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
 
   HandleTypeMapConstIterator it = m_mapObjects.find(hObjectHandle);
   if (it == m_mapObjects.end()) {
@@ -111,7 +111,7 @@ OCLObjectsMap<HandleType, ParentHandleType>::GetOCLObjectPtr(
 template <class HandleType, class ParentHandleType>
 SharedPtr<OCLObject<HandleType, ParentHandleType>>
 OCLObjectsMap<HandleType, ParentHandleType>::GetObjectByIndex(cl_uint uiIndex) {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
   if (uiIndex > m_mapObjects.size()) {
     return NULL;
   }
@@ -125,7 +125,7 @@ OCLObjectsMap<HandleType, ParentHandleType>::GetObjectByIndex(cl_uint uiIndex) {
 template <class HandleType, class ParentHandleType>
 template <class F>
 bool OCLObjectsMap<HandleType, ParentHandleType>::ForEach(F &functor) {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
 
   for (HandleTypeMapIterator iter = m_mapObjects.begin();
        iter != m_mapObjects.end(); iter++) {
@@ -142,10 +142,10 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::RemoveObject(
   // m_muMapMutex does not support recursive locking.
   // Use manual Lock/Unlock to ensure that lock is released before the
   // destructor of SharedPtr is called to avoid deadlocks
-  m_muMapMutex.Lock();
+  m_muMapMutex.lock();
   HandleTypeMapIterator it = m_mapObjects.find(hObjectHandle);
   if (it == m_mapObjects.end()) {
-    m_muMapMutex.Unlock();
+    m_muMapMutex.unlock();
     return CL_ERR_KEY_NOT_FOUND;
   }
   // This is necessary to prevent a race between object release and object
@@ -156,7 +156,7 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::RemoveObject(
     obj->SetPreserveHandleOnDetele();
   }
   m_mapObjects.erase(it);
-  m_muMapMutex.Unlock();
+  m_muMapMutex.unlock();
   // destructor of SharedPtr will be called here
   return CL_SUCCESS;
 }
@@ -166,7 +166,7 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::GetObjects(
     cl_uint uiObjectCount,
     SharedPtr<OCLObject<HandleType, ParentHandleType>> *ppObjects,
     cl_uint *puiObjectCountRet) {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
   if (NULL == ppObjects && NULL == puiObjectCountRet) {
     return CL_INVALID_VALUE;
   }
@@ -191,7 +191,7 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::GetObjects(
 template <class HandleType, class ParentHandleType>
 cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::GetIDs(
     cl_uint uiIdsCount, HandleType **pIds, cl_uint *puiIdsCountRet) {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
   if (NULL == pIds && NULL == puiIdsCountRet) {
     return CL_INVALID_VALUE;
   }
@@ -215,21 +215,21 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::GetIDs(
 
 template <class HandleType, class ParentHandleType>
 cl_uint OCLObjectsMap<HandleType, ParentHandleType>::Count() const {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
   assert(m_mapObjects.size() <= CL_MAX_UINT32);
   return (cl_uint)m_mapObjects.size();
 }
 
 template <class HandleType, class ParentHandleType>
 void OCLObjectsMap<HandleType, ParentHandleType>::Clear() {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
   m_mapObjects.clear();
 }
 
 template <class HandleType, class ParentHandleType>
 bool OCLObjectsMap<HandleType, ParentHandleType>::IsExists(
     HandleType *hObjectHandle) {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
   return (m_mapObjects.find(hObjectHandle) != m_mapObjects.end());
 }
 
@@ -239,10 +239,10 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::ReleaseObject(
   // m_muMapMutex does not support recursive locking.
   // Use manual Lock/Unlock to ensure that lock is released before the
   // destructor of SharedPtr is called to avoid deadlocks
-  m_muMapMutex.Lock();
+  m_muMapMutex.lock();
   HandleTypeMapIterator it = m_mapObjects.find(hObject);
   if (m_mapObjects.end() == it) {
-    m_muMapMutex.Unlock();
+    m_muMapMutex.unlock();
     return CL_ERR_KEY_NOT_FOUND;
   }
   if (m_bPreserveUserHandles) {
@@ -250,23 +250,23 @@ cl_err_code OCLObjectsMap<HandleType, ParentHandleType>::ReleaseObject(
   }
   long newRef = it->second->Release();
   if (newRef < 0) {
-    m_muMapMutex.Unlock();
+    m_muMapMutex.unlock();
     return CL_ERR_FAILURE;
   } else if (0 == newRef) {
     SharedPtr<OCLObject<HandleType, ParentHandleType>> obj = it->second;
     m_mapObjects.erase(it);
-    m_muMapMutex.Unlock();
+    m_muMapMutex.unlock();
     // SharedPtr destructor will be called here
     return CL_SUCCESS;
   }
-  m_muMapMutex.Unlock();
+  m_muMapMutex.unlock();
   return CL_SUCCESS;
 }
 
 template <class HandleType, class ParentHandleType>
 void OCLObjectsMap<HandleType, ParentHandleType>::ReleaseAllObjects(
     bool bTerminate) {
-  Intel::OpenCL::Utils::OclAutoMutex mu(&m_muMapMutex);
+  std::lock_guard<std::mutex> mu(m_muMapMutex);
   HandleTypeMapIterator it = m_mapObjects.begin();
   while (it != m_mapObjects.end()) {
     if (m_bPreserveUserHandles) {

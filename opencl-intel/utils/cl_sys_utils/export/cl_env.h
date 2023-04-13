@@ -24,7 +24,7 @@ namespace Utils {
 // Returns false i.f.f the target environment variable is not defined.
 // Note: if the target environment variable is set to an empty string, this
 // function will return true.
-bool getEnvVar(std::string &EnvValue, const std::string EnvName);
+bool getEnvVar(std::string &EnvValue, const std::string &EnvName);
 } // namespace Utils
 } // namespace OpenCL
 } // namespace Intel

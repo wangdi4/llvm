@@ -28,6 +28,7 @@ namespace mlir {
 #define GEN_PASS_DEF_SPARSETENSORCODEGEN
 #define GEN_PASS_DEF_SPARSEBUFFERREWRITE
 #define GEN_PASS_DEF_SPARSEVECTORIZATION
+#define GEN_PASS_DEF_STORAGESPECIFIERTOLLVM
 #include "mlir/Dialect/SparseTensor/Transforms/Passes.h.inc"
 } // namespace mlir
 
@@ -62,12 +63,13 @@ struct SparsificationPass
   SparsificationPass(const SparsificationPass &pass) = default;
   SparsificationPass(const SparsificationOptions &options) {
     parallelization = options.parallelizationStrategy;
+    enableIndexReduction = options.enableIndexReduction;
   }
 
   void runOnOperation() override {
     auto *ctx = &getContext();
     // Translate strategy flags to strategy options.
-    SparsificationOptions options(parallelization);
+    SparsificationOptions options(parallelization, enableIndexReduction);
     // Apply sparsification and cleanup rewriting.
     RewritePatternSet patterns(ctx);
     populateSparsificationPatterns(patterns, options);
@@ -179,7 +181,8 @@ struct SparseTensorCodegenPass
 
   SparseTensorCodegenPass() = default;
   SparseTensorCodegenPass(const SparseTensorCodegenPass &pass) = default;
-  SparseTensorCodegenPass(bool enableInit) {
+  SparseTensorCodegenPass(bool createDeallocs, bool enableInit) {
+    createSparseDeallocs = createDeallocs;
     enableBufferInitialization = enableInit;
   }
 
@@ -193,9 +196,14 @@ struct SparseTensorCodegenPass
     target.addLegalOp<SortOp>();
     target.addLegalOp<SortCooOp>();
     target.addLegalOp<PushBackOp>();
-    // All dynamic rules below accept new function, call, return, and various
-    // tensor and bufferization operations as legal output of the rewriting
-    // provided that all sparse tensor types have been fully rewritten.
+    // Storage specifier outlives sparse tensor pipeline.
+    target.addLegalOp<GetStorageSpecifierOp>();
+    target.addLegalOp<SetStorageSpecifierOp>();
+    target.addLegalOp<StorageSpecifierInitOp>();
+    // All dynamic rules below accept new function, call, return, and
+    // various tensor and bufferization operations as legal output of the
+    // rewriting provided that all sparse tensor types have been fully
+    // rewritten.
     target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
       return converter.isSignatureLegal(op.getFunctionType());
     });
@@ -225,8 +233,8 @@ struct SparseTensorCodegenPass
                                                                    converter);
     scf::populateSCFStructuralTypeConversionsAndLegality(converter, patterns,
                                                          target);
-    populateSparseTensorCodegenPatterns(converter, patterns,
-                                        enableBufferInitialization);
+    populateSparseTensorCodegenPatterns(
+        converter, patterns, createSparseDeallocs, enableBufferInitialization);
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns))))
       signalPassFailure();
@@ -262,12 +270,52 @@ struct SparseVectorizationPass
   }
 
   void runOnOperation() override {
+    if (vectorLength == 0)
+      return signalPassFailure();
     auto *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     populateSparseVectorizationPatterns(
         patterns, vectorLength, enableVLAVectorization, enableSIMDIndex32);
     vector::populateVectorToVectorCanonicalizationPatterns(patterns);
     (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
+  }
+};
+
+struct StorageSpecifierToLLVMPass
+    : public impl::StorageSpecifierToLLVMBase<StorageSpecifierToLLVMPass> {
+
+  StorageSpecifierToLLVMPass() = default;
+
+  void runOnOperation() override {
+    auto *ctx = &getContext();
+    ConversionTarget target(*ctx);
+    RewritePatternSet patterns(ctx);
+    StorageSpecifierToLLVMTypeConverter converter;
+
+    // All ops in the sparse dialect must go!
+    target.addIllegalDialect<SparseTensorDialect>();
+    target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
+      return converter.isSignatureLegal(op.getFunctionType());
+    });
+    target.addDynamicallyLegalOp<func::CallOp>([&](func::CallOp op) {
+      return converter.isSignatureLegal(op.getCalleeType());
+    });
+    target.addDynamicallyLegalOp<func::ReturnOp>([&](func::ReturnOp op) {
+      return converter.isLegal(op.getOperandTypes());
+    });
+    target.addLegalDialect<arith::ArithDialect, LLVM::LLVMDialect>();
+
+    populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(patterns,
+                                                                   converter);
+    populateCallOpTypeConversionPattern(patterns, converter);
+    populateBranchOpInterfaceTypeConversionPattern(patterns, converter);
+    populateReturnOpTypeConversionPattern(patterns, converter);
+    scf::populateSCFStructuralTypeConversionsAndLegality(converter, patterns,
+                                                         target);
+    populateStorageSpecifierToLLVMPatterns(converter, patterns);
+    if (failed(applyPartialConversion(getOperation(), target,
+                                      std::move(patterns))))
+      signalPassFailure();
   }
 };
 
@@ -331,8 +379,10 @@ std::unique_ptr<Pass> mlir::createSparseTensorCodegenPass() {
 }
 
 std::unique_ptr<Pass>
-mlir::createSparseTensorCodegenPass(bool enableBufferInitialization) {
-  return std::make_unique<SparseTensorCodegenPass>(enableBufferInitialization);
+mlir::createSparseTensorCodegenPass(bool createSparseDeallocs,
+                                    bool enableBufferInitialization) {
+  return std::make_unique<SparseTensorCodegenPass>(createSparseDeallocs,
+                                                   enableBufferInitialization);
 }
 
 std::unique_ptr<Pass> mlir::createSparseBufferRewritePass() {
@@ -354,4 +404,8 @@ mlir::createSparseVectorizationPass(unsigned vectorLength,
                                     bool enableSIMDIndex32) {
   return std::make_unique<SparseVectorizationPass>(
       vectorLength, enableVLAVectorization, enableSIMDIndex32);
+}
+
+std::unique_ptr<Pass> mlir::createStorageSpecifierToLLVMPass() {
+  return std::make_unique<StorageSpecifierToLLVMPass>();
 }

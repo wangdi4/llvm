@@ -50,6 +50,10 @@ class AAManager;
 class TargetMachine;
 class ModuleSummaryIndex;
 class InlinerPass; // INTEL
+template <typename T> class IntrusiveRefCntPtr;
+namespace vfs {
+class FileSystem;
+} // namespace vfs
 
 /// Tunable parameters for passes in the default pipelines.
 class PipelineTuningOptions {
@@ -110,6 +114,9 @@ public:
   /// Enable Auto CPU Dispatch transformation.
   bool EnableAutoCPUDispatch;
 #endif // INTEL_CUSTOMIZATION
+  /// Tuning option to enable a subset of optimizations in O0 optimization
+  /// mode for non-user SYCL code.
+  bool OptimizeSYCLFramework = false;
 };
 
 /// This class provides access to building LLVM's passes.
@@ -293,11 +300,6 @@ public:
   /// optimization and code generation. It is particularly tuned to fit well
   /// when IR coming into the LTO phase was first run through \c
   /// addPreLinkLTODefaultPipeline, and the two coordinate closely.
-  ///
-  /// Note that \p Level cannot be `O0` here. The pipelines produced are
-  /// only intended for use when attempting to optimize code. If frontends
-  /// require some transformations for semantic reasons, they should explicitly
-  /// build them.
   ModulePassManager
   buildThinLTODefaultPipeline(OptimizationLevel Level,
                               const ModuleSummaryIndex *ImportSummary);
@@ -309,11 +311,6 @@ public:
   /// run. It works to minimize the IR which needs to be analyzed without
   /// making irreversible decisions which could be made better during the LTO
   /// run.
-  ///
-  /// Note that \p Level cannot be `O0` here. The pipelines produced are
-  /// only intended for use when attempting to optimize code. If frontends
-  /// require some transformations for semantic reasons, they should explicitly
-  /// build them.
   ModulePassManager buildLTOPreLinkDefaultPipeline(OptimizationLevel Level);
 
   /// Build an LTO default optimization pipeline to a pass manager.
@@ -322,11 +319,6 @@ public:
   /// optimization and code generation. It is particularly tuned to fit well
   /// when IR coming into the LTO phase was first run through \c
   /// addPreLinkLTODefaultPipeline, and the two coordinate closely.
-  ///
-  /// Note that \p Level cannot be `O0` here. The pipelines produced are
-  /// only intended for use when attempting to optimize code. If frontends
-  /// require some transformations for semantic reasons, they should explicitly
-  /// build them.
   ModulePassManager buildLTODefaultPipeline(OptimizationLevel Level,
                                             ModuleSummaryIndex *ExportSummary);
 
@@ -335,6 +327,10 @@ public:
   /// This should only be used for non-LTO and LTO pre-link pipelines.
   ModulePassManager buildO0DefaultPipeline(OptimizationLevel Level,
                                            bool LTOPreLink = false);
+
+  /// Constructs a optimization pipeline of a SYCL framework part of code
+  /// and appends it to the given MPM.
+  void addDefaultSYCLFrameworkOptimizationPipeline(ModulePassManager &MPM);
 
   /// Build the default `AAManager` with the default alias analysis pipeline
   /// registered.
@@ -413,12 +409,6 @@ public:
   /// the \p AA manager is unspecified if such an error is encountered and this
   /// returns false.
   Error parseAAPipeline(AAManager &AA, StringRef PipelineText);
-
-  /// Returns true if the pass name is the name of an alias analysis pass.
-  bool isAAPassName(StringRef PassName);
-
-  /// Returns true if the pass name is the name of a (non-alias) analysis pass.
-  bool isAnalysisPassName(StringRef PassName);
 
 #if INTEL_COLLAB
   void addVPOPreparePasses(FunctionPassManager &FPM);
@@ -654,7 +644,8 @@ public:
   /// Add PGOInstrumenation passes for O0 only.
   void addPGOInstrPassesForO0(ModulePassManager &MPM, bool RunProfileGen,
                               bool IsCS, std::string ProfileFile,
-                              std::string ProfileRemappingFile);
+                              std::string ProfileRemappingFile,
+                              IntrusiveRefCntPtr<vfs::FileSystem> FS);
 
   /// Returns PIC. External libraries can use this to register pass
   /// instrumentation callbacks.
@@ -694,7 +685,8 @@ private:
   void addPGOInstrPasses(ModulePassManager &MPM, OptimizationLevel Level,
                          bool RunProfileGen, bool IsCS, std::string ProfileFile,
                          std::string ProfileRemappingFile,
-                         ThinOrFullLTOPhase LTOPhase);
+                         ThinOrFullLTOPhase LTOPhase,
+                         IntrusiveRefCntPtr<vfs::FileSystem> FS);
   void invokePeepholeEPCallbacks(FunctionPassManager &, OptimizationLevel);
 
   // Extension Point callbacks

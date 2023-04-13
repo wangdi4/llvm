@@ -297,18 +297,18 @@ static bool ParseIntelBlockLoopToken(Preprocessor &PP, Token &Tok,
   IdentifierInfo *OptionInfo = Option.getIdentifierInfo();
   if (OptionInfo->isStr("private")) {
     Info->LastToks =
-        llvm::makeArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
+        llvm::ArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
     Info->Privates.push_back(Info->LastToks);
     Info->Private = Option;
   }
   if (OptionInfo->isStr("factor")) {
     Info->LastToks = Info->Factors =
-          llvm::makeArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
+          llvm::ArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
     Info->Factor = Option;
   }
   if (OptionInfo->isStr("level")) {
     Info->LastToks =
-        llvm::makeArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
+        llvm::ArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
     Info->Levels.push_back(Info->LastToks);
     Info->Level = Option;
     // level(3) ==> level(3:3)
@@ -677,7 +677,7 @@ static bool ParseIntelPrefetchArgument(Preprocessor &PP, Token &Tok,
   EOFTok.setLocation(Tok.getLocation());
   ValueList.push_back(EOFTok); // Terminates expression for parsing.
   Info->LastToks =
-      llvm::makeArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
+      llvm::ArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
   Info->PrefetchTokens.push_back(Info->LastToks);
   return false;
 }

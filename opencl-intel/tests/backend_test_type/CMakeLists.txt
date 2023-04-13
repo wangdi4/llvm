@@ -26,22 +26,25 @@ set(BACKEND_TEST_TYPE_LINK_LIBS
   BuiltinLibInfo
   CLElfLib
   CacheBinaryHandler
-  LLVMCore
-  LLVMIntelJITEvents
-  LLVMSPIRVLib
-  LLVMSymbolize
-  LLVMVectorizer
-  LoopUtils
+  LLVMBinaryFormat
+  LLVMDebugInfoDWARF
+  LLVMDebugInfoTraceBack
+  LLVMIntel_Debug
+  LLVMMC
+  LLVMMCDisassembler
+  LLVMMCParser
+  LLVMObject
+  LLVMOrcTargetProcess
+  LLVMTargetParser
+  LLVMVPOTransforms
+  LLVMVectorize
   ObjDump
-  OclBackendUtils
   OclBackendUtils
   OclCpuBackEnd
   OclOptimizer
   OclPluginManager
-  OclPluginManager
+  cl_hw_utils
   cl_sys_utils
-  cl_sys_utils
-  dynamic_load
   dynamic_load
   emutls
   reflection_module

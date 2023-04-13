@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s  | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,print<hir>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 < %s  | FileCheck %s
 
 ; Test checks that Weak-Zero (src) SIV test is able to calculate independence of
 ; (@A)[0][0] and (@A)[0][i1 + 1].

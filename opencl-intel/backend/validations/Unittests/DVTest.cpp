@@ -13,8 +13,8 @@
 // License.
 
 #include "cl_types.h"
-#include "common_clang.h"
 #include "gtest_wrapper.h"
+#include "opencl_clang.h"
 
 #include "OCLBuilder.h"
 #include "llvm/IR/LLVMContext.h"
@@ -190,8 +190,7 @@ static void testFindSamplers(std::string sourceIn,
   samplerIndxs = FindSamplers(pKernel);
 }
 
-TEST(DataVersionTest, DISABLED_find_type_sampler_t) /* CSSD100018373 */
-{
+TEST(DataVersionTest, DISABLED_find_type_sampler_t) {
   // test case: no sampler_t types among the kernel's arguments
   std::vector<unsigned int> samplerIndxs;
   std::string kernelName("add");
@@ -229,7 +228,7 @@ TEST(DataVersionTest, DISABLED_find_type_sampler_t) /* CSSD100018373 */
   }
 }
 
-TEST(DataVersionTest, DISABLED_ConvertData) /* CSSD100018373 */ {
+TEST(DataVersionTest, DISABLED_ConvertData) {
   // the source code in this tests consists of 3 kernels: thirst and second has
   // samplers as parameters at positions 0 and 1 accordingly. the third kernel
   // has no samplers as parameters. The tested function ConvertData must convert

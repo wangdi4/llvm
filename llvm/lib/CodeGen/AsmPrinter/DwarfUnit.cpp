@@ -235,7 +235,7 @@ void DwarfUnit::addFlag(DIE &Die, dwarf::Attribute Attribute) {
 }
 
 void DwarfUnit::addUInt(DIEValueList &Die, dwarf::Attribute Attribute,
-                        Optional<dwarf::Form> Form, uint64_t Integer) {
+                        std::optional<dwarf::Form> Form, uint64_t Integer) {
   if (!Form)
     Form = DIEInteger::BestForm(false, Integer);
   assert(Form != dwarf::DW_FORM_implicit_const &&
@@ -249,13 +249,13 @@ void DwarfUnit::addUInt(DIEValueList &Block, dwarf::Form Form,
 }
 
 void DwarfUnit::addSInt(DIEValueList &Die, dwarf::Attribute Attribute,
-                        Optional<dwarf::Form> Form, int64_t Integer) {
+                        std::optional<dwarf::Form> Form, int64_t Integer) {
   if (!Form)
     Form = DIEInteger::BestForm(true, Integer);
   addAttribute(Die, Attribute, *Form, DIEInteger(Integer));
 }
 
-void DwarfUnit::addSInt(DIELoc &Die, Optional<dwarf::Form> Form,
+void DwarfUnit::addSInt(DIELoc &Die, std::optional<dwarf::Form> Form,
                         int64_t Integer) {
   addSInt(Die, (dwarf::Attribute)0, Form, Integer);
 }
@@ -810,9 +810,13 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DIDerivedType *DTy) {
            && Tag != dwarf::DW_TAG_rvalue_reference_type)
     addUInt(Buffer, dwarf::DW_AT_byte_size, std::nullopt, Size);
 
-  if (Tag == dwarf::DW_TAG_ptr_to_member_type)
-    addDIEEntry(Buffer, dwarf::DW_AT_containing_type,
-                *getOrCreateTypeDIE(cast<DIDerivedType>(DTy)->getClassType()));
+#if INTEL_CUSTOMIZATION
+  if (Tag == dwarf::DW_TAG_ptr_to_member_type) {
+    if (auto TypeDIE =
+            getOrCreateTypeDIE(cast<DIDerivedType>(DTy)->getClassType()))
+      addDIEEntry(Buffer, dwarf::DW_AT_containing_type, *TypeDIE);
+#endif
+  }
 
   addAccess(Buffer, DTy->getFlags());
 
@@ -1080,7 +1084,7 @@ void DwarfUnit::constructTemplateTypeParameterDIE(
     addType(ParamDIE, TP->getType());
   if (!TP->getName().empty())
     addString(ParamDIE, dwarf::DW_AT_name, TP->getName());
-  if (TP->isDefault() && (DD->getDwarfVersion() >= 5))
+  if (TP->isDefault() && isCompatibleWithVersion(5))
     addFlag(ParamDIE, dwarf::DW_AT_default_value);
 }
 
@@ -1094,7 +1098,7 @@ void DwarfUnit::constructTemplateValueParameterDIE(
     addType(ParamDIE, VP->getType());
   if (!VP->getName().empty())
     addString(ParamDIE, dwarf::DW_AT_name, VP->getName());
-  if (VP->isDefault() && (DD->getDwarfVersion() >= 5))
+  if (VP->isDefault() && isCompatibleWithVersion(5))
     addFlag(ParamDIE, dwarf::DW_AT_default_value);
   if (Metadata *Val = VP->getValue()) {
     if (ConstantInt *CI = mdconst::dyn_extract<ConstantInt>(Val))
@@ -1647,7 +1651,7 @@ DIE &DwarfUnit::constructMemberDIE(DIE &Buffer, const DIDerivedType *DT) {
     uint32_t AlignInBytes = DT->getAlignInBytes();
     uint64_t OffsetInBytes;
 
-    bool IsBitfield = FieldSize && Size != FieldSize;
+    bool IsBitfield = DT->isBitField();
     if (IsBitfield) {
       // Handle bitfield, assume bytes are 8 bits.
       if (DD->useDWARF2Bitfields())
@@ -1820,7 +1824,7 @@ void DwarfUnit::addSectionDelta(DIE &Die, dwarf::Attribute Attribute,
 
 void DwarfUnit::addSectionLabel(DIE &Die, dwarf::Attribute Attribute,
                                 const MCSymbol *Label, const MCSymbol *Sec) {
-  if (Asm->MAI->doesDwarfUseRelocationsAcrossSections())
+  if (Asm->doesDwarfUseRelocationsAcrossSections())
     addLabel(Die, Attribute, DD->getDwarfSectionOffsetForm(), Label);
   else
     addSectionDelta(Die, Attribute, Label, Sec);
@@ -1843,7 +1847,7 @@ void DwarfTypeUnit::addGlobalType(const DIType *Ty, const DIE &Die,
 }
 
 const MCSymbol *DwarfUnit::getCrossSectionRelativeBaseAddress() const {
-  if (!Asm->MAI->doesDwarfUseRelocationsAcrossSections())
+  if (!Asm->doesDwarfUseRelocationsAcrossSections())
     return nullptr;
   if (isDwoUnit())
     return nullptr;
@@ -1868,4 +1872,8 @@ void DwarfUnit::addRnglistsBase() {
 
 void DwarfTypeUnit::finishNonUnitTypeDIE(DIE& D, const DICompositeType *CTy) {
   DD->getAddressPool().resetUsedFlag(true);
+}
+
+bool DwarfUnit::isCompatibleWithVersion(uint16_t Version) const {
+  return !Asm->TM.Options.DebugStrictDwarf || DD->getDwarfVersion() >= Version;
 }

@@ -20,6 +20,7 @@ set(LLVM_LINK_COMPONENTS
   Core
   FrontendOpenMP
   Support
+  TargetParser
   )
 
 # INTEL_CUSTOMIZATION
@@ -98,6 +99,8 @@ add_clang_library(clangAST
   Interp/EvalEmitter.cpp
   Interp/Frame.cpp
   Interp/Function.cpp
+  Interp/InterpBuiltin.cpp
+  Interp/Floating.cpp
   Interp/Interp.cpp
   Interp/InterpBlock.cpp
   Interp/InterpFrame.cpp
@@ -155,4 +158,5 @@ add_clang_library(clangAST
   ClangAttrDocTable
   Opcodes
   omp_gen
+  intrinsics_gen
   )

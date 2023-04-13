@@ -37,6 +37,7 @@ add_llvm_component_library(LLVMCore
   DiagnosticInfo.cpp
   DiagnosticPrinter.cpp
   Dominators.cpp
+  EHPersonalities.cpp
   FPEnv.cpp
   Function.cpp
   GCStrategy.cpp
@@ -48,9 +49,6 @@ add_llvm_component_library(LLVMCore
   InlineAsm.cpp
   Instruction.cpp
   Instructions.cpp
-# INTEL_CUSTOMIZATION
-  Intel_VectorVariant.cpp
-# end INTEL_CUSTOMIZATION
   IntrinsicInst.cpp
   LLVMContext.cpp
   LLVMContextImpl.cpp
@@ -97,6 +95,8 @@ add_llvm_component_library(LLVMCore
 
   LINK_COMPONENTS
   BinaryFormat
+  Demangle
   Remarks
   Support
+  TargetParser
   )

@@ -46,8 +46,7 @@ BitCodeContainer::~BitCodeContainer() {
     // clBuildProgram on the same context e.g. in loop then number of unused
     // MDNodes grows and we have memory leak reported cleanup() was added to
     // LLVMContext and is called to find and free memory by unused Metadata
-    // nodes see ticket CSSD100018078 for details or contact Oleg Oleg: clean up
-    // unused MDNodes in LLVMContext
+    // nodes
 
     // [LLVM 3.6 UPGRADE] FIXME: The patch that provides cleanup() functionality
     // was refined during upgrade and wasn't applied, in order to compile the

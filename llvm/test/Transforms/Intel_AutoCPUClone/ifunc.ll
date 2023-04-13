@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
 
 ; This lit test checks that the resolvers of ifuncs in user code
 ; are never multi-versioned.

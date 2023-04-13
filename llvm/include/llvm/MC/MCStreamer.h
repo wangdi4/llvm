@@ -41,11 +41,11 @@
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCPseudoProbe.h"
 #include "llvm/MC/MCWinEH.h"
-#include "llvm/Support/ARMTargetParser.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/SMLoc.h"
 #include "llvm/Support/VersionTuple.h"
+#include "llvm/TargetParser/ARMTargetParser.h"
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -176,7 +176,7 @@ public:
   virtual void emitTextAttribute(unsigned Attribute, StringRef String);
   virtual void emitIntTextAttribute(unsigned Attribute, unsigned IntValue,
                                     StringRef StringValue = "");
-  virtual void emitFPU(unsigned FPU);
+  virtual void emitFPU(ARM::FPUKind FPU);
   virtual void emitArch(ARM::ArchKind Arch);
   virtual void emitArchExtension(uint64_t ArchExt);
   virtual void emitObjectArch(ARM::ArchKind Arch);
@@ -233,6 +233,10 @@ class MCStreamer {
   std::unique_ptr<MCTargetStreamer> TargetStreamer;
 
   std::vector<MCDwarfFrameInfo> DwarfFrameInfos;
+  // This is a pair of index into DwarfFrameInfos and the MCSection associated
+  // with the frame. Note, we use an index instead of an iterator because they
+  // can be invalidated in std::vector.
+  SmallVector<std::pair<size_t, MCSection *>, 1> FrameInfoStack;
   MCDwarfFrameInfo *getCurrentDwarfFrameInfo();
 
   /// Similar to DwarfFrameInfos, but for SEH unwind info. Chained frames may
@@ -660,7 +664,7 @@ public:
   /// relocation table for one or more symbols.
   ///
   /// \param Sym - The symbol on the .ref directive.
-  virtual void emitXCOFFRefDirective(StringRef Sym);
+  virtual void emitXCOFFRefDirective(const MCSymbol *Symbol);
 
   /// Emit an ELF .size directive.
   ///
@@ -776,7 +780,7 @@ public:
 
   /// Special case of EmitULEB128Value that avoids the client having to
   /// pass in a MCExpr for constant integers.
-  void emitULEB128IntValue(uint64_t Value, unsigned PadTo = 0);
+  unsigned emitULEB128IntValue(uint64_t Value, unsigned PadTo = 0);
 
 #if INTEL_CUSTOMIZATION
   /// EmitULEB128Buffer - Special case of EmitULEB128Value that works
@@ -788,7 +792,7 @@ public:
 
   /// Special case of EmitSLEB128Value that avoids the client having to
   /// pass in a MCExpr for constant integers.
-  void emitSLEB128IntValue(int64_t Value);
+  unsigned emitSLEB128IntValue(int64_t Value);
 
   /// Special case of EmitValue that avoids the client having to pass in
   /// a MCExpr for MCSymbols.

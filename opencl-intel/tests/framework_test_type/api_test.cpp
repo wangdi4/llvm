@@ -60,7 +60,6 @@ bool run_kernel(cl_context &context, cl_device_id &device,
     return res;
   }
 
-  // CSSD100007132
   cl_ulong memSize;
   size_t wgSize[3];
   size_t retSize;
@@ -81,7 +80,6 @@ bool run_kernel(cl_context &context, cl_device_id &device,
   err = clGetKernelWorkGroupInfo(kernel, NULL, CL_KERNEL_PRIVATE_MEM_SIZE,
                                  sizeof(cl_ulong), &memSize, &retSize);
   res &= Check("clGetKernelWorkGroupInfo", CL_SUCCESS, err);
-  // CSSD100011902
   wgSize[0] = -1;
   retSize = 0;
   err =
@@ -107,7 +105,7 @@ bool run_kernel(cl_context &context, cl_device_id &device,
   // create buffer - should fail
   cl_mem buff = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_READ_WRITE,
                                sizeof(int), NULL, &err);
-  res = SilentCheck("clCreateBuffer, CSSD100006060", CL_INVALID_VALUE, err);
+  res = SilentCheck("clCreateBuffer", CL_INVALID_VALUE, err);
   if (!res) {
     clReleaseKernel(kernel);
     clReleaseProgram(program);
@@ -125,8 +123,7 @@ bool run_kernel(cl_context &context, cl_device_id &device,
   // create sub buffer - should fail
   clCreateSubBuffer(0, CL_MEM_WRITE_ONLY, CL_BUFFER_CREATE_TYPE_REGION, NULL,
                     &err);
-  res = SilentCheck("clCreateSubBuffer, CSSD100006061", CL_INVALID_MEM_OBJECT,
-                    err);
+  res = SilentCheck("clCreateSubBuffer", CL_INVALID_MEM_OBJECT, err);
   if (!res) {
     clReleaseKernel(kernel);
     clReleaseProgram(program);
@@ -161,13 +158,11 @@ bool run_kernel(cl_context &context, cl_device_id &device,
   // enqueue read buffer - should fail
   err = clEnqueueReadBuffer(cmd_queue, buff, CL_TRUE, 0, sizeof(char), out, 1,
                             NULL, &ev);
-  res = SilentCheck("SilentCheck, CSSD100006062", CL_INVALID_EVENT_WAIT_LIST,
-                    err);
+  res = SilentCheck("SilentCheck", CL_INVALID_EVENT_WAIT_LIST, err);
   // enqueue read buffer - should fail
   err &= clEnqueueReadBuffer(cmd_queue, buff, CL_TRUE, 0, sizeof(char), out, 1,
                              NULL, NULL);
-  res &= SilentCheck("clEnqueueReadBuffer, CSSD100006062",
-                     CL_INVALID_EVENT_WAIT_LIST, err);
+  res &= SilentCheck("clEnqueueReadBuffer", CL_INVALID_EVENT_WAIT_LIST, err);
   // enqueue read buffer - should succeed
   err = clEnqueueReadBuffer(cmd_queue, buff, CL_TRUE, 0, sizeof(char), out, 0,
                             NULL, NULL);
@@ -175,20 +170,19 @@ bool run_kernel(cl_context &context, cl_device_id &device,
 
   err = clEnqueueCopyBuffer(cmd_queue, buff, buff, 0, 0, sizeof(char), 0, NULL,
                             NULL);
-  res &= SilentCheck("clEnqueueCopyBuffer, CSSD100006063", CL_MEM_COPY_OVERLAP,
-                     err);
+  res &= SilentCheck("clEnqueueCopyBuffer", CL_MEM_COPY_OVERLAP, err);
 
   clFinish(cmd_queue);
   clReleaseEvent(ndEvent);
   clReleaseMemObject(buff);
   SilentCheck("Second clReleaseMemObject(buff)", CL_INVALID_MEM_OBJECT,
-              clReleaseMemObject(buff)); // CSSD100005934
+              clReleaseMemObject(buff));
   clReleaseKernel(kernel);
   SilentCheck("Second clReleaseKernel()", CL_INVALID_KERNEL,
-              clReleaseKernel(kernel)); // CSSD100005934
+              clReleaseKernel(kernel));
   clReleaseProgram(program);
   SilentCheck("Second clReleaseProgram()", CL_INVALID_PROGRAM,
-              clReleaseProgram(program)); // CSSD100005934
+              clReleaseProgram(program));
   return res;
 }
 
@@ -213,15 +207,13 @@ bool api_test() {
 
   // init Devices (only one CPU...) should fail
   err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, &device, &num_devices);
-  bResult =
-      SilentCheck("clGetDeviceIDs, CSSD100006051:1", CL_INVALID_VALUE, err);
+  bResult = SilentCheck("clGetDeviceIDs:1", CL_INVALID_VALUE, err);
   if (!bResult)
     return bResult;
 
   // init Devices (only one CPU...) should fail
   err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, NULL);
-  bResult =
-      SilentCheck("clGetDeviceIDs, CSSD100006051:2", CL_INVALID_VALUE, err);
+  bResult = SilentCheck("clGetDeviceIDs:2", CL_INVALID_VALUE, err);
   if (!bResult)
     return bResult;
 
@@ -237,7 +229,6 @@ bool api_test() {
   if (!bResult)
     return bResult;
 
-  // clGetExtensionFunctionAddress(NULL), bug CSSD100007136
   void *invFunc = clGetExtensionFunctionAddress(NULL);
   bResult = CheckSize("clGetExtensionFunctionAddress(NULL)", (size_t)NULL,
                       (size_t)invFunc);
@@ -248,79 +239,68 @@ bool api_test() {
   size_t actual_size;
   char dummy[4];
   err = clGetDeviceInfo(device, CL_DEVICE_TYPE, 1, dummy, &actual_size);
-  bResult =
-      SilentCheck("clGetDeviceInfo, CSSD100006052", CL_INVALID_VALUE, err);
+  bResult = SilentCheck("clGetDeviceInfo", CL_INVALID_VALUE, err);
   if (!bResult)
     return bResult;
 
-  // CSSD100011955
   size_t ulRetValCheck = -1;
   actual_size = 0;
   err = clGetDeviceInfo(device, CL_DEVICE_MAX_PARAMETER_SIZE, 1, &ulRetValCheck,
                         &actual_size);
-  bResult =
-      SilentCheck("clGetDeviceInfo, CSSD100011955", CL_INVALID_VALUE, err);
-  bResult &= SilentCheckSize("clGetDeviceInfo, CSSD100011955 ulRetValCheck=-1",
-                             ulRetValCheck, -1);
+  bResult = SilentCheck("clGetDeviceInfo", CL_INVALID_VALUE, err);
+  bResult &=
+      SilentCheckSize("clGetDeviceInfo, ulRetValCheck=-1", ulRetValCheck, -1);
   bResult &= SilentCheckSize("clGetDeviceInfo(CL_DEVICE_MAX_PARAMETER_SIZE), "
-                             "CSSD100011955 actual_size=0",
+                             "actual_size=0",
                              0, actual_size);
   if (!bResult)
     return bResult;
 
   err = clGetDeviceInfo(device, CL_DEVICE_PLATFORM, 1, &ulRetValCheck,
                         &actual_size);
-  bResult =
-      SilentCheck("clGetDeviceInfo, CSSD100011955", CL_INVALID_VALUE, err);
-  bResult &= SilentCheckSize("clGetDeviceInfo, CSSD100011955 ulRetValCheck=-1",
-                             ulRetValCheck, -1);
+  bResult = SilentCheck("clGetDeviceInfo", CL_INVALID_VALUE, err);
+  bResult &=
+      SilentCheckSize("clGetDeviceInfo ulRetValCheck=-1", ulRetValCheck, -1);
   bResult &= SilentCheckSize(
-      "clGetDeviceInfo(CL_DEVICE_PLATFORM), CSSD100011955 actual_size=0", 0,
-      actual_size);
+      "clGetDeviceInfo(CL_DEVICE_PLATFORM), actual_size=0", 0, actual_size);
   if (!bResult)
     return bResult;
 
   err = clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 1, &ulRetValCheck,
                           &actual_size);
-  bResult =
-      SilentCheck("clGetPlatformInfo, CSSD100011955", CL_INVALID_VALUE, err);
-  bResult &= SilentCheckSize(
-      "clGetPlatformInfo, CSSD100011955 ulRetValCheck=-1", ulRetValCheck, -1);
-  bResult &= SilentCheckSize("clGetPlatformInfo, CSSD100011955 actual_size=0",
-                             0, actual_size);
+  bResult = SilentCheck("clGetPlatformInfo", CL_INVALID_VALUE, err);
+  bResult &=
+      SilentCheckSize("clGetPlatformInfo, ulRetValCheck=-1", ulRetValCheck, -1);
+  bResult &=
+      SilentCheckSize("clGetPlatformInfo, actual_size=0", 0, actual_size);
   if (!bResult)
     return bResult;
 
-  // CSSD100012446
   cl_context_properties inv_prop2[3];
   inv_prop2[0] = -1; // invalid property name
   inv_prop2[1] = (cl_context_properties)platform;
   inv_prop2[2] = 0;
   context = clCreateContextFromType(inv_prop2, gDeviceType, NULL, NULL, &err);
-  bResult = SilentCheck("clCreateContextFromType, CSSD100012446",
-                        CL_INVALID_PROPERTY, err);
+  bResult = SilentCheck("clCreateContextFromType", CL_INVALID_PROPERTY, err);
   if (!bResult)
     return bResult;
 
   // init context should fail
   context = clCreateContext(NULL, 1, &device, NULL, user_data, &err);
-  bResult =
-      SilentCheck("clCreateContext, CSSD100006053", CL_INVALID_VALUE, err);
+  bResult = SilentCheck("clCreateContext", CL_INVALID_VALUE, err);
   if (!bResult)
     return bResult;
 
   // init context should fail
   context = clCreateContext(NULL, 1, NULL, NULL, NULL, &err);
-  bResult =
-      SilentCheck("clCreateContext, CSSD100006054", CL_INVALID_VALUE, err);
+  bResult = SilentCheck("clCreateContext", CL_INVALID_VALUE, err);
   if (!bResult)
     return bResult;
 
   // init context should fail
   context =
       clCreateContextFromType(NULL, CL_DEVICE_TYPE_ALL, NULL, user_data, &err);
-  bResult =
-      SilentCheck("clCreateContext, CSSD100006055", CL_INVALID_VALUE, err);
+  bResult = SilentCheck("clCreateContext", CL_INVALID_VALUE, err);
   if (!bResult)
     return bResult;
 
@@ -330,7 +310,7 @@ bool api_test() {
   if (!bResult)
     return bResult;
 
-  // Check user event query CSSD100007133
+  // Check user event query
   cl_event user_ev;
   user_ev = clCreateUserEvent(context, &err);
   bResult = SilentCheck("clCreateUserEvent", CL_SUCCESS, err);
@@ -354,9 +334,8 @@ bool api_test() {
   if (!bResult)
     return bResult;
 
-  // CSSD100011903
   err = clWaitForEvents(1, NULL);
-  bResult = Check("clWaitForEvents, CSSD100011903", CL_INVALID_VALUE, err);
+  bResult = Check("clWaitForEvents", CL_INVALID_VALUE, err);
   if (!bResult) {
     return bResult;
   }
@@ -370,8 +349,8 @@ bool api_test() {
              CL_QUEUE_ON_DEVICE_DEFAULT),
       0};
   cmd_queue = clCreateCommandQueueWithProperties(context, device, props, &err);
-  bResult = SilentCheck("clCreateCommandQueueWithProperties, CSSD100006058",
-                        CL_INVALID_VALUE, err);
+  bResult =
+      SilentCheck("clCreateCommandQueueWithProperties", CL_INVALID_VALUE, err);
   if (!bResult) {
     clReleaseContext(context);
     return bResult;
@@ -399,11 +378,10 @@ bool api_test() {
   fflush(stdout);
   clReleaseCommandQueue(cmd_queue);
   SilentCheck("Second clReleaseCommandQueue()", CL_INVALID_COMMAND_QUEUE,
-              clReleaseCommandQueue(cmd_queue)); // CSSD100005934
+              clReleaseCommandQueue(cmd_queue));
   clReleaseContext(context);
   err = clReleaseContext(context);
-  bResult = SilentCheck("Second clReleaseContext()", CL_INVALID_CONTEXT,
-                        err); // CSSD100006057, CSSD100005934
+  bResult = SilentCheck("Second clReleaseContext()", CL_INVALID_CONTEXT, err);
 
   return bResult;
 }

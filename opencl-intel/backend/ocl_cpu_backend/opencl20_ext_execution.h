@@ -19,6 +19,8 @@
 #error define the LLVM_BACKEND_NOINLINE_PRE macro before #including this file
 #endif
 
+#include "IBlockToKernelMapper.h"
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Declaration section
 /// !!!NOTE: Callbacks should have the same argument order and same return type
@@ -38,10 +40,11 @@ __ocl20_get_default_queue(IDeviceCommandManager *);
 ///     void *block_invoke,
 ///     void *block_literal)
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int
-__ocl20_enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
-                             _ndrange_t *ndrange, void *block_invoke,
-                             void *block_literal, IDeviceCommandManager *,
-                             const IBlockToKernelMapper *, void *RuntimeHandle);
+__ocl20_enqueue_kernel_basic(
+    queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
+    void *block_invoke, void *block_literal, IDeviceCommandManager *,
+    const Intel::OpenCL::DeviceBackend::IBlockToKernelMapper *,
+    void *RuntimeHandle);
 
 /// @brief callback for
 ///  int enqueue_kernel_basic_events (
@@ -54,14 +57,13 @@ __ocl20_enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
 ///     void *block_invoke,
 ///     void *block_literal)
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int
-__ocl20_enqueue_kernel_events(queue_t queue, kernel_enqueue_flags_t flags,
-                              _ndrange_t *ndrange,
-                              unsigned num_events_in_wait_list,
-                              clk_event_t *in_wait_list, clk_event_t *event_ret,
-                              void *block_invoke, void *block_literal,
-                              IDeviceCommandManager *DCM,
-                              const IBlockToKernelMapper *,
-                              void *RuntimeHandle);
+__ocl20_enqueue_kernel_events(
+    queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
+    unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
+    clk_event_t *event_ret, void *block_invoke, void *block_literal,
+    IDeviceCommandManager *DCM,
+    const Intel::OpenCL::DeviceBackend::IBlockToKernelMapper *,
+    void *RuntimeHandle);
 
 /// @brief callback for
 ///  int enqueue_kernel_varargs (
@@ -72,13 +74,12 @@ __ocl20_enqueue_kernel_events(queue_t queue, kernel_enqueue_flags_t flags,
 ///     void *block_literal,
 ///     uint num, uint size0, ...)
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int
-__ocl20_enqueue_kernel_localmem(queue_t queue, kernel_enqueue_flags_t flags,
-                                _ndrange_t *ndrange, void *block_invoke,
-                                void *block_literal, unsigned localbuf_size_len,
-                                size_t *localbuf_size,
-                                IDeviceCommandManager *DCM,
-                                const IBlockToKernelMapper *,
-                                void *RuntimeHandle);
+__ocl20_enqueue_kernel_localmem(
+    queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
+    void *block_invoke, void *block_literal, unsigned localbuf_size_len,
+    size_t *localbuf_size, IDeviceCommandManager *DCM,
+    const Intel::OpenCL::DeviceBackend::IBlockToKernelMapper *,
+    void *RuntimeHandle);
 
 /// @brief callback for
 ///  int enqueue_kernel_events_varargs (
@@ -97,7 +98,8 @@ __ocl20_enqueue_kernel_events_localmem(
     unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
     clk_event_t *event_ret, void *block_invoke, void *block_literal,
     unsigned localbuf_size_len, size_t *localbuf_size,
-    IDeviceCommandManager *DCM, const IBlockToKernelMapper *,
+    IDeviceCommandManager *DCM,
+    const Intel::OpenCL::DeviceBackend::IBlockToKernelMapper *,
     void *RuntimeHandle);
 
 /// @brief callback for
@@ -155,16 +157,15 @@ __ocl20_capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
 ///  uint get_kernel_work_group_size (
 ///     void *block)
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t
-__ocl20_get_kernel_wg_size(void *block_invoke, void *block_literal,
-                           IDeviceCommandManager *,
-                           const IBlockToKernelMapper *);
+__ocl20_get_kernel_wg_size(
+    void *block_invoke, void *block_literal, IDeviceCommandManager *,
+    const Intel::OpenCL::DeviceBackend::IBlockToKernelMapper *);
 
 ///@brief callback for
 ///  uint get_kernel_preferred_work_group_size_multiple (
 ///     void *block)
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t
-__ocl20_get_kernel_preferred_wg_size_multiple(void *block_invoke,
-                                              void *block_literal,
-                                              IDeviceCommandManager *,
-                                              const IBlockToKernelMapper *);
+__ocl20_get_kernel_preferred_wg_size_multiple(
+    void *block_invoke, void *block_literal, IDeviceCommandManager *,
+    const Intel::OpenCL::DeviceBackend::IBlockToKernelMapper *);
 #endif

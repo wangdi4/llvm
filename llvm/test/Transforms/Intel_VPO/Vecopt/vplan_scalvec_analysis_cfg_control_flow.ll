@@ -25,9 +25,9 @@ define dso_local void @divControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32*, OrigAlign = 4 (SVAOpBits )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i8* [[VP_I_LPRIV_BCAST:%.*]] = bitcast i32* [[VP_I_LPRIV]] (SVAOpBits 0->V ) 
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] call i64 4 i8* [[VP_I_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial] (SVAOpBits 0->V 1->V 2->F ) 
+; CHECK-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:       [DA: Div, SVA: (F  )] i8* [[VP1:%.*]] = bitcast i32* [[VP_I_LPRIV]] (SVAOpBits 0->F )
+; CHECK-NEXT:       [DA: Div, SVA: (F  )] call i64 4 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.start.p0i8 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT0]], UF = 1 (SVAOpBits 0->F )
@@ -35,25 +35,25 @@ define dso_local void @divControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]], [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB4]] ] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP1:%.*]] = and i64 [[VP_INDVARS_IV]] i64 1 (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_CMP6:%.*]] = icmp eq i64 [[VP1]] i64 0 (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP2:%.*]] = and i64 [[VP_INDVARS_IV]] i64 1 (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_CMP6:%.*]] = icmp eq i64 [[VP2]] i64 0 (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP_CMP6_NOT:%.*]] = not i1 [[VP_CMP6]] (SVAOpBits 0->V )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB3]]
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP2:%.*]] = block-predicate i1 [[VP_CMP6_NOT]] (SVAOpBits 0->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP3:%.*]] = block-predicate i1 [[VP_CMP6_NOT]] (SVAOpBits 0->V )
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP3:%.*]] = load i32* [[VP_ARRAYIDX]] (SVAOpBits 0->F )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_ADD7:%.*]] = add i32 [[VP3]] i32 5 (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP4:%.*]] = load i32* [[VP_ARRAYIDX]] (SVAOpBits 0->F )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_ADD7:%.*]] = add i32 [[VP4]] i32 5 (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX9:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] store i32 [[VP_ADD7]] i32* [[VP_ARRAYIDX9]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB6:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP4:%.*]] = block-predicate i1 [[VP_CMP6]] (SVAOpBits 0->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i1 [[VP5:%.*]] = block-predicate i1 [[VP_CMP6]] (SVAOpBits 0->V )
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX11:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP5:%.*]] = load i32* [[VP_ARRAYIDX11]] (SVAOpBits 0->F )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_MUL12:%.*]] = mul i32 [[VP5]] i32 5 (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP6:%.*]] = load i32* [[VP_ARRAYIDX11]] (SVAOpBits 0->F )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_MUL12:%.*]] = mul i32 [[VP6]] i32 5 (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX14:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] store i32 [[VP_MUL12]] i32* [[VP_ARRAYIDX14]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB4]] (SVAOpBits 0->F )
@@ -77,13 +77,13 @@ define dso_local void @divControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_REMTC_CHECK]], final.merge, [[MERGE_BLK0]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[MERGE_BLK0]]: # preds: [[BB9]], [[BB0]]
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP6:%.*]] = phi-merge  [ i64 live-out0, [[BB9]] ],  [ i64 0, [[BB0]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP7:%.*]] = phi-merge  [ i64 live-out0, [[BB9]] ],  [ i64 0, [[BB0]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[REMBLK0:RemBlk[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[REMBLK0]]: # preds: [[MERGE_BLK0]]
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] pushvf VF=1 UF=1 (SVAOpBits )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
-; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_2290:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_INC0:%.*]] ]} -> i64 [[VP6]] }
+; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_2290:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_INC0:%.*]] ]} -> i64 [[VP7]] }
 ; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0:%.*]], !llvm.loop !0} -> label [[BB10:BB[0-9]+]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB10]] (SVAOpBits 0->F )
@@ -93,7 +93,7 @@ define dso_local void @divControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br final.merge (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB9]], [[BB10]]
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP7:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT]], [[BB10]] ],  [ i64 live-out0, [[BB9]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP8:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT]], [[BB10]] ],  [ i64 live-out0, [[BB9]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] popvf (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
@@ -173,9 +173,9 @@ define dso_local void @uniControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32*, OrigAlign = 4 (SVAOpBits )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i8* [[VP_I_LPRIV_BCAST:%.*]] = bitcast i32* [[VP_I_LPRIV]] (SVAOpBits 0->V ) 
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] call i64 4 i8* [[VP_I_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 [Serial] (SVAOpBits 0->V 1->V 2->F ) 
+; CHECK-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_I_LPRIV:%.*]] = allocate-priv i32*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:       [DA: Div, SVA: (F  )] i8* [[VP1:%.*]] = bitcast i32* [[VP_I_LPRIV]] (SVAOpBits 0->F )
+; CHECK-NEXT:       [DA: Div, SVA: (F  )] call i64 4 i8* [[VP1]] void (i64, i8*)* @llvm.lifetime.start.p0i8 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT0]], UF = 1 (SVAOpBits 0->F )
@@ -183,22 +183,22 @@ define dso_local void @uniControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]], [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB4]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP1:%.*]] = and i64 [[KEY0:%.*]] i64 1 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_CMP6:%.*]] = icmp eq i64 [[VP1]] i64 0 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP2:%.*]] = and i64 [[KEY0:%.*]] i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_CMP6:%.*]] = icmp eq i64 [[VP2]] i64 0 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_CMP6]], [[BB5:BB[0-9]+]], [[BB6:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB6]]: # preds: [[BB3]]
 ; CHECK-NEXT:         [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:         [DA: Div, SVA: ( V )] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX]] (SVAOpBits 0->F )
-; CHECK-NEXT:         [DA: Div, SVA: ( V )] i32 [[VP_ADD7:%.*]] = add i32 [[VP2]] i32 5 (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:         [DA: Div, SVA: ( V )] i32 [[VP3:%.*]] = load i32* [[VP_ARRAYIDX]] (SVAOpBits 0->F )
+; CHECK-NEXT:         [DA: Div, SVA: ( V )] i32 [[VP_ADD7:%.*]] = add i32 [[VP3]] i32 5 (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:         [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX9:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:         [DA: Div, SVA: ( V )] store i32 [[VP_ADD7]] i32* [[VP_ARRAYIDX9]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:         [DA: Uni, SVA: (F  )] br [[BB4]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:         [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX11:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:         [DA: Div, SVA: ( V )] i32 [[VP3:%.*]] = load i32* [[VP_ARRAYIDX11]] (SVAOpBits 0->F )
-; CHECK-NEXT:         [DA: Div, SVA: ( V )] i32 [[VP_MUL12:%.*]] = mul i32 [[VP3]] i32 5 (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:         [DA: Div, SVA: ( V )] i32 [[VP4:%.*]] = load i32* [[VP_ARRAYIDX11]] (SVAOpBits 0->F )
+; CHECK-NEXT:         [DA: Div, SVA: ( V )] i32 [[VP_MUL12:%.*]] = mul i32 [[VP4]] i32 5 (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:         [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX14:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:         [DA: Div, SVA: ( V )] store i32 [[VP_MUL12]] i32* [[VP_ARRAYIDX14]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:         [DA: Uni, SVA: (F  )] br [[BB4]] (SVAOpBits 0->F )
@@ -222,13 +222,13 @@ define dso_local void @uniControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_REMTC_CHECK]], final.merge, [[MERGE_BLK0]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[MERGE_BLK0]]: # preds: [[BB9]], [[BB0]]
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP4:%.*]] = phi-merge  [ i64 live-out0, [[BB9]] ],  [ i64 0, [[BB0]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP5:%.*]] = phi-merge  [ i64 live-out0, [[BB9]] ],  [ i64 0, [[BB0]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[REMBLK0:RemBlk[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[REMBLK0]]: # preds: [[MERGE_BLK0]]
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] pushvf VF=1 UF=1 (SVAOpBits )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
-; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_2290:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_INC0:%.*]] ]} -> i64 [[VP4]] }
+; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_2290:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_INC0:%.*]] ]} -> i64 [[VP5]] }
 ; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0:%.*]], !llvm.loop !0} -> label [[BB10:BB[0-9]+]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB10]] (SVAOpBits 0->F )
@@ -238,7 +238,7 @@ define dso_local void @uniControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br final.merge (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB9]], [[BB10]]
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP5:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT]], [[BB10]] ],  [ i64 live-out0, [[BB9]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP6:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT]], [[BB10]] ],  [ i64 live-out0, [[BB9]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] popvf (SVAOpBits )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:

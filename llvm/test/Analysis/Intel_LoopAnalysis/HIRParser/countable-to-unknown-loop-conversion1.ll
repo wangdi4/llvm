@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework | FileCheck %s
 ; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Verify that we are able to parse this case successfully without assertion.
@@ -14,7 +13,7 @@
 ; |   + UNKNOWN LOOP i2
 ; |   |   <i2 = 0>
 ; |   |   for.body6:
-; |   |   if (undef #UNDEF# undef)
+; |   |   if (undef != 0)
 ; |   |   {
 ; |   |      goto for.end.loopexit;
 ; |   |   }
@@ -32,7 +31,7 @@
 
 ; CHECK: + DO i1 = 0, 39, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, (-1 * trunc.i64.i32(%indvars.iv54) + umax((1 + trunc.i64.i32(%indvars.iv52)), (2 + trunc.i64.i32(%indvars.iv54))) + -1)/u2, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 10>
-; CHECK: |   |   if (undef #UNDEF# undef)
+; CHECK: |   |   if (undef != 0)
 ; CHECK: |   |   {
 ; CHECK: |   |      goto for.end.loopexit;
 ; CHECK: |   |   }

@@ -1,6 +1,6 @@
 //===---------------- DeleteField.cpp - DTransDeleteFieldPass -------------===//
 //
-// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,7 +15,6 @@
 #include "Intel_DTrans/Transforms/DeleteField.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -41,44 +40,6 @@ cl::opt<unsigned>
                          cl::init(std::numeric_limits<unsigned>::max()),
                          cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-class DTransDeleteFieldWrapper : public ModulePass {
-private:
-  dtrans::DeleteFieldPass Impl;
-
-public:
-  static char ID;
-
-  DTransDeleteFieldWrapper() : ModulePass(ID) {
-    initializeDTransDeleteFieldWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    DTransAnalysisWrapper &DTAnalysisWrapper =
-        getAnalysis<DTransAnalysisWrapper>();
-    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-    bool Changed = Impl.runImpl(M, DTInfo, GetTLI, WPInfo);
-    if (Changed)
-      DTAnalysisWrapper.setInvalidated();
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // TODO: Mark the actual required and preserved analyses.
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
 
 class DeleteFieldImpl : public DTransOptBase {
 public:
@@ -139,19 +100,6 @@ private:
 };
 
 } // end anonymous namespace
-
-char DTransDeleteFieldWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransDeleteFieldWrapper, "dtrans-deletefield",
-                      "DTrans delete field", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransDeleteFieldWrapper, "dtrans-deletefield",
-                    "DTrans delete field", false, false)
-
-ModulePass *llvm::createDTransDeleteFieldWrapperPass() {
-  return new DTransDeleteFieldWrapper();
-}
 
 static bool canDeleteField(dtrans::FieldInfo &FI) {
   return (!FI.isRead() || FI.isValueUnused()) && !FI.hasComplexUse() &&

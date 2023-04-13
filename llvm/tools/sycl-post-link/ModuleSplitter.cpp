@@ -9,17 +9,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "ModuleSplitter.h"
-#include "DeviceGlobals.h"
 #include "Support.h"
 
 #include "llvm/ADT/SetVector.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
+#include "llvm/SYCLLowerIR/DeviceGlobals.h"
 #include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
 #include "llvm/SYCLLowerIR/LowerKernelProps.h"
+#include "llvm/SYCLLowerIR/SYCLUtils.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/IPO/StripDeadPrototypes.h"
@@ -43,8 +46,6 @@ constexpr char ESIMD_SCOPE_NAME[] = "<ESIMD>";
 constexpr char OMP_GLOBAL_VARS_NAME[] = "<OMP_GLOBAL_VARS>";
 #endif // INTEL_COLLAB
 constexpr char ESIMD_MARKER_MD[] = "sycl_explicit_simd";
-
-constexpr char ATTR_SYCL_MODULE_ID[] = "sycl-module-id";
 
 bool hasIndirectFunctionsOrCalls(const Module &M) {
   for (const auto &F : M.functions()) {
@@ -147,7 +148,7 @@ bool isEntryPoint(const Function &F, bool EmitOnlyKernelsAsEntryPoints) {
     // If not disabled, SYCL_EXTERNAL functions with sycl-module-id attribute
     // are also considered as entry points (except __spirv_* and __sycl_*
     // functions)
-    return F.hasFnAttribute(ATTR_SYCL_MODULE_ID) &&
+    return llvm::sycl::utils::isSYCLExternalFunction(&F) &&
            !isSpirvSyclBuiltin(F.getName()) && !isESIMDBuiltin(F.getName()) &&
            !isGenericBuiltin(F.getName());
   }
@@ -239,15 +240,15 @@ EntryPointGroupVec groupEntryPointsByScope(ModuleDesc &MD,
       break;
 
     case Scope_PerModule: {
-      if (!F.hasFnAttribute(ATTR_SYCL_MODULE_ID))
+      if (!llvm::sycl::utils::isSYCLExternalFunction(&F))
         // TODO It may make sense to group all entry points w/o the attribute
         // into a separate module rather than issuing an error. Should probably
         // be controlled by an option.
-        error("no '" + Twine(ATTR_SYCL_MODULE_ID) +
+        error("no '" + Twine(llvm::sycl::utils::ATTR_SYCL_MODULE_ID) +
               "' attribute for entry point '" + F.getName() +
               "', per-module split is not possible");
 
-      Attribute Id = F.getFnAttribute(ATTR_SYCL_MODULE_ID);
+      Attribute Id = F.getFnAttribute(llvm::sycl::utils::ATTR_SYCL_MODULE_ID);
       StringRef Val = Id.getValueAsString();
       EntryPointMap[Val].insert(&F);
       break;
@@ -417,6 +418,28 @@ void externalizeGlobalVars(Module &M) {
   }
 }
 
+void addOMPRemainingGlobals(SetVector<const GlobalValue *> &GVs,
+                            const Module &M) {
+  for (const auto &G : M.globals())
+    if (G.hasPrivateLinkage())
+      GVs.insert(&G);
+}
+
+void collectOMPGlobalVarsToExtract(SetVector<const GlobalValue *> &GVs,
+                                   const Module &M) {
+  // It's not easy to trace global variable's uses inside needed functions
+  // because global variable can be used inside a combination of operators, so
+  // mark all global variables as needed and remove dead ones after cloning.
+  // Notice. For device global variables with the 'device_image_scope' property,
+  // removing dead ones is a must, the 'checkImageScopedDeviceGlobals' function
+  // checks that there are no usages of a single device global variable with the
+  // 'device_image_scope' property from multiple modules and the splitter must
+  // not add such usages after the check.
+  for (const auto &G : M.globals())
+    if (!G.hasPrivateLinkage())
+      GVs.insert(&G);
+}
+
 // The function produces a copy of input LLVM IR module M with only those entry
 // points that are specified in ModuleEntryPoints vector.
 // There is a special case for OpenMP offload compilation:
@@ -427,11 +450,13 @@ ModuleDesc extractOMPCallGraph(const ModuleDesc &MD,
   bool IsGlobalsModule = (ModuleEntryPoints.GroupId == OMP_GLOBAL_VARS_NAME);
   SetVector<const GlobalValue *> GVs;
 
-  if (!IsGlobalsModule)
+  if (!IsGlobalsModule) {
     collectFunctionsToExtract(GVs, ModuleEntryPoints,
                               CallGraph{MD.getModule()});
-  else
-    collectGlobalVarsToExtract(GVs, MD.getModule());
+    addOMPRemainingGlobals(GVs, MD.getModule());
+  } else {
+    collectOMPGlobalVarsToExtract(GVs, MD.getModule());
+  }
 
   ModuleDesc SplitM = extractSubModule(MD, GVs, std::move(ModuleEntryPoints));
 
@@ -547,7 +572,7 @@ void ModuleSplitterBase::verifyNoCrossModuleDeviceGlobalUsage() {
     if (!isDeviceGlobalVariable(GV) || !hasDeviceImageScopeProperty(GV))
       continue;
 
-    Optional<StringRef> VarEntryPointModule{};
+    std::optional<StringRef> VarEntryPointModule{};
     auto CheckEntryPointModule = [&VarEntryPointModule, &EntryPointModules,
                                   &GV](const auto *F) {
       auto EntryPointModulesIt = EntryPointModules.find(F);
@@ -761,7 +786,7 @@ void ModuleDesc::dump() const {
                << ", SpecConstMet:" << (Props.SpecConstsMet ? "YES" : "NO")
                << ", LargeGRF:"
                << (EntryPoints.Props.UsesLargeGRF ? "YES" : "NO") << "\n";
-  dumpEntryPoints(entries(), EntryPoints.GroupId.str().c_str(), 1);
+  dumpEntryPoints(entries(), EntryPoints.GroupId.c_str(), 1);
   llvm::errs() << "}\n";
 }
 #endif // NDEBUG
@@ -799,8 +824,8 @@ namespace {
 struct UsedOptionalFeatures {
   SmallVector<int, 4> Aspects;
   bool UsesLargeGRF = false;
-  // TODO: extend this further with reqd-sub-group-size, reqd-work-group-size
-  // and other properties
+  SmallVector<int, 3> ReqdWorkGroupSize;
+  // TODO: extend this further with reqd-sub-group-size and other properties
 
   UsedOptionalFeatures() = default;
 
@@ -818,20 +843,40 @@ struct UsedOptionalFeatures {
       llvm::sort(Aspects);
     }
 
-    if (F->hasFnAttribute(sycl::kernel_props::ATTR_LARGE_GRF))
+    if (F->hasFnAttribute(::sycl::kernel_props::ATTR_LARGE_GRF))
       UsesLargeGRF = true;
+
+    if (const MDNode *MDN = F->getMetadata("reqd_work_group_size")) {
+      size_t NumOperands = MDN->getNumOperands();
+      assert(NumOperands >= 1 && NumOperands <= 3 &&
+             "reqd_work_group_size does not have between 1 and 3 operands.");
+      ReqdWorkGroupSize.reserve(NumOperands);
+      for (const MDOperand &MDOp : MDN->operands())
+        ReqdWorkGroupSize.push_back(
+            mdconst::extract<ConstantInt>(MDOp)->getZExtValue());
+    }
 
     llvm::hash_code AspectsHash =
         llvm::hash_combine_range(Aspects.begin(), Aspects.end());
     llvm::hash_code LargeGRFHash = llvm::hash_value(UsesLargeGRF);
-    Hash = static_cast<unsigned>(llvm::hash_combine(AspectsHash, LargeGRFHash));
+    llvm::hash_code ReqdWorkGroupSizeHash = llvm::hash_combine_range(
+        ReqdWorkGroupSize.begin(), ReqdWorkGroupSize.end());
+    Hash = static_cast<unsigned>(
+        llvm::hash_combine(AspectsHash, LargeGRFHash, ReqdWorkGroupSizeHash));
   }
 
   std::string generateModuleName(StringRef BaseName) const {
-    if (Aspects.empty())
-      return BaseName.str() + "-no-aspects";
+    std::string Ret = BaseName.str();
+    if (!ReqdWorkGroupSize.empty()) {
+      Ret += "-reqd-wg-size";
+      for (int V : ReqdWorkGroupSize)
+        Ret += "-" + std::to_string(V);
+    }
 
-    std::string Ret = BaseName.str() + "-aspects";
+    if (Aspects.empty())
+      return Ret + "-no-aspects";
+
+    Ret += "-aspects";
     for (int A : Aspects) {
       Ret += "-" + std::to_string(A);
     }

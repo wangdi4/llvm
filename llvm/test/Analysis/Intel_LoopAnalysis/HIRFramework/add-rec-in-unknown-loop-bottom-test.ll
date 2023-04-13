@@ -1,4 +1,3 @@
-; RUN: opt  -hir-ssa-deconstruction -enable-new-pm=0 -analyze -hir-framework  <%s  2>&1 | FileCheck %s
 ; RUN: opt  -passes="hir-ssa-deconstruction,print<hir>"  <%s 2>&1 | FileCheck %s
 
 ; Test checks that '%x | %y == 0' is not converted to 'umax (%x, %y) == 0'

@@ -1,4 +1,21 @@
 //===- LibDriver.cpp - lib.exe-compatible driver --------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -19,6 +36,7 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Object/ArchiveWriter.h"
 #include "llvm/Object/COFF.h"
+#include "llvm/Object/COFFModuleDefinition.h"
 #include "llvm/Object/WindowsMachineFlag.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
@@ -31,6 +49,7 @@
 #include <optional>
 
 using namespace llvm;
+using namespace llvm::object;
 
 namespace {
 
@@ -41,7 +60,10 @@ enum {
 #undef OPTION
 };
 
-#define PREFIX(NAME, VALUE) const char *const NAME[] = VALUE;
+#define PREFIX(NAME, VALUE)                                                    \
+  static constexpr StringLiteral NAME##_init[] = VALUE;                        \
+  static constexpr ArrayRef<StringLiteral> NAME(NAME##_init,                   \
+                                                std::size(NAME##_init) - 1);
 #include "Options.inc"
 #undef PREFIX
 
@@ -53,12 +75,11 @@ static constexpr opt::OptTable::Info InfoTable[] = {
 #undef OPTION
 };
 
-class LibOptTable : public opt::OptTable {
+class LibOptTable : public opt::GenericOptTable {
 public:
-  LibOptTable() : OptTable(InfoTable, true) {}
+  LibOptTable() : opt::GenericOptTable(InfoTable, true) {}
 };
-
-}
+} // namespace
 
 static std::string getDefaultOutputPath(const NewArchiveMember &FirstMember) {
   SmallString<128> Val = StringRef(FirstMember.Buf->getBufferIdentifier());
@@ -89,6 +110,18 @@ static std::vector<StringRef> getSearchPaths(opt::InputArgList *Args,
   return Ret;
 }
 
+// Opens a file. Path has to be resolved already. (used for def file)
+std::unique_ptr<MemoryBuffer> openFile(const Twine &Path) {
+  ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> MB = MemoryBuffer::getFile(Path);
+
+  if (std::error_code EC = MB.getError()) {
+    llvm::errs() << "cannot open file " << Path << ": " << EC.message() << "\n";
+    return nullptr;
+  }
+
+  return std::move(*MB);
+}
+
 static std::string findInputFile(StringRef File, ArrayRef<StringRef> Paths) {
   for (StringRef Dir : Paths) {
     SmallString<128> Path = Dir;
@@ -108,7 +141,7 @@ static void fatalOpenError(llvm::Error E, Twine File) {
   });
 }
 
-static void doList(opt::InputArgList& Args) {
+static void doList(opt::InputArgList &Args) {
   // lib.exe prints the contents of the first archive file.
   std::unique_ptr<MemoryBuffer> B;
   for (auto *Arg : Args.filtered(OPT_INPUT)) {
@@ -131,12 +164,14 @@ static void doList(opt::InputArgList& Args) {
   object::Archive Archive(B.get()->getMemBufferRef(), Err);
   fatalOpenError(std::move(Err), B->getBufferIdentifier());
 
+  std::vector<StringRef> Names;
   for (auto &C : Archive.children(Err)) {
     Expected<StringRef> NameOrErr = C.getName();
     fatalOpenError(NameOrErr.takeError(), B->getBufferIdentifier());
-    StringRef Name = NameOrErr.get();
-    llvm::outs() << Name << '\n';
+    Names.push_back(NameOrErr.get());
   }
+  for (auto Name : reverse(Names))
+    llvm::outs() << Name << '\n';
   fatalOpenError(std::move(Err), B->getBufferIdentifier());
 }
 
@@ -298,6 +333,63 @@ int llvm::libDriverMain(ArrayRef<const char *> ArgsArr) {
   for (auto *Arg : Args.filtered(OPT_ignore))
     IgnoredWarnings.insert(Arg->getValue());
 
+  // get output library path, if any
+  std::string OutputPath;
+  if (auto *Arg = Args.getLastArg(OPT_out)) {
+    OutputPath = Arg->getValue();
+  }
+
+  COFF::MachineTypes LibMachine = COFF::IMAGE_FILE_MACHINE_UNKNOWN;
+  std::string LibMachineSource;
+  if (auto *Arg = Args.getLastArg(OPT_machine)) {
+    LibMachine = getMachineType(Arg->getValue());
+    if (LibMachine == COFF::IMAGE_FILE_MACHINE_UNKNOWN) {
+      llvm::errs() << "unknown /machine: arg " << Arg->getValue() << '\n';
+      return 1;
+    }
+    LibMachineSource =
+        std::string(" (from '/machine:") + Arg->getValue() + "' flag)";
+  }
+
+  // create an import library
+  if (Args.hasArg(OPT_deffile)) {
+
+    if (OutputPath.empty()) {
+      llvm::errs() << "no output path given\n";
+      return 1;
+    }
+
+    if (LibMachine == COFF::IMAGE_FILE_MACHINE_UNKNOWN) {
+      llvm::errs() << "/def option requires /machine to be specified" << '\n';
+      return 1;
+    }
+
+    std::unique_ptr<MemoryBuffer> MB =
+        openFile(Args.getLastArg(OPT_deffile)->getValue());
+    if (!MB)
+      return 1;
+
+    if (!MB->getBufferSize()) {
+      llvm::errs() << "definition file empty\n";
+      return 1;
+    }
+
+    Expected<COFFModuleDefinition> Def =
+        parseCOFFModuleDefinition(*MB, LibMachine, true);
+
+    if (!Def) {
+      llvm::errs() << "error parsing definition\n"
+                   << errorToErrorCode(Def.takeError()).message();
+      return 1;
+    }
+
+    return writeImportLibrary(Def->OutputFile, OutputPath, Def->Exports,
+                              LibMachine,
+                              /*MinGW=*/false)
+               ? 1
+               : 0;
+  }
+
   // If no input files and not told otherwise, silently do nothing to match
   // lib.exe
   if (!Args.hasArgNoClaim(OPT_INPUT) && !Args.hasArg(OPT_llvmlibempty)) {
@@ -318,19 +410,14 @@ int llvm::libDriverMain(ArrayRef<const char *> ArgsArr) {
     return 0;
   }
 
-  std::vector<StringRef> SearchPaths = getSearchPaths(&Args, Saver);
+#ifdef INTEL_CUSTOMIZATION
+  // handle -opaque-pointers
+  bool OpaquePointers = false;
+  if (Args.hasArg(OPT_opaque_pointers))
+    OpaquePointers = true;
+#endif // INTEL_CUSTOMIZATION
 
-  COFF::MachineTypes LibMachine = COFF::IMAGE_FILE_MACHINE_UNKNOWN;
-  std::string LibMachineSource;
-  if (auto *Arg = Args.getLastArg(OPT_machine)) {
-    LibMachine = getMachineType(Arg->getValue());
-    if (LibMachine == COFF::IMAGE_FILE_MACHINE_UNKNOWN) {
-      llvm::errs() << "unknown /machine: arg " << Arg->getValue() << '\n';
-      return 1;
-    }
-    LibMachineSource =
-        std::string(" (from '/machine:") + Arg->getValue() + "' flag)";
-  }
+  std::vector<StringRef> SearchPaths = getSearchPaths(&Args, Saver);
 
   std::vector<std::unique_ptr<MemoryBuffer>> MBs;
   StringSet<> Seen;
@@ -369,14 +456,13 @@ int llvm::libDriverMain(ArrayRef<const char *> ArgsArr) {
   }
 
   // Create an archive file.
-  std::string OutputPath;
-  if (auto *Arg = Args.getLastArg(OPT_out)) {
-    OutputPath = Arg->getValue();
-  } else if (!Members.empty()) {
-    OutputPath = getDefaultOutputPath(Members[0]);
-  } else {
-    llvm::errs() << "no output path given, and cannot infer with no inputs\n";
-    return 1;
+  if (OutputPath.empty()) {
+    if (!Members.empty()) {
+      OutputPath = getDefaultOutputPath(Members[0]);
+    } else {
+      llvm::errs() << "no output path given, and cannot infer with no inputs\n";
+      return 1;
+    }
   }
   // llvm-lib uses relative paths for both regular and thin archives, unlike
   // standard GNU ar, which only uses relative paths for thin archives and
@@ -390,10 +476,20 @@ int llvm::libDriverMain(ArrayRef<const char *> ArgsArr) {
     }
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  if (OpaquePointers)
+    for (NewArchiveMember &Nam : Members)
+      Nam.setOpaquePointers();
+#endif // INTEL_CUSTOMIZATION
+  // For compatibility with MSVC, reverse member vector after de-duplication.
+  std::reverse(Members.begin(), Members.end());
+
+  bool Thin = Args.hasArg(OPT_llvmlibthin);
   if (Error E =
           writeArchive(OutputPath, Members,
-                       /*WriteSymtab=*/true, object::Archive::K_GNU,
-                       /*Deterministic*/ true, Args.hasArg(OPT_llvmlibthin))) {
+                       /*WriteSymtab=*/true,
+                       Thin ? object::Archive::K_GNU : object::Archive::K_COFF,
+                       /*Deterministic*/ true, Thin)) {
     handleAllErrors(std::move(E), [&](const ErrorInfoBase &EI) {
       llvm::errs() << OutputPath << ": " << EI.message() << "\n";
     });

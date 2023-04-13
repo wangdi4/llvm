@@ -23,7 +23,7 @@
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <algorithm>
@@ -35,6 +35,9 @@
 #define VC_EXTRALEAN
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+
+using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
 
 std::unique_ptr<llvm::ExecutionEngine>
 LLDJITBuilder::CreateExecutionEngine(llvm::Module *M, llvm::TargetMachine *TM) {
@@ -124,7 +127,7 @@ void LLDJITBuilder::exportKernelSymbols(llvm::Module *M) {
   for (auto *F : Kernels) {
     F->setDLLStorageClass(
         llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
-    auto KIMD = llvm::DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(F);
+    auto KIMD = llvm::SYCLKernelMetadataAPI::KernelInternalMetadataAPI(F);
     if (KIMD.KernelWrapper.hasValue()) {
       auto *KernelWrapper = KIMD.KernelWrapper.get();
       KernelWrapper->setDLLStorageClass(

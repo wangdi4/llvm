@@ -1,7 +1,7 @@
 //===-----------------DTransOptBaseOpaquePtrTest.cpp-----------------------===//
 // Test pass for DTransOPOptBase functionality
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -22,7 +22,6 @@
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
@@ -41,28 +40,6 @@ static cl::opt<std::string>
                                          cl::ReallyHidden);
 
 namespace {
-class DTransOPOptBaseTestWrapper : public ModulePass {
-private:
-  DTransOPOptBaseTestPass Impl;
-
-public:
-  static char ID;
-
-  DTransOPOptBaseTestWrapper() : ModulePass(ID) {
-    initializeDTransOPOptBaseTestWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    DTransSafetyAnalyzerWrapper &DTAnalysisWrapper =
-        getAnalysis<DTransSafetyAnalyzerWrapper>();
-    DTransSafetyInfo &DTInfo = DTAnalysisWrapper.getDTransSafetyInfo(M);
-    return Impl.runImpl(M, &DTInfo);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransSafetyAnalyzerWrapper>();
-  }
-};
 
 // This class tests and demonstrates usage of the DTransOptBase class.
 class DTransOptBaseTest : public DTransOPOptBase {
@@ -131,19 +108,6 @@ private:
 };
 
 } // end anonymous namespace
-
-char DTransOPOptBaseTestWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransOPOptBaseTestWrapper, "dtransop-optbasetest",
-                      "DTrans base class tester for opaque pointers", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_END(DTransOPOptBaseTestWrapper, "dtransop-optbasetest",
-                    "DTrans base class tester for opaque pointers", false,
-                    false)
-
-ModulePass *llvm::createDTransOPOptBaseTestWrapperPass() {
-  return new DTransOPOptBaseTestWrapper();
-}
 
 // Implementation for new pass manager
 PreservedAnalyses

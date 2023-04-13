@@ -20,10 +20,12 @@ add_definitions(${LLVM_DEFINITIONS})
 # Add include directories
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  # common_clang.h is in CCLANG_DEV_INCLUDE_DIRS
+  # opencl_clang.h is in CCLANG_DEV_INCLUDE_DIRS
   ${CCLANG_DEV_INCLUDE_DIRS}
   ${OCL_SOURCE_DIR}/FrontendDriver
-  ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib)
+  ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib
+  ${OCL_BINARY_DIR}/../llvm-spirv/SPIRV-Headers/include
+  ${CCLANG_DEV_INCLUDE_DIRS}/../../../../include)
 
 # Generate SPIR-V input for tests
 set(INPUT_FILE data/test.cl)
@@ -37,10 +39,12 @@ add_definitions(-DSPIRV_TEST_FILE="${SPIRV_OUTPUT_FILE}")
 set(FRONTEND_DRIVER_TEST_TYPE_LINK_LIBS
   ${COMMON_CLANG_LIB}
   ${LLVM_MODULE_LIBS}
+  LLVMTargetParser
   CLElfLib
   CacheBinaryHandler
   OclPluginManager
   cl_logger
+  cl_hw_utils
   cl_sys_utils
   clang_compiler
   dynamic_load

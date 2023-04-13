@@ -21,8 +21,6 @@
 #include <string>
 #include <vector>
 
-using namespace Intel::OpenCL::DeviceBackend;
-
 namespace Validation {
 class OpenCLProgramConfiguration;
 class ComparatorRunOptions;

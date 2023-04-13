@@ -1718,6 +1718,7 @@ void X86AsmPrinter::LowerPATCHABLE_EVENT_CALL(const MachineInstr &MI,
     if (auto Op = MCIL.LowerMachineOperand(&MI, MI.getOperand(I))) {
       assert(Op->isReg() && "Only support arguments in registers");
       SrcRegs[I] = getX86SubSuperRegister(Op->getReg(), 64);
+      assert(SrcRegs[I].isValid() && "Invalid operand");
       if (SrcRegs[I] != DestRegs[I]) {
         UsedMask[I] = true;
         EmitAndCountInstruction(
@@ -1816,6 +1817,7 @@ void X86AsmPrinter::LowerPATCHABLE_TYPED_EVENT_CALL(const MachineInstr &MI,
       // TODO: Is register only support adequate?
       assert(Op->isReg() && "Only supports arguments in registers");
       SrcRegs[I] = getX86SubSuperRegister(Op->getReg(), 64);
+      assert(SrcRegs[I].isValid() && "Invalid operand");
       if (SrcRegs[I] != DestRegs[I]) {
         UsedMask[I] = true;
         EmitAndCountInstruction(
@@ -2013,8 +2015,8 @@ static std::string getShuffleComment(const MachineInstr *MI, unsigned SrcOp1Idx,
   // names. Fortunately most people use the ATT style (outside of Windows)
   // and they actually agree on register naming here. Ultimately, this is
   // a comment, and so its OK if it isn't perfect.
-  auto GetRegisterName = [](unsigned RegNum) -> StringRef {
-    return X86ATTInstPrinter::getRegisterName(RegNum);
+  auto GetRegisterName = [](MCRegister Reg) -> StringRef {
+    return X86ATTInstPrinter::getRegisterName(Reg);
   };
 
   const MachineOperand &DstOp = MI->getOperand(0);
@@ -2244,7 +2246,7 @@ static void addConstantComments(const MachineInstr *MI,
 
     const MachineOperand &MaskOp = MI->getOperand(MaskIdx);
     if (auto *C = getConstantFromPool(*MI, MaskOp)) {
-      unsigned Width = getRegisterWidth(MI->getDesc().OpInfo[0]);
+      unsigned Width = getRegisterWidth(MI->getDesc().operands()[0]);
       SmallVector<int, 64> Mask;
       DecodePSHUFBMask(C, Width, Mask);
       if (!Mask.empty())
@@ -2322,7 +2324,7 @@ static void addConstantComments(const MachineInstr *MI,
 
     const MachineOperand &MaskOp = MI->getOperand(MaskIdx);
     if (auto *C = getConstantFromPool(*MI, MaskOp)) {
-      unsigned Width = getRegisterWidth(MI->getDesc().OpInfo[0]);
+      unsigned Width = getRegisterWidth(MI->getDesc().operands()[0]);
       SmallVector<int, 16> Mask;
       DecodeVPERMILPMask(C, ElSize, Width, Mask);
       if (!Mask.empty())
@@ -2351,7 +2353,7 @@ static void addConstantComments(const MachineInstr *MI,
 
     const MachineOperand &MaskOp = MI->getOperand(3 + X86::AddrDisp);
     if (auto *C = getConstantFromPool(*MI, MaskOp)) {
-      unsigned Width = getRegisterWidth(MI->getDesc().OpInfo[0]);
+      unsigned Width = getRegisterWidth(MI->getDesc().operands()[0]);
       SmallVector<int, 16> Mask;
       DecodeVPERMIL2PMask(C, (unsigned)CtrlOp.getImm(), ElSize, Width, Mask);
       if (!Mask.empty())
@@ -2366,7 +2368,7 @@ static void addConstantComments(const MachineInstr *MI,
 
     const MachineOperand &MaskOp = MI->getOperand(3 + X86::AddrDisp);
     if (auto *C = getConstantFromPool(*MI, MaskOp)) {
-      unsigned Width = getRegisterWidth(MI->getDesc().OpInfo[0]);
+      unsigned Width = getRegisterWidth(MI->getDesc().operands()[0]);
       SmallVector<int, 16> Mask;
       DecodeVPPERMMask(C, Width, Mask);
       if (!Mask.empty())
@@ -2608,16 +2610,6 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
       OutStreamer->AddComment("EVEX TO VEX Compression ", false);
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_MARKERCOUNT
-  // Add comments for markercount_function to distinguish prolog from epilog
-  if (MI->getAsmPrinterFlags() & X86::AC_PROLOG)
-    OutStreamer->AddComment("PROLOG", false);
-  else if (MI->getAsmPrinterFlags() & X86::AC_EPILOG)
-    OutStreamer->AddComment("EPILOG", false);
-#endif // INTEL_FEATURE_MARKERCOUNT
-#endif // INTEL_CUSTOMIZATION
-
   // Add comments for values loaded from constant pool.
   if (OutStreamer->isVerboseAsm())
     addConstantComments(MI, *OutStreamer);
@@ -2626,10 +2618,27 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
   case TargetOpcode::DBG_VALUE:
     llvm_unreachable("Should be handled target independently");
 
-  // Emit nothing here but a comment if we can.
-  case X86::Int_MemBarrier:
-    OutStreamer->emitRawComment("MEMBARRIER");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  // Pseudo marker count is expanded at a late stage b/c
+  //  1. Expanded instruction does not have scheduling info, so
+  //     no need to expand it before any schedule pass.
+  //  2. Pseudo marker count is a meta instruction, which has less
+  //     impact on optimizations since it does not contribute to
+  //     block size.
+  case TargetOpcode::PSEUDO_FUNCTION_PROLOG:
+    OutStreamer->AddComment("PROLOG", false);
+    EmitAndCountInstruction(MCInstBuilder(X86::MARKER_FUNCTION));
     return;
+  case TargetOpcode::PSEUDO_FUNCTION_EPILOG:
+    OutStreamer->AddComment("EPILOG", false);
+    EmitAndCountInstruction(MCInstBuilder(X86::MARKER_FUNCTION));
+    return;
+  case TargetOpcode::PSEUDO_LOOP_HEADER:
+    EmitAndCountInstruction(MCInstBuilder(X86::MARKER_LOOP));
+    return;
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
   case X86::EH_RETURN:
   case X86::EH_RETURN64: {
@@ -2837,9 +2846,10 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
     for (MBBI = PrevCrossBBInst(MBBI);
          MBBI != MachineBasicBlock::const_iterator();
          MBBI = PrevCrossBBInst(MBBI)) {
-      // Conservatively assume that pseudo instructions don't emit code and keep
-      // looking for a call. We may emit an unnecessary nop in some cases.
-      if (!MBBI->isPseudo()) {
+      // Pseudo instructions that aren't a call are assumed to not emit any
+      // code. If they do, we worst case generate unnecessary noops after a
+      // call.
+      if (MBBI->isCall() || !MBBI->isPseudo()) {
         if (MBBI->isCall())
           EmitAndCountInstruction(MCInstBuilder(X86::NOOP));
         break;
@@ -2860,6 +2870,17 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
     if (IndCSPrefix && MI->hasRegisterImplicitUseOperand(X86::R11))
       EmitAndCountInstruction(MCInstBuilder(X86::CS_PREFIX));
     break;
+
+#if INTEL_CUSTOMIZATION
+  case X86::JCC_1:
+    // SSE2 extensions designate two instruction prefixes (2EH branch not taken
+    // and 3EH branch taken) to provide branch hints to the processor, here we
+    // add branch taken prefix for big probability jump.
+    if (getSubtarget().hasSSE2() &&
+        MI->getFlag(MachineInstr::MIFlag::BranchHint))
+      EmitAndCountInstruction(MCInstBuilder(X86::DS_PREFIX));
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
 
   MCInst TmpInst;

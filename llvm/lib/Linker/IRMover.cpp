@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -28,7 +28,6 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/IR/AutoUpgrade.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
@@ -36,6 +35,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GVMaterializer.h"
 #include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PseudoProbe.h"
@@ -43,6 +44,7 @@
 #include "llvm/Object/ModuleSymbolTable.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Path.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <optional>
 #include <utility>
@@ -311,7 +313,7 @@ public:
   /// Try mapping the structure types in the source module to the destination
   /// module using the DTrans information. Return true if the mapping was done,
   /// else return false.
-  bool mapTypesToDTransData(Module &SrcM, Module &DstM);
+  bool mapTypesToDTransData(Module &SrcM, Module &DstM, bool *DoRTTISpecial);
 
   /// Update destination DTransTypesManager
   void updateDTransTypeManager();
@@ -383,7 +385,8 @@ DTransStructsMap::DTransStructsMap(Module &M, bool AllowsIncompleteMD,
   // traditional type mapping. Also the type mapping verification can't
   // be used. Once we ensure that there is no metadata loss during the
   // compile step then we can replace the 'false' with '!AllowsIncompleteMD'.
-  MDReadCorrectly = DtransTypeMDReader->initialize(M, false);
+  MDReadCorrectly = DtransTypeMDReader->initialize(M, /*StrictCheck=*/false,
+                                                   /*SkipSpecial=*/true);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (TraceDTransMetadataLoss) {
@@ -620,8 +623,10 @@ bool TypeMapTy::handleEmptyStrSpecialCase(StructType *SrcStr,
       return false;
     }
 
-    StructType *SrcPtrTy = dyn_cast<StructType>(SrcPtr->getElementType());
-    FunctionType *DstPtrTy = dyn_cast<FunctionType>(DstPtr->getElementType());
+    StructType *SrcPtrTy =
+        dyn_cast<StructType>(SrcPtr->getNonOpaquePointerElementType());
+    FunctionType *DstPtrTy =
+        dyn_cast<FunctionType>(DstPtr->getNonOpaquePointerElementType());
 
     // Source and destination aren't the form we want
     if (!SrcPtrTy || !DstPtrTy)
@@ -752,7 +757,8 @@ Type* TypeMapTy::tryToRepairType(Type *Ty,
     return MappedTypes[Ty];
 
   auto *DTFieldPtr = TypesToRepair[PtrField];
-  StructType *PtrSrc = cast<StructType>(PtrField->getElementType());
+  StructType *PtrSrc =
+      cast<StructType>(PtrField->getNonOpaquePointerElementType());
   auto *DTFuncTy =
       cast<DTransFunctionType>(DTFieldPtr->getPointerElementType());
 
@@ -765,7 +771,7 @@ Type* TypeMapTy::tryToRepairType(Type *Ty,
     Arguments.push_back(get(Arg->getLLVMType(), Visited));
 
   FunctionType *NewFunc =
-      FunctionType::get(FuncRetTy, makeArrayRef(Arguments),
+      FunctionType::get(FuncRetTy, ArrayRef(Arguments),
                         DTFuncTy->isVarArg());
 
   // Map the empty structure with the new function type
@@ -810,7 +816,7 @@ void TypeMapTy::insertVisitedType(StructType *ST) {
 
     while (CurrPtr && isa<PointerType>(CurrPtr)) {
       PointerType *TempPtr = cast<PointerType>(CurrPtr);
-      CurrPtr = TempPtr->getElementType();
+      CurrPtr = TempPtr->getNonOpaquePointerElementType();
     }
 
     return dyn_cast<StructType>(CurrPtr);
@@ -864,7 +870,8 @@ void TypeMapTy::insertVisitedType(StructType *ST) {
 
 // Traverse through the types in the source module and see which types can be
 // mapped to the destination module by matching the DTrans information.
-bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
+bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM,
+                                     bool *DoRTTISpecial) {
 
   // Traverse through the types in the destination module and check which type
   // can be mapped with the input Structure.
@@ -969,7 +976,8 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
       if (!PtrField || PtrField->isOpaque())
         continue;
 
-      StructType *PtrStrc = dyn_cast<StructType>(PtrField->getElementType());
+      StructType *PtrStrc =
+          dyn_cast<StructType>(PtrField->getNonOpaquePointerElementType());
       if (!PtrStrc)
         continue;
 
@@ -1005,6 +1013,7 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
     }
   };
 /**************************** End special function ***************************/
+  *DoRTTISpecial = false;
   if (!EnableDTransTypesMappingScheme)
     return false;
 
@@ -1097,6 +1106,12 @@ bool TypeMapTy::mapTypesToDTransData(Module &SrcM, Module &DstM) {
     if (!ST->hasName())
       continue;
 
+    if (isDTransSkippableType(ST)) {
+      DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES,
+                      dbgs() << "  Skippable type: " << *ST << "\n");
+      *DoRTTISpecial = true;
+      continue;
+    }
     // Ignore special empty strutures (this will go away once the CFE
     // generates OP)
     if (isSpecialEmptyStruct(ST))
@@ -1284,7 +1299,6 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
         dyn_cast<PointerType>(SrcST->getElementType(FieldNum));
     PointerType *PtrDst =
         dyn_cast<PointerType>(DstST->getElementType(FieldNum));
-
     // Fields are pointer types, collect the DTrans type information
     if (PtrSrc && PtrDst) {
       assert((PtrSrc->isOpaque() == PtrDst->isOpaque()) &&
@@ -1528,7 +1542,9 @@ bool TypeMapTy::areTypesIsomorphic(Type *DstTy, Type *SrcTy) {
   // properties.
   StructType *SrcStr = dyn_cast<StructType>(SrcTy);
   StructType *DstStr = dyn_cast<StructType>(DstTy);
-  bool StructsMatches = StructsAreTheSame(SrcStr, DstStr);
+  bool IsSpecial =
+      isDTransSkippableType(SrcStr) || isDTransSkippableType(DstStr);
+  bool StructsMatches = !IsSpecial && StructsAreTheSame(SrcStr, DstStr);
 #endif //INTEL_FEATURE_SW_DTRANS
 
   for (unsigned I = 0, E = SrcTy->getNumContainedTypes(); I != E; ++I) {
@@ -1956,7 +1972,7 @@ Type *TypeMapTy::get(Type *Ty, SmallPtrSet<StructType *, 8> &Visited) {
                                      cast<PointerType>(Ty)->getAddressSpace());
   case Type::FunctionTyID:
     return *Entry = FunctionType::get(ElementTypes[0],
-                                      makeArrayRef(ElementTypes).slice(1),
+                                      ArrayRef(ElementTypes).slice(1),
                                       cast<FunctionType>(Ty)->isVarArg());
   case Type::StructTyID: {
     auto *STy = cast<StructType>(Ty);
@@ -2063,19 +2079,12 @@ class IRLinker {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-  // When DTrans metadata tags are used to describe types of function
-  // return values or parameters, we need to ensure that the metadata nodes
-  // attached to declarations get remapped to the types contained within the
-  // destination module. Otherwise, the metadata can be left pointing to the
-  // memory object of the source module, resulting in a bad pointer reference
-  // within the destination module. This worklist is for declarations that
-  // are discovered while mapping the source module into the destination module
-  // which will need to be processed.
-  SmallPtrSet<GlobalObject *, 8> DTransMDRemapWorklist;
-
   DTransTypeManager *DstTM = nullptr;
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+  /// Set of globals with eagerly copied metadata that may require remapping.
+  /// This remapping is performed after metadata linking.
+  DenseSet<GlobalObject *> UnmappedMetadata;
 
   void maybeAdd(GlobalValue *GV) {
     if (ValuesToLink.insert(GV).second)
@@ -2205,6 +2214,9 @@ class IRLinker {
   /// module.
   void prepareCompileUnitsForImport();
   void linkNamedMDNodes();
+
+  ///  Update attributes while linking.
+  void updateAttributes(GlobalValue &GV);
 
 public:
 #if INTEL_CUSTOMIZATION
@@ -2339,6 +2351,7 @@ Value *IRLinker::materialize(Value *V, bool ForIndirectSymbol) {
   if (ForIndirectSymbol || shouldLink(New, *SGV))
     setError(linkGlobalValueBody(*New, *SGV));
 
+  updateAttributes(*New);
   return New;
 }
 
@@ -2445,8 +2458,11 @@ GlobalValue *IRLinker::copyGlobalValueProto(const GlobalValue *SGV,
 
   if (auto *NewGO = dyn_cast<GlobalObject>(NewGV)) {
     // Metadata for global variables and function declarations is copied eagerly.
-    if (isa<GlobalVariable>(SGV) || SGV->isDeclaration())
+    if (isa<GlobalVariable>(SGV) || SGV->isDeclaration()) {
       NewGO->copyMetadata(cast<GlobalObject>(SGV), 0);
+      if (SGV->isDeclaration() && NewGO->hasMetadata())
+        UnmappedMetadata.insert(NewGO);
+    }
   }
 
   // Remove these copied constants in case this stays a declaration, since
@@ -2765,7 +2781,8 @@ static bool isSpecialEmptyStructToFuncMapping(PointerType *SrcPtr,
   if (SrcPtr->isOpaque())
     return false;
 
-  StructType *EmptyStr = dyn_cast<StructType>(SrcPtr->getElementType());
+  StructType *EmptyStr =
+      dyn_cast<StructType>(SrcPtr->getNonOpaquePointerElementType());
   if (!EmptyStr)
     return false;
 
@@ -3045,8 +3062,17 @@ void IRLinker::computeTypeMapping() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // Check if we can map the structures using the DTrans information
+  bool DoRTTIOrEHSpecial = false;
   bool IsMappingByDTransInfoEnabled =
-      TypeMap.mapTypesToDTransData(*SrcM, DstM);
+      TypeMap.mapTypesToDTransData(*SrcM, DstM, &DoRTTIOrEHSpecial);
+  DEBUG_WITH_TYPE(DEBUG_DTRANS_TYPES, {
+    dbgs() << "IsMappingByDTransInfoEnabled: ";
+    dbgs() << (IsMappingByDTransInfoEnabled ? "T" : "F");
+    dbgs() << "\n";
+    dbgs() << "DoRTTIOrEHSpecial: ";
+    dbgs() << (DoRTTIOrEHSpecial ? "T" : "F");
+    dbgs() << "\n";
+  });
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -3089,7 +3115,7 @@ void IRLinker::computeTypeMapping() {
   // If mapping with DTrans information passed succesfully then we can skip
   // the next loop. We don't need to spend time traversing through the same
   // types again, plus calling getIdentifiedStructTypes is very expensive.
-  if (!IsMappingByDTransInfoEnabled) {
+  if (!IsMappingByDTransInfoEnabled || DoRTTIOrEHSpecial) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -3136,7 +3162,14 @@ void IRLinker::computeTypeMapping() {
     // we prefer to take the '%C' version. So we are then left with both
     // '%C.1' and '%C' being used for the same types. This leads to some
     // variables using one type and some using the other.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    if ((DoRTTIOrEHSpecial && isDTransSkippableType(ST)) ||
+        (!DoRTTIOrEHSpecial && TypeMap.DstStructTypesSet.hasType(DST)))
+#else  // INTEL_FEATURE_SW_DTRANS
     if (TypeMap.DstStructTypesSet.hasType(DST))
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
       TypeMap.addTypeMapping(DST, ST);
   }
 
@@ -3189,6 +3222,10 @@ IRLinker::linkAppendingVarProto(GlobalVariable *DstGV,
     if (DstGV->getSection() != SrcGV->getSection())
       return stringErr(
           "Appending variables with different section name need to be linked!");
+
+    if (DstGV->getAddressSpace() != SrcGV->getAddressSpace())
+      return stringErr("Appending variables with different address spaces need "
+                       "to be linked!");
   }
 
   // Do not need to do anything if source is a declaration.
@@ -3342,20 +3379,6 @@ Expected<Constant *> IRLinker::linkGlobalValueProto(GlobalValue *SGV,
     NewGV = copyGlobalValueProto(SGV, ShouldLink || ForIndirectSymbol);
     if (ShouldLink || !ForIndirectSymbol)
       NeedsRenaming = true;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-    // A new GlobalValue has been introduced into the destination module that
-    // may need to have DTrans metadata updated. We cannot remap the data
-    // immediately because a FlushingRemapper is already in progress. Save
-    // the Value object for updating the metadata attachment after all the IR
-    // definitions have been mapped.
-    if (NewGV->isDeclaration())
-      if (auto *NewGO = dyn_cast<GlobalObject>(NewGV))
-        if (NewGO->hasMetadata("intel.dtrans.func.type") ||
-            NewGO->hasMetadata("intel_dtrans_type"))
-          DTransMDRemapWorklist.insert(NewGO);
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
   }
 
   // Overloaded intrinsics have overloaded types names as part of their
@@ -3363,6 +3386,10 @@ Expected<Constant *> IRLinker::linkGlobalValueProto(GlobalValue *SGV,
   // as well.
   if (Function *F = dyn_cast<Function>(NewGV))
     if (auto Remangled = Intrinsic::remangleIntrinsicFunction(F)) {
+      // Note: remangleIntrinsicFunction does not copy metadata and as such
+      // F should not occur in the set of objects with unmapped metadata.
+      // If this assertion fails then remangleIntrinsicFunction needs updating.
+      assert(!UnmappedMetadata.count(F) && "intrinsic has unmapped metadata");
       NewGV->eraseFromParent();
       NewGV = *Remangled;
       NeedsRenaming = false;
@@ -3437,7 +3464,7 @@ Error IRLinker::linkFunctionBody(Function &Dst, Function &Src) {
 
   // Steal arguments and splice the body of Src into Dst.
   Dst.stealArgumentListFrom(Src);
-  Dst.getBasicBlockList().splice(Dst.end(), Src.getBasicBlockList());
+  Dst.splice(Dst.end(), &Src);
 
   // Everything has been moved over.  Remap it.
   Mapper.scheduleRemapFunction(Dst);
@@ -3840,6 +3867,33 @@ static std::string adjustInlineAsm(const std::string &InlineAsm,
   return InlineAsm;
 }
 
+void IRLinker::updateAttributes(GlobalValue &GV) {
+  /// Remove nocallback attribute while linking, because nocallback attribute
+  /// indicates that the function is only allowed to jump back into caller's
+  /// module only by a return or an exception. When modules are linked, this
+  /// property cannot be guaranteed anymore. For example, the nocallback
+  /// function may contain a call to another module. But if we merge its caller
+  /// and callee module here, and not the module containing the nocallback
+  /// function definition itself, the nocallback property will be violated
+  /// (since the nocallback function will call back into the newly merged module
+  /// containing both its caller and callee). This could happen if the module
+  /// containing the nocallback function definition is native code, so it does
+  /// not participate in the LTO link. Note if the nocallback function does
+  /// participate in the LTO link, and thus ends up in the merged module
+  /// containing its caller and callee, removing the attribute doesn't hurt as
+  /// it has no effect on definitions in the same module.
+  if (auto *F = dyn_cast<Function>(&GV)) {
+    if (!F->isIntrinsic())
+      F->removeFnAttr(llvm::Attribute::NoCallback);
+
+    // Remove nocallback attribute when it is on a call-site.
+    for (BasicBlock &BB : *F)
+      for (Instruction &I : BB)
+        if (CallBase *CI = dyn_cast<CallBase>(&I))
+          CI->removeFnAttr(Attribute::NoCallback);
+  }
+}
+
 Error IRLinker::run() {
   // Ensure metadata materialized before value mapping.
   if (SrcM->getMaterializer())
@@ -3926,38 +3980,17 @@ Error IRLinker::run() {
   DoneLinkingBodies = true;
   Mapper.addFlags(RF_NullMapMissingGlobalValues);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-  for (auto *GO : DTransMDRemapWorklist) {
-    // Remap the metadata, if the GlobalObject is still a declaration. If it was
-    // changed to a definition, then the remapping has already been done.
-    if (GO->isDeclaration()) {
-      // Function declarations use the tag "intel.dtrans.func.type"
-      // Global variables use the tag "intel_dtrans_type"
-      const char *MDName = "intel.dtrans.func.type";
-      auto *MD = GO->getMetadata(MDName);
-      if (!MD) {
-        MDName = "intel_dtrans_type";
-        MD = GO->getMetadata(MDName);
-      }
-      if (MD) {
-        // Update the metadata tag. Remap it, if one has not been created yet.
-        auto Mapping = ValueMap.getMappedMD(MD);
-        if (Mapping)
-          GO->setMetadata(MDName, cast<MDNode>(Mapping.value()));
-        else
-          GO->setMetadata(MDName, Mapper.mapMDNode(*MD));
-      }
-    }
-  }
-  DTransMDRemapWorklist.clear();
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
-
   // Remap all of the named MDNodes in Src into the DstM module. We do this
   // after linking GlobalValues so that MDNodes that reference GlobalValues
   // are properly remapped.
   linkNamedMDNodes();
+
+  // Clean up any global objects with potentially unmapped metadata.
+  // Specifically declarations which did not become definitions.
+  for (GlobalObject *NGO : UnmappedMetadata) {
+    if (NGO->isDeclaration())
+      Mapper.remapGlobalObjectMetadata(*NGO);
+  }
 
   if (!IsPerformingImport && !SrcM->getModuleInlineAsm().empty()) {
     // Append the module inline asm string.
@@ -3979,15 +4012,16 @@ Error IRLinker::run() {
 
   // Reorder the globals just added to the destination module to match their
   // original order in the source module.
-  Module::GlobalListType &Globals = DstM.getGlobalList();
   for (GlobalVariable &GV : SrcM->globals()) {
     if (GV.hasAppendingLinkage())
       continue;
     Value *NewValue = Mapper.mapValue(GV);
     if (NewValue) {
       auto *NewGV = dyn_cast<GlobalVariable>(NewValue->stripPointerCasts());
-      if (NewGV)
-        Globals.splice(Globals.end(), Globals, NewGV->getIterator());
+      if (NewGV) {
+        NewGV->removeFromParent();
+        DstM.insertGlobalVariable(NewGV);
+      }
     }
   }
 

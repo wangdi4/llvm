@@ -512,6 +512,8 @@ DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_tgamma (double x);
 DEVICE_EXTERN_C_INLINE
 double __devicelib_imf_lgamma (double x);
+DEVICE_EXTERN_C_INLINE
+double __devicelib_imf_i0(double x);
 
 // float64 imf wrappers
 DEVICE_EXTERN_C_INLINE
@@ -646,6 +648,8 @@ DEVICE_EXTERN_C_INLINE
 double __imf_tgamma (double x) { return __devicelib_imf_tgamma (x); }
 DEVICE_EXTERN_C_INLINE
 double __imf_lgamma (double x) { return __devicelib_imf_lgamma (x); }
+DEVICE_EXTERN_C_INLINE
+double __imf_i0(double x) { return __devicelib_imf_i0(x); }
 
 #endif
 
@@ -655,5 +659,13 @@ _iml_half_internal __devicelib_imf_double2half(double);
 DEVICE_EXTERN_C_INLINE
 _iml_half_internal __imf_double2half(double x) {
   return __devicelib_imf_double2half(x);
+}
+
+DEVICE_EXTERN_C_INLINE
+_iml_bf16_internal __devicelib_imf_double2bfloat16(double);
+
+DEVICE_EXTERN_C_INLINE
+_iml_bf16_internal __imf_double2bfloat16(double x) {
+  return __devicelib_imf_double2bfloat16(x);
 }
 #endif // __LIBDEVICE_IMF_ENABLED__

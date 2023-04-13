@@ -2,13 +2,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -264,7 +264,6 @@ namespace {
       if (HasBranchDivergence)
         AU.addRequired<LegacyDivergenceAnalysis>();
       getLoopAnalysisUsage(AU);
-      AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
       AU.addRequired<TargetLibraryInfoWrapperPass>(); // INTEL
     }
 
@@ -1462,9 +1461,8 @@ void LoopUnswitch::unswitchNontrivialCondition(
 
   // Splice the newly inserted blocks into the function right before the
   // original preheader.
-  F->getBasicBlockList().splice(NewPreheader->getIterator(),
-                                F->getBasicBlockList(),
-                                NewBlocks[0]->getIterator(), F->end());
+  F->splice(NewPreheader->getIterator(), F, NewBlocks[0]->getIterator(),
+            F->end());
 
   // Now we create the new Loop object for the versioned loop.
   Loop *NewLoop = cloneLoop(L, L->getParentLoop(), VMap, LI, LPM);

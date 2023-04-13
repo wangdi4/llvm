@@ -33,23 +33,20 @@
 
 ;CHECK:    BEGIN REGION { modified }
 ;CHECK:          + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
-;CHECK:          |   %Ai = (%A)[i1];
-;CHECK:          |   %mul.lhs = 0.000000e+00  *  %Ai;
-;CHECK:          |   %mul.rhs = %Ai  *  0.000000e+00;
-;CHECK:          |   %mul.lhs.nnan = 0.000000e+00  *  %Ai;
-;CHECK:          |   %mul.rhs.nnan = %Ai  *  0.000000e+00;
-;CHECK:          |   %mul.lhs.nsz = 0.000000e+00  *  %Ai;
-;CHECK:          |   %mul.rhs.nsz = %Ai  *  0.000000e+00;
-;CHECK:          |   %add0 = %mul.lhs  +  %mul.rhs;
-;CHECK:          |   %add1 = %add0  +  %mul.lhs.nnan;
-;CHECK:          |   %add2 = %add1  +  %mul.rhs.nnan;
-;CHECK:          |   %add3 = %add2  +  %mul.lhs.nsz;
-;CHECK:          |   %add4 = %add3  +  %mul.rhs.nsz;
-;CHECK:          |   %add5 = %add4;
-;CHECK:          |   %add6 = %add5;
-;CHECK:          |   %sum1.018 = %add6;
-;CHECK:          |   %sum.021 = %sum1.018  +  %sum.021;
-;CHECK:          + END LOOP
+;CHECK-NEXT:     |   %Ai = (%A)[i1];
+;CHECK-NEXT:     |   %mul.lhs = 0.000000e+00  *  %Ai;
+;CHECK-NEXT:     |   %mul.rhs = %Ai  *  0.000000e+00;
+;CHECK-NEXT:     |   %mul.lhs.nnan = 0.000000e+00  *  %Ai;
+;CHECK-NEXT:     |   %mul.rhs.nnan = %Ai  *  0.000000e+00;
+;CHECK-NEXT:     |   %mul.lhs.nsz = 0.000000e+00  *  %Ai;
+;CHECK-NEXT:     |   %mul.rhs.nsz = %Ai  *  0.000000e+00;
+;CHECK-NEXT:     |   %add0 = %mul.lhs  +  %mul.rhs;
+;CHECK-NEXT:     |   %add1 = %add0  +  %mul.lhs.nnan;
+;CHECK-NEXT:     |   %add2 = %add1  +  %mul.rhs.nnan;
+;CHECK-NEXT:     |   %add3 = %add2  +  %mul.lhs.nsz;
+;CHECK-NEXT:     |   %add4 = %add3  +  %mul.rhs.nsz;
+;CHECK-NEXT:     |   %sum.021 = %add4  +  %sum.021;
+;CHECK-NEXT:     + END LOOP
 ;CHECK:    END REGION
 
 ;Module Before HIR

@@ -22,7 +22,7 @@
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
 #define XMAIN_VERSION_NUMBER "20240000"
 #else
-#define XMAIN_VERSION_NUMBER "20230100"
+#define XMAIN_VERSION_NUMBER "20230200"
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 
 // XMAIN_VERSION_STRING is updated to the proper update string when the
@@ -30,9 +30,9 @@
 // output if the compiler is from the developent or release branch.  For
 // example, the 2021.3.0 update will have "3.0" as the string.
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
-#define XMAIN_VERSION_STRING "0.0"
+#define XMAIN_VERSION_STRING "2.0"
 #else
-#define XMAIN_VERSION_STRING "1.0"
+#define XMAIN_VERSION_STRING "2.0"
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 
 #ifndef BUILD_DATE_STAMP

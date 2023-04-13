@@ -60,6 +60,8 @@ int main()
 // HOST: define {{.*}}foo{{.*}} #[[DECLARE_TARGET]]
 // TARG: define {{.*}} spir_func {{.*}}foo{{.*}} #[[DECLARE_TARGET]]
 // HOST: attributes #[[DECLARE_TARGET]] = {{.*}} "openmp-target-declare"="true"
+// HOST-NOT: attributes #[[DECLARE_TARGET]] = {{.*}} "openmp-target-declare"="true" "referenced-indirectly"
+// TARG: attributes #[[DECLARE_TARGET]] = {{.*}} "openmp-target-declare"="true" "referenced-indirectly"
 // HOST: !omp_offload.info = !{!0, !1, !2, !3, !4}
 // TARG: !omp_offload.info = !{!0, !1, !2, !3, !4}
 // HOST: !1 = !{i32 2, !"_Z3bazIfET_Pv", i32 2, ptr @_Z3bazIfET_Pv}

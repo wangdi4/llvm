@@ -324,13 +324,10 @@ void HLIf::invertPredicate(const_pred_iterator CPredI) {
   auto PredI = getNonConstPredIterator(CPredI);
   auto PredKind = PredI->Kind;
 
-  // Inversion is a no-op for undef predicate.
-  if (PredKind != UNDEFINED_PREDICATE) {
-    PredI->Kind = CmpInst::getInversePredicate(PredKind);
+  PredI->Kind = CmpInst::getInversePredicate(PredKind);
 
-    if (getProfileData()) {
-      swapProfileData();
-    }
+  if (getProfileData()) {
+    swapProfileData();
   }
 }
 
@@ -370,8 +367,7 @@ void HLIf::verify() const {
          "HLIf should contain at least one predicate");
 
   for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
-    assert((CmpInst::isFPPredicate(*I) || CmpInst::isIntPredicate(*I) ||
-            *I == UNDEFINED_PREDICATE) &&
+    assert((CmpInst::isFPPredicate(*I) || CmpInst::isIntPredicate(*I)) &&
            "Invalid predicate value, should be one of PredicateTy");
 
     if (isPredicateTrueOrFalse(*I)) {

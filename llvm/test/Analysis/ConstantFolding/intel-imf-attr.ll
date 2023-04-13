@@ -1,4 +1,4 @@
-; RUN: opt -instcombine -S -o - %s | FileCheck %s
+; RUN: opt -passes="instcombine" -S -o - %s | FileCheck %s
 
 ; This test verifies that calls are not constant folded when there are
 ; imf attributes attached to the call site.

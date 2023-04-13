@@ -1,4 +1,21 @@
 //===- RISCV.cpp ----------------------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -280,6 +297,7 @@ RelExpr RISCV::getRelExpr(const RelType type, const Symbol &s,
     return R_PC;
   case R_RISCV_CALL:
   case R_RISCV_CALL_PLT:
+  case R_RISCV_PLT32:
     return R_PLT_PC;
   case R_RISCV_GOT_HI20:
     return R_GOT_PC;
@@ -473,6 +491,7 @@ void RISCV::relocate(uint8_t *loc, const Relocation &rel, uint64_t val) const {
     return;
   case R_RISCV_SET32:
   case R_RISCV_32_PCREL:
+  case R_RISCV_PLT32:
     write32le(loc, val);
     return;
 
@@ -620,7 +639,7 @@ static bool relax(InputSection &sec) {
   // Get st_value delta for symbols relative to this section from the previous
   // iteration.
   DenseMap<const Defined *, uint64_t> valueDelta;
-  ArrayRef<SymbolAnchor> sa = makeArrayRef(aux.anchors);
+  ArrayRef<SymbolAnchor> sa = ArrayRef(aux.anchors);
   uint32_t delta = 0;
   for (auto [i, r] : llvm::enumerate(sec.relocs())) {
     for (; sa.size() && sa[0].offset <= r.offset; sa = sa.slice(1))
@@ -631,7 +650,7 @@ static bool relax(InputSection &sec) {
   for (const SymbolAnchor &sa : sa)
     if (!sa.end)
       valueDelta[sa.d] = delta;
-  sa = makeArrayRef(aux.anchors);
+  sa = ArrayRef(aux.anchors);
   delta = 0;
 
   std::fill_n(aux.relocTypes.get(), sec.relocs().size(), R_RISCV_NONE);
@@ -846,9 +865,7 @@ public:
 static void mergeArch(RISCVISAInfo::OrderedExtensionMap &mergedExts,
                       unsigned &mergedXlen, const InputSectionBase *sec,
                       StringRef s) {
-  auto maybeInfo =
-      RISCVISAInfo::parseArchString(s, /*EnableExperimentalExtension=*/true,
-                                    /*ExperimentalExtensionVersionCheck=*/true);
+  auto maybeInfo = RISCVISAInfo::parseNormalizedArchString(s);
   if (!maybeInfo) {
     errorOrWarn(toString(sec) + ": " + s + ": " +
                 llvm::toString(maybeInfo.takeError()));
@@ -863,8 +880,6 @@ static void mergeArch(RISCVISAInfo::OrderedExtensionMap &mergedExts,
   } else {
     for (const auto &ext : info.getExtensions()) {
       if (auto it = mergedExts.find(ext.first); it != mergedExts.end()) {
-        // TODO This is untested because RISCVISAInfo::parseArchString does not
-        // accept unsupported versions yet.
         if (std::tie(it->second.MajorVersion, it->second.MinorVersion) >=
             std::tie(ext.second.MajorVersion, ext.second.MinorVersion))
           continue;
@@ -900,8 +915,13 @@ mergeAttributesSection(const SmallVector<InputSectionBase *, 0> &sections) {
             firstStackAlign = sec;
             firstStackAlignValue = *i;
           } else if (r.first->second != *i) {
+#if INTEL_CUSTOMIZATION
+            std::string fsa_string =
+                firstStackAlign ? toString(firstStackAlign)
+                                : "nullptr";
+#endif // INTEL_CUSTOMIZATION
             errorOrWarn(toString(sec) + " has stack_align=" + Twine(*i) +
-                        " but " + toString(firstStackAlign) +
+                        " but " + fsa_string + // INTEL
                         " has stack_align=" + Twine(firstStackAlignValue));
           }
         }

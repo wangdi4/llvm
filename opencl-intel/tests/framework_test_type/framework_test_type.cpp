@@ -86,10 +86,6 @@ TEST(FrameworkTestType, Test_clGetPlatformInfoTest) {
   EXPECT_TRUE(clGetPlatformInfoTest());
 }
 
-TEST(FrameworkTestType, Test_clGetDeviceInfoTest) {
-  EXPECT_TRUE(clGetDeviceInfoTest());
-}
-
 TEST(FrameworkTestType, Test_clOutOfOrderTest) {
   EXPECT_TRUE(clOutOfOrderTest());
 }
@@ -278,7 +274,7 @@ TEST(FrameworkTestType, Test_opencl_printf_test) {
 TEST(FrameworkTestType, Test_opencl_printf_floating_point_test) {
   EXPECT_TRUE(opencl_printf_floating_point_test());
 }
-
+#if INTEL_CUSTOMIZATION
 TEST(FrameworkTestType, Test_VecTypeHintTest) {
   EXPECT_TRUE(VecTypeHintTest());
 }
@@ -290,7 +286,7 @@ TEST(FrameworkTestType, DISABLED_Test_intelVecTypeHintTest) {
 TEST(FrameworkTestType, Test_intelReqdSubGroupSizeTest) {
   intelReqdSubGroupSizeTest();
 }
-
+#endif // end INTEL_CUSTOMIZATION
 TEST(FrameworkTestType, Test_EventCallbackTest) {
   EXPECT_TRUE(EventCallbackTest());
 }

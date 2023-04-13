@@ -103,7 +103,7 @@ DIR.OMP.END.SIMD.2:
 ; CHECK:  [[ICMP:%.*]] = icmp eq <8 x i32>
 ; CHECK:  [[SEL:%.*]] = select <8 x i1> [[ICMP]]
 ; CHECK: VPlannedBB7
-; CHECK:  [[INSERT:%.*]] = insertelement <8 x i32> poison, i32 %a, i32 0
+; CHECK:  [[INSERT:%.*]] = insertelement <8 x i32> poison, i32 %a, i64 0
 ; CHECK:  [[SPLAT:%.*]] = shufflevector <8 x i32> [[INSERT]], <8 x i32> poison, <8 x i32> zeroinitializer
 ; CHECK:  [[ICMP2:%.*]] = icmp ne <8 x i32> [[SEL]], [[SPLAT]]
 ; CHECK:  [[REDOR:%.*]] = call i1 @llvm.vector.reduce.or.v8i1(<8 x i1> [[ICMP2]])

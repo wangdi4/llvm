@@ -1,8 +1,8 @@
 ; This test verifies that anders-aa should be able to disambiguate stdout
 ; and local allocated pointer (i.e %p1) when whole_program_safe is true.
 
-; RUN: opt < %s -whole-program-assume -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)' -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)' -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -whole-program-assume -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)' -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -whole-program-assume -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)' -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: NoAlias:        i8** %gep, i32** %p1
 

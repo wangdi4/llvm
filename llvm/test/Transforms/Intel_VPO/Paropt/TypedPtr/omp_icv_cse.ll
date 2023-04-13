@@ -1,4 +1,4 @@
-; RUN: opt -passes="inferattrs" -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="inferattrs" -S %s 2>&1 | FileCheck %s
 
 ; CHECK-NOT: Function Attrs: nounwind readonly
 

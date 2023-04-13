@@ -6,7 +6,6 @@
 ;    }
 ;   No dep expected when invoked from demand driven DD
 ;
-; RUN:  opt < %s -hir-ssa-deconstruction -hir-create-function-level-region -hir-dd-test-assume-loop-fusion -hir-dd-analysis -hir-dd-analysis-verify=Region -analyze -enable-new-pm=0  | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-dd-analysis>" -hir-create-function-level-region -hir-dd-test-assume-loop-fusion -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: DD graph for function

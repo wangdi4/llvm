@@ -9,9 +9,9 @@
 ; tuned, including this one.
 ; CMPLRLLVM-33738: We need to add inline-deferral now for the legacy pass
 ; manager lines, because they can be used to drive the new pass manager.
-; RUN: opt -passes='cgscc(inline)' -inline-deferral -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-deferral -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-deferral -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-deferral -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S < %s 2>&1 | FileCheck %s
 
 ; Test for inlining heuristic for stack computations.  All calls to @mypushptr
 ; should be inlined and the inlining report should report "Inlining for stack
@@ -20,134 +20,143 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-%union.any = type { i8* }
+%union.any = type { ptr }
 
-@globalvalue = common dso_local global i8* null, align 8
-
-@mysavestack = internal global %union.any* null, align 8
-
+@globalvalue = common dso_local global ptr null, align 8
+@mysavestack = internal global ptr null, align 8
 @mysavestackix = internal global i32 0, align 4
-
 @mysavestackmax = internal global i32 0, align 4
-
 @mynomemok = internal global i8 0, align 1
 
 declare dso_local void @exit(i32)
 
-declare dso_local void @free(i8* nocapture)
+declare dso_local void @free(ptr nocapture)
 
-declare dso_local noalias i8* @malloc(i64)
+declare dso_local noalias ptr @malloc(i64)
 
-declare dso_local noalias i8* @realloc(i8* nocapture, i64)
+declare dso_local noalias ptr @realloc(ptr nocapture, i64)
 
 define internal void @mycroak() {
+bb:
   tail call void @exit(i32 10)
   unreachable
 }
 
-define internal noalias i8* @myrealloc(i8*, i64) {
-  %3 = icmp eq i64 %1, 0
-  %4 = icmp eq i8* %0, null
-  br i1 %3, label %5, label %7
-; <label>:5:                                      ; preds = %2
-  br i1 %4, label %22, label %6
-; <label>:6:                                      ; preds = %5
-  tail call void @free(i8* nonnull %0) #10
-  br label %22
-; <label>:7:                                      ; preds = %2
-  br i1 %4, label %8, label %15
-; <label>:8:                                      ; preds = %7
-  %9 = tail call noalias i8* @malloc(i64 %1) #10
-  %10 = icmp eq i8* %9, null
-  %11 = load i8, i8* @mynomemok, align 1
-  %12 = icmp eq i8 %11, 0
-  %13 = and i1 %10, %12
-  br i1 %13, label %14, label %22
-; <label>:14:                                     ; preds = %8
-  tail call void @mycroak() #10
-  br label %22
-; <label>:15:                                     ; preds = %7
-  %16 = tail call i8* @realloc(i8* nonnull %0, i64 %1) #10
-  %17 = icmp eq i8* %16, null
-  br i1 %17, label %18, label %22
-; <label>:18:                                     ; preds = %15
-  %19 = load i8, i8* @mynomemok, align 1
-  %20 = icmp eq i8 %19, 0
-  br i1 %20, label %21, label %22
-; <label>:21:                                     ; preds = %18
+define internal noalias ptr @myrealloc(ptr %arg, i64 %arg1) {
+bb:
+  %i = icmp eq i64 %arg1, 0
+  %i2 = icmp eq ptr %arg, null
+  br i1 %i, label %bb3, label %bb5
+
+bb3:                                              ; preds = %bb
+  br i1 %i2, label %bb20, label %bb4
+
+bb4:                                              ; preds = %bb3
+  tail call void @free(ptr nonnull %arg)
+  br label %bb20
+
+bb5:                                              ; preds = %bb
+  br i1 %i2, label %bb6, label %bb13
+
+bb6:                                              ; preds = %bb5
+  %i7 = tail call noalias ptr @malloc(i64 %arg1)
+  %i8 = icmp eq ptr %i7, null
+  %i9 = load i8, ptr @mynomemok, align 1
+  %i10 = icmp eq i8 %i9, 0
+  %i11 = and i1 %i8, %i10
+  br i1 %i11, label %bb12, label %bb20
+
+bb12:                                             ; preds = %bb6
   tail call void @mycroak()
-  br label %22
-; <label>:22:                                     ; preds = %21, %18, %15, %14, %8, %6, %5
-  %23 = phi i8* [ null, %21 ], [ %16, %15 ], [ null, %18 ], [ null, %5 ], [ null, %6 ], [ %9, %8 ], [ null, %14 ]
-  ret i8* %23
+  br label %bb20
+
+bb13:                                             ; preds = %bb5
+  %i14 = tail call ptr @realloc(ptr nonnull %arg, i64 %arg1)
+  %i15 = icmp eq ptr %i14, null
+  br i1 %i15, label %bb16, label %bb20
+
+bb16:                                             ; preds = %bb13
+  %i17 = load i8, ptr @mynomemok, align 1
+  %i18 = icmp eq i8 %i17, 0
+  br i1 %i18, label %bb19, label %bb20
+
+bb19:                                             ; preds = %bb16
+  tail call void @mycroak()
+  br label %bb20
+
+bb20:                                             ; preds = %bb19, %bb16, %bb13, %bb12, %bb6, %bb4, %bb3
+  %i21 = phi ptr [ null, %bb19 ], [ %i14, %bb13 ], [ null, %bb16 ], [ null, %bb3 ], [ null, %bb4 ], [ %i7, %bb6 ], [ null, %bb12 ]
+  ret ptr %i21
 }
 
-define internal void @mypushptr(i8*, i32) {
-  %3 = load i32, i32* @mysavestackix, align 4
-  %4 = load %union.any*, %union.any** @mysavestack, align 8
-  %5 = sext i32 %3 to i64
-  %6 = getelementptr inbounds %union.any, %union.any* %4, i64 %5
-  %7 = getelementptr inbounds %union.any, %union.any* %6, i64 1
-  %8 = getelementptr inbounds %union.any, %union.any* %6, i64 0, i32 0
-  store i8* %0, i8** %8, align 8
-  %9 = sext i32 %1 to i64
-  %10 = bitcast %union.any* %7 to i64*
-  store i64 %9, i64* %10, align 8
-  %11 = add nsw i32 %3, 2
-  store i32 %11, i32* @mysavestackix, align 4
-  %12 = add nsw i32 %3, 6
-  %13 = load i32, i32* @mysavestackmax, align 4
-  %14 = icmp sgt i32 %12, %13
-  br i1 %14, label %15, label %24
-; <label>:15:                                     ; preds = %2
-  %16 = mul nsw i32 %13, 3
-  %17 = sdiv i32 %16, 2
-  %18 = add nsw i32 %17, 4
-  store i32 %18, i32* @mysavestackmax, align 4
-  %19 = load i8*, i8** bitcast (%union.any** @mysavestack to i8**), align 8
-  %20 = sext i32 %18 to i64
-  %21 = shl nsw i64 %20, 3
-  %22 = tail call i8* @myrealloc(i8* %19, i64 %21) #10
-  %23 = bitcast i8* %22 to %union.any*
-  store %union.any* %23, %union.any** @mysavestack, align 8
-  br label %24
-; <label>:24:                                     ; preds = %15, %2
+define internal void @mypushptr(ptr %arg, i32 %arg1) {
+bb:
+  %i = load i32, ptr @mysavestackix, align 4
+  %i2 = load ptr, ptr @mysavestack, align 8
+  %i3 = sext i32 %i to i64
+  %i4 = getelementptr inbounds %union.any, ptr %i2, i64 %i3
+  %i5 = getelementptr inbounds %union.any, ptr %i4, i64 1
+  %i6 = getelementptr inbounds %union.any, ptr %i4, i64 0, i32 0
+  store ptr %arg, ptr %i6, align 8
+  %i7 = sext i32 %arg1 to i64
+  store i64 %i7, ptr %i5, align 8
+  %i9 = add nsw i32 %i, 2
+  store i32 %i9, ptr @mysavestackix, align 4
+  %i10 = add nsw i32 %i, 6
+  %i11 = load i32, ptr @mysavestackmax, align 4
+  %i12 = icmp sgt i32 %i10, %i11
+  br i1 %i12, label %bb13, label %bb22
+
+bb13:                                             ; preds = %bb
+  %i14 = mul nsw i32 %i11, 3
+  %i15 = sdiv i32 %i14, 2
+  %i16 = add nsw i32 %i15, 4
+  store i32 %i16, ptr @mysavestackmax, align 4
+  %i17 = load ptr, ptr @mysavestack, align 8
+  %i18 = sext i32 %i16 to i64
+  %i19 = shl nsw i64 %i18, 3
+  %i20 = tail call ptr @myrealloc(ptr %i17, i64 %i19)
+  store ptr %i20, ptr @mysavestack, align 8
+  br label %bb22
+
+bb22:                                             ; preds = %bb13, %bb
   ret void
 }
 
 define dso_local i32 @main() {
-  %t0 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t0, i32 14)
-  %t1 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t1, i32 14)
-  %t2 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t2, i32 14)
-  %t3 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t3, i32 14)
-  %t10 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t10, i32 14)
-  %t11 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t11, i32 14)
-  %t12 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t12, i32 14)
-  %t13 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t13, i32 14)
-  %t20 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t20, i32 14)
-  %t21 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t21, i32 14)
-  %t22 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t22, i32 14)
-  %t23 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t23, i32 14)
-  %t30 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t30, i32 14)
-  %t31 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t31, i32 14)
-  %t32 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t32, i32 14)
-  %t33 = load i8*, i8** @globalvalue, align 8
-  call void @mypushptr(i8* %t33, i32 14)
+bb:
+  %t0 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t0, i32 14)
+  %t1 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t1, i32 14)
+  %t2 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t2, i32 14)
+  %t3 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t3, i32 14)
+  %t10 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t10, i32 14)
+  %t11 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t11, i32 14)
+  %t12 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t12, i32 14)
+  %t13 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t13, i32 14)
+  %t20 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t20, i32 14)
+  %t21 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t21, i32 14)
+  %t22 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t22, i32 14)
+  %t23 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t23, i32 14)
+  %t30 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t30, i32 14)
+  %t31 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t31, i32 14)
+  %t32 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t32, i32 14)
+  %t33 = load ptr, ptr @globalvalue, align 8
+  call void @mypushptr(ptr %t33, i32 14)
   ret i32 0
 }
 

@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_DeadArrayOpsElimination.cpp ----------------------------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -381,7 +381,7 @@ void CandidateInfo::wrapRecursionCallUnderCond() {
   (void)SuccBB;
   assert(SuccBB && "The split block should have a single successor");
   RecursionCall->removeFromParent();
-  SortBB->getInstList().insert(SortBB->getFirstInsertionPt(), RecursionCall);
+  RecursionCall->insertInto(SortBB, SortBB->getFirstInsertionPt());
   DEBUG_WITH_TYPE(DEAD_ARRAY_OPS_ELIMI, {
     dbgs() << "    Cond: " << *Cond << "\n\n";
     dbgs() << "    After  wrapping :\n";
@@ -804,52 +804,6 @@ bool DeadArrayOpsElimImpl::run(void) {
   }
   applyTransformations();
   return true;
-}
-
-namespace {
-
-struct DeadArrayOpsEliminationLegacyPass : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  DeadArrayOpsEliminationLegacyPass(void) : ModulePass(ID) {
-    initializeDeadArrayOpsEliminationLegacyPassPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addRequired<ArrayUseWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    DeadArrayUseType GetAUse = [this](Function &F) -> ArrayUse & {
-      return this->getAnalysis<ArrayUseWrapperPass>(F).getArrayUse();
-    };
-    DeadArrayOpsElimImpl DeadArrayElim(M, WPInfo, GetAUse);
-    return DeadArrayElim.run();
-  }
-};
-
-} // namespace
-
-char DeadArrayOpsEliminationLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(DeadArrayOpsEliminationLegacyPass,
-                      "deadarrayopselimination", "DeadArrayOpsElimination",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ArrayUseWrapperPass)
-INITIALIZE_PASS_END(DeadArrayOpsEliminationLegacyPass,
-                    "deadarrayopselimination", "DeadArrayOpsElimination", false,
-                    false)
-
-ModulePass *llvm::createDeadArrayOpsEliminationLegacyPass(void) {
-  return new DeadArrayOpsEliminationLegacyPass();
 }
 
 DeadArrayOpsEliminationPass::DeadArrayOpsEliminationPass(void) {}

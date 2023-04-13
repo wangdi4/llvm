@@ -1,6 +1,6 @@
 //===----- Intel_MultiVersion.cpp - Whole Function multi-versioning -*-----===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -373,7 +373,7 @@ class BoolMultiVersioningImpl {
 
   // Return the branch weights for the 'true' and 'false' path, if there is
   // profiling data.
-  static Optional<std::pair<uint64_t, uint64_t>>
+  static std::optional<std::pair<uint64_t, uint64_t>>
   getBranchWeights(const BranchInst *I) {
     MDNode *ProfMD = I->getMetadata(LLVMContext::MD_prof);
     if (!ProfMD)
@@ -471,7 +471,7 @@ class BoolMultiVersioningImpl {
           // based on which way the branches will be revised below.
           bool PredIsNE = Pred == ICmpInst::ICMP_NE;
           for (auto *BrInst : Branches) {
-            if (Optional<std::pair<uint64_t, uint64_t>> Weights =
+            if (std::optional<std::pair<uint64_t, uint64_t>> Weights =
                     getBranchWeights(BrInst)) {
               auto *BrInstClone = VMap.getClone(BrInst);
               assert(BrInstClone && "Branch should have a clone");
@@ -608,50 +608,4 @@ PreservedAnalyses MultiVersioningPass::run(Function &F,
   PA.preserve<AndersensAA>();
 
   return PA;
-}
-
-namespace {
-
-class MultiVersioningWrapper : public FunctionPass {
-public:
-  static char ID;
-
-  MultiVersioningWrapper() : FunctionPass(ID) {
-    initializeMultiVersioningWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F))
-      return false;
-
-    auto &AAR = getAnalysis<AAResultsWrapperPass>().getAAResults();
-    auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-
-    return BoolMultiVersioningImpl(F, AAR, TTI).run();
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<AAResultsWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<TargetTransformInfoWrapperPass>();
-    getAAResultsAnalysisUsage(AU);
-  }
-};
-
-} // end of anonymous namespace
-
-char MultiVersioningWrapper::ID = 0;
-
-INITIALIZE_PASS_BEGIN(MultiVersioningWrapper, DEBUG_TYPE,
-                      "Function multi-versioning", false, false)
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(MultiVersioningWrapper, DEBUG_TYPE,
-                    "Function multi-versioning", false, false)
-
-FunctionPass *llvm::createMultiVersioningWrapperPass() {
-  return new MultiVersioningWrapper();
 }

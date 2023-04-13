@@ -6,84 +6,89 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ARR_SOA_PRIV32:%.*]] = alloca [1024 x i32], align 4
 ; CHECK-NEXT:    [[ARR_SOA_PRIV32_SOA_VEC:%.*]] = alloca [1024 x <2 x i32>], align 8
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x [1024 x <2 x i32>]*> poison, [1024 x <2 x i32>]* [[ARR_SOA_PRIV32_SOA_VEC]], i64 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x [1024 x <2 x i32>]*> [[BROADCAST_SPLATINSERT]], <2 x [1024 x <2 x i32>]*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
 ; CHECK:       simd.begin.region:
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[TMP15:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_SOA_PRIV32_SOA_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8192, i8* [[TMP15]])
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_SOA_PRIV32_SOA_VEC]] to <2 x i8>*
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i8>* [[TMP0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8192, i8* [[TMP1]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP13:%.*]], [[VPLANNEDBB21:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP12:%.*]], [[VPLANNEDBB21]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP15:%.*]], [[VPLANNEDBB24:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP14:%.*]], [[VPLANNEDBB24]] ]
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_SOA_PRIV32_SOA_VEC]], i64 0, i64 0
+; CHECK-NEXT:    [[SOA_VECTORGEP:%.*]] = getelementptr inbounds [1024 x <2 x i32>], <2 x [1024 x <2 x i32>]*> [[BROADCAST_SPLAT]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], align 4
-; CHECK-NEXT:    [[TMP0:%.*]] = icmp sgt <2 x i64> [[VEC_PHI]], zeroinitializer
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp sgt <2 x i64> [[VEC_PHI]], zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB3:%.*]]
 ; CHECK:       VPlannedBB3:
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i1> [[TMP0]] to i2
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp ne i2 [[TMP1]], 0
-; CHECK-NEXT:    br i1 [[TMP2]], label [[PRED_LOAD_IF:%.*]], label [[TMP4:%.*]]
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i1> [[TMP2]] to i2
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp ne i2 [[TMP3]], 0
+; CHECK-NEXT:    br i1 [[TMP4]], label [[PRED_LOAD_IF:%.*]], label [[TMP6:%.*]]
 ; CHECK:       pred.load.if:
-; CHECK-NEXT:    [[TMP3:%.*]] = load i1, i1* [[UNIFORM_PTR:%.*]], align 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i1> poison, i1 [[TMP3]], i32 0
-; CHECK-NEXT:    br label [[TMP4]]
-; CHECK:       5:
-; CHECK-NEXT:    [[TMP5:%.*]] = phi <2 x i1> [ poison, [[VPLANNEDBB3]] ], [ [[BROADCAST_SPLATINSERT]], [[PRED_LOAD_IF]] ]
+; CHECK-NEXT:    [[TMP5:%.*]] = load i1, i1* [[UNIFORM_PTR:%.*]], align 1
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT4:%.*]] = insertelement <2 x i1> poison, i1 [[TMP5]], i64 0
+; CHECK-NEXT:    br label [[TMP6]]
+; CHECK:       6:
+; CHECK-NEXT:    [[TMP7:%.*]] = phi <2 x i1> [ poison, [[VPLANNEDBB3]] ], [ [[BROADCAST_SPLATINSERT4]], [[PRED_LOAD_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_LOAD_CONTINUE:%.*]]
 ; CHECK:       pred.load.continue:
-; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i1> [[TMP5]], <2 x i1> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP6:%.*]] = xor <2 x i1> [[BROADCAST_SPLAT]], <i1 true, i1 true>
-; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
-; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    [[TMP7:%.*]] = and <2 x i1> [[TMP0]], [[TMP6]]
-; CHECK-NEXT:    [[TMP8:%.*]] = and <2 x i1> [[TMP0]], [[BROADCAST_SPLAT]]
-; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
-; CHECK:       VPlannedBB5:
-; CHECK-NEXT:    [[SOA_SCALAR_GEP6:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], i64 2
-; CHECK-NEXT:    [[SOA_SCALAR_GEP7:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], i64 2
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP7]], <2 x i64> zeroinitializer, <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    [[WIDE_LOAD8:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP6]], align 4
-; CHECK-NEXT:    [[MM_VECTORGEP9:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], <2 x i32> [[WIDE_LOAD]], <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
-; CHECK:       VPlannedBB10:
-; CHECK-NEXT:    [[SOA_SCALAR_GEP11:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], i64 1
-; CHECK-NEXT:    [[SOA_SCALAR_GEP12:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], i64 1
-; CHECK-NEXT:    [[MM_VECTORGEP13:%.*]] = getelementptr <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP12]], <2 x i64> zeroinitializer, <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    [[WIDE_LOAD14:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP11]], align 4
-; CHECK-NEXT:    [[MM_VECTORGEP15:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], <2 x i64> [[VEC_PHI]], <2 x i64> <i64 0, i64 1>
-; CHECK-NEXT:    br label [[VPLANNEDBB16:%.*]]
-; CHECK:       VPlannedBB16:
-; CHECK-NEXT:    [[PREDBLEND:%.*]] = select <2 x i1> [[TMP8]], <2 x i64> <i64 1, i64 1>, <2 x i64> <i64 2, i64 2>
-; CHECK-NEXT:    [[PREDBLEND17:%.*]] = select <2 x i1> [[TMP8]], <2 x i32*> [[MM_VECTORGEP13]], <2 x i32*> [[MM_VECTORGEP]]
-; CHECK-NEXT:    [[PREDBLEND18:%.*]] = select <2 x i1> [[TMP8]], <2 x i32*> [[MM_VECTORGEP15]], <2 x i32*> [[MM_VECTORGEP9]]
-; CHECK-NEXT:    [[TMP9:%.*]] = bitcast <2 x i1> [[TMP0]] to i2
-; CHECK-NEXT:    [[CTTZ:%.*]] = call i2 @llvm.cttz.i2(i2 [[TMP9]], i1 false)
-; CHECK-NEXT:    [[TMP10:%.*]] = extractelement <2 x i64> [[PREDBLEND]], i2 [[CTTZ]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[PREDBLEND17]], i32 4, <2 x i1> [[TMP0]], <2 x i32> poison)
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER19:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[PREDBLEND18]], i32 4, <2 x i1> [[TMP0]], <2 x i32> poison)
-; CHECK-NEXT:    [[TMP11:%.*]] = add i64 [[TMP10]], 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT22:%.*]] = insertelement <2 x i64> poison, i64 [[TMP11]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT23:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT22]], <2 x i64> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
-; CHECK:       VPlannedBB20:
-; CHECK-NEXT:    br label [[VPLANNEDBB21]]
-; CHECK:       VPlannedBB21:
-; CHECK-NEXT:    [[PREDBLEND24:%.*]] = select <2 x i1> [[TMP0]], <2 x i64> [[BROADCAST_SPLAT23]], <2 x i64> <i64 -1, i64 -1>
-; CHECK-NEXT:    [[TMP12]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP13]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP14:%.*]] = icmp uge i64 [[TMP13]], 4
-; CHECK-NEXT:    br i1 [[TMP14]], label [[VPLANNEDBB25:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
-; CHECK:       VPlannedBB25:
-; CHECK-NEXT:    [[TMP16:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_SOA_PRIV32_SOA_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8192, i8* [[TMP16]])
-; CHECK-NEXT:    br label [[VPLANNEDBB26:%.*]]
-; CHECK:       VPlannedBB26:
+; CHECK-NEXT:    [[BROADCAST_SPLAT5:%.*]] = shufflevector <2 x i1> [[TMP7]], <2 x i1> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP8:%.*]] = xor <2 x i1> [[BROADCAST_SPLAT5]], <i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB6:%.*]]
+; CHECK:       VPlannedBB6:
+; CHECK-NEXT:    [[TMP9:%.*]] = select <2 x i1> [[TMP2]], <2 x i1> [[TMP8]], <2 x i1> zeroinitializer
+; CHECK-NEXT:    [[TMP10:%.*]] = select <2 x i1> [[TMP2]], <2 x i1> [[BROADCAST_SPLAT5]], <2 x i1> zeroinitializer
+; CHECK-NEXT:    br label [[VPLANNEDBB7:%.*]]
+; CHECK:       VPlannedBB7:
+; CHECK-NEXT:    [[SOA_SCALAR_GEP8:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], i64 2
+; CHECK-NEXT:    [[SOA_VECTORGEP9:%.*]] = getelementptr inbounds <2 x i32>, <2 x <2 x i32>*> [[SOA_VECTORGEP]], <2 x i64> <i64 2, i64 2>
+; CHECK-NEXT:    [[WIDE_LOAD10:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP8]], align 4
+; CHECK-NEXT:    [[SOA_VECTORGEP11:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], <2 x i32> [[WIDE_LOAD]]
+; CHECK-NEXT:    br label [[VPLANNEDBB12:%.*]]
+; CHECK:       VPlannedBB12:
+; CHECK-NEXT:    [[SOA_SCALAR_GEP13:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], i64 1
+; CHECK-NEXT:    [[SOA_VECTORGEP14:%.*]] = getelementptr inbounds <2 x i32>, <2 x <2 x i32>*> [[SOA_VECTORGEP]], <2 x i64> <i64 1, i64 1>
+; CHECK-NEXT:    [[WIDE_LOAD15:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP13]], align 4
+; CHECK-NEXT:    [[SOA_VECTORGEP16:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], <2 x i64> [[VEC_PHI]]
+; CHECK-NEXT:    br label [[VPLANNEDBB17:%.*]]
+; CHECK:       VPlannedBB17:
+; CHECK-NEXT:    [[PREDBLEND:%.*]] = select <2 x i1> [[TMP10]], <2 x i64> <i64 1, i64 1>, <2 x i64> <i64 2, i64 2>
+; CHECK-NEXT:    [[PREDBLEND18:%.*]] = select <2 x i1> [[TMP10]], <2 x <2 x i32>*> [[SOA_VECTORGEP14]], <2 x <2 x i32>*> [[SOA_VECTORGEP9]]
+; CHECK-NEXT:    [[PREDBLEND19:%.*]] = select <2 x i1> [[TMP10]], <2 x <2 x i32>*> [[SOA_VECTORGEP16]], <2 x <2 x i32>*> [[SOA_VECTORGEP11]]
+; CHECK-NEXT:    [[SOA_VECTORGEP20:%.*]] = getelementptr <2 x i32>, <2 x <2 x i32>*> [[PREDBLEND19]], <2 x i32> zeroinitializer, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[SOA_VECTORGEP21:%.*]] = getelementptr <2 x i32>, <2 x <2 x i32>*> [[PREDBLEND18]], <2 x i32> zeroinitializer, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP11:%.*]] = bitcast <2 x i1> [[TMP2]] to i2
+; CHECK-NEXT:    [[CTTZ:%.*]] = call i2 @llvm.cttz.i2(i2 [[TMP11]], i1 false)
+; CHECK-NEXT:    [[TMP12:%.*]] = extractelement <2 x i64> [[PREDBLEND]], i2 [[CTTZ]]
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[SOA_VECTORGEP21]], i32 4, <2 x i1> [[TMP2]], <2 x i32> poison)
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER22:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0i32(<2 x i32*> [[SOA_VECTORGEP20]], i32 4, <2 x i1> [[TMP2]], <2 x i32> poison)
+; CHECK-NEXT:    [[TMP13:%.*]] = add i64 [[TMP12]], 1
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT25:%.*]] = insertelement <2 x i64> poison, i64 [[TMP13]], i64 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT26:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT25]], <2 x i64> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    br label [[VPLANNEDBB23:%.*]]
+; CHECK:       VPlannedBB23:
+; CHECK-NEXT:    br label [[VPLANNEDBB24]]
+; CHECK:       VPlannedBB24:
+; CHECK-NEXT:    [[PREDBLEND27:%.*]] = select <2 x i1> [[TMP2]], <2 x i64> [[BROADCAST_SPLAT26]], <2 x i64> <i64 -1, i64 -1>
+; CHECK-NEXT:    [[TMP14]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP15]] = add nuw nsw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP16:%.*]] = icmp uge i64 [[TMP15]], 4
+; CHECK-NEXT:    br i1 [[TMP16]], label [[VPLANNEDBB28:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK:       VPlannedBB28:
+; CHECK-NEXT:    [[TMP17:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_SOA_PRIV32_SOA_VEC]] to <2 x i8>*
+; CHECK-NEXT:    [[TMP18:%.*]] = bitcast <2 x i8>* [[TMP17]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8192, i8* [[TMP18]])
+; CHECK-NEXT:    br label [[VPLANNEDBB29:%.*]]
+; CHECK:       VPlannedBB29:
 ; CHECK-NEXT:    br label [[FINAL_MERGE:%.*]]
 ; CHECK:       final.merge:
-; CHECK-NEXT:    [[UNI_PHI27:%.*]] = phi i64 [ 4, [[VPLANNEDBB26]] ]
+; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 4, [[VPLANNEDBB29]] ]
 ; CHECK-NEXT:    br label [[EXIT:%.*]]
 ; CHECK:       simd.loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LATCH:%.*]] ]

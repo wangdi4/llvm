@@ -32,7 +32,7 @@
 ; CHECK-NEXT: <Multiversioned v1>
 ; CHECK-NEXT:    remark: dummy pre loopopt remark
 ; CHECK-NEXT:    remark #25228: Loop multiversioned for Data Dependence
-; CHECK-NEXT:    remark #15436: loop was not vectorized:
+; CHECK-NEXT:    remark #15335: loop was not vectorized: vectorization possible but seems inefficient. Use vector always directive or -vec-threshold0 to override
 ; CHECK-NEXT: LOOP END
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

@@ -1,7 +1,7 @@
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -S -aa-pipeline=basic-aa,tbaa -passes=gvn | FileCheck -check-prefix=BASICAA %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -S -aa-pipeline=basic-aa,tbaa -passes=gvn | FileCheck -check-prefix=BASICAA %s
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -S -aa-pipeline=tbaa -passes=gvn | FileCheck %s
+; RUN: opt -passes=convert-to-subscript -S < %s | opt -S -aa-pipeline=tbaa -passes=gvn | FileCheck %s
 ; RUN: opt -S -aa-pipeline=basic-aa,tbaa -passes=gvn < %s | FileCheck -check-prefix=BASICAA %s
 ; RUN: opt -S -aa-pipeline=tbaa -passes=gvn < %s | FileCheck %s
 ; rdar://8875631, rdar://8875069

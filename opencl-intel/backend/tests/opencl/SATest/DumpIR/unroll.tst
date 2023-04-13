@@ -2,12 +2,12 @@
 
 ; Check that compiler unrolls loops with and without pragma unroll.
 
-; CHECK: call {{.*}}ocl_svml{{.*}}sinf1
-; CHECK: call {{.*}}ocl_svml{{.*}}sinf1
-; CHECK: call {{.*}}ocl_svml{{.*}}sinf1
-; CHECK: call {{.*}}ocl_svml{{.*}}sinf1
+; CHECK: = call{{.*}} float @{{.*}}sinf{{.*}}(float
+; CHECK: = call{{.*}} float @{{.*}}sinf{{.*}}(float
+; CHECK: = call{{.*}} float @{{.*}}sinf{{.*}}(float
+; CHECK: = call{{.*}} float @{{.*}}sinf{{.*}}(float
 
-; CHECK: call {{.*}}ocl_svml{{.*}}cosf1
-; CHECK: call {{.*}}ocl_svml{{.*}}cosf1
-; CHECK: call {{.*}}ocl_svml{{.*}}cosf1
-; CHECK: call {{.*}}ocl_svml{{.*}}cosf1
+; CHECK: = call{{.*}} float @{{.*}}cosf{{.*}}(float
+; CHECK: = call{{.*}} float @{{.*}}cosf{{.*}}(float
+; CHECK: = call{{.*}} float @{{.*}}cosf{{.*}}(float
+; CHECK: = call{{.*}} float @{{.*}}cosf{{.*}}(float

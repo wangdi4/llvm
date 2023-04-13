@@ -8,8 +8,8 @@
 ; RUN: -disable-output -disable-vplan-codegen -debug-only=LoopVectorizationPlannerHIR %s 2>&1 | FileCheck %s
 
 ; CHECK: SOA profitability:
-; CHECK: SOAUnsafe = y3.lpriv
-; CHECK: SOASafe = i.priv Profitable = 1
+; CHECK:  SOAUnsafe = [[VP_Y3_LPRIV:%.*]] (y3.lpriv)
+; CHECK:  SOASafe = [[VP_I_PRIV:%.*]] (i.priv) Profitable = 1
 
 %struct.int_int = type { i32, i32 }
 %struct.my_struct = type { [12 x %struct.int_int] }

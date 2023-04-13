@@ -19,6 +19,9 @@
 #define CACHE_LINE 64
 #define INTEL_PIPE_HEADER_RESERVED_SPACE CACHE_LINE * 2
 
+// Define the suffix for SYCL pipe backstore name
+static constexpr const char* SYCLPIPE_BS = ".syclpipe.bs";
+
 // The following struct must be in sync with structs defined in CPU/GEN
 // Back-Ends Total size:  CACHE_LINE * 2.
 //              RT must allocate 128 chars for pipe control at the beginning of

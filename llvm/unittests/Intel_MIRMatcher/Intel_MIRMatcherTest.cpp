@@ -42,7 +42,7 @@ namespace {
 int verbose = 0;
 
 LLVMContext context{};
-Module IRModule("TestModule", context);
+Module *IRModule;
 
 LLVMTargetMachine* TM      = nullptr;
 MachineModuleInfo* MMI     = nullptr;
@@ -67,10 +67,11 @@ bool initTargetMachine() {
                                      CodeModel::Large, CodeGenOpt::Default));
   if (! TM) return false;
 
-  IRModule.setDataLayout(TM->createDataLayout());
+  IRModule = new Module("TestModule", context);
+  IRModule->setDataLayout(TM->createDataLayout());
 
   static MachineModuleInfoWrapperPass info(TM);
-  info.doInitialization(IRModule);
+  info.doInitialization(*IRModule);
   MMI = &info.getMMI();
 
   return true;
@@ -114,7 +115,7 @@ public:
 
   MIFuncBuilder(const char* name)
     : m_func(cast<Function>(
-               IRModule.getOrInsertFunction(name,
+               IRModule->getOrInsertFunction(name,
                                         Type::getVoidTy(context)).getCallee()))
     , m_MIFunc(MMI->getOrCreateMachineFunction(*m_func))
     , m_TII(m_MIFunc.getSubtarget().getInstrInfo())

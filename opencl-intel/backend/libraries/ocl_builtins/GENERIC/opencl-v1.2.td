@@ -415,7 +415,7 @@ foreach bi = ["sincos", "native_sincos", "modf", "fract", "native_fract"] in {
   }
 }
 
-//VecInfo for DPCPPKernelVecClone
+//VecInfo for SYCLKernelVecClone
 let Types = [v1f32, v1f64] in {
   foreach bi = ["acos", "acosh", "acospi", "asin", "asinh", "asinpi", "atan", "atan2", "atanh", "atanpi",
                 "atan2pi", "cbrt", "ceil", "copysign", "cos", "cosh", "cospi", "erfc", "erf", "exp", "exp2",
@@ -664,7 +664,7 @@ def fast_normalize : OclBuiltin<"fast_normalize", (outs gentype:$ret), (ins gent
 // Note that isequal, isnotequal, isgreater, isgreaterequal, isless,
 // islessequal, islessgreater, isnan, isordered, isunordered and signbit are
 // handled in BuiltinCallToInst pass, so they are not defined here.
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [1, 2, 3, 4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def isfinite        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x), [], [], 0, 1>;
@@ -681,7 +681,7 @@ def isnormal        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret), (in
 // builtins (defined in the above table) return vector of -1. So we can't use
 // vector version builtins for VectInfo. The following table defines a set of
 // widened builtins that return vector of 1 if relation is true.
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def isfinite_v1widen        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
@@ -707,7 +707,7 @@ def : OclBuiltin<"select",    (outs gentype:$ret), (ins gentype:$a, gentype:$b, 
 }
 
 // OpenCL 1.2 rev 15, Table 6.14, masked version
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
      Attrs = [CONSTFUNC, OVERLOADABLE],
      NeedForwardDecl = 1 in {
 def isfinite_mask        : OclBuiltin<"isfinite",        (outs rf2igentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
@@ -716,7 +716,7 @@ def isnormal_mask        : OclBuiltin<"isnormal",        (outs rf2igentype:$ret)
 }
 // Following table defines vectorized masked builtins that are for scalar
 // builtin. Therefore, the return value is vector of 1 if relation is true.
-let Types = ExpandTypesByVFAndFlatten<[v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
+let Types = ExpandTypesByVFAndFlatten<[v1f16, v1f32, v1f64], [4, 8, 16, 32, 64]>.Tout,
     Attrs = [CONSTFUNC, OVERLOADABLE],
     NeedForwardDecl = 1 in {
 def isfinite_v1widen_mask        : OclBuiltin<"isfinite_v1widen",        (outs i32gentype:$ret), (ins gentype:$x, rf2igentype:$mask), [], [], 0, 1>;
@@ -725,7 +725,7 @@ def isnormal_v1widen_mask        : OclBuiltin<"isnormal_v1widen",        (outs i
 }
 
 // VectInfo for OclVecClone
-let Types = [v1f32, v1f64],
+let Types = [v1f16, v1f32, v1f64],
     HandleAlias = 0 in {
   foreach name = ["isfinite", "isinf", "isnormal"] in {
     defvar bi = name # "_v1widen";

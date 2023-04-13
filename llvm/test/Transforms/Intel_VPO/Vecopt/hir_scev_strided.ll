@@ -26,9 +26,9 @@
 ; CHECK-NEXT:        @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; CHECK-NEXT:  END REGION
 ; CHECK-EMPTY:
-; CHECK-NEXT:  computeAddressSCEV([DA: Div] i32 %vp{{.*}} = load i32* [[LD_PTR:%.*]])
+; CHECK-NEXT:  computeAddressSCEV(i32 %vp{{.*}} = load i32* [[LD_PTR:%.*]])
 ; CHECK-NEXT:    -> {(%src),+,20}
-; CHECK-NEXT:  computeAddressSCEV([DA: Div] store i32 %vp{{.*}} i32* [[ST_PTR:%.*]])
+; CHECK-NEXT:  computeAddressSCEV(store i32 %vp{{.*}} i32* [[ST_PTR:%.*]])
 ; CHECK-NEXT:    -> {(%dst),+,12}
 ;
 

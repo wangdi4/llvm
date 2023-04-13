@@ -1,4 +1,4 @@
-; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that (i32*)(%ptr)[0] is not eliminated because the subsequent single byte store only makes it partially dead.
 

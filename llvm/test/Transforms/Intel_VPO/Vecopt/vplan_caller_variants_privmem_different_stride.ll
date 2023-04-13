@@ -6,8 +6,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; This test should fail to generate uval/val variants because the strides
 ; stored to private memory are different. See stores to %k.linear.
 
-; CHECK: _ZGVxN8l4__Z3fooRi
-; CHECK: _ZGVxN8R4__Z3fooRi
+; CHECK: _ZGV_unknown_N8l4__Z3fooRi
+; CHECK: _ZGV_unknown_N8R4__Z3fooRi
 
 ; Function Attrs: mustprogress noinline norecurse nounwind uwtable
 define dso_local noundef i32 @main() local_unnamed_addr #0 {

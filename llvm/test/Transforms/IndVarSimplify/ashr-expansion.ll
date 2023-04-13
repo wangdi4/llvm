@@ -4,7 +4,7 @@
 
 target datalayout = "e-m:o-i64:64-i128:128-n32:64-S128"
 
-define float @ashr_expansion_valid(i64 %x, float* %ptr) {
+define float @ashr_expansion_valid(i64 %x, ptr %ptr) {
 ; CHECK-LABEL: @ashr_expansion_valid(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[BOUND:%.*]] = ashr exact i64 [[X:%.*]], 4
@@ -13,8 +13,8 @@ define float @ashr_expansion_valid(i64 %x, float* %ptr) {
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[RED:%.*]] = phi float [ 0.000000e+00, [[ENTRY]] ], [ [[RED_NEXT:%.*]], [[LOOP]] ]
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr float, float* [[PTR:%.*]], i64 [[IV]]
-; CHECK-NEXT:    [[LV:%.*]] = load float, float* [[GEP]], align 4
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr float, ptr [[PTR:%.*]], i64 [[IV]]
+; CHECK-NEXT:    [[LV:%.*]] = load float, ptr [[GEP]], align 4
 ; CHECK-NEXT:    [[RED_NEXT]] = fadd float [[LV]], [[RED]]
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw i64 [[IV]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[IV_NEXT]], [[UMAX]]
@@ -30,8 +30,8 @@ entry:
 loop:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %loop ]
   %red = phi float [ 0.0, %entry ], [ %red.next, %loop ]
-  %gep = getelementptr float, float* %ptr, i64 %iv
-  %lv = load float, float* %gep
+  %gep = getelementptr float, ptr %ptr, i64 %iv
+  %lv = load float, ptr %gep
   %red.next = fadd float %lv, %red
   %iv.next = add nuw i64 %iv, 1
   %cond = icmp ult i64 %iv.next, %bound
@@ -43,7 +43,7 @@ exit:                                             ; preds = %bb135
 }
 
 ; No explicit ashr, but a chain of operations that can be replaced by ashr.
-define float @ashr_equivalent_expansion(i64 %x, float* %ptr) {
+define float @ashr_equivalent_expansion(i64 %x, ptr %ptr) {
 ; CHECK-LABEL: @ashr_equivalent_expansion(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ABS_X:%.*]] = call i64 @llvm.abs.i64(i64 [[X:%.*]], i1 false)
@@ -56,8 +56,8 @@ define float @ashr_equivalent_expansion(i64 %x, float* %ptr) {
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[RED:%.*]] = phi float [ 0.000000e+00, [[ENTRY]] ], [ [[RED_NEXT:%.*]], [[LOOP]] ]
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr float, float* [[PTR:%.*]], i64 [[IV]]
-; CHECK-NEXT:    [[LV:%.*]] = load float, float* [[GEP]], align 4
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr float, ptr [[PTR:%.*]], i64 [[IV]]
+; CHECK-NEXT:    [[LV:%.*]] = load float, ptr [[GEP]], align 4
 ; CHECK-NEXT:    [[RED_NEXT]] = fadd float [[LV]], [[RED]]
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw i64 [[IV]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[IV_NEXT]], [[UMAX]]
@@ -77,8 +77,8 @@ entry:
 loop:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %loop ]
   %red = phi float [ 0.0, %entry ], [ %red.next, %loop ]
-  %gep = getelementptr float, float* %ptr, i64 %iv
-  %lv = load float, float* %gep
+  %gep = getelementptr float, ptr %ptr, i64 %iv
+  %lv = load float, ptr %gep
   %red.next = fadd float %lv, %red
   %iv.next = add nuw i64 %iv, 1
   %cond = icmp ult i64 %iv.next, %bound
@@ -91,7 +91,7 @@ exit:                                             ; preds = %bb135
 
 ; Chain of operations that *cannot* be replaced by ashr, because the udiv is
 ; missing exact.
-define float @no_ashr_due_to_missing_exact_udiv(i64 %x, float* %ptr) {
+define float @no_ashr_due_to_missing_exact_udiv(i64 %x, ptr %ptr) {
 ; CHECK-LABEL: @no_ashr_due_to_missing_exact_udiv(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ABS_X:%.*]] = call i64 @llvm.abs.i64(i64 [[X:%.*]], i1 false)
@@ -104,8 +104,8 @@ define float @no_ashr_due_to_missing_exact_udiv(i64 %x, float* %ptr) {
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[RED:%.*]] = phi float [ 0.000000e+00, [[ENTRY]] ], [ [[RED_NEXT:%.*]], [[LOOP]] ]
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr float, float* [[PTR:%.*]], i64 [[IV]]
-; CHECK-NEXT:    [[LV:%.*]] = load float, float* [[GEP]], align 4
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr float, ptr [[PTR:%.*]], i64 [[IV]]
+; CHECK-NEXT:    [[LV:%.*]] = load float, ptr [[GEP]], align 4
 ; CHECK-NEXT:    [[RED_NEXT]] = fadd float [[LV]], [[RED]]
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw i64 [[IV]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[IV_NEXT]], [[UMAX]]
@@ -125,8 +125,8 @@ entry:
 loop:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %loop ]
   %red = phi float [ 0.0, %entry ], [ %red.next, %loop ]
-  %gep = getelementptr float, float* %ptr, i64 %iv
-  %lv = load float, float* %gep
+  %gep = getelementptr float, ptr %ptr, i64 %iv
+  %lv = load float, ptr %gep
   %red.next = fadd float %lv, %red
   %iv.next = add nuw i64 %iv, 1
   %cond = icmp ult i64 %iv.next, %bound
@@ -139,7 +139,7 @@ exit:                                             ; preds = %bb135
 
 ; Chain of operations that *cannot* be replaced by ashr, because abs and
 ; signum have different operands.
-define float @no_ashr_due_to_different_ops(i64 %x, i64 %y, float* %ptr) {
+define float @no_ashr_due_to_different_ops(i64 %x, i64 %y, ptr %ptr) {
 ; CHECK-LABEL: @no_ashr_due_to_different_ops(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ABS_X:%.*]] = call i64 @llvm.abs.i64(i64 [[X:%.*]], i1 false)
@@ -152,8 +152,8 @@ define float @no_ashr_due_to_different_ops(i64 %x, i64 %y, float* %ptr) {
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[RED:%.*]] = phi float [ 0.000000e+00, [[ENTRY]] ], [ [[RED_NEXT:%.*]], [[LOOP]] ]
-; CHECK-NEXT:    [[GEP:%.*]] = getelementptr float, float* [[PTR:%.*]], i64 [[IV]]
-; CHECK-NEXT:    [[LV:%.*]] = load float, float* [[GEP]], align 4
+; CHECK-NEXT:    [[GEP:%.*]] = getelementptr float, ptr [[PTR:%.*]], i64 [[IV]]
+; CHECK-NEXT:    [[LV:%.*]] = load float, ptr [[GEP]], align 4
 ; CHECK-NEXT:    [[RED_NEXT]] = fadd float [[LV]], [[RED]]
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw i64 [[IV]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[IV_NEXT]], [[UMAX]]
@@ -173,8 +173,8 @@ entry:
 loop:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %loop ]
   %red = phi float [ 0.0, %entry ], [ %red.next, %loop ]
-  %gep = getelementptr float, float* %ptr, i64 %iv
-  %lv = load float, float* %gep
+  %gep = getelementptr float, ptr %ptr, i64 %iv
+  %lv = load float, ptr %gep
   %red.next = fadd float %lv, %red
   %iv.next = add nuw i64 %iv, 1
   %cond = icmp ult i64 %iv.next, %bound

@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Original code:
 ; const int& max(const int &a, const int &b) {
@@ -116,7 +116,7 @@ DIR.OMP.DISTRIBUTE.8:                             ; preds = %DIR.OMP.TEAMS.6
   store i32 addrspace(4)* %ref.tmp2.ascast19, i32 addrspace(4)** %ref.tmp2.ascast.addr, align 8
   store i32 addrspace(4)* %.omp.lb.ascast21, i32 addrspace(4)** %.omp.lb.ascast.addr, align 8
   %end.dir.temp = alloca i1, align 1
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast11), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast21), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast22), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast13), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %var.ascast15), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %ref.tmp.ascast17), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %ref.tmp2.ascast19), "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(), "QUAL.OMP.OPERAND.ADDR"(i32 addrspace(4)* %i.ascast13, i32 addrspace(4)** %i.ascast.addr), "QUAL.OMP.OPERAND.ADDR"(i32 addrspace(4)* %var.ascast15, i32 addrspace(4)** %var.ascast.addr), "QUAL.OMP.OPERAND.ADDR"(i32 addrspace(4)* %ref.tmp.ascast17, i32 addrspace(4)** %ref.tmp.ascast.addr), "QUAL.OMP.OPERAND.ADDR"(i32 addrspace(4)* %ref.tmp2.ascast19, i32 addrspace(4)** %ref.tmp2.ascast.addr), "QUAL.OMP.OPERAND.ADDR"(i32 addrspace(4)* %.omp.lb.ascast21, i32 addrspace(4)** %.omp.lb.ascast.addr), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast11), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast21), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast22), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast13), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %var.ascast15), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %ref.tmp.ascast17), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %ref.tmp2.ascast19), "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE"(i1 false), "QUAL.OMP.OPERAND.ADDR"(i32 addrspace(4)* %i.ascast13, i32 addrspace(4)** %i.ascast.addr), "QUAL.OMP.OPERAND.ADDR"(i32 addrspace(4)* %var.ascast15, i32 addrspace(4)** %var.ascast.addr), "QUAL.OMP.OPERAND.ADDR"(i32 addrspace(4)* %ref.tmp.ascast17, i32 addrspace(4)** %ref.tmp.ascast.addr), "QUAL.OMP.OPERAND.ADDR"(i32 addrspace(4)* %ref.tmp2.ascast19, i32 addrspace(4)** %ref.tmp2.ascast.addr), "QUAL.OMP.OPERAND.ADDR"(i32 addrspace(4)* %.omp.lb.ascast21, i32 addrspace(4)** %.omp.lb.ascast.addr), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp) ]
   %temp.load = load volatile i1, i1* %end.dir.temp, align 1
   br i1 %temp.load, label %DIR.OMP.END.DISTRIBUTE.9, label %DIR.OMP.DISTRIBUTE.6
 

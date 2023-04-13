@@ -1,6 +1,6 @@
 //===- Intel_IndirectCallConv.cpp - Indirect call Conv transformation -===//
 //
-// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -53,7 +53,6 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
-#include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 
 using namespace llvm;
@@ -331,7 +330,7 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
   assert(Tail_BB != nullptr && "Split BasicBlock Failed");
 
   // Get rid of branch that was added by splitBasicBlock.
-  OrigBlock->getInstList().pop_back();
+  OrigBlock->back().eraseFromParent();
 
   // List of newly created BasicBlocks that are created to hold direct calls.
   std::vector<BasicBlock *> NewDirectCallBBs;
@@ -521,99 +520,6 @@ bool IndirectCallConvImpl::run(Function &F) {
 
   LLVM_DEBUG(dbgs() << "End IntelIndCallConv\n\n");
   return Changed;
-}
-
-namespace {
-// IndirectCallConv legacy pass implementation
-struct IndirectCallConvLegacyPass : public FunctionPass {
-  static char ID; // Pass identification, replacement for typeid
-#if INTEL_FEATURE_SW_DTRANS
-  IndirectCallConvLegacyPass(bool UseAndersen = false, bool UseDTrans = false);
-#else  // INTEL_FEATURE_SW_DTRANS
-  IndirectCallConvLegacyPass(bool UseAndersen = false);
-#endif // INTEL_FEATURE_SW_DTRANS
-  bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-private:
-  bool UseAndersen;
-#if INTEL_FEATURE_SW_DTRANS
-  bool UseDTrans;
-#endif // INTEL_FEATURE_SW_DTRANS
-};
-} // namespace
-
-char IndirectCallConvLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IndirectCallConvLegacyPass, "indirectcallconv",
-                      "Indirect Call Conv", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)
-#if INTEL_FEATURE_SW_DTRANS
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-#endif // INTEL_FEATURE_SW_DTRANS
-INITIALIZE_PASS_END(IndirectCallConvLegacyPass, "indirectcallconv",
-                    "Indirect Call Conv", false, false)
-
-#if INTEL_FEATURE_SW_DTRANS
-FunctionPass *llvm::createIndirectCallConvLegacyPass(bool UseAndersen,
-                                                     bool UseDTrans) {
-  return new IndirectCallConvLegacyPass(UseAndersen, UseDTrans);
-}
-
-IndirectCallConvLegacyPass::IndirectCallConvLegacyPass(bool UseAndersen,
-                                                       bool UseDTrans)
-    : FunctionPass(ID), UseAndersen(UseAndersen), UseDTrans(UseDTrans) {
-  initializeIndirectCallConvLegacyPassPass(*PassRegistry::getPassRegistry());
-}
-#else  // INTEL_FEATURE_SW_DTRANS
-FunctionPass *llvm::createIndirectCallConvLegacyPass(bool UseAndersen) {
-  return new IndirectCallConvLegacyPass(UseAndersen);
-}
-
-IndirectCallConvLegacyPass::IndirectCallConvLegacyPass(bool UseAndersen)
-    : FunctionPass(ID), UseAndersen(UseAndersen) {
-  initializeIndirectCallConvLegacyPassPass(*PassRegistry::getPassRegistry());
-}
-#endif // INTEL_FEATURE_SW_DTRANS
-
-void IndirectCallConvLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-  if (UseAndersen || IndCallConvForceAndersen) {
-    AU.addRequired<AndersensAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-  }
-#if INTEL_FEATURE_SW_DTRANS
-  if (UseDTrans || IndCallConvForceDTrans) {
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-  }
-#endif // INTEL_FEATURE_SW_DTRANS
-  AU.addPreserved<WholeProgramWrapperPass>();
-}
-
-// Convert indirect calls to direct calls if possible using points-to info.
-//
-bool IndirectCallConvLegacyPass::runOnFunction(Function &F) {
-  if (skipFunction(F))
-    return false;
-
-  auto AnderPointsTo = (UseAndersen || IndCallConvForceAndersen)
-                           ? &getAnalysis<AndersensAAWrapperPass>().getResult()
-                           : nullptr;
-#if INTEL_FEATURE_SW_DTRANS
-  auto DTransInfo =
-      (UseDTrans || IndCallConvForceDTrans)
-          ? &getAnalysis<DTransAnalysisWrapper>().getDTransInfo(*F.getParent())
-          : nullptr;
-  // Just pass 'nullptr' for the DTransSafetyInfo parameter because the
-  // compiler is no longer using the legacy pass manager, and this code will be
-  // removed, so there is no point in extending it to support the opaque pointer
-  // case.
-  IndirectCallConvImpl ImplObj(AnderPointsTo, DTransInfo, nullptr);
-#else  // INTEL_FEATURE_SW_DTRANS
-  IndirectCallConvImpl ImplObj(AnderPointsTo);
-#endif // INTEL_FEATURE_SW_DTRANS
-  return ImplObj.run(F);
 }
 
 PreservedAnalyses IndirectCallConvPass::run(Module &M,

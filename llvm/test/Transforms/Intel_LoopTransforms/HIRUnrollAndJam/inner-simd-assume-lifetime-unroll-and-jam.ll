@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,print<hir>,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" -print-before=hir-unroll-and-jam -print-after=hir-unroll-and-jam < %s 2>&1 | FileCheck %s
 
 ; Verify that we can unroll & jam i1 loop by 8 in the presence of assume calls,
 ; inner simd loop which has aligned clause and a linear clause which has edges
@@ -8,7 +8,7 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
-; CHECK: |   %t7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.ALIGNED:PTR_TO_PTR(null64),  QUAL.OMP.LINEAR:IV(&((%n144.linear.iv)[0])1) ]
+; CHECK: |   %t7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.ALIGNED:PTR_TO_PTR(null, 64),  QUAL.OMP.LINEAR:IV(&((%n144.linear.iv)[0]), 1) ]
 ; CHECK: |   @llvm.assume(-1);
 ; CHECK: |
 ; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>
@@ -30,7 +30,7 @@
 ; CHECK: %tgu = (%n)/u8;
 
 ; CHECK: + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 12>
-; CHECK: |   %t7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.ALIGNED:PTR_TO_PTR(null64),  QUAL.OMP.LINEAR:IV(&((%n144.linear.iv)[0])1) ]
+; CHECK: |   %t7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.ALIGNED:PTR_TO_PTR(null, 64),  QUAL.OMP.LINEAR:IV(&((%n144.linear.iv)[0]), 1) ]
 ; CHECK: |   @llvm.assume(-1);
 ; CHECK: |   @llvm.assume(-1);
 ; CHECK: |   @llvm.assume(-1);
@@ -87,7 +87,7 @@
 ; CHECK: + END LOOP
 
 ; CHECK: + DO i1 = 8 * %tgu, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 7>
-; CHECK: |   %t7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.ALIGNED:PTR_TO_PTR(null64),  QUAL.OMP.LINEAR:IV(&((%n144.linear.iv)[0])1) ]
+; CHECK: |   %t7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.ALIGNED:PTR_TO_PTR(null, 64),  QUAL.OMP.LINEAR:IV(&((%n144.linear.iv)[0]), 1) ]
 ; CHECK: |   @llvm.assume(-1);
 ; CHECK: |
 ; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 100>

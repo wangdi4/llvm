@@ -1,5 +1,4 @@
-; RUN: opt -enable-new-pm=0 -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s 2>&1 | FileCheck %s
-; RUN: opt -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S %s 2>&1 | FileCheck %s
 
 ; Original code:
 ; int main() {

@@ -14,7 +14,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/Mutex.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include <cctype>
 #include <mutex>
 #include <sstream>

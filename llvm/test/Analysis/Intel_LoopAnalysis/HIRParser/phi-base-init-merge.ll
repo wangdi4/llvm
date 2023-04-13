@@ -1,5 +1,4 @@
-; RUN: opt < %s -analyze -enable-new-pm=0 -hir-ssa-deconstruction -hir-framework -hir-framework-debug=parser | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser 2>&1 | FileCheck %s
 
 ; Check for successful parsing.
 

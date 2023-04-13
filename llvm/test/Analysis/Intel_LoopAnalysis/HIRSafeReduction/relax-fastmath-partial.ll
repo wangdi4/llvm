@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -analyze -enable-new-pm=0 -hir-safe-reduction-analysis -S 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>" -S 2>&1 < %s | FileCheck %s
 
 ; [Note] the safe reduction is on on a partial path (without Unsafe Albegra)
@@ -62,8 +61,8 @@ for.body:                                         ; preds = %for.inc, %for.body.
 if.then:                                          ; preds = %for.body
   %arrayidx5 = getelementptr inbounds [1000 x float], [1000 x float]* @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
   %1 = load float, float* %arrayidx5, align 4, !tbaa !2
-  %add = fadd fast float %0, %1
-  %add6 = fadd fast float %tsum.015, %add
+  %add = fadd reassoc float %0, %1
+  %add6 = fadd reassoc float %tsum.015, %add
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

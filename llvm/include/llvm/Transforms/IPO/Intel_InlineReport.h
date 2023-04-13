@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.h - Implement inlining report ---------*- C++ -*-===//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -477,8 +477,7 @@ public:
     for (unsigned II = 0, E = ActiveInlinedCalls.size(); II < E; ++II)
       if (ActiveInlinedCalls[II] == &CB)
         ActiveInlinedCalls[II] = nullptr;
-    if (!FromCallback)
-      removeCallback(&CB);
+    removeCallback(&CB);
   }
 
   // Indicate that 'F' has been eliminated as a dead static function.
@@ -497,8 +496,7 @@ public:
       IRFunctionMap.erase(MapIt);
       IRDeadFunctionSet.insert(IRF);
     }
-    if (!FromCallback)
-      removeCallback(&F);
+    removeCallback(&F);
   }
 
   // Create or update the exiting representation of 'F'.
@@ -517,6 +515,11 @@ public:
   // Remove all of the CallBases in the 'BlocksToRemove' as dead code.
   void
   removeCallBasesInBasicBlocks(SmallSetVector<BasicBlock *, 8> &BlocksToRemove);
+
+  /// Ensure that the inline report for this routine reflects the
+  /// changes that have been made to that routine since the last call to
+  /// Inliner::runOnSCC(). Return 'true' if 'F' is modified.
+  bool makeCurrent(Function *F);
 
 private:
   /// The Level is specified by the option -inline-report=N.
@@ -589,7 +592,6 @@ private:
         /// corresponding to the Value has been deleted
         IR->removeFunctionReference(*F, true);
       }
-      CallbackVH::deleted();
     }
 
   public:
@@ -622,10 +624,10 @@ private:
   bool validate(void);
 #endif // NDEBUG
 
-  /// Ensure that the inline report for this routine reflects the
-  /// changes that have been made to that routine since the last call to
-  /// Inliner::runOnSCC()
-  void makeCurrent(Function *F);
+  /// Update the Functions in the call graph, so that all are current
+  /// and all newly created callsites will appear in the inline report.
+  /// Return 'true' if some function is modified.
+  bool makeAllCurrent(void);
 
   /// Indicate that the inline reports may need to be made current
   /// with InlineReport::makeCurrent() before they are changed to indicate
@@ -660,6 +662,17 @@ private:
   // Remove it from the IRCallSiteMap, remove its callback, and remove
   // all of its children if it represents an inlined call site.
   void removeIRCS(InlineReportCallSite *IRCS);
+};
+
+/// Pass to bring a Function up to date by including all its callsites in
+/// the classic inlining report and excluding any which have been deleted.
+class InlineReportMakeCurrentPass
+    : public PassInfoMixin<InlineReportMakeCurrentPass> {
+  static char PassID;
+
+public:
+  InlineReportMakeCurrentPass(void);
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
 /// Get the single, active classic inlining report.

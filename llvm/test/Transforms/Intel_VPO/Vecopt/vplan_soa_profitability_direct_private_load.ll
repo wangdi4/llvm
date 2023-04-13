@@ -3,9 +3,6 @@
 ; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-enable-soa -vplan-dump-soa-info \
 ; RUN: -disable-output -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
-; CHECK: SOA profitability:
-; CHECK: SOASafe = sPrivateStorage Profitable = 1
-
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
@@ -16,6 +13,9 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 declare void @llvm.lifetime.end.p0i8(i64, ptr nocapture)
 
 define void @_ZGVdN8uuuu_test_fn(ptr addrspace(1) %src) {
+; CHECK-LABEL:  SOA profitability:
+; CHECK-NEXT:  SOASafe = [[VP_SPRIVATESTORAGE:%.*]] (sPrivateStorage) Profitable = 1
+;
 entry:
   %sPrivateStorage = alloca [2 x i8], align 4
   %call = tail call i64 @_Z13get_global_idj(i32 0)

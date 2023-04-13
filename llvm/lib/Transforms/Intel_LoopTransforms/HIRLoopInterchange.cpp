@@ -461,6 +461,14 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       return;
     }
 
+    // Only the outermost loop of a perfect loopnest can be a SIMD loop as the
+    // region entry/exit intrinsics would prevent us from forming a perfect
+    // loopnest.
+    if (Loop->isSIMD()) {
+      LLVM_DEBUG(dbgs() << "\nSkipping SIMD loop\n");
+      return;
+    }
+
     if (LIP.HLS.getSelfLoopStatistics(InnermostLoop)
             .hasCallsWithUnsafeSideEffects()) {
       LLVM_DEBUG(

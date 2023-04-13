@@ -3,7 +3,7 @@
 ; AndersensAA shouldn't compute points-to of %call6 as empty by incorrectly
 ; modelling strtok library call when first argument of the call is nullptr.
 
-; RUN: opt < %s -passes='require<anders-aa>,instcombine' -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes='require<anders-aa>,instcombine' -S 2>&1 | FileCheck %s
 
 ; CHECK: %call6 = call i8* @strtok(i8* noundef null,
 ; CHECK: %arrayidx11 = getelementptr inbounds i8, i8* %call6, i64 1

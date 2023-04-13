@@ -1,6 +1,6 @@
 ; Use tbaa to disambiguate between stores of %i and %f even when they have the same symbases and eliminate the first store to %i.
 ;
-; RUN: opt -aa-pipeline="tbaa" -passes="hir-ssa-deconstruction,print<hir>,hir-dead-store-elimination,print<hir>" -hir-create-function-level-region -hir-details 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -aa-pipeline="tbaa" -passes="hir-ssa-deconstruction,print<hir>,hir-dead-store-elimination,print<hir>" -hir-create-function-level-region -hir-details 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Dead Store Elimination ***
 ; Function: foo

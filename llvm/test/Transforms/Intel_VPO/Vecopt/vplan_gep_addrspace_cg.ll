@@ -8,7 +8,7 @@
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32 addrspace(4)* [[VP_GEP_ASCAST:%.*]] = addrspacecast i32* [[VP_GEP]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LOAD:%.*]] = load i32 addrspace(4)* [[VP_GEP_ASCAST]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_OP:%.*]] = mul i32 [[VP_LOAD]] i32 3
-; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP_OP:%.*]] i32 addrspace(4)* [[VP_GEP_ASCAST]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] store i32 [[VP_OP:%.*]] i32 addrspace(4)* [[VP_GEP_ASCAST]]
 
 define dso_local void @test_gep_addrpspace_cast([1024 x i32]* %src) {
 ; CHECK:       VPlannedBB:

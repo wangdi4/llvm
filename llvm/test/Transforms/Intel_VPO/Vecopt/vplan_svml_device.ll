@@ -3,10 +3,12 @@
 
 ; RUN: opt -passes=vplan-vec -vplan-target-vf=16 -vector-library=SVML -S < %s | FileCheck %s
 
-; CHECK: call afn spir_func <16 x float> @_ZGVxM16v___svml_device_sinf(<16 x float>
-; CHECK: call afn spir_func <16 x float> @_ZGVxM16v___svml_device_cosf(<16 x float>
-; CHECK: call afn spir_func <16 x double> @_ZGVxN16vv___svml_device_pow(<16 x double>
-; CHECK: call afn spir_func <16 x double> @_ZGVxN16v___svml_device_log2(<16 x double>
+; CHECK: call afn spir_func <16 x float> @_ZGV_unknown_M16v___svml_device_sinf(<16 x float>
+; CHECK: call afn spir_func <16 x float> @_ZGV_unknown_M16v___svml_device_sinpif(<16 x float>
+; CHECK: call afn spir_func <16 x float> @_ZGV_unknown_M16v___svml_device_cosf(<16 x float>
+; CHECK: call afn spir_func <16 x float> @_ZGV_unknown_M16v___svml_device_cospif(<16 x float>
+; CHECK: call afn spir_func <16 x double> @_ZGV_unknown_N16vv___svml_device_pow(<16 x double>
+; CHECK: call afn spir_func <16 x double> @_ZGV_unknown_N16v___svml_device_log2(<16 x double>
 
 target datalayout = "p:32:32-p1:32:32-p2:16:16"
 target triple = "spir64"
@@ -22,7 +24,13 @@ declare void @llvm.directive.region.exit(token)
 declare spir_func float @sinf(float noundef) local_unnamed_addr
 
 ; Function Attrs: convergent mustprogress nofree nounwind willreturn writeonly
+declare spir_func float @sinpif(float noundef) local_unnamed_addr
+
+; Function Attrs: convergent mustprogress nofree nounwind willreturn writeonly
 declare spir_func float @cosf(float noundef) local_unnamed_addr
+
+; Function Attrs: convergent mustprogress nofree nounwind willreturn writeonly
+declare spir_func float @cospif(float noundef) local_unnamed_addr
 
 ; Function Attrs: convergent mustprogress nofree nounwind willreturn writeonly
 declare spir_func double @llvm.pow.f64(double noundef, double noundef) local_unnamed_addr
@@ -48,10 +56,12 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD, %if.e
 
 if.then:                                          ; preds = %omp.inner.for.body
   %call = call afn float @sinf(float noundef %1)
+  %callpi = call afn float @sinpif(float noundef %1)
   br label %if.end
 
 if.else:                                          ; preds = %omp.inner.for.body
   %call8 = call afn float @cosf(float noundef %1)
+  %callpi8 = call afn float @cospif(float noundef %1)
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then

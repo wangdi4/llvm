@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -hir-cost-model-throttling=0 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -hir-cost-model-throttling=0 -S %s | FileCheck %s
 
 ; CHECK: {{loop.*:}}
 ;verify first argument of this hir stmt was correctly cg'd

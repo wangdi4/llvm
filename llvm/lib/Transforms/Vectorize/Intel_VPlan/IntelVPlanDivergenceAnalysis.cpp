@@ -150,12 +150,16 @@ GepConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
 
 const VPVectorShape::VPShapeDescriptor
 SelectConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
-  /*            Uni,   Seq,   Str,   Rnd,   Undef */
-  /* Uni   */  {Uni,   Str,   Str,   Rnd,   Undef},
-  /* Seq   */  {Str,   Seq,   Str,   Rnd,   Undef},
-  /* Str   */  {Str,   Str,   Str,   Rnd,   Undef},
-  /* Rnd   */  {Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Undef */  {Undef, Undef, Undef, Undef, Undef}
+  /*            Uni,   Seq,   Str,   Rnd,   SOASeq, SOAStr, SOARnd, SOACVT, Undef */
+  /* Uni    */ {Uni,   Str,   Str,   Rnd,   Undef,  Undef,  Undef,  Undef,  Undef},
+  /* Seq    */ {Str,   Seq,   Str,   Rnd,   Undef,  Undef,  Undef,  Undef,  Undef},
+  /* Str    */ {Str,   Str,   Str,   Rnd,   Undef,  Undef,  Undef,  Undef,  Undef},
+  /* Rnd    */ {Rnd,   Rnd,   Rnd,   Rnd,   Undef,  Undef,  Undef,  Undef,  Undef},
+  /* SOASeq */ {Undef, Undef, Undef, Undef, SOASeq, SOAStr, SOARnd, SOACvt, Undef},
+  /* SOAStr */ {Undef, Undef, Undef, Undef, SOAStr, SOAStr, SOARnd, SOACvt, Undef},
+  /* SOARnd */ {Undef, Undef, Undef, Undef, SOARnd, SOARnd, SOARnd, SOACvt, Undef},
+  /* SOACvt */ {Undef, Undef, Undef, Undef, SOACvt, SOACvt, SOACvt, SOACvt, Undef},
+  /* Undef  */ {Undef, Undef, Undef, Undef, Undef,  Undef,  Undef,  Undef,  Undef}
 };
 
 // Undefine the defines used in table initialization. Code below is
@@ -184,13 +188,15 @@ void VPlanDivergenceAnalysis::markDivergent(const VPValue &DivVal) {
   // Community version also checks to see if DivVal is a function argument.
   // For VPlan, function arguments are ExternalDefs, so check that here instead.
   assert(!isAlwaysUniform(DivVal) && "cannot be a divergent");
-  if (getVectorShape(DivVal).isAnyStrided())
+  auto ExistingShape = getVectorShape(DivVal);
+  if (ExistingShape.isAnyStrided())
     return;
-  updateVectorShape(&DivVal, getRandomVectorShape());
+  updateVectorShape(&DivVal, VPVectorShape::makeRandom(ExistingShape));
 }
 
 // Mark UniVal as a value that is non-divergent.
 void VPlanDivergenceAnalysis::markUniform(const VPValue &UniVal) {
+  assert(!getVectorShape(UniVal).isSOAShape() && "Can't make uniform SOA shape");
   updateVectorShape(&UniVal, getUniformVectorShape());
 }
 
@@ -268,7 +274,6 @@ bool VPlanDivergenceAnalysis::isSOAUnitStride(const VPValue *Ptr) const {
   return getVectorShape(*Ptr).isSOAUnitStride();
 }
 
-#if INTEL_CUSTOMIZATION
 static bool hasDeterministicResult(const VPInstruction &I) {
   if (I.getType()->isVoidTy())
     return true;
@@ -286,31 +291,6 @@ static bool hasDeterministicResult(const VPInstruction &I) {
   // use conservative approach.
   return !I.mayHaveSideEffects();
 }
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-#else
-// This is used in the community version because br instructions are explicit.
-// We will do the same for VPlan once supported.
-bool DivergenceAnalysis::updateTerminator(const TerminatorInst &Term) const {
-
-  if (Term.getNumSuccessors() <= 1)
-    return false;
-
-  if (auto *BranchTerm = dyn_cast<BranchInst>(&Term)) {
-    assert(BranchTerm->isConditional());
-    return isDivergent(*BranchTerm->getCondition());
-  }
-
-  if (auto *SwitchTerm = dyn_cast<SwitchInst>(&Term))
-    return isDivergent(*SwitchTerm->getCondition());
-
-  if (isa<InvokeInst>(Term))
-    return false; // ignore abnormal executions through landingpad
-
-  llvm_unreachable("unexpected terminator");
-}
-#endif // INTEL_CUSTOMIZATION
 
 // Push the instruction onto the Worklist.
 bool VPlanDivergenceAnalysis::pushToWorklist(const VPInstruction &I) {
@@ -490,12 +470,10 @@ void VPlanDivergenceAnalysis::taintLoopLiveOuts(
 }
 
 void VPlanDivergenceAnalysis::pushPHINodes(const VPBasicBlock &Block,
-                                           bool PushAll) { // INTEL
+                                           bool PushAll) {
 
-#if INTEL_CUSTOMIZATION
   for (const auto &Phi : Block.getVPPhis()) {
     if (isDivergent(Phi) && !PushAll)
-#endif // INTEL_CUSTOMIZATION
       continue;
     pushToWorklist(Phi);
   }
@@ -567,6 +545,9 @@ void VPlanDivergenceAnalysis::propagateBranchDivergence(
 
 void VPlanDivergenceAnalysis::computeImpl() {
 
+  // Cache VPInductionInit associated with induction memory pointers.
+  cacheInductionInitPtrs();
+
   // propagate divergence
   while (const VPInstruction *NextI = popFromWorklist()) {
     const VPInstruction &I = *NextI;
@@ -574,6 +555,7 @@ void VPlanDivergenceAnalysis::computeImpl() {
     // maintain uniformity of overrides
     if ((isAlwaysUniform(I)) && !getVectorShape(I).isUndefined())
       continue;
+    LLVM_DEBUG(dbgs() << "Computing shape for"; I.print(dbgs()););
 
     bool IsPhiOrTerminatorNode = I.getOpcode() == Instruction::PHI ||
                                  I.getOpcode() == Instruction::Br;
@@ -589,6 +571,7 @@ void VPlanDivergenceAnalysis::computeImpl() {
       NewShape = computeVectorShape(&I);
       ShapeUpdated |= updateVectorShape(&I, NewShape);
     }
+    LLVM_DEBUG(dbgs() << " Result:"; NewShape.print(dbgs()); dbgs() << "\n");
 
     if (!ShapeUpdated)
       continue;
@@ -646,7 +629,6 @@ bool VPlanDivergenceAnalysis::isDivergent(const VPValue &V) const {
   return !getVectorShape(V).isUniform();
 }
 
-#if INTEL_CUSTOMIZATION
 VPVectorShape VPlanDivergenceAnalysis::getVectorShape(const VPValue &V) const {
   auto *NonConstDA = const_cast<VPlanDivergenceAnalysis *>(this);
   if (isAlwaysUniform(V))
@@ -1002,8 +984,7 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCastInst(
             // If stride is negative, swap lower/upper
             if (Lower > Upper)
               std::swap(Lower, Upper);
-            if ((Lower >= 0 && Upper <= UINT_MAX) ||
-                (Lower >= INT_MIN && Upper <= INT_MAX))
+            if (Lower >= INT_MIN && Upper <= INT_MAX)
               return Shape0;
           }
         }
@@ -1049,9 +1030,18 @@ VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I)
   // the gep. Gep stride is always in bytes.
   if (NewDesc != VPVectorShape::SOARnd && NewDesc != VPVectorShape::SOACvt) {
     auto *Gep = dyn_cast<VPGEPInstruction>(I);
-    Type *PointedToTy =
-        Gep ? Gep->getResultElementType()
-            : cast<VPSubscriptInst>(I)->getType()->getPointerElementType();
+    Type *PointedToTy = nullptr;
+    if (Gep)
+      PointedToTy = Gep->getResultElementType();
+    else {
+      auto *SI = cast<VPSubscriptInst>(I);
+      // We should not see self-addressof subscripts due to early exit
+      // in our caller.  We also punt SOA analysis when the size of
+      // a memory access doesn't match the size of the array element
+      // type, so it's safe to just consult the latter.
+      assert(SI->getNumDimensions() > 0);
+      PointedToTy = SI->dim(0).DimElementType;
+    }
     uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
     // For known strides:
     // 1) Uniform gep on an array-private should result in strided-access with
@@ -1086,13 +1076,18 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
 
   const auto &VPBB = *I->getParent();
   VPValue *PtrOp = I->getOperand(0);
+  VPVectorShape PtrShape = getObservedShape(VPBB, *PtrOp);
+
+  // Return pointer operand shape for SelfAddressOf instruction
+  if (auto *Subscript = dyn_cast<VPSubscriptInst>(I))
+    if (isSelfAddressOfInst(Subscript))
+      return PtrShape;
 
   // If this is a GEP on SOA variable, invoke the SOA-specific GEP-Shape
   // computation function.
   if (isSOAShape(PtrOp))
     return computeVectorShapeForSOAGepInst(I);
 
-  VPVectorShape PtrShape = getObservedShape(VPBB, *PtrOp);
   unsigned NumOperands = I->getNumOperands();
 
   // If any of the gep indices, except the last, are not uniform, then return
@@ -1110,9 +1105,6 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
   // Special processing for subscript instructions which could have struct
   // offsets in 0th dimension.
   if (auto *Subscript = dyn_cast<VPSubscriptInst>(I)) {
-    // Return pointer operand shape for SelfAddressOf instruction
-    if (isSelfAddressOfInst(Subscript))
-      return PtrShape;
     ArrayRef<unsigned> ZeroDimOffsets = Subscript->dim(0).StructOffsets;
     if (!ZeroDimOffsets.empty() && !IdxShape.isUniform())
       // 0-th dimension index is divergent and we have struct offsets, do not
@@ -1245,27 +1237,41 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
   return {NewDesc, NewStride};
 }
 
+template <typename PhiOrBlend>
+VPVectorShape
+VPlanDivergenceAnalysis::joinOperandShapes(const PhiOrBlend *Inst) {
+  VPVectorShape NewShape = VPVectorShape::getUndef();
+  for (unsigned I = 0; I < Inst->getNumIncomingValues(); I++) {
+    VPValue *IncomingVal = Inst->getIncomingValue(I);
+    VPVectorShape IncomingShape =
+        getObservedShape(*Inst->getParent(), *IncomingVal);
+    NewShape = VPVectorShape::joinShapes(NewShape, IncomingShape);
+  }
+  return NewShape;
+}
+
 VPVectorShape
 VPlanDivergenceAnalysis::computeVectorShapeForPhiNode(const VPPHINode *Phi) {
+
+  VPVectorShape NewShape = joinOperandShapes(Phi);
+
   // Incoming value shapes could be uniform, but the parent of the phi node may
   // be reached through a divergent branch. If so, the phi is divergent and
   // return random shape.
   if (!Phi->hasConstantOrUndefValue() && isJoinDivergent(*Phi->getParent()))
-    return getRandomVectorShape();
-
-  // Compute shape for phi node.
-  SmallVector<VPVectorShape, 2> Shapes;
-  VPVectorShape NewShape = VPVectorShape::getUndef();
-  Shapes.push_back(NewShape);
-  for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++) {
-    VPValue *IncomingVal = Phi->getIncomingValue(i);
-    VPVectorShape IncomingShape =
-        getObservedShape(*Phi->getParent(), *IncomingVal);
-    NewShape = VPVectorShape::joinShapes(NewShape, IncomingShape);
-    Shapes.push_back(NewShape);
-  }
+    return VPVectorShape::makeRandom(NewShape);
 
   return NewShape;
+}
+
+VPVectorShape
+VPlanDivergenceAnalysis::computeVectorShapeForBlend(const VPBlendInst *Blend) {
+
+  // Go through operands to handle undef shapes and verify SOA-ness.
+  VPVectorShape NewShape = joinOperandShapes(Blend);
+
+  // For blends we always return random.
+  return VPVectorShape::makeRandom(NewShape);
 }
 
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForLoadInst(
@@ -1277,6 +1283,15 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForLoadInst(
     if (cast<LoadInst>(UI)->isVolatile())
       return getRandomVectorShape();
 
+  // Discover if stride information can be obtained through VPInductionInit
+  // stored into the memory in the Loop preheader.
+  if (InductionInitPtrCache.count(PtrOp)) {
+    const VPInductionInit *Init = InductionInitPtrCache[PtrOp];
+    VPVectorShape InitShape = getObservedShape(*Init->getParent(), *Init);
+    if (InitShape.isAnyStridedNonPtr() && InitShape.hasKnownStride())
+      return InitShape;
+  }
+
   if (PtrShape.isUniform())
     // FIXME: volatile load from uniform memory should still be marked as
     // divergent/random-shaped.
@@ -1287,13 +1302,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForLoadInst(
 
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForStoreInst(
     const VPInstruction *I) {
-
-  const auto &VPBB = *I->getParent();
-  VPValue *ValOp = I->getOperand(0);
-  VPValue *PtrOp = I->getOperand(1);
-  VPVectorShape ValShape = getObservedShape(VPBB, *ValOp);
-  VPVectorShape PtrShape = getObservedShape(VPBB, *PtrOp);
-  return VPVectorShape::joinShapes(ValShape, PtrShape);
+  // For store return its pointer operand shape.
+  return getObservedShape(*I->getParent(), *I->getOperand(1));
 }
 
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCmpInst(
@@ -1360,14 +1370,18 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForShuffleVectorInst(
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForSelectInst(
     const VPInstruction *I) {
 
+  const auto &VPBB = *I->getParent();
+  VPValue *Op1 = I->getOperand(1);
+  VPValue *Op2 = I->getOperand(2);
+  VPVectorShape Shape1 = getObservedShape(VPBB, *Op1);
+  VPVectorShape Shape2 = getObservedShape(VPBB, *Op2);
+
+  assert(Shape1.isSOAShape() == Shape2.isSOAShape() &&
+         "Layout should be the same");
+
   VPValue *Mask = I->getOperand(0);
   VPVectorShape MaskShape = getVectorShape(*Mask);
   if (MaskShape.isUniform()) {
-    const auto &VPBB = *I->getParent();
-    VPValue *Op1 = I->getOperand(1);
-    VPValue *Op2 = I->getOperand(2);
-    VPVectorShape Shape1 = getObservedShape(VPBB, *Op1);
-    VPVectorShape Shape2 = getObservedShape(VPBB, *Op2);
     VPVectorShape::VPShapeDescriptor Shape1Desc = Shape1.getShapeDescriptor();
     VPVectorShape::VPShapeDescriptor Shape2Desc = Shape2.getShapeDescriptor();
     int64_t MaskConstIntVal;
@@ -1434,9 +1448,9 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCallInst(
   return getRandomVectorShape();
 }
 
-// Computes vector shape for AllocatePrivate instruction.
-VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocatePrivateInst(
-    const VPAllocatePrivate *AI) {
+// Computes vector shape for AllocatePrivate and AllocateDVBuffer instructions.
+VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocateInst(
+    const VPAllocateMemBase *AI) {
   // Allocate-private is of a pointer type. Get the pointee size and set a
   // tentative shape.
   Type *PointeeTy = AI->getAllocatedType();
@@ -1609,6 +1623,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::ReductionFinalArr)
     NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::ReductionFinalCmplx)
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalMasked)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateFinalMaskedMem)
@@ -1637,9 +1653,10 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::PrivateLastValueArrayNonPODMasked)
     NewShape = getUniformVectorShape();
-  else if (Opcode == VPInstruction::AllocatePrivate)
-    NewShape = computeVectorShapeForAllocatePrivateInst(
-        cast<const VPAllocatePrivate>(I));
+  else if (Opcode == VPInstruction::AllocateDVBuffer ||
+           Opcode == VPInstruction::AllocatePrivate)
+    NewShape =
+        computeVectorShapeForAllocateInst(cast<const VPAllocateMemBase>(I));
   else if (Opcode == VPInstruction::OrigTripCountCalculation)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::VectorTripCountCalculation)
@@ -1677,7 +1694,7 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::CvtMaskToInt)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::Blend)
-    NewShape = getRandomVectorShape();
+    NewShape = computeVectorShapeForBlend(cast<VPBlendInst>(I));
   else if (Opcode == VPInstruction::RunningInclusiveReduction)
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::RunningExclusiveReduction)
@@ -1757,10 +1774,39 @@ void VPlanDivergenceAnalysis::improveStrideUsingIR() {
     }
   }
 }
-#endif // INTEL_CUSTOMIZATION
+
+void VPlanDivergenceAnalysis::cacheInductionInitPtrs() {
+  InductionInitPtrCache.clear();
+
+  if (!RegionLoop)
+    return;
+
+  const auto *Preheader = RegionLoop->getLoopPreheader();
+  if (!Preheader)
+    return;
+
+  for (const auto &I : *Preheader) {
+    if (!isa<VPInductionInit>(&I))
+      continue;
+    const auto *Init = cast<VPInductionInit>(&I);
+    // Look for a Store in Preheader that stores this VPInductionInit.
+    for (const auto *U : Init->users()) {
+      if (!isa<VPInstruction>(U))
+        continue;
+      const VPInstruction *VPInst = cast<VPInstruction>(U);
+      if (VPInst->getParent() != Preheader ||
+          VPInst->getOpcode() != Instruction::Store)
+        continue;
+      const VPValue *StorePtr = VPInst->getOperand(1);
+      InductionInitPtrCache[StorePtr] = Init;
+      break;
+    }
+  }
+}
 
 void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
                                       VPLoopInfo *VPLInfo,
+                                      VPlanValueTracking *VPValTracking,
                                       VPDominatorTree &VPDomTree,
                                       VPPostDominatorTree &VPPostDomTree,
                                       bool IsLCSSA) {
@@ -1771,6 +1817,7 @@ void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
   Plan = P;
   RegionLoop = CandidateLoop;
   VPLI = VPLInfo;
+  VPVT = VPValTracking;
   DT = &VPDomTree;
   PDT = &VPPostDomTree;
   IsLCSSAForm = IsLCSSA;
@@ -1785,15 +1832,12 @@ void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
   // Compute the shapes of instructions - iterate until fixed point is reached.
   computeImpl();
 
-#if INTEL_CUSTOMIZATION
-
   // We verify the shapes of the instructions 'always' in the debug-build and if
   // the command-line switch is enabled.
   if (VPlanVerifyDA)
     verifyVectorShapes();
 
   improveStrideUsingIR();
-#endif // INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DumpDA)
@@ -1809,7 +1853,7 @@ void VPlanDivergenceAnalysis::compute(VPlanVector *P, VPLoop *CandidateLoop,
 // Dominator/Post-Dominator tree, etc. are unchanged from the previous
 // invocation of the \p compute method.
 void VPlanDivergenceAnalysis::recomputeShapes(
-    SmallPtrSetImpl<VPInstruction *> &Seeds,
+    SmallPtrSetImpl<VPInstruction *> &Seeds, bool FullRecompute,
     bool EnableFullDAVerificationAndPrint) {
 
   if (Seeds.empty())
@@ -1818,19 +1862,25 @@ void VPlanDivergenceAnalysis::recomputeShapes(
   // Clear the Worklist.
   clearWorklist();
 
-  // Compute the shapes of the VPAllocatePrivate seed-instructions and push
-  // their users to the Worklist.
-  for (auto *Inst : Seeds) {
-    assertOperandsDefined(*Inst, this);
-    auto Shape = computeVectorShape(Inst);
-    updateVectorShape(Inst, Shape);
-    pushUsers(*Inst);
+  if (FullRecompute) {
+    assert(!DARecomputationDisabled && "DA should not be fully recomputed!");
+    VectorShapes.clear();
+    ReversePostOrderTraversal<VPBasicBlock *> RPOT(&Plan->getEntryBlock());
+    for (auto *BB : RPOT)
+      for (auto &Inst : *BB)
+        pushToWorklist(Inst);
+  } else {
+    // Compute the shapes of the seed-instructions and push
+    // their users to the Worklist.
+    for (auto *Inst : Seeds) {
+      assertOperandsDefined(*Inst, this);
+      auto Shape = computeVectorShape(Inst);
+      updateVectorShape(Inst, Shape);
+      pushUsers(*Inst);
+    }
   }
-
   // Compute the shapes of instructions.
   computeImpl();
-
-#if INTEL_CUSTOMIZATION
 
   // We verify the shapes of the instructions 'always' in the debug-build and if
   // the command-line switch is enabled.
@@ -1844,8 +1894,6 @@ void VPlanDivergenceAnalysis::recomputeShapes(
     print(dbgs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
-
-#endif // INTEL_CUSTOMIZATION
 
 void VPlanDivergenceAnalysis::cloneDAData(
     VPlanVector *ClonedVPlan,

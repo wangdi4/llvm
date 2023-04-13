@@ -1,5 +1,4 @@
 ; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -passes 'unaligned-nontemporal,verify' < %s | FileCheck %s
-; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -unaligned-nontemporal -verify < %s | FileCheck %s
 target triple = "x86_64-unknown-linux-gnu"
 
 ; This test checks that blocks of stores with a sub-element hole are not

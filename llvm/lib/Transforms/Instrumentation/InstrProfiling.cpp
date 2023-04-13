@@ -1,4 +1,21 @@
 //===-- InstrProfiling.cpp - Frontend instrumentation based profiling -----===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,7 +33,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
@@ -47,6 +63,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include <algorithm>
@@ -188,7 +205,10 @@ public:
         // %BiasAdd = add i64 ptrtoint <__profc_>, <__llvm_profile_counter_bias>
         // %Addr = inttoptr i64 %BiasAdd to i64*
         auto *OrigBiasInst = dyn_cast<BinaryOperator>(AddrInst->getOperand(0));
-        assert(OrigBiasInst->getOpcode() == Instruction::BinaryOps::Add);
+#if INTEL_CUSTOMIZATION
+        assert(OrigBiasInst &&
+               OrigBiasInst->getOpcode() == Instruction::BinaryOps::Add);
+#endif // INTEL_CUSTOMIZATION
         Value *BiasInst = Builder.Insert(OrigBiasInst->clone());
         Addr = Builder.CreateIntToPtr(BiasInst, Ty->getPointerTo());
       }
@@ -599,7 +619,7 @@ static FunctionCallee getOrInsertValueProfilingCall(
 #include "llvm/ProfileData/InstrProfData.inc"
   };
   auto *ValueProfilingCallTy =
-      FunctionType::get(ReturnTy, makeArrayRef(ParamTypes), false);
+      FunctionType::get(ReturnTy, ArrayRef(ParamTypes), false);
   StringRef FuncName = CallType == ValueProfilingCallType::Default
                            ? getInstrProfValueProfFuncName()
                            : getInstrProfValueProfMemOpFuncName();
@@ -823,6 +843,72 @@ static inline bool shouldRecordFunctionAddr(Function *F) {
   return F->hasAddressTaken() || F->hasLinkOnceLinkage();
 }
 
+static inline bool shouldUsePublicSymbol(Function *Fn) {
+  // It isn't legal to make an alias of this function at all
+  if (Fn->isDeclarationForLinker())
+    return true;
+
+  // Symbols with local linkage can just use the symbol directly without
+  // introducing relocations
+  if (Fn->hasLocalLinkage())
+    return true;
+
+  // PGO + ThinLTO + CFI cause duplicate symbols to be introduced due to some
+  // unfavorable interaction between the new alias and the alias renaming done
+  // in LowerTypeTests under ThinLTO. For comdat functions that would normally
+  // be deduplicated, but the renaming scheme ends up preventing renaming, since
+  // it creates unique names for each alias, resulting in duplicated symbols. In
+  // the future, we should update the CFI related passes to migrate these
+  // aliases to the same module as the jump-table they refer to will be defined.
+  if (Fn->hasMetadata(LLVMContext::MD_type))
+    return true;
+
+  // For comdat functions, an alias would need the same linkage as the original
+  // function and hidden visibility. There is no point in adding an alias with
+  // identical linkage an visibility to avoid introducing symbolic relocations.
+  if (Fn->hasComdat() &&
+      (Fn->getVisibility() == GlobalValue::VisibilityTypes::HiddenVisibility))
+    return true;
+
+  // its OK to use an alias
+  return false;
+}
+
+static inline Constant *getFuncAddrForProfData(Function *Fn) {
+  auto *Int8PtrTy = Type::getInt8PtrTy(Fn->getContext());
+  // Store a nullptr in __llvm_profd, if we shouldn't use a real address
+  if (!shouldRecordFunctionAddr(Fn))
+    return ConstantPointerNull::get(Int8PtrTy);
+
+  // If we can't use an alias, we must use the public symbol, even though this
+  // may require a symbolic relocation.
+  if (shouldUsePublicSymbol(Fn))
+    return ConstantExpr::getBitCast(Fn, Int8PtrTy);
+
+  // When possible use a private alias to avoid symbolic relocations.
+  auto *GA = GlobalAlias::create(GlobalValue::LinkageTypes::PrivateLinkage,
+                                 Fn->getName() + ".local", Fn);
+
+  // When the instrumented function is a COMDAT function, we cannot use a
+  // private alias. If we did, we would create reference to a local label in
+  // this function's section. If this version of the function isn't selected by
+  // the linker, then the metadata would introduce a reference to a discarded
+  // section. So, for COMDAT functions, we need to adjust the linkage of the
+  // alias. Using hidden visibility avoids a dynamic relocation and an entry in
+  // the dynamic symbol table.
+  //
+  // Note that this handles COMDAT functions with visibility other than Hidden,
+  // since that case is covered in shouldUsePublicSymbol()
+  if (Fn->hasComdat()) {
+    GA->setLinkage(Fn->getLinkage());
+    GA->setVisibility(GlobalValue::VisibilityTypes::HiddenVisibility);
+  }
+
+  // appendToCompilerUsed(*Fn->getParent(), {GA});
+
+  return ConstantExpr::getBitCast(GA, Int8PtrTy);
+}
+
 static bool needsRuntimeRegistrationOfSectionRange(const Triple &TT) {
   // Don't do this for Darwin.  compiler-rt uses linker magic.
   if (TT.isOSDarwin())
@@ -1012,11 +1098,9 @@ InstrProfiling::getOrCreateRegionCounters(InstrProfInstBase *Inc) {
 #define INSTR_PROF_DATA(Type, LLVMType, Name, Init) LLVMType,
 #include "llvm/ProfileData/InstrProfData.inc"
   };
-  auto *DataTy = StructType::get(Ctx, makeArrayRef(DataTypes));
+  auto *DataTy = StructType::get(Ctx, ArrayRef(DataTypes));
 
-  Constant *FunctionAddr = shouldRecordFunctionAddr(Fn)
-                               ? ConstantExpr::getBitCast(Fn, Int8PtrTy)
-                               : ConstantPointerNull::get(Int8PtrTy);
+  Constant *FunctionAddr = getFuncAddrForProfData(Fn);
 
   Constant *Int16ArrayVals[IPVK_Last + 1];
   for (uint32_t Kind = IPVK_First; Kind <= IPVK_Last; ++Kind)
@@ -1108,7 +1192,7 @@ void InstrProfiling::emitVNodes() {
 #define INSTR_PROF_VALUE_NODE(Type, LLVMType, Name, Init) LLVMType,
 #include "llvm/ProfileData/InstrProfData.inc"
   };
-  auto *VNodeTy = StructType::get(Ctx, makeArrayRef(VNodeTypes));
+  auto *VNodeTy = StructType::get(Ctx, ArrayRef(VNodeTypes));
 
   ArrayType *VNodesTy = ArrayType::get(VNodeTy, NumCounters);
   auto *VNodesVar = new GlobalVariable(
@@ -1116,6 +1200,7 @@ void InstrProfiling::emitVNodes() {
       Constant::getNullValue(VNodesTy), getInstrProfVNodesVarName());
   VNodesVar->setSection(
       getInstrProfSectionName(IPSK_vnodes, TT.getObjectFormat()));
+  VNodesVar->setAlignment(M->getDataLayout().getABITypeAlign(VNodesTy));
   // VNodesVar is used by runtime but not referenced via relocation by other
   // sections. Conservatively make it linker retained.
   UsedVars.push_back(VNodesVar);
@@ -1185,7 +1270,7 @@ void InstrProfiling::emitRegistration() {
   if (NamesVar) {
     Type *ParamTypes[] = {VoidPtrTy, Int64Ty};
     auto *NamesRegisterTy =
-        FunctionType::get(VoidTy, makeArrayRef(ParamTypes), false);
+        FunctionType::get(VoidTy, ArrayRef(ParamTypes), false);
     auto *NamesRegisterF =
         Function::Create(NamesRegisterTy, GlobalVariable::ExternalLinkage,
                          getInstrProfNamesRegFuncName(), M);

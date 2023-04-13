@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal,print<hir>" -hir-loop-reversal-assume-profitability -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal,print<hir>" -hir-loop-reversal-assume-profitability -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s
 
 ; Verify that we give up on reversing the loop by checking for dd edges between call instruction's fake ddrefs.
 

@@ -208,7 +208,7 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB11]]: # preds: [[NEW_LOOP_LATCH0]], [[BB6]] {[[FREQ2519]]}
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND_NOT:%.*]] = not i1 [[VP_TAKE_BACKEDGE_COND]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 false
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP2:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP2]], [[BB8]], [[BB6]]
 ; CHECK-EMPTY:
@@ -264,7 +264,7 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ; CHECK-NEXT:     [DA: Uni] br [[BB13:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB13]]: # preds: [[BB6]] {[[FREQ2600]]}
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_LOOP_MASK:%.*]] = and i1 [[VP_CMP15]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_LOOP_MASK:%.*]] = select i1 [[VP_CMP15]] i1 [[VP_LOOP_MASK]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB12]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]]: # preds: [[BB13]] {[[FREQ2600]]}
@@ -278,8 +278,8 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ; CHECK-NEXT:     [DA: Uni] br [[BB14:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB14]]: # preds: [[BB12]] {[[FREQ2600]]}
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB14_BR_VP_CMP1_NOT:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_CMP1_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB14_BR_VP_CMP1:%.*]] = and i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_CMP1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB14_BR_VP_CMP1_NOT:%.*]] = select i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_CMP1_NOT]] i1 false
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB14_BR_VP_CMP1:%.*]] = select i1 [[VP_BB5_BR_VP_LOOP_MASK]] i1 [[VP_CMP1]] i1 false
 ; CHECK-NEXT:     [DA: Uni] br [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB14]] {[[FREQ2519]]}
@@ -309,7 +309,7 @@ define dso_local void @_ZGVbN32vvvv_foo(<32 x i32*> noalias nocapture noundef re
 ; CHECK-NEXT:    [[BB11]]: # preds: [[NEW_LOOP_LATCH0]] {[[FREQ2519]]}
 ; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP_CMP15]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_TAKE_BACKEDGE_COND_NOT]] = not i1 [[VP_TAKE_BACKEDGE_COND_BLEND_INTERMEDIATE_BB13]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_TAKE_BACKEDGE_COND_NOT]] i1 false
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP2]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP2]], [[BB8]], [[BB6]]
 ; CHECK-EMPTY:

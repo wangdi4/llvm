@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 ; If we multiversion internal function, all the auto-generated symbols must have
 ; the same linkage so that multiversioned symbols from different TUs don't
@@ -25,4 +25,4 @@ define i32 @bar(i32 %a) !llvm.auto.cpu.dispatch !0 {
 }
 
 !0 = !{!1}
-!1 = !{!"auto-cpu-dispatch-target", !"core_i7_sse4_2"}
+!1 = !{!"auto-cpu-dispatch-target", !"corei7"}

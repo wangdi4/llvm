@@ -35,6 +35,7 @@
 ; CHECK-NEXT:       Expand reduction intrinsics
 ; CHECK-NEXT:       Expand complex intrinsics ;INTEL
 ; CHECK-NEXT:       Expand indirectbr instructions
+; CHECK-NEXT:       FPBuiltin Function Selection
 ; CHECK-NEXT:       Exception handling preparation
 ; INTEL_CUSTOMIZATION
 ; INTEL_FEATURE_SW_ADVANCED
@@ -44,6 +45,7 @@
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:     X86 Pre-ISel Intrinsic Lowering ;INTEL
 ; CHECK-NEXT:     FunctionPass Manager ;INTEL
+; CHECK-NEXT:       Prepare callbr
 ; CHECK-NEXT:       Safe Stack instrumentation pass
 ; CHECK-NEXT:       Insert stack protectors
 ; CHECK-NEXT:       Module Verifier
@@ -52,8 +54,10 @@
 ; CHECK-NEXT:       Natural Loop Information
 ; CHECK-NEXT:       Scalar Evolution Analysis
 ; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:       Assignment Tracking Analysis
 ; CHECK-NEXT:       X86 DAG->DAG Instruction Selection
 ; CHECK-NEXT:       X86 PIC Global Base Reg Initialization
+; CHECK-NEXT:       Argument Stack Rebase
 ; CHECK-NEXT:       Finalize ISel and expand pseudo-instructions
 ; CHECK-NEXT:       Local Stack Slot Allocation
 ; CHECK-NEXT:       X86 speculative load hardening
@@ -91,6 +95,9 @@
 ; CHECK-NEXT:       StackMap Liveness Analysis
 ; CHECK-NEXT:       Live DEBUG_VALUE analysis
 ; CHECK-NEXT:       Machine Sanitizer Binary Metadata
+; CHECK-NEXT:       Lazy Machine Block Frequency Analysis
+; CHECK-NEXT:       Machine Optimization Remark Emitter
+; CHECK-NEXT:       Stack Frame Layout Analysis
 ; CHECK-NEXT:       X86 Speculative Execution Side Effect Suppression
 ; CHECK-NEXT:       X86 Indirect Thunks
 ; CHECK-NEXT:       X86 Return Thunks

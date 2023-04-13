@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -28,16 +28,25 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/TargetParser/Triple.h"
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/IR/Operator.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
+
+static cl::opt<TargetLibraryInfoImpl::AltMathLibrary> ClAltMathLibrary(
+    "alt-math-library", cl::Hidden,
+    cl::desc("Alternate floating point math library"),
+    cl::init(TargetLibraryInfoImpl::NoAltMathLibrary),
+    cl::values(clEnumValN(TargetLibraryInfoImpl::NoAltMathLibrary, "none",
+                          "No alternate math library"),
+               clEnumValN(TargetLibraryInfoImpl::TestAltMathLibrary, "test",
+                          "Fake library used for testing")));
 
 static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
     "vector-library", cl::Hidden, cl::desc("Vector functions library"),
@@ -54,18 +63,19 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                           "IBM MASS vector library"),
                clEnumValN(TargetLibraryInfoImpl::SVML, "SVML",
                           "Intel SVML library"),
-#if INTEL_CUSTOMIZATION
-               clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec",
-                          "Glibc vector math library")));
+               clEnumValN(TargetLibraryInfoImpl::SLEEFGNUABI, "sleefgnuabi",
+                          "SIMD Library for Evaluating Elementary Functions"),
+               clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec", // INTEL
+                          "Glibc vector math library")));            // INTEL
 
+#if INTEL_CUSTOMIZATION
 // Flag to track if TLI should mark non-readonly functions as vectorizable.
 static cl::opt<bool> TLIVecNonReadonlyLibCalls(
     "tli-vectorize-non-readonly-libcalls", cl::Hidden,
     cl::desc(
         "Vectorize library calls even if they don't have readonly attribute."),
     cl::init(true));
-#endif
-
+#endif // INTEL_CUSTOMIZATION
 StringLiteral const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] =
     {
 #define TLI_DEFINE_STRING
@@ -232,23 +242,14 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   TLI.setUnavailable(LibFunc_fputs_unlocked);
   TLI.setUnavailable(LibFunc_fgets_unlocked);
 
-  bool ShouldExtI32Param = false, ShouldExtI32Return = false,
-       ShouldSignExtI32Param = false;
-  // PowerPC64, Sparc64, SystemZ need signext/zeroext on i32 parameters and
-  // returns corresponding to C-level ints and unsigned ints.
-  if (T.isPPC64() || T.getArch() == Triple::sparcv9 ||
-      T.getArch() == Triple::systemz) {
-    ShouldExtI32Param = true;
-    ShouldExtI32Return = true;
-  }
-  // Mips, on the other hand, needs signext on i32 parameters corresponding
-  // to both signed and unsigned ints.
-  if (T.isMIPS()) {
-    ShouldSignExtI32Param = true;
-  }
+  bool ShouldExtI32Param, ShouldExtI32Return;
+  bool ShouldSignExtI32Param, ShouldSignExtI32Return;
+  TargetLibraryInfo::initExtensionsForTriple(ShouldExtI32Param,
+       ShouldExtI32Return, ShouldSignExtI32Param, ShouldSignExtI32Return, T);
   TLI.setShouldExtI32Param(ShouldExtI32Param);
   TLI.setShouldExtI32Return(ShouldExtI32Return);
   TLI.setShouldSignExtI32Param(ShouldSignExtI32Param);
+  TLI.setShouldSignExtI32Return(ShouldSignExtI32Return);
 
   // Let's assume by default that the size of int is 32 bits, unless the target
   // is a 16-bit architecture because then it most likely is 16 bits. If that
@@ -1513,7 +1514,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUseSVMLDevice(true);
 #endif // INTEL_CUSTOMIZATION
 
-  TLI.addVectorizableFunctionsFromVecLib(ClVectorLibrary);
+  TLI.addVectorizableFunctionsFromVecLib(ClVectorLibrary, T);
+  TLI.addAltMathFunctionsFromLib(ClAltMathLibrary);
 }
 
 TargetLibraryInfoImpl::TargetLibraryInfoImpl() {
@@ -1534,6 +1536,7 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(const TargetLibraryInfoImpl &TLI)
     : CustomNames(TLI.CustomNames), ShouldExtI32Param(TLI.ShouldExtI32Param),
       ShouldExtI32Return(TLI.ShouldExtI32Return),
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
+      ShouldSignExtI32Return(TLI.ShouldSignExtI32Return),
 #if INTEL_CUSTOMIZATION
       SizeOfInt(TLI.SizeOfInt),
       CurVectorLibrary(TLI.CurVectorLibrary) {
@@ -1543,6 +1546,7 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(const TargetLibraryInfoImpl &TLI)
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
   VectorDescs = TLI.VectorDescs;
   ScalarDescs = TLI.ScalarDescs;
+  AltMathFuncDescs = TLI.AltMathFuncDescs;
 }
 
 TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
@@ -1550,6 +1554,7 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
       ShouldExtI32Param(TLI.ShouldExtI32Param),
       ShouldExtI32Return(TLI.ShouldExtI32Return),
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
+      ShouldSignExtI32Return(TLI.ShouldSignExtI32Return),
 #if INTEL_CUSTOMIZATION
       SizeOfInt(TLI.SizeOfInt),
       CurVectorLibrary(TLI.CurVectorLibrary) {
@@ -1560,6 +1565,7 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
             AvailableArray);
   VectorDescs = TLI.VectorDescs;
   ScalarDescs = TLI.ScalarDescs;
+  AltMathFuncDescs = TLI.AltMathFuncDescs;
 }
 
 TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoImpl &TLI) {
@@ -1572,8 +1578,12 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoI
   VectorDescs = TLI.VectorDescs;
   ScalarDescs = TLI.ScalarDescs;
 #endif // INTEL_CUSTOMIZATION
+  ShouldSignExtI32Return = TLI.ShouldSignExtI32Return;
   SizeOfInt = TLI.SizeOfInt;
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
+  VectorDescs = TLI.VectorDescs;
+  ScalarDescs = TLI.ScalarDescs;
+  AltMathFuncDescs = TLI.AltMathFuncDescs;
   return *this;
 }
 
@@ -1587,9 +1597,13 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(TargetLibraryInfoImpl &&
   VectorDescs = std::move(TLI.VectorDescs);
   ScalarDescs = std::move(TLI.ScalarDescs);
 #endif // INTEL_CUSTOMIZATION
+  ShouldSignExtI32Return = TLI.ShouldSignExtI32Return;
   SizeOfInt = TLI.SizeOfInt;
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
+  VectorDescs = TLI.VectorDescs;
+  ScalarDescs = TLI.ScalarDescs;
+  AltMathFuncDescs = TLI.AltMathFuncDescs;
   return *this;
 }
 
@@ -5768,6 +5782,78 @@ void TargetLibraryInfoImpl::disableAllFunctions() {
   memset(AvailableArray, 0, sizeof(AvailableArray));
 }
 
+static bool compareAltMathDescs(const AltMathDesc &LHS,
+                                const AltMathDesc &RHS) {
+  if (LHS.IntrinID != RHS.IntrinID)
+    return LHS.IntrinID < RHS.IntrinID;
+  if (LHS.BaseFPType != RHS.BaseFPType)
+    return LHS.BaseFPType < RHS.BaseFPType;
+  if (LHS.VectorizationFactor != RHS.VectorizationFactor) {
+    // Sort scalar types ahead of vector types
+    if (LHS.VectorizationFactor.isScalar() !=
+        RHS.VectorizationFactor.isScalar())
+      return LHS.VectorizationFactor.isScalar() >
+             RHS.VectorizationFactor.isScalar();
+    assert((LHS.VectorizationFactor.isVector() &&
+            RHS.VectorizationFactor.isVector()) &&
+           "Unexpected vectorization factor in alt math fn desc");
+    // Sort scaleable vector types ahead of fixed vector types
+    if (LHS.VectorizationFactor.isScalable() !=
+        RHS.VectorizationFactor.isScalable())
+      return LHS.VectorizationFactor.isScalable() >
+             RHS.VectorizationFactor.isScalable();
+    // For non-scaleable vectors, this will be the fixed size
+    // For scaleable vectors, it's the size that's multiplied by the vscale
+    return LHS.VectorizationFactor.getKnownMinValue() <
+           RHS.VectorizationFactor.getKnownMinValue();
+  }
+  // Sort in order of descending accuracy
+  return LHS.Accuracy > RHS.Accuracy;
+}
+
+void TargetLibraryInfoImpl::addAltMathFunctions(ArrayRef<AltMathDesc> Fns) {
+  llvm::append_range(AltMathFuncDescs, Fns);
+  llvm::sort(AltMathFuncDescs, compareAltMathDescs);
+}
+
+void TargetLibraryInfoImpl::addAltMathFunctionsFromLib(
+    enum AltMathLibrary AltLib) {
+  switch (AltLib) {
+  case TestAltMathLibrary: {
+    const AltMathDesc AltMathFuncs[] = {
+#define TLI_DEFINE_TEST_ALTMATHFUNCS
+#include "llvm/Analysis/AltMathLibFuncs.def"
+    };
+    addAltMathFunctions(AltMathFuncs);
+    break;
+  }
+  case NoAltMathLibrary:
+    break;
+  }
+}
+
+/// Select an alternate math library implementation that meets the criteria
+/// described by an FPBuiltinIntrinsic call.
+StringRef TargetLibraryInfoImpl::selectFPBuiltinImplementation(
+    FPBuiltinIntrinsic *Builtin) const {
+  // TODO: Handle the case of no specified accuracy.
+  if (Builtin->getRequiredAccuracy() == std::nullopt)
+    return StringRef();
+  AltMathDesc RequiredDesc = {
+      Builtin->getIntrinsicID(), Builtin->getBaseTypeID(),
+      Builtin->getElementCount(), "", Builtin->getRequiredAccuracy().value()};
+  std::vector<AltMathDesc>::const_iterator I =
+      llvm::lower_bound(AltMathFuncDescs, RequiredDesc, compareAltMathDescs);
+  if (I == AltMathFuncDescs.end())
+    return StringRef(); // TODO: Report fatal error?
+  // No match found
+  if (I->IntrinID != Builtin->getIntrinsicID() ||
+      I->BaseFPType != Builtin->getBaseTypeID() ||
+      I->Accuracy > Builtin->getRequiredAccuracy().value())
+    return StringRef(); // TODO: Report fatal error?
+  return I->FnImplName;
+}
+
 static bool compareByScalarFnName(const VecDesc &LHS, const VecDesc &RHS) {
   return LHS.ScalarFnName < RHS.ScalarFnName;
 }
@@ -5789,7 +5875,7 @@ void TargetLibraryInfoImpl::addVectorizableFunctions(ArrayRef<VecDesc> Fns) {
 }
 
 void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
-    enum VectorLibrary VecLib) {
+    enum VectorLibrary VecLib, const llvm::Triple &TargetTriple) {
 #if INTEL_CUSTOMIZATION
   assert(
       CurVectorLibrary == NoLibrary &&
@@ -5854,6 +5940,27 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     }
     break;
   }
+  case SLEEFGNUABI: {
+    const VecDesc VecFuncs_VF2[] = {
+#define TLI_DEFINE_SLEEFGNUABI_VF2_VECFUNCS
+#include "llvm/Analysis/VecFuncs.def"
+    };
+    const VecDesc VecFuncs_VF4[] = {
+#define TLI_DEFINE_SLEEFGNUABI_VF4_VECFUNCS
+#include "llvm/Analysis/VecFuncs.def"
+    };
+
+    switch (TargetTriple.getArch()) {
+    default:
+      break;
+    case llvm::Triple::aarch64:
+    case llvm::Triple::aarch64_be:
+      addVectorizableFunctions(VecFuncs_VF2);
+      addVectorizableFunctions(VecFuncs_VF4);
+      break;
+    }
+    break;
+  }
 #if INTEL_CUSTOMIZATION
   case Libmvec: {
     const VecDesc VecFuncs[] = {
@@ -5886,6 +5993,59 @@ bool TargetLibraryInfoImpl::isOCLVectorFunction(StringRef FuncName) const {
     return I->IsOCLFn;
   }
   return false;
+}
+
+bool TargetLibraryInfoImpl::isOMPLibFunc(LibFunc F) const {
+  switch (F) {
+    case LibFunc_kmpc_barrier:
+    case LibFunc_kmpc_critical:
+    case LibFunc_kmpc_critical_with_hint:
+    case LibFunc_kmpc_dispatch_init_4:
+    case LibFunc_kmpc_dispatch_init_4u:
+    case LibFunc_kmpc_dispatch_init_8:
+    case LibFunc_kmpc_dispatch_init_8u:
+    case LibFunc_kmpc_dispatch_next_4:
+    case LibFunc_kmpc_dispatch_next_4u:
+    case LibFunc_kmpc_dispatch_next_8:
+    case LibFunc_kmpc_dispatch_next_8u:
+    case LibFunc_kmpc_end_critical:
+    case LibFunc_kmpc_end_reduce:
+    case LibFunc_kmpc_end_reduce_nowait:
+    case LibFunc_kmpc_end_serialized_parallel:
+    case LibFunc_kmpc_flush:
+    case LibFunc_kmpc_for_static_fini:
+    case LibFunc_kmpc_for_static_init_4:
+    case LibFunc_kmpc_for_static_init_4u:
+    case LibFunc_kmpc_for_static_init_8:
+    case LibFunc_kmpc_for_static_init_8u:
+    case LibFunc_kmpc_fork_call:
+    case LibFunc_kmpc_global_thread_num:
+    case LibFunc_kmpc_ok_to_fork:
+    case LibFunc_kmpc_omp_task:
+    case LibFunc_kmpc_omp_task_alloc:
+    case LibFunc_kmpc_omp_task_begin_if0:
+    case LibFunc_kmpc_omp_task_complete_if0:
+    case LibFunc_kmpc_omp_taskwait:
+    case LibFunc_kmpc_push_num_threads:
+    case LibFunc_kmpc_reduce:
+    case LibFunc_kmpc_reduce_nowait:
+    case LibFunc_kmpc_serialized_parallel:
+    case LibFunc_kmpc_single:
+    case LibFunc_kmpc_end_single:
+    case LibFunc_kmpc_masked:
+    case LibFunc_kmpc_end_masked:
+    case LibFunc_kmpc_master:
+    case LibFunc_kmpc_end_master:
+    case LibFunc_kmpc_threadprivate_cached:
+    case LibFunc_kmpc_atomic_compare_exchange:
+    case LibFunc_kmpc_atomic_fixed4_add:
+    case LibFunc_kmpc_atomic_float8_add:
+    case LibFunc_kmpc_atomic_load:
+    case LibFunc_kmpc_atomic_store:
+      return true;
+    default:
+      return false;
+  }
 }
 #endif // INTEL_CUSTOMIZATION
 

@@ -18,7 +18,6 @@
 #include "CompilerConfig.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "OCLAddressSpace.h"
 #include "ObjectCodeContainer.h"
 #include "Program.h"
 #include "StaticObjectLoader.h"
@@ -26,6 +25,7 @@
 #include "cl_sys_defines.h"
 #include "debuggingservicetype.h"
 
+#include "SPIRV/libSPIRV/spirv_internal.hpp"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -34,8 +34,8 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
@@ -159,9 +159,6 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program *pProgram) {
       bitCodeBuffer, reader.GetSectionSize(g_irSectionName));
   pProgram->SetBitCodeContainer(bcc);
 
-  // update the builtin module
-  pProgram->SetBuiltinModule(GetCompiler()->GetBuiltinModuleList());
-
   // parse the IR bit code
   StringRef data = StringRef(bitCodeBuffer, irSize);
   std::unique_ptr<MemoryBuffer> Buffer = MemoryBuffer::getMemBufferCopy(data);
@@ -250,7 +247,7 @@ Kernel *CPUProgramBuilder::CreateKernel(Function *pFunc,
 std::unique_ptr<KernelSet>
 CPUProgramBuilder::CreateKernels(Program *pProgram, const char *pBuildOpts,
                                  ProgramBuildResult &buildResult) const {
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
 
   std::unique_ptr<KernelSet> spKernels(new KernelSet);
 
@@ -379,10 +376,11 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
 
       PointerType *PT = GV.getType();
       unsigned AS = PT->getAddressSpace();
-      if (!IS_ADDR_SPACE_GLOBAL(AS) && !IS_ADDR_SPACE_CONSTANT(AS))
+      if (CompilationUtils::ADDRESS_SPACE_GLOBAL != AS &&
+          CompilationUtils::ADDRESS_SPACE_CONSTANT != AS)
         continue;
 
-      size_t Size = DL.getTypeAllocSize(PT->getContainedType(0));
+      size_t Size = DL.getTypeAllocSize(GV.getValueType());
       GlobalVariableTotalSize += Size;
 
       // Global variable with common or external linkage
@@ -394,8 +392,30 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
       if (!GV.hasCommonLinkage() && !GV.hasExternalLinkage())
         continue;
 
-      GlobalVariables.push_back(
-          {STRDUP(GV.getName().str().c_str()), Size, nullptr});
+      // Try to get decorations for device globals.
+      StringRef DecoName = "";
+      unsigned int HostAccessMode = HOST_ACCESS_READ_WRITE;
+      if (MDNode *DecoMD = GV.getMetadata("spirv.Decorations")) {
+        for (const MDOperand &MDOp : DecoMD->operands()) {
+          MDNode *Node = dyn_cast<MDNode>(MDOp);
+          if (Node && Node->getNumOperands() == 3 &&
+              mdconst::extract<ConstantInt>(Node->getOperand(0))
+                      ->getZExtValue() ==
+                  spv::internal::DecorationHostAccessINTEL) {
+            // Get the host access mode
+            HostAccessMode = mdconst::extract<ConstantInt>(Node->getOperand(1))
+                                 ->getZExtValue();
+            assert(HostAccessMode <= HOST_ACCESS_NONE &&
+                   "HostAccess mode is invalid");
+            // Get the decoration name
+            DecoName = cast<MDString>(Node->getOperand(2))->getString();
+          }
+        }
+      }
+
+      GlobalVariables.push_back({STRDUP(GV.getName().str().c_str()),
+                                 STRDUP(DecoName.str().c_str()), HostAccessMode,
+                                 Size, nullptr});
     }
     pProgram->SetGlobalVariableTotalSize(GlobalVariableTotalSize);
     pProgram->SetGlobalVariables(std::move(GlobalVariables));
@@ -549,17 +569,17 @@ void CPUProgramBuilder::JitProcessing(
   char *injectedObjStart = nullptr;
   size_t injectedObjSize;
   // Replace OpenCL programs with contents in a list of assembly filenames or a
-  // list of object filenames separated with comma or colon. The number of
-  // filenames must match with the number of OpenCL programs in the application.
+  // list of object filenames separated with comma. The number of filenames must
+  // match with the number of OpenCL programs in the application.
   SmallVector<StringRef, 4> replaceAsmFilenames;
   SmallVector<StringRef, 4> replaceObjFilenames;
 #ifndef INTEL_PRODUCT_RELEASE
   std::string envStrAsm;
   if (Intel::OpenCL::Utils::getEnvVar(envStrAsm, "CL_CONFIG_REPLACE_ASM"))
-    SplitString(envStrAsm, replaceAsmFilenames, ",:");
+    SplitString(envStrAsm, replaceAsmFilenames, ",");
   std::string envStrObj;
   if (Intel::OpenCL::Utils::getEnvVar(envStrObj, "CL_CONFIG_REPLACE_OBJ"))
-    SplitString(envStrObj, replaceObjFilenames, ",:");
+    SplitString(envStrObj, replaceObjFilenames, ",");
 #endif
   if ((options &&
        options->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT,
@@ -602,7 +622,7 @@ void CPUProgramBuilder::JitProcessing(
 
   // Record kernel names and trigger JIT compilation of kernels
   std::vector<std::string> kernelNames;
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace SYCLKernelMetadataAPI;
   auto Kernels = KernelList(module).getList();
   if (Kernels.empty()) {
     auto FSet = CompilationUtils::getKernels(*module);
@@ -611,7 +631,7 @@ void CPUProgramBuilder::JitProcessing(
   }
   for (auto *pFunc : Kernels) {
     Function *pWrapperFunc = nullptr;
-    auto kimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(pFunc);
+    auto kimd = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(pFunc);
     if (kimd.KernelWrapper.hasValue())
       pWrapperFunc = kimd.KernelWrapper.get();
     else if (pFunc->hasFnAttribute("kernel_wrapper"))

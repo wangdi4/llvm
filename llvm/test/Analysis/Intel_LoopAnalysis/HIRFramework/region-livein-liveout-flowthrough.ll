@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -enable-new-pm=0 < %s  2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; HIR-
@@ -20,7 +19,7 @@
 ; CHECK: LiveOuts:
 ; CHECK-SAME: %out
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S 2>&1 | FileCheck %s --check-prefix=CG-LIVEIN
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s 2>&1 | FileCheck %s --check-prefix=CG-LIVEIN
 
 ; Verify that we generate a store for livein instruciton %in even though it has no use inside the region.
 

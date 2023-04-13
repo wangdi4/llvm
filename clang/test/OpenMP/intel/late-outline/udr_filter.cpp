@@ -12,7 +12,7 @@
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-version=50 -fopenmp-targets=spir64 -fopenmp-is-device \
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - | \
-// RUN:  FileCheck %s
+// RUN:  FileCheck %s --check-prefixes CHECK,TARG
 
 
 template <class T>
@@ -48,11 +48,23 @@ struct Reducer {
     for (int i = 0; i < 10; i++)
        Res += 1;
   }
+
+  static void outside_udr() {
+    VTy Res = VTy();
+    Wrapper<RTy>::myinitfunc(Res);
+
+    #pragma omp target
+    { }
+    //TARG-DAG: DIR.OMP.PARALLEL{{.*}}UDR{{.*}}ptr null, ptr null, ptr null, ptr null)
+    #pragma omp parallel reduction(custom:Res)
+    { }
+  }
 };
 
 void foo() {
   Reducer<A<int>, int> var;
   var.reduce();
+  var.outside_udr();
 }
 
 // mycombinerfunc and myinitfunc are called only from the combiner and

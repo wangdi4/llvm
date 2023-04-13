@@ -20,10 +20,10 @@
 
 #include "TestsHelpClasses.h"
 #include "common_utils.h"
-#include <algorithm>
-#include <iterator>
-#include <sstream>
+#include "ocl_supported_extensions.h"
+#include "llvm/ADT/StringMap.h"
 
+using namespace llvm;
 extern cl_device_type gDeviceType;
 
 class CheckExtensions : public ::testing::TestWithParam<bool> {
@@ -50,38 +50,44 @@ protected:
 
 // Reference CPU extensions. Update this list if supported extension names or
 // version changes.
-const std::map<std::string, cl_version> extRefCPU = {
-    {"cl_khr_icd", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_global_int32_base_atomics", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_global_int32_extended_atomics", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_local_int32_base_atomics", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_local_int32_extended_atomics", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_int64_base_atomics", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_int64_extended_atomics", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_byte_addressable_store", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_depth_images", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_3d_image_writes", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_il_program", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_intel_unified_shared_memory_preview", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_intel_exec_by_local_thread", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_intel_vec_len_hint", CL_MAKE_VERSION(1, 0, 0)},
+static const StringMap<cl_version> extRefCPU = {
+    {OCL_EXT_KHR_SPIRV_LINKONCE_ODR, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_FP64, CL_MAKE_VERSION(1, 0, 0)},
+
+    {OCL_EXT_INTEL_SUBGROUPS, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_INTEL_SUBGROUPS_CHAR, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_INTEL_SUBGROUPS_SHORT, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_INTEL_SUBGROUPS_LONG, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_SUBGROUP_SHUFFLE, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_SUBGROUP_SHUFFLE_RELATIVE, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_SUBGROUP_EXTENDED_TYPES, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_SUBGROUP_NON_UNIFORM_ARITHMETIC, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_INTEL_SPIRV_SUBGROUPS, CL_MAKE_VERSION(1, 0, 0)},
+
+    {OCL_EXT_KHR_GLOBAL_BASE_ATOMICS, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_LOCAL_BASE_ATOMICS, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_INT64_BASE_ATOMICS, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_INT64_EXTENDED_ATOMICS, CL_MAKE_VERSION(1, 0, 0)},
+
+    {OCL_EXT_KHR_3D_IMAGE_WRITES, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_DEPTH_IMAGES, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_ICD, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_IL_PROGRAM, CL_MAKE_VERSION(1, 0, 0)},
+
+    {OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_INTEL_DEVICE_ATTRIBUTE_QUERY, CL_MAKE_VERSION(1, 0, 0)},
+
+    {OCL_EXT_INTEL_EXEC_BY_LOCAL_THREAD, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_INTEL_VEC_LEN_HINT, CL_MAKE_VERSION(1, 0, 0)},
 #ifndef _WIN32
-    {"cl_intel_device_partition_by_names", CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_INTEL_DEVICE_PARTITION_BY_NAMES, CL_MAKE_VERSION(1, 0, 0)},
 #endif
-    {"cl_khr_spir", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_fp64", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_image2d_from_buffer", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_intel_device_attribute_query", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_intel_required_subgroup_size", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_intel_spirv_subgroups", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_intel_subgroups", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_intel_subgroups_char", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_intel_subgroups_long", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_intel_subgroups_short", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_khr_spirv_linkonce_odr", CL_MAKE_VERSION(1, 0, 0)},
-    // FIXME: Re-claim cl_khr_subgroup_ballot support when we implement all
-    // required builtins.
-    // {"cl_khr_subgroup_ballot", CL_MAKE_VERSION(1, 0, 0)}
+    {OCL_EXT_KHR_SPIR, CL_MAKE_VERSION(1, 0, 0)},
+    {OCL_EXT_KHR_IMAGE2D_FROM_BUFFER, CL_MAKE_VERSION(1, 0, 0)},
 };
 
 TEST_P(CheckExtensions, CpuDevice) {
@@ -111,26 +117,18 @@ TEST_P(CheckExtensions, CpuDevice) {
   extensions.erase(std::find(extensions.begin(), extensions.end(), '\0'),
                    extensions.end());
   // Check each queried extension is present in reference extensions
-  std::map<std::string, cl_version> extRef(extRefCPU);
+  StringMap<cl_version> extRef(extRefCPU);
   if (GetParam())
-    extRef.insert({"cl_khr_fp16", CL_MAKE_VERSION(1, 0, 0)});
-  std::istringstream extss(extensions);
-  for (auto i = std::istream_iterator<std::string>(extss),
-            e = std::istream_iterator<std::string>();
-       i != e; ++i) {
-    ASSERT_EQ(extRef.count(*i), 1)
-        << ("Expect " + (*i) + " exists once in reference extensions");
-    extRef.erase(*i);
-  }
+    extRef.insert({OCL_EXT_KHR_FP16, CL_MAKE_VERSION(1, 0, 0)});
 
-  // Check extRef is empty.
-  if (!extRef.empty()) {
-    std::ostringstream ss;
-    for (auto ext : extRef)
-      ss << ext.first << ",";
-    FAIL() << ("Reference extensions " + ss.str() +
-               " are not in extensions queried from clGetDeviceInfo");
-  }
+  StringRef exts{extensions};
+  SmallVector<StringRef, 64> extensionVec;
+  SplitString(exts.substr(0, exts.find_first_of('\0')), extensionVec);
+  ASSERT_EQ(extensionVec.size(), extRef.size());
+
+  for (const auto &ext : extensionVec)
+    ASSERT_TRUE(extRef.count(ext))
+        << ext.str() << " is not in reference extensions";
 }
 
 static inline std::string makeVersonString(cl_version version) {
@@ -176,26 +174,19 @@ TEST_P(CheckExtensions, WithVersion) {
       << " Expected that platform and device extensions are equal!";
 
   // Check each queried extension is present in reference extensions
-  std::map<std::string, cl_version> extRef(extRefCPU);
+  StringMap<cl_version> extRef(extRefCPU);
   if (GetParam())
-    extRef.insert({"cl_khr_fp16", CL_MAKE_VERSION(1, 0, 0)});
-  for (auto extVer : extsWithVer) {
-    ASSERT_EQ(extVer.version, extRef[extVer.name])
-        << ("Expect " + std::string(extVer.name) + "(" +
-            makeVersonString(extVer.version) +
-            ") exists once in reference extensions");
-    if (extVer.version == extRef[extVer.name])
-      extRef.erase(extVer.name);
-  }
+    extRef.insert({OCL_EXT_KHR_FP16, CL_MAKE_VERSION(1, 0, 0)});
 
-  // Check extRef is empty.
-  if (!extRef.empty()) {
-    std::ostringstream ss;
-    for (auto ext : extRef)
-      ss << ext.first << "(" << makeVersonString(ext.second) << "), ";
+  ASSERT_EQ(extsWithVer.size(), extRef.size());
 
-    FAIL() << ("Reference extensions " + ss.str() +
-               "are not in extensions queried from clGetDeviceInfo");
+  for (const auto &extVer : extsWithVer) {
+    auto it = extRef.find(extVer.name);
+    ASSERT_NE(it, extRef.end())
+        << extVer.name << " is not in reference extensions";
+    ASSERT_EQ(extVer.version, it->second)
+        << extVer.name << "(" << makeVersonString(extVer.version) << ")"
+        << " is not in reference extensions";
   }
 }
 

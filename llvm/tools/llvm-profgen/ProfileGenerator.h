@@ -1,4 +1,21 @@
 //===-- ProfileGenerator.h - Profile Generator -----------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -129,9 +146,9 @@ protected:
       std::unordered_set<const BinaryFunction *> &ProfiledFunctions) = 0;
 
   // Thresholds from profile summary to answer isHotCount/isColdCount queries.
-  uint64_t HotCountThreshold;
+  uint64_t HotCountThreshold = 0; // INTEL
 
-  uint64_t ColdCountThreshold;
+  uint64_t ColdCountThreshold = 0; // INTEL
 
   ProfiledBinary *Binary = nullptr;
 
@@ -334,18 +351,18 @@ private:
 
   // Fill in function body samples from probes
   void populateBodySamplesWithProbes(const RangeSample &RangeCounter,
-                                     SampleContextFrames ContextStack);
+                                     const AddrBasedCtxKey *CtxKey);
   // Fill in boundary samples for a call probe
   void populateBoundarySamplesWithProbes(const BranchSample &BranchCounter,
-                                         SampleContextFrames ContextStack);
+                                         const AddrBasedCtxKey *CtxKey);
 
   ContextTrieNode *
-  getContextNodeForLeafProbe(SampleContextFrames ContextStack,
+  getContextNodeForLeafProbe(const AddrBasedCtxKey *CtxKey,
                              const MCDecodedPseudoProbe *LeafProbe);
 
   // Helper function to get FunctionSamples for the leaf probe
   FunctionSamples &
-  getFunctionProfileForLeafProbe(SampleContextFrames ContextStack,
+  getFunctionProfileForLeafProbe(const AddrBasedCtxKey *CtxKey,
                                  const MCDecodedPseudoProbe *LeafProbe);
 
   void convertToProfileMap(ContextTrieNode &Node,
@@ -357,6 +374,13 @@ private:
 
   bool collectFunctionsFromLLVMProfile(
       std::unordered_set<const BinaryFunction *> &ProfiledFunctions) override;
+
+  void initializeMissingFrameInferrer();
+
+  // Given an input `Context`, output `NewContext` with inferred missing tail
+  // call frames.
+  void inferMissingFrames(const SmallVectorImpl<uint64_t> &Context,
+                          SmallVectorImpl<uint64_t> &NewContext);
 
   ContextTrieNode &getRootContext() { return ContextTracker.getRootContext(); };
 

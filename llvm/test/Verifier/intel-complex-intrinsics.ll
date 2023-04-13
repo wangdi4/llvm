@@ -1,7 +1,7 @@
-; RUN: opt -verify -S < %s 2>&1 | FileCheck --check-prefix=CHECK1 %s
-; RUN: opt -verify -S < %s 2>&1 | FileCheck --check-prefix=CHECK2 %s
-; RUN: sed -e s/.T3:// %s | not opt -verify -disable-output 2>&1 | FileCheck --check-prefix=CHECK3 %s
-; RUN: sed -e s/.T4:// %s | not opt -verify -disable-output 2>&1 | FileCheck --check-prefix=CHECK4 %s
+; RUN: opt -passes="require<verify>" -S < %s 2>&1 | FileCheck --check-prefix=CHECK1 %s
+; RUN: opt -passes="require<verify>" -S < %s 2>&1 | FileCheck --check-prefix=CHECK2 %s
+; RUN: sed -e s/.T3:// %s | not opt -passes="require<verify>" -disable-output 2>&1 | FileCheck --check-prefix=CHECK3 %s
+; RUN: sed -e s/.T4:// %s | not opt -passes="require<verify>" -disable-output 2>&1 | FileCheck --check-prefix=CHECK4 %s
 
 ; Check that a double-valued complex fmul is accepted, and attributes are
 ; correct.

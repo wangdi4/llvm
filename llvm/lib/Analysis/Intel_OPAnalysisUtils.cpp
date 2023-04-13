@@ -49,8 +49,8 @@ static Type* FindFirstZeroOffsetStrucType(Type* Outer, Type* Inner) {
 // and the value is nullptr this denotes none type, typically
 // this is result of a merge of two conflicting types.
 //
-static Optional<Type *> mergeTypes(const Optional<Type *> &X,
-                                   const Optional<Type *> &Y) {
+static std::optional<Type *> mergeTypes(const std::optional<Type *> &X,
+                                        const std::optional<Type *> &Y) {
   if (!X.has_value()) {
     return Y;
   }
@@ -88,9 +88,10 @@ static Optional<Type *> mergeTypes(const Optional<Type *> &X,
 // Result of the function is an Optional with a meaning as it described
 // in MergeTypes function
 //
-static Optional<Type *>
-inferPtrElementTypeX(Value *V, DenseMap<const Value *, Optional<Type *>> &M) {
-  constexpr auto AnyTy = Optional<Type*>();
+static std::optional<Type *>
+inferPtrElementTypeX(Value *V,
+                     DenseMap<const Value *, std::optional<Type *>> &M) {
+  constexpr auto AnyTy = std::optional<Type *>();
   auto IT = M.find(V);
   if (IT != M.end()) {
     return IT->second;
@@ -183,7 +184,7 @@ Type *inferPtrElementType(Value &V) {
     return nullptr;
   if (Ty->getContext().supportsTypedPointers())
     return Ty->getNonOpaquePointerElementType();
-  auto VMap = DenseMap<const Value *, Optional<Type *>>();
+  auto VMap = DenseMap<const Value *, std::optional<Type *>>();
   auto RT = inferPtrElementTypeX(&V, VMap);
   return RT.has_value() ? RT.value() : nullptr;
 }

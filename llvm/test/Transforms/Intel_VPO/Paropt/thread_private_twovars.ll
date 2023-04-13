@@ -1,5 +1,5 @@
-; RUN: opt -enable-new-pm=0 -vpo-paropt-tpv -S %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt-tpv' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-tpv -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt-tpv' -S %s | FileCheck %s
 ;
 ; Make sure that vpo-paropt-tpv does not generate incorrect code
 ; for a test containing two threadprivate variables.
@@ -20,19 +20,17 @@
 ;
 ; CHECK: @__tpv_ptr_i = internal global i8** null, align 64
 ; CHECK: @__tpv_ptr_j = internal global i8** null, align 64
-; CHECK: [[BC_I:%[0-9]+]] = bitcast i32* @i to i8*
-; CHECK: [[TPV_CALL_I:%[0-9]+]] = call i8* @__kmpc_threadprivate_cached({{.*}}, i8* [[BC_I]], {{.*}}@__tpv_ptr_i)
-; CHECK: store i8* [[TPV_CALL_I]], i8** [[TPV_ALLOCA_I:%[0-9]+]]
+; CHECK: [[BC_I:%[^ ]+]] = bitcast i32* @i to i8*
+; CHECK: [[TPV_CALL_I:%[^ ]+]] = call i8* @__kmpc_threadprivate_cached({{.*}}, i8* [[BC_I]], {{.*}}@__tpv_ptr_i)
+; CHECK: store i8* [[TPV_CALL_I]], i8** [[TPV_ALLOCA_I:%[^ ]+]]
+; CHECK: [[TPV_LOAD_I:%[^ ]+]] = load i8*, i8** [[TPV_ALLOCA_I]]
+; CHECK: [[TPV_LOAD_CAST_I:%[^ ]+]] = bitcast i8* [[TPV_LOAD_I]] to i32*
 
-; CHECK: [[BC_J:%[0-9]+]] = bitcast i32* @j to i8*
-; CHECK: [[TPV_CALL_J:%[0-9]+]] = call i8* @__kmpc_threadprivate_cached({{.*}}, i8* [[BC_J]], {{.*}}@__tpv_ptr_j)
-; CHECK: store i8* [[TPV_CALL_J]], i8** [[TPV_ALLOCA_J:%[0-9]+]]
-
-; CHECK: [[TPV_LOAD_I:%[0-9]+]] = load i8*, i8** [[TPV_ALLOCA_I]]
-; CHECK: [[TPV_LOAD_CAST_I:%[0-9]+]] = bitcast i8* [[TPV_LOAD_I]] to i32*
-
-; CHECK: [[TPV_LOAD_J:%[0-9]+]] = load i8*, i8** [[TPV_ALLOCA_J]]
-; CHECK: [[TPV_LOAD_CAST_J:%[0-9]+]] = bitcast i8* [[TPV_LOAD_J]] to i32*
+; CHECK: [[BC_J:%[^ ]+]] = bitcast i32* @j to i8*
+; CHECK: [[TPV_CALL_J:%[^ ]+]] = call i8* @__kmpc_threadprivate_cached({{.*}}, i8* [[BC_J]], {{.*}}@__tpv_ptr_j)
+; CHECK: store i8* [[TPV_CALL_J]], i8** [[TPV_ALLOCA_J:%[^ ]+]]
+; CHECK: [[TPV_LOAD_J:%[^ ]+]] = load i8*, i8** [[TPV_ALLOCA_J]]
+; CHECK: [[TPV_LOAD_CAST_J:%[^ ]+]] = bitcast i8* [[TPV_LOAD_J]] to i32*
 
 ; CHECK: "DIR.OMP.PARALLEL"()
 ; CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[TPV_LOAD_CAST_I]])

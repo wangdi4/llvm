@@ -64,19 +64,25 @@ static void printOptWarning(BasicBlock *BB, std::string ShortForm,
   BB->getContext().diagnose(Diag);
 }
 
-// If I is a SIMD begin region directive, with no use, delete it and return
-// true.
+// If I is a SIMD begin region directive or memory guard begin region directive,
+// with no use, delete it and return true.
 // Return false if no change.
-static bool fixUnreachableSimdEnd(Instruction *I) {
+static bool fixUnreachableDirectiveEnd(Instruction *I) {
   int BeginDirID = VPOAnalysisUtils::getDirectiveID(I);
-  if (BeginDirID != DIR_OMP_SIMD)
+  if (BeginDirID != DIR_OMP_SIMD && BeginDirID != DIR_VPO_GUARD_MEM_MOTION)
     return false;
   auto Users = I->users();
   if (Users.begin() != Users.end())
     return false;
-  printOptWarning(I->getParent(), "SimdExitUnreachable",
-                  "OpenMP simd loop does not have a reachable exit.");
+  if (BeginDirID == DIR_OMP_SIMD) {
+    // Emit missed diagnostic for removed SIMD directive.
+    printOptWarning(I->getParent(), "SimdExitUnreachable",
+                    "OpenMP simd loop does not have a reachable exit.");
+  }
   I->eraseFromParent();
+  LLVM_DEBUG(dbgs() << "Removed "
+                    << VPOAnalysisUtils::getOmpDirectiveName(BeginDirID)
+                    << " entry directive due to unreachable exit.\n");
   return true;
 }
 
@@ -110,10 +116,10 @@ bool VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
   for (Instruction *I : InstructionsToSplit) {
     // SIMD loops with UB, may have an unreachable exit after optimization.
     // Since this is also UB (the exit must be reachable), remove the SIMD
-    // entry directive, in this case.
+    // entry directive (and memory guard directive), in this case.
     // The problem will not happen for non-SIMD regions, because branches
     // are inserted to ensure the exit is reached.
-    if (fixUnreachableSimdEnd(I)) {
+    if (fixUnreachableDirectiveEnd(I)) {
       Changed = true;
       continue;
     }

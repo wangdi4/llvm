@@ -255,19 +255,19 @@ define i32 @test_x86_avx512_cvttss2usi(<4 x float> %a0) {
 define i32 @test_x86_avx512_cvtsd2usi32(<2 x double> %a0) {
 ; AVX256P-X64-LABEL: test_x86_avx512_cvtsd2usi32:
 ; AVX256P-X64:       # %bb.0:
-; AVX256P-X64-NEXT:    vcvtsd2usi %xmm0, %ecx
-; AVX256P-X64-NEXT:    vcvtsd2usi {rz-sae}, %xmm0, %edx
+; AVX256P-X64-NEXT:    vcvtsd2usi %xmm0, %eax
+; AVX256P-X64-NEXT:    vcvtsd2usi {rz-sae}, %xmm0, %ecx
+; AVX256P-X64-NEXT:    addl %eax, %ecx
 ; AVX256P-X64-NEXT:    vcvtsd2usi {rd-sae}, %xmm0, %eax
-; AVX256P-X64-NEXT:    addl %edx, %eax
 ; AVX256P-X64-NEXT:    addl %ecx, %eax
 ; AVX256P-X64-NEXT:    retq
 ;
 ; AVX256P-X86-LABEL: test_x86_avx512_cvtsd2usi32:
 ; AVX256P-X86:       # %bb.0:
-; AVX256P-X86-NEXT:    vcvtsd2usi %xmm0, %ecx
-; AVX256P-X86-NEXT:    vcvtsd2usi {rz-sae}, %xmm0, %edx
+; AVX256P-X86-NEXT:    vcvtsd2usi %xmm0, %eax
+; AVX256P-X86-NEXT:    vcvtsd2usi {rz-sae}, %xmm0, %ecx
+; AVX256P-X86-NEXT:    addl %eax, %ecx
 ; AVX256P-X86-NEXT:    vcvtsd2usi {rd-sae}, %xmm0, %eax
-; AVX256P-X86-NEXT:    addl %edx, %eax
 ; AVX256P-X86-NEXT:    addl %ecx, %eax
 ; AVX256P-X86-NEXT:    retl
   %res = call i32 @llvm.x86.avx512.vcvtsd2usi32(<2 x double> %a0, i32 4)
@@ -281,19 +281,19 @@ define i32 @test_x86_avx512_cvtsd2usi32(<2 x double> %a0) {
 define i32 @test_x86_avx512_cvtsd2si32(<2 x double> %a0) {
 ; AVX256P-X64-LABEL: test_x86_avx512_cvtsd2si32:
 ; AVX256P-X64:       # %bb.0:
-; AVX256P-X64-NEXT:    vcvtsd2si %xmm0, %ecx
-; AVX256P-X64-NEXT:    vcvtsd2si {rz-sae}, %xmm0, %edx
+; AVX256P-X64-NEXT:    vcvtsd2si %xmm0, %eax
+; AVX256P-X64-NEXT:    vcvtsd2si {rz-sae}, %xmm0, %ecx
+; AVX256P-X64-NEXT:    addl %eax, %ecx
 ; AVX256P-X64-NEXT:    vcvtsd2si {rd-sae}, %xmm0, %eax
-; AVX256P-X64-NEXT:    addl %edx, %eax
 ; AVX256P-X64-NEXT:    addl %ecx, %eax
 ; AVX256P-X64-NEXT:    retq
 ;
 ; AVX256P-X86-LABEL: test_x86_avx512_cvtsd2si32:
 ; AVX256P-X86:       # %bb.0:
-; AVX256P-X86-NEXT:    vcvtsd2si %xmm0, %ecx
-; AVX256P-X86-NEXT:    vcvtsd2si {rz-sae}, %xmm0, %edx
+; AVX256P-X86-NEXT:    vcvtsd2si %xmm0, %eax
+; AVX256P-X86-NEXT:    vcvtsd2si {rz-sae}, %xmm0, %ecx
+; AVX256P-X86-NEXT:    addl %eax, %ecx
 ; AVX256P-X86-NEXT:    vcvtsd2si {rd-sae}, %xmm0, %eax
-; AVX256P-X86-NEXT:    addl %edx, %eax
 ; AVX256P-X86-NEXT:    addl %ecx, %eax
 ; AVX256P-X86-NEXT:    retl
   %res = call i32 @llvm.x86.avx512.vcvtsd2si32(<2 x double> %a0, i32 4)
@@ -307,19 +307,19 @@ define i32 @test_x86_avx512_cvtsd2si32(<2 x double> %a0) {
 define i32 @test_x86_avx512_cvtss2usi32(<4 x float> %a0) {
 ; AVX256P-X64-LABEL: test_x86_avx512_cvtss2usi32:
 ; AVX256P-X64:       # %bb.0:
-; AVX256P-X64-NEXT:    vcvtss2usi %xmm0, %ecx
-; AVX256P-X64-NEXT:    vcvtss2usi {rz-sae}, %xmm0, %edx
+; AVX256P-X64-NEXT:    vcvtss2usi %xmm0, %eax
+; AVX256P-X64-NEXT:    vcvtss2usi {rz-sae}, %xmm0, %ecx
+; AVX256P-X64-NEXT:    addl %eax, %ecx
 ; AVX256P-X64-NEXT:    vcvtss2usi {rd-sae}, %xmm0, %eax
-; AVX256P-X64-NEXT:    addl %edx, %eax
 ; AVX256P-X64-NEXT:    addl %ecx, %eax
 ; AVX256P-X64-NEXT:    retq
 ;
 ; AVX256P-X86-LABEL: test_x86_avx512_cvtss2usi32:
 ; AVX256P-X86:       # %bb.0:
-; AVX256P-X86-NEXT:    vcvtss2usi %xmm0, %ecx
-; AVX256P-X86-NEXT:    vcvtss2usi {rz-sae}, %xmm0, %edx
+; AVX256P-X86-NEXT:    vcvtss2usi %xmm0, %eax
+; AVX256P-X86-NEXT:    vcvtss2usi {rz-sae}, %xmm0, %ecx
+; AVX256P-X86-NEXT:    addl %eax, %ecx
 ; AVX256P-X86-NEXT:    vcvtss2usi {rd-sae}, %xmm0, %eax
-; AVX256P-X86-NEXT:    addl %edx, %eax
 ; AVX256P-X86-NEXT:    addl %ecx, %eax
 ; AVX256P-X86-NEXT:    retl
   %res = call i32 @llvm.x86.avx512.vcvtss2usi32(<4 x float> %a0, i32 4)
@@ -333,19 +333,19 @@ define i32 @test_x86_avx512_cvtss2usi32(<4 x float> %a0) {
 define i32 @test_x86_avx512_cvtss2si32(<4 x float> %a0) {
 ; AVX256P-X64-LABEL: test_x86_avx512_cvtss2si32:
 ; AVX256P-X64:       # %bb.0:
-; AVX256P-X64-NEXT:    vcvtss2si %xmm0, %ecx
-; AVX256P-X64-NEXT:    vcvtss2si {rz-sae}, %xmm0, %edx
+; AVX256P-X64-NEXT:    vcvtss2si %xmm0, %eax
+; AVX256P-X64-NEXT:    vcvtss2si {rz-sae}, %xmm0, %ecx
+; AVX256P-X64-NEXT:    addl %eax, %ecx
 ; AVX256P-X64-NEXT:    vcvtss2si {rd-sae}, %xmm0, %eax
-; AVX256P-X64-NEXT:    addl %edx, %eax
 ; AVX256P-X64-NEXT:    addl %ecx, %eax
 ; AVX256P-X64-NEXT:    retq
 ;
 ; AVX256P-X86-LABEL: test_x86_avx512_cvtss2si32:
 ; AVX256P-X86:       # %bb.0:
-; AVX256P-X86-NEXT:    vcvtss2si %xmm0, %ecx
-; AVX256P-X86-NEXT:    vcvtss2si {rz-sae}, %xmm0, %edx
+; AVX256P-X86-NEXT:    vcvtss2si %xmm0, %eax
+; AVX256P-X86-NEXT:    vcvtss2si {rz-sae}, %xmm0, %ecx
+; AVX256P-X86-NEXT:    addl %eax, %ecx
 ; AVX256P-X86-NEXT:    vcvtss2si {rd-sae}, %xmm0, %eax
-; AVX256P-X86-NEXT:    addl %edx, %eax
 ; AVX256P-X86-NEXT:    addl %ecx, %eax
 ; AVX256P-X86-NEXT:    retl
   %res = call i32 @llvm.x86.avx512.vcvtss2si32(<4 x float> %a0, i32 4)

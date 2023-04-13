@@ -11,22 +11,22 @@
 ; CHECK-LABEL: @stores
 ; CHECK-NOT: noalias
 
-@G = global i32* null
+@G = global ptr null
 
 define i32 @main() {
 entry:
   %P = alloca i32
-  store i32* %P, i32** @G
-  %call = call i32 @stores(i32* nonnull %P)
+  store ptr %P, ptr @G
+  %call = call i32 @stores(ptr nonnull %P)
   ret i32 %call
 }
 
-define internal i32 @stores(i32* nocapture %X) {
+define internal i32 @stores(ptr nocapture %X) {
 entry:
-  store i32 1, i32* %X
-  %pG = load i32*, i32** @G
-  store i32 0, i32* %pG
-  %r = load i32, i32* %X
+  store i32 1, ptr %X
+  %pG = load ptr, ptr @G
+  store i32 0, ptr %pG
+  %r = load i32, ptr %X
   ret i32 %r
 }
 

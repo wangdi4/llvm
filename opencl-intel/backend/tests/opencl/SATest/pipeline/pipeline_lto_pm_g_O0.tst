@@ -3,7 +3,7 @@
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled
 
-; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
+; CHECK:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
@@ -14,7 +14,7 @@
 ; CHECK-NEXT: Running analysis: VerifierAnalysis
 #endif // #ifndef NDEBUG
 
-; CHECK:      Running pass: DPCPPEqualizerPass
+; CHECK:      Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
@@ -27,7 +27,7 @@
 ; CHECK:      Running pass: DetectRecursionPass
 ; CHECK:      Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK:      Running pass: InstToFuncCallPass
 ; CHECK:      Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
@@ -38,9 +38,8 @@
 ; CHECK:      Running pass: PreventDivCrashesPass
 ; CHECK-NEXT: Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
-; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
-; CHECK:      Running pass: IndirectCallLowering
-; CHECK:      Skipping pass RemoveRegionDirectivesPass
+; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
+; CHECK:      Running pass: IndirectCallLowering ;INTEL
 ; CHECK:      Skipping pass UnifyFunctionExitNodesPass
 
 ; CHECK:      Running pass: GroupBuiltinPass
@@ -49,6 +48,8 @@
 ; CHECK-NEXT: Running analysis: SGSizeAnalysisPass
 ; CHECK-NEXT: Running pass: SGBarrierPropagatePass
 ; CHECK-NEXT: Running pass: SGBarrierSimplifyPass
+; CHECK-NEXT: Running pass: ImplicitGIDPass
+; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 ; CHECK-NEXT: Running pass: SGValueWidenPass
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Running pass: SGLoopConstructPass
@@ -57,7 +58,6 @@
 ; CHECK:      Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: SplitBBonBarrier
 ; CHECK-NEXT: Running pass: KernelBarrier
-; CHECK:      Running analysis: DataPerBarrierAnalysis
 ; CHECK:      Running analysis: DataPerValueAnalysis
 ; CHECK:      Running analysis: WIRelatedValueAnalysis
 
@@ -66,7 +66,6 @@
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass
 ; CHECK:      Running pass: BuiltinImportPass
 ; CHECK:      Running pass: BuiltinCallToInstPass

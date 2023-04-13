@@ -82,12 +82,12 @@ cl_int CPUTestLogger::clLogReleaseClient(cl_int client_id) {
 cl_int CPUTestLogger::clLogAddLine(cl_int client_id, cl_int log_level,
                                    const char *IN source_file,
                                    const char *IN function_name,
-                                   cl_int line_num, const char *IN message,
-                                   ...) {
+                                   cl_int line_num, ...) {
   if (client_id < iLastClientId && NULL != pLoggerClient[client_id]) {
     va_list va;
-    va_start(va, message);
-
+    va_start(va, line_num);
+    const char *message = va_arg(va, char *);
+    assert(message && "Printf-style format string in CPUINFOLOG is NULL");
     // Printing to stdout brokes lit.googletest runner
     fprintf(stderr, "Source file name is %s function_name %s line num %d ",
             source_file, function_name, line_num);

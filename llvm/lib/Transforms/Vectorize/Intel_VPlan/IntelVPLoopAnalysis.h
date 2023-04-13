@@ -157,10 +157,11 @@ class VPReduction
 public:
   VPReduction(VPValue *Start, VPInstruction *Exit, RecurKind RdxKind,
               FastMathFlags FMF, Type *RT, bool Signed,
-              VPEntityAliasesTy &&InMemAliases, bool IsMemOnly = false,
-              unsigned char Id = Reduction)
+              VPEntityAliasesTy &&InMemAliases, bool IsComplex,
+              bool IsMemOnly = false, unsigned char Id = Reduction)
       : VPLoopEntity(Id, IsMemOnly, std::move(InMemAliases)),
-        RDTempl(Start, Exit, RdxKind, FMF, RT, Signed, false) {}
+        RDTempl(Start, Exit, RdxKind, FMF, RT, Signed, false),
+        IsComplex(IsComplex) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -183,6 +184,8 @@ public:
         getRecurrenceKind());
   }
 
+  bool isComplex() const { return IsComplex; }
+
   virtual StringRef getNameSuffix() const {
     return isMinMax() ? "minmax.red" : "red";
   }
@@ -191,6 +194,10 @@ public:
   virtual void dump(raw_ostream &OS) const override;
 #endif
   static unsigned getReductionOpcode(RecurKind K);
+
+private:
+  // Tracks if this is a complex type reduction.
+  bool IsComplex = false;
 };
 
 /// Descriptor for user-defined reduction.
@@ -203,7 +210,7 @@ public:
                          bool IsMemOnly = false,
                          unsigned char Id = UserDefinedReduction)
       : VPReduction(Start, nullptr /*Exit*/, RecurKind::Udr, FMF, RT, Signed,
-                    std::move(InMemAliases), IsMemOnly, Id),
+                    std::move(InMemAliases), false /*Complex*/, IsMemOnly, Id),
         Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor) {}
 
   Function *getCombiner() const { return Combiner; }
@@ -267,9 +274,10 @@ public:
   VPInscanReduction(InscanReductionKind InscanRedKind, VPValue *Start,
                     VPInstruction *Exit, RecurKind RdxKind, FastMathFlags FMF,
                     Type *RT, bool Signed, VPEntityAliasesTy &&InMemAliases,
-                    bool IsMemOnly = false)
+                    bool IsComplex, bool IsMemOnly = false)
       : VPReduction(Start, Exit, RdxKind, FMF, RT, Signed,
-                    std::move(InMemAliases), IsMemOnly, InscanReduction),
+                    std::move(InMemAliases), IsComplex, IsMemOnly,
+                    InscanReduction),
         InscanRedKind(InscanRedKind) {}
 
   InscanReductionKind getInscanKind() const { return InscanRedKind; }
@@ -304,7 +312,7 @@ public:
                     ForLast ? (Signed ? RecurKind::SMax : RecurKind::UMax)
                             : (Signed ? RecurKind::SMin : RecurKind::UMin),
                     FastMathFlags(), RT, Signed, std::move(InMemAliases),
-                    IsMemOnly, IndexReduction),
+                    false /*Complex*/, IsMemOnly, IndexReduction),
         ParentRed(Parent), IsLinearIndex(IsLinIndex) {
     assert((Parent && Parent->isMinMax()) && "Incorrect parent reduction");
   }
@@ -695,7 +703,23 @@ public:
     Reduction,
     Induction,
     Private,
-    ComressExpand,
+    CompressExpand,
+  };
+
+  static const std::string getImportErrorStr(const ImportError IE) {
+    switch (IE) {
+    case ImportError::None:
+      return "Internal error: no import error!";
+    case ImportError::Reduction:
+      return "Reduction has different symbases for live-in and live-out "
+             "values.";
+    case ImportError::Induction:
+      return "Importing induction failed for this loop.";
+    case ImportError::Private:
+      return "Importing private failed for this loop.";
+    case ImportError::CompressExpand:
+      return "Incomplete compress-expand idiom.";
+    }
   };
 
   /// Add reduction described by \p K, \p MK, and \p Signed,
@@ -705,8 +729,9 @@ public:
                             VPInstruction *Exit, RecurKind K, FastMathFlags FMF,
                             Type *RT, bool Signed,
                             VPEntityAliasesTy &MemAliases,
-                            Optional<InscanReductionKind> InscanRedKind,
-                            VPValue *AI = nullptr, bool ValidMemOnly = false);
+                            std::optional<InscanReductionKind> InscanRedKind,
+                            bool IsComplex, VPValue *AI = nullptr,
+                            bool ValidMemOnly = false);
 
   /// Add index part of min/max+index reduction with parent (min/max) reduction
   /// \p Parent, starting instruction \pInstr, incoming value \p Incoming,
@@ -727,7 +752,7 @@ public:
       Function *Combiner, Function *Initializer, Function *Ctor, Function *Dtor,
       VPValue *Incoming, FastMathFlags FMF, Type *RedTy, bool Signed,
       VPEntityAliasesTy &MemAliases, VPValue *AI, bool ValidMemOnly,
-      Optional<InscanReductionKind> InscanRedKind);
+      std::optional<InscanReductionKind> InscanRedKind);
 
   /// Add induction of kind \p K, with opcode \p Opc or binary operation
   /// \p InductionOp, starting instruction \pStart, incoming value
@@ -1164,6 +1189,11 @@ private:
   // - Identify/fix indexes of index reductions
   void preprocess();
 
+  // Given a reduction-final instruction, find the unique reducing
+  // instruction and apply its debug location to the PHI nodes for
+  // the associated reduction and to the reduction-final itself.
+  void assignDebugLocToReductionInstrs(VPReductionFinal *Final, bool IsMemOnly);
+
   // Insert VPInstructions (init/final) for the reduction \p Reduction,
   // keeping its final and exit instructions in a special map \p RedFinalMap,
   // and inserting the reduction into list of processed reductions
@@ -1203,6 +1233,12 @@ private:
   void processRunningInscanReduction(const VPInscanReduction *InscanReduction,
                                      VPBasicBlock *FenceBlock,
                                      VPBuilder &Builder);
+
+  // Insert reduction instructions for array type VPInscanReduction.
+  void
+  processRunningInscanArrReduction(const VPInscanReduction *InscanReduction,
+                                   VPBasicBlock *FenceBlock,
+                                   VPBuilder &Builder);
 
   // Insert reduction instructions for specific VPUserDefinedScanReduction.
   void processRunningUDS(const VPUserDefinedScanReduction *UserDefinedScan,
@@ -1275,7 +1311,7 @@ public:
     DescrAlias NewAlias;
     NewAlias.Start = Start;
     NewAlias.UpdateVPInsts.assign(UpdateVPInsts.begin(), UpdateVPInsts.end());
-    Alias = Optional<DescrAlias>(NewAlias);
+    Alias = std::optional<DescrAlias>(NewAlias);
     HasAlias = true;
   }
 
@@ -1320,7 +1356,7 @@ protected:
   bool ValidMemOnly = false;
   bool Importing = true;
   // NOTE: We assume that a descriptor can have only one valid alias
-  Optional<DescrAlias> Alias;
+  std::optional<DescrAlias> Alias;
   bool HasAlias = false;
   /// Instruction(s) in VPlan that update the variable
   SmallVector<VPInstruction *, 4> UpdateVPInsts;
@@ -1347,7 +1383,7 @@ public:
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
   bool getLinearIndex() const { return IsLinearIndex; }
-  Optional<InscanReductionKind> getInscanReductionKind() const {
+  std::optional<InscanReductionKind> getInscanReductionKind() const {
     return InscanRedKind;
   }
   bool isUDR() const { return K == RecurKind::Udr; }
@@ -1355,6 +1391,7 @@ public:
   Function *getInitializer() const { return Initializer; }
   Function *getCtor() const { return Ctor; }
   Function *getDtor() const { return Dtor; }
+  bool getComplex() const { return IsComplex; }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
@@ -1364,7 +1401,7 @@ public:
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
   void setIsLinearIndex(bool V) { IsLinearIndex = V; }
-  void setInscanReductionKind(Optional<InscanReductionKind> V) {
+  void setInscanReductionKind(std::optional<InscanReductionKind> V) {
     InscanRedKind = V;
   }
   void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
@@ -1372,6 +1409,7 @@ public:
   void setInitializer(Function *InitFn) { Initializer = InitFn; }
   void setCtor(Function *CtorFn) { Ctor = CtorFn; }
   void setDtor(Function *DtorFn) { Dtor = DtorFn; }
+  void setIsComplex(bool V) { IsComplex = V; }
 
   /// Clear the content.
   void clear() override {
@@ -1390,6 +1428,7 @@ public:
     Initializer = nullptr;
     Ctor = nullptr;
     Dtor = nullptr;
+    IsComplex = false;
   }
   /// Check for that all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -1434,7 +1473,7 @@ private:
   bool IsLinearIndex = false;
   // To avoid having 'None' inscan reduction kind in an enum, use Optional.
   // If set, this means this is an inscan reduction.
-  Optional<InscanReductionKind> InscanRedKind;
+  std::optional<InscanReductionKind> InscanRedKind;
 
   /// VPValues that are associated with reduction variable
   /// NOTE: This list is accessed and populated internally within the descriptor
@@ -1460,6 +1499,8 @@ private:
   Function *Initializer = nullptr;
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
+  // Track if this descriptor is a complex type reduction.
+  bool IsComplex = false;
 };
 
 /// Intermediate induction descriptor. Same as ReductionDescr above but for

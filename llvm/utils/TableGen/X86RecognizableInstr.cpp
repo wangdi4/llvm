@@ -152,6 +152,9 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
 #if INTEL_FEATURE_ISA_AVX256P
   HasEVEX_P10 = Rec->getValueAsBit("hasEVEX_P10");
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+  HasEVEX_NF = Rec->getValueAsBit("hasEVEX_NF");
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   IsCodeGenOnly = Rec->getValueAsBit("isCodeGenOnly");
   IsAsmParserOnly = Rec->getValueAsBit("isAsmParserOnly");
@@ -227,6 +230,10 @@ void RecognizableInstr::processInstr(DisassemblerTables &tables,
 #define EVEX_KB_P10(n) (HasEVEX_KZ ? n##_KZ_B_P10 : \
                         (HasEVEX_K ? n##_K_B_P10 : n##_B_P10))
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+#define EVEX_NF(n) (HasEVEX_NF ? n##_NF: n)
+#define EVEX_B_NF(n) (HasEVEX_B ? EVEX_NF(n##_B): EVEX_NF(n))
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 InstructionContext RecognizableInstr::insnContext() const {
@@ -240,7 +247,7 @@ InstructionContext RecognizableInstr::insnContext() const {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
     // AVX256P RC
-    if (EncodeRC && !HasEVEX_P10) {
+    if (EncodeRC && HasEVEX_P10) {
       if (HasVEX_W) {
         if (OpPrefix == X86Local::PD)
           insnContext = EVEX_KB_P10(IC_EVEX_W_OPSIZE);
@@ -260,8 +267,18 @@ InstructionContext RecognizableInstr::insnContext() const {
         else if (OpPrefix == X86Local::PS)
           insnContext = EVEX_KB_P10(IC_EVEX);
       }
-    } else
+    }
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+    else if (HasEVEX_NF) {
+      if (OpPrefix == X86Local::PD)
+        insnContext = EVEX_B_NF(IC_EVEX_OPSIZE);
+      else if (HasVEX_W)
+        insnContext = EVEX_B_NF(IC_EVEX_W);
+      else
+        insnContext = EVEX_B_NF(IC_EVEX);
+    } else
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     // VEX_L & VEX_W
     if (!EncodeRC && HasVEX_L && HasVEX_W) {
@@ -582,6 +599,12 @@ void RecognizableInstr::emitInstructionSpecifier() {
     ++additionalOperands;
 #endif
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  bool IsND = OpMap == X86Local::T_MAP4 && HasEVEX_B;
+
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   switch (Form) {
   default: llvm_unreachable("Unhandled form");
   case X86Local::PrefixByte:
@@ -631,11 +654,23 @@ void RecognizableInstr::emitInstructionSpecifier() {
            numPhysicalOperands <= 3 + additionalOperands &&
            "Unexpected number of operands for MRMDestRegFrm");
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (IsND)
+      HANDLE_OPERAND(vvvvRegister)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(rmRegister)
     if (HasEVEX_K)
       HANDLE_OPERAND(writemaskRegister)
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (!IsND && HasVEX_4V)
+#else  // INTEL_FEATURE_ISA_APX_F
     if (HasVEX_4V)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       // FIXME: In AVX, the register below becomes the one encoded
       // in ModRMVEX and the one above the one in the VEX.VVVV field
       HANDLE_OPERAND(vvvvRegister)
@@ -696,12 +731,24 @@ void RecognizableInstr::emitInstructionSpecifier() {
            numPhysicalOperands <= 3 + additionalOperands &&
            "Unexpected number of operands for MRMDestMemFrm with VEX_4V");
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (IsND)
+      HANDLE_OPERAND(vvvvRegister)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(memory)
 
     if (HasEVEX_K)
       HANDLE_OPERAND(writemaskRegister)
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (!IsND && HasVEX_4V)
+#else  // INTEL_FEATURE_ISA_APX_F
     if (HasVEX_4V)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       // FIXME: In AVX, the register below becomes the one encoded
       // in ModRMVEX and the one above the one in the VEX.VVVV field
       HANDLE_OPERAND(vvvvRegister)
@@ -842,6 +889,19 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(relocation)
     HANDLE_OPTIONAL(immediate)
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86Local::MRM0rImmAAA:
+  case X86Local::MRM6rImmAAA:
+    assert(numPhysicalOperands == 4 &&
+           "Unexpected number of operands for MRMnrImmAAA");
+    HANDLE_OPERAND(vvvvRegister)
+    HANDLE_OPERAND(rmRegister)
+    HANDLE_OPERAND(immediate)
+    HANDLE_OPERAND(immediate)
+    break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRMXmCC:
     assert(numPhysicalOperands == 2 &&
            "Unexpected number of operands for MRMXm");
@@ -926,6 +986,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
 #if INTEL_FEATURE_ISA_DSPV1
   case X86Local::T_MAP8:    opcodeType = MAP8;          break;
 #endif // INTEL_FEATURE_ISA_DSPV1
+  case X86Local::T_MAP4:    opcodeType = MAP4;          break;
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -971,6 +1032,15 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRMDestMemImm8: // INTEL
     filter = std::make_unique<ModFilter>(false);
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86Local::MRM0rImmAAA:
+  case X86Local::MRM6rImmAAA:
+    filter = std::make_unique<ExtendedFilter>(
+        true, (Form == X86Local::MRM0rImmAAA) ? 0 : 6);
+    break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRM0r: case X86Local::MRM1r:
   case X86Local::MRM2r: case X86Local::MRM3r:
   case X86Local::MRM4r: case X86Local::MRM5r:
@@ -1067,6 +1137,10 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("GR64",                TYPE_R64)
   TYPE("i8mem",               TYPE_M)
   TYPE("i8imm",               TYPE_IMM)
+#if INTEL_CUSTOMIZATION
+  TYPE("u1imm",               TYPE_UIMM8)
+  TYPE("u2imm",               TYPE_UIMM8)
+#endif // INTEL_CUSTOMIZATION
   TYPE("u4imm",               TYPE_UIMM8)
   TYPE("u8imm",               TYPE_UIMM8)
   TYPE("i16u8imm",            TYPE_UIMM8)
@@ -1105,6 +1179,9 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("i128mem",             TYPE_M)
   TYPE("i256mem",             TYPE_M)
   TYPE("i512mem",             TYPE_M)
+  TYPE("i512mem_GR16",        TYPE_M)
+  TYPE("i512mem_GR32",        TYPE_M)
+  TYPE("i512mem_GR64",        TYPE_M)
   TYPE("i64i32imm_brtarget",  TYPE_REL)
   TYPE("i16imm_brtarget",     TYPE_REL)
   TYPE("i32imm_brtarget",     TYPE_REL)
@@ -1185,10 +1262,10 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("TILEX",               TYPE_TMM)
   TYPE("TILEPairX",           TYPE_TMM_PAIR)
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   TYPE("TILEPair",            TYPE_TMM_PAIR)
   TYPE("ZMM16Tuples",         TYPE_ZMM16_TUPLES)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   TYPE("TILEQuad",            TYPE_TMM_QUAD)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
@@ -1220,6 +1297,10 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
   ENCODING("i64i32imm",       ENCODING_ID)
   ENCODING("i64i8imm",        ENCODING_IB)
   ENCODING("i8imm",           ENCODING_IB)
+#if INTEL_CUSTOMIZATION
+  ENCODING("u1imm",           ENCODING_I_EVEX_a)
+  ENCODING("u2imm",           ENCODING_I_EVEX_aa)
+#endif // INTEL_CUSTOMIZATION
   ENCODING("u4imm",           ENCODING_IB)
   ENCODING("u8imm",           ENCODING_IB)
   ENCODING("i16u8imm",        ENCODING_IB)
@@ -1295,12 +1376,12 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
   ENCODING("TILEX",           ENCODING_RM)
   ENCODING("TILEPairX",       ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   ENCODING("TILEPair",        ENCODING_RM)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
-#if INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   ENCODING("ZMM16Tuples",     ENCODING_RM)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_XISA_COMMON
   ENCODING("XMMPairX",        ENCODING_RM)
   ENCODING("YMMPairX",        ENCODING_RM)
@@ -1366,10 +1447,10 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
   ENCODING("TILEX",           ENCODING_REG)
   ENCODING("TILEPairX",       ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   ENCODING("TILEPair",        ENCODING_REG)
   ENCODING("ZMM16Tuples",      ENCODING_REG)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   ENCODING("TILEQuad",        ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
@@ -1386,6 +1467,12 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
 OperandEncoding
 RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
                                                   uint8_t OpSize) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  ENCODING("GR8",             ENCODING_VVVV)
+  ENCODING("GR16",            ENCODING_VVVV)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   ENCODING("GR32",            ENCODING_VVVV)
   ENCODING("GR64",            ENCODING_VVVV)
   ENCODING("FR32",            ENCODING_VVVV)
@@ -1417,10 +1504,10 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
   ENCODING("TILEX",           ENCODING_VVVV)
   ENCODING("TILEPairX",       ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
   ENCODING("TILEPair",        ENCODING_VVVV)
   ENCODING("ZMM16Tuples",     ENCODING_VVVV)
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #if INTEL_FEATURE_XISA_COMMON
   ENCODING("XMMPairX",        ENCODING_VVVV)
   ENCODING("YMMPairX",        ENCODING_VVVV)
@@ -1469,6 +1556,9 @@ RecognizableInstr::memoryEncodingFromString(const std::string &s,
   ENCODING("i128mem",         ENCODING_RM)
   ENCODING("i256mem",         ENCODING_RM)
   ENCODING("i512mem",         ENCODING_RM)
+  ENCODING("i512mem_GR16",    ENCODING_RM)
+  ENCODING("i512mem_GR32",    ENCODING_RM)
+  ENCODING("i512mem_GR64",    ENCODING_RM)
   ENCODING("f80mem",          ENCODING_RM)
   ENCODING("lea64_32mem",     ENCODING_RM)
   ENCODING("lea64mem",        ENCODING_RM)

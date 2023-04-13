@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2022 Intel Corporation
+# Copyright (C) 2011-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -9,8 +9,6 @@
 # This software and the related documents are provided as is, with no express or
 # implied warranties, other than those that are expressly stated in the License.
 
-if(NOT OPENCL_INTREE_BUILD)
-  add_subdirectory(gtest)
+if(WIN32)
+    add_subdirectory(protobuf)
 endif()
-
-add_subdirectory(protobuf)

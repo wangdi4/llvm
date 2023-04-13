@@ -842,6 +842,12 @@ bool clang::isOpenMPThreadPrivate(OpenMPClauseKind Kind) {
   return Kind == OMPC_threadprivate || Kind == OMPC_copyin;
 }
 
+#if INTEL_COLLAB
+bool clang::isOpenMPGroupPrivate(OpenMPClauseKind Kind) {
+  return Kind == OMPC_groupprivate;
+}
+#endif // INTEL_COLLAB
+
 bool clang::isOpenMPTaskingDirective(OpenMPDirectiveKind Kind) {
   return Kind == OMPD_task || isOpenMPTaskLoopDirective(Kind);
 }

@@ -1,6 +1,6 @@
 //===--- Intel_LoadCoalescing.cpp - Coalescing of consecutive loads -------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -102,9 +102,9 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
   VectorType *GroupTy =
       FixedVectorType::get(getScalarType(), getTotalScalarElements());
 
-  size_t ShuffleCost = 0;
+  InstructionCost ShuffleCost;
   size_t CoalescedLoadScalarOffset = 0;
-  unsigned CostBeforeCoalescing = 0;
+  InstructionCost CostBeforeCoalescing;
   for (size_t I = 0, E = size(); I != E; ++I) {
     // Get the cost of shuffles required. Based on whether we are generating an
     // actual shuffle as opposed to an extractelement instruction for getting
@@ -115,34 +115,27 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
     Type *GroupMemType = getLoadStoreType(MemberI);
     assert(GroupMemType && "Null-value for Group-member type.");
 
-    if (VectorType *GroupMemVecType = dyn_cast<VectorType>(GroupMemType))
-      ShuffleCost +=
-          *TTI->getShuffleCost(TargetTransformInfo::SK_ExtractSubvector,
-                               GroupTy, std::nullopt, TTI::TCK_RecipThroughput,
-                               CoalescedLoadScalarOffset, GroupMemVecType)
-               .getValue();
+    if (auto *GroupMemVecType = dyn_cast<VectorType>(GroupMemType))
+      ShuffleCost += TTI->getShuffleCost(
+          TargetTransformInfo::SK_ExtractSubvector, GroupTy, std::nullopt,
+          TTI::TCK_RecipThroughput, CoalescedLoadScalarOffset, GroupMemVecType);
     else
-      ShuffleCost +=
-          *TTI->getVectorInstrCost(Instruction::ExtractElement, GroupTy,
-                                   CoalescedLoadScalarOffset).getValue();
+      ShuffleCost += TTI->getVectorInstrCost(Instruction::ExtractElement,
+                                             GroupTy, TTI::TCK_RecipThroughput,
+                                             CoalescedLoadScalarOffset);
 
-    CostBeforeCoalescing +=
-        *TTI->getMemoryOpCost(MemberI->getOpcode(), GroupMemType,
-                              MemberI->getAlign(),
-                              MemberI->getPointerAddressSpace())
-             .getValue();
+    CostBeforeCoalescing += TTI->getMemoryOpCost(
+        MemberI->getOpcode(), GroupMemType, MemberI->getAlign(),
+        MemberI->getPointerAddressSpace());
 
     CoalescedLoadScalarOffset += getNumElementsSafe(GroupMemType);
   }
 
-  int GroupLoadCost =
-      *TTI->getMemoryOpCost(LI->getOpcode(), GroupTy, LI->getAlign(),
-                            LI->getPointerAddressSpace())
-           .getValue();
-  int CostAfterCoalescing = GroupLoadCost + ShuffleCost;
-  int ProfitabilityThreshold = CostAfterCoalescing - CostBeforeCoalescing;
-  bool IsProfitable =
-      ProfitabilityThreshold < LoadCoalescingProfitabilityThreshold;
+  InstructionCost GroupLoadCost = TTI->getMemoryOpCost(
+      LI->getOpcode(), GroupTy, LI->getAlign(), LI->getPointerAddressSpace());
+  InstructionCost CostAfterCoalescing = GroupLoadCost + ShuffleCost;
+  bool IsProfitable = CostAfterCoalescing - CostBeforeCoalescing <
+                      LoadCoalescingProfitabilityThreshold;
   LLVM_DEBUG(if (!IsProfitable) dbgs()
                  << "LC: G " << getId() << '\n'
                  << " ShuffleCost: " << ShuffleCost << '\n'
@@ -635,12 +628,12 @@ bool LoadCoalescing::run() {
   MaxVecRegSize =
       (MaxVecRegSizeOpt == 0)
           ? TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-                .getFixedSize()
+                .getFixedValue()
           : MaxVecRegSizeOpt;
   MinVecRegSize =
       (MinVecRegSizeOpt == 0)
           ? TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-                .getFixedSize()
+                .getFixedValue()
           : MinVecRegSizeOpt;
 
   bool Changed = false;
@@ -702,7 +695,6 @@ void LoadCoalescingLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
-  AU.addPreserved<AndersensAAWrapperPass>();
   AU.addPreserved<AAResultsWrapperPass>();
 }
 

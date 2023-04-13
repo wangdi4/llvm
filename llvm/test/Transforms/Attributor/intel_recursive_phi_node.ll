@@ -1,4 +1,4 @@
-; RUN: opt -passes=attributor-cgscc -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=attributor-cgscc -S < %s | FileCheck %s
 
 ; This test case checks that the attributor isn't stuck in an infinite recursion
 ; because one of incoming values for the PHI node %e.i.i.0 (%e.i.i.1) is another

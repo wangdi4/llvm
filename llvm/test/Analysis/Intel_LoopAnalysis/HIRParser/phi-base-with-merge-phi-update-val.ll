@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework  | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
 ; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
 

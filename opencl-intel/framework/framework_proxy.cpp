@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,7 +14,6 @@
 
 #include "framework_proxy.h"
 #include "Logger.h"
-#include "cl_shutdown.h"
 #include "cl_sys_defines.h"
 #include "cl_sys_info.h"
 #include <cl_shared_ptr.hpp>
@@ -26,12 +25,9 @@
 #include "cl_framework_alias_linux.h"
 #include "cl_secure_string_linux.h"
 #endif
-using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::TaskExecutor;
-
-// no local atexit handler - only global
-USE_SHUTDOWN_HANDLER(nullptr);
+using namespace Intel::OpenCL::Utils;
 
 cl_monitor_init
 
@@ -39,14 +35,7 @@ cl_monitor_init
 SOCLCRTDispatchTable FrameworkProxy::CRTDispatchTable;
 ocl_entry_points FrameworkProxy::OclEntryPoints;
 
-OclSpinMutex FrameworkProxy::m_initializationMutex;
-
-volatile FrameworkProxy::GLOBAL_STATE FrameworkProxy::gGlobalState =
-    FrameworkProxy::WORKING;
-THREAD_LOCAL bool FrameworkProxy::m_bIgnoreAtExit = false;
-
-std::set<Intel::OpenCL::Utils::at_exit_dll_callback_fn>
-    FrameworkProxy::m_at_exit_cbs;
+extern void dll_fini(void);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy()
@@ -63,20 +52,25 @@ FrameworkProxy::FrameworkProxy() {
   m_pTaskList_immediate = nullptr;
   m_uiTEActivationCount = 0;
 
-  RegisterGlobalAtExitNotification(this);
-#ifndef _WIN32
-  // on Linux Logger is implemented as a separate DLL
-  Logger::RegisterGlobalAtExitNotification(this);
-#endif
-  TE_RegisterGlobalAtExitNotification(this);
-
   Initialize();
+
+  atexit(dll_fini);
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // ~FrameworkProxy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 FrameworkProxy::~FrameworkProxy() {}
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_WIN32) && !defined(_WIN64)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
 void FrameworkProxy::InitOCLEntryPoints() {
   OclEntryPoints.icdDispatch = &ICDDispatchTable;
   OclEntryPoints.crtDispatch = &CRTDispatchTable;
@@ -390,6 +384,13 @@ void FrameworkProxy::InitOCLEntryPoints() {
 
   /// Extra CPU specific functions
 }
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#elif defined(_WIN32) && !defined(_WIN64)
+#pragma warning(pop)
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Initialize()
@@ -465,6 +466,7 @@ void FrameworkProxy::Initialize() {
     m_GPAData.pDeviceDomain = __itt_domain_create("OpenCL.Device");
     m_GPAData.pAPIDomain = __itt_domain_create("OpenCL.API");
 
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
     if (m_GPAData.bEnableContextTracing) {
       m_GPAData.pContextDomain = __itt_domain_create("OpenCL.Context");
@@ -483,6 +485,7 @@ void FrameworkProxy::Initialize() {
           __ittx_task_state_create(m_GPAData.pContextDomain, "OpenCL Running");
     }
 #endif
+#endif // end INTEL_CUSTOMIZATION
 
     m_GPAData.pNDRangeHandle = __itt_string_handle_create("NDRange");
     m_GPAData.pReadHandle = __itt_string_handle_create("Read MemoryObject");
@@ -531,7 +534,7 @@ void FrameworkProxy::Initialize() {
   m_pContextModule->Initialize(&OclEntryPoints, &m_GPAData);
 
   LOG_INFO(TEXT("Initialize context module: m_pExecutionModule = new "
-                "ExecutionModule(%d,%d)"),
+                "ExecutionModule(%p,%p)"),
            m_pPlatformModule, m_pContextModule);
   m_pExecutionModule = new ExecutionModule(m_pPlatformModule, m_pContextModule);
   m_pExecutionModule->Initialize(&OclEntryPoints, m_pConfig, &m_GPAData);
@@ -573,8 +576,9 @@ bool FrameworkProxy::NeedToDisableAPIsAtShutdown() const {
 // FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Destroy() {
-#ifdef _WIN32
-  // Disable it on linux to avoid conflict with atexit() callback.
+#if 0
+  // Disable it to avoid conflict with atexit() callback, we will refine the
+  // shutdown process after we merged all dynamic libraries into one.
   if (Instance()->NeedToDisableAPIsAtShutdown()) {
     // If this function is being called during process shutdown AND we
     // should just disable external APIs. Do not delete or release
@@ -583,11 +587,6 @@ void FrameworkProxy::Destroy() {
       Instance()->Release(true);
   } else
     Instance()->Release(true);
-#else
-  // FIXME: Now sycl shutdown process is executed after ocl so that the ocl
-  // resources will not be released indeed. This is a workaround to make sure
-  // that the user's programs are finally released.
-  Instance()->m_pContextModule->Release(true);
 #endif
 }
 
@@ -595,12 +594,10 @@ void FrameworkProxy::Destroy() {
 // FrameworkProxy::Release()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Release(bool bTerminate) {
-  if (TERMINATED != gGlobalState) {
-    // Many modules assume that FrameWorkProxy singleton, execution_module,
-    // context_module and platform_module exist all the time -> we must ensure
-    // that everything is shut down before deleting them.
-    Instance()->m_pContextModule->ShutDown(true);
-  }
+  // Many modules assume that FrameWorkProxy singleton, execution_module,
+  // context_module and platform_module exist all the time -> we must ensure
+  // that everything is shut down before deleting them.
+  Instance()->m_pContextModule->ShutDown(true);
 
   if (nullptr != m_pExecutionModule) {
     m_pExecutionModule->Release(bTerminate);
@@ -642,89 +639,6 @@ void FrameworkProxy::Release(bool bTerminate) {
   cl_monitor_summary;
 }
 
-void FrameworkProxy::RegisterDllCallback(at_exit_dll_callback_fn cb) {
-  if (nullptr != cb) {
-    OclAutoMutex cs(&m_initializationMutex);
-    m_at_exit_cbs.insert(cb);
-  }
-}
-
-void FrameworkProxy::UnregisterDllCallback(at_exit_dll_callback_fn cb) {
-  if (nullptr != cb) {
-    OclAutoMutex cs(&m_initializationMutex);
-    m_at_exit_cbs.erase(cb);
-  }
-}
-
-void FrameworkProxy::AtExitTrigger(at_exit_dll_callback_fn cb) {
-  bool needToDisableAPI = Instance()->NeedToDisableAPIsAtShutdown();
-
-  if (isDllUnloadingState()) {
-    UnregisterDllCallback(cb);
-    cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_DLL_UNLOADING_MODE,
-       needToDisableAPI);
-    cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_DLL_UNLOADING_MODE,
-       needToDisableAPI);
-  } else {
-    TerminateProcess(needToDisableAPI);
-  }
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// FrameworkProxy::TerminateProcess(bool needToDisableAPI)
-///////////////////////////////////////////////////////////////////////////////////////////////////
-void FrameworkProxy::TerminateProcess(bool needToDisableAPI) {
-  if (WORKING != gGlobalState) {
-    return;
-  }
-
-  // references to other DLLs are not safe on Linux at exit
-
-  // normal shutdown
-  gGlobalState = TERMINATING;
-
-  // notify all DLLs that at_exit started
-  {
-// The following comment applicable for Windows only.
-// Locking this mutex may lead to deadlock due to any other thread
-// may acquire mutex and die(killed by OS) without freeing.
-// Anyway using mutex during process shutdown is meaningless
-// because of there is only one thread is alive.
-#ifndef _WIN32
-    OclAutoMutex cs(&m_initializationMutex);
-#endif // _WIN32
-    for (auto it : m_at_exit_cbs) {
-      at_exit_dll_callback_fn cb = *it;
-      cb(AT_EXIT_GLB_PROCESSING_STARTED, AT_EXIT_PROCESS_UNLOADING_MODE,
-         needToDisableAPI);
-    }
-  }
-
-  if (!Instance()->NeedToDisableAPIsAtShutdown())
-    Instance()->m_pContextModule->ShutDown(true);
-
-  gGlobalState = TERMINATED;
-
-  // notify all DLLs that at_exit occured
-  {
-#ifndef _WIN32
-    OclAutoMutex cs(&m_initializationMutex);
-#endif // _WIN32
-    for (auto it : m_at_exit_cbs) {
-      at_exit_dll_callback_fn cb = *it;
-      cb(AT_EXIT_GLB_PROCESSING_DONE, AT_EXIT_PROCESS_UNLOADING_MODE,
-         needToDisableAPI);
-    }
-    m_at_exit_cbs.clear();
-  }
-
-#if defined(_DEBUG)
-  if (!Instance()->NeedToDisableAPIsAtShutdown()) {
-    DumpSharedPts("TerminateProcess - only SharedPtrs local to intelocl DLL",
-                  true);
-  }
-#endif
-}
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Instance()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -743,7 +657,7 @@ FrameworkProxy::GetTaskExecutor() const {
   static int teInitialized = 1;
   if (nullptr == m_pTaskExecutor && 0 != teInitialized) {
     // Initialize TaskExecutor
-    OclAutoMutex cs(&m_initializationMutex);
+    std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
     if (nullptr == m_pTaskExecutor && 0 != teInitialized) {
       LOG_INFO(TEXT("%s"), "Initialize Executor");
       m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
@@ -779,7 +693,7 @@ FrameworkProxy::GetTaskExecutor() const {
 bool FrameworkProxy::ActivateTaskExecutor() const {
   ITaskExecutor *pTaskExecutor = GetTaskExecutor();
 
-  OclAutoMutex cs(&m_initializationMutex);
+  std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
   // Quit as early as possible if task executor initialization fails.
   if (nullptr == pTaskExecutor)
     return false;
@@ -827,11 +741,7 @@ bool FrameworkProxy::ActivateTaskExecutor() const {
 // FrameworkProxy::ActivateTaskExecutor()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::DeactivateTaskExecutor() const {
-  if (TERMINATED == gGlobalState) {
-    return;
-  }
-
-  OclAutoMutex cs(&m_initializationMutex);
+  std::lock_guard<std::recursive_mutex> cs(m_initializationMutex);
 
   if (nullptr != m_pTaskList && nullptr != m_pTaskList_immediate) {
     --m_uiTEActivationCount;
@@ -892,9 +802,9 @@ bool FrameworkProxy::Execute(
 // FrameworkProxy::Execute()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::CancelAllTasks(bool wait_for_finish) const {
-  m_initializationMutex.Lock();
+  m_initializationMutex.lock();
   SharedPtr<ITaskList> tmpTaskList = m_pTaskList;
-  m_initializationMutex.Unlock();
+  m_initializationMutex.unlock();
 
   if (0 != tmpTaskList) {
     tmpTaskList->Cancel();

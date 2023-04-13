@@ -30,14 +30,14 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK:         br label [[DIR_OMP_SIMD_10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK:        VPlannedBB25:
-; CHECK-NEXT:    [[TMP18:%.*]] = bitcast <2 x float>* [[DOTVEC0]] to i8*
+; CHECK-NEXT:    [[TMP18:%.*]] = bitcast float* [[DOTVEC0_1:%.*]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[TMP18]])
 ; CHECK-NEXT:    [[TMP19:%.*]] = load float, float* [[X_RED0]], align 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT560:%.*]] = insertelement <2 x float> poison, float [[TMP19]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT560:%.*]] = insertelement <2 x float> poison, float [[TMP19]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT570:%.*]] = shufflevector <2 x float> [[BROADCAST_SPLATINSERT560]], <2 x float> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP20:%.*]] = load float, float* [[X_RED0]], align 1
 ; CHECK-NEXT:    [[TMP21:%.*]] = sub i64 1024, [[UNI_PHI230:%.*]]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT320:%.*]] = insertelement <2 x i64> poison, i64 [[TMP21]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT320:%.*]] = insertelement <2 x i64> poison, i64 [[TMP21]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT330:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT320]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB260:%.*]]
 ; CHECK-EMPTY:
@@ -45,7 +45,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    [[UNI_PHI270:%.*]] = phi i64 [ 0, [[VPLANNEDBB250:%.*]] ], [ [[TMP35:%.*]], [[NEW_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI280:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB250]] ], [ [[TMP34:%.*]], [[NEW_LATCH0]] ]
 ; CHECK-NEXT:    [[VEC_PHI290:%.*]] = phi <2 x float> [ [[BROADCAST_SPLAT570]], [[VPLANNEDBB250]] ], [ [[PREDBLEND0:%.*]], [[NEW_LATCH0]] ]
-; CHECK-NEXT:    [[TMP22:%.*]] = add <2 x i64> [[VEC_PHI280]], [[BROADCAST_SPLAT310:%.*]]
+; CHECK-NEXT:    [[TMP22:%.*]] = add nuw nsw  <2 x i64> [[VEC_PHI280]], [[BROADCAST_SPLAT310:%.*]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <2 x i64> [[TMP22]], i32 0
 ; CHECK-NEXT:    store <2 x float> zeroinitializer, <2 x float>* [[DOTVEC0]], align 1
 ; CHECK-NEXT:    [[TMP23:%.*]] = icmp ult i64 [[UNI_PHI270]], [[TMP21]]
@@ -87,7 +87,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    [[CTLZ0:%.*]] = call i2 @llvm.ctlz.i2(i2 [[TMP31]], i1 true)
 ; CHECK-NEXT:    [[TMP32:%.*]] = sub i2 1, [[CTLZ0]]
 ; CHECK-NEXT:    [[LAST_ACTIVE_LANE0:%.*]] = extractelement <2 x float> [[TMP30]], i2 [[TMP32]]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT510:%.*]] = insertelement <2 x float> poison, float [[LAST_ACTIVE_LANE0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT510:%.*]] = insertelement <2 x float> poison, float [[LAST_ACTIVE_LANE0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT520:%.*]] = shufflevector <2 x float> [[BROADCAST_SPLATINSERT510]], <2 x float> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB440:%.*]]
 ; CHECK-EMPTY:

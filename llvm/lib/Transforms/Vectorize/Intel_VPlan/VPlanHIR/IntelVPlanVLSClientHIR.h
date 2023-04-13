@@ -43,22 +43,22 @@ protected:
   explicit VPVLSClientMemrefHIR(OVLSContext &Context, OVLSAccessKind AccKind,
                                 const OVLSType &Ty, const VPLoadStoreInst *Inst,
                                 const HLLoop *Loop, HIRDDAnalysis *DDA,
-                                const RegDDRef *Ref)
+                                const RegDDRef *Ref, bool IsMasked)
       : VPVLSClientMemref(Context, VLSK_VPlanHIRVLSClientMemref, AccKind, Ty,
                           Inst,
-                          /*VLSA=*/nullptr),
+                          /*VLSA=*/nullptr, IsMasked),
         TheLoop(Loop), DDA(DDA), Ref(Ref) {}
 
 public:
   static VPVLSClientMemrefHIR *
   create(OVLSContext &Context, OVLSAccessKind AccKind, const OVLSType &Ty,
          const VPLoadStoreInst *Inst, const HLLoop *Loop, HIRDDAnalysis *DDA,
-         const RegDDRef *Ref) {
+         const RegDDRef *Ref, bool IsMasked) {
     return Context.create<VPVLSClientMemrefHIR>(AccKind, Ty, Inst, Loop, DDA,
-                                                Ref);
+                                                Ref, IsMasked);
   }
 
-  Optional<int64_t>
+  std::optional<int64_t>
   getConstDistanceFrom(const OVLSMemref &From) const override {
     auto *FromMem = cast<VPVLSClientMemrefHIR>(&From);
     int64_t Dist;
@@ -126,9 +126,10 @@ public:
     // and FromRef. If that's not the case we need to explicitly check for such
     // nodes (e.f. function calls?).
     const DDGraph &DDG = getDDGraph();
-    auto hasDependency = [](const HLDDNode *FromDDNode,
-                            const HLDDNode *ToDDNode, const DDEdge *Edge,
-                            const bool IsOutgoingEdge) -> bool {
+    auto hasDependency =
+        [](const HLDDNode *FromDDNode, const HLDDNode *ToDDNode,
+           const VPLoadStoreInst *FromInst, const VPLoadStoreInst *ToInst,
+           const DDEdge *Edge, const bool IsOutgoingEdge) -> bool {
       DDRef *Ref = IsOutgoingEdge ? Edge->getSink() : Edge->getSrc();
       HLDDNode *Node = Ref->getHLDDNode();
 
@@ -149,6 +150,35 @@ public:
         return false;
       if (Edge->isInput())
         return false;
+
+      // Consider the following HIR:
+      //
+      // <10> t1 = a[2*i]
+      // <20> t2 = b[...]
+      // <30> t3 = a[2*i+1] + t2
+      //
+      // The current checks are done at HIR level and we see if we can move
+      // <30> to <10>. This obviously cannot be done due to the dependence on
+      // t2. However, in VLS transform we are not moving the whole HLInst
+      // but just the load of a[2*i+1]. It would be valid to do the
+      // following:
+      //
+      // <10> t1 = a[2*i]
+      // <11> tld = a[2*i+1]
+      // <20> t2 = b[...]
+      // <30> t3 = tld + t2
+      //
+      // A load instruction cannot introduce a temp-to-temp dependency when
+      // trying to move it up. Check for the same here.
+      auto *SrcRef = dyn_cast<RegDDRef>(Edge->getSrc());
+      auto *SinkRef = dyn_cast<RegDDRef>(Edge->getSink());
+
+      if (FromInst->getOpcode() == Instruction::Load &&
+          ToInst->getOpcode() == Instruction::Load &&
+          (!SrcRef || !SrcRef->isMemRef()) &&
+          (!SinkRef || !SinkRef->isMemRef()))
+        return false;
+
       return true;
     };
     for (auto RefIt = FromDDNode->all_dd_begin(),
@@ -156,21 +186,21 @@ public:
       for (auto II = DDG.outgoing_edges_begin(*RefIt),
                 EE = DDG.outgoing_edges_end(*RefIt);
            II != EE; ++II) {
-        if (hasDependency(FromDDNode, ToDDNode, *II, true))
+        if (hasDependency(FromDDNode, ToDDNode, FromInst, ToInst, *II, true))
           return false;
       }
 
       for (auto II = DDG.incoming_edges_begin(*RefIt),
                 EE = DDG.incoming_edges_end(*RefIt);
            II != EE; ++II) {
-        if (hasDependency(FromDDNode, ToDDNode, *II, false))
+        if (hasDependency(FromDDNode, ToDDNode, FromInst, ToInst, *II, false))
           return false;
       }
     }
     return true;
   }
 
-  Optional<int64_t> getConstStride() const override {
+  std::optional<int64_t> getConstStride() const override {
     int64_t Stride;
     if (getRegDDRef()->getConstStrideAtLevel(getLoopLevel(), &Stride))
       return Stride;

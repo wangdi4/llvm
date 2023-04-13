@@ -28,10 +28,10 @@
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP1:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] double* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [256 x double]* @A {i64 0 : i64 0 : i64 2048 : [256 x double]*([256 x double])} {i64 0 : i64 2 : i64 8 : [256 x double](double)}
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] double* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds double* [[VP_SUBSCRIPT]] {i64 0 : i64 [[VP0]] : i64 32 : double*(double)}
-; CHECK-NEXT:  Divergent: [Shape: Random] store double 1.000000e+00 double* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 32] store double 1.000000e+00 double* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 2] i64 [[VP2:%.*]] = mul i64 2 i64 [[VP0]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 64] double* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds double* [[B0:%.*]] {i64 0 : i64 [[VP2]] : i64 32 : double*(double)}
-; CHECK-NEXT:  Divergent: [Shape: Random] store double 2.000000e+00 double* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 64] store double 2.000000e+00 double* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP3:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP3]], [[BB0]], [[BB2:BB[0-9]+]]

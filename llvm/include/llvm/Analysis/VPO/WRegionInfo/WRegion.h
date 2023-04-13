@@ -131,6 +131,8 @@ private:
   /// If set to true, then the associated loop(s) is optimized away.
   bool LoopOptimizedAway = false;
 
+  bool CompletelyCollapsed = false;
+
   /// For each loop in the loop nest described by this WRNLoopInfo
   /// we have to map the loop to some ND-range dimension.
   /// NDRangeStartDim specifies the starting dimension for the loop
@@ -218,6 +220,10 @@ public:
   void setLoopOptimizedAway() { LoopOptimizedAway = true; }
 
   bool getLoopOptimizedAway() { return LoopOptimizedAway; }
+
+  void setLoopNestCompletelyCollapsed(bool V) { CompletelyCollapsed = V; }
+
+  bool getLoopNestCompletelyCollapsed() const { return CompletelyCollapsed; }
 
   void setKnownNDRange() {
     assert(!KnownNDRange && "KnownNDRange must be set only once.");
@@ -795,6 +801,8 @@ private:
   IsDevicePtrClause IsDevicePtr;
   EXPR IfExpr;
   EXPR Device;
+  EXPR ThreadLimit = nullptr;
+  Type *ThreadLimitTy = nullptr;
   SubdeviceClause Subdevice;
   LiveinClause Livein;
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
@@ -809,6 +817,7 @@ private:
   unsigned SPIRVSIMDWidth = 0;
   bool HasTeamsReduction = false;
   uint8_t HasAtomicFreeReduction = 0;
+  bool HasKnownNDRange = false;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent = false;  // Used fro Fortran Do Concurrent
 #endif // INTEL_CUSTOMIZATION
@@ -821,6 +830,8 @@ protected:
   void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setDevice(EXPR E) override { Device = E; }
+  void setThreadLimit(EXPR E) override { ThreadLimit = E; }
+  void setThreadLimitType(Type *T) override { ThreadLimitTy = T; }
   void setNowait(bool Flag) override { Nowait = Flag; }
 #if INTEL_CUSTOMIZATION
   void setIsDoConcurrent(bool B) override { IsDoConcurrent = B; }
@@ -844,7 +855,9 @@ protected:
   void setHasTeamsReduction() override {
     HasTeamsReduction = true;
   }
- public:
+  void setHasKnownNDRange(bool V) override { HasKnownNDRange = V; }
+
+public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
   DEFINE_GETTER(MapClause,          getMap,         Map)
@@ -862,6 +875,8 @@ protected:
   EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getDevice() const override { return Device; }
+  EXPR getThreadLimit() const override { return ThreadLimit; }
+  Type *getThreadLimitType() const override { return ThreadLimitTy; }
   bool getNowait() const override { return Nowait; }
 #if INTEL_CUSTOMIZATION
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }
@@ -894,11 +909,6 @@ protected:
     return SPIRVSIMDWidth;
   }
 
-  void resetUncollapsedNDRange() override {
-    UncollapsedNDRangeDimensions.clear();
-    UncollapsedNDRangeTypes.clear();
-  }
-
   void setNDRangeDistributeDim(uint8_t Dim) override {
     assert(Dim != 0 && "Dim is 0 by default.");
     assert(NDRangeDistributeDim == 0 &&
@@ -913,6 +923,8 @@ protected:
   bool getHasTeamsReduction() const override {
     return HasTeamsReduction;
   }
+
+  bool getHasKnownNDRange() const override { return HasKnownNDRange; }
 
   void setHasLocalAtomicFreeReduction() {
     HasAtomicFreeReduction |= VPOParoptAtomicFreeReduction::Kind_Local;
@@ -1276,11 +1288,15 @@ private:
   SharedClause Shared;
   PrivateClause Priv;
   FirstprivateClause Fpriv;
+  LiveinClause Livein;
   ReductionClause InReduction;
   AllocateClause Alloc;
   DependClause Depend;            // from "QUAL.OMP.DEPEND"
   EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
   EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
+  EXPR AffArray = nullptr;        // Arr in "QUAL.OMP.AFFARRAY"(i32 N, i8* Arr)
+  EXPR AffArraySize =
+      nullptr; // N above; ie, number of affinity-items in Arr
   EXPR Final;
   EXPR IfExpr;
   EXPR Priority;
@@ -1301,6 +1317,8 @@ public:
 protected:
   void setDepArray(EXPR E) override { DepArray = E; }
   void setDepArrayNumDeps(EXPR E) override { DepArrayNumDeps = E; }
+  void setAffArray(EXPR E) override { AffArray = E; }
+  void setAffArraySize(EXPR E) override { AffArraySize = E; }
   void setFinal(EXPR E) override { Final = E; }
   void setIf(EXPR E) override { IfExpr = E; }
   void setPriority(EXPR E) override { Priority = E; }
@@ -1319,9 +1337,12 @@ public:
   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   DEFINE_GETTER(DependClause,       getDepend,   Depend)
   DEFINE_GETTER(DetachClause,       getDetach,   Detach)
+  DEFINE_GETTER(LiveinClause,       getLivein,   Livein)
 
   EXPR getDepArray() const override { return DepArray; }
   EXPR getDepArrayNumDeps() const override { return DepArrayNumDeps; }
+  EXPR getAffArray() const override { return AffArray; }
+  EXPR getAffArraySize() const override { return AffArraySize; }
   EXPR getFinal() const override { return Final; }
   EXPR getIf() const override { return IfExpr; }
   EXPR getPriority() const override { return Priority; }
@@ -1764,12 +1785,14 @@ private:
   ScheduleClause DistSchedule;
   int Collapse;
   WRNLoopInfo WRNLI;
+  WRNLoopOrderKind LoopOrder;
 
 public:
   WRNDistributeNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
   void setCollapse(int N) override  { Collapse = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) override { LoopOrder = LO; }
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,         Priv)
@@ -1781,6 +1804,7 @@ public:
 
   int getCollapse() const override  { return Collapse; }
   int getOmpLoopDepth() const override { return Collapse > 0 ? Collapse : 1; }
+  WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;
@@ -2060,20 +2084,20 @@ public:
 /// WRN for these constructs:
 /// \code
 ///   #pragma omp ordered [threads | simd]
-///   #pragma omp ordered depend(source | sink(..))
+///   #pragma omp ordered doacross(source | sink(..))
 /// \endcode
 /// The first form is the traditional OpenMP ordered contruct, while the
 /// second form is new with OpenMP4.x, to describe DOACROSS
 class WRNOrderedNode : public WRegionNode {
 private:
-  bool IsDoacross;         // true iff a depend clause is seen (2nd form above)
+  bool IsDoacross; // true iff a doacross clause is seen (2nd form above)
   // IsSIMD and IsThreads are meaningful only if IsDoacross==false
   bool IsSIMD;
   bool IsThreads;
 
   // The following two fields are meaningful only if IsDoacross==true
-  DepSinkClause DepSink;
-  DepSourceClause DepSource;
+  DoacrossSinkClause DoacrossSink;
+  DoacrossSourceClause DoacrossSource;
   void assertDoacrossTrue() const  { assert (IsDoacross &&
                               "This WRNOrdered represents Doacross"); }
   void assertDoacrossFalse() const { assert (!IsDoacross &&
@@ -2092,13 +2116,23 @@ public:
   bool getIsSIMD() const override { return !IsDoacross && IsSIMD; }
   bool getIsThreads() const override { return !IsDoacross && (IsThreads || !IsSIMD); }
 
-  const DepSinkClause &getDepSink() const override {assertDoacrossTrue();
-                                           return DepSink; }
-  DepSinkClause &getDepSink() override { assertDoacrossTrue(); return DepSink; }
+  const DoacrossSinkClause &getDoacrossSink() const override {
+    assertDoacrossTrue();
+    return DoacrossSink;
+  }
+  DoacrossSinkClause &getDoacrossSink() override {
+    assertDoacrossTrue();
+    return DoacrossSink;
+  }
 
-  const DepSourceClause &getDepSource() const override  {assertDoacrossTrue();
-                                           return DepSource; }
-  DepSourceClause &getDepSource() override { assertDoacrossTrue(); return DepSource; }
+  const DoacrossSourceClause &getDoacrossSource() const override {
+    assertDoacrossTrue();
+    return DoacrossSource;
+  }
+  DoacrossSourceClause &getDoacrossSource() override {
+    assertDoacrossTrue();
+    return DoacrossSource;
+  }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;

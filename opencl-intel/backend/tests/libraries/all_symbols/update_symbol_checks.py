@@ -39,8 +39,29 @@ def generate_all(llvm_nm_binary, lib_dir, output_dir):
         generate(llvm_nm_binary, os.path.join(lib_dir, rtl_name(shortname)), os.path.join(
             output_dir, target + '_64bit.ll'), '%libdir/{}'.format(rtl_name(shortname)))
 
+# INTEL_CUSTOMIZATION
+def record_intel_customizations(test_filename):
+    if not os.path.exists(test_filename):
+        return {}
+
+    # A map from startline to endline for each INTEL_CUSTOMIZATION region.
+    customizations = {}
+    with open(test_filename, 'r') as f:
+        lines = f.readlines()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if line.startswith('; INTEL_CUSTOMIZATION'):
+                startline = lines[i+1].strip()
+            elif line.startswith('; end INTEL_CUSTOMIZATION'):
+                endline = lines[i-1].strip()
+                customizations[startline] = endline
+            i += 1
+    return customizations
+# end INTEL_CUSTOMIZATION
 
 def generate(llvm_nm_binary, rtl_filename, output_filename, rtl_shortpath, requires_64bit=True):
+    customizations = record_intel_customizations(output_filename) # INTEL
     symbol_prefix = '-' * 16 + ' T'
     p = subprocess.run([llvm_nm_binary, rtl_filename,
                        '--defined-only', '--no-demangle'], capture_output=True)
@@ -60,11 +81,23 @@ def generate(llvm_nm_binary, rtl_filename, output_filename, rtl_shortpath, requi
                 rtl_shortpath=rtl_shortpath)
         )
         check_prefix = '; CHECK:'
+        endline = None # INTEL
         for line in lines:
             if not line.startswith(symbol_prefix):
-              check_prefix = '; CHECK:'
-              continue
-            f.write(line.replace(symbol_prefix, check_prefix))
+                check_prefix = '; CHECK:'
+                continue
+            line = line.replace(symbol_prefix, check_prefix)
+# INTEL_CUSTOMIZATION
+            if line.strip() in customizations:
+                endline = customizations[line.strip()]
+                f.write('; INTEL_CUSTOMIZATION\n')
+# end INTEL_CUSTOMIZATION
+            f.write(line)
+# INTEL_CUSTOMIZATION
+            if line.strip() == endline:
+                f.write('; end INTEL_CUSTOMIZATION\n')
+                endline = None
+# end INTEL_CUSTOMIZATION
             count += 1
             check_prefix = '; CHECK-NEXT:'
 

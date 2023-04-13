@@ -38,7 +38,7 @@
 
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Analysis/EHPersonalities.h"
+#include "llvm/IR/EHPersonalities.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/DiagnosticInfo.h"
@@ -179,6 +179,7 @@ static cl::opt<bool> EnableDeviceBlockLoad(
 
 extern cl::opt<bool> AtomicFreeReduction;
 extern cl::opt<uint32_t> AtomicFreeReductionCtrl;
+extern cl::opt<bool> EmitSPIRVBuiltins;
 
 // Get the TidPtrHolder global variable @tid.addr.
 // Assert if the variable is not found or is not i32.
@@ -483,6 +484,15 @@ WRNScheduleKind VPOParoptUtils::getLoopScheduleKind(WRegionNode *W)
 
     auto Kind   = Schedule.getKind();
     auto Chunk  = Schedule.getChunk();
+
+    if (W->getLoopOrder() == WRNLoopOrderConcurrentReproducible &&
+        Kind != WRNScheduleStatic && Kind != WRNScheduleStaticEven) {
+      Schedule.setKind(WRNScheduleStatic);
+      Kind = WRNScheduleStatic;
+      emitWarning(W, "The loop's schedule in the '" + W->getName() +
+                         "' construct was changed to 'static' to honor "
+                         "'order(reproducible:concurrent)'.");
+    }
 
     bool IsOrdered = (W->getOrdered() == 0);
     return VPOParoptUtils::genScheduleKind(Kind, IsOrdered, Chunk);
@@ -975,9 +985,23 @@ CallInst *VPOParoptUtils::genTgtTarget(WRegionNode *W, Value *HostAddr,
                                        Instruction *InsertPt) {
   assert(isa<WRNTargetNode>(W) && "Expected a WRNTargetNode");
   Value *DeviceID = W->getDevice();
-  CallInst *Call =
-      genTgtCall("__tgt_target", W, DeviceID, NumArgs, ArgsBase, Args, ArgsSize,
-                 ArgsMaptype, ArgsNames, ArgsMappers, InsertPt, HostAddr);
+  CallInst *Call = nullptr;
+
+  if (W->getThreadLimit()) {
+    Value *ThreadLimitPtr = W->getThreadLimit();
+    Type *ThreadLimitTy = W->getThreadLimitType();
+
+    Call =
+        genTgtCall("__tgt_target_teams", W, DeviceID, NumArgs, ArgsBase, Args,
+                   ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt,
+                   HostAddr, nullptr, nullptr, ThreadLimitPtr, ThreadLimitTy);
+  } else {
+    Call = genTgtCall("__tgt_target", W, DeviceID, NumArgs, ArgsBase, Args,
+                      ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt,
+                      HostAddr);
+  }
+
+  assert(Call && "Call is null");
   return Call;
 }
 
@@ -1006,8 +1030,14 @@ VPOParoptUtils::genTgtTargetTeams(WRegionNode *W, Value *HostAddr, int NumArgs,
   assert((!useSPMDMode(W) || !NumTeamsPtr) &&
          "SPMD mode cannot be used with num_teams.");
 
-  Value *ThreadLimitPtr = W->getThreadLimit();
-  Type *ThreadLimitTy = W->getThreadLimitType();
+  // Get the thread_limit clause value from the parent target construct if it is
+  // present on the parent target construct.
+  Value *ThreadLimitPtr = WTarget->getThreadLimit() ? WTarget->getThreadLimit()
+                                                    : W->getThreadLimit();
+  Type *ThreadLimitTy = WTarget->getThreadLimitType()
+                            ? WTarget->getThreadLimitType()
+                            : W->getThreadLimitType();
+
   CallInst *Call =
       genTgtCall("__tgt_target_teams", W, DeviceID, NumArgs, ArgsBase, Args,
                  ArgsSize, ArgsMaptype, ArgsNames, ArgsMappers, InsertPt,
@@ -1185,10 +1215,25 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
     FnArgs.push_back(BitCast);
     FnArgTypes.push_back(BitCast->getType());
     if (FnName == "__tgt_target_teams") {
+      assert((isa<WRNTeamsNode>(W) || isa<WRNTargetNode>(W)) &&
+             "'tgt_target_teams' should only be emitted for 'teams' construct, "
+             "or 'target' constructs with 'thread_limit' clause.");
+      assert((W->getIsTeams() || ThreadLimitPtr) &&
+             "Thread limit is required for 'tgt_target_teams' calls made for "
+             "'target' constructs with 'thread_limit' clause.");
+
       // __tgt_target_teams has two more parms: "int32_t num_teams" and
-      // "int32_t thread_limit".  Initialize them here.
+      // "int32_t thread_limit", which we nitialize here. The
+      // "tgt_target[_mapper]" RTL functions, which have until now been used for
+      // "target" constructs, internally use "-1" as the default value of
+      // NumTeams/ThreadLimit, whereas the default value of NumTeams has, until
+      // now, been set by the compiler to 0 when calling the
+      // "tgt_tearget_teams[_mapper]" functions. So we are staying
+      // aligned with both of them, by continuing to use 0 for "teams"
+      // constructs, and "-1" for "target" constructs.
       if (NumTeamsPtr == nullptr)
-        NumTeams = Builder.getInt32(0);
+        NumTeams =
+            isa<WRNTeamsNode>(W) ? Builder.getInt32(0) : Builder.getInt32(-1);
       else
         NumTeams = getOrLoadClauseArgValueWithSext(NumTeamsPtr, NumTeamsTy,
                                                    Int32Ty, Builder);
@@ -1196,9 +1241,8 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
       if (ThreadLimitPtr == nullptr)
         ThreadLimit = Builder.getInt32(0);
       else
-        ThreadLimit = getOrLoadClauseArgValueWithSext(ThreadLimitPtr,
-                                                      ThreadLimitTy,
-                                                      Int32Ty, Builder);
+        ThreadLimit = getOrLoadClauseArgValueWithSext(
+            ThreadLimitPtr, ThreadLimitTy, Int32Ty, Builder);
     }
   } else {
     // HostAddr==null means FnName is not __tgt_target or __tgt_target_teams
@@ -1341,6 +1385,34 @@ CallInst *VPOParoptUtils::genTgtRegGeneric(Value *Desc, Instruction *InsertPt,
   return Call;
 }
 
+// Call to i1 __kmpc_team_reduction_ready_teamzero(i32 addrspace(4)
+// *teams_counter, i32 num_teams) or i1 __kmpc_team_reduction_ready(i32
+// addrspace(4) *teams_counter, i32 num_teams)
+CallInst *VPOParoptUtils::genKmpcTeamReductionBufferReadyCall(
+    WRegionNode *W, GlobalVariable *GlobalCounter, Instruction *NumGroup,
+    bool UseTeamZero) {
+  assert(W && "WRegionNode is null.");
+  assert(GlobalCounter && "GlobalCounter is null.");
+  assert(NumGroup && "NumGroup is null.");
+
+  Function *F = NumGroup->getFunction();
+  LLVMContext &C = F->getContext();
+  Module *M = F->getParent();
+  Type *RetType = Type::getInt1Ty(C);
+  auto *TeamsCounter = VPOParoptUtils::genAddrSpaceCast(
+      GlobalCounter, NumGroup, vpo::ADDRESS_SPACE_GENERIC);
+  SmallVector<Type *, 2> FnArgTypes = {TeamsCounter->getType(),
+                                       Type::getInt32Ty(C)};
+
+  StringRef FnName = UseTeamZero ? "__kmpc_team_reduction_ready_teamzero"
+                                 : "__kmpc_team_reduction_ready";
+
+  CallInst *Call = genCall(M, FnName, RetType, {TeamsCounter, NumGroup},
+                           FnArgTypes, nullptr);
+  Call->insertAfter(NumGroup);
+  return Call;
+}
+
 // Generate a generic call to `get_global_id, get_local_id...`.
 // Example
 //   call i64 @_Z14get_local_sizej(i32 0)
@@ -1374,63 +1446,75 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
   return Call;
 }
 
-// Generate SPIR-V call to get local id for each DIM
-//   call spir_func i64 @_Z27__spirv_LocalInvocationId_xv()
-//   call spir_func i64 @_Z27__spirv_LocalInvocationId_yv()
-//   call spir_func i64 @_Z27__spirv_LocalInvocationId_zv()
-CallInst *VPOParoptUtils::genSPIRVLocalIdCall(int Dim,
-                                              Instruction *InsertPt) {
-  BasicBlock *B  = InsertPt->getParent();
-  Function *F    = B->getParent();
+enum class IndexBuiltinKind {
+  LOCAL_ID,
+  GROUP_ID,
+  LOCAL_SIZE,
+  NUM_GROUPS,
+  INDEX_BUILTIN_MAX
+};
 
-  std::string fname;
+static const StringRef IndexBuiltinNamesOCL[] = {
+    "_Z12get_local_idj", "_Z12get_group_idj", "_Z14get_local_sizej",
+    "_Z14get_num_groupsj"};
+
+static const StringRef IndexBuiltinNamesSPV[] = {
+    "_Z27__spirv_LocalInvocationId",
+    "_Z21__spirv_WorkgroupId",
+    "_Z23__spirv_WorkgroupSize",
+    "_Z23__spirv_NumWorkgroups",
+};
+
+static CallInst *genIndexingBuiltinCall(IndexBuiltinKind BuiltinId, int Dim,
+                                        Instruction *InsertPt) {
+  assert((Dim >= 0 && Dim < 3) && "Invalid dimensional index ");
+  Function *F = InsertPt->getFunction();
+
+  auto Idx = static_cast<unsigned>(BuiltinId);
+  std::string FName;
   SmallVector<Value *, 1> Arg;
-  switch (Dim) {
-    case 0: fname = "_Z27__spirv_LocalInvocationId_xv";
+  if (VPOParoptUtils::enableDeviceSimdCodeGen() || EmitSPIRVBuiltins) {
+    FName = IndexBuiltinNamesSPV[Idx];
+    switch (Dim) {
+    case 0:
+      FName += "_xv";
       break;
-    case 1: fname = "_Z27__spirv_LocalInvocationId_yv";
+    case 1:
+      FName += "_yv";
       break;
-    case 2: fname = "_Z27__spirv_LocalInvocationId_zv";
+    case 2:
+      FName += "_zv";
       break;
     default:
-      llvm_unreachable("Invalid dimentional index ");
+      llvm_unreachable("Invalid dimensional index");
+    }
+  } else {
+    FName = IndexBuiltinNamesOCL[Idx];
+    Arg.push_back(
+        ConstantInt::get(IntegerType::get(InsertPt->getContext(), 32), Dim));
   }
-  return VPOParoptUtils::genOCLGenericCall(fname,
-            GeneralUtils::getSizeTTy(F), Arg, InsertPt);
+  return VPOParoptUtils::genOCLGenericCall(FName, GeneralUtils::getSizeTTy(F),
+                                           Arg, InsertPt);
+}
+
+// Generate a call to get local id for the dimension provided
+CallInst *VPOParoptUtils::genLocalIdCall(int Dim, Instruction *InsertPt) {
+  return genIndexingBuiltinCall(IndexBuiltinKind::LOCAL_ID, Dim, InsertPt);
+}
+
+// Generate a call to get group id for the dimension provided
+CallInst *VPOParoptUtils::genGroupIdCall(int Dim, Instruction *InsertPt) {
+  return genIndexingBuiltinCall(IndexBuiltinKind::GROUP_ID, Dim, InsertPt);
+}
+
+// Generate a call to get local (group) size for the dimension provided
+CallInst *VPOParoptUtils::genLocalSizeCall(int Dim, Instruction *InsertPt) {
+  return genIndexingBuiltinCall(IndexBuiltinKind::LOCAL_SIZE, Dim, InsertPt);
 }
 
 // Generate a call to get number of groups the dimension provided
 CallInst *VPOParoptUtils::genNumGroupsCall(int Dim, Instruction *InsertPt) {
-  assert((Dim >= 0 && Dim < 3) && "Invalid dimentional index ");
-
-  CallInst *Res;
-  Function *F = InsertPt->getFunction();
-
-  std::string FName;
-  SmallVector<Value *, 1> Arg;
-  if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
-    // target-simd uses SPIRV builtins
-    switch (Dim) {
-    case 0:
-      FName = "_Z29__spirv_NumWorkgroups_xv";
-      break;
-    case 1:
-      FName = "_Z29__spirv_NumWorkgroups_yv";
-      break;
-    case 2:
-      FName = "_Z29__spirv_NumWorkgroups_zv";
-      break;
-    default:
-      break;
-    }
-  } else {
-    FName = "_Z14get_num_groupsj";
-    Arg.push_back(
-        ConstantInt::get(IntegerType::get(InsertPt->getContext(), 32), Dim));
-  }
-  Res = VPOParoptUtils::genOCLGenericCall(FName, GeneralUtils::getSizeTTy(F),
-                                          Arg, InsertPt);
-  return Res;
+  return genIndexingBuiltinCall(IndexBuiltinKind::NUM_GROUPS, Dim, InsertPt);
 }
 
 // Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
@@ -2112,6 +2196,61 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
   return TaskCall;
 }
 
+// This function generates a call as follows.
+//    void @__kmpc_omp_reg_task_with_affinity(
+//           { i32, i32, i32, i32, i8* }* /* &loc */,
+//           i32 /* tid */,
+//           i8* /*thunk_temp */,
+//           i32 /* affinity_array_size */,
+//           i8* /* &affinity */)
+
+CallInst *VPOParoptUtils::genKmpcTaskWithAffinity(
+    WRegionNode *W, StructType *IdentTy, Value *TidPtr, Value *TaskAlloc,
+    Value *AffArray, Value *AffArraySize, Instruction *InsertPt,
+    StringRef FnName) {
+
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  int Flags = KMP_IDENT_KMPC;
+  Type *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  Type *RetTy =  Builder.getVoidTy();
+  Constant *Loc = genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
+
+  SmallVector<Value *, 5> TaskArgs;
+  TaskArgs.push_back(Loc);
+  TaskArgs.push_back(Builder.CreateLoad(Int32Ty, TidPtr));
+  if (TaskAlloc)
+    TaskArgs.push_back(TaskAlloc);
+  TaskArgs.push_back(AffArraySize);
+  TaskArgs.push_back(AffArray);
+
+  SmallVector<Type *, 5> TypeParams;
+  TypeParams.push_back(Loc->getType());
+  TypeParams.push_back(Int32Ty);
+  if (TaskAlloc)
+    TypeParams.push_back(Int8PtrTy);
+  TypeParams.push_back(Int32Ty);
+  TypeParams.push_back(Int8PtrTy);
+
+  FunctionType *FnTy = FunctionType::get(RetTy, TypeParams, false);
+
+  Function *FnTask = M->getFunction(FnName);
+
+  if (!FnTask)
+    FnTask = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+
+  CallInst *TaskCall = CallInst::Create(FnTy, FnTask, TaskArgs, "", InsertPt);
+  setFuncCallingConv(TaskCall, M);
+  TaskCall->setTailCall(false);
+  addFuncletOperandBundle(TaskCall, W->getDT(), InsertPt);
+
+  return TaskCall;
+}
+
 // This is a generic function to support the generation of
 //   __kmpc_task, __kmpc_omp_task_begin_if0 and __kmpc_omp_task_complete_if0.
 CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,
@@ -2329,6 +2468,48 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
   return TaskRedInitCall;
 }
 
+// Routine that generates @__kmpc_task_allow_completion_event
+CallInst *VPOParoptUtils::genKmpcAllowCompletionEvent(WRegionNode *W,
+                                                      StructType *IdentTy,
+                                                      Value *TidPtr,
+                                                      CallInst *TaskAllocCI,
+                                                      Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+
+  int Flags = KMP_IDENT_KMPC;
+  Constant *Loc = VPOParoptUtils::genKmpcLocfromDebugLoc(IdentTy, Flags, B, E);
+  Value *Tid = Builder.CreateLoad(Int32Ty, TidPtr);
+
+  Value *Args[] = {Loc, Tid, TaskAllocCI};
+
+  Type *TypeParams[] = {Loc->getType(), Int32Ty, Int8PtrTy};
+
+  FunctionType *FnTy = FunctionType::get(Int8PtrTy, TypeParams, false);
+
+  StringRef FnName = "__kmpc_task_allow_completion_event";
+  Function *FnAllowCompletionEvent = M->getFunction(FnName);
+
+  if (!FnAllowCompletionEvent)
+    FnAllowCompletionEvent =
+        Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+
+  CallInst *AllowCompletionEventCall =
+      genCall(FnName, Int8PtrTy, Args, TypeParams, InsertPt);
+
+  VPOParoptUtils::setFuncCallingConv(AllowCompletionEventCall, M);
+  AllowCompletionEventCall->setTailCall(false);
+  VPOParoptUtils::addFuncletOperandBundle(AllowCompletionEventCall, W->getDT(),
+                                          InsertPt);
+
+  return AllowCompletionEventCall;
+}
+
 // Auxiliary routine to generate call to @__kmpc_omp_task_alloc
 CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
                                Value *TaskFlags,
@@ -2489,6 +2670,12 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 
   if (VPOParoptUtils::enableAsyncHelperThread() && W->getIsTargetTask()) {
     W->setTaskFlag(W->getTaskFlag() | WRNTaskFlag::HiddenHelper);
+    TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
+  }
+
+  if (!W->getDetach().empty()) {
+    const int DetachFlagBit = 0x40;
+    W->setTaskFlag(W->getTaskFlag() | DetachFlagBit);
     TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
   }
 
@@ -4209,11 +4396,11 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
 }
 
 // This function generates and inserts calls to kmpc_doacross_wait/post for
-// '#pragma omp ordered depend(source/sink)'.
+// '#pragma omp ordered doacross(source/sink)'.
 //
 // Incoming Directive:
 //   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(),
-//        "QUAL.OMP.DEPEND.SINK"(i32 %v1, i32 %v2) ]
+//        "QUAL.OMP.DOACROSS.SINK"(i32 %v1, i32 %v2) ]
 //
 // Generated IR:
 //   %dep.vec = alloca i64, i32 2                             ; (1)
@@ -4543,7 +4730,7 @@ CallInst *VPOParoptUtils::genCall(Module *M,
   return Call;
 }
 
-// Genetates a CallInst for a function with name `FnName`.
+// Generates a CallInst for a function with name `FnName`.
 // If InsertPt!=null, the Call is emitted before InsertPt.
 CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
                                   ArrayRef<Value *> FnArgs,
@@ -4559,35 +4746,62 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
   // Create the function type from the return type and argument types.
   FunctionType *NewFnTy = FunctionType::get(ReturnTy, FnArgTypes, IsVarArg);
 
-  // Get the function prototype from the module symbol table. If absent,
-  // create and insert it into the symbol table first.
-  FunctionCallee FnC = M->getOrInsertFunction(FnName, NewFnTy);
-  Value *FnCallee = FnC.getCallee();
+  // Get function FnName from the module symbol table (if it exists)
+  // If absent, args check can be later skipped
+  Function *ExistingFn = M->getFunction(FnName);
 
-  auto NewAndExistingFunctionsDifferOnlyByPointerTypeOfArgs = [&NewFnTy,
-                                                               &FnCallee]() {
-    Function *ExistingFn =
-        dyn_cast_or_null<Function>(FnCallee->stripPointerCasts());
-    if (!ExistingFn)
-      return false;
+  // Get the function prototype from the module symbol table.
+  // If absent, create and insert it into the symbol table first.
+  // If present, the utility will return the existing function.
+  // For typed pointers, if the existing function's type does not match NewfnTy,
+  // then it emits a ConstExpr bitcast to NewFnTy and returns that cast.
+  FunctionCallee FnC = M->getOrInsertFunction(FnName, NewFnTy);
+
+  auto NewAndExistingFunctionsAreSameOrDifferOnlyByPointerTypeOfArgs =
+      [&NewFnTy, &ExistingFn, &AllowMismatchingPointerArgs, &FnC]() {
+
+    Value *FnCallee = FnC.getCallee();
+
+    // For typed pointers, if NewFnTyCallee is not a bitcast, then we can assume
+    // that ExistingFn's type matches NewFnTy. However, the bitcast won't be
+    // generated even in the case of a mismatch for opaque pointers.
+    if (isa<Function>(FnCallee) &&
+            !FnCallee->getType()->isOpaquePointerTy())
+          return true;
 
     FunctionType *ExistingFnTy = ExistingFn->getFunctionType();
-    if (!ExistingFnTy || ExistingFnTy->isVarArg() || NewFnTy->isVarArg())
+
+    // In case of vararg function, isVarArg must be true for both ExistingFn and NewFn
+    if (ExistingFnTy->isVarArg() != NewFnTy->isVarArg())
+          return false;
+
+    // getNumParams returns the number of fixed params for function type
+    // For non-vararg function, number of fixed param must be equal
+    // For vararg function, param list size for NewFnTy can be greater than ExistingFnTy
+    if (ExistingFnTy->getNumParams() > NewFnTy->getNumParams())
       return false;
+ 
+    if (!ExistingFnTy->isVarArg() &&
+       (ExistingFnTy->getNumParams() != NewFnTy->getNumParams()))
+       return false;
 
-    if (NewFnTy->getNumParams() != ExistingFnTy->getNumParams())
-      return false;
+    // Check ExistingFnTy param list matches NewFnTy up to ExistingFnTy param_end
+    // For typed pointers, if AllowMismatchingPointerArgs=true, different pointer types
+    // allowed when using a cast
+    return std::equal(ExistingFnTy->param_begin(), ExistingFnTy->param_end(),
+                          NewFnTy->param_begin(),
+                          [&AllowMismatchingPointerArgs](Type *T1, Type *T2) {
+                            return (T1 == T2) || (AllowMismatchingPointerArgs &&
+                                                  (isa<PointerType>(T1) &&
+                                                   isa<PointerType>(T2)));
+                          });
+      };
 
-    return std::equal(NewFnTy->param_begin(), NewFnTy->param_end(),
-                      ExistingFnTy->param_begin(), [](Type *T1, Type *T2) {
-                        return (T1 == T2) ||
-                               (isa<PointerType>(T1) && isa<PointerType>(T2));
-                      });
-  };
-
-  if (isa<Function>(FnCallee) ||
-      (AllowMismatchingPointerArgs &&
-       NewAndExistingFunctionsDifferOnlyByPointerTypeOfArgs()))
+  // If there is no existing matching function in the declaration, we can
+  // assume that getAndInsertFunction created one from scratch. If there is,
+  // we need to check whether its type matches NewFnTy.
+  if (!ExistingFn ||
+	NewAndExistingFunctionsAreSameOrDifferOnlyByPointerTypeOfArgs())
     return genCall(M, FnC, FnArgs, FnArgTypes, InsertPt, IsTail);
 
   std::string Msg =
@@ -4663,9 +4877,8 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 // of the interop obj if one was added into the variant call, or zero if not.
 CallInst *VPOParoptUtils::genVariantCall(
     CallInst *BaseCall, StringRef VariantName, Value *InteropObj,
-    llvm::Optional<uint64_t> InteropPosition,
-    uint64_t &InteropPositionIfEmitted, Instruction *InsertPt, WRegionNode *W,
-    bool IsTail) {
+    std::optional<uint64_t> InteropPosition, uint64_t &InteropPositionIfEmitted,
+    Instruction *InsertPt, WRegionNode *W, bool IsTail) {
   assert(BaseCall && "BaseCall is null");
 
   Module *M = BaseCall->getModule();
@@ -4691,7 +4904,7 @@ CallInst *VPOParoptUtils::genVariantCall(
 
   // At this point, the FnArgs and FnArgTypes of the variant call is the same
   // as the base call. If !InteropObj then the lists are ready for genCall.
-  
+
   InteropPositionIfEmitted = 0; // 0 means no interop obj was added to the call
 
   if (InteropObj != nullptr) {
@@ -5686,8 +5899,8 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
 Value *VPOParoptUtils::genPrivatizationAlloca(
     Type *ElementType, Value *NumElements, MaybeAlign OrigAlignment,
     Instruction *InsertPt, bool IsTargetSPIRV, const Twine &VarName,
-    llvm::Optional<unsigned> AllocaAddrSpace,
-    llvm::Optional<unsigned> ValueAddrSpace, AllocateItem *AllocItem) {
+    std::optional<unsigned> AllocaAddrSpace,
+    std::optional<unsigned> ValueAddrSpace, AllocateItem *AllocItem) {
   assert(ElementType && "Null element type.");
   assert(InsertPt && "Null insertion anchor.");
 
@@ -6658,8 +6871,7 @@ orderBlocksForOutlining(ArrayRef<BasicBlock *> Blocks) {
   // Walk all blocks in the function in their original order
   // and collect the blocks that are in BlocksSet into OrderedBlocks vector.
   Function *F = Blocks.front()->getParent();
-  Function::BasicBlockListType &BlocksList = F->getBasicBlockList();
-  for (BasicBlock &BB : BlocksList)
+  for (BasicBlock &BB : *F)
     if (BlocksSet.count(&BB))
       OrderedBlocks.push_back(&BB);
 
@@ -6683,7 +6895,7 @@ CallInst *VPOParoptUtils::getSingleCallSite(Function *F) {
 
 Function *VPOParoptUtils::genOutlineFunction(
     const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
-    llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn, std::string Suffix) {
+    std::optional<ArrayRef<BasicBlock *>> BBsToExtractIn, std::string Suffix) {
 #if 0
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": WRN BBSet {\n";
            formatted_raw_ostream OS(dbgs());
@@ -6761,10 +6973,10 @@ Function *VPOParoptUtils::genOutlineFunction(
   // We avoid mutating the actual region set.
   SmallVector<BasicBlock *, 16> FixedBlocks;
   auto ExtractArray =
-      BBsToExtractIn.value_or(makeArrayRef(W.bbset_begin(), W.bbset_end()));
+      BBsToExtractIn.value_or(ArrayRef(W.bbset_begin(), W.bbset_end()));
   FixEHEscapesAndDeadPredecessors(ExtractArray, FixedBlocks, DT);
   if (!FixedBlocks.empty())
-    ExtractArray = makeArrayRef(FixedBlocks);
+    ExtractArray = ArrayRef(FixedBlocks);
 
   // Order the blocks being extracted the same way they are originally ordered,
   // otherwise, CodeExtractor will change the blocks layout, which may
@@ -6773,7 +6985,7 @@ Function *VPOParoptUtils::genOutlineFunction(
 
   if (KeepBlocksOrder) {
     OrderedBlocks = orderBlocksForOutlining(ExtractArray);
-    ExtractArray = makeArrayRef(OrderedBlocks);
+    ExtractArray = ArrayRef(OrderedBlocks);
   }
 
   CodeExtractor CE(ExtractArray, DT,
@@ -6908,7 +7120,7 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
   // Reduction operation is defined by the operation kind (e.g. add)
   // and its signedness (true/false for integer types and std::nullopt
   // for floating point types).
-  typedef Optional<bool> IsSignedTy;
+  typedef std::optional<bool> IsSignedTy;
   typedef std::pair<ReductionItem::WRNReductionKind, IsSignedTy>
       ReductionOperationTy;
 
@@ -6977,7 +7189,7 @@ Value *VPOParoptUtils::genSPIRVHorizontalReduction(
     return nullptr;
 
   ReductionItem::WRNReductionKind Kind = RedI->getType();
-  Optional<bool> IsSigned = std::nullopt;
+  std::optional<bool> IsSigned = std::nullopt;
   if (ScalarTy->isIntegerTy())
     IsSigned = !RedI->getIsUnsigned();
 
@@ -7506,8 +7718,6 @@ OffloadEntry *VPOParoptUtils::getTargetRegionOffloadEntry(
 }
 
 bool VPOParoptUtils::supportsAtomicFreeReduction(const ReductionItem *RedI) {
-  if (RedI->getType() == ReductionItem::WRNReductionUdr)
-    return false;
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector())
     return false;
@@ -7551,4 +7761,41 @@ bool VPOParoptUtils::isAtomicFreeReductionGlobalEnabled() {
   return AtomicFreeReduction &&
          (AtomicFreeReductionCtrl & VPOParoptAtomicFreeReduction::Kind_Global);
 }
+
+// Since zero-offset TYPED.ARRSECT clauses are not treated
+// as an actual array sections, RedElemType doesn't match
+// ReductionVar's pointee type (which is an array).
+// But as it may only happen for zero-offset items, we can
+// just generate a corresponding bitcast.
+// Obviously that's not an issue for opaque pointers.
+Value *VPOParoptUtils::genZeroOffsetArrsecReductionItemCastIfNeeded(
+    const ReductionItem *RedI, const WRegionNode *W, Value *ReductionVar,
+    DominatorTree *DT) {
+  Type *RedElemType = nullptr;
+  Value *NumElements = nullptr;
+  unsigned Addrspace = 0;
+  std::tie(RedElemType, NumElements, Addrspace) =
+      VPOParoptUtils::getItemInfo(RedI);
+
+  bool IsArrayOrArraySection =
+      RedI->getIsArraySection() || RedElemType->isArrayTy() || NumElements;
+  if (!RedI->getIsF90DopeVector() && !IsArrayOrArraySection &&
+      !ReductionVar->getType()->isOpaquePointerTy() &&
+      ReductionVar->getType()->getNonOpaquePointerElementType()->isArrayTy()) {
+    assert(RedI->getIsTyped() &&
+           "Unexpected type mismatch for non-typed reduction item");
+    Instruction *ReductionVarInst = dyn_cast<Instruction>(ReductionVar);
+    auto *InsertPt = ReductionVarInst && DT->dominates(W->getEntryDirective(),
+                                                       ReductionVarInst)
+                         ? ReductionVarInst
+                         : W->getEntryDirective();
+    assert(InsertPt &&
+           "No valid insertion point found for 0-offset arrsect bitcast");
+    IRBuilder<> Builder(InsertPt->getNextNode());
+    ReductionVar = Builder.CreateBitOrPointerCast(
+        ReductionVar, PointerType::get(RedElemType, Addrspace));
+  }
+  return ReductionVar;
+}
+
 #endif // INTEL_COLLAB

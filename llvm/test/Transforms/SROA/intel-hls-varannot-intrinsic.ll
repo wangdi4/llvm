@@ -1,4 +1,4 @@
-; RUN: opt -passes=sroa -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes=sroa -S < %s | FileCheck %s
 
 @.str = private unnamed_addr constant [13 x i8] c"{register:1}\00", section "llvm.metadata"
 @.str.1 = private unnamed_addr constant [17 x i8] c"new-for-gerrit.c\00", section "llvm.metadata"

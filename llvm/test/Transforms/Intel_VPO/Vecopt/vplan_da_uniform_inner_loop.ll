@@ -13,8 +13,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header>,[[BB3]],[[BB6]],[[NEW_LOOP_LATCH0]]<latch><exiting>,[[INTERMEDIATE_BB0]],[[INTERMEDIATE_BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB9:BB[0-9]+]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB8]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_PHI_OUTER_LOOP_INDUCTION:%.*]] = phi  [ i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT:%.*]], [[BB9]] ],  [ i32 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_PHI_OUTER_LOOP_INDUCTION:%.*]] = phi  [ i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT:%.*]], [[BB9:BB[0-9]+]] ],  [ i32 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB8]] ]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
@@ -73,8 +72,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB8]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_OUTER_LOOP_INDUCTION]] = add i32 [[VP_PHI_OUTER_LOOP_INDUCTION]] i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_OUTER_LOOP_INDUCTION]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB10]]
@@ -153,7 +151,7 @@ exit.bb3:
 
 outer.loop.latch:
   %outer.loop.induction = add nsw i32 %phi.outer.loop.induction, 1
-  %outer.loop.bottom.test = icmp eq i32 %outer.loop.induction, 1024
+  %outer.loop.bottom.test = icmp ne i32 %outer.loop.induction, 1024
   br i1 %outer.loop.bottom.test, label %outer.loop, label %outer.loop.exit
 
 outer.loop.exit:

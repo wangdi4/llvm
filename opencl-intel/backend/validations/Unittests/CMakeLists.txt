@@ -20,9 +20,6 @@ set(TARGET_NAME ValidationTests)
 if(WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ICC_AUXILIARY_CXX_FLAGS}")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}   ${ICC_AUXILIARY_C_FLAGS}")
-  # some unittests have to use deprecated OpenCL API functions.
-  add_definitions(-wd4996 # Suppress 'function': was declared deprecated'
-  )
 endif(WIN32)
 
 include_directories(
@@ -91,7 +88,9 @@ target_link_libraries(
   DataGenerator
   DataManager
   ImathLibd
+  LLVMAsmParser
   LLVMInterpreterPluggable
+  LLVMTargetParser
   NEAT
   OCLBuilder
   OCLBuiltinsRef
@@ -101,6 +100,7 @@ target_link_libraries(
   OpenCLKernelArgumentsParser
   PlugInNEAT
   REFALU
+  cl_hw_utils
   cl_logger
   cl_sys_utils
   clang_compiler
@@ -108,6 +108,10 @@ target_link_libraries(
   llvm_gtest
   reflection_module
   tinyxml_STL)
+
+if(HAVE_LIBPTHREAD)
+  target_link_libraries(${TARGET_NAME} pthread)
+endif()
 
 add_dependencies(${TARGET_NAME} cl_sys_utils)
 

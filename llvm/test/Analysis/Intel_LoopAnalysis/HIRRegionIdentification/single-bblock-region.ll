@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification | FileCheck %s
 ; RUN: opt < %s -passes='print<hir-region-identification>' -disable-output 2>&1 | FileCheck %s
 
 ; Check that we create one region each for functon foo and bar.
@@ -19,11 +18,8 @@
 
 ; Verify that region creation is disabled based on command line option.
 
-; RUN : opt < %s -enable-new-pm=0 -analyze -hir-region-identification -disable-hir-regions-func-list=foo | FileCheck %s --check-prefix=ONEFUNC
 ; RUN: opt < %s -passes='print<hir-region-identification>' -disable-hir-regions-func-list=foo 2>&1 | FileCheck %s --check-prefix=ONEFUNC
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -disable-hir-regions-func-list=bar | FileCheck %s --check-prefix=ONEFUNC
 ; RUN: opt < %s -passes='print<hir-region-identification>' -disable-hir-regions-func-list=bar 2>&1 | FileCheck %s --check-prefix=ONEFUNC
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification -disable-hir-regions-func-list=foo,bar | FileCheck %s --check-prefix=TWOFUNC
 ; RUN: opt < %s -passes='print<hir-region-identification>' -disable-hir-regions-func-list=foo,bar 2>&1 | FileCheck %s --check-prefix=TWOFUNC
 
 ; ONEFUNC: Region 1

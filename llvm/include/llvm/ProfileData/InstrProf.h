@@ -1,4 +1,21 @@
 //===- InstrProf.h - Instrumented profiling format support ------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -20,7 +37,6 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/ProfileSummary.h"
 #include "llvm/ProfileData/InstrProfData.inc"
@@ -29,10 +45,11 @@
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/Triple.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -363,6 +380,21 @@ public:
     });
     return Err;
   }
+
+#if INTEL_CUSTOMIZATION
+  /// Consume an Error and return the raw enum value and any additional message
+  /// information contained within it.
+  static std::pair<instrprof_error, std::string> takeWithMessage(Error E) {
+    auto Err = instrprof_error::success;
+    std::string Message;
+    handleAllErrors(std::move(E), [&Err, &Message](const InstrProfError &IPE) {
+      assert(Err == instrprof_error::success && "Multiple errors encountered");
+      Err = IPE.get();
+      Message = IPE.getMessage();
+    });
+    return {Err, Message};
+  }
+#endif // INTEL_CUSTOMIZATION
 
   static char ID;
 
@@ -862,7 +894,7 @@ private:
     // cast away the constness from the result.
     auto AR = const_cast<const InstrProfRecord *>(this)->getValueSitesForKind(
         ValueKind);
-    return makeMutableArrayRef(
+    return MutableArrayRef(
         const_cast<InstrProfValueSiteRecord *>(AR.data()), AR.size());
   }
   ArrayRef<InstrProfValueSiteRecord>
@@ -1050,7 +1082,9 @@ enum ProfVersion {
   Version7 = 7,
   // An additional (optional) memory profile type is added.
   Version8 = 8,
-  // The current version is 8.
+  // Binary ids are added.
+  Version9 = 9,
+  // The current version is 9.
   CurrentVersion = INSTR_PROF_INDEX_VERSION
 };
 const uint64_t Version = ProfVersion::CurrentVersion;
@@ -1068,6 +1102,7 @@ struct Header {
   uint64_t HashType;
   uint64_t HashOffset;
   uint64_t MemProfOffset;
+  uint64_t BinaryIdOffset;
   // New fields should only be added at the end to ensure that the size
   // computation is correct. The methods below need to be updated to ensure that
   // the new field is read correctly.

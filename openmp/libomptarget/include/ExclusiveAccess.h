@@ -1,4 +1,21 @@
 //===---- ExclusiveAccess.h - Helper for exclusive access data structures -===//
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2023 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+/* end INTEL_CUSTOMIZATION */
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -47,6 +64,10 @@ template <typename Ty> struct Accessor {
 
   /// Constructor to get exclusive access by taking it from \p Other.
   Accessor(Accessor<Ty> &&Other) : Ptr(Other.Ptr) { Other.Ptr = nullptr; }
+#if INTEL_CUSTOMIZATION
+  // [Coverity] User-defined copy constructor without assignment operator.
+  Accessor &operator=(Accessor &&Other) = delete;
+#endif // INTEL_CUSTOMIZATION
 
   Accessor(Accessor &Other) = delete;
 

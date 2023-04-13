@@ -1004,7 +1004,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx128u32 = OclBuiltinImpl<sub_group
   [{
     int4 arg0 = as_int4($Arg0VarName);
     int4 arg1 = as_int4($Arg1VarName);
-    arg0 |= ~arg1;
+    arg0 &= arg1;
     $Arg0VarName = as_$Arg0Type(arg0);
 
     $Arg0VarName = __builtin_shufflevector($Arg0VarName, $Arg0VarName, 3, 0, 1, 2);
@@ -1069,7 +1069,7 @@ OclBuiltinImpl sub_group_scan_exclusive_max_avx128u64 = OclBuiltinImpl<sub_group
   [{
     long4 arg0 = as_long4($Arg0VarName);
     long4 arg1 = __builtin_convertvector(as_int4($Arg1VarName), long4);
-    arg0 |= ~arg1;
+    arg0 &= arg1;
 
     arg0 = __builtin_shufflevector(arg0, arg0, 3, 0, 1, 2);
     arg0[0] = 0;
@@ -1831,7 +1831,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v4 = OclBuiltinI
     temp = __builtin_shufflevector(temp, temp, 3, 0, 1, 2);
     $Arg0VarName = $Arg0VarName && temp;
   }
-  return $Arg0VarName;
+  return $Arg0VarName & ($Arg0Type)1;
 }]>;
 
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_and_vec, [v8i32], 0,
@@ -1847,7 +1847,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v8 = OclBuiltinI
     temp = __builtin_shufflevector(temp, temp, 7, 0, 1, 2, 3, 4, 5, 6);
     $Arg0VarName = $Arg0VarName && temp;
   }
-  return $Arg0VarName;
+  return $Arg0VarName & ($Arg0Type)1;
 }]>;
 
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_logical_and_vec, [v16i32], 0,
@@ -1863,7 +1863,7 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_logical_and_v16 = OclBuiltin
     temp = __builtin_shufflevector(temp, temp, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
     $Arg0VarName = $Arg0VarName && temp;
   }
-  return $Arg0VarName;
+  return $Arg0VarName & ($Arg0Type)1;
 }]>;
 
 // logical or, xor
@@ -2190,9 +2190,9 @@ code scan_exclusive_or_xor_v4 = [{
   return $Arg0VarName;
 }];
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or_vec,
-  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_inclusive_or_xor_v4, [["$OP", "|"]]>;
+  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_exclusive_or_xor_v4, [["$OP", "|"]]>;
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor_vec,
-  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_inclusive_or_xor_v4, [["$OP", "^"]]>;
+  [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4i64, v4u64], 0, scan_exclusive_or_xor_v4, [["$OP", "^"]]>;
 
 code scan_exclusive_or_xor_v8 = [{
   $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
@@ -2211,9 +2211,9 @@ code scan_exclusive_or_xor_v8 = [{
   return $Arg0VarName;
 }];
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or_vec,
-  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_inclusive_or_xor_v8, [["$OP", "|"]]>;
+  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_exclusive_or_xor_v8, [["$OP", "|"]]>;
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor_vec,
-  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_inclusive_or_xor_v8, [["$OP", "^"]]>;
+  [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64], 0, scan_exclusive_or_xor_v8, [["$OP", "^"]]>;
 
 code scan_exclusive_or_xor_v16 = [{
   $MaskCastTy$VecLength arg1 = __builtin_convertvector(as_int$VecLength($Arg1VarName), $MaskCastTy$VecLength);
@@ -2232,9 +2232,9 @@ code scan_exclusive_or_xor_v16 = [{
   return $Arg0VarName;
 }];
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_or_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_or_vec,
-  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_inclusive_or_xor_v16, [["$OP", "|"]]>;
+  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_exclusive_or_xor_v16, [["$OP", "|"]]>;
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_xor_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_xor_vec,
-  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_inclusive_or_xor_v16, [["$OP", "^"]]>;
+  [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64], 0, scan_exclusive_or_xor_v16, [["$OP", "^"]]>;
 
 
 // non uniform arithmetic
@@ -2371,167 +2371,6 @@ code scan_exclusive_mul_v16 = [{
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_mul_v4 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_mul_vec, [v4i8, v4u8, v4i16, v4u16, v4i32, v4u32, v4f32, v4f64, v4i64, v4u64], 0, scan_exclusive_mul_v4>;
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_mul_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_mul_vec, [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8f32, v8f64, v8i64, v8u64], 0, scan_exclusive_mul_v8>;
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_mul_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_mul_vec, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32, v16f64, v16i64, v16u64], 0, scan_exclusive_mul_v16>;
-
-
-OclBuiltinImpl sub_group_broadcast_ext_avx_v8 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx, [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64, v8f32, v8f64], 0,
-  [{
-
-     $Arg0BaseType#2 temp = *(($Arg0BaseType#2*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx_v12 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx, [v12i8, v12u8, v12i16, v12u16, v12i32, v12u32, v12i64, v12u64, v12f32, v12f64], 0,
-  [{
-     $Arg0BaseType#3 temp = *(($Arg0BaseType#3*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx_v16 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64, v16f32, v16f64], 0,
-  [{
-     $Arg0BaseType#4 temp = *(($Arg0BaseType#4*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx_v32 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx, [v32i8, v32u8, v32i16, v32u16, v32i32, v32u32, v32i64, v32u64, v32f32, v32f64], 0,
-  [{
-     $Arg0BaseType#8 temp = *(($Arg0BaseType#8*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx_v64 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx, [v64i8, v64u8, v64i16, v64u16, v64i32, v64u32, v64i64, v64u64, v64f32, v64f64], 0,
-  [{
-     $Arg0BaseType#16 temp = *(($Arg0BaseType#16*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx2_v16 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx2, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64, v16f32, v16f64], 0,
-  [{
-
-     $Arg0BaseType#2 temp = *(($Arg0BaseType#2*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx2_v24 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx2, [v24i8, v24u8, v24i16, v24u16, v24i32, v24u32, v24i64, v24u64, v24f32, v24f64], 0,
-  [{
-     $Arg0BaseType#3 temp = *(($Arg0BaseType#3*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx2_v32 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx2, [v32i8, v32u8, v32i16, v32u16, v32i32, v32u32, v32i64, v32u64, v32f32, v32f64], 0,
-  [{
-     $Arg0BaseType#4 temp = *(($Arg0BaseType#4*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx2_v64 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx2, [v64i8, v64u8, v64i16, v64u16, v64i32, v64u32, v64i64, v64u64, v64f32, v64f64], 0,
-  [{
-     $Arg0BaseType#8 temp = *(($Arg0BaseType#8*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx2_v128 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx2, [v128i8, v128u8, v128i16, v128u16, v128i32, v128u32, v128i64, v128u64, v128f32, v128f64], 0,
-  [{
-     $Arg0BaseType#16 temp = *(($Arg0BaseType#16*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx512_v32 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx512, [v32i8, v32u8, v32i16, v32u16, v32i32, v32u32, v32i64, v32u64, v32f32, v32f64], 0,
-  [{
-     $Arg0BaseType#2 temp = *(($Arg0BaseType#2*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx512_v48 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx512, [v48i8, v48u8, v48i16, v48u16, v48i32, v48u32, v48i64, v48u64, v48f32, v48f64], 0,
-  [{
-     $Arg0BaseType#3 temp = *(($Arg0BaseType#3*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx512_v64 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx512, [v64i8, v64u8, v64i16, v64u16, v64i32, v64u32, v64i64, v64u64, v64f32, v64f64], 0,
-  [{
-     $Arg0BaseType#4 temp = *(($Arg0BaseType#4*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx512_v128 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx512, [v128i8, v128u8, v128i16, v128u16, v128i32, v128u32, v128i64, v128u64, v128f32, v128f64], 0,
-  [{
-     $Arg0BaseType#8 temp = *(($Arg0BaseType#8*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_ext_avx512_v256 =
-  OclBuiltinImpl<sub_group_broadcast_extended_avx512, [v256i8, v256u8, v256i16, v256u16, v256i32, v256u32, v256i64, v256u64, v256f32, v256f64], 0,
-  [{
-     $Arg0BaseType#16 temp = *(($Arg0BaseType#16*)&$Arg0VarName + $Arg1VarName);
-     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
-  }]>;
-
-defvar broadcast_ext_base_types = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
-defvar broadcast_ext_code =
-[{
-  $Arg0BaseType$VSize temp = *(($Arg0BaseType$VSize*)&$Arg0VarName + $Arg1VarName);
-  return ($ReturnType)$Result;
-}];
-
-defvar x32_count = Range<0, 32>.Tout;
-defvar x32_result_vector = "(" # !interleave(!foreach(i, x32_count, "temp"), ", ")# ")";
-
-defvar x32_v64_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x32">.Tout, 2>.Tout;
-OclBuiltinImpl sub_group_broadcast_ext_x32_v64 =
-  OclBuiltinImpl<sub_group_broadcast_extended_x32, x32_v64_types, 0, broadcast_ext_code, [["$VSize", "2"], ["$Result", x32_result_vector]]>;
-
-defvar x32_v96_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x32">.Tout, 3>.Tout;
-OclBuiltinImpl sub_group_broadcast_ext_x32_v96 =
-  OclBuiltinImpl<sub_group_broadcast_extended_x32, x32_v96_types, 0, broadcast_ext_code, [["$VSize", "3"], ["$Result", x32_result_vector]]>;
-
-defvar x32_v128_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x32">.Tout, 4>.Tout;
-OclBuiltinImpl sub_group_broadcast_ext_x32_v128 =
-  OclBuiltinImpl<sub_group_broadcast_extended_x32, x32_v128_types, 0, broadcast_ext_code, [["$VSize", "4"], ["$Result", x32_result_vector]]>;
-
-defvar x32_v256_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x32">.Tout, 8>.Tout;
-OclBuiltinImpl sub_group_broadcast_ext_x32_v256 =
-  OclBuiltinImpl<sub_group_broadcast_extended_x32, x32_v256_types, 0, broadcast_ext_code, [["$VSize", "8"], ["$Result", x32_result_vector]]>;
-
-defvar x32_v512_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x32">.Tout, 16>.Tout;
-OclBuiltinImpl sub_group_broadcast_ext_x32_v512 =
-  OclBuiltinImpl<sub_group_broadcast_extended_x32, x32_v512_types, 0, broadcast_ext_code, [["$VSize", "16"], ["$Result", x32_result_vector]]>;
-
-defvar x64_count = Range<0, 64>.Tout;
-defvar x64_result_vector = "(" # !interleave(!foreach(i, x64_count, "temp"), ", ")# ")";
-
-defvar x64_v128_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x64">.Tout, 2>.Tout;
-OclBuiltinImpl sub_group_broadcast_ext_x64_v128 =
-  OclBuiltinImpl<sub_group_broadcast_extended_x64, x64_v128_types, 0, broadcast_ext_code, [["$VSize", "2"], ["$Result", x64_result_vector]]>;
-
-defvar x64_v192_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x64">.Tout, 3>.Tout;
-OclBuiltinImpl sub_group_broadcast_ext_x64_v192 =
-  OclBuiltinImpl<sub_group_broadcast_extended_x64, x64_v192_types, 0, broadcast_ext_code, [["$VSize", "3"], ["$Result", x64_result_vector]]>;
-
-defvar x64_v256_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x64">.Tout, 4>.Tout;
-OclBuiltinImpl sub_group_broadcast_ext_x64_v256 =
-  OclBuiltinImpl<sub_group_broadcast_extended_x64, x64_v256_types, 0, broadcast_ext_code, [["$VSize", "4"], ["$Result", x64_result_vector]]>;
-
-defvar x64_v512_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x64">.Tout, 8>.Tout;
-OclBuiltinImpl sub_group_broadcast_ext_x64_v512 =
-  OclBuiltinImpl<sub_group_broadcast_extended_x64, x64_v512_types, 0, broadcast_ext_code, [["$VSize", "8"], ["$Result", x64_result_vector]]>;
-
-defvar x64_v1024_types = WidenTypeForList<VFType<broadcast_ext_base_types, "_x64">.Tout, 16>.Tout;
-OclBuiltinImpl sub_group_broadcast_ext_x64_v1024 =
-  OclBuiltinImpl<sub_group_broadcast_extended_x64, x64_v1024_types, 0, broadcast_ext_code, [["$VSize", "16"], ["$Result", x64_result_vector]]>;
 
 OclBuiltinImpl sub_group_shuffle_avx512v48gentype = OclBuiltinImpl<sub_group_shuffle_avx512, [v48i8, v48u8, v48i16, v48u16, v48f32,
                                                                                               v48i32, v48u32, v48i64, v48u64], 0,

@@ -48,7 +48,6 @@
 #include "llvm/Support/Caching.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/intel-plugin-api.h" // INTEL
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -56,6 +55,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Host.h"
 #include <list>
 #include <map>
 #include <string>
@@ -241,12 +241,6 @@ namespace options {
   static std::string stats_file;
   // Asserts that LTO link has whole program visibility
   static bool whole_program_visibility = false;
-  // Use opaque pointer types.
-#if ENABLE_OPAQUE_POINTERS
-  static bool opaque_pointers = true;
-#else
-  static bool opaque_pointers = false;
-#endif
 
   // Optimization remarks filename, accepted passes and hotness options
   static std::string RemarksFilename;
@@ -365,9 +359,7 @@ namespace options {
     } else if (opt.consume_front("stats-file=")) {
       stats_file = std::string(opt);
     } else if (opt == "opaque-pointers") {
-      opaque_pointers = true;
-    } else if (opt == "no-opaque-pointers") {
-      opaque_pointers = false;
+      // We always use opaque pointers.
     } else {
       // Save this option to pass to the code generator.
       // ParseCommandLineOptions() expects argv[0] to be program name. Lazily
@@ -909,20 +901,6 @@ static int getOutputFileName(StringRef InFilename, bool TempOutFile,
   return FD;
 }
 
-static CodeGenOpt::Level getCGOptLevel() {
-  switch (options::OptLevel) {
-  case 0:
-    return CodeGenOpt::None;
-  case 1:
-    return CodeGenOpt::Less;
-  case 2:
-    return CodeGenOpt::Default;
-  case 3:
-    return CodeGenOpt::Aggressive;
-  }
-  llvm_unreachable("Invalid optimization level");
-}
-
 /// Parse the thinlto_prefix_replace option into the \p OldPrefix and
 /// \p NewPrefix strings, if it was specified.
 static void getThinLTOOldAndNewPrefix(std::string &OldPrefix,
@@ -965,7 +943,10 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
   Conf.MAttrs = codegen::getMAttrs();
   Conf.RelocModel = RelocationModel;
   Conf.CodeModel = codegen::getExplicitCodeModel();
-  Conf.CGOptLevel = getCGOptLevel();
+  std::optional<CodeGenOpt::Level> CGOptLevelOrNone =
+      CodeGenOpt::getLevel(options::OptLevel);
+  assert(CGOptLevelOrNone && "Invalid optimization level");
+  Conf.CGOptLevel = *CGOptLevelOrNone;
   Conf.DisableVerify = options::DisableVerify;
   Conf.OptLevel = options::OptLevel;
   Conf.PTO.LoopVectorization = options::OptLevel > 1;
@@ -1043,8 +1024,6 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
   Conf.DebugPassManager = options::debug_pass_manager;
 
   Conf.HasWholeProgramVisibility = options::whole_program_visibility;
-
-  Conf.OpaquePointers = options::opaque_pointers;
 
   Conf.StatsFile = options::stats_file;
   Conf.WPUtils.setLinkingExecutable(options::BuildingExecutable);   // INTEL

@@ -35,7 +35,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br i1 [[TMP1]], label %[[MERGE_BLK0:.*]], label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32*> poison, i32* [[IP0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32*> poison, i32* [[IP0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i32*> [[BROADCAST_SPLATINSERT0]], <2 x i32*> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
@@ -54,7 +54,6 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i32>* [[VAL_LOC_VEC0]] to i8*
 ; CHECK-NEXT:    [[VAL_I0:%.*]] = load i32, i32* [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I0]], i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_0_0]], align 4
 ; CHECK-NEXT:    [[VAL_I140:%.*]] = load i32, i32* [[MM_VECTORGEP_EXTRACT_1_0]], align 4
@@ -107,12 +106,11 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br label [[CODEREPL0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  codeRepl:
-; CHECK-NEXT:    [[LT_CAST0:%.*]] = bitcast i32* [[VAL_LOC0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[LT_CAST0]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 -1, i32* [[VAL_LOC0]])
 ; CHECK-NEXT:    [[VAL_I130:%.*]] = load i32, i32* [[ARRAYIDX0]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I130]], i32* [[VAL_LOC0]], align 4
 ; CHECK-NEXT:    [[VAL_RELOAD0:%.*]] = load i32, i32* [[VAL_LOC0]], align 4
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 -1, i8* [[LT_CAST0]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 -1, i32* [[VAL_LOC0]])
 ; CHECK-NEXT:    br label [[BB0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  bb:

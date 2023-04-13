@@ -91,7 +91,7 @@ define void @storesToUniformAddrs(i32* %src1, i32 %src2, i32* %dest1, i32* %dest
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[SRC10:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_ARRAYIDX]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: (  L)] store i32 [[VP_LOAD]] i32* [[DEST10:%.*]] (SVAOpBits 0->L 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (  L)] store i32 [[VP_LOAD]] i32* [[DEST10:%.*]] (SVAOpBits 0->L 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] store i32 [[SRC20:%.*]] i32* [[DEST20:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )

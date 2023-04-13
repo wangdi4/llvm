@@ -6,9 +6,9 @@
 ; CHECK-LABEL: define {{[^@]+}}@same_attributes(
 ; CHECK: call fast <4 x float> @llvm.sqrt.v4f32(<4 x float> %{{.*}}) #[[ATTR_LOW_PREC:[0-9]+]]
 
-define <4 x float> @same_attributes(<4 x float>* %a) {
+define <4 x float> @same_attributes(ptr %a) {
 entry:
-  %0 = load <4 x float>, <4 x float>* %a, align 16
+  %0 = load <4 x float>, ptr %a, align 16
   %vecext = extractelement <4 x float> %0, i32 0
   %1 = tail call fast float @sqrtf(float %vecext) #0
   %vecins = insertelement <4 x float> undef, float %1, i32 0
@@ -29,9 +29,9 @@ entry:
 ; CHECK: call fast <2 x float> @llvm.sqrt.v2f32(<2 x float> %{{.*}}) #[[ATTR_LOW_PREC]]
 ; CHECK: call fast float @sqrtf(float %{{.*}}) #[[ATTR_HIGH_PREC_INJECTED:[0-9]+]]
 
-define <4 x float> @different_imf_attributes(<4 x float>* %a) {
+define <4 x float> @different_imf_attributes(ptr %a) {
 entry:
-  %0 = load <4 x float>, <4 x float>* %a, align 16
+  %0 = load <4 x float>, ptr %a, align 16
   %vecext = extractelement <4 x float> %0, i32 0
   %1 = tail call fast float @sqrtf(float %vecext) #0
   %vecins = insertelement <4 x float> undef, float %1, i32 0
@@ -52,9 +52,9 @@ entry:
 ; CHECK: call fast <2 x float> @llvm.sqrt.v2f32(<2 x float> %{{.*}}) #[[ATTR_MEDIUM_PREC:[0-9]+]]
 ; CHECK: call fast <2 x float> @llvm.sqrt.v2f32(<2 x float> %{{.*}})
 
-define <4 x float> @different_other_attributes(<4 x float>* %a) {
+define <4 x float> @different_other_attributes(ptr %a) {
 entry:
-  %0 = load <4 x float>, <4 x float>* %a, align 16
+  %0 = load <4 x float>, ptr %a, align 16
   %vecext = extractelement <4 x float> %0, i32 0
   %1 = tail call fast float @sqrtf(float %vecext) #3
   %vecins = insertelement <4 x float> undef, float %1, i32 0

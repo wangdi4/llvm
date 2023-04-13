@@ -1,4 +1,4 @@
-; RUN: opt -aa-pipeline=tbaa -passes='print<access-info>' -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -aa-pipeline=tbaa -passes='print<access-info>' -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; We expect there exist only one anti-dep in this loop.
 ;

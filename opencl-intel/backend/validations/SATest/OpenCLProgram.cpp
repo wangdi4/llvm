@@ -17,8 +17,8 @@
 #include "OCLBuilder.h"
 #include "SATestException.h"
 #include "cl_types.h"
-#include "common_clang.h"
 #include "exceptions.h"
+#include "opencl_clang.h"
 
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -57,6 +57,7 @@ static std::string buildLibName(const char *s) {
 OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration *oclProgramConfig,
                              const std::string cpuArch)
     : C(new llvm::LLVMContext) {
+  C->setOpaquePointers(false);
   std::string programFile = oclProgramConfig->GetProgramFilePath();
   switch (oclProgramConfig->GetProgramFileType()) {
   case CL: {
@@ -93,13 +94,14 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration *oclProgramConfig,
     source[read] = '\0';
     indata.close();
     // building the CL code:
-    OCLBuilder &builder =
-        OCLBuilder::Instance()
-            .withSource(source)
-            .withBuildOptions(buildOptions.str().c_str())
-            .createCompiler()
-            .withFpgaEmulator(oclProgramConfig->GetDeviceMode() ==
-                              FPGA_EMU_DEVICE);
+    bool isFPGA = oclProgramConfig->GetDeviceMode() == FPGA_EMU_DEVICE;
+    OCLBuilder &builder = OCLBuilder::Instance()
+                              .withSource(source)
+                              .withBuildOptions(buildOptions.str().c_str())
+                              .withFpgaEmulator(isFPGA)
+                              .withExtensions(isFPGA)
+                              .withOpenCLCFeatures()
+                              .createCompiler();
     IOCLFEBinaryResult *result = builder.build();
     delete[] source;
     //
@@ -118,6 +120,7 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration *oclProgramConfig,
   case LL: {
     llvm::SMDiagnostic err;
     llvm::LLVMContext context;
+    context.setOpaquePointers(false);
     std::unique_ptr<llvm::Module> M(
         llvm::parseAssemblyFile(programFile, err, context));
     llvm::SmallVector<char, 8> buffer;

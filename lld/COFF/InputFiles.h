@@ -1,4 +1,21 @@
 //===- InputFiles.h ---------------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -319,7 +336,7 @@ public:
                                           StringRef path, ObjFile *fromFile);
 
   // Record possible errors while opening the PDB file
-  std::optional<Error> loadErr;
+  std::optional<std::string> loadErrorStr;
 
   // This is the actual interface to the PDB (if it was opened successfully)
   std::unique_ptr<llvm::pdb::NativeSession> session;
@@ -333,8 +350,7 @@ public:
 // for details about the format.
 class ImportFile : public InputFile {
 public:
-  explicit ImportFile(COFFLinkerContext &ctx, MemoryBufferRef m)
-      : InputFile(ctx, ImportKind, m) {}
+  explicit ImportFile(COFFLinkerContext &ctx, MemoryBufferRef m);
 
   static bool classof(const InputFile *f) { return f->kind() == ImportKind; }
 
@@ -347,7 +363,7 @@ private:
 
 public:
   StringRef externalName;
-  const coff_import_header *hdr;
+  const coff_import_header *hdr = nullptr; // INTEL
   Chunk *location = nullptr;
 
   // We want to eliminate dllimported symbols if no one actually refers to them.
@@ -358,8 +374,8 @@ public:
   // symbols provided by this import library member. We also track whether the
   // imported symbol is used separately from whether the thunk is used in order
   // to avoid creating unnecessary thunks.
-  bool live = !config->doGC;
-  bool thunkLive = !config->doGC;
+  bool live;
+  bool thunkLive;
 };
 
 // Used for LTO.
@@ -408,7 +424,8 @@ inline bool isBitcode(MemoryBufferRef mb) {
   return identify_magic(mb.getBuffer()) == llvm::file_magic::bitcode;
 }
 
-std::string replaceThinLTOSuffix(StringRef path);
+std::string replaceThinLTOSuffix(StringRef path, StringRef suffix,
+                                 StringRef repl);
 } // namespace coff
 
 std::string toString(const coff::InputFile *file);

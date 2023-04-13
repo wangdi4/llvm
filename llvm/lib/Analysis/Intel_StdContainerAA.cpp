@@ -42,9 +42,10 @@ static cl::opt<bool> EnableStdContainerAlias("enable-std-container-alias",
 
 AliasResult StdContainerAAResult::alias(const MemoryLocation &LocA,
                                         const MemoryLocation &LocB,
-                                        AAQueryInfo &AAQI) {
+                                        AAQueryInfo &AAQI,
+                                        const Instruction *) {
   if (!EnableStdContainerAlias)
-    return AAResultBase::alias(LocA, LocB, AAQI);
+    return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
 
   MDNode *M1, *M2;
   M1 = LocA.AATags.StdContainerPtr;
@@ -59,7 +60,7 @@ AliasResult StdContainerAAResult::alias(const MemoryLocation &LocA,
   if (!mayAliasInStdContainer(M1, M2))
     return AliasResult::NoAlias;
 
-  return AAResultBase::alias(LocA, LocB, AAQI);
+  return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
 }
 
 // M1 and M2 are MDNodes with integer operand lists.

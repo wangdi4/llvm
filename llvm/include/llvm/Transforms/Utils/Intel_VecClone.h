@@ -1,4 +1,4 @@
-//===-------------- VecClone.h - Class definition -*- C++ -*---------------===//
+//===-------- Intel_VecClone.h - Class definition -*- C++ -*---------------===//
 //
 // Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
 //
@@ -13,10 +13,10 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -28,22 +28,15 @@
 #ifndef LLVM_TRANSFORMS_VPO_VECCLONE_H
 #define LLVM_TRANSFORMS_VPO_VECCLONE_H
 
-enum InstType {
-  ALLOCA = 0,
-  STORE,
-  BITCAST
-};
-
 namespace llvm {
 
 struct VFInfo;
+struct VFParameter;
 class ModulePass;
 
 class VecCloneImpl {
 
-#if INTEL_CUSTOMIZATION
   protected:
-#endif // INTEL_CUSTOMIZATION
 
     /// Set of memory locations to mark as private for the SIMD loop
     SetVector<Value*> PrivateMemory;
@@ -55,9 +48,19 @@ class VecCloneImpl {
     /// The non-key value is the stride
     MapVector<Value*, Value*> LinearMemory;
 
+    /// The map of linear pointer args to pointee type size.
+    DenseMap<Value *, Value *> PointeeTypeSize;
+
     /// \brief Make a copy of the function if it is marked as SIMD.
     Function *CloneFunction(Function &F, const VFInfo &V,
-                            ValueToValueMapTy &Vmap);
+                            ValueToValueMapTy &VMap,
+                            ValueToValueMapTy &ReverseVMap);
+
+    /// \brief Return true iff we should bail out due to the presence of
+    /// variable-length array allocas.  Correctly handling a VLA alloca
+    /// and all of its operand and memory dependences is a complex
+    /// undertaking.
+    bool vlaAllocasExist(Function &F);
 
     /// \brief Take the entry basic block for the function as split off a second
     /// basic block that will form the loop entry.
@@ -120,7 +123,8 @@ class VecCloneImpl {
     /// Update the values of linear arguments by adding the stride before the
     /// use and mark memory and linear for SIMD directives.
     void processLinearArgs(Function *Clone, const VFInfo &V, PHINode *Phi,
-                           BasicBlock *EntryBlock, BasicBlock *LoopPreheader);
+                           BasicBlock *EntryBlock, BasicBlock *LoopPreheader,
+                           ValueToValueMapTy &ReverseVMap);
 
     /// \brief Update the instructions in the return basic block to return a
     /// vector temp.
@@ -168,13 +172,13 @@ class VecCloneImpl {
     /// stride for a linear argument.
     Value *generateStrideForArgument(Function *Clone, Value *ArgVal,
                                      Instruction *ParmUser, Value *Stride,
-                                     PHINode *Phi);
+                                     PHINode *Phi, const VFParameter &Parm,
+                                     ValueToValueMapTy &ReverseVMap);
 
     /// \brief Adds metadata to the conditional branch of the simd loop latch to
     /// prevent loop unrolling.
     void disableLoopUnrolling(BasicBlock *Latch);
 
-#if INTEL_CUSTOMIZATION
     /// Languages like OpenCL override this method to perform some
     /// pre-processing for enabling VecClone pass.
     virtual void languageSpecificInitializations(Module &M);
@@ -185,7 +189,6 @@ class VecCloneImpl {
                                          Function *Clone,
                                          BasicBlock *EntryBlock,
                                          const VFInfo &Variant);
-#endif // INTEL_CUSTOMIZATION
 
   public:
     VecCloneImpl() {}

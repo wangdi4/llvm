@@ -1,7 +1,7 @@
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
-; RUN: opt -enable-new-pm=0 -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=ALL
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=TFORM -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=ALL
 
 ; #include <stdio.h>
 ;
@@ -13,10 +13,10 @@
 ;   for (i = 1; i < 5; i++) {
 ;     for (j = 2; j < 4; j++) {
 ;
-;       #pragma omp ordered depend(sink: i-1, j-1) depend(sink: i, j-2)
+;       #pragma omp ordered doacross(sink: i-1, j-1) doacross(sink: i, j-2)
 ;       (*v_ptr) [i][j] = (*v_ptr) [i-1][j - 1] + (*v_ptr) [i][j-2];
 ;
-;       #pragma omp ordered depend(source)
+;       #pragma omp ordered doacross(source)
 ;     }
 ;   }
 ; }
@@ -90,7 +90,7 @@ for.body:                                         ; preds = %for.cond
   %sub8 = sub nsw i32 %9, 2
   %sub9 = sub nsw i32 %sub8, 2
   %div10 = sdiv i32 %sub9, 1
-  %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.DEPEND.SINK"(i32 %div, i32 %div5), "QUAL.OMP.DEPEND.SINK"(i32 %div7, i32 %div10) ]
+  %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.DOACROSS.SINK"(i32 %div, i32 %div5), "QUAL.OMP.DOACROSS.SINK"(i32 %div7, i32 %div10) ]
   call void @llvm.directive.region.exit(token %10) [ "DIR.OMP.END.ORDERED"() ]
 ; ALL: call void @__kmpc_doacross_wait({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %{{[a-zA-Z._0-9]+}})
 ; ALL: call void @__kmpc_doacross_wait({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %{{[a-zA-Z._0-9]+}})
@@ -128,7 +128,7 @@ for.body:                                         ; preds = %for.cond
   %23 = load i32, i32* %j, align 4
   %sub27 = sub nsw i32 %23, 2
   %div28 = sdiv i32 %sub27, 1
-  %24 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.DEPEND.SOURCE"(i32 %div26, i32 %div28) ]
+  %24 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.DOACROSS.SOURCE"(i32 %div26, i32 %div28) ]
 ; ALL: call void @__kmpc_doacross_post({{[^,]+}}, i32 %{{[a-zA-Z._0-9]+}}, i8* %{{[a-zA-Z._0-9]+}})
   call void @llvm.directive.region.exit(token %24) [ "DIR.OMP.END.ORDERED"() ]
   br label %for.inc

@@ -121,6 +121,8 @@ class OpenMPLateOutliner {
     bool Fptr = false;
     bool VarLen = false;
     bool Strict = false;
+    bool Reproducible = false;
+    bool Unconstrained = false;
 
     void addSeparated(StringRef QualString) {
       Str += Separator;
@@ -177,6 +179,10 @@ class OpenMPLateOutliner {
         addSeparated("VARLEN");
       if (Strict)
         addSeparated("STRICT");
+      if (Reproducible)
+        addSeparated("REPRODUCIBLE");
+      if (Unconstrained)
+        addSeparated("UNCONSTRAINED");
     }
 
   public:
@@ -206,6 +212,8 @@ class OpenMPLateOutliner {
     void setFptr() { Fptr = true; }
     void setVarLen() { VarLen = true; }
     void setStrict() { Strict = true; }
+    void setReproducible() { Reproducible = true; }
+    void setUnconstrained() { Unconstrained = true; }
 
     void add(StringRef S) { Str += S; }
     StringRef getString() {
@@ -227,6 +235,7 @@ class OpenMPLateOutliner {
     ICK_normalized_iv,
     ICK_normalized_ub,
     ICK_livein,
+    ICK_if,
     ICK_unknown
   };
 
@@ -397,6 +406,7 @@ class OpenMPLateOutliner {
   void emitOMPUseClause(const OMPUseClause *);
   void emitOMPNovariantsClause(const OMPNovariantsClause *);
   void emitOMPNocontextClause(const OMPNocontextClause *);
+  void emitOMPXDynCGroupMemClause(const OMPXDynCGroupMemClause *);
 #if INTEL_CUSTOMIZATION
   void emitOMPOmpxAssertClause(const OMPOmpxAssertClause *);
 #if INTEL_FEATURE_CSA
@@ -509,8 +519,23 @@ public:
             CGF.Builder.CreateElementBitCast(A, CGF.ConvertTypeForMem(PtrTy)),
             PtrTy->castAs<PointerType>());
       }
-      PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
-      CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
+      QualType PTy = MT.second->getType();
+      if (isExplicitForIsDevicePtr(MT.second) && PTy->isReferenceType() &&
+          PTy.getNonReferenceType()->isAnyPointerType()) {
+        QualType PtrTy =
+            CGF.getContext().getPointerType(PTy.getNonReferenceType());
+        Address AR = CGF.CreateDefaultAlignTempAlloca(
+            CGF.ConvertTypeForMem(PtrTy),
+            MT.second->getName() + ".map.ptr.tmp");
+        CGF.Builder.CreateStore(A.getPointer(), AR);
+        PrivateScope.addPrivateNoTemps(MT.second,
+                                       [AR]() -> Address { return AR; });
+        CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
+      } else {
+        PrivateScope.addPrivateNoTemps(MT.second,
+                                       [A]() -> Address { return A; });
+        CGF.addMappedTemp(MT.second, MT.second->getType()->isReferenceType());
+      }
     }
     PrivateScope.Privatize();
   }
@@ -562,10 +587,14 @@ public:
   void emitOMPPrefetchDirective();
   void emitOMPScopeDirective();
   void emitOMPScanDirective();
-  void emitLiveinClauseForUseDeviceAddrClause();
+  void emitLiveinClauses();
   void emitVLAExpressions() {
-    if (needsVLAExprEmission())
-      CGF.VLASizeMapHandler->EmitVLASizeExpressions();
+    if (needsVLAExprEmission()) {
+      SmallVector<std::pair<llvm::Value *, llvm::Type *>> Refs;
+      CGF.VLASizeMapHandler->EmitVLASizeExpressions(Refs);
+      for (const auto &Ref : Refs)
+        addValueRef(Ref.first, Ref.second);
+    }
   }
 
   OpenMPLateOutliner &operator<<(ArrayRef<OMPClause *> Clauses);

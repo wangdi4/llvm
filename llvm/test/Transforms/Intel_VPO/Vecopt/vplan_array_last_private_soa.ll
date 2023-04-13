@@ -16,37 +16,39 @@ define void @foo() {
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
-; CHECK-NEXT:    [[B3_I_LPRIV_SOA_VEC_BCAST:%.*]] = bitcast [12 x <4 x i16>]* [[B3_I_LPRIV_SOA_VEC]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 96, i8* [[B3_I_LPRIV_SOA_VEC_BCAST]])
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [12 x <4 x i16>]* [[B3_I_LPRIV_SOA_VEC]] to <4 x i8>*
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i8>* [[TMP0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 96, i8* [[TMP1]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB2]] ], [ [[TMP2:%.*]], [[VPLANNEDBB6:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI4:%.*]] = phi i32 [ [[TMP1:%.*]], [[VPLANNEDBB6]] ], [ 0, [[VPLANNEDBB2]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ [[TMP0:%.*]], [[VPLANNEDBB6]] ], [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB2]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB2]] ], [ [[TMP4:%.*]], [[VPLANNEDBB6:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI4:%.*]] = phi i32 [ [[TMP3:%.*]], [[VPLANNEDBB6]] ], [ 0, [[VPLANNEDBB2]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ [[TMP2:%.*]], [[VPLANNEDBB6]] ], [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB2]] ]
 ; CHECK-NEXT:    br i1 undef, label [[VPLANNEDBB5:%.*]], label [[VPLANNEDBB6]]
 ; CHECK:       VPlannedBB5:
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [12 x <4 x i16>], [12 x <4 x i16>]* [[B3_I_LPRIV_SOA_VEC]], i64 0, i64 1
 ; CHECK-NEXT:    store <4 x i16> <i16 1, i16 1, i16 1, i16 1>, <4 x i16>* [[SOA_SCALAR_GEP]], align 2
 ; CHECK-NEXT:    br label [[VPLANNEDBB6]]
 ; CHECK:       VPlannedBB6:
-; CHECK-NEXT:    [[TMP0]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP1]] = add nuw nsw i32 [[UNI_PHI4]], 4
-; CHECK-NEXT:    [[TMP2]] = add i32 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i32 [[TMP2]], 0
-; CHECK-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB7:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw i32 [[UNI_PHI4]], 4
+; CHECK-NEXT:    [[TMP4]] = add i32 [[UNI_PHI]], 4
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i32 [[TMP4]], 0
+; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB7:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB7:
 ; CHECK-NEXT:    br label [[ARRAY_LAST_PRIVATE_LOOP:%.*]]
 ; CHECK:       array.last.private.loop:
-; CHECK-NEXT:    [[TMP4:%.*]] = phi i64 [ 0, [[VPLANNEDBB7]] ], [ [[TMP8:%.*]], [[ARRAY_LAST_PRIVATE_LOOP]] ]
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr [12 x <4 x i16>], [12 x <4 x i16>]* [[B3_I_LPRIV_SOA_VEC]], i64 0, i64 [[TMP4]], i64 3
-; CHECK-NEXT:    [[TMP6:%.*]] = load i16, i16* [[TMP5]], align 2
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr [12 x i16], [12 x i16]* [[B3_I_LPRIV]], i64 0, i64 [[TMP4]]
-; CHECK-NEXT:    store i16 [[TMP6]], i16* [[TMP7]], align 2
-; CHECK-NEXT:    [[TMP8]] = add i64 [[TMP4]], 1
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i64 [[TMP8]], 12
-; CHECK-NEXT:    br i1 [[TMP9]], label [[ARRAY_LAST_PRIVATE_LOOP]], label [[ARRAY_LAST_PRIVATE_LOOP_EXIT:%.*]]
+; CHECK-NEXT:    [[TMP6:%.*]] = phi i64 [ 0, [[VPLANNEDBB7]] ], [ [[TMP10:%.*]], [[ARRAY_LAST_PRIVATE_LOOP]] ]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr [12 x <4 x i16>], [12 x <4 x i16>]* [[B3_I_LPRIV_SOA_VEC]], i64 0, i64 [[TMP6]], i64 3
+; CHECK-NEXT:    [[TMP8:%.*]] = load i16, i16* [[TMP7]], align 2
+; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr [12 x i16], [12 x i16]* [[B3_I_LPRIV]], i64 0, i64 [[TMP6]]
+; CHECK-NEXT:    store i16 [[TMP8]], i16* [[TMP9]], align 2
+; CHECK-NEXT:    [[TMP10]] = add i64 [[TMP6]], 1
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp ult i64 [[TMP10]], 12
+; CHECK-NEXT:    br i1 [[TMP11]], label [[ARRAY_LAST_PRIVATE_LOOP]], label [[ARRAY_LAST_PRIVATE_LOOP_EXIT:%.*]]
 ; CHECK:       array.last.private.loop.exit:
 ; CHECK-NEXT:    br label [[VPLANNEDBB8:%.*]]
+;
 
 entry:
   %b3.i.lpriv = alloca [12 x i16], align 1

@@ -70,7 +70,7 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
@@ -130,7 +130,7 @@ static cl::opt<unsigned>
                                  "unroll factor factored in"));
 
 static cl::opt<unsigned> MaxLoopCost(
-    "hir-general-unroll-max-loop-cost", cl::init(45), cl::Hidden,
+    "hir-general-unroll-max-loop-cost", cl::init(50), cl::Hidden,
     cl::desc("Max allowed cost of the original loop which is to be unrolled"));
 
 static cl::opt<bool> DisableSwitchGeneration(
@@ -510,7 +510,17 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(
     return 0;
   }
 
-  unsigned SelfCost = HLR.getSelfLoopResource(HLoop).getTotalCost();
+  auto &LoopRes = HLR.getSelfLoopResource(HLoop);
+  // We are using number of fp/int operations rather than their cost because
+  // loop resource cost is calculated in terms of latency which we don't care
+  // about, for loop unrolling. We are trying to compute some sort of 'size' for
+  // the loop. Branch operations should remain costly as unrolling branchy code
+  // can result in mispredictions. We should perhaps use number of memory
+  // operations as well (rather than their cost) but this is left as a TODO to
+  // minimize performance impact.
+  unsigned SelfCost = LoopRes.getNumIntAndFPOps() + LoopRes.getBranchOpsCost() +
+                      LoopRes.getMemOpsCost();
+  ;
   bool IsUnknown = HLoop->isUnknown();
 
   // Add penalty for inner loops with liveouts to account for increase in
@@ -643,6 +653,8 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
 
 bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
                                     unsigned *UnrollFactor) const {
+
+  LLVM_DEBUG(dbgs() << "Analyzing profitability of loop:\n"; Loop->dump());
 
   if (!HasEnablingPragma) {
     unsigned NumExits = Loop->getNumExits();

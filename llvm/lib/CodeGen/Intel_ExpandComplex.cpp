@@ -128,7 +128,7 @@ bool expandComplexInstruction(IntrinsicInst *CI, const TargetLowering *TLI,
       // This ABI form packs the type as a small struct in an integer register.
       // All we need to do is move the integer to a vector register, without any
       // other munging.
-      uint64_t Width = ComplexVectorTy->getPrimitiveSizeInBits().getFixedSize();
+      uint64_t Width = ComplexVectorTy->getPrimitiveSizeInBits().getFixedValue();
       Type *IntegerTy = Builder.getIntNTy(Width);
       FunctionCallee Func = CI->getModule()->getOrInsertFunction(Name,
         IntegerTy, FloatTy, FloatTy, FloatTy, FloatTy);

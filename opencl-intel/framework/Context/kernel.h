@@ -24,7 +24,6 @@
 #include "cl_sys_defines.h"
 #include <memory>
 #include <string>
-// #include "svm_buffer.h"
 
 namespace Intel {
 namespace OpenCL {
@@ -63,13 +62,11 @@ struct SKernelArgumentInfo {
  *                 m_szKernelAttributes - space seperated list of kernel
  *                                        attributes
  *
- * Author:         Uri Levy
- * Date:           January 2008
  ******************************************************************************/
 struct SKernelPrototype {
   std::string m_szKernelName;
   cl_dev_dispatch_buffer_prop m_dispatchBufferProperties;
-  std::vector<KernelArgument> m_vArguments;
+  std::vector<llvm::KernelArgument> m_vArguments;
   std::vector<cl_uint> m_MemArgumentsIndx;
   std::string m_szKernelAttributes;
 };
@@ -78,8 +75,6 @@ struct SKernelPrototype {
  * Class name:    DeviceKernel
  *
  * Description:    represents a device kernel object
- * Author:        Uri Levy
- * Date:            January 2008
  ******************************************************************************/
 class DeviceKernel : public OCLObjectBase {
 public:
@@ -167,30 +162,28 @@ private:
  *
  * Inherit:
  * Description:    represents a kernel argument object
- * Author:        Uri Levy
- * Date:            January 2008
  ******************************************************************************/
 class KernelArg {
 public:
   KernelArg() : m_pValueLocation(NULL), m_bValid(false) {}
 
-  void Init(char *baseAddress, const KernelArgument &clKernelArgType);
+  void Init(char *baseAddress, const llvm::KernelArgument &clKernelArgType);
 
   cl_uint GetOffset() const { return m_clKernelArgType.OffsetInBytes; }
 
   // return the size (in bytes) of the kernel arg's value
   // if Buffer / Image / ... returns sizeof(MemoryObject*)
   size_t GetSize() const { return m_clKernelArgType.SizeInBytes; }
-  KernelArgumentType GetType() const { return m_clKernelArgType.Ty; }
+  llvm::KernelArgumentType GetType() const { return m_clKernelArgType.Ty; }
 
   // returns the value of the kernel argument
   void GetValue(size_t size, void *pValue) const;
   void SetValue(size_t size, const void *pValue);
   void SetValid() { m_bValid = true; }
-  void SetSvmObject(const SharedPtr<ReferenceCountedObject> &svmMemObj) {
+  void SetSvmObject(const SharedPtr<Utils::ReferenceCountedObject> &svmMemObj) {
     m_pSvmPtrArg = svmMemObj;
   }
-  void SetUsmObject(const SharedPtr<ReferenceCountedObject> &usmMemObj) {
+  void SetUsmObject(const SharedPtr<Utils::ReferenceCountedObject> &usmMemObj) {
     m_pUsmPtrArg = usmMemObj;
   }
 
@@ -201,28 +194,30 @@ public:
   }
 
   bool IsMemObject() const {
-    return (KRNL_ARG_PTR_GLOBAL <= m_clKernelArgType.Ty);
+    return (llvm::KRNL_ARG_PTR_GLOBAL <= m_clKernelArgType.Ty);
   }
   bool IsBuffer() const {
-    return ((KRNL_ARG_PTR_GLOBAL == m_clKernelArgType.Ty) ||
-            (KRNL_ARG_PTR_CONST == m_clKernelArgType.Ty));
+    return ((llvm::KRNL_ARG_PTR_GLOBAL == m_clKernelArgType.Ty) ||
+            (llvm::KRNL_ARG_PTR_CONST == m_clKernelArgType.Ty));
   }
   bool IsImage() const {
-    return ((KRNL_ARG_PTR_IMG_2D <= m_clKernelArgType.Ty) &&
-            (KRNL_ARG_PTR_IMG_1D_BUF >= m_clKernelArgType.Ty));
+    return ((llvm::KRNL_ARG_PTR_IMG_2D <= m_clKernelArgType.Ty) &&
+            (llvm::KRNL_ARG_PTR_IMG_1D_BUF >= m_clKernelArgType.Ty));
   }
-  bool IsPipe() const { return (KRNL_ARG_PTR_PIPE_T == m_clKernelArgType.Ty); }
+  bool IsPipe() const {
+    return (llvm::KRNL_ARG_PTR_PIPE_T == m_clKernelArgType.Ty);
+  }
   bool IsSampler() const { return (IsOpaqueSampler() || IsInt32Sampler()); }
 
   bool IsOpaqueSampler() const {
-    return (KRNL_ARG_PTR_SAMPLER_T == m_clKernelArgType.Ty);
+    return (llvm::KRNL_ARG_PTR_SAMPLER_T == m_clKernelArgType.Ty);
   }
   bool IsInt32Sampler() const {
-    return (KRNL_ARG_SAMPLER == m_clKernelArgType.Ty);
+    return (llvm::KRNL_ARG_SAMPLER == m_clKernelArgType.Ty);
   }
 
   bool IsLocalPtr() const {
-    return (KRNL_ARG_PTR_LOCAL == m_clKernelArgType.Ty);
+    return (llvm::KRNL_ARG_PTR_LOCAL == m_clKernelArgType.Ty);
   }
 
   bool IsValid() const { return m_bValid; }
@@ -231,22 +226,22 @@ public:
   bool IsUsmPtr() const { return nullptr != m_pUsmPtrArg.GetPtr(); }
 
   bool IsQueueId() const {
-    return KRNL_ARG_PTR_QUEUE_T == m_clKernelArgType.Ty;
+    return llvm::KRNL_ARG_PTR_QUEUE_T == m_clKernelArgType.Ty;
   }
 
 private:
   void SetValuePlaceHolder(void *pValuePlaceHolder, size_t offset);
 
   // type of kernel argument
-  KernelArgument m_clKernelArgType;
+  llvm::KernelArgument m_clKernelArgType;
 
   void *m_pValueLocation;
   bool m_bValid;
 
-  SharedPtr<ReferenceCountedObject>
+  SharedPtr<Utils::ReferenceCountedObject>
       m_pSvmPtrArg; // we hold a SharedPtr to ReferenceCountedObject because of
                     // header dependencies
-  SharedPtr<ReferenceCountedObject> m_pUsmPtrArg;
+  SharedPtr<Utils::ReferenceCountedObject> m_pUsmPtrArg;
 };
 
 /*******************************************************************************
@@ -254,8 +249,6 @@ private:
  *
  * Inherit:        OCLObject
  * Description:    represents a kernel object
- * Author:        Uri Levy
- * Date:            January 2008
  ******************************************************************************/
 class Kernel : public OCLObject<_cl_kernel_int> {
 public:
@@ -267,14 +260,17 @@ public:
    * Arguments:    pProgram [in]        - associated program object
    *               psKernelName [in]    - kernel's name
    * Return:       a SharedPtr<Kernel> holding the new Kernel
-   * Author:       Aharon Abramson
-   * Date:         March 2012
    ****************************************************************************/
   static SharedPtr<Kernel> Allocate(const SharedPtr<Program> &pProgram,
                                     const char *psKernelName,
                                     size_t szNumDevices) {
     return SharedPtr<Kernel>(new Kernel(pProgram, psKernelName, szNumDevices));
   }
+
+  // disable possibility to create two instances of Kernel with the same
+  // m_pArgsBlob pointer.
+  Kernel(const Kernel &s) = delete;
+  Kernel &operator=(const Kernel &s) = delete;
 
   /*****************************************************************************
    * Function:     GetInfo
@@ -292,8 +288,6 @@ public:
    *                                  size in bytes specified by
    *                                  szParamValueSize is < size of return
    *                                  type and pParamValue is not NULL
-   * Author:        Uri Levy
-   * Date:          December 2008
    ****************************************************************************/
   cl_err_code GetInfo(cl_int iParamName, size_t szParamValueSize,
                       void *pParamValue,
@@ -316,8 +310,6 @@ public:
    * Return value:  CL_INVALID_DEVICE - device is not valid device
    *                CL_INVALID_VALUE  - iParamName is not valid parameter
    *                CL_SUCCESS        - operation succeeded
-   * Author:        Vlad Romanov
-   * Date:          October 2015
    ****************************************************************************/
   cl_err_code GetSubGroupInfo(const SharedPtr<FissionableDevice> &device,
                               cl_int iParamName, size_t szParamValueSize,
@@ -336,16 +328,14 @@ public:
    * Return value: CL_INVALID_DEVICE - ckDevice is not valid device
    *               CL_INVALID_VALUE - iParamName is not valid parameter
    *               CL_SUCCESS - operation succeeded
-   * Author: Uri Levy
-   * Date: April 2008
    ****************************************************************************/
   cl_err_code GetWorkGroupInfo(const SharedPtr<FissionableDevice> &pDevice,
                                cl_int iParamName, size_t szParamValueSize,
                                void *pParamValue, size_t *pszParamValueSizeRet);
 
   // create device kernels
-  cl_err_code
-  CreateDeviceKernels(std::vector<unique_ptr<DeviceProgram>> &pDevicePrograms);
+  cl_err_code CreateDeviceKernels(
+      std::vector<std::unique_ptr<DeviceProgram>> &pDevicePrograms);
 
   // set kernel argument without checks.
   cl_err_code SetKernelArgInternal(cl_uint uiIndex, const KernelArg *arg);
@@ -429,8 +419,6 @@ public:
    *               CL_KERNEL_ARG_INFO_NOT_AVAILABLE - if the argument
    *                                                  information is not
    *                                                  available for kernel.
-   * Author: Evgeny Fiksman
-   * Date: August 2011
    ****************************************************************************/
   cl_err_code GetKernelArgInfo(cl_uint argIndx, cl_kernel_arg_info paramName,
                                size_t szParamValueSize, void *pParamValue,
@@ -530,8 +518,6 @@ protected:
    * Function:     ~Kernel
    * Description:    The Kernel class destructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   virtual ~Kernel();
 
@@ -548,11 +534,11 @@ protected:
   size_t m_szAssociatedDevices;
 
   // Kernel arguments
-  vector<KernelArg> m_vecArgs;
+  std::vector<KernelArg> m_vecArgs;
   char *m_pArgsBlob;
 
   // Per-device kernels
-  vector<const DeviceKernel *> m_vpDeviceKernels;
+  std::vector<const DeviceKernel *> m_vpDeviceKernels;
 
   // To ensure all args have been set
   size_t m_numValidArgs;
@@ -578,16 +564,9 @@ private:
    * Description: The Kernel class constructor
    * Arguments:   pProgram [in]        - associated program object
    *              psKernelName [in]    - kernel's name
-   * Author:      Uri Levy
-   * Date:        January 2008
    ****************************************************************************/
   Kernel(const SharedPtr<Program> &pProgram, const char *psKernelName,
          size_t szNumDevices);
-
-  // disable possibility to create two instances of Kernel with the same
-  // m_pArgsBlob pointer.
-  Kernel(const Kernel &s);
-  Kernel &operator=(const Kernel &s);
 };
 
 } // namespace Framework

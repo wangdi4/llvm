@@ -38,13 +38,11 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-#if INTEL_CUSTOMIZATION
 static LoopVPlanDumpControl PlainCFGDumpControl("plain-cfg",
                                                 "importing plain CFG");
 static cl::opt<bool, true> VPlanPrintLegalityOpt(
     "vplan-print-legality", cl::Hidden, cl::location(VPlanPrintLegality),
     cl::desc("Print SIMD clause data structure details in VPlan legality."));
-#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 namespace vpo {
@@ -258,9 +256,8 @@ protected:
 
     return llvm::any_of(Inst->users(), [&](Value *User) {
       Instruction *Inst = cast<Instruction>(User);
-      return Builder.contains(Inst) ||
-             ((isTrivialPointerAliasingInst(Inst) || isa<SelectInst>(Inst)) &&
-              AliasesWithinLoopImpl(Inst, Visited));
+      return Builder.contains(Inst) || (isTrivialPointerAliasingInst(Inst) &&
+                                        AliasesWithinLoopImpl(Inst, Visited));
     });
   }
 
@@ -299,8 +296,7 @@ protected:
         Visited.insert(Use);
         Instruction *Inst = cast<Instruction>(Use);
 
-        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst) ||
-             isa<SelectInst>(Inst)) &&
+        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst)) &&
             AliasesWithinLoop(Inst)) {
           auto *NewVPOperand = Builder.getOrCreateVPOperand(Inst);
           assert((isa<VPExternalDef>(NewVPOperand) ||
@@ -380,17 +376,22 @@ public:
     Descriptor.clear();
     auto *RednUpdate = cast<VPInstruction>(
         Builder.getOrCreateVPOperand(CurValue.second.UpdateInst));
-    assertIsSingleElementAlloca(CurValue.first);
-    VPValue *OrigAlloca = Builder.getOrCreateVPOperand(CurValue.first);
+    // According to discussion with paropt team, we can have either alloca
+    // or cast<>(alloca) or addrspace_cast<>(alloca) in the reduction clause for
+    // non-arrays.
+    auto *OrigV = CurValue.first->stripPointerCasts();
+    // For array sections, a GEP maybe emitted to account for lower bound of the
+    // section.
+    if (auto *OrigVGEP = dyn_cast<GetElementPtrInst>(OrigV))
+      OrigV = OrigVGEP->getPointerOperand();
+    assertIsSingleElementAlloca(OrigV);
+    VPValue *OrigAlloca = Builder.getOrCreateVPOperand(OrigV);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(OrigAlloca);
     Descriptor.addUpdateVPInst(RednUpdate);
     Descriptor.setExit(nullptr);
     Descriptor.setKind(CurValue.second.Kind);
-    // According to discussion with paropt team, we can have either alloca
-    // or cast<>(alloca) or addrspace_cast<>(alloca) in the reduction clause for
-    // non-arrays.
-    auto *AI = cast<AllocaInst>(CurValue.first->stripPointerCasts());
+    auto *AI = cast<AllocaInst>(OrigV);
     // Array reductions can have memory alias due to partial registerization.
     // TODO: This may be needed for non-array reductions as well, extend support
     // based on use-case.
@@ -401,6 +402,7 @@ public:
     Descriptor.setAllocaInst(OrigAlloca); // Keep original value from clause.
     Descriptor.setLinkPhi(nullptr);
     Descriptor.setInscanReductionKind(CurValue.second.InscanRedKind);
+    Descriptor.setIsComplex(CurValue.second.IsComplex);
   }
 };
 // Conversion functor for user-defined reductions. Implementation mimics
@@ -553,7 +555,7 @@ public:
             cast<Instruction>(V)->getModule()->getDataLayout();
         StepTy = DL.getIntPtrType(IndTy);
         if (IndTy->isOpaquePointerTy())
-          StepInt = DL.getTypeAllocSize(IndPointeeTy).getFixedSize() * StepInt;
+          StepInt = DL.getTypeAllocSize(IndPointeeTy).getFixedValue() * StepInt;
       }
       Descriptor.setStep(
           Builder.getOrCreateVPOperand(ConstantInt::get(StepTy, StepInt)));
@@ -563,10 +565,10 @@ public:
         // insertInductionVPInstructions to generate VPInstructions
         const DataLayout &DL =
             cast<Instruction>(V)->getModule()->getDataLayout();
-        Descriptor.setStepType(DL.getIntPtrType(IndTy));
+        Descriptor.setStepType(Step->getType());
         if (IndTy->isOpaquePointerTy())
           Descriptor.setStepMultiplier(
-              DL.getTypeAllocSize(IndPointeeTy).getFixedSize());
+              DL.getTypeAllocSize(IndPointeeTy).getFixedValue());
       }
       Descriptor.setStep(Builder.getOrCreateVPOperand(Step));
     }
@@ -588,22 +590,27 @@ public:
 
   void operator()(PrivateDescr &Descriptor, const PrivDescrTy *CurValue) {
     Descriptor.clear();
-    assertIsSingleElementAlloca(CurValue->getRef());
-    auto *RefVal = CurValue->getRef();
+    // Skip any pointer casts and try to get alloca/global corresponding to the
+    // private. All casts will be later captured as memory aliases.
+    auto *RefVal = CurValue->getRef()->stripPointerCasts();
+    assertIsSingleElementAlloca(RefVal);
     auto *VPAllocaVal = Builder.getOrCreateVPOperand(RefVal);
 
     // Collect the out-of-loop aliases corresponding to this AllocaVal.
     // TODO: This is a temporary solution. Aliases to the private descriptor
     // should be collected earlier with new descriptor representation in
     // VPOLegality.
-    collectMemoryAliases(Descriptor, CurValue->getRef());
+    collectMemoryAliases(Descriptor, RefVal);
 
     Descriptor.setAllocaInst(VPAllocaVal);
     Descriptor.setIsConditional(CurValue->isCond());
     Descriptor.setIsLast(CurValue->isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(true);
-    Descriptor.setAllocatedType(CurValue->getType());
+    Type *AllocTy = isa<AllocaInst>(RefVal)
+                        ? cast<AllocaInst>(RefVal)->getAllocatedType()
+                        : CurValue->getType();
+    Descriptor.setAllocatedType(AllocTy);
     Descriptor.setIsF90(CurValue->isF90());
     if (CurValue->isNonPOD()) {
       auto *NonPODCurValue = cast<PrivDescrNonPODTy>(CurValue);

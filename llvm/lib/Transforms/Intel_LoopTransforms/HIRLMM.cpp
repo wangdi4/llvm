@@ -1,6 +1,6 @@
 //===--- HIRLMM.cpp -Implements Loop Memory Motion Pass -*- C++ -*---===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -77,7 +77,6 @@
 
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransFieldModRef.h"
-#include "Intel_DTrans/DTransCommon.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 
 #include "llvm/ADT/SmallSet.h"
@@ -1496,59 +1495,4 @@ PreservedAnalyses HIRLMMPass::runImpl(llvm::Function &F,
          (LoopNestHoistingOnly || ForceLoopNestHoisting))
       .run();
   return PreservedAnalyses::all();
-}
-
-class HIRLMMLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-  bool LoopNestHoistingOnly;
-
-  HIRLMMLegacyPass(bool LoopNestHoistingOnly = false)
-      : HIRTransformPass(ID), LoopNestHoistingOnly(LoopNestHoistingOnly) {
-    initializeHIRLMMLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<DominatorTreeWrapperPass>();
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-#if INTEL_FEATURE_SW_DTRANS
-    AU.addRequiredTransitive<DTransFieldModRefResultWrapper>();
-#endif // INTEL_FEATURE_SW_DTRANS
-    AU.setPreservesAll();
-  }
-
-  bool runOnFunction(Function &F) override {
-    if (skipFunction(F)) {
-      return false;
-    }
-
-    return HIRLMM(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                  getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                  getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-#if INTEL_FEATURE_SW_DTRANS
-                  &getAnalysis<DTransFieldModRefResultWrapper>().getResult(),
-#endif // INTEL_FEATURE_SW_DTRANS
-                  &getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
-                  (LoopNestHoistingOnly || ForceLoopNestHoisting))
-        .run();
-  }
-};
-
-char HIRLMMLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLMMLegacyPass, "hir-lmm", "HIR Loop Memory Motion",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-#if INTEL_FEATURE_SW_DTRANS
-INITIALIZE_PASS_DEPENDENCY(DTransFieldModRefResultWrapper)
-#endif // INTEL_FEATURE_SW_DTRANS
-INITIALIZE_PASS_END(HIRLMMLegacyPass, "hir-lmm", "HIR Loop Memory Motion",
-                    false, false)
-
-FunctionPass *llvm::createHIRLMMPass(bool LoopNestHoistingOnly) {
-  return new HIRLMMLegacyPass(LoopNestHoistingOnly);
 }

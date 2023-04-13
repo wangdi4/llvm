@@ -14,6 +14,7 @@
 
 #include "enqueue_commands.h"
 #include "MemoryAllocator/MemoryObject.h"
+#include "PipeCommon.h"
 #include "cl_shared_ptr.hpp"
 #include "cl_sys_defines.h"
 #include "cl_types.h"
@@ -51,8 +52,8 @@
 
 #define WRITE_MEM_OBJ_ALLOC_ALIGNMENT 128
 
+using namespace llvm;
 using namespace Intel::OpenCL::Framework;
-
 using namespace Intel::OpenCL::Utils;
 
 /******************************************************************
@@ -724,8 +725,7 @@ MapMemObjCommand::MapMemObjCommand(
       m_pszImageRowPitch(pszImageRowPitch),
       m_pszImageSlicePitch(pszImageSlicePitch), m_pMappedRegion(nullptr),
       m_pHostDataPtr(nullptr), m_pActualMappingDevice(nullptr),
-      m_ExecutionType(DEVICE_EXECUTION_TYPE),
-      m_pOclEntryPoints(pOclEntryPoints), m_pPostfixCommand(nullptr),
+      m_ExecutionType(DEVICE_EXECUTION_TYPE), m_pPostfixCommand(nullptr),
       m_bResourcesAllocated(false) {
   for (cl_uint i = 0; i < MAX_WORK_DIM; i++) {
     if (nullptr != pOrigin)
@@ -1001,10 +1001,12 @@ cl_err_code MapMemObjCommand::PostfixExecute() {
     SPRINTF_S(pMarkerString, ITT_TASK_NAME_LEN, "Sync Data Postfix - %s",
               GetCommandName());
     __itt_string_handle *pMarker = __itt_string_handle_create(pMarkerString);
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
     // Start Sync Data GPA task
     __itt_set_track(nullptr);
 #endif
+#endif // end INTEL_CUSTOMIZATION
     __itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
     // Add region metadata to the Sync Data task
@@ -1020,10 +1022,12 @@ cl_err_code MapMemObjCommand::PostfixExecute() {
 
 #if defined(USE_ITT)
   if ((nullptr != pGPAData) && (pGPAData->bUseGPA)) {
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
     // End Sync Data GPA task
     __itt_set_track(nullptr);
 #endif
+#endif // end INTEL_CUSTOMIZATION
     __itt_task_end(pGPAData->pDeviceDomain);
 
     __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
@@ -1042,8 +1046,7 @@ UnmapMemObjectCommand::UnmapMemObjectCommand(
     const SharedPtr<MemoryObject> &pMemObject, void *pMappedPtr)
     : Command(cmdQueue), m_pMappedPtr(pMappedPtr), m_pMappedRegion(nullptr),
       m_pActualMappingDevice(nullptr), m_ExecutionType(DEVICE_EXECUTION_TYPE),
-      m_pPrefixCommand(nullptr), m_pOclEntryPoints(pOclEntryPoints),
-      m_bResourcesAllocated(false) {
+      m_pPrefixCommand(nullptr), m_bResourcesAllocated(false) {
   m_commandType = CL_COMMAND_UNMAP_MEM_OBJECT;
   AddToMemoryObjectArgList(m_MemOclObjects, pMemObject,
                            MemoryObject::READ_WRITE);
@@ -1222,10 +1225,12 @@ cl_err_code UnmapMemObjectCommand::PrefixExecute() {
               GetCommandName());
     __itt_string_handle *pMarker = __itt_string_handle_create(pMarkerString);
 
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
     // Start Sync Data GPA task
     __itt_set_track(nullptr);
 #endif
+#endif // end INTEL_CUSTOMIZATION
     __itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
     // Add region metadata to the Sync Data task
@@ -1242,9 +1247,11 @@ cl_err_code UnmapMemObjectCommand::PrefixExecute() {
 #if defined(USE_ITT)
   if ((nullptr != pGPAData) && (pGPAData->bUseGPA)) {
 // End Sync Data GPA task
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
     __itt_set_track(nullptr);
 #endif
+#endif // end INTEL_CUSTOMIZATION
     __itt_task_end(pGPAData->pDeviceDomain);
 
     __itt_id_destroy(pGPAData->pDeviceDomain, ittID);
@@ -1531,8 +1538,6 @@ cl_err_code NDRangeKernelCommand::Init() {
   // USM capacities
   auto crossSharedCaps = GetDevice()->GetUSMCapabilities(
       CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL);
-  auto systemCaps = GetDevice()->GetUSMCapabilities(
-      CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL);
   cl_device_id queueDeviceId = m_pCommandQueue->GetQueueDeviceHandle();
 
   // Indirect USM allocations that are not passed as kernel arguments
@@ -1595,8 +1600,7 @@ cl_err_code NDRangeKernelCommand::Init() {
       cl_device_id bufDeviceId = buf->GetDevice();
       if (!crossSharedCaps && bufDeviceId && queueDeviceId != bufDeviceId)
         return CL_INVALID_OPERATION;
-    } else if (!systemCaps)
-      return CL_INVALID_OPERATION;
+    }
   }
 
   const SharedPtr<Context> &pContext = m_pKernel->GetContext();
@@ -1669,8 +1673,8 @@ cl_err_code NDRangeKernelCommand::Init() {
     if (ThrowOOR && szWorkGroupSize > szCompiledWorkGroupMaxSize) {
       // according to spec this is not an invalid WG size error, but it will be
       // manifested as out of resources. No enough private memory.
-      LOG_DEBUG("Total number of work items computed (%d) exceeds maximum "
-                "workgroup size (%d). Returns CL_OUT_OF_RESOURCES error.\n",
+      LOG_DEBUG("Total number of work items computed (%zu) exceeds maximum "
+                "workgroup size (%zu). Returns CL_OUT_OF_RESOURCES error.\n",
                 szWorkGroupSize, szCompiledWorkGroupMaxSize);
       return CL_OUT_OF_RESOURCES;
     }
@@ -1704,7 +1708,7 @@ cl_err_code NDRangeKernelCommand::Init() {
   cl_ulong stImplicitSize = m_pDeviceKernel->GetKernelLocalMemSize();
   stImplicitSize += stTotalLocalSize;
   if (stImplicitSize > m_pDevice->GetMaxLocalMemorySize()) {
-    LOG_DEBUG("Local memory size (%d) exceeds the maximum size (%d)\n",
+    LOG_DEBUG("Local memory size (%lu) exceeds the maximum size (%lu)\n",
               stImplicitSize, m_pDevice->GetMaxLocalMemorySize());
     res = CL_OUT_OF_RESOURCES;
   }
@@ -1900,6 +1904,7 @@ cl_err_code NDRangeKernelCommand::CommandDone() {
  *
  ******************************************************************/
 void NDRangeKernelCommand::GPA_WriteCommandMetadata() {
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
   ocl_gpa_data *pGPAData = m_pCommandQueue->GetGPAData();
 
@@ -1917,10 +1922,12 @@ void NDRangeKernelCommand::GPA_WriteCommandMetadata() {
                           pGPAData->pGlobalWorkOffsetHandle);
   }
 #endif // GPA
+#endif // end INTEL_CUSTOMIZATION
 }
 /******************************************************************
  *
  ******************************************************************/
+#if INTEL_CUSTOMIZATION
 #if defined(USE_GPA)
 void NDRangeKernelCommand::GPA_WriteWorkMetadata(
     const size_t *pWorkMetadata, __itt_string_handle *keyStrHandle) const {
@@ -1945,6 +1952,57 @@ void NDRangeKernelCommand::GPA_WriteWorkMetadata(
   }
 }
 #endif // GPA
+#endif // end INTEL_CUSTOMIZATION
+
+ReadHostPipeIntelFPGACommand::ReadHostPipeIntelFPGACommand(
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue, void *pDst, void *pipeBS,
+    size_t size)
+    : Command(cmdQueue), m_pDst(pDst), m_pipeBS(pipeBS), m_size(size) {
+  m_commandType = CL_COMMAND_READ_HOST_PIPE_INTEL;
+}
+
+cl_err_code ReadHostPipeIntelFPGACommand::Execute() {
+  if (nullptr == m_pDst || nullptr == m_pDst)
+    return CL_INVALID_VALUE;
+
+  NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
+                         Intel::OpenCL::Utils::HostTime());
+
+  if (__read_pipe_2_fpga(m_pipeBS, m_pDst, m_size, m_size))
+    return CL_PIPE_EMPTY;
+
+  __flush_read_pipe(m_pipeBS);
+
+  NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
+                         Intel::OpenCL::Utils::HostTime());
+
+  return CL_SUCCESS;
+}
+
+WriteHostPipeIntelFPGACommand::WriteHostPipeIntelFPGACommand(
+    const SharedPtr<IOclCommandQueueBase> &cmdQueue, void *pipeBS,
+    const void *pSrc, size_t size)
+    : Command(cmdQueue), m_pipeBS(pipeBS), m_pSrc(pSrc), m_size(size) {
+  m_commandType = CL_COMMAND_WRITE_HOST_PIPE_INTEL;
+}
+
+cl_err_code WriteHostPipeIntelFPGACommand::Execute() {
+  if (nullptr == m_pipeBS || nullptr == m_pSrc)
+    return CL_INVALID_VALUE;
+
+  NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
+                         Intel::OpenCL::Utils::HostTime());
+  // The m_size should be the packet size of this pipe.
+  if (__write_pipe_2_fpga(m_pipeBS, m_pSrc, m_size, m_size))
+    return CL_PIPE_EMPTY;
+
+  __flush_write_pipe(m_pipeBS);
+
+  NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
+                         Intel::OpenCL::Utils::HostTime());
+
+  return CL_SUCCESS;
+}
 
 ReadGVCommand::ReadGVCommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,
                              void *pDst, const void *pSrc, size_t size)
@@ -2336,9 +2394,8 @@ cl_err_code WriteMemObjCommand::Init() {
       sCpyParam.vRegion[dim] = m_szRegion[dim];
     }
 
-    // nmeraey: changing this allocation alignment from 64 to 128 to fix
-    // CSSD100016136
-    //          anyway, couldn't know why 128 would fix it!
+    // change this allocation alignment from 64 to 128 but don't know why 128
+    // would fix issue!
     m_pTempBuffer = ALIGNED_MALLOC(sizeToAlloc, WRITE_MEM_OBJ_ALLOC_ALIGNMENT);
     if (nullptr == m_pTempBuffer) {
       LOG_ERROR("Can't allocate temporary storage for blockng command (%s)\n",
@@ -2821,7 +2878,7 @@ cl_err_code MigrateMemObjCommand::CommandDone() {
  * ******************************************************************/
 MigrateUSMMemCommand::MigrateUSMMemCommand(
     const SharedPtr<IOclCommandQueueBase> &cmdQueue,
-    cl_mem_migration_flags_intel clFlags, const void *ptr, size_t size)
+    cl_mem_migration_flags clFlags, const void *ptr, size_t size)
     : Command(cmdQueue), m_ptr(ptr) {
   assert(nullptr != ptr);
 
@@ -2837,8 +2894,8 @@ MigrateUSMMemCommand::MigrateUSMMemCommand(
  * ******************************************************************/
 cl_err_code MigrateUSMMemCommand::Init() {
   MemoryObject::MemObjUsage access =
-      (0 != (m_migrateCmdParams.flags &
-             CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED_INTEL))
+      (0 !=
+       (m_migrateCmdParams.flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED))
           ? MemoryObject::WRITE_ENTIRE
           : MemoryObject::READ_ONLY;
 

@@ -1,6 +1,6 @@
 //===---- HIRSafeReductionAnalysis.cpp - Identify Safe Reduction Chain ----===//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -246,6 +246,12 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
                                          unsigned ReductionOpCode,
                                          DDGraph DDG,
                                          unsigned FirstRvalSB) {
+
+  // Safe reductions require to have only one live out, and it should be
+  // FirstRValSB, which is the LVal of the final instruction in the chain.
+  if (LRef->getSymbase() != FirstRvalSB && Loop->isLiveOut(LRef->getSymbase()))
+    return false;
+
   HLNode *UseNode = nullptr;
   HLInst *SingleOutputDepInst = nullptr;
   bool FlowEdgeFound = false;
@@ -664,18 +670,11 @@ getConditionalAndUnsafeAlgebraInfo(SafeRedChain &RedInsts, const HLLoop *Lp) {
     if (!FPInst) {
       continue;
     }
-    if (Conditional) {
-      if (!FPInst->isFast()) {
-        LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
-                             "(FP reduction with fast flag off)\n");
-        HasUnsafeAlgebra = true;
-      }
-    } else {
-      if (!FPInst->hasAllowReassoc()) {
-        LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
-                             "(FP reduction with reassoc flag off)\n");
-        HasUnsafeAlgebra = true;
-      }
+
+    if (!FPInst->hasAllowReassoc()) {
+      LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
+                           "(FP reduction with reassoc flag off)\n");
+      HasUnsafeAlgebra = true;
     }
   }
 

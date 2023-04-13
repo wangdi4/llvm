@@ -32,7 +32,7 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:     call i64 8 ptr [[VP_K2_ALLOC_PRIV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 1 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     ptr [[VP_K_IV_IND_INIT]] = induction-init{getelementptr} ptr [[K_IV_B0]] i64 16 
+; CHECK-NEXT:     ptr [[VP_K_IV_IND_INIT]] = induction-init{getelementptr} ptr [[K_IV_B0]] i64 16
 ; CHECK-NEXT:     i64 [[VP_K_IV_IND_INIT_STEP]] = induction-init-step{getelementptr} i64 16
 ; CHECK-NEXT:     ptr [[VP_K1_IV_IND_INIT]] = induction-init{getelementptr} ptr [[K1_IV_B0]] i64 4
 ; CHECK-NEXT:     i64 [[VP_K1_IV_IND_INIT_STEP]] = induction-init-step{getelementptr} i64 4
@@ -97,7 +97,7 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK: Printing Divergence info for foo2:for.body.#1
 ; CHECK-NEXT: Basic Block: [[BB7:BB[0-9]+]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] br [[BB1:BB[0-9]+]]
-; CHECK-EMPTY: 
+; CHECK-EMPTY:
 ; CHECK-NEXT: Basic Block: [[BB1]]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP0_ALLOC_PRIV:%.*]] = allocate-priv ptr, OrigAlign = 4
 ; CHECK-NEXT: Divergent: [Shape: Random] call i64 8 ptr [[VP0_ALLOC_PRIV]] ptr @llvm.lifetime.start.p0
@@ -109,40 +109,40 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[VP4_STEP:%.*]] = induction-init-step{getelementptr} i64 4
 ; CHECK-NEXT: Uniform: [Shape: Uniform] ptr [[VP0_LOAD0:%.*]] = load ptr %k2
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP0_INIT:%.*]] = induction-init{getelementptr} ptr [[VP0_LOAD0]] i64 4
-; CHECK-NEXT: Divergent: [Shape: Random] store ptr [[VP0_INIT]] ptr [[VP0_ALLOC_PRIV]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] store ptr [[VP0_INIT]] ptr [[VP0_ALLOC_PRIV]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[VP0_STEP:%.*]] = induction-init-step{getelementptr} i64 4
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[VP_IV_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[VP_TC:%.*]] = orig-trip-count for original loop for.body
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[VP_VEC_TC:%.*]] = vector-trip-count i64 [[VP_TC]], UF = 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] br [[BB2:BB[0-9]+]]
-; CHECK-EMPTY: 
+; CHECK-EMPTY:
 ; CHECK-NEXT: Basic Block: [[BB2]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[VP_IV_PHI:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB5]] ]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP2_PHI:%.*]] = phi  [ i64 [[VP2_INIT]], [[BB1]] ],  [ i64 [[VP2_NEXT:%.*]], [[BB5]] ]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 16] ptr [[VP3_PHI:%.*]] = phi  [ ptr [[VP3_INIT]], [[BB1]] ],  [ ptr [[VP3_NEXT:%.*]], [[BB5]] ]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP4_PHI:%.*]] = phi  [ ptr [[VP4_INIT]], [[BB1]] ],  [ ptr [[VP4_NEXT:%.*]], [[BB5]] ]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP0_PHI:%.*]] = phi  [ ptr [[VP0_INIT]], [[BB1]] ],  [ ptr [[VP0_NEXT:%.*]], [[BB5]] ]
-; CHECK-NEXT: Divergent: [Shape: Random] store ptr [[VP0_PHI]] ptr [[VP0_ALLOC_PRIV]]
-; CHECK-NEXT: Divergent: [Shape: Random] ptr [[VP0_LOAD1:%.*]] = load ptr [[VP0_ALLOC_PRIV]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 8] store ptr [[VP0_PHI]] ptr [[VP0_ALLOC_PRIV]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP0_LOAD1:%.*]] = load ptr [[VP0_ALLOC_PRIV]]
 ; CHECK-NEXT: Divergent: [Shape: Random] i32 [[VP0_LOAD2:%.*]] = load ptr [[VP0_LOAD1]]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP0_GEP0:%.*]] = getelementptr inbounds [10 x i32], ptr @x i64 0 i64 [[VP2_PHI]]
-; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VP0_LOAD2]] ptr [[VP0_GEP0]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] store i32 [[VP0_LOAD2]] ptr [[VP0_GEP0]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP2_NEXT]] = add i64 [[VP2_PHI]] i64 [[VP2_STEP]]
 ; CHECK-NEXT: Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP2_INC:%.*]] = add i64 [[VP2_PHI]] i64 1
 ; CHECK-NEXT: Divergent: [Shape: Random] i1 [[VP2_CMP:%.*]] = icmp eq i64 [[VP2_INC]] i64 43
 ; CHECK-NEXT: Divergent: [Shape: Random] br i1 [[VP2_CMP]], [[BB3:BB[0-9]+]], [[BB4:BB[0-9]+]]
-; CHECK-EMPTY: 
+; CHECK-EMPTY:
 ; CHECK-NEXT: Basic Block: [[BB4]]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 16] ptr [[VP3_GEP0:%.*]] = getelementptr inbounds i64, ptr [[VP3_PHI]] i64 2
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP4_GEP0:%.*]] = getelementptr inbounds i32, ptr [[VP4_PHI]] i64 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] br [[BB5:BB[0-9]+]]
-; CHECK-EMPTY: 
-; CHECK-NEXT: Basic Block: [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB3]]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 16] ptr [[VP3_GEP1:%.*]] = getelementptr inbounds i64, ptr [[VP3_PHI]] i64 2
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP4_GEP1:%.*]] = getelementptr inbounds i32, ptr [[VP4_PHI]] i64 1
-; CHECK-NEXT: Uniform: [Shape: Uniform] br [[BB5]]
-; CHECK-EMPTY: 
-; CHECK-NEXT: Basic Block: [[BB5]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB5]]
 ; CHECK-NEXT: Divergent: [Shape: Random] ptr [[VP3_PHI1:%.*]] = phi  [ ptr [[VP3_GEP1]], [[BB3]] ],  [ ptr [[VP3_GEP0]], [[BB4]] ]
 ; CHECK-NEXT: Divergent: [Shape: Random] ptr [[VP4_PHI1:%.*]] = phi  [ ptr [[VP4_GEP1]], [[BB3]] ],  [ ptr [[VP4_GEP0]], [[BB4]] ]
 ; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP4_NEXT]] = getelementptr inbounds i8, ptr [[VP4_PHI]] i64 [[VP4_STEP]]
@@ -151,22 +151,22 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV_PHI]] i64 [[VP_IV_STEP]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i1 [[VP_IV_CMP:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VEC_TC]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] br i1 [[VP_IV_CMP]], [[BB6:BB[0-9]+]], [[BB7:BB[0-9]+]]
-; CHECK-EMPTY: 
-; CHECK-NEXT: Basic Block: [[BB6]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB6]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] i64 [[VP_IND0:%.*]] = induction-final{add} i64 1 i64 1
 ; CHECK-NEXT: Uniform: [Shape: Uniform] ptr [[VP_IND1:%.*]] = induction-final{getelementptr} ptr %k.iv.b i64 16
 ; CHECK-NEXT: Uniform: [Shape: Uniform] ptr [[VP_1_IND1:%.*]] = induction-final{getelementptr} ptr %k1.iv.b i64 4
-; CHECK-NEXT: Divergent: [Shape: Random] ptr [[VP0_LOAD3:%.*]] = load ptr [[VP0_ALLOC_PRIV]]
+; CHECK-NEXT: Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP0_LOAD3:%.*]] = load ptr [[VP0_ALLOC_PRIV]]
 ; CHECK-NEXT: Uniform: [Shape: Uniform] ptr [[VP_2_IND1:%.*]] = induction-final{getelementptr} ptr [[VP0_LOAD0]] i64 4
 ; CHECK-NEXT: Uniform: [Shape: Uniform] store ptr [[VP_2_IND1]] ptr %k2
 ; CHECK-NEXT: Divergent: [Shape: Random] call i64 8 ptr [[VP0_ALLOC_PRIV]] ptr @llvm.lifetime.end.p0
 ; CHECK-NEXT: Uniform: [Shape: Uniform] br [[BB8:BB[0-9]+]]
-; CHECK-EMPTY: 
+; CHECK-EMPTY:
 ; CHECK-NEXT: Basic Block: [[BB8]]
-; CHECK-NEXT: Uniform: [Shape: Uniform] br <External Block>
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 ; CHECK: define void @foo2(i64 [[N:%.*]]) local_unnamed_addr {
-; CHECK-NEXT: entry:
+; CHECK-NEXT:  entry:
 ; CHECK-NEXT:   [[VP_K:%.*]] = alloca ptr, align 4
 ; CHECK-NEXT:   [[VP_K1:%.*]] = alloca ptr, align 4
 ; CHECK-NEXT:   [[VP_K2:%.*]] = alloca ptr, align 4
@@ -177,42 +177,42 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:   [[K2_VEC_BASEADDR:%.*]] = getelementptr ptr, ptr [[K2_VEC]], <2 x i32> <i32 0, i32 1>
 ; CHECK-NEXT:   [[K2_VEC_BASEADDR_EXTRACT0:%.*]] = extractelement <2 x ptr> [[K2_VEC_BASEADDR]], i32 0
 ; CHECK-NEXT:   br label [[REG_ENTRY:%.*]]
-; CHECK-EMPTY: 
+; CHECK-EMPTY:
 ; CHECK-NEXT: reg.entry:                                        ; preds = %entry
 ; CHECK-NEXT:   br label [[FOR_BODY_LR_PH:%.*]]
-; CHECK-EMPTY: 
+; CHECK-EMPTY:
 ; CHECK-NEXT: for.body.lr.ph:                                   ; preds = %reg.entry
 ; CHECK-NEXT:   [[VP_K_IV_B:%.*]] = load ptr, ptr [[VP_K]], align 4
 ; CHECK-NEXT:   [[VP_K1_IV_B:%.*]] = load ptr, ptr [[VP_K1]], align 4
 ; CHECK-NEXT:   %0 = add i64 [[N]], -1
 ; CHECK-NEXT:   br label [[VPlannedBB:%.*]]
-; CHECK-EMPTY: 
+; CHECK-EMPTY:
 ; CHECK-NEXT: VPlannedBB:                                       ; preds = %for.body.lr.ph
 ; CHECK-NEXT:   %1 = and i64 %0, 4294967294
 ; CHECK-NEXT:   %2 = icmp eq i64 0, %1
 ; CHECK-NEXT:   br i1 %2, label [[MERGE_BLK13:%.*]], label [[VPlannedBB1:%.*]]
-; CHECK-EMPTY: 
+; CHECK-EMPTY:
 ; CHECK-NEXT: VPlannedBB1:                                      ; preds = %VPlannedBB
 ; CHECK-NEXT:   br label [[VPlannedBB2:%.*]]
-; CHECK-EMPTY: 
+; CHECK-EMPTY:
 ; CHECK-NEXT: VPlannedBB2:                                      ; preds = %VPlannedBB1
 ; CHECK-NEXT:   call void @llvm.lifetime.start.p0(i64 16, ptr [[K2_VEC_BASEADDR_EXTRACT0]])
-; CHECK-NEXT:   [[VP_K_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr [[VP_K_IV_B]], i32 0
+; CHECK-NEXT:   [[VP_K_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr [[VP_K_IV_B]], i64 0
 ; CHECK-NEXT:   [[VP_K_IV_BIND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x ptr> [[VP_K_IV_BIND_START_BCAST_SPLATINSERT:%.*]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VP_VECTOR_GEP:%.*]] = getelementptr inbounds i8, <2 x ptr> [[VP_K_IV_BIND_START_BCAST_SPLAT]], <2 x i64> <i64 0, i64 16>
-; CHECK-NEXT:   [[VP_K1_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr [[VP_K1_IV_B]], i32 0
+; CHECK-NEXT:   [[VP_K1_IV_BIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr [[VP_K1_IV_B]], i64 0
 ; CHECK-NEXT:   [[VP_K1_IV_BIND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x ptr> [[VP_K1_IV_BIND_START_BCAST_SPLATINSERT:%.*]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VP_VECTOR_GEP3:%.*]] = getelementptr inbounds i8, <2 x ptr> [[VP_K1_IV_BIND_START_BCAST_SPLAT]], <2 x i64> <i64 0, i64 4>
 ; CHECK-NEXT:   %3 = load ptr, ptr %k2, align 1
 ; CHECK-NEXT:   %4 = load ptr, ptr %k2, align 1
-; CHECK-NEXT:   [[VP_IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr %3, i32 0
+; CHECK-NEXT:   [[VP_IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr %3, i64 0
 ; CHECK-NEXT:   [[VP_IND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x ptr> [[VP_IND_START_BCAST_SPLATINSERT]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   [[VECTOR_GEP4:%.*]] = getelementptr inbounds i8, <2 x ptr> [[VP_IND_START_BCAST_SPLAT]], <2 x i64> <i64 0, i64 4>
 ; CHECK-NEXT:   store <2 x ptr> [[VECTOR_GEP4]], ptr [[K2_VEC]], align 1
 ; CHECK-NEXT:   %5 = and i64 %0, 4294967294
 ; CHECK-NEXT:   br label [[VECTOR_BODY:%.*]]
-; CHECK-EMPTY: 
-; CHECK-NEXT: vector.body:                                      ; preds = %VPlannedBB18, %VPlannedBB2
+; CHECK-EMPTY:
+; CHECK-NEXT: vector.body:                                      ; preds = %VPlannedBB19, %VPlannedBB2
 ; CHECK-NEXT:   [[VP_UNI_PHI:%.*]] = phi i64 [ 0, [[VPlannedBB2]] ], [ %11, [[VPlannedBB18:%.*]] ]
 ; CHECK-NEXT:   [[VP_UNI_PHI6:%.*]] = phi i64 [ 1, [[VPlannedBB2]] ], [ %7, [[VPlannedBB18]] ]
 ; CHECK-NEXT:   [[VP_VEC_PHI:%.*]] = phi <2 x i64> [ <i64 1, i64 2>, [[VPlannedBB2]] ], [ %6, [[VPlannedBB18]] ]
@@ -224,29 +224,30 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:   [[VP_VEC_PHI12:%.*]] = phi <2 x ptr> [ [[VECTOR_GEP4]], [[VPlannedBB2]] ], [ [[VP_MM_VECTORGEP22:%.*]], [[VPlannedBB18]] ]
 ; CHECK-NEXT:   store <2 x ptr> [[VP_VEC_PHI12]], ptr [[K2_VEC]], align 1
 ; CHECK-NEXT:   [[WIDE_LOAD:%.*]] = load <2 x ptr>, ptr [[K2_VEC]], align 4
-; CHECK-NEXT:   [[WIDE_MASKED_GATHER:%.*]] = call <2 x i32> @llvm.masked.gather.v2i32.v2p0(<2 x ptr> [[WIDE_LOAD]], i32 4, <2 x i1> <i1 true, i1 true>, <2 x i32> poison)
+; CHECK-NEXT:   [[WIDE_LOAD_EXTRACT_0:%.*]] = extractelement <2 x ptr> [[WIDE_LOAD]], i32 0
+; CHECK-NEXT:   [[WIDE_LOAD_13:%.*]] = load <2 x i32>, ptr [[WIDE_LOAD_EXTRACT_0]], align 4
 ; CHECK-NEXT:   [[SCALAR_GEP:%.*]] = getelementptr inbounds [10 x i32], ptr @x, i64 0, i64 [[VP_UNI_PHI6]]
-; CHECK-NEXT:   store <2 x i32> [[WIDE_MASKED_GATHER]], ptr [[SCALAR_GEP]], align 8
+; CHECK-NEXT:   store <2 x i32> [[WIDE_LOAD_13]], ptr [[SCALAR_GEP]], align 8
 ; CHECK-NEXT:   %6 = add <2 x i64> [[VP_VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:   %7 = add i64 [[VP_UNI_PHI6]], 2
 ; CHECK-NEXT:   %8 = add nuw nsw <2 x i64> [[VP_VEC_PHI]], <i64 1, i64 1>
 ; CHECK-NEXT:   %9 = icmp eq <2 x i64> %8, <i64 43, i64 43>
 ; CHECK-NEXT:   %10 = xor <2 x i1> %9, <i1 true, i1 true>
-; CHECK-NEXT:   br label [[VPlannedBB13:%.*]]
-; CHECK-EMPTY: 
-; CHECK-NEXT: VPlannedBB13:                                      ; preds = %vector.body
+; CHECK-NEXT:   br label [[VPlannedBB14:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT: VPlannedBB14:                                      ; preds = %vector.body
 ; CHECK-NEXT:   [[VP_MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x ptr> [[VP_VEC_PHI8]], <2 x i64> <i64 2, i64 2>
 ; CHECK-NEXT:   [[VP_MM_VECTORGEP14:%.*]] = getelementptr inbounds i32, <2 x ptr> [[VP_VEC_PHI10]], <2 x i64> <i64 1, i64 1>
-; CHECK-NEXT:   br label [[VPlannedBB15:%.*]]
-; CHECK-EMPTY: 
-; CHECK-NEXT: VPlannedBB15:                                      ; preds = %VPlannedBB13
+; CHECK-NEXT:   br label [[VPlannedBB16:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT: VPlannedBB16:                                      ; preds = %VPlannedBB14
 ; CHECK-NEXT:   [[VP_MM_VECTORGEP16:%.*]] = getelementptr inbounds i64, <2 x ptr> [[VP_VEC_PHI8]], <2 x i64> <i64 2, i64 2>
 ; CHECK-NEXT:   [[VP_MM_VECTORGEP17:%.*]] = getelementptr inbounds i32, <2 x ptr> [[VP_VEC_PHI10]], <2 x i64> <i64 1, i64 1>
-; CHECK-NEXT:   br label [[VPlannedBB18]]
-; CHECK-EMPTY: 
-; CHECK-NEXT: VPlannedBB18:                                     ; preds = %VPlannedBB15
+; CHECK-NEXT:   br label [[VPlannedBB19:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT: VPlannedBB19:                                     ; preds = %VPlannedBB16
 ; CHECK-NEXT:   %predblend = select <2 x i1> %9, <2 x ptr> [[VP_MM_VECTORGEP16]], <2 x ptr> [[VP_MM_VECTORGEP]]
-; CHECK-NEXT:   %predblend19 = select <2 x i1> %9, <2 x ptr> [[VP_MM_VECTORGEP17]], <2 x ptr> [[VP_MM_VECTORGEP14]]
+; CHECK-NEXT:   %predblend20 = select <2 x i1> %9, <2 x ptr> [[VP_MM_VECTORGEP17]], <2 x ptr> [[VP_MM_VECTORGEP14]]
 ; CHECK-NEXT:   [[VP_MM_VECTORGEP20]] = getelementptr inbounds i8, <2 x ptr> [[VP_VEC_PHI10]], <2 x i64> <i64 8, i64 8>
 ; CHECK-NEXT:   [[VP_MM_VECTORGEP20_EXTRACT0]] = extractelement <2 x ptr> [[VP_MM_VECTORGEP20]], i32 0
 ; CHECK-NEXT:   [[VP_MM_VECTORGEP21]] = getelementptr inbounds i8, <2 x ptr> [[VP_VEC_PHI8]], <2 x i64> <i64 32, i64 32>
@@ -255,9 +256,9 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:   [[VP_MM_VECTORGEP22_EXTRACT0]] = extractelement <2 x ptr> [[VP_MM_VECTORGEP22]], i32 0
 ; CHECK-NEXT:   %11 = add i64 [[VP_UNI_PHI]], 2
 ; CHECK-NEXT:   %12 = icmp uge i64 %11, %5
-; CHECK-NEXT:   br i1 %12, label [[VPlannedBB23:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
-; CHECK-EMPTY: 
-; CHECK-NEXT: VPlannedBB23:                                     ; preds = %VPlannedBB18
+; CHECK-NEXT:   br i1 %12, label [[VPlannedBB24:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
+; CHECK-EMPTY:
+; CHECK-NEXT: VPlannedBB24:                                     ; preds = %VPlannedBB19
 ; CHECK-NEXT:   %13 = mul i64 1, %5
 ; CHECK-NEXT:   %14 = add i64 1, %13
 ; CHECK-NEXT:   %15 = mul i64 16, %5

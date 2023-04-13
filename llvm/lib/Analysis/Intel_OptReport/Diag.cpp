@@ -304,7 +304,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15503, "--- end vector idiom recognition report ---"},
     {15504, "--- begin vectorizer fails report"},
     {15505, "--- end vectorizer fails report"},
-    {15506, "UNUSED DIAGNOSTIC ID"},
+    {15506, "vplan loop number: %s"},
     {15507, "Incorrect parameter type of vector variant '%s' of function '%s' "
             "at position %d.\n The correct prototype is: '%s'."},
     {15508, "Incorrect return type of vector variant '%s' of function '%s' at "
@@ -429,6 +429,21 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15569, "Compiler has chosen to target XMM/YMM vector. Try using "
             "-mprefer-vector-width=512 to override."},
     {15570, "using scalar loop trip count: %s"},
+    // End "vector loop memory reference summary" entries.
+    {15571, "%s was not vectorized: loop contains a recurrent computation "
+            "that could not be identified as an induction or reduction.  "
+            "Try using #pragma omp simd reduction/linear/private to clarify "
+            "recurrence."},
+    {15572, "%s was not vectorized: loop contains a live-out value that could "
+            "not be identified as an induction or reduction.  Try using "
+            "#pragma omp simd reduction/linear/private to clarify recurrence."},
+    {15573, "%s was not vectorized: a reduction or induction of a vector "
+            "type is not supported."},
+    {15574, "%s was not vectorized: unsupported nested OpenMP (simd) loop or "
+            "region."},
+    {15575, "peel loop is static"},
+    {15576, "peel loop is dynamic"},
+    {15577, "estimated number of scalar loop iterations peeled: %s"},
 
     {25018, "Total number of lines prefetched=%d"},
     {25019, "Number of spatial prefetches=%d, default dist=%d"},
@@ -449,7 +464,10 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25422, "Invariant Condition%s hoisted out of this loop"},
     {25423, "Invariant If condition%s hoisted out of this loop"},
     {25424, "Invariant Switch condition%s hoisted out of this loop"},
-    {25426, "Loop distributed (%d way)"},
+    {25426, "Loop distributed (%d way) for perfect loopnest formation"},
+    {25427,
+     "Loop distributed (%d way) for enabling vectorization on some chunks"},
+    {25428, "Loop stripmined by %d"},
     {25436, "Loop completely unrolled by %d"},
     {25438, "Loop unrolled without remainder by %d"},
     {25439, "Loop unrolled with remainder by %d"},
@@ -468,7 +486,8 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25483, "Distribute point pragma processed"},
     {25484,
      "Distribute point pragma not processed: Unsupported constructs in loops"},
-    {25485, "Distribute point pragma not processed: Loop is too complex"},
+    {25485,
+     "Distribute point pragma not processed: Loopnest too large for stripmine"},
     {25486,
      "Distribute point pragma not processed: Too many Distribute points"},
     {25487, "Loop peeled to eliminate data dependence"},

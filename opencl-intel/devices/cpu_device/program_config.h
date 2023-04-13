@@ -28,27 +28,29 @@ namespace Intel {
 namespace OpenCL {
 namespace CPUDevice {
 
-using namespace Intel::OpenCL::DeviceBackend;
 class CPUDeviceConfig;
 
 /**
  * Program options used upon program creation
  */
-class ProgramConfig : public ICLDevBackendOptions {
+class ProgramConfig : public DeviceBackend::ICLDevBackendOptions {
 public:
   ProgramConfig()
-      : m_useVectorizer(false), m_vectorizerMode(TRANSPOSE_SIZE_NOT_SET),
+      : m_useVectorizer(false),
+        m_vectorizerMode(DeviceBackend::TRANSPOSE_SIZE_NOT_SET),
         m_vectorizerType(DEFAULT_VECTORIZER), m_rtLoopUnrollFactor(0),
         m_useVTune(false), m_serializeWorkGroups(false),
         m_forcedPrivateMemorySize(0), m_useAutoMemory(false),
         m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT),
-        m_targetDevice(CPU_DEVICE), m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
+        m_targetDevice(CPU_DEVICE), m_deviceMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
         m_streamingAlways(false), m_expensiveMemOpts(0),
-        m_passManagerType(PM_NONE), m_subGroupConstructionMode(0) {}
+        m_passManagerType(DeviceBackend::PM_NONE),
+        m_subGroupConstructionMode(0) {}
 
   void InitFromCpuConfig(const CPUDeviceConfig &cpuConfig);
 
   bool GetBooleanValue(int optionId, bool defaultValue) const override {
+    using namespace DeviceBackend;
     switch (optionId) {
     case CL_DEV_BACKEND_OPTION_USE_VTUNE:
       return m_useVTune;
@@ -64,11 +66,12 @@ public:
   }
 
   virtual int GetIntValue(int optionId, int defaultValue) const override {
+    using namespace DeviceBackend;
     switch (optionId) {
     case CL_DEV_BACKEND_OPTION_DEVICE:
       return m_targetDevice;
     case CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE:
-      return (int)m_cpuMaxWGSize;
+      return (int)m_deviceMaxWGSize;
     case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
       // The transpoze size is applicable only then
       // CL_CONFIG_USE_VECTORIZER is false.
@@ -113,17 +116,17 @@ private:
   bool m_useAutoMemory;
   int m_channelDepthEmulationMode;
   DeviceMode m_targetDevice;
-  size_t m_cpuMaxWGSize;
+  size_t m_deviceMaxWGSize;
   bool m_streamingAlways;
   unsigned m_expensiveMemOpts;
-  PassManagerType m_passManagerType;
+  DeviceBackend::PassManagerType m_passManagerType;
   int m_subGroupConstructionMode;
 };
 
 /**
  * Options used during program code container dump
  */
-class ProgramDumpConfig : public ICLDevBackendOptions {
+class ProgramDumpConfig : public DeviceBackend::ICLDevBackendOptions {
 public:
   ProgramDumpConfig(const char *options) { InitFromString(options); }
 
@@ -139,7 +142,7 @@ public:
 
   virtual const char *GetStringValue(int optionId,
                                      const char *defaultValue) const override {
-    if (CL_DEV_BACKEND_OPTION_DUMPFILE != optionId) {
+    if (DeviceBackend::CL_DEV_BACKEND_OPTION_DUMPFILE != optionId) {
       return defaultValue;
     }
 

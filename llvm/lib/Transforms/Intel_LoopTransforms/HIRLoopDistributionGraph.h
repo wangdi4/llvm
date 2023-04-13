@@ -213,7 +213,7 @@ public:
     delete PPGraph;
   }
 
-  Optional<std::pair<DistPPNode *, bool>>
+  std::optional<std::pair<DistPPNode *, bool>>
   getControlDependence(DistPPNode *Dst) {
     assert(PPGraph && "PPGraph is not initialized");
     return PPGraph->getControlDependence(Dst);

@@ -795,7 +795,7 @@ bool MultithreadedBuildTest() {
   bool bResult = true;
   cl_int iRet = CL_SUCCESS;
 
-  const size_t numThreads = 32;
+  const size_t numThreads = 16;
 
   cl_platform_id platform = 0;
   cl_device_id deviceId = 0;

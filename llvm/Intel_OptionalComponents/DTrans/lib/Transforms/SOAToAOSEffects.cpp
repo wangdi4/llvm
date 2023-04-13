@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSEffects.cpp - Part of SOAToAOSPass ----------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -88,8 +88,9 @@ const Dep *DepCompute::computeValueDep(const Value *Val) const {
   auto ClassTy = ClassType;
   auto IsFieldAccessGEP = [ClassTy](const Value *V) -> unsigned {
     if (auto *GEP = dyn_cast<GetElementPtrInst>(V))
-      if (GEP->getPointerOperand()->getType()->getPointerElementType() ==
-          ClassTy)
+      if (GEP->getPointerOperand()
+              ->getType()
+              ->getNonOpaquePointerElementType() == ClassTy)
         if (GEP->hasAllConstantIndices() && GEP->getNumIndices() == 2 &&
             cast<Constant>(GEP->getOperand(1))->isZeroValue()) // 1st index
           return cast<Constant>(GEP->getOperand(2))            // 2nd index

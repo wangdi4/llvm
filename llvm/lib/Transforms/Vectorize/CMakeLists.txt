@@ -61,6 +61,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanLoopUnroller.cpp
   Intel_VPlan/IntelVPlanMaskedModeLoop.cpp
   Intel_VPlan/IntelVPMemRefTransform.cpp
+  Intel_VPlan/IntelVPlanNoCostInstructionAnalysis.cpp
   Intel_VPlan/IntelVPlanOptrpt.cpp
   Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp
   Intel_VPlan/IntelVPlanPragmaOmpSimdIf.cpp
@@ -108,6 +109,7 @@ add_llvm_component_library(LLVMVectorize
 # INTEL_CUSTOMIZATION
   Intel_LoopAnalysis
   Intel_LoopTransforms
+  TargetParser
   VPOAnalysis
   VPOTransforms
 # end INTEL_CUSTOMIZATION

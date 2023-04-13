@@ -44,7 +44,6 @@ namespace OpenCL {
 namespace DeviceBackend {
 class BuiltinLibrary;
 class BuiltinModules;
-class ProgramBuildResult;
 class ObjectCodeCache;
 
 //******************************************************************************
@@ -182,7 +181,7 @@ public:
   llvm::LLVMContext *resetLLVMContextForCurrentThread();
 
 protected:
-  SmallVector<std::unique_ptr<Module>, 2>
+  llvm::SmallVector<std::unique_ptr<llvm::Module>, 2>
   LoadBuiltinModules(BuiltinLibrary *pLibrary);
 
   // Create TargetMachine for X86.

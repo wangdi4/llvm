@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_IPCloning.cpp - IP Cloning -*------===//
 //
-// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -39,7 +39,9 @@
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/Intel_CloneUtils.h"
+#include "llvm/Transforms/Utils/Intel_RegionSplitter.h"
 #include <sstream>
 #include <string>
 using namespace llvm;
@@ -159,8 +161,22 @@ static cl::opt<bool> EnableManyRecCallsSplitting("ip-manyreccalls-splitting",
                                                  cl::ReallyHidden);
 
 static cl::opt<bool>
+    EnablePreferFunctionRegion("ip-manyreccalls-preferfunctionlevelregion",
+                               cl::init(true), cl::ReallyHidden);
+
+static cl::opt<bool>
     EnableManyRecCallsPredicateOpt("ip-manyreccalls-predicateopt",
                                    cl::init(false), cl::ReallyHidden);
+
+// Minimum number of loops in kernel on which predicate opt is performed
+static cl::opt<unsigned>
+    PredicateOptMinLoops("ip-manyreccalls-predicateopt-min-loops", cl::init(5),
+                         cl::ReallyHidden);
+
+// Maximum descent depth for predicate opt hoisting algorithm
+static cl::opt<unsigned>
+    PredicateOptMaxDepth("ip-manyreccalls-predicateopt-max-depth", cl::init(6),
+                         cl::ReallyHidden);
 
 // Flag to set if we are doing LIT testing of just the splitting. In this
 // case, any other ip cloning will be skipped, and the compiler will attempt
@@ -1480,7 +1496,7 @@ static bool isRecProSpecialLoopSequence(
       *BBLoopHeader = (*BBLoopHeader)->getSingleSuccessor();
     }
   };
-              
+
   AllocaInst *AICond = nullptr;
   BasicBlock *BBLatch = nullptr;
   BasicBlock *BBExit = nullptr;
@@ -3172,7 +3188,7 @@ static void cloneSpecializationFunction(void) {
       BasicBlock *CallBB = BasicBlock::Create(
           CI->getContext(), ".clone.spec.call", OrigBB->getParent(), TailBB);
       CallInst *NewCI = cast<CallInst>(CI->clone());
-      CallBB->getInstList().push_back(NewCI);
+      NewCI->insertInto(CallBB, CallBB->end());
       NewClonedCalls.push_back(NewCI);
       // NewCondStmtBBs.push_back(CallBB);
       BranchInst *BI = BranchInst::Create(TailBB, CallBB);
@@ -3187,7 +3203,7 @@ static void cloneSpecializationFunction(void) {
       // NewCondStmtBBs.push_back(TailBB);
     }
     // Complete the BasicBlock to BasicBlock connections
-    OrigBB->getInstList().pop_back();
+    OrigBB->back().eraseFromParent();
     BranchInst::Create(NewCondStmtBBs[0], OrigBB);
     BasicBlock *F_BB;
     for (unsigned J = 0; J < NumConds; J++) {
@@ -4759,32 +4775,109 @@ void Splitter::splitFunction() {
 // 'SimpleLoopDepth'.
 //
 
+// Make the control flow structure for an if-test of the form:
+// if (MyCond)
+//   CBClone
+// else
+//   CB
+// where 'MyCond' is in 'BBPred'.
+static void makeBlocks(CallBase *CB, CallBase *CBClone, Value *MyCond,
+                       BasicBlock *BBPred) {
+  BasicBlock *BBofCB = CB->getParent();
+  Instruction *IAfterCB = CB->getNextNonDebugInstruction();
+  BasicBlock *BBTail = BBofCB->splitBasicBlock(IAfterCB);
+  BasicBlock *BBTrue =
+      BasicBlock::Create(CB->getContext(), ".clone.recmanycalls.truepath",
+                         CB->getFunction(), BBTail);
+  if (!CB->getType()->isVoidTy()) {
+    PHINode *PHI = PHINode::Create(CB->getType(), 2, ".clone.recmapcalls.phi",
+                                   &BBTail->front());
+    CB->replaceAllUsesWith(PHI);
+    PHI->addIncoming(CB, BBofCB);
+    PHI->addIncoming(CBClone, BBTrue);
+  }
+  BranchInst::Create(BBTail, BBTrue);
+  BranchInst::Create(BBTrue, BBofCB, MyCond, BBPred);
+  CBClone->insertBefore(BBTrue->getTerminator());
+}
+
 class PredicateOpt {
 public:
-  PredicateOpt(Function *BaseF)
-      : BaseF(BaseF), WrapperCB(nullptr), BigLoopCB(nullptr),
-        SimpleLoopDepth(0) {}
-  // Return 'true' if the desired predicate opt can be performed.
-  bool canDoPredicateOpt();
-  // Perform the desired predicate opt.
-  void doPredicateOpt();
+  PredicateOpt(Function *BaseF,
+               std::function<DominatorTree &(Function &)> *GetDT,
+               std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+               std::function<BranchProbabilityInfo &(Function &)> *GetBPI)
+      : BaseF(BaseF), GetDT(GetDT), GetBFI(GetBFI), GetBPI(GetBPI),
+        WrapperCB(nullptr), BigLoopCB(nullptr), SimpleLoopDepth(0) {}
+  // Find 'WrapperCB' and 'BigLoopCB'.
+  bool findSpine();
+  // Return 'true' if the desired predicate opt should be attempted.
+  bool attemptPredicateOpt();
+  // Attempt the desired predicate opt. Return 'true' if it is performed.
+  bool doPredicateOpt();
 
 private:
   // The base function.
   Function *BaseF;
+  // DominatorTree getter
+  std::function<DominatorTree &(Function &)> *GetDT{};
+  // BlockFrequencyInfo getter
+  std::function<BlockFrequencyInfo &(Function &)> *GetBFI{};
+  // BranchProbabilityInfo getter
+  std::function<BranchProbabilityInfo &(Function &)> *GetBPI{};
   // The call site which calls 'BaseF' in the wrapper function.
-  CallBase *WrapperCB;
+  CallBase *WrapperCB = nullptr;
   // The call site that calls the wrapper function and is enclosed
   // within a series of simple loops.
-  CallBase *BigLoopCB;
+  CallBase *BigLoopCB = nullptr;
   // The number of loops within which 'BigLoopCB' is enclosed.
-  unsigned SimpleLoopDepth;
+  unsigned SimpleLoopDepth = 0;
   // A loop info cache to store loop infos for functions being evaluated.
   InliningLoopInfoCache ILIC;
+  // The loop that will be multiversioned, with the first version being the
+  // optimized version, and the second being the general version.
+  Loop *MultiLoop = nullptr;
+  // LoadInst of a key local ptr declared "restrict" in the source code.
+  LoadInst *LIRestrict = nullptr;
+  // Optimized version of the key predicate opt code
+  Function *OptF = nullptr;
   // Return 'true' if 'F' is a wrapper function.
   bool isWrapper(Function &F);
   // Return the number of simple loops enclosing 'CB'.
   unsigned simpleLoopDepth(CallBase &CB);
+  // Find the doubly nested inner loop surrounding 'CB' if there is one,
+  // otherwise return 'nullptr'.
+  Loop *findMultiLoop(CallBase *CB);
+  // Return 'true' if 'L' writes only through 'WrapperF' and through
+  // stores to a local variable inside the function containing 'L' which
+  // will not alias with actual arguments passed to 'WrapperF'.
+  bool validateMultiLoop(Loop *L, Function *WrapperF);
+  // Return a LoadInst to a ptr that will be temporarily annotated with
+  // "predicate-opt-restrict" metadata.
+  LoadInst *annotateWithRestrictHack(Function *BaseF);
+  // Recursive version of findHoistableFields() with 'Depth".
+  bool findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
+                            std::set<unsigned> &HoistYes,
+                            std::set<unsigned> &HoistNo);
+  // Return 'true' if the local restrict variable 'LIRestrict' in the entry
+  // block of 'BaseF' can be hoisted past the entry of the wrapper function.
+  bool isRestrictVarHoistablePastWrapperF(Function *BaseF,
+                                          LoadInst *LIRestrict);
+  // Return 'true' if the subfields in field 1 of the structure pointed to
+  // by formal argument 6 of the base function are hoistable past the entry
+  // of the wrapper function.
+  bool isBaseFArg6Field1Hoistable(Function *BaseF);
+  // Find the fields referenced by 'V'in 'F' that are hoistable and put their
+  // indices in 'HoistYes' and 'HoistNo'.
+  bool findHoistableFields(Function *F, Value *V, std::set<unsigned> &HoistYes,
+                           std::set<unsigned> &HoistNo);
+  // Return a pointer to a newly created hoisted restrict variable that
+  // can be used in the condition testing for the optimized code.
+  LoadInst *makeHoistedRestrictVar();
+  // Make the condition which tests for the optimized code.
+  Value *makeOptTest(LoadInst *CacheInfo);
+  // Return Function with cold code extracted from 'OptBaseF'.
+  Function *extractColdCode(Function *OptBaseF);
 };
 
 //
@@ -4836,11 +4929,429 @@ unsigned PredicateOpt::simpleLoopDepth(CallBase &CB) {
 }
 
 //
-// Return 'true' if the desired predicate opt can be performed.
-// NOTE: At this point, we are just checking if the hot path can be identified.
-// More code will be added to check additional conditions.
+// Return the doubly nested loop enclosing 'CB', otherwise return 'nullptr'.
 //
-bool PredicateOpt::canDoPredicateOpt() {
+Loop *PredicateOpt::findMultiLoop(CallBase *CB) {
+  if (!CB)
+    return nullptr;
+  LoopInfo *LI = ILIC.getLI(CB->getCaller());
+  if (!LI)
+    return nullptr;
+  Loop *L = LI->getLoopFor(CB->getParent());
+  return L ? L->getParentLoop() : nullptr;
+}
+
+//
+// Show that the 'L' writes only through 'WrapperF' and a single local
+// struct variable that will not alias with the actual arguments passed to
+// 'WrapperF'.
+//
+// The single local struct variable has the form:
+//   %8 = alloca %struct._ZTS18_MagickPixelPacket._MagickPixelPacket, align 8
+// It is referenced by a series of GEPs:
+//   %57 = getelementptr inbounds %S, ptr %8, i64 0, i32 5
+//   %58 = getelementptr inbounds %S, ptr %8, i64 0, i32 6
+//   %59 = getelementptr inbounds %S, ptr %8, i64 0, i32 7
+//   %61 = getelementptr inbounds %S, ptr %8, i64 0, i32 8
+// where %S = %struct._ZTS18_MagickPixelPacket._MagickPixelPacket.
+//
+// These GEPs are then used in the following sequence of loads and stores:
+//
+//   %173 = load float, ptr %57, align 8
+//   %174 = fadd fast float %173, %151
+//   store float %174, ptr %57, align 8
+//   %175 = load float, ptr %58, align 4
+//   %176 = fadd fast float %175, %156
+//   store float %176, ptr %58, align 4
+//   %177 = load float, ptr %59, align 8
+//   %178 = fadd fast float %177, %162
+//   store float %178, ptr %59, align 8
+//   %179 = load i16, ptr %60, align 2
+//   %180 = uitofp i16 %179 to float
+//   %181 = load float, ptr %61, align 4
+//   %182 = fadd fast float %181, %180
+//   store float %182, ptr %61, align 4
+//
+// The only other places %8 is used are lifetime start and end instructions:
+//   call void @llvm.lifetime.start.p0(i64 56, ptr nonnull %8)
+//   call void @llvm.lifetime.end.p0(i64 56, ptr nonnull %8)
+// and being passed to a function:
+//   call void @GetMagickPixelPacket(ptr noundef %0, ptr noundef nonnull %8)
+// where it is used to store values to the structure fields:
+//   %3 = getelementptr inbounds %S, ptr %1, i64 0, i32 0
+//   store i32 1, ptr %3, align 8
+//   %4 = getelementptr inbounds %S, ptr %1, i64 0, i32 1
+//   store i32 13, ptr %4, align 4
+//   %5 = getelementptr inbounds %S, ptr %1, i64 0, i32 2
+//   store i32 0, ptr %5, align 8
+//   %6 = getelementptr inbounds %S, ptr %1, i64 0, i32 3
+//   store double 0.000000e+00, ptr %6, align 8
+//   %7 = getelementptr inbounds %S, ptr %1, i64 0, i32 4
+//   store i64 16, ptr %7, align 8
+//   %8 = getelementptr inbounds %S, ptr %1, i64 0, i32 5
+//   store float 0.000000e+00, ptr %8, align 8
+//   %9 = getelementptr inbounds %S, ptr %1, i64 0, i32 6
+//   store float 0.000000e+00, ptr %9, align 4
+//   %10 = getelementptr inbounds %S, ptr %1, i64 0, i32 7
+//   store float 0.000000e+00, ptr %10, align 8
+//   %11 = getelementptr inbounds %S, ptr %1, i64 0, i32 8
+//   store float 0.000000e+00, ptr %11, align 4
+//   %12 = getelementptr inbounds %S, ptr %1, i64 0, i32 9
+//   store float 0.000000e+00, ptr %12, align 8
+//   ...
+//   store i32 %16, ptr %3, align 8
+//   store i32 %18, ptr %4, align 4
+//   store i32 %20, ptr %5, align 8
+//   store double %24, ptr %6, align 8
+//   store i64 %22, ptr %7, align 8
+// The key point is that %7 should not be stored some place
+// where it can be accessed from the variables we want to hoist.
+//
+// validateMultiLoop walks through the IR for 'L' and @GetMagickPixelPacket
+// and returns 'true' if all of thse conditions are met.
+//
+bool PredicateOpt::validateMultiLoop(Loop *L, Function *WrapperF) {
+
+  // Put in 'Writes' any instruction in 'BB' that does not call 'WrapperF'
+  // and may write to memory. Exclude lifetime starts and ends.
+  auto CollectWrites = [](BasicBlock *BB, Function *WrapperF,
+                          SmallPtrSetImpl<Instruction *> &Writes) {
+    for (auto &I : *BB) {
+      if (auto CB = dyn_cast<CallBase>(&I)) {
+        if (CB->getCalledFunction() == WrapperF)
+          continue;
+        if (CB->isLifetimeStartOrEnd())
+          continue;
+      }
+      if (I.mayWriteToMemory())
+        Writes.insert(&I);
+    }
+  };
+
+  // Return 'true' if 'GEPI' is a simple three operand 'GEPI' with pointer
+  // operand 'PO', argument 1 equal to 0, and argument 2 equal to a constant.
+  auto IsSimpleGEPI = [](GetElementPtrInst *GEPI, Value *PO) -> bool {
+    if (GEPI->getNumOperands() != 3)
+      return false;
+    if (GEPI->getPointerOperand() != PO)
+      return false;
+    auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+    if (!CI1 || !CI1->isZero())
+      return false;
+    if (!isa<ConstantInt>(GEPI->getOperand(2)))
+      return false;
+    return true;
+  };
+
+  // Return 'true' if 'CB' calls a function where the actual argument 'AI'
+  // has values read from or written to its fields.
+  auto JustLoadsOrStoresValues = [&IsSimpleGEPI](CallBase *CB,
+                                                 AllocaInst *AI) -> bool {
+    unsigned Limit = CB->getNumOperands();
+    unsigned ArgNo = Limit;
+    for (unsigned I = 0; I < Limit; ++I)
+      if (CB->getArgOperand(I) == AI) {
+        ArgNo = I;
+        break;
+      }
+    if (ArgNo == Limit)
+      return false;
+    Function *Callee = CB->getCalledFunction();
+    if (!Callee || (Callee->arg_size() != CB->arg_size()))
+      return false;
+    Argument *Arg = Callee->getArg(ArgNo);
+    for (User *U : Arg->users()) {
+      auto GEPI = dyn_cast<GetElementPtrInst>(U);
+      if (!GEPI || !IsSimpleGEPI(GEPI, Arg))
+        return false;
+      for (User *UU : GEPI->users()) {
+        if (auto LI = dyn_cast<LoadInst>(UU)) {
+          if (LI->getPointerOperand() != GEPI)
+            return false;
+        } else if (auto SI = dyn_cast<StoreInst>(UU)) {
+          if (SI->getPointerOperand() != GEPI)
+            return false;
+        } else {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  // Collect up all of the instructions in 'L' that might write to memory.
+  // Exclude the call to 'WrapperF'.
+  ArrayRef<BasicBlock *> BlockList;
+  BlockList = L->getBlocks();
+  SmallPtrSet<Instruction *, 5> Writes;
+  for (auto BB : BlockList)
+    CollectWrites(BB, WrapperF, Writes);
+  // Check that all writes are stores to a single AllocaInst 'AI'.
+  AllocaInst *AI = nullptr;
+  for (auto I : Writes) {
+    auto SI = dyn_cast<StoreInst>(I);
+    if (!SI)
+      return false;
+    auto GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+    if (!GEPI)
+      return false;
+    auto LAI = dyn_cast<AllocaInst>(GEPI->getPointerOperand());
+    if (AI && (LAI != AI))
+      return false;
+    AI = LAI;
+  }
+  if (!AI)
+    return false;
+  // Check that the users of 'AI' are just simple GEPs which feed loads
+  // and stores, lifetime start and end calls, and an actual argument
+  // to a function where the fields of 'AI' are loaded or stored.
+  for (User *U : AI->users()) {
+    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      if (!IsSimpleGEPI(GEPI, AI))
+        return false;
+      for (User *UU : GEPI->users())
+        if (!isa<LoadInst>(UU) && !isa<StoreInst>(UU))
+          return false;
+    } else if (auto CB = dyn_cast<CallBase>(U)) {
+      if (!CB->isLifetimeStartOrEnd())
+        if (!JustLoadsOrStoresValues(CB, AI))
+          return false;
+    } else {
+      return false;
+    }
+  }
+  LLVM_DEBUG({
+    dbgs() << "MRC PredicateOpt: Loop Stores To:";
+    AI->dump();
+  });
+  return true;
+}
+
+//
+// Return a LoadInst to a ptr that will be temporarily annotated with
+// "predicate-opt-restrict" metadata.
+// NOTE: This is a temporary workaround until we get the front end to mark
+// local pointer variables which are declared "restrict". For example,
+//     CacheInfo *restrict cache_info;
+// in the IR becomes:
+//     %t = load ptr, ptr %u, align 8, !tbaa !MD0, "predicate-opt-data" !MD1
+//
+LoadInst *PredicateOpt::annotateWithRestrictHack(Function *BaseF) {
+  BasicBlock &BB = BaseF->getEntryBlock();
+  LoadInst *LIR = nullptr;
+  for (auto &I : BB) {
+    if (auto LI = dyn_cast<LoadInst>(&I)) {
+      if (auto GEPI = dyn_cast<GetElementPtrInst>(LI->getPointerOperand())) {
+        if (GEPI->getNumOperands() != 3)
+          return nullptr;
+        if (auto Arg = dyn_cast<Argument>(GEPI->getPointerOperand())) {
+          if (Arg->getArgNo() != 0)
+            return nullptr;
+        } else {
+          return nullptr;
+        }
+        if (auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1))) {
+          if (!CI1->isZero())
+            return nullptr;
+        } else {
+          return nullptr;
+        }
+        if (auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2))) {
+          if (CI2->getZExtValue() != 49)
+            return nullptr;
+        } else {
+          return nullptr;
+        }
+        LIR = LI;
+        break;
+      } else {
+        return nullptr;
+      }
+    }
+  }
+  if (!LIR)
+    return nullptr;
+  LLVMContext &C = LIR->getContext();
+  MDNode *N = MDNode::get(C, MDString::get(C, "predicate-opt-restrict"));
+  LIR->setMetadata("predicate-opt-data", N);
+  return LIR;
+}
+
+//
+// Similar to findHoistableFields, but descent depth is limited to
+// 'Depth' to ensure termination and save compile time.
+//
+bool PredicateOpt::findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
+                                        std::set<unsigned> &HoistYes,
+                                        std::set<unsigned> &HoistNo) {
+
+  // Return 'true if 'U' is a GEPI(V,0,0)'.
+  auto IsGEPIV00 = [](Value *U, Value *V) -> bool {
+    if (auto GEPI0 = dyn_cast<GetElementPtrInst>(U))
+      if (GEPI0->getNumOperands() == 3)
+        if (GEPI0->getPointerOperand() == V)
+          if (auto CI1 = dyn_cast<ConstantInt>(GEPI0->getOperand(1)))
+            if (auto CI2 = dyn_cast<ConstantInt>(GEPI0->getOperand(2)))
+              if (CI1->isZero() && CI2->isZero())
+                return true;
+    return false;
+  };
+
+  // Return 'true' if 'GEPI' has the form 'GEPI(V,0,FldNo)' and set '*FldNo'.
+  auto IsValidGEPI = [](GetElementPtrInst *GEPI, Value *V,
+                        unsigned *FldNo) -> bool {
+    if (GEPI->getPointerOperand() != V)
+      return false;
+    if (GEPI->getNumOperands() != 3)
+      return false;
+    auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+    if (!CI1 || !CI1->isZero())
+      return false;
+    auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2));
+    if (!CI2)
+      return false;
+    *FldNo = CI2->getZExtValue();
+    return true;
+  };
+
+  // If 'Arg' is a unique actual argument of 'CB', return its index.
+  // If not, return CB->arg_size().
+  auto ArgNoFromCallBase = [](CallBase *CB, Value *Arg) -> unsigned {
+    unsigned Invalid = CB->arg_size();
+    unsigned AArgNo = Invalid;
+    for (unsigned I = 0; I < CB->arg_size(); ++I) {
+      if (CB->getArgOperand(I) == Arg) {
+        if (AArgNo < Invalid) {
+          AArgNo = Invalid;
+          break;
+        }
+        AArgNo = I;
+      }
+    }
+    return AArgNo;
+  };
+
+  // If 'U' is user of 'V', Check if 'U' is LoadInst *, StoreInst *,
+  // or CallBase *, and set 'HoistYes' and 'HoistNo' appropriately.
+  // Note that 'HoistNo' is set conservatively for calls. If 'U' is
+  // not any of the above types, set '*Done' to 'true'.
+  auto CheckUser = [](Value *V, User *U, unsigned FieldNo,
+                      std::set<unsigned> &HoistYes, std::set<unsigned> &HoistNo,
+                      bool *Done) -> bool {
+    *Done = true;
+    if (auto LI0 = dyn_cast<LoadInst>(U)) {
+      if (LI0->getPointerOperand() == V) {
+        HoistYes.insert(FieldNo);
+      } else {
+        return false;
+      }
+    } else if (auto SI0 = dyn_cast<StoreInst>(U)) {
+      if (SI0->getPointerOperand() == V) {
+        HoistNo.insert(FieldNo);
+      } else {
+        return false;
+      }
+    } else if (auto CB = dyn_cast<CallBase>(U)) {
+      HoistNo.insert(FieldNo);
+    } else {
+      *Done = false;
+    }
+    return true;
+  };
+
+  // Main code for findHoistableFieldsX().
+
+  // Test if we have hit the limit for the call chain depth.
+  if (Depth == 0)
+    return false;
+  // Check the hoistability of each GEPI user of V.
+  for (User *U : V->users()) {
+    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      bool Done = false;
+      unsigned FldNo = 0;
+      if (!IsValidGEPI(GEPI, V, &FldNo))
+        return false;
+      for (User *U0 : GEPI->users()) {
+        if (!CheckUser(GEPI, U0, FldNo, HoistYes, HoistNo, &Done))
+          return false;
+        if (Done)
+          continue;
+        if (IsGEPIV00(U0, GEPI)) {
+          for (User *U1 : U0->users())
+            if (!CheckUser(U0, U1, FldNo, HoistYes, HoistNo, &Done) || !Done)
+              return false;
+        } else {
+          return false;
+        }
+      }
+    } else if (auto CB = dyn_cast<CallBase>(U)) {
+      Function *Callee = CB->getCalledFunction();
+      if (!Callee) {
+        return false;
+      }
+      unsigned AArgNo = ArgNoFromCallBase(CB, V);
+      if (AArgNo < Callee->arg_size()) {
+        if (!findHoistableFieldsX(Callee, Callee->getArg(AArgNo), Depth - 1,
+                                  HoistYes, HoistNo))
+          return false;
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+//
+// Return 'true' if 'V' used in 'F' has dereferenced values through GEPs
+// the can be determined to be hoistable. In this case, set 'HoistYes'
+// to the indicies of the fields whose values can be hoisted and set
+// 'HoistNo' to the indicies of the fields whose values cannot be hoisted.
+// Indicies which do not appear in 'HoistYes' or 'HoistNo' are not
+// encountered in a depth-first search of the call chain starting with 'F'.
+//
+bool PredicateOpt::findHoistableFields(Function *F, Value *V,
+                                       std::set<unsigned> &HoistYes,
+                                       std::set<unsigned> &HoistNo) {
+  // Find which fields can and cannot be hoisted.
+  if (!findHoistableFieldsX(F, V, PredicateOptMaxDepth, HoistYes, HoistNo))
+    return false;
+  // Exclude non-hoistable fields from the list of hoistable fields.
+  for (auto &Int : HoistNo)
+    if (HoistYes.count(Int))
+      HoistYes.erase(Int);
+  // Trace output of 'HoistYes' and 'HoistNo'.
+  LLVM_DEBUG({
+    dbgs() << "MRC PredicateOpt: HoistYes: {";
+    bool First = true;
+    for (auto &Int : HoistYes) {
+      if (!First)
+        dbgs() << ",";
+      dbgs() << Int;
+      First = false;
+    }
+    dbgs() << "}\n";
+    dbgs() << "MRC PredicateOpt: HoistNo: {";
+    First = true;
+    for (auto &Int : HoistNo) {
+      if (!First)
+        dbgs() << ",";
+      dbgs() << Int;
+      First = false;
+    }
+    dbgs() << "}\n";
+  });
+  return true;
+}
+
+//
+// Find the "spine" of the application on which we will perform predicate
+// optimization, returning 'true' if it is found. In this case, mark the
+// function with 'LocalBigLoopCB' as 'prefer-function-level-region'.
+//
+bool PredicateOpt::findSpine() {
   unsigned LocalSimpleLoopDepth = 0;
   CallBase *LocalWrapperCB = nullptr;
   CallBase *LocalBigLoopCB = nullptr;
@@ -4861,22 +5372,554 @@ bool PredicateOpt::canDoPredicateOpt() {
     }
   SimpleLoopDepth = LocalSimpleLoopDepth;
   WrapperCB = LocalWrapperCB;
+  if (!WrapperCB || (WrapperCB->arg_size() != BaseF->arg_size()))
+    return false;
   BigLoopCB = LocalBigLoopCB;
+  if (BigLoopCB && EnablePreferFunctionRegion)
+    BigLoopCB->getCaller()->addFnAttr("prefer-function-level-region");
+  return BigLoopCB;
+}
+
+//
+// First, prove there are no write operations before 'LIRestrict' in 'BaseF'
+// and that 'LIRestrict' can be traced back through a GetElementPtrInst to
+// an Argument (%0) of 'BaseF':
+//
+// define internal ptr @GetVirtualPixelsFromNexus(ptr noundef %0,
+//     i32 noundef %1, i64 noundef %2, i64 noundef %3, i64 noundef %4,
+//     i64 noundef %5, ptr nocapture noundef %6, ptr noundef %7)
+//  %9 = alloca i16, align 2
+//  %10 = alloca %struct._ZTS12_PixelPacket._PixelPacket, align 2
+//  call void @llvm.lifetime.start.p0(i64 2, ptr nonnull %9) #68
+//  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %10) #68
+//  %11 = getelementptr inbounds %struct._ZTS6_Image._Image, ptr %0,
+//      i64 0, i32 49
+//  %12 = load ptr, ptr %11, align 8, !predicate-opt-data !1150
+//
+// Second, prove that the corresponding actual argument (%7) is a LoadInst
+// that can be traced back through a GetElementPtrInst to and Argument (%0)
+// of the wrapper function.
+//
+// define internal i32 @GetOneCacheViewVirtualPixel(ptr noalias nocapture
+//     noundef readonly %0, i64 noundef %1, i64 noundef %2, ptr noalias
+//     nocapture noundef writeonly %3, ptr noundef %4)
+//   %6 = getelementptr inbounds %struct._ZTS10_CacheView._CacheView, ptr %0,
+//     i64 0, i32 0, !intel-tbaa !849
+//   %7 = load ptr, ptr %6, align 8, !tbaa !849
+// ...
+//   %26 = tail call ptr @GetVirtualPixelsFromNexus(ptr noundef %7, i32 noundef
+//     %22, i64 noundef %1, i64 noundef %2, i64 noundef 1, i64 noundef 1,
+//     ptr noundef %25, ptr noundef %4)
+//
+bool PredicateOpt::isRestrictVarHoistablePastWrapperF(Function *BaseF,
+                                                      LoadInst *LIRestrict) {
+  // Prove there are no writes in the entry block of 'BaseF' before
+  // 'LIRestrict'.
+  BasicBlock &BB = BaseF->getEntryBlock();
+  bool FoundLIRestrict = false;
+  for (auto &I : BB) {
+    if (auto LDI = dyn_cast<LoadInst>(&I)) {
+      if (LDI == LIRestrict) {
+        FoundLIRestrict = true;
+        break;
+      }
+    } else if (isa<StoreInst>(&I)) {
+      return false;
+    } else if (auto CBI = dyn_cast<CallBase>(&I)) {
+      if (!CBI->isLifetimeStartOrEnd())
+        return false;
+    }
+  }
+  if (!FoundLIRestrict)
+    return false;
+  // Trace from 'LIRestrict' back to a formal argument 'ArgBaseF' of 'BaseF'.
+  auto GEPI0 = dyn_cast<GetElementPtrInst>(LIRestrict->getPointerOperand());
+  if (!GEPI0)
+    return false;
+  auto ArgBaseF = dyn_cast<Argument>(GEPI0->getPointerOperand());
+  if (!ArgBaseF)
+    return false;
+  unsigned ArgNo = ArgBaseF->getArgNo();
+  // Prove that the corresponding actual argument can be traced back to
+  // a formal argument in the wrapper function.
+  auto LIWrapper = dyn_cast<LoadInst>(WrapperCB->getArgOperand(ArgNo));
+  if (!LIWrapper)
+    return false;
+  Function *WrapperF = WrapperCB->getCaller();
+  if (LIWrapper->getParent() != &WrapperF->getEntryBlock())
+    return false;
+  Value *V = LIWrapper->getPointerOperand();
+  auto GEPI1 = dyn_cast<GetElementPtrInst>(V);
+  if (!GEPI1)
+    return false;
+  if (GEPI1->getPrevNonDebugInstruction())
+    return false;
+  auto Arg = dyn_cast<Argument>(GEPI1->getPointerOperand());
+  if (!Arg)
+    return false;
+  return isa<Instruction>(BigLoopCB->getArgOperand(Arg->getArgNo()));
+}
+
+//
+// First, prove that the first field of '%6' is a structure of 4 ia64s
+// which, when it is assigned, is assigned to the values of a set of
+// arguments (%4, %5, %2, %3) of 'BaseF'.
+//
+// define internal ptr @GetVirtualPixelsFromNexus(ptr noundef %0, i32 noundef
+//     %1, i64 noundef %2, i64 noundef %3, i64 noundef %4, i64 noundef %5,
+//     ptr nocapture noundef %6, ptr noundef %7) {
+//  %9 = alloca i16, align 2
+//  %10 = alloca %struct._ZTS12_PixelPacket._PixelPacket, align 2
+//  call void @llvm.lifetime.start.p0(i64 2, ptr nonnull %9) #68
+//  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %10) #68
+//  %11 = getelementptr inbounds %struct._ZTS6_Image._Image, ptr %0, i64 0,
+//    i32 49, !intel-tbaa !867
+//  %12 = load ptr, ptr %11, align 8, !tbaa !867, !predicate-opt-data !1150
+//  %13 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %12,
+//     i64 0, i32 3, !intel-tbaa !888
+//  %14 = load i32, ptr %13, align 8, !tbaa !888, !alias.scope !1151, !noalias
+//     !1154
+//  %15 = icmp eq i32 %14, 0
+//  br i1 %15, label %598, label %16
+//
+// 16:                                               ; preds = %8
+//  %17 = getelementptr inbounds %struct._ZTS6_Image._Image, ptr %0, i64 0,
+//    i32 38, !intel-tbaa !990
+//  %18 = load ptr, ptr %17, align 8, !tbaa !990
+//  %19 = icmp eq ptr %18, null
+//  br i1 %19, label %20, label %24
+//
+// 20:                                               ; preds = %16
+//  %21 = getelementptr inbounds %struct._ZTS6_Image._Image, ptr %0, i64 0,
+//    i32 73, !intel-tbaa !991
+//  %22 = load ptr, ptr %21, align 8, !tbaa !991
+//  %23 = icmp ne ptr %22, null
+//  br label %24
+//
+// 24:                                               ; preds = %20, %16
+//  %25 = phi i1 [ true, %16 ], [ %23, %20 ]
+//  %26 = getelementptr inbounds %struct._ZTS10_NexusInfo._NexusInfo, ptr %6,
+//    i64 0, i32 1
+//  store i64 %4, ptr %26, align 8, !tbaa.struct !631
+//  %27 = getelementptr inbounds i8, ptr %26, i64 8
+//  store i64 %5, ptr %27, align 8, !tbaa.struct !1161
+//  %28 = getelementptr inbounds i8, ptr %26, i64 16
+//  store i64 %2, ptr %28, align 8, !tbaa.struct !633
+//  %29 = getelementptr inbounds i8, ptr %26, i64 24
+//  store i64 %3, ptr %29, align 8, !tbaa.struct !1162
+//  %30 = load i32, ptr %13, align 8, !tbaa !888
+//  %31 = icmp eq i32 %30, 1
+//  br i1 %31, label %35, label %32
+// ...
+// 598: ; preds = %593, %207, %204, %193, %191, %156, %114, %92, %8
+//  %599 = phi ptr [ %166, %593 ], [ null, %8 ], [ null, %156 ],
+//  [ %166, %207 ], [ %166, %191 ], [ null, %193 ], [ null, %204 ],
+//  [ null, %92 ], [ null, %114 ]
+//  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %10) #68
+//  call void @llvm.lifetime.end.p0(i64 2, ptr nonnull %9) #68
+//  ret ptr %599
+//
+// Second, prove each actual argument corresponding to the formal arguments
+// above (%1, %2, 1, 1) is either a formal argument of the wrapper function or
+// an integer constant.
+//
+// define internal i32 @GetOneCacheViewVirtualPixel(ptr noalias nocapture
+//     noundef readonly %0, i64 noundef %1, i64 noundef %2, ptr noalias
+//     nocapture noundef writeonly %3, ptr noundef %4) {
+//   %6 = getelementptr inbounds %struct._ZTS10_CacheView._CacheView, ptr %0,
+//     i64 0, i32 0, !intel-tbaa !849
+//   %7 = load ptr, ptr %6, align 8, !tbaa !849
+//  ...
+//   %26 = tail call ptr @GetVirtualPixelsFromNexus(ptr noundef %7,
+//     i32 noundef %22, i64 noundef %1, i64 noundef %2, i64 noundef 1,
+//     i64 noundef 1, ptr noundef %25, ptr noundef %4) #72
+//
+bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF) {
+
+  // Put the basic blocks which are predecessors of 'BBIn', direct or
+  // indirect into 'BBOut'.  In the above IR, if block 24 is 'BBIn',
+  // on exit from 'FindPredBBs', 'BBOut' should contain basic blocks
+  // 20, 16, and 8.
+  auto FindPredBBs = [](BasicBlock *BBIn,
+                        SmallPtrSetImpl<BasicBlock *> &BBOut) {
+    SetVector<BasicBlock *> BBWorklist;
+    SmallPtrSet<BasicBlock *, 4> BBVisited;
+    BBWorklist.insert(BBIn);
+    while (!BBWorklist.empty()) {
+      BasicBlock *BB = BBWorklist.pop_back_val();
+      if (BBOut.insert(BB).second)
+        for (BasicBlock *PBB : predecessors(BB))
+          BBWorklist.insert(PBB);
+    }
+  };
+
+  // Return 'true' if 'Ty' is a struct type of four i64s.
+  auto Is4i64Struct = [](Type *Ty) -> bool {
+    auto STy = dyn_cast<StructType>(Ty);
+    if (!STy || STy->getNumElements() != 4)
+      return false;
+    for (unsigned I = 0; I < 4; ++I) {
+      auto ITy = dyn_cast<IntegerType>(STy->getElementType(I));
+      if (!ITy || ITy->getBitWidth() != 64)
+        return false;
+    }
+    return true;
+  };
+
+  // Return 'true' if 'BB' may have an instruction that writes memory.
+  auto MayHaveWrite = [](BasicBlock *BB) -> bool {
+    for (auto &I : *BB) {
+      if (isa<StoreInst>(&I))
+        return true;
+      if (auto CB = dyn_cast<CallBase>(&I))
+        if (!CB->isLifetimeStartOrEnd())
+          return true;
+    }
+    return false;
+  };
+
+  // Find 'GEPIF61' which points to the first first field in the structure
+  // pointed to by argument 6 in the base function.
+  if (BaseF->arg_size() <= 6)
+    return false;
+  Argument *Arg6 = BaseF->getArg(6);
+  GetElementPtrInst *GEPI6F1 = nullptr;
+  for (User *U : Arg6->users())
+    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      if (GEPI->getNumOperands() != 3)
+        continue;
+      if (GEPI->getPointerOperand() != Arg6)
+        continue;
+      auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+      if (!CI1 || !CI1->isZero())
+        continue;
+      auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2));
+      if (!CI2 || !CI2->isOne())
+        continue;
+      if (GEPI6F1)
+        return false;
+      GEPI6F1 = GEPI;
+    }
+  // Check that field 1 is a structure of 4 i64s.
+  if (!GEPI6F1 || !Is4i64Struct(GEPI6F1->getResultElementType()))
+    return false;
+  // Check that there are no writes in the basic blocks preceding the
+  // block containing 'GEPI6F1', and that any basic blocks that escape
+  // are blocks with no successors which also have no writes. In the above
+  // IR, block 598 is an escape block.
+  SmallPtrSet<BasicBlock *, 5> BBPred;
+  SmallPtrSet<BasicBlock *, 5> BBEsc;
+  BasicBlock *BBRoot = GEPI6F1->getParent();
+  if (BBRoot->getFirstNonPHI() != GEPI6F1)
+    return false;
+  FindPredBBs(BBRoot, BBPred);
+  for (BasicBlock *BB : BBPred) {
+    if (BB == BBRoot)
+      continue;
+    if (MayHaveWrite(BB))
+      return false;
+    // Check that any basic block that escapes returns and has no writes.
+    for (BasicBlock *BBS : successors(BB)) {
+      if (BBPred.count(BBS))
+        continue;
+      if (!isa<ReturnInst>(BBS->getTerminator()))
+        return false;
+      if (MayHaveWrite(BBS))
+        return false;
+    }
+  }
+  // Check that the bssic block containing 'GEPI6F1' starts with assignments
+  // of various argumemts of 'BaseF' ('ArgsToCheck') to the field pointed to
+  // by 'GEPI6F1'.
+  if (!isa<PHINode>(GEPI6F1->getPrevNonDebugInstruction()))
+    return false;
+  SmallPtrSet<Argument *, 4> ArgsToCheck;
+  auto SI0 = dyn_cast_or_null<StoreInst>(GEPI6F1->getNextNonDebugInstruction());
+  if (!SI0 || SI0->getPointerOperand() != GEPI6F1)
+    return false;
+  auto Arg = dyn_cast<Argument>(SI0->getValueOperand());
+  if (!Arg)
+    return false;
+  ArgsToCheck.insert(Arg);
+  Instruction *II = SI0->getNextNonDebugInstruction();
+  unsigned Offset = 8;
+  for (unsigned I = 0; I < 3; ++I) {
+    auto GEPI = dyn_cast_or_null<GetElementPtrInst>(II);
+    if (!GEPI || GEPI->getNumOperands() != 2 ||
+        GEPI->getPointerOperand() != GEPI6F1)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+    if (!CI || CI->getZExtValue() != Offset)
+      return false;
+    auto SI = dyn_cast_or_null<StoreInst>(GEPI->getNextNonDebugInstruction());
+    if (!SI || SI->getPointerOperand() != GEPI)
+      return false;
+    auto Arg = dyn_cast<Argument>(SI->getValueOperand());
+    if (!Arg)
+      return false;
+    ArgsToCheck.insert(Arg);
+    II = SI->getNextNonDebugInstruction();
+    Offset += 8;
+  }
+  // Check that each of the actual arguments in the call to 'BaseF' is
+  // either an argument in the wrapper function or a constant integer.
+  for (auto Arg : ArgsToCheck) {
+    Value *V = WrapperCB->getArgOperand(Arg->getArgNo());
+    if (!isa<Argument>(V) && !isa<ConstantInt>(V))
+      return false;
+  }
   return true;
 }
 
 //
-// Perform the predicate opt.
-// NOTE: Right now we simply emit a trace indicating the key elements
-// on the hot path. More code will be added to do the optimization.
+// Return 'true' if the desired predicate opt should be attempted.
+// NOTE: At this point, we are just checking if the hot path can be identified.
+// More code will be added to check additional conditions.
 //
-void PredicateOpt::doPredicateOpt() {
+bool PredicateOpt::attemptPredicateOpt() {
+  if (!findSpine()) {
+    LLVM_DEBUG(dbgs() << "MRC Predicate Opt: Could not find spine\n");
+    return false;
+  }
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: Loops: " << SimpleLoopDepth << "\n");
+  if (SimpleLoopDepth < PredicateOptMinLoops)
+    return false;
+  LIRestrict = annotateWithRestrictHack(BaseF);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "LIRestrict: " << (LIRestrict ? "T" : "F") << "\n");
+  if (!LIRestrict)
+    return false;
+  bool IsResHoist = isRestrictVarHoistablePastWrapperF(BaseF, LIRestrict);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "RestrictVarHoistablePastWrapperF: "
+                    << (IsResHoist ? "T" : "F") << "\n");
+  if (!IsResHoist)
+    return false;
+  bool IsBaseFArg6Field1Hoistable = isBaseFArg6Field1Hoistable(BaseF);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "BaseFArg6Field1Hoistable: "
+                    << (IsBaseFArg6Field1Hoistable ? "T" : "F") << "\n");
+  if (!IsBaseFArg6Field1Hoistable)
+    return false;
+  std::set<unsigned> HoistYes, HoistNo;
+  bool IsHoistable = findHoistableFields(BaseF, LIRestrict, HoistYes, HoistNo);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "Hoistable: " << (IsHoistable ? "T" : "F") << "\n");
+  if (!IsHoistable)
+    return false;
+  MultiLoop = findMultiLoop(BigLoopCB);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "FindMultiLoop: " << (MultiLoop ? "T" : "F") << "\n");
+  if (!MultiLoop)
+    return false;
+  bool IsValid = validateMultiLoop(MultiLoop, BigLoopCB->getCalledFunction());
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "ValidateMultiLoop: " << (IsValid ? "T" : "F") << "\n");
+  if (!IsValid)
+    return false;
+  return true;
+}
+
+//
+// If possible, return Function with cold code extracted from 'OptBaseF'.
+// Otherwise, return 'nullptr'.
+//
+Function *PredicateOpt::extractColdCode(Function *OptBaseF) {
+
+  auto FindSplitBasicBlock = [](Function *OptBaseF) -> BasicBlock * {
+    BasicBlock *SplitBB = nullptr;
+    for (auto &BB : *OptBaseF)
+      if (isa<SwitchInst>(BB.getTerminator()))
+        if (std::distance(pred_begin(&BB), pred_end(&BB)) >= 3) {
+          if (SplitBB)
+            return nullptr;
+          SplitBB = &BB;
+        }
+    return SplitBB;
+  };
+
+  BasicBlock *SplitBB = FindSplitBasicBlock(OptBaseF);
+  if (!SplitBB)
+    return nullptr;
+  DominatorTree &DT = (*GetDT)(*OptBaseF);
+  SmallVector<BasicBlock *, 16> Descendants;
+  DT.getDescendants(SplitBB, Descendants);
+  CodeExtractor CE(Descendants);
+  CodeExtractorAnalysisCache CEAC(*OptBaseF);
+  SetVector<Value *> Inputs, Outputs, Sinks;
+  CE.findInputsOutputs(Inputs, Outputs, Sinks);
+  return CE.extractCodeRegion(CEAC);
+}
+
+//
+// Return a pointer to a newly created hoisted restrict variable that
+// can be used in the condition testing for the optimized code.
+//
+// The returned value will have the form of %3 below:
+//   %i29 = tail call ptr @AcquireVirtualCacheView(...)
+//   %0 = getelementptr %struct._ZTS10_CacheView._CacheView, ptr %i29, i64 0,
+//     i32 0
+//   %1 = load ptr, ptr %0, align 8
+//   %2 = getelementptr %struct._ZTS6_Image._Image, ptr %1, i64 0, i32 49
+//   %3 = load ptr, ptr %2, align 8
+//
+LoadInst *PredicateOpt::makeHoistedRestrictVar() {
+
+  // Return a pointer to a GetElementPtrInst which is a copy of
+  // 'GEPIIn' by with pointer operand 'PO'. Insert it before
+  // instruction 'II'.
+  auto MakeGEPIFromGEPI = [](GetElementPtrInst *GEPIIn, Value *PO,
+                             Instruction *II) -> GetElementPtrInst * {
+    SmallVector<Value *, 2> Indices;
+    BasicBlock *BB = II->getParent();
+    auto Int32Ty = Type::getInt32Ty(BB->getContext());
+    auto Int64Ty = Type::getInt64Ty(BB->getContext());
+    auto CIIn1 = cast<ConstantInt>(GEPIIn->getOperand(1));
+    unsigned GO1 = CIIn1->getZExtValue();
+    auto CI1 = ConstantInt::get(Int64Ty, GO1, true);
+    Indices.push_back(CI1);
+    auto CIIn2 = cast<ConstantInt>(GEPIIn->getOperand(2));
+    unsigned GO2 = CIIn2->getZExtValue();
+    auto CI2 = ConstantInt::get(Int32Ty, GO2, true);
+    Indices.push_back(CI2);
+    Type *GEPITy = GEPIIn->getSourceElementType();
+    return GetElementPtrInst::Create(GEPITy, PO, Indices, "", II);
+  };
+
+  auto GEPIInner = cast<GetElementPtrInst>(LIRestrict->getPointerOperand());
+  auto ArgInner = cast<Argument>(GEPIInner->getPointerOperand());
+  unsigned ArgNoInner = ArgInner->getArgNo();
+  auto LIOuter = cast<LoadInst>(WrapperCB->getArgOperand(ArgNoInner));
+  auto GEPIOuter = cast<GetElementPtrInst>(LIOuter->getPointerOperand());
+  auto ArgOuter = cast<Argument>(GEPIOuter->getPointerOperand());
+  unsigned ArgNoOuter = ArgOuter->getArgNo();
+  auto VInst = cast<Instruction>(BigLoopCB->getArgOperand(ArgNoOuter));
+  auto II = VInst->getNextNonDebugInstruction();
+  auto NewGEPIOuter = MakeGEPIFromGEPI(GEPIOuter, VInst, II);
+  auto NewLIOuter = new LoadInst(LIOuter->getType(), NewGEPIOuter, "", II);
+  auto NewGEPIInner = MakeGEPIFromGEPI(GEPIInner, NewLIOuter, II);
+  auto NewLIInner = new LoadInst(LIRestrict->getType(), NewGEPIInner, "", II);
+  return NewLIInner;
+}
+
+//
+// Make the condition which tests for the optimized code.
+//
+// At this point the condition is simply %11 below:
+//   %4 = getelementptr %struct._ZTS6_Image._Image, ptr %3, i64 0, i32 0
+//   %5 = load i32, ptr %4, align 4
+//   %6 = icmp eq i32 %5, 2
+//   %7 = getelementptr %struct._ZTS6_Image._Image, ptr %3, i64 0, i32 1
+//   %8 = load i32, ptr %7, align 4
+//   %9 = icmp eq i32 %8, 12
+//   %10 = or i1 %6, %9
+//   %11 = xor i1 %10, true
+// Where %3 is 'CacheInfo' returned by makeHoistedRestrictVar().
+//
+// We will expand it in future change sets to make it complete.
+//
+Value *PredicateOpt::makeOptTest(LoadInst *CacheInfo) {
+
+  // Make a GetElementPtr, Load, ICmp sequence where 'PO' is the pointer
+  // operand of the GetElementPtrInst, 'Ty' is the source element type of
+  // the GetElementPtrInst, 'FieldNo' is the field of the structure
+  // accessed by the GetElementPtrInst, and V is the integer value
+  // tested by the ICmp against the structure field value. Insert the
+  // created instructions before 'II'.
+  auto MakeGEPILoadICmp = [](Instruction *II, Value *PO, StructType *Ty,
+                             unsigned FieldNo, unsigned V) -> CmpInst * {
+    SmallVector<Value *, 2> Indices;
+    BasicBlock *BB = II->getParent();
+    auto Int32Ty = Type::getInt32Ty(BB->getContext());
+    auto Int64Ty = Type::getInt64Ty(BB->getContext());
+    auto CI1 = ConstantInt::get(Int64Ty, 0, true);
+    Indices.push_back(CI1);
+    auto CI2 = ConstantInt::get(Int32Ty, FieldNo, true);
+    Indices.push_back(CI2);
+    auto GEPI = GetElementPtrInst::Create(Ty, PO, Indices, "", II);
+    Type *TyFieldNo = Ty->getTypeAtIndex((unsigned)FieldNo);
+    auto LI = new LoadInst(TyFieldNo, GEPI, "", II);
+    auto CI = ConstantInt::get(LI->getType(), V);
+    auto IC =
+        CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_EQ, LI, CI, "", II);
+    return IC;
+  };
+
+  auto II = CacheInfo->getNextNonDebugInstruction();
+  auto GEPI = cast<GetElementPtrInst>(CacheInfo->getPointerOperand());
+  auto GEPITy = cast<StructType>(GEPI->getSourceElementType());
+  CmpInst *IC0 = MakeGEPILoadICmp(II, CacheInfo, GEPITy, 0, 2);
+  CmpInst *IC1 = MakeGEPILoadICmp(II, CacheInfo, GEPITy, 1, 12);
+  auto BOr = BinaryOperator::CreateOr(IC0, IC1, "", II);
+  auto BNot = BinaryOperator::CreateNot(BOr, "", II);
+  return BNot;
+}
+
+//
+// Attempt to perform the predicate opt. Return 'true' if it was possible.
+// NOTE: Right now we simply emit a trace indicating the key elements
+// on the hot path, and the extracted and enclosing functions.
+// More code will be added to do the optimization.
+//
+bool PredicateOpt::doPredicateOpt() {
+
+  auto findUniqueCB = [](Function *Caller, Function *Callee) -> CallBase * {
+    CallBase *CBOut = nullptr;
+    for (User *U : Callee->users())
+      if (auto CB = dyn_cast<CallBase>(U))
+        if (CB->getCaller() == Caller) {
+          if (CBOut)
+            return nullptr;
+          CBOut = CB;
+        }
+    return CBOut;
+  };
+
+  Function *WrapperF = WrapperCB->getCaller();
+  Function *BigLoopF = BigLoopCB->getCaller();
+  (void)BigLoopF;
   LLVM_DEBUG({
     dbgs() << "MRC PredicateOpt: Loop Depth = " << SimpleLoopDepth << "\n";
     dbgs() << "  BaseF: " << BaseF->getName() << "\n";
-    dbgs() << "  WrapperF: " << WrapperCB->getCaller()->getName() << "\n";
-    dbgs() << "  BigLoopF: " << BigLoopCB->getCaller()->getName() << "\n";
+    dbgs() << "  WrapperF: " << WrapperF->getName() << "\n";
+    dbgs() << "  BigLoopF: " << BigLoopF->getName() << "\n";
   });
+  Function *FxnOuter = BigLoopCB->getCaller();
+  DominatorTree &DT = (*GetDT)(*FxnOuter);
+  BlockFrequencyInfo &BFI = (*GetBFI)(*FxnOuter);
+  BranchProbabilityInfo &BPI = (*GetBPI)(*FxnOuter);
+  LoadInst *CacheInfo = makeHoistedRestrictVar();
+  RegionSplitter MultiLoopSplitter(DT, BFI, BPI);
+  Function *NoOptF = MultiLoopSplitter.splitRegion(*MultiLoop);
+  CallBase *NoOptCB = cast<CallBase>(NoOptF->user_back());
+  ValueToValueMapTy VMap;
+  OptF = IPCloneFunction(NoOptF, VMap);
+  CallBase *OptCB = cast<CallBase>(NoOptCB->clone());
+  setCalledFunction(OptCB, OptF);
+  BasicBlock *BBPred = NoOptCB->getParent();
+  BBPred->splitBasicBlock(NoOptCB);
+  BBPred->getTerminator()->eraseFromParent();
+  Value *OptTest = makeOptTest(CacheInfo);
+  makeBlocks(NoOptCB, OptCB, OptTest, BBPred);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: OptF: " << OptF->getName() << "\n");
+  LLVM_DEBUG(dbgs() << "MRC Predicate: NoOptF: " << NoOptF->getName() << "\n");
+  CallBase *OptWrapperCB = findUniqueCB(OptF, WrapperF);
+  assert(OptWrapperCB && "Expecting OptWrapperCB");
+  Function *OptWrapperF = IPCloneFunction(WrapperF, VMap);
+  setCalledFunction(OptWrapperCB, OptWrapperF);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: OptWrapperF : " << OptWrapperF->getName()
+                    << "\n");
+  CallBase *OptBaseCB = findUniqueCB(OptWrapperF, BaseF);
+  Function *OptBaseF = IPCloneFunction(BaseF, VMap);
+  setCalledFunction(OptBaseCB, OptBaseF);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: OptBaseF : " << OptBaseF->getName()
+                    << "\n");
+  Function *OptColdF = extractColdCode(OptBaseF);
+  if (!OptColdF)
+    return false;
+  LLVM_DEBUG(dbgs() << "MRC Predicate: ColdF : " << OptColdF->getName()
+                    << "\n");
+  return true;
 }
 
 // End of code for class PredicateOpt
@@ -4904,32 +5947,6 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
         return;
       }
     }
-  };
-
-  // Make the control flow structure for an if-test of the form:
-  // if (TAnd)
-  //   CBClone
-  // else
-  //   CB
-  // where 'TAnd' is in 'BBPred'.
-  auto MakeBlocks = [](CallBase *CB, CallBase *CBClone, Value *TAnd,
-                       BasicBlock *BBPred) {
-    BasicBlock *BBofCB = CB->getParent();
-    Instruction *IAfterCB = CB->getNextNonDebugInstruction();
-    BasicBlock *BBTail = BBofCB->splitBasicBlock(IAfterCB);
-    BasicBlock *BBTrue =
-        BasicBlock::Create(CB->getContext(), ".clone.recmanycalls.truepath",
-                           CB->getFunction(), BBTail);
-    if (!CB->getType()->isVoidTy()) {
-      PHINode *PHI = PHINode::Create(CB->getType(), 2, ".clone.recmapcalls.phi",
-                                     &BBTail->front());
-      CB->replaceAllUsesWith(PHI);
-      PHI->addIncoming(CB, BBofCB);
-      PHI->addIncoming(CBClone, BBTrue);
-    }
-    BranchInst::Create(BBTail, BBTrue);
-    BranchInst::Create(BBTrue, BBofCB, TAnd, BBPred);
-    CBClone->insertBefore(BBTrue->getTerminator());
   };
 
   // Add conditionals to 'TAnd', placing each in 'BBPred'. Each conditional
@@ -4968,8 +5985,7 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
   // values mapped by 'ArgConstMap' from 'IfArgs' and 'SwitchArgs'. Return
   // the new call that was created.
   auto ConditionalizeCallBase2WayEarly =
-      [&MakeBlocks,
-       &MakeTAndFromMap](CallBase *CB, Function *NewF, SmallArgumentSet &IfArgs,
+      [&MakeTAndFromMap](CallBase *CB, Function *NewF, SmallArgumentSet &IfArgs,
                          SmallArgumentSet &SwitchArgs,
                          SmallArgConstMap &ArgConstMap) -> CallBase * {
     CallBase *CBClone = cast<CallBase>(CB->clone());
@@ -4993,7 +6009,7 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
     Value *TAnd = nullptr;
     TAnd = MakeTAndFromMap(TAnd, CB, CBClone, BBPred, NewF, SwitchArgs,
                            ArgConstMap);
-    MakeBlocks(CB, CBClone, TAnd, BBPred);
+    makeBlocks(CB, CBClone, TAnd, BBPred);
     return CBClone;
   };
 
@@ -5050,8 +6066,7 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
   //   CB
   // where the 'ArgConstMap' maps the 'ReplaceArgs' into ConstantInt values.
   auto ConditionalizeCallBase2WayLate =
-      [&MakeBlocks,
-       &MakeTAndFromMap](CallBase *CB, SmallArgConstMap ArgConstMap,
+      [&MakeTAndFromMap](CallBase *CB, SmallArgConstMap ArgConstMap,
                          SmallArgumentSet &ReplaceArgs) -> CallBase * {
     BasicBlock *BBPred = CB->getParent();
     BBPred->splitBasicBlock(CB);
@@ -5061,7 +6076,7 @@ static void createManyRecCallsClone(Function &F, SmallArgumentSet &IfArgs,
     CallBase *CBClone = cast<CallBase>(CB->clone());
     TAnd = MakeTAndFromMap(TAnd, CB, CBClone, BBPred, NewF, ReplaceArgs,
                            ArgConstMap);
-    MakeBlocks(CB, CBClone, TAnd, BBPred);
+    makeBlocks(CB, CBClone, TAnd, BBPred);
     return CBClone;
   };
 
@@ -5591,10 +6606,12 @@ static void createManyLoopSpecializationClones(Function *F,
 
 // Main routine to analyze all calls and clone functions if profitable.
 //
-static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
-                                        bool EnableDTrans,
-                                        bool IFSwitchHeuristic,
-                                        WholeProgramInfo *WPInfo) {
+static bool analysisCallsCloneFunctions(
+    Module &M, bool AfterInl, bool EnableDTrans, bool IFSwitchHeuristic,
+    WholeProgramInfo *WPInfo, std::function<DominatorTree &(Function &)> *GetDT,
+    std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+    std::function<BranchProbabilityInfo &(Function &)> *GetBPI) {
+
   bool FunctionAddressTaken;
 
   // Force RecProCloneSplitting for LIT testing.
@@ -5675,10 +6692,12 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
           if (EnableManyRecCallsPredicateOpt) {
             LLVM_DEBUG(dbgs() << "    Selected many recursive calls "
                               << "predicate opt\n");
-            PredicateOpt MRCPO(&F);
-            if (MRCPO.canDoPredicateOpt())
+            PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI);
+            if (MRCPO.attemptPredicateOpt())
               MRCPO.doPredicateOpt();
           } else if (EnableManyRecCallsSplitting) {
+            PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI);
+            MRCPO.findSpine();
             LLVM_DEBUG(dbgs() << "    Selected many recursive calls splitting "
                               << "\n");
             Splitter MRCS(&F);
@@ -5802,72 +6821,52 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
   return false;
 }
 
-static bool runIPCloning(Module &M, bool AfterInl, bool EnableDTrans,
-                         WholeProgramInfo *WPInfo) {
+static bool
+runIPCloning(Module &M, bool AfterInl, bool EnableDTrans,
+             WholeProgramInfo *WPInfo,
+             std::function<DominatorTree &(Function &)> *GetDT,
+             std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
+             std::function<BranchProbabilityInfo &(Function &)> *GetBPI) {
   bool Change = false;
   bool IFSwitchHeuristicOn = EnableDTrans || ForceIFSwitchHeuristic;
   bool EnableDTransOn = EnableDTrans || ForceEnableDTrans;
   Change = analysisCallsCloneFunctions(M, AfterInl, EnableDTransOn,
-                                       IFSwitchHeuristicOn, WPInfo);
+                                       IFSwitchHeuristicOn, WPInfo, GetDT,
+                                       GetBFI, GetBPI);
   clearAllMaps();
   return Change;
-}
-
-namespace {
-
-struct IPCloningLegacyPass : public ModulePass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-  IPCloningLegacyPass(bool AfterInl = false, bool EnableDTrans = false)
-      : ModulePass(ID), AfterInl(AfterInl), EnableDTrans(EnableDTrans) {
-    initializeIPCloningLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    WholeProgramInfo *WPInfo =
-        &getAnalysis<WholeProgramWrapperPass>().getResult();
-    if (IPCloningAfterInl)
-      AfterInl = true;
-    return runIPCloning(M, AfterInl, EnableDTrans, WPInfo);
-  }
-
-private:
-  // This flag helps to decide whether function addresses or other
-  // constants need to be considered for cloning.
-  bool AfterInl;
-  // If 'true' we are doing specialized cloning generally applicable
-  // when we are running DTrans.
-  bool EnableDTrans;
-};
-} // namespace
-
-char IPCloningLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(IPCloningLegacyPass, "ip-cloning",
-                      "IP Cloning", false, false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(IPCloningLegacyPass, "ip-cloning",
-                    "IP Cloning", false, false)
-
-ModulePass *llvm::createIPCloningLegacyPass(bool AfterInl, bool EnableDTrans) {
-  return new IPCloningLegacyPass(AfterInl, EnableDTrans);
 }
 
 IPCloningPass::IPCloningPass(bool AfterInl, bool EnableDTrans)
     : AfterInl(AfterInl), EnableDTrans(EnableDTrans) {}
 
 PreservedAnalyses IPCloningPass::run(Module &M, ModuleAnalysisManager &AM) {
+
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
+
+  FunctionAnalysisManager &FAM =
+      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+
+  std::function<DominatorTree &(Function &)> GetDT =
+      [&FAM](Function &F) -> DominatorTree & {
+    return FAM.getResult<DominatorTreeAnalysis>(F);
+  };
+
+  std::function<BlockFrequencyInfo &(Function &)> GetBFI =
+      [&FAM](Function &F) -> BlockFrequencyInfo & {
+    return FAM.getResult<BlockFrequencyAnalysis>(F);
+  };
+
+  std::function<BranchProbabilityInfo &(Function &)> GetBPI =
+      [&FAM](Function &F) -> BranchProbabilityInfo & {
+    return FAM.getResult<BranchProbabilityAnalysis>(F);
+  };
+
   if (IPCloningAfterInl)
     AfterInl = true;
-  if (!runIPCloning(M, AfterInl, EnableDTrans, &WPInfo))
+
+  if (!runIPCloning(M, AfterInl, EnableDTrans, &WPInfo, &GetDT, &GetBFI,
+                    &GetBPI))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();

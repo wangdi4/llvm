@@ -58,6 +58,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <bitset>
+#include <optional>
 
 using namespace clang;
 
@@ -1136,11 +1137,10 @@ TypeResult Sema::actOnObjCProtocolQualifierType(
              SourceLocation rAngleLoc) {
   // Form id<protocol-list>.
   QualType Result = Context.getObjCObjectType(
-                      Context.ObjCBuiltinIdTy, { },
-                      llvm::makeArrayRef(
-                        (ObjCProtocolDecl * const *)protocols.data(),
-                        protocols.size()),
-                      false);
+      Context.ObjCBuiltinIdTy, {},
+      llvm::ArrayRef((ObjCProtocolDecl *const *)protocols.data(),
+                     protocols.size()),
+      false);
   Result = Context.getObjCObjectPointerType(Result);
 
   TypeSourceInfo *ResultTInfo = Context.CreateTypeSourceInfo(Result);
@@ -1207,8 +1207,8 @@ TypeResult Sema::actOnObjCTypeArgsAndProtocolQualifiers(
       T, BaseTypeInfo->getTypeLoc().getSourceRange().getBegin(),
       TypeArgsLAngleLoc, ActualTypeArgInfos, TypeArgsRAngleLoc,
       ProtocolLAngleLoc,
-      llvm::makeArrayRef((ObjCProtocolDecl *const *)Protocols.data(),
-                         Protocols.size()),
+      llvm::ArrayRef((ObjCProtocolDecl *const *)Protocols.data(),
+                     Protocols.size()),
       ProtocolLocs, ProtocolRAngleLoc,
       /*FailOnError=*/false,
       /*Rebuilding=*/false);
@@ -1573,7 +1573,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     if (!S.Context.getTargetInfo().hasBFloat16Type() &&
         !(S.getLangOpts().OpenMP && S.getLangOpts().OpenMPIsDevice) &&
         !S.getLangOpts().SYCLIsDevice)
-        S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported) << "__bf16";
+      S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported) << "__bf16";
     Result = Context.BFloat16Ty;
     break;
   case DeclSpec::TST_float:   Result = Context.FloatTy; break;
@@ -2252,6 +2252,13 @@ QualType Sema::BuildPointerType(QualType T,
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
 
+  // In WebAssembly, pointers to reference types are illegal.
+  if (getASTContext().getTargetInfo().getTriple().isWasm() &&
+      T->isWebAssemblyReferenceType()) {
+    Diag(Loc, diag::err_wasm_reference_pr) << 0;
+    return QualType();
+  }
+
   // Build the pointer type.
   return Context.getPointerType(T);
 }
@@ -2326,6 +2333,13 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
 
   if (getLangOpts().OpenCL)
     T = deduceOpenCLPointeeAddrSpace(*this, T);
+
+  // In WebAssembly, references to reference types are illegal.
+  if (getASTContext().getTargetInfo().getTriple().isWasm() &&
+      T->isWebAssemblyReferenceType()) {
+    Diag(Loc, diag::err_wasm_reference_pr) << 1;
+    return QualType();
+  }
 
   // Handle restrict on references.
   if (LValueRef)
@@ -2763,7 +2777,8 @@ QualType Sema::BuildVectorType(QualType CurType, Expr *SizeExpr,
     return Context.getDependentVectorType(CurType, SizeExpr, AttrLoc,
                                                VectorType::GenericVector);
 
-  Optional<llvm::APSInt> VecSize = SizeExpr->getIntegerConstantExpr(Context);
+  std::optional<llvm::APSInt> VecSize =
+      SizeExpr->getIntegerConstantExpr(Context);
   if (!VecSize) {
     Diag(AttrLoc, diag::err_attribute_argument_type)
         << "vector_size" << AANT_ArgumentIntegerConstant
@@ -2844,7 +2859,8 @@ QualType Sema::BuildExtVectorType(QualType T, Expr *ArraySize,
   }
 
   if (!ArraySize->isTypeDependent() && !ArraySize->isValueDependent()) {
-    Optional<llvm::APSInt> vecSize = ArraySize->getIntegerConstantExpr(Context);
+    std::optional<llvm::APSInt> vecSize =
+        ArraySize->getIntegerConstantExpr(Context);
     if (!vecSize) {
       Diag(AttrLoc, diag::err_attribute_argument_type)
         << "ext_vector_type" << AANT_ArgumentIntegerConstant
@@ -2890,8 +2906,9 @@ QualType Sema::BuildMatrixType(QualType ElementTy, Expr *NumRows, Expr *NumCols,
     return Context.getDependentSizedMatrixType(ElementTy, NumRows, NumCols,
                                                AttrLoc);
 
-  Optional<llvm::APSInt> ValueRows = NumRows->getIntegerConstantExpr(Context);
-  Optional<llvm::APSInt> ValueColumns =
+  std::optional<llvm::APSInt> ValueRows =
+      NumRows->getIntegerConstantExpr(Context);
+  std::optional<llvm::APSInt> ValueColumns =
       NumCols->getIntegerConstantExpr(Context);
 
   auto const RowRange = NumRows->getSourceRange();
@@ -4770,7 +4787,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   }
 
   // Determine whether we should infer _Nonnull on pointer types.
-  Optional<NullabilityKind> inferNullability;
+  std::optional<NullabilityKind> inferNullability;
   bool inferNullabilityCS = false;
   bool inferNullabilityInnerOnly = false;
   bool inferNullabilityInnerOnlyComplete = false;
@@ -4803,8 +4820,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
     // inner pointers.
     complainAboutMissingNullability = CAMN_InnerPointers;
 
-    if (T->canHaveNullability(/*ResultIfUnknown*/false) &&
-        !T->getNullability(S.Context)) {
+    if (T->canHaveNullability(/*ResultIfUnknown*/ false) &&
+        !T->getNullability()) {
       // Note that we allow but don't require nullability on dependent types.
       ++NumPointersRemaining;
     }
@@ -5028,8 +5045,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   // If the type itself could have nullability but does not, infer pointer
   // nullability and perform consistency checking.
   if (S.CodeSynthesisContexts.empty()) {
-    if (T->canHaveNullability(/*ResultIfUnknown*/false) &&
-        !T->getNullability(S.Context)) {
+    if (T->canHaveNullability(/*ResultIfUnknown*/ false) &&
+        !T->getNullability()) {
       if (isVaList(T)) {
         // Record that we've seen a pointer, but do nothing else.
         if (NumPointersRemaining > 0)
@@ -5052,9 +5069,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       }
     }
 
-    if (complainAboutMissingNullability == CAMN_Yes &&
-        T->isArrayType() && !T->getNullability(S.Context) && !isVaList(T) &&
-        D.isPrototypeContext() &&
+    if (complainAboutMissingNullability == CAMN_Yes && T->isArrayType() &&
+        !T->getNullability() && !isVaList(T) && D.isPrototypeContext() &&
         !hasOuterPointerLikeChunk(D, D.getNumTypeObjects())) {
       checkNullabilityConsistency(S, SimplePointerKind::Array,
                                   D.getDeclSpec().getTypeSpecTypeLoc());
@@ -5158,6 +5174,19 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       DeclaratorChunk::ArrayTypeInfo &ATI = DeclType.Arr;
       Expr *ArraySize = static_cast<Expr*>(ATI.NumElts);
       ArrayType::ArraySizeModifier ASM;
+
+      // Microsoft property fields can have multiple sizeless array chunks
+      // (i.e. int x[][][]). Skip all of these except one to avoid creating
+      // bad incomplete array types.
+      if (chunkIndex != 0 && !ArraySize &&
+          D.getDeclSpec().getAttributes().hasMSPropertyAttr()) {
+        // This is a sizeless chunk. If the next is also, skip this one.
+        DeclaratorChunk &NextDeclType = D.getTypeObject(chunkIndex - 1);
+        if (NextDeclType.Kind == DeclaratorChunk::Array &&
+            !NextDeclType.Arr.NumElts)
+          break;
+      }
+
       if (ATI.isStar)
         ASM = ArrayType::Star;
       else if (ATI.hasStatic)
@@ -6177,6 +6206,21 @@ static void fillAttributedTypeLoc(AttributedTypeLoc TL,
   TL.setAttr(State.takeAttrForAttributedType(TL.getTypePtr()));
 }
 
+static void fillMatrixTypeLoc(MatrixTypeLoc MTL,
+                              const ParsedAttributesView &Attrs) {
+  for (const ParsedAttr &AL : Attrs) {
+    if (AL.getKind() == ParsedAttr::AT_MatrixType) {
+      MTL.setAttrNameLoc(AL.getLoc());
+      MTL.setAttrRowOperand(AL.getArgAsExpr(0));
+      MTL.setAttrColumnOperand(AL.getArgAsExpr(1));
+      MTL.setAttrOperandParensRange(SourceRange());
+      return;
+    }
+  }
+
+  llvm_unreachable("no matrix_type attribute found at the expected location!");
+}
+
 namespace {
   class TypeSpecLocFiller : public TypeLocVisitor<TypeSpecLocFiller> {
     Sema &SemaRef;
@@ -6561,6 +6605,9 @@ namespace {
     VisitDependentSizedExtVectorTypeLoc(DependentSizedExtVectorTypeLoc TL) {
       TL.setNameLoc(Chunk.Loc);
     }
+    void VisitMatrixTypeLoc(MatrixTypeLoc TL) {
+      fillMatrixTypeLoc(TL, Chunk.getAttrs());
+    }
 
     void VisitTypeLoc(TypeLoc TL) {
       llvm_unreachable("unsupported TypeLoc kind in declarator!");
@@ -6611,21 +6658,6 @@ fillDependentAddressSpaceTypeLoc(DependentAddressSpaceTypeLoc DASTL,
       "no address_space attribute found at the expected location!");
 }
 
-static void fillMatrixTypeLoc(MatrixTypeLoc MTL,
-                              const ParsedAttributesView &Attrs) {
-  for (const ParsedAttr &AL : Attrs) {
-    if (AL.getKind() == ParsedAttr::AT_MatrixType) {
-      MTL.setAttrNameLoc(AL.getLoc());
-      MTL.setAttrRowOperand(AL.getArgAsExpr(0));
-      MTL.setAttrColumnOperand(AL.getArgAsExpr(1));
-      MTL.setAttrOperandParensRange(SourceRange());
-      return;
-    }
-  }
-
-  llvm_unreachable("no matrix_type attribute found at the expected location!");
-}
-
 /// Create and instantiate a TypeSourceInfo with type source information.
 ///
 /// \param T QualType referring to the type as written in source code.
@@ -6650,6 +6682,12 @@ GetTypeSourceInfoForDeclarator(TypeProcessingState &State,
   }
 
   for (unsigned i = 0, e = D.getNumTypeObjects(); i != e; ++i) {
+    // Microsoft property fields can have multiple sizeless array chunks
+    // (i.e. int x[][][]). Don't create more than one level of incomplete array.
+    if (CurrTL.getTypeLocClass() == TypeLoc::IncompleteArray && e != 1 &&
+        D.getDeclSpec().getAttributes().hasMSPropertyAttr())
+      continue;
+
     // An AtomicTypeLoc might be produced by an atomic qualifier in this
     // declarator chunk.
     if (AtomicTypeLoc ATL = CurrTL.getAs<AtomicTypeLoc>()) {
@@ -6657,32 +6695,42 @@ GetTypeSourceInfoForDeclarator(TypeProcessingState &State,
       CurrTL = ATL.getValueLoc().getUnqualifiedLoc();
     }
 
-    while (MacroQualifiedTypeLoc TL = CurrTL.getAs<MacroQualifiedTypeLoc>()) {
-      TL.setExpansionLoc(
-          State.getExpansionLocForMacroQualifiedType(TL.getTypePtr()));
-      CurrTL = TL.getNextTypeLoc().getUnqualifiedLoc();
+    bool HasDesugaredTypeLoc = true;
+    while (HasDesugaredTypeLoc) {
+      switch (CurrTL.getTypeLocClass()) {
+      case TypeLoc::MacroQualified: {
+        auto TL = CurrTL.castAs<MacroQualifiedTypeLoc>();
+        TL.setExpansionLoc(
+            State.getExpansionLocForMacroQualifiedType(TL.getTypePtr()));
+        CurrTL = TL.getNextTypeLoc().getUnqualifiedLoc();
+        break;
+      }
+
+      case TypeLoc::Attributed: {
+        auto TL = CurrTL.castAs<AttributedTypeLoc>();
+        fillAttributedTypeLoc(TL, State);
+        CurrTL = TL.getNextTypeLoc().getUnqualifiedLoc();
+        break;
+      }
+
+      case TypeLoc::Adjusted:
+      case TypeLoc::BTFTagAttributed: {
+        CurrTL = CurrTL.getNextTypeLoc().getUnqualifiedLoc();
+        break;
+      }
+
+      case TypeLoc::DependentAddressSpace: {
+        auto TL = CurrTL.castAs<DependentAddressSpaceTypeLoc>();
+        fillDependentAddressSpaceTypeLoc(TL, D.getTypeObject(i).getAttrs());
+        CurrTL = TL.getPointeeTypeLoc().getUnqualifiedLoc();
+        break;
+      }
+
+      default:
+        HasDesugaredTypeLoc = false;
+        break;
+      }
     }
-
-    while (AttributedTypeLoc TL = CurrTL.getAs<AttributedTypeLoc>()) {
-      fillAttributedTypeLoc(TL, State);
-      CurrTL = TL.getNextTypeLoc().getUnqualifiedLoc();
-    }
-
-    while (BTFTagAttributedTypeLoc TL = CurrTL.getAs<BTFTagAttributedTypeLoc>())
-      CurrTL = TL.getNextTypeLoc().getUnqualifiedLoc();
-
-    while (DependentAddressSpaceTypeLoc TL =
-               CurrTL.getAs<DependentAddressSpaceTypeLoc>()) {
-      fillDependentAddressSpaceTypeLoc(TL, D.getTypeObject(i).getAttrs());
-      CurrTL = TL.getPointeeTypeLoc().getUnqualifiedLoc();
-    }
-
-    if (MatrixTypeLoc TL = CurrTL.getAs<MatrixTypeLoc>())
-      fillMatrixTypeLoc(TL, D.getTypeObject(i).getAttrs());
-
-    // FIXME: Ordering here?
-    while (AdjustedTypeLoc TL = CurrTL.getAs<AdjustedTypeLoc>())
-      CurrTL = TL.getNextTypeLoc().getUnqualifiedLoc();
 
     DeclaratorLocFiller(S.Context, State, D.getTypeObject(i)).Visit(CurrTL);
     CurrTL = CurrTL.getNextTypeLoc().getUnqualifiedLoc();
@@ -6767,7 +6815,7 @@ static bool BuildAddressSpaceIndex(Sema &S, LangAS &ASIdx,
                                    const Expr *AddrSpace,
                                    SourceLocation AttrLoc) {
   if (!AddrSpace->isValueDependent()) {
-    Optional<llvm::APSInt> OptAddrSpace =
+    std::optional<llvm::APSInt> OptAddrSpace =
         AddrSpace->getIntegerConstantExpr(S.Context);
     if (!OptAddrSpace) {
       S.Diag(AttrLoc, diag::err_attribute_argument_type)
@@ -7523,6 +7571,37 @@ static bool handleMSPointerTypeQualifierAttr(TypeProcessingState &State,
   return false;
 }
 
+static bool HandleWebAssemblyFuncrefAttr(TypeProcessingState &State,
+                                         QualType &QT, ParsedAttr &PAttr) {
+  assert(PAttr.getKind() == ParsedAttr::AT_WebAssemblyFuncref);
+
+  Sema &S = State.getSema();
+  Attr *A = createSimpleAttr<WebAssemblyFuncrefAttr>(S.Context, PAttr);
+
+  std::bitset<attr::LastAttr> Attrs;
+  attr::Kind NewAttrKind = A->getKind();
+  const auto *AT = dyn_cast<AttributedType>(QT);
+  while (AT) {
+    Attrs[AT->getAttrKind()] = true;
+    AT = dyn_cast<AttributedType>(AT->getModifiedType());
+  }
+
+  // You cannot specify duplicate type attributes, so if the attribute has
+  // already been applied, flag it.
+  if (Attrs[NewAttrKind]) {
+    S.Diag(PAttr.getLoc(), diag::warn_duplicate_attribute_exact) << PAttr;
+    return true;
+  }
+
+  // Add address space to type based on its attributes.
+  LangAS ASIdx = LangAS::wasm_funcref;
+  QualType Pointee = QT->getPointeeType();
+  Pointee = S.Context.getAddrSpaceQualType(
+      S.Context.removeAddrSpaceQualType(Pointee), ASIdx);
+  QT = State.getAttributedType(A, QT, S.Context.getPointerType(Pointee));
+  return false;
+}
+
 /// Map a nullability attribute kind to a nullability kind.
 static NullabilityKind mapNullabilityAttrKind(ParsedAttr::Kind kind) {
   switch (kind) {
@@ -7596,7 +7675,7 @@ static bool checkNullabilityTypeSpecifier(TypeProcessingState &state,
   // This (unlike the code above) looks through typedefs that might
   // have nullability specifiers on them, which means we cannot
   // provide a useful Fix-It.
-  if (auto existingNullability = desugared->getNullability(S.Context)) {
+  if (auto existingNullability = desugared->getNullability()) {
     if (nullability != *existingNullability) {
       S.Diag(nullabilityLoc, diag::err_nullability_conflicting)
         << DiagNullabilityKind(nullability, isContextSensitive)
@@ -7695,7 +7774,7 @@ static bool checkObjCKindOfType(TypeProcessingState &state, QualType &type,
   // If we started with an object pointer type, rebuild it.
   if (ptrType) {
     equivType = S.Context.getObjCObjectPointerType(equivType);
-    if (auto nullability = type->getNullability(S.Context)) {
+    if (auto nullability = type->getNullability()) {
       // We create a nullability attribute from the __kindof attribute.
       // Make sure that will make sense.
       assert(attr.getAttributeSpellingListIndex() == 0 &&
@@ -8168,7 +8247,7 @@ void Sema::adjustMemberFunctionCC(QualType &T, bool IsStatic, bool IsCtorOrDtor,
     CallingConv DefaultCC =
         Context.getDefaultCallingConvention(IsVariadic, IsStatic);
 
-    if (CurCC != DefaultCC || DefaultCC == ToCC)
+    if (CurCC != DefaultCC)
       return;
 
     if (hasExplicitCallingConv(T))
@@ -8275,7 +8354,7 @@ static bool verifyValidIntegerConstantExpr(Sema &S, const ParsedAttr &Attr,
                                            llvm::APSInt &Result) {
   const auto *AttrExpr = Attr.getArgAsExpr(0);
   if (!AttrExpr->isTypeDependent()) {
-    if (Optional<llvm::APSInt> Res =
+    if (std::optional<llvm::APSInt> Res =
             AttrExpr->getIntegerConstantExpr(S.Context)) {
       Result = *Res;
       return true;
@@ -8704,6 +8783,12 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       HandleMatrixTypeAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();
       break;
+
+    case ParsedAttr::AT_WebAssemblyFuncref: {
+      if (!HandleWebAssemblyFuncrefAttr(state, type, attr))
+        attr.setUsedAsTypeAttr();
+      break;
+    }
 
     MS_TYPE_ATTRS_CASELIST:
       if (!handleMSPointerTypeQualifierAttr(state, attr, type))

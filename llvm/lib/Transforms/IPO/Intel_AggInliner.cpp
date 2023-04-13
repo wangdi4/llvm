@@ -1,6 +1,6 @@
 //===--------------- Intel_AggInliner.cpp --------------------------------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -910,59 +910,7 @@ void InlineAggressiveInfo::addInliningAttributes() {
   }
 }
 
-namespace {
-
-class AggInlinerLegacyPass : public ModulePass {
-  std::unique_ptr<InlineAggressiveInfo> Result;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-  AggInlinerLegacyPass(void) : ModulePass(ID) {
-    initializeAggInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesAll();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-  }
-
-  bool runOnModule(Module &M) override {
-    auto &WPA = getAnalysis<WholeProgramWrapperPass>();
-    auto GetTLI = [this](const Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    if (skipModule(M))
-      return false;
-    Result.reset(new InlineAggressiveInfo(
-        InlineAggressiveInfo::runImpl(M, WPA.getResult(), GetTLI)));
-    return false;
-  }
-
-  bool doFinalization(Module &M) override {
-    Result.reset();
-    return false;
-  }
-};
-
-} // namespace
-
-INITIALIZE_PASS_BEGIN(AggInlinerLegacyPass, "agginliner", "AggInliner", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(AggInlinerLegacyPass, "agginliner", "AggInliner", false,
-                    false)
-
-char AggInlinerLegacyPass::ID = 0;
-
-ModulePass *llvm::createAggInlinerLegacyPass(void) {
-  return new AggInlinerLegacyPass();
-}
-
 AggInlinerPass::AggInlinerPass(void) {}
-
-char AggInlinerPass::PassID;
 
 PreservedAnalyses AggInlinerPass::run(Module &M, ModuleAnalysisManager &AM) {
   std::unique_ptr<InlineAggressiveInfo> Result;

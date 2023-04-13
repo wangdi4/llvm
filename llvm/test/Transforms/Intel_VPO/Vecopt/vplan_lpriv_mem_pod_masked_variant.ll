@@ -72,7 +72,7 @@ define i32 @main() {
 ; CHECK-NEXT:    br label [[VPLANNEDBB200]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB20:
-; CHECK-NEXT:    [[TMP20:%.*]] = bitcast <16 x i32>* [[DOTVEC0:%.*]] to i8*
+; CHECK-NEXT:    [[TMP20:%.*]] = bitcast i32* [[DOTVEC0:%.*]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 64, i8* [[TMP20]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB220:%.*]]
 ;

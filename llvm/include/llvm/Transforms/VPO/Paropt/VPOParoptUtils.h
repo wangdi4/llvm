@@ -931,12 +931,12 @@ public:
   /// @{
 
   /// Insert a call to `kmpc_doacross_wait/post` for `#pragma omp ordered
-  /// depend(source/sink)` before \p InsertPt and return it.
+  /// doacross(source/sink)` before \p InsertPt and return it.
   ///
   /// Incoming Directive:
   /// \code
   ///   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(),
-  ///        "QUAL.OMP.DEPEND.SINK"(i32 %v1, i32 %v2) ]
+  ///        "QUAL.OMP.DOACROSS.SINK"(i32 %v1, i32 %v2) ]
   /// \endcode
   ///
   /// Generated IR:
@@ -1135,8 +1135,8 @@ public:
   genPrivatizationAlloca(Type *ElementType, Value *NumElements,
                          MaybeAlign OrigAlignment, Instruction *InsertPt,
                          bool IsTargetSPIRV, const Twine &VarName = "",
-                         llvm::Optional<unsigned> AllocaAddrSpace = std::nullopt,
-                         llvm::Optional<unsigned> ValueAddrSpace = std::nullopt,
+                         std::optional<unsigned> AllocaAddrSpace = std::nullopt,
+                         std::optional<unsigned> ValueAddrSpace = std::nullopt,
                          AllocateItem *AllocItem = nullptr);
 
   /// Return true if address spaces \p AS1 and \p AS2 are compatible
@@ -1314,6 +1314,17 @@ public:
                                   Instruction *&ElseTerm, Instruction *InsertPt,
                                   DominatorTree *DT);
 
+  /// Generate a call to `__kmpc_task_allow_completion_event`. Example:
+  /// \code
+  ///   i8* @__kmpc_task_allow_completion_event({ i32, i32, i32, i32, i8* }*,
+  ///   i32, i8*)
+  /// \endcode
+  static CallInst *genKmpcAllowCompletionEvent(WRegionNode *W,
+                                               StructType *IdentTy,
+                                               Value *TidPtr,
+                                               CallInst *TaskAllocCI,
+                                               Instruction *InsertPt);
+
   /// Generate a call to `__kmpc_omp_task_alloc`. Example:
   /// \code
   ///   i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
@@ -1433,6 +1444,21 @@ public:
                                           Value *Dep, Value *NumDeps,
                                           Instruction *InsertPt,
                                           StringRef FnName);
+  /// Generate a call to `__kmpc_omp_reg_task_with_affinity`. Example:
+  /// \code
+  ///    void @__kmpc_omp_reg_task_with_affinity(
+  ///          { i32, i32, i32, i32, i8* }* /* &loc */,
+  ///           i32 /* tid */,
+  ///           i8* /*thunk_temp */,
+  ///           i32 /* affinity_array_size */,
+  ///          i8* /* &affinity */)
+  /// \endcode
+  static CallInst *genKmpcTaskWithAffinity(WRegionNode *W, StructType *IdentTy,
+                                           Value *TidPtr, Value *TaskAlloc,
+                                           Value *AffArray,
+                                           Value *AffArraySize,
+                                           Instruction *InsertPt,
+                                           StringRef FnName);
 
   /// Generic function to support generation of `__kmpc_task`,
   /// `__kmpc_omp_task_begin_if0` and `__kmpc_omp_task_complete_if0` calls.
@@ -1951,6 +1977,17 @@ public:
   static CallInst *genKmpcEndTaskgroupCall(WRegionNode *W, StructType *IdentTy,
                                            Value *Tid, Instruction *InsertPt);
 
+  /// Insert a call to `__kmpc_team_reduction_buffers_ready[_teamzero]` after \p
+  /// NumGroup. Example:
+  /// \code
+  ///   i1 @__kmpc_team_reduction_buffers_ready[_teamzero](i32* teams_counter /*
+  ///   GlobalCounter */, i32 %num_teams /* NumGroup */)
+  /// \endcode
+  static CallInst *
+  genKmpcTeamReductionBufferReadyCall(WRegionNode *W,
+                                      GlobalVariable *GlobalCounter,
+                                      Instruction *NumGroup, bool UseTeamZero);
+
   /// Generate a generic call to `get_global_id, get_local_id...`. Example:
   /// \code
   ///    %11 = call i64 @_Z14get_local_sizej(i32 0)
@@ -1960,17 +1997,38 @@ public:
                                      ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
 
-  /// Generate SPIR-V calls OpenMP SIMD path
-  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_xv()
-  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_yv()
-  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_zv()
-  static CallInst *genSPIRVLocalIdCall(int Dim, Instruction *InsertPt);
+  /// Generate a call to get local id for the dimension provided.
+  /// For OpenMP SIMD path pick something of:
+  ///   call spir_func i64 _Z27__spirv_LocalInvocationId_xv
+  ///   call spir_func i64 _Z27__spirv_LocalInvocationId_yv
+  ///   call spir_func i64 _Z27__spirv_LocalInvocationId_zv
+  /// Otherwise generate general OCL builtin:
+  ///   call spir_func i64 @_Z12get_local_idj
+  static CallInst *genLocalIdCall(int Dim, Instruction *InsertPt);
+
+  /// Generate a call to get group id for the dimension provided.
+  /// For OpenMP SIMD path pick something of:
+  ///   call spir_func i64 _Z21__spirv_WorkgroupId_xv
+  ///   call spir_func i64 _Z21__spirv_WorkgroupId_yv
+  ///   call spir_func i64 _Z21__spirv_WorkgroupId_zv
+  /// Otherwise generate general OCL builtin:
+  ///   call spir_func i64 @_Z12get_group_idj
+  static CallInst *genGroupIdCall(int Dim, Instruction *InsertPt);
+
+  /// Generate a call to get local (group) size for the dimension provided.
+  /// For OpenMP SIMD path pick something of:
+  ///   call spir_func i64 _Z23__spirv_WorkgroupSize_xv
+  ///   call spir_func i64 _Z23__spirv_WorkgroupSize_yv
+  ///   call spir_func i64 _Z23__spirv_WorkgroupSize_zv
+  /// Otherwise generate general OCL builtin:
+  ///   call spir_func i64 @_Z14get_local_sizej
+  static CallInst *genLocalSizeCall(int Dim, Instruction *InsertPt);
 
   /// Generate a call to get number of groups for the dimension provided.
   /// For OpenMP SIMD path pick something of:
-  ///   call spir_func i64 _Z29__spirv_NumWorkgroups_xv
-  ///   call spir_func i64 _Z29__spirv_NumWorkgroups_yv
-  ///   call spir_func i64 _Z29__spirv_NumWorkgroups_zv
+  ///   call spir_func i64 _Z23__spirv_NumWorkgroups_xv
+  ///   call spir_func i64 _Z23__spirv_NumWorkgroups_yv
+  ///   call spir_func i64 _Z23__spirv_NumWorkgroups_zv
   /// Otherwise generate general OCL builtin:
   ///   call spir_func i64 @_Z14get_num_groupsj
   static CallInst *genNumGroupsCall(int Dim, Instruction *InsertPt);
@@ -2081,7 +2139,7 @@ public:
   /// if no interop obj is added into the variant call.
   static CallInst *
   genVariantCall(CallInst *BaseCall, StringRef VariantName, Value *InteropObj,
-                 llvm::Optional<uint64_t> InteropPosition,
+                 std::optional<uint64_t> InteropPosition,
                  uint64_t &InteropPositionIfEmitted, Instruction *InsertPt,
                  WRegionNode *W = nullptr, bool IsTail = false);
 
@@ -2102,7 +2160,7 @@ public:
   /// full body of \p W.
   static Function *genOutlineFunction(
       const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
-      llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn = std::nullopt,
+      std::optional<ArrayRef<BasicBlock *>> BBsToExtractIn = std::nullopt,
       std::string Suffix = "");
 
   // If there is a SPIRV builtin performing horizontal reduction for the given
@@ -2570,6 +2628,17 @@ public:
 
   static bool isAtomicFreeReductionLocalEnabled();
   static bool isAtomicFreeReductionGlobalEnabled();
+
+  /// TODO: OPAQUEPOINTER: delete once typed pointers are no longer supported.
+  /// Generate proper array-to-scalar bitcast for \p ReductionVar of \p RedI
+  /// being an array section but not satisfying
+  /// ReductionItem::getIsArraySection() due to having offset == 0. Insert the
+  /// new bitcast right after \p ReductionVar if it's an instruction dominated
+  /// by \p W 's entry directive, or right after \p W 's entry directive
+  /// otherwise.
+  static Value *genZeroOffsetArrsecReductionItemCastIfNeeded(
+      const ReductionItem *RedI, const WRegionNode *W, Value *ReductionVar,
+      DominatorTree *DT);
 };
 
 } // namespace vpo

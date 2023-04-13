@@ -28,6 +28,9 @@ add_llvm_external_project(opencl)
 set(LLVM_LINK_COMPONENTS
         ${LLVM_TARGETS_TO_BUILD}
         Support
+# INTEL_CUSTOMIZATION
+        TargetParser
+# end INTEL_CUSTOMIZATION
         )
 file(GLOB TARGET_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 
@@ -37,7 +40,9 @@ add_llvm_tool_in_bin(${AOCL_IOC64_PROJECT_NAME} ${TARGET_SOURCES} CUSTOM_WIN_VER
 
 if(NOT MSVC)
   # FIXME: when built with icx it produces a warning.
-  target_compile_options(${AOCL_IOC64_PROJECT_NAME} PRIVATE "-Wno-unused-parameter")
+  target_compile_options(${AOCL_IOC64_PROJECT_NAME} PRIVATE -Wno-unused-parameter -fexceptions)
+else()
+  target_compile_options(${AOCL_IOC64_PROJECT_NAME} PRIVATE "/EHsc")
 endif()
 
 target_link_libraries(${AOCL_IOC64_PROJECT_NAME}

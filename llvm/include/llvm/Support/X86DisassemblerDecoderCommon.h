@@ -53,6 +53,7 @@ namespace X86Disassembler {
 
 #if INTEL_CUSTOMIZATION
 #define MAP8_SYM          x86DisassemblerMap8Opcodes
+#define MAP4_SYM          x86DisassemblerMap4Opcodes
 #endif // INTEL_CUSTOMIZATION
 
 #define INSTRUCTIONS_STR  "x86DisassemblerInstrSpecifiers"
@@ -70,6 +71,7 @@ namespace X86Disassembler {
 
 #if INTEL_CUSTOMIZATION
 #define MAP8_STR          "x86DisassemblerMap8Opcodes"
+#define MAP4_STR          "x86DisassemblerMap4Opcodes"
 #endif // INTEL_CUSTOMIZATION
 
 // Attributes of an instruction that must be known before the opcode can be
@@ -98,7 +100,8 @@ enum attributeBits {
   ATTR_XUCCXS = 0x1 << 14,
   ATTR_XUCCXD = 0x1 << 15,
   ATTR_EVEXP10= 0x1 << 16,
-  ATTR_max    = 0x1 << 17,
+  ATTR_EVEXNF = 0x1 << 17,
+  ATTR_max    = 0x1 << 18,
 #else // INTEL_FEATURE_XISA_COMMON
   ATTR_max    = 0x1 << 13,
 #endif // INTEL_FEATURE_XISA_COMMON
@@ -174,10 +177,13 @@ enum attributeBits {
   ENUM_ENTRY(IC_VEX_L_W_XD,         5,  "requires VEX, L, W and XD prefix")    \
   ENUM_ENTRY(IC_VEX_L_W_OPSIZE,     5,  "requires VEX, L, W and OpSize")       \
   ENUM_ENTRY(IC_EVEX,               1,  "requires an EVEX prefix")             \
+  ENUM_ENTRY(IC_EVEX_NF,            2,  "requires EVEX and NF prefix")         \
   ENUM_ENTRY(IC_EVEX_XS,            2,  "requires EVEX and the XS prefix")     \
   ENUM_ENTRY(IC_EVEX_XD,            2,  "requires EVEX and the XD prefix")     \
   ENUM_ENTRY(IC_EVEX_OPSIZE,        2,  "requires EVEX and the OpSize prefix") \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_NF,     3,  "requires EVEX, NF and the OpSize prefix") \
   ENUM_ENTRY(IC_EVEX_W,             3,  "requires EVEX and the W prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_NF,          4,  "requires EVEX, W and NF prefix")      \
   ENUM_ENTRY(IC_EVEX_W_XS,          4,  "requires EVEX, W, and XS prefix")     \
   ENUM_ENTRY(IC_EVEX_W_XD,          4,  "requires EVEX, W, and XD prefix")     \
   ENUM_ENTRY(IC_EVEX_W_OPSIZE,      4,  "requires EVEX, W, and OpSize")        \
@@ -222,10 +228,13 @@ enum attributeBits {
   ENUM_ENTRY(IC_EVEX_L2_W_XD_K,     4,  "requires EVEX_K, L2, W and XD prefix")    \
   ENUM_ENTRY(IC_EVEX_L2_W_OPSIZE_K, 4,  "requires EVEX_K, L2, W and OpSize")     \
   ENUM_ENTRY(IC_EVEX_B,             1,  "requires an EVEX_B prefix")             \
+  ENUM_ENTRY(IC_EVEX_B_NF,          2,  "requires EVEX_NF and EVEX_B prefix")    \
   ENUM_ENTRY(IC_EVEX_XS_B,          2,  "requires EVEX_B and the XS prefix")     \
   ENUM_ENTRY(IC_EVEX_XD_B,          2,  "requires EVEX_B and the XD prefix")     \
   ENUM_ENTRY(IC_EVEX_OPSIZE_B,      2,  "requires EVEX_B and the OpSize prefix") \
+  ENUM_ENTRY(IC_EVEX_OPSIZE_B_NF,   3,  "requires EVEX_B, NF and the OpSize prefix") \
   ENUM_ENTRY(IC_EVEX_W_B,           3,  "requires EVEX_B and the W prefix")      \
+  ENUM_ENTRY(IC_EVEX_W_B_NF,        4,  "requires EVEX_NF, EVEX_B and the W prefix")\
   ENUM_ENTRY(IC_EVEX_W_XS_B,        4,  "requires EVEX_B, W, and XS prefix")     \
   ENUM_ENTRY(IC_EVEX_W_XD_B,        4,  "requires EVEX_B, W, and XD prefix")     \
   ENUM_ENTRY(IC_EVEX_W_OPSIZE_B,    4,  "requires EVEX_B, W, and OpSize")        \
@@ -580,7 +589,8 @@ enum OpcodeType {
   MAP5          = 8,
 #if INTEL_CUSTOMIZATION
   MAP6          = 9,
-  MAP8          = 10
+  MAP8          = 10,
+  MAP4          = 11
 #endif // INTEL_CUSTOMIZATION
 };
 
@@ -680,6 +690,8 @@ enum ModRMDecisionType {
   ENUM_ENTRY(ENCODING_VSIB_CD64,"VSIB operand with CDisp scaling of 64")       \
   ENUM_ENTRY(ENCODING_VVVV,   "Register operand in VEX.vvvv byte.")            \
   ENUM_ENTRY(ENCODING_WRITEMASK, "Register operand in EVEX.aaa byte.")         \
+  ENUM_ENTRY(ENCODING_I_EVEX_a,  "1-bit immediate encoded in EVEX.a")          \
+  ENUM_ENTRY(ENCODING_I_EVEX_aa, "2-bit immediate encoded in EVEX.aa")         \
   ENUM_ENTRY(ENCODING_IB,     "1-byte immediate")                              \
   ENUM_ENTRY(ENCODING_IW,     "2-byte")                                        \
   ENUM_ENTRY(ENCODING_ID,     "4-byte")                                        \
@@ -712,13 +724,13 @@ enum OperandEncoding {
 #undef ENUM_ENTRY
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #define XTP_ENUM_ENTRY ENUM_ENTRY(TYPE_TMM_PAIR,   "tile pair")
 #define Z16T_ENUM_ENTRY ENUM_ENTRY(TYPE_ZMM16_TUPLES, "zmm 16 tuples")
-#else // INTEL_FEATURE_ISA_AMX_LNC
+#else // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 #define XTP_ENUM_ENTRY
 #define Z16T_ENUM_ENTRY
-#endif // INTEL_FEATURE_ISA_AMX_LNC
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE
 
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #define XTQ_ENUM_ENTRY ENUM_ENTRY(TYPE_TMM_QUAD,  "tile quad")
@@ -748,9 +760,6 @@ enum OperandEncoding {
   ENUM_ENTRY(TYPE_R32,        "4-byte")                                        \
   ENUM_ENTRY(TYPE_R64,        "8-byte")                                        \
   ENUM_ENTRY(TYPE_IMM,        "immediate operand")                             \
-  ENUM_ENTRY(TYPE_IMM3,       "1-byte immediate operand between 0 and 7")      \
-  ENUM_ENTRY(TYPE_IMM5,       "1-byte immediate operand between 0 and 31")     \
-  ENUM_ENTRY(TYPE_AVX512ICC,  "1-byte immediate operand for AVX512 icmp")      \
   ENUM_ENTRY(TYPE_UIMM8,      "1-byte unsigned immediate operand")             \
   ENUM_ENTRY(TYPE_M,          "Memory operand")                                \
   ENUM_ENTRY(TYPE_MSIB,       "Memory operand force sib encoding")             \

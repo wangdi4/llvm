@@ -1,4 +1,3 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
 ; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
 
 
@@ -12,9 +11,8 @@
 ; CHECK: |   |   %qb.041.out = %qb.041;
 ; CHECK: |   |   %9 = i1 + -1  *  (-1 + (-1 * %indvars.iv54)) * i2 + %n.addr.038.out + -1;
 ; CHECK: |   |   %qb.041 = (-1 + (-1 * %indvars.iv54)) * i2 + -1 * trunc.i33.i32((%2 /u 2)) + %indvars.iv44 + %n.addr.038.out + %qb.041.out  +  %9;
-; CHECK: |   |   %11 = -1 * i1  +  %indvars.iv52 * i2 + %n.addr.038.out;
 ; CHECK: |   + END LOOP
-; CHECK: |      %n.addr.038 = %11;
+; CHECK: |      %n.addr.038 = %n.addr.038.out + ((1 + ((-1 + (-1 * %indvars.iv52)) /u 3)) * %indvars.iv52);
 ; CHECK: |
 ; CHECK: |   %qb.041.out1 = %qb.041;
 ; CHECK: |   %indvars.iv.next43 = %indvars.iv42  +  -6 * i1 + -12;

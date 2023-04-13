@@ -33,7 +33,7 @@ public:
   void Optimize(llvm::raw_ostream &LogStream) override;
 
 private:
-  void materializerPM(ModulePassManager &MPM) const;
+  void materializerPM(llvm::ModulePassManager &MPM) const;
 
   void createStandardLLVMPasses(llvm::ModulePassManager &MPM) const;
 

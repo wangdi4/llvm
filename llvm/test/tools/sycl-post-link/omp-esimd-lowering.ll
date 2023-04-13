@@ -180,6 +180,8 @@ define dso_local spir_kernel <8 x float>  @test_generic_as_infer(float addrspace
   ret <8 x float> %load
 }
 
+; TODO: extend math lowering checks coverage
+
 define dso_local spir_kernel <8 x float>  @test_math_lowering(<8 x float> %a0) {
   %b0 = call fast <8 x float> @llvm.log2.v8f32(<8 x float> %a0)
 ; CHECK: [[SQRT:%.*]] =  call <8 x float> @llvm.genx.log.v8f32(<8 x float> %a0)
@@ -189,6 +191,8 @@ define dso_local spir_kernel <8 x float>  @test_math_lowering(<8 x float> %a0) {
 define dso_local spir_kernel <8 x float>  @test_math_no_lowering(<8 x float> %a0) {
   %b0 = call fast <8 x float> @llvm.round.v8f32(<8 x float> %a0)
 ; CHECK: [[RND:%.*]] =  call fast <8 x float> @llvm.round.v8f32(<8 x float> %a0)
+  %c0 = call fast <8 x float> @llvm.maxnum.v8f32(<8 x float> %a0, <8 x float> zeroinitializer)
+; CHECK: call fast <8 x float> @llvm.maxnum.v8f32(<8 x float> %a0, <8 x float> zeroinitializer)
   ret <8 x float> %b0
 }
 
@@ -258,6 +262,7 @@ declare <8 x float> @llvm.sqrt.v8f32(<8 x float>)
 
 declare <8 x float> @llvm.log2.v8f32(<8 x float>)
 declare <8 x float> @llvm.round.v8f32(<8 x float>)
+declare <8 x float> @llvm.maxnum.v8f32(<8 x float>, <8 x float>)
 
 declare void @llvm.masked.store.v8i32.p0v8i32(<8 x i32>, <8 x i32>*, i32 immarg, <8 x i1>) #1
 declare void @llvm.masked.store.v8i32.p3v8i32(<8 x i32>, <8 x i32> addrspace(3)*, i32 immarg, <8 x i1>) #1

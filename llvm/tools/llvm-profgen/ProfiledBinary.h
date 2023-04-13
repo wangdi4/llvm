@@ -1,4 +1,21 @@
 //===-- ProfiledBinary.h - Binary decoder -----------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,7 +29,6 @@
 #include "CallContext.h"
 #include "ErrorHandling.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
@@ -43,8 +59,14 @@
 #include <unordered_set>
 #include <vector>
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Object/COFF.h"
+#endif // INTEL_CUSTOMIZATION
+
+namespace llvm {
 extern cl::opt<bool> EnableCSPreInliner;
 extern cl::opt<bool> UseContextCostForPreInliner;
+} // namespace llvm
 
 using namespace llvm;
 using namespace sampleprof;
@@ -54,6 +76,7 @@ namespace llvm {
 namespace sampleprof {
 
 class ProfiledBinary;
+class MissingFrameInferrer;
 
 struct InstructionPointer {
   const ProfiledBinary *Binary;
@@ -251,6 +274,10 @@ class ProfiledBinary {
   // Estimate and track function prolog and epilog ranges.
   PrologEpilogTracker ProEpilogTracker;
 
+  // Infer missing frames due to compiler optimizations such as tail call
+  // elimination.
+  std::unique_ptr<MissingFrameInferrer> MissingContextInferrer;
+
   // Track function sizes under different context
   BinarySizeContextTracker FuncSizeTracker;
 
@@ -282,11 +309,18 @@ class ProfiledBinary {
   // Use to avoid redundant warning.
   bool MissingMMapWarned = false;
 
-  void setPreferredTextSegmentAddresses(const ELFObjectFileBase *O);
+  bool IsCOFF = false; // INTEL
+
+  void setPreferredTextSegmentAddresses(const ObjectFile *O); // INTEL
 
   template <class ELFT>
   void setPreferredTextSegmentAddresses(const ELFFile<ELFT> &Obj,
                                         StringRef FileName);
+
+#if INTEL_CUSTOMIZATION
+  void setPreferredTextSegmentAddresses(const COFFObjectFile *Obj,
+                                        StringRef FileName);
+#endif // INTEL_CUSTOMIZATION
 
   void checkPseudoProbe(const ELFObjectFileBase *Obj);
 
@@ -297,7 +331,7 @@ class ProfiledBinary {
                           std::map<SectionRef, SectionSymbolsTy> &AllSymbols);
 
   // Set up disassembler and related components.
-  void setUpDisassembler(const ELFObjectFileBase *Obj);
+  void setUpDisassembler(const ObjectFile *Obj); // INTEL
   void setupSymbolizer();
 
   // Load debug info of subprograms from DWARF section.
@@ -310,15 +344,15 @@ class ProfiledBinary {
   void populateElfSymbolAddressList(const ELFObjectFileBase *O);
 
   // A function may be spilt into multiple non-continuous address ranges. We use
-  // this to set whether start address of a function is the real entry of the
+  // this to set whether start a function range is the real entry of the
   // function and also set false to the non-function label.
-  void setIsFuncEntry(uint64_t Address, StringRef RangeSymName);
+  void setIsFuncEntry(FuncRange *FRange, StringRef RangeSymName);
 
   // Warn if no entry range exists in the function.
   void warnNoFuncEntry();
 
   /// Dissassemble the text section and build various address maps.
-  void disassemble(const ELFObjectFileBase *O);
+  void disassemble(const ObjectFile *O); // INTEL
 
   /// Helper function to dissassemble the symbol and extract info for unwinding
   bool dissassembleSymbol(std::size_t SI, ArrayRef<uint8_t> Bytes,
@@ -337,15 +371,8 @@ class ProfiledBinary {
   void load();
 
 public:
-  ProfiledBinary(const StringRef ExeBinPath, const StringRef DebugBinPath)
-      : Path(ExeBinPath), DebugBinaryPath(DebugBinPath), ProEpilogTracker(this),
-        TrackFuncContextSize(EnableCSPreInliner &&
-                             UseContextCostForPreInliner) {
-    // Point to executable binary if debug info binary is not specified.
-    SymbolizerPath = DebugBinPath.empty() ? ExeBinPath : DebugBinPath;
-    setupSymbolizer();
-    load();
-  }
+  ProfiledBinary(const StringRef ExeBinPath, const StringRef DebugBinPath);
+  ~ProfiledBinary();
 
   void decodePseudoProbe();
 
@@ -353,6 +380,8 @@ public:
   StringRef getName() const { return llvm::sys::path::filename(Path); }
   uint64_t getBaseAddress() const { return BaseAddress; }
   void setBaseAddress(uint64_t Address) { BaseAddress = Address; }
+
+  bool isCOFF() const { return IsCOFF; } // INTEL
 
   // Canonicalize to use preferred load address as base address.
   uint64_t canonicalizeVirtualAddress(uint64_t Address) {
@@ -487,6 +516,9 @@ public:
     return FuncSizeTracker.getFuncSizeForContext(ContextNode);
   }
 
+  void inferMissingFrames(const SmallVectorImpl<uint64_t> &Context,
+                          SmallVectorImpl<uint64_t> &NewContext);
+
   // Load the symbols from debug table and populate into symbol list.
   void populateSymbolListFromDWARF(ProfileSymbolList &SymbolList);
 
@@ -506,7 +538,7 @@ public:
     return I.first->second;
   }
 
-  Optional<SampleContextFrame> getInlineLeafFrameLoc(uint64_t Address) {
+  std::optional<SampleContextFrame> getInlineLeafFrameLoc(uint64_t Address) {
     const auto &Stack = getCachedFrameLocationStack(Address);
     if (Stack.empty())
       return {};
@@ -514,6 +546,10 @@ public:
   }
 
   void flushSymbolizer() { Symbolizer.reset(); }
+
+  MissingFrameInferrer* getMissingContextInferrer() {
+    return MissingContextInferrer.get();
+  }
 
   // Compare two addresses' inline context
   bool inlineContextEqual(uint64_t Add1, uint64_t Add2);

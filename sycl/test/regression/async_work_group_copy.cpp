@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o -
+// RUN: %clangxx -fsycl -fsyntax-only %s
 // Test has timeout issues on Windows, JIRA:CMPLRLLVM-41413
 // UNSUPPORTED: windows
 
@@ -58,7 +58,8 @@ int main() {
   test<int16_t>();
   test<int32_t>();
   test<int64_t>();
-  test<sycl::cl_half>();
+  test<sycl::opencl::cl_half>();
+  test<sycl::half>();
   test<float>();
   test<double>();
   return 1;

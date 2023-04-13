@@ -1,6 +1,6 @@
 //===---------------- ReorderFields.cpp - DTransReorderFieldsPass ---------===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,7 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Transforms/ReorderFields.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PatternMatch.h"
@@ -164,60 +163,7 @@ LLVM_DUMP_METHOD StringRef getStName(StructType *StTy) {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-class DTransReorderFieldsWrapper : public ModulePass {
-private:
-  dtrans::ReorderFieldsPass Impl;
-
-public:
-  static char ID;
-
-  DTransReorderFieldsWrapper() : ModulePass(ID) {
-    initializeDTransReorderFieldsWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    DTransAnalysisWrapper &DTAnalysisWrapper =
-        getAnalysis<DTransAnalysisWrapper>();
-    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    bool Changed = Impl.runImpl(
-        M, DTInfo, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult());
-
-    if (Changed)
-      DTAnalysisWrapper.setInvalidated();
-
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<DTransAnalysisWrapper>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
 } // end anonymous namespace
-
-char DTransReorderFieldsWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransReorderFieldsWrapper, "dtrans-reorderfields",
-                      "DTrans reorder fields", false, false)
-  INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-  INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-  INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransReorderFieldsWrapper, "dtrans-reorderfields",
-                    "DTrans reorder fields", false, false)
-
-ModulePass *llvm::createDTransReorderFieldsWrapperPass() {
-  return new DTransReorderFieldsWrapper();
-}
 
 // FieldData records a field's alignment, size, index, and access frequency.
 class FieldData {
@@ -887,7 +833,7 @@ StructType *ReorderFieldsImpl::getAssociatedOrigTypeOfSub(Value *SubV) {
   if (!isa<PointerType>(PtrTy))
     return nullptr;
 
-  Type *StTy = PtrTy->getPointerElementType();
+  Type *StTy = PtrTy->getNonOpaquePointerElementType();
   if (!isa<StructType>(StTy))
     return nullptr;
 
@@ -1625,7 +1571,7 @@ bool ReorderFieldsPass::isProfitable(TypeInfo *TI, const DataLayout &DL) {
     SkipField0 = true;
     Type *Ty0 = StructT->getElementType(0);
     dtrans::FieldInfo &FI = StInfo->getField(0);
-    FD0.set(DL.getABITypeAlignment(Ty0), DL.getTypeStoreSize(Ty0), 0,
+    FD0.set(DL.getABITypeAlign(Ty0).value(), DL.getTypeStoreSize(Ty0), 0,
             FI.getFrequency());
   }
 
@@ -1634,7 +1580,7 @@ bool ReorderFieldsPass::isProfitable(TypeInfo *TI, const DataLayout &DL) {
   for (; I < E; ++I) {
     Type *FieldTy = StructT->getElementType(I);
     dtrans::FieldInfo &FI = StInfo->getField(I);
-    FieldData FD(DL.getABITypeAlignment(FieldTy), DL.getTypeStoreSize(FieldTy),
+    FieldData FD(DL.getABITypeAlign(FieldTy).value(), DL.getTypeStoreSize(FieldTy),
                  I, FI.getFrequency());
     Fields.push_back(FD);
   }
@@ -1757,7 +1703,7 @@ bool ReorderFieldsPass::isProfitable(TypeInfo *TI, const DataLayout &DL) {
     LLVM_DEBUG({ OffsetTrackV.push_back(Offset); });
   }
 
-  uint64_t StructAlign = DL.getABITypeAlignment(StructT);
+  uint64_t StructAlign = DL.getABITypeAlign(StructT).value();
   if ((Offset & (StructAlign - 1)) != 0) {
     Offset = alignTo(Offset, StructAlign);
     LLVM_DEBUG({ OffsetTrackV.push_back(Offset); });

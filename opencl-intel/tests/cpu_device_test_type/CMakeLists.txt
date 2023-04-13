@@ -12,18 +12,29 @@ set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
   BuiltinLibInfo
   CLElfLib
   CacheBinaryHandler
+  LLVMBinaryFormat
+  LLVMDebugInfoDWARF
+  LLVMDebugInfoTraceBack
   LLVMIntelJITEvents
+  LLVMIntel_Debug
+  LLVMMC
+  LLVMMCDisassembler
+  LLVMMCParser
+  LLVMObject
+  LLVMOrcTargetProcess
   LLVMSPIRVLib
   LLVMSymbolize
-  LLVMVectorizer
-  LoopUtils
+  LLVMTargetParser
+  LLVMVPOTransforms
+  LLVMVectorize
   ObjDump
   OclBackendUtils
   OclCpuBackEnd
   OclOptimizer
   OclPluginManager
   builtin_kernels
-  cl_sys_utils
+  cl_logger
+  cl_hw_utils
   cl_sys_utils
   cpu_device
   device_commands
@@ -31,14 +42,11 @@ set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
   emutls
   reflection_module
   soft_math
-  task_executor${BUILD_PLATFORM}
-  test_utils
-)
+  task_executor
+  test_utils)
 
 if(WIN32)
   list(APPEND CPU_DEVICE_TEST_TYPE_LINK_LIBS delayimp.lib lldCOFF lldCommon)
-else()
-  list(APPEND CPU_DEVICE_TEST_TYPE_LINK_LIBS cl_hw_utils)
 endif()
 
 set(INPUT_FILE test.cl)
@@ -53,13 +61,5 @@ add_ocl_unittest(${TARGET} SOURCE_FILES ${TARGET_SOURCES} LINK_LIBRARIES
 
 add_dependencies(${TARGET} clang_compiler ${OCL_RT_TEST_DEPS} ${TEST_BC_FILES})
 
-if(WIN32)
-  set_target_properties(
-    ${TARGET}
-    PROPERTIES
-      LINK_FLAGS_RELEASE
-      "${LINK_FLAGS_RELEASE} tbb12${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll"
-      LINK_FLAGS_DEBUG
-      "${LINK_FLAGS_DEBUG} tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll"
-  )
-endif()
+link_target_with_tbb_library(${TARGET})
+

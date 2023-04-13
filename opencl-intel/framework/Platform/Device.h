@@ -20,14 +20,12 @@
 #include <cl_device_api.h>
 #include <cl_dynamic_lib.h>
 #include <cl_object.h>
-#include <cl_synch_objects.h>
 #include <list>
 #include <map>
+#include <mutex>
 #if defined(DX_MEDIA_SHARING)
 #include <d3d9.h>
 #endif
-
-using namespace Intel::OpenCL::Utils;
 
 namespace Intel {
 namespace OpenCL {
@@ -44,8 +42,6 @@ class OclCommandQueue;
  * Inherit:        OCLObject
  * Description: An artificial base class to support repeated fissioning of
  *              devices
- * Author: Doron Singer
- * Date: March 2011
  ******************************************************************************/
 class FissionableDevice
     : public OCLObject<_cl_device_id_int, _cl_platform_id_int> {
@@ -137,8 +133,6 @@ public:
    *            param_value [out] parameter's value
    *            param_value_size_ret [out] parameter's value return size
    * Return value: CL_SUCCESS - operation succeeded
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   virtual cl_err_code GetInfo(cl_int param_name, size_t param_value_size,
                               void *param_value,
@@ -203,7 +197,7 @@ private:
   cl_context_properties m_iD3DDevType = 0;
 
   std::mutex m_changeDefaultDeviceMutex;
-  AtomicPointer<OclCommandQueue> m_default_command_queue;
+  Utils::AtomicPointer<OclCommandQueue> m_default_command_queue;
 };
 
 /*******************************************************************************
@@ -212,8 +206,6 @@ private:
  * Inherit:        OCLObject
  * Description: This object is a gate from the framework into the openCL device
  *              driver that is implemented by a separate library.
- * Author: Uri Levy
- * Date: December 2008
  ******************************************************************************/
 class Device : public FissionableDevice,
                IOCLDevLogDescriptor,
@@ -233,10 +225,9 @@ public:
    *              pOutDevices [out] the initialized devices
    * Return value:    CL_SUCCESS - operation succeeded
    ****************************************************************************/
-  static cl_err_code
-  CreateAndInitAllDevicesOfDeviceType(const char *psDeviceAgentDllPath,
-                                      _cl_platform_id_int *pClPlatformId,
-                                      vector<SharedPtr<Device>> *pOutDevices);
+  static cl_err_code CreateAndInitAllDevicesOfDeviceType(
+      const char *psDeviceAgentDllPath, _cl_platform_id_int *pClPlatformId,
+      std::vector<SharedPtr<Device>> *pOutDevices);
 
   /*****************************************************************************
    * Function:     GetInfo
@@ -247,8 +238,6 @@ public:
    *            param_value [out] parameter's value
    *            param_value_size_ret [out] parameter's value return size
    * Return value: CL_SUCCESS - operation succeeded
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   cl_err_code GetInfo(cl_int param_name, size_t param_value_size,
                       void *param_value,
@@ -259,8 +248,6 @@ public:
    * Description:    Create a device agent instance
    * Arguments:
    * Return value:    CL_SUCCESS - operation succeeded
-   * Author:        Arnon Peleg
-   * Date:            June 2009
    ****************************************************************************/
   cl_err_code CreateInstance();
 
@@ -271,8 +258,6 @@ public:
    *              to CreateInstance
    * Arguments:
    * Return value:    CL_SUCCESS - operation succeeded
-   * Author: Arnon Peleg
-   * Date: June 2009
    ****************************************************************************/
   cl_err_code CloseDeviceInstance();
 
@@ -282,8 +267,6 @@ public:
    * Arguments:    N/A
    * Return value: pointer to the front-end compiler (null if compiler not
    *               initialized)
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   const SharedPtr<FrontEndCompiler> &GetFrontEndCompiler() const;
 
@@ -340,8 +323,6 @@ protected:
    * Function:     ~Device
    * Description:    The OCLObject class destructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   virtual ~Device();
 
@@ -350,8 +331,6 @@ private:
    * Function:     Device
    * Description:    The Device class constructor
    * Arguments:
-   * Author:        Uri Levy
-   * Date:            December 2008
    ****************************************************************************/
   Device(_cl_platform_id_int *platform);
 
@@ -360,8 +339,6 @@ private:
    * Description:  Init device
    * Arguments:    devId [in] the device id inside specific device type
    * Return value: CL_SUCCESS - operation succeeded
-   * Author:       Uri Levy
-   * Date:         December 2008
    ****************************************************************************/
   cl_err_code InitDevice(unsigned int devId);
 
@@ -383,7 +360,7 @@ private:
   cl_int clLogReleaseClient(cl_int client_id) override;
   cl_int clLogAddLine(cl_int client_id, cl_int log_level,
                       const char *IN source_file, const char *IN function_name,
-                      cl_int IN line_num, const char *IN message, ...) override;
+                      cl_int IN line_num, ...) override;
 
   void InitFECompiler() const;
 
@@ -401,7 +378,7 @@ private:
       m_pDeviceRefCount; // holds the reference count for the associated
                          // IOCLDevice
 
-  mutable Utils::OclSpinMutex m_deviceInitializationMutex;
+  mutable std::recursive_mutex m_deviceInitializationMutex;
 
   std::map<cl_int, Intel::OpenCL::Utils::LoggerClient *>
       m_mapDeviceLoggerClinets; // OpenCL device's logger clients
@@ -449,6 +426,9 @@ public:
 
   ~SubDevice();
 
+  SubDevice(const SubDevice &) = delete;
+  SubDevice &operator=(const SubDevice &) = delete;
+
   /*****************************************************************************
    * Function:     GetInfo
    * Description: get object specific information (inherited from OCLObject) the
@@ -459,8 +439,6 @@ public:
    *            param_value [out] parameter's value
    *            param_value_size_ret[out] parameter's value return size
    * Return value: CL_SUCCESS - operation succeeded
-   * Author: Doron Singer
-   * Date: March 2011
    ****************************************************************************/
   cl_err_code GetInfo(cl_int param_name, size_t param_value_size,
                       void *param_value,
@@ -528,9 +506,6 @@ protected:
       *m_cachedFissionMode; // A copy of the property list used to create this
                             // device
   cl_uint m_cachedFissionLength; // How many entries the list contains
-private:
-  SubDevice(const SubDevice &);
-  SubDevice &operator=(const SubDevice &);
 };
 
 } // namespace Framework

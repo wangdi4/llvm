@@ -32,13 +32,11 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK:       DIR.OMP.SIMD.127:
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT9:%.*]] = insertelement <4 x ptr> poison, ptr [[A:%.*]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT10:%.*]] = shufflevector <4 x ptr> [[BROADCAST_SPLATINSERT9]], <4 x ptr> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[I_LINEAR_IV_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    [[TMP0:%.*]] = load float, ptr [[X_RED]], align 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x float> poison, float [[TMP0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x float> poison, float [[TMP0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x float> [[BROADCAST_SPLATINSERT]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP1:%.*]] = load float, ptr [[X_RED]], align 1
 ; CHECK-NEXT:    [[TMP2:%.*]] = load float, ptr [[X_RED]], align 1
@@ -49,7 +47,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[TMP6:%.*]] = load float, ptr [[X_RED]], align 1
 ; CHECK-NEXT:    [[TMP7:%.*]] = load float, ptr [[X_RED]], align 1
 ; CHECK-NEXT:    [[TMP8:%.*]] = load float, ptr [[X_RED]], align 1
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT28:%.*]] = insertelement <4 x float> poison, float [[TMP8]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT28:%.*]] = insertelement <4 x float> poison, float [[TMP8]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT29:%.*]] = shufflevector <4 x float> [[BROADCAST_SPLATINSERT28]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP9:%.*]] = load float, ptr [[X_RED]], align 1
 ; CHECK-NEXT:    [[TMP10:%.*]] = load float, ptr [[X_RED]], align 1
@@ -58,7 +56,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[I_LINEAR_IV]], align 1
 ; CHECK-NEXT:    [[TMP14:%.*]] = load i32, ptr [[I_LINEAR_IV]], align 1
 ; CHECK-NEXT:    [[TMP15:%.*]] = load i32, ptr [[I_LINEAR_IV]], align 1
-; CHECK-NEXT:    [[IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[TMP12]], i32 0
+; CHECK-NEXT:    [[IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[TMP12]], i64 0
 ; CHECK-NEXT:    [[IND_START_BCAST_SPLAT:%.*]] = shufflevector <4 x i32> [[IND_START_BCAST_SPLATINSERT]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP16:%.*]] = add <4 x i32> [[IND_START_BCAST_SPLAT]], <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    store <4 x i32> [[TMP16]], ptr [[I_LINEAR_IV_VEC]], align 1
@@ -83,25 +81,24 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK:       VPlannedBB9:
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, ptr [[I_LINEAR_IV_VEC]], align 4
 ; CHECK-NEXT:    [[TMP18:%.*]] = sext <4 x i32> [[WIDE_LOAD]] to <4 x i64>
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds float, <4 x ptr> [[BROADCAST_SPLAT10]], <4 x i64> [[TMP18]]
-; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x float> @llvm.masked.gather.v4f32.v4p0(<4 x ptr> [[MM_VECTORGEP]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x float> poison)
+; CHECK-NEXT:    [[TMP18_EXTRACT_0:%.*]] = extractelement <4 x i64> [[TMP18]], i32 0
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, ptr [[A:%.*]], i64 [[TMP18_EXTRACT_0]]
+; CHECK-NEXT:    [[WIDE_LOAD10:%.*]] = load <4 x float>, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD11:%.*]] = load <4 x float>, ptr [[X_RED_VEC]], align 4
-; CHECK-NEXT:    [[TMP19:%.*]] = fcmp fast olt <4 x float> [[WIDE_MASKED_GATHER]], [[WIDE_LOAD11]]
-; CHECK-NEXT:    [[TMP20:%.*]] = select <4 x i1> [[TMP19]], <4 x float> [[WIDE_LOAD11]], <4 x float> [[WIDE_MASKED_GATHER]]
+; CHECK-NEXT:    [[TMP19:%.*]] = fcmp fast olt <4 x float> [[WIDE_LOAD10]], [[WIDE_LOAD11]]
+; CHECK-NEXT:    [[TMP20:%.*]] = select <4 x i1> [[TMP19]], <4 x float> [[WIDE_LOAD11]], <4 x float> [[WIDE_LOAD10]]
 ; CHECK-NEXT:    store <4 x float> [[TMP20]], ptr [[X_RED_VEC]], align 4
 ; CHECK-NEXT:    br label [[VPLANNEDBB13:%.*]]
 ; CHECK:       VPlannedBB13:
-; CHECK-NEXT:    br label [[VPLANNEDBB14:%.*]]
-; CHECK:       VPlannedBB14:
 ; CHECK-NEXT:    [[TMP21]] = add <4 x i32> [[VEC_PHI5]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[TMP22]] = add i32 [[UNI_PHI4]], 4
+; CHECK-NEXT:    br label [[VPLANNEDBB14:%.*]]
+; CHECK:       VPlannedBB14:
 ; CHECK-NEXT:    br label [[VPLANNEDBB15:%.*]]
 ; CHECK:       VPlannedBB15:
-; CHECK-NEXT:    br label [[VPLANNEDBB16:%.*]]
-; CHECK:       VPlannedBB16:
 ; CHECK-NEXT:    [[WIDE_LOAD16:%.*]] = load <4 x float>, ptr [[X_RED_VEC]], align 1
 ; CHECK-NEXT:    [[WIDE_LOAD16_EXTRACT_3_:%.*]] = extractelement <4 x float> [[WIDE_LOAD16]], i32 3
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT19:%.*]] = insertelement <4 x float> poison, float [[WIDE_LOAD16_EXTRACT_3_]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT19:%.*]] = insertelement <4 x float> poison, float [[WIDE_LOAD16_EXTRACT_3_]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT20:%.*]] = shufflevector <4 x float> [[BROADCAST_SPLATINSERT19]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP23:%.*]] = shufflevector <4 x float> [[WIDE_LOAD16]], <4 x float> [[BROADCAST_SPLAT]], <4 x i32> <i32 4, i32 0, i32 1, i32 2>
 ; CHECK-NEXT:    [[TMP25:%.*]] = call <4 x float> @llvm.maxnum.v4f32(<4 x float> [[WIDE_LOAD16]], <4 x float> [[TMP23]])
@@ -110,15 +107,15 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:    [[TMP29:%.*]] = shufflevector <4 x float> [[TMP28]], <4 x float> [[BROADCAST_SPLAT]], <4 x i32> <i32 4, i32 0, i32 1, i32 2>
 ; CHECK-NEXT:    [[TMP31:%.*]] = call <4 x float> @llvm.maxnum.v4f32(<4 x float> [[TMP29]],  <4 x float> [[VEC_PHI3]])
 ; CHECK-NEXT:    [[DOTEXTRACT_3_:%.*]] = extractelement <4 x float> [[TMP31]], i32 3
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT17:%.*]] = insertelement <4 x float> poison, float [[DOTEXTRACT_3_]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT17:%.*]] = insertelement <4 x float> poison, float [[DOTEXTRACT_3_]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT18:%.*]] = shufflevector <4 x float> [[BROADCAST_SPLATINSERT17]], <4 x float> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    store <4 x float> [[TMP31]], ptr [[X_RED_VEC]], align 1
 ; CHECK-NEXT:    [[TMP33:%.*]] = call <4 x float> @llvm.maxnum.v4f32(<4 x float> [[BROADCAST_SPLAT18]], <4 x float> [[BROADCAST_SPLAT20]])
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x float> [[TMP33]], i32 0
+; CHECK-NEXT:    br label [[VPLANNEDBB21:%.*]]
+; CHECK:       VPlannedBB21:
 ; CHECK-NEXT:    br label [[VPLANNEDBB22:%.*]]
 ; CHECK:       VPlannedBB22:
-; CHECK-NEXT:    br label [[VPLANNEDBB23:%.*]]
-; CHECK:       VPlannedBB23:
 ; CHECK-NEXT:    [[WIDE_LOAD23:%.*]] = load <4 x float>, ptr [[X_RED_VEC]], align 4
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, ptr [[B:%.*]], i64 [[UNI_PHI]]
 ; CHECK-NEXT:    store <4 x float> [[WIDE_LOAD23]], ptr [[SCALAR_GEP]], align 4

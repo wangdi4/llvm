@@ -143,6 +143,11 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   if (ProfileTraceFile)
     timeTraceProfilerInitialize(500 /* us */, "libomptarget");
 #endif
+
+#if !INTEL_CUSTOMIZATION
+  PM->RTLs.loadRTLs();
+  PM->registerDelayedLibraries();
+#endif // !INTEL_CUSTOMIZATION
 }
 
 __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
@@ -290,7 +295,7 @@ void RTLsTy::loadRTLs() {
     if (!attemptLoadRTL(BaseRTLName, RTL))
 #else // INTEL_COLLAB
 
-  BoolEnvar NextGenPlugins("LIBOMPTARGET_NEXTGEN_PLUGINS", false);
+  BoolEnvar NextGenPlugins("LIBOMPTARGET_NEXTGEN_PLUGINS", true);
 
   // Attempt to open all the plugins and, if they exist, check if the interface
   // is correct and if they are supporting any devices.
@@ -370,11 +375,8 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
   if (!(*((void **)&RTL.data_delete) =
             DynLibrary->getAddressOfSymbol("__tgt_rtl_data_delete")))
     ValidPlugin = false;
-  if (!(*((void **)&RTL.run_region) =
-            DynLibrary->getAddressOfSymbol("__tgt_rtl_run_target_region")))
-    ValidPlugin = false;
-  if (!(*((void **)&RTL.run_team_region) =
-            DynLibrary->getAddressOfSymbol("__tgt_rtl_run_target_team_region")))
+  if (!(*((void **)&RTL.launch_kernel) =
+            DynLibrary->getAddressOfSymbol("__tgt_rtl_launch_kernel")))
     ValidPlugin = false;
 
   // Invalid plugin
@@ -406,12 +408,10 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
       DynLibrary->getAddressOfSymbol("__tgt_rtl_data_submit_async");
   *((void **)&RTL.data_retrieve_async) =
       DynLibrary->getAddressOfSymbol("__tgt_rtl_data_retrieve_async");
-  *((void **)&RTL.run_region_async) =
-      DynLibrary->getAddressOfSymbol("__tgt_rtl_run_target_region_async");
-  *((void **)&RTL.run_team_region_async) =
-      DynLibrary->getAddressOfSymbol("__tgt_rtl_run_target_team_region_async");
   *((void **)&RTL.synchronize) =
       DynLibrary->getAddressOfSymbol("__tgt_rtl_synchronize");
+  *((void **)&RTL.query_async) =
+      DynLibrary->getAddressOfSymbol("__tgt_rtl_query_async");
   *((void **)&RTL.data_exchange) =
       DynLibrary->getAddressOfSymbol("__tgt_rtl_data_exchange");
   *((void **)&RTL.data_exchange_async) =
@@ -496,10 +496,12 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
     SET_OPTIONAL_INTERFACE_FN(get_device_info);
     SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc_shared);
     SET_OPTIONAL_INTERFACE_FN(prefetch_shared_mem);
+    SET_OPTIONAL_INTERFACE_FN(get_device_from_ptr);
 #if INTEL_CUSTOMIZATION
     SET_OPTIONAL_INTERFACE_FN(flush_queue);
     SET_OPTIONAL_INTERFACE_FN(sync_barrier);
     SET_OPTIONAL_INTERFACE_FN(async_barrier);
+    SET_OPTIONAL_INTERFACE_FN(memcpy_rect_3d);
 #endif
     #undef SET_OPTIONAL_INTERFACE
     #undef SET_OPTIONAL_INTERFACE_FN
@@ -510,6 +512,14 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
       RTL.init_ompt(OmptGlobal);
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
+  *((void **)&RTL.data_lock) =
+      DynLibrary->getAddressOfSymbol("__tgt_rtl_data_lock");
+  *((void **)&RTL.data_unlock) =
+      DynLibrary->getAddressOfSymbol("__tgt_rtl_data_unlock");
+  *((void **)&RTL.data_notify_mapped) =
+      DynLibrary->getAddressOfSymbol("__tgt_rtl_data_notify_mapped");
+  *((void **)&RTL.data_notify_unmapped) =
+      DynLibrary->getAddressOfSymbol("__tgt_rtl_data_notify_unmapped");
 
   RTL.LibraryHandler = std::move(DynLibrary);
 
@@ -777,7 +787,9 @@ void RTLsTy::unregisterLib(__tgt_bin_desc *Desc) {
   DP("Unloading target library!\n");
 
   PM->RTLsMtx.lock();
+#if INTEL_CUSTOMIZATION
   PM->InteropTbl.clear();
+#endif // INTEL_CUSTOMIZATION
   // Find which RTL understands each image, if any.
   for (auto &ImageAndInfo : PM->Images) {
     // Obtain the image and information that was previously extracted.
@@ -805,9 +817,7 @@ void RTLsTy::unregisterLib(__tgt_bin_desc *Desc) {
         if (Device.PendingCtorsDtors[Desc].PendingCtors.empty()) {
           AsyncInfoTy AsyncInfo(Device);
           for (auto &Dtor : Device.PendingCtorsDtors[Desc].PendingDtors) {
-            int Rc = target(nullptr, Device, Dtor, 0, nullptr, nullptr, nullptr,
-                            nullptr, nullptr, nullptr, 1, 1, 0, true /*team*/,
-                            AsyncInfo);
+            int Rc = target(nullptr, Device, Dtor, CTorDTorKernelArgs, AsyncInfo);
             if (Rc != OFFLOAD_SUCCESS) {
               DP("Running destructor " DPxMOD " failed.\n", DPxPTR(Dtor));
             }

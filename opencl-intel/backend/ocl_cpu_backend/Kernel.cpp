@@ -21,9 +21,9 @@
 #include "exceptions.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ImplicitArgsUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/TypeAlignment.h"
 #include <cmath>
 #include <cstring>
 #include <iostream>
@@ -37,6 +37,8 @@
 #else
 #include <ucontext.h>
 #endif
+
+using namespace llvm;
 
 static size_t GCD(size_t a, size_t b) {
   while (1) {
@@ -159,9 +161,7 @@ void Kernel::CreateWorkDescription(UniformKernelArgs *UniformImplicitArgs,
                                    size_t numOfComputeUnits) const {
   // assumption: LocalWorkSize GlobalSize and minWorkGroup already initialized
   size_t max_wg_private_size = m_pProps->GetMaxPrivateMemorySize();
-  size_t maxWorkGroupSize = (m_pProps->TargetDevice() == FPGA_EMU_DEVICE)
-                                ? FPGA_MAX_WORK_GROUP_SIZE
-                                : m_pProps->GetCpuMaxWGSize();
+  size_t maxWorkGroupSize = m_pProps->GetDeviceMaxWGSize();
 
   bool UseAutoGroupSize = true;
   for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
@@ -705,7 +705,6 @@ cl_dev_err_code Kernel::PrepareKernelArguments(
     }
   }
 
-  // FIXME: CSSD1000?????: add a check for OpenCL 2.0
   if (true) { // ocl20
     pKernelUniformImplicitArgs->Block2KernelMapper =
         m_RuntimeService->GetBlockToKernelMapper();
@@ -843,9 +842,9 @@ static void ErrorExit(LPCTSTR lpszFunction) {
                                (LPTSTR)MessageBuffer + BufferLength);
       // TODO: use LOG_ERROR (It needs to implement LogErrorW since backend
       // library is built with UNICODE)
-      llvm::errs() << "\n"
-                   << FunctionName << " failed with error " << LastError << ": "
-                   << ErrorMessage << "\n";
+      errs() << "\n"
+             << FunctionName << " failed with error " << LastError << ": "
+             << ErrorMessage << "\n";
       LocalFree(MessageBuffer);
     }
     ExitProcess(LastError);

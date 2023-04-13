@@ -154,7 +154,7 @@ public:
       AllZeroBypassRegionsTy &AllZeroBypassRegions,
       RegionsCollectedTy &RegionsCollected,
       VPlanCostModelInterface *CM = nullptr,
-      Optional<unsigned> VF = std::nullopt);
+      std::optional<unsigned> VF = std::nullopt);
 
   /// Collect regions of blocks that are safe/profitable for all-zero bypass
   /// insertion for loops.

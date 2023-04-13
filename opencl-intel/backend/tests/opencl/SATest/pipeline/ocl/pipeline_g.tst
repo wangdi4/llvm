@@ -2,7 +2,7 @@
 
 ; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
-; CHECK-NEXT: Running pass: DPCPPEqualizerPass
+; CHECK-NEXT: Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
 ; CHECK-NEXT: Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
@@ -15,7 +15,7 @@
 
 ; CHECK:      Running pass: InstCombinePass
 
-; CHECK:      Running analysis: DPCPPAliasAnalysis
+; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK:      Running pass: InstSimplifyPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
@@ -46,7 +46,7 @@
 
 ; CHECK:      Running pass: InstCombinePass
 
-; CHECK:      Running analysis: DPCPPAliasAnalysis
+; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK:      Running pass: JumpThreadingPass
 
@@ -94,7 +94,7 @@
 ; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: DetectRecursionPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module>
+; CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ImplicitArgsAnalysis, llvm::Module
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK-NEXT: Running pass: InferAddressSpacesPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
@@ -102,7 +102,7 @@
 ; CHECK-NEXT: Running pass: EarlyCSEPass
 ; CHECK-NEXT: Running pass: PromotePass
 ; CHECK-NEXT: Running pass: InstCombinePass
-; CHECK-NEXT: Running pass: TaskSeqAsyncHandling
+; CHECK-NEXT: Running pass: TaskSeqAsyncHandling  ;INTEL
 ; CHECK-NEXT: Running pass: ResolveMatrixFillPass
 ; CHECK-NEXT: Running pass: ResolveMatrixLayoutPass
 ; CHECK-NEXT: Running pass: ResolveMatrixWISlicePass
@@ -111,7 +111,7 @@
 ; CHECK-NEXT: Running pass: InstToFuncCallPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernelsPass
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
-; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
+; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: WGLoopBoundariesPass
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
@@ -136,7 +136,7 @@
 
 ; CHECK:      Running pass: InstCombinePass
 
-; CHECK:      Running analysis: DPCPPAliasAnalysis
+; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK:      Running pass: GVNHoistPass
 
@@ -150,7 +150,7 @@
 
 ; CHECK:      Running pass: InstCombinePass
 
-; CHECK:      Running analysis: DPCPPAliasAnalysis
+; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK:      Running pass: GVNHoistPass
 
@@ -166,7 +166,7 @@
 ; CHECK-NEXT: Running pass: CreateSimdVariantPropagation
 ; CHECK-NEXT: Running pass: SGSizeCollectorPass
 ; CHECK-NEXT: Running pass: SGSizeCollectorIndirectPass
-; CHECK-NEXT: Running pass: DPCPPKernelVecClonePass
+; CHECK-NEXT: Running pass: SYCLKernelVecClonePass
 ; CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{[llvm::]*}}FunctionAnalysisManager, {{[llvm::]*}}Module>
 ; CHECK-NEXT: Invalidating analysis: VFAnalysis
 ; CHECK-NEXT: Invalidating analysis: CallGraphAnalysis
@@ -207,13 +207,13 @@
 ; CHECK-NEXT: Running pass: LoopSimplifyPass
 ; CHECK-NEXT: Running pass: LCSSAPass
 
-; CHECK:      Running analysis: DPCPPAliasAnalysis
+; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK:      Running pass: LICMPass
 ; CHECK-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-NEXT: Running pass: vpo::VPlanDriverPass
 
-; CHECK:      Running pass: DPCPPKernelPostVecPass
+; CHECK:      Running pass: SYCLKernelPostVecPass
 ; CHECK-NEXT: Running pass: VPODirectiveCleanupPass
 ; CHECK-NEXT: Running pass: InstCombinePass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
@@ -267,23 +267,20 @@
 ; CHECK:      Running pass: ImplicitGIDPass
 ; CHECK-NEXT: Running analysis: DataPerBarrierAnalysis
 
-; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK:      Running pass: SYCLKernelWGLoopCreatorPass
 
-; CHECK:      Running pass: IndirectCallLowering
-
-; CHECK:      Running pass: DCEPass
-
-; CHECK:      Running pass: SimplifyCFGPass
+; CHECK:      Running pass: IndirectCallLowering ;INTEL
 
 ; CHECK:      Running pass: DCEPass
 
 ; CHECK:      Running pass: SimplifyCFGPass
 
-; CHECK:      Running pass: RemoveRegionDirectivesPass
-; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
-; CHECK-NEXT: Running pass: RemoveRegionDirectivesPass
-; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
-; CHECK-NEXT: Running pass: ReplaceScalarWithMaskPass
+; CHECK:      Running pass: DCEPass
+
+; CHECK:      Running pass: SimplifyCFGPass
+
+; CHECK:      Running pass: UnifyFunctionExitNodesPass
+; CHECK:      Running pass: ReplaceScalarWithMaskPass
 ; CHECK-NEXT: Running pass: ResolveSubGroupWICallPass
 ; CHECK-NEXT: Running pass: DCEPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
@@ -334,7 +331,7 @@
 ; CHECK:      Running pass: LoopSimplifyPass
 ; CHECK-NEXT: Running pass: LCSSAPass
 
-; CHECK:      Running analysis: DPCPPAliasAnalysis
+; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK:      Running pass: LICMPass
 ; CHECK:      Running pass: BuiltinLICMPass
@@ -359,7 +356,6 @@
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
-; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK:      Running pass: LocalBuffersPass
 ; CHECK:      Invalidating analysis: ImplicitArgsAnalysis
 ; CHECK:      Invalidating analysis: LocalBufferAnalysis
@@ -375,7 +371,7 @@
 
 ; CHECK:      Running pass: ModuleInlinerWrapperPass
 ; CHECK:      Running pass: InlinerPass
-; CHECK:      Running analysis: DPCPPAliasAnalysis
+; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK: Clearing all analysis results for: WG.boundaries.test
 ; CHECK-NEXT: Clearing all analysis results for: (WG.boundaries.test)
@@ -416,7 +412,7 @@
 
 ; CHECK:      Running pass: InstCombinePass
 
-; CHECK:      Running analysis: DPCPPAliasAnalysis
+; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK:      Running pass: DSEPass
 
@@ -429,7 +425,7 @@
 
 ; CHECK:      Running pass: InstCombinePass
 
-; CHECK:      Running analysis: DPCPPAliasAnalysis
+; CHECK:      Running analysis: SYCLAliasAnalysis
 
 ; CHECK:      Running pass: DSEPass
 

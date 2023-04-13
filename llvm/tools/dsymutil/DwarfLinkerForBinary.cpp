@@ -18,13 +18,11 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/BinaryFormat/MachO.h"
@@ -83,6 +81,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/TargetParser/Triple.h"
 #include <algorithm>
 #include <cassert>
 #include <cinttypes>
@@ -410,7 +409,7 @@ void DwarfLinkerForBinary::collectRelocationsToApplyToSwiftReflectionSections(
     }
 
     auto CalculateAddressOfSymbolInDwarfSegment =
-        [&]() -> llvm::Optional<int64_t> {
+        [&]() -> std::optional<int64_t> {
       auto Symbol = It->getSymbol();
       auto SymbolAbsoluteAddress = Symbol->getAddress();
       if (!SymbolAbsoluteAddress)
@@ -446,7 +445,7 @@ void DwarfLinkerForBinary::collectRelocationsToApplyToSwiftReflectionSections(
 
     bool ShouldSubtractDwarfVM = false;
     // For the second symbol there are two possibilities.
-    llvm::Optional<int64_t> SecondSymbolAddress;
+    std::optional<int64_t> SecondSymbolAddress;
     auto Sym = It->getSymbol();
     if (Sym != MO->symbol_end()) {
       Expected<StringRef> SymbolName = Sym->getName();
@@ -543,7 +542,7 @@ void DwarfLinkerForBinary::copySwiftReflectionMetadata(
       // place.
       SectionToOffsetInDwarf[SectionKind] += Section.getSize();
       Streamer->emitSwiftReflectionSection(SectionKind, *SectionContents,
-                                           Section.getAlignment(),
+                                           Section.getAlignment().value(),
                                            Section.getSize());
     }
   }
@@ -1005,7 +1004,8 @@ bool DwarfLinkerForBinary::AddressManager::isLiveSubprogram(
 
   dwarf::Form Form = Abbrev->getFormByIndex(*LowPcIdx);
 
-  if (Form == dwarf::DW_FORM_addr) {
+  switch (Form) {
+  case dwarf::DW_FORM_addr: {
     uint64_t Offset = DIE.getOffset() + getULEB128Size(Abbrev->getCode());
     uint64_t LowPcOffset, LowPcEndOffset;
     std::tie(LowPcOffset, LowPcEndOffset) =
@@ -1013,8 +1013,11 @@ bool DwarfLinkerForBinary::AddressManager::isLiveSubprogram(
     return hasValidRelocationAt(ValidDebugInfoRelocs, LowPcOffset,
                                 LowPcEndOffset, MyInfo);
   }
-
-  if (Form == dwarf::DW_FORM_addrx) {
+  case dwarf::DW_FORM_addrx:
+  case dwarf::DW_FORM_addrx1:
+  case dwarf::DW_FORM_addrx2:
+  case dwarf::DW_FORM_addrx3:
+  case dwarf::DW_FORM_addrx4: {
     std::optional<DWARFFormValue> AddrValue = DIE.find(dwarf::DW_AT_low_pc);
     if (std::optional<uint64_t> AddrOffsetSectionBase =
             DIE.getDwarfUnit()->getAddrOffsetSectionBase()) {
@@ -1023,11 +1026,14 @@ bool DwarfLinkerForBinary::AddressManager::isLiveSubprogram(
           StartOffset + DIE.getDwarfUnit()->getAddressByteSize();
       return hasValidRelocationAt(ValidDebugAddrRelocs, StartOffset, EndOffset,
                                   MyInfo);
-    } else
-      Linker.reportWarning("no base offset for address table", SrcFileName);
-  }
+    }
 
-  return false;
+    Linker.reportWarning("no base offset for address table", SrcFileName);
+    return false;
+  }
+  default:
+    return false;
+  }
 }
 
 uint64_t
@@ -1062,19 +1068,6 @@ bool DwarfLinkerForBinary::AddressManager::applyValidRelocs(
   }
 
   return Relocs.size() > 0;
-}
-
-llvm::Expected<uint64_t>
-DwarfLinkerForBinary::AddressManager::relocateIndexedAddr(uint64_t StartOffset,
-                                                          uint64_t EndOffset) {
-  std::vector<ValidReloc> Relocs =
-      getRelocations(ValidDebugAddrRelocs, StartOffset, EndOffset);
-  if (Relocs.size() == 0)
-    return createStringError(
-        std::make_error_code(std::errc::invalid_argument),
-        "no relocation for offset %llu in debug_addr section", StartOffset);
-
-  return relocate(Relocs[0]);
 }
 
 bool linkDwarf(raw_fd_ostream &OutFile, BinaryHolder &BinHolder,

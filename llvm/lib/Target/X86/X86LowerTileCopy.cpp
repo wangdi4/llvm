@@ -1,4 +1,21 @@
 //===-- X86LowerTileCopy.cpp - Expand Tile Copy Instructions---------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -31,6 +48,7 @@
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 
 using namespace llvm;
 
@@ -47,6 +65,14 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   bool runOnMachineFunction(MachineFunction &MF) override;
+#if INTEL_CUSTOMIZATION
+  bool coalesceTileCopy(MachineFunction &MF);
+  bool transformTileCopy(MachineFunction &MF);
+
+  bool replaceTileReg(MachineBasicBlock::iterator Begin,
+                      MachineBasicBlock::iterator End,
+                      Register CopySrcReg, Register CopyDstReg);
+#endif // INTEL_CUSTOMIZATION
 
   StringRef getPassName() const override { return "X86 Lower Tile Copy"; }
 };
@@ -69,7 +95,63 @@ FunctionPass *llvm::createX86LowerTileCopyPass() {
   return new X86LowerTileCopy();
 }
 
-bool X86LowerTileCopy::runOnMachineFunction(MachineFunction &MF) {
+#if INTEL_CUSTOMIZATION
+bool X86LowerTileCopy::replaceTileReg(MachineBasicBlock::iterator Begin,
+                                      MachineBasicBlock::iterator End,
+                                      Register CopySrcReg,
+                                      Register CopyDstReg) {
+  for (MachineBasicBlock::iterator MII = Begin; MII != End; MII++) {
+    MachineInstr &MI = *MII;
+    if (MI.getOpcode() == X86::PLDTILECFGV)
+      break;
+
+    for (unsigned I = 0; I < MI.getNumOperands(); I++) {
+      MachineOperand &MO = MI.getOperand(I);
+      if (!MO.isReg())
+        continue;
+      Register Reg = MO.getReg();
+      if (Reg != CopyDstReg)
+        continue;
+
+      assert(MI.getOpcode() == X86::PTILESTOREDV && "Only expected tilestore!");
+      MO.setReg(CopySrcReg);
+      return true;
+    }
+  }
+  return false;
+}
+
+// In O0, COPY of tile should be coalesced in fast register allocation.
+// But for sub-reg of tile-pair, COPY didn't coalesced. These COPYs do
+// nothing but just will be store after the key-amx instruction. Here to
+// escape config these COPY dest tile registers, we coalesce them.
+bool X86LowerTileCopy::coalesceTileCopy(MachineFunction &MF) {
+  bool Changed = false;
+  for (MachineBasicBlock &MBB : MF) {
+    SmallVector<MachineInstr *> TileCopies;
+    for (MachineBasicBlock::iterator MII = MBB.begin(), MIE = MBB.end();
+         MII != MIE;) {
+      MachineInstr &MI = *MII++;
+      if (!MI.isCopy())
+        continue;
+      MachineOperand &DstMO = MI.getOperand(0);
+      MachineOperand &SrcMO = MI.getOperand(1);
+      Register SrcReg = SrcMO.getReg();
+      Register DstReg = DstMO.getReg();
+      if (!X86::TILERegClass.contains(DstReg, SrcReg))
+        continue;
+      replaceTileReg(MII, MIE, SrcReg, DstReg);
+      TileCopies.push_back(&MI);
+      Changed = true;
+    }
+
+    for (auto *MI : TileCopies)
+      MBB.erase(MI);
+  }
+  return Changed;
+}
+
+bool X86LowerTileCopy::transformTileCopy(MachineFunction &MF) {
   const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
   const X86InstrInfo *TII = ST.getInstrInfo();
   bool Changed = false;
@@ -128,3 +210,11 @@ bool X86LowerTileCopy::runOnMachineFunction(MachineFunction &MF) {
   }
   return Changed;
 }
+
+bool X86LowerTileCopy::runOnMachineFunction(MachineFunction &MF) {
+  if (MF.getTarget().getOptLevel() == CodeGenOpt::None)
+    return coalesceTileCopy(MF);
+  else
+    return transformTileCopy(MF);
+}
+#endif // INTEL_CUSTOMIZATION

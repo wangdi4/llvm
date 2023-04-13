@@ -34,7 +34,7 @@ define i32 @sub(i32 %a) #1 {
   ret i32 %sub
 }
 
-define i32 @main(i32 %argc, i8** nocapture readnone %argv) #1 {
+define i32 @main(i32 %argc, ptr nocapture readnone %argv) #1 {
   %call1 = call i32 @add(i32 %argc)
   %call2 = call i32 @sub(i32 %call1)
   ret i32 %call2

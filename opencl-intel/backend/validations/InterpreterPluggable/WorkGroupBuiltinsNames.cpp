@@ -13,8 +13,8 @@
 // License.
 
 #include "WorkGroupBuiltinsNames.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ParameterType.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 
 using namespace llvm;
 using namespace llvm::NameMangleAPI;

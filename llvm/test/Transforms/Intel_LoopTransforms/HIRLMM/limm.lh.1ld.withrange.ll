@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-lmm,print<hir>" -hir-details -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-lmm,print<hir>" -hir-details -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 ;
 ;[Notes]
 ; - Although there is a !range metadata attached to the load of B[0][0], LIMM still triggers on the store of B[0][0]

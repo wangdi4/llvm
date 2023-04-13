@@ -189,26 +189,9 @@ void test_array_sections(unsigned long n, unsigned long m) {
   // Typed array sections arguments are:
   // p# %vla, <type specifier>, i# %number_of_elements, i# %offset_in_elements
 
-//CHECK: [[AI:%.*]] = getelementptr inbounds [[YT]], [[YT]]* [[Y_ARRAY]], i64 0, i64 7
-//CHECK-NEXT: [[AI1:%.*]] = getelementptr inbounds [42 x [100 x i32]], [42 x [100 x i32]]* [[AI]], i64 0, i64 0
-//CHECK-NEXT: [[ARRAYDECAY:%.*]] = getelementptr inbounds [100 x i32], [100 x i32]* [[AI1]], i64 0, i64 0
-//CHECK-NEXT: [[AI2:%.*]] = getelementptr inbounds i32, i32* [[ARRAYDECAY]], i64 0
-//CHECK-NEXT: [[SEC_BASE_CAST:%.*]] = ptrtoint [[YT]]* [[Y_ARRAY]] to i64
-//CHECK-NEXT: [[SEC_LOWER_CAST:%.*]] = ptrtoint i32* [[AI2]] to i64
-//CHECK-NEXT: [[AI3:%.*]] = getelementptr inbounds [[YT]], [[YT]]* [[Y_ARRAY]], i64 0, i64 7
-//CHECK-NEXT: [[AI4:%.*]] = getelementptr inbounds [42 x [100 x i32]], [42 x [100 x i32]]* [[AI3]], i64 0, i64 5
-//CHECK-NEXT: [[ARRAYDECAY5:%.*]] = getelementptr inbounds [100 x i32], [100 x i32]* [[AI4]], i64 0, i64 0
-//CHECK-NEXT: [[AI6:%.*]] = getelementptr inbounds i32, i32* [[ARRAYDECAY5]], i64 99
-//CHECK-NEXT: [[SEC_UPPER_CAST:%.*]] = ptrtoint i32* [[AI6]] to i64
-//CHECK-NEXT: [[TMP0:%.*]] = sub i64 [[SEC_UPPER_CAST]], [[SEC_LOWER_CAST]]
-//CHECK-NEXT: [[TMP1:%.*]] = sdiv exact i64 [[TMP0]], 4
-//CHECK-NEXT: [[SEC_NUMBER_OF_ELEMENTS:%.*]] = add i64 [[TMP1]], 1
-//CHECK-NEXT: [[TMP2:%.*]] = sub i64 [[SEC_LOWER_CAST]], [[SEC_BASE_CAST]]
-//CHECK-NEXT: [[SEC_OFFSET_IN_ELEMENTS:%.*]] = sdiv exact i64 [[TMP2]], 4
 //CHECK: "DIR.OMP.PARALLEL.LOOP"()
 //CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"
-//CHECK-SAME: [[YT]]* [[Y_ARRAY]], i32 0,
-//CHECK-SAME: i64 [[SEC_NUMBER_OF_ELEMENTS]], i64 [[SEC_OFFSET_IN_ELEMENTS]])
+//CHECK-SAME: [[YT]]* [[Y_ARRAY]], i32 0, i64 600, i64 29400)
   #pragma omp parallel for reduction(+:y_Array[7][:6][:]) // 7 * 42 * 100 + 0 * 100+0
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 4; j++) {
@@ -219,17 +202,9 @@ void test_array_sections(unsigned long n, unsigned long m) {
   }
 //CHECK: "DIR.OMP.END.PARALLEL.LOOP"()
 
-//CHECK: [[AI:%.*]] = getelementptr inbounds [[YT]], [[YT]]* [[Y_ARRAY]], i64 0, i64 6
-//CHECK: [[AI1:%.*]] = getelementptr inbounds [42 x [100 x i32]], [42 x [100 x i32]]* [[AI]], i64 0, i64 21
-//CHECK: [[AI2:%.*]] = getelementptr inbounds [100 x i32], [100 x i32]* [[AI1]], i64 0, i64 4
-//CHECK: [[SEC_BASE_CAST:%sec.base.cast.*]] = ptrtoint [[YT]]* [[Y_ARRAY]] to i64
-//CHECK: [[SEC_LOWER_CAST:%.*]] = ptrtoint i32* [[AI2]] to i64
-//CHECK: [[TMP0:%.*]] = sub i64 [[SEC_LOWER_CAST]], [[SEC_BASE_CAST]]
-//CHECK: [[SEC_OFFSET_IN_ELEMENTS:%.*]] = sdiv exact i64 [[TMP0]], 4
 //CHECK: "DIR.OMP.PARALLEL.LOOP"()
 //CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:ARRSECT.TYPED"
-//CHECK-SAME: [[YT]]* [[Y_ARRAY]], i32 0, i64 1,
-//CHECK-SAME: i64 [[SEC_OFFSET_IN_ELEMENTS]])
+//CHECK-SAME: [[YT]]* [[Y_ARRAY]], i32 0, i64 1, i64 27304)
 #pragma omp parallel for reduction(+:y_Array[6][21][4])
 for (int i = 0; i < 3; i++) {
   for (int j = 0; j < 4; j++) {

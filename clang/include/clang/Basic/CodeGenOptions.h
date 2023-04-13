@@ -77,6 +77,7 @@ public:
     LIBMVEC,           // GLIBC vector math library.
     MASSV,             // IBM MASS vector library.
     SVML,              // Intel short vector math library.
+    SLEEF,             // SLEEF SIMD Library for Evaluating Elementary Functions.
     Darwin_libsystem_m // Use Darwin's libsytem_m vector functions.
   };
 
@@ -171,6 +172,19 @@ public:
     All,         // Keep all frame pointers.
   };
 
+  static StringRef getFramePointerKindName(FramePointerKind Kind) {
+    switch (Kind) {
+    case FramePointerKind::None:
+      return "none";
+    case FramePointerKind::NonLeaf:
+      return "non-leaf";
+    case FramePointerKind::All:
+      return "all";
+    }
+
+    llvm_unreachable("invalid FramePointerKind");
+  }
+
   enum class SwiftAsyncFramePointerKind {
     Auto, // Choose Swift async extended frame info based on deployment target.
     Always, // Unconditionally emit Swift async extended frame info.
@@ -194,6 +208,13 @@ public:
 
   /// The code model to use (-mcmodel).
   std::string CodeModel;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_MARKERCOUNT
+  /// Override the marker count kind for the functions in the file.
+  std::string OverrideMarkerCountFile;
+#endif // INTEL_FEATURE_MARKERCOUNT
+#endif // INTEL_CUSTOMIZATION
 
   /// The filename with path we use for coverage data files. The runtime
   /// allows further manipulation with the GCOV_PREFIX and GCOV_PREFIX_STRIP
@@ -455,6 +476,11 @@ public:
   /// (files, functions) listed for instrumentation by sanitizer
   /// coverage pass should actually not be instrumented.
   std::vector<std::string> SanitizeCoverageIgnorelistFiles;
+
+  /// Path to ignorelist file specifying which objects
+  /// (files, functions) listed for instrumentation by sanitizer
+  /// binary metadata pass should not be instrumented.
+  std::vector<std::string> SanitizeMetadataIgnorelistFiles;
 
   /// Name of the stack usage file (i.e., .su file) if user passes
   /// -fstack-usage. If empty, it can be implied that -fstack-usage is not

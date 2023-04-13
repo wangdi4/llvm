@@ -25,6 +25,7 @@
 #include "cl_shared_ptr.hpp"
 #include "task_executor.h"
 
+// FIXME 'using namespace' shouldn't be used in header file.
 using namespace Intel::OpenCL::TaskExecutor;
 using Intel::OpenCL::Utils::AtomicCounter;
 using Intel::OpenCL::Utils::SharedPtr;

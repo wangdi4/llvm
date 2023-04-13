@@ -30,7 +30,7 @@
 ;Function: sub_
 
 ; CHECK:      BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, 20 * (zext.i32.i64(%"sub_$N3_fetch.2") * sext.i32.i64(%"sub_$N1_fetch.1")) + -1, 1   <DO_LOOP> <MAX_TC_EST = 2147483647>
+; CHECK:           + DO i1 = 0, 20 * (zext.i32.i64(%"sub_$N3_fetch.2") * sext.i32.i64(%"sub_$N1_fetch.1")) + -1, 1   <DO_LOOP>
 ; CHECK:           |   (%"sub_$A")[0][0][i1] = 1.000000e+00;
 ; CHECK:           + END LOOP
 ;
@@ -59,7 +59,7 @@
 ;Function: sub_
 
 ;<0>          BEGIN REGION { modified }
-;<54>               + DO i1 = 0, 20 * (zext.i32.i64(%"sub_$N3_fetch.2") * sext.i32.i64(%"sub_$N1_fetch.1")) + -1, 1   <DO_LOOP> <MAX_TC_EST = 2147483647>
+;<54>               + DO i1 = 0, 20 * (zext.i32.i64(%"sub_$N3_fetch.2") * sext.i32.i64(%"sub_$N1_fetch.1")) + -1, 1   <DO_LOOP>
 ;<25>               |   (%"sub_$A")[0:0:160 * sext.i32.i64(%"sub_$N1_fetch.1")(double*:0)][0:0:8 * sext.i32.i64(%"sub_$N1_fetch.1")(double*:0)][0:i1:8(double*:0)] = 1.000000e+00;
 ;<54>               + END LOOP
 ;<54>

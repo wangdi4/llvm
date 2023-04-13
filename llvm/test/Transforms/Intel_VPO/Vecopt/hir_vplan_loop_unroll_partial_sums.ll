@@ -32,7 +32,7 @@ define float @foo(float* %lp, float %init) {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], cloned.[[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div] float [[VP2:%.*]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP3:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] float [[VP4:%.*]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP5:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP7:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP7:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP9:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[LP0:%.*]] i64 [[VP8]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]

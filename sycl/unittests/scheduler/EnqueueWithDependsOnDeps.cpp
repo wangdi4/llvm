@@ -20,10 +20,7 @@
 using namespace sycl;
 using EventImplPtr = std::shared_ptr<detail::event_impl>;
 
-constexpr auto DisablePostEnqueueCleanupName =
-    "SYCL_DISABLE_POST_ENQUEUE_CLEANUP";
-constexpr auto DisableExecutionGraphCleanupName =
-    "SYCL_DISABLE_EXECUTION_GRAPH_CLEANUP";
+constexpr auto DisableCleanupName = "SYCL_DISABLE_EXECUTION_GRAPH_CLEANUP";
 
 std::vector<std::pair<pi_uint32, const pi_event *>> PassedNumEvents;
 
@@ -155,8 +152,8 @@ protected:
 
   unittest::PiMock Mock;
   unittest::ScopedEnvVar DisabledCleanup{
-      DisablePostEnqueueCleanupName, "1",
-      detail::SYCLConfig<detail::SYCL_DISABLE_POST_ENQUEUE_CLEANUP>::reset};
+      DisableCleanupName, "1",
+      detail::SYCLConfig<detail::SYCL_DISABLE_EXECUTION_GRAPH_CLEANUP>::reset};
   MockScheduler MS;
 
   detail::QueueImplPtr QueueDevImpl;
@@ -301,11 +298,9 @@ inline pi_result redefinedextUSMEnqueueMemcpy(pi_queue queue, pi_bool blocking,
                                               const pi_event *events_waitlist,
                                               pi_event *event) {
   *event = createDummyHandle<pi_event>();
-
   for (auto i = 0u; i < num_events_in_waitlist; i++) {
     EventsInWaitList.push_back(events_waitlist[i]);
   }
-
   return PI_SUCCESS;
 }
 
@@ -313,28 +308,22 @@ inline pi_result redefinedEnqueueEventsWaitWithBarrier(
     pi_queue command_queue, pi_uint32 num_events_in_wait_list,
     const pi_event *event_wait_list, pi_event *event) {
   *event = createDummyHandle<pi_event>();
-
   for (auto i = 0u; i < num_events_in_wait_list; i++) {
     EventsInWaitList.push_back(event_wait_list[i]);
   }
-
   return PI_SUCCESS;
 }
 
 TEST_F(DependsOnTests, ShortcutFunctionWithWaitList) {
-  unittest::ScopedEnvVar ExecutionCleanup{
-      DisableExecutionGraphCleanupName, "1",
-      detail::SYCLConfig<detail::SYCL_DISABLE_EXECUTION_GRAPH_CLEANUP>::reset};
   Mock.redefineBefore<detail::PiApiKind::piextUSMEnqueueMemcpy>(
       redefinedextUSMEnqueueMemcpy);
-
   sycl::queue Queue = detail::createSyclObjFromImpl<queue>(QueueDevImpl);
+
   auto HostTaskEvent =
       Queue.submit([&](sycl::handler &cgh) { cgh.host_task([=]() {}); });
   std::shared_ptr<detail::event_impl> HostTaskEventImpl =
       detail::getSyclObjImpl(HostTaskEvent);
   HostTaskEvent.wait();
-
   auto *Cmd = static_cast<detail::Command *>(HostTaskEventImpl->getCommand());
   ASSERT_NE(Cmd, nullptr);
   Cmd->MIsBlockable = true;
@@ -362,26 +351,21 @@ TEST_F(DependsOnTests, ShortcutFunctionWithWaitList) {
   EXPECT_NE(SingleTaskEventImpl->getHandleRef(), nullptr);
   ASSERT_EQ(EventsInWaitList.size(), 1u);
   EXPECT_EQ(EventsInWaitList[0], SingleTaskEventImpl->getHandleRef());
-
   Queue.wait();
   sycl::free(FirstBuf, Queue);
   sycl::free(SecondBuf, Queue);
 }
 
 TEST_F(DependsOnTests, BarrierWithWaitList) {
-  unittest::ScopedEnvVar ExecutionCleanup{
-      DisableExecutionGraphCleanupName, "1",
-      detail::SYCLConfig<detail::SYCL_DISABLE_EXECUTION_GRAPH_CLEANUP>::reset};
   Mock.redefineBefore<detail::PiApiKind::piEnqueueEventsWaitWithBarrier>(
       redefinedEnqueueEventsWaitWithBarrier);
-
   sycl::queue Queue = detail::createSyclObjFromImpl<queue>(QueueDevImpl);
+
   auto HostTaskEvent =
       Queue.submit([&](sycl::handler &cgh) { cgh.host_task([=]() {}); });
   std::shared_ptr<detail::event_impl> HostTaskEventImpl =
       detail::getSyclObjImpl(HostTaskEvent);
   HostTaskEvent.wait();
-
   auto *Cmd = static_cast<detail::Command *>(HostTaskEventImpl->getCommand());
   ASSERT_NE(Cmd, nullptr);
   Cmd->MIsBlockable = true;
@@ -402,6 +386,5 @@ TEST_F(DependsOnTests, BarrierWithWaitList) {
   EXPECT_NE(SingleTaskEventImpl->getHandleRef(), nullptr);
   ASSERT_EQ(EventsInWaitList.size(), 1u);
   EXPECT_EQ(EventsInWaitList[0], SingleTaskEventImpl->getHandleRef());
-
   Queue.wait();
 }

@@ -83,9 +83,10 @@ private:
   public:
     OwningModuleContainer() {}
     ~OwningModuleContainer() {
-      freeModulePtrSet(AddedModules);
-      freeModulePtrSet(LoadedModules);
-      freeModulePtrSet(FinalizedModules);
+      // CPUProgram::ReleaseExecutionEngine() should remove all modules
+      assert(AddedModules.empty() && LoadedModules.empty() &&
+             FinalizedModules.empty() &&
+             "Module set is not removed after program is released!");
     }
 
     ModulePtrSet::iterator begin_added() { return AddedModules.begin(); }
@@ -180,15 +181,6 @@ private:
     ModulePtrSet AddedModules;
     ModulePtrSet LoadedModules;
     ModulePtrSet FinalizedModules;
-
-    void freeModulePtrSet(ModulePtrSet &MPS) {
-      // Go through the module set and delete everything.
-      for (ModulePtrSet::iterator I = MPS.begin(), E = MPS.end(); I != E; ++I) {
-        llvm::Module *M = *I;
-        delete M;
-      }
-      MPS.clear();
-    }
   };
 
   std::string Triple;

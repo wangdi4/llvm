@@ -217,7 +217,11 @@ struct MangledNameEmmiter {
     build(code, std::string(fileName));
     std::unique_ptr<llvm::Module> pModule =
         llvm::parseIRFile(fileName.str(), errDiagnostic, context);
-    assert(pModule && "module parsing failed");
+    if (!pModule) {
+      llvm::errs() << "Failed to parse " << fileName << ": "
+                   << errDiagnostic.getMessage() << "\n";
+      exit(1);
+    }
     // deleting the temporary output file
     remove(fileName.c_str());
     llvm::Module::const_iterator it = pModule->begin(), e = pModule->end();

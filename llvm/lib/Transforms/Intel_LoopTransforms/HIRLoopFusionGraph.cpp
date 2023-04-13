@@ -1,6 +1,6 @@
 //===- HIRLoopFusionGraph.cpp - Implements Loop Fusion Graph --------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -325,14 +325,6 @@ static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
     return 0;
   }
 
-  if (!HLNodeUtils::dominates(Loop1, Loop2)) {
-    return 0;
-  }
-
-  if (!HLNodeUtils::postDominates(Loop2, Loop1)) {
-    return 0;
-  }
-
   // TODO: Allow only loops with special ZTTs for now. This needs to be improved.
   if (!canHandleZtt(Loop1, Loop2, UBDist)) {
     return 0;
@@ -573,6 +565,10 @@ void FuseGraph::initPathToInfo(NodeMapTy &LocalPathFrom,
 
 void FuseGraph::excludePathPreventingVectorization(unsigned NodeV,
                                                     unsigned NodeW) {
+  if (SkipVecProfitabilityCheck) {
+    return;
+  }
+
   // Skip fusion if one loop is vectorizable and another is not.
   bool NodeVVectorizable = Vertex[NodeV].isVectorizable();
   bool NodeWVectorizable = Vertex[NodeW].isVectorizable();
@@ -1007,15 +1003,18 @@ void FuseGraph::collapse(FuseEdgeHeap &Heap, unsigned NodeV,
   }
 }
 
-RefinedDependence FuseGraph::refineDependency(DDRef *Src, DDRef *Dst,
+RefinedDependence FuseGraph::refineDependency(const DDEdge &Edge,
                                               unsigned CommonLevel,
                                               unsigned MaxLevel) const {
-  auto RefinedDep = DDA.refineDV(Dst, Src, CommonLevel, MaxLevel, true);
+  auto RefinedDep = DDA.refineDV(&Edge, CommonLevel, MaxLevel, true);
 
   LLVM_DEBUG(dbgs() << "Forward dep: ");
-  LLVM_DEBUG(DDA.refineDV(Src, Dst, CommonLevel, MaxLevel, true).dump());
+  // There is no interface to get refined DV for forward depenency for fusion as
+  // it was only used in debug dumps. We can consider one in the future, if
+  // needed.
+  LLVM_DEBUG(Edge.getDV().dump());
   LLVM_DEBUG(dbgs() << "Backward dep: ");
-  LLVM_DEBUG(RefinedDep.print(dbgs()));
+  LLVM_DEBUG(RefinedDep.dump());
 
   return RefinedDep;
 }
@@ -1168,8 +1167,7 @@ bool FuseGraph::isLegalDependency(const DDEdge &Edge,
 
   assert(CanonExpr::isValidLoopLevel(MinMaxLevel.second));
 
-  auto RefinedDep =
-      refineDependency(SrcRef, DstRef, CommonLevel, MinMaxLevel.second);
+  auto RefinedDep = refineDependency(Edge, CommonLevel, MinMaxLevel.second);
 
   if (RefinedDep.isIndependent()) {
     return true;
@@ -1591,10 +1589,15 @@ FuseGraph FuseGraph::create(HIRDDAnalysis &DDA, HIRLoopStatistics &HLS,
   if (HLRegion *Region = dyn_cast<HLRegion>(ParentNode)) {
     DDG = DDA.getGraph(Region);
   } else if (HLLoop *Loop = dyn_cast<HLLoop>(ParentNode)) {
+    assert(!Loop->isInnermost() && "Fusion trying to analyze innermost loop's "
+                                   "children as fusion candidates!!");
     DDG = DDA.getGraph(Loop);
   } else {
     HLLoop *ParentLoop = ParentNode->getParentLoop();
     if (ParentLoop) {
+      assert(!ParentLoop->isInnermost() &&
+             "Fusion trying to analyze innermost loop's children as fusion "
+             "candidates!");
       DDG = DDA.getGraph(ParentLoop);
     } else {
       DDG = DDA.getGraph(ParentNode->getParentRegion());

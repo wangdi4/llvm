@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2022 Intel Corporation.
+// Copyright 2012-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,29 +15,16 @@
 #pragma once
 
 #include "Compiler.h"
+#include "OptimizerConfig.h"
 #include "debuggingservicetype.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
-
-#include <vector>
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
 enum class DebugLogging { None, Normal, Quiet, Verbose };
-
-namespace intel {
-class OptimizerConfig;
-}
-
-namespace llvm {
-class Pass;
-class Module;
-class Function;
-class ModulePass;
-class LLVMContext;
-} // namespace llvm
 
 namespace Intel {
 namespace OpenCL {
@@ -90,8 +77,13 @@ public:
 
   static llvm::ArrayRef<llvm::VectItem> getVectInfos();
 
-  static const StringSet<> &getVPlanMaskedFuncs();
+  /// Initialize cl::opt options in Optimizer.
+  static void initOptimizerOptions();
+  static DebugLogging getDebugPM();
+  static bool getDisableVPlanCM(); // INTEL
+  static bool getVerifyEachPass();
 
+  static const llvm::StringSet<> &getVPlanMaskedFuncs(); // INTEL
 protected:
   /// Register OCLDiagnosticHandler callback to LLVMContext.
   void setDiagnosticHandler(llvm::raw_ostream &LogStream);
@@ -104,7 +96,7 @@ protected:
 
   const intel::OptimizerConfig &Config;
 
-  StringRef CPUPrefix;
+  llvm::StringRef CPUPrefix;
 
   /// True if OpenCL version is greater or equal to 2.0.
   bool m_IsOcl20;

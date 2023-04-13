@@ -24,7 +24,7 @@ define void @test(i64* nocapture %ary) {
 ; CHECK-NEXT:    br label %[[PEEL_CHECKZ0:.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  [[PEEL_CHECKZ0]]:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64*> poison, i64* [[ARY0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64*> poison, i64* [[ARY0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i64*> [[BROADCAST_SPLATINSERT0]], <4 x i64*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint <4 x i64*> [[BROADCAST_SPLAT0]] to <4 x i64>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
@@ -58,7 +58,7 @@ define void @test(i64* nocapture %ary) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
-; CHECK-NEXT:    [[UNI_PHIIND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI0]], i32 0
+; CHECK-NEXT:    [[UNI_PHIIND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI0]], i64 0
 ; CHECK-NEXT:    [[UNI_PHIIND_START_BCAST_SPLAT0:%.*]] = shufflevector <4 x i64> [[UNI_PHIIND_START_BCAST_SPLATINSERT0]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP9:%.*]] = add <4 x i64> [[UNI_PHIIND_START_BCAST_SPLAT0]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[N_ADJST0:%.*]] = sub nuw nsw i64 1027, [[TMP3]]

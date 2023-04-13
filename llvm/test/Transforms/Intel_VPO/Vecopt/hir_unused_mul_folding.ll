@@ -3,28 +3,54 @@
 ; Test to check that we don't fold unused add. If we fold it then in some cases
 ; we can create an empty loop which leads to verification errors.
 ;
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec" -disable-hir-aggressive-redundant-loop-removal -print-after=hir-vplan-vec %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-vec-dir-insert,hir-vplan-vec" -disable-hir-aggressive-redundant-loop-removal -print-after=hir-vplan-vec -hir-details %s 2>&1 | FileCheck %s
 
 define void @foo(i1 %c, i64 %t, i64* %A, i64* %B) {
 ; CHECK-LABEL:  Function: foo
 ; CHECK-EMPTY:
-; CHECK-NEXT:  BEGIN REGION { modified }
-; CHECK-NEXT:        if ([[C0:%.*]] != 0)
-; CHECK-NEXT:        {
-; CHECK-NEXT:           (<4 x i64>*)([[A0:%.*]])[0] = (3 * <i64 0, i64 1, i64 2, i64 3>)/u2
-; CHECK-NEXT:           (<4 x i64>*)([[A0]])[4] = (3 * <i64 0, i64 1, i64 2, i64 3> + 12)/u2
-; CHECK-NEXT:           (<4 x i64>*)([[A0]])[8] = (3 * <i64 0, i64 1, i64 2, i64 3> + 24)/u2
-; CHECK-NEXT:        }
-; CHECK-NEXT:        else
-; CHECK-NEXT:        {
-; CHECK-NEXT:           [[DOTVEC0:%.*]] = <i64 0, i64 1, i64 2, i64 3>  *  -3
-; CHECK-NEXT:           [[DOTSCAL0:%.*]] = 0  *  -3
-; CHECK-NEXT:           [[DOTVEC0]] = <i64 0, i64 1, i64 2, i64 3> + 4  *  -3
-; CHECK-NEXT:           [[DOTSCAL0]] = 4  *  -3
-; CHECK-NEXT:           [[DOTVEC0]] = <i64 0, i64 1, i64 2, i64 3> + 8  *  -3
-; CHECK-NEXT:           [[DOTSCAL0]] = 8  *  -3
-; CHECK-NEXT:        }
-; CHECK-NEXT:  END REGION
+; CHECK-NEXT:   BEGIN REGION { modified }
+; CHECK-NEXT:         if ([[C0:%.*]] != 0)
+; CHECK:              {
+; CHECK:                 [[VEC0:%.*]] = -3 * <i64 0, i64 1, i64 2, i64 3>  /u  -2;
+; CHECK-NEXT:            <LVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
+; CHECK-NEXT:            <RVAL-REG> LINEAR <4 x i64> -3 * <i64 0, i64 1, i64 2, i64 3> {sb:2}
+; CHECK:                 (<4 x i64>*)([[A0:%.*]])[0] = [[VEC0]];
+; CHECK-NEXT:            <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR i64* [[A0]])[i64 0] inbounds  {sb:11}
+; CHECK-NEXT:            <BLOB> LINEAR i64* [[A0]] {sb:8}
+; CHECK-NEXT:            <RVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
+; CHECK:                 [[VEC0]] = -3 * <i64 0, i64 1, i64 2, i64 3> + -12  /u  -2;
+; CHECK-NEXT:            <LVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
+; CHECK-NEXT:            <RVAL-REG> LINEAR <4 x i64> -3 * <i64 0, i64 1, i64 2, i64 3> + -12 {sb:2}
+; CHECK:                 (<4 x i64>*)([[A0]])[4] = [[VEC0]];
+; CHECK-NEXT:            <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR i64* [[A0]])[i64 4] inbounds  {sb:11}
+; CHECK-NEXT:            <BLOB> LINEAR i64* [[A0]] {sb:8}
+; CHECK-NEXT:            <RVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
+; CHECK:                 [[VEC0]] = -3 * <i64 0, i64 1, i64 2, i64 3> + -24  /u  -2;
+; CHECK-NEXT:            <LVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
+; CHECK-NEXT:            <RVAL-REG> LINEAR <4 x i64> -3 * <i64 0, i64 1, i64 2, i64 3> + -24 {sb:2}
+; CHECK:                 (<4 x i64>*)([[A0]])[8] = [[VEC0]];
+; CHECK-NEXT:            <LVAL-REG> {al:4}(<4 x i64>*)(LINEAR i64* [[A0]])[i64 8] inbounds  {sb:11}
+; CHECK-NEXT:            <BLOB> LINEAR i64* [[A0]] {sb:8}
+; CHECK-NEXT:            <RVAL-REG> NON-LINEAR <4 x i64> [[VEC0]] {sb:14}
+; CHECK:              }
+; CHECK-NEXT:         else
+; CHECK-NEXT:         {
+; CHECK-NEXT:            [[DOTVEC0:%.*]] = <i64 0, i64 1, i64 2, i64 3>  *  -3;
+; CHECK-NEXT:            <LVAL-REG> NON-LINEAR <4 x i64> [[DOTVEC0]] {sb:17}
+; CHECK:                 [[SCAL0:%.*]] = 0  *  -3;
+; CHECK-NEXT:            <LVAL-REG> NON-LINEAR i64 [[SCAL0]] {sb:18}
+; CHECK:                 [[DOTVEC0]] = <i64 0, i64 1, i64 2, i64 3> + 4  *  -3;
+; CHECK-NEXT:            <LVAL-REG> NON-LINEAR <4 x i64> [[DOTVEC0]] {sb:17}
+; CHECK-NEXT:            <RVAL-REG> LINEAR <4 x i64> <i64 0, i64 1, i64 2, i64 3> + 4 {sb:2}
+; CHECK:                 [[SCAL0]] = 4  *  -3;
+; CHECK-NEXT:            <LVAL-REG> NON-LINEAR i64 [[SCAL0]] {sb:18}
+; CHECK:                 [[DOTVEC0]] = <i64 0, i64 1, i64 2, i64 3> + 8  *  -3;
+; CHECK-NEXT:            <LVAL-REG> NON-LINEAR <4 x i64> [[DOTVEC0]] {sb:17}
+; CHECK-NEXT:            <RVAL-REG> LINEAR <4 x i64> <i64 0, i64 1, i64 2, i64 3> + 8 {sb:2}
+; CHECK:                 [[SCAL0]] = 8  *  -3;
+; CHECK-NEXT:            <LVAL-REG> NON-LINEAR i64 [[SCAL0]] {sb:18}
+; CHECK:              }
+; CHECK-NEXT:   END REGION
 ;
 entry:
   br label %loop

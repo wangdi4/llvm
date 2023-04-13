@@ -88,6 +88,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRLoopPeeling.cpp
         HIRLowerSmallMemsetMemcpy.cpp
         HIRNormalizeCasts.cpp
+        HIRSpecialOptPredicate.cpp
 # INTEL_FEATURE_SW_ADVANCED
         HIRInterLoopBlocking.cpp
         HIRCrossLoopArrayContraction.cpp
@@ -108,6 +109,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         Core
         Intel_LoopAnalysis
         Support
+        TargetParser
         TransformUtils
         )
 

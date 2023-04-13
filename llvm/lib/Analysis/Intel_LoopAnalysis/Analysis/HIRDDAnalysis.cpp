@@ -1,6 +1,6 @@
 //===---- HIRDDAnalysis.cpp - Provides Data Dependence Analysis -----------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -161,10 +161,6 @@ bool HIRDDAnalysisWrapperPass::runOnFunction(Function &F) {
   }
 
   if (auto *Pass = getAnalysisIfAvailable<StdContainerAAWrapperPass>()) {
-    AAR->addAAResult(Pass->getResult());
-  }
-
-  if (auto *Pass = getAnalysisIfAvailable<AndersensAAWrapperPass>()) {
     AAR->addAAResult(Pass->getResult());
   }
 
@@ -702,41 +698,72 @@ bool HIRDDAnalysis::isRefinableDepAtLevel(const DDEdge *Edge,
   return true;
 }
 
-RefinedDependence HIRDDAnalysis::refineDV(const DDRef *SrcDDRef,
-                                          const DDRef *DstDDRef,
+RefinedDependence HIRDDAnalysis::refineDV(const DDEdge *Edge,
                                           unsigned StartNestingLevel,
                                           unsigned DeepestNestingLevel,
                                           bool ForFusion) const {
+  assert((!ForFusion || Edge->isForwardDep()) &&
+         "Fusion is only expected to refine backward edges!");
 
   RefinedDependence Dep;
 
+  // Flip src/dst if we are refining for fusion as we are interested in backward
+  // dependency.
+  const DDRef *DstDDRef = ForFusion ? Edge->getSrc() : Edge->getSink();
   const RegDDRef *RegRef = dyn_cast<RegDDRef>(DstDDRef);
 
-  if (RegRef && !(RegRef->isTerminalRef())) {
-    DDTest DT(*AAR, RegRef->getHLDDNode()->getHLNodeUtils());
+  if (!RegRef || (RegRef->isTerminalRef())) {
+    return Dep;
+  }
 
-    DirectionVector &InputDV = Dep.getDV();
-    //  For Start = 3, Deepest = 3, when testing for innermost loop dep,
-    //  DV constructed: (= = * ...)
-    InputDV.setAsInput(StartNestingLevel, DeepestNestingLevel);
+  // If we are refining for the innermost loop and the DV at that level is '='
+  // and the edge is lexically backward, then the dependency is carried by an
+  // outer loop so we can return 'independent'. Note that this also handles
+  // self-output edges as they are classified as backward.
+  //
+  // For example, this ANTI edge in the following loopnest should be
+  // refined as independant-
+  //
+  // (%A)[0][i2] --> (%A)[0][i2] ANTI (* =)
+  //
+  // + DO i1 = 0, 9, 1   <DO_LOOP>
+  // |   + DO i2 = 0, 31, 1   <DO_LOOP>
+  // |   |   (%A)[0][i2] = 0;
+  // |   |   (%dst)[i1 + i2] = (%A)[0][i2];
+  // |   + END LOOP
+  // + END LOOP
 
-    auto Result = DT.depends(SrcDDRef, DstDDRef, InputDV, false, ForFusion);
+  if (!ForFusion && (StartNestingLevel == DeepestNestingLevel) &&
+      Edge->isBackwardDep() &&
+      (Edge->getDVAtLevel(StartNestingLevel) == DVKind::EQ)) {
+    Dep.setIndependent();
+    return Dep;
+  }
 
-    if (Result != nullptr) {
-      Dep.setRefined();
+  DDTest DT(*AAR, RegRef->getHLDDNode()->getHLNodeUtils());
 
-      DirectionVector &RefinedDV = Dep.getDV();
-      DistanceVector &RefinedDistV = Dep.getDist();
+  DirectionVector &InputDV = Dep.getDV();
+  //  For Start = 3, Deepest = 3, when testing for innermost loop dep,
+  //  DV constructed: (= = * ...)
+  InputDV.setAsInput(StartNestingLevel, DeepestNestingLevel);
 
-      RefinedDV.resize(Result->getLevels());
-      RefinedDistV.resize(Result->getLevels());
-      for (unsigned I = 1, E = Result->getLevels(); I <= E; ++I) {
-        RefinedDV[I - 1] = Result->getDirection(I);
-        RefinedDistV[I - 1] = DT.mapDVToDist(RefinedDV[I - 1], I, *Result);
-      }
-    } else {
-      Dep.setIndependent();
+  auto Result = DT.depends(ForFusion ? Edge->getSink() : Edge->getSrc(),
+                           DstDDRef, InputDV, false, ForFusion);
+
+  if (Result != nullptr) {
+    Dep.setRefined();
+
+    DirectionVector &RefinedDV = Dep.getDV();
+    DistanceVector &RefinedDistV = Dep.getDist();
+
+    RefinedDV.resize(Result->getLevels());
+    RefinedDistV.resize(Result->getLevels());
+    for (unsigned I = 1, E = Result->getLevels(); I <= E; ++I) {
+      RefinedDV[I - 1] = Result->getDirection(I);
+      RefinedDistV[I - 1] = DT.mapDVToDist(RefinedDV[I - 1], I, *Result);
     }
+  } else {
+    Dep.setIndependent();
   }
 
   return Dep;

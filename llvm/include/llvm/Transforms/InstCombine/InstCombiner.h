@@ -275,7 +275,7 @@ public:
     return ConstantExpr::getSub(C, ConstantInt::get(C->getType(), 1));
   }
 
-  llvm::Optional<std::pair<
+  std::optional<std::pair<
       CmpInst::Predicate,
       Constant *>> static getFlippedStrictnessPredicateAndConstant(CmpInst::
                                                                        Predicate
@@ -340,9 +340,10 @@ public:
 
   /// Given i1 V, can every user of V be freely adapted if V is changed to !V ?
   /// InstCombine's freelyInvertAllUsersOf() must be kept in sync with this fn.
+  /// NOTE: for Instructions only!
   ///
   /// See also: isFreeToInvert()
-  static bool canFreelyInvertAllUsersOf(Value *V, Value *IgnoredUser) {
+  static bool canFreelyInvertAllUsersOf(Instruction *V, Value *IgnoredUser) {
     // Look at every user of V.
     for (Use &U : V->uses()) {
       if (U.getUser() == IgnoredUser)
@@ -465,8 +466,8 @@ public:
     assert(New && !New->getParent() &&
            "New instruction already inserted into a basic block!");
     BasicBlock *BB = Old.getParent();
-    New->insertAt(BB, Old.getIterator()); // Insert inst
-    Worklist.push(New);
+    New->insertInto(BB, Old.getIterator()); // Insert inst
+    Worklist.add(New);
     return New;
   }
 
@@ -485,8 +486,7 @@ public:
   Instruction *replaceInstUsesWith(Instruction &I, Value *V) {
     // If there are no uses to replace, then we return nullptr to indicate that
     // no changes were made to the program.
-    if (I.use_empty())
-      return nullptr;
+    if (I.use_empty()) return nullptr;
 
     Worklist.pushUsersToWorkList(I); // Add all modified instrs to worklist.
 
@@ -497,6 +497,10 @@ public:
 
     LLVM_DEBUG(dbgs() << "IC: Replacing " << I << "\n"
                       << "    with " << *V << '\n');
+
+    // If V is a new unnamed instruction, take the name from the old one.
+    if (V->use_empty() && isa<Instruction>(V) && !V->hasName() && I.hasName())
+      V->takeName(&I);
 
     I.replaceAllUsesWith(V);
     return &I;

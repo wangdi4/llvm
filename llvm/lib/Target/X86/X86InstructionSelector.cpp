@@ -197,6 +197,19 @@ X86InstructionSelector::getRegClass(LLT Ty, const RegisterBank &RB) const {
       return &X86::GR64RegClass;
   }
   if (RB.getID() == X86::VECRRegBankID) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (Ty.getSizeInBits() == 16)
+      return STI.hasAVX3() ? &X86::FR16XRegClass : &X86::FR16RegClass;
+    if (Ty.getSizeInBits() == 32)
+      return STI.hasAVX3() ? &X86::FR32XRegClass : &X86::FR32RegClass;
+    if (Ty.getSizeInBits() == 64)
+      return STI.hasAVX3() ? &X86::FR64XRegClass : &X86::FR64RegClass;
+    if (Ty.getSizeInBits() == 128)
+      return STI.hasAVX3() ? &X86::VR128XRegClass : &X86::VR128RegClass;
+    if (Ty.getSizeInBits() == 256)
+      return STI.hasAVX3() ? &X86::VR256XRegClass : &X86::VR256RegClass;
+#else // INTEL_FEATURE_ISA_AVX256P
     if (Ty.getSizeInBits() == 16)
       return STI.hasAVX512() ? &X86::FR16XRegClass : &X86::FR16RegClass;
     if (Ty.getSizeInBits() == 32)
@@ -207,6 +220,8 @@ X86InstructionSelector::getRegClass(LLT Ty, const RegisterBank &RB) const {
       return STI.hasAVX512() ? &X86::VR128XRegClass : &X86::VR128RegClass;
     if (Ty.getSizeInBits() == 256)
       return STI.hasAVX512() ? &X86::VR256XRegClass : &X86::VR256RegClass;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
     if (Ty.getSizeInBits() == 512)
       return &X86::VR512RegClass;
   }

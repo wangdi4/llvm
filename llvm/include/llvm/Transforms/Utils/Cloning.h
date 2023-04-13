@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -153,7 +153,8 @@ BasicBlock *CloneBasicBlock(const BasicBlock *BB, ValueToValueMapTy &VMap,
 /// \pre VMap contains no non-identity GlobalValue mappings.
 ///
 Function *CloneFunction(Function *F, ValueToValueMapTy &VMap,
-                        ClonedCodeInfo *CodeInfo = nullptr);
+                        ClonedCodeInfo *CodeInfo = nullptr,        // INTEL
+                        bool StopAfterCloningDeclaration = false); // INTEL
 
 enum class CloneFunctionChangeType {
   LocalChangesOnly,
@@ -192,7 +193,8 @@ void CloneFunctionInto(Function *NewFunc, const Function *OldFunc,
                        const char *NameSuffix = "",
                        ClonedCodeInfo *CodeInfo = nullptr,
                        ValueMapTypeRemapper *TypeMapper = nullptr,
-                       ValueMaterializer *Materializer = nullptr);
+                       ValueMaterializer *Materializer = nullptr, // INTEL
+                       bool StopAfterCloningDeclaration = false); // INTEL
 
 void CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFunc,
                                const Instruction *StartingInst,
@@ -223,18 +225,15 @@ void CloneAndPruneFunctionInto(Function *NewFunc, const Function *OldFunc,
 class InlineFunctionInfo {
 public:
   explicit InlineFunctionInfo(
-      CallGraph *cg = nullptr,
       function_ref<AssumptionCache &(Function &)> GetAssumptionCache = nullptr,
       ProfileSummaryInfo *PSI = nullptr,
       BlockFrequencyInfo *CallerBFI = nullptr,
       BlockFrequencyInfo *CalleeBFI = nullptr, bool UpdateProfile = true)
-      : CG(cg), GetAssumptionCache(GetAssumptionCache), PSI(PSI),
-        CallerBFI(CallerBFI), CalleeBFI(CalleeBFI),
-        UpdateProfile(UpdateProfile) {}
+      : GetAssumptionCache(GetAssumptionCache), PSI(PSI), CallerBFI(CallerBFI),
+        CalleeBFI(CalleeBFI), UpdateProfile(UpdateProfile) {}
 
   /// If non-null, InlineFunction will update the callgraph to reflect the
   /// changes it makes.
-  CallGraph *CG;
   function_ref<AssumptionCache &(Function &)> GetAssumptionCache;
   ProfileSummaryInfo *PSI;
   BlockFrequencyInfo *CallerBFI, *CalleeBFI;
@@ -291,7 +290,7 @@ Loop *cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
                              SmallVectorImpl<BasicBlock *> &Blocks);
 
 /// Remaps instructions in \p Blocks using the mapping in \p VMap.
-void remapInstructionsInBlocks(const SmallVectorImpl<BasicBlock *> &Blocks,
+void remapInstructionsInBlocks(ArrayRef<BasicBlock *> Blocks,
                                ValueToValueMapTy &VMap);
 
 /// Split edge between BB and PredBB and duplicate all non-Phi instructions

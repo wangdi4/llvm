@@ -18,7 +18,7 @@ define amdgpu_kernel void @break_loop(i32 %arg) #0 {
 ; OPT-NEXT:    [[CMP0:%.*]] = icmp slt i32 [[LSR_IV_NEXT]], 0
 ; OPT-NEXT:    br i1 [[CMP0]], label [[BB4:%.*]], label [[FLOW]]
 ; OPT:       bb4:
-; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, i32 addrspace(1)* undef, align 4
+; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, ptr addrspace(1) undef, align 4
 ; OPT-NEXT:    [[CMP1:%.*]] = icmp sge i32 [[MY_TMP]], [[LOAD]]
 ; OPT-NEXT:    br label [[FLOW]]
 ; OPT:       Flow:
@@ -78,7 +78,7 @@ bb1:
   br i1 %cmp0, label %bb4, label %bb9
 
 bb4:
-  %load = load volatile i32, i32 addrspace(1)* undef, align 4
+  %load = load volatile i32, ptr addrspace(1) undef, align 4
   %cmp1 = icmp slt i32 %my.tmp, %load
   br i1 %cmp1, label %bb1, label %bb9
 
@@ -99,7 +99,7 @@ define amdgpu_kernel void @undef_phi_cond_break_loop(i32 %arg) #0 {
 ; OPT-NEXT:    [[CMP0:%.*]] = icmp slt i32 [[LSR_IV_NEXT]], 0
 ; OPT-NEXT:    br i1 [[CMP0]], label [[BB4:%.*]], label [[FLOW]]
 ; OPT:       bb4:
-; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, i32 addrspace(1)* undef, align 4
+; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, ptr addrspace(1) undef, align 4
 ; OPT-NEXT:    [[CMP1:%.*]] = icmp sge i32 [[MY_TMP]], [[LOAD]]
 ; OPT-NEXT:    br label [[FLOW]]
 ; OPT:       Flow:
@@ -110,7 +110,7 @@ define amdgpu_kernel void @undef_phi_cond_break_loop(i32 %arg) #0 {
 ; OPT-NEXT:    br i1 [[TMP1]], label [[BB9:%.*]], label [[BB1]]
 ; OPT:       bb9:
 ; OPT-NEXT:    call void @llvm.amdgcn.end.cf.i64(i64 [[TMP0]])
-; OPT-NEXT:    store volatile i32 7, i32 addrspace(3)* undef, align 4
+; OPT-NEXT:    store volatile i32 7, ptr addrspace(3) undef, align 4
 ; OPT-NEXT:    ret void
 ;
 ; GCN-LABEL: undef_phi_cond_break_loop:
@@ -161,7 +161,7 @@ bb1:                                              ; preds = %Flow, %bb
   br i1 %cmp0, label %bb4, label %Flow
 
 bb4:                                              ; preds = %bb1
-  %load = load volatile i32, i32 addrspace(1)* undef, align 4
+  %load = load volatile i32, ptr addrspace(1) undef, align 4
   %cmp1 = icmp sge i32 %my.tmp, %load
   br label %Flow
 
@@ -171,7 +171,7 @@ Flow:                                             ; preds = %bb4, %bb1
   br i1 %my.tmp3, label %bb9, label %bb1
 
 bb9:                                              ; preds = %Flow
-  store volatile i32 7, i32 addrspace(3)* undef
+  store volatile i32 7, ptr addrspace(3) undef
   ret void
 }
 
@@ -191,18 +191,18 @@ define amdgpu_kernel void @constexpr_phi_cond_break_loop(i32 %arg) #0 {
 ; OPT-NEXT:    [[CMP0:%.*]] = icmp slt i32 [[LSR_IV_NEXT]], 0
 ; OPT-NEXT:    br i1 [[CMP0]], label [[BB4:%.*]], label [[FLOW]]
 ; OPT:       bb4:
-; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, i32 addrspace(1)* undef, align 4
+; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, ptr addrspace(1) undef, align 4
 ; OPT-NEXT:    [[CMP1:%.*]] = icmp sge i32 [[MY_TMP]], [[LOAD]]
 ; OPT-NEXT:    br label [[FLOW]]
 ; OPT:       Flow:
 ; OPT-NEXT:    [[MY_TMP2]] = phi i32 [ [[LSR_IV_NEXT]], [[BB4]] ], [ undef, [[BB1]] ]
-; OPT-NEXT:    [[MY_TMP3:%.*]] = phi i1 [ [[CMP1]], [[BB4]] ], [ icmp ne (i32 addrspace(3)* inttoptr (i32 4 to i32 addrspace(3)*), i32 addrspace(3)* @lds), [[BB1]] ]
+; OPT-NEXT:    [[MY_TMP3:%.*]] = phi i1 [ [[CMP1]], [[BB4]] ], [ icmp ne (ptr addrspace(3) inttoptr (i32 4 to ptr addrspace(3)), ptr addrspace(3) @lds), [[BB1]] ]
 ; OPT-NEXT:    [[TMP0]] = call i64 @llvm.amdgcn.if.break.i64(i1 [[MY_TMP3]], i64 [[PHI_BROKEN]])
 ; OPT-NEXT:    [[TMP1:%.*]] = call i1 @llvm.amdgcn.loop.i64(i64 [[TMP0]])
 ; OPT-NEXT:    br i1 [[TMP1]], label [[BB9:%.*]], label [[BB1]]
 ; OPT:       bb9:
 ; OPT-NEXT:    call void @llvm.amdgcn.end.cf.i64(i64 [[TMP0]])
-; OPT-NEXT:    store volatile i32 7, i32 addrspace(3)* undef, align 4
+; OPT-NEXT:    store volatile i32 7, ptr addrspace(3) undef, align 4
 ; OPT-NEXT:    ret void
 ;
 ; GCN-LABEL: constexpr_phi_cond_break_loop:
@@ -253,17 +253,17 @@ bb1:                                              ; preds = %Flow, %bb
   br i1 %cmp0, label %bb4, label %Flow
 
 bb4:                                              ; preds = %bb1
-  %load = load volatile i32, i32 addrspace(1)* undef, align 4
+  %load = load volatile i32, ptr addrspace(1) undef, align 4
   %cmp1 = icmp sge i32 %my.tmp, %load
   br label %Flow
 
 Flow:                                             ; preds = %bb4, %bb1
   %my.tmp2 = phi i32 [ %lsr.iv.next, %bb4 ], [ undef, %bb1 ]
-  %my.tmp3 = phi i1 [ %cmp1, %bb4 ], [ icmp ne (i32 addrspace(3)* inttoptr (i32 4 to i32 addrspace(3)*), i32 addrspace(3)* @lds), %bb1 ]
+  %my.tmp3 = phi i1 [ %cmp1, %bb4 ], [ icmp ne (ptr addrspace(3) inttoptr (i32 4 to ptr addrspace(3)), ptr addrspace(3) @lds), %bb1 ]
   br i1 %my.tmp3, label %bb9, label %bb1
 
 bb9:                                              ; preds = %Flow
-  store volatile i32 7, i32 addrspace(3)* undef
+  store volatile i32 7, ptr addrspace(3) undef
   ret void
 }
 
@@ -280,7 +280,7 @@ define amdgpu_kernel void @true_phi_cond_break_loop(i32 %arg) #0 {
 ; OPT-NEXT:    [[CMP0:%.*]] = icmp slt i32 [[LSR_IV_NEXT]], 0
 ; OPT-NEXT:    br i1 [[CMP0]], label [[BB4:%.*]], label [[FLOW]]
 ; OPT:       bb4:
-; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, i32 addrspace(1)* undef, align 4
+; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, ptr addrspace(1) undef, align 4
 ; OPT-NEXT:    [[CMP1:%.*]] = icmp sge i32 [[MY_TMP]], [[LOAD]]
 ; OPT-NEXT:    br label [[FLOW]]
 ; OPT:       Flow:
@@ -291,7 +291,7 @@ define amdgpu_kernel void @true_phi_cond_break_loop(i32 %arg) #0 {
 ; OPT-NEXT:    br i1 [[TMP1]], label [[BB9:%.*]], label [[BB1]]
 ; OPT:       bb9:
 ; OPT-NEXT:    call void @llvm.amdgcn.end.cf.i64(i64 [[TMP0]])
-; OPT-NEXT:    store volatile i32 7, i32 addrspace(3)* undef, align 4
+; OPT-NEXT:    store volatile i32 7, ptr addrspace(3) undef, align 4
 ; OPT-NEXT:    ret void
 ;
 ; GCN-LABEL: true_phi_cond_break_loop:
@@ -342,7 +342,7 @@ bb1:                                              ; preds = %Flow, %bb
   br i1 %cmp0, label %bb4, label %Flow
 
 bb4:                                              ; preds = %bb1
-  %load = load volatile i32, i32 addrspace(1)* undef, align 4
+  %load = load volatile i32, ptr addrspace(1) undef, align 4
   %cmp1 = icmp sge i32 %my.tmp, %load
   br label %Flow
 
@@ -352,7 +352,7 @@ Flow:                                             ; preds = %bb4, %bb1
   br i1 %my.tmp3, label %bb9, label %bb1
 
 bb9:                                              ; preds = %Flow
-  store volatile i32 7, i32 addrspace(3)* undef
+  store volatile i32 7, ptr addrspace(3) undef
   ret void
 }
 
@@ -369,7 +369,7 @@ define amdgpu_kernel void @false_phi_cond_break_loop(i32 %arg) #0 {
 ; OPT-NEXT:    [[CMP0:%.*]] = icmp slt i32 [[LSR_IV_NEXT]], 0
 ; OPT-NEXT:    br i1 [[CMP0]], label [[BB4:%.*]], label [[FLOW]]
 ; OPT:       bb4:
-; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, i32 addrspace(1)* undef, align 4
+; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, ptr addrspace(1) undef, align 4
 ; OPT-NEXT:    [[CMP1:%.*]] = icmp sge i32 [[MY_TMP]], [[LOAD]]
 ; OPT-NEXT:    br label [[FLOW]]
 ; OPT:       Flow:
@@ -380,7 +380,7 @@ define amdgpu_kernel void @false_phi_cond_break_loop(i32 %arg) #0 {
 ; OPT-NEXT:    br i1 [[TMP1]], label [[BB9:%.*]], label [[BB1]]
 ; OPT:       bb9:
 ; OPT-NEXT:    call void @llvm.amdgcn.end.cf.i64(i64 [[TMP0]])
-; OPT-NEXT:    store volatile i32 7, i32 addrspace(3)* undef, align 4
+; OPT-NEXT:    store volatile i32 7, ptr addrspace(3) undef, align 4
 ; OPT-NEXT:    ret void
 ;
 ; GCN-LABEL: false_phi_cond_break_loop:
@@ -431,7 +431,7 @@ bb1:                                              ; preds = %Flow, %bb
   br i1 %cmp0, label %bb4, label %Flow
 
 bb4:                                              ; preds = %bb1
-  %load = load volatile i32, i32 addrspace(1)* undef, align 4
+  %load = load volatile i32, ptr addrspace(1) undef, align 4
   %cmp1 = icmp sge i32 %my.tmp, %load
   br label %Flow
 
@@ -441,7 +441,7 @@ Flow:                                             ; preds = %bb4, %bb1
   br i1 %my.tmp3, label %bb9, label %bb1
 
 bb9:                                              ; preds = %Flow
-  store volatile i32 7, i32 addrspace(3)* undef
+  store volatile i32 7, ptr addrspace(3) undef
   ret void
 }
 
@@ -461,7 +461,7 @@ define amdgpu_kernel void @invert_true_phi_cond_break_loop(i32 %arg) #0 {
 ; OPT-NEXT:    [[CMP0:%.*]] = icmp slt i32 [[LSR_IV_NEXT]], 0
 ; OPT-NEXT:    br i1 [[CMP0]], label [[BB4:%.*]], label [[FLOW]]
 ; OPT:       bb4:
-; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, i32 addrspace(1)* undef, align 4
+; OPT-NEXT:    [[LOAD:%.*]] = load volatile i32, ptr addrspace(1) undef, align 4
 ; OPT-NEXT:    [[CMP1:%.*]] = icmp sge i32 [[MY_TMP]], [[LOAD]]
 ; OPT-NEXT:    br label [[FLOW]]
 ; OPT:       Flow:
@@ -473,7 +473,7 @@ define amdgpu_kernel void @invert_true_phi_cond_break_loop(i32 %arg) #0 {
 ; OPT-NEXT:    br i1 [[TMP1]], label [[BB9:%.*]], label [[BB1]]
 ; OPT:       bb9:
 ; OPT-NEXT:    call void @llvm.amdgcn.end.cf.i64(i64 [[TMP0]])
-; OPT-NEXT:    store volatile i32 7, i32 addrspace(3)* undef, align 4
+; OPT-NEXT:    store volatile i32 7, ptr addrspace(3) undef, align 4
 ; OPT-NEXT:    ret void
 ;
 ; GCN-LABEL: invert_true_phi_cond_break_loop:
@@ -525,7 +525,7 @@ bb1:                                              ; preds = %Flow, %bb
   br i1 %cmp0, label %bb4, label %Flow
 
 bb4:                                              ; preds = %bb1
-  %load = load volatile i32, i32 addrspace(1)* undef, align 4
+  %load = load volatile i32, ptr addrspace(1) undef, align 4
   %cmp1 = icmp sge i32 %my.tmp, %load
   br label %Flow
 
@@ -535,7 +535,7 @@ Flow:                                             ; preds = %bb4, %bb1
   br i1 %my.tmp3, label %bb1, label %bb9
 
 bb9:                                              ; preds = %Flow
-  store volatile i32 7, i32 addrspace(3)* undef
+  store volatile i32 7, ptr addrspace(3) undef
   ret void
 }
 

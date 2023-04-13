@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -hir-framework-debug=parser -enable-new-pm=0 < %s 2>&1| FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that the upper of the loop in the second region (header %for.body97)

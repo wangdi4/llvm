@@ -278,7 +278,7 @@ private:
   /// Utility to get current SVA bits set for a VPInstruction in the tracking
   /// table. Returns std::nullopt if instruction does not have an entry in the
   /// table or is not processed i.e. no bits set.
-  Optional<SVABits> findSVABitsForInst(const VPInstruction *Inst) const {
+  std::optional<SVABits> findSVABitsForInst(const VPInstruction *Inst) const {
     auto InstIt = VPlanSVAResults.find(Inst);
     if (InstIt != VPlanSVAResults.end()) {
       if (InstIt->second.InstBits.none())
@@ -294,8 +294,8 @@ private:
   /// the tracking table. Returns std::nullopt if instruction or the requested
   /// operand does not have an entry in the table or is not processed i.e. no
   /// bits set.
-  Optional<SVABits> findSVABitsForOperand(const VPInstruction *Inst,
-                                          unsigned OpIdx) const {
+  std::optional<SVABits> findSVABitsForOperand(const VPInstruction *Inst,
+                                               unsigned OpIdx) const {
     auto InstIt = VPlanSVAResults.find(Inst);
     if (InstIt == VPlanSVAResults.end())
       return std::nullopt;
@@ -312,7 +312,8 @@ private:
   /// VPInstruction in the tracking table. Returns std::nullopt if
   /// instruction does not have an entry in the table or is not
   /// processed i.e. no bits set.
-  Optional<SVABits> findSVABitsForReturnValue(const VPInstruction *Inst) const {
+  std::optional<SVABits>
+  findSVABitsForReturnValue(const VPInstruction *Inst) const {
     auto InstIt = VPlanSVAResults.find(Inst);
     if (InstIt == VPlanSVAResults.end())
       return std::nullopt;
@@ -327,7 +328,7 @@ private:
   }
 
   SVABits getSVABitsForInst(const VPInstruction *Inst) const {
-    Optional<SVABits> InstBits = findSVABitsForInst(Inst);
+    std::optional<SVABits> InstBits = findSVABitsForInst(Inst);
     assert(InstBits && InstBits.value().any() &&
            "None of the SVA bits are set for VPInstruction.");
     return InstBits.value();
@@ -335,7 +336,7 @@ private:
 
   SVABits getSVABitsForOperand(const VPInstruction *Inst,
                                unsigned OpIdx) const {
-    Optional<SVABits> OperandBits = findSVABitsForOperand(Inst, OpIdx);
+    std::optional<SVABits> OperandBits = findSVABitsForOperand(Inst, OpIdx);
     assert(OperandBits && OperandBits.value().any() &&
            "None of the SVA bits are set for operand of VPInstruction.");
     return OperandBits.value();

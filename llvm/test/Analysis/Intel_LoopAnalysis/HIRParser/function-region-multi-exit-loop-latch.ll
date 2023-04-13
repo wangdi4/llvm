@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -analyze -hir-framework -hir-framework-debug=parser -hir-create-function-level-region -enable-new-pm=0 < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -hir-create-function-level-region -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that we are able to build lexical links successfully.

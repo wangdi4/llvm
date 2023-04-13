@@ -40,16 +40,16 @@ set(LLVM_LINK_COMPONENTS
   ScalarOpts
   Support
   SYCLLowerIR
+  SYCLTransforms
   Target
+  TargetParser
   TransformUtils
   Vectorize
   Passes
 # INTEL_CUSTOMIZATION
-  Intel_DPCPPKernelTransforms
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
-  Intel_OpenCLTransforms
 # end INTEL_CUSTOMIZATION
 # INTEL_COLLAB
   VPOAnalysis
@@ -71,10 +71,6 @@ add_llvm_tool(opt
   SUPPORT_PLUGINS
   )
 export_executable_symbols_for_plugins(opt)
-
-if(LLVM_BUILD_EXAMPLES)
-    target_link_libraries(opt PRIVATE ExampleIRTransforms)
-endif(LLVM_BUILD_EXAMPLES)
 
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_SW_DTRANS

@@ -12,26 +12,26 @@ declare i1 @llvm.intel.wholeprogramsafe()
 define i32 @main() {
 entry:
   %x = alloca i32, align 4
-  store i32 0, i32* %x, align 4
+  store i32 0, ptr %x, align 4
 
   %whprsafe = call i1 @llvm.intel.wholeprogramsafe()
   br i1 %whprsafe, label %if.whpr, label %if.nowhpr
 
 if.whpr:
-  store i32 1, i32* %x
+  store i32 1, ptr %x
   br label %if.end
 
 if.nowhpr:
-  store i32 2, i32* %x
+  store i32 2, ptr %x
   br label %if.end
 
 if.end:
-  %retval = load i32, i32* %x, align 4
+  %retval = load i32, ptr %x, align 4
   ret i32 %retval
 }
 
 ; CHECK:       %x = alloca i32, align 4
-; CHECK-NEXT:  store i32 0, i32* %x, align 4
+; CHECK-NEXT:  store i32 0, ptr %x, align 4
 ; CHECK-NEXT:  br i1 false, label %if.whpr, label %if.nowhpr
 
 ; CHECK-NOT: @llvm.intel.wholeprogramsafe()

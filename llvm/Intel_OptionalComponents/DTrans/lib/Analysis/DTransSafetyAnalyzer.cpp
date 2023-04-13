@@ -1,6 +1,6 @@
 //===----------------------DTransSafetyAnalyzer.cpp-----------------------===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -21,7 +21,6 @@
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/Intel_LangRules.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -1891,7 +1890,7 @@ public:
             // perform the write using new constant values, such as:
             //   store %struct.test01 { i32 100, i32 0 }, %struct.test01* %tmp
             // For this reason, we will set all the fields as multiple value.
-            for (auto &Field : enumerate(SI->getFields())) {
+            for (const auto &Field : enumerate(SI->getFields())) {
               dtrans::FieldInfo &FI = Field.value();
               FI.setWritten(I);
               updateFieldFrequency(FI, I);
@@ -3335,7 +3334,7 @@ public:
       // Note: For a whole structure reference, DTrans does not fill in all
       // the field values for each field because we do not have any transforms
       // that can handle them. Instead, set all the fields as multiple value.
-      for (auto &Field : enumerate(StInfo->getFields())) {
+      for (const auto &Field : enumerate(StInfo->getFields())) {
         dtrans::FieldInfo &FI = Field.value();
         FI.setWritten(I);
         updateFieldFrequency(FI, I);
@@ -7579,7 +7578,7 @@ private:
     }
 
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-      for (auto &Field : enumerate(StInfo->getFields())) {
+      for (const auto &Field : enumerate(StInfo->getFields())) {
         dtrans::FieldInfo &FI = Field.value();
         size_t Idx = Field.index();
         FI.setWritten(I);
@@ -7933,8 +7932,9 @@ private:
 DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
     : TM(std::move(Other.TM)), MDReader(std::move(Other.MDReader)),
       PtrAnalyzer(std::move(Other.PtrAnalyzer)),
-      TypeInfoMap(std::move(Other.TypeInfoMap)), CIM(std::move(Other.CIM)),
-      MaxTotalFrequency(Other.MaxTotalFrequency),
+      TypeInfoMap(std::move(Other.TypeInfoMap)),
+      TypeInfoAllocs(std::move(Other.TypeInfoAllocs)),
+      CIM(std::move(Other.CIM)), MaxTotalFrequency(Other.MaxTotalFrequency),
       UnhandledPtrType(Other.UnhandledPtrType),
       DTransSafetyAnalysisRan(Other.DTransSafetyAnalysisRan),
       RelatedTypesUtils(std::move(Other.RelatedTypesUtils)) {
@@ -7953,7 +7953,28 @@ DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
   SawFortran = Other.SawFortran;
 }
 
-DTransSafetyInfo::~DTransSafetyInfo() { reset(); }
+DTransSafetyInfo::~DTransSafetyInfo() {
+  reset();
+  // clean up any lingering allocated type info no longer stored
+  // in the TypeInfoMap
+  for (auto *Ptr : TypeInfoAllocs) {
+    switch (Ptr->getTypeInfoKind()) {
+    case dtrans::TypeInfo::NonAggregateInfo:
+      delete dyn_cast<dtrans::NonAggregateTypeInfo>(Ptr);
+      break;
+    case dtrans::TypeInfo::PtrInfo:
+      delete dyn_cast<dtrans::PointerInfo>(Ptr);
+      break;
+    case dtrans::TypeInfo::StructInfo:
+      delete dyn_cast<dtrans::StructInfo>(Ptr);
+      break;
+    case dtrans::TypeInfo::ArrayInfo:
+      delete dyn_cast<dtrans::ArrayInfo>(Ptr);
+      break;
+    }
+  }
+  TypeInfoAllocs.clear();
+}
 
 DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   if (this == &Other)
@@ -7964,6 +7985,7 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   MDReader = std::move(Other.MDReader);
   PtrAnalyzer = std::move(Other.PtrAnalyzer);
   TypeInfoMap = std::move(Other.TypeInfoMap);
+  TypeInfoAllocs = std::move(Other.TypeInfoAllocs);
   RelatedTypesUtils = std::move(Other.RelatedTypesUtils);
   CIM = std::move(Other.CIM);
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
@@ -8127,6 +8149,10 @@ void DTransSafetyInfo::reset() {
   // The DTransType pointers are owned by the DTransTypeManager, and
   // will be cleaned up when that object is reset.
   for (const auto &Entry : TypeInfoMap) {
+    auto It =
+        std::find(TypeInfoAllocs.begin(), TypeInfoAllocs.end(), Entry.second);
+    if (It != TypeInfoAllocs.end())
+      TypeInfoAllocs.erase(It);
     switch (Entry.second->getTypeInfoKind()) {
     case dtrans::TypeInfo::NonAggregateInfo:
       delete cast<dtrans::NonAggregateTypeInfo>(Entry.second);
@@ -8250,6 +8276,7 @@ dtrans::TypeInfo *DTransSafetyInfo::createTypeInfo(DTransType *Ty) {
     // map early to avoid infinite recursion.
     DTransTI = new dtrans::PointerInfo(Ty);
     TypeInfoMap[Ty] = DTransTI;
+    TypeInfoAllocs.push_back(DTransTI);
     getOrCreateTypeInfo(cast<DTransPointerType>(Ty)->getPointerElementType());
     return DTransTI;
   } else if (Ty->isArrayTy()) {
@@ -8276,6 +8303,7 @@ dtrans::TypeInfo *DTransSafetyInfo::createTypeInfo(DTransType *Ty) {
     DTransTI = new dtrans::NonAggregateTypeInfo(Ty);
   }
 
+  TypeInfoAllocs.push_back(DTransTI);
   TypeInfoMap[Ty] = DTransTI;
   return DTransTI;
 }
@@ -8913,54 +8941,4 @@ DTransSafetyInfo DTransSafetyAnalyzer::run(Module &M,
   DTransSafetyInfo DTResult;
   DTResult.analyzeModule(M, GetTLI, WPInfo, &DTImmutInfo, GetBFI);
   return DTResult;
-}
-
-INITIALIZE_PASS_BEGIN(DTransSafetyAnalyzerWrapper, "dtrans-safetyanalyzer",
-                      "Data transformation safety analyzer", false, true)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DTransImmutableAnalysisWrapper)
-INITIALIZE_PASS_END(DTransSafetyAnalyzerWrapper, "dtrans-safetyanalyzer",
-                    "Data transformation safety analyzer", false, true)
-
-char DTransSafetyAnalyzerWrapper::ID = 0;
-DTransSafetyAnalyzerWrapper::DTransSafetyAnalyzerWrapper() : ModulePass(ID) {
-  initializeDTransSafetyAnalyzerWrapperPass(*PassRegistry::getPassRegistry());
-}
-
-DTransSafetyInfo &DTransSafetyAnalyzerWrapper::getDTransSafetyInfo(Module &M) {
-  return Result;
-}
-
-bool DTransSafetyAnalyzerWrapper::runOnModule(Module &M) {
-  auto GetBFI = [this](Function &F) -> BlockFrequencyInfo & {
-    return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
-  };
-  auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-
-  WholeProgramInfo &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-  DTransImmutableInfo &DTImmutInfo =
-      getAnalysis<DTransImmutableAnalysisWrapper>().getResult();
-  Result.analyzeModule(M, GetTLI, WPInfo, &DTImmutInfo, GetBFI);
-  return false;
-}
-
-bool DTransSafetyAnalyzerWrapper::doFinalization(Module &M) {
-  Result.reset();
-  return false;
-}
-
-void DTransSafetyAnalyzerWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addRequired<BlockFrequencyInfoWrapperPass>();
-  AU.addRequired<WholeProgramWrapperPass>();
-  AU.addRequired<DTransImmutableAnalysisWrapper>();
-}
-
-ModulePass *llvm::createDTransSafetyAnalyzerTestWrapperPass() {
-  return new dtransOP::DTransSafetyAnalyzerWrapper();
 }

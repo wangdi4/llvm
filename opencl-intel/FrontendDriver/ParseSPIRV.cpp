@@ -17,7 +17,7 @@
 #include "SPIRMaterializer.h"
 #include "SPIRVMaterializer.h"
 #include "clang_device_info.h"
-#include "common_clang.h" //IOCLFEBinaryResult
+#include "opencl_clang.h" //IOCLFEBinaryResult
 
 #include "SPIRV/libSPIRV/spirv_internal.hpp" // spv::MagicNumber, spv::Version
 #include <LLVMSPIRVLib.h>                    // llvm::ReadSPIRV
@@ -32,7 +32,7 @@
 #include <sstream>
 #include <string>
 
-using namespace std;
+using namespace Intel::OpenCL::ClangFE;
 
 // See Table 1. "First Words of Physical Layout" of SPIR-V specification
 enum { MagicNumberIdx = 0, SPIRVVersionIdx = 1, FirstOpIdx = 5 };
@@ -49,7 +49,7 @@ ClangFECompilerParseSPIRVTask::ClangFECompilerParseSPIRVTask(
 
 std::uint32_t ClangFECompilerParseSPIRVTask::getSPIRVWord(
     std::uint32_t const *wordPtr) const {
-  return m_littleEndian ? *wordPtr : llvm::ByteSwap_32(*wordPtr);
+  return m_littleEndian ? *wordPtr : llvm::byteswap(*wordPtr);
 }
 
 bool ClangFECompilerParseSPIRVTask::isSPIRV(const void *pBinary,
@@ -59,7 +59,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRV(const void *pBinary,
   auto Magic = *static_cast<const std::uint32_t *>(pBinary);
   // Also try with other endianness. See the tip in SPIR-V spec s3.1
   return spv::MagicNumber == Magic ||
-         spv::MagicNumber == llvm::ByteSwap_32(Magic);
+         spv::MagicNumber == llvm::byteswap(Magic);
 }
 
 bool ClangFECompilerParseSPIRVTask::readSPIRVHeader(std::string &error) {
@@ -188,7 +188,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityIndirectReferencesINTEL:
     case spv::CapabilityAsmINTEL:
     case spv::CapabilityVariableLengthArrayINTEL:
-    case spv::internal::CapabilityVectorVariantsINTEL:
+    case spv::internal::CapabilityVectorVariantsINTEL: // INTEL
       // SPV_KHR_expect_assume
     case spv::CapabilityExpectAssumeKHR:
     case spv::CapabilityVectorAnyINTEL:
@@ -214,6 +214,9 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityDebugInfoModuleINTEL:
       // SPV_INTEL_matrix
     case spv::internal::CapabilityJointMatrixINTEL:
+    case spv::internal::CapabilityJointMatrixWIInstructionsINTEL:
+    case spv::internal::CapabilityJointMatrixTF32ComponentTypeINTEL:
+    case spv::internal::CapabilityJointMatrixBF16ComponentTypeINTEL:
       // SPV_INTEL_runtime_aligned
     case spv::CapabilityRuntimeAlignedAttributeINTEL:
     case spv::CapabilityLongConstantCompositeINTEL:
@@ -221,9 +224,14 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::internal::CapabilityBfloat16ConversionINTEL:
       // SPV_INTEL_global_variable_decoration
     case spv::internal::CapabilityGlobalVariableDecorationsINTEL:
+      // TODO: fully support GroupNonUniformBallot builtins
     case spv::CapabilityGroupNonUniformBallot:
+    case spv::CapabilityGroupNonUniformShuffle:
+    case spv::CapabilityGroupNonUniformShuffleRelative:
     case spv::internal::CapabilityMaskedGatherScatterINTEL:
     case spv::CapabilityAtomicFloat64AddEXT:
+      // SPV_INTEL_tensor_float32_conversion / SPV_INTEL_tensor_float32_rounding
+    case spv::internal::CapabilityTensorFloat32RoundingINTEL:
       break;
     case spv::CapabilityInt64Atomics:
       if (m_sDeviceInfo.bIsFPGAEmu) {
@@ -248,6 +256,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityLoopFuseINTEL:
     case spv::CapabilityFPGADSPControlINTEL:
     case spv::CapabilityFPGAInvocationPipeliningAttributesINTEL:
+    case spv::CapabilityFPGAArgumentInterfacesINTEL:
+    case spv::CapabilityFPGAKernelAttributesv2INTEL:
     case spv::internal::CapabilityFPArithmeticFenceINTEL:
     case spv::internal::CapabilityTaskSequenceINTEL: // INTEL
       if (!m_sDeviceInfo.bIsFPGAEmu) {

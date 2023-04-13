@@ -625,7 +625,7 @@ findSlidingWindowSums(HLLoop *InnerLoop, HIRDDAnalysis &HDDA,
   // outer loop is identified. This transform could support multiple sums within
   // and inner loop with differing outer loops, but for simplicity that is not
   // yet implemented.
-  Optional<LoopSlidingWindowSums> NewSums;
+  std::optional<LoopSlidingWindowSums> NewSums;
 
   // Iterate reductions found in the loop.
   HSR.computeSafeReductionChains(InnerLoop);

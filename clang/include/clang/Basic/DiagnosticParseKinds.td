@@ -181,6 +181,9 @@ def ext_c99_feature : Extension<
   "'%0' is a C99 extension">, InGroup<C99>;
 def ext_c11_feature : Extension<
   "'%0' is a C11 extension">, InGroup<C11>;
+def warn_c2x_compat_keyword : Warning<
+ "'%0' is incompatible with C standards before C2x">,
+ InGroup<CPre2xCompat>, DefaultIgnore;
 
 def err_c11_noreturn_misplaced : Error<
   "'_Noreturn' keyword must precede function declarator">;
@@ -263,9 +266,6 @@ def err_invalid_token_after_declarator_suggest_equal : Error<
   "invalid %0 at end of declaration; did you mean '='?">;
 def err_expected_statement : Error<"expected statement">;
 // if INTEL_CUSTOMIZATION
-// CQ#370084
-def warn_expected_statement :
-  Warning<err_expected_statement.Summary>, InGroup<IntelCompat>;
 def warn_attributes_ignored_after_init
     : Warning<"variable attributes appearing after a parenthesized initializer "
               "are ignored">,
@@ -325,11 +325,6 @@ def note_force_empty_selector_name : Note<
   "and have an empty entry in the selector">;
 def err_switch_label_end_of_compound_statement : Error<
   "label at end of switch compound statement: expected statement">;
-// if INTEL_CUSTOMIZATION
-// CQ#370084
-def warn_switch_label_end_of_compound_statement :
-  Warning<err_switch_label_end_of_compound_statement.Summary>, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def ext_c_label_end_of_compound_statement : ExtWarn<
   "label at end of compound statement is a C2x extension">,
    InGroup<C2x>;
@@ -406,9 +401,6 @@ def warn_cxx11_compat_decltype_auto_type_specifier : Warning<
 def ext_auto_type : Extension<
   "'__auto_type' is a GNU extension">,
   InGroup<GNUAutoType>;
-def warn_c2x_compat_typeof_type_specifier : Warning<
-  "'%select{typeof|typeof_unqual}0' is incompatible with C standards before "
-  "C2x">, InGroup<CPre2xCompat>, DefaultIgnore;
 def ext_for_range : ExtWarn<
   "range-based for loop is a C++11 extension">, InGroup<CXX11>;
 def warn_cxx98_compat_for_range : Warning<
@@ -739,9 +731,6 @@ def warn_cxx98_compat_nullptr : Warning<
   "'nullptr' is incompatible with C++98">, InGroup<CXX98Compat>, DefaultIgnore;
 def ext_c_nullptr : Extension<
   "'nullptr' is a C2x extension">, InGroup<C2x>;
-def warn_c17_compat_nullptr : Warning<
-  "'nullptr' is incompatible with C standards before C2x">,
-  InGroup<CPre2xCompat>, DefaultIgnore;
 
 def warn_wrong_clang_attr_namespace : Warning<
   "'__clang__' is a predefined macro name, not an attribute scope specifier; "
@@ -1087,7 +1076,7 @@ def err_lambda_template_parameter_list_empty : Error<
 // C++2b static lambdas
 def err_static_lambda: ExtWarn<
   "static lambdas are a C++2b extension">, InGroup<CXX2b>;
-def warn_cxx20_compat_static_lambda: ExtWarn<
+def warn_cxx20_compat_static_lambda : Warning<
   "static lambdas are incompatible with C++ standards before C++2b">,
   InGroup<CXXPre2bCompat>, DefaultIgnore;
 def err_static_mutable_lambda : Error<
@@ -1139,7 +1128,7 @@ def err_availability_query_repeated_star : Error<
 
 // External source symbol attribute
 def err_external_source_symbol_expected_keyword : Error<
-  "expected 'language', 'defined_in', or 'generated_declaration'">;
+  "expected 'language', 'defined_in', 'generated_declaration', or 'USR'">;
 def err_external_source_symbol_duplicate_clause : Error<
   "duplicate %0 clause in an 'external_source_symbol' attribute">;
 
@@ -1338,6 +1327,10 @@ def note_pragma_attribute_namespace_on_attribute : Note<
 def warn_no_support_for_eval_method_source_on_m32 : Warning<
   "Setting the floating point evaluation method to `source` on a target"
   " without SSE is not supported.">, InGroup<Pragmas>;
+// - #pragma __debug
+def warn_pragma_debug_dependent_argument : Warning<
+  "%select{value|type}0-dependent expression passed as an argument to debug "
+  "command">, InGroup<IgnoredPragmas>;
 
 // OpenCL EXTENSION pragma (OpenCL 1.1 [9.1])
 def warn_pragma_expected_colon : Warning<
@@ -1410,10 +1403,12 @@ def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<
   "incorrect map type modifier, expected one of: 'always', 'close', 'mapper'"
-  "%select{|, 'present'}0%select{|, 'ompx_hold'}1">;
+  "%select{|, 'present'|, 'present', 'iterator'}0%select{|, 'ompx_hold'}1">;
 #if INTEL_CUSTOMIZATION
 def err_omp_unknown_lastprivate_modifier : Error<
   "incorrect lastprivate modifier, expected 'conditional'">;
+def err_omp_expected_identifier_for_ompx_processor : Error<
+  "expected identifier in 'ompx_processor' clause">;
 #if INTEL_FEATURE_CSA
 def err_omp_unknown_dataflow_modifier : Error<"unexpected 'dataflow' modifier, expected 'static', 'num_workers' or 'pipeline'">;
 def err_omp_conflicting_dataflow_num_workers_modifier: Error<"'num_workers' modifier of 'dataflow' clause conflicts with 'num_threads' clause">;
@@ -1437,6 +1432,13 @@ def err_omp_unknown_ompx_places_domain_modifier : Error<
   "'numa_domain' or 'subnuma_domain'">;
 def err_omp_declare_target_to_device_type
     : Error<"unexpected device_type clause with extended-list">;
+def warn_omp_groupprivate_only_nohost
+    : Warning<"only device_type of nohost is currently supported, the "
+              "'#pragma omp groupprivate' is ignored">,
+      InGroup<OpenMPClauses>;
+def err_omp_declare_target_unexpected_local_clause: Error<
+  "unexpected 'local' clause">;
+def err_omp_unexpected_device_type : Error<"unexpected device_type clause">;
 // end INTEL_COLLAB
 def err_omp_map_type_missing : Error<
   "missing map type">;
@@ -1444,6 +1446,9 @@ def err_omp_map_type_modifier_missing : Error<
   "missing map type modifier">;
 def err_omp_declare_simd_inbranch_notinbranch : Error<
   "unexpected '%0' clause, '%1' is specified already">;
+def err_omp_expected_clause_argument
+    : Error<"expected '%0' clause with an argument on '#pragma omp %1' "
+            "construct">;
 def err_expected_end_declare_target_or_variant : Error<
   "expected '#pragma omp end declare %select{target|variant}0'">;
 def err_expected_begin_declare_variant
@@ -1646,9 +1651,6 @@ def warn_ext_int_deprecated : Warning<
 def ext_bit_int : Extension<
   "'_BitInt' in %select{C17 and earlier|C++}0 is a Clang extension">,
   InGroup<DiagGroup<"bit-int-extension">>;
-def warn_c17_compat_bit_int : Warning<
-  "'_BitInt' is incompatible with C standards before C2x">,
-  InGroup<CPre2xCompat>, DefaultIgnore;
 } // end of Parse Issue category.
 
 let CategoryName = "Modules Issue" in {

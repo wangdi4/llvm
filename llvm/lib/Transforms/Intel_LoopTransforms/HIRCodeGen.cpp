@@ -1,6 +1,6 @@
 //===--------- HIRCodeGen.cpp - Implements HIRCodeGen class ---------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -292,7 +292,9 @@ private:
   public:
     HIRSCEVExpander(ScalarEvolution &SE, const DataLayout &DL, const char *Name,
                     CGVisitor &CurCG)
-        : SCEVExpander(SE, DL, Name, false), CG(CurCG) {}
+        : SCEVExpander(SE, DL, Name, false), CG(CurCG) {
+      IsHIRExpander = true;
+    }
 
     ~HIRSCEVExpander() {}
 
@@ -404,7 +406,6 @@ public:
     AU.addRequired<HIRFrameworkWrapperPass>();
 
     AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
   }
 };
 
@@ -677,8 +678,6 @@ Value *CGVisitor::createCmpInst(const HLPredicate &P, Value *LHS, Value *RHS,
 
   // Account for vector type
   auto LType = LHS->getType()->getScalarType();
-
-  assert(P != UNDEFINED_PREDICATE && "invalid predicate for cmp/sel in HIRCG");
 
   if (LType->isIntegerTy() || LType->isPointerTy()) {
     CmpInst = Builder.CreateICmp(P, LHS, RHS, Name);
@@ -1396,14 +1395,6 @@ Value *CGVisitor::generatePredicate(HLIf *HIf, HLIf::const_pred_iterator P) {
   RegDDRef *LHSRef = HIf->getLHSPredicateOperandDDRef(P);
   RegDDRef *RHSRef = HIf->getRHSPredicateOperandDDRef(P);
 
-  // For undef predicate, we don't need to CG operands since end result
-  // is undef anyway.
-  if (*P == UNDEFINED_PREDICATE) {
-    // TODO icmp/fcmp with nonvector args return a boolean, i1 but
-    // vector types would require cmp to return vector of i1
-    return UndefValue::get(IntegerType::get(F.getContext(), 1));
-  }
-
   LHSVal = visitRegDDRef(LHSRef);
   RHSVal = visitRegDDRef(RHSRef);
   assert(LHSVal->getType() == RHSVal->getType() &&
@@ -1466,7 +1457,7 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
 
   if (HasThenChildren) {
     // generate then block
-    F.getBasicBlockList().push_back(ThenBB);
+    F.insert(F.end(), ThenBB);
     Builder.SetInsertPoint(ThenBB);
 
     if (IVAdd) {
@@ -1492,7 +1483,7 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
     assert(!IVAdd && "Bottom test cannot have else case!");
 
     // generate else block
-    F.getBasicBlockList().push_back(ElseBB);
+    F.insert(F.end(), ElseBB);
     Builder.SetInsertPoint(ElseBB);
     for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
       visit(*It);
@@ -1502,7 +1493,7 @@ Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
   }
 
   // CG resumes at merge block
-  F.getBasicBlockList().push_back(MergeBB);
+  F.insert(F.end(), MergeBB);
   Builder.SetInsertPoint(MergeBB);
 
   return nullptr;
@@ -1773,7 +1764,7 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
   }
 
   // generate default block
-  F.getBasicBlockList().push_back(DefaultBlock);
+  F.insert(F.end(), DefaultBlock);
   Builder.SetInsertPoint(DefaultBlock);
   for (auto I = S->default_case_child_begin(), E = S->default_case_child_end();
        I != E; ++I) {
@@ -1790,7 +1781,7 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
 
     BasicBlock *CaseBlock = BasicBlock::Create(
         F.getContext(), SwitchName + ".case." + std::to_string(I - 1));
-    F.getBasicBlockList().push_back(CaseBlock);
+    F.insert(F.end(), CaseBlock);
     Builder.SetInsertPoint(CaseBlock);
 
     for (auto HNode = S->case_child_begin(I), E = S->case_child_end(I);
@@ -1802,7 +1793,7 @@ Value *CGVisitor::visitSwitch(HLSwitch *S) {
     LLVMSwitch->addCase(CaseInt, CaseBlock);
   }
 
-  F.getBasicBlockList().push_back(EndBlock);
+  F.insert(F.end(), EndBlock);
   Builder.SetInsertPoint(EndBlock);
   return nullptr;
 }

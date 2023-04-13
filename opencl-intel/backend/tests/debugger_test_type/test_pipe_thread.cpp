@@ -26,8 +26,8 @@ NamedPipeThread::NamedPipeThread() {
     DTT_LOG("failed to read the port number from the environment variable, "
             "the test will probably fail");
 
-  wstring pipeNameString(L"\\\\.\\pipe\\INTEL_OCL_DBG_PIPE" +
-                         to_wstring(GetCurrentProcessId()));
+  std::wstring pipeNameString(L"\\\\.\\pipe\\INTEL_OCL_DBG_PIPE" +
+                              std::to_wstring(GetCurrentProcessId()));
 
   // Create a pipe to send the data
   pipe = CreateNamedPipeW(pipeNameString.c_str(), // name of the pipe
@@ -58,7 +58,7 @@ RETURN_TYPE_ENTRY_POINT NamedPipeThread::Run() {
   }
 
   // Create the data string
-  string dataString = "1;" + portNumber;
+  std::string dataString = "1;" + portNumber;
 
   // This call blocks until a client process reads all the data
   DWORD numBytesWritten = 0;

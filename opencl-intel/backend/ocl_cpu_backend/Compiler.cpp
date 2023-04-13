@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -18,7 +18,6 @@
 #include "CompilerConfig.h"
 #include "OptimizerLTO.h"
 #include "OptimizerOCL.h"
-#include "VecConfig.h"
 #include "cl_config.h"
 #include "cl_env.h"
 #include "cl_types.h"
@@ -33,15 +32,13 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
 #ifdef _WIN32
 #include "lld/Common/TargetOptionsCommandFlags.h"
 #endif
 #include "llvm/CodeGen/CommandFlags.h"
-
-static codegen::RegisterCodeGenFlags CGF;
 
 #include <sstream>
 #include <string>
@@ -62,6 +59,8 @@ ExternInitTargetOptionsFromCodeGenFlags(llvm::Triple ModuleTriple) {
   return codegen::InitTargetOptionsFromCodeGenFlags(ModuleTriple);
 #endif
 }
+
+static codegen::RegisterCodeGenFlags CGF;
 
 // Supported target triples.
 const char *PC_LIN64 = "x86_64-pc-linux";          // Used for RH64/SLES64.
@@ -214,15 +213,17 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
   Args.push_back("OclBackend");
   std::string Env;
 #ifndef NDEBUG
-  if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_COMPILER_DEBUG")) {
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_COMPILER_DEBUG")) {
     Args.push_back("-print-after-all");
     Args.push_back("-print-before-all");
     Args.push_back("-debug");
   }
 #endif
 
+#if INTEL_CUSTOMIZATION
   if (!Intel::OpenCL::Utils::getEnvVar(Env, "DISABLE_INFER_AS"))
     Args.push_back("-infer-as-rewrite-opencl-bis");
+#endif // INTEL_CUSTOMIZATION
 
   // Loops #pragma unroll are unrolled up to -pragma-unroll-threshold, which
   // is set by default to a huge value, and it basically allows to fully
@@ -242,6 +243,17 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
 
   for (const std::string &Option : config.LLVMOptions())
     Args.push_back(Option.c_str());
+
+  Optimizer::initOptimizerOptions();
+
+  // Handle CL_CONFIG_LLVM_OPTIONS at the end so that it can pass an option to
+  // overturn a previously added option.
+  std::vector<std::string> LastOptions;
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_LLVM_OPTIONS")) {
+    LastOptions = std::move(SplitString(Env, ' '));
+    for (const auto &Option : LastOptions)
+      Args.push_back(Option.c_str());
+  }
 
   Args.push_back(nullptr);
 
@@ -263,7 +275,7 @@ applyBuildProgramLLVMOptions(PassManagerType PMType,
 
   // FIXME This is a temporary solution for WeightedInstCountAnalysis pass to
   // obtain correct ISA.
-  std::string ISA = "-dpcpp-vector-variant-isa-encoding-override=";
+  std::string ISA = "-sycl-vector-variant-isa-encoding-override=";
   ISA += CPUId->HasAVX512Core() ? "AVX512Core"
          : CPUId->HasAVX2()     ? "AVX2"
          : CPUId->HasAVX1()     ? "AVX1"
@@ -325,6 +337,7 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
   llvm::TargetOptions TargetOpts =
       ExternInitTargetOptionsFromCodeGenFlags(ModuleTriple);
 
+#if INTEL_CUSTOMIZATION
   // When -cl-fast-relaxed-math is enabled, Codegen's fast fp-model is too
   // aggressive for OpenCL, leading to "fdiv fast" precision loss (violates
   // the OpenCL Spec).
@@ -333,6 +346,7 @@ llvm::TargetMachine *Compiler::GetTargetMachine(llvm::Module *pModule) const {
   if (!CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
       CompilationUtils::hasFDivWithFastFlag(pModule))
     TargetOpts.DoFMAOpt = false;
+#endif // INTEL_CUSTOMIZATION
 
   llvm::CodeGenOpt::Level CGOptLevel = m_disableOptimization
                                            ? llvm::CodeGenOpt::None
@@ -376,8 +390,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   llvm::Triple TT(pModule->getTargetTriple());
   if (m_passManagerType == PM_NONE &&
       (TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64 ||
-       (CompilationUtils::isGeneratedFromOCLCPP(*pModule) &&
-        !CompilationUtils::isGeneratedFromOMP(*pModule))))
+       CompilationUtils::isGeneratedFromOCLCPP(*pModule)))
     m_passManagerType = PM_LTO;
 
   applyBuildProgramLLVMOptions(m_passManagerType, m_CpuId);

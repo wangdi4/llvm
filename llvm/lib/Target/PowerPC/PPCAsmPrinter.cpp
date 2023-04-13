@@ -29,7 +29,6 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -68,6 +67,7 @@
 #include "llvm/Support/Process.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <algorithm>
 #include <cassert>
@@ -1572,9 +1572,7 @@ void PPCLinuxAsmPrinter::emitStartOfAsmFile(Module &M) {
   if (static_cast<const PPCTargetMachine &>(TM).isELFv2ABI()) {
     PPCTargetStreamer *TS =
       static_cast<PPCTargetStreamer *>(OutStreamer->getTargetStreamer());
-
-    if (TS)
-      TS->emitAbiVersion(2);
+    TS->emitAbiVersion(2);
   }
 
   if (static_cast<const PPCTargetMachine &>(TM).isPPC64() ||
@@ -1700,7 +1698,7 @@ void PPCLinuxAsmPrinter::emitEndOfAsmFile(Module &M) {
       MCSymbol *const TOCEntryLabel = TOCMapPair.second;
 
       OutStreamer->emitLabel(TOCEntryLabel);
-      if (isPPC64 && TS != nullptr)
+      if (isPPC64)
         TS->emitTCEntry(*TOCEntryTarget, TOCMapPair.first.second);
       else
         OutStreamer->emitSymbolValue(TOCEntryTarget, 4);
@@ -1806,9 +1804,7 @@ void PPCLinuxAsmPrinter::emitFunctionBodyStart() {
 
     PPCTargetStreamer *TS =
       static_cast<PPCTargetStreamer *>(OutStreamer->getTargetStreamer());
-
-    if (TS)
-      TS->emitLocalEntry(cast<MCSymbolELF>(CurrentFnSym), LocalOffsetExp);
+    TS->emitLocalEntry(cast<MCSymbolELF>(CurrentFnSym), LocalOffsetExp);
   } else if (Subtarget->isUsingPCRelativeCalls()) {
     // When generating the entry point for a function we have a few scenarios
     // based on whether or not that function uses R2 and whether or not that
@@ -1835,9 +1831,8 @@ void PPCLinuxAsmPrinter::emitFunctionBodyStart() {
         MF->hasInlineAsm() || (!PPCFI->usesTOCBasePtr() && UsesX2OrR2)) {
       PPCTargetStreamer *TS =
           static_cast<PPCTargetStreamer *>(OutStreamer->getTargetStreamer());
-      if (TS)
-        TS->emitLocalEntry(cast<MCSymbolELF>(CurrentFnSym),
-                           MCConstantExpr::create(1, OutContext));
+      TS->emitLocalEntry(cast<MCSymbolELF>(CurrentFnSym),
+                         MCConstantExpr::create(1, OutContext));
     }
   }
 }
@@ -2101,8 +2096,9 @@ void PPCAIXAsmPrinter::emitTracebackTable() {
   // Set the 5th byte of mandatory field.
   uint32_t SecondHalfOfMandatoryField = 0;
 
-  // Always store back chain.
-  SecondHalfOfMandatoryField |= TracebackTable::IsBackChainStoredMask;
+  SecondHalfOfMandatoryField |= MF->getFrameInfo().getStackSize()
+                                    ? TracebackTable::IsBackChainStoredMask
+                                    : 0;
 
   uint32_t FPRSaved = 0;
   for (unsigned Reg = PPC::F14; Reg <= PPC::F31; ++Reg) {
@@ -2521,16 +2517,22 @@ void PPCAIXAsmPrinter::emitPGORefs() {
     OutStreamer->switchSection(CntsSection);
     if (OutContext.hasXCOFFSection(
             "__llvm_prf_data",
-            XCOFF::CsectProperties(XCOFF::XMC_RW, XCOFF::XTY_SD)))
-      OutStreamer->emitXCOFFRefDirective("__llvm_prf_data[RW]");
+            XCOFF::CsectProperties(XCOFF::XMC_RW, XCOFF::XTY_SD))) {
+      MCSymbol *S = OutContext.getOrCreateSymbol("__llvm_prf_data[RW]");
+      OutStreamer->emitXCOFFRefDirective(S);
+    }
     if (OutContext.hasXCOFFSection(
             "__llvm_prf_names",
-            XCOFF::CsectProperties(XCOFF::XMC_RO, XCOFF::XTY_SD)))
-      OutStreamer->emitXCOFFRefDirective("__llvm_prf_names[RO]");
+            XCOFF::CsectProperties(XCOFF::XMC_RO, XCOFF::XTY_SD))) {
+      MCSymbol *S = OutContext.getOrCreateSymbol("__llvm_prf_names[RO]");
+      OutStreamer->emitXCOFFRefDirective(S);
+    }
     if (OutContext.hasXCOFFSection(
             "__llvm_prf_vnds",
-            XCOFF::CsectProperties(XCOFF::XMC_RW, XCOFF::XTY_SD)))
-      OutStreamer->emitXCOFFRefDirective("__llvm_prf_vnds[RW]");
+            XCOFF::CsectProperties(XCOFF::XMC_RW, XCOFF::XTY_SD))) {
+      MCSymbol *S = OutContext.getOrCreateSymbol("__llvm_prf_vnds[RW]");
+      OutStreamer->emitXCOFFRefDirective(S);
+    }
   }
 }
 
@@ -2568,8 +2570,7 @@ void PPCAIXAsmPrinter::emitEndOfAsmFile(Module &M) {
     OutStreamer->switchSection(TCEntry);
 
     OutStreamer->emitLabel(I.second);
-    if (TS != nullptr)
-      TS->emitTCEntry(*I.first.first, I.first.second);
+    TS->emitTCEntry(*I.first.first, I.first.second);
   }
 
   for (const auto *GV : TOCDataGlobalVars)

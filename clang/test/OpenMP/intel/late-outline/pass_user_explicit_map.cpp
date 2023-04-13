@@ -48,11 +48,18 @@ int bar(void)
 void specified_alignment()
 {
   __attribute__((aligned(64))) int (*ptr)[10];
-//CHECK-DISNAME: [[L1:%[0-9]+]] = alloca ptr, align 64
+
+
+  // After 65a0d669b4625c34 the overalignment is not significant.
+  // See CMPLRLLVM-46102.
+  // For now leave the old checks here with unused CHCK lines.
+//CHCK-DISNAME: [[L1:%[0-9]+]] = alloca ptr, align 64
 // Do not generate temp map
-//CHECK-DISNAME-NOT: alloca ptr, align 64
-//CHECK-DISNAME-NEXT: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-//CHECK-DISNAME-SAME: "QUAL.OMP.MAP.TO"(ptr [[L1]]
+//CHCK-DISNAME-NOT: alloca ptr, align 64
+//CHCK-DISNAME-NEXT: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
+//CHCK-DISNAME-SAME: "QUAL.OMP.MAP.TO"(ptr [[L1]]
+
+//CHECK-DISNAME: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   #pragma omp target is_device_ptr(ptr)
   {
     ptr[0][0] = 41;

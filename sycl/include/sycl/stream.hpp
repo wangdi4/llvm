@@ -743,6 +743,17 @@ inline __width_manipulator__ setw(int Width) {
 /// \ingroup sycl_api
 class __SYCL_EXPORT __SYCL_SPECIAL_CLASS __SYCL_TYPE(stream) stream
     : public detail::OwnerLessBase<stream> {
+private:
+#ifndef __SYCL_DEVICE_ONLY__
+  // Constructor for recreating a stream.
+  stream(std::shared_ptr<detail::stream_impl> Impl,
+         detail::GlobalBufAccessorT GlobalBuf,
+         detail::GlobalOffsetAccessorT GlobalOffset,
+         detail::GlobalBufAccessorT GlobalFlushBuf)
+      : impl{Impl}, GlobalBuf{GlobalBuf}, GlobalOffset{GlobalOffset},
+        GlobalFlushBuf{GlobalFlushBuf} {}
+#endif
+
 public:
 #ifdef __SYCL_DEVICE_ONLY__
   // Default constructor for objects later initialized with __init member.
@@ -757,9 +768,36 @@ public:
   stream(size_t BufferSize, size_t MaxStatementSize, handler &CGH,
          const property_list &PropList);
 
+#ifdef __SYCL_DEVICE_ONLY__
+  // We need the definitions of these functions in the header for device,
+  // otherwise they are not visible. Also, we cannot use `impl` because it's not
+  // there on the device, so we rely on GlobalBuf/GlobalFlushBuf.
+  size_t size() const noexcept { return GlobalBuf.size(); }
+
+  size_t get_work_item_buffer_size() const {
+    return GlobalFlushBuf.size() - detail::FLUSH_BUF_OFFSET_SIZE;
+  }
+
+  __SYCL2020_DEPRECATED(
+      "get_size() is deprecated since SYCL 2020. Please use size() instead.")
+  size_t get_size() const { return size(); }
+
+  __SYCL2020_DEPRECATED("get_max_statement_size() is deprecated since SYCL "
+                        "2020. Please use get_work_item_buffer_size() instead.")
+  size_t get_max_statement_size() const { return get_work_item_buffer_size(); }
+#else
+  size_t size() const noexcept;
+
+  size_t get_work_item_buffer_size() const;
+
+  __SYCL2020_DEPRECATED(
+      "get_size() is deprecated since SYCL 2020. Please use size() instead.")
   size_t get_size() const;
 
+  __SYCL2020_DEPRECATED("get_max_statement_size() is deprecated since SYCL "
+                        "2020. Please use get_work_item_buffer_size() instead.")
   size_t get_max_statement_size() const;
+#endif
 
   size_t get_precision() const { return Precision; }
 
@@ -783,6 +821,10 @@ private:
   template <class Obj>
   friend decltype(Obj::impl) detail::getSyclObjImpl(const Obj &SyclObject);
 #endif
+
+  // NOTE: Some members are required for reconstructing the stream, but are not
+  // part of the implementation class. If more members are added, they should
+  // also be added to the weak_object specialization for streams.
 
   // Accessor to the global stream buffer. Global buffer contains all output
   // from the kernel.
@@ -914,6 +956,8 @@ private:
 #endif
 
   friend class handler;
+
+  template <typename SYCLObjT> friend class ext::oneapi::weak_object;
 
   friend const stream &operator<<(const stream &, const char);
   friend const stream &operator<<(const stream &, const char *);

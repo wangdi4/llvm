@@ -145,7 +145,7 @@ struct MangledNameEmmiter {
   operator()(const std::pair<std::string, llvm::OclBuiltin *> &it) {
     const OclBuiltin *pBuiltin = it.second;
     // BUGBUG: isBrokenNameMangling() is a temporary w/around for name mangling
-    // in-compat with SPIR (CQ CSSD100017714)
+    // in-compat with SPIR
     if (pBuiltin->isSvml() || !pBuiltin->isOverlodable() ||
         !pBuiltin->shouldGenerate() || pBuiltin->isBrokenNameMangling())
       return;

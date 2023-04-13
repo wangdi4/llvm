@@ -1,5 +1,10 @@
-RUN: rm -f %t-ImplicitSignedIntegerTruncationOrSignChangeTest-Ubsan
-RUN: %cpp_compiler -fsanitize=implicit-signed-integer-truncation,implicit-integer-sign-change -fno-sanitize-recover=all %S/ImplicitSignedIntegerTruncationOrSignChangeTest.cpp -o %t-ImplicitSignedIntegerTruncationOrSignChangeTest-Ubsan
-RUN: not %run %t-ImplicitSignedIntegerTruncationOrSignChangeTest-Ubsan 2>&1 | FileCheck %s
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-45450
+// Shorten file name of the output file to keep total file path length within path length limit in Windows
+RUN: rm -f %t-ISITOSCT-Ubsan
+RUN: %cpp_compiler -fsanitize=implicit-signed-integer-truncation,implicit-integer-sign-change -fno-sanitize-recover=all %S/ImplicitSignedIntegerTruncationOrSignChangeTest.cpp -o %t-ISITOSCT-Ubsan
+RUN: not %run %t-ISITOSCT-Ubsan 2>&1 | FileCheck %s
+// end INTEL_CUSTOMIZATION
+
 CHECK: ImplicitSignedIntegerTruncationOrSignChangeTest.cpp:23:16: runtime error: implicit conversion from type 'uint32_t' (aka 'unsigned int') of value 4294967295 (32-bit, unsigned) to type 'int8_t' (aka 'signed char') changed the value to -1 (8-bit, signed)
 CHECK: Test unit written to ./crash-

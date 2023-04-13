@@ -144,6 +144,14 @@ static cl::opt<unsigned>
     MaximumNumberOfTests(OPT_SWITCH "-max-tests", cl::init(60), cl::Hidden,
                          cl::desc("Maximum number of runtime tests for loop."));
 
+// Maximum bits of strided access that is considered as contiguous by Runtime
+// DD. This corresponds to max vector register supported on the platform.
+// The threshold will be ignored if -1 is passed.
+static cl::opt<int64_t> ContiguousStridedAccessSizeThreshold(
+    OPT_SWITCH "-contiguous-access-threshold", cl::init(0),
+    cl::desc("Maximum bits of contiguous access in a loop. This threshold "
+             "will be disabled if the value is set to -1."));
+
 static cl::opt<bool> IgnoreIVDepLoopLoops(
     OPT_SWITCH "-ignore-ivdeploop-loops", cl::init(false), cl::Hidden,
     cl::desc("Ignore loops with \"ivdep loop\" in " OPT_DESCR "."));
@@ -290,10 +298,9 @@ static unsigned getMinMaxZeroBlob(BlobUtils &BU, unsigned Index,
 
 // Returns true if IV replacement succeeded, false if failed and {} if no
 // replacement required.
-static Optional<bool> replaceIVByBound(CanonExpr *CE, const HLLoop *Loop,
-                                       const HLLoop *InnerLoop,
-                                       bool IsLowerBound,
-                                       RegDDRef *UnknownLoopUBRef = nullptr) {
+static std::optional<bool>
+replaceIVByBound(CanonExpr *CE, const HLLoop *Loop, const HLLoop *InnerLoop,
+                 bool IsLowerBound, RegDDRef *UnknownLoopUBRef = nullptr) {
   unsigned Level = Loop->getNestingLevel();
 
   unsigned IVBlobIndex;
@@ -396,12 +403,92 @@ static void replaceIVByBound(RegDDRef *Ref, const HLLoop *Loop,
   }
 }
 
-static bool sortRefsInSingleGroup(RefGroupTy &Group) {
-  for (int I = 0, E = Group.size() - 1; I < E; ++I) {
-    if (!DDRefUtils::haveConstDimensionDistances(Group[I], Group[I + 1],
-                                                 false)) {
+template <typename T> static bool areAllAtConstDimDist(ArrayRef<T> Refs) {
+  for (int I = 0, E = Refs.size() - 1; I < E; ++I)
+    if (!DDRefUtils::haveConstDimensionDistances(Refs[I], Refs[I + 1], false))
       return false;
-    }
+  return true;
+}
+
+static bool isZeroOffsetMemRef(const RegDDRef *Ref) {
+  if (!Ref->isMemRef())
+    return false;
+
+  // All index and offsets are zero
+  for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; I++)
+    if (!Ref->getDimensionIndex(I)->isZero() ||
+        !Ref->getDimensionLower(I)->isZero() ||
+        Ref->hasNonZeroTrailingStructOffsets(I))
+      return false;
+
+  return true;
+}
+
+static bool isEqualTypeAndBaseCE(const RegDDRef *Ref1, const RegDDRef *Ref2) {
+  return Ref1->getDestType() == Ref2->getDestType() &&
+         Ref1->getSrcType() == Ref2->getSrcType() &&
+         CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE());
+}
+
+static bool sortRefsInSingleGroup(RefGroupTy &Group) {
+
+  SmallVector<const RegDDRef *> ZeroOffsetRefs;
+  SmallVector<const RegDDRef *> NonZeroOffsetRefs;
+
+  // Zero offset memrefs can show different ways.
+  // (%a)[0].0, (%a)[0].1.0[1] - non-opaque ptrs
+  // (%a)[0]  , (%a)[0].1.0[1] - opaque ptrs
+  for (int I = 0, E = Group.size(); I < E; ++I) {
+    if (isZeroOffsetMemRef(Group[I]))
+      ZeroOffsetRefs.push_back(Group[I]);
+    else
+      NonZeroOffsetRefs.push_back(Group[I]);
+  }
+
+  bool HasNonConstDistZeroOffsetRefs =
+      !ZeroOffsetRefs.empty() && !NonZeroOffsetRefs.empty() &&
+      !DDRefUtils::haveConstDimensionDistances(ZeroOffsetRefs[0],
+                                               NonZeroOffsetRefs[0], false);
+
+  if (HasNonConstDistZeroOffsetRefs) {
+    // Throughout all refs, check
+    // 1. equal DestType (e.g. type of load)
+    // 2. equal base CE
+    // Throughout NonZeroOffsetRefs - hasConstDimensionDistance
+
+    // This means ZeroOffsetRefs and NonZeroOffsetRefs
+    // won't share the same Dest/SrcTypes or BaseCE.
+    // Bail out.
+    if (!isEqualTypeAndBaseCE(ZeroOffsetRefs[0], NonZeroOffsetRefs[0]))
+      return false;
+
+    // When NonConstDist ZeroOffsetRefs exist, sorting in the same group
+    // is for const indexes.
+    // Refs with blobs or IVs in the same group should not be sorted together.
+    if (std::any_of(NonZeroOffsetRefs.begin(), NonZeroOffsetRefs.end(),
+                    [](const RegDDRef *Ref) {
+                      return std::any_of(Ref->canon_begin(), Ref->canon_end(),
+                                         [](const CanonExpr *CE) {
+                                           return CE->hasBlob() || CE->hasIV();
+                                         });
+                    }))
+      return false;
+
+    // For all ZeroOffsetRefs, at least
+    // Dest/SrcTypes and BaseCEs should be the same.
+    for (int I = 0, E = ZeroOffsetRefs.size() - 1; I < E; ++I)
+      if (!isEqualTypeAndBaseCE(ZeroOffsetRefs[I], ZeroOffsetRefs[I + 1]))
+        return false;
+
+    // For all others, original logic of checking of congruency of shape and
+    // const distance for every dim are checked.
+    if (!areAllAtConstDimDist<const RegDDRef *>(NonZeroOffsetRefs))
+      return false;
+
+  } else {
+    // Original logic - when there is no non-const-dim-dist ZeroOffsetRef
+    if (!areAllAtConstDimDist<RegDDRef *>(Group))
+      return false;
   }
 
   std::sort(Group.begin(), Group.end(), DDRefUtils::compareMemRefAddress);
@@ -435,7 +522,8 @@ static bool sortRefsInGroups(RefGroupVecTy &Groups,
 // is 1. This means that the entries in the group represents an access to
 // the memory that is contiguous.
 static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
-                                             const HLLoop *InnermostLoop) {
+                                             const HLLoop *InnermostLoop,
+                                             TargetTransformInfo &TTI) {
 
   if (Group.empty())
     return false;
@@ -466,8 +554,36 @@ static bool isGroupAccessingContiguousMemory(const RefGroupTy &Group,
   if (ExpectedContiguousAccessMatches < 2)
     return false;
 
+  // Bail out if the number of bits that are going to be accessed is larger
+  // than the threshold. If the size was provided using the option
+  // -hir-runtime-dd-contiguous-access-threshold=X, the prioritize this value.
+  // If the value is -1, then the threshold will be fully ignored. This is for
+  // testing purposes. Else, use the vector width computed from TTI.
+  int64_t MaxContiguousStrideSize = 0;
+  if (ContiguousStridedAccessSizeThreshold.getNumOccurrences()) {
+    MaxContiguousStrideSize = ContiguousStridedAccessSizeThreshold;
+  } else {
+    auto VectorWidth =
+        TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector);
+    MaxContiguousStrideSize = VectorWidth.getFixedValue();
+  }
+
+  // If MaxContiguousStrideSize is 0, then we fully disable RuntimeDD for
+  // contiguous memory access.
+  if (MaxContiguousStrideSize == 0) {
+    return false;
+  }
+
+  if (MaxContiguousStrideSize > 0) {
+    int64_t ExpectedAccessInBits =
+        (((int64_t)LoadStoreSize * 8) * ExpectedContiguousAccessMatches);
+    if (ExpectedAccessInBits > MaxContiguousStrideSize)
+      return false;
+  }
+
   RegDDRef *PrevRef = FirstRef;
   int64_t NumContiguousAccessMatches = 1;
+
   for (unsigned I = 1, E = Group.size(); I < E; I++) {
     RegDDRef *Ref = Group[I];
 
@@ -1126,62 +1242,6 @@ static void clearNotInvolvedGroups(
   }
 }
 
-static bool unknownLoopInLoopNest(const HLLoop *Loop,
-                                  const HLLoop *InnermostLoop) {
-  assert(InnermostLoop->isInnermost() &&
-         "InnermostLoop is not an innermost loop");
-  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop->getParentLoop();
-       LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
-    if (LoopI->isUnknown()) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-// Check whether RTDD can happen before a relaxed non-perfect loopnest.
-// The pattern is matched by Geekbench6.0/Camera
-static bool canLoopBeRelaxed(HLLoop *Loop, const HLLoop *&InnermostLoop) {
-  HLIf *If = dyn_cast<HLIf>(Loop->getLastChild());
-
-  if (!If) {
-    return false;
-  }
-
-  if (If->getNumThenChildren() != 1 || If->hasElseChildren()) {
-    return false;
-  }
-
-  const HLNode *FirstThenChild = If->getFirstThenChild();
-
-  InnermostLoop = dyn_cast<HLLoop>(FirstThenChild);
-
-  if (!InnermostLoop || !InnermostLoop->isInnermost()) {
-    return false;
-  }
-
-  if (unknownLoopInLoopNest(Loop, InnermostLoop)) {
-    return false;
-  }
-
-  for (const HLNode &Node :
-       make_range(Loop->child_begin(), std::prev(Loop->child_end()))) {
-    const HLInst *HInst = dyn_cast<HLInst>(&Node);
-    if (!HInst) {
-      return false;
-    }
-
-    const RegDDRef *Lval = HInst->getLvalDDRef();
-
-    if (!Lval || !Lval->isTerminalRef()) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 static bool
 canHelpScalarReplacementOrMemoryMotion(const HLLoop *InnermostLoop) {
   return HIRLoopLocality::hasTemporalLocality(InnermostLoop, 2, true, false);
@@ -1404,18 +1464,13 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   }
 
   const HLLoop *InnermostLoop = Loop;
-  bool CanLoopBeRelaxed = false;
 
   bool IsNearPerfect = false;
   if (!Loop->isInnermost() &&
       !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false,
                                       &IsNearPerfect) &&
       !IsNearPerfect) {
-    CanLoopBeRelaxed = canLoopBeRelaxed(Loop, InnermostLoop);
-
-    if (!CanLoopBeRelaxed) {
-      return NON_PERFECT_LOOPNEST;
-    }
+    return NON_PERFECT_LOOPNEST;
   }
 
   Context.InnermostLoop = const_cast<HLLoop *>(InnermostLoop);
@@ -1463,13 +1518,14 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     }
   });
 
+  bool TryGroupSplitting = false;
   MemRefGatherer::VectorTy MemRefs;
 
   if (!IsNearPerfect) {
-    // Using Loop instead of InnermostLoop to handle 'CanLoopBeRelaxed' case.
-    MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(),
-                                MemRefs);
-
+    // This is either innermost loop or perfect loopnest so we can use
+    // InnermostLoop to gather memrefs.
+    MemRefGatherer::gatherRange(InnermostLoop->child_begin(),
+                                InnermostLoop->child_end(), MemRefs);
   } else {
     // Gather pre and post innermost loop memrefs separately to do some
     // validation.
@@ -1492,13 +1548,27 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     MemRefGatherer::gatherRange(std::next(InnermostLoop->getIterator()),
                                 OuterLoop->child_end(), PostLoopMemRefs);
 
-    // Give up on near perfect loopnest if any of the pre or post loop memrefs
-    // do not have constant distance with loop body refs as we will not be able
-    // to from valid grouping. We return with 'NON_PERFECT_LOOPNEST' so the
-    // caller can try multiversioning the innermost loop.
+    // If any of the pre or post loop memrefs do not have constant distance with
+    // loop body refs, we will not be able to from valid groups except by using
+    // group splitting. For example, consider the following loopnest-
+    //
+    //  DO i1
+    //    t = A[n];
+    //    DO i2
+    //      B[i2] = A[i2] + t;
+    //    EN DO
+    //  END DO
+    //
+    // The pre-loop load A[n] and loop body load A[i2] do not have constant
+    // distance so we cannot evaluate the address range of the group {A[n],
+    // A[i2]}. However, if we split these loads into two different groups {A[n]}
+    // and {A[i2]}, we can independantly test them against address range of
+    // {B[i2]}. Refer to
+    // llvm/test/Transforms/Intel_LoopTransforms/HIRRuntimeDD/near-perfect-loopnest-group-splitting.ll
+    // for an example.
     if (!haveConstantDistance(PreLoopMemRefs, LoopMemRefs) ||
         !haveConstantDistance(PostLoopMemRefs, LoopMemRefs)) {
-      return NON_PERFECT_LOOPNEST;
+      TryGroupSplitting = true;
     }
 
     MemRefs.append(PreLoopMemRefs.begin(), PreLoopMemRefs.end());
@@ -1517,7 +1587,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   // Split the Group if the size of Group is larger than 2 and the elements are
   // from different parent loops and they do not have constant distance
-  if (CanLoopBeRelaxed) {
+  if (TryGroupSplitting) {
     splitRefGroups(Groups, Grouping.getIndex(), SplitedGroupsOriginalIndices);
   }
 
@@ -1569,7 +1639,9 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     Ret = tryDelinearization(Loop, InnermostLoop, UnsortedGroupIndices, Groups,
                              DelinearizedGroups, Context.PreConditions);
     if (Ret != OK) {
-      return Ret;
+      // Return NON_PERFECT_LOOPNEST for near-perfect loopnest so we try
+      // innermost loop multiversioning.
+      return IsNearPerfect ? NON_PERFECT_LOOPNEST : Ret;
     }
 
     LLVM_DEBUG(
@@ -1580,7 +1652,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
     // Populate DelinearizedGroupIndices with indexes where
     // DelinearizedGroups[I] is not empty.
-    for (auto &Group : enumerate(DelinearizedGroups)) {
+    for (const auto &Group : enumerate(DelinearizedGroups)) {
       if (!Group.value().empty()) {
         Context.DelinearizedGroupIndices.push_back(Group.index());
       }
@@ -1649,7 +1721,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
                     [](const RegDDRef *Ref) { return Ref->isLval(); });
 
     bool IsContiguousGroup =
-        isGroupAccessingContiguousMemory(Groups[I], InnermostLoop);
+        isGroupAccessingContiguousMemory(Groups[I], InnermostLoop, TTI);
     IVSegments.emplace_back(GetGroupForChecks(I), IsWriteGroup,
                             IsContiguousGroup);
 

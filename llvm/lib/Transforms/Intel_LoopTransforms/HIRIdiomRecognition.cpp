@@ -72,7 +72,9 @@ struct MemOpCandidate {
   bool isMemset() const { return RHS->isTerminalRef(); }
   bool isMemcopy() const { return RHS->isMemRef(); }
 
-  MemOpCandidate() {}
+  MemOpCandidate()
+      : DefInst(nullptr), StoreRef(nullptr), RHS(nullptr),
+        IsStoreNegStride(false) {}
 
   MemOpCandidate(RegDDRef *StoreRef)
       : StoreRef(StoreRef), IsStoreNegStride(false) {
@@ -148,7 +150,7 @@ public:
   HIRIdiomRecognition(HIRFramework &HIRF, HIRLoopStatistics &HLS,
                       HIRDDAnalysis &DDA, TargetLibraryInfo &TLI)
       : HIRF(HIRF), DDA(DDA), TLI(TLI), DL(HIRF.getDataLayout()),
-        M(HIRF.getModule()) {}
+        M(HIRF.getModule()), HasMemcopy(false), HasMemset(false) {}
 
   bool run();
   bool runOnLoop(HLLoop *Loop);
@@ -304,14 +306,10 @@ bool HIRIdiomRecognition::isLegalGraph(const DDGraph &DDG, const HLLoop *Loop,
     // dependency to be less conservative.
     RefinedDependence RefinedDep;
     if (Level != 1) {
-      const DDRef *SrcRef = Ref;
-      const DDRef *DstRef = OtherRef;
-      if (!IsOutgoing) {
-        std::swap(SrcRef, DstRef);
-      }
-
-      RefinedDep = DDA.refineDV(SrcRef, DstRef, Level, Level, false);
+      RefinedDep = DDA.refineDV(E, Level, Level, false);
       if (RefinedDep.isIndependent()) {
+        LLVM_DEBUG(dbgs() << "Edge was refined as independant:\n");
+        LLVM_DEBUG(E->dump());
         continue;
       }
 

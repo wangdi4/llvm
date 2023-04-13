@@ -2,8 +2,9 @@
 ; RUN: opt < %s -passes=vplan-vec -disable-output -vplan-print-after-predicator -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM
 ; RUN: opt < %s -S -passes=vplan-vec -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM-CG
 
-; RUN: opt < %s -passes=hir-vplan-vec -disable-output -vplan-print-after-predicator -vplan-force-vf=2 | FileCheck %s --check-prefix=HIR
+; RUN: opt < %s -passes=hir-vplan-vec -disable-output -vplan-print-after-predicator -vplan-force-vf=2 | FileCheck %s --check-prefix=HIRVEC
 ; RUN: opt < %s -S -passes=hir-vplan-vec  -vplan-force-vf=2 | FileCheck %s --check-prefix=HIR-CG
+; RUN: opt < %s -passes=hir-vplan-vec,hir-optreport-emitter -disable-output -vplan-force-vf=2 -intel-opt-report=high 2>&1 | FileCheck %s --check-prefix=HIR-OPTRPT-HI
 
 ; Check that alloca is determined as divergent and correctly serialized (and
 ; uses are properly updated in the generated code). Note, that it's hard to
@@ -74,11 +75,13 @@ define dso_local void @func(i32 %n) local_unnamed_addr {
 ; LLVM-CG-NEXT:    [[TMP23:%.*]] = mul i64 1, [[TMP2]]
 ; LLVM-CG-NEXT:    [[TMP24:%.*]] = add i64 0, [[TMP23]]
 ;
-; HIR-LABEL:  VPlan after predicator:
-; HIR:          [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
-; HIR:          [DA: Div] [256 x i8]* [[VP6:%.*]] = alloca i64 [[VP2]]
+; HIRVEC-LABEL:  VPlan after predicator:
+; HIRVEC:          [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
+; HIRVEC:          [DA: Div] [256 x i8]* [[VP6:%.*]] = alloca i64 [[VP2]]
 ; Ensure we correctly bailout from vectorization
 ; HIR-CG-NOT: <2 x
+; HIR-OPTRPT-HI: remark #15436: loop was not vectorized: HIR: Loop contains an alloca instruction.
+
 entry:
   %conv = zext i32 %n to i64
   %storage = alloca [256 x i8]*, i64 %conv, align 16

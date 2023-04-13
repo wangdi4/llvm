@@ -7,9 +7,20 @@
 ; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info\
 ; RUN: -disable-output  -disable-vplan-codegen -debug-only=LoopVectorizationPlannerHIR %s 2>&1 | FileCheck %s
 
+; Also test opt-report remark when code gen is disabled.
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa -disable-vplan-codegen -disable-output -intel-opt-report=medium < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTMED
+; RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa -disable-vplan-codegen -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=2 -vplan-enable-masked-variant=0 -vplan-enable-soa -disable-vplan-codegen -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI-HIR
+
 ; CHECK: SOA profitability:
-; CHECK: SOAUnsafe = y3.lpriv
-; CHECK: SOASafe = i.priv Profitable = 1
+; CHECK:  SOAUnsafe = [[VP_Y3_LPRIV:%.*]] (y3.lpriv)
+; CHECK:  SOASafe = [[VP_I_PRIV:%.*]] (i.priv) Profitable = 1
+
+; OPTRPTMED: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized:
+; OPTRPTHI: remark #15436: loop was not vectorized: Code generation is disabled.
+; OPTRPTHI-HIR: remark #15436: loop was not vectorized: HIR: Code generation is disabled.
+
 
 %struct.int_int = type { i32, i32 }
 %struct.my_struct = type { [12 x %struct.int_int] }

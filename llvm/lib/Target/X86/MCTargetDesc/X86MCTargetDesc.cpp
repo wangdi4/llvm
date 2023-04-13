@@ -35,7 +35,6 @@
 #include "X86MCAsmInfo.h"
 #include "X86TargetStreamer.h"
 #include "llvm/ADT/APInt.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/DebugInfo/CodeView/CodeView.h"
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCInstrAnalysis.h"
@@ -46,7 +45,8 @@
 #include "llvm/MC/MachineLocation.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Host.h"
+#include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 
@@ -568,7 +568,7 @@ bool X86MCInstrAnalysis::clearsSuperRegisters(const MCRegisterInfo &MRI,
                                               APInt &Mask) const {
   const MCInstrDesc &Desc = Info->get(Inst.getOpcode());
   unsigned NumDefs = Desc.getNumDefs();
-  unsigned NumImplicitDefs = Desc.getNumImplicitDefs();
+  unsigned NumImplicitDefs = Desc.implicit_defs().size();
   assert(Mask.getBitWidth() == NumDefs + NumImplicitDefs &&
          "Unexpected number of bits in the mask!");
 
@@ -607,7 +607,7 @@ bool X86MCInstrAnalysis::clearsSuperRegisters(const MCRegisterInfo &MRI,
   }
 
   for (unsigned I = 0, E = NumImplicitDefs; I < E; ++I) {
-    const MCPhysReg Reg = Desc.getImplicitDefs()[I];
+    const MCPhysReg Reg = Desc.implicit_defs()[I];
     if (ClearsSuperReg(Reg))
       Mask.setBit(NumDefs + I);
   }
@@ -676,7 +676,8 @@ std::vector<std::pair<uint64_t, uint64_t>> X86MCInstrAnalysis::findPltEntries(
 bool X86MCInstrAnalysis::evaluateBranch(const MCInst &Inst, uint64_t Addr,
                                         uint64_t Size, uint64_t &Target) const {
   if (Inst.getNumOperands() == 0 ||
-      Info->get(Inst.getOpcode()).OpInfo[0].OperandType != MCOI::OPERAND_PCREL)
+      Info->get(Inst.getOpcode()).operands()[0].OperandType !=
+          MCOI::OPERAND_PCREL)
     return false;
   Target = Addr + Size + Inst.getOperand(0).getImm();
   return true;
@@ -800,22 +801,14 @@ for (Target *T : {&getTheX86_32Target(), &getTheX86_64Target()}) {
 #endif // INTEL_CUSTOMIZATION
 }
 
-MCRegister llvm::getX86SubSuperRegisterOrZero(MCRegister Reg, unsigned Size,
-                                              bool High) {
+MCRegister llvm::getX86SubSuperRegister(MCRegister Reg, unsigned Size,
+                                        bool High) {
   switch (Size) {
-  default: return X86::NoRegister;
+  default: llvm_unreachable("illegal register size");
   case 8:
     if (High) {
       switch (Reg.id()) {
-      default: return getX86SubSuperRegisterOrZero(Reg, 64);
-      case X86::SIL: case X86::SI: case X86::ESI: case X86::RSI:
-        return X86::SI;
-      case X86::DIL: case X86::DI: case X86::EDI: case X86::RDI:
-        return X86::DI;
-      case X86::BPL: case X86::BP: case X86::EBP: case X86::RBP:
-        return X86::BP;
-      case X86::SPL: case X86::SP: case X86::ESP: case X86::RSP:
-        return X86::SP;
+      default: return X86::NoRegister;
       case X86::AH: case X86::AL: case X86::AX: case X86::EAX: case X86::RAX:
         return X86::AH;
       case X86::DH: case X86::DL: case X86::DX: case X86::EDX: case X86::RDX:
@@ -860,6 +853,42 @@ MCRegister llvm::getX86SubSuperRegisterOrZero(MCRegister Reg, unsigned Size,
         return X86::R14B;
       case X86::R15B: case X86::R15W: case X86::R15D: case X86::R15:
         return X86::R15B;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+       case X86::R16B: case X86::R16W: case X86::R16D: case X86::R16:
+         return X86::R16B;
+       case X86::R17B: case X86::R17W: case X86::R17D: case X86::R17:
+         return X86::R17B;
+       case X86::R18B: case X86::R18W: case X86::R18D: case X86::R18:
+         return X86::R18B;
+       case X86::R19B: case X86::R19W: case X86::R19D: case X86::R19:
+         return X86::R19B;
+       case X86::R20B: case X86::R20W: case X86::R20D: case X86::R20:
+         return X86::R20B;
+       case X86::R21B: case X86::R21W: case X86::R21D: case X86::R21:
+         return X86::R21B;
+       case X86::R22B: case X86::R22W: case X86::R22D: case X86::R22:
+         return X86::R22B;
+       case X86::R23B: case X86::R23W: case X86::R23D: case X86::R23:
+         return X86::R23B;
+       case X86::R24B: case X86::R24W: case X86::R24D: case X86::R24:
+         return X86::R24B;
+       case X86::R25B: case X86::R25W: case X86::R25D: case X86::R25:
+         return X86::R25B;
+       case X86::R26B: case X86::R26W: case X86::R26D: case X86::R26:
+         return X86::R26B;
+       case X86::R27B: case X86::R27W: case X86::R27D: case X86::R27:
+         return X86::R27B;
+       case X86::R28B: case X86::R28W: case X86::R28D: case X86::R28:
+         return X86::R28B;
+       case X86::R29B: case X86::R29W: case X86::R29D: case X86::R29:
+         return X86::R29B;
+       case X86::R30B: case X86::R30W: case X86::R30D: case X86::R30:
+         return X86::R30B;
+       case X86::R31B: case X86::R31W: case X86::R31D: case X86::R31:
+         return X86::R31B;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       }
     }
   case 16:
@@ -897,6 +926,42 @@ MCRegister llvm::getX86SubSuperRegisterOrZero(MCRegister Reg, unsigned Size,
       return X86::R14W;
     case X86::R15B: case X86::R15W: case X86::R15D: case X86::R15:
       return X86::R15W;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86::R16B: case X86::R16W: case X86::R16D: case X86::R16:
+      return X86::R16W;
+    case X86::R17B: case X86::R17W: case X86::R17D: case X86::R17:
+      return X86::R17W;
+    case X86::R18B: case X86::R18W: case X86::R18D: case X86::R18:
+      return X86::R18W;
+    case X86::R19B: case X86::R19W: case X86::R19D: case X86::R19:
+      return X86::R19W;
+    case X86::R20B: case X86::R20W: case X86::R20D: case X86::R20:
+      return X86::R20W;
+    case X86::R21B: case X86::R21W: case X86::R21D: case X86::R21:
+      return X86::R21W;
+    case X86::R22B: case X86::R22W: case X86::R22D: case X86::R22:
+      return X86::R22W;
+    case X86::R23B: case X86::R23W: case X86::R23D: case X86::R23:
+      return X86::R23W;
+    case X86::R24B: case X86::R24W: case X86::R24D: case X86::R24:
+      return X86::R24W;
+    case X86::R25B: case X86::R25W: case X86::R25D: case X86::R25:
+      return X86::R25W;
+    case X86::R26B: case X86::R26W: case X86::R26D: case X86::R26:
+      return X86::R26W;
+    case X86::R27B: case X86::R27W: case X86::R27D: case X86::R27:
+      return X86::R27W;
+    case X86::R28B: case X86::R28W: case X86::R28D: case X86::R28:
+      return X86::R28W;
+    case X86::R29B: case X86::R29W: case X86::R29D: case X86::R29:
+      return X86::R29W;
+    case X86::R30B: case X86::R30W: case X86::R30D: case X86::R30:
+      return X86::R30W;
+    case X86::R31B: case X86::R31W: case X86::R31D: case X86::R31:
+      return X86::R31W;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
   case 32:
     switch (Reg.id()) {
@@ -933,10 +998,46 @@ MCRegister llvm::getX86SubSuperRegisterOrZero(MCRegister Reg, unsigned Size,
       return X86::R14D;
     case X86::R15B: case X86::R15W: case X86::R15D: case X86::R15:
       return X86::R15D;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86::R16B: case X86::R16W: case X86::R16D: case X86::R16:
+      return X86::R16D;
+    case X86::R17B: case X86::R17W: case X86::R17D: case X86::R17:
+      return X86::R17D;
+    case X86::R18B: case X86::R18W: case X86::R18D: case X86::R18:
+      return X86::R18D;
+    case X86::R19B: case X86::R19W: case X86::R19D: case X86::R19:
+      return X86::R19D;
+    case X86::R20B: case X86::R20W: case X86::R20D: case X86::R20:
+      return X86::R20D;
+    case X86::R21B: case X86::R21W: case X86::R21D: case X86::R21:
+      return X86::R21D;
+    case X86::R22B: case X86::R22W: case X86::R22D: case X86::R22:
+      return X86::R22D;
+    case X86::R23B: case X86::R23W: case X86::R23D: case X86::R23:
+      return X86::R23D;
+    case X86::R24B: case X86::R24W: case X86::R24D: case X86::R24:
+      return X86::R24D;
+    case X86::R25B: case X86::R25W: case X86::R25D: case X86::R25:
+      return X86::R25D;
+    case X86::R26B: case X86::R26W: case X86::R26D: case X86::R26:
+      return X86::R26D;
+    case X86::R27B: case X86::R27W: case X86::R27D: case X86::R27:
+      return X86::R27D;
+    case X86::R28B: case X86::R28W: case X86::R28D: case X86::R28:
+      return X86::R28D;
+    case X86::R29B: case X86::R29W: case X86::R29D: case X86::R29:
+      return X86::R29D;
+    case X86::R30B: case X86::R30W: case X86::R30D: case X86::R30:
+      return X86::R30D;
+    case X86::R31B: case X86::R31W: case X86::R31D: case X86::R31:
+      return X86::R31D;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
   case 64:
     switch (Reg.id()) {
-    default: return 0;
+    default: return X86::NoRegister;
     case X86::AH: case X86::AL: case X86::AX: case X86::EAX: case X86::RAX:
       return X86::RAX;
     case X86::DH: case X86::DL: case X86::DX: case X86::EDX: case X86::RDX:
@@ -969,14 +1070,42 @@ MCRegister llvm::getX86SubSuperRegisterOrZero(MCRegister Reg, unsigned Size,
       return X86::R14;
     case X86::R15B: case X86::R15W: case X86::R15D: case X86::R15:
       return X86::R15;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86::R16B: case X86::R16W: case X86::R16D: case X86::R16:
+      return X86::R16;
+    case X86::R17B: case X86::R17W: case X86::R17D: case X86::R17:
+      return X86::R17;
+    case X86::R18B: case X86::R18W: case X86::R18D: case X86::R18:
+      return X86::R18;
+    case X86::R19B: case X86::R19W: case X86::R19D: case X86::R19:
+      return X86::R19;
+    case X86::R20B: case X86::R20W: case X86::R20D: case X86::R20:
+      return X86::R20;
+    case X86::R21B: case X86::R21W: case X86::R21D: case X86::R21:
+      return X86::R21;
+    case X86::R22B: case X86::R22W: case X86::R22D: case X86::R22:
+      return X86::R22;
+    case X86::R23B: case X86::R23W: case X86::R23D: case X86::R23:
+      return X86::R23;
+    case X86::R24B: case X86::R24W: case X86::R24D: case X86::R24:
+      return X86::R24;
+    case X86::R25B: case X86::R25W: case X86::R25D: case X86::R25:
+      return X86::R25;
+    case X86::R26B: case X86::R26W: case X86::R26D: case X86::R26:
+      return X86::R26;
+    case X86::R27B: case X86::R27W: case X86::R27D: case X86::R27:
+      return X86::R27;
+    case X86::R28B: case X86::R28W: case X86::R28D: case X86::R28:
+      return X86::R28;
+    case X86::R29B: case X86::R29W: case X86::R29D: case X86::R29:
+      return X86::R29;
+    case X86::R30B: case X86::R30W: case X86::R30D: case X86::R30:
+      return X86::R30;
+    case X86::R31B: case X86::R31W: case X86::R31D: case X86::R31:
+      return X86::R31;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
   }
 }
-
-MCRegister llvm::getX86SubSuperRegister(MCRegister Reg, unsigned Size, bool High) {
-  MCRegister Res = getX86SubSuperRegisterOrZero(Reg, Size, High);
-  assert(Res != X86::NoRegister && "Unexpected register or VT");
-  return Res;
-}
-
-

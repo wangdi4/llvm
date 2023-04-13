@@ -37,9 +37,6 @@
 
 #define COLOR_TABLE_SIZE 64
 
-using namespace Intel::OpenCL::TaskExecutor;
-using namespace Intel::OpenCL::DeviceCommands;
-
 namespace Intel {
 namespace OpenCL {
 namespace BuiltInKernels {
@@ -75,12 +72,11 @@ protected:
   virtual void NotifyCommandStatusChanged(cl_dev_cmd_desc *cmd,
                                           unsigned uStatus, int iErr);
 
-  cl_dev_err_code
-  ExtractNDRangeParams(void *pTargetTaskParam, const KernelArgument *pParams,
-                       const unsigned int *pMemObjectIndx,
-                       unsigned int uiMemObjCount,
-                       std::vector<cl_mem_obj_descriptor *> *devMemObjects,
-                       std::vector<char> *kernelParamsVec);
+  cl_dev_err_code ExtractNDRangeParams(
+      void *pTargetTaskParam, const llvm::KernelArgument *pParams,
+      const unsigned int *pMemObjectIndx, unsigned int uiMemObjCount,
+      std::vector<cl_mem_obj_descriptor *> *devMemObjects,
+      std::vector<char> *kernelParamsVec);
 
   TaskDispatcher *m_pTaskDispatcher;
   IOCLDevLogDescriptor *m_pLogDescriptor;
@@ -108,7 +104,9 @@ public:
   bool CompleteAndCheckSyncPoint() override;
   bool IsCompleted() const override { return m_bCompleted; }
   long Release() override { return 0; }
-  TASK_PRIORITY GetPriority() const override { return TASK_PRIORITY_MEDIUM; }
+  TASK_PRIORITY GetPriority() const override {
+    return TaskExecutor::TASK_PRIORITY_MEDIUM;
+  }
 
   void Cancel() override {
     NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE,
@@ -210,7 +208,8 @@ protected:
 };
 
 // OCL Kernel execution
-class NDRange : public CommandBaseClass<ITaskSet>, public KernelCommand {
+class NDRange : public CommandBaseClass<TaskExecutor::ITaskSet>,
+                public DeviceCommands::KernelCommand {
 public:
   PREPARE_SHARED_PTR(NDRange)
 
@@ -229,11 +228,11 @@ public:
   void DetachFromThread(void *pWgContext) override;
   bool ExecuteIteration(size_t x, size_t y, size_t z,
                         void *pWgContext) override;
-  bool Finish(FINISH_REASON reason) override;
+  bool Finish(TaskExecutor::FINISH_REASON reason) override;
 
   // Optimize By
-  TASK_SET_OPTIMIZATION OptimizeBy() const override {
-    return TASK_SET_OPTIMIZE_DEFAULT;
+  TaskExecutor::TASK_SET_OPTIMIZATION OptimizeBy() const override {
+    return TaskExecutor::TASK_SET_OPTIMIZE_DEFAULT;
   }
   size_t PreferredSequentialItemsPerThread() const override;
   bool PreferNumaNodes() const override { return true; }
@@ -242,7 +241,7 @@ public:
     return CommandBaseClass<ITaskSet>::IsCompleted();
   }
 
-  IThreadLibTaskGroup *GetNDRangeChildrenTaskGroup() override {
+  TaskExecutor::IThreadLibTaskGroup *GetNDRangeChildrenTaskGroup() override {
     return GetParentTaskGroup().GetPtr();
   }
   char *GetParamsPtr() {
@@ -264,18 +263,19 @@ protected:
           KernelCommand *parent);
 
   cl_int m_lastError;
-  const ICLDevBackendKernelRunner *m_pRunner = nullptr;
-  UniformKernelArgs *m_pImplicitArgs = nullptr;
+  const DeviceBackend::ICLDevBackendKernelRunner *m_pRunner = nullptr;
+  llvm::UniformKernelArgs *m_pImplicitArgs = nullptr;
   void *m_pKernelArgs = nullptr;
 
-  static THREAD_LOCAL ICLDevBackendKernelRunner::ICLDevExecutionState
-      m_tExecState;
+  static THREAD_LOCAL
+      DeviceBackend::ICLDevBackendKernelRunner::ICLDevExecutionState
+          m_tExecState;
 
   // Information about the hardware and a potential override for work group to
   // thread mapping
   unsigned int m_numThreads;
   bool m_bEnablePredictablePartitioning;
-  bool m_needSerializeWGs;
+  bool m_needSerializeWGs = false;
 
   // Used when running in "predictable partitioning" mode (i.e. 1:1 mapping
   // between threads and WGs when using fission) Ensures no work group is

@@ -35,14 +35,14 @@
 ;
 ; CHECK:      define void @foo2(i64 %N, i64 noundef %step) local_unnamed_addr {
 ; CHECK:      VPlannedBB1:
-; CHECK-NEXT:   [[VP_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 %step, i32 0
+; CHECK-NEXT:   [[VP_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 %step, i64 0
 ; CHECK-NEXT:   [[VP_BCAST_SPLAT:%.*]] = shufflevector <2 x i64> [[VP_BCAST_SPLATINSERT]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:   br label %VPlannedBB2
 ; CHECK:      VPlannedBB2:                                      ; preds = %VPlannedBB1
 ; CHECK:        [[VP_STEP_WIDE:%.*]] = mul <2 x i64> [[VP_BCAST_SPLAT]], <i64 0, i64 1>
 ; CHECK-NEXT:   [[VP_IV_START_WIDE:%.*]] = add <2 x i64> [[VP_IV_START_BCAST_SPLAT:%.*]], [[VP_STEP_WIDE:%.*]]
 ; CHECK-NEXT:   [[VP_STEP_WIDE1:%.*]] = mul i64 %step, 2
-; CHECK-NEXT:   [[VP_STEP_INIT_SPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[VP_STEP_WIDE1]], i32 0
+; CHECK-NEXT:   [[VP_STEP_INIT_SPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[VP_STEP_WIDE1]], i64 0
 ; CHECK-NEXT:   [[VP_STEP_INIT_SPLAT:%.*]] = shufflevector <2 x i64> [[VP_STEP_INIT_SPLATINSERT]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK:     VPlannedBB7:                                      ; preds = %vector.body
 ; CHECK-NEXT:   [[VP_VEC_PHI_NEXT0:%.*]] = add nuw nsw <2 x i64> [[VP_VEC_PHI:%.*]], [[VP_BCAST_SPLAT]]

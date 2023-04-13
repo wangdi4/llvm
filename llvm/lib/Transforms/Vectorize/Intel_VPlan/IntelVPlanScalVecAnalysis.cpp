@@ -393,10 +393,11 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     // First operand represents reduction's identity value which should be
     // scalar.
     setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
-    // Second operand is the private alloca for array reduction.
+    // Second operand is the private alloca for array/complex type reduction.
     setSVAKindForOperand(Inst, 1, SVAKind::Vector);
-    // Instruction itself is vector in nature since it gets lowered to a loop of
-    // VF x NumArrElems iterations.
+    // Instruction itself is vector in nature since it gets lowered to -
+    // 1. a loop of VF x NumArrElems iterations (or)
+    // 2. wide store of identity element.
     setSVAKindForInst(Inst, SVAKind::Vector);
     return true;
   }
@@ -446,13 +447,15 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
-  case VPInstruction::ReductionFinalArr: {
+  case VPInstruction::ReductionFinalArr:
+  case VPInstruction::ReductionFinalCmplx: {
     // Instruction itself is vectorized, it produces a loop nest to finalize
-    // array reduction.
+    // array reduction or a sequence of shuffles incase of complex type
+    // reduction.
     setSVAKindForInst(Inst, SVAKind::Vector);
     // First operand is the private alloca.
     setSVAKindForOperand(Inst, 0, SVAKind::Vector);
-    // Second operand is the original scalar array.
+    // Second operand is the original scalar array/complex value.
     setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
     return true;
   }
@@ -537,6 +540,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     // users, set Vector conservatively.
     SVABits SetBits = getAllSetBitsFromUsers(Inst);
     setSVABitsForInst(Inst, SetBits);
+    return true;
+  }
+
+  case VPInstruction::AllocateDVBuffer: {
+    SVABits SetBits = getAllSetBitsFromUsers(Inst);
+    setSVABitsForInst(Inst, SetBits);
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
     return true;
   }
 
@@ -866,7 +876,7 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst) {
          "Specially processed instruction cannot reach here.");
 
   // Check if instruction's nature was already analyzed.
-  Optional<SVABits> InstBits = findSVABitsForInst(VPInst);
+  std::optional<SVABits> InstBits = findSVABitsForInst(VPInst);
   // Combined nature from all use sites of instruction.
   SVABits CombinedUseBits = getAllSetBitsFromUsers(VPInst);
 
@@ -1051,7 +1061,7 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
         continue;
       }
       auto *OpInst = cast<VPInstruction>(Op);
-      Optional<SVABits> CurrentOpSVABits = findSVABitsForInst(OpInst);
+      std::optional<SVABits> CurrentOpSVABits = findSVABitsForInst(OpInst);
 
       if (CurrentOpSVABits && CurrentOpSVABits.value() == SetBits) {
         // Nothing to do, operand already has same state as Inst.
@@ -1116,8 +1126,10 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ReductionFinalUdr:
   case VPInstruction::ReductionFinalInscan:
   case VPInstruction::ReductionFinalArr:
+  case VPInstruction::ReductionFinalCmplx:
   case VPInstruction::Pred:
   case VPInstruction::AllocatePrivate:
+  case VPInstruction::AllocateDVBuffer:
   case VPInstruction::AllZeroCheck:
   case VPInstruction::VectorTripCountCalculation:
   case VPInstruction::OrigTripCountCalculation:

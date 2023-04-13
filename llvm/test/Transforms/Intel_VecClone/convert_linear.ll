@@ -1,7 +1,7 @@
 ; Check handling of upconverting a linear (variable %i) to ensure stride calculation
 ; is inserted correctly.
 
-; RUN: opt -passes="vec-clone" -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vec-clone" -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @_ZGVbN2vl_foo
 ; CHECK: simd.begin.region:

@@ -93,7 +93,7 @@ protected:
 
     const auto OptInfo = VFABI::tryDemangleForVFABI(MangledName, *(M.get()));
     if (OptInfo) {
-      Info = OptInfo.value();
+      Info = *OptInfo;
       return true;
     }
 
@@ -425,6 +425,38 @@ TEST_F(VFABIParserTest, ISAIndependentMangling) {
   __COMMON_CHECKS;
   EXPECT_EQ(VectorName, "vectorf");
 
+#if INTEL_CUSTOMIZATION
+  // Intel-specific: <isa> = "_unknown_"
+  EXPECT_TRUE(invokeParser("_ZGV_unknown_N2vls2Ls27Us4Rs5l1L10U100R1000u_sin"));
+  EXPECT_EQ(ISA, VFISAKind::Unknown);
+  __COMMON_CHECKS;
+  EXPECT_EQ(VectorName, "_ZGV_unknown_N2vls2Ls27Us4Rs5l1L10U100R1000u_sin");
+
+  // [vecabi-cmdtarget]SSE: <isa> = "x"
+  EXPECT_TRUE(invokeParser("_ZGVxN2vls2Ls27Us4Rs5l1L10U100R1000u_sin"));
+  EXPECT_EQ(ISA, VFISAKind::SSE);
+  __COMMON_CHECKS;
+  EXPECT_EQ(VectorName, "_ZGVxN2vls2Ls27Us4Rs5l1L10U100R1000u_sin");
+
+  // [vecabi-cmdtarget]AVX: <isa> = "y"
+  EXPECT_TRUE(invokeParser("_ZGVyN2vls2Ls27Us4Rs5l1L10U100R1000u_sin"));
+  EXPECT_EQ(ISA, VFISAKind::AVX);
+  __COMMON_CHECKS;
+  EXPECT_EQ(VectorName, "_ZGVyN2vls2Ls27Us4Rs5l1L10U100R1000u_sin");
+
+  // [vecabi-cmdtarget]AVX2: <isa> = "Y"
+  EXPECT_TRUE(invokeParser("_ZGVYN2vls2Ls27Us4Rs5l1L10U100R1000u_sin"));
+  EXPECT_EQ(ISA, VFISAKind::AVX2);
+  __COMMON_CHECKS;
+  EXPECT_EQ(VectorName, "_ZGVYN2vls2Ls27Us4Rs5l1L10U100R1000u_sin");
+
+  // [vecabi-cmdtarget]AVX512: <isa> = "Z"
+  EXPECT_TRUE(invokeParser("_ZGVZN2vls2Ls27Us4Rs5l1L10U100R1000u_sin"));
+  EXPECT_EQ(ISA, VFISAKind::AVX512);
+  __COMMON_CHECKS;
+  EXPECT_EQ(VectorName, "_ZGVZN2vls2Ls27Us4Rs5l1L10U100R1000u_sin");
+
+#endif // INTEL_CUSTOMIZATION
   // Unknown ISA (randomly using "q"). This test will need update if
   // some targets decide to use "q" as their ISA token.
   EXPECT_TRUE(invokeParser("_ZGVqN2vls2Ls27Us4Rs5l1L10U100R1000u_sin"));

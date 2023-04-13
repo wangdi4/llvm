@@ -58,6 +58,7 @@ class AnyMemTransferInst;
 class BasicBlock;
 class BatchAAResults;
 class LoadInst;
+enum class ModRefInfo : uint8_t;
 class raw_ostream;
 class StoreInst;
 class VAArgInst;
@@ -281,15 +282,16 @@ public:
 private:
   // Can only be created by AliasSetTracker.
   AliasSet()
-      : PtrListEnd(&PtrList), RefCount(0),  AliasAny(false), Access(NoAccess),
-        Alias(SetMustAlias) {}
+      : PtrListEnd(&PtrList), RefCount(0),  AliasAny(false),
+        Access(NoAccess), Alias(SetMustAlias) {}
 #ifdef INTEL_CUSTOMIZATION
   // This constructor allows one to specify whether or not "loopCarriedAlias"
   // disambiguation is will be used instead of the usual "alias"
   // disambiguation.
   AliasSet(bool WillRequireLoopCarried)
-      : PtrListEnd(&PtrList), RefCount(0), AliasAny(false), Access(NoAccess),
-        Alias(SetMustAlias), RequiresLoopCarried(WillRequireLoopCarried) {}
+      : PtrListEnd(&PtrList), RefCount(0), AliasAny(false),
+        Access(NoAccess), Alias(SetMustAlias),
+        RequiresLoopCarried(WillRequireLoopCarried) {}
 
   // This wraps all pairwise AA queries made by the AST and ensures that we use
   // the expected type of disambiguation.
@@ -336,7 +338,8 @@ public:
   /// Check if alias set aliases with another alias set.
   bool aliases(const AliasSet &AS, BatchAAResults &AA) const;
 #endif // INTEL_COLLAB
-  bool aliasesUnknownInst(const Instruction *Inst, BatchAAResults &AA) const;
+  ModRefInfo aliasesUnknownInst(const Instruction *Inst,
+                                BatchAAResults &AA) const;
 };
 
 inline raw_ostream& operator<<(raw_ostream &OS, const AliasSet &AS) {

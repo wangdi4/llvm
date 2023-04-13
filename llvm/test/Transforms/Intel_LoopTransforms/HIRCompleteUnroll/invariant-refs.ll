@@ -2,10 +2,15 @@
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -debug-only=hir-complete-unroll 2>&1 < %s | FileCheck %s
 
-; Verify that we have GEPSavings of 80, (2 * 10 = 20) each for (%A)[i2] load and
-; store as they can be hoisted out of the urolled i1 loop. The savings are then
-; doubled to account for the fact that the memrefs are saved from executing in
-; each iteration of outer loop.
+; Verify that we have GEPSavings of 50. The loads for (%A)[i2] are assumed to
+; be eliminated due to presence of dominating store (%A)[0] before the loop.
+; This is quite agressive and can be fine-tuned, if necessary. The savings are
+; calculated as (LoopTripCount * BaseCost) = 10 * 2 = 20.
+
+; The stores are identified as hoistable out of the urolled i1 loop. The savings
+; are calculated as (LoopTripCount * BaseCost * Multiplier) = 10 * 2 * 1.5 = 30.
+; The extra multiplier represents the fact that stores are saved from executing
+; in each iteration of outer loop.
 
 ; + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
 ; |   (%A)[0] = 0;
@@ -16,7 +21,7 @@
 ; |   + END LOOP
 ; + END LOOP
 
-; CHECK: GEPSavings: 60
+; CHECK: GEPSavings: 50
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

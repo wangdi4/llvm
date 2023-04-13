@@ -1,4 +1,21 @@
 //===---- ScheduleDAGInstrs.cpp - MachineInstr Rescheduling ---------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -57,6 +74,10 @@
 #include <utility>
 #include <vector>
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/CodeGen/TargetInstrInfo.h"
+#endif // end INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #define DEBUG_TYPE "machine-scheduler"
@@ -83,6 +104,12 @@ static cl::opt<unsigned> ReductionSize(
     "dag-maps-reduction-size", cl::Hidden,
     cl::desc("A huge scheduling region will have maps reduced by this many "
              "nodes at a time. Defaults to HugeRegion / 2."));
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool> SchedPrintCycles(
+    "sched-print-cycles", cl::Hidden, cl::init(false),
+    cl::desc("Report top/bottom cycles when dumping SUnit instances"));
+#endif
 
 static unsigned getReductionSize() {
   // Always reduce a huge region with half of the elements, except
@@ -188,6 +215,12 @@ void ScheduleDAGInstrs::enterRegion(MachineBasicBlock *bb,
   RegionBegin = begin;
   RegionEnd = end;
   NumRegionInstrs = regioninstrs;
+
+#if INTEL_CUSTOMIZATION
+  NumRegionInstrsScheduled = 0;
+  NumRegionPrefetchScheduled = 0;
+  RegionPrefetchInstrs.clear();
+#endif // INTEL_CUSTOMIZATION
 }
 
 void ScheduleDAGInstrs::exitRegion() {
@@ -205,10 +238,10 @@ void ScheduleDAGInstrs::addSchedBarrierDeps() {
     for (const MachineOperand &MO : ExitMI->operands()) {
       if (!MO.isReg() || MO.isDef()) continue;
       Register Reg = MO.getReg();
-      if (Register::isPhysicalRegister(Reg)) {
+      if (Reg.isPhysical()) {
         Uses.insert(PhysRegSUOper(&ExitSU, -1, Reg));
-      } else if (Register::isVirtualRegister(Reg) && MO.readsReg()) {
-        addVRegUseDeps(&ExitSU, ExitMI->getOperandNo(&MO));
+      } else if (Reg.isVirtual() && MO.readsReg()) {
+        addVRegUseDeps(&ExitSU, MO.getOperandNo());
       }
     }
   }
@@ -802,6 +835,11 @@ void ScheduleDAGInstrs::buildSchedGraph(AAResults *AA,
       continue;
     }
 
+#if INTEL_CUSTOMIZATION
+    if (TII->isPrefetchInstr(MI))
+      RegionPrefetchInstrs.insert(&MI);
+#endif // INTEL_CUSTOMIZATION
+
     if (MI.isDebugLabel() || MI.isDebugRef() || MI.isPseudoProbe())
       continue;
 
@@ -839,9 +877,9 @@ void ScheduleDAGInstrs::buildSchedGraph(AAResults *AA,
       if (!MO.isReg() || !MO.isDef())
         continue;
       Register Reg = MO.getReg();
-      if (Register::isPhysicalRegister(Reg)) {
+      if (Reg.isPhysical()) {
         addPhysRegDeps(SU, j);
-      } else if (Register::isVirtualRegister(Reg)) {
+      } else if (Reg.isVirtual()) {
         HasVRegDef = true;
         addVRegDefDeps(SU, j);
       }
@@ -856,9 +894,9 @@ void ScheduleDAGInstrs::buildSchedGraph(AAResults *AA,
       if (!MO.isReg() || !MO.isUse())
         continue;
       Register Reg = MO.getReg();
-      if (Register::isPhysicalRegister(Reg)) {
+      if (Reg.isPhysical()) {
         addPhysRegDeps(SU, j);
-      } else if (Register::isVirtualRegister(Reg) && MO.readsReg()) {
+      } else if (Reg.isVirtual() && MO.readsReg()) {
         addVRegUseDeps(SU, j);
       }
     }
@@ -1158,6 +1196,9 @@ void ScheduleDAGInstrs::fixupKills(MachineBasicBlock &MBB) {
 void ScheduleDAGInstrs::dumpNode(const SUnit &SU) const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   dumpNodeName(SU);
+  if (SchedPrintCycles)
+    dbgs() << " [TopReadyCycle = " << SU.TopReadyCycle
+           << ", BottomReadyCycle = " << SU.BotReadyCycle << "]";
   dbgs() << ": ";
   SU.getInstr()->dump();
 #endif
@@ -1513,7 +1554,7 @@ LLVM_DUMP_METHOD void ILPValue::dump() const {
 
 namespace llvm {
 
-LLVM_DUMP_METHOD
+LLVM_ATTRIBUTE_UNUSED
 raw_ostream &operator<<(raw_ostream &OS, const ILPValue &Val) {
   Val.print(OS);
   return OS;

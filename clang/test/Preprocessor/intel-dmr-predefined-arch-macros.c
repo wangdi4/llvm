@@ -6,16 +6,16 @@
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_DMR_M32
 // CHECK_DMR_M32: #define __AES__ 1
 // CHECK_DMR_M32: #define __AMXAVX512__ 1
-// CHECK_DMR_M32: #define __AMXBF16__ 1
-// CHECK_DMR_M32: #define __AMXCOMPLEX__ 1
-// CHECK_DMR_M32: #define __AMXFP16__ 1
-// CHECK_DMR_M32: #define __AMXINT8__ 1
-// CHECK_DMR_M32: #define __AMXMEMADVISE__ 1
+// CHECK_DMR_M32: #define __AMXMOVRS__ 1
 // CHECK_DMR_M32: #define __AMXSPARSE__ 1
 // CHECK_DMR_M32: #define __AMXTF32__ 1
 // CHECK_DMR_M32: #define __AMXTILE2__ 1
-// CHECK_DMR_M32: #define __AMXTILE__ 1
 // CHECK_DMR_M32: #define __AMXTRANSPOSE__ 1
+// CHECK_DMR_M32: #define __AMX_BF16__ 1
+// CHECK_DMR_M32: #define __AMX_COMPLEX__ 1
+// CHECK_DMR_M32: #define __AMX_FP16__ 1
+// CHECK_DMR_M32: #define __AMX_INT8__ 1
+// CHECK_DMR_M32: #define __AMX_TILE__ 1
 // CHECK_DMR_M32: #define __AVX256P__ 1
 // CHECK_DMR_M32: #define __AVX2__ 1
 // CHECK_DMR_M32: #define __AVX512BF16NE__ 1
@@ -29,7 +29,7 @@
 // CHECK_DMR_M32: #define __AVX512F__ 1
 // CHECK_DMR_M32: #define __AVX512IFMA__ 1
 // CHECK_DMR_M32: #define __AVX512MEDIAX__ 1
-// CHECK_DMR_M32: #define __AVX512MEMADVISE__ 1
+// CHECK_DMR_M32: #define __AVX512MOVRS__ 1
 // CHECK_DMR_M32: #define __AVX512RAOFP__ 1
 // CHECK_DMR_M32: #define __AVX512SATCVT__ 1
 // CHECK_DMR_M32: #define __AVX512VBMI2__ 1
@@ -109,16 +109,16 @@
 // RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_DMR_M64
 // CHECK_DMR_M64: #define __AES__ 1
 // CHECK_DMR_M64: #define __AMXAVX512__ 1
-// CHECK_DMR_M64: #define __AMXBF16__ 1
-// CHECK_DMR_M64: #define __AMXCOMPLEX__ 1
-// CHECK_DMR_M64: #define __AMXFP16__ 1
-// CHECK_DMR_M64: #define __AMXINT8__ 1
-// CHECK_DMR_M64: #define __AMXMEMADVISE__ 1
+// CHECK_DMR_M64: #define __AMXMOVRS__ 1
 // CHECK_DMR_M64: #define __AMXSPARSE__ 1
 // CHECK_DMR_M64: #define __AMXTF32__ 1
 // CHECK_DMR_M64: #define __AMXTILE2__ 1
-// CHECK_DMR_M64: #define __AMXTILE__ 1
 // CHECK_DMR_M64: #define __AMXTRANSPOSE__ 1
+// CHECK_DMR_M64: #define __AMX_BF16__ 1
+// CHECK_DMR_M64: #define __AMX_COMPLEX__ 1
+// CHECK_DMR_M64: #define __AMX_FP16__ 1
+// CHECK_DMR_M64: #define __AMX_INT8__ 1
+// CHECK_DMR_M64: #define __AMX_TILE__ 1
 // CHECK_DMR_M64: #define __AVX256P__ 1
 // CHECK_DMR_M64: #define __AVX2__ 1
 // CHECK_DMR_M64: #define __AVX512BF16NE__ 1
@@ -132,7 +132,7 @@
 // CHECK_DMR_M64: #define __AVX512F__ 1
 // CHECK_DMR_M64: #define __AVX512IFMA__ 1
 // CHECK_DMR_M64: #define __AVX512MEDIAX__ 1
-// CHECK_DMR_M64: #define __AVX512MEMADVISE__ 1
+// CHECK_DMR_M64: #define __AVX512MOVRS__ 1
 // CHECK_DMR_M64: #define __AVX512RAOFP__ 1
 // CHECK_DMR_M64: #define __AVX512SATCVT__ 1
 // CHECK_DMR_M64: #define __AVX512VBMI2__ 1

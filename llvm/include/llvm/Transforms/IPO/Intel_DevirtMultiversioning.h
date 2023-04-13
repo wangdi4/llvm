@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_DTRANS
 //=-- Intel_DevirtMultiversioning.h - Intel Devirtualization Multiversion -*-=//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -44,8 +44,8 @@ public:
   // default target during devirtualization since the input target function
   // or the input caller function are libfuncs or external functions.
   bool tryAddingDefaultTargetIntoVCallSite(CallBase *VCallSite,
-                                           Function *TargetFunc,
-                                           Function *CallerFunc);
+                                           GlobalValue *TargetFunc,
+                                           GlobalValue *CallerFunc);
 
   // Find the possible downcasting to prevent devirtualization
   void filterDowncasting(Function *AssumeFunc);
@@ -69,7 +69,7 @@ public:
   bool isMultiversionEnabled() { return EnableDevirtMultiversion; }
 
   // Add a new target function
-  void addTarget(Function *Fn);
+  void addTarget(GlobalValue *Fn);
 
   // Add a new virtual call
   void addVirtualCallSite(CallBase *VCallSite);
@@ -98,7 +98,7 @@ private:
 
   // Helper function to generate the branches for multiversioning
   void multiversionVCallSite(Module &M, CallBase *VCallSite, bool LibFuncFound,
-                             const SetVector<Function *> &TargetFunctions);
+                             const SetVector<GlobalValue *> &TargetFunctions);
 
   // Compute the basic block where all targets will jump after executing
   // the call instruction
@@ -107,11 +107,9 @@ private:
   // Create the call sites and basic blocks for each target. Return false if
   // all the target functions have the same llvm::FunctionType as VCallSite,
   // else return true.
-  bool createCallSiteBasicBlocks(Module &M,
-                                 std::vector<TargetData *> &TargetVector,
-                                 CallBase *VCallSite,
-                                 const SetVector<Function *> &TargetFunctions,
-                                 MDNode *Node);
+  bool createCallSiteBasicBlocks(
+      Module &M, std::vector<TargetData *> &TargetVector, CallBase *VCallSite,
+      const SetVector<GlobalValue *> &TargetFunctions, MDNode *Node);
 
   // Build the basic block for the default case
   TargetData *buildDefaultCase(Module &M, CallBase *VCallSite);
@@ -133,7 +131,7 @@ private:
                         TargetData *DefaultTarget, bool LibFuncFound);
 
   // Return true if the input function is a libfunc
-  bool functionIsLibFuncOrExternal(Function *F);
+  bool functionIsLibFuncOrExternal(GlobalValue *F);
 
   // Return true if the target function's type is the same as the virtual call
   // function's type.
@@ -142,7 +140,7 @@ private:
 
   // Structure to store the basic information needed by the multiversioning
   struct VirtualCallsDataForMV {
-    SetVector<Function *> TargetFunctions;    // Vector of Function* with
+    SetVector<GlobalValue *> TargetFunctions; // Vector of Function* with
                                               //   the targets
     std::vector<CallBase *> VirtualCallSites; // vector of CallBase* with
                                               //   the virtual callsites

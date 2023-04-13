@@ -18,17 +18,17 @@
 ; CHECK-TM-NEXT: %A = type { i8 }
 
 ; CHECK: @g1 = global %C_c zeroinitializer
-; CHECK:  getelementptr %C, %C* null, i64 0, i32 0, i32 0
+; CHECK:  getelementptr %C, ptr null, i64 0, i32 0, i32 0
 
 ; CHECK-TM: @g1 = global %C_c zeroinitializer
-; CHECK-TM: getelementptr %C_c, %C_c* null, i64 0, i32 0, i32 0
+; CHECK-TM: getelementptr %C_c, ptr null, i64 0, i32 0, i32 0
 
 %A   = type { i8 }
 %B   = type { %A }
 %C   = type { %B }
 %C_c = type { %B }
 define void @f1() {
-  getelementptr %C, %C* null, i64 0, i32 0, i32 0
+  getelementptr %C, ptr null, i64 0, i32 0, i32 0
   ret void
 }
 @g1 = global %C_c zeroinitializer

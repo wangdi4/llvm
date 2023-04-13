@@ -693,7 +693,6 @@ static Value *getSLMOffset(Value *V, Instruction *InsPos) {
           cast<llvm::Instruction>(PointerValue)
               ->setDebugLoc(InsPos->getDebugLoc());
         }
-        Ty = StTy->getElementType(Field);
       } else {
         Ty = GTI.getIndexedType();
         if (const ConstantInt *CI = dyn_cast<ConstantInt>(Idx)) {
@@ -1252,8 +1251,6 @@ static Value *translateSLMStore(StoreInst *StoreOp) {
 std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath32 = {
     //  Basic functions
     //{Intrinsic::fma,        NA}, // llvm fma is supported by BE
-    {Intrinsic::maxnum, GenXIntrinsic::genx_fmax},
-    {Intrinsic::minnum, GenXIntrinsic::genx_fmin},
 
     //  Exponential functions
     {Intrinsic::exp, GenXIntrinsic::not_genx_intrinsic},
@@ -1283,8 +1280,6 @@ std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath32 = {
 std::unordered_map<Intrinsic::ID, GenXIntrinsic::ID> GenXMath64 = {
     //  Basic functions
     {Intrinsic::fma, GenXIntrinsic::not_genx_intrinsic},
-    {Intrinsic::maxnum, GenXIntrinsic::genx_fmax},
-    {Intrinsic::minnum, GenXIntrinsic::genx_fmin},
 
     //  Exponential functions
     {Intrinsic::exp, GenXIntrinsic::not_genx_intrinsic},
@@ -1316,10 +1311,10 @@ static Value *translateLLVMInst(Instruction *Inst) {
     llvm::Type *DstTy = CastOp->getDestTy();
     auto CastOpcode = CastOp->getOpcode();
     if (isa<FixedVectorType>(DstTy) &&
-            (CastOpcode == llvm::Instruction::FPToUI &&
-             DstTy->getScalarType()->getPrimitiveSizeInBits() <= 32) ||
-        (CastOpcode == llvm::Instruction::FPToSI &&
-         DstTy->getScalarType()->getPrimitiveSizeInBits() < 32)) {
+        ((CastOpcode == llvm::Instruction::FPToUI &&
+          DstTy->getScalarType()->getPrimitiveSizeInBits() <= 32) ||
+         (CastOpcode == llvm::Instruction::FPToSI &&
+          DstTy->getScalarType()->getPrimitiveSizeInBits() < 32))) {
       llvm::Value *Src = CastOp->getOperand(0);
       auto TmpTy = llvm::FixedVectorType::get(
           llvm::Type::getInt32Ty(CTX),
@@ -1705,7 +1700,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
 static unsigned int assignSLMOffset(Module &M) {
   auto DL = M.getDataLayout();
   unsigned SLMSize = 0;
-  for (auto &&GV : M.getGlobalList()) {
+  for (auto &&GV : M.globals()) {
     auto Ty = dyn_cast<PointerType>(GV.getType());
     if (Ty && Ty->getAddressSpace() == SYCL_SLM_AS) {
       auto DTy = GV.getValueType();

@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSOP.cpp - SOAToAOSOPPass ---------------------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -20,7 +20,6 @@
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 
 #include "SOAToAOSOPArrays.h"
@@ -1016,65 +1015,3 @@ PreservedAnalyses SOAToAOSOPPass::run(Module &M, ModuleAnalysisManager &AM) {
 
 } // namespace dtransOP
 } // end namespace llvm
-
-namespace {
-class DTransSOAToAOSOPWrapper : public ModulePass {
-private:
-  dtransOP::SOAToAOSOPPass Impl;
-
-public:
-  static char ID;
-
-  DTransSOAToAOSOPWrapper() : ModulePass(ID) {
-    initializeDTransSOAToAOSOPWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto &WP = getAnalysis<WholeProgramWrapperPass>().getResult();
-    if (!WP.isWholeProgramSafe())
-      return false;
-
-    auto &DTAnalysisWrapper = getAnalysis<DTransSafetyAnalyzerWrapper>();
-    DTransSafetyInfo &DTInfo = DTAnalysisWrapper.getDTransSafetyInfo(M);
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    auto GetDT = [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-
-    bool Changed = Impl.runImpl(M, DTInfo, WP, GetTLI, GetDT);
-
-    // TODO: Need to set setInvalidated() when Changed is true.
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<DTransSafetyAnalyzerWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
-} // namespace
-
-char DTransSOAToAOSOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransSOAToAOSOPWrapper, "dtrans-soatoaosop",
-                      "DTransOP struct of arrays to array of structs", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransSOAToAOSOPWrapper, "dtrans-soatoaosop",
-                    "DTransOP struct of arrays to array of structs", false,
-                    false)
-
-ModulePass *llvm::createDTransSOAToAOSOPWrapperPass() {
-  return new DTransSOAToAOSOPWrapper();
-}

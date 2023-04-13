@@ -48,8 +48,8 @@ protected:
       : m_binary_result(nullptr), m_fe_compiler(nullptr),
         m_llvm_context(nullptr) {}
 
-  virtual void SetUp();
-  virtual void TearDown();
+  virtual void SetUp() override;
+  virtual void TearDown() override;
 
   std::vector<char> &GetSpirvBinaryContainer() {
     return m_spirv_program_binary;

@@ -3,7 +3,7 @@
 ; propagation passes when the beginning of an array is casted to a pointer
 ; and it is used inside a callback.
 
-; RUN: opt -passes=ipsccp -S %s | FileCheck %s --check-prefix NOOPAQUE
+; RUN: opt -opaque-pointers=0 -passes=ipsccp -S %s | FileCheck %s --check-prefix NOOPAQUE
 ; RUN: opt -opaque-pointers -passes=ipsccp -S %s | FileCheck %s --check-prefix OPAQUE
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

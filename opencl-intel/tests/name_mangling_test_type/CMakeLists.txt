@@ -7,6 +7,6 @@ include_directories(
   ${OCL_BINARY_DIR}/include)
 
 add_ocl_unittest(${TARGET_NAME} SOURCE_FILES MangleTest.cpp LINK_LIBRARIES
-                 LLVMSupport LLVMIntel_DPCPPKernelTransforms)
+                 LLVMSupport LLVMSYCLTransforms)
 
 add_dependencies(${TARGET_NAME} reflection_module)

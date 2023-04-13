@@ -58,13 +58,13 @@ protected:
 #if INTEL_CUSTOMIZATION
   llvm::Type *ChannelTy;
 #endif // INTEL_CUSTOMIZATION
-  llvm::PointerType *SamplerTy;
+  llvm::Type *SamplerTy;
   llvm::StringMap<llvm::PointerType *> CachedTys;
 
   /// Structure for enqueued block information.
   struct EnqueuedBlockInfo {
     llvm::Function *InvokeFunc; /// Block invoke function.
-    llvm::Function *Kernel;     /// Enqueued block kernel.
+    llvm::Value *KernelHandle;  /// Enqueued block kernel reference.
     llvm::Value *BlockArg;      /// The first argument to enqueued block kernel.
     llvm::Type *BlockTy;        /// Type of the block argument.
   };
@@ -94,7 +94,7 @@ public:
 
   virtual llvm::Type *getPipeType(const PipeType *T);
 
-  llvm::PointerType *getSamplerType(const Type *T);
+  llvm::Type *getSamplerType(const Type *T);
 
   // Returns a value which indicates the size in bytes of the pipe
   // element.

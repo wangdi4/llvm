@@ -6,7 +6,6 @@
 
 ; RUN: opt %s -o %t.bc
 ; RUN: not ld.lld -e main --lto-O2 \
-; RUN:     -plugin-opt=new-pass-manager  \
 ; RUN:     -mllvm -debug-only=whole-program-analysis \
 ; RUN:     -mllvm -whole-program-read-trace %t.bc -o %t \
 ; RUN:     2>&1 | FileCheck %s
@@ -30,7 +29,7 @@ entry:
 
 declare i32 @sub(i32 %a);
 
-define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
+define i32 @main(i32 %argc, ptr nocapture readnone %argv) {
 entry:
   %call1 = call i32 @add(i32 %argc)
   %call2 = call i32 @sub(i32 %call1)

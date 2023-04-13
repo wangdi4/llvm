@@ -29,7 +29,7 @@
 #ifndef LIBIML_ATTR_IML_ACCURACY_INTERFACE_H_INCLUDED
 #define LIBIML_ATTR_IML_ACCURACY_INTERFACE_H_INCLUDED
 
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 
 #if defined __cplusplus
 extern "C" {

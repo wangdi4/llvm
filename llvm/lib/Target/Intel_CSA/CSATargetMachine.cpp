@@ -105,7 +105,7 @@ extern "C" void LLVMInitializeCSATarget() {
   initializeControlDependenceGraphPass(PR);
 }
 
-static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
+static Reloc::Model getEffectiveRelocModel(std::optional<Reloc::Model> RM) {
   if (!RM.hasValue())
     return Reloc::Static;
   return *RM;
@@ -114,8 +114,8 @@ static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
 CSATargetMachine::CSATargetMachine(const Target &T, const Triple &TT,
                                    StringRef CPU, StringRef FS,
                                    const TargetOptions &Options,
-                                   Optional<Reloc::Model> RM,
-                                   Optional<CodeModel::Model> CM,
+                                   std::optional<Reloc::Model> RM,
+                                   std::optional<CodeModel::Model> CM,
                                    CodeGenOpt::Level OL, bool JIT)
     : LLVMTargetMachine(T, computeDataLayout(), TT, CPU, FS, Options,
                         getEffectiveRelocModel(RM),

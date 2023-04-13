@@ -1,6 +1,6 @@
 //===------ SOAToAOSPrepare.cpp - SOAToAOSPreparePass ---------------------===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -210,7 +210,6 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 
@@ -789,9 +788,9 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
     Type *FuncTy = OrigF->getType();
     Type *ReplTy = TypeRemapper.remapType(FuncTy);
     assert(ReplTy != FuncTy && "Unexpected cloning");
-    Function *NewF =
-        Function::Create(cast<FunctionType>(ReplTy->getPointerElementType()),
-                         OrigF->getLinkage(), OrigF->getName(), &M);
+    Function *NewF = Function::Create(
+        cast<FunctionType>(ReplTy->getNonOpaquePointerElementType()),
+        OrigF->getLinkage(), OrigF->getName(), &M);
     NewF->copyAttributesFrom(OrigF);
     VMap[OrigF] = NewF;
     OrigToNewFuncMap[OrigF] = NewF;
@@ -1402,7 +1401,7 @@ Function *SOAToAOSPrepCandidateInfo::applyCtorTransformations() {
     }
 
     // Get function body for NF.
-    NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+    NF->splice(NF->begin(), F);
 
     // Fix argument usages since dead arg is moved at the end of param list,
     Pos = 0;
@@ -1920,7 +1919,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     Indices.push_back(IRB.getInt32(BaseArrayIdx));
     // Load base array of vector
     Value *GEP = IRB.CreateInBoundsGEP(NewElemTy, ThisPtr, Indices, "");
-    auto Align = MaybeAlign(DL.getABITypeAlignment(Elem->getType()));
+    auto Align = MaybeAlign(DL.getABITypeAlign(Elem->getType()));
     LoadInst *Load =
         IRB.CreateAlignedLoad(Elem->getType()->getPointerTo(0), GEP, Align, "");
     Value *NewIdx = IRB.CreateZExtOrTrunc(Idx, IRB.getInt64Ty());
@@ -2152,7 +2151,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     int32_t Pos = 0;
     for (auto &Arg : CtorF->args()) {
       auto *PTy = dyn_cast<PointerType>(Arg.getType());
-      if (PTy && PTy->getElementType() == MemInterTy)
+      if (PTy && PTy->getNonOpaquePointerElementType() == MemInterTy)
         return Pos;
       Pos++;
     }
@@ -2263,7 +2262,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
   llvm::Type *BaseTy = ElemTy;
   while (BaseTy->isPointerTy()) {
     ++PtrLevel;
-    BaseTy = BaseTy->getPointerElementType();
+    BaseTy = BaseTy->getNonOpaquePointerElementType();
   }
   DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(*SimpleCCtor,
                                                              BaseTy, PtrLevel);
@@ -2375,7 +2374,7 @@ void SOAToAOSPrepCandidateInfo::reverseArgPromote() {
 
   updateCallBase(CB, NewPAL, NF, NewArgs);
 
-  NF->getBasicBlockList().splice(NF->begin(), AppendFunc->getBasicBlockList());
+  NF->splice(NF->begin(), AppendFunc);
 
   // Update argument uses.
   unsigned Pos = 0;
@@ -2635,63 +2634,3 @@ PreservedAnalyses SOAToAOSPreparePass::run(Module &M,
 
 } // end namespace dtrans
 } // end namespace llvm
-
-namespace {
-class DTransSOAToAOSPrepareWrapper : public ModulePass {
-private:
-  dtrans::SOAToAOSPreparePass Impl;
-
-public:
-  static char ID;
-
-  DTransSOAToAOSPrepareWrapper() : ModulePass(ID) {
-    initializeDTransSOAToAOSPrepareWrapperPass(
-        *PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto &DTAnalysisWrapper = getAnalysis<DTransAnalysisWrapper>();
-    DTransAnalysisInfo &DTInfo = DTAnalysisWrapper.getDTransInfo(M);
-    dtrans::SOADominatorTreeType GetDT =
-        [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-    auto GetTLI = [this](const Function &F) -> const TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    bool Changed =
-        Impl.runImpl(M, DTInfo, GetTLI,
-                     getAnalysis<WholeProgramWrapperPass>().getResult(), GetDT);
-    if (Changed)
-      DTAnalysisWrapper.setInvalidated();
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransAnalysisWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
-} // namespace
-
-char DTransSOAToAOSPrepareWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransSOAToAOSPrepareWrapper, "dtrans-soatoaos-prepare",
-                      "DTrans soatoaos prepare", false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_END(DTransSOAToAOSPrepareWrapper, "dtrans-soatoaos-prepare",
-                    "DTrans soatoaos prepare", false, false)
-
-ModulePass *llvm::createDTransSOAToAOSPrepareWrapperPass() {
-  return new DTransSOAToAOSPrepareWrapper();
-}

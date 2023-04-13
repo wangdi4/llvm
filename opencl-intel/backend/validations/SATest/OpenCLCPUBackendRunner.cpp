@@ -52,6 +52,7 @@
 
 #include <string.h>
 
+using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Validation {
@@ -228,8 +229,8 @@ public:
 
     m_sample.Start();
 
-    LLVM_DEBUG(llvm::dbgs() << "Starting execution of the " << x << ", " << y
-                            << ", " << z << " group.\n");
+    LLVM_DEBUG(dbgs() << "Starting execution of the " << x << ", " << y << ", "
+                      << z << " group.\n");
 
     cl_dev_err_code ret = m_pKernelRunner->RunGroup(
         reinterpret_cast<const void *>(m_pArgumentBuffer.get()), groupId,
@@ -239,8 +240,8 @@ public:
       throw Exception::TestRunnerException("Execution failed.\n");
     }
 
-    LLVM_DEBUG(llvm::dbgs() << "Finished execution of the " << x << ", " << y
-                            << ", " << z << " group.\n");
+    LLVM_DEBUG(dbgs() << "Finished execution of the " << x << ", " << y << ", "
+                      << z << " group.\n");
 
     m_sample.Stop();
 
@@ -406,7 +407,7 @@ void OpenCLCPUBackendRunner::Run(IRunResult *runResult, const IProgram *program,
   ICLDevBackendCompileServicePtr spCompileService(NULL);
   ICLDevBackendImageServicePtr spImageService(NULL);
 
-  LLVM_DEBUG(llvm::dbgs() << "Get execution service started.\n");
+  LLVM_DEBUG(dbgs() << "Get execution service started.\n");
   cl_dev_err_code ret = m_pServiceFactory->GetExecutionService(
       options.get(), spExecutionService.getOutPtr());
   if (CL_DEV_FAILED(ret)) {
@@ -416,11 +417,11 @@ void OpenCLCPUBackendRunner::Run(IRunResult *runResult, const IProgram *program,
           "back-end with SDE support.\n");
     throw Exception::TestRunnerException("Create execution service failed\n");
   }
-  LLVM_DEBUG(llvm::dbgs() << "Get execution service finished.\n");
+  LLVM_DEBUG(dbgs() << "Get execution service finished.\n");
 
   options->InitTargetDescriptionSession(spExecutionService.get());
 
-  LLVM_DEBUG(llvm::dbgs() << "Get compilation service started.\n");
+  LLVM_DEBUG(dbgs() << "Get compilation service started.\n");
   ret = m_pServiceFactory->GetCompilationService(options.get(),
                                                  spCompileService.getOutPtr());
   if (CL_DEV_FAILED(ret)) {
@@ -430,15 +431,15 @@ void OpenCLCPUBackendRunner::Run(IRunResult *runResult, const IProgram *program,
     }
     throw Exception::TestRunnerException("Create compilation service failed\n");
   }
-  LLVM_DEBUG(llvm::dbgs() << "Get compilation service finished.\n");
+  LLVM_DEBUG(dbgs() << "Get compilation service finished.\n");
 
-  LLVM_DEBUG(llvm::dbgs() << "Get image service started.\n");
+  LLVM_DEBUG(dbgs() << "Get image service started.\n");
   ret = m_pServiceFactory->GetImageService(options.get(),
                                            spImageService.getOutPtr());
   if (CL_DEV_FAILED(ret)) {
     throw Exception::TestRunnerException("Create image service failed\n");
   }
-  LLVM_DEBUG(llvm::dbgs() << "Get image service finished.\n");
+  LLVM_DEBUG(dbgs() << "Get image service finished.\n");
 
   {
     //
@@ -612,8 +613,7 @@ void OpenCLCPUBackendRunner::ExecuteKernel(
   runResult->SetComparatorIgnoreList(kernelName.c_str(), ignoreList);
 
   auto *KernelF = m_pModule->getFunction(pKernelConfig->GetKernelName());
-  assert(KernelF &&
-         KernelF->getCallingConv() == llvm::CallingConv::SPIR_KERNEL &&
+  assert(KernelF && KernelF->getCallingConv() == CallingConv::SPIR_KERNEL &&
          "No valid kernel found");
 
   DataVersion::ConvertData(&input, KernelF);

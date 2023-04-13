@@ -326,7 +326,7 @@ public:
   void addLine(unsigned Line, MCSymbol *Begin);
 
   /// \returns the line number of the last line record in the last file.
-  Optional<unsigned> getLastLineNo() const;
+  std::optional<unsigned> getLastLineNo() const;
 
   /// \returns true if the last routine is empty.
   bool isLastRoutineEmpty() const;

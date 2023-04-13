@@ -32,10 +32,10 @@ static void host_jit_reload_internal(cl::Context context, cl::Device device,
                                      cl::Program program,
                                      HostProgramExtraArgs extra_args) {
   // JIT reload
-  vector<size_t> sizes = program.getInfo<CL_PROGRAM_BINARY_SIZES>();
-  vector<char *> binaries = program.getInfo<CL_PROGRAM_BINARIES>();
+  vector<vector<unsigned char>> binaries =
+      program.getInfo<CL_PROGRAM_BINARIES>();
   vector<cl::Device> devices = {device};
-  cl::Program program2(context, devices, {make_pair(binaries[0], sizes[0])});
+  cl::Program program2(context, devices, binaries);
   program2.build(devices);
 
   cl::Kernel kernel(program2, "main_kernel");

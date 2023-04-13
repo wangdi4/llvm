@@ -47,6 +47,7 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateInstCallback.h"
 #include "llvm/Support/TimeProfiler.h"
+#include <optional>
 
 #if INTEL_CUSTOMIZATION
 #include "intel/SemaIntelImpl.h"
@@ -142,7 +143,7 @@ static void instantiateDependentAlignedAttr(
 
   // Determine whether we can expand this attribute pack yet.
   bool Expand = true, RetainExpansion = false;
-  Optional<unsigned> NumExpansions;
+  std::optional<unsigned> NumExpansions;
   // FIXME: Use the actual location of the ellipsis.
   SourceLocation EllipsisLoc = Aligned->getLocation();
   if (S.CheckParameterPacksForExpansion(EllipsisLoc, Aligned->getRange(),
@@ -452,10 +453,20 @@ static void instantiateOMPDeclareSimdDeclAttr(
     ++SI;
   }
   LinModifiers.append(Attr.modifiers_begin(), Attr.modifiers_end());
+
+#if INTEL_CUSTOMIZATION
+  SmallVector<IdentifierInfo *, 4> Processors;
+  Processors.append(Attr.processors_begin(), Attr.processors_end());
+  SmallVector<SourceLocation, 4> ProcessorLocs;
+  ProcessorLocs.resize(Processors.size(), SourceLocation());
+#endif // INTEL_CUSTOMIZATION
+
   (void)S.ActOnOpenMPDeclareSimdDirective(
       S.ConvertDeclToDeclGroup(New), Attr.getBranchState(), Simdlen.get(),
       Uniforms, Aligneds, Alignments, Linears, LinModifiers, Steps,
-      Attr.getRange());
+#if INTEL_CUSTOMIZATION
+      Processors, ProcessorLocs, Attr.getRange());
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Instantiation of 'declare variant' attribute and its arguments.
@@ -528,7 +539,7 @@ static void instantiateOMPDeclareVariantAttr(
 
   // Check function/variant ref for `omp declare variant` but not for `omp
   // begin declare variant` (which use implicit attributes).
-  Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
+  std::optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
       S.checkOpenMPDeclareVariantFunction(S.ConvertDeclToDeclGroup(New), E, TI,
                                           Attr.appendArgs_size(),
                                           Attr.getRange());
@@ -536,8 +547,8 @@ static void instantiateOMPDeclareVariantAttr(
   if (!DeclVarData)
     return;
 
-  E = DeclVarData.value().second;
-  FD = DeclVarData.value().first;
+  E = DeclVarData->second;
+  FD = DeclVarData->first;
 
   if (auto *VariantDRE = dyn_cast<DeclRefExpr>(E->IgnoreParenImpCasts())) {
     if (auto *VariantFD = dyn_cast<FunctionDecl>(VariantDRE->getDecl())) {
@@ -726,12 +737,9 @@ instantiateSYCLDeviceHasAttr(Sema &S,
   EnterExpressionEvaluationContext Unevaluated(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   SmallVector<Expr *, 8> Args;
-  for (auto I : Attr->aspects()) {
-    ExprResult Result = S.SubstExpr(I, TemplateArgs);
-    if (Result.isInvalid())
-      return;
-    Args.push_back(Result.getAs<Expr>());
-  }
+  if (S.SubstExprs(ArrayRef<Expr *>(Attr->aspects_begin(), Attr->aspects_end()),
+                   /*IsCall=*/false, TemplateArgs, Args))
+    return;
   S.AddSYCLDeviceHasAttr(New, *Attr, Args.data(), Args.size());
 }
 
@@ -919,9 +927,9 @@ static void instantiateSYCLAddIRAnnotationsMemberAttr(
   S.AddSYCLAddIRAnnotationsMemberAttr(New, *A, Args);
 }
 
-static void instantiateWorkGroupSizeHintAttr(
+static void instantiateSYCLWorkGroupSizeHintAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const WorkGroupSizeHintAttr *A, Decl *New) {
+    const SYCLWorkGroupSizeHintAttr *A, Decl *New) {
   EnterExpressionEvaluationContext Unevaluated(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult XResult = S.SubstExpr(A->getXDim(), TemplateArgs);
@@ -934,8 +942,8 @@ static void instantiateWorkGroupSizeHintAttr(
   if (ZResult.isInvalid())
     return;
 
-  S.AddWorkGroupSizeHintAttr(New, *A, XResult.get(), YResult.get(),
-                             ZResult.get());
+  S.AddSYCLWorkGroupSizeHintAttr(New, *A, XResult.get(), YResult.get(),
+                                 ZResult.get());
 }
 
 static void instantiateSYCLIntelMaxWorkGroupSizeAttr(
@@ -957,9 +965,9 @@ static void instantiateSYCLIntelMaxWorkGroupSizeAttr(
                                      ZResult.get());
 }
 
-static void instantiateReqdWorkGroupSizeAttr(
+static void instantiateSYCLReqdWorkGroupSizeAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const ReqdWorkGroupSizeAttr *A, Decl *New) {
+    const SYCLReqdWorkGroupSizeAttr *A, Decl *New) {
   EnterExpressionEvaluationContext Unevaluated(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult XResult = S.SubstExpr(A->getXDim(), TemplateArgs);
@@ -972,8 +980,8 @@ static void instantiateReqdWorkGroupSizeAttr(
   if (ZResult.isInvalid())
     return;
 
-  S.AddReqdWorkGroupSizeAttr(New, *A, XResult.get(), YResult.get(),
-                             ZResult.get());
+  S.AddSYCLReqdWorkGroupSizeAttr(New, *A, XResult.get(), YResult.get(),
+                                 ZResult.get());
 }
 
 // This doesn't take any template parameters, but we have a custom action that
@@ -1283,10 +1291,10 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, SYCLIntelNoGlobalWorkOffset, New);
       continue;
     }
-    if (const auto *ReqdWorkGroupSize =
-            dyn_cast<ReqdWorkGroupSizeAttr>(TmplAttr)) {
-      instantiateReqdWorkGroupSizeAttr(*this, TemplateArgs, ReqdWorkGroupSize,
-                                       New);
+    if (const auto *SYCLReqdWorkGroupSize =
+            dyn_cast<SYCLReqdWorkGroupSizeAttr>(TmplAttr)) {
+      instantiateSYCLReqdWorkGroupSizeAttr(*this, TemplateArgs,
+                                           SYCLReqdWorkGroupSize, New);
       continue;
     }
     if (const auto *SYCLIntelMaxWorkGroupSize =
@@ -1336,8 +1344,8 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
           *this, TemplateArgs, SYCLAddIRAnnotationsMember, New);
       continue;
     }
-    if (const auto *A = dyn_cast<WorkGroupSizeHintAttr>(TmplAttr)) {
-      instantiateWorkGroupSizeHintAttr(*this, TemplateArgs, A, New);
+    if (const auto *A = dyn_cast<SYCLWorkGroupSizeHintAttr>(TmplAttr)) {
+      instantiateSYCLWorkGroupSizeHintAttr(*this, TemplateArgs, A, New);
       continue;
     }
     if (const auto *A = dyn_cast<SYCLDeviceHasAttr>(TmplAttr)) {
@@ -1404,6 +1412,22 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                                                          *this, TemplateArgs);
       if (NewAttr && isRelevantAttr(*this, New, TmplAttr))
         New->addAttr(NewAttr);
+    }
+  }
+}
+
+/// Update instantiation attributes after template was late parsed.
+///
+/// Some attributes are evaluated based on the body of template. If it is
+/// late parsed, such attributes cannot be evaluated when declaration is
+/// instantiated. This function is used to update instantiation attributes when
+/// template definition is ready.
+void Sema::updateAttrsForLateParsedTemplate(const Decl *Pattern, Decl *Inst) {
+  for (const auto *Attr : Pattern->attrs()) {
+    if (auto *A = dyn_cast<StrictFPAttr>(Attr)) {
+      if (!Inst->hasAttr<StrictFPAttr>())
+        Inst->addAttr(A->clone(getASTContext()));
+      continue;
     }
   }
 }
@@ -2995,7 +3019,8 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
 
 Decl *TemplateDeclInstantiator::VisitCXXMethodDecl(
     CXXMethodDecl *D, TemplateParameterList *TemplateParams,
-    Optional<const ASTTemplateArgumentListInfo *> ClassScopeSpecializationArgs,
+    std::optional<const ASTTemplateArgumentListInfo *>
+        ClassScopeSpecializationArgs,
     RewriteKind FunctionRewriteKind) {
   FunctionTemplateDecl *FunctionTemplate = D->getDescribedFunctionTemplate();
   if (FunctionTemplate && !TemplateParams) {
@@ -3205,7 +3230,7 @@ Decl *TemplateDeclInstantiator::VisitCXXMethodDecl(
     if (NumTempParamLists)
       Method->setTemplateParameterListsInfo(
           SemaRef.Context,
-          llvm::makeArrayRef(TempParamLists.data(), NumTempParamLists));
+          llvm::ArrayRef(TempParamLists.data(), NumTempParamLists));
 
     Method->setLexicalDeclContext(Owner);
     Method->setObjectOfFriendDecl();
@@ -3420,7 +3445,7 @@ Decl *TemplateDeclInstantiator::VisitTemplateTypeParmDecl(
                                                     TemplateTypeParmDecl *D) {
   assert(D->getTypeForDecl()->isTemplateTypeParmType());
 
-  Optional<unsigned> NumExpanded;
+  std::optional<unsigned> NumExpanded;
 
   if (const TypeConstraint *TC = D->getTypeConstraint()) {
     if (D->isPackExpansion() && !D->isExpandedParameterPack()) {
@@ -3531,9 +3556,9 @@ Decl *TemplateDeclInstantiator::VisitNonTypeTemplateParmDecl(
     // be expanded.
     bool Expand = true;
     bool RetainExpansion = false;
-    Optional<unsigned> OrigNumExpansions
-      = Expansion.getTypePtr()->getNumExpansions();
-    Optional<unsigned> NumExpansions = OrigNumExpansions;
+    std::optional<unsigned> OrigNumExpansions =
+        Expansion.getTypePtr()->getNumExpansions();
+    std::optional<unsigned> NumExpansions = OrigNumExpansions;
     if (SemaRef.CheckParameterPacksForExpansion(Expansion.getEllipsisLoc(),
                                                 Pattern.getSourceRange(),
                                                 Unexpanded,
@@ -3696,7 +3721,7 @@ TemplateDeclInstantiator::VisitTemplateTemplateParmDecl(
     // be expanded.
     bool Expand = true;
     bool RetainExpansion = false;
-    Optional<unsigned> NumExpansions;
+    std::optional<unsigned> NumExpansions;
     if (SemaRef.CheckParameterPacksForExpansion(D->getLocation(),
                                                 TempParams->getSourceRange(),
                                                 Unexpanded,
@@ -3967,7 +3992,7 @@ Decl *TemplateDeclInstantiator::instantiateUnresolvedUsingDecl(
     // be expanded.
     bool Expand = true;
     bool RetainExpansion = false;
-    Optional<unsigned> NumExpansions;
+    std::optional<unsigned> NumExpansions;
     if (SemaRef.CheckParameterPacksForExpansion(
           D->getEllipsisLoc(), D->getSourceRange(), Unexpanded, TemplateArgs,
             Expand, RetainExpansion, NumExpansions))
@@ -4109,6 +4134,31 @@ Decl *TemplateDeclInstantiator::VisitOMPThreadPrivateDecl(
 
   return TD;
 }
+
+#if INTEL_COLLAB
+Decl *
+TemplateDeclInstantiator::VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D) {
+  SmallVector<Expr *, 5> Vars;
+  std::optional<OMPGroupPrivateDeclAttr::DevTypeTy> DevTy = std::nullopt;
+  for (auto *I : D->varlists()) {
+    Expr *Var = SemaRef.SubstExpr(I, TemplateArgs).get();
+    assert(isa<DeclRefExpr>(Var) && "groupprivate arg is not a DeclRefExpr");
+    Vars.push_back(Var);
+    if (!DevTy) {
+      auto *DE = cast<DeclRefExpr>(Var);
+      auto *VD = cast<VarDecl>(DE->getDecl());
+      DevTy = OMPGroupPrivateDeclAttr::getDeviceType(VD);
+    }
+  }
+  OMPGroupPrivateDecl *TD =
+      SemaRef.CheckOMPGroupPrivateDecl(D->getLocation(), Vars, *DevTy);
+
+  TD->setAccess(AS_public);
+  Owner->addDecl(TD);
+
+  return TD;
+}
+#endif // INTEL_COLLAB
 
 Decl *TemplateDeclInstantiator::VisitOMPAllocateDecl(OMPAllocateDecl *D) {
   SmallVector<Expr *, 5> Vars;
@@ -4306,9 +4356,10 @@ TemplateDeclInstantiator::VisitOMPDeclareMapperDecl(OMPDeclareMapperDecl *D) {
     OMPVarListLocTy Locs(OldC->getBeginLoc(), OldC->getLParenLoc(),
                          OldC->getEndLoc());
     OMPClause *NewC = SemaRef.ActOnOpenMPMapClause(
-        OldC->getMapTypeModifiers(), OldC->getMapTypeModifiersLoc(), SS,
-        NewNameInfo, OldC->getMapType(), OldC->isImplicitMapType(),
-        OldC->getMapLoc(), OldC->getColonLoc(), NewVars, Locs);
+        OldC->getIteratorModifier(), OldC->getMapTypeModifiers(),
+        OldC->getMapTypeModifiersLoc(), SS, NewNameInfo, OldC->getMapType(),
+        OldC->isImplicitMapType(), OldC->getMapLoc(), OldC->getColonLoc(),
+        NewVars, Locs);
     Clauses.push_back(NewC);
   }
   SemaRef.EndOpenMPDSABlock(nullptr);
@@ -5032,7 +5083,7 @@ TemplateDeclInstantiator::SubstFunctionType(FunctionDecl *D,
 
         LocalInstantiationScope *Scope = SemaRef.CurrentInstantiationScope;
 
-        Optional<unsigned> NumArgumentsInExpansion;
+        std::optional<unsigned> NumArgumentsInExpansion;
         if (OldParam->isParameterPack())
           NumArgumentsInExpansion =
               SemaRef.getNumArgumentsInExpansion(OldParam->getType(),
@@ -5134,7 +5185,7 @@ bool Sema::addInstantiatedParametersToScope(
 
     // Expand the parameter pack.
     Scope.MakeInstantiatedLocalArgPack(PatternParam);
-    Optional<unsigned> NumArgumentsInExpansion =
+    std::optional<unsigned> NumArgumentsInExpansion =
         getNumArgumentsInExpansion(PatternParam->getType(), TemplateArgs);
     if (NumArgumentsInExpansion) {
       QualType PatternType =
@@ -5537,6 +5588,7 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
            "missing LateParsedTemplate");
     LateTemplateParser(OpaqueParser, *LPTIter->second);
     Pattern = PatternDecl->getBody(PatternDecl);
+    updateAttrsForLateParsedTemplate(PatternDecl, Function);
   }
 
   // Note, we should never try to instantiate a deleted function template.
@@ -6277,7 +6329,7 @@ Sema::InstantiateMemInitializers(CXXConstructorDecl *New,
       collectUnexpandedParameterPacks(Init->getInit(), Unexpanded);
       bool ShouldExpand = false;
       bool RetainExpansion = false;
-      Optional<unsigned> NumExpansions;
+      std::optional<unsigned> NumExpansions;
       if (CheckParameterPacksForExpansion(Init->getEllipsisLoc(),
                                           BaseTL.getSourceRange(),
                                           Unexpanded,
@@ -6791,9 +6843,8 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
 
       // Move to the outer template scope.
       if (FunctionDecl *FD = dyn_cast<FunctionDecl>(DC)) {
-        // FIXME: We should use `getNonTransparentDeclContext()` here instead
-        // of `getDeclContext()` once we find the invalid test case.
-        if (FD->getFriendObjectKind() && FD->getDeclContext()->isFileContext()){
+        if (FD->getFriendObjectKind() &&
+            FD->getNonTransparentDeclContext()->isFileContext()) {
           DC = FD->getLexicalDeclContext();
           continue;
         }

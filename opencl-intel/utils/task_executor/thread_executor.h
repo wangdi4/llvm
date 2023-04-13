@@ -25,7 +25,6 @@
 
 #include <list>
 #include <queue>
-using namespace Intel::OpenCL::Utils;
 
 #define MAX_WORKING_THREADS_COUNT                                              \
   128 // We're assuming that there won't be more than 128 working

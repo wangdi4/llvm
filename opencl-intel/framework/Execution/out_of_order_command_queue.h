@@ -18,6 +18,7 @@
 #include "enqueue_commands.h"
 #include "ocl_command_queue.h"
 #include <cl_types.h>
+#include <mutex>
 
 namespace Intel {
 namespace OpenCL {
@@ -73,9 +74,8 @@ protected:
   Intel::OpenCL::Utils::AtomicPointer<Command> m_depOnAll;
   Intel::OpenCL::Utils::AtomicCounter m_commandsInExecution;
   Intel::OpenCL::Utils::SharedPtr<OclEvent> m_lastBarrier;
-  Intel::OpenCL::Utils::OclSpinMutex
-      m_muLastBarrer; // TODO: find better way to handle data race on
-                      // lastBarrier
+  std::recursive_mutex m_muLastBarrer; // TODO: find better way to handle data
+                                       // race on lastBarrier
   // Is meant to optimize away flushes made to an empty queue
   Intel::OpenCL::Utils::AtomicCounter m_unflushedCommands;
 };

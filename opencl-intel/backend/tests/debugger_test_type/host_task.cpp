@@ -67,7 +67,7 @@ static void host_task_internal(cl::Context context, cl::Device device,
 
   DTT_LOG("Executing kernel as task...");
   CaptureStdout();
-  queue.enqueueTask(kernel);
+  queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(1));
   queue.finish();
 
   string out = GetCapturedStdout();

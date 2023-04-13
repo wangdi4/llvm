@@ -60,7 +60,7 @@ ModulePass *llvm::createTransformFPGARegPass() {
 
 bool TransformFPGAReg::runOnModule(Module &M) {
   bool HasChanged = false;
-  for (auto &GV : M.getGlobalList()) {
+  for (auto &GV : M.globals()) {
     if (!GV.isConstant())
       continue;
 

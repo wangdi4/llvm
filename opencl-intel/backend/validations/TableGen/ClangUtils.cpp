@@ -50,13 +50,16 @@ void build(const std::string &code, std::string fileName) {
 
   std::stringstream options;
   options << "-cc1 -emit-llvm-bc -include opencl-c.h "
-             "-disable-intel-proprietary-opts -cl-std=CL2.0";
+             "-disable-intel-proprietary-opts " // INTEL
+             "-cl-std=CL2.0";
   options << " "
           << "-triple"
           << " "
           << ((sizeof(size_t) * 8 == 64) ? "spir64-unknown-unknown"
                                          : "spir-unknown-unknown")
           << " ";
+  // TODO: remove this option when opaque pointer is supported
+  options << "-no-opaque-pointers";
 
   llvm::SmallString<128> tmpfile;
   std::error_code ec;
@@ -95,26 +98,19 @@ void build(const std::string &code, std::string fileName) {
 std::string generateDummyBody(const std::string &type, size_t veclen) {
   std::stringstream sstream;
 
-  // hack for functions async_work_group_coopy and async_work_group_strided_copy
-  // returning event_t. Istead of {return event_t(0);}, the string
-  // {return __builtin_astype((void *)0, event_t);} must be used
-  if ((type.find("event_t")) != std::string::npos) {
-    sstream << "{return __builtin_astype((void *)0, event_t);}";
-  } else {
-    sstream << "{return ";
-    if ("void" == type) {
-      sstream << ";} ";
-      return sstream.str();
-    }
-    std::string zeroLiteral = getZeroLiteral(type);
-    sstream << "(" << type;
-    if (veclen > 1)
-      sstream << veclen;
-    sstream << ")"
-            << " (" << zeroLiteral;
-    for (size_t i = 1; i < veclen; i++)
-      sstream << "," << zeroLiteral;
-    sstream << ");} ";
+  sstream << "{return ";
+  if ("void" == type) {
+    sstream << ";} ";
+    return sstream.str();
   }
+  std::string zeroLiteral = getZeroLiteral(type);
+  sstream << "(" << type;
+  if (veclen > 1)
+    sstream << veclen;
+  sstream << ")"
+          << " (" << zeroLiteral;
+  for (size_t i = 1; i < veclen; i++)
+    sstream << "," << zeroLiteral;
+  sstream << ");} ";
   return sstream.str();
 }

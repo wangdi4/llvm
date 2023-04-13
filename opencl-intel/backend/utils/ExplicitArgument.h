@@ -16,22 +16,22 @@
 #define __EXPLICIT_ARGUMENT_H__
 
 #include "cl_device_api.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/ImplicitArgsUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/TypeAlignment.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ImplicitArgsUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/TypeAlignment.h"
 
 namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-class ExplicitArgument : public FunctionArgument {
+class ExplicitArgument : public llvm::FunctionArgument {
 
 public:
   /// @brief Constructor
   /// @param pValue           Explicit argument's value destination pointer
   /// @param arg              OpenCL argument
-  ExplicitArgument(char *pValue, const KernelArgument &arg)
-      : FunctionArgument(pValue, TypeAlignment::getSize(arg),
-                         TypeAlignment::getAlignment(arg)) {}
+  ExplicitArgument(char *pValue, const llvm::KernelArgument &arg)
+      : llvm::FunctionArgument(pValue, llvm::TypeAlignment::getSize(arg),
+                               llvm::TypeAlignment::getAlignment(arg)) {}
 };
 
 } // namespace DeviceBackend

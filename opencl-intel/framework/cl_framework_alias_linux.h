@@ -15,8 +15,8 @@
 #pragma once
 
 #include "CL/cl.h"
+#include "CL/cl_ext.h"
 #include "CL/cl_fpga_ext.h"
-#include "CL/cl_usm_ext.h"
 
 namespace Intel {
 namespace OpenCL {
@@ -145,6 +145,8 @@ DECLARE_ALIAS(clMapHostPipeIntelFPGA);
 DECLARE_ALIAS(clUnmapHostPipeIntelFPGA);
 DECLARE_ALIAS(clReadPipeIntelFPGA);
 DECLARE_ALIAS(clWritePipeIntelFPGA);
+DECLARE_ALIAS(clEnqueueReadHostPipeINTEL);
+DECLARE_ALIAS(clEnqueueWriteHostPipeINTEL);
 DECLARE_ALIAS(clGetDeviceFunctionPointerINTEL);
 DECLARE_ALIAS(clGetDeviceGlobalVariablePointerINTEL);
 DECLARE_ALIAS(clEnqueueReadGlobalVariableINTEL);

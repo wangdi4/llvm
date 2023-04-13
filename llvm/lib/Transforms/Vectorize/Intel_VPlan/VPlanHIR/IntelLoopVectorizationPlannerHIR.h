@@ -65,7 +65,8 @@ protected:
   /// Check whether everything in the loop body is supported at the moment.
   /// We can have some unimplemented things and it's better to gracefully
   /// bailout in such cases than assert or generate incorrect code.
-  bool canProcessLoopBody(const VPlanVector &Plan, const VPLoop &Loop) const override;
+  bool canProcessLoopBody(const VPlanVector &Plan,
+                          const VPLoop &Loop) const override;
 
   void createLiveInOutLists(VPlanVector &Plan) override;
 
@@ -100,7 +101,7 @@ public:
   /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
   /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
   ///  no such metadata, returns std::nullopt.
-  Optional<bool> readVecRemainderEnabledHIR() {
+  std::optional<bool> readVecRemainderEnabledHIR() {
     if (TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.vecremainder")) {
       DEBUG_WITH_TYPE("VPlan_pragma_metadata",
                        dbgs() << "Vector Remainder was set by the user's "

@@ -25,222 +25,210 @@
 // Command line options
 #include "llvm/Support/CommandLine.h"
 
+using namespace llvm;
 using namespace Validation;
-using std::endl;
+using namespace Intel::OpenCL::DeviceBackend;
 
-llvm::cl::opt<std::string>
-    ConfigFile("config", llvm::cl::desc("Test configuration file parameters."),
-               llvm::cl::value_desc("filename"));
+cl::opt<std::string> ConfigFile("config",
+                                cl::desc("Test configuration file parameters."),
+                                cl::value_desc("filename"));
 
-llvm::cl::opt<std::string>
-    ObjectFile("inject-object-file", llvm::cl::ValueOptional,
-               llvm::cl::desc("Execute pre-compiled object file"),
-               llvm::cl::value_desc("filename"));
+cl::opt<std::string> ObjectFile("inject-object-file", cl::ValueOptional,
+                                cl::desc("Execute pre-compiled object file"),
+                                cl::value_desc("filename"));
 
 // Enable VTune support.
-llvm::cl::opt<bool>
-    StopBeforeJIT("stop-before-jit",
-                  llvm::cl::desc("Stops compilation after all optimization "
-                                 "passes, but before binary generation."),
-                  llvm::cl::init(false));
+cl::opt<bool> StopBeforeJIT("stop-before-jit",
+                            cl::desc("Stops compilation after all optimization "
+                                     "passes, but before binary generation."),
+                            cl::init(false));
 
-llvm::cl::opt<bool> Verbose("verbose",
-                            llvm::cl::desc("Print argument's metadata."),
-                            llvm::cl::init(false));
+cl::opt<bool> Verbose("verbose", cl::desc("Print argument's metadata."),
+                      cl::init(false));
 
-llvm::cl::opt<std::string> BaseDirectory(
+cl::opt<std::string> BaseDirectory(
     "basedir",
-    llvm::cl::desc(
-        "Base directory to use for configuration and data files lookup. "
-        "Default value - configuration file directory."),
-    llvm::cl::value_desc("basedir"));
+    cl::desc("Base directory to use for configuration and data files lookup. "
+             "Default value - configuration file directory."),
+    cl::value_desc("basedir"));
 
-llvm::cl::opt<bool>
-    EnableSubgroupEmulation("enable-subgroup-emu",
-                            llvm::cl::desc("Enable subgroup emulation. "
-                                           "Default value - true."),
-                            llvm::cl::init(true));
+cl::opt<bool> EnableSubgroupEmulation("enable-subgroup-emu",
+                                      cl::desc("Enable subgroup emulation. "
+                                               "Default value - true."),
+                                      cl::init(true));
 
-llvm::cl::opt<VectorizerType> OptVectorizerType(
+cl::opt<VectorizerType> OptVectorizerType(
     "vectorizer-type",
-    llvm::cl::desc("Specify vectorizer type. "
-                   "Default value - default."),
-    llvm::cl::values(clEnumValN(VPO_VECTORIZER, "vpo", "vplan vectorizer"),
-                     clEnumValN(DEFAULT_VECTORIZER, "default",
-                                "default vectorizer")),
-    llvm::cl::init(DEFAULT_VECTORIZER));
+    cl::desc("Specify vectorizer type. "
+             "Default value - default."),
+    cl::values(clEnumValN(VPO_VECTORIZER, "vpo", "vplan vectorizer"),
+               clEnumValN(DEFAULT_VECTORIZER, "default", "default vectorizer")),
+    cl::init(DEFAULT_VECTORIZER));
 
-llvm::cl::opt<ETransposeSize> TransposeSize(
-    "tsize", llvm::cl::desc("Transpose size:"),
-    llvm::cl::values(clEnumValN(TRANSPOSE_SIZE_AUTO, "0", "Automatic mode"),
-                     clEnumValN(TRANSPOSE_SIZE_1, "1", "Scalar"),
-                     clEnumValN(TRANSPOSE_SIZE_4, "4", "Vector4"),
-                     clEnumValN(TRANSPOSE_SIZE_8, "8", "Vector8"),
-                     clEnumValN(TRANSPOSE_SIZE_16, "16", "Vector16"),
-                     clEnumValN(TRANSPOSE_SIZE_32, "32", "Vector32"),
-                     clEnumValN(TRANSPOSE_SIZE_64, "64", "Vector64")),
-    llvm::cl::init(TRANSPOSE_SIZE_NOT_SET));
+cl::opt<ETransposeSize> TransposeSize(
+    "tsize", cl::desc("Transpose size:"),
+    cl::values(clEnumValN(TRANSPOSE_SIZE_AUTO, "0", "Automatic mode"),
+               clEnumValN(TRANSPOSE_SIZE_1, "1", "Scalar"),
+               clEnumValN(TRANSPOSE_SIZE_4, "4", "Vector4"),
+               clEnumValN(TRANSPOSE_SIZE_8, "8", "Vector8"),
+               clEnumValN(TRANSPOSE_SIZE_16, "16", "Vector16"),
+               clEnumValN(TRANSPOSE_SIZE_32, "32", "Vector32"),
+               clEnumValN(TRANSPOSE_SIZE_64, "64", "Vector64")),
+    cl::init(TRANSPOSE_SIZE_NOT_SET));
 
-llvm::cl::opt<std::string>
+cl::opt<std::string>
     CPUArch("cpuarch",
-            llvm::cl::desc("CPU Architecture: auto, core2, corei7, corei7-avx, "
-                           "core-avx2, knc, skx"),
-            llvm::cl::init("auto"));
+            cl::desc("CPU Architecture: auto, core2, corei7, corei7-avx, "
+                     "core-avx2, knc, skx"),
+            cl::init("auto"));
 
-llvm::cl::opt<std::string>
-    CPUFeatures("cpufeatures", llvm::cl::desc("CPU Features: -avx, +avx2, ..."),
-                llvm::cl::init(""));
+cl::opt<std::string> CPUFeatures("cpufeatures",
+                                 cl::desc("CPU Features: -avx, +avx2, ..."),
+                                 cl::init(""));
 
-llvm::cl::opt<bool>
+cl::opt<bool>
     NoRef("noref",
-          llvm::cl::desc("Do not run reference, nor neat in validation mode"),
-          llvm::cl::init(false));
+          cl::desc("Do not run reference, nor neat in validation mode"),
+          cl::init(false));
 
-llvm::cl::opt<bool>
-    FlagForceRunReference("force_ref",
-                          llvm::cl::desc("Force running reference"),
-                          llvm::cl::init(false));
+cl::opt<bool> FlagForceRunReference("force_ref",
+                                    cl::desc("Force running reference"),
+                                    cl::init(false));
 
-llvm::cl::opt<bool> SDEEnabled("sde",
-                               llvm::cl::desc("Enables SDE version of SATest."),
-                               llvm::cl::init(false));
+cl::opt<bool> SDEEnabled("sde", cl::desc("Enables SDE version of SATest."),
+                         cl::init(false));
 
-llvm::cl::opt<bool> TraceMarks(
-    "trace",
-    llvm::cl::desc("Insert trace marks for SDE pinLIT traces generation"),
-    llvm::cl::init(false));
+cl::opt<bool>
+    TraceMarks("trace",
+               cl::desc("Insert trace marks for SDE pinLIT traces generation"),
+               cl::init(false));
 
-llvm::cl::opt<bool> UseNEAT("neat", llvm::cl::desc("Use NEAT"),
-                            llvm::cl::init(false));
+cl::opt<bool> UseNEAT("neat", cl::desc("Use NEAT"), cl::init(false));
 
-llvm::cl::opt<uint32_t> BuildIterations(
+cl::opt<uint32_t> BuildIterations(
     "build-iterations",
-    llvm::cl::desc("Iterations count to build the kernel in performance mode"),
-    llvm::cl::value_desc("Number of iterations"), llvm::cl::init(1));
+    cl::desc("Iterations count to build the kernel in performance mode"),
+    cl::value_desc("Number of iterations"), cl::init(1));
 
-llvm::cl::opt<uint32_t> ExecuteIterations(
+cl::opt<uint32_t> ExecuteIterations(
     "execute-iterations",
-    llvm::cl::desc(
-        "Iterations count to execute the kernel in performance mode"),
-    llvm::cl::value_desc("Number of iterations"), llvm::cl::init(1));
+    cl::desc("Iterations count to execute the kernel in performance mode"),
+    cl::value_desc("Number of iterations"), cl::init(1));
 
-llvm::cl::opt<TEST_MODE> TestMode(
-    llvm::cl::desc("Test mode:"),
-    llvm::cl::values(clEnumValN(VALIDATION, "VAL", "Validation mode"),
-                     clEnumValN(REFERENCE, "REF", "Reference mode"),
-                     clEnumValN(PERFORMANCE, "PERF", "Performance mode"),
-                     clEnumValN(BUILD, "BUILD", "Build only mode")));
+cl::opt<TEST_MODE>
+    TestMode(cl::desc("Test mode:"),
+             cl::values(clEnumValN(VALIDATION, "VAL", "Validation mode"),
+                        clEnumValN(REFERENCE, "REF", "Reference mode"),
+                        clEnumValN(PERFORMANCE, "PERF", "Performance mode"),
+                        clEnumValN(BUILD, "BUILD", "Build only mode")));
 
-llvm::cl::opt<std::string> PerformanceLog(
+cl::opt<std::string> PerformanceLog(
     "csv-out",
-    llvm::cl::desc("Output the performance measurement to the file <filename>. "
-                   "If '-' filename is set the measurements data will be "
-                   "printed to the standard output stream."),
-    llvm::cl::value_desc("filename"), llvm::cl::init("-"));
+    cl::desc("Output the performance measurement to the file <filename>. "
+             "If '-' filename is set the measurements data will be "
+             "printed to the standard output stream."),
+    cl::value_desc("filename"), cl::init("-"));
 
 // turn on running single work group
-llvm::cl::opt<bool> RunSingleWG("single_wg",
-                                llvm::cl::desc("Run only one work group."),
-                                llvm::cl::init(false));
+cl::opt<bool> RunSingleWG("single_wg", cl::desc("Run only one work group."),
+                          cl::init(false));
 
 // tolerance used in Comparator for comparison of floating point numbers in
 // accurate mode
-llvm::cl::opt<double>
-    ULP_tolerance("ulp_tol", llvm::cl::desc("ULP tolerance for comparison"),
-                  llvm::cl::init(0.0));
+cl::opt<double> ULP_tolerance("ulp_tol",
+                              cl::desc("ULP tolerance for comparison"),
+                              cl::init(0.0));
 
 // Default Local work group size used in Validation mode
-llvm::cl::opt<uint32_t> DefaultLocalWGSize(
+cl::opt<uint32_t> DefaultLocalWGSize(
     "default_wg_size",
-    llvm::cl::desc("Default local work group size used in Validation mode"),
-    llvm::cl::init(16));
+    cl::desc("Default local work group size used in Validation mode"),
+    cl::init(16));
 
 // turn on printing LLVM IR produced after all optimization passes applied.
-llvm::cl::opt<std::string> OptimizedLLVMIRDumpFile(
+cl::opt<std::string> OptimizedLLVMIRDumpFile(
     "dump-llvm-file",
-    llvm::cl::desc("Prints LLVM IR to the file <filename> after all "
-                   "optimization passes applied. "
-                   "If '-' filename is set the LLVM IR will be printed to the "
-                   "standard output stream."),
-    llvm::cl::value_desc("filename"), llvm::cl::init(""));
+    cl::desc("Prints LLVM IR to the file <filename> after all "
+             "optimization passes applied. "
+             "If '-' filename is set the LLVM IR will be printed to the "
+             "standard output stream."),
+    cl::value_desc("filename"), cl::init(""));
 
 // Enable printing additional information about comparison results.
-llvm::cl::opt<bool> DetailedStat("detailed_stat",
-                                 llvm::cl::desc("Print detailed statistics."),
-                                 llvm::cl::init(true));
+cl::opt<bool> DetailedStat("detailed_stat",
+                           cl::desc("Print detailed statistics."),
+                           cl::init(true));
 
 // Enable VTune support.
-llvm::cl::opt<bool> UseVTune("vtune", llvm::cl::desc("Enable VTune support."),
-                             llvm::cl::init(false));
+cl::opt<bool> UseVTune("vtune", cl::desc("Enable VTune support."),
+                       cl::init(false));
 
 // Enable printing build log.
-llvm::cl::opt<bool> PrintBuildLog("build-log",
-                                  llvm::cl::desc("Enable printing build log."),
-                                  llvm::cl::init(false));
+cl::opt<bool> PrintBuildLog("build-log", cl::desc("Enable printing build log."),
+                            cl::init(false));
 
 // turn on printing bytecode instructions after
-llvm::cl::opt<std::string> LLVMOption(
-    "llvm-option",
-    llvm::cl::desc("A space-separated list of LLVM command line options"));
+cl::opt<std::string>
+    LLVMOption("llvm-option",
+               cl::desc("A space-separated list of LLVM command line options"));
 
-llvm::cl::opt<bool>
+cl::opt<bool>
     DumpHeuristicIR("dump-heuristic-IR",
-                    llvm::cl::desc("Dump IR that is passed into the heuristic"),
-                    llvm::cl::init(false));
+                    cl::desc("Dump IR that is passed into the heuristic"),
+                    cl::init(false));
 
 // turn on printing JIT
-llvm::cl::opt<std::string> DumpJIT(
-    "dump-JIT", llvm::cl::ValueOptional,
-    llvm::cl::desc(
+cl::opt<std::string> DumpJIT(
+    "dump-JIT", cl::ValueOptional,
+    cl::desc(
         "Prints JIT code to the file <filename> after the build is complete. "
         "The <filename> could be an absolute path or relative to the base "
         "directory."),
-    llvm::cl::value_desc("filename"));
+    cl::value_desc("filename"));
 
-llvm::cl::opt<bool> DumpKernelProperty("dump-kernel-property",
-                                       llvm::cl::desc("Dump kernel properties"),
-                                       llvm::cl::init(false));
+cl::opt<bool> DumpKernelProperty("dump-kernel-property",
+                                 cl::desc("Dump kernel properties"),
+                                 cl::init(false));
 
 // Enable -time-passes option. Be careful that report is appended to the
 // specified filename. It is advised to delete the file before RUN or specify
 // "-" as filename.
-llvm::cl::opt<std::string> TimePasses(
-    "dump-time-passes", llvm::cl::ValueOptional,
-    llvm::cl::desc("Generates compilation time detailed report for all the "
-                   "passes and append it to the file <filename>. "
-                   "The <filename> could be an absolute path or relative to "
-                   "the base directory."),
-    llvm::cl::value_desc("filename"));
+cl::opt<std::string> TimePasses(
+    "dump-time-passes", cl::ValueOptional,
+    cl::desc("Generates compilation time detailed report for all the "
+             "passes and append it to the file <filename>. "
+             "The <filename> could be an absolute path or relative to "
+             "the base directory."),
+    cl::value_desc("filename"));
 
 // Seed for random input data generator
-llvm::cl::opt<uint64_t>
+cl::opt<uint64_t>
     RandomDGSeed("seed",
-                 llvm::cl::desc("Seed for random input data generator. Zero "
-                                "seed means generate new one"),
-                 llvm::cl::init(time(NULL)));
+                 cl::desc("Seed for random input data generator. Zero "
+                          "seed means generate new one"),
+                 cl::init(time(NULL)));
 
-llvm::cl::opt<unsigned>
-    ExpensiveMemOpts("enable-expensive-mem-opts", llvm::cl::ValueOptional,
-                     llvm::cl::desc("Enable expensive memory optimization. See "
-                                    "cl.cfg for value explanation"),
-                     llvm::cl::init(0));
+cl::opt<unsigned>
+    ExpensiveMemOpts("enable-expensive-mem-opts", cl::ValueOptional,
+                     cl::desc("Enable expensive memory optimization. See "
+                              "cl.cfg for value explanation"),
+                     cl::init(0));
 
 // Select pass manager type.
-llvm::cl::opt<PassManagerType> OptPassManagerType(
+cl::opt<PassManagerType> OptPassManagerType(
     "pass-manager-type",
-    llvm::cl::desc("Specify pass manager type. "
-                   "Default value - none."),
-    llvm::cl::values(
-        clEnumValN(PM_NONE, "none", "pass pipeline is not specified"),
-        clEnumValN(PM_OCL, "ocl", "OpenCL new pass manager pipeline"),
-        clEnumValN(PM_LTO, "lto", "llvm new pass manager pipeline")),
-    llvm::cl::init(PM_NONE));
+    cl::desc("Specify pass manager type. "
+             "Default value - none."),
+    cl::values(clEnumValN(PM_NONE, "none", "pass pipeline is not specified"),
+               clEnumValN(PM_OCL, "ocl", "OpenCL new pass manager pipeline"),
+               clEnumValN(PM_LTO, "lto", "llvm new pass manager pipeline")),
+    cl::init(PM_NONE));
 
-llvm::cl::opt<bool> SerializeWorkGroups(
+cl::opt<bool> SerializeWorkGroups(
     "serialize-work-groups",
-    llvm::cl::desc("Serialize workgroups, i.e. they are executed sequentially "
-                   "by a single thread"),
-    llvm::cl::init(false));
+    cl::desc("Serialize workgroups, i.e. they are executed sequentially "
+             "by a single thread"),
+    cl::init(false));
 
 // Command line example:
 // SATest.exe -config=test.cfg
@@ -249,8 +237,10 @@ llvm::cl::opt<bool> SerializeWorkGroups(
 
 int main(int argc, char *argv[]) {
   // Parse received options
-  llvm::cl::ParseCommandLineOptions(
+  cl::ParseCommandLineOptions(
       argc, argv, "Stand-alone test application to validate OCL back-end.\n");
+
+  llvm_shutdown_obj obj;
 
   try {
     if (argc == 1)
@@ -266,19 +256,20 @@ int main(int argc, char *argv[]) {
     return 0;
   } catch (Exception::InvalidEnvironmentException &e) {
     // Exception of invalid execution environment of SATest
-    std::cerr << "InvalidEnvironment exception occurred: " << e.what() << endl;
+    std::cerr << "InvalidEnvironment exception occurred: " << e.what()
+              << std::endl;
     return int(e.GetErrorCode());
   } catch (Exception::TestFailException &e) {
     // Test does not match reference
-    std::cerr << "Test Failed: " << e.what() << endl;
+    std::cerr << "Test Failed: " << e.what() << std::endl;
     return int(e.GetErrorCode());
   } catch (Exception::ValidationExceptionBase &e) {
     // Exception occurred during test run process
-    std::cerr << "Validation exception occurred: " << e.what() << endl;
+    std::cerr << "Validation exception occurred: " << e.what() << std::endl;
     return int(e.GetErrorCode());
   } catch (Exceptions::DeviceBackendExceptionBase &e) {
     // Exception occurred inside the back-end
-    std::cerr << "Back-end exception occurred: " << e.what() << endl;
+    std::cerr << "Back-end exception occurred: " << e.what() << std::endl;
     return int(e.GetErrorCode());
   }
 }

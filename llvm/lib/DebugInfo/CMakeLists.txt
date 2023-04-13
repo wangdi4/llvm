@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -20,6 +20,7 @@ add_subdirectory(GSYM)
 add_subdirectory(LogicalView)
 add_subdirectory(MSF)
 add_subdirectory(CodeView)
+add_subdirectory(Intel_Debug)     # INTEL
 add_subdirectory(Intel_TraceBack) # INTEL
 add_subdirectory(PDB)
 add_subdirectory(Symbolize)

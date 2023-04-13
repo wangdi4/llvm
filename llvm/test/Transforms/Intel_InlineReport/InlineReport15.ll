@@ -1,58 +1,54 @@
 ; Inline report
-; RUN: opt -passes='cgscc(inline)' -inline-report=15 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=15 < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=142 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=142 < %s -S 2>&1 | FileCheck %s
 
 ; CHECK-NOT: <<Callee is always inline>>
 ; Test should not produce always inline message, as no function has been
 ; marked with "always inline" attribute.
 ;
-declare i64 @strlen(i8*) #2
 
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i32, i1) #1
+declare i64 @strlen(ptr)
 
-declare i8* @RelinquishMagickMemory(i8*) #2
+declare ptr @RelinquishMagickMemory(ptr)
 
-; Function Attrs: nounwind uwtable
-define i8* @DestroyString(i8* %string) local_unnamed_addr #3 {
+define ptr @DestroyString(ptr %string) local_unnamed_addr {
 entry:
-  %call = tail call i8* @RelinquishMagickMemory(i8* %string) #6
-  ret i8* %call
+  %call = tail call ptr @RelinquishMagickMemory(ptr %string)
+  ret ptr %call
 }
 
-declare i8* @AcquireString(i8*) #2
+declare ptr @AcquireString(ptr)
 
-; Function Attrs: noreturn
-declare void @_exit(i32) local_unnamed_addr #4
+declare void @_exit(i32) local_unnamed_addr
 
-; Function Attrs: nounwind uwtable
-define i32 @ConcatenateString(i8** %destination, i8* %source) local_unnamed_addr #0 {
+define i32 @ConcatenateString(ptr %destination, ptr %source) local_unnamed_addr {
 entry:
-  %cmp = icmp eq i8* %source, null
+  %cmp = icmp eq ptr %source, null
   br i1 %cmp, label %cleanup, label %if.end
 
 if.end:                                           ; preds = %entry
-  %0 = load i8*, i8** %destination, align 8
-  %cmp1 = icmp eq i8* %0, null
+  %i = load ptr, ptr %destination, align 8
+  %cmp1 = icmp eq ptr %i, null
   br i1 %cmp1, label %if.then2, label %if.end3
 
 if.then2:                                         ; preds = %if.end
-  %call = call i8* @AcquireString(i8* nonnull %source) #6
-  store i8* %call, i8** %destination, align 8
+  %call = call ptr @AcquireString(ptr nonnull %source)
+  store ptr %call, ptr %destination, align 8
   br label %cleanup
 
 if.end3:                                          ; preds = %if.end
-  %call4 = call i64 @strlen(i8* nonnull %0)
+  %call4 = call i64 @strlen(ptr nonnull %i)
   %conv = trunc i64 %call4 to i32
-  %call5 = call i64 @strlen(i8* nonnull %source)
+  %call5 = call i64 @strlen(ptr nonnull %source)
   %conv6 = trunc i64 %call5 to i32
   %neg = xor i32 %conv, -1
   %cmp7 = icmp slt i32 %neg, %conv6
   br i1 %cmp7, label %if.then9, label %if.end11
 
 if.then9:                                         ; preds = %if.end3
-  %call10 = call i8* @DestroyString(i8* undef)
-  call void @_exit(i32 -1) #7
+  %call10 = call ptr @DestroyString(ptr undef)
+  call void @_exit(i32 -1)
   unreachable
 
 if.end11:                                         ; preds = %if.end3
@@ -61,18 +57,18 @@ if.end11:                                         ; preds = %if.end3
   br i1 %cmp13, label %if.then15, label %if.end18
 
 if.then15:                                        ; preds = %if.end11
-  %call17 = call i8* @DestroyString(i8* undef)
-  call void @_exit(i32 -2) #7
+  %call17 = call ptr @DestroyString(ptr undef)
+  call void @_exit(i32 -2)
   unreachable
 
 if.end18:                                         ; preds = %if.end11
-  %1 = load i8*, i8** %destination, align 8
-  %cmp19 = icmp eq i8* %1, null
+  %i1 = load ptr, ptr %destination, align 8
+  %cmp19 = icmp eq ptr %i1, null
   br i1 %cmp19, label %if.then21, label %if.end24
 
 if.then21:                                        ; preds = %if.end18
-  %call23 = call i8* @DestroyString(i8* undef)
-  call void @_exit(i32 -3) #7
+  %call23 = call ptr @DestroyString(ptr undef)
+  call void @_exit(i32 -3)
   unreachable
 
 if.end24:                                         ; preds = %if.end18
@@ -82,19 +78,24 @@ if.end24:                                         ; preds = %if.end18
 if.then27:                                        ; preds = %if.end24
   %sext = shl i64 %call4, 32
   %idx.ext = ashr exact i64 %sext, 32
-  %add.ptr = getelementptr inbounds i8, i8* %1, i64 %idx.ext
+  %add.ptr = getelementptr inbounds i8, ptr %i1, i64 %idx.ext
   %sext50 = shl i64 %call5, 32
   %conv28 = ashr exact i64 %sext50, 32
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %add.ptr, i8* nonnull %source, i64 %conv28, i32 1, i1 false)
+  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %add.ptr, ptr nonnull align 1 %source, i64 %conv28, i1 false)
   br label %if.end29
 
-if.end29:                                         ; preds = %if.end24, %if.then27
-  %2 = load i8*, i8** %destination, align 8
+if.end29:                                         ; preds = %if.then27, %if.end24
+  %i2 = load ptr, ptr %destination, align 8
   %idxprom = sext i32 %add to i64
-  %arrayidx = getelementptr inbounds i8, i8* %2, i64 %idxprom
-  store i8 0, i8* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds i8, ptr %i2, i64 %idxprom
+  store i8 0, ptr %arrayidx, align 1
   br label %cleanup
 
-cleanup:                                          ; preds = %entry, %if.end29, %if.then2
+cleanup:                                          ; preds = %if.end29, %if.then2, %entry
   ret i32 1
 }
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #0
+
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }

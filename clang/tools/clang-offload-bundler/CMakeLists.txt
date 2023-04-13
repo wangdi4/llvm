@@ -24,6 +24,7 @@ set(LLVM_LINK_COMPONENTS
   IRReader
   Object
   Support
+  TargetParser
   )
 
 add_clang_tool(clang-offload-bundler
@@ -38,8 +39,6 @@ set(CLANG_OFFLOAD_BUNDLER_LIB_DEPS
   clangBasic
   clangDriver
   )
-
-add_dependencies(clang clang-offload-bundler)
 
 # A standalone clang build uses a pre-installed llvm-objcopy
 if (NOT CLANG_BUILT_STANDALONE)

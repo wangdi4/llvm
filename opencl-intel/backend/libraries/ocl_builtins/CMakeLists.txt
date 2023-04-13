@@ -1,4 +1,4 @@
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -107,8 +107,8 @@ set(CLANG_C_COMPILER_PARAMS
     ${DEVICE_TRIPLE}
     -emit-llvm-bc
     -fwrapv
-    -O3
-    -disable-intel-proprietary-opts
+    ${CL_OPT_LEVEL}
+    -disable-intel-proprietary-opts # INTEL
     -I
     ${IMPORT_DIR}
     ${INCLUDE_OCL_CLANG_HEADERS}
@@ -168,7 +168,7 @@ function(
     COMMAND ${CLANG} ${COMPILE_OPTIONS} -target-cpu ${PROC} -o
             ${OUTPUT_DIR}/${OUTPUT_FILE} ${INPUT_FILE}
     MAIN_DEPENDENCY ${INPUT_FILE}
-    DEPENDS ${HEADER_FILES} ${CLANG} process-intrin-headers
+    DEPENDS ${HEADER_FILES} ${CLANG}
     IMPLICIT_DEPENDS CXX ${INPUT_FILE}
     WORKING_DIRECTORY ${CL_BUILTIN_SOURCE_DIR}
     COMMENT "Compiling ${INPUT_FILE}"
@@ -248,8 +248,9 @@ function(
         ${TMP_FILES}
         ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
       COMMAND
-        ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_link -O3
-        -disable-intel-proprietary-opts -o ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
+        ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_link ${CL_OPT_LEVEL}
+        -disable-intel-proprietary-opts # INTEL
+        -o ${BUILTINS_OUTPUT_DIR}/${OUTPUT_FILE}
       DEPENDS ${LLVM_LINK} ${OPT} ${TMP_FILES}
               ${CL_BUILTIN_SOURCE_DIR}/${TARGET_DIR}/${ARCH}_vectorizer.ll
       VERBATIM)
@@ -297,39 +298,26 @@ function(
   set(PRECOMPILED_OUTPUT_FILE
       ${OCL_LIBRARY_TARGET_NAME}${ARCH}${OCL_PRECOMPILED_OUTPUT_EXTENSION})
 
-  # link shared rtl and particular BI rtl image callback rtl must be linked with
-  # built-ins RTL statically, we have two built-ins rtls: shared
-  # (clbltfnshared.rtl) and particular lib (for  example, clbltfnl9.rtl), but
-  # image optimizer takes only one runtime lib as argument, so we have to link
-  # clbltfnshared.rtl and particular (clbltfnl9.rtl, for instance) together to
-  # temporary TMP_LINKED_RTL_OUTPUT and then link image callback rtl
-  # (${OUTPUT_FILE}_noopt) with this TMP_LINKED_RTL_OUTPUT We also allow symbols
-  # from target-specific rtl (e.g. clbltfnl9.rtl) to override defined symbol in
-  # shared rtl.
-  add_custom_command(
-    OUTPUT ${TMP_LINKED_RTL_OUTPUT}
-    COMMENT "Linking tmp rtl ${TMP_LINKED_RTL}"
-    COMMAND
-      ${LLVM_LINK} ${LLVM_LINK_PARAMS} -o ${TMP_LINKED_RTL_OUTPUT}
-      --override=${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
-      ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
-    DEPENDS
-      ${LLVM_LINK} ${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
-      ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
-    VERBATIM)
+  if(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    set(OPT_PASSES "function(infer-address-spaces),")
+  endif()
 
   add_custom_command(
     OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
     COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
     COMMAND
       ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB}
-      -dpcpp-kernel-builtin-lib=${TMP_LINKED_RTL_OUTPUT}
-      -dpcpp-kernel-cpu-prefix=${ARCH}
-      "-passes=function(infer-address-spaces),dpcpp-kernel-builtin-import,function(dpcpp-kernel-builtin-call-to-inst),verify"
+      # Import target library before shared library since there are duplicate symbols in them. TODO remove duplicate symbols.
+      -sycl-kernel-builtin-lib=${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION},${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
+      -sycl-kernel-cpu-prefix=${ARCH}
+      "-passes=${OPT_PASSES}sycl-kernel-builtin-import,function(sycl-kernel-builtin-call-to-inst)"
       -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
-    COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas -O3
-            -disable-intel-proprietary-opts -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
-    DEPENDS ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB} ${TMP_LINKED_RTL_OUTPUT}
+    COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas ${CL_OPT_LEVEL}
+            -disable-intel-proprietary-opts # INTEL
+	    -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
+    DEPENDS ${OPT} ${OUTPUT_DIR}/${UNOPTIMIZED_LIB}
+      ${BUILTINS_OUTPUT_DIR}/${BI_LIB_NAME}${OCL_OUTPUT_EXTENSION}
+      ${BUILTINS_SHARED_OUTPUT_DIR}/${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION}
     VERBATIM)
 
   # link with kernel rtl
@@ -535,7 +523,7 @@ function(create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   add_custom_target(
     ${TARGET_NAME} ALL
     DEPENDS ${TOP_TARGET_DEPENDENCIES} ${OCL_20_SOURCE_FILES}
-            ${OCL_ALL_TD_FILES} ${OCL_CLANG_HEADER_DIR}
+            ${OCL_ALL_TD_FILES}
     COMMENT "Target ${TARGET_NAME} build completed"
     VERBATIM
     SOURCES ${OCL_20_SOURCE_FILES} ${OCL_IMAGE_CALLBACK_SOURCE_FILE}
@@ -552,7 +540,8 @@ function(create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
     ${TARGET_NAME_SHARED}
     ${OPTIMIZED_LIB_TARGE_NAME}
     ${UNOPTIMIZED_LIB_TARGE_NAME}
-    ${OPT})
+    ${OPT}
+    process-intrin-headers)
 
   set_property(GLOBAL APPEND PROPERTY OCL_BUILTIN_LIBS ${TARGET_NAME})
 
@@ -660,10 +649,11 @@ add_custom_command(
   COMMAND ${CLANG} ${CLANG_CL_COMMON_COMPILER_FLAGS} -triple ${HOST_TRIPLE}
           ${CMAKE_CURRENT_SOURCE_DIR}/pipes-info.cl -o pipes2.bc
   COMMAND ${LLVM_LINK} pipes1.bc pipes2.bc -o pipes.bc
-  COMMAND ${OPT} -dpcpp-kernel-builtin-lib=${RTL_MINIMAL},${RTL_SHARED}
-          -passes=dpcpp-kernel-builtin-import pipes.bc -o pipes-builtin.bc
-  COMMAND ${OPT} -O3 -disable-intel-proprietary-opts pipes-builtin.bc -o
-          pipes-opt.bc
+  COMMAND ${OPT} -sycl-kernel-builtin-lib=${RTL_MINIMAL},${RTL_SHARED}
+          -passes=sycl-kernel-builtin-import pipes.bc -o pipes-builtin.bc
+  COMMAND ${OPT} ${CL_OPT_LEVEL}
+          -disable-intel-proprietary-opts # INTEL
+          pipes-builtin.bc -o pipes-opt.bc
   COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-opt.bc -o clbltpipe.obj)
 
 add_library(clbltpipe STATIC IMPORTED GLOBAL)
@@ -671,3 +661,22 @@ add_dependencies(clbltpipe clbltpipe_target)
 set_target_properties(
   clbltpipe PROPERTIES IMPORTED_LOCATION
                        ${CMAKE_CURRENT_BINARY_DIR}/clbltpipe.obj)
+
+# Generate built-in vectorization info.
+set(VECTORIZATION_INFO_GEN ${OCL_BINARY_DIR}/include/VectInfo.gen)
+file(MAKE_DIRECTORY ${OCL_BINARY_DIR}/include)
+add_custom_command(
+  OUTPUT ${VECTORIZATION_INFO_GEN}
+  COMMAND
+    ocl-tblgen -gen-vectorization-info -I
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/misc_main.td -o
+    ${OCL_BINARY_DIR}/include/VectInfo.gen
+  DEPENDS ocl-tblgen ${OCL_ALL_TD_FILES}
+  COMMENT "Generating built-in vectorization info ..."
+  VERBATIM)
+
+add_custom_target(
+  VectorizationInfoGen ALL
+  DEPENDS ${VECTORIZATION_INFO_GEN} ${OCL_TBLGEN}
+  VERBATIM)

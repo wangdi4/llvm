@@ -3,7 +3,7 @@
 ; the legacy pass manager for now. Eventually, we should split the run line
 ; so that middle end passes use the new pass manager and the codegen pass
 ; (x86-hetero-arch-opt) uses the legacy pass manager.
-; RUN: opt < %s -enable-new-pm=0 -mtriple=x86_64-pc-windows -mcpu=alderlake --x86-hetero-arch-opt --verify -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -bugpoint-enable-legacy-pm -mtriple=x86_64-pc-windows -mcpu=alderlake --x86-hetero-arch-opt --verify -S | FileCheck %s
 
 %rtti.TypeDescriptor2 = type { i8**, i8*, [3 x i8] }
 
@@ -20,7 +20,7 @@ define dso_local noundef float @"cloneable"(float* nocapture noundef readonly %A
 ; CHECK-NEXT:    br i1 [[CMP_NOT89]], label [[TRY_CONT50:%.*]], label [[FOR_BODY_PREHEADER:%.*]]
 ; CHECK:       for.body.preheader:
 ; CHECK-NEXT:    [[TMP0:%.*]] = call i8 @llvm.x86.intel.fast.cpuid.coretype()
-; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i8 [[TMP0]], 64
+; CHECK-NEXT:    [[TMP1:%.*]] = icmp ne i8 [[TMP0]], 32
 ; CHECK-NEXT:    br i1 [[TMP1]], label [[FOR_BODY:%.*]], label [[FOR_BODY_CLONE:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[I_091:%.*]] = phi i32 [ [[ADD46:%.*]], [[FOR_INC:%.*]] ], [ 0, [[FOR_BODY_PREHEADER]] ]
@@ -44,40 +44,40 @@ define dso_local noundef float @"cloneable"(float* nocapture noundef readonly %A
 ; CHECK-NEXT:    [[ADD45:%.*]] = fadd float [[TMP7]], [[CONV]]
 ; CHECK-NEXT:    [[EQ100:%.*]] = fcmp oeq float [[ADD45]], 1.000000e+02
 ; CHECK-NEXT:    br i1 [[EQ100]], label [[UNREACHABLE:%.*]], label [[CONTINUE:%.*]]
-; CHECK:       unreachable:
-; CHECK-NEXT:    call void @terminate() [ "funclet"(token [[TMP9]]) ]
+; CHECK:       unreachable.clone:
+; CHECK-NEXT:    call void @terminate() [ "funclet"(token [[TMP11:%.*]]) ]
 ; CHECK-NEXT:    unreachable
-; CHECK:       for.body.clone:
-; CHECK-NEXT:    [[I_091_CLONE:%.*]] = phi i32 [ [[ADD46_CLONE:%.*]], [[FOR_INC_CLONE:%.*]] ], [ 0, [[FOR_BODY_PREHEADER]] ]
-; CHECK-NEXT:    [[RESULT_090_CLONE:%.*]] = phi float [ [[RESULT_1_CLONE:%.*]], [[FOR_INC_CLONE]] ], [ 0.000000e+00, [[FOR_BODY_PREHEADER]] ]
-; CHECK-NEXT:    [[IDXPROM_CLONE:%.*]] = zext i32 [[I_091_CLONE]] to i64
-; CHECK-NEXT:    [[ARRAYIDX_CLONE:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[IDXPROM_CLONE]]
-; CHECK-NEXT:    [[TMP11:%.*]] = bitcast i32* [[ARRAYIDX_CLONE]] to <8 x i32>*
-; CHECK-NEXT:    [[TMP12:%.*]] = load <8 x i32>, <8 x i32>* [[TMP11]], align 4
-; CHECK-NEXT:    [[TMP13:%.*]] = zext <8 x i32> [[TMP12]] to <8 x i64>
-; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr float, float* [[A]], <8 x i64> [[TMP13]]
-; CHECK-NEXT:    [[TMP15:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP14]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), !hetero.arch.opt.disable.gather !0
-; CHECK-NEXT:    [[TMP16:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float [[RESULT_090_CLONE]], <8 x float> [[TMP15]])
-; CHECK-NEXT:    invoke void @"?may_throw@@YAXXZ"()
-; CHECK-NEXT:    to label [[FOR_INC_CLONE]] unwind label [[CATCH_DISPATCH_CLONE:%.*]]
-; CHECK:       catch.dispatch.clone:
-; CHECK-NEXT:    [[TMP17:%.*]] = catchswitch within none [label %catch.clone] unwind label [[CATCH_DISPATCH47]]
-; CHECK:       catch.clone:
-; CHECK-NEXT:    [[TMP18:%.*]] = catchpad within [[TMP17]] [%rtti.TypeDescriptor2* @"??_R0H@8", i32 0, i32* %X]
-; CHECK-NEXT:    [[TMP19:%.*]] = load i32, i32* [[X]], align 4
-; CHECK-NEXT:    [[CONV_CLONE:%.*]] = sitofp i32 [[TMP19]] to float
-; CHECK-NEXT:    [[ADD45_CLONE:%.*]] = fadd float [[TMP16]], [[CONV_CLONE]]
-; CHECK-NEXT:    [[EQ100_CLONE:%.*]] = fcmp oeq float [[ADD45_CLONE]], 1.000000e+02
-; CHECK-NEXT:    br i1 [[EQ100_CLONE]], label [[UNREACHABLE_CLONE:%.*]], label [[CONTINUE_CLONE:%.*]]
-; CHECK:       continue.clone:
-; CHECK-NEXT:    catchret from [[TMP18]] to label [[FOR_INC_CLONE]]
 ; CHECK:       for.inc.clone:
-; CHECK-NEXT:    [[RESULT_1_CLONE]] = phi float [ [[TMP16]], [[FOR_BODY_CLONE]] ], [ [[ADD45_CLONE]], [[CONTINUE_CLONE]] ]
-; CHECK-NEXT:    [[ADD46_CLONE]] = add i32 [[I_091_CLONE]], 8
+; CHECK-NEXT:    [[RESULT_1_CLONE:%.*]] = phi float [ [[TMP19:%.*]], [[FOR_BODY_CLONE]] ], [ [[ADD45_CLONE:%.*]], [[CONTINUE_CLONE:%.*]] ]
+; CHECK-NEXT:    [[ADD46_CLONE:%.*]] = add i32 [[I_091_CLONE:%.*]], 8
 ; CHECK-NEXT:    [[CMP_NOT_CLONE:%.*]] = icmp eq i32 [[N]], [[ADD46_CLONE]]
 ; CHECK-NEXT:    br i1 [[CMP_NOT_CLONE]], label [[TRY_CONT50_LOOPEXIT:%.*]], label [[FOR_BODY_CLONE]]
-; CHECK:       unreachable.clone:
-; CHECK-NEXT:    call void @terminate() [ "funclet"(token [[TMP18]]) ]
+; CHECK:       continue.clone:
+; CHECK-NEXT:    catchret from [[TMP11]] to label [[FOR_INC_CLONE:%.*]]
+; CHECK:       catch.clone:
+; CHECK-NEXT:    [[TMP11]] = catchpad within [[TMP13:%.*]] [%rtti.TypeDescriptor2* @"??_R0H@8", i32 0, i32* %X]
+; CHECK-NEXT:    [[TMP12:%.*]] = load i32, i32* [[X]], align 4
+; CHECK-NEXT:    [[CONV_CLONE:%.*]] = sitofp i32 [[TMP12]] to float
+; CHECK-NEXT:    [[ADD45_CLONE]] = fadd float [[TMP19]], [[CONV_CLONE]]
+; CHECK-NEXT:    [[EQ100_CLONE:%.*]] = fcmp oeq float [[ADD45_CLONE]], 1.000000e+02
+; CHECK-NEXT:    br i1 [[EQ100_CLONE]], label [[UNREACHABLE_CLONE:%.*]], label [[CONTINUE_CLONE]]
+; CHECK:       catch.dispatch.clone:
+; CHECK-NEXT:    [[TMP13]] = catchswitch within none [label %catch.clone] unwind label [[CATCH_DISPATCH47]]
+; CHECK:       for.body.clone:
+; CHECK-NEXT:    [[I_091_CLONE]] = phi i32 [ [[ADD46_CLONE]], [[FOR_INC_CLONE]] ], [ 0, [[FOR_BODY_PREHEADER]] ]
+; CHECK-NEXT:    [[RESULT_090_CLONE:%.*]] = phi float [ [[RESULT_1_CLONE]], [[FOR_INC_CLONE]] ], [ 0.000000e+00, [[FOR_BODY_PREHEADER]] ]
+; CHECK-NEXT:    [[IDXPROM_CLONE:%.*]] = zext i32 [[I_091_CLONE]] to i64
+; CHECK-NEXT:    [[ARRAYIDX_CLONE:%.*]] = getelementptr inbounds i32, i32* [[B]], i64 [[IDXPROM_CLONE]]
+; CHECK-NEXT:    [[TMP14:%.*]] = bitcast i32* [[ARRAYIDX_CLONE]] to <8 x i32>*
+; CHECK-NEXT:    [[TMP15:%.*]] = load <8 x i32>, <8 x i32>* [[TMP14]], align 4
+; CHECK-NEXT:    [[TMP16:%.*]] = zext <8 x i32> [[TMP15]] to <8 x i64>
+; CHECK-NEXT:    [[TMP17:%.*]] = getelementptr float, float* [[A]], <8 x i64> [[TMP16]]
+; CHECK-NEXT:    [[TMP18:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP17]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), !hetero.arch.opt.disable.gather !0
+; CHECK-NEXT:    [[TMP19]] = call float @llvm.vector.reduce.fadd.v8f32(float [[RESULT_090_CLONE]], <8 x float> [[TMP18]])
+; CHECK-NEXT:    invoke void @"?may_throw@@YAXXZ"()
+; CHECK-NEXT:    to label [[FOR_INC_CLONE]] unwind label [[CATCH_DISPATCH_CLONE:%.*]]
+; CHECK:       unreachable:
+; CHECK-NEXT:    call void @terminate() [ "funclet"(token [[TMP9]]) ]
 ; CHECK-NEXT:    unreachable
 ; CHECK:       continue:
 ; CHECK-NEXT:    catchret from [[TMP9]] to label [[FOR_INC]]

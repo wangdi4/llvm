@@ -29,12 +29,10 @@
 
 #include "CodeViewDebug.h"
 #include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/TinyPtrVector.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/COFF.h"
 #include "llvm/BinaryFormat/Dwarf.h"
@@ -83,6 +81,7 @@
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/TargetParser/Triple.h"
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -513,10 +512,10 @@ void CodeViewDebug::recordLocalVariable(LocalVariable &&Var,
     // This variable was inlined. Associate it with the InlineSite.
     const DISubprogram *Inlinee = Var.DIVar->getScope()->getSubprogram();
     InlineSite &Site = getInlineSite(InlinedAt, Inlinee);
-    Site.InlinedLocals.emplace_back(Var);
+    Site.InlinedLocals.emplace_back(std::move(Var));
   } else {
     // This variable goes into the corresponding lexical scope.
-    ScopeVariables[LS].emplace_back(Var);
+    ScopeVariables[LS].emplace_back(std::move(Var));
   }
 }
 
@@ -594,7 +593,6 @@ static SourceLanguage MapDWLangToCVLang(unsigned DWLang) {
   case dwarf::DW_LANG_C89:
   case dwarf::DW_LANG_C99:
   case dwarf::DW_LANG_C11:
-  case dwarf::DW_LANG_ObjC:
     return SourceLanguage::C;
   case dwarf::DW_LANG_C_plus_plus:
   case dwarf::DW_LANG_C_plus_plus_03:
@@ -620,6 +618,10 @@ static SourceLanguage MapDWLangToCVLang(unsigned DWLang) {
     return SourceLanguage::Swift;
   case dwarf::DW_LANG_Rust:
     return SourceLanguage::Rust;
+  case dwarf::DW_LANG_ObjC:
+    return SourceLanguage::ObjC;
+  case dwarf::DW_LANG_ObjC_plus_plus:
+    return SourceLanguage::ObjCpp;
   default:
     // There's no CodeView representation for this language, and CV doesn't
     // have an "unknown" option for the language field, so we'll use MASM,
@@ -1430,7 +1432,7 @@ void CodeViewDebug::calculateRanges(
     assert(DVInst->isDebugValue() && "Invalid History entry");
     // FIXME: Find a way to represent constant variables, since they are
     // relatively common.
-    Optional<DbgVariableLocation> Location =
+    std::optional<DbgVariableLocation> Location =
         DbgVariableLocation::extractFromMachineInstruction(*DVInst);
     if (!Location)
     {
@@ -1823,6 +1825,13 @@ static bool isDescribedSubrange(const DISubrange *Subrange) {
   return isValidDescriptorExpression(LE) || isValidDescriptorExpression(UE);
 }
 
+static bool isDescribedSubrange(const DIGenericSubrange *Subrange) {
+  auto *LE = Subrange->getLowerBound().dyn_cast<DIExpression *>();
+  auto *UE = Subrange->getUpperBound().dyn_cast<DIExpression *>();
+
+  return isValidDescriptorExpression(LE) || isValidDescriptorExpression(UE);
+}
+
 static int64_t getConstantLowerBound(const DISubrange *Subrange) {
   auto *LI = Subrange->getLowerBound().dyn_cast<ConstantInt *>();
   // The default lowerbound of an array dimension in Fortran is 1.
@@ -1895,7 +1904,7 @@ TypeIndex CodeViewDebug::lowerTypeOemMSF90Descriptor(const DIStringType *Ty,
 //   index[0] (4)  type index of array's elements
 //   index[1] (4)  type index of bounds key (either LF_REFSYM or 0),
 //                 only the simple case where index[1] is 0 is supported
-//   rank     (4)  number of array dimensions
+//   rank     (4)  number of array dimensions, 0 indicates assumed rank
 //   data     (4)  size of the array descriptor in bytes
 TypeIndex CodeViewDebug::lowerTypeOemMSF90DescribedArray(const DICompositeType *Ty) {
   const uint32_t TypeIndicesCount = 2;
@@ -1921,8 +1930,9 @@ TypeIndex CodeViewDebug::lowerTypeOemMSF90DescribedArray(const DICompositeType *
   uint32_t DescrSize =
       getF90DescriptorSize(Triple(MMI->getModule()->getTargetTriple()).getArch(),
 	                       Elements.size());
+  uint32_t rank = dyn_cast<DISubrange>(Elements[0]) ? Elements.size() : 0;
   TypeIndex Indices[TypeIndicesCount] = {ElementTypeIndex, BoundsKey};
-  uint32_t Data[DataCount] = {Elements.size(), DescrSize};
+  uint32_t Data[DataCount] = {rank, DescrSize};
 
   OEMTypeRecord OEM(TypeLeafKind::LF_OEM_IDENT_MSF90,
                     TypeLeafKind::LF_recOEM_MSF90_DESCR_ARR,
@@ -2004,6 +2014,11 @@ TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
 #if INTEL_CUSTOMIZATION
   if (!DisableIntelCodeViewExtensions && moduleIsInFortran() &&
        Elements.size() > 0) {
+    if (auto *GenSubrange = dyn_cast<DIGenericSubrange>(Elements[0])) {
+      return isDescribedSubrange(GenSubrange)
+                 ? lowerTypeOemMSF90DescribedArray(Ty)
+                 : TypeIndex();
+    }
     assert(Elements[0]->getTag() == dwarf::DW_TAG_subrange_type);
     const DISubrange *Subrange = cast<DISubrange>(Elements[0]);
     if (isDescribedSubrange(Subrange)) {
@@ -2122,12 +2137,14 @@ TypeIndex CodeViewDebug::lowerTypeBasic(const DIBasicType *Ty) {
     }
     break;
   case dwarf::DW_ATE_complex_float:
+    // The CodeView size for a complex represents the size of
+    // an individual component.
     switch (ByteSize) {
-    case 2:  STK = SimpleTypeKind::Complex16;  break;
-    case 4:  STK = SimpleTypeKind::Complex32;  break;
-    case 8:  STK = SimpleTypeKind::Complex64;  break;
-    case 10: STK = SimpleTypeKind::Complex80;  break;
-    case 16: STK = SimpleTypeKind::Complex128; break;
+    case 4:  STK = SimpleTypeKind::Complex16;  break;
+    case 8:  STK = SimpleTypeKind::Complex32;  break;
+    case 16: STK = SimpleTypeKind::Complex64;  break;
+    case 20: STK = SimpleTypeKind::Complex80;  break;
+    case 32: STK = SimpleTypeKind::Complex128; break;
     }
     break;
   case dwarf::DW_ATE_float:
@@ -2373,7 +2390,7 @@ TypeIndex CodeViewDebug::lowerTypeFunction(const DISubroutineType *Ty) {
   TypeIndex ReturnTypeIndex = TypeIndex::Void();
   ArrayRef<TypeIndex> ArgTypeIndices = std::nullopt;
   if (!ReturnAndArgTypeIndices.empty()) {
-    auto ReturnAndArgTypesRef = makeArrayRef(ReturnAndArgTypeIndices);
+    auto ReturnAndArgTypesRef = ArrayRef(ReturnAndArgTypeIndices);
     ReturnTypeIndex = ReturnAndArgTypesRef.front();
     ArgTypeIndices = ReturnAndArgTypesRef.drop_front();
   }
@@ -3153,7 +3170,7 @@ void CodeViewDebug::emitLocalVariableList(const FunctionInfo &FI,
         // If ConstantValue is set we will emit it as a S_CONSTANT instead of a
         // S_LOCAL in order to be able to represent it at all.
         const DIType *Ty = L.DIVar->getType();
-        APSInt Val(L.ConstantValue.value());
+        APSInt Val(*L.ConstantValue);
         emitConstantSymbolRecord(Ty, Val, std::string(L.DIVar->getName()));
       } else {
         emitLocalVariable(FI, L);
@@ -3760,7 +3777,7 @@ void CodeViewDebug::emitDebugInfoForGlobal(const CVGlobalVariable &CVGV) {
     OS.AddComment("DataOffset");
 
     uint64_t Offset = 0;
-    if (CVGlobalVariableOffsets.find(DIGV) != CVGlobalVariableOffsets.end())
+    if (CVGlobalVariableOffsets.contains(DIGV))
       // Use the offset seen while collecting info on globals.
       Offset = CVGlobalVariableOffsets[DIGV];
     OS.emitCOFFSecRel32(GVSym, Offset);

@@ -50,9 +50,10 @@ public:
 
   VPlanSCEV *getMinusExpr(VPlanSCEV *LHS, VPlanSCEV *RHS) override;
 
-  Optional<VPConstStepLinear> asConstStepLinear(VPlanSCEV *Expr) const override;
+  std::optional<VPConstStepLinear>
+  asConstStepLinear(VPlanSCEV *Expr) const override;
 
-  Optional<VPConstStepInduction>
+  std::optional<VPConstStepInduction>
   asConstStepInduction(VPlanSCEV *Expr) const override;
 
 public:

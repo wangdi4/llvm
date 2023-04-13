@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -43,74 +43,6 @@ class AssumptionCacheTracker;
 class CallGraph;
 class ProfileSummaryInfo;
 
-/// This class contains all of the helper code which is used to perform the
-/// inlining operations that do not depend on the policy. It contains the core
-/// bottom-up inlining infrastructure that specific inliner passes use.
-struct LegacyInlinerBase : public CallGraphSCCPass {
-  explicit LegacyInlinerBase(char &ID);
-  explicit LegacyInlinerBase(char &ID, bool InsertLifetime);
-
-  /// For this class, we declare that we require and preserve the call graph.
-  /// If the derived class implements this method, it should always explicitly
-  /// call the implementation here.
-  void getAnalysisUsage(AnalysisUsage &Info) const override;
-
-  using llvm::Pass::doInitialization;
-
-  bool doInitialization(CallGraph &CG) override;
-
-  /// Main run interface method, this implements the interface required by the
-  /// Pass class.
-  bool runOnSCC(CallGraphSCC &SCC) override;
-
-  using llvm::Pass::doFinalization;
-
-  /// Remove now-dead linkonce functions at the end of processing to avoid
-  /// breaking the SCC traversal.
-  bool doFinalization(CallGraph &CG) override;
-
-  /// This method must be implemented by the subclass to determine the cost of
-  /// inlining the specified call site.  If the cost returned is greater than
-  /// the current inline threshold, the call site is not inlined.
-  virtual InlineCost getInlineCost(CallBase &CB) = 0;
-
-  /// Remove dead functions.
-  ///
-  /// This also includes a hack in the form of the 'AlwaysInlineOnly' flag
-  /// which restricts it to deleting functions with an 'AlwaysInline'
-  /// attribute. This is useful for the InlineAlways pass that only wants to
-  /// deal with that subset of the functions.
-  bool removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly = false);
-
-  InlineReport* getReport() { return Report; } // INTEL
-  InlineReportBuilder* getMDReport() { return MDReport; } // INTEL
-
-  /// This function performs the main work of the pass.  The default of
-  /// Inlinter::runOnSCC() calls skipSCC() before calling this method, but
-  /// derived classes which cannot be skipped can override that method and call
-  /// this function unconditionally.
-  bool inlineCalls(CallGraphSCC &SCC);
-
-private:
-  // Insert @llvm.lifetime intrinsics.
-  bool InsertLifetime = true;
-
-  // INTEL The inline report
-  InlineReport *Report; // INTEL
-  InlineReportBuilder *MDReport; // INTEL
-
-protected:
-#if INTEL_CUSTOMIZATION
-  virtual const InlineParams *getInlineParams() const { return nullptr; }
-#endif // INTEL_CUSTOMIZATION
-  AssumptionCacheTracker *ACT;
-  InliningLoopInfoCache *ILIC; // INTEL
-  ProfileSummaryInfo *PSI;
-  WholeProgramInfo *WPI;       // INTEL
-  std::function<const TargetLibraryInfo &(Function &)> GetTLI;
-  ImportedFunctionsInliningStatistics ImportedFunctionsStats;
-};
-
 /// The inliner pass for the new pass manager.
 ///
 /// This pass wires together the inlining utilities and the inline cost
@@ -129,7 +61,8 @@ class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
 #if INTEL_CUSTOMIZATION
   InlinerPass(bool OnlyMandatory = false,
-              ThinOrFullLTOPhase LTOPhase = ThinOrFullLTOPhase::None);
+              ThinOrFullLTOPhase LTOPhase = ThinOrFullLTOPhase::None,
+              bool IsAlwaysInline = false);
   ~InlinerPass();
   InlinerPass(InlinerPass &&Arg)
       : OnlyMandatory(Arg.OnlyMandatory), LTOPhase(std::move(Arg.LTOPhase)),

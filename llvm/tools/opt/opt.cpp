@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -33,7 +33,6 @@
 #if INTEL_CUSTOMIZATION
 #include "Intel_PassPrinters.h"
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -63,7 +62,6 @@
 #include "llvm/Remarks/HotnessThresholdParser.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/PluginLoader.h"
 #include "llvm/Support/SourceMgr.h"
@@ -76,15 +74,11 @@
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Debugify.h"
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/DTransCommon.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 
 #include <algorithm>
 #include <memory>
@@ -99,12 +93,12 @@ static codegen::RegisterCodeGenFlags CFG;
 static cl::list<const PassInfo *, bool, PassNameParser> PassList(cl::desc(
     "Optimizations available (use '-passes=' for the new pass manager)"));
 
-static cl::opt<bool> EnableNewPassManager(
-    "enable-new-pm",
-    cl::desc("Enable the new pass manager, translating "
-             "'opt -foo' to 'opt -passes=foo'. This is strictly for the new PM "
-             "migration, use '-passes=' when possible."),
-    cl::init(LLVM_ENABLE_NEW_PASS_MANAGER)); // INTEL
+static cl::opt<bool> EnableLegacyPassManager(
+    "bugpoint-enable-legacy-pm",
+    cl::desc(
+        "Enable the legacy pass manager. This is strictly for bugpoint "
+        "due to it not working with the new PM, please do not use otherwise."),
+    cl::init(false));
 
 // This flag specifies a textual description of the optimization pass pipeline
 // to run over the module. This flag switches opt to use the new pass manager
@@ -364,9 +358,7 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   Builder.OptLevel = OptLevel;
   Builder.SizeLevel = SizeLevel;
 
-  if (OptLevel > 1) {
-    Builder.Inliner = createFunctionInliningPass(OptLevel, SizeLevel, false);
-  } else {
+  if (OptLevel <= 1) {
     Builder.Inliner = createAlwaysInlinerLegacyPass();
   }
   Builder.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
@@ -405,10 +397,6 @@ static TargetMachine* GetTargetMachine(Triple TheTriple, StringRef CPUStr,
       Options, codegen::getExplicitRelocModel(),
       codegen::getExplicitCodeModel(), GetCodeGenOptLevel());
 }
-
-#ifdef BUILD_EXAMPLES
-void initializeExampleIRTransforms(llvm::PassRegistry &Registry);
-#endif
 
 struct TimeTracerRAII {
   TimeTracerRAII(StringRef ProgramName) {
@@ -458,24 +446,42 @@ static bool shouldPinPassToLegacyPM(StringRef Pass) {
       "amdgcn-", "polly-", "riscv-", "dxil-"};
   std::vector<StringRef> PassNameContain = {"ehprepare"};
   std::vector<StringRef> PassNameExact = {
-      "safe-stack",           "cost-model",
-      "codegenprepare",       "interleaved-load-combine",
-      "unreachableblockelim", "verify-safepoint-ir",
-      "atomic-expand",        "expandvp",
-      "hardware-loops",       "type-promotion",
-      "mve-tail-predication", "interleaved-access",
-      "global-merge",         "pre-isel-intrinsic-lowering",
-      "expand-reductions",    "indirectbr-expand",
-      "generic-to-nvvm",      "expandmemcmp",
-      "loop-reduce",          "lower-amx-type",
-      "pre-amx-config",       "lower-amx-intrinsics",
-      "polyhedral-info",      "print-polyhedral-info",
-      "replace-with-veclib",  "jmc-instrument",
-      "dot-regions",          "dot-regions-only",
-      "view-regions",         "view-regions-only",
-      "select-optimize",      "expand-large-div-rem",
-      "structurizecfg",       "fix-irreducible",
-      "expand-large-fp-convert"};
+      "safe-stack",
+      "cost-model",
+      "codegenprepare",
+      "interleaved-load-combine",
+      "unreachableblockelim",
+      "verify-safepoint-ir",
+      "atomic-expand",
+      "expandvp",
+      "mve-tail-predication",
+      "interleaved-access",
+      "global-merge",
+      "pre-isel-intrinsic-lowering",
+      "expand-reductions",
+      "indirectbr-expand",
+      "generic-to-nvvm",
+      "expandmemcmp",
+      "loop-reduce",
+      "lower-amx-type",
+      "pre-amx-config",
+      "lower-amx-intrinsics",
+      "polyhedral-info",
+      "print-polyhedral-info",
+      "replace-with-veclib",
+      "jmc-instrument",
+      "dot-regions",
+      "dot-regions-only",
+      "view-regions",
+      "view-regions-only",
+      "select-optimize",
+      "expand-large-div-rem",
+      "structurizecfg",
+      "fix-irreducible",
+      "expand-large-fp-convert",
+      "fpbuiltin-fn-selection",
+      "callbrprepare"
+  };
   for (const auto &P : PassNamePrefix)
     if (Pass.startswith(P))
       return true;
@@ -529,6 +535,7 @@ int main(int argc, char **argv) {
   initializeExpandMemCmpPassPass(Registry);
   initializeScalarizeMaskedMemIntrinLegacyPassPass(Registry);
   initializeSelectOptimizePass(Registry);
+  initializeCallBrPreparePass(Registry);
   initializeCodeGenPreparePass(Registry);
   initializeAtomicExpandPass(Registry);
   initializeRewriteSymbolsLegacyPassPass(Registry);
@@ -546,8 +553,6 @@ int main(int argc, char **argv) {
   initializeExpandVectorPredicationPass(Registry);
   initializeWasmEHPreparePass(Registry);
   initializeWriteBitcodePassPass(Registry);
-  initializeHardwareLoopsPass(Registry);
-  initializeTypePromotionPass(Registry);
   initializeReplaceWithVeclibLegacyPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeIntel_LoopAnalysis(Registry);
@@ -556,16 +561,10 @@ int main(int argc, char **argv) {
   initializeMapIntrinToImlPass(Registry);
   initializeFloat128ExpandPass(Registry);
   initializeFoldLoadsToGatherPass(Registry);
-  initializeIntel_OpenCLTransforms(Registry);
   initializeJMCInstrumenterPass(Registry);
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
   initializeParseAnnotateAttributesLegacyPass(Registry);
-  initializeAutoCPUCloneLegacyPassPass(Registry);
-#if INTEL_FEATURE_SW_DTRANS
-  initializeDTransPasses(Registry);
-#endif // INTEL_FEATURE_SW_DTRANS
-  initializeOptimizeDynamicCastsWrapperPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
@@ -579,10 +578,7 @@ int main(int argc, char **argv) {
   initializeESIMDVerifierPass(Registry);
   initializeSYCLLowerWGLocalMemoryLegacyPass(Registry);
   initializeSYCLMutatePrintfAddrspaceLegacyPassPass(Registry);
-
-#ifdef BUILD_EXAMPLES
-  initializeExampleIRTransforms(Registry);
-#endif
+  initializeFPBuiltinFnSelectionLegacyPassPass(Registry);
 
   SmallVector<PassPlugin, 1> PluginList;
   PassPlugins.setCallback([&](const std::string &PluginPath) {
@@ -594,6 +590,9 @@ int main(int argc, char **argv) {
     }
     PluginList.emplace_back(Plugin.get());
   });
+
+  // Register the Target and CPU printer for --version.
+  cl::AddExtraVersionPrinter(sys::printDefaultTargetAndDetectedCPU);
 
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
@@ -607,11 +606,8 @@ int main(int argc, char **argv) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // If `-passes=` is specified, use NPM.
-  // If `-enable-new-pm` is specified and there are no codegen passes, use NPM.
-  // e.g. `-enable-new-pm -sroa` will use NPM.
-  // but `-enable-new-pm -codegenprepare` will still revert to legacy PM.
-  const bool UseNPM = (EnableNewPassManager && !shouldForceLegacyPM()) ||
+  // TODO: remove shouldForceLegacyPM().
+  const bool UseNPM = (!EnableLegacyPassManager && !shouldForceLegacyPM()) ||
                       PassPipeline.getNumOccurrences() > 0;
 
   if (!UseNPM && PluginList.size()) {
@@ -647,7 +643,7 @@ int main(int argc, char **argv) {
   std::unique_ptr<ToolOutputFile> RemarksFile = std::move(*RemarksFileOrErr);
 
   // Load the input module...
-  auto SetDataLayout = [](StringRef) -> std::optional<std::string> {
+  auto SetDataLayout = [](StringRef, StringRef) -> std::optional<std::string> {
     if (ClDataLayout.empty())
       return std::nullopt;
     return ClDataLayout;
@@ -658,7 +654,8 @@ int main(int argc, char **argv) {
             InputFilename, Err, Context, nullptr, SetDataLayout)
             .Mod;
   else
-    M = parseIRFile(InputFilename, Err, Context, SetDataLayout);
+    M = parseIRFile(InputFilename, Err, Context,
+                    ParserCallbacks(SetDataLayout));
 
   if (!M) {
     Err.print(argv[0], errs());
@@ -856,7 +853,7 @@ int main(int argc, char **argv) {
                ? OK_OutputAssembly
                : (OutputThinLTOBC ? OK_OutputThinLTOBitcode : OK_OutputBitcode);
 
-    VerifierKind VK = VK_VerifyInAndOut;
+    VerifierKind VK = VK_VerifyOut;
     if (NoVerify)
       VK = VK_NoVerifier;
     else if (VerifyEach)

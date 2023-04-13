@@ -32,6 +32,10 @@ set(TARGET_NAME clang_compiler)
 # system library directories
 include(embed.rpath)
 
+set(LLVM_TARGET_DEFINITIONS OpenCLLinkOptions.td)
+tablegen(LLVM OpenCLLinkOptions.inc -gen-opt-parser-defs)
+add_public_tablegen_target(OclLinkOptionsTableGen)
+
 #
 # Compilation flags
 #
@@ -61,9 +65,12 @@ set(INCLUDE_DIRS
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
     ${OCL_SOURCE_DIR}/utils/cache_binary_handler
     ${OCL_SOURCE_DIR}/utils/CLElfLib
+    ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
     ${OCL_BINARY_DIR}
-    ${CMAKE_BINARY_DIR}/include)
+    ${CMAKE_BINARY_DIR}/include
+    ${OCL_BINARY_DIR}/../llvm-spirv/SPIRV-Headers/include
+    ${CCLANG_DEV_INCLUDE_DIRS}/../../../../include)
 
 if(OPENCL_INTREE_BUILD)
   if(LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR)
@@ -106,6 +113,7 @@ add_opencl_library(
 if(OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME} ${COMMON_CLANG})
 endif()
+add_dependencies(${TARGET_NAME} OclLinkOptionsTableGen)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME})
 

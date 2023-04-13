@@ -1,7 +1,7 @@
 ; Test the correctness of DSE after pre-vec complete unroll. %t54 = (%la)[0][2] will not be replaced by %t54 = %mul441.lcssa445451
 ; because  %mul441.lcssa44545 was written after the use in (%la)[0][2] = %mul441.lcssa445451
 ;
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,hir-dead-store-elimination,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,hir-dead-store-elimination,print<hir>" 2>&1 -disable-output < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR PreVec Complete Unroll (hir-pre-vec-complete-unroll) ***
 ;Function: main                                                                 
@@ -134,14 +134,14 @@
 ; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
 ; CHECK: %t55 = (%ra)[0][1][1];
 ; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 2  *  %mul441.lcssa445451;
-; CHECK: %mul441.lcssa445451.out = %mul441.lcssa445451;
+; CHECK-NOT: %mul441.lcssa445451.out = %mul441.lcssa445451;
 ; CHECK: %add23447449 = %add23447449  +  %mul441.lcssa445451.out1;
 ; CHECK: %mul441.lcssa445451.out1 = %mul441.lcssa445451;
 ; CHECK: (%la)[0][1] = %mul441.lcssa445451;
 ; CHECK: %t52 = (%mx)[0][2];
-; CHECK: %t53 = %temp4;
-; CHECK: %t54 = %temp;
-; CHECK: (%la)[0][2] = -1 * %t53 + %t54;
+; CHECK-NOT: %t53 =
+; CHECK-NOT: %t54 =
+; CHECK: (%la)[0][2] = %temp + -1 * %temp4;
 ; CHECK: %t55 = (%ra)[0][9][9];
 ; CHECK: (%rc9)[0][9] = %t55;
 ; CHECK: %mul441.lcssa445451 = 2 * %n5.promoted + 4  *  %mul441.lcssa445451;

@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -175,7 +175,6 @@ public:
 #if INTEL_CUSTOMIZATION
 
     AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -407,9 +406,9 @@ Instruction *NaryReassociatePass::tryReassociateGEP(GetElementPtrInst *GEP) {
 
 bool NaryReassociatePass::requiresSignExtension(Value *Index,
                                                 GetElementPtrInst *GEP) {
-  unsigned PointerSizeInBits =
-      DL->getPointerSizeInBits(GEP->getType()->getPointerAddressSpace());
-  return cast<IntegerType>(Index->getType())->getBitWidth() < PointerSizeInBits;
+  unsigned IndexSizeInBits =
+      DL->getIndexSizeInBits(GEP->getType()->getPointerAddressSpace());
+  return cast<IntegerType>(Index->getType())->getBitWidth() < IndexSizeInBits;
 }
 
 GetElementPtrInst *
@@ -459,8 +458,9 @@ NaryReassociatePass::tryReassociateGEPAtIndex(GetElementPtrInst *GEP,
   // Replace the I-th index with LHS.
   IndexExprs[I] = SE->getSCEV(LHS);
   if (isKnownNonNegative(LHS, *DL, 0, AC, GEP, DT) &&
-      DL->getTypeSizeInBits(LHS->getType()).getFixedSize() <
-          DL->getTypeSizeInBits(GEP->getOperand(I)->getType()).getFixedSize()) {
+      DL->getTypeSizeInBits(LHS->getType()).getFixedValue() <
+          DL->getTypeSizeInBits(GEP->getOperand(I)->getType())
+              .getFixedValue()) {
     // Zero-extend LHS if it is non-negative. InstCombine canonicalizes sext to
     // zext if the source operand is proved non-negative. We should do that
     // consistently so that CandidateExpr more likely appears before. See
@@ -504,12 +504,12 @@ NaryReassociatePass::tryReassociateGEPAtIndex(GetElementPtrInst *GEP,
     return nullptr;
 
   // NewGEP = &Candidate[RHS * (sizeof(IndexedType) / sizeof(Candidate[0])));
-  Type *IntPtrTy = DL->getIntPtrType(GEP->getType());
-  if (RHS->getType() != IntPtrTy)
-    RHS = Builder.CreateSExtOrTrunc(RHS, IntPtrTy);
+  Type *PtrIdxTy = DL->getIndexType(GEP->getType());
+  if (RHS->getType() != PtrIdxTy)
+    RHS = Builder.CreateSExtOrTrunc(RHS, PtrIdxTy);
   if (IndexedSize != ElementSize) {
     RHS = Builder.CreateMul(
-        RHS, ConstantInt::get(IntPtrTy, IndexedSize / ElementSize));
+        RHS, ConstantInt::get(PtrIdxTy, IndexedSize / ElementSize));
   }
   GetElementPtrInst *NewGEP = cast<GetElementPtrInst>(
       Builder.CreateGEP(GEP->getResultElementType(), Candidate, RHS));

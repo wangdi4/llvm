@@ -1,6 +1,5 @@
 // RUN: %clang_cc1 -cl-std=CL2.0 -debug-info-kind=limited -dwarf-version=5 -emit-llvm -O0 -triple spir-unknown-unknown -o - %s | FileCheck %s
 // RUN: %clang_cc1 -cl-std=CL2.0 -debug-info-kind=limited -dwarf-version=5 -emit-llvm -O0 -triple spir64-unknown-unknown -o - %s | FileCheck %s
-// XFAIL: * ;INTEL
 
 // CHECK-DAG: ![[DWARF_ADDRESS_SPACE_GLOBAL:[0-9]+]] = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !{{[0-9]+}}, size: {{[0-9]+}}, dwarfAddressSpace: 1)
 // CHECK-DAG: ![[DWARF_ADDRESS_SPACE_CONSTANT:[0-9]+]] = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !{{[0-9]+}}, size: {{[0-9]+}}, dwarfAddressSpace: 2)

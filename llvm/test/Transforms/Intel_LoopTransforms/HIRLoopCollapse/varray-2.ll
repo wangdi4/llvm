@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
 ;
 ;
 ; *** Source Code ***
@@ -31,7 +31,7 @@
 ;
 ; CHECK: Function
 ;
-; CHECK:     + DO i1 = 0, 100 * (zext.i32.i64(%P) * zext.i32.i64(%Q)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:     + DO i1 = 0, 100 * (zext.i32.i64(%P) * zext.i32.i64(%Q)) + -1, 1   <DO_LOOP>
 ; CHECK:     |   %7 = (%vla)[0:i1:4(i32*:0)];
 ; CHECK:     |   (%vla)[0:i1:4(i32*:0)] = %7 + 1;
 ; CHECK:     + END LOOP

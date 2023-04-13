@@ -1,4 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm" -aa-pipeline="basic-aa" -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm" -aa-pipeline="basic-aa" -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
 
 ; Verify that we do not optimize store to (%B)[0][5] based on lifetime
 ; intrinsics in the multi-exit loop. There is a load to the same location in

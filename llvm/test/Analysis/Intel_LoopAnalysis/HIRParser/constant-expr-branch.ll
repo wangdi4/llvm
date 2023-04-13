@@ -1,5 +1,4 @@
-; RUN: opt < %s -xmain-opt-level=3 -hir-ssa-deconstruction -analyze -enable-new-pm=0 -hir-framework -hir-framework-debug=parser | FileCheck %s
-; RUN: opt < %s -xmain-opt-level=3 -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -xmain-opt-level=3 -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser 2>&1 | FileCheck %s
 
 ; Check that we are able to handle constant expressions in the branch condition.
 

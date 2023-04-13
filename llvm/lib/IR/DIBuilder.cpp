@@ -40,14 +40,9 @@
 using namespace llvm;
 using namespace llvm::dwarf;
 
-static cl::opt<bool>
-    UseDbgAddr("use-dbg-addr",
-               llvm::cl::desc("Use llvm.dbg.addr for all local variables"),
-               cl::init(false), cl::Hidden);
-
 DIBuilder::DIBuilder(Module &m, bool AllowUnresolvedNodes, DICompileUnit *CU)
     : M(m), VMContext(M.getContext()), CUNode(CU), DeclareFn(nullptr),
-      ValueFn(nullptr), LabelFn(nullptr), AddrFn(nullptr), AssignFn(nullptr),
+      ValueFn(nullptr), LabelFn(nullptr), AssignFn(nullptr),
       AllowUnresolvedNodes(AllowUnresolvedNodes) {
   if (CUNode) {
     if (const auto &ETs = CUNode->getEnumTypes())
@@ -501,10 +496,11 @@ DIBuilder::createTemplateValueParameter(DIScope *Context, StringRef Name,
 
 DITemplateValueParameter *
 DIBuilder::createTemplateTemplateParameter(DIScope *Context, StringRef Name,
-                                           DIType *Ty, StringRef Val) {
+                                           DIType *Ty, StringRef Val,
+                                           bool IsDefault) {
   return createTemplateValueParameterHelper(
       VMContext, dwarf::DW_TAG_GNU_template_template_param, Context, Name, Ty,
-      false, MDString::get(VMContext, Val));
+      IsDefault, MDString::get(VMContext, Val));
 }
 
 DITemplateValueParameter *
@@ -1048,24 +1044,6 @@ Instruction *DIBuilder::insertDbgValueIntrinsic(Value *V,
   return insertDbgValueIntrinsic(V, VarInfo, Expr, DL, InsertAtEnd, nullptr);
 }
 
-Instruction *DIBuilder::insertDbgAddrIntrinsic(Value *V,
-                                               DILocalVariable *VarInfo,
-                                               DIExpression *Expr,
-                                               const DILocation *DL,
-                                               Instruction *InsertBefore) {
-  return insertDbgAddrIntrinsic(
-      V, VarInfo, Expr, DL, InsertBefore ? InsertBefore->getParent() : nullptr,
-      InsertBefore);
-}
-
-Instruction *DIBuilder::insertDbgAddrIntrinsic(Value *V,
-                                               DILocalVariable *VarInfo,
-                                               DIExpression *Expr,
-                                               const DILocation *DL,
-                                               BasicBlock *InsertAtEnd) {
-  return insertDbgAddrIntrinsic(V, VarInfo, Expr, DL, InsertAtEnd, nullptr);
-}
-
 /// Initialize IRBuilder for inserting dbg.declare and dbg.value intrinsics.
 /// This abstracts over the various ways to specify an insert position.
 static void initIRBuilder(IRBuilder<> &Builder, const DILocation *DL,
@@ -1083,8 +1061,7 @@ static Value *getDbgIntrinsicValueImpl(LLVMContext &VMContext, Value *V) {
 }
 
 static Function *getDeclareIntrin(Module &M) {
-  return Intrinsic::getDeclaration(&M, UseDbgAddr ? Intrinsic::dbg_addr
-                                                  : Intrinsic::dbg_declare);
+  return Intrinsic::getDeclaration(&M, Intrinsic::dbg_declare);
 }
 
 Instruction *DIBuilder::insertDbgValueIntrinsic(
@@ -1093,15 +1070,6 @@ Instruction *DIBuilder::insertDbgValueIntrinsic(
   if (!ValueFn)
     ValueFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_value);
   return insertDbgIntrinsic(ValueFn, Val, VarInfo, Expr, DL, InsertBB,
-                            InsertBefore);
-}
-
-Instruction *DIBuilder::insertDbgAddrIntrinsic(
-    llvm::Value *Val, DILocalVariable *VarInfo, DIExpression *Expr,
-    const DILocation *DL, BasicBlock *InsertBB, Instruction *InsertBefore) {
-  if (!AddrFn)
-    AddrFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_addr);
-  return insertDbgIntrinsic(AddrFn, Val, VarInfo, Expr, DL, InsertBB,
                             InsertBefore);
 }
 

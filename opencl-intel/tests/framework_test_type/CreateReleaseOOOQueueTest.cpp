@@ -101,8 +101,6 @@ bool CreateReleaseOOOQueueTest() {
 
   /*
    * Check if GPA/ITT is active
-   * see: CSSD100013767 - [CI] FrameworkTestType_gpa:
-   * Test_CreateReleaseOOOQueueTest timeout
    */
   std::string strUseGPAVal;
   Intel::OpenCL::Utils::getEnvVar(strUseGPAVal, "CL_CONFIG_USE_GPA");

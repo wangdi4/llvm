@@ -1,4 +1,21 @@
 //===-- IntervalTree.h ------------------------------------------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2021-2022 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -574,9 +591,16 @@ public:
 
     /// Comparison operators.
     friend bool operator==(const find_iterator &LHS, const find_iterator &RHS) {
-      return (!LHS.Node && !RHS.Node && !LHS.Index && !RHS.Index) ||
-             (LHS.Point == RHS.Point && LHS.Node == RHS.Node &&
-              LHS.Index == RHS.Index);
+#if INTEL_CUSTOMIZATION
+      // Note: This change will be submitted upstream, but I'm putting it in
+      // xmain first to get a test failure corrected.
+      //
+      // If Node is null, Point will be uninitialized. The check below
+      // will only read LHS.Point and RHS.Point if LHS.Node and RHS.Node are
+      // both non-null.
+      return (LHS.Node == RHS.Node && LHS.Index == RHS.Index &&
+              (!LHS.Node || LHS.Point == RHS.Point));
+#endif // INTEL_CUSTOMIZATION
     }
     friend bool operator!=(const find_iterator &LHS, const find_iterator &RHS) {
       return !(LHS == RHS);

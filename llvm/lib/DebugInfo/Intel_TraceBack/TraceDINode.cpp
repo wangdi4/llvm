@@ -158,7 +158,7 @@ const TraceLine *TraceModule::getLastLine() const {
   return const_cast<TraceModule *>(this)->getLastLine();
 }
 
-Optional<unsigned> TraceModule::getLastLineNo() const {
+std::optional<unsigned> TraceModule::getLastLineNo() const {
   if (getLastLine())
     return getLastLine()->getLine();
   return std::nullopt;

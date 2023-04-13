@@ -1,21 +1,4 @@
 //===----------- commands.cpp - SYCL commands -------------------*- C++ -*-===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -27,6 +10,7 @@
 
 #include <detail/context_impl.hpp>
 #include <detail/event_impl.hpp>
+#include <detail/host_pipe_map_entry.hpp>
 #include <detail/kernel_bundle_impl.hpp>
 #include <detail/kernel_impl.hpp>
 #include <detail/kernel_info.hpp>
@@ -71,6 +55,15 @@ namespace detail {
 #ifdef XPTI_ENABLE_INSTRUMENTATION
 // Global graph for the application
 extern xpti::trace_event_data_t *GSYCLGraphEvent;
+
+bool CurrentCodeLocationValid() {
+  detail::tls_code_loc_t Tls;
+  auto CodeLoc = Tls.query();
+  auto FileName = CodeLoc.fileName();
+  auto FunctionName = CodeLoc.functionName();
+  return (FileName && FileName[0] != '\0') ||
+         (FunctionName && FunctionName[0] != '\0');
+}
 #endif
 
 #ifdef __SYCL_ENABLE_GNU_DEMANGLING
@@ -185,6 +178,8 @@ static std::string commandToNodeType(Command::CommandType Type) {
     return "host_acc_create_buffer_lock_node";
   case Command::CommandType::EMPTY_TASK:
     return "host_acc_destroy_buffer_release_node";
+  case Command::CommandType::FUSION:
+    return "kernel_fusion_placeholder_node";
   default:
     return "unknown_node";
   }
@@ -213,6 +208,8 @@ static std::string commandToName(Command::CommandType Type) {
     return "Host Accessor Creation/Buffer Lock";
   case Command::CommandType::EMPTY_TASK:
     return "Host Accessor Destruction/Buffer Lock Release";
+  case Command::CommandType::FUSION:
+    return "Kernel Fusion Placeholder";
   default:
     return "Unknown Action";
   }
@@ -225,6 +222,7 @@ Command::getPiEvents(const std::vector<EventImplPtr> &EventImpls) const {
   for (auto &EventImpl : EventImpls) {
     if (EventImpl->getHandleRef() == nullptr)
       continue;
+
     // Do not add redundant event dependencies for in-order queues.
     // At this stage dependency is definitely pi task and need to check if
     // current one is a host task. In this case we should not skip pi event due
@@ -235,8 +233,10 @@ Command::getPiEvents(const std::vector<EventImplPtr> &EventImpls) const {
     if (EventImpl->getWorkerQueue() == WorkerQueue &&
         WorkerQueue->isInOrder() && !isHostTask())
       continue;
+
     RetPiEvents.push_back(EventImpl->getHandleRef());
   }
+
   return RetPiEvents;
 }
 
@@ -348,15 +348,27 @@ public:
 
     CGHostTask &HostTask = static_cast<CGHostTask &>(MThisCmd->getCG());
 
+#ifdef XPTI_ENABLE_INSTRUMENTATION
+    // Host task is executed async and in a separate thread that do not allow to
+    // use code location data stored in TLS. So we keep submission code location
+    // as Command field and put it here to TLS so that thrown exception could
+    // query and report it.
+    std::unique_ptr<detail::tls_code_loc_t> AsyncCodeLocationPtr;
+    if (xptiTraceEnabled() && !CurrentCodeLocationValid()) {
+      AsyncCodeLocationPtr.reset(
+          new detail::tls_code_loc_t(MThisCmd->MSubmissionCodeLocation));
+    }
+#endif
+
     pi_result WaitResult = waitForEvents();
     if (WaitResult != PI_SUCCESS) {
       std::exception_ptr EPtr = std::make_exception_ptr(sycl::runtime_error(
           std::string("Couldn't wait for host-task's dependencies"),
           WaitResult));
       HostTask.MQueue->reportAsyncException(EPtr);
-
       // reset host-task's lambda and quit
       HostTask.MHostTask.reset();
+      Scheduler::getInstance().NotifyHostTaskCompletion(MThisCmd);
       return;
     }
 
@@ -371,12 +383,43 @@ public:
       } else
         HostTask.MHostTask->call();
     } catch (...) {
-      HostTask.MQueue->reportAsyncException(std::current_exception());
+      auto CurrentException = std::current_exception();
+#ifdef XPTI_ENABLE_INSTRUMENTATION
+      // sycl::exception emit tracing of message with code location if
+      // available. For other types of exception we need to explicitly trigger
+      // tracing by calling TraceEventXPTI.
+      if (xptiTraceEnabled()) {
+        try {
+          rethrow_exception(CurrentException);
+        } catch (const sycl::exception &) {
+          // it is already traced, nothing to care about
+        } catch (const std::exception &StdException) {
+          GlobalHandler::instance().TraceEventXPTI(StdException.what());
+        } catch (...) {
+          GlobalHandler::instance().TraceEventXPTI(
+              "Host task lambda thrown non standard exception");
+        }
+      }
+#endif
+      HostTask.MQueue->reportAsyncException(CurrentException);
     }
 
     HostTask.MHostTask.reset();
 
-    Scheduler::getInstance().NotifyHostTaskCompletion(MThisCmd);
+#ifdef XPTI_ENABLE_INSTRUMENTATION
+    // Host Task is done, clear its submittion location to not interfere with
+    // following dependent kernels submission.
+    AsyncCodeLocationPtr.reset();
+#endif
+
+    try {
+      // If we enqueue blocked users - pi level could throw exception that
+      // should be treated as async now.
+      Scheduler::getInstance().NotifyHostTaskCompletion(MThisCmd);
+    } catch (...) {
+      auto CurrentException = std::current_exception();
+      HostTask.MQueue->reportAsyncException(CurrentException);
+    }
   }
 };
 
@@ -674,6 +717,11 @@ bool Command::producesPiEvent() const { return true; }
 
 bool Command::supportsPostEnqueueCleanup() const { return true; }
 
+bool Command::readyForCleanup() const {
+  return MLeafCounter == 0 &&
+         MEnqueueStatus == EnqueueResultT::SyclEnqueueSuccess;
+}
+
 Command *Command::addDep(DepDesc NewDep, std::vector<Command *> &ToCleanUp) {
   Command *ConnectionCmd = nullptr;
 
@@ -739,6 +787,16 @@ void Command::emitInstrumentation(uint16_t Type, const char *Txt) {
 
 bool Command::enqueue(EnqueueResultT &EnqueueResult, BlockingT Blocking,
                       std::vector<Command *> &ToCleanUp) {
+#ifdef XPTI_ENABLE_INSTRUMENTATION
+  // If command is enqueued from host task thread - it will not have valid
+  // submission code location set. So we set it manually to properly trace
+  // failures if pi level report any.
+  std::unique_ptr<detail::tls_code_loc_t> AsyncCodeLocationPtr;
+  if (xptiTraceEnabled() && !CurrentCodeLocationValid()) {
+    AsyncCodeLocationPtr.reset(
+        new detail::tls_code_loc_t(MSubmissionCodeLocation));
+  }
+#endif
   // Exit if already enqueued
   if (MEnqueueStatus == EnqueueResultT::SyclEnqueueSuccess)
     return true;
@@ -802,9 +860,10 @@ bool Command::enqueue(EnqueueResultT &EnqueueResult, BlockingT Blocking,
     // PI_SUCCESS
     MEnqueueStatus = EnqueueResultT::SyclEnqueueSuccess;
     if (MLeafCounter == 0 && supportsPostEnqueueCleanup() &&
+        !SYCLConfig<SYCL_DISABLE_EXECUTION_GRAPH_CLEANUP>::get() &&
         !SYCLConfig<SYCL_DISABLE_POST_ENQUEUE_CLEANUP>::get()) {
-      assert(!MPostEnqueueCleanup);
-      MPostEnqueueCleanup = true;
+      assert(!MMarkedForCleanup);
+      MMarkedForCleanup = true;
       ToCleanUp.push_back(this);
     }
   }
@@ -870,6 +929,24 @@ const char *Command::getBlockReason() const {
   return "Unknown block reason";
 }
 
+void Command::copySubmissionCodeLocation() {
+#ifdef XPTI_ENABLE_INSTRUMENTATION
+  if (!xptiTraceEnabled())
+    return;
+
+  detail::tls_code_loc_t Tls;
+  auto TData = Tls.query();
+  if (TData.fileName())
+    MSubmissionFileName = TData.fileName();
+  if (TData.functionName())
+    MSubmissionFunctionName = TData.functionName();
+  if (MSubmissionFileName.size() || MSubmissionFunctionName.size())
+    MSubmissionCodeLocation = {
+        MSubmissionFileName.c_str(), MSubmissionFunctionName.c_str(),
+        (int)TData.lineNumber(), (int)TData.columnNumber()};
+#endif
+}
+
 AllocaCommandBase::AllocaCommandBase(CommandType Type, QueueImplPtr Queue,
                                      Requirement Req,
                                      AllocaCommandBase *LinkedAllocaCmd,
@@ -905,6 +982,8 @@ void AllocaCommandBase::emitInstrumentationData() {
 bool AllocaCommandBase::producesPiEvent() const { return false; }
 
 bool AllocaCommandBase::supportsPostEnqueueCleanup() const { return false; }
+
+bool AllocaCommandBase::readyForCleanup() const { return false; }
 
 AllocaCommand::AllocaCommand(QueueImplPtr Queue, Requirement Req,
                              bool InitFromUserData,
@@ -1181,6 +1260,8 @@ bool ReleaseCommand::producesPiEvent() const { return false; }
 
 bool ReleaseCommand::supportsPostEnqueueCleanup() const { return false; }
 
+bool ReleaseCommand::readyForCleanup() const { return false; }
+
 MapMemObject::MapMemObject(AllocaCommandBase *SrcAllocaCmd, Requirement Req,
                            void **DstPtr, QueueImplPtr Queue,
                            access::mode MapMode)
@@ -1447,22 +1528,11 @@ AllocaCommandBase *ExecCGCommand::getAllocaForReq(Requirement *Req) {
                       PI_ERROR_INVALID_OPERATION);
 }
 
-std::vector<StreamImplPtr> ExecCGCommand::getStreams() const {
-  if (MCommandGroup->getType() == CG::Kernel)
-    return ((CGExecKernel *)MCommandGroup.get())->getStreams();
-  return {};
-}
-
 std::vector<std::shared_ptr<const void>>
 ExecCGCommand::getAuxiliaryResources() const {
   if (MCommandGroup->getType() == CG::Kernel)
     return ((CGExecKernel *)MCommandGroup.get())->getAuxiliaryResources();
   return {};
-}
-
-void ExecCGCommand::clearStreams() {
-  if (MCommandGroup->getType() == CG::Kernel)
-    ((CGExecKernel *)MCommandGroup.get())->clearStreams();
 }
 
 void ExecCGCommand::clearAuxiliaryResources() {
@@ -1755,6 +1825,12 @@ static std::string cgTypeToString(detail::CG::CGTYPE Type) {
   case detail::CG::Memset2DUSM:
     return "memset 2d usm";
     break;
+  case detail::CG::CopyToDeviceGlobal:
+    return "copy to device_global";
+    break;
+  case detail::CG::CopyFromDeviceGlobal:
+    return "copy from device_global";
+    break;
   default:
     return "unknown";
     break;
@@ -1768,12 +1844,7 @@ ExecCGCommand::ExecCGCommand(std::unique_ptr<detail::CG> CommandGroup,
   if (MCommandGroup->getType() == detail::CG::CodeplayHostTask) {
     MEvent->setSubmittedQueue(
         static_cast<detail::CGHostTask *>(MCommandGroup.get())->MQueue);
-    MEvent->setNeedsCleanupAfterWait(true);
-  } else if (MCommandGroup->getType() == CG::CGTYPE::Kernel &&
-             (static_cast<CGExecKernel *>(MCommandGroup.get())->hasStreams() ||
-              static_cast<CGExecKernel *>(MCommandGroup.get())
-                  ->hasAuxiliaryResources()))
-    MEvent->setNeedsCleanupAfterWait(true);
+  }
 
   emitInstrumentationDataProxy();
 }
@@ -2035,10 +2106,8 @@ static pi_result SetKernelParamsAndLaunch(
       Requirement *Req = (Requirement *)(Arg.MPtr);
       if (Req->MAccessRange == range<3>({0, 0, 0}))
         break;
-      if (getMemAllocationFunc == nullptr)
-        throw sycl::exception(make_error_code(errc::kernel_argument),
-                              "placeholder accessor must be bound by calling "
-                              "handler::require() before it can be used.");
+      assert(getMemAllocationFunc != nullptr &&
+             "We should have caught this earlier.");
 
       RT::PiMem MemArg = (RT::PiMem)getMemAllocationFunc(Req);
       if (Plugin.getBackend() == backend::opencl) {
@@ -2157,7 +2226,8 @@ pi_int32 enqueueImpKernel(
     const std::shared_ptr<detail::kernel_impl> &MSyclKernel,
     const std::string &KernelName, const detail::OSModuleHandle &OSModuleHandle,
     std::vector<RT::PiEvent> &RawEvents, RT::PiEvent *OutEvent,
-    const std::function<void *(Requirement *Req)> &getMemAllocationFunc) {
+    const std::function<void *(Requirement *Req)> &getMemAllocationFunc,
+    RT::PiKernelCacheConfig KernelCacheConfig) {
 
   // Run OpenCL kernel
   auto ContextImpl = Queue->getContextImplPtr();
@@ -2219,6 +2289,24 @@ pi_int32 enqueueImpKernel(
             OSModuleHandle, ContextImpl, DeviceImpl, KernelName, nullptr);
   }
 
+  // We may need more events for the launch, so we make another reference.
+  std::vector<RT::PiEvent> &EventsWaitList = RawEvents;
+
+  // Initialize device globals associated with this.
+  std::vector<RT::PiEvent> DeviceGlobalInitEvents =
+      ContextImpl->initializeDeviceGlobals(Program, Queue);
+  std::vector<RT::PiEvent> EventsWithDeviceGlobalInits;
+  if (!DeviceGlobalInitEvents.empty()) {
+    EventsWithDeviceGlobalInits.reserve(RawEvents.size() +
+                                        DeviceGlobalInitEvents.size());
+    EventsWithDeviceGlobalInits.insert(EventsWithDeviceGlobalInits.end(),
+                                       RawEvents.begin(), RawEvents.end());
+    EventsWithDeviceGlobalInits.insert(EventsWithDeviceGlobalInits.end(),
+                                       DeviceGlobalInitEvents.begin(),
+                                       DeviceGlobalInitEvents.end());
+    EventsWaitList = EventsWithDeviceGlobalInits;
+  }
+
   pi_result Error = PI_SUCCESS;
   ProgramManager::KernelArgMask EliminatedArgMask;
   if (nullptr == MSyclKernel || !MSyclKernel->isCreatedFromSource()) {
@@ -2229,8 +2317,19 @@ pi_int32 enqueueImpKernel(
   {
     assert(KernelMutex);
     std::lock_guard<std::mutex> Lock(*KernelMutex);
+
+    // Set SLM/Cache configuration for the kernel if non-default value is
+    // provided.
+    if (KernelCacheConfig == PI_EXT_KERNEL_EXEC_INFO_CACHE_LARGE_SLM ||
+        KernelCacheConfig == PI_EXT_KERNEL_EXEC_INFO_CACHE_LARGE_DATA) {
+      const detail::plugin &Plugin = Queue->getPlugin();
+      Plugin.call<PiApiKind::piKernelSetExecInfo>(
+          Kernel, PI_EXT_KERNEL_EXEC_INFO_CACHE_CONFIG,
+          sizeof(RT::PiKernelCacheConfig), &KernelCacheConfig);
+    }
+
     Error = SetKernelParamsAndLaunch(Queue, Args, DeviceImageImpl, Kernel,
-                                     NDRDesc, RawEvents, OutEvent,
+                                     NDRDesc, EventsWaitList, OutEvent,
                                      EliminatedArgMask, getMemAllocationFunc);
   }
   if (PI_SUCCESS != Error) {
@@ -2242,6 +2341,39 @@ pi_int32 enqueueImpKernel(
   }
 
   return PI_SUCCESS;
+}
+
+pi_int32 enqueueReadWriteHostPipe(const QueueImplPtr &Queue,
+                                  const std::string &PipeName, bool blocking,
+                                  void *ptr, size_t size,
+                                  std::vector<RT::PiEvent> &RawEvents,
+                                  RT::PiEvent *OutEvent, bool read) {
+  detail::HostPipeMapEntry *hostPipeEntry =
+      ProgramManager::getInstance().getHostPipeEntry(PipeName);
+
+  RT::PiProgram Program = ProgramManager::getInstance().createPIProgram(
+      *(hostPipeEntry->mDeviceImage), Queue->get_context(),
+      Queue->get_device());
+
+  // Get plugin for calling opencl functions
+  const detail::plugin &Plugin = Queue->getPlugin();
+
+  pi_queue pi_q = Queue->getHandleRef();
+  pi_result Error;
+  if (read) {
+    Error =
+        Plugin.call_nocheck<sycl::detail::PiApiKind::piextEnqueueReadHostPipe>(
+            pi_q, Program, PipeName.c_str(), blocking, ptr, size,
+            RawEvents.size(), RawEvents.empty() ? nullptr : &RawEvents[0],
+            OutEvent);
+  } else {
+    Error =
+        Plugin.call_nocheck<sycl::detail::PiApiKind::piextEnqueueWriteHostPipe>(
+            pi_q, Program, PipeName.c_str(), blocking, ptr, size,
+            RawEvents.size(), RawEvents.empty() ? nullptr : &RawEvents[0],
+            OutEvent);
+  }
+  return Error;
 }
 
 pi_int32 ExecCGCommand::enqueueImp() {
@@ -2465,7 +2597,8 @@ pi_int32 ExecCGCommand::enqueueImp() {
 
     return enqueueImpKernel(
         MQueue, NDRDesc, Args, ExecKernel->getKernelBundle(), SyclKernel,
-        KernelName, OSModuleHandle, RawEvents, Event, getMemAllocationFunc);
+        KernelName, OSModuleHandle, RawEvents, Event, getMemAllocationFunc,
+        ExecKernel->MKernelCacheConfig);
   }
   case CG::CGTYPE::CopyUSM: {
     CGCopyUSM *Copy = (CGCopyUSM *)MCommandGroup.get();
@@ -2596,6 +2729,10 @@ pi_int32 ExecCGCommand::enqueueImp() {
       std::sort(std::begin(ReqToMem), std::end(ReqToMem));
     }
 
+    // Host task is executed asynchronously so we should record where it was
+    // submitted to report exception origin properly.
+    copySubmissionCodeLocation();
+
     MQueue->getThreadPool().submit<DispatchHostTask>(
         DispatchHostTask(this, std::move(ReqToMem)));
 
@@ -2629,6 +2766,40 @@ pi_int32 ExecCGCommand::enqueueImp() {
 
     return PI_SUCCESS;
   }
+  case CG::CGTYPE::CopyToDeviceGlobal: {
+    CGCopyToDeviceGlobal *Copy = (CGCopyToDeviceGlobal *)MCommandGroup.get();
+    MemoryManager::copy_to_device_global(
+        Copy->getDeviceGlobalPtr(), Copy->isDeviceImageScoped(), MQueue,
+        Copy->getNumBytes(), Copy->getOffset(), Copy->getSrc(),
+        Copy->getOSModuleHandle(), std::move(RawEvents), Event);
+
+    return CL_SUCCESS;
+  }
+  case CG::CGTYPE::CopyFromDeviceGlobal: {
+    CGCopyFromDeviceGlobal *Copy =
+        (CGCopyFromDeviceGlobal *)MCommandGroup.get();
+    MemoryManager::copy_from_device_global(
+        Copy->getDeviceGlobalPtr(), Copy->isDeviceImageScoped(), MQueue,
+        Copy->getNumBytes(), Copy->getOffset(), Copy->getDest(),
+        Copy->getOSModuleHandle(), std::move(RawEvents), Event);
+
+    return CL_SUCCESS;
+  }
+  case CG::CGTYPE::ReadWriteHostPipe: {
+    CGReadWriteHostPipe *ExecReadWriteHostPipe =
+        (CGReadWriteHostPipe *)MCommandGroup.get();
+    std::string pipeName = ExecReadWriteHostPipe->getPipeName();
+    void *hostPtr = ExecReadWriteHostPipe->getHostPtr();
+    size_t typeSize = ExecReadWriteHostPipe->getTypeSize();
+    bool blocking = ExecReadWriteHostPipe->isBlocking();
+    bool read = ExecReadWriteHostPipe->isReadHostPipe();
+
+    if (!Event) {
+      Event = &MEvent->getHandleRef();
+    }
+    return enqueueReadWriteHostPipe(MQueue, pipeName, blocking, hostPtr,
+                                    typeSize, RawEvents, Event, read);
+  }
   case CG::CGTYPE::None:
     throw runtime_error("CG type not implemented.", PI_ERROR_INVALID_OPERATION);
   }
@@ -2640,15 +2811,135 @@ bool ExecCGCommand::producesPiEvent() const {
 }
 
 bool ExecCGCommand::supportsPostEnqueueCleanup() const {
-  // TODO enable cleaning up host task commands and kernels with streams after
-  // enqueue
+  // Host tasks are cleaned up upon completion instead.
   return Command::supportsPostEnqueueCleanup() &&
-         (MCommandGroup->getType() != CG::CGTYPE::CodeplayHostTask) &&
-         (MCommandGroup->getType() != CG::CGTYPE::Kernel ||
-          (!static_cast<CGExecKernel *>(MCommandGroup.get())->hasStreams() &&
-           !static_cast<CGExecKernel *>(MCommandGroup.get())
-                ->hasAuxiliaryResources()));
+         (MCommandGroup->getType() != CG::CGTYPE::CodeplayHostTask);
 }
+
+bool ExecCGCommand::readyForCleanup() const {
+  if (MCommandGroup->getType() == CG::CGTYPE::CodeplayHostTask)
+    return MLeafCounter == 0 && MEvent->isCompleted();
+  return Command::readyForCleanup();
+}
+
+KernelFusionCommand::KernelFusionCommand(QueueImplPtr Queue)
+    : Command(Command::CommandType::FUSION, Queue),
+      MStatus(FusionStatus::ACTIVE) {
+  emitInstrumentationDataProxy();
+}
+
+std::vector<Command *> &KernelFusionCommand::auxiliaryCommands() {
+  return MAuxiliaryCommands;
+}
+
+void KernelFusionCommand::addToFusionList(ExecCGCommand *Kernel) {
+  MFusionList.push_back(Kernel);
+}
+
+std::vector<ExecCGCommand *> &KernelFusionCommand::getFusionList() {
+  return MFusionList;
+}
+
+bool KernelFusionCommand::producesPiEvent() const { return false; }
+
+pi_int32 KernelFusionCommand::enqueueImp() {
+  waitForPreparedHostEvents();
+  waitForEvents(MQueue, MPreparedDepsEvents, MEvent->getHandleRef());
+
+  return PI_SUCCESS;
+}
+
+void KernelFusionCommand::setFusionStatus(FusionStatus Status) {
+  MStatus = Status;
+}
+
+void KernelFusionCommand::emitInstrumentationData() {
+#ifdef XPTI_ENABLE_INSTRUMENTATION
+  if (!xptiTraceEnabled()) {
+    return;
+  }
+  // Create a payload with the command name and an event using this payload to
+  // emit a node_create
+  MCommandNodeType = commandToNodeType(MType);
+  MCommandName = commandToName(MType);
+
+  static unsigned FusionNodeCount = 0;
+  std::stringstream PayloadStr;
+  PayloadStr << "Fusion command #" << FusionNodeCount++;
+  xpti::payload_t Payload = xpti::payload_t(PayloadStr.str().c_str());
+
+  uint64_t CommandInstanceNo = 0;
+  xpti_td *CmdTraceEvent =
+      xptiMakeEvent(MCommandName.c_str(), &Payload, xpti::trace_graph_event,
+                    xpti_at::active, &CommandInstanceNo);
+
+  MInstanceID = CommandInstanceNo;
+  if (CmdTraceEvent) {
+    MTraceEvent = static_cast<void *>(CmdTraceEvent);
+    // If we are seeing this event again, then the instance ID
+    // will be greater
+    // than 1; in this case, we must skip sending a
+    // notification to create a node as this node has already
+    // been created. We return this value so the epilog method
+    // can be called selectively.
+    // See makeTraceEventProlog.
+    MFirstInstance = (CommandInstanceNo == 1);
+  }
+
+  // This function is called in the constructor of the command. At this point
+  // the kernel fusion list is still empty, so we don't have a terrible lot of
+  // information we could attach to this node here.
+  if (MFirstInstance && CmdTraceEvent) {
+    xpti::addMetadata(CmdTraceEvent, "sycl_device",
+                      deviceToID(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_type",
+                      deviceToString(MQueue->get_device()));
+    xpti::addMetadata(CmdTraceEvent, "sycl_device_name",
+                      getSyclObjImpl(MQueue->get_device())->getDeviceName());
+  }
+
+  if (MFirstInstance) {
+    xptiNotifySubscribers(MStreamID, xpti::trace_node_create,
+                          detail::GSYCLGraphEvent,
+                          static_cast<xpti_td *>(MTraceEvent), MInstanceID,
+                          static_cast<const void *>(MCommandNodeType.c_str()));
+  }
+
+#endif
+}
+
+void KernelFusionCommand::printDot(std::ostream &Stream) const {
+  Stream << "\"" << this << "\" [style=filled, fillcolor=\"#AFFF82\", label=\"";
+
+  Stream << "ID = " << this << "\\n";
+  Stream << "KERNEL FUSION on " << deviceToString(MQueue->get_device()) << "\\n"
+         << "FUSION LIST: {";
+  bool Initial = true;
+  for (auto *Cmd : MFusionList) {
+    if (!Initial) {
+      Stream << ",\\n";
+    }
+    Initial = false;
+    auto *KernelCG = static_cast<detail::CGExecKernel *>(&Cmd->getCG());
+    if (KernelCG->MSyclKernel && KernelCG->MSyclKernel->isCreatedFromSource()) {
+      Stream << "created from source";
+    } else {
+      Stream << demangleKernelName(KernelCG->getKernelName());
+    }
+  }
+  Stream << "}\\n";
+
+  Stream << "\"];" << std::endl;
+
+  for (const auto &Dep : MDeps) {
+    Stream << "  \"" << this << "\" -> \"" << Dep.MDepCommand << "\""
+           << " [ label = \"Access mode: "
+           << accessModeToString(Dep.MDepRequirement->MAccessMode) << "\\n"
+           << "MemObj: " << Dep.MDepRequirement->MSYCLMemObj << " \" ]"
+           << std::endl;
+  }
+}
+
 } // namespace detail
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl

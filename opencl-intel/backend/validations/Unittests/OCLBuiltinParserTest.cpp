@@ -203,12 +203,10 @@ TEST(OCLBuiltinParser, BuiltinDetectionNegative) {
   EXPECT_THROW(OCLBuiltinParser::ParseOCLBuiltin("_Z3sxsA32_G", BIStr, args),
                Exception::InvalidArgument);
   // substitution cannot be first argument
-  // manually disabled until CSSD100014736 will be fixed
   // EXPECT_THROW(OCLBuiltinParser::ParseOCLBuiltin("_Z3sxsS_", BIStr, args),
   // Exception::InvalidArgument);
 }
 
-// Regression test on CSSD100005916
 // OCLBuiltinParser fails parsing builtin
 TEST(OCLBuiltinParser, BuiltinDetectionBug13Mar11) {
 
@@ -230,7 +228,6 @@ TEST(OCLBuiltinParser, BuiltinDetectionBug13Mar11) {
   EXPECT_EQ(2U, args[1].ptrType.ptrType[0].vecType.elNum);
 }
 
-// Regression test on CSSD100014643
 // OCLBuiltinParser fails parsing builtin
 TEST(OCLBuiltinParser, BuiltinDetectionBug03Oct12) {
 

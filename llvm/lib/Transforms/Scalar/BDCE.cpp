@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -138,7 +138,7 @@ static bool bitTrackingDCE(Function &F, DemandedBits &DB) {
       const uint32_t SrcBitSize = SE->getSrcTy()->getScalarSizeInBits();
       auto *const DstTy = SE->getDestTy();
       const uint32_t DestBitSize = DstTy->getScalarSizeInBits();
-      if (Demanded.countLeadingZeros() >= (DestBitSize - SrcBitSize)) {
+      if (Demanded.countl_zero() >= (DestBitSize - SrcBitSize)) {
         clearAssumptionsOfUsers(SE, DB);
         IRBuilder<> Builder(SE);
         I.replaceAllUsesWith(
@@ -165,9 +165,8 @@ static bool bitTrackingDCE(Function &F, DemandedBits &DB) {
 
       clearAssumptionsOfUsers(&I, DB);
 
-      // FIXME: In theory we could substitute undef here instead of zero.
-      // This should be reconsidered once we settle on the semantics of
-      // undef, poison, etc.
+      // Substitute all uses with zero. In theory we could use `freeze poison`
+      // instead, but that seems unlikely to be profitable.
       U.set(ConstantInt::get(U->getType(), 0));
       ++NumSimplified;
       Changed = true;
@@ -215,7 +214,6 @@ struct BDCELegacyPass : public FunctionPass {
     AU.setPreservesCFG();
     AU.addRequired<DemandedBitsWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
   }
 };
 }

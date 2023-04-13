@@ -74,7 +74,7 @@ bool clBuildSpirvFriendlyIRProgramWithBinaryTest() {
   FILE *pIRfile = NULL;
 
   // compiled from a simple sycl program with
-  // dpcpp -fsycl-targets=x86_64
+  // sycl -fsycl-targets=x86_64
   std::string filename = get_exe_dir() + "spirv-friendly-llvm-ir.bc";
   FOPEN(pIRfile, filename.c_str(), "rb");
 

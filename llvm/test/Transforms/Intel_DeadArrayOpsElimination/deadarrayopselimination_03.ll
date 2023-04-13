@@ -7,54 +7,51 @@
 ; has more than 2 calls.
 ; Note that the functions don't have any valid IR or meaning.
 
-; RUN: opt < %s  -passes='module(deadarrayopselimination)' -dead-array-ops-functions="s_qsort,60" -debug-only=deadarrayopselimination -whole-program-assume -disable-output 2>&1 | FileCheck %s
-
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+; RUN: opt < %s   -passes='module(deadarrayopselimination)' -dead-array-ops-functions="s_qsort,60" -debug-only=deadarrayopselimination -whole-program-assume -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: DeadArrayOpsElimi: Considering qsort function: s_qsort
 ; CHECK: failed: sanity checks
 ; CHECK: DeadArrayOpsElimi Failed: No candidates found
 
-%struct.b = type { i32, i32 }
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
 
-define internal void @s_qsort(i8* %arg, i64 %arg1) {
+define internal void @s_qsort(ptr %arg, i64 %arg1) {
 entry:
   %t1 = add i64 %arg1, 1
-  %t5 = getelementptr inbounds i8, i8* %arg, i64 1
+  %t5 = getelementptr inbounds i8, ptr %arg, i64 1
   br label %bb0
 
-bb0:
-  %t6 = getelementptr inbounds i8, i8* %t5, i64 4
+bb0:                                              ; preds = %bb2, %entry
+  %t6 = getelementptr inbounds i8, ptr %t5, i64 4
   %t2 = icmp ugt i64 %t1, 8
   br i1 %t2, label %bb1, label %bb2
 
-bb1:
+bb1:                                              ; preds = %bb0
   %t3 = lshr i64 %t1, 3
-  tail call fastcc void @s_qsort(i8* %t6, i64 %t3)
+  tail call fastcc void @s_qsort(ptr %t6, i64 %t3)
   br label %bb2
 
-bb2:
+bb2:                                              ; preds = %bb1, %bb0
   %t4 = icmp ugt i64 %t1, 4
   br i1 %t4, label %bb0, label %bb3
 
-bb3:
+bb3:                                              ; preds = %bb2
   ret void
 }
 
 define dso_local void @foo() {
 entry:
-  %perm = alloca [491 x %struct.b*], align 16
+  %perm = alloca [491 x ptr], align 16
   br label %BB1
 
-BB1:
-  %0 = bitcast [491 x %struct.b*]* %perm to i8*
-  %add.ptr = getelementptr inbounds i8, i8* %0, i64 1
-  call void @s_qsort(i8* nonnull %add.ptr, i64 490)
-  call void @s_qsort(i8* nonnull %add.ptr, i64 490)
+BB1:                                              ; preds = %entry
+  %add.ptr = getelementptr inbounds i8, ptr %perm, i64 1
+  call void @s_qsort(ptr nonnull %add.ptr, i64 490)
+  call void @s_qsort(ptr nonnull %add.ptr, i64 490)
   br label %BB2
 
-BB2:
+BB2:                                              ; preds = %BB1
   ret void
 }
 
@@ -63,5 +60,4 @@ entry:
   call void @foo()
   ret i32 0
 }
-
 ; end INTEL_FEATURE_SW_ADVANCED

@@ -33,8 +33,6 @@ namespace Utils {
  *
  * Inherit:
  * Description:  represents a sampling point object
- * Author:    Uri Levy
- * Date:      July 2009
  ******************************************************************************/
 class Sample {
 public:
@@ -71,8 +69,6 @@ protected:
  *
  * Inherit:
  * Description:  represents a sampling PerformanceMeter object
- * Author:    Uri Levy
- * Date:      July 2009
  ******************************************************************************/
 class PerformanceMeter {
 public:

@@ -8,7 +8,7 @@
 ; REQUIRES:asserts
 
 ; CHECK: SOA profitability:
-; CHECK: SOAUnsafe = arr.priv1
+; CHECK: SOAUnsafe = [[VP_ARR_PRIV1:%.*]] (arr.priv1)
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -30,7 +30,7 @@ header:
   store %struct.ClassA %nonpod, ptr %gep
   %iv.next = add nsw nuw i64 %iv, 1
   %exitcond = icmp ult i64 %iv.next, 1024
-  br i1 %exitcond, label %exit, label %header
+  br i1 %exitcond, label %header, label %exit
 
 exit:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]

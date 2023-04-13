@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -passes='function(vpo-paropt-loop-transform,vpo-paropt-loop-collapse)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
-; RUN: opt -enable-new-pm=0 -vpo-paropt-loop-transform -vpo-paropt-loop-collapse -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-loop-transform,vpo-paropt-loop-collapse)' -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-loop-transform -vpo-paropt-loop-collapse -disable-vpo-paropt-tile=false -S < %s | FileCheck %s
 
 ; Verify that collapse pass works correctly after tile pass.
 
@@ -62,7 +62,9 @@
 ;   %omp.collapsed.ub.value = sub nuw nsw i64 %6, 1
 ;   store i64 0, i64* %omp.collapsed.lb, align 8
 ;   store i64 %omp.collapsed.ub.value, i64* %omp.collapsed.ub, align 8
-;CHECK:   [[V:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.COLLAPSE"(i32 2), "QUAL.OMP.PRIVATE"(i32* %"test_$I"), "QUAL.OMP.FIRSTPRIVATE"(i32* %omp.pdo.norm.lb2), "QUAL.OMP.LIVEIN"(i32* %"test_$J"), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32* %floor_lb, i32 0, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(i64* %omp.collapsed.iv, i64 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i64* %omp.collapsed.ub, i64 0), "QUAL.OMP.PRIVATE:TYPED"(i32* %omp.pdo.norm.iv1, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32* %floor_iv, i32 0, i32 1), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i64* %omp.collapsed.lb, i64 0, i32 1), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32* %omp.pdo.norm.ub3, i32 0, i32 1), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32* %floor_ub, i32 0, i32 1) ]
+
+; CHECK:  [[V:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.COLLAPSE"(i32 2), "QUAL.OMP.PRIVATE"(i32* %"test_$I"), "QUAL.OMP.FIRSTPRIVATE"(i32* %omp.pdo.norm.lb), "QUAL.OMP.FIRSTPRIVATE"(i32* %omp.pdo.norm.lb2), "QUAL.OMP.LIVEIN"(i32* %"test_$J"), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32* %floor_lb, i32 0, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(i64* %omp.collapsed.iv, i64 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i64* %omp.collapsed.ub, i64 0), "QUAL.OMP.PRIVATE:TYPED"(i32* %omp.pdo.norm.iv1, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32* %floor_iv, i32 0, i32 1), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i64* %omp.collapsed.lb, i64 0, i32 1), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32* %omp.pdo.norm.ub3, i32 0, i32 1), "QUAL.OMP.FIRSTPRIVATE:TYPED"(i32* %floor_ub, i32 0, i32 1) ]
+
 ; CHECK:  br label %bb_new6.split
 ;
 ; bb_new6.split:                                    ; preds = %bb_new6
@@ -226,9 +228,10 @@ bb_new6:  ; preds = %alloca_0
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
      "QUAL.OMP.COLLAPSE"(i32 2),
      "QUAL.OMP.PRIVATE"(i32* %"test_$I"),
+     "QUAL.OMP.FIRSTPRIVATE"(i32* %omp.pdo.norm.lb),
      "QUAL.OMP.FIRSTPRIVATE"(i32* %omp.pdo.norm.lb2),
-     "QUAL.OMP.NORMALIZED.IV"(i32* %omp.pdo.norm.iv1),
-     "QUAL.OMP.NORMALIZED.UB"(i32* %omp.pdo.norm.ub3),
+     "QUAL.OMP.NORMALIZED.IV"(i32* %omp.pdo.norm.iv1, i32* %omp.pdo.norm.iv),
+     "QUAL.OMP.NORMALIZED.UB"(i32* %omp.pdo.norm.ub3, i32* %omp.pdo.norm.ub),
      "QUAL.OMP.LIVEIN"(i32* %"test_$J") ]
   br label %DIR.OMP.LOOP.3
 

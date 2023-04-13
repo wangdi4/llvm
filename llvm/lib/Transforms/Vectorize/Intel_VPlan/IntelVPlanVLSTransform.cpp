@@ -107,7 +107,7 @@ private:
   const char *FailureReason = nullptr;
 
   // Rest of the state is inaccessible if the group itself isn't transformable.
-  Optional<int64_t> GroupStride; // In bytes.
+  std::optional<int64_t> GroupStride; // In bytes.
   /// Group-wide memop should be performed at that position.
   const VPVLSClientMemref *InsertPointMemref;
   /// VPInstruction associated with the insert point above.
@@ -121,6 +121,9 @@ private:
   /// detailed documentation.
   Type *GroupGranularityType;
   unsigned GroupSizeInGranularityElements;
+  int GroupStrideInGranularityElements;
+  unsigned AbsGroupStrideInGranularityElements;
+
   // Includes the spacing at the end for non-power-of two sizes.
   FixedVectorType *GroupTy;
 };
@@ -128,18 +131,22 @@ private:
 
 VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
     : Group(Group), Plan(Plan), DL(*Plan.getDataLayout()),
-      DA(*Plan.getVPlanDA()), VF(VF) {
+      DA(*Plan.getVPlanDA()), VF(VF), InsertPointMemref(nullptr),
+      InsertPointInst(nullptr), FirstMemrefInst(nullptr),
+      GroupGranularityType(nullptr), GroupSizeInGranularityElements(0),
+      GroupStrideInGranularityElements(0), GroupTy(nullptr) {
   if (Group->size() <= 1) {
     FailureReason = "Group doesn't contain enough elments (at least 2).";
     return;
   }
 
   GroupStride = Group->getConstStride();
-  if (!GroupStride) {
+  if (!GroupStride || *GroupStride == 0) {
     FailureReason = "Failing to transform OVLSGroup: Indexed loads/stores are "
                     "not supported.";
     return;
   }
+
   for (OVLSMemref *Memref: *Group) {
     auto ElementSizeInBits = Memref->getType().getElementSize();
     if (*GroupStride % (ElementSizeInBits / 8)) {
@@ -147,7 +154,9 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
       return;
     }
   }
-  if (std::abs(*GroupStride) > 64) {
+
+  unsigned long AbsStride = std::abs(*GroupStride);
+  if (AbsStride > 64) {
     // TODO: Don't skip in LLVM IR case?
     FailureReason = "HIR only supports up to 64 bits in mask, skipping.";
     return;
@@ -165,14 +174,6 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
 
   FirstMemrefInst =
       const_cast<VPLoadStoreInst *>(instruction(Group->getFirstMemref()));
-
-  APInt AccessMask = Group->computeByteAccessMask();
-  if (!AccessMask.isAllOnesValue() ||
-      AccessMask.getBitWidth() != std::abs(*GroupStride)) {
-    FailureReason =
-        "Failing to transform OVLSGroup: groups with gaps are not supported.";
-    return;
-  }
 
   if (!std::equal(
           Group->begin() + 1, Group->end(), Group->begin(),
@@ -202,9 +203,42 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlanVector &Plan, unsigned VF)
   // Initialize whole group specific properties.
   std::tie(GroupGranularityType, GroupSizeInGranularityElements) =
       getGroupGranularity();
-  GroupTy = cast<FixedVectorType>(getWidenedType(
-      GroupGranularityType,
-      VF * llvm::NextPowerOf2(GroupSizeInGranularityElements - 1)));
+
+  GroupStrideInGranularityElements =
+      (*GroupStride * 8) / DL.getTypeSizeInBits(GroupGranularityType);
+  AbsGroupStrideInGranularityElements =
+      std::abs(GroupStrideInGranularityElements);
+
+  if (GroupStrideInGranularityElements < 0 &&
+      AbsGroupStrideInGranularityElements != GroupSizeInGranularityElements) {
+    FailureReason = "Failing to transform OVLSGroup: negative stride group and "
+                    "abs(stride) != size.";
+    return;
+  }
+
+  APInt AccessMask = Group->computeByteAccessMask();
+  if (!AccessMask.isAllOnes() ||
+      AccessMask.getBitWidth() !=
+          std::max(GroupSizeInGranularityElements,
+                   AbsGroupStrideInGranularityElements) *
+              DL.getTypeSizeInBits(GroupGranularityType) / 8) {
+    FailureReason =
+        "Failing to transform OVLSGroup: groups with gaps are not supported.";
+    return;
+  }
+
+  // OVLS analysis should not form groups without gaps where size != stride
+  // when accesses are masked.
+  if (AbsGroupStrideInGranularityElements != GroupSizeInGranularityElements)
+    assert(!InsertPointMemref->isMasked() &&
+           "Unexpected masked access for stride != size");
+
+  unsigned NumElements =
+      VF * AbsGroupStrideInGranularityElements +
+      (GroupSizeInGranularityElements - AbsGroupStrideInGranularityElements) -
+      1;
+  GroupTy = cast<FixedVectorType>(
+      getWidenedType(GroupGranularityType, llvm::NextPowerOf2(NumElements)));
 }
 
 template <class VLSMemoryOpTy>
@@ -302,10 +336,11 @@ std::pair<Type *, int> VLSTransform::getGroupGranularity() {
                                       DL.getTypeSizeInBits(Result));
     }
 
-  int GroupSize = DL.getTypeSizeInBits(SomeLoadType) * Group->size() /
-                  DL.getTypeSizeInBits(Result);
+  int GroupSizeInGranularityElements = DL.getTypeSizeInBits(SomeLoadType) *
+                                       Group->size() /
+                                       DL.getTypeSizeInBits(Result);
 
-  return {Result, GroupSize};
+  return {Result, GroupSizeInGranularityElements};
 }
 
 VPValue *VLSTransform::createCast(VPBuilder &Builder, VPValue *From,
@@ -363,8 +398,6 @@ unsigned VLSTransform::getExtractInsertEltOffset(OVLSMemref *Memref) {
   auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
   auto InterleaveFactor = computeInterleaveFactor(Memref);
   (void)InterleaveFactor;
-  assert(InterleaveIndex < std::abs(InterleaveFactor) &&
-         "InterleaveIndex must be less than InterleaveFactor");
   assert(InterleaveFactor != 1 &&
          "No transformation for unit-strided accesses is expected!");
   return InterleaveIndex *
@@ -409,7 +442,8 @@ void VLSTransform::processLoadGroup(DenseSet<VPInstruction *> &InstsToRemove) {
   // address of non-gap element in case of gap presence).
   auto *WideLoad = Builder.create<VPVLSLoad>(
       "vls.load", LeaderAddress, GroupTy, GroupSizeInGranularityElements,
-      FirstMemrefInst->getAlignment(), Group->size());
+      GroupStrideInGranularityElements, FirstMemrefInst->getAlignment(),
+      Group->size());
   DA.markUniform(*WideLoad);
   setMemOpProperties(WideLoad);
 
@@ -420,7 +454,8 @@ void VLSTransform::processLoadGroup(DenseSet<VPInstruction *> &InstsToRemove) {
     auto ExtractTy = getExtractInsertEltType(OrigLoad->getType());
     auto *Extract = Builder.create<VPVLSExtract>(
         OrigLoad->getName(), ReverseAdjusted, ExtractTy,
-        GroupSizeInGranularityElements, getExtractInsertEltOffset(Memref));
+        GroupSizeInGranularityElements, GroupStrideInGranularityElements,
+        getExtractInsertEltOffset(Memref));
     auto *ExtractCast =
         cast<VPInstruction>(createCast(Builder, Extract, OrigLoad->getType()));
     ExtractCast->setDebugLocation(OrigLoad->getDebugLocation());
@@ -444,9 +479,9 @@ void VLSTransform::processStoreGroup(DenseSet<VPInstruction *> &InstsToRemove) {
     VPValue *V = Store->getOperand(0);
     Type *InsertTy = getExtractInsertEltType(V->getType());
     auto *Casted = createCast(Builder, V, InsertTy);
-    WideValue = Builder.create<VPVLSInsert>("vls.insert", WideValue, Casted,
-                                            GroupSizeInGranularityElements,
-                                            getExtractInsertEltOffset(Memref));
+    WideValue = Builder.create<VPVLSInsert>(
+        "vls.insert", WideValue, Casted, GroupSizeInGranularityElements,
+        GroupStrideInGranularityElements, getExtractInsertEltOffset(Memref));
     DA.markUniform(*WideValue);
   }
 
@@ -458,7 +493,8 @@ void VLSTransform::processStoreGroup(DenseSet<VPInstruction *> &InstsToRemove) {
   BaseAddr = adjustBasePtrForReverse(BaseAddr, Builder);
   auto *WideStore = Builder.create<VPVLSStore>(
       "vls.store", WideValue, BaseAddr, GroupSizeInGranularityElements,
-      FirstMemrefInst->getAlignment(), Group->size());
+      GroupStrideInGranularityElements, FirstMemrefInst->getAlignment(),
+      Group->size());
   setMemOpProperties(WideStore);
 }
 
@@ -537,6 +573,9 @@ VPValue *VLSTransform::adjustBasePtrForReverse(VPValue *Base,
   if (*GroupStride > 0)
     return Base;
 
+  assert(AbsGroupStrideInGranularityElements ==
+             GroupSizeInGranularityElements &&
+         "Expected matching stride and size for negative stride group");
   auto *BaseTy = cast<PointerType>(Base->getType());
   if (BaseTy->isOpaque()) {
     auto *Result = Builder.createGEP(
@@ -548,7 +587,7 @@ VPValue *VLSTransform::adjustBasePtrForReverse(VPValue *Base,
     return Result;
   }
 
-  auto *Ty = BaseTy->getPointerElementType();
+  auto *Ty = BaseTy->getNonOpaquePointerElementType();
   // We rely on no gaps and equal sizes here.
   assert(DL.getTypeSizeInBits(GroupTy->getElementType()) ==
              DL.getTypeSizeInBits(Ty) &&
@@ -575,6 +614,9 @@ VPValue *VLSTransform::adjustGroupValForReverse(VPBuilder &Builder,
   if (*GroupStride > 0)
     return GroupVal;
 
+  assert(AbsGroupStrideInGranularityElements ==
+             GroupSizeInGranularityElements &&
+         "Expected matching stride and size for negative stride group");
   auto &Ctx = *Plan.getLLVMContext();
   SmallVector<Constant *, 16> Mask;
   for (unsigned i = 0; i < VF; ++i) {

@@ -65,7 +65,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
@@ -864,11 +864,8 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
   // Now move the newly created loop blocks from the end of basic block list
   // to the proper place, which is right before loop ExitBB. This will not
   // affect CFG, but CFG printing and readability.
-  F->getBasicBlockList().splice(ExitBB->getIterator(),
-                                F->getBasicBlockList(),
-                                HeaderBB->getIterator(),
-                                F->end());
-   if (DT) {
+  F->splice(ExitBB->getIterator(), F, HeaderBB->getIterator(), F->end());
+  if (DT) {
     // "deleteEdge" may have added the ph already.
     if (!DT->getNode(PreHeaderBB))
       DT->addNewBlock(PreHeaderBB, BeforeBB);
@@ -992,15 +989,15 @@ void VPOUtils::genParSectSwitch(Value *SwitchCond, Type *SwitchCondTy,
     Builder.CreateBr(Epilog);
 
     // Delete DIR_OMP_END_SECTION directive
-    SectionExitBB->getInstList().pop_front();
+    SectionExitBB->getFirstNonPHI()->eraseFromParent();
 
     // Delete DIR_OMP_SECTION directive
-    SectionEntryBB->getInstList().pop_front();
+    SectionEntryBB->getFirstNonPHI()->eraseFromParent();
 
     auto I = SectionEntryBB->begin();
     if (VPOAnalysisUtils::isOpenMPDirective(&*I)) {
-      SectionExitBB->getInstList().pop_front();
-      SectionEntryBB->getInstList().pop_front();
+      SectionExitBB->getFirstNonPHI()->eraseFromParent();
+      SectionEntryBB->getFirstNonPHI()->eraseFromParent();
     }
   }
   if (DT) {

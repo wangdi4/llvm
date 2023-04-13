@@ -13,7 +13,7 @@
 // License.
 
 #include "VersionStrategy.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/NameMangleAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include <sstream>
 
 using namespace llvm;

@@ -29,7 +29,7 @@ static void encode_header(std::vector<char> &buf, unsigned size) {
 }
 
 bool pack(std::vector<char> &buf, const Message *msg) {
-  unsigned msg_size = msg->ByteSize();
+  unsigned msg_size = msg->ByteSizeLong();
   buf.resize(HEADER_SIZE + msg_size);
   encode_header(buf, msg_size);
   return msg->SerializeToArray(&buf[HEADER_SIZE], msg_size);

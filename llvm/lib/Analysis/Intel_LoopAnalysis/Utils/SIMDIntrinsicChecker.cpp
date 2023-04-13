@@ -1,6 +1,6 @@
 //===------- SIMDIntrinsicChecker.cpp -------------------------------------===//
 //
-// Copyright (C) 2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -22,10 +22,18 @@ using namespace loopopt;
 
 // TODO: expand - or use vpo's def/impl
 StringSet<> SIMDIntrinsicChecker::HandleableOpBundleNames = {
-    "DIR.OMP.SIMD",           "QUAL.OMP.LINEAR:IV",
-    "QUAL.OMP.REDUCTION.ADD", "QUAL.OMP.NORMALIZED.IV",
-    "QUAL.OMP.NORMALIZED.UB", "QUAL.OMP.LIVEIN",
-    "QUAL.OMP.LIVEIN:F90_DV", "QUAL.OMP.ALIGNED:PTR_TO_PTR"};
+    "DIR.OMP.SIMD",
+    "QUAL.OMP.LINEAR:IV",
+    "QUAL.OMP.LINEAR:TYPED.IV",
+    "QUAL.OMP.ALIGNED:PTR_TO_PTR",
+    "QUAL.OMP.REDUCTION.ADD",
+    "QUAL.OMP.REDUCTION.ADD:TYPED",
+    "QUAL.OMP.NORMALIZED.IV",
+    "QUAL.OMP.NORMALIZED.IV:TYPED",
+    "QUAL.OMP.NORMALIZED.UB",
+    "QUAL.OMP.NORMALIZED.UB:TYPED",
+    "QUAL.OMP.LIVEIN",
+    "QUAL.OMP.LIVEIN:F90_DV"};
 
 SIMDIntrinsicChecker::SIMDIntrinsicChecker(const HLInst *DirSIMD,
                                            const HLLoop *Loop)
@@ -166,7 +174,7 @@ bool SIMDIntrinsicChecker::parseOperands() {
       // insert into set
       // Currently, only AddressOf() refs are handled.
       if (!Ref->isAddressOf())
-        return false;
+        continue;
       ReductionRefs.insert(Ref);
     }
   }

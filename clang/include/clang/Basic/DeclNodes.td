@@ -105,6 +105,9 @@ def Captured : DeclNode<Decl>, DeclContext;
 def ClassScopeFunctionSpecialization : DeclNode<Decl>;
 def Import : DeclNode<Decl>;
 def OMPThreadPrivate : DeclNode<Decl>;
+#if INTEL_COLLAB
+def OMPGroupPrivate : DeclNode<Decl>;
+#endif  // INTEL_COLLAB
 def OMPAllocate : DeclNode<Decl>;
 def OMPRequires : DeclNode<Decl>;
 def Empty : DeclNode<Decl>;

@@ -1310,7 +1310,13 @@ public:
   /// \p AllowExplicitBoundInst allows the utility to create an explicit
   /// instruction representing the loop lower bound in the preheader, if
   /// necessary. Normalization always succeeeds if this flag is true.
-  bool normalize(bool AllowExplicitBoundInst = false);
+  /// \p ExplicitBoundInst is either created and returned as a pointer
+  /// if nullptr is passed, otherwise normalization will use an existing
+  /// Inst to do normalization. This is primarily used when stripmining
+  /// multiple loops that will have the same lower bound. Refer to
+  /// HIRTransformUtils::stripmine()
+  bool normalize(bool AllowExplicitBoundInst = false,
+                 HLInst **ExplicitBoundInst = nullptr);
 
   /// Return false if loop cannot be stripmined - some stripmined
   /// loop cannot be normalized. When \p AllowExplicitBoundInst
@@ -1513,7 +1519,7 @@ template <> struct OptReportTraits<loopopt::HLLoop> {
     return Loop.getDebugLoc();
   }
 
-  static Optional<std::string> getOptReportTitle(const loopopt::HLLoop &Loop) {
+  static std::optional<std::string> getOptReportTitle(const loopopt::HLLoop &Loop) {
     return std::nullopt;
   }
 

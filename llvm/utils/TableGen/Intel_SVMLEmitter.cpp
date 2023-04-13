@@ -430,7 +430,7 @@ void SVMLVariantsEmitter::emitSVMLDeviceVariants(raw_ostream &OS) {
           OS << (Is64Bit ? ".f64" : ".f32");
         else if (!Is64Bit)
           OS << "f";
-        OS << "\", \"_ZGVx" << (IsMasked ? "M" : "N") << SIMDSize;
+        OS << "\", \"_ZGV_unknown_" << (IsMasked ? "M" : "N") << SIMDSize;
         for (int i = 0; i < ArgsNum; ++i) {
           // TODO: support other argument types when necessary
           OS << 'v';
@@ -461,10 +461,17 @@ void SVMLVariantsEmitter::run(raw_ostream &OS, bool IsDevice) {
     emitSVMLVariants(OS);
 }
 
-namespace llvm {
-
-void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS, bool IsDevice) {
-  SVMLVariantsEmitter(RK).run(OS, IsDevice);
+static void EmitSVMLVariants(RecordKeeper &RK, raw_ostream &OS) {
+  SVMLVariantsEmitter(RK).run(OS, /*IsDevice=*/false);
 }
 
-} // End llvm namespace
+static TableGen::Emitter::Opt X("gen-svml", EmitSVMLVariants,
+                                "Generate SVML variant function names");
+
+static void EmitSVMLDeviceVariants(RecordKeeper &RK, raw_ostream &OS) {
+  SVMLVariantsEmitter(RK).run(OS, /*IsDevice=*/true);
+}
+
+static TableGen::Emitter::Opt
+    Y("gen-svml-device", EmitSVMLDeviceVariants,
+      "Generate OMP SIMD versions of SVML variant function names");

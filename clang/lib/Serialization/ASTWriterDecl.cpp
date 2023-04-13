@@ -23,6 +23,7 @@
 #include "clang/Serialization/ASTRecordWriter.h"
 #include "llvm/Bitstream/BitstreamWriter.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <optional>
 using namespace clang;
 using namespace serialization;
 
@@ -154,6 +155,9 @@ namespace clang {
     void VisitObjCPropertyDecl(ObjCPropertyDecl *D);
     void VisitObjCPropertyImplDecl(ObjCPropertyImplDecl *D);
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
+#if INTEL_COLLAB
+    void VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D);
+#endif // INTEL_COLLAB
     void VisitOMPAllocateDecl(OMPAllocateDecl *D);
     void VisitOMPRequiresDecl(OMPRequiresDecl *D);
     void VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D);
@@ -223,7 +227,7 @@ namespace clang {
 
       ArrayRef<DeclID> LazySpecializations;
       if (auto *LS = Common->LazySpecializations)
-        LazySpecializations = llvm::makeArrayRef(LS + 1, LS[0]);
+        LazySpecializations = llvm::ArrayRef(LS + 1, LS[0]);
 
       // Add a slot to the record for the number of specializations.
       unsigned I = Record.size();
@@ -410,6 +414,10 @@ void ASTDeclWriter::VisitTypeAliasDecl(TypeAliasDecl *D) {
 }
 
 void ASTDeclWriter::VisitTagDecl(TagDecl *D) {
+  static_assert(DeclContext::NumTagDeclBits == 10,
+                "You need to update the serializer after you change the "
+                "TagDeclBits");
+
   VisitRedeclarable(D);
   VisitTypeDecl(D);
   Record.push_back(D->getIdentifierNamespace());
@@ -434,6 +442,10 @@ void ASTDeclWriter::VisitTagDecl(TagDecl *D) {
 }
 
 void ASTDeclWriter::VisitEnumDecl(EnumDecl *D) {
+  static_assert(DeclContext::NumEnumDeclBits == 20,
+                "You need to update the serializer after you change the "
+                "EnumDeclBits");
+
   VisitTagDecl(D);
   Record.AddTypeSourceInfo(D->getIntegerTypeSourceInfo());
   if (!D->getIntegerTypeSourceInfo())
@@ -477,6 +489,10 @@ void ASTDeclWriter::VisitEnumDecl(EnumDecl *D) {
 }
 
 void ASTDeclWriter::VisitRecordDecl(RecordDecl *D) {
+  static_assert(DeclContext::NumRecordDeclBits == 41,
+                "You need to update the serializer after you change the "
+                "RecordDeclBits");
+
   VisitTagDecl(D);
   Record.push_back(D->hasFlexibleArrayMember());
   Record.push_back(D->isAnonymousStructOrUnion());
@@ -490,6 +506,10 @@ void ASTDeclWriter::VisitRecordDecl(RecordDecl *D) {
   Record.push_back(D->hasNonTrivialToPrimitiveCopyCUnion());
   Record.push_back(D->isParamDestroyedInCallee());
   Record.push_back(D->getArgPassingRestrictions());
+  // Only compute this for C/Objective-C, in C++ this is computed as part
+  // of CXXRecordDecl.
+  if (!isa<CXXRecordDecl>(D))
+    Record.push_back(D->getODRHash());
 
   if (D->getDeclContext() == D->getLexicalDeclContext() &&
       !D->hasAttrs() &&
@@ -541,6 +561,10 @@ void ASTDeclWriter::VisitDeclaratorDecl(DeclaratorDecl *D) {
 }
 
 void ASTDeclWriter::VisitFunctionDecl(FunctionDecl *D) {
+  static_assert(DeclContext::NumFunctionDeclBits == 29,
+                "You need to update the serializer after you change the "
+                "FunctionDeclBits");
+
   VisitRedeclarable(D);
 
   Record.push_back(D->getTemplatedKind());
@@ -641,6 +665,7 @@ void ASTDeclWriter::VisitFunctionDecl(FunctionDecl *D) {
   Record.push_back(D->isTrivialForCall());
   Record.push_back(D->isDefaulted());
   Record.push_back(D->isExplicitlyDefaulted());
+  Record.push_back(D->isIneligibleOrNotSelected());
   Record.push_back(D->hasImplicitReturnZero());
   Record.push_back(static_cast<uint64_t>(D->getConstexprKind()));
   Record.push_back(D->usesSEHTry());
@@ -691,6 +716,10 @@ void ASTDeclWriter::VisitCXXDeductionGuideDecl(CXXDeductionGuideDecl *D) {
 }
 
 void ASTDeclWriter::VisitObjCMethodDecl(ObjCMethodDecl *D) {
+  static_assert(DeclContext::NumObjCMethodDeclBits == 24,
+                "You need to update the serializer after you change the "
+                "ObjCMethodDeclBits");
+
   VisitNamedDecl(D);
   // FIXME: convert to LazyStmtPtr?
   // Unlike C/C++, method bodies will never be in header files.
@@ -749,6 +778,10 @@ void ASTDeclWriter::VisitObjCTypeParamDecl(ObjCTypeParamDecl *D) {
 }
 
 void ASTDeclWriter::VisitObjCContainerDecl(ObjCContainerDecl *D) {
+  static_assert(DeclContext::NumObjCContainerDeclBits == 51,
+                "You need to update the serializer after you change the "
+                "ObjCContainerDeclBits");
+
   VisitNamedDecl(D);
   Record.AddSourceLocation(D->getAtStartLoc());
   Record.AddSourceRange(D->getAtEndRange());
@@ -769,6 +802,7 @@ void ASTDeclWriter::VisitObjCInterfaceDecl(ObjCInterfaceDecl *D) {
     Record.AddTypeSourceInfo(D->getSuperClassTInfo());
     Record.AddSourceLocation(D->getEndOfDefinitionLoc());
     Record.push_back(Data.HasDesignatedInitializers);
+    Record.push_back(D->getODRHash());
 
     // Write out the protocols that are directly referenced by the @interface.
     Record.push_back(Data.ReferencedProtocols.size());
@@ -907,7 +941,7 @@ void ASTDeclWriter::VisitObjCImplementationDecl(ObjCImplementationDecl *D) {
   Record.push_back(D->NumIvarInitializers);
   if (D->NumIvarInitializers)
     Record.AddCXXCtorInitializers(
-        llvm::makeArrayRef(D->init_begin(), D->init_end()));
+        llvm::ArrayRef(D->init_begin(), D->init_end()));
   Code = serialization::DECL_OBJC_IMPLEMENTATION;
 }
 
@@ -1037,8 +1071,7 @@ void ASTDeclWriter::VisitVarDecl(VarDecl *D) {
   if (D->getStorageDuration() == SD_Static) {
     bool ModulesCodegen = false;
     if (Writer.WritingModule &&
-        !D->getDescribedVarTemplate() && !D->getMemberSpecializationInfo() &&
-        !isa<VarTemplateSpecializationDecl>(D)) {
+        !D->getDescribedVarTemplate()) {
       // When building a C++20 module interface unit or a partition unit, a
       // strong definition in the module interface is provided by the
       // compilation of that unit, not by its users. (Inline variables are still
@@ -1047,7 +1080,7 @@ void ASTDeclWriter::VisitVarDecl(VarDecl *D) {
           (Writer.WritingModule->isInterfaceOrPartition() ||
            (D->hasAttr<DLLExportAttr>() &&
             Writer.Context->getLangOpts().BuildingPCHWithObjectFile)) &&
-          Writer.Context->GetGVALinkageForVariable(D) == GVA_StrongExternal;
+           Writer.Context->GetGVALinkageForVariable(D) >= GVA_StrongExternal;
     }
     Record.push_back(ModulesCodegen);
     if (ModulesCodegen)
@@ -1235,6 +1268,10 @@ void ASTDeclWriter::VisitCapturedDecl(CapturedDecl *CD) {
 }
 
 void ASTDeclWriter::VisitLinkageSpecDecl(LinkageSpecDecl *D) {
+  static_assert(DeclContext::NumLinkageSpecDeclBits == 4,
+                "You need to update the serializer after you change the"
+                "LinkageSpecDeclBits");
+
   VisitDecl(D);
   Record.push_back(D->getLanguage());
   Record.AddSourceLocation(D->getExternLoc());
@@ -1430,6 +1467,10 @@ void ASTDeclWriter::VisitCXXMethodDecl(CXXMethodDecl *D) {
 }
 
 void ASTDeclWriter::VisitCXXConstructorDecl(CXXConstructorDecl *D) {
+  static_assert(DeclContext::NumCXXConstructorDeclBits == 22,
+                "You need to update the serializer after you change the "
+                "CXXConstructorDeclBits");
+
   Record.push_back(D->getTrailingAllocKind());
   addExplicitSpecifier(D->getExplicitSpecifier(), Record);
   if (auto Inherited = D->getInheritedConstructor()) {
@@ -1806,6 +1847,10 @@ void ASTDeclWriter::VisitStaticAssertDecl(StaticAssertDecl *D) {
 
 /// Emit the DeclContext part of a declaration context decl.
 void ASTDeclWriter::VisitDeclContext(DeclContext *DC) {
+  static_assert(DeclContext::NumDeclContextBits == 13,
+                "You need to update the serializer after you change the "
+                "DeclContextBits");
+
   Record.AddOffset(Writer.WriteDeclContextLexicalBlock(Context, DC));
   Record.AddOffset(Writer.WriteDeclContextVisibleBlock(Context, DC));
 }
@@ -1903,6 +1948,14 @@ void ASTDeclWriter::VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D) {
   Code = serialization::DECL_OMP_THREADPRIVATE;
 }
 
+#if INTEL_COLLAB
+void ASTDeclWriter::VisitOMPGroupPrivateDecl(OMPGroupPrivateDecl *D) {
+  Record.writeOMPChildren(D->Data);
+  VisitDecl(D);
+  Code = serialization::DECL_OMP_GROUPPRIVATE;
+}
+#endif // INTEL_COLLAB
+
 void ASTDeclWriter::VisitOMPAllocateDecl(OMPAllocateDecl *D) {
   Record.writeOMPChildren(D->Data);
   VisitDecl(D);
@@ -1916,6 +1969,10 @@ void ASTDeclWriter::VisitOMPRequiresDecl(OMPRequiresDecl *D) {
 }
 
 void ASTDeclWriter::VisitOMPDeclareReductionDecl(OMPDeclareReductionDecl *D) {
+  static_assert(DeclContext::NumOMPDeclareReductionDeclBits == 2,
+                "You need to update the serializer after you change the "
+                "NumOMPDeclareReductionDeclBits");
+
   VisitValueDecl(D);
   Record.AddSourceLocation(D->getBeginLoc());
   Record.AddStmt(D->getCombinerIn());
@@ -2126,6 +2183,8 @@ void ASTWriter::WriteDeclAbbrevs() {
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1));
   // getArgPassingRestrictions
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 2));
+  // ODRHash
+  Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 26));
 
   // DC
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));   // LexicalOffset
@@ -2304,6 +2363,7 @@ void ASTWriter::WriteDeclAbbrevs() {
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // TrivialForCall
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // Defaulted
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // ExplicitlyDefaulted
+  Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // IsIneligibleOrNotSelected
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // ImplicitReturnZero
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 2)); // Constexpr
   Abv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // UsesSEHTry
@@ -2419,7 +2479,13 @@ void ASTWriter::WriteDeclAbbrevs() {
 /// relatively painless since they would presumably only do it for top-level
 /// decls.
 static bool isRequiredDecl(const Decl *D, ASTContext &Context,
-                           bool WritingModule) {
+                           Module *WritingModule) {
+  // Named modules have different semantics than header modules. Every named
+  // module units owns a translation unit. So the importer of named modules
+  // doesn't need to deserilize everything ahead of time.
+  if (WritingModule && WritingModule->isModulePurview())
+    return false;
+
   // An ObjCMethodDecl is never considered as "required" because its
   // implementation container always is.
 
@@ -2493,7 +2559,7 @@ void ASTRecordWriter::AddFunctionDefinition(const FunctionDecl *FD) {
   assert(FD->doesThisDeclarationHaveABody());
   bool ModulesCodegen = false;
   if (!FD->isDependentContext()) {
-    Optional<GVALinkage> Linkage;
+    std::optional<GVALinkage> Linkage;
     if (Writer->WritingModule &&
         Writer->WritingModule->isInterfaceOrPartition()) {
       // When building a C++20 module interface unit or a partition unit, a
@@ -2501,7 +2567,7 @@ void ASTRecordWriter::AddFunctionDefinition(const FunctionDecl *FD) {
       // compilation of that unit, not by its users. (Inline functions are still
       // emitted in module users.)
       Linkage = Writer->Context->GetGVALinkageForFunction(FD);
-      ModulesCodegen = *Linkage == GVA_StrongExternal;
+      ModulesCodegen = *Linkage >= GVA_StrongExternal;
     }
     if (Writer->Context->getLangOpts().ModulesCodegen ||
         (FD->hasAttr<DLLExportAttr>() &&
@@ -2523,8 +2589,7 @@ void ASTRecordWriter::AddFunctionDefinition(const FunctionDecl *FD) {
   if (auto *CD = dyn_cast<CXXConstructorDecl>(FD)) {
     Record->push_back(CD->getNumCtorInitializers());
     if (CD->getNumCtorInitializers())
-      AddCXXCtorInitializers(
-          llvm::makeArrayRef(CD->init_begin(), CD->init_end()));
+      AddCXXCtorInitializers(llvm::ArrayRef(CD->init_begin(), CD->init_end()));
   }
   AddStmt(FD->getBody());
 }

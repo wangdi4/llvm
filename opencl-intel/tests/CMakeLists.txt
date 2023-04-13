@@ -9,17 +9,16 @@
 # This software and the related documents are provided as is, with no express or
 # implied warranties, other than those that are expressly stated in the License.
 
+set(LLVM_REQUIRES_EH ON)
+
+add_custom_target(OCLUnitTests)
+set_target_properties(OCLUnitTests PROPERTIES FOLDER "OpenCL Tests")
+
 # The conformance tests must be compiled with the headers located in
 # ${OCL_CONFORMANCE_INCLUDE} and not the ones in ${OCL_GLOBAL_INCLUDE}
 # Therefore, it must be added to the include directories only after the
 # conformance subdirectory has been added.
 include_directories(BEFORE ${OCL_GLOBAL_INCLUDE})
-
-# some tests have to use deprecated OpenCL API functions.
-if(WIN32)
-  add_definitions(-wd4996 # Suppress 'function': was declared deprecated'
-  )
-endif(WIN32)
 
 if(NOT OPENCL_INTREE_BUILD)
   set(CLANG "${LLVM_BINARY_DIR}/clang")
@@ -45,7 +44,9 @@ macro(compile_bitcode SOURCE OUTPUT)
     COMMAND
       ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}
       -I${CLANG_OPENCL_HEADERS_DIR} -emit-llvm-bc ${SPIR_OPTIONS}
-      -disable-llvm-passes -disable-intel-proprietary-opts -include opencl-c.h
+      -disable-llvm-passes
+      -disable-intel-proprietary-opts #INTEL
+      -include opencl-c.h
       ${ARG_EXTRA_CLANG_FLAGS} -no-opaque-pointers -o
       ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}
@@ -123,4 +124,5 @@ endif(USE_VALGRIND)
 
 umbrella_lit_testsuite_end(check-ocl-runtime)
 
-set_target_properties(check-ocl-runtime PROPERTIES FOLDER "Tests")
+set_target_properties(check-ocl-runtime PROPERTIES FOLDER "OpenCL Tests")
+add_dependencies(check-ocl-runtime OCLUnitTests)

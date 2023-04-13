@@ -29,7 +29,7 @@ public:
   /// @brief Constructor
   /// @param pValue           Implict argument's value destination pointer
   /// @param arg              OpenCL argument
-  ExplicitGlobalMemArgument(char *pValue, const KernelArgument &arg)
+  ExplicitGlobalMemArgument(char *pValue, const llvm::KernelArgument &arg)
       : ExplicitArgument(pValue, arg) {}
 
   /// @brief Overriding implementation

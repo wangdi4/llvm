@@ -22,7 +22,7 @@
 
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
-#include <CL/cl_gl_ext.h>
+#include <CL/cl_gl.h>
 #include <cassert>
 #include <stdint.h>
 #include <sys/stat.h>
@@ -853,4 +853,8 @@ string ReadFileContents(const string &filePath) {
   sstr << stream.rdbuf();
   stream.close();
   return sstr.str();
+}
+
+void reportWarning(const std::string &Msg) {
+  fprintf(stderr, "SYCL CPU RT Warning: %s\n", Msg.c_str());
 }

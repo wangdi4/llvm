@@ -4,7 +4,7 @@
 
 ; With Intel "advanced" opts, do not hoist freeze instructions.
 
-; RUN: opt < %s -enable-intel-advanced-opts=true -passes=instcombine -instcombine-infinite-loop-threshold=2 -S | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -enable-intel-advanced-opts=true -passes=instcombine -instcombine-infinite-loop-threshold=2 -S | FileCheck %s
 
 target triple = "i686-pc-linux-gnu"
 

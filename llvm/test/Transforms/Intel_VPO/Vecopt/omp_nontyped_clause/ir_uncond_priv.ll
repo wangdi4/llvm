@@ -10,7 +10,7 @@ define void @simd_loop(i32* %A, i32* %B) #0 {
 ; CHECK-NEXT:    [[PRIVATE_VEC:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[PRIVATE_VEC_BC:%.*]] = bitcast <4 x i32>* [[PRIVATE_VEC]] to i32*
 ; CHECK-NEXT:    [[PRIVATE_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[PRIVATE_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    br label [[DIR_OMP_SIMD_3:%.*]]
+; CHECK:         br label [[DIR_OMP_SIMD_3:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
@@ -23,7 +23,7 @@ define void @simd_loop(i32* %A, i32* %B) #0 {
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY]], label [[VPLANNEDBB3:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB3:
 ; CHECK-NEXT:    [[EXTRACTED_PRIV:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i64 3
-; CHECK-NEXT:    [[PRIVATE_VEC_BCAST:%.*]] = bitcast <4 x i32>* [[PRIVATE_VEC]] to i8*
+; CHECK-NEXT:    [[PRIVATE_VEC_BCAST:%.*]] = bitcast i32* [[PRIVATE_VEC_BC_E:%.*]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[PRIVATE_VEC_BCAST]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK:       VPlannedBB4:

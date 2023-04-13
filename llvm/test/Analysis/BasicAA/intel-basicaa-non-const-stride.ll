@@ -1,4 +1,4 @@
-; RUN: opt < %s -gvn -S | FileCheck %s
+; RUN: opt -passes="gvn" < %s -S | FileCheck %s
 ; ModuleID = 'builtin-intel-subscript.cpp'
 source_filename = "builtin-intel-subscript.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

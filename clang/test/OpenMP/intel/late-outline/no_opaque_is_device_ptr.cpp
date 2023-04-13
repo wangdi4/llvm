@@ -16,15 +16,20 @@ struct S {
 //CHECK-LABEL: S3foo
 void S::foo(float *&refptr) {
   //CHECK: [[REFPTR:%refptr.*]] = alloca float**, align 8
+  //CHECK: [[REFTMP:%refptr.map.ptr.tmp]] = alloca float*
+  //CHECK: [[REFTMP2:%refptr.map.ptr.tmp5]] = alloca float**
   //CHECK: [[LREFPTR:%[0-9]+]] = load float**, float*** [[REFPTR]]
   //CHECK: [[LREFPTR1:%[0-9]+]] = load float**, float*** [[REFPTR]]
+  //CHECK: [[LREFPTR2:%[0-9]+]] = load float*, float** [[LREFPTR1]]
 
   //CHECK: "DIR.OMP.TARGET"()
   //CHECK-SAME: "QUAL.OMP.LIVEIN"(i32** %ptr)
   //CHECK-SAME: "QUAL.OMP.LIVEIN"(float** %0)
   //CHECK-SAME: "QUAL.OMP.LIVEIN"(i32** %aaptr)
   //CHECK-SAME: "QUAL.OMP.LIVEIN"([4 x i32]* %arr)
-  //CHECK: "QUAL.OMP.MAP.TOFROM"(float** [[LREFPTR1]]
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(float* [[LREFPTR2]]
+  //CHECK-NEXT: store float* [[LREFPTR2]], float** [[REFTMP]]
+  //CHECK-NEXT: store float** %refptr.map.ptr.tmp, float*** [[REFTMP2]]
   #pragma omp target is_device_ptr(ptr, refptr, aaptr, arr)
   ++a, ++*ptr, ++ref, ++arr[0], refptr++;
   //CHECK: "DIR.OMP.END.TARGET"()

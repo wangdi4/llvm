@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -28,6 +28,7 @@
 
 #include "Cuda.h"
 #include "SYCL.h" // INTEL_CUSTOMIZATION
+#include "LazyDetector.h"
 #include "ROCm.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Driver/ToolChain.h"
@@ -329,15 +330,15 @@ public:
                              StringRef CandidateTriple,
                              bool NeedsBiarchSuffix = false);
 #if INTEL_CUSTOMIZATION
-    bool ScanForCxxPaths(const GCCVersion Version, StringRef TripleStr,
+    bool ScanForCxxPaths(GCCVersion Version, StringRef TripleStr,
                          StringRef LibDir, StringRef InstallDir);
 #endif // INTEL_CUSTOMIZATION
   };
 
 protected:
   GCCInstallationDetector GCCInstallation;
-  CudaInstallationDetector CudaInstallation;
-  RocmInstallationDetector RocmInstallation;
+  LazyDetector<CudaInstallationDetector> CudaInstallation;
+  LazyDetector<RocmInstallationDetector> RocmInstallation;
 
 public:
   Generic_GCC(const Driver &D, const llvm::Triple &Triple,
@@ -394,6 +395,7 @@ protected:
 #if INTEL_CUSTOMIZATION
   void AddIntelLibimfLibArgs(const llvm::opt::ArgList &Args,
                              llvm::opt::ArgStringList &CmdArgs) const override;
+  std::string GetIntelLibPath() const override;
 #endif // INTEL_CUSTOMIZATION
 
   virtual void

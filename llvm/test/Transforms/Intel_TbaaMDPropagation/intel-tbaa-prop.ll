@@ -1,4 +1,3 @@
-; RUN: opt -enable-new-pm=0 -tbaa -inline -tbaa-prop -sroa -basic-aa -aa -instcombine -gvn -S < %s | FileCheck %s
 ; RUN: opt -aa-pipeline=tbaa,basic-aa -passes='function(require<tbaa>),cgscc(inline),function(tbaa-prop,sroa,require<basic-aa>,instcombine,gvn),module(globalopt)' -S < %s | FileCheck %s
 ;
 ; The compiler should recover the tbaa information for the expression

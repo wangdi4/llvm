@@ -26,7 +26,6 @@
 #include "cl_cpu_detect.h"
 #include "cl_dev_backend_api.h"
 #include "cl_disable_sys_dialog.h"
-#include "cl_shutdown.h"
 #include "debuggingservicewrapper.h"
 #include "llvm/Support/Mutex.h"
 

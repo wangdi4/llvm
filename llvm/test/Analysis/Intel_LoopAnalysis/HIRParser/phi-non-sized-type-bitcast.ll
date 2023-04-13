@@ -1,4 +1,4 @@
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" 2>&1 -disable-output | FileCheck %s
+; RUN: opt -opaque-pointers=0 < %s -passes="hir-ssa-deconstruction,print<hir>" 2>&1 -disable-output | FileCheck %s
 
 ; Check that we are able to form HIR successfully with %a.addr.07 phi which
 ; has an AddRec form and an opaque element type (%struct.A*).

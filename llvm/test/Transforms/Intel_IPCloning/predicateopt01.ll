@@ -1,13 +1,88 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -passes='module(ip-cloning)' -ip-manyreccalls-predicateopt -debug-only=ipcloning -S < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes='module(ip-cloning)' -ip-manyreccalls-predicateopt -debug-only=ipcloning -S < %s 2>&1 | FileCheck %s
 
 ; Check that predicate opt will be tested 
 
+; CHECK: MRC Cloning: OK: GetVirtualPixelsFromNexus
+; CHECK: Selected many recursive calls predicate opt
+; CHECK: MRC Predicate Opt: Loops: 5
+; CHECK: MRC Predicate Opt: LIRestrict: T
+; CHECK: MRC Predicate Opt: RestrictVarHoistablePastWrapperF: T
+; CHECK: MRC Predicate Opt: BaseFArg6Field1Hoistable: T
+; CHECK: MRC PredicateOpt: HoistYes: {0,1,3,6,7,14,15,16}
+; CHECK: MRC PredicateOpt: HoistNo: {18,21}
+; CHECK: MRC Predicate Opt: Hoistable: T
+; CHECK: MRC Predicate Opt: FindMultiLoop: T
+; CHECK: MRC PredicateOpt: Loop Stores To: {{.*}} alloca %struct._ZTS18_MagickPixelPacket._MagickPixelPacket, align 8
+; CHECK: MRC Predicate Opt: ValidateMultiLoop: T
 ; CHECK: MRC PredicateOpt: Loop Depth = 5
 ; CHECK: BaseF: GetVirtualPixelsFromNexus
 ; CHECK: WrapperF: GetOneCacheViewVirtualPixel
 ; CHECK: BigLoopF: MeanShiftImage
+; CHECK: MRC Predicate: OptF: MeanShiftImage.bb123.1
+; CHECK: MRC Predicate: NoOptF: MeanShiftImage.bb123
+; CHECK: MRC Predicate: OptWrapperF : GetOneCacheViewVirtualPixel.2
+; CHECK: MRC Predicate: OptBaseF : GetVirtualPixelsFromNexus.3
+; CHECK: MRC Predicate: ColdF : GetVirtualPixelsFromNexus.3.bb206
+
+; Check the IR
+
+; This is the beginning of the "spine" being optimized.
+; CHECK-LABEL: define internal {{.*}} @MeanShiftImage(
+; This is the test to determine if we run the optimized or unoptimized version.
+; CHECK: %[[IA0:[A-Za-z0-9]+]] = tail call ptr @AcquireVirtualCacheView(
+; CHECK: %[[IA1:[A-Za-z0-9]+]] = tail call ptr @AcquireVirtualCacheView(
+; CHECK: %[[I0:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheView._CacheView, ptr %[[IA1]], i64 0, i32 0
+; CHECK: %[[I1:[A-Za-z0-9]+]] = load ptr, ptr %[[I0]], align 8
+; CHECK: %[[I2:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I1]], i64 0, i32 49
+; CHECK: %[[I3:[A-Za-z0-9]+]] = load ptr, ptr %[[I2]], align 8
+; CHECK: %[[I4:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I3]], i64 0, i32 0
+; CHECK: %[[I5:[A-Za-z0-9]+]] = load i32, ptr %[[I4]], align 4
+; CHECK: %[[I6:[A-Za-z0-9]+]] = icmp eq i32 %[[I5]], 2
+; CHECK: %[[I7:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I3]], i64 0, i32 1
+; CHECK: %[[I8:[A-Za-z0-9]+]] = load i32, ptr %[[I7]], align 4
+; CHECK: %[[I9:[A-Za-z0-9]+]] = icmp eq i32 %[[I8]], 12
+; CHECK: %[[I10:[A-Za-z0-9]+]] = or i1 %[[I6]], %[[I9]]
+; CHECK: %[[I11:[A-Za-z0-9]+]] = xor i1 %[[I10]], true
+; CHECK: br i1 %[[I11]], label %[[L0:[A-Za-z0-9.]+]], label %[[L1:[A-Za-z0-9.]+]]
+; CHECK: [[L1]]:
+; This is the branch to the non-predicate optimized version.
+; CHECK: call void @MeanShiftImage.bb123
+; CHECK: br label %[[L2:[A-Za-z0-9.]+]]
+; CHECK: [[L0]]:
+; This is the branch to the predicate optimized version.
+; CHECK: call void @MeanShiftImage.bb123.1
+; CHECK: br label %[[L2]]
+; CHECK: [[L2]]:
+
+; This is the non-predicate optimized version.
+; CHECK-LABEL: define internal {{.*}} @GetVirtualPixelsFromNexus(
+; CHECK: load ptr, ptr {{.*}} !predicate-opt-data ![[P0:[0-9]+]]
+; CHECK: tail call ptr @AcquirePixelCacheNexus
+
+; This is the non-predicate optimized version.
+; CHECK-LABEL: define internal void @MeanShiftImage.bb123(
+; CHECK: call i32 @GetOneCacheViewVirtualPixel(
+
+; This is the predicate optimized version.
+; CHECK-LABEL: define internal void @MeanShiftImage.bb123.1(
+; CHECK: call i32 @GetOneCacheViewVirtualPixel.2(
+
+; This is the predicate optimized version.
+; CHECK-LABEL: define internal i32 @GetOneCacheViewVirtualPixel.2(
+; CHECK: tail call ptr @GetVirtualPixelsFromNexus.3(
+
+; This is the predicate optimized version.
+; CHECK-LABEL: define internal {{.*}} ptr @GetVirtualPixelsFromNexus.3(
+; CHECK: call void @GetVirtualPixelsFromNexus.3.bb206
+
+; This is the cold code extracted out of the predicate optimized version.
+; CHECK-LABEL: define internal void @GetVirtualPixelsFromNexus.3.bb206(
+; CHECK: tail call ptr @AcquirePixelCacheNexus(
+
+; This indicates that the memory opt was for a restrict pointer.
+; CHECK: ![[P0]] = !{!"predicate-opt-restrict"}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -91,7 +91,7 @@ cl_int Pipe::GetPipeInfo(cl_pipe_info paramName, size_t szParamValueSize,
   }
 
   if (nullptr != pParamValue && szParamValueSize < szSize) {
-    LOG_ERROR(TEXT("szParamValueSize (=%d) < szSize (=%d)"), szParamValueSize,
+    LOG_ERROR(TEXT("szParamValueSize (=%zu) < szSize (=%zu)"), szParamValueSize,
               szSize);
     return CL_INVALID_VALUE;
   }
@@ -146,6 +146,7 @@ void *Pipe::Map(cl_mem_flags flags, size_t requestedSize,
   // Round mapped size down to be an integral of packet size, otherwise it
   // cannot be fully unmapped.
   seg.size = (seg.size / m_uiPacketSize) * m_uiPacketSize;
+  assert(seg.size > 0 && "Segment size must be nonzero");
   seg.sizeToUnmap = seg.size;
 
   m_mapBuffer.resize(m_mapBuffer.size() + seg.size);

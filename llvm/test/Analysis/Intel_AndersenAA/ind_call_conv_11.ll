@@ -6,7 +6,7 @@
 ; not same as @fptr. @mult_fun is not considered as target as type of
 ; @mult_fun doesn't match with the call.
 
-; RUN: opt -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -intel-ind-call-force-andersen -intel-ind-call-conv-max-target=2 -passes='require<anders-aa>,indirectcallconv' %s | FileCheck %s
 
 %struct.A = type { i64, i32 }
 %struct.B = type { i64, i64, i32 }

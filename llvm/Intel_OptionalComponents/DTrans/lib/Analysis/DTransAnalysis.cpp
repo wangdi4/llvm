@@ -1,6 +1,6 @@
 //===---------------- DTransAnalysis.cpp - DTrans Analysis ----------------===//
 //
-// Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,7 +18,6 @@
 #include "Intel_DTrans/Analysis/DTransBadCastingAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -273,7 +272,7 @@ bool isPartialPtrLoad(LoadInst *Load) {
     //   ...
     //   %NextCount = add nsw i64 %Count, -1
     //   %Cmp = icmp sgt i64 %NextCount, 0
-    if (Count->isOneValue()) {
+    if (Count->isOne()) {
       auto *BasePHI = dyn_cast<PHINode>(Base);
       if (!BasePHI || BasePHI->getParent() != LoopBB) {
         DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
@@ -297,7 +296,7 @@ bool isPartialPtrLoad(LoadInst *Load) {
         return false;
       }
     } else {
-      if (!Count->isNullValue()) {
+      if (!Count->isZero()) {
         DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
                         dbgs() << "Not matched. icmp not using 0 or 1!\n");
         return false;
@@ -595,7 +594,7 @@ public:
     // is interesting or not.
     Type *BaseTy = T;
     while (BaseTy->isPointerTy())
-      BaseTy = BaseTy->getPointerElementType();
+      BaseTy = BaseTy->getNonOpaquePointerElementType();
     if (BaseTy->isAggregateType())
       AliasesToAggregatePointer = true;
     // Save this alias.
@@ -632,16 +631,16 @@ public:
     if (T1->isPointerTy() && T2->isPointerTy()) {
       // Consider a pointer to type T and a pointer to an array of type T as
       // compatible types.
-      if (T1->getPointerElementType()->isArrayTy())
-        return (T2->getPointerElementType() ==
-                T1->getPointerElementType()->getArrayElementType());
+      if (T1->getNonOpaquePointerElementType()->isArrayTy())
+        return (T2->getNonOpaquePointerElementType() ==
+                T1->getNonOpaquePointerElementType()->getArrayElementType());
 
-      if (T2->getPointerElementType()->isArrayTy())
-        return (T1->getPointerElementType() ==
-                T2->getPointerElementType()->getArrayElementType());
+      if (T2->getNonOpaquePointerElementType()->isArrayTy())
+        return (T1->getNonOpaquePointerElementType() ==
+                T2->getNonOpaquePointerElementType()->getArrayElementType());
       else
-        return typesCompatible(T1->getPointerElementType(),
-                               T2->getPointerElementType());
+        return typesCompatible(T1->getNonOpaquePointerElementType(),
+                               T2->getNonOpaquePointerElementType());
     }
 
     if (T1->isArrayTy() && T2->isArrayTy() &&
@@ -654,7 +653,7 @@ public:
   bool canPointToType(llvm::Type *T) {
     for (auto *AliasTy : PointerTypeAliases)
       if (AliasTy->isPointerTy() &&
-          typesCompatible(AliasTy->getPointerElementType(), T))
+          typesCompatible(AliasTy->getNonOpaquePointerElementType(), T))
         return true;
     return false;
   }
@@ -664,13 +663,13 @@ public:
   bool pointsToMultipleAggregateTypes() {
     if (!AliasesToAggregatePointer)
       return false;
-    int NumAliased =
-        std::count_if(PointerTypeAliases.begin(), PointerTypeAliases.end(),
-                      [](llvm::Type *T) {
-                        if (!T->isPointerTy())
-                          return false;
-                        return T->getPointerElementType()->isAggregateType();
-                      });
+    int NumAliased = std::count_if(
+        PointerTypeAliases.begin(), PointerTypeAliases.end(),
+        [](llvm::Type *T) {
+          if (!T->isPointerTy())
+            return false;
+          return T->getNonOpaquePointerElementType()->isAggregateType();
+        });
     // AliasesToAggregatePointer should be set as aliases are added, but
     // since we have the information here we can assert to make sure things
     // are working as expected.
@@ -688,7 +687,7 @@ public:
     for (auto *AliasTy : PointerTypeAliases) {
       llvm::Type *BaseTy = AliasTy;
       while (BaseTy->isPointerTy())
-        BaseTy = BaseTy->getPointerElementType();
+        BaseTy = BaseTy->getNonOpaquePointerElementType();
       if (!BaseTy->isAggregateType())
         continue;
       if (!DomTy) {
@@ -743,13 +742,13 @@ public:
       // permits the zeroth element to be an aggregate of one level pointer
       // type.
       if (!(DomTy->isPointerTy() &&
-            DomTy->getPointerElementType()->isPointerTy() &&
+            DomTy->getNonOpaquePointerElementType()->isPointerTy() &&
             AliasTy->isPointerTy() &&
-            AliasTy->getPointerElementType()->isPointerTy()))
+            AliasTy->getNonOpaquePointerElementType()->isPointerTy()))
         return nullptr;
 
-      llvm::Type *DomDerefTy = DomTy->getPointerElementType();
-      llvm::Type *AliasDerefTy = AliasTy->getPointerElementType();
+      llvm::Type *DomDerefTy = DomTy->getNonOpaquePointerElementType();
+      llvm::Type *AliasDerefTy = AliasTy->getNonOpaquePointerElementType();
       if (dtrans::isElementZeroAccess(DomDerefTy, AliasDerefTy) ||
           dtrans::isElementZeroAccess(AliasDerefTy, DomDerefTy))
         continue;
@@ -780,7 +779,7 @@ public:
       return false;
     if (!DomTy->isPointerTy())
       return false;
-    if (!DomTy->getPointerElementType()->isPointerTy())
+    if (!DomTy->getNonOpaquePointerElementType()->isPointerTy())
       return false;
     return true;
   }
@@ -801,7 +800,8 @@ public:
     }
     if (!DomTy->isPointerTy())
       return false;
-    if (auto *ArrayTy = dyn_cast<ArrayType>(DomTy->getPointerElementType())) {
+    if (auto *ArrayTy =
+            dyn_cast<ArrayType>(DomTy->getNonOpaquePointerElementType())) {
       llvm::Type *Int8Ty = llvm::Type::getIntNTy(DomTy->getContext(), 8);
       if (ArrayTy->getArrayElementType() == Int8Ty)
         return true;
@@ -1456,10 +1456,11 @@ private:
           // i8*->(struct**) bitcast elsewhere as a potential problem.
           if (dtrans::isElementZeroAccess(AliasTy, DestTy, &AccessedTy) ||
               (AliasTy->isPointerTy() && DestTy->isPointerTy() &&
-               DestTy->getPointerElementType()->isPointerTy() &&
-               dtrans::isElementZeroI8Ptr(AliasTy->getPointerElementType(),
-                                          &AccessedTy))) {
-            Info.addElementPointee(AccessedTy->getPointerElementType(), 0);
+               DestTy->getNonOpaquePointerElementType()->isPointerTy() &&
+               dtrans::isElementZeroI8Ptr(
+                   AliasTy->getNonOpaquePointerElementType(), &AccessedTy))) {
+            Info.addElementPointee(AccessedTy->getNonOpaquePointerElementType(),
+                                   0);
 
             // Capture the original type to allow for evaluating the pointer as
             // a potential byte-flattened GEP.
@@ -1470,7 +1471,7 @@ private:
             // and i8* as the aliased type. However, %y could be get used as a
             // byte-flattened GEP, capture the aggregate type for use during
             // byte-flattened GEP analysis.
-            Info.addElementZeroAlias(AliasTy->getPointerElementType());
+            Info.addElementZeroAlias(AliasTy->getNonOpaquePointerElementType());
 
             IsElementZeroAccess = true;
             // If the bitcast is to an i8** and element zero of the accessed
@@ -1481,7 +1482,8 @@ private:
             if (DestTy == Int8PtrPtrTy) {
               Info.addPointerTypeAlias(
                   dtrans::dtransCompositeGetTypeAtIndex(
-                      AccessedTy->getPointerElementType(), 0)->getPointerTo());
+                      AccessedTy->getNonOpaquePointerElementType(), 0)
+                      ->getPointerTo());
             }
           } else if (dtrans::isPtrToPtrToElementZeroAccess(AliasTy, DestTy)) {
             // If the DestTy and the AliasTy are both pointers to pointers
@@ -1794,13 +1796,13 @@ private:
       // If this value aliases a pointer to a pointer, this isn't a
       // byte-flattened GEP after all. It's indexing the pointer-to-pointer
       // as a dynamic array.
-      if (AliasTy->getPointerElementType()->isPointerTy()) {
+      if (AliasTy->getNonOpaquePointerElementType()->isPointerTy()) {
         Info.addPointerTypeAlias(AliasTy);
         HasPtrToPtrAlias = true;
         continue;
       }
       if (!HasPtrToPtrAlias) {
-        auto *CurrType = AliasTy->getPointerElementType();
+        auto *CurrType = AliasTy->getNonOpaquePointerElementType();
         LocalPointerInfo LocalInfo;
         if (CheckIfAllOffsetsValid(GEP, CurrType, APOffset, LocalInfo)) {
           Info.merge(LocalInfo);
@@ -1969,8 +1971,8 @@ private:
 
     for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet())
       if (AliasTy->isPointerTy() &&
-          AliasTy->getPointerElementType()->isPointerTy())
-        Info.addPointerTypeAlias(AliasTy->getPointerElementType());
+          AliasTy->getNonOpaquePointerElementType()->isPointerTy())
+        Info.addPointerTypeAlias(AliasTy->getNonOpaquePointerElementType());
   }
 
   void analyzeBitCastInstruction(BitCastInst *BC, LocalPointerInfo &Info) {
@@ -2039,7 +2041,7 @@ private:
     if (CastTypes.size() > 1) {
       SmallPtrSet<llvm::PointerType *, 4> TypesToRemove;
       for (auto *Ty1 : CastTypes) {
-        if (!Ty1->getPointerElementType()->isAggregateType())
+        if (!Ty1->getNonOpaquePointerElementType()->isAggregateType())
           continue;
         for (auto *Ty2 : CastTypes)
           if (dtrans::isElementZeroAccess(Ty1, Ty2) ||
@@ -2155,8 +2157,9 @@ private:
         IsPartial = true;
       for (auto *AliasTy : DestInfo.getPointerTypeAliasSet())
         if (AliasTy->isPointerTy() &&
-            AliasTy->getPointerElementType()->isPointerTy())
-          Types.insert(cast<PointerType>(AliasTy->getPointerElementType()));
+            AliasTy->getNonOpaquePointerElementType()->isPointerTy())
+          Types.insert(
+              cast<PointerType>(AliasTy->getNonOpaquePointerElementType()));
 
       // In order to handle the case where the allocation is stored into a
       // structure member field which is a pointer, look at the member type to
@@ -2225,7 +2228,7 @@ private:
     if (CastTypes.size() > 1) {
       SmallPtrSet<llvm::PointerType *, 4> TypesToRemove;
       for (auto *Ty1 : CastTypes) {
-        if (!Ty1->getPointerElementType()->isAggregateType())
+        if (!Ty1->getNonOpaquePointerElementType()->isAggregateType())
           continue;
         for (auto *Ty2 : CastTypes)
           if (dtrans::isElementZeroAccess(Ty1, Ty2))
@@ -2469,8 +2472,8 @@ public:
       // and give up whenever we encounter one again. This is conservative
       // and could be improved.
       //
-      auto *T3 = T1->getPointerElementType();
-      auto *T4 = T2->getPointerElementType();
+      auto *T3 = T1->getNonOpaquePointerElementType();
+      auto *T4 = T2->getNonOpaquePointerElementType();
 
       // CMPLRS-15252: Perform the same empty struct/Function type test
       // above on the pointer element types.
@@ -2496,9 +2499,9 @@ public:
         }
       }
 
-      return typesMayBeCRuleCompatibleX(T1->getPointerElementType(),
-                                        T2->getPointerElementType(), Tstack,
-                                        IgnorePointees);
+      return typesMayBeCRuleCompatibleX(T1->getNonOpaquePointerElementType(),
+                                        T2->getNonOpaquePointerElementType(),
+                                        Tstack, IgnorePointees);
     }
 
     R = typeTest(T1, T2, &llvm::Type::isFunctionTy);
@@ -2638,7 +2641,7 @@ public:
       Type *BCOTy = BCO->getDestTy();
       if (!BCOTy->isPointerTy())
         return nullptr;
-      Type *BCOTyE = BCOTy->getPointerElementType();
+      Type *BCOTyE = BCOTy->getNonOpaquePointerElementType();
       return dyn_cast<FunctionType>(BCOTyE);
     };
 
@@ -3043,10 +3046,12 @@ public:
     if (F && MayBeBitcast) {
       // Account for layout in registers and on stack.
       if (!typesMayBeCRuleCompatible(
-              Call.getCalledOperand()->getType()->getPointerElementType(),
+              Call.getCalledOperand()
+                  ->getType()
+                  ->getNonOpaquePointerElementType(),
               // Do not need to compare pointees types
               // here.
-              F->getType()->getPointerElementType(), true)) {
+              F->getType()->getNonOpaquePointerElementType(), true)) {
         for (Argument &Arg : F->args()) {
           LLVM_DEBUG(
               dbgs()
@@ -3154,7 +3159,7 @@ public:
 
       // For pointers, see what they point to.
       while (BaseTy->isPointerTy())
-        BaseTy = cast<PointerType>(BaseTy)->getElementType();
+        BaseTy = BaseTy->getNonOpaquePointerElementType();
 
       if (BaseTy->isVectorTy())
         return true;
@@ -3321,7 +3326,7 @@ public:
           continue;
         if (!AliasTy->isPointerTy())
           continue;
-        if (AliasTy->getPointerElementType()->isPointerTy()) {
+        if (AliasTy->getNonOpaquePointerElementType()->isPointerTy()) {
           SourceIsPtrToPtr = true;
           continue;
         }
@@ -3343,8 +3348,8 @@ public:
                             << "  " << I << "\n");
           setBaseTypeInfoSafetyData(AliasTy, dtrans::MismatchedElementAccess);
 
-          auto *TI =
-              DTInfo.getOrCreateTypeInfo(AliasTy->getPointerElementType());
+          auto *TI = DTInfo.getOrCreateTypeInfo(
+              AliasTy->getNonOpaquePointerElementType());
           if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
             // Mark the 'mismatched element access' field attribute. When
             // DTransOutOfBoundsOK is enabled,  mark all the fields to be
@@ -3440,7 +3445,7 @@ public:
 
       llvm::Type *CurrType = Src;
       while (auto *PtrTy = dyn_cast<PointerType>(CurrType)) {
-        CurrType = PtrTy->getPointerElementType();
+        CurrType = PtrTy->getNonOpaquePointerElementType();
         if (CurrType == InType)
           return true;
       }
@@ -3479,9 +3484,8 @@ public:
     // prepadding and the field's type that the GEP is accessing in the
     // structure is the same as the dominant aggregate type or a pointer
     // to the dominant aggregate type.
-    auto AnalyzeGEP =[this, DomAggTy](GetElementPtrInst *GEP,
-                                      size_t *FieldNum,
-                                      StructType **STy) -> bool {
+    auto AnalyzeGEP = [this, DomAggTy](GetElementPtrInst *GEP, size_t *FieldNum,
+                                       StructType **STy) -> bool {
       LocalPointerInfo &GEPLPI = LPA.getLocalPointerInfo(GEP);
 
       uint64_t PrePadBytes = 0;
@@ -3494,7 +3498,7 @@ public:
 
       llvm::Type *DestType = (*STy)->getElementType(*FieldNum);
       if (DestType != DomAggTy && DestType->isPointerTy())
-        DestType = DestType->getPointerElementType();
+        DestType = DestType->getNonOpaquePointerElementType();
 
       return DestType == DomAggTy;
     };
@@ -3546,7 +3550,7 @@ public:
       if (!FieldType)
         return false;
 
-      if (FieldType->getElementType() != DomAggTy)
+      if (FieldType->getNonOpaquePointerElementType() != DomAggTy)
         return false;
     }
 
@@ -3641,7 +3645,7 @@ public:
       return false;
 
     if (DomAggTy->isPointerTy())
-      DomAggTy = DomAggTy->getPointerElementType();
+      DomAggTy = DomAggTy->getNonOpaquePointerElementType();
 
     // Now check if we can collect any information from the GEP
     return isGEPUsedForStoreInSTL(GEP, DomAggTy, Offset);
@@ -3937,7 +3941,7 @@ public:
     llvm::Type *PtrTy = nullptr;
     while (Ty->isPointerTy()) {
       PtrTy = Ty;
-      Ty = Ty->getPointerElementType();
+      Ty = Ty->getNonOpaquePointerElementType();
     }
 
     if (PtrTy == Int8PtrTy)
@@ -4040,7 +4044,7 @@ public:
         auto *DomTy = SrcLPI.getDominantAggregateTy();
         llvm::Type *DomAggTy = nullptr;
         if (DomTy && DomTy->isPointerTy()) {
-          DomAggTy = DomTy->getPointerElementType();
+          DomAggTy = DomTy->getNonOpaquePointerElementType();
         } else {
 
           // If there was no dominant type for the GEP pointer source, it may be
@@ -4282,9 +4286,9 @@ public:
       llvm::Type *DestTy = I.getDestTy();
       llvm::Type *BCSourceTy = BC->getSrcTy();
 
-      uint64_t DestSize = DL.getTypeSizeInBits(DestTy).getFixedSize();
-      uint64_t LoadSize = DL.getTypeSizeInBits(LoadTy).getFixedSize();
-      uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedSize();
+      uint64_t DestSize = DL.getTypeSizeInBits(DestTy).getFixedValue();
+      uint64_t LoadSize = DL.getTypeSizeInBits(LoadTy).getFixedValue();
+      uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedValue();
 
       if (DestSize != LoadSize || LoadSize != BCSourceSize ||
           DestSize != BCSourceSize)
@@ -4546,7 +4550,7 @@ public:
 
       // Get the type of this variable.
       llvm::Type *GVTy = GV.getType();
-      llvm::Type *GVElemTy = GVTy->getPointerElementType();
+      llvm::Type *GVElemTy = GVTy->getNonOpaquePointerElementType();
 
       // FIXME: Should we be considering all arrays of scalars as not
       //        interesting types?
@@ -4962,9 +4966,9 @@ public:
       // For pointer types, step into the object type that is pointed-to and set
       // the safety bit.
       if (auto PtrSrcTy = dyn_cast<llvm::PointerType>(SrcTy)) {
-        CascadeToMismatchedFields(PtrSrcTy->getPointerElementType(),
-                                  DstTy->getPointerElementType(), Data, Visited,
-                                  Depth + 1);
+        CascadeToMismatchedFields(PtrSrcTy->getNonOpaquePointerElementType(),
+                                  DstTy->getNonOpaquePointerElementType(), Data,
+                                  Visited, Depth + 1);
         return;
       }
 
@@ -5068,7 +5072,7 @@ public:
                                          unsigned IndentLevel) -> void {
       llvm::Type *BaseTy = Ty;
       while (BaseTy->isPointerTy())
-        BaseTy = BaseTy->getPointerElementType();
+        BaseTy = BaseTy->getNonOpaquePointerElementType();
 
       if (!DTInfo.isTypeOfInterest(BaseTy))
         return;
@@ -5551,8 +5555,8 @@ private:
       if (TempBTy == Int8PtrTy)
         return true;
 
-      auto *NextATy = TempATy->getPointerElementType();
-      auto *NextBTy = TempBTy->getPointerElementType();
+      auto *NextATy = TempATy->getNonOpaquePointerElementType();
+      auto *NextBTy = TempBTy->getNonOpaquePointerElementType();
 
       if (TempBTy == PtrSizeIntPtrTy && NextATy->isPointerTy())
         return true;
@@ -5613,7 +5617,7 @@ private:
     if (!ParentTy || !ParentTy->isPointerTy() || !ElementTy->isPointerTy())
       return false;
 
-    auto *BaseTy = ParentTy->getPointerElementType();
+    auto *BaseTy = ParentTy->getNonOpaquePointerElementType();
     if (!BaseTy || (!BaseTy->isStructTy() && !BaseTy->isArrayTy()))
       return false;
 
@@ -5626,7 +5630,7 @@ private:
       return false;
 
     return ElementZeroTy->getArrayElementType() ==
-           ElementTy->getPointerElementType();
+           ElementTy->getNonOpaquePointerElementType();
   }
 
   // When a global variable is used in a ConstantExpr, the resulting value
@@ -5753,9 +5757,9 @@ private:
       // Fields matching this check might not actually be vtables, but
       // we will treat them as though they are.
       if (ElementTy->isPointerTy() &&
-          ElementTy->getPointerElementType()->isPointerTy() &&
-          ElementTy->getPointerElementType()
-              ->getPointerElementType()
+          ElementTy->getNonOpaquePointerElementType()->isPointerTy() &&
+          ElementTy->getNonOpaquePointerElementType()
+              ->getNonOpaquePointerElementType()
               ->isFunctionTy()) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Has vtable\n"
                           << "  struct:  " << *Ty << "\n"
@@ -5764,7 +5768,7 @@ private:
         continue;
       }
       if (ElementTy->isPointerTy() &&
-          ElementTy->getPointerElementType()->isFunctionTy()) {
+          ElementTy->getNonOpaquePointerElementType()->isFunctionTy()) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Has function ptr:\n  " << *Ty
                           << "\n");
         TI->setSafetyData(dtrans::HasFnPtr);
@@ -5856,8 +5860,7 @@ private:
 
       Type *CurrType = cast<Type>(PtrTy);
       while (CurrType && CurrType->isPointerTy()) {
-        auto CurrPtr = cast<PointerType>(CurrType);
-        CurrType = CurrPtr->getElementType();
+        CurrType = CurrType->getNonOpaquePointerElementType();
       }
 
       return CurrType;
@@ -5895,13 +5898,13 @@ private:
     // If source is not a pointer to a structure or destination is not
     // a pointer to an integer then return
     if (!GetPtrElementType(BCSourceTy)->isStructTy() ||
-        !BCDestTy->getElementType()->isIntegerTy())
+        !BCDestTy->getNonOpaquePointerElementType()->isIntegerTy())
       return false;
 
-    uint64_t BCDestSize = DL.getTypeSizeInBits(BCDestTy).getFixedSize();
-    uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedSize();
+    uint64_t BCDestSize = DL.getTypeSizeInBits(BCDestTy).getFixedValue();
+    uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedValue();
     uint64_t DestinationSize =
-        DL.getTypeSizeInBits(DestinationType).getFixedSize();
+        DL.getTypeSizeInBits(DestinationType).getFixedValue();
 
     // Make sure that the size of the pointers match
     if (BCSourceSize != BCDestSize || BCSourceSize != DestinationSize ||
@@ -6029,7 +6032,7 @@ private:
       //
       // In this case we are looking if the casting goes from a pointer to a
       // structure to i64*.
-      if (SrcPtr->getElementType()->isStructTy())
+      if (SrcPtr->getNonOpaquePointerElementType()->isStructTy())
         return true;
 
       // Else, check if the source is an i8 pointer. We want to also cover
@@ -6044,7 +6047,7 @@ private:
       //
       // In this case, the casting is being done to a new allocated space and
       // its type is i8*.
-      return (SrcPtr->getElementType()->isIntegerTy(8));
+      return (SrcPtr->getNonOpaquePointerElementType()->isIntegerTy(8));
     };
 
     BitCastInst *BC = dyn_cast_or_null<BitCastInst>(I);
@@ -6143,8 +6146,8 @@ private:
     // bitcast as a potential problem for the destination type.
     if (DTInfo.isTypeOfInterest(DestTy) && SrcTy->isPointerTy() &&
         DestTy->isPointerTy() &&
-        DestTy->getPointerElementType()->isPointerTy() &&
-        dtrans::isElementZeroI8Ptr(SrcTy->getPointerElementType())) {
+        DestTy->getNonOpaquePointerElementType()->isPointerTy() &&
+        dtrans::isElementZeroI8Ptr(SrcTy->getNonOpaquePointerElementType())) {
       // In this case we always want to avoid setting the element pointee
       // safety data, regardless of the state of DTransOutOfBoundsOK.
       if (DTBCA.isBadCastTypeAndFieldCandidate(SrcTy, 0) ||
@@ -6293,13 +6296,14 @@ private:
       if (DTransPrintAllocations) {
         dbgs() << "dtrans: Detected allocation cast to pointer type\n";
         dbgs() << "  " << *Call << "\n";
-        dbgs() << "    Detected type: " << *(Ty->getPointerElementType())
-               << "\n";
+        dbgs() << "    Detected type: "
+               << *(Ty->getNonOpaquePointerElementType()) << "\n";
       }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
       if (Kind == dtrans::AK_Calloc) {
-        auto *TI = DTInfo.getOrCreateTypeInfo(Ty->getPointerElementType());
+        auto *TI =
+            DTInfo.getOrCreateTypeInfo(Ty->getNonOpaquePointerElementType());
         analyzeCallocSingleValue(TI);
       }
     }
@@ -6400,7 +6404,7 @@ private:
     Type *DestTy = BC->getDestTy();
 
     // Make sure we are collecting the correct pointer sizes
-    if (!SrcTy || !SrcTy->getElementType()->isStructTy() ||
+    if (!SrcTy || !SrcTy->getNonOpaquePointerElementType()->isStructTy() ||
         DestTy != PtrSizeIntPtrTy)
       return false;
 
@@ -6686,7 +6690,7 @@ private:
         //     necessary).
         bool IsAggregateTy =
             FieldTy->isPointerTy() &&
-            FieldTy->getPointerElementType()->isAggregateType();
+            FieldTy->getNonOpaquePointerElementType()->isAggregateType();
         bool AggrTyPtrAsPtrSizedInt =
             IsAggregateTy && (ValTy == PtrSizeIntPtrTy);
         if ((FieldTy != ValTy) &&
@@ -6697,7 +6701,7 @@ private:
                                            ValTy->getPointerTo()) &&
               !dtrans::isPtrToPtrToElementZeroAccess(FieldTy->getPointerTo(),
                                                      ValTy->getPointerTo())) ||
-            AggrTyPtrAsPtrSizedInt)) {
+             AggrTyPtrAsPtrSizedInt)) {
 
           auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
           if (LoadingOrStoringZeroElement) {
@@ -6932,7 +6936,7 @@ private:
           continue;
       }
       LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValIn);
-      if (!ValLPI.canPointToType(DomTy->getPointerElementType())) {
+      if (!ValLPI.canPointToType(DomTy->getNonOpaquePointerElementType())) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer merge -- "
                           << "incompatible incoming value\n"
                           << "  " << I << "\n");
@@ -7036,7 +7040,7 @@ private:
       if (!CallDomType || CallDomType != LeftDomType)
         return false;
 
-      llvm::Type *ElementTy = LeftDomType->getPointerElementType();
+      llvm::Type *ElementTy = LeftDomType->getNonOpaquePointerElementType();
       if (ElementTy->isPointerTy())
         return false;
 
@@ -7079,13 +7083,14 @@ private:
     // to the base type. If Ty is a pointer-to-pointer type then we can return
     // early because we can reason about the size of a pointer without finding
     // the size in the IR.
-    if (Ty->getElementType()->isPointerTy())
+    if (Ty->getNonOpaquePointerElementType()->isPointerTy())
       return;
 
     // The size returned by DL.getTypeAllocSize() includes padding, both
     // within the type and between successive elements of the same type
     // if multiple elements are being allocated.
-    uint64_t ElementSize = DL.getTypeAllocSize(Ty->getElementType());
+    uint64_t ElementSize =
+        DL.getTypeAllocSize(Ty->getNonOpaquePointerElementType());
     unsigned AllocSizeInd = 0;
     unsigned AllocCountInd = 0;
     const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
@@ -7104,8 +7109,9 @@ private:
     // one argument is a multiple of the array's element size and the other
     // is a multiple of the number of elements in the array, the size arguments
     // are acceptable.
-    if (Ty->getElementType()->isArrayTy() && (AllocCountVal != nullptr)) {
-      llvm::Type *PointeeTy = Ty->getElementType();
+    if (Ty->getNonOpaquePointerElementType()->isArrayTy() &&
+        (AllocCountVal != nullptr)) {
+      llvm::Type *PointeeTy = Ty->getNonOpaquePointerElementType();
       uint64_t NumArrElements = PointeeTy->getArrayNumElements();
       uint64_t ArrElementSize =
           DL.getTypeAllocSize(PointeeTy->getArrayElementType());
@@ -7119,7 +7125,8 @@ private:
     // If allocation size is not constant we can try tracing it back to the
     // constant
     uint64_t Res;
-    dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(Ty->getElementType());
+    dtrans::TypeInfo *TI =
+        DTInfo.getOrCreateTypeInfo(Ty->getNonOpaquePointerElementType());
     bool EndsInZeroSizedArray = TI ? TI->hasZeroSizedArrayAsLastField() : false;
     if (!dtrans::isValueConstant(AllocSizeVal, &Res) &&
         dtrans::traceNonConstantValue(AllocSizeVal, ElementSize,
@@ -7165,7 +7172,7 @@ private:
 
       // TODO: this is probably always a pointer type.
       if (DTy->isPointerTy())
-        DTy = DTy->getPointerElementType();
+        DTy = DTy->getNonOpaquePointerElementType();
 
       if (!DTy->isAggregateType())
         return;
@@ -7376,7 +7383,7 @@ private:
     assert(DestParentTy && "Unexpected null parent type!");
 
     // The operand is not a pointer to member if we reach this point
-    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+    auto *DestPointeeTy = DestParentTy->getNonOpaquePointerElementType();
     uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);
 
     if (!DestPointeeTy->isAggregateType())
@@ -7726,7 +7733,7 @@ private:
 
     // The operand is not a pointer to member if we reach this point,
     // and the source and destination types are the same.
-    auto *DestPointeeTy = DestParentTy->getPointerElementType();
+    auto *DestPointeeTy = DestParentTy->getNonOpaquePointerElementType();
     uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy);
 
     if (!DestPointeeTy->isAggregateType())
@@ -7737,7 +7744,7 @@ private:
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       // It is a safe use. Mark all the fields as being written.
       auto *ParentTI = DTInfo.getOrCreateTypeInfo(DestPointeeTy);
-      auto *SrcPointeeTy = DestParentTy->getPointerElementType();
+      auto *SrcPointeeTy = DestParentTy->getNonOpaquePointerElementType();
       auto *SrcParentTI = DTInfo.getOrCreateTypeInfo(SrcPointeeTy);
 
       markAllFieldsWritten(ParentTI, I);
@@ -7763,7 +7770,7 @@ private:
     // from the 1st field.
     if (auto *StructTy = dyn_cast<StructType>(DestPointeeTy)) {
       dtrans::MemfuncRegion RegionDesc;
-      llvm::Type *SrcPointeeTy = SrcParentTy->getPointerElementType();
+      llvm::Type *SrcPointeeTy = SrcParentTy->getNonOpaquePointerElementType();
       auto *SrcParentTI = DTInfo.getOrCreateTypeInfo(SrcPointeeTy);
       auto SrcParentStructTI = cast<dtrans::StructInfo>(SrcParentTI);
 
@@ -7806,7 +7813,7 @@ private:
       for (auto *Ty : AliasSet)
         if (DTInfo.isTypeOfInterest(Ty)) {
           assert(Ty->isPointerTy() && "Expected pointer type");
-          CI->addElemType(Ty->getPointerElementType());
+          CI->addElemType(Ty->getNonOpaquePointerElementType());
         }
     }
   }
@@ -7928,8 +7935,9 @@ private:
       for (auto *AliasTy : LPI.getPointerTypeAliasSet()) {
         if (dtrans::isElementZeroAccess(AliasTy,
                                         PointeePair.first->getPointerTo()) &&
-            AliasTy->getPointerElementType()->isStructTy()) {
-          *StructTy = cast<StructType>(AliasTy->getPointerElementType());
+            AliasTy->getNonOpaquePointerElementType()->isStructTy()) {
+          *StructTy =
+              cast<StructType>(AliasTy->getNonOpaquePointerElementType());
           *FieldNum = 0;
           return true;
         }
@@ -8239,7 +8247,7 @@ private:
 
       // If the dominant type is a pointer to a pointer, we don't need to look
       // at its uses.
-      llvm::Type *ElementTy = DomTy->getPointerElementType();
+      llvm::Type *ElementTy = DomTy->getNonOpaquePointerElementType();
       if (!ElementTy->isPointerTy()) {
         uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
         if (subUsedForAllocation(&I, ElementSize)) {
@@ -8250,8 +8258,7 @@ private:
                             << "  " << I << "\n");
           setAllAliasedTypeSafetyData(LHSLPI,
               dtrans::BadPtrManipulationForRelatedTypes);
-        }
-        else if (hasNonDivBySizeUses(&I, ElementSize)) {
+        } else if (hasNonDivBySizeUses(&I, ElementSize)) {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
                             << "Pointer subtract result has non-div use:\n"
                             << "  " << I << "\n");
@@ -8758,7 +8765,7 @@ private:
       TI->setCallGraphTop();
       return;
     }
-    auto *StTy = dyn_cast<StructType>(Ty->getPointerElementType());
+    auto *StTy = dyn_cast<StructType>(Ty->getNonOpaquePointerElementType());
     if (!StTy) {
       TI->setCallGraphTop();
       return;
@@ -8790,7 +8797,7 @@ private:
           return true;
         return false;
       case Type::PointerTyID:
-        if (findSubType(Ty->getPointerElementType(), ThisTy, Depth))
+        if (findSubType(Ty->getNonOpaquePointerElementType(), ThisTy, Depth))
           return true;
         return false;
       }
@@ -8836,7 +8843,7 @@ private:
                                  bool IsCascading, bool IsPointerCarried) {
     llvm::Type *BaseTy = Ty;
     while (BaseTy->isPointerTy())
-      BaseTy = BaseTy->getPointerElementType();
+      BaseTy = BaseTy->getNonOpaquePointerElementType();
     dtrans::TypeInfo *TI = DTInfo.getOrCreateTypeInfo(BaseTy);
     TI->setSafetyData(Data);
     if (!IsCascading)
@@ -8868,7 +8875,7 @@ private:
         // the condition set.
         llvm::Type *FieldBaseTy = FieldTy;
         while (FieldBaseTy->isPointerTy())
-          FieldBaseTy = FieldBaseTy->getPointerElementType();
+          FieldBaseTy = FieldBaseTy->getNonOpaquePointerElementType();
         dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldBaseTy);
         if (!FieldTI->testSafetyData(Data)) {
           (void)BaseTy;
@@ -8900,7 +8907,7 @@ private:
     // for load/stores/calls, etc. instructions.
     llvm::Type *BaseTy = Ty;
     while (BaseTy->isPointerTy())
-      BaseTy = BaseTy->getPointerElementType();
+      BaseTy = BaseTy->getNonOpaquePointerElementType();
 
     // This lambda encapsulates the logic for propagating CallGraph info
     // to structure fields and array elements to account for implicit types
@@ -8953,7 +8960,7 @@ bool DTransAnalysisInfo::isTypeOfInterest(llvm::Type *Ty) {
 
   // For pointers, see what they point to.
   while (BaseTy->isPointerTy())
-    BaseTy = cast<PointerType>(BaseTy)->getElementType();
+    BaseTy = BaseTy->getNonOpaquePointerElementType();
 
   if (!BaseTy->isAggregateType() || !BaseTy->isSized())
     return false;
@@ -9015,7 +9022,7 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
     // map early in this case to avoid infinite recursion.
     DTransTy = new dtrans::PointerInfo(Ty);
     TypeInfoMap[Ty] = DTransTy;
-    (void)getOrCreateTypeInfo(cast<PointerType>(Ty)->getElementType());
+    (void)getOrCreateTypeInfo(Ty->getNonOpaquePointerElementType());
     return DTransTy;
   } else if (Ty->isArrayTy()) {
     dtrans::TypeInfo *ElementInfo =
@@ -9181,7 +9188,7 @@ void DTransAnalysisInfo::printCallInfo(raw_ostream &OS) {
   // To get some consistency in the printing order, populate a tuple
   // that can be sorted, then output the sorted list.
   for (const auto &CIVec : call_info_entries())
-    for (auto &E : enumerate(CIVec)) {
+    for (const auto &E : enumerate(CIVec)) {
       auto *CI = E.value();
       Instruction *I = CI->getInstruction();
       Entries.push_back(std::make_tuple(I->getFunction()->getName(),
@@ -9198,91 +9205,6 @@ void DTransAnalysisInfo::printCallInfo(raw_ostream &OS) {
   }
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-INITIALIZE_PASS_BEGIN(DTransAnalysisWrapper, "dtransanalysis",
-                      "Data transformation analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DTransImmutableAnalysisWrapper)
-INITIALIZE_PASS_END(DTransAnalysisWrapper, "dtransanalysis",
-                    "Data transformation analysis", false, true)
-
-char DTransAnalysisWrapper::ID = 0;
-
-ModulePass *llvm::createDTransAnalysisWrapperPass() {
-  return new DTransAnalysisWrapper();
-}
-
-DTransAnalysisWrapper::DTransAnalysisWrapper()
-    : ModulePass(ID), Invalidated(true) {
-  initializeDTransAnalysisWrapperPass(*PassRegistry::getPassRegistry());
-}
-
-bool DTransAnalysisWrapper::doFinalization(Module &M) {
-  Result.reset();
-  Invalidated = true;
-  return false;
-}
-
-DTransAnalysisInfo &DTransAnalysisWrapper::getDTransInfo(Module &M) {
-  // Rerun the analysis, if the prior transformation has marked it as
-  // invalidated.
-  if (Invalidated) {
-    Result.reset();
-    runOnModule(M);
-  } else {
-    // Check that the previous transforms did not change types and forget
-    // to call setInvalidated.
-    assert(verifyValid(M) &&
-           "Types changed, but DTrans analysis not marked as invalidated");
-  }
-
-  return Result;
-}
-
-#if !defined(NDEBUG)
-// This is for verifying that a transformation did not forget to call
-// setInvalidated after making types changes. Because we require the
-// transformation to replace types with new types, this checks to make sure that
-// there aren't any new top-level structure types that the analysis does not
-// know about. This should also prevent the getDTransInfo from being called
-// with a different Module than the one that was collected for. Returns 'true',
-// if everything appears valid.
-bool DTransAnalysisWrapper::verifyValid(Module &M) {
-  if (!Result.useDTransAnalysis())
-    return true;
-
-  for (auto *Ty : M.getIdentifiedStructTypes())
-    if (!Result.getTypeInfo(Ty)) {
-      dbgs() << "No DTrans TypeInfo for struct type:" << *Ty << "\n";
-      return false;
-    }
-
-  return true;
-}
-#endif // !defined(NDEBUG)
-
-bool DTransAnalysisWrapper::runOnModule(Module &M) {
-
-  auto GetBFI = [this](Function &F) -> BlockFrequencyInfo & {
-    return this->getAnalysis<BlockFrequencyInfoWrapperPass>(F).getBFI();
-  };
-  auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-
-  auto &DTImmutInfo = getAnalysis<DTransImmutableAnalysisWrapper>().getResult();
-
-  auto GetDomTree = [this](Function &F) -> DominatorTree & {
-    return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-  };
-
-  Invalidated = false;
-  return Result.analyzeModule(
-      M, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI,
-      DTImmutInfo, GetDomTree);
-}
 
 DTransAnalysisInfo::DTransAnalysisInfo()
     : MaxTotalFrequency(0), FunctionCount(0), CallsiteCount(0),
@@ -10032,14 +9954,6 @@ bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
     }
   });
   return !IsIncomplete;
-}
-
-void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addRequired<BlockFrequencyInfoWrapperPass>();
-  AU.addRequired<WholeProgramWrapperPass>();
-  AU.addRequired<DTransImmutableAnalysisWrapper>();
 }
 
 char DTransAnalysis::PassID;

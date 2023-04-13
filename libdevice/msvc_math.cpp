@@ -10,6 +10,13 @@
 
 #include "device.h"
 #include <math.h>
+
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp declare target
+#endif // OMP_LIBDEVICE
+#endif // INTEL_COLLAB
+
 union _Fval { // pun floating type as integer array
   unsigned short _Sh[8];
   float _Val;
@@ -281,4 +288,11 @@ float _FSinh(float x, float y) { // compute y * sinh(x), |y| <= 1
     return neg ? -x : x;
   }
 }
+
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif // OMP_LIBDEVICE
+#endif // INTEL_COLLAB
+
 #endif

@@ -12,15 +12,14 @@
 
 ; REQUIRES:asserts
 
-; CHECK: SOA profitability:
-; CHECK: SOAUnsafe = arr.priv1
-; CHECK: SOA profitability:
-; CHECK: SOAUnsafe = arr.priv2
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @test_unsafe_store_variation_1() {
+; CHECK-LABEL:  SOA profitability:
+; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_PRIV1:%.*]] (arr.priv1)
+;
 entry:
   %arr.priv1 = alloca [1024 x i64], align 4
   br label %preheader
@@ -35,7 +34,7 @@ header:
   store ptr %gep, ptr %arr.priv1
   %iv.next = add nsw nuw i64 %iv, 1
   %exitcond = icmp ult i64 %iv.next, 1024
-  br i1 %exitcond, label %exit, label %header
+  br i1 %exitcond, label %header, label %exit
 
 exit:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
@@ -47,6 +46,9 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 define void @test_unsafe_store_variation_2() {
+; CHECK-LABEL:  SOA profitability:
+; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_PRIV2:%.*]] (arr.priv2)
+;
 entry:
   %arr.priv2 = alloca [1024 x i64], align 4
   br label %preheader
@@ -61,7 +63,7 @@ header:
   store ptr %arr.priv2, ptr %gep
   %iv.next = add nsw nuw i64 %iv, 1
   %exitcond = icmp ult i64 %iv.next, 1024
-  br i1 %exitcond, label %exit, label %header
+  br i1 %exitcond, label %header, label %exit
 
 exit:
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]

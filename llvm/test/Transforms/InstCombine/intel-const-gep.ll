@@ -1,6 +1,6 @@
 ; CMPLRLLVM-24000
 ; Transform in InstCombine is expecting a non-constant GEP.
-; RUN: opt < %s -instcombine -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 ;
 ; IC should be able to remove everything in the loop as dead.
 ; CHECK-LABEL: loop.18:

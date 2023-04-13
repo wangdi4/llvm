@@ -1,6 +1,5 @@
 ; Check that the verification passes after loop reversal. It was previously failing because replaceBlob() did not update CanonExpr src/dest type.
 
-; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-loop-reversal -hir-loop-reversal < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,hir-loop-reversal,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK:             if (%9 == 0)

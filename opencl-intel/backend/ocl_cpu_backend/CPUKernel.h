@@ -26,7 +26,8 @@ class CPUKernel : public Kernel {
 public:
   CPUKernel();
 
-  CPUKernel(const std::string &name, const std::vector<KernelArgument> &args,
+  CPUKernel(const std::string &name,
+            const std::vector<llvm::KernelArgument> &args,
             const std::vector<unsigned int> &memArgs, KernelProperties *pProps);
 
   virtual ~CPUKernel(){};

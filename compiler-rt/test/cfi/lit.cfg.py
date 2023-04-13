@@ -23,6 +23,11 @@ elif config.lto_supported:
   if config.cfi_lit_test_mode == "Devirt":
     config.available_features.add('devirt')
     clang_cfi += '-fwhole-program-vtables '
+    # INTEL_CUSTOMIZATION
+    # INTEL_FEATURE_SW_DTRANS
+    clang_cfi += '-Wl,--plugin-opt=-wholeprogramdevirt-multiversion=false '
+    # end INTEL_FEATURE_SW_DTRANS
+    # end INTEL_CUSTOMIZATION
     config.substitutions.append((r"%expect_crash_unless_devirt ", ""))
   else:
     config.substitutions.append((r"%expect_crash_unless_devirt ", config.expect_crash))

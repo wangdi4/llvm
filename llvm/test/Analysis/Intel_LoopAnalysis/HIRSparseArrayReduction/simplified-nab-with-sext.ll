@@ -1,4 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -enable-new-pm=0 -analyze -hir-sparse-array-reduction-analysis -force-hir-sparse-array-reduction-analysis < %s 2>&1 | FileCheck %s
 ; RUN: opt -aa-pipeline=basic-aa -passes="hir-ssa-deconstruction,print<hir-sparse-array-reduction-analysis>" -force-hir-sparse-array-reduction-analysis -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test checks that Sparse Array Reduction is recognized in presence of sign extension on non-linear index.

@@ -1,4 +1,3 @@
-; RUN: opt < %s -enable-new-pm=0 -analyze -hir-region-identification 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='print<hir-region-identification>' 2>&1 | FileCheck %s
 
 ; Verify that we can create a region when pointer to vector is

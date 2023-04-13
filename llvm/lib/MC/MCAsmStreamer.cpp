@@ -211,7 +211,7 @@ public:
   void emitXCOFFRenameDirective(const MCSymbol *Name,
                                 StringRef Rename) override;
 
-  void emitXCOFFRefDirective(StringRef Name) override;
+  void emitXCOFFRefDirective(const MCSymbol *Symbol) override;
 
   void emitXCOFFExceptDirective(const MCSymbol *Symbol, 
                                 const MCSymbol *Trap,
@@ -964,8 +964,9 @@ void MCAsmStreamer::emitXCOFFRenameDirective(const MCSymbol *Name,
   EmitEOL();
 }
 
-void MCAsmStreamer::emitXCOFFRefDirective(StringRef Name) {
-  OS << "\t.ref " << Name;
+void MCAsmStreamer::emitXCOFFRefDirective(const MCSymbol *Symbol) {
+  OS << "\t.ref ";
+  Symbol->print(OS, MAI);
   EmitEOL();
 }
 
@@ -1298,7 +1299,7 @@ void MCAsmStreamer::emitValueImpl(const MCExpr *Value, unsigned Size,
       unsigned Remaining = Size - Emitted;
       // The size of our partial emission must be a power of two less than
       // Size.
-      unsigned EmissionSize = PowerOf2Floor(std::min(Remaining, Size - 1));
+      unsigned EmissionSize = llvm::bit_floor(std::min(Remaining, Size - 1));
       // Calculate the byte offset of our partial emission taking into account
       // the endianness of the target.
       unsigned ByteOffset =
@@ -1470,7 +1471,7 @@ void MCAsmStreamer::emitAlignmentDirective(unsigned ByteAlignment,
     if (Value.has_value() || MaxBytesToEmit) {
       if (Value.has_value()) {
         OS << ", 0x";
-        OS.write_hex(truncateToSize(Value.value(), ValueSize));
+        OS.write_hex(truncateToSize(*Value, ValueSize));
       } else {
         OS << ", ";
       }
@@ -1494,7 +1495,7 @@ void MCAsmStreamer::emitAlignmentDirective(unsigned ByteAlignment,
 
   OS << ' ' << ByteAlignment;
   if (Value.has_value())
-    OS << ", " << truncateToSize(Value.value(), ValueSize);
+    OS << ", " << truncateToSize(*Value, ValueSize);
   else if (MaxBytesToEmit)
     OS << ", ";
   if (MaxBytesToEmit)

@@ -188,8 +188,9 @@ public:
     return false;
   }
 
-  PredicationStyle emitGetActiveLaneMask() const {
-    return PredicationStyle::None;
+  TailFoldingStyle
+  getPreferredTailFoldingStyle(bool IVUpdateMayOverflow = true) const {
+    return TailFoldingStyle::DataWithoutLaneMask;
   }
 
   std::optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
@@ -385,12 +386,15 @@ public:
 
   InstructionCost getScalarizationOverhead(VectorType *Ty,
                                            const APInt &DemandedElts,
-                                           bool Insert, bool Extract) const {
+                                           bool Insert, bool Extract,
+                                           TTI::TargetCostKind CostKind) const {
     return 0;
   }
 
-  InstructionCost getOperandsScalarizationOverhead(ArrayRef<const Value *> Args,
-                                                   ArrayRef<Type *> Tys) const {
+  InstructionCost
+  getOperandsScalarizationOverhead(ArrayRef<const Value *> Args,
+                                   ArrayRef<Type *> Tys,
+                                   TTI::TargetCostKind CostKind) const {
     return 0;
   }
 
@@ -487,6 +491,7 @@ public:
 
   std::optional<unsigned> getMaxVScale() const { return std::nullopt; }
   std::optional<unsigned> getVScaleForTuning() const { return std::nullopt; }
+  bool isVScaleKnownToBeAPowerOfTwo() const { return false; }
 
   bool
   shouldMaximizeVectorBandwidth(TargetTransformInfo::RegisterKind K) const {
@@ -540,13 +545,21 @@ public:
   bool enableWritePrefetching() const { return false; }
   bool shouldPrefetchAddressSpace(unsigned AS) const { return !AS; }
 
-  unsigned getMaxInterleaveFactor(unsigned VF) const { return 1; }
+  unsigned getMaxInterleaveFactor(ElementCount VF) const { return 1; }
 
   InstructionCost getArithmeticInstrCost(
       unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
       TTI::OperandValueInfo Opd1Info, TTI::OperandValueInfo Opd2Info,
       ArrayRef<const Value *> Args,
       const Instruction *CxtI = nullptr) const {
+    // Widenable conditions will eventually lower into constants, so some
+    // operations with them will be trivially optimized away.
+    auto IsWidenableCondition = [](const Value *V) {
+      if (auto *II = dyn_cast<IntrinsicInst>(V))
+        if (II->getIntrinsicID() == Intrinsic::experimental_widenable_condition)
+          return true;
+      return false;
+    };
     // FIXME: A number of transformation tests seem to require these values
     // which seems a little odd for how arbitary there are.
     switch (Opcode) {
@@ -560,6 +573,11 @@ public:
     case Instruction::URem:
       // FIXME: Unlikely to be true for CodeSize.
       return TTI::TCC_Expensive;
+    case Instruction::And:
+    case Instruction::Or:
+      if (any_of(Args, IsWidenableCondition))
+        return TTI::TCC_Free;
+      break;
     }
 
     // Assume a 3cy latency for fp arithmetic ops.
@@ -607,7 +625,7 @@ public:
       // trunc to a native type is free (assuming the target has compare and
       // shift-right of the same width).
       TypeSize DstSize = DL.getTypeSizeInBits(Dst);
-      if (!DstSize.isScalable() && DL.isLegalInteger(DstSize.getFixedSize()))
+      if (!DstSize.isScalable() && DL.isLegalInteger(DstSize.getFixedValue()))
         return 0;
       break;
     }
@@ -638,11 +656,14 @@ public:
   }
 
   InstructionCost getVectorInstrCost(unsigned Opcode, Type *Val,
-                                     unsigned Index) const {
+                                     TTI::TargetCostKind CostKind,
+                                     unsigned Index, Value *Op0,
+                                     Value *Op1) const {
     return 1;
   }
 
   InstructionCost getVectorInstrCost(const Instruction &I, Type *Val,
+                                     TTI::TargetCostKind CostKind,
                                      unsigned Index) const {
     return 1;
   }
@@ -718,6 +739,7 @@ public:
     case Intrinsic::sideeffect:
     case Intrinsic::pseudoprobe:
     case Intrinsic::arithmetic_fence:
+    case Intrinsic::dbg_assign:
     case Intrinsic::dbg_declare:
     case Intrinsic::dbg_value:
     case Intrinsic::dbg_label:
@@ -744,6 +766,7 @@ public:
     case Intrinsic::coro_suspend:
     case Intrinsic::coro_subfn_addr:
     case Intrinsic::threadlocal_address:
+    case Intrinsic::experimental_widenable_condition:
       // These intrinsics don't actually represent code after lowering.
       return 0;
     }
@@ -977,6 +1000,8 @@ public:
         /* OperatorStrategy */ TargetTransformInfo::VPLegalization::Convert);
   }
 
+  bool hasArmWideBranch(bool) const { return false; }
+
 protected:
   // Obtain the minimum required size to hold the value (without the sign)
   // In case of a vector it returns the min required size for one element.
@@ -993,7 +1018,7 @@ protected:
 
       // The max required size is the size of the vector element type
       unsigned MaxRequiredSize =
-          VT->getElementType()->getPrimitiveSizeInBits().getFixedSize();
+          VT->getElementType()->getPrimitiveSizeInBits().getFixedValue();
 
       unsigned MinRequiredSize = 0;
       for (unsigned i = 0, e = VT->getNumElements(); i < e; ++i) {
@@ -1002,7 +1027,7 @@ protected:
           bool signedElement = IntElement->getValue().isNegative();
           // Get the element min required size.
           unsigned ElementMinRequiredSize =
-              IntElement->getValue().getMinSignedBits() - 1;
+              IntElement->getValue().getSignificantBits() - 1;
           // In case one element is signed then all the vector is signed.
           isSigned |= signedElement;
           // Save the max required bit size between all the elements.
@@ -1017,7 +1042,7 @@ protected:
 
     if (const auto *CI = dyn_cast<ConstantInt>(Val)) {
       isSigned = CI->getValue().isNegative();
-      return CI->getValue().getMinSignedBits() - 1;
+      return CI->getValue().getSignificantBits() - 1;
     }
 
     if (const auto *Cast = dyn_cast<SExtInst>(Val)) {
@@ -1113,7 +1138,7 @@ public:
         if (isa<ScalableVectorType>(TargetType))
           return TTI::TCC_Basic;
         int64_t ElementSize =
-            DL.getTypeAllocSize(GTI.getIndexedType()).getFixedSize();
+            DL.getTypeAllocSize(GTI.getIndexedType()).getFixedValue();
         if (ConstIdx) {
           BaseOffset +=
               ConstIdx->getValue().sextOrTrunc(PtrSizeBits) * ElementSize;
@@ -1133,6 +1158,42 @@ public:
             Ptr->getType()->getPointerAddressSpace()))
       return TTI::TCC_Free;
     return TTI::TCC_Basic;
+  }
+
+  InstructionCost getPointersChainCost(ArrayRef<const Value *> Ptrs,
+                                       const Value *Base,
+                                       const TTI::PointersChainInfo &Info,
+                                       TTI::TargetCostKind CostKind) {
+    InstructionCost Cost = TTI::TCC_Free;
+    // In the basic model we take into account GEP instructions only
+    // (although here can come alloca instruction, a value, constants and/or
+    // constant expressions, PHIs, bitcasts ... whatever allowed to be used as a
+    // pointer). Typically, if Base is a not a GEP-instruction and all the
+    // pointers are relative to the same base address, all the rest are
+    // either GEP instructions, PHIs, bitcasts or constants. When we have same
+    // base, we just calculate cost of each non-Base GEP as an ADD operation if
+    // any their index is a non-const.
+    // If no known dependecies between the pointers cost is calculated as a sum
+    // of costs of GEP instructions.
+    for (const Value *V : Ptrs) {
+      const auto *GEP = dyn_cast<GetElementPtrInst>(V);
+      if (!GEP)
+        continue;
+      if (Info.isSameBase() && V != Base) {
+        if (GEP->hasAllConstantIndices())
+          continue;
+        Cost += static_cast<T *>(this)->getArithmeticInstrCost(
+            Instruction::Add, GEP->getType(), CostKind,
+            {TTI::OK_AnyValue, TTI::OP_None}, {TTI::OK_AnyValue, TTI::OP_None},
+            std::nullopt);
+      } else {
+        SmallVector<const Value *> Indices(GEP->indices());
+        Cost += static_cast<T *>(this)->getGEPCost(GEP->getSourceElementType(),
+                                                   GEP->getPointerOperand(),
+                                                   Indices, CostKind);
+      }
+    }
+    return Cost;
   }
 
   InstructionCost getInstructionCost(const User *U,
@@ -1251,7 +1312,7 @@ public:
       // destination type of the trunc instruction rather than the load to
       // accurately estimate the cost of this load instruction.
       if (CostKind == TTI::TCK_CodeSize && LI->hasOneUse() &&
-          !LoadType->isVectorTy()) {    
+          !LoadType->isVectorTy()) {
         if (const TruncInst *TI = dyn_cast<TruncInst>(*LI->user_begin()))
           LoadType = TI->getDestTy();
       }
@@ -1297,7 +1358,7 @@ public:
       if (auto *CI = dyn_cast<ConstantInt>(IE->getOperand(2)))
         if (CI->getValue().getActiveBits() <= 32)
           Idx = CI->getZExtValue();
-      return TargetTTI->getVectorInstrCost(*IE, Ty, Idx);
+      return TargetTTI->getVectorInstrCost(*IE, Ty, CostKind, Idx);
     }
     case Instruction::ShuffleVector: {
       auto *Shuffle = dyn_cast<ShuffleVectorInst>(U);
@@ -1328,7 +1389,7 @@ public:
         int ReplicationFactor, VF;
         if (Shuffle->isReplicationMask(ReplicationFactor, VF)) {
           APInt DemandedDstElts =
-              APInt::getNullValue(Shuffle->getShuffleMask().size());
+              APInt::getZero(Shuffle->getShuffleMask().size());
           for (auto I : enumerate(Shuffle->getShuffleMask())) {
             if (I.value() != UndefMaskElem)
               DemandedDstElts.setBit(I.index());
@@ -1393,7 +1454,7 @@ public:
         if (CI->getValue().getActiveBits() <= 32)
           Idx = CI->getZExtValue();
       Type *DstTy = U->getOperand(0)->getType();
-      return TargetTTI->getVectorInstrCost(*EEI, DstTy, Idx);
+      return TargetTTI->getVectorInstrCost(*EEI, DstTy, CostKind, Idx);
     }
     }
 

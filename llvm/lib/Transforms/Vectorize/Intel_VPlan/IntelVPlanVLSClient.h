@@ -28,35 +28,44 @@ class VPlanVLSAnalysis;
 class VPVLSClientMemref : public OVLSMemref {
   const VPLoadStoreInst *Inst;
   const VPlanVLSAnalysis *VLSA;
+  // Is the access masked?
+  bool IsMasked;
 
 protected:
   friend class llvm::OVLSContext;
   VPVLSClientMemref(OVLSContext &Context, const OVLSMemrefKind &Kind,
                     OVLSAccessKind AccKind, const OVLSType &Ty,
-                    const VPLoadStoreInst *Inst, const VPlanVLSAnalysis *VLSA)
-      : OVLSMemref(Context, Kind, Ty, AccKind), Inst(Inst), VLSA(VLSA) {}
+                    const VPLoadStoreInst *Inst, const VPlanVLSAnalysis *VLSA,
+                    bool IsMasked)
+      : OVLSMemref(Context, Kind, Ty, AccKind), Inst(Inst), VLSA(VLSA),
+        IsMasked(IsMasked) {}
 
 public:
   static VPVLSClientMemref *create(OVLSContext &Context,
                                    const OVLSMemrefKind &Kind,
                                    OVLSAccessKind AccKind, const OVLSType &Ty,
                                    const VPLoadStoreInst *Inst,
-                                   const VPlanVLSAnalysis *VLSA) {
-    return Context.create<VPVLSClientMemref>(Kind, AccKind, Ty, Inst, VLSA);
+                                   const VPlanVLSAnalysis *VLSA,
+                                   bool IsMasked) {
+    return Context.create<VPVLSClientMemref>(Kind, AccKind, Ty, Inst, VLSA,
+                                             IsMasked);
   }
 
-  Optional<int64_t> getConstDistanceFrom(const OVLSMemref &From) const override;
+  std::optional<int64_t>
+  getConstDistanceFrom(const OVLSMemref &From) const override;
 
   bool canMoveTo(const OVLSMemref &To) override;
 
   bool static isConstStride(const VPLoadStoreInst *Inst,
-                            const VPlanScalarEvolutionLLVM *VPSE);
-  Optional<int64_t> getConstStride() const override;
+                            const VPlanScalarEvolutionLLVM *VPSE,
+                            std::optional<int64_t> &Stride);
+  std::optional<int64_t> getConstStride() const override;
 
   bool dominates(const OVLSMemref &Mrf) const override;
   bool postDominates(const OVLSMemref &Mrf) const override;
 
   const VPLoadStoreInst *getInstruction(void) const { return Inst; }
+  bool isMasked() const override { return IsMasked; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &Os, unsigned Indent) const override;

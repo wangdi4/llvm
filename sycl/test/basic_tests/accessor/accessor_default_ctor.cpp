@@ -1,6 +1,4 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-// Timeout tracked on https://jira.devtools.intel.com/browse/CMPLRLLVM-41515
-// UNSUPPORTED: windows
 
 #include <sycl/sycl.hpp>
 
@@ -13,9 +11,9 @@ int main() {
   assert(B.byte_size() == 0);
   // The return values of get_pointer() and get_multi_ptr() are unspecified.
   assert(B.get_pointer() == nullptr);
-  // TODO: uncomment check with get_multi_ptr() when SYCL 2020 mupti_ptr feature
-  // will be merged
-  // assert(B.get_multi_ptr() == nullptr);
+  assert(B.get_multi_ptr<sycl::access::decorated::yes>() == nullptr);
+  assert(B.get_multi_ptr<sycl::access::decorated::no>() == nullptr);
+  assert(B.get_multi_ptr<sycl::access::decorated::legacy>() == nullptr);
 
   return 0;
 }

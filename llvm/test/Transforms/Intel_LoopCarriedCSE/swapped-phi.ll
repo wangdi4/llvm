@@ -18,7 +18,7 @@
 ;   }
 ;}
 ;
-; RUN: opt -passes="loop-carried-cse" -S 2>&1 < %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="loop-carried-cse" -S 2>&1 < %s | FileCheck %s
 ;
 ; CHECK: %1 = sub i32 %gepload48, %gepload
 ; CHECK: %t36.0 = phi i32

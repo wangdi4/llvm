@@ -25,6 +25,8 @@
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Path.h"
 
+using namespace llvm;
+
 namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
@@ -33,8 +35,7 @@ void CPUProgram::ReleaseExecutionEngine() {
   // We have to remove the built-ins module from execEngine
   // since this module is owned by compiler.
   if (m_pExecutionEngine) {
-    for (llvm::SmallVector<llvm::Module *, 2>::iterator it =
-             m_bltnFuncList.begin();
+    for (SmallVector<Module *, 2>::iterator it = m_bltnFuncList.begin();
          it != m_bltnFuncList.end(); ++it) {
       m_pExecutionEngine->removeModule(*it);
     }
@@ -54,12 +55,12 @@ CPUProgram::~CPUProgram() {
   ReleaseExecutionEngine();
 }
 
-uintptr_t CPUProgram::LLJITLookUp(llvm::StringRef Name) const {
+uintptr_t CPUProgram::LLJITLookUp(StringRef Name) const {
   uintptr_t Addr = 0;
   try {
     auto Sym = m_LLJIT->lookup(Name);
-    if (llvm::Error Err = Sym.takeError()) {
-      llvm::logAllUnhandledErrors(std::move(Err), LLJITLogStream);
+    if (Error Err = Sym.takeError()) {
+      logAllUnhandledErrors(std::move(Err), LLJITLogStream);
       throw Exceptions::CompilerException("Failed to lookup symbol " +
                                           Name.str() + '\n' + getLLJITLog());
     }
@@ -71,7 +72,7 @@ uintptr_t CPUProgram::LLJITLookUp(llvm::StringRef Name) const {
   return Addr;
 }
 
-void *CPUProgram::GetPointerToGlobalValue(llvm::StringRef Name) const {
+void *CPUProgram::GetPointerToGlobalValue(StringRef Name) const {
   assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
   uintptr_t Addr;
   if (m_LLJIT) {
@@ -82,7 +83,7 @@ void *CPUProgram::GetPointerToGlobalValue(llvm::StringRef Name) const {
   return reinterpret_cast<void *>(Addr);
 }
 
-void *CPUProgram::GetPointerToFunction(llvm::StringRef Name) const {
+void *CPUProgram::GetPointerToFunction(StringRef Name) const {
   assert((m_pExecutionEngine || m_LLJIT) && "Invalid JIT");
   uintptr_t Addr;
   if (m_LLJIT) {
@@ -132,9 +133,9 @@ cl_dev_err_code CPUProgram::Finalize() {
         ctor();
       }
     } else {
-      llvm::Error err = m_LLJIT->initialize(m_LLJIT->getMainJITDylib());
+      Error err = m_LLJIT->initialize(m_LLJIT->getMainJITDylib());
       if (err) {
-        llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+        logAllUnhandledErrors(std::move(err), errs());
         return CL_DEV_JIT_FAIL;
       }
     }
@@ -175,7 +176,7 @@ void CPUProgram::LoadProfileLib() {
   assert(m_LLJIT && "profiling only supports LLJIT now");
   std::string ClangRuntimePath = Intel::OpenCL::Utils::GetClangRuntimePath();
   SmallString<128> ProfileLibPath(ClangRuntimePath);
-  llvm::sys::path::append(ProfileLibPath, PROFILE_LIB_NAME);
+  sys::path::append(ProfileLibPath, PROFILE_LIB_NAME);
 
   std::string Env;
   if (Intel::OpenCL::Utils::getEnvVar(Env,
@@ -183,24 +184,24 @@ void CPUProgram::LoadProfileLib() {
       !Env.empty())
     ProfileLibPath = Env;
 
-  if (!llvm::sys::fs::exists(ProfileLibPath)) {
-    llvm::logAllUnhandledErrors(
-        llvm::createStringError(llvm::errc::no_such_file_or_directory,
-                                "The program was built with profiling but the "
-                                "clang profile library is not found"),
-        llvm::errs());
+  if (!sys::fs::exists(ProfileLibPath)) {
+    logAllUnhandledErrors(
+        createStringError(errc::no_such_file_or_directory,
+                          "The program was built with profiling but the "
+                          "clang profile library is not found"),
+        errs());
     throw Exceptions::DeviceBackendExceptionBase(
         "Clang profile library is not found");
   }
   auto &JD = m_LLJIT->getMainJITDylib();
-  unique_function<Expected<llvm::orc::MaterializationUnit::Interface>(
-      llvm::orc::ExecutionSession & ES, MemoryBufferRef ObjBuffer)>
-      GetObjFileInterface = llvm::orc::getObjectFileInterface;
-  auto G = llvm::orc::StaticLibraryDefinitionGenerator::Load(
+  unique_function<Expected<orc::MaterializationUnit::Interface>(
+      orc::ExecutionSession & ES, MemoryBufferRef ObjBuffer)>
+      GetObjFileInterface = orc::getObjectFileInterface;
+  auto G = orc::StaticLibraryDefinitionGenerator::Load(
       m_LLJIT->getObjLinkingLayer(), ProfileLibPath.c_str(),
-      m_LLJIT->getTargetTriple(), std::move(GetObjFileInterface));
+      std::move(GetObjFileInterface));
   if (!G) {
-    llvm::logAllUnhandledErrors(std::move(G.takeError()), llvm::errs());
+    logAllUnhandledErrors(std::move(G.takeError()), errs());
     throw Exceptions::CompilerException("Failed to load clang profile library");
   }
   JD.addGenerator(std::move(*G));

@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -817,7 +817,9 @@ m_ImmConstant(Constant *&C) {
 }
 
 /// Match a specified Value*.
-struct specificval_ty {
+#if INTEL_CUSTOMIZATION
+template <typename Class> struct specificval_ty {
+  INTEL_INJECT_VPLAN_TEMPLATIZATION(Class);
   const Value *Val;
 
   specificval_ty(const Value *V) : Val(V) {}
@@ -826,7 +828,11 @@ struct specificval_ty {
 };
 
 /// Match if we have a specific specified value.
-inline specificval_ty m_Specific(const Value *V) { return V; }
+template <typename Class>
+inline specificval_ty<Class> m_Specific(const Class *V) {
+  return V;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Stores a reference to the Value *, not the Value * itself,
 /// thus can be used in commutative matchers.
@@ -1614,7 +1620,7 @@ struct m_SplatOrUndefMask {
   int &SplatIndex;
   m_SplatOrUndefMask(int &SplatIndex) : SplatIndex(SplatIndex) {}
   bool match(ArrayRef<int> Mask) {
-    auto First = find_if(Mask, [](int Elem) { return Elem != -1; });
+    const auto *First = find_if(Mask, [](int Elem) { return Elem != -1; });
     if (First == Mask.end())
       return false;
     SplatIndex = *First;
@@ -2386,10 +2392,12 @@ m_NSWNeg(const ValTy &V) {
 }
 
 /// Matches a 'Not' as 'xor V, -1' or 'xor -1, V'.
+/// NOTE: we first match the 'Not' (by matching '-1'),
+/// and only then match the inner matcher!
 template <typename ValTy>
-inline BinaryOp_match<ValTy, cst_pred_ty<is_all_ones>, Instruction::Xor, true>
+inline BinaryOp_match<cst_pred_ty<is_all_ones>, ValTy, Instruction::Xor, true>
 m_Not(const ValTy &V) {
-  return m_c_Xor(V, m_AllOnes());
+  return m_c_Xor(m_AllOnes(), V);
 }
 
 template <typename ValTy> struct NotForbidUndef_match {
@@ -2565,9 +2573,6 @@ inline InsertValue_match<Ind, Val_t, Elt_t> m_InsertValue(const Val_t &Val,
 ///  `ptrtoint(gep <vscale x 1 x i8>, <vscale x 1 x i8>* null, i32 1>`
 /// under the right conditions determined by DataLayout.
 struct VScaleVal_match {
-  const DataLayout &DL;
-  VScaleVal_match(const DataLayout &DL) : DL(DL) {}
-
   template <typename ITy> bool match(ITy *V) {
     if (m_Intrinsic<Intrinsic::vscale>().match(V))
       return true;
@@ -2575,11 +2580,12 @@ struct VScaleVal_match {
     Value *Ptr;
     if (m_PtrToInt(m_Value(Ptr)).match(V)) {
       if (auto *GEP = dyn_cast<GEPOperator>(Ptr)) {
-        auto *DerefTy = GEP->getSourceElementType();
-        if (GEP->getNumIndices() == 1 && isa<ScalableVectorType>(DerefTy) &&
+        auto *DerefTy =
+            dyn_cast<ScalableVectorType>(GEP->getSourceElementType());
+        if (GEP->getNumIndices() == 1 && DerefTy &&
+            DerefTy->getElementType()->isIntegerTy(8) &&
             m_Zero().match(GEP->getPointerOperand()) &&
-            m_SpecificInt(1).match(GEP->idx_begin()->get()) &&
-            DL.getTypeAllocSizeInBits(DerefTy).getKnownMinSize() == 8)
+            m_SpecificInt(1).match(GEP->idx_begin()->get()))
           return true;
       }
     }
@@ -2588,8 +2594,8 @@ struct VScaleVal_match {
   }
 };
 
-inline VScaleVal_match m_VScale(const DataLayout &DL) {
-  return VScaleVal_match(DL);
+inline VScaleVal_match m_VScale() {
+  return VScaleVal_match();
 }
 
 template <typename LHS, typename RHS, unsigned Opcode, bool Commutable = false>
@@ -2673,6 +2679,25 @@ template <typename LHS, typename RHS>
 inline LogicalOp_match<LHS, RHS, Instruction::Or, true>
 m_c_LogicalOr(const LHS &L, const RHS &R) {
   return LogicalOp_match<LHS, RHS, Instruction::Or, true>(L, R);
+}
+
+/// Matches either L && R or L || R,
+/// either one being in the either binary or logical form.
+/// Note that the latter form is poison-blocking.
+template <typename LHS, typename RHS, bool Commutable = false>
+inline auto m_LogicalOp(const LHS &L, const RHS &R) {
+  return m_CombineOr(
+      LogicalOp_match<LHS, RHS, Instruction::And, Commutable>(L, R),
+      LogicalOp_match<LHS, RHS, Instruction::Or, Commutable>(L, R));
+}
+
+/// Matches either L && R or L || R where L and R are arbitrary values.
+inline auto m_LogicalOp() { return m_LogicalOp(m_Value(), m_Value()); }
+
+/// Matches either L && R or L || R with LHS and RHS in either order.
+template <typename LHS, typename RHS>
+inline auto m_c_LogicalOp(const LHS &L, const RHS &R) {
+  return m_LogicalOp<LHS, RHS, /*Commutable=*/true>(L, R);
 }
 
 } // end namespace PatternMatch

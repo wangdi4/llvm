@@ -26,7 +26,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   UpdateInstructions:
 ; CHECK-NEXT:   none
-; CHECK-NEXT:   RedDescr: {Kind: call, IsSigned: 0}
+; CHECK-NEXT:   RedDescr: {Kind: call, IsSigned: 0, IsComplex: 0}
 ; CHECK-NEXT:   RedDescrUDR: {Combiner: .omp_combiner., Initializer: .omp_initializer., Ctor: none, Dtor: none, Inscan: inclusive}
 ; CHECK-NEXT: VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT: VPlan IR for: _Z3udsPfS_:DIR.VPO.END.GUARD.MEM.MOTION.426.#1

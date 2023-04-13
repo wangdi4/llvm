@@ -21,6 +21,7 @@
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/DynamicLibrary.h"
 
+#include <cstdint>
 #include <stdio.h>
 
 #ifdef _WIN32
@@ -201,9 +202,77 @@ extern "C" LLVM_BACKEND_API int __opencl_atexit(void (*function)(void)) {
 
 // OpenCL20. Extended execution
 class IDeviceCommandManager;
-class IBlockToKernelMapper;
+#include "Intel_opencl_task_sequence.h" // INTEL
 #include "opencl20_ext_execution.h"
-#include "opencl_task_sequence.h"
+
+#define GET_VALUE_SUFFIX(_k, _v)                                               \
+  (strcmp(_k, _v) ? (std::string("PU3AS4") + _v) : std::string("S0_"))
+
+#define REGISTER_KEY_VALUE_SORT_HELPER(KEYTYPE, KEYSUFFIX)                     \
+  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, char, "c")                    \
+  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, uint8_t, "h")                 \
+  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, short, "s")                   \
+  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, uint16_t, "t")                \
+  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, int, "i")                     \
+  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, uint32_t, "j")                \
+  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, long, "l")                    \
+  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, uint64_t, "m")                \
+  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, half, "Dh")                   \
+  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, float, "f")                   \
+  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, double, "d")
+
+#define REGISTER_SORT_BI(ArgType, Suffix)                                      \
+  REGISTER_BI_FUNCTION(                                                        \
+      (std::string("_Z10__ocl_sortPU3AS4") + Suffix + "jb").c_str(),           \
+      __ocl_sort_##ArgType)
+
+#define REGISTER_KEY_VALUE_SORT_BI(KeyArgType, KeySuffix, ValueArgType,        \
+                                   ValueSuffix)                                \
+  REGISTER_BI_FUNCTION((std::string("_Z10__ocl_sortPU3AS4") + KeySuffix +      \
+                        GET_VALUE_SUFFIX(KeySuffix, ValueSuffix) + "jb")       \
+                           .c_str(),                                           \
+                       __ocl_sort_##KeyArgType##_##ValueArgType)
+
+#define SORT_BI_REGISTER(TYPE, SUFFIX)                                         \
+  REGISTER_SORT_BI(TYPE, SUFFIX)                                               \
+  REGISTER_KEY_VALUE_SORT_HELPER(TYPE, SUFFIX)
+
+#define SORT_KEY_ONLY_BI_DECRATION(ArgType)                                    \
+  extern "C" LLVM_BACKEND_API void __ocl_sort_##ArgType(ArgType *, uint32_t,   \
+                                                        bool);
+
+#define SORT_KEY_VALUE_BI_DECRATION(KeyType, ValueType)                        \
+  extern "C" LLVM_BACKEND_API void __ocl_sort_##KeyType##_##ValueType(         \
+      KeyType *, ValueType *, uint32_t, bool);
+
+#define SORT_KEY_VALUE_BI_DECRATION_HELPER(KeyType)                            \
+  SORT_KEY_VALUE_BI_DECRATION(KeyType, char)                                   \
+  SORT_KEY_VALUE_BI_DECRATION(KeyType, uint8_t)                                \
+  SORT_KEY_VALUE_BI_DECRATION(KeyType, short)                                  \
+  SORT_KEY_VALUE_BI_DECRATION(KeyType, uint16_t)                               \
+  SORT_KEY_VALUE_BI_DECRATION(KeyType, int)                                    \
+  SORT_KEY_VALUE_BI_DECRATION(KeyType, uint32_t)                               \
+  SORT_KEY_VALUE_BI_DECRATION(KeyType, long)                                   \
+  SORT_KEY_VALUE_BI_DECRATION(KeyType, uint64_t)                               \
+  SORT_KEY_VALUE_BI_DECRATION(KeyType, half)                                   \
+  SORT_KEY_VALUE_BI_DECRATION(KeyType, float)                                  \
+  SORT_KEY_VALUE_BI_DECRATION(KeyType, double)
+
+#define SORT_BI_DECRATION(TYPE)                                                \
+  SORT_KEY_ONLY_BI_DECRATION(TYPE)                                             \
+  SORT_KEY_VALUE_BI_DECRATION_HELPER(TYPE)
+
+SORT_BI_DECRATION(char)
+SORT_BI_DECRATION(uint8_t)
+SORT_BI_DECRATION(short)
+SORT_BI_DECRATION(uint16_t)
+SORT_BI_DECRATION(int)
+SORT_BI_DECRATION(uint32_t)
+SORT_BI_DECRATION(long)
+SORT_BI_DECRATION(uint64_t)
+SORT_BI_DECRATION(half)
+SORT_BI_DECRATION(float)
+SORT_BI_DECRATION(double)
 
 // Register BI functions defined above to JIT.
 //   MCJIT: use llvm::sys::DynamicLibrary::AddSymbol for each function.
@@ -212,8 +281,7 @@ class IBlockToKernelMapper;
   if (LLJIT) {                                                                 \
     if (auto Err = LLJIT->getMainJITDylib().define(llvm::orc::absoluteSymbols( \
             {{LLJIT->mangleAndIntern(name),                                    \
-              llvm::JITEvaluatedSymbol(llvm::pointerToJITTargetAddress(&ptr),  \
-                                       flag)}})))                              \
+              {llvm::orc::ExecutorAddr::fromPtr(&ptr), flag}}})))              \
       return Err;                                                              \
   } else {                                                                     \
     llvm::sys::DynamicLibrary::AddSymbol(llvm::StringRef(name),                \
@@ -268,11 +336,13 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT) {
   REGISTER_BI_FUNCTION("__ocl20_get_kernel_preferred_wg_size_multiple",
                        __ocl20_get_kernel_preferred_wg_size_multiple)
   REGISTER_BI_FUNCTION("__ocl20_is_valid_event", __ocl20_is_valid_event)
+#if INTEL_CUSTOMIZATION
   REGISTER_BI_FUNCTION("__ocl_task_sequence_create", __ocl_task_sequence_create)
   REGISTER_BI_FUNCTION("__ocl_task_sequence_async", __ocl_task_sequence_async)
   REGISTER_BI_FUNCTION("__ocl_task_sequence_get", __ocl_task_sequence_get)
   REGISTER_BI_FUNCTION("__ocl_task_sequence_release",
                        __ocl_task_sequence_release)
+#endif // INTEL_CUSTOMIZATION
   REGISTER_BI_FUNCTION("__emutls_get_address", __opencl_emutls_get_address)
   // Floating-point extend/truncate builtins
   REGISTER_BI_FUNCTION("__gnu_f2h_ieee", __gnu_f2h_ieee)
@@ -319,6 +389,18 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT) {
   REGISTER_BI_FUNCTION("_alloca", ___chkstk)
 #endif
 #endif
+
+  SORT_BI_REGISTER(char, "c")
+  SORT_BI_REGISTER(uint8_t, "h")
+  SORT_BI_REGISTER(short, "s")
+  SORT_BI_REGISTER(uint16_t, "t")
+  SORT_BI_REGISTER(int, "i")
+  SORT_BI_REGISTER(uint32_t, "j")
+  SORT_BI_REGISTER(long, "l")
+  SORT_BI_REGISTER(uint64_t, "m")
+  SORT_BI_REGISTER(half, "Dh")
+  SORT_BI_REGISTER(float, "f")
+  SORT_BI_REGISTER(double, "d")
 
   return llvm::Error::success();
 }

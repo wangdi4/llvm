@@ -34,7 +34,7 @@ tblgenoclblt(
 
 # generate shared LL builtin implementations
 set(SHARED_LL_TD_FILES GENERIC/ll_sub_group_block_assume_uniform.td
-                       shared/ll_conversion.td shared/ll_subgroup_impl.td)
+                       shared/ll_conversion.td shared/ll_subgroup_impl.td shared/ll_workgroup_sort.td)
 set(SHARED_LL_IMPLS)
 foreach(FILE ${SHARED_LL_TD_FILES})
   tblgenllblt(LL_OUTPUT ${INTERMEDIATE_OUTPUT_DIR} ${FILE})
@@ -60,9 +60,9 @@ add_custom_command(
     ${INTERMEDIATE_OUTPUT_DIR}/${OUTPUT_FILE}_link ${TMP_FILES}
     ${SHARED_LL_IMPLS}
   COMMAND
-    ${OPT} ${INTERMEDIATE_OUTPUT_DIR}/${OUTPUT_FILE}_link -O3
-    -disable-intel-proprietary-opts -o
-    ${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE}
+    ${OPT} ${INTERMEDIATE_OUTPUT_DIR}/${OUTPUT_FILE}_link ${CL_OPT_LEVEL}
+    -disable-intel-proprietary-opts # INTEL
+    -o ${BUILTINS_SHARED_OUTPUT_DIR}/${OUTPUT_FILE}
   DEPENDS ${LLVM_LINK} ${OPT} ${TMP_FILES} ${SHARED_LL_IMPLS}
   VERBATIM)
 

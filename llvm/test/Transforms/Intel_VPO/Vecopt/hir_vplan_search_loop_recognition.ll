@@ -22,8 +22,8 @@
 
 ; INTEL_FEATURE_SW_DTRANS
 ; VALUECMP_RECOGNIZED-CHECK: RegDDRef (%a)[i1] is unsafe.
-; VALUECMP_RECOGNIZED-CHECK: PredicateTy 33 is unsafe.
-; VALUECMP_RECOGNIZED-CHECK: PtrEq: Pred:33
+; VALUECMP_RECOGNIZED-CHECK: PredicateTy ne is unsafe.
+; VALUECMP_RECOGNIZED-CHECK: PtrEq: Pred:ne
 ; VALUECMP_RECOGNIZED-CHECK: PredLhs:{al:1}(LINEAR i8* %a)[LINEAR i64 i1] inbounds  !tbaa !4 {sb:13}
 ; VALUECMP_RECOGNIZED-CHECK: PredRhs:LINEAR i8 %val {sb:10}
 ; VALUECMP_RECOGNIZED-CHECK: ValueCmp loop has PeelArray:(%a)[i1]

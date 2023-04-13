@@ -21,6 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Support/CommandLine.h"
@@ -164,6 +165,11 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
 }
 
 HLLoop &HLLoop::operator=(HLLoop &&Lp) {
+
+  if (&Lp == this) {
+    return *this;
+  }
+
   OrigLoop = Lp.OrigLoop;
   IVType = Lp.IVType;
   HasSignedIV = Lp.HasSignedIV;
@@ -1165,6 +1171,13 @@ void HLLoop::replaceByFirstIteration(bool ExtractPostexit,
     extractPostexit();
   }
 
+  // The instructions are potentially being moved to parent loop so we need to
+  // invalidate analysis to avoid stale data.
+  if (getParentLoop()) {
+    HIRInvalidationUtils::invalidateBody(this);
+    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(this);
+  }
+
   ForEach<RegDDRef>::visitRange(
       child_begin(), child_end(),
       [this, Level, &LB, &HaveExplicitLB, &InnerLoops](RegDDRef *Ref) {
@@ -1586,7 +1599,8 @@ static bool normalizeCE(const HLLoop *Lp, CanonExpr *CE,
   return true;
 }
 
-bool HLLoop::normalize(bool AllowExplicitBoundInst) {
+bool HLLoop::normalize(bool AllowExplicitBoundInst,
+                       HLInst **ExplicitBoundInst) {
   if (isNormalized()) {
     return true;
   }
@@ -1613,13 +1627,20 @@ bool HLLoop::normalize(bool AllowExplicitBoundInst) {
     // otherwise loop invariant operations in the lower get embedded inside the
     // normalized CEs in the loop body and may not exist in a hoistable form.
     if (ExplicitLowerBoundSwitch && AllowExplicitBoundInst) {
-      HLInst *LBCopyInst =
-          getHLNodeUtils().createCopyInst(removeLowerDDRef(), "lb");
-      HLNodeUtils::insertAsLastPreheaderNode(this, LBCopyInst);
+      if (ExplicitBoundInst && (*ExplicitBoundInst)) {
+        LowerRef = (*ExplicitBoundInst)->getLvalDDRef()->clone();
+      } else {
+        HLInst *LBCopyInst =
+            getHLNodeUtils().createCopyInst(removeLowerDDRef(), "lb");
+        HLNodeUtils::insertAsLastPreheaderNode(this, LBCopyInst);
 
-      LBCopyInst->getRvalDDRef()->makeConsistent();
+        LBCopyInst->getRvalDDRef()->makeConsistent();
 
-      LowerRef = LBCopyInst->getLvalDDRef()->clone();
+        LowerRef = LBCopyInst->getLvalDDRef()->clone();
+        if (ExplicitBoundInst) {
+          *ExplicitBoundInst = LBCopyInst;
+        }
+      }
 
       LowerCE = LowerRef->getSingleCanonExpr();
       LowerCE->setDefinedAtLevel(Level - 1);
@@ -1628,6 +1649,7 @@ bool HLLoop::normalize(bool AllowExplicitBoundInst) {
 
       LowerBlob = LowerCE;
 
+      addLiveInTemp(LowerRef);
     } else {
       LowerBlob = LowerCE->clone();
       LowerBlob->convertToStandAloneBlobOrConstant();
@@ -2351,7 +2373,7 @@ void HLLoop::setPragmaBasedAverageTripCount(unsigned AvgTripCount) {
 }
 
 void HLLoop::dividePragmaBasedTripCount(unsigned Factor) {
-  unsigned TC;
+  unsigned TC = 0;
 
   if (getPragmaBasedMinimumTripCount(TC)) {
     setPragmaBasedMinimumTripCount(TC / Factor);

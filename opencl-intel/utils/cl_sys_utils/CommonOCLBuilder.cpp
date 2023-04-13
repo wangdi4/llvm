@@ -14,8 +14,8 @@
 
 #include "CommonOCLBuilder.h"
 
-#include "common_clang.h"
 #include "ocl_string_exception.h"
+#include "opencl_clang.h"
 
 #include <clang_device_info.h>
 #include <string>
@@ -37,8 +37,15 @@ CommonOCLBuilder &CommonOCLBuilder::withSource(const char *src) {
   return *this;
 }
 
-CommonOCLBuilder &CommonOCLBuilder::withExtensions(const char *extensions) {
+CommonOCLBuilder &
+CommonOCLBuilder::withExtensions(const std::string &extensions) {
   m_extensions = extensions;
+  return *this;
+}
+
+CommonOCLBuilder &
+CommonOCLBuilder::withOpenCLCFeatures(const std::string &features) {
+  m_OpenCLCFeatures = features;
   return *this;
 }
 
@@ -114,11 +121,10 @@ CommonOCLBuilder::CommonOCLBuilder()
       m_bSupportImages(true), m_bFpgaEmulator(false) {}
 
 CommonOCLBuilder &CommonOCLBuilder::createCompiler() {
-  // constants
-  const char *strDeviceOptions = m_extensions.c_str();
-
   Intel::OpenCL::ClangFE::CLANG_DEV_INFO sDeviceInfo = {
-      strDeviceOptions, m_bSupportImages, m_bSupportFP16, m_bSupportFP64, 0,
+      m_extensions.c_str(), m_OpenCLCFeatures.c_str(),
+      m_bSupportImages,     m_bSupportFP16,
+      m_bSupportFP64,       0,
       m_bFpgaEmulator};
 
   int rc =

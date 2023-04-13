@@ -64,13 +64,12 @@
 ;
 ; CHECK:  END REGION
 ;
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-scalarrepl-array -disable-output -hir-cg -intel-opt-report=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-scalarrepl-array,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: Global optimization report for : foo
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT:     remark #25583: Number of Array Refs Scalar Replaced In Loop: 6
+;OPTREPORT:     remark #25583: Number of Array Refs Scalar Replaced In Loop: 5
 ;OPTREPORT: LOOP END
 
 ; === ---------------------------------------------------------------- ===

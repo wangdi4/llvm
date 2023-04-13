@@ -1,6 +1,6 @@
 //===- HIRLoopFusion.cpp - Implements Loop Fusion transformation ----------===//
 //
-// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -114,6 +114,7 @@ namespace {
 
 class HIRLoopFusion {
   class LoopVisitor;
+  class GotoOrLabelFinder;
 
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
@@ -557,6 +558,25 @@ public:
   }
 };
 
+// This class is used to travers a node and it's children, except the inner
+// loops, and identify if there is a GOTO or a Label. This could affect the
+// domination/post-domination legality during the fusion.
+class HIRLoopFusion::GotoOrLabelFinder : public HLNodeVisitorBase {
+  bool GotoLabelOrMultiExitFound;
+
+public:
+  GotoOrLabelFinder() : GotoLabelOrMultiExitFound(false) {}
+
+  void visit(const HLNode *) {}
+  void postVisit(const HLNode *) {}
+  void visit(HLLoop *Loop) { GotoLabelOrMultiExitFound = Loop->isMultiExit(); }
+  void visit(const HLGoto *Goto) { GotoLabelOrMultiExitFound = true; }
+  void visit(const HLLabel *Label) { GotoLabelOrMultiExitFound = true; }
+  bool isDone() { return GotoLabelOrMultiExitFound; }
+
+  bool hasGotoLabelOrMultiExit() const { return GotoLabelOrMultiExitFound; }
+};
+
 static const FuseNode &getEffectiveLexicalFirstNode(const FuseGraph &FG) {
   const FuseNode *FirstFuseNode = nullptr;
   unsigned MinTopsortNum = std::numeric_limits<unsigned>::max();
@@ -621,9 +641,68 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
   HLNodeUtils::visitRange<false>(LV, Range.begin(), Range.end());
 
   if (LV.getLoopCount() < 2) {
-    if (HLLoop *Loop = LV.getSingleLoop()) {
+    HLLoop *Loop = LV.getSingleLoop();
+    if (Loop && !Loop->isInnermost()) {
       // Run on the single loop.
       runOnNodeRange(Loop, make_range(Loop->child_begin(), Loop->child_end()));
+    }
+
+    return;
+  }
+
+  // Check whether there is any GOTO or Label that can break domination/
+  // post-domination relationship between loops. In other words, this will
+  // check if there is any GOTO or Label in the parent node, if not then
+  // we can proceed with the loop fusion for the loops in the current level.
+  // Else, loop fusion will recurse, and will try to fuse the inner loops.
+  //
+  // TODO: There still potential to do fusion even if we find a multi-exit
+  // loop. For example:
+  //
+  //   BEGIN REGION { }
+  //         + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>
+  //         |   + DO i2 = 0, zext.i32.i64(%n) + -1, 1   <DO_MULTI_EXIT_LOOP>
+  //         |   |   if ((%a)[i1] == (%c)[i2])
+  //         |   |   {
+  //         |   |      goto for.inc38.loopexit83;
+  //         |   |   }
+  //         |   |   (%b)[i2] = i2 + 1;
+  //         |   + END LOOP
+  //         |
+  //         |
+  //         |   + DO i2 = 0, 9, 1   <DO_LOOP>
+  //         |   |   (%a)[i1 + i2] = (%b)[i2];
+  //         |   + END LOOP
+  //         |
+  //         |
+  //         |   + DO i2 = 0, 9, 1   <DO_LOOP>
+  //         |   |   (%c)[i1 + i2] = (%a)[i2];
+  //         |   + END LOOP
+  //         |
+  //         |   for.inc38.loopexit83:
+  //         + END LOOP
+  //
+  //         ret ;
+  //   END REGION
+  //
+  // The first loop is a multi-exit loop that jumps after the other two loops.
+  // In this case we can fuse these two loops. Another case would be when
+  // there are a group of loops that could be fused, then a node that breaks
+  // the domination/post-domination relationship, followed by another group of
+  // loops that could be fused. In this case we can split the loops in the
+  // LoopVisitor range into smaller ranges and try to run runOnNodeRange on
+  // these smaller groups.
+  GotoOrLabelFinder GF;
+  HLNodeUtils::visitRange<true, false /* RecurseIntoLoops */>(
+      GF, LV.getLoopRange().begin(), LV.getLoopRange().end());
+
+  if (GF.hasGotoLabelOrMultiExit()) {
+    LLVM_DEBUG(dbgs() << "Skipping current parent node since it contains a "
+                         "GOTO, a Label, or is a multi-exit loop\n");
+    for (auto &Child : LV.getLoopRange()) {
+      if (auto *Loop = dyn_cast<HLLoop>(&Child))
+        runOnNodeRange(Loop,
+                       make_range(Loop->child_begin(), Loop->child_end()));
     }
 
     return;
@@ -729,9 +808,9 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
   }
 
   if (WillFuseLoops) {
-    if (HLRegion *PerentRegion = dyn_cast<HLRegion>(ParentNode)) {
-      HIRInvalidationUtils::invalidateNonLoopRegion(PerentRegion);
-      PerentRegion->setGenCode();
+    if (HLRegion *ParentRegion = dyn_cast<HLRegion>(ParentNode)) {
+      HIRInvalidationUtils::invalidateNonLoopRegion(ParentRegion);
+      ParentRegion->setGenCode();
     } else {
       HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(ParentNode);
       ParentNode->getParentRegion()->setGenCode();

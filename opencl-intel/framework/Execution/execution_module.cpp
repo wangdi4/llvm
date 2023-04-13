@@ -99,9 +99,8 @@ void callbackForKernelEventMap(cl_event Evt, ExecutionModule *EM) {
  ******************************************************************/
 ExecutionModule::ExecutionModule(PlatformModule *pPlatformModule,
                                  ContextModule *pContextModule)
-    : m_pPlatfromModule(pPlatformModule), m_pContextModule(pContextModule),
-      m_pOclCommandQueueMap(NULL), m_pEventsManager(NULL),
-      m_pOclEntryPoints(NULL), m_pGPAData(NULL) {
+    : m_pContextModule(pContextModule), m_pOclCommandQueueMap(NULL),
+      m_pEventsManager(NULL), m_pOclEntryPoints(NULL), m_pGPAData(NULL) {
   INIT_LOGGER_CLIENT(TEXT("ExecutionModel"), LL_DEBUG);
 
   LOG_DEBUG(TEXT("%s"), TEXT("ExecutionModule created"));
@@ -1565,7 +1564,7 @@ cl_err_code ExecutionModule::EnqueueCopyBufferRect(
  * Convert void* to PROPERLY aligned CL vector type.
  * It is required, since the void* input may not be aligned at all, and CL
  * vectors are aligned by definition. This may cause runtime errors -
- * see CSSD100013698 - where the compiler called movdqa on CL vector that was
+ * where the compiler called movdqa on CL vector that was
  * C-style casted from a non-aligned void*.
  * @param in non-aligned pointer
  * @param out the target CL vector.
@@ -1930,8 +1929,6 @@ ExecutionModule::RunAutorunKernels(const SharedPtr<Program> &program,
       bool isTask =
           kernel->IsTask(program->GetContext()->GetDevice(devices[i]).GetPtr());
 
-      // According to spec from PSG:
-      //
       // The following kernel:
       // __atrribute__((reqd_work_group_size(X,Y,Z)))
       // __attribute__((autorun))
@@ -2003,7 +2000,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     }
 
     for (cl_uint ui = 0; ui < uiWorkDim; ui++) {
-      LOG_DEBUG(TEXT("EnqueueNDRangeKernel global worksize dim #%u = %u"), ui,
+      LOG_DEBUG(TEXT("EnqueueNDRangeKernel global worksize dim #%u = %zu"), ui,
                 cpszGlobalWorkSize[ui]);
       if (cpszGlobalWorkSize[ui] == 0) {
         return CL_INVALID_GLOBAL_WORK_SIZE;
@@ -2058,13 +2055,13 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
       if (!deviceKernel)
         return CL_INVALID_PROGRAM_EXECUTABLE;
       unsigned dim = std::min((unsigned)forcedWGSizes.size(), uiWorkDim);
-      size_t cpuMaxWGSize =
-          FrameworkProxy::Instance()->GetOCLConfig()->GetCpuMaxWGSize();
+      size_t deviceMaxWGSize =
+          FrameworkProxy::Instance()->GetOCLConfig()->GetDeviceMaxWGSize(
+              isFPGAEmulator);
       for (unsigned i = 0; i < dim; ++i) {
         int size = forcedWGSizes[i];
         if (size <= 0 || (size_t)size > cpszGlobalWorkSize[i] ||
-            (isFPGAEmulator && size > FPGA_MAX_WORK_GROUP_SIZE) ||
-            (!isFPGAEmulator && (size_t)size > cpuMaxWGSize))
+            ((size_t)size > deviceMaxWGSize))
           return CL_INVALID_WORK_GROUP_SIZE;
         if (!deviceKernel->GetKernelNonUniformWGSizeSupport() &&
             (0 != cpszGlobalWorkSize[i] % size))
@@ -2076,7 +2073,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
       cpszLocalWorkSize = forcedWGSizes.data();
     if (cpszLocalWorkSize) {
       for (unsigned int ui = 0; ui < uiWorkDim; ui++) {
-        LOG_DEBUG(TEXT("EnqueueNDRangeKernel local worksize dim #%u = %u"), ui,
+        LOG_DEBUG(TEXT("EnqueueNDRangeKernel local worksize dim #%u = %zu"), ui,
                   cpszLocalWorkSize[ui]);
         if ((cpszLocalWorkSize[ui] == 0) ||
             ((OPENCL_VERSION_1_2 == m_opencl_ver) &&
@@ -3783,9 +3780,8 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(
        !srcBuffer->IsContainedInBuffer(src_ptr, size)) ||
       (nullptr != dstBuffer.GetPtr() &&
        !dstBuffer->IsContainedInBuffer(dst_ptr, size))) {
-    LOG_ERROR(TEXT("either source or destination pointers define a region"
-                   " that spans beyond an USM buffer"),
-              "");
+    LOG_ERROR(TEXT("either source or destination pointers define a "
+                   "region that spans beyond an USM buffer"));
     return CL_INVALID_VALUE;
   }
   if ((nullptr != srcBuffer.GetPtr() && srcBuffer->GetContext() != context) ||
@@ -3874,13 +3870,13 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(
 
 cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
     cl_command_queue command_queue, const void *ptr, size_t size,
-    cl_mem_migration_flags_intel flags, cl_uint num_events_in_wait_list,
+    cl_mem_migration_flags flags, cl_uint num_events_in_wait_list,
     const cl_event *event_wait_list, cl_event *event, ApiLogger *api_logger) {
   // TODO: it is unresolved in spec (rev. O) whether nullptr is an invalid
   // value for ptr and whether 0 is invalid for size.
   if (nullptr == ptr || 0 == size || 0 == flags ||
-      (flags & ~(CL_MIGRATE_MEM_OBJECT_HOST_INTEL |
-                 CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED_INTEL)))
+      (flags &
+       ~(CL_MIGRATE_MEM_OBJECT_HOST | CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)))
     return CL_INVALID_VALUE;
 
   SharedPtr<IOclCommandQueueBase> queue =
@@ -3985,12 +3981,12 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
   return CL_SUCCESS;
 }
 
-cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
-    cl_command_queue command_queue, cl_program program, const char *name,
-    bool blocking_read, size_t size, size_t offset, void *ptr,
+cl_err_code ExecutionModule::EnqueueReadHostPipeINTEL(
+    cl_command_queue command_queue, cl_program program, const char *pipe_symbol,
+    cl_bool blocking_read, void *ptr, size_t size,
     cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
     cl_event *event, ApiLogger *apiLogger) {
-  if (nullptr == name || nullptr == ptr)
+  if (nullptr == pipe_symbol || nullptr == ptr)
     return CL_INVALID_VALUE;
 
   SharedPtr<IOclCommandQueueBase> queue =
@@ -4004,17 +4000,132 @@ cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
     return err;
 
   size_t gvSize;
-  void *gvPtr;
+  void *gvPipeBS;
+  // Retrive the program scope pipe backstore. The name suffix is attached.
+  std::string gvName = std::string(pipe_symbol) + SYCLPIPE_BS;
   err = m_pContextModule->GetDeviceGlobalVariablePointer(
-      queue->GetDefaultDevice()->GetHandle(), program, name, &gvSize, &gvPtr);
+      queue->GetDefaultDevice()->GetHandle(), program, gvName.c_str(), &gvSize,
+      &gvPipeBS);
+
   if (CL_FAILED(err))
     return err;
 
-  if (size + offset > gvSize)
+  if (!gvPipeBS)
+    return CL_INVALID_MEM_OBJECT;
+
+  Command *readHostPipeCmd =
+      new ReadHostPipeIntelFPGACommand(queue, ptr, gvPipeBS, size);
+  if (nullptr == readHostPipeCmd)
+    return CL_OUT_OF_HOST_MEMORY;
+
+  err = readHostPipeCmd->EnqueueSelf(blocking_read, num_events_in_wait_list,
+                                     event_wait_list, event, apiLogger);
+
+  if (CL_FAILED(err)) {
+    delete readHostPipeCmd;
+    return err;
+  }
+
+  return CL_SUCCESS;
+}
+
+cl_err_code ExecutionModule::EnqueueWriteHostPipeINTEL(
+    cl_command_queue command_queue, cl_program program, const char *pipe_symbol,
+    cl_bool blocking_write, const void *ptr, size_t size,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event, ApiLogger *apiLogger) {
+  if (nullptr == pipe_symbol || nullptr == ptr)
     return CL_INVALID_VALUE;
 
-  Command *readGVCmd =
-      new ReadGVCommand(queue, ptr, (void *)((size_t)gvPtr + offset), size);
+  SharedPtr<IOclCommandQueueBase> queue =
+      GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
+  if (nullptr == queue.GetPtr())
+    return CL_INVALID_QUEUE;
+
+  cl_err_code err =
+      CheckEventList(queue, num_events_in_wait_list, event_wait_list);
+  if (CL_FAILED(err))
+    return err;
+
+  size_t gvSize;
+  void *gvPipeBS;
+  // Retrive the program scope pipe backstore. The name suffix is attached.
+  std::string gvName = std::string(pipe_symbol) + SYCLPIPE_BS;
+  err = m_pContextModule->GetDeviceGlobalVariablePointer(
+      queue->GetDefaultDevice()->GetHandle(), program, gvName.c_str(), &gvSize,
+      &gvPipeBS);
+  if (CL_FAILED(err))
+    return err;
+
+  if (!gvPipeBS)
+    return CL_INVALID_MEM_OBJECT;
+
+  Command *writeHostPipeCmd =
+      new WriteHostPipeIntelFPGACommand(queue, gvPipeBS, ptr, size);
+
+  if (nullptr == writeHostPipeCmd)
+    return CL_OUT_OF_HOST_MEMORY;
+
+  err = writeHostPipeCmd->EnqueueSelf(blocking_write, num_events_in_wait_list,
+                                      event_wait_list, event, apiLogger);
+
+  if (CL_FAILED(err)) {
+    delete writeHostPipeCmd;
+    return err;
+  }
+
+  return CL_SUCCESS;
+}
+
+cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
+    cl_command_queue command_queue, cl_program program, const char *name,
+    bool blocking_read, size_t size, size_t offset, void *ptr,
+    cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
+    cl_event *event, ApiLogger *apiLogger) {
+  LOG_DEBUG(TEXT("%s"), TEXT("EnqueueReadGlobalVariable enter"));
+  if (nullptr == name || nullptr == ptr)
+    return CL_INVALID_VALUE;
+
+  SharedPtr<IOclCommandQueueBase> queue =
+      GetCommandQueue(command_queue).DynamicCast<IOclCommandQueueBase>();
+  if (nullptr == queue.GetPtr())
+    return CL_INVALID_QUEUE;
+
+  cl_err_code err =
+      CheckEventList(queue, num_events_in_wait_list, event_wait_list);
+  if (CL_FAILED(err))
+    return err;
+
+  cl_prog_gv gv;
+  err = m_pContextModule->GetDeviceGlobalVariablePointer(
+      queue->GetDefaultDevice()->GetHandle(), program, name, nullptr, nullptr,
+      &gv);
+  if (CL_FAILED(err)) {
+    LOG_ERROR(TEXT("EnqueueReadGlobalVariable failed to get global variable "
+                   "%s, err is %d"),
+              name, err);
+    return err;
+  }
+
+  if (gv.host_access == HOST_ACCESS_NONE ||
+      gv.host_access == HOST_ACCESS_WRITE) {
+    LOG_ERROR(
+        TEXT("EnqueueReadGlobalVariable global variable %s is not writable, "
+             "err is %d"),
+        name, err);
+    return CL_INVALID_OPERATION;
+  }
+
+  if (size + offset > gv.size) {
+    LOG_ERROR(TEXT("EnqueueReadGlobalVariable the region being read specified "
+                   "by (offset, size) is not fully contained by the size of "
+                   "global variable, err is %d"),
+              err);
+    return CL_INVALID_VALUE;
+  }
+
+  Command *readGVCmd = new ReadGVCommand(
+      queue, ptr, (void *)((size_t)gv.pointer + offset), size);
   if (nullptr == readGVCmd)
     return CL_OUT_OF_HOST_MEMORY;
 
@@ -4034,6 +4145,7 @@ cl_err_code ExecutionModule::EnqueueWriteGlobalVariable(
     bool blocking_write, size_t size, size_t offset, const void *ptr,
     cl_uint num_events_in_wait_list, const cl_event *event_wait_list,
     cl_event *event, ApiLogger *apiLogger) {
+  LOG_DEBUG(TEXT("%s"), TEXT("EnqueueWriteGlobalVariable enter"));
   if (nullptr == name || nullptr == ptr)
     return CL_INVALID_VALUE;
 
@@ -4047,18 +4159,37 @@ cl_err_code ExecutionModule::EnqueueWriteGlobalVariable(
   if (CL_FAILED(err))
     return err;
 
-  size_t gvSize;
-  void *gvPtr;
+  cl_prog_gv gv;
   err = m_pContextModule->GetDeviceGlobalVariablePointer(
-      queue->GetDefaultDevice()->GetHandle(), program, name, &gvSize, &gvPtr);
-  if (CL_FAILED(err))
+      queue->GetDefaultDevice()->GetHandle(), program, name, nullptr, nullptr,
+      &gv);
+  if (CL_FAILED(err)) {
+    LOG_ERROR(TEXT("EnqueueWriteGlobalVariable failed to get global variable "
+                   "%s, err is %d"),
+              name, err);
     return err;
+  }
 
-  if (size + offset > gvSize)
+  if (gv.host_access == HOST_ACCESS_NONE ||
+      gv.host_access == HOST_ACCESS_READ) {
+    LOG_ERROR(
+        TEXT("EnqueueWriteGlobalVariable global variable %s is not readable, "
+             "err is %d"),
+        name, err);
+    return CL_INVALID_OPERATION;
+  }
+
+  if (size + offset > gv.size) {
+    LOG_ERROR(
+        TEXT("EnqueueWriteGlobalVariable the region being written specified "
+             "by (offset, size) is not fully contained by the size of "
+             "global variable, err is %d"),
+        err);
     return CL_INVALID_VALUE;
+  }
 
-  Command *writeGVCmd =
-      new WriteGVCommand(queue, (void *)((size_t)gvPtr + offset), ptr, size);
+  Command *writeGVCmd = new WriteGVCommand(
+      queue, (void *)((size_t)gv.pointer + offset), ptr, size);
   if (nullptr == writeGVCmd)
     return CL_OUT_OF_HOST_MEMORY;
 
@@ -4089,11 +4220,11 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
   SharedPtr<Kernel> kernel =
       m_pContextModule->GetLibraryKernel(context, kernelName);
   if (!kernel) {
-    LOG_ERROR(TEXT("EnqueueLibraryCopy GetLibraryKernel failed"), "");
+    LOG_ERROR(TEXT("EnqueueLibraryCopy GetLibraryKernel failed"));
     return CL_OUT_OF_RESOURCES;
   }
   if (kernel->GetContext()->GetId() != queue->GetContextId()) {
-    LOG_ERROR(TEXT("EnqueueLibraryCopy kernel context is invalid"), "");
+    LOG_ERROR(TEXT("EnqueueLibraryCopy kernel context is invalid"));
     return CL_INVALID_CONTEXT;
   }
   assert(kernel->GetKernelArgsCount() == 2 && "Invalid args count");
@@ -4175,11 +4306,11 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
   SharedPtr<Kernel> kernel =
       m_pContextModule->GetLibraryKernel(context, kernelName);
   if (!kernel) {
-    LOG_ERROR(TEXT("EnqueueLibrarySet GetLibraryKernel failed"), "");
+    LOG_ERROR(TEXT("EnqueueLibrarySet GetLibraryKernel failed"));
     return CL_OUT_OF_RESOURCES;
   }
   if (kernel->GetContext()->GetId() != queue->GetContextId()) {
-    LOG_ERROR(TEXT("EnqueueLibrarySet kernel context is invalid"), "");
+    LOG_ERROR(TEXT("EnqueueLibrarySet kernel context is invalid"));
     return CL_INVALID_CONTEXT;
   }
   size_t argsCount = kernel->GetKernelArgsCount();

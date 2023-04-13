@@ -1,6 +1,6 @@
 //==== DeleteFieldOP.cpp - Delete field with support for opaque pointers ====//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,18 +15,17 @@
 
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/PriorityWorklist.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Operator.h"
 
 using namespace llvm;
 using namespace dtransOP;
@@ -54,44 +53,6 @@ cl::opt<unsigned>
                          cl::init(std::numeric_limits<unsigned>::max()),
                          cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-class DTransDeleteFieldOPWrapper : public ModulePass {
-private:
-  dtransOP::DeleteFieldOPPass Impl;
-
-public:
-  static char ID;
-
-  DTransDeleteFieldOPWrapper() : ModulePass(ID) {
-    initializeDTransDeleteFieldOPWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    DTransSafetyAnalyzerWrapper &DTAnalysisWrapper =
-        getAnalysis<DTransSafetyAnalyzerWrapper>();
-    DTransSafetyInfo &DTInfo = DTAnalysisWrapper.getDTransSafetyInfo(M);
-
-    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    WholeProgramInfo &WPInfo =
-        getAnalysis<WholeProgramWrapperPass>().getResult();
-    bool Changed = Impl.runImpl(M, &DTInfo, WPInfo, GetTLI);
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransSafetyAnalyzerWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<TargetLibraryInfoWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
 
 class DeleteFieldOPImpl : public DTransOPOptBase {
 public:
@@ -1160,21 +1121,6 @@ void DeleteFieldOPImpl::postprocessCall(CallBase *Call) {
       dtrans::updateCallSizeOperand(Call, CInfo, OrigTy, ReplTy, TLI);
     }
   }
-}
-
-char DTransDeleteFieldOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransDeleteFieldOPWrapper, "dtrans-deletefieldop",
-                      "DTrans delete field with opaque pointer support", false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransDeleteFieldOPWrapper, "dtrans-deletefieldop",
-                    "DTrans delete field with opaque pointer support", false,
-                    false)
-
-ModulePass *llvm::createDTransDeleteFieldOPWrapperPass() {
-  return new DTransDeleteFieldOPWrapper();
 }
 
 PreservedAnalyses dtransOP::DeleteFieldOPPass::run(Module &M,

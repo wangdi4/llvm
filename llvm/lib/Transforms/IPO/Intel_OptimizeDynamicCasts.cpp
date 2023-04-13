@@ -1,6 +1,6 @@
 //===--- Intel_OptimizeDynamicCasts.cpp - Optimize dynamic_cast calls. ----===//
 //
-// Copyright (C) 2018-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,7 +14,7 @@
 
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Constants.h"
@@ -247,52 +247,6 @@ bool OptimizeDynamicCastsPass::isTransformationApplicable(CallInst *Call,
   return allUsersICmpEQorNE(Call);
 }
 
-namespace {
-
-class OptimizeDynamicCastsWrapper : public ModulePass {
-private:
-  OptimizeDynamicCastsPass Impl;
-
-public:
-  static char ID;
-
-  OptimizeDynamicCastsWrapper() : ModulePass(ID) {
-    initializeOptimizeDynamicCastsWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-    WholeProgramWrapperPass &WPA = getAnalysis<WholeProgramWrapperPass>();
-    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-    auto PA = Impl.runImpl(M, WPA.getResult(), GetTLI);
-    return !PA.areAllPreserved();
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<TargetLibraryInfoWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
-};
-
-} // end anonymous namespace
-
-char OptimizeDynamicCastsWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(OptimizeDynamicCastsWrapper, "optimize-dyn-casts",
-                      "Dynamic Casts Optimization Pass", false, false)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(OptimizeDynamicCastsWrapper, "optimize-dyn-casts",
-                    "Dynamic Casts Optimization Pass", false, false)
-
-ModulePass *llvm::createOptimizeDynamicCastsWrapperPass() {
-  return new OptimizeDynamicCastsWrapper();
-}
-
 PreservedAnalyses OptimizeDynamicCastsPass::runImpl(
     Module &M, WholeProgramInfo &WPI,
     std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {
@@ -394,7 +348,7 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(
           if (!Hint->isZero()) {
             // Calculate value of the pointer after dynamic cast.
             auto NegHint =
-                APInt::getNullValue(Hint->getType()->getScalarSizeInBits());
+                APInt::getZero(Hint->getType()->getScalarSizeInBits());
             NegHint -= Hint->getValue();
             CastedObjPointer = Builder.CreateGEP(
                 ObjType, ObjPointer,

@@ -11,7 +11,7 @@
 // Setting XFAIL doesn't work in this case, so we set it as UNSUPPORTED
 // for now pending further investigation.
 // CMPLRLLVM-42780
-// UNSUPPORTED: i386, x86_64
+// UNSUPPORTED: i386-linux, x86_64-linux
 // end INTEL_CUSTOMIZATION
 
 #include <errno.h>

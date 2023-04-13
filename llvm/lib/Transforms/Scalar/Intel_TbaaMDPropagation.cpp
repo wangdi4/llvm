@@ -321,7 +321,7 @@ void TbaaMDPropagationImpl::removeBadArgMD(Function *F) {
   // or a scalar type {!at, !at, ...}.
   // If the access type has a name "pointer@XXX", returns the name string
   // as an Optional<StringRef> (std::nullopt if no match).
-  auto getTBAAPtrTypeAccess = [=](Instruction *I) -> Optional<StringRef> {
+  auto getTBAAPtrTypeAccess = [=](Instruction *I) -> std::optional<StringRef> {
     MDNode *TBAA = I->getMetadata(LLVMContext::MD_intel_tbaa);
     if (!TBAA)
       TBAA = I->getMetadata(LLVMContext::MD_tbaa);
@@ -339,7 +339,7 @@ void TbaaMDPropagationImpl::removeBadArgMD(Function *F) {
     if (!Tag)
       return std::nullopt;
     if (Tag->getString().contains("pointer@"))
-      return Optional<StringRef>(Tag->getString());
+      return std::optional<StringRef>(Tag->getString());
     return std::nullopt;
   };
 
@@ -363,7 +363,7 @@ void TbaaMDPropagationImpl::removeBadArgMD(Function *F) {
 
   // Get the **pointer type name string from the first use (a load or store).
   Instruction *FirstUse = cast<Instruction>(*Formal1->user_begin());
-  Optional<StringRef> FormalArgType = getTBAAPtrTypeAccess(FirstUse);
+  std::optional<StringRef> FormalArgType = getTBAAPtrTypeAccess(FirstUse);
   if (!FormalArgType)
     return;
 
@@ -382,7 +382,7 @@ void TbaaMDPropagationImpl::removeBadArgMD(Function *F) {
     if (!GEP)
       return;
     // GEP is **ptr type
-    Optional<StringRef> CallArgType = getTBAAPtrTypeAccess(GEP);
+    std::optional<StringRef> CallArgType = getTBAAPtrTypeAccess(GEP);
     if (!CallArgType)
       return;
 

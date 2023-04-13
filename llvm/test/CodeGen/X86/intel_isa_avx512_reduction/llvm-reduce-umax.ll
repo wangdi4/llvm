@@ -6,11 +6,9 @@
 define i64 @reduce_umaxq_13xi64(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_umaxq_13xi64:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa64 64(%rdi), %zmm0
-; AVX512REDUCTION-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512REDUCTION-NEXT:    movb $127, %al
+; AVX512REDUCTION-NEXT:    movb $31, %al
 ; AVX512REDUCTION-NEXT:    kmovw %eax, %k1
-; AVX512REDUCTION-NEXT:    vpexpandq %zmm0, %zmm0 {%k1} {z}
+; AVX512REDUCTION-NEXT:    vpexpandq 64(%rdi), %zmm0 {%k1} {z}
 ; AVX512REDUCTION-NEXT:    vpmaxuq (%rdi), %zmm0, %zmm0
 ; AVX512REDUCTION-NEXT:    vphrmaxq %zmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovq %xmm0, %rax
@@ -19,11 +17,9 @@ define i64 @reduce_umaxq_13xi64(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_umaxq_13xi64:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa64 64(%rdi), %zmm0
-; AVX512F-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512F-NEXT:    movb $127, %al
+; AVX512F-NEXT:    movb $31, %al
 ; AVX512F-NEXT:    kmovw %eax, %k1
-; AVX512F-NEXT:    vpexpandq %zmm0, %zmm0 {%k1} {z}
+; AVX512F-NEXT:    vpexpandq 64(%rdi), %zmm0 {%k1} {z}
 ; AVX512F-NEXT:    vpmaxuq (%rdi), %zmm0, %zmm0
 ; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
 ; AVX512F-NEXT:    vpmaxuq %ymm1, %ymm0, %ymm0
@@ -239,11 +235,9 @@ define i32 @reduce_umaxd_16xi32(<16 x i32> %vec) {
 define i32 @reduce_umaxd_13xi32(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_umaxd_13xi32:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa64 (%rdi), %zmm0
-; AVX512REDUCTION-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512REDUCTION-NEXT:    movw $32767, %ax # imm = 0x7FFF
+; AVX512REDUCTION-NEXT:    movw $8191, %ax # imm = 0x1FFF
 ; AVX512REDUCTION-NEXT:    kmovw %eax, %k1
-; AVX512REDUCTION-NEXT:    vpexpandd %zmm0, %zmm0 {%k1} {z}
+; AVX512REDUCTION-NEXT:    vpexpandd (%rdi), %zmm0 {%k1} {z}
 ; AVX512REDUCTION-NEXT:    vphrmaxd %zmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    vzeroupper
@@ -251,11 +245,9 @@ define i32 @reduce_umaxd_13xi32(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_umaxd_13xi32:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa64 (%rdi), %zmm0
-; AVX512F-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm0
-; AVX512F-NEXT:    movw $32767, %ax # imm = 0x7FFF
+; AVX512F-NEXT:    movw $8191, %ax # imm = 0x1FFF
 ; AVX512F-NEXT:    kmovw %eax, %k1
-; AVX512F-NEXT:    vpexpandd %zmm0, %zmm0 {%k1} {z}
+; AVX512F-NEXT:    vpexpandd (%rdi), %zmm0 {%k1} {z}
 ; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
 ; AVX512F-NEXT:    vpmaxud %ymm1, %ymm0, %ymm0
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
@@ -705,15 +697,16 @@ define i16 @reduce_umaxw_3xi16(ptr %p) {
 ; AVX512F-LABEL: reduce_umaxw_3xi16:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movq (%rdi), %rcx
-; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $16, %rax
-; AVX512F-NEXT:    movzwl %ax, %edx
-; AVX512F-NEXT:    cmpw %ax, %cx
-; AVX512F-NEXT:    cmoval %ecx, %edx
+; AVX512F-NEXT:    movzwl %cx, %eax
+; AVX512F-NEXT:    movq %rcx, %rdx
+; AVX512F-NEXT:    shrq $16, %rdx
+; AVX512F-NEXT:    movzwl %dx, %esi
+; AVX512F-NEXT:    cmpw %dx, %cx
+; AVX512F-NEXT:    cmoval %eax, %esi
 ; AVX512F-NEXT:    shrq $32, %rcx
 ; AVX512F-NEXT:    movzwl %cx, %eax
-; AVX512F-NEXT:    cmpw %cx, %dx
-; AVX512F-NEXT:    cmoval %edx, %eax
+; AVX512F-NEXT:    cmpw %cx, %si
+; AVX512F-NEXT:    cmoval %esi, %eax
 ; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
 ; AVX512F-NEXT:    retq
   %vec= load <3 x i16>, ptr %p
@@ -1073,7 +1066,7 @@ define i8 @reduce_umaxb_13xi8(ptr %p) {
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vmovdqa (%rdi), %xmm0
 ; AVX512F-NEXT:    vpextrb $1, %xmm0, %eax
-; AVX512F-NEXT:    vmovd %xmm0, %ecx
+; AVX512F-NEXT:    vpextrb $0, %xmm0, %ecx
 ; AVX512F-NEXT:    cmpb %al, %cl
 ; AVX512F-NEXT:    cmoval %ecx, %eax
 ; AVX512F-NEXT:    vpextrb $2, %xmm0, %ecx
@@ -1153,35 +1146,36 @@ define i8 @reduce_umaxb_7xi8(ptr %p) {
 ; AVX512F-LABEL: reduce_umaxb_7xi8:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movq (%rdi), %rcx
-; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $8, %rax
-; AVX512F-NEXT:    movzbl %al, %edx
-; AVX512F-NEXT:    cmpb %al, %cl
-; AVX512F-NEXT:    cmoval %ecx, %edx
+; AVX512F-NEXT:    movzbl %cl, %eax
+; AVX512F-NEXT:    movq %rcx, %rdx
+; AVX512F-NEXT:    shrq $8, %rdx
+; AVX512F-NEXT:    movzbl %dl, %esi
+; AVX512F-NEXT:    cmpb %dl, %cl
+; AVX512F-NEXT:    cmoval %eax, %esi
 ; AVX512F-NEXT:    movq %rcx, %rax
 ; AVX512F-NEXT:    shrq $16, %rax
-; AVX512F-NEXT:    movzbl %al, %esi
-; AVX512F-NEXT:    cmpb %al, %dl
-; AVX512F-NEXT:    cmoval %edx, %esi
+; AVX512F-NEXT:    movzbl %al, %edx
+; AVX512F-NEXT:    cmpb %al, %sil
+; AVX512F-NEXT:    cmoval %esi, %edx
 ; AVX512F-NEXT:    movq %rcx, %rax
 ; AVX512F-NEXT:    shrq $24, %rax
-; AVX512F-NEXT:    movzbl %al, %edx
-; AVX512F-NEXT:    cmpb %al, %sil
-; AVX512F-NEXT:    cmoval %esi, %edx
-; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $32, %rax
 ; AVX512F-NEXT:    movzbl %al, %esi
 ; AVX512F-NEXT:    cmpb %al, %dl
 ; AVX512F-NEXT:    cmoval %edx, %esi
 ; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $40, %rax
+; AVX512F-NEXT:    shrq $32, %rax
 ; AVX512F-NEXT:    movzbl %al, %edx
 ; AVX512F-NEXT:    cmpb %al, %sil
 ; AVX512F-NEXT:    cmoval %esi, %edx
+; AVX512F-NEXT:    movq %rcx, %rax
+; AVX512F-NEXT:    shrq $40, %rax
+; AVX512F-NEXT:    movzbl %al, %esi
+; AVX512F-NEXT:    cmpb %al, %dl
+; AVX512F-NEXT:    cmoval %edx, %esi
 ; AVX512F-NEXT:    shrq $48, %rcx
 ; AVX512F-NEXT:    movzbl %cl, %eax
-; AVX512F-NEXT:    cmpb %cl, %dl
-; AVX512F-NEXT:    cmoval %edx, %eax
+; AVX512F-NEXT:    cmpb %cl, %sil
+; AVX512F-NEXT:    cmoval %esi, %eax
 ; AVX512F-NEXT:    # kill: def $al killed $al killed $eax
 ; AVX512F-NEXT:    retq
   %vec= load <7 x i8>, ptr %p
@@ -1225,11 +1219,12 @@ define i8 @reduce_umaxb_3xi8(ptr %p) {
 ; AVX512F-LABEL: reduce_umaxb_3xi8:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movl (%rdi), %ecx
+; AVX512F-NEXT:    movzbl %cl, %edx
 ; AVX512F-NEXT:    movl %ecx, %eax
 ; AVX512F-NEXT:    shrl $8, %eax
 ; AVX512F-NEXT:    movzbl %al, %eax
-; AVX512F-NEXT:    cmpb %al, %cl
-; AVX512F-NEXT:    cmoval %ecx, %eax
+; AVX512F-NEXT:    cmpb %al, %dl
+; AVX512F-NEXT:    cmoval %edx, %eax
 ; AVX512F-NEXT:    shrl $16, %ecx
 ; AVX512F-NEXT:    movzbl %cl, %ecx
 ; AVX512F-NEXT:    cmpb %cl, %al

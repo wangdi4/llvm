@@ -355,6 +355,9 @@ static Function *getAndersCalledFunction(const CallBase &Call) {
 // UseInst: %4 = getelementptr %2, 0, 0
 // TheCall: %8 = call i32 @vsprintf(%7, %5, %0, null, %4 )
 //          call void @llvm.va_end(i8* nonnull %3)
+//
+// Returns true even without bitcast in the pattern.
+//
 static bool isVarArgAddress(Value *PtrOp, Instruction *TheCall,
                             Instruction *UseInst,
                             SmallPtrSetImpl<const Instruction *> &Visited) {
@@ -378,9 +381,10 @@ static bool isVarArgAddress(Value *PtrOp, Instruction *TheCall,
         return false;
       Visited.insert(I);
       // Ignore LoadInst that is used by TheCall.
-      if (I->isLifetimeStartOrEnd() || I == UseInst || isa<DbgInfoIntrinsic>(I))
+      if (I->isLifetimeStartOrEnd() || I == TheCall || isa<DbgInfoIntrinsic>(I))
         continue;
-      if (isa<BitCastInst>(I)) {
+      // Treat UseInst as alias to PtrOp since the GEP has all zero indices.
+      if (isa<BitCastInst>(I) || I == UseInst) {
         WorkList.push_back(I);
         continue;
       }
@@ -490,10 +494,84 @@ void AndersensAAResult::CreateConstraint(Constraint::ConstraintType Ty,
   Constraints.push_back(Constraint(Ty, D, S, O));
 }
 
+// OpaquePointers:
 // Returns false if 'Target' is unsafe possible target for 'Call', which is
 // indirect call with 'FP' as function pointer.
 //
-static bool safePossibleTarget(Value *FP, Value* Target, CallBase *Call) {
+static bool safeOpaquePointersPossibleTarget(Value *FP, Value *Target,
+                                             CallBase *CB) {
+  // Get ABI affecting attributes for given parameter location "I".
+  auto GetParameterABIAttributes = [](LLVMContext &C, unsigned I,
+                                      AttributeList Attrs) -> AttrBuilder {
+    static const Attribute::AttrKind ABIAttrs[] = {
+        Attribute::StructRet,      Attribute::ByVal,
+        Attribute::InAlloca,       Attribute::InReg,
+        Attribute::StackAlignment, Attribute::Preallocated,
+        Attribute::ByRef};
+    AttrBuilder Copy(C);
+    for (auto AK : ABIAttrs) {
+      Attribute Attr = Attrs.getParamAttrs(I).getAttribute(AK);
+      if (Attr.isValid())
+        Copy.addAttribute(Attr);
+    }
+
+    // `align` is ABI-affecting only in combination with `byval` or `byref`.
+    if (Attrs.hasParamAttr(I, Attribute::Alignment) &&
+        (Attrs.hasParamAttr(I, Attribute::ByVal) ||
+         Attrs.hasParamAttr(I, Attribute::ByRef)))
+      Copy.addAlignmentAttr(Attrs.getParamAlignment(I));
+    return Copy;
+  };
+
+  auto *Callee = dyn_cast<Function>(Target);
+  // Go conservative for now when possible target is non-function
+  if (!Callee)
+    return false;
+
+  FunctionType *CalleeTy = cast<Function>(Target)->getFunctionType();
+  FunctionType *FTy = CB->getFunctionType();
+  // Treat varargs as unsafe targets for now. If required, it can be
+  // allowed as safe target later by checking number of actual arguments
+  // at call site, number of formals of possible targets, argument types
+  // of call site, and formal param types of possible target.
+  if (FTy->isVarArg() || CalleeTy->isVarArg())
+    return false;
+
+  // MustTailCall is not considered safe for now. Need to check for more
+  // things like addressspace for params and return values.
+  if (CB->isMustTailCall())
+    return false;
+
+  if (Callee->getCallingConv() != CB->getCallingConv())
+    return false;
+
+  if (CalleeTy == FTy) {
+    // The number of formal arguments of the callee.
+    unsigned NumParams = Callee->getFunctionType()->getNumParams();
+    assert(NumParams == CB->arg_size() && "Expected same number of args");
+    AttributeList CallerAttrs = CB->getAttributes();
+    AttributeList CalleeAttrs = Callee->getAttributes();
+    LLVMContext &Ctx = Callee->getContext();
+    // All ABI-impacting function attributes, such as sret, byval, inreg,
+    // returned, preallocated, and inalloca, must match.
+    for (unsigned I = 0; I < NumParams; ++I) {
+      AttrBuilder CallerABIAttrs =
+          GetParameterABIAttributes(Ctx, I, CallerAttrs);
+      AttrBuilder CalleeABIAttrs =
+          GetParameterABIAttributes(Ctx, I, CalleeAttrs);
+      if (CallerABIAttrs != CalleeABIAttrs)
+        return false;
+    }
+  }
+  return true;
+}
+
+// Typed Pointers:
+// Returns false if 'Target' is unsafe possible target for 'Call', which is
+// indirect call with 'FP' as function pointer.
+//
+static bool safeTypedPointersPossibleTarget(Value *FP, Value *Target,
+                                            CallBase *Call) {
 
   // Go conservative for now when possible target is non-function
   if (!isa<Function>(Target)) return false;
@@ -625,6 +703,8 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     Node *N = &GraphNodes[*bi];
     if (N == &GraphNodes[UniversalSet]) {
       IsComplete = AndersenSetResult::Incomplete;
+      if (Trace)
+        dbgs() << "    Node Universal\n";
       continue;
     }
     if (N == &GraphNodes[NullPtr] || N == &GraphNodes[NullObject]) {
@@ -644,11 +724,14 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     }
 
     Value *V = N->getValue();
-  
+
+    bool IsOpaquePointers =
+        !FP->getType()->getContext().supportsTypedPointers();
     // Set IsComplete to AndersenSetResult::Incomplete if V is unsafe target.
-    if (!safePossibleTarget(FP, V, Call)) {
-      if (Trace) {
-        if (Function *Fn = dyn_cast<Function>(V)) {
+    if ((IsOpaquePointers && !safeOpaquePointersPossibleTarget(FP, V, Call)) ||
+        (!IsOpaquePointers && !safeTypedPointersPossibleTarget(FP, V, Call))) {
+        if (Trace) {
+            if (Function *Fn = dyn_cast<Function>(V)) {
           dbgs() << "    Unsafe target: Skipping  " << Fn->getName() << "\n";
         }
         else {
@@ -662,33 +745,38 @@ AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     // target do match. This behavior is different from icc. For icc, unsafe
     // possible targets(i.e MS_CDELS, varargs, NOSTATE etc) are also added
     // to the Target list.
-    if (FP->getType() == V->getType()) {
-      Targets.push_back(V);
-    } else if (FP->getType()->getContext().supportsTypedPointers()) {
-      Type *CallTy = Call->getFunctionType();
-      Type *TargetTy = cast<Function>(V)->getFunctionType();
-      bool TypeComputed = false;
-      // If there is a chance that the types are similar, then it means
-      // that we don't have a complete set. V can be a possible target
-      // but there is no full proof that it's type match with FP.
-      //
-      // A set will be marked as partially complete only if it is complete.
-      // If the previous checks found that the set is incomplete, then that
-      // result can't be reverted.
-      if (IsComplete == AndersenSetResult::Complete &&
-          areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
-        IsComplete = AndersenSetResult::PartiallyComplete;
-        TypeComputed = true;
-      }
-
-      if (Trace) {
-        if (TypeComputed ||
+    Type *CallTy = Call->getFunctionType();
+    Type *TargetTy = cast<Function>(V)->getFunctionType();
+    if (IsOpaquePointers) {
+      if (CallTy == TargetTy)
+        Targets.push_back(V);
+    } else {
+      if (FP->getType() == V->getType()) {
+        Targets.push_back(V);
+      } else {
+        bool TypeComputed = false;
+        // If there is a chance that the types are similar, then it means
+        // that we don't have a complete set. V can be a possible target
+        // but there is no full proof that it's type match with FP.
+        //
+        // A set will be marked as partially complete only if it is complete.
+        // If the previous checks found that the set is incomplete, then that
+        // result can't be reverted.
+        if (IsComplete == AndersenSetResult::Complete &&
             areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
-          dbgs() << "    Types might be similar: Ignoring "
-                 << cast<Function>(V)->getName() << "\n";
-        } else {
-          dbgs() << "    Args mismatch: Ignoring "
-                 << cast<Function>(V)->getName() << "\n";
+          IsComplete = AndersenSetResult::PartiallyComplete;
+          TypeComputed = true;
+        }
+
+        if (Trace) {
+          if (TypeComputed ||
+              areTypesIsomorphicWithOpaquePtrs(CallTy, TargetTy)) {
+            dbgs() << "    Types might be similar: Ignoring "
+                   << cast<Function>(V)->getName() << "\n";
+          } else {
+            dbgs() << "    Args mismatch: Ignoring "
+                   << cast<Function>(V)->getName() << "\n";
+          }
         }
       }
     }
@@ -739,6 +827,21 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
   //   ...
   //   call void @llvm.va_end(i8* nonnull %3)
   //   ...
+  // }
+  //
+  // or
+  //
+  // define i32 @t_printf(ptr %arg, ...) {
+  //   %i = alloca [1 x %struct.__va_list_tag]
+  //   call void @llvm.lifetime.start.p0(i64 24, ptr %i)
+  //   %i2 = getelementptr [1 x %struct.__va_list_tag], ptr %i, i64 0, i64 0
+  //   call void @llvm.va_start(ptr nonnull %i2)
+  //   %i3 = call i32 @vsprintf(ptr noundef @pf_buf, ptr %arg, ptr %i2)
+  //   %i4 = call i32 @xlate_nl_inplace(ptr noundef @pf_buf)
+  //   call void @llvm.va_end(ptr nonnull %i2)
+  //   call void @llvm.lifetime.end.p0(i64 24, ptr nonnull %i)
+  //   ...
+  // }
   auto IsVSPrintfWrapper = [&, GetActualCalledFunction](Function *F) {
     if (F->size() != 1 || !F->getFunctionType()->isVarArg())
       return false;
@@ -764,7 +867,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M, bool BeforeInl)  {
         LibF != LibFunc_vsprintf)
       return false;
     auto GEPI = dyn_cast<GetElementPtrInst>(CB->getArgOperand(2));
-    if (!GEPI || !GEPI->hasOneUse() || !GEPI->hasAllZeroIndices())
+    if (!GEPI || !GEPI->hasAllZeroIndices())
       return false;
     SmallPtrSet<const Instruction *, 2> Visited;
     if (!isVarArgAddress(GEPI->getPointerOperand(), CB, GEPI, Visited))
@@ -919,8 +1022,10 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       ReturnNodes(std::move(Arg.ReturnNodes)),
       VarargNodes(std::move(Arg.VarargNodes)),
       Constraints(std::move(Arg.Constraints)),
-      NodeWorkList(std::move(Arg.NodeWorkList)), MaxK(std::move(Arg.MaxK)),
-      SCCStack(std::move(Arg.SCCStack)), Node2DFS(std::move(Arg.Node2DFS)),
+      NodeWorkList(std::move(Arg.NodeWorkList)),
+      MaxK(std::move(Arg.MaxK)),
+      SCCStack(std::move(Arg.SCCStack)),
+      Node2DFS(std::move(Arg.Node2DFS)),
       Node2Deleted(std::move(Arg.Node2Deleted)),
       Tarjan2DFS(std::move(Arg.Tarjan2DFS)),
       Tarjan2Deleted(std::move(Arg.Tarjan2Deleted)),
@@ -928,7 +1033,8 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       Node2Visited(std::move(Arg.Node2Visited)),
       PEClass2Node(std::move(Arg.PEClass2Node)),
       PENLEClass2Node(std::move(Arg.PENLEClass2Node)),
-      HCDSCCRep(std::move(Arg.HCDSCCRep)), SDT(std::move(Arg.SDT)),
+      HCDSCCRep(std::move(Arg.HCDSCCRep)),
+      SDT(std::move(Arg.SDT)),
       VSPrintfWrappers(std::move(Arg.VSPrintfWrappers)),
       NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
       NonPointerAssignments(std::move(Arg.NonPointerAssignments)),
@@ -972,8 +1078,6 @@ AndersensAAResult AndersensAA::run(Module &M, ModuleAnalysisManager &AM) {
       AM.getCachedResult<WholeProgramAnalysis>(M), BeforeInl);
 }
 
-char AndersensAAWrapperPass::ID = 0;
-
 static cl::opt<unsigned> MaxAliasQuery(
     "max-alias-query", cl::ReallyHidden,
     cl::desc("This option should be used only with debug compiler. It helps to "
@@ -986,46 +1090,6 @@ static cl::opt<unsigned>
                          "It helps to debug any stability issues in "
                          "AndersensAA by limiting the number of ptr queries."),
                 cl::init(std::numeric_limits<unsigned>::max()));
-
-INITIALIZE_PASS_BEGIN(AndersensAAWrapperPass, "anders-aa",
-                   "Andersen Interprocedural AA", false, true)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(AndersensAAWrapperPass, "anders-aa",
-                    "Andersen Interprocedural AA", false, true)
-
-
-ModulePass *llvm::createAndersensAAWrapperPass(bool BeforeInl) {
-  return new AndersensAAWrapperPass(BeforeInl);
-}
-
-AndersensAAWrapperPass::AndersensAAWrapperPass(bool BeforeInl)
-                          : ModulePass(ID), BeforeInl(BeforeInl) {
-  initializeAndersensAAWrapperPassPass(*PassRegistry::getPassRegistry());
-}
-
-bool AndersensAAWrapperPass::runOnModule(Module &M) {
-  auto *WPA = getAnalysisIfAvailable<WholeProgramWrapperPass>();
-  auto GetTLI = [this](Function &F) -> const TargetLibraryInfo & {
-    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-  Result.reset(new AndersensAAResult(AndersensAAResult::analyzeModule(
-      M, GetTLI, getAnalysis<CallGraphWrapperPass>().getCallGraph(),
-      WPA ? &WPA->getResult() : nullptr, BeforeInl)));
-  return false;
-}
-
-bool AndersensAAWrapperPass::doFinalization(Module &M) {
-  Result.reset();
-  return false;
-}
-
-void AndersensAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequired<CallGraphWrapperPass>();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addUsedIfAvailable<WholeProgramWrapperPass>();
-}
 
 // Returns true if ‘rname’ is found in ‘name_table’.
 bool AndersensAAResult::findNameInTable(StringRef rname, 
@@ -1139,7 +1203,7 @@ bool AndersensAAResult::invalidate(Module &M, const PreservedAnalyses &PA,
 
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
                                      const MemoryLocation &LocB,
-                                     AAQueryInfo &AAQI)  {
+                                     AAQueryInfo &AAQI, const Instruction *) {
 
   // Returns true if V is global variable that represents "stdout".
   auto IsStdoutFilePtr = [this] (Value *V) {
@@ -1209,11 +1273,11 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
   };
 
   if (ValueNodes.size() == 0) {
-      return AAResultBase::alias(LocA, LocB, AAQI);
+      return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
   }
   NumAliasQuery++;
   if (NumAliasQuery > MaxAliasQuery) {
-      return AAResultBase::alias(LocA, LocB, AAQI);
+      return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
   }
 
   auto *V1 = const_cast<Value *>(LocA.Ptr);
@@ -1273,7 +1337,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
         dbgs() << " both of them are Universal \n";
           dbgs() << " Alias_End \n";
       }
-      return AAResultBase::alias(LocA, LocB, AAQI);
+      return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
   }
 
   // Using escape analysis to improve the precision
@@ -1300,7 +1364,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       dbgs() << " one of them is Universal and the other one escapes \n";
       dbgs() << " Alias_End \n";
     }
-    return AAResultBase::alias(LocA, LocB, AAQI);
+    return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
   }
   // Check to see if the two pointers are known to not alias. They don't alias
   // if their points-to sets do not intersect.
@@ -1316,8 +1380,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       dbgs() << " Can't determine using points-to \n";
       dbgs() << " Alias_End \n";
   }
-  return AAResultBase::alias(LocA, LocB, AAQI);
-
+  return AAResultBase::alias(LocA, LocB, AAQI, nullptr);
 }
 
 bool AndersensAAResult::mayEscape(const MemoryLocation &Loc) {
@@ -1898,6 +1961,12 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallBase *CB,
   if (isa<DbgInfoIntrinsic>(CB))
     return true;
 
+  if (findNameInTable(F->getName(), Andersens_Alloc_Intrinsics)) {
+    unsigned ObjectIndex = getObject(CB);
+    GraphNodes[ObjectIndex].setValue(CB);
+    CreateConstraint(Constraint::AddressOf, getNode(CB), ObjectIndex);
+    return true;
+  }
   // Model wrappers of vsprintf as library function calls for points-to.
   if (VSPrintfWrappers.count(F) ||
       findNameInTable(F->getName(), Andersens_No_Side_Effects_Intrinsics))
@@ -1928,7 +1997,6 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallBase *CB,
         FTy->getNumParams() <= 0 || !isPointsToType(FTy->getParamType(0))) {
       return false;
     }
-    
     CreateConstraint(Constraint::AddressOf, getNode(CB->getArgOperand(0)),
                      getVarargNode(SrcFun));
     return true;
@@ -2133,8 +2201,13 @@ void AndersensAAResult::CollectConstraints(Module &M) {
   }
 
   // GlobalAlias: Treat it as Universal.
-  for (auto &GA : M.aliases())
+  for (auto &GA : M.aliases()) {
     CreateConstraint(Constraint::Copy, getNode(&GA), UniversalSet);
+    // Both alias and aliasee need to be modelled as single variable.
+    Value *Aliasee = GA.getAliasee();
+    CreateConstraint(Constraint::Copy, getNode(&GA), getNode(Aliasee));
+    CreateConstraint(Constraint::Copy, getNode(Aliasee), getNode(&GA));
+  }
 
   // Treat Indirect calls conservatively if number of indirect calls exceeds
   // AndersIndirectCallsLimit
@@ -2749,13 +2822,6 @@ void AndersensAAResult::checkCall(CallBase &CB) {
   }
 
   Function *F = CB.getCalledFunction();
-  if (F && findNameInTable(F->getName(), Andersens_Alloc_Intrinsics)) {
-      unsigned ObjectIndex = getObject(&CB);
-      GraphNodes[ObjectIndex].setValue(&CB);
-      CreateConstraint(Constraint::AddressOf, 
-                       getNodeValue(CB), ObjectIndex);
-      return;
-  }
   if (isTrackableType(CB.getType()))
     getNodeValue(CB);
 
@@ -6214,7 +6280,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
       MemoryLocation Loc2 = MemoryLocation(Object, LocationSize::beforeOrAfterPointer());
       AAResults AAR(TLI);
       SimpleAAQueryInfo AAQIP(AAR);
-      AliasResult AR = Ander->alias(Loc, Loc2, AAQIP);
+      AliasResult AR = Ander->alias(Loc, Loc2, AAQIP, nullptr);
       if (AR == AliasResult::NoAlias)
         continue;
 

@@ -1,4 +1,21 @@
 //===- CoverageMapping.h - Code coverage mapping support --------*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -21,6 +38,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/Object/BuildID.h"
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/Compiler.h"
@@ -41,6 +59,14 @@
 namespace llvm {
 
 class IndexedInstrProfReader;
+
+namespace object {
+class BuildIDFetcher;
+} // namespace object
+
+namespace vfs {
+class FileSystem;
+} // namespace vfs
 
 namespace coverage {
 
@@ -484,6 +510,8 @@ class InstantiationGroup {
 public:
   InstantiationGroup(const InstantiationGroup &) = delete;
   InstantiationGroup(InstantiationGroup &&) = default;
+  InstantiationGroup &operator=(const InstantiationGroup &) = delete; // INTEL
+  InstantiationGroup &operator=(InstantiationGroup &&) = delete;      // INTEL
 
   /// Get the number of instantiations in this group.
   size_t size() const { return Instantiations.size(); }
@@ -579,6 +607,13 @@ class CoverageMapping {
       ArrayRef<std::unique_ptr<CoverageMappingReader>> CoverageReaders,
       IndexedInstrProfReader &ProfileReader, CoverageMapping &Coverage);
 
+  // Load coverage records from file.
+  static Error
+  loadFromFile(StringRef Filename, StringRef Arch, StringRef CompilationDir,
+               IndexedInstrProfReader &ProfileReader, CoverageMapping &Coverage,
+               bool &DataFound,
+               SmallVectorImpl<object::BuildID> *FoundBinaryIDs = nullptr);
+
   /// Add a function record corresponding to \p Record.
   Error loadFunctionRecord(const CoverageMappingRecord &Record,
                            IndexedInstrProfReader &ProfileReader);
@@ -604,8 +639,10 @@ public:
   /// Ignores non-instrumented object files unless all are not instrumented.
   static Expected<std::unique_ptr<CoverageMapping>>
   load(ArrayRef<StringRef> ObjectFilenames, StringRef ProfileFilename,
-       ArrayRef<StringRef> Arches = std::nullopt,
-       StringRef CompilationDir = "");
+       vfs::FileSystem &FS, ArrayRef<StringRef> Arches = std::nullopt,
+       StringRef CompilationDir = "",
+       const object::BuildIDFetcher *BIDFetcher = nullptr,
+       bool CheckBinaryIDs = false);
 
   /// The number of functions that couldn't have their profiles mapped.
   ///

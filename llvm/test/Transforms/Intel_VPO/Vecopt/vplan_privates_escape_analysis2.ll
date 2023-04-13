@@ -9,10 +9,6 @@
 
 ; REQUIRES:asserts
 
-; CHECK-DAG: SOAUnsafe = arr_e.priv
-; CHECK-DAG: SOASafe = index.lpriv
-; CHECK-DAG: SOASafe = arr_ne.priv
-
 ; Source-file: test.c
 ; int foo(int n1, int **out) {
 ;  int index;
@@ -43,6 +39,14 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
 define dso_local i32 @foo(i32 %n1, i32** nocapture %out) local_unnamed_addr {
+; CHECK-LABEL:  SOA profitability:
+; CHECK-NEXT:  SOASafe = [[VP_INDEX_LPRIV:%.*]] (index.lpriv) Profitable = 1
+; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_E_PRIV:%.*]] (arr_e.priv)
+; CHECK-NEXT:  SOASafe = [[VP_ARR_NE_PRIV:%.*]] (arr_ne.priv) Profitable = 0
+; CHECK-NEXT:  SOA profitability:
+; CHECK-NEXT:  SOASafe = [[VP0:%.*]] Profitable = 1
+; CHECK-NEXT:  SOAUnsafe = [[VP1:%.*]]
+; CHECK-NEXT:  SOASafe = [[VP2:%.*]] Profitable = 0
 omp.inner.for.body.lr.ph:
   %arr_e.priv = alloca [1024 x i32], align 4
   %arr_ne.priv = alloca [1024 x i32], align 4

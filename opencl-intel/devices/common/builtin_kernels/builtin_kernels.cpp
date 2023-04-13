@@ -21,6 +21,7 @@
 #include <cl_sys_defines.h>
 #include <string>
 
+using namespace llvm;
 using namespace Intel::OpenCL::BuiltInKernels;
 using namespace Intel::OpenCL::Utils;
 

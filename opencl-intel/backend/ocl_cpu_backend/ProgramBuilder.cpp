@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2022 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -22,13 +22,12 @@
 #include "CPUCompiler.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "OCLAddressSpace.h"
 #include "ObjectCodeCache.h"
 #include "ObjectCodeContainer.h"
 #include "Optimizer.h"
 #include "Program.h"
 #include "SystemInfo.h"
-#include "VecConfig.h"
+#include "VectorizerUtils.h"
 #include "cl_cpu_detect.h"
 #include "cl_sys_info.h"
 #include "cl_types.h"
@@ -50,9 +49,9 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/CompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/DPCPPStatistic.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/SYCLStatistic.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 #include <algorithm>
@@ -63,10 +62,9 @@
 
 #define DEBUG_TYPE "ProgramBuilder"
 
-using std::string;
-using namespace DPCPPKernelMetadataAPI;
-using namespace intel;
 using namespace llvm;
+using namespace SYCLKernelMetadataAPI;
+using namespace intel;
 
 namespace Intel {
 namespace OpenCL {
@@ -81,10 +79,6 @@ static void BEFatalErrorHandler(void * /*user_data*/, const char *reason,
   abort();
 }
 
-/*
- * Utility methods
- */
-namespace Utils {
 static unsigned getEqualizerDumpFileId() {
   static std::atomic<unsigned> fileId(0);
   fileId++;
@@ -99,14 +93,29 @@ static unsigned getVolcanoDumpFileId() {
   return fileId.load(std::memory_order_relaxed);
 }
 
+static unsigned getReplaceIRBeforeOptimizerFileId() {
+  static std::atomic<unsigned> FileId(0);
+  unsigned Id = FileId.load(std::memory_order_relaxed);
+  FileId++;
+  return Id;
+}
+
+static unsigned getReplaceIRAfterOptimizerFileId() {
+  static std::atomic<unsigned> FileId(0);
+  unsigned Id = FileId.load(std::memory_order_relaxed);
+  FileId++;
+  return Id;
+}
+
 // Returns the memory buffer of the Program object bytecode
-static llvm::MemoryBuffer *GetProgramMemoryBuffer(Program *pProgram) {
+static MemoryBuffer *GetProgramMemoryBuffer(Program *pProgram) {
   const BitCodeContainer *pCodeContainer =
       static_cast<const BitCodeContainer *>(
           pProgram->GetProgramIRCodeContainer());
   return pCodeContainer->GetMemoryBuffer();
 }
 
+namespace Utils {
 /// @brief helper funtion to set RuntimeService in Kernel objects from KernelSet
 void UpdateKernelsWithRuntimeService(const RuntimeServiceSharedPtr &rs,
                                      KernelSet *pKernels) {
@@ -136,13 +145,13 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory *pBackendFactory,
   // with \ or /
   // the default file name is the running executable name
   if (m_dumpFilenamePrefix.empty() ||
-      llvm::sys::path::is_separator(*m_dumpFilenamePrefix.rbegin())) {
+      sys::path::is_separator(*m_dumpFilenamePrefix.rbegin())) {
     std::string name = Utils::SystemInfo::GetExecutableFilename();
     // if still no meaningful name just use "Program" as module name
     if (name.empty())
       name = "Program";
     m_dumpFilenamePrefix += name;
-    if (DPCPPStatistic::isEnabled())
+    if (SYCLStatistic::isEnabled())
       m_statWkldName = name;
   }
 }
@@ -158,20 +167,19 @@ ProgramBuilder::generateDumpFilename(const std::string &hash, unsigned fileId,
 
 void ProgramBuilder::DumpModuleStats(Program *program, Module *pModule,
                                      bool isEqualizerStats) {
-#ifndef INTEL_PRODUCT_RELEASE
-  if (!DPCPPStatistic::isEnabled())
+  if (!SYCLStatistic::isEnabled())
     return;
 
   // use sequential number to distinguish dumped files
-  unsigned fileId = isEqualizerStats ? Utils::getEqualizerDumpFileId()
-                                     : Utils::getVolcanoDumpFileId();
+  unsigned fileId =
+      isEqualizerStats ? getEqualizerDumpFileId() : getVolcanoDumpFileId();
   std::string suffix = isEqualizerStats ? "_eq.ll" : ".ll";
   std::string fileName =
       generateDumpFilename(program->GenerateHash(), fileId, suffix);
 
   // if stats are enabled dump module info
-  if (DPCPPStatistic::isEnabled()) {
-    DPCPPStatistic::setModuleStatInfo(
+  if (SYCLStatistic::isEnabled()) {
+    SYCLStatistic::setModuleStatInfo(
         pModule, VERSIONSTRING,
         m_statWkldName.c_str(),                           // workload name
         (m_statWkldName + std::to_string(fileId)).c_str() // module name
@@ -179,12 +187,54 @@ void ProgramBuilder::DumpModuleStats(Program *program, Module *pModule,
   }
   // dump IR with stats
   std::error_code ec;
-  raw_fd_ostream IRFD(fileName.c_str(), ec, llvm::sys::fs::FA_Write);
+  raw_fd_ostream IRFD(fileName.c_str(), ec, sys::fs::FA_Write);
   if (!ec)
     pModule->print(IRFD, 0);
   else
     throw Exceptions::CompilerException(ec.message());
-#endif // INTEL_PRODUCT_RELEASE
+}
+
+static Module *replaceModule(Compiler *Cmplr, Program *Prog,
+                             ProgramBuildResult &BuildResult,
+                             bool BeforeOptimizer) {
+  std::string EnvName = BeforeOptimizer
+                            ? "CL_CONFIG_REPLACE_IR_BEFORE_OPTIMIZER"
+                            : "CL_CONFIG_REPLACE_IR_AFTER_OPTIMIZER";
+  std::string Env;
+  if (!Intel::OpenCL::Utils::getEnvVar(Env, EnvName) || Env.empty())
+    return Prog->GetModule();
+
+  SmallVector<StringRef, 4> FileNames;
+  SplitString(Env, FileNames, ",");
+  StringRef FileName =
+      FileNames[BeforeOptimizer ? getReplaceIRBeforeOptimizerFileId()
+                                : getReplaceIRAfterOptimizerFileId()];
+
+  std::string WarningMsg =
+      (Twine("WARNING: replace module IR ") +
+       Twine(BeforeOptimizer ? "before" : "after") + Twine(" optimizer : ") +
+       Twine(FileName) + Twine("\n"))
+          .str();
+  dbgs() << WarningMsg;
+  BuildResult.LogS() << WarningMsg;
+  // Create new LLVMContext instead of reusing pModule's LLVMContext, in
+  // order to avoid type renaming in textual IR dump.
+  LLVMContext *ReplaceModuleCtx = Cmplr->resetLLVMContextForCurrentThread();
+  // Reload builtin modules since context is changed.
+  static_cast<CPUCompiler *>(Cmplr)->GetOrLoadBuiltinModules(
+      /*ForceLoad*/ true);
+  assert(ReplaceModuleCtx && "invalid replace context");
+  SMDiagnostic Err;
+  std::unique_ptr<Module> ReplaceModule =
+      parseIRFile(FileName, Err, *ReplaceModuleCtx);
+  if (!ReplaceModule) {
+    Err.print("", errs());
+    throw Exceptions::DeviceBackendExceptionBase(
+        std::string("Failed to load module IR to replace"));
+  }
+  Prog->GetModuleOwner().reset(nullptr);
+  Prog->SetModule(std::move(ReplaceModule));
+  return Prog->GetModule();
 }
 
 void ProgramBuilder::ParseProgram(Program *pProgram) {
@@ -192,7 +242,7 @@ void ProgramBuilder::ParseProgram(Program *pProgram) {
     assert(!pProgram->HasCachedExecutable() &&
            "Program must not be loaded from cache");
     pProgram->SetModule(
-        GetCompiler()->ParseModuleIR(Utils::GetProgramMemoryBuffer(pProgram)));
+        GetCompiler()->ParseModuleIR(GetProgramMemoryBuffer(pProgram)));
   } catch (Exceptions::CompilerException &e) {
     throw Exceptions::DeviceBackendExceptionBase(e.what());
   }
@@ -214,7 +264,7 @@ ProgramBuilder::BuildProgram(Program *pProgram,
       }
     }
     Compiler *pCompiler = GetCompiler();
-    llvm::Module *pModule = pProgram->GetModule();
+    Module *pModule = pProgram->GetModule();
 
     if (!pModule) {
       ParseProgram(pProgram);
@@ -222,57 +272,20 @@ ProgramBuilder::BuildProgram(Program *pProgram,
     }
     assert(pModule && "Module parsing has failed without exception. Strange");
 
-#ifndef INTEL_PRODUCT_RELEASE
-    std::string Env;
-    llvm::LLVMContext *ReplaceModuleCtx = nullptr;
-    auto ReplaceModule = [&](bool BeforeOptimizer) {
-      std::string WarningMsg =
-          (Twine("WARNING: replace module IR before device ") +
-           Twine(BeforeOptimizer ? "optimizer" : "CodeGen") + Twine(": ") +
-           Twine(Env) + Twine("\n"))
-              .str();
-      dbgs() << WarningMsg;
-      buildResult.LogS() << WarningMsg;
-      // Create new LLVMContext instead of reusing pModule's LLVMContext, in
-      // order to avoid type renaming in textual IR dump.
-      static llvm::once_flag OnceFlag;
-      llvm::call_once(OnceFlag, [&]() {
-        ReplaceModuleCtx = pCompiler->resetLLVMContextForCurrentThread();
-        // Reload builtin modules since context is changed.
-        static_cast<CPUCompiler *>(pCompiler)->GetOrLoadBuiltinModules(
-            /*ForceLoad*/ true);
-      });
-      assert(ReplaceModuleCtx && "invalid replace context");
-      SMDiagnostic Err;
-      std::unique_ptr<Module> ReplaceModule =
-          parseIRFile(Env, Err, *ReplaceModuleCtx);
-      if (!ReplaceModule) {
-        Err.print("", errs());
-        throw Exceptions::DeviceBackendExceptionBase(
-            std::string("Failed to load module IR to replace"));
-      }
-      pProgram->GetModuleOwner().reset(nullptr);
-      pProgram->SetModule(std::move(ReplaceModule));
-      pModule = pProgram->GetModule();
-    };
-    if (Intel::OpenCL::Utils::getEnvVar(
-            Env, "CL_CONFIG_REPLACE_IR_BEFORE_OPTIMIZER") &&
-        !Env.empty())
-      ReplaceModule(true);
+    pModule = replaceModule(pCompiler, pProgram, buildResult,
+                            /*BeforeOptimizer*/ true);
 
-    // If environment variable VOLCANO_EQUALIZER_STATS is set to any
-    // non-empty string, then we dump IR before optimization.
-    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_EQUALIZER_STATS")) {
-      if (!Env.empty()) {
-        DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ true);
-      }
-    }
-#endif // INTEL_PRODUCT_RELEASE
+    // If environment variable CL_CONFIG_DUMP_IR_BEFORE_OPTIMIZER is set to
+    // true, then we dump IR before optimization.
+    std::string Env;
+    if (Intel::OpenCL::Utils::getEnvVar(Env,
+                                        "CL_CONFIG_DUMP_IR_BEFORE_OPTIMIZER") &&
+        Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(Env))
+      DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ true);
 
     // Handle LLVM ERROR which can occured during build programm
     // Need to do it to eliminate RT hanging when clBuildProgramm failed
-    llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler,
-                                                    nullptr);
+    ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler, nullptr);
 
     std::string MergeOptions(pBuildOpts ? pBuildOpts : "");
     if ((MergeOptions.find("-cl-opt-disable") == std::string::npos) &&
@@ -282,7 +295,7 @@ ProgramBuilder::BuildProgram(Program *pProgram,
         (CompilationUtils::getDebugFlagFromMetadata(pModule)))
       MergeOptions.append(" -g");
 
-    std::unique_ptr<llvm::TargetMachine> targetMachine;
+    std::unique_ptr<TargetMachine> targetMachine;
     pCompiler->BuildProgram(pModule, MergeOptions.c_str(), &buildResult,
                             targetMachine);
 
@@ -295,18 +308,14 @@ ProgramBuilder::BuildProgram(Program *pProgram,
     // set runtime service for the program
     pProgram->SetRuntimeService(lRuntimeService);
 
-#ifndef INTEL_PRODUCT_RELEASE
-    if (Intel::OpenCL::Utils::getEnvVar(
-            Env, "CL_CONFIG_REPLACE_IR_AFTER_OPTIMIZER") &&
-        !Env.empty())
-      ReplaceModule(false);
+    pModule = replaceModule(pCompiler, pProgram, buildResult,
+                            /*BeforeOptimizer*/ false);
 
-    // Dump module stats just before lowering if requested
-    if (Intel::OpenCL::Utils::getEnvVar(Env, "VOLCANO_STATS")) {
-      if (!Env.empty())
-        DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ false);
-    }
-#endif // INTEL_PRODUCT_RELEASE
+    // Dump module IR after optimizer if requested
+    if (Intel::OpenCL::Utils::getEnvVar(Env,
+                                        "CL_CONFIG_DUMP_IR_AFTER_OPTIMIZER") &&
+        Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(Env))
+      DumpModuleStats(pProgram, pModule, /*isEqualizerStats = */ false);
 
     PostOptimizationProcessing(pProgram);
 
@@ -335,7 +344,7 @@ ProgramBuilder::BuildProgram(Program *pProgram,
     // if an exception is caught, the LLVM error handler should be removed
     // safely on windows, the LLVM error handler will not be removed
     // automatically and will cause assertion failure in debug mode
-    llvm::remove_fatal_error_handler();
+    remove_fatal_error_handler();
 
     buildResult.LogS() << e.what() << "\n";
     buildResult.SetBuildResult(e.GetErrorCode());
@@ -571,7 +580,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     pProps->EnableVectorizedWithTail();
 
   pProps->SetBarrierBufferSize(barrierBufferSize);
-  // CSSD100016517 workaround:
+  // workaround:
   //   GetPrivateMemorySize returns the min. required private memory
   //   size per work-item even if there are no work-group level built-ins.
   pProps->SetPrivateMemorySize(privateMemorySize);
@@ -582,7 +591,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   //
   pProps->SetTargetDevice(m_targetDevice);
 
-  pProps->SetCpuMaxWGSize(m_config->GetCpuMaxWGSize());
+  pProps->SetDeviceMaxWGSize(m_config->GetDeviceMaxWGSize());
 
   // OpenCL 2.0 related properties
   if (CompilationUtils::OclVersion::CL_VER_2_0 <=
@@ -611,8 +620,8 @@ cl_dev_err_code ProgramBuilder::FinalizeProgram(Program *Prog) {
   return Prog->Finalize();
 }
 
-cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
-                                                    std::string &KernelNames) {
+void ProgramBuilder::BuildLibraryProgram(Program *Prog,
+                                         std::string &KernelNames) {
   assert(Prog && "Program parameter must not be nullptr");
   ProgramBuildResult buildResult;
   try {
@@ -629,42 +638,40 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
 #ifndef INTEL_PRODUCT_RELEASE
     // Make sure that unit test binary can correctly find the ocl builtin libs.
     SmallString<128> TempPah(ModuleDir);
-    llvm::sys::path::append(TempPah,
-                            std::string("clbltfn") + CPUPrefix + ".rtl");
-    if (!llvm::sys::fs::exists(TempPah))
+    sys::path::append(TempPah, std::string("clbltfn") + CPUPrefix + ".rtl");
+    if (!sys::fs::exists(TempPah))
       ModuleDir = DEFAULT_OCL_LIBRARY_DIR;
 #endif // INTEL_PRODUCT_RELEASE
 #endif // INTEL_CUSTOMIZATION
 
-    llvm::SmallString<128> BaseName(ModuleDir);
-    llvm::sys::path::append(BaseName, OCL_LIBRARY_TARGET_NAME);
+    SmallString<128> BaseName(ModuleDir);
+    sys::path::append(BaseName, OCL_LIBRARY_TARGET_NAME);
     std::string RtlFilePath = std::string(BaseName) + OCL_OUTPUT_EXTENSION;
     std::string ObjectFilePath =
         std::string(BaseName) + CPUPrefix + OCL_PRECOMPILED_OUTPUT_EXTENSION;
-    assert(llvm::sys::fs::exists(RtlFilePath) &&
-           "Library rtl file is not found");
-    assert(llvm::sys::fs::exists(ObjectFilePath) &&
+    assert(sys::fs::exists(RtlFilePath) && "Library rtl file is not found");
+    assert(sys::fs::exists(ObjectFilePath) &&
            "Library object file is not found");
 
     // Load module file.
-    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> rtlBufferOrErr =
-        llvm::MemoryBuffer::getFile(RtlFilePath);
+    ErrorOr<std::unique_ptr<MemoryBuffer>> rtlBufferOrErr =
+        MemoryBuffer::getFile(RtlFilePath);
     if (!rtlBufferOrErr)
       throw Exceptions::DeviceBackendExceptionBase(
           std::string("Failed to load the library kernel rtl file"));
     // Load object file.
-    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> objBufferOrErr =
-        llvm::MemoryBuffer::getFile(ObjectFilePath);
+    ErrorOr<std::unique_ptr<MemoryBuffer>> objBufferOrErr =
+        MemoryBuffer::getFile(ObjectFilePath);
     if (!objBufferOrErr)
       throw Exceptions::DeviceBackendExceptionBase(
           std::string("Failed to load the library kernel object file"));
 
     // Create JIT and add object buffer to JIT.
-    std::unique_ptr<llvm::Module> M =
+    std::unique_ptr<Module> M =
         Cmplr->ParseModuleIR(rtlBufferOrErr.get().get());
     auto LLJIT = Cmplr->CreateLLJIT(M.get(), nullptr, nullptr);
     if (auto Err = LLJIT->addObjectFile(std::move(objBufferOrErr.get()))) {
-      llvm::logAllUnhandledErrors(std::move(Err), llvm::errs());
+      logAllUnhandledErrors(std::move(Err), errs());
       throw Exceptions::CompilerException("Failed to addObjectFile");
     }
     Prog->SetLLJIT(std::move(LLJIT));
@@ -685,7 +692,7 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
 
     // Get kernel names.
     size_t NumKernels = Kernels->GetCount();
-    std::string KNames;
+    assert(NumKernels == 3 && "Invalid number of library kernels");
     std::ostringstream O;
     for (size_t i = 0; i < NumKernels; ++i) {
       O << Kernels->GetKernel(i)->GetKernelName();
@@ -699,21 +706,18 @@ cl_dev_err_code ProgramBuilder::BuildLibraryProgram(Program *Prog,
 
     Prog->SetKernelSet(std::move(Kernels));
 
-    buildResult.SetBuildResult(CL_DEV_SUCCESS);
+    Prog->SetBuildLog(buildResult.GetBuildLog());
 
   } catch (Exceptions::DeviceBackendExceptionBase &e) {
     // if an exception is caught, the LLVM error handler should be removed
     // safely on windows, the LLVM error handler will not be removed
     // automatically and will cause assertion failure in debug mode
-    llvm::remove_fatal_error_handler();
+    remove_fatal_error_handler();
 
     buildResult.LogS() << e.what() << "\n";
-    buildResult.SetBuildResult(e.GetErrorCode());
-    Prog->SetBuildLog(buildResult.GetBuildLog());
-    throw e;
+    throw Exceptions::DeviceBackendExceptionBase{buildResult.GetBuildLog(),
+                                                 e.GetErrorCode()};
   }
-
-  return buildResult.GetBuildResult();
 }
 } // namespace DeviceBackend
 } // namespace OpenCL

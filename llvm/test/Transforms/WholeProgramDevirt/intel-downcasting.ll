@@ -38,7 +38,7 @@
 ; is that p can point to a DerivedA object. The devirtualization process
 ; can convert ptr->foo() into DevirtB::foo() and that is incorrect.
 
-; RUN: opt -S -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion=true -whole-program-assume %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion=true -whole-program-assume %s | FileCheck %s
 
 ; Check that the indirect call wasn't converted into a direct call
 ; CHECK: %tmp6 = tail call i32 %tmp5(%class.DerivedB* %tmp)

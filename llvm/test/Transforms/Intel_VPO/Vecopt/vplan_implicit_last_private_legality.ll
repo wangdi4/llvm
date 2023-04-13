@@ -29,13 +29,13 @@ define void @_ZGVeN32u__ZTSZ4mainEUlN4sycl3_V17nd_itemILi3EEEE_(i32 addrspace(1)
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    [[UNI_PHI50:%.*]] = phi i32 [ [[SPEC_STORE_SELECT_I_I_I0]], [[VECTOR_BODY0:%.*]] ], [ [[TMP2]], [[VPLANNEDBB40]] ]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <32 x i32> poison, i32 [[UNI_PHI50]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <32 x i32> poison, i32 [[UNI_PHI50]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <32 x i32> [[BROADCAST_SPLATINSERT0]], <32 x i32> poison, <32 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB60]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    [[TMP3]] = add nuw <32 x i32> [[VEC_PHI0]], <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
-; CHECK-NEXT:    [[TMP4]] = add nuw i32 [[UNI_PHI0]], 32
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw <32 x i32> [[VEC_PHI0]], <i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32, i32 32>
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw i32 [[UNI_PHI0]], 32
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp ult i32 [[TMP4]], 32
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB70:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:

@@ -4,10 +4,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-output -disable-vplan-codegen -debug-only=vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=4 -disable-output -disable-vplan-codegen -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 
 ; Tree conflict should not be lowered to double permute tree reduction for all test cases
 
-; CHECK: There is no VF found that all VConflict idioms in loop can be optimized for.
+; CHECK: No vectorization factor was found that can satisfy all VConflict idioms in the loop.
+; OPTRPTHI: remark #15436: loop was not vectorized: No vectorization factor was found that can satisfy all VConflict idioms in the loop.
+
 ; not supported due to non-commutativity of operands
 
 ; for (int i=0; i<N; ++i) {
@@ -47,7 +50,7 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 
-; CHECK: There is no VF found that all VConflict idioms in loop can be optimized for.
+; CHECK: No vectorization factor was found that can satisfy all VConflict idioms in the loop.
 ; not supported because fast flag is not present
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
@@ -89,7 +92,7 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 
-; CHECK: There is no VF found that all VConflict idioms in loop can be optimized for.
+; CHECK: No vectorization factor was found that can satisfy all VConflict idioms in the loop.
 ; short types not supported yet
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
@@ -131,7 +134,7 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 
-; CHECK: There is no VF found that all VConflict idioms in loop can be optimized for.
+; CHECK: No vectorization factor was found that can satisfy all VConflict idioms in the loop.
 ; char types not supported yet
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable

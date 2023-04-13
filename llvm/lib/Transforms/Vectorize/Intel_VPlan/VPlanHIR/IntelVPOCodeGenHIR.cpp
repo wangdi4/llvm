@@ -22,7 +22,7 @@
 #include "IntelVPlanHCFGBuilderHIR.h"
 #include "IntelVPlanVLSClientHIR.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
@@ -314,6 +314,7 @@ public:
   RegDDRef *visitSequentialUMinExpr(const SCEVSequentialUMinExpr *Expr);
   RegDDRef *visitUnknown(const SCEVUnknown *Expr);
   RegDDRef *visitCouldNotCompute(const SCEVCouldNotCompute *Expr);
+  RegDDRef *visitVScale(const SCEVVScale *Expr);
 };
 
 RegDDRef *NestedBlobCG::codegenCoeff(Constant *Const) {
@@ -484,6 +485,10 @@ RegDDRef *NestedBlobCG::visitCouldNotCompute(const SCEVCouldNotCompute *Expr) {
   llvm_unreachable("Attempt to use a SCEVCouldNotCompute object!");
 }
 
+RegDDRef *NestedBlobCG::visitVScale(const SCEVVScale *Expr) {
+  llvm_unreachable("Attempt to use a SCEVVScale object!");
+}
+
 namespace {
 // Check if a scev expression can possibly result in a divide by zero.
 class DivByZeroCheck {
@@ -547,10 +552,9 @@ public:
     // for now only allow search loops and loops with compress/expand where
     // we need this support.
     if (!CG->isSearchLoop() && !CG->getPlan()->getCompressExpandUsed()) {
-      DEBUG_WITH_TYPE(
-          "VPOCGHIR-bailout",
-          dbgs() << "VPLAN_OPTREPORT: Loop not handled - unsupported HLNode\n");
       IsHandled = false;
+      CG->bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                  "Unsupported HLNode.");
     }
   }
 
@@ -582,10 +586,9 @@ public:
 
 void HandledCheck::visit(HLDDNode *Node) {
   if (!isa<HLInst>(Node) && !isa<HLIf>(Node) && !isa<HLLoop>(Node)) {
-    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                    dbgs() << "VPLAN_OPTREPORT: Loop not handled - only "
-                              "HLInst/HLIf/HLLoop are supported\n");
     IsHandled = false;
+    CG->bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                "Unsupported high-level node detected.");
     return;
   }
 
@@ -606,21 +609,18 @@ void HandledCheck::visit(HLDDNode *Node) {
     // also necessary to avoid bailing out.
     if (LLInst->mayThrow() && !HasVectorVariant) {
       DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
-      DEBUG_WITH_TYPE(
-          "VPOCGHIR-bailout",
-          dbgs()
-              << "VPLAN_OPTREPORT: Loop not handled - instruction may throw\n");
       IsHandled = false;
+      CG->bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+                  "Loop contains instruction that may throw an exception.");
       return;
     }
 
     auto Opcode = LLInst->getOpcode();
     if (Opcode == Instruction::Alloca) {
       DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
-      DEBUG_WITH_TYPE(
-          "VPOCGHIR-bailout",
-          dbgs() << "VPLAN_OPTREPORT: Loop not handled - alloca instruction\n");
       IsHandled = false;
+      CG->bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                  "Loop contains an alloca instruction.");
       return;
     }
 
@@ -631,10 +631,10 @@ void HandledCheck::visit(HLDDNode *Node) {
         Inst->getParent() != OrigLoop &&
         !CG->isReductionRef(TLval, MaskedRedOpcode)) {
       DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
-      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                      dbgs() << "VPLAN_OPTREPORT: Liveout conditional "
-                                "non-reduction scalar assign not handled\n");
       IsHandled = false;
+      CG->bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                  "Loop contains a live-out assignment to a conditional "
+                  "non-reduction scalar.");
       return;
     }
 
@@ -644,20 +644,20 @@ void HandledCheck::visit(HLDDNode *Node) {
         // now.
         LLVM_DEBUG(Inst->dump());
         DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
-        DEBUG_WITH_TYPE(
-            "VPOCGHIR-bailout",
-            dbgs() << "VPLAN_OPTREPORT: Loop not handled - call vectorization "
-                      "not supported in mixed CG mode\n");
         IsHandled = false;
+        CG->bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                    "Cannot vectorize function calls in mixed code"
+                    "generation mode.");
         return;
       }
 
       Function *Fn = Call->getCalledFunction();
       if (!Fn) {
         DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
-        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-            dbgs() << "VPLAN_OPTREPORT: Loop not handled - indirect call\n");
         IsHandled = false;
+        CG->bailout(OptReportVerbosity::Medium,
+                    VPlanDriverImpl::IndCallRemarkID, "",
+                    "Loop contains an indirect call.");
         return;
       }
 
@@ -677,10 +677,10 @@ void HandledCheck::visit(HLDDNode *Node) {
                                   getValueAsString() == "alderlake";
       if (isa<HLIf>(Inst->getParent()) && VF > 1 && IsUnprofitableFabs) {
         DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
-        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - masked "
-                        "fabs intrinsic for AlderLake.\n");
         IsHandled = false;
+        CG->bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                    "Vectorizing a masked fabs intrinsic for the Alder Lake "
+                    "processor is not profitable.");
         return;
       }
 
@@ -691,10 +691,10 @@ void HandledCheck::visit(HLDDNode *Node) {
       // fixed (CQ410864)
       if (CalledFunc == "fabs" || CalledFunc == "floor") {
         DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
-        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-            dbgs() << "VPLAN_OPTREPORT: Loop not handled - fabs/floor call "
-                      "disabled\n");
         IsHandled = false;
+        CG->bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                    "Vectorization of calls to fabs or floor has been "
+                    "temporarily disabled.");
         return;
       }
 
@@ -709,11 +709,10 @@ void HandledCheck::visit(HLDDNode *Node) {
       auto *IndexRef = Inst->getOperandDDRef(Inst->getNumOperands() - 1);
       if (!IndexRef->isIntConstant()) {
         DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
-        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                        dbgs()
-                            << "VPLAN_OPTREPORT: Loop not handled - "
-                               "insert/extractelement with variable index\n");
         IsHandled = false;
+        CG->bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                    "Loop contains an element insertion or extraction "
+                    "with a variable index.");
         return;
       }
     }
@@ -738,10 +737,11 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
   if (!NodeIsCall && !isVectorizableTy(RegDD->getDestType())) {
     DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->dump(); dbgs() << "\n");
     DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->getDestType()->dump());
-    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                    dbgs() << "VPLAN_OPTREPORT: Loop not handled - "
-                              "non-vectorizable destination type\n");
     IsHandled = false;
+    CG->bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BadTypeRemarkID,
+                OrigLoop->isInSIMDRegion() ? "simd loop" : "loop",
+                "Loop contains a memory reference with an unvectorizable "
+                "type.");
     return;
   }
 
@@ -770,10 +770,9 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
     CExpr->getIVCoeff(LoopLevel, nullptr, &ConstCoeff);
   }
   if (!EnableBlobCoeffVec && CExpr->hasIVBlobCoeff(LoopLevel)) {
-    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-        dbgs()
-        << "VPLAN_OPTREPORT: Loop not handled - IV with blob coefficient\n");
     IsHandled = false;
+    CG->bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                "Loop contains an induction variable with a blob coefficient.");
     return;
   }
 
@@ -792,8 +791,10 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
         ZeroCheck.visitAll(TopBlob);
 
         if (ZChk.isDivByZeroPossible()) {
-          DEBUG_WITH_TYPE("VPOCGHIR-bailout", dbgs() << "VPLAN_OPTREPORT: Masked divide support TBI\n");
           IsHandled = false;
+          CG->bailout(OptReportVerbosity::High,
+                      VPlanDriverImpl::BailoutRemarkID,
+                      "Support for masked divides is not yet implemented.");
           return;
         }
       }
@@ -806,8 +807,9 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
     auto TopBlob = BlobUtilities.getBlob(BI);
 
     if (BlobUtilities.isNestedBlob(TopBlob)) {
-      DEBUG_WITH_TYPE("VPOCGHIR-bailout", dbgs() << "VPLAN_OPTREPORT: Loop not handled - nested blob\n");
       IsHandled = false;
+      CG->bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                  "Loop contains a nested-blob canonical expression.");
       return;
     }
   }
@@ -817,6 +819,15 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
 inline bool HandledCheck::isUniform(const RegDDRef *Ref) const {
   assert(Ref->isMemRef() && "Given RegDDRef is not memory reference.");
   return Ref->isStructurallyInvariantAtLevel(LoopLevel);
+}
+
+void VPOCodeGenHIR::bailout(OptReportVerbosity::Level Level, unsigned ID,
+                            std::string Message, std::string Debug) {
+  if (Debug == "")
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout", dbgs() << Message << '\n');
+  else
+    DEBUG_WITH_TYPE("VPOCGHIR-bailout", dbgs() << Debug << '\n');
+  setBailoutData(Level, ID, Message);
 }
 
 // Return true if Loop is currently handled by HIR vector code generation.
@@ -837,19 +848,19 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
                  VPLp->hasDedicatedExits() && VPLp->getExitBlock();
         };
         if (!isLoopSimplifyForm(VPLp)) {
-          DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                          dbgs()
-                              << "VPLAN_OPTREPORT: Loop not handled - expect "
-                                 "loopsimplify form\n");
+          bailout(OptReportVerbosity::Medium,
+                  VPlanDriverImpl::ComplexFlowRemarkID,
+                  Loop->isInSIMDRegion() ? "simd loop" : "loop",
+                  "Loop not handled: not in loopsimplify form.");
           return false;
         }
         auto *Latch = VPLp->getLoopLatch();
         assert(Latch && "Expected non-null loop latch");
         if (Latch->getNumSuccessors() != 2) {
-          DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-                          dbgs()
-                              << "VPLAN_OPTREPORT: Loop not handled - expect "
-                                 "latch with 2 successors\n");
+          bailout(OptReportVerbosity::Medium,
+                  VPlanDriverImpl::ComplexFlowRemarkID,
+                  Loop->isInSIMDRegion() ? "simd loop" : "loop",
+                  "Loop not handled: latch without two successors.");
           return false;
         }
       }
@@ -858,9 +869,8 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
 
   // Only handle normalized loops
   if (!Loop->isNormalized()) {
-    DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-        dbgs()
-        << "VPLAN_OPTREPORT: Loop not handled - loop not in normalized form\n");
+    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            "Loop is not in normalized form.");
     return false;
   }
 
@@ -871,19 +881,11 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   if (UBRef->isIntConstant(&UBConst)) {
     auto ConstTripCount = UBConst + 1;
 
-    // Check for minimum trip count threshold
-    if (TinyTripCountThreshold && ConstTripCount <= TinyTripCountThreshold) {
-      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-          dbgs() << "VPLAN_OPTREPORT: Loop not handled - loop with small "
-                    "trip count\n");
-      return false;
-    }
-
     // Check that main vector loop will have at least one iteration
     if (ConstTripCount < VF) {
-      DEBUG_WITH_TYPE("VPOCGHIR-bailout",
-          dbgs()
-          << "VPLAN_OPTREPORT: Loop not handled - zero iteration main loop\n");
+      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::LowTripCountRemarkID,
+              Loop->isInSIMDRegion() ? "simd loop" : "loop",
+              "Main loop does not execute even once.");
       return false;
     }
 
@@ -893,17 +895,8 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
 
   HandledCheck NodeCheck(Loop, TLI, VF, this);
   HLNodeUtils::visitRange(NodeCheck, Loop->child_begin(), Loop->child_end());
-  if (!NodeCheck.isHandled())
-    return false;
-
-  // If we are not in stress testing mode, only vectorize when some
-  // unit stride refs are seen. Still vectorize the case when no mem refs
-  // are seen. Remove this check once vectorizer cost model is fully
-  // implemented.
-  if (DisableStressTest && NodeCheck.getMemRefSeen() &&
-      !NodeCheck.getUnitStrideRefSeen()) {
-    DEBUG_WITH_TYPE("VPOCGHIR-bailout", dbgs() << "VPLAN_OPTREPORT: Loop not handled - all mem refs non "
-                         "unit-stride\n");
+  if (!NodeCheck.isHandled()) {
+    assert(BD.BailoutID && "HandledCheck::visit did not set bailout data!");
     return false;
   }
 
@@ -1048,8 +1041,8 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
         HLoop->setVecTag(HLLoop::VecTagTy::SIMD);
       else
         HLoop->setVecTag(HLLoop::VecTagTy::AUTOVEC);
-      HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(HLoop,
-                                                               Descr->getVF());
+      HIRTransformUtils::adjustTCEstimatesForUnrollOrVecFactor(
+          HLoop, Descr->getVFUF());
       break;
     }
   } else {
@@ -1108,7 +1101,7 @@ void VPOCodeGenHIR::setupLoopsForLegacyCG(unsigned VF, unsigned UF) {
 
   bool SearchLoopNeedsPeeling =
       TTI->isAdvancedOptEnabled(
-          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2) &&
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42) &&
       (EnableFirstIterPeelMEVec || EnablePeelMEVec) && isSearchLoop() &&
       (getSearchLoopType() == VPlanIdioms::SearchLoopStrEq ||
        getSearchLoopType() == VPlanIdioms::SearchLoopPtrEq ||
@@ -1436,8 +1429,10 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
   LLVM_DEBUG(dumpFinalHIR());
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (PrintHIRAfterVPlan) {
-    dbgs() << "Handled loop after VPlan: in Function: " << Fn.getName() << "\n";
+  if (PrintHIRAfterVPlan && llvm::isFunctionInPrintList(Fn.getName())) {
+    dbgs() << "Handled loop after VPlan: in Function: " << Fn.getName()
+           << " VPlan# :" << LoopVectorizationPlanner::getVPlanOrderNumber()
+           << "\n";
     dumpFinalHIR();
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -1497,7 +1492,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
       MainLoop->markDoNotUnroll();
   }
 
-  if (LoopHasUDRsOrInscan)
+  if (LoopHasEntityWithMemGuard)
     eraseGuardMemMotionDirsFromScalarLoops();
 
   // Lower remarks collected in VPLoops to outgoing vector/scalar HLLoops. This
@@ -1799,7 +1794,7 @@ static void setRefAlignment(Type *ScalRefTy, RegDDRef *WideRef) {
   unsigned Alignment = WideRef->getAlignment();
   if (!Alignment) {
     auto DL = WideRef->getDDRefUtils().getDataLayout();
-    Alignment = DL.getABITypeAlignment(ScalRefTy);
+    Alignment = DL.getABITypeAlign(ScalRefTy).value();
     WideRef->setAlignment(Alignment);
   }
 }
@@ -1811,8 +1806,6 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   RegDDRef *WideRef;
   auto RefDestTy = Ref->getDestType();
   auto VecRefDestTy = getWidenedType(RefDestTy, VF);
-  auto RefSrcTy = Ref->getSrcType();
-  auto VecRefSrcTy = getWidenedType(RefSrcTy, VF);
 
   // If the DDREF has a widened counterpart, return the same after setting
   // SrcType/DestType appropriately.
@@ -1822,6 +1815,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
     if ((WideRef = getWideRef(Ref->getSymbase()))) {
       WideRef = WideRef->clone();
 
+      auto RefSrcTy = Ref->getSrcType();
+      auto VecRefSrcTy = getWidenedType(RefSrcTy, VF);
       auto CE = WideRef->getSingleCanonExpr();
       CE->setDestType(VecRefDestTy);
       CE->setSrcType(VecRefSrcTy);
@@ -2671,7 +2666,7 @@ void VPOCodeGenHIR::addMaskToSVMLCall(
   assert(MaskValue && "Expected mask to be present");
   VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
 
-  if (VecTy->getPrimitiveSizeInBits().getFixedSize() < 512) {
+  if (VecTy->getPrimitiveSizeInBits().getFixedValue() < 512) {
     // For 128-bit and 256-bit masked calls, mask value is appended to the
     // parameter list. For example:
     //
@@ -3585,7 +3580,16 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
   //                <VF x Ty addrspace(x)*>
   Type *FlattenedTy = getWidenedType(
       VecType->getElementType()->getPointerTo(AddrSpace), getVF());
-  WidePtr->setBitCastDestVecOrElemType(FlattenedTy);
+
+  if (WidePtr->isAddressOf()) {
+    WidePtr->setBitCastDestVecOrElemType(FlattenedTy);
+  } else if (FlattenedTy != WidePtr->getDestType()) {
+    auto *Cast = HLNodeUtilities.createBitCast(FlattenedTy, WidePtr,
+                                               "scattergather.cast");
+    addInstUnmasked(Cast);
+    WidePtr = Cast->getLvalDDRef()->clone();
+  }
+
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] WidePtr after flattening : ";
              WidePtr->dump(1); dbgs() << "\n");
 
@@ -3620,7 +3624,8 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
   RegDDRef *ReplWidePtr = ReplWidePtrInst->getLvalDDRef();
   RegDDRef *ReplWidePtrAddr = DDRefUtilities.createAddressOfRef(VecType->getElementType(),
       ReplWidePtr->getSelfBlobIndex(), ReplWidePtr->getDefinedAtLevel());
-  ReplWidePtrAddr->setInBounds(WidePtr->isInBounds());
+  if (WidePtr->isAddressOf())
+    ReplWidePtrAddr->setInBounds(WidePtr->isInBounds());
   ReplWidePtrAddr->addDimension(IndexCE);
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] ReplWidePtrAddr : ";
              ReplWidePtrAddr->dump(1); dbgs() << "\n");
@@ -3714,7 +3719,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
         MemRef->setMetadata("intel.preferred_alignment",
                             MDTuple::get(Context, Ops));
         auto DL = MemRef->getDDRefUtils().getDataLayout();
-        auto LdStValAlignment = DL.getABITypeAlignment(VPLdSt->getValueType());
+        auto LdStValAlignment = DL.getABITypeAlign(VPLdSt->getValueType());
 
         // If memory ref is properly aligned on element boundary, we can set
         // its alignment to the target alignment from dynamic peeling.
@@ -3823,6 +3828,12 @@ void VPOCodeGenHIR::widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask) {
     HLInst *BlendInst = createSelectHelper(CmpInst::ICMP_EQ /* CmpPred */, Cond,
                                            nullptr /* Pred1 */, IncomingVecVal,
                                            BlendVal, ReplicateFactor);
+    if (Blend->getDebugLocation()) {
+      Instruction *LLVMInst =
+          const_cast<Instruction *>(BlendInst->getLLVMInstruction());
+      LLVMInst->setDebugLoc(Blend->getDebugLocation());
+    }
+
     addInstUnmasked(BlendInst);
     BlendVal = BlendInst->getLvalDDRef()->clone();
   }
@@ -4057,12 +4068,15 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
       CanonExprUtilities.createConstStandAloneBlobCanonExpr(Cv);
 
   // Create address-of ref to compute vector of pointers using base-address and
-  // vector indices. The base ptr of this address-of ref will be defined in loop
-  // preheader always, hence set defined at level as (LoopLevel - 1).
+  // vector indices. The base ptr of this address-of ref will be defined in
+  // current insertion point's nesting level.
   auto *VecPvtPtrs = DDRefUtilities.createAddressOfRef(
       AllocatedType, BaseRefCopy->getLvalDDRef()->getSelfBlobIndex(),
-      OrigLoop->getNestingLevel() - 1, AllocaMemRefSym);
+      getNestingLevelFromInsertPoint(), AllocaMemRefSym);
   VecPvtPtrs->addDimension(IndexCE);
+  // Since dimension index is constant, we need to only make the base pointer
+  // consistent.
+  VecPvtPtrs->makeConsistent({}, getNestingLevelFromInsertPoint());
   VecPvtPtrs->setBitCastDestVecOrElemType(getWidenedType(PvtTy, getVF()));
   return VecPvtPtrs;
 }
@@ -4267,7 +4281,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::ReductionFinalUdr: {
-    LoopHasUDRsOrInscan = true;
+    LoopHasEntityWithMemGuard = true;
     // Call combiner for each pointer in private memory and accumulate the
     // results in original DDRef corresponding to the UDR.
     auto *Orig = getOrCreateScalarRef(VPInst->getOperand(1), 0);
@@ -4332,10 +4346,11 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // FinalLoopVF = 4 (since array size is less than max VF)
     const unsigned MaxVectorWidth =
         TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-            .getFixedSize();
+            .getFixedValue();
     unsigned TypeWidthInBits = ElemTy->getPrimitiveSizeInBits();
     unsigned FinalLoopMaxVF = std::min(MaxVectorWidth / TypeWidthInBits, 32u);
-    unsigned FinalLoopVF = llvm::PowerOf2Floor(NumElems);
+    unsigned FinalLoopVF = llvm::bit_floor(NumElems);
+    assert(FinalLoopVF != 0 && "FinalLoopVF can't be 0!");
     if (FinalLoopVF > FinalLoopMaxVF)
       FinalLoopVF = FinalLoopMaxVF;
 
@@ -4354,7 +4369,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
                                             unsigned LoopUB) -> HLLoop * {
       const DataLayout &DL = *Plan->getDataLayout();
       // Determine alignment of wide load/store using element type of array.
-      Align Alignment = Align(DL.getABITypeAlignment(ArrTy->getElementType()));
+      Align Alignment = Align(DL.getABITypeAlign(ArrTy->getElementType()));
       assert(PrivateMemBlobRefs.count(PrivArr) &&
              "Wide alloca missing for VPAllocatePrivate");
       unsigned PrivArrSym = PrivateMemBlobRefs[PrivArr].second;
@@ -4466,6 +4481,123 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // Update insertion point after emitting remainder loop.
       InsertPoint = FinalRemLp;
     }
+
+    return;
+  }
+
+  case VPInstruction::ReductionFinalCmplx: {
+    LoopHasEntityWithMemGuard = true;
+    auto *CmplxRedFinal = cast<VPReductionFinalCmplx>(VPInst);
+    auto *PrivCmplx = cast<VPAllocatePrivate>(CmplxRedFinal->getOperand(0));
+    RegDDRef *OrigCmplx = getUniformScalarRef(CmplxRedFinal->getOperand(1));
+    Type *ElemTy =
+        cast<StructType>(PrivCmplx->getAllocatedType())->getElementType(0);
+
+    // We treat the widened private memory of complex reduction as a wide vector
+    // with real and imaginary parts for each lane stored consecutively like -
+    // <Real_0, Imag_0, Real_1, Imag_1, ..., VF times>
+    //
+    // Horizontal reduction is done by taking the second half of this vector and
+    // iteratively reducing with first half until we are left with only 2
+    // elements in the vector. At that point we reduce the horizontally reduced
+    // vector with original complex value and store the final result.
+    //
+    // Pseudo HIR for generic complex type reduction finalization -
+    //
+    // END LOOP (vector loop)
+    //
+    // %vec = (<VF*2 x ElemTy>*)(%cmplx.red.vec)[0];
+    // %second.half = shuffle %vec, undef, <VF, VF+1, ..., 2*VF-1, undef, ...>;
+    // %vec = %vec  red-opcode  %second.half;
+    // %second.half.2 = shuffle %vec, undef, <VF/2, ..., VF-1, undef, ...>
+    // %vec = %vec  red-opcode  %second.half.2;
+    //   .. repeat log2(VF) times ..
+    // %reduced = shuffle %vec, undef, <0, 1>;
+    // %orig.cmplx = (<2 x ElemTy>*)(%cmplx.red)[0];
+    // %final = %orig.cmplx  red-opcode  %reduced;
+    // (<2 x ElemTy>*)(%cmplx.red)[0] = %final;
+    //
+
+    // Perform consecutive load from widened private memory for the complex type
+    // reduction.
+    RegDDRef *PrivLdBasePtr =
+        getScalRefForVPVal(PrivCmplx, 0 /*Lane*/)->clone();
+    // Addressof should be cleared for load/store operation.
+    PrivLdBasePtr->setAddressOf(false);
+    PrivLdBasePtr->setBitCastDestVecOrElemType(
+        FixedVectorType::get(ElemTy, getVF() * 2));
+    HLInst *PrivLd = HLNodeUtilities.createLoad(PrivLdBasePtr, "cmplx.fin.vec");
+    addInstUnmasked(PrivLd);
+
+    RegDDRef *CmplxFinVec = PrivLd->getLvalDDRef()->clone();
+    auto *CmplxFinVecTy = cast<FixedVectorType>(CmplxFinVec->getDestType());
+    unsigned CmplxFinVecSize = CmplxFinVecTy->getNumElements();
+    assert(CmplxFinVecSize == getVF() * 2 &&
+           "Finalization vector for complex type reduction is expected to have "
+           "2*VF number of elements.");
+
+    // Emit sequence of shuffle + redop instructions to perform horizontal
+    // reduction. We use the same vector for this purpose by reducing the second
+    // half with first. This is repeated for log2(VF) times i.e. until vector
+    // size is 2 elements.
+    for (unsigned CurVecSize = CmplxFinVecSize; CurVecSize > 2;
+         CurVecSize /= 2) {
+      SmallVector<Constant *, 8> ShufMask;
+      ShufMask.resize(CmplxFinVecSize,
+                      UndefValue::get(Type::getInt32Ty(Context)));
+
+      // Compute mask to get second half of vector based on its current size -
+      // VF = 4
+      // CurVecSize = 8
+      // ShufMask = <4, 5, 6, 7, undef, undef, undef, undef>
+      unsigned CurHalfVecSize = CurVecSize / 2;
+      for (unsigned I = 0; I < CurHalfVecSize; ++I)
+        ShufMask[I] =
+            ConstantInt::get(Type::getInt32Ty(Context), CurHalfVecSize + I);
+
+      HLInst *ShufInst = createShuffleWithUndef(CmplxFinVec->clone(), ShufMask,
+                                                "cmplx.fin.second.half");
+      addInstUnmasked(ShufInst);
+      // Reduce the second half with first, and attach any FastMathFlags.
+      HLInst *BinOp = HLNodeUtilities.createFPMathBinOp(
+          CmplxRedFinal->getBinOpcode(), CmplxFinVec->clone(),
+          ShufInst->getLvalDDRef()->clone(), CmplxRedFinal->getFastMathFlags(),
+          "cmplx.fin.redop", CmplxFinVec->clone());
+      addInstUnmasked(BinOp);
+    }
+
+    // We have reduced the finalization vector horizontally to 2 elements,
+    // extract that to reduce with the original complex value.
+    SmallVector<Constant *, 2> ShufMask = {
+        ConstantInt::get(Type::getInt32Ty(Context), 0),
+        ConstantInt::get(Type::getInt32Ty(Context), 1)};
+    HLInst *CmplxFinVecRedShuf = createShuffleWithUndef(
+        CmplxFinVec->clone(), ShufMask, "cmplx.fin.vec.reduced");
+    addInstUnmasked(CmplxFinVecRedShuf);
+
+    // Generate an addressof ref from the original complex type reduction ref
+    // for pointer operand of load/store operation. We treat it as <2 x ElemTy>*
+    // for this purpose.
+    RegDDRef *OrigCmplxPtr = DDRefUtilities.createSelfAddressOfRef(
+        CmplxRedFinal->getType(), OrigCmplx->getSelfBlobIndex(),
+        OrigCmplx->getDefinedAtLevel(), OrigCmplx->getSymbase());
+    OrigCmplxPtr->setBitCastDestVecOrElemType(FixedVectorType::get(ElemTy, 2));
+    OrigCmplxPtr->setAddressOf(false);
+
+    // Reduce the finalized complex value with original and store back the
+    // result.
+    HLInst *OrigCmplxLd =
+        HLNodeUtilities.createLoad(OrigCmplxPtr, "orig.cmplx");
+    addInstUnmasked(OrigCmplxLd);
+    HLInst *CmplxFinalBinOp = HLNodeUtilities.createFPMathBinOp(
+        CmplxRedFinal->getBinOpcode(), OrigCmplxLd->getLvalDDRef()->clone(),
+        CmplxFinVecRedShuf->getLvalDDRef()->clone(),
+        CmplxRedFinal->getFastMathFlags(), "cmplx.final");
+    addInstUnmasked(CmplxFinalBinOp);
+    HLInst *OrigCmplxSt =
+        HLNodeUtilities.createStore(CmplxFinalBinOp->getLvalDDRef()->clone(),
+                                    "orig.cmplx.store", OrigCmplxPtr->clone());
+    addInstUnmasked(OrigCmplxSt);
 
     return;
   }
@@ -5848,10 +5980,11 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
 }
 
 RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
-                                             int GroupSize) {
+                                             int GroupSize, int GroupStride) {
   unsigned NumElements = cast<FixedVectorType>(WideValueType)->getNumElements();
   if (!CurMaskValue) {
-    if (VF * GroupSize == NumElements)
+    unsigned NumUnmaskedElements = VF * GroupStride + (GroupSize - GroupStride);
+    if (NumUnmaskedElements == NumElements)
       // No mask needed.
       return nullptr;
 
@@ -5859,7 +5992,7 @@ RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
     auto *False = ConstantInt::getFalse(WideValueType->getContext());
     SmallVector<Constant *, 32> Mask;
     unsigned Idx;
-    for (Idx = 0; Idx < VF*GroupSize; ++Idx)
+    for (Idx = 0; Idx < NumUnmaskedElements; ++Idx)
       Mask.push_back(True);
     for (; Idx < NumElements; ++Idx)
       Mask.push_back(False);
@@ -5867,6 +6000,8 @@ RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
     return DDRefUtilities.createConstDDRef(ConstantVector::get(Mask));
   }
 
+  assert(GroupSize == GroupStride &&
+         "Expected group size and stride to match for masked case");
   auto *Int32Ty = Type::getInt32Ty(WideValueType->getContext());
   SmallVector<Constant *, 32> ShuffleMask;
   for (unsigned Lane = 0; Lane < VF; ++Lane)
@@ -5980,6 +6115,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::ReductionFinal:
   case VPInstruction::ReductionFinalUdr:
   case VPInstruction::ReductionFinalArr:
+  case VPInstruction::ReductionFinalCmplx:
   case VPInstruction::InductionInit:
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
@@ -6075,8 +6211,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       FakeRef->setSymbase(FakeSymbase);
       WideLoad->addFakeRvalDDRef(FakeRef);
     }
-    RegDDRef *Mask = getVLSLoadStoreMask(cast<VectorType>(VPInst->getType()),
-                                         VLSLoad->getGroupSize());
+    RegDDRef *Mask =
+        getVLSLoadStoreMask(cast<VectorType>(VPInst->getType()),
+                            VLSLoad->getGroupSize(), VLSLoad->getGroupStride());
     addInst(WideLoad, Mask);
 
     if (Mask)
@@ -6093,7 +6230,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     auto NumEltsPerValue = Extract->getNumGroupEltsPerValue();
 
     auto Offset = Extract->getOffset();
-    auto GroupSize = Extract->getGroupSize();
+    auto GroupStride = Extract->getGroupStride();
 
     auto *Int32Ty = Type::getInt32Ty(Extract->getType()->getContext());
 
@@ -6101,7 +6238,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     for (unsigned Lane = 0; Lane < VF; ++Lane)
       for (unsigned Part = 0; Part < NumEltsPerValue; ++Part)
         ShuffleMask.push_back(
-            ConstantInt::get(Int32Ty, Lane * GroupSize + Offset + Part));
+            ConstantInt::get(Int32Ty, Lane * GroupStride + Offset + Part));
 
     RegDDRef *WideValue = getOrCreateScalarRef(Extract->getOperand(0), 0);
     HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
@@ -6180,7 +6317,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     }
     RegDDRef *Mask = getVLSLoadStoreMask(
         cast<VectorType>(VLSStore->getOperand(0)->getType()),
-        VLSStore->getGroupSize());
+        VLSStore->getGroupSize(), VLSStore->getGroupStride());
     addInst(WideStore, Mask);
     if (Mask)
       OptRptStats.MaskedVLSStores += VLSStore->getNumOrigStores();
@@ -6728,9 +6865,16 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         CE1->getDenominator() == 1 && ConstOp && VPInst->getNumUsers()) {
       auto *CI = cast<ConstantInt>(ConstOp->getConstant());
 
-      // The constant value needs to fit in 64 bits which is what setDenominator
-      // takes. Try folding only if this is the case.
-      if (CI->getBitWidth() <= 64) {
+      // The constant value must fit in 64 bits because that is what
+      // setDenominator accepts. Only fold if this is the case.
+      // When the denominator is negative and has potential to go out of range,
+      // folding is skipped. This is because CE doesn't support negative
+      // denominators, and setDenominator changes the sign of the numerator to
+      // make denominator positive. [Ref: HIRParser::parseConstOrDenom]
+      if (CI->getBitWidth() < 64 ||
+          (CI->getBitWidth() == 64 && !CI->isMinValue(true) &&
+           (Opcode == Instruction::SDiv ||
+            CI->getLimitedValue() <= std::numeric_limits<int64_t>::max()))) {
         SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone()};
 
         if (Opcode == Instruction::UDiv)
@@ -6873,11 +7017,25 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     // In order for HIR idiom recognition to work, when generating the widened
     // select we need to use operands of the compare instruction corresponding
-    // to the select mask when possible.
+    // to the select mask when possible. If doing this, mark the operands as
+    // livein as needed.
     if (PredInst) {
       Pred0 = widenRef(PredInst->getOperand(0), getVF());
       Pred1 = widenRef(PredInst->getOperand(1), getVF());
       Pred = PredInst->getPredicate();
+
+      auto *DefVPLoop =
+          Plan->getVPLoopInfo()->getLoopFor(PredInst->getParent());
+      auto *UseVPLoop = Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent());
+      if (DefVPLoop != UseVPLoop) {
+        auto *DefHLoop = VPLoopHLLoopMap[DefVPLoop];
+        auto *UseHLoop = VPLoopHLLoopMap[UseVPLoop];
+        while (UseHLoop != DefHLoop) {
+          UseHLoop->addLiveInTemp(Pred0);
+          UseHLoop->addLiveInTemp(Pred1);
+          UseHLoop = UseHLoop->getParentLoop();
+        }
+      }
     } else {
       // Used Pred0 == AllOnes as the select mask
       Pred0 = widenRef(VPInst->getOperand(0), getVF());
@@ -6979,7 +7137,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     if (VPInst->getOpcode() == Instruction::BitCast && RefOp0->isAddressOf()) {
       SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
       auto *BitCastDestTy = isa<PointerType>(ResultRefTy)
-                                ? ResultRefTy->getPointerElementType()
+                                ? ResultRefTy->getNonOpaquePointerElementType()
                                 : ResultRefTy;
       RefOp0->setBitCastDestVecOrElemType(BitCastDestTy);
       makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
@@ -7087,6 +7245,12 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         auto *VecIdx = widenRef(Idx, VF);
         VectorType *VecTy = cast<VectorType>(VecPtrs->getDestType());
         PointerType *PtrTy = cast<PointerType>(VecTy->getElementType());
+        if (!VecPtrs->isSelfBlob()) {
+          auto *CopyInst =
+              HLNodeUtilities.createCopyInst(VecPtrs, "gep.base.copy");
+          addInstUnmasked(CopyInst);
+          VecPtrs = CopyInst->getLvalDDRef()->clone();
+        }
         auto *VecPtrsUpdate = DDRefUtilities.createAddressOfRef(
             getInt8OrPointerElementTy(PtrTy), VecPtrs->getSelfBlobIndex(),
             getNestingLevelFromInsertPoint(), VecPtrs->getSymbase());
@@ -8354,18 +8518,14 @@ void VPOCodeGenHIR::emitRemarksForScalarLoops() {
 
     // Emit remarks collected for scalar loop instruction into outgoing scalar
     // loop's opt-report.
-    auto EmitScalarLpVPIRemarks = [this, ScalarHLp](auto *LpVPI) {
-      for (const auto &R : LpVPI->getOriginRemarks())
-        ORBuilder(*ScalarHLp).addOrigin(R.RemarkID);
+    for (const auto &R : ScalarLpVPI->getOriginRemarks())
+      ORBuilder(*ScalarHLp).addOrigin(R.RemarkID);
 
-      for (const auto &R : LpVPI->getGeneralRemarks())
+    for (const auto &R : ScalarLpVPI->getGeneralRemarks())
+      if (R.Arg.empty())
+        ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.RemarkID);
+      else
         ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
-    };
-
-    if (auto *RemLp = dyn_cast<VPScalarRemainderHIR>(ScalarLpVPI))
-      EmitScalarLpVPIRemarks(RemLp);
-    else
-      EmitScalarLpVPIRemarks(cast<VPScalarPeelHIR>(ScalarLpVPI));
   }
 }
 

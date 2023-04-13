@@ -26,8 +26,6 @@ namespace Framework {
  *
  * Description: IPlatform interface - outlines the OpenCL platform related
  *                                    functions
- * Author:    Uri Levy
- * Date:      December 2008
  ******************************************************************************/
 class IPlatform {
 public:
@@ -55,8 +53,6 @@ public:
    *               CL_INVALID_VALUE if uiNumEntries is equal to zero and
    *                                platforms is not NULL or if both
    *                                puiNumPlatforms and pclPlatforms are NULL
-   * Author:    Uri Levy
-   * Date:      April 2008
    ****************************************************************************/
   virtual cl_int GetPlatformIDs(cl_uint IN uiNumEntries,
                                 cl_platform_id *OUT pclPlatforms,
@@ -87,8 +83,6 @@ public:
    *                                param_value_size is < size of return type
    *                                and param_value is not a NULL value.
    *               CL_INVALID_PLATFORM if platform is not a valid platform
-   * Author: Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   virtual cl_int GetPlatformInfo(cl_platform_id IN clPlatform,
                                  cl_platform_info IN clParamName,
@@ -131,8 +125,6 @@ public:
    *               CL_DEVICE_NOT_FOUND no OpenCL devices that matched
    *                                   device_type were found
    *               CL_SUCCESS the function is executed successfully
-   * Author:    Uri Levy
-   * Date: December 2008
    ****************************************************************************/
   virtual cl_int GetDeviceIDs(cl_platform_id IN clPlatform,
                               cl_device_type IN clDeviceType,
@@ -166,8 +158,6 @@ public:
    *                                values or if size in bytes specified by
    *                                param_value_size is < size of return type
    *                                and param_value is not a NULL value
-   * Author: Uri Levy
-   * Date:   December 2008
    ****************************************************************************/
   virtual cl_int GetDeviceInfo(cl_device_id IN clDevice,
                                cl_device_info IN clParamName,
@@ -186,8 +176,6 @@ public:
    *              build the appropriate program executable.
    * Arguments:
    * Return value: This call currently always returns CL_SUCCESS
-   * Author:    Uri Levy
-   * Date:      January 2009
    ****************************************************************************/
   virtual cl_int UnloadCompiler(void) = 0;
 };

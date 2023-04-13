@@ -1,6 +1,6 @@
 //==== AOSToSOAOP.cpp - AOS-to-SOA with support for opaque pointers ====//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -66,7 +66,6 @@
 #include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
-#include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -527,50 +526,6 @@ private: // data
   // parameter or return type from being a pointer to the structure to being an
   // integer index value.
   SmallPtrSet<Function *, 16> FnClonedForIndex;
-};
-
-class DTransAOSToSOAOPWrapper : public ModulePass {
-private:
-  AOSToSOAOPPass Impl;
-
-public:
-  static char ID;
-
-  DTransAOSToSOAOPWrapper() : ModulePass(ID) {
-    initializeDTransAOSToSOAOPWrapperPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
-    auto &DTAnalysisWrapper = getAnalysis<DTransSafetyAnalyzerWrapper>();
-    DTransSafetyInfo &DTInfo = DTAnalysisWrapper.getDTransSafetyInfo(M);
-    auto &WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    AOSToSOAOPPass::GetTLIFuncType GetTLI =
-        [this](const Function &F) -> TargetLibraryInfo & {
-      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    };
-
-    // This lambda function is to allow getting the DominatorTree analysis for a
-    // specific function to allow analysis of loops when checking the dynamic
-    // allocation of the structure type candidates of this transformation.
-    AOSToSOAOPPass::DominatorTreeFuncType GetDT =
-        [this](Function &F) -> DominatorTree & {
-      return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
-    };
-
-    bool Changed = Impl.runImpl(M, &DTInfo, WPInfo, GetTLI, GetDT);
-    return Changed;
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DTransSafetyAnalyzerWrapper>();
-    AU.addRequired<TargetLibraryInfoWrapperPass>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<WholeProgramWrapperPass>();
-    AU.addPreserved<WholeProgramWrapperPass>();
-  }
 };
 } // end anonymous namespace
 
@@ -2106,7 +2061,9 @@ void AOSToSOAOPTransformImpl::convertDepGEP(GetElementPtrInst *GEP) {
   assert(GEP->getNumIndices() >= 2 && "Invalid dependent GEP to convert");
   auto *LLVMStructTy = cast<llvm::StructType>(GEP->getSourceElementType());
   Value *FieldNum = GEP->getOperand(2);
-  uint32_t FieldIdx = dyn_cast<ConstantInt>(FieldNum)->getLimitedValue();
+  assert(isa<ConstantInt>(FieldNum) &&
+         "Unsupported GEP added by visitGetElementPtrInst");
+  uint32_t FieldIdx = cast<ConstantInt>(FieldNum)->getLimitedValue();
   DTransStructType *DTransStructTy = getDependentDTransType(LLVMStructTy);
   assert(DTransStructTy && "DTransStructType missing for dependent type");
   DTransType *FieldTy = DTransStructTy->getFieldType(FieldIdx);
@@ -2571,8 +2528,8 @@ void AOSToSOAOPTransformImpl::convertAllocCall(AllocCallInfo *AInfo,
       // Update the offset value to account for any padding that may be
       // needed, if this element has a stricter alignment requirement than the
       // previous element.
-      uint64_t PrevFieldAlign = DL.getABITypeAlignment(PrevArrayElemType);
-      uint64_t FieldAlign = DL.getABITypeAlignment(ArrayElemType);
+      uint64_t PrevFieldAlign = DL.getABITypeAlign(PrevArrayElemType).value();
+      uint64_t FieldAlign = DL.getABITypeAlign(ArrayElemType).value();
       if (FieldAlign > PrevFieldAlign) {
         Value *Numerator = IRB.CreateAdd(
             AddrOffset, ConstantInt::get(ArithType, FieldAlign - 1));
@@ -3036,24 +2993,6 @@ Value *AOSToSOAOPTransformImpl::createIndexFromValue(
   }
 
   llvm_unreachable("unexpected instruction");
-}
-
-char DTransAOSToSOAOPWrapper::ID = 0;
-INITIALIZE_PASS_BEGIN(DTransAOSToSOAOPWrapper, "dtrans-aostosoaop",
-                      "DTrans array of structures to structure of arrays with "
-                      "opaque pointer support",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_END(DTransAOSToSOAOPWrapper, "dtrans-aostosoaop",
-                    "DTrans array of structures to structure of arrays with "
-                    "opaque pointer support",
-                    false, false)
-
-ModulePass *llvm::createDTransAOSToSOAOPWrapperPass() {
-  return new DTransAOSToSOAOPWrapper();
 }
 
 namespace llvm {
