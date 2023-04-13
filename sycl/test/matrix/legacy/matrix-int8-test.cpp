@@ -1,8 +1,8 @@
-// RUN: %clangxx -fsycl -fsycl-device-only -DSYCL_EXT_ONEAPI_MATRIX_VERSION=4 -O2 -S -emit-llvm -o - %s | FileCheck %s
+// RUN: %clangxx -fsycl -fsycl-device-only -O2 -DSYCL_EXT_ONEAPI_MATRIX_VERSION=1 -S -emit-llvm -o - %s | FileCheck %s
 
 // CHECK-DAG: target("spirv.JointMatrixINTEL", i8, 12, 48, 0, 3, 0)
-// CHECK-DAG: target("spirv.JointMatrixINTEL", i32, 12, 12, 3, 3, 2)
-// CHECK-DAG: target("spirv.JointMatrixINTEL", i8, 48, 12, 2, 3, 1)
+// CHECK-DAG: target("spirv.JointMatrixINTEL", i32, 12, 12, 0, 3, 0)
+// CHECK-DAG: target("spirv.JointMatrixINTEL", i8, 48, 12, 3, 3, 0)
 
 #include <iostream>
 #include <sycl/sycl.hpp>
@@ -54,7 +54,6 @@ void matrix_multiply(big_matrix<T1, NUM_ROWS_C, NUM_COLS_C> &C,
      cgh.parallel_for<class imatrix>(
          nd_range<2>({NDRangeM, NDRangeN * SG_SZ}, {1, 1 * SG_SZ}),
          [accA, accB, accC, M, N, K](nd_item<2> spmd_item)
-             [[intel::reqd_sub_group_size(SG_SZ)]]
 
          {
            // The submatrix API has to be accessed by all the workitems in a
@@ -65,19 +64,14 @@ void matrix_multiply(big_matrix<T1, NUM_ROWS_C, NUM_COLS_C> &C,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           sycl::sub_group sg = spmd_item.get_sub_group();
-           joint_matrix<sycl::sub_group, int8_t, use::a, TM, TK,
-                        layout::row_major>
-               sub_a;
+           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
+           joint_matrix<int8_t, TM, TK> sub_a(sg);
            // For B, since current implementation does not support non-packed
            // layout, users need to specify the updated VNNI sizes along with
            // the packed_b layout. By default, the layout is row_major and size
            // is (TK, TN).
-           joint_matrix<sycl::sub_group, int8_t, use::b, TK, TN,
-                        sycl::ext::intel::experimental::matrix::layout::packed>
-               sub_b;
-           joint_matrix<sycl::sub_group, int32_t, use::accumulator, TM, TN>
-               sub_c;
+           joint_matrix<int8_t, TK, TN, matrix_layout::packed_b> sub_b(sg);
+           joint_matrix<int32_t, TM, TN> sub_c(sg);
 
            // AMX: 8 register tiles : 1k byte size, SMmaxxSKmax =16x64
            // strideX = X's cols, so strideC = N, strideA = K, strideB = N*4
@@ -85,18 +79,18 @@ void matrix_multiply(big_matrix<T1, NUM_ROWS_C, NUM_COLS_C> &C,
            for (int k = 0; k < K / TK; k += 1) {
              joint_matrix_load(
                  sg, sub_a, accA.get_pointer() + (sg_startx * TM) * K + k * TK,
-                 K);
+                 K, matrix_layout::row_major);
              // Assuming B data is already in VNNI format.
              joint_matrix_load(sg, sub_b,
                                accB.get_pointer() + (k * TK / 4) * (N * 4) +
                                    sg_starty / SG_SZ * TN * 4,
-                               N * 4);
+                               N * 4, matrix_layout::packed_b);
              sub_c = joint_matrix_mad(sg, sub_a, sub_b, sub_c);
            }
            joint_matrix_store(sg, sub_c,
                               accC.get_pointer() + (sg_startx * TM) * N +
                                   sg_starty / SG_SZ * TN,
-                              N, layout::row_major);
+                              N, matrix_layout::row_major);
          }); // parallel for
    }).wait();
 }
