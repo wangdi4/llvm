@@ -150,7 +150,6 @@ public:
   /// memory representation is usually i8 or i32, depending on the target.
   llvm::Type *ConvertTypeForMem(QualType T, bool ForBitField = false);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // A type to hold the type-information for a function type, specifically for
@@ -173,14 +172,6 @@ public:
   void setDTransRuntimeType(llvm::StructType *ST, QualType ClangTy,
                             ArrayRef<FieldDecl *> FDs);
 
-  /// GetFunctionType - Get the LLVM function type for \arg Info.
-  llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info,
-                                      DTransFuncInfo *DFI = nullptr);
-
-  llvm::FunctionType *GetFunctionType(GlobalDecl GD,
-                                      DTransFuncInfo *DFI = nullptr);
-#else // INTEL_FEATURE_SW_DTRANS
-=======
   /// ConvertSYCLJointMatrixINTELType - Convert SYCL joint_matrix type
   /// which is represented as a pointer to a structure to LLVM extension type
   /// with the parameters that follow SPIR-V JointMatrixINTEL type.
@@ -189,7 +180,21 @@ public:
   ///        %use%, (optional) %element_type_interpretation%)
   llvm::Type *ConvertSYCLJointMatrixINTELType(RecordDecl *RD);
 
->>>>>>> 6f8e45670a0b72d9b0f343c02927b709638491de
+  /// GetFunctionType - Get the LLVM function type for \arg Info.
+  llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info,
+                                      DTransFuncInfo *DFI = nullptr);
+
+  llvm::FunctionType *GetFunctionType(GlobalDecl GD,
+                                      DTransFuncInfo *DFI = nullptr);
+#else // INTEL_FEATURE_SW_DTRANS
+  /// ConvertSYCLJointMatrixINTELType - Convert SYCL joint_matrix type
+  /// which is represented as a pointer to a structure to LLVM extension type
+  /// with the parameters that follow SPIR-V JointMatrixINTEL type.
+  /// The expected representation is:
+  /// target("spirv.JointMatrixINTEL", %element_type, %rows%, %cols%, %scope%,
+  ///        %use%, (optional) %element_type_interpretation%)
+  llvm::Type *ConvertSYCLJointMatrixINTELType(RecordDecl *RD);
+
   /// GetFunctionType - Get the LLVM function type for \arg Info.
   llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info);
 
