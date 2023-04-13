@@ -28,9 +28,8 @@
 ; RUN:     -passes='lto<O3>' -S  %s -passes-ep-peephole='no-op-function' 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-EP-Peephole
 
-; CHECK-O: Running pass: Annotation2Metadata
-; CHECK-EP-NEXT: Running pass: NoOpModulePass
-; CHECK-O-NEXT: Running pass: CrossDSOCFIPass
+; CHECK-EP: Running pass: NoOpModulePass
+; CHECK-O: Running pass: CrossDSOCFIPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit
