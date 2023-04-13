@@ -1233,6 +1233,16 @@ private:
     }
   }
 
+  // Create a copy instruction of the given pointer ref adding it with the
+  // specified mask and return the LVAL ref of the copy instruction. This
+  // utility is used while creating memory refs when the given ref is not
+  // suitable to be used as the base canon expression.
+  RegDDRef *createCopyForMemRef(RegDDRef *PtrRef, RegDDRef *Mask) {
+    auto *CopyInst = HLNodeUtilities.createCopyInst(PtrRef, "nsbgepcopy");
+    addInst(CopyInst, Mask);
+    return CopyInst->getLvalDDRef();
+  }
+
   // Helper method to visit all VPLoops in final VPlan CFG and lower
   // opt-reports attached to them to their corresponding loops in outgoing HIR.
   void lowerRemarksForVectorLoops();
