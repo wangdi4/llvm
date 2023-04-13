@@ -5567,26 +5567,12 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
 InstructionCost X86TTIImpl::getMinMaxCost(Type *Ty, Type *CondTy,
                                           TTI::TargetCostKind CostKind,
                                           bool IsUnsigned) {
-<<<<<<< HEAD
-  std::pair<InstructionCost, MVT> LT = getTypeLegalizationCost(Ty);
-
-  MVT MTy = LT.second;
-
-  int ISD;
 #if INTEL_CUSTOMIZATION
   if (Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) {
 #endif // INTEL_CUSTOMIZATION
-    ISD = IsUnsigned ? ISD::UMIN : ISD::SMIN;
-  } else {
-    assert(Ty->isFPOrFPVectorTy() &&
-           "Expected float point or integer vector type.");
-    ISD = ISD::FMINNUM;
-=======
-  if (Ty->isIntOrIntVectorTy()) {
     Intrinsic::ID Id = IsUnsigned ? Intrinsic::umin : Intrinsic::smin;
     IntrinsicCostAttributes ICA(Id, Ty, {Ty, Ty});
     return getIntrinsicInstrCost(ICA, CostKind);
->>>>>>> 63c3895327839ba5b57f5b99ec9e888abf976ac6
   }
 
   // TODO: Use getIntrinsicInstrCost once ISD::FMINNUM costs are improved.
@@ -5631,21 +5617,6 @@ InstructionCost X86TTIImpl::getMinMaxCost(Type *Ty, Type *CondTy,
     if (const auto *Entry = CostTableLookup(SSE1CostTbl, ISD, MTy))
       return LT.first * Entry->Cost;
 
-<<<<<<< HEAD
-  unsigned CmpOpcode;
-  if (Ty->isFPOrFPVectorTy()) {
-    CmpOpcode = Instruction::FCmp;
-  } else {
-#if INTEL_CUSTOMIZATION
-    assert((Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) &&
-           "expecting floating point or integer type for min/max reduction");
-#endif // INTEL_CUSTOMIZATION
-    CmpOpcode = Instruction::ICmp;
-  }
-
-  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
-=======
->>>>>>> 63c3895327839ba5b57f5b99ec9e888abf976ac6
   // Otherwise fall back to cmp+select.
   unsigned CmpOpcode = Instruction::FCmp;
   InstructionCost Result =
