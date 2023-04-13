@@ -16167,8 +16167,6 @@ private:
       if (!AllConsts)
         VectorCost =
             TTI->getArithmeticReductionCost(RdxOpcode, VectorTy, FMF, CostKind);
-<<<<<<< HEAD
-      ScalarCost = TTI->getArithmeticInstrCost(RdxOpcode, ScalarTy, CostKind);
 #if INTEL_COLLAB
       if (RdxKind == RecurKind::FAdd) {
         auto *I = dyn_cast<Instruction>(FirstReducedVal);
@@ -16185,11 +16183,9 @@ private:
         }
       }
 #endif // INTEL_COLLAB
-=======
       ScalarCost = EvaluateScalarCost([&]() {
         return TTI->getArithmeticInstrCost(RdxOpcode, ScalarTy, CostKind);
       });
->>>>>>> b28f407df9d0f63ca85cfaeddf9effc024c071d8
       break;
     }
     case RecurKind::FMax:
