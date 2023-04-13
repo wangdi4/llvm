@@ -191,14 +191,12 @@ define i32 @x264_pixel_satd_16x16(ptr nocapture readonly %pix1, i32 %i_pix1, ptr
 ; CHECK-NEXT:    [[TMP82:%.*]] = shufflevector <8 x i32> [[TMP80]], <8 x i32> [[TMP81]], <8 x i32> <i32 0, i32 9, i32 10, i32 11, i32 4, i32 5, i32 14, i32 7>
 ; CHECK-NEXT:    [[TMP83:%.*]] = shufflevector <8 x i32> [[TMP78]], <8 x i32> poison, <8 x i32> <i32 1, i32 undef, i32 1, i32 1, i32 undef, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP84:%.*]] = insertelement <8 x i32> [[TMP83]], i32 [[BRIDGE_T797_2968]], i32 1
-; CHECK-NEXT:    [[TMP85:%.*]] = insertelement <4 x i32> poison, i32 [[CHAIN_T775_2771]], i32 0
-; CHECK-NEXT:    [[TMP86:%.*]] = shufflevector <4 x i32> [[TMP85]], <4 x i32> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP87:%.*]] = shufflevector <4 x i32> [[TMP86]], <4 x i32> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP88:%.*]] = shufflevector <8 x i32> [[TMP84]], <8 x i32> [[TMP87]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
-; CHECK-NEXT:    [[TMP89:%.*]] = sub <8 x i32> [[TMP82]], [[TMP88]]
-; CHECK-NEXT:    [[TMP90:%.*]] = add <8 x i32> [[TMP82]], [[TMP88]]
-; CHECK-NEXT:    [[TMP91:%.*]] = shufflevector <8 x i32> [[TMP89]], <8 x i32> [[TMP90]], <8 x i32> <i32 0, i32 9, i32 2, i32 11, i32 12, i32 5, i32 14, i32 7>
-; CHECK-NEXT:    store <8 x i32> [[TMP91]], ptr [[ARRAYIDX1226]], align 4
+; CHECK-NEXT:    [[TMP85:%.*]] = insertelement <8 x i32> [[TMP84]], i32 [[CHAIN_T775_2771]], i32 4
+; CHECK-NEXT:    [[TMP86:%.*]] = shufflevector <8 x i32> [[TMP85]], <8 x i32> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP87:%.*]] = sub <8 x i32> [[TMP82]], [[TMP86]]
+; CHECK-NEXT:    [[TMP88:%.*]] = add <8 x i32> [[TMP82]], [[TMP86]]
+; CHECK-NEXT:    [[TMP89:%.*]] = shufflevector <8 x i32> [[TMP87]], <8 x i32> [[TMP88]], <8 x i32> <i32 0, i32 9, i32 2, i32 11, i32 12, i32 5, i32 14, i32 7>
+; CHECK-NEXT:    store <8 x i32> [[TMP89]], ptr [[ARRAYIDX1226]], align 4
 ; CHECK-NEXT:    [[NEXTIVLOOP_1452]] = add nuw nsw i64 [[I1_I64_0]], 1
 ; CHECK-NEXT:    [[CONDLOOP_1452:%.*]] = icmp ult i64 [[NEXTIVLOOP_1452]], 8
 ; CHECK-NEXT:    br i1 [[CONDLOOP_1452]], label [[LOOP_1452]], label [[AFTERLOOP_1452:%.*]]

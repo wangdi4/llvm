@@ -42,6 +42,7 @@ using namespace PatternMatch;
 
 #define DEBUG_TYPE "instcombine"
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 /// Analyze 'Val', seeing if it is a simple linear expression.
 /// If so, decompose it, returning some value X, such that Val is
 /// X*Scale+Offset.
@@ -201,6 +202,7 @@ Instruction *InstCombinerImpl::PromoteCastOfAllocation(BitCastInst &CI,
   }
   return replaceInstUsesWith(CI, New);
 }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 /// Given an expression that CanEvaluateTruncated or CanEvaluateSExtd returns
 /// true for, actually insert the code to evaluate the expression.
@@ -2949,6 +2951,7 @@ Instruction *InstCombinerImpl::optimizeBitCastFromPhi(CastInst &CI,
   return RetVal;
 }
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 static Instruction *convertBitCastToGEP(BitCastInst &CI, IRBuilderBase &Builder,
                                         const DataLayout &DL) {
   Value *Src = CI.getOperand(0);
@@ -2999,6 +3002,7 @@ static Instruction *convertBitCastToGEP(BitCastInst &CI, IRBuilderBase &Builder,
   }
   return nullptr;
 }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 Instruction *InstCombinerImpl::visitBitCast(BitCastInst &CI) {
   // If the operands are integer typed then apply the integer transforms,
@@ -3012,6 +3016,7 @@ Instruction *InstCombinerImpl::visitBitCast(BitCastInst &CI) {
   if (DestTy == Src->getType())
     return replaceInstUsesWith(CI, Src);
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   if (isa<PointerType>(SrcTy) && isa<PointerType>(DestTy)) {
     // If we are casting a alloca to a pointer to a type of the same
     // size, rewrite the allocation instruction to allocate the "right" type.
@@ -3024,6 +3029,7 @@ Instruction *InstCombinerImpl::visitBitCast(BitCastInst &CI) {
     if (Instruction *I = convertBitCastToGEP(CI, Builder, DL))
       return I;
   }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   if (FixedVectorType *DestVTy = dyn_cast<FixedVectorType>(DestTy)) {
     // Beware: messing with this target-specific oddity may cause trouble.
@@ -3167,23 +3173,5 @@ Instruction *InstCombinerImpl::visitBitCast(BitCastInst &CI) {
 }
 
 Instruction *InstCombinerImpl::visitAddrSpaceCast(AddrSpaceCastInst &CI) {
-  // If the destination pointer element type is not the same as the source's
-  // first do a bitcast to the destination type, and then the addrspacecast.
-  // This allows the cast to be exposed to other transforms.
-  Value *Src = CI.getOperand(0);
-  PointerType *SrcTy = cast<PointerType>(Src->getType()->getScalarType());
-  PointerType *DestTy = cast<PointerType>(CI.getType()->getScalarType());
-
-  if (!SrcTy->hasSameElementTypeAs(DestTy)) {
-    Type *MidTy =
-        PointerType::getWithSamePointeeType(DestTy, SrcTy->getAddressSpace());
-    // Handle vectors of pointers.
-    if (VectorType *VT = dyn_cast<VectorType>(CI.getType()))
-      MidTy = VectorType::get(MidTy, VT->getElementCount());
-
-    Value *NewBitCast = Builder.CreateBitCast(Src, MidTy);
-    return new AddrSpaceCastInst(NewBitCast, CI.getType());
-  }
-
   return commonPointerCastTransforms(CI);
 }

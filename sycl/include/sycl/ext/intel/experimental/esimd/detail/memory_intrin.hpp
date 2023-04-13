@@ -46,7 +46,7 @@ __ESIMD_INTRIN void __esimd_sbarrier(__ESIMD_ENS::split_barrier_action flag)
 __ESIMD_INTRIN void __esimd_wait(uint16_t value);
 #endif // __SYCL_DEVICE_ONLY__
 
-// \brief Raw sends load.
+// \brief Raw sends.
 //
 // @param modifier	the send message flags (Bit-0: isSendc, Bit-1: isEOT).
 //
@@ -95,7 +95,7 @@ __esimd_raw_sends2(uint8_t modifier, uint8_t execSize,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-// \brief Raw send load.
+// \brief Raw send.
 //
 // @param modifier	the send message flags (Bit-0: isSendc, Bit-1: isEOT).
 //
@@ -136,7 +136,7 @@ __esimd_raw_send2(uint8_t modifier, uint8_t execSize,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-// \brief Raw sends store.
+// \brief Raw sends.
 //
 // @param modifier	the send message flags (Bit-0: isSendc, Bit-1: isEOT).
 //
@@ -176,7 +176,7 @@ __esimd_raw_sends2_noresult(uint8_t modifier, uint8_t execSize,
 }
 #endif // __SYCL_DEVICE_ONLY__
 
-// \brief Raw send store.
+// \brief Raw send.
 //
 // @param modifier	the send message flags (Bit-0: isSendc, Bit-1: isEOT).
 //

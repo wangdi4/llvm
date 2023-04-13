@@ -84,6 +84,12 @@ add_libc_unittest(
     libc.src.string.strcat
 )
 
+add_header_library(
+  strchr_test_support
+  HDRS
+    StrchrTest.h
+)
+
 add_libc_unittest(
   strchr_test
   SUITE
@@ -92,6 +98,17 @@ add_libc_unittest(
     strchr_test.cpp
   DEPENDS
     libc.src.string.strchr
+    .strchr_test_support
+)
+
+add_libc_unittest(
+  strchrnul_test
+  SUITE
+    libc_string_unittests
+  SRCS
+    strchrnul_test.cpp
+  DEPENDS
+    libc.src.string.strchrnul
 )
 
 add_libc_unittest(
@@ -296,6 +313,17 @@ add_libc_unittest(
     strrchr_test.cpp
   DEPENDS
     libc.src.string.strrchr
+    .strchr_test_support
+)
+
+add_libc_unittest(
+  strsep_test
+  SUITE
+    libc_string_unittests
+  SRCS
+    strsep_test.cpp
+  DEPENDS
+    libc.src.string.strsep
 )
 
 add_libc_unittest(
@@ -346,6 +374,16 @@ add_libc_unittest(
     strtok_r_test.cpp
   DEPENDS
     libc.src.string.strtok_r
+)
+
+add_libc_unittest(
+  strxfrm_test
+  SUITE
+    libc_string_unittests
+  SRCS
+    strxfrm_test.cpp
+  DEPENDS
+    libc.src.string.strxfrm
 )
 
 # Tests all implementations that can run on the target CPU.

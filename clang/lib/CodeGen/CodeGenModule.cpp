@@ -221,7 +221,7 @@ CodeGenModule::CodeGenModule(ASTContext &C,
 
   // If debug info or coverage generation is enabled, create the CGDebugInfo
   // object.
-  if (CodeGenOpts.getDebugInfo() != codegenoptions::NoDebugInfo ||
+  if (CodeGenOpts.getDebugInfo() != llvm::codegenoptions::NoDebugInfo ||
       CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)
     DebugInfo.reset(new CGDebugInfo(*this));
 
@@ -661,6 +661,8 @@ void CodeGenModule::Release() {
     GlobalTopLevelStmtBlockInFlight = {nullptr, nullptr};
   }
 
+  // Module implementations are initialized the same way as a regular TU that
+  // imports one or more modules.
   if (CXX20ModuleInits && Primary && Primary->isInterfaceOrPartition())
     EmitCXXModuleInitFunc(Primary);
   else
@@ -1115,7 +1117,7 @@ void CodeGenModule::Release() {
   if (getCodeGenOpts().EmitDeclMetadata)
     EmitDeclMetadata();
 #if INTEL_CUSTOMIZATION
-  if (getCodeGenOpts().getDebugInfo() != codegenoptions::NoDebugInfo &&
+  if (getCodeGenOpts().getDebugInfo() != llvm::codegenoptions::NoDebugInfo &&
       getLangOpts().IntelCompat && getLangOpts().MSVCCompat)
     EmitMSDebugInfoMetadata();
 

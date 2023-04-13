@@ -242,6 +242,8 @@ def itertests(test_patterns, parser, script_name, comment_prefix=None, argparse_
       warn("Test file pattern '%s' was not found. Ignoring it." % (pattern,))
       continue
     for test in tests_list:
+      from . import intel_update_markup # INTEL
+      intel_update_markup.drop_note(test) # INTEL
       with open(test) as f:
         input_lines = [l.rstrip() for l in f]
       first_line = input_lines[0] if input_lines else ""

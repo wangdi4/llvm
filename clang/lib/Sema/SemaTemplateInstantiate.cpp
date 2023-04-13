@@ -1396,7 +1396,8 @@ namespace {
 
       CXXMethodDecl *MD = Result.getAs<LambdaExpr>()->getCallOperator();
       for (ParmVarDecl *PVD : MD->parameters()) {
-        if (!PVD || !PVD->hasDefaultArg())
+        assert(PVD && "null in a parameter list");
+        if (!PVD->hasDefaultArg())
           continue;
         Expr *UninstExpr = PVD->getUninstantiatedDefaultArg();
         // FIXME: Obtain the source location for the '=' token.

@@ -37,7 +37,9 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Constants.h"
+#if INTEL_CUSTOMIZATION
 #include "llvm/IR/GetElementPtrTypeIterator.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Value.h"
@@ -414,6 +416,7 @@ Intrinsic::ID llvm::getVectorIntrinsicIDForCall(const CallInst *CI,
   return Intrinsic::not_intrinsic;
 }
 
+#if INTEL_CUSTOMIZATION
 /// Find the operand of the GEP that should be checked for consecutive
 /// stores. This ignores trailing indices that have no effect on the final
 /// pointer.
@@ -474,13 +477,11 @@ Value *llvm::getUniqueCastUse(Value *Ptr, Loop *Lp, Type *Ty) {
 
 /// Get the stride of a pointer access in a loop. Looks for symbolic
 /// strides "a[i*stride]". Returns the symbolic stride, or null otherwise.
-#if INTEL_CUSTOMIZATION
 /// This function was modified to also return constant strides for the purpose
 /// of analyzing call arguments (specifically, sincos calls) in order to
 /// generate more efficient stores to memory. Previously, this function only
 /// returned loop invariant symbolic strides for loop versioning. This expands
 /// the functionality of this function to a broader set of applications.
-#endif // INTEL_CUSTOMIZATION
 Value *llvm::getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
   auto *PtrTy = dyn_cast<PointerType>(Ptr->getType());
   if (!PtrTy || PtrTy->isAggregateType())
@@ -537,13 +538,11 @@ Value *llvm::getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
     V = C->getOperand();
   }
 
-#if INTEL_CUSTOMIZATION
   // Look for constant stride.
   const SCEVConstant *C = dyn_cast<SCEVConstant>(V);
   if (C) {
     return C->getValue();
   }
-#endif // INTEL_CUSTOMIZATION
 
   // Look for the loop invariant symbolic value.
   const SCEVUnknown *U = dyn_cast<SCEVUnknown>(V);
@@ -561,6 +560,7 @@ Value *llvm::getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp) {
 
   return Stride;
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Given a vector and an element number, see if the scalar value is
 /// already around as a register, for example if it were inserted then extracted
@@ -2342,10 +2342,10 @@ void InterleaveGroup<Instruction>::addMetadata(Instruction *NewInst) const {
 
 std::string VFABI::mangleTLIVectorName(StringRef VectorName,
                                        StringRef ScalarName, unsigned numArgs,
-                                       ElementCount VF) {
+                                       ElementCount VF, bool Masked) {
   SmallString<256> Buffer;
   llvm::raw_svector_ostream Out(Buffer);
-  Out << "_ZGV" << VFABI::_LLVM_ << "N";
+  Out << "_ZGV" << VFABI::_LLVM_ << (Masked ? "M" : "N");
   if (VF.isScalable())
     Out << 'x';
   else

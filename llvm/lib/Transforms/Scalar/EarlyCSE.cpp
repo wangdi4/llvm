@@ -1596,6 +1596,15 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
           LLVM_DEBUG(dbgs() << "Skipping due to debug counter\n");
           continue;
         }
+#if INTEL_CUSTOMIZATION
+        // 46538: This is causing a large performance regression. Reverting
+        // the code for now. Filed 46632 to follow up, as it is generally good
+        // to make the MD safe for its code location.
+#if 0
+        if (auto *I = dyn_cast<Instruction>(Op))
+          combineMetadataForCSE(I, &Inst, false);
+#endif
+#endif // INTEL_CUSTOMIZATION
         if (!Inst.use_empty())
           Inst.replaceAllUsesWith(Op);
         salvageKnowledge(&Inst, &AC);

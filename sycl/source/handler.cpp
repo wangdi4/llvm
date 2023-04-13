@@ -912,8 +912,7 @@ handler::getContextImplPtr() const {
   return MQueue->getContextImplPtr();
 }
 
-void handler::setKernelCacheConfig(
-    detail::RT::PiKernelCacheConfig Config) {
+void handler::setKernelCacheConfig(detail::RT::PiKernelCacheConfig Config) {
   MImpl->MKernelCacheConfig = Config;
 }
 
