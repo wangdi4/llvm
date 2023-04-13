@@ -1145,12 +1145,8 @@ tryToUnrollLoop(Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE,
                 const TargetTransformInfo &TTI, AssumptionCache &AC,
                 OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
                 ProfileSummaryInfo *PSI, bool PreserveLCSSA, int OptLevel,
-<<<<<<< HEAD
                 const OptReportBuilder &ORBuilder, // INTEL
-                bool OnlyWhenForced, bool ForgetAllSCEV,
-=======
                 bool OnlyFullUnroll, bool OnlyWhenForced, bool ForgetAllSCEV,
->>>>>>> aea2a147363197f3cef140ebcd27b534fd41877b
                 std::optional<unsigned> ProvidedCount,
                 std::optional<unsigned> ProvidedThreshold,
                 std::optional<bool> ProvidedAllowPartial,
@@ -1465,19 +1461,12 @@ public:
     bool PreserveLCSSA = mustPreserveAnalysisID(LCSSAID);
 
     LoopUnrollResult Result = tryToUnrollLoop(
-<<<<<<< HEAD
-        L, DT, LI, SE, TTI, AC, ORE, nullptr, nullptr,
-        PreserveLCSSA, OptLevel, ORBuilder, OnlyWhenForced, // INTEL
-        ForgetAllSCEV, ProvidedCount, ProvidedThreshold, ProvidedAllowPartial,
-        ProvidedRuntime, ProvidedUpperBound, ProvidedAllowPeeling,
-=======
         L, DT, LI, SE, TTI, AC, ORE, nullptr, nullptr, PreserveLCSSA, OptLevel,
+        ORBuilder, // INTEL
         /*OnlyFullUnroll*/ false, OnlyWhenForced, ForgetAllSCEV, ProvidedCount,
         ProvidedThreshold, ProvidedAllowPartial, ProvidedRuntime,
         ProvidedUpperBound, ProvidedAllowPeeling,
->>>>>>> aea2a147363197f3cef140ebcd27b534fd41877b
         ProvidedAllowProfileBasedPeeling, ProvidedFullUnrollMaxCount);
-
     if (Result == LoopUnrollResult::FullyUnrolled)
       LPM.markLoopAsDeleted(*L);
 
@@ -1562,12 +1551,8 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
   bool Changed =
       tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, ORE,
                       /*BFI*/ nullptr, /*PSI*/ nullptr,
-<<<<<<< HEAD
                       /*PreserveLCSSA*/ true, OptLevel,
-                      ORBuilder, // INTEL
-=======
-                      /*PreserveLCSSA*/ true, OptLevel, /*OnlyFullUnroll*/ true,
->>>>>>> aea2a147363197f3cef140ebcd27b534fd41877b
+                      ORBuilder, /*OnlyFullUnroll*/ true, // INTEL
                       OnlyWhenForced, ForgetSCEV, /*Count*/ std::nullopt,
                       /*Threshold*/ std::nullopt, /*AllowPartial*/ false,
                       /*Runtime*/ false, /*UpperBound*/ false,
@@ -1698,21 +1683,14 @@ PreservedAnalyses LoopUnrollPass::run(Function &F,
     // flavors of unrolling during construction time (by setting UnrollOpts).
     LoopUnrollResult Result = tryToUnrollLoop(
         &L, DT, &LI, SE, TTI, AC, ORE, BFI, PSI,
-<<<<<<< HEAD
-        /*PreserveLCSSA*/ true, UnrollOpts.OptLevel, // INTEL
-        ORBuilder, UnrollOpts.OnlyWhenForced,        // INTEL
-        UnrollOpts.ForgetSCEV, /*Count*/ std::nullopt,
-#if INTEL_COLLAB
-        UnrollOpts.Threshold, UnrollOpts.AllowPartial, UnrollOpts.AllowRuntime,
-#endif // INTEL_COLLAB
-        UnrollOpts.AllowUpperBound, LocalAllowPeeling,
-=======
-        /*PreserveLCSSA*/ true, UnrollOpts.OptLevel, /*OnlyFullUnroll*/ false,
+        /*PreserveLCSSA*/ true, UnrollOpts.OptLevel, ORBuilder, // INTEL
+        /*OnlyFullUnroll*/ false,                               // INTEL
         UnrollOpts.OnlyWhenForced, UnrollOpts.ForgetSCEV,
         /*Count*/ std::nullopt,
-        /*Threshold*/ std::nullopt, UnrollOpts.AllowPartial,
+#if INTEL_COLLAB
+        UnrollOpts.Threshold, UnrollOpts.AllowPartial,
+#endif // INTEL_COLLAB
         UnrollOpts.AllowRuntime, UnrollOpts.AllowUpperBound, LocalAllowPeeling,
->>>>>>> aea2a147363197f3cef140ebcd27b534fd41877b
         UnrollOpts.AllowProfileBasedPeeling, UnrollOpts.FullUnrollMaxCount);
     Changed |= Result != LoopUnrollResult::Unmodified;
 
