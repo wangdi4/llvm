@@ -46,6 +46,7 @@ class Twine;
 typedef enum {
   CALL_BI_TYPE_WG,
   CALL_BI_TYPE_WG_ASYNC_OR_PIPE, // work-group async_copy and pipe built-ins
+  CALL_BI_TYPE_WG_SORT,
   CALL_BI_NUM
 } CALL_BI_TYPE;
 
@@ -167,6 +168,36 @@ public:
   /// \param Builder IRBuilder used to create new instructions.
   /// \returns new created call instruction
   Instruction *createGetLocalId(unsigned Dim, IRBuilderBase &Builder);
+
+  /// \brief Create call instructions to get local linear id
+  /// \param Builder IRBuilder used to create new instructions.
+  /// \returns local linear id result value.
+  Value *createGetLocalIdLinearResult(IRBuilderBase &Builder);
+
+  /// \brief Create call instructions to get local linear size.
+  /// \param Builder IRBuilder used to create new instructions.
+  /// \returns local linear size result value.
+  Value *createGetLocalSizeLinearResult(IRBuilderBase &Builder);
+
+  /// \brief Create the workgroup sort's copy call instruction.
+  /// \param M Module of the workgroup sort call.
+  /// \param B IRBuilder used to create new instructions.
+  /// \param WGCallInst The workgroup sort call instruction.
+  /// \param ToScratch The direction of copy.
+  /// \param LLID Local linear id result value.
+  /// \param LLSize Local linear size result value.
+  /// \returns The workgroup sort's copy call instruction.
+  CallInst *createWorkGroupSortCopyBuiltin(Module &M, IRBuilderBase &B,
+                                           CallInst *WGCallInst, bool ToScratch,
+                                           Value *LLID, Value *LLSize);
+
+  /// \brief Replace workgroup sort_size with Local_linear_size * sort_size
+  /// \param B IRBuilder used to create new instructions.
+  /// \param WGCallInst The workgroup sort call instruction.
+  /// \param ArgIdx The index of arg which needed to be replace.
+  /// \param LLSize Local linear size result value.
+  void replaceSortSizeWithTotalSize(IRBuilderBase &B, CallInst *WGCallInst,
+                                    unsigned ArgIdx, Value *LLSize);
 
   /// \brief return an indicator regarding given function calls
   /// a function defined in the module (that was not inlined)

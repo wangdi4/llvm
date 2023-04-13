@@ -423,6 +423,53 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
     DummyBarrierCall->insertAfter(WGSimpleCallInst);
   }
 
+  // Handle work-group sort built-ins.
+  InstVec CallWGSortFunc = Utils.getWGCallInstructions(CALL_BI_TYPE_WG_SORT);
+  for (auto *I : CallWGSortFunc) {
+    CallInst *WGCallInst = cast<CallInst>(I);
+    Function *Callee = WGCallInst->getCalledFunction();
+    StringRef FuncName = Callee->getName();
+    IRBuilder<> Builder(WGCallInst);
+
+    Value *LLID;
+    Value *LLSize;
+
+    bool PrivateKeyOnlySort = isWorkGroupPrivateSort(FuncName);
+    bool PrivateKeyValueSort = isWorkGroupKeyValuePrivateSort(FuncName);
+
+    if (PrivateKeyOnlySort || PrivateKeyValueSort) {
+      // 1.  Private sort need to add a call get_local_linear_id().
+      //     For getting offset when copy memory between data and scratch.
+      LLID = Utils.createGetLocalIdLinearResult(Builder);
+      // 2.  Private sort need to add calls to get linear local size.
+      //     For getting offset when copy memory between data and scratch.
+      LLSize = Utils.createGetLocalSizeLinearResult(Builder);
+      // 3.  Private sort need to add copy call to copy memory from data to
+      // scratch.
+      Utils.createWorkGroupSortCopyBuiltin(M, Builder, WGCallInst, 1, LLID,
+                                           LLSize);
+    }
+    // 4. Add Barrier before sort function call instruction.
+    Utils.createBarrier(WGCallInst);
+    // 5. Add dummyBarrier after sort function call instruction.
+    Instruction *DummyBarrierCall = Utils.createDummyBarrier();
+    DummyBarrierCall->insertAfter(WGCallInst);
+
+    if (PrivateKeyOnlySort || PrivateKeyValueSort) {
+      Builder.SetInsertPoint(DummyBarrierCall->getNextNode());
+      // 6. Private sort need to add copy call to copy memory from scratch to
+      // data.
+      Utils.createWorkGroupSortCopyBuiltin(M, Builder, WGCallInst, 0, LLID,
+                                           LLSize);
+      // 7. Let "per_item_size * local_size", will replace "per_item_size" for
+      // private sort builtin.
+      unsigned SizeArgIdx = PrivateKeyValueSort ? 2 : 1;
+      Builder.SetInsertPoint(WGCallInst);
+      Utils.replaceSortSizeWithTotalSize(Builder, WGCallInst, SizeArgIdx,
+                                         LLSize);
+    }
+  }
+
   // Handle WorkGroup built-ins.
   InstVec CallWgFunc = Utils.getWGCallInstructions(CALL_BI_TYPE_WG);
   FuncSet VisitedFunctions;

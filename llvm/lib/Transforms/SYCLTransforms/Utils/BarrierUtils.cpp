@@ -9,6 +9,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/SYCLTransforms/Utils/BarrierUtils.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
@@ -16,6 +18,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/ModRef.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 
 using namespace llvm;
 using namespace SYCLKernelMetadataAPI;
@@ -115,7 +118,9 @@ CompilationUtils::InstVec BarrierUtils::getWGCallInstructions(CALL_BI_TYPE Ty) {
     if ((CALL_BI_TYPE_WG == Ty &&
          CompilationUtils::isWorkGroupBuiltin(FName)) ||
         (CALL_BI_TYPE_WG_ASYNC_OR_PIPE == Ty &&
-         CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(FName, *M))) {
+         CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(FName, *M)) ||
+        (CALL_BI_TYPE_WG_SORT == Ty &&
+         CompilationUtils::isWorkGroupSort(FName))) {
       // Module contains declaration of a WG function built-in, FIx its
       // usages.
       for (User *U : F.users()) {
@@ -362,6 +367,116 @@ Instruction *BarrierUtils::createGetGlobalId(unsigned Dim, IRBuilderBase &B) {
   Value *constDim = ConstantInt::get(uintType, Dim, false);
   return B.CreateCall(GetGIDFunc, constDim,
                       CompilationUtils::AppendWithDimension("GlobalID_", Dim));
+}
+
+Value *BarrierUtils::createGetLocalIdLinearResult(IRBuilderBase &B) {
+  // result = (get_local_id(2) * get_local_size(1) + get_local_id(1))
+  // * get_local_size(0)
+  // + get_local_id(0)
+  Value *LocalId0 = createGetLocalId(0, B);
+  Value *LocalId1 = createGetLocalId(1, B);
+  Value *LocalId2 = createGetLocalId(2, B);
+
+  Value *LocalSize1 = createGetLocalSize(1, &*(B.GetInsertPoint()));
+  Value *LocalSize0 = createGetLocalSize(0, &*(B.GetInsertPoint()));
+
+  // (get_local_id(2) * get_local_size(1)
+  Value *Op0 = B.CreateMul(LocalId2, LocalSize1, "llid.p0", /*HasNUW=*/true,
+                           /*HasNSW=*/true);
+
+  //  + get_local_id(1))
+  Value *Op1 =
+      B.CreateAdd(Op0, LocalId1, "llid.p1", /*HasNUW=*/true, /*HasNSW=*/true);
+  // * get_local_size(0)
+  Value *Op2 =
+      B.CreateMul(Op1, LocalSize0, "llid.p2", /*HasNUW=*/true, /*HasNSW=*/true);
+  // + get_local_id(0)
+  return B.CreateAdd(Op2, LocalId0, "llid.res", /*HasNUW=*/true,
+                     /*HasNSW=*/true);
+}
+
+Value *BarrierUtils::createGetLocalSizeLinearResult(IRBuilderBase &B) {
+  // result = get_local_size(2) * get_local_size(1) * get_local_size(1)
+  Value *LocalSize2 = createGetLocalSize(2, &*(B.GetInsertPoint()));
+  Value *LocalSize1 = createGetLocalSize(1, &*(B.GetInsertPoint()));
+  Value *LocalSize0 = createGetLocalSize(0, &*(B.GetInsertPoint()));
+
+  // get_local_size(2) * get_local_size(1)
+  Value *Op0 = B.CreateMul(LocalSize2, LocalSize1, "llsize.p0", /*HasNUW=*/true,
+                           /*HasNSW=*/true);
+  // * get_local_size(0)
+  return B.CreateMul(Op0, LocalSize0, "llsize.p1", /*HasNUW=*/true,
+                     /*HasNSW=*/true);
+}
+
+CallInst *BarrierUtils::createWorkGroupSortCopyBuiltin(
+    Module &M, IRBuilderBase &B, CallInst *WGCallInst, bool ToScratch,
+    Value *LLID, Value *LLSize) {
+  // Get mangled copy function name
+  Function *Callee = WGCallInst->getCalledFunction();
+  assert(Callee && "Indirect function call");
+
+  StringRef FuncName = Callee->getName();
+  const std::string CopyFuncName =
+      CompilationUtils::getWorkGroupSortCopyName(FuncName, ToScratch);
+
+  // Copy builtin params list
+  // key-only :  src_ptr, per_item_size(uint), dst_ptr(i8*),
+  //             local_id(int), local_size(int), direction(bool)
+  // key-value : key_ptr, value_ptr, per_item_size(uint), dst_ptr(i8*),
+  //             local_id(int), local_size(int), direction(bool)
+  // Sort builtin params list
+  // key-only :  src_ptr, per_item_size(uint), dst_ptr(i8*)
+  // key-value : key_ptr, value_ptr, per_item_size(uint), dst_ptr(i8*)
+  SmallVector<Type *> FuncArgTys;
+  SmallVector<Value *> FuncArgValues;
+  for (auto &Arg : WGCallInst->args()) {
+    // Put sort builtin params to copy call
+    if (Arg->getType()->isVectorTy() &&
+        Arg->getType()->getScalarType()->isIntegerTy()) {
+      // Arg is mask, now assume sort builtin uniform
+      continue;
+    }
+    FuncArgTys.push_back(Arg->getType());
+    FuncArgValues.push_back(Arg);
+  }
+  Type *DirectionType = IntegerType::get(M.getContext(), 1);
+
+  // Get or create copy builtin function
+  Function *CopyFunc = M.getFunction(CopyFuncName);
+  if (!CopyFunc) {
+    // Create new copy function
+    Type *VoidResult = B.getVoidTy(); // Gen return value
+    // Gen localId param type
+    Type *LocalIdType = IntegerType::get(M.getContext(), 64);
+    FuncArgTys.push_back(LocalIdType);
+    // Gen localSize param type
+    Type *LocalSizeType = IntegerType::get(M.getContext(), 64);
+    FuncArgTys.push_back(LocalSizeType);
+    // Gen direction param type
+    FuncArgTys.push_back(DirectionType);
+    CopyFunc = createFunctionDeclaration(CopyFuncName, VoidResult, FuncArgTys);
+  }
+  // Put other needed params to copy call
+  FuncArgValues.push_back(LLID);
+  FuncArgValues.push_back(LLSize);
+  Value *Direction = ConstantInt::get(DirectionType, ToScratch, false);
+  FuncArgValues.push_back(Direction);
+  // Create call to copy function
+  CallInst *Result = B.CreateCall(CopyFunc, FuncArgValues, "");
+
+  return Result;
+}
+
+void BarrierUtils::replaceSortSizeWithTotalSize(IRBuilderBase &B,
+                                                CallInst *WGCallInst,
+                                                unsigned ArgIdx,
+                                                Value *LLSize) {
+  Value *OldSize = WGCallInst->getArgOperand(ArgIdx);
+  Value *Size32 = B.CreateTrunc(LLSize, OldSize->getType(), "llsize32");
+  Value *NewSize = B.CreateMul(OldSize, Size32, "sort.size", /*HasNUW=*/true,
+                               /*HasNSW=*/true);
+  WGCallInst->setArgOperand(ArgIdx, NewSize);
 }
 
 bool BarrierUtils::doesCallModuleFunction(Function *Func) {
