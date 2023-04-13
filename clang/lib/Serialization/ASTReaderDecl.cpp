@@ -4649,8 +4649,7 @@ void ASTDeclReader::UpdateDecl(Decl *D,
     case UPD_DECL_MARKED_OPENMP_GROUPPRIVATE: {
       auto DevType = Record.readEnum<OMPGroupPrivateDeclAttr::DevTypeTy>();
       D->addAttr(OMPGroupPrivateDeclAttr::CreateImplicit(
-          Reader.getContext(), DevType, readSourceRange(),
-          AttributeCommonInfo::AS_Pragma));
+          Reader.getContext(), DevType, readSourceRange()));
     } break;
 #endif // INTEL_COLLAB
 
