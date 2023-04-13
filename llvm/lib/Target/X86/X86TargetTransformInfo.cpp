@@ -5322,12 +5322,8 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
 
   // We use the Intel Architecture Code Analyzer(IACA) to measure the throughput
   // and make it as the cost.
-<<<<<<< HEAD
-  static const CostTblEntry SLMCostTblNoPairWise[] = {
-=======
 
   static const CostTblEntry SLMCostTbl[] = {
->>>>>>> 4b5a4d48145d32cf4939ac59c030cd2cac3fe64c
     { ISD::FADD,  MVT::v2f64,   3 },
     { ISD::ADD,   MVT::v2i64,   5 },
   };
