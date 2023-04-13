@@ -48,6 +48,7 @@ inline bool isTrivialPointerAliasingInst(const InstTy *Inst) {
   return (Inst->getOpcode() == Instruction::BitCast ||
           Inst->getOpcode() == Instruction::AddrSpaceCast ||
           Inst->getOpcode() == Instruction::GetElementPtr ||
+          Inst->getOpcode() == Instruction::Select ||
           Inst->getOpcode() == Instruction::PHI);
 }
 
