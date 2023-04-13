@@ -29,6 +29,7 @@ set(BACKEND_TEST_TYPE_LINK_LIBS
   LLVMBinaryFormat
   LLVMDebugInfoDWARF
   LLVMDebugInfoTraceBack
+  LLVMIntel_Debug
   LLVMMC
   LLVMMCDisassembler
   LLVMMCParser
