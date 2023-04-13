@@ -5322,12 +5322,13 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
 
   // We use the Intel Architecture Code Analyzer(IACA) to measure the throughput
   // and make it as the cost.
-  static const CostTblEntry SLMCostTblNoPairWise[] = {
+
+  static const CostTblEntry SLMCostTbl[] = {
     { ISD::FADD,  MVT::v2f64,   3 },
     { ISD::ADD,   MVT::v2i64,   5 },
   };
 
-  static const CostTblEntry SSE2CostTblNoPairWise[] = {
+  static const CostTblEntry SSE2CostTbl[] = {
     { ISD::FADD,  MVT::v2f64,   2 },
     { ISD::FADD,  MVT::v2f32,   2 },
     { ISD::FADD,  MVT::v4f32,   4 },
@@ -5343,7 +5344,7 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
     { ISD::ADD,   MVT::v16i8,   3 },
   };
 
-  static const CostTblEntry AVX1CostTblNoPairWise[] = {
+  static const CostTblEntry AVX1CostTbl[] = {
     { ISD::FADD,  MVT::v4f64,   3 },
     { ISD::FADD,  MVT::v4f32,   3 },
     { ISD::FADD,  MVT::v8f32,   4 },
@@ -5364,15 +5365,15 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
   if (VT.isSimple()) {
     MVT MTy = VT.getSimpleVT();
     if (ST->useSLMArithCosts())
-      if (const auto *Entry = CostTableLookup(SLMCostTblNoPairWise, ISD, MTy))
+      if (const auto *Entry = CostTableLookup(SLMCostTbl, ISD, MTy))
         return Entry->Cost;
 
     if (ST->hasAVX())
-      if (const auto *Entry = CostTableLookup(AVX1CostTblNoPairWise, ISD, MTy))
+      if (const auto *Entry = CostTableLookup(AVX1CostTbl, ISD, MTy))
         return Entry->Cost;
 
     if (ST->hasSSE2())
-      if (const auto *Entry = CostTableLookup(SSE2CostTblNoPairWise, ISD, MTy))
+      if (const auto *Entry = CostTableLookup(SSE2CostTbl, ISD, MTy))
         return Entry->Cost;
   }
 
@@ -5403,15 +5404,15 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
   }
 
   if (ST->useSLMArithCosts())
-    if (const auto *Entry = CostTableLookup(SLMCostTblNoPairWise, ISD, MTy))
+    if (const auto *Entry = CostTableLookup(SLMCostTbl, ISD, MTy))
       return ArithmeticCost + Entry->Cost;
 
   if (ST->hasAVX())
-    if (const auto *Entry = CostTableLookup(AVX1CostTblNoPairWise, ISD, MTy))
+    if (const auto *Entry = CostTableLookup(AVX1CostTbl, ISD, MTy))
       return ArithmeticCost + Entry->Cost;
 
   if (ST->hasSSE2())
-    if (const auto *Entry = CostTableLookup(SSE2CostTblNoPairWise, ISD, MTy))
+    if (const auto *Entry = CostTableLookup(SSE2CostTbl, ISD, MTy))
       return ArithmeticCost + Entry->Cost;
 
   // FIXME: These assume a naive kshift+binop lowering, which is probably
@@ -5717,13 +5718,13 @@ X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
   // We use the Intel Architecture Code Analyzer(IACA) to measure the throughput
   // and make it as the cost.
 
-  static const CostTblEntry SSE2CostTblNoPairWise[] = {
+  static const CostTblEntry SSE2CostTbl[] = {
       {ISD::UMIN, MVT::v2i16, 5}, // need pxors to use pminsw/pmaxsw
       {ISD::UMIN, MVT::v4i16, 7}, // need pxors to use pminsw/pmaxsw
       {ISD::UMIN, MVT::v8i16, 9}, // need pxors to use pminsw/pmaxsw
   };
 
-  static const CostTblEntry SSE41CostTblNoPairWise[] = {
+  static const CostTblEntry SSE41CostTbl[] = {
       {ISD::SMIN, MVT::v2i16, 3}, // same as sse2
       {ISD::SMIN, MVT::v4i16, 5}, // same as sse2
       {ISD::UMIN, MVT::v2i16, 5}, // same as sse2
@@ -5740,14 +5741,14 @@ X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
       {ISD::UMIN, MVT::v16i8, 6}, // FIXME: umin is cheaper than umax
   };
 
-  static const CostTblEntry AVX1CostTblNoPairWise[] = {
+  static const CostTblEntry AVX1CostTbl[] = {
       {ISD::SMIN, MVT::v16i16, 6},
       {ISD::UMIN, MVT::v16i16, 6}, // FIXME: umin is cheaper than umax
       {ISD::SMIN, MVT::v32i8, 8},
       {ISD::UMIN, MVT::v32i8, 8},
   };
 
-  static const CostTblEntry AVX512BWCostTblNoPairWise[] = {
+  static const CostTblEntry AVX512BWCostTbl[] = {
       {ISD::SMIN, MVT::v32i16, 8},
       {ISD::UMIN, MVT::v32i16, 8}, // FIXME: umin is cheaper than umax
       {ISD::SMIN, MVT::v64i8, 10},
@@ -5761,19 +5762,19 @@ X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
   if (VT.isSimple()) {
     MVT MTy = VT.getSimpleVT();
     if (ST->hasBWI())
-      if (const auto *Entry = CostTableLookup(AVX512BWCostTblNoPairWise, ISD, MTy))
+      if (const auto *Entry = CostTableLookup(AVX512BWCostTbl, ISD, MTy))
         return Entry->Cost;
 
     if (ST->hasAVX())
-      if (const auto *Entry = CostTableLookup(AVX1CostTblNoPairWise, ISD, MTy))
+      if (const auto *Entry = CostTableLookup(AVX1CostTbl, ISD, MTy))
         return Entry->Cost;
 
     if (ST->hasSSE41())
-      if (const auto *Entry = CostTableLookup(SSE41CostTblNoPairWise, ISD, MTy))
+      if (const auto *Entry = CostTableLookup(SSE41CostTbl, ISD, MTy))
         return Entry->Cost;
 
     if (ST->hasSSE2())
-      if (const auto *Entry = CostTableLookup(SSE2CostTblNoPairWise, ISD, MTy))
+      if (const auto *Entry = CostTableLookup(SSE2CostTbl, ISD, MTy))
         return Entry->Cost;
   }
 
@@ -5795,19 +5796,19 @@ X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
   }
 
   if (ST->hasBWI())
-    if (const auto *Entry = CostTableLookup(AVX512BWCostTblNoPairWise, ISD, MTy))
+    if (const auto *Entry = CostTableLookup(AVX512BWCostTbl, ISD, MTy))
       return MinMaxCost + Entry->Cost;
 
   if (ST->hasAVX())
-    if (const auto *Entry = CostTableLookup(AVX1CostTblNoPairWise, ISD, MTy))
+    if (const auto *Entry = CostTableLookup(AVX1CostTbl, ISD, MTy))
       return MinMaxCost + Entry->Cost;
 
   if (ST->hasSSE41())
-    if (const auto *Entry = CostTableLookup(SSE41CostTblNoPairWise, ISD, MTy))
+    if (const auto *Entry = CostTableLookup(SSE41CostTbl, ISD, MTy))
       return MinMaxCost + Entry->Cost;
 
   if (ST->hasSSE2())
-    if (const auto *Entry = CostTableLookup(SSE2CostTblNoPairWise, ISD, MTy))
+    if (const auto *Entry = CostTableLookup(SSE2CostTbl, ISD, MTy))
       return MinMaxCost + Entry->Cost;
 
   unsigned ScalarSize = ValTy->getScalarSizeInBits();
