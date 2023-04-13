@@ -88,7 +88,7 @@ if.end:
 ; CHECK-NEXT:  icmp slt i64 %init.upper.bound0
 ; CHECK-NEXT:  icmp slt i64
 ; CHECK-NEXT:  or i1
-; CHECK-NEXT:  select i1 {{.*}}, i64 %init.upper.bound0, i64 %4
+; CHECK-NEXT:  select i1 {{.*}}, i64 %init.upper.bound0, i64 %to_tid_type{{.*}}
 ; CHECK-NEXT:  %loop.size0 = sub i64 {{.*}}, %base.gid0
 ; CHECK-NEXT:  %loop.size1 = sub i64 {{.*}}, %base.gid1
 ; CHECK-NEXT:  icmp slt i64 0, %loop.size0

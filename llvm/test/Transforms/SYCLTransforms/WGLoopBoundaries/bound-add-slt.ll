@@ -37,7 +37,7 @@ if.end:
 !0 = !{void (i32 addrspace(1)*,i32,i32)* @constant_kernel}
 !1 = !{i1 true}
 
-; DEBUGIFY-COUNT-13: Instruction with empty DebugLoc in function constant_kernel
+; DEBUGIFY-COUNT-10: Instruction with empty DebugLoc in function constant_kernel
 ; DEBUGIFY-COUNT-38: Instruction with empty DebugLoc in function WG.boundaries.constant_kernel
 ; DEBUGIFY-COUNT-1: Missing line
 ; DEBUGIFY-NOT: WARNING

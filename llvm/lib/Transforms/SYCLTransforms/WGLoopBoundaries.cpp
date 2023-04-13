@@ -571,6 +571,10 @@ Function *WGLoopBoundariesImpl::createLoopBoundariesFunctionDecl() {
   auto *CondFunc =
       Function::Create(FTy, GlobalValue::ExternalLinkage, EEFuncName, &M);
   CondFunc->copyAttributesFrom(F);
+
+  for (const auto &[ArgNo, Arg] : llvm::enumerate(CondFunc->args()))
+    Arg.setName(F->getArg(ArgNo)->getName());
+
   return CondFunc;
 }
 
@@ -615,6 +619,7 @@ void WGLoopBoundariesImpl::recoverInstructions(VMap &ValueMap, VVec &Roots,
       continue;
     auto *Clone = cast<Instruction>(ValueMap[&I]);
     Clone->insertInto(BB, BB->end());
+    Clone->setName(I.getName());
     for (auto Op = Clone->op_begin(), E = Clone->op_end(); Op != E; ++Op) {
       Value *&VMSlot = ValueMap[*Op];
       assert(VMSlot && "all operands should be mapped");
@@ -794,8 +799,11 @@ bool WGLoopBoundariesImpl::findAndCollapseEarlyExit() {
   // has no side effect instructions.
   BasicBlock *Entry = &F->getEntryBlock();
   auto *Br = dyn_cast<BranchInst>(Entry->getTerminator());
-  if (!Br || !Br->isConditional() || hasSideEffectInst(Entry))
+  if (!Br || !Br->isConditional() || hasSideEffectInst(Entry)) {
+    LLVM_DEBUG(dbgs() << "Entry terminator isn't Br, Br is not conditional, or "
+                         "Entry has side-effect inst\n");
     return false;
+  }
 
   // Collect description of early exit if exists.
   BasicBlock *TrueSucc = Br->getSuccessor(0);
@@ -890,10 +898,19 @@ bool WGLoopBoundariesImpl::createRightBound(bool IsCmpSigned, Instruction *Loc,
     return false;
 
   if (!IsCmpSigned) {
-    Bound[0] = BinaryOperator::Create(Inst, Bound[0], LeftBound,
-                                      "right_boundary_align", Loc);
+    if (!ReverseLowerUpperBound)
+      Bound[0] = BinaryOperator::Create(Inst, Bound[0], LeftBound,
+                                        "right_boundary_align", Loc);
     return true;
   }
+
+  // For following pattern of signed comparison:
+  //       (a - id) > b
+  // We're trying to replace it with
+  //       id < a + (-b)
+  // Therefore, we need to negate 'b', i.e. Bound[0].
+  if (IsCmpSigned && ReverseLowerUpperBound && Inst == Instruction::Add)
+    Bound[0] = BinaryOperator::CreateNeg(Bound[0], "bound.0.reverse", Loc);
 
   // Incase we perform trunc over the (id+a) expression we want to make sure
   // that we take the left bound with the correct sign (and not Zext(a)).
@@ -929,21 +946,6 @@ bool WGLoopBoundariesImpl::createRightBound(bool IsCmpSigned, Instruction *Loc,
   Bound[0] = BinaryOperator::Create(Inst, Bound[0], LeftBound,
                                     "right_boundary_align", Loc);
 
-  // Make upper bound inclusive, because in case of overflow we would like to
-  // make it maximum value inclusive.
-  if (Cmp->isFalseWhenEqual()) {
-    bool IsLT = Cmp->getPredicate() == CmpInst::ICMP_SLT;
-    Instruction::BinaryOps BO = IsLT ? Instruction::Sub : Instruction::Add;
-    CmpInst::Predicate Pred = IsLT ? CmpInst::ICMP_SGT : CmpInst::ICMP_SLT;
-    auto *One = ConstantInt::get(Bound[0]->getType(), 1);
-    auto *InclusiveBound = BinaryOperator::Create(
-        BO, Bound[0], One, "inclusive_right_boundary", Loc);
-    auto *Compare = new ICmpInst(Loc, Pred, InclusiveBound, Bound[0], "");
-    *(Bound) = SelectInst::Create(Compare, Bound[0], InclusiveBound,
-                                  "inclusive_right_bound", Loc);
-    RightBoundInc = true;
-  }
-
   // In case we deduce empty range is created, we set the bounds to [MAX,-1] so
   // that if the bounds should be inversed we would get the whole range
   // inclusive [-1,MAX].
@@ -971,8 +973,6 @@ bool WGLoopBoundariesImpl::createRightBound(bool IsCmpSigned, Instruction *Loc,
                              NonNegativeRightBound, "right_overflow", Loc);
   Bound[0] = SelectInst::Create(RightOverflow, Max, Bound[0],
                                 "final_right_bound", Loc);
-
-  return true;
 
   return true;
 }
@@ -1039,8 +1039,8 @@ bool WGLoopBoundariesImpl::traceBackBound(Value *V1, Value *V2,
       Bound[0] = CastInst::CreateIntegerCast(Bound[0], Tid->getType(),
                                              IsCmpSigned, "to_tid_type", Loc);
       if (Bound[1])
-        Bound[1] = CastInst::CreateIntegerCast(Bound[1], Tid->getType(),
-                                               IsCmpSigned, "to_tid_type", Loc);
+        Bound[1] = CastInst::CreateIntegerCast(
+            Bound[1], Tid->getType(), IsCmpSigned, "to_tid_type1", Loc);
       break;
     case Instruction::Add: {
       // At the moment we are looking for particular pattern:
@@ -1060,8 +1060,12 @@ bool WGLoopBoundariesImpl::traceBackBound(Value *V1, Value *V2,
       Value *LeftBound = IsFirstOperandUniform ? TidInst->getOperand(0)
                                                : TidInst->getOperand(1);
 
-      if (IsCmpSigned && !doesLeftBoundFit(ComparisonTy, LeftBound))
+      if (IsCmpSigned && !doesLeftBoundFit(ComparisonTy, LeftBound)) {
+        LLVM_DEBUG(dbgs() << "Signed left bound '" << *LeftBound
+                          << "' doesn't fit in ComparisonTy: " << *ComparisonTy
+                          << "\n");
         return false;
+      }
 
       assert(Bound[0]->getType() == LeftBound->getType() &&
              "Types of left and right boundaries must match.");
@@ -1129,8 +1133,12 @@ bool WGLoopBoundariesImpl::traceBackBound(Value *V1, Value *V2,
       ReverseLowerUpperBound = IsFirstOperandUniform;
       assert(Bound[0]->getType() == LeftBound->getType() && "Types must match");
 
-      if (IsCmpSigned && !doesLeftBoundFit(ComparisonTy, LeftBound))
+      if (IsCmpSigned && !doesLeftBoundFit(ComparisonTy, LeftBound)) {
+        LLVM_DEBUG(dbgs() << "Signed left bound '" << *LeftBound
+                          << "' doesn't fit in ComparisonTy: " << *ComparisonTy
+                          << "\n");
         return false;
+      }
 
       Value *RightBound = Bound[0];
       if (!createRightBound(IsCmpSigned, Loc, Bound, LeftBound, OriginalTy,
@@ -1359,6 +1367,11 @@ bool WGLoopBoundariesImpl::obtainBoundaryEE(ICmpInst *Cmp, Value **Bound,
       IsPredLower ^ (TIDInd == 1) ^ ReverseLowerUpperBound ^ EETrueSide;
   // Not handling inverse bound of a form [a,b] as it might result in two
   // intervals.
+  if (IsUpper && !IsSigned && Bound[1] && ReverseLowerUpperBound) {
+    LLVM_DEBUG(dbgs() << "Inverse unsigned upper-bound has two intervals\n");
+    return false;
+  }
+  // TODO deduce lower/upper bounds since there is single interval.
   if (!IsUpper && !IsSigned && Bound[1])
     return false;
   bool ContainsVal = IsInclusive ^ EETrueSide;
@@ -1520,7 +1533,7 @@ static Value *getMin(bool IsSigned, Value *A, Value *B, BasicBlock *BB,
 }
 
 static Value *getMax(bool IsSigned, Value *A, Value *B, BasicBlock *BB,
-                     StringRef Name) {
+                     const Twine &Name) {
   assert(A->getType()->isIntegerTy() && B->getType()->isIntegerTy() &&
          "expect integer type");
   CmpInst::Predicate Pred = IsSigned ? CmpInst::ICMP_SGT : CmpInst::ICMP_UGT;
@@ -1530,17 +1543,22 @@ static Value *getMax(bool IsSigned, Value *A, Value *B, BasicBlock *BB,
 
 Value *WGLoopBoundariesImpl::correctBound(TIDDesc &TD, BasicBlock *BB,
                                           Value *Bound) {
+  const std::string Prefix = AppendWithDimension(
+      TD.IsUpperBound ? "upper.bound" : "lower.bound", TD.Dim);
+  const StringRef Suffix = TD.IsUpperBound ? ".exclusive" : "inclusive";
+
   Value *NewBound = Bound;
   // Lower bound are expected to be inclusive, upper bound are expected to be
   // exclusive. If this is not the case, add 1.
   if (!TD.ContainsVal ^ TD.IsUpperBound)
-    NewBound =
-        BinaryOperator::Create(Instruction::Add, NewBound, ConstOne, "", BB);
+    NewBound = BinaryOperator::Create(Instruction::Add, NewBound, ConstOne,
+                                      Twine(Prefix) + Suffix, BB);
 
   // Incase bound is not on GID, add the base global id to the bound.
   if (!TD.IsGID)
-    NewBound = BinaryOperator::Create(Instruction::Add, NewBound,
-                                      BaseGIDs[TD.Dim], "", BB);
+    NewBound =
+        BinaryOperator::Create(Instruction::Add, NewBound, BaseGIDs[TD.Dim],
+                               Twine(Prefix) + Suffix + ".gid", BB);
 
   // Incase the bound is changed, we make sure that the additions did not
   // invalidate the result by crossing the +/- \ maxint\0 border.
@@ -1548,10 +1566,7 @@ Value *WGLoopBoundariesImpl::correctBound(TIDDesc &TD, BasicBlock *BB,
   // will avoid using it since it is compared after the original boundaries.
   if (NewBound != Bound)
     NewBound =
-        getMax(TD.IsSigned, Bound, NewBound, BB,
-               AppendWithDimension(TD.IsUpperBound ? "upper.bound.correct"
-                                                   : "lower.bound.correct",
-                                   TD.Dim));
+        getMax(TD.IsSigned, Bound, NewBound, BB, Twine(Prefix) + ".correct");
 
   return NewBound;
 }
