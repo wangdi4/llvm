@@ -165,7 +165,8 @@ public:
                  Space == access::address_space::local_space)>>
   multi_ptr(local_accessor<ElementType, Dimensions> Accessor)
       /* INTEL_CUSTOMIZATION */
-      : multi_ptr(Accessor.template get_multi_ptr<DecorateAddress>()) {}
+      : multi_ptr(
+            Accessor.template get_multi_ptr<access::decorated::yes>().get()) {}
   /* end INTEL_CUSTOMIZATION */
 
   // The following constructors are necessary to create multi_ptr<const
@@ -228,7 +229,8 @@ public:
                            Dimensions>
                 Accessor)
       /* INTEL_CUSTOMIZATION */
-      : multi_ptr(Accessor.template get_multi_ptr<DecorateAddress>()) {}
+      : multi_ptr(
+            Accessor.template get_multi_ptr<access::decorated::yes>().get()) {}
   /* end INTEL_CUSTOMIZATION */
 
   // Assignment and access operators
@@ -485,7 +487,8 @@ public:
           RelaySpace == Space && Space == access::address_space::local_space>>
   multi_ptr(local_accessor<ElementType, Dimensions> Accessor)
       /* INTEL_CUSTOMIZATION */
-      : multi_ptr(Accessor.template get_multi_ptr<DecorateAddress>()) {}
+      : multi_ptr(
+            Accessor.template get_multi_ptr<access::decorated::yes>().get()) {}
   /* end INTEL_CUSTOMIZATION */
 
   // Assignment operators
@@ -613,7 +616,8 @@ public:
           RelaySpace == Space && Space == access::address_space::local_space>>
   multi_ptr(local_accessor<ElementType, Dimensions> Accessor)
       /* INTEL_CUSTOMIZATION */
-      : multi_ptr(Accessor.template get_multi_ptr<DecorateAddress>()) {}
+      : multi_ptr(
+            Accessor.template get_multi_ptr<access::decorated::yes>().get()) {}
   /* end INTEL_CUSTOMIZATION */
 
   // Assignment operators
