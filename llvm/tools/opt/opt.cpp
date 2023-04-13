@@ -328,7 +328,7 @@ static cl::list<std::string>
     PassPlugins("load-pass-plugin",
                 cl::desc("Load passes from plugin library"));
 
-<<<<<<< HEAD
+#ifdef INTEL_CUSTOMIZATION
 static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
   // Add the pass to the pass manager...
   PM.add(P);
@@ -338,7 +338,6 @@ static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
     PM.add(createVerifierPass());
 }
 
-#ifdef INTEL_CUSTOMIZATION
 /// This routine adds optimization passes based on selected optimization level,
 /// OptLevel.
 ///
@@ -368,8 +367,6 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
 }
 
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 3a3ee933f347af815f111c6f9352baf8cfd302fc
 //===----------------------------------------------------------------------===//
 // CodeGen-related helper functions.
 //
@@ -927,9 +924,8 @@ int main(int argc, char **argv) {
     }
   }
 
-<<<<<<< HEAD
-  std::unique_ptr<legacy::FunctionPassManager> FPasses;
 #ifdef INTEL_CUSTOMIZATION
+  std::unique_ptr<legacy::FunctionPassManager> FPasses;
   if (OptLevelO0 || OptLevelO1 || OptLevelO2 || OptLevelOs || OptLevelOz ||
       OptLevelO3) {
     FPasses.reset(new legacy::FunctionPassManager(M.get()));
@@ -938,8 +934,6 @@ int main(int argc, char **argv) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 3a3ee933f347af815f111c6f9352baf8cfd302fc
   if (TM) {
     // FIXME: We should dyn_cast this when supported.
     auto &LTM = static_cast<LLVMTargetMachine &>(*TM);
@@ -980,23 +974,14 @@ int main(int argc, char **argv) {
       OptLevelO3 = false;
     }
 
-#endif
     const PassInfo *PassInf = PassList[i];
-    if (PassInf->getNormalCtor()) {
-      Pass *P = PassInf->getNormalCtor()();
-      if (P) {
-        // Add the pass to the pass manager.
-        Passes.add(P);
-        // If we are verifying all of the intermediate steps, add the verifier.
-        if (VerifyEach)
-          Passes.add(createVerifierPass());
-      }
-    } else
+    Pass *P = nullptr;
+    if (PassInf->getNormalCtor())
+      P = PassInf->getNormalCtor()();
+    else
       errs() << argv[0] << ": cannot create pass: "
              << PassInf->getPassName() << "\n";
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-   if (P) {
+    if (P) {
       PassKind Kind = P->getPassKind();
       addPass(Passes, P);
 
@@ -1042,14 +1027,12 @@ int main(int argc, char **argv) {
   if (OptLevelO3)
     AddOptimizationPasses(Passes, *FPasses, TM.get(), 3, 0);
 
-#endif // INTEL_CUSTOMIZATION
   if (FPasses) {
     FPasses->doInitialization();
     for (Function &F : *M)
       FPasses->run(F);
     FPasses->doFinalization();
-=======
->>>>>>> 3a3ee933f347af815f111c6f9352baf8cfd302fc
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Check that the module is well formed on completion of optimization
