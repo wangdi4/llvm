@@ -12,18 +12,22 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Regex.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/ImplicitArgsUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/TypeAlignment.h"
+#include <iostream>
+#include <regex>
 
 using namespace llvm;
 using namespace NameMangleAPI;
@@ -130,6 +134,23 @@ const StringRef NAME_WORK_GROUP_REDUCE_LOGICAL_OR =
     "work_group_reduce_logical_or";
 const StringRef NAME_WORK_GROUP_REDUCE_LOGICAL_XOR =
     "work_group_reduce_logical_xor";
+const StringRef NAME_WORK_GROUP_JOINT_SORT_ASCEND =
+    "__devicelib_default_work_group_joint_sort_ascending_";
+const StringRef NAME_WORK_GROUP_JOINT_SORT_DESCEND =
+    "__devicelib_default_work_group_joint_sort_descending_";
+const StringRef NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_ASCEND =
+    "__devicelib_default_work_group_private_sort_close_ascending_";
+const StringRef NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_DESCEND =
+    "__devicelib_default_work_group_private_sort_close_descending_";
+const StringRef NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_ASCEND =
+    "__devicelib_default_work_group_private_sort_spread_ascending_";
+const StringRef NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_DESCEND =
+    "__devicelib_default_work_group_private_sort_spread_descending_";
+const StringRef NAME_WORK_GROUP_PRIVATE_SORT_COPY =
+    "__devicelib_default_work_group_private_sort_copy";
+const StringRef NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_COPY =
+    "__devicelib_default_work_group_private_spread_sort_copy";
+
 const StringRef NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
 
 // KMP acquire/release
@@ -162,6 +183,10 @@ const StringRef NAME_SUB_GROUP_SHUFFLE_UP = "sub_group_shuffle_up";
 const StringRef NAME_SUB_GROUP_SHUFFLE_XOR = "sub_group_shuffle_xor";
 const StringRef NAME_SUB_GROUP_BLOCK_READ = "sub_group_block_read";
 const StringRef NAME_SUB_GROUP_BLOCK_WRITE = "sub_group_block_write";
+const StringRef NAME_SUB_GROUP_SORT_DESCEND =
+    "__devicelib_default_sub_group_private_sort_descending_";
+const StringRef NAME_SUB_GROUP_SORT_ASCEND =
+    "__devicelib_default_sub_group_private_sort_ascending_";
 
 /// Not mangled names.
 const StringRef NAME_GET_BASE_GID = "get_base_global_id.";
@@ -488,6 +513,91 @@ bool isAsyncWorkGroupCopy(StringRef S) {
 
 bool isAsyncWorkGroupStridedCopy(StringRef S) {
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
+}
+
+bool isWorkGroupSortBuitinByRegex(StringRef S, StringRef FuncKeyWords) {
+  reflection::FunctionDescriptor FD = demangle(S);
+  std::string FName;
+  FName = FD.isNull() ? S : FD.Name;
+  std::string DataTypes = "i8|i16|i32|i64|u8|u16|u32|u64|f16|f32|f64";
+  const std::string Pattern =
+      ("^" + FuncKeyWords + "p[13](" + DataTypes + ")_u32_p[13]i8$").str();
+  Regex PatternRegex(Pattern);
+  return PatternRegex.match(FName);
+}
+
+bool isWorkGroupKeyValueSortBuitinByRegex(StringRef S, StringRef FuncKeyWords) {
+  reflection::FunctionDescriptor FD = demangle(S);
+  std::string FName;
+  FName = FD.isNull() ? S : FD.Name;
+  std::string DataTypes = "i8|i16|i32|i64|u8|u16|u32|u64|f16|f32|f64";
+  const std::string KeyValuePattern =
+      ("^" + FuncKeyWords + "p[13](" + DataTypes + ")_p[13](" + DataTypes +
+       ")_u32_p[13]i8$")
+          .str();
+  Regex KeyValuePatternRegex(KeyValuePattern);
+  return KeyValuePatternRegex.match(FName);
+}
+
+bool isWorkGroupJointSort(StringRef S) {
+  return isWorkGroupSortBuitinByRegex(S, NAME_WORK_GROUP_JOINT_SORT_ASCEND) ||
+         isWorkGroupSortBuitinByRegex(S, NAME_WORK_GROUP_JOINT_SORT_DESCEND);
+}
+
+bool isWorkGroupKeyValueJointSort(StringRef S) {
+  return isWorkGroupKeyValueSortBuitinByRegex(
+             S, NAME_WORK_GROUP_JOINT_SORT_ASCEND) ||
+         isWorkGroupKeyValueSortBuitinByRegex(
+             S, NAME_WORK_GROUP_JOINT_SORT_DESCEND);
+}
+
+bool isWorkGroupPrivateSpreadSort(StringRef S) {
+  return isWorkGroupSortBuitinByRegex(
+             S, NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_ASCEND) ||
+         isWorkGroupSortBuitinByRegex(
+             S, NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_DESCEND);
+}
+
+bool isWorkGroupPrivateCloseSort(StringRef S) {
+  return isWorkGroupSortBuitinByRegex(
+             S, NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_ASCEND) ||
+         isWorkGroupSortBuitinByRegex(
+             S, NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_DESCEND);
+}
+
+bool isWorkGroupKeyValuePrivateSpreadSort(StringRef S) {
+  return isWorkGroupKeyValueSortBuitinByRegex(
+             S, NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_ASCEND) ||
+         isWorkGroupKeyValueSortBuitinByRegex(
+             S, NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_DESCEND);
+}
+
+bool isWorkGroupKeyValuePrivateCloseSort(StringRef S) {
+  return isWorkGroupKeyValueSortBuitinByRegex(
+             S, NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_ASCEND) ||
+         isWorkGroupKeyValueSortBuitinByRegex(
+             S, NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_DESCEND);
+}
+
+bool isWorkGroupPrivateSort(StringRef S) {
+  return isWorkGroupPrivateCloseSort(S) || isWorkGroupPrivateSpreadSort(S);
+}
+
+bool isWorkGroupKeyValuePrivateSort(StringRef S) {
+  return isWorkGroupKeyValuePrivateSpreadSort(S) ||
+         isWorkGroupKeyValuePrivateCloseSort(S);
+}
+
+bool isWorkGroupKeyOnlySort(StringRef S) {
+  return isWorkGroupPrivateSort(S) || isWorkGroupJointSort(S);
+}
+
+bool isWorkGroupKeyValueSort(StringRef S) {
+  return isWorkGroupKeyValuePrivateSort(S) || isWorkGroupKeyValueJointSort(S);
+}
+
+bool isWorkGroupSort(StringRef S) {
+  return isWorkGroupKeyOnlySort(S) || isWorkGroupKeyValueSort(S);
 }
 
 static bool isKMPAcquireReleaseLock(StringRef S) {
@@ -856,6 +966,21 @@ bool isSubGroupScanInclusiveMax(StringRef S) {
   return isMangleOf(S, NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX);
 }
 
+bool isSubGroupSort(StringRef S) {
+  reflection::FunctionDescriptor SortFD = demangle(S);
+  StringRef FuncName = SortFD.isNull() ? S : SortFD.Name;
+  if (!FuncName.consume_front(NAME_SUB_GROUP_SORT_ASCEND) &&
+      !FuncName.consume_front(NAME_SUB_GROUP_SORT_DESCEND))
+    return false;
+
+  SmallVector<std::string, 11> AvailableSuffix = {"i8",  "i16", "i32", "i64",
+                                                  "u8",  "u16", "u32", "u64",
+                                                  "f16", "f32", "f64"};
+  if (find(AvailableSuffix.begin(), AvailableSuffix.begin(), FuncName))
+    return true;
+  return false;
+}
+
 bool isSubGroupScan(StringRef S) {
   return isSubGroupScanExclusiveAdd(S) || isSubGroupScanInclusiveAdd(S) ||
          isSubGroupScanExclusiveMin(S) || isSubGroupScanInclusiveMin(S) ||
@@ -902,7 +1027,7 @@ bool isSubGroupUniform(StringRef S) {
          isGetMaxSubGroupSize(S) || isGetNumSubGroups(S) ||
          isGetEnqueuedNumSubGroups(S) || isSubGroupAll(S) || isSubGroupAny(S) ||
          isSubGroupBroadCast(S) || isSubGroupReduceAdd(S) ||
-         isSubGroupReduceMin(S) || isSubGroupReduceMax(S);
+         isSubGroupReduceMin(S) || isSubGroupReduceMax(S) || isSubGroupSort(S);
 }
 
 bool isSubGroupDivergent(StringRef S) {
@@ -977,6 +1102,43 @@ std::string mangledAtomicWorkItemFence() {
                                             reflection::PRIMITIVE_MEMORY_SCOPE};
 
   return mangleWithParam(NAME_ATOMIC_WORK_ITEM_FENCE, Params);
+}
+
+std::string getWorkGroupSortCopyName(StringRef SortFuncName, bool ToScratch) {
+  reflection::FunctionDescriptor FD;
+  bool IsSpread = isWorkGroupKeyValuePrivateSpreadSort(SortFuncName) ||
+                  isWorkGroupPrivateSpreadSort(SortFuncName);
+  FD.Name = (IsSpread && !ToScratch) ? NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_COPY
+                                     : NAME_WORK_GROUP_PRIVATE_SORT_COPY;
+
+  reflection::FunctionDescriptor SortFD = demangle(SortFuncName);
+  for (auto TypeIter : SortFD.Parameters) {
+    // Not add mask to copy builtin params, now assume sort is uniform
+    // Only mask param in vector workgroup sort builtin is vector of uint
+    if (TypeIter->getTypeId() == reflection::TYPE_ID_VECTOR) {
+      reflection::VectorType *Vec =
+          reflection::dyn_cast<reflection::VectorType>(TypeIter.get());
+      if (Vec->getScalarType()->getTypeId() == reflection::TYPE_ID_PRIMITIVE) {
+        reflection::PrimitiveType *PrimitiveParam =
+            reflection::dyn_cast<reflection::PrimitiveType>(
+                Vec->getScalarType().get());
+        if (PrimitiveParam->getPrimitive() == reflection::PRIMITIVE_UINT)
+          continue;
+      }
+    }
+    // Other type can just be added to Parameters
+    FD.Parameters.push_back(TypeIter);
+  }
+  // int type param, for local_id
+  FD.Parameters.push_back(
+      new reflection::PrimitiveType(reflection::PRIMITIVE_LONG));
+  // int type param, for local_size
+  FD.Parameters.push_back(
+      new reflection::PrimitiveType(reflection::PRIMITIVE_LONG));
+  // bool type param, for direction
+  FD.Parameters.push_back(
+      new reflection::PrimitiveType(reflection::PRIMITIVE_BOOL));
+  return mangle(FD);
 }
 
 std::string mangledGetGID() {
@@ -1306,7 +1468,7 @@ FuncSet getAllSyncBuiltinsDecls(Module &M, bool IsWG) {
           /* work group built-ins */
           isWorkGroupBuiltin(FName) ||
           /* built-ins synced as if were called by a single work item */
-          isWorkGroupAsyncOrPipeBuiltin(FName, M))
+          isWorkGroupAsyncOrPipeBuiltin(FName, M) || isWorkGroupSort(FName))
         FSet.insert(&F);
     } else {
       if (isSubGroupBarrier(FName) || isSubGroupBuiltin(FName))
@@ -2165,6 +2327,132 @@ static void pushSGRowSliceBuiltinVectInfo(
 }
 #endif // INTEL_CUSTOMIZATION
 
+reflection::TypePrimitiveEnum getPrimitiveTypeOfString(StringRef T) {
+  return llvm::StringSwitch<reflection::TypePrimitiveEnum>(T)
+      .Case("i8", reflection::PRIMITIVE_CHAR)
+      .Case("u8", reflection::PRIMITIVE_UCHAR)
+      .Case("i16", reflection::PRIMITIVE_SHORT)
+      .Case("u16", reflection::PRIMITIVE_USHORT)
+      .Case("i32", reflection::PRIMITIVE_INT)
+      .Case("u32", reflection::PRIMITIVE_UINT)
+      .Case("i64", reflection::PRIMITIVE_LONG)
+      .Case("u64", reflection::PRIMITIVE_ULONG)
+      .Case("f16", reflection::PRIMITIVE_HALF)
+      .Case("f32", reflection::PRIMITIVE_FLOAT)
+      .Case("f64", reflection::PRIMITIVE_DOUBLE)
+      .Default(reflection::PRIMITIVE_NONE);
+}
+
+using VectInfoList =
+    std::vector<std::tuple<std::string, std::string, std::string>>;
+
+static void pushWGSortBuiltinVectInfo(reflection::TypeVector KeyValueParams,
+                                      reflection::TypeVector OtherParams,
+                                      StringRef BuiltinName,
+                                      VectInfoList &ExtendedVectInfos,
+                                      bool NeddMangled) {
+  const static SmallVector<unsigned, 5> VFs = {4, 8, 16, 32, 64};
+
+  // Get mangled name of scalar builtin
+  reflection::TypeVector ScalarParams;
+  std::vector<llvm::VFParamKind> ParamKinds;
+  for (auto Param : KeyValueParams) {
+    ParamKinds.push_back(llvm::VFParamKind::Vector);
+    ScalarParams.push_back(Param);
+  }
+  for (auto Param : OtherParams) {
+    ParamKinds.push_back(llvm::VFParamKind::OMP_Uniform);
+    ScalarParams.push_back(Param);
+  }
+  std::string ScalarName;
+  if (NeddMangled) {
+    reflection::FunctionDescriptor ScalarFD{BuiltinName.data(), ScalarParams,
+                                            reflection::width::SCALAR};
+    ScalarName = NameMangleAPI::mangle(ScalarFD);
+  } else {
+    ScalarName = BuiltinName;
+  }
+
+  for (unsigned VF : VFs) {
+    reflection::TypeVector VectorParams = widenParameters(KeyValueParams, VF);
+    VectorParams.insert(VectorParams.end(), OtherParams.begin(),
+                        OtherParams.end());
+    // Add mask param
+    auto *Mask = VECTOR_TYPE(PRIM_TYPE(reflection::PRIMITIVE_UINT), VF);
+    VectorParams.push_back(Mask);
+
+    // Get mangled name of vector builtin
+    reflection::FunctionDescriptor VectorFunc{BuiltinName.data(), VectorParams,
+                                              reflection::width::NONE};
+    std::string VectorName = NameMangleAPI::mangle(VectorFunc);
+    auto Variant = VFInfo::get(llvm::VFISAKind::SSE, true, VF, ParamKinds,
+                               ScalarName, VectorName);
+
+    ExtendedVectInfos.push_back({ScalarName,
+                                 std::string(KernelAttribute::CallOnce),
+                                 std::move(Variant.FullName)});
+  }
+}
+
+static void pushWGSortBuiltinVectorInfo(VectInfoList &ExtendedVectInfos) {
+  // const StringRef NAME_WORK_GROUP_JOINT_SORT_ASCEND =
+  //     "__devicelib_default_work_group_joint_sort_ascending_";
+  SmallVector<StringRef, 6> AllSortBuiltinBasicNames = {
+      NAME_WORK_GROUP_JOINT_SORT_ASCEND,
+      NAME_WORK_GROUP_JOINT_SORT_DESCEND,
+      NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_ASCEND,
+      NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_DESCEND,
+      NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_ASCEND,
+      NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_DESCEND};
+  // Get size and scratch args type
+  reflection::RefParamType SizeType = PRIM_TYPE(reflection::PRIMITIVE_UINT);
+  reflection::RefParamType ScratchType = new reflection::PointerType(
+      PRIM_TYPE(reflection::PRIMITIVE_CHAR), {reflection::ATTR_GENERIC});
+
+  SmallVector<std::string, 11> BasicTypeStr = {"i8",  "i16", "i32", "i64",
+                                               "u8",  "u16", "u32", "u64",
+                                               "f16", "f32", "f64"};
+
+  for (StringRef BuiltinName : AllSortBuiltinBasicNames) {
+    for (std::string KeyBasicTypeStr : BasicTypeStr) {
+      for (std::string P : {"p1", "p3"}) {
+        for (std::string StratchP : {"p1", "p3"}) {
+          std::string KeyOnlyBuiltinBasicName =
+              (BuiltinName + P + KeyBasicTypeStr + "_u32_" + StratchP + "i8")
+                  .str();
+          // Get key data type
+          reflection::RefParamType KeyType = new reflection::PointerType(
+              PRIM_TYPE(getPrimitiveTypeOfString(KeyBasicTypeStr)),
+              {reflection::ATTR_GENERIC});
+
+          reflection::TypeVector KeyScalarParams = {KeyType};
+          reflection::TypeVector OtherScalarParams = {SizeType, ScratchType};
+          pushWGSortBuiltinVectInfo(KeyScalarParams, OtherScalarParams,
+                                    KeyOnlyBuiltinBasicName, ExtendedVectInfos,
+                                    true);
+
+          for (std::string ValueBasicTypeStr : BasicTypeStr) {
+            std::string KeyValueBuiltinBasicName =
+                (BuiltinName + P + KeyBasicTypeStr + "_" + P +
+                 ValueBasicTypeStr + "_u32_" + StratchP + "i8")
+                    .str();
+            // Get value data type
+            reflection::RefParamType ValueType = new reflection::PointerType(
+                PRIM_TYPE(getPrimitiveTypeOfString(ValueBasicTypeStr)),
+                {reflection::ATTR_GENERIC});
+
+            reflection::TypeVector KeyScalarParams = {KeyType, ValueType};
+            reflection::TypeVector OtherScalarParams = {SizeType, ScratchType};
+            pushWGSortBuiltinVectInfo(KeyScalarParams, OtherScalarParams,
+                                      KeyValueBuiltinBasicName,
+                                      ExtendedVectInfos, true);
+          }
+        }
+      }
+    }
+  }
+}
+
 void initializeVectInfoOnce(
     ArrayRef<VectItem> VectInfos,
     std::vector<std::tuple<std::string, std::string, std::string>>
@@ -2229,6 +2517,8 @@ void initializeVectInfoOnce(
   // 'sub_group_rowslice_insertelement.*'
   pushSGRowSliceBuiltinVectInfo(ExtendedVectInfos);
 #endif // INTEL_CUSTOMIZATION
+
+  pushWGSortBuiltinVectorInfo(ExtendedVectInfos);
 }
 
 static std::string getFormatStr(Value *V) {

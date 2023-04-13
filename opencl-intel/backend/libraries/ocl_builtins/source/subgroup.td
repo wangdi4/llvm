@@ -442,3 +442,112 @@ foreach func = ["reduce", "scan_inclusive", "scan_exclusive"] in {
     }
   }
 }
+
+// --- sub_group_private_sort* builtins ---
+//
+// https://github.com/andreyfe1/llvm/blob/design_group_sort/sycl/doc/GroupSort.md
+//
+//T __devicelib_default_sub_group_private_sort_ascending_<encoded_scalar_param_type>(T value);
+//T __devicelib_default_sub_group_private_sort_descending_<encoded_scalar_param_type>(T value);
+//
+//T is from the following list i8, i16, i32, i64, u8, u16, u32, u64, f16, f32, f64
+
+defvar sort_type = ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64"];
+
+defvar sort_pv_type = [pv1i8, pv1i16, pv1i32, pv1i64, pv1u8, pv1u16, pv1u32, pv1u64, pv1f16, pv1f32, pv1f64];
+
+let Attrs = [OVERLOADABLE], VectorAttrs = [KERNEL_CALL_ONCE], NeedForwardDecl = true in {
+  foreach key_type = sort_pv_type in {
+    let Types = [key_type] in
+    def sort_impl_#key_type : OclBuiltin<"__ocl_sort", (outs void:$ret), (ins key_type:$src, uint:$size, bool:$mode)>;
+    foreach value_type = sort_pv_type in {
+      let Types = [key_type] in
+      def sort_impl_#key_type#_#value_type : OclBuiltin<"__ocl_sort", (outs void:$ret), (ins key_type:$src_key, value_type:$src_value, uint:$size, bool:$mode)>;
+    }
+  }
+}
+
+foreach key_type = sort_pv_type in {
+  defvar builtins = !cast<OclBuiltin>("sort_impl_"#key_type);
+  def : OclBuiltinImpl<builtins, builtins.Types, true, [{}]>, SHARED;
+  foreach value_type = sort_pv_type in {
+    defvar builtins_kv = !cast<OclBuiltin>("sort_impl_"#key_type#"_"#value_type);
+    def : OclBuiltinImpl<builtins_kv, builtins_kv.Types, true, [{}]>, SHARED;
+  }
+}
+
+let Attrs = [OVERLOADABLE], VectorAttrs = [KERNEL_CALL_ONCE], NeedForwardDecl = true in {
+  foreach basetype = sort_type in {
+    defvar v1type = !cast<OclType>("v1" # basetype);
+    foreach func = ["ascending", "descending"] in {
+      let Types = [v1type] in
+      def sub_group_sort_#func#_#v1type : OclBuiltin<"__devicelib_default_sub_group_private_sort_"#func#"_"#basetype, (outs v1type:$ret), (ins v1type:$value)>;
+      foreach vf = [4, 8, 16, 32, 64] in {
+        defvar mask_type = !cast<OclType>("v" # vf # "u32");
+        let Types = [WidenType<v1type, vf>.Tout] in
+          def sub_group_sort_#func#_#v1type#_v#vf : OclBuiltin<"__devicelib_default_sub_group_private_sort_"#func#"_"#basetype, 
+            (outs gentype:$ret), (ins gentype:$value, mask_type:$vec_mask)>;
+      }
+    }
+  }
+}
+
+// Implementations
+defvar sort_code_ascending =
+[{
+  $Arg0BaseType scratch[$VecLength];
+  for(uint idx = 0; idx < $VecLength; ++idx){
+    scratch[idx] = $Arg0VarName[idx];
+  }
+  __ocl_sort(scratch, $VecLength, 0);
+  for(uint idx = 0; idx < $VecLength; ++idx){
+    $Arg0VarName[idx] = scratch[idx];
+  }
+  return $Arg0VarName;
+}];
+
+defvar sort_code_descending =
+[{
+  $Arg0BaseType scratch[$VecLength];
+  for(uint idx = 0; idx < $VecLength; ++idx){
+    scratch[idx] = $Arg0VarName[idx];
+  }
+  __ocl_sort(scratch, $VecLength, 1);
+  for(uint idx = 0; idx < $VecLength; ++idx){
+    $Arg0VarName[idx] = scratch[idx];
+  }
+  return $Arg0VarName;
+}];
+
+foreach func = ["ascending", "descending"] in {
+  foreach basetype = sort_type in {
+    defvar type = !cast<OclType>("v1" # basetype);
+    defvar builtins = !cast<OclBuiltin>("sub_group_sort_"#func#_#type);
+    def : OclBuiltinImpl<builtins, builtins.Types, false, ret_arg0_code>, SHARED;
+  }
+}
+
+foreach func = ["ascending", "descending"] in {
+  foreach basetype = sort_type in {
+    defvar type = !cast<OclType>("v1" # basetype);
+    foreach vf = [4, 8, 16, 32, 64] in {
+      defvar builtins = !cast<OclBuiltin>("sub_group_sort_"#func#"_"#type#"_v"#vf);
+      defvar baseName = type.BaseCTypeName;
+      defvar sort_code =  !if(!eq(func, "ascending"), sort_code_ascending, sort_code_descending);  
+      def : OclBuiltinImpl<builtins, builtins.Types, false, sort_code>, SHARED;
+    }
+  }
+}
+
+// VectInfos
+foreach func = ["ascending", "descending"] in {
+  foreach basetype = sort_type in {
+    defvar type = !cast<OclType>("v1" # basetype);
+    let HandleAlias = 0 in {
+      let Types = [type] in
+        def : VectInfo<[], !cast<OclBuiltin>("sub_group_sort_"#func#_#type), !cast<OclBuiltin>("sub_group_sort_"#func#"_"#type#"_v4"),
+                           !cast<OclBuiltin>("sub_group_sort_"#func#"_"#type#"_v8"), !cast<OclBuiltin>("sub_group_sort_"#func#"_"#type#"_v16"),
+                           !cast<OclBuiltin>("sub_group_sort_"#func#"_"#type#"_v32"), !cast<OclBuiltin>("sub_group_sort_"#func#"_"#type#"_v64")>;
+    }
+  }
+}
