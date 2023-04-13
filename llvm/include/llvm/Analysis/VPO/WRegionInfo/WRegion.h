@@ -6,9 +6,9 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -30,6 +30,10 @@
 /// WRegionNode::WRegionNodeKind
 ///
 /// All of them are derived classes of the base WRegionNode
+/// One exception is WRNTaskloopNode, which is derived from WRNTasknode.
+///
+/// All scalar fields are expected to be initialized in the WRN
+/// class declaration
 ///
 ///   Class name:             | Example OpenMP pragma
 /// --------------------------|------------------------------------
@@ -77,7 +81,6 @@
 ///   WRNTileNode             | #pragma omp tile
 ///   WRNScanNode             | #pragma omp scan
 ///
-/// One exception is WRNTaskloopNode, which is derived from WRNTasknode.
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_VPO_WREGION_H
@@ -283,10 +286,10 @@ private:
   ReductionClause Reduction;
   AllocateClause Alloc;
   CopyinClause Copyin;
-  EXPR IfExpr;
-  EXPR NumThreads;
-  WRNDefaultKind Default;
-  WRNProcBindKind ProcBind;
+  EXPR IfExpr = nullptr;
+  EXPR NumThreads = nullptr;
+  WRNDefaultKind Default = WRNDefaultAbsent;
+  WRNProcBindKind ProcBind = WRNProcBindAbsent;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
   /// Values such as linear step, array section bounds, which will be
@@ -294,8 +297,8 @@ private:
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-  int NumWorkers;
-  int PipelineDepth;
+  int NumWorkers = 0;
+  int PipelineDepth = 0;
 #endif // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
 
@@ -372,14 +375,14 @@ private:
   AllocateClause Alloc;
   LinearClause Linear;
   CopyinClause Copyin;
-  EXPR IfExpr;
-  EXPR NumThreads;
-  WRNDefaultKind Default;
-  WRNProcBindKind ProcBind;
+  EXPR IfExpr = nullptr;
+  EXPR NumThreads = nullptr;
+  WRNDefaultKind Default = WRNDefaultAbsent;
+  WRNProcBindKind ProcBind = WRNProcBindAbsent;
   ScheduleClause Schedule;
-  int Collapse;
-  int Ordered;
-  WRNLoopOrderKind LoopOrder;
+  int Collapse = 0;
+  int Ordered = -1;
+  WRNLoopOrderKind LoopOrder = WRNLoopOrderAbsent;
   WRNLoopInfo WRNLI;
   SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
@@ -393,8 +396,8 @@ private:
   loopopt::HLNode *ExitHLNode = nullptr;  // for HIR only
   loopopt::HLLoop *HLp = nullptr;         // for HIR only
 #if INTEL_FEATURE_CSA
-  int NumWorkers;
-  int PipelineDepth;
+  int NumWorkers = 0;
+  int PipelineDepth = 0;
   ScheduleClause WorkerSchedule;
 #endif // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
@@ -512,10 +515,10 @@ private:
   ReductionClause Reduction;
   AllocateClause Alloc;
   CopyinClause Copyin;
-  EXPR IfExpr;
-  EXPR NumThreads;
-  WRNDefaultKind Default;
-  WRNProcBindKind ProcBind;
+  EXPR IfExpr = nullptr;
+  EXPR NumThreads = nullptr;
+  WRNDefaultKind Default = WRNDefaultAbsent;
+  WRNProcBindKind ProcBind = WRNProcBindAbsent;
   WRNLoopInfo WRNLI;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
@@ -585,10 +588,10 @@ private:
   AllocateClause Alloc;
   CopyinClause Copyin;
   ScheduleClause Schedule;
-  EXPR IfExpr;
-  EXPR NumThreads;
-  WRNDefaultKind Default;
-  WRNProcBindKind ProcBind;
+  EXPR IfExpr = nullptr;
+  EXPR NumThreads = nullptr;
+  WRNDefaultKind Default = WRNDefaultAbsent;
+  WRNProcBindKind ProcBind = WRNProcBindAbsent;
   WRNLoopInfo WRNLI;
 
 public:
@@ -635,11 +638,11 @@ private:
   FirstprivateClause Fpriv;
   ReductionClause Reduction;
   AllocateClause Alloc;
-  EXPR ThreadLimit;
+  EXPR ThreadLimit = nullptr;
   Type *ThreadLimitTy = nullptr;
-  EXPR NumTeams;
+  EXPR NumTeams = nullptr;
   Type *NumTeamsTy = nullptr;
-  WRNDefaultKind Default;
+  WRNDefaultKind Default = WRNDefaultAbsent;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
 #endif // INTEL_CUSTOMIZATION
@@ -697,17 +700,17 @@ private:
   AllocateClause Alloc;
   LinearClause Linear;
   CopyinClause Copyin;
-  EXPR IfExpr;
-  EXPR NumThreads;
-  WRNDefaultKind Default;
-  WRNProcBindKind ProcBind;
+  EXPR IfExpr = nullptr;
+  EXPR NumThreads = nullptr;
+  WRNDefaultKind Default = WRNDefaultAbsent;
+  WRNProcBindKind ProcBind = WRNProcBindAbsent;
   ScheduleClause Schedule;
   ScheduleClause DistSchedule;
-  int Collapse;
-  int Ordered;
-  WRNLoopOrderKind LoopOrder;
+  int Collapse = 0;
+  int Ordered = -1;
+  WRNLoopOrderKind LoopOrder = WRNLoopOrderAbsent;
   WRNLoopInfo WRNLI;
-  bool TreatDistributeParLoopAsDistribute; // Used during transformation.
+  bool TreatDistributeParLoopAsDistribute = false; // Used in transformation.
   /// Values such as dist_schedule chunk size, which will be
   /// used directly inside the outlined function created for the WRegion.
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
@@ -799,8 +802,8 @@ private:
   EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
   EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
   IsDevicePtrClause IsDevicePtr;
-  EXPR IfExpr;
-  EXPR Device;
+  EXPR IfExpr = nullptr;
+  EXPR Device = nullptr;
   EXPR ThreadLimit = nullptr;
   Type *ThreadLimitTy = nullptr;
   SubdeviceClause Subdevice;
@@ -809,7 +812,7 @@ private:
   bool Nowait = false;
   WRNDefaultmapBehavior Defaultmap[WRNDefaultmapCategorySize] =
       {WRNDefaultmapAbsent};
-  int OffloadEntryIdx;
+  int OffloadEntryIdx = -1;
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
   SmallVector<Value *, 3> UncollapsedNDRangeDimensions;
   SmallVector<Type *, 3> UncollapsedNDRangeTypes;
@@ -961,8 +964,8 @@ class WRNTargetDataNode : public WRegionNode {
 private:
   MapClause Map;
   UseDevicePtrClause UseDevicePtr;
-  EXPR IfExpr;
-  EXPR Device;
+  EXPR IfExpr = nullptr;
+  EXPR Device = nullptr;
   SubdeviceClause Subdevice;
   LiveinClause Livein;
 
@@ -1001,8 +1004,8 @@ private:
   DependClause Depend;            // from "QUAL.OMP.DEPEND"
   EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
   EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
-  EXPR IfExpr;
-  EXPR Device;
+  EXPR IfExpr = nullptr;
+  EXPR Device = nullptr;
   SubdeviceClause Subdevice;
   bool Nowait = false;
 
@@ -1046,8 +1049,8 @@ private:
   DependClause Depend;            // from "QUAL.OMP.DEPEND"
   EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
   EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
-  EXPR IfExpr;
-  EXPR Device;
+  EXPR IfExpr = nullptr;
+  EXPR Device = nullptr;
   SubdeviceClause Subdevice;
   bool Nowait = false;
 
@@ -1091,8 +1094,8 @@ private:
   DependClause Depend;            // from "QUAL.OMP.DEPEND"
   EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
   EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
-  EXPR IfExpr;
-  EXPR Device;
+  EXPR IfExpr = nullptr;
+  EXPR Device = nullptr;
   SubdeviceClause Subdevice;
   bool Nowait = false;
 
@@ -1136,7 +1139,7 @@ private:
   NeedDevicePtrSet NeedDevicePtr;
   NeedDevicePtrSet NeedDevicePtrToPtr;
   UseDevicePtrClause UseDevicePtr;
-  EXPR Device;
+  EXPR Device = nullptr;
   SubdeviceClause Subdevice;
   bool Nowait = false;
   CallInst *Call = nullptr; // The dispatch call; set in Paropt codegen
@@ -1180,9 +1183,9 @@ private:
   NeedDevicePtrSet NeedDevicePtrToPtr;
   SubdeviceClause Subdevice;
   InteropClause Interop;
-  EXPR Device;
-  EXPR Nocontext;
-  EXPR Novariants;
+  EXPR Device = nullptr;
+  EXPR Nocontext = nullptr;
+  EXPR Novariants = nullptr;
   bool Nowait = false;
 
   // To be populated during Paropt codegen
@@ -1229,7 +1232,7 @@ public:
 /// \endcode
 class WRNInteropNode : public WRegionNode {
 private:
-  EXPR Device;
+  EXPR Device = nullptr;
   DependClause Depend;            // from "QUAL.OMP.DEPEND"
   EXPR DepArray = nullptr;        // Arr in "QUAL.OMP.DEPARRAY"(i32 N, i8* Arr)
   EXPR DepArrayNumDeps = nullptr; // N above; ie, number of depend-items in Arr
@@ -1297,15 +1300,15 @@ private:
   EXPR AffArray = nullptr;        // Arr in "QUAL.OMP.AFFARRAY"(i32 N, i8* Arr)
   EXPR AffArraySize =
       nullptr; // N above; ie, number of affinity-items in Arr
-  EXPR Final;
-  EXPR IfExpr;
-  EXPR Priority;
-  WRNDefaultKind Default;
+  EXPR Final = nullptr;
+  EXPR IfExpr = nullptr;
+  EXPR Priority = nullptr;
+  WRNDefaultKind Default = WRNDefaultAbsent;
   DetachClause Detach;
-  bool Untied;
-  bool Mergeable;
-  bool IsTargetTask; // Task is the implicit task surrounding a target region.
-  unsigned TaskFlag; // flag bit vector used to invoke tasking RTL
+  bool Untied = false;
+  bool Mergeable = false;
+  bool IsTargetTask = false; // Is an implicit task surrounding a target region
+  unsigned TaskFlag = WRNTaskFlag::Tied; // Bit vector used to invoke task RTL
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
   bool IsTargetNowaitTask = false; // set to true when parsing nowait on
@@ -1384,11 +1387,11 @@ class WRNTaskloopNode : public WRNTaskNode {
 private:
   LastprivateClause Lpriv;
   ReductionClause Reduction;
-  EXPR Grainsize;
-  EXPR NumTasks;
-  int SchedCode; // 1 for Grainsize, 2 for num_tasks, 0 for none.
-  int Collapse;
-  bool Nogroup;
+  EXPR Grainsize = nullptr;
+  EXPR NumTasks = nullptr;
+  int SchedCode = 0; // 1 for Grainsize, 2 for num_tasks, 0 for none.
+  int Collapse = 0;
+  bool Nogroup = false;
   WRNLoopInfo WRNLI;
   bool IsStrict = false;
 
@@ -1485,7 +1488,7 @@ private:
   int Safelen = 0;
   int Collapse = 0;
 
-  WRNLoopOrderKind LoopOrder;
+  WRNLoopOrderKind LoopOrder = WRNLoopOrderAbsent;
   WRNLoopInfo WRNLI;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
@@ -1591,9 +1594,9 @@ private:
   AllocateClause Alloc;
   LinearClause Linear;
   ScheduleClause Schedule;
-  int Collapse;
-  int Ordered;
-  WRNLoopOrderKind LoopOrder;
+  int Collapse = 0;
+  int Ordered = -1;
+  WRNLoopOrderKind LoopOrder = WRNLoopOrderAbsent;
   bool Nowait = false;
 
   WRNLoopInfo WRNLI;
@@ -1783,9 +1786,9 @@ private:
   LastprivateClause Lpriv;
   AllocateClause Alloc;
   ScheduleClause DistSchedule;
-  int Collapse;
+  int Collapse = 0;
   WRNLoopInfo WRNLI;
-  WRNLoopOrderKind LoopOrder;
+  WRNLoopOrderKind LoopOrder = WRNLoopOrderAbsent;
 
 public:
   WRNDistributeNode(BasicBlock *BB, LoopInfo *L);
@@ -1824,8 +1827,8 @@ public:
 ///   'seq_cst' clause is optional.
 class WRNAtomicNode : public WRegionNode {
 private:
-  WRNAtomicKind AtomicKind;
-  bool HasSeqCstClause;
+  WRNAtomicKind AtomicKind = WRNAtomicUpdate;
+  bool HasSeqCstClause = false;
 
 protected:
   void setAtomicKind(WRNAtomicKind AK) override  { AtomicKind = AK; }
@@ -1872,7 +1875,7 @@ public:
 /// \endcode
 class WRNPrefetchNode : public WRegionNode {
 private:
-  EXPR IfExpr;
+  EXPR IfExpr = nullptr;
   DataClause Data;
 
 public:
@@ -2029,9 +2032,9 @@ public:
 /// \endcode
 class WRNCancelNode : public WRegionNode {
 private:
-  bool IsCancellationPoint;
-  WRNCancelKind CancelKind;
-  EXPR IfExpr;   // valid only when IsCancellationPoint==false
+  bool IsCancellationPoint = false; // will be overwritten in constructor
+  WRNCancelKind CancelKind = WRNCancelError;
+  EXPR IfExpr = nullptr; // valid only when IsCancellationPoint==false
 
 public:
   WRNCancelNode(BasicBlock *BB, bool IsCP);
@@ -2061,7 +2064,7 @@ public:
 /// \endcode
 class WRNMaskedNode : public WRegionNode {
 private:
-  EXPR Filter;
+  EXPR Filter = nullptr;
 
 public:
   WRNMaskedNode(BasicBlock *BB);
@@ -2090,10 +2093,10 @@ public:
 /// second form is new with OpenMP4.x, to describe DOACROSS
 class WRNOrderedNode : public WRegionNode {
 private:
-  bool IsDoacross; // true iff a doacross clause is seen (2nd form above)
+  bool IsDoacross = false; // true iff doacross clause is seen (2nd form above)
   // IsSIMD and IsThreads are meaningful only if IsDoacross==false
-  bool IsSIMD;
-  bool IsThreads;
+  bool IsSIMD = false;
+  bool IsThreads = false;
 
   // The following two fields are meaningful only if IsDoacross==true
   DoacrossSinkClause DoacrossSink;
@@ -2189,7 +2192,7 @@ public:
 class WRNCriticalNode : public WRegionNode {
 private:
   SmallString<64> UserLockName; ///< Lock name provided by the user.
-  uint32_t  Hint;
+  uint32_t Hint = 0;
 
 protected:
   void setUserLockName(StringRef LN) override { UserLockName = LN; }
@@ -2292,12 +2295,12 @@ private:
   LastprivateClause Lpriv;
   LiveinClause Livein;
   ReductionClause Reduction;
-  int Collapse;
+  int Collapse = 0;
 
-  WRNLoopBindKind LoopBind;
-  WRNLoopOrderKind LoopOrder;
+  WRNLoopBindKind LoopBind = WRNLoopBindAbsent;
+  WRNLoopOrderKind LoopOrder = WRNLoopOrderAbsent;
   WRNLoopInfo WRNLI;
-  int MappedDir;
+  int MappedDir = -1;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent = false; // used for Fortran Do Concurrent
 #endif // INTEL_CUSTOMIZATION
