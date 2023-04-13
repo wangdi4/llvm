@@ -18,7 +18,9 @@
 
 # INTEL_CUSTOMIZATION
 set(imf_fp32_omp_lib_funcs_list imf/intel/cos_s_la.cpp
+                                imf/intel/cospi_s_ha.cpp
                                 imf/intel/sin_s_la.cpp
+                                imf/intel/sinpi_s_ha.cpp
                                 imf/intel/exp_s_la.cpp
                                 imf/intel/exp2_s_la.cpp
                                 imf/intel/exp10_s_la.cpp
@@ -55,7 +57,6 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/acos_s_ha.cpp
                                imf/intel/acosh_s_la.cpp
                                imf/intel/erf_s_ha.cpp
-                               imf/intel/cospi_s_ha.cpp
                                imf/intel/cosh_s_la.cpp
                                imf/intel/frexp_s_xa.cpp
                                imf/intel/fmod_s_xa.cpp
@@ -72,7 +73,6 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/invcbrt_s_ha.cpp
                                imf/intel/ilogb_s_xa.cpp
                                imf/intel/tan_s_la.cpp
-                               imf/intel/sinpi_s_ha.cpp
                                imf/intel/sinh_s_la.cpp
                                imf/intel/sincos_s_la.cpp
                                imf/intel/sincospi_s_la.cpp

@@ -39,6 +39,7 @@ class SvmlVariants<int N, IntrinFormat IF> {
 
 // TODO: add the other funcs
 def cos        : SvmlVariants<1, Intrin>;
+def cospi      : SvmlVariants<1, NoIntrin>;
 def exp        : SvmlVariants<1, Intrin>;
 def exp2       : SvmlVariants<1, Intrin>;
 def exp10      : SvmlVariants<1, NoIntrin>;
@@ -49,3 +50,4 @@ def log10      : SvmlVariants<1, Intrin>;
 def logb       : SvmlVariants<1, NoIntrin>;
 def pow        : SvmlVariants<2, Intrin>;
 def sin        : SvmlVariants<1, Intrin>;
+def sinpi      : SvmlVariants<1, NoIntrin>;
