@@ -48,18 +48,12 @@
 ; CHECK-THINLTO: Running pass: LowerTypeTestsPass
 ; CHECK-THINLTO-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-THINLTO-NEXT: Running pass: GlobalDCEPass
-<<<<<<< HEAD
-; CHECK-LTO: Running pass: Annotation2MetadataPass
-; CHECK-LTO-NEXT: Running pass: CrossDSOCFIPass on [module]
+; CHECK-LTO: Running pass: CrossDSOCFIPass on [module]
 ; INTEL_CUSTOMIZATION
 ; CHECK-LTO-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-LTO-NEXT: Running analysis: XmainOptLevelAnalysis
 ; CHECK-LTO-NEXT: Running pass: RequireAnalysisPass
 ; CHECK-LTO-NEXT: Running analysis: WholeProgramAnalysis
-=======
-; CHECK-LTO: Running pass: CrossDSOCFIPass on [module]
-; CHECK-LTO-NEXT: Running pass: WholeProgramDevirtPass
->>>>>>> 4bf9ca5eec24a4379fc7021c0aa1e810e32c50a6
 ; CHECK-LTO-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-LTO-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-LTO: Running pass: WholeProgramDevirtPass

@@ -3028,15 +3028,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
                                      ModuleSummaryIndex *ExportSummary) {
   ModulePassManager MPM;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   LinkForLTO = true;
 #endif // INTEL_CUSTOMIZATION
-  // Convert @llvm.global.annotations to !annotation metadata.
-  MPM.addPass(Annotation2MetadataPass());
-
-=======
->>>>>>> 4bf9ca5eec24a4379fc7021c0aa1e810e32c50a6
   for (auto &C : FullLinkTimeOptimizationEarlyEPCallbacks)
     C(MPM, Level);
 
