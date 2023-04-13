@@ -3602,8 +3602,7 @@ Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
   }
 
   if (VS.isOverrideSpecified())
-    Member->addAttr(OverrideAttr::Create(Context, VS.getOverrideLoc(),
-                                         AttributeCommonInfo::AS_Keyword));
+    Member->addAttr(OverrideAttr::Create(Context, VS.getOverrideLoc()));
   if (VS.isFinalSpecified())
     Member->addAttr(FinalAttr::Create(
         Context, VS.getFinalLoc(), AttributeCommonInfo::AS_Keyword,

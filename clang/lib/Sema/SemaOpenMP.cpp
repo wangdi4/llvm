@@ -3330,8 +3330,7 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPGroupprivateDirective(
       continue;
     }
     VD->addAttr(OMPGroupPrivateDeclAttr::CreateImplicit(
-        this->getASTContext(), DTCI.DT, RefExpr->getSourceRange(),
-        AttributeCommonInfo::AS_Pragma));
+        this->getASTContext(), DTCI.DT, RefExpr->getSourceRange()));
   }
   if (OMPGroupPrivateDecl *D =
           CheckOMPGroupPrivateDecl(Loc, VarList, DTCI.DT)) {
