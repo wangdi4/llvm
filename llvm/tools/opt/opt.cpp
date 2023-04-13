@@ -328,6 +328,7 @@ static cl::list<std::string>
     PassPlugins("load-pass-plugin",
                 cl::desc("Load passes from plugin library"));
 
+<<<<<<< HEAD
 static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
   // Add the pass to the pass manager...
   PM.add(P);
@@ -367,6 +368,8 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
 }
 
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 3a3ee933f347af815f111c6f9352baf8cfd302fc
 //===----------------------------------------------------------------------===//
 // CodeGen-related helper functions.
 //
@@ -787,9 +790,8 @@ int main(int argc, char **argv) {
 #endif // INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
     if (legacy::debugPassSpecified()) {
-      errs()
-          << "-debug-pass does not work with the new PM, either use "
-             "-debug-pass-manager, or use the legacy PM (-enable-new-pm=0)\n";
+      errs() << "-debug-pass does not work with the new PM, either use "
+                "-debug-pass-manager, or use the legacy PM\n";
       return 1;
     }
 #endif // !INTEL_PRODUCT_RELEASE
@@ -925,6 +927,7 @@ int main(int argc, char **argv) {
     }
   }
 
+<<<<<<< HEAD
   std::unique_ptr<legacy::FunctionPassManager> FPasses;
 #ifdef INTEL_CUSTOMIZATION
   if (OptLevelO0 || OptLevelO1 || OptLevelO2 || OptLevelOs || OptLevelOz ||
@@ -935,6 +938,8 @@ int main(int argc, char **argv) {
   }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 3a3ee933f347af815f111c6f9352baf8cfd302fc
   if (TM) {
     // FIXME: We should dyn_cast this when supported.
     auto &LTM = static_cast<LLVMTargetMachine &>(*TM);
@@ -977,12 +982,19 @@ int main(int argc, char **argv) {
 
 #endif
     const PassInfo *PassInf = PassList[i];
-    Pass *P = nullptr;
-    if (PassInf->getNormalCtor())
-      P = PassInf->getNormalCtor()();
-    else
+    if (PassInf->getNormalCtor()) {
+      Pass *P = PassInf->getNormalCtor()();
+      if (P) {
+        // Add the pass to the pass manager.
+        Passes.add(P);
+        // If we are verifying all of the intermediate steps, add the verifier.
+        if (VerifyEach)
+          Passes.add(createVerifierPass());
+      }
+    } else
       errs() << argv[0] << ": cannot create pass: "
              << PassInf->getPassName() << "\n";
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
    if (P) {
       PassKind Kind = P->getPassKind();
@@ -1036,6 +1048,8 @@ int main(int argc, char **argv) {
     for (Function &F : *M)
       FPasses->run(F);
     FPasses->doFinalization();
+=======
+>>>>>>> 3a3ee933f347af815f111c6f9352baf8cfd302fc
   }
 
   // Check that the module is well formed on completion of optimization
