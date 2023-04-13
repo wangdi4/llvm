@@ -28,7 +28,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "BreakpointPrinter.h"
 #include "NewPMDriver.h"
 #if INTEL_CUSTOMIZATION
 #include "Intel_PassPrinters.h"
@@ -256,10 +255,6 @@ static cl::opt<bool> VerifyDebugInfoPreserve(
     "verify-debuginfo-preserve",
     cl::desc("Start the pipeline with collecting and end it with checking of "
              "debug info preservation."));
-
-static cl::opt<bool>
-PrintBreakpoints("print-breakpoints-for-testing",
-                 cl::desc("Print select breakpoints location for testing"));
 
 static cl::opt<std::string> ClDataLayout("data-layout",
                                          cl::desc("data layout string to use"),
@@ -940,24 +935,6 @@ int main(int argc, char **argv) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (PrintBreakpoints) {
-    // Default to standard output.
-    if (!Out) {
-      if (OutputFilename.empty())
-        OutputFilename = "-";
-
-      std::error_code EC;
-      Out = std::make_unique<ToolOutputFile>(OutputFilename, EC,
-                                              sys::fs::OF_None);
-      if (EC) {
-        errs() << EC.message() << '\n';
-        return 1;
-      }
-    }
-    Passes.add(createBreakpointPrinter(Out->os()));
-    NoOutput = true;
-  }
-
   if (TM) {
     // FIXME: We should dyn_cast this when supported.
     auto &LTM = static_cast<LLVMTargetMachine &>(*TM);
@@ -1147,7 +1124,7 @@ int main(int argc, char **argv) {
     exportDebugifyStats(DebugifyExport, Passes.getDebugifyStatsMap());
 
   // Declare success.
-  if (!NoOutput || PrintBreakpoints)
+  if (!NoOutput)
     Out->keep();
 
   if (RemarksFile)
