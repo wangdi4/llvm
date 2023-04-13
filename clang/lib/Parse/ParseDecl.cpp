@@ -492,7 +492,7 @@ unsigned Parser::ParseAttributeArgsCommon(
   ConsumeParen();
 
   bool ChangeKWThisToIdent = attributeTreatsKeywordThisAsIdentifier(*AttrName);
-  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName); // INTEL
+  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName, Form.getSyntax(), ScopeName); // INTEL
   bool AttributeHasVariadicIdentifierArg =
       attributeHasVariadicIdentifierArg(*AttrName);
 
@@ -505,7 +505,7 @@ unsigned Parser::ParseAttributeArgsCommon(
     // If this attribute wants an 'identifier' argument, make it so.
 #if INTEL_CUSTOMIZATION
     bool IsIdentifierArg = AttributeHasVariadicIdentifierArg ||
-                           attributeHasIdentifierArg(*AttrName, Syntax, ScopeName);
+                           attributeHasIdentifierArg(*AttrName, Form.getSyntax(), ScopeName);
 #endif // INTEL_CUSTOMIZATION
     ParsedAttr::Kind AttrKind =
         ParsedAttr::getParsedKind(AttrName, ScopeName, Form.getSyntax());
@@ -553,7 +553,7 @@ unsigned Parser::ParseAttributeArgsCommon(
           ArgExprs.push_back(ParseIdentifierLoc());
         } else {
 #if INTEL_CUSTOMIZATION
-          bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
+          bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Form.getSyntax(),
                                                        ScopeName);
 #endif // INTEL_CUSTOMIZATION
           EnterExpressionEvaluationContext Unevaluated(
@@ -575,7 +575,7 @@ unsigned Parser::ParseAttributeArgsCommon(
     } else {
       // General case. Parse all available expressions.
 #if INTEL_CUSTOMIZATION
-      bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
+      bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Form.getSyntax(),
                                                    ScopeName);
 #endif // INTEL_CUSTOMIZATION
       EnterExpressionEvaluationContext Unevaluated(
@@ -661,7 +661,7 @@ void Parser::ParseGNUAttributeArgs(
                                      ScopeName, ScopeLoc, Form);
     return;
 #if INTEL_CUSTOMIZATION
-  } else if (attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName)) {
+  } else if (attributeIsTypeArgAttr(*AttrName, Form.getSyntax(), ScopeName)) {
 #endif // INTEL_CUSTOMIZATION
     ParseAttributeWithTypeArg(*AttrName, AttrNameLoc, Attrs, ScopeName,
                               ScopeLoc, Form);
