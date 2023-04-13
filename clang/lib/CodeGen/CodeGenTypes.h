@@ -172,14 +172,6 @@ public:
   void setDTransRuntimeType(llvm::StructType *ST, QualType ClangTy,
                             ArrayRef<FieldDecl *> FDs);
 
-  /// ConvertSYCLJointMatrixINTELType - Convert SYCL joint_matrix type
-  /// which is represented as a pointer to a structure to LLVM extension type
-  /// with the parameters that follow SPIR-V JointMatrixINTEL type.
-  /// The expected representation is:
-  /// target("spirv.JointMatrixINTEL", %element_type, %rows%, %cols%, %scope%,
-  ///        %use%, (optional) %element_type_interpretation%)
-  llvm::Type *ConvertSYCLJointMatrixINTELType(RecordDecl *RD);
-
   /// GetFunctionType - Get the LLVM function type for \arg Info.
   llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info,
                                       DTransFuncInfo *DFI = nullptr);
@@ -187,6 +179,13 @@ public:
   llvm::FunctionType *GetFunctionType(GlobalDecl GD,
                                       DTransFuncInfo *DFI = nullptr);
 #else // INTEL_FEATURE_SW_DTRANS
+  /// GetFunctionType - Get the LLVM function type for \arg Info.
+  llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info);
+
+  llvm::FunctionType *GetFunctionType(GlobalDecl GD);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   /// ConvertSYCLJointMatrixINTELType - Convert SYCL joint_matrix type
   /// which is represented as a pointer to a structure to LLVM extension type
   /// with the parameters that follow SPIR-V JointMatrixINTEL type.
@@ -194,13 +193,6 @@ public:
   /// target("spirv.JointMatrixINTEL", %element_type, %rows%, %cols%, %scope%,
   ///        %use%, (optional) %element_type_interpretation%)
   llvm::Type *ConvertSYCLJointMatrixINTELType(RecordDecl *RD);
-
-  /// GetFunctionType - Get the LLVM function type for \arg Info.
-  llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info);
-
-  llvm::FunctionType *GetFunctionType(GlobalDecl GD);
-#endif // INTEL_FEATURE_SW_DTRANS
-#endif // INTEL_CUSTOMIZATION
 
   /// isFuncTypeConvertible - Utility to check whether a function type can
   /// be converted to an LLVM type (i.e. doesn't depend on an incomplete tag
