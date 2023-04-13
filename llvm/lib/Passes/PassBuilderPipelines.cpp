@@ -913,9 +913,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
-#endif // INTEL_CUSTOMIZATION
   if (Level == OptimizationLevel::O3)
     FPM.addPass(AggressiveInstCombinePass());
+#endif // INTEL_CUSTOMIZATION
 
   if (EnableConstraintElimination)
     FPM.addPass(ConstraintEliminationPass());
@@ -3332,7 +3332,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // calls, etc, so let instcombine do this.
   FunctionPassManager PeepholeFPM;
   addInstCombinePass(PeepholeFPM, !DTransEnabled, !DTransEnabled); // INTEL
-  if (Level == OptimizationLevel::O3)
+  if (Level == OptimizationLevel::O3) // INTEL
     PeepholeFPM.addPass(AggressiveInstCombinePass());
   invokePeepholeEPCallbacks(PeepholeFPM, Level);
 

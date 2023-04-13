@@ -181,7 +181,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: ConstantMergePass
 ; CHECK-O23SZ-NEXT: Running pass: DeadArgumentEliminationPass
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass
-; CHECK-O3-NEXT: Running pass: AggressiveInstCombinePass
+; CHECK-O3-NEXT: Running pass: AggressiveInstCombinePass ;INTEL
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O23SZ-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA ;INTEL
