@@ -369,6 +369,13 @@ bool VPSOAAnalysis::SOASafetyChecker::isDerivedFromAllocatePriv(
       continue;
     }
 
+    if (auto VPI = dyn_cast<VPInstruction>(CurrentI))
+      if (VPI->getOpcode() == Instruction::Select) {
+        for (unsigned I = 1; I < VPI->getNumOperands(); I++)
+          ProcessOperand(VPI->getOperand(I));
+        continue;
+      }
+
     // Other cases, like ptrtoint or load, are not supported
     return false;
   }
@@ -378,9 +385,12 @@ bool VPSOAAnalysis::SOASafetyChecker::isDerivedFromAllocatePriv(
 
 bool VPSOAAnalysis::SOASafetyChecker::isMergeSafeForSOA(
     const VPInstruction *Inst) {
-  assert(Inst->getOpcode() == Instruction::PHI && "Expected phi");
+  assert((Inst->getOpcode() == Instruction::Select ||
+          Inst->getOpcode() == Instruction::PHI) &&
+         "Expected phi or select");
 
-  for (unsigned I = 0; I < Inst->getNumOperands(); I++) {
+  unsigned Start = Inst->getOpcode() == Instruction::Select ? 1 : 0;
+  for (unsigned I = Start; I < Inst->getNumOperands(); I++) {
     auto *Operand = Inst->getOperand(I);
     if (Operand == Private) {
       continue;
@@ -420,7 +430,9 @@ bool VPSOAAnalysis::SOASafetyChecker::isSafeUse(const VPInstruction *UseInst,
   case Instruction::Store:
     return isSafeLoadStore(cast<VPLoadStoreInst>(UseInst),
                            CurrentI, PrivElemSize);
+
   case Instruction::PHI:
+  case Instruction::Select:
     return VPlanAllowSOAPhis && isMergeSafeForSOA(UseInst);
 
   case VPInstruction::ReductionInitArr:
@@ -565,6 +577,10 @@ bool VPSOAAnalysis::isProfitableForSOA(const VPInstruction *I) {
     AccessProfitabilityInfo[I] = true; // avoid cyclic dependencies
     return AccessProfitabilityInfo[I] =
                OpRangeIsOk(make_range(I->op_begin(), I->op_end()));
+  }
+  if (I->getOpcode() == Instruction::Select) {
+    bool IsProfitable = OpRangeIsOk(make_range(I->op_begin() + 1, I->op_end()));
+    return AccessProfitabilityInfo[I] = IsProfitable;
   }
 
   // For bitcast and addrspacecast instruction, recur on the source-operand.
