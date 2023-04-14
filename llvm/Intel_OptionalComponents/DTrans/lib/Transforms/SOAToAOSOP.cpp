@@ -357,6 +357,7 @@ private:
       // InstsToTransform contains all needed information.
       // New instructions after cloning are obtained using VMap.
       if (!IsCloned) {
+        mapSubProgramToSelf(OrigFunc, NewVMap);
         Clone = CloneFunction(&OrigFunc, NewVMap);
         fixCallInfo(OrigFunc, Impl.DTInfo, NewVMap);
       }
@@ -458,6 +459,7 @@ private:
       Function *Clone;
       ValueToValueMapTy NewVMap;
       if (!IsCloned) {
+        mapSubProgramToSelf(OrigFunc, NewVMap);
         Clone = CloneFunction(&OrigFunc, NewVMap);
         fixCallInfo(OrigFunc, Impl.DTInfo, NewVMap);
       }

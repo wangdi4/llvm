@@ -1,6 +1,6 @@
 //===-------------- SOAToAOSOPStruct.cpp - Part of SOAToAOSOPPass ---------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -398,6 +398,7 @@ public:
     // InstsToTransform contains all needed information.
     // New instructions after cloning are obtained using VMap.
     if (!isCloned) {
+      mapSubProgramToSelf(OrigFunc, NewVMap);
       Clone = CloneFunction(&OrigFunc, NewVMap);
       fixCallInfo(OrigFunc, DTInfo, NewVMap);
     }
