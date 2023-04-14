@@ -219,7 +219,7 @@ protected:
 
   OCLObjectsMap<_cl_kernel_int> m_pKernels; // associated
   // assiciated autorun kernels
-  OCLObjectsMap<_cl_kernel_int> m_pAutorunKernels;
+  std::set<_cl_kernel_int *> m_pAutorunKernels;
 
   tDeviceProgramMap m_deviceToProgram;
 

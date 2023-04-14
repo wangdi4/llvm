@@ -841,9 +841,7 @@ cl_err_code Program::CreateAutorunKernels(cl_uint uiNumKernels,
         return clErrRet;
       }
 
-      SharedPtr<OCLObject<_cl_kernel_int>> Kern =
-          m_pKernels.GetOCLObject((_cl_kernel_int *)handle);
-      m_pAutorunKernels.AddObject(Kern.DynamicCast<Kernel>());
+      m_pAutorunKernels.insert((_cl_kernel_int *)handle);
 
       if (pclKernels) {
         pclKernels[i] = handle;
@@ -887,30 +885,19 @@ cl_err_code Program::GetKernels(cl_uint uiNumKernels,
 }
 
 cl_err_code
-Program::GetAutorunKernels(std::vector<SharedPtr<Kernel>> &autorunKernels) {
-  LOG_DEBUG(TEXT("Enter GetAutorunKernels(%p)"), &autorunKernels);
+Program::GetAutorunKernels(std::vector<SharedPtr<Kernel>> &AutorunKernels) {
+  LOG_DEBUG(TEXT("Enter GetAutorunKernels(%p)"), &AutorunKernels);
 
-  cl_uint numKernels;
-  cl_err_code error = m_pAutorunKernels.GetObjects(0, nullptr, &numKernels);
-  if (CL_FAILED(error)) {
-    return error;
-  }
-
-  if (numKernels > 0) {
+  cl_uint NumKernels = m_pAutorunKernels.size();
+  if (NumKernels > 0) {
     try {
-      std::vector<SharedPtr<OCLObject<_cl_kernel_int>>> kernels(numKernels);
-      autorunKernels.resize(numKernels);
-
-      error =
-          m_pAutorunKernels.GetObjects(numKernels, &kernels.front(), nullptr);
-      if (CL_FAILED(error)) {
-        return error;
-      }
+      AutorunKernels.resize(NumKernels);
 
       std::transform(
-          kernels.begin(), kernels.end(), autorunKernels.begin(),
-          [](SharedPtr<OCLObject<_cl_kernel_int>> item) -> SharedPtr<Kernel> {
-            return item.DynamicCast<Kernel>();
+          m_pAutorunKernels.begin(), m_pAutorunKernels.end(),
+          AutorunKernels.begin(),
+          [&](_cl_kernel_int *Handle) -> SharedPtr<Kernel> {
+            return m_pKernels.GetOCLObject(Handle).DynamicCast<Kernel>();
           });
     } catch (const std::bad_alloc &e) {
       return CL_OUT_OF_RESOURCES;

@@ -185,21 +185,29 @@ void ContextModule::ShutDown(bool wait_for_finish) {
 
   m_pPlatformModule->RemoveAllDevices(true);
 
-  // 7. Ensure that all devices really closed
+  // FIXME: Autorun kernels will hold some internal objects so that devices
+  // can't be closed during shutdown process. This is a workaround that we
+  // don't wait for devices to close in FPGA emulator device mode. And the right
+  // way is to refine execution model for autorun kernel so that we can decide
+  // when to turn it off.
+  if (framework_proxy->GetOCLConfig()->GetDeviceMode() != FPGA_EMU_DEVICE) {
+    // 7. Ensure that all devices really closed
 #ifdef _DEBUG
-  const unsigned long long TIMEOUT = 100 * 1000000000LL; // 100 sec
-  const unsigned long long endTime = HostTime() + TIMEOUT;
-  while (0 < m_pPlatformModule->GetActiveDeviceCount()) {
-    if (HostTime() > endTime) {
-      DumpSharedPts("ContextModule::ShutDown - Device Agents cannot be closed, "
-                    "time out. Only SharedPtrs local to intelocl DLL",
-                    true);
-      break;
+    const unsigned long long TIMEOUT = 100 * 1000000000LL; // 100 sec
+    const unsigned long long endTime = HostTime() + TIMEOUT;
+    while (0 < m_pPlatformModule->GetActiveDeviceCount()) {
+      if (HostTime() > endTime) {
+        DumpSharedPts(
+            "ContextModule::ShutDown - Device Agents cannot be closed, "
+            "time out. Only SharedPtrs local to intelocl DLL",
+            true);
+        break;
+      }
     }
-  }
 #else
-  m_pPlatformModule->WaitForAllDevices();
+    m_pPlatformModule->WaitForAllDevices();
 #endif
+  }
 
   // At that point still some internal threads in different DLLs may handle
   // SharedPtr's destruction We need to wait until all of them will end their
