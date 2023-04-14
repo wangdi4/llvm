@@ -4997,9 +4997,15 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
 
     // If we're supposed to infer nullability, do so now.
     if (inferNullability && !inferNullabilityInnerOnlyComplete) {
+<<<<<<< HEAD
       ParsedAttr::Syntax syntax = inferNullabilityCS
                                       ? ParsedAttr::AS_ContextSensitiveKeyword
                                       : ParsedAttr::AS_Keyword;
+=======
+      ParsedAttr::Form form =
+          inferNullabilityCS ? ParsedAttr::Form::ContextSensitiveKeyword()
+                             : ParsedAttr::Form::Keyword(false /*IsAlignAs*/);
+>>>>>>> bd41371be02f6f5713459a2f6fe109cd3c01b4a4
       ParsedAttr *nullabilityAttr = Pool.create(
           S.getNullabilityKeyword(*inferNullability), SourceRange(pointerLoc),
           nullptr, SourceLocation(), nullptr, 0, syntax);
