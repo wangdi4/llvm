@@ -461,7 +461,7 @@ void Parser::ParseAttributeWithTypeArg(IdentifierInfo &AttrName,
                                        ParsedAttributes &Attrs,
                                        IdentifierInfo *ScopeName,
                                        SourceLocation ScopeLoc,
-                                       ParsedAttr::Form Form) {
+                                       ParsedAttr::Syntax Syntax) {
   BalancedDelimiterTracker Parens(*this, tok::l_paren);
   Parens.consumeOpen();
 
@@ -478,21 +478,21 @@ void Parser::ParseAttributeWithTypeArg(IdentifierInfo &AttrName,
   if (T.isUsable())
     Attrs.addNewTypeAttr(&AttrName,
                          SourceRange(AttrNameLoc, Parens.getCloseLocation()),
-                         ScopeName, ScopeLoc, T.get(), Form);
+                         ScopeName, ScopeLoc, T.get(), Syntax);
   else
     Attrs.addNew(&AttrName, SourceRange(AttrNameLoc, Parens.getCloseLocation()),
-                 ScopeName, ScopeLoc, nullptr, 0, Form);
+                 ScopeName, ScopeLoc, nullptr, 0, Syntax);
 }
 
 unsigned Parser::ParseAttributeArgsCommon(
     IdentifierInfo *AttrName, SourceLocation AttrNameLoc,
     ParsedAttributes &Attrs, SourceLocation *EndLoc, IdentifierInfo *ScopeName,
-    SourceLocation ScopeLoc, ParsedAttr::Form Form) {
+    SourceLocation ScopeLoc, ParsedAttr::Syntax Syntax) {
   // Ignore the left paren location for now.
   ConsumeParen();
 
   bool ChangeKWThisToIdent = attributeTreatsKeywordThisAsIdentifier(*AttrName);
-  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName, Form.getSyntax(), ScopeName); // INTEL
+  bool AttributeIsTypeArgAttr = attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName); // INTEL
   bool AttributeHasVariadicIdentifierArg =
       attributeHasVariadicIdentifierArg(*AttrName);
 
@@ -505,10 +505,10 @@ unsigned Parser::ParseAttributeArgsCommon(
     // If this attribute wants an 'identifier' argument, make it so.
 #if INTEL_CUSTOMIZATION
     bool IsIdentifierArg = AttributeHasVariadicIdentifierArg ||
-                           attributeHasIdentifierArg(*AttrName, Form.getSyntax(), ScopeName);
+                           attributeHasIdentifierArg(*AttrName, Syntax, ScopeName);
 #endif // INTEL_CUSTOMIZATION
     ParsedAttr::Kind AttrKind =
-        ParsedAttr::getParsedKind(AttrName, ScopeName, Form.getSyntax());
+        ParsedAttr::getParsedKind(AttrName, ScopeName, Syntax);
 
     // If we don't know how to parse this attribute, but this is the only
     // token in this argument, assume it's meant to be an identifier.
@@ -553,7 +553,7 @@ unsigned Parser::ParseAttributeArgsCommon(
           ArgExprs.push_back(ParseIdentifierLoc());
         } else {
 #if INTEL_CUSTOMIZATION
-          bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Form.getSyntax(),
+          bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
                                                        ScopeName);
 #endif // INTEL_CUSTOMIZATION
           EnterExpressionEvaluationContext Unevaluated(
@@ -575,7 +575,7 @@ unsigned Parser::ParseAttributeArgsCommon(
     } else {
       // General case. Parse all available expressions.
 #if INTEL_CUSTOMIZATION
-      bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Form.getSyntax(),
+      bool Uneval = attributeParsedArgsUnevaluated(*AttrName, Syntax,
                                                    ScopeName);
 #endif // INTEL_CUSTOMIZATION
       EnterExpressionEvaluationContext Unevaluated(
@@ -615,10 +615,10 @@ unsigned Parser::ParseAttributeArgsCommon(
 
     if (AttributeIsTypeArgAttr && !TheParsedType.get().isNull()) {
       Attrs.addNewTypeAttr(AttrName, SourceRange(AttrNameLoc, RParen),
-                           ScopeName, ScopeLoc, TheParsedType, Form);
+                           ScopeName, ScopeLoc, TheParsedType, Syntax);
     } else {
       Attrs.addNew(AttrName, SourceRange(AttrLoc, RParen), ScopeName, ScopeLoc,
-                   ArgExprs.data(), ArgExprs.size(), Form);
+                   ArgExprs.data(), ArgExprs.size(), Syntax);
     }
   }
 
@@ -633,38 +633,38 @@ unsigned Parser::ParseAttributeArgsCommon(
 void Parser::ParseGNUAttributeArgs(
     IdentifierInfo *AttrName, SourceLocation AttrNameLoc,
     ParsedAttributes &Attrs, SourceLocation *EndLoc, IdentifierInfo *ScopeName,
-    SourceLocation ScopeLoc, ParsedAttr::Form Form, Declarator *D) {
+    SourceLocation ScopeLoc, ParsedAttr::Syntax Syntax, Declarator *D) {
 
   assert(Tok.is(tok::l_paren) && "Attribute arg list not starting with '('");
 
   ParsedAttr::Kind AttrKind =
-      ParsedAttr::getParsedKind(AttrName, ScopeName, Form.getSyntax());
+      ParsedAttr::getParsedKind(AttrName, ScopeName, Syntax);
 
   if (AttrKind == ParsedAttr::AT_Availability) {
     ParseAvailabilityAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
-                               ScopeLoc, Form);
+                               ScopeLoc, Syntax);
     return;
   } else if (AttrKind == ParsedAttr::AT_ExternalSourceSymbol) {
     ParseExternalSourceSymbolAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
-                                       ScopeName, ScopeLoc, Form);
+                                       ScopeName, ScopeLoc, Syntax);
     return;
   } else if (AttrKind == ParsedAttr::AT_ObjCBridgeRelated) {
     ParseObjCBridgeRelatedAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
-                                    ScopeName, ScopeLoc, Form);
+                                    ScopeName, ScopeLoc, Syntax);
     return;
   } else if (AttrKind == ParsedAttr::AT_SwiftNewType) {
     ParseSwiftNewTypeAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
-                               ScopeLoc, Form);
+                               ScopeLoc, Syntax);
     return;
   } else if (AttrKind == ParsedAttr::AT_TypeTagForDatatype) {
     ParseTypeTagForDatatypeAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
-                                     ScopeName, ScopeLoc, Form);
+                                     ScopeName, ScopeLoc, Syntax);
     return;
 #if INTEL_CUSTOMIZATION
-  } else if (attributeIsTypeArgAttr(*AttrName, Form.getSyntax(), ScopeName)) {
+  } else if (attributeIsTypeArgAttr(*AttrName, Syntax, ScopeName)) {
 #endif // INTEL_CUSTOMIZATION
     ParseAttributeWithTypeArg(*AttrName, AttrNameLoc, Attrs, ScopeName,
-                              ScopeLoc, Form);
+                              ScopeLoc, Syntax);
     return;
   }
 
@@ -684,41 +684,41 @@ void Parser::ParseGNUAttributeArgs(
   }
 
   ParseAttributeArgsCommon(AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
-                           ScopeLoc, Form);
+                           ScopeLoc, Syntax);
 }
 
 unsigned Parser::ParseClangAttributeArgs(
     IdentifierInfo *AttrName, SourceLocation AttrNameLoc,
     ParsedAttributes &Attrs, SourceLocation *EndLoc, IdentifierInfo *ScopeName,
-    SourceLocation ScopeLoc, ParsedAttr::Form Form) {
+    SourceLocation ScopeLoc, ParsedAttr::Syntax Syntax) {
   assert(Tok.is(tok::l_paren) && "Attribute arg list not starting with '('");
 
   ParsedAttr::Kind AttrKind =
-      ParsedAttr::getParsedKind(AttrName, ScopeName, Form.getSyntax());
+      ParsedAttr::getParsedKind(AttrName, ScopeName, Syntax);
 
   switch (AttrKind) {
   default:
     return ParseAttributeArgsCommon(AttrName, AttrNameLoc, Attrs, EndLoc,
-                                    ScopeName, ScopeLoc, Form);
+                                    ScopeName, ScopeLoc, Syntax);
   case ParsedAttr::AT_ExternalSourceSymbol:
     ParseExternalSourceSymbolAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
-                                       ScopeName, ScopeLoc, Form);
+                                       ScopeName, ScopeLoc, Syntax);
     break;
   case ParsedAttr::AT_Availability:
     ParseAvailabilityAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
-                               ScopeLoc, Form);
+                               ScopeLoc, Syntax);
     break;
   case ParsedAttr::AT_ObjCBridgeRelated:
     ParseObjCBridgeRelatedAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
-                                    ScopeName, ScopeLoc, Form);
+                                    ScopeName, ScopeLoc, Syntax);
     break;
   case ParsedAttr::AT_SwiftNewType:
     ParseSwiftNewTypeAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
-                               ScopeLoc, Form);
+                               ScopeLoc, Syntax);
     break;
   case ParsedAttr::AT_TypeTagForDatatype:
     ParseTypeTagForDatatypeAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
-                                     ScopeName, ScopeLoc, Form);
+                                     ScopeName, ScopeLoc, Syntax);
     break;
   }
   return !Attrs.empty() ? Attrs.begin()->getNumArgs() : 0;
@@ -1247,10 +1247,13 @@ VersionTuple Parser::ParseVersionTuple(SourceRange &Range) {
 ///   'replacement' '=' <string>
 /// opt-message:
 ///   'message' '=' <string>
-void Parser::ParseAvailabilityAttribute(
-    IdentifierInfo &Availability, SourceLocation AvailabilityLoc,
-    ParsedAttributes &attrs, SourceLocation *endLoc, IdentifierInfo *ScopeName,
-    SourceLocation ScopeLoc, ParsedAttr::Form Form) {
+void Parser::ParseAvailabilityAttribute(IdentifierInfo &Availability,
+                                        SourceLocation AvailabilityLoc,
+                                        ParsedAttributes &attrs,
+                                        SourceLocation *endLoc,
+                                        IdentifierInfo *ScopeName,
+                                        SourceLocation ScopeLoc,
+                                        ParsedAttr::Syntax Syntax) {
   enum { Introduced, Deprecated, Obsoleted, Unknown };
   AvailabilityChange Changes[Unknown];
   ExprResult MessageExpr, ReplacementExpr;
@@ -1456,10 +1459,14 @@ void Parser::ParseAvailabilityAttribute(
 
   // Record this attribute
   attrs.addNew(&Availability,
-               SourceRange(AvailabilityLoc, T.getCloseLocation()), ScopeName,
-               ScopeLoc, Platform, Changes[Introduced], Changes[Deprecated],
-               Changes[Obsoleted], UnavailableLoc, MessageExpr.get(), Form,
-               StrictLoc, ReplacementExpr.get());
+               SourceRange(AvailabilityLoc, T.getCloseLocation()),
+               ScopeName, ScopeLoc,
+               Platform,
+               Changes[Introduced],
+               Changes[Deprecated],
+               Changes[Obsoleted],
+               UnavailableLoc, MessageExpr.get(),
+               Syntax, StrictLoc, ReplacementExpr.get());
 }
 
 /// Parse the contents of the "external_source_symbol" attribute.
@@ -1479,7 +1486,7 @@ void Parser::ParseAvailabilityAttribute(
 void Parser::ParseExternalSourceSymbolAttribute(
     IdentifierInfo &ExternalSourceSymbol, SourceLocation Loc,
     ParsedAttributes &Attrs, SourceLocation *EndLoc, IdentifierInfo *ScopeName,
-    SourceLocation ScopeLoc, ParsedAttr::Form Form) {
+    SourceLocation ScopeLoc, ParsedAttr::Syntax Syntax) {
   // Opening '('.
   BalancedDelimiterTracker T(*this, tok::l_paren);
   if (T.expectAndConsume())
@@ -1591,7 +1598,7 @@ void Parser::ParseExternalSourceSymbolAttribute(
   ArgsUnion Args[] = {Language.get(), DefinedInExpr.get(), GeneratedDeclaration,
                       USR.get()};
   Attrs.addNew(&ExternalSourceSymbol, SourceRange(Loc, T.getCloseLocation()),
-               ScopeName, ScopeLoc, Args, std::size(Args), Form);
+               ScopeName, ScopeLoc, Args, std::size(Args), Syntax);
 }
 
 /// Parse the contents of the "objc_bridge_related" attribute.
@@ -1608,7 +1615,7 @@ void Parser::ParseExternalSourceSymbolAttribute(
 void Parser::ParseObjCBridgeRelatedAttribute(
     IdentifierInfo &ObjCBridgeRelated, SourceLocation ObjCBridgeRelatedLoc,
     ParsedAttributes &Attrs, SourceLocation *EndLoc, IdentifierInfo *ScopeName,
-    SourceLocation ScopeLoc, ParsedAttr::Form Form) {
+    SourceLocation ScopeLoc, ParsedAttr::Syntax Syntax) {
   // Opening '('.
   BalancedDelimiterTracker T(*this, tok::l_paren);
   if (T.consumeOpen()) {
@@ -1671,13 +1678,13 @@ void Parser::ParseObjCBridgeRelatedAttribute(
   Attrs.addNew(&ObjCBridgeRelated,
                SourceRange(ObjCBridgeRelatedLoc, T.getCloseLocation()),
                ScopeName, ScopeLoc, RelatedClass, ClassMethod, InstanceMethod,
-               Form);
+               Syntax);
 }
 
 void Parser::ParseSwiftNewTypeAttribute(
     IdentifierInfo &AttrName, SourceLocation AttrNameLoc,
     ParsedAttributes &Attrs, SourceLocation *EndLoc, IdentifierInfo *ScopeName,
-    SourceLocation ScopeLoc, ParsedAttr::Form Form) {
+    SourceLocation ScopeLoc, ParsedAttr::Syntax Syntax) {
   BalancedDelimiterTracker T(*this, tok::l_paren);
 
   // Opening '('
@@ -1712,13 +1719,16 @@ void Parser::ParseSwiftNewTypeAttribute(
 
   ArgsUnion Args[] = {SwiftType};
   Attrs.addNew(&AttrName, SourceRange(AttrNameLoc, T.getCloseLocation()),
-               ScopeName, ScopeLoc, Args, std::size(Args), Form);
+               ScopeName, ScopeLoc, Args, std::size(Args), Syntax);
 }
 
-void Parser::ParseTypeTagForDatatypeAttribute(
-    IdentifierInfo &AttrName, SourceLocation AttrNameLoc,
-    ParsedAttributes &Attrs, SourceLocation *EndLoc, IdentifierInfo *ScopeName,
-    SourceLocation ScopeLoc, ParsedAttr::Form Form) {
+void Parser::ParseTypeTagForDatatypeAttribute(IdentifierInfo &AttrName,
+                                              SourceLocation AttrNameLoc,
+                                              ParsedAttributes &Attrs,
+                                              SourceLocation *EndLoc,
+                                              IdentifierInfo *ScopeName,
+                                              SourceLocation ScopeLoc,
+                                              ParsedAttr::Syntax Syntax) {
   assert(Tok.is(tok::l_paren) && "Attribute arg list not starting with '('");
 
   BalancedDelimiterTracker T(*this, tok::l_paren);
@@ -1767,7 +1777,7 @@ void Parser::ParseTypeTagForDatatypeAttribute(
   if (!T.consumeClose()) {
     Attrs.addNewTypeTagForDatatype(&AttrName, AttrNameLoc, ScopeName, ScopeLoc,
                                    ArgumentKind, MatchingCType.get(),
-                                   LayoutCompatible, MustBeNull, Form);
+                                   LayoutCompatible, MustBeNull, Syntax);
   }
 
   if (EndLoc)
