@@ -3101,20 +3101,10 @@ Attr *ASTRecordReader::readAttr() {
   unsigned ParsedKind = Record.readInt();
   unsigned Syntax = Record.readInt();
   unsigned SpellingIndex = Record.readInt();
-  bool IsAlignas = (ParsedKind == AttributeCommonInfo::AT_Aligned &&
-                    Syntax == AttributeCommonInfo::AS_Keyword &&
-                    SpellingIndex == AlignedAttr::Keyword_alignas);
 
-<<<<<<< HEAD
   AttributeCommonInfo Info(AttrName, ScopeName, AttrRange, ScopeLoc,
                            AttributeCommonInfo::Kind(ParsedKind),
                            AttributeCommonInfo::Syntax(Syntax), SpellingIndex);
-=======
-  AttributeCommonInfo Info(
-      AttrName, ScopeName, AttrRange, ScopeLoc,
-      AttributeCommonInfo::Kind(ParsedKind),
-      {AttributeCommonInfo::Syntax(Syntax), SpellingIndex, IsAlignas});
->>>>>>> bd41371be02f6f5713459a2f6fe109cd3c01b4a4
 
 #include "clang/Serialization/AttrPCHRead.inc"
 

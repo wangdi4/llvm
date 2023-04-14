@@ -2586,19 +2586,6 @@ static void emitClangAttrAcceptsExprPack(RecordKeeper &Records,
   OS << "#endif // CLANG_ATTR_ACCEPTS_EXPR_PACK\n\n";
 }
 
-<<<<<<< HEAD
-=======
-static void emitFormInitializer(raw_ostream &OS,
-                                const FlattenedSpelling &Spelling,
-                                StringRef SpellingIndex) {
-  bool IsAlignas =
-      (Spelling.variety() == "Keyword" && Spelling.name() == "alignas");
-  OS << "{AttributeCommonInfo::AS_" << Spelling.variety() << ", "
-     << SpellingIndex << ", " << (IsAlignas ? "true" : "false")
-     << " /*IsAlignas*/}";
-}
-
->>>>>>> bd41371be02f6f5713459a2f6fe109cd3c01b4a4
 static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
                            bool Header) {
   std::vector<Record*> Attrs = Records.getAllDerivedDefinitions("Attr");
