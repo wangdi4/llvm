@@ -31,6 +31,7 @@
 #ifndef LLVM_CLANG_BASIC_ATTRIBUTECOMMONINFO_H
 #define LLVM_CLANG_BASIC_ATTRIBUTECOMMONINFO_H
 #include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/TokenKinds.h"
 
 namespace clang {
 class IdentifierInfo;
@@ -105,6 +106,27 @@ protected:
 #endif // INTEL_CUSTOMIZATION
 
 public:
+<<<<<<< HEAD
+=======
+  /// Combines information about the source-code form of an attribute,
+  /// including its syntax and spelling.
+  class Form {
+  public:
+    constexpr Form(Syntax SyntaxUsed,
+                   unsigned SpellingIndex = SpellingNotCalculated)
+        : SyntaxUsed(SyntaxUsed), SpellingIndex(SpellingIndex) {}
+    constexpr Form(tok::TokenKind)
+        : SyntaxUsed(AS_Keyword), SpellingIndex(SpellingNotCalculated) {}
+
+    Syntax getSyntax() const { return Syntax(SyntaxUsed); }
+    unsigned getSpellingIndex() const { return SpellingIndex; }
+
+  private:
+    unsigned SyntaxUsed : 4;
+    unsigned SpellingIndex : 4;
+  };
+
+>>>>>>> 265d87e46535bef2b718759ba39bb9fa30b1ef48
   AttributeCommonInfo(const IdentifierInfo *AttrName,
                       const IdentifierInfo *ScopeName, SourceRange AttrRange,
                       SourceLocation ScopeLoc, Syntax SyntaxUsed)
