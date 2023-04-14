@@ -2113,6 +2113,17 @@ struct RTLOptionTy {
       if (Value >= 0 && Value <= 1)
         Flags.NDRangeIgnoreTripcount = Value;
     }
+
+    adjustOptions();
+  }
+
+  /// Adjust options if there are inconsistent settings
+  void adjustOptions() {
+    // Turn off command batching if IMM is used.
+    if (CommandBatchLevel > 0 && UseImmCmdList > 0) {
+      DP("Disabling command batching for immediate command list\n");
+      CommandBatchLevel = 0;
+    }
   }
 
   /// Read environment variable value with optional deprecated name

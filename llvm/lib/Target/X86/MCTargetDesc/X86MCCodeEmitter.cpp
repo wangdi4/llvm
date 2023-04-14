@@ -743,7 +743,13 @@ void X86MCCodeEmitter::emitMemModRMByte(const MCInst &MI, unsigned Op,
         // movq loads is a subset of reloc_riprel_4byte_relax_rex. It is a
         // special case because COFF and Mach-O don't support ELF's more
         // flexible R_X86_64_REX_GOTPCRELX relaxation.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+        assert(Kind == REX || Kind == REX2);
+#else // INTEL_FEATURE_ISA_APX_F
         assert(Kind == REX);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
         return X86::reloc_riprel_4byte_movq_load;
       case X86::ADC32rm:
       case X86::ADD32rm:
@@ -767,8 +773,17 @@ void X86MCCodeEmitter::emitMemModRMByte(const MCInst &MI, unsigned Op,
       case X86::SBB64rm:
       case X86::SUB64rm:
       case X86::XOR64rm:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+        // We haven't support relocation for REX2 prefix, so temporarily use REX relocation
+        // TODO: Support new relocation for REX2.
+        return (Kind == REX || Kind == REX2) ? X86::reloc_riprel_4byte_relax_rex
+                                             : X86::reloc_riprel_4byte_relax;
+#else // INTEL_FEATURE_ISA_APX_F
         return Kind == REX ? X86::reloc_riprel_4byte_relax_rex
                            : X86::reloc_riprel_4byte_relax;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       }
     }();
 

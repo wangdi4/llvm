@@ -2704,7 +2704,8 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     ClauseEmissionHelper CEH(*this, OMPC_use_device_addr,
                              "QUAL.OMP.USE_DEVICE_ADDR");
     ClauseStringBuilder &CSB = CEH.getBuilder();
-    if (!IsRef && (Ty->isArrayType() ||
+    if (IsRef && Ty.getNonReferenceType()->isAnyPointerType() ||
+        !IsRef && (Ty->isArrayType() ||
                    Ty->isPointerType() &&
                        (isa<OMPArraySectionExpr>(E->IgnoreParenImpCasts()) ||
                         isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts())))) {
@@ -2797,6 +2798,10 @@ void OpenMPLateOutliner::emitLiveinClauses() {
         assert(It != LocalDeclMaps.end());
         Address A = It->second;
         addArg(A.getPointer(), /*Handled=*/true);
+      } else if (IsRef && Ty.getNonReferenceType()->isAnyPointerType()) {
+        ClauseEmissionHelper CEH(*this, llvm::omp::OMPC_unknown);
+        addArg("QUAL.OMP.LIVEIN");
+        addArg(E);
       }
     }
   }

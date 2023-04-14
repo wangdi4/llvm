@@ -1,6 +1,6 @@
 //===- HIRRuntimeDD.cpp - Implements Multiversioning for Runtime DD -=========//
 //
-// Copyright (C) 2016-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -139,6 +139,11 @@ static cl::opt<bool> DisableLibraryCallSwitch(
 static cl::opt<unsigned> RtlThreshold(
     OPT_SWITCH "-rtl-threshold", cl::init(ExpectedNumberOfTests), cl::Hidden,
     cl::desc("Number of tests when LibraryCall method would be used."));
+
+static cl::opt<unsigned> ReadDominanceThreshold(
+    OPT_SWITCH "-read-dominance-threshold", cl::init(4), cl::Hidden,
+    cl::desc("Times that number of read-only vals exceeds number of write vals"
+             "as dominance."));
 
 static cl::opt<unsigned>
     MaximumNumberOfTests(OPT_SWITCH "-max-tests", cl::init(60), cl::Hidden,
@@ -1435,6 +1440,30 @@ static bool haveConstantDistance(
   return true;
 }
 
+// RTDD library function does not ignore overlaps among read groups,
+// because it does not differentiate between Lvals and Rvals.
+// That can lead to overly conservative dependence checks and to loss of
+// further optimization opportunities when most of the groups are read groups
+// or there is a overlap between read-only vals.
+// This function returns true when read-only vals exceed write vals 4 times.
+// This heuristic choice can be used by the caller to generate regular RTDD
+// tests in place of RTDD lib function.
+static bool isReadDominant(RefGroupVecTy &Groups) {
+  unsigned GroupSize = Groups.size();
+  unsigned LoadOnlySum = 0;
+
+  LLVM_DEBUG(dbgs() << "IsLoadOnlyGroup No: ");
+  for (unsigned I = 0; I < GroupSize; ++I) {
+    if (isLoadOnly(Groups[I])) {
+      LLVM_DEBUG(dbgs() << " " << I << ",");
+      LoadOnlySum++;
+    }
+  }
+  LLVM_DEBUG(dbgs() << "\nIsLoadOnly Sum: " << LoadOnlySum << "\n");
+
+  return LoadOnlySum > (GroupSize - LoadOnlySum) * ReadDominanceThreshold;
+}
+
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   RuntimeDDResult Ret = OK;
   Context.Loop = Loop;
@@ -1614,7 +1643,9 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     return NO_OPPORTUNITIES;
   }
 
-  if (Tests.size() > RtlThreshold) {
+  LLVM_DEBUG(dbgs() << "Tests size: " << Tests.size() << "\n");
+
+  if (Tests.size() > RtlThreshold && !isReadDominant(Groups)) {
     if (EnableLibraryCallMethod && Groups.size() <= MaximumNumberOfTests) {
       LLVM_DEBUG(dbgs() << "[RTDD] LibraryCall method selected.\n");
       Context.Method = LibraryCall;

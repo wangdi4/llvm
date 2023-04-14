@@ -267,6 +267,7 @@ cl_build_status DeviceProgram::GetBuildStatus() const {
   case DEVICE_PROGRAM_BE_BUILDING:
     return CL_BUILD_IN_PROGRESS;
 
+  case DEVICE_PROGRAM_CREATING_AUTORUN:
   case DEVICE_PROGRAM_COMPILED:
   case DEVICE_PROGRAM_LINKED:
   case DEVICE_PROGRAM_BUILD_DONE:

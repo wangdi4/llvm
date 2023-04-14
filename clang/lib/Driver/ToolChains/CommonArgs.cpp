@@ -660,7 +660,11 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     SmallString<1024> Plugin(ToolChain.getDriver().Dir);
     llvm::sys::path::append(Plugin, "..");
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
-    llvm::sys::path::append(Plugin, "..");
+    SmallString<1024> PluginCheck(Plugin);
+    llvm::sys::path::append(PluginCheck, CLANG_INSTALL_LIBDIR_BASENAME,
+                            Twine(PluginName) + Twine(Suffix));
+    if (!llvm::sys::fs::exists(PluginCheck))
+      llvm::sys::path::append(Plugin, "..");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
     llvm::sys::path::append(Plugin, CLANG_INSTALL_LIBDIR_BASENAME,
                             Twine(PluginName) + Twine(Suffix));

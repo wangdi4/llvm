@@ -129,6 +129,7 @@ int main() {
   check_convert_from<sycl::half>();
   check_convert_from<float>();
   check_convert_from<double>();
+  check_convert_from<bool>();
 
   // Check convert() from and to various types.
   check_convert_from<int8_t>();
