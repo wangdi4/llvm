@@ -952,8 +952,7 @@ void Parser::ParseMicrosoftDeclSpecs(ParsedAttributes &Attrs) {
 void Parser::ParseMicrosoftTypeAttributes(ParsedAttributes &attrs) {
   // Treat these like attributes
   while (true) {
-    auto Kind = Tok.getKind();
-    switch (Kind) {
+    switch (Tok.getKind()) {
     case tok::kw___fastcall:
     case tok::kw__regcall:  // INTEL
     case tok::kw___stdcall:
@@ -969,7 +968,7 @@ void Parser::ParseMicrosoftTypeAttributes(ParsedAttributes &attrs) {
       IdentifierInfo *AttrName = Tok.getIdentifierInfo();
       SourceLocation AttrNameLoc = ConsumeToken();
       attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
-                   Kind);
+                   ParsedAttr::AS_Keyword);
       break;
     }
     default:
@@ -991,7 +990,7 @@ void Parser::ParseWebAssemblyFuncrefTypeAttribute(ParsedAttributes &attrs) {
   SourceLocation AttrNameLoc = ConsumeToken();
   attrs.addNew(AttrName, AttrNameLoc, /*ScopeName=*/nullptr,
                /*ScopeLoc=*/SourceLocation{}, /*Args=*/nullptr, /*numArgs=*/0,
-               tok::kw___funcref);
+               ParsedAttr::AS_Keyword);
 }
 
 void Parser::DiagnoseAndSkipExtendedMicrosoftTypeAttributes() {
@@ -1036,7 +1035,7 @@ void Parser::ParseBorlandTypeAttributes(ParsedAttributes &attrs) {
     IdentifierInfo *AttrName = Tok.getIdentifierInfo();
     SourceLocation AttrNameLoc = ConsumeToken();
     attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
-                 tok::kw___pascal);
+                 ParsedAttr::AS_Keyword);
   }
 }
 
@@ -1046,7 +1045,7 @@ void Parser::ParseOpenCLKernelAttributes(ParsedAttributes &attrs) {
     IdentifierInfo *AttrName = Tok.getIdentifierInfo();
     SourceLocation AttrNameLoc = ConsumeToken();
     attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
-                 tok::kw___kernel);
+                 ParsedAttr::AS_Keyword);
   }
 }
 
@@ -1055,7 +1054,7 @@ void Parser::ParseCUDAFunctionAttributes(ParsedAttributes &attrs) {
     IdentifierInfo *AttrName = Tok.getIdentifierInfo();
     SourceLocation AttrNameLoc = ConsumeToken();
     attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
-                 tok::kw___noinline__);
+                 ParsedAttr::AS_Keyword);
   }
 }
 
@@ -1063,7 +1062,7 @@ void Parser::ParseOpenCLQualifiers(ParsedAttributes &Attrs) {
   IdentifierInfo *AttrName = Tok.getIdentifierInfo();
   SourceLocation AttrNameLoc = Tok.getLocation();
   Attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
-               Tok.getKind());
+               ParsedAttr::AS_Keyword);
 }
 
 bool Parser::isHLSLQualifier(const Token &Tok) const {
@@ -1072,16 +1071,15 @@ bool Parser::isHLSLQualifier(const Token &Tok) const {
 
 void Parser::ParseHLSLQualifiers(ParsedAttributes &Attrs) {
   IdentifierInfo *AttrName = Tok.getIdentifierInfo();
-  auto Kind = Tok.getKind();
   SourceLocation AttrNameLoc = ConsumeToken();
-  Attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0, Kind);
+  Attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
+               ParsedAttr::AS_Keyword);
 }
 
 void Parser::ParseNullabilityTypeSpecifiers(ParsedAttributes &attrs) {
   // Treat these like attributes, even though they're type specifiers.
   while (true) {
-    auto Kind = Tok.getKind();
-    switch (Kind) {
+    switch (Tok.getKind()) {
     case tok::kw__Nonnull:
     case tok::kw__Nullable:
     case tok::kw__Nullable_result:
@@ -1092,7 +1090,7 @@ void Parser::ParseNullabilityTypeSpecifiers(ParsedAttributes &attrs) {
         Diag(AttrNameLoc, diag::ext_nullability)
           << AttrName;
       attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
-                   Kind);
+                   ParsedAttr::AS_Keyword);
       break;
     }
     default:
@@ -3188,7 +3186,6 @@ void Parser::ParseAlignmentSpecifier(ParsedAttributes &Attrs,
          "Not an alignment-specifier!");
 
   IdentifierInfo *KWName = Tok.getIdentifierInfo();
-  auto Kind = Tok.getKind();
   SourceLocation KWLoc = ConsumeToken();
 
   BalancedDelimiterTracker T(*this, tok::l_paren);
@@ -3208,8 +3205,8 @@ void Parser::ParseAlignmentSpecifier(ParsedAttributes &Attrs,
 
   ArgsVector ArgExprs;
   ArgExprs.push_back(ArgExpr.get());
-  Attrs.addNew(KWName, KWLoc, nullptr, KWLoc, ArgExprs.data(), 1, Kind,
-               EllipsisLoc);
+  Attrs.addNew(KWName, KWLoc, nullptr, KWLoc, ArgExprs.data(), 1,
+               ParsedAttr::AS_Keyword, EllipsisLoc);
 }
 
 ExprResult Parser::ParseExtIntegerArgument() {
@@ -4009,7 +4006,7 @@ void Parser::ParseDeclarationSpecifiers(
       IdentifierInfo *AttrName = Tok.getIdentifierInfo();
       SourceLocation AttrNameLoc = Tok.getLocation();
       DS.getAttributes().addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc,
-                                nullptr, 0, tok::kw___forceinline);
+                                nullptr, 0, ParsedAttr::AS_Keyword);
       break;
     }
 
@@ -4063,7 +4060,7 @@ void Parser::ParseDeclarationSpecifiers(
     // Objective-C 'kindof' types.
     case tok::kw___kindof:
       DS.getAttributes().addNew(Tok.getIdentifierInfo(), Loc, nullptr, Loc,
-                                nullptr, 0, tok::kw___kindof);
+                                nullptr, 0, ParsedAttr::AS_Keyword);
       (void)ConsumeToken();
       continue;
 
@@ -6204,7 +6201,7 @@ void Parser::ParseTypeQualifierListOpt(
     // Objective-C 'kindof' types.
     case tok::kw___kindof:
       DS.getAttributes().addNew(Tok.getIdentifierInfo(), Loc, nullptr, Loc,
-                                nullptr, 0, tok::kw___kindof);
+                                nullptr, 0, ParsedAttr::AS_Keyword);
       (void)ConsumeToken();
       continue;
 
