@@ -4409,19 +4409,19 @@ bool Parser::ParseCXX11AttributeArgs(
   assert(Tok.is(tok::l_paren) && "Not a C++11 attribute argument list");
   SourceLocation LParenLoc = Tok.getLocation();
   const LangOptions &LO = getLangOpts();
-  ParsedAttr::Form Form =
-      LO.CPlusPlus ? ParsedAttr::Form::CXX11() : ParsedAttr::Form::C2x();
+  ParsedAttr::Syntax Syntax =
+      LO.CPlusPlus ? ParsedAttr::AS_CXX11 : ParsedAttr::AS_C2x;
 
   // Try parsing microsoft attributes
   if (getLangOpts().MicrosoftExt || getLangOpts().HLSL) {
     if (hasAttribute(AttributeCommonInfo::Syntax::AS_Microsoft, ScopeName,
                      AttrName, getTargetInfo(), getLangOpts()))
-      Form = ParsedAttr::Form::Microsoft();
+      Syntax = ParsedAttr::AS_Microsoft;
   }
 
   // If the attribute isn't known, we will not attempt to parse any
   // arguments.
-  if (Form.getSyntax() != ParsedAttr::AS_Microsoft &&
+  if (Syntax != ParsedAttr::AS_Microsoft &&
       !hasAttribute(LO.CPlusPlus ? AttributeCommonInfo::Syntax::AS_CXX11
                                  : AttributeCommonInfo::Syntax::AS_C2x,
                     ScopeName, AttrName, getTargetInfo(), getLangOpts())) {
@@ -4437,7 +4437,7 @@ bool Parser::ParseCXX11AttributeArgs(
     // GNU-scoped attributes have some special cases to handle GNU-specific
     // behaviors.
     ParseGNUAttributeArgs(AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
-                          ScopeLoc, Form, nullptr);
+                          ScopeLoc, Syntax, nullptr);
     return true;
   }
 
@@ -4465,10 +4465,10 @@ bool Parser::ParseCXX11AttributeArgs(
   // Some Clang-scoped attributes have some special parsing behavior.
   if (ScopeName && (ScopeName->isStr("clang") || ScopeName->isStr("_Clang")))
     NumArgs = ParseClangAttributeArgs(AttrName, AttrNameLoc, Attrs, EndLoc,
-                                      ScopeName, ScopeLoc, Form);
+                                      ScopeName, ScopeLoc, Syntax);
   else
     NumArgs = ParseAttributeArgsCommon(AttrName, AttrNameLoc, Attrs, EndLoc,
-                                       ScopeName, ScopeLoc, Form);
+                                       ScopeName, ScopeLoc, Syntax);
 
   if (!Attrs.empty() &&
       IsBuiltInOrStandardCXX11Attribute(AttrName, ScopeName)) {
@@ -4618,8 +4618,7 @@ void Parser::ParseCXX11AttributeSpecifierInternal(ParsedAttributes &Attrs,
           AttrName,
           SourceRange(ScopeLoc.isValid() ? ScopeLoc : AttrLoc, AttrLoc),
           ScopeName, ScopeLoc, nullptr, 0,
-          getLangOpts().CPlusPlus ? ParsedAttr::Form::CXX11()
-                                  : ParsedAttr::Form::C2x());
+          getLangOpts().CPlusPlus ? ParsedAttr::AS_CXX11 : ParsedAttr::AS_C2x);
       AttrParsed = true;
     }
 
@@ -4779,7 +4778,7 @@ void Parser::ParseMicrosoftUuidAttributeArgs(ParsedAttributes &Attrs) {
   if (!T.consumeClose()) {
     Attrs.addNew(UuidIdent, SourceRange(UuidLoc, T.getCloseLocation()), nullptr,
                  SourceLocation(), ArgExprs.data(), ArgExprs.size(),
-                 ParsedAttr::Form::Microsoft());
+                 ParsedAttr::AS_Microsoft);
   }
 }
 
@@ -4835,7 +4834,7 @@ void Parser::ParseMicrosoftAttributes(ParsedAttributes &Attrs) {
           }
           if (!AttrParsed) {
             Attrs.addNew(II, NameLoc, nullptr, SourceLocation(), nullptr, 0,
-                         ParsedAttr::Form::Microsoft());
+                         ParsedAttr::AS_Microsoft);
           }
         }
       }

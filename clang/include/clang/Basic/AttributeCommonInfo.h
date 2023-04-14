@@ -105,40 +105,6 @@ protected:
 #endif // INTEL_CUSTOMIZATION
 
 public:
-<<<<<<< HEAD
-=======
-  /// Combines information about the source-code form of an attribute,
-  /// including its syntax and spelling.
-  class Form {
-  public:
-    constexpr Form(Syntax SyntaxUsed, unsigned SpellingIndex)
-        : SyntaxUsed(SyntaxUsed), SpellingIndex(SpellingIndex) {}
-    constexpr Form(tok::TokenKind)
-        : SyntaxUsed(AS_Keyword), SpellingIndex(SpellingNotCalculated) {}
-
-    Syntax getSyntax() const { return Syntax(SyntaxUsed); }
-    unsigned getSpellingIndex() const { return SpellingIndex; }
-
-    static Form GNU() { return AS_GNU; }
-    static Form CXX11() { return AS_CXX11; }
-    static Form C2x() { return AS_C2x; }
-    static Form Declspec() { return AS_Declspec; }
-    static Form Microsoft() { return AS_Microsoft; }
-    static Form Keyword() { return AS_Keyword; }
-    static Form Pragma() { return AS_Pragma; }
-    static Form ContextSensitiveKeyword() { return AS_ContextSensitiveKeyword; }
-    static Form HLSLSemantic() { return AS_HLSLSemantic; }
-    static Form Implicit() { return AS_Implicit; }
-
-  private:
-    constexpr Form(Syntax SyntaxUsed)
-        : SyntaxUsed(SyntaxUsed), SpellingIndex(SpellingNotCalculated) {}
-
-    unsigned SyntaxUsed : 4;
-    unsigned SpellingIndex : 4;
-  };
-
->>>>>>> aec3f951bf368d45b441554dac6e027678f9f3ee
   AttributeCommonInfo(const IdentifierInfo *AttrName,
                       const IdentifierInfo *ScopeName, SourceRange AttrRange,
                       SourceLocation ScopeLoc, Syntax SyntaxUsed)

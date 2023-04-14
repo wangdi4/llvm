@@ -2216,12 +2216,11 @@ void Parser::HandlePragmaAttribute() {
 
       if (Tok.isNot(tok::l_paren))
         Attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
-                     ParsedAttr::Form::GNU());
+                     ParsedAttr::AS_GNU);
       else
         ParseGNUAttributeArgs(AttrName, AttrNameLoc, Attrs, /*EndLoc=*/nullptr,
                               /*ScopeName=*/nullptr,
-                              /*ScopeLoc=*/SourceLocation(),
-                              ParsedAttr::Form::GNU(),
+                              /*ScopeLoc=*/SourceLocation(), ParsedAttr::AS_GNU,
                               /*Declarator=*/nullptr);
     } while (TryConsumeToken(tok::comma));
 

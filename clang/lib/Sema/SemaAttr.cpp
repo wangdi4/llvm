@@ -884,7 +884,7 @@ void Sema::AddCFAuditedAttribute(Decl *D) {
     return;
 
   AttributeCommonInfo Info(Ident, SourceRange(Loc),
-                           AttributeCommonInfo::Form::Pragma());
+                           AttributeCommonInfo::AS_Pragma);
   D->addAttr(CFAuditedTransferAttr::CreateImplicit(Context, Info));
 }
 

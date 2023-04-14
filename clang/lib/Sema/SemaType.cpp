@@ -4997,12 +4997,12 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
 
     // If we're supposed to infer nullability, do so now.
     if (inferNullability && !inferNullabilityInnerOnlyComplete) {
-      ParsedAttr::Form form = inferNullabilityCS
-                                  ? ParsedAttr::Form::ContextSensitiveKeyword()
-                                  : ParsedAttr::Form::Keyword();
+      ParsedAttr::Syntax syntax = inferNullabilityCS
+                                      ? ParsedAttr::AS_ContextSensitiveKeyword
+                                      : ParsedAttr::AS_Keyword;
       ParsedAttr *nullabilityAttr = Pool.create(
           S.getNullabilityKeyword(*inferNullability), SourceRange(pointerLoc),
-          nullptr, SourceLocation(), nullptr, 0, form);
+          nullptr, SourceLocation(), nullptr, 0, syntax);
 
       attrs.addAtEnd(nullabilityAttr);
 
@@ -6136,7 +6136,7 @@ static void transferARCOwnershipToDeclaratorChunk(TypeProcessingState &state,
   ParsedAttr *attr = D.getAttributePool().create(
       &S.Context.Idents.get("objc_ownership"), SourceLocation(),
       /*scope*/ nullptr, SourceLocation(),
-      /*args*/ &Args, 1, ParsedAttr::Form::GNU());
+      /*args*/ &Args, 1, ParsedAttr::AS_GNU);
   chunk.getAttrs().addAtEnd(attr);
   // TODO: mark whether we did this inference?
 }

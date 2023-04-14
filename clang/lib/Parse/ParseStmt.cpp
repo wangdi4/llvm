@@ -2538,13 +2538,8 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
                             ArgsUnion(Hint.ValueExpr),      // INTEL
                             ArgsUnion(Hint.ArrayExpr)};     // INTEL
     TempAttrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
-<<<<<<< HEAD
                      Hint.PragmaNameLoc->Loc, ArgHints, 5,  // INTEL
                      ParsedAttr::AS_Pragma);
-=======
-                     Hint.PragmaNameLoc->Loc, ArgHints, 4,
-                     ParsedAttr::Form::Pragma());
->>>>>>> aec3f951bf368d45b441554dac6e027678f9f3ee
   }
 
   // Get the next statement.
