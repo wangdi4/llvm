@@ -5,7 +5,7 @@
 ; and failing.
 
 ; CHECK: %gep = &((%p)[0][0]);
-; CHECK: %ld = (%gep)[0][0][0];
+; CHECK: %ld = (%gep)[0][0];
 ; CHECK: ret %ld;
 
 

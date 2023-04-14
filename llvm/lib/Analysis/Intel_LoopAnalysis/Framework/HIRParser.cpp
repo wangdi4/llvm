@@ -3300,6 +3300,8 @@ public:
     return Dimensions[Idx];
   }
 
+  void eraseDim(unsigned Idx) { Dimensions.erase(Dimensions.begin() + Idx); }
+
   const DimInfo &getHighestDim() const { return Dimensions[getMaxRank()]; }
   const DimInfo &getLowestDim() const { return Dimensions[getMinRank()]; }
 
@@ -3419,8 +3421,12 @@ class HIRParser::GEPChain {
   bool isCompatible(const ArrayInfo &NextAI,
                     const GEPOrSubsOperator *NextGEPOp) const;
 
+  // Removes dims with zero index and same stride as the next dim.
+  void removeDummyDims();
+
 public:
-  using iterator = decltype(Arrays)::const_iterator;
+  using iterator = decltype(Arrays)::iterator;
+  using const_iterator = decltype(Arrays)::const_iterator;
 
   IntegerType *getOffsetTy() const { return OffsetTy; }
 
@@ -3433,8 +3439,11 @@ public:
 
   const GEPOrSubsOperator *getBase() const { return Base; }
 
-  iterator begin() const { return Arrays.begin(); }
-  iterator end() const { return Arrays.end(); }
+  const_iterator begin() const { return Arrays.begin(); }
+  const_iterator end() const { return Arrays.end(); }
+
+  iterator begin() { return Arrays.begin(); }
+  iterator end() { return Arrays.end(); }
 
   const ArrayInfo &front() const { return Arrays.front(); }
   const ArrayInfo &back() const { return Arrays.back(); }
@@ -3477,6 +3486,35 @@ HIRParser::GEPChain::GEPChain(const HIRParser &Parser,
 
     GEPOp = NextGEPOp;
     setBase(GEPOp);
+  }
+
+  removeDummyDims();
+}
+
+void HIRParser::GEPChain::removeDummyDims() {
+  // This helps eliminate 0 index dims from references like A[i1][0][i2] so they
+  // get converted into A[i1][i2]. This can help trigger optimizations such as
+  // collapsing. The dimension can be eliminated when the strides and element
+  // types of the 2nd and 3rd dimension are the same.
+  for (auto &Arr : *this) {
+
+    if (Arr.isEmpty()) {
+      continue;
+    }
+
+    for (unsigned I = Arr.getMinRank(); I < Arr.getMaxRank();) {
+      auto &CurDim = Arr.getDim(I);
+      auto &NextDim = Arr.getDim(I + 1);
+
+      if (CurDim.isDefined() && CurDim.isZero() &&
+          (CurDim.getStride() == NextDim.getStride()) &&
+          (CurDim.getElementType() == NextDim.getElementType())) {
+        Arr.eraseDim(I);
+        continue;
+      }
+
+      ++I;
+    }
   }
 }
 
