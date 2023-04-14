@@ -5567,22 +5567,15 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
 InstructionCost X86TTIImpl::getMinMaxCost(Type *Ty, Type *CondTy,
                                           TTI::TargetCostKind CostKind,
                                           bool IsUnsigned, FastMathFlags FMF) {
-<<<<<<< HEAD
+  Intrinsic::ID Id;
 #if INTEL_CUSTOMIZATION
   if (Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) {
 #endif // INTEL_CUSTOMIZATION
-    Intrinsic::ID Id = IsUnsigned ? Intrinsic::umin : Intrinsic::smin;
-    IntrinsicCostAttributes ICA(Id, Ty, {Ty, Ty}, FMF);
-    return getIntrinsicInstrCost(ICA, CostKind);
-=======
-  Intrinsic::ID Id;
-  if (Ty->isIntOrIntVectorTy()) {
     Id = IsUnsigned ? Intrinsic::umin : Intrinsic::smin;
   } else {
     assert(Ty->isFPOrFPVectorTy() &&
            "Expected float point or integer vector type.");
     Id = Intrinsic::minnum;
->>>>>>> 2bfd7a07b39c756fd857651fe827a46b7bd9af14
   }
 
   IntrinsicCostAttributes ICA(Id, Ty, {Ty, Ty}, FMF);
