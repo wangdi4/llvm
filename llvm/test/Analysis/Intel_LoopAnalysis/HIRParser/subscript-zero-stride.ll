@@ -4,7 +4,7 @@
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 1, 1   <DO_LOOP>
-; CHECK:|   (%p)[1][0][0][0] = 1.000000e+00;
+; CHECK:|   (%p)[1][0] = 1.000000e+00;
 ;       + END LOOP
 ; END REGION
 
