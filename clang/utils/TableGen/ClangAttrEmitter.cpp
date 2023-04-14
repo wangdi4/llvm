@@ -2832,12 +2832,39 @@ static void emitAttributes(RecordKeeper &Records, raw_ostream &OS,
       else
         OS << "NoSemaHandlerAttribute";
 
+<<<<<<< HEAD
       if (Spellings.size() == 0)
         OS << ", AttributeCommonInfo::AS_Implicit";
       else if (Spellings.size() == 1)
         OS << ", AttributeCommonInfo::AS_" << Spellings[0].variety();
       else
         OS << ", Syntax";
+=======
+      if (Spellings.size() == 0) {
+        OS << ", AttributeCommonInfo::Form::Implicit()";
+      } else if (Spellings.size() == 1) {
+        OS << ", ";
+        emitFormInitializer(OS, Spellings[0], "0");
+      } else {
+        OS << ", (\n";
+        std::set<std::string> Uniques;
+        unsigned Idx = 0;
+        for (auto I = Spellings.begin(), E = Spellings.end(); I != E;
+             ++I, ++Idx) {
+          const FlattenedSpelling &S = *I;
+          const auto &Name = SemanticToSyntacticMap[Idx];
+          if (Uniques.insert(Name).second) {
+            OS << "    S == " << Name << " ? AttributeCommonInfo::Form";
+            emitFormInitializer(OS, S, Name);
+            OS << " :\n";
+          }
+        }
+        OS << "    (llvm_unreachable(\"Unknown attribute spelling!\"), "
+           << " AttributeCommonInfo::Form";
+        emitFormInitializer(OS, Spellings[0], "0");
+        OS << "))";
+      }
+>>>>>>> aec3f951bf368d45b441554dac6e027678f9f3ee
 
       if (!ElideSpelling)
         OS << ", S";
