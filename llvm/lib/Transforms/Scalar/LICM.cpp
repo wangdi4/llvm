@@ -225,7 +225,8 @@ static bool pointerInvalidatedByBlock(BasicBlock &BB, MemorySSA &MSSA,
 static bool hoistArithmetics(Instruction &I, Loop &L,
                              ICFLoopSafetyInfo &SafetyInfo,
                              MemorySSAUpdater &MSSAU, AssumptionCache *AC,
-                             DominatorTree *DT);
+                             DominatorTree *DT,
+                             bool LoopOptFull); // INTEL
 static Instruction *cloneInstructionInExitBlock(
     Instruction &I, BasicBlock &ExitBlock, PHINode &PN, const LoopInfo *LI,
     const LoopSafetyInfo *SafetyInfo, MemorySSAUpdater &MSSAU);
@@ -926,6 +927,14 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
          CurLoop != nullptr && SafetyInfo != nullptr &&
          "Unexpected input to hoistRegion.");
 
+#if INTEL_CUSTOMIZATION
+  // Suppress some opts when full loop transformations are enabled.
+  auto *F = N->getBlock()->getParent();
+  Attribute TFAttr = F->getFnAttribute("loopopt-pipeline");
+  StringRef TFStr = TFAttr.isValid() ? TFAttr.getValueAsString() : "";
+  bool LoopOptFull = TFStr.contains("full");
+#endif // INTEL_CUSTOMIZATION
+
   ControlFlowHoister CFH(LI, DT, CurLoop, MSSAU);
 
   // Keep track of instructions that have been hoisted, as they may need to be
@@ -1042,7 +1051,10 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
 
       // Try to reassociate instructions so that part of computations can be
       // done out of loop.
-      if (hoistArithmetics(I, *CurLoop, *SafetyInfo, MSSAU, AC, DT)) {
+#if INTEL_CUSTOMIZATION
+      if (hoistArithmetics(I, *CurLoop, *SafetyInfo, MSSAU, AC, DT,
+                           LoopOptFull)) {
+#endif // INTEL_CUSTOMIZATION
         Changed = true;
         continue;
       }
@@ -2741,7 +2753,8 @@ static bool hoistGEP(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
 static bool hoistArithmetics(Instruction &I, Loop &L,
                              ICFLoopSafetyInfo &SafetyInfo,
                              MemorySSAUpdater &MSSAU,
-                             AssumptionCache *AC, DominatorTree *DT) {
+                             AssumptionCache *AC, DominatorTree *DT,
+                             bool LoopOptFull) { // INTEL
   // Optimize complex patterns, such as (x < INV1 && x < INV2), turning them
   // into (x < min(INV1, INV2)), and hoisting the invariant part of this
   // expression out of the loop.
@@ -2751,8 +2764,11 @@ static bool hoistArithmetics(Instruction &I, Loop &L,
     return true;
   }
 
+#if INTEL_CUSTOMIZATION
   // Try to hoist GEPs by reassociation.
-  if (hoistGEP(I, L, SafetyInfo, MSSAU, AC, DT)) {
+  // This may disturb patterns in loop and LTO transformations.
+  if (!LoopOptFull && hoistGEP(I, L, SafetyInfo, MSSAU, AC, DT)) {
+#endif // INTEL_CUSTOMIZATION
     ++NumHoisted;
     ++NumGEPsHoisted;
     return true;
