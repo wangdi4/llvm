@@ -2627,6 +2627,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genBeginScopeCode(W);
           Changed |= genPrivatizationCode(W,
             W->getEntryBBlock()->getTerminator()->getPrevNonDebugInstruction());
+          Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
           Changed |= genDestructorCode(W);
           Changed |= genEndScopeCode(W);

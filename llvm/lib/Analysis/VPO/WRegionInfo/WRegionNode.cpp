@@ -2411,7 +2411,7 @@ bool WRegionNode::canHaveFirstprivate() const {
   unsigned SubClassID = getWRegionKindID();
   if (SubClassID == WRNTile) // TODO: remove Firstprivate from Tile
     return true;
-  if (SubClassID == WRNVecLoop || SubClassID == WRNScope)
+  if (SubClassID == WRNVecLoop)
     return false;
   // Note: this returns true for GenericLoop. Even though the OMP spec
   // doesn't allow GenericLoop to take firstprivate clauses, in our

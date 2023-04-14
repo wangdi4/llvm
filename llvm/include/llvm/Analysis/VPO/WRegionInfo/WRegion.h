@@ -1905,6 +1905,7 @@ public:
 class WRNScopeNode : public WRegionNode {
 private:
   PrivateClause Priv;
+  FirstprivateClause Fpriv;
   ReductionClause Reduction;
   bool Nowait = false;
 
@@ -1916,6 +1917,7 @@ protected:
 
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
   DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
   bool getNowait() const override { return Nowait; }
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
