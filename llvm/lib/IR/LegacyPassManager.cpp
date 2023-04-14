@@ -1562,12 +1562,8 @@ bool FPPassManager::runOnFunction(Function &F) {
     llvm::TimeTraceScope PassScope(
         "RunPass", [FP]() { return std::string(FP->getPassName()); });
 
-<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
-    dumpPassInfo(FP, EXECUTION_MSG, ON_FUNCTION_MSG, F.getName());
-=======
     dumpPassInfo(FP, EXECUTION_MSG, ON_FUNCTION_MSG, Name);
->>>>>>> a2e596bdf8cc951727f1f0156c56ff90cb00e8a0
     dumpRequiredSet(FP);
 #endif // !INTEL_PRODUCT_RELEASE
 
