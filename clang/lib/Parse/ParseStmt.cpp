@@ -2499,7 +2499,7 @@ StmtResult Parser::ParsePragmaIntelFPGALoop(StmtVector &Stmts,
                      Hint.PragmaNameLoc->Loc,
                      HasZeroArgs ? nullptr : ArgHints,
                      HasZeroArgs ? 0 : 1,
-                     ParsedAttr::AS_Pragma);
+                     ParsedAttr::Form::Pragma());
   }
 
   // Get the next statement.
@@ -2539,7 +2539,7 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
                             ArgsUnion(Hint.ArrayExpr)};     // INTEL
     TempAttrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
                      Hint.PragmaNameLoc->Loc, ArgHints, 5,  // INTEL
-                     ParsedAttr::AS_Pragma);
+                     ParsedAttr::Form::Pragma());
   }
 
   // Get the next statement.

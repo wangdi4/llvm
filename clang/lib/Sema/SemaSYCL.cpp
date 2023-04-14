@@ -976,7 +976,7 @@ class SingleDeviceFunctionTracker {
         !KernelBody->hasAttr<AlwaysInlineAttr>() &&
         !KernelBody->hasAttr<SYCLSimdAttr>()) {
       KernelBody->addAttr(AlwaysInlineAttr::CreateImplicit(
-          KernelBody->getASTContext(), {}, AttributeCommonInfo::AS_Keyword,
+          KernelBody->getASTContext(), {},
           AlwaysInlineAttr::Keyword_forceinline));
     }
   }

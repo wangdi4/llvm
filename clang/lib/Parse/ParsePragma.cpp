@@ -1178,7 +1178,7 @@ StmtResult Parser::HandlePragmaLoopFuse() {
   ParsedAttributes Attrs(AttrFactory);
   ArgsUnion AttrArgs[] = {IndependentLoc, DepthExpr};
   Attrs.addNew(PragmaNameInfo, FuseScopeStmt->getSourceRange(), nullptr,
-               AttrLoc, AttrArgs, 2, ParsedAttr::AS_Pragma);
+               AttrLoc, AttrArgs, 2, ParsedAttr::Form::Pragma());
   R = Actions.ActOnAttributedStmt(Attrs, FuseScopeStmt);
   return R;
 }
@@ -2216,11 +2216,12 @@ void Parser::HandlePragmaAttribute() {
 
       if (Tok.isNot(tok::l_paren))
         Attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
-                     ParsedAttr::AS_GNU);
+                     ParsedAttr::Form::GNU());
       else
         ParseGNUAttributeArgs(AttrName, AttrNameLoc, Attrs, /*EndLoc=*/nullptr,
                               /*ScopeName=*/nullptr,
-                              /*ScopeLoc=*/SourceLocation(), ParsedAttr::AS_GNU,
+                              /*ScopeLoc=*/SourceLocation(),
+                              ParsedAttr::Form::GNU(),
                               /*Declarator=*/nullptr);
     } while (TryConsumeToken(tok::comma));
 
@@ -4681,7 +4682,7 @@ bool Parser::ParseLoopHintValue(LoopHint &Hint, SourceLocation Loc,
                           ArgsUnion(Hint.ArrayExpr)};
   Attrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
                Hint.PragmaNameLoc->Loc, ArgHints, 5,
-               ParsedAttr::AS_Pragma);
+               ParsedAttr::Form::Pragma());
   return true;
 }
 
@@ -4911,7 +4912,8 @@ bool Parser::HandlePragmaVector(LoopHint &Hint,
                             ArgsUnion(Hint.ValueExpr),
                             ArgsUnion(Hint.ArrayExpr)};
     Attrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
-                 OptionTok.getLocation(), ArgHints, 5, ParsedAttr::AS_Pragma);
+                 OptionTok.getLocation(), ArgHints, 5,
+                 ParsedAttr::Form::Pragma());
   };
   if (NextToken().is(tok::eod))
     AddNewAttr(Tok, OptionInfo);

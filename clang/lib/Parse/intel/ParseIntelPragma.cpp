@@ -88,7 +88,7 @@ StmtResult Parser::ParsePragmaInline(StmtVector &Stmts,
     ArgsUnion Args[] = {OptionsLoc};
     TempAttrs.addNew(KindLoc->Ident, Range, nullptr,
                      KindLoc->Loc, Args, 1,
-                     ParsedAttr::AS_Pragma);
+                     ParsedAttr::Form::Pragma());
 
     assert(Tok.is(tok::annot_pragma_inline));
     ConsumeAnnotationToken();  // annot_pragma_inline
@@ -246,7 +246,8 @@ StmtResult Parser::ParsePragmaBlockLoop(StmtVector &Stmts,
                                         ? Info->PragmaName.getLocation()
                                         : Info->LastToks.back().getLocation());
     TempAttrs.addNew(PragmaNameLoc->Ident, Range, nullptr, PragmaNameLoc->Loc,
-                     ArgExprs.data(), ArgExprs.size(), ParsedAttr::AS_Pragma);
+                     ArgExprs.data(), ArgExprs.size(),
+                     ParsedAttr::Form::Pragma());
   }
   // Get the next statement.
   MaybeParseCXX11Attributes(DeclAttrs);
@@ -539,7 +540,8 @@ StmtResult Parser::ParsePragmaPrefetch(StmtVector &Stmts,
                                         ? Info->PragmaName.getLocation()
                                         : Info->LastToks.back().getLocation());
     TempAttrs.addNew(PragmaNameLoc->Ident, Range, nullptr, PragmaNameLoc->Loc,
-                     ArgExprs.data(), ArgExprs.size(), ParsedAttr::AS_Pragma);
+                     ArgExprs.data(), ArgExprs.size(),
+                     ParsedAttr::Form::Pragma());
   }
   // Get the next statement.
   MaybeParseCXX11Attributes(DeclAttrs);

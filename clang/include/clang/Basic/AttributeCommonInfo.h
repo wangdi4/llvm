@@ -31,6 +31,7 @@
 #ifndef LLVM_CLANG_BASIC_ATTRIBUTECOMMONINFO_H
 #define LLVM_CLANG_BASIC_ATTRIBUTECOMMONINFO_H
 #include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/TokenKinds.h"
 
 namespace clang {
 class IdentifierInfo;
@@ -96,6 +97,7 @@ private:
 #else // INTEL_CUSTOMIZATION
   unsigned SpellingIndex : 4;
 #endif // INTEL_CUSTOMIZATION
+  unsigned IsAlignas : 1;
 
 protected:
 #if INTEL_CUSTOMIZATION
@@ -105,50 +107,88 @@ protected:
 #endif // INTEL_CUSTOMIZATION
 
 public:
+  /// Combines information about the source-code form of an attribute,
+  /// including its syntax and spelling.
+  class Form {
+  public:
+    constexpr Form(Syntax SyntaxUsed, unsigned SpellingIndex, bool IsAlignas)
+        : SyntaxUsed(SyntaxUsed), SpellingIndex(SpellingIndex),
+          IsAlignas(IsAlignas) {}
+    constexpr Form(tok::TokenKind Tok)
+        : SyntaxUsed(AS_Keyword), SpellingIndex(SpellingNotCalculated),
+          IsAlignas(Tok == tok::kw_alignas) {}
+
+    Syntax getSyntax() const { return Syntax(SyntaxUsed); }
+    unsigned getSpellingIndex() const { return SpellingIndex; }
+    bool isAlignas() const { return IsAlignas; }
+
+    static Form GNU() { return AS_GNU; }
+    static Form CXX11() { return AS_CXX11; }
+    static Form C2x() { return AS_C2x; }
+    static Form Declspec() { return AS_Declspec; }
+    static Form Microsoft() { return AS_Microsoft; }
+    static Form Keyword(bool IsAlignas) {
+      return Form(AS_Keyword, SpellingNotCalculated, IsAlignas);
+    }
+    static Form Pragma() { return AS_Pragma; }
+    static Form ContextSensitiveKeyword() { return AS_ContextSensitiveKeyword; }
+    static Form HLSLSemantic() { return AS_HLSLSemantic; }
+    static Form Implicit() { return AS_Implicit; }
+
+  private:
+    constexpr Form(Syntax SyntaxUsed)
+        : SyntaxUsed(SyntaxUsed), SpellingIndex(SpellingNotCalculated),
+          IsAlignas(0) {}
+
+    unsigned SyntaxUsed : 4;
+#if INTEL_CUSTOMIZATION
+    unsigned SpellingIndex : 5;
+#else // INTEL_CUSTOMIZATION
+    unsigned SpellingIndex : 4;
+#endif // INTEL_CUSTOMIZATION
+    unsigned IsAlignas : 1;
+  };
+
   AttributeCommonInfo(const IdentifierInfo *AttrName,
                       const IdentifierInfo *ScopeName, SourceRange AttrRange,
-                      SourceLocation ScopeLoc, Syntax SyntaxUsed)
+                      SourceLocation ScopeLoc, Form FormUsed)
       : AttrName(AttrName), ScopeName(ScopeName), AttrRange(AttrRange),
         ScopeLoc(ScopeLoc),
-        AttrKind(getParsedKind(AttrName, ScopeName, SyntaxUsed)),
-        SyntaxUsed(SyntaxUsed), SpellingIndex(SpellingNotCalculated) {}
+        AttrKind(getParsedKind(AttrName, ScopeName, FormUsed.getSyntax())),
+        SyntaxUsed(FormUsed.getSyntax()),
+        SpellingIndex(FormUsed.getSpellingIndex()),
+        IsAlignas(FormUsed.isAlignas()) {}
 
   AttributeCommonInfo(const IdentifierInfo *AttrName,
                       const IdentifierInfo *ScopeName, SourceRange AttrRange,
-                      SourceLocation ScopeLoc, Kind AttrKind, Syntax SyntaxUsed)
+                      SourceLocation ScopeLoc, Kind AttrKind, Form FormUsed)
       : AttrName(AttrName), ScopeName(ScopeName), AttrRange(AttrRange),
-        ScopeLoc(ScopeLoc), AttrKind(AttrKind), SyntaxUsed(SyntaxUsed),
-        SpellingIndex(SpellingNotCalculated) {}
-
-  AttributeCommonInfo(const IdentifierInfo *AttrName,
-                      const IdentifierInfo *ScopeName, SourceRange AttrRange,
-                      SourceLocation ScopeLoc, Kind AttrKind, Syntax SyntaxUsed,
-                      unsigned Spelling)
-      : AttrName(AttrName), ScopeName(ScopeName), AttrRange(AttrRange),
-        ScopeLoc(ScopeLoc), AttrKind(AttrKind), SyntaxUsed(SyntaxUsed),
-        SpellingIndex(Spelling) {}
+        ScopeLoc(ScopeLoc), AttrKind(AttrKind),
+        SyntaxUsed(FormUsed.getSyntax()),
+        SpellingIndex(FormUsed.getSpellingIndex()),
+        IsAlignas(FormUsed.isAlignas()) {}
 
   AttributeCommonInfo(const IdentifierInfo *AttrName, SourceRange AttrRange,
-                      Syntax SyntaxUsed)
+                      Form FormUsed)
       : AttrName(AttrName), ScopeName(nullptr), AttrRange(AttrRange),
-        ScopeLoc(), AttrKind(getParsedKind(AttrName, ScopeName, SyntaxUsed)),
-        SyntaxUsed(SyntaxUsed), SpellingIndex(SpellingNotCalculated) {}
+        ScopeLoc(),
+        AttrKind(getParsedKind(AttrName, ScopeName, FormUsed.getSyntax())),
+        SyntaxUsed(FormUsed.getSyntax()),
+        SpellingIndex(FormUsed.getSpellingIndex()),
+        IsAlignas(FormUsed.isAlignas()) {}
 
-  AttributeCommonInfo(SourceRange AttrRange, Kind K, Syntax SyntaxUsed)
+  AttributeCommonInfo(SourceRange AttrRange, Kind K, Form FormUsed)
       : AttrName(nullptr), ScopeName(nullptr), AttrRange(AttrRange), ScopeLoc(),
-        AttrKind(K), SyntaxUsed(SyntaxUsed),
-        SpellingIndex(SpellingNotCalculated) {}
-
-  AttributeCommonInfo(SourceRange AttrRange, Kind K, Syntax SyntaxUsed,
-                      unsigned Spelling)
-      : AttrName(nullptr), ScopeName(nullptr), AttrRange(AttrRange), ScopeLoc(),
-        AttrKind(K), SyntaxUsed(SyntaxUsed), SpellingIndex(Spelling) {}
+        AttrKind(K), SyntaxUsed(FormUsed.getSyntax()),
+        SpellingIndex(FormUsed.getSpellingIndex()),
+        IsAlignas(FormUsed.isAlignas()) {}
 
   AttributeCommonInfo(AttributeCommonInfo &&) = default;
   AttributeCommonInfo(const AttributeCommonInfo &) = default;
 
   Kind getParsedKind() const { return Kind(AttrKind); }
   Syntax getSyntax() const { return Syntax(SyntaxUsed); }
+  Form getForm() const { return Form(getSyntax(), SpellingIndex, IsAlignas); }
   const IdentifierInfo *getAttrName() const { return AttrName; }
   SourceLocation getLoc() const { return AttrRange.getBegin(); }
   SourceRange getRange() const { return AttrRange; }
@@ -169,29 +209,7 @@ public:
   bool isGNUScope() const;
   bool isClangScope() const;
 
-  bool isAlignasAttribute() const {
-    // FIXME: Use a better mechanism to determine this.
-    // We use this in `isCXX11Attribute` below, so it _should_ only return
-    // true for the `alignas` spelling, but it currently also returns true
-    // for the `_Alignas` spelling, which only exists in C11. Distinguishing
-    // between the two is important because they behave differently:
-    // - `alignas` may only appear in the attribute-specifier-seq before
-    //   the decl-specifier-seq and is therefore associated with the
-    //   declaration.
-    // - `_Alignas` may appear anywhere within the declaration-specifiers
-    //   and is therefore associated with the `DeclSpec`.
-    // It's not clear how best to fix this:
-    // - We have the necessary information in the form of the `SpellingIndex`,
-    //   but we would need to compare against AlignedAttr::Keyword_alignas,
-    //   and we can't depend on clang/AST/Attr.h here.
-    // - We could test `getAttrName()->getName() == "alignas"`, but this is
-    //   inefficient.
-    return getParsedKind() == AT_Aligned && isKeywordAttribute();
-  }
-
-  bool isCXX11Attribute() const {
-    return SyntaxUsed == AS_CXX11 || isAlignasAttribute();
-  }
+  bool isCXX11Attribute() const { return SyntaxUsed == AS_CXX11 || IsAlignas; }
 
   bool isC2xAttribute() const { return SyntaxUsed == AS_C2x; }
 
