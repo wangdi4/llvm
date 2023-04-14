@@ -1500,8 +1500,8 @@ public:
 
       // Create events
       ze_event_desc_t EventDesc{ZE_STRUCTURE_TYPE_EVENT_DESC, nullptr};
-      EventDesc.signal = 0;
-      EventDesc.wait = ZE_EVENT_SCOPE_FLAG_HOST;
+      EventDesc.wait = 0;
+      EventDesc.signal = ZE_EVENT_SCOPE_FLAG_HOST;
       for (uint32_t I = 0; I < PoolSize; I++) {
         EventDesc.index = I;
         ze_event_handle_t Event;
