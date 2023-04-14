@@ -810,7 +810,7 @@ public:
 
   InstructionCost getExtendedReductionCost(unsigned Opcode, bool IsUnsigned,
                                            Type *ResTy, VectorType *Ty,
-                                           std::optional<FastMathFlags> FMF,
+                                           FastMathFlags FMF,
                                            TTI::TargetCostKind CostKind) const {
     return 1;
   }

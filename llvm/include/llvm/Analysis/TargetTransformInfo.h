@@ -1481,7 +1481,7 @@ public:
   /// ResTy vecreduce.opcode(ext(Ty A)).
   InstructionCost getExtendedReductionCost(
       unsigned Opcode, bool IsUnsigned, Type *ResTy, VectorType *Ty,
-      std::optional<FastMathFlags> FMF,
+      FastMathFlags FMF,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput) const;
 
   /// \returns The cost of Intrinsic instructions. Analyses the real arguments.
@@ -2118,7 +2118,7 @@ public:
                          FastMathFlags FMF, TTI::TargetCostKind CostKind) = 0;
   virtual InstructionCost getExtendedReductionCost(
       unsigned Opcode, bool IsUnsigned, Type *ResTy, VectorType *Ty,
-      std::optional<FastMathFlags> FMF,
+      FastMathFlags FMF,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput) = 0;
   virtual InstructionCost getMulAccReductionCost(
       bool IsUnsigned, Type *ResTy, VectorType *Ty,
@@ -2801,16 +2801,16 @@ public:
                          TTI::TargetCostKind CostKind) override {
     return Impl.getMinMaxReductionCost(Ty, CondTy, IsUnsigned, FMF, CostKind);
   }
-  InstructionCost getExtendedReductionCost(
-      unsigned Opcode, bool IsUnsigned, Type *ResTy, VectorType *Ty,
-      std::optional<FastMathFlags> FMF,
-      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput) override {
+  InstructionCost
+  getExtendedReductionCost(unsigned Opcode, bool IsUnsigned, Type *ResTy,
+                           VectorType *Ty, FastMathFlags FMF,
+                           TTI::TargetCostKind CostKind) override {
     return Impl.getExtendedReductionCost(Opcode, IsUnsigned, ResTy, Ty, FMF,
                                          CostKind);
   }
-  InstructionCost getMulAccReductionCost(
-      bool IsUnsigned, Type *ResTy, VectorType *Ty,
-      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput) override {
+  InstructionCost
+  getMulAccReductionCost(bool IsUnsigned, Type *ResTy, VectorType *Ty,
+                         TTI::TargetCostKind CostKind) override {
     return Impl.getMulAccReductionCost(IsUnsigned, ResTy, Ty, CostKind);
   }
   InstructionCost getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
