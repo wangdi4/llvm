@@ -8,6 +8,7 @@
 ; CHECK: Selected many recursive calls predicate opt
 ; CHECK: MRC Predicate Opt: Loops: 5
 ; CHECK: MRC Predicate Opt: LIRestrict: T
+; CHECK: MRC Predicate Opt: LIRestrictType: T
 ; CHECK: MRC Predicate Opt: RestrictVarHoistablePastWrapperF: T
 ; CHECK: MRC Predicate Opt: BaseFArg6Field1Hoistable: T
 ; CHECK: MRC PredicateOpt: HoistYes: {0,1,3,6,7,14,15,16}
@@ -16,6 +17,10 @@
 ; CHECK: MRC Predicate Opt: FindMultiLoop: T
 ; CHECK: MRC PredicateOpt: Loop Stores To: {{.*}} alloca %struct._ZTS18_MagickPixelPacket._MagickPixelPacket, align 8
 ; CHECK: MRC Predicate Opt: ValidateMultiLoop: T
+; CHECK: MRC Predicate Opt: MLX: T
+; CHECK: MRC Predicate Opt: MLY: T
+; CHECK: MRC Predicate Opt: W2: T
+; CHECK: MRC Predicate Opt: H2: T
 ; CHECK: MRC PredicateOpt: Loop Depth = 5
 ; CHECK: BaseF: GetVirtualPixelsFromNexus
 ; CHECK: WrapperF: GetOneCacheViewVirtualPixel
@@ -37,15 +42,47 @@
 ; CHECK: %[[I1:[A-Za-z0-9]+]] = load ptr, ptr %[[I0]], align 8
 ; CHECK: %[[I2:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I1]], i64 0, i32 49
 ; CHECK: %[[I3:[A-Za-z0-9]+]] = load ptr, ptr %[[I2]], align 8
-; CHECK: %[[I4:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I3]], i64 0, i32 0
+; CHECK: %[[I4:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 0
 ; CHECK: %[[I5:[A-Za-z0-9]+]] = load i32, ptr %[[I4]], align 4
 ; CHECK: %[[I6:[A-Za-z0-9]+]] = icmp eq i32 %[[I5]], 2
-; CHECK: %[[I7:[A-Za-z0-9]+]] = getelementptr %struct._ZTS6_Image._Image, ptr %[[I3]], i64 0, i32 1
+; CHECK: %[[I7:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 1
 ; CHECK: %[[I8:[A-Za-z0-9]+]] = load i32, ptr %[[I7]], align 4
 ; CHECK: %[[I9:[A-Za-z0-9]+]] = icmp eq i32 %[[I8]], 12
 ; CHECK: %[[I10:[A-Za-z0-9]+]] = or i1 %[[I6]], %[[I9]]
 ; CHECK: %[[I11:[A-Za-z0-9]+]] = xor i1 %[[I10]], true
-; CHECK: br i1 %[[I11]], label %[[L0:[A-Za-z0-9.]+]], label %[[L1:[A-Za-z0-9.]+]]
+; CHECK: %[[I12:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 4
+; CHECK: %[[I13:[A-Za-z0-9]+]] = load i32, ptr %[[I12]], align 4
+; CHECK: %[[I14:[A-Za-z0-9]+]] = icmp eq i32 %[[I13]], 1
+; CHECK: %[[I15:[A-Za-z0-9]+]] = icmp eq i32 %[[I13]], 2
+; CHECK: %[[I16:[A-Za-z0-9]+]] = or i1 %[[I14]], %[[I15]]
+; CHECK: %[[I17:[A-Za-z0-9]+]] = and i1 %[[I11]], %[[I16]]
+; CHECK: %[[I18:[A-Za-z0-9]+]] = icmp sge i64 %i120, %i48
+; CHECK: %[[I19:[A-Za-z0-9]+]] = and i1 %[[I17]], %[[I18]]
+; CHECK: %[[I20:[A-Za-z0-9]+]] = icmp sge i64 %i122, %i49
+; CHECK: %[[I21:[A-Za-z0-9]+]] = and i1 %[[I19]], %[[I20]]
+; CHECK: %[[I22:[A-Za-z0-9]+]] = add i64 %i120, %i48
+; CHECK: %[[I23:[A-Za-z0-9]+]] = add i64 %i122, %i49
+; CHECK: %[[I24:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 6
+; CHECK: %[[I25:[A-Za-z0-9]+]] = load i64, ptr %[[I24]], align 8
+; CHECK: %[[I26:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 7
+; CHECK: %[[I27:[A-Za-z0-9]+]] = load i64, ptr %[[I26]], align 8
+; CHECK: %[[I28:[A-Za-z0-9]+]] = icmp slt i64 %[[I22]], %[[I25]]
+; CHECK: %[[I29:[A-Za-z0-9]+]] = and i1 %[[I21]], %[[I28]]
+; CHECK: %[[I30:[A-Za-z0-9]+]] = icmp slt i64 %[[I23]], %[[I27]]
+; CHECK: %[[I31:[A-Za-z0-9]+]] = and i1 %[[I29]], %[[I30]]
+; CHECK: %[[I32:[A-Za-z0-9]+]] = icmp sge i64 %i122, %i49
+; CHECK: %[[I33:[A-Za-z0-9]+]] = and i1 %[[I31]], %[[I32]]
+; CHECK: %[[I34:[A-Za-z0-9]+]] = icmp sge i64 %i120, %i48
+; CHECK: %[[I35:[A-Za-z0-9]+]] = and i1 %[[I33]], %[[I34]]
+; CHECK: %[[I36:[A-Za-z0-9]+]] = sub i64 %[[I27]], 1
+; CHECK: %[[I37:[A-Za-z0-9]+]] = sub i64 %[[I36]], %i49
+; CHECK: %[[I38:[A-Za-z0-9]+]] = icmp sle i64 %i122, %[[I37]]
+; CHECK: %[[I39:[A-Za-z0-9]+]] = and i1 %[[I35]], %[[I38]]
+; CHECK: %[[I40:[A-Za-z0-9]+]] = sub i64 %[[I25]], 1
+; CHECK: %[[I41:[A-Za-z0-9]+]] = sub i64 %[[I40]], %i48
+; CHECK: %[[I42:[A-Za-z0-9]+]] = icmp sle i64 %i120, %[[I41]]
+; CHECK: %[[I43:[A-Za-z0-9]+]] = and i1 %[[I39]], %[[I42]]
+; CHECK: br i1 %[[I43]], label %[[L0:[A-Za-z0-9.]+]], label %[[L1:[A-Za-z0-9.]+]]
 ; CHECK: [[L1]]:
 ; This is the branch to the non-predicate optimized version.
 ; CHECK: call void @MeanShiftImage.bb123

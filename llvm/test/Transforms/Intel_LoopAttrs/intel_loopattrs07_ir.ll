@@ -37,8 +37,8 @@ after.loop:
 define i32 @main() {
 0:
   %1 = alloca i32
-  store i32 0, i32* %1, align 4
-  %2 = load i32, i32* %1
+  store i32 0, ptr %1, align 4
+  %2 = load i32, ptr %1
   %3 = call i32 @foo(i32 %2, i32 10)
   ret i32 %3
 }

@@ -4837,14 +4837,31 @@ private:
   // The loop that will be multiversioned, with the first version being the
   // optimized version, and the second being the general version.
   Loop *MultiLoop = nullptr;
+  // The incoming basic block to the multiloop.
+  BasicBlock *HoistBlock = nullptr;
   // LoadInst of a key local ptr declared "restrict" in the source code.
   LoadInst *LIRestrict = nullptr;
+  // The type of the structure pointed to by 'LIRestrict'.
+  StructType *LIRestrictType = nullptr;
   // Optimized version of the key predicate opt code
   Function *OptF = nullptr;
+  // MagickRound(mean_location.x)
+  Instruction *MLX = nullptr;
+  // MagickRound(mean_location.y)
+  Instruction *MLY = nullptr;
+  // width/2
+  Instruction *W2 = nullptr;
+  // height/2
+  Instruction *H2 = nullptr;
   // Return 'true' if 'F' is a wrapper function.
   bool isWrapper(Function &F);
   // Return the number of simple loops enclosing 'CB'.
   unsigned simpleLoopDepth(CallBase &CB);
+  // Find the integer result of the llvm.rint.f64() intrinsic used to compute
+  // 'ArgNo' of 'CB'.
+  Instruction *findRintResult(CallBase *CB, unsigned ArgNo);
+  // Find a user of 'Arg' which is an Lshr with right operand 1.
+  Instruction *findLShr1User(Argument *Arg);
   // Find the doubly nested inner loop surrounding 'CB' if there is one,
   // otherwise return 'nullptr'.
   Loop *findMultiLoop(CallBase *CB);
@@ -4875,7 +4892,9 @@ private:
   // can be used in the condition testing for the optimized code.
   LoadInst *makeHoistedRestrictVar();
   // Make the condition which tests for the optimized code.
-  Value *makeOptTest(LoadInst *CacheInfo);
+  Value *makeOptTest(LoadInst *CacheInfo, StructType *LIRestrictType,
+                     Instruction *MLX, Instruction *MLY, Instruction *W2,
+                     Instruction *H2, BasicBlock *HoistBlock);
   // Return Function with cold code extracted from 'OptBaseF'.
   Function *extractColdCode(Function *OptBaseF);
 };
@@ -5672,6 +5691,48 @@ bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF) {
 }
 
 //
+// Looking for the a sequence like:
+//    %i119 = call fast double @llvm.rint.f64(double %i112)
+//    %i120 = fptosi double %i119 to i64
+//    %i143 = add i64 %i134, %i120
+//    %i144 = call i32 @GetOneCacheViewVirtualPixel(ptr noundef %i29,
+//        i64 noundef %i143, ...)
+// and if found, will return %i120.
+//
+Instruction *PredicateOpt::findRintResult(CallBase *CB, unsigned ArgNo) {
+  auto BO = dyn_cast<BinaryOperator>(CB->getArgOperand(ArgNo));
+  if (!BO || BO->getOpcode() != Instruction::Add)
+    return nullptr;
+  if (!isa<PHINode>(BO->getOperand(0)))
+    return nullptr;
+  auto FPTOSI = dyn_cast<Instruction>(BO->getOperand(1));
+  if (!FPTOSI || FPTOSI->getOpcode() != Instruction::FPToSI)
+    return nullptr;
+  auto II = dyn_cast<IntrinsicInst>(FPTOSI->getOperand(0));
+  if (!II || II->getIntrinsicID() != Intrinsic::rint)
+    return nullptr;
+  return FPTOSI;
+}
+
+//
+// Looking for a sequence like:
+// define internal ptr @MeanShiftImage(ptr noundef %arg, i64 noundef %arg1, ...
+//  ...
+//   %i48 = lshr i64 %arg1, 1
+// and if found, will return %i48.
+//
+Instruction *PredicateOpt::findLShr1User(Argument *Arg) {
+  for (User *U : Arg->users())
+    if (auto Inst = dyn_cast<Instruction>(U))
+      if (Inst->getOpcode() == Instruction::LShr)
+        if (Inst->getOperand(0) == Arg)
+          if (auto CI = dyn_cast<ConstantInt>(Inst->getOperand(1)))
+            if (CI->isOne())
+              return Inst;
+  return nullptr;
+}
+
+//
 // Return 'true' if the desired predicate opt should be attempted.
 // NOTE: At this point, we are just checking if the hot path can be identified.
 // More code will be added to check additional conditions.
@@ -5688,6 +5749,13 @@ bool PredicateOpt::attemptPredicateOpt() {
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
                     << "LIRestrict: " << (LIRestrict ? "T" : "F") << "\n");
   if (!LIRestrict)
+    return false;
+  Type *Ty = inferPtrElementType(*LIRestrict);
+  LIRestrictType = dyn_cast_or_null<StructType>(Ty);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "LIRestrictType: " << (LIRestrictType ? "T" : "F")
+                    << "\n");
+  if (!LIRestrictType)
     return false;
   bool IsResHoist = isRestrictVarHoistablePastWrapperF(BaseF, LIRestrict);
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
@@ -5712,10 +5780,37 @@ bool PredicateOpt::attemptPredicateOpt() {
                     << "FindMultiLoop: " << (MultiLoop ? "T" : "F") << "\n");
   if (!MultiLoop)
     return false;
+  BasicBlock *LatchBlock = nullptr;
+  MultiLoop->getIncomingAndBackEdge(HoistBlock, LatchBlock);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "HoistBlock: " << (HoistBlock ? "T" : "F") << "\n");
+  if (!HoistBlock)
+    return false;
   bool IsValid = validateMultiLoop(MultiLoop, BigLoopCB->getCalledFunction());
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
                     << "ValidateMultiLoop: " << (IsValid ? "T" : "F") << "\n");
   if (!IsValid)
+    return false;
+  MLX = findRintResult(BigLoopCB, 1);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "MLX: " << (MLX ? "T" : "F") << "\n");
+  if (!MLX)
+    return false;
+  MLY = findRintResult(BigLoopCB, 2);
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "MLY: " << (MLY ? "T" : "F") << "\n");
+  if (!MLY)
+    return false;
+  Function *BigLoopF = BigLoopCB->getCaller();
+  W2 = findLShr1User(BigLoopF->getArg(1));
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "W2: " << (W2 ? "T" : "F") << "\n");
+  if (!W2)
+    return false;
+  H2 = findLShr1User(BigLoopF->getArg(2));
+  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
+                    << "H2: " << (H2 ? "T" : "F") << "\n");
+  if (!H2)
     return false;
   return true;
 }
@@ -5805,29 +5900,81 @@ LoadInst *PredicateOpt::makeHoistedRestrictVar() {
 //
 // Make the condition which tests for the optimized code.
 //
-// At this point the condition is simply %11 below:
+//   cache_info->storage_class == PseudoClass
+//
 //   %4 = getelementptr %struct._ZTS6_Image._Image, ptr %3, i64 0, i32 0
 //   %5 = load i32, ptr %4, align 4
 //   %6 = icmp eq i32 %5, 2
+//
+//   cache_info->colorspace == CMYKColorspace
+//
 //   %7 = getelementptr %struct._ZTS6_Image._Image, ptr %3, i64 0, i32 1
 //   %8 = load i32, ptr %7, align 4
 //   %9 = icmp eq i32 %8, 12
 //   %10 = or i1 %6, %9
 //   %11 = xor i1 %10, true
-// Where %3 is 'CacheInfo' returned by makeHoistedRestrictVar().
 //
-// We will expand it in future change sets to make it complete.
+//   cache_info->type == MemoryCache || cache_info->type == MapCache
 //
-Value *PredicateOpt::makeOptTest(LoadInst *CacheInfo) {
+//   %12 = getelementptr %struct._ZTS6_Image._Image, ptr %3, i64 0, i32 4
+//   %13 = load i32, ptr %12, align 4
+//   %14 = icmp eq i32 %13, 1
+//   %15 = icmp eq i32 %13, 2
+//   %16 = or i1 %14, %15
+//   %17 = and i1 %11, %16
+//   MLX >= W2 && MLY >= H2
+//   %18 = icmp sge i64 %i120, %i48
+//   %19 = and i1 %17, %18
+//   %20 = icmp sge i64 %i122, %i49
+//   %21 = and i1 %19, %20
+//
+//   (MLX + W2 < cache_info->columns) && (MLY + H2 < cache_info->rows)
+//
+//   %22 = add i64 %i120, %i48
+//   %23 = add i64 %i122, %i49
+//   %24 = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %3,
+//       i64 0, i32 6
+//   %25 = load i64, ptr %24, align 8
+//   %26 = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %3,
+//       i64 0, i32 7
+//   %27 = load i64, ptr %26, align 8
+//   %28 = icmp slt i64 %22, %25
+//   %29 = and i1 %21, %28
+//   %30 = icmp slt i64 %23, %27
+//   %31 = and i1 %29, %30
+//   MLY >= H2 && MLX >= W2
+//   %32 = icmp sge i64 %i122, %i49
+//   %33 = and i1 %31, %32
+//   %34 = icmp sge i64 %i120, %i48
+//   %35 = and i1 %33, %34
+//
+//   (MLY <= cache_info->rows - 1 - H2) && (MLX <= cache_info->columns-1-W2)
+//
+//   %36 = sub i64 %27, 1
+//   %37 = sub i64 %36, %i49
+//   %38 = icmp sle i64 %i122, %37
+//   %39 = and i1 %35, %38
+//   %40 = sub i64 %25, 1
+//   %41 = sub i64 %40, %i48
+//   %42 = icmp sle i64 %i120, %41
+//   %43 = and i1 %39, %42
+//
+// Where %3 is 'CacheInfo' returned by makeHoistedRestrictVar(), %4 is
+// %struct._ZTS10_CacheInfo._CacheInfo, %i120 is 'MLX', %i122 is 'MLY',
+// %i48 is 'W2' and %i49 is 'H2'.
+//
+Value *PredicateOpt::makeOptTest(LoadInst *CacheInfo,
+                                 StructType *LIRestrictType, Instruction *MLX,
+                                 Instruction *MLY, Instruction *W2,
+                                 Instruction *H2, BasicBlock *HoistBlock) {
 
-  // Make a GetElementPtr, Load, ICmp sequence where 'PO' is the pointer
+  // Make a GetElementPtr and Load sequence where 'PO' is the pointer
   // operand of the GetElementPtrInst, 'Ty' is the source element type of
   // the GetElementPtrInst, 'FieldNo' is the field of the structure
-  // accessed by the GetElementPtrInst, and V is the integer value
-  // tested by the ICmp against the structure field value. Insert the
-  // created instructions before 'II'.
-  auto MakeGEPILoadICmp = [](Instruction *II, Value *PO, StructType *Ty,
-                             unsigned FieldNo, unsigned V) -> CmpInst * {
+  // accessed by the GetElementPtrInst. Insert the created instructions
+  // before 'II'.
+  auto MakeGEPILoad = [](Instruction *II, Value *PO, StructType *Ty,
+                         unsigned FieldNo) -> LoadInst * {
     SmallVector<Value *, 2> Indices;
     BasicBlock *BB = II->getParent();
     auto Int32Ty = Type::getInt32Ty(BB->getContext());
@@ -5838,21 +5985,63 @@ Value *PredicateOpt::makeOptTest(LoadInst *CacheInfo) {
     Indices.push_back(CI2);
     auto GEPI = GetElementPtrInst::Create(Ty, PO, Indices, "", II);
     Type *TyFieldNo = Ty->getTypeAtIndex((unsigned)FieldNo);
-    auto LI = new LoadInst(TyFieldNo, GEPI, "", II);
+    return new LoadInst(TyFieldNo, GEPI, "", II);
+  };
+
+  // In addition to doing what MakeGEPILoad() does above, add an ICmpInst
+  // that compares the result to 'V' and return a pointer to that ICmpInst.
+  auto MakeGEPILoadICmp = [&](Instruction *II, Value *PO, StructType *Ty,
+                              unsigned FieldNo, unsigned V) -> CmpInst * {
+    auto LI = MakeGEPILoad(II, PO, Ty, FieldNo);
     auto CI = ConstantInt::get(LI->getType(), V);
-    auto IC =
-        CmpInst::Create(Instruction::ICmp, ICmpInst::ICMP_EQ, LI, CI, "", II);
+    llvm::CmpInst::Predicate ICMPEQ = ICmpInst::ICMP_EQ;
+    auto IC = CmpInst::Create(Instruction::ICmp, ICMPEQ, LI, CI, "", II);
     return IC;
   };
 
-  auto II = CacheInfo->getNextNonDebugInstruction();
-  auto GEPI = cast<GetElementPtrInst>(CacheInfo->getPointerOperand());
-  auto GEPITy = cast<StructType>(GEPI->getSourceElementType());
-  CmpInst *IC0 = MakeGEPILoadICmp(II, CacheInfo, GEPITy, 0, 2);
-  CmpInst *IC1 = MakeGEPILoadICmp(II, CacheInfo, GEPITy, 1, 12);
-  auto BOr = BinaryOperator::CreateOr(IC0, IC1, "", II);
-  auto BNot = BinaryOperator::CreateNot(BOr, "", II);
-  return BNot;
+  auto II = HoistBlock->getTerminator();
+  CmpInst *IC0 = MakeGEPILoadICmp(II, CacheInfo, LIRestrictType, 0, 2);
+  CmpInst *IC1 = MakeGEPILoadICmp(II, CacheInfo, LIRestrictType, 1, 12);
+  auto BOr0 = BinaryOperator::CreateOr(IC0, IC1, "", II);
+  auto BNot = BinaryOperator::CreateNot(BOr0, "", II);
+  auto LI = MakeGEPILoad(II, CacheInfo, LIRestrictType, 4);
+  llvm::CmpInst::Predicate ICMPEQ = ICmpInst::ICMP_EQ;
+  auto CI1 = ConstantInt::get(LI->getType(), 1);
+  auto IC01 = CmpInst::Create(Instruction::ICmp, ICMPEQ, LI, CI1, "", II);
+  auto CI2 = ConstantInt::get(LI->getType(), 2);
+  auto IC02 = CmpInst::Create(Instruction::ICmp, ICMPEQ, LI, CI2, "", II);
+  auto BOr1 = BinaryOperator::CreateOr(IC01, IC02, "", II);
+  auto BAnd0 = BinaryOperator::CreateAnd(BNot, BOr1, "", II);
+  llvm::CmpInst::Predicate ICMPSGE = ICmpInst::ICMP_SGE;
+  auto IC03 = CmpInst::Create(Instruction::ICmp, ICMPSGE, MLX, W2, "", II);
+  auto BAnd1 = BinaryOperator::CreateAnd(BAnd0, IC03, "", II);
+  auto IC04 = CmpInst::Create(Instruction::ICmp, ICMPSGE, MLY, H2, "", II);
+  auto BAnd2 = BinaryOperator::CreateAnd(BAnd1, IC04, "", II);
+  auto BAdd0 = BinaryOperator::CreateAdd(MLX, W2, "", II);
+  auto BAdd1 = BinaryOperator::CreateAdd(MLY, H2, "", II);
+  auto LI0 = MakeGEPILoad(II, CacheInfo, LIRestrictType, 6);
+  auto LI1 = MakeGEPILoad(II, CacheInfo, LIRestrictType, 7);
+  llvm::CmpInst::Predicate ICMPSLT = ICmpInst::ICMP_SLT;
+  auto IC05 = CmpInst::Create(Instruction::ICmp, ICMPSLT, BAdd0, LI0, "", II);
+  auto BAnd3 = BinaryOperator::CreateAnd(BAnd2, IC05, "", II);
+  auto IC06 = CmpInst::Create(Instruction::ICmp, ICMPSLT, BAdd1, LI1, "", II);
+  auto BAnd4 = BinaryOperator::CreateAnd(BAnd3, IC06, "", II);
+  auto IC07 = CmpInst::Create(Instruction::ICmp, ICMPSGE, MLY, H2, "", II);
+  auto BAnd5 = BinaryOperator::CreateAnd(BAnd4, IC07, "", II);
+  auto IC08 = CmpInst::Create(Instruction::ICmp, ICMPSGE, MLX, W2, "", II);
+  auto BAnd6 = BinaryOperator::CreateAnd(BAnd5, IC08, "", II);
+  auto CI11 = ConstantInt::get(LI1->getType(), 1);
+  auto BSub0 = BinaryOperator::CreateSub(LI1, CI11, "", II);
+  auto BSub1 = BinaryOperator::CreateSub(BSub0, H2, "", II);
+  llvm::CmpInst::Predicate ICMPSLE = ICmpInst::ICMP_SLE;
+  auto IC09 = CmpInst::Create(Instruction::ICmp, ICMPSLE, MLY, BSub1, "", II);
+  auto BAnd7 = BinaryOperator::CreateAnd(BAnd6, IC09, "", II);
+  auto CI10 = ConstantInt::get(LI0->getType(), 1);
+  auto BSub2 = BinaryOperator::CreateSub(LI0, CI10, "", II);
+  auto BSub3 = BinaryOperator::CreateSub(BSub2, W2, "", II);
+  auto IC10 = CmpInst::Create(Instruction::ICmp, ICMPSLE, MLX, BSub3, "", II);
+  auto BAnd8 = BinaryOperator::CreateAnd(BAnd7, IC10, "", II);
+  return BAnd8;
 }
 
 //
@@ -5899,7 +6088,8 @@ bool PredicateOpt::doPredicateOpt() {
   BasicBlock *BBPred = NoOptCB->getParent();
   BBPred->splitBasicBlock(NoOptCB);
   BBPred->getTerminator()->eraseFromParent();
-  Value *OptTest = makeOptTest(CacheInfo);
+  Value *OptTest =
+      makeOptTest(CacheInfo, LIRestrictType, MLX, MLY, W2, H2, HoistBlock);
   makeBlocks(NoOptCB, OptCB, OptTest, BBPred);
   LLVM_DEBUG(dbgs() << "MRC Predicate: OptF: " << OptF->getName() << "\n");
   LLVM_DEBUG(dbgs() << "MRC Predicate: NoOptF: " << NoOptF->getName() << "\n");
@@ -6696,6 +6886,8 @@ static bool analysisCallsCloneFunctions(
             if (MRCPO.attemptPredicateOpt())
               MRCPO.doPredicateOpt();
           } else if (EnableManyRecCallsSplitting) {
+            // This is needed to set "prefer-function-level-region" for
+            // LoopOpt.
             PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI);
             MRCPO.findSpine();
             LLVM_DEBUG(dbgs() << "    Selected many recursive calls splitting "
