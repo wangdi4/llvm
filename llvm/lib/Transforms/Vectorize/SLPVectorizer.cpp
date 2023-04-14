@@ -16196,29 +16196,11 @@ private:
       break;
     }
     case RecurKind::FMax:
-    case RecurKind::FMin: {
-      auto *SclCondTy = CmpInst::makeCmpResultType(ScalarTy);
-      if (!AllConsts) {
-        auto *VecCondTy =
-            cast<VectorType>(CmpInst::makeCmpResultType(VectorTy));
-        VectorCost =
-            TTI->getMinMaxReductionCost(VectorTy, VecCondTy,
-                                        /*IsUnsigned=*/false, FMF, CostKind);
-      }
-      CmpInst::Predicate RdxPred = getMinMaxReductionPredicate(RdxKind);
-      ScalarCost = EvaluateScalarCost([&]() {
-        return TTI->getCmpSelInstrCost(Instruction::FCmp, ScalarTy, SclCondTy,
-                                       RdxPred, CostKind) +
-               TTI->getCmpSelInstrCost(Instruction::Select, ScalarTy, SclCondTy,
-                                       RdxPred, CostKind);
-      });
-      break;
-    }
+    case RecurKind::FMin:
     case RecurKind::SMax:
     case RecurKind::SMin:
     case RecurKind::UMax:
     case RecurKind::UMin: {
-      auto *SclCondTy = CmpInst::makeCmpResultType(ScalarTy);
       if (!AllConsts) {
         auto *VecCondTy =
             cast<VectorType>(CmpInst::makeCmpResultType(VectorTy));
@@ -16227,12 +16209,10 @@ private:
         VectorCost = TTI->getMinMaxReductionCost(VectorTy, VecCondTy,
                                                  IsUnsigned, FMF, CostKind);
       }
-      CmpInst::Predicate RdxPred = getMinMaxReductionPredicate(RdxKind);
+      Intrinsic::ID Id = getMinMaxReductionIntrinsicOp(RdxKind);
       ScalarCost = EvaluateScalarCost([&]() {
-        return TTI->getCmpSelInstrCost(Instruction::ICmp, ScalarTy, SclCondTy,
-                                       RdxPred, CostKind) +
-               TTI->getCmpSelInstrCost(Instruction::Select, ScalarTy, SclCondTy,
-                                       RdxPred, CostKind);
+        IntrinsicCostAttributes ICA(Id, ScalarTy, {ScalarTy, ScalarTy}, FMF);
+        return TTI->getIntrinsicInstrCost(ICA, CostKind);
       });
       break;
     }
