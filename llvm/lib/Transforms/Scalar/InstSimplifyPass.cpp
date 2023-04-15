@@ -108,11 +108,7 @@ struct InstSimplifyLegacyPass : public FunctionPass {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
-<<<<<<< HEAD
     AU.addRequired<TargetTransformInfoWrapperPass>(); // INTEL
-    AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
-=======
->>>>>>> c508e933270d457166c3226b53d8c81619c3e350
   }
 
   /// Remove instructions that simplify.
@@ -127,17 +123,12 @@ struct InstSimplifyLegacyPass : public FunctionPass {
     AssumptionCache *AC =
         &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
     const DataLayout &DL = F.getParent()->getDataLayout();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     const TargetTransformInfo *TTI =
         &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
     const SimplifyQuery SQ(DL, TLI, DT, AC, nullptr, true, true, TTI);
 #endif // INTEL_CUSTOMIZATION
-    return runImpl(F, SQ, ORE);
-=======
-    const SimplifyQuery SQ(DL, TLI, DT, AC);
     return runImpl(F, SQ);
->>>>>>> c508e933270d457166c3226b53d8c81619c3e350
   }
 };
 
@@ -154,11 +145,7 @@ INITIALIZE_PASS_BEGIN(InstSimplifyLegacyPass, "instsimplify",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-<<<<<<< HEAD
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass) // INTEL
-INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
-=======
->>>>>>> c508e933270d457166c3226b53d8c81619c3e350
 INITIALIZE_PASS_END(InstSimplifyLegacyPass, "instsimplify",
                     "Remove redundant instructions", false, false)
 
@@ -182,7 +169,6 @@ PreservedAnalyses InstSimplifyPass::run(Function &F,
 #endif // INTEL_CUSTOMIZATION
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   const DataLayout &DL = F.getParent()->getDataLayout();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Pass TTI to support target-specific opts.
   const SimplifyQuery SQ(
@@ -195,11 +181,7 @@ PreservedAnalyses InstSimplifyPass::run(Function &F,
     true, /*CanUseUndef */
     &TTI);
 #endif // INTEL_CUSTOMIZATION
-  bool Changed = runImpl(F, SQ, &ORE);
-=======
-  const SimplifyQuery SQ(DL, &TLI, &DT, &AC);
   bool Changed = runImpl(F, SQ);
->>>>>>> c508e933270d457166c3226b53d8c81619c3e350
   if (!Changed)
     return PreservedAnalyses::all();
 
