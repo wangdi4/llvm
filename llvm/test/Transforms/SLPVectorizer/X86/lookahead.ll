@@ -719,6 +719,7 @@ define i1 @ExtractIdxNotConstantInt2(float %a, float %b, float %c, <4 x float> %
 
 
 define i1 @foo(float %a, float %b, float %c, <4 x float> %vec, i64 %idx2) {
+<<<<<<< HEAD
 ; SSE-LABEL: @foo(
 ; SSE-NEXT:    [[VECEXT_I291_I166:%.*]] = extractelement <4 x float> [[VEC:%.*]], i64 0
 ; SSE-NEXT:    [[SUB14_I167:%.*]] = fsub float undef, [[VECEXT_I291_I166]]
@@ -765,6 +766,24 @@ define i1 @foo(float %a, float %b, float %c, <4 x float> %vec, i64 %idx2) {
 ; XMAIN-NEXT:    [[CMP_I185:%.*]] = fcmp ogt float [[MUL123_I184]], 0.000000e+00
 ; XMAIN-NEXT:    ret i1 [[CMP_I185]]
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-LABEL: @foo(
+; CHECK-NEXT:    [[VECEXT_I291_I166:%.*]] = extractelement <4 x float> [[VEC:%.*]], i64 0
+; CHECK-NEXT:    [[SUB14_I167:%.*]] = fsub float undef, [[VECEXT_I291_I166]]
+; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x float> poison, float [[A:%.*]], i32 0
+; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x float> [[TMP1]], float [[C:%.*]], i32 1
+; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <4 x float> [[VEC]], <4 x float> poison, <2 x i32> <i32 undef, i32 1>
+; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x float> [[TMP3]], float [[SUB14_I167]], i32 0
+; CHECK-NEXT:    [[TMP5:%.*]] = fmul <2 x float> [[TMP2]], [[TMP4]]
+; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <2 x float> <float poison, float 3.000000e+01>, float [[B:%.*]], i32 0
+; CHECK-NEXT:    [[TMP7:%.*]] = fsub <2 x float> [[TMP5]], [[TMP6]]
+; CHECK-NEXT:    [[TMP8:%.*]] = fadd <2 x float> [[TMP7]], <float 1.000000e+01, float 2.000000e+00>
+; CHECK-NEXT:    [[TMP9:%.*]] = extractelement <2 x float> [[TMP8]], i32 0
+; CHECK-NEXT:    [[TMP10:%.*]] = extractelement <2 x float> [[TMP8]], i32 1
+; CHECK-NEXT:    [[MUL123_I184:%.*]] = fmul float [[TMP9]], [[TMP10]]
+; CHECK-NEXT:    [[CMP_I185:%.*]] = fcmp ogt float [[MUL123_I184]], 0.000000e+00
+; CHECK-NEXT:    ret i1 [[CMP_I185]]
+>>>>>>> f82eb7e066f322a231627383fc80522d98ce6181
 ;
   %vecext.i291.i166 = extractelement <4 x float> %vec, i64 0
   %sub14.i167 = fsub float undef, %vecext.i291.i166
