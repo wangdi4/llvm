@@ -28,7 +28,6 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -48,8 +47,7 @@ using namespace llvm;
 
 STATISTIC(NumSimplified, "Number of redundant instructions removed");
 
-static bool runImpl(Function &F, const SimplifyQuery &SQ,
-                    OptimizationRemarkEmitter *ORE) {
+static bool runImpl(Function &F, const SimplifyQuery &SQ) {
   SmallPtrSet<const Instruction *, 8> S1, S2, *ToSimplify = &S1, *Next = &S2;
   bool Changed = false;
 
@@ -73,7 +71,7 @@ static bool runImpl(Function &F, const SimplifyQuery &SQ,
           DeadInstsInBB.push_back(&I);
           Changed = true;
         } else if (!I.use_empty()) {
-          if (Value *V = simplifyInstruction(&I, SQ, ORE)) {
+          if (Value *V = simplifyInstruction(&I, SQ)) {
             // Mark all uses for resimplification next time round the loop.
             for (User *U : I.users())
               Next->insert(cast<Instruction>(U));
@@ -110,8 +108,11 @@ struct InstSimplifyLegacyPass : public FunctionPass {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
+<<<<<<< HEAD
     AU.addRequired<TargetTransformInfoWrapperPass>(); // INTEL
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
+=======
+>>>>>>> c508e933270d457166c3226b53d8c81619c3e350
   }
 
   /// Remove instructions that simplify.
@@ -125,15 +126,18 @@ struct InstSimplifyLegacyPass : public FunctionPass {
         &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     AssumptionCache *AC =
         &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-    OptimizationRemarkEmitter *ORE =
-        &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
     const DataLayout &DL = F.getParent()->getDataLayout();
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     const TargetTransformInfo *TTI =
         &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
     const SimplifyQuery SQ(DL, TLI, DT, AC, nullptr, true, true, TTI);
 #endif // INTEL_CUSTOMIZATION
     return runImpl(F, SQ, ORE);
+=======
+    const SimplifyQuery SQ(DL, TLI, DT, AC);
+    return runImpl(F, SQ);
+>>>>>>> c508e933270d457166c3226b53d8c81619c3e350
   }
 };
 
@@ -150,8 +154,11 @@ INITIALIZE_PASS_BEGIN(InstSimplifyLegacyPass, "instsimplify",
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+<<<<<<< HEAD
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass) // INTEL
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
+=======
+>>>>>>> c508e933270d457166c3226b53d8c81619c3e350
 INITIALIZE_PASS_END(InstSimplifyLegacyPass, "instsimplify",
                     "Remove redundant instructions", false, false)
 
@@ -174,8 +181,8 @@ PreservedAnalyses InstSimplifyPass::run(Function &F,
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
 #endif // INTEL_CUSTOMIZATION
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
-  auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
   const DataLayout &DL = F.getParent()->getDataLayout();
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Pass TTI to support target-specific opts.
   const SimplifyQuery SQ(
@@ -189,6 +196,10 @@ PreservedAnalyses InstSimplifyPass::run(Function &F,
     &TTI);
 #endif // INTEL_CUSTOMIZATION
   bool Changed = runImpl(F, SQ, &ORE);
+=======
+  const SimplifyQuery SQ(DL, &TLI, &DT, &AC);
+  bool Changed = runImpl(F, SQ);
+>>>>>>> c508e933270d457166c3226b53d8c81619c3e350
   if (!Changed)
     return PreservedAnalyses::all();
 
