@@ -8775,9 +8775,17 @@ class BoUpSLP::ShuffleCostEstimator : public BaseShuffleAnalysis {
               !VectorizedLoads.count(Slice.back()) && allSameBlock(Slice)) {
             SmallVector<Value *> PointerOps;
             OrdersType CurrentOrder;
+#if INTEL_CUSTOMIZATION
+            // Each consecutive group is represented by starting index, load
+            // size (number of consecutive scalar elements) and re-ordering
+            // information (if any).
+            SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1>
+                LoadGroups;
             LoadsState LS =
                 canVectorizeLoads(Slice, Slice.front(), TTI, *R.DL, *R.SE,
-                                  *R.LI, *R.TLI, CurrentOrder, PointerOps);
+                                  *R.LI, *R.TLI, CurrentOrder, PointerOps,
+                                  LoadGroups);
+#endif // INTEL_CUSTOMIZATION
             switch (LS) {
             case LoadsState::Vectorize:
             case LoadsState::ScatterVectorize:
@@ -8793,6 +8801,9 @@ class BoUpSLP::ShuffleCostEstimator : public BaseShuffleAnalysis {
               if (Cnt == StartIdx)
                 StartIdx += VF;
               break;
+#if INTEL_CUSTOMIZATION
+            case LoadsState::SplitLoads:
+#endif // INTEL_CUSTOMIZATION
             case LoadsState::Gather:
               break;
             }
@@ -9110,112 +9121,8 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
     if (NeedToShuffleReuses)
       ReuseShuffleCost = TTI->getShuffleCost(
           TTI::SK_PermuteSingleSrc, FinalVecTy, E->ReuseShuffleIndices);
-<<<<<<< HEAD
-    // Improve gather cost for gather of loads, if we can group some of the
-    // loads into vector loads.
-    if (VL.size() > 2 && E->getOpcode() == Instruction::Load &&
-        !E->isAltShuffle()) {
-      BoUpSLP::ValueSet VectorizedLoads;
-      unsigned StartIdx = 0;
-      unsigned VF = VL.size() / 2;
-      unsigned VectorizedCnt = 0;
-      unsigned ScatterVectorizeCnt = 0;
-      const unsigned Sz = DL->getTypeSizeInBits(E->getMainOp()->getType());
-      for (unsigned MinVF = getMinVF(2 * Sz); VF >= MinVF; VF /= 2) {
-        for (unsigned Cnt = StartIdx, End = VL.size(); Cnt + VF <= End;
-             Cnt += VF) {
-          ArrayRef<Value *> Slice = VL.slice(Cnt, VF);
-          if (!VectorizedLoads.count(Slice.front()) &&
-              !VectorizedLoads.count(Slice.back()) && allSameBlock(Slice)) {
-            SmallVector<Value *> PointerOps;
-            OrdersType CurrentOrder;
-#if INTEL_CUSTOMIZATION
-            // Each consecutive group is represented by starting index, load
-            // size (number of consecutive scalar elements) and re-ordering
-            // information (if any).
-            SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1>
-                LoadGroups;
-            LoadsState LS =
-                canVectorizeLoads(Slice, Slice.front(), *TTI, *DL, *SE, *LI,
-                                  *TLI, CurrentOrder, PointerOps, LoadGroups);
-#endif // INTEL_CUSTOMIZATION
-            switch (LS) {
-            case LoadsState::Vectorize:
-            case LoadsState::ScatterVectorize:
-              // Mark the vectorized loads so that we don't vectorize them
-              // again.
-              if (LS == LoadsState::Vectorize)
-                ++VectorizedCnt;
-              else
-                ++ScatterVectorizeCnt;
-              VectorizedLoads.insert(Slice.begin(), Slice.end());
-              // If we vectorized initial block, no need to try to vectorize it
-              // again.
-              if (Cnt == StartIdx)
-                StartIdx += VF;
-              break;
-#if INTEL_CUSTOMIZATION
-            case LoadsState::SplitLoads:
-#endif // INTEL_CUSTOMIZATION
-            case LoadsState::Gather:
-              break;
-            }
-          }
-        }
-        // Check if the whole array was vectorized already - exit.
-        if (StartIdx >= VL.size())
-          break;
-        // Found vectorizable parts - exit.
-        if (!VectorizedLoads.empty())
-          break;
-      }
-      if (!VectorizedLoads.empty()) {
-        InstructionCost GatherCost = 0;
-        unsigned NumParts = TTI->getNumberOfParts(VecTy);
-        bool NeedInsertSubvectorAnalysis =
-            !NumParts || (VL.size() / VF) > NumParts;
-        // Get the cost for gathered loads.
-        for (unsigned I = 0, End = VL.size(); I < End; I += VF) {
-          if (VectorizedLoads.contains(VL[I]))
-            continue;
-          GatherCost += getGatherCost(VL.slice(I, VF));
-        }
-        // The cost for vectorized loads.
-        InstructionCost ScalarsCost = 0;
-        for (Value *V : VectorizedLoads) {
-          auto *LI = cast<LoadInst>(V);
-          ScalarsCost +=
-              TTI->getMemoryOpCost(Instruction::Load, LI->getType(),
-                                   LI->getAlign(), LI->getPointerAddressSpace(),
-                                   CostKind, TTI::OperandValueInfo(), LI);
-        }
-        auto *LI = cast<LoadInst>(E->getMainOp());
-        auto *LoadTy = FixedVectorType::get(LI->getType(), VF);
-        Align Alignment = LI->getAlign();
-        GatherCost +=
-            VectorizedCnt *
-            TTI->getMemoryOpCost(Instruction::Load, LoadTy, Alignment,
-                                 LI->getPointerAddressSpace(), CostKind,
-                                 TTI::OperandValueInfo(), LI);
-        GatherCost += ScatterVectorizeCnt *
-                      TTI->getGatherScatterOpCost(
-                          Instruction::Load, LoadTy, LI->getPointerOperand(),
-                          /*VariableMask=*/false, Alignment, CostKind, LI);
-        if (NeedInsertSubvectorAnalysis) {
-          // Add the cost for the subvectors insert.
-          for (int I = VF, E = VL.size(); I < E; I += VF)
-            GatherCost +=
-                TTI->getShuffleCost(TTI::SK_InsertSubvector, VecTy,
-                                    std::nullopt, CostKind, I, LoadTy);
-        }
-        return ReuseShuffleCost + GatherCost - ScalarsCost;
-      }
-    }
-    return ReuseShuffleCost + getGatherCost(VL);
-=======
     Estimator.gather(GatheredScalars);
     return ReuseShuffleCost + Estimator.finalize();
->>>>>>> f82eb7e066f322a231627383fc80522d98ce6181
   }
   InstructionCost CommonCost = 0;
   SmallVector<int> Mask;
