@@ -2820,6 +2820,25 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  if (const FunctionDecl *FD = dyn_cast_if_present<FunctionDecl>(CurCodeDecl)) {
+    if (CGM.getLangOpts().OpenMPLateOutline &&
+        FD->hasAttr<OMPDeclareSimdDeclAttr>()) {
+      const PointerType *PT = Ty->getAs<PointerType>();
+      const ReferenceType *RT = Ty->getAs<ReferenceType>();
+      if (PT || RT) {
+        QualType PointeeTy = PT ? PT->getPointeeType() : RT->getPointeeType();
+        Builder.CreateCall(
+            CGM.getIntrinsic(llvm::Intrinsic::intel_directive_elementsize),
+            {Builder.CreatePointerBitCastOrAddrSpaceCast(ArgVal, Int8PtrTy),
+             llvm::ConstantInt::get(Int64Ty, CGM.getContext()
+                                                 .getTypeSizeInChars(PointeeTy)
+                                                 .getQuantity())});
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (D.hasAttr<AnnotateAttr>())
     EmitVarAnnotations(&D, DeclPtr.getPointer());
 
