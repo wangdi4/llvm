@@ -4812,7 +4812,7 @@ public:
   // Find 'WrapperCB' and 'BigLoopCB'.
   bool findSpine();
   // Return 'true' if the desired predicate opt should be attempted.
-  bool attemptPredicateOpt();
+  bool shouldAttemptPredicateOpt();
   // Attempt the desired predicate opt. Return 'true' if it is performed.
   bool doPredicateOpt();
 
@@ -4897,6 +4897,9 @@ private:
                      Instruction *H2, BasicBlock *HoistBlock);
   // Return Function with cold code extracted from 'OptBaseF'.
   Function *extractColdCode(Function *OptBaseF);
+  // Return the number of branches simplified, using the values of
+  // cache_info fields that are specialized in the optimized version.
+  unsigned simplifyCacheInfoBranches(LoadInst *LIRestrict);
 };
 
 //
@@ -5362,7 +5365,8 @@ bool PredicateOpt::findHoistableFields(Function *F, Value *V,
     }
     dbgs() << "}\n";
   });
-  return true;
+  // Fields 0 (storage_class), 1 (colorspace), and 3 (type) must be hoistable.
+  return HoistYes.count(0) && HoistYes.count(1) && HoistYes.count(3);
 }
 
 //
@@ -5737,7 +5741,7 @@ Instruction *PredicateOpt::findLShr1User(Argument *Arg) {
 // NOTE: At this point, we are just checking if the hot path can be identified.
 // More code will be added to check additional conditions.
 //
-bool PredicateOpt::attemptPredicateOpt() {
+bool PredicateOpt::shouldAttemptPredicateOpt() {
   if (!findSpine()) {
     LLVM_DEBUG(dbgs() << "MRC Predicate Opt: Could not find spine\n");
     return false;
@@ -6045,6 +6049,222 @@ Value *PredicateOpt::makeOptTest(LoadInst *CacheInfo,
 }
 
 //
+// Simplify branches in the optimized base function using predicates
+// involving field values of 'LIRestrict' (i.e. cache_info). Return
+// the number of branches simplifed.
+//
+unsigned PredicateOpt::simplifyCacheInfoBranches(LoadInst *LIRestrict) {
+
+  // Return 'true' if 'GEPI' is a simple three operand GetElementPtrInst
+  // with pointer operand 'PO', first operand 0, and second operand a
+  // constant 'Offset'. Set the value of 'Offset' in this case.
+  auto IsSimpleGEPI = [](GetElementPtrInst *GEPI, Value *PO,
+                         unsigned &Offset) -> bool {
+    if (GEPI->getNumOperands() != 3 || GEPI->getPointerOperand() != PO)
+      return false;
+    auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+    if (!CI1 || !CI1->isZero())
+      return false;
+    auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2));
+    if (!CI2)
+      return false;
+    Offset = CI2->getZExtValue();
+    return true;
+  };
+
+  // Match a basic block which has the form:
+  //    'GEPI' = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //        ptr 'PO', i64 0, i32 'Offset'
+  //    %198 = load i32, ptr 'GEPI', align 8
+  //    %199 = icmp eq i32 %198, 'V'
+  //    br i1 %199, label 'BB0', label 'BB1'
+  // and return 'true' if a match is found. In this case, set 'BB0' and
+  // 'BB1'.
+  auto MatchBB = [&IsSimpleGEPI](GetElementPtrInst *GEPI, Value *PO,
+                                 unsigned Offset, unsigned V, BasicBlock *&BB0,
+                                 BasicBlock *&BB1) -> bool {
+    BasicBlock *BB = GEPI->getParent();
+    if (GEPI != &BB->front())
+      return false;
+    BasicBlock *BBP = BB->getSinglePredecessor();
+    if (!BBP)
+      return false;
+    unsigned MyOffset = 0;
+    if (!IsSimpleGEPI(GEPI, PO, MyOffset) || MyOffset != Offset)
+      return false;
+    auto LI = dyn_cast_or_null<LoadInst>(GEPI->getNextNonDebugInstruction());
+    if (!LI || LI->getPointerOperand() != GEPI)
+      return false;
+    auto IC = dyn_cast_or_null<ICmpInst>(LI->getNextNonDebugInstruction());
+    if (!IC || IC->getPredicate() != ICmpInst::ICMP_EQ ||
+        IC->getOperand(0) != LI)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(IC->getOperand(1));
+    if (!CI || CI->getZExtValue() != V)
+      return false;
+    auto BI = dyn_cast_or_null<BranchInst>(IC->getNextNonDebugInstruction());
+    if (!BI || BI->isUnconditional())
+      return false;
+    if (BI->getNextNonDebugInstruction())
+      return false;
+    if (BI->getCondition() != IC)
+      return false;
+    BB0 = BI->getSuccessor(0);
+    BB1 = BI->getSuccessor(1);
+    return true;
+  };
+
+  // Match the pattern below, with %197 as 'GEPI'.
+  //   br i1 %195, label %209, label %196
+  // 196:                                              ; preds = %193
+  //  %197 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //      ptr %12, i64 0, i32 0
+  //  %198 = load i32, ptr %197, align 8
+  //  %199 = icmp eq i32 %198, 2
+  //  br i1 %199, label %204, label %200
+  // 200:                                              ; preds = %196
+  //  %201 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //      ptr %12, i64 0, i32 1
+  //  %202 = load i32, ptr %201, align 4
+  //  %203 = icmp eq i32 %202, 12
+  //  br i1 %203, label %204, label %207
+  // 204:                                              ; preds = %200, %196
+  // If a match is found, return '1', otherwise return '0'. If we return '1',
+  // change:
+  //  br i1 %195, label %209, label %196
+  // to
+  //  br i1 %195, label %209, label %204
+  //
+  // This simplifies the code of the optimized base function using the
+  // predicate:
+  //   cache_info->storage_class == PseudoClass ||
+  //     cache_info->colorspace == CMYKColorspace
+  // where 'storage_class' is field 0. 'colorspace' is field 1,
+  // PseudoClass  is 2 and CMYKColorspace is 12.
+  // Return the number of branches that were simplified.
+  auto SimplifyCacheInfo01 = [&MatchBB](GetElementPtrInst *GEPI) -> unsigned {
+    unsigned RVCount = 0;
+    BasicBlock *BB0 = GEPI->getParent();
+    Value *PO = GEPI->getPointerOperand();
+    BasicBlock *BB1 = nullptr;
+    BasicBlock *BB2 = nullptr;
+    if (!MatchBB(GEPI, PO, 0, 2, BB1, BB2))
+      return 0;
+    auto GEPI0 = dyn_cast<GetElementPtrInst>(&BB2->front());
+    if (!GEPI0)
+      return 0;
+    BasicBlock *BB3 = nullptr;
+    BasicBlock *BB4 = nullptr;
+    if (!MatchBB(GEPI0, PO, 1, 12, BB3, BB4))
+      return 0;
+    if (BB1 != BB3)
+      return 0;
+    BasicBlock *BBP = BB0->getSinglePredecessor();
+    assert(BBP && "Expecting non-nullptr basic block predecessor");
+    auto BI = dyn_cast<BranchInst>(BBP->getTerminator());
+    if (!BI)
+      return 0;
+    for (unsigned I = 0; I < BI->getNumSuccessors(); ++I)
+      if (BI->getSuccessor(I) == BB0) {
+        LLVM_DEBUG({
+          dbgs() << "MRC Predicate: CHANGE SUCCESSOR: ";
+          BI->dump();
+        });
+        BI->setSuccessor(I, BB4);
+        RVCount++;
+      }
+    return RVCount;
+  };
+
+  // Match a sequence of the form 1:
+  //   'LI' = load i32, ptr %13, align 8
+  //   'IC' = icmp eq i32 'LI' , 'V'
+  //    br i1 'IC', label %209, label %16
+  // If 'V' is 1 or 2, change the branch instruction to:
+  //    br i1 false, label %209, label %16
+  // Or match a sequence of the form 2:
+  //    'LI' = load i32, ptr %13, align 8
+  //    'IC' = icmp eq i32 'LI', 1
+  //    br i1 'IC', label %35, label %32
+  //  32:
+  //     %33 = icmp ne i32 %30, 2
+  //     %34 = or i1 %33, %25
+  // In which case, we change the last instruction to:
+  //     %34 = or i1 %33, true
+  // Return the number of branches that were simplified.
+  auto TestIC = [](LoadInst *LI, ICmpInst *IC) -> unsigned {
+    auto CI = dyn_cast<ConstantInt>(IC->getOperand(1));
+    if (!CI)
+      return 0;
+    if (CI->getZExtValue() != 1 && CI->getZExtValue() != 2) {
+      auto CF = ConstantInt::getFalse(IC->getContext());
+      LLVM_DEBUG({
+        dbgs() << "MRC Predicate: TO FALSE: ";
+        IC->dump();
+      });
+      IC->replaceAllUsesWith(CF);
+      return 1;
+    }
+    if (CI->getZExtValue() != 1)
+      return 0;
+    unsigned RVCount = 0;
+    for (User *U3 : IC->users()) {
+      auto BI = dyn_cast<BranchInst>(U3);
+      if (!BI || BI->getNumSuccessors() != 2)
+        continue;
+      auto &I = BI->getSuccessor(1)->front();
+      if (auto IC0 = dyn_cast<ICmpInst>(&I))
+        if (IC0->getPredicate() == ICmpInst::ICMP_NE)
+          if (IC0->getOperand(0) == LI)
+            if (auto C2 = dyn_cast<ConstantInt>(IC0->getOperand(1)))
+              if (C2->getZExtValue() == 2) {
+                auto CT = ConstantInt::getTrue(IC->getContext());
+                LLVM_DEBUG({
+                  dbgs() << "MRC Predicate: TO TRUE: ";
+                  IC0->dump();
+                });
+                IC0->replaceAllUsesWith(CT);
+                RVCount++;
+              }
+    }
+    return RVCount;
+  };
+
+  // This simplifies the code of the optimized base function using the
+  // predicate:
+  // (cache_info->type != MemoryCache) && (cache_info->type != MapCache)
+  // where 'type' is field 3, 'MemoryCache' is 1, and 'MapCache' is 2.
+  // See 'TestIC' for specific simplifications that can be done.
+  // Return the number of branches that were simplified.
+  auto SimplifyCacheInfo3 = [&TestIC](GetElementPtrInst *GEPI) -> unsigned {
+    unsigned RVCount = 0;
+    for (User *U0 : GEPI->users())
+      if (auto LI = dyn_cast<LoadInst>(U0))
+        for (User *U1 : LI->users())
+          if (auto IC = dyn_cast<ICmpInst>(U1))
+            if (IC->getPredicate() == ICmpInst::ICMP_EQ)
+              if (IC->getOperand(0) == LI)
+                RVCount += TestIC(LI, IC);
+    return RVCount;
+  };
+
+  unsigned RVCount = 0;
+  unsigned Offset = 0;
+  for (User *U : LIRestrict->users()) {
+    auto GEPI = dyn_cast<GetElementPtrInst>(U);
+    if (!GEPI)
+      continue;
+    if (!IsSimpleGEPI(GEPI, LIRestrict, Offset))
+      continue;
+    if (Offset == 0)
+      RVCount += SimplifyCacheInfo01(GEPI);
+    else if (Offset == 3)
+      RVCount += SimplifyCacheInfo3(GEPI);
+  }
+  return RVCount;
+}
+
+//
 // Attempt to perform the predicate opt. Return 'true' if it was possible.
 // NOTE: Right now we simply emit a trace indicating the key elements
 // on the hot path, and the extracted and enclosing functions.
@@ -6101,6 +6321,7 @@ bool PredicateOpt::doPredicateOpt() {
                     << "\n");
   CallBase *OptBaseCB = findUniqueCB(OptWrapperF, BaseF);
   Function *OptBaseF = IPCloneFunction(BaseF, VMap);
+  LIRestrict = cast<LoadInst>(VMap[LIRestrict]);
   setCalledFunction(OptBaseCB, OptBaseF);
   LLVM_DEBUG(dbgs() << "MRC Predicate: OptBaseF : " << OptBaseF->getName()
                     << "\n");
@@ -6109,6 +6330,11 @@ bool PredicateOpt::doPredicateOpt() {
     return false;
   LLVM_DEBUG(dbgs() << "MRC Predicate: ColdF : " << OptColdF->getName()
                     << "\n");
+  unsigned RVCount = simplifyCacheInfoBranches(LIRestrict);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: ColdF : " << RVCount
+                    << " Branches Simplified\n");
+  if (RVCount < 4)
+    return false;
   return true;
 }
 
@@ -6883,7 +7109,7 @@ static bool analysisCallsCloneFunctions(
             LLVM_DEBUG(dbgs() << "    Selected many recursive calls "
                               << "predicate opt\n");
             PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI);
-            if (MRCPO.attemptPredicateOpt())
+            if (MRCPO.shouldAttemptPredicateOpt())
               MRCPO.doPredicateOpt();
           } else if (EnableManyRecCallsSplitting) {
             // This is needed to set "prefer-function-level-region" for
