@@ -43,16 +43,6 @@ namespace Intel {
 namespace OpenCL {
 namespace Utils {
 
-/**
- * Initialize the shared pointers mechanism (needed for debug mode only)
- */
-void InitSharedPtrs();
-
-/**
- * Finalize the shared pointers mechanism (needed for debug mode only)
- */
-void FiniSharedPts();
-
 #ifdef _DEBUG
 /**
  * Dump current state
