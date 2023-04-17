@@ -30,7 +30,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar.h"
-#include "llvm-c/Initialization.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -136,47 +135,3 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopSimplifyCFGLegacyPassPass(Registry);
   initializeIVSplitLegacyPassPass(Registry); // INTEL
 }
-
-void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
-  initializeScalarOpts(*unwrap(R));
-}
-
-#if INTEL_CUSTOMIZATION
-void LLVMAddLoopUnswitchPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createLoopUnswitchPass());
-}
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-void LLVMAddAddSubReassociatePass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createAddSubReassociatePass());
-}
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-void LLVMAddForcedCMOVGenerationPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createForcedCMOVGenerationPass());
-}
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-void LLVMAddTransformSinAndCosCallsPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createTransformSinAndCosCallsPass());
-}
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-void LLVMAddStdContainerAAPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createStdContainerAAWrapperPass());
-}
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-void LLVMAddLowerSubscriptIntrinsicPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createLowerSubscriptIntrinsicLegacyPass());
-}
-
-void LLVMAddConvertGEPToSubscriptIntrinsicPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createConvertGEPToSubscriptIntrinsicLegacyPass());
-}
-#endif // INTEL_CUSTOMIZATION
