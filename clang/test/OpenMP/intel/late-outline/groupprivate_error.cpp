@@ -36,6 +36,19 @@ void bar() {
   y = 0; // expected-warning {{groupprivate directive for variable 'y' is ignored for x86-64/host compilation}}
 }
 #pragma omp end declare variant
+
+void yoo() {
+  #pragma omp parallel
+  {
+    static int local_sum;
+    // expected-note@+1 2{{'#pragma omp groupprivate' is specified here}}
+    #pragma omp groupprivate(local_sum)
+    // expected-warning@+1 2{{groupprivate directive for variable 'local_sum' is ignored for x86-64/host compilation}}
+    #pragma omp parallel reduction( +:local_sum ) // expected-no-error
+    for ( int i = 0; i < 10; i++ );
+  }
+}
+
 #else
 namespace {
   int ooo;

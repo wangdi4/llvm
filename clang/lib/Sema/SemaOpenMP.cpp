@@ -21462,7 +21462,11 @@ static bool actOnOMPReductionKindClause(
           S.Diag(DVar.RefExpr->getExprLoc(), diag::note_omp_referenced);
         continue;
       }
+#if INTEL_COLLAB
+      if (DVar.CKind != OMPC_unknown && DVar.CKind != OMPC_groupprivate) {
+#else  // INTEL_COLLAB
       if (DVar.CKind != OMPC_unknown) {
+#endif // INTEL_COLLAB
         S.Diag(ELoc, diag::err_omp_wrong_dsa)
             << getOpenMPClauseName(DVar.CKind)
             << getOpenMPClauseName(OMPC_reduction);
