@@ -1,21 +1,4 @@
 //===-- ObjCARC.cpp -------------------------------------------------------===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2022 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -30,37 +13,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "ObjCARC.h"
-#include "llvm-c/Initialization.h"  // INTEL
 #include "llvm/Analysis/ObjCARCUtil.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/InitializePasses.h"  // INTEL
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-
-#if INTEL_CUSTOMIZATION
-namespace llvm {
-  class PassRegistry;
-}
-#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using namespace llvm::objcarc;
 
-#if INTEL_CUSTOMIZATION
-/// initializeObjCARCOptsPasses - Initialize all passes linked into the
-/// ObjCARCOpts library.
-void llvm::initializeObjCARCOpts(PassRegistry &Registry) {
-  initializeObjCARCAAWrapperPassPass(Registry);
-  initializeObjCARCAPElimPass(Registry);
-  initializeObjCARCExpandPass(Registry);
-  initializeObjCARCContractLegacyPassPass(Registry);
-  initializeObjCARCOptLegacyPassPass(Registry);
-}
-
-void LLVMInitializeObjCARCOpts(LLVMPassRegistryRef R) {
-  initializeObjCARCOpts(*unwrap(R));
-}
-#endif // INTEL_CUSTOMIZATION
 
 CallInst *objcarc::createCallInstWithColors(
     FunctionCallee Func, ArrayRef<Value *> Args, const Twine &NameStr,

@@ -441,41 +441,6 @@ class Context(LLVMObject):
 
 def register_library(library):
     # Initialization/Shutdown declarations.
-<<<<<<< HEAD
-    library.LLVMInitializeCore.argtypes = [PassRegistry]
-    library.LLVMInitializeCore.restype = None
-
-    library.LLVMInitializeTransformUtils.argtypes = [PassRegistry]
-    library.LLVMInitializeTransformUtils.restype = None
-
-    library.LLVMInitializeScalarOpts.argtypes = [PassRegistry]
-    library.LLVMInitializeScalarOpts.restype = None
-
-#if INTEL_CUSTOMIZATION
-    library.LLVMInitializeObjCARCOpts.argtypes = [PassRegistry]
-    library.LLVMInitializeObjCARCOpts.restype = None
-#endif // INTEL_CUSTOMIZATION
-
-    library.LLVMInitializeVectorization.argtypes = [PassRegistry]
-    library.LLVMInitializeVectorization.restype = None
-
-    library.LLVMInitializeInstCombine.argtypes = [PassRegistry]
-    library.LLVMInitializeInstCombine.restype = None
-
-    library.LLVMInitializeIPO.argtypes = [PassRegistry]
-    library.LLVMInitializeIPO.restype = None
-
-    library.LLVMInitializeAnalysis.argtypes = [PassRegistry]
-    library.LLVMInitializeAnalysis.restype = None
-
-    library.LLVMInitializeCodeGen.argtypes = [PassRegistry]
-    library.LLVMInitializeCodeGen.restype = None
-
-    library.LLVMInitializeTarget.argtypes = [PassRegistry]
-    library.LLVMInitializeTarget.restype = None
-
-=======
->>>>>>> 62ef97e0631ff41ad53436477cecc7d3eb244d1b
     library.LLVMShutdown.argtypes = []
     library.LLVMShutdown.restype = None
 

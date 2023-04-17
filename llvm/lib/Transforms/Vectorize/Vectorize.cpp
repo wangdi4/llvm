@@ -30,11 +30,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Vectorize.h"
-<<<<<<< HEAD
-#include "llvm-c/Initialization.h"
 #include "llvm/IR/LegacyPassManager.h" // INTEL
-=======
->>>>>>> 62ef97e0631ff41ad53436477cecc7d3eb244d1b
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 
@@ -53,36 +49,3 @@ void llvm::initializeVectorization(PassRegistry &Registry) {
   initializeVPlanFunctionVectorizerLegacyPassPass(Registry);
 #endif
 }
-<<<<<<< HEAD
-
-void LLVMInitializeVectorization(LLVMPassRegistryRef R) {
-  initializeVectorization(*unwrap(R));
-}
-
-#if INTEL_CUSTOMIZATION
-void LLVMAddLoadCoalescingPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createLoadCoalescingPass());
-}
-
-void LLVMAddMathLibraryFunctionReplacementPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createMathLibraryFunctionsReplacementPass());
-}
-
-void LLVMAddVPlanPragmaOmpOrderedSimdExtractPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createVPlanPragmaOmpOrderedSimdExtractPass());
-}
-
-void LLVMAddVPlanPragmaOmpSimdIfPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createVPlanPragmaOmpSimdIfPass());
-}
-
-void LLVMAddVPlanDriverPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createVPlanDriverPass());
-}
-
-void LLVMAddVPlanDriverHIRPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createVPlanDriverHIRPass(false));
-}
-#endif
-=======
->>>>>>> 62ef97e0631ff41ad53436477cecc7d3eb244d1b
