@@ -22,12 +22,12 @@
 ;   end program
 
 ; Check for the deflaration of f90_dv_init function
-; CHECK: declare spir_func i64 @_f90_dope_vector_init(i8 addrspace(4)*, i8 addrspace(4)*)
+; CHECK: declare spir_func i64 @_f90_dope_vector_init2(i8 addrspace(4)*, i8 addrspace(4)*)
 
 ; Check for allocation and initialization of local DV inside outlined function
 ; CHECK: define weak dso_local spir_kernel void @__omp_offloading{{.+}}MAIN__{{.+}}(%"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(1)* {{.+}})
 ; CHECK: [[MAIN_A_PRIV:%[^ ]+]] = alloca %"QNCA_a0$i32 addrspace(4)*$rank1$"
-; CHECK: [[DV_SIZE:%[^ ]+]] = call spir_func i64 @_f90_dope_vector_init(i8 addrspace(4)* {{[^ ,]+}}, i8 addrspace(4)* %{{[^ ,]+}})
+; CHECK: [[DV_SIZE:%[^ ]+]] = call spir_func i64 @_f90_dope_vector_init2(i8 addrspace(4)* {{[^ ,]+}}, i8 addrspace(4)* %{{[^ ,]+}})
 ; CHECK: [[NUM_ELEMENTS:%[^ ]+]] = udiv i64 [[DV_SIZE]], 4
 ; CHECK: [[MAIN_A_PRIV_ADDR0:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$"* {{[^ ]+}}, i32 0, i32 0
 ; CHECK: [[MAIN_A_PRIV_DATA:%[^ ]+]] = alloca i32, i64 [[NUM_ELEMENTS]]

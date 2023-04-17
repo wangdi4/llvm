@@ -48,7 +48,7 @@ alloca:
 ; CHECK: [[PRIV_DV:%[^ ]+]] = alloca { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
 
 ; Check that the dope vector init call is emitted
-; CHECK: [[SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init(i8* %{{[^ ]+}}, i8* %{{[^ ]+}})
+; CHECK: [[SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init2(i8* %{{[^ ]+}}, i8* %{{[^ ]+}})
 ; CHECK: [[NUM_ELEMENTS:%[^ ]+]] = udiv i64 [[SIZE]], 2
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.

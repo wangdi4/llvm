@@ -40,7 +40,9 @@ alloca:
 
 ; Check for call to f90_dv_size to get array size in bytes.
 ; CHECK: [[FOO_A_CAST:%[^ ]+]] = bitcast { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %"foo_$A" to i8*
-; CHECK: [[ARR_SIZE_IN_BYTES:%[^ ]+]] = call i64 @_f90_dope_vector_size(i8* [[FOO_A_CAST]])
+; CHECK: [[ARR_SIZE_IF_ALLOCATED:%[^ ]+]] = call i64 @_f90_dope_vector_size(i8* [[FOO_A_CAST]])
+; CHECK: [[IS_ALLOCATED:%[^ ]+]] = icmp slt i64 [[ARR_SIZE_IF_ALLOCATED]], 0
+; CHECK: [[ARR_SIZE_IN_BYTES:%[^ ]+]] = select i1 [[IS_ALLOCATED]], i64 0, i64 [[ARR_SIZE_IF_ALLOCATED]]
 
 ; Check that we call _task_alloc with total size of task_t_with_privates + arr_size
 ; CHECK: [[TOTAL_SIZE:%[^ ]+]] = add i64 208, [[ARR_SIZE_IN_BYTES]]
@@ -56,7 +58,7 @@ alloca:
 ; CHECK: [[FOO_A_PRIV:%[^ ]+]] = getelementptr inbounds %__struct.kmp_privates.t, %__struct.kmp_privates.t* %.privates, i32 0, i32 0
 ; CHECK: [[FOO_A_PRIV_CAST:%[^ ]+]] = bitcast { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* [[FOO_A_PRIV]] to i8*
 ; CHECK: [[FOO_A_CAST:%[^ ]+]] = bitcast { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %"foo_$A" to i8*
-; CHECK: %.dv.init = call i64 @_f90_dope_vector_init(i8* [[FOO_A_PRIV_CAST]], i8* [[FOO_A_CAST]])
+; CHECK: %.dv.init = call i64 @_f90_dope_vector_init2(i8* [[FOO_A_PRIV_CAST]], i8* [[FOO_A_CAST]])
 
 ; Check that the local buffer space for the local dope vector, is initialized (as it is firstprivate).
 ; First, the buffer should be linked to the dope vector's base field

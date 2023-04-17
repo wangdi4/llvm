@@ -182,8 +182,9 @@ bool llvm::vpo::needsMasterThreadGuard(Instruction *I) {
         "_Z21__spirv_WorkgroupId_zv", "_Z22__spirv_ControlBarrieriii",
         "_Z9mem_fencej", "_Z14read_mem_fencej", "_Z15write_mem_fencej",
 #if INTEL_CUSTOMIZATION
-        "_f90_dope_vector_init", "_f90_firstprivate_copy",
-        "_f90_dope_vector_size", "_f90_lastprivate_copy",
+        "_f90_dope_vector_init", "_f90_dope_vector_init2",
+        "_f90_firstprivate_copy", "_f90_dope_vector_size",
+        "_f90_lastprivate_copy",
 #endif // INTEL_CUSTOMIZATION
         "omp_get_thread_num", "__kmpc_barrier"
   };

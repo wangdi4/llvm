@@ -51,7 +51,7 @@ bb31:                                             ; preds = %alloca
 ; CHECK: [[PRIV_DV:%[^ ]+]] = alloca %"QNCA_a0$i32*$rank1$.0"
 
 ; Check that the dope vector init call is emitted
-; CHECK: [[SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init(i8* %{{[^ ]+}}, i8* %{{[^ ]+}})
+; CHECK: [[SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init2(i8* %{{[^ ]+}}, i8* %{{[^ ]+}})
 ; CHECK: [[NUM_ELEMENTS:%[^ ]+]] = udiv i64 [[SIZE]], 4
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
