@@ -359,17 +359,17 @@ size_t BasicCLConfigWrapper::GetDeviceMaxWGSize(bool IsFPGAEmulator) const {
 }
 
 unsigned BasicCLConfigWrapper::GetNumTBBWorkers() const {
-  unsigned numWorkers = 0;
+  unsigned numWorkers = TaskExecutor::TE_AUTO_THREADS;
 
   std::string strEnv;
   if (getEnvVar(strEnv, "SYCL_CPU_NUM_CUS") ||
       getEnvVar(strEnv, "DPCPP_CPU_NUM_CUS")) {
     try {
       int num = std::stoi(strEnv);
-      if (num < 0) {
+      if (num >= (int)TaskExecutor::TE_MIN_WORKER_THREADS)
         numWorkers = num;
-        throw std::logic_error(std::to_string(numWorkers) + " is used.");
-      }
+      else
+        throw std::logic_error(std::to_string(num) + " is used.");
     } catch (const std::exception &e) {
       static llvm::once_flag OnceFlag;
       llvm::call_once(OnceFlag, [&]() {
@@ -389,7 +389,7 @@ unsigned BasicCLConfigWrapper::GetNumTBBWorkers() const {
     }
   }
 
-  if (numWorkers < Intel::OpenCL::TaskExecutor::TE_MIN_WORKER_THREADS)
-    numWorkers = Intel::OpenCL::TaskExecutor::TE_MIN_WORKER_THREADS;
+  if (numWorkers < TaskExecutor::TE_MIN_WORKER_THREADS)
+    numWorkers = TaskExecutor::TE_MIN_WORKER_THREADS;
   return numWorkers;
 }

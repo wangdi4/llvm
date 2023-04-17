@@ -1152,7 +1152,7 @@ public:
 
   /// Emit and return a call to `data_size =_f90_dope_vector_size(DV)`, which
   /// returns the size of the array (in bytes) described by the dope vector.
-  static CallInst *genF90DVSizeCall(Value *DV, Instruction *InsertBefore);
+  static Value *genF90DVSizeCall(Value *DV, Instruction *InsertBefore);
 
   /// Emit and return a call to `data_size = _f90_dope_vector_init(OrigDV,
   /// NewDV)`, which initializes NewDV using OrigDV, and returns the size of the

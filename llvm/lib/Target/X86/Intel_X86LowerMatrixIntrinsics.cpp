@@ -156,6 +156,16 @@ static bool isMatARowmajor(Metadata *MatUse, Metadata *MemLayout,
           cast<MDString>(MatUse)->getString().equals("matrix.use.a"));
 }
 
+static bool isMatBRowmajor(Metadata *MatUse, Metadata *MemLayout,
+                           Metadata *MatLayout) {
+  return (cast<MDString>(MatUse)->getString().equals(
+              "matrix.use.unnecessary") &&
+          cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor") &&
+          cast<MDString>(MatLayout)->getString().equals("matrix.rowmajor")) ||
+         (cast<MDString>(MemLayout)->getString().equals("matrix.rowmajor") &&
+          cast<MDString>(MatUse)->getString().equals("matrix.use.b"));
+}
+
 bool X86LowerMatrixIntrinsicsPass::ProcessMatrixIntrinsics(IntrinsicInst *II) {
   bool MadeChange = false;
   switch (II->getIntrinsicID()) {
@@ -224,9 +234,10 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
   else if (MatrixElemType->isIntegerTy(8))
     SizeFactor = 1;
   else {
-    errs() << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
-           << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
-              "float!\n";
+    errs()
+        << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
+        << "AMX provides support for int8_t, uint8_t, int32_t, bf16, half, and "
+           "float!\n";
     llvm_unreachable(nullptr);
   }
   Metadata *MatUse = cast<MetadataAsValue>(II->getOperand(8))->getMetadata();
@@ -242,15 +253,17 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
            MatrixElemType->isIntegerTy(16))
     Factor = 2;
   else if (isMatARowmajor(MatUse, MemLayout, MatLayout) ||
-           isMatCRowmajor(MatUse, MemLayout, MatLayout))
+           isMatCRowmajor(MatUse, MemLayout, MatLayout) ||
+           (isMatBRowmajor(MatUse, MemLayout, MatLayout) &&
+            MatrixElemType->isFloatTy()))
     Factor = 1;
   else {
     errs() << "Unsuppoted Layout:" << cast<MDString>(MemLayout)->getString()
            << "!\n"
            << "Unsuppoted matrix.use:" << cast<MDString>(MatUse)->getString()
            << "!\n"
-           << "We support layout&use: matrix.rowmajor(A,C) and "
-              "matrix.packed(B)!\n";
+           << "We support layout&use: matrix.rowmajor(A,C)(int8, int16) and "
+              "matrix.packed(B)(float) and matrix.rowmajor(B)(float)!\n";
     llvm_unreachable(nullptr);
   }
   // Handle cases where it is vxi8 and packedb.
@@ -399,15 +412,23 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
   // A.cols = B.rows, C.rows = A.rows, C.cols in int8 = B.rows * 4.
   IRBuilder<> Builder(II);
   FixedVectorType *MatrixType = cast<FixedVectorType>(II->getType());
-  Type *MatrixElemType = MatrixType->getElementType();
+  Type *DstMatrixElemType = MatrixType->getElementType();
+  Type *SrcMatrixElemType =
+      cast<FixedVectorType>(II->getOperand(0)->getType())->getElementType();
   Intrinsic::ID IID;
   switch (II->getIntrinsicID()) {
   default:
     assert(false && "Invalid Intrinsic ID!");
     break;
   case Intrinsic::experimental_matrix_mad:
-    IID = MatrixElemType->isFloatTy() ? Intrinsic::x86_tdpbf16ps_internal
-                                      : Intrinsic::x86_tdpbssd_internal;
+#if INTEL_FEATURE_ISA_AMX_TF32
+    if (SrcMatrixElemType->isFloatTy() && DstMatrixElemType->isFloatTy()) {
+      IID = Intrinsic::x86_tmmultf32ps_internal;
+      break;
+    }
+#endif // INTEL_FEATURE_ISA_AMX_TF32
+    IID = DstMatrixElemType->isFloatTy() ? Intrinsic::x86_tdpbf16ps_internal
+                                         : Intrinsic::x86_tdpbssd_internal;
     break;
   case Intrinsic::experimental_matrix_sumad:
     IID = Intrinsic::x86_tdpbsud_internal;
@@ -422,9 +443,11 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
 
   Value *M =
       Builder.getInt16(cast<ConstantInt>(II->getOperand(6))->getSExtValue());
+  // K is measured by bytes
   Value *K =
       Builder.getInt16(cast<ConstantInt>(II->getOperand(7))->getSExtValue() *
-                       (MatrixElemType->isFloatTy() ? 2 : 1));
+                       (SrcMatrixElemType->getPrimitiveSizeInBits() / 8));
+  // N is measured by bytes
   Value *N = Builder.getInt16(
       cast<ConstantInt>(II->getOperand(8))->getSExtValue() * 4);
   // M=A.rows, N=C.cols*4, K=B.rows,C,A,B

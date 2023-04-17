@@ -104,7 +104,9 @@ resolveMatrixLayoutLoad(CallInst *CI, SmallVector<User *> &WorkList) {
   if ((cast<MDString>(MatL)->getString() == cast<MDString>(MemL)->getString() &&
        IsMatUseUnnecessary) ||
       (IsMatUseB && IsMemLPacked) || (IsMatUseA && IsMemLRowMajor) ||
-      (IsMatUseC && IsMemLRowMajor))
+      (IsMatUseC && IsMemLRowMajor) ||
+      (IsMatUseB && IsMemLRowMajor &&
+       MatrixType->getElementType()->isFloatTy()))
     return std::make_pair(false, CI);
   IRBuilder<> Builder(CI);
   LLVMContext &Ctx = Builder.getContext();

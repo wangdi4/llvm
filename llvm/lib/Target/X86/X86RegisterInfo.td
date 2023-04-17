@@ -796,7 +796,12 @@ def GR64_NOREX : RegisterClass<"X86", [i64], 64,
 let GeneratePressureSet = 0 in {
 // GR8_NOREX2 - GR8 registers which do not require a REX2 prefix.
 def GR8_NOREX2 : RegisterClass<"X86", [i8], 8,
-                               (sub GR8,  (sequence "R%uB", 16, 31))>;
+                               (sub GR8,  (sequence "R%uB", 16, 31))> {
+  let AltOrders = [(sub GR8_NOREX2, AH, BH, CH, DH)];
+  let AltOrderSelect = [{
+    return MF.getSubtarget<X86Subtarget>().is64Bit();
+  }];
+}
 // GR16_NOREX2 - GR16 registers which do not require a REX2 prefix.
 def GR16_NOREX2 : RegisterClass<"X86", [i16], 16,
                                (sub GR16,  (sequence "R%uW", 16, 31))>;

@@ -19293,6 +19293,61 @@ Example:
       <result> = call <12 x i32> @llvm.experimental.matrix.insert.row.slice.v12i32.v4i32(<12 x i32> %A, <4 x i32> %data, i32 2, i32 1, i32 4, i32 3, i32 4, metadata !"matrix.rowmajor")
 
 
+'``llvm.experimental.matrix.wi.element.coordinate.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare <2 x i64>
+      @llvm.experimental.matrix.wi.element.coordinate.*(<vectorty> <matrix>,
+                                                     i32 <rows>, i32 <columns>,
+                                                     i64 <index>, metadata <scope>)
+
+Overview:
+"""""""""
+The '``llvm.experimental.matrix.wi.element.coordinate``' intrinsic returns a
+coordinate represented with a two-element vector of an element of a joint matrix
+specified by this element's linear index within the work-item slice.
+
+Arguments:
+""""""""""
+The first three arguments describe the matrix: the first argument is a vector
+which represents a flattened matrix, the second and third arguments are number
+of rows and columns in the matrix respectively. Elements of the vector must be
+either of any integer or any floating point type. ``rows`` and ``columns`` must
+be positive, constant integers. Size of the matrix is defined by ``rows`` multiply
+``columns``, number of elements of the 1st argument vector must match the size
+of the matrix.
+
+The fourth argument is linear ``index`` of the element within the slice owned by the current work-item.
+It must be non-negative constant integer. ``index`` must be in range [0, length),
+where length is a size of the matrix's slice which ``llvm.experimental.matrix.wi.slice.length``
+intrinsic would return.
+
+The fifth argument is metadata strings which specifies memory scope of the matrix, it
+can be either !"scope.subgroup" ir !"scope.workgroup".
+
+Semantics:
+""""""""""
+This intrinsics returns the matrix's element coordinate. The element is specified
+by its zero-based linear index. Layout of the matrix in memory is defined by either
+``llvm.experimental.matrix.fill.*`` or ``llvm.experimental.matrix.load*`` matrix
+creation instructions.
+
+Example:
+""""""""
+::
+
+    %coord = call <2 x i64> @llvm.experimental.matrix.wi.element.coordinate.v256f32(<256 x float> %A, i32 16, i32 16, i64 %Idx, metadata !"scope.subgroup") 
+
+
+in this case if %Idx is 16 then %coord will be <i64 2, i64 1>
+
+
 .. END INTEL_CUSTOMIZATION
 
 

@@ -30,6 +30,10 @@
 ; CHECK: MRC Predicate: OptWrapperF : GetOneCacheViewVirtualPixel.2
 ; CHECK: MRC Predicate: OptBaseF : GetVirtualPixelsFromNexus.3
 ; CHECK: MRC Predicate: ColdF : GetVirtualPixelsFromNexus.3.bb206
+; CHECK: MRC Predicate: CHANGE SUCCESSOR
+; CHECK: MRC Predicate: TO FALSE: {{.*}}icmp {{.*}}, 4 
+; CHECK: MRC Predicate: TO TRUE: {{.*}}icmp {{.*}}, 2 
+; CHECK: MRC Predicate: TO FALSE: {{.*}}icmp {{.*}}, 0 
 
 ; Check the IR
 
@@ -112,6 +116,11 @@
 
 ; This is the predicate optimized version.
 ; CHECK-LABEL: define internal {{.*}} ptr @GetVirtualPixelsFromNexus.3(
+; These are optimized conditionals and branch instructions
+; CHECK: br i1 false, label
+; CHECK: or i1 {{.*}}, true
+; CHECK: br i1 false, label
+
 ; CHECK: call void @GetVirtualPixelsFromNexus.3.bb206
 
 ; This is the cold code extracted out of the predicate optimized version.

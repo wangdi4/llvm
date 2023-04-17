@@ -43,7 +43,7 @@
 ; Check that the dope vector init call is emitted for PRIV_DV.
 ; CHECK: [[PRIV_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]] to i8*
 ; CHECK: [[ORIG_DV_CAST:[^ ]+]] = bitcast %"QNCA_a0$i16*$rank3$"* %"foo_$A" to i8*
-; CHECK: [[PRIV_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init(i8* [[PRIV_DV_CAST]], i8* [[ORIG_DV_CAST]])
+; CHECK: [[PRIV_DV_ARR_SIZE:[^ ]+]] = call i64 @_f90_dope_vector_init2(i8* [[PRIV_DV_CAST]], i8* [[ORIG_DV_CAST]])
 ; CHECK: [[NUM_ELEMENTS_1:[^ ]+]] = udiv i64 [[PRIV_DV_ARR_SIZE]], 2
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.

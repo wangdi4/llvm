@@ -17,6 +17,8 @@
 #include "cl_shared_ptr.h"
 #include "cl_synch_objects.h"
 
+#include "llvm/Support/ManagedStatic.h"
+
 #include <cassert>
 #include <map>
 #include <mutex>
@@ -26,9 +28,10 @@ namespace OpenCL {
 namespace Utils {
 
 #ifdef _DEBUG
-extern std::mutex *allocatedObjectsMapMutex;
-typedef std::map<const void *, long> AllocatedObjectsMap;
-extern std::map<std::string, AllocatedObjectsMap> *allocatedObjectsMap;
+extern llvm::ManagedStatic<std::mutex> AllocatedObjectsMapMutex;
+typedef std::map<const void *, long> AllocatedObjectsMapTy;
+extern llvm::ManagedStatic<std::map<std::string, AllocatedObjectsMapTy>>
+    AllocatedObjectsMap;
 #endif
 
 template <typename T> void SharedPtrBase<T>::IncRefCnt() {
@@ -43,15 +46,14 @@ template <typename T> void SharedPtrBase<T>::IncRefCnt() {
       (nullptr != this->m_ptr->GetTypeName()) ? this->m_ptr->GetTypeName() : "";
   void *p = const_cast<Intel::OpenCL::Utils::ReferenceCountedObject *>(
       this->m_ptr->GetThis());
-  if (lRefCnt >= 0 && nullptr != allocatedObjectsMapMutex &&
-      nullptr != allocatedObjectsMap &&
+  if (lRefCnt >= 0 &&
       name != "") // otherwise the object isn't reference counted
   {
-    std::lock_guard<std::mutex> guard(*allocatedObjectsMapMutex);
+    std::lock_guard<std::mutex> guard(*AllocatedObjectsMapMutex);
     if (1 == lRefCnt) {
-      (*allocatedObjectsMap)[name][p] = 1;
+      (*AllocatedObjectsMap)[name][p] = 1;
     } else {
-      ++((*allocatedObjectsMap)[name][p]);
+      ++((*AllocatedObjectsMap)[name][p]);
     }
   }
 #endif
@@ -67,16 +69,14 @@ template <typename T> void SharedPtrBase<T>::DecRefCntInt(T *ptr) {
 
     // This isn't thread safe, but these object are freed when the library is
     // unloaded, so there is just one thread at this point.
-    const bool bIsAllocationDbNull = nullptr == allocatedObjectsMap ||
-                                     nullptr == allocatedObjectsMapMutex ||
-                                     name == "";
+    const bool bIsAllocationDbNull = name == "";
 #endif
     const long lNewVal = ptr->DecRefCnt();
 #ifdef _DEBUG
     if (!bIsAllocationDbNull) {
-      std::lock_guard<std::mutex> guard(*allocatedObjectsMapMutex);
+      std::lock_guard<std::mutex> guard(*AllocatedObjectsMapMutex);
 
-      AllocatedObjectsMap &internal_map = (*allocatedObjectsMap)[name];
+      AllocatedObjectsMapTy &internal_map = (*AllocatedObjectsMap)[name];
       auto it = internal_map.find(p);
       if (it != internal_map.end()) {
         --(it->second);
