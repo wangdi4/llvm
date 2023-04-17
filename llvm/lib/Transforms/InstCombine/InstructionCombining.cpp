@@ -50,7 +50,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "InstCombineInternal.h"
-#include "llvm-c/Initialization.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -5349,6 +5348,7 @@ void llvm::initializeInstCombine(PassRegistry &Registry) {
   initializeInstructionCombiningPassPass(Registry);
 }
 
+<<<<<<< HEAD
 void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
   initializeInstructionCombiningPassPass(*unwrap(R));
 }
@@ -5361,6 +5361,10 @@ FunctionPass *llvm::createInstructionCombiningPass(
   return new InstructionCombiningPass(PreserveForDTrans, PreserveAddrCompute,
                                       EnableFcmpMinMaxCombine, EnableUpCasting,
                                       EnableCanonicalizeSwap);
+=======
+FunctionPass *llvm::createInstructionCombiningPass() {
+  return new InstructionCombiningPass();
+>>>>>>> 62ef97e0631ff41ad53436477cecc7d3eb244d1b
 }
 
 FunctionPass *llvm::createInstructionCombiningPass(

@@ -31,7 +31,6 @@ __all__ = [
     "BasicBlock",
     "Instruction",
     "Context",
-    "PassRegistry"
 ]
 
 lib = get_library()
@@ -440,15 +439,9 @@ class Context(LLVMObject):
     def GetGlobalContext(cls):
         return Context(lib.LLVMGetGlobalContext())
 
-class PassRegistry(LLVMObject):
-    """Represents an opaque pass registry object."""
-
-    def __init__(self):
-        LLVMObject.__init__(self,
-                            lib.LLVMGetGlobalPassRegistry())
-
 def register_library(library):
     # Initialization/Shutdown declarations.
+<<<<<<< HEAD
     library.LLVMInitializeCore.argtypes = [PassRegistry]
     library.LLVMInitializeCore.restype = None
 
@@ -481,12 +474,10 @@ def register_library(library):
     library.LLVMInitializeTarget.argtypes = [PassRegistry]
     library.LLVMInitializeTarget.restype = None
 
+=======
+>>>>>>> 62ef97e0631ff41ad53436477cecc7d3eb244d1b
     library.LLVMShutdown.argtypes = []
     library.LLVMShutdown.restype = None
-
-    # Pass Registry declarations.
-    library.LLVMGetGlobalPassRegistry.argtypes = []
-    library.LLVMGetGlobalPassRegistry.restype = c_object_p
 
     # Context declarations.
     library.LLVMContextCreate.argtypes = []
@@ -618,6 +609,7 @@ def register_enumerations():
 
 def initialize_llvm():
     Context.GetGlobalContext()
+<<<<<<< HEAD
     p = PassRegistry()
     lib.LLVMInitializeCore(p)
     lib.LLVMInitializeTransformUtils(p)
@@ -631,6 +623,8 @@ def initialize_llvm():
     lib.LLVMInitializeAnalysis(p)
     lib.LLVMInitializeCodeGen(p)
     lib.LLVMInitializeTarget(p)
+=======
+>>>>>>> 62ef97e0631ff41ad53436477cecc7d3eb244d1b
 
 register_library(lib)
 Enums = register_enumerations()

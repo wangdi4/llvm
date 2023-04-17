@@ -28,7 +28,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm-c/Initialization.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 
@@ -172,8 +171,4 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeFoldLoadsToGatherPass(Registry);
   initializeRAReportEmitterPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
-}
-
-void LLVMInitializeCodeGen(LLVMPassRegistryRef R) {
-  initializeCodeGen(*unwrap(R));
 }
