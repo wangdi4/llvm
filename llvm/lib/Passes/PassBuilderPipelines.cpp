@@ -3632,16 +3632,24 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(HotColdSplittingPass());
 
   // Add late LTO optimization passes.
+  FunctionPassManager LateFPM;
+
+  // LoopSink pass sinks instructions hoisted by LICM, which serves as a
+  // canonicalization pass that enables other optimizations. As a result,
+  // LoopSink pass needs to be a very late IR pass to avoid undoing LICM
+  // result too early.
+  LateFPM.addPass(LoopSinkPass());
+
+  // This hoists/decomposes div/rem ops. It should run after other sink/hoist
+  // passes to avoid re-sinking, but before SimplifyCFG because it can allow
+  // flattening of blocks.
+  LateFPM.addPass(DivRemPairsPass());
+
   // Delete basic blocks, which optimization passes may have killed.
-#if INTEL_CUSTOMIZATION
-  // 28038: Avoid excessive hoisting as it increases register pressure and
-  // select conversion without clear gains.
-  // MPM.addPass(createModuleToFunctionPassAdaptor(
-  //   SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true))));
-  MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass(
+  LateFPM.addPass(SimplifyCFGPass(
       SimplifyCFGOptions().convertSwitchRangeToICmp(true).hoistCommonInsts(
-          true))));
-#endif // INTEL_CUSTOMIZATION
+          true)));
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(LateFPM)));
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll can expose opportunities for optimizing globals and

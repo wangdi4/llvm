@@ -405,6 +405,8 @@
 ; CHECK-O23SZ-NEXT: Running pass: ForcedCMOVGenerationPass on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O-NEXT: Running pass: LowerTypeTestsPass
+; CHECK-O23SZ-NEXT: Running pass: LoopSink
+; CHECK-O23SZ-NEXT: Running pass: DivRemPairs
 ; CHECK-O23SZ-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O23SZ-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
