@@ -452,6 +452,342 @@ class BinOpAI_F<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
   let Defs = [EFLAGS];
 }
 
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+multiclass BinOpRR_RF_Common<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
+                 SDNode opnodeflag, bit CommutableRR, bit ConvertibleToThreeAddressRR>
+{
+    let Constraints = "$src1 = $dst" in {
+      let isCommutable = CommutableRR in {
+        let isConvertibleToThreeAddress = ConvertibleToThreeAddressRR in {
+          let Defs = [EFLAGS]in {
+            def NAME:BinOpRR<opcode, mnemonic, typeinfo, (outs typeinfo.RegClass:$dst), WriteALU,
+            [(set typeinfo.RegClass:$dst, EFLAGS,
+                  (opnodeflag typeinfo.RegClass:$src1, typeinfo.RegClass:$src2))]>;
+          } // Defs = [EFLAGS]
+
+          let isCodeGenOnly = 1 in {
+            def NAME#_NF:ITy_EVEX<opcode, MRMDestReg, typeinfo, (outs typeinfo.RegClass:$dst),
+              (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+              !strconcat("{nf}\t", mnemonic), "{$src2, $src1|$src1, $src2}", []>, Sched<[WriteALU]>;
+          }
+  }}}
+  let Defs = [EFLAGS], Predicates = [HasNDD] in {
+    let isCommutable = CommutableRR, isCodeGenOnly = 1 in {
+      def NAME#_ND:ITy_EVEX<opcode, MRMDestReg, typeinfo, (outs typeinfo.RegClass:$dst),
+            (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+            mnemonic, "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
+        Sched<[WriteALU]>;
+  }}
+  let Predicates = [HasNDD] in {
+    let isCommutable = CommutableRR, isCodeGenOnly = 1 in {
+      def NAME#_ND_NF:ITy_EVEX<opcode, MRMDestReg, typeinfo, (outs typeinfo.RegClass:$dst),
+            (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+            !strconcat("{nf}\t", mnemonic), "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
+        Sched<[WriteALU]>;
+  }}
+}
+
+// BinOpRR_Rev_Common - Binary instructions with inputs "reg, reg"(reversed encoding).
+multiclass BinOpRR_Rev_Common<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo, X86FoldableSchedWrite sched = WriteALU>
+{
+
+    let Constraints = "$src1 = $dst" in {
+      let isCodeGenOnly = 1, ForceDisassemble = 1, hasSideEffects = 0, Defs = [EFLAGS] in {
+        def NAME: ITy<opcode, MRMSrcReg, typeinfo,
+        (outs typeinfo.RegClass:$dst), (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+          mnemonic, "{$src2, $dst|$dst, $src2}", []>, Sched<[sched]>;
+      }
+      let isCodeGenOnly = 1 in {
+        def NAME#_NF: ITy_EVEX<opcode, MRMSrcReg, typeinfo,
+        (outs typeinfo.RegClass:$dst), (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+          !strconcat("{nf}\t", mnemonic), "{$src2, $dst|$dst, $src2}", []>, Sched<[sched]>;
+      }
+  }
+  let Defs = [EFLAGS], Predicates = [HasNDD], isCodeGenOnly = 1 in {
+      def NAME#_ND : ITy_EVEX<opcode, MRMSrcReg, typeinfo,
+      (outs typeinfo.RegClass:$dst), (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+        mnemonic, "{$src2, $src1, $dst|$dst, $src1, $src2}", []>, Sched<[sched]>;
+  }
+  let Predicates = [HasNDD], isCodeGenOnly = 1 in {
+      def NAME#_ND_NF : ITy_EVEX<opcode, MRMSrcReg, typeinfo,
+      (outs typeinfo.RegClass:$dst), (ins typeinfo.RegClass:$src1, typeinfo.RegClass:$src2),
+        !strconcat("{nf}\t", mnemonic), "{$src2, $src1, $dst|$dst, $src1, $src2}", []>, Sched<[sched]>;
+  }
+}
+
+// BinOpRM_ND - Instructions like "add reg, reg, [mem]".
+class BinOpRM_ND<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
+              dag outlist, X86FoldableSchedWrite sched, list<dag> pattern>
+  : ITy_EVEX<opcode, MRMSrcMem, typeinfo, outlist,
+        (ins typeinfo.RegClass:$src1, typeinfo.MemOperand:$src2),
+        mnemonic, "{$src2, $src1, $dst|$dst, $src1, $src2}", pattern>,
+    Sched<[sched.Folded, sched.ReadAfterFold]>;
+
+// BinOpMR_ND - Instructions like "add reg, [mem], reg".
+class BinOpMR_ND<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
+              dag outlist, X86FoldableSchedWrite sched, list<dag> pattern>
+  : ITy_EVEX<opcode, MRMSrcMem, typeinfo, outlist,
+        (ins typeinfo.MemOperand:$src1, typeinfo.RegClass:$src2),
+        mnemonic, "{$src2, $src1, $dst|$dst, $src1, $src2}", pattern>,
+    Sched<[]>;
+
+multiclass BinOpRM_RF_Common<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
+                SDNode opnodeflag, SDNode opnode>
+{
+  let Constraints = "$src1 = $dst" in {
+  let Defs = [EFLAGS] in {
+      def NAME: BinOpRM<opcode, mnemonic, typeinfo, (outs typeinfo.RegClass:$dst), WriteALU,
+            [(set typeinfo.RegClass:$dst, EFLAGS,
+            (opnodeflag typeinfo.RegClass:$src1, (typeinfo.LoadNode addr:$src2)))]>;
+  }
+  let isCodeGenOnly = 1 in {
+      def NAME#_NF: ITy_EVEX<opcode, MRMSrcMem, typeinfo, (outs typeinfo.RegClass:$dst),
+        (ins typeinfo.RegClass:$src1, typeinfo.MemOperand:$src2), !strconcat("{nf}\t", mnemonic), "{$src2, $src1|$src1, $src2}", []>,
+        Sched<[WriteALU]>;
+  }
+  }
+  let Defs = [EFLAGS], Predicates = [HasNDD], isCodeGenOnly = 1 in {
+  def NAME#_ND : BinOpRM_ND<opcode, mnemonic, typeinfo, (outs typeinfo.RegClass:$dst), WriteALU,
+            []>;
+  }
+  let Predicates = [HasNDD], isCodeGenOnly = 1 in {
+  def NAME#_ND_NF : BinOpRM_ND<opcode, !strconcat("{nf}\t", mnemonic), typeinfo, (outs typeinfo.RegClass:$dst), WriteALU,
+            []>;
+  }
+}
+
+// BinOpRI8_ND - Instructions like "add reg, reg, imm8".
+class BinOpRI8_ND<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
+               Format f, dag outlist, X86FoldableSchedWrite sched, list<dag> pattern>
+  : ITy_EVEX<opcode, f, typeinfo, outlist,
+        (ins typeinfo.RegClass:$src1, typeinfo.Imm8Operand:$src2),
+        mnemonic, "{$src2, $src1, $dst|$dst, $src1, $src2}", pattern>,
+    Sched<[sched]> {
+  let ImmT = Imm8; // Always 8-bit immediate.
+}
+
+//change opnode and mnemonic according to ND&NF
+multiclass BinOpRI8_RF_Common<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
+                  SDPatternOperator opnodeflag, SDPatternOperator opnode, Format f>
+{
+  let Constraints = "$src1 = $dst" in {
+    let Defs = [EFLAGS] in {
+      def NAME: BinOpRI8<opcode, mnemonic, typeinfo, f, (outs typeinfo.RegClass:$dst), WriteALU,
+             [(set typeinfo.RegClass:$dst, EFLAGS,
+               (opnodeflag typeinfo.RegClass:$src1, typeinfo.Imm8Operator:$src2))]>;
+    }
+    let isCodeGenOnly = 1 in {
+      def NAME#_NF: BinOpRI8<opcode, !strconcat("{nf}\t", mnemonic), typeinfo, f, (outs typeinfo.RegClass:$dst), WriteALU,
+             []>;
+    }
+  }
+  let Defs = [EFLAGS], Predicates = [HasNDD], isCodeGenOnly = 1 in {
+    def NAME#_ND : BinOpRI8_ND<opcode, mnemonic, typeinfo, f, (outs typeinfo.RegClass:$dst), WriteALU,
+             []>;
+  }
+  let Predicates = [HasNDD], isCodeGenOnly = 1 in {
+    def NAME#_ND_NF : BinOpRI8_ND<opcode, !strconcat("{nf}\t", mnemonic), typeinfo, f, (outs typeinfo.RegClass:$dst), WriteALU,
+             []>;
+  }
+}
+
+multiclass BinOpRI_RF_Common<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
+                  SDPatternOperator opnodeflag, SDPatternOperator opnode, Format f>
+{
+  let Constraints = "$src1 = $dst" in {
+    let Defs = [EFLAGS] in {
+      def NAME: BinOpRI<opcode, mnemonic, typeinfo, f, (outs typeinfo.RegClass:$dst), WriteALU,
+            [(set typeinfo.RegClass:$dst, EFLAGS,
+                (opnodeflag typeinfo.RegClass:$src1, typeinfo.ImmOperator:$src2))]>;
+    }
+    let isCodeGenOnly = 1 in {
+      def NAME#_NF: BinOpRI<opcode, !strconcat("{nf}\t", mnemonic), typeinfo, f, (outs typeinfo.RegClass:$dst), WriteALU,
+            []>;
+    }
+  }
+  let Defs = [EFLAGS], Predicates = [HasNDD], isCodeGenOnly = 1 in {
+    def NAME#_ND : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+        (ins typeinfo.RegClass:$src1, typeinfo.ImmOperand:$src2),
+        mnemonic, "{$src2, $src1, $dst|$dst, $src1, $src2}", []>;
+  }
+  let Predicates = [HasNDD], isCodeGenOnly = 1 in {
+    def NAME#_ND_NF : ITy_EVEX<opcode, f, typeinfo, (outs typeinfo.RegClass:$dst),
+        (ins typeinfo.RegClass:$src1, typeinfo.ImmOperand:$src2),
+        !strconcat("{nf}\t", mnemonic), "{$src2, $src1, $dst|$dst, $src1, $src2}", []>;
+  }
+}
+
+multiclass BinOpMI8_Common<string mnemonic, X86TypeInfo typeinfo,
+                   SDPatternOperator opnodeflag, SDPatternOperator opnode, Format f, list<Predicate> pred = []>
+{
+  let Predicates = pred in {
+    def NAME : BinOpMI8<mnemonic, typeinfo, f,
+              [(store (opnode (load addr:$dst),
+                              typeinfo.Imm8Operator:$src), addr:$dst),
+                (implicit EFLAGS)]>, Sched<[WriteALURMW]>;
+  }
+  let Predicates = [HasNDD], isCodeGenOnly = 1  in {
+    def NAME#_ND : ITy_EVEX<0x82, f, typeinfo,
+        (outs typeinfo.RegClass:$dst), (ins typeinfo.MemOperand:$src1, typeinfo.Imm8Operand:$src2),
+        mnemonic, "{$src2, $src1, $dst|$dst, $src1, $src2}",
+        []>, Sched<[WriteALU]>;
+  }
+  let isCodeGenOnly = 1 in {
+    def NAME#_NF : ITy_EVEX<0x82, f, typeinfo,
+        (outs), (ins typeinfo.MemOperand:$src1, typeinfo.Imm8Operand:$src2),
+        !strconcat("{nf}\t", mnemonic), "{$src2, $src1|$src1, $src2}",
+        []>, Sched<[WriteALURMW]>;
+  }
+  let Predicates = [HasNDD], isCodeGenOnly = 1 in {
+    def NAME#_ND_NF : ITy_EVEX<0x82, f, typeinfo,
+        (outs typeinfo.RegClass:$dst), (ins typeinfo.MemOperand:$src1, typeinfo.Imm8Operand:$src2),
+        !strconcat("{nf}\t", mnemonic), "{$src2, $src1, $dst|$dst, $src1, $src2}",
+        []>, Sched<[WriteALU]>;
+  }
+}
+
+multiclass BinOpMI_Common<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
+                  SDNode opnodeflag, SDNode opnode, Format f, list<Predicate> pred = []>
+{
+  // Instructions like "add [mem], imm".
+  let Predicates = pred in {
+    def NAME: BinOpMI<opcode, mnemonic, typeinfo, f,
+              [(store (opnode (typeinfo.VT (load addr:$dst)),
+                              typeinfo.ImmOperator:$src), addr:$dst),
+              (implicit EFLAGS)]>, Sched<[WriteALURMW]>;
+  }
+  // Instructions like "add reg, [mem], imm".
+  let Predicates = [HasNDD], isCodeGenOnly = 1  in {
+    def NAME#_ND : ITy_EVEX<opcode, f, typeinfo,
+        (outs typeinfo.RegClass:$dst), (ins typeinfo.MemOperand:$src1, typeinfo.ImmOperand:$src2),
+        mnemonic, "{$src2, $src1, $dst|$dst, $src1, $src2}",
+        []>, Sched<[WriteALU]>;
+  }
+  // Instructions like "add {nf} [mem], imm".
+  let isCodeGenOnly = 1 in {
+    def NAME#_NF: ITy_EVEX<opcode, f, typeinfo,
+        (outs), (ins typeinfo.MemOperand:$src1, typeinfo.ImmOperand:$src2),
+        !strconcat("{nf}\t", mnemonic), "{$src2, $src1|$src1, $src2}",
+        []>, Sched<[WriteALURMW]>;
+  }
+  // Instructions like "add {nf} reg, [mem], imm".
+  let Predicates = [HasNDD], isCodeGenOnly = 1 in {
+    def NAME#_ND_NF : ITy_EVEX<opcode, f, typeinfo,
+        (outs typeinfo.RegClass:$dst), (ins typeinfo.MemOperand:$src1, typeinfo.ImmOperand:$src2),
+        !strconcat("{nf}\t", mnemonic), "{$src2, $src1, $dst|$dst, $src1, $src2}",
+        []>, Sched<[WriteALU]>;
+  }
+}
+
+multiclass BinOpMR_Common<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
+                  SDNode opnode, SDNode opnodeflag>
+{
+  // Instructions like "add [mem], reg".
+  let Defs = [EFLAGS], mayLoad = 1, mayStore = 1 in {
+    def NAME: BinOpMR<opcode, mnemonic, typeinfo,
+          [(store (opnode (load addr:$dst), typeinfo.RegClass:$src), addr:$dst),
+           (implicit EFLAGS)]>, Sched<[WriteALURMW,
+                                       // base, scale, index, offset, segment
+                                       ReadDefault, ReadDefault, ReadDefault,
+                                       ReadDefault, ReadDefault,
+                                       WriteALU.ReadAfterFold]>;  // reg
+  }
+  // Instructions like "add{nf} [mem], reg".
+  let isCodeGenOnly = 1  in {
+    def NAME#_NF: BinOpMR<opcode, !strconcat("{nf}\t", mnemonic), typeinfo,
+          []>, Sched<[]>;
+  }
+  // Instructions like "add reg, [mem], reg".
+  let Defs = [EFLAGS], Predicates = [HasNDD], isCodeGenOnly = 1 in {
+  def NAME#_ND : BinOpMR_ND<opcode, mnemonic, typeinfo, (outs typeinfo.RegClass:$dst), WriteALU,
+            []>;
+  }
+  // Instructions like "add{nf} reg, [mem], reg".
+  let Predicates = [HasNDD], isCodeGenOnly = 1 in {
+  def NAME#_ND_NF : BinOpMR_ND<opcode, !strconcat("{nf}\t", mnemonic), typeinfo, (outs typeinfo.RegClass:$dst), WriteALU,
+            []>;
+  }
+}
+
+/// ArithBinOp_R - This is an arithmetic binary operator where the pattern is
+/// defined with "(set GPR:$dst, (...".
+///
+/// It would be nice to get rid of the second and third argument here, but
+/// tblgen can't handle dependent type references aggressively enough: PR8330
+multiclass ArithBinOp_R<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
+                         string mnemonic, Format RegMRM, Format MemMRM,
+                         SDNode opnodeflag, SDNode opnode, bit CommutableRR, bit ConvertibleToThreeAddress,
+                         bit ConvertibleToThreeAddressRR> {
+
+  defm NAME#8rr   : BinOpRR_RF_Common<BaseOpc, mnemonic, Xi8  , opnodeflag, CommutableRR, ConvertibleToThreeAddressRR>;
+  defm NAME#16rr  : BinOpRR_RF_Common<BaseOpc, mnemonic, Xi16 , opnodeflag, CommutableRR, ConvertibleToThreeAddressRR>;
+  defm NAME#32rr  : BinOpRR_RF_Common<BaseOpc, mnemonic, Xi32 , opnodeflag, CommutableRR, ConvertibleToThreeAddressRR>;
+  defm NAME#64rr  : BinOpRR_RF_Common<BaseOpc, mnemonic, Xi64 , opnodeflag, CommutableRR, ConvertibleToThreeAddressRR>;
+
+  defm NAME#8rr_REV  : BinOpRR_Rev_Common<BaseOpc2, mnemonic, Xi8>;
+  defm NAME#16rr_REV : BinOpRR_Rev_Common<BaseOpc2, mnemonic, Xi16>;
+  defm NAME#32rr_REV : BinOpRR_Rev_Common<BaseOpc2, mnemonic, Xi32>;
+  defm NAME#64rr_REV : BinOpRR_Rev_Common<BaseOpc2, mnemonic, Xi64>;
+
+  defm NAME#8rm   : BinOpRM_RF_Common<BaseOpc2, mnemonic, Xi8 , opnodeflag, opnode>;
+  defm NAME#16rm  : BinOpRM_RF_Common<BaseOpc2, mnemonic, Xi16, opnodeflag, opnode>;
+  defm NAME#32rm  : BinOpRM_RF_Common<BaseOpc2, mnemonic, Xi32, opnodeflag, opnode>;
+  defm NAME#64rm  : BinOpRM_RF_Common<BaseOpc2, mnemonic, Xi64, opnodeflag, opnode>;
+
+  // NOTE: These are order specific, we want the ri8 forms to be listed
+  // first so that they are slightly preferred to the ri forms.
+  let isConvertibleToThreeAddress = ConvertibleToThreeAddress in {
+    defm NAME#16ri8 : BinOpRI8_RF_Common<0x82, mnemonic, Xi16, opnodeflag, opnode, RegMRM>;
+    defm NAME#32ri8 : BinOpRI8_RF_Common<0x82, mnemonic, Xi32, opnodeflag, opnode, RegMRM>;
+    defm NAME#64ri8 : BinOpRI8_RF_Common<0x82, mnemonic, Xi64, opnodeflag, opnode, RegMRM>;
+    defm NAME#8ri   : BinOpRI_RF_Common<0x80, mnemonic, Xi8 , opnodeflag, opnode, RegMRM>;
+    defm NAME#16ri  : BinOpRI_RF_Common<0x80, mnemonic, Xi16, opnodeflag, opnode, RegMRM>;
+    defm NAME#32ri  : BinOpRI_RF_Common<0x80, mnemonic, Xi32, opnodeflag, opnode, RegMRM>;
+    defm NAME#64ri32: BinOpRI_RF_Common<0x80, mnemonic, Xi64, opnodeflag, opnode, RegMRM>;
+  }
+  
+  let Defs = [EFLAGS] in {
+    defm NAME#8mr    : BinOpMR_Common<BaseOpc, mnemonic, Xi8 , opnode, opnodeflag>;
+    defm NAME#16mr   : BinOpMR_Common<BaseOpc, mnemonic, Xi16, opnode, opnodeflag>;
+    defm NAME#32mr   : BinOpMR_Common<BaseOpc, mnemonic, Xi32, opnode, opnodeflag>;
+    defm NAME#64mr   : BinOpMR_Common<BaseOpc, mnemonic, Xi64, opnode, opnodeflag>;
+
+    // NOTE: These are order specific, we want the mi8 forms to be listed
+    // first so that they are slightly preferred to the mi forms.
+    defm NAME#16mi8  : BinOpMI8_Common<mnemonic, Xi16, opnodeflag, opnode, MemMRM>;
+    defm NAME#32mi8  : BinOpMI8_Common<mnemonic, Xi32, opnodeflag, opnode, MemMRM>;
+    defm NAME#64mi8  : BinOpMI8_Common<mnemonic, Xi64, opnodeflag, opnode, MemMRM, [In64BitMode]>;
+
+    defm NAME#8mi    : BinOpMI_Common<0x80, mnemonic, Xi8 , opnodeflag, opnode, MemMRM>;
+    defm NAME#16mi   : BinOpMI_Common<0x80, mnemonic, Xi16, opnodeflag, opnode, MemMRM>;
+    defm NAME#32mi   : BinOpMI_Common<0x80, mnemonic, Xi32, opnodeflag, opnode, MemMRM>;
+    defm NAME#64mi32 : BinOpMI_Common<0x80, mnemonic, Xi64, opnodeflag, opnode, MemMRM, [In64BitMode]>;
+
+    // These are for the disassembler since 0x82 opcode behaves like 0x80, but
+    // not in 64-bit mode.
+    let Predicates = [Not64BitMode], isCodeGenOnly = 1, ForceDisassemble = 1,
+        hasSideEffects = 0 in {
+      let Constraints = "$src1 = $dst" in
+        def NAME#8ri8 : BinOpRI8_RF<0x82, mnemonic, Xi8, null_frag, RegMRM>;
+      let mayLoad = 1, mayStore = 1 in
+        def NAME#8mi8 : BinOpMI8_RMW<mnemonic, Xi8, null_frag, MemMRM>;
+    }
+  } // Defs = [EFLAGS]
+
+  def NAME#8i8   : BinOpAI<BaseOpc4, mnemonic, Xi8 , AL,
+                           "{$src, %al|al, $src}">;
+  def NAME#16i16 : BinOpAI<BaseOpc4, mnemonic, Xi16, AX,
+                           "{$src, %ax|ax, $src}">;
+  def NAME#32i32 : BinOpAI<BaseOpc4, mnemonic, Xi32, EAX,
+                           "{$src, %eax|eax, $src}">;
+  def NAME#64i32 : BinOpAI<BaseOpc4, mnemonic, Xi64, RAX,
+                           "{$src, %rax|rax, $src}">;
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 //  UnaryOpM - Unary instructions with a memory operand.
 class UnaryOpM<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info,
                list<dag> pattern>
@@ -1834,7 +2170,21 @@ multiclass ArithBinOp_F<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
                              "{$src, %rax|rax, $src}">;
 }
 
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+defm AND : ArithBinOp_R<0x20, 0x22, 0x24, "and", MRM4r, MRM4m,
+                         X86and_flag, and, 1, 0, 0>;
+defm OR  : ArithBinOp_R<0x08, 0x0A, 0x0C, "or", MRM1r, MRM1m,
+                         X86or_flag, or, 1, 0, 0>;
+defm XOR : ArithBinOp_R<0x30, 0x32, 0x34, "xor", MRM6r, MRM6m,
+                         X86xor_flag, xor, 1, 0, 0>;
+defm ADD : ArithBinOp_R<0x00, 0x02, 0x04, "add", MRM0r, MRM0m,
+                         X86add_flag, add, 1, 1, 1>;
+let isCompare = 1 in {
+defm SUB : ArithBinOp_R<0x28, 0x2A, 0x2C, "sub", MRM5r, MRM5m,
+                         X86sub_flag, sub, 0, 1, 0>;
+}
+#else // INTEL_FEATURE_ISA_APX_F
 defm AND : ArithBinOp_RF<0x20, 0x22, 0x24, "and", MRM4r, MRM4m,
                          X86and_flag, and, 1, 0, 0>;
 defm OR  : ArithBinOp_RF<0x08, 0x0A, 0x0C, "or", MRM1r, MRM1m,
@@ -1847,6 +2197,8 @@ let isCompare = 1 in {
 defm SUB : ArithBinOp_RF<0x28, 0x2A, 0x2C, "sub", MRM5r, MRM5m,
                          X86sub_flag, sub, 0, 1, 0>;
 }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // Version of XOR8rr_NOREX that use GR8_NOREX. This is used by the handling of
 // __builtin_parity where the last step xors an h-register with an l-register.
