@@ -343,6 +343,169 @@ private:
   DenseSet<WRNTargetNode *> UsedLocalTreeReduction;
   DenseMap<WRegionNode *, BasicBlock *> CntrCheckBBs;
 
+public:
+  /// This interface serves to incapsulate the reduction combiner generation
+  /// logic to make higher-level reduction codegen function combiner-kind
+  /// agnostic.
+  struct ReductionCombiner {
+    /// BasicBlock the combiner code is placed into
+    virtual BasicBlock *getParentBlock() = 0;
+    virtual Instruction *getCopyoutInstr() = 0;
+    /// The first instruction of the contiguous code
+    /// sequence described by this object
+    virtual Instruction *getStartInstr() = 0;
+
+    virtual Value *getCopyoutLoc() = 0;
+    virtual Value *getLocalValueLoc() = 0;
+    virtual void setCopyoutLoc(Value *V) = 0;
+    virtual void setLocalValueLoc(Value *V) = 0;
+    /// Some combiner kinds (e.g. scalar) may want to emit special SPIRV
+    /// builtins to perform horizontal reduction.
+    virtual bool emitHorizontalReduction(ReductionItem *RedI,
+                                         Type *ScalarTy) = 0;
+    // TODO: remove this virtual version once https://reviews.llvm.org/D147991
+    // gets in, there's no need to make it virtual as the function only makes
+    // sense for ScalarPHIReductionCombiner
+    virtual void finalizePHI(PHINode *BasePHI){};
+
+    virtual ~ReductionCombiner() {}
+  };
+
+  /// This combiner produces the following IR:
+  ///   call spir_func void @.omp_combiner(%dst, %src)  <- CombinerCall
+  ///
+  class UDRReductionCombiner : public ReductionCombiner {
+    CallInst *CombinerCall = nullptr;
+
+  public:
+    UDRReductionCombiner(ReductionItem *RedI, Value *CopyoutLoc,
+                         Value *LocalValueLoc, IRBuilder<> &Builder);
+
+    BasicBlock *getParentBlock() override { return CombinerCall->getParent(); }
+    Instruction *getCopyoutInstr() override { return CombinerCall; }
+    Instruction *getStartInstr() override { return CombinerCall; };
+    Value *getCopyoutLoc() override { return CombinerCall->getArgOperand(0); }
+    Value *getLocalValueLoc() override {
+      return CombinerCall->getArgOperand(1);
+    }
+    void setCopyoutLoc(Value *V) override { CombinerCall->setArgOperand(0, V); }
+    void setLocalValueLoc(Value *V) override {
+      CombinerCall->setArgOperand(1, V);
+    }
+    bool emitHorizontalReduction(ReductionItem *RedI, Type *ScalarTy) override {
+      llvm_unreachable("Horizontal reduction for UDR is not supported");
+    };
+  };
+
+  /// This combiner produces the following IR:
+  ///   %srcval = load %src             <- LocalValueLoad
+  ///   %dstval = load %dst             <- ReductionVariableLoad
+  ///   %res = red_op %dstval, %srcval
+  ///   store %res, %dst                <- ReductionVariableStore
+  ///
+  class ScalarReductionCombiner : public ReductionCombiner {
+  protected:
+    LoadInst *ReductionVariableLoad = nullptr;
+    LoadInst *LocalValueLoad = nullptr;
+    StoreInst *ReductionVariableStore = nullptr;
+
+  public:
+    /// NOTE: Although \p ScalarTy seems redundant and could be replaced by
+    /// getItemInfo call inside the constructor, it's still necessary for
+    /// array section as their codegen propagates a type which may be different
+    /// from just a \p RedI 's scalar type.
+    ScalarReductionCombiner(ReductionItem *RedI, Type *ScalarTy,
+                            Value *CopyoutLoc, Value *LocalValueLoc,
+                            IRBuilder<> &Builder, bool UseLocalUpdates);
+
+    BasicBlock *getParentBlock() override {
+      return ReductionVariableStore->getParent();
+    }
+    Instruction *getCopyoutInstr() override { return ReductionVariableStore; }
+    Instruction *getStartInstr() override { return LocalValueLoad; };
+    Value *getCopyoutLoc() override {
+      return ReductionVariableStore->getPointerOperand();
+    }
+    Value *getLocalValueLoc() override {
+      return LocalValueLoad->getPointerOperand();
+    }
+    void setCopyoutLoc(Value *V) override {
+      assert(ReductionVariableStore->getOperand(1) ==
+             ReductionVariableLoad->getOperand(0));
+      ReductionVariableStore->setOperand(1, V);
+      ReductionVariableLoad->setOperand(0, V);
+    }
+    void setLocalValueLoc(Value *V) override {
+      LocalValueLoad->setOperand(0, V);
+    }
+    bool emitHorizontalReduction(ReductionItem *RedI, Type *ScalarTy) override {
+      auto *TempRedLoad = LocalValueLoad->clone();
+      TempRedLoad->insertAfter(LocalValueLoad);
+      TempRedLoad->takeName(LocalValueLoad);
+      auto *HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
+          RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
+
+      // NOTE: the code below effectively removes LocalValueLoad,
+      // so it'd be right to replace it in the Combiner too, but
+      // it's not supposed to be used after emitHorizontalReduction call
+      // as of now.
+      if (HRed) {
+        LocalValueLoad->replaceAllUsesWith(HRed);
+        return true;
+      }
+      return false;
+    };
+  };
+
+  /// This combiner produces the following IR:
+  ///  bb:
+  ///   %red.sum.phi = phi [ %init, bb ], [ %res, bb ] <- ReductionVariablePHI
+  ///   %srcval = load %src                            <- LocalValueLoad
+  ///   %init = load %dst                              <- ReductionVariableLoad
+  ///   %res = red_op %red.sum.phi, %srcval
+  ///   store %red.sum.phi, %dst                       <- ReductionVariableStore
+  ///
+  class ScalarPHIReductionCombiner : public ScalarReductionCombiner {
+    PHINode *ReductionVariablePHI = nullptr;
+
+  public:
+    ScalarPHIReductionCombiner(ReductionItem *RedI, Type *ScalarTy,
+                               Value *CopyoutLoc, Value *LocalValueLoc,
+                               IRBuilder<> &Builder);
+
+    PHINode *getCopyoutLoc() override { return ReductionVariablePHI; }
+    void setCopyoutLoc(Value *V) override {
+      llvm_unreachable("PHICombiner: the result to be stored is bound to be "
+                       "the combiner's phi node");
+    }
+    bool emitHorizontalReduction(ReductionItem *RedI, Type *ScalarTy) override {
+      llvm_unreachable("Horizontal reduction should not be used by combiners "
+                       "with PHI nodes");
+    };
+
+    /// The IR above needs some adjustment of the %init and phi placements,
+    /// which is performed basing on existing \p BasePHI :
+    ///  bb0:
+    ///   %init = load %dst
+    ///   br bb1
+    ///  bb1:
+    ///   BasePHI = phi [ v0, bb0 ], [ v1, bb1 ]
+    ///   %red.sum.phi = phi [%init, bb0], [%res, bb1]
+    ///  bb2:
+    ///   %res = red_op %red.sum.phi, %srcval
+    ///   br bb1
+    ///
+    // TODO: remove override once https://reviews.llvm.org/D147991 gets in
+    void finalizePHI(PHINode *BasePHI) override {
+      ReductionVariablePHI->setIncomingBlock(0, BasePHI->getIncomingBlock(0));
+      ReductionVariablePHI->setIncomingBlock(1, BasePHI->getIncomingBlock(1));
+      ReductionVariablePHI->moveAfter(BasePHI);
+      cast<Instruction>(ReductionVariablePHI->getIncomingValue(0))
+          ->moveBefore(BasePHI->getIncomingBlock(0)->getTerminator());
+    }
+  };
+
+private:
   /// Struct that keeps all the information needed to pass to
   /// the runtime library.
   class TgDataInfo {
@@ -800,16 +963,17 @@ private:
                        BasicBlock *EntryBB, BasicBlock *EndBB);
 
   /// Generate local update loop for atomic-free GPU reduction
-  bool genAtomicFreeReductionLocalFini(WRegionNode *W, ReductionItem *RedI,
-                                       Instruction *Rhs1, Instruction *Rhs2,
-                                       Instruction *CombinerCopyout,
-                                       IRBuilder<> &Builder, DominatorTree *DT);
+  bool
+  genAtomicFreeReductionLocalFini(WRegionNode *W, ReductionItem *RedI,
+                                  std::unique_ptr<ReductionCombiner> Combiner,
+                                  IRBuilder<> &Builder, DominatorTree *DT);
 
   /// Generate global update loop for atomic-free GPU reduction
-  bool genAtomicFreeReductionGlobalFini(
-      WRegionNode *W, ReductionItem *RedI, Instruction *CombinerCopyout,
-      Instruction *RedVarToLoad, Instruction *RedValToLoad, PHINode *RedSumPhi,
-      bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT);
+  bool
+  genAtomicFreeReductionGlobalFini(WRegionNode *W, ReductionItem *RedI,
+                                   std::unique_ptr<ReductionCombiner> Combiner,
+                                   bool UseExistingUpdateLoop,
+                                   IRBuilder<> &Builder, DominatorTree *DT);
 
   /// Insert code to increment teams_counter once a team is done writing its
   /// value to the `red_buffer` array and check if the current team is
@@ -857,12 +1021,14 @@ private:
                                     bool HonorZTT = true);
 
   /// Generate the reduction update instructions for min/max.
-  Value* genReductionMinMaxFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
-                             Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
+  static Value *genReductionMinMaxFini(ReductionItem *RedI, Value *Rhs1,
+                                       Value *Rhs2, Type *ScalarTy,
+                                       IRBuilder<> &Builder, bool IsMax);
 
   /// Generate calling reduction update function for user-defined reduction.
-  CallInst *genReductionUdrFini(ReductionItem *RedI, Value *ReductionVar,
-                                Value *ReductionValueLoc, IRBuilder<> &Builder);
+  static CallInst *genReductionUdrFini(ReductionItem *RedI, Value *ReductionVar,
+                                       Value *ReductionValueLoc,
+                                       IRBuilder<> &Builder);
 
   /// Generate the reduction update instructions.
   /// Returns true iff critical section is required around the generated
@@ -880,8 +1046,8 @@ private:
   /// Handles both LLVM scalar types and also complex ones.
   /// May emit > 1 instructions depending on the item's type and the
   /// reduction operator.
-  Value *genReductionScalarOp(ReductionItem *RedI, IRBuilder<> &Builder,
-                              Type *ScalarTy, Value *Rhs1, Value *Rhs2);
+  static Value *genReductionScalarOp(ReductionItem *RedI, IRBuilder<> &Builder,
+                                     Type *ScalarTy, Value *Rhs1, Value *Rhs2);
 
   /// Generate the reduction initialization/update for array.
   /// Returns true iff critical section is required around the generated
@@ -896,8 +1062,9 @@ private:
                                  bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Generate the reduction fini code for bool and/or.
-  Value *genReductionFiniForBoolOps(Value *Rhs1, Value *Rhs2, Type *ScalarTy,
-                                    IRBuilder<> &Builder, bool IsAnd);
+  static Value *genReductionFiniForBoolOps(Value *Rhs1, Value *Rhs2,
+                                           Type *ScalarTy, IRBuilder<> &Builder,
+                                           bool IsAnd);
   /// @}
 
   /// Generate the firstprivate initialization code.

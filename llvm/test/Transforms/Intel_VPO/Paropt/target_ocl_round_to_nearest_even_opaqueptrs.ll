@@ -1,12 +1,15 @@
 ; RUN: opt -opaque-pointers=1 -switch-to-offload -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S <%s | FileCheck %s --check-prefix=DEFAULT
 ; RUN: opt -opaque-pointers=1 -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S <%s | FileCheck %s --check-prefix=DEFAULT
 ;
-; RUN: opt -opaque-pointers=1 -vpo-paropt-spirv-offload-rne -switch-to-offload -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S <%s | FileCheck %s --check-prefix=RNE
-; RUN: opt -opaque-pointers=1 -vpo-paropt-spirv-offload-rne -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S <%s | FileCheck %s --check-prefix=RNE
+; RUN: opt -opaque-pointers=1 -vpo-paropt-spirv-offload-rne -switch-to-offload -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S <%s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -opaque-pointers=1 -vpo-paropt-spirv-offload-rne -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S <%s | FileCheck %s --check-prefix=DEFAULT
+;
+; RUN: opt -opaque-pointers=1 --vpo-paropt-enable-device-simd-codegen=true -vpo-paropt-spirv-offload-rne -switch-to-offload -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt -S <%s | FileCheck %s --check-prefix=RNE
+; RUN: opt -opaque-pointers=1 --vpo-paropt-enable-device-simd-codegen=true -vpo-paropt-spirv-offload-rne -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S <%s | FileCheck %s --check-prefix=RNE
 ;
 ; When compiling for SPIRV target offloading we translate the "round" function to the corresponding OCL counterpart.
-; By default roundf/round are translated into _Z17__spirv_ocl_roundf   / _Z17__spirv_ocl_roundd
-; Under a flag, they are translated into      _Z19__spirv_ocl_roundnef / _Z19__spirv_ocl_roundned
+; By default roundf/round are translated into _Z17__spirv_ocl_roundf / _Z17__spirv_ocl_roundd
+; Under a flag, and only for device simd codegen, they are translated into _Z19__spirv_ocl_roundnef / _Z19__spirv_ocl_roundned
 
 ; // C++ source
 ; #include <math.h>
