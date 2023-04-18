@@ -1,6 +1,6 @@
 //===-------------- SOAToAOSOPCommon.h - Part of SOAToAOSOPPass -----------===//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -26,6 +26,7 @@
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOP.h"
 
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -429,6 +430,19 @@ inline void createAndMapNewAppendFunc(
     VMap[&I] = &*DestI++;
   }
   AppendsFuncToDTransTyMap[NewF] = NewDTFunctionTy;
+}
+
+// Sets debug info objects of OrigFunc's subprograms to themselves
+// in VMap so that those objects will not cloned during CloneFunction.
+inline void mapSubProgramToSelf(Function &OrigFunc, ValueToValueMapTy &VMap) {
+  DISubprogram *DISubprogram = OrigFunc.getSubprogram();
+  if (!DISubprogram)
+    return;
+  DebugInfoFinder DIFinder;
+  DIFinder.processSubprogram(DISubprogram);
+  auto &MDVMap = VMap.MD();
+  for (auto *DSP : DIFinder.subprograms())
+    MDVMap[DSP].reset(DSP);
 }
 
 // Replace CallInsts of OrigFunc in CallInfo with CallInsts of cloned

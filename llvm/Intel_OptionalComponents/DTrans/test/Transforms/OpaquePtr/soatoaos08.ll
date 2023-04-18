@@ -176,6 +176,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: ![[MD2]] = !{i32 0, i32 1}
 ; CHECK: ![[MD3]] = !{float 0.000000e+00, i32 1}
 
+; CHECK: DISubprogram(name: "check1"
+; CHECK: {{[0-9]+}} =
+; Make sure subprogrsm for check1 is not cloned.
+; CHECK-NOT: DISubprogram(name: "check1"
 
 @v1 = global i32 20, align 4, !dbg !0
 @v2 = global i32 30, align 4, !dbg !13
@@ -1024,9 +1028,9 @@ attributes #6 = { nocallback nofree nounwind willreturn memory(argmem: write) }
 
 !0 = !DIGlobalVariableExpression(var: !1, expr: !DIExpression())
 !1 = distinct !DIGlobalVariable(name: "v1", scope: !2, file: !3, line: 96, type: !8, isLocal: false, isDefinition: true)
-!2 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !3, producer: "clang version 8.0.0", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !4, retainedTypes: !5, globals: !12, nameTableKind: None)
+!2 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !3, producer: "clang version 8.0.0", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !509, retainedTypes: !5, globals: !12, nameTableKind: None)
 !3 = !DIFile(filename: "test.cc", directory: "llvm")
-!4 = !{}
+!4 = !{!139}
 !5 = !{!6, !9}
 !6 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !7, size: 64)
 !7 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !8, size: 64)
@@ -1531,3 +1535,4 @@ attributes #6 = { nocallback nofree nounwind willreturn memory(argmem: write) }
 !506 = distinct !DILexicalBlock(scope: !501, file: !3, line: 59, column: 10)
 !507 = !DILocation(line: 59, column: 12, scope: !506)
 !508 = !DILocation(line: 59, column: 24, scope: !501)
+!509 = !{}
