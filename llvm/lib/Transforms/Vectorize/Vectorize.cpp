@@ -29,7 +29,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Vectorize.h"
 #include "llvm/IR/LegacyPassManager.h" // INTEL
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
