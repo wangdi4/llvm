@@ -96,13 +96,6 @@ Pass *createSROALegacyCGSCCAdaptorPass();
 
 //===----------------------------------------------------------------------===//
 //
-// InductiveRangeCheckElimination - Transform loops to elide range checks on
-// linear functions of the induction variable.
-//
-Pass *createInductiveRangeCheckEliminationPass();
-
-//===----------------------------------------------------------------------===//
-//
 // LICM - This pass is a loop invariant code motion and memory promotion pass.
 //
 Pass *createLICMPass();
