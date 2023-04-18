@@ -593,6 +593,76 @@ static bool mayIVOverflowCE(const CanonExpr *CE, const HLLoop *Loop) {
   return true;
 }
 
+// Returns false if addition in LHSCE doesn't overflow its type.
+// Condition to investigate is 'if ( i1 + c > ext(%m))'.
+// Additionally, check that const c would not overflow the LHSCE's type if
+// being added to/subtracted from an arbitrary value of the type RHSTy.
+// \pIsRHSSExt indicates that we look into signed or unsigned type RHSTy range.
+static bool mayCEOverflowType(const CanonExpr *LHSCE, bool IsRHSSExt,
+                              Type *RHSTy, const HLLoop *Loop) {
+  if (SkipIVOverflowCheck)
+    return false;
+
+  auto *SrcType = LHSCE->getSrcType();
+  // No trunc or ext expected on IV side.
+  if (SrcType != LHSCE->getDestType())
+    return true;
+
+  // i1 + c min value is c. max value is LEGAL_MAX_TC + c.
+  uint64_t LegalMaxTC = Loop->getLegalMaxTripCount();
+  if (!LegalMaxTC)
+    return true;
+
+  int64_t CEConst = LHSCE->getConstant();
+  unsigned SrcBitSize = SrcType->getScalarSizeInBits();
+
+  // Check that i1 + c don't overflow its type. Since loop is normalized -
+  // i1 is in the range of [0; LegalMaxTC]. It means that LHS is in the range
+  // of [c; c + LegalMaxTC]. We use LegalMaxTC instead of LegalMaxTC - 1 to
+  // accomodate the fact that final split point could be possibly shifted by 1
+  // depending on predicate in the condition.
+  // c by itself could not overflow it's type, so we only check the upper
+  // bound.
+  bool Overflow = false;
+  APInt CEConstVal = APInt(SrcBitSize, CEConst);
+  APInt MaxCEVal = APInt(SrcBitSize, LegalMaxTC);
+  (void)MaxCEVal.sadd_ov(CEConstVal, Overflow);
+  if (Overflow)
+    return true;
+
+  // Get Max value for CE type.
+  APInt MaxSrcTypeVal = APInt::getSignedMaxValue(SrcBitSize);
+
+  unsigned RHSBitSize = RHSTy->getScalarSizeInBits();
+  if (IsRHSSExt) {
+    // Suppose we had (i64 iv + c > sext.i32.i64(%m)) then we should check:
+    //   MinSInt64 < sext(m) - c  && sext(m) - c < MaxSInt64
+    // It transforms into
+    //   MinSInt64 < MinSInt32 - c && MaxSInt32 - c < MaxSInt64
+    // Thus we should compare |c| against (MaxSInt64 - MaxSInt32).
+    APInt MaxRHSTyVal = APInt::getSignedMaxValue(RHSBitSize);
+    if (std::abs(CEConstVal.getSExtValue()) <
+        (MaxSrcTypeVal.getSExtValue() - MaxRHSTyVal.getSExtValue()))
+      return false;
+
+  } else {
+    // Suppose we had (i64 iv + c) > zext.i32.i64(%m)) then we should check:
+    //   MinSInt64 < zext(m) - c && zext(m) - c < MaxSInt64
+    // It transforms into
+    //   MinSInt64 < -c && MaxUInt32 - c < MaxSInt64
+    // c fits in 64 bytes by default thus we should compare -c against
+    // (MaxSInt64 - MaxUInt32) only.
+    APInt MaxRHSTyVal = APInt::getMaxValue(RHSBitSize);
+    CEConstVal.negate();
+    if (CEConstVal.isNonPositive() ||
+        (CEConstVal.getZExtValue() <
+         (MaxSrcTypeVal.getZExtValue() - MaxRHSTyVal.getZExtValue())))
+      return false;
+  }
+
+  return true;
+}
+
 std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
     const HLLoop *Loop, const RegDDRef *LHSDDref, PredicateTy Pred,
     const RegDDRef *RHSDDRef, unsigned Level, bool &ShouldInvertCondition) {
@@ -624,40 +694,65 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
   //       However, revisit at some point to see the relevance.
   if (LHSConst != 0) {
     int64_t RHSConst;
-    if (!RHS->isIntConstant(&RHSConst)) {
-      return nullptr;
-    }
-
-    Type *RHSType = RHS->getSrcType();
     Type *LHSType = LHS->getSrcType();
+    Type *RHSType = RHS->getSrcType();
+    if (!RHS->isIntConstant(&RHSConst)) {
+      // Consider following condition:
+      //     if (i1 + c1 > ext(%m + c2))
+      // where i1 + c1 has type i64 and %m + c2 has src type i32 and dst type
+      // i64. Convert RHS into stand alone blob. If after that src types of
+      // LHS and RHS match, then create a split point by subtracting a constant
+      // from RHS canon expr. Note: we do not expect IVs on the RHS.
 
-    if (!ConstantInt::isValueValidForType(RHSType, RHSConst) ||
-        !ConstantInt::isValueValidForType(LHSType, -LHSConst)) {
-      return nullptr;
+      bool IsRHSSExt = RHS->isSExt();
+      // Legality checks to avoid overflow issues:
+      // 1) Ext()in the RHS.
+      // 2) LHS canon expr should not overflow its type and adding LHS constant
+      //    to the RHS should also be in boundaries of LHS type.
+      if (!IsRHSSExt && !RHS->isZExt())
+        return nullptr;
+
+      // Check that LSH do not overflow its type and if subtracting c1 from
+      // RHS could cause an overflow.
+      if (mayCEOverflowType(LHS, IsRHSSExt, RHSType, Loop))
+        return nullptr;
+
+      // Convert RHS into standalone blob.
+      if (!Result->convertToStandAloneBlobOrConstant())
+        return nullptr;
+
+      // Subtract LHS constant from RHS.
+      Result->addConstant(-LHSConst, true);
+
+    } else {
+      if (!ConstantInt::isValueValidForType(RHSType, RHSConst) ||
+          !ConstantInt::isValueValidForType(LHSType, -LHSConst)) {
+        return nullptr;
+      }
+
+      // sadd_ov can not handle different type sizes, so we bailout, e.g.
+      // if (i1 + 1 == 0)
+      //   <RVAL-REG> LINEAR trunc.i64.i32(i1 + 1) {sb:2}
+      //   RHS's 0 is i32 type.
+      // Can be extended to see if the const value in the larger bit size
+      // can fit within the smaller bit size (using getSignedMin/MaxValue)
+      // and then compute sadd_ov in the smaller bit size.
+      if (RHSType->getPrimitiveSizeInBits() !=
+          LHSType->getPrimitiveSizeInBits()) {
+        return nullptr;
+      }
+
+      bool Overflow = false;
+      APInt RHSConstAP(RHSType->getPrimitiveSizeInBits(), RHSConst, true);
+      APInt LHSConstAP(LHSType->getPrimitiveSizeInBits(), -LHSConst, true);
+      (void)RHSConstAP.sadd_ov(LHSConstAP, Overflow);
+
+      if (Overflow) {
+        return nullptr;
+      }
+
+      Result->addConstant(-LHSConst, true);
     }
-
-    // sadd_ov can not handle different type sizes, so we bailout, e.g.
-    // if (i1 + 1 == 0)
-    //   <RVAL-REG> LINEAR trunc.i64.i32(i1 + 1) {sb:2}
-    //   RHS's 0 is i32 type.
-    // Can be extended to see if the const value in the larger bit size
-    // can fit within the smaller bit size (using getSignedMin/MaxValue)
-    // and then compute sadd_ov in the smaller bit size.
-    if (RHSType->getPrimitiveSizeInBits() !=
-        LHSType->getPrimitiveSizeInBits()) {
-      return nullptr;
-    }
-
-    bool Overflow = false;
-    APInt RHSConstAP(RHSType->getPrimitiveSizeInBits(), RHSConst, true);
-    APInt LHSConstAP(LHSType->getPrimitiveSizeInBits(), -LHSConst, true);
-    (void)RHSConstAP.sadd_ov(LHSConstAP, Overflow);
-
-    if (Overflow) {
-      return nullptr;
-    }
-
-    Result->addConstant(-LHSConst, true);
   }
 
   int64_t Coeff = LHS->getIVConstCoeff(Level);

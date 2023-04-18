@@ -1931,7 +1931,7 @@ private:
 
   /// \returns \b true if current function is marked with
   /// `openmp-declare-target=true` attribute, \b false otherwise.
-  bool isFunctionOpenMPTargetDeclare();
+  bool isFunctionOpenMPTargetDeclare() const;
 
   /// Initialize the loop descriptor struct with the loop level
   /// as well as the lb, ub, stride for each level of the loop.

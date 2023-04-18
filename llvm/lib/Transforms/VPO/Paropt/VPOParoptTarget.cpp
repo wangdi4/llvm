@@ -3137,8 +3137,8 @@ bool VPOParoptTransform::mayCallOmpGetNumThreads(WRegionNode *W) {
   return logAndReturn(false);
 }
 
-bool VPOParoptTransform::isFunctionOpenMPTargetDeclare() {
-  return (F->getAttributes().hasFnAttr("openmp-target-declare"));
+bool VPOParoptTransform::isFunctionOpenMPTargetDeclare() const {
+  return (F->hasFnAttribute("openmp-target-declare"));
 }
 
 // This function inserts artificial uses for arguments of some clauses
