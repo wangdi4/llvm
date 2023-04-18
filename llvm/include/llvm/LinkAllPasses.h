@@ -114,6 +114,7 @@ namespace {
         return;
 
       (void) llvm::createAAEvalPass();
+<<<<<<< HEAD
       (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createNonLTOGlobalOptimizerPass();
@@ -131,6 +132,8 @@ namespace {
       (void) llvm::createTransformFPGARegPass();
       (void) llvm::createTransformSinAndCosCallsPass();
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> b74e89c0d407aded6b2426e84740765cd598fbb4
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
       (void) llvm::createTypeBasedAAWrapperPass();
