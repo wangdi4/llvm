@@ -3646,16 +3646,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   LateFPM.addPass(DivRemPairsPass());
 
   // Delete basic blocks, which optimization passes may have killed.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  // 28038: Avoid excessive hoisting as it increases register pressure and
-  // select conversion without clear gains.
-  // MPM.addPass(createModuleToFunctionPassAdaptor(
-  //   SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true))));
-  MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass(
+  LateFPM.addPass(SimplifyCFGPass(
       SimplifyCFGOptions().convertSwitchRangeToICmp(true).hoistCommonInsts(
-          true))));
-#endif // INTEL_CUSTOMIZATION
+          true)));
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(LateFPM)));
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll can expose opportunities for optimizing globals and
@@ -3663,12 +3657,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (isLoopOptEnabled(Level))
     MPM.addPass(GlobalOptPass());
 #endif // INTEL_CUSTOMIZATION
-=======
-  LateFPM.addPass(SimplifyCFGPass(
-      SimplifyCFGOptions().convertSwitchRangeToICmp(true).hoistCommonInsts(
-          true)));
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(LateFPM)));
->>>>>>> 73b6b323c501870814cdc6b3cee4a66feb6171ef
 
   // Drop bodies of available eternally objects to improve GlobalDCE.
   MPM.addPass(EliminateAvailableExternallyPass());
