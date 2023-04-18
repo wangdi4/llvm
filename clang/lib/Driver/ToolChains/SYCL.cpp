@@ -1718,19 +1718,11 @@ void SYCLToolChain::AddImpliedTargetArgs(
       CmdArgs.push_back("-device");
       CmdArgs.push_back(Args.MakeArgString(DepInfo));
     }
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> b6b01b48cfd9827e9f4c9ed69e5cf536725c55ef
     // -ftarget-compile-fast
     if (Args.hasArg(options::OPT_ftarget_compile_fast)) {
       BeArgs.push_back(
           "\"-igc_opts PartitionUnit=1,SubroutineThreshold=50000\"");
     }
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> b6b01b48cfd9827e9f4c9ed69e5cf536725c55ef
   }
   if (BeArgs.empty())
     return;
