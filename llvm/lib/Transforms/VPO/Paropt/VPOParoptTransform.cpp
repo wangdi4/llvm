@@ -3147,6 +3147,57 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
   return minmax;
 }
 
+static std::unique_ptr<VPOParoptTransform::ReductionCombiner>
+makeReductionCombiner(ReductionItem *RedI, Type *ScalarTy, Value *Dst,
+                      Value *Src, IRBuilder<> &Builder, bool UsePHI = false,
+                      bool UseLocalUpdates = false) {
+  if (RedI->getType() == ReductionItem::WRNReductionUdr)
+    return std::make_unique<VPOParoptTransform::UDRReductionCombiner>(
+        RedI, Dst, Src, Builder);
+  if (UsePHI)
+    return std::make_unique<VPOParoptTransform::ScalarPHIReductionCombiner>(
+        RedI, ScalarTy, Dst, Src, Builder);
+
+  return std::make_unique<VPOParoptTransform::ScalarReductionCombiner>(
+      RedI, ScalarTy, Dst, Src, Builder, UseLocalUpdates);
+}
+
+VPOParoptTransform::UDRReductionCombiner::UDRReductionCombiner(
+    ReductionItem *RedI, Value *CopyoutLoc, Value *LocalValueLoc,
+    IRBuilder<> &Builder) {
+  CombinerCall = genReductionUdrFini(RedI, CopyoutLoc, LocalValueLoc, Builder);
+}
+
+VPOParoptTransform::ScalarReductionCombiner::ScalarReductionCombiner(
+    ReductionItem *RedI, Type *ScalarTy, Value *CopyoutLoc,
+    Value *LocalValueLoc, IRBuilder<> &Builder, bool UseLocalUpdates = false) {
+  LocalValueLoad = Builder.CreateLoad(ScalarTy, LocalValueLoc);
+  // NOTE: due to some weird load elimination + phi translation by GVN we want
+  // to generate volatile load from the reduction variable for the local
+  // update loop. The load from ReductionValueLoc doesn't need to be volatile
+  // as it may be safely LICMed
+  ReductionVariableLoad =
+      Builder.CreateLoad(ScalarTy, CopyoutLoc, UseLocalUpdates);
+  auto *Res = genReductionScalarOp(RedI, Builder, ScalarTy,
+                                   ReductionVariableLoad, LocalValueLoad);
+  ReductionVariableStore = Builder.CreateStore(Res, CopyoutLoc);
+}
+
+VPOParoptTransform::ScalarPHIReductionCombiner::ScalarPHIReductionCombiner(
+    ReductionItem *RedI, Type *ScalarTy, Value *CopyoutLoc,
+    Value *LocalValueLoc, IRBuilder<> &Builder)
+    : ScalarReductionCombiner(RedI, ScalarTy, CopyoutLoc, LocalValueLoc,
+                              Builder) {
+  ReductionVariablePHI = Builder.CreatePHI(ScalarTy, 2, "red.sum.phi");
+  ReductionVariableLoad->replaceAllUsesWith(ReductionVariablePHI);
+  ReductionVariablePHI->addIncoming(ReductionVariableLoad,
+                                    Builder.GetInsertBlock());
+  ReductionVariablePHI->addIncoming(ReductionVariableStore->getOperand(0),
+                                    Builder.GetInsertBlock());
+  ReductionVariableStore->setOperand(0, ReductionVariablePHI);
+  ReductionVariableLoad->setName("init");
+}
+
 // Generate local update loop for atomic-free reduction.
 // NOTE: Current compiler & RT implementation supports LWS with
 // only 1 dimension > 1 that's why we're only iterating over
@@ -3183,18 +3234,12 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
 // a plain scalar update
 //
 bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
-    WRegionNode *W, ReductionItem *RedI, Instruction *Rhs1, Instruction *Rhs2,
-    Instruction *CombinerCopyout, IRBuilder<> &Builder, DominatorTree *DT) {
+    WRegionNode *W, ReductionItem *RedI,
+    std::unique_ptr<ReductionCombiner> Combiner, IRBuilder<> &Builder,
+    DominatorTree *DT) {
   auto *WTarget = cast<WRNTargetNode>(
         WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget));
   bool IsUDR = RedI->getType() == ReductionItem::WRNReductionUdr;
-  // TODO: redesign API to incapsulate Rhs1/2,CombinerCopyout as a part of
-  //       tree reduction support for UDR
-  assert(((!IsUDR && isa<StoreInst>(CombinerCopyout)) ||
-          (IsUDR && isa<CallInst>(CombinerCopyout))) &&
-         "Wrong type of the reduction combiner instruction");
-  assert((IsUDR ^ (Rhs1 && Rhs2)) &&
-         "Wrong type of reduction combiner arguments");
   WTarget->setHasLocalAtomicFreeReduction();
   Value *NumElems = nullptr;
   Type *ElemTy = nullptr;
@@ -3214,7 +3259,6 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
       (!IsArrayOrArraySection || isa_and_nonnull<ConstantInt>(NumElems)) &&
       !IsUDR;
 
-  StoreInst *RedStore = dyn_cast_or_null<StoreInst>(CombinerCopyout);
   // Local reduction stage requires a temporary buffer when tree pattern is
   // enabled in order to keep its temporary results there (see local_buf in the
   // comment above the function definition). Depending on whether explicit SLM
@@ -3262,36 +3306,29 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
           AtomicFreeRedLocalUpdateInfos.lookup(W).EntryBarrier);
       auto *LocalPtr =
           GenLocalBufGEP(RedI, AtomicFreeRedLocalUpdateInfos.lookup(W).LocalId);
-      Rhs1->setOperand(0, LocalPtr);
-      auto *Rhs2Copy = Builder.Insert(Rhs2->clone());
-      Builder.CreateStore(Rhs2Copy, LocalPtr);
+      auto *PrivLoad = Builder.CreateLoad(ElemTy, Combiner->getLocalValueLoc());
+      Builder.CreateStore(PrivLoad, LocalPtr);
 
       Builder.SetInsertPoint(
           AtomicFreeRedLocalUpdateInfos.lookup(W).UpdateBB,
           AtomicFreeRedLocalUpdateInfos.lookup(W).UpdateBB->begin());
       auto *LocalPtrPlus = Builder.CreateInBoundsGEP(
-          RedStore->getOperand(0)->getType(), LocalPtr,
-          AtomicFreeRedLocalUpdateInfos.lookup(W).IVPhi);
-      Rhs2->setOperand(0, LocalPtrPlus);
+          ElemTy, LocalPtr, AtomicFreeRedLocalUpdateInfos.lookup(W).IVPhi);
 
       Builder.SetInsertPoint(
           AtomicFreeRedLocalUpdateInfos.lookup(W).ExitBB->getTerminator());
-      auto *RedValType = RedStore->getValueOperand()->getType();
-      auto *RedVarPtr = RedStore->getPointerOperand();
-      auto *LocalVal = Builder.CreateLoad(RedValType, LocalPtr);
-      auto *CurLocal = Builder.CreateLoad(RedValType, RedVarPtr);
-      auto *RedOp = cast<Instruction>(
-          genReductionScalarOp(RedI, Builder, RedValType, CurLocal, LocalVal));
+      makeReductionCombiner(RedI, ElemTy, Combiner->getCopyoutLoc(), LocalPtr,
+                            Builder);
 
-      Builder.CreateStore(RedOp, RedVarPtr);
-      RedStore->setOperand(1, LocalPtr);
+      Combiner->setCopyoutLoc(LocalPtr);
+      Combiner->setLocalValueLoc(LocalPtrPlus);
     }
     // do not generate another loop if we already have one
     // for the same WRegion
     return false;
   }
   auto *SizeTy = cast<IntegerType>(GeneralUtils::getSizeTTy(F));
-  auto *UpdateBB = CombinerCopyout->getParent();
+  auto *UpdateBB = Combiner->getParentBlock();
   // reusing existing loop isn't supported for local updates yet
   if (!IsArrayOrArraySection && !IsUDR)
     AtomicFreeRedLocalUpdateInfos[W].UpdateBB = UpdateBB;
@@ -3365,11 +3402,10 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
     IVInit = cast<Instruction>(RoundToPow2(IVInit));
     if (!IsArrayOrArraySection) {
       LocalPtr = GenLocalBufGEP(RedI, LocalId);
-      Rhs1->setOperand(0, LocalPtr);
-      auto *Rhs2Copy = Builder.Insert(Rhs2->clone());
-      Builder.CreateStore(Rhs2Copy, LocalPtr);
+      auto *PrivLoad = Builder.CreateLoad(ElemTy, Combiner->getLocalValueLoc());
+      Builder.CreateStore(PrivLoad, LocalPtr);
     } else {
-      LocalPtr = Rhs2->getOperand(0);
+      LocalPtr = Combiner->getLocalValueLoc();
     }
     auto *EntryBarrierCI = VPOParoptUtils::genCall(
         "_Z22__spirv_ControlBarrieriii", Builder.getVoidTy(),
@@ -3445,9 +3481,9 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
     auto *LocalPtrOffset = IsArrayOrArraySection
                                ? Builder.CreateMul(NumElemsCasted, IVPhi)
                                : IVPhi;
-    auto *LocalPtrPlus = Builder.CreateInBoundsGEP(
-        RedStore->getOperand(0)->getType(), LocalPtr, LocalPtrOffset);
-    Rhs2->setOperand(0, LocalPtrPlus);
+    auto *LocalPtrPlus =
+        Builder.CreateInBoundsGEP(ElemTy, LocalPtr, LocalPtrOffset);
+    Combiner->setLocalValueLoc(LocalPtrPlus);
   }
 
   Builder.SetInsertPoint(HeaderBB);
@@ -3481,21 +3517,18 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
     AtomicFreeRedLocalUpdateInfos[W].ExitBB = ExitBB;
     if (GenTreeUpdate) {
       Builder.SetInsertPoint(ExitBarrierCI->getNextNode());
-      auto *LocalVal =
-          Builder.CreateLoad(RedStore->getValueOperand()->getType(), LocalPtr);
-      auto *CurLocal =
-          Builder.CreateLoad(RedStore->getValueOperand()->getType(),
-                             RedStore->getPointerOperand());
-      auto *RedOp = cast<Instruction>(genReductionScalarOp(
-          RedI, Builder, RedStore->getValueOperand()->getType(), CurLocal,
-          LocalVal));
-      auto *St = Builder.CreateStore(RedOp, RedStore->getPointerOperand());
-      auto *ExitBB2 = SplitBlock(ExitBB, St->getNextNode(), DT, LI);
-      RedStore->setOperand(1, LocalPtr);
+
+      auto FinalCopyoutInfo = makeReductionCombiner(
+          RedI, ElemTy, Combiner->getCopyoutLoc(), LocalPtr, Builder);
+
+      auto *ExitBB2 = SplitBlock(
+          ExitBB, FinalCopyoutInfo->getCopyoutInstr()->getNextNode(), DT, LI);
+      Combiner->setCopyoutLoc(LocalPtr);
       Builder.SetInsertPoint(ExitBarrierCI->getNextNode());
       auto *MTC =
           Builder.CreateICmpNE(LocalId, ConstantInt::getNullValue(SizeTy));
-      SplitBlockAndInsertIfThen(MTC, LocalVal, false, nullptr, DT, LI, ExitBB2);
+      SplitBlockAndInsertIfThen(MTC, cast<Instruction>(MTC)->getNextNode(),
+                                false, nullptr, DT, LI, ExitBB2);
       Builder.SetInsertPoint(ExitBB2);
       auto *ExitBB1 = ExitBB->getTerminator()->getSuccessor(1);
 
@@ -3574,19 +3607,6 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
 //   }
 // }
 //
-// IR expected at the entry for scalar item:
-//   v0 = load src_ptr    <- load from ReductionValueLoc
-//                           (Rhs2 at the function's callsite)
-//   sum_phi = phi (v0)   <- RedValLoad - keeps intermediate reduction result
-//                                        between the final loop iterations
-//   v1 = load dst_ptr    <- RedVarLoad
-//   v2 = v0 + v1
-//   store v2, dst_ptr    <- RedStore
-//
-// With AtomicFreeReductionParallelGlobal==true
-// there is no sum_phi, RedValLoad is v0 instead, as there's no serial loop to
-// be produced.
-//
 // `teams_counter`, which is shared across all teams, is atomically incremented
 // when a team is done writing its value to the `red_buf` array. Once all teams
 // are done doing that, the results are combined by the last team to increment
@@ -3605,21 +3625,14 @@ bool VPOParoptTransform::genAtomicFreeReductionLocalFini(
 // without first resetting it to zero in the runtime.
 //
 bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
-    WRegionNode *W, ReductionItem *RedI, Instruction *CombinerCopyout,
-    Instruction *RedVarLoad, Instruction *RedValLoad, PHINode *RedSumPhi,
-    bool UseExistingUpdateLoop, IRBuilder<> &Builder, DominatorTree *DT) {
+    WRegionNode *W, ReductionItem *RedI,
+    std::unique_ptr<ReductionCombiner> Combiner, bool UseExistingUpdateLoop,
+    IRBuilder<> &Builder, DominatorTree *DT) {
   auto *WTarget = cast<WRNTargetNode>(
         WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget));
   bool IsUDR = RedI->getType() == ReductionItem::WRNReductionUdr;
-  // TODO: redesign API to incapsulate RedVar/ValLoad,CombinerCopyout as a part
-  // of tree reduction support for UDR
-  assert(((!IsUDR && isa<StoreInst>(CombinerCopyout)) ||
-          (IsUDR && isa<CallInst>(CombinerCopyout))) &&
-         "Wrong type of the reduction combiner instruction");
-  assert((IsUDR ^ (RedVarLoad && RedValLoad)) &&
-         "Wrong type of reduction combiner arguments");
   WTarget->setHasGlobalAtomicFreeReduction();
-  auto *UpdateBB = CombinerCopyout->getParent();
+  auto *UpdateBB = Combiner->getParentBlock();
 
   BasicBlock *HeaderBB = nullptr;
 
@@ -3632,14 +3645,6 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       RedI->getIsArraySection() || RedElemType->isArrayTy() || NumElements;
   bool UseParallelReduction =
       AtomicFreeReductionParallelGlobal && !IsArrayOrArraySection && !IsUDR;
-  // The original value stored in the reduction variable, serves as incoming
-  // value of the serial loop result phi or being explicitly reduced with the
-  // parallel loop result
-  StoreInst *RedStore = dyn_cast_or_null<StoreInst>(CombinerCopyout);
-  LoadInst *Init = (!IsArrayOrArraySection && !IsUDR)
-                       ? Builder.CreateLoad(
-                             RedElemType, RedStore->getPointerOperand(), "init")
-                       : nullptr;
   auto &UpdateInfos = UseParallelReduction
                           ? AtomicFreeRedGlobalParUpdateInfos
                           : AtomicFreeRedGlobalSerialUpdateInfos;
@@ -3655,12 +3660,12 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     // EntryBB:
     //   ... initializing pointers
     //   br isempty, DoneBB, BodyBB
-    // BodyBB:                <- UpdateBB
+    // BodyBB:                <- Combiner->getParentBlock()
     //   dst/src_ptr_phi = ...
-    //   v0 = load src_ptr    <- RedValLoad = load from ReductionValueLoc
-    //   v1 = load dst_ptr    <- RedVarLoad
+    //   v0 = load src_ptr    <- Combiner->getStartInstr()
+    //   v1 = load dst_ptr
     //   v2 = v0 + v1
-    //   store v2, dst_ptr    <- RedStore
+    //   store v2, dst_ptr    <- Combiner->getCopyoutInstr()
     //   ...
     // DoneBB:
     //   ...
@@ -3678,9 +3683,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       ExitBB = EntryBB->getTerminator()->getSuccessor(0);
     }
     Builder.SetInsertPoint(IsArrayOrArraySection ? EntryBB : UpdateBB);
-    auto *StartPoint = IsArrayOrArraySection
-                           ? EntryBB->getFirstNonPHI()
-                           : (IsUDR ? CombinerCopyout : RedValLoad);
+    auto *StartPoint = IsArrayOrArraySection ? EntryBB->getFirstNonPHI()
+                                             : Combiner->getStartInstr();
     BasicBlock *Preheader = nullptr;
 
     if (NeedsTeamsCounter) {
@@ -3870,8 +3874,9 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
         TeamsIdxPhi->addIncoming(IdxInc0, OuterLatchBB);
       }
 
-      SplitBlockAndInsertIfThen(ExitCond, StartPt, false, nullptr, DT, LI,
-                                ExitBB);
+      SplitBlockAndInsertIfThen(ExitCond,
+                                cast<Instruction>(ExitCond)->getNextNode(),
+                                false, nullptr, DT, LI, ExitBB);
       auto *PretreeHeaderBB = HeaderBB;
       PretreeHeaderBB->setName("atomic.free.red.global.pretree.header");
       if (UseParallelReduction)
@@ -3944,13 +3949,15 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       return IdxPhi;
     };
 
-    auto *IdxIncInsertPt = (IsUDR && !IsArrayOrArraySection)
-                               ? CombinerCopyout->getNextNode()
-                               : CombinerCopyout;
-    auto *RedStoreParentBB = IdxIncInsertPt->getParent();
+    auto *RedCopyoutParentBB = Combiner->getParentBlock();
+    auto *IdxIncInsertPt =
+        UseParallelReduction ? &RedCopyoutParentBB->front()
+                             : ((IsUDR && !IsArrayOrArraySection)
+                                    ? Combiner->getCopyoutInstr()->getNextNode()
+                                    : Combiner->getCopyoutInstr());
     IdxPhi =
-        GenerateLoop(StartPoint, RedStoreParentBB,
-                     IsArrayOrArraySection ? nullptr // use RedStoreParentBB
+        GenerateLoop(StartPoint, RedCopyoutParentBB,
+                     IsArrayOrArraySection ? nullptr // use RedCopyoutParentBB
                                            : IdxIncInsertPt);
 
     Builder.SetInsertPoint(HeaderBB, HeaderBB->getTerminator()->getIterator());
@@ -3961,7 +3968,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     if (IsArrayOrArraySection) {
       Builder.CreateBr(UpdateInfos.lookup(W).InnerLatchBB);
     } else if (!IsUDR) {
-      CombinerCopyout->moveBefore(UpdateInfos[W].UpdateBB->getTerminator());
+      Combiner->getCopyoutInstr()->moveBefore(
+          UpdateInfos[W].UpdateBB->getTerminator());
     }
   }
   // loop (0) latch
@@ -3983,7 +3991,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       InnerHeaderBB->getTerminator()->setSuccessor(0, OuterLatchBB);
       StoreBB = SplitBlock(LatchBB, LatchBB->getTerminator(), DT, LI);
       if (!IsUDR)
-        CombinerCopyout->moveBefore(StoreBB->getTerminator());
+        Combiner->getCopyoutInstr()->moveBefore(StoreBB->getTerminator());
       StoreBB->setName("atomic.free.red.global.update.store");
       LatchBB->getTerminator()->setSuccessor(0, HeaderBB);
       InnerLatchBB->getTerminator()->setSuccessor(0, InnerHeaderBB);
@@ -3997,7 +4005,7 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       IdxPhi->setIncomingBlock(1, InnerLatchBB);
     } else if (!IsUDR) {
       StoreBB = UpdateInfos.lookup(W).ScalarUpdateBB;
-      RedStore->moveBefore(StoreBB->getTerminator());
+      Combiner->getCopyoutInstr()->moveBefore(StoreBB->getTerminator());
     }
   }
   // Each reditem update has its own exit block so that it'd be
@@ -4042,31 +4050,23 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
         ->getTerminator()
         ->setSuccessor(0, ItemExitBB);
 
-  auto *InsertPt = UseParallelReduction ? TeamsIdxPhi : IdxPhi;
-  Builder.SetInsertPoint(InsertPt->getNextNode());
-  if (RedSumPhi) {
-    Builder.Insert(RedSumPhi);
-    RedSumPhi->addIncoming(Init, InsertPt->getIncomingBlock(0));
-    RedSumPhi->addIncoming(RedStore->getOperand(0),
-                           InsertPt->getIncomingBlock(1));
-    RedSumPhi->setName("red.sum.phi");
-    Init->moveBefore(InsertPt->getIncomingBlock(0)->getTerminator());
-  }
+  auto *BasePHI = UseParallelReduction ? TeamsIdxPhi : IdxPhi;
+  // We need to distinguish between a phi generated as a part of reduction
+  // combiner and a phi as an array section destination pointer
+  // ("red.cpy.dest.ptr")
+  if (!IsArrayOrArraySection)
+    Combiner->finalizePHI(BasePHI);
 
   // Now as we have IdxPhi we need to use it for the source pointer
   // offsets in the loop body.
   // For the global update loop we want to offset by IdxPhi from the beginning
   // of the buffer while RedValLoad is already load from buffer+group_id(0)
-  auto *PtrInitToReplace =
-      IsUDR ? cast<CallInst>(CombinerCopyout)->getArgOperand(1)
-            : RedValLoad->getOperand(0);
-  Instruction *PtrUseToFix = IsUDR ? CombinerCopyout : RedValLoad;
-  auto *PtrToCheck = PtrInitToReplace;
+  auto *PtrInitToReplace = Combiner->getLocalValueLoc();
+  Instruction *PtrUseToFix = nullptr;
   if (auto *SrcPHI = dyn_cast<PHINode>(PtrInitToReplace)) {
     assert(IsArrayOrArraySection);
     PtrUseToFix = SrcPHI;
-    PtrToCheck = SrcPHI->getIncomingValue(0);
-    PtrInitToReplace = PtrToCheck;
+    PtrInitToReplace = SrcPHI->getIncomingValue(0);
   }
 
   // Making the new loop use reduction buffer, using its existing
@@ -4099,7 +4099,10 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     if (IsArrayOrArraySection || IsUDR)
       GlobalGep = Builder.CreatePointerBitCastOrAddrSpaceCast(
           GlobalGep, PointerType::get(RedElemType, AddrSpace));
-    PtrUseToFix->replaceUsesOfWith(PtrToCheck, GlobalGep);
+    if (PtrUseToFix)
+      PtrUseToFix->replaceUsesOfWith(PtrInitToReplace, GlobalGep);
+    else
+      Combiner->setLocalValueLoc(GlobalGep);
 
     // For parallel update loop there's no phi because in a tree pattern
     // everything needs to be spilled back to the buffer in the end of each
@@ -4107,46 +4110,26 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     //  red_buf[local_id(0)] = red_op(red_buf[local_id(0)],
     //  red_buf[local_id(0)+tree_offset]);
     // performs a store to red_buf[local_id(0)] in the end.
-    // Both loads and red_op were already generated (RedVarLoad,
-    // RedValLoad).
     if (UseParallelReduction) {
       Builder.SetInsertPoint(InnerHeaderBB->getTerminator());
       auto *LocalOffGep = Builder.CreateGEP(GepToSkip->getSourceElementType(),
                                             GlobalGep, IdxPhi);
-      RedVarLoad->setOperand(0, LocalOffGep);
-      RedVarLoad->setName("tree_load_off");
       Builder.SetInsertPoint(UpdateInfos[W].UpdateBB->getTerminator());
-      auto *PartSumSt = Builder.CreateStore(RedStore->getOperand(0), GlobalGep);
-      markAsGuardedByThreadCheck(PartSumSt);
 
-      Builder.SetInsertPoint(RedStore);
-      Value *Res = Builder.CreateLoad(GepToSkip->getSourceElementType(), GepPtr,
-                                      "tree_load");
-      assert(Init && "no old value loaded for parallel cross-team reduction");
-      Init->moveBefore(cast<Instruction>(Res));
-      Res = genReductionScalarOp(RedI, Builder, RedElemType, Res, Init);
-      RedStore->setOperand(0, Res);
-
-      Builder.SetInsertPoint(OuterLatchBB->getTerminator());
-      Value *TmpRes = Builder.CreateLoad(RedElemType, GlobalGep);
-      TmpRes = genReductionScalarOp(RedI, Builder, RedElemType,
-                                           TmpRes, RedSumPhi);
-      RedSumPhi->setIncomingValue(1, TmpRes);
-      Init->moveBefore(CntrCheckBBs[W]->getTerminator());
+      auto InnerCombiner = makeReductionCombiner(RedI, RedElemType, GlobalGep,
+                                                 LocalOffGep, Builder);
+      markAsGuardedByThreadCheck(InnerCombiner->getCopyoutInstr());
     }
   }
 
   UpdateInfos[W].UpdateBB = ItemExitBB;
-
-  if (RedSumPhi)
-    RedStore->setOperand(0, RedSumPhi);
 
   // When parallel cross-teams reduction combining is disabled, this store is
   // already in the single-thread loop, so another master-thread check is not
   // necessary (it's not even guaranteed that the master thread is going to
   // execute it).
   if (!UseParallelReduction)
-    markAsGuardedByThreadCheck(CombinerCopyout);
+    markAsGuardedByThreadCheck(Combiner->getCopyoutInstr());
 
   // If we are using RTL-managed zero-initialized memory for team-counter,
   // we need to reset it to zero so that after the kernel finishes, the
@@ -4158,7 +4141,8 @@ bool VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       !AtomicFreeRedUseFPTeamsCounter)
     resetTeamsCounterAfterCopyingBackRedItem(
         GlobalCounter, IsArrayOrArraySection, IsUDR,
-        IsUDR ? StoreBB->getFirstNonPHI() : CombinerCopyout, HeaderBB);
+        IsUDR ? StoreBB->getFirstNonPHI() : Combiner->getCopyoutInstr(),
+        HeaderBB);
 
   // For scalar items next instruction should be inserted after the whole
   // update loop.
@@ -4660,12 +4644,12 @@ bool VPOParoptTransform::genReductionScalarFini(
   } else if (UseExistingGlobalLoop && !IsArrayOrArraySection) {
     if (HasByRefLoad)
       HandleByRefArg(&UpdateInfos.lookup(W).EntryBB->front());
-    Builder.SetInsertPoint(UpdateInfos.lookup(W).UpdateBB->getTerminator());
+    bool UseParallelReduction = AtomicFreeReductionParallelGlobal && !IsUDR;
+    Builder.SetInsertPoint((UseParallelReduction
+                                ? UpdateInfos.lookup(W).OuterLatchBB
+                                : UpdateInfos.lookup(W).UpdateBB)
+                               ->getTerminator());
   }
-
-  PHINode *SumPhi = (!IsArrayOrArraySection && !IsUDR)
-                        ? PHINode::Create(RedElemType, 0, "red.sum.phi")
-                        : nullptr;
 
   // For simd inscan the calculated reduction is the final value.
   if (isa<WRNVecLoopNode>(W) && RedI->getIsInscan()) {
@@ -4675,25 +4659,9 @@ bool VPOParoptTransform::genReductionScalarFini(
     return false;
   }
 
-  Value *Res = nullptr;
-  Instruction *Rhs1 = nullptr, *Rhs2 = nullptr;
-  Instruction *CombinerCopyout = nullptr;
-
-  if (IsUDR) {
-    CombinerCopyout =
-        genReductionUdrFini(RedI, ReductionVar, ReductionValueLoc, Builder);
-  } else {
-    // NOTE: due to some weird load elimination + phi translation by GVN we want
-    // to generate volatile load from the reduction variable for the local
-    // update loop. The load from ReductionValueLoc doesn't need to be volatile
-    // as it may be safely LICMed
-    Rhs2 = Builder.CreateLoad(ScalarTy, ReductionValueLoc);
-    Rhs1 = (UseGlobalUpdates && SumPhi && !AtomicFreeReductionParallelGlobal)
-               ? cast<Instruction>(SumPhi)
-               : Builder.CreateLoad(ScalarTy, ReductionVar, UseLocalUpdates);
-    Res = genReductionScalarOp(RedI, Builder, ScalarTy, Rhs1, Rhs2);
-    CombinerCopyout = Builder.CreateStore(Res, ReductionVar);
-  }
+  auto Combiner = makeReductionCombiner(
+      RedI, ScalarTy, ReductionVar, ReductionValueLoc, Builder,
+      UseGlobalUpdates && !IsArrayOrArraySection && !IsUDR, UseLocalUpdates);
 
   if (isa<WRNVecLoopNode>(W))
     // Reduction update does not have to be atomic for SIMD loop.
@@ -4703,22 +4671,18 @@ bool VPOParoptTransform::genReductionScalarFini(
     // This method may insert a new call before the store instruction (Tmp0)
     // and erase the store instruction, but in any case it does not invalidate
     // the IRBuilder.
-    if (UseLocalUpdates) {
-      // Although in general Rhs1 may be either PHINode or LoadInst,
-      // the former is possible only when UseGlobalUpdates==true =>
-      // UseLocalUpdates==false and the cast is safe
-      return genAtomicFreeReductionLocalFini(W, RedI, Rhs1, Rhs2,
-                                             CombinerCopyout, Builder, DT);
-    } else if (UseGlobalUpdates) {
+    if (UseLocalUpdates)
+      return genAtomicFreeReductionLocalFini(W, RedI, std::move(Combiner),
+                                             Builder, DT);
+    if (UseGlobalUpdates)
       return genAtomicFreeReductionGlobalFini(
-          W, RedI, CombinerCopyout, Rhs1, Rhs2, SumPhi, UseExistingGlobalLoop,
-          Builder, DT);
-    } else if (IsUDR) {
-      // Non atomic-free UDR requires critical section
+          W, RedI, std::move(Combiner), UseExistingGlobalLoop, Builder, DT);
+    // Non-atomic-free UDR requires critical section
+    if (IsUDR)
       return true;
-    }
+
     Instruction *AtomicCall = VPOParoptAtomics::handleAtomicUpdateInBlock(
-        W, CombinerCopyout->getParent(), nullptr, nullptr, true);
+        W, Combiner->getParentBlock(), nullptr, nullptr, true);
 
     if (AtomicCall) {
       OptimizationRemark R(DEBUG_TYPE, "ReductionAtomic", AtomicCall);
@@ -4744,22 +4708,15 @@ bool VPOParoptTransform::genReductionScalarFini(
       // code in teams region. Executing the horizontal reduction
       // will result in redundant reduction operations producing
       // incorrect result.
-      auto *TempRedLoad = Rhs2->clone();
-      TempRedLoad->insertAfter(Rhs2);
-      TempRedLoad->takeName(Rhs2);
-      auto *HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
-          RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
-
-      if (HRed)
-        Rhs2->replaceAllUsesWith(HRed);
-      else
+      if (!Combiner->emitHorizontalReduction(RedI, ScalarTy))
         LLVM_DEBUG(dbgs() << __FUNCTION__ <<
                    ": SPIRV horizontal reduction is not available "
                    "for critical section reduction: " << RedI->getOpName() <<
                    " with type " << *ScalarTy << "\n");
     }
 
-    OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", CombinerCopyout);
+    OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic",
+                               Combiner->getCopyoutInstr());
     R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type "
       << ore::NV("Type", ScalarTy) << " cannot be done using atomic API";
     ORE.emit(R);
@@ -5152,16 +5109,15 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
     auto *DestElementPHI = PHIPair.first;
     auto *SrcElementPHI = PHIPair.second;
 
-    auto *PhiLoad = Builder.CreateLoad(DestElementTy, DestElementPHI);
-    auto *V = Builder.CreateLoad(DestElementTy, SrcElementPHI);
+    auto Combiner = makeReductionCombiner(RedI, DestElementTy, DestElementPHI,
+                                          SrcElementPHI, Builder);
     auto *MTT = Builder.CreateICmpNE(IdVal, Builder.getInt64(0));
-    auto *RedV = cast<Instruction>(
-        genReductionScalarOp(RedI, Builder, DestElementTy, PhiLoad, V));
-    auto *St = Builder.CreateStore(RedV, DestElementPHI);
+    cast<Instruction>(MTT)->moveBefore(Combiner->getCopyoutInstr());
     // Can't split a block with a terminator only, need some dummy instruction
     auto *FakeBr = Builder.CreateBr(DoneBB);
     auto *ThruBB = SplitBlock(BodyBB, FakeBr, DT, LI);
-    SplitBlockAndInsertIfThen(MTT, St, false, nullptr, DT, LI, ThruBB);
+    SplitBlockAndInsertIfThen(MTT, Combiner->getCopyoutInstr(), false, nullptr,
+                              DT, LI, ThruBB);
     Builder.SetInsertPoint(FakeBr);
 
     GenArrSecLoopEnd(Builder, DestElementPHI, SrcElementPHI, EntryBB, BodyBB,

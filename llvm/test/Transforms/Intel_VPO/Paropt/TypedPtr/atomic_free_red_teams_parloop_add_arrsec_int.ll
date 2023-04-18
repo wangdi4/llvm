@@ -54,8 +54,8 @@ target device_triples = "spir64"
 ; CHECK-LABEL: red.update.body.from.tree:
 ; CHECK: %[[DST_PTR_FROM:[^,]+]] = phi i32 addrspace(1)*
 ; CHECK: %[[SRC_PTR_FROM:[^,]+]] = phi i32 addrspace(3)* [ %[[LOCAL_BUF_BASE]]
-; CHECK: %[[DST_VAL:[^,]+]] = load i32, i32 addrspace(1)*  %[[DST_PTR_FROM]]
 ; CHECK: %[[SRC_VAL:[^,]+]] = load i32, i32 addrspace(3)*  %[[SRC_PTR_FROM]]
+; CHECK: %[[DST_VAL:[^,]+]] = load i32, i32 addrspace(1)*  %[[DST_PTR_FROM]]
 ; CHECK: %[[NEW_VAL:[^,]+]] = add i32 %[[DST_VAL]], %[[SRC_VAL]]
 ; CHECK: br i1
 ; CHECK: store i32 %[[NEW_VAL]], i32 addrspace(1)* %[[DST_PTR_FROM]]

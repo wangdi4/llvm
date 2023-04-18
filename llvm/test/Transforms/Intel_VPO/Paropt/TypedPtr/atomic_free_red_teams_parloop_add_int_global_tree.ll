@@ -62,9 +62,9 @@
 ; CHECK: br i1 %[[TREE_UPDATE_TST]], label %atomic.free.red.global.update.latch, label %atomic.free.red.global.update.body
 
 ; CHECK-LABEL: atomic.free.red.global.update.body:
-; CHECK: %[[CUR_VAL:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_GEP]]
 ; CHECK: %[[NEIGHB_VAL:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_GEP_OFF]]
-; CHECK: %[[NEW_VAL:[^,]+]] = add i32 %[[NEIGHB_VAL]], %[[CUR_VAL]]
+; CHECK: %[[CUR_VAL:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_GEP]]
+; CHECK: %[[NEW_VAL:[^,]+]] = add i32 %[[CUR_VAL]], %[[NEIGHB_VAL]]
 ; CHECK: store i32 %[[NEW_VAL]], i32 addrspace(1)* %[[GLOBAL_GEP]]
 ; CHECK: br label %item.exit
 ; CHECK-LABEL: item.exit:{{ *}}; preds = %atomic.free.red.global.update.body
@@ -78,7 +78,7 @@
 ; CHECK: atomic.free.red.global.update.pretree.latch:      ; preds = %atomic.free.red.global.update.header
 ; CHECK: %[[TEAMS_IDX_INC]] = add i64 %[[TEAMS_IDX_PHI]], %[[LOCAL_SIZE]]
 ; CHECK: %[[TMP_RES:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_GEP]], align 4
-; CHECK: %[[RES_INC]] = add i32 %[[TMP_RES]], %[[RES_PHI]]
+; CHECK: %[[RES_INC]] = add i32 %[[RES_PHI]], %[[TMP_RES]]
 ; CHECK: br label %atomic.free.red.global.pretree.header
 
 ; CHECK-LABEL: atomic.free.red.global.update.store:
