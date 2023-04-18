@@ -51992,6 +51992,7 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
   if (CmpOp.getOpcode() == ISD::TRUNCATE)
     CmpOp = CmpOp.getOperand(0);
 
+#if INTEL_CUSTOMIZATION
   // Peek through AND with a fixed constant.
   // Such as AND(MOVMSK(Op), 0xAAAAAAAA).
   // Some constant, such as 0x3, no need to do CONCAT or OR
@@ -52025,6 +52026,7 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
       return SDValue();
   }
   SDValue  Res = CmpOp;
+#endif // INTEL_CUSTOMIZATION
   // Bail if we don't find a MOVMSK.
   if (CmpOp.getOpcode() != X86ISD::MOVMSK)
     return SDValue();
@@ -52202,6 +52204,7 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
                          EFLAGS.getOperand(1));
     }
   }
+#if INTEL_CUSTOMIZATION
   // Identify recursive PACKSSed element and transform them to OR.
   // Such as from:
   //     MOVMSK(PACKSS(SHUFFLE(PACKSS(X,Y)), SHUFFLE(PACKSS(Z,U)))) == 0
@@ -52420,6 +52423,7 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
                          NewMovMsk, EFLAGS.getOperand(1));
     }
   }
+#endif // INTEL_CUSTOMIZATION
   // MOVMSKPS(V) !=/== 0 -> TESTPS(V,V)
   // MOVMSKPD(V) !=/== 0 -> TESTPD(V,V)
   // iff every element is referenced.
