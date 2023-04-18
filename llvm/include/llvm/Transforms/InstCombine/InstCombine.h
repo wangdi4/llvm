@@ -45,6 +45,7 @@ namespace llvm {
 static constexpr unsigned InstCombineDefaultMaxIterations = 1000;
 
 struct InstCombineOptions {
+<<<<<<< HEAD
   bool UseLoopInfo;
   unsigned MaxIterations;
 #if INTEL_CUSTOMIZATION
@@ -68,6 +69,12 @@ struct InstCombineOptions {
         EnableUpCasting(EnableUpCasting),
         EnableCanonicalizeSwap(EnableCanonicalizeSwap) {}
   #endif // INTEL_CUSTOMIZATION
+=======
+  bool UseLoopInfo = false;
+  unsigned MaxIterations = InstCombineDefaultMaxIterations;
+
+  InstCombineOptions() = default;
+>>>>>>> 0bc2f553bc129b43503de1cdcc9d24c7016c1298
 
   InstCombineOptions &setUseLoopInfo(bool Value) {
     UseLoopInfo = Value;
