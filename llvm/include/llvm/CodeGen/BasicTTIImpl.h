@@ -295,8 +295,6 @@ public:
 
   bool hasBranchDivergence() { return false; }
 
-  bool useGPUDivergenceAnalysis() { return false; }
-
   bool isSourceOfDivergence(const Value *V) { return false; }
 
   bool isAlwaysUniform(const Value *V) { return false; }
