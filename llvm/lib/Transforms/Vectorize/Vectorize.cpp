@@ -29,8 +29,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+<<<<<<< HEAD
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/IR/LegacyPassManager.h" // INTEL
+=======
+>>>>>>> 21a689085635e850f2c05369aef67f62f6f31269
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
 

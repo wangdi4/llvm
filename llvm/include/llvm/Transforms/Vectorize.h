@@ -34,6 +34,7 @@
 #include <functional> // INTEL
 
 namespace llvm {
+<<<<<<< HEAD
 class BasicBlock;
 class Function;
 class Pass;
@@ -140,6 +141,11 @@ bool vectorizeBasicBlock(Pass *P, BasicBlock &BB,
                          const VectorizeConfig &C = VectorizeConfig());
 
 //===----------------------------------------------------------------------===//
+=======
+class Pass;
+
+//===----------------------------------------------------------------------===//
+>>>>>>> 21a689085635e850f2c05369aef67f62f6f31269
 //
 // LoadStoreVectorizer - Create vector loads and stores, but leave scalar
 // operations.
