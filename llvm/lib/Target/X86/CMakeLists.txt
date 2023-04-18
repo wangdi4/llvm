@@ -143,16 +143,10 @@ add_llvm_target(X86CodeGen ${sources}
   TransformUtils
   X86Desc
   X86Info
-<<<<<<< HEAD
-  GlobalISel
-  ProfileData
-  CFGuard
 # INTEL_CUSTOMIZATION
   Scalar
   TransformUtils
 # end INTEL_CUSTOMIZATION
-=======
->>>>>>> e74ed97796252f9706d620ead3c7e97685763950
 
   ADD_TO_COMPONENT
   X86
