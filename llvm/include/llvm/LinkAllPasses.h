@@ -159,7 +159,6 @@ namespace {
       (void) llvm::createInstructionCombiningPass();
       (void) llvm::createJMCInstrumenterPass();
       (void) llvm::createLCSSAPass();
-      (void) llvm::createLegacyDivergenceAnalysisPass();
       (void) llvm::createLICMPass();
       (void) llvm::createLoopSinkPass();
       (void) llvm::createLazyValueInfoPass();

@@ -30,6 +30,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
+
 #ifndef LLVM_ANALYSIS_SYNCDEPENDENCEANALYSIS_H
 #define LLVM_ANALYSIS_SYNCDEPENDENCEANALYSIS_H
 
@@ -123,3 +125,5 @@ using SyncDependenceAnalysis = SyncDependenceAnalysisImpl<llvm::BasicBlock>;
 } // namespace llvm
 
 #endif // LLVM_ANALYSIS_SYNCDEPENDENCEANALYSIS_H
+
+#endif // INTEL_CUSTOMIZATION
