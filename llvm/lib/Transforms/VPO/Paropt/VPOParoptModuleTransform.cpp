@@ -275,14 +275,24 @@ static bool replaceMathFnWithOCLBuiltin(Function &F) {
 
   if (Map != OCLBuiltin.end()) {
     StringRef NewName = Map->second;
-    if (UseRoundToNearestEven) {
-      if (NewName == "_Z17__spirv_ocl_roundf")
-        NewName =    "_Z19__spirv_ocl_roundnef";
-      else if (NewName == "_Z17__spirv_ocl_roundd")
-        NewName =         "_Z19__spirv_ocl_roundned";
+
+    // Do not convert llvm intrinsics if 'PreserveDeviceIntrin' is enabled.
+    bool CanConvert =
+        !PreserveDeviceIntrin || !OldName.consume_front(LLVM_INTRIN_PREF0);
+
+    // Convert llvm round intrinsic and associated builtins to use round
+    // nearest even until replaced builtins are well supported.
+    // Do this conversion only for device SIMD code generation.
+    if (UseRoundToNearestEven && VPOParoptUtils::enableDeviceSimdCodeGen()) {
+      if (NewName == "_Z17__spirv_ocl_roundf") {
+        NewName = "_Z19__spirv_ocl_roundnef";
+        CanConvert = true;
+      } else if (NewName == "_Z17__spirv_ocl_roundd") {
+        NewName = "_Z19__spirv_ocl_roundned";
+        CanConvert = true;
+      }
     }
-    if (!PreserveDeviceIntrin ||
-        !OldName.consume_front(LLVM_INTRIN_PREF0)) {
+    if (CanConvert) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacing " << OldName << " with "
                         << NewName << '\n');
       F.setName(NewName);
