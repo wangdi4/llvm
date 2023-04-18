@@ -81,7 +81,7 @@ void CanonExpr::print(raw_ostream &OS, bool Detailed) const {
   auto Denom = getDenominator();
   bool Printed = false;
 
-  if (isNull()) {
+  if (isNull() || isNullVector()) {
     OS << "null";
     return;
   }

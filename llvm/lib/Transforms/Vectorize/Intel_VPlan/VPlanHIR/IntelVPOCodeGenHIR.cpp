@@ -3484,7 +3484,11 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
         DDRefUtilities.createConstDDRef(VPMDAsVal->getMetadataAsValue());
   } else {
     auto *VPConst = cast<VPConstant>(VPVal);
-    ScalarRef = DDRefUtilities.createConstDDRef(VPConst->getConstant());
+    auto *Const = VPConst->getConstant();
+    if (Const->isNullValue())
+      ScalarRef = DDRefUtilities.createNullDDRef(Const->getType());
+    else
+      ScalarRef = DDRefUtilities.createConstDDRef(Const);
   }
 
   assert(ScalarRef && "Unexpected null scalar ref");
@@ -3532,6 +3536,9 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
 RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef,
                                               Type *ElementType, int Index,
                                               unsigned IdxBcastFactor) {
+  if (PtrRef->isNull())
+    PtrRef = createCopyForMemRef(PtrRef, nullptr /* Mask */);
+
   assert((PtrRef->isSelfBlob() || PtrRef->isStandAloneUndefBlob()) &&
          "Expected self blob DDRef or undef");
   auto &HIRF = HLNodeUtilities.getHIRFramework();
@@ -5935,11 +5942,8 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
   RegDDRef *PointerRef = getOrCreateRefForVPVal(
       VPSubscript->getPointerOperand(), Widen, ScalarLaneID);
   // Base canon expression needs to be a self blob.
-  if (!PointerRef->isSelfBlob()) {
-    auto *CopyInst = HLNodeUtilities.createCopyInst(PointerRef, "nsbgepcopy");
-    addInst(CopyInst, Mask);
-    PointerRef = CopyInst->getLvalDDRef();
-  }
+  if (!PointerRef->isSelfBlob())
+    PointerRef = createCopyForMemRef(PointerRef, Mask);
 
   auto *NewRef = DDRefUtilities.createAddressOfRef(
       VPSubscript->dim(VPSubscript->getNumDimensions() - 1).DimElementType,
