@@ -658,11 +658,7 @@ FUNCTION_PASS("libcalls-shrinkwrap", LibCallsShrinkWrapPass())
 FUNCTION_PASS("lint", LintPass())
 FUNCTION_PASS("inject-tli-mappings", InjectTLIMappings())
 FUNCTION_PASS("instnamer", InstructionNamerPass())
-<<<<<<< HEAD
 FUNCTION_PASS("localdvprop", DopeVectorConstPropPass()) // INTEL
-FUNCTION_PASS("legacy-divergence-analysis", LegacyDivergenceAnalysisPass())
-=======
->>>>>>> ae77aceba5ad6ee575d3d79eb0259624322b19f4
 FUNCTION_PASS("loweratomic", LowerAtomicPass())
 FUNCTION_PASS("lower-expect", LowerExpectIntrinsicPass())
 FUNCTION_PASS("lower-guard-intrinsic", LowerGuardIntrinsicPass())

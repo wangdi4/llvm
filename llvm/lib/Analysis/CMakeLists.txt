@@ -228,6 +228,9 @@ add_llvm_component_library(LLVMAnalysis
   ScalarEvolutionNormalization.cpp
   StackLifetime.cpp
   StackSafetyAnalysis.cpp
+  # INTEL_CUSTOMIZATION
+  SyncDependenceAnalysis.cpp
+  # end INTEL_CUSTOMIZATION
   SyntheticCountsUtils.cpp
   TFLiteUtils.cpp
   TargetLibraryInfo.cpp
