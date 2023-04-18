@@ -12620,8 +12620,15 @@ Value *BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues,
     // buildvector nodes already.
     auto It = PostponedValues.find(PrevVec);
     if (It != PostponedValues.end()) {
-      for (TreeEntry *VTE : It->getSecond())
+#if INTEL_CUSTOMIZATION
+      for (TreeEntry *VTE : It->getSecond()) {
         VTE->VectorizedValue = Vec;
+        // Since VectorizedValue for VTE entry is updated we need to push it
+        // into PostponedValues because it might be required during next
+        // iterations over PostponedNodes.
+        PostponedValues[Vec].push_back(VTE);
+      }
+#endif // INTEL_CUSTOMIZATION
     }
     eraseInstruction(PrevVec);
   }
