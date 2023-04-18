@@ -1,6 +1,8 @@
-; INTEL_CUSTOMIZATION
-; RUN: opt -opaque-pointers < %s -passes=instrprof -S | FileCheck %s
-; end INTEL_CUSTOMIZATION
+; ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+; COM: opt < %s -passes=instrprof -S | FileCheck %s
+; else
+; RUN: opt < %s -opaque-pointers -passes=instrprof -S | FileCheck %s
+; endif
 
 target triple = "aarch64-unknown-linux-gnu"
 
