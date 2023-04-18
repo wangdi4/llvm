@@ -649,10 +649,10 @@ define void @step_is_neg_addrec_slt_var(i32 %n) {
 ; CHECK-LABEL: 'step_is_neg_addrec_slt_var'
 ; CHECK-NEXT:  Determining loop execution counts for: @step_is_neg_addrec_slt_var
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT:  Loop %inner: backedge-taken count is ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nsw><%outer.header> smax %n))<nuw>
+; CHECK-NEXT:  Loop %inner: backedge-taken count is ({0,+,1}<nuw><nsw><%outer.header> + ({0,+,-1}<nsw><%outer.header> smax %n))<nuw><nsw>
 ; CHECK-NEXT:  Loop %inner: constant max backedge-taken count is 2147483647
-; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nsw><%outer.header> smax %n))<nuw>
-; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is ({0,+,1}<nuw><%outer.header> + ({0,+,-1}<nsw><%outer.header> smax %n))<nuw>
+; CHECK-NEXT:  Loop %inner: symbolic max backedge-taken count is ({0,+,1}<nuw><nsw><%outer.header> + ({0,+,-1}<nsw><%outer.header> smax %n))<nuw><nsw>
+; CHECK-NEXT:  Loop %inner: Predicated backedge-taken count is ({0,+,1}<nuw><nsw><%outer.header> + ({0,+,-1}<nsw><%outer.header> smax %n))<nuw><nsw>
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   Predicates:
 ; CHECK:       Loop %inner: Trip multiple is 1

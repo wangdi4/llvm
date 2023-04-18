@@ -1,10 +1,10 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; Check parsing output for the loop verifying that the we are able to handle IV multiplications resulting in polynomial SCEVs by looking ahead.
 
 ; CHECK: + DO i1 = 0, 69, 1   <DO_LOOP>
-; CHECK: |   + DO i2 = 0, zext.i32.i64((39 + (-1 * trunc.i64.i32(%indvars.iv22)))), 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, -1 * i1 + 36, 1   <DO_LOOP>
 ; CHECK: |   |   %0 = i1 + i2 + 3  *  i1 + 3;
 ; CHECK: |   |   %1 = (%A)[i1 + i2 + 3];
 ; CHECK: |   |   %2 = trunc.i64.i32(%0);

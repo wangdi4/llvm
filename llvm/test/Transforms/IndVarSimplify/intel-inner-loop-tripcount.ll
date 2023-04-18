@@ -11,7 +11,7 @@
 
 ; Backedge taken count for inner loop should still be in terms of the outer loop
 ; IV.
-; CHECK: Loop %for.inner: backedge-taken count is {-2,+,1}<nw><%for.outer>
+; CHECK: Loop %for.inner: backedge-taken count is {-2,+,1}<nsw><%for.outer>
 
 ; CHECK: Loop %for.outer: backedge-taken count is 39
 

@@ -14,7 +14,8 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @advance(i32 %nbodies, ptr nocapture %bodies) local_unnamed_addr #0 {
 ; CHECK-LABEL: @advance(
 ; CHECK:  for.cond.loopexit:
-; CHECK:    [[LSR_IV_NEXT:%.*]] = add i64 [[LSR_IV:%.*]], -1
+; INTEL - added nsw flag
+; CHECK:    [[LSR_IV_NEXT:%.*]] = add nsw i64 [[LSR_IV:%.*]], -1
 ; CHECK:    br label %for.body
 ; CHECK:  for.body:
 ; CHECK:    [[LSR_IV]] = phi i64 [ [[LSR_IV_NEXT]]
