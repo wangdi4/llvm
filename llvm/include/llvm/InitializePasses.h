@@ -102,7 +102,6 @@ void initializeAssumptionCacheTrackerPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
 void initializeBasicBlockSectionsProfileReaderPass(PassRegistry &);
 void initializeBasicBlockSectionsPass(PassRegistry &);
-void initializeBDCELegacyPassPass(PassRegistry&);
 void initializeBarrierNoopPass(PassRegistry&);
 void initializeBasicAAWrapperPassPass(PassRegistry&);
 void initializeBlockFrequencyInfoWrapperPassPass(PassRegistry&);

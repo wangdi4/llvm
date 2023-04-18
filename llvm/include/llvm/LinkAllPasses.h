@@ -114,7 +114,6 @@ namespace {
         return;
 
       (void) llvm::createAAEvalPass();
-      (void)llvm::createBitTrackingDCEPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createNonLTOGlobalOptimizerPass();
