@@ -90,12 +90,7 @@ void initializeAAEvalLegacyPassPass(PassRegistry&);
 void initializeAAResultsWrapperPassPass(PassRegistry&);
 void initializeADCELegacyPassPass(PassRegistry&);
 void initializeAddDiscriminatorsLegacyPassPass(PassRegistry&);
-<<<<<<< HEAD
-void initializeAlignmentFromAssumptionsPass(PassRegistry&);
-void initializeAlwaysInlinerLegacyPassPass(PassRegistry &);
-=======
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
->>>>>>> b74e89c0d407aded6b2426e84740765cd598fbb4
 void initializeAssignmentTrackingAnalysisPass(PassRegistry &);
 void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
 void initializeAssumeBuilderPassLegacyPassPass(PassRegistry &);

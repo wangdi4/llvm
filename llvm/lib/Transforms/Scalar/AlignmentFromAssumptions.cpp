@@ -49,17 +49,12 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 
-<<<<<<< HEAD
-#define AA_NAME "alignment-from-assumptions"
-#define DEBUG_TYPE AA_NAME
+#define DEBUG_TYPE "alignment-from-assumptions"
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_Andersens.h"
 #endif // INTEL_CUSTOMIZATION
 
-=======
-#define DEBUG_TYPE "alignment-from-assumptions"
->>>>>>> b74e89c0d407aded6b2426e84740765cd598fbb4
 using namespace llvm;
 
 STATISTIC(NumLoadAlignChanged,
