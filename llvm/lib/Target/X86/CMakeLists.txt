@@ -129,10 +129,13 @@ add_llvm_target(X86CodeGen ${sources}
   LINK_COMPONENTS
   Analysis
   AsmPrinter
+  CFGuard
   CodeGen
   Core
+  GlobalISel
   Instrumentation
   MC
+  ProfileData
   SelectionDAG
   Support
   Target
@@ -140,6 +143,7 @@ add_llvm_target(X86CodeGen ${sources}
   TransformUtils
   X86Desc
   X86Info
+<<<<<<< HEAD
   GlobalISel
   ProfileData
   CFGuard
@@ -147,10 +151,12 @@ add_llvm_target(X86CodeGen ${sources}
   Scalar
   TransformUtils
 # end INTEL_CUSTOMIZATION
+=======
+>>>>>>> e74ed97796252f9706d620ead3c7e97685763950
 
   ADD_TO_COMPONENT
   X86
-)
+  )
 
 add_subdirectory(AsmParser)
 add_subdirectory(Disassembler)

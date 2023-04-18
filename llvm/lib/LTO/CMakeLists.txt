@@ -54,6 +54,7 @@ add_llvm_component_library(LLVMLTO
   Target
   TargetParser
   TransformUtils
+<<<<<<< HEAD
 )
 
 # INTEL_CUSTOMIZATION
@@ -65,3 +66,6 @@ if (p)
 endif()
 # end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION
+=======
+  )
+>>>>>>> e74ed97796252f9706d620ead3c7e97685763950
