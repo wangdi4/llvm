@@ -186,14 +186,6 @@ public:
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-  /// ConvertSYCLJointMatrixINTELType - Convert SYCL joint_matrix type
-  /// which is represented as a pointer to a structure to LLVM extension type
-  /// with the parameters that follow SPIR-V JointMatrixINTEL type.
-  /// The expected representation is:
-  /// target("spirv.JointMatrixINTEL", %element_type, %rows%, %cols%, %scope%,
-  ///        %use%, (optional) %element_type_interpretation%)
-  llvm::Type *ConvertSYCLJointMatrixINTELType(RecordDecl *RD);
-
   /// isFuncTypeConvertible - Utility to check whether a function type can
   /// be converted to an LLVM type (i.e. doesn't depend on an incomplete tag
   /// type).
