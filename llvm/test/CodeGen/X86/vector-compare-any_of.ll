@@ -385,12 +385,8 @@ define i64 @test_v4i64_legal_sext(<4 x i64> %a0, <4 x i64> %a1) {
 ; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm3
 ; AVX1-NEXT:    vpcmpgtq %xmm2, %xmm3, %xmm2
 ; AVX1-NEXT:    vpcmpgtq %xmm1, %xmm0, %xmm0
-<<<<<<< HEAD
 ; AVX1-NEXT:    vpor %xmm2, %xmm0, %xmm0 ;INTEL
 ; AVX1-NEXT:    vmovmskpd %xmm0, %ecx ;INTEL
-=======
-; AVX1-NEXT:    vpackssdw %xmm2, %xmm0, %xmm0
->>>>>>> 3a0c1d5ab9f938f615308436fb9572b3fdab7f24
 ; AVX1-NEXT:    xorl %eax, %eax
 ; AVX1-NEXT:    vtestps %xmm0, %xmm0
 ; AVX1-NEXT:    setne %al

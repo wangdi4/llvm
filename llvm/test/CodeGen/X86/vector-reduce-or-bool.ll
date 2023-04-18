@@ -1049,14 +1049,9 @@ define i1 @icmp0_v8i64_v8i1(<8 x i64>) {
 ; AVX2-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; AVX2-NEXT:    vpcmpeqq %ymm2, %ymm1, %ymm1
 ; AVX2-NEXT:    vpcmpeqq %ymm2, %ymm0, %ymm0
-<<<<<<< HEAD
 ; AVX2-NEXT:    vpor %ymm1, %ymm0, %ymm0 ;INTEL
 ; AVX2-NEXT:    vmovmskpd %ymm0, %eax ;INTEL
-; AVX2-NEXT:    testl %eax, %eax
-=======
-; AVX2-NEXT:    vpackssdw %ymm1, %ymm0, %ymm0
 ; AVX2-NEXT:    vtestps %ymm0, %ymm0
->>>>>>> 3a0c1d5ab9f938f615308436fb9572b3fdab7f24
 ; AVX2-NEXT:    setne %al
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
@@ -1821,14 +1816,9 @@ define i1 @icmp_v8i64_v8i1(<8 x i64>, <8 x i64>) {
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vpcmpeqq %ymm3, %ymm1, %ymm1
 ; AVX2-NEXT:    vpcmpeqq %ymm2, %ymm0, %ymm0
-<<<<<<< HEAD
 ; AVX2-NEXT:    vpor %ymm1, %ymm0, %ymm0 ;INTEL
 ; AVX2-NEXT:    vmovmskpd %ymm0, %eax ;INTEL
-; AVX2-NEXT:    testl %eax, %eax
-=======
-; AVX2-NEXT:    vpackssdw %ymm1, %ymm0, %ymm0
 ; AVX2-NEXT:    vtestps %ymm0, %ymm0
->>>>>>> 3a0c1d5ab9f938f615308436fb9572b3fdab7f24
 ; AVX2-NEXT:    setne %al
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
