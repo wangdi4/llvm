@@ -52,6 +52,9 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeCycleInfoWrapperPassPass(Registry);
   initializeDependenceAnalysisWrapperPassPass(Registry);
   initializeDelinearizationPass(Registry);
+#if INTEL_CUSTOMIZATION
+  initializeDemandedBitsWrapperPassPass(Registry);
+#endif // INTEL_CUSTOMIZATION
   initializeDominanceFrontierWrapperPassPass(Registry);
   initializeDomViewerWrapperPassPass(Registry);
   initializeDomPrinterWrapperPassPass(Registry);

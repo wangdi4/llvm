@@ -150,6 +150,9 @@ void initializeDeadArrayOpsEliminationLegacyPassPass(PassRegistry&);
 void initializeDeadMachineInstructionElimPass(PassRegistry&);
 void initializeDebugifyMachineModulePass(PassRegistry &);
 void initializeDelinearizationPass(PassRegistry&);
+#if INTEL_CUSTOMIZATION
+void initializeDemandedBitsWrapperPassPass(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
 void initializeDependenceAnalysisWrapperPassPass(PassRegistry&);
 void initializeDopeVectorConstPropLegacyPassPass(PassRegistry&);   // INTEL
 void initializeDetectDeadLanesPass(PassRegistry&);
