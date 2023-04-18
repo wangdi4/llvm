@@ -516,7 +516,7 @@ private:
     };
 
   public:
-    ModuleDeclSeq() : State(NotAModuleDecl) {}
+    ModuleDeclSeq() = default;
 
     void handleExport() {
       if (State == NotAModuleDecl)
@@ -603,7 +603,7 @@ private:
     }
 
   private:
-    ModuleDeclState State;
+    ModuleDeclState State = NotAModuleDecl;
     std::string Name;
   };
 
