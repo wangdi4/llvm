@@ -1432,12 +1432,6 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // functions.
   MainCGPipeline.addPass(PostOrderFunctionAttrsPass(/*SkipNonRecursive*/ true));
 
-<<<<<<< HEAD
-=======
-  // Try to promote pointer arguments for internal functions.
-  MainCGPipeline.addPass(ArgumentPromotionPass());
-
->>>>>>> 5b386b864c7619897c51a1da97d78f1cf6f3eff6
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
   // there are no OpenMP runtime calls present in the module.
   if (Level == OptimizationLevel::O2 || Level == OptimizationLevel::O3)
