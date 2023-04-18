@@ -15146,6 +15146,14 @@ bool VPOParoptTransform::propagateKnownNDRange(WRegionNode *W) const {
   if (!W->getWRNLoopInfo().isKnownNDRange())
     return false;
 
+  // 'declare target' functions containing target regions
+  // are cloned, then the original has its inner target directives removed
+  // and the new one loses 'openmp-target-declare' attribute
+  // (see VPOParoptModuleTransform::cloneDeclareTargetFunctions).
+  // We should not do the propagation for the former
+  if (isFunctionOpenMPTargetDeclare())
+    return false;
+
   assert(VPOParoptUtils::getSPIRExecutionScheme() ==
              spirv::ImplicitSIMDSPMDES &&
          "Unexpected known ND-range with disabled ND-range parallelization.");
