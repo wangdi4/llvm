@@ -685,10 +685,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 #endif // INTEL_CUSTOMIZATION
   }
 
-  // After vectorization and unrolling, assume intrinsics may tell us more
-  // about pointer alignments.
-  PM.add(createAlignmentFromAssumptionsPass());
-
 #if INTEL_CUSTOMIZATION
   if (IsFullLTO) {
 #if INTEL_FEATURE_SW_ADVANCED
