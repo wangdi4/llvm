@@ -28,4 +28,4 @@ add_clang_library(clangDependencyScanning
   clangSema
   clangSerialization
   clangTooling
-)
+  )
