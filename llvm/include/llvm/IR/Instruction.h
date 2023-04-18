@@ -409,7 +409,10 @@ public:
   /// Drop any attributes or metadata that can cause immediate undefined
   /// behavior. Retain other attributes/metadata on a best-effort basis.
   /// This should be used when speculating instructions.
-  void dropUBImplyingAttrsAndMetadata();
+#if INTEL_CUSTOMIZATION
+  /// Additionally retain attributes/metadata provided in the parameter.
+  void dropUBImplyingAttrsAndMetadata(ArrayRef<unsigned> AuxKnownIDs = {});
+#endif // INTEL_CUSTOMIZATION
 
   /// Determine whether the exact flag is set.
   bool isExact() const LLVM_READONLY;
