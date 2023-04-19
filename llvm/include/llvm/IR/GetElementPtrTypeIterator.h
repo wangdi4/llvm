@@ -122,10 +122,10 @@ public:
   // temporarily not giving this iterator an operator*() to avoid a subtle
   // semantics break.
   Type *getIndexedType() const {
-    if (auto *T = CurTy.dyn_cast<Type *>())
+    if (auto *T = dyn_cast_if_present<Type *>(CurTy))
       return T;
 #if INTEL_CUSTOMIZATION
-    return CurTy.get<StructType *>()->getTypeAtIndex(getConstantOperand());
+    return cast<StructType *>(CurTy)->getTypeAtIndex(getConstantOperand());
   }
 
   NonConstValTy *getOperand() const {
@@ -173,13 +173,13 @@ public:
   // we should provide a more minimal API here that exposes not much more than
   // that.
 
-  bool isStruct() const { return CurTy.is<StructType *>(); }
-  bool isSequential() const { return CurTy.is<Type *>(); }
+  bool isStruct() const { return isa<StructType *>(CurTy); }
+  bool isSequential() const { return isa<Type *>(CurTy); }
 
-  StructType *getStructType() const { return CurTy.get<StructType *>(); }
+  StructType *getStructType() const { return cast<StructType *>(CurTy); }
 
   StructType *getStructTypeOrNull() const {
-    return CurTy.dyn_cast<StructType *>();
+    return dyn_cast_if_present<StructType *>(CurTy);
   }
 
 #if INTEL_CUSTOMIZATION
