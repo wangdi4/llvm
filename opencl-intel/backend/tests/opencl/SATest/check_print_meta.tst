@@ -1,4 +1,4 @@
-; RUN: SATest -VAL -config=%s.cfg -noref -verbose | FileCheck %s
+; RUN: SATest -VAL -config=%s.cfg -noref -verbose 2>&1 | FileCheck %s
 ; CHECK: Number of arguments: 4
 ; CHECK: Argument 0 (Buffer)
 ; CHECK:     Length          : 1

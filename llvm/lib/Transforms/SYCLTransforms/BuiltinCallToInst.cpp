@@ -577,12 +577,12 @@ void BuiltinCallToInstPass::handleSortCalls(CallInst *CI,
   }
   if (NeedMangle || NeedCast) {
     std::string NewFuncName = NameMangleAPI::mangle(SortFD);
-    Type *VoidResult = Type::getVoidTy(CI->getContext());
+    Type *Result = CI->getType();
     // get or create new functon
     Function *NewFunc = CI->getModule()->getFunction(NewFuncName);
     if (!NewFunc) {
       FunctionType *FuncTy = FunctionType::get(
-          /*Result=*/VoidResult,
+          /*Result=*/Result,
           /*Params=*/FuncArgTys,
           /*isVarArg=*/false);
       assert(FuncTy && "Failed to create new function type");
@@ -593,7 +593,8 @@ void BuiltinCallToInstPass::handleSortCalls(CallInst *CI,
       assert(NewFunc && "Failed to create new function declaration");
       NewFunc->setCallingConv(CallingConv::C);
     }
-    Builder.CreateCall(NewFunc, FuncArgValues, "");
+    CallInst *NewCI = Builder.CreateCall(NewFunc, FuncArgValues, "");
+    CI->replaceAllUsesWith(NewCI);
     CI->eraseFromParent();
   }
 }

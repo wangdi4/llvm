@@ -1,6 +1,6 @@
 ; RUN: opt -passes=sycl-kernel-builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-builtin-call-to-inst -S %s | FileCheck %s -check-prefix=CHECK-NONOPAQUE
-; RUN: opt -opaque-pointers -passes=sycl-kernel-builtin-call-to-inst -S %s | FileCheck %s -check-prefix=CHECK-OPAQUE
+; RUN: opt -passes=sycl-kernel-builtin-call-to-inst -S %s | FileCheck %s -check-prefix=CHECK-NONOPAQUE -check-prefix=CHECK
+; RUN: opt -opaque-pointers -passes=sycl-kernel-builtin-call-to-inst -S %s | FileCheck %s -check-prefix=CHECK-OPAQUE -check-prefix=CHECK
 
 ; key-only private close sort
 define dso_local void @sort1(i8 addrspace(1)* noundef align 1 %data1, i8 addrspace(1)* noundef align 1 %scratch){
@@ -92,11 +92,11 @@ define dso_local void @sort6(i32 addrspace(1)* noundef align 1 %data1, i32 addrs
   ret void
 }
 
-define dso_local void @sort7(i32 %data1){
-; CHECK-NONOPAQUE:   call void @_Z56__devicelib_default_sub_group_private_sort_ascending_i32i(i32 [[DATA1:%.*]])
-; CHECK-OPAQUE:  call void @_Z56__devicelib_default_sub_group_private_sort_ascending_i32i(i32 [[DATA1:%.*]])
+define dso_local i32 @sort7(i32 %data1){
+; CHECK:        [[RESAULT:%.*]] = call i32 @_Z56__devicelib_default_sub_group_private_sort_ascending_i32i(i32 %data1)
+; CHECK-NEXT:   ret i32 [[RESAULT:%.*]]
   %call1 = call i32 @__devicelib_default_sub_group_private_sort_ascending_i32(i32 %data1)
-  ret void
+  ret i32 %call1
 }
 
 declare void @__devicelib_default_work_group_private_sort_close_ascending_p1i8_u32_p1i8(i8 addrspace(1)*, i32, i8 addrspace(1)*)
