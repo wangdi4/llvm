@@ -1052,6 +1052,7 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
   // Check to see which arguments are promotable.  If an argument is promotable,
   // add it to ArgsToPromote.
   DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> ArgsToPromote;
+  unsigned NumArgsAfterPromote = F->getFunctionType()->getNumParams();
   for (Argument *PtrArg : PointerArgs) {
     // Replace sret attribute with noalias. This reduces register pressure by
     // avoiding a register copy.
@@ -1105,6 +1106,7 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
         Types.push_back(Pair.second.Ty);
 
       if (areTypesABICompatible(Types, *F, TTI)) {
+        NumArgsAfterPromote += ArgParts.size() - 1;
         ArgsToPromote.insert({PtrArg, std::move(ArgParts)});
       }
     }
@@ -1114,6 +1116,7 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
   if (ArgsToPromote.empty())
     return nullptr;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
   // CMPLRLLVM-37247: Inhibit argument promotion on split functions
@@ -1124,6 +1127,12 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
 #endif // INTEL_CUSTOMIZATION
 
   return doPromotion(F, FAM, ArgsToPromote, isCallback); // INTEL
+=======
+  if (NumArgsAfterPromote > TTI.getMaxNumArgs())
+    return nullptr;
+
+  return doPromotion(F, FAM, ArgsToPromote);
+>>>>>>> da816c2985263f108e852adc99c31b6775096010
 }
 
 PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
