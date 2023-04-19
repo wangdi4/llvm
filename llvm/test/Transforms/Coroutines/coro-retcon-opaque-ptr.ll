@@ -2,18 +2,11 @@
 ; RUN: opt < %s -passes='default<O2>' -opaque-pointers -S | FileCheck %s
 
 ; Same test as coro-retcon.ll, but with opaque pointers enabled.
-; INTEL_CUSTOMIZATION
-; xmain does not remove "gep...0" instructions, even though they are no-ops
-; with opaque pointers, as they carry TBAA information.
-; end INTEL_CUSTOMIZATION
 
 define ptr @f(ptr %buffer, i32 %n) {
 ; CHECK-LABEL: @f(
 ; CHECK-NEXT:  coro.return:
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[N_VAL_SPILL_ADDR:%.*]] = getelementptr inbounds [[F_FRAME:%.*]], ptr [[BUFFER:%.*]], i64 0, i32 0
-; CHECK-NEXT:    store i32 [[N:%.*]], ptr [[N_VAL_SPILL_ADDR]], align 4
-; END INTEL_CUSTOMIZATION
+; CHECK-NEXT:    store i32 [[N:%.*]], ptr [[BUFFER:%.*]], align 4
 ; CHECK-NEXT:    tail call void @print(i32 [[N]])
 ; CHECK-NEXT:    ret ptr @f.resume.0
 ;
@@ -60,10 +53,7 @@ define hidden { ptr, ptr } @g(ptr %buffer, ptr %ptr) {
 ; CHECK-NEXT:  coro.return:
 ; CHECK-NEXT:    [[TMP0:%.*]] = tail call ptr @allocate(i32 8)
 ; CHECK-NEXT:    store ptr [[TMP0]], ptr [[BUFFER:%.*]], align 8
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[PTR_SPILL_ADDR:%.*]] = getelementptr inbounds [[G_FRAME:%.*]], ptr [[TMP0]], i64 0, i32 0
-; CHECK-NEXT:    store ptr [[PTR:%.*]], ptr [[PTR_SPILL_ADDR]], align 8
-; END INTEL_CUSTOMIZATION
+; CHECK-NEXT:    store ptr [[PTR:%.*]], ptr [[TMP0]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = insertvalue { ptr, ptr } { ptr @g.resume.0, ptr undef }, ptr [[PTR]], 1
 ; CHECK-NEXT:    ret { ptr, ptr } [[TMP1]]
 ;

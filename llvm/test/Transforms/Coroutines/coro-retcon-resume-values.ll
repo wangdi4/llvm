@@ -13,8 +13,7 @@ define ptr @f(ptr %buffer, i32 %n) {
 ; CHECK-NEXT:  coro.return:
 ; CHECK-NEXT:    [[TMP0:%.*]] = tail call ptr @allocate(i32 12)
 ; CHECK-NEXT:    store ptr [[TMP0]], ptr [[BUFFER:%.*]], align 8
-; CHECK-NEXT:    [[N_SPILL_ADDR:%.*]] = getelementptr inbounds [[F_FRAME:%.*]], ptr [[TMP0]], i64 0, i32 0 ;INTEL
-; CHECK-NEXT:    store i32 [[N:%.*]], ptr [[N_SPILL_ADDR]], align 4 ;INTEL
+; CHECK-NEXT:    store i32 [[N:%.*]], ptr [[TMP0]], align 4
 ; CHECK-NEXT:    ret ptr @f.resume.0
 ;
 entry:
@@ -45,16 +44,15 @@ define i32 @main() {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = tail call ptr @allocate(i32 12)
-; CHECK-NEXT:    [[N_SPILL_ADDR_I:%.*]] = getelementptr inbounds [[F_FRAME:%.*]], ptr [[TMP0]], i64 0, i32 0 ;INTEL
-; CHECK-NEXT:    store i32 1, ptr [[N_SPILL_ADDR_I]], align 4 ;INTEL
-; CHECK-NEXT:    [[N_VAL3_SPILL_ADDR_I:%.*]] = getelementptr inbounds [[F_FRAME]], ptr [[TMP0]], i64 0, i32 1 ;INTEL
+; CHECK-NEXT:    store i32 1, ptr [[TMP0]], align 4
+; CHECK-NEXT:    [[N_VAL3_SPILL_ADDR_I:%.*]] = getelementptr inbounds [[F_FRAME:%.*]], ptr [[TMP0]], i64 0, i32 1
 ; CHECK-NEXT:    store i32 1, ptr [[N_VAL3_SPILL_ADDR_I]], align 4, !noalias !0
 ; CHECK-NEXT:    [[INPUT_SPILL_ADDR_I:%.*]] = getelementptr inbounds [[F_FRAME]], ptr [[TMP0]], i64 0, i32 2
 ; CHECK-NEXT:    store i32 2, ptr [[INPUT_SPILL_ADDR_I]], align 4, !noalias !0
 ; CHECK-NEXT:    store i32 3, ptr [[N_VAL3_SPILL_ADDR_I]], align 4, !noalias !3 ;INTEL
 ; CHECK-NEXT:    store i32 4, ptr [[INPUT_SPILL_ADDR_I]], align 4, !noalias !3 ;INTEL
 ; CHECK-NEXT:    tail call void @print(i32 7), !noalias !6
-; CHECK-NEXT:    tail call void @deallocate(ptr [[TMP0]]), !noalias !6 ;INTEL
+; CHECK-NEXT:    tail call void @deallocate(ptr nonnull [[TMP0]]), !noalias !6
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
