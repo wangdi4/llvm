@@ -226,8 +226,6 @@ namespace {
     // NewBlocks contained cloned copy of basic blocks from LoopBlocks.
     std::vector<BasicBlock*> NewBlocks;
 
-    bool HasBranchDivergence;
-
 #if INTEL_CUSTOMIZATION
     // Helper for generating optimization reports.
     OptReportBuilder ORBuilder;
@@ -238,8 +236,8 @@ namespace {
     static char ID; // Pass ID, replacement for typeid
 
     explicit LoopUnswitch(bool Os = false, bool HasBranchDivergence = false)
-        : LoopPass(ID), OptimizeForSize(Os),
-          HasBranchDivergence(HasBranchDivergence) {
+        : LoopPass(ID), OptimizeForSize(Os) {
+      (void)HasBranchDivergence;
       initializeLoopUnswitchPass(*PassRegistry::getPassRegistry());
     }
 
