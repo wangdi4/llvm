@@ -243,6 +243,15 @@ CPUCompiler::CreateLLJIT(Module *M, std::unique_ptr<TargetMachine> TM,
                 return std::make_unique<orc::TMOwningSimpleCompiler>(
                     std::move(TM), ObjCache);
               })
+          .setObjectLinkingLayerCreator(
+              [&](orc::ExecutionSession &ES, const Triple &) {
+                // TODO switch to default JITLink.
+                auto GetMemMgr = []() {
+                  return std::make_unique<SectionMemoryManager>();
+                };
+                return std::make_unique<orc::RTDyldObjectLinkingLayer>(
+                    ES, std::move(GetMemMgr));
+              })
           .create();
   if (!LLJITOrErr)
     throw Exceptions::CompilerException("Failed to create LLJIT");
