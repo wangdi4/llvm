@@ -768,25 +768,6 @@ bool isVectorIntrinsicWithOverloadTypeAtArg(Intrinsic::ID ID, unsigned OpdIdx);
 Intrinsic::ID getVectorIntrinsicIDForCall(const CallInst *CI,
                                           const TargetLibraryInfo *TLI);
 
-#if INTEL_CUSTOMIZATION
-/// Find the operand of the GEP that should be checked for consecutive
-/// stores. This ignores trailing indices that have no effect on the final
-/// pointer.
-unsigned getGEPInductionOperand(const GetElementPtrInst *Gep);
-
-/// If the argument is a GEP, then returns the operand identified by
-/// getGEPInductionOperand. However, if there is some other non-loop-invariant
-/// operand, it returns that instead.
-Value *stripGetElementPtr(Value *Ptr, ScalarEvolution *SE, Loop *Lp);
-
-/// If a value has only one user that is a CastInst, return it.
-Value *getUniqueCastUse(Value *Ptr, Loop *Lp, Type *Ty);
-
-/// Get the stride of a pointer access in a loop. Looks for symbolic
-/// strides "a[i*stride]". Returns the symbolic stride, or null otherwise.
-Value *getStrideFromPointer(Value *Ptr, ScalarEvolution *SE, Loop *Lp);
-#endif // INTEL_CUSTOMIZATION
-
 /// Given a vector and an element number, see if the scalar value is
 /// already around as a register, for example if it were inserted then extracted
 /// from the vector.
@@ -913,15 +894,6 @@ computeMinimumValueSizes(ArrayRef<BasicBlock*> Blocks,
                          const TargetTransformInfo *TTI=nullptr);
 
 #if INTEL_CUSTOMIZATION
-/// \brief This function marks the CallInst VecCall with the appropriate stride
-/// information determined by getExprStride(), which is used later in LLVM IR
-/// generation for loads/stores. Initial use of this information is used during
-/// SVML translation for sincos vectorization, but could be applicable to any
-/// situation where we need to analyze memory references.
-void analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
-                                    const TargetLibraryInfo *TLI,
-                                    ScalarEvolution *SE, Loop *OrigLoop);
-
 /// @brief Contains the names of the declared vector function variants
 typedef std::vector<std::string> DeclaredVariants;
 
