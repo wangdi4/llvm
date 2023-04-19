@@ -713,22 +713,18 @@ std::unique_ptr<TargetInfo> AllocateTarget(const llvm::Triple &Triple,
     case llvm::Triple::Linux:
       return std::make_unique<LinuxTargetInfo<SPIR32TargetInfo>>(Triple, Opts);
     default:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       switch (Triple.getEnvironment()) {
       case llvm::Triple::IntelFPGA:
-        return new SPIR32INTELFpgaTargetInfo(Triple, Opts);
+        return std::make_unique<SPIR32INTELFpgaTargetInfo>(Triple, Opts);
       case llvm::Triple::IntelEyeQ:
-        return new SPIR32TargetInfo(Triple, Opts);
+        return std::make_unique<SPIR32TargetInfo>(Triple, Opts);
       case llvm::Triple::UnknownEnvironment:
-        return new SPIR32TargetInfo(Triple, Opts);
+        return std::make_unique<SPIR32TargetInfo>(Triple, Opts);
       default:
         return nullptr;
       }
 #endif // INTEL_CUSTOMIZATION
-=======
-      return std::make_unique<SPIR32TargetInfo>(Triple, Opts);
->>>>>>> 32987393b8a7c27ab20686ca0f96be1c1a69fe96
     }
   }
   case llvm::Triple::spir64: {
@@ -742,51 +738,38 @@ std::unique_ptr<TargetInfo> AllocateTarget(const llvm::Triple &Triple,
       case llvm::Triple::MSVC:
         assert(HT.getArch() == llvm::Triple::x86_64 &&
                "Unsupported host architecture");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         switch (Triple.getEnvironment()) {
         case llvm::Triple::IntelFPGA:
-          return new MicrosoftX86_64_SPIR64INTELFpgaTargetInfo(Triple, Opts);
+          return std::make_unique<MicrosoftX86_64_SPIR64INTELFpgaTargetInfo>(Triple, Opts);
         default:
           if (IsFPGASubArch)
-            return new MicrosoftX86_64_SPIR64INTELFpgaTargetInfo(Triple, Opts);
-          return new MicrosoftX86_64_SPIR64TargetInfo(Triple, Opts);
+            return std::make_unique<MicrosoftX86_64_SPIR64INTELFpgaTargetInfo>(Triple, Opts);
+          return std::make_unique<MicrosoftX86_64_SPIR64TargetInfo>(Triple, Opts);
         }
 #endif // INTEL_CUSTOMIZATION
       }
     case llvm::Triple::Linux:
 #if INTEL_CUSTOMIZATION
      if (IsFPGASubArch)
-        return new LinuxTargetInfo<SPIR64INTELFpgaTargetInfo>(Triple, Opts);
+        return std::make_unique<LinuxTargetInfo<SPIR64INTELFpgaTargetInfo>>(Triple, Opts);
 #endif // INTEL_CUSTOMIZATION
-      return new LinuxTargetInfo<SPIR64TargetInfo>(Triple, Opts);
+      return std::make_unique<LinuxTargetInfo<SPIR64TargetInfo>>(Triple, Opts);
     default:
 #if INTEL_CUSTOMIZATION
       switch (Triple.getEnvironment()) {
       case llvm::Triple::IntelFPGA:
-        return new SPIR64INTELFpgaTargetInfo(Triple, Opts);
+        return std::make_unique<SPIR64INTELFpgaTargetInfo>(Triple, Opts);
       case llvm::Triple::IntelEyeQ:
-        return new SPIR64TargetInfo(Triple, Opts);
+        return std::make_unique<SPIR64TargetInfo>(Triple, Opts);
       case llvm::Triple::UnknownEnvironment:
         if (IsFPGASubArch)
-          return new SPIR64INTELFpgaTargetInfo(Triple, Opts);
-        return new SPIR64TargetInfo(Triple, Opts);
+          return std::make_unique<SPIR64INTELFpgaTargetInfo>(Triple, Opts);
+        return std::make_unique<SPIR64TargetInfo>(Triple, Opts);
       default:
         return nullptr;
       }
 #endif // INTEL_CUSTOMIZATION
-=======
-        return std::make_unique<MicrosoftX86_64_SPIR64TargetInfo>(Triple, Opts);
-      }
-    case llvm::Triple::Linux:
-      if (IsFPGASubArch)
-        return std::make_unique<LinuxTargetInfo<SPIR64FPGATargetInfo>>(Triple, Opts);
-      return std::make_unique<LinuxTargetInfo<SPIR64TargetInfo>>(Triple, Opts);
-    default:
-      if (IsFPGASubArch)
-        return std::make_unique<SPIR64FPGATargetInfo>(Triple, Opts);
-      return std::make_unique<SPIR64TargetInfo>(Triple, Opts);
->>>>>>> 32987393b8a7c27ab20686ca0f96be1c1a69fe96
     }
   }
 
