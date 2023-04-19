@@ -827,12 +827,7 @@ if (!SYCLOptimizationMode) {
     LPM2.addPass(IndVarSimplifyPass());
 #endif // INTEL_COLLAB
 
-<<<<<<< HEAD
-  for (auto &C : LateLoopOptimizationsEPCallbacks)
-    C(LPM2, Level);
-=======
-    invokeLateLoopOptimizationsEPCallbacks(LPM2, Level);
->>>>>>> a04ffdb0c0b1b3bfa580b5a0601e5d84e4e437ec
+  invokeLateLoopOptimizationsEPCallbacks(LPM2, Level);
 
   LPM2.addPass(LoopDeletionPass());
 
@@ -850,13 +845,7 @@ if (!SYCLOptimizationMode) {
                                     /* OnlyWhenForced= */ !PTO.LoopUnrolling,
                                     PTO.ForgetAllSCEVInLoopUnroll));
 
-<<<<<<< HEAD
-  for (auto &C : LoopOptimizerEndEPCallbacks)
-    C(LPM2, Level);
-=======
-    invokeLoopOptimizerEndEPCallbacks(LPM2, Level);
-
->>>>>>> a04ffdb0c0b1b3bfa580b5a0601e5d84e4e437ec
+  invokeLoopOptimizerEndEPCallbacks(LPM2, Level);
 
   // We provide the opt remark emitter pass for LICM to use. We only need to do
   // this once as it is immutable.
@@ -1081,12 +1070,7 @@ if (!SYCLOptimizationMode) {
   LPM2.addPass(IndVarSimplifyPass());
 #endif // INTEL_COLLAB
 
-<<<<<<< HEAD
-  for (auto &C : LateLoopOptimizationsEPCallbacks)
-    C(LPM2, Level);
-=======
-   invokeLateLoopOptimizationsEPCallbacks(LPM2, Level);
->>>>>>> a04ffdb0c0b1b3bfa580b5a0601e5d84e4e437ec
+  invokeLateLoopOptimizationsEPCallbacks(LPM2, Level);
 
   LPM2.addPass(LoopDeletionPass());
 
@@ -1107,15 +1091,7 @@ if (!SYCLOptimizationMode) {
                                     /* OnlyWhenForced= */ !PTO.LoopUnrolling,
                                     PTO.ForgetAllSCEVInLoopUnroll));
 
-<<<<<<< HEAD
-  for (auto &C : LoopOptimizerEndEPCallbacks)
-    C(LPM2, Level);
-=======
-    invokeLoopOptimizerEndEPCallbacks(LPM2, Level);
-
-    for (auto &C : LoopOptimizerEndEPCallbacks)
-      C(LPM2, Level);
->>>>>>> a04ffdb0c0b1b3bfa580b5a0601e5d84e4e437ec
+  invokeLoopOptimizerEndEPCallbacks(LPM2, Level);
 
   // We provide the opt remark emitter pass for LICM to use. We only need to do
   // this once as it is immutable.
@@ -3092,15 +3068,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
                                      ModuleSummaryIndex *ExportSummary) {
   ModulePassManager MPM;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   LinkForLTO = true;
 #endif // INTEL_CUSTOMIZATION
-  for (auto &C : FullLinkTimeOptimizationEarlyEPCallbacks)
-    C(MPM, Level);
-=======
   invokeFullLinkTimeOptimizationEarlyEPCallbacks(MPM, Level);
->>>>>>> a04ffdb0c0b1b3bfa580b5a0601e5d84e4e437ec
 
   // Create a function that performs CFI checks for cross-DSO calls with targets
   // in the current module.
