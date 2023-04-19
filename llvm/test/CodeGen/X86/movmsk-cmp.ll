@@ -714,8 +714,7 @@ define i1 @allzeros_v16i32_sign(<16 x i32> %arg) {
 ; AVX2-LABEL: allzeros_v16i32_sign:
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vorps %ymm1, %ymm0, %ymm0 ;INTEL
-; AVX2-NEXT:    vmovmskps %ymm0, %eax ;INTEL
-; AVX2-NEXT:    testl %eax, %eax
+; AVX2-NEXT:    vtestps %ymm0, %ymm0 ;INTEL
 ; AVX2-NEXT:    sete %al
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq

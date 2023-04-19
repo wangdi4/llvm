@@ -386,9 +386,8 @@ define i64 @test_v4i64_legal_sext(<4 x i64> %a0, <4 x i64> %a1) {
 ; AVX1-NEXT:    vpcmpgtq %xmm2, %xmm3, %xmm2
 ; AVX1-NEXT:    vpcmpgtq %xmm1, %xmm0, %xmm0
 ; AVX1-NEXT:    vpor %xmm2, %xmm0, %xmm0 ;INTEL
-; AVX1-NEXT:    vmovmskpd %xmm0, %ecx ;INTEL
 ; AVX1-NEXT:    xorl %eax, %eax
-; AVX1-NEXT:    vtestps %xmm0, %xmm0
+; AVX1-NEXT:    vtestpd %xmm0, %xmm0 ;INTEL
 ; AVX1-NEXT:    setne %al
 ; AVX1-NEXT:    negq %rax
 ; AVX1-NEXT:    vzeroupper
@@ -532,10 +531,10 @@ define i32 @test_v8i32_legal_sext(<8 x i32> %a0, <8 x i32> %a1) {
 ; AVX1-NEXT:    vpcmpgtd %xmm2, %xmm3, %xmm2
 ; AVX1-NEXT:    vpcmpgtd %xmm1, %xmm0, %xmm0
 ; AVX1-NEXT:    vpor %xmm2, %xmm0, %xmm0 ;INTEL
-; AVX1-NEXT:    vmovmskps %xmm0, %ecx ;INTEL
 ; AVX1-NEXT:    xorl %eax, %eax
-; AVX1-NEXT:    negl %ecx
-; AVX1-NEXT:    sbbl %eax, %eax
+; AVX1-NEXT:    vtestps %xmm0, %xmm0 ;INTEL
+; AVX1-NEXT:    setne %al ;INTEL
+; AVX1-NEXT:    negl %eax ;INTEL
 ; AVX1-NEXT:    vzeroupper
 ; AVX1-NEXT:    retq
 ;
@@ -1086,21 +1085,15 @@ define i1 @bool_reduction_v16i8(<16 x i8> %x, <16 x i8> %y) {
 ; SSE-NEXT:    setne %al
 ; SSE-NEXT:    retq
 ;
-; AVX1OR2-LABEL: bool_reduction_v16i8:
-; AVX1OR2:       # %bb.0:
-; AVX1OR2-NEXT:    vpcmpgtb %xmm1, %xmm0, %xmm0
-; AVX1OR2-NEXT:    vpmovmskb %xmm0, %eax
-; AVX1OR2-NEXT:    testl %eax, %eax
-; AVX1OR2-NEXT:    setne %al
-; AVX1OR2-NEXT:    retq
-;
-; AVX512-LABEL: bool_reduction_v16i8:
-; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpcmpgtb %xmm1, %xmm0, %xmm0 ;INTEL
-; AVX512-NEXT:    vpmovmskb %xmm0, %eax ;INTEL
-; AVX512-NEXT:    testl %eax, %eax ;INTEL
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    retq
+; INTEL_CUSTOMIZATION
+; AVX-LABEL: bool_reduction_v16i8:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vpcmpgtb %xmm1, %xmm0, %xmm0
+; AVX-NEXT:    vpmovmskb %xmm0, %eax
+; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    setne %al
+; AVX-NEXT:    retq
+; end INTEL_CUSTOMIZATION
   %a = icmp sgt <16 x i8> %x, %y
   %s1 = shufflevector <16 x i1> %a, <16 x i1> undef, <16 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
   %b = or <16 x i1> %s1, %a
