@@ -1,2 +1,2 @@
-;RUN: SATest -BUILD -config=%s.cfg | FileCheck %s
+;RUN: SATest -BUILD -config=%s.cfg 2>&1 | FileCheck %s
 ;CHECK: Test program was successfully built.

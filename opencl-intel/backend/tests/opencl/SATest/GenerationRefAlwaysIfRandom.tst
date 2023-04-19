@@ -1,4 +1,3 @@
-;RUN: SATest -VAL -config=%s.cfg
-;RUN: SATest -VAL -config=%s.cfg >%t
-;RUN: FileCheck %s <%t
-;CHECK-NOT: Mismatched values index
+; RUN: SATest -VAL -config=%s.cfg 2>&1 | FileCheck %s
+
+; CHECK: Test Passed.
