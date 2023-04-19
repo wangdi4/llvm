@@ -11,10 +11,7 @@ define {ptr, ptr, i32} @f(ptr %buffer, i32 %n, { i32 } %dummy) {
 ; CHECK-NEXT:    [[N_VAL_SPILL_ADDR:%.*]] = getelementptr inbounds [[F_FRAME:%.*]], ptr [[BUFFER:%.*]], i64 0, i32 1
 ; CHECK-NEXT:    store i32 [[N:%.*]], ptr [[N_VAL_SPILL_ADDR]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = tail call ptr @allocate(i32 [[N]])
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[DOTSPILL_ADDR:%.*]] = getelementptr inbounds [[F_FRAME]], ptr [[BUFFER]], i64 0, i32 0
-; CHECK-NEXT:    store ptr [[TMP0]], ptr [[DOTSPILL_ADDR]], align 8
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    store ptr [[TMP0]], ptr [[BUFFER]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = insertvalue { ptr, ptr, i32 } { ptr @f.resume.0, ptr undef, i32 undef }, ptr [[TMP0]], 1
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertvalue { ptr, ptr, i32 } [[TMP1]], i32 [[N]], 2
 ; CHECK-NEXT:    ret { ptr, ptr, i32 } [[TMP2]]
@@ -46,10 +43,7 @@ declare {ptr, i32} @prototype_g(ptr, i1)
 define {ptr, i32} @g(ptr %buffer, i32 %n) {
 ; CHECK-LABEL: @g(
 ; CHECK-NEXT:  coro.return:
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[N_VAL_SPILL_ADDR:%.*]] = getelementptr inbounds [[G_FRAME:%.*]], ptr [[BUFFER:%.*]], i64 0, i32 0
-; CHECK-NEXT:    store i32 [[N:%.*]], ptr [[N_VAL_SPILL_ADDR]], align 4
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    store i32 [[N:%.*]], ptr [[BUFFER:%.*]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = zext i32 [[N]] to i64
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca i8, i64 [[TMP0]], align 8
 ; CHECK-NEXT:    tail call void @use(ptr nonnull [[TMP1]])

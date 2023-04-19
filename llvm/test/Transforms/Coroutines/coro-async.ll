@@ -154,19 +154,18 @@ define void @my_async_function_pa(ptr %ctxt, ptr %task, ptr %actor) {
 ; CHECK-SAME: !dbg ![[SP2:[0-9]+]] {
 ; CHECK: entryresume.0:
 ; CHECK:   [[CALLER_CONTEXT:%.*]] = load ptr, ptr %0
-; CHECK-DELETED:   [[FRAME_PTR:%.*]] = getelementptr{{.*}}[[CALLER_CONTEXT]] ;INTEL
+; CHECK:   [[FRAME_PTR:%.*]] = getelementptr ;INTEL
 ; CHECK-O0:   [[VECTOR_SPILL_ADDR:%.*]] = getelementptr inbounds %my_async_function.Frame, ptr {{.*}}, i32 0, i32 1
 ; CHECK-O0:   load <4 x double>, ptr [[VECTOR_SPILL_ADDR]], align 16
-; CHECK:   [[CALLEE_CTXT_SPILL_ADDR:%.*]] = getelementptr{{.*}}[[CALLER_CONTEXT]] ;INTEL
+; CHECK:   [[CALLEE_CTXT_SPILL_ADDR:%.*]] = getelementptr inbounds i8, ptr [[CALLER_CONTEXT]], i64 160
 ; CHECK:   [[CALLEE_CTXT_RELOAD:%.*]] = load ptr, ptr [[CALLEE_CTXT_SPILL_ADDR]]
-; CHECK:   [[ACTOR_RELOAD_ADDR:%.*]] = getelementptr{{.*}}[[CALLER_CONTEXT]] ;INTEL
+; CHECK:   [[ACTOR_RELOAD_ADDR:%.*]] = getelementptr inbounds i8, ptr [[CALLER_CONTEXT]], i64 152
 ; CHECK:   [[ACTOR_RELOAD:%.*]] = load ptr, ptr [[ACTOR_RELOAD_ADDR]]
-; CHECK:   [[ADDR1:%.*]] = getelementptr{{.*}}[[CALLER_CONTEXT]] ;INTEL
-; CHECK:   [[ASYNC_CTXT_RELOAD:%.*]] = load ptr, ptr [[ADDR1]] ;INTEL
-; CHECK:   [[ALLOCA_PRJ2:%.*]] = getelementptr{{.*}}resume_ctxt ;INTEL
-; CHECK:   [[ALLOCA_PRJ1:%.*]] = getelementptr{{.*}}resume_ctxt ;INTEL
+; CHECK:   [[ADDR1:%.*]] = getelementptr inbounds i8, ptr [[CALLER_CONTEXT]], i64 144
+; CHECK:   [[ASYNC_CTXT_RELOAD:%.*]] = load ptr, ptr [[ADDR1]]
+; CHECK:   [[ALLOCA_PRJ2:%.*]] = getelementptr ;INTEL
 ; CHECK:   tail call void @llvm.coro.async.context.dealloc(ptr nonnull [[CALLEE_CTXT_RELOAD]])
-; CHECK:   [[VAL1:%.*]] = load i64, ptr [[ALLOCA_PRJ1]] ;INTEL
+; CHECK:   [[VAL1:%.*]] = load i64, ptr [[FRAME_PTR]]
 ; CHECK:   tail call void @some_user(i64 [[VAL1]])
 ; CHECK:   [[VAL2:%.*]] = load i64, ptr [[ALLOCA_PRJ2]]
 ; CHECK:   tail call void @some_user(i64 [[VAL2]])
@@ -241,7 +240,7 @@ entry:
 ; CHECK: [[CALLEE_CTXT:%.*]] = load ptr, ptr %2
 ; CHECK: [[CALLEE_CTXT_SPILL_ADDR:%.*]] = getelementptr inbounds i8, ptr [[CALLEE_CTXT]], i64 152
 ; CHECK: store ptr @my_async_function2.resume.1,
-; CHECK: [[CALLEE_CTXT_RELOAD:%.*]] = load ptr, ptr [[CALLEE_CTXT_SPILL_ADDR]]
+; CHECK: [[CALLLE_CTXT_RELOAD:%.*]] = load ptr, ptr [[CALLEE_CTXT_SPILL_ADDR]]
 ; CHECK: tail call swiftcc void @asyncSuspend(ptr [[CALLEE_CTXT_RELOAD]]
 ; CHECK: ret void
 

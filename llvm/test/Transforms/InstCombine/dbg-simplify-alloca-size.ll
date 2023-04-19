@@ -1,7 +1,4 @@
-; INTEL_CUSTOMIZATION
-; Added -xmain-enable-gep0-removal
-; RUN: opt -xmain-enable-gep0-removal -S --passes=instcombine %s | FileCheck %s
-; end INTEL_CUSTOMIZATION
+; RUN: opt -S --passes=instcombine %s | FileCheck %s
 
 ; https://github.com/llvm/llvm-project/issues/56807
 declare void @foo(ptr %pixels)
