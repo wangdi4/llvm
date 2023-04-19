@@ -2737,13 +2737,6 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
                                 VecCall->getCalledFunction()->getName()))
     VecCall->setCallingConv(CallingConv::SPIR_FUNC);
 
-    // TODO: Need a VPValue based analysis for call arg memory references.
-    // VPValue-based stride info also needed.
-#if 0
-  Loop *Lp = LI->getLoopFor(Call->getParent());
-  analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
-#endif
-
   VPWidenMap[VPCall] = VecCall;
 }
 
@@ -3495,13 +3488,6 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
     // attributes are taken from call sites in MapIntrinToIml to refine
     // SVML calls for precision.
     setRequiredAttributes(VPCall->getOrigCallAttrs(), VecCall, VecArgAttrs);
-
-#if 0
-    // TODO: Need a VPValue based analysis for call arg memory references.
-    // VPValue-based stride info also needed.
-    Loop *Lp = LI->getLoopFor(Call->getParent());
-    analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
-#endif
 
     // No blending is required here for masked simd function calls as of now for
     // two reasons:

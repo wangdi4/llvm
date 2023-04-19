@@ -64,7 +64,7 @@ public:
   /// combine the results. If Depth is greater than our MaxRecursionDepth, we
   /// return a unknown KnownBits of the appropriate bitwidth.
   static KnownBits computeKnownBits(const VPValue *V, unsigned Depth,
-                                    const Query &Q) {
+                                    const Query &Q, const VPlan *P = nullptr) {
 
     assert(V && "can't compute known bits for null!");
     assert(V->getType()->isIntOrPtrTy() &&
@@ -105,6 +105,15 @@ public:
       }
       break;
     }
+    case VPValue::VPLiveInValueSC: {
+      if (VPlanValueTracking::getUseUnderlyingValues() && P) {
+        auto MergeId = cast<VPLiveInValue>(V)->getMergeId();
+        VPValue *Val = P->getExternals().getOriginalIncomingValue(MergeId);
+        if (const Value *IRVal = Val->getUnderlyingValue())
+          llvm::computeKnownBits(IRVal, KB, Q.DL, Depth);
+      }
+      break;
+    }
     }
 
     // Now, try to refine the known bits using any assumptions.
@@ -120,14 +129,33 @@ public:
 
     // Helper to compute known bits of the operand at the given Idx.
     const auto Op = [I, Depth, Q](unsigned Idx) {
-      return computeKnownBits(I->getOperand(Idx), Depth, Q);
+      return computeKnownBits(I->getOperand(Idx), Depth, Q,
+                              I->getParent()->getParent());
     };
 
     switch (I->getOpcode()) {
-    case Instruction::Add:
+    case Instruction::Add: {
+      bool IsAdd = true;
+      if (auto *VPConst = dyn_cast<VPConstant>(I->getOperand(1))) {
+        auto *C = VPConst->getConstant();
+        if (const auto *CI = dyn_cast<ConstantInt>(C)) {
+          if (Op(0).isNonNegative() && CI->isNegative())
+            // Switching known bits compute to sub mode allows %sub to be upper
+            // bounded by signed i8 max. If left in add mode unknown bits is
+            // computed, most likely due to the possibility that %sub could
+            // wrap in the unsigned range when adding -1.
+            // for.body:
+            //  %iv = phi i8 [ 1, %for.ph ], [ %add, %for.body ]
+            //  %sub = add nsw i8 %iv, -1
+            //  %add = add nuw nsw i8 %iv, 1
+            //  %exitcond.not = icmp sgt i8 %add, %N
+            IsAdd = false;
+        }
+      }
       KB = KnownBits::computeForAddSub(
-          /*Add:*/ true, /*NSW:*/ I->hasNoSignedWrap(), Op(0), Op(1));
+          /*Add:*/ IsAdd, /*NSW:*/ I->hasNoSignedWrap(), Op(0), Op(1));
       break;
+    }
     case Instruction::Sub:
       KB = KnownBits::computeForAddSub(
           /*Add:*/ false, /*NSW:*/ I->hasNoSignedWrap(), Op(0), Op(1));
@@ -179,6 +207,13 @@ public:
       return;
     case VPInstruction::Subscript:
       computeKnownBitsFromSubscript(cast<VPSubscriptInst>(I), KB, Depth, Q);
+      return;
+    case VPInstruction::InductionInit:
+      if (cast<VPInductionInit>(I)->getStartVal())
+        KB = Op(0);
+      return;
+    case VPInstruction::InductionInitStep:
+      KB = Op(0);
       return;
     default:
       break;

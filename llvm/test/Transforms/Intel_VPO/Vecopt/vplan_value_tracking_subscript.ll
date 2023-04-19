@@ -16,8 +16,8 @@ define void @foo(i64 *%array) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 ({{.*}}), KnownBits: {Zero=0, One=0}
-; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 ({{.*}}), KnownBits: {Zero=0, One=0}
-; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 ({{.*}}), KnownBits: {Zero=0, One=0}
+; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 ({{.*}}), KnownBits: {Zero=-1, One=0}
+; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 ({{.*}}), KnownBits: {Zero=-2, One=1}
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]] ({{.*}})
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
@@ -62,7 +62,7 @@ define void @foo(i64 *%array) {
 ; CHECK-NEXT:     store i64 16 i64* [[VP_SUBSCRIPT_17]] ({{.*}})
 ; CHECK-NEXT:     i64* [[VP_SUBSCRIPT_18:%.*]] = subscript [256 x i64]* null i64 [[VP1]] i64 0 ({{.*}}), KnownBits: {Zero=-2095105, One=0}
 ; CHECK-NEXT:     store i64 17 i64* [[VP_SUBSCRIPT_18]] ({{.*}})
-; CHECK-NEXT:     i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]] ({{.*}}), KnownBits: {Zero=0, One=0}
+; CHECK-NEXT:     i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]] ({{.*}}), KnownBits: {Zero=-2048, One=0}
 ; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp slt i64 [[VP2]] i64 [[VP_VECTOR_TRIP_COUNT]] ({{.*}}), KnownBits: {Zero=0, One=0}
 ; CHECK-NEXT:     br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]] ({{.*}})
 ;
