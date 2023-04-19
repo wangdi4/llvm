@@ -1,4 +1,7 @@
+; REQUIRES: asserts
+
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-unroll-and-jam"  -print-after=hir-unroll-and-jam 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-unroll-and-jam" -hir-unroll-and-jam-max-outer-loop-cost=2 -debug-only=hir-unroll-and-jam 2>&1 | FileCheck %s --check-prefix=CHECK-THRESHOLD
 
 ; HIR-
 ; + DO i1 = 0, -1 * %init1 + %n + -1, 1   <DO_LOOP>
@@ -46,6 +49,8 @@
 ; CHECK: |   + END LOOP
 
 ; CHECK: + END LOOP
+
+; CHECK-THRESHOLD: Skipping unroll & jam of loop as the outer loop body cost exceeds threshold, cost = 9, threshold = 2
 
 
 define void @foo(i64 %init1, i64 %init2, i64 %add, i64 %n, i64 %sub, i64 %mul, float* noalias %in1, float* noalias %in2, float* noalias %out) {

@@ -111,7 +111,7 @@ static cl::opt<unsigned> MaxUnrolledLoopNestCost(
 
 // This ensures that most of the code is in the innermost loop.
 static cl::opt<unsigned> MaxOuterLoopCost(
-    "hir-unroll-and-jam-max-outer-loop-cost", cl::init(30), cl::Hidden,
+    "hir-unroll-and-jam-max-outer-loop-cost", cl::init(36), cl::Hidden,
     cl::desc("Max allowed cost of an outer loop in the loopnest"));
 
 typedef SmallVector<std::pair<HLLoop *, HLLoop *>, 16> LoopMapTy;
@@ -889,8 +889,9 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
       return 2;
     } else {
       LLVM_DEBUG(
-          dbgs() << "Skipping unroll & jam of loop as the loop body cost "
-                    "exceeds threshold!\n");
+          dbgs() << "Skipping unroll & jam of loop as the outer loop body cost "
+                    "exceeds threshold, cost = "
+                 << LoopCost << ", threshold = " << MaxOuterLoopCost << "\n");
       return 0;
     }
   }
@@ -903,7 +904,9 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
     } else {
       LLVM_DEBUG(
           dbgs() << "Skipping unroll & jam of loop as the unrolled loop body "
-                    "cost exceeds threshold!\n");
+                    "cost exceeds threshold, cost = "
+                 << (2 * LoopNestCost)
+                 << ", threshold = " << MaxUnrolledLoopNestCost << "\n");
       return 0;
     }
   }
