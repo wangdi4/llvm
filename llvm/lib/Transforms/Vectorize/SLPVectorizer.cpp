@@ -10781,36 +10781,8 @@ BoUpSLP::isGatherShuffledEntry(const TreeEntry *TE, ArrayRef<Value *> VL,
   return std::nullopt;
 }
 
-<<<<<<< HEAD
-InstructionCost BoUpSLP::getGatherCost(FixedVectorType *Ty,
-                                       const APInt &ShuffledIndices,
-                                       bool NeedToShuffle) const {
-  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
-  InstructionCost Cost =
-      TTI->getScalarizationOverhead(Ty, ~ShuffledIndices, /*Insert*/ true,
-                                    /*Extract*/ false, CostKind);
-  if (NeedToShuffle)
-    Cost += TTI->getShuffleCost(TargetTransformInfo::SK_PermuteSingleSrc, Ty);
-
-#if INTEL_CUSTOMIZATION
-  // A long string of serialized inserts and shuffles can cause the
-  // dependence height of the vectorized code to be much greater than
-  // that of the scalar code.  Introduce a small penalty beyond the
-  // cost of the individual instructions to heuristically account for this.
-  // We include the cost of shuffles because they are also serialized
-  // with the inserts, and at least one will appear if we have any
-  // duplicated elements.  [CMPLRLLVM-38655]
-  Cost += TTI->getSerializationCost(Ty->getElementType(),
-                                    Ty->getNumElements(), Cost);
-#endif // INTEL_CUSTOMIZATION
-  return Cost;
-}
-
-InstructionCost BoUpSLP::getGatherCost(ArrayRef<Value *> VL) const {
-=======
 InstructionCost BoUpSLP::getGatherCost(ArrayRef<Value *> VL,
                                        bool ForPoisonSrc) const {
->>>>>>> 8cf0290c4a47aa184b7b28032ec7a0f7311ff7c5
   // Find the type of the operands in VL.
   Type *ScalarTy = VL[0]->getType();
   if (StoreInst *SI = dyn_cast<StoreInst>(VL[0]))
@@ -10851,6 +10823,19 @@ InstructionCost BoUpSLP::getGatherCost(ArrayRef<Value *> VL,
   if (DuplicateNonConst)
     Cost +=
         TTI->getShuffleCost(TargetTransformInfo::SK_PermuteSingleSrc, VecTy);
+
+#if INTEL_CUSTOMIZATION
+  // A long string of serialized inserts and shuffles can cause the
+  // dependence height of the vectorized code to be much greater than
+  // that of the scalar code.  Introduce a small penalty beyond the
+  // cost of the individual instructions to heuristically account for this.
+  // We include the cost of shuffles because they are also serialized
+  // with the inserts, and at least one will appear if we have any
+  // duplicated elements.  [CMPLRLLVM-38655]
+  if (ForPoisonSrc)
+    Cost += TTI->getSerializationCost(VecTy->getElementType(),
+                                      VecTy->getNumElements(), Cost);
+#endif // INTEL_CUSTOMIZATION
   return Cost;
 }
 
