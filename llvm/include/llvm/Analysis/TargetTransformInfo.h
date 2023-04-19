@@ -1796,6 +1796,9 @@ public:
   /// false, but it shouldn't matter what it returns anyway.
   bool hasArmWideBranch(bool Thumb) const;
 
+  /// \return The maximum number of function arguments the target supports.
+  unsigned getMaxNumArgs() const;
+
   /// @}
 
 private:
@@ -2212,6 +2215,7 @@ public:
   virtual VPLegalization
   getVPLegalizationStrategy(const VPIntrinsic &PI) const = 0;
   virtual bool hasArmWideBranch(bool Thumb) const = 0;
+  virtual unsigned getMaxNumArgs() const = 0;
 };
 
 template <typename T>
@@ -3019,6 +3023,10 @@ public:
 
   bool hasArmWideBranch(bool Thumb) const override {
     return Impl.hasArmWideBranch(Thumb);
+  }
+
+  unsigned getMaxNumArgs() const override {
+    return Impl.getMaxNumArgs();
   }
 };
 
