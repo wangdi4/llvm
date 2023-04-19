@@ -633,15 +633,11 @@ void CGDebugInfo::CreateCompileUnit() {
   }
 
   llvm::dwarf::SourceLanguage LangTag;
-<<<<<<< HEAD
-  const LangOptions &LO = CGM.getLangOpts();
 #if INTEL_CUSTOMIZATION
   if (LO.OpenCL) {
     LangTag = llvm::dwarf::DW_LANG_OpenCL;
   } else
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 5f37a7b12b6eee89c7f6b0106ca44dc7174daede
   if (LO.CPlusPlus) {
     if (LO.ObjC)
       LangTag = llvm::dwarf::DW_LANG_ObjC_plus_plus;
