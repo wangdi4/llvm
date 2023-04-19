@@ -3306,7 +3306,12 @@ bool FunctionDecl::isInlineBuiltinDeclaration() const {
 
   const FunctionDecl *Definition;
   return hasBody(Definition) && Definition->isInlineSpecified() &&
+#if INTEL_CUSTOMIZATION
+         Definition->hasAttr<AlwaysInlineAttr>() &&
+         Definition->hasAttr<GNUInlineAttr>();
+#else
          Definition->hasAttr<AlwaysInlineAttr>();
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool FunctionDecl::isDestroyingOperatorDelete() const {
