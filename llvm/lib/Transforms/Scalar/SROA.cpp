@@ -1864,7 +1864,7 @@ static void rewriteMemOpOfSelect(SelectInst &SI, T &I,
       else
         ++NumStoresPredicated;
     } else {
-      CondMemOp.dropUBImplyingAttrsAndMetadata();
+      CondMemOp.dropUBImplyingAttrsAndUnknownMetadata();
       ++NumLoadsSpeculated;
     }
     CondMemOp.insertBefore(NewMemOpBB->getTerminator());
