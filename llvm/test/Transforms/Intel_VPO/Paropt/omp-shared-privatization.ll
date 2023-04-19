@@ -1,12 +1,4 @@
-; RUN: opt -opaque-pointers=1 -O3 -paropt=31 -S %s | FileCheck %s
-
-; While enabling opaque pointers, trunc and zext instructions may be incorrectly
-; generated for runtime call parameters. CHECK at line 478 will fail due to
-; incorrect %C and %D values.
-; INTEL_CUSTOMIZATION
-; JIRA: CMPLRLLVM-39653
-; end INTEL_CUSTOMIZATION
-; XFAIL: *
+; RUN: opt -opaque-pointers=1 -passes='default<O3>' -paropt=31 -S %s | FileCheck %s
 
 ; Test src:
 ;
@@ -76,8 +68,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @__const.car.C = private unnamed_addr constant [2 x float] [float 0x400A666660000000, float 0x40119999A0000000], align 4
 @__const.car.D = private unnamed_addr constant [2 x float] [float 0x4004CCCCC0000000, float 0x401ACCCCC0000000], align 4
 
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @foo(ptr noundef %A, ptr noundef %B, i32 noundef %N) #0 {
+define dso_local void @foo(ptr noundef %A, ptr noundef %B, i32 noundef %N) {
 entry:
   %A.addr = alloca ptr, align 8
   %B.addr = alloca ptr, align 8
@@ -167,14 +158,10 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @goo(ptr noundef %A, ptr noundef %B, i32 noundef %N) #0 {
+define dso_local void @goo(ptr noundef %A, ptr noundef %B, i32 noundef %N) {
 entry:
   %A.addr = alloca ptr, align 8
   %B.addr = alloca ptr, align 8
@@ -274,7 +261,6 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
   ret void
 }
 
-; Function Attrs: noinline nounwind optnone uwtable
 define dso_local void @bar(ptr noundef %A, i32 noundef %N) #0 {
 entry:
   %A.addr = alloca ptr, align 8
@@ -434,8 +420,7 @@ omp.precond.end34:                                ; preds = %omp.loop.exit33, %o
   ret void
 }
 
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @car(ptr noundef %A, ptr noundef %B, i32 noundef %N) #0 {
+define dso_local void @car(ptr noundef %A, ptr noundef %B, i32 noundef %N) {
 entry:
   %A.addr = alloca ptr, align 8
   %B.addr = alloca ptr, align 8
@@ -475,7 +460,19 @@ omp.precond.then:                                 ; preds = %entry
   %array.begin = getelementptr inbounds [2 x float], ptr %C, i32 0, i32 0
   %array.begin14 = getelementptr inbounds [2 x float], ptr %D, i32 0, i32 0
 
-; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 6, ptr nonnull [[OUTLINED_CAR:@.+]], ptr %A, ptr %B, i64 4651317697086436147, i64 4672034252792424038,
+; The behavior of argument promotion used to be different in typed and opaque
+; pointers. In both the typed and opaque pointer cases, only one element of
+; the 2 element array is used in the callee.
+
+; In the typed pointer case, both elements of C and D were passed through the
+; fork() interface as i64 values: "i64 4651317697086436147, i64 4672034252792424038".
+
+; In the opaque pointer case, only a single element of C and D is passed.
+; Because only a single element of C and D is passed in the opaque pointer
+; case, it is necessary to sign extend each value to 64-bits before it is
+; passed to the fork() on the caller side and then truncate it when it gets
+; to the callee. So, the values passed are: "i64 1079194419, i64 1087792742".
+; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 6, ptr nonnull [[OUTLINED_CAR:@.+]], ptr %A, ptr %B, i64 1079194419, i64 1087792742, i64 0,
 
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
     "QUAL.OMP.SHARED:TYPED"(ptr %A.addr, ptr null, i32 1),
@@ -541,11 +538,9 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
   ret void
 }
 
-; Function Attrs: argmemonly nofree nounwind willreturn
-declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #2
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg)
 
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @baz(ptr noundef %A, ptr noundef %B, i32 noundef %N) #0 {
+define dso_local void @baz(ptr noundef %A, ptr noundef %B, i32 noundef %N) {
 entry:
   %A.addr = alloca ptr, align 8
   %B.addr = alloca ptr, align 8
@@ -647,8 +642,7 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
   ret void
 }
 
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @test_nested_private(ptr noundef %A, ptr noundef %B, i32 noundef %N, i32 noundef %K) #0 {
+define dso_local void @test_nested_private(ptr noundef %A, ptr noundef %B, i32 noundef %N, i32 noundef %K) {
 entry:
   %A.addr = alloca ptr, align 8
   %B.addr = alloca ptr, align 8
@@ -941,20 +935,8 @@ omp.precond.end60:                                ; preds = %omp.loop.exit59, %o
   ret void
 }
 
-; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
-declare float @llvm.fabs.f32(float) #3
+declare float @llvm.fabs.f32(float)
 
-attributes #0 = { noinline nounwind uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { nounwind }
-attributes #2 = { argmemonly nofree nounwind willreturn }
-attributes #3 = { nocallback nofree nosync nounwind readnone speculatable willreturn }
-
-!llvm.module.flags = !{!0, !1, !2, !3}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{i32 7, !"openmp", i32 51}
-!2 = !{i32 7, !"uwtable", i32 2}
-!3 = !{i32 7, !"frame-pointer", i32 2}
 
 ; CHECK: define internal void [[OUTLINED_FUNC]](ptr nocapture readonly %tid, ptr nocapture readnone %bid, ptr nocapture writeonly [[ABASE:%.+]], ptr nocapture readonly [[BBASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body:
@@ -1014,7 +996,7 @@ attributes #3 = { nocallback nofree nosync nounwind readnone speculatable willre
 ; CHECK: omp.inner.for.body{{.+}}:
 ; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, ptr [[ABASE]],
 ; CHECK:   [[AVAL:%.+]] = load float, ptr [[AADDR]]
-; CHECK:   [[FABS:%.+]] = tail call fast float @llvm.fabs.f32(float [[AVAL]])
+; CHECK:   [[FABS:%.+]] = call fast float @llvm.fabs.f32(float [[AVAL]])
 ; CHECK:   [[FADD:%.+]] = fadd fast float [[FABS]], [[AVAL]]
 ; CHECK:   store float [[FADD]], ptr [[AADDR]]
 ; CHECK: }
