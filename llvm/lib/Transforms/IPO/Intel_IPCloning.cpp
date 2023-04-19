@@ -665,16 +665,15 @@ static GlobalVariable *
     }
     Value *Dst = User->getArgOperand(1);
     if (AUseGEPI) {
-      auto *MemCpyDst = dyn_cast<GEPOperator>(Dst);
-      if (!MemCpyDst)
-        return nullptr;
-      if (!MemCpyDst->hasAllZeroIndices())
-        return nullptr;
-      if (GEPType != MemCpyDst->getSourceElementType())
-        return nullptr;
-      if (MemCpyDst->getNumIndices() != AUseGEPI->getNumIndices())
-        return nullptr;
-      Dst = MemCpyDst->getOperand(0);
+      if (auto *MemCpyDst = dyn_cast<GEPOperator>(Dst)) {
+        if (!MemCpyDst->hasAllZeroIndices())
+          return nullptr;
+        if (GEPType != MemCpyDst->getSourceElementType())
+          return nullptr;
+        if (MemCpyDst->getNumIndices() != AUseGEPI->getNumIndices())
+          return nullptr;
+        Dst = MemCpyDst->getOperand(0);
+      }
     }
     Value *MemCpySize = User->getArgOperand(2);
     // Make sure there is only one memcpy

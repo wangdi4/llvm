@@ -802,8 +802,24 @@ bool GVNHoist::safeToHoistLdSt(const Instruction *NewPt,
 }
 
 bool GVNHoist::valueAnticipable(CHIArgs C, Instruction *TI) const {
-  if (TI->getNumSuccessors() > (unsigned)size(C))
-    return false; // Not enough args in this CHI.
+#if INTEL_CUSTOMIZATION
+  unsigned NumSucc = TI->getNumSuccessors();
+  if (NumSucc > (unsigned)size(C)) {
+    // Some successors may be unreachable (e.g. the "default" case of some
+    // switch constructs), ignore these and compare number of remaining
+    // successors and number of CHI args again.
+    // Note currently we only exclude BBs with only one unreachable instruction.
+    // More complex BBs may contain other functionalities like error reporting.
+    // Since the instruction being hoisted can also have side effect, we don't
+    // want to reorder them.
+    unsigned NumUnreachableSucc = 0;
+    for (const auto *BB : successors(TI))
+      if (isa<UnreachableInst>(BB->getFirstNonPHI()))
+        NumUnreachableSucc += 1;
+    if (NumSucc - NumUnreachableSucc > (unsigned)size(C))
+      return false; // Not enough args in this CHI.
+  }
+#endif // INTEL_CUSTOMIZATION
 
   for (auto CHI : C) {
     // Find if all the edges have values flowing out of BB.
