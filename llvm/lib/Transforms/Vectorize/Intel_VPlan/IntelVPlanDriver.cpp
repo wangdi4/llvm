@@ -683,6 +683,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 // Bail-out reasons with messages of more interest to compiler maintainers
 // than to users should be marked with verbosity High and never emitted in
 // release compilers.  For these, we first emit a more generic Medium message.
+// TODO: Instead of a single argument, convert to variadic template function
+// to simplify the argument-handling logic.
 template <class Loop>
 bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
                               WRNVecLoopNode *WRLp,
@@ -693,6 +695,13 @@ bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
 #ifndef NDEBUG
     VPORBuilder.addRemark(Lp, Level, ID, Reason.c_str());
 #endif
+  } else if (ID == BadSimdRemarkID || ID == IndCallRemarkID) {
+    // These remarks require that no operand be passed.
+    VPORBuilder.addRemark(Lp, Level, ID);
+  } else if (ID == LoopIVRemarkID || ID == ComplexFlowRemarkID) {
+    // These remarks require a second string for the OpenMP
+    // specification number.
+    VPORBuilder.addRemark(Lp, Level, ID, Reason.c_str(), " 5.0");
   } else {
     VPORBuilder.addRemark(Lp, Level, ID, Reason.c_str());
   }
@@ -1839,6 +1848,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 //  - If we have an OMP SIMD loop and we bail out, we might later vectorize
 //    along the LLVM-IR path.  To avoid confusion and double reporting, report
 //    only for internal compilers when this can occur.
+// TODO: Instead of a single argument, convert to variadic template function
+// to simplify the argument-handling logic.
 bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
                                  WRNVecLoopNode *WRLp,
                                  OptReportVerbosity::Level Level, unsigned ID,
@@ -1846,16 +1857,30 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
 
   if (WRLp && WRLp->isOmpSIMDLoop() && WillRunLLVMIRVPlan) {
 #if !INTEL_PRODUCT_RELEASE
-    std::string HIRReason = "HIR: " + Reason;
-    VPORBuilder.addRemark(Lp, Level, ID, HIRReason.c_str());
+    if (ID == BadSimdRemarkID || ID == IndCallRemarkID) {
+      // These remarks require that no operand be passed.
+      VPORBuilder.addRemark(Lp, Level, ID);
+    } else {
+      std::string HIRReason = "HIR: " + Reason;
+      if (ID == LoopIVRemarkID || ID == ComplexFlowRemarkID) {
+        // These remarks require a second string for the OpenMP
+        // specification number.
+        VPORBuilder.addRemark(Lp, Level, ID, HIRReason.c_str(), " 5.0");
+      } else {
+        VPORBuilder.addRemark(Lp, Level, ID, HIRReason.c_str());
+      }
+    }
 #endif // !INTEL_PRODUCT_RELEASE
   } else if (Level == OptReportVerbosity::High && ID == BailoutRemarkID) {
     VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, ID, "");
 #if !INTEL_PRODUCT_RELEASE
     VPORBuilder.addRemark(Lp, Level, ID, Reason.c_str());
 #endif // !INTEL_PRODUCT_RELEASE
+  } else if (ID == BadSimdRemarkID || ID == IndCallRemarkID) {
+    // These remarks require that no operand be passed.
+    VPORBuilder.addRemark(Lp, Level, ID);
   } else if (ID == LoopIVRemarkID || ID == ComplexFlowRemarkID) {
-    // These two remarks require a second string for the OpenMP
+    // These remarks require a second string for the OpenMP
     // specification number.
     VPORBuilder.addRemark(Lp, Level, ID, Reason.c_str(), " 5.0");
   } else {
