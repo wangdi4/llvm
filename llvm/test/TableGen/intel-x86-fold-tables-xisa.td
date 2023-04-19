@@ -9,6 +9,6 @@
 
 // RUN: not diff -U 1 %p/x86-fold-tables.inc %llvm_lib_dir/Target/X86/X86GenFoldTables.inc | sed "/---\|+++/d;s/@@.*/.../" >%t.diff
 // RUN: grep -v "INTEL_FEATURE" %p/intel-x86-fold-tables-xisa.inc >%t.ref
-// RUN: diff %t.ref %t.diff
+// RUN: diff --strip-trailing-cr %t.ref %t.diff
 
 // end INTEL_FEATURE_XISA_COMMON
