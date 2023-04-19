@@ -1828,7 +1828,11 @@ static void hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
       // time in isGuaranteedToExecute if we don't actually have anything to
       // drop.  It is a compile time optimization, not required for correctness.
       !SafetyInfo->isGuaranteedToExecute(I, DT, CurLoop))
+<<<<<<< HEAD
     I.dropUBImplyingAttrsAndMetadata(KnownIDs); // INTEL
+=======
+    I.dropUBImplyingAttrsAndUnknownMetadata();
+>>>>>>> bf7f6b44362c9dae055328684c2ca38cd0937972
 
   if (isa<PHINode>(I))
     // Move the new node to the end of the phi list in the destination block.
