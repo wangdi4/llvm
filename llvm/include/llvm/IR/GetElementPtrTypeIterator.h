@@ -124,12 +124,8 @@ public:
   Type *getIndexedType() const {
     if (auto *T = dyn_cast_if_present<Type *>(CurTy))
       return T;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    return CurTy.get<StructType *>()->getTypeAtIndex(getConstantOperand());
-=======
-    return cast<StructType *>(CurTy)->getTypeAtIndex(getOperand());
->>>>>>> 7021182d6b43de9488ab70de626192ce70b3a4a6
+    return cast<StructType *>(CurTy)->getTypeAtIndex(getConstantOperand());
   }
 
   NonConstValTy *getOperand() const {

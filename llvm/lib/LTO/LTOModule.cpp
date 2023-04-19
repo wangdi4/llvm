@@ -585,13 +585,8 @@ void LTOModule::addPotentialUndefinedSymbol(ModuleSymbolTable::Symbol Sym,
 }
 
 void LTOModule::parseSymbols() {
-<<<<<<< HEAD
   for (const auto &Sym : SymTab.symbols()) { // INTEL
-    auto *GV = Sym.dyn_cast<GlobalValue *>();
-=======
-  for (auto Sym : SymTab.symbols()) {
     auto *GV = dyn_cast_if_present<GlobalValue *>(Sym);
->>>>>>> 7021182d6b43de9488ab70de626192ce70b3a4a6
     uint32_t Flags = SymTab.getSymbolFlags(Sym);
     if (Flags & object::BasicSymbolRef::SF_FormatSpecific)
       continue;
