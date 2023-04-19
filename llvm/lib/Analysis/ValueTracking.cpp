@@ -8870,6 +8870,7 @@ ConstantRange llvm::computeConstantRange(const Value *V, bool ForSigned,
 
   return CR;
 }
+<<<<<<< HEAD
 
 static std::optional<int64_t>
 getOffsetFromIndex(const GEPOperator *GEP, unsigned Idx, const DataLayout &DL) {
@@ -8964,3 +8965,5 @@ llvm::NumSignBitsPrinterPass::run(Function &F, FunctionAnalysisManager &AM) {
   return PreservedAnalyses::all();
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> ca10e73b530376e191fbaa4920b5dde02d8b5930
