@@ -1,12 +1,7 @@
-<<<<<<< HEAD
-// RUN: %clang_cc1 %s -triple x86_64-unknown-linux-gnu -O0 -emit-llvm -opaque-pointers -o - | FileCheck %s
-// RUN: %clang_cc1 %s -triple x86_64-unknown-linux-gnu -O0 -emit-llvm -opaque-pointers -o - -cl-std=clc++ | FileCheck %s
-=======
 // RUN: %clang_cc1 %s -triple x86_64-unknown-linux-gnu -O0 -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-X86
 // RUN: %clang_cc1 %s -triple x86_64-unknown-linux-gnu -O0 -emit-llvm -o - -cl-std=clc++ | FileCheck %s --check-prefix=CHECK-X86
 // RUN: %clang_cc1 %s -triple spir64-unknown-unknown -O0 -emit-llvm -o - | FileCheck %s --check-prefix=CHECK-SPIR
 // RUN: %clang_cc1 %s -triple spir64-unknown-unknown -O0 -emit-llvm -o - -cl-std=clc++ | FileCheck %s --check-prefix=CHECK-SPIR
->>>>>>> f0b71e154a88fb1ca2646ef38a0775cb31b4c457
 
 __attribute__((overloadable)) void my_read_image(__ocl_sampled_image1d_ro_t img);
 __attribute__((overloadable)) void my_read_image(__ocl_sampled_image2d_ro_t img);
