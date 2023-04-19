@@ -4699,12 +4699,28 @@ static FPClassTest computeKnownFPClassFromAssumes(const Value *V,
   return KnownFromAssume;
 }
 
+void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
+                         FPClassTest InterestedClasses, KnownFPClass &Known,
+                         unsigned Depth, const Query &Q,
+                         const TargetLibraryInfo *TLI);
+
+static void computeKnownFPClass(const Value *V, KnownFPClass &Known,
+                                FPClassTest InterestedClasses, unsigned Depth,
+                                const Query &Q, const TargetLibraryInfo *TLI) {
+  auto *FVTy = dyn_cast<FixedVectorType>(V->getType());
+  APInt DemandedElts =
+      FVTy ? APInt::getAllOnes(FVTy->getNumElements()) : APInt(1, 1);
+  computeKnownFPClass(V, DemandedElts, InterestedClasses, Known, Depth, Q, TLI);
+}
+
 // TODO: Merge implementations of isKnownNeverNaN, isKnownNeverInfinity,
 // CannotBeNegativeZero, cannotBeOrderedLessThanZero into here.
 void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
                          FPClassTest InterestedClasses, KnownFPClass &Known,
                          unsigned Depth, const Query &Q,
                          const TargetLibraryInfo *TLI) {
+  assert(Known.isUnknown() && "should not be called with known information");
+
   if (!DemandedElts) {
     // No demanded elts, better to assume we don't know anything.
     Known.resetAll();
@@ -4938,6 +4954,9 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
   case Instruction::UIToFP: {
     // Cannot produce nan
     Known.knownNot(fcNan);
+
+    // sitofp and uitofp turn into +0.0 for zero.
+    Known.knownNot(fcNegZero);
     if (Op->getOpcode() == Instruction::UIToFP)
       Known.signBitIsZero();
 
@@ -4976,6 +4995,71 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
 
     break;
   }
+  case Instruction::InsertElement: {
+    if (isa<ScalableVectorType>(Op->getType()))
+      return;
+
+    const Value *Vec = Op->getOperand(0);
+    const Value *Elt = Op->getOperand(1);
+    auto *CIdx = dyn_cast<ConstantInt>(Op->getOperand(2));
+    // Early out if the index is non-constant or out-of-range.
+    unsigned NumElts = DemandedElts.getBitWidth();
+    if (!CIdx || CIdx->getValue().uge(NumElts))
+      return;
+
+    unsigned EltIdx = CIdx->getZExtValue();
+    // Do we demand the inserted element?
+    if (DemandedElts[EltIdx]) {
+      computeKnownFPClass(Elt, Known, InterestedClasses, Depth + 1, Q, TLI);
+      // If we don't know any bits, early out.
+      if (Known.isUnknown())
+        break;
+    } else {
+      Known.KnownFPClasses = fcNone;
+    }
+
+    // We don't need the base vector element that has been inserted.
+    APInt DemandedVecElts = DemandedElts;
+    DemandedVecElts.clearBit(EltIdx);
+    if (!!DemandedVecElts) {
+      KnownFPClass Known2;
+      computeKnownFPClass(Vec, DemandedVecElts, InterestedClasses, Known2,
+                          Depth + 1, Q, TLI);
+      Known |= Known2;
+    }
+
+    break;
+  }
+  case Instruction::ShuffleVector: {
+    // For undef elements, we don't know anything about the common state of
+    // the shuffle result.
+    APInt DemandedLHS, DemandedRHS;
+    auto *Shuf = dyn_cast<ShuffleVectorInst>(Op);
+    if (!Shuf || !getShuffleDemandedElts(Shuf, DemandedElts, DemandedLHS, DemandedRHS))
+      return;
+
+    if (!!DemandedLHS) {
+      const Value *LHS = Shuf->getOperand(0);
+      computeKnownFPClass(LHS, DemandedLHS, InterestedClasses, Known,
+                          Depth + 1, Q, TLI);
+
+      // If we don't know any bits, early out.
+      if (Known.isUnknown())
+        break;
+    } else {
+      Known.KnownFPClasses = fcNone;
+    }
+
+    if (!!DemandedRHS) {
+      KnownFPClass Known2;
+      const Value *RHS = Shuf->getOperand(1);
+      computeKnownFPClass(RHS, DemandedRHS, InterestedClasses, Known2,
+                          Depth + 1, Q, TLI);
+      Known |= Known2;
+    }
+
+    break;
+  }
   case Instruction::ExtractValue: {
     computeKnownFPClass(Op->getOperand(0), DemandedElts, InterestedClasses,
                         Known, Depth + 1, Q, TLI);
@@ -5005,10 +5089,7 @@ llvm::computeKnownFPClass(const Value *V, const DataLayout &DL,
                           const Instruction *CxtI, const DominatorTree *DT,
                           OptimizationRemarkEmitter *ORE, bool UseInstrInfo) {
   KnownFPClass Known;
-  auto *FVTy = dyn_cast<FixedVectorType>(V->getType());
-  APInt DemandedElts =
-      FVTy ? APInt::getAllOnes(FVTy->getNumElements()) : APInt(1, 1);
-  ::computeKnownFPClass(V, DemandedElts, InterestedClasses, Known, Depth,
+  ::computeKnownFPClass(V, Known, InterestedClasses, Depth,
                         Query(DL, AC, safeCxtI(V, CxtI), DT, UseInstrInfo, ORE),
                         TLI);
   return Known;
