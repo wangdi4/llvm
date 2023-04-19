@@ -251,10 +251,10 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.1
 ;;   return x;
 ;; }
 
-; CHECK-VF2:  Cost 9 for float %vp{{[0-9]+}} = running-inclusive-reduction{fmax}
-; CHECK-VF4:  Cost 14 for float %vp{{[0-9]+}} = running-inclusive-reduction{fmax}
+; CHECK-VF2:  Cost 7 for float %vp{{[0-9]+}} = running-inclusive-reduction{fmax}
+; CHECK-VF4:  Cost 11 for float %vp{{[0-9]+}} = running-inclusive-reduction{fmax}
 ; CHECK-VF8:  Cost 22 for float %vp{{[0-9]+}} = running-inclusive-reduction{fmax}
-; CHECK-VF16: Cost 15 for float %vp{{[0-9]+}} = running-inclusive-reduction{fmax}
+; CHECK-VF16: Cost 25 for float %vp{{[0-9]+}} = running-inclusive-reduction{fmax}
 
 define float @max_inclusive(ptr %A, ptr %B) {
 DIR.OMP.SIMD.1:
@@ -345,17 +345,17 @@ DIR.OMP.END.SIMD.529:                             ; preds = %DIR.OMP.END.SIMD.5
 ;;   return x;
 ;; }
 
-; CHECK-VF2: Cost 11 for float %vp{{[0-9]+}} = running-exclusive-reduction{fmax}
-; CHECK-VF2: Cost 3 for float %vp{{[0-9]+}} = fmax float
+; CHECK-VF2: Cost 9 for float %vp{{[0-9]+}} = running-exclusive-reduction{fmax}
+; CHECK-VF2: Cost 2 for float %vp{{[0-9]+}} = fmax float
 
-; CHECK-VF4: Cost 16 for float %vp{{[0-9]+}} = running-exclusive-reduction{fmax}
-; CHECK-VF4: Cost 3 for float %vp{{[0-9]+}} = fmax float
+; CHECK-VF4: Cost 13 for float %vp{{[0-9]+}} = running-exclusive-reduction{fmax}
+; CHECK-VF4: Cost 2 for float %vp{{[0-9]+}} = fmax float
 
 ; CHECK-VF8: Cost 25 for float %vp{{[0-9]+}} = running-exclusive-reduction{fmax}
 ; CHECK-VF8: Cost 3 for float %vp{{[0-9]+}} = fmax float
 
-; CHECK-VF16: Cost 16 for float %vp{{[0-9]+}} = running-exclusive-reduction{fmax}
-; CHECK-VF16: Cost 2 for float %vp{{[0-9]+}} = fmax float
+; CHECK-VF16: Cost 26 for float %vp{{[0-9]+}} = running-exclusive-reduction{fmax}
+; CHECK-VF16: Cost 4 for float %vp{{[0-9]+}} = fmax float
 
 define float @max_exclusive(ptr %A, ptr %B) {
 DIR.OMP.SIMD.1:
