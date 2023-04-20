@@ -1769,11 +1769,7 @@ SmallPtrSet<Type *, 4> collectGenXVolatileTypes(Module &M) {
 // of the simd object operations, but in some cases clang can implicitly
 // insert stores, such as after a write in inline assembly. To handle that
 // case, lower any stores of genx_volatiles into vstores.
-<<<<<<< HEAD
 void lowerGlobalStores(Module &M, const SmallPtrSetImpl<Type *> &GVTS) {
-=======
-void lowerGlobalStores(Module &M, const SmallPtrSet<Type *, 4> &GVTS) {
->>>>>>> a44c2c64c44dc92eb5137d42406f053e09747bd7
   SmallVector<Instruction *, 4> ToErase;
   for (auto &F : M.functions()) {
     for (Instruction &I : instructions(F)) {
