@@ -34,6 +34,7 @@
 ; CHECK: MRC Predicate: TO FALSE: {{.*}}icmp {{.*}}, 4 
 ; CHECK: MRC Predicate: TO TRUE: {{.*}}icmp {{.*}}, 2 
 ; CHECK: MRC Predicate: TO FALSE: {{.*}}icmp {{.*}}, 0 
+; CHECK: MRC Predicate: 6 Branches Simplified
 
 ; Check the IR
 
@@ -116,9 +117,21 @@
 
 ; This is the predicate optimized version.
 ; CHECK-LABEL: define internal {{.*}} ptr @GetVirtualPixelsFromNexus.3(
-; These are optimized conditionals and branch instructions
+; The next two are optimized conditionals and branch instructions
 ; CHECK: br i1 false, label
-; CHECK: or i1 {{.*}}, true
+; CHECK: %[[I100:[A-Za-z0-9]+]] = or i1 {{.*}}, true
+; The next two basic blocks will branch around the complex conditional
+; CHECK: br i1 %[[I100]], label %[[L100:[A-Za-z0-9]+]], label %[[L101:[A-Za-z0-9]+]]
+; CHECK: br i1 {{.*}}, label %[[L100]], label %[[L101]]
+; Check for the instructions sunk out of the complex conditional
+; CHECK: [[L101]]:
+; CHECK: %[[I102:[A-Za-z0-9]+]] = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[PO:[A-Za-z0-9]+]], i64 0, i32 6
+; CHECK: %[[I103:[A-Za-z0-9]+]] = load i64, ptr %[[I102]], align 8
+; CHECK: %[[I104:[A-Za-z0-9]+]] = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[PO]], i64 0, i32 7
+; CHECK: %[[I105:[A-Za-z0-9]+]] = load i64, ptr %[[I104]], align 8
+; Check for the alternate branch
+; CHECK: [[L100]]
+; Check for one more optimized conditional
 ; CHECK: br i1 false, label
 
 ; CHECK: call void @GetVirtualPixelsFromNexus.3.bb206

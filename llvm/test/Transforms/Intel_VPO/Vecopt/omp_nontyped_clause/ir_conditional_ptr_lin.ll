@@ -169,8 +169,8 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:   [[VP_VEC_PHI7:%.*]] = phi <2 x i64*> [ [[VP_VECTOR_GEP]], [[VPlannedBB2]] ], [ [[VP_MM_VECTORGEP18:%.*]], [[VPlannedBB15]] ]
 ; CHECK-NEXT:   [[VP_UNI_PHI8:%.*]] = phi i32* [ [[VP_K1_IV_B]], [[VPlannedBB2]] ], [ [[VP_MM_VECTORGEP17_EXTRACT0:%.*]], [[VPlannedBB15]] ]
 ; CHECK-NEXT:   [[VP_VEC_PHI9:%.*]] = phi <2 x i32*> [ [[VP_VECTOR_GEP3]], [[VPlannedBB2]] ], [ [[VP_MM_VECTORGEP17:%.*]], [[VPlannedBB15]] ]
-; CHECK-NEXT:   %4 = add <2 x i64> [[VP_VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:   %5 = add i64 [[VP_UNI_PHI5]], 2
+; CHECK-NEXT:   %4 = add nuw nsw <2 x i64> [[VP_VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:   %5 = add nuw nsw i64 [[VP_UNI_PHI5]], 2
 ; CHECK-NEXT:   %6 = add nuw nsw <2 x i64> [[VP_VEC_PHI]], <i64 1, i64 1>
 ; CHECK-NEXT:   %7 = icmp eq <2 x i64> %6, <i64 43, i64 43>
 ; CHECK-NEXT:   %8 = xor <2 x i1> %7, <i1 true, i1 true>
