@@ -1274,31 +1274,23 @@ defm CVTSS2SI64 : sse12_cvt_sint<0x2D, VR128, GR64, i64, v4f32, X86cvts2si,
 defm VCVTDQ2PS   : sse12_cvt_p<0x5B, VR128, i128mem, v4f32, v4i32, load,
                                "vcvtdq2ps\t{$src, $dst|$dst, $src}",
                                SSEPackedSingle, WriteCvtI2PS>,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-                               PS, VEX, Requires<[HasAVX, NoAVX256P_And_NoVLX]>, VEX_WIG;
+                               PS, VEX, Requires<[HasAVX, NoAVX256P_And_NoVLX]>, WIG;
 #else // INTEL_FEATURE_ISA_AVX256P
-                               PS, VEX, Requires<[HasAVX, NoVLX]>, VEX_WIG;
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-defm VCVTDQ2PSY  : sse12_cvt_p<0x5B, VR256, i256mem, v8f32, v8i32, load,
-                               "vcvtdq2ps\t{$src, $dst|$dst, $src}",
-                               SSEPackedSingle, WriteCvtI2PSY>,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-                               PS, VEX, VEX_L, Requires<[HasAVX, NoAVX256P_And_NoVLX]>, VEX_WIG;
-#else // INTEL_FEATURE_ISA_AVX256P
-                               PS, VEX, VEX_L, Requires<[HasAVX, NoVLX]>, VEX_WIG;
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-=======
                                PS, VEX, Requires<[HasAVX, NoVLX]>, WIG;
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 defm VCVTDQ2PSY  : sse12_cvt_p<0x5B, VR256, i256mem, v8f32, v8i32, load,
                                "vcvtdq2ps\t{$src, $dst|$dst, $src}",
                                SSEPackedSingle, WriteCvtI2PSY>,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+                               PS, VEX, VEX_L, Requires<[HasAVX, NoAVX256P_And_NoVLX]>, WIG;
+#else // INTEL_FEATURE_ISA_AVX256P
                                PS, VEX, VEX_L, Requires<[HasAVX, NoVLX]>, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
 
 defm CVTDQ2PS : sse12_cvt_p<0x5B, VR128, i128mem, v4f32, v4i32, memop,
                             "cvtdq2ps\t{$src, $dst|$dst, $src}",
@@ -3775,15 +3767,11 @@ let Predicates = [HasAVX, NoVLX_Or_NoBWI] in
 #endif // INTEL_CUSTOMIZATION
 defm VPSADBW : PDI_binop_rm2<0xF6, "vpsadbw", X86psadbw, v2i64, v16i8, VR128,
                              load, i128mem, SchedWritePSADBW.XMM, 0>,
-<<<<<<< HEAD
-                             VEX_4V, VEX_WIG;
+                             VEX_4V, WIG;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoAVX256P_And_NoVLX_Or_NoBWI] in
 #else // INTEL_FEATURE_ISA_AVX256P
-=======
-                             VEX_4V, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
 let Predicates = [HasAVX2, NoVLX_Or_NoBWI] in
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
@@ -3846,16 +3834,12 @@ let Predicates = [HasAVX, prd] in
 #endif // INTEL_CUSTOMIZATION
   defm V#NAME : PDI_binop_rmi<opc, opc2, ImmForm, !strconcat("v", OpcodeStr),
                               OpNode, OpNode2, VR128, sched.XMM, schedImm.XMM,
-<<<<<<< HEAD
-                              DstVT128, SrcVT, load, 0>, VEX_4V, VEX_WIG;
+                              DstVT128, SrcVT, load, 0>, VEX_4V, WIG;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, !if(!eq(prd, TruePredicate), TruePredicate, 
   !if(!eq (prd, NoVLX), NoAVX256P_And_NoVLX, !cast<Predicate>("NoAVX256P_And_"#prd)))] in
 #else // INTEL_FEATURE_ISA_AVX256P
-=======
-                              DstVT128, SrcVT, load, 0>, VEX_4V, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
 let Predicates = [HasAVX2, prd] in
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
@@ -3890,15 +3874,11 @@ let Predicates = [HasAVX, NoVLX_Or_NoBWI] in
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
   defm V#NAME : PDI_binop_ri<opc, ImmForm, !strconcat("v", OpcodeStr), OpNode,
-<<<<<<< HEAD
-                             VR128, v16i8, sched.XMM, 0>, VEX_4V, VEX_WIG;
+                             VR128, v16i8, sched.XMM, 0>, VEX_4V, WIG;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoAVX256P_And_NoVLX_Or_NoBWI] in
 #else  // INTEL_FEATURE_ISA_AVX256P
-=======
-                             VR128, v16i8, sched.XMM, 0>, VEX_4V, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
 let Predicates = [HasAVX2, NoVLX_Or_NoBWI] in
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
@@ -4341,13 +4321,9 @@ def PEXTRWrr : PDIi8<0xC5, MRMSrcReg,
 let Predicates = [HasAVX, NoAVX256P_And_NoBWI] in
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoBWI] in
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-defm VPINSRW : sse2_pinsrw<0>, PD, VEX_4V, VEX_WIG;
-=======
 defm VPINSRW : sse2_pinsrw<0>, PD, VEX_4V, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
 
 let Predicates = [UseSSE2], Constraints = "$src1 = $dst" in
 defm PINSRW : sse2_pinsrw, PD;
@@ -5378,15 +5354,11 @@ let Predicates = [HasAVX, NoVLX_Or_NoBWI] in
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
   defm VPALIGNR : ssse3_palignr<"vpalignr", v16i8, VR128, load, i128mem,
-<<<<<<< HEAD
-                                SchedWriteShuffle.XMM, 0>, VEX_4V, VEX_WIG;
+                                SchedWriteShuffle.XMM, 0>, VEX_4V, WIG;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoAVX256P_And_NoVLX_Or_NoBWI] in
 #else // INTEL_FEATURE_ISA_AVX256P
-=======
-                                SchedWriteShuffle.XMM, 0>, VEX_4V, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
 let Predicates = [HasAVX2, NoVLX_Or_NoBWI] in
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
@@ -5753,13 +5725,9 @@ multiclass SS41I_extract8<bits<8> opc, string OpcodeStr> {
 let Predicates = [HasAVX, NoAVX256P_And_NoBWI] in
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoBWI] in
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-  defm VPEXTRB : SS41I_extract8<0x14, "vpextrb">, VEX, VEX_WIG;
-=======
   defm VPEXTRB : SS41I_extract8<0x14, "vpextrb">, VEX, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
 
 defm PEXTRB      : SS41I_extract8<0x14, "pextrb">;
 
@@ -5787,13 +5755,9 @@ multiclass SS41I_extract16<bits<8> opc, string OpcodeStr> {
 let Predicates = [HasAVX, NoAVX256P_And_NoBWI] in
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoBWI] in
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-  defm VPEXTRW : SS41I_extract16<0x15, "vpextrw">, VEX, VEX_WIG;
-=======
   defm VPEXTRW : SS41I_extract16<0x15, "vpextrw">, VEX, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
 
 defm PEXTRW      : SS41I_extract16<0x15, "pextrw">;
 
@@ -5931,13 +5895,9 @@ multiclass SS41I_insert8<bits<8> opc, string asm, bit Is2Addr = 1> {
 let Predicates = [HasAVX, NoAVX256P_And_NoBWI] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX, NoBWI] in {
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
-  defm VPINSRB : SS41I_insert8<0x20, "vpinsrb", 0>, VEX_4V, VEX_WIG;
-=======
   defm VPINSRB : SS41I_insert8<0x20, "vpinsrb", 0>, VEX_4V, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
   def : Pat<(X86pinsrb VR128:$src1, (i32 (anyext (i8 GR8:$src2))), timm:$src3),
             (VPINSRBrr VR128:$src1, (INSERT_SUBREG (i32 (IMPLICIT_DEF)),
                        GR8:$src2, sub_8bit), timm:$src3)>;
@@ -6712,22 +6672,16 @@ def BlendScaleCommuteImm2to4 : SDNodeXForm<timm, [{
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
 let Predicates = [HasAVX, NoAVX256P_And_NoVLX_Or_NoMEDIAX] in {
   let isCommutable = 0 in {
-<<<<<<< HEAD
     defm VMPSADBW : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
                                         v8i16, VR128, load, i128mem, 0,
-                                        SchedWriteMPSAD.XMM>, VEX_4V, VEX_WIG;
-=======
-    defm VMPSADBW : SS41I_binop_rmi_int<0x42, "vmpsadbw", int_x86_sse41_mpsadbw,
-                                        VR128, load, i128mem, 0,
                                         SchedWriteMPSAD.XMM>, VEX_4V, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
   }
 #else // INTEL_FEATURE_ISA_AVX512_MEDIAX
 let Predicates = [HasAVX] in {
   let isCommutable = 0 in {
     defm VMPSADBW : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
                                         v8i16, VR128, load, i128mem, 0,
-                                        SchedWriteMPSAD.XMM>, VEX_4V, VEX_WIG;
+                                        SchedWriteMPSAD.XMM>, VEX_4V, WIG;
   }
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #endif // INTEL_CUSTOMIZATION
@@ -6752,15 +6706,9 @@ let Uses = [MXCSR], mayRaiseFPException = 1 in {
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
 let Predicates = [HasAVX2, NoAVX256P_And_NoVLX_Or_NoMEDIAX] in {
   let isCommutable = 0 in {
-<<<<<<< HEAD
   defm VMPSADBWY : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
                                   v16i16, VR256, load, i256mem, 0,
-                                  SchedWriteMPSAD.YMM>, VEX_4V, VEX_L, VEX_WIG;
-=======
-  defm VMPSADBWY : SS41I_binop_rmi_int<0x42, "vmpsadbw", int_x86_avx2_mpsadbw,
-                                  VR256, load, i256mem, 0,
                                   SchedWriteMPSAD.YMM>, VEX_4V, VEX_L, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
   }
 }
 #else // INTEL_FEATURE_ISA_AVX512_MEDIAX
@@ -6768,7 +6716,7 @@ let Predicates = [HasAVX2] in {
   let isCommutable = 0 in {
   defm VMPSADBWY : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
                                   v16i16, VR256, load, i256mem, 0,
-                                  SchedWriteMPSAD.YMM>, VEX_4V, VEX_L, VEX_WIG;
+                                  SchedWriteMPSAD.YMM>, VEX_4V, VEX_L, WIG;
   }
 }
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
@@ -7140,15 +7088,11 @@ let Predicates = [HasAVX, NoVLX] in
 #endif // INTEL_CUSTOMIZATION
 def VMOVNTDQArm : SS48I<0x2A, MRMSrcMem, (outs VR128:$dst), (ins i128mem:$src),
                         "vmovntdqa\t{$src, $dst|$dst, $src}", []>,
-<<<<<<< HEAD
-                        Sched<[SchedWriteVecMoveLSNT.XMM.RM]>, VEX, VEX_WIG;
+                        Sched<[SchedWriteVecMoveLSNT.XMM.RM]>, VEX, WIG;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX2, NoAVX256P_And_NoVLX] in
 #else // INTEL_FEATURE_ISA_AVX256P
-=======
-                        Sched<[SchedWriteVecMoveLSNT.XMM.RM]>, VEX, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
 let Predicates = [HasAVX2, NoVLX] in
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION

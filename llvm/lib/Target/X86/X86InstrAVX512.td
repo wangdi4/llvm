@@ -6693,15 +6693,11 @@ multiclass avx512_packs_all_i16_i8<bits<8> opc, string OpcodeStr,
                             SDNode OpNode> {
   let Predicates = [HasBWI] in
   defm NAME#Z : avx512_packs_rm<opc, OpcodeStr, OpNode, v32i16_info, v64i8_info,
-<<<<<<< HEAD
-                                SchedWriteShuffle.ZMM>, EVEX_V512, VEX_WIG;
+                                SchedWriteShuffle.ZMM>, EVEX_V512, WIG;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX256P_Or_HasBWI] in {
 #else // INTEL_FEATURE_ISA_AVX256P
-=======
-                                SchedWriteShuffle.ZMM>, EVEX_V512, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
   let Predicates = [HasBWI, HasVLX] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
@@ -7973,15 +7969,11 @@ multiclass avx512_shift_rmi_w<bits<8> opcw, Format ImmFormR, Format ImmFormM,
                               X86SchedWriteWidths sched> {
   let Predicates = [HasBWI] in
   defm WZ:    avx512_shift_rmi<opcw, ImmFormR, ImmFormM, OpcodeStr, OpNode,
-<<<<<<< HEAD
-                               sched.ZMM, v32i16_info>, EVEX_V512, VEX_WIG;
+                               sched.ZMM, v32i16_info>, EVEX_V512, WIG;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   let Predicates = [HasAVX256P_Or_HasBWI] in {
 #else // INTEL_FEATURE_ISA_AVX256P
-=======
-                               sched.ZMM, v32i16_info>, EVEX_V512, WIG;
->>>>>>> 33e2e713c6bf653278206fe268f2f05619057a29
   let Predicates = [HasVLX, HasBWI] in {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
@@ -14289,10 +14281,10 @@ defm VPEXTRQZ : avx512_extract_elt_dq<"vpextrq", v2i64x_info, GR64>, REX_W;
 // FIXME: Renaming these record when upstream. The 128bit version should end
 // with 'Z128' and the 512bit version should end with 'Z'.
 let Predicates = [HasVPINSRVPEXTR] in {
-  defm VPEXTRBZ256 : avx512_extract_elt_b<"vpextrb", v32i8x_info>, VEX_WIG, EVEX_V256;
-  defm VPEXTRBZ512 : avx512_extract_elt_b<"vpextrb", v64i8_info>, VEX_WIG, EVEX_V512;
-  defm VPEXTRWZ256 : avx512_extract_elt_w<"vpextrw", v16i16x_info>, VEX_WIG, EVEX_V256;
-  defm VPEXTRWZ512 : avx512_extract_elt_w<"vpextrw", v32i16_info>, VEX_WIG, EVEX_V512;
+  defm VPEXTRBZ256 : avx512_extract_elt_b<"vpextrb", v32i8x_info>, WIG, EVEX_V256;
+  defm VPEXTRBZ512 : avx512_extract_elt_b<"vpextrb", v64i8_info>, WIG, EVEX_V512;
+  defm VPEXTRWZ256 : avx512_extract_elt_w<"vpextrw", v16i16x_info>, WIG, EVEX_V256;
+  defm VPEXTRWZ512 : avx512_extract_elt_w<"vpextrw", v32i16_info>, WIG, EVEX_V512;
   defm VPEXTRDZ256 : avx512_extract_elt_dq<"vpextrd", v8i32x_info, GR32>, EVEX_V256;
   defm VPEXTRDZ512 : avx512_extract_elt_dq<"vpextrd", v16i32_info, GR32>, EVEX_V512;
 }
@@ -14379,13 +14371,13 @@ let Predicates = [HasAVX256P_Or_HasBWI_NoVL], AddedComplexity = -10 in {
 // with 'Z128' and the 512bit version should end with 'Z'.
 let Predicates = [HasVPINSRVPEXTR] in {
   defm VPINSRBZ256 : avx512_insert_elt_bw<0x20, "vpinsrb", X86pinsrb, v32i8x_info,
-                                       extloadi8>, TAPD, VEX_WIG, EVEX_V256;
+                                       extloadi8>, TAPD, WIG, EVEX_V256;
   defm VPINSRBZ512 : avx512_insert_elt_bw<0x20, "vpinsrb", X86pinsrb, v64i8_info,
-                                       extloadi8>, TAPD, VEX_WIG, EVEX_V512;
+                                       extloadi8>, TAPD, WIG, EVEX_V512;
   defm VPINSRWZ256 : avx512_insert_elt_bw<0xC4, "vpinsrw", X86pinsrw, v16i16x_info,
-                                       extloadi16>, PD, VEX_WIG, EVEX_V256;
+                                       extloadi16>, PD, WIG, EVEX_V256;
   defm VPINSRWZ512 : avx512_insert_elt_bw<0xC4, "vpinsrw", X86pinsrw, v32i16_info,
-                                       extloadi16>, PD, VEX_WIG, EVEX_V512;
+                                       extloadi16>, PD, WIG, EVEX_V512;
   defm VPINSRDZ256 : avx512_insert_elt_dq<0x22, "vpinsrd", v8i32x_info, GR32>, EVEX_V256;
   defm VPINSRDZ512 : avx512_insert_elt_dq<0x22, "vpinsrd", v16i32_info, GR32>, EVEX_V512;
 }
