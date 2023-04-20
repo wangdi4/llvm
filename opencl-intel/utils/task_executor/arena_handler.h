@@ -15,6 +15,7 @@
 #pragma once
 
 #include "cl_device_api.h"
+#include "cl_shutdown.h"
 #include "harness_trapper.h"
 #include "task_executor.h"
 
@@ -115,7 +116,6 @@ public:
   // overriden task_scheduler_observer methods
   virtual void on_scheduler_entry(bool bIsWorker) override;
   virtual void on_scheduler_exit(bool bIsWorker) override;
-  virtual bool on_scheduler_leaving();
 
 private:
   // start observations
@@ -285,7 +285,6 @@ public:
   // observer methods
   void on_scheduler_entry(bool bIsWorker, ArenaHandler &arena);
   void on_scheduler_exit(bool bIsWorker, ArenaHandler &arena);
-  bool on_scheduler_leaving(ArenaHandler &arena);
 
   bool isSubDevice() const { return (nullptr != m_pParentDevice.GetPtr()); }
 
@@ -295,7 +294,7 @@ public:
   bool IsCurrentThreadInArena() const;
 
 private:
-  enum State {
+  enum State : unsigned int {
     INITIALIZING = 0,
     WORKING,
     TERMINATING,
@@ -304,7 +303,7 @@ private:
   };
 
   Intel::OpenCL::Utils::OclReaderWriterLock m_stateLock;
-  volatile State m_state;
+  std::atomic<State> m_state;
 
   RootDeviceCreationParam m_deviceDescriptor;
   TBBTaskExecutor &m_taskExecutor;
@@ -368,15 +367,13 @@ private:
 
 // inlines
 inline void ArenaHandler::on_scheduler_entry(bool bIsWorker) {
-  m_device->on_scheduler_entry(bIsWorker, *this);
+  if (!Intel::OpenCL::Utils::IsShuttingDown())
+    m_device->on_scheduler_entry(bIsWorker, *this);
 }
 
 inline void ArenaHandler::on_scheduler_exit(bool bIsWorker) {
-  m_device->on_scheduler_exit(bIsWorker, *this);
-}
-
-inline bool ArenaHandler::on_scheduler_leaving() {
-  return m_device->on_scheduler_leaving(*this);
+  if (!Intel::OpenCL::Utils::IsShuttingDown())
+    m_device->on_scheduler_exit(bIsWorker, *this);
 }
 
 template <class F> class TrappingEnqueueFunctor {
