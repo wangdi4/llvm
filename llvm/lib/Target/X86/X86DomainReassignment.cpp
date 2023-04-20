@@ -637,8 +637,18 @@ void X86DomainReassignment::initConverters() {
         std::make_unique<InstrReplacerDstCOPY>(From, To);
   };
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  bool HasEGPR = STI->hasEGPR();
+  createReplacerDstCOPY(X86::MOVZX32rm16,
+                        HasEGPR ? X86::KMOVWkm_EVEX : X86::KMOVWkm);
+  createReplacerDstCOPY(X86::MOVZX64rm16,
+                        HasEGPR ? X86::KMOVWkm_EVEX : X86::KMOVWkm);
+#else // INTEL_FEATURE_ISA_APX_F
   createReplacerDstCOPY(X86::MOVZX32rm16, X86::KMOVWkm);
   createReplacerDstCOPY(X86::MOVZX64rm16, X86::KMOVWkm);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
   createReplacerDstCOPY(X86::MOVZX32rr16, X86::KMOVWkk);
   createReplacerDstCOPY(X86::MOVZX64rr16, X86::KMOVWkk);
@@ -650,9 +660,20 @@ void X86DomainReassignment::initConverters() {
   if (STI->hasDQI()) {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    createReplacerDstCOPY(X86::MOVZX16rm8,
+                          HasEGPR ? X86::KMOVBkm_EVEX : X86::KMOVBkm);
+    createReplacerDstCOPY(X86::MOVZX32rm8,
+                          HasEGPR ? X86::KMOVBkm_EVEX : X86::KMOVBkm);
+    createReplacerDstCOPY(X86::MOVZX64rm8,
+                          HasEGPR ? X86::KMOVBkm_EVEX : X86::KMOVBkm);
+#else // INTEL_FEATURE_ISA_APX_F
     createReplacerDstCOPY(X86::MOVZX16rm8, X86::KMOVBkm);
     createReplacerDstCOPY(X86::MOVZX32rm8, X86::KMOVBkm);
     createReplacerDstCOPY(X86::MOVZX64rm8, X86::KMOVBkm);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     createReplacerDstCOPY(X86::MOVZX16rr8, X86::KMOVBkk);
     createReplacerDstCOPY(X86::MOVZX32rr8, X86::KMOVBkk);
@@ -663,8 +684,15 @@ void X86DomainReassignment::initConverters() {
     Converters[{MaskDomain, From}] = std::make_unique<InstrReplacer>(From, To);
   };
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  createReplacer(X86::MOV16rm, HasEGPR ? X86::KMOVWkm_EVEX : X86::KMOVWkm);
+  createReplacer(X86::MOV16mr, HasEGPR ? X86::KMOVWmk_EVEX : X86::KMOVWmk);
+#else // INTEL_FEATURE_ISA_APX_F
   createReplacer(X86::MOV16rm, X86::KMOVWkm);
   createReplacer(X86::MOV16mr, X86::KMOVWmk);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   createReplacer(X86::MOV16rr, X86::KMOVWkk);
   createReplacer(X86::SHR16ri, X86::KSHIFTRWri);
   createReplacer(X86::SHL16ri, X86::KSHIFTLWri);
@@ -676,8 +704,8 @@ void X86DomainReassignment::initConverters() {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   if (STI->hasBWI() || STI->hasAVX256P()) {
-    createReplacer(X86::MOV32rm, X86::KMOVDkm);
-    createReplacer(X86::MOV32mr, X86::KMOVDmk);
+    createReplacer(X86::MOV32rm, HasEGPR ? X86::KMOVDkm_EVEX : X86::KMOVDkm);
+    createReplacer(X86::MOV32mr, HasEGPR ? X86::KMOVDmk_EVEX : X86::KMOVDmk);
     createReplacer(X86::MOV32rr, X86::KMOVDkk);
     createReplacer(X86::SHR32ri, X86::KSHIFTRDri);
     createReplacer(X86::SHL32ri, X86::KSHIFTLDri);
@@ -689,8 +717,8 @@ void X86DomainReassignment::initConverters() {
     createReplacer(X86::XOR32rr, X86::KXORDrr);
   }
   if (STI->hasBWI()) {
-    createReplacer(X86::MOV64rm, X86::KMOVQkm);
-    createReplacer(X86::MOV64mr, X86::KMOVQmk);
+    createReplacer(X86::MOV64rm, HasEGPR ? X86::KMOVQkm_EVEX : X86::KMOVQkm);
+    createReplacer(X86::MOV64mr, HasEGPR ? X86::KMOVQmk_EVEX : X86::KMOVQmk);
     createReplacer(X86::MOV64rr, X86::KMOVQkk);
     createReplacer(X86::SHR64ri, X86::KSHIFTRQri);
     createReplacer(X86::SHL64ri, X86::KSHIFTLQri);
@@ -755,8 +783,15 @@ void X86DomainReassignment::initConverters() {
 
     createReplacer(X86::AND8rr, X86::KANDBrr);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    createReplacer(X86::MOV8rm, HasEGPR ? X86::KMOVBkm_EVEX : X86::KMOVBkm);
+    createReplacer(X86::MOV8mr, HasEGPR ? X86::KMOVBmk_EVEX : X86::KMOVBmk);
+#else // INTEL_FEATURE_ISA_APX_F
     createReplacer(X86::MOV8rm, X86::KMOVBkm);
     createReplacer(X86::MOV8mr, X86::KMOVBmk);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     createReplacer(X86::MOV8rr, X86::KMOVBkk);
 
     createReplacer(X86::NOT8r, X86::KNOTBrr);

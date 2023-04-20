@@ -3500,6 +3500,26 @@ defm VFPCLASS : avx512_fp_fpclass_all<"vfpclass", 0x66, 0x67, SchedWriteFCmp>, E
 // - load/store mask registers
 // - copy from GPR to mask register and vice versa
 //
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+multiclass avx512_mask_mov<bits<8> opc_kk, bits<8> opc_km, bits<8> opc_mk,
+                         string OpcodeStr, RegisterClass KRC,
+                         ValueType vvt, X86MemOperand x86memop, string Suffix=""> {
+  let isMoveReg = 1, hasSideEffects = 0, SchedRW = [WriteMove],
+      EmitVEXOrEVEXPrefix = !if(!eq(Suffix, ""), 0, 1) in
+  def kk#Suffix : I<opc_kk, MRMSrcReg, (outs KRC:$dst), (ins KRC:$src),
+             !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"), []>,
+             Sched<[WriteMove]>;
+  def km#Suffix : I<opc_km, MRMSrcMem, (outs KRC:$dst), (ins x86memop:$src),
+             !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
+             [(set KRC:$dst, (vvt (load addr:$src)))]>,
+             Sched<[WriteLoad]>;
+  def mk#Suffix : I<opc_mk, MRMDestMem, (outs), (ins x86memop:$dst, KRC:$src),
+             !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
+             [(store KRC:$src, addr:$dst)]>,
+             Sched<[WriteStore]>;
+}
+#else // INTEL_FEATURE_ISA_APX_F
 multiclass avx512_mask_mov<bits<8> opc_kk, bits<8> opc_km, bits<8> opc_mk,
                          string OpcodeStr, RegisterClass KRC,
                          ValueType vvt, X86MemOperand x86memop> {
@@ -3516,7 +3536,24 @@ multiclass avx512_mask_mov<bits<8> opc_kk, bits<8> opc_km, bits<8> opc_mk,
              [(store KRC:$src, addr:$dst)]>,
              Sched<[WriteStore]>;
 }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+multiclass avx512_mask_mov_gpr<bits<8> opc_kr, bits<8> opc_rk,
+                             string OpcodeStr,
+                             RegisterClass KRC, RegisterClass GRC, string Suffix=""> {
+  let hasSideEffects = 0 in {
+    def kr#Suffix : I<opc_kr, MRMSrcReg, (outs KRC:$dst), (ins GRC:$src),
+               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"), []>,
+               Sched<[WriteMove]>;
+    def rk#Suffix : I<opc_rk, MRMSrcReg, (outs GRC:$dst), (ins KRC:$src),
+               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"), []>,
+               Sched<[WriteMove]>;
+  }
+}
+#else // INTEL_FEATURE_ISA_APX_F
 multiclass avx512_mask_mov_gpr<bits<8> opc_kr, bits<8> opc_rk,
                              string OpcodeStr,
                              RegisterClass KRC, RegisterClass GRC> {
@@ -3529,10 +3566,12 @@ multiclass avx512_mask_mov_gpr<bits<8> opc_kr, bits<8> opc_rk,
                Sched<[WriteMove]>;
   }
 }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasDQI_NoVL] in
+let Predicates = [HasAVX256P_Or_HasDQI_NoVL, NoEGPR] in
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasDQI] in
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -3540,10 +3579,19 @@ let Predicates = [HasDQI] in
   defm KMOVB : avx512_mask_mov<0x90, 0x90, 0x91, "kmovb", VK8, v8i1, i8mem>,
                avx512_mask_mov_gpr<0x92, 0x93, "kmovb", VK8, GR32>,
                VEX, PD;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [HasAVX256P_Or_HasDQI_NoVL, HasEGPR] in
+  defm KMOVB : avx512_mask_mov<0x90, 0x90, 0x91, "kmovb", VK8, v8i1, i8mem, "_EVEX">,
+               avx512_mask_mov_gpr<0x92, 0x93, "kmovb", VK8, GR32, "_EVEX">,
+               EVEX, PD;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX3] in
+let Predicates = [HasAVX3, NoEGPR] in
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasAVX512] in
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -3551,16 +3599,24 @@ let Predicates = [HasAVX512] in
   defm KMOVW : avx512_mask_mov<0x90, 0x90, 0x91, "kmovw", VK16, v16i1, i16mem>,
                avx512_mask_mov_gpr<0x92, 0x93, "kmovw", VK16, GR32>,
                VEX, PS;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [HasAVX3, HasEGPR] in
+  defm KMOVW : avx512_mask_mov<0x90, 0x90, 0x91, "kmovw", VK16, v16i1, i16mem, "_EVEX">,
+               avx512_mask_mov_gpr<0x92, 0x93, "kmovw", VK16, GR32, "_EVEX">,
+               EVEX, PS;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-let Predicates = [HasAVX256P_Or_HasBWI_NoVL] in {
+let Predicates = [HasAVX256P_Or_HasBWI_NoVL, NoEGPR] in {
   defm KMOVD : avx512_mask_mov<0x90, 0x90, 0x91, "kmovd", VK32, v32i1,i32mem>,
                VEX, PD, REX_W;
   defm KMOVD : avx512_mask_mov_gpr<0x92, 0x93, "kmovd", VK32, GR32>,
                VEX, XD;
 }
-let Predicates = [HasBWI] in {
+let Predicates = [HasBWI, NoEGPR] in {
 #else // INTEL_FEATURE_ISA_AVX256P
 let Predicates = [HasBWI] in {
   defm KMOVD : avx512_mask_mov<0x90, 0x90, 0x91, "kmovd", VK32, v32i1,i32mem>,
@@ -3574,6 +3630,20 @@ let Predicates = [HasBWI] in {
   defm KMOVQ : avx512_mask_mov_gpr<0x92, 0x93, "kmovq", VK64, GR64>,
                VEX, XD, REX_W;
 }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [HasBWI, HasEGPR] in {
+  defm KMOVD : avx512_mask_mov<0x90, 0x90, 0x91, "kmovd", VK32, v32i1,i32mem, "_EVEX">,
+               EVEX, PD, REX_W;
+  defm KMOVD : avx512_mask_mov_gpr<0x92, 0x93, "kmovd", VK32, GR32, "_EVEX">,
+               EVEX, XD;
+  defm KMOVQ : avx512_mask_mov<0x90, 0x90, 0x91, "kmovq", VK64, v64i1, i64mem, "_EVEX">,
+               EVEX, PS, REX_W;
+  defm KMOVQ : avx512_mask_mov_gpr<0x92, 0x93, "kmovq", VK64, GR64, "_EVEX">,
+               EVEX, XD, REX_W;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P

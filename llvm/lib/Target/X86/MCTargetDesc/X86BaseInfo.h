@@ -1339,6 +1339,44 @@ namespace X86II {
       return true;
     }
   }
+
+  inline bool canUseApxExtendedReg(const MCInstrDesc &Desc) {
+    uint64_t TSFlags = Desc.TSFlags;
+    uint64_t Encoding = TSFlags & EncodingMask;
+    // EVEX can always use egpr.
+    if (Encoding == X86II::EVEX)
+      return true;
+
+    // MAP OB/TB in legacy encoding space can always use egpr except
+    // XSAVE*/XRSTOR*.
+    unsigned Opcode = Desc.Opcode;
+    bool IsSpecial = false;
+    switch (Opcode) {
+    default:
+      // To be conservative, egpr is not used for all pseudo instructions
+      // because we are not sure what instruction it will become.
+      // FIXME: Could we improve it in X86ExpandPseudo?
+      IsSpecial = isPseudo(TSFlags);
+      break;
+    case X86::XSAVE:
+    case X86::XSAVE64:
+    case X86::XSAVEOPT:
+    case X86::XSAVEOPT64:
+    case X86::XSAVEC:
+    case X86::XSAVEC64:
+    case X86::XSAVES:
+    case X86::XSAVES64:
+    case X86::XRSTOR:
+    case X86::XRSTOR64:
+    case X86::XRSTORS:
+    case X86::XRSTORS64:
+      IsSpecial = true;
+      break;
+    }
+    uint64_t OpMap = TSFlags & X86II::OpMapMask;
+    return !Encoding && (OpMap == X86II::OB || OpMap == X86II::TB) &&
+           !IsSpecial;
+  }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
