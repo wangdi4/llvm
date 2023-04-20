@@ -24,8 +24,8 @@ define dso_local i32 @disable_opt() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[SCALAR_GEP60:%.*]] = getelementptr inbounds [1029 x i32], [1029 x i32]* @a, i64 0, i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP60]] to <16 x i32>*
 ; CHECK-NEXT:    store <16 x i32> [[REVERSE0]], <16 x i32>* [[TMP2]], align 16
-; CHECK-NEXT:    [[TMP3]] = sub <16 x i64> [[VEC_PHI50]], <i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16>
-; CHECK-NEXT:    [[TMP4]] = sub i64 [[UNI_PHI40]], -16
+; CHECK-NEXT:    [[TMP3]] = sub nuw nsw <16 x i64> [[VEC_PHI50]], <i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16>
+; CHECK-NEXT:    [[TMP4]] = sub nuw nsw i64 [[UNI_PHI40]], -16
 ; CHECK-NEXT:    [[TMP5:%.*]] = sub nuw nsw <16 x i64> [[VEC_PHI50]], <i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw <16 x i64> [[VEC_PHI0]], <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI0]], 16
@@ -39,8 +39,8 @@ define dso_local i32 @disable_opt() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[SCALAR_GEP220:%.*]] = getelementptr inbounds [1029 x i32], [1029 x i32]* @a, i64 0, i64 [[DOTEXTRACT_0_0:%.*]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = bitcast i32* [[SCALAR_GEP220]] to <16 x i32>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v16i32.p0v16i32(<16 x i32> [[WIDE_MASKED_GATHER0]], <16 x i32>* [[TMP13]], i32 16, <16 x i1> [[TMP12]])
-; CHECK-NEXT:    [[TMP14:%.*]] = sub <16 x i64> [[VEC_PHI180]], <i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16>
-; CHECK-NEXT:    [[TMP15:%.*]] = sub i64 [[UNI_PHI170:%.*]], -16
+; CHECK-NEXT:    [[TMP14:%.*]] = sub nuw nsw <16 x i64> [[VEC_PHI180]], <i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16>
+; CHECK-NEXT:    [[TMP15:%.*]] = sub nuw nsw i64 [[UNI_PHI170:%.*]], -16
 ; CHECK-NEXT:    [[TMP16:%.*]] = sub nuw nsw <16 x i64> [[VEC_PHI180]], <i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1>
 ; CHECK-NEXT:    br label [[NEW_LATCH0:%.*]]
 ;
@@ -113,8 +113,8 @@ define dso_local i32 @enable_opt(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[SCALAR_GEP60:%.*]] = getelementptr inbounds [1029 x i32], [1029 x i32]* @a, i64 0, i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP60]] to <16 x i32>*
 ; CHECK-NEXT:    store <16 x i32> [[REVERSE0]], <16 x i32>* [[TMP5]], align 16
-; CHECK-NEXT:    [[TMP6]] = sub <16 x i64> [[VEC_PHI50]], <i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16>
-; CHECK-NEXT:    [[TMP7]] = sub i64 [[UNI_PHI40]], -16
+; CHECK-NEXT:    [[TMP6]] = sub nuw nsw <16 x i64> [[VEC_PHI50]], <i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16>
+; CHECK-NEXT:    [[TMP7]] = sub nuw nsw i64 [[UNI_PHI40]], -16
 ; CHECK-NEXT:    [[TMP8:%.*]] = sub nuw nsw <16 x i64> [[VEC_PHI50]], <i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1>
 ; CHECK-NEXT:    [[TMP9]] = add nuw nsw <16 x i64> [[VEC_PHI0]], <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; CHECK-NEXT:    [[TMP10]] = add nuw nsw i64 [[UNI_PHI0]], 16
@@ -128,8 +128,8 @@ define dso_local i32 @enable_opt(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[SCALAR_GEP220:%.*]] = getelementptr inbounds [1029 x i32], [1029 x i32]* @a, i64 0, i64 [[DOTEXTRACT_0_0:%.*]]
 ; CHECK-NEXT:    [[TMP21:%.*]] = bitcast i32* [[SCALAR_GEP220]] to <16 x i32>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v16i32.p0v16i32(<16 x i32> [[WIDE_MASKED_GATHER0]], <16 x i32>* [[TMP21]], i32 16, <16 x i1> [[TMP20]])
-; CHECK-NEXT:    [[TMP22:%.*]] = sub <16 x i64> [[VEC_PHI180]], <i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16>
-; CHECK-NEXT:    [[TMP23:%.*]] = sub i64 [[UNI_PHI170]], -16
+; CHECK-NEXT:    [[TMP22:%.*]] = sub nuw nsw <16 x i64> [[VEC_PHI180]], <i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16, i64 -16>
+; CHECK-NEXT:    [[TMP23:%.*]] = sub nuw nsw i64 [[UNI_PHI170]], -16
 ; CHECK-NEXT:    [[TMP24:%.*]] = sub nuw nsw <16 x i64> [[VEC_PHI180]], <i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1>
 ; CHECK-NEXT:    br label [[NEW_LATCH0]]
 ;

@@ -2983,6 +2983,10 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     VPInstruction *NewInd =
         CreateNewInductionOp(StartPhi, &InitStep, Induction);
     // TODO: add copying of other attributes.
+    if (BinOp->hasNoUnsignedWrap())
+      NewInd->setHasNoUnsignedWrap(true);
+    if (BinOp->hasNoSignedWrap())
+      NewInd->setHasNoSignedWrap(true);
     NewInd->setDebugLocation(BinOp->getDebugLocation());
 
     StartPhi->replaceUsesOfWith(BinOp, NewInd);

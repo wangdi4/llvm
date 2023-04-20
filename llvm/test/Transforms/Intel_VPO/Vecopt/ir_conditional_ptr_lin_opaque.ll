@@ -228,8 +228,8 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:   [[WIDE_LOAD_13:%.*]] = load <2 x i32>, ptr [[WIDE_LOAD_EXTRACT_0]], align 4
 ; CHECK-NEXT:   [[SCALAR_GEP:%.*]] = getelementptr inbounds [10 x i32], ptr @x, i64 0, i64 [[VP_UNI_PHI6]]
 ; CHECK-NEXT:   store <2 x i32> [[WIDE_LOAD_13]], ptr [[SCALAR_GEP]], align 8
-; CHECK-NEXT:   %6 = add <2 x i64> [[VP_VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:   %7 = add i64 [[VP_UNI_PHI6]], 2
+; CHECK-NEXT:   %6 = add nuw nsw <2 x i64> [[VP_VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:   %7 = add nuw nsw i64 [[VP_UNI_PHI6]], 2
 ; CHECK-NEXT:   %8 = add nuw nsw <2 x i64> [[VP_VEC_PHI]], <i64 1, i64 1>
 ; CHECK-NEXT:   %9 = icmp eq <2 x i64> %8, <i64 43, i64 43>
 ; CHECK-NEXT:   %10 = xor <2 x i1> %9, <i1 true, i1 true>
