@@ -24,8 +24,6 @@ set(CLANG_SCAN_DEPS_LIB_DEPS
   clangDriver
   clangFrontend
   clangLex
-  clangParse
-  clangSema
   clangSerialization
   clangTooling
   )

@@ -39,7 +39,6 @@ set(LLVM_LINK_COMPONENTS
   Object
   Passes
   ProfileData
-  Remarks
   ScalarOpts
   Support
   SYCLLowerIR
