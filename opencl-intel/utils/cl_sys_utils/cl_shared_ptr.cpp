@@ -16,48 +16,16 @@
 
 #include <stdio.h>
 
-using namespace std;
+using namespace llvm;
 
 namespace Intel {
 namespace OpenCL {
 namespace Utils {
 
 #ifdef _DEBUG
-/* These are defined as pointers, since in Linux the order of unloading shared
-   libraries in the exit flow is undefined and objects in data segment might be
-   destroyed before they are used in a shared library that has not yet been
-   unloaded. */
-std::mutex *allocatedObjectsMapMutex = nullptr;
-std::map<string, AllocatedObjectsMap> *allocatedObjectsMap = nullptr;
+ManagedStatic<std::mutex> AllocatedObjectsMapMutex;
+ManagedStatic<std::map<std::string, AllocatedObjectsMapTy>> AllocatedObjectsMap;
 #endif
-
-void InitSharedPtrs() {
-#ifdef _DEBUG
-  if (nullptr == allocatedObjectsMapMutex) {
-    allocatedObjectsMapMutex = new std::mutex();
-  }
-  if (nullptr == allocatedObjectsMap) {
-    allocatedObjectsMap = new map<string, map<const void *, long>>();
-  }
-#endif
-}
-
-void FiniSharedPts() {
-#ifdef _DEBUG
-  // release std::mutex
-  if (allocatedObjectsMapMutex) {
-    delete allocatedObjectsMapMutex;
-    allocatedObjectsMapMutex = nullptr;
-  }
-
-  // we just release std::map, the elements const void * in std::map->second
-  // will be release in shutdown.
-  if (allocatedObjectsMap) {
-    allocatedObjectsMap->clear();
-    allocatedObjectsMap = nullptr;
-  }
-#endif
-}
 
 void ReferenceCountedObject::IncZombieCnt() const {
   std::lock_guard<std::mutex> lock(m_zombieLock);
@@ -120,35 +88,32 @@ static void DumpSharedPtsFooter(const char *map_title) {
 void DumpSharedPts(const char *map_title, bool if_non_empty) {
   bool header_printed = false;
 
-  if ((nullptr != allocatedObjectsMapMutex) &&
-      (nullptr != allocatedObjectsMap)) {
-    std::lock_guard<std::mutex> guard(*allocatedObjectsMapMutex);
+  std::lock_guard<std::mutex> guard(*AllocatedObjectsMapMutex);
 
-    if (!if_non_empty) {
-      header_printed = true;
-      DumpSharedPtsHeader(map_title);
-    }
+  if (!if_non_empty) {
+    header_printed = true;
+    DumpSharedPtsHeader(map_title);
+  }
 
-    for (auto name_it = allocatedObjectsMap->begin(),
-              name_it_end = allocatedObjectsMap->end();
-         name_it != name_it_end; ++name_it) {
-      AllocatedObjectsMap &internal_map = name_it->second;
-      if (internal_map.size() > 0) {
-        if (!header_printed) {
-          header_printed = true;
-          DumpSharedPtsHeader(map_title);
-        }
-        printf("\n%s:\n", name_it->first.c_str());
-        for (auto it = internal_map.begin(), e = internal_map.end(); it != e;
-             ++it) {
-          printf("\t%p  %ld\n", it->first, it->second);
-        }
+  for (auto name_it = AllocatedObjectsMap->begin(),
+            name_it_end = AllocatedObjectsMap->end();
+       name_it != name_it_end; ++name_it) {
+    AllocatedObjectsMapTy &internal_map = name_it->second;
+    if (internal_map.size() > 0) {
+      if (!header_printed) {
+        header_printed = true;
+        DumpSharedPtsHeader(map_title);
+      }
+      printf("\n%s:\n", name_it->first.c_str());
+      for (auto it = internal_map.begin(), e = internal_map.end(); it != e;
+           ++it) {
+        printf("\t%p  %ld\n", it->first, it->second);
       }
     }
+  }
 
-    if (header_printed) {
-      DumpSharedPtsFooter(map_title);
-    }
+  if (header_printed) {
+    DumpSharedPtsFooter(map_title);
   }
 }
 

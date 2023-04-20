@@ -27,10 +27,6 @@ static int dll_init(void) {
 #if defined(_WIN32) && !defined(INTEL_PRODUCT_RELEASE) && !defined(_DEBUG)
   DisableSystemDialogsOnCrash();
 #endif
-#ifdef _DEBUG // this is needed to initialize allocated objects DB, which is
-              // maintained in only in debug
-  InitSharedPtrs();
-#endif
   return 0;
 }
 
@@ -41,9 +37,8 @@ void dll_fini(void) {
   MemoryObjectFactory::Destroy();
   // release the framework proxy object
   FrameworkProxy::Destroy();
-  llvm_shutdown();
-#ifdef _DEBUG
-  FiniSharedPts();
-#endif
+  // FIXME: Call llvm_shutdown() here will cause some llvm global variables to
+  // be released too early. Temporarily disable it, we'll fix it later.
+  // llvm_shutdown();
   UpdateShutdownMode(ExitDone);
 }
