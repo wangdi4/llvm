@@ -38,8 +38,7 @@
 // RUN: %run %t.dir4/merge4
 // RUN: %run %t.dir4/merge4
 // RUN: %run %t.dir4/merge4
-<<<<<<< HEAD
-// RUN: rm -f %t.dir4/merge4
+// RUN: rm -f %t.dir4/merge4*
 // INTEL_CUSTOMIZATION
 // The _PGOPTI_Prof_Dump_All method exports a method needed for DLLs to call. This
 // also causes .lib/.exp files to be produced when producing the exeucutable, so we
@@ -47,9 +46,6 @@
 // RUN: rm -f %t.dir4/merge4.lib
 // RUN: rm -f %t.dir4/merge4.exp
 // end INTEL_CUSTOMIZATION
-=======
-// RUN: rm -f %t.dir4/merge4*
->>>>>>> 3125af2b6b8a5a502d8cef480a874474b55efef1
 // RUN: llvm-profdata merge -o %t.m4.profdata ./
 // RUN: %clang_profuse=%t.m4.profdata -O0 -o - -S -emit-llvm %s | FileCheck %s --check-prefix=COMMON  --check-prefix=PGOMERGE
 
