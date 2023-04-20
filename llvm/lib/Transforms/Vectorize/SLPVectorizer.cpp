@@ -4710,6 +4710,7 @@ private:
       resetUnscheduledDeps();
       MemoryDependencies.clear();
       ControlDependencies.clear();
+      UpdateDependencies = false; // INTEL
     }
 
     int unscheduledDepsInBundle() const {
