@@ -998,6 +998,8 @@ def TruePredicate : Predicate<"true">;
 #if INTEL_FEATURE_ISA_APX_F
 def HasNDD : Predicate<"Subtarget->hasNDD()">;
 def NoNDD : Predicate<"!Subtarget->hasNDD()">;
+def HasEGPR : Predicate<"Subtarget->hasEGPR()">;
+def NoEGPR : Predicate<"!Subtarget->hasEGPR()">;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 

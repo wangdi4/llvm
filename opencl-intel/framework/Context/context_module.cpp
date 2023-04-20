@@ -125,12 +125,7 @@ GetAllObjects(OCLObjectsMap<typename Object::OCLObjectHandleType> &mapObjects,
  * Forcibly shutdown all contextes
  *
  ******************************************************************/
-typedef std::list<SharedPtr<OclCommandQueue>> QueueListType;
 void ContextModule::ShutDown(bool wait_for_finish) {
-  QueueListType queue_list;
-  QueueListType::iterator queue_list_it;
-  QueueListType::iterator queue_list_it_end;
-
   FrameworkProxy *framework_proxy = FrameworkProxy::Instance();
   ExecutionModule *execution_module = framework_proxy->GetExecutionModule();
   EventsManager *eventsManager = execution_module->GetEventsManager();
@@ -138,36 +133,20 @@ void ContextModule::ShutDown(bool wait_for_finish) {
   // 1. Cancel all build tasks
   framework_proxy->CancelAllTasks(wait_for_finish);
 
-  // 2. Delete all user-accessible queues. If queue already holds some command
-  // it will not be deleted.
-  framework_proxy->GetExecutionModule()->DeleteAllActiveQueues(true);
+  // 2. Switch all active command queues to a cancel state
+  execution_module->CancelAllActiveQueues();
 
-  // 3. Loop though all existing queues and switch them to a cancel state
-  m_setQueues.getObjects(queue_list);
-  queue_list_it_end = queue_list.end();
-
-  for (queue_list_it = queue_list.begin(); queue_list_it != queue_list_it_end;
-       ++queue_list_it) {
-    SharedPtr<OclCommandQueue> pQueue = (*queue_list_it);
-    pQueue->CancelAll();
-  }
-
-  // 4. Signal all non-completed user events to push queues forward
+  // 3. Signal all non-completed user events to push queues forward
   //    Release all non-released user events
   execution_module->ReleaseAllUserEvents(true);
 
-  // 5. clFinish() of all queueus
+  // 4. clFinish() of all queueus
   if (wait_for_finish) {
-    for (queue_list_it = queue_list.begin(); queue_list_it != queue_list_it_end;
-         ++queue_list_it) {
-      SharedPtr<OclCommandQueue> pQueue = (*queue_list_it);
-      if (pQueue.DynamicCast<IOclCommandQueueBase>().GetPtr() != NULL) {
-        execution_module->Finish(pQueue.DynamicCast<IOclCommandQueueBase>());
-      }
-    }
+    execution_module->FinishAllActiveQueues();
   }
 
-  queue_list.clear();
+  // 5. Delete all active queues
+  execution_module->DeleteAllActiveQueues(true);
 
   // 6. Emulate Release of all objects maintained by user
   RemoveAllMemObjects(true);
@@ -1305,26 +1284,10 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
   }
 
   // get kernels and add them to the context module's map list
-  cl_uint uiKerenls = 0;
-  clErrRet = pProgram->GetKernels(0, nullptr, &uiKerenls);
-  if (CL_FAILED(clErrRet)) {
-    return CL_ERR_OUT(clErrRet);
-  }
-  if (uiKerenls > 0) {
-    SharedPtr<Kernel> *ppKernels = new SharedPtr<Kernel>[uiKerenls];
-    if (nullptr == ppKernels) {
-      return CL_OUT_OF_HOST_MEMORY;
-    }
-    clErrRet = pProgram->GetKernels(uiKerenls, ppKernels, nullptr);
-    if (CL_FAILED(clErrRet)) {
-      delete[] ppKernels;
-      return CL_ERR_OUT(clErrRet);
-    }
-    for (cl_uint ui = 0; ui < uiKerenls; ++ui) {
-      m_mapKernels.AddObject(ppKernels[ui], false);
-    }
-
-    delete[] ppKernels;
+  std::vector<SharedPtr<Kernel>> Kernels;
+  pProgram->GetKernels(Kernels);
+  for (const auto &Kern : Kernels) {
+    m_mapKernels.AddObject(Kern, false);
   }
   return CL_SUCCESS;
 }
@@ -3538,14 +3501,6 @@ cl_int ContextModule::SetKernelArgUSMPointer(cl_kernel clKernel,
 // Utility functions
 //
 /////////////////////////////////////////////////////////////////////////////
-void ContextModule::CommandQueueCreated(OclCommandQueue *queue) {
-  m_setQueues.add(queue);
-}
-
-void ContextModule::CommandQueueRemoved(OclCommandQueue *queue) {
-  m_setQueues.remove(queue);
-}
-
 void ContextModule::RegisterMappedMemoryObject(MemoryObject *pMemObj) {
   m_setMappedMemObjects.add(pMemObj);
 }

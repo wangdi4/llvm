@@ -156,39 +156,7 @@ X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
   if (!RC || !Subtarget.hasEGPR())
     return RC;
 
-  uint64_t TSFlags = MCID.TSFlags;
-  uint64_t Encoding = TSFlags & X86II::EncodingMask;
-  // EVEX can always use egpr.
-  if (Encoding == X86II::EVEX)
-    return RC;
-
-  // MAP 0/1 in legacy encoding space can always use egpr except XSAVE*/XRSTOR*.
-  unsigned Opcode = MCID.Opcode;
-  bool IsSpecial = false;
-  switch (Opcode) {
-  default:
-    // To be conservative, egpr is not used for all pseudo instructions because
-    // we are not sure what instruction it will become.
-    // FIXME: Could we improve it in X86ExpandPseudo?
-    IsSpecial = X86II::isPseudo(TSFlags);
-    break;
-  case X86::XSAVE:
-  case X86::XSAVE64:
-  case X86::XSAVEOPT:
-  case X86::XSAVEOPT64:
-  case X86::XSAVEC:
-  case X86::XSAVEC64:
-  case X86::XSAVES:
-  case X86::XSAVES64:
-  case X86::XRSTOR:
-  case X86::XRSTOR64:
-  case X86::XRSTORS:
-  case X86::XRSTORS64:
-    IsSpecial = true;
-    break;
-  }
-  uint64_t OpMap = TSFlags & X86II::OpMapMask;
-  if (!Encoding && (OpMap == X86II::OB || OpMap == X86II::TB) && !IsSpecial)
+  if (X86II::canUseApxExtendedReg(MCID))
     return RC;
 
   switch (RC->getID()) {
@@ -3659,8 +3627,9 @@ static unsigned CopyToFromAsymmetricReg(unsigned DestReg, unsigned SrcReg,
     if (X86::GR32RegClass.contains(SrcReg))
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-      return Subtarget.hasBWI() || Subtarget.hasAVX256P() ? X86::KMOVDkr
-                                                          : X86::KMOVWkr;
+      return Subtarget.hasBWI() || Subtarget.hasAVX256P()
+                 ? (Subtarget.hasEGPR() ? X86::KMOVDkr_EVEX : X86::KMOVDkr)
+                 : (Subtarget.hasEGPR() ? X86::KMOVWkr_EVEX : X86::KMOVWkr);
 #else  // INTEL_FEATURE_ISA_AVX256P
       return Subtarget.hasBWI() ? X86::KMOVDkr : X86::KMOVWkr;
 #endif // INTEL_FEATURE_ISA_AVX256P

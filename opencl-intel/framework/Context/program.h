@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -55,9 +55,7 @@ public:
                                        cl_uint *puiNumKernelsRet);
 
   // get the kernels associated to the program
-  virtual cl_err_code GetKernels(cl_uint uiNumKernels,
-                                 SharedPtr<Kernel> *ppKernels,
-                                 cl_uint *puiNumKernelsRet);
+  virtual void GetKernels(std::vector<SharedPtr<Kernel>> &KernelsRet);
 
   // remove kernel from program
   virtual cl_err_code RemoveKernel(cl_kernel clKernel);

@@ -84,6 +84,10 @@
 # CHECK: encoding: [0x62,0xf9,0xf9,0x48,0x73,0x34,0x08,0x00]
          vpsllq	$0, (%r16,%r17), %zmm0
 
+# CHECK: {evex} divq   127(%r16)
+# CHECK: encoding: [0x62,0xfc,0xfc,0x08,0xf7,0x70,0x7f]
+         {evex} divq   127(%r16)
+
 ## MRM7m
 
 # CHECK: vpslldq	$0, (%r16,%r17), %zmm0
@@ -139,6 +143,12 @@
 # CHECK: shrl	%cl, %r16d, %r17d
 # CHECK: encoding: [0x62,0xfc,0x74,0x10,0xd3,0xe8]
          shrl	%cl, %r16d, %r17d
+
+## MRM6r
+
+# CHECK: {evex} divq   %r16
+# CHECK: encoding: [0x62,0xfc,0xfc,0x08,0xf7,0xf0]
+         {evex} divq   %r16
 
 ## MRM7r
 

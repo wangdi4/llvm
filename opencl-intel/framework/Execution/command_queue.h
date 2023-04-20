@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -78,8 +78,6 @@ public:
     pCmdEvent->RemoveFloatingDependence();
   }
 
-  // manage lifetime slightly differently from another ReferenceCounted objects
-  virtual void EnterZombieState(EnterZombieStateLevel call_level) override;
   void NotifyCommandFailed(cl_err_code err,
                            const CommandSharedPtr<> &command) const;
 
@@ -92,8 +90,6 @@ protected:
                         pEventManager) {}
 
   virtual ~IOclCommandQueueBase() {}
-
-  virtual void BecomeVisible() override;
 
 private:
   cl_err_code EnqueueWaitEventsProlog(const SharedPtr<QueueEvent> &pEvent,

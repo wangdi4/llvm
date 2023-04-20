@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -42,8 +42,6 @@ public:
 
   virtual cl_int GetInfoInternal(cl_int iParamName, void *pBuf, size_t szBuf,
                                  size_t *szOutput) const override;
-
-  virtual void BecomeVisible() override;
 
   cl_err_code SetDefaultOnDevice(SharedPtr<FissionableDevice> pDevice) {
     return pDevice->SetDefaultDeviceQueue(this, m_clDevCmdListId);

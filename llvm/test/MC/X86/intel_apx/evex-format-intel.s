@@ -84,6 +84,10 @@
 # CHECK: encoding: [0x62,0xf9,0xf9,0x48,0x73,0x34,0x08,0x00]
          vpsllq	zmm0, zmmword ptr [r16 + r17], 0
 
+# CHECK: {evex} div    qword ptr [r16 + 127]
+# CHECK: encoding: [0x62,0xfc,0xfc,0x08,0xf7,0x70,0x7f]
+         {evex} div    qword ptr [r16 + 127]
+
 ## MRM7m
 
 # CHECK: vpslldq	zmm0, zmmword ptr [r16 + r17], 0
@@ -139,6 +143,12 @@
 # CHECK: shr	r17d, r16d, cl
 # CHECK: encoding: [0x62,0xfc,0x74,0x10,0xd3,0xe8]
          shr	r17d, r16d, cl
+
+## MRM6r
+
+# CHECK: {evex} div    r16
+# CHECK: encoding: [0x62,0xfc,0xfc,0x08,0xf7,0xf0]
+         {evex} div    r16
 
 ## MRM7r
 

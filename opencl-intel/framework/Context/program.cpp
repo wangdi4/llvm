@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -859,28 +859,12 @@ cl_err_code Program::RemoveKernel(cl_kernel clKernel) {
   return m_pKernels.RemoveObject((_cl_kernel_int *)clKernel);
 }
 
-cl_err_code Program::GetKernels(cl_uint uiNumKernels,
-                                SharedPtr<Kernel> *ppKernels,
-                                cl_uint *puiNumKernelsRet) {
-  LOG_DEBUG(TEXT("Enter GetKernels (uiNumKernels=%u, ppKernels=%p, "
-                 "puiNumKernelsRet=%p"),
-            uiNumKernels, ppKernels, puiNumKernelsRet);
-
-  if (nullptr == ppKernels) {
-    return m_pKernels.GetObjects(uiNumKernels, nullptr, puiNumKernelsRet);
-  } else {
-    assert(uiNumKernels > 0);
-
-    std::vector<SharedPtr<OCLObject<_cl_kernel_int>>> kernels(uiNumKernels);
-    const cl_err_code err =
-        m_pKernels.GetObjects(uiNumKernels, &kernels[0], puiNumKernelsRet);
-    if (CL_FAILED(err)) {
-      return err;
-    }
-    for (size_t i = 0; i < uiNumKernels; i++) {
-      ppKernels[i] = kernels[i].DynamicCast<Kernel>();
-    }
-    return CL_SUCCESS;
+void Program::GetKernels(std::vector<SharedPtr<Kernel>> &KernelsRet) {
+  LOG_DEBUG(TEXT("Enter GetKernels (%p)"), &KernelsRet);
+  std::vector<SharedPtr<OCLObject<_cl_kernel_int>>> Kernels;
+  m_pKernels.GetObjects(Kernels);
+  for (const auto &Kern : Kernels) {
+    KernelsRet.push_back(Kern.DynamicCast<Kernel>());
   }
 }
 
