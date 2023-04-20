@@ -169,7 +169,7 @@ namespace llvm {
     MachineBasicBlock::iterator RegionEnd;
 
     /// Instructions in this region (distance(RegionBegin, RegionEnd)).
-    unsigned NumRegionInstrs;
+    unsigned NumRegionInstrs = 0;
 
 #if INTEL_CUSTOMIZATION
     // Prefetch instructions in this region.
