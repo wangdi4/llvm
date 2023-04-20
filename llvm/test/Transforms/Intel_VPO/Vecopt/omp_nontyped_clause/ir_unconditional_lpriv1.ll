@@ -11,7 +11,7 @@ define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     <2 x i32>* [[VP_PRIVATE:%.*]] = allocate-priv <2 x i32>*, OrigAlign = 8
+; CHECK-NEXT:     <2 x i32>* [[VP_PRIVATE:%.*]] = allocate-priv <2 x i32>, OrigAlign = 8
 ; CHECK-NEXT:     i8* [[VP_PRIVATE_BCAST:%.*]] = bitcast <2 x i32>* [[VP_PRIVATE]]
 ; CHECK-NEXT:     call i64 8 i8* [[VP_PRIVATE_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1

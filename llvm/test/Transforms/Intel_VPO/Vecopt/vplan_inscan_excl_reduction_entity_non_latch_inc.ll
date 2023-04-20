@@ -48,9 +48,9 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     ptr [[VP_I_LINEAR_IV]] = allocate-priv ptr, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_I_LINEAR_IV]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     call i64 4 ptr [[VP_I_LINEAR_IV]] ptr @llvm.lifetime.start.p0
-; CHECK-NEXT:     ptr [[VP_X_RED]] = allocate-priv ptr, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_X_RED]] = allocate-priv float, OrigAlign = 4
 ; CHECK-NEXT:     call i64 4 ptr [[VP_X_RED]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load ptr [[X_RED0]]
 ; CHECK-NEXT:     float [[VP_X_REDINSCAN_RED_INIT]] = reduction-init-scalar float 0.000000e+00 float [[VP_LOAD]]

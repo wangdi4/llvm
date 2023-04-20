@@ -719,10 +719,9 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
              isa<VPCallInstruction>(this)) {
     // Nothing to print, operands are already printed for these instructions.
   } else {
-    if (getOpcode() == VPInstruction::AllocateDVBuffer ||
-        getOpcode() == VPInstruction::AllocatePrivate) {
+     if (auto *AllocMem = dyn_cast<VPAllocateMemBase>(this)) {
       O << " ";
-      getType()->print(O);
+      AllocMem->getAllocatedType()->print(O);
     }
     for (const VPValue *Operand : operands()) {
       O << " ";

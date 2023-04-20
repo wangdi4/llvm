@@ -27,7 +27,7 @@ define void @_Z3fooPl(i64* noundef %lp) {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i64** [[VP_LP_ADDR_LINEAR:%.*]] = allocate-priv i64**, OrigAlign = 8
+; CHECK-NEXT:     i64** [[VP_LP_ADDR_LINEAR:%.*]] = allocate-priv i64*, OrigAlign = 8
 ; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     i64* [[VP_LOAD:%.*]] = load i64** [[LP_ADDR_LINEAR0:%.*]]

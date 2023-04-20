@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @main() {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK:          i32* [[VP_X:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK:          i32* [[VP_X:%.*]] = allocate-priv i32, OrigAlign = 4
 ;
 ; CHECK:          i32 [[VP_XV:%.*]] = add i32 [[VP_IV:%.*]] i32 1
 ; CHECK-NEXT:     store i32 [[VP_XV]] i32* [[VP_X]]
@@ -19,7 +19,7 @@ define i32 @main() {
 ; CHECK-NEXT:     store i32 [[VP_LOADED_PRIV_FINAL]] i32* [[X0:%.*]]
 ;
 ; CHECK-LABEL: VPlan after emitting masked variant:
-; CHECK:          [DA: Div] i32* [[VP0:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK:          [DA: Div] i32* [[VP0:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK:          [DA: Div] i32 [[VP_IV_1:%.*]] = phi  [ i32 [[VP1:%.*]], [[BB7:BB[0-9]+]] ],  [ i32 [[VP_IV_NEXT_1:%.*]], new_latch ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_NEW_IND:%.*]] = add i32 [[VP_IV_1]] i32 live-in0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = icmp ult i32 [[VP_IV_1]] i32 [[VP_NORM_UB:%.*]]
@@ -83,7 +83,7 @@ define i32 @main() {
 ;
 ; HIR:       VPlan after emitting masked variant
 ; HIR-NEXT:  VPlan IR for: main:HIR.#{{[0-9]+}}.cloned.masked
-; HIR:          [DA: Div] i32* [[VP5:%.*]] = allocate-priv i32*, OrigAlign = 4
+; HIR:          [DA: Div] i32* [[VP5:%.*]] = allocate-priv i32, OrigAlign = 4
 ; HIR:            [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[VP5]]
 ; HIR:            [DA: Div] store i32 [[VP11:%.*]] i32* [[VP_SUBSCRIPT_2]]
 ; HIR:          [DA: Div] i32 [[VP15:%.*]] = load i32* [[VP5]]
@@ -91,12 +91,12 @@ define i32 @main() {
 ; HIR-NEXT:     [DA: Uni] store i32 [[VP16]] i32* [[X0]]
 ;
 ; HIR:       VPlan after private finalization instructions transformation
-; HIR:            [DA: Div] i32* [[VP_X]] = allocate-priv i32*, OrigAlign = 4
+; HIR:            [DA: Div] i32* [[VP_X]] = allocate-priv i32, OrigAlign = 4
 ; HIR:            [DA: Div] i32 [[VP_LOAD]] = load i32* [[VP_X]]
 ; HIR-NEXT:       [DA: Uni] i32 [[VP_LOADED_PRIV_FINAL]] = private-final-uc-mem i32 [[VP_LOAD]]
 ; HIR-NEXT:       [DA: Uni] store i32 [[VP_LOADED_PRIV_FINAL]] i32* [[X0]]
 ;
-; HIR:            [DA: Div] i32* [[VP5]] = allocate-priv i32*, OrigAlign = 4
+; HIR:            [DA: Div] i32* [[VP5]] = allocate-priv i32, OrigAlign = 4
 ;
 ; HIR:           [[BB7:BB[0-9]+]]: # preds: [[BB6:BB[0-9]+]], new_latch
 ; HIR-NEXT:       [DA: Div] i32 [[VP8:%.*]] = phi  [ i32 [[VP6:%.*]], [[BB6]] ],  [ i32 [[VP9:%.*]], new_latch ]

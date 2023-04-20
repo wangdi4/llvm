@@ -63,8 +63,8 @@
 ; CHECK-NEXT:   Memory: %struct.point* %tmpcast21.red
 
 ; Initialization
-; CHECK:        %struct.point* [[PVT2]] = allocate-priv %struct.point*
-; CHECK:        %struct.point* [[PVT1]] = allocate-priv %struct.point*
+; CHECK:        %struct.point* [[PVT2]] = allocate-priv %struct.point
+; CHECK:        %struct.point* [[PVT1]] = allocate-priv %struct.point
 ; CHECK:        call %struct.point* [[PVT1]] %struct.point* %tmpcast.red void (%struct.point*, %struct.point*)* @.omp_initializer.
 ; CHECK-NEXT:   %struct.point* {{.*}} = call %struct.point* [[PVT2]] %struct.point* (%struct.point*)* @point.omp.def_constr
 ; CHECK-NEXT:   call %struct.point* [[PVT2]] %struct.point* %tmpcast21.red void (%struct.point*, %struct.point*)* @.omp_initializer..2

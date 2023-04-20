@@ -9,7 +9,7 @@
 ; Check VPlan-IR after VPEntities instruction lowering
 ; CHECK-LABEL: VPlan after insertion of VPEntities instructions:
 ; CHECK:       BB{{.*}}: # preds: BB{{.*}}
-; CHECK:        %struct.ClassA* [[PRIVATE_MEM:%vp.*]] = allocate-priv %struct.ClassA*, OrigAlign = 4
+; CHECK:        %struct.ClassA* [[PRIVATE_MEM:%vp.*]] = allocate-priv %struct.ClassA = type { i32 }, OrigAlign = 4
 ; CHECK-NEXT:   i8* [[PRIVATE_MEM_BCAST:%.*]] = bitcast %struct.ClassA* [[PRIVATE_MEM]]
 ; CHECK-NEXT:   call i64 4 i8* [[PRIVATE_MEM_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:   i32* [[PRIV_GEP:%vp.*]] = getelementptr inbounds %struct.ClassA* [[PRIVATE_MEM]] i64 0 i32 0
@@ -23,7 +23,7 @@
 ; are expected to be serialized.
 ; CHECK-LABEL: VPlan after CallVecDecisions analysis for merged CFG:
 ; CHECK:         BB{{.*}}: # preds: BB{{.*}}
-; CHECK:          [DA: Div] %struct.ClassA* [[PRIVATE_MEM]] = allocate-priv %struct.ClassA*, OrigAlign = 4
+; CHECK:          [DA: Div] %struct.ClassA* [[PRIVATE_MEM]] = allocate-priv %struct.ClassA = type { i32 }, OrigAlign = 4
 ; CHECK-NEXT:     i8* [[PRIVATE_MEM_BCAST:%.*]] = bitcast %struct.ClassA* [[PRIVATE_MEM]]
 ; CHECK-NEXT:     call i64 4 i8* [[PRIVATE_MEM_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     [DA: Div] i32* [[PRIV_GEP]] = getelementptr inbounds %struct.ClassA* [[PRIVATE_MEM]] i64 0 i32 0

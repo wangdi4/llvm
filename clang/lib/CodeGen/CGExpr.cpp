@@ -2715,7 +2715,7 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
     llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
         OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
     if (!Res) {
-      if (!VD->isConstexpr() &&
+      if (!VD->isConstexpr() && !VD->hasAttr<OMPGroupPrivateDeclAttr>() &&
           !(CGF.CapturedStmtInfo &&
             CGF.CapturedStmtInfo->inNestedTargetConstruct())) {
         CGF.CGM.getDiags().Report(E->getExprLoc(),
