@@ -2013,7 +2013,11 @@ TLI_DEFINE_ENUM_INTERNAL(ZnwmSt11align_val_tRKSt9nothrow_t)
 TLI_DEFINE_STRING_INTERNAL("_ZnwmSt11align_val_tRKSt9nothrow_t")
 TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Long, Ptr)
 
-<<<<<<< HEAD
+/// void *operator new(unsigned long, std::align_val_t, const std::nothrow_t&, hot_cold_t)
+TLI_DEFINE_ENUM_INTERNAL(ZnwmSt11align_val_tRKSt9nothrow_t10hot_cold_t)
+TLI_DEFINE_STRING_INTERNAL("_ZnwmSt11align_val_tRKSt9nothrow_t10hot_cold_t")
+TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Long, Ptr, Bool)
+
 #if INTEL_CUSTOMIZATION
 /// int __CxxFrameHandler3(...)
 TLI_DEFINE_ENUM_INTERNAL(dunder_CxxFrameHandler3)
@@ -2032,12 +2036,6 @@ TLI_DEFINE_ENUM_INTERNAL(tunder_mb_cur_max_func)
 TLI_DEFINE_STRING_INTERNAL("___mb_cur_max_func")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 #endif // INTEL_CUSTOMIZATION
-=======
-/// void *operator new(unsigned long, std::align_val_t, const std::nothrow_t&, hot_cold_t)
-TLI_DEFINE_ENUM_INTERNAL(ZnwmSt11align_val_tRKSt9nothrow_t10hot_cold_t)
-TLI_DEFINE_STRING_INTERNAL("_ZnwmSt11align_val_tRKSt9nothrow_t10hot_cold_t")
-TLI_DEFINE_SIG_INTERNAL(Ptr, Long, Long, Ptr, Bool)
->>>>>>> a35206d78280e0ebcf48cd21bc5fff5c3b9c73fa
 
 /// double __acos_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(acos_finite)
