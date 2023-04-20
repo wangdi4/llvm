@@ -22,7 +22,7 @@ define void @main(i64 %call.i, i8* %call1) {
 ; CHECK-NEXT:     br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     i16* [[VP_RET_I_LPRIV]] = allocate-priv i16*, OrigAlign = 2
+; CHECK-NEXT:     i16* [[VP_RET_I_LPRIV]] = allocate-priv i16, OrigAlign = 2
 ; CHECK-NEXT:     i8* [[VP_RET_I_LPRIV_BCAST:%.*]] = bitcast i16* [[VP_RET_I_LPRIV]]
 ; CHECK-NEXT:     call i64 2 i8* [[VP_RET_I_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV114_IND_INIT]] = induction-init{add} i64 live-in1 i64 1

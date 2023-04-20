@@ -36,7 +36,7 @@ define dso_local void @foo(i64* %x, i32* %y, i16** %z) #0 {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     ptr [[VP_I_LINEAR_IV_PTR]] = allocate-priv ptr, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_I_LINEAR_IV_PTR]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     call i64 4 ptr [[VP_I_LINEAR_IV_PTR]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     ptr [[VP_Z_LINEAR_PTR]] = allocate-priv ptr, OrigAlign = 4
 ; CHECK-NEXT:     call i64 8 ptr [[VP_Z_LINEAR_PTR]] ptr @llvm.lifetime.start.p0

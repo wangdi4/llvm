@@ -7,7 +7,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 define i32 @main() {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
-; CHECK:          i32* [[VP_XP:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK:          i32* [[VP_XP:%.*]] = allocate-priv i32, OrigAlign = 4
 ;
 ; CHECK:          i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 [[VP_IV_IND_INIT_STEP:%.*]]
@@ -26,7 +26,7 @@ define i32 @main() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP2:%.*]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] i32* [[VP2:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     [DA: Div] i8* [[VP3:%.*]] = bitcast i32* [[VP2]]
 ; CHECK-NEXT:     [DA: Div] call i64 4 i8* [[VP3]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     [DA: Div] i32 [[VP4:%.*]] = induction-init{add} i32 0 i32 1
@@ -104,7 +104,7 @@ define i32 @main() {
 ; CHECK-NEXT:    store i32 [[X_LCSSA0]], i32* [[XP0:%.*]], align 4
 ;
 ; HIR-LABEL:  VPlan after insertion of VPEntities instructions:
-; HIR:          i32* [[VP_XP:%.*]] = allocate-priv i32*, OrigAlign = 4
+; HIR:          i32* [[VP_XP:%.*]] = allocate-priv i32, OrigAlign = 4
 ; HIR-NEXT:     i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
 ; HIR-NEXT:     i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ;
@@ -115,17 +115,17 @@ define i32 @main() {
 ; HIR-LABEL:  VPlan after emitting masked variant
 ; HIR-NEXT:  VPlan IR for: main:HIR.#{{[0-9]+}}.cloned.masked
 ;
-; HIR:          [DA: Div] i32* [[VP7:%.*]] = allocate-priv i32*, OrigAlign = 4
+; HIR:          [DA: Div] i32* [[VP7:%.*]] = allocate-priv i32, OrigAlign = 4
 ; HIR:          [DA: Div] i1 [[VP12:%.*]] = icmp ult i32 [[VP10:%.*]] i32 [[VP_NORM_UB:%.*]]
 ; HIR:          [DA: Div] i32 [[VP13:%.*]] = add i32 [[VP_NEW_IND:%.*]] i32 1
 ; HIR:          [DA: Div] i32 [[VP14:%.*]] = phi  [ i32 [[VP13]], [[BB8:.*]] ],  [ i32 live-in0, [[BB7:.*]] ]
 ; HIR:          [DA: Uni] i32 [[VP18:%.*]] = private-final-masked i32 [[VP14]] i1 [[VP12]] i32 live-in0
 ;
 ; HIR:       VPlan after private finalization instructions transformation:
-; HIR:            [DA: Div] i32* [[VP_XP]] = allocate-priv i32*, OrigAlign = 4
+; HIR:            [DA: Div] i32* [[VP_XP]] = allocate-priv i32, OrigAlign = 4
 ; HIR:            [DA: Uni] i32 [[VP__PRIV_FINAL]] = private-final-uc i32 [[VP4]]
 ;
-; HIR:            [DA: Div] i32* [[VP7]] = allocate-priv i32*, OrigAlign = 4
+; HIR:            [DA: Div] i32* [[VP7]] = allocate-priv i32, OrigAlign = 4
 ; HIR:           [[BB7:BB[0-9]+]]: # preds: [[BB6:BB[0-9]+]], new_latch
 ; HIR:            [DA: Div] i32 [[VP10]] = phi  [ i32 [[VP8:%.*]], [[BB6]] ],  [ i32 [[VP11:%.*]], new_latch ]
 ; HIR:            [DA: Div] i32 [[VP_NEW_IND]] = add i32 [[VP10]] i32 [[VP21:%.*]]

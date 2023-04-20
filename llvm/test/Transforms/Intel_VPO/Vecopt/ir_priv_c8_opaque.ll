@@ -15,7 +15,7 @@ define dso_local i32 @_Z3fooPiS_(i32* %b) local_unnamed_addr #0 {
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     ptr [[VP_V_LPRIV:%.*]] = allocate-priv ptr, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_V_LPRIV:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     call i64 4 ptr [[VP_V_LPRIV]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     ptr [[VP__IND_INIT:%.*]] = induction-init{getelementptr} ptr live-in2 i64 12
 ; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 12

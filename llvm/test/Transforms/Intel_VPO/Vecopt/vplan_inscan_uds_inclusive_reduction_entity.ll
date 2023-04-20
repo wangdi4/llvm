@@ -39,9 +39,9 @@
 ; CHECK-NEXT:  inscan ReductionKind: inclusive
 ; CHECK-NEXT:   Memory: ptr %red.red
 
-; CHECK: ptr [[VP_LINEAR_IV:%vp.*]] = allocate-priv ptr
-; CHECK: ptr [[VP_PRIV:%vp.*]] = allocate-priv ptr
-; CHECK: ptr [[VP_TEMP:%vp.*]] = allocate-priv ptr
+; CHECK: ptr [[VP_LINEAR_IV:%vp.*]] = allocate-priv i32
+; CHECK: ptr [[VP_PRIV:%vp.*]] = allocate-priv float
+; CHECK: ptr [[VP_TEMP:%vp.*]] = allocate-priv float
 ; CHECK: call i64 4 ptr [[VP_TEMP]] ptr @llvm.lifetime.start.p0
 
 ;; Initialization in the loop.

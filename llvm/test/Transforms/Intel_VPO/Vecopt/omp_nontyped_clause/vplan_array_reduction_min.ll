@@ -29,7 +29,7 @@ define i32 @test(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK:   Linked values: [9 x i32]* [[VPMINALLOCA:%.*]],
 ; CHECK:  Memory: [9 x i32]* %min
 
-; CHECK: [9 x i32]* [[VPMINALLOCA]] = allocate-priv [9 x i32]*, OrigAlign = 4
+; CHECK: [9 x i32]* [[VPMINALLOCA]] = allocate-priv [9 x i32], OrigAlign = 4
 ; CHECK: reduction-init-arr i32 2147483647 [9 x i32]* [[VPMINALLOCA]]
 ; CHECK: [9 x i32] [[VPMINFIN:%.*]] = reduction-final-arr{smin} [9 x i32]* [[VPMINALLOCA]] [9 x i32]* %min
 

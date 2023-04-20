@@ -36,7 +36,7 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; HIR-NEXT:     br [[BB1:BB[0-9]+]]
 ; HIR-EMPTY:
 ; HIR-NEXT:    [[BB1]]: # preds: [[BB0]]
-; HIR-NEXT:     i32* [[VP_R_RED:%.*]] = allocate-priv i32*, OrigAlign = 4
+; HIR-NEXT:     i32* [[VP_R_RED:%.*]] = allocate-priv i32, OrigAlign = 4
 ; HIR-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP1]] i64 1
 ; HIR-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[R_RED0]]
 ; HIR-NEXT:     i32 [[VP_R_REDRED_INIT:%.*]] = reduction-init i32 0 i32 [[VP_LOAD]]
@@ -106,7 +106,7 @@ define dso_local i32 @_Z4funciPf(i64 %n, float* %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     i32* [[VP_R_RED]] = allocate-priv i32*, OrigAlign = 4
+; CHECK-NEXT:     i32* [[VP_R_RED]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     i8* [[VP_R_RED_BCAST:%.*]] = bitcast i32* [[VP_R_RED]]
 ; CHECK-NEXT:     call i64 4 i8* [[VP_R_RED_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8 
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[R_RED0]]

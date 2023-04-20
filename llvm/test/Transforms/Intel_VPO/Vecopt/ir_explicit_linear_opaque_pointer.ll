@@ -41,9 +41,9 @@ define dso_local void @foo() #0 {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     ptr [[VP_I_LINEAR_IV_PTR]] = allocate-priv ptr, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_I_LINEAR_IV_PTR]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     call i64 4 ptr [[VP_I_LINEAR_IV_PTR]] ptr @llvm.lifetime.start.p0
-; CHECK-NEXT:     ptr [[VP_Y_LINEAR_PTR]] = allocate-priv ptr, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_Y_LINEAR_PTR]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     call i64 4 ptr [[VP_Y_LINEAR_PTR]] ptr @llvm.lifetime.start.p0
 ; CHECK-NEXT:     i32 [[VP_IV_IND_INIT]] = induction-init{add, StartVal: i32 0, EndVal: i32 10} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP_IV_IND_INIT_STEP]] = induction-init-step{add} i32 1

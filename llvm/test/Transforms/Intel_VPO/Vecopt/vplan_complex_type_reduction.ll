@@ -37,7 +37,7 @@
 ; CHECK-NEXT:   Memory: %complex_64bit* %sum
 
 ; Initialization
-; CHECK:        %complex_64bit* [[PVT]] = allocate-priv %complex_64bit*, OrigAlign = 8
+; CHECK:        %complex_64bit* [[PVT]] = allocate-priv %complex_64bit = type { float, float }, OrigAlign = 8
 ; CHECK:        <2 x float> [[INIT]] = reduction-init-cmplx <2 x float> zeroinitializer
 ; CHECK:        store <2 x float> [[INIT]] %complex_64bit* [[PVT]]
 
