@@ -34,17 +34,26 @@
 # RUN: FileCheck %s --check-prefix=AVAIL --input-file %t3.txt
 # RUN: FileCheck %s --check-prefix=UNAVAIL --input-file %t3.txt
 #
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # CHECK: << Total TLI yes SDK no:  515
 # end INTEL_CUSTOMIZATION
+=======
+# CHECK: << Total TLI yes SDK no:  8
+>>>>>>> a35206d78280e0ebcf48cd21bc5fff5c3b9c73fa
 # CHECK: >> Total TLI no  SDK yes: 0
 # CHECK: == Total TLI yes SDK yes: 235
 #
 # WRONG_DETAIL: << TLI yes SDK no : '_ZdaPv' aka operator delete[](void*)
 # WRONG_DETAIL: >> TLI no  SDK yes: '_ZdaPvj' aka operator delete[](void*, unsigned int)
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # WRONG_SUMMARY: << Total TLI yes SDK no:  516
 # end INTEL_CUSTOMIZATION
+=======
+# WRONG_DETAIL-COUNT-8: << TLI yes SDK no : {{.*}}hot_cold_t
+# WRONG_SUMMARY: << Total TLI yes SDK no:  9{{$}}
+>>>>>>> a35206d78280e0ebcf48cd21bc5fff5c3b9c73fa
 # WRONG_SUMMARY: >> Total TLI no  SDK yes: 1{{$}}
 # WRONG_SUMMARY: == Total TLI yes SDK yes: 234
 #
@@ -52,9 +61,14 @@
 ## the exact count first; the two directives should add up to that.
 ## Yes, this means additions to TLI will fail this test, but the argument
 ## to -COUNT can't be an expression.
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # AVAIL: TLI knows 1279 symbols, 750 available
 # AVAIL-COUNT-750: {{^}} available
+=======
+# AVAIL: TLI knows 476 symbols, 243 available
+# AVAIL-COUNT-243: {{^}} available
+>>>>>>> a35206d78280e0ebcf48cd21bc5fff5c3b9c73fa
 # AVAIL-NOT:       {{^}} available
 # UNAVAIL-COUNT-529: not available
 # UNAVAIL-NOT:       not available
