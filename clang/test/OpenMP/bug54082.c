@@ -73,12 +73,8 @@ void foo() {
 // CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 8, ptr nonnull [[X_ALLOC]]) #[[ATTR5]]
 // CHECK-NEXT:    [[CALL:%.*]] = call i64 @omp_init_allocator(i64 noundef 0, i32 noundef 1, ptr noundef nonnull [[X_TRAITS]]) #[[ATTR5]]
 // CHECK-NEXT:    store i64 [[CALL]], ptr [[X_ALLOC]], align 8, !tbaa [[TBAA3:![0-9]+]]
-<<<<<<< HEAD
 // IC may not annotate the last arg with nonnull, because it can already be deduced from the signature of the callback function. ;INTEL
-// CHECK-NEXT:    call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr nonnull @[[GLOB2:[0-9]+]], i32 1, ptr nonnull @.omp_outlined., ptr{{.*}}[[X_ALLOC]]) ;INTEL
-=======
-// CHECK-NEXT:    call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr nonnull @[[GLOB2:[0-9]+]], i32 1, ptr nonnull @foo.omp_outlined, ptr nonnull [[X_ALLOC]])
->>>>>>> 782c59a4eef0bca8546b0cfbb1e48a9fcd044c93
+// CHECK-NEXT:    call void (ptr, i32, ptr, ...) @__kmpc_fork_call(ptr nonnull @[[GLOB2:[0-9]+]], i32 1, ptr nonnull @foo.omp_outlined, ptr{{.*}}[[X_ALLOC]]) ;INTEL
 // CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 8, ptr nonnull [[X_ALLOC]]) #[[ATTR5]]
 // CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16, ptr nonnull [[X_TRAITS]]) #[[ATTR5]]
 // CHECK-NEXT:    ret void
