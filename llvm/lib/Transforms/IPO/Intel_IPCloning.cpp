@@ -5565,7 +5565,6 @@ bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF) {
   auto FindPredBBs = [](BasicBlock *BBIn,
                         SmallPtrSetImpl<BasicBlock *> &BBOut) {
     SetVector<BasicBlock *> BBWorklist;
-    SmallPtrSet<BasicBlock *, 4> BBVisited;
     BBWorklist.insert(BBIn);
     while (!BBWorklist.empty()) {
       BasicBlock *BB = BBWorklist.pop_back_val();
@@ -6247,6 +6246,341 @@ unsigned PredicateOpt::simplifyCacheInfoBranches(LoadInst *LIRestrict) {
     return RVCount;
   };
 
+  // Return 'true' if the non-debug instruction following 'PI' is the last
+  // non-debug instruction in its BasicBlock, whose condition is 'PI', and
+  // which has two successors. In this case, set 'BBO' and 'BB1' to the
+  // successore.
+  auto CheckBI = [](Instruction *PI, BasicBlock *&BB0,
+                    BasicBlock *&BB1) -> bool {
+    auto BI = dyn_cast_or_null<BranchInst>(PI->getNextNonDebugInstruction());
+    if (!BI || BI->getCondition() != PI || BI->getNumSuccessors() != 2)
+      return false;
+    if (BI->getNextNonDebugInstruction())
+      return false;
+    BB0 = BI->getSuccessor(0);
+    BB1 = BI->getSuccessor(1);
+    return true;
+  };
+
+  // Return 'true' if 'BBP' has the form:
+  // 'BBP':
+  //   %37 = add nsw i64 %5, %3
+  //   %38 = icmp sgt i64 %2, -1
+  //   br i1 %38, label 'BB0', label 'BB1'
+  // Set 'BB0' and 'BB1' in this case.
+  auto MatchBB67P = [&](BasicBlock *BBP, BasicBlock *&BB0,
+                       BasicBlock *&BB1) -> bool {
+    Function *F = BBP->getParent();
+    auto BO = dyn_cast<BinaryOperator>(&BBP->front());
+    if (!BO || !match(BO, m_Add(m_Specific(F->getArg(5)),
+                      m_Specific(F->getArg(3)))))
+      return false;
+    auto IC = dyn_cast_or_null<ICmpInst>(BO->getNextNonDebugInstruction());
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
+    if (!IC || !match(IC, m_ICmp(Pred, m_Specific(F->getArg(2)),
+                      m_SpecificInt(-1))))
+      return false;
+    if (Pred != ICmpInst::ICMP_SGT)
+      return false;
+    return CheckBI(IC, BB0, BB1);
+  };
+ 
+  // Return 'true' if 'BB' has the form:
+  // 'BB':                                             ; preds = 'BBP'
+  //   %40 = add nsw i64 %4, %2
+  //   %41 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //     ptr 'LIRestrict', i64 0, i32 6
+  //   'LIOut': %42 = load i64, ptr %41, align 8
+  //   %43 = icmp sle i64 %40, %42
+  //   %44 = icmp sgt i64 %3, -1
+  //   %45 = and i1 %43, %44
+  //   br i1 %45, label 'BB0', label 'BB1'
+  // Set 'LIOut', 'BB0' and 'BB1' in this case.
+  auto MatchBB670 = [&](BasicBlock *BB, BasicBlock *BBP, LoadInst *LIRestrict,
+                        LoadInst *&LIOut, BasicBlock *&BB0,
+                        BasicBlock *&BB1) -> bool {
+    if (BB->getSinglePredecessor() != BBP)
+      return false;
+    Function *F = BB->getParent();
+    auto BOAdd = dyn_cast<BinaryOperator>(&BB->front());
+    if (!BOAdd || !match(BOAdd, m_Add(m_Specific(F->getArg(4)),
+                         m_Specific(F->getArg(2)))))
+      return false;
+    Instruction *NI0 = BOAdd->getNextNonDebugInstruction();
+    auto GEPI = dyn_cast_or_null<GetElementPtrInst>(NI0);
+    unsigned Offset = 0;
+    if (!GEPI || !IsSimpleGEPI(GEPI, LIRestrict, Offset) || Offset != 6)
+      return false;
+    auto LI = dyn_cast_or_null<LoadInst>(GEPI->getNextNonDebugInstruction());
+    if (!LI || LI->getPointerOperand() != GEPI)
+      return false;
+    LIOut = LI;
+    auto IC0 = dyn_cast_or_null<ICmpInst>(LI->getNextNonDebugInstruction());
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
+    if (!IC0 || !match(IC0, m_ICmp(Pred, m_Specific(BOAdd), m_Specific(LI))))
+      return false;
+    if (Pred != ICmpInst::ICMP_SLE)
+      return false;
+    auto IC1 = dyn_cast_or_null<ICmpInst>(IC0->getNextNonDebugInstruction());
+    if (!IC1 || !match(IC1, m_ICmp(Pred, m_Specific(F->getArg(3)),
+                       m_SpecificInt(-1))))
+      return false;
+    if (Pred != ICmpInst::ICMP_SGT)
+      return false;
+    Instruction *NI1 = IC1->getNextNonDebugInstruction();
+    auto BOAnd = dyn_cast_or_null<BinaryOperator>(NI1);
+    if (!BOAnd || !match(BOAnd, m_And(m_Specific(IC0), m_Specific(IC1))))
+      return false;
+    return CheckBI(BOAnd, BB0, BB1);
+  };
+
+  // Return 'true' if 'BB' has the form:
+  // 'BB':                                               ; preds = 'BBP'
+  //   %47 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //     ptr 'LIRestrict', i64 0, i32 7
+  //   %48 = load i64, ptr %47, align 8
+  //   %49 = icmp sgt i64 'IFirst', %48
+  //   br i1 %49, label 'BB0', label 'BB1'
+  // Set 'BB0' and 'BB1' in this case.
+  auto MatchBB671 = [&](BasicBlock *BB, BasicBlock *BBP, LoadInst *LIRestrict,
+                        Instruction *IFirst, BasicBlock *&BB0,
+                        BasicBlock *&BB1) -> bool {
+    if (BB->getSinglePredecessor() != BBP)
+      return false;
+    auto GEPI = dyn_cast<GetElementPtrInst>(&BB->front());
+    unsigned Offset = 0; 
+    if (!GEPI || !IsSimpleGEPI(GEPI, LIRestrict, Offset) || Offset != 7)
+      return false;
+    auto LI = dyn_cast_or_null<LoadInst>(GEPI->getNextNonDebugInstruction());
+    if (!LI || LI->getPointerOperand() != GEPI)
+      return false;
+    auto IC = dyn_cast_or_null<ICmpInst>(LI->getNextNonDebugInstruction());
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
+    if (!IC || !match(IC, m_ICmp(Pred, m_Specific(IFirst), m_Specific(LI))))
+      return false;
+    if (Pred != ICmpInst::ICMP_SGT)
+      return false;
+    return CheckBI(IC, BB0, BB1);
+  };
+
+  // Return 'true' if 'BB' has the form:
+  // 'BB':                                               ; preds = 'BBP'
+  //   %51 = icmp eq i64 %5, 1
+  //   br i1 %51, label 'BB0', label 'BB1'
+  // Set 'BB0' and 'BB1' in this case.
+  auto MatchBB672 = [&](BasicBlock *BB, BasicBlock *BBP,
+                       BasicBlock *&BB0, BasicBlock *&BB1) -> bool {
+    if (BB->getSinglePredecessor() != BBP)
+      return false;
+    Function *F = BB->getParent();
+    auto IC = dyn_cast_or_null<ICmpInst>(&BB->front());
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
+    if (!IC || !match(IC, m_ICmp(Pred, m_Specific(F->getArg(5)),
+                      m_SpecificInt(1))))
+      return false;
+    if (Pred != ICmpInst::ICMP_EQ)
+      return false;
+    return CheckBI(IC, BB0, BB1);
+  };
+
+  // Return 'true' if 'BB' has the form:
+  // 'BB':                                               ; preds = 'BBP'
+  //   %51 = icmp eq i64 %5, 1
+  //   br i1 %51, label 'BB0', label 'BB1'
+  // Set 'BB0' and 'BB1' in this case.
+  auto MatchBB673 = [&](BasicBlock *BB, BasicBlock *BBP,
+                        BasicBlock *&BB0, BasicBlock *&BB1) -> bool {
+    if (BB->getSinglePredecessor() != BBP)
+      return false;
+    Function *F = BB->getParent();
+    auto IC = dyn_cast_or_null<ICmpInst>(&BB->front());
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
+    if (!IC || !match(IC, m_ICmp(Pred, m_Specific(F->getArg(2)),
+                      m_SpecificInt(0))))
+      return false;
+    if (Pred != ICmpInst::ICMP_EQ)
+      return false;
+    return CheckBI(IC, BB0, BB1);
+  };
+
+  // Return 'true' if 'BB' has the form:
+  // 'BB':                                               ; preds = 'BBP'
+  //   %55 = icmp eq i64 'LI', %4
+  //   br i1 %55, label 'BB0', label 'BB1'
+  // Set 'BB0' and 'BB1' in this case.
+  auto MatchBB674 = [&](BasicBlock *BB, BasicBlock *BBP, LoadInst *LI,
+                        BasicBlock *&BB0, BasicBlock *&BB1) -> bool {
+    if (BB->getSinglePredecessor() != BBP)
+      return false;
+    Function *F = BB->getParent();
+    auto IC = dyn_cast_or_null<ICmpInst>(&BB->front());
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
+    if (!IC || !match(IC, m_ICmp(Pred, m_Specific(LI),
+                      m_Specific(F->getArg(4)))))
+      return false;
+    if (Pred != ICmpInst::ICMP_EQ)
+      return false;
+    return CheckBI(IC, BB0, BB1);
+  };
+
+  // Return 'true' if 'BB' has the form:
+  // 'BB':                                               ; preds = 'BBP'
+  //   %57 = urem i64 %4, 'LI'
+  //   %58 = icmp eq i64 %57, 0
+  //   br i1 %58, label 'BB0', label 'BB1'
+  // Set 'BB0' and 'BB1' in this case.
+  auto MatchBB675 = [&](BasicBlock *BB, BasicBlock *BBP, LoadInst *LI,
+                        BasicBlock *&BB0, BasicBlock *&BB1) -> bool {
+    if (BB->getSinglePredecessor() != BBP)
+      return false;
+    Function *F = BBP->getParent();
+    auto BO = dyn_cast<BinaryOperator>(&BB->front());
+    if (!BO || !match(BO, m_URem(m_Specific(F->getArg(4)), m_Specific(LI))))
+      return false;
+    auto IC = dyn_cast_or_null<ICmpInst>(BO->getNextNonDebugInstruction());
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
+    if (!IC || !match(IC, m_ICmp(Pred, m_Specific(BO), m_SpecificInt(0))))
+      return false;
+    if (Pred != ICmpInst::ICMP_EQ)
+      return false;
+    return CheckBI(IC, BB0, BB1);
+  };
+
+  // Push all instructions which 'II' depends on and which are in the
+  // 'Visited' blocks, but not already in 'InstsToSink' onto 'Deps'.
+  std::function<bool(Instruction *, SetVector<BasicBlock *> &,
+                SetVector<Instruction *> &, SetVector<Instruction *> &)>
+      PushInstAndDeps = [&](Instruction *II,
+                            SetVector<BasicBlock *> &Visited,
+                            SetVector<Instruction *> &Deps,
+                            SetVector<Instruction *> &InstsToSink) -> bool {
+    for (unsigned I = 0; I < II->getNumOperands(); ++I) {
+       auto III = dyn_cast<Instruction>(II->getOperand(I));
+       if (!III)
+         return false;
+       if (Visited.count(III->getParent()) && !Deps.count(III) &&
+           !InstsToSink.count(III)) {
+         Deps.insert(III);
+         PushInstAndDeps(III, Visited, Deps, InstsToSink);
+       }
+    }
+    return true;
+  };
+
+  // Sink instructions in the 'Visited' blocks to 'BBIn' which have uses
+  // outside the 'Visited' blocks.
+  auto SinkInsts = [&](SetVector<BasicBlock *> &Visited,
+                       BasicBlock *BBIn) -> bool {
+    SetVector<Instruction *> Deps;
+    SetVector<Instruction *> InstsToSink;
+    for (BasicBlock *BB : Visited)
+      for (auto &I : *BB)
+        for (User *U : I.users()) {
+          auto II = dyn_cast<Instruction>(U);
+          if (!II)
+            return false;
+          if (!Visited.count(II->getParent())) {
+            Deps.clear();
+            Deps.insert(&I);
+            if (!PushInstAndDeps(&I, Visited, Deps, InstsToSink))
+              return false;
+            for (int J = Deps.size()-1; J >=0; --J)
+              InstsToSink.insert(Deps[J]);
+            break;
+          }
+        }
+     ValueToValueMapTy VMap;
+     Instruction *InstInsertBefore = &BBIn->front();
+     for (auto I : InstsToSink) {
+       Instruction *NewI = I->clone();
+       VMap[I] = NewI;
+       NewI->insertBefore(InstInsertBefore);
+       for (unsigned J = 0, JE = NewI->getNumOperands(); J != JE; ++J) {
+         if (auto OldI = dyn_cast<Instruction>(NewI->getOperand(J))) {
+           auto IT = VMap.find(OldI);
+           if (IT != VMap.end())
+             NewI->setOperand(J, IT->second);
+         }
+       }
+       I->replaceUsesWithIf(NewI, [&Visited](Use &U) {
+         if (auto *UI = dyn_cast<Instruction>(U.getUser()))
+           return !Visited.count(UI->getParent());
+         return false;
+       });
+     }
+     return true;
+  };
+
+  // For each predecessor block of 'BBP' replace any successor which is
+  // 'BBP' with 'BBIn'.
+  auto ReplacePreds = [](BasicBlock *BBP, BasicBlock *BBIn) {
+    SmallVector<BasicBlock *, 2> BBList;
+    for (BasicBlock *BB : predecessors(BBP))
+      BBList.push_back(BB);
+    for (BasicBlock *BB : BBList)
+      if (auto BI = dyn_cast<BranchInst>(BB->getTerminator()))
+        for (unsigned I = 0; I < BI->getNumSuccessors(); ++I)
+          if (BI->getSuccessor(I) == BBP)
+            BI->setSuccessor(I, BBIn);
+  };
+
+  // Return '2' if we can and do simplify the following conditional to
+  // 'true' (otherwise return '0'):
+  //  (((nexus_info->region.x >= 0) && (x < (ssize_t) cache_info->columns) &&
+  //     (nexus_info->region.y >= 0) && (y < (ssize_t) cache_info->rows)) &&
+  //    ((nexus_info->region.height == 1UL) || ((nexus_info->region.x == 0) &&
+  //     ((nexus_info->region.width == cache_info->columns) ||
+  //      ((nexus_info->region.width % cache_info->columns) == 0)))))
+  // The actual instructions which are recognized to match this expression
+  // are shown in the comments on the lambda functions.
+  // Here 'LIRestrict' is the 'cache_info' pointer while 'GEPI' points to
+  // 'cache_info->columns'.
+  auto SimplifyCacheInfo67 = [&](LoadInst *LIRestrict,
+                                 GetElementPtrInst *GEPI) -> unsigned {
+    SetVector<BasicBlock *> Visited;
+    BasicBlock *BBP = GEPI->getParent()->getSinglePredecessor();
+    if (!BBP)
+      return 0;
+    BasicBlock *BBIn = nullptr;
+    BasicBlock *BBOut = nullptr;
+    BasicBlock *BBX = nullptr;
+    BasicBlock *BBY = nullptr;
+    BasicBlock *BB0 = nullptr;
+    Visited.insert(BBP);
+    if (!MatchBB67P(BBP, BB0, BBOut))
+      return 0;
+    LoadInst *LI = nullptr;
+    BasicBlock *BB1 = nullptr;
+    Visited.insert(BB0);
+    if (!MatchBB670(BB0, BBP, LIRestrict, LI, BB1, BBX) || BBX != BBOut) 
+      return 0;
+    BasicBlock *BB2 = nullptr;
+    Visited.insert(BB1);
+    if (!MatchBB671(BB1, BB0, LIRestrict, &BBP->front(), BBX, BB2) ||
+        BBX != BBOut)
+      return 0;
+    BasicBlock *BB3 = nullptr;
+    Visited.insert(BB2);
+    if (!MatchBB672(BB2, BB1, BBIn, BB3))
+      return 0;
+    Visited.insert(BB3);
+    BasicBlock *BB4 = nullptr;
+    if (!MatchBB673(BB3, BB2, BB4, BBX) || BBX != BBOut)
+      return 0;
+    BasicBlock *BB5 = nullptr;
+    Visited.insert(BB4);
+    if (!MatchBB674(BB4, BB3, LI, BBX, BB5) || BBX != BBIn)
+      return 0;
+    Visited.insert(BB5);
+    if (!MatchBB675(BB5, BB4, LI, BBX, BBY) || BBX != BBIn || BBY != BBOut)
+      return 0;
+    if (!SinkInsts(Visited, BBIn))
+      return 0;
+    ReplacePreds(BBP, BBIn);
+    return 2;
+  };
+
+  // Main code for simplifyCacheInfoBranches():
   unsigned RVCount = 0;
   unsigned Offset = 0;
   for (User *U : LIRestrict->users()) {
@@ -6259,6 +6593,8 @@ unsigned PredicateOpt::simplifyCacheInfoBranches(LoadInst *LIRestrict) {
       RVCount += SimplifyCacheInfo01(GEPI);
     else if (Offset == 3)
       RVCount += SimplifyCacheInfo3(GEPI);
+    else if (Offset == 6)
+      RVCount += SimplifyCacheInfo67(LIRestrict, GEPI);
   }
   return RVCount;
 }
@@ -6330,9 +6666,10 @@ bool PredicateOpt::doPredicateOpt() {
   LLVM_DEBUG(dbgs() << "MRC Predicate: ColdF : " << OptColdF->getName()
                     << "\n");
   unsigned RVCount = simplifyCacheInfoBranches(LIRestrict);
-  LLVM_DEBUG(dbgs() << "MRC Predicate: ColdF : " << RVCount
+  LLVM_DEBUG(dbgs() << "MRC Predicate: " << RVCount
                     << " Branches Simplified\n");
-  if (RVCount < 4)
+  
+  if (RVCount < 6)
     return false;
   return true;
 }
