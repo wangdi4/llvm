@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -101,8 +101,6 @@ protected:
                   ocl_entry_points *pOclEntryPoints);
 
   virtual ~OclCommandQueue();
-
-  virtual void BecomeVisible() = 0;
 
   /**
    * @param iParamName    the parameter's name

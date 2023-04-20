@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2022 Intel Corporation.
+// Copyright 2008-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -4408,9 +4408,28 @@ ExecutionModule::FlushAllQueuesForContext(cl_context clEventsContext) {
 }
 
 void ExecutionModule::DeleteAllActiveQueues(bool preserve_user_handles) {
-  m_pOclCommandQueueMap->DisableAdding();
   if (preserve_user_handles) {
     m_pOclCommandQueueMap->SetPreserveUserHandles();
   }
   m_pOclCommandQueueMap->ReleaseAllObjects(false);
+}
+
+void ExecutionModule::CancelAllActiveQueues() {
+  m_pOclCommandQueueMap->DisableAdding();
+  std::vector<SharedPtr<OCLObject<_cl_command_queue_int>>> CommandQueues;
+  m_pOclCommandQueueMap->GetObjects(CommandQueues);
+  for (const auto &CommandQueue : CommandQueues) {
+    CommandQueue.DynamicCast<OclCommandQueue>()->CancelAll();
+  }
+}
+
+void ExecutionModule::FinishAllActiveQueues() {
+  std::vector<SharedPtr<OCLObject<_cl_command_queue_int>>> CommandQueues;
+  m_pOclCommandQueueMap->GetObjects(CommandQueues);
+  for (const auto &CommandQueue : CommandQueues) {
+    SharedPtr<IOclCommandQueueBase> pCommandQueue =
+        CommandQueue.DynamicCast<IOclCommandQueueBase>();
+    if (pCommandQueue.GetPtr())
+      Finish(pCommandQueue);
+  }
 }

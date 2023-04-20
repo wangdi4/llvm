@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2008-2018 Intel Corporation.
+// Copyright 2008-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -333,6 +333,8 @@ public:
   cl_err_code Release(bool bTerminate);
   cl_err_code Finish(const SharedPtr<IOclCommandQueueBase> &pCommandQueue);
   void DeleteAllActiveQueues(bool preserve_user_handles);
+  void CancelAllActiveQueues();
+  void FinishAllActiveQueues();
 
   cl_int EnqueueSVMFree(cl_command_queue clCommandQueue,
                         cl_uint uiNumSvmPointers, void *pSvmPointers[],
