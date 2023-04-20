@@ -115,6 +115,7 @@ class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins
   // Infer instruction prefixes from type info.
   let hasREX_W  = typeinfo.HasREX_W;
   let OpPrefix = !if (!eq (typeinfo.OpSize, OpSize16), PD, PS);
+  let CD8_Scale = {0, 0, 0, 0, 0, 0, 0};
 }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
@@ -1012,11 +1013,6 @@ let Predicates = [HasNDD], CodeSize = 2 in
   def _ND : UnaryOpR_NDD<opcode, MRM2r, mnemonic, info,
                               [(set info.RegClass:$dst,
                                (not info.RegClass:$src1))]>, EVEX_B4V;
-let Constraints = "$src1 = $dst", CodeSize = 2 in
-  def _NF : UnaryOpR_EVEX<opcode, MRM2r, mnemonic, info, []>, EVEX_NF;
-let CodeSize = 2 in
-  def _ND_NF : UnaryOpR_NDD<opcode, MRM2r, mnemonic, info, []>,
-               EVEX_B4V, EVEX_NF;
 }
 
 //  NegOpM - Instructions like "neg [mem]".
@@ -1056,11 +1052,6 @@ let Predicates = [HasNDD], CodeSize = 2 in
   def _ND : UnaryOpM_NDD<opcode, MRM2m, mnemonic, info,
                          [(set info.RegClass:$dst,
                           (not (info.LoadNode addr:$src1)))]>, EVEX_B4V;
-let CodeSize = 2 in
-  def _NF : UnaryOpM_EVEX<opcode, MRM2m, mnemonic, info, []>, EVEX_NF;
-let CodeSize = 2 in
-  def _ND_NF : UnaryOpM_NDD<opcode, MRM2m, mnemonic, info, []>,
-               EVEX_B4V, EVEX_NF;
 }
 #else // INTEL_FEATURE_ISA_APX_F
 //  MulOpR - Instructions like "mul reg".

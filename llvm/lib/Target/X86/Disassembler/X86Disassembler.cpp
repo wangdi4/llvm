@@ -1395,7 +1395,9 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
 #if INTEL_FEATURE_ISA_APX_F
 static bool isPush2Pop2(InternalInstruction *insn) {
   unsigned Opcode = insn->opcode;
-  return Opcode == 0xff || Opcode == 0x8f;
+  return !readModRM(insn) &&
+         ((Opcode == 0xff && regFromModRM(insn->modRM) == 6) ||
+          (Opcode == 0x8f && regFromModRM(insn->modRM) == 0));
 }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
