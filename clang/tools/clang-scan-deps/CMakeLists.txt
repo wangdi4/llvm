@@ -24,8 +24,11 @@ set(CLANG_SCAN_DEPS_LIB_DEPS
   clangDriver
   clangFrontend
   clangLex
+<<<<<<< HEAD
   clangParse
   clangSema
+=======
+>>>>>>> a2d1611b7b78b62b573ab04b09c106933007a4d7
   clangSerialization
   clangTooling
   )
