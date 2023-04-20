@@ -118,6 +118,14 @@ static cl::opt<int> MaxNumberOfBBSInPath(
     cl::desc("Max number of basic blocks on the path between "
              "hoisting locations (default = 4, unlimited = -1)"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<int> MaxNumberOfBBsForExtraHoist(
+    "gvn-hoist-max-bbs-extra", cl::Hidden, cl::init(5),
+    cl::desc("Max number of basic blocks on the path between "
+             "locations for more hoisting of redundant instructions (default = "
+             "5, unlimited = -1)"));
+#endif // INTEL_CUSTOMIZATION
+
 static cl::opt<int> MaxDepthInBB(
     "gvn-hoist-max-depth", cl::Hidden, cl::init(100),
     cl::desc("Hoist instructions from the beginning of the BB up to the "
@@ -169,6 +177,12 @@ struct CHIArg {
 
   // The instruction (VN) which uses the values flowing out of CHI.
   Instruction *I;
+
+#if INTEL_CUSTOMIZATION
+  // Other instructions we found that are dominated by Dest and have the same
+  // VN.
+  SmallVecInsn AdditionalInstrs;
+#endif // INTEL_CUSTOMIZATION
 
   bool operator==(const CHIArg &A) const { return VN == A.VN; }
   bool operator!=(const CHIArg &A) const { return !(*this == A); }
@@ -382,6 +396,12 @@ private:
   // Returns true when the values are flowing out to each edge.
   bool valueAnticipable(CHIArgs C, Instruction *TI) const;
 
+#if INTEL_CUSTOMIZATION
+  // Return true when it is safe to hoist a instruction to BB
+  bool isSafeToHoistInstruction(Instruction *Insn, BasicBlock *BB,
+                                GVNHoist::InsKind K, int &NumBBsOnPath);
+#endif // INTEL_CUSTOMIZATION
+
   // Check if it is safe to hoist values tracked by CHI in the range
   // [Begin, End) and accumulate them in Safe.
   void checkSafety(CHIArgs C, BasicBlock *BB, InsKind K,
@@ -491,7 +511,7 @@ private:
       }
       // Insert empty CHI node for this VN. This is used to factor out
       // basic blocks where the ANTIC can potentially change.
-      CHIArg EmptyChi = {VN, nullptr, nullptr};
+      CHIArg EmptyChi = {VN, nullptr, nullptr, SmallVecInsn()}; // INTEL
       for (auto *IDFBB : IDFBlocks) {
         for (unsigned i = 0; i < V.size(); ++i) {
           // Ignore spurious PDFs.
@@ -832,27 +852,39 @@ bool GVNHoist::valueAnticipable(CHIArgs C, Instruction *TI) const {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+bool GVNHoist::isSafeToHoistInstruction(Instruction *Insn, BasicBlock *BB,
+                                        GVNHoist::InsKind K,
+                                        int &NumBBsOnPath) {
+  // If the Terminator is some kind of "exotic terminator" that produces a
+  // value (such as InvokeInst, CallBrInst, or CatchSwitchInst) which the CHI
+  // uses, it is not safe to hoist the use above the def.
+  const Instruction *T = BB->getTerminator();
+  if (!T->use_empty() && is_contained(Insn->operands(), cast<const Value>(T)))
+    return false;
+  if (K == InsKind::Scalar) {
+    if (safeToHoistScalar(BB, Insn->getParent(), NumBBsOnPath))
+      return true;
+  } else {
+    if (MemoryUseOrDef *UD = MSSA->getMemoryAccess(Insn))
+      if (safeToHoistLdSt(T, Insn, UD, K, NumBBsOnPath))
+        return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void GVNHoist::checkSafety(CHIArgs C, BasicBlock *BB, GVNHoist::InsKind K,
                            SmallVectorImpl<CHIArg> &Safe) {
   int NumBBsOnAllPaths = MaxNumberOfBBSInPath;
-  const Instruction *T = BB->getTerminator();
   for (auto CHI : C) {
     Instruction *Insn = CHI.I;
     if (!Insn) // No instruction was inserted in this CHI.
       continue;
-    // If the Terminator is some kind of "exotic terminator" that produces a
-    // value (such as InvokeInst, CallBrInst, or CatchSwitchInst) which the CHI
-    // uses, it is not safe to hoist the use above the def.
-    if (!T->use_empty() && is_contained(Insn->operands(), cast<const Value>(T)))
-      continue;
-    if (K == InsKind::Scalar) {
-      if (safeToHoistScalar(BB, Insn->getParent(), NumBBsOnAllPaths))
-        Safe.push_back(CHI);
-    } else {
-      if (MemoryUseOrDef *UD = MSSA->getMemoryAccess(Insn))
-        if (safeToHoistLdSt(T, Insn, UD, K, NumBBsOnAllPaths))
-          Safe.push_back(CHI);
-    }
+#if INTEL_CUSTOMIZATION
+    if (isSafeToHoistInstruction(Insn, BB, K, NumBBsOnAllPaths))
+      Safe.push_back(CHI);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -914,6 +946,13 @@ void GVNHoist::fillChiArgs(BasicBlock *BB, OutValuesType &CHIBBs,
           LLVM_DEBUG(dbgs()
                      << "\nCHI Inserted in BB: " << C.Dest->getName() << *C.I
                      << ", VN: " << C.VN.first << ", " << C.VN.second);
+#if INTEL_CUSTOMIZATION
+          // Peek further into the RenameStack to find more potentially
+          // redundant instructions to hoist.
+          while (si->second.size() &&
+                 DT->properlyDominates(Pred, si->second.back()->getParent()))
+            C.AdditionalInstrs.push_back(si->second.pop_back_val());
+#endif // INTEL_CUSTOMIZATION
         }
         // Move to next CHI of a different value
         It = std::find_if(It, VCHI.end(),
@@ -956,8 +995,16 @@ void GVNHoist::findHoistableCandidates(OutValuesType &CHIBBs,
       if (valueAnticipable(make_range(Safe.begin(), Safe.end()), TI)) {
         HPL.push_back({BB, SmallVecInsn()});
         SmallVecInsn &V = HPL.back().second;
-        for (auto B : Safe)
+#if INTEL_CUSTOMIZATION
+        for (auto B : Safe) {
           V.push_back(B.I);
+          for (auto *I : B.AdditionalInstrs) {
+            int NumBBsOnPath = MaxNumberOfBBsForExtraHoist;
+            if (isSafeToHoistInstruction(I, BB, K, NumBBsOnPath))
+              V.push_back(I);
+          }
+        }
+#endif // INTEL_CUSTOMIZATION
       }
 
       // Check other VNs
