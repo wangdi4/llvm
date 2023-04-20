@@ -57,9 +57,9 @@ define dso_local void @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_I_LINEAR_IV]] = allocate-priv ptr, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_I_LINEAR_IV]] = allocate-priv i32, OrigAlign = 4 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] call i64 4 ptr [[VP_I_LINEAR_IV]] ptr @llvm.lifetime.start.p0 (SVAOpBits 0->F 1->F 2->F )
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] ptr [[VP_X_RED]] = allocate-priv ptr, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] ptr [[VP_X_RED]] = allocate-priv [3 x i32], OrigAlign = 4 (SVAOpBits )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] call i64 12 ptr [[VP_X_RED]] ptr @llvm.lifetime.start.p0 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_X_RED_GEP:%.*]] = getelementptr inbounds [3 x i32], ptr [[VP_X_RED]] i64 0 i64 0 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )

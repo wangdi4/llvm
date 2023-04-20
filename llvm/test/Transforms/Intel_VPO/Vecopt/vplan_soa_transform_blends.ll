@@ -9,7 +9,7 @@ define void @uniform_with_undef(i64 *%p, i1 *%uniform.ptr) #0 {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] [1024 x i32]* [[VP_ARR_SOA_PRIV32:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] [1024 x i32]* [[VP_ARR_SOA_PRIV32:%.*]] = allocate-priv [1024 x i32], OrigAlign = 4
 ; CHECK-NEXT:     [DA: Div] i8* [[VP_ARR_SOA_PRIV32_BCAST:%.*]] = bitcast [1024 x i32]* [[VP_ARR_SOA_PRIV32]]
 ; CHECK-NEXT:     [DA: Div] call i64 4096 i8* [[VP_ARR_SOA_PRIV32_BCAST:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1

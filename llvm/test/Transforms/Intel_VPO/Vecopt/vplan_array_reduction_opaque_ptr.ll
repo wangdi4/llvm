@@ -35,7 +35,7 @@ define void @foo() {
 ; CHECK:   Linked values: ptr [[VP_B_RED:%.*]],
 ; CHECK:  Memory: ptr [[B_RED]]
 
-; CHECK: ptr [[VP_B_RED]] = allocate-priv ptr, OrigAlign = 16
+; CHECK: ptr [[VP_B_RED]] = allocate-priv [5 x float], OrigAlign = 16
 ; CHECK: ptr [[VP_B_RED_GEP:%.*]] = getelementptr inbounds [5 x float], ptr [[VP_B_RED]] i64 0 i64 0
 ; CHECK: reduction-init-arr float 0xFFF0000000000000 ptr [[VP_B_RED]]
 ; CHECK: [5 x float] [[VP_RED_FINAL_ARR:%.*]] = reduction-final-arr{fmax} ptr [[VP_B_RED]] ptr [[B_RED]]

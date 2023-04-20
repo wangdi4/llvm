@@ -21,7 +21,7 @@ define dso_local double @_Z3fooPiiS_() local_unnamed_addr #3 {
 ; CHECK-NEXT:     br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     double* [[VP_D_LPRIV]] = allocate-priv double*, OrigAlign = 8
+; CHECK-NEXT:     double* [[VP_D_LPRIV]] = allocate-priv double, OrigAlign = 8
 ; CHECK-NEXT:     i8* [[VP_D_LPRIV_BCAST:%.*]] = bitcast double* [[VP_D_LPRIV]]
 ; CHECK-NEXT:     call i64 8 i8* [[VP_D_LPRIV_BCAST]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1

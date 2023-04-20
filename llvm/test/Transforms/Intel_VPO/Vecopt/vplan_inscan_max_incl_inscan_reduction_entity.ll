@@ -29,7 +29,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
 ; CHECK:          float [[VP_LOAD:%.*]] = load ptr [[X_RED0]]
-; CHECK-NEXT:     ptr [[VP_X_RED]] = allocate-priv ptr, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_X_RED]] = allocate-priv float, OrigAlign = 4
 ; CHECK:          float [[VP_LOAD_1:%.*]] = load ptr [[X_RED0]]
 ; CHECK:          float [[VP_X_REDINSCAN_RED_INIT]] = reduction-init-scalar float [[VP_LOAD_1]] float [[VP_LOAD_2:%.*]]
 ; CHECK:          br [[BB0:BB[0-9]+]]

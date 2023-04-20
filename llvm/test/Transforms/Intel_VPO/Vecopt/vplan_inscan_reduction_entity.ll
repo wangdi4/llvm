@@ -33,7 +33,7 @@ define void @omp_scan(float* %A, float* %B) {
 ; CHECK-NEXT:    Linked values:
 ; CHECK-NEXT:   Memory: i32* [[I_LINEAR_IV0:%.*]]
 ; CHECK:         [[BB2:BB[0-9]+]]: # preds: [[BB1:BB[0-9]+]]
-; CHECK:          [DA: Div, SVA: (F )] float* [[VP_X_RED:%.*]] = allocate-priv float*, OrigAlign = 4 (SVAOpBits )
+; CHECK:          [DA: Div, SVA: (F )] float* [[VP_X_RED:%.*]] = allocate-priv float, OrigAlign = 4 (SVAOpBits )
 ; CHECK:          [DA: Uni, SVA: (F  )] float [[VP_LOAD:%.*]] = load float* [[X_RED0]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] float [[VP_X_REDINSCAN_RED_INIT:%.*]] = reduction-init-scalar float 0.000000e+00 float [[VP_LOAD]] (SVAOpBits 0->F 1->F )
 ; CHECK:          [DA: Uni, SVA: (F  )] br [[BB0:BB[0-9]+]] (SVAOpBits 0->F )

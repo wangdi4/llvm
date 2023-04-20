@@ -29,7 +29,7 @@ define i32 @test(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK:   Linked values: [8 x i32]* [[VPSUMALLOCA:%.*]],
 ; CHECK:  Memory: [8 x i32]* %sum
 
-; CHECK: [8 x i32]* [[VPSUMALLOCA]] = allocate-priv [8 x i32]*, OrigAlign = 4
+; CHECK: [8 x i32]* [[VPSUMALLOCA]] = allocate-priv [8 x i32], OrigAlign = 4
 ; CHECK: reduction-init-arr i32 0 [8 x i32]* [[VPSUMALLOCA]]
 ; CHECK: [8 x i32] [[VPSUMFIN:%.*]] = reduction-final-arr{add} [8 x i32]* [[VPSUMALLOCA]] [8 x i32]* %sum
 

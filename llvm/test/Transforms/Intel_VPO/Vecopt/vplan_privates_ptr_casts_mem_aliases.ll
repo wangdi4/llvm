@@ -17,7 +17,7 @@ define dso_local void @foo(%"struct.std::complex" addrspace(4)* %A, %"struct.std
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i64* [[VP_MY_PRIV_ASCAST_PRIV:%.*]] = allocate-priv i64*, OrigAlign = 8
+; CHECK-NEXT:     i64* [[VP_MY_PRIV_ASCAST_PRIV:%.*]] = allocate-priv i64, OrigAlign = 8
 ; CHECK-NEXT:     i8* [[VP0:%.*]] = bitcast i64* [[VP_MY_PRIV_ASCAST_PRIV]]
 ; CHECK-NEXT:     call i64 8 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     float* [[VP_PRIV_FP_BC:%.*]] = bitcast i64* [[VP_MY_PRIV_ASCAST_PRIV]]

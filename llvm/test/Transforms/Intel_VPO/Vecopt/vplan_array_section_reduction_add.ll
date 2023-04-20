@@ -37,7 +37,7 @@ define i32 @foo([1000 x [1000 x i32]]* %b) #0 {
 ; CHECK:   Linked values: [500 x i32]* [[VP_A_RED:%.*]],
 ; CHECK:  Memory: [500 x i32]* [[A_RED0]]
 
-; CHECK: [500 x i32]* [[VP_A_RED]] = allocate-priv [500 x i32]*, OrigAlign = 16
+; CHECK: [500 x i32]* [[VP_A_RED]] = allocate-priv [500 x i32], OrigAlign = 16
 ; CHECK: i32* [[VP_A_RED_GEP_MINUS_OFFSET:%.*]] = getelementptr [500 x i32]* [[VP_A_RED]] i64 0 i64 -42
 ; CHECK: [1000 x i32]* [[VP_A_RED_GEP_MINUS_OFFSET_BC:%.*]] = bitcast i32* [[VP_A_RED_GEP_MINUS_OFFSET]]
 ; CHECK: reduction-init-arr i32 0 [500 x i32]* [[VP_A_RED]]

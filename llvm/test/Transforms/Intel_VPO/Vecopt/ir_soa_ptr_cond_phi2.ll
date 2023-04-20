@@ -6,8 +6,8 @@
 
 define void @merge_unsafe_use_soa_geps() {
 ; CHECK-LABEL:  VPlan after Peephole transformation before predicator:
-; CHECK:     [DA: [Shape: Strided, Stride: i64 8192]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv ptr, OrigAlign = 4
-; CHECK:     [DA: [Shape: Strided, Stride: i64 8192]] ptr [[VP_BRR_SOA_PRIV64:%.*]] = allocate-priv ptr, OrigAlign = 4
+; CHECK:     [DA: [Shape: Strided, Stride: i64 8192]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64], OrigAlign = 4
+; CHECK:     [DA: [Shape: Strided, Stride: i64 8192]] ptr [[VP_BRR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64], OrigAlign = 4
 ;
 entry:
   %arr.soa.priv64 = alloca [1024 x i64], align 4
@@ -47,7 +47,7 @@ simd.end:
 
 define void @merge_glob_soa_geps(ptr %a) {
 ; CHECK-LABEL:  VPlan after Peephole transformation before predicator:
-; CHECK:     [DA: [Shape: Strided, Stride: i64 8192]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv ptr, OrigAlign = 4
+; CHECK:     [DA: [Shape: Strided, Stride: i64 8192]] ptr [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64], OrigAlign = 4
 ;
 entry:
   %arr.soa.priv64 = alloca [1024 x i64], align 4
