@@ -1557,12 +1557,8 @@ static void readConfigs(opt::InputArgList &args) {
     config->mllvmOpts.emplace_back(arg->getValue());
   }
 
-  config->threadCount = parallel::strategy.compute_thread_count();
-
   // --threads= takes a positive integer and provides the default value for
-  // --thinlto-jobs=. If unspecified, cap the number of threads since
-  // overhead outweighs optimization for used parallel algorithms for the
-  // non-LTO parts.
+  // --thinlto-jobs=.
   if (auto *arg = args.getLastArg(OPT_threads)) {
     StringRef v(arg->getValue());
     unsigned threads = 0;
@@ -1571,9 +1567,6 @@ static void readConfigs(opt::InputArgList &args) {
             arg->getValue() + "'");
     parallel::strategy = hardware_concurrency(threads);
     config->thinLTOJobs = v;
-  } else if (config->threadCount > 16) {
-    log("set maximum concurrency to 16, specify --threads= to change");
-    parallel::strategy = hardware_concurrency(16);
   }
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-10208: Prevent running LLD in parallel during the testing
@@ -1586,6 +1579,7 @@ static void readConfigs(opt::InputArgList &args) {
 #endif // INTEL_CUSTOMIZATION
   if (auto *arg = args.getLastArg(OPT_thinlto_jobs_eq))
     config->thinLTOJobs = arg->getValue();
+  config->threadCount = parallel::strategy.compute_thread_count();
 
   if (config->ltoPartitions == 0)
     error("--lto-partitions: number of threads must be > 0");
