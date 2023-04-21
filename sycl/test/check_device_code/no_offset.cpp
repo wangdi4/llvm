@@ -15,7 +15,9 @@ int main() {
             sycl::ext::oneapi::accessor_property_list PL{sycl::ext::oneapi::no_offset, sycl::no_init};
             sycl::accessor acc_a(a, cgh, sycl::write_only, PL);
             sycl::accessor acc_b{b, cgh, sycl::read_only};
-            // CHECK: define weak_odr dso_local spir_kernel void @_ZTSZZ4mainENKUlRN4sycl3_V17handlerEE_clES2_EUlT_E_(ptr addrspace(1) {{.*}}, ptr addrspace(1) noundef readonly {{.*}}, ptr noundef byval(%"class.sycl::_V1::id") align 8 {{.*}})
+            // if INTEL_CUSTOMIZATION
+            // CHECK: define weak_odr dso_local spir_kernel void @_ZTSZZ4mainENKUlRN4sycl3_V17handlerEE_clES2_EUlT_E_(ptr addrspace(1) noundef {{.*}}, ptr addrspace(1) noundef readonly {{.*}})
+            // endif
             cgh.parallel_for(size, [=](auto i) {
                 acc_a[i] = acc_b[i];
             });
@@ -33,7 +35,9 @@ int main() {
         q.submit([&](sycl::handler &cgh) {
             sycl::accessor acc_a(a, cgh, sycl::write_only);
             sycl::accessor acc_b{b, cgh, sycl::read_only};
-            // CHECK: define weak_odr dso_local spir_kernel void @_ZTSZZ4mainENKUlRN4sycl3_V17handlerEE0_clES2_EUlT_E_(ptr addrspace(1) {{.*}}, ptr noundef byval(%"class.sycl::_V1::id") align 8 {{.*}}, ptr addrspace(1) noundef readonly {{.*}}, ptr noundef byval(%"class.sycl::_V1::id") align 8 {{.*}})
+            // if INTEL_CUSTOMIZATION
+            // CHECK: define weak_odr dso_local spir_kernel void @_ZTSZZ4mainENKUlRN4sycl3_V17handlerEE0_clES2_EUlT_E_(ptr addrspace(1) noundef {{.*}}, ptr addrspace(1) noundef readonly {{.*}})
+            // endif
             cgh.parallel_for(size, [=](auto i) {
                 acc_a[i] = acc_b[i];
             });
