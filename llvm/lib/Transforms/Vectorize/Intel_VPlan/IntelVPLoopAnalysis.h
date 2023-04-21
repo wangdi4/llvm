@@ -1194,6 +1194,10 @@ private:
   // the associated reduction and to the reduction-final itself.
   void assignDebugLocToReductionInstrs(VPReductionFinal *Final, bool IsMemOnly);
 
+  // Given an induction, apply the debug location of the induction bin-op
+  // to the PHI nodes for the associated induction.
+  void assignDebugLocToInductionPhis(const VPInduction *Induction);
+
   // Insert VPInstructions (init/final) for the reduction \p Reduction,
   // keeping its final and exit instructions in a special map \p RedFinalMap,
   // and inserting the reduction into list of processed reductions
