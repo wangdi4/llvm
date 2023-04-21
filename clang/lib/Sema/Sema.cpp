@@ -1697,16 +1697,13 @@ bool Sema::hasUncompilableErrorOccurred() const {
 }
 
 // Print notes showing how we can reach FD starting from an a priori
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
 // known-callable function. If \DiagsCount is not null pointer, the number
 // of diagnostics emitted for a function is accumulated.
-static void emitCallStackNotes(Sema &S, FunctionDecl *FD,
+static void emitCallStackNotes(Sema &S, const FunctionDecl *FD,
                                llvm::DenseMap<CanonicalDeclPtr<FunctionDecl>,
                                               unsigned> *DiagsCount = nullptr) {
-=======
-// known-callable function.
-static void emitCallStackNotes(Sema &S, const FunctionDecl *FD) {
->>>>>>> df3c4d961ede699d146dbc1c84160e16cef37637
+#endif // INTEL_CUSTOMIZATION
   auto FnIt = S.DeviceKnownEmittedFns.find(FD);
   while (FnIt != S.DeviceKnownEmittedFns.end()) {
     // Respect error limit.
