@@ -97,6 +97,8 @@ static cl::opt<std::string> ModuleSummaryDotFile(
     "module-summary-dot-file", cl::Hidden, cl::value_desc("filename"),
     cl::desc("File to emit dot graph of new summary into"));
 
+extern cl::opt<bool> ScalePartialSampleProfileWorkingSetSize;
+
 // Walk through the operands of a given User via worklist iteration and populate
 // the set of GlobalValue references encountered. Invoked either on an
 // Instruction or a GlobalVariable (which walks its initializer).
@@ -501,7 +503,9 @@ static void computeFunctionSummary(
       }
     }
   }
-  Index.addBlockCount(F.size());
+
+  if (PSI->hasPartialSampleProfile() && ScalePartialSampleProfileWorkingSetSize)
+    Index.addBlockCount(F.size());
 
   std::vector<ValueInfo> Refs;
   if (IsThinLTO) {
