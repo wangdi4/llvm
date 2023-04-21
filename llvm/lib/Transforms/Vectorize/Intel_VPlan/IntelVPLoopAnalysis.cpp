@@ -1289,6 +1289,64 @@ void VPLoopEntityList::processRunningInscanArrReduction(
                                        AddedAliasInstrs);
 }
 
+void VPLoopEntityList::assignDebugLocToInductionPhis(
+    const VPInduction *Induction) {
+
+  auto *IndBinOp = Induction->getInductionBinOp();
+  if (!IndBinOp)
+    return;
+
+  // The "binop" may be a phi that aggregates multiple identical
+  // induction operations.  In such cases, arbitrarily pick one rather
+  // than taking the default, which will later use the debug location
+  // of the omp simd pragma.
+  std::queue<VPInstruction *> WorkList;
+  SmallSet<VPInstruction *, 8> Visited;
+
+  if (auto *Phi = dyn_cast<VPPHINode>(IndBinOp)) {
+    WorkList.push(IndBinOp);
+
+    while (!WorkList.empty()) {
+      VPInstruction *Cand = WorkList.front();
+      WorkList.pop();
+      Visited.insert(Cand);
+
+      if (auto *Phi = dyn_cast<VPPHINode>(Cand)) {
+       for (auto Opnd : Phi->operands()) {
+          if (auto *I = dyn_cast<VPInstruction>(Opnd))
+            if (Loop.contains(I) && !Visited.contains(I))
+              WorkList.push(I);
+       }
+      } else {
+       IndBinOp = Cand;
+       // Don't break, as we want to find all phis for later.
+      }
+    }
+  }
+
+  auto DebugLoc = IndBinOp->getDebugLocation();
+  VPPHINode *HeaderPhi = getRecurrentVPHINode(*Induction);
+  if (HeaderPhi)
+    HeaderPhi->setDebugLocation(DebugLoc);
+
+  // If the original binop was a phi, all phis found in the above
+  // search should be provided with the debug location.
+  for (auto *I : Visited)
+    if (auto *Phi = dyn_cast<VPPHINode>(I)) {
+      Phi->setDebugLocation(DebugLoc);
+    }
+
+#ifndef NDEBUG
+  // If the exit instruction is a phi, it should already have been assigned
+  // the binop debug location above.
+  VPInstruction *ExitInstr = getInductionLoopExitInstr(Induction);
+  if (ExitInstr)
+    assert((!isa<VPPHINode>(ExitInstr) ||
+            ExitInstr->getDebugLocation() == DebugLoc) &&
+           "Failed to handle exit phi!");
+#endif
+}
+
 void VPLoopEntityList::assignDebugLocToReductionInstrs(VPReductionFinal *Final,
                                                        bool IsMemOnly) {
 
@@ -2079,6 +2137,11 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
       updateHIROperand(AI, V);
       Start = V;
     }
+
+    // Set the debug location for phis associated with the induction.
+    // This needs to be done before transforms that rely on the debug
+    // location being set, including createInductionCloseForm.
+    assignDebugLocToInductionPhis(Induction);
 
     unsigned Opc = Induction->getInductionOpcode();
     StringRef Name;
@@ -3005,7 +3068,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
 
     VPInstruction *ExitIns = getInductionLoopExitInstr(Induction);
     if (ExitIns == BinOp)
-      relinkLiveOuts(ExitIns, BinOp, Loop);
+      relinkLiveOuts(ExitIns, NewInd, Loop);
     linkValue(Induction, NewInd);
     return;
   }
