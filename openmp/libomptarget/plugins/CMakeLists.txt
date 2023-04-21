@@ -146,6 +146,9 @@ if (INTEL_COLLAB)
   add_subdirectory(opencl)
 # INTEL_CUSTOMIZATION
   add_subdirectory(level0)
+if(LIBOMPTARGET_UNIFIED_RUNTIME_BUILD)
+  add_subdirectory(unified_runtime)
+endif()
 # end INTEL_CUSTOMIZATION
 endif(INTEL_COLLAB)
 
