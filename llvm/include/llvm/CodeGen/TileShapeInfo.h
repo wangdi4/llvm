@@ -168,18 +168,13 @@ private:
   static constexpr int64_t InvalidImmShape = -1;
   MachineOperand *Row;
   MachineOperand *Col;
-<<<<<<< HEAD
-  int64_t RowImm;
-  int64_t ColImm;
+  int64_t RowImm = -1;
+  int64_t ColImm = -1;
 #if INTEL_CUSTOMIZATION
   // Multi Shapes
   SmallVector<MachineOperand *, 0> Shapes;
   SmallVector<int64_t, 0> ImmShapes;
 #endif // INTEL_CUSTOMIZATION
-=======
-  int64_t RowImm = -1;
-  int64_t ColImm = -1;
->>>>>>> aab0ca3e794a212a2ac0a24a4a1a9ed18ad06267
 };
 
 } // namespace llvm
