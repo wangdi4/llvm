@@ -3720,7 +3720,9 @@ private:
     /// \returns actual users of instruction \p I if it was affected by
     /// this Multi-Node operands reordering.
     ArrayRef<Instruction *> getDefUseOverride(Instruction *I) {
-      if (!doneCodeGen())
+      // If reordering operands of just single
+      // instruction there is no need to override def-use chain.
+      if (!doneCodeGen() || numOfTrunks() < 2)
         return std::nullopt;
       return Operands.getDefUseOverride(I);
     }
