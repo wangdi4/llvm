@@ -1183,7 +1183,7 @@ if (!SYCLOptimizationMode) {
   FPM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                /*AllowSpeculation=*/true),
-      /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+      /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
 
   FPM.addPass(CoroElidePass());
 
@@ -2043,7 +2043,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(createFunctionToLoopPassAdaptor(
         LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                  /*AllowSpeculation=*/true),
-        /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+        /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
   }
 
   // Now that we've vectorized and unrolled loops, we may have more refined
@@ -3591,7 +3591,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MainFPM.addPass(createFunctionToLoopPassAdaptor(
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                /*AllowSpeculation=*/true),
-      /*USeMemorySSA=*/true, /*UseBlockFrequencyInfo=*/true));
+      /*USeMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
 
   if (RunNewGVN)
     MainFPM.addPass(NewGVNPass());
