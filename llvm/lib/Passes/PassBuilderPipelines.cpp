@@ -846,11 +846,6 @@ if (!SYCLOptimizationMode) {
 
   invokeLoopOptimizerEndEPCallbacks(LPM2, Level);
 
-<<<<<<< HEAD
-  // We provide the opt remark emitter pass for LICM to use. We only need to do
-  // this once as it is immutable.
-  FPM.addPass(
-      RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1),
                                               /*UseMemorySSA=*/true,
                                               /*UseBlockFrequencyInfo=*/true));
@@ -864,22 +859,6 @@ if (!SYCLOptimizationMode) {
                                               /*UseBlockFrequencyInfo=*/false));
 }
   // clang-format on
-=======
-    FPM.addPass(
-        createFunctionToLoopPassAdaptor(std::move(LPM1),
-                                        /*UseMemorySSA=*/true,
-                                        /*UseBlockFrequencyInfo=*/true));
-    FPM.addPass(
-        SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-    FPM.addPass(InstCombinePass());
-    // The loop passes in LPM2 (LoopFullUnrollPass) do not preserve MemorySSA.
-    // *All* loop passes must preserve it, in order to be able to use it.
-    FPM.addPass(
-        createFunctionToLoopPassAdaptor(std::move(LPM2),
-                                        /*UseMemorySSA=*/false,
-                                        /*UseBlockFrequencyInfo=*/false));
-  }
->>>>>>> f65c8bd393baa727f7398292f9ba2f58dc1c7778
   // Delete small array after loop unroll.
   FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
 
@@ -1109,11 +1088,6 @@ if (!SYCLOptimizationMode) {
 
   invokeLoopOptimizerEndEPCallbacks(LPM2, Level);
 
-<<<<<<< HEAD
-  // We provide the opt remark emitter pass for LICM to use. We only need to do
-  // this once as it is immutable.
-  FPM.addPass(
-      RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM1),
                                               /*UseMemorySSA=*/true,
                                               /*UseBlockFrequencyInfo=*/true));
@@ -1134,26 +1108,6 @@ if (!SYCLOptimizationMode) {
                                               /*UseBlockFrequencyInfo=*/false));
 }
   // clang-format on
-=======
-    for (auto &C : LoopOptimizerEndEPCallbacks)
-      C(LPM2, Level);
-
-    FPM.addPass(
-        createFunctionToLoopPassAdaptor(std::move(LPM1),
-                                        /*UseMemorySSA=*/true,
-                                        /*UseBlockFrequencyInfo=*/true));
-    FPM.addPass(
-        SimplifyCFGPass(SimplifyCFGOptions().convertSwitchRangeToICmp(true)));
-    FPM.addPass(InstCombinePass());
-    // The loop passes in LPM2 (LoopIdiomRecognizePass, IndVarSimplifyPass,
-    // LoopDeletionPass and LoopFullUnrollPass) do not preserve MemorySSA.
-    // *All* loop passes must preserve it, in order to be able to use it.
-    FPM.addPass(
-        createFunctionToLoopPassAdaptor(std::move(LPM2),
-                                        /*UseMemorySSA=*/false,
-                                        /*UseBlockFrequencyInfo=*/false));
-  }
->>>>>>> f65c8bd393baa727f7398292f9ba2f58dc1c7778
 
   // Delete small array after loop unroll.
   FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
@@ -2059,7 +2013,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
   if (!PrepareForLTO)
     FPM.addPass(WarnMissedTransformationsPass());
-<<<<<<< HEAD
   // Now that we are done with loop unrolling, be it either by LoopVectorizer,
   // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
   // become constant-offset, thus enabling SROA and alloca promotion. Do so.
@@ -2074,18 +2027,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 #endif // INTEL_CUSTOMIZATION
-    FPM.addPass(
-        RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
-=======
-    // Now that we are done with loop unrolling, be it either by LoopVectorizer,
-    // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
-    // become constant-offset, thus enabling SROA and alloca promotion. Do so.
-    // NOTE: we are very late in the pipeline, and we don't have any LICM
-    // or SimplifyCFG passes scheduled after us, that would cleanup
-    // the CFG mess this may created if allowed to modify CFG, so forbid that.
-    FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
-    FPM.addPass(InstCombinePass());
->>>>>>> f65c8bd393baa727f7398292f9ba2f58dc1c7778
     FPM.addPass(createFunctionToLoopPassAdaptor(
         LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                  /*AllowSpeculation=*/true),
