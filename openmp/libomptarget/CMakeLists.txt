@@ -119,6 +119,18 @@ else()
   message(STATUS "OMPT target disabled")
 endif()
 
+if(INTEL_CUSTOMIZATION)
+  # UR build is only enabled explicitly until we decide to include in the build.
+  # TODO: clean up these variables if we start building UR plugin by default.
+  set(LIBOMPTARGET_UNIFIED_RUNTIME_BUILD FALSE CACHE BOOL "Build Unified Runtime")
+  if(LIBOMPTARGET_UNIFIED_RUNTIME_BUILD)
+    add_definitions(-DOMPTARGET_UNIFIED_RUNTIME_BUILD=1)
+    message(STATUS "Building Unified Runtime plugin")
+  else()
+    message(STATUS "Not building Unified Runtime plugin")
+  endif()
+endif(INTEL_CUSTOMIZATION)
+
 if (NOT INTEL_CUSTOMIZATION)
 pythonize_bool(LIBOMPTARGET_OMPT_SUPPORT)
 endif(NOT INTEL_CUSTOMIZATION)

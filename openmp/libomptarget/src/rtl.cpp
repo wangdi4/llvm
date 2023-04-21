@@ -245,6 +245,15 @@ void RTLsTy::loadRTLs() {
 #else
       RTLChecked.push_back("libomptarget.rtl.level0.so");
 #endif
+#if OMPTARGET_UNIFIED_RUNTIME_BUILD
+    } else if (PlugInName == "UNIFIED_RUNTIME" ||
+               PlugInName == "unified_runtime") {
+#if _WIN32
+// TODO
+#else
+      RTLChecked.push_back("libomptarget.rtl.unified_runtime.so");
+#endif
+#endif // OMPTARGET_UNIFIED_RUNTIME_BUILD
 #endif // INTEL_CUSTOMIZATION
     } else if (PlugInName == "CUDA" || PlugInName == "cuda") {
       RTLChecked.push_back("libomptarget.rtl.cuda.so");
