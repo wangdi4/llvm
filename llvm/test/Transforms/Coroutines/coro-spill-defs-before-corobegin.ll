@@ -49,31 +49,17 @@ lpad:
 ; Verifies that the both value_phi and value_invoke are stored correctly in the coroutine frame
 ; CHECK: %f.Frame = type { ptr, ptr, i32, i32, i1 }
 ; CHECK-LABEL: @f(
-<<<<<<< HEAD
-; CHECK:       %alloc = call i8* @malloc(i32 32)
-; CHECK-NEXT:  %flag = call i1 @check(i8* %alloc)
-; CHECK-NEXT:  %[[spec_select:[A-Za-z0-9.]+]] = select i1 %flag, i32 0, i32 1 ;INTEL
-=======
 ; CHECK:       %alloc = call ptr @malloc(i32 32)
 ; CHECK-NEXT:  %flag = call i1 @check(ptr %alloc)
 ; CHECK-NEXT:  %spec.select = select i1 %flag, i32 0, i32 1
->>>>>>> a0d2fc126efd85a4712681e7ec04a04171557475
 ; CHECK-NEXT:  %value_invoke = call i32 @calc()
 ; CHECK-NEXT:  %hdl = call noalias nonnull ptr @llvm.coro.begin(token %id, ptr %alloc)
 
-<<<<<<< HEAD
-; CHECK:       store void (%f.Frame*)* @f.destroy, void (%f.Frame*)** %destroy.addr
-; CHECK-NEXT:  %value_invoke.spill.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 3
-; CHECK-NEXT:  store i32 %value_invoke, i32* %value_invoke.spill.addr
-; CHECK-NEXT:  %value_phi.spill.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 2
-; CHECK-NEXT:  store i32 %[[spec_select]], i32* %value_phi.spill.addr ;INTEL
-=======
 ; CHECK:       store ptr @f.destroy, ptr %destroy.addr
 ; CHECK-NEXT:  %value_invoke.spill.addr = getelementptr inbounds %f.Frame, ptr %hdl, i32 0, i32 3
 ; CHECK-NEXT:  store i32 %value_invoke, ptr %value_invoke.spill.addr
 ; CHECK-NEXT:  %value_phi.spill.addr = getelementptr inbounds %f.Frame, ptr %hdl, i32 0, i32 2
 ; CHECK-NEXT:  store i32 %spec.select, ptr %value_phi.spill.addr
->>>>>>> a0d2fc126efd85a4712681e7ec04a04171557475
 
 declare ptr @llvm.coro.free(token, ptr)
 declare i32 @llvm.coro.size.i32()

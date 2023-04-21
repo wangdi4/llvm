@@ -40,24 +40,11 @@ suspend:
 ; both %x and %y, as well as %alias_phi would all go to the frame.
 ; CHECK:       %f.Frame = type { ptr, ptr, i64, i64, ptr, i1 }
 ; CHECK-LABEL: @f(
-<<<<<<< HEAD
-; CHECK:         %x.reload.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 2
-; CHECK:         %y.reload.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 3
-; CHECK:         %x.alias = bitcast i64* %x.reload.addr to i32*
-; CHECK:         %y.alias = bitcast i64* %y.reload.addr to i32*
-; INTEL_CUSTOMIZATION
-; Allow more freedom in value naming.
-; CHECK:         [[ALIAS_PHI:%.*]] = select i1 %n, i32* %x.alias, i32* %y.alias
-; CHECK:         %alias_phi.spill.addr = getelementptr inbounds %f.Frame, %f.Frame* %FramePtr, i32 0, i32 4
-; CHECK:         store i32* [[ALIAS_PHI]], i32** %alias_phi.spill.addr, align 8
-; END INTEL_CUSTOMIZATION
-=======
 ; CHECK:         %x.reload.addr = getelementptr inbounds %f.Frame, ptr %hdl, i32 0, i32 2
 ; CHECK:         %y.reload.addr = getelementptr inbounds %f.Frame, ptr %hdl, i32 0, i32 3
 ; CHECK:         %alias_phi = phi ptr [ %y.reload.addr, %merge.from.flag_false ], [ %x.reload.addr, %entry ]
 ; CHECK:         %alias_phi.spill.addr = getelementptr inbounds %f.Frame, ptr %hdl, i32 0, i32 4
 ; CHECK:         store ptr %alias_phi, ptr %alias_phi.spill.addr, align 8
->>>>>>> a0d2fc126efd85a4712681e7ec04a04171557475
 
 declare ptr @llvm.coro.free(token, ptr)
 declare i32 @llvm.coro.size.i32()
