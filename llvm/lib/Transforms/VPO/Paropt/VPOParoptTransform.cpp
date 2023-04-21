@@ -210,7 +210,7 @@ enum class TeamsReductionCombinerSelector {
 
 static cl::opt<TeamsReductionCombinerSelector> TeamsReductionCombiner(
     "vpo-paropt-atomic-free-red-global-combiner-selector", cl::Hidden,
-    cl::init(TeamsReductionCombinerSelector::LastTeamInlined),
+    cl::init(TeamsReductionCombinerSelector::LastTeamRTL),
     cl::desc("Method of selecting the team to do the combining of cross-team "
              "atomic-free reduction buffers."),
     cl::values(
@@ -220,7 +220,7 @@ static cl::opt<TeamsReductionCombinerSelector> TeamsReductionCombiner(
                    "location, using compiler-generated code."),
         clEnumValN(TeamsReductionCombinerSelector::LastTeamRTL, "last-team-rtl",
                    "the last team to finish populating its reduction buffer "
-                   "location, using an RTL call."),
+                   "location, using an RTL call (default)."),
         clEnumValN(
             TeamsReductionCombinerSelector::TeamZeroRTL, "team-zero-rtl",
             "team zero, after waiting for all teams to finish populating their "

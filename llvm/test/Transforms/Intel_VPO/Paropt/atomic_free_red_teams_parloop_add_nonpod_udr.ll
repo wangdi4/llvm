@@ -74,14 +74,14 @@
 
 ; CHECK-LABEL: counter_check:
 ; CHECK: %[[NUM_GROUPS:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
-; CHECK: %[[TEAMS_COUNTER:[^,]+]] = addrspacecast ptr addrspace(1) %[[TEAMS_COUNTER_PTR]] to ptr addrspace(4)
-; CHECK-LABEL: master.thread.code{{[0-9]+}}:
-; CHECK: %[[UPD_CNTR:[^,]+]] = call spir_func i32 @__kmpc_atomic_fixed4_add_cpt(ptr addrspace(4) %[[TEAMS_COUNTER]], i32 1, i32 1)
-; CHECK: store i32 %[[UPD_CNTR]], ptr addrspace(3) @.broadcast.ptr.__local, align 4
-; CHECK-LABEL: master.thread.fallthru{{[0-9]+}}:
-; CHECK: %.new = load i32, ptr addrspace(3) @.broadcast.ptr.__local, align 4
 ; CHECK: %[[NUM_GROUPS_TRUNC:[^,]+]] = trunc i64 %[[NUM_GROUPS]] to i32
-; CHECK: %[[CNTR_CHECK:[^,]+]] = icmp ne i32 %.new, %[[NUM_GROUPS_TRUNC]]
+; CHECK: %[[TEAMS_COUNTER:[^,]+]] = addrspacecast ptr addrspace(1) %teams_counter to ptr addrspace(4)
+; CHECK-LABEL: master.thread.code{{[0-9]+}}:
+; CHECK: %[[UPD_CNTR:[^,]+]] = call spir_func i1 @__kmpc_team_reduction_ready(ptr addrspace(4) %[[TEAMS_COUNTER]], i32 %[[NUM_GROUPS_TRUNC]])
+; CHECK: store i1 %[[UPD_CNTR]], ptr addrspace(3) @.broadcast.ptr.__local, align 1
+; CHECK-LABEL: master.thread.fallthru{{[0-9]+}}:
+; CHECK: %.new = load i1, ptr addrspace(3) @.broadcast.ptr.__local, align 1
+; CHECK: %[[CNTR_CHECK:[^,]+]] = icmp ne i1 %.new, true
 ; CHECK: br i1 %[[CNTR_CHECK]], label [[EXIT_BB:[^,]+]], label
 
 ; CHECK: call spir_func i64 @_Z12get_local_idj(i32 0)
