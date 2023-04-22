@@ -4853,6 +4853,7 @@ static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
 
   // If we need to invert the condition in the pred block to match, do so now.
   if (InvertPredCond) {
+<<<<<<< HEAD
     Value *NewCond = PBI->getCondition();
 
 #if INTEL_CUSTOMIZATION
@@ -4869,6 +4870,9 @@ static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
 
     PBI->setCondition(NewCond);
     PBI->swapSuccessors();
+=======
+    InvertBranch(PBI, Builder);
+>>>>>>> 9d7785b2e99548f3fde6fa030443a4d443dec647
   }
 
   BasicBlock *UniqueSucc =
