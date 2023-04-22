@@ -242,10 +242,8 @@ getSPIRVMemorySemanticsMask(const access::fence_space AccessSpace,
 // To ensure loop unrolling is done when processing dimensions.
 template <size_t... Inds, class F>
 void loop_impl(std::integer_sequence<size_t, Inds...>, F &&f) {
-#if INTEL_CUSTOMIZATION
   // Partial temporary revert because of the CMPLRLLVM-47016.
-  (f(Inds), ...);
-#endif // INTEL_CUSTOMIZATION
+  (f(Inds), ...); // INTEL
 }
 
 template <size_t count, class F> void loop(F &&f) {
