@@ -705,13 +705,10 @@ PreservedAnalyses LoopLoadEliminationPass::run(Function &F,
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
-
 #if INTEL_CUSTOMIZATION
-  // Loop is needed to support IC pass after this
-  PA.preserve<LoopAnalysis>();
-  PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<GlobalsAA>();
 #endif // INTEL_CUSTOMIZATION
-
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<LoopAnalysis>();
   return PA;
 }
