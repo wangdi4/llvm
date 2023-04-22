@@ -3818,7 +3818,8 @@ private:
 
   /// \returns the cost of the vectorizable entry.
   InstructionCost getEntryCost(const TreeEntry *E,
-                               ArrayRef<Value *> VectorizedVals);
+                               ArrayRef<Value *> VectorizedVals,
+                               SmallPtrSetImpl<Value *> &CheckedExtracts);
 
   /// Recursively build the multinode.
   void buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE, unsigned Depth,
@@ -8687,6 +8688,7 @@ class BoUpSLP::ShuffleCostEstimator : public BaseShuffleAnalysis {
   InstructionCost Cost = 0;
   ArrayRef<Value *> VectorizedVals;
   BoUpSLP &R;
+  SmallPtrSetImpl<Value *> &CheckedExtracts;
   constexpr static TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
 
   InstructionCost getBuildVectorCost(ArrayRef<Value *> VL, Value *Root) {
@@ -8890,8 +8892,10 @@ class BoUpSLP::ShuffleCostEstimator : public BaseShuffleAnalysis {
 
 public:
   ShuffleCostEstimator(TargetTransformInfo &TTI,
-                       ArrayRef<Value *> VectorizedVals, BoUpSLP &R)
-      : TTI(TTI), VectorizedVals(VectorizedVals), R(R) {}
+                       ArrayRef<Value *> VectorizedVals, BoUpSLP &R,
+                       SmallPtrSetImpl<Value *> &CheckedExtracts)
+      : TTI(TTI), VectorizedVals(VectorizedVals), R(R),
+        CheckedExtracts(CheckedExtracts) {}
   Value *adjustExtracts(const TreeEntry *E, ArrayRef<int> Mask,
                         TTI::ShuffleKind ShuffleKind) {
     if (Mask.empty())
@@ -8906,7 +8910,6 @@ public:
       return nullptr;
     }
     DenseMap<Value *, int> ExtractVectorsTys;
-    SmallPtrSet<Value *, 4> CheckedExtracts;
     for (auto [I, V] : enumerate(VL)) {
       // Ignore non-extractelement scalars.
       if (isa<UndefValue>(V) || (!Mask.empty() && Mask[I] == UndefMaskElem))
@@ -9037,8 +9040,9 @@ public:
   }
 };
 
-InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
-                                      ArrayRef<Value *> VectorizedVals) {
+InstructionCost
+BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
+                      SmallPtrSetImpl<Value *> &CheckedExtracts) {
   ArrayRef<Value *> VL = E->Scalars;
 
   Type *ScalarTy = VL[0]->getType();
@@ -9065,7 +9069,8 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
       return 0;
     if (isa<InsertElementInst>(VL[0]))
       return InstructionCost::getInvalid();
-    ShuffleCostEstimator Estimator(*TTI, VectorizedVals, *this);
+    ShuffleCostEstimator Estimator(*TTI, VectorizedVals, *this,
+                                   CheckedExtracts);
     unsigned VF = E->getVectorFactor();
     SmallVector<int> ReuseShuffleIndicies(E->ReuseShuffleIndices.begin(),
                                           E->ReuseShuffleIndices.end());
@@ -10221,6 +10226,7 @@ InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals) {
 
   unsigned BundleWidth = VectorizableTree[0]->Scalars.size();
 
+  SmallPtrSet<Value *, 4> CheckedExtracts;
   for (unsigned I = 0, E = VectorizableTree.size(); I < E; ++I) {
     TreeEntry &TE = *VectorizableTree[I];
     if (TE.State == TreeEntry::NeedToGather) {
@@ -10236,7 +10242,7 @@ InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals) {
       }
     }
 
-    InstructionCost C = getEntryCost(&TE, VectorizedVals);
+    InstructionCost C = getEntryCost(&TE, VectorizedVals, CheckedExtracts);
 #if INTEL_CUSTOMIZATION
     TE.Cost = C;
 #endif // INTEL_CUSTOMIZATION
