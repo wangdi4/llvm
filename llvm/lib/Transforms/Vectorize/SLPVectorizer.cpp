@@ -10242,14 +10242,10 @@ InstructionCost BoUpSLP::getTreeCost(ArrayRef<Value *> VectorizedVals) {
       }
     }
 
-<<<<<<< HEAD
-    InstructionCost C = getEntryCost(&TE, VectorizedVals);
+    InstructionCost C = getEntryCost(&TE, VectorizedVals, CheckedExtracts);
 #if INTEL_CUSTOMIZATION
     TE.Cost = C;
 #endif // INTEL_CUSTOMIZATION
-=======
-    InstructionCost C = getEntryCost(&TE, VectorizedVals, CheckedExtracts);
->>>>>>> 851a12138a765b43d86bb4729e418ee745375592
     Cost += C;
     LLVM_DEBUG(dbgs() << "SLP: Adding cost " << C
                       << " for bundle that starts with " << *TE.Scalars[0]
