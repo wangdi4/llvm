@@ -2408,13 +2408,16 @@ BasicBlock *llvm::CreateControlFlowHub(
 
 void llvm::InvertBranch(BranchInst *PBI, IRBuilderBase &Builder) {
   Value *NewCond = PBI->getCondition();
-  // If this is a "cmp" instruction, only used for branching (and nowhere
-  // else), then we can simply invert the predicate.
-  if (NewCond->hasOneUse() && isa<CmpInst>(NewCond)) {
-    CmpInst *CI = cast<CmpInst>(NewCond);
-    CI->setPredicate(CI->getInversePredicate());
-  } else
-    NewCond = Builder.CreateNot(NewCond, NewCond->getName() + ".not");
+#if INTEL_CUSTOMIZATION
+  // If this instruction is a compare with a single use, it is also legal to
+  // just invert the condition here instead of adding a not. However, in some
+  // important benchmarks this has resulted in missed CSE opportunities that
+  // cascaded into non-structured control flow and ultimately disabled some
+  // important optimizations later in the pipeline. Therefore, it's better to
+  // add a not in every case here and let it get folded later if it is
+  // profitable to do so.
+  NewCond = Builder.CreateNot(NewCond, PBI->getCondition()->getName() + ".not");
+#endif
 
   PBI->setCondition(NewCond);
   PBI->swapSuccessors();
