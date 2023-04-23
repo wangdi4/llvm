@@ -682,6 +682,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       spv::CapabilityLongConstantCompositeINTEL, SPIRVOpCapability,
       spv::internal::CapabilityBfloat16ConversionINTEL, SPIRVOpCapability,
       spv::internal::CapabilityGlobalVariableDecorationsINTEL,
+      SPIRVOpCapability, spv::CapabilityGroupNonUniformArithmetic,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformBallot,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformShuffle,
       SPIRVOpCapability, spv::CapabilityGroupNonUniformShuffleRelative,

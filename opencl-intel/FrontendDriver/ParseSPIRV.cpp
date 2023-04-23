@@ -224,6 +224,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::internal::CapabilityBfloat16ConversionINTEL:
       // SPV_INTEL_global_variable_decoration
     case spv::internal::CapabilityGlobalVariableDecorationsINTEL:
+    case spv::CapabilityGroupNonUniformArithmetic:
       // TODO: fully support GroupNonUniformBallot builtins
     case spv::CapabilityGroupNonUniformBallot:
     case spv::CapabilityGroupNonUniformShuffle:
