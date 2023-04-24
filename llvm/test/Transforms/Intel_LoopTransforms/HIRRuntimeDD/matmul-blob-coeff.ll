@@ -24,7 +24,7 @@
 ; CHECK-DAG: &((%cx)[624]) >=u &((%px)[0]);
 ; CHECK-DAG: &((%px)[%n + 599]) >=u &((%cx)[0]);
 ; CHECK: %mv.and7 =
-; CHECK: if (%mv.and == 0 && %mv.and7 == 0)
+; CHECK: if (%mv.and == 0 & %mv.and7 == 0)
 
 ; ModuleID = 'matmul-blob-coeff.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

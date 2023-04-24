@@ -21,7 +21,7 @@
 ; CHECK: Function: myfunc_
 
 ; CHECK:         BEGIN REGION { }
-; CHECK:               if (%func_result22_fetch == 8 && %func_result72_fetch == 8)
+; CHECK:               if (%func_result22_fetch == 8 & %func_result72_fetch == 8)
 ; CHECK:               {
 ; CHECK:                     %t = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
 ; CHECK:                  + DO i1 = 0, sext.i32.i64(%"myfunc_$M2_fetch") + -1 * sext.i32.i64(%"myfunc_$M1_fetch"), 1   <DO_LOOP> <simd>

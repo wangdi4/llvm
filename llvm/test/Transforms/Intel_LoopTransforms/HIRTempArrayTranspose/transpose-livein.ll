@@ -24,7 +24,7 @@
 ;              |   |   |   {
 ;              |   |   |      %tmp340 = &((bitcast (i8* getelementptr inbounds ([291652 x i8], [291652 x i8]* @global.7, i64 0, i64 192000) to i32*))[i3][i2]);
 ;              |   |   |   }
-;              |   |   |   if (%tmp331 >= %tmp327 && %tmp344 > %tmp328)
+;              |   |   |   if (%tmp331 >= %tmp327 & %tmp344 > %tmp328)
 ;              |   |   |   {
 ;              |   |   |      %tmp327 = %tmp331;
 ;              |   |   |   }
@@ -69,7 +69,7 @@
 ; CHECK:    |   |      |      %tmp340 = &((bitcast (i8* getelementptr inbounds ([291652 x i8], [291652 x i8]* @global.7, i64 0, i64 192000) to i32*))[i3][i2]);
 ;           |   |      |   }
 ;           |   |      |   %tmp344 = (%tmp340)[0];
-; CHECK:    |   |      |   if (%tmp331 >= %tmp327 && %tmp344 > %tmp328)
+; CHECK:    |   |      |   if (%tmp331 >= %tmp327 & %tmp344 > %tmp328)
 ;           |   |      |   {
 ;           |   |      |      (%arg3)[i2][i1] = i3 + 1;
 ; CHECK:    |   |      |      %tmp327 = %tmp331;

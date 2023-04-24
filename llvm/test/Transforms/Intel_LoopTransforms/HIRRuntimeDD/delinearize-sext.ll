@@ -13,7 +13,7 @@
 
 ; CHECK: &((%p)[100][99]) >=u &((%q)[0]);
 ; CHECK: &((%q)[99]) >=u &((%p)[0][1]);
-; CHECK: %n > 1 && 100 < %n
+; CHECK: %n > 1 & 100 < %n
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

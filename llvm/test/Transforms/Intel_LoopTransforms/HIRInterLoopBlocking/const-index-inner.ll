@@ -65,7 +65,7 @@
 ;           |   |   |
 ;           |   |   |   %lb_max95 = (0 <= i2) ? i2 : 0;                      // Similar to the above changes, now for the original loop at line 16.
 ;           |   |   |   %ub_min96 = (2 <= %tile_e_min) ? 2 : %tile_e_min;
-;           |   |   |   if (i3 <= 0 && 0 <= %tile_e_min92)                   // From, i3 = 0, in the original loop at line 17. See A[i2][0] and B[i2][0].
+;           |   |   |   if (i3 <= 0 & 0 <= %tile_e_min92)                   // From, i3 = 0, in the original loop at line 17. See A[i2][0] and B[i2][0].
 ;                                                                            // First dimensions are for i3-loop, thus i3 = 0;
 ;                                                                            // After the transformation i3 becomes i5.
 ;                                                                            // guard is ( tile_begin <= i5 <= tile_end) --> (i3 <= 0 <= tile_end)
@@ -104,7 +104,7 @@
 ; CHECK:           |   |   |
 ; CHECK:           |   |   |   [[LBMAX_3:%lb_max[0-9]+]] = (0 <= i2) ? i2 : 0;
 ; CHECK:           |   |   |   [[UBMIN_3:%ub_min[0-9]+]] = (2 <= [[TILE_1]]) ? 2 : [[TILE_1]];
-; CHECK:           |   |   |   if (i3 <= 0 && 0 <= [[TILE_2]])
+; CHECK:           |   |   |   if (i3 <= 0 & 0 <= [[TILE_2]])
 ; CHECK:           |   |   |   {
 ; CHECK:           |   |   |      + DO i4 = 0, -1 * [[LBMAX_3]] + [[UBMIN_3]], 1   <DO_LOOP>
 ; CHECK:           |   |   |      |   %add34 = (%"sub1_$A")[i4 + [[LBMAX_3]]][0]  +  2.000000e+00;

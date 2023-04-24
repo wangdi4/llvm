@@ -44,7 +44,7 @@
 ; CHECK-DAG: = &((i32*)(%pDst1)[sext.i32.i64(%div1) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u &((i32*)(%pSrc1)[sext.i32.i64(%div) * i1]);
 ; CHECK-DAG: = &((%pSrc1)[sext.i32.i64(%div) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u &((%pDst1)[sext.i32.i64(%div1) * i1]);
 ; CHECK: %mv.and{{[0-9]+}} = %mv.test{{[0-9]+}}  &  %mv.test{{[0-9]+}};
-; CHECK: if (%mv.and == 0 && %mv.and{{[0-9]+}} == 0)
+; CHECK: if (%mv.and == 0 & %mv.and{{[0-9]+}} == 0)
 
 ; ModuleID = 'func.bc'
 source_filename = "cq91196.cpp"

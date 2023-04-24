@@ -23,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: BEGIN REGION
 ; CHECK:       %[[ROWCASE:[A-Za-z0-9_.]+]] = 0;
-; CHECK:       if (%M > 0 && %N > 0)
+; CHECK:       if (%M > 0 & %N > 0)
 ; CHECK:       {
 ; CHECK:          %[[FIRST:[A-Za-z0-9_.]+]] = (%b)[0];
 ; CHECK:          %[[ALLCLOSE:[A-Za-z0-9_.]+]] = 1;

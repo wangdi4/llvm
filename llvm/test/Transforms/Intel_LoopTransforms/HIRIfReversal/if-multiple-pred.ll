@@ -4,7 +4,7 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:       + DO i1 = 0, sext.i32.i64((2 * %"sub_$N_fetch.1")) + -3, 1   <DO_LOOP>
-; CHECK:       |   if (%"sub_$A_entry[]_fetch.4" != 1.000000e+02 && %"sub_$A_entry[]_fetch.4" != 2.000000e+02)
+; CHECK:       |   if (%"sub_$A_entry[]_fetch.4" != 1.000000e+02 & %"sub_$A_entry[]_fetch.4" != 2.000000e+02)
 ;              |   {
 ; CHECK:       |      %add.1 = (%"sub_$A")[2]  +  0.000000e+00;
 ;              |   }

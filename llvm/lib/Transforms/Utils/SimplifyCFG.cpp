@@ -6016,6 +6016,10 @@ bool SimplifyCFGOpt::SimplifyBranchOnICmpChain(BranchInst *BI,
   if (!Cond)
     return false;
 
+#if INTEL_CUSTOMIZATION
+  if (BI->getParent()->getParent()->isPreLoopOpt())
+    return false;
+#endif // INTEL_CUSTOMIZATION
   // Change br (X == 0 | X == 1), T, F into a switch instruction.
   // If this is a bunch of seteq's or'd together, or if it's a bunch of
   // 'setne's and'ed together, collect them.

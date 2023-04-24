@@ -45,7 +45,7 @@
 ; CHECK: %mv.test6 = &((%prow)[zext.i32.i64(%height) + zext.i32.i64(%smax) + -1 * sext.i32.i64(%channels) + (zext.i32.i64(%width) * sext.i32.i64(%channels)) + -2]) >=u &((@vrow)[0][0][-1 * smin(0, sext.i32.i64(%other_channels)) + (zext.i32.i64(%width) * smin(0, sext.i32.i64(%other_channels)))]);
 ; CHECK: %mv.test7 = &((@vrow)[0][zext.i32.i64(%height) + -1][zext.i32.i64(%smax) + -1 * smax(0, sext.i32.i64(%other_channels)) + (zext.i32.i64(%width) * smax(0, sext.i32.i64(%other_channels)))]) >=u &((%prow)[0]);
 ; CHECK: %mv.and8 = %mv.test6  &  %mv.test7;
-; CHECK: if (%mv.and == 0 && %mv.and8 == 0)  <MVTag: 70>
+; CHECK: if (%mv.and == 0 & %mv.and8 == 0)  <MVTag: 70>
 ; CHECK: {
 ; CHECK:    + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 70>
 ; CHECK:    |   + DO i2 = 0, zext.i32.i64(%width) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 71>

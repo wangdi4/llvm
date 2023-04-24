@@ -15,7 +15,7 @@
 
 ; CHECK: Function: step2d_tile_
 ; CHECK:        BEGIN REGION { }
-; CHECK:              if (%func_result435_fetch == 8 && %func_result483_fetch == 8)
+; CHECK:              if (%func_result435_fetch == 8 & %func_result483_fetch == 8)
 ; CHECK:              {
 ; CHECK:                 + DO i1 = 0, %div421 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:                 |   if (%"step2d_tile_$M2_fetch" + 1 >= %"step2d_tile_$L2_fetch" + -1)

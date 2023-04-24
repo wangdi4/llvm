@@ -14,7 +14,7 @@
 ;       %mv.test4 = &((%inner)[(zext.i32.i64(%0) * zext.i32.i64(%0)) + -1]) >=u &((%row)[0]);
 ;       %mv.test5 = &((%row)[(zext.i32.i64(%0) * zext.i32.i64(%0)) + -1]) >=u &((%inner)[0]);
 ;       %mv.and6 = %mv.test4  &  %mv.test5;
-;       if (%mv.and == 0 && %mv.and6 == 0)
+;       if (%mv.and == 0 & %mv.and6 == 0)
 ;       {
 ;          + DO i1 = 0, zext.i32.i64(%0) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 43>
 ;          |   + DO i2 = 0, zext.i32.i64(%0) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 44>
@@ -56,7 +56,7 @@
 ;                 %mv.and6 = %mv.test4  &  %mv.test5;
 
 ;
-; CHECK:          if (%mv.and == 0 && %mv.and6 == 0 && zext.i32.i64(%0) <u 512) <MVTag: 43>
+; CHECK:          if (%mv.and == 0 & %mv.and6 == 0 & zext.i32.i64(%0) <u 512) <MVTag: 43>
 ;                 {
 ; CHECK:            %call = @llvm.stacksave();
 ; CHECK:            %TranspTmpArr = alloca 4 * (zext.i32.i64(%0) * zext.i32.i64(%0));

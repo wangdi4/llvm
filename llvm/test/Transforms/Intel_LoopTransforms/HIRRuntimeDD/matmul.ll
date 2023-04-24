@@ -25,7 +25,7 @@
 ; CHECK-DAG: &((%cx)[624]) >=u &((%px)[0]);
 ; CHECK-DAG: &((%px)[624]) >=u &((%cx)[0]);
 ; CHECK: %mv.and7 =
-; CHECK: if (%mv.and == 0 && %mv.and7 == 0)
+; CHECK: if (%mv.and == 0 & %mv.and7 == 0)
 
 ; Check that proper optreport is emitted for multiversioned loop.
 

@@ -34,7 +34,7 @@
 
 ;CHECK:      BEGIN REGION { modified }
 ;
-;CHECK:            + Ztt: if (%"sub_$N1_fetch" >= 1 && %"sub_$N2_fetch" >= 1)
+;CHECK:            + Ztt: if (%"sub_$N1_fetch" >= 1 & %"sub_$N2_fetch" >= 1)
 ;CHECK:            + DO i64 i1 = 0, (zext.i32.i64(%"sub_$N3_fetch") * sext.i32.i64(%"sub_$N1_fetch") * sext.i32.i64(%"sub_$N2_fetch")) + -1, 1   <DO_LOOP> 
 ;CHECK:            |   (%"sub_$A")[0][0][i1] = 0.000000e+00;
 ;CHECK:            + END LOOP
