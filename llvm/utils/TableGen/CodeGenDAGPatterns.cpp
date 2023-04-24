@@ -4426,7 +4426,7 @@ void CodeGenDAGPatterns::ExpandHwModeBasedTypes() {
     PatternsToMatch.emplace_back(P.getSrcRecord(), P.getPredicates(),
                                  std::move(NewSrc), std::move(NewDst),
                                  P.getDstRegs(), P.getAddedComplexity(),
-                                 Record::getNewUID(Records), Mode, Check);
+                                 Record::getNewUID(Records), Check);
   };
 
   for (PatternToMatch &P : Copy) {
@@ -4797,7 +4797,6 @@ void CodeGenDAGPatterns::GenerateVariants() {
           Variant, PatternsToMatch[i].getDstPatternShared(),
           PatternsToMatch[i].getDstRegs(),
           PatternsToMatch[i].getAddedComplexity(), Record::getNewUID(Records),
-          PatternsToMatch[i].getForceMode(),
           PatternsToMatch[i].getHwModeFeatures());
     }
 
