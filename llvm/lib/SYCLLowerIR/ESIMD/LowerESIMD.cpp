@@ -1976,3 +1976,7 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
 
   return ESIMDIntrCalls.size();
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 61812c060bc2d2f259837896316d699f59368fde
