@@ -10753,6 +10753,13 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     else
       TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics=llvm.genx.");
 #endif // INTEL_CUSTOMIZATION
+    bool CreatingSyclSPIRVFatObj =
+        C.getDriver().getFinalPhase(C.getArgs()) != phases::Link &&
+        TCArgs.getLastArgValue(options::OPT_fsycl_device_obj_EQ)
+            .equals_insensitive("spirv") &&
+        !TCArgs.hasArg(options::OPT_fsycl_device_only);
+    if (CreatingSyclSPIRVFatObj)
+      TranslatorArgs.push_back("--spirv-preserve-auxdata");
 
     // Disable all the extensions by default
     std::string ExtArg("-spirv-ext=-all");
@@ -10814,6 +10821,9 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
                 ",+SPV_KHR_uniform_group_instructions"
                 ",+SPV_INTEL_masked_gather_scatter"
                 ",+SPV_INTEL_tensor_float32_conversion";
+    if (CreatingSyclSPIRVFatObj)
+      ExtArg += ",+SPV_KHR_non_semantic_info";
+
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
 
@@ -11244,6 +11254,9 @@ void SpirvToIrWrapper::ConstructJob(Compilation &C, const JobAction &JA,
   if (JA.isOffloading(Action::OFK_OpenMP))
     addArgs(CmdArgs, TCArgs, {"-skip-unknown-input"});
 #endif // INTEL_CUSTOMIZATION
+  // Make sure we preserve any auxiliary data which may be present in the
+  // SPIR-V object, which we need for SPIR-V-based fat objects.
+  addArgs(CmdArgs, TCArgs, {"-llvm-spirv-opts", "--spirv-preserve-auxdata"});
 
   auto Cmd = std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),
