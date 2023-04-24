@@ -226,28 +226,10 @@ public:
   multi_ptr(
       local_accessor<typename std::remove_const_t<RelayElementType>, Dimensions>
           Accessor)
-<<<<<<< HEAD
-      : multi_ptr(Accessor.get_pointer().get()) {}
-
-  // Only if Space == local_space || generic_space and element type is const
-  template <int Dimensions, access::address_space RelaySpace = Space,
-            typename RelayElementType = ElementType,
-            typename = typename detail::enable_if_t<
-                RelaySpace == Space &&
-                (Space == access::address_space::generic_space ||
-                 Space == access::address_space::local_space) &&
-                std::is_const<RelayElementType>::value &&
-                std::is_same<RelayElementType, ElementType>::value>>
-  multi_ptr(local_accessor<typename detail::remove_const_t<RelayElementType>,
-                           Dimensions>
-                Accessor)
       /* INTEL_CUSTOMIZATION */
       : multi_ptr(
             Accessor.template get_multi_ptr<access::decorated::yes>().get()) {}
   /* end INTEL_CUSTOMIZATION */
-=======
-      : m_Pointer(detail::cast_AS<decorated_type *>(Accessor.get_pointer())) {}
->>>>>>> 1bcc9f0574cf818e9cb1676b9dfe9b1939bbd455
 
   // Assignment and access operators
   multi_ptr &operator=(const multi_ptr &) = default;
@@ -893,16 +875,11 @@ public:
            Space == access::address_space::local_space) &&
           std::is_const<ET>::value && std::is_same<ET, ElementType>::value>>
   multi_ptr(
-<<<<<<< HEAD
-      local_accessor<typename detail::remove_const_t<ET>, dimensions> Accessor)
+      local_accessor<typename std::remove_const_t<ET>, dimensions> Accessor)
       /* INTEL_CUSTOMIZATION */
       : multi_ptr(
             Accessor.template get_multi_ptr<access::decorated::legacy>()) {}
   /* end INTEL_CUSTOMIZATION */
-=======
-      local_accessor<typename std::remove_const_t<ET>, dimensions> Accessor)
-      : m_Pointer(detail::cast_AS<pointer_t>(Accessor.get_pointer())) {}
->>>>>>> 1bcc9f0574cf818e9cb1676b9dfe9b1939bbd455
 
   // Only if Space == constant_space and element type is const
   template <
