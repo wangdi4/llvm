@@ -1,3 +1,4 @@
+<<<<<<< HEAD:llvm/include/llvm/Analysis/LoopInfoImpl.h
 //===- llvm/Analysis/LoopInfoImpl.h - Natural Loop Calculator ---*- C++ -*-===//
 // INTEL_CUSTOMIZATION
 //
@@ -16,6 +17,9 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
+=======
+//===- GenericLoopInfoImp.h - Generic Loop Info Implementation --*- C++ -*-===//
+>>>>>>> f5425c128a30b32d39e0bc133e8e8dbad6066620:llvm/include/llvm/Support/GenericLoopInfoImpl.h
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -23,19 +27,19 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This is the generic implementation of LoopInfo used for both Loops and
-// MachineLoops.
+// This fle contains the implementation of GenericLoopInfo. It should only be
+// included in files that explicitly instantiate a GenericLoopInfo.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_ANALYSIS_LOOPINFOIMPL_H
-#define LLVM_ANALYSIS_LOOPINFOIMPL_H
+#ifndef LLVM_SUPPORT_GENERICLOOPINFOIMPL_H
+#define LLVM_SUPPORT_GENERICLOOPINFOIMPL_H
 
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetOperations.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/Dominators.h"
+#include "llvm/Support/GenericLoopInfo.h"
 
 namespace llvm {
 
@@ -769,6 +773,6 @@ void LoopInfoBase<BlockT, LoopT>::verify(
 #endif
 }
 
-} // End llvm namespace
+} // namespace llvm
 
-#endif
+#endif // LLVM_SUPPORT_GENERICLOOPINFOIMPL_H
