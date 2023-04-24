@@ -7,7 +7,7 @@
 ; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: |   %0 = (%A)[i1];
 ; CHECK: |   %2 = (%A)[i1 + 1];
-; CHECK: |   if (%0 > 5 && %2 < 10)
+; CHECK: |   if (%0 > 5 & %2 < 10)
 ; CHECK: |   {
 ; CHECK: |      (%B)[i1] = %0;
 ; CHECK: |   }

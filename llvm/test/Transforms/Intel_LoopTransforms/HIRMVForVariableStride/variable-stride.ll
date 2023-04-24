@@ -17,7 +17,7 @@
 ; CHECK: Function: step2d_tile_
 
 ; CHECK:        BEGIN REGION { }
-; CHECK:              if (%func_result22_fetch == 8 && %func_result72_fetch == 8)
+; CHECK:              if (%func_result22_fetch == 8 & %func_result72_fetch == 8)
 ; CHECK:              {
 ; CHECK:                 + DO i1 = 0, sext.i32.i64(%"step2d_tile_$M2_fetch") + -1 * sext.i32.i64(%"step2d_tile_$M1_fetch"), 1   <DO_LOOP>
 ; CHECK:                 |   + DO i2 = 0, sext.i32.i64(%"step2d_tile_$M2_fetch") + -1 * sext.i32.i64(%"step2d_tile_$M1_fetch"), 1   <DO_LOOP>

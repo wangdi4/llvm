@@ -37,7 +37,7 @@
 ; CHECK: %mv.test6 = &((%prow)[zext.i32.i64(%smax) + (sext.i32.i64((-1 + %width)) * sext.i32.i64(%channels)) + -1]) >=u &((@vrow)[0][0][(sext.i32.i64((-1 + %width)) * smin(0, sext.i32.i64(%other_channels)))]);
 ; CHECK: %mv.test7 = &((@vrow)[0][zext.i32.i64(%height) + -1][zext.i32.i64(%smax) + (sext.i32.i64((-1 + %width)) * smax(0, sext.i32.i64(%other_channels))) + -1]) >=u &((%prow)[0]);
 ; CHECK: %mv.and8 = %mv.test6  &  %mv.test7;
-; CHECK: if (%mv.and == 0 && %mv.and8 == 0)  <MVTag: 63>
+; CHECK: if (%mv.and == 0 & %mv.and8 == 0)  <MVTag: 63>
 ; CHECK: {
 ; CHECK:    + DO i1 = 0, zext.i32.i64(%height) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 63>
 ; CHECK:    |   + DO i2 = 0, %width + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>  <MVTag: 64>

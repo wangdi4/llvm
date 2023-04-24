@@ -32,7 +32,7 @@
 
 ; OPT: Function: foo
 ; OPT:     BEGIN REGION { }
-; OPT:             if (%n == 1 && %m == 1)
+; OPT:             if (%n == 1 & %m == 1)
 ; OPT:             {
 ; OPT:                + DO i1 = 0, %x + -1, 1   <DO_LOOP>
 ; OPT:                |   if (%x >= 1)

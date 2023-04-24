@@ -29,7 +29,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;NOLIBCALL:               %mv.test5 = &((%D)[zext.i32.i64((1 + %M)) + -1]) >=u &((%C)[1]);
 ;NOLIBCALL:               %mv.test6 = &((%C)[zext.i32.i64((1 + %M)) + -1]) >=u &((%D)[1]);
 ;NOLIBCALL:               %mv.and7 = %mv.test5  &  %mv.test6;
-;NOLIBCALL:               if (%mv.and == 0 && %mv.and4 == 0 && %mv.and7 == 0)
+;NOLIBCALL:               if (%mv.and == 0 & %mv.and4 == 0 & %mv.and7 == 0)
 
 define dso_local void @foo(ptr nocapture noundef readonly %A, ptr nocapture noundef readonly %B, ptr nocapture noundef readonly %C, ptr nocapture noundef writeonly %D, i32 noundef %M) local_unnamed_addr #0 {
 entry:
@@ -117,7 +117,7 @@ declare i32 @llvm.smax.i32(i32, i32)
 ; NOLIBCALL1:     %mv.test122 = &((%ic)[zext.i32.i64((1 + %n1)) + -1]) >=u &((%is)[0]);
 ; NOLIBCALL1:     %mv.test123 = &((%is)[zext.i32.i64((1 + %n1)) + -1]) >=u &((%ic)[0]);
 ; NOLIBCALL1:     %mv.and124 = %mv.test122  &  %mv.test123;
-; NOLIBCALL1:     if (%mv.and == 0 && %mv.and4 == 0
+; NOLIBCALL1:     if (%mv.and == 0 & %mv.and4 == 0
 
 define dso_local float @P7Viterbi(ptr nocapture noundef writeonly %dsq, i32 noundef %L, ptr nocapture noundef readonly %ms, ptr nocapture noundef readonly %is, i32 noundef %n1, i32 noundef %n2, i32 noundef %n3, ptr nocapture noundef %mc, ptr nocapture noundef %dc, ptr nocapture noundef %ic, ptr nocapture noundef readonly %tpmm, ptr nocapture noundef readonly %tpmi, ptr nocapture noundef readonly %tpmd, ptr nocapture noundef readonly %tpim, ptr nocapture noundef readonly %tpii, ptr nocapture noundef readonly %tpdm, ptr nocapture noundef readonly %tpdd, ptr nocapture noundef readonly %bp, ptr nocapture noundef readonly %mpp, ptr nocapture noundef readnone %mpc, ptr nocapture noundef readonly %ip, ptr nocapture noundef readonly %dpp, i32 noundef %xmb) local_unnamed_addr #0 {
 entry:

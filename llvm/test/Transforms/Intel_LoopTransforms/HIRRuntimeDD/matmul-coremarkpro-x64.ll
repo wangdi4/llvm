@@ -50,7 +50,7 @@
 ; CHECK-DAG: &((%3)[%5 + 25 * (-1 + %4) + 24]) >=u &((%1)[0]);
 ; CHECK-DAG: &((%1)[25 * sext.i32.i64((-1 + %4)) + 24]) >=u &((%3)[1]);
 ; CHECK: %mv.and7 =
-; CHECK: if (%mv.and == 0 && %mv.and7 == 0)
+; CHECK: if (%mv.and == 0 & %mv.and7 == 0)
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

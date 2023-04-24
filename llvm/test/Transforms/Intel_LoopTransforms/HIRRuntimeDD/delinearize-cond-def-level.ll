@@ -14,7 +14,7 @@
 ;       + END LOOP
 ; END REGION
 
-; CHECK:      if (%0 > 1 && 10 < %0
+; CHECK:      if (%0 > 1 & 10 < %0
 ; CHECK-NEXT: <RVAL-REG> NON-LINEAR i64 %0 {sb:6}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

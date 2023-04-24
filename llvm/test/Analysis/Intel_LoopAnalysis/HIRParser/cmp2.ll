@@ -5,13 +5,13 @@
 
 ;for (i=0;  i< n; i++) {
 ;  q[i] += 1.0;
-;  if (M1 == 2  &&  M2 == 3) {
+;  if (M1 == 2  &  M2 == 3) {
 ;    p[i] = q[i]+1.0;
 ;  }
 ;  q[i] += p[i];
 ;}
 
-; CHECK: if (%M1 == 2 && %M2 == 3)
+; CHECK: if (%M1 == 2 & %M2 == 3)
 
 
 ; ModuleID = 'compare.c'
