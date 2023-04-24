@@ -3185,7 +3185,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // whole-program devirtualization and bitset lowering.
   MPM.addPass(GlobalDCEPass());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
   // IPO-based prefetch
@@ -3213,11 +3212,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 
-  // Force any function attributes we want the rest of the pipeline to observe.
-  MPM.addPass(ForceFunctionAttrsPass());
-
-=======
->>>>>>> e7e4c7632075fef21bc8f90ad76dc68680e3bac8
   // Do basic inference of function attributes from known properties of system
   // libraries and other oracles.
   MPM.addPass(InferFunctionAttrsPass());
