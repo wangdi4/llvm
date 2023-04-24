@@ -48,7 +48,6 @@
 ; CHECK-O: Running pass: IPCloningPass on [module]
 ; end INTEL_FEATURE_SW_ADVANCED
 ; end INTEL_CUSTOMIZATION
-; CHECK-O: Running pass: ForceFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; INTEL_CUSTOMIZATION
 ; The InnerAnalysisManagerProxy was run already on a function level.
