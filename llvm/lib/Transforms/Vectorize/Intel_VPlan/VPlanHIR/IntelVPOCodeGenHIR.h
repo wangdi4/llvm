@@ -1193,11 +1193,8 @@ private:
   // VPInstruction.
   void getOverflowFlags(const VPInstruction *VPInst, bool &HasNUW,
                         bool &HasNSW) {
-    // Overflow flags should be preserved only for instructions that don't
-    // participate in reduction sequence.
-    bool PreserveOverflowFlags = ReductionVPInsts.count(VPInst) == 0;
-    HasNUW = PreserveOverflowFlags && VPInst->hasNoUnsignedWrap();
-    HasNSW = PreserveOverflowFlags && VPInst->hasNoSignedWrap();
+    HasNUW = VPInst->hasNoUnsignedWrap();
+    HasNSW = VPInst->hasNoSignedWrap();
   }
 
   // Returns CurMaskValue if it exists or all-ones value otherwise.

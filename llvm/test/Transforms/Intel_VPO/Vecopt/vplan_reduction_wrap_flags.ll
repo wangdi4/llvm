@@ -2,11 +2,11 @@
 ; in reduction idioms.
 
 ; REQUIRES: asserts
-; RUN: opt -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-dump-details -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec -vplan-print-after-clear-redn-wrap-flags -vplan-dump-details -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
 
 define i32 @foo(i32* noalias nocapture %A, i32* noalias nocapture %B, i32 %inc) {
 ;
-; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
+; CHECK-LABEL:  VPlan after clearing wrap flags for reductions:
 ; CHECK-NEXT:  VPlan IR for: foo:loop.#{{[0-9]+}}
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds: [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:     i32 [[VP_REDURED_INIT:%.*]] = reduction-init i32 0 i32 0
@@ -25,13 +25,13 @@ define i32 @foo(i32* noalias nocapture %A, i32* noalias nocapture %B, i32 %inc) 
 ; CHECK:          i32 [[VP3:%.*]] = add i32 [[VP_REDU]] i32 [[VP1:%vp.*]]
 ; CHECK-NEXT:      DbgLoc:
 ; CHECK-NEXT:      OperatorFlags -
-; CHECK-NEXT:        FMF: 0, NSW: 1, NUW: 1, Exact: 0
+; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; CHECK-NEXT:      end of details
 
 ; CHECK:          i32 [[VP0]] = add i32 [[VP3]] i32 [[VP2:%vp.*]]
 ; CHECK-NEXT:      DbgLoc:
 ; CHECK-NEXT:      OperatorFlags -
-; CHECK-NEXT:        FMF: 0, NSW: 1, NUW: 1, Exact: 0
+; CHECK-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; CHECK-NEXT:      end of details
 
 ; CHECK:         [[BB3:BB[0-9]+]]: # preds: [[BB2]]
@@ -44,8 +44,8 @@ define i32 @foo(i32* noalias nocapture %A, i32* noalias nocapture %B, i32 %inc) 
 ; CHECK:  define i32 @foo
 ; CHECK:       vector.body:
 ; CHECK:         [[VEC_PHI30:%.*]] = phi <4 x i32> [ zeroinitializer, [[VPLANNEDBB10:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0:%.*]] ]
-; CHECK:         [[TMP2:%.*]] = add nuw nsw <4 x i32> [[VEC_PHI30]], [[WIDE_LOAD0:%.*]]
-; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i32> [[TMP2]], [[WIDE_LOAD50:%.*]]
+; CHECK:         [[TMP2:%.*]] = add <4 x i32> [[VEC_PHI30]], [[WIDE_LOAD0:%.*]]
+; CHECK-NEXT:    [[TMP3]] = add <4 x i32> [[TMP2]], [[WIDE_LOAD50:%.*]]
 ;
 entry:
   br label %simd.begin
