@@ -651,7 +651,7 @@ void RecognizableInstr::emitInstructionSpecifier() {
     // Operand 3 (optional) is an immediate.
     assert(numPhysicalOperands >= 2 + additionalOperands &&
            numPhysicalOperands <= 3 + additionalOperands &&
-           "Unexpected number of operands for MRMDestRegFrm");
+           "Unexpected number of operands for MRMDestReg");
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
