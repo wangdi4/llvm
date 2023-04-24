@@ -41,6 +41,7 @@
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; INTEL_FEATURE_SW_ADVANCED
 ; CHECK-O: Running pass: IntelIPOPrefetchPass on [module]
@@ -49,6 +50,8 @@
 ; end INTEL_FEATURE_SW_ADVANCED
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O: Running pass: ForceFunctionAttrsPass
+=======
+>>>>>>> e7e4c7632075fef21bc8f90ad76dc68680e3bac8
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; INTEL_CUSTOMIZATION
 ; The InnerAnalysisManagerProxy was run already on a function level.
