@@ -107,7 +107,8 @@ __m128h test_mm256_castph256_ph128(__m256h __a) {
 
 __m256h test_mm256_castph128_ph256(__m128h __a) {
   // CHECK-LABEL: test_mm256_castph128_ph256
-  // CHECK: shufflevector <8 x half> %{{.*}}, <8 x half> %{{.*}}, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+  // CHECK: [[A:%.*]] = freeze <8 x half> poison
+  // CHECK: shufflevector <8 x half> %{{.*}}, <8 x half> [[A]], <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
   return _mm256_castph128_ph256(__a);
 }
 

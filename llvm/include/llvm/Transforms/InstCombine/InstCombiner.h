@@ -598,6 +598,7 @@ public:
                              unsigned Depth = 0,
                              bool AllowMultipleUsers = false) = 0;
 
+  bool isValidAddrSpaceCast(unsigned FromAS, unsigned ToAS) const;
 };
 
 } // namespace llvm

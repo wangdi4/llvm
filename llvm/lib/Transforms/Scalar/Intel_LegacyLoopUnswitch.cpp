@@ -56,7 +56,6 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"     // INTEL
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
-#include "llvm/Analysis/LegacyDivergenceAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -227,8 +226,6 @@ namespace {
     // NewBlocks contained cloned copy of basic blocks from LoopBlocks.
     std::vector<BasicBlock*> NewBlocks;
 
-    bool HasBranchDivergence;
-
 #if INTEL_CUSTOMIZATION
     // Helper for generating optimization reports.
     OptReportBuilder ORBuilder;
@@ -239,8 +236,8 @@ namespace {
     static char ID; // Pass ID, replacement for typeid
 
     explicit LoopUnswitch(bool Os = false, bool HasBranchDivergence = false)
-        : LoopPass(ID), OptimizeForSize(Os),
-          HasBranchDivergence(HasBranchDivergence) {
+        : LoopPass(ID), OptimizeForSize(Os) {
+      (void)HasBranchDivergence;
       initializeLoopUnswitchPass(*PassRegistry::getPassRegistry());
     }
 
@@ -261,8 +258,6 @@ namespace {
       AU.addRequired<OptReportOptionsPass>(); // INTEL
       AU.addRequired<MemorySSAWrapperPass>();
       AU.addPreserved<MemorySSAWrapperPass>();
-      if (HasBranchDivergence)
-        AU.addRequired<LegacyDivergenceAnalysis>();
       getLoopAnalysisUsage(AU);
       AU.addRequired<TargetLibraryInfoWrapperPass>(); // INTEL
     }
@@ -453,7 +448,6 @@ INITIALIZE_PASS_DEPENDENCY(LoopPass)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass) // INTEL
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass) // INTEL
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LegacyDivergenceAnalysis)
 INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
 INITIALIZE_PASS_END(LoopUnswitch, "loop-unswitch", "Unswitch loops",
                       false, false)
@@ -915,16 +909,6 @@ bool LoopUnswitch::processCurrentLoop() {
       // TODO: Instead of duplicating the checks, we could also just directly
       // branch to the exit from the conditional branch in the loop.
       if (Info->PathIsNoop) {
-        if (HasBranchDivergence &&
-            getAnalysis<LegacyDivergenceAnalysis>().isDivergent(LoopCond)) {
-          LLVM_DEBUG(dbgs() << "NOT unswitching loop %"
-                            << CurrentLoop->getHeader()->getName()
-                            << " at non-trivial condition '"
-                            << *Info->KnownValue << "' == " << *LoopCond << "\n"
-                            << ". Condition is divergent.\n");
-          return false;
-        }
-
         ++NumBranches;
 
         BasicBlock *TrueDest = LoopHeader;
@@ -1019,15 +1003,6 @@ bool LoopUnswitch::unswitchIfProfitable(Value *LoopCond, Constant *Val,
                       << " at non-trivial condition '" << *Val
                       << "' == " << *LoopCond << "\n"
                       << ". Cost too high.\n");
-    return false;
-  }
-  if (HasBranchDivergence &&
-      getAnalysis<LegacyDivergenceAnalysis>().isDivergent(LoopCond)) {
-    LLVM_DEBUG(dbgs() << "NOT unswitching loop %"
-                      << CurrentLoop->getHeader()->getName()
-                      << " at non-trivial condition '" << *Val
-                      << "' == " << *LoopCond << "\n"
-                      << ". Condition is divergent.\n");
     return false;
   }
 

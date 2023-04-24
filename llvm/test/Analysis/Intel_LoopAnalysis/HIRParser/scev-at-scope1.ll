@@ -1,4 +1,4 @@
-; RUN: opt %s -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output  2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; Src code-
@@ -8,22 +8,19 @@
 
 
 ; Check parsing output for the loop verifying that '%inc.lcssa19 = smax(1, %0)' is parsed correctly by reverse engineering %0.
+; NOTE: smax was optimized away due to ZTT recognition.
 
-; CHECK:      + DO i1 = 0, 31, 1   <DO_LOOP>
-; CHECK-NEXT: |   %inc.lcssa19 = 0;
-; CHECK-NEXT: |   if (i1 < 31)
-; CHECK-NEXT: |   {
-; CHECK-NEXT: |      %0 = 31  -  i1;
-; CHECK-NEXT: |
-; CHECK-NEXT: |      + DO i2 = 0, smax(1, %0) + -1, 1   <DO_LOOP>
-; CHECK-NEXT: |      |   %2 = (i32*)(@S2)[0][i2][i1];
-; CHECK-NEXT: |      |   (i32*)(@R2)[0][i2][i1] = %2;
-; CHECK-NEXT: |      |   %indvars.iv.next = i2  +  1;
-; CHECK-NEXT: |      + END LOOP
-; CHECK-NEXT: |
-; CHECK-NEXT: |      %inc.lcssa19 = %indvars.iv.next;
-; CHECK-NEXT: |   }
-; CHECK-NEXT: + END LOOP
+; CHECK: + DO i1 = 0, 31, 1   <DO_LOOP>
+; CHECK: |   %inc.lcssa19 = 0;
+; CHECK: |
+; CHECK: |   + DO i2 = 0, -1 * i1 + 30, 1   <DO_LOOP>  <MAX_TC_EST = 31>  <LEGAL_MAX_TC = 31>
+; CHECK: |   |   %2 = (i32*)(@S2)[0][i2][i1];
+; CHECK: |   |   (i32*)(@R2)[0][i2][i1] = %2;
+; CHECK: |   |   %indvars.iv.next = i2  +  1;
+; CHECK: |   + END LOOP
+; CHECK: |      %inc.lcssa19 = %indvars.iv.next;
+; CHECK: |
+; CHECK: + END LOOP
 
 
 

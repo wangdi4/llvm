@@ -65,6 +65,7 @@
 #include "llvm/SYCLLowerIR/ESIMD/ESIMDVerifier.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
+#include "llvm/SYCLLowerIR/SYCLAddOptLevelAttribute.h"
 #include "llvm/SYCLLowerIR/SYCLPropagateAspectsUsage.h"
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/CommandLine.h"
@@ -77,8 +78,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/TargetParser/Triple.h"
+#include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
 #include "llvm/Transforms/IPO/ThinLTOBitcodeWriter.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
@@ -264,28 +265,6 @@ private:
 };
 #endif // INTEL_CUSTOMIZATION
 }
-
-#if INTEL_CUSTOMIZATION
-static void addObjCARCAPElimPass(const PassManagerBuilder &Builder, PassManagerBase &PM) {
-  if (Builder.OptLevel > 0)
-    PM.add(createObjCARCAPElimPass());
-}
-
-static void addObjCARCExpandPass(const PassManagerBuilder &Builder, PassManagerBase &PM) {
-  if (Builder.OptLevel > 0)
-    PM.add(createObjCARCExpandPass());
-}
-
-static void addObjCARCOptPass(const PassManagerBuilder &Builder, PassManagerBase &PM) {
-  if (Builder.OptLevel > 0)
-    PM.add(createObjCARCOptPass());
-}
-
-static void addAddDiscriminatorsPass(const PassManagerBuilder &Builder,
-                                     legacy::PassManagerBase &PM) {
-  PM.add(createAddDiscriminatorsPass());
-}
-#endif // INTEL_CUSTOMIZATION
 
 static SanitizerCoverageOptions
 getSancovOptsFromCGOpts(const CodeGenOptions &CGOpts) {
@@ -1373,6 +1352,9 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
       // Rerun aspect propagation without warning diagnostics.
       MPM.addPass(SYCLPropagateAspectsUsagePass(/*ExcludeAspects=*/{},
                                                 /*ValidateAspects=*/false));
+
+      // Add attribute corresponding to optimization level.
+      MPM.addPass(SYCLAddOptLevelAttributePass(CodeGenOpts.OptimizationLevel));
 
       // Add SPIRITTAnnotations pass to the pass manager if
       // -fsycl-instrument-device-code option was passed. This option can be

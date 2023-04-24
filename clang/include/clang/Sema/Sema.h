@@ -4470,7 +4470,7 @@ public:
 
   // Emit as a 'note' the specific overload candidate
   void NoteOverloadCandidate(
-      NamedDecl *Found, FunctionDecl *Fn,
+      const NamedDecl *Found, const FunctionDecl *Fn,
       OverloadCandidateRewriteKind RewriteKind = OverloadCandidateRewriteKind(),
       QualType DestType = QualType(), bool TakingAddress = false);
 
@@ -13562,20 +13562,22 @@ public:
     Decl *ConditionVar;
     FullExprArg Condition;
     bool Invalid;
-    bool HasKnownValue;
-    bool KnownValue;
+    std::optional<bool> KnownValue;
 
     friend class Sema;
     ConditionResult(Sema &S, Decl *ConditionVar, FullExprArg Condition,
                     bool IsConstexpr)
-        : ConditionVar(ConditionVar), Condition(Condition), Invalid(false),
-          HasKnownValue(IsConstexpr && Condition.get() &&
-                        !Condition.get()->isValueDependent()),
-          KnownValue(HasKnownValue &&
-                     !!Condition.get()->EvaluateKnownConstInt(S.Context)) {}
+        : ConditionVar(ConditionVar), Condition(Condition), Invalid(false) {
+      if (IsConstexpr && Condition.get()) {
+        if (std::optional<llvm::APSInt> Val =
+                Condition.get()->getIntegerConstantExpr(S.Context)) {
+          KnownValue = !!(*Val);
+        }
+      }
+    }
     explicit ConditionResult(bool Invalid)
         : ConditionVar(nullptr), Condition(nullptr), Invalid(Invalid),
-          HasKnownValue(false), KnownValue(false) {}
+          KnownValue(std::nullopt) {}
 
   public:
     ConditionResult() : ConditionResult(false) {}
@@ -13584,11 +13586,7 @@ public:
       return std::make_pair(cast_or_null<VarDecl>(ConditionVar),
                             Condition.get());
     }
-    std::optional<bool> getKnownValue() const {
-      if (!HasKnownValue)
-        return std::nullopt;
-      return KnownValue;
-    }
+    std::optional<bool> getKnownValue() const { return KnownValue; }
   };
   static ConditionResult ConditionError() { return ConditionResult(true); }
 
@@ -14812,7 +14810,7 @@ public:
 
   bool isDeclAllowedInSYCLDeviceCode(const Decl *D);
   void checkSYCLDeviceVarDecl(VarDecl *Var);
-  void copySYCLKernelAttrs(const CXXRecordDecl *KernelObj);
+  void copySYCLKernelAttrs(CXXMethodDecl *CallOperator);
   void ConstructOpenCLKernel(FunctionDecl *KernelCallerFunc, MangleContext &MC);
   void SetSYCLKernelNames();
   void MarkDevices();

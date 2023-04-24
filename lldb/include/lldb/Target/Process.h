@@ -386,6 +386,13 @@ public:
 
   static ConstString &GetStaticBroadcasterClass();
 
+  static constexpr llvm::StringRef AttachSynchronousHijackListenerName =
+      "lldb.internal.Process.AttachSynchronous.hijack";
+  static constexpr llvm::StringRef LaunchSynchronousHijackListenerName =
+      "lldb.internal.Process.LaunchSynchronous.hijack";
+  static constexpr llvm::StringRef ResumeSynchronousHijackListenerName =
+      "lldb.internal.Process.ResumeSynchronous.hijack";
+
   ConstString &GetBroadcasterClass() const override {
     return GetStaticBroadcasterClass();
   }
@@ -411,9 +418,9 @@ public:
 
     ~ProcessEventData() override;
 
-    static ConstString GetFlavorString();
+    static llvm::StringRef GetFlavorString();
 
-    ConstString GetFlavor() const override;
+    llvm::StringRef GetFlavor() const override;
 
     lldb::ProcessSP GetProcessSP() const { return m_process_wp.lock(); }
 

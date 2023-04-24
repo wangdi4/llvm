@@ -486,11 +486,6 @@ if (EnableSimpleLoopUnswitch) {
     MPM.add(createGVNPass(DisableGVNLoadPRE));  // Remove redundancies
   }
 
-  // Delete dead bit computations (instcombine runs after to fold away the dead
-  // computations, and then ADCE will run later to exploit any new DCE
-  // opportunities that creates).
-  MPM.add(createBitTrackingDCEPass());        // Delete dead bit computations
-
   // Run instcombine after redundancy elimination to exploit opportunities
   // opened up by them.
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
@@ -636,7 +631,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   if (IsFullLTO) {
     addInstructionCombiningPass(PM, true /* EnableUpCasting */); // INTEL
     PM.add(createInstructionCombiningPass()); // Clean up again
-    PM.add(createBitTrackingDCEPass());
   }
 
 #if INTEL_CUSTOMIZATION
@@ -690,10 +684,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     }
 #endif // INTEL_CUSTOMIZATION
   }
-
-  // After vectorization and unrolling, assume intrinsics may tell us more
-  // about pointer alignments.
-  PM.add(createAlignmentFromAssumptionsPass());
 
 #if INTEL_CUSTOMIZATION
   if (IsFullLTO) {

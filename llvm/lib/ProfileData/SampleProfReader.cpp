@@ -532,9 +532,9 @@ ErrorOr<T> SampleProfileReaderBinary::readUnencodedNumber() {
 }
 
 template <typename T>
-inline ErrorOr<uint32_t> SampleProfileReaderBinary::readStringIndex(T &Table) {
+inline ErrorOr<size_t> SampleProfileReaderBinary::readStringIndex(T &Table) {
   std::error_code EC;
-  auto Idx = readNumber<uint32_t>();
+  auto Idx = readNumber<size_t>();
   if (std::error_code EC = Idx.getError())
     return EC;
   if (*Idx >= Table.size())
@@ -713,7 +713,7 @@ std::error_code SampleProfileReaderBinary::readImpl() {
 
 ErrorOr<SampleContextFrames>
 SampleProfileReaderExtBinaryBase::readContextFromTable() {
-  auto ContextIdx = readNumber<uint32_t>();
+  auto ContextIdx = readNumber<size_t>();
   if (std::error_code EC = ContextIdx.getError())
     return EC;
   if (*ContextIdx >= CSNameTable->size())
@@ -1083,11 +1083,11 @@ SampleProfileReaderCompactBinary::verifySPMagic(uint64_t Magic) {
 }
 
 std::error_code SampleProfileReaderBinary::readNameTable() {
-  auto Size = readNumber<uint32_t>();
+  auto Size = readNumber<size_t>();
   if (std::error_code EC = Size.getError())
     return EC;
   NameTable.reserve(*Size + NameTable.size());
-  for (uint32_t I = 0; I < *Size; ++I) {
+  for (size_t I = 0; I < *Size; ++I) {
     auto Name(readString());
     if (std::error_code EC = Name.getError())
       return EC;
@@ -1138,7 +1138,7 @@ std::error_code SampleProfileReaderExtBinaryBase::readNameTableSec(bool IsMD5) {
 // underlying raw function names that are stored in the name table, as well as
 // a callsite identifier that only makes sense for non-leaf frames.
 std::error_code SampleProfileReaderExtBinaryBase::readCSNameTableSec() {
-  auto Size = readNumber<uint32_t>();
+  auto Size = readNumber<size_t>();
   if (std::error_code EC = Size.getError())
     return EC;
 
@@ -1147,7 +1147,7 @@ std::error_code SampleProfileReaderExtBinaryBase::readCSNameTableSec() {
       std::make_unique<std::vector<SampleContextFrameVector>>();
 #endif // INTEL_CUSTOMIZATION
   PNameVec->reserve(*Size);
-  for (uint32_t I = 0; I < *Size; ++I) {
+  for (size_t I = 0; I < *Size; ++I) {
     PNameVec->emplace_back(SampleContextFrameVector());
     auto ContextSize = readNumber<uint32_t>();
     if (std::error_code EC = ContextSize.getError())
@@ -1268,7 +1268,7 @@ std::error_code SampleProfileReaderCompactBinary::readNameTable() {
 }
 
 std::error_code
-SampleProfileReaderExtBinaryBase::readSecHdrTableEntry(uint32_t Idx) {
+SampleProfileReaderExtBinaryBase::readSecHdrTableEntry(uint64_t Idx) {
   SecHdrTableEntry Entry;
   auto Type = readUnencodedNumber<uint64_t>();
   if (std::error_code EC = Type.getError())

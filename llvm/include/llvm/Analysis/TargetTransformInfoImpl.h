@@ -106,11 +106,13 @@ public:
 
   bool hasBranchDivergence() const { return false; }
 
-  bool useGPUDivergenceAnalysis() const { return false; }
-
   bool isSourceOfDivergence(const Value *V) const { return false; }
 
   bool isAlwaysUniform(const Value *V) const { return false; }
+
+  bool isValidAddrSpaceCast(unsigned FromAS, unsigned ToAS) const {
+    return false;
+  }
 
   unsigned getFlatAddressSpace() const { return -1; }
 
@@ -799,13 +801,14 @@ public:
   }
 
   InstructionCost getMinMaxReductionCost(VectorType *, VectorType *, bool,
+                                         FastMathFlags,
                                          TTI::TargetCostKind) const {
     return 1;
   }
 
   InstructionCost getExtendedReductionCost(unsigned Opcode, bool IsUnsigned,
                                            Type *ResTy, VectorType *Ty,
-                                           std::optional<FastMathFlags> FMF,
+                                           FastMathFlags FMF,
                                            TTI::TargetCostKind CostKind) const {
     return 1;
   }
@@ -995,6 +998,8 @@ public:
   }
 
   bool hasArmWideBranch(bool) const { return false; }
+
+  unsigned getMaxNumArgs() const { return UINT_MAX; }
 
 protected:
   // Obtain the minimum required size to hold the value (without the sign)

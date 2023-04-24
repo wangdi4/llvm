@@ -60,7 +60,6 @@ add_llvm_component_library(LLVMAsmPrinter
   Core
   DebugInfoCodeView
   DebugInfoDWARF
-  DebugInfoMSF
 # INTEL_CUSTOMIZATION
   DebugInfoTraceBack
 # end INTEL_CUSTOMIZATION

@@ -54,7 +54,7 @@ add_llvm_component_library(LLVMLTO
   Target
   TargetParser
   TransformUtils
-)
+  )
 
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_SW_DTRANS

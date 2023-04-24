@@ -1,5 +1,11 @@
 add_libc_testsuite(libc_math_unittests)
 
+add_library(
+  libc_math_test_utils
+  RandUtils.cpp
+  RandUtils.h
+)
+
 add_fp_unittest(
   cosf_test
   NEED_MPFR
@@ -1258,18 +1264,6 @@ add_fp_unittest(
     libc.src.errno.errno
     libc.include.math
     libc.src.math.expm1f
-    libc.src.__support.FPUtil.fp_bits
-)
-
-add_fp_unittest(
-  mod_k_pi_test
-  NEED_MPFR
-  SUITE
-    libc-long-running-tests
-  SRCS
-    mod_k_pi_test.cpp
-  DEPENDS
-    libc.src.math.generic.dp_trig
     libc.src.__support.FPUtil.fp_bits
 )
 

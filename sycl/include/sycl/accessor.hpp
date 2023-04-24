@@ -1099,7 +1099,7 @@ protected:
   template <int Dims = Dimensions> size_t getLinearIndex(id<Dims> Id) const {
 
     size_t Result = 0;
-    detail::dim_loop<Dims>([&, this](size_t I) {
+    detail::loop<Dims>([&, this](size_t I) {
       Result = Result * getMemoryRange()[I] + Id[I];
       // We've already adjusted for the accessor's offset in the __init, so
       // don't include it here in case of device.
@@ -1162,7 +1162,7 @@ protected:
   void __init(ConcreteASPtrType Ptr, range<AdjustedDim> AccessRange,
               range<AdjustedDim> MemRange, id<AdjustedDim> Offset) {
     MData = Ptr;
-    detail::dim_loop<AdjustedDim>([&, this](size_t I) {
+    detail::loop<AdjustedDim>([&, this](size_t I) {
       if constexpr (!(PropertyListT::template has_property<
                         sycl::ext::oneapi::property::no_offset>())) {
         getOffset()[I] = Offset[I];
@@ -2269,7 +2269,7 @@ private:
 #ifdef __SYCL_DEVICE_ONLY__
   size_t getTotalOffset() const noexcept {
     size_t TotalOffset = 0;
-    detail::dim_loop<Dimensions>([&, this](size_t I) {
+    detail::loop<Dimensions>([&, this](size_t I) {
       TotalOffset = TotalOffset * impl.MemRange[I];
       if constexpr (!(PropertyListT::template has_property<
                         sycl::ext::oneapi::property::no_offset>())) {
@@ -2532,7 +2532,7 @@ protected:
   void __init(ConcreteASPtrType Ptr, range<AdjustedDim> AccessRange,
               range<AdjustedDim>, id<AdjustedDim>) {
     MData = Ptr;
-    detail::dim_loop<AdjustedDim>(
+    detail::loop<AdjustedDim>(
         [&, this](size_t I) { getSize()[I] = AccessRange[I]; });
   }
 
@@ -2587,7 +2587,7 @@ protected:
   // Method which calculates linear offset for the ID using Range and Offset.
   template <int Dims = AdjustedDim> size_t getLinearIndex(id<Dims> Id) const {
     size_t Result = 0;
-    detail::dim_loop<Dims>(
+    detail::loop<Dims>(
         [&, this](size_t I) { Result = Result * getSize()[I] + Id[I]; });
     return Result;
   }

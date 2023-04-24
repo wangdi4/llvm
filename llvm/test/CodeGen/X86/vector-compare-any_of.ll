@@ -19,10 +19,10 @@ define i64 @test_v2f64_sext(<2 x double> %a0, <2 x double> %a1) {
 ; AVX-LABEL: test_v2f64_sext:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vcmpltpd %xmm0, %xmm1, %xmm0
-; AVX-NEXT:    vmovmskpd %xmm0, %ecx
 ; AVX-NEXT:    xorl %eax, %eax
-; AVX-NEXT:    negl %ecx
-; AVX-NEXT:    sbbq %rax, %rax
+; AVX-NEXT:    vtestpd %xmm0, %xmm0
+; AVX-NEXT:    setne %al
+; AVX-NEXT:    negq %rax
 ; AVX-NEXT:    retq
   %c = fcmp ogt <2 x double> %a0, %a1
   %s = sext <2 x i1> %c to <2 x i64>
@@ -47,10 +47,10 @@ define i64 @test_v4f64_sext(<4 x double> %a0, <4 x double> %a1) {
 ; AVX-LABEL: test_v4f64_sext:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vcmpltpd %ymm0, %ymm1, %ymm0
-; AVX-NEXT:    vmovmskpd %ymm0, %ecx
 ; AVX-NEXT:    xorl %eax, %eax
-; AVX-NEXT:    negl %ecx
-; AVX-NEXT:    sbbq %rax, %rax
+; AVX-NEXT:    vtestpd %ymm0, %ymm0
+; AVX-NEXT:    setne %al
+; AVX-NEXT:    negq %rax
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
   %c = fcmp ogt <4 x double> %a0, %a1
@@ -80,10 +80,10 @@ define i64 @test_v4f64_legal_sext(<4 x double> %a0, <4 x double> %a1) {
 ; AVX1OR2-NEXT:    vcmpltpd %ymm0, %ymm1, %ymm0
 ; AVX1OR2-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; AVX1OR2-NEXT:    vpackssdw %xmm1, %xmm0, %xmm0
-; AVX1OR2-NEXT:    vmovmskps %xmm0, %ecx
 ; AVX1OR2-NEXT:    xorl %eax, %eax
-; AVX1OR2-NEXT:    negl %ecx
-; AVX1OR2-NEXT:    sbbq %rax, %rax
+; AVX1OR2-NEXT:    vtestps %xmm0, %xmm0
+; AVX1OR2-NEXT:    setne %al
+; AVX1OR2-NEXT:    negq %rax
 ; AVX1OR2-NEXT:    vzeroupper
 ; AVX1OR2-NEXT:    retq
 ;
@@ -92,10 +92,10 @@ define i64 @test_v4f64_legal_sext(<4 x double> %a0, <4 x double> %a1) {
 ; AVX512-NEXT:    vcmpltpd %ymm0, %ymm1, %k1
 ; AVX512-NEXT:    vpcmpeqd %xmm0, %xmm0, %xmm0
 ; AVX512-NEXT:    vmovdqa32 %xmm0, %xmm0 {%k1} {z}
-; AVX512-NEXT:    vmovmskps %xmm0, %ecx
 ; AVX512-NEXT:    xorl %eax, %eax
-; AVX512-NEXT:    negl %ecx
-; AVX512-NEXT:    sbbq %rax, %rax
+; AVX512-NEXT:    vtestps %xmm0, %xmm0
+; AVX512-NEXT:    setne %al
+; AVX512-NEXT:    negq %rax
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
   %c = fcmp ogt <4 x double> %a0, %a1
@@ -122,10 +122,10 @@ define i32 @test_v4f32_sext(<4 x float> %a0, <4 x float> %a1) {
 ; AVX-LABEL: test_v4f32_sext:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vcmpltps %xmm0, %xmm1, %xmm0
-; AVX-NEXT:    vmovmskps %xmm0, %ecx
 ; AVX-NEXT:    xorl %eax, %eax
-; AVX-NEXT:    negl %ecx
-; AVX-NEXT:    sbbl %eax, %eax
+; AVX-NEXT:    vtestps %xmm0, %xmm0
+; AVX-NEXT:    setne %al
+; AVX-NEXT:    negl %eax
 ; AVX-NEXT:    retq
   %c = fcmp ogt <4 x float> %a0, %a1
   %s = sext <4 x i1> %c to <4 x i32>
@@ -152,10 +152,10 @@ define i32 @test_v8f32_sext(<8 x float> %a0, <8 x float> %a1) {
 ; AVX-LABEL: test_v8f32_sext:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vcmpltps %ymm0, %ymm1, %ymm0
-; AVX-NEXT:    vmovmskps %ymm0, %ecx
 ; AVX-NEXT:    xorl %eax, %eax
-; AVX-NEXT:    negl %ecx
-; AVX-NEXT:    sbbl %eax, %eax
+; AVX-NEXT:    vtestps %ymm0, %ymm0
+; AVX-NEXT:    setne %al
+; AVX-NEXT:    negl %eax
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
   %c = fcmp ogt <8 x float> %a0, %a1
@@ -247,10 +247,10 @@ define i64 @test_v2i64_sext(<2 x i64> %a0, <2 x i64> %a1) {
 ; AVX-LABEL: test_v2i64_sext:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpcmpgtq %xmm1, %xmm0, %xmm0
-; AVX-NEXT:    vmovmskpd %xmm0, %ecx
 ; AVX-NEXT:    xorl %eax, %eax
-; AVX-NEXT:    negl %ecx
-; AVX-NEXT:    sbbq %rax, %rax
+; AVX-NEXT:    vtestpd %xmm0, %xmm0
+; AVX-NEXT:    setne %al
+; AVX-NEXT:    negq %rax
 ; AVX-NEXT:    retq
   %c = icmp sgt <2 x i64> %a0, %a1
   %s = sext <2 x i1> %c to <2 x i64>
@@ -305,30 +305,30 @@ define i64 @test_v4i64_sext(<4 x i64> %a0, <4 x i64> %a1) {
 ; AVX1-NEXT:    vpcmpgtq %xmm2, %xmm3, %xmm2
 ; AVX1-NEXT:    vpcmpgtq %xmm1, %xmm0, %xmm0
 ; AVX1-NEXT:    vpor %xmm2, %xmm0, %xmm0
-; AVX1-NEXT:    vmovmskpd %xmm0, %ecx
 ; AVX1-NEXT:    xorl %eax, %eax
-; AVX1-NEXT:    negl %ecx
-; AVX1-NEXT:    sbbq %rax, %rax
+; AVX1-NEXT:    vtestpd %xmm0, %xmm0
+; AVX1-NEXT:    setne %al
+; AVX1-NEXT:    negq %rax
 ; AVX1-NEXT:    vzeroupper
 ; AVX1-NEXT:    retq
 ;
 ; AVX2-LABEL: test_v4i64_sext:
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vpcmpgtq %ymm1, %ymm0, %ymm0
-; AVX2-NEXT:    vmovmskpd %ymm0, %ecx
 ; AVX2-NEXT:    xorl %eax, %eax
-; AVX2-NEXT:    negl %ecx
-; AVX2-NEXT:    sbbq %rax, %rax
+; AVX2-NEXT:    vtestpd %ymm0, %ymm0
+; AVX2-NEXT:    setne %al
+; AVX2-NEXT:    negq %rax
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
 ; AVX512-LABEL: test_v4i64_sext:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpcmpgtq %ymm1, %ymm0, %ymm0
-; AVX512-NEXT:    vmovmskpd %ymm0, %ecx
 ; AVX512-NEXT:    xorl %eax, %eax
-; AVX512-NEXT:    negl %ecx
-; AVX512-NEXT:    sbbq %rax, %rax
+; AVX512-NEXT:    vtestpd %ymm0, %ymm0
+; AVX512-NEXT:    setne %al
+; AVX512-NEXT:    negq %rax
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
   %c = icmp sgt <4 x i64> %a0, %a1
@@ -386,10 +386,10 @@ define i64 @test_v4i64_legal_sext(<4 x i64> %a0, <4 x i64> %a1) {
 ; AVX1-NEXT:    vpcmpgtq %xmm2, %xmm3, %xmm2
 ; AVX1-NEXT:    vpcmpgtq %xmm1, %xmm0, %xmm0
 ; AVX1-NEXT:    vpor %xmm2, %xmm0, %xmm0 ;INTEL
-; AVX1-NEXT:    vmovmskpd %xmm0, %ecx ;INTEL
 ; AVX1-NEXT:    xorl %eax, %eax
-; AVX1-NEXT:    negl %ecx
-; AVX1-NEXT:    sbbq %rax, %rax
+; AVX1-NEXT:    vtestpd %xmm0, %xmm0 ;INTEL
+; AVX1-NEXT:    setne %al
+; AVX1-NEXT:    negq %rax
 ; AVX1-NEXT:    vzeroupper
 ; AVX1-NEXT:    retq
 ;
@@ -398,10 +398,10 @@ define i64 @test_v4i64_legal_sext(<4 x i64> %a0, <4 x i64> %a1) {
 ; AVX2-NEXT:    vpcmpgtq %ymm1, %ymm0, %ymm0
 ; AVX2-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX2-NEXT:    vpackssdw %xmm1, %xmm0, %xmm0
-; AVX2-NEXT:    vmovmskps %xmm0, %ecx
 ; AVX2-NEXT:    xorl %eax, %eax
-; AVX2-NEXT:    negl %ecx
-; AVX2-NEXT:    sbbq %rax, %rax
+; AVX2-NEXT:    vtestps %xmm0, %xmm0
+; AVX2-NEXT:    setne %al
+; AVX2-NEXT:    negq %rax
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
@@ -410,10 +410,10 @@ define i64 @test_v4i64_legal_sext(<4 x i64> %a0, <4 x i64> %a1) {
 ; AVX512-NEXT:    vpcmpgtq %ymm1, %ymm0, %k1
 ; AVX512-NEXT:    vpcmpeqd %xmm0, %xmm0, %xmm0
 ; AVX512-NEXT:    vmovdqa32 %xmm0, %xmm0 {%k1} {z}
-; AVX512-NEXT:    vmovmskps %xmm0, %ecx
 ; AVX512-NEXT:    xorl %eax, %eax
-; AVX512-NEXT:    negl %ecx
-; AVX512-NEXT:    sbbq %rax, %rax
+; AVX512-NEXT:    vtestps %xmm0, %xmm0
+; AVX512-NEXT:    setne %al
+; AVX512-NEXT:    negq %rax
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
   %c = icmp sgt <4 x i64> %a0, %a1
@@ -440,10 +440,10 @@ define i32 @test_v4i32_sext(<4 x i32> %a0, <4 x i32> %a1) {
 ; AVX-LABEL: test_v4i32_sext:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpcmpgtd %xmm1, %xmm0, %xmm0
-; AVX-NEXT:    vmovmskps %xmm0, %ecx
 ; AVX-NEXT:    xorl %eax, %eax
-; AVX-NEXT:    negl %ecx
-; AVX-NEXT:    sbbl %eax, %eax
+; AVX-NEXT:    vtestps %xmm0, %xmm0
+; AVX-NEXT:    setne %al
+; AVX-NEXT:    negl %eax
 ; AVX-NEXT:    retq
   %c = icmp sgt <4 x i32> %a0, %a1
   %s = sext <4 x i1> %c to <4 x i32>
@@ -474,30 +474,30 @@ define i32 @test_v8i32_sext(<8 x i32> %a0, <8 x i32> %a1) {
 ; AVX1-NEXT:    vpcmpgtd %xmm2, %xmm3, %xmm2
 ; AVX1-NEXT:    vpcmpgtd %xmm1, %xmm0, %xmm0
 ; AVX1-NEXT:    vpor %xmm2, %xmm0, %xmm0
-; AVX1-NEXT:    vmovmskps %xmm0, %ecx
 ; AVX1-NEXT:    xorl %eax, %eax
-; AVX1-NEXT:    negl %ecx
-; AVX1-NEXT:    sbbl %eax, %eax
+; AVX1-NEXT:    vtestps %xmm0, %xmm0
+; AVX1-NEXT:    setne %al
+; AVX1-NEXT:    negl %eax
 ; AVX1-NEXT:    vzeroupper
 ; AVX1-NEXT:    retq
 ;
 ; AVX2-LABEL: test_v8i32_sext:
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vpcmpgtd %ymm1, %ymm0, %ymm0
-; AVX2-NEXT:    vmovmskps %ymm0, %ecx
 ; AVX2-NEXT:    xorl %eax, %eax
-; AVX2-NEXT:    negl %ecx
-; AVX2-NEXT:    sbbl %eax, %eax
+; AVX2-NEXT:    vtestps %ymm0, %ymm0
+; AVX2-NEXT:    setne %al
+; AVX2-NEXT:    negl %eax
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
 ;
 ; AVX512-LABEL: test_v8i32_sext:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpcmpgtd %ymm1, %ymm0, %ymm0
-; AVX512-NEXT:    vmovmskps %ymm0, %ecx
 ; AVX512-NEXT:    xorl %eax, %eax
-; AVX512-NEXT:    negl %ecx
-; AVX512-NEXT:    sbbl %eax, %eax
+; AVX512-NEXT:    vtestps %ymm0, %ymm0
+; AVX512-NEXT:    setne %al
+; AVX512-NEXT:    negl %eax
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
   %c = icmp sgt <8 x i32> %a0, %a1
@@ -531,10 +531,10 @@ define i32 @test_v8i32_legal_sext(<8 x i32> %a0, <8 x i32> %a1) {
 ; AVX1-NEXT:    vpcmpgtd %xmm2, %xmm3, %xmm2
 ; AVX1-NEXT:    vpcmpgtd %xmm1, %xmm0, %xmm0
 ; AVX1-NEXT:    vpor %xmm2, %xmm0, %xmm0 ;INTEL
-; AVX1-NEXT:    vmovmskps %xmm0, %ecx ;INTEL
 ; AVX1-NEXT:    xorl %eax, %eax
-; AVX1-NEXT:    negl %ecx
-; AVX1-NEXT:    sbbl %eax, %eax
+; AVX1-NEXT:    vtestps %xmm0, %xmm0 ;INTEL
+; AVX1-NEXT:    setne %al ;INTEL
+; AVX1-NEXT:    negl %eax ;INTEL
 ; AVX1-NEXT:    vzeroupper
 ; AVX1-NEXT:    retq
 ;
@@ -844,8 +844,7 @@ define i1 @bool_reduction_v2f64(<2 x double> %x, <2 x double> %y) {
 ; AVX1OR2-LABEL: bool_reduction_v2f64:
 ; AVX1OR2:       # %bb.0:
 ; AVX1OR2-NEXT:    vcmpltpd %xmm0, %xmm1, %xmm0
-; AVX1OR2-NEXT:    vmovmskpd %xmm0, %eax
-; AVX1OR2-NEXT:    testl %eax, %eax
+; AVX1OR2-NEXT:    vtestpd %xmm0, %xmm0
 ; AVX1OR2-NEXT:    setne %al
 ; AVX1OR2-NEXT:    retq
 ;
@@ -875,8 +874,7 @@ define i1 @bool_reduction_v4f32(<4 x float> %x, <4 x float> %y) {
 ; AVX1OR2-LABEL: bool_reduction_v4f32:
 ; AVX1OR2:       # %bb.0:
 ; AVX1OR2-NEXT:    vcmpeqps %xmm1, %xmm0, %xmm0
-; AVX1OR2-NEXT:    vmovmskps %xmm0, %eax
-; AVX1OR2-NEXT:    testl %eax, %eax
+; AVX1OR2-NEXT:    vtestps %xmm0, %xmm0
 ; AVX1OR2-NEXT:    setne %al
 ; AVX1OR2-NEXT:    retq
 ;
@@ -910,8 +908,7 @@ define i1 @bool_reduction_v4f64(<4 x double> %x, <4 x double> %y) {
 ; AVX1OR2-LABEL: bool_reduction_v4f64:
 ; AVX1OR2:       # %bb.0:
 ; AVX1OR2-NEXT:    vcmplepd %ymm0, %ymm1, %ymm0
-; AVX1OR2-NEXT:    vmovmskpd %ymm0, %eax
-; AVX1OR2-NEXT:    testl %eax, %eax
+; AVX1OR2-NEXT:    vtestpd %ymm0, %ymm0
 ; AVX1OR2-NEXT:    setne %al
 ; AVX1OR2-NEXT:    vzeroupper
 ; AVX1OR2-NEXT:    retq
@@ -947,8 +944,7 @@ define i1 @bool_reduction_v8f32(<8 x float> %x, <8 x float> %y) {
 ; AVX1OR2-LABEL: bool_reduction_v8f32:
 ; AVX1OR2:       # %bb.0:
 ; AVX1OR2-NEXT:    vcmpneqps %ymm1, %ymm0, %ymm0
-; AVX1OR2-NEXT:    vmovmskps %ymm0, %eax
-; AVX1OR2-NEXT:    testl %eax, %eax
+; AVX1OR2-NEXT:    vtestps %ymm0, %ymm0
 ; AVX1OR2-NEXT:    setne %al
 ; AVX1OR2-NEXT:    vzeroupper
 ; AVX1OR2-NEXT:    retq
@@ -1089,21 +1085,15 @@ define i1 @bool_reduction_v16i8(<16 x i8> %x, <16 x i8> %y) {
 ; SSE-NEXT:    setne %al
 ; SSE-NEXT:    retq
 ;
-; AVX1OR2-LABEL: bool_reduction_v16i8:
-; AVX1OR2:       # %bb.0:
-; AVX1OR2-NEXT:    vpcmpgtb %xmm1, %xmm0, %xmm0
-; AVX1OR2-NEXT:    vpmovmskb %xmm0, %eax
-; AVX1OR2-NEXT:    testl %eax, %eax
-; AVX1OR2-NEXT:    setne %al
-; AVX1OR2-NEXT:    retq
-;
-; AVX512-LABEL: bool_reduction_v16i8:
-; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpcmpgtb %xmm1, %xmm0, %xmm0 ;INTEL
-; AVX512-NEXT:    vpmovmskb %xmm0, %eax ;INTEL
-; AVX512-NEXT:    testl %eax, %eax ;INTEL
-; AVX512-NEXT:    setne %al
-; AVX512-NEXT:    retq
+; INTEL_CUSTOMIZATION
+; AVX-LABEL: bool_reduction_v16i8:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vpcmpgtb %xmm1, %xmm0, %xmm0
+; AVX-NEXT:    vpmovmskb %xmm0, %eax
+; AVX-NEXT:    testl %eax, %eax
+; AVX-NEXT:    setne %al
+; AVX-NEXT:    retq
+; end INTEL_CUSTOMIZATION
   %a = icmp sgt <16 x i8> %x, %y
   %s1 = shufflevector <16 x i1> %a, <16 x i1> undef, <16 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
   %b = or <16 x i1> %s1, %a
@@ -1160,8 +1150,7 @@ define i1 @bool_reduction_v4i64(<4 x i64> %x, <4 x i64> %y) {
 ; AVX1-NEXT:    vpcmpgtq %xmm2, %xmm3, %xmm2
 ; AVX1-NEXT:    vpcmpgtq %xmm0, %xmm1, %xmm0
 ; AVX1-NEXT:    vpor %xmm2, %xmm0, %xmm0
-; AVX1-NEXT:    vmovmskpd %xmm0, %eax
-; AVX1-NEXT:    testl %eax, %eax
+; AVX1-NEXT:    vtestpd %xmm0, %xmm0
 ; AVX1-NEXT:    setne %al
 ; AVX1-NEXT:    vzeroupper
 ; AVX1-NEXT:    retq
@@ -1169,8 +1158,7 @@ define i1 @bool_reduction_v4i64(<4 x i64> %x, <4 x i64> %y) {
 ; AVX2-LABEL: bool_reduction_v4i64:
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vpcmpgtq %ymm0, %ymm1, %ymm0
-; AVX2-NEXT:    vmovmskpd %ymm0, %eax
-; AVX2-NEXT:    testl %eax, %eax
+; AVX2-NEXT:    vtestpd %ymm0, %ymm0
 ; AVX2-NEXT:    setne %al
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq
@@ -1232,8 +1220,7 @@ define i1 @bool_reduction_v8i32(<8 x i32> %x, <8 x i32> %y) {
 ; AVX1-NEXT:    vpminud %xmm1, %xmm0, %xmm1
 ; AVX1-NEXT:    vpcmpeqd %xmm1, %xmm0, %xmm0
 ; AVX1-NEXT:    vpor %xmm2, %xmm0, %xmm0
-; AVX1-NEXT:    vmovmskps %xmm0, %eax
-; AVX1-NEXT:    testl %eax, %eax
+; AVX1-NEXT:    vtestps %xmm0, %xmm0
 ; AVX1-NEXT:    setne %al
 ; AVX1-NEXT:    vzeroupper
 ; AVX1-NEXT:    retq
@@ -1242,8 +1229,7 @@ define i1 @bool_reduction_v8i32(<8 x i32> %x, <8 x i32> %y) {
 ; AVX2:       # %bb.0:
 ; AVX2-NEXT:    vpminud %ymm1, %ymm0, %ymm1
 ; AVX2-NEXT:    vpcmpeqd %ymm1, %ymm0, %ymm0
-; AVX2-NEXT:    vmovmskps %ymm0, %eax
-; AVX2-NEXT:    testl %eax, %eax
+; AVX2-NEXT:    vtestps %ymm0, %ymm0
 ; AVX2-NEXT:    setne %al
 ; AVX2-NEXT:    vzeroupper
 ; AVX2-NEXT:    retq

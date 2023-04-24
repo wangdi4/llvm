@@ -45,8 +45,8 @@ namespace llvm {
 static constexpr unsigned InstCombineDefaultMaxIterations = 1000;
 
 struct InstCombineOptions {
-  bool UseLoopInfo;
-  unsigned MaxIterations;
+  bool UseLoopInfo = false;
+  unsigned MaxIterations = InstCombineDefaultMaxIterations;
 #if INTEL_CUSTOMIZATION
   bool PreserveForDTrans;
   bool PreserveAddrCompute;

@@ -154,6 +154,7 @@ namespace {
 /// UseFrag - Use Target as the new fragment.
 /// UseNoFrag - The new slice already covers the whole variable.
 /// Skip - The new alloca slice doesn't include this variable.
+/// FIXME: Can we use calculateFragmentIntersect instead?
 enum FragCalcResult { UseFrag, UseNoFrag, Skip };
 static FragCalcResult
 calculateFragment(DILocalVariable *Variable,
@@ -265,7 +266,7 @@ static void migrateDebugInfo(AllocaInst *OldAlloca, bool IsSplit,
     bool SetKillLocation = false;
 
     if (IsSplit) {
-      std::optional<DIExpression::FragmentInfo> BaseFragment = std::nullopt;
+      std::optional<DIExpression::FragmentInfo> BaseFragment;
       {
         auto R = BaseFragments.find(getAggregateVariable(DbgAssign));
         if (R == BaseFragments.end())
@@ -326,7 +327,9 @@ static void migrateDebugInfo(AllocaInst *OldAlloca, bool IsSplit,
     // This should be a very rare situation as it requires the value being
     // stored to differ from the dbg.assign (i.e., the value has been
     // represented differently in the debug intrinsic for some reason).
-    SetKillLocation |= DbgAssign->hasArgList() && Value;
+    SetKillLocation |=
+        Value && (DbgAssign->hasArgList() ||
+                  !DbgAssign->getExpression()->isSingleLocationExpression());
     if (SetKillLocation)
       NewAssign->setKillLocation();
 
@@ -1854,15 +1857,17 @@ static void rewriteMemOpOfSelect(SelectInst &SI, T &I,
     bool IsThen = SuccBB == HeadBI->getSuccessor(0);
     int SuccIdx = IsThen ? 0 : 1;
     auto *NewMemOpBB = SuccBB == Tail ? Head : SuccBB;
+    auto &CondMemOp = cast<T>(*I.clone());
     if (NewMemOpBB != Head) {
       NewMemOpBB->setName(Head->getName() + (IsThen ? ".then" : ".else"));
       if (isa<LoadInst>(I))
         ++NumLoadsPredicated;
       else
         ++NumStoresPredicated;
-    } else
+    } else {
+      CondMemOp.dropUBImplyingAttrsAndUnknownMetadata();
       ++NumLoadsSpeculated;
-    auto &CondMemOp = cast<T>(*I.clone());
+    }
     CondMemOp.insertBefore(NewMemOpBB->getTerminator());
     Value *Ptr = SI.getOperand(1 + SuccIdx);
     if (auto *PtrTy = Ptr->getType();

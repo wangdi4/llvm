@@ -676,7 +676,7 @@ static void replaceWithTileLoad(Use &U, Value *Ptr, bool IsPHI = false) {
 #if INTEL_CUSTOMIZATION
   unsigned Idx = 0;
   if (IsPHI) {
-    Value *PhiOp = dyn_cast<PHINode>(V)->getIncomingValue(0);
+    Value *PhiOp = cast<PHINode>(V)->getIncomingValue(0);
     II = cast<IntrinsicInst>(PhiOp);
   } else if (auto *Extr = dyn_cast<ExtractValueInst>(V)) {
     // Extract tile from mult tiles' def.

@@ -233,9 +233,10 @@ struct WriterContext {
   SmallSet<instrprof_error, 4> &WriterErrorCodes;
 
   WriterContext(bool IsSparse, std::mutex &ErrLock,
-                SmallSet<instrprof_error, 4> &WriterErrorCodes)
-      : Writer(IsSparse), ErrLock(ErrLock), WriterErrorCodes(WriterErrorCodes) {
-  }
+                SmallSet<instrprof_error, 4> &WriterErrorCodes,
+                uint64_t ReservoirSize = 0, uint64_t MaxTraceLength = 0)
+      : Writer(IsSparse, ReservoirSize, MaxTraceLength), ErrLock(ErrLock),
+        WriterErrorCodes(WriterErrorCodes) {}
 };
 
 /// Computer the overlap b/w profile BaseFilename and TestFileName,
@@ -321,7 +322,7 @@ static void loadInput(const WeightedFile &Input, SymbolRemapper *Remapper,
   auto FS = vfs::getRealFileSystem();
   auto ReaderOrErr = InstrProfReader::create(Input.Filename, *FS, Correlator);
   if (Error E = ReaderOrErr.takeError()) {
-    // Skip the empty profiles by returning sliently.
+    // Skip the empty profiles by returning silently.
 #if INTEL_CUSTOMIZATION
     instrprof_error IPE;
     std::string Message;
@@ -364,6 +365,12 @@ static void loadInput(const WeightedFile &Input, SymbolRemapper *Remapper,
     });
   }
 
+  if (Reader->hasTemporalProfile()) {
+    auto &Traces = Reader->getTemporalProfTraces(Input.Weight);
+    if (!Traces.empty())
+      WC->Writer.addTemporalProfileTraces(
+          Traces, Reader->getTemporalProfTraceStreamSize());
+  }
   if (Reader->hasError()) {
     if (Error E = Reader->getError())
       WC->Errors.emplace_back(std::move(E), Filename);
@@ -414,13 +421,13 @@ static void writeInstrProfile(StringRef OutputFilename,
   }
 }
 
-static void mergeInstrProfile(const WeightedFileVector &Inputs,
-                              StringRef DebugInfoFilename,
-                              SymbolRemapper *Remapper,
-                              StringRef OutputFilename,
-                              ProfileFormat OutputFormat, bool OutputSparse,
-                              unsigned NumThreads, FailureMode FailMode,
-                              const StringRef ProfiledBinary) {
+static void
+mergeInstrProfile(const WeightedFileVector &Inputs, StringRef DebugInfoFilename,
+                  SymbolRemapper *Remapper, StringRef OutputFilename,
+                  ProfileFormat OutputFormat, uint64_t TraceReservoirSize,
+                  uint64_t MaxTraceLength, bool OutputSparse,
+                  unsigned NumThreads, FailureMode FailMode,
+                  const StringRef ProfiledBinary) {
   if (OutputFormat != PF_Binary && OutputFormat != PF_Compact_Binary &&
       OutputFormat != PF_Ext_Binary && OutputFormat != PF_Text)
     exitWithError("unknown format is specified");
@@ -446,7 +453,8 @@ static void mergeInstrProfile(const WeightedFileVector &Inputs,
   SmallVector<std::unique_ptr<WriterContext>, 4> Contexts;
   for (unsigned I = 0; I < NumThreads; ++I)
     Contexts.emplace_back(std::make_unique<WriterContext>(
-        OutputSparse, ErrorLock, WriterErrorCodes));
+        OutputSparse, ErrorLock, WriterErrorCodes, TraceReservoirSize,
+        MaxTraceLength));
 
   if (NumThreads == 1) {
     for (const auto &Input : Inputs)
@@ -1286,6 +1294,17 @@ static int merge_main(int argc, const char *argv[]) {
       "drop-profile-symbol-list", cl::init(false), cl::Hidden,
       cl::desc("Drop the profile symbol list when merging AutoFDO profiles "
                "(only meaningful for -sample)"));
+  // WARNING: This reservoir size value is propagated to any input indexed
+  // profiles for simplicity. Changing this value between invocations could
+  // result in sample bias.
+  cl::opt<uint64_t> TemporalProfTraceReservoirSize(
+      "temporal-profile-trace-reservoir-size", cl::init(100),
+      cl::desc("The maximum number of stored temporal profile traces (default: "
+               "100)"));
+  cl::opt<uint64_t> TemporalProfMaxTraceLength(
+      "temporal-profile-max-trace-length", cl::init(10000),
+      cl::desc("The maximum length of a single temporal profile trace "
+               "(default: 10000)"));
 
   cl::ParseCommandLineOptions(argc, argv, "LLVM profile data merger\n");
 
@@ -1327,7 +1346,9 @@ static int merge_main(int argc, const char *argv[]) {
 
   if (ProfileKind == instr)
     mergeInstrProfile(WeightedInputs, DebugInfoFilename, Remapper.get(),
-                      OutputFilename, OutputFormat, OutputSparse, NumThreads,
+                      OutputFilename, OutputFormat,
+                      TemporalProfTraceReservoirSize,
+                      TemporalProfMaxTraceLength, OutputSparse, NumThreads,
                       FailureMode, ProfiledBinary);
   else
     mergeSampleProfile(WeightedInputs, Remapper.get(), OutputFilename,
@@ -2407,16 +2428,14 @@ static void showValueSitesStats(raw_fd_ostream &OS, uint32_t VK,
   }
 }
 
-static int showInstrProfile(const std::string &Filename, bool ShowCounts,
-                            uint32_t TopN, bool ShowIndirectCallTargets,
-                            bool ShowMemOPSizes, bool ShowDetailedSummary,
-                            std::vector<uint32_t> DetailedSummaryCutoffs,
-                            bool ShowAllFunctions, bool ShowCS,
-                            uint64_t ValueCutoff, bool OnlyListBelow,
-                            const std::string &ShowFunction, bool TextFormat,
-                            bool ShowBinaryIds, bool ShowCovered,
-                            bool ShowProfileVersion, ShowFormat SFormat,
-                            raw_fd_ostream &OS) {
+static int showInstrProfile(
+    const std::string &Filename, bool ShowCounts, uint32_t TopN,
+    bool ShowIndirectCallTargets, bool ShowMemOPSizes, bool ShowDetailedSummary,
+    std::vector<uint32_t> DetailedSummaryCutoffs, bool ShowAllFunctions,
+    bool ShowCS, uint64_t ValueCutoff, bool OnlyListBelow,
+    const std::string &ShowFunction, bool TextFormat, bool ShowBinaryIds,
+    bool ShowCovered, bool ShowProfileVersion, bool ShowTemporalProfTraces,
+    ShowFormat SFormat, raw_fd_ostream &OS) {
   if (SFormat == ShowFormat::Json)
     exitWithError("JSON output is not supported for instr profiles");
   if (SFormat == ShowFormat::Yaml)
@@ -2633,6 +2652,19 @@ static int showInstrProfile(const std::string &Filename, bool ShowCounts,
 
   if (ShowProfileVersion)
     OS << "Profile version: " << Reader->getVersion() << "\n";
+
+  if (ShowTemporalProfTraces) {
+    auto &Traces = Reader->getTemporalProfTraces();
+    OS << "Temporal Profile Traces (samples=" << Traces.size()
+       << " seen=" << Reader->getTemporalProfTraceStreamSize() << "):\n";
+    for (unsigned i = 0; i < Traces.size(); i++) {
+      OS << "  Temporal Profile Trace " << i << " (weight=" << Traces[i].Weight
+         << " count=" << Traces[i].FunctionNameRefs.size() << "):\n";
+      for (auto &NameRef : Traces[i].FunctionNameRefs)
+        OS << "    " << Reader->getSymtab().getFuncName(NameRef) << "\n";
+    }
+  }
+
   return 0;
 }
 
@@ -2968,6 +3000,9 @@ static int show_main(int argc, const char *argv[]) {
                "extbinary format"));
   cl::opt<bool> ShowBinaryIds("binary-ids", cl::init(false),
                               cl::desc("Show binary ids in the profile. "));
+  cl::opt<bool> ShowTemporalProfTraces(
+      "temporal-profile-traces",
+      cl::desc("Show temporal profile traces in the profile."));
   cl::opt<std::string> DebugInfoFilename(
       "debug-info", cl::init(""),
       cl::desc("Read and extract profile metadata from debug info and show "
@@ -3012,8 +3047,8 @@ static int show_main(int argc, const char *argv[]) {
         Filename, ShowCounts, TopNFunctions, ShowIndirectCallTargets,
         ShowMemOPSizes, ShowDetailedSummary, DetailedSummaryCutoffs,
         ShowAllFunctions, ShowCS, ValueCutoff, OnlyListBelow, ShowFunction,
-        TextFormat, ShowBinaryIds, ShowCovered, ShowProfileVersion, SFormat,
-        OS);
+        TextFormat, ShowBinaryIds, ShowCovered, ShowProfileVersion,
+        ShowTemporalProfTraces, SFormat, OS);
   if (ProfileKind == sample)
     return showSampleProfile(Filename, ShowCounts, TopNFunctions,
                              ShowAllFunctions, ShowDetailedSummary,

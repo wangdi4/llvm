@@ -17,8 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN:     | FileCheck %s
 
 ; Basic orientation checks.
-; CHECK: Running pass: Annotation2MetadataPass
-; CHECK-NEXT: Running pass: CrossDSOCFIPass
+; CHECK: Running pass: CrossDSOCFIPass
 ; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis

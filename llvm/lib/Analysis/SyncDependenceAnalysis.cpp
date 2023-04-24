@@ -134,6 +134,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
+
 #include "llvm/Analysis/SyncDependenceAnalysis.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -546,3 +548,5 @@ template class SyncDependenceAnalysisImpl<llvm::BasicBlock>;
 #endif
 #endif // INTEL_CUSTOMIZATION
 } // namespace llvm
+
+#endif // INTEL_CUSTOMIZATION

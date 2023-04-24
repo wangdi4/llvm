@@ -44,11 +44,6 @@ void initializeTransformUtils(PassRegistry&);
 /// Initialize all passes linked into the ScalarOpts library.
 void initializeScalarOpts(PassRegistry&);
 
-#if INTEL_CUSTOMIZATION
-/// Initialize all passes linked into the ObjCARCOpts library.
-void initializeObjCARCOpts(PassRegistry&);
-#endif // INTEL_CUSTOMIZATION
-
 /// Initialize all passes linked into the Vectorize library.
 void initializeVectorization(PassRegistry&);
 
@@ -95,8 +90,7 @@ void initializeAAEvalLegacyPassPass(PassRegistry&);
 void initializeAAResultsWrapperPassPass(PassRegistry&);
 void initializeADCELegacyPassPass(PassRegistry&);
 void initializeAddDiscriminatorsLegacyPassPass(PassRegistry&);
-void initializeAlignmentFromAssumptionsPass(PassRegistry&);
-void initializeAlwaysInlinerLegacyPassPass(PassRegistry &);
+void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAssignmentTrackingAnalysisPass(PassRegistry &);
 void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
 void initializeAssumeBuilderPassLegacyPassPass(PassRegistry &);
@@ -107,7 +101,6 @@ void initializeAssumptionCacheTrackerPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
 void initializeBasicBlockSectionsProfileReaderPass(PassRegistry &);
 void initializeBasicBlockSectionsPass(PassRegistry &);
-void initializeBDCELegacyPassPass(PassRegistry&);
 void initializeBarrierNoopPass(PassRegistry&);
 void initializeBasicAAWrapperPassPass(PassRegistry&);
 void initializeBlockFrequencyInfoWrapperPassPass(PassRegistry&);
@@ -156,7 +149,9 @@ void initializeDeadArrayOpsEliminationLegacyPassPass(PassRegistry&);
 void initializeDeadMachineInstructionElimPass(PassRegistry&);
 void initializeDebugifyMachineModulePass(PassRegistry &);
 void initializeDelinearizationPass(PassRegistry&);
+#if INTEL_CUSTOMIZATION
 void initializeDemandedBitsWrapperPassPass(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
 void initializeDependenceAnalysisWrapperPassPass(PassRegistry&);
 void initializeDopeVectorConstPropLegacyPassPass(PassRegistry&);   // INTEL
 void initializeDetectDeadLanesPass(PassRegistry&);
@@ -209,7 +204,6 @@ void initializeGuardWideningLegacyPassPass(PassRegistry&);
 void initializeHardwareLoopsLegacyPass(PassRegistry&);
 void initializeMIRProfileLoaderPassPass(PassRegistry &);
 void initializeIPSCCPLegacyPassPass(PassRegistry&);
-void initializeIRCELegacyPassPass(PassRegistry&);
 void initializeIRSimilarityIdentifierWrapperPassPass(PassRegistry&);
 void initializeIRTranslatorPass(PassRegistry&);
 void initializeIVUsersWrapperPassPass(PassRegistry&);
@@ -251,7 +245,6 @@ void initializeLazyBranchProbabilityInfoPassPass(PassRegistry&);
 void initializeLazyMachineBlockFrequencyInfoPassPass(PassRegistry&);
 void initializeLazyValueInfoPrinterPass(PassRegistry&);
 void initializeLazyValueInfoWrapperPassPass(PassRegistry&);
-void initializeLegacyDivergenceAnalysisPass(PassRegistry&);
 void initializeLegacyLICMPassPass(PassRegistry&);
 void initializeLegacyLoopSinkPassPass(PassRegistry&);
 void initializeLegalizerPass(PassRegistry&);

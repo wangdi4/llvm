@@ -114,8 +114,6 @@ namespace {
         return;
 
       (void) llvm::createAAEvalPass();
-      (void)llvm::createBitTrackingDCEPass();
-      (void) llvm::createAlignmentFromAssumptionsPass();
 #if INTEL_CUSTOMIZATION
       (void) llvm::createNonLTOGlobalOptimizerPass();
       (void) llvm::createTbaaMDPropagationLegacyPass();
@@ -157,12 +155,10 @@ namespace {
       (void) llvm::createGlobalsAAWrapperPass();
       (void) llvm::createGuardWideningPass();
       (void) llvm::createLoopGuardWideningPass();
-      (void) llvm::createInductiveRangeCheckEliminationPass();
       (void) llvm::createInstSimplifyLegacyPass();
       (void) llvm::createInstructionCombiningPass();
       (void) llvm::createJMCInstrumenterPass();
       (void) llvm::createLCSSAPass();
-      (void) llvm::createLegacyDivergenceAnalysisPass();
       (void) llvm::createLICMPass();
       (void) llvm::createLoopSinkPass();
       (void) llvm::createLazyValueInfoPass();

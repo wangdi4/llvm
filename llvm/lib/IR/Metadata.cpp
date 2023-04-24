@@ -212,9 +212,9 @@ SmallVector<Metadata *> ReplaceableMetadataImpl::getAllArgListUsers() {
   SmallVector<std::pair<OwnerTy, uint64_t> *> MDUsersWithID;
   for (auto Pair : UseMap) {
     OwnerTy Owner = Pair.second.first;
-    if (!Owner.is<Metadata *>())
+    if (!isa<Metadata *>(Owner))
       continue;
-    Metadata *OwnerMD = Owner.get<Metadata *>();
+    Metadata *OwnerMD = cast<Metadata *>(Owner);
     if (OwnerMD->getMetadataID() == Metadata::DIArgListKind)
       MDUsersWithID.push_back(&UseMap[Pair.first]);
   }
@@ -223,7 +223,7 @@ SmallVector<Metadata *> ReplaceableMetadataImpl::getAllArgListUsers() {
   });
   SmallVector<Metadata *> MDUsers;
   for (auto *UserWithID : MDUsersWithID)
-    MDUsers.push_back(UserWithID->first.get<Metadata *>());
+    MDUsers.push_back(cast<Metadata *>(UserWithID->first));
   return MDUsers;
 }
 
@@ -280,9 +280,9 @@ void ReplaceableMetadataImpl::SalvageDebugInfo(const Constant &C) {
     MetadataTracking::OwnerTy Owner = Pair.second.first;
     if (!Owner)
       continue;
-    if (!Owner.is<Metadata *>())
+    if (!isa<Metadata *>(Owner))
       continue;
-    auto *OwnerMD = dyn_cast<MDNode>(Owner.get<Metadata *>());
+    auto *OwnerMD = dyn_cast_if_present<MDNode>(cast<Metadata *>(Owner));
     if (!OwnerMD)
       continue;
     if (isa<DINode>(OwnerMD)) {
@@ -318,13 +318,13 @@ void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
     }
 
     // Check for MetadataAsValue.
-    if (Owner.is<MetadataAsValue *>()) {
-      Owner.get<MetadataAsValue *>()->handleChangedMetadata(MD);
+    if (isa<MetadataAsValue *>(Owner)) {
+      cast<MetadataAsValue *>(Owner)->handleChangedMetadata(MD);
       continue;
     }
 
     // There's a Metadata owner -- dispatch.
-    Metadata *OwnerMD = Owner.get<Metadata *>();
+    Metadata *OwnerMD = cast<Metadata *>(Owner);
     switch (OwnerMD->getMetadataID()) {
 #define HANDLE_METADATA_LEAF(CLASS)                                            \
   case Metadata::CLASS##Kind:                                                  \
@@ -358,11 +358,11 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
     auto Owner = Pair.second.first;
     if (!Owner)
       continue;
-    if (Owner.is<MetadataAsValue *>())
+    if (isa<MetadataAsValue *>(Owner))
       continue;
 
     // Resolve MDNodes that point at this.
-    auto *OwnerMD = dyn_cast<MDNode>(Owner.get<Metadata *>());
+    auto *OwnerMD = dyn_cast_if_present<MDNode>(cast<Metadata *>(Owner));
     if (!OwnerMD)
       continue;
     if (OwnerMD->isResolved())
