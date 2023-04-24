@@ -96,7 +96,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP1]], align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = add nsw <4 x i32> [[WIDE_LOAD0]], [[VEC_PHI60]]
+; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i32> [[WIDE_LOAD0]], [[VEC_PHI60]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw i64 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], [[N_VEC40]]
@@ -106,7 +106,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    [[SCALAR_GEP80:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP4]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP80]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD90:%.*]] = load <4 x i32>, <4 x i32>* [[TMP6]], align 4
-; CHECK-NEXT:    [[TMP7:%.*]] = add nsw <4 x i32> [[WIDE_LOAD90]], [[TMP2]]
+; CHECK-NEXT:    [[TMP7:%.*]] = add <4 x i32> [[WIDE_LOAD90]], [[TMP2]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = add nuw nsw <4 x i64> [[TMP3]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP9:%.*]] = add nuw nsw i64 [[TMP4]], 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp uge i64 [[TMP9]], [[N_VEC40]]
@@ -116,7 +116,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    [[SCALAR_GEP110:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP9]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = bitcast i32* [[SCALAR_GEP110]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD120:%.*]] = load <4 x i32>, <4 x i32>* [[TMP11]], align 4
-; CHECK-NEXT:    [[TMP12]] = add nsw <4 x i32> [[WIDE_LOAD120]], [[TMP7]]
+; CHECK-NEXT:    [[TMP12]] = add <4 x i32> [[WIDE_LOAD120]], [[TMP7]]
 ; CHECK-NEXT:    [[TMP13]] = add nuw nsw <4 x i64> [[TMP8]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP14]] = add nuw nsw i64 [[TMP9]], 4
 ; CHECK-NEXT:    [[TMP15:%.*]] = icmp uge i64 [[TMP14]], [[N_VEC40]]

@@ -130,6 +130,11 @@ static LoopVPlanDumpControl LoopMassagingDumpControl("loop-massaging",
 static LoopVPlanDumpControl
     VPEntityInstructionsDumpControl("vpentity-instrs",
                                     "insertion of VPEntities instructions");
+
+static LoopVPlanDumpControl
+    ClearReductionWrapFlagsDumpControl("clear-redn-wrap-flags",
+                                       "clearing wrap flags for reductions");
+
 static LoopVPlanDumpControl
     InitialTransformsDumpControl("initial-transforms",
                                  "initial VPlan transforms");
@@ -1898,7 +1903,9 @@ void LoopVectorizationPlanner::runInitialVecSpecificTransforms(
     VPlanVector *Plan) {
   // 1. Convert VPLoopEntities into explicit VPInstructions.
   emitVPEntityInstrs(Plan);
-  // 2. Emit explicit uniform vector loop IV.
+  // 2. Wrap flags are in general invalid after vectorization, clear them.
+  clearWrapFlagsForReductions(Plan);
+  // 3. Emit explicit uniform vector loop IV.
   emitVecSpecifics(Plan);
 }
 
@@ -1919,6 +1926,45 @@ void LoopVectorizationPlanner::emitVPEntityInstrs(VPlanVector *Plan) {
   }
 
   VPLAN_DUMP(VPEntityInstructionsDumpControl, Plan);
+}
+
+void LoopVectorizationPlanner::clearWrapFlagsForReductions(VPlanVector *Plan) {
+  auto *VPLI = Plan->getVPLoopInfo();
+  for (auto *OuterLp : *VPLI) {
+    auto *OuterLpPreheader = cast<VPBasicBlock>(OuterLp->getLoopPreheader());
+    for (VPInstruction &Inst : *OuterLpPreheader) {
+      auto *RedInit = dyn_cast<VPReductionInit>(&Inst);
+      if (!RedInit)
+        continue;
+
+      SmallVector<VPInstruction *, 8> Worklist;
+      SmallPtrSet<VPInstruction *, 8> Visited;
+      Worklist.push_back(RedInit);
+      Visited.insert(RedInit);
+
+      while (!Worklist.empty()) {
+        VPInstruction *Cur = Worklist.pop_back_val();
+        // Drop NSW/NUW flags for this instruction that participates in
+        // reduction.
+        if (Cur->hasNoSignedWrap() || Cur->hasNoUnsignedWrap()) {
+          Cur->setHasNoSignedWrap(false);
+          Cur->setHasNoUnsignedWrap(false);
+        }
+
+        for (auto *U : Cur->users()) {
+          if (!isa<VPInstruction>(U))
+            continue;
+
+          auto *UInst = cast<VPInstruction>(U);
+          if (OuterLp->contains(UInst->getParent()) &&
+              Visited.insert(UInst).second)
+            Worklist.push_back(UInst);
+        }
+      }
+    }
+  }
+
+  VPLAN_DUMP(ClearReductionWrapFlagsDumpControl, Plan);
 }
 
 void LoopVectorizationPlanner::exchangeExclusiveScanLoopInputScanPhases(

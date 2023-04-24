@@ -737,6 +737,9 @@ private:
   /// transform.
   void emitVPEntityInstrs(VPlanVector *Plan);
 
+  /// Clear NSW/NUW flags from reduction instructions if necessary.
+  void clearWrapFlagsForReductions(VPlanVector *Plan);
+
   /// Exchange input and scan phases for exclusive scan.
   void exchangeExclusiveScanLoopInputScanPhases(VPlanVector *Plan);
 
