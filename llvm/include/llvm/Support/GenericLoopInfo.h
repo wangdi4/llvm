@@ -671,6 +671,11 @@ public:
     TopLevelLoops.push_back(New);
   }
 
+#if INTEL_CUSTOMIZATION
+  /// Return the number of top level loops.
+  size_t size() const { return TopLevelLoops.size(); }
+#endif
+
   /// This method completely removes BB from all data structures,
   /// including all of the Loop objects it is nested in and our mapping from
   /// BasicBlocks to loops.
