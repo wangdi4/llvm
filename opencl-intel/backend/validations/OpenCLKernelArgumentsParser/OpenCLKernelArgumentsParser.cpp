@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -20,6 +20,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 using namespace Validation;
@@ -120,7 +121,7 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy) {
     case Type::PointerTyID: {
       TypeDesc SubElemDesc(TPOINTER);
       const PointerType *ptr = cast<PointerType>(structTy->getElementType(i));
-      switch (ptr->getElementType()->getTypeID()) {
+      switch (ptr->getNonOpaquePointerElementType()->getTypeID()) {
       case Type::FloatTyID: {
         SubElemDesc.SetSubTypeDesc(0, TFLOAT);
         break;
@@ -130,7 +131,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy) {
         break;
       }
       case Type::IntegerTyID: {
-        switch (ptr->getElementType()->getPrimitiveSizeInBits()) {
+        switch (
+            ptr->getNonOpaquePointerElementType()->getPrimitiveSizeInBits()) {
         case 8: {
           SubElemDesc.SetSubTypeDesc(0, TCHAR);
           break;
@@ -160,7 +162,7 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy) {
       case Type::FixedVectorTyID:
       case Type::ScalableVectorTyID: {
         const FixedVectorType *vectorTy =
-            cast<FixedVectorType>(ptr->getElementType());
+            cast<FixedVectorType>(ptr->getNonOpaquePointerElementType());
         std::size_t numOfElements = vectorTy->getNumElements();
         TypeDesc VectorSubElemDesc(TVECTOR);
         VectorSubElemDesc.SetNumberOfElements(numOfElements);
@@ -212,8 +214,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy) {
       }
 
       case Type::StructTyID: {
-        TypeDesc StructDesc =
-            forParserStruct(cast<StructType>(ptr->getElementType()));
+        TypeDesc StructDesc = forParserStruct(
+            cast<StructType>(ptr->getNonOpaquePointerElementType()));
         SubElemDesc.SetSubTypeDesc(0, StructDesc);
         break;
       }
@@ -349,21 +351,22 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy) {
 }
 
 OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(
-    const std::string &kernelName, const llvm::Module *programObject) {
+    const std::string &kernelName, const llvm::Module *M) {
   OCLKernelArgumentsList ListOfArguments;
 
   // Extract 'kernel' function from program
-  Function *m_pKernel = programObject->getFunction(kernelName);
+  Function *m_pKernel = M->getFunction(kernelName);
   if (!m_pKernel)
     return ListOfArguments;
 
   assert(m_pKernel->getCallingConv() == llvm::CallingConv::SPIR_KERNEL &&
          "Given function isn't a kernel");
 
-  Function::arg_iterator arg_it;
-  for (arg_it = m_pKernel->arg_begin(); arg_it != m_pKernel->arg_end();
-       arg_it++) {
-    switch (arg_it->getType()->getTypeID()) {
+  SYCLKernelMetadataAPI::KernelMetadataAPI KMD(m_pKernel);
+  assert(KMD.ArgBaseTypeList.hasValue() && "expect kernel_arg_type");
+
+  for (const auto &[Idx, Arg] : llvm::enumerate(m_pKernel->args())) {
+    switch (Arg.getType()->getTypeID()) {
     case Type::FloatTyID: {
       TypeDesc ElemDesc(TFLOAT);
       BufferDesc BufDesc;
@@ -382,7 +385,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(
     }
     case Type::IntegerTyID: {
       TypeDesc ElemDesc;
-      switch (arg_it->getType()->getPrimitiveSizeInBits()) {
+      switch (Arg.getType()->getPrimitiveSizeInBits()) {
       case 8: {
         ElemDesc = TypeDesc(TCHAR);
         break;
@@ -415,12 +418,11 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(
     case Type::FixedVectorTyID:
     case Type::ScalableVectorTyID: {
       std::size_t numOfElements =
-          dyn_cast<FixedVectorType>(arg_it->getType())->getNumElements();
+          dyn_cast<FixedVectorType>(Arg.getType())->getNumElements();
       TypeDesc ElemDesc(TVECTOR);
       ElemDesc.SetNumberOfElements(numOfElements);
-      switch (dyn_cast<VectorType>(arg_it->getType())
-                  ->getElementType()
-                  ->getTypeID()) {
+      switch (
+          dyn_cast<VectorType>(Arg.getType())->getElementType()->getTypeID()) {
       case Type::FloatTyID: {
         ElemDesc.SetSubTypeDesc(0, TFLOAT);
         break;
@@ -430,7 +432,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(
         break;
       }
       case Type::IntegerTyID: {
-        switch (dyn_cast<VectorType>(arg_it->getType())
+        switch (dyn_cast<VectorType>(Arg.getType())
                     ->getElementType()
                     ->getPrimitiveSizeInBits()) {
         case 8: {
@@ -473,134 +475,72 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(
     }
     case Type::PointerTyID: {
       TypeDesc ElemDesc(TPOINTER);
-      const PointerType *ptr = cast<PointerType>(arg_it->getType());
-      switch (ptr->getElementType()->getTypeID()) {
-      case Type::FloatTyID: {
-        ElemDesc.SetSubTypeDesc(0, TFLOAT);
-        break;
-      }
-      case Type::DoubleTyID: {
-        ElemDesc.SetSubTypeDesc(0, TDOUBLE);
-        break;
-      }
-      case Type::IntegerTyID: {
-        switch (ptr->getElementType()->getPrimitiveSizeInBits()) {
-        case 8: {
-          ElemDesc.SetSubTypeDesc(0, TCHAR);
-          break;
+      StringRef ArgTypeName(KMD.ArgBaseTypeList.getItem(Idx));
+      ArgTypeName = ArgTypeName.drop_back();
+      auto SetSubType = [](TypeDesc &Desc, StringRef TypeName) {
+        if (TypeName == "float") {
+          Desc.SetSubTypeDesc(0, TFLOAT);
+        } else if (TypeName == "double") {
+          Desc.SetSubTypeDesc(0, TDOUBLE);
+        } else if (TypeName.contains("char")) {
+          Desc.SetSubTypeDesc(0, TCHAR);
+        } else if (TypeName.contains("short")) {
+          Desc.SetSubTypeDesc(0, TSHORT);
+        } else if (TypeName.contains("int")) {
+          Desc.SetSubTypeDesc(0, TINT);
+        } else if (TypeName.contains("long")) {
+          Desc.SetSubTypeDesc(0, TLONG);
+        } else {
+          return false;
         }
-        case 16: {
-          ElemDesc.SetSubTypeDesc(0, TSHORT);
-          break;
-        }
-        case 32: {
-          ElemDesc.SetSubTypeDesc(0, TINT);
-          break;
-        }
-        case 64: {
-          ElemDesc.SetSubTypeDesc(0, TLONG);
-          break;
-        }
-        default: {
-          throw Exception::ParserBadTypeException(
-              "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type of "
-              "integer in pointer");
-          break;
-        }
-        }
-        break;
-      }
-
-      case Type::FixedVectorTyID:
-      case Type::ScalableVectorTyID: {
-        const FixedVectorType *vectorTy =
-            cast<FixedVectorType>(ptr->getElementType());
-        std::size_t numOfElements = vectorTy->getNumElements();
-        TypeDesc SubElemDesc(TVECTOR);
-        SubElemDesc.SetNumberOfElements(numOfElements);
-        switch (vectorTy->getElementType()->getTypeID()) {
-        case Type::FloatTyID: {
-          SubElemDesc.SetSubTypeDesc(0, TFLOAT);
-          break;
-        }
-        case Type::DoubleTyID: {
-          SubElemDesc.SetSubTypeDesc(0, TDOUBLE);
-          break;
-        }
-        case Type::IntegerTyID: {
-          switch (vectorTy->getElementType()->getPrimitiveSizeInBits()) {
-          case 8: {
-            SubElemDesc.SetSubTypeDesc(0, TCHAR);
-            break;
-          }
-          case 16: {
-            SubElemDesc.SetSubTypeDesc(0, TSHORT);
-            break;
-          }
-          case 32: {
-            SubElemDesc.SetSubTypeDesc(0, TINT);
-            break;
-          }
-          case 64: {
-            SubElemDesc.SetSubTypeDesc(0, TLONG);
-            break;
-          }
-          default: {
+        return true;
+      };
+      if (!SetSubType(ElemDesc, ArgTypeName)) {
+        constexpr StringRef ExtVector = "__attribute__((ext_vector_type(";
+        if (ArgTypeName.contains(ExtVector)) {
+          TypeDesc SubElemDesc(TVECTOR);
+          if (!SetSubType(SubElemDesc,
+                          ArgTypeName.substr(0, ArgTypeName.find(' '))))
             throw Exception::ParserBadTypeException(
                 "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type "
                 "of integer in vector in pointer");
-            break;
-          }
-          }
-          break;
-        }
-        default: {
+          ArgTypeName = ArgTypeName.drop_back(3);
+          StringRef Num = ArgTypeName.substr(ArgTypeName.find(ExtVector) +
+                                             ExtVector.size());
+          unsigned NumOfElements;
+          [[maybe_unused]] bool Fail = Num.getAsInteger(10, NumOfElements);
+          assert(!Fail && "fail to get number of elements");
+          SubElemDesc.SetNumberOfElements(NumOfElements);
+          ElemDesc.SetSubTypeDesc(0, SubElemDesc);
+        } else if (ArgTypeName.consume_front("struct ")) {
+          auto *STy = StructType::getTypeByName(
+              M->getContext(), (Twine("struct.") + ArgTypeName).str());
+          assert(STy && "struct type not found in module");
+          TypeDesc SubElemDesc = forParserStruct(STy);
+          ElemDesc.SetSubTypeDesc(0, SubElemDesc);
+        } else if (ArgTypeName.contains("*")) {
+          throw Exception::ParserBadTypeException(
+              "[OpenCLKernelArgumentsParser::KernelArgumentsParser]pointer to "
+              "pointer");
+        } else
           throw Exception::ParserBadTypeException(
               "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type in "
-              "vector in pointer");
-          break;
-        }
-        }
-        ElemDesc.SetSubTypeDesc(0, SubElemDesc);
-        break;
+              "pointer");
       }
-      case Type::StructTyID: {
-        TypeDesc SubElemDesc =
-            forParserStruct(cast<StructType>(ptr->getElementType()));
-        ElemDesc.SetSubTypeDesc(0, SubElemDesc);
-        break;
-      }
-      case Type::PointerTyID: // pointer to pointer
-      {
-        throw Exception::ParserBadTypeException(
-            "[OpenCLKernelArgumentsParser::KernelArgumentsParser]pointer to "
-            "pointer");
-        break;
-      }
-      default: {
-        throw Exception::ParserBadTypeException(
-            "[OpenCLKernelArgumentsParser::KernelArgumentsParser]bad type in "
-            "pointer");
-        break;
-      }
-      }
-
-      StructType *ST = dyn_cast<StructType>(ptr->getElementType());
-      if (ST && !ST->isLiteral()) {
-        const std::string &imgArg = ST->getName().str();
-        if (std::string::npos !=
-            imgArg.find("opencl.image")) // Image identifier was found
-        {
+      StructType *ST = dyn_cast_or_null<StructType>(Arg.getParamByValType());
+      if ((ST && !ST->isLiteral()) || ArgTypeName.startswith("opencl")) {
+        const StringRef ImgArg = ST ? ST->getName() : ArgTypeName;
+        if (ImgArg.startswith("opencl.image")) {
+          // Image identifier was found.
           // Get dimension image type
-          if (imgArg.find("opencl.image1d_t") != std::string::npos ||
-              imgArg.find("opencl.image1d_array_t") != std::string::npos ||
-              imgArg.find("opencl.image1d_buffer_t") != std::string::npos ||
-              imgArg.find("opencl.image2d_t") != std::string::npos ||
-              imgArg.find("opencl.image2d_depth_t") != std::string::npos ||
-              imgArg.find("opencl.image2d_array_t") != std::string::npos ||
-              imgArg.find("opencl.image2d_array_depth_t") !=
-                  std::string::npos ||
-              imgArg.find("opencl.image3d_t") != std::string::npos) {
+          if (ImgArg.startswith("opencl.image1d_t") ||
+              ImgArg.startswith("opencl.image1d_array_t") ||
+              ImgArg.startswith("opencl.image1d_buffer_t") ||
+              ImgArg.startswith("opencl.image2d_t") ||
+              ImgArg.startswith("opencl.image2d_depth_t") ||
+              ImgArg.startswith("opencl.image2d_array_t") ||
+              ImgArg.startswith("opencl.image2d_array_depth_t") ||
+              ImgArg.startswith("opencl.image3d_t")) {
             ImageDesc ImgDesc;
             ListOfArguments.push_back(ImgDesc);
           } else {
@@ -624,7 +564,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(
       break;
     }
     case Type::StructTyID: {
-      TypeDesc ElemDesc = forParserStruct(cast<StructType>(arg_it->getType()));
+      TypeDesc ElemDesc = forParserStruct(cast<StructType>(Arg.getType()));
       BufferDesc BufDesc;
       BufDesc.SetElementDecs(ElemDesc);
       BufDesc.SetNumOfElements(1);

@@ -137,7 +137,7 @@ static PointerType *getOrCreateOpaquePtrType(Module *M, const std::string &Name,
 #ifndef NDEBUG
 static bool isPointerToOpaqueStructType(llvm::Type *Ty) {
   if (auto PT = dyn_cast<PointerType>(Ty))
-    if (auto ST = dyn_cast<StructType>(PT->getElementType()))
+    if (auto ST = dyn_cast<StructType>(PT->getNonOpaquePointerElementType()))
       if (ST->isOpaque())
         return true;
   return false;
@@ -146,7 +146,7 @@ static bool isPointerToOpaqueStructType(llvm::Type *Ty) {
 
 static reflection::TypePrimitiveEnum getPrimitiveType(Type *T) {
   assert(isPointerToOpaqueStructType(T) && "Invalid type");
-  auto Name = T->getPointerElementType()->getStructName();
+  auto Name = T->getNonOpaquePointerElementType()->getStructName();
 #define CASE(X, Y)                                                             \
   StartsWith("opencl.image" #X, reflection::PRIMITIVE_IMAGE_##Y)
   return StringSwitch<reflection::TypePrimitiveEnum>(Name)
@@ -204,7 +204,7 @@ changeImageCall(llvm::CallInst *CI,
   auto ImgArg = CI->getArgOperand(0);
   auto ImgArgTy = ImgArg->getType();
   assert(isPointerToOpaqueStructType(ImgArgTy) && "Expect image type argument");
-  auto STName = ImgArgTy->getPointerElementType()->getStructName();
+  auto STName = ImgArgTy->getNonOpaquePointerElementType()->getStructName();
   assert(STName.startswith("opencl.image") && "Expect image type argument");
   if (STName.find("_ro_t") != std::string::npos ||
       STName.find("_wo_t") != std::string::npos ||

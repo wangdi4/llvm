@@ -22,7 +22,7 @@
 
 ; CHECK:      Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
-; CHECK-NEXT: Running pass: CoerceTypesPass
+; CHECK:      Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: InternalizeNonKernelFuncPass
 ; CHECK:      Running pass: AddFunctionAttrsPass
@@ -90,7 +90,7 @@
 ; CHECK:      Running pass: vpo::VPlanDriverPass
 
 ; CHECK:      Running pass: SYCLKernelPostVecPass
-; CHECK-NEXT: Running pass: InstCombinePass
+; CHECK:      Running pass: InstCombinePass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PromotePass
 ; CHECK:      Running pass: ADCEPass

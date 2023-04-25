@@ -185,7 +185,9 @@ static bool isSameType(Type *A, Type *B, std::string &Message) {
   auto *PtrTyA = dyn_cast<PointerType>(A);
   auto *PtrTyB = dyn_cast<PointerType>(B);
   if (PtrTyA && PtrTyB &&
-      isSameType(PtrTyA->getElementType(), PtrTyB->getElementType(), Message)) {
+      (PtrTyA->isOpaque() ||
+       isSameType(PtrTyA->getNonOpaquePointerElementType(),
+                  PtrTyB->getNonOpaquePointerElementType(), Message))) {
     if (PtrTyA->getAddressSpace() != PtrTyB->getAddressSpace()) {
       Message = "incompatible address space";
       return false;
@@ -222,7 +224,7 @@ static bool checkFuncCallArgs(const FunctionType *FuncTy,
 }
 
 // If function signature in definition and declaration in two modules differ
-// then Linker selects signature in definition and updates function
+// then Linker selects signature in definition and may update function
 // call with bitcast instruction that casts pointer on called function to
 // a function pointer with signature at definition.
 // Example:
@@ -248,20 +250,17 @@ static bool checkAndThrowIfCallFuncCast(const Module &linkedModule,
         if (const auto *CE = dyn_cast<ConstantExpr>(VI)) {
           if (CE->getOpcode() == Instruction::BitCast)
             VI = CE->getOperand(0);
-        } else if (const auto *BCI = dyn_cast<BitCastInst>(VI))
+        } else if (const auto *BCI = dyn_cast<BitCastInst>(VI)) {
           VI = BCI->getOperand(0);
-        else
-          continue;
+        }
 
         const auto *CF = dyn_cast<Function>(VI);
         if (!CF)
           continue;
 
-        const auto *RFuncTy = cast<FunctionType>(
-            cast<PointerType>(CF->getType())->getElementType());
         SmallVector<Value *, 4> params(CI->arg_begin(), CI->arg_end());
         std::string BadSigDesc;
-        if (!checkFuncCallArgs(RFuncTy, ArrayRef<Value *>(params),
+        if (!checkFuncCallArgs(CF->getFunctionType(), ArrayRef<Value *>(params),
                                BadSigDesc)) {
           funcCallsValid = false;
           funcSigErr.append(CF->getName().str())

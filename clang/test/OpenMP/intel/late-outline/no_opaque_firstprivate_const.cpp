@@ -9,7 +9,6 @@ void bar() {
   // CHECK: [[FP:%.+]] = alloca %struct.A
   // CHECK: "DIR.OMP.TARGET"
   // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(%struct.A* %foobar)
-  // CHECK-SAME: "QUAL.OMP.MAP.TO"(%struct.A* [[FP]]
   #pragma omp target firstprivate(foobar)
   {
      int j = foobar.i[0];

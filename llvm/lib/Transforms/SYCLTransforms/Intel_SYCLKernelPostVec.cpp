@@ -1,6 +1,6 @@
 //===- Intel_SYCLKernelPostVec.cpp - Post vectorization pass ----*- C++-*-===//
 //
-// Copyright (C) 2020-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -14,23 +14,29 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/SYCLTransforms/Intel_SYCLKernelPostVec.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 
 #define DEBUG_TYPE "sycl-kernel-postvec"
 
 using namespace llvm;
 using namespace SYCLKernelMetadataAPI;
 
-// Checks if the kernel has openmp directives. If not, then the kernel was
-// vectorized.
-static bool isKernelVectorized(Function *Clone) {
+// Cloned kernel isn't vectorized if it has openmp directives or
+// llvm.loop.vectorize.enable metadata.
+static bool isKernelVectorized(LoopInfo &LI, Function *Clone) {
   for (Instruction &I : instructions(Clone))
     if (vpo::VPOAnalysisUtils::isOpenMPDirective(&I))
       return false;
-  return true;
+
+  return llvm::none_of(LI, [](Loop *L) {
+    // The check is similar as in WarnMissedTransformationsPass.
+    return hasVectorizeTransformation(L) == TM_ForcedByUser;
+  });
 }
 
 static void removeRecommendedVLMetadata(Function *F) {
@@ -90,7 +96,9 @@ static bool rebindVectorizedKernel(Function *F) {
   return Changed;
 }
 
-bool SYCLKernelPostVecPass::runImpl(Module &M) {
+PreservedAnalyses SYCLKernelPostVecPass::run(Module &M,
+                                             ModuleAnalysisManager &MAM) {
+  auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   bool Changed = false;
   auto Kernels = CompilationUtils::getKernels(M);
   for (Function *F : Kernels) {
@@ -101,11 +109,11 @@ bool SYCLKernelPostVecPass::runImpl(Module &M) {
     removeRecommendedVLMetadata(F);
 
     // Remove not vectorized clone functions.
-    auto RemoveNotVectorizedClone = [&Changed, &F](Function *Clone,
-                                                   StringRef MDName) {
+    auto RemoveNotVectorizedClone = [&](Function *Clone, StringRef MDName) {
       if (!Clone)
         return;
-      if (isKernelVectorized(Clone)) {
+      LoopInfo &LI = FAM.getResult<LoopAnalysis>(*Clone);
+      if (isKernelVectorized(LI, Clone)) {
         removeRecommendedVLMetadata(Clone);
         return;
       }
@@ -125,5 +133,5 @@ bool SYCLKernelPostVecPass::runImpl(Module &M) {
                                FMD.VectorizedMaskedKernel.getID());
   }
 
-  return Changed;
+  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }

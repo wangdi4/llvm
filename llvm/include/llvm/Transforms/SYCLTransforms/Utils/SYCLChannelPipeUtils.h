@@ -120,14 +120,20 @@ class PipeTypesHelper {
   PointerType *PipeRWTy;
   PointerType *PipeROTy;
   PointerType *PipeWOTy;
+  Type *OpaquePipeRWTy = nullptr;
+  Type *OpaquePipeROTy = nullptr;
+  Type *OpaquePipeWOTy = nullptr;
 
   PipeTypesHelper(Type *PipeRWStorageTy, Type *PipeROStorageTy,
                   Type *PipeWOStorageTy);
 
 public:
-  PipeTypesHelper(const Module &M);
+  PipeTypesHelper(Module &M);
 
-  bool hasPipeTypes() const { return PipeRWTy || PipeROTy || PipeWOTy; }
+  bool hasPipeTypes() const {
+    return PipeRWTy || PipeROTy || PipeWOTy || OpaquePipeRWTy ||
+           OpaquePipeROTy || OpaquePipeWOTy;
+  }
 
   /// Check if Ty is read_only or write_only pipe type.
   bool isLocalPipeType(Type *Ty) const;

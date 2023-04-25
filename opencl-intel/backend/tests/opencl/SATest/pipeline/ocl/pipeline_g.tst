@@ -214,7 +214,7 @@
 ; CHECK-NEXT: Running pass: vpo::VPlanDriverPass
 
 ; CHECK:      Running pass: SYCLKernelPostVecPass
-; CHECK-NEXT: Running pass: VPODirectiveCleanupPass
+; CHECK:      Running pass: VPODirectiveCleanupPass
 ; CHECK-NEXT: Running pass: InstCombinePass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: PromotePass

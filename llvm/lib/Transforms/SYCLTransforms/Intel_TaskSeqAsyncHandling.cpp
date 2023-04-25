@@ -542,6 +542,13 @@ void Impl::generateInvokeMappers() {
   }
 }
 
+static FunctionType *findTaskFuncType(Function *F) {
+  for (User *U : F->users())
+    if (auto *CI = dyn_cast<CallInst>(U))
+      return cast<Function>(CI->getArgOperand(1))->getFunctionType();
+  return nullptr;
+}
+
 void Impl::createBlockLiteralTypes() {
   // struct Literal {
   //   unsigned Size;
@@ -552,8 +559,9 @@ void Impl::createBlockLiteralTypes() {
   // };
   for (Function *F : Asyncs) {
     LLVM_DEBUG(dbgs() << "createBlockLiteralTypes: F=" << F->getName() << "\n");
-    auto *TaskFuncType = cast<FunctionType>(
-        F->getFunctionType()->getParamType(1)->getPointerElementType());
+    // Find task func type from CallInst users of F.
+    FunctionType *TaskFuncType = findTaskFuncType(F);
+    assert(TaskFuncType && "task func type not found");
     auto *UnsignedTy = Type::getIntNTy(Ctx, sizeof(unsigned) * 8);
     auto *PtrTy = Type::getInt8PtrTy(Ctx);
     SmallVector<Type *> EltTypes;
@@ -569,8 +577,8 @@ void Impl::createBlockLiteralTypes() {
 size_t getRetTypeSizeOfTaskFunction(Function *F) {
   // The parameter F is task_sequence::__create_task_sequence, but not the
   // task function to call. The task function is the 1st argument of F.
-  auto TaskFuncType = cast<FunctionType>(
-      F->getFunctionType()->getParamType(1)->getPointerElementType());
+  FunctionType *TaskFuncType = findTaskFuncType(F);
+  assert(TaskFuncType && "task func type not found");
   auto &DL = F->getParent()->getDataLayout();
   auto RetType = TaskFuncType->getReturnType();
   if (RetType->isVoidTy())

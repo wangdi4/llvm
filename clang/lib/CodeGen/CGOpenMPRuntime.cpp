@@ -7405,6 +7405,12 @@ public:
   bool isFirstPrivateDecls(const VarDecl *VD) const {
     return FirstPrivateDecls.count(VD);
   }
+  bool isExplicitFirstPrivateDecls(const VarDecl *VD) const {
+    auto I = FirstPrivateDecls.find(VD);
+    if (I != FirstPrivateDecls.end())
+      return !I->getSecond();
+    return false;
+  }
 #endif // INTEL_COLLAB
   /// Generate the base pointers, section pointers, sizes, map type bits, and
   /// user-defined mappers (all included in \a CombinedInfo) for the provided
@@ -9916,6 +9922,10 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
               // Skip generate default map for this pointer.
               continue;
           }
+          const VarDecl *VD =
+              CI->capturesVariable() ? CI->getCapturedVar() : nullptr;
+          if (VD && MEHandler.isExplicitFirstPrivateDecls(VD))
+            continue;
 #endif // INTEL_CUSTOMIZATION
           MEHandler.generateDefaultMapInfo(*CI, **RI, *CV, CurInfo);
         }
