@@ -1,4 +1,4 @@
-; RUN: SATest -BUILD -pass-manager-type=ocl -llvm-option="-debug-pass-manager -enable-o0-vectorization" -config=%s.cfg 2>&1 | FileCheck %s
+; RUN: CL_CONFIG_CPU_O0_VECTORIZATION=1 SATest -BUILD -pass-manager-type=ocl -llvm-option="-debug-pass-manager" -config=%s.cfg 2>&1 | FileCheck %s
 
 ; CHECK: Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass

@@ -35,8 +35,6 @@ VectorizationDimensionAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   Result VDInfos;
   for (Function *F : Kernels) {
-    if (F->hasOptNone())
-      continue;
     VectorizeDimInfo VDInfo;
     if (!VDInfo.preCheckDimZero(*F)) {
       WorkItemInfo &WIInfo = FAM.getResult<WorkItemAnalysis>(*F);

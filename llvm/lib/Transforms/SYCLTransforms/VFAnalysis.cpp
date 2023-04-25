@@ -47,7 +47,14 @@ static cl::opt<bool, true> SYCLForceOptnoneOpt(
     cl::desc("Force passes to process functions as if they have the optnone "
              "attribute"));
 
-extern bool SYCLEnableVectorizationOfByvalByrefFunctions; // INTEL
+#if INTEL_CUSTOMIZATION
+// Enable vectorization at O0 optimization level.
+cl::opt<bool> SYCLEnableO0Vectorization(
+    "sycl-enable-o0-vectorization", cl::init(false), cl::Hidden,
+    cl::desc("Enable vectorization at O0 optimization level"));
+
+extern bool SYCLEnableVectorizationOfByvalByrefFunctions;
+#endif // INTEL_CUSTOMIZATION
 
 DiagnosticKind VFAnalysisDiagInfo::Kind =
     static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
@@ -121,8 +128,12 @@ unsigned VFAnalysisInfo::deduceVF(Function *Kernel, unsigned HeuristicVF) {
   KernelInternalMetadataAPI KIMD(Kernel);
   CanFallBackToDefaultVF = false;
 
-  // optnone --> disable vectorization
-  if (Kernel->hasOptNone() || SYCLForceOptnone) {
+#if INTEL_CUSTOMIZATION
+  // If O0 vectorization is NOT enabled, then we disable vectorization for
+  // optnone kernels.
+  if (!SYCLEnableO0Vectorization &&
+      (Kernel->hasOptNone() || SYCLForceOptnone)) {
+#endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "Initial VF<optnone mode>: 1\n");
     return 1;
   }
