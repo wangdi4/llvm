@@ -175,10 +175,6 @@ public:
 #endif // !INTEL_PRODUCT_RELEASE
 } // end namespace dtransOP
 
-#if !INTEL_PRODUCT_RELEASE
-ModulePass *createDTransMetadataReaderTestWrapperPass();
-#endif // !INTEL_PRODUCT_RELEASE
-
 } // end namespace llvm
 
 #endif // INTEL_DTRANS_ANALYSIS_TYPEMETADATAREADER_H

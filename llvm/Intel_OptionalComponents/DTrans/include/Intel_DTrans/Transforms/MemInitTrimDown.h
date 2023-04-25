@@ -1,6 +1,6 @@
 //===--------------- MemInitTrimDown.h - DTransMemInitTrimDownPass --------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -31,14 +31,11 @@ class MemInitTrimDownPass : public PassInfoMixin<MemInitTrimDownPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
-  // This is used to share the core implementation with the legacy pass.
   bool runImpl(Module &M, DTransAnalysisInfo &Info, SOAGetTLITy GetTLI,
                WholeProgramInfo &WPInfo, SOADominatorTreeType &GetDT);
 };
 
 } // namespace dtrans
-
-ModulePass *createDTransMemInitTrimDownWrapperPass();
 
 } // namespace llvm
 

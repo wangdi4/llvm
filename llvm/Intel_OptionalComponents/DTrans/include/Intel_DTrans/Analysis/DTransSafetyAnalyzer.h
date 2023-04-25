@@ -417,8 +417,6 @@ private:
 
 } // end namespace dtransOP
 
-ModulePass *createDTransSafetyAnalyzerTestWrapperPass();
-
 } // end namespace llvm
 
 #endif // INTEL_DTRANS_ANALYSIS_DTRANSSAFETYANALYZER_H
