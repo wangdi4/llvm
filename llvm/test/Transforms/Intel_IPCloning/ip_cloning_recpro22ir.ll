@@ -4,8 +4,8 @@
 
 ; Test that the function foo is recognized as a recursive progression clone
 ; and four clones of it are created.
-; This is the same test as ip_cloning_recpro22.ll, but checks for IR without
-; requiring asserts.
+; This is the same test as ip_cloning_recpro01.ll, but checks for
+; IR without requiring asserts.
 
 ; CHECK: define dso_local i32 @main()
 ; CHECK: tail call i32 @foo.1

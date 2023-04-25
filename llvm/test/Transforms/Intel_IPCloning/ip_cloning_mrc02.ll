@@ -15,26 +15,26 @@
 ; Check that no call is made to a recursive clone of foo.
 ; CHECK-NOT: {{.*}}call @foo.1
 
-@myglobal = dso_local global i32 45, align 4
-
 %struct.MYSTRUCT = type { i32, i32 }
+
+@myglobal = dso_local global i32 45, align 4
 @cache = dso_local global %struct.MYSTRUCT zeroinitializer, align 4
 
-define dso_local i32 @goo(%struct.MYSTRUCT* %cacheptr) {
+define dso_local i32 @goo(ptr %cacheptr) {
 entry:
-  %0 = load i32, i32* @myglobal, align 4
-  %tobool = icmp ne i32 %0, 0
+  %i = load i32, ptr @myglobal, align 4
+  %tobool = icmp ne i32 %i, 0
   br i1 %tobool, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  %field2 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %cacheptr, i32 0, i32 1
-  %1 = load i32, i32* %field2, align 4
-  %call = call i32 @foo(i32 1, i32 1, i32 %1)
+  %field2 = getelementptr inbounds %struct.MYSTRUCT, ptr %cacheptr, i32 0, i32 1
+  %i1 = load i32, ptr %field2, align 4
+  %call = call i32 @foo(i32 1, i32 1, i32 %i1)
   br label %return
 
 if.end:                                           ; preds = %entry
-  %2 = load i32, i32* @myglobal, align 4
-  %call1 = call i32 @foo(i32 0, i32 %2, i32 0)
+  %i2 = load i32, ptr @myglobal, align 4
+  %call1 = call i32 @foo(i32 0, i32 %i2, i32 0)
   br label %return
 
 return:                                           ; preds = %if.end, %if.then
@@ -74,10 +74,9 @@ return:                                           ; preds = %sw.bb, %sw.default,
   ret i32 %call4
 }
 
-define dso_local i32 @main() #0 {
+define dso_local i32 @main() {
 entry:
-  %call = call i32 @goo(%struct.MYSTRUCT* @cache)
+  %call = call i32 @goo(ptr @cache)
   ret i32 %call
 }
-
 ; end INTEL_FEATURE_SW_ADVANCED

@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -opaque-pointers=0 < %s -passes='module(ip-cloning)' -force-ip-manyreccalls-splitting -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -force-ip-manyreccalls-splitting -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; Revision of splitter01.ll after 20220613 pulldown
 
@@ -21,17 +21,17 @@
 ; CHECK: MRCS: START ANALYSIS: GetVirtualPixelsFromNexus
 ; CHECK: MRCS: Can split blocks: Visited: 44 NonVisted: 57
 ; CHECK: MRCS: Begin 7 split insts
-; CHECK-DAG: MRCS:   %9 = alloca i16, align 2
-; CHECK-DAG: MRCS:   %10 = alloca %struct._PixelPacket, align 2
-; CHECK-DAG: MRCS:   %15 = load %struct._CacheInfo*, %struct._CacheInfo** %14, align 8
-; CHECK-DAG: MRCS:   %180 = phi i16* [ %141, %167 ], [ %175, %174 ]
-; CHECK-DAG: MRCS:   %184 = phi %struct._PixelPacket* [ %132, %167 ], [ %68, %174 ]
-; CHECK-DAG: MRCS:   %185 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 6
-; CHECK-DAG: MRCS:   %186 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 7
+; CHECK-DAG: MRCS:   %i = alloca i16, align 2
+; CHECK-DAG: MRCS:   %i8 = alloca %struct._PixelPacket, align 2
+; CHECK-DAG: MRCS:   %i13 = load ptr, ptr %i11, align 8
+; CHECK-DAG: MRCS:   %i178 = phi ptr [ %i139, %bb165 ], [ %i173, %bb172 ]
+; CHECK-DAG: MRCS:   %i182 = phi ptr [ %i130, %bb165 ], [ %i66, %bb172 ]
+; CHECK-DAG: MRCS:   %i183 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 6
+; CHECK-DAG: MRCS:   %i184 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 7
 ; CHECK: MRCS: End split insts
 ; CHECK: MRCS: EXIT: canReloadPHI: Could not find storebacks for PHINode
 ; CHECK: MRCS: Ignore previous EXIT. Saving PHI as SplitValue
-; CHECK: MRCS: Validated split insts:   %184 = phi %struct._PixelPacket* [ %132, %167 ], [ %68, %174 ]
+; CHECK: MRCS: Validated split insts:   %i182 = phi ptr [ %i130, %bb165 ], [ %i66, %bb172 ]
 ; CHECK: MRCS: Can split GetVirtualPixelsFromNexus
 ; CHECK: MRCS: Split GetVirtualPixelsFromNexus into GetVirtualPixelsFromNexus.1 and GetVirtualPixelsFromNexus.2
 
@@ -61,20 +61,36 @@
 ; CHECK: define{{.*}}@MeanShiftImage
 ; CHECK: call {{.*}} @GetOneCacheViewVirtualPixel{{.*}} #[[A0:[0-9]+]]
 ; CHECK: define{{.*}}@GetOneCacheViewVirtualPixel
-; CHECK: store i32 0, i32* [[R0:%[0-9]+]], align 4
+; CHECK: store i32 0, ptr [[R0:%[0-9]+]], align 4
 ; CHECK: [[R1:%[0-9]+]] = call{{.*}}@GetVirtualPixelsFromNexus.1({{.*}} [[R0]]) #[[A0]]
 ; CHECK: call{{.*}}@GetVirtualPixelsFromNexus.2({{.*}} [[R1]])
-; CHECK: define internal %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef %1, i64 noundef %2, i64 noundef %3, i64 noundef %4, i64 noundef %5, %struct._NexusInfo* noundef %6, %struct._ExceptionInfo* noundef %7)
-; CHECK: define internal %struct._PixelPacket* @GetVirtualPixelsFromNexus.1(%struct._Image* noundef %0, i32 noundef %1, i64 noundef %2, i64 noundef %3, i64 noundef %4, i64 noundef %5, %struct._NexusInfo* noundef %6, %struct._ExceptionInfo* noundef %7, i32* %8) #[[A1:[0-9]+]]
-; CHECK: define internal %struct._PixelPacket* @GetVirtualPixelsFromNexus.2(%struct._Image* noundef %0, i32 noundef %1, i64 noundef %2, i64 noundef %3, i64 noundef %4, i64 noundef %5, %struct._NexusInfo* noundef %6, %struct._ExceptionInfo* noundef %7, %struct._PixelPacket* %8) #[[A1]]
-; CHECK: store i32 0, i32* [[R2:%[0-9]+]], align 4
+; CHECK: define internal ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef %arg1, i64 noundef %arg2, i64 noundef %arg3, i64 noundef %arg4, i64 noundef %arg5, ptr noundef %arg6, ptr noundef %arg7)
+; CHECK: define internal ptr @GetVirtualPixelsFromNexus.1(ptr noundef %0, i32 noundef %1, i64 noundef %2, i64 noundef %3, i64 noundef %4, i64 noundef %5, ptr noundef %6, ptr noundef %7, ptr %8) #[[A1:[0-9]+]]
+; CHECK: define internal ptr @GetVirtualPixelsFromNexus.2(ptr noundef %0, i32 noundef %1, i64 noundef %2, i64 noundef %3, i64 noundef %4, i64 noundef %5, ptr noundef %6, ptr noundef %7, ptr %8) #[[A1]]
+; CHECK: store i32 0, ptr [[R2:%[0-9]+]], align 4
 ; CHECK: [[R3:%[0-9]+]] = call{{.*}}@GetVirtualPixelsFromNexus.1({{.*}} [[R2]])
 ; CHECK: call{{.*}}@GetVirtualPixelsFromNexus.2({{.*}} [[R3]])
-; CHECK: store i32 0, i32* [[R4:%[0-9]+]], align 4
+; CHECK: store i32 0, ptr [[R4:%[0-9]+]], align 4
 ; CHECK: [[R5:%[0-9]+]] = call{{.*}}@GetVirtualPixelsFromNexus.1({{.*}} [[R4]])
 ; CHECK: call{{.*}}@GetVirtualPixelsFromNexus.2({{.*}} [[R5]])
 ; CHECK: attributes #[[A1]] = { "ip-clone-split-function" }
 ; CHECK: attributes #[[A0]] = { "prefer-inline-mrc-split" }
+
+%struct._MagickPixelPacket = type { i32, i32, i32, double, i64, float, float, float, float, float }
+%struct._PixelPacket = type { i16, i16, i16, i16 }
+%struct._Image = type { i32, i32, i32, i64, i32, i32, i32, i64, i64, i64, i64, ptr, %struct._PixelPacket, %struct._PixelPacket, %struct._PixelPacket, double, %struct._ChromaticityInfo, i32, ptr, i32, ptr, ptr, ptr, i64, double, double, %struct._RectangleInfo, %struct._RectangleInfo, %struct._RectangleInfo, double, double, double, i32, i32, i32, i32, i32, i32, ptr, i64, i64, i64, i64, i64, i64, %struct._ErrorInfo, %struct._TimerInfo, ptr, ptr, ptr, ptr, ptr, ptr, [4096 x i8], [4096 x i8], [4096 x i8], i64, i64, %struct._ExceptionInfo, i32, i64, ptr, %struct._ProfileInfo, %struct._ProfileInfo, ptr, i64, i64, ptr, ptr, ptr, i32, i32, %struct._PixelPacket, ptr, %struct._RectangleInfo, ptr, ptr, i32, i32, i64, i32, i64, i64, i32, i64 }
+%struct._ChromaticityInfo = type { %struct._PrimaryInfo, %struct._PrimaryInfo, %struct._PrimaryInfo, %struct._PrimaryInfo }
+%struct._PrimaryInfo = type { double, double, double }
+%struct._ErrorInfo = type { double, double, double }
+%struct._TimerInfo = type { %struct._Timer, %struct._Timer, i32, i64 }
+%struct._Timer = type { double, double, double }
+%struct._ExceptionInfo = type { i32, i32, ptr, ptr, ptr, i32, ptr, i64 }
+%struct._ProfileInfo = type { ptr, i64, ptr, i64 }
+%struct._RectangleInfo = type { i64, i64, i64, i64 }
+%struct._CacheView = type { ptr, i32, i64, ptr, i32, i64 }
+%struct._CacheInfo = type { i32, i32, i64, i32, i32, i32, i64, i64, i64, i64, i32, %struct._MagickPixelPacket, i64, ptr, ptr, ptr, i32, i32, [4096 x i8], [4096 x i8], %struct._CacheMethods, ptr, i64, ptr, i32, i32, i32, i64, ptr, ptr, i64, i64 }
+%struct._CacheMethods = type { ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr }
+%struct._NexusInfo = type { i32, %struct._RectangleInfo, i64, ptr, ptr, i32, ptr, i64 }
 
 @.str.129 = private unnamed_addr constant [15 x i8] c"magick/cache.c\00", align 1
 @.str.1.130 = private unnamed_addr constant [1 x i8] zeroinitializer, align 1
@@ -83,1421 +99,1410 @@
 @.str.7.170 = private unnamed_addr constant [22 x i8] c"UnableToGetCacheNexus\00", align 1
 @.str.17.1479 = private unnamed_addr constant [16 x i8] c"MeanShift/Image\00", align 1
 @.str.18.1467 = private unnamed_addr constant [6 x i8] c"%s/%s\00", align 1
-
 @DitherMatrix = internal unnamed_addr constant [64 x i64] [i64 0, i64 48, i64 12, i64 60, i64 3, i64 51, i64 15, i64 63, i64 32, i64 16, i64 44, i64 28, i64 35, i64 19, i64 47, i64 31, i64 8, i64 56, i64 4, i64 52, i64 11, i64 59, i64 7, i64 55, i64 40, i64 24, i64 36, i64 20, i64 43, i64 27, i64 39, i64 23, i64 2, i64 50, i64 14, i64 62, i64 1, i64 49, i64 13, i64 61, i64 34, i64 18, i64 46, i64 30, i64 33, i64 17, i64 45, i64 29, i64 10, i64 58, i64 6, i64 54, i64 9, i64 57, i64 5, i64 53, i64 42, i64 26, i64 38, i64 22, i64 41, i64 25, i64 37, i64 21], align 16
 
-%struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }
-%struct.timespec = type { i64, i64 }
-%struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
-%struct.stat = type { i64, i64, i64, i32, i32, i32, i32, i64, i64, i64, i64, %struct.timespec, %struct.timespec, %struct.timespec, [3 x i64] }
-%union.FileInfo = type { %struct._IO_FILE* }
-%struct._Timer = type { double, double, double }
-%struct._PrimaryInfo = type { double, double, double }
-%struct._ProfileInfo = type { i8*, i64, i8*, i64 }
-%struct.SemaphoreInfo = type { i64, i32, i64, i64 }
-%struct._ExceptionInfo = type { i32, i32, i8*, i8*, i8*, i32, %struct.SemaphoreInfo*, i64 }
-%struct._BlobInfo = type { i64, i64, i64, i32, i32, i64, i64, i32, i32, i32, i32, i32, %union.FileInfo, %struct.stat, i64 (%struct._Image*, i8*, i64)*, i8*, i32, %struct.SemaphoreInfo*, i64, i64 }
-%struct._Ascii85Info = type { i64, i64, [10 x i8] }
-%struct._TimerInfo = type { %struct._Timer, %struct._Timer, i32, i64 }
-%struct._ErrorInfo = type { double, double, double }
-%struct._RectangleInfo = type { i64, i64, i64, i64 }
-%struct._ChromaticityInfo = type { %struct._PrimaryInfo, %struct._PrimaryInfo, %struct._PrimaryInfo, %struct._PrimaryInfo }
-%struct._PixelPacket = type { i16, i16, i16, i16 }
-%struct._Image = type { i32, i32, i32, i64, i32, i32, i32, i64, i64, i64, i64, %struct._PixelPacket*, %struct._PixelPacket, %struct._PixelPacket, %struct._PixelPacket, double, %struct._ChromaticityInfo, i32, i8*, i32, i8*, i8*, i8*, i64, double, double, %struct._RectangleInfo, %struct._RectangleInfo, %struct._RectangleInfo, double, double, double, i32, i32, i32, i32, i32, i32, %struct._Image*, i64, i64, i64, i64, i64, i64, %struct._ErrorInfo, %struct._TimerInfo, i32 (i8*, i64, i64, i8*)*, i8*, i8*, i8*, %struct._Ascii85Info*, %struct._BlobInfo*, [4096 x i8], [4096 x i8], [4096 x i8], i64, i64, %struct._ExceptionInfo, i32, i64, %struct.SemaphoreInfo*, %struct._ProfileInfo, %struct._ProfileInfo, %struct._ProfileInfo*, i64, i64, %struct._Image*, %struct._Image*, %struct._Image*, i32, i32, %struct._PixelPacket, %struct._Image*, %struct._RectangleInfo, i8*, i8*, i32, i32, i64, i32, i64, i64, i32, i64 }
-%struct._NexusInfo = type { i32, %struct._RectangleInfo, i64, %struct._PixelPacket*, %struct._PixelPacket*, i32, i16*, i64 }
+declare ptr @AcquireAlignedMemory(i64, i64)
 
-%struct._StringInfo = type { [4096 x i8], i8*, i64, i64 }
-%struct._SignatureInfo.948 = type { i32, i32, %struct._StringInfo*, %struct._StringInfo*, i32*, i32, i32, i64, i32, i64, i64 }
-%struct._RandomInfo = type { %struct._SignatureInfo.948*, %struct._StringInfo*, %struct._StringInfo*, i64, [4 x i64], double, i64, i16, i16, %struct.SemaphoreInfo*, i64, i64 }
-%struct._CacheMethods = type { %struct._PixelPacket* (%struct._Image*, i32, i64, i64, i64, i64, %struct._ExceptionInfo*)*, %struct._PixelPacket* (%struct._Image*)*, i16* (%struct._Image*)*, i32 (%struct._Image*, i32, i64, i64, %struct._PixelPacket*, %struct._ExceptionInfo*)*, %struct._PixelPacket* (%struct._Image*, i64, i64, i64, i64, %struct._ExceptionInfo*)*, i16* (%struct._Image*)*, i32 (%struct._Image*, i64, i64, %struct._PixelPacket*, %struct._ExceptionInfo*)*, %struct._PixelPacket* (%struct._Image*)*, %struct._PixelPacket* (%struct._Image*, i64, i64, i64, i64, %struct._ExceptionInfo*)*, i32 (%struct._Image*, %struct._ExceptionInfo*)*, void (%struct._Image*)* }
-%struct._MagickPixelPacket = type { i32, i32, i32, double, i64, float, float, float, float, float }
-%struct._CacheInfo = type { i32, i32, i64, i32, i32, i32, i64, i64, i64, i64, i32, %struct._MagickPixelPacket, i64, %struct._NexusInfo**, %struct._PixelPacket*, i16*, i32, i32, [4096 x i8], [4096 x i8], %struct._CacheMethods, %struct._RandomInfo*, i64, i8*, i32, i32, i32, i64, %struct.SemaphoreInfo*, %struct.SemaphoreInfo*, i64, i64 }
-%struct._CacheView = type { %struct._Image*, i32, i64, %struct._NexusInfo**, i32, i64 }
+declare i32 @ThrowMagickException(ptr nocapture, ptr, ptr, i64, i32, ptr, ptr nocapture readonly, ...)
 
-declare void @llvm.lifetime.start.p0i8(i64 immarg %0, i8* nocapture %1)
-declare i8* @AcquireAlignedMemory(i64 %0, i64 %1)
-declare i32 @ThrowMagickException(%struct._ExceptionInfo* nocapture %0, i8* %1, i8* %2, i64 %3, i32 %4, i8* %5, i8* nocapture readonly %6, ...)
-declare noalias i8* @RelinquishAlignedMemory(i8* readonly %0)
-declare fastcc i32 @ReadPixelCachePixels(%struct._CacheInfo* noalias %0, %struct._NexusInfo* noalias nocapture readonly %1, %struct._ExceptionInfo* %2)
-declare fastcc i32 @ReadPixelCacheIndexes(%struct._CacheInfo* noalias %0, %struct._NexusInfo* noalias nocapture readonly %1, %struct._ExceptionInfo* %2)
-declare %struct._NexusInfo** @AcquirePixelCacheNexus(i64 %0)
-declare %struct._RandomInfo* @AcquireRandomInfo()
-declare double @GetPseudoRandomValue(%struct._RandomInfo* nocapture %0)
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly %0, i8* noalias nocapture readonly %1, i64 %2, i1 immarg %3)
-declare void @llvm.lifetime.end.p0i8(i64 immarg %0, i8* nocapture %1) #2
-declare noalias i8* @RelinquishMagickMemory(i8* %0)
-declare %struct._Image* @CloneImage(%struct._Image* %0, i64 %1, i64 %2, i32 %3, %struct._ExceptionInfo* %4)
-declare i32 @SetImageStorageClass(%struct._Image* %0, i32 %1)
-declare void @InheritException(%struct._ExceptionInfo* nocapture %0, %struct._ExceptionInfo* nocapture readonly %1)
-declare %struct._CacheView* @AcquireVirtualCacheView(%struct._Image* %0, %struct._ExceptionInfo* nocapture readnone %1)
-declare %struct._CacheView* @AcquireAuthenticCacheView(%struct._Image* %0, %struct._ExceptionInfo* %1)
-declare %struct._PixelPacket* @GetCacheViewVirtualPixels(%struct._CacheView* nocapture readonly %0, i64 %1, i64 %2, i64 %3, i64 %4, %struct._ExceptionInfo* %5)
-declare %struct._PixelPacket* @GetCacheViewAuthenticPixels(%struct._CacheView* nocapture readonly %0, i64 %1, i64 %2, i64 %3, i64 %4, %struct._ExceptionInfo* %5)
-declare i16* @GetCacheViewVirtualIndexQueue(%struct._CacheView* nocapture readonly %0)
-declare void @GetMagickPixelPacket(%struct._Image* readonly %0, %struct._MagickPixelPacket* nocapture %1)
-declare double @llvm.rint.f64(double %0)
-declare i32 @SyncCacheViewAuthenticPixels(%struct._CacheView* noalias nocapture readonly %0, %struct._ExceptionInfo* %1)
-declare i64 @FormatLocaleString(i8* noalias nocapture %0, i64 %1, i8* noalias nocapture readonly %2, ...)
-declare %struct._CacheView* @DestroyCacheView(%struct._CacheView* %0)
-declare %struct._Image* @DestroyImage(%struct._Image* %0)
+declare noalias ptr @RelinquishAlignedMemory(ptr readonly)
 
-define internal %struct._Image* @MeanShiftImage(%struct._Image* %0, i64 %1, i64 %2, double %3, %struct._ExceptionInfo* %4) #0 {
-  %6 = alloca [4096 x i8], align 16
-  %7 = alloca %struct._MagickPixelPacket, align 8
-  %8 = alloca %struct._MagickPixelPacket, align 8
-  %9 = alloca %struct._PixelPacket, align 2
-  %10 = getelementptr inbounds %struct._Image, %struct._Image* %0, i64 0, i32 59
-  %11 = load i32, i32* %10, align 8
-  %12 = icmp eq i32 %11, 0
-  br i1 %12, label %16, label %13
+declare fastcc i32 @ReadPixelCachePixels(ptr noalias, ptr noalias nocapture readonly, ptr)
 
-13:                                               ; preds = %5
-  %14 = getelementptr inbounds %struct._Image, %struct._Image* %0, i64 0, i32 53
-  %15 = getelementptr inbounds [4096 x i8], [4096 x i8]* %14, i64 0, i64 0
-  br label %16
+declare fastcc i32 @ReadPixelCacheIndexes(ptr noalias, ptr noalias nocapture readonly, ptr)
 
-16:                                               ; preds = %13, %5
-  %17 = getelementptr inbounds %struct._Image, %struct._Image* %0, i64 0, i32 7
-  %18 = load i64, i64* %17, align 8
-  %19 = getelementptr inbounds %struct._Image, %struct._Image* %0, i64 0, i32 8
-  %20 = load i64, i64* %19, align 8
-  %21 = tail call %struct._Image* @CloneImage(%struct._Image* nonnull %0, i64 %18, i64 %20, i32 1, %struct._ExceptionInfo* %4) #19
-  %22 = icmp eq %struct._Image* %21, null
-  br i1 %22, label %309, label %23
+declare ptr @AcquirePixelCacheNexus(i64)
 
-23:                                               ; preds = %16
-  %24 = tail call i32 @SetImageStorageClass(%struct._Image* nonnull %21, i32 1) #19
-  %25 = icmp eq i32 %24, 0
-  br i1 %25, label %26, label %29
+declare ptr @AcquireRandomInfo()
 
-26:                                               ; preds = %23
-  %27 = getelementptr inbounds %struct._Image, %struct._Image* %21, i64 0, i32 58
-  tail call void @InheritException(%struct._ExceptionInfo* %4, %struct._ExceptionInfo* nonnull %27) #19
-  %28 = tail call %struct._Image* @DestroyImage(%struct._Image* nonnull %21) #19
-  br label %309
+declare double @GetPseudoRandomValue(ptr nocapture)
 
-29:                                               ; preds = %23
-  %30 = tail call %struct._CacheView* @AcquireVirtualCacheView(%struct._Image* nonnull %0, %struct._ExceptionInfo* %4) #19
-  %31 = tail call %struct._CacheView* @AcquireVirtualCacheView(%struct._Image* nonnull %0, %struct._ExceptionInfo* %4) #19
-  %32 = tail call %struct._CacheView* @AcquireAuthenticCacheView(%struct._Image* nonnull %21, %struct._ExceptionInfo* %4) #19
-  %33 = getelementptr inbounds %struct._Image, %struct._Image* %21, i64 0, i32 8
-  %34 = load i64, i64* %33, align 8
-  %35 = icmp sgt i64 %34, 0
-  br i1 %35, label %36, label %305
+declare noalias ptr @RelinquishMagickMemory(ptr)
 
-36:                                               ; preds = %29
-  %37 = getelementptr inbounds %struct._Image, %struct._Image* %21, i64 0, i32 7
-  %38 = bitcast %struct._MagickPixelPacket* %7 to i8*
-  %39 = getelementptr %struct._Image, %struct._Image* %0, i64 0, i32 1
-  %40 = getelementptr inbounds %struct._MagickPixelPacket, %struct._MagickPixelPacket* %7, i64 0, i32 5
-  %41 = getelementptr inbounds %struct._MagickPixelPacket, %struct._MagickPixelPacket* %7, i64 0, i32 6
-  %42 = getelementptr inbounds %struct._MagickPixelPacket, %struct._MagickPixelPacket* %7, i64 0, i32 7
-  %43 = getelementptr inbounds %struct._MagickPixelPacket, %struct._MagickPixelPacket* %7, i64 0, i32 8
-  %44 = getelementptr inbounds %struct._MagickPixelPacket, %struct._MagickPixelPacket* %7, i64 0, i32 9
-  %45 = bitcast %struct._MagickPixelPacket* %8 to i8*
-  %46 = sdiv i64 %2, 2
-  %47 = sub nsw i64 0, %46
-  %48 = icmp slt i64 %46, %47
-  %49 = sdiv i64 %1, 2
-  %50 = sub nsw i64 0, %49
-  %51 = icmp slt i64 %49, %50
-  %52 = lshr i64 %1, 1
-  %53 = lshr i64 %2, 1
-  %54 = mul i64 %53, %52
-  %55 = bitcast %struct._PixelPacket* %9 to i8*
-  %56 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %9, i64 0, i32 2
-  %57 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %9, i64 0, i32 1
-  %58 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %9, i64 0, i32 0
-  %59 = fmul fast double %3, %3
-  %60 = getelementptr inbounds %struct._MagickPixelPacket, %struct._MagickPixelPacket* %8, i64 0, i32 5
-  %61 = getelementptr inbounds %struct._MagickPixelPacket, %struct._MagickPixelPacket* %8, i64 0, i32 6
-  %62 = getelementptr inbounds %struct._MagickPixelPacket, %struct._MagickPixelPacket* %8, i64 0, i32 7
-  %63 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %9, i64 0, i32 3
-  %64 = getelementptr inbounds %struct._MagickPixelPacket, %struct._MagickPixelPacket* %8, i64 0, i32 8
-  %65 = getelementptr inbounds %struct._Image, %struct._Image* %0, i64 0, i32 47
-  %66 = getelementptr inbounds [4096 x i8], [4096 x i8]* %6, i64 0, i64 0
-  %67 = getelementptr inbounds %struct._Image, %struct._Image* %0, i64 0, i32 53
-  %68 = getelementptr inbounds [4096 x i8], [4096 x i8]* %67, i64 0, i64 0
-  %69 = getelementptr inbounds %struct._Image, %struct._Image* %0, i64 0, i32 48
-  %70 = add nsw i64 %49, 1
-  %71 = add nsw i64 %46, 1
-  br label %72
+declare ptr @CloneImage(ptr, i64, i64, i32, ptr)
 
-72:                                               ; preds = %299, %36
-  %73 = phi i32 [ 1, %36 ], [ %301, %299 ]
-  %74 = phi i64 [ 0, %36 ], [ %300, %299 ]
-  %75 = phi i64 [ 0, %36 ], [ %302, %299 ]
-  %76 = icmp eq i32 %73, 0
-  br i1 %76, label %299, label %77
+declare i32 @SetImageStorageClass(ptr, i32)
 
-77:                                               ; preds = %72
-  %78 = load i64, i64* %17, align 8
-  %79 = call %struct._PixelPacket* @GetCacheViewVirtualPixels(%struct._CacheView* %30, i64 0, i64 %75, i64 %78, i64 1, %struct._ExceptionInfo* %4) #19
-  %80 = load i64, i64* %37, align 8
-  %81 = call %struct._PixelPacket* @GetCacheViewAuthenticPixels(%struct._CacheView* %32, i64 0, i64 %75, i64 %80, i64 1, %struct._ExceptionInfo* %4) #19
-  %82 = icmp eq %struct._PixelPacket* %79, null
-  %83 = icmp eq %struct._PixelPacket* %81, null
-  %84 = or i1 %82, %83
-  br i1 %84, label %299, label %85
+declare void @InheritException(ptr nocapture, ptr nocapture readonly)
 
-85:                                               ; preds = %77
-  %86 = call i16* @GetCacheViewVirtualIndexQueue(%struct._CacheView* %30) #19
-  %87 = load i64, i64* %37, align 8
-  %88 = icmp sgt i64 %87, 0
-  br i1 %88, label %89, label %283
+declare ptr @AcquireVirtualCacheView(ptr, ptr nocapture readnone)
 
-89:                                               ; preds = %85
-  %90 = icmp ne i16* %86, null
-  %91 = sitofp i64 %75 to double
-  br label %92
+declare ptr @AcquireAuthenticCacheView(ptr, ptr)
 
-92:                                               ; preds = %249, %89
-  %93 = phi i32 [ 1, %89 ], [ %206, %249 ]
-  %94 = phi i64 [ 0, %89 ], [ %280, %249 ]
-  %95 = phi %struct._PixelPacket* [ %81, %89 ], [ %279, %249 ]
-  %96 = phi %struct._PixelPacket* [ %79, %89 ], [ %278, %249 ]
-  call void @llvm.lifetime.start.p0i8(i64 56, i8* nonnull %38) #19
-  call void @GetMagickPixelPacket(%struct._Image* %0, %struct._MagickPixelPacket* nonnull %7) #19
-  %97 = load i32, i32* %39, align 4
-  %98 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %96, i64 0, i32 2
-  %99 = load i16, i16* %98, align 2
-  %100 = uitofp i16 %99 to float
-  store float %100, float* %40, align 8
-  %101 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %96, i64 0, i32 1
-  %102 = load i16, i16* %101, align 2
-  %103 = uitofp i16 %102 to float
-  store float %103, float* %41, align 4
-  %104 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %96, i64 0, i32 0
-  %105 = load i16, i16* %104, align 2
-  %106 = uitofp i16 %105 to float
-  store float %106, float* %42, align 8
-  %107 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %96, i64 0, i32 3
-  %108 = load i16, i16* %107, align 2
-  %109 = uitofp i16 %108 to float
-  store float %109, float* %43, align 4
-  %110 = icmp eq i32 %97, 12
-  %111 = and i1 %90, %110
-  br i1 %111, label %112, label %116
+declare ptr @GetCacheViewVirtualPixels(ptr nocapture readonly, i64, i64, i64, i64, ptr)
 
-112:                                              ; preds = %92
-  %113 = getelementptr inbounds i16, i16* %86, i64 %94
-  %114 = load i16, i16* %113, align 2
-  %115 = uitofp i16 %114 to float
-  store float %115, float* %44, align 8
-  br label %116
+declare ptr @GetCacheViewAuthenticPixels(ptr nocapture readonly, i64, i64, i64, i64, ptr)
 
-116:                                              ; preds = %112, %92
-  %117 = sitofp i64 %94 to double
-  br label %121
+declare ptr @GetCacheViewVirtualIndexQueue(ptr nocapture readonly)
 
-118:                                              ; preds = %205
-  %119 = add nuw nsw i64 %122, 1
-  %120 = icmp eq i64 %119, 100
-  br i1 %120, label %249, label %121
+declare void @GetMagickPixelPacket(ptr readonly, ptr nocapture)
 
-121:                                              ; preds = %118, %116
-  %122 = phi i64 [ 0, %116 ], [ %119, %118 ]
-  %123 = phi double [ %117, %116 ], [ %212, %118 ]
-  %124 = phi double [ %91, %116 ], [ %213, %118 ]
-  %125 = phi i32 [ %93, %116 ], [ %206, %118 ]
-  call void @llvm.lifetime.start.p0i8(i64 56, i8* nonnull %45) #19
-  call void @GetMagickPixelPacket(%struct._Image* %0, %struct._MagickPixelPacket* nonnull %8) #19
-  %126 = load float, float* %40, align 8
-  %127 = load float, float* %41, align 4
-  %128 = load float, float* %42, align 8
-  br i1 %48, label %205, label %129
+; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
+declare double @llvm.rint.f64(double) #0
 
-129:                                              ; preds = %121
-  %130 = call fast double @llvm.rint.f64(double %123)
-  %131 = fptosi double %130 to i64
-  %132 = call fast double @llvm.rint.f64(double %124)
-  %133 = fptosi double %132 to i64
-  br i1 %51, label %205, label %134
+declare i32 @SyncCacheViewAuthenticPixels(ptr noalias nocapture readonly, ptr)
 
-134:                                              ; preds = %202, %129
-  %135 = phi i64 [ %203, %202 ], [ %47, %129 ]
-  %136 = phi i64 [ %199, %202 ], [ 0, %129 ]
-  %137 = phi double [ %198, %202 ], [ 0.000000e+00, %129 ]
-  %138 = phi double [ %197, %202 ], [ 0.000000e+00, %129 ]
-  %139 = phi i32 [ %196, %202 ], [ %125, %129 ]
-  %140 = mul nsw i64 %135, %135
-  %141 = add i64 %135, %133
-  %142 = sitofp i64 %135 to double
-  %143 = fadd fast double %124, %142
-  br label %144
+declare i64 @FormatLocaleString(ptr noalias nocapture, i64, ptr noalias nocapture readonly, ...)
 
-144:                                              ; preds = %195, %134
-  %145 = phi i64 [ %50, %134 ], [ %200, %195 ]
-  %146 = phi i64 [ %136, %134 ], [ %199, %195 ]
-  %147 = phi double [ %137, %134 ], [ %198, %195 ]
-  %148 = phi double [ %138, %134 ], [ %197, %195 ]
-  %149 = phi i32 [ %139, %134 ], [ %196, %195 ]
-  %150 = mul nsw i64 %145, %145
-  %151 = add nuw nsw i64 %150, %140
-  %152 = icmp sgt i64 %151, %54
-  br i1 %152, label %195, label %153
+declare ptr @DestroyCacheView(ptr)
 
-153:                                              ; preds = %144
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %55) #19
-  %154 = add i64 %145, %131
-  %155 = call i32 @GetOneCacheViewVirtualPixel(%struct._CacheView* %31, i64 %154, i64 %141, %struct._PixelPacket* nonnull %9, %struct._ExceptionInfo* %4) #19
-  %156 = load float, float* %40, align 8
-  %157 = load i16, i16* %56, align 2
-  %158 = uitofp i16 %157 to float
-  %159 = fsub fast float %156, %158
-  %160 = fmul fast float %159, %159
-  %161 = load float, float* %41, align 4
-  %162 = load i16, i16* %57, align 2
-  %163 = uitofp i16 %162 to float
-  %164 = fsub fast float %161, %163
-  %165 = fmul fast float %164, %164
-  %166 = fadd fast float %165, %160
-  %167 = load float, float* %42, align 8
-  %168 = load i16, i16* %58, align 2
-  %169 = uitofp i16 %168 to float
-  %170 = fsub fast float %167, %169
-  %171 = fmul fast float %170, %170
-  %172 = fadd fast float %166, %171
-  %173 = fpext float %172 to double
-  %174 = fcmp fast ult double %59, %173
-  br i1 %174, label %191, label %175
+declare ptr @DestroyImage(ptr)
 
-175:                                              ; preds = %153
-  %176 = sitofp i64 %145 to double
-  %177 = fadd fast double %147, %123
-  %178 = fadd fast double %177, %176
-  %179 = fadd fast double %143, %148
-  %180 = load float, float* %60, align 8
-  %181 = fadd fast float %180, %158
-  store float %181, float* %60, align 8
-  %182 = load float, float* %61, align 4
-  %183 = fadd fast float %182, %163
-  store float %183, float* %61, align 4
-  %184 = load float, float* %62, align 8
-  %185 = fadd fast float %184, %169
-  store float %185, float* %62, align 8
-  %186 = load i16, i16* %63, align 2
-  %187 = uitofp i16 %186 to float
-  %188 = load float, float* %64, align 4
-  %189 = fadd fast float %188, %187
-  store float %189, float* %64, align 4
-  %190 = add nsw i64 %146, 1
-  br label %191
+define internal ptr @MeanShiftImage(ptr %arg, i64 %arg1, i64 %arg2, double %arg3, ptr %arg4) {
+bb:
+  %i = alloca [4096 x i8], align 16
+  %i5 = alloca %struct._MagickPixelPacket, align 8
+  %i6 = alloca %struct._MagickPixelPacket, align 8
+  %i7 = alloca %struct._PixelPacket, align 2
+  %i8 = getelementptr inbounds %struct._Image, ptr %arg, i64 0, i32 59
+  %i9 = load i32, ptr %i8, align 8
+  %i10 = icmp eq i32 %i9, 0
+  br i1 %i10, label %bb14, label %bb11
 
-191:                                              ; preds = %175, %153
-  %192 = phi double [ %179, %175 ], [ %148, %153 ]
-  %193 = phi double [ %178, %175 ], [ %147, %153 ]
-  %194 = phi i64 [ %190, %175 ], [ %146, %153 ]
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %55) #19
-  br label %195
+bb11:                                             ; preds = %bb
+  %i12 = getelementptr inbounds %struct._Image, ptr %arg, i64 0, i32 53
+  %i13 = getelementptr inbounds [4096 x i8], ptr %i12, i64 0, i64 0
+  br label %bb14
 
-195:                                              ; preds = %191, %144
-  %196 = phi i32 [ %155, %191 ], [ %149, %144 ]
-  %197 = phi double [ %192, %191 ], [ %148, %144 ]
-  %198 = phi double [ %193, %191 ], [ %147, %144 ]
-  %199 = phi i64 [ %194, %191 ], [ %146, %144 ]
-  %200 = add i64 %145, 1
-  %201 = icmp eq i64 %200, %70
-  br i1 %201, label %202, label %144
+bb14:                                             ; preds = %bb11, %bb
+  %i15 = getelementptr inbounds %struct._Image, ptr %arg, i64 0, i32 7
+  %i16 = load i64, ptr %i15, align 8
+  %i17 = getelementptr inbounds %struct._Image, ptr %arg, i64 0, i32 8
+  %i18 = load i64, ptr %i17, align 8
+  %i19 = tail call ptr @CloneImage(ptr nonnull %arg, i64 %i16, i64 %i18, i32 1, ptr %arg4)
+  %i20 = icmp eq ptr %i19, null
+  br i1 %i20, label %bb307, label %bb21
 
-202:                                              ; preds = %195
-  %203 = add i64 %135, 1
-  %204 = icmp eq i64 %203, %71
-  br i1 %204, label %205, label %134
+bb21:                                             ; preds = %bb14
+  %i22 = tail call i32 @SetImageStorageClass(ptr nonnull %i19, i32 1)
+  %i23 = icmp eq i32 %i22, 0
+  br i1 %i23, label %bb24, label %bb27
 
-205:                                              ; preds = %202, %129, %121
-  %206 = phi i32 [ %125, %121 ], [ %125, %129 ], [ %196, %202 ]
-  %207 = phi double [ 0.000000e+00, %121 ], [ 0.000000e+00, %129 ], [ %197, %202 ]
-  %208 = phi double [ 0.000000e+00, %121 ], [ 0.000000e+00, %129 ], [ %198, %202 ]
-  %209 = phi i64 [ 0, %121 ], [ 0, %129 ], [ %199, %202 ]
-  %210 = sitofp i64 %209 to double
-  %211 = fdiv fast double 1.000000e+00, %210
-  %212 = fmul fast double %211, %208
-  %213 = fmul fast double %211, %207
-  %214 = load float, float* %60, align 8
-  %215 = fpext float %214 to double
-  %216 = fmul fast double %211, %215
-  %217 = fptrunc double %216 to float
-  store float %217, float* %40, align 8
-  %218 = load float, float* %61, align 4
-  %219 = fpext float %218 to double
-  %220 = fmul fast double %211, %219
-  %221 = fptrunc double %220 to float
-  store float %221, float* %41, align 4
-  %222 = load float, float* %62, align 8
-  %223 = fpext float %222 to double
-  %224 = fmul fast double %211, %223
-  %225 = fptrunc double %224 to float
-  store float %225, float* %42, align 8
-  %226 = load float, float* %64, align 4
-  %227 = fpext float %226 to double
-  %228 = fmul fast double %211, %227
-  %229 = fptrunc double %228 to float
-  store float %229, float* %43, align 4
-  %230 = fsub fast double %212, %123
-  %231 = fmul fast double %230, %230
-  %232 = fsub fast double %213, %124
-  %233 = fmul fast double %232, %232
-  %234 = fsub fast float %217, %126
-  %235 = fpext float %234 to double
-  %236 = fmul fast double %235, %235
-  %237 = fsub fast float %221, %127
-  %238 = fpext float %237 to double
-  %239 = fmul fast double %238, %238
-  %240 = fsub fast float %225, %128
-  %241 = fpext float %240 to double
-  %242 = fmul fast double %241, %241
-  %243 = fadd fast double %239, %236
-  %244 = fadd fast double %243, %242
-  %245 = fmul fast double %244, 0x3EEFC05F809F40DF
-  %246 = fadd fast double %231, %233
-  %247 = fadd fast double %246, %245
-  %248 = fcmp fast ugt double %247, 3.000000e+00
-  call void @llvm.lifetime.end.p0i8(i64 56, i8* nonnull %45) #19
-  br i1 %248, label %118, label %249
+bb24:                                             ; preds = %bb21
+  %i25 = getelementptr inbounds %struct._Image, ptr %i19, i64 0, i32 58
+  tail call void @InheritException(ptr %arg4, ptr nonnull %i25)
+  %i26 = tail call ptr @DestroyImage(ptr nonnull %i19)
+  br label %bb307
 
-249:                                              ; preds = %205, %118
-  %250 = fcmp fast ugt float %217, 0.000000e+00
-  %251 = fcmp fast ult float %217, 6.553500e+04
-  %252 = fadd fast float %217, 5.000000e-01
-  %253 = fptoui float %252 to i16
-  %254 = select i1 %251, i16 %253, i16 -1
-  %255 = select i1 %250, i16 %254, i16 0
-  %256 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %95, i64 0, i32 2
-  store i16 %255, i16* %256, align 2
-  %257 = fcmp fast ugt float %221, 0.000000e+00
-  %258 = fcmp fast ult float %221, 6.553500e+04
-  %259 = fadd fast float %221, 5.000000e-01
-  %260 = fptoui float %259 to i16
-  %261 = select i1 %258, i16 %260, i16 -1
-  %262 = select i1 %257, i16 %261, i16 0
-  %263 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %95, i64 0, i32 1
-  store i16 %262, i16* %263, align 2
-  %264 = fcmp fast ugt float %225, 0.000000e+00
-  %265 = fcmp fast ult float %225, 6.553500e+04
-  %266 = fadd fast float %225, 5.000000e-01
-  %267 = fptoui float %266 to i16
-  %268 = select i1 %265, i16 %267, i16 -1
-  %269 = select i1 %264, i16 %268, i16 0
-  %270 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %95, i64 0, i32 0
-  store i16 %269, i16* %270, align 2
-  %271 = fcmp fast ugt float %229, 0.000000e+00
-  %272 = fcmp fast ult float %229, 6.553500e+04
-  %273 = fadd fast float %229, 5.000000e-01
-  %274 = fptoui float %273 to i16
-  %275 = select i1 %272, i16 %274, i16 -1
-  %276 = select i1 %271, i16 %275, i16 0
-  %277 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %95, i64 0, i32 3
-  store i16 %276, i16* %277, align 2
-  %278 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %96, i64 1
-  %279 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %95, i64 1
-  call void @llvm.lifetime.end.p0i8(i64 56, i8* nonnull %38) #19
-  %280 = add nuw nsw i64 %94, 1
-  %281 = load i64, i64* %37, align 8
-  %282 = icmp slt i64 %280, %281
-  br i1 %282, label %92, label %283
+bb27:                                             ; preds = %bb21
+  %i28 = tail call ptr @AcquireVirtualCacheView(ptr nonnull %arg, ptr %arg4)
+  %i29 = tail call ptr @AcquireVirtualCacheView(ptr nonnull %arg, ptr %arg4)
+  %i30 = tail call ptr @AcquireAuthenticCacheView(ptr nonnull %i19, ptr %arg4)
+  %i31 = getelementptr inbounds %struct._Image, ptr %i19, i64 0, i32 8
+  %i32 = load i64, ptr %i31, align 8
+  %i33 = icmp sgt i64 %i32, 0
+  br i1 %i33, label %bb34, label %bb303
 
-283:                                              ; preds = %249, %85
-  %284 = phi i32 [ 1, %85 ], [ %206, %249 ]
-  %285 = call i32 @SyncCacheViewAuthenticPixels(%struct._CacheView* %32, %struct._ExceptionInfo* %4) #19
-  %286 = icmp eq i32 %285, 0
-  %287 = select i1 %286, i32 0, i32 %284
-  %288 = load i32 (i8*, i64, i64, i8*)*, i32 (i8*, i64, i64, i8*)** %65, align 8
-  %289 = icmp eq i32 (i8*, i64, i64, i8*)* %288, null
-  br i1 %289, label %299, label %290
+bb34:                                             ; preds = %bb27
+  %i35 = getelementptr inbounds %struct._Image, ptr %i19, i64 0, i32 7
+  %i37 = getelementptr %struct._Image, ptr %arg, i64 0, i32 1
+  %i38 = getelementptr inbounds %struct._MagickPixelPacket, ptr %i5, i64 0, i32 5
+  %i39 = getelementptr inbounds %struct._MagickPixelPacket, ptr %i5, i64 0, i32 6
+  %i40 = getelementptr inbounds %struct._MagickPixelPacket, ptr %i5, i64 0, i32 7
+  %i41 = getelementptr inbounds %struct._MagickPixelPacket, ptr %i5, i64 0, i32 8
+  %i42 = getelementptr inbounds %struct._MagickPixelPacket, ptr %i5, i64 0, i32 9
+  %i44 = sdiv i64 %arg2, 2
+  %i45 = sub nsw i64 0, %i44
+  %i46 = icmp slt i64 %i44, %i45
+  %i47 = sdiv i64 %arg1, 2
+  %i48 = sub nsw i64 0, %i47
+  %i49 = icmp slt i64 %i47, %i48
+  %i50 = lshr i64 %arg1, 1
+  %i51 = lshr i64 %arg2, 1
+  %i52 = mul i64 %i51, %i50
+  %i54 = getelementptr inbounds %struct._PixelPacket, ptr %i7, i64 0, i32 2
+  %i55 = getelementptr inbounds %struct._PixelPacket, ptr %i7, i64 0, i32 1
+  %i56 = getelementptr inbounds %struct._PixelPacket, ptr %i7, i64 0, i32 0
+  %i57 = fmul fast double %arg3, %arg3
+  %i58 = getelementptr inbounds %struct._MagickPixelPacket, ptr %i6, i64 0, i32 5
+  %i59 = getelementptr inbounds %struct._MagickPixelPacket, ptr %i6, i64 0, i32 6
+  %i60 = getelementptr inbounds %struct._MagickPixelPacket, ptr %i6, i64 0, i32 7
+  %i61 = getelementptr inbounds %struct._PixelPacket, ptr %i7, i64 0, i32 3
+  %i62 = getelementptr inbounds %struct._MagickPixelPacket, ptr %i6, i64 0, i32 8
+  %i63 = getelementptr inbounds %struct._Image, ptr %arg, i64 0, i32 47
+  %i64 = getelementptr inbounds [4096 x i8], ptr %i, i64 0, i64 0
+  %i65 = getelementptr inbounds %struct._Image, ptr %arg, i64 0, i32 53
+  %i66 = getelementptr inbounds [4096 x i8], ptr %i65, i64 0, i64 0
+  %i67 = getelementptr inbounds %struct._Image, ptr %arg, i64 0, i32 48
+  %i68 = add nsw i64 %i47, 1
+  %i69 = add nsw i64 %i44, 1
+  br label %bb70
 
-290:                                              ; preds = %283
-  %291 = add nsw i64 %74, 1
-  %292 = load i64, i64* %19, align 8
-  call void @llvm.lifetime.start.p0i8(i64 4096, i8* nonnull %66) #19
-  %293 = call i64 (i8*, i64, i8*, ...) @FormatLocaleString(i8* nonnull %66, i64 4096, i8* getelementptr inbounds ([6 x i8], [6 x i8]* @.str.18.1467, i64 0, i64 0), i8* getelementptr inbounds ([16 x i8], [16 x i8]* @.str.17.1479, i64 0, i64 0), i8* nonnull %68) #19
-  %294 = load i32 (i8*, i64, i64, i8*)*, i32 (i8*, i64, i64, i8*)** %65, align 8
-  %295 = load i8*, i8** %69, align 8
-  %296 = call i32 %294(i8* nonnull %66, i64 %74, i64 %292, i8* %295) #19
-  call void @llvm.lifetime.end.p0i8(i64 4096, i8* nonnull %66) #19
-  %297 = icmp eq i32 %296, 0
-  %298 = select i1 %297, i32 0, i32 %287
-  br label %299
+bb70:                                             ; preds = %bb297, %bb34
+  %i71 = phi i32 [ 1, %bb34 ], [ %i299, %bb297 ]
+  %i72 = phi i64 [ 0, %bb34 ], [ %i298, %bb297 ]
+  %i73 = phi i64 [ 0, %bb34 ], [ %i300, %bb297 ]
+  %i74 = icmp eq i32 %i71, 0
+  br i1 %i74, label %bb297, label %bb75
 
-299:                                              ; preds = %290, %283, %77, %72
-  %300 = phi i64 [ %74, %72 ], [ %74, %77 ], [ %74, %283 ], [ %291, %290 ]
-  %301 = phi i32 [ 0, %72 ], [ 0, %77 ], [ %287, %283 ], [ %298, %290 ]
-  %302 = add nuw nsw i64 %75, 1
-  %303 = load i64, i64* %33, align 8
-  %304 = icmp slt i64 %302, %303
-  br i1 %304, label %72, label %305
+bb75:                                             ; preds = %bb70
+  %i76 = load i64, ptr %i15, align 8
+  %i77 = call ptr @GetCacheViewVirtualPixels(ptr %i28, i64 0, i64 %i73, i64 %i76, i64 1, ptr %arg4)
+  %i78 = load i64, ptr %i35, align 8
+  %i79 = call ptr @GetCacheViewAuthenticPixels(ptr %i30, i64 0, i64 %i73, i64 %i78, i64 1, ptr %arg4)
+  %i80 = icmp eq ptr %i77, null
+  %i81 = icmp eq ptr %i79, null
+  %i82 = or i1 %i80, %i81
+  br i1 %i82, label %bb297, label %bb83
 
-305:                                              ; preds = %299, %29
-  %306 = call %struct._CacheView* @DestroyCacheView(%struct._CacheView* %32) #19
-  %307 = call %struct._CacheView* @DestroyCacheView(%struct._CacheView* %31) #19
-  %308 = call %struct._CacheView* @DestroyCacheView(%struct._CacheView* %30) #19
-  br label %309
+bb83:                                             ; preds = %bb75
+  %i84 = call ptr @GetCacheViewVirtualIndexQueue(ptr %i28)
+  %i85 = load i64, ptr %i35, align 8
+  %i86 = icmp sgt i64 %i85, 0
+  br i1 %i86, label %bb87, label %bb281
 
-309:                                              ; preds = %305, %26, %16
-  %310 = phi %struct._Image* [ null, %26 ], [ %21, %305 ], [ null, %16 ]
-  ret %struct._Image* %310
+bb87:                                             ; preds = %bb83
+  %i88 = icmp ne ptr %i84, null
+  %i89 = sitofp i64 %i73 to double
+  br label %bb90
+
+bb90:                                             ; preds = %bb247, %bb87
+  %i91 = phi i32 [ 1, %bb87 ], [ %i204, %bb247 ]
+  %i92 = phi i64 [ 0, %bb87 ], [ %i278, %bb247 ]
+  %i93 = phi ptr [ %i79, %bb87 ], [ %i277, %bb247 ]
+  %i94 = phi ptr [ %i77, %bb87 ], [ %i276, %bb247 ]
+  call void @llvm.lifetime.start.p0(i64 56, ptr nonnull %i5)
+  call void @GetMagickPixelPacket(ptr %arg, ptr nonnull %i5)
+  %i95 = load i32, ptr %i37, align 4
+  %i96 = getelementptr inbounds %struct._PixelPacket, ptr %i94, i64 0, i32 2
+  %i97 = load i16, ptr %i96, align 2
+  %i98 = uitofp i16 %i97 to float
+  store float %i98, ptr %i38, align 8
+  %i99 = getelementptr inbounds %struct._PixelPacket, ptr %i94, i64 0, i32 1
+  %i100 = load i16, ptr %i99, align 2
+  %i101 = uitofp i16 %i100 to float
+  store float %i101, ptr %i39, align 4
+  %i102 = getelementptr inbounds %struct._PixelPacket, ptr %i94, i64 0, i32 0
+  %i103 = load i16, ptr %i102, align 2
+  %i104 = uitofp i16 %i103 to float
+  store float %i104, ptr %i40, align 8
+  %i105 = getelementptr inbounds %struct._PixelPacket, ptr %i94, i64 0, i32 3
+  %i106 = load i16, ptr %i105, align 2
+  %i107 = uitofp i16 %i106 to float
+  store float %i107, ptr %i41, align 4
+  %i108 = icmp eq i32 %i95, 12
+  %i109 = and i1 %i88, %i108
+  br i1 %i109, label %bb110, label %bb114
+
+bb110:                                            ; preds = %bb90
+  %i111 = getelementptr inbounds i16, ptr %i84, i64 %i92
+  %i112 = load i16, ptr %i111, align 2
+  %i113 = uitofp i16 %i112 to float
+  store float %i113, ptr %i42, align 8
+  br label %bb114
+
+bb114:                                            ; preds = %bb110, %bb90
+  %i115 = sitofp i64 %i92 to double
+  br label %bb119
+
+bb116:                                            ; preds = %bb203
+  %i117 = add nuw nsw i64 %i120, 1
+  %i118 = icmp eq i64 %i117, 100
+  br i1 %i118, label %bb247, label %bb119
+
+bb119:                                            ; preds = %bb116, %bb114
+  %i120 = phi i64 [ 0, %bb114 ], [ %i117, %bb116 ]
+  %i121 = phi double [ %i115, %bb114 ], [ %i210, %bb116 ]
+  %i122 = phi double [ %i89, %bb114 ], [ %i211, %bb116 ]
+  %i123 = phi i32 [ %i91, %bb114 ], [ %i204, %bb116 ]
+  call void @llvm.lifetime.start.p0(i64 56, ptr nonnull %i6)
+  call void @GetMagickPixelPacket(ptr %arg, ptr nonnull %i6)
+  %i124 = load float, ptr %i38, align 8
+  %i125 = load float, ptr %i39, align 4
+  %i126 = load float, ptr %i40, align 8
+  br i1 %i46, label %bb203, label %bb127
+
+bb127:                                            ; preds = %bb119
+  %i128 = call fast double @llvm.rint.f64(double %i121)
+  %i129 = fptosi double %i128 to i64
+  %i130 = call fast double @llvm.rint.f64(double %i122)
+  %i131 = fptosi double %i130 to i64
+  br i1 %i49, label %bb203, label %bb132
+
+bb132:                                            ; preds = %bb200, %bb127
+  %i133 = phi i64 [ %i201, %bb200 ], [ %i45, %bb127 ]
+  %i134 = phi i64 [ %i197, %bb200 ], [ 0, %bb127 ]
+  %i135 = phi double [ %i196, %bb200 ], [ 0.000000e+00, %bb127 ]
+  %i136 = phi double [ %i195, %bb200 ], [ 0.000000e+00, %bb127 ]
+  %i137 = phi i32 [ %i194, %bb200 ], [ %i123, %bb127 ]
+  %i138 = mul nsw i64 %i133, %i133
+  %i139 = add i64 %i133, %i131
+  %i140 = sitofp i64 %i133 to double
+  %i141 = fadd fast double %i122, %i140
+  br label %bb142
+
+bb142:                                            ; preds = %bb193, %bb132
+  %i143 = phi i64 [ %i48, %bb132 ], [ %i198, %bb193 ]
+  %i144 = phi i64 [ %i134, %bb132 ], [ %i197, %bb193 ]
+  %i145 = phi double [ %i135, %bb132 ], [ %i196, %bb193 ]
+  %i146 = phi double [ %i136, %bb132 ], [ %i195, %bb193 ]
+  %i147 = phi i32 [ %i137, %bb132 ], [ %i194, %bb193 ]
+  %i148 = mul nsw i64 %i143, %i143
+  %i149 = add nuw nsw i64 %i148, %i138
+  %i150 = icmp sgt i64 %i149, %i52
+  br i1 %i150, label %bb193, label %bb151
+
+bb151:                                            ; preds = %bb142
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i7)
+  %i152 = add i64 %i143, %i129
+  %i153 = call i32 @GetOneCacheViewVirtualPixel(ptr %i29, i64 %i152, i64 %i139, ptr nonnull %i7, ptr %arg4)
+  %i154 = load float, ptr %i38, align 8
+  %i155 = load i16, ptr %i54, align 2
+  %i156 = uitofp i16 %i155 to float
+  %i157 = fsub fast float %i154, %i156
+  %i158 = fmul fast float %i157, %i157
+  %i159 = load float, ptr %i39, align 4
+  %i160 = load i16, ptr %i55, align 2
+  %i161 = uitofp i16 %i160 to float
+  %i162 = fsub fast float %i159, %i161
+  %i163 = fmul fast float %i162, %i162
+  %i164 = fadd fast float %i163, %i158
+  %i165 = load float, ptr %i40, align 8
+  %i166 = load i16, ptr %i56, align 2
+  %i167 = uitofp i16 %i166 to float
+  %i168 = fsub fast float %i165, %i167
+  %i169 = fmul fast float %i168, %i168
+  %i170 = fadd fast float %i164, %i169
+  %i171 = fpext float %i170 to double
+  %i172 = fcmp fast ult double %i57, %i171
+  br i1 %i172, label %bb189, label %bb173
+
+bb173:                                            ; preds = %bb151
+  %i174 = sitofp i64 %i143 to double
+  %i175 = fadd fast double %i145, %i121
+  %i176 = fadd fast double %i175, %i174
+  %i177 = fadd fast double %i141, %i146
+  %i178 = load float, ptr %i58, align 8
+  %i179 = fadd fast float %i178, %i156
+  store float %i179, ptr %i58, align 8
+  %i180 = load float, ptr %i59, align 4
+  %i181 = fadd fast float %i180, %i161
+  store float %i181, ptr %i59, align 4
+  %i182 = load float, ptr %i60, align 8
+  %i183 = fadd fast float %i182, %i167
+  store float %i183, ptr %i60, align 8
+  %i184 = load i16, ptr %i61, align 2
+  %i185 = uitofp i16 %i184 to float
+  %i186 = load float, ptr %i62, align 4
+  %i187 = fadd fast float %i186, %i185
+  store float %i187, ptr %i62, align 4
+  %i188 = add nsw i64 %i144, 1
+  br label %bb189
+
+bb189:                                            ; preds = %bb173, %bb151
+  %i190 = phi double [ %i177, %bb173 ], [ %i146, %bb151 ]
+  %i191 = phi double [ %i176, %bb173 ], [ %i145, %bb151 ]
+  %i192 = phi i64 [ %i188, %bb173 ], [ %i144, %bb151 ]
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %i7)
+  br label %bb193
+
+bb193:                                            ; preds = %bb189, %bb142
+  %i194 = phi i32 [ %i153, %bb189 ], [ %i147, %bb142 ]
+  %i195 = phi double [ %i190, %bb189 ], [ %i146, %bb142 ]
+  %i196 = phi double [ %i191, %bb189 ], [ %i145, %bb142 ]
+  %i197 = phi i64 [ %i192, %bb189 ], [ %i144, %bb142 ]
+  %i198 = add i64 %i143, 1
+  %i199 = icmp eq i64 %i198, %i68
+  br i1 %i199, label %bb200, label %bb142
+
+bb200:                                            ; preds = %bb193
+  %i201 = add i64 %i133, 1
+  %i202 = icmp eq i64 %i201, %i69
+  br i1 %i202, label %bb203, label %bb132
+
+bb203:                                            ; preds = %bb200, %bb127, %bb119
+  %i204 = phi i32 [ %i123, %bb119 ], [ %i123, %bb127 ], [ %i194, %bb200 ]
+  %i205 = phi double [ 0.000000e+00, %bb119 ], [ 0.000000e+00, %bb127 ], [ %i195, %bb200 ]
+  %i206 = phi double [ 0.000000e+00, %bb119 ], [ 0.000000e+00, %bb127 ], [ %i196, %bb200 ]
+  %i207 = phi i64 [ 0, %bb119 ], [ 0, %bb127 ], [ %i197, %bb200 ]
+  %i208 = sitofp i64 %i207 to double
+  %i209 = fdiv fast double 1.000000e+00, %i208
+  %i210 = fmul fast double %i209, %i206
+  %i211 = fmul fast double %i209, %i205
+  %i212 = load float, ptr %i58, align 8
+  %i213 = fpext float %i212 to double
+  %i214 = fmul fast double %i209, %i213
+  %i215 = fptrunc double %i214 to float
+  store float %i215, ptr %i38, align 8
+  %i216 = load float, ptr %i59, align 4
+  %i217 = fpext float %i216 to double
+  %i218 = fmul fast double %i209, %i217
+  %i219 = fptrunc double %i218 to float
+  store float %i219, ptr %i39, align 4
+  %i220 = load float, ptr %i60, align 8
+  %i221 = fpext float %i220 to double
+  %i222 = fmul fast double %i209, %i221
+  %i223 = fptrunc double %i222 to float
+  store float %i223, ptr %i40, align 8
+  %i224 = load float, ptr %i62, align 4
+  %i225 = fpext float %i224 to double
+  %i226 = fmul fast double %i209, %i225
+  %i227 = fptrunc double %i226 to float
+  store float %i227, ptr %i41, align 4
+  %i228 = fsub fast double %i210, %i121
+  %i229 = fmul fast double %i228, %i228
+  %i230 = fsub fast double %i211, %i122
+  %i231 = fmul fast double %i230, %i230
+  %i232 = fsub fast float %i215, %i124
+  %i233 = fpext float %i232 to double
+  %i234 = fmul fast double %i233, %i233
+  %i235 = fsub fast float %i219, %i125
+  %i236 = fpext float %i235 to double
+  %i237 = fmul fast double %i236, %i236
+  %i238 = fsub fast float %i223, %i126
+  %i239 = fpext float %i238 to double
+  %i240 = fmul fast double %i239, %i239
+  %i241 = fadd fast double %i237, %i234
+  %i242 = fadd fast double %i241, %i240
+  %i243 = fmul fast double %i242, 0x3EEFC05F809F40DF
+  %i244 = fadd fast double %i229, %i231
+  %i245 = fadd fast double %i244, %i243
+  %i246 = fcmp fast ugt double %i245, 3.000000e+00
+  call void @llvm.lifetime.end.p0(i64 56, ptr nonnull %i6)
+  br i1 %i246, label %bb116, label %bb247
+
+bb247:                                            ; preds = %bb203, %bb116
+  %i248 = fcmp fast ugt float %i215, 0.000000e+00
+  %i249 = fcmp fast ult float %i215, 6.553500e+04
+  %i250 = fadd fast float %i215, 5.000000e-01
+  %i251 = fptoui float %i250 to i16
+  %i252 = select i1 %i249, i16 %i251, i16 -1
+  %i253 = select i1 %i248, i16 %i252, i16 0
+  %i254 = getelementptr inbounds %struct._PixelPacket, ptr %i93, i64 0, i32 2
+  store i16 %i253, ptr %i254, align 2
+  %i255 = fcmp fast ugt float %i219, 0.000000e+00
+  %i256 = fcmp fast ult float %i219, 6.553500e+04
+  %i257 = fadd fast float %i219, 5.000000e-01
+  %i258 = fptoui float %i257 to i16
+  %i259 = select i1 %i256, i16 %i258, i16 -1
+  %i260 = select i1 %i255, i16 %i259, i16 0
+  %i261 = getelementptr inbounds %struct._PixelPacket, ptr %i93, i64 0, i32 1
+  store i16 %i260, ptr %i261, align 2
+  %i262 = fcmp fast ugt float %i223, 0.000000e+00
+  %i263 = fcmp fast ult float %i223, 6.553500e+04
+  %i264 = fadd fast float %i223, 5.000000e-01
+  %i265 = fptoui float %i264 to i16
+  %i266 = select i1 %i263, i16 %i265, i16 -1
+  %i267 = select i1 %i262, i16 %i266, i16 0
+  %i268 = getelementptr inbounds %struct._PixelPacket, ptr %i93, i64 0, i32 0
+  store i16 %i267, ptr %i268, align 2
+  %i269 = fcmp fast ugt float %i227, 0.000000e+00
+  %i270 = fcmp fast ult float %i227, 6.553500e+04
+  %i271 = fadd fast float %i227, 5.000000e-01
+  %i272 = fptoui float %i271 to i16
+  %i273 = select i1 %i270, i16 %i272, i16 -1
+  %i274 = select i1 %i269, i16 %i273, i16 0
+  %i275 = getelementptr inbounds %struct._PixelPacket, ptr %i93, i64 0, i32 3
+  store i16 %i274, ptr %i275, align 2
+  %i276 = getelementptr inbounds %struct._PixelPacket, ptr %i94, i64 1
+  %i277 = getelementptr inbounds %struct._PixelPacket, ptr %i93, i64 1
+  call void @llvm.lifetime.end.p0(i64 56, ptr nonnull %i5)
+  %i278 = add nuw nsw i64 %i92, 1
+  %i279 = load i64, ptr %i35, align 8
+  %i280 = icmp slt i64 %i278, %i279
+  br i1 %i280, label %bb90, label %bb281
+
+bb281:                                            ; preds = %bb247, %bb83
+  %i282 = phi i32 [ 1, %bb83 ], [ %i204, %bb247 ]
+  %i283 = call i32 @SyncCacheViewAuthenticPixels(ptr %i30, ptr %arg4)
+  %i284 = icmp eq i32 %i283, 0
+  %i285 = select i1 %i284, i32 0, i32 %i282
+  %i286 = load ptr, ptr %i63, align 8
+  %i287 = icmp eq ptr %i286, null
+  br i1 %i287, label %bb297, label %bb288
+
+bb288:                                            ; preds = %bb281
+  %i289 = add nsw i64 %i72, 1
+  %i290 = load i64, ptr %i17, align 8
+  call void @llvm.lifetime.start.p0(i64 4096, ptr nonnull %i64)
+  %i291 = call i64 (ptr, i64, ptr, ...) @FormatLocaleString(ptr nonnull %i64, i64 4096, ptr @.str.18.1467, ptr @.str.17.1479, ptr nonnull %i66)
+  %i292 = load ptr, ptr %i63, align 8
+  %i293 = load ptr, ptr %i67, align 8
+  %i294 = call i32 %i292(ptr nonnull %i64, i64 %i72, i64 %i290, ptr %i293)
+  call void @llvm.lifetime.end.p0(i64 4096, ptr nonnull %i64)
+  %i295 = icmp eq i32 %i294, 0
+  %i296 = select i1 %i295, i32 0, i32 %i285
+  br label %bb297
+
+bb297:                                            ; preds = %bb288, %bb281, %bb75, %bb70
+  %i298 = phi i64 [ %i72, %bb70 ], [ %i72, %bb75 ], [ %i72, %bb281 ], [ %i289, %bb288 ]
+  %i299 = phi i32 [ 0, %bb70 ], [ 0, %bb75 ], [ %i285, %bb281 ], [ %i296, %bb288 ]
+  %i300 = add nuw nsw i64 %i73, 1
+  %i301 = load i64, ptr %i31, align 8
+  %i302 = icmp slt i64 %i300, %i301
+  br i1 %i302, label %bb70, label %bb303
+
+bb303:                                            ; preds = %bb297, %bb27
+  %i304 = call ptr @DestroyCacheView(ptr %i30)
+  %i305 = call ptr @DestroyCacheView(ptr %i29)
+  %i306 = call ptr @DestroyCacheView(ptr %i28)
+  br label %bb307
+
+bb307:                                            ; preds = %bb303, %bb24, %bb14
+  %i308 = phi ptr [ null, %bb24 ], [ %i19, %bb303 ], [ null, %bb14 ]
+  ret ptr %i308
 }
 
-define internal i32 @GetOneCacheViewVirtualPixel(%struct._CacheView* noalias nocapture readonly %0, i64 %1, i64 %2, %struct._PixelPacket* noalias nocapture %3, %struct._ExceptionInfo* %4) #0 {
-  %6 = getelementptr inbounds %struct._CacheView, %struct._CacheView* %0, i64 0, i32 0
-  %7 = load %struct._Image*, %struct._Image** %6, align 8
-  %8 = getelementptr inbounds %struct._Image, %struct._Image* %7, i64 0, i32 12
-  %9 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %8, i64 0, i32 0
-  %10 = load i16, i16* %9, align 2
-  %11 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %3, i64 0, i32 0
-  store i16 %10, i16* %11, align 2
-  %12 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %8, i64 0, i32 1
-  %13 = load i16, i16* %12, align 2
-  %14 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %3, i64 0, i32 1
-  store i16 %13, i16* %14, align 2
-  %15 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %8, i64 0, i32 2
-  %16 = load i16, i16* %15, align 2
-  %17 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %3, i64 0, i32 2
-  store i16 %16, i16* %17, align 2
-  %18 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %8, i64 0, i32 3
-  %19 = load i16, i16* %18, align 2
-  %20 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %3, i64 0, i32 3
-  store i16 %19, i16* %20, align 2
-  %21 = getelementptr inbounds %struct._CacheView, %struct._CacheView* %0, i64 0, i32 1
-  %22 = load i32, i32* %21, align 8
-  %23 = getelementptr inbounds %struct._CacheView, %struct._CacheView* %0, i64 0, i32 3
-  %24 = load %struct._NexusInfo**, %struct._NexusInfo*** %23, align 8
-  %25 = load %struct._NexusInfo*, %struct._NexusInfo** %24, align 8
-  %26 = tail call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* %7, i32 %22, i64 %1, i64 %2, i64 1, i64 1, %struct._NexusInfo* %25, %struct._ExceptionInfo* %4) #19
-  %27 = icmp eq %struct._PixelPacket* %26, null
-  br i1 %27, label %37, label %28
+define internal i32 @GetOneCacheViewVirtualPixel(ptr noalias nocapture readonly %arg, i64 %arg1, i64 %arg2, ptr noalias nocapture %arg3, ptr %arg4) {
+bb:
+  %i = getelementptr inbounds %struct._CacheView, ptr %arg, i64 0, i32 0
+  %i5 = load ptr, ptr %i, align 8
+  %i6 = getelementptr inbounds %struct._Image, ptr %i5, i64 0, i32 12
+  %i7 = getelementptr inbounds %struct._PixelPacket, ptr %i6, i64 0, i32 0
+  %i8 = load i16, ptr %i7, align 2
+  %i9 = getelementptr inbounds %struct._PixelPacket, ptr %arg3, i64 0, i32 0
+  store i16 %i8, ptr %i9, align 2
+  %i10 = getelementptr inbounds %struct._PixelPacket, ptr %i6, i64 0, i32 1
+  %i11 = load i16, ptr %i10, align 2
+  %i12 = getelementptr inbounds %struct._PixelPacket, ptr %arg3, i64 0, i32 1
+  store i16 %i11, ptr %i12, align 2
+  %i13 = getelementptr inbounds %struct._PixelPacket, ptr %i6, i64 0, i32 2
+  %i14 = load i16, ptr %i13, align 2
+  %i15 = getelementptr inbounds %struct._PixelPacket, ptr %arg3, i64 0, i32 2
+  store i16 %i14, ptr %i15, align 2
+  %i16 = getelementptr inbounds %struct._PixelPacket, ptr %i6, i64 0, i32 3
+  %i17 = load i16, ptr %i16, align 2
+  %i18 = getelementptr inbounds %struct._PixelPacket, ptr %arg3, i64 0, i32 3
+  store i16 %i17, ptr %i18, align 2
+  %i19 = getelementptr inbounds %struct._CacheView, ptr %arg, i64 0, i32 1
+  %i20 = load i32, ptr %i19, align 8
+  %i21 = getelementptr inbounds %struct._CacheView, ptr %arg, i64 0, i32 3
+  %i22 = load ptr, ptr %i21, align 8
+  %i23 = load ptr, ptr %i22, align 8
+  %i24 = tail call ptr @GetVirtualPixelsFromNexus(ptr %i5, i32 %i20, i64 %arg1, i64 %arg2, i64 1, i64 1, ptr %i23, ptr %arg4)
+  %i25 = icmp eq ptr %i24, null
+  br i1 %i25, label %bb35, label %bb26
 
-28:                                               ; preds = %5
-  %29 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %26, i64 0, i32 0
-  %30 = load i16, i16* %29, align 2
-  store i16 %30, i16* %11, align 2
-  %31 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %26, i64 0, i32 1
-  %32 = load i16, i16* %31, align 2
-  store i16 %32, i16* %14, align 2
-  %33 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %26, i64 0, i32 2
-  %34 = load i16, i16* %33, align 2
-  store i16 %34, i16* %17, align 2
-  %35 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %26, i64 0, i32 3
-  %36 = load i16, i16* %35, align 2
-  store i16 %36, i16* %20, align 2
-  br label %37
+bb26:                                             ; preds = %bb
+  %i27 = getelementptr inbounds %struct._PixelPacket, ptr %i24, i64 0, i32 0
+  %i28 = load i16, ptr %i27, align 2
+  store i16 %i28, ptr %i9, align 2
+  %i29 = getelementptr inbounds %struct._PixelPacket, ptr %i24, i64 0, i32 1
+  %i30 = load i16, ptr %i29, align 2
+  store i16 %i30, ptr %i12, align 2
+  %i31 = getelementptr inbounds %struct._PixelPacket, ptr %i24, i64 0, i32 2
+  %i32 = load i16, ptr %i31, align 2
+  store i16 %i32, ptr %i15, align 2
+  %i33 = getelementptr inbounds %struct._PixelPacket, ptr %i24, i64 0, i32 3
+  %i34 = load i16, ptr %i33, align 2
+  store i16 %i34, ptr %i18, align 2
+  br label %bb35
 
-37:                                               ; preds = %28, %5
-  %38 = phi i32 [ 1, %28 ], [ 0, %5 ]
-  ret i32 %38
+bb35:                                             ; preds = %bb26, %bb
+  %i36 = phi i32 [ 1, %bb26 ], [ 0, %bb ]
+  ret i32 %i36
 }
 
-define internal %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef %1, i64 noundef %2, i64 noundef %3, i64 noundef %4, i64 noundef %5, %struct._NexusInfo* noundef %6, %struct._ExceptionInfo* noundef %7) #15 {
-  %9 = alloca i16, align 2
-  %10 = alloca %struct._PixelPacket, align 2
-  %11 = bitcast i16* %9 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 2, i8* nonnull %11) #62
-  %12 = bitcast %struct._PixelPacket* %10 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %12) #62
-  %13 = getelementptr inbounds %struct._Image, %struct._Image* %0, i64 0, i32 49
-  %14 = bitcast i8** %13 to %struct._CacheInfo**
-  %15 = load %struct._CacheInfo*, %struct._CacheInfo** %14, align 8
-  %16 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 3
-  %17 = load i32, i32* %16, align 8
-  %18 = icmp eq i32 %17, 0
-  br i1 %18, label %626, label %19
+define internal ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef %arg1, i64 noundef %arg2, i64 noundef %arg3, i64 noundef %arg4, i64 noundef %arg5, ptr noundef %arg6, ptr noundef %arg7) {
+bb:
+  %i = alloca i16, align 2
+  %i8 = alloca %struct._PixelPacket, align 2
+  call void @llvm.lifetime.start.p0(i64 2, ptr nonnull %i)
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i8)
+  %i11 = getelementptr inbounds %struct._Image, ptr %arg, i64 0, i32 49
+  %i13 = load ptr, ptr %i11, align 8
+  %i14 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 3
+  %i15 = load i32, ptr %i14, align 8
+  %i16 = icmp eq i32 %i15, 0
+  br i1 %i16, label %bb624, label %bb17
 
-19:                                               ; preds = %8
-  %20 = getelementptr inbounds %struct._Image, %struct._Image* %0, i64 0, i32 38
-  %21 = load %struct._Image*, %struct._Image** %20, align 8
-  %22 = icmp eq %struct._Image* %21, null
-  br i1 %22, label %23, label %27
+bb17:                                             ; preds = %bb
+  %i18 = getelementptr inbounds %struct._Image, ptr %arg, i64 0, i32 38
+  %i19 = load ptr, ptr %i18, align 8
+  %i20 = icmp eq ptr %i19, null
+  br i1 %i20, label %bb21, label %bb25
 
-23:                                               ; preds = %19
-  %24 = getelementptr inbounds %struct._Image, %struct._Image* %0, i64 0, i32 73
-  %25 = load %struct._Image*, %struct._Image** %24, align 8
-  %26 = icmp ne %struct._Image* %25, null
-  br label %27
+bb21:                                             ; preds = %bb17
+  %i22 = getelementptr inbounds %struct._Image, ptr %arg, i64 0, i32 73
+  %i23 = load ptr, ptr %i22, align 8
+  %i24 = icmp ne ptr %i23, null
+  br label %bb25
 
-27:                                               ; preds = %23, %19
-  %28 = phi i1 [ true, %19 ], [ %26, %23 ]
-  %29 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 1
-  %30 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 1, i32 0
-  store i64 %4, i64* %30, align 8
-  %31 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 1, i32 1
-  store i64 %5, i64* %31, align 8
-  %32 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 1, i32 2
-  store i64 %2, i64* %32, align 8
-  %33 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 1, i32 3
-  store i64 %3, i64* %33, align 8
-  %34 = load i32, i32* %16, align 8
-  %35 = icmp eq i32 %34, 1
-  br i1 %35, label %39, label %36
+bb25:                                             ; preds = %bb21, %bb17
+  %i26 = phi i1 [ true, %bb17 ], [ %i24, %bb21 ]
+  %i27 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 1
+  %i28 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 1, i32 0
+  store i64 %arg4, ptr %i28, align 8
+  %i29 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 1, i32 1
+  store i64 %arg5, ptr %i29, align 8
+  %i30 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 1, i32 2
+  store i64 %arg2, ptr %i30, align 8
+  %i31 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 1, i32 3
+  store i64 %arg3, ptr %i31, align 8
+  %i32 = load i32, ptr %i14, align 8
+  %i33 = icmp eq i32 %i32, 1
+  br i1 %i33, label %bb37, label %bb34
 
-36:                                               ; preds = %27
-  %37 = icmp ne i32 %34, 2
-  %38 = or i1 %28, %37
-  br i1 %38, label %78, label %40
+bb34:                                             ; preds = %bb25
+  %i35 = icmp ne i32 %i32, 2
+  %i36 = or i1 %i26, %i35
+  br i1 %i36, label %bb76, label %bb38
 
-39:                                               ; preds = %27
-  br i1 %28, label %78, label %40
+bb37:                                             ; preds = %bb25
+  br i1 %i26, label %bb76, label %bb38
 
-40:                                               ; preds = %39, %36
-  %41 = add nsw i64 %5, %3
-  %42 = icmp sgt i64 %2, -1
-  br i1 %42, label %43, label %78
+bb38:                                             ; preds = %bb37, %bb34
+  %i39 = add nsw i64 %arg5, %arg3
+  %i40 = icmp sgt i64 %arg2, -1
+  br i1 %i40, label %bb41, label %bb76
 
-43:                                               ; preds = %40
-  %44 = add nsw i64 %4, %2
-  %45 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 6
-  %46 = load i64, i64* %45, align 8
-  %47 = icmp sle i64 %44, %46
-  %48 = icmp sgt i64 %3, -1
-  %49 = and i1 %47, %48
-  br i1 %49, label %50, label %78
+bb41:                                             ; preds = %bb38
+  %i42 = add nsw i64 %arg4, %arg2
+  %i43 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 6
+  %i44 = load i64, ptr %i43, align 8
+  %i45 = icmp sle i64 %i42, %i44
+  %i46 = icmp sgt i64 %arg3, -1
+  %i47 = and i1 %i45, %i46
+  br i1 %i47, label %bb48, label %bb76
 
-50:                                               ; preds = %43
-  %51 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 7
-  %52 = load i64, i64* %51, align 8
-  %53 = icmp sgt i64 %41, %52
-  br i1 %53, label %78, label %54
+bb48:                                             ; preds = %bb41
+  %i49 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 7
+  %i50 = load i64, ptr %i49, align 8
+  %i51 = icmp sgt i64 %i39, %i50
+  br i1 %i51, label %bb76, label %bb52
 
-54:                                               ; preds = %50
-  %55 = icmp eq i64 %5, 1
-  br i1 %55, label %63, label %56
+bb52:                                             ; preds = %bb48
+  %i53 = icmp eq i64 %arg5, 1
+  br i1 %i53, label %bb61, label %bb54
 
-56:                                               ; preds = %54
-  %57 = icmp eq i64 %2, 0
-  br i1 %57, label %58, label %78
+bb54:                                             ; preds = %bb52
+  %i55 = icmp eq i64 %arg2, 0
+  br i1 %i55, label %bb56, label %bb76
 
-58:                                               ; preds = %56
-  %59 = icmp eq i64 %46, %4
-  br i1 %59, label %63, label %60
+bb56:                                             ; preds = %bb54
+  %i57 = icmp eq i64 %i44, %arg4
+  br i1 %i57, label %bb61, label %bb58
 
-60:                                               ; preds = %58
-  %61 = urem i64 %4, %46
-  %62 = icmp eq i64 %61, 0
-  br i1 %62, label %63, label %78
+bb58:                                             ; preds = %bb56
+  %i59 = urem i64 %arg4, %i44
+  %i60 = icmp eq i64 %i59, 0
+  br i1 %i60, label %bb61, label %bb76
 
-63:                                               ; preds = %60, %58, %54
-  %64 = mul i64 %46, %3
-  %65 = add i64 %64, %2
-  %66 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 14
-  %67 = load %struct._PixelPacket*, %struct._PixelPacket** %66, align 8
-  %68 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %67, i64 %65
-  %69 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 4
-  store %struct._PixelPacket* %68, %struct._PixelPacket** %69, align 8
-  %70 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 6
-  store i16* null, i16** %70, align 8
-  %71 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 16
-  %72 = load i32, i32* %71, align 8
-  %73 = icmp eq i32 %72, 0
-  br i1 %73, label %174, label %74
+bb61:                                             ; preds = %bb58, %bb56, %bb52
+  %i62 = mul i64 %i44, %arg3
+  %i63 = add i64 %i62, %arg2
+  %i64 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 14
+  %i65 = load ptr, ptr %i64, align 8
+  %i66 = getelementptr inbounds %struct._PixelPacket, ptr %i65, i64 %i63
+  %i67 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 4
+  store ptr %i66, ptr %i67, align 8
+  %i68 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 6
+  store ptr null, ptr %i68, align 8
+  %i69 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 16
+  %i70 = load i32, ptr %i69, align 8
+  %i71 = icmp eq i32 %i70, 0
+  br i1 %i71, label %bb172, label %bb72
 
-74:                                               ; preds = %63
-  %75 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 15
-  %76 = load i16*, i16** %75, align 8
-  %77 = getelementptr inbounds i16, i16* %76, i64 %65
-  store i16* %77, i16** %70, align 8
-  br label %174
+bb72:                                             ; preds = %bb61
+  %i73 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 15
+  %i74 = load ptr, ptr %i73, align 8
+  %i75 = getelementptr inbounds i16, ptr %i74, i64 %i63
+  store ptr %i75, ptr %i68, align 8
+  br label %bb172
 
-78:                                               ; preds = %60, %56, %50, %43, %40, %39, %36
-  %79 = mul i64 %5, %4
-  %80 = shl i64 %79, 3
-  %81 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 16
-  %82 = load i32, i32* %81, align 8
-  %83 = icmp eq i32 %82, 0
-  %84 = mul i64 %79, 10
-  %85 = select i1 %83, i64 %80, i64 %84
-  %86 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 3
-  %87 = load %struct._PixelPacket*, %struct._PixelPacket** %86, align 8
-  %88 = icmp eq %struct._PixelPacket* %87, null
-  %89 = bitcast %struct._PixelPacket* %87 to i8*
-  br i1 %88, label %90, label %105
+bb76:                                             ; preds = %bb58, %bb54, %bb48, %bb41, %bb38, %bb37, %bb34
+  %i77 = mul i64 %arg5, %arg4
+  %i78 = shl i64 %i77, 3
+  %i79 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 16
+  %i80 = load i32, ptr %i79, align 8
+  %i81 = icmp eq i32 %i80, 0
+  %i82 = mul i64 %i77, 10
+  %i83 = select i1 %i81, i64 %i78, i64 %i82
+  %i84 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 3
+  %i85 = load ptr, ptr %i84, align 8
+  %i86 = icmp eq ptr %i85, null
+  br i1 %i86, label %bb88, label %bb103
 
-90:                                               ; preds = %78
-  %91 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 2
-  store i64 %85, i64* %91, align 8
-  %92 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 0
-  store i32 0, i32* %92, align 8
-  %93 = tail call i8* @AcquireAlignedMemory(i64 noundef 1, i64 noundef %85) #63
-  %94 = bitcast i8* %93 to %struct._PixelPacket*
-  store %struct._PixelPacket* %94, %struct._PixelPacket** %86, align 8
-  %95 = icmp eq i8* %93, null
-  br i1 %95, label %96, label %98
+bb88:                                             ; preds = %bb76
+  %i89 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 2
+  store i64 %i83, ptr %i89, align 8
+  %i90 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 0
+  store i32 0, ptr %i90, align 8
+  %i91 = tail call ptr @AcquireAlignedMemory(i64 noundef 1, i64 noundef %i83)
+  store ptr %i91, ptr %i84, align 8
+  %i93 = icmp eq ptr %i91, null
+  br i1 %i93, label %bb94, label %bb96
 
-96:                                               ; preds = %90
-  store i32 1, i32* %92, align 8
-  %97 = load i64, i64* %91, align 8
-  store %struct._PixelPacket* null, %struct._PixelPacket** %86, align 8
-  br label %98
+bb94:                                             ; preds = %bb88
+  store i32 1, ptr %i90, align 8
+  %i95 = load i64, ptr %i89, align 8
+  store ptr null, ptr %i84, align 8
+  br label %bb96
 
-98:                                               ; preds = %96, %90
-  %99 = phi %struct._PixelPacket* [ null, %96 ], [ %94, %90 ]
-  %100 = icmp eq %struct._PixelPacket* %99, null
-  br i1 %100, label %101, label %131
+bb96:                                             ; preds = %bb94, %bb88
+  %i97 = phi ptr [ null, %bb94 ], [ %i91, %bb88 ]
+  %i98 = icmp eq ptr %i97, null
+  br i1 %i98, label %bb99, label %bb129
 
-101:                                              ; preds = %98
-  %102 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 18
-  %103 = getelementptr inbounds [4096 x i8], [4096 x i8]* %102, i64 0, i64 0
-  %104 = tail call i32 (%struct._ExceptionInfo*, i8*, i8*, i64, i32, i8*, i8*, ...) @ThrowMagickException(%struct._ExceptionInfo* noundef %7, i8* noundef getelementptr inbounds ([15 x i8], [15 x i8]* @.str.129, i64 0, i64 0), i8* noundef getelementptr inbounds ([1 x i8], [1 x i8]* @.str.1.130, i64 0, i64 0), i64 noundef 4688, i32 noundef 400, i8* noundef getelementptr inbounds ([23 x i8], [23 x i8]* @.str.2.131, i64 0, i64 0), i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @.str.3.132, i64 0, i64 0), i8* noundef nonnull %103) #62
-  store i64 0, i64* %91, align 8
-  br label %626
+bb99:                                             ; preds = %bb96
+  %i100 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 18
+  %i101 = getelementptr inbounds [4096 x i8], ptr %i100, i64 0, i64 0
+  %i102 = tail call i32 (ptr, ptr, ptr, i64, i32, ptr, ptr, ...) @ThrowMagickException(ptr noundef %arg7, ptr noundef @.str.129, ptr noundef @.str.1.130, i64 noundef 4688, i32 noundef 400, ptr noundef @.str.2.131, ptr noundef @.str.3.132, ptr noundef nonnull %i101)
+  store i64 0, ptr %i89, align 8
+  br label %bb624
 
-105:                                              ; preds = %78
-  %106 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 2
-  %107 = load i64, i64* %106, align 8
-  %108 = icmp ult i64 %107, %85
-  br i1 %108, label %109, label %131
+bb103:                                            ; preds = %bb76
+  %i104 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 2
+  %i105 = load i64, ptr %i104, align 8
+  %i106 = icmp ult i64 %i105, %i83
+  br i1 %i106, label %bb107, label %bb129
 
-109:                                              ; preds = %105
-  %110 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 0
-  %111 = load i32, i32* %110, align 8
-  %112 = icmp eq i32 %111, 0
-  br i1 %112, label %113, label %115
+bb107:                                            ; preds = %bb103
+  %i108 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 0
+  %i109 = load i32, ptr %i108, align 8
+  %i110 = icmp eq i32 %i109, 0
+  br i1 %i110, label %bb111, label %bb113
 
-113:                                              ; preds = %109
-  %114 = tail call i8* @RelinquishAlignedMemory(i8* noundef nonnull %89) #62
-  br label %116
+bb111:                                            ; preds = %bb107
+  %i112 = tail call ptr @RelinquishAlignedMemory(ptr noundef nonnull %i85)
+  br label %bb114
 
-115:                                              ; preds = %109
-  br label %116
+bb113:                                            ; preds = %bb107
+  br label %bb114
 
-116:                                              ; preds = %115, %113
-  store %struct._PixelPacket* null, %struct._PixelPacket** %86, align 8
-  %117 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 4
-  store %struct._PixelPacket* null, %struct._PixelPacket** %117, align 8
-  %118 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 6
-  store i16* null, i16** %118, align 8
-  store i64 %85, i64* %106, align 8
-  store i32 0, i32* %110, align 8
-  %119 = tail call i8* @AcquireAlignedMemory(i64 noundef 1, i64 noundef %85) #63
-  %120 = bitcast i8* %119 to %struct._PixelPacket*
-  store %struct._PixelPacket* %120, %struct._PixelPacket** %86, align 8
-  %121 = icmp eq i8* %119, null
-  br i1 %121, label %122, label %124
+bb114:                                            ; preds = %bb113, %bb111
+  store ptr null, ptr %i84, align 8
+  %i115 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 4
+  store ptr null, ptr %i115, align 8
+  %i116 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 6
+  store ptr null, ptr %i116, align 8
+  store i64 %i83, ptr %i104, align 8
+  store i32 0, ptr %i108, align 8
+  %i117 = tail call ptr @AcquireAlignedMemory(i64 noundef 1, i64 noundef %i83)
+  store ptr %i117, ptr %i84, align 8
+  %i119 = icmp eq ptr %i117, null
+  br i1 %i119, label %bb120, label %bb122
 
-122:                                              ; preds = %116
-  store i32 1, i32* %110, align 8
-  %123 = load i64, i64* %106, align 8
-  store %struct._PixelPacket* null, %struct._PixelPacket** %86, align 8
-  br label %124
+bb120:                                            ; preds = %bb114
+  store i32 1, ptr %i108, align 8
+  %i121 = load i64, ptr %i104, align 8
+  store ptr null, ptr %i84, align 8
+  br label %bb122
 
-124:                                              ; preds = %122, %116
-  %125 = phi %struct._PixelPacket* [ null, %122 ], [ %120, %116 ]
-  %126 = icmp eq %struct._PixelPacket* %125, null
-  br i1 %126, label %127, label %131
+bb122:                                            ; preds = %bb120, %bb114
+  %i123 = phi ptr [ null, %bb120 ], [ %i117, %bb114 ]
+  %i124 = icmp eq ptr %i123, null
+  br i1 %i124, label %bb125, label %bb129
 
-127:                                              ; preds = %124
-  %128 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 18
-  %129 = getelementptr inbounds [4096 x i8], [4096 x i8]* %128, i64 0, i64 0
-  %130 = tail call i32 (%struct._ExceptionInfo*, i8*, i8*, i64, i32, i8*, i8*, ...) @ThrowMagickException(%struct._ExceptionInfo* noundef %7, i8* noundef getelementptr inbounds ([15 x i8], [15 x i8]* @.str.129, i64 0, i64 0), i8* noundef getelementptr inbounds ([1 x i8], [1 x i8]* @.str.1.130, i64 0, i64 0), i64 noundef 4688, i32 noundef 400, i8* noundef getelementptr inbounds ([23 x i8], [23 x i8]* @.str.2.131, i64 0, i64 0), i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @.str.3.132, i64 0, i64 0), i8* noundef nonnull %129) #62
-  store i64 0, i64* %106, align 8
-  br label %626
+bb125:                                            ; preds = %bb122
+  %i126 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 18
+  %i127 = getelementptr inbounds [4096 x i8], ptr %i126, i64 0, i64 0
+  %i128 = tail call i32 (ptr, ptr, ptr, i64, i32, ptr, ptr, ...) @ThrowMagickException(ptr noundef %arg7, ptr noundef @.str.129, ptr noundef @.str.1.130, i64 noundef 4688, i32 noundef 400, ptr noundef @.str.2.131, ptr noundef @.str.3.132, ptr noundef nonnull %i127)
+  store i64 0, ptr %i104, align 8
+  br label %bb624
 
-131:                                              ; preds = %124, %105, %98
-  %132 = phi %struct._PixelPacket* [ %125, %124 ], [ %99, %98 ], [ %87, %105 ]
-  %133 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 4
-  store %struct._PixelPacket* %132, %struct._PixelPacket** %133, align 8
-  %134 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 6
-  store i16* null, i16** %134, align 8
-  %135 = load i32, i32* %81, align 8
-  %136 = icmp eq i32 %135, 0
-  br i1 %136, label %140, label %137
+bb129:                                            ; preds = %bb122, %bb103, %bb96
+  %i130 = phi ptr [ %i123, %bb122 ], [ %i97, %bb96 ], [ %i85, %bb103 ]
+  %i131 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 4
+  store ptr %i130, ptr %i131, align 8
+  %i132 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 6
+  store ptr null, ptr %i132, align 8
+  %i133 = load i32, ptr %i79, align 8
+  %i134 = icmp eq i32 %i133, 0
+  br i1 %i134, label %bb138, label %bb135
 
-137:                                              ; preds = %131
-  %138 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %132, i64 %79
-  %139 = getelementptr %struct._PixelPacket, %struct._PixelPacket* %138, i64 0, i32 0
-  store i16* %139, i16** %134, align 8
-  br label %140
+bb135:                                            ; preds = %bb129
+  %i136 = getelementptr inbounds %struct._PixelPacket, ptr %i130, i64 %i77
+  %i137 = getelementptr %struct._PixelPacket, ptr %i136, i64 0, i32 0
+  store ptr %i137, ptr %i132, align 8
+  br label %bb138
 
-140:                                              ; preds = %137, %131
-  %141 = phi i16* [ %139, %137 ], [ null, %131 ]
-  %142 = load i32, i32* %16, align 8
-  %143 = icmp eq i32 %142, 4
-  br i1 %143, label %144, label %153
+bb138:                                            ; preds = %bb135, %bb129
+  %i139 = phi ptr [ %i137, %bb135 ], [ null, %bb129 ]
+  %i140 = load i32, ptr %i14, align 8
+  %i141 = icmp eq i32 %i140, 4
+  br i1 %i141, label %bb142, label %bb151
 
-144:                                              ; preds = %140
-  %145 = getelementptr inbounds %struct._RectangleInfo, %struct._RectangleInfo* %29, i64 0, i32 3
-  %146 = load i64, i64* %145, align 8
-  %147 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 6
-  %148 = load i64, i64* %147, align 8
-  %149 = getelementptr inbounds %struct._RectangleInfo, %struct._RectangleInfo* %29, i64 0, i32 2
-  %150 = load i64, i64* %149, align 8
-  %151 = mul i64 %148, %146
-  %152 = add i64 %151, %150
-  br label %167
+bb142:                                            ; preds = %bb138
+  %i143 = getelementptr inbounds %struct._RectangleInfo, ptr %i27, i64 0, i32 3
+  %i144 = load i64, ptr %i143, align 8
+  %i145 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 6
+  %i146 = load i64, ptr %i145, align 8
+  %i147 = getelementptr inbounds %struct._RectangleInfo, ptr %i27, i64 0, i32 2
+  %i148 = load i64, ptr %i147, align 8
+  %i149 = mul i64 %i146, %i144
+  %i150 = add i64 %i149, %i148
+  br label %bb165
 
-153:                                              ; preds = %140
-  %154 = getelementptr inbounds %struct._RectangleInfo, %struct._RectangleInfo* %29, i64 0, i32 3
-  %155 = load i64, i64* %154, align 8
-  %156 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 6
-  %157 = load i64, i64* %156, align 8
-  %158 = mul i64 %157, %155
-  %159 = getelementptr inbounds %struct._RectangleInfo, %struct._RectangleInfo* %29, i64 0, i32 2
-  %160 = load i64, i64* %159, align 8
-  %161 = add i64 %158, %160
-  %162 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 14
-  %163 = load %struct._PixelPacket*, %struct._PixelPacket** %162, align 8
-  %164 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %163, i64 %161
-  %165 = icmp eq %struct._PixelPacket* %132, %164
-  %166 = zext i1 %165 to i32
-  br label %167
+bb151:                                            ; preds = %bb138
+  %i152 = getelementptr inbounds %struct._RectangleInfo, ptr %i27, i64 0, i32 3
+  %i153 = load i64, ptr %i152, align 8
+  %i154 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 6
+  %i155 = load i64, ptr %i154, align 8
+  %i156 = mul i64 %i155, %i153
+  %i157 = getelementptr inbounds %struct._RectangleInfo, ptr %i27, i64 0, i32 2
+  %i158 = load i64, ptr %i157, align 8
+  %i159 = add i64 %i156, %i158
+  %i160 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 14
+  %i161 = load ptr, ptr %i160, align 8
+  %i162 = getelementptr inbounds %struct._PixelPacket, ptr %i161, i64 %i159
+  %i163 = icmp eq ptr %i130, %i162
+  %i164 = zext i1 %i163 to i32
+  br label %bb165
 
-167:                                              ; preds = %153, %144
-  %168 = phi i64 [ %152, %144 ], [ %161, %153 ]
-  %169 = phi i64 [ %148, %144 ], [ %157, %153 ]
-  %170 = phi i32 [ 1, %144 ], [ %166, %153 ]
-  %171 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 5
-  store i32 %170, i32* %171, align 8
-  %172 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 7
-  %173 = load i64, i64* %172, align 8
-  br label %178
+bb165:                                            ; preds = %bb151, %bb142
+  %i166 = phi i64 [ %i150, %bb142 ], [ %i159, %bb151 ]
+  %i167 = phi i64 [ %i146, %bb142 ], [ %i155, %bb151 ]
+  %i168 = phi i32 [ 1, %bb142 ], [ %i164, %bb151 ]
+  %i169 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 5
+  store i32 %i168, ptr %i169, align 8
+  %i170 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 7
+  %i171 = load i64, ptr %i170, align 8
+  br label %bb176
 
-174:                                              ; preds = %74, %63
-  %175 = phi i16* [ null, %63 ], [ %77, %74 ]
-  %176 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %6, i64 0, i32 5
-  store i32 1, i32* %176, align 8
-  %177 = icmp eq %struct._PixelPacket* %67, null
-  br i1 %177, label %626, label %178
+bb172:                                            ; preds = %bb72, %bb61
+  %i173 = phi ptr [ null, %bb61 ], [ %i75, %bb72 ]
+  %i174 = getelementptr inbounds %struct._NexusInfo, ptr %arg6, i64 0, i32 5
+  store i32 1, ptr %i174, align 8
+  %i175 = icmp eq ptr %i65, null
+  br i1 %i175, label %bb624, label %bb176
 
-178:                                              ; preds = %174, %167
-  %179 = phi i64 [ %168, %167 ], [ %65, %174 ]
-  %180 = phi i16* [ %141, %167 ], [ %175, %174 ]
-  %181 = phi i32 [ %170, %167 ], [ 1, %174 ]
-  %182 = phi i64 [ %173, %167 ], [ %52, %174 ]
-  %183 = phi i64 [ %169, %167 ], [ %46, %174 ]
-  %184 = phi %struct._PixelPacket* [ %132, %167 ], [ %68, %174 ]
-  %185 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 6
-  %186 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 7
-  %187 = icmp sgt i64 %179, -1
-  br i1 %187, label %188, label %227
+bb176:                                            ; preds = %bb172, %bb165
+  %i177 = phi i64 [ %i166, %bb165 ], [ %i63, %bb172 ]
+  %i178 = phi ptr [ %i139, %bb165 ], [ %i173, %bb172 ]
+  %i179 = phi i32 [ %i168, %bb165 ], [ 1, %bb172 ]
+  %i180 = phi i64 [ %i171, %bb165 ], [ %i50, %bb172 ]
+  %i181 = phi i64 [ %i167, %bb165 ], [ %i44, %bb172 ]
+  %i182 = phi ptr [ %i130, %bb165 ], [ %i66, %bb172 ]
+  %i183 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 6
+  %i184 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 7
+  %i185 = icmp sgt i64 %i177, -1
+  br i1 %i185, label %bb186, label %bb225
 
-188:                                              ; preds = %178
-  %189 = mul i64 %182, %183
-  %190 = getelementptr inbounds %struct._RectangleInfo, %struct._RectangleInfo* %29, i64 0, i32 1
-  %191 = load i64, i64* %190, align 8
-  %192 = add i64 %191, -1
-  %193 = mul i64 %192, %183
-  %194 = getelementptr inbounds %struct._RectangleInfo, %struct._RectangleInfo* %29, i64 0, i32 0
-  %195 = load i64, i64* %194, align 8
-  %196 = add nsw i64 %179, -1
-  %197 = add i64 %196, %195
-  %198 = add i64 %197, %193
-  %199 = icmp ult i64 %198, %189
-  %200 = icmp sgt i64 %2, -1
-  %201 = and i1 %199, %200
-  br i1 %201, label %202, label %227
+bb186:                                            ; preds = %bb176
+  %i187 = mul i64 %i180, %i181
+  %i188 = getelementptr inbounds %struct._RectangleInfo, ptr %i27, i64 0, i32 1
+  %i189 = load i64, ptr %i188, align 8
+  %i190 = add i64 %i189, -1
+  %i191 = mul i64 %i190, %i181
+  %i192 = getelementptr inbounds %struct._RectangleInfo, ptr %i27, i64 0, i32 0
+  %i193 = load i64, ptr %i192, align 8
+  %i194 = add nsw i64 %i177, -1
+  %i195 = add i64 %i194, %i193
+  %i196 = add i64 %i195, %i191
+  %i197 = icmp ult i64 %i196, %i187
+  %i198 = icmp sgt i64 %arg2, -1
+  %i199 = and i1 %i197, %i198
+  br i1 %i199, label %bb200, label %bb225
 
-202:                                              ; preds = %188
-  %203 = add i64 %4, %2
-  %204 = icmp sgt i64 %203, %183
-  %205 = icmp slt i64 %3, 0
-  %206 = or i1 %204, %205
-  %207 = add i64 %5, %3
-  %208 = icmp sgt i64 %207, %182
-  %209 = select i1 %206, i1 true, i1 %208
-  br i1 %209, label %227, label %210
+bb200:                                            ; preds = %bb186
+  %i201 = add i64 %arg4, %arg2
+  %i202 = icmp sgt i64 %i201, %i181
+  %i203 = icmp slt i64 %arg3, 0
+  %i204 = or i1 %i202, %i203
+  %i205 = add i64 %arg5, %arg3
+  %i206 = icmp sgt i64 %i205, %i180
+  %i207 = select i1 %i204, i1 true, i1 %i206
+  br i1 %i207, label %bb225, label %bb208
 
-210:                                              ; preds = %202
-  %211 = icmp eq i32 %181, 0
-  br i1 %211, label %212, label %626
+bb208:                                            ; preds = %bb200
+  %i209 = icmp eq i32 %i179, 0
+  br i1 %i209, label %bb210, label %bb624
 
-212:                                              ; preds = %210
-  %213 = tail call fastcc i32 @ReadPixelCachePixels(%struct._CacheInfo* noundef nonnull %15, %struct._NexusInfo* noundef nonnull %6, %struct._ExceptionInfo* noundef %7)
-  %214 = icmp eq i32 %213, 0
-  br i1 %214, label %626, label %215
+bb210:                                            ; preds = %bb208
+  %i211 = tail call fastcc i32 @ReadPixelCachePixels(ptr noundef nonnull %i13, ptr noundef nonnull %arg6, ptr noundef %arg7)
+  %i212 = icmp eq i32 %i211, 0
+  br i1 %i212, label %bb624, label %bb213
 
-215:                                              ; preds = %212
-  %216 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 0
-  %217 = load i32, i32* %216, align 8
-  %218 = icmp eq i32 %217, 2
-  br i1 %218, label %223, label %219
+bb213:                                            ; preds = %bb210
+  %i214 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 0
+  %i215 = load i32, ptr %i214, align 8
+  %i216 = icmp eq i32 %i215, 2
+  br i1 %i216, label %bb221, label %bb217
 
-219:                                              ; preds = %215
-  %220 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 1
-  %221 = load i32, i32* %220, align 4
-  %222 = icmp eq i32 %221, 12
-  br i1 %222, label %223, label %226
+bb217:                                            ; preds = %bb213
+  %i218 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 1
+  %i219 = load i32, ptr %i218, align 4
+  %i220 = icmp eq i32 %i219, 12
+  br i1 %i220, label %bb221, label %bb224
 
-223:                                              ; preds = %219, %215
-  %224 = tail call fastcc i32 @ReadPixelCacheIndexes(%struct._CacheInfo* noundef nonnull %15, %struct._NexusInfo* noundef nonnull %6, %struct._ExceptionInfo* noundef %7)
-  %225 = icmp eq i32 %224, 0
-  br i1 %225, label %626, label %226
+bb221:                                            ; preds = %bb217, %bb213
+  %i222 = tail call fastcc i32 @ReadPixelCacheIndexes(ptr noundef nonnull %i13, ptr noundef nonnull %arg6, ptr noundef %arg7)
+  %i223 = icmp eq i32 %i222, 0
+  br i1 %i223, label %bb624, label %bb224
 
-226:                                              ; preds = %223, %219
-  br label %626
+bb224:                                            ; preds = %bb221, %bb217
+  br label %bb624
 
-227:                                              ; preds = %202, %188, %178
-  %228 = tail call %struct._NexusInfo** @AcquirePixelCacheNexus(i64 noundef 1)
-  switch i32 %1, label %249 [
-    i32 10, label %229
-    i32 11, label %234
-    i32 8, label %239
-    i32 9, label %244
-    i32 12, label %244
+bb225:                                            ; preds = %bb200, %bb186, %bb176
+  %i226 = tail call ptr @AcquirePixelCacheNexus(i64 noundef 1)
+  switch i32 %arg1, label %bb247 [
+    i32 10, label %bb227
+    i32 11, label %bb232
+    i32 8, label %bb237
+    i32 9, label %bb242
+    i32 12, label %bb242
   ]
 
-229:                                              ; preds = %227
-  %230 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 2
-  store i16 0, i16* %230, align 2
-  %231 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 1
-  store i16 0, i16* %231, align 2
-  %232 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 0
-  store i16 0, i16* %232, align 2
-  %233 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 3
-  store i16 0, i16* %233, align 2
-  br label %263
+bb227:                                            ; preds = %bb225
+  %i228 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 2
+  store i16 0, ptr %i228, align 2
+  %i229 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 1
+  store i16 0, ptr %i229, align 2
+  %i230 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 0
+  store i16 0, ptr %i230, align 2
+  %i231 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 3
+  store i16 0, ptr %i231, align 2
+  br label %bb261
 
-234:                                              ; preds = %227
-  %235 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 2
-  store i16 32767, i16* %235, align 2
-  %236 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 1
-  store i16 32767, i16* %236, align 2
-  %237 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 0
-  store i16 32767, i16* %237, align 2
-  %238 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 3
-  store i16 0, i16* %238, align 2
-  br label %263
+bb232:                                            ; preds = %bb225
+  %i233 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 2
+  store i16 32767, ptr %i233, align 2
+  %i234 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 1
+  store i16 32767, ptr %i234, align 2
+  %i235 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 0
+  store i16 32767, ptr %i235, align 2
+  %i236 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 3
+  store i16 0, ptr %i236, align 2
+  br label %bb261
 
-239:                                              ; preds = %227
-  %240 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 2
-  store i16 0, i16* %240, align 2
-  %241 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 1
-  store i16 0, i16* %241, align 2
-  %242 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 0
-  store i16 0, i16* %242, align 2
-  %243 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 3
-  store i16 -1, i16* %243, align 2
-  br label %263
+bb237:                                            ; preds = %bb225
+  %i238 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 2
+  store i16 0, ptr %i238, align 2
+  %i239 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 1
+  store i16 0, ptr %i239, align 2
+  %i240 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 0
+  store i16 0, ptr %i240, align 2
+  %i241 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 3
+  store i16 -1, ptr %i241, align 2
+  br label %bb261
 
-244:                                              ; preds = %227, %227
-  %245 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 2
-  store i16 -1, i16* %245, align 2
-  %246 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 1
-  store i16 -1, i16* %246, align 2
-  %247 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 0 
-  store i16 -1, i16* %247, align 2
-  %248 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 3
-  store i16 0, i16* %248, align 2
-  br label %263
+bb242:                                            ; preds = %bb225, %bb225
+  %i243 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 2
+  store i16 -1, ptr %i243, align 2
+  %i244 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 1
+  store i16 -1, ptr %i244, align 2
+  %i245 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 0
+  store i16 -1, ptr %i245, align 2
+  %i246 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 3
+  store i16 0, ptr %i246, align 2
+  br label %bb261
 
-249:                                              ; preds = %227
-  %250 = getelementptr inbounds %struct._Image, %struct._Image* %0, i64 0, i32 12
-  %251 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %250, i64 0, i32 0
-  %252 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 0
-  %253 = load i16, i16* %251, align 2
-  store i16 %253, i16* %252, align 2
-  %254 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %250, i64 0, i32 1
-  %255 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 1
-  %256 = load i16, i16* %254, align 2
-  store i16 %256, i16* %255, align 2
-  %257 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %250, i64 0, i32 2
-  %258 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 2
-  %259 = load i16, i16* %257, align 2
-  store i16 %259, i16* %258, align 2
-  %260 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %250, i64 0, i32 3
-  %261 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %10, i64 0, i32 3
-  %262 = load i16, i16* %260, align 2
-  store i16 %262, i16* %261, align 2
-  br label %263
+bb247:                                            ; preds = %bb225
+  %i248 = getelementptr inbounds %struct._Image, ptr %arg, i64 0, i32 12
+  %i249 = getelementptr inbounds %struct._PixelPacket, ptr %i248, i64 0, i32 0
+  %i250 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 0
+  %i251 = load i16, ptr %i249, align 2
+  store i16 %i251, ptr %i250, align 2
+  %i252 = getelementptr inbounds %struct._PixelPacket, ptr %i248, i64 0, i32 1
+  %i253 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 1
+  %i254 = load i16, ptr %i252, align 2
+  store i16 %i254, ptr %i253, align 2
+  %i255 = getelementptr inbounds %struct._PixelPacket, ptr %i248, i64 0, i32 2
+  %i256 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 2
+  %i257 = load i16, ptr %i255, align 2
+  store i16 %i257, ptr %i256, align 2
+  %i258 = getelementptr inbounds %struct._PixelPacket, ptr %i248, i64 0, i32 3
+  %i259 = getelementptr inbounds %struct._PixelPacket, ptr %i8, i64 0, i32 3
+  %i260 = load i16, ptr %i258, align 2
+  store i16 %i260, ptr %i259, align 2
+  br label %bb261
 
-263:                                              ; preds = %249, %244, %239, %234, %229
-  store i16 0, i16* %9, align 2
-  %264 = icmp sgt i64 %5, 0
-  br i1 %264, label %265, label %601
+bb261:                                            ; preds = %bb247, %bb242, %bb237, %bb232, %bb227
+  store i16 0, ptr %i, align 2
+  %i262 = icmp sgt i64 %arg5, 0
+  br i1 %i262, label %bb263, label %bb599
 
-265:                                              ; preds = %263
-  %266 = and i32 %1, -5
-  %267 = icmp eq i32 %266, 0
-  %268 = icmp sgt i64 %4, 0
-  %269 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 0
-  %270 = getelementptr inbounds %struct._CacheInfo, %struct._CacheInfo* %15, i64 0, i32 21
-  br i1 %268, label %271, label %601
+bb263:                                            ; preds = %bb261
+  %i264 = and i32 %arg1, -5
+  %i265 = icmp eq i32 %i264, 0
+  %i266 = icmp sgt i64 %arg4, 0
+  %i267 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 0
+  %i268 = getelementptr inbounds %struct._CacheInfo, ptr %i13, i64 0, i32 21
+  br i1 %i266, label %bb269, label %bb599
 
-271:                                              ; preds = %596, %265
-  %272 = phi i16* [ %598, %596 ], [ %180, %265 ]
-  %273 = phi %struct._PixelPacket* [ %597, %596 ], [ %184, %265 ]
-  %274 = phi i64 [ %599, %596 ], [ 0, %265 ]
-  %275 = add nsw i64 %274, %3
-  br i1 %267, label %276, label %283
+bb269:                                            ; preds = %bb594, %bb263
+  %i270 = phi ptr [ %i596, %bb594 ], [ %i178, %bb263 ]
+  %i271 = phi ptr [ %i595, %bb594 ], [ %i182, %bb263 ]
+  %i272 = phi i64 [ %i597, %bb594 ], [ 0, %bb263 ]
+  %i273 = add nsw i64 %i272, %arg3
+  br i1 %i265, label %bb274, label %bb281
 
-276:                                              ; preds = %271
-  %277 = load i64, i64* %186, align 8
-  %278 = icmp slt i64 %275, 0
-  %279 = icmp slt i64 %275, %277
-  %280 = add i64 %277, -1
-  %281 = select i1 %279, i64 %275, i64 %280
-  %282 = select i1 %278, i64 0, i64 %281
-  br label %283
+bb274:                                            ; preds = %bb269
+  %i275 = load i64, ptr %i184, align 8
+  %i276 = icmp slt i64 %i273, 0
+  %i277 = icmp slt i64 %i273, %i275
+  %i278 = add i64 %i275, -1
+  %i279 = select i1 %i277, i64 %i273, i64 %i278
+  %i280 = select i1 %i276, i64 0, i64 %i279
+  br label %bb281
 
-283:                                              ; preds = %276, %271
-  %284 = phi i64 [ %282, %276 ], [ %275, %271 ]
-  %285 = icmp slt i64 %284, 0
-  %286 = ashr i64 %284, 63
-  %287 = lshr i64 %284, 63
-  %288 = and i64 %284, 7
-  %289 = getelementptr inbounds [64 x i64], [64 x i64]* @DitherMatrix, i64 0, i64 %288
-  %290 = add i64 %284, -32
-  br label %291
+bb281:                                            ; preds = %bb274, %bb269
+  %i282 = phi i64 [ %i280, %bb274 ], [ %i273, %bb269 ]
+  %i283 = icmp slt i64 %i282, 0
+  %i284 = ashr i64 %i282, 63
+  %i285 = lshr i64 %i282, 63
+  %i286 = and i64 %i282, 7
+  %i287 = getelementptr inbounds [64 x i64], ptr @DitherMatrix, i64 0, i64 %i286
+  %i288 = add i64 %i282, -32
+  br label %bb289
 
-291:                                              ; preds = %590, %283
-  %292 = phi i16* [ %272, %283 ], [ %592, %590 ]
-  %293 = phi %struct._PixelPacket* [ %273, %283 ], [ %591, %590 ]
-  %294 = phi i64 [ 0, %283 ], [ %594, %590 ]
-  %295 = add nsw i64 %294, %2
-  %296 = load i64, i64* %185, align 8
-  %297 = sub i64 %296, %295
-  %298 = sub i64 %4, %294
-  %299 = icmp ult i64 %297, %298
-  %300 = select i1 %299, i64 %297, i64 %298
-  %301 = icmp slt i64 %295, 0
-  %302 = icmp sle i64 %296, %295
-  %303 = select i1 %301, i1 true, i1 %302
-  %304 = select i1 %303, i1 true, i1 %285
-  br i1 %304, label %338, label %305
+bb289:                                            ; preds = %bb588, %bb281
+  %i290 = phi ptr [ %i270, %bb281 ], [ %i590, %bb588 ]
+  %i291 = phi ptr [ %i271, %bb281 ], [ %i589, %bb588 ]
+  %i292 = phi i64 [ 0, %bb281 ], [ %i592, %bb588 ]
+  %i293 = add nsw i64 %i292, %arg2
+  %i294 = load i64, ptr %i183, align 8
+  %i295 = sub i64 %i294, %i293
+  %i296 = sub i64 %arg4, %i292
+  %i297 = icmp ult i64 %i295, %i296
+  %i298 = select i1 %i297, i64 %i295, i64 %i296
+  %i299 = icmp slt i64 %i293, 0
+  %i300 = icmp sle i64 %i294, %i293
+  %i301 = select i1 %i299, i1 true, i1 %i300
+  %i302 = select i1 %i301, i1 true, i1 %i283
+  br i1 %i302, label %bb336, label %bb303
 
-305:                                              ; preds = %291
-  %306 = load i64, i64* %186, align 8
-  %307 = icmp sge i64 %284, %306
-  %308 = icmp eq i64 %300, 0
-  %309 = select i1 %307, i1 true, i1 %308
-  br i1 %309, label %338, label %310
+bb303:                                            ; preds = %bb289
+  %i304 = load i64, ptr %i184, align 8
+  %i305 = icmp sge i64 %i282, %i304
+  %i306 = icmp eq i64 %i298, 0
+  %i307 = select i1 %i305, i1 true, i1 %i306
+  br i1 %i307, label %bb336, label %bb308
 
-310:                                              ; preds = %305
-  %311 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %312 = call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef %1, i64 noundef %295, i64 noundef %284, i64 noundef %300, i64 noundef 1, %struct._NexusInfo* noundef %311, %struct._ExceptionInfo* noundef %7) #70
-  %313 = icmp eq %struct._PixelPacket* %312, null
-  br i1 %313, label %596, label %314
+bb308:                                            ; preds = %bb303
+  %i309 = load ptr, ptr %i226, align 8
+  %i310 = call ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef %arg1, i64 noundef %i293, i64 noundef %i282, i64 noundef %i298, i64 noundef 1, ptr noundef %i309, ptr noundef %arg7)
+  %i311 = icmp eq ptr %i310, null
+  br i1 %i311, label %bb594, label %bb312
 
-314:                                              ; preds = %310
-  %315 = load i32, i32* %269, align 8
-  %316 = icmp eq i32 %315, 0
-  br i1 %316, label %333, label %317
+bb312:                                            ; preds = %bb308
+  %i313 = load i32, ptr %i267, align 8
+  %i314 = icmp eq i32 %i313, 0
+  br i1 %i314, label %bb331, label %bb315
 
-317:                                              ; preds = %314
-  %318 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %319 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %318, i64 0, i32 6
-  %320 = load i16*, i16** %319, align 8
-  %321 = bitcast %struct._PixelPacket* %293 to i8*
-  %322 = bitcast %struct._PixelPacket* %312 to i8*
-  %323 = shl i64 %300, 3
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 2 %321, i8* nonnull align 2 %322, i64 %323, i1 false)
-  %324 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %293, i64 %300
-  %325 = icmp ne i16* %292, null
-  %326 = icmp ne i16* %320, null
-  %327 = select i1 %325, i1 %326, i1 false
-  br i1 %327, label %328, label %590
+bb315:                                            ; preds = %bb312
+  %i316 = load ptr, ptr %i226, align 8
+  %i317 = getelementptr inbounds %struct._NexusInfo, ptr %i316, i64 0, i32 6
+  %i318 = load ptr, ptr %i317, align 8
+  %i321 = shl i64 %i298, 3
+  call void @llvm.memcpy.p0.p0.i64(ptr align 2 %i291, ptr nonnull align 2 %i310, i64 %i321, i1 false)
+  %i322 = getelementptr inbounds %struct._PixelPacket, ptr %i291, i64 %i298
+  %i323 = icmp ne ptr %i290, null
+  %i324 = icmp ne ptr %i318, null
+  %i325 = select i1 %i323, i1 %i324, i1 false
+  br i1 %i325, label %bb326, label %bb588
 
-328:                                              ; preds = %317
-  %329 = bitcast i16* %292 to i8*
-  %330 = bitcast i16* %320 to i8*
-  %331 = shl i64 %300, 1
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* nonnull align 2 %329, i8* nonnull align 2 %330, i64 %331, i1 false)
-  %332 = getelementptr inbounds i16, i16* %292, i64 %300
-  br label %590
+bb326:                                            ; preds = %bb315
+  %i329 = shl i64 %i298, 1
+  call void @llvm.memcpy.p0.p0.i64(ptr nonnull align 2 %i290, ptr nonnull align 2 %i318, i64 %i329, i1 false)
+  %i330 = getelementptr inbounds i16, ptr %i290, i64 %i298
+  br label %bb588
 
-333:                                              ; preds = %314
-  %334 = bitcast %struct._PixelPacket* %293 to i8*
-  %335 = bitcast %struct._PixelPacket* %312 to i8*
-  %336 = shl i64 %300, 3
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 2 %334, i8* nonnull align 2 %335, i64 %336, i1 false)
-  %337 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %293, i64 %300
-  br label %590
+bb331:                                            ; preds = %bb312
+  %i334 = shl i64 %i298, 3
+  call void @llvm.memcpy.p0.p0.i64(ptr align 2 %i291, ptr nonnull align 2 %i310, i64 %i334, i1 false)
+  %i335 = getelementptr inbounds %struct._PixelPacket, ptr %i291, i64 %i298
+  br label %bb588
 
-338:                                              ; preds = %305, %291
-  switch i32 %1, label %546 [
-    i32 1, label %568
-    i32 2, label %568
-    i32 10, label %568
-    i32 11, label %568
-    i32 8, label %568
-    i32 9, label %568
-    i32 12, label %568
-    i32 16, label %528
-    i32 6, label %501
-    i32 3, label %474
-    i32 7, label %455
-    i32 5, label %426
-    i32 17, label %403
-    i32 13, label %381
-    i32 14, label %358
-    i32 15, label %339
+bb336:                                            ; preds = %bb303, %bb289
+  switch i32 %arg1, label %bb544 [
+    i32 1, label %bb566
+    i32 2, label %bb566
+    i32 10, label %bb566
+    i32 11, label %bb566
+    i32 8, label %bb566
+    i32 9, label %bb566
+    i32 12, label %bb566
+    i32 16, label %bb526
+    i32 6, label %bb499
+    i32 3, label %bb472
+    i32 7, label %bb453
+    i32 5, label %bb424
+    i32 17, label %bb401
+    i32 13, label %bb379
+    i32 14, label %bb356
+    i32 15, label %bb337
   ]
 
-339:                                              ; preds = %338
-  %340 = sdiv i64 %295, %296
-  %341 = ashr i64 %295, 63
-  %342 = add nsw i64 %340, %341
-  %343 = mul nsw i64 %342, %296
-  %344 = sub nsw i64 %295, %343
-  %345 = load i64, i64* %186, align 8
-  %346 = icmp slt i64 %284, %345
-  %347 = add i64 %345, -1
-  %348 = select i1 %346, i64 %284, i64 %347
-  %349 = select i1 %285, i64 0, i64 %348
-  %350 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %351 = call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef 15, i64 noundef %344, i64 noundef %349, i64 noundef 1, i64 noundef 1, %struct._NexusInfo* noundef %350, %struct._ExceptionInfo* noundef %7) #70
-  %352 = load i32, i32* %269, align 8
-  %353 = icmp eq i32 %352, 0
-  br i1 %353, label %564, label %354
+bb337:                                            ; preds = %bb336
+  %i338 = sdiv i64 %i293, %i294
+  %i339 = ashr i64 %i293, 63
+  %i340 = add nsw i64 %i338, %i339
+  %i341 = mul nsw i64 %i340, %i294
+  %i342 = sub nsw i64 %i293, %i341
+  %i343 = load i64, ptr %i184, align 8
+  %i344 = icmp slt i64 %i282, %i343
+  %i345 = add i64 %i343, -1
+  %i346 = select i1 %i344, i64 %i282, i64 %i345
+  %i347 = select i1 %i283, i64 0, i64 %i346
+  %i348 = load ptr, ptr %i226, align 8
+  %i349 = call ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef 15, i64 noundef %i342, i64 noundef %i347, i64 noundef 1, i64 noundef 1, ptr noundef %i348, ptr noundef %arg7)
+  %i350 = load i32, ptr %i267, align 8
+  %i351 = icmp eq i32 %i350, 0
+  br i1 %i351, label %bb562, label %bb352
 
-354:                                              ; preds = %339
-  %355 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %356 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %355, i64 0, i32 6
-  %357 = load i16*, i16** %356, align 8
-  br label %564
+bb352:                                            ; preds = %bb337
+  %i353 = load ptr, ptr %i226, align 8
+  %i354 = getelementptr inbounds %struct._NexusInfo, ptr %i353, i64 0, i32 6
+  %i355 = load ptr, ptr %i354, align 8
+  br label %bb562
 
-358:                                              ; preds = %338
-  %359 = xor i1 %301, true
-  %360 = icmp sgt i64 %296, %295
-  %361 = select i1 %359, i1 %360, i1 false
-  br i1 %361, label %362, label %568
+bb356:                                            ; preds = %bb336
+  %i357 = xor i1 %i299, true
+  %i358 = icmp sgt i64 %i294, %i293
+  %i359 = select i1 %i357, i1 %i358, i1 false
+  br i1 %i359, label %bb360, label %bb566
 
-362:                                              ; preds = %358
-  %363 = sdiv i64 %295, %296
-  %364 = lshr i64 %295, 63
-  %365 = add nuw nsw i64 %363, %364
-  %366 = mul nsw i64 %365, %296
-  %367 = sub nsw i64 %295, %366
-  %368 = load i64, i64* %186, align 8
-  %369 = sdiv i64 %284, %368
-  %370 = add nsw i64 %369, %286
-  %371 = mul nsw i64 %370, %368
-  %372 = sub nsw i64 %284, %371
-  %373 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %374 = call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef 14, i64 noundef %367, i64 noundef %372, i64 noundef 1, i64 noundef 1, %struct._NexusInfo* noundef %373, %struct._ExceptionInfo* noundef %7) #70
-  %375 = load i32, i32* %269, align 8
-  %376 = icmp eq i32 %375, 0
-  br i1 %376, label %564, label %377
+bb360:                                            ; preds = %bb356
+  %i361 = sdiv i64 %i293, %i294
+  %i362 = lshr i64 %i293, 63
+  %i363 = add nuw nsw i64 %i361, %i362
+  %i364 = mul nsw i64 %i363, %i294
+  %i365 = sub nsw i64 %i293, %i364
+  %i366 = load i64, ptr %i184, align 8
+  %i367 = sdiv i64 %i282, %i366
+  %i368 = add nsw i64 %i367, %i284
+  %i369 = mul nsw i64 %i368, %i366
+  %i370 = sub nsw i64 %i282, %i369
+  %i371 = load ptr, ptr %i226, align 8
+  %i372 = call ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef 14, i64 noundef %i365, i64 noundef %i370, i64 noundef 1, i64 noundef 1, ptr noundef %i371, ptr noundef %arg7)
+  %i373 = load i32, ptr %i267, align 8
+  %i374 = icmp eq i32 %i373, 0
+  br i1 %i374, label %bb562, label %bb375
 
-377:                                              ; preds = %362
-  %378 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %379 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %378, i64 0, i32 6
-  %380 = load i16*, i16** %379, align 8
-  br label %564
+bb375:                                            ; preds = %bb360
+  %i376 = load ptr, ptr %i226, align 8
+  %i377 = getelementptr inbounds %struct._NexusInfo, ptr %i376, i64 0, i32 6
+  %i378 = load ptr, ptr %i377, align 8
+  br label %bb562
 
-381:                                              ; preds = %338
-  br i1 %285, label %568, label %382
+bb379:                                            ; preds = %bb336
+  br i1 %i283, label %bb566, label %bb380
 
-382:                                              ; preds = %381
-  %383 = load i64, i64* %186, align 8
-  %384 = icmp slt i64 %284, %383
-  br i1 %384, label %385, label %568
+bb380:                                            ; preds = %bb379
+  %i381 = load i64, ptr %i184, align 8
+  %i382 = icmp slt i64 %i282, %i381
+  br i1 %i382, label %bb383, label %bb566
 
-385:                                              ; preds = %382
-  %386 = sdiv i64 %295, %296
-  %387 = ashr i64 %295, 63
-  %388 = add nsw i64 %386, %387
-  %389 = mul nsw i64 %388, %296
-  %390 = sub nsw i64 %295, %389
-  %391 = sdiv i64 %284, %383
-  %392 = add nuw nsw i64 %391, %287
-  %393 = mul nsw i64 %392, %383
-  %394 = sub nsw i64 %284, %393
-  %395 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %396 = call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef 13, i64 noundef %390, i64 noundef %394, i64 noundef 1, i64 noundef 1, %struct._NexusInfo* noundef %395, %struct._ExceptionInfo* noundef %7) #70
-  %397 = load i32, i32* %269, align 8
-  %398 = icmp eq i32 %397, 0
-  br i1 %398, label %564, label %399
+bb383:                                            ; preds = %bb380
+  %i384 = sdiv i64 %i293, %i294
+  %i385 = ashr i64 %i293, 63
+  %i386 = add nsw i64 %i384, %i385
+  %i387 = mul nsw i64 %i386, %i294
+  %i388 = sub nsw i64 %i293, %i387
+  %i389 = sdiv i64 %i282, %i381
+  %i390 = add nuw nsw i64 %i389, %i285
+  %i391 = mul nsw i64 %i390, %i381
+  %i392 = sub nsw i64 %i282, %i391
+  %i393 = load ptr, ptr %i226, align 8
+  %i394 = call ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef 13, i64 noundef %i388, i64 noundef %i392, i64 noundef 1, i64 noundef 1, ptr noundef %i393, ptr noundef %arg7)
+  %i395 = load i32, ptr %i267, align 8
+  %i396 = icmp eq i32 %i395, 0
+  br i1 %i396, label %bb562, label %bb397
 
-399:                                              ; preds = %385
-  %400 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %401 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %400, i64 0, i32 6
-  %402 = load i16*, i16** %401, align 8
-  br label %564
+bb397:                                            ; preds = %bb383
+  %i398 = load ptr, ptr %i226, align 8
+  %i399 = getelementptr inbounds %struct._NexusInfo, ptr %i398, i64 0, i32 6
+  %i400 = load ptr, ptr %i399, align 8
+  br label %bb562
 
-403:                                              ; preds = %338
-  %404 = sdiv i64 %295, %296
-  %405 = ashr i64 %295, 63
-  %406 = add nsw i64 %404, %405
-  %407 = load i64, i64* %186, align 8
-  %408 = sdiv i64 %284, %407
-  %409 = add nsw i64 %408, %286
-  %410 = xor i64 %409, %406
-  %411 = and i64 %410, 1
-  %412 = icmp eq i64 %411, 0
-  br i1 %412, label %413, label %568
+bb401:                                            ; preds = %bb336
+  %i402 = sdiv i64 %i293, %i294
+  %i403 = ashr i64 %i293, 63
+  %i404 = add nsw i64 %i402, %i403
+  %i405 = load i64, ptr %i184, align 8
+  %i406 = sdiv i64 %i282, %i405
+  %i407 = add nsw i64 %i406, %i284
+  %i408 = xor i64 %i407, %i404
+  %i409 = and i64 %i408, 1
+  %i410 = icmp eq i64 %i409, 0
+  br i1 %i410, label %bb411, label %bb566
 
-413:                                              ; preds = %403
-  %414 = mul nsw i64 %409, %407
-  %415 = sub nsw i64 %284, %414
-  %416 = mul nsw i64 %406, %296
-  %417 = sub nsw i64 %295, %416
-  %418 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %419 = call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef 17, i64 noundef %417, i64 noundef %415, i64 noundef 1, i64 noundef 1, %struct._NexusInfo* noundef %418, %struct._ExceptionInfo* noundef %7) #70
-  %420 = load i32, i32* %269, align 8
-  %421 = icmp eq i32 %420, 0
-  br i1 %421, label %564, label %422
+bb411:                                            ; preds = %bb401
+  %i412 = mul nsw i64 %i407, %i405
+  %i413 = sub nsw i64 %i282, %i412
+  %i414 = mul nsw i64 %i404, %i294
+  %i415 = sub nsw i64 %i293, %i414
+  %i416 = load ptr, ptr %i226, align 8
+  %i417 = call ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef 17, i64 noundef %i415, i64 noundef %i413, i64 noundef 1, i64 noundef 1, ptr noundef %i416, ptr noundef %arg7)
+  %i418 = load i32, ptr %i267, align 8
+  %i419 = icmp eq i32 %i418, 0
+  br i1 %i419, label %bb562, label %bb420
 
-422:                                              ; preds = %413
-  %423 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %424 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %423, i64 0, i32 6
-  %425 = load i16*, i16** %424, align 8
-  br label %564
+bb420:                                            ; preds = %bb411
+  %i421 = load ptr, ptr %i226, align 8
+  %i422 = getelementptr inbounds %struct._NexusInfo, ptr %i421, i64 0, i32 6
+  %i423 = load ptr, ptr %i422, align 8
+  br label %bb562
 
-426:                                              ; preds = %338
-  %427 = sdiv i64 %295, %296
-  %428 = ashr i64 %295, 63
-  %429 = add nsw i64 %427, %428
-  %430 = mul nsw i64 %429, %296
-  %431 = sub nsw i64 %295, %430
-  %432 = and i64 %429, 1
-  %433 = icmp eq i64 %432, 0
-  %434 = xor i64 %431, -1
-  %435 = add i64 %296, %434
-  %436 = select i1 %433, i64 %431, i64 %435
-  %437 = load i64, i64* %186, align 8
-  %438 = sdiv i64 %284, %437
-  %439 = add nsw i64 %438, %286
-  %440 = mul nsw i64 %439, %437
-  %441 = sub nsw i64 %284, %440
-  %442 = and i64 %439, 1
-  %443 = icmp eq i64 %442, 0
-  %444 = xor i64 %441, -1
-  %445 = add i64 %437, %444
-  %446 = select i1 %443, i64 %441, i64 %445
-  %447 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %448 = call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef 5, i64 noundef %436, i64 noundef %446, i64 noundef 1, i64 noundef 1, %struct._NexusInfo* noundef %447, %struct._ExceptionInfo* noundef %7) #70
-  %449 = load i32, i32* %269, align 8
-  %450 = icmp eq i32 %449, 0
-  br i1 %450, label %564, label %451
+bb424:                                            ; preds = %bb336
+  %i425 = sdiv i64 %i293, %i294
+  %i426 = ashr i64 %i293, 63
+  %i427 = add nsw i64 %i425, %i426
+  %i428 = mul nsw i64 %i427, %i294
+  %i429 = sub nsw i64 %i293, %i428
+  %i430 = and i64 %i427, 1
+  %i431 = icmp eq i64 %i430, 0
+  %i432 = xor i64 %i429, -1
+  %i433 = add i64 %i294, %i432
+  %i434 = select i1 %i431, i64 %i429, i64 %i433
+  %i435 = load i64, ptr %i184, align 8
+  %i436 = sdiv i64 %i282, %i435
+  %i437 = add nsw i64 %i436, %i284
+  %i438 = mul nsw i64 %i437, %i435
+  %i439 = sub nsw i64 %i282, %i438
+  %i440 = and i64 %i437, 1
+  %i441 = icmp eq i64 %i440, 0
+  %i442 = xor i64 %i439, -1
+  %i443 = add i64 %i435, %i442
+  %i444 = select i1 %i441, i64 %i439, i64 %i443
+  %i445 = load ptr, ptr %i226, align 8
+  %i446 = call ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef 5, i64 noundef %i434, i64 noundef %i444, i64 noundef 1, i64 noundef 1, ptr noundef %i445, ptr noundef %arg7)
+  %i447 = load i32, ptr %i267, align 8
+  %i448 = icmp eq i32 %i447, 0
+  br i1 %i448, label %bb562, label %bb449
 
-451:                                              ; preds = %426
-  %452 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %453 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %452, i64 0, i32 6
-  %454 = load i16*, i16** %453, align 8
-  br label %564
+bb449:                                            ; preds = %bb424
+  %i450 = load ptr, ptr %i226, align 8
+  %i451 = getelementptr inbounds %struct._NexusInfo, ptr %i450, i64 0, i32 6
+  %i452 = load ptr, ptr %i451, align 8
+  br label %bb562
 
-455:                                              ; preds = %338
-  %456 = sdiv i64 %295, %296
-  %457 = ashr i64 %295, 63
-  %458 = add nsw i64 %456, %457
-  %459 = mul nsw i64 %458, %296
-  %460 = sub nsw i64 %295, %459
-  %461 = load i64, i64* %186, align 8
-  %462 = sdiv i64 %284, %461
-  %463 = add nsw i64 %462, %286
-  %464 = mul nsw i64 %463, %461
-  %465 = sub nsw i64 %284, %464
-  %466 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %467 = call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef 7, i64 noundef %460, i64 noundef %465, i64 noundef 1, i64 noundef 1, %struct._NexusInfo* noundef %466, %struct._ExceptionInfo* noundef %7) #70
-  %468 = load i32, i32* %269, align 8
-  %469 = icmp eq i32 %468, 0
-  br i1 %469, label %564, label %470
+bb453:                                            ; preds = %bb336
+  %i454 = sdiv i64 %i293, %i294
+  %i455 = ashr i64 %i293, 63
+  %i456 = add nsw i64 %i454, %i455
+  %i457 = mul nsw i64 %i456, %i294
+  %i458 = sub nsw i64 %i293, %i457
+  %i459 = load i64, ptr %i184, align 8
+  %i460 = sdiv i64 %i282, %i459
+  %i461 = add nsw i64 %i460, %i284
+  %i462 = mul nsw i64 %i461, %i459
+  %i463 = sub nsw i64 %i282, %i462
+  %i464 = load ptr, ptr %i226, align 8
+  %i465 = call ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef 7, i64 noundef %i458, i64 noundef %i463, i64 noundef 1, i64 noundef 1, ptr noundef %i464, ptr noundef %arg7)
+  %i466 = load i32, ptr %i267, align 8
+  %i467 = icmp eq i32 %i466, 0
+  br i1 %i467, label %bb562, label %bb468
 
-470:                                              ; preds = %455
-  %471 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %472 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %471, i64 0, i32 6
-  %473 = load i16*, i16** %472, align 8
-  br label %564
+bb468:                                            ; preds = %bb453
+  %i469 = load ptr, ptr %i226, align 8
+  %i470 = getelementptr inbounds %struct._NexusInfo, ptr %i469, i64 0, i32 6
+  %i471 = load ptr, ptr %i470, align 8
+  br label %bb562
 
-474:                                              ; preds = %338
-  %475 = and i64 %295, 7
-  %476 = getelementptr inbounds [64 x i64], [64 x i64]* @DitherMatrix, i64 0, i64 %475
-  %477 = load i64, i64* %476, align 8
-  %478 = add i64 %295, -32
-  %479 = add i64 %478, %477
-  %480 = icmp slt i64 %479, 0
-  %481 = icmp slt i64 %479, %296
-  %482 = add nsw i64 %296, -1
-  %483 = select i1 %481, i64 %479, i64 %482
-  %484 = select i1 %480, i64 0, i64 %483
-  %485 = load i64, i64* %186, align 8
-  %486 = load i64, i64* %289, align 8
-  %487 = add i64 %290, %486
-  %488 = icmp slt i64 %487, 0
-  %489 = icmp slt i64 %487, %485
-  %490 = add nsw i64 %485, -1
-  %491 = select i1 %489, i64 %487, i64 %490
-  %492 = select i1 %488, i64 0, i64 %491
-  %493 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %494 = call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef 3, i64 noundef %484, i64 noundef %492, i64 noundef 1, i64 noundef 1, %struct._NexusInfo* noundef %493, %struct._ExceptionInfo* noundef %7) #70
-  %495 = load i32, i32* %269, align 8
-  %496 = icmp eq i32 %495, 0
-  br i1 %496, label %564, label %497
+bb472:                                            ; preds = %bb336
+  %i473 = and i64 %i293, 7
+  %i474 = getelementptr inbounds [64 x i64], ptr @DitherMatrix, i64 0, i64 %i473
+  %i475 = load i64, ptr %i474, align 8
+  %i476 = add i64 %i293, -32
+  %i477 = add i64 %i476, %i475
+  %i478 = icmp slt i64 %i477, 0
+  %i479 = icmp slt i64 %i477, %i294
+  %i480 = add nsw i64 %i294, -1
+  %i481 = select i1 %i479, i64 %i477, i64 %i480
+  %i482 = select i1 %i478, i64 0, i64 %i481
+  %i483 = load i64, ptr %i184, align 8
+  %i484 = load i64, ptr %i287, align 8
+  %i485 = add i64 %i288, %i484
+  %i486 = icmp slt i64 %i485, 0
+  %i487 = icmp slt i64 %i485, %i483
+  %i488 = add nsw i64 %i483, -1
+  %i489 = select i1 %i487, i64 %i485, i64 %i488
+  %i490 = select i1 %i486, i64 0, i64 %i489
+  %i491 = load ptr, ptr %i226, align 8
+  %i492 = call ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef 3, i64 noundef %i482, i64 noundef %i490, i64 noundef 1, i64 noundef 1, ptr noundef %i491, ptr noundef %arg7)
+  %i493 = load i32, ptr %i267, align 8
+  %i494 = icmp eq i32 %i493, 0
+  br i1 %i494, label %bb562, label %bb495
 
-497:                                              ; preds = %474
-  %498 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %499 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %498, i64 0, i32 6
-  %500 = load i16*, i16** %499, align 8
-  br label %564
+bb495:                                            ; preds = %bb472
+  %i496 = load ptr, ptr %i226, align 8
+  %i497 = getelementptr inbounds %struct._NexusInfo, ptr %i496, i64 0, i32 6
+  %i498 = load ptr, ptr %i497, align 8
+  br label %bb562
 
-501:                                              ; preds = %338
-  %502 = load %struct._RandomInfo*, %struct._RandomInfo** %270, align 8
-  %503 = icmp eq %struct._RandomInfo* %502, null
-  br i1 %503, label %504, label %507
+bb499:                                            ; preds = %bb336
+  %i500 = load ptr, ptr %i268, align 8
+  %i501 = icmp eq ptr %i500, null
+  br i1 %i501, label %bb502, label %bb505
 
-504:                                              ; preds = %501
-  %505 = call %struct._RandomInfo* @AcquireRandomInfo() #62
-  store %struct._RandomInfo* %505, %struct._RandomInfo** %270, align 8
-  %506 = load i64, i64* %185, align 8
-  br label %507
+bb502:                                            ; preds = %bb499
+  %i503 = call ptr @AcquireRandomInfo()
+  store ptr %i503, ptr %i268, align 8
+  %i504 = load i64, ptr %i183, align 8
+  br label %bb505
 
-507:                                              ; preds = %504, %501
-  %508 = phi i64 [ %506, %504 ], [ %296, %501 ]
-  %509 = phi %struct._RandomInfo* [ %505, %504 ], [ %502, %501 ]
-  %510 = uitofp i64 %508 to double
-  %511 = call fast double @GetPseudoRandomValue(%struct._RandomInfo* noundef %509) #62
-  %512 = fmul fast double %511, %510
-  %513 = fptosi double %512 to i64
-  %514 = load %struct._RandomInfo*, %struct._RandomInfo** %270, align 8
-  %515 = load i64, i64* %186, align 8
-  %516 = uitofp i64 %515 to double
-  %517 = call fast double @GetPseudoRandomValue(%struct._RandomInfo* noundef %514) #62
-  %518 = fmul fast double %517, %516
-  %519 = fptosi double %518 to i64
-  %520 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %521 = call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef 6, i64 noundef %513, i64 noundef %519, i64 noundef 1, i64 noundef 1, %struct._NexusInfo* noundef %520, %struct._ExceptionInfo* noundef %7) #70
-  %522 = load i32, i32* %269, align 8
-  %523 = icmp eq i32 %522, 0
-  br i1 %523, label %564, label %524
+bb505:                                            ; preds = %bb502, %bb499
+  %i506 = phi i64 [ %i504, %bb502 ], [ %i294, %bb499 ]
+  %i507 = phi ptr [ %i503, %bb502 ], [ %i500, %bb499 ]
+  %i508 = uitofp i64 %i506 to double
+  %i509 = call fast double @GetPseudoRandomValue(ptr noundef %i507)
+  %i510 = fmul fast double %i509, %i508
+  %i511 = fptosi double %i510 to i64
+  %i512 = load ptr, ptr %i268, align 8
+  %i513 = load i64, ptr %i184, align 8
+  %i514 = uitofp i64 %i513 to double
+  %i515 = call fast double @GetPseudoRandomValue(ptr noundef %i512)
+  %i516 = fmul fast double %i515, %i514
+  %i517 = fptosi double %i516 to i64
+  %i518 = load ptr, ptr %i226, align 8
+  %i519 = call ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef 6, i64 noundef %i511, i64 noundef %i517, i64 noundef 1, i64 noundef 1, ptr noundef %i518, ptr noundef %arg7)
+  %i520 = load i32, ptr %i267, align 8
+  %i521 = icmp eq i32 %i520, 0
+  br i1 %i521, label %bb562, label %bb522
 
-524:                                              ; preds = %507
-  %525 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %526 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %525, i64 0, i32 6
-  %527 = load i16*, i16** %526, align 8
-  br label %564
+bb522:                                            ; preds = %bb505
+  %i523 = load ptr, ptr %i226, align 8
+  %i524 = getelementptr inbounds %struct._NexusInfo, ptr %i523, i64 0, i32 6
+  %i525 = load ptr, ptr %i524, align 8
+  br label %bb562
 
-528:                                              ; preds = %338
-  %529 = load i64, i64* %186, align 8
-  %530 = sdiv i64 %284, %529
-  %531 = add nsw i64 %530, %286
-  %532 = mul nsw i64 %531, %529
-  %533 = sub nsw i64 %284, %532
-  %534 = icmp sgt i64 %296, %295
-  %535 = add i64 %296, -1
-  %536 = select i1 %534, i64 %295, i64 %535
-  %537 = select i1 %301, i64 0, i64 %536
-  %538 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %539 = call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef 16, i64 noundef %537, i64 noundef %533, i64 noundef 1, i64 noundef 1, %struct._NexusInfo* noundef %538, %struct._ExceptionInfo* noundef %7) #70
-  %540 = load i32, i32* %269, align 8
-  %541 = icmp eq i32 %540, 0
-  br i1 %541, label %564, label %542
+bb526:                                            ; preds = %bb336
+  %i527 = load i64, ptr %i184, align 8
+  %i528 = sdiv i64 %i282, %i527
+  %i529 = add nsw i64 %i528, %i284
+  %i530 = mul nsw i64 %i529, %i527
+  %i531 = sub nsw i64 %i282, %i530
+  %i532 = icmp sgt i64 %i294, %i293
+  %i533 = add i64 %i294, -1
+  %i534 = select i1 %i532, i64 %i293, i64 %i533
+  %i535 = select i1 %i299, i64 0, i64 %i534
+  %i536 = load ptr, ptr %i226, align 8
+  %i537 = call ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef 16, i64 noundef %i535, i64 noundef %i531, i64 noundef 1, i64 noundef 1, ptr noundef %i536, ptr noundef %arg7)
+  %i538 = load i32, ptr %i267, align 8
+  %i539 = icmp eq i32 %i538, 0
+  br i1 %i539, label %bb562, label %bb540
 
-542:                                              ; preds = %528
-  %543 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %544 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %543, i64 0, i32 6
-  %545 = load i16*, i16** %544, align 8
-  br label %564
+bb540:                                            ; preds = %bb526
+  %i541 = load ptr, ptr %i226, align 8
+  %i542 = getelementptr inbounds %struct._NexusInfo, ptr %i541, i64 0, i32 6
+  %i543 = load ptr, ptr %i542, align 8
+  br label %bb562
 
-546:                                              ; preds = %338
-  %547 = icmp sgt i64 %296, %295
-  %548 = add i64 %296, -1
-  %549 = select i1 %547, i64 %295, i64 %548
-  %550 = select i1 %301, i64 0, i64 %549
-  %551 = load i64, i64* %186, align 8
-  %552 = icmp slt i64 %284, %551
-  %553 = add i64 %551, -1
-  %554 = select i1 %552, i64 %284, i64 %553
-  %555 = select i1 %285, i64 0, i64 %554
-  %556 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %557 = call %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image* noundef %0, i32 noundef %1, i64 noundef %550, i64 noundef %555, i64 noundef 1, i64 noundef 1, %struct._NexusInfo* noundef %556, %struct._ExceptionInfo* noundef %7) #70
-  %558 = load i32, i32* %269, align 8
-  %559 = icmp eq i32 %558, 0
-  br i1 %559, label %564, label %560
+bb544:                                            ; preds = %bb336
+  %i545 = icmp sgt i64 %i294, %i293
+  %i546 = add i64 %i294, -1
+  %i547 = select i1 %i545, i64 %i293, i64 %i546
+  %i548 = select i1 %i299, i64 0, i64 %i547
+  %i549 = load i64, ptr %i184, align 8
+  %i550 = icmp slt i64 %i282, %i549
+  %i551 = add i64 %i549, -1
+  %i552 = select i1 %i550, i64 %i282, i64 %i551
+  %i553 = select i1 %i283, i64 0, i64 %i552
+  %i554 = load ptr, ptr %i226, align 8
+  %i555 = call ptr @GetVirtualPixelsFromNexus(ptr noundef %arg, i32 noundef %arg1, i64 noundef %i548, i64 noundef %i553, i64 noundef 1, i64 noundef 1, ptr noundef %i554, ptr noundef %arg7)
+  %i556 = load i32, ptr %i267, align 8
+  %i557 = icmp eq i32 %i556, 0
+  br i1 %i557, label %bb562, label %bb558
 
-560:                                              ; preds = %546
-  %561 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %562 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %561, i64 0, i32 6
-  %563 = load i16*, i16** %562, align 8
-  br label %564
+bb558:                                            ; preds = %bb544
+  %i559 = load ptr, ptr %i226, align 8
+  %i560 = getelementptr inbounds %struct._NexusInfo, ptr %i559, i64 0, i32 6
+  %i561 = load ptr, ptr %i560, align 8
+  br label %bb562
 
-564:                                              ; preds = %560, %546, %542, %528, %524, %507, %497, %474, %470, %455, %451, %426, %422, %413, %399, %385, %377, %362, %354, %339
-  %565 = phi %struct._PixelPacket* [ %557, %546 ], [ %557, %560 ], [ %521, %507 ], [ %521, %524 ], [ %494, %474 ], [ %494, %497 ], [ %467, %455 ], [ %467, %470 ], [ %448, %426 ], [ %448, %451 ], [ %419, %413 ], [ %419, %422 ], [ %396, %385 ], [ %396, %399 ], [ %374, %362 ], [ %374, %377 ], [ %351, %339 ], [ %351, %354 ], [ %539, %528 ], [ %539, %542 ]
-  %566 = phi i16* [ null, %546 ], [ %563, %560 ], [ null, %507 ], [ %527, %524 ], [ null, %474 ], [ %500, %497 ], [ null, %455 ], [ %473, %470 ], [ null, %426 ], [ %454, %451 ], [ null, %413 ], [ %425, %422 ], [ null, %385 ], [ %402, %399 ], [ null, %362 ], [ %380, %377 ], [ null, %339 ], [ %357, %354 ], [ null, %528 ], [ %545, %542 ]
-  %567 = icmp eq %struct._PixelPacket* %565, null
-  br i1 %567, label %596, label %568
+bb562:                                            ; preds = %bb558, %bb544, %bb540, %bb526, %bb522, %bb505, %bb495, %bb472, %bb468, %bb453, %bb449, %bb424, %bb420, %bb411, %bb397, %bb383, %bb375, %bb360, %bb352, %bb337
+  %i563 = phi ptr [ %i555, %bb544 ], [ %i555, %bb558 ], [ %i519, %bb505 ], [ %i519, %bb522 ], [ %i492, %bb472 ], [ %i492, %bb495 ], [ %i465, %bb453 ], [ %i465, %bb468 ], [ %i446, %bb424 ], [ %i446, %bb449 ], [ %i417, %bb411 ], [ %i417, %bb420 ], [ %i394, %bb383 ], [ %i394, %bb397 ], [ %i372, %bb360 ], [ %i372, %bb375 ], [ %i349, %bb337 ], [ %i349, %bb352 ], [ %i537, %bb526 ], [ %i537, %bb540 ]
+  %i564 = phi ptr [ null, %bb544 ], [ %i561, %bb558 ], [ null, %bb505 ], [ %i525, %bb522 ], [ null, %bb472 ], [ %i498, %bb495 ], [ null, %bb453 ], [ %i471, %bb468 ], [ null, %bb424 ], [ %i452, %bb449 ], [ null, %bb411 ], [ %i423, %bb420 ], [ null, %bb383 ], [ %i400, %bb397 ], [ null, %bb360 ], [ %i378, %bb375 ], [ null, %bb337 ], [ %i355, %bb352 ], [ null, %bb526 ], [ %i543, %bb540 ]
+  %i565 = icmp eq ptr %i563, null
+  br i1 %i565, label %bb594, label %bb566
 
-568:                                              ; preds = %564, %403, %382, %381, %358, %338, %338, %338, %338, %338, %338, %338
-  %569 = phi i16* [ %566, %564 ], [ %9, %338 ], [ %9, %338 ], [ %9, %338 ], [ %9, %338 ], [ %9, %338 ], [ %9, %338 ], [ %9, %338 ], [ %9, %403 ], [ %9, %382 ], [ %9, %381 ], [ %9, %358 ]
-  %570 = phi %struct._PixelPacket* [ %565, %564 ], [ %10, %338 ], [ %10, %338 ], [ %10, %338 ], [ %10, %338 ], [ %10, %338 ], [ %10, %338 ], [ %10, %338 ], [ %10, %403 ], [ %10, %382 ], [ %10, %381 ], [ %10, %358 ]
-  %571 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %293, i64 1
-  %572 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %570, i64 0, i32 0
-  %573 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %293, i64 0, i32 0
-  %574 = load i16, i16* %572, align 2
-  store i16 %574, i16* %573, align 2
-  %575 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %570, i64 0, i32 1
-  %576 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %293, i64 0, i32 1
-  %577 = load i16, i16* %575, align 2
-  store i16 %577, i16* %576, align 2
-  %578 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %570, i64 0, i32 2
-  %579 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %293, i64 0, i32 2
-  %580 = load i16, i16* %578, align 2
-  store i16 %580, i16* %579, align 2
-  %581 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %570, i64 0, i32 3
-  %582 = getelementptr inbounds %struct._PixelPacket, %struct._PixelPacket* %293, i64 0, i32 3
-  %583 = load i16, i16* %581, align 2
-  store i16 %583, i16* %582, align 2
-  %584 = icmp ne i16* %292, null
-  %585 = icmp ne i16* %569, null
-  %586 = select i1 %584, i1 %585, i1 false
-  br i1 %586, label %587, label %590
+bb566:                                            ; preds = %bb562, %bb401, %bb380, %bb379, %bb356, %bb336, %bb336, %bb336, %bb336, %bb336, %bb336, %bb336
+  %i567 = phi ptr [ %i564, %bb562 ], [ %i, %bb336 ], [ %i, %bb336 ], [ %i, %bb336 ], [ %i, %bb336 ], [ %i, %bb336 ], [ %i, %bb336 ], [ %i, %bb336 ], [ %i, %bb401 ], [ %i, %bb380 ], [ %i, %bb379 ], [ %i, %bb356 ]
+  %i568 = phi ptr [ %i563, %bb562 ], [ %i8, %bb336 ], [ %i8, %bb336 ], [ %i8, %bb336 ], [ %i8, %bb336 ], [ %i8, %bb336 ], [ %i8, %bb336 ], [ %i8, %bb336 ], [ %i8, %bb401 ], [ %i8, %bb380 ], [ %i8, %bb379 ], [ %i8, %bb356 ]
+  %i569 = getelementptr inbounds %struct._PixelPacket, ptr %i291, i64 1
+  %i570 = getelementptr inbounds %struct._PixelPacket, ptr %i568, i64 0, i32 0
+  %i571 = getelementptr inbounds %struct._PixelPacket, ptr %i291, i64 0, i32 0
+  %i572 = load i16, ptr %i570, align 2
+  store i16 %i572, ptr %i571, align 2
+  %i573 = getelementptr inbounds %struct._PixelPacket, ptr %i568, i64 0, i32 1
+  %i574 = getelementptr inbounds %struct._PixelPacket, ptr %i291, i64 0, i32 1
+  %i575 = load i16, ptr %i573, align 2
+  store i16 %i575, ptr %i574, align 2
+  %i576 = getelementptr inbounds %struct._PixelPacket, ptr %i568, i64 0, i32 2
+  %i577 = getelementptr inbounds %struct._PixelPacket, ptr %i291, i64 0, i32 2
+  %i578 = load i16, ptr %i576, align 2
+  store i16 %i578, ptr %i577, align 2
+  %i579 = getelementptr inbounds %struct._PixelPacket, ptr %i568, i64 0, i32 3
+  %i580 = getelementptr inbounds %struct._PixelPacket, ptr %i291, i64 0, i32 3
+  %i581 = load i16, ptr %i579, align 2
+  store i16 %i581, ptr %i580, align 2
+  %i582 = icmp ne ptr %i290, null
+  %i583 = icmp ne ptr %i567, null
+  %i584 = select i1 %i582, i1 %i583, i1 false
+  br i1 %i584, label %bb585, label %bb588
 
-587:                                              ; preds = %568
-  %588 = load i16, i16* %569, align 2
-  %589 = getelementptr inbounds i16, i16* %292, i64 1
-  store i16 %588, i16* %292, align 2
-  br label %590
+bb585:                                            ; preds = %bb566
+  %i586 = load i16, ptr %i567, align 2
+  %i587 = getelementptr inbounds i16, ptr %i290, i64 1
+  store i16 %i586, ptr %i290, align 2
+  br label %bb588
 
-590:                                              ; preds = %587, %568, %333, %328, %317
-  %591 = phi %struct._PixelPacket* [ %324, %317 ], [ %324, %328 ], [ %571, %568 ], [ %571, %587 ], [ %337, %333 ]
-  %592 = phi i16* [ %292, %317 ], [ %332, %328 ], [ %292, %568 ], [ %589, %587 ], [ %292, %333 ]
-  %593 = phi i64 [ %300, %317 ], [ %300, %328 ], [ 1, %568 ], [ 1, %587 ], [ %300, %333 ]
-  %594 = add i64 %593, %294
-  %595 = icmp slt i64 %594, %4
-  br i1 %595, label %291, label %596
+bb588:                                            ; preds = %bb585, %bb566, %bb331, %bb326, %bb315
+  %i589 = phi ptr [ %i322, %bb315 ], [ %i322, %bb326 ], [ %i569, %bb566 ], [ %i569, %bb585 ], [ %i335, %bb331 ]
+  %i590 = phi ptr [ %i290, %bb315 ], [ %i330, %bb326 ], [ %i290, %bb566 ], [ %i587, %bb585 ], [ %i290, %bb331 ]
+  %i591 = phi i64 [ %i298, %bb315 ], [ %i298, %bb326 ], [ 1, %bb566 ], [ 1, %bb585 ], [ %i298, %bb331 ]
+  %i592 = add i64 %i591, %i292
+  %i593 = icmp slt i64 %i592, %arg4
+  br i1 %i593, label %bb289, label %bb594
 
-596:                                              ; preds = %590, %564, %310
-  %597 = phi %struct._PixelPacket* [ %293, %564 ], [ %293, %310 ], [ %591, %590 ]
-  %598 = phi i16* [ %292, %564 ], [ %292, %310 ], [ %592, %590 ]
-  %599 = add nuw nsw i64 %274, 1
-  %600 = icmp eq i64 %599, %5
-  br i1 %600, label %601, label %271
+bb594:                                            ; preds = %bb588, %bb562, %bb308
+  %i595 = phi ptr [ %i291, %bb562 ], [ %i291, %bb308 ], [ %i589, %bb588 ]
+  %i596 = phi ptr [ %i290, %bb562 ], [ %i290, %bb308 ], [ %i590, %bb588 ]
+  %i597 = add nuw nsw i64 %i272, 1
+  %i598 = icmp eq i64 %i597, %arg5
+  br i1 %i598, label %bb599, label %bb269
 
-601:                                              ; preds = %596, %265, %263
-  %602 = load %struct._NexusInfo*, %struct._NexusInfo** %228, align 8
-  %603 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %602, i64 0, i32 3
-  %604 = load %struct._PixelPacket*, %struct._PixelPacket** %603, align 8
-  %605 = icmp eq %struct._PixelPacket* %604, null
-  %606 = bitcast %struct._PixelPacket* %604 to i8*
-  %607 = bitcast %struct._NexusInfo* %602 to i8*
-  br i1 %605, label %621, label %608
+bb599:                                            ; preds = %bb594, %bb263, %bb261
+  %i600 = load ptr, ptr %i226, align 8
+  %i601 = getelementptr inbounds %struct._NexusInfo, ptr %i600, i64 0, i32 3
+  %i602 = load ptr, ptr %i601, align 8
+  %i603 = icmp eq ptr %i602, null
+  br i1 %i603, label %bb619, label %bb606
 
-608:                                              ; preds = %601
-  %609 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %602, i64 0, i32 0
-  %610 = load i32, i32* %609, align 8
-  %611 = icmp eq i32 %610, 0
-  br i1 %611, label %612, label %614
+bb606:                                            ; preds = %bb599
+  %i607 = getelementptr inbounds %struct._NexusInfo, ptr %i600, i64 0, i32 0
+  %i608 = load i32, ptr %i607, align 8
+  %i609 = icmp eq i32 %i608, 0
+  br i1 %i609, label %bb610, label %bb612
 
-612:                                              ; preds = %608
-  %613 = call i8* @RelinquishAlignedMemory(i8* noundef nonnull %606) #62
-  br label %617
+bb610:                                            ; preds = %bb606
+  %i611 = call ptr @RelinquishAlignedMemory(ptr noundef nonnull %i602)
+  br label %bb615
 
-614:                                              ; preds = %608
-  %615 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %602, i64 0, i32 2
-  %616 = load i64, i64* %615, align 8
-  br label %617
+bb612:                                            ; preds = %bb606
+  %i613 = getelementptr inbounds %struct._NexusInfo, ptr %i600, i64 0, i32 2
+  %i614 = load i64, ptr %i613, align 8
+  br label %bb615
 
-617:                                              ; preds = %614, %612
-  store %struct._PixelPacket* null, %struct._PixelPacket** %603, align 8
-  %618 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %602, i64 0, i32 4
-  store %struct._PixelPacket* null, %struct._PixelPacket** %618, align 8
-  %619 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %602, i64 0, i32 6
-  store i16* null, i16** %619, align 8
-  %620 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %602, i64 0, i32 2
-  store i64 0, i64* %620, align 8
-  store i32 0, i32* %609, align 8
-  br label %621
+bb615:                                            ; preds = %bb612, %bb610
+  store ptr null, ptr %i601, align 8
+  %i616 = getelementptr inbounds %struct._NexusInfo, ptr %i600, i64 0, i32 4
+  store ptr null, ptr %i616, align 8
+  %i617 = getelementptr inbounds %struct._NexusInfo, ptr %i600, i64 0, i32 6
+  store ptr null, ptr %i617, align 8
+  %i618 = getelementptr inbounds %struct._NexusInfo, ptr %i600, i64 0, i32 2
+  store i64 0, ptr %i618, align 8
+  store i32 0, ptr %i607, align 8
+  br label %bb619
 
-621:                                              ; preds = %617, %601
-  %622 = getelementptr inbounds %struct._NexusInfo, %struct._NexusInfo* %602, i64 0, i32 7
-  store i64 -2880220588, i64* %622, align 8
-  %623 = call i8* @RelinquishMagickMemory(i8* noundef nonnull %607) #62
-  store %struct._NexusInfo* null, %struct._NexusInfo** %228, align 8
-  %624 = bitcast %struct._NexusInfo** %228 to i8*
-  %625 = call i8* @RelinquishAlignedMemory(i8* noundef nonnull %624) #62
-  br label %626
+bb619:                                            ; preds = %bb615, %bb599
+  %i620 = getelementptr inbounds %struct._NexusInfo, ptr %i600, i64 0, i32 7
+  store i64 -2880220588, ptr %i620, align 8
+  %i621 = call ptr @RelinquishMagickMemory(ptr noundef nonnull %i600)
+  store ptr null, ptr %i226, align 8
+  %i623 = call ptr @RelinquishAlignedMemory(ptr noundef nonnull %i226)
+  br label %bb624
 
-626:                                              ; preds = %621, %226, %223, %212, %210, %174, %127, %101, %8
-  %627 = phi %struct._PixelPacket* [ %184, %621 ], [ null, %8 ], [ null, %174 ], [ %184, %226 ], [ %184, %210 ], [ null, %212 ], [ null, %223 ], [ null, %101 ], [ null, %127 ]
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %12) #62
-  call void @llvm.lifetime.end.p0i8(i64 2, i8* nonnull %11) #62
-  ret %struct._PixelPacket* %627
+bb624:                                            ; preds = %bb619, %bb224, %bb221, %bb210, %bb208, %bb172, %bb125, %bb99, %bb
+  %i625 = phi ptr [ %i182, %bb619 ], [ null, %bb ], [ null, %bb172 ], [ %i182, %bb224 ], [ %i182, %bb208 ], [ null, %bb210 ], [ null, %bb221 ], [ null, %bb99 ], [ null, %bb125 ]
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %i8)
+  call void @llvm.lifetime.end.p0(i64 2, ptr nonnull %i)
+  ret ptr %i625
 }
+
+; Function Attrs: argmemonly nocallback nofree nosync nounwind willreturn
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
+
+; Function Attrs: argmemonly nofree nounwind willreturn
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #2
+
+; Function Attrs: argmemonly nocallback nofree nosync nounwind willreturn
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
+
+attributes #0 = { nocallback nofree nosync nounwind readnone speculatable willreturn }
+attributes #1 = { argmemonly nocallback nofree nosync nounwind willreturn }
+attributes #2 = { argmemonly nofree nounwind willreturn }
 ; end INTEL_FEATURE_SW_ADVANCED

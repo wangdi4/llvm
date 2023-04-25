@@ -7,230 +7,227 @@
 ; is specified.
 
 ; CHECK: Not attempting callback cloning for test
-; CHECK: Cloned call:     %9 = tail call i32 (i32, ...) @test.1(i32 2, i64 4294967296, i64 12884901890, i64 4294967296, i64 12884901890)
-; CHECK: Cloned call:     %4 = tail call i32 (i32, ...) @test.1(i32 2, i64 4294967296, i64 12884901890, i64 4294967296, i64 12884901890)
-; CHECK: Cloned call:     %1 = tail call i32 (i32, ...) @test.2(i32 1, i64 8589934592, i64 25769803780)
+; CHECK: Cloned call:     %i8 = tail call i32 (i32, ...) @test.1(i32 2, i64 4294967296, i64 12884901890, i64 4294967296, i64 12884901890)
+; CHECK: Cloned call:     %i3 = tail call i32 (i32, ...) @test.1(i32 2, i64 4294967296, i64 12884901890, i64 4294967296, i64 12884901890)
+; CHECK: Cloned call:     %i = tail call i32 (i32, ...) @test.2(i32 1, i64 8589934592, i64 25769803780)
 
-; CHECK: define internal i32 @test(i32 %0, ...)
+; CHECK: define internal i32 @test(i32 %arg, ...)
 ; CHECK: define dso_local i32 @main()
 ; CHECK: call i32 (i32, ...) @test.2(i32 1, i64 8589934592, i64 25769803780)
 ; CHECK: call i32 (i32, ...) @test.1(i32 2, i64 4294967296, i64 12884901890, i64 4294967296, i64 12884901890)
 ; CHECK: call i32 (i32, ...) @test.1(i32 2, i64 4294967296, i64 12884901890, i64 4294967296, i64 12884901890)
-; CHECK: define internal i32 @test.1(i32 %0, ...)
-; CHECK: define internal i32 @test.2(i32 %0, ...)
+; CHECK: define internal i32 @test.1(i32 %arg, ...)
+; CHECK: define internal i32 @test.2(i32 %arg, ...)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, %struct._IO_codecvt*, %struct._IO_wide_data*, %struct._IO_FILE*, i8*, i64, i32, [20 x i8] }
+%struct._IO_FILE = type { i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i64, i16, i8, [1 x i8], ptr, i64, ptr, ptr, ptr, ptr, i64, i32, [20 x i8] }
 %struct._IO_marker = type opaque
 %struct._IO_codecvt = type opaque
 %struct._IO_wide_data = type opaque
 %union.M128 = type { <4 x float> }
-%struct.__va_list_tag = type { i32, i32, i8*, i8* }
+%struct.__va_list_tag = type { i32, i32, ptr, ptr }
 
-@stderr = external dso_local local_unnamed_addr global %struct._IO_FILE*, align 8
+@stderr = external dso_local local_unnamed_addr global ptr, align 8
 @.str = private unnamed_addr constant [32 x i8] c"test failed for: (%d,%d,%d,%d)\0A\00", align 1
 @.str.1 = private unnamed_addr constant [46 x i8] c"test failed for: (%d,%d,%d,%d) (%d,%d,%d,%d)\0A\00", align 1
 @str = private unnamed_addr constant [7 x i8] c"PASSED\00", align 1
 @str.4 = private unnamed_addr constant [7 x i8] c"FAILED\00", align 1
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define internal i32 @test(i32 %0, ...) #0 {
-  %2 = alloca %union.M128, align 16
-  %3 = alloca %union.M128, align 16
-  %4 = alloca [1 x %struct.__va_list_tag], align 16
-  %5 = alloca %union.M128, align 16
-  %6 = bitcast %union.M128* %2 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 16, i8* nonnull %6) #7
-  %7 = bitcast %union.M128* %3 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 16, i8* nonnull %7) #7
-  %8 = bitcast [1 x %struct.__va_list_tag]* %4 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 24, i8* nonnull %8) #7
-  call void @llvm.va_start(i8* nonnull %8)
-  %9 = bitcast %union.M128* %3 to [4 x i32]*
-  %10 = getelementptr inbounds [1 x %struct.__va_list_tag], [1 x %struct.__va_list_tag]* %4, i64 0, i64 0, i32 0
-  %11 = getelementptr inbounds [1 x %struct.__va_list_tag], [1 x %struct.__va_list_tag]* %4, i64 0, i64 0, i32 2
-  %12 = getelementptr inbounds [1 x %struct.__va_list_tag], [1 x %struct.__va_list_tag]* %4, i64 0, i64 0, i32 3
-  call void @llvm.memset.p0i8.i64(i8* noundef nonnull align 16 dereferenceable(16) %7, i8 0, i64 16, i1 false)
-  %13 = load i8*, i8** %12, align 16
-  %14 = bitcast %union.M128* %5 to i8*
-  %15 = bitcast %union.M128* %2 to [4 x i32]*
-  %16 = icmp sgt i32 %0, 0
-  br i1 %16, label %17, label %52
+define internal i32 @test(i32 %arg, ...) #0 {
+bb:
+  %i = alloca %union.M128, align 16
+  %i1 = alloca %union.M128, align 16
+  %i2 = alloca [1 x %struct.__va_list_tag], align 16
+  %i3 = alloca %union.M128, align 16
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %i) #8
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %i1) #8
+  call void @llvm.lifetime.start.p0(i64 24, ptr nonnull %i2) #8
+  call void @llvm.va_start(ptr nonnull %i2)
+  %i8 = getelementptr inbounds [1 x %struct.__va_list_tag], ptr %i2, i64 0, i64 0, i32 0
+  %i9 = getelementptr inbounds [1 x %struct.__va_list_tag], ptr %i2, i64 0, i64 0, i32 2
+  %i10 = getelementptr inbounds [1 x %struct.__va_list_tag], ptr %i2, i64 0, i64 0, i32 3
+  call void @llvm.memset.p0.i64(ptr noundef nonnull align 16 dereferenceable(16) %i1, i8 0, i64 16, i1 false)
+  %i11 = load ptr, ptr %i10, align 16
+  %i14 = icmp sgt i32 %arg, 0
+  br i1 %i14, label %bb15, label %bb50
 
-17:                                               ; preds = %1
-  %18 = load i32, i32* %10, align 16
-  %19 = icmp ult i32 %18, 33
-  br i1 %19, label %22, label %20
+bb15:                                             ; preds = %bb
+  %i16 = load i32, ptr %i8, align 16
+  %i17 = icmp ult i32 %i16, 33
+  br i1 %i17, label %bb20, label %bb18
 
-20:                                               ; preds = %17
-  %21 = load i8*, i8** %11, align 8
-  br label %53
+bb18:                                             ; preds = %bb15
+  %i19 = load ptr, ptr %i9, align 8
+  br label %bb51
 
-22:                                               ; preds = %40, %17
-  %23 = phi i32 [ %39, %40 ], [ %18, %17 ]
-  %24 = phi i32 [ %41, %40 ], [ 0, %17 ]
-  %25 = icmp ult i32 %23, 33
-  br i1 %25, label %33, label %26
+bb20:                                             ; preds = %bb38, %bb15
+  %i21 = phi i32 [ %i37, %bb38 ], [ %i16, %bb15 ]
+  %i22 = phi i32 [ %i39, %bb38 ], [ 0, %bb15 ]
+  %i23 = icmp ult i32 %i21, 33
+  br i1 %i23, label %bb31, label %bb24
 
-26:                                               ; preds = %22
-  %27 = load i8*, i8** %11, align 8
-  %28 = ptrtoint i8* %27 to i64
-  %29 = add i64 %28, 15
-  %30 = and i64 %29, -16
-  %31 = inttoptr i64 %30 to i8*
-  %32 = getelementptr i8, i8* %31, i64 16
-  store i8* %32, i8** %11, align 8
-  br label %37
+bb24:                                             ; preds = %bb20
+  %i25 = load ptr, ptr %i9, align 8
+  %i26 = ptrtoint ptr %i25 to i64
+  %i27 = add i64 %i26, 15
+  %i28 = and i64 %i27, -16
+  %i29 = inttoptr i64 %i28 to ptr
+  %i30 = getelementptr i8, ptr %i29, i64 16
+  store ptr %i30, ptr %i9, align 8
+  br label %bb35
 
-33:                                               ; preds = %22
-  %34 = zext i32 %23 to i64
-  %35 = getelementptr i8, i8* %13, i64 %34
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* noundef nonnull align 16 dereferenceable(16) %14, i8* noundef nonnull align 8 dereferenceable(16) %35, i64 16, i1 false)
-  %36 = add nuw nsw i32 %23, 16
-  store i32 %36, i32* %10, align 16
-  br label %37
+bb31:                                             ; preds = %bb20
+  %i32 = zext i32 %i21 to i64
+  %i33 = getelementptr i8, ptr %i11, i64 %i32
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 16 dereferenceable(16) %i3, ptr noundef nonnull align 8 dereferenceable(16) %i33, i64 16, i1 false)
+  %i34 = add nuw nsw i32 %i21, 16
+  store i32 %i34, ptr %i8, align 16
+  br label %bb35
 
-37:                                               ; preds = %33, %26
-  %38 = phi i8* [ %14, %33 ], [ %31, %26 ]
-  %39 = phi i32 [ %36, %33 ], [ %23, %26 ]
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* noundef nonnull align 16 dereferenceable(16) %6, i8* noundef nonnull align 16 dereferenceable(16) %38, i64 16, i1 false), !tbaa.struct !6
-  br label %43
+bb35:                                             ; preds = %bb31, %bb24
+  %i36 = phi ptr [ %i3, %bb31 ], [ %i29, %bb24 ]
+  %i37 = phi i32 [ %i34, %bb31 ], [ %i21, %bb24 ]
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 16 dereferenceable(16) %i, ptr noundef nonnull align 16 dereferenceable(16) %i36, i64 16, i1 false), !tbaa.struct !6
+  br label %bb41
 
-40:                                               ; preds = %43
-  %41 = add nuw nsw i32 %24, 1
-  %42 = icmp eq i32 %41, %0
-  br i1 %42, label %52, label %22, !llvm.loop !13
+bb38:                                             ; preds = %bb41
+  %i39 = add nuw nsw i32 %i22, 1
+  %i40 = icmp eq i32 %i39, %arg
+  br i1 %i40, label %bb50, label %bb20, !llvm.loop !13
 
-43:                                               ; preds = %43, %37
-  %44 = phi i64 [ %50, %43 ], [ 0, %37 ]
-  %45 = getelementptr inbounds [4 x i32], [4 x i32]* %15, i64 0, i64 %44
-  %46 = load i32, i32* %45, align 4, !tbaa !12
-  %47 = getelementptr inbounds [4 x i32], [4 x i32]* %9, i64 0, i64 %44
-  %48 = load i32, i32* %47, align 4, !tbaa !12
-  %49 = add nsw i32 %48, %46
-  store i32 %49, i32* %47, align 4, !tbaa !12
-  %50 = add nuw nsw i64 %44, 1
-  %51 = icmp eq i64 %50, 4
-  br i1 %51, label %40, label %43, !llvm.loop !16
+bb41:                                             ; preds = %bb41, %bb35
+  %i42 = phi i64 [ %i48, %bb41 ], [ 0, %bb35 ]
+  %i43 = getelementptr inbounds [4 x i32], ptr %i, i64 0, i64 %i42
+  %i44 = load i32, ptr %i43, align 4, !tbaa !12
+  %i45 = getelementptr inbounds [4 x i32], ptr %i1, i64 0, i64 %i42
+  %i46 = load i32, ptr %i45, align 4, !tbaa !12
+  %i47 = add nsw i32 %i46, %i44
+  store i32 %i47, ptr %i45, align 4, !tbaa !12
+  %i48 = add nuw nsw i64 %i42, 1
+  %i49 = icmp eq i64 %i48, 4
+  br i1 %i49, label %bb38, label %bb41, !llvm.loop !16
 
-52:                                               ; preds = %70, %40, %1
-  br label %73
+bb50:                                             ; preds = %bb68, %bb38, %bb
+  br label %bb71
 
-53:                                               ; preds = %70, %20
-  %54 = phi i8* [ %60, %70 ], [ %21, %20 ]
-  %55 = phi i32 [ %71, %70 ], [ 0, %20 ]
-  %56 = ptrtoint i8* %54 to i64
-  %57 = add i64 %56, 15
-  %58 = and i64 %57, -16
-  %59 = inttoptr i64 %58 to i8*
-  %60 = getelementptr i8, i8* %59, i64 16
-  store i8* %60, i8** %11, align 8
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* noundef nonnull align 16 dereferenceable(16) %6, i8* noundef nonnull align 16 dereferenceable(16) %59, i64 16, i1 false), !tbaa.struct !6
-  br label %61
+bb51:                                             ; preds = %bb68, %bb18
+  %i52 = phi ptr [ %i58, %bb68 ], [ %i19, %bb18 ]
+  %i53 = phi i32 [ %i69, %bb68 ], [ 0, %bb18 ]
+  %i54 = ptrtoint ptr %i52 to i64
+  %i55 = add i64 %i54, 15
+  %i56 = and i64 %i55, -16
+  %i57 = inttoptr i64 %i56 to ptr
+  %i58 = getelementptr i8, ptr %i57, i64 16
+  store ptr %i58, ptr %i9, align 8
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 16 dereferenceable(16) %i, ptr noundef nonnull align 16 dereferenceable(16) %i57, i64 16, i1 false), !tbaa.struct !6
+  br label %bb59
 
-61:                                               ; preds = %61, %53
-  %62 = phi i64 [ 0, %53 ], [ %68, %61 ]
-  %63 = getelementptr inbounds [4 x i32], [4 x i32]* %15, i64 0, i64 %62
-  %64 = load i32, i32* %63, align 4, !tbaa !12
-  %65 = getelementptr inbounds [4 x i32], [4 x i32]* %9, i64 0, i64 %62
-  %66 = load i32, i32* %65, align 4, !tbaa !12
-  %67 = add nsw i32 %66, %64
-  store i32 %67, i32* %65, align 4, !tbaa !12
-  %68 = add nuw nsw i64 %62, 1
-  %69 = icmp eq i64 %68, 4
-  br i1 %69, label %70, label %61, !llvm.loop !16
+bb59:                                             ; preds = %bb59, %bb51
+  %i60 = phi i64 [ 0, %bb51 ], [ %i66, %bb59 ]
+  %i61 = getelementptr inbounds [4 x i32], ptr %i, i64 0, i64 %i60
+  %i62 = load i32, ptr %i61, align 4, !tbaa !12
+  %i63 = getelementptr inbounds [4 x i32], ptr %i1, i64 0, i64 %i60
+  %i64 = load i32, ptr %i63, align 4, !tbaa !12
+  %i65 = add nsw i32 %i64, %i62
+  store i32 %i65, ptr %i63, align 4, !tbaa !12
+  %i66 = add nuw nsw i64 %i60, 1
+  %i67 = icmp eq i64 %i66, 4
+  br i1 %i67, label %bb68, label %bb59, !llvm.loop !16
 
-70:                                               ; preds = %61
-  %71 = add nuw nsw i32 %55, 1
-  %72 = icmp eq i32 %71, %0
-  br i1 %72, label %52, label %53, !llvm.loop !17
+bb68:                                             ; preds = %bb59
+  %i69 = add nuw nsw i32 %i53, 1
+  %i70 = icmp eq i32 %i69, %arg
+  br i1 %i70, label %bb50, label %bb51, !llvm.loop !17
 
-73:                                               ; preds = %73, %52
-  %74 = phi i64 [ 0, %52 ], [ %82, %73 ]
-  %75 = phi i32 [ 0, %52 ], [ %81, %73 ]
-  %76 = getelementptr inbounds [4 x i32], [4 x i32]* %9, i64 0, i64 %74
-  %77 = load i32, i32* %76, align 4, !tbaa !12
-  %78 = shl nuw nsw i64 %74, 1
-  %79 = zext i32 %77 to i64
-  %80 = icmp eq i64 %78, %79
-  %81 = select i1 %80, i32 %75, i32 1
-  %82 = add nuw nsw i64 %74, 1
-  %83 = icmp eq i64 %82, 4
-  br i1 %83, label %84, label %73, !llvm.loop !18
+bb71:                                             ; preds = %bb71, %bb50
+  %i72 = phi i64 [ 0, %bb50 ], [ %i80, %bb71 ]
+  %i73 = phi i32 [ 0, %bb50 ], [ %i79, %bb71 ]
+  %i74 = getelementptr inbounds [4 x i32], ptr %i1, i64 0, i64 %i72
+  %i75 = load i32, ptr %i74, align 4, !tbaa !12
+  %i76 = shl nuw nsw i64 %i72, 1
+  %i77 = zext i32 %i75 to i64
+  %i78 = icmp eq i64 %i76, %i77
+  %i79 = select i1 %i78, i32 %i73, i32 1
+  %i80 = add nuw nsw i64 %i72, 1
+  %i81 = icmp eq i64 %i80, 4
+  br i1 %i81, label %bb82, label %bb71, !llvm.loop !18
 
-84:                                               ; preds = %73
-  call void @llvm.va_end(i8* nonnull %8)
-  call void @llvm.lifetime.end.p0i8(i64 24, i8* nonnull %8) #7
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* nonnull %7) #7
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* nonnull %6) #7
-  ret i32 %81
+bb82:                                             ; preds = %bb71
+  call void @llvm.va_end(ptr nonnull %i2)
+  call void @llvm.lifetime.end.p0(i64 24, ptr nonnull %i2) #8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %i1) #8
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %i) #8
+  ret i32 %i79
 }
 
-; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg %0, i8* nocapture %1) #1
+; Function Attrs: nofree nosync nounwind willreturn
+declare void @llvm.va_start(ptr) #1
 
 ; Function Attrs: nofree nosync nounwind willreturn
-declare void @llvm.va_start(i8* %0) #2
-
-; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly %0, i8 %1, i64 %2, i1 immarg %3) #3
-
-; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly %0, i8* noalias nocapture readonly %1, i64 %2, i1 immarg %3) #1
-
-; Function Attrs: nofree nosync nounwind willreturn
-declare void @llvm.va_end(i8* %0) #2
-
-; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg %0, i8* nocapture %1) #1
+declare void @llvm.va_end(ptr) #1
 
 ; Function Attrs: nofree nounwind uwtable
-define dso_local i32 @main() #4 {
-  %1 = tail call i32 (i32, ...) @test(i32 1, i64 8589934592, i64 25769803780)
-  %2 = icmp eq i32 %1, 0
-  br i1 %2, label %3, label %6
+define dso_local i32 @main() #2 {
+bb:
+  %i = tail call i32 (i32, ...) @test(i32 1, i64 8589934592, i64 25769803780)
+  %i1 = icmp eq i32 %i, 0
+  br i1 %i1, label %bb2, label %bb5
 
-3:                                                ; preds = %0
-  %4 = tail call i32 (i32, ...) @test(i32 2, i64 4294967296, i64 12884901890, i64 4294967296, i64 12884901890)
-  %5 = icmp eq i32 %4, 0
-  br i1 %5, label %14, label %11
+bb2:                                              ; preds = %bb
+  %i3 = tail call i32 (i32, ...) @test(i32 2, i64 4294967296, i64 12884901890, i64 4294967296, i64 12884901890)
+  %i4 = icmp eq i32 %i3, 0
+  br i1 %i4, label %bb13, label %bb10
 
-6:                                                ; preds = %0
-  %7 = load %struct._IO_FILE*, %struct._IO_FILE** @stderr, align 8, !tbaa !19
-  %8 = tail call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %7, i8* getelementptr inbounds ([32 x i8], [32 x i8]* @.str, i64 0, i64 0), i32 0, i32 2, i32 4, i32 6) #8
-  %9 = tail call i32 (i32, ...) @test(i32 2, i64 4294967296, i64 12884901890, i64 4294967296, i64 12884901890)
-  %10 = icmp eq i32 %9, 0
-  br i1 %10, label %14, label %11
+bb5:                                              ; preds = %bb
+  %i6 = load ptr, ptr @stderr, align 8, !tbaa !19
+  %i7 = tail call i32 (ptr, ptr, ...) @fprintf(ptr %i6, ptr getelementptr inbounds ([32 x i8], ptr @.str, i64 0, i64 0), i32 0, i32 2, i32 4, i32 6) #9
+  %i8 = tail call i32 (i32, ...) @test(i32 2, i64 4294967296, i64 12884901890, i64 4294967296, i64 12884901890)
+  %i9 = icmp eq i32 %i8, 0
+  br i1 %i9, label %bb13, label %bb10
 
-11:                                               ; preds = %6, %3
-  %12 = load %struct._IO_FILE*, %struct._IO_FILE** @stderr, align 8, !tbaa !19
-  %13 = tail call i32 (%struct._IO_FILE*, i8*, ...) @fprintf(%struct._IO_FILE* %12, i8* getelementptr inbounds ([46 x i8], [46 x i8]* @.str.1, i64 0, i64 0), i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3) #8
-  br label %14
+bb10:                                             ; preds = %bb5, %bb2
+  %i11 = load ptr, ptr @stderr, align 8, !tbaa !19
+  %i12 = tail call i32 (ptr, ptr, ...) @fprintf(ptr %i11, ptr getelementptr inbounds ([46 x i8], ptr @.str.1, i64 0, i64 0), i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3) #9
+  br label %bb13
 
-14:                                               ; preds = %11, %6, %3
-  %15 = phi i8* [ getelementptr inbounds ([7 x i8], [7 x i8]* @str.4, i64 0, i64 0), %6 ], [ getelementptr inbounds ([7 x i8], [7 x i8]* @str.4, i64 0, i64 0), %11 ], [ getelementptr inbounds ([7 x i8], [7 x i8]* @str, i64 0, i64 0), %3 ]
-  %16 = phi i32 [ 1, %6 ], [ 1, %11 ], [ 0, %3 ]
-  %17 = tail call i32 @puts(i8* nonnull dereferenceable(1) %15)
-  ret i32 %16
+bb13:                                             ; preds = %bb10, %bb5, %bb2
+  %i14 = phi ptr [ getelementptr inbounds ([7 x i8], ptr @str.4, i64 0, i64 0), %bb5 ], [ getelementptr inbounds ([7 x i8], ptr @str.4, i64 0, i64 0), %bb10 ], [ getelementptr inbounds ([7 x i8], ptr @str, i64 0, i64 0), %bb2 ]
+  %i15 = phi i32 [ 1, %bb5 ], [ 1, %bb10 ], [ 0, %bb2 ]
+  %i16 = tail call i32 @puts(ptr nonnull dereferenceable(1) %i14)
+  ret i32 %i15
 }
 
 ; Function Attrs: nofree nounwind
-declare dso_local noundef i32 @fprintf(%struct._IO_FILE* nocapture noundef %0, i8* nocapture noundef readonly %1, ...) local_unnamed_addr #5
+declare dso_local noundef i32 @fprintf(ptr nocapture noundef, ptr nocapture noundef readonly, ...) local_unnamed_addr #3
 
 ; Function Attrs: nofree nounwind
-declare noundef i32 @puts(i8* nocapture noundef readonly %0) local_unnamed_addr #6
+declare noundef i32 @puts(ptr nocapture noundef readonly) local_unnamed_addr #4
+
+; Function Attrs: argmemonly nofree nosync nounwind willreturn
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #5
+
+; Function Attrs: argmemonly nofree nounwind willreturn writeonly
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #6
+
+; Function Attrs: argmemonly nofree nounwind willreturn
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #7
+
+; Function Attrs: argmemonly nofree nosync nounwind willreturn
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #5
 
 attributes #0 = { nofree nosync nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="corei7-avx" "target-features"="+avx,+cx16,+cx8,+fxsr,+mmx,+pclmul,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
-attributes #1 = { argmemonly nofree nosync nounwind willreturn }
-attributes #2 = { nofree nosync nounwind willreturn }
-attributes #3 = { argmemonly nofree nosync nounwind willreturn writeonly }
-attributes #4 = { nofree nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="corei7-avx" "target-features"="+avx,+cx16,+cx8,+fxsr,+mmx,+pclmul,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
-attributes #5 = { nofree nounwind "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="corei7-avx" "target-features"="+avx,+cx16,+cx8,+fxsr,+mmx,+pclmul,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
-attributes #6 = { nofree nounwind }
-attributes #7 = { nounwind }
-attributes #8 = { cold }
+attributes #1 = { nofree nosync nounwind willreturn }
+attributes #2 = { nofree nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="corei7-avx" "target-features"="+avx,+cx16,+cx8,+fxsr,+mmx,+pclmul,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
+attributes #3 = { nofree nounwind "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="corei7-avx" "target-features"="+avx,+cx16,+cx8,+fxsr,+mmx,+pclmul,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" }
+attributes #4 = { nofree nounwind }
+attributes #5 = { argmemonly nofree nosync nounwind willreturn }
+attributes #6 = { argmemonly nofree nounwind willreturn writeonly }
+attributes #7 = { argmemonly nofree nounwind willreturn }
+attributes #8 = { nounwind }
+attributes #9 = { cold }
 
 !llvm.ident = !{!0}
 !llvm.module.flags = !{!1, !2, !3, !4, !5}

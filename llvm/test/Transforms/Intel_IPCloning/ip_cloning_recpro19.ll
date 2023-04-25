@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -opaque-pointers=0 < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; Test that the function foo is recognized as a recursive progression clone
 ; and eight clones of it are created. Also test that the recursive progression
@@ -13,42 +13,42 @@
 ; CHECK: Selected RecProgression cloning
 ; CHECK: Function: foo.1
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %arg
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 1
 ; CHECK: Function: foo.2
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %arg
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 2
 ; CHECK: Function: foo.3
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %arg
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 3
 ; CHECK: Function: foo.4
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %arg
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 4
 ; CHECK: Function: foo.5
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %arg
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 5
 ; CHECK: Function: foo.6
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %arg
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 6
 ; CHECK: Function: foo.7
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %arg
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 7
 ; CHECK: Function: foo.8
 ; CHECK: ArgPos : 0
-; CHECK: Argument : i32* %arg
+; CHECK: Argument : ptr %arg
 ; CHECK: IsByRef : T
 ; CHECK: Replacement:  i32 8
 
@@ -77,25 +77,25 @@
 define dso_local void @MAIN__() {
 bb:
   %i = alloca i32, align 4
-  store i32 1, i32* %i, align 4
-  call void @foo(i32* nonnull %i)
+  store i32 1, ptr %i, align 4
+  call void @foo(ptr nonnull %i)
   ret void
 }
 
-define internal void @foo(i32* noalias nocapture readonly %arg) {
+define internal void @foo(ptr noalias nocapture readonly %arg) {
 bb:
   %i = alloca i32, align 4
-  %i1 = load i32, i32* @count, align 8
+  %i1 = load i32, ptr @count, align 8
   %frz = freeze i32 %i1
   %i2 = add nsw i32 %frz, 1
-  store i32 %i2, i32* @count, align 8
-  %i3 = load i32, i32* %arg, align 4
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
   %i4 = icmp eq i32 %i3, 8
   br i1 %i4, label %bb5, label %bb7
 
 bb5:                                              ; preds = %bb
   %i6 = add nsw i32 %frz, 2
-  store i32 %i6, i32* @count, align 8
+  store i32 %i6, ptr @count, align 8
   br label %bb11
 
 bb7:                                              ; preds = %bb
@@ -104,8 +104,8 @@ bb7:                                              ; preds = %bb
 
 bb9:                                              ; preds = %bb7
   %i10 = add nsw i32 %i3, 1
-  store i32 %i10, i32* %i, align 4
-  call void @foo(i32* nonnull %i)
+  store i32 %i10, ptr %i, align 4
+  call void @foo(ptr nonnull %i)
   br label %bb11
 
 bb11:                                             ; preds = %bb9, %bb7, %bb5

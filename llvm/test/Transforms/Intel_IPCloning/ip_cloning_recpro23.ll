@@ -14,30 +14,29 @@
 ; CHECK: Skipping non-candidate foo
 ; CHECK: Total clones:  0
 
-
 @count = available_externally dso_local local_unnamed_addr global i32 0, align 8
 
 define dso_local void @MAIN__() {
 bb:
   %i = alloca i32, align 4
-  store i32 1, i32* %i, align 4
-  call void @foo(i32* nonnull %i)
+  store i32 1, ptr %i, align 4
+  call void @foo(ptr nonnull %i)
   ret void
 }
 
-define internal void @foo(i32* noalias nocapture readonly %arg) {
+define internal void @foo(ptr noalias nocapture readonly %arg) {
 bb:
   %i = alloca i32, align 4
-  %i1 = load i32, i32* @count, align 8
+  %i1 = load i32, ptr @count, align 8
   %i2 = add nsw i32 %i1, 1
-  store i32 %i2, i32* @count, align 8
-  %i3 = load i32, i32* %arg, align 4
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
   %i4 = icmp eq i32 %i3, 8
   br i1 %i4, label %bb5, label %bb7
 
 bb5:                                              ; preds = %bb
   %i6 = add nsw i32 %i1, 2
-  store i32 %i6, i32* @count, align 8
+  store i32 %i6, ptr @count, align 8
   br label %bb11
 
 bb7:                                              ; preds = %bb
@@ -46,8 +45,8 @@ bb7:                                              ; preds = %bb
 
 bb9:                                              ; preds = %bb7
   %i10 = add nsw i32 %i3, 1
-  store i32 %i10, i32* %i, align 4
-  call void @foo(i32* null)
+  store i32 %i10, ptr %i, align 4
+  call void @foo(ptr null)
   br label %bb11
 
 bb11:                                             ; preds = %bb9, %bb7, %bb5

@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -passes='module(ip-cloning)' -ip-manyreccalls-splitting -ip-manyreccalls-preferfunctionlevelregion -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='module(ip-cloning)' -ip-manyreccalls-splitting -ip-manyreccalls-preferfunctionlevelregion -S < %s 2>&1 | FileCheck %s
 
 ; CHECK: define {{.*}} @MeanShiftImage({{.*}}) #[[A0:[0-9]+]]
 ; CHECK: attributes #[[A0]] = { {{.*}} "prefer-function-level-region" {{.*}} }
