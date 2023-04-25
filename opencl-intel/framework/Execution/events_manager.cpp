@@ -132,7 +132,7 @@ cl_err_code EventsManager::WaitForEvents(cl_uint uiNumEvents,
   cl_context eventContext;
   // Ensure all events are in the same context
   eventContext = vOclEvents[0]->GetParentHandle();
-  for (cl_uint ui = 1; ui < uiNumEvents; ++ui) {
+  for (cl_uint ui = 1; ui < vOclEvents.size(); ++ui) {
     if (eventContext != vOclEvents[ui]->GetParentHandle()) {
       return CL_INVALID_CONTEXT;
     }
@@ -306,7 +306,6 @@ bool EventsManager::GetEventsFromList(
       else
         return false;
     }
-
     if (NULL != pvOclEvents)
       pvOclEvents->push_back(pEvent);
   }

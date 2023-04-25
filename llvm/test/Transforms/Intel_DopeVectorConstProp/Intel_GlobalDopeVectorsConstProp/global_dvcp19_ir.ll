@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt  < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 ; This test case checks that the information for the global dope vector
 ; and the nested dope vectors were collected and propagated correctly even
@@ -100,449 +100,448 @@
 ; @arr_mod_mp_print_arr_, but not for function @arr_mod_mp_print_info_.
 
 ; CHECK: define internal void @arr_mod_mp_allocate_arr_
-; CHECK:   %40 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 192, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %37, i64 %39)
-; CHECK:   %59 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 192, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %57, i64 %39)
+; CHECK:   %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 192, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i35, i64 %i37)
+; CHECK:   %i57 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 192, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i55, i64 %i37)
 
 ; CHECK: define internal void @arr_mod_mp_initialize_arr_
-; CHECK:   %9 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 192, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %4, i64 %8)
-; CHECK:   %39 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* elementtype(float) %38, i64 %25)
-; CHECK:   %40 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %39, i64 %37)
-; CHECK:   %42 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* elementtype(float) %41, i64 %25)
-; CHECK:   %43 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %42, i64 %37)
+; CHECK:   %i7 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 192, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i, i64 %i6)
+; CHECK:   %i37 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i36, i64 %i23)
+; CHECK:   %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i37, i64 %i35)
+; CHECK:   %i40 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i39, i64 %i23)
+; CHECK:   %i41 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i40, i64 %i35)
 
 ; Check that constant propagation wasn't applied to function @arr_mod_mp_print_info_
 ; CHECK: define internal void @arr_mod_mp_print_info_
-; CHECK-NOT: %23 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* elementtype(float) %8, i64 %22)
-; CHECK-NOT: %26 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %23, i64 %25)
+; CHECK-NOT: %i21 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i6, i64 %i20)
+; CHECK-NOT: %i24 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i21, i64 %i23)
 
 ; CHECK: define internal void @arr_mod_mp_print_arr_
-; CHECK:   %11 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 192, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %6, i64 %10)
-; CHECK:   store i64 4, i64* %29, align 1
-; CHECK:   store i64 10, i64* %33, align 1
-; CHECK:   store i64 40, i64* %34, align 1
-; CHECK:   store i64 10, i64* %36, align 1
+; CHECK:   %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 192, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i4, i64 %i8)
+; CHECK:   store i64 10, ptr %i31, align 1
+; CHECK:   store i64 40, ptr %i32, align 1
+; CHECK:   store i64 10, ptr %i34, align 1
 
-; ModuleID = 'ld-temp.o'
-source_filename = "ld-temp.o"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$" = type { %"ARR_MOD$.btT_TESTTYPE"*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 %"ARR_MOD$.btT_TESTTYPE" = type <{ %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$" }>
-%"QNCA_a0$float*$rank2$" = type { float*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
+%"QNCA_a0$float*$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 
-@arr_mod_mp_a_ = internal global %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$" { %"ARR_MOD$.btT_TESTTYPE"* null, i64 0, i64 0, i64 1073741952, i64 1, i64 0, [1 x { i64, i64, i64 }] zeroinitializer }, !dbg !0
+@arr_mod_mp_a_ = internal global %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$" { ptr null, i64 0, i64 0, i64 1073741952, i64 1, i64 0, [1 x { i64, i64, i64 }] zeroinitializer }, !dbg !0
 @anon.11934500c7ed222a0a148892d04ea3ac.0 = internal unnamed_addr constant i32 65536
 @anon.11934500c7ed222a0a148892d04ea3ac.1 = internal unnamed_addr constant i32 2
 @anon.11934500c7ed222a0a148892d04ea3ac.2 = internal unnamed_addr constant i32 10
 
 ; Function Attrs: nofree nounwind uwtable
-define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly dereferenceable(4) %0) #0 !dbg !30 {
-  %2 = alloca i64, align 8, !dbg !33              ; test.f90:14:34
-  call void @llvm.dbg.declare(metadata i32* %0, metadata !32, metadata !DIExpression()), !dbg !33  ; test.f90:14:34
-  %3 = load i32, i32* %0, align 1, !dbg !34, !tbaa !35  ; test.f90:17:12
-  %4 = icmp eq i32 %3, 1, !dbg !39                ; test.f90:17:16
-  br i1 %4, label %7, label %5, !dbg !39          ; test.f90:17:16
+define internal void @arr_mod_mp_allocate_arr_(ptr noalias nocapture readonly dereferenceable(4) %arg) #0 !dbg !30 {
+bb:
+  %i = alloca i64, align 8, !dbg !33
+  call void @llvm.dbg.declare(metadata ptr %arg, metadata !32, metadata !DIExpression()), !dbg !33
+  %i1 = load i32, ptr %arg, align 1, !dbg !34, !tbaa !35
+  %i2 = icmp eq i32 %i1, 1, !dbg !39
+  br i1 %i2, label %bb5, label %bb3, !dbg !39
 
-5:                                                ; preds = %1
-  %6 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !40  ; test.f90:19:12
-  br label %35, !dbg !39                          ; test.f90:17:16
+bb3:                                              ; preds = %bb
+  %i4 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !40
+  br label %bb33, !dbg !39
 
-7:                                                ; preds = %1
-  %8 = load i64, i64* getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 3), align 8, !dbg !41, !tbaa !42  ; test.f90:17:23
-  %9 = and i64 %8, 1030792151296, !dbg !41        ; test.f90:17:23
-  %10 = or i64 %9, 133, !dbg !41                  ; test.f90:17:23
-  store i64 %10, i64* getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 3), align 8, !dbg !41, !tbaa !42  ; test.f90:17:23
-  store i64 0, i64* getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 5), align 8, !dbg !41, !tbaa !45  ; test.f90:17:23
-  store i64 192, i64* getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 1), align 8, !dbg !41, !tbaa !46  ; test.f90:17:23
-  store i64 1, i64* getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 4), align 16, !dbg !41, !tbaa !47  ; test.f90:17:23
-  store i64 0, i64* getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 2), align 16, !dbg !41, !tbaa !48  ; test.f90:17:23
-  %11 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !41  ; test.f90:17:23
-  store i64 1, i64* %11, align 1, !dbg !41, !tbaa !49  ; test.f90:17:23
-  %12 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 0), i32 0), !dbg !41  ; test.f90:17:23
-  store i64 1, i64* %12, align 1, !dbg !41, !tbaa !50  ; test.f90:17:23
-  %13 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 1), i32 0), !dbg !41  ; test.f90:17:23
-  store i64 192, i64* %13, align 1, !dbg !41, !tbaa !51  ; test.f90:17:23
-  %14 = call i32 (i64*, i32, ...) @for_check_mult_overflow64(i64* nonnull %2, i32 2, i64 1, i64 192) #6, !dbg !41  ; test.f90:17:23
-  %15 = load i64, i64* %2, align 8, !dbg !41, !tbaa !52  ; test.f90:17:23
-  %16 = load i64, i64* getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 3), align 8, !dbg !41, !tbaa !42  ; test.f90:17:23
-  %17 = and i64 %16, -68451041281, !dbg !41       ; test.f90:17:23
-  %18 = or i64 %17, 1073741824, !dbg !41          ; test.f90:17:23
-  store i64 %18, i64* getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 3), align 8, !dbg !41, !tbaa !42  ; test.f90:17:23
-  %19 = trunc i64 %16 to i32, !dbg !41            ; test.f90:17:23
-  %20 = shl i32 %19, 1, !dbg !41                  ; test.f90:17:23
-  %21 = and i32 %20, 2, !dbg !41                  ; test.f90:17:23
-  %22 = shl i32 %14, 4, !dbg !41                  ; test.f90:17:23
-  %23 = and i32 %22, 16, !dbg !41                 ; test.f90:17:23
-  %24 = lshr i64 %16, 15, !dbg !41                ; test.f90:17:23
-  %25 = trunc i64 %24 to i32, !dbg !41            ; test.f90:17:23
-  %26 = and i32 %25, 31457280, !dbg !41           ; test.f90:17:23
-  %27 = and i32 %25, 33554432, !dbg !41           ; test.f90:17:23
-  %28 = or i32 %23, %21, !dbg !41                 ; test.f90:17:23
-  %29 = or i32 %28, %26, !dbg !41                 ; test.f90:17:23
-  %30 = or i32 %29, %27, !dbg !41                 ; test.f90:17:23
-  %31 = or i32 %30, 262144, !dbg !41              ; test.f90:17:23
-  %32 = load i64, i64* getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 5), align 8, !dbg !41, !tbaa !45  ; test.f90:17:23
-  %33 = inttoptr i64 %32 to i8*, !dbg !41         ; test.f90:17:23
-  %34 = tail call i32 @for_alloc_allocatable_handle(i64 %15, i8** bitcast (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_ to i8**), i32 %31, i8* %33) #6, !dbg !41  ; test.f90:17:23
-  br label %35, !dbg !39                          ; test.f90:17:16
+bb5:                                              ; preds = %bb
+  %i6 = load i64, ptr getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 3), align 8, !dbg !41, !tbaa !42
+  %i7 = and i64 %i6, 1030792151296, !dbg !41
+  %i8 = or i64 %i7, 133, !dbg !41
+  store i64 %i8, ptr getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 3), align 8, !dbg !41, !tbaa !42
+  store i64 0, ptr getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 5), align 8, !dbg !41, !tbaa !45
+  store i64 192, ptr getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 1), align 8, !dbg !41, !tbaa !46
+  store i64 1, ptr getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 4), align 16, !dbg !41, !tbaa !47
+  store i64 0, ptr getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 2), align 16, !dbg !41, !tbaa !48
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !41
+  store i64 1, ptr %i9, align 1, !dbg !41, !tbaa !49
+  %i10 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 0), i32 0), !dbg !41
+  store i64 1, ptr %i10, align 1, !dbg !41, !tbaa !50
+  %i11 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 1), i32 0), !dbg !41
+  store i64 192, ptr %i11, align 1, !dbg !41, !tbaa !51
+  %i12 = call i32 (ptr, i32, ...) @for_check_mult_overflow64(ptr nonnull %i, i32 2, i64 1, i64 192) #6, !dbg !41
+  %i13 = load i64, ptr %i, align 8, !dbg !41, !tbaa !52
+  %i14 = load i64, ptr getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 3), align 8, !dbg !41, !tbaa !42
+  %i15 = and i64 %i14, -68451041281, !dbg !41
+  %i16 = or i64 %i15, 1073741824, !dbg !41
+  store i64 %i16, ptr getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 3), align 8, !dbg !41, !tbaa !42
+  %i17 = trunc i64 %i14 to i32, !dbg !41
+  %i18 = shl i32 %i17, 1, !dbg !41
+  %i19 = and i32 %i18, 2, !dbg !41
+  %i20 = shl i32 %i12, 4, !dbg !41
+  %i21 = and i32 %i20, 16, !dbg !41
+  %i22 = lshr i64 %i14, 15, !dbg !41
+  %i23 = trunc i64 %i22 to i32, !dbg !41
+  %i24 = and i32 %i23, 31457280, !dbg !41
+  %i25 = and i32 %i23, 33554432, !dbg !41
+  %i26 = or i32 %i21, %i19, !dbg !41
+  %i27 = or i32 %i26, %i24, !dbg !41
+  %i28 = or i32 %i27, %i25, !dbg !41
+  %i29 = or i32 %i28, 262144, !dbg !41
+  %i30 = load i64, ptr getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 5), align 8, !dbg !41, !tbaa !45
+  %i31 = inttoptr i64 %i30 to ptr, !dbg !41
+  %i32 = tail call i32 @for_alloc_allocatable_handle(i64 %i13, ptr @arr_mod_mp_a_, i32 %i29, ptr %i31) #6, !dbg !41
+  br label %bb33, !dbg !39
 
-35:                                               ; preds = %7, %5
-  %36 = phi i64* [ %6, %5 ], [ %11, %7 ], !dbg !40  ; test.f90:19:12
-  %37 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !40, !tbaa !53  ; test.f90:19:12
-  %38 = load i64, i64* %36, align 1, !dbg !40, !tbaa !49  ; test.f90:19:12
-  %39 = sext i32 %3 to i64, !dbg !40              ; test.f90:19:12
-  %40 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %38, i64 192, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %37, i64 %39), !dbg !40  ; test.f90:19:12
-  %41 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 3, !dbg !54  ; test.f90:19:21
-  %42 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 5, !dbg !40  ; test.f90:19:12
-  store i64 0, i64* %42, align 1, !dbg !40, !tbaa !55  ; test.f90:19:12
-  %43 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 1, !dbg !40  ; test.f90:19:12
-  store i64 4, i64* %43, align 1, !dbg !40, !tbaa !57  ; test.f90:19:12
-  %44 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 4, !dbg !40  ; test.f90:19:12
-  store i64 2, i64* %44, align 1, !dbg !40, !tbaa !58  ; test.f90:19:12
-  %45 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 2, !dbg !40  ; test.f90:19:12
-  store i64 0, i64* %45, align 1, !dbg !40, !tbaa !59  ; test.f90:19:12
-  %46 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 6, i64 0, i32 2, !dbg !40  ; test.f90:19:12
-  %47 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %46, i32 0), !dbg !40  ; test.f90:19:12
-  store i64 1, i64* %47, align 1, !dbg !40, !tbaa !60  ; test.f90:19:12
-  %48 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 6, i64 0, i32 0, !dbg !40  ; test.f90:19:12
-  %49 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %48, i32 0), !dbg !40  ; test.f90:19:12
-  store i64 10, i64* %49, align 1, !dbg !40, !tbaa !61  ; test.f90:19:12
-  %50 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %46, i32 1), !dbg !40  ; test.f90:19:12
-  store i64 1, i64* %50, align 1, !dbg !40, !tbaa !60  ; test.f90:19:12
-  %51 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %48, i32 1), !dbg !40  ; test.f90:19:12
-  store i64 10, i64* %51, align 1, !dbg !40, !tbaa !61  ; test.f90:19:12
-  %52 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 6, i64 0, i32 1, !dbg !40  ; test.f90:19:12
-  %53 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %52, i32 0), !dbg !40  ; test.f90:19:12
-  store i64 4, i64* %53, align 1, !dbg !40, !tbaa !62  ; test.f90:19:12
-  %54 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %52, i32 1), !dbg !40  ; test.f90:19:12
-  store i64 40, i64* %54, align 1, !dbg !40, !tbaa !62  ; test.f90:19:12
-  store i64 1073741829, i64* %41, align 1, !dbg !40, !tbaa !63  ; test.f90:19:12
-  %55 = bitcast %"ARR_MOD$.btT_TESTTYPE"* %40 to i8**, !dbg !40  ; test.f90:19:12
-  %56 = tail call i32 @for_allocate_handle(i64 400, i8** %55, i32 262144, i8* null) #6, !dbg !40  ; test.f90:19:12
-  %57 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !64, !tbaa !53  ; test.f90:20:12
-  %58 = load i64, i64* %36, align 1, !dbg !64, !tbaa !49  ; test.f90:20:12
-  %59 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %58, i64 192, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %57, i64 %39), !dbg !64  ; test.f90:20:12
-  %60 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 3, !dbg !65  ; test.f90:20:21
-  %61 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 5, !dbg !64  ; test.f90:20:12
-  store i64 0, i64* %61, align 1, !dbg !64, !tbaa !66  ; test.f90:20:12
-  %62 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 1, !dbg !64  ; test.f90:20:12
-  store i64 4, i64* %62, align 1, !dbg !64, !tbaa !68  ; test.f90:20:12
-  %63 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 4, !dbg !64  ; test.f90:20:12
-  store i64 2, i64* %63, align 1, !dbg !64, !tbaa !69  ; test.f90:20:12
-  %64 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 2, !dbg !64  ; test.f90:20:12
-  store i64 0, i64* %64, align 1, !dbg !64, !tbaa !70  ; test.f90:20:12
-  %65 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 6, i64 0, i32 2, !dbg !64  ; test.f90:20:12
-  %66 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %65, i32 0), !dbg !64  ; test.f90:20:12
-  store i64 1, i64* %66, align 1, !dbg !64, !tbaa !71  ; test.f90:20:12
-  %67 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 6, i64 0, i32 0, !dbg !64  ; test.f90:20:12
-  %68 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %67, i32 0), !dbg !64  ; test.f90:20:12
-  store i64 10, i64* %68, align 1, !dbg !64, !tbaa !72  ; test.f90:20:12
-  %69 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %65, i32 1), !dbg !64  ; test.f90:20:12
-  store i64 1, i64* %69, align 1, !dbg !64, !tbaa !71  ; test.f90:20:12
-  %70 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %67, i32 1), !dbg !64  ; test.f90:20:12
-  store i64 10, i64* %70, align 1, !dbg !64, !tbaa !72  ; test.f90:20:12
-  %71 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 6, i64 0, i32 1, !dbg !64  ; test.f90:20:12
-  %72 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %71, i32 0), !dbg !64  ; test.f90:20:12
-  store i64 4, i64* %72, align 1, !dbg !64, !tbaa !73  ; test.f90:20:12
-  %73 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %71, i32 1), !dbg !64  ; test.f90:20:12
-  store i64 40, i64* %73, align 1, !dbg !64, !tbaa !73  ; test.f90:20:12
-  %74 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 0, !dbg !64  ; test.f90:20:12
-  store i64 1073741829, i64* %60, align 1, !dbg !64, !tbaa !74  ; test.f90:20:12
-  %75 = bitcast float** %74 to i8**, !dbg !64     ; test.f90:20:12
-  %76 = tail call i32 @for_allocate_handle(i64 400, i8** nonnull %75, i32 262144, i8* null) #6, !dbg !64  ; test.f90:20:12
-  ret void, !dbg !75                              ; test.f90:23:10
+bb33:                                             ; preds = %bb5, %bb3
+  %i34 = phi ptr [ %i4, %bb3 ], [ %i9, %bb5 ], !dbg !40
+  %i35 = load ptr, ptr @arr_mod_mp_a_, align 16, !dbg !40, !tbaa !53
+  %i36 = load i64, ptr %i34, align 1, !dbg !40, !tbaa !49
+  %i37 = sext i32 %i1 to i64, !dbg !40
+  %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i36, i64 192, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i35, i64 %i37), !dbg !40
+  %i39 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i38, i64 0, i32 0, i32 3, !dbg !54
+  %i40 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i38, i64 0, i32 0, i32 5, !dbg !40
+  store i64 0, ptr %i40, align 1, !dbg !40, !tbaa !55
+  %i41 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i38, i64 0, i32 0, i32 1, !dbg !40
+  store i64 4, ptr %i41, align 1, !dbg !40, !tbaa !57
+  %i42 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i38, i64 0, i32 0, i32 4, !dbg !40
+  store i64 2, ptr %i42, align 1, !dbg !40, !tbaa !58
+  %i43 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i38, i64 0, i32 0, i32 2, !dbg !40
+  store i64 0, ptr %i43, align 1, !dbg !40, !tbaa !59
+  %i44 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i38, i64 0, i32 0, i32 6, i64 0, i32 2, !dbg !40
+  %i45 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i44, i32 0), !dbg !40
+  store i64 1, ptr %i45, align 1, !dbg !40, !tbaa !60
+  %i46 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i38, i64 0, i32 0, i32 6, i64 0, i32 0, !dbg !40
+  %i47 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i46, i32 0), !dbg !40
+  store i64 10, ptr %i47, align 1, !dbg !40, !tbaa !61
+  %i48 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i44, i32 1), !dbg !40
+  store i64 1, ptr %i48, align 1, !dbg !40, !tbaa !60
+  %i49 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i46, i32 1), !dbg !40
+  store i64 10, ptr %i49, align 1, !dbg !40, !tbaa !61
+  %i50 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i38, i64 0, i32 0, i32 6, i64 0, i32 1, !dbg !40
+  %i51 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i50, i32 0), !dbg !40
+  store i64 4, ptr %i51, align 1, !dbg !40, !tbaa !62
+  %i52 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i50, i32 1), !dbg !40
+  store i64 40, ptr %i52, align 1, !dbg !40, !tbaa !62
+  store i64 1073741829, ptr %i39, align 1, !dbg !40, !tbaa !63
+  %i53 = bitcast ptr %i38 to ptr, !dbg !40
+  %i54 = tail call i32 @for_allocate_handle(i64 400, ptr %i53, i32 262144, ptr null) #6, !dbg !40
+  %i55 = load ptr, ptr @arr_mod_mp_a_, align 16, !dbg !64, !tbaa !53
+  %i56 = load i64, ptr %i34, align 1, !dbg !64, !tbaa !49
+  %i57 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i56, i64 192, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i55, i64 %i37), !dbg !64
+  %i58 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i57, i64 0, i32 1, i32 3, !dbg !65
+  %i59 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i57, i64 0, i32 1, i32 5, !dbg !64
+  store i64 0, ptr %i59, align 1, !dbg !64, !tbaa !66
+  %i60 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i57, i64 0, i32 1, i32 1, !dbg !64
+  store i64 4, ptr %i60, align 1, !dbg !64, !tbaa !68
+  %i61 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i57, i64 0, i32 1, i32 4, !dbg !64
+  store i64 2, ptr %i61, align 1, !dbg !64, !tbaa !69
+  %i62 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i57, i64 0, i32 1, i32 2, !dbg !64
+  store i64 0, ptr %i62, align 1, !dbg !64, !tbaa !70
+  %i63 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i57, i64 0, i32 1, i32 6, i64 0, i32 2, !dbg !64
+  %i64 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i63, i32 0), !dbg !64
+  store i64 1, ptr %i64, align 1, !dbg !64, !tbaa !71
+  %i65 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i57, i64 0, i32 1, i32 6, i64 0, i32 0, !dbg !64
+  %i66 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i65, i32 0), !dbg !64
+  store i64 10, ptr %i66, align 1, !dbg !64, !tbaa !72
+  %i67 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i63, i32 1), !dbg !64
+  store i64 1, ptr %i67, align 1, !dbg !64, !tbaa !71
+  %i68 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i65, i32 1), !dbg !64
+  store i64 10, ptr %i68, align 1, !dbg !64, !tbaa !72
+  %i69 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i57, i64 0, i32 1, i32 6, i64 0, i32 1, !dbg !64
+  %i70 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i69, i32 0), !dbg !64
+  store i64 4, ptr %i70, align 1, !dbg !64, !tbaa !73
+  %i71 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i69, i32 1), !dbg !64
+  store i64 40, ptr %i71, align 1, !dbg !64, !tbaa !73
+  %i72 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i57, i64 0, i32 1, i32 0, !dbg !64
+  store i64 1073741829, ptr %i58, align 1, !dbg !64, !tbaa !74
+  %i73 = bitcast ptr %i72 to ptr, !dbg !64
+  %i74 = tail call i32 @for_allocate_handle(i64 400, ptr nonnull %i73, i32 262144, ptr null) #6, !dbg !64
+  ret void, !dbg !75
 }
 
-; Function Attrs: mustprogress nofree nosync nounwind readnone speculatable willreturn
+; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
-; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32) #2
+; Function Attrs: nofree
+declare dso_local i32 @for_check_mult_overflow64(ptr nocapture, i32, ...) local_unnamed_addr #2
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_check_mult_overflow64(i64* nocapture, i32, ...) local_unnamed_addr #3
+declare dso_local i32 @for_alloc_allocatable_handle(i64, ptr nocapture, i32, ptr) local_unnamed_addr #2
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_alloc_allocatable_handle(i64, i8** nocapture, i32, i8*) local_unnamed_addr #3
-
-; Function Attrs: nofree nosync nounwind readnone speculatable
-declare %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8, i64, i64, %"ARR_MOD$.btT_TESTTYPE"*, i64) #2
-
-; Function Attrs: nofree
-declare dso_local i32 @for_allocate_handle(i64, i8** nocapture, i32, i8*) local_unnamed_addr #3
+declare dso_local i32 @for_allocate_handle(i64, ptr nocapture, i32, ptr) local_unnamed_addr #2
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define internal void @arr_mod_mp_initialize_arr_(i32* noalias nocapture readonly dereferenceable(4) %0, i32* noalias nocapture readonly dereferenceable(4) %1, i32* noalias nocapture readonly dereferenceable(4) %2) #4 !dbg !76 {
-  call void @llvm.dbg.declare(metadata i32* %0, metadata !78, metadata !DIExpression()), !dbg !83  ; test.f90:25:36
-  call void @llvm.dbg.declare(metadata i32* @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !79, metadata !DIExpression()), !dbg !84  ; test.f90:25:39
-  call void @llvm.dbg.declare(metadata i32* @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !80, metadata !DIExpression()), !dbg !85  ; test.f90:25:42
-  call void @llvm.dbg.value(metadata i32 1, metadata !82, metadata !DIExpression()), !dbg !86  ; test.f90:0:0
-  %4 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !87  ; test.f90:30:45
-  %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !87  ; test.f90:30:45
-  %6 = load i64, i64* %5, align 1, !dbg !87       ; test.f90:30:45
-  %7 = load i32, i32* %0, align 1, !dbg !87       ; test.f90:30:45
-  %8 = sext i32 %7 to i64, !dbg !87               ; test.f90:30:45
-  %9 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %6, i64 192, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %4, i64 %8), !dbg !87  ; test.f90:30:45
-  %10 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %9, i64 0, i32 0, i32 0, !dbg !88  ; test.f90:30:23
-  %11 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %9, i64 0, i32 0, i32 6, i64 0, i32 1, !dbg !88  ; test.f90:30:23
-  %12 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %11, i32 0), !dbg !88  ; test.f90:30:23
-  %13 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %9, i64 0, i32 0, i32 6, i64 0, i32 2, !dbg !88  ; test.f90:30:23
-  %14 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %13, i32 0), !dbg !88  ; test.f90:30:23
-  %15 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %11, i32 1), !dbg !88  ; test.f90:30:23
-  %16 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %13, i32 1), !dbg !88  ; test.f90:30:23
-  %17 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %9, i64 0, i32 1, i32 0, !dbg !89  ; test.f90:31:23
-  %18 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %9, i64 0, i32 1, i32 6, i64 0, i32 1, !dbg !89  ; test.f90:31:23
-  %19 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %18, i32 0), !dbg !89  ; test.f90:31:23
-  %20 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %9, i64 0, i32 1, i32 6, i64 0, i32 2, !dbg !89  ; test.f90:31:23
-  %21 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %20, i32 0), !dbg !89  ; test.f90:31:23
-  %22 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %18, i32 1), !dbg !89  ; test.f90:31:23
-  %23 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %20, i32 1), !dbg !89  ; test.f90:31:23
-  br label %24, !dbg !90                          ; test.f90:29:14
+define internal void @arr_mod_mp_initialize_arr_(ptr noalias nocapture readonly dereferenceable(4) %arg, ptr noalias nocapture readonly dereferenceable(4) %arg1, ptr noalias nocapture readonly dereferenceable(4) %arg2) #3 !dbg !76 {
+bb:
+  call void @llvm.dbg.declare(metadata ptr %arg, metadata !78, metadata !DIExpression()), !dbg !83
+  call void @llvm.dbg.declare(metadata ptr @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !79, metadata !DIExpression()), !dbg !84
+  call void @llvm.dbg.declare(metadata ptr @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !80, metadata !DIExpression()), !dbg !85
+  call void @llvm.dbg.value(metadata i32 1, metadata !82, metadata !DIExpression()), !dbg !86
+  %i = load ptr, ptr @arr_mod_mp_a_, align 16, !dbg !87
+  %i3 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !87
+  %i4 = load i64, ptr %i3, align 1, !dbg !87
+  %i5 = load i32, ptr %arg, align 1, !dbg !87
+  %i6 = sext i32 %i5 to i64, !dbg !87
+  %i7 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i4, i64 192, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i, i64 %i6), !dbg !87
+  %i8 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i7, i64 0, i32 0, i32 0, !dbg !88
+  %i9 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i7, i64 0, i32 0, i32 6, i64 0, i32 1, !dbg !88
+  %i10 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i9, i32 0), !dbg !88
+  %i11 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i7, i64 0, i32 0, i32 6, i64 0, i32 2, !dbg !88
+  %i12 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i11, i32 0), !dbg !88
+  %i13 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i9, i32 1), !dbg !88
+  %i14 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i11, i32 1), !dbg !88
+  %i15 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i7, i64 0, i32 1, i32 0, !dbg !89
+  %i16 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i7, i64 0, i32 1, i32 6, i64 0, i32 1, !dbg !89
+  %i17 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i16, i32 0), !dbg !89
+  %i18 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i7, i64 0, i32 1, i32 6, i64 0, i32 2, !dbg !89
+  %i19 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i18, i32 0), !dbg !89
+  %i20 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i16, i32 1), !dbg !89
+  %i21 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i18, i32 1), !dbg !89
+  br label %bb22, !dbg !90
 
-24:                                               ; preds = %46, %3
-  %25 = phi i64 [ 1, %3 ], [ %47, %46 ]
-  call void @llvm.dbg.value(metadata i64 %25, metadata !82, metadata !DIExpression()), !dbg !86  ; test.f90:0:0
-  call void @llvm.dbg.value(metadata i32 1, metadata !81, metadata !DIExpression()), !dbg !86  ; test.f90:0:0
-  %26 = trunc i64 %25 to i32, !dbg !87            ; test.f90:30:45
-  %27 = sitofp i32 %26 to float, !dbg !87         ; test.f90:30:45
-  %28 = load i64, i64* %12, align 1, !dbg !88, !tbaa !91  ; test.f90:30:23
-  %29 = load i64, i64* %14, align 1, !dbg !88, !tbaa !96  ; test.f90:30:23
-  %30 = load i64, i64* %15, align 1, !dbg !88, !tbaa !91  ; test.f90:30:23
-  %31 = load i64, i64* %16, align 1, !dbg !88, !tbaa !96  ; test.f90:30:23
-  %32 = load i64, i64* %19, align 1, !dbg !89, !tbaa !97  ; test.f90:31:23
-  %33 = load i64, i64* %21, align 1, !dbg !89, !tbaa !99  ; test.f90:31:23
-  %34 = load i64, i64* %22, align 1, !dbg !89, !tbaa !97  ; test.f90:31:23
-  %35 = load i64, i64* %23, align 1, !dbg !89, !tbaa !99  ; test.f90:31:23
-  br label %36, !dbg !100                         ; test.f90:32:14
+bb22:                                             ; preds = %bb44, %bb
+  %i23 = phi i64 [ 1, %bb ], [ %i45, %bb44 ]
+  call void @llvm.dbg.value(metadata i64 %i23, metadata !82, metadata !DIExpression()), !dbg !86
+  call void @llvm.dbg.value(metadata i32 1, metadata !81, metadata !DIExpression()), !dbg !86
+  %i24 = trunc i64 %i23 to i32, !dbg !87
+  %i25 = sitofp i32 %i24 to float, !dbg !87
+  %i26 = load i64, ptr %i10, align 1, !dbg !88, !tbaa !91
+  %i27 = load i64, ptr %i12, align 1, !dbg !88, !tbaa !96
+  %i28 = load i64, ptr %i13, align 1, !dbg !88, !tbaa !91
+  %i29 = load i64, ptr %i14, align 1, !dbg !88, !tbaa !96
+  %i30 = load i64, ptr %i17, align 1, !dbg !89, !tbaa !97
+  %i31 = load i64, ptr %i19, align 1, !dbg !89, !tbaa !99
+  %i32 = load i64, ptr %i20, align 1, !dbg !89, !tbaa !97
+  %i33 = load i64, ptr %i21, align 1, !dbg !89, !tbaa !99
+  br label %bb34, !dbg !100
 
-36:                                               ; preds = %36, %24
-  %37 = phi i64 [ 1, %24 ], [ %44, %36 ]
-  call void @llvm.dbg.value(metadata i64 %37, metadata !81, metadata !DIExpression()), !dbg !86  ; test.f90:0:0
-  %38 = load float*, float** %10, align 1, !dbg !88, !tbaa !101  ; test.f90:30:23
-  %39 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %31, i64 %30, float* elementtype(float) %38, i64 %25), !dbg !88  ; test.f90:30:23
-  %40 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %29, i64 %28, float* elementtype(float) %39, i64 %37), !dbg !88  ; test.f90:30:23
-  store float %27, float* %40, align 1, !dbg !102, !tbaa !101  ; test.f90:30:16
-  %41 = load float*, float** %17, align 1, !dbg !89, !tbaa !103  ; test.f90:31:23
-  %42 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %35, i64 %34, float* elementtype(float) %41, i64 %25), !dbg !89  ; test.f90:31:23
-  %43 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %33, i64 %32, float* elementtype(float) %42, i64 %37), !dbg !89  ; test.f90:31:23
-  store float %27, float* %43, align 1, !dbg !104, !tbaa !103  ; test.f90:31:16
-  %44 = add nuw nsw i64 %37, 1, !dbg !100         ; test.f90:32:14
-  call void @llvm.dbg.value(metadata i64 %44, metadata !81, metadata !DIExpression()), !dbg !86  ; test.f90:0:0
-  %45 = icmp eq i64 %44, 11, !dbg !100            ; test.f90:32:14
-  br i1 %45, label %46, label %36, !dbg !100      ; test.f90:32:14
+bb34:                                             ; preds = %bb34, %bb22
+  %i35 = phi i64 [ 1, %bb22 ], [ %i42, %bb34 ]
+  call void @llvm.dbg.value(metadata i64 %i35, metadata !81, metadata !DIExpression()), !dbg !86
+  %i36 = load ptr, ptr %i8, align 1, !dbg !88, !tbaa !101
+  %i37 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %i29, i64 %i28, ptr elementtype(float) %i36, i64 %i23), !dbg !88
+  %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i27, i64 %i26, ptr elementtype(float) %i37, i64 %i35), !dbg !88
+  store float %i25, ptr %i38, align 1, !dbg !102, !tbaa !101
+  %i39 = load ptr, ptr %i15, align 1, !dbg !89, !tbaa !103
+  %i40 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %i33, i64 %i32, ptr elementtype(float) %i39, i64 %i23), !dbg !89
+  %i41 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i31, i64 %i30, ptr elementtype(float) %i40, i64 %i35), !dbg !89
+  store float %i25, ptr %i41, align 1, !dbg !104, !tbaa !103
+  %i42 = add nuw nsw i64 %i35, 1, !dbg !100
+  call void @llvm.dbg.value(metadata i64 %i42, metadata !81, metadata !DIExpression()), !dbg !86
+  %i43 = icmp eq i64 %i42, 11, !dbg !100
+  br i1 %i43, label %bb44, label %bb34, !dbg !100
 
-46:                                               ; preds = %36
-  %47 = add nuw nsw i64 %25, 1, !dbg !105         ; test.f90:33:12
-  call void @llvm.dbg.value(metadata i64 %47, metadata !82, metadata !DIExpression()), !dbg !86  ; test.f90:0:0
-  %48 = icmp eq i64 %47, 11, !dbg !105            ; test.f90:33:12
-  br i1 %48, label %49, label %24, !dbg !105      ; test.f90:33:12
+bb44:                                             ; preds = %bb34
+  %i45 = add nuw nsw i64 %i23, 1, !dbg !105
+  call void @llvm.dbg.value(metadata i64 %i45, metadata !82, metadata !DIExpression()), !dbg !86
+  %i46 = icmp eq i64 %i45, 11, !dbg !105
+  br i1 %i46, label %bb47, label %bb22, !dbg !105
 
-49:                                               ; preds = %46
-  ret void, !dbg !106                             ; test.f90:36:10
+bb47:                                             ; preds = %bb44
+  ret void, !dbg !106
 }
 
-; Function Attrs: mustprogress nofree nosync nounwind readnone speculatable willreturn
+; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
-; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #2
-
 ; Function Attrs: nofree nounwind uwtable
-define internal void @arr_mod_mp_print_info_(i32* noalias nocapture readonly dereferenceable(4) %0, i32* noalias nocapture readonly dereferenceable(4) %1, %"QNCA_a0$float*$rank2$"* noalias nocapture readonly dereferenceable(96) "assumed_shape" "ptrnoalias" %2) #0 !dbg !107 {
-  %4 = alloca [8 x i64], align 16
-  %5 = alloca [4 x i8], align 1, !dbg !115        ; test.f90:38:32
-  %6 = alloca <{ i64 }>, align 8, !dbg !115       ; test.f90:38:32
-  call void @llvm.dbg.declare(metadata i32* @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !109, metadata !DIExpression()), !dbg !115  ; test.f90:38:32
-  call void @llvm.dbg.declare(metadata i32* @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !110, metadata !DIExpression()), !dbg !116  ; test.f90:38:35
-  call void @llvm.dbg.declare(metadata %"QNCA_a0$float*$rank2$"* %2, metadata !111, metadata !DIExpression()), !dbg !117  ; test.f90:38:38
-  call void @llvm.dbg.value(metadata i32 1, metadata !114, metadata !DIExpression()), !dbg !118  ; test.f90:0:0
-  %7 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %2, i64 0, i32 0, !dbg !119  ; test.f90:44:16
-  %8 = load float*, float** %7, align 1, !dbg !119  ; test.f90:44:16
-  %9 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %2, i64 0, i32 6, i64 0, i32 1, !dbg !119  ; test.f90:44:16
-  %10 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %9, i32 0), !dbg !119  ; test.f90:44:16
-  %11 = load i64, i64* %10, align 1, !dbg !119    ; test.f90:44:16
-  %12 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %9, i32 1), !dbg !119  ; test.f90:44:16
-  %13 = load i64, i64* %12, align 1, !dbg !119    ; test.f90:44:16
-  %14 = getelementptr inbounds [4 x i8], [4 x i8]* %5, i64 0, i64 0, !dbg !119  ; test.f90:44:16
-  %15 = getelementptr inbounds [4 x i8], [4 x i8]* %5, i64 0, i64 1, !dbg !119  ; test.f90:44:16
-  %16 = getelementptr inbounds [4 x i8], [4 x i8]* %5, i64 0, i64 2, !dbg !119  ; test.f90:44:16
-  %17 = getelementptr inbounds [4 x i8], [4 x i8]* %5, i64 0, i64 3, !dbg !119  ; test.f90:44:16
-  %18 = bitcast <{ i64 }>* %6 to float*, !dbg !119  ; test.f90:44:16
-  %19 = bitcast [8 x i64]* %4 to i8*, !dbg !119   ; test.f90:44:16
-  %20 = bitcast <{ i64 }>* %6 to i8*, !dbg !119   ; test.f90:44:16
-  br label %21, !dbg !120                         ; test.f90:43:14
+define internal void @arr_mod_mp_print_info_(ptr noalias nocapture readonly dereferenceable(4) %arg, ptr noalias nocapture readonly dereferenceable(4) %arg1, ptr noalias nocapture readonly dereferenceable(96) "assumed_shape" "ptrnoalias" %arg2) #0 !dbg !107 {
+bb:
+  %i = alloca [8 x i64], align 16
+  %i3 = alloca [4 x i8], align 1, !dbg !115
+  %i4 = alloca <{ i64 }>, align 8, !dbg !115
+  call void @llvm.dbg.declare(metadata ptr @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !109, metadata !DIExpression()), !dbg !115
+  call void @llvm.dbg.declare(metadata ptr @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !110, metadata !DIExpression()), !dbg !116
+  call void @llvm.dbg.declare(metadata ptr %arg2, metadata !111, metadata !DIExpression()), !dbg !117
+  call void @llvm.dbg.value(metadata i32 1, metadata !114, metadata !DIExpression()), !dbg !118
+  %i5 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %arg2, i64 0, i32 0, !dbg !119
+  %i6 = load ptr, ptr %i5, align 1, !dbg !119
+  %i7 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %arg2, i64 0, i32 6, i64 0, i32 1, !dbg !119
+  %i8 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i7, i32 0), !dbg !119
+  %i9 = load i64, ptr %i8, align 1, !dbg !119
+  %i10 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i7, i32 1), !dbg !119
+  %i11 = load i64, ptr %i10, align 1, !dbg !119
+  %i12 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 0, !dbg !119
+  %i13 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 1, !dbg !119
+  %i14 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 2, !dbg !119
+  %i15 = getelementptr inbounds [4 x i8], ptr %i3, i64 0, i64 3, !dbg !119
+  %i16 = bitcast ptr %i4 to ptr, !dbg !119
+  %i17 = bitcast ptr %i to ptr, !dbg !119
+  %i18 = bitcast ptr %i4 to ptr, !dbg !119
+  br label %bb19, !dbg !120
 
-21:                                               ; preds = %32, %3
-  %22 = phi i64 [ 1, %3 ], [ %33, %32 ]
-  call void @llvm.dbg.value(metadata i64 %22, metadata !114, metadata !DIExpression()), !dbg !118  ; test.f90:0:0
-  call void @llvm.dbg.value(metadata i32 1, metadata !113, metadata !DIExpression()), !dbg !118  ; test.f90:0:0
-  %23 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %13, float* elementtype(float) %8, i64 %22), !dbg !119  ; test.f90:44:16
-  br label %24, !dbg !121                         ; test.f90:45:14
+bb19:                                             ; preds = %bb30, %bb
+  %i20 = phi i64 [ 1, %bb ], [ %i31, %bb30 ]
+  call void @llvm.dbg.value(metadata i64 %i20, metadata !114, metadata !DIExpression()), !dbg !118
+  call void @llvm.dbg.value(metadata i32 1, metadata !113, metadata !DIExpression()), !dbg !118
+  %i21 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %i11, ptr elementtype(float) %i6, i64 %i20), !dbg !119
+  br label %bb22, !dbg !121
 
-24:                                               ; preds = %24, %21
-  %25 = phi i64 [ 1, %21 ], [ %29, %24 ]
-  call void @llvm.dbg.value(metadata i64 %25, metadata !113, metadata !DIExpression()), !dbg !118  ; test.f90:0:0
-  %26 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 %11, float* elementtype(float) %23, i64 %25), !dbg !119  ; test.f90:44:16
-  %27 = load float, float* %26, align 1, !dbg !119, !tbaa !122  ; test.f90:44:16
-  store i8 26, i8* %14, align 1, !dbg !119, !tbaa !127  ; test.f90:44:16
-  store i8 1, i8* %15, align 1, !dbg !119, !tbaa !127  ; test.f90:44:16
-  store i8 1, i8* %16, align 1, !dbg !119, !tbaa !127  ; test.f90:44:16
-  store i8 0, i8* %17, align 1, !dbg !119, !tbaa !127  ; test.f90:44:16
-  store float %27, float* %18, align 8, !dbg !119, !tbaa !128  ; test.f90:44:16
-  %28 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %19, i32 -1, i64 1239157112576, i8* nonnull %14, i8* nonnull %20) #6, !dbg !119  ; test.f90:44:16
-  %29 = add nuw i64 %25, 1, !dbg !121             ; test.f90:45:14
-  call void @llvm.dbg.value(metadata i64 %29, metadata !113, metadata !DIExpression()), !dbg !118  ; test.f90:0:0
-  %30 = trunc i64 %29 to i32, !dbg !121           ; test.f90:45:14
-  %31 = icmp slt i32 10, %30, !dbg !121           ; test.f90:45:14
-  br i1 %31, label %32, label %24, !dbg !121      ; test.f90:45:14
+bb22:                                             ; preds = %bb22, %bb19
+  %i23 = phi i64 [ 1, %bb19 ], [ %i27, %bb22 ]
+  call void @llvm.dbg.value(metadata i64 %i23, metadata !113, metadata !DIExpression()), !dbg !118
+  %i24 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 %i9, ptr elementtype(float) %i21, i64 %i23), !dbg !119
+  %i25 = load float, ptr %i24, align 1, !dbg !119, !tbaa !122
+  store i8 26, ptr %i12, align 1, !dbg !119, !tbaa !127
+  store i8 1, ptr %i13, align 1, !dbg !119, !tbaa !127
+  store i8 1, ptr %i14, align 1, !dbg !119, !tbaa !127
+  store i8 0, ptr %i15, align 1, !dbg !119, !tbaa !127
+  store float %i25, ptr %i16, align 8, !dbg !119, !tbaa !128
+  %i26 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %i17, i32 -1, i64 1239157112576, ptr nonnull %i12, ptr nonnull %i18) #6, !dbg !119
+  %i27 = add nuw i64 %i23, 1, !dbg !121
+  call void @llvm.dbg.value(metadata i64 %i27, metadata !113, metadata !DIExpression()), !dbg !118
+  %i28 = trunc i64 %i27 to i32, !dbg !121
+  %i29 = icmp slt i32 10, %i28, !dbg !121
+  br i1 %i29, label %bb30, label %bb22, !dbg !121
 
-32:                                               ; preds = %24
-  %33 = add nuw i64 %22, 1, !dbg !130             ; test.f90:46:12
-  call void @llvm.dbg.value(metadata i64 %33, metadata !114, metadata !DIExpression()), !dbg !118  ; test.f90:0:0
-  %34 = trunc i64 %33 to i32, !dbg !130           ; test.f90:46:12
-  %35 = icmp slt i32 10, %34, !dbg !130           ; test.f90:46:12
-  br i1 %35, label %36, label %21, !dbg !130      ; test.f90:46:12
+bb30:                                             ; preds = %bb22
+  %i31 = add nuw i64 %i20, 1, !dbg !130
+  call void @llvm.dbg.value(metadata i64 %i31, metadata !114, metadata !DIExpression()), !dbg !118
+  %i32 = trunc i64 %i31 to i32, !dbg !130
+  %i33 = icmp slt i32 10, %i32, !dbg !130
+  br i1 %i33, label %bb34, label %bb19, !dbg !130
 
-36:                                               ; preds = %32
-  ret void, !dbg !131                             ; test.f90:48:10
+bb34:                                             ; preds = %bb30
+  ret void, !dbg !131
 }
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr #3
+declare dso_local i32 @for_write_seq_lis(ptr, i32, i64, ptr, ptr, ...) local_unnamed_addr #2
 
 ; Function Attrs: nofree nounwind uwtable
-define internal void @arr_mod_mp_print_arr_(i32* noalias nocapture readonly dereferenceable(4) %0, i32* noalias nocapture readonly dereferenceable(4) %1, i32* noalias nocapture readonly dereferenceable(4) %2) #0 !dbg !132 {
-  %4 = alloca %"QNCA_a0$float*$rank2$", align 8, !dbg !137  ; test.f90:50:31
-  %5 = alloca %"QNCA_a0$float*$rank2$", align 8, !dbg !137  ; test.f90:50:31
-  call void @llvm.dbg.declare(metadata i32* %0, metadata !134, metadata !DIExpression()), !dbg !137  ; test.f90:50:31
-  call void @llvm.dbg.declare(metadata i32* @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !135, metadata !DIExpression()), !dbg !138  ; test.f90:50:34
-  call void @llvm.dbg.declare(metadata i32* @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !136, metadata !DIExpression()), !dbg !139  ; test.f90:50:37
-  %6 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !140, !tbaa !141  ; test.f90:54:12
-  %7 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !140  ; test.f90:54:12
-  %8 = load i64, i64* %7, align 1, !dbg !140, !tbaa !146  ; test.f90:54:12
-  %9 = load i32, i32* %0, align 1, !dbg !140, !tbaa !147  ; test.f90:54:12
-  %10 = sext i32 %9 to i64, !dbg !140             ; test.f90:54:12
-  %11 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %8, i64 192, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %6, i64 %10), !dbg !140  ; test.f90:54:12
-  %12 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %11, i64 0, i32 0, i32 0, !dbg !140  ; test.f90:54:12
-  %13 = load float*, float** %12, align 1, !dbg !140, !tbaa !149  ; test.f90:54:12
-  %14 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %11, i64 0, i32 0, i32 6, i64 0, i32 1, !dbg !140  ; test.f90:54:12
-  %15 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %14, i32 0), !dbg !140  ; test.f90:54:12
-  %16 = load i64, i64* %15, align 1, !dbg !140, !tbaa !151  ; test.f90:54:12
-  %17 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %11, i64 0, i32 0, i32 6, i64 0, i32 0, !dbg !140  ; test.f90:54:12
-  %18 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %17, i32 0), !dbg !140  ; test.f90:54:12
-  %19 = load i64, i64* %18, align 1, !dbg !140, !tbaa !152  ; test.f90:54:12
-  %20 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %14, i32 1), !dbg !140  ; test.f90:54:12
-  %21 = load i64, i64* %20, align 1, !dbg !140, !tbaa !151  ; test.f90:54:12
-  %22 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %17, i32 1), !dbg !140  ; test.f90:54:12
-  %23 = load i64, i64* %22, align 1, !dbg !140, !tbaa !152  ; test.f90:54:12
-  %24 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %4, i64 0, i32 3, !dbg !140  ; test.f90:54:12
-  %25 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %4, i64 0, i32 1, !dbg !140  ; test.f90:54:12
-  store i64 4, i64* %25, align 8, !dbg !140, !tbaa !153  ; test.f90:54:12
-  %26 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %4, i64 0, i32 4, !dbg !140  ; test.f90:54:12
-  store i64 2, i64* %26, align 8, !dbg !140, !tbaa !155  ; test.f90:54:12
-  %27 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %4, i64 0, i32 2, !dbg !140  ; test.f90:54:12
-  store i64 0, i64* %27, align 8, !dbg !140, !tbaa !156  ; test.f90:54:12
-  %28 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %4, i64 0, i32 6, i64 0, i32 1, !dbg !140  ; test.f90:54:12
-  %29 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %28, i32 0), !dbg !140  ; test.f90:54:12
-  store i64 %16, i64* %29, align 1, !dbg !140, !tbaa !157  ; test.f90:54:12
-  %30 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %4, i64 0, i32 6, i64 0, i32 2, !dbg !140  ; test.f90:54:12
-  %31 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %30, i32 0), !dbg !140  ; test.f90:54:12
-  store i64 1, i64* %31, align 1, !dbg !140, !tbaa !158  ; test.f90:54:12
-  %32 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %4, i64 0, i32 6, i64 0, i32 0, !dbg !140  ; test.f90:54:12
-  %33 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %32, i32 0), !dbg !140  ; test.f90:54:12
-  store i64 %19, i64* %33, align 1, !dbg !140, !tbaa !159  ; test.f90:54:12
-  %34 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %28, i32 1), !dbg !140  ; test.f90:54:12
-  store i64 %21, i64* %34, align 1, !dbg !140, !tbaa !157  ; test.f90:54:12
-  %35 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %30, i32 1), !dbg !140  ; test.f90:54:12
-  store i64 1, i64* %35, align 1, !dbg !140, !tbaa !158  ; test.f90:54:12
-  %36 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %32, i32 1), !dbg !140  ; test.f90:54:12
-  store i64 %23, i64* %36, align 1, !dbg !140, !tbaa !159  ; test.f90:54:12
-  %37 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %4, i64 0, i32 0, !dbg !140  ; test.f90:54:12
-  store float* %13, float** %37, align 8, !dbg !140, !tbaa !160  ; test.f90:54:12
-  store i64 1, i64* %24, align 8, !dbg !140, !tbaa !161  ; test.f90:54:12
-  call void @arr_mod_mp_print_info_(i32* nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, i32* nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, %"QNCA_a0$float*$rank2$"* nonnull %4) #7, !dbg !162  ; test.f90:54:17
-  %38 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", %"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !163, !tbaa !141  ; test.f90:57:12
-  %39 = load i64, i64* %7, align 1, !dbg !163, !tbaa !146  ; test.f90:57:12
-  %40 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %39, i64 192, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %38, i64 %10), !dbg !163  ; test.f90:57:12
-  %41 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 0, !dbg !163  ; test.f90:57:12
-  %42 = load float*, float** %41, align 1, !dbg !163, !tbaa !164  ; test.f90:57:12
-  %43 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 6, i64 0, i32 1, !dbg !163  ; test.f90:57:12
-  %44 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %43, i32 0), !dbg !163  ; test.f90:57:12
-  %45 = load i64, i64* %44, align 1, !dbg !163, !tbaa !166  ; test.f90:57:12
-  %46 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 6, i64 0, i32 0, !dbg !163  ; test.f90:57:12
-  %47 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %46, i32 0), !dbg !163  ; test.f90:57:12
-  %48 = load i64, i64* %47, align 1, !dbg !163, !tbaa !167  ; test.f90:57:12
-  %49 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %43, i32 1), !dbg !163  ; test.f90:57:12
-  %50 = load i64, i64* %49, align 1, !dbg !163, !tbaa !166  ; test.f90:57:12
-  %51 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %46, i32 1), !dbg !163  ; test.f90:57:12
-  %52 = load i64, i64* %51, align 1, !dbg !163, !tbaa !167  ; test.f90:57:12
-  %53 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 3, !dbg !163  ; test.f90:57:12
-  %54 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 1, !dbg !163  ; test.f90:57:12
-  store i64 4, i64* %54, align 8, !dbg !163, !tbaa !168  ; test.f90:57:12
-  %55 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 4, !dbg !163  ; test.f90:57:12
-  store i64 2, i64* %55, align 8, !dbg !163, !tbaa !170  ; test.f90:57:12
-  %56 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 2, !dbg !163  ; test.f90:57:12
-  store i64 0, i64* %56, align 8, !dbg !163, !tbaa !171  ; test.f90:57:12
-  %57 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 6, i64 0, i32 1, !dbg !163  ; test.f90:57:12
-  %58 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %57, i32 0), !dbg !163  ; test.f90:57:12
-  store i64 %45, i64* %58, align 1, !dbg !163, !tbaa !172  ; test.f90:57:12
-  %59 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 6, i64 0, i32 2, !dbg !163  ; test.f90:57:12
-  %60 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %59, i32 0), !dbg !163  ; test.f90:57:12
-  store i64 1, i64* %60, align 1, !dbg !163, !tbaa !173  ; test.f90:57:12
-  %61 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 6, i64 0, i32 0, !dbg !163  ; test.f90:57:12
-  %62 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %61, i32 0), !dbg !163  ; test.f90:57:12
-  store i64 %48, i64* %62, align 1, !dbg !163, !tbaa !174  ; test.f90:57:12
-  %63 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %57, i32 1), !dbg !163  ; test.f90:57:12
-  store i64 %50, i64* %63, align 1, !dbg !163, !tbaa !172  ; test.f90:57:12
-  %64 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %59, i32 1), !dbg !163  ; test.f90:57:12
-  store i64 1, i64* %64, align 1, !dbg !163, !tbaa !173  ; test.f90:57:12
-  %65 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %61, i32 1), !dbg !163  ; test.f90:57:12
-  store i64 %52, i64* %65, align 1, !dbg !163, !tbaa !174  ; test.f90:57:12
-  %66 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 0, !dbg !163  ; test.f90:57:12
-  store float* %42, float** %66, align 8, !dbg !163, !tbaa !175  ; test.f90:57:12
-  store i64 1, i64* %53, align 8, !dbg !163, !tbaa !176  ; test.f90:57:12
-  call void @arr_mod_mp_print_info_(i32* nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, i32* nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, %"QNCA_a0$float*$rank2$"* nonnull %5) #7, !dbg !177  ; test.f90:57:17
-  ret void, !dbg !178                             ; test.f90:60:10
+define internal void @arr_mod_mp_print_arr_(ptr noalias nocapture readonly dereferenceable(4) %arg, ptr noalias nocapture readonly dereferenceable(4) %arg1, ptr noalias nocapture readonly dereferenceable(4) %arg2) #0 !dbg !132 {
+bb:
+  %i = alloca %"QNCA_a0$float*$rank2$", align 8, !dbg !137
+  %i3 = alloca %"QNCA_a0$float*$rank2$", align 8, !dbg !137
+  call void @llvm.dbg.declare(metadata ptr %arg, metadata !134, metadata !DIExpression()), !dbg !137
+  call void @llvm.dbg.declare(metadata ptr @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !135, metadata !DIExpression()), !dbg !138
+  call void @llvm.dbg.declare(metadata ptr @anon.11934500c7ed222a0a148892d04ea3ac.2, metadata !136, metadata !DIExpression()), !dbg !139
+  %i4 = load ptr, ptr @arr_mod_mp_a_, align 16, !dbg !140, !tbaa !141
+  %i5 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$%ARR_MOD$.btT_TESTTYPE*$rank1$", ptr @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !140
+  %i6 = load i64, ptr %i5, align 1, !dbg !140, !tbaa !146
+  %i7 = load i32, ptr %arg, align 1, !dbg !140, !tbaa !147
+  %i8 = sext i32 %i7 to i64, !dbg !140
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i6, i64 192, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i4, i64 %i8), !dbg !140
+  %i10 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i9, i64 0, i32 0, i32 0, !dbg !140
+  %i11 = load ptr, ptr %i10, align 1, !dbg !140, !tbaa !149
+  %i12 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i9, i64 0, i32 0, i32 6, i64 0, i32 1, !dbg !140
+  %i13 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i12, i32 0), !dbg !140
+  %i14 = load i64, ptr %i13, align 1, !dbg !140, !tbaa !151
+  %i15 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i9, i64 0, i32 0, i32 6, i64 0, i32 0, !dbg !140
+  %i16 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i15, i32 0), !dbg !140
+  %i17 = load i64, ptr %i16, align 1, !dbg !140, !tbaa !152
+  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i12, i32 1), !dbg !140
+  %i19 = load i64, ptr %i18, align 1, !dbg !140, !tbaa !151
+  %i20 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i15, i32 1), !dbg !140
+  %i21 = load i64, ptr %i20, align 1, !dbg !140, !tbaa !152
+  %i22 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i, i64 0, i32 3, !dbg !140
+  %i23 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i, i64 0, i32 1, !dbg !140
+  store i64 4, ptr %i23, align 8, !dbg !140, !tbaa !153
+  %i24 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i, i64 0, i32 4, !dbg !140
+  store i64 2, ptr %i24, align 8, !dbg !140, !tbaa !155
+  %i25 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i, i64 0, i32 2, !dbg !140
+  store i64 0, ptr %i25, align 8, !dbg !140, !tbaa !156
+  %i26 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i, i64 0, i32 6, i64 0, i32 1, !dbg !140
+  %i27 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i26, i32 0), !dbg !140
+  store i64 %i14, ptr %i27, align 1, !dbg !140, !tbaa !157
+  %i28 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i, i64 0, i32 6, i64 0, i32 2, !dbg !140
+  %i29 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i28, i32 0), !dbg !140
+  store i64 1, ptr %i29, align 1, !dbg !140, !tbaa !158
+  %i30 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i, i64 0, i32 6, i64 0, i32 0, !dbg !140
+  %i31 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i30, i32 0), !dbg !140
+  store i64 %i17, ptr %i31, align 1, !dbg !140, !tbaa !159
+  %i32 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i26, i32 1), !dbg !140
+  store i64 %i19, ptr %i32, align 1, !dbg !140, !tbaa !157
+  %i33 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i28, i32 1), !dbg !140
+  store i64 1, ptr %i33, align 1, !dbg !140, !tbaa !158
+  %i34 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i30, i32 1), !dbg !140
+  store i64 %i21, ptr %i34, align 1, !dbg !140, !tbaa !159
+  %i35 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i, i64 0, i32 0, !dbg !140
+  store ptr %i11, ptr %i35, align 8, !dbg !140, !tbaa !160
+  store i64 1, ptr %i22, align 8, !dbg !140, !tbaa !161
+  call void @arr_mod_mp_print_info_(ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, ptr nonnull %i) #7, !dbg !162
+  %i36 = load ptr, ptr @arr_mod_mp_a_, align 16, !dbg !163, !tbaa !141
+  %i37 = load i64, ptr %i5, align 1, !dbg !163, !tbaa !146
+  %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i37, i64 192, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i36, i64 %i8), !dbg !163
+  %i39 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i38, i64 0, i32 1, i32 0, !dbg !163
+  %i40 = load ptr, ptr %i39, align 1, !dbg !163, !tbaa !164
+  %i41 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i38, i64 0, i32 1, i32 6, i64 0, i32 1, !dbg !163
+  %i42 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i41, i32 0), !dbg !163
+  %i43 = load i64, ptr %i42, align 1, !dbg !163, !tbaa !166
+  %i44 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i38, i64 0, i32 1, i32 6, i64 0, i32 0, !dbg !163
+  %i45 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i44, i32 0), !dbg !163
+  %i46 = load i64, ptr %i45, align 1, !dbg !163, !tbaa !167
+  %i47 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i41, i32 1), !dbg !163
+  %i48 = load i64, ptr %i47, align 1, !dbg !163, !tbaa !166
+  %i49 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i44, i32 1), !dbg !163
+  %i50 = load i64, ptr %i49, align 1, !dbg !163, !tbaa !167
+  %i51 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i3, i64 0, i32 3, !dbg !163
+  %i52 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i3, i64 0, i32 1, !dbg !163
+  store i64 4, ptr %i52, align 8, !dbg !163, !tbaa !168
+  %i53 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i3, i64 0, i32 4, !dbg !163
+  store i64 2, ptr %i53, align 8, !dbg !163, !tbaa !170
+  %i54 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i3, i64 0, i32 2, !dbg !163
+  store i64 0, ptr %i54, align 8, !dbg !163, !tbaa !171
+  %i55 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i3, i64 0, i32 6, i64 0, i32 1, !dbg !163
+  %i56 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i55, i32 0), !dbg !163
+  store i64 %i43, ptr %i56, align 1, !dbg !163, !tbaa !172
+  %i57 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i3, i64 0, i32 6, i64 0, i32 2, !dbg !163
+  %i58 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i57, i32 0), !dbg !163
+  store i64 1, ptr %i58, align 1, !dbg !163, !tbaa !173
+  %i59 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i3, i64 0, i32 6, i64 0, i32 0, !dbg !163
+  %i60 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i59, i32 0), !dbg !163
+  store i64 %i46, ptr %i60, align 1, !dbg !163, !tbaa !174
+  %i61 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i55, i32 1), !dbg !163
+  store i64 %i48, ptr %i61, align 1, !dbg !163, !tbaa !172
+  %i62 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i57, i32 1), !dbg !163
+  store i64 1, ptr %i62, align 1, !dbg !163, !tbaa !173
+  %i63 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i59, i32 1), !dbg !163
+  store i64 %i50, ptr %i63, align 1, !dbg !163, !tbaa !174
+  %i64 = getelementptr inbounds %"QNCA_a0$float*$rank2$", ptr %i3, i64 0, i32 0, !dbg !163
+  store ptr %i40, ptr %i64, align 8, !dbg !163, !tbaa !175
+  store i64 1, ptr %i51, align 8, !dbg !163, !tbaa !176
+  call void @arr_mod_mp_print_info_(ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, ptr nonnull %i3) #7, !dbg !177
+  ret void, !dbg !178
 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @MAIN__() #5 !dbg !19 {
-  %1 = alloca i32, align 8
-  %2 = tail call i32 @for_set_fpe_(i32* nonnull @anon.11934500c7ed222a0a148892d04ea3ac.0) #6, !dbg !179  ; test.f90:64:15
-  %3 = tail call i32 @for_set_reentrancy(i32* nonnull @anon.11934500c7ed222a0a148892d04ea3ac.1) #6, !dbg !179  ; test.f90:64:15
-  call void @llvm.dbg.value(metadata i32 1, metadata !23, metadata !DIExpression()), !dbg !180  ; test.f90:0:0
-  store i32 1, i32* %1, align 8, !dbg !181, !tbaa !182  ; test.f90:70:9
-  br label %4, !dbg !181                          ; test.f90:70:9
+define dso_local void @MAIN__() #4 !dbg !19 {
+bb:
+  %i = alloca i32, align 8
+  %i1 = tail call i32 @for_set_fpe_(ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.0) #6, !dbg !179
+  %i2 = tail call i32 @for_set_reentrancy(ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.1) #6, !dbg !179
+  call void @llvm.dbg.value(metadata i32 1, metadata !23, metadata !DIExpression()), !dbg !180
+  store i32 1, ptr %i, align 8, !dbg !181, !tbaa !182
+  br label %bb3, !dbg !181
 
-4:                                                ; preds = %4, %0
-  %5 = phi i32 [ %6, %4 ], [ 1, %0 ], !dbg !186   ; test.f90:77:9
-  call void @llvm.dbg.value(metadata i32* %1, metadata !23, metadata !DIExpression(DW_OP_deref)), !dbg !180  ; test.f90:0:0
-  call void @arr_mod_mp_allocate_arr_(i32* nonnull %1) #7, !dbg !187  ; test.f90:72:16
-  call void @arr_mod_mp_initialize_arr_(i32* nonnull %1, i32* nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, i32* nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2) #7, !dbg !188  ; test.f90:74:16
-  call void @arr_mod_mp_print_arr_(i32* nonnull %1, i32* nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, i32* nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2) #7, !dbg !189  ; test.f90:76:16
-  call void @llvm.dbg.value(metadata i32 %5, metadata !23, metadata !DIExpression()), !dbg !180  ; test.f90:0:0
-  %6 = add nuw nsw i32 %5, 1, !dbg !186           ; test.f90:77:9
-  call void @llvm.dbg.value(metadata i32 %6, metadata !23, metadata !DIExpression()), !dbg !180  ; test.f90:0:0
-  store i32 %6, i32* %1, align 8, !dbg !186, !tbaa !182  ; test.f90:77:9
-  %7 = icmp eq i32 %6, 11, !dbg !186              ; test.f90:77:9
-  br i1 %7, label %8, label %4, !dbg !186         ; test.f90:77:9
+bb3:                                              ; preds = %bb3, %bb
+  %i4 = phi i32 [ %i5, %bb3 ], [ 1, %bb ], !dbg !186
+  call void @llvm.dbg.value(metadata ptr %i, metadata !23, metadata !DIExpression(DW_OP_deref)), !dbg !180
+  call void @arr_mod_mp_allocate_arr_(ptr nonnull %i) #7, !dbg !187
+  call void @arr_mod_mp_initialize_arr_(ptr nonnull %i, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2) #7, !dbg !188
+  call void @arr_mod_mp_print_arr_(ptr nonnull %i, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2, ptr nonnull @anon.11934500c7ed222a0a148892d04ea3ac.2) #7, !dbg !189
+  call void @llvm.dbg.value(metadata i32 %i4, metadata !23, metadata !DIExpression()), !dbg !180
+  %i5 = add nuw nsw i32 %i4, 1, !dbg !186
+  call void @llvm.dbg.value(metadata i32 %i5, metadata !23, metadata !DIExpression()), !dbg !180
+  store i32 %i5, ptr %i, align 8, !dbg !186, !tbaa !182
+  %i6 = icmp eq i32 %i5, 11, !dbg !186
+  br i1 %i6, label %bb7, label %bb3, !dbg !186
 
-8:                                                ; preds = %4
-  ret void, !dbg !190                             ; test.f90:79:7
+bb7:                                              ; preds = %bb3
+  ret void, !dbg !190
 }
 
-declare dso_local i32 @for_set_fpe_(i32* nocapture readonly) local_unnamed_addr
+declare dso_local i32 @for_set_fpe_(ptr nocapture readonly) local_unnamed_addr
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_set_reentrancy(i32* nocapture readonly) local_unnamed_addr #3
+declare dso_local i32 @for_set_reentrancy(ptr nocapture readonly) local_unnamed_addr #2
 
-attributes #0 = { nofree nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
-attributes #1 = { mustprogress nofree nosync nounwind readnone speculatable willreturn }
-attributes #2 = { nofree nosync nounwind readnone speculatable }
-attributes #3 = { nofree "intel-lang"="fortran" }
-attributes #4 = { nofree nosync nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
-attributes #5 = { nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+; Function Attrs: nounwind readnone speculatable
+declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #5
+
+; Function Attrs: nounwind readnone speculatable
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #5
+
+attributes #0 = { nofree nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+attributes #1 = { nocallback nofree nosync nounwind readnone speculatable willreturn }
+attributes #2 = { nofree "intel-lang"="fortran" }
+attributes #3 = { nofree nosync nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+attributes #4 = { nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+attributes #5 = { nounwind readnone speculatable }
 attributes #6 = { nounwind }
 attributes #7 = { noinline }
 

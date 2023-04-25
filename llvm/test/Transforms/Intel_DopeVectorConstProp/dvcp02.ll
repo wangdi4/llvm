@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=0 < %s -dope-vector-local-const-prop=false -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -dope-vector-local-const-prop=false -disable-output -passes=dopevectorconstprop -debug-only=dopevectorconstprop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; Check that full load, stride, and extent dope vector constant values are
 ; determined for ARG #1 of new_solver_, but only some lower bound and stride
@@ -8,7 +8,7 @@
 ; Check the trace output.
 
 ; CHECK: DOPE VECTOR CONSTANT PROPAGATION: BEGIN
-; CHECK: DV FOUND: ARG #0 new_solver_ 2 x i32
+; CHECK: DV FOUND: ARG #0 new_solver_ 2 x <UNKNOWN ELEMENT TYPE>
 ; CHECK: VALID
 ; CHECK: LB[0] = 1
 ; CHECK: ST[0] = 4
@@ -18,7 +18,7 @@
 ; CHECK-NOT: EX[1] = 9
 ; CHECK: REPLACING 1 LOAD WITH 4
 ; CHECK-NOT: REPLACING 1 LOAD WITH 36
-; CHECK: DV FOUND: ARG #1 new_solver_ 3 x i32
+; CHECK: DV FOUND: ARG #1 new_solver_ 3 x <UNKNOWN ELEMENT TYPE>
 ; CHECK: VALID
 ; CHECK: LB[0] = 1
 ; CHECK: ST[0] = 4
@@ -38,400 +38,329 @@
 ; CHECK: DOPE VECTOR CONSTANT PROPAGATION: END
 
 @"main_$PART1" = internal global [9 x [9 x i32]] zeroinitializer, align 16
-
 @"main_$PART2" = internal global [10 x [10 x i32]] zeroinitializer, align 16
-
 @"main_$BLOCK" = internal global [9 x [9 x [9 x i32]]] zeroinitializer, align 16
-
 @0 = internal unnamed_addr constant i32 2
-
 @anon.a87c7c812e60d4624ad0dfec6a834de1.0 = internal unnamed_addr constant i32 2
 
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #1
+declare dso_local i32 @for_set_reentrancy(ptr) local_unnamed_addr
 
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32) #1
+; Function Attrs: nocallback nofree nosync nounwind willreturn
+declare ptr @llvm.stacksave() #0
 
-declare dso_local i32 @for_set_reentrancy(i32*) local_unnamed_addr
+; Function Attrs: nocallback nofree nosync nounwind willreturn
+declare void @llvm.stackrestore(ptr) #0
 
-declare i8* @llvm.stacksave()
+define dso_local void @MAIN__() #1 {
+bb:
+  %i = alloca { i64, ptr }, align 8
+  %i1 = alloca [4 x i8], align 1
+  %i2 = alloca { i64, ptr }, align 8
+  %i3 = alloca [4 x i8], align 1
+  %i4 = alloca { i64, ptr }, align 8
+  %i5 = alloca [4 x i8], align 1
+  %i6 = alloca { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, align 8
+  %i7 = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
+  %i8 = alloca { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, align 8
+  %i9 = alloca { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
+  %i10 = alloca [8 x i64], align 16
+  %i11 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i9, i64 0, i32 1
+  %i12 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i9, i64 0, i32 3
+  %i13 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i9, i64 0, i32 6, i64 0
+  %i14 = getelementptr inbounds { i64, i64, i64 }, ptr %i13, i64 0, i32 0
+  %i15 = getelementptr inbounds { i64, i64, i64 }, ptr %i13, i64 0, i32 2
+  %i16 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i8, i64 0, i32 1
+  %i17 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i8, i64 0, i32 3
+  %i18 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i8, i64 0, i32 6, i64 0
+  %i19 = getelementptr inbounds { i64, i64, i64 }, ptr %i18, i64 0, i32 0
+  %i20 = getelementptr inbounds { i64, i64, i64 }, ptr %i18, i64 0, i32 2
+  %i21 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i7, i64 0, i32 1
+  %i22 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i7, i64 0, i32 3
+  %i23 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i7, i64 0, i32 6, i64 0
+  %i24 = getelementptr inbounds { i64, i64, i64 }, ptr %i23, i64 0, i32 0
+  %i25 = getelementptr inbounds { i64, i64, i64 }, ptr %i23, i64 0, i32 2
+  %i26 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i6, i64 0, i32 1
+  %i27 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i6, i64 0, i32 3
+  %i28 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i6, i64 0, i32 6, i64 0
+  %i29 = getelementptr inbounds { i64, i64, i64 }, ptr %i28, i64 0, i32 1
+  %i30 = tail call i32 @for_set_reentrancy(ptr nonnull @anon.a87c7c812e60d4624ad0dfec6a834de1.0)
+  br label %bb31
 
-declare void @llvm.stackrestore(i8*)
+bb31:                                             ; preds = %bb41, %bb
+  %i32 = phi i64 [ %i42, %bb41 ], [ 1, %bb ]
+  br label %bb33
 
-define dso_local void @MAIN__() #0 {
-  %1 = alloca { i64, i8* }, align 8
-  %2 = alloca [4 x i8], align 1
-  %3 = alloca { i64, i8* }, align 8
-  %4 = alloca [4 x i8], align 1
-  %5 = alloca { i64, i8* }, align 8
-  %6 = alloca [4 x i8], align 1
-  %7 = alloca { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, align 8
-; NOTE: %7 is the dope vector for new_solver actual arg #1 instance #2
-  %8 = alloca { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
-; NOTE: %8 is the dope vector for new_solver actual arg #0 instance #2
-  %9 = alloca { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, align 8
-; NOTE: %9 is the dope vector for new_solver actual arg #1 instance #1
-  %10 = alloca { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, align 8
-; NOTE: %10 is the dope vector for new_solver actual arg #0 instance #1
-  %11 = alloca [8 x i64], align 16
-  %12 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %10, i64 0, i32 1
-  %13 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %10, i64 0, i32 3
-  %14 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %10, i64 0, i32 6, i64 0
-; NOTE: %14 is is the dope vector dimension base for new_solver actual arg #0 instance #1
-  %15 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %14, i64 0, i32 0
-; NOTE: %15 is the dope vector base for the extent of new_solver actual arg #0 instance #1
-  %16 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %14, i64 0, i32 2
-; NOTE: %16 is the dope vector base for the lower bound of new_solver actual arg #0 instance #1
-  %17 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %9, i64 0, i32 1
-  %18 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %9, i64 0, i32 3
-  %19 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %9, i64 0, i32 6, i64 0
-; NOTE: %19 is is the dope vector dimension base for new_solver actual arg #1 instance #1
-  %20 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %19, i64 0, i32 0
-; NOTE: %20 is the dope vector base for the extent of new_solver actual arg #1 instance #1
-  %21 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %19, i64 0, i32 2
-; NOTE: %21 is the dope vector base for the lower bound of new_solver actual arg #1 instance #1
-  %22 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %8, i64 0, i32 1
-  %23 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %8, i64 0, i32 3
-  %24 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %8, i64 0, i32 6, i64 0
-; NOTE: %24 is is the dope vector dimension base for new_solver actual arg #0 instance #2
-  %25 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %24, i64 0, i32 0
-; NOTE: %25 is the dope vector base for the extent of new_solver actual arg #0 instance #2
-  %26 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %24, i64 0, i32 2
-; NOTE: %26 is the dope vector base for the lower bound of new_solver actual arg #0 instance #2
-  %27 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %7, i64 0, i32 1
-  %28 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %7, i64 0, i32 3
-  %29 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %7, i64 0, i32 6, i64 0
-; NOTE: %29 is is the dope vector dimension base for new_solver actual arg #1 instance #2
-  %30 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %29, i64 0, i32 1
-; NOTE: %30 is the dope vector base for the stride of new_solver actual arg #1 instance #2
-  %31 = tail call i32 @for_set_reentrancy(i32* nonnull @anon.a87c7c812e60d4624ad0dfec6a834de1.0)
-  br label %32
+bb33:                                             ; preds = %bb33, %bb31
+  %i34 = phi i64 [ %i39, %bb33 ], [ 1, %bb31 ]
+  %i35 = sub nsw i64 %i32, %i34
+  %i36 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) @"main_$PART1", i64 %i34)
+  %i37 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i36, i64 %i32)
+  %i38 = trunc i64 %i35 to i32
+  store i32 %i38, ptr %i37, align 4
+  %i39 = add nuw nsw i64 %i34, 1
+  %i40 = icmp eq i64 %i39, 10
+  br i1 %i40, label %bb41, label %bb33
 
-32:                                               ; preds = %42, %0
-  %33 = phi i64 [ %43, %42 ], [ 1, %0 ]
-  br label %34
+bb41:                                             ; preds = %bb33
+  %i42 = add nuw nsw i64 %i32, 1
+  %i43 = icmp eq i64 %i42, 10
+  br i1 %i43, label %bb44, label %bb31
 
-34:                                               ; preds = %34, %32
-  %35 = phi i64 [ %40, %34 ], [ 1, %32 ]
-  %36 = sub nsw i64 %33, %35
-  %37 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @"main_$PART1", i64 0, i64 0, i64 0), i64 %35)
-  %38 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %37, i64 %33)
-  %39 = trunc i64 %36 to i32
-  store i32 %39, i32* %38, align 4
-  %40 = add nuw nsw i64 %35, 1
-  %41 = icmp eq i64 %40, 10
-  br i1 %41, label %42, label %34
+bb44:                                             ; preds = %bb41
+  %i45 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i9, i64 0, i32 0
+  %i46 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i9, i64 0, i32 2
+  %i47 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i9, i64 0, i32 4
+  %i48 = getelementptr inbounds { i64, i64, i64 }, ptr %i13, i64 0, i32 1
+  %i49 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i8, i64 0, i32 0
+  %i50 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i8, i64 0, i32 2
+  %i51 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i8, i64 0, i32 4
+  %i52 = getelementptr inbounds { i64, i64, i64 }, ptr %i18, i64 0, i32 1
+  %i53 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i7, i64 0, i32 0
+  %i54 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i7, i64 0, i32 2
+  %i55 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %i7, i64 0, i32 4
+  %i56 = getelementptr inbounds { i64, i64, i64 }, ptr %i23, i64 0, i32 1
+  %i57 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i6, i64 0, i32 0
+  %i58 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i6, i64 0, i32 2
+  %i59 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %i6, i64 0, i32 4
+  %i60 = getelementptr inbounds { i64, i64, i64 }, ptr %i28, i64 0, i32 0
+  %i61 = getelementptr inbounds { i64, i64, i64 }, ptr %i28, i64 0, i32 2
+  br label %bb62
 
-42:                                               ; preds = %34
-  %43 = add nuw nsw i64 %33, 1
-  %44 = icmp eq i64 %43, 10
-  br i1 %44, label %45, label %32
+bb62:                                             ; preds = %bb72, %bb44
+  %i63 = phi i64 [ 0, %bb44 ], [ %i73, %bb72 ]
+  br label %bb64
 
-45:                                               ; preds = %42
-  %46 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %10, i64 0, i32 0
-  %47 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %10, i64 0, i32 2
-  %48 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %10, i64 0, i32 4
-  %49 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %14, i64 0, i32 1
-; NOTE: %49 is the dope vector base for the stride of new_solver actual arg #0 instance #1
-  %50 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %9, i64 0, i32 0
-  %51 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %9, i64 0, i32 2
-  %52 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %9, i64 0, i32 4
-  %53 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %19, i64 0, i32 1
-; NOTE: %53 is the dope vector base for the stride of new_solver actual arg #1 instance #1
-  %54 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %8, i64 0, i32 0
-  %55 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %8, i64 0, i32 2
-  %56 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %8, i64 0, i32 4
-  %57 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %24, i64 0, i32 1
-; NOTE: %57 is the dope vector base for the stride of new_solver actual arg #0 instance #2
-  %58 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %7, i64 0, i32 0
-  %59 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %7, i64 0, i32 2
-  %60 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %7, i64 0, i32 4
-  %61 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %29, i64 0, i32 0
-; NOTE: %61 is the dope vector base for the extent of new_solver actual arg #1 instance #2
-  %62 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %29, i64 0, i32 2
-; NOTE: %62 is the dope vector base for the lower bound of new_solver actual arg #1 instance #2
-  br label %63
+bb64:                                             ; preds = %bb64, %bb62
+  %i65 = phi i64 [ %i70, %bb64 ], [ 0, %bb62 ]
+  %i66 = sub nsw i64 %i63, %i65
+  %i67 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 40, ptr elementtype(i32) @"main_$PART2", i64 %i65)
+  %i68 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 4, ptr elementtype(i32) %i67, i64 %i63)
+  %i69 = trunc i64 %i66 to i32
+  store i32 %i69, ptr %i68, align 4
+  %i70 = add nuw nsw i64 %i65, 1
+  %i71 = icmp eq i64 %i70, 10
+  br i1 %i71, label %bb72, label %bb64
 
-63:                                               ; preds = %73, %45
-  %64 = phi i64 [ 0, %45 ], [ %74, %73 ]
-  br label %65
-65:                                               ; preds = %65, %63
-  %66 = phi i64 [ %71, %65 ], [ 0, %63 ]
-  %67 = sub nsw i64 %64, %66
-  %68 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 40, i32* elementtype(i32) getelementptr inbounds ([10 x [10 x i32]], [10 x [10 x i32]]* @"main_$PART2", i64 0, i64 0, i64 0), i64 %66)
-  %69 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* elementtype(i32) %68, i64 %64)
-  %70 = trunc i64 %67 to i32
-  store i32 %70, i32* %69, align 4
-  %71 = add nuw nsw i64 %66, 1
-  %72 = icmp eq i64 %71, 10
-  br i1 %72, label %73, label %65
+bb72:                                             ; preds = %bb64
+  %i73 = add nuw nsw i64 %i63, 1
+  %i74 = icmp eq i64 %i73, 10
+  br i1 %i74, label %bb75, label %bb62
 
-73:                                               ; preds = %65
-  %74 = add nuw nsw i64 %64, 1
-  %75 = icmp eq i64 %74, 10
-  br i1 %75, label %76, label %63
-
-76:                                               ; preds = %73
-  store i64 4, i64* %12, align 8
-  store i64 2, i64* %48, align 8
-  store i64 0, i64* %47, align 8
-  %77 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %49, i32 0)
-; NOTE: stride 0 of new_solver actual arg #0 instance #1 is 4
-  store i64 4, i64* %77, align 8
-  %78 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %16, i32 0)
-; NOTE: lower bound 0 of new_solver actual arg #0 instance #1 is 1
-  store i64 1, i64* %78, align 8
-  %79 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %15, i32 0)
-; NOTE: extent 0 of new_solver actual arg #0 instance #1 is 9
-  store i64 9, i64* %79, align 8
-  %80 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %49, i32 1)
-; NOTE: stride 1 of new_solver actual arg #0 instance #1 is 36
-  store i64 36, i64* %80, align 8
-  %81 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %16, i32 1)
-; NOTE: lower bound 1 of new_solver actual arg #0 instance #1 is 1
-  store i64 1, i64* %81, align 8
-  %82 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %15, i32 1)
-; NOTE: extent 1 of new_solver actual arg #0 instance #1 is 9
-  store i64 9, i64* %82, align 8
-  store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @"main_$PART1", i64 0, i64 0, i64 0), i32** %46, align 8
-  store i64 1, i64* %13, align 8
-  store i64 4, i64* %17, align 8
-  store i64 3, i64* %52, align 8
-  store i64 0, i64* %51, align 8
-  %83 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %53, i32 0)
-; NOTE: stride 0 of new_solver actual arg #1 instance #1 is 4
-  store i64 4, i64* %83, align 8
-  %84 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %21, i32 0)
-; NOTE: lower bound 0 of new_solver actual arg #1 instance #1 is 1
-  store i64 1, i64* %84, align 8
-  %85 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %20, i32 0)
-; NOTE: extent 0 of new_solver actual arg #1 instance #1 is 9
-  store i64 9, i64* %85, align 8
-  %86 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %53, i32 1)
-; NOTE: stride 1 of new_solver actual arg #1 instance #1 is 36
-  store i64 36, i64* %86, align 8
-  %87 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %21, i32 1)
-; NOTE: lower bound 1 of new_solver actual arg #1 instance #1 is 1
-  store i64 1, i64* %87, align 8
-  %88 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %20, i32 1)
-; NOTE: extent 1 of new_solver actual arg #1 instance #1 is 9
-  store i64 9, i64* %88, align 8
-  %89 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %53, i32 2)
-; NOTE: stride 2 of new_solver actual arg #1 instance #1 is 324
-  store i64 324, i64* %89, align 8
-  %90 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %21, i32 2)
-; NOTE: lower bound 2 of new_solver actual arg #1 instance #1 is 1
-  store i64 1, i64* %90, align 8
-  %91 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %20, i32 2)
-; NOTE: extent 2 of new_solver actual arg #1 instance #1 is 9
-  store i64 9, i64* %91, align 8
-  store i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @"main_$BLOCK", i64 0, i64 0, i64 0, i64 0), i32** %50, align 8
-  store i64 1, i64* %18, align 8
-  call void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* nonnull %10, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* nonnull %9)
-  store i64 4, i64* %22, align 8
-  store i64 2, i64* %56, align 8
-  store i64 0, i64* %55, align 8
-  %92 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %57, i32 0)
-; NOTE: stride 0 of new_solver actual arg #0 instance #2 is 4
-  store i64 4, i64* %92, align 8
-  %93 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %26, i32 0)
-; NOTE: lower bound 0 of new_solver actual arg #0 instance #2 is 1
-  store i64 1, i64* %93, align 8
-  %94 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %25, i32 0)
-; NOTE: extent 0 of new_solver actual arg #0 instance #2 is 10
-  store i64 10, i64* %94, align 8
-  %95 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %57, i32 1)
-; NOTE: stride 1 of new_solver actual arg #0 instance #2 is 40
-  store i64 40, i64* %95, align 8
-  %96 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %26, i32 1)
-; NOTE: lower bound 1 of new_solver actual arg #0 instance #2 is 1
-  store i64 1, i64* %96, align 8
-  %97 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %25, i32 1)
-; NOTE: extent 1 of new_solver actual arg #0 instance #2 is 10
-  store i64 10, i64* %97, align 8
-  store i32* getelementptr inbounds ([10 x [10 x i32]], [10 x [10 x i32]]* @"main_$PART2", i64 0, i64 0, i64 0), i32** %54, align 8
-  store i64 1, i64* %23, align 8
-  store i64 4, i64* %27, align 8
-  store i64 3, i64* %60, align 8
-  store i64 0, i64* %59, align 8
-  %98 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %30, i32 0)
-; NOTE: stride 0 of new_solver actual arg #1 instance #2 is 4
-  store i64 4, i64* %98, align 8
-  %99 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %62, i32 0)
-; NOTE: lower bound 0 of new_solver actual arg #1 instance #2 is 1
-  store i64 1, i64* %99, align 8
-  %100 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %61, i32 0)
-; NOTE: extent 0 of new_solver actual arg #1 instance #2 is 9
-  store i64 9, i64* %100, align 8
-  %101 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %30, i32 1)
-; NOTE: stride 1 of new_solver actual arg #1 instance #2 is 36
-  store i64 36, i64* %101, align 8
-  %102 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %62, i32 1)
-; NOTE: lower bound 1 of new_solver actual arg #1 instance #2 is 1
-  store i64 1, i64* %102, align 8
-  %103 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %61, i32 1)
-; NOTE: extent 1 of new_solver actual arg #1 instance #2 is 9
-  store i64 9, i64* %103, align 8
-  %104 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %30, i32 2)
-; NOTE: stride 2 of new_solver actual arg #1 instance #2 is 324
-  store i64 324, i64* %104, align 8
-  %105 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %62, i32 2)
-; NOTE: lower bound 2 of new_solver actual arg #1 instance #2 is 1
-  store i64 1, i64* %105, align 8
-  %106 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %61, i32 2)
-; NOTE: extent 2 of new_solver actual arg #1 instance #2 is 9
-  store i64 9, i64* %106, align 8
-  store i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @"main_$BLOCK", i64 0, i64 0, i64 0, i64 0), i32** %58, align 8
-  store i64 1, i64* %28, align 8
-  call void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* nonnull %8, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* nonnull %7)
+bb75:                                             ; preds = %bb72
+  store i64 4, ptr %i11, align 8
+  store i64 2, ptr %i47, align 8
+  store i64 0, ptr %i46, align 8
+  %i76 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i48, i32 0)
+  store i64 4, ptr %i76, align 8
+  %i77 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i15, i32 0)
+  store i64 1, ptr %i77, align 8
+  %i78 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i14, i32 0)
+  store i64 9, ptr %i78, align 8
+  %i79 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i48, i32 1)
+  store i64 36, ptr %i79, align 8
+  %i80 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i15, i32 1)
+  store i64 1, ptr %i80, align 8
+  %i81 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i14, i32 1)
+  store i64 9, ptr %i81, align 8
+  store ptr @"main_$PART1", ptr %i45, align 8
+  store i64 1, ptr %i12, align 8
+  store i64 4, ptr %i16, align 8
+  store i64 3, ptr %i51, align 8
+  store i64 0, ptr %i50, align 8
+  %i82 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i52, i32 0)
+  store i64 4, ptr %i82, align 8
+  %i83 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i20, i32 0)
+  store i64 1, ptr %i83, align 8
+  %i84 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i19, i32 0)
+  store i64 9, ptr %i84, align 8
+  %i85 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i52, i32 1)
+  store i64 36, ptr %i85, align 8
+  %i86 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i20, i32 1)
+  store i64 1, ptr %i86, align 8
+  %i87 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i19, i32 1)
+  store i64 9, ptr %i87, align 8
+  %i88 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i52, i32 2)
+  store i64 324, ptr %i88, align 8
+  %i89 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i20, i32 2)
+  store i64 1, ptr %i89, align 8
+  %i90 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i19, i32 2)
+  store i64 9, ptr %i90, align 8
+  store ptr @"main_$BLOCK", ptr %i49, align 8
+  store i64 1, ptr %i17, align 8
+  call void @new_solver_(ptr nonnull %i9, ptr nonnull %i8)
+  store i64 4, ptr %i21, align 8
+  store i64 2, ptr %i55, align 8
+  store i64 0, ptr %i54, align 8
+  %i91 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i56, i32 0)
+  store i64 4, ptr %i91, align 8
+  %i92 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i25, i32 0)
+  store i64 1, ptr %i92, align 8
+  %i93 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i24, i32 0)
+  store i64 10, ptr %i93, align 8
+  %i94 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i56, i32 1)
+  store i64 40, ptr %i94, align 8
+  %i95 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i25, i32 1)
+  store i64 1, ptr %i95, align 8
+  %i96 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i24, i32 1)
+  store i64 10, ptr %i96, align 8
+  store ptr @"main_$PART2", ptr %i53, align 8
+  store i64 1, ptr %i22, align 8
+  store i64 4, ptr %i26, align 8
+  store i64 3, ptr %i59, align 8
+  store i64 0, ptr %i58, align 8
+  %i97 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i29, i32 0)
+  store i64 4, ptr %i97, align 8
+  %i98 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i61, i32 0)
+  store i64 1, ptr %i98, align 8
+  %i99 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i60, i32 0)
+  store i64 9, ptr %i99, align 8
+  %i100 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i29, i32 1)
+  store i64 36, ptr %i100, align 8
+  %i101 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i61, i32 1)
+  store i64 1, ptr %i101, align 8
+  %i102 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i60, i32 1)
+  store i64 9, ptr %i102, align 8
+  %i103 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i29, i32 2)
+  store i64 324, ptr %i103, align 8
+  %i104 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i61, i32 2)
+  store i64 1, ptr %i104, align 8
+  %i105 = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i60, i32 2)
+  store i64 9, ptr %i105, align 8
+  store ptr @"main_$BLOCK", ptr %i57, align 8
+  store i64 1, ptr %i27, align 8
+  call void @new_solver_(ptr nonnull %i7, ptr nonnull %i6)
   ret void
 }
 
-define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* noalias nocapture readonly %0, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* noalias nocapture readonly %1) #0 {
-  %3 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %1, i64 0, i32 0
-; NOTE: Load the dope vector dimension base for arg #1 into %4
-  %4 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %1, i64 0, i32 6, i64 0
-; NOTE: Load the base address for the extent for arg #1 into %5
-  %5 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %4, i64 0, i32 0
-; NOTE: Load the base address of the stride for arg #1 into %6
-  %6 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %4, i64 0, i32 1
-  %7 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %0, i64 0, i32 0
-; NOTE: Load the dope vector dimension base for arg #0 (%0) into %8
-  %8 = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %0, i64 0, i32 6, i64 0
-; NOTE: Load the base address for the stride of arg #0 into %9
-  %9 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %8, i64 0, i32 1
-  %10 = load i32*, i32** %3, align 8
-  %11 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %6, i32 0)
-; NOTE: Load stride 0 value for arg #1 into %12
-  %12 = load i64, i64* %11, align 8
-  %13 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %5, i32 0)
-; NOTE: Load extent 0 value for arg #1 into %14
-  %14 = load i64, i64* %13, align 8
-  %15 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %6, i32 1)
-; NOTE: Load stride 1 value for arg #1 into %16
-  %16 = load i64, i64* %15, align 8
-  %17 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %5, i32 1)
-; NOTE: Load extent 1 value for arg #1 into %18
-  %18 = load i64, i64* %17, align 8
-  %19 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %6, i32 2)
-; NOTE: Load stride 2 value for arg #1 into %20
-  %20 = load i64, i64* %19, align 8
-  %21 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %5, i32 2)
-; NOTE: Load extent 2 value for arg #1 into %22
-  %22 = load i64, i64* %21, align 8
-  %23 = icmp slt i64 %22, 1
-; NOTE: replace %22 with 9
-  %24 = icmp slt i64 %18, 1
-; NOTE: replace %18 with 9
-  %25 = or i1 %23, %24
-  %26 = icmp slt i64 %14, 1
-; NOTE: replace %14 with 9
-  %27 = or i1 %25, %26
-  br i1 %27, label %45, label %42
+define internal void @new_solver_(ptr noalias nocapture readonly %arg, ptr noalias nocapture readonly %arg1) #1 {
+bb:
+  %i = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %arg1, i64 0, i32 0
+  %i2 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, ptr %arg1, i64 0, i32 6, i64 0
+  %i3 = getelementptr inbounds { i64, i64, i64 }, ptr %i2, i64 0, i32 0
+  %i4 = getelementptr inbounds { i64, i64, i64 }, ptr %i2, i64 0, i32 1
+  %i5 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %arg, i64 0, i32 0
+  %i6 = getelementptr inbounds { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, ptr %arg, i64 0, i32 6, i64 0
+  %i7 = getelementptr inbounds { i64, i64, i64 }, ptr %i6, i64 0, i32 1
+  %i8 = load ptr, ptr %i, align 8
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i4, i32 0)
+  %i10 = load i64, ptr %i9, align 8
+  %i11 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i3, i32 0)
+  %i12 = load i64, ptr %i11, align 8
+  %i13 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i4, i32 1)
+  %i14 = load i64, ptr %i13, align 8
+  %i15 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i3, i32 1)
+  %i16 = load i64, ptr %i15, align 8
+  %i17 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i4, i32 2)
+  %i18 = load i64, ptr %i17, align 8
+  %i19 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i3, i32 2)
+  %i20 = load i64, ptr %i19, align 8
+  %i21 = icmp slt i64 %i20, 1
+  %i22 = icmp slt i64 %i16, 1
+  %i23 = or i1 %i21, %i22
+  %i24 = icmp slt i64 %i12, 1
+  %i25 = or i1 %i23, %i24
+  br i1 %i25, label %bb43, label %bb40
 
-28:                                               ; preds = %36, %28
-  %29 = phi i64 [ 1, %36 ], [ %31, %28 ]
-  %30 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %12, i32* elementtype(i32) %38, i64 %29)
-; NOTE: replace %12 with 4
-  store i32 0, i32* %30, align 4
-  %31 = add nuw i64 %29, 1
-  %32 = icmp eq i64 %29, %14
-; NOTE: replace %14 with 9
-  br i1 %32, label %33, label %28
+bb26:                                             ; preds = %bb34, %bb26
+  %i27 = phi i64 [ 1, %bb34 ], [ %i29, %bb26 ]
+  %i28 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 %i10, ptr elementtype(i32) %i36, i64 %i27)
+  store i32 0, ptr %i28, align 4
+  %i29 = add nuw i64 %i27, 1
+  %i30 = icmp eq i64 %i27, %i12
+  br i1 %i30, label %bb31, label %bb26
 
-33:                                               ; preds = %28
-  %34 = add nuw i64 %37, 1
-  %35 = icmp eq i64 %37, %18
-; NOTE: replace %18 with 9
-  br i1 %35, label %39, label %36
+bb31:                                             ; preds = %bb26
+  %i32 = add nuw i64 %i35, 1
+  %i33 = icmp eq i64 %i35, %i16
+  br i1 %i33, label %bb37, label %bb34
 
-36:                                               ; preds = %42, %33
-  %37 = phi i64 [ 1, %42 ], [ %34, %33 ]
-  %38 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %16, i32* elementtype(i32) %44, i64 %37)
-; NOTE: replace %16 with 36
-  br label %28
+bb34:                                             ; preds = %bb40, %bb31
+  %i35 = phi i64 [ 1, %bb40 ], [ %i32, %bb31 ]
+  %i36 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %i14, ptr elementtype(i32) %i42, i64 %i35)
+  br label %bb26
 
-39:                                               ; preds = %33
-  %40 = add nuw i64 %43, 1
-  %41 = icmp eq i64 %43, %22
-; NOTE: replace %22 with 9
-  br i1 %41, label %45, label %42
+bb37:                                             ; preds = %bb31
+  %i38 = add nuw i64 %i41, 1
+  %i39 = icmp eq i64 %i41, %i20
+  br i1 %i39, label %bb43, label %bb40
 
-42:                                               ; preds = %39, %2
-  %43 = phi i64 [ %40, %39 ], [ 1, %2 ]
-  %44 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 %20, i32* elementtype(i32) %10, i64 %43)
-; NOTE: replace %20 with 324
-  br label %36
+bb40:                                             ; preds = %bb37, %bb
+  %i41 = phi i64 [ %i38, %bb37 ], [ 1, %bb ]
+  %i42 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %i18, ptr elementtype(i32) %i8, i64 %i41)
+  br label %bb34
 
-45:                                               ; preds = %39, %2
-  %46 = load i32*, i32** %7, align 8
-  %47 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %9, i32 0)
-; NOTE: Load stride 0 value for arg #0 into %48
-  %48 = load i64, i64* %47, align 8
-  %49 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %9, i32 1)
-; NOTE: Load stride 1 value for arg #0 into %50
-  %50 = load i64, i64* %49, align 8
-  br label %51
+bb43:                                             ; preds = %bb37, %bb
+  %i44 = load ptr, ptr %i5, align 8
+  %i45 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i7, i32 0)
+  %i46 = load i64, ptr %i45, align 8
+  %i47 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i7, i32 1)
+  %i48 = load i64, ptr %i47, align 8
+  br label %bb49
 
-51:                                               ; preds = %83, %45
-  %52 = phi i64 [ 1, %45 ], [ %84, %83 ]
-  br label %53
+bb49:                                             ; preds = %bb81, %bb43
+  %i50 = phi i64 [ 1, %bb43 ], [ %i82, %bb81 ]
+  br label %bb51
 
-53:                                               ; preds = %80, %51
-  %54 = phi i64 [ %81, %80 ], [ 1, %51 ]
-  %55 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %50, i32* elementtype(i32) %46, i64 %54)
-; NOTE DO NOT replace %50 with 36
-  %56 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %48, i32* elementtype(i32) %55, i64 %52)
-; NOTE: replace %48 with 4
-  %57 = load i32, i32* %56, align 4
-  %58 = icmp eq i32 %57, 0
-  br i1 %58, label %76, label %80
+bb51:                                             ; preds = %bb78, %bb49
+  %i52 = phi i64 [ %i79, %bb78 ], [ 1, %bb49 ]
+  %i53 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %i48, ptr elementtype(i32) %i44, i64 %i52)
+  %i54 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 %i46, ptr elementtype(i32) %i53, i64 %i50)
+  %i55 = load i32, ptr %i54, align 4
+  %i56 = icmp eq i32 %i55, 0
+  br i1 %i56, label %bb74, label %bb78
 
-59:                                               ; preds = %76, %59
-  %60 = phi i64 [ 1, %76 ], [ %63, %59 ]
-  %61 = phi i32 [ 1, %76 ], [ %64, %59 ]
-  %62 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %79, i64 %60)
-  store i32 %61, i32* %62, align 4
-  %63 = add nuw nsw i64 %60, 1
-  %64 = add nuw nsw i32 %61, 1
-  %65 = icmp eq i64 %63, 10
-  br i1 %65, label %66, label %59
+bb57:                                             ; preds = %bb74, %bb57
+  %i58 = phi i64 [ 1, %bb74 ], [ %i61, %bb57 ]
+  %i59 = phi i32 [ 1, %bb74 ], [ %i62, %bb57 ]
+  %i60 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i77, i64 %i58)
+  store i32 %i59, ptr %i60, align 4
+  %i61 = add nuw nsw i64 %i58, 1
+  %i62 = add nuw nsw i32 %i59, 1
+  %i63 = icmp eq i64 %i61, 10
+  br i1 %i63, label %bb64, label %bb57
 
-66:                                               ; preds = %66, %59
-  %67 = phi i64 [ %73, %66 ], [ 1, %59 ]
-  %68 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %79, i64 %67)
-  %69 = load i32, i32* %68, align 4
-  %70 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 %20, i32* elementtype(i32) %10, i64 %67)
-; NOTE: replace %20 with 324
-  %71 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %16, i32* elementtype(i32) %70, i64 %54)
-; NOTE: replace %16 with 36
-  %72 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %12, i32* elementtype(i32) %71, i64 %52)
-  store i32 %69, i32* %72, align 4
-  %73 = add nuw nsw i64 %67, 1
-  %74 = icmp eq i64 %73, 10
-  br i1 %74, label %75, label %66
+bb64:                                             ; preds = %bb64, %bb57
+  %i65 = phi i64 [ %i71, %bb64 ], [ 1, %bb57 ]
+  %i66 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %i77, i64 %i65)
+  %i67 = load i32, ptr %i66, align 4
+  %i68 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %i18, ptr elementtype(i32) %i8, i64 %i65)
+  %i69 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %i14, ptr elementtype(i32) %i68, i64 %i52)
+  %i70 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 %i10, ptr elementtype(i32) %i69, i64 %i50)
+  store i32 %i67, ptr %i70, align 4
+  %i71 = add nuw nsw i64 %i65, 1
+  %i72 = icmp eq i64 %i71, 10
+  br i1 %i72, label %bb73, label %bb64
 
-75:                                               ; preds = %66
-  tail call void @llvm.stackrestore(i8* %77)
-  br label %80
+bb73:                                             ; preds = %bb64
+  tail call void @llvm.stackrestore(ptr %i75)
+  br label %bb78
 
-76:                                               ; preds = %53
-  %77 = tail call i8* @llvm.stacksave()
-  %78 = alloca [9 x i32], align 4
-  %79 = getelementptr inbounds [9 x i32], [9 x i32]* %78, i64 0, i64 0
-  br label %59
+bb74:                                             ; preds = %bb51
+  %i75 = tail call ptr @llvm.stacksave()
+  %i76 = alloca [9 x i32], align 4
+  %i77 = getelementptr inbounds [9 x i32], ptr %i76, i64 0, i64 0
+  br label %bb57
 
-80:                                               ; preds = %75, %53
-  %81 = add nuw nsw i64 %54, 1
-  %82 = icmp eq i64 %81, 10
-  br i1 %82, label %83, label %53
+bb78:                                             ; preds = %bb73, %bb51
+  %i79 = add nuw nsw i64 %i52, 1
+  %i80 = icmp eq i64 %i79, 10
+  br i1 %i80, label %bb81, label %bb51
 
-83:                                               ; preds = %80
-  %84 = add nuw nsw i64 %52, 1
-  %85 = icmp eq i64 %84, 10
-  br i1 %85, label %86, label %51
+bb81:                                             ; preds = %bb78
+  %i82 = add nuw nsw i64 %i50, 1
+  %i83 = icmp eq i64 %i82, 10
+  br i1 %i83, label %bb84, label %bb49
 
-86:                                               ; preds = %83
+bb84:                                             ; preds = %bb81
   ret void
 }
 
-attributes #0 = {"intel-lang"="fortran"}
+; Function Attrs: nounwind readnone speculatable
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #2
+
+; Function Attrs: nounwind readnone speculatable
+declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #2
+
+attributes #0 = { nocallback nofree nosync nounwind willreturn }
+attributes #1 = { "intel-lang"="fortran" }
+attributes #2 = { nounwind readnone speculatable }
