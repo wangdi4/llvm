@@ -443,21 +443,6 @@ context_impl::getProgramForHostPipe(const device &Device,
   return getProgramForDevImgs(Device, ImgIdentifiers, "host_pipe");
 }
 
-std::optional<RT::PiProgram> context_impl::getProgramForDeviceGlobal(
-    const device &Device, DeviceGlobalMapEntry *DeviceGlobalEntry) {
-  return getProgramForDevImgs(Device, DeviceGlobalEntry->MImageIdentifiers,
-                              "device_global");
-}
-/// Gets a program associated with a HostPipe Entry from the cache.
-std::optional<RT::PiProgram>
-context_impl::getProgramForHostPipe(const device &Device,
-                                    HostPipeMapEntry *HostPipeEntry) {
-  // One HostPipe entry belongs to one Img
-  std::set<std::uintptr_t> ImgIdentifiers;
-  ImgIdentifiers.insert(HostPipeEntry->getDevBinImage()->getImageID());
-  return getProgramForDevImgs(Device, ImgIdentifiers, "host_pipe");
-}
-
 } // namespace detail
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
