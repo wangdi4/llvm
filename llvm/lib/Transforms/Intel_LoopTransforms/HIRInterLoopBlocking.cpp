@@ -118,8 +118,9 @@ static cl::opt<bool> DisableTransform("disable-rewrite-" OPT_SWITCH,
                                       cl::desc("Only check " OPT_DESC "."));
 
 static cl::opt<bool>
-    CloneDVLoads(OPT_SWITCH "-clone-loads", cl::init(true), cl::ReallyHidden,
-                 cl::desc("Clone loads of DVs at the top as needed"));
+    ForceCloneDVLoads(OPT_SWITCH "-clone-loads", cl::init(false),
+                      cl::ReallyHidden,
+                      cl::desc("Clone loads of DVs at the top as needed"));
 
 static cl::opt<bool> ForceTestDriver(OPT_SWITCH "-force-test", cl::init(false),
                                      cl::ReallyHidden,
@@ -1711,13 +1712,13 @@ public:
               const LoopToConstRefTy &InnermostLoopToRepRef,
               const InnermostLoopToShiftTy &InnermostLoopToShift,
               HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA,
-              StringRef Func)
+              StringRef Func, bool CloneDVLoads = true)
       : DDA(DDA), StripmineSizes(StripmineSizes),
         InnermostLoopToDimInfos(InnermostLoopToDimInfos),
         InnermostLoopToRepRef(InnermostLoopToRepRef),
         InnermostLoopToShift(InnermostLoopToShift),
         OutermostLoop(OutermostLoop), OuterIf(OuterIf), NumByStripLoops(0),
-        Func(Func) {
+        Func(Func), CloneDVLoads(CloneDVLoads) {
     unsigned NumDims = StripmineSizes.size();
     ByStripLoopLowerBlobs.resize(NumDims);
     ByStripLoopUpperBlobs.resize(NumDims);
@@ -1819,7 +1820,7 @@ public:
     InstsToCloneSetTy LoadInstsToClone;
     SmallVector<std::pair<unsigned, unsigned>, 16> CopyToLoadIndexMap;
 
-    if (CloneDVLoads) {
+    if (ForceCloneDVLoads || CloneDVLoads) {
       if (!collectLoadsToClone(AnchorNode, LoadInstsToClone,
                                CopyToLoadIndexMap)) {
         LLVM_DEBUG_PROFIT_REPORT(dbgs() << "No transformation: Cannot collect"
@@ -1876,7 +1877,7 @@ public:
     DenseMap<unsigned, unsigned> OrigToCloneIndexMap;
     SmallVector<const RegDDRef *, 32> AuxRefsForByStripBounds;
 
-    if (CloneDVLoads) {
+    if (ForceCloneDVLoads || CloneDVLoads) {
       cloneAndAddLoadInsts(LoadInstsToClone, AnchorNode, OrigToCloneIndexMap,
                            AuxRefsForByStripBounds);
     }
@@ -1889,8 +1890,7 @@ public:
       OrigToCloneIndexMap.insert({NewKey, NewVal});
     }
 
-    if (!computeByStripLoopBounds(InnermostLoopToAdjustingRef,
-                                  OrigToCloneIndexMap,
+    if (!computeByStripLoopBounds(OrigToCloneIndexMap,
                                   AuxRefsForByStripBounds)) {
 
       LLVM_DEBUG(dbgs() << "== * == Failed computeByStripLoopBounds \n");
@@ -2578,14 +2578,11 @@ private:
   // This function collects all LBs(UBs) of original spatial loops, and
   // generate min(max) blobs of them.
   bool computeByStripLoopBounds(
-      const LoopToRefTy &InnermostLoopToAdjustingRef,
       const DenseMap<unsigned, unsigned> &OrigToCloneIndexMap,
       SmallVectorImpl<const RegDDRef *> &AuxRefs) {
 
-    assert(InnermostLoopToAdjustingRef.size() > 0);
-    LLVMContext &Context = (*InnermostLoopToAdjustingRef.begin())
-                               .first->getHLNodeUtils()
-                               .getContext();
+    LLVMContext &Context =
+        (*InnermostLoopToDimInfos.begin()).first->getHLNodeUtils().getContext();
 
     int GlobalNumDims = StripmineSizes.size();
     SmallVector<SmallVector<CanonExpr *, 32>, 4> AlignedLowerBounds(
@@ -2963,7 +2960,8 @@ private:
         HIRInvalidationUtils::invalidateBody(TargetLoop);
 
         int64_t Shift = 0;
-        if (!InnermostLoopToShift[DimNum - 1].empty()) {
+        if (!InnermostLoopToShift.empty() &&
+            !InnermostLoopToShift[DimNum - 1].empty()) {
           Shift = InnermostLoopToShift[DimNum - 1][InnermostLoopID];
         }
         unsigned NewLiveIn = addLoopBoundsGuards(TargetLoop, DimNum, Shift);
@@ -2992,7 +2990,8 @@ private:
         CanonExpr *CE = AdjustingRef->getDimensionIndex(DimNum)->clone();
 
         int64_t Shift = 0;
-        if (!InnermostLoopToShift[DimNum - 1].empty()) {
+        if (!InnermostLoopToShift.empty() &&
+            !InnermostLoopToShift[DimNum - 1].empty()) {
           Shift = InnermostLoopToShift[DimNum - 1][InnermostLoopID];
         }
 
@@ -3404,6 +3403,11 @@ private:
   unsigned NumByStripLoops;
 
   StringRef Func;
+  // Related to Fortrans DVs.
+  // Variables used in the LB/UB of loops, which are loaded after
+  // the non-leading spatial loops, are cloned at the beginning of the body of
+  // the outermost loop in order to be used in the LB/UB of by-strip loops.
+  bool CloneDVLoads;
 
   // A map from an innermost loop to its outer enclosing loops
   // matching to dimnum (includes the innermost loop).
