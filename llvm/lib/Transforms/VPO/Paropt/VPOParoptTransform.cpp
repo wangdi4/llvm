@@ -2182,6 +2182,15 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       case WRegionNode::WRNTarget:
+        if (W->getNowait()) {
+          // For TARGET NOWAIT we have to propagate the NOWAIT info to the
+          // parent TARGET_TASK so it can use hidden helper threads.
+          if (WRegionNode *WParent = W->getParent()) {
+            assert(WParent->getIsTask() && WParent->getIsTargetTask() &&
+                   "Parent WRN of TARGET NOWAIT must be a TARGET_TASK");
+            WParent->setIsTargetNowaitTask(true);
+          } // else WParent is null in device compilation
+        }
         if (DisableOffload) {
           // Ignore TARGET construct, but maintain [FIRST]PRIVATE semantics
           LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");

@@ -2668,7 +2668,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
     }
   }
 
-  if (VPOParoptUtils::enableAsyncHelperThread() && W->getIsTargetTask()) {
+  if (VPOParoptUtils::enableAsyncHelperThread() && W->getIsTargetNowaitTask()) {
     W->setTaskFlag(W->getTaskFlag() | WRNTaskFlag::HiddenHelper);
     TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
   }

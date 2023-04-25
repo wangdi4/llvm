@@ -535,6 +535,8 @@ public:
   virtual bool getIsDoacross()     const { WRNERROR("DOACROSS(SOURCE|SINK)"); }
   virtual void setIsSIMD(bool Flag)          {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
   virtual bool getIsSIMD()             const {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
+  virtual void setIsTargetNowaitTask(bool Flg){WRNERROR(QUAL_OMP_TARGET_TASK);}
+  virtual bool getIsTargetNowaitTask()  const {WRNERROR(QUAL_OMP_TARGET_TASK);}
   virtual void setIsTargetTask(bool Flag)     {WRNERROR(QUAL_OMP_TARGET_TASK);}
   virtual bool getIsTargetTask()        const {WRNERROR(QUAL_OMP_TARGET_TASK);}
   virtual void setIsThreads(bool Flag)          {WRNERROR("THREADS/SIMD");    }
