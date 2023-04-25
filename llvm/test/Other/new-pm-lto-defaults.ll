@@ -272,12 +272,8 @@
 ; CHECK-O23SZ-NEXT: Running pass: DopeVectorHoistPass on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass on foo
-<<<<<<< HEAD
 ; COM: CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ; INTEL
-=======
-; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: MoveAutoInitPass on foo
->>>>>>> afa13ba18d9e0eb0de4cccb7061222fe900b732f
 ; CHECK-O23SZ-NEXT: Running pass: MergedLoadStoreMotionPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
