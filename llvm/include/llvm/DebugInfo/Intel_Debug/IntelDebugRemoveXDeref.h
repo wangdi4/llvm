@@ -20,6 +20,7 @@ namespace llvm {
 
 class DbgVariableIntrinsic;
 class Function;
+class GlobalVariable;
 class Module;
 class TargetMachine;
 
@@ -35,6 +36,7 @@ public:
 protected:
   bool run(Function &F);
   bool run(DbgVariableIntrinsic &DVI);
+  bool run(GlobalVariable &GV);
 };
 
 } // namespace llvm
