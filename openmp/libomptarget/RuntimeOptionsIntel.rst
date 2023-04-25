@@ -477,6 +477,22 @@ and synchronization occurs later when it is required
 
 **Default**: ``sync``
 
+``LIBOMPTARGET_LEVEL_ZERO_USM_RESIDENT=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Num> := 0 | 1 | 2
+
+Make memory resident on devices after allocation.
+
+``<Num>=0``: Residency is not forced.
+``<Num>=1``: Force device and shared memory resident on the device that
+allocates the memory. Force memory resident on all devices if the memory is host
+memory type.
+``<Num>=2``: Force memory resident on all devices.
+
+**Default**: 2
+
 Plugin OpenCL
 -------------
 

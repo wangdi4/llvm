@@ -338,6 +338,20 @@ TRACE_FN_DEF(zeContextDestroy)(
   return rc;
 }
 
+TRACE_FN_DEF(zeContextMakeMemoryResident)(
+    ze_context_handle_t hContext,
+    ze_device_handle_t hDevice,
+    void *ptr,
+    size_t size) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hContext);
+  TRACE_FN_ARG_PTR(hDevice);
+  TRACE_FN_ARG_PTR(ptr);
+  TRACE_FN_ARG_SIZE(size);
+  TRACE_FN_ARG_END();
+  return zeContextMakeMemoryResident(hContext, hDevice, ptr, size);
+}
+
 TRACE_FN_DEF(zeDeviceCanAccessPeer)(
     ze_device_handle_t hDevice,
     ze_device_handle_t hPeerDevice,

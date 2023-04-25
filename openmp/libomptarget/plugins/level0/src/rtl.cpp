@@ -1680,6 +1680,9 @@ struct RTLOptionTy {
   /// Command execution mode
   CommandModeTy CommandMode = CommandModeTy::Sync;
 
+  /// Force memory resident
+  int32_t ForceResidency = 2;
+
   /// Read environment variables
   RTLOptionTy() {
     const char *Env = nullptr;
@@ -2117,6 +2120,13 @@ struct RTLOptionTy {
       int32_t Value = parseBool(Env);
       if (Value >= 0 && Value <= 1)
         Flags.NDRangeIgnoreTripcount = Value;
+    }
+
+    // LIBOMPTARGET_LEVEL_ZERO_USM_RESIDENT=<Num>
+    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_USM_RESIDENT"))) {
+      int32_t Value = std::atoi(Env);
+      if (Value >= 0 && Value <= 2)
+        ForceResidency = Value;
     }
 
     adjustOptions();
@@ -2798,45 +2808,7 @@ public:
   }
 
   /// Allocate memory from L0 GPU RT
-  void *allocL0(size_t Size, size_t Align, int32_t Kind) {
-    void *Mem = nullptr;
-    ze_device_mem_alloc_desc_t DeviceDesc
-        {ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC, nullptr, 0, 0};
-    ze_host_mem_alloc_desc_t HostDesc
-        {ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC, nullptr, 0};
-
-    // Use relaxed allocation limit if driver supports
-    ze_relaxed_allocation_limits_exp_desc_t RelaxedDesc{
-        ZE_STRUCTURE_TYPE_RELAXED_ALLOCATION_LIMITS_EXP_DESC, nullptr,
-        ZE_RELAXED_ALLOCATION_LIMITS_EXP_FLAG_MAX_SIZE};
-    if (Size > MaxAllocSize && SupportsLargeMem) {
-      DeviceDesc.pNext = &RelaxedDesc;
-      HostDesc.pNext = &RelaxedDesc;
-    }
-
-    switch (Kind) {
-    case TARGET_ALLOC_DEVICE:
-      CALL_ZE_RET_NULL(zeMemAllocDevice, Context, &DeviceDesc, Size, Align,
-                       Device, &Mem);
-      DP("Allocated a device memory " DPxMOD "\n", DPxPTR(Mem));
-      break;
-    case TARGET_ALLOC_HOST:
-      CALL_ZE_RET_NULL(zeMemAllocHost, Context, &HostDesc, Size, Align, &Mem);
-      DP("Allocated a host memory " DPxMOD "\n", DPxPTR(Mem));
-      break;
-    case TARGET_ALLOC_SHARED:
-      CALL_ZE_RET_NULL(zeMemAllocShared, Context, &DeviceDesc, &HostDesc, Size,
-                       Align, Device, &Mem);
-      DP("Allocated a shared memory " DPxMOD "\n", DPxPTR(Mem));
-      break;
-    default:
-      assert(0 && "Invalid target data allocation kind");
-    }
-
-    log(Size, Size, Kind);
-
-    return Mem;
-  }
+  void *allocL0(size_t Size, size_t Align, int32_t Kind);
 
   /// Allocate memory with the specified information
   void *alloc(size_t Size, size_t Align, int32_t Kind, intptr_t Offset,
@@ -3485,6 +3457,34 @@ struct RTLDeviceInfoTy {
   bool useImmForCopy(int32_t DeviceId) {
     bool Enable = Option.ForceImm || (DeviceArchs[DeviceId] == DeviceArch_XeHP);
     return Enable && Option.UseImmCmdList >= 2;
+  }
+
+  /// Post-process memory allocated from L0.
+  void postMemAlloc(void *Mem, size_t Size, int32_t Kind,
+                    ze_device_handle_t Device) {
+    // Force the requested memory residency
+    if (Option.ForceResidency != 1 && Option.ForceResidency != 2)
+      return;
+    if (Option.ForceResidency == 2 || Kind == TARGET_ALLOC_HOST) {
+      // Make it resident on all devices
+      for (auto &Allocator : MemAllocator) {
+        auto &D = Allocator.first;
+        if (D == nullptr)
+          continue;
+        if (Kind != TARGET_ALLOC_HOST) {
+          // Check if D can access Device.
+          ze_result_t RC;
+          ze_bool_t CanAccess;
+          CALL_ZE(RC, zeDeviceCanAccessPeer, D, Device, &CanAccess);
+          if (RC != ZE_RESULT_SUCCESS || !CanAccess)
+            continue;
+        }
+        CALL_ZE_RET_VOID(zeContextMakeMemoryResident, Context, D, Mem, Size);
+      }
+    } else {
+      // Make it resident only on the allocating device
+      CALL_ZE_RET_VOID(zeContextMakeMemoryResident, Context, Device, Mem, Size);
+    }
   }
 };
 
@@ -4781,6 +4781,48 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
 int32_t MemAllocatorTy::enqueueMemCopy(void *Dst, const void *Src,
                                        size_t Size) {
   return DeviceInfo->enqueueMemCopy(DeviceId, Dst, Src, Size);
+}
+
+void *MemAllocatorTy::allocL0(size_t Size, size_t Align, int32_t Kind) {
+  void *Mem = nullptr;
+  ze_device_mem_alloc_desc_t DeviceDesc{ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
+                                        nullptr, 0, 0};
+  ze_host_mem_alloc_desc_t HostDesc{ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
+                                    nullptr, 0};
+
+  // Use relaxed allocation limit if driver supports
+  ze_relaxed_allocation_limits_exp_desc_t RelaxedDesc{
+      ZE_STRUCTURE_TYPE_RELAXED_ALLOCATION_LIMITS_EXP_DESC, nullptr,
+      ZE_RELAXED_ALLOCATION_LIMITS_EXP_FLAG_MAX_SIZE};
+  if (Size > MaxAllocSize && SupportsLargeMem) {
+    DeviceDesc.pNext = &RelaxedDesc;
+    HostDesc.pNext = &RelaxedDesc;
+  }
+
+  switch (Kind) {
+  case TARGET_ALLOC_DEVICE:
+    CALL_ZE_RET_NULL(zeMemAllocDevice, Context, &DeviceDesc, Size, Align,
+                     Device, &Mem);
+    DP("Allocated a device memory " DPxMOD "\n", DPxPTR(Mem));
+    break;
+  case TARGET_ALLOC_HOST:
+    CALL_ZE_RET_NULL(zeMemAllocHost, Context, &HostDesc, Size, Align, &Mem);
+    DP("Allocated a host memory " DPxMOD "\n", DPxPTR(Mem));
+    break;
+  case TARGET_ALLOC_SHARED:
+    CALL_ZE_RET_NULL(zeMemAllocShared, Context, &DeviceDesc, &HostDesc, Size,
+                     Align, Device, &Mem);
+    DP("Allocated a shared memory " DPxMOD "\n", DPxPTR(Mem));
+    break;
+  default:
+    assert(0 && "Invalid target data allocation kind");
+  }
+
+  log(Size, Size, Kind);
+
+  DeviceInfo->postMemAlloc(Mem, Size, Kind, Device);
+
+  return Mem;
 }
 
 #if INTEL_CUSTOMIZATION
