@@ -3,7 +3,6 @@
 // INTEL_COLLAB
 
 // RUN: %clang_cc1 -verify -fopenmp -x c++ \
-// RUN:   -fopenmp-use-host-usm-for-implicit-reduction-map  \
 // RUN:   -fopenmp-late-outline -emit-llvm \
 // RUN:   -triple x86_64-pc-linux-gnu \
 // RUN:   %s -o - | FileCheck %s

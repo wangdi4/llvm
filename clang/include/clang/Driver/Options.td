@@ -8033,7 +8033,7 @@ defm openmp_declare_target_global_default_map
 defm openmp_use_host_usm_for_implicit_reduction_map
     : BoolFOption<"openmp-use-host-usm-for-implicit-reduction-map",
                   LangOpts<"OpenMPUseHostUSMForImpicitReductionMap">,
-                  DefaultFalse, PosFlag<SetTrue>, NegFlag<SetFalse>,
+                  DefaultTrue, PosFlag<SetTrue>, NegFlag<SetFalse>,
                   BothFlags<[CC1Option, NoArgumentUnused, HelpHidden]>>;
 def fenable_variant_function_pointers
     : Flag<["-"], "fenable-variant-function-pointers">,
