@@ -86,14 +86,12 @@ define float @deep(float %a, float %b) {
 ; CHECK-NEXT:    br label [[BB1_3_IF]]
 ; CHECK:       bb1.3.if:
 ; CHECK-NEXT:    [[C5_LOAD:%.*]] = load i1, ptr @c5, align 1
-; CHECK-NEXT:    [[D1_4:%.*]] = fsub float [[B]], [[A]]
 ; CHECK-NEXT:    br i1 [[C5_LOAD]], label [[BB1_4:%.*]], label [[BB1_RET:%.*]]
 ; CHECK:       bb1.4:
-; CHECK-NEXT:    call void @f(float [[D1_4]])
+; CHECK-NEXT:    call void @f(float [[D1_1]])
 ; CHECK-NEXT:    br label [[BB1_RET]]
 ; CHECK:       bb1.ret:
-; CHECK-NEXT:    [[D1_5:%.*]] = fsub float [[B]], [[A]]
-; CHECK-NEXT:    ret float [[D1_5]]
+; CHECK-NEXT:    ret float [[D1_1]]
 ; CHECK:       bb2:
 ; CHECK-NEXT:    ret float [[D1_1]]
 ;

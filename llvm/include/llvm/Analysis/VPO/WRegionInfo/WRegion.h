@@ -1308,11 +1308,12 @@ private:
   bool Untied = false;
   bool Mergeable = false;
   bool IsTargetTask = false; // Is an implicit task surrounding a target region
+  bool IsTargetNowaitTask = false; // Is an implicit task for a target nowait
   unsigned TaskFlag = WRNTaskFlag::Tied; // Bit vector used to invoke task RTL
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
-  bool IsTargetNowaitTask = false; // set to true when parsing nowait on
-                                   // taskwait as task.
+  bool IsTaskwaitNowaitTask = false; // set to true when parsing nowait on
+                                     // taskwait as task.
 
 public:
   WRNTaskNode(BasicBlock *BB);
@@ -1329,8 +1330,9 @@ protected:
   void setUntied(bool B) override { Untied = B; }
   void setMergeable(bool B) override { Mergeable = B; }
   void setIsTargetTask(bool B) override { IsTargetTask = B; }
+  void setIsTargetNowaitTask(bool B) override { IsTargetNowaitTask = B; }
   void setTaskFlag(unsigned F) override { TaskFlag = F; }
-  void setIsTaskwaitNowaitTask(bool B) override { IsTargetNowaitTask = B; }
+  void setIsTaskwaitNowaitTask(bool B) override { IsTaskwaitNowaitTask = B; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -1353,12 +1355,15 @@ public:
   bool getUntied() const override { return Untied; }
   bool getMergeable() const override { return Mergeable; }
   bool getIsTargetTask() const override { return IsTargetTask; }
+  bool getIsTargetNowaitTask() const override { return IsTargetNowaitTask; }
   unsigned getTaskFlag() const override { return TaskFlag; }
-  bool getIsTaskwaitNowaitTask() const override { return IsTargetNowaitTask; }
+  bool getIsTaskwaitNowaitTask() const override { return IsTaskwaitNowaitTask; }
   const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }
-  void addCancellationPoint(Instruction *I) override { CancellationPoints.push_back(I); }
+  void addCancellationPoint(Instruction *I) override {
+    CancellationPoints.push_back(I);
+  }
   const SmallVectorImpl<AllocaInst *> &getCancellationPointAllocas() const  override {
     return CancellationPointAllocas;
   }

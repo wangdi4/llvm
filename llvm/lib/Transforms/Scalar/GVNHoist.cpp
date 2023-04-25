@@ -325,7 +325,12 @@ private:
   DenseSet<const BasicBlock *> HoistBarrier;
   SmallVector<BasicBlock *, 32> IDFBlocks;
   unsigned NumFuncArgs;
-  const bool HoistingGeps; // INTEL
+#if INTEL_CUSTOMIZATION
+  const bool HoistingGeps;
+  // Memorize result of hasEHonPath() queries on each pair of (SrcBB, HoistPt)
+  DenseMap<std::pair<const BasicBlock *, const BasicBlock *>, bool>
+      EHOnPathCache;
+#endif // INTEL_CUSTOMIZATION
 
   enum InsKind { Unknown, Scalar, Load, Store };
 
@@ -760,14 +765,33 @@ bool GVNHoist::hasEHOnPath(const BasicBlock *HoistPt, const BasicBlock *SrcBB,
   // on all execution paths.
   for (auto I = idf_begin(SrcBB), E = idf_end(SrcBB); I != E;) {
     const BasicBlock *BB = *I;
+
+#if INTEL_CUSTOMIZATION
+    // If a safety check has been done against this BB -> HoistPt path in
+    // previous hoists, use the memorized result.
+    auto It = EHOnPathCache.find(std::make_pair(BB, HoistPt));
+    if (It != EHOnPathCache.end()) {
+      if (!It->second) {
+        I.skipChildren();
+        continue;
+      }
+      return true;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     if (BB == HoistPt) {
       // Stop traversal when reaching NewHoistPt.
       I.skipChildren();
       continue;
     }
 
-    if (hasEHhelper(BB, SrcBB, NBBsOnAllPaths))
+#if INTEL_CUSTOMIZATION
+    if (hasEHhelper(BB, SrcBB, NBBsOnAllPaths)) {
+      EHOnPathCache.insert(
+          std::make_pair(std::make_pair(SrcBB, HoistPt), true));
       return true;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // -1 is unlimited number of blocks on all paths.
     if (NBBsOnAllPaths != -1)
@@ -776,6 +800,9 @@ bool GVNHoist::hasEHOnPath(const BasicBlock *HoistPt, const BasicBlock *SrcBB,
     ++I;
   }
 
+#if INTEL_CUSTOMIZATION
+  EHOnPathCache.insert(std::make_pair(std::make_pair(SrcBB, HoistPt), false));
+#endif // INTEL_CUSTOMIZATION
   return false;
 }
 

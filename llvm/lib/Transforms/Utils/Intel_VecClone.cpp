@@ -451,9 +451,10 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
     AM.addAttribute(VectorDispatchAttrName);
   Clone->removeFnAttrs(AM);
 
-  // For some reason, this causes DCE to remove calls to these functions.
-  // Disable for now.
-  //Clone->setCallingConv(CallingConv::X86_RegCall);
+  // Reinstate calling convention for Intel VFABI function as calling
+  // copyAttributesFrom above takes it from the scalar function.
+  if (VFInfo::isIntelVFABIMangling(V.VectorName))
+    Clone->setCallingConv(CallingConv::X86_RegCall);
 
   /// Add the 'align' attribute to any params with specified alignment.
   for (const auto &It : enumerate(Clone->args())) {

@@ -1121,11 +1121,10 @@ void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
                                             Attrs.getRetAttrs(), ArgAttrs));
 }
 
-Function *llvm::getOrInsertVectorVariantFunction(
-    Function *OrigF, unsigned VL,
-    ArrayRef<Type *> ArgTys,
-    const VFInfo *VecVariant,
-    bool Masked) {
+Function *llvm::getOrInsertVectorVariantFunction(Function *OrigF, unsigned VL,
+                                                 ArrayRef<Type *> ArgTys,
+                                                 const VFInfo *VecVariant,
+                                                 bool Masked) {
   // OrigF is the original scalar function being called.
   assert(OrigF && "Function not found for call instruction");
   assert(VecVariant && "Expect VectorVariant to be present");
@@ -1152,18 +1151,18 @@ Function *llvm::getOrInsertVectorVariantFunction(
     // using FunctionModRefBehavior.
     // Explicitly set ModRef flag to force AA to behave conservatively
     // and prevent any illegal code motion/elimination.
-    VectorF->setAttributes(
-        VectorF->getAttributes().addFnAttribute(
-              VectorF->getContext(),
-              Attribute::getWithMemoryEffects(VectorF->getContext(),
-					MemoryEffects::unknown())));
-    
+    VectorF->setAttributes(VectorF->getAttributes().addFnAttribute(
+        VectorF->getContext(),
+        Attribute::getWithMemoryEffects(VectorF->getContext(),
+                                        MemoryEffects::unknown())));
+    if (VFInfo::isIntelVFABIMangling(VFnName))
+      VectorF->setCallingConv(CallingConv::X86_RegCall);
+
     VectorF->setVisibility(OrigF->getVisibility());
   }
 
   return VectorF;
 }
-
 
 Function *llvm::getOrInsertVectorLibFunction(
     Function *OrigF, unsigned VL,

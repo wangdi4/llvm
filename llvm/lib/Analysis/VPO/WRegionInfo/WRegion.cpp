@@ -1346,6 +1346,8 @@ void vpo::printExtraForTask(WRegionNode const *W, formatted_raw_ostream &OS,
   vpo::printVal("PRIORITY", W->getPriority(), OS, Indent, Verbosity);
   vpo::printBool("UNTIED", W->getUntied(), OS, Indent, Verbosity);
   vpo::printBool("TARGET_TASK", W->getIsTargetTask(), OS, Indent, Verbosity);
+  vpo::printBool("TARGET_TASK NOWAIT", W->getIsTargetNowaitTask(), OS, Indent,
+                 Verbosity);
   vpo::printBool("MERGEABLE", W->getMergeable(), OS, Indent, Verbosity);
 
   // WRNTaskloop has a few more additional fields to print

@@ -4,7 +4,7 @@
 ; RUN: opt -S -opaque-pointers -passes=vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; HIR-run.
-; RUN: opt -opaque-pointers -passes=hir-ssa-deconstruction,hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -passes=hir-ssa-deconstruction,hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info -vplan-enable-hir-private-arrays -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 
