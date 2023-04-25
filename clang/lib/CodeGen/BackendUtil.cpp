@@ -360,19 +360,6 @@ static TargetLibraryInfoImpl *createTLII(llvm::Triple &TargetTriple,
   return TLII;
 }
 
-#if INTEL_CUSTOMIZATION
-static void addSymbolRewriterPass(const CodeGenOptions &Opts,
-                                  legacy::PassManager *MPM) {
-  llvm::SymbolRewriter::RewriteDescriptorList DL;
-
-  llvm::SymbolRewriter::RewriteMapParser MapParser;
-  for (const auto &MapFile : Opts.RewriteMapFiles)
-    MapParser.parse(MapFile, &DL);
-
-  MPM->add(createRewriteSymbolsPass(DL));
-}
-#endif // INTEL_CUSTOMIZATION
-
 static std::optional<llvm::CodeModel::Model>
 getCodeModel(const CodeGenOptions &CodeGenOpts) {
   unsigned CodeModel = llvm::StringSwitch<unsigned>(CodeGenOpts.CodeModel)
@@ -659,9 +646,6 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
   // Set up the per-module pass manager.
   if (LangOpts.SYCLIsDevice)
     MPM.add(createESIMDVerifierPass());
-
-  if (!CodeGenOpts.RewriteMapFiles.empty())
-    addSymbolRewriterPass(CodeGenOpts, &MPM);
 
   if (std::optional<GCOVOptions> Options = getGCOVOptions(CodeGenOpts, LangOpts)) {
     MPM.add(createGCOVProfilerPass(*Options));
