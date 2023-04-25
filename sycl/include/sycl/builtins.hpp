@@ -1093,7 +1093,11 @@ std::enable_if_t<detail::is_ugeninteger<T>::value, T> abs(T x) __NOEXC {
 
 // igeninteger abs (geninteger x)
 template <typename T>
+<<<<<<< HEAD
 std::enable_if_t<detail::is_igeninteger<T>::value, T> abs(T x) __NOEXC {
+=======
+detail::enable_if_t<detail::is_igeninteger<T>::value, T> abs(T x) __NOEXC {
+>>>>>>> 0669127631026489cb53c3fede490653ee37ddbe
   auto res = __sycl_std::__invoke_s_abs<detail::make_unsigned_t<T>>(x);
   if constexpr (detail::is_vigeninteger<T>::value) {
     return res.template convert<detail::vector_element_t<T>>();
@@ -2064,8 +2068,13 @@ std::enable_if_t<detail::is_gentype<T>::value, T> bitselect(T a, T b,
 
 // sgentype select (sgentype a, sgentype b, bool c)
 template <typename T>
+<<<<<<< HEAD
 std::enable_if_t<detail::is_sgentype<T>::value, T> select(T a, T b,
                                                           bool c) __NOEXC {
+=======
+detail::enable_if_t<detail::is_sgentype<T>::value, T> select(T a, T b,
+                                                             bool c) __NOEXC {
+>>>>>>> 0669127631026489cb53c3fede490653ee37ddbe
   constexpr size_t SizeT = sizeof(T);
 
   // sycl::select(sgentype a, sgentype b, bool c) calls OpenCL built-in
@@ -2168,19 +2177,31 @@ select(T a, T b, T2 c) __NOEXC {
 // other marray relational functions
 
 template <typename T, size_t N>
+<<<<<<< HEAD
 std::enable_if_t<detail::is_sigeninteger<T>::value, bool>
+=======
+detail::enable_if_t<detail::is_sigeninteger<T>::value, bool>
+>>>>>>> 0669127631026489cb53c3fede490653ee37ddbe
 any(marray<T, N> x) __NOEXC {
   return std::any_of(x.begin(), x.end(), [](T i) { return any(i); });
 }
 
 template <typename T, size_t N>
+<<<<<<< HEAD
 std::enable_if_t<detail::is_sigeninteger<T>::value, bool>
+=======
+detail::enable_if_t<detail::is_sigeninteger<T>::value, bool>
+>>>>>>> 0669127631026489cb53c3fede490653ee37ddbe
 all(marray<T, N> x) __NOEXC {
   return std::all_of(x.begin(), x.end(), [](T i) { return all(i); });
 }
 
 template <typename T, size_t N>
+<<<<<<< HEAD
 std::enable_if_t<detail::is_gentype<T>::value, marray<T, N>>
+=======
+detail::enable_if_t<detail::is_gentype<T>::value, marray<T, N>>
+>>>>>>> 0669127631026489cb53c3fede490653ee37ddbe
 bitselect(marray<T, N> a, marray<T, N> b, marray<T, N> c) __NOEXC {
   marray<T, N> res;
   for (int i = 0; i < N; i++) {
@@ -2190,7 +2211,11 @@ bitselect(marray<T, N> a, marray<T, N> b, marray<T, N> c) __NOEXC {
 }
 
 template <typename T, size_t N>
+<<<<<<< HEAD
 std::enable_if_t<detail::is_gentype<T>::value, marray<T, N>>
+=======
+detail::enable_if_t<detail::is_gentype<T>::value, marray<T, N>>
+>>>>>>> 0669127631026489cb53c3fede490653ee37ddbe
 select(marray<T, N> a, marray<T, N> b, marray<bool, N> c) __NOEXC {
   marray<T, N> res;
   for (int i = 0; i < N; i++) {
