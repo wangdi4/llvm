@@ -38,7 +38,9 @@ class Function;
 
 namespace vpo {
 class VPOVectorizationLegality;
+
 extern bool ForceUDSReductionVec;
+extern bool EnableHIRPrivateArrays;
 
 template <typename LegalityTy> class VectorizationLegalityBase {
   static constexpr IRKind IR =
@@ -218,6 +220,11 @@ private:
                      Item->getIsF90NonPod());
       return true;
     }
+
+    if (!EnableHIRPrivateArrays && IR == IRKind::HIR && isa<ArrayType>(Type))
+      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                     "Private array is not supported");
+
     addLoopPrivate(Val, Type, PrivateKindTy::NonLast,
                    Item->getIsF90DopeVector());
     return true;
@@ -245,6 +252,10 @@ private:
                      Item->getIsF90NonPod());
       return true;
     }
+
+    if (!EnableHIRPrivateArrays && IR == IRKind::HIR && isa<ArrayType>(Type))
+      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                     "Private array is not supported");
 
     // Until CG to extract vector by non-const index is implemented.
     if (Item->getIsConditional() && Type->isVectorTy())
