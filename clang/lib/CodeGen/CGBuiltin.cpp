@@ -988,7 +988,7 @@ static llvm::Value *EmitX86BitTestIntrinsic(CodeGenFunction &CGF,
 
   // Build the constraints. FIXME: We should support immediates when possible.
   std::string Constraints = "={@ccc},r,r,~{cc},~{memory}";
-  std::string MachineClobbers = CGF.getTarget().getClobbers();
+  std::string_view MachineClobbers = CGF.getTarget().getClobbers();
   if (!MachineClobbers.empty()) {
     Constraints += ',';
     Constraints += MachineClobbers;
@@ -1131,7 +1131,7 @@ static llvm::Value *emitPPCLoadReserveIntrinsic(CodeGenFunction &CGF,
   AsmOS << "$0, ${1:y}";
 
   std::string Constraints = "=r,*Z,~{memory}";
-  std::string MachineClobbers = CGF.getTarget().getClobbers();
+  std::string_view MachineClobbers = CGF.getTarget().getClobbers();
   if (!MachineClobbers.empty()) {
     Constraints += ',';
     Constraints += MachineClobbers;

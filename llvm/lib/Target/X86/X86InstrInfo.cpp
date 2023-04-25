@@ -3832,7 +3832,6 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
 
-  assert(RC != nullptr && "Invalid target register class");
   switch (STI.getRegisterInfo()->getSpillSize(*RC)) {
   default:
     llvm_unreachable("Unknown spill size");

@@ -1168,6 +1168,10 @@ static bool isDivZero(Value *X, Value *Y, const SimplifyQuery &Q,
     return false;
 
   if (IsSigned) {
+    // (X srem Y) sdiv Y --> 0
+    if (match(X, m_SRem(m_Value(), m_Specific(Y))))
+      return true;
+
     // |X| / |Y| --> 0
     //
     // We require that 1 operand is a simple constant. That could be extended to
@@ -1243,21 +1247,6 @@ static Value *simplifyDiv(Instruction::BinaryOps Opcode, Value *Op0, Value *Op1,
 
   bool IsSigned = Opcode == Instruction::SDiv;
 
-  // (X rem Y) / Y -> 0
-  if ((IsSigned && match(Op0, m_SRem(m_Value(), m_Specific(Op1)))) ||
-      (!IsSigned && match(Op0, m_URem(m_Value(), m_Specific(Op1)))))
-    return Constant::getNullValue(Op0->getType());
-
-  // (X /u C1) /u C2 -> 0 if C1 * C2 overflow
-  ConstantInt *C1, *C2;
-  if (!IsSigned && match(Op0, m_UDiv(m_Value(), m_ConstantInt(C1))) &&
-      match(Op1, m_ConstantInt(C2))) {
-    bool Overflow;
-    (void)C1->getValue().umul_ov(C2->getValue(), Overflow);
-    if (Overflow)
-      return Constant::getNullValue(Op0->getType());
-  }
-
   // If the operation is with the result of a select instruction, check whether
   // operating on either branch of the select always yields the same value.
   if (isa<SelectInst>(Op0) || isa<SelectInst>(Op1))
@@ -1284,13 +1273,6 @@ static Value *simplifyRem(Instruction::BinaryOps Opcode, Value *Op0, Value *Op1,
 
   if (Value *V = simplifyDivRem(Opcode, Op0, Op1, Q, MaxRecurse))
     return V;
-
-  // (X % Y) % Y -> X % Y
-  if ((Opcode == Instruction::SRem &&
-       match(Op0, m_SRem(m_Value(), m_Specific(Op1)))) ||
-      (Opcode == Instruction::URem &&
-       match(Op0, m_URem(m_Value(), m_Specific(Op1)))))
-    return Op0;
 
   // (X << Y) % X -> 0
   if (Q.IIQ.UseInstrInfo &&
