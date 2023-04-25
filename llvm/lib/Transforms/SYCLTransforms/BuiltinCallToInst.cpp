@@ -442,7 +442,7 @@ static std::string mangleWGSortBuiltinName(CallInst *CI, StringRef FuncName) {
       "__devicelib_default_work_group_private_sort_close_descending_",
       "__devicelib_default_work_group_private_sort_spread_ascending_",
       "__devicelib_default_work_group_private_sort_spread_descending_"};
-  for (auto Str : AvailableSortNames) {
+  for (auto &Str : AvailableSortNames) {
     // e.g.
     // "__devicelib_default_work_group_private_sort_close_ascending_p1i32_u32_p1i8"
     // Consume the basic name
@@ -496,8 +496,10 @@ static std::string mangleSGSortBuiltinName(CallInst *CI, StringRef FuncName) {
   std::string SGSortAsName =
       "__devicelib_default_sub_group_private_sort_ascending_";
 
-  if (!FuncName.consume_front(SGSortDesName))
-    FuncName.consume_front(SGSortAsName);
+  if (!FuncName.consume_front(SGSortDesName) &&
+      !FuncName.consume_front(SGSortAsName))
+    assert(false && "Unknown sub group sort builtin");
+
   StringRef ArgTypeStr = FuncName;
 
   // mangle
@@ -549,25 +551,25 @@ void BuiltinCallToInstPass::handleSortCalls(CallInst *CI,
       NameMangleAPI::demangle(MangledFuncName);
   unsigned Idx = 0;
   for (auto &Arg : CI->args()) {
-    if (Arg->getType()->isPointerTy() &&
-        Arg->getType()->getPointerAddressSpace() !=
-            CompilationUtils::ADDRESS_SPACE_GENERIC) {
-      // Get type and value for create or get new builtin function
-      PointerType *NewType = PointerType::getWithSamePointeeType(
-          dyn_cast<PointerType>(Arg->getType()),
-          CompilationUtils::ADDRESS_SPACE_GENERIC);
-      Value *NewOp =
-          Builder.CreateAddrSpaceCast(Arg, NewType, Twine("new.data"));
-      FuncArgValues.push_back(NewOp);
-      FuncArgTys.push_back(NewType);
-      // Get params reflection type for remangle builtin
-      reflection::PointerType *OldParam =
-          reflection::dyn_cast<reflection::PointerType>(
-              SortFD.Parameters[Idx].get());
-      reflection::RefParamType NewParam = new reflection::PointerType(
-          OldParam->getPointee(), {reflection::ATTR_GENERIC});
-      SortFD.Parameters[Idx] = NewParam;
-      NeedCast = true;
+    if (auto *PType = dyn_cast<PointerType>(Arg->getType())) {
+      if (PType->getPointerAddressSpace() !=
+          CompilationUtils::ADDRESS_SPACE_GENERIC) {
+        // Get type and value for create or get new builtin function
+        PointerType *NewType = PointerType::getWithSamePointeeType(
+            PType, CompilationUtils::ADDRESS_SPACE_GENERIC);
+        Value *NewOp =
+            Builder.CreateAddrSpaceCast(Arg, NewType, Twine("new.data"));
+        FuncArgValues.push_back(NewOp);
+        FuncArgTys.push_back(NewType);
+        // Get params reflection type for remangle builtin
+        reflection::PointerType *OldParam =
+            reflection::dyn_cast<reflection::PointerType>(
+                SortFD.Parameters[Idx].get());
+        reflection::RefParamType NewParam = new reflection::PointerType(
+            OldParam->getPointee(), {reflection::ATTR_GENERIC});
+        SortFD.Parameters[Idx] = NewParam;
+        NeedCast = true;
+      }
     } else {
       // No need to cast, just push_back
       FuncArgTys.push_back(Arg->getType());
