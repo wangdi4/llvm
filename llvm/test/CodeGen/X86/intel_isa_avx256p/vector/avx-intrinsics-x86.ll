@@ -172,7 +172,7 @@ define <4 x double> @test_x86_avx_vpermilvar_pd_256_2(<4 x double> %a0) {
 ;
 ; CHECK-LABEL: test_x86_avx_vpermilvar_pd_256_2:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpermilpd $9, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x7d,0x05,0xc0,0x09]
+; CHECK-NEXT:    vshufpd $9, %ymm0, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0xc6,0xc0,0x09]
 ; CHECK-NEXT:    # ymm0 = ymm0[1,0,2,3]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <4 x double> @llvm.x86.avx.vpermilvar.pd.256(<4 x double> %a0, <4 x i64> <i64 2, i64 0, i64 0, i64 2>) ; <<4 x double>> [#uses=1]

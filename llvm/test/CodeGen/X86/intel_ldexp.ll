@@ -157,7 +157,7 @@ define <4 x float> @f3(<4 x float> %p, i32 %q)
 ; X64_AVX512F-NEXT:    vmovshdup {{.*#+}} xmm3 = xmm0[1,1,3,3]
 ; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm3, %xmm3
 ; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[2,3]
-; X64_AVX512F-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm0[1,0]
+; X64_AVX512F-NEXT:    vshufpd {{.*#+}} xmm3 = xmm0[1,0]
 ; X64_AVX512F-NEXT:    vscalefss %xmm1, %xmm3, %xmm3
 ; X64_AVX512F-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],xmm3[0],xmm2[3]
 ; X64_AVX512F-NEXT:    vshufps {{.*#+}} xmm0 = xmm0[3,3,3,3]
@@ -264,11 +264,11 @@ define <4 x double> @f4(<4 x double> %p, i32 %q)
 ; X64_AVX512F-NEXT:    vcvtsi2sd %edi, %xmm1, %xmm1
 ; X64_AVX512F-NEXT:    vextractf128 $1, %ymm0, %xmm2
 ; X64_AVX512F-NEXT:    vscalefsd %xmm1, %xmm2, %xmm3
-; X64_AVX512F-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm2[1,0]
+; X64_AVX512F-NEXT:    vshufpd {{.*#+}} xmm2 = xmm2[1,0]
 ; X64_AVX512F-NEXT:    vscalefsd %xmm1, %xmm2, %xmm2
 ; X64_AVX512F-NEXT:    vunpcklpd {{.*#+}} xmm2 = xmm3[0],xmm2[0]
 ; X64_AVX512F-NEXT:    vscalefsd %xmm1, %xmm0, %xmm3
-; X64_AVX512F-NEXT:    vpermilpd {{.*#+}} xmm0 = xmm0[1,0]
+; X64_AVX512F-NEXT:    vshufpd {{.*#+}} xmm0 = xmm0[1,0]
 ; X64_AVX512F-NEXT:    vscalefsd %xmm1, %xmm0, %xmm0
 ; X64_AVX512F-NEXT:    vunpcklpd {{.*#+}} xmm0 = xmm3[0],xmm0[0]
 ; X64_AVX512F-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
