@@ -97,24 +97,13 @@ class ITy<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-/// ITy_EVEX - This instruction base class takes the type info for the instruction.
-/// Using this, it:
-/// 1. Concatenates together the instruction mnemonic with the appropriate
-///    suffix letter, a tab, and the arguments.
-/// 2. Infers whether the instruction should have a PD prefix.
-/// 3. Infers whether the instruction should have a REX_W prefix.
-/// 4. Infers whether the low bit of the opcode should be 0 (for i8 operations)
-///    or 1 (for i16,i32,i64 operations).
+// EVEX version for ITy, OpSize prefix is encoded in EVEX.pp
 class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
           string mnemonic, string args, list<dag> pattern>
-  : I<{opcode{7}, opcode{6}, opcode{5}, opcode{4},
-       opcode{3}, opcode{2}, opcode{1}, typeinfo.HasOddOpcode },
-      f, outs, ins,
-      !strconcat(mnemonic, "{", typeinfo.InstrSuffix, "}\t", args), pattern>, T_MAP4, EVEX {
-
+  : ITy<opcode, f, typeinfo, outs, ins, mnemonic, args, pattern>, T_MAP4, EVEX {
   // Infer instruction prefixes from type info.
-  let hasREX_W  = typeinfo.HasREX_W;
   let OpPrefix = !if (!eq (typeinfo.OpSize, OpSize16), PD, PS);
+  let OpSize = OpSizeFixed;
   let CD8_Scale = {0, 0, 0, 0, 0, 0, 0};
 }
 #endif // INTEL_FEATURE_ISA_APX_F
