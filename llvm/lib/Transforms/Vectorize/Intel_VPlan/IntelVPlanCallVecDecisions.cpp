@@ -191,6 +191,11 @@ void VPlanCallVecDecisions::getVectorVariantsForCallParameters(
             auto *VPInst = dyn_cast<VPInstruction>(User);
             if (VPInst && VPInst->getOpcode() == Instruction::Store) {
               auto StoredValShape = DA->getVectorShape(*VPInst->getOperand(0));
+              if (auto *Op0Inst =
+                      dyn_cast<VPInstruction>(VPInst->getOperand(0))) {
+                if (Op0Inst->getOpcode() == Instruction::Trunc)
+                  StoredValShape = getShapeFromTrunc(Plan, Op0Inst);
+              }
               if (!StoredValShape.hasKnownStride() ||
                   StoredValShape.isUniform()) {
                 AdjustedStrides.clear();
