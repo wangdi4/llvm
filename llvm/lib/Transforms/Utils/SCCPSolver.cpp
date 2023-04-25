@@ -2125,61 +2125,9 @@ bool SCCPInstVisitor::resolvedUndefsIn(Function &F) {
     if (!BBExecutable.count(&BB))
       continue;
 
-<<<<<<< HEAD
-    for (Instruction &I : BB) {
-      // Look for instructions which produce undef values.
-      if (I.getType()->isVoidTy())
-        continue;
+    for (Instruction &I : BB)
+      MadeChange |= resolvedUndef(I);
 
-      if (auto *STy = dyn_cast<StructType>(I.getType())) {
-        // Only a few things that can be structs matter for undef.
-
-        // Tracked calls must never be marked overdefined in resolvedUndefsIn.
-        if (auto *CB = dyn_cast<CallBase>(&I))
-          if (Function *F = CB->getCalledFunction())
-            if (MRVFunctionsTracked.count(F))
-              continue;
-
-        // extractvalue and insertvalue don't need to be marked; they are
-        // tracked as precisely as their operands.
-        if (isa<ExtractValueInst>(I) || isa<InsertValueInst>(I))
-          continue;
-        // Send the results of everything else to overdefined.  We could be
-        // more precise than this but it isn't worth bothering.
-        for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
-          ValueLatticeElement &LV = getStructValueState(&I, i);
-          if (LV.isUnknown()) {
-            markOverdefined(LV, &I);
-            MadeChange = true;
-          }
-        }
-        continue;
-      }
-
-      ValueLatticeElement &LV = getValueState(&I);
-      if (!LV.isUnknown())
-        continue;
-
-      // There are two reasons a call can have an undef result
-      // 1. It could be tracked.
-      // 2. It could be constant-foldable.
-      // Because of the way we solve return values, tracked calls must
-      // never be marked overdefined in resolvedUndefsIn.
-      if (auto *CB = dyn_cast<CallBase>(&I))
-        if (Function *F = CB->getCalledFunction())
-          if (TrackedRetVals.count(F))
-            continue;
-
-      if (isa<LoadInst>(I)) {
-        // A load here means one of two things: a load of undef from a global,
-        // a load from an unknown pointer.  Either way, having it return undef
-        // is okay.
-        continue;
-      }
-
-      markOverdefined(&I);
-      MadeChange = true;
-    }
 #if INTEL_CUSTOMIZATION
     Instruction *TI = BB.getTerminator();
     if (auto *BI = dyn_cast<BranchInst>(TI)) {
@@ -2197,11 +2145,7 @@ bool SCCPInstVisitor::resolvedUndefsIn(Function &F) {
         continue;
       }
     }
-#endif // INTEL_CUSTOMIZATION
-=======
-    for (Instruction &I : BB)
-      MadeChange |= resolvedUndef(I);
->>>>>>> 54e5fb789cfafc2eee4aa6df1650b89ee7b85ba4
+#endif // INTEL_CUSTOMIZATION 
   }
 
   LLVM_DEBUG(if (MadeChange) dbgs()
