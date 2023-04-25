@@ -2302,14 +2302,14 @@ public:
   bool canOverflow() const { return UnaryOperatorBits.CanOverflow; }
   void setCanOverflow(bool C) { UnaryOperatorBits.CanOverflow = C; }
 
-  // Get the FP contractability status of this operator. Only meaningful for
-  // operations on floating point types.
+  /// Get the FP contractability status of this operator. Only meaningful for
+  /// operations on floating point types.
   bool isFPContractableWithinStatement(const LangOptions &LO) const {
     return getFPFeaturesInEffect(LO).allowFPContractWithinStatement();
   }
 
-  // Get the FENV_ACCESS status of this operator. Only meaningful for
-  // operations on floating point types.
+  /// Get the FENV_ACCESS status of this operator. Only meaningful for
+  /// operations on floating point types.
   bool isFEnvAccessOn(const LangOptions &LO) const {
     return getFPFeaturesInEffect(LO).getAllowFEnvAccess();
   }
@@ -2394,8 +2394,8 @@ protected:
   void setStoredFPFeatures(FPOptionsOverride F) { getTrailingFPFeatures() = F; }
 
 public:
-  // Get the FP features status of this operator. Only meaningful for
-  // operations on floating point types.
+  /// Get the FP features status of this operator. Only meaningful for
+  /// operations on floating point types.
   FPOptions getFPFeaturesInEffect(const LangOptions &LO) const {
     if (UnaryOperatorBits.HasFPFeatures)
       return getStoredFPFeatures().applyOverrides(LO);
@@ -3151,8 +3151,8 @@ public:
     *getTrailingFPFeatures() = F;
   }
 
-  // Get the FP features status of this operator. Only meaningful for
-  // operations on floating point types.
+  /// Get the FP features status of this operator. Only meaningful for
+  /// operations on floating point types.
   FPOptions getFPFeaturesInEffect(const LangOptions &LO) const {
     if (hasStoredFPFeatures())
       return getStoredFPFeatures().applyOverrides(LO);
@@ -3642,8 +3642,8 @@ public:
     return *getTrailingFPFeatures();
   }
 
-  // Get the FP features status of this operation. Only meaningful for
-  // operations on floating point types.
+  /// Get the FP features status of this operation. Only meaningful for
+  /// operations on floating point types.
   FPOptions getFPFeaturesInEffect(const LangOptions &LO) const {
     if (hasStoredFPFeatures())
       return getStoredFPFeatures().applyOverrides(LO);
@@ -4039,9 +4039,9 @@ public:
     return isShiftAssignOp(getOpcode());
   }
 
-  // Return true if a binary operator using the specified opcode and operands
-  // would match the 'p = (i8*)nullptr + n' idiom for casting a pointer-sized
-  // integer to a pointer.
+  /// Return true if a binary operator using the specified opcode and operands
+  /// would match the 'p = (i8*)nullptr + n' idiom for casting a pointer-sized
+  /// integer to a pointer.
   static bool isNullPointerArithmeticExtension(ASTContext &Ctx, Opcode Opc,
                                                const Expr *LHS,
                                                const Expr *RHS);
@@ -4075,8 +4075,8 @@ public:
     *getTrailingFPFeatures() = F;
   }
 
-  // Get the FP features status of this operator. Only meaningful for
-  // operations on floating point types.
+  /// Get the FP features status of this operator. Only meaningful for
+  /// operations on floating point types.
   FPOptions getFPFeaturesInEffect(const LangOptions &LO) const {
     if (BinaryOperatorBits.HasFPFeatures)
       return getStoredFPFeatures().applyOverrides(LO);
@@ -4090,14 +4090,14 @@ public:
     return FPOptionsOverride();
   }
 
-  // Get the FP contractability status of this operator. Only meaningful for
-  // operations on floating point types.
+  /// Get the FP contractability status of this operator. Only meaningful for
+  /// operations on floating point types.
   bool isFPContractableWithinStatement(const LangOptions &LO) const {
     return getFPFeaturesInEffect(LO).allowFPContractWithinStatement();
   }
 
-  // Get the FENV_ACCESS status of this operator. Only meaningful for
-  // operations on floating point types.
+  /// Get the FENV_ACCESS status of this operator. Only meaningful for
+  /// operations on floating point types.
   bool isFEnvAccessOn(const LangOptions &LO) const {
     return getFPFeaturesInEffect(LO).getAllowFEnvAccess();
   }
@@ -4193,17 +4193,17 @@ protected:
     : Expr(SC, Empty) { }
 
 public:
-  // getCond - Return the expression representing the condition for
-  //   the ?: operator.
+  /// getCond - Return the expression representing the condition for
+  ///   the ?: operator.
   Expr *getCond() const;
 
-  // getTrueExpr - Return the subexpression representing the value of
-  //   the expression if the condition evaluates to true.
+  /// getTrueExpr - Return the subexpression representing the value of
+  ///   the expression if the condition evaluates to true.
   Expr *getTrueExpr() const;
 
-  // getFalseExpr - Return the subexpression representing the value of
-  //   the expression if the condition evaluates to false.  This is
-  //   the same as getRHS.
+  /// getFalseExpr - Return the subexpression representing the value of
+  ///   the expression if the condition evaluates to false.  This is
+  ///   the same as getRHS.
   Expr *getFalseExpr() const;
 
   SourceLocation getQuestionLoc() const { return QuestionLoc; }
@@ -4238,17 +4238,17 @@ public:
   explicit ConditionalOperator(EmptyShell Empty)
     : AbstractConditionalOperator(ConditionalOperatorClass, Empty) { }
 
-  // getCond - Return the expression representing the condition for
-  //   the ?: operator.
+  /// getCond - Return the expression representing the condition for
+  ///   the ?: operator.
   Expr *getCond() const { return cast<Expr>(SubExprs[COND]); }
 
-  // getTrueExpr - Return the subexpression representing the value of
-  //   the expression if the condition evaluates to true.
+  /// getTrueExpr - Return the subexpression representing the value of
+  ///   the expression if the condition evaluates to true.
   Expr *getTrueExpr() const { return cast<Expr>(SubExprs[LHS]); }
 
-  // getFalseExpr - Return the subexpression representing the value of
-  //   the expression if the condition evaluates to false.  This is
-  //   the same as getRHS.
+  /// getFalseExpr - Return the subexpression representing the value of
+  ///   the expression if the condition evaluates to false.  This is
+  ///   the same as getRHS.
   Expr *getFalseExpr() const { return cast<Expr>(SubExprs[RHS]); }
 
   Expr *getLHS() const { return cast<Expr>(SubExprs[LHS]); }
@@ -4971,7 +4971,7 @@ public:
   /// has been set.
   bool hasArrayFiller() const { return getArrayFiller(); }
 
-  // Determine whether this initializer list contains a designated initializer.
+  /// Determine whether this initializer list contains a designated initializer.
   bool hasDesignatedInit() const {
     return std::any_of(begin(), end(), [](const Stmt *S) {
       return isa<DesignatedInitExpr>(S);
@@ -5006,8 +5006,8 @@ public:
     return LBraceLoc.isValid() && RBraceLoc.isValid();
   }
 
-  // Is this an initializer for an array of characters, initialized by a string
-  // literal or an @encode?
+  /// Is this an initializer for an array of characters, initialized by a string
+  /// literal or an @encode?
   bool isStringLiteralInit() const;
 
   /// Is this a transparent initializer list (that is, an InitListExpr that is
