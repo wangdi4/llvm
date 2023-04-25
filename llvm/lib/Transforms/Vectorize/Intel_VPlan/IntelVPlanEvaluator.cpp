@@ -200,6 +200,7 @@ void VPlanPeelEvaluator::dump(raw_ostream &OS) const {
 void VPlanRemainderEvaluator::calculateRemainderVFAndVectorCost() {
   unsigned MaxRemainderTC = MainLoopVF * MainLoopUF - 1;
   UnmaskedVectorCost = VPInstructionCost::getInvalid();
+
   // The remainder loop cannot be vectorized with VF bigger than the one of the
   // main loop.
   for (unsigned TempVF = MainLoopVF / 2; TempVF > 1; TempVF /= 2) {
@@ -208,6 +209,12 @@ void VPlanRemainderEvaluator::calculateRemainderVFAndVectorCost() {
     if (!RemPlan) {
       LLVM_DEBUG(dbgs() << "Remainder evaluator: no unmasked VPlan for VF="
                         << TempVF << "\n");
+      continue;
+    }
+    VPLoop *L = RemPlan->getMainLoop(true /*strict_check*/);
+    if (!L->hasNormalizedInduction()) {
+      LLVM_DEBUG(dbgs() << "Remainder evaluator: unmasked VPlan for VF="
+                        << TempVF << " is not normalized\n");
       continue;
     }
     VPInstructionCost TempIterCost, TempOverhead;
