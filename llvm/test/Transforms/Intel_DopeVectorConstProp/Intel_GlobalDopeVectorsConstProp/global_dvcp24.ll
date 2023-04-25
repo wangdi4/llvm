@@ -1,11 +1,20 @@
-; RUN: opt -opaque-pointers < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt < %s  -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV
 
-; This test case checks that the analysis for the global dope vector
-; @arr_mod_mp_a_ didn't pass since it couldn't guarantee that the store
-; instruction for a nested dope vector will be executed if the call to alloc
-; executes. This test is the same as glob_dvcp13.ll but it checks the IR.
-; It was created from the following source code by making a modification to
-; the function ALLOCATE_ARR in the IR:
+; RUN: opt < %s  -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0
+
+; RUN: opt < %s  -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1
+
+; RUN: opt < %s  -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2
+
+; This test case checks that the fields for the global dope vector
+; @arr_mod_mp_a_ were collected and propagated correctly. Also, it
+; identifies, collects and propagates the nested dope vectors.
+
+; This test is similar to "global_dvcp02.ll" but uses GEP(X,0,0)s instead of
+; bitcasts as inputs to for_allocate_handle().
+
+; It was created from the following source code:
 
 ;      MODULE ARR_MOD
 ;
@@ -35,6 +44,7 @@
 ;
 ;         SUBROUTINE INITIALIZE_ARR(I, N, M, O)
 ;           INTEGER, INTENT(IN) :: I, N, M, O
+;
 ;
 ;           DO j = 1, N
 ;             DO k = 1, M
@@ -81,19 +91,70 @@
 
 ; ifx -xCORE-AVX512 -Ofast -flto arr.f90 -mllvm -debug-only=dope-vector-global-const-prop
 
-; The analysis process should fail because the allocation for inner_array_A is
-; wrapped in a conditional. We can't guarantee if the store instructions for
-; the dope vector fields will execute if the call to @for_allocate_handle
-; executes.
+; The test case basically allocates the global array A in ALLOCATE_ARR, then
+; initializes it in INITIALIZE_ARR and the use will be in PRINT_ARR. The
+; function that allocates the array A should also allocate the information
+; for inner_array_A, inner_array_B, inner_array_C.
 
-; CHECK: define internal void @arr_mod_mp_initialize_arr_
-; CHECK:   %i14 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i13, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i12, i64 %i5)
-; CHECK:   %i29 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %i28, i64 %i26, ptr elementtype(float) %i17, i64 %i7)
-; CHECK:   %i30 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i24, i64 %i21, ptr elementtype(float) %i29, i64 %i11)
-; CHECK:   %i35 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i34, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i33, i64 %i5)
-; CHECK:   %i54 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 %i53, i64 %i51, ptr elementtype(float) %i38, i64 %i32)
-; CHECK:   %i55 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %i49, i64 %i47, ptr elementtype(float) %i54, i64 %i7)
-; CHECK:   %i56 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i45, i64 %i42, ptr elementtype(float) %i55, i64 %i11)
+; CHECK-GLOBDV: Global variable: arr_mod_mp_a_
+; CHECK-GLOBDV-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
+; CHECK-GLOBDV-NEXT:   Global dope vector result: Pass
+; CHECK-GLOBDV-NEXT:   Dope vector analysis result: Pass
+; CHECK-GLOBDV-NEXT:   Constant propagation status: performed
+; CHECK-GLOBDV-NEXT:     [0] Array Pointer: Read
+; CHECK-GLOBDV-NEXT:     [1] Element size: Written | Constant = i64 288
+; CHECK-GLOBDV-NEXT:     [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-GLOBDV-NEXT:     [3] Flags: Read | Written
+; CHECK-GLOBDV-NEXT:     [4] Dimensions: Written | Constant = i64 1
+; CHECK-GLOBDV-NEXT:     [6][0] Extent: Written | Constant = i64 1
+; CHECK-GLOBDV-NEXT:     [6][0] Stride: Written | Constant = i64 288
+; CHECK-GLOBDV-NEXT:     [6][0] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-GLOBDV-NEXT:   Nested dope vectors: 3
+
+; CHECK-FIELD0:    Field[0]: QNCA_a0$float*$rank2$
+; CHECK-FIELD0-NEXT:      Dope vector analysis result: Pass
+; CHECK-FIELD0-NEXT:      Constant propagation status: performed
+; CHECK-FIELD0-NEXT:        [0] Array Pointer: Read
+; CHECK-FIELD0-NEXT:        [1] Element size: Written | Constant = i64 4
+; CHECK-FIELD0-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-FIELD0-NEXT:        [3] Flags: Written
+; CHECK-FIELD0-NEXT:        [4] Dimensions: Written | Constant = i64 2
+; CHECK-FIELD0-NEXT:        [6][0] Extent: Written | Constant = i64 10
+; CHECK-FIELD0-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
+; CHECK-FIELD0-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-FIELD0-NEXT:        [6][1] Extent: Written | Constant = i64 10
+; CHECK-FIELD0-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
+; CHECK-FIELD0-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
+
+; CHECK-FIELD1:    Field[1]: QNCA_a0$float*$rank3$
+; CHECK-FIELD1-NEXT:      Dope vector analysis result: Pass
+; CHECK-FIELD1-NEXT:      Constant propagation status: performed
+; CHECK-FIELD1-NEXT:        [0] Array Pointer: Read
+; CHECK-FIELD1-NEXT:        [1] Element size: Written | Constant = i64 4
+; CHECK-FIELD1-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-FIELD1-NEXT:        [3] Flags: Written
+; CHECK-FIELD1-NEXT:        [4] Dimensions: Written | Constant = i64 3
+; CHECK-FIELD1-NEXT:        [6][0] Extent: Written | Constant = i64 10
+; CHECK-FIELD1-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
+; CHECK-FIELD1-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-FIELD1-NEXT:        [6][1] Extent: Written | Constant = i64 10
+; CHECK-FIELD1-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
+; CHECK-FIELD1-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-FIELD1-NEXT:        [6][2] Extent: Written | Constant = i64 10
+; CHECK-FIELD1-NEXT:        [6][2] Stride: Read | Written | Constant = i64 400
+; CHECK-FIELD1-NEXT:        [6][2] Lower Bound: Read | Written | Constant = i64 1
+
+; CHECK-FIELD2:    Field[2]: QNCA_a0$float*$rank1$
+; CHECK-FIELD2-NEXT:      Dope vector analysis result: Pass
+; CHECK-FIELD2-NEXT:      Constant propagation status: performed
+; CHECK-FIELD2-NEXT:        [0] Array Pointer: Read
+; CHECK-FIELD2-NEXT:        [1] Element size: Written | Constant = i64 4
+; CHECK-FIELD2-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-FIELD2-NEXT:        [3] Flags: Written
+; CHECK-FIELD2-NEXT:        [4] Dimensions: Written | Constant = i64 1
+; CHECK-FIELD2-NEXT:        [6][0] Extent: Written | Constant = i64 10
+; CHECK-FIELD2-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
+; CHECK-FIELD2-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -108,14 +169,8 @@ target triple = "x86_64-unknown-linux-gnu"
 @anon.87529b4ebf98830a9107fed24e462e82.0 = internal unnamed_addr constant i32 2
 @anon.87529b4ebf98830a9107fed24e462e82.1 = internal unnamed_addr constant i32 10
 
-define internal i32 @arr_alloc_dv(ptr %arg) {
-bb:
-  %i = tail call i32 @for_allocate_handle(i64 400, ptr %arg, i32 327680, ptr null) #3
-  ret i32 %i
-}
-
 ; Function Attrs: nofree nounwind uwtable
-define internal void @arr_mod_mp_allocate_arr_(ptr noalias nocapture readonly dereferenceable(4) %arg, i32 %temp) #0 {
+define internal void @arr_mod_mp_allocate_arr_(ptr noalias nocapture readonly dereferenceable(4) %arg) #0 {
 bb:
   %i = alloca i64, align 8
   %i1 = load i32, ptr %arg, align 1
@@ -198,15 +253,7 @@ bb33:                                             ; preds = %bb5, %bb3
   %i54 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i52, i32 1)
   store i64 40, ptr %i54, align 1
   store i64 1342177285, ptr %i40, align 1
-  %i55 = bitcast ptr %i38 to ptr
-  %cmp = icmp eq i32 %temp, 1
-  br i1 %cmp, label %if.then, label %if.end
-
-if.then:                                          ; preds = %bb33
-  %i56 = tail call i32 @arr_alloc_dv(ptr %i55)
-  br label %if.end
-
-if.end:                                           ; preds = %if.then, %bb33
+  %i56 = tail call i32 @for_allocate_handle(i64 400, ptr %i39, i32 327680, ptr null) #3
   %i57 = load ptr, ptr @arr_mod_mp_a_, align 16
   %i58 = load i64, ptr %i34, align 1
   %i59 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %i58, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i57, i64 %i37)
@@ -243,7 +290,7 @@ if.end:                                           ; preds = %if.then, %bb33
   %i78 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i75, i32 2)
   store i64 400, ptr %i78, align 1
   store i64 1342177285, ptr %i61, align 1
-  %i79 = bitcast ptr %i60 to ptr
+  %i79 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", ptr %i60, i64 0, i32 0
   %i80 = tail call i32 @for_allocate_handle(i64 4000, ptr nonnull %i79, i32 327680, ptr null) #3
   %i81 = load ptr, ptr @arr_mod_mp_a_, align 16
   %i82 = load i64, ptr %i34, align 1
@@ -269,8 +316,7 @@ if.end:                                           ; preds = %if.then, %bb33
   %i96 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i95, i32 0)
   store i64 4, ptr %i96, align 1
   store i64 1342177285, ptr %i85, align 1
-  %i97 = bitcast ptr %i84 to ptr
-  %i98 = tail call i32 @for_allocate_handle(i64 40, ptr nonnull %i97, i32 327680, ptr null) #3
+  %i97 = tail call i32 @for_allocate_handle(i64 40, ptr nonnull %i84, i32 327680, ptr null) #3
   ret void
 }
 
@@ -539,7 +585,7 @@ bb:
 
 bb2:                                              ; preds = %bb2, %bb
   %i3 = phi i32 [ %i4, %bb2 ], [ 1, %bb ]
-  call void @arr_mod_mp_allocate_arr_(ptr nonnull %i, i32 %i1)
+  call void @arr_mod_mp_allocate_arr_(ptr nonnull %i)
   call void @arr_mod_mp_initialize_arr_(ptr nonnull %i, ptr nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, ptr nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, ptr nonnull @anon.87529b4ebf98830a9107fed24e462e82.1)
   call void @arr_mod_mp_print_arr_(ptr nonnull %i, ptr nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, ptr nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, ptr nonnull @anon.87529b4ebf98830a9107fed24e462e82.1)
   %i4 = add nuw nsw i32 %i3, 1
@@ -560,7 +606,7 @@ declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #2
 ; Function Attrs: nounwind readnone speculatable
 declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #2
 
-attributes #0 = { nofree nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+attributes #0 = { nofree nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+mmx,+pclmul,+pku,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #1 = { nofree "intel-lang"="fortran" }
 attributes #2 = { nounwind readnone speculatable }
 attributes #3 = { nounwind }

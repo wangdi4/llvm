@@ -1,10 +1,15 @@
-; RUN: opt -opaque-pointers < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt  < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; This test case checks that deallocating global dope vectors won't affect
 ; the constant propagation. Also, it checks that the optimization was applied
 ; since the global dope vectors aren't candidates for nested dope vectors,
-; the pointer address is not a pointer to a structure. It was created from
-; the following test case:
+; the pointer address is not a pointer to a structure.
+
+; This test case is similar to global_dvcp20.ll but uses 3-index GEPs instead
+; of 4-index GEPs for the dope vector extents.
+
+; It was created from the following test case:
 
 ;   module assumedshape_perf_mod
 ;   contains
@@ -50,29 +55,68 @@
 
 ; ifx -g -O3 -xCORE-AVX512 -qopt-zmm-usage=high -fpp -traceback -reentrancy -flto -align array64byte -what -V assumedshape_perf.F90 -mllvm -print-before=dopevectorconstprop
 
-; This is the same test case as global_dvcp20.ll, but it checks the IR.
+; Check that @"assumedshape_perf_$ARRAY_ADD", @"assumedshape_perf_$ARRAY_TARGET"
+; and @"assumedshape_perf_$ARRAY_SOURCE" were selected for DVCP.
 
-; CHECK: %i87 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 2560, ptr elementtype(float) %i72, i64 %i86)
-; CHECK: %i88 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 2560, ptr elementtype(float) %i79, i64 %i86)
+; CHECK: Global variable: assumedshape_perf_$ARRAY_ADD
+; CHECK:   LLVM Type: QNCA_a0$float*$rank3$.2
+; CHECK:   Global dope vector result: Pass
+; CHECK:   Dope vector analysis result: Pass
+; CHECK:   Constant propagation status: performed
+; CHECK:     [0] Array Pointer: Read
+; CHECK:     [1] Element size: Written | Constant = i64 4
+; CHECK:     [2] Co-Dimension: Written | Constant = i64 0
+; CHECK:     [3] Flags: Read | Written
+; CHECK:     [4] Dimensions: Written | Constant = i64 3
+; CHECK:     [6][0] Extent: Read | Written | Constant = i64 10
+; CHECK:     [6][0] Stride: Written | Constant = i64 4
+; CHECK:     [6][0] Lower Bound: Written | Constant = i64 1
+; CHECK:     [6][1] Extent: Read | Written | Constant = i64 64
+; CHECK:     [6][1] Stride: Read | Written | Constant = i64 40
+; CHECK:     [6][1] Lower Bound: Written | Constant = i64 1
+; CHECK:     [6][2] Extent: Read | Written | Constant = i64 128
+; CHECK:     [6][2] Stride: Read | Written | Constant = i64 2560
+; CHECK:     [6][2] Lower Bound: Written | Constant = i64 1
 
-; CHECK: %i92 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i87, i64 %i91)
-; CHECK: %i93 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i88, i64 %i91)
+; CHECK: Global variable: assumedshape_perf_$ARRAY_TARGET
+; CHECK:   LLVM Type: QNCA_a0$float*$rank3$.2
+; CHECK:   Global dope vector result: Pass
+; CHECK:   Dope vector analysis result: Pass
+; CHECK:   Constant propagation status: NOT performed
+; CHECK:     [0] Array Pointer: Read | Written
+; CHECK:     [1] Element size: Written | Constant = i64 4
+; CHECK:     [2] Co-Dimension: Written | Constant = i64 0
+; CHECK:     [3] Flags: Read | Written
+; CHECK:     [4] Dimensions: Written | Constant = i64 3
+; CHECK:     [6][0] Extent: Written | Constant = i64 10
+; CHECK:     [6][0] Stride: Written | Constant = i64 4
+; CHECK:     [6][0] Lower Bound: Written | Constant = i64 1
+; CHECK:     [6][1] Extent: Written | Constant = i64 64
+; CHECK:     [6][1] Stride: Written | Constant = i64 40
+; CHECK:     [6][1] Lower Bound: Written | Constant = i64 1
+; CHECK:     [6][2] Extent: Written | Constant = i64 128
+; CHECK:     [6][2] Stride: Written | Constant = i64 2560
+; CHECK:     [6][2] Lower Bound: Written | Constant = i64 1
 
-; CHECK: store i64 10, ptr %i57
-; CHECK: store i64 40, ptr %i119
-
-; CHECK: store i64 64, ptr %i120
-; CHECK: store i64 2560, ptr %i59
-
-; CHECK: store i64 128, ptr %i60
-
-; CHECK: store i64 10, ptr %i66
-; CHECK: store i64 40, ptr %i127
-
-; CHECK: store i64 64, ptr %i128
-; CHECK: store i64 2560, ptr %i68
-
-; CHECK: store i64 128, ptr %i69
+; CHECK:  Global variable: assumedshape_perf_$ARRAY_SOURCE
+; CHECK:    LLVM Type: QNCA_a0$float*$rank3$.2
+; CHECK:    Global dope vector result: Pass
+; CHECK:    Dope vector analysis result: Pass
+; CHECK:    Constant propagation status: performed
+; CHECK:      [0] Array Pointer: Read | Written
+; CHECK:      [1] Element size: Written | Constant = i64 4
+; CHECK:      [2] Co-Dimension: Written | Constant = i64 0
+; CHECK:      [3] Flags: Read | Written
+; CHECK:      [4] Dimensions: Written | Constant = i64 3
+; CHECK:      [6][0] Extent: Read | Written | Constant = i64 10
+; CHECK:      [6][0] Stride: Written | Constant = i64 4
+; CHECK:      [6][0] Lower Bound: Written | Constant = i64 1
+; CHECK:      [6][1] Extent: Read | Written | Constant = i64 64
+; CHECK:      [6][1] Stride: Read | Written | Constant = i64 40
+; CHECK:      [6][1] Lower Bound: Written | Constant = i64 1
+; CHECK:      [6][2] Extent: Read | Written | Constant = i64 128
+; CHECK:      [6][2] Stride: Read | Written | Constant = i64 2560
+; CHECK:      [6][2] Lower Bound: Written | Constant = i64 1
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -100,15 +144,15 @@ bb:
   store i64 0, ptr getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_SOURCE", i64 0, i32 2), align 8
   %i6 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_SOURCE", i64 0, i32 6, i64 0, i32 2), i32 0)
   store i64 1, ptr %i6, align 8
-  %i7 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_SOURCE", i64 0, i32 6, i64 0, i32 0), i32 0)
+  %i7 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_SOURCE", i64 0, i32 6, i64 0), i32 0)
   store i64 10, ptr %i7, align 8
   %i8 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_SOURCE", i64 0, i32 6, i64 0, i32 2), i32 1)
   store i64 1, ptr %i8, align 8
-  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_SOURCE", i64 0, i32 6, i64 0, i32 0), i32 1)
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_SOURCE", i64 0, i32 6, i64 0), i32 1)
   store i64 64, ptr %i9, align 8
   %i10 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_SOURCE", i64 0, i32 6, i64 0, i32 2), i32 2)
   store i64 1, ptr %i10, align 8
-  %i11 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_SOURCE", i64 0, i32 6, i64 0, i32 0), i32 2)
+  %i11 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_SOURCE", i64 0, i32 6, i64 0), i32 2)
   store i64 128, ptr %i11, align 8
   %i12 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_SOURCE", i64 0, i32 6, i64 0, i32 1), i32 0)
   store i64 4, ptr %i12, align 8
@@ -130,15 +174,15 @@ bb:
   store i64 0, ptr getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_TARGET", i64 0, i32 2), align 8
   %i22 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_TARGET", i64 0, i32 6, i64 0, i32 2), i32 0)
   store i64 1, ptr %i22, align 8
-  %i23 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_TARGET", i64 0, i32 6, i64 0, i32 0), i32 0)
+  %i23 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_TARGET", i64 0, i32 6, i64 0), i32 0)
   store i64 10, ptr %i23, align 8
   %i24 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_TARGET", i64 0, i32 6, i64 0, i32 2), i32 1)
   store i64 1, ptr %i24, align 8
-  %i25 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_TARGET", i64 0, i32 6, i64 0, i32 0), i32 1)
+  %i25 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_TARGET", i64 0, i32 6, i64 0), i32 1)
   store i64 64, ptr %i25, align 8
   %i26 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_TARGET", i64 0, i32 6, i64 0, i32 2), i32 2)
   store i64 1, ptr %i26, align 8
-  %i27 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_TARGET", i64 0, i32 6, i64 0, i32 0), i32 2)
+  %i27 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_TARGET", i64 0, i32 6, i64 0), i32 2)
   store i64 128, ptr %i27, align 8
   %i28 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_TARGET", i64 0, i32 6, i64 0, i32 1), i32 0)
   store i64 4, ptr %i28, align 8
@@ -160,15 +204,15 @@ bb:
   store i64 0, ptr getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_ADD", i64 0, i32 2), align 8
   %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_ADD", i64 0, i32 6, i64 0, i32 2), i32 0)
   store i64 1, ptr %i38, align 8
-  %i39 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_ADD", i64 0, i32 6, i64 0, i32 0), i32 0)
+  %i39 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_ADD", i64 0, i32 6, i64 0), i32 0)
   store i64 10, ptr %i39, align 8
   %i40 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_ADD", i64 0, i32 6, i64 0, i32 2), i32 1)
   store i64 1, ptr %i40, align 8
-  %i41 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_ADD", i64 0, i32 6, i64 0, i32 0), i32 1)
+  %i41 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_ADD", i64 0, i32 6, i64 0), i32 1)
   store i64 64, ptr %i41, align 8
   %i42 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_ADD", i64 0, i32 6, i64 0, i32 2), i32 2)
   store i64 1, ptr %i42, align 8
-  %i43 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_ADD", i64 0, i32 6, i64 0, i32 0), i32 2)
+  %i43 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_ADD", i64 0, i32 6, i64 0), i32 2)
   store i64 128, ptr %i43, align 8
   %i44 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr elementtype(i64) getelementptr inbounds (%"QNCA_a0$float*$rank3$.2", ptr @"assumedshape_perf_$ARRAY_ADD", i64 0, i32 6, i64 0, i32 1), i32 0)
   store i64 4, ptr %i44, align 8
@@ -384,7 +428,7 @@ declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #2
 ; Function Attrs: nounwind readnone speculatable
 declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #2
 
-attributes #0 = { nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="non-leaf" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "pre_loopopt" "prefer-vector-width"="512" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
+attributes #0 = { nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="non-leaf" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "pre_loopopt" "prefer-vector-width"="512" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
 attributes #1 = { nofree "intel-lang"="fortran" }
 attributes #2 = { nounwind readnone speculatable }
 attributes #3 = { nounwind }

@@ -1,19 +1,9 @@
-; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV
-
-; RUN: opt < %s -opaque-pointers -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0
-
-; RUN: opt < %s -opaque-pointers -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1
-
-; RUN: opt < %s -opaque-pointers -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2
+; RUN: opt  < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 ; This test case checks that the fields for the global dope vector
 ; @arr_mod_mp_a_ were collected and propagated correctly. Also, it
-; identifies, collects and propagates the nested dope vectors.
-
-; This test is similar to "global_dvcp02.ll" but uses GEP(X,0,0)s instead of
-; bitcasts as inputs to for_allocate_handle().
-
+; identifies, collects and propagates the nested dope vectors. This
+; is the same test case as global_dvcp24.ll, but it checks the IR.
 ; It was created from the following source code:
 
 ;      MODULE ARR_MOD
@@ -44,7 +34,6 @@
 ;
 ;         SUBROUTINE INITIALIZE_ARR(I, N, M, O)
 ;           INTEGER, INTENT(IN) :: I, N, M, O
-;
 ;
 ;           DO j = 1, N
 ;             DO k = 1, M
@@ -96,65 +85,37 @@
 ; function that allocates the array A should also allocate the information
 ; for inner_array_A, inner_array_B, inner_array_C.
 
-; CHECK-GLOBDV: Global variable: arr_mod_mp_a_
-; CHECK-GLOBDV-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
-; CHECK-GLOBDV-NEXT:   Global dope vector result: Pass
-; CHECK-GLOBDV-NEXT:   Dope vector analysis result: Pass
-; CHECK-GLOBDV-NEXT:   Constant propagation status: performed
-; CHECK-GLOBDV-NEXT:     [0] Array Pointer: Read
-; CHECK-GLOBDV-NEXT:     [1] Element size: Written | Constant = i64 288
-; CHECK-GLOBDV-NEXT:     [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-GLOBDV-NEXT:     [3] Flags: Read | Written
-; CHECK-GLOBDV-NEXT:     [4] Dimensions: Written | Constant = i64 1
-; CHECK-GLOBDV-NEXT:     [6][0] Extent: Written | Constant = i64 1
-; CHECK-GLOBDV-NEXT:     [6][0] Stride: Written | Constant = i64 288
-; CHECK-GLOBDV-NEXT:     [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-GLOBDV-NEXT:   Nested dope vectors: 3
+; Check that the constants were propagated in function @arr_mod_mp_allocate_arr_
+; CHECK: define internal void @arr_mod_mp_allocate_arr_
+; CHECK: %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i35, i64 %i37)
+; CHECK: %i59 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i57, i64 %i37)
+; CHECK: %i83 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i81, i64 %i37)
 
-; CHECK-FIELD0:    Field[0]: QNCA_a0$float*$rank2$
-; CHECK-FIELD0-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD0-NEXT:      Constant propagation status: performed
-; CHECK-FIELD0-NEXT:        [0] Array Pointer: Read
-; CHECK-FIELD0-NEXT:        [1] Element size: Written | Constant = i64 4
-; CHECK-FIELD0-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD0-NEXT:        [3] Flags: Written
-; CHECK-FIELD0-NEXT:        [4] Dimensions: Written | Constant = i64 2
-; CHECK-FIELD0-NEXT:        [6][0] Extent: Written | Constant = i64 10
-; CHECK-FIELD0-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
-; CHECK-FIELD0-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-FIELD0-NEXT:        [6][1] Extent: Written | Constant = i64 10
-; CHECK-FIELD0-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
-; CHECK-FIELD0-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
+; Check that the constants were propagated in function @arr_mod_mp_initialize_arr_
+; CHECK: define internal void @arr_mod_mp_initialize_arr_
+; CHECK: %i14 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i12, i64 %i5)
+; CHECK: %i29 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i17, i64 %i7)
+; CHECK: %i30 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i29, i64 %i11)
+; CHECK: %i35 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i33, i64 %i5)
+; CHECK: %i54 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 400, ptr elementtype(float) %i38, i64 %i32)
+; CHECK: %i55 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i54, i64 %i7)
+; CHECK: %i56 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i55, i64 %i11)
+; CHECK: %i65 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i63, i64 %i5)
+; CHECK: %i76 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i68, i64 11)
 
-; CHECK-FIELD1:    Field[1]: QNCA_a0$float*$rank3$
-; CHECK-FIELD1-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD1-NEXT:      Constant propagation status: performed
-; CHECK-FIELD1-NEXT:        [0] Array Pointer: Read
-; CHECK-FIELD1-NEXT:        [1] Element size: Written | Constant = i64 4
-; CHECK-FIELD1-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD1-NEXT:        [3] Flags: Written
-; CHECK-FIELD1-NEXT:        [4] Dimensions: Written | Constant = i64 3
-; CHECK-FIELD1-NEXT:        [6][0] Extent: Written | Constant = i64 10
-; CHECK-FIELD1-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
-; CHECK-FIELD1-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-FIELD1-NEXT:        [6][1] Extent: Written | Constant = i64 10
-; CHECK-FIELD1-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
-; CHECK-FIELD1-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-FIELD1-NEXT:        [6][2] Extent: Written | Constant = i64 10
-; CHECK-FIELD1-NEXT:        [6][2] Stride: Read | Written | Constant = i64 400
-; CHECK-FIELD1-NEXT:        [6][2] Lower Bound: Read | Written | Constant = i64 1
+; Check that the constants were propagated in function @arr_mod_mp_print_arr_
+; CHECK: define internal void @arr_mod_mp_print_arr_
+; CHECK: %i38 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i36, i64 %i12)
+; CHECK: %i53 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i41, i64 %i33)
+; CHECK: %i54 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i53, i64 %i35)
+; CHECK: %i61 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i59, i64 %i12)
+; CHECK: %i80 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 400, ptr elementtype(float) %i64, i64 %i58)
+; CHECK: %i81 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(float) %i80, i64 %i33)
+; CHECK: %i82 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i81, i64 %i35)
+; CHECK: %i95 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 288, ptr elementtype(%"ARR_MOD$.btT_TESTTYPE") %i93, i64 %i12)
+; CHECK: %i108 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %i98, i64 %i107)
 
-; CHECK-FIELD2:    Field[2]: QNCA_a0$float*$rank1$
-; CHECK-FIELD2-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD2-NEXT:      Constant propagation status: performed
-; CHECK-FIELD2-NEXT:        [0] Array Pointer: Read
-; CHECK-FIELD2-NEXT:        [1] Element size: Written | Constant = i64 4
-; CHECK-FIELD2-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD2-NEXT:        [3] Flags: Written
-; CHECK-FIELD2-NEXT:        [4] Dimensions: Written | Constant = i64 1
-; CHECK-FIELD2-NEXT:        [6][0] Extent: Written | Constant = i64 10
-; CHECK-FIELD2-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
-; CHECK-FIELD2-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -316,7 +277,8 @@ bb33:                                             ; preds = %bb5, %bb3
   %i96 = tail call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %i95, i32 0)
   store i64 4, ptr %i96, align 1
   store i64 1342177285, ptr %i85, align 1
-  %i97 = tail call i32 @for_allocate_handle(i64 40, ptr nonnull %i84, i32 327680, ptr null) #3
+  %i97 = bitcast ptr %i84 to ptr
+  %i98 = tail call i32 @for_allocate_handle(i64 40, ptr nonnull %i97, i32 327680, ptr null) #3
   ret void
 }
 
@@ -606,7 +568,7 @@ declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #2
 ; Function Attrs: nounwind readnone speculatable
 declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #2
 
-attributes #0 = { nofree nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+mmx,+pclmul,+pku,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+attributes #0 = { nofree nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #1 = { nofree "intel-lang"="fortran" }
 attributes #2 = { nounwind readnone speculatable }
 attributes #3 = { nounwind }
