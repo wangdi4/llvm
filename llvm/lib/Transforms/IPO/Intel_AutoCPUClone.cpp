@@ -270,16 +270,13 @@ CollectCalledFunctions(SetVector<Function*>& MVFunctions, unsigned StartIndex) {
   }
 }
 
-static bool
-cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
-               function_ref<TargetLibraryInfo &(Function &)> GetTLI,
-               function_ref<TargetTransformInfo &(Function &)> GetTTI,
-               function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
-               ProfileSummaryInfo &PSI) {
+static void
+CollectMVCandidates(Module &M, SetVector<Function *> &MVCandidates,
+                    function_ref<LoopInfo &(Function &)> GetLoopInfo,
+                    function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+                    ProfileSummaryInfo &PSI) {
 
-  // Form a set of all functions that are candidates for multi-versioning.
-  SetVector<Function*> MVCandidates;
-  SetVector<Function*> MVFunctionsCallableFromLoops;
+  SetVector<Function *> MVFunctionsCallableFromLoops;
   for (Function &Fn : M) {
     if (Fn.isDeclaration() || MVFunctionsCallableFromLoops.contains(&Fn))
       continue;
@@ -326,34 +323,50 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     CollectCalledFunctions(MVFunctionsCallableFromLoops, StartIndex);
   }
   MVCandidates.set_union(MVFunctionsCallableFromLoops);
+}
+
+static bool
+cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
+               function_ref<TargetLibraryInfo &(Function &)> GetTLI,
+               function_ref<TargetTransformInfo &(Function &)> GetTTI,
+               function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
+               ProfileSummaryInfo &PSI) {
+
+  // Candidates for multi-versioning.
+  SetVector<Function *> MVCandidates;
+  CollectMVCandidates(M, MVCandidates, GetLoopInfo, GetBFI, PSI);
+
+  if (MVCandidates.empty())
+    return false;
+
+  // Maps that are used to do to RAUW later.
+  std::map</*OrigFunc*/ GlobalValue *,
+           std::tuple</*Resolver*/ GlobalValue *, /*Dispatcher*/ GlobalValue *,
+                      /*DispatchPtr*/ GlobalVariable *,
+                      /*Target CPU to multivesioned func*/
+                      std::map<std::string, GlobalValue *>>>
+      Orig2MultiFuncs;
+
+  std::map</*MultiversionedFunc*/ const GlobalValue *,
+           /*Target CPU*/ std::string>
+      MultiFunc2TargetCPU;
+
+  std::map</*Dispatcher*/ const GlobalValue *,
+           /*Baseline clone*/ GlobalValue *>
+      Dispatcher2BaselineGV;
 
   // Collect functions that have GlobalAlias(es) and are in MVCandidates.
-  std::set<Function*> HasGlobalAliasSet;
+  std::set<Function *> HasGlobalAliasSet;
   for (GlobalAlias &GA : M.aliases()) {
     Function *Fn = dyn_cast<Function>(GA.getAliaseeObject());
     if (Fn && MVCandidates.contains(Fn))
       HasGlobalAliasSet.insert(Fn);
   }
 
-  const Triple TT{M.getTargetTriple()};
-
-  // Maps that are used to do to RAUW later.
-  std::map</*OrigFunc*/ GlobalValue *,
-           std::tuple</*Resolver*/ GlobalValue *, /*Dispatcher*/ GlobalValue *,
-                      /*DispatchPtr*/ GlobalVariable *,
-                      /*Target extension to multivesioned func*/
-                      std::map<std::string, GlobalValue *>>>
-      Orig2MultiFuncs;
-
-  std::map</*MultiversionedFunc*/ const GlobalValue *,
-           /*Target extension*/ std::string>
-      MultiFunc2TargetExt;
-
-  std::map</*Dispatcher*/ const GlobalValue *,
-           /*Baseline clone*/ GlobalValue *>
-      Dispatcher2BaselineGV;
-
   bool Changed = false;
+
+  LLVMContext &Ctx = M.getContext();
+  const Triple TT{M.getTargetTriple()};
 
   for (Function *Fn : MVCandidates) {
 
@@ -376,7 +389,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     MDNode *AutoCPUDispatchMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
     // Remove llvm.auto.cpu.dispatch metadata here, to prevent cloning it
     // unnecessarily during multi-versioning as well as dispatcher code generation.
-    Fn->setMetadata("llvm.auto.cpu.dispatch", nullptr);
+    Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
 
     if (AutoCPUDispatchMD)
       LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *AutoCPUDispatchMD << "\n");
@@ -428,13 +441,13 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       New->addFnAttr("loopopt-pipeline", "full");
       New->addFnAttr("advanced-optim", "true");
 
-      New->setMetadata("llvm.acd.clone", MDNode::get(New->getContext(), {}));
+      New->setMetadata("llvm.acd.clone", MDNode::get(Ctx, {}));
 
       New->setName(Fn->getName() + "." + Twine(TargetCpuSuffix));
 
       MVOptions.emplace_back(New, "" /* Op(1)? */, NewFeatures);
 
-      MultiFunc2TargetExt[New] = TargetCpu.str();
+      MultiFunc2TargetCPU[New] = TargetCpu.str();
       Clones[TargetCpu.str()] = New;
     }
 
@@ -478,7 +491,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     Orig2MultiFuncs[Fn] = {Resolver, Dispatcher, DispatchPtr, std::move(Clones)};
     Dispatcher2BaselineGV[Dispatcher] = Fn;
 
-    Fn->setMetadata("llvm.acd.clone", MDNode::get(Fn->getContext(), {}));
+    Fn->setMetadata("llvm.acd.clone", MDNode::get(Ctx, {}));
 
     Changed = true;
   }
@@ -540,7 +553,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
         NewGA->setAliasee(MapValue(C, VMap));
       NewGA->copyAttributesFrom(GA);
 
-      MultiFunc2TargetExt[NewGA] = I.first;
+      MultiFunc2TargetCPU[NewGA] = I.first;
       GAClones[I.first] = NewGA;
     }
 
@@ -585,7 +598,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
         // If caller is a specialized version of a function then find the
         // corresponding specialized version of the callee.
-        if (MultiFunc2TargetExt.count(Caller))
+        if (MultiFunc2TargetCPU.count(Caller))
           return false;
 
         return true;
@@ -615,8 +628,8 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
         // If caller is a specialized version of a function then find the
         // corresponding specialized version of the callee.
-        if (MultiFunc2TargetExt.count(Caller)) {
-          GlobalValue *Replacement = Clones[MultiFunc2TargetExt[Caller]];
+        if (MultiFunc2TargetCPU.count(Caller)) {
+          GlobalValue *Replacement = Clones[MultiFunc2TargetCPU[Caller]];
           assert(Replacement && "Expected that functions are multiversioned "
                                 "for all requested targets now!");
           CInst->setCalledOperand(Replacement);
@@ -655,22 +668,28 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       GA.setAliasee(MapValue(C, VMap));
   }
 
+  // If we are here then we have done modifications.
+  return true;
+}
+
+static void
+clearMetadataAndSetAttributes(
+    Module &M,
+    function_ref<TargetTransformInfo &(Function &)> GetTTI,
+    bool SetAdvancedOptim) {
+
+  LLVMContext &Ctx = M.getContext();
   for (Function &Fn : M) {
     if (Fn.isDeclaration())
       continue;
-    // Remove "llvm.auto.cpu.dispatch" metadata from functions that are
-    // skipped and not multi-versioned.
-    if (Fn.hasMetadata("llvm.auto.cpu.dispatch"))
-      Fn.setMetadata("llvm.auto.cpu.dispatch", nullptr);
+    // Remove "llvm.auto.cpu.dispatch" metadata from all functions
+    Fn.eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
     // Add "advanced-optim" attribute on functions that are skipped
     // and not multi-versioned.
-    if (!Fn.hasFnAttribute("advanced-optim"))
+    if (SetAdvancedOptim && !Fn.hasFnAttribute("advanced-optim"))
       Fn.addFnAttr("advanced-optim",
                    GetTTI(Fn).isIntelAdvancedOptimEnabled() ? "true" : "false");
   }
-
-  // If we are here then we have done modifications.
-  return true;
 }
 
 PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
@@ -690,8 +709,9 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   };
   ProfileSummaryInfo &PSI = AM.getResult<ProfileSummaryAnalysis>(M);
 
-  if (cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI, GetBFI, PSI))
-    return PreservedAnalyses::none();
+  bool Success = cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI, GetBFI, PSI);
 
-  return PreservedAnalyses::all();
+  clearMetadataAndSetAttributes(M, GetTTI, Success);
+
+  return Success ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
