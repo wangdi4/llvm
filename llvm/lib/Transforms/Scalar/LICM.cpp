@@ -193,7 +193,7 @@ cl::opt<unsigned> LICMSpeculateMaxRelatedDist(
     "licm-speculate-max-related-dist", cl::Hidden, cl::init(128),
     cl::desc("Maximum distance where a load will be considered related"));
 cl::opt<unsigned>
-    LICMSpeculateMaxInsts("licm-speculate-max-insts", cl::Hidden, cl::init(24),
+    LICMSpeculateMaxInsts("licm-speculate-max-insts", cl::Hidden, cl::init(12),
                           cl::desc("Maximum number of instructions to look at "
                                    "when searching for related loads"));
 #endif // INTEL_CUSTOMIZATION
@@ -1933,12 +1933,14 @@ static LoadInst *loadHasSafeRelatedLoad(LoadInst *LI, const DominatorTree *DT,
     // TODO: Use SafetyInfo to analyze loads inside the loop.
     if (L->contains(DomNode->getBlock()))
       continue;
-    Instruction *CurrI = DomNode->getBlock()->getTerminator();
-    while (CurrI) {
-      if (auto *LI2 = dyn_cast<LoadInst>(CurrI))
-        if (loadsAreRelated(LI, LI2, DL))
-          return LI2;
-      CurrI = CurrI->getPrevNode();
+    for (Instruction *CurrI = DomNode->getBlock()->getTerminator(); CurrI;
+         CurrI = CurrI->getPrevNode()) {
+      auto *LI2 = dyn_cast<LoadInst>(CurrI);
+      // Only check load instructions. TBAA is also required for the heuristic.
+      if (!LI2 || !LI2->getAAMetadata().TBAA)
+        continue;
+      if (loadsAreRelated(LI, LI2, DL))
+        return LI2;
       // Reduce compile time impact. Only search a small number of insts.
       if (ICount++ > LICMSpeculateMaxInsts)
         return nullptr;
