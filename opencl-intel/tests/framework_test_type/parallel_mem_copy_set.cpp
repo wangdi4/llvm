@@ -516,7 +516,7 @@ TEST_P(ParallelCopySetTest, usmMemset) {
   cl_int value = (cl_int)m_value;
   err = clEnqueueMemsetINTEL(m_queue, sharedUSM, value, m_size, 0, nullptr,
                              nullptr);
-  ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
+  ASSERT_OCL_SUCCESS(err, "clEnqueueMemsetINTEL");
 
   // Copy from device USM to host.
   char *dst = new char[m_size];
@@ -533,7 +533,7 @@ TEST_P(ParallelCopySetTest, usmMemset) {
   err = clEnqueueMemsetINTEL(m_queue, sharedUSM, value, m_size, 0, nullptr,
                              &event);
   ;
-  ASSERT_OCL_SUCCESS(err, "clEnqueueMemFillINTEL");
+  ASSERT_OCL_SUCCESS(err, "clEnqueueMemsetINTEL");
   err = clEnqueueMemcpyINTEL(m_queue, CL_TRUE, dst, sharedUSM, m_size, 0,
                              nullptr, nullptr);
   ASSERT_OCL_SUCCESS(err, "clEnqueueMemcpyINTEL");

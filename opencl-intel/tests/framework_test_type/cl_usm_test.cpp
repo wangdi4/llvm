@@ -338,6 +338,78 @@ TEST_F(USMTest, memBlockingFreeAfterReleaseEvent) {
   EXPECT_EQ(num, result);
 }
 
+/// Test clMemBlockingFreeINTEL with 1 of 2 events released in advance to check
+/// the correctness of handling the invalid event in USM free wait event list
+TEST_F(USMTest, memBlockingFreeAfterReleaseOneOfTwoEvents) {
+  // Build program and kernel.
+  const char *source = getBlockingFreeTestKernel();
+  ASSERT_NO_FATAL_FAILURE(
+      BuildProgram(m_context, m_device, &source, 1, m_program));
+  cl_int err;
+  m_kernel = clCreateKernel(m_program, "blocking_test", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel blocking_test for kernel 1");
+
+  cl_kernel m_kernel2 = clCreateKernel(m_program, "blocking_test", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel blocking_test for kernel 2");
+
+  // Workload should be large enough so that kernel is not finished when
+  // clMemBlockingFreeINTEL is called.
+  size_t num = 16384;
+  size_t size = num * sizeof(cl_int);
+  cl_int *buffer = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, nullptr,
+                                                   size, /*alignment*/ 0, &err);
+  ASSERT_OCL_SUCCESS(err, "clSharedMemAllocINTEL");
+  std::fill(buffer, buffer + num, 1);
+
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 0, buffer);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL for kernel 1");
+  cl_int result = 0;
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 1, &result);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL for kernel 1");
+  err = clSetKernelArgMemPointerINTEL(m_kernel2, 0, buffer);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL for kernel 2");
+  cl_int result2 = 0;
+  err = clSetKernelArgMemPointerINTEL(m_kernel2, 1, &result2);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL for kernel 2");
+
+  cl_event events[2];
+  size_t gdim = num;
+  size_t ldim = 64;
+  err = clEnqueueNDRangeKernel(m_queue, m_kernel2, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, &events[1]);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel for kernel 2");
+  // Release event before clMemBlockingFreeINTEL.
+  err = clReleaseEvent(events[1]);
+  ASSERT_OCL_SUCCESS(err, "First clReleaseEvent for kernel 2");
+  // Here is an attempt to create a scenario: produce an invalid event in wait
+  // list for USM free.
+  // call clReleaseEvent twice to decrease the reference count of event object
+  // to 0 and remove the object from OCLObjectMap. The event object is invalid
+  // but it's kept in the wait list for USM free. Calling clWaitEvents +
+  // clReleaseEvent cannot create the scenario, since it will remove the event
+  // from wait list for USM free.
+  err = clReleaseEvent(events[1]);
+  EXPECT_OCL_SUCCESS(err, "Second clReleaseEvent for kernel 2");
+
+  err = clEnqueueNDRangeKernel(m_queue, m_kernel, 1, nullptr, &gdim, &ldim, 0,
+                               nullptr, &events[0]);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel for kernel 1");
+
+  err = clMemBlockingFreeINTEL(m_context, buffer);
+  EXPECT_OCL_SUCCESS(err, "clMemBlockingFreeINTEL");
+
+  err = clWaitForEvents(1, &events[0]);
+  ASSERT_OCL_SUCCESS(err, "clWaitForEvents for kernel 1");
+  err = clReleaseEvent(events[0]);
+  ASSERT_OCL_SUCCESS(err, "clReleaseEvent for kernel 1");
+
+  EXPECT_EQ(num, result);
+  EXPECT_EQ(num, result2);
+
+  err = clReleaseKernel(m_kernel2);
+  EXPECT_OCL_SUCCESS(err, "clReleaseKernel for kernel 2");
+}
+
 TEST_F(USMTest, getMemAllocInfo) {
   cl_int err;
   // Allocate USM buffers.
