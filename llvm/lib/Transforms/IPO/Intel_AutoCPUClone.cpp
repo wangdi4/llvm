@@ -349,6 +349,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
            /*Target extension*/ std::string>
       MultiFunc2TargetExt;
 
+  std::map</*Dispatcher*/ const GlobalValue *,
+           /*Baseline clone*/ GlobalValue *>
+      Dispatcher2BaselineGV;
+
   bool Changed = false;
 
   for (Function *Fn : MVCandidates) {
@@ -472,6 +476,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       emitIFuncBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher);
 
     Orig2MultiFuncs[Fn] = {Resolver, Dispatcher, DispatchPtr, std::move(Clones)};
+    Dispatcher2BaselineGV[Dispatcher] = Fn;
 
     Fn->setMetadata("llvm.acd.clone", MDNode::get(Fn->getContext(), {}));
 
@@ -494,26 +499,31 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
   // Multiversion GlobalAliases aliasing multiversioned functions.
   for (GlobalAlias *GA : GlobalAliasWorklist) {
 
+    // Get aliasee
+    GlobalValue *Aliasee =
+        dyn_cast<GlobalAlias>(GA->getAliasee()->stripPointerCasts());
+    if (!Aliasee)
+      Aliasee = GA->getAliaseeObject();
+
     // Set GA's name to indicate that it aliases the generic version of Fn.
     std::string Name = GA->getName().str();
     GA->setName(Name + ".A");
 
     // Make a clone of GA aliasing the dispatcher.
-    GlobalValue *Fn = GA->getAliaseeObject();
-    GlobalValue *Dispatcher = std::get<1>(Orig2MultiFuncs[Fn]);
+    GlobalValue *Dispatcher = std::get<1>(Orig2MultiFuncs[Aliasee]);
     GlobalAlias *DispatcherGA =
       GlobalAlias::create(GA->getValueType(), GA->getType()->getPointerAddressSpace(),
                           GA->getLinkage(), Name, &M);
     DispatcherGA->copyAttributesFrom(GA);
     ValueToValueMapTy VMap;
-    VMap[Fn] = Dispatcher;
+    VMap[Aliasee] = Dispatcher;
     if (const Constant *C = GA->getAliasee())
       DispatcherGA->setAliasee(MapValue(C, VMap));
 
     // Make clones of GA each aliasing a version of Fn.
     std::map<std::string, GlobalValue *> GAClones;
-    std::map<std::string, GlobalValue *> &FnClones = std::get<3>(Orig2MultiFuncs[Fn]);
-    for (auto& I : FnClones) {
+    std::map<std::string, GlobalValue *> &Clones = std::get<3>(Orig2MultiFuncs[Aliasee]);
+    for (auto& I : Clones) {
       const StringRef TargetCpu = I.first;
 
       // Get llvm/TargetParser/X86TargetParser.def friendly target name.
@@ -525,7 +535,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
                             Name + "." + getTargetSuffix(TargetCpuDealiased), &M);
 
       ValueToValueMapTy VMap;
-      VMap[Fn] = I.second;
+      VMap[Aliasee] = I.second;
       if (const Constant *C = GA->getAliasee())
         NewGA->setAliasee(MapValue(C, VMap));
       NewGA->copyAttributesFrom(GA);
@@ -535,6 +545,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     }
 
     Orig2MultiFuncs[GA] = {nullptr, DispatcherGA, nullptr, std::move(GAClones)};
+    Dispatcher2BaselineGV[DispatcherGA] = GA;
   }
 
   // Update uses of the original functions.
@@ -624,23 +635,24 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
   // Earlier call to replaceUsesWithIf() caused generic versions
   // of GlobalAlias clones to incorrectly alias dispatchers functions.
   // Make generic versions of GlobalAlias clones, alias the generic
-  // versions of function clones instead.
+  // versions of aliasees instead.
   for (auto It : GlobalAliasWorklist) {
 
     GlobalAlias &GA = *It;
-    assert(GA.getName().endswith(".A") && "GlobalAlias name criteria mismatch");
-    Function *Dispatcher = dyn_cast<Function>(GA.getAliaseeObject());
-    if (!Dispatcher)
-      continue;
 
-    Function *Fn = M.getFunction(Dispatcher->getName().str() + ".A");
-    assert(Fn && "Aliasee must exist");
-    if (Fn->hasMetadata("llvm.acd.clone")) {
-      ValueToValueMapTy VMap;
-      VMap[Dispatcher] = Fn;
-      if (const Constant *C = GA.getAliasee())
-        GA.setAliasee(MapValue(C, VMap));
-    }
+    GlobalValue *Dispatcher =
+        dyn_cast<GlobalAlias>(GA.getAliasee()->stripPointerCasts());
+    if (!Dispatcher)
+      Dispatcher = GA.getAliaseeObject();
+    assert(Dispatcher && "Dispatcher must exist");
+
+    GlobalValue *BaselineGV = Dispatcher2BaselineGV[Dispatcher];
+    assert(BaselineGV && "BaselineGV must exist");
+
+    ValueToValueMapTy VMap;
+    VMap[Dispatcher] = BaselineGV;
+    if (const Constant *C = GA.getAliasee())
+      GA.setAliasee(MapValue(C, VMap));
   }
 
   for (Function &Fn : M) {
