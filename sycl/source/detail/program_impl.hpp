@@ -261,6 +261,8 @@ public:
     return MContext->getPlugin();
   }
 
+  ContextImplPtr getContextImplPtr() const { return MContext; }
+
   /// \return a vector of devices that are associated with this program.
   std::vector<device> get_devices() const { return MDevices; }
 
