@@ -1,7 +1,10 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple -fsyntax-only -Xclang -verify -Xclang -verify-ignore-unexpected=note %s
 // expected-no-diagnostics
 
-#include <sycl/sycl.hpp>
+#include "sycl/sycl.hpp"
+#include <sycl/ext/oneapi/annotated_arg/annotated_arg.hpp>
+#include <sycl/ext/oneapi/annotated_arg/annotated_ptr.hpp>
+#include <sycl/ext/oneapi/annotated_arg/properties.hpp>
 
 using namespace sycl::ext::oneapi::experimental;
 
