@@ -13,7 +13,6 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -464,22 +463,6 @@ void KernelBarrier::bindUsersToBasicBlock(
   }
 }
 
-static TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V) {
-  TinyPtrVector<DbgDeclareInst *> DIs = FindDbgDeclareUses(V);
-  if (!DIs.empty())
-    return DIs;
-
-  // Try debug info of addrspacecast user.
-  for (auto *U : V->users()) {
-    if (auto *ASC = dyn_cast<AddrSpaceCastInst>(U)) {
-      DIs = FindDbgDeclareUses(ASC);
-      if (!DIs.empty())
-        break;
-    }
-  }
-  return DIs;
-}
-
 void KernelBarrier::fixAllocaAndDbg(Function &F) {
   DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
   const DataLayout &DL = F.getParent()->getDataLayout();
@@ -522,7 +505,7 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     // Collect debug intrinsic.
     TinyPtrVector<DbgDeclareInst *> DIs;
     if (IsNativeDBG)
-      DIs = findDbgUses(V);
+      DIs = CompilationUtils::findDbgUses(V);
 
     // Only use the first DbgVariableIntrinsic.
     // TODO: there might be multiple llvm.dbg.addr calls when llvm.dbg.declare
@@ -1286,7 +1269,7 @@ void KernelBarrier::fixArgumentUsage(Value *OriginalArg) {
          "OriginalArg with base type i1!");
 
   // function argument with debug info will be handled in fixAllocaAndDbg.
-  if (IsNativeDBG && !findDbgUses(OriginalArg).empty())
+  if (IsNativeDBG && !CompilationUtils::findDbgUses(OriginalArg).empty())
     return;
 
   // offset in special buffer to load the argument value from.

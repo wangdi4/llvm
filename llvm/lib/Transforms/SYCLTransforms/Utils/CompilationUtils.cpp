@@ -15,6 +15,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
@@ -1815,6 +1816,22 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
   if (!UseTLSGlobals)
     ArgsCount -= ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
 
+  SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+  SmallVector<Type *, 16> ArgTypes;
+  // TODO fix LIT which don't have ArgTypeNullValList yet.
+  if (KIMD.ArgTypeNullValList.hasValue()) {
+    assert((ArgsCount - KIMD.ArgTypeNullValList.size() <= 1) &&
+           "arg count mismatch");
+    llvm::transform(KIMD.ArgTypeNullValList, std::back_inserter(ArgTypes),
+                    [](Constant *C) { return C->getType(); });
+    // Masked kernel has an additional mask argument.
+    if (ArgsCount > KIMD.ArgTypeNullValList.size())
+      ArgTypes.push_back(nullptr);
+  } else {
+    llvm::transform(F->args(), std::back_inserter(ArgTypes),
+                    [](Argument &A) { return A.getType(); });
+  }
+
   unsigned int CurrentOffset = 0;
   Function::arg_iterator arg_it = F->arg_begin();
   for (unsigned i = 0; i < ArgsCount; ++i) {
@@ -1823,7 +1840,10 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
 
     Argument *pArg = &*arg_it;
     // Set argument sizes and offsets
-    switch (arg_it->getType()->getTypeID()) {
+    auto TyId = isa_and_nonnull<TargetExtType>(ArgTypes[i])
+                    ? ArgTypes[i]->getTypeID()
+                    : arg_it->getType()->getTypeID();
+    switch (TyId) {
     case Type::FloatTyID:
       CurArg.Ty = KRNL_ARG_FLOAT;
       CurArg.SizeInBytes = sizeof(float);
@@ -1841,18 +1861,17 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       // in that case 0 argument is block_literal pointer
       // update with special type
       // should be before handling ptrs by addr space
-      SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+      PointerType *PTy = cast<PointerType>(arg_it->getType());
       if ((i == 0) && KIMD.BlockLiteralSize.hasValue()) {
-        auto *PTy = dyn_cast<PointerType>(pArg->getType());
-        if (!PTy || !PTy->getNonOpaquePointerElementType()->isIntegerTy(8))
-          continue;
+        if (!PTy->isOpaque())
+          assert(PTy->getNonOpaquePointerElementType()->isIntegerTy(8) &&
+                 "invalid block_literal pointer type");
 
         CurArg.Ty = KRNL_ARG_PTR_BLOCK_LITERAL;
         CurArg.SizeInBytes = KIMD.BlockLiteralSize.get();
         break;
       }
 
-      PointerType *PTy = cast<PointerType>(arg_it->getType());
       if (pArg->hasByValAttr()) {
         // Check by pointer vector passing, used in long16 and double16
         if (auto *VTy = dyn_cast<FixedVectorType>(pArg->getParamByValType())) {
@@ -1987,10 +2006,77 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
     } break;
 
     case Type::TargetExtTyID: {
-      auto *TETy = cast<TargetExtType>(pArg->getType());
+      auto *TETy = cast<TargetExtType>(ArgTypes[i]);
       CurArg.SizeInBytes =
           M->getDataLayout().getTypeAllocSize(TETy->getLayoutType());
-      assert(0 && "unhandled TargetExtType");
+
+      if (TETy->getName() == "spirv.DeviceEvent") {
+        CurArg.Ty = KRNL_ARG_PTR_CLK_EVENT_T;
+      } else if (TETy->getName() == "spirv.Image") {
+        enum ImageIntParam : unsigned {
+          ImageDim = 0,
+          ImageDepth = 1,
+          ImageArrayed = 2,
+          ImageMultiSampled = 3,
+          ImageSampled = 4,
+          ImageFormat = 5,
+          ImageAccess = 6
+        };
+        auto IntParams = TETy->int_params();
+        if (IntParams[ImageArrayed]) {
+          if (IntParams[ImageDepth] && IntParams[ImageDim] == 2)
+            CurArg.Ty = KRNL_ARG_PTR_IMG_2D_ARR_DEPTH;
+          else if (IntParams[ImageDim] == 2)
+            CurArg.Ty = KRNL_ARG_PTR_IMG_2D_ARR;
+          else if (IntParams[ImageDim] == 1)
+            CurArg.Ty = KRNL_ARG_PTR_IMG_1D_ARR;
+        } else if (IntParams[ImageDepth] && IntParams[ImageDim] == 2) {
+          CurArg.Ty = KRNL_ARG_PTR_IMG_2D_DEPTH;
+        } else if (IntParams[ImageDim] == 5) {
+          CurArg.Ty = KRNL_ARG_PTR_IMG_1D_BUF;
+        } else if (IntParams[ImageDim] == 2) {
+          CurArg.Ty = KRNL_ARG_PTR_IMG_3D;
+        } else if (IntParams[ImageDim] == 1) {
+          CurArg.Ty = KRNL_ARG_PTR_IMG_2D;
+        } else if (IntParams[ImageDim] == 0) {
+          CurArg.Ty = KRNL_ARG_PTR_IMG_1D;
+        } else {
+          assert(false && "unhandled image TargetExtType");
+        }
+      } else if (TETy->getName() == "spirv.Sampler") {
+        CurArg.Ty = KRNL_ARG_PTR_SAMPLER_T;
+      } else if (TETy->getName() == "spirv.Pipe") {
+        CurArg.Ty = KRNL_ARG_PTR_PIPE_T;
+      } else if (TETy->getName() == "spirv.Queue") {
+        CurArg.Ty = KRNL_ARG_PTR_QUEUE_T;
+      } else {
+        assert(false && "unhandled TargetExtType");
+      }
+
+      switch (CurArg.Ty) {
+      case KRNL_ARG_PTR_IMG_1D:
+      case KRNL_ARG_PTR_IMG_1D_ARR:
+      case KRNL_ARG_PTR_IMG_1D_BUF:
+      case KRNL_ARG_PTR_IMG_2D:
+      case KRNL_ARG_PTR_IMG_2D_ARR:
+      case KRNL_ARG_PTR_IMG_2D_DEPTH:
+      case KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
+      case KRNL_ARG_PTR_IMG_3D:
+        // Setup image pointer
+        isMemoryObject = true;
+        break;
+      case KRNL_ARG_PTR_PIPE_T:
+        isMemoryObject = true;
+        break;
+      case KRNL_ARG_PTR_QUEUE_T:
+      case KRNL_ARG_PTR_CLK_EVENT_T:
+      case KRNL_ARG_PTR_SAMPLER_T:
+        isMemoryObject = false;
+        break;
+
+      default:
+        break;
+      }
     } break;
 
     case Type::IntegerTyID: {
@@ -3128,6 +3214,22 @@ bool isBlockInvocationKernel(Function *F) {
     return true;
 
   return false;
+}
+
+TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V) {
+  TinyPtrVector<DbgDeclareInst *> DIs = FindDbgDeclareUses(V);
+  if (!DIs.empty())
+    return DIs;
+
+  // Try debug info of addrspacecast user.
+  for (auto *U : V->users()) {
+    if (auto *ASC = dyn_cast<AddrSpaceCastInst>(U)) {
+      DIs = FindDbgDeclareUses(ASC);
+      if (!DIs.empty())
+        break;
+    }
+  }
+  return DIs;
 }
 
 } // end namespace CompilationUtils

@@ -869,6 +869,9 @@ bool isImagesUsed(const Module &M);
 /// @brief Returns true if the function is block invoke kernel
 bool isBlockInvocationKernel(Function *F);
 
+/// Find all dbg.declare users of a value.
+TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V);
+
 } // namespace CompilationUtils
 } // namespace llvm
 

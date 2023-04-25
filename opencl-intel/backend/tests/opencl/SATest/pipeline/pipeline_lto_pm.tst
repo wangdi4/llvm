@@ -22,7 +22,7 @@
 
 ; CHECK:      Running pass: SYCLEqualizerPass
 ; CHECK-NEXT: Running analysis: BuiltinLibInfoAnalysis
-; CHECK-NEXT: Running pass: CoerceTypesPass
+; CHECK:      Running pass: CoerceTypesPass
 ; CHECK-NEXT: Running pass: SetPreferVectorWidthPass
 ; CHECK:      Running pass: InternalizeNonKernelFuncPass
 ; CHECK:      Running pass: AddFunctionAttrsPass

@@ -46,6 +46,26 @@ template <class T, typename C = void> struct MDValueTraits {
   }
 };
 
+template <> struct MDValueTraits<Constant> {
+  typedef Constant *value_type;
+
+  static value_type load(llvm::Metadata *pNode) {
+    if (!pNode)
+      return nullptr;
+
+    assert(llvm::isa<ConstantAsMetadata>(pNode) &&
+           "can't load value, wrong node type");
+    value_type pT = llvm::cast<ConstantAsMetadata>(pNode)->getValue();
+
+    return pT;
+  }
+
+  static llvm::Metadata *generateValue(llvm::LLVMContext & /*Context*/,
+                                       const value_type &Value) {
+    return ValueAsMetadata::getConstant(const_cast<value_type>(Value));
+  }
+};
+
 template <> struct MDValueTraits<llvm::StringRef, void> {
   typedef llvm::StringRef value_type;
 

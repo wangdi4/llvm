@@ -6,11 +6,11 @@
 
 ; CHECK-LABEL: define dso_local void @test_fn
 ; CHECK: wrapper_entry:
-; CHECK:   [[IDX:%.*]] = getelementptr inbounds i64, i64 addrspace(1)* %explicit_0, i64 15
-; CHECK:   [[LOAD:%.*]] = load i64, i64 addrspace(1)* [[IDX]], align 8
+; CHECK:   [[IDX:%.*]] = getelementptr inbounds i64, {{.*}} addrspace(1){{.*}} %explicit_0, i64 15
+; CHECK:   [[LOAD:%.*]] = load i64, {{.*}} addrspace(1){{.*}} [[IDX]], align 8
 ; CHECK:   br label %[[FOR_BODY:.*]]
 ; CHECK: [[FOR_BODY]]:
-; CHECK:   store i64 [[LOAD]], i64 addrspace(3)* {{%.*}}, align 8
+; CHECK:   store i64 [[LOAD]], {{.*}} addrspace(3){{.*}} {{%.*}}, align 8
 
 ; ENABLE: Pass execution timing report
 ; ENABLE: SYCLAliasAnalysis

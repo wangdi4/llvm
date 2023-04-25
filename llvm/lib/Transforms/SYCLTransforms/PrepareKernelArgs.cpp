@@ -103,14 +103,21 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
   return NewF;
 }
 
+/// Return the type that has larger alloc size.
+static Type *getMaxSizeType(const DataLayout &DL, Type *OldTy, Type *NewTy) {
+  return (!OldTy || DL.getTypeAllocSize(NewTy) > DL.getTypeAllocSize(OldTy))
+             ? NewTy
+             : OldTy;
+}
+
 std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
     IRBuilder<> &Builder, Function *WrappedKernel, Argument *ArgsBuffer,
     Argument *WGId, Argument *RuntimeContext) {
   // Get old function's arguments list in the OpenCL level from its metadata
   std::vector<KernelArgument> Arguments;
-  std::vector<unsigned int> memoryArguments;
+  std::vector<unsigned int> MemoryArguments;
   CompilationUtils::parseKernelArguments(M, WrappedKernel, UseTLSGlobals,
-                                         Arguments, memoryArguments);
+                                         Arguments, MemoryArguments);
 
   std::vector<Value *> Params;
   Function::arg_iterator CallIt = WrappedKernel->arg_begin();
@@ -151,15 +158,34 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
 
       // Set alignment of buffer to type size.
       unsigned Alignment = 16; // Cacheline
-      Type *EltTy = CallIt->getType()->getPointerElementType();
+      Type *EltTy = nullptr;
       // If the kernel was vectorized, choose an alignment that is good for the
       // *vectorized* type. This can be good for unaligned loads on targets that
       // support instructions such as MOVUPS
       unsigned VecSize =
           KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
-      if (VecSize != 1 && VectorType::isValidElementType(EltTy))
-        EltTy = FixedVectorType::get(EltTy, VecSize);
-      Alignment = NextPowerOf2(DL.getTypeAllocSize(EltTy) - 1);
+      auto *PTy = cast<PointerType>(CallIt->getType());
+      if (PTy->isOpaque()) {
+        // Nonspirv doesn't have argument type metadata. Get type/align from IR.
+        if (auto A = CallIt->getParamAlign().valueOrOne().value(); A > 1) {
+          Alignment = NextPowerOf2((VecSize == 3 ? 4 : VecSize) * A - 1);
+        } else {
+          for (User *U : CallIt->users()) {
+            if (isa<LoadInst>(U) || isa<StoreInst>(U))
+              EltTy = getMaxSizeType(DL, EltTy, getLoadStoreType(U));
+            else if (auto *GEP = dyn_cast<GetElementPtrInst>(U))
+              EltTy = getMaxSizeType(DL, EltTy, GEP->getSourceElementType());
+          }
+        }
+      } else {
+        EltTy = PTy->getNonOpaquePointerElementType();
+      }
+      if (EltTy) {
+        if (VecSize != 1 && VectorType::isValidElementType(EltTy))
+          EltTy = FixedVectorType::get(EltTy, VecSize);
+        Alignment = NextPowerOf2(DL.getTypeAllocSize(EltTy) - 1);
+      }
+
       // We can't use overload without explicit alloca addrspace because the
       // BB does not have a parent yet.
       AllocaInst *Allocation =

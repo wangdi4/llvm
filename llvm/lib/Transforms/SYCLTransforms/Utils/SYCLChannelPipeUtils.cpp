@@ -341,20 +341,49 @@ PipeTypesHelper::PipeTypesHelper(Type *PipeRWStorageTy, Type *PipeROStorageTy,
                    ? PipeWOStorageTy->getPointerTo(ADDRESS_SPACE_GLOBAL)
                    : nullptr) {}
 
-PipeTypesHelper::PipeTypesHelper(const Module &M)
+PipeTypesHelper::PipeTypesHelper(Module &M)
     : PipeTypesHelper(
           StructType::getTypeByName(M.getContext(), "opencl.pipe_rw_t"),
           StructType::getTypeByName(M.getContext(), "opencl.pipe_ro_t"),
-          StructType::getTypeByName(M.getContext(), "opencl.pipe_wo_t")) {}
+          StructType::getTypeByName(M.getContext(), "opencl.pipe_wo_t")) {
+  for (Function *F : getKernels(M)) {
+    SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    if (KIMD.ArgTypeNullValList.hasValue()) {
+      llvm::for_each(KIMD.ArgTypeNullValList, [&](Constant *C) {
+        if (auto *TETy = dyn_cast<TargetExtType>(C->getType());
+            TETy && TETy->getName() == "spirv.Pipe") {
+          switch (TETy->getIntParameter(0)) {
+          case 0:
+            OpaquePipeROTy = TETy;
+            break;
+          case 1:
+            OpaquePipeWOTy = TETy;
+            break;
+          case 2:
+            OpaquePipeRWTy = TETy;
+            break;
+          default:
+            llvm_unreachable("unexpected pipe type");
+          }
+        }
+      });
+    }
+  }
+}
 
 bool PipeTypesHelper::isLocalPipeType(Type *Ty) const {
   return (PipeROTy &&
           isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeROTy)) ||
-         (PipeWOTy && isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeWOTy));
+         (PipeWOTy &&
+          isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeWOTy)) ||
+         (OpaquePipeROTy && Ty == OpaquePipeROTy) ||
+         (OpaquePipeWOTy && Ty == OpaquePipeWOTy);
 }
 
 bool PipeTypesHelper::isGlobalPipeType(Type *Ty) const {
-  return PipeRWTy && isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeRWTy);
+  return (PipeRWTy &&
+          isSameStructPtrType(dyn_cast<PointerType>(Ty), PipeRWTy)) ||
+         (OpaquePipeRWTy && Ty == OpaquePipeRWTy);
 }
 
 bool PipeTypesHelper::isPipeType(Type *Ty) const {

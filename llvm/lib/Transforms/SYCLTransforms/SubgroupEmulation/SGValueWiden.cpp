@@ -404,7 +404,7 @@ static void storeVectorByVecElement(Value *Addr, Value *Data, Type *OrigValType,
       Value *ElemVal =
           Builder.CreateExtractElement(Data, Idx * OrigNumElem + Id);
       Value *ElemPtr = Builder.CreateGEP(
-          Addr->getType()->getScalarType()->getPointerElementType(), Addr,
+          cast<AllocaInst>(Addr)->getAllocatedType(), Addr,
           {ConstZero, Builder.getInt32(Idx), Builder.getInt32(Id)});
       Builder.CreateStore(ElemVal, ElemPtr);
     }
@@ -422,7 +422,7 @@ static Value *loadVectorByVecElement(Value *Addr, Type *OrigValType,
   for (unsigned Idx = 0; Idx < VF; ++Idx) {
     for (unsigned Id = 0; Id < OrigNumElem; ++Id) {
       Value *ElemPtr = Builder.CreateGEP(
-          Addr->getType()->getScalarType()->getPointerElementType(), Addr,
+          cast<AllocaInst>(Addr)->getAllocatedType(), Addr,
           {ConstZero, Builder.getInt32(Idx), Builder.getInt32(Id)});
       Value *ElemVal = Builder.CreateLoad(ScalarEleType, ElemPtr);
       Res = Builder.CreateInsertElement(Res, ElemVal, Idx * OrigNumElem + Id);
@@ -579,8 +579,12 @@ void SGValueWidenPass::setWIValue(Value *V) {
       VecValueMap.count(V) ? getWIOffset(IP, VecValueMap[V]) : UniValueMap[V];
   // Offset's pointee type might be the promoted widen type of V.
   // In such cases, we need to zext V to promoted type before store.
-  auto *Promoted = SGHelper::createZExtOrTruncProxy(
-      V, Offset->getType()->getPointerElementType(), Builder);
+  Type *EltTy;
+  if (auto *AI = dyn_cast<AllocaInst>(Offset))
+    EltTy = AI->getAllocatedType();
+  else
+    EltTy = cast<GetElementPtrInst>(Offset)->getResultElementType();
+  auto *Promoted = SGHelper::createZExtOrTruncProxy(V, EltTy, Builder);
   Builder.CreateStore(Promoted, Offset);
 }
 
@@ -596,9 +600,8 @@ Value *SGValueWidenPass::getWIValue(Instruction *U, Value *V,
   Value *Src = VecValueMap[V];
   Instruction *IP = getInsertPoint(U, V, DT);
   IRBuilder<> Builder(IP);
-  auto *Offset = getWIOffset(IP, Src);
-  auto *LI =
-      Builder.CreateLoad(Offset->getType()->getPointerElementType(), Offset);
+  auto *Offset = cast<GetElementPtrInst>(getWIOffset(IP, Src));
+  auto *LI = Builder.CreateLoad(Offset->getResultElementType(), Offset);
   // Src might be the promoted widen type of V.
   // In such cases, we need to trunc LI to V's original type.
   return SGHelper::createZExtOrTruncProxy(LI, V->getType(), Builder);
@@ -608,7 +611,7 @@ Value *SGValueWidenPass::getWIOffset(Instruction *IP, Value *Src) {
   assert(Src->getType()->isPointerTy() && "get offest for a non-pointer value");
   auto *Idx = Helper.createGetSubGroupLId(IP);
   IRBuilder<> Builder(IP);
-  return Builder.CreateGEP(Src->getType()->getPointerElementType(), Src,
+  return Builder.CreateGEP(cast<AllocaInst>(Src)->getAllocatedType(), Src,
                            {ConstZero, Idx});
 }
 

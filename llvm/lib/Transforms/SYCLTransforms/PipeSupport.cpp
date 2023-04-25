@@ -56,9 +56,17 @@ static int getNumUsedPipes(Function &F, const PipeTypesHelper &PipeTypes) {
   int PipesNum = 0;
 
   // Count local pipes
-  for (auto &Arg : F.args()) {
-    if (PipeTypes.isPipeType(Arg.getType()))
-      ++PipesNum;
+  SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
+  if (KIMD.ArgTypeNullValList.hasValue()) {
+    for (Constant *C : KIMD.ArgTypeNullValList)
+      if (auto *TETy = dyn_cast<TargetExtType>(C->getType());
+          TETy && TETy->getName() == "spirv.Pipe")
+        ++PipesNum;
+  }
+  if (PipesNum == 0) {
+    for (auto &Arg : F.args())
+      if (PipeTypes.isPipeType(Arg.getType()))
+        ++PipesNum;
   }
 
   // Count global pipes
