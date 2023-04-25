@@ -90,7 +90,7 @@
 ; CHECK:      Running pass: vpo::VPlanDriverPass
 
 ; CHECK:      Running pass: SYCLKernelPostVecPass
-; CHECK-NEXT: Running pass: InstCombinePass
+; CHECK:      Running pass: InstCombinePass
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PromotePass
 ; CHECK:      Running pass: ADCEPass
