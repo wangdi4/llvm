@@ -1,6 +1,6 @@
 //===-- IntelVPlanDriver.h ----------------------------------------------===//
 //
-//   Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -169,6 +169,9 @@ public:
                BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
                FatalErrorHandlerTy FatalErrorHandler);
 
+  /// Whether to emit debug remarks into the opt report.
+  static inline bool EmitDebugOptRemarks = false;
+
   // Remark IDs are defined in lib/Analysis/Intel_OptReport/Diag.cpp:
 
   /// 15305: vectorization support: vector length %s
@@ -263,11 +266,23 @@ public:
   /// 15577: estimated number of scalar loop iterations peeled: %s
   static constexpr unsigned EstimatedPeelCountRemarkID = 15577;
 
+  /// 15578: DEBUG: %s
+  static constexpr unsigned DebugRemarkID = 15578;
+
   /// 25518: Peel loop for vectorization
   static constexpr unsigned PeelLoopForVectorizationRemarkID = 25518;
 
   /// 25519: Remainder loop for vectorization
   static constexpr unsigned RemainderLoopForVectorizationRemarkID = 25519;
+
+  /// Utility function for adding/constructing debug remarks.
+  template <typename... ArgsT, typename RemarkRecordT>
+  static void addDebugRemark(SmallVectorImpl<RemarkRecordT> &Remarks,
+                             ArgsT &&...Args) {
+    std::string Remark;
+    ((llvm::raw_string_ostream{Remark} << std::forward<ArgsT>(Args)), ...);
+    Remarks.emplace_back(VPlanDriverImpl::DebugRemarkID, std::move(Remark));
+  }
 };
 
 class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {

@@ -10,7 +10,8 @@ define void @test(i32* %buf1, i32* %buf2, i32* %buf3) {
 ; VPLAN-CM-PEELING-NEXT:  Cost of Scalar VPlan: 51200
 ; VPLAN-CM-PEELING-NEXT:  '#pragma vector always'/ '#pragma omp simd' is used for the given loop
 ; VPLAN-CM-PEELING-NEXT:  Selected peeling: Static(1)
-; VPLAN-CM-PEELING-NEXT:  Using cost model to enable peeling. Trip count is known. GoUnaligned = UnalignedGain > AlignedGain: -16000 > -15676.9375 = 0
+; VPLAN-CM-PEELING-NEXT:  Using cost model to enable peeling. Trip count is known; peel is static.
+; VPLAN-CM-PEELING-NEXT:  ShouldPeel = true [UnalignedGain <= AlignedGain: -16000 <= -15676.9375]
 ; VPLAN-CM-PEELING-NEXT:  Scalar Cost = 10240 x 5 = 51200 < VectorCost = 5 + 5119 x 13.0625 + 0 + 5 = 66876.9375
 ; VPLAN-CM-PEELING-NEXT:  Peel loop cost = 5 (scalar peel loop)
 ; VPLAN-CM-PEELING-NEXT:  Main loop vector cost = 66866.9375 + 0
@@ -20,7 +21,8 @@ define void @test(i32* %buf1, i32* %buf2, i32* %buf3) {
 ; VPLAN-CM-PEELING-NEXT:  Remainder loop cost without peel = 0 (no remainder loop)
 ; VPLAN-CM-PEELING-NEXT:  Peeling will be performed.
 ; VPLAN-CM-PEELING-NEXT:  Selected peeling: Static(1)
-; VPLAN-CM-PEELING-NEXT:  Using cost model to enable peeling. Trip count is known. GoUnaligned = UnalignedGain > AlignedGain: -8960 > -8476.6875 = 0
+; VPLAN-CM-PEELING-NEXT:  Using cost model to enable peeling. Trip count is known; peel is static.
+; VPLAN-CM-PEELING-NEXT:  ShouldPeel = true [UnalignedGain <= AlignedGain: -8960 <= -8476.6875]
 ; VPLAN-CM-PEELING-NEXT:  Scalar Cost = 10240 x 5 = 51200 < VectorCost = 5 + 2559 x 23.3125 + 0 + 15 = 59676.6875
 ; VPLAN-CM-PEELING-NEXT:  Peel loop cost = 5 (scalar peel loop)
 ; VPLAN-CM-PEELING-NEXT:  Main loop vector cost = 59656.6875 + 0
@@ -35,6 +37,7 @@ define void @test(i32* %buf1, i32* %buf2, i32* %buf3) {
 ; VPLAN-CM-NO-PEELING-NEXT:  Cost of Scalar VPlan: 51200
 ; VPLAN-CM-NO-PEELING-NEXT:  '#pragma vector always'/ '#pragma omp simd' is used for the given loop
 ; VPLAN-CM-NO-PEELING-NEXT:  Selected peeling: None
+; VPLAN-CM-NO-PEELING-NEXT:  Using cost model to enable peeling. No peeling variants selected.
 ; VPLAN-CM-NO-PEELING-NEXT:  Scalar Cost = 10240 x 5 = 51200 < VectorCost = 0 + 5120 x 13.125 + 0 + 0 = 67200
 ; VPLAN-CM-NO-PEELING-NEXT:  Peel loop cost = 0 (no peel loop)
 ; VPLAN-CM-NO-PEELING-NEXT:  Main loop vector cost = 67200 + 0
@@ -44,6 +47,7 @@ define void @test(i32* %buf1, i32* %buf2, i32* %buf3) {
 ; VPLAN-CM-NO-PEELING-NEXT:  Remainder loop cost without peel = 0 (no remainder loop)
 ; VPLAN-CM-NO-PEELING-NEXT:  Peeling will not be performed.
 ; VPLAN-CM-NO-PEELING-NEXT:  Selected peeling: None
+; VPLAN-CM-NO-PEELING-NEXT:  Using cost model to enable peeling. No peeling variants selected.
 ; VPLAN-CM-NO-PEELING-NEXT:  Scalar Cost = 10240 x 5 = 51200 < VectorCost = 0 + 2560 x 23.5 + 0 + 0 = 60160
 ; VPLAN-CM-NO-PEELING-NEXT:  Peel loop cost = 0 (no peel loop)
 ; VPLAN-CM-NO-PEELING-NEXT:  Main loop vector cost = 60160 + 0

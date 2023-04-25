@@ -1,6 +1,6 @@
 //===- Diag.cpp - Implements the OptReportDiag strings --------------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -444,6 +444,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15575, "peel loop is static"},
     {15576, "peel loop is dynamic"},
     {15577, "estimated number of scalar loop iterations peeled: %s"},
+    {15578, "DEBUG: %s"},
 
     {25018, "Total number of lines prefetched=%d"},
     {25019, "Number of spatial prefetches=%d, default dist=%d"},
