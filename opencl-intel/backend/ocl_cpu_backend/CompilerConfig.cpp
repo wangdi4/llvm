@@ -90,6 +90,14 @@ void GlobalCompilerConfig::LoadConfig() {
   if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_REQD_SUB_GROUP_SIZE"))
     m_LLVMOptions.emplace_back("-" + OptReqdSubGroupSizes.ArgStr.str() + "=" +
                                Env);
+
+  if (Intel::OpenCL::Utils::getEnvVar(Env, "CL_CONFIG_CPU_O0_VECTORIZATION") &&
+      ConfigFile::ConvertStringToType<bool>(Env)) {
+    // Enable O0 vectorization for SYCL pipeline
+    m_LLVMOptions.emplace_back("-sycl-enable-o0-vectorization");
+    // Enable O0 vectorization for C++ pipeline
+    m_LLVMOptions.emplace_back("-enable-o0-vectorization");
+  }
 }
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(

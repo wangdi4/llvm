@@ -66,7 +66,7 @@ using namespace llvm;
 // optnone attribute.
 extern bool SYCLForceOptnone;
 
-extern cl::opt<bool> EnableO0Vectorization; // INTEL
+extern cl::opt<bool> SYCLEnableO0Vectorization; // INTEL
 
 namespace Intel {
 namespace OpenCL {
@@ -95,7 +95,7 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
   PrintPassOpts.SkipAnalyses = getDebugPM() == DebugLogging::Quiet;
 #if INTEL_CUSTOMIZATION
   vpo::VPlanDriverPass::setRunForSycl(m_IsSYCL);
-  vpo::VPlanDriverPass::setRunForO0(EnableO0Vectorization);
+  vpo::VPlanDriverPass::setRunForO0(SYCLEnableO0Vectorization);
 #endif // INTEL_CUSTOMIZATION
   StandardInstrumentations SI(m_M.getContext(), DebugPassManager,
                               getVerifyEachPass(), PrintPassOpts);
@@ -319,7 +319,7 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
     MPM.addPass(InstToFuncCallPass(ISA));
 #if INTEL_CUSTOMIZATION
     if (Config.GetTransposeSize() == 1 ||
-        (Level == OptimizationLevel::O0 && !EnableO0Vectorization))
+        (Level == OptimizationLevel::O0 && !SYCLEnableO0Vectorization))
       return;
 
     // In profiling mode remove llvm.dbg.value calls before vectorizer.
@@ -354,7 +354,9 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
 void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
   PB.registerVectorizerStartEPCallback(
       [this](FunctionPassManager &FPM, OptimizationLevel Level) {
-        if ((Level == OptimizationLevel::O0 && !EnableO0Vectorization) || // INTEL
+#if INTEL_CUSTOMIZATION
+        if ((Level == OptimizationLevel::O0 && !SYCLEnableO0Vectorization) ||
+#endif // INTEL_CUSTOMIZATION
             Config.GetTransposeSize() == 1)
           return;
 
@@ -372,7 +374,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
                                             OptimizationLevel Level) {
 #if INTEL_CUSTOMIZATION
     if (Config.GetTransposeSize() != 1 &&
-        (Level != OptimizationLevel::O0 || EnableO0Vectorization)) {
+        (Level != OptimizationLevel::O0 || SYCLEnableO0Vectorization)) {
       // Post-vectorizer cleanup.
       MPM.addPass(SYCLKernelPostVecPass());
       if (Level != OptimizationLevel::O0) {
@@ -598,7 +600,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
 
 void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM,
                                     OptimizationLevel Level) {
-  if (Level != OptimizationLevel::O0 || EnableO0Vectorization) { // INTEL
+  if (Level != OptimizationLevel::O0 || SYCLEnableO0Vectorization) { // INTEL
     MPM.addPass(ReplaceScalarWithMaskPass());
 
     // Resolve subgroup call introduced by ReplaceScalarWithMask pass.
@@ -628,7 +630,7 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM,
     MPM.addPass(RemoveDuplicatedBarrierPass(m_debugType == intel::Native));
   }
 
-  if (!EnableO0Vectorization) { // INTEL
+  if (!SYCLEnableO0Vectorization) { // INTEL
     // Begin sub-group emulation
     MPM.addPass(SGBuiltinPass(getVectInfos()));
     MPM.addPass(SGBarrierPropagatePass());

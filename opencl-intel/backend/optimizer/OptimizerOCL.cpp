@@ -70,7 +70,7 @@
 using namespace llvm;
 
 extern bool SYCLForceOptnone;
-extern cl::opt<bool> EnableO0Vectorization; // INTEL
+extern cl::opt<bool> SYCLEnableO0Vectorization; // INTEL
 
 namespace Intel {
 namespace OpenCL {
@@ -103,7 +103,7 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
   PrintPassOpts.SkipAnalyses = getDebugPM() == DebugLogging::Quiet;
 #if INTEL_CUSTOMIZATION
   vpo::VPlanDriverPass::setRunForSycl(m_IsSYCL);
-  vpo::VPlanDriverPass::setRunForO0(EnableO0Vectorization &&
+  vpo::VPlanDriverPass::setRunForO0(SYCLEnableO0Vectorization &&
                                     Level == OptimizationLevel::O0);
 #endif // INTEL_CUSTOMIZATION
   StandardInstrumentations SI(m_M.getContext(), DebugPassManager,
@@ -441,7 +441,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
 #if INTEL_CUSTOMIZATION
   if (Config.GetTransposeSize() != 1 &&
-      (Level != OptimizationLevel::O0 || EnableO0Vectorization)) {
+      (Level != OptimizationLevel::O0 || SYCLEnableO0Vectorization)) {
     if (Level != OptimizationLevel::O0) {
       // In profiling mode remove llvm.dbg.value calls before vectorizer.
       if (isProfiling)
@@ -531,8 +531,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
         Config.GetTransposeSize() == TRANSPOSE_SIZE_NOT_SET)
       MPM.addPass(VectorKernelEliminationPass());
 
-    if (Level != OptimizationLevel::O0)
-      MPM.addPass(HandleVPlanMask(&Optimizer::getVPlanMaskedFuncs()));
+    MPM.addPass(HandleVPlanMask(&Optimizer::getVPlanMaskedFuncs()));
   } else {
 #else // INTEL_CUSTOMIZATION
   {
@@ -783,7 +782,7 @@ void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
     MPM.addPass(RemoveDuplicatedBarrierPass(m_debugType == intel::Native));
   }
 
-  if (!EnableO0Vectorization) { // INTEL
+  if (!SYCLEnableO0Vectorization) { // INTEL
     // Begin sub-group emulation
     MPM.addPass(SGBuiltinPass(getVectInfos()));
     MPM.addPass(SGBarrierPropagatePass());

@@ -9,6 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/SYCLTransforms/Intel_HandleVPlanMask.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
@@ -70,6 +71,11 @@ bool HandleVPlanMask::runImpl(Module &M) {
       FuncsNeedRemovingAttrs.insert(&F);
     }
     if (!HasVPlanMask)
+      continue;
+
+    // Only scalar variant function would have "vector-variants" attribute,
+    // don't process them.
+    if (Call->hasFnAttr(VectorUtils::VectorVariantsAttrName))
       continue;
 
     // Check the type of mask parameter.

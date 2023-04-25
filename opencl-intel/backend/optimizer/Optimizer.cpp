@@ -26,7 +26,7 @@ using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
 // Enable vectorization at O0 optimization level.
-extern cl::opt<bool> EnableO0Vectorization;
+extern cl::opt<bool> SYCLEnableO0Vectorization;
 #endif // INTEL_CUSTOMIZATION
 
 // If set, then optimization passes will process functions as if they have the
