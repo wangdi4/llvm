@@ -55,10 +55,12 @@
 #include "llvm/Analysis/TypeMetadataUtils.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 
@@ -73,6 +75,14 @@ static cl::opt<bool> IPPredDumpTargetFunctions(
     cl::desc("Dump target functions for virtual function calls"));
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// This option is mainly used by LIT tests. This option will be removed
+// once implementation is complete.
+//
+static cl::opt<bool>
+    IPPredSkipCalleeLegalChecks("ippred-skip-callee-legal-checks",
+                                cl::init(false), cl::ReallyHidden,
+                                cl::desc("Skip legal checks for callee"));
 
 // This is used to represent control condition.
 // Value: Condition in the ICmp instruction.
@@ -113,12 +123,27 @@ public:
       SmallVectorImpl<Instruction *> &HoistingInst);
   bool checkPointerHasNonNullValue(Value *V);
   bool guaranteedToBeNonNullOnCondCallEntry(Value *V);
+  void getValueConstant(ICmpInst *IC, Value **VPtr, Constant **CPtr);
+  bool applyHeuristics();
+  void hoistConditions();
   PredCandidate(const PredCandidate &) = delete;
   PredCandidate(PredCandidate &&) = delete;
   PredCandidate &operator=(const PredCandidate &) = delete;
   PredCandidate &operator=(PredCandidate &&) = delete;
 
 private:
+  // Type of value in conditional statement.
+  //   CT_Temp: Temp value
+  //   CT_SimpleLoad: Load instruction with GEP as pointer operand.
+  //   CT_VtableFieldLoad: Getting function from Vtable of an object which can
+  //                       be loaded from memory.
+  enum CondTy : uint8_t {
+    CT_Bottom,
+    CT_Temp,
+    CT_SimpleLoad,
+    CT_VtableFieldLoad
+  };
+
   // Maximum executed basic blocks that are controlled under
   // inside condition statements.
   constexpr static int MaxNumberExecutedBlocks = 2;
@@ -146,6 +171,13 @@ private:
 
   // Map between executed block and corresponding control conditions.
   SmallDenseMap<BasicBlock *, SmallVector<ControlCond, 4>, 2> BBControlCondsMap;
+
+  // Mapping between condition values and their types.
+  SmallDenseMap<Value *, CondTy, 4> CondTypeMap;
+
+  // To hoist a condition value, set of instructions that need to be
+  // hoisted.
+  SmallDenseMap<Value *, SmallVector<Instruction *, 8>, 4> BBHoistCondsMap;
 };
 
 // Main class to implement the transformation.
@@ -176,6 +208,7 @@ private:
   bool mayBBWriteToMemory(BasicBlock *BB);
   bool checkBBControlAllCode(BasicBlock *BB, BasicBlock *ExitBB);
   void gatherCandidates(Function &F);
+  void applyTransformations();
   void buildTypeIdMap();
   bool getVirtualPossibleTargets(CallBase &CB,
                                  SetVector<Function *> &TargetFunctions);
@@ -623,24 +656,18 @@ bool PredCandidate::checkLegalityIssues() {
   for (auto *BB : ControlBlocks) {
     auto *BI = cast<BranchInst>(BB->getTerminator());
     auto *IC = cast<ICmpInst>(BI->getCondition());
-    auto *C1 = dyn_cast<Constant>(IC->getOperand(0));
-    auto *C2 = dyn_cast<Constant>(IC->getOperand(1));
     Value *V = nullptr;
     Constant *C = nullptr;
-    if (C1 && !C2) {
-      V = IC->getOperand(1);
-      C = C1;
-    } else if (!C1 && C2) {
-      V = IC->getOperand(0);
-      C = C2;
-    }
+    getValueConstant(IC, &V, &C);
     if (!V || !C)
       return false;
 
     LLVM_DEBUG(dbgs() << "Check legality for hoisting: " << *V << "\n");
+    CondTypeMap[V] = CT_Bottom;
     SmallPtrSet<Instruction *, 32> Visited;
     if (canBeMovedTo(V, CondCall, Visited)) {
       LLVM_DEBUG(dbgs() << "      Hoisting can be done \n");
+      CondTypeMap[V] = CT_Temp;
       continue;
     }
     SmallVector<Instruction *, 8> HoistingInst;
@@ -648,18 +675,229 @@ bool PredCandidate::checkLegalityIssues() {
       if (!checkAllHoistingInstInControlBlocks(HoistingInst))
         return false;
       LLVM_DEBUG(dbgs() << "      Simple Load Hoisting  \n");
+      CondTypeMap[V] = CT_SimpleLoad;
+      BBHoistCondsMap[V] = HoistingInst;
       continue;
     }
+    HoistingInst.clear();
     if (isHoistableFieldVtableLoad(V, C, HoistingInst)) {
       if (!checkAllHoistingInstInControlBlocks(HoistingInst))
         return false;
       LLVM_DEBUG(dbgs() << "      Field Vtable Load Hoisting  \n");
+      CondTypeMap[V] = CT_VtableFieldLoad;
+      BBHoistCondsMap[V] = HoistingInst;
       continue;
     }
     LLVM_DEBUG(dbgs() << "      Hoisting can't be done \n");
     return false;
   }
   return true;
+}
+
+bool PredCandidate::applyHeuristics() {
+  // TODO:  Add more code here for heuristics.
+  return true;
+}
+
+// Get Value and Constant if "IC" is either "ICmp V, C" or "ICmp C, V".
+void PredCandidate::getValueConstant(ICmpInst *IC, Value **VPtr,
+                                     Constant **CPtr) {
+  auto *C1 = dyn_cast<Constant>(IC->getOperand(0));
+  auto *C2 = dyn_cast<Constant>(IC->getOperand(1));
+  Value *V = nullptr;
+  Constant *C = nullptr;
+  if (C1 && !C2) {
+    V = IC->getOperand(1);
+    C = C1;
+  } else if (!C1 && C2) {
+    V = IC->getOperand(0);
+    C = C2;
+  }
+  if (!V || !C)
+    return;
+  *VPtr = V;
+  *CPtr = C;
+}
+
+// This routine handles all transformations needed to hoist conditions.
+//
+// Before:
+//   bb314:
+//     %i315 = call contains();
+//     br i1 %i315, label %bb316, label %bb347
+//
+//   bb316:
+//     %Cond1 = some_def;
+//     br i1 %Cond1, label %bb347, label %bb320
+//
+//   bb320:
+//     %Cond2 = some_def;
+//     br i1 %Cond2, label %bb339, label %bb329
+//
+//   bb329:
+//     %Cond3 = some_def;
+//     br il %Cond3 label %bb347, label %bb331
+//
+//   bb331:
+//     ExecutionBB1;
+//     br %bb347
+//
+//   bb339:
+//     ExecutionBB2;
+//     br %bb347
+//
+//   bb347:
+//
+// After:
+//   NewBB:
+//    %NewC = (!Cond1 && Cond2) || (!Cond1 && !Cond2 && !Cond3)
+//    br il %NewC, lable %bb314, %bb347
+//
+//   bb314:
+//     %i315 = call contains();
+//     br i1 %i315, label %bb316, label %bb347
+//
+//   bb316:
+//     %Cond1 = some_def;
+//     br i1 %Cond1, label %bb347, label %bb320
+//
+//   bb320:
+//     %Cond2 = some_def;
+//     br i1 %Cond2, label %bb339, label %bb329
+//
+//   bb329:
+//     %Cond3 = some_def;
+//     br il %Cond3 label %bb347, label %bb331
+//
+//   bb331:
+//     ExecutionBB1;
+//     br %bb347
+//
+//   bb339:
+//     ExecutionBB2;
+//     br %bb347
+//
+//   bb347:
+//
+void PredCandidate::hoistConditions() {
+
+  // If there are any operands of "Cloned" instruction are also hoisted, replace
+  // them with newly hoisted instructions using "InstCloneInstMap".
+  auto ReplaceOperandsWithClonedInst =
+      [](Instruction *Cloned,
+         SmallDenseMap<Instruction *, Instruction *, 8> &InstCloneInstMap) {
+        for (Value *Op : Cloned->operands()) {
+          auto *II = dyn_cast<Instruction>(Op);
+          if (!II)
+            continue;
+          // Ignore if operand is not hoisted.
+          if (!InstCloneInstMap.contains(II))
+            continue;
+          Cloned->replaceUsesOfWith(Op, InstCloneInstMap[II]);
+        }
+      };
+
+  // BBHoistCondsMap provides all necessary instructions that need to be hoisted
+  // for given "V" condition value. "IC" is the main ICmpInst that needs to be
+  // hoisted. "CondFlag" indicates whether predicate should be inversed.
+  auto HoistNecessaryInst = [&](Value *V, ICmpInst *IC, bool CondFlag,
+                                IRBuilder<> &B) -> Value * {
+    SmallDenseMap<Instruction *, Instruction *, 8> InstCloneInstMap;
+    Instruction *Cloned = nullptr;
+
+    // Hoist all necessary instructions and fix operands with cloned
+    // instructions.
+    for (auto I = BBHoistCondsMap[V].rbegin(), E = BBHoistCondsMap[V].rend();
+         I != E; I++) {
+      Instruction *CV = *(&*I);
+      Cloned = B.Insert(CV->clone());
+      InstCloneInstMap[CV] = Cloned;
+      ReplaceOperandsWithClonedInst(Cloned, InstCloneInstMap);
+    }
+    assert(Cloned && "Expected Cloned instruction");
+    assert(isa<ICmpInst>(IC) && "Expected ICmpInst");
+
+    Instruction *NewIC = B.Insert(IC->clone());
+    // Replace original value with the hoisted value.
+    if (IC->getOperand(0) == V)
+      NewIC->setOperand(0, Cloned);
+    else
+      NewIC->setOperand(1, Cloned);
+    if (!CondFlag) {
+      auto NewCmpInst = cast<ICmpInst>(NewIC);
+      NewCmpInst->setPredicate(
+          ICmpInst::getInversePredicate(NewCmpInst->getPredicate()));
+    }
+    return NewIC;
+  };
+
+  if (!IPPredSkipCalleeLegalChecks)
+    return;
+
+  // Create insertion pointer just before CondCall.
+  IRBuilder<> B(CondCall);
+
+  bool FirstExeBBCond = true;
+  Value *FinalCond = nullptr;
+  for (auto *BB : ExecutedBlocks) {
+    bool FirstCond = true;
+    Value *ResultCond = nullptr;
+    // All conditions that control executed block are hoisted. Generate
+    // necessary instructions and conditions just before the CondCall.
+    // Process conditions of BBControlCondsMap[BB] in reverse order as the
+    // control conditions are collected from bottom to top.
+    for (auto I = BBControlCondsMap[BB].rbegin(),
+              E = BBControlCondsMap[BB].rend();
+         I != E; I++) {
+      ControlCond *C = &*I;
+
+      auto *IC = cast<ICmpInst>(C->getPointer());
+      Value *V = nullptr;
+      Constant *CompC = nullptr;
+      getValueConstant(IC, &V, &CompC);
+      assert(V && CompC && "Unexpected ICmpInst");
+
+      CondTy CTy = CondTypeMap[V];
+      assert(CTy != CT_Bottom && "Unexpected Condition type");
+
+      Value *NewC;
+      if (CTy == CT_Temp) {
+        // No need to hoist temps as it already proved that the temp can be
+        // hoisted to the CondCall.
+        NewC = V;
+      } else {
+        assert((CTy == CT_SimpleLoad || CTy == CT_VtableFieldLoad) &&
+               "Unexpected Condition type");
+        NewC = HoistNecessaryInst(V, IC, C->getInt(), B);
+      }
+
+      // Skip generting LogicalAND for first time.
+      // Otherwise, generate condtions like "!Cond1 && Cond2"
+      if (FirstCond)
+        ResultCond = NewC;
+      else
+        ResultCond = B.CreateLogicalAnd(ResultCond, NewC);
+      FirstCond = false;
+    }
+
+    // Skip generating LogicalOr for first time.
+    // Otherwise, generate conditions like "(!Cond1 && Cond2) || (!Cond1 &&
+    // !Cond2 && !Cond3)"
+    if (FirstExeBBCond)
+      FinalCond = ResultCond;
+    else
+      FinalCond = B.CreateLogicalOr(FinalCond, ResultCond);
+    FirstExeBBCond = false;
+  }
+  assert(FinalCond && "Expected Final Cond");
+
+  // Fix CFG to control CondCall execution under newly hoisted conditions.
+  BasicBlock *OrigCallBB = CondCall->getParent();
+  BasicBlock *NewThenBB = OrigCallBB->splitBasicBlock(CondCall->getIterator());
+  BranchInst *NewBr = BranchInst::Create(NewThenBB, ExitBB, FinalCond);
+  ReplaceInstWithInst(OrigCallBB->getTerminator(), NewBr);
+
+  // TODO: Need to add more code to handle NullPtrChecks and special conditions.
 }
 
 // Collect all executed blocks that are controlled by all conditions.
@@ -841,10 +1079,22 @@ void IPPredOptImpl::gatherCandidates(Function &F) {
     if (!CandD->checkLegalityIssues())
       continue;
 
+    if (!CandD->applyHeuristics()) {
+      LLVM_DEBUG(dbgs() << "    Skipped: Heuristics\n");
+      continue;
+    }
+
     // TODO: Add more checks here.
 
     Candidates.insert(CandD.release());
   }
+}
+
+void IPPredOptImpl::applyTransformations() {
+  LLVM_DEBUG(dbgs() << "  IP Pred Opt: Transformations\n");
+
+  auto *Candidate = *Candidates.begin();
+  Candidate->hoistConditions();
 }
 
 bool IPPredOptImpl::run(void) {
@@ -870,10 +1120,15 @@ bool IPPredOptImpl::run(void) {
     LLVM_DEBUG(dbgs() << "    Failed: No Candidate\n");
     return false;
   }
+  if (Candidates.size() > MaxNumCandidates) {
+    LLVM_DEBUG(dbgs() << "    Failed: Too many candidates found\n");
+    return false;
+  }
+
   LLVM_DEBUG(dbgs() << "  Found candidate    \n";);
 
-  // TODO: Add more code here
-  return false;
+  applyTransformations();
+  return true;
 }
 
 IPPredOptPass::IPPredOptPass(void) {}

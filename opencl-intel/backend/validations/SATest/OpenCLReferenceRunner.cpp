@@ -996,11 +996,11 @@ void OpenCLReferenceRunner::RunKernel(IRunResult *runResult,
           NEATPlugIn *pNeat = localNEATs[0];
 
           for (uint32_t i = 0; i < localList.size(); ++i) {
-            const GlobalVariable *GV = localList[i];
+            GlobalVariable *GV = const_cast<GlobalVariable *>(localList[i]);
             const Type *GlobalType = GV->getValueType();
 
             // skip unsupported variables
-            if (NEATDataLayout ::IsNEATSupported(GlobalType) == false)
+            if (NEATDataLayout ::IsNEATSupported(GlobalType, GV) == false)
               continue;
 
             LLVM_DEBUG(dbgs() << "About to add NEAT supported "
