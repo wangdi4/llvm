@@ -1658,7 +1658,11 @@ struct RTLOptionTy {
 
   /// Enable/disable using immediate command lists
   /// 0: Disable, 1: Compute, 2: Copy, 3: All
+#if _WIN32
+  uint32_t UseImmCmdList = 0;
+#else
   uint32_t UseImmCmdList = 3;
+#endif
 
   /// Imm is forced by user.
   /// We need to allow users to force Imm for non-PVC devices.
