@@ -4838,12 +4838,18 @@ int32_t __tgt_rtl_is_accessible_addr_range(
     return 0;
 
   auto MemType = DeviceInfo->getMemAllocType(DeviceId, Ptr);
-  if (MemType != CL_MEM_TYPE_HOST_INTEL && MemType != CL_MEM_TYPE_SHARED_INTEL)
+  switch (MemType) {
+  case CL_MEM_TYPE_HOST_INTEL:
+    if (DeviceInfo->Option.Flags.UseSingleContext)
+      DeviceId = DeviceInfo->NumDevices;
+    [[fallthrough]];
+  case CL_MEM_TYPE_DEVICE_INTEL:
+    [[fallthrough]];
+  case CL_MEM_TYPE_SHARED_INTEL:
+    break;
+  default:
     return 0;
-
-  if (MemType == CL_MEM_TYPE_HOST_INTEL &&
-      DeviceInfo->Option.Flags.UseSingleContext)
-    DeviceId = DeviceInfo->NumDevices;
+  }
 
   if (DeviceInfo->MemAllocInfo[DeviceId]->contains(Ptr, Size))
     return 1;
