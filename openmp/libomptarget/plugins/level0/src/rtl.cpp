@@ -7271,17 +7271,22 @@ int32_t __tgt_rtl_is_accessible_addr_range(int32_t DeviceId, const void *Ptr,
     return 0;
 
   auto MemType = DeviceInfo->getMemAllocType(Ptr);
-  if (MemType != ZE_MEMORY_TYPE_SHARED && MemType != ZE_MEMORY_TYPE_HOST)
-    return 0;
+  ze_device_handle_t Device = nullptr;
 
-  DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
-  auto Device = (MemType == ZE_MEMORY_TYPE_SHARED)
-                    ? DeviceInfo->Devices[DeviceId] : nullptr;
-  auto &Allocator = DeviceInfo->MemAllocator.at(Device);
-  if (Allocator.contains(Ptr, Size))
-    return 1;
-  else
+  switch (MemType) {
+  case ZE_MEMORY_TYPE_HOST:
+    break; // Device is nullptr
+  case ZE_MEMORY_TYPE_DEVICE:
+    [[fallthrough]];
+  case ZE_MEMORY_TYPE_SHARED:
+    Device = DeviceInfo->Devices[DeviceId];
+    break;
+  default:
     return 0;
+  }
+
+  auto &Allocator = DeviceInfo->MemAllocator.at(Device);
+  return Allocator.contains(Ptr, Size) ? 1 : 0;
 }
 
 #if INTEL_CUSTOMIZATION
