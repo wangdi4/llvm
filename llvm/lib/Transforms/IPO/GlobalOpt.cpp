@@ -2471,22 +2471,21 @@ static void setUsedInitializer(GlobalVariable &V,
   }
 
   // Get address space of pointers in the array of pointers.
-  unsigned ElemAddrSpace = 0;
   const Type *UsedArrayType = V.getValueType();
-
-  if (const auto *VAT = dyn_cast<ArrayType>(UsedArrayType))
-    if (const auto *VEPT = dyn_cast<PointerType>(VAT->getArrayElementType()))
-      ElemAddrSpace = VEPT->getAddressSpace();
+  const auto *VAT = cast<ArrayType>(UsedArrayType);
+  const auto *VEPT = cast<PointerType>(VAT->getArrayElementType());
 
   // Type of pointer to the array of pointers.
-  PointerType *Int8PtrTy = Type::getInt8PtrTy(V.getContext(), ElemAddrSpace);
+  PointerType *Int8PtrTy =
+      Type::getInt8PtrTy(V.getContext(), VEPT->getAddressSpace());
 
   SmallVector<Constant *, 8> UsedArray;
   for (GlobalValue *GV : Init) {
-    Constant *Cast
-      = ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, Int8PtrTy);
+    Constant *Cast =
+        ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV, Int8PtrTy);
     UsedArray.push_back(Cast);
   }
+
   // Sort to get deterministic order.
   array_pod_sort(UsedArray.begin(), UsedArray.end(), compareNames);
   ArrayType *ATy = ArrayType::get(Int8PtrTy, UsedArray.size());
