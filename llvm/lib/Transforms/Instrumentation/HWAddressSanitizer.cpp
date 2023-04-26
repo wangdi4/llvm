@@ -1,4 +1,4 @@
-//===- HWAddressSanitizer.cpp - detector of uninitialized reads -------===//
+//===- HWAddressSanitizer.cpp - memory access error detector --------------===//
 // INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
