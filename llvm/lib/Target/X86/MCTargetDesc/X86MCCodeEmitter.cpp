@@ -1724,7 +1724,13 @@ PrefixKind X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     CurOp += X86::AddrNumOperands;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    Prefix.setRR2(MI, CurOp++);
+#else // INTEL_FEATURE_ISA_APX_F
     Prefix.setR(MI, CurOp++);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   case X86II::MRMXmCC:
   case X86II::MRMXm:
