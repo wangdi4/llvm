@@ -2230,6 +2230,7 @@ def OMP_DeclareTargetFunction : Directive<"declare target function"> {
 def OMP_scope : Directive<"scope"> {
   let allowedClauses = [
     VersionedClause<OMPC_Private>,
+    VersionedClause<OMPC_FirstPrivate, 52>,
     VersionedClause<OMPC_Reduction>
   ];
   let allowedOnceClauses = [
