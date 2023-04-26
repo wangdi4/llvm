@@ -12,59 +12,59 @@
 ; CHECK-NEXT: LIBFUNCS NOT FOUND: 0
 
 ; Function Attrs: nounwind uwtable
-define i8* @allocate()  {
+define ptr @allocate()  {
 entry:
-  %call = call noalias i8* @malloc(i64 8)
-  ret i8* %call
+  %call = call noalias ptr @malloc(i64 8)
+  ret ptr %call
 }
 
 ; Function Attrs: nounwind
-declare noalias i8* @malloc(i64)
+declare noalias ptr @malloc(i64)
 
 ; Function Attrs: nounwind uwtable
-define void @dealloc(i8* %ptr)  {
+define void @dealloc(ptr %ptr)  {
 entry:
-  %ptr.addr = alloca i8*, align 8
-  store i8* %ptr, i8** %ptr.addr, align 8
-  %0 = load i8*, i8** %ptr.addr, align 8
-  call void @free(i8* %0)
+  %ptr.addr = alloca ptr, align 8
+  store ptr %ptr, ptr %ptr.addr, align 8
+  %0 = load ptr, ptr %ptr.addr, align 8
+  call void @free(ptr %0)
   ret void
 }
 
 ; Function Attrs: nounwind uwtable
-define i8* @allocate2()  {
+define ptr @allocate2()  {
 entry:
-  %call = call noalias i8* @malloc(i64 8)
-  ret i8* %call
+  %call = call noalias ptr @malloc(i64 8)
+  ret ptr %call
 }
 
 ; Function Attrs: nounwind uwtable
-define void @dealloc2(i8* %ptr)  {
+define void @dealloc2(ptr %ptr)  {
 entry:
-  %ptr.addr = alloca i8*, align 8
-  store i8* %ptr, i8** %ptr.addr, align 8
-  %0 = load i8*, i8** %ptr.addr, align 8
-  call void @free(i8* %0)
+  %ptr.addr = alloca ptr, align 8
+  store ptr %ptr, ptr %ptr.addr, align 8
+  %0 = load ptr, ptr %ptr.addr, align 8
+  call void @free(ptr %0)
   ret void
 }
 
 ; Function Attrs: nounwind
-declare void @free(i8*)
+declare void @free(ptr)
 
 ; Function Attrs: nounwind uwtable
 define i32 @main()  {
 entry:
-  %ptr1 = alloca i8*, align 8
-  %call = call i8* @allocate()
-  store i8* %call, i8** %ptr1, align 8
-  %0 = load i8*, i8** %ptr1, align 8
-  call void @dealloc(i8* %0)
+  %ptr1 = alloca ptr, align 8
+  %call = call ptr @allocate()
+  store ptr %call, ptr %ptr1, align 8
+  %0 = load ptr, ptr %ptr1, align 8
+  call void @dealloc(ptr %0)
 
-  %ptr2 = alloca i8*, align 8
-  %call2 = call i8* @allocate2()
-  store i8* %call2, i8** %ptr2, align 8
-  %1 = load i8*, i8** %ptr2, align 8
-  call void @dealloc2(i8* %1)
+  %ptr2 = alloca ptr, align 8
+  %call2 = call ptr @allocate2()
+  store ptr %call2, ptr %ptr2, align 8
+  %1 = load ptr, ptr %ptr2, align 8
+  call void @dealloc2(ptr %1)
 
   ret i32 0
 }

@@ -15,12 +15,12 @@
 @hello_ = common unnamed_addr global [4 x i8] zeroinitializer, align 32
 @0 = internal unnamed_addr constant i32 2
 
-declare i32 @for_set_reentrancy(i32*) #0
+declare i32 @for_set_reentrancy(ptr) #0
 
 define void @MAIN__() #0 {
 alloca_0:
-  %func_result = call i32 @for_set_reentrancy(i32* @0)
-  store i32 5, i32* bitcast ([4 x i8]* @hello_ to i32*), align 1
+  %func_result = call i32 @for_set_reentrancy(ptr @0)
+  store i32 5, ptr @hello_, align 1
   ret void
 }
 

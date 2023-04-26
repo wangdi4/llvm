@@ -200,32 +200,33 @@ private:
   /// Register an explicit private variable
   /// Return true if successfully consumed.
   bool visitPrivate(const PrivateItem *Item) {
-    Type *Type = nullptr;
+    Type *PrivType = nullptr;
     Value *NumElements = nullptr;
-    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+    std::tie(PrivType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
 
-    assert(Type && "Missed OMP clause item type!");
+    assert(PrivType && "Missed OMP clause item type!");
 
-    Type = adjustTypeIfArray(Type, NumElements);
-    if (!Type)
+    PrivType = adjustTypeIfArray(PrivType, NumElements);
+    if (!PrivType)
       return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
                      "Cannot handle array privates yet.");
 
     ValueTy *Val = Item->getOrig<IR>();
 
     if (Item->getIsNonPod()) {
-      addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
-                     nullptr /* no CopyAssign */, PrivateKindTy::NonLast,
-                     Item->getIsF90NonPod());
+      addLoopPrivate(Val, PrivType, Item->getConstructor(),
+                     Item->getDestructor(), nullptr /* no CopyAssign */,
+                     PrivateKindTy::NonLast, Item->getIsF90NonPod());
       return true;
     }
 
-    if (!EnableHIRPrivateArrays && IR == IRKind::HIR && isa<ArrayType>(Type))
+    if (!EnableHIRPrivateArrays && IR == IRKind::HIR &&
+        isa<ArrayType>(PrivType))
       return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
                      "Private array is not supported");
 
-    addLoopPrivate(Val, Type, PrivateKindTy::NonLast,
+    addLoopPrivate(Val, PrivType, PrivateKindTy::NonLast,
                    Item->getIsF90DopeVector());
     return true;
   }
@@ -233,37 +234,38 @@ private:
   /// Register an explicit last private variable
   /// Return true if successfully consumed.
   bool visitLastPrivate(const LastprivateItem *Item) {
-    Type *Type = nullptr;
+    Type *LPrivType = nullptr;
     Value *NumElements = nullptr;
-    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+    std::tie(LPrivType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
-    assert(Type && "Missed OMP clause item type!");
+    assert(LPrivType && "Missed OMP clause item type!");
 
-    Type = adjustTypeIfArray(Type, NumElements);
-    if (!Type)
+    LPrivType = adjustTypeIfArray(LPrivType, NumElements);
+    if (!LPrivType)
       return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
                      "Cannot handle array privates yet.");
 
     ValueTy *Val = Item->getOrig<IR>();
 
     if (Item->getIsNonPod()) {
-      addLoopPrivate(Val, Type, Item->getConstructor(), Item->getDestructor(),
-                     Item->getCopyAssign(), PrivateKindTy::Last,
-                     Item->getIsF90NonPod());
+      addLoopPrivate(Val, LPrivType, Item->getConstructor(),
+                     Item->getDestructor(), Item->getCopyAssign(),
+                     PrivateKindTy::Last, Item->getIsF90NonPod());
       return true;
     }
 
-    if (!EnableHIRPrivateArrays && IR == IRKind::HIR && isa<ArrayType>(Type))
+    if (!EnableHIRPrivateArrays && IR == IRKind::HIR &&
+        isa<ArrayType>(LPrivType))
       return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
                      "Private array is not supported");
 
     // Until CG to extract vector by non-const index is implemented.
-    if (Item->getIsConditional() && Type->isVectorTy())
+    if (Item->getIsConditional() && LPrivType->isVectorTy())
       return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
                      "Conditional lastprivate of a vector type is not "
                      "supported.");
 
-    addLoopPrivate(Val, Type,
+    addLoopPrivate(Val, LPrivType,
                    Item->getIsConditional() ? PrivateKindTy::Conditional
                                             : PrivateKindTy::Last,
                    Item->getIsF90DopeVector());
@@ -273,50 +275,50 @@ private:
   /// Register explicit linear variable
   void visitLinear(const LinearItem *Item) {
     Type *PointeeTy = nullptr;
-    Type *Type = nullptr;
+    Type *LinType = nullptr;
     Value *NumElements = nullptr;
-    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+    std::tie(LinType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
     // TODO: Move to VPOParoptUtils::getItemInfo
     if (Item->getIsTyped() && Item->getIsPointerToPointer()) {
       PointeeTy = Item->getPointeeElementTypeFromIR();
     }
-    assert(Type && "Missed OMP clause item type!");
+    assert(LinType && "Missed OMP clause item type!");
 
     // NumElements == nullptr by convention means the number is 1.
     // Arrays are not allowed by OMP standard thus any values including
     // a constant are illegal for linears.
-    assert(!isa<ArrayType>(Type) && !NumElements &&
+    assert(!isa<ArrayType>(LinType) && !NumElements &&
            "Unexpected number of elements");
 
     ValueTy *Val = Item->getOrig<IR>();
     ValueTy *Step = Item->getStep<IR>();
     bool IsIV = Item->getIsIV();
-    addLinear(Val, Type, PointeeTy, Step, IsIV);
+    addLinear(Val, LinType, PointeeTy, Step, IsIV);
   }
 
   /// Register explicit reduction variable
   /// Return true if successfully consumed.
   bool visitReduction(const ReductionItem *Item,
                       const WRNVecLoopNode *WRLp) {
-    Type *Type = nullptr;
+    Type *RedType = nullptr;
     Value *NumElements = nullptr;
-    std::tie(Type, NumElements, /* AddrSpace */ std::ignore) =
+    std::tie(RedType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
-    assert(Type && "Missed OMP clause item type!");
+    assert(RedType && "Missed OMP clause item type!");
 
-    Type = adjustTypeIfArray(Type, NumElements);
+    RedType = adjustTypeIfArray(RedType, NumElements);
     // Bailout for unknown array size.
-    if (!Type)
+    if (!RedType)
       // CMPLRLLVM-20621.
       return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
                      "Cannot handle array reductions.");
 
     // Other temporary bailouts for array reductions.
-    if (auto *ArrTy = dyn_cast<ArrayType>(Type)) {
+    if (auto *ArrTy = dyn_cast<ArrayType>(RedType)) {
       // Prototype supported only for POD type arrays.
-      Type = ArrTy->getElementType();
-      if (!Type->isSingleValueType())
+      RedType = ArrTy->getElementType();
+      if (!RedType->isSingleValueType())
         return bailout(OptReportVerbosity::High,
                        VPlanDriverImpl::BailoutRemarkID,
                        "Cannot handle array reduction with non-single value "
@@ -351,7 +353,7 @@ private:
     }
 
     ValueTy *Val = Item->getOrig<IR>();
-    RecurKind Kind = getReductionRecurKind(Item, Type);
+    RecurKind Kind = getReductionRecurKind(Item, RedType);
 
     if (!forceUDSReductionVec() && Kind == RecurKind::Udr &&
         Item->getIsInscan())
