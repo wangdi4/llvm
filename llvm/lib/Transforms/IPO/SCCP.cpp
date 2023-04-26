@@ -411,16 +411,13 @@ static bool runIPSCCP(
       StoreInst *SI = cast<StoreInst>(GV->user_back());
       SI->eraseFromParent();
     }
-<<<<<<< HEAD
+    MadeChanges = true;
 #if INTEL_COLLAB
     if (GV->isTargetDeclare())
       LLVM_DEBUG(dbgs() << "Constant GV '" << GV->getName()
                         << "' is target-declare and not removed\n");
     else
 #endif // INTEL_COLLAB
-=======
-    MadeChanges = true;
->>>>>>> 5ecdc8147b0e1def0aa9c8eebff85b67f36e8766
     M.eraseGlobalVariable(GV);
     ++NumGlobalConst;
   }
