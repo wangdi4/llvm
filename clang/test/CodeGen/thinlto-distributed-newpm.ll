@@ -1,20 +1,16 @@
 ; FIXME: This test should use CHECK-NEXT to keep up-to-date.
 ; REQUIRES: x86-registered-target
 
-<<<<<<< HEAD
 ; INTEL CUSTOMIZATION
 ; XFAIL: *
 ; END INTEL CUSTOMIZATION
 
-; Validate ThinLTO post link pipeline at O2 and O3
-=======
 ;; Validate that we set up the ThinLTO post link pipeline at O2 and O3
 ;; for a ThinLTO distributed backend invoked via clang.
 ;; Since LLVM tests already more thoroughly test this pipeline, and to
 ;; avoid making this clang test too sensitive to LLVM pipeline changes,
 ;; here we simply confirm that an LTO backend-specific pass is getting
 ;; invoked (WPD).
->>>>>>> e5b0276dc882f7c5b2a349e2f02abf16b1d41322
 
 ; RUN: opt -thinlto-bc -o %t.o %s
 
