@@ -360,19 +360,11 @@ define void @multi1(ptr nocapture %x) #0 {
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP0:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 6 ;INTEL
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 [[INDVARS_IV]]
-; CHECK-NEXT:    store i32 [[CALL]], i32* [[ARRAYIDX]], align 4
-; CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 [[TMP0]]
-; CHECK-NEXT:    store i32 [[CALL]], i32* [[ARRAYIDX6]], align 4
-=======
-; CHECK-NEXT:    [[TMP0:%.*]] = add i64 [[INDVARS_IV]], 6
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[X]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    store i32 [[CALL]], ptr [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds i32, ptr [[X]], i64 [[TMP0]]
 ; CHECK-NEXT:    store i32 [[CALL]], ptr [[ARRAYIDX6]], align 4
->>>>>>> f30f34e6ba411c43315f9065860a51c23ce4136a
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[EXITCOND1:%.*]] = icmp eq i64 [[INDVARS_IV]], 1499
 ; CHECK-NEXT:    br i1 [[EXITCOND1]], label [[FOR_END:%.*]], label [[FOR_BODY]]
@@ -434,19 +426,11 @@ define void @multi2(ptr nocapture %x) #0 {
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP0:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 3 ;INTEL
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 [[INDVARS_IV]]
-; CHECK-NEXT:    store i32 [[CALL]], i32* [[ARRAYIDX]], align 4
-; CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 [[TMP0]]
-; CHECK-NEXT:    store i32 [[CALL]], i32* [[ARRAYIDX6]], align 4
-=======
-; CHECK-NEXT:    [[TMP0:%.*]] = add i64 [[INDVARS_IV]], 3
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[X]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    store i32 [[CALL]], ptr [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX6:%.*]] = getelementptr inbounds i32, ptr [[X]], i64 [[TMP0]]
 ; CHECK-NEXT:    store i32 [[CALL]], ptr [[ARRAYIDX6]], align 4
->>>>>>> f30f34e6ba411c43315f9065860a51c23ce4136a
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[EXITCOND1:%.*]] = icmp eq i64 [[INDVARS_IV]], 1499
 ; CHECK-NEXT:    br i1 [[EXITCOND1]], label [[FOR_END:%.*]], label [[FOR_BODY]]
@@ -507,15 +491,9 @@ define void @multi3(ptr nocapture %x) #0 {
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP0:%.*]] = add nuw nsw i64 [[INDVARS_IV]], 3 ;INTEL
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[X]], i64 [[TMP0]]
-; CHECK-NEXT:    store i32 [[CALL]], i32* [[ARRAYIDX]], align 4
-=======
-; CHECK-NEXT:    [[TMP0:%.*]] = add i64 [[INDVARS_IV]], 3
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[X]], i64 [[TMP0]]
 ; CHECK-NEXT:    store i32 [[CALL]], ptr [[ARRAYIDX]], align 4
->>>>>>> f30f34e6ba411c43315f9065860a51c23ce4136a
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[EXITCOND1:%.*]] = icmp eq i64 [[INDVARS_IV]], 1499
 ; CHECK-NEXT:    br i1 [[EXITCOND1]], label [[FOR_END:%.*]], label [[FOR_BODY]]
