@@ -181,7 +181,7 @@ public:
     /// - the step instruction of the induction variable can be found
     /// - the final value of the induction variable can be found
     ///
-    /// Else None.
+    /// Else std::nullopt.
     static std::optional<Loop::LoopBounds>
     getBounds(const Loop &L, PHINode &IndVar, ScalarEvolution &SE);
 
