@@ -482,27 +482,32 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
   if (!Changed)
     return false;
 
-  // Multiversion GlobalAliases aliasing multiversioned functions.
+  // Collect GlobalAliases aliasing multiversioned functions.
   SmallVector<GlobalAlias*> GlobalAliasWorklist;
   for (GlobalAlias &GA : M.aliases()) {
 
     GlobalValue *Fn = GA.getAliaseeObject();
-    if (Orig2MultiFuncs.count(Fn) == 0)
-      continue;
+    if (Fn && Orig2MultiFuncs.count(Fn) != 0)
+      GlobalAliasWorklist.push_back(&GA);
+  }
+
+  // Multiversion GlobalAliases aliasing multiversioned functions.
+  for (GlobalAlias *GA : GlobalAliasWorklist) {
 
     // Set GA's name to indicate that it aliases the generic version of Fn.
-    std::string Name = GA.getName().str();
-    GA.setName(Name + ".A");
+    std::string Name = GA->getName().str();
+    GA->setName(Name + ".A");
 
     // Make a clone of GA aliasing the dispatcher.
+    GlobalValue *Fn = GA->getAliaseeObject();
     GlobalValue *Dispatcher = std::get<1>(Orig2MultiFuncs[Fn]);
     GlobalAlias *DispatcherGA =
-      GlobalAlias::create(GA.getValueType(), GA.getType()->getPointerAddressSpace(),
-                          GA.getLinkage(), Name, &M);
-    DispatcherGA->copyAttributesFrom(&GA);
+      GlobalAlias::create(GA->getValueType(), GA->getType()->getPointerAddressSpace(),
+                          GA->getLinkage(), Name, &M);
+    DispatcherGA->copyAttributesFrom(GA);
     ValueToValueMapTy VMap;
     VMap[Fn] = Dispatcher;
-    if (const Constant *C = GA.getAliasee())
+    if (const Constant *C = GA->getAliasee())
       DispatcherGA->setAliasee(MapValue(C, VMap));
 
     // Make clones of GA each aliasing a version of Fn.
@@ -515,22 +520,21 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       const StringRef TargetCpuDealiased = CPUSpecificCPUDispatchNameDealias(TargetCpu);
 
       auto *NewGA =
-        GlobalAlias::create(GA.getValueType(),
-                            GA.getType()->getPointerAddressSpace(), GA.getLinkage(),
+        GlobalAlias::create(GA->getValueType(),
+                            GA->getType()->getPointerAddressSpace(), GA->getLinkage(),
                             Name + "." + getTargetSuffix(TargetCpuDealiased), &M);
 
       ValueToValueMapTy VMap;
       VMap[Fn] = I.second;
-      if (const Constant *C = GA.getAliasee())
+      if (const Constant *C = GA->getAliasee())
         NewGA->setAliasee(MapValue(C, VMap));
-      NewGA->copyAttributesFrom(&GA);
+      NewGA->copyAttributesFrom(GA);
 
       MultiFunc2TargetExt[NewGA] = I.first;
       GAClones[I.first] = NewGA;
     }
 
-    Orig2MultiFuncs[&GA] = {nullptr, DispatcherGA, nullptr, std::move(GAClones)};
-    GlobalAliasWorklist.push_back(&GA);
+    Orig2MultiFuncs[GA] = {nullptr, DispatcherGA, nullptr, std::move(GAClones)};
   }
 
   // Update uses of the original functions.
