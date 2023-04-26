@@ -1027,8 +1027,8 @@ struct PeelDecision {
 
     if (PeelEvaluator.getPeelLoopKind() ==
         VPlanPeelEvaluator::PeelLoopKind::None) {
-      ShouldPeel = false;
       Scenario = "No peeling variants selected.";
+      ShouldPeel = false;
     } else if (!IsLoopTripCountEstimated && !PeelIsDynamic) {
       // When trip count of main loop is known, rely on cost model completely.
       // Same for when the trip count of peel loops is known, which is not the
@@ -1036,46 +1036,44 @@ struct PeelDecision {
       // case of VF - 1 iterations. Let further tests below drive the decision
       // on whether or not to peel.
       Scenario = "Trip count is known; peel is static.";
-      ShouldPeel = UnalignedGain <= AlignedGain;
+      ShouldPeel = UnalignedGain < AlignedGain;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       llvm::raw_string_ostream{Formula}
-          << "UnalignedGain <= AlignedGain: " << UnalignedGain
-          << " <= " << AlignedGain;
+          << "UnalignedGain < AlignedGain: " << UnalignedGain << " < "
+          << AlignedGain;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
     } else if (TripCount != DefaultTripCount) {
       // Otherwise favor aligned with some tolerance of scalar iterations.
       Scenario = "Trip count != default trip count";
       ShouldPeel =
-          UnalignedGain <=
+          UnalignedGain <
           AlignedGain + ScalarCost *
                             FavorAlignedToleranceNonDefaultTCEst.getValue() /
                             100;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       llvm::raw_string_ostream{Formula}
-          << "UnalignedGain <= "
+          << "UnalignedGain < "
           << "(AlignedGain + (ScalarCost * "
           << "FavorAlignedToleranceNonDefaultTCEst / 100)): " << UnalignedGain
-          << " <= (" << AlignedGain << " + (" << ScalarCost << " * "
+          << " < (" << AlignedGain << " + (" << ScalarCost << " * "
           << FavorAlignedToleranceNonDefaultTCEst << " / 100))";
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
     } else if (UnalignedGain > 0 && AlignedGain > 0) {
       Scenario = "Trip count == default trip count; aligned/unaligned gains "
                  "are both positive.";
-      ShouldPeel = UnalignedGain <=
+      ShouldPeel = UnalignedGain <
                    FavorAlignedMultiplierDefaultTCEst.getValue() * AlignedGain;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       llvm::raw_string_ostream{Formula}
-          << "UnalignedGain <= FavorAlignedMultiplierDefaultTCEst "
-          << "* AlignedGain: " << UnalignedGain
-          << " <= " << FavorAlignedMultiplierDefaultTCEst << " * "
-          << AlignedGain;
+          << "UnalignedGain < FavorAlignedMultiplierDefaultTCEst "
+          << "* AlignedGain: " << UnalignedGain << " < "
+          << FavorAlignedMultiplierDefaultTCEst << " * " << AlignedGain;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
     } else {
-      // We're here when one (or both) is <= 0. Perhaps, going unaligned is
-      // correct.
+      // We're here when one (or both) is <= 0. Perhaps, not peeling is correct.
       Scenario = "Trip count == default trip count; one of aligned/unaligned "
                  "gains is negative.";
-      ShouldPeel = true;
+      ShouldPeel = false;
     }
     LLVM_DEBUG(dbgs() << Scenario << "\n");
     if (!Formula.empty())

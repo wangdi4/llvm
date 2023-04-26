@@ -26,7 +26,7 @@ define void @foo() {
 ; CHECK-NEXT:      remark #15578: DEBUG: estimated gain from peeling: -118
 ; CHECK-NEXT:      remark #15578: DEBUG: estimated gain from *not* peeling: -131
 ; CHECK-NEXT:      remark #15578: DEBUG: peel kind: static
-; CHECK-NEXT:      remark #15578: DEBUG: peel formula: UnalignedGain <= AlignedGain: -131.25 <= -118
+; CHECK-NEXT:      remark #15578: DEBUG: peel formula: UnalignedGain < AlignedGain: -131.25 < -118
 ; CHECK:       LOOP END
 ;
 entry:
