@@ -165,6 +165,7 @@ set (SUPPORT_SOURCES
   Compression.cpp
   CRC.cpp
   ConvertUTF.cpp
+  ConvertEBCDIC.cpp
   ConvertUTFWrapper.cpp
   CrashRecoveryContext.cpp
   CSKYAttributes.cpp
