@@ -5022,6 +5022,7 @@ public:
     Policy.SuppressUnwrittenScope = true;
     Policy.PrintCanonicalTypes = true;
     Policy.SkipCanonicalizationOfTemplateTypeParms = true;
+    Policy.SuppressFinalSpecifier = true;
   }
 
   void Visit(QualType T) {
