@@ -13,8 +13,8 @@
 target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"
 
-@aliassub = unnamed_addr alias i32 (i32), i32 (i32)* @sub
-@aliassub2 = unnamed_addr alias i32 (i32), i32 (i32)* @aliassub
+@aliassub = unnamed_addr alias i32 (i32), ptr @sub
+@aliassub2 = unnamed_addr alias i32 (i32), ptr @aliassub
 
 define internal i32 @add(i32 %a) {
 entry:
@@ -28,7 +28,7 @@ entry:
   ret i32 %sub
 }
 
-define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
+define i32 @main(i32 %argc, ptr nocapture readnone %argv) {
 entry:
   %call1 = call i32 @add(i32 %argc)
   %call2 = call i32 @aliassub2(i32 %call1)

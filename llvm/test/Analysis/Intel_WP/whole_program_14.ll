@@ -13,7 +13,7 @@
 ; CHECK-NOT:        bar
 
 declare void @foo()
-declare i8* @bar()
+declare ptr @bar()
 
 ; Function Attrs: nounwind uwtable
 define i32 @main()  {

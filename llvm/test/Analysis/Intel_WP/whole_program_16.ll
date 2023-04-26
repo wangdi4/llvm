@@ -17,15 +17,15 @@
 $bar_alias = comdat largest
 $bar = comdat any
 
-@anon.constant = private unnamed_addr constant { [1 x i8*] } { [1 x i8*] [i8* bitcast (i8* ()* @bar to i8*)] }, comdat($bar_alias)
-@bar_alias = unnamed_addr alias i8*, getelementptr inbounds ({ [1 x i8*] }, { [1 x i8*] }* @anon.constant, i32 0, i32 0, i32 1)
+@anon.constant = private unnamed_addr constant { [1 x ptr] } { [1 x ptr] [ptr @bar] }, comdat($bar_alias)
+@bar_alias = unnamed_addr alias ptr, getelementptr inbounds ({ [1 x ptr] }, ptr @anon.constant, i32 0, i32 0, i32 1)
 
 declare void @foo()
-declare noalias i8* @malloc(i64)
+declare noalias ptr @malloc(i64)
 
-define weak_odr dso_local i8* @bar() unnamed_addr comdat align 2 {
-  %call = call noalias i8* @malloc(i64 8)
-  ret i8* %call
+define weak_odr dso_local ptr @bar() unnamed_addr comdat align 2 {
+  %call = call noalias ptr @malloc(i64 8)
+  ret ptr %call
 }
 
 ; Function Attrs: nounwind uwtable
