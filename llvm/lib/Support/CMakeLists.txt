@@ -298,15 +298,18 @@ set (SUPPORT_SOURCES
 
   LINK_LIBS
   ${system_libs} ${imported_libs} ${delayload_flags}
-
-  LINK_COMPONENTS
-  Demangle
+# INTEL_CUSTOMIZATION
   )
+#end INTEL_CUSTOMIZATION
 
 # INTEL_CUSTOMIZATION
-add_llvm_component_library(LLVMSupport ${SUPPORT_SOURCES})
+add_llvm_component_library(LLVMSupport ${SUPPORT_SOURCES}
+  LINK_COMPONENTS
+  Demangle
+)
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   add_llvm_component_library(LLVMSupport_stdcpp ${SUPPORT_SOURCES}
+                             LINK_COMPONENTS Demangle_stdcpp
                              STDLIB stdc++)
   set_property(TARGET LLVMSupport_stdcpp
                PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
@@ -318,6 +321,7 @@ if (WIN32)
     set(_STL_FLAG "/MD")
   endif()
   add_llvm_component_library(LLVMSupport_dyn ${SUPPORT_SOURCES}
+                             LINK_COMPONENTS Demangle
                              STDLIB "${_STL_FLAG}")
   set_property(TARGET LLVMSupport_dyn
                PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
