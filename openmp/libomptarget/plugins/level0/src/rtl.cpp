@@ -6749,14 +6749,10 @@ __tgt_target_table *__tgt_rtl_load_binary(
   auto *Table = Program.getTablePtr();
 
 #if INTEL_CUSTOMIZATION
-  OMPT_CALLBACK(ompt_callback_device_load, DeviceId,
-                "" /* filename */,
-                -1 /* offset_in_file */,
-                nullptr /* vma_in_file */,
-                Table->EntriesEnd - Table->EntriesBegin /* bytes */,
-                Table->EntriesBegin /* host_addr */,
-                nullptr /* device_addr */,
-                0 /* module_id */);
+  OMPT_CALLBACK(ompt_callback_device_load, DeviceId, nullptr /* filename */,
+                -1 /* offset_in_file */, nullptr /* vma_in_file */,
+                ImageSize /* bytes */, Image->ImageStart /* host_addr */,
+                nullptr /* device_addr */, 0 /* module_id */);
 #endif // INTEL_CUSTOMIZATION
 
   return Table;
