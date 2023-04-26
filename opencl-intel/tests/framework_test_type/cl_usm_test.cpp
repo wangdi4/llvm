@@ -354,7 +354,7 @@ TEST_F(USMTest, memBlockingFreeAfterReleaseOneOfTwoEvents) {
 
   // Workload should be large enough so that kernel is not finished when
   // clMemBlockingFreeINTEL is called.
-  size_t num = 16384;
+  size_t num = 16777216;
   size_t size = num * sizeof(cl_int);
   cl_int *buffer = (cl_int *)clSharedMemAllocINTEL(m_context, m_device, nullptr,
                                                    size, /*alignment*/ 0, &err);
