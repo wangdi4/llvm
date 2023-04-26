@@ -131,33 +131,33 @@ INLINE int __kmp_get_active_sub_group_leader_id() {
   return sub_group_scan_inclusive_min(id);
 }
 
+/// Exponential backoff for acquiring lock
+INLINE void backoff(uint cnt, volatile int *lock) {
+  uint max_cnt = 20;
+  if (cnt > max_cnt)
+    cnt = max_cnt;
+  uint ub = (1 << cnt);
+  for (uint i = 0; i < ub; i++)
+    if (i == ub - 1)
+      *(lock);
+}
+
 /// Acquire lock for a sub group
 INLINE void __kmp_acquire_lock(int *lock) {
   if (__spirv_BuiltInSubgroupLocalInvocationId ==
       __kmp_get_active_sub_group_leader_id()) {
     int expected;
-    bool acquired;
-#if INTEL_CUSTOMIZATION
-    int cmpxchg_cnt = 0, cmpxchg_ub = 2048;
-#endif // INTEL_CUSTOMIZATION
+    bool acquired = false;
+    uint backoff_cnt = 1;
     do {
       expected = 0;
-#if INTEL_CUSTOMIZATION
-      cmpxchg_cnt++;
-#endif // INTEL_CUSTOMIZATION
-      acquired = atomic_compare_exchange_weak_explicit(
-          (volatile atomic_int *)lock, &expected, 1, memory_order_acq_rel,
-          memory_order_relaxed);
-#if INTEL_CUSTOMIZATION
-      // FIXME: workaround suggested by HW team.
-      // Applying similar change to other cmpxchg loops did not make any
-      // difference for hanging specACCELref/514, so it seems better to keep the
-      // workaround only here to minimize performance impact.
-      if (cmpxchg_cnt >= cmpxchg_ub) {
-        *((volatile int *)lock);
-        cmpxchg_cnt = 0;
+      if (!atomic_load((volatile atomic_int *)lock)) {
+        acquired = atomic_compare_exchange_weak_explicit(
+            (volatile atomic_int *)lock, &expected, 1, memory_order_acq_rel,
+            memory_order_relaxed);
       }
-#endif // INTEL_CUSTOMIZATION
+      if (!acquired)
+        backoff(backoff_cnt++, lock);
     } while (!acquired);
   }
   sub_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
