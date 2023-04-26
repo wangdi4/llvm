@@ -3,8 +3,8 @@
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; Test that the function foo is recognized as a recursive progression clone
-; and four clones of it are created. This test is similar to ip_cloning_recpro01.ll, but uses urem
-; rather than srem to form the recursive progression.
+; and four clones of it are created. This test is similar to ip_cloning_recpro01.ll,
+; but uses urem rather than srem to form the recursive progression.
 
 ; CHECK: Enter IP cloning: (Before inlining)
 ; CHECK: Cloning Analysis for:  foo

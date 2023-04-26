@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning)' -ip-specialization-cloning -debug-only=ipcloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning)' -ip-specialization-cloning -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
 ; CMPLRLLVM-26529: Ensure that 3 unique clones are created, due to three
 ; unique values for the "special" address of stack variable "constants".
@@ -9,7 +9,6 @@
 ; CHECK: define{{.*}}convolutionalEncode.2
 ; CHECK: define{{.*}}convolutionalEncode.3
 
-; ModuleID = 'ip_cloning_spec_cmplrllvm_26529.ll'
 source_filename = "ip_cloning_spec_cmplrllvm_26529.ll"
 
 @__const.t_run_test.CM_ONE = private unnamed_addr constant [3 x [2 x i8]] [[2 x i8] c"\01\01", [2 x i8] c"\01\00", [2 x i8] c"\01\01"], align 1

@@ -9,11 +9,24 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* %a) {
+@A = external dso_local local_unnamed_addr global [256 x i32], align 16
+@B = external dso_local local_unnamed_addr global [256 x i32], align 16
+
+define void @foo() {
 ; CHECK-LABEL:  Global optimization report for : foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  LOOP BEGIN
+; CHECK-NEXT:  <Peeled loop for vectorization>
+; CHECK:       LOOP END
+; CHECK-EMPTY:
+; CHECK-NEXT:  LOOP BEGIN
 ; CHECK:           remark #15301: SIMD LOOP WAS VECTORIZED
+; CHECK:           remark #15578: DEBUG: peel scenario: Trip count is known; peel is static.
+; CHECK-NEXT:      remark #15578: DEBUG: peel was performed: yes
+; CHECK-NEXT:      remark #15578: DEBUG: estimated gain from peeling: -118
+; CHECK-NEXT:      remark #15578: DEBUG: estimated gain from *not* peeling: -131
+; CHECK-NEXT:      remark #15578: DEBUG: peel kind: static
+; CHECK-NEXT:      remark #15578: DEBUG: peel formula: UnalignedGain <= AlignedGain: -131.25 <= -118
 ; CHECK:       LOOP END
 ;
 entry:
@@ -21,14 +34,15 @@ entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %for.body
-  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptr = getelementptr i32, i32* %a, i64 %indvars.iv
-  %ld = load i32, i32* %ptr, align 4
-  %add = add nuw nsw i32 %ld, 1
-  store i32 %add, i32* %ptr, align 4
+  %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+  %offset = add nuw nsw i64 %iv, 10
+  %src = getelementptr [256 x i32], ptr @A, i64 0, i64 %offset
+  %ld = load i32, ptr %src, align 4
+  %dst = getelementptr [256 x i32], ptr @B, i64 0, i64 %offset
+  store i32 %ld, i32* %dst, align 4
 
-  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 1024
+  %iv.next = add nuw nsw i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, 240
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:

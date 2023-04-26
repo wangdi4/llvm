@@ -5,8 +5,8 @@
 ; Test that the function foo is recognized as a recursive progression clone
 ; and eight clones of it are created. Also test that the recursive progression
 ; is not cyclic.
-; This is the same test as ip_cloning_recpro04.ll, but checks for IR without
-; requiring asserts.
+; This is the same test as ip_cloning_recpro04.ll, but checks for
+; IR without requiring asserts.
 
 ; CHECK: define dso_local void @MAIN__
 ; CHECK: define internal void @foo
@@ -30,40 +30,40 @@
 
 @count = available_externally dso_local local_unnamed_addr global i32 0, align 8
 
-define dso_local void @MAIN__() #0 {
-  %1 = alloca i32, align 4
-  store i32 1, i32* %1, align 4
-  call void @foo(i32* nonnull %1)
+define dso_local void @MAIN__() {
+bb:
+  %i = alloca i32, align 4
+  store i32 1, ptr %i, align 4
+  call void @foo(ptr nonnull %i)
   ret void
 }
 
-; Function Attrs: nounwind
-define internal void @foo(i32* noalias nocapture readonly) {
-  %2 = alloca i32, align 4
-  %3 = load i32, i32* @count, align 8
-  %4 = add nsw i32 %3, 1
-  store i32 %4, i32* @count, align 8
-  %5 = load i32, i32* %0, align 4
-  %6 = icmp eq i32 %5, 8
-  br i1 %6, label %7, label %9
+define internal void @foo(ptr noalias nocapture readonly %arg) {
+bb:
+  %i = alloca i32, align 4
+  %i1 = load i32, ptr @count, align 8
+  %i2 = add nsw i32 %i1, 1
+  store i32 %i2, ptr @count, align 8
+  %i3 = load i32, ptr %arg, align 4
+  %i4 = icmp eq i32 %i3, 8
+  br i1 %i4, label %bb5, label %bb7
 
-; <label>:7:                                      ; preds = %1
-  %8 = add nsw i32 %3, 2
-  store i32 %8, i32* @count, align 8
-  br label %13
+bb5:                                              ; preds = %bb
+  %i6 = add nsw i32 %i1, 2
+  store i32 %i6, ptr @count, align 8
+  br label %bb11
 
-; <label>:9:                                      ; preds = %1
-  %10 = icmp slt i32 %4, 500000
-  br i1 %10, label %11, label %13
+bb7:                                              ; preds = %bb
+  %i8 = icmp slt i32 %i2, 500000
+  br i1 %i8, label %bb9, label %bb11
 
-; <label>:11:                                     ; preds = %9
-  %12 = add nsw i32 %5, 1
-  store i32 %12, i32* %2, align 4
-  call void @foo(i32* nonnull %2)
-  br label %13
+bb9:                                              ; preds = %bb7
+  %i10 = add nsw i32 %i3, 1
+  store i32 %i10, ptr %i, align 4
+  call void @foo(ptr nonnull %i)
+  br label %bb11
 
-; <label>:13:                                     ; preds = %11, %9, %7
+bb11:                                             ; preds = %bb9, %bb7, %bb5
   ret void
 }
-
 ; end INTEL_FEATURE_SW_ADVANCED

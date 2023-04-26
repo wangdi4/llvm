@@ -4,8 +4,8 @@
 
 ; Test that foo is not selected for generic cloning of a recursive routine
 ; because it does not have enough callsites.
-; This is the same test as ip_cloning_genrec05.ll, but checks for IR without
-; requiring asserts.
+; This is the same test as ip_cloning_genrec05.ll, but checks for
+; IR without requiring asserts.
 
 ; CHECK: define internal i32 @foo
 ; CHECK: call i32 @foo
@@ -14,7 +14,7 @@
 ; CHECK: call i32 @foo
 ; CHECK-NOT: define internal i32 @foo.1
 
-define internal i32 @foo(i32 %count1, i32 %count2) #0 {
+define internal i32 @foo(i32 %count1, i32 %count2) {
 entry:
   %cmp = icmp eq i32 %count1, 0
   br i1 %cmp, label %if.then, label %if.end
@@ -49,6 +49,4 @@ entry:
   %add = add nsw i32 %call, %call1
   ret i32 %add
 }
-
-
 ; end INTEL_FEATURE_SW_ADVANCED

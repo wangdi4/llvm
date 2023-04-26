@@ -149,8 +149,10 @@ static cl::opt<bool> PrintHIRBeforeVPlan(
     "print-hir-before-vplan", cl::init(false),
     cl::desc("Print HLLoop which we attempt to vectorize via VPlanDriverHIR"));
 
-static cl::opt<bool> VPlanDebugOptReport(
-    "vplan-debug-opt-report", cl::init(false), cl::Hidden,
+static cl::opt<bool, /*ExternalStorage=*/true> VPlanDebugOptReportOpt(
+    "vplan-debug-opt-report",
+    cl::location(VPlanDriverImpl::EmitDebugOptRemarks), cl::init(false),
+    cl::Hidden,
     cl::desc(
         "Enable the output of debug remarks from VPlan in the opt report."));
 #else

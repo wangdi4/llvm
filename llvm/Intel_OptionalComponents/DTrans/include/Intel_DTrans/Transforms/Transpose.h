@@ -1,6 +1,6 @@
 //===---------------- Transpose.h - DTransTransposePass -------------------===//
 //
-// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -39,14 +39,11 @@ class TransposePass : public PassInfoMixin<dtrans::TransposePass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
-  // This is used to share the core implementation with the legacy pass.
   bool runImpl(Module &M, TransposeLoopInfoFuncType GetLI,
                dtrans::TransposeTLIType GetTLI);
 };
 
 } // end namespace dtrans
-
-ModulePass *createDTransTransposeWrapperPass();
 
 } // end namespace llvm
 

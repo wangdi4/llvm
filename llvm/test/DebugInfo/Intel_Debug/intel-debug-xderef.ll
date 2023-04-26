@@ -100,9 +100,13 @@
 ; The address space identifiers on pointers/references are not removed.
 ; Future improvement? For now they seem to be safely ignored by GDB.
 ;
+; CHECK:      !DIGlobalVariableExpression(var: !{{[0-9]+}}
+; UNMOD-SAME: expr: !DIExpression(DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef)
+; MODIF-SAME: expr: !DIExpression()
+; CHECK-SAME: )
+; CHECK:      [[INT:![0-9]+]] = !DIBasicType(name: "int"
 ; CHECK:      [[PTR0:![0-9]+]] = !DIDerivedType(tag: DW_TAG_pointer_type,
 ; CHECK-SAME:    dwarfAddressSpace: 0
-; CHECK:      [[INT:![0-9]+]] = !DIBasicType(name: "int"
 ; CHECK:      [[PTR1:![0-9]+]] = !DIDerivedType(tag: DW_TAG_pointer_type,
 ; CHECK-SAME:   baseType: [[INT]]
 ; CHECK-SAME:   dwarfAddressSpace: 1
@@ -165,6 +169,8 @@ entry:
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
+@global = addrspace(1) constant i32 50, align 4, !dbg !50
+
 ; Function Attrs: convergent mustprogress noinline norecurse nounwind optnone
 define dso_local spir_func void @_Z9local_ptrPU3AS3i(ptr addrspace(3) noundef %Arg) #2 !dbg !35 !srcloc !38 {
 entry:
@@ -199,7 +205,7 @@ attributes #3 = { convergent }
 !opencl.compiler.options = !{!7}
 !llvm.ident = !{!8}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus_14, file: !1, producer: "clang", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus_14, file: !1, producer: "clang", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None, globals: !52)
 !1 = !DIFile(filename: "<stdin>", directory: "/path/to")
 !2 = !{i32 7, !"Dwarf Version", i32 5}
 !3 = !{i32 2, !"Debug Info Version", i32 3}
@@ -249,3 +255,6 @@ attributes #3 = { convergent }
 !47 = !DILocalVariable(name: "Arg", arg: 1, scope: !42, file: !10, line: 8, type: !45)
 !48 = !DILocation(line: 8, column: 51, scope: !42)
 !49 = !DILocation(line: 8, column: 57, scope: !42)
+!50 = !DIGlobalVariableExpression(var: !51, expr: !DIExpression(DW_OP_constu, 4, DW_OP_swap, DW_OP_xderef))
+!51 = distinct !DIGlobalVariable(name: "global", linkageName: "global", scope: !0, file: !1, line: 12, type: !16, isLocal: true, isDefinition: true)
+!52 = !{!50}
