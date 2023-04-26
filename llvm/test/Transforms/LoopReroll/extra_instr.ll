@@ -11,10 +11,10 @@ define void @rerollable1(ptr nocapture %a) {
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = shl nuw nsw i64 [[IV]], 2
-; CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[TMP0]], 160
+; CHECK-NEXT:    [[TMP1:%.*]] = add nuw i64 [[TMP0]], 160 ;INTEL
 ; CHECK-NEXT:    [[SCEVGEP1:%.*]] = getelementptr i8, ptr [[A]], i64 [[TMP1]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = shl nuw nsw i64 [[IV]], 2
-; CHECK-NEXT:    [[TMP3:%.*]] = add i64 [[TMP2]], 80
+; CHECK-NEXT:    [[TMP3:%.*]] = add nuw i64 [[TMP2]], 80 ;INTEL
 ; CHECK-NEXT:    [[SCEVGEP:%.*]] = getelementptr i8, ptr [[A]], i64 [[TMP3]]
 ; CHECK-NEXT:    [[VALUE0:%.*]] = load i32, ptr [[SCEVGEP1]], align 4
 ; CHECK-NEXT:    store i32 [[VALUE0]], ptr [[SCEVGEP]], align 4
