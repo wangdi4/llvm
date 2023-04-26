@@ -92,7 +92,6 @@ void initializeADCELegacyPassPass(PassRegistry&);
 void initializeAddDiscriminatorsLegacyPassPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAssignmentTrackingAnalysisPass(PassRegistry &);
-void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
 void initializeAssumeBuilderPassLegacyPassPass(PassRegistry &);
 void initializeAnnotation2MetadataLegacyPass(PassRegistry &);
 void initializeArgNoAliasPropPass(PassRegistry &); // INTEL
@@ -214,7 +213,6 @@ void initializeIndVarSimplifyLegacyPassPass(PassRegistry&);
 void initializeIndirectBrExpandPassPass(PassRegistry&);
 void initializeInferAddressSpacesPass(PassRegistry&);
 void initializeInferFunctionAttrsLegacyPassPass(PassRegistry&);
-void initializeInjectTLIMappingsLegacyPass(PassRegistry &);
 void initializeInlineAggressiveWrapperPassPass(PassRegistry&); // INTEL
 void initializeInstCountLegacyPassPass(PassRegistry &);
 void initializeInstNamerPass(PassRegistry&);

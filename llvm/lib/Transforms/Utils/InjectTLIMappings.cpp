@@ -190,6 +190,7 @@ PreservedAnalyses InjectTLIMappings::run(Function &F,
   // Even if the pass adds IR attributes, the analyses are preserved.
   return PreservedAnalyses::all();
 }
+<<<<<<< HEAD
 
 ////////////////////////////////////////////////////////////////////////////////
 // Legacy PM Implementation.
@@ -228,3 +229,5 @@ INITIALIZE_PASS_END(InjectTLIMappingsLegacy, DEBUG_TYPE, "Inject TLI Mappings",
 FunctionPass *llvm::createInjectTLIMappingsLegacyPass() {
   return new InjectTLIMappingsLegacy();
 }
+=======
+>>>>>>> 7be8341f19bfd9baf979ecadef22d1bcaa47b54e
