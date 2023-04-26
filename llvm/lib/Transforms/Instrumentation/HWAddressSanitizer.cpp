@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 //===- HWAddressSanitizer.cpp - detector of uninitialized reads -------===//
 // INTEL_CUSTOMIZATION
 //
@@ -16,6 +17,9 @@
 // License.
 //
 // end INTEL_CUSTOMIZATION
+=======
+//===- HWAddressSanitizer.cpp - memory access error detector --------------===//
+>>>>>>> 4bb68160183e4ec4a7217190d3ebfd93c06c33ab
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
