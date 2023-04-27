@@ -6670,12 +6670,7 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
     return S;
   }
   PhiDepth--;
-#endif // INTEL_CUSTOMIZATION
 
-  if (const SCEV *S = createNodeFromSelectLikePHI(PN))
-    return S;
-
-#if INTEL_CUSTOMIZATION
   if (Value *V = simplifyInstruction(PN, {getDataLayout(), &TLI, &DT, &AC})) {
     // HIR depends on ScalarEvolution preserving LCSSA form as it allows us to
     // from 'independantly optimizable' regions. We can only allow traceback for
@@ -6689,6 +6684,9 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
       return getSCEV(V);
   }
 #endif // INTEL_CUSTOMIZATION
+
+  if (const SCEV *S = createNodeFromSelectLikePHI(PN))
+    return S; 
 
 #if INTEL_CUSTOMIZATION
   if (const SCEV *S = createNodeForIdenticalOperandsPHI(PN))
