@@ -148,20 +148,6 @@ Microsecond is the default unit if ``<Unit>`` is not specified.
 
 **Default**: Disabled
 
-``LIBOMPTARGET_USM_HOST_MEM=<Enable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Enable> := 1 | T | t
-
-Enables use of USM host memory if ``#pragma omp requires unified_shared_memory``
-is present in the program, and ``omp_target_alloc`` routine is invoked.
-
-**Default**: USM shared memory
-
-**Note**: It appears to be better not to claim this partial support of
-``unified_shared_memory`` and remove this feature to avoid confusion.
-
 ``LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<Num>[,<Method>]``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Sets the size (in megabyte) of dynamic memory allocatable within a kernel.

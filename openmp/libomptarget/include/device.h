@@ -605,9 +605,7 @@ struct DeviceTy {
                           int32_t NumTeams, int32_t ThreadLimit,
                           void *TgtNDLoopDesc, AsyncInfoTy &AsyncInfo);
   void *getContextHandle();
-  void *dataAllocManaged(int64_t Size);
   int32_t requiresMapping(void *Ptr, int64_t Size);
-  int32_t managedMemorySupported();
   void *dataRealloc(void *Ptr, size_t Size, int32_t Kind);
   void *dataAlignedAlloc(size_t Align, size_t Size, int32_t Kind);
   bool registerHostPointer(void *ptr, size_t Size);

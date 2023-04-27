@@ -318,12 +318,9 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
       LR.TPR.Flags.IsHostPointer = true;
     LR.TPR.Flags.IsPresent = false;
     LR.TPR.TargetPointer = HstPtrBegin;
-  } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-             !HasCloseModifier && !managedMemorySupported()) {
-#else  // INTEL_COLLAB
+#endif // INTEL_COLLAB
   } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
              !HasCloseModifier) {
-#endif // INTEL_COLLAB
     // If unified shared memory is active, implicitly mapped variables that are
     // not privatized use host address. Any explicitly mapped variables also use
     // host address where correctness is not impeded. In all other cases maps
@@ -503,11 +500,9 @@ DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool UpdateRefCount,
       LR.TPR.Flags.IsHostPointer = true;
     LR.TPR.Flags.IsPresent = false;
     LR.TPR.TargetPointer = HstPtrBegin;
-  } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
-             !managedMemorySupported()) {
-#else  // INTEL_COLLAB
-  } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
 #endif // INTEL_COLLAB
+  } else if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+
     // If the value isn't found in the mapping and unified shared memory
     // is on then it means we have stumbled upon a value which we need to
     // use directly from the host.
@@ -935,22 +930,11 @@ void *DeviceTy::getContextHandle() {
   return RTL->get_context_handle(RTLDeviceID);
 }
 
-void *DeviceTy::dataAllocManaged(int64_t Size) {
-  if (RTL->data_alloc_managed)
-    return RTL->data_alloc_managed(RTLDeviceID, Size);
-  else
-    return RTL->data_alloc(RTLDeviceID, Size, nullptr, TARGET_ALLOC_DEFAULT);
-}
-
 int32_t DeviceTy::requiresMapping(void *Ptr, int64_t Size) {
   if (RTL->requires_mapping)
     return RTL->requires_mapping(RTLDeviceID, Ptr, Size);
   else
     return 1;
-}
-
-int32_t DeviceTy::managedMemorySupported() {
-  return RTL->data_alloc_managed != nullptr;
 }
 
 void *DeviceTy::dataRealloc(void *Ptr, size_t Size, int32_t Kind) {

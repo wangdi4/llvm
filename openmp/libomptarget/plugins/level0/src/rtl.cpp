@@ -1365,7 +1365,6 @@ struct RTLFlagsTy {
   uint64_t DumpTargetImage : 1;
   uint64_t EnableProfile : 1;
   uint64_t LinkLibDevice : 1;
-  uint64_t UseHostMemForUSM : 1;
   uint64_t UseMemoryPool : 1;
   uint64_t UseDriverGroupSizes : 1;
   uint64_t UseImageOptions : 1;
@@ -1373,14 +1372,13 @@ struct RTLFlagsTy {
   uint64_t ShowBuildLog : 1;
   uint64_t NoSYCLFlush : 1;
   uint64_t NDRangeIgnoreTripcount : 1;
-  uint64_t Reserved : 53;
+  uint64_t Reserved : 54;
   RTLFlagsTy()
       : DumpTargetImage(0), EnableProfile(0),
         LinkLibDevice(0), // TODO: change it to 1 when L0 issue is resolved
-        UseHostMemForUSM(0), UseMemoryPool(1), UseDriverGroupSizes(0),
-        UseImageOptions(1), UseMultipleComputeQueues(0), ShowBuildLog(0),
-        NoSYCLFlush(0), NDRangeIgnoreTripcount(0),
-        Reserved(0) {}
+        UseMemoryPool(1), UseDriverGroupSizes(0), UseImageOptions(1),
+        UseMultipleComputeQueues(0), ShowBuildLog(0), NoSYCLFlush(0),
+        NDRangeIgnoreTripcount(0), Reserved(0) {}
 };
 
 /// Loop descriptor
@@ -1749,12 +1747,6 @@ struct RTLOptionTy {
             RTLProfileTy::Multiplier = RTLProfileTy::USEC_PER_SEC;
         }
       }
-    }
-
-    // Managed memory allocator
-    if ((Env = readEnvVar("LIBOMPTARGET_USM_HOST_MEM"))) {
-      if (parseBool(Env) == 1)
-        Flags.UseHostMemForUSM = 1;
     }
 
     // Memory pool
@@ -6903,12 +6895,6 @@ void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
   return DeviceInfo->dataAlloc(DeviceId, AllocSize, 0, TARGET_ALLOC_DEFAULT,
                                Offset, false/* UserAlloc */, false/* Owned */,
                                UINT32_MAX/* MemAdvice */, AllocOpt);
-}
-
-void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
-  int32_t Kind = DeviceInfo->Option.Flags.UseHostMemForUSM
-                    ? TARGET_ALLOC_HOST : TARGET_ALLOC_SHARED;
-  return DeviceInfo->dataAlloc(DeviceId, Size, 0, Kind, 0, true);
 }
 
 void *__tgt_rtl_data_realloc(int32_t DeviceId, void *Ptr, size_t Size,

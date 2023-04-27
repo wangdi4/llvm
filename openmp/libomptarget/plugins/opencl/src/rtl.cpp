@@ -746,7 +746,6 @@ public:
 /// RTL flags
 struct RTLFlagsTy {
   uint64_t EnableProfile : 1;
-  uint64_t UseHostMemForUSM : 1;
   uint64_t UseDriverGroupSizes : 1;
   uint64_t EnableSimd : 1;
   uint64_t UseSVM : 1;
@@ -757,12 +756,11 @@ struct RTLFlagsTy {
   uint64_t LinkLibDevice : 1;
   uint64_t NDRangeIgnoreTripcount : 1;
   // Add new flags here
-  uint64_t Reserved : 53;
+  uint64_t Reserved : 54;
   RTLFlagsTy()
-      : EnableProfile(0), UseHostMemForUSM(0), UseDriverGroupSizes(0),
-        EnableSimd(0), UseSVM(0), UseBuffer(0), UseSingleContext(0),
-        UseImageOptions(1), ShowBuildLog(0), LinkLibDevice(0),
-        NDRangeIgnoreTripcount(0), Reserved(0) {}
+      : EnableProfile(0), UseDriverGroupSizes(0), EnableSimd(0), UseSVM(0),
+        UseBuffer(0), UseSingleContext(0), UseImageOptions(1), ShowBuildLog(0),
+        LinkLibDevice(0), NDRangeIgnoreTripcount(0), Reserved(0) {}
 };
 
 /// Kernel properties.
@@ -1139,12 +1137,6 @@ struct RTLOptionTy {
         Flags.UseDriverGroupSizes = 1;
     }
 #endif  // INTEL_CUSTOMIZATION
-
-    // Read LIBOMPTARGET_USM_HOST_MEM
-    if ((Env = readEnvVar("LIBOMPTARGET_USM_HOST_MEM"))) {
-      if (parseBool(Env) == 1)
-        Flags.UseHostMemForUSM = 1;
-    }
 
     // Read LIBOMPTARGET_OPENCL_USE_SVM
     if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_USE_SVM"))) {
@@ -4558,13 +4550,6 @@ void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
       return nullptr;
   }
   return TgtPtr;
-}
-
-// Allocate a managed memory object.
-void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
-  int32_t Kind = DeviceInfo->Option.Flags.UseHostMemForUSM
-                    ? TARGET_ALLOC_HOST : TARGET_ALLOC_SHARED;
-  return dataAllocExplicit(DeviceId, Size, Kind);
 }
 
 void *__tgt_rtl_data_realloc(
