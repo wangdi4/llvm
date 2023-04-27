@@ -6702,6 +6702,7 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
   if (const SCEV *S = createNodeForRedundantPHICycle(PN))
     return S;
 #endif // INTEL_CUSTOMIZATION
+
   // If it's not a loop phi, we can't handle it yet.
   return getUnknown(PN);
 }
