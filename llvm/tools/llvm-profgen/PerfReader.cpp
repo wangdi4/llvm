@@ -353,8 +353,10 @@ PerfReaderBase::create(ProfiledBinary *Binary, PerfInputFile &PerfInput,
   assert((PerfInput.Format == PerfFormat::PerfScript) &&
          "Should be a perfscript!");
 
-  PerfInput.Content =
-      PerfScriptReader::checkPerfScriptType(PerfInput.InputFile);
+#if INTEL_CUSTOMIZATION
+  PerfInput.Content = PerfScriptReader::checkPerfScriptType(
+      StringRef(PerfInput.InputFile).split(',').first);
+#endif // INTEL_CUSTOMIZATION
   if (PerfInput.Content == PerfContent::LBRStack) {
     PerfReader.reset(
         new HybridPerfReader(Binary, PerfInput.InputFile, PIDFilter));
@@ -1033,10 +1035,16 @@ void PerfScriptReader::parseEventOrSample(TraceStream &TraceIt) {
 }
 
 void PerfScriptReader::parseAndAggregateTrace() {
-  // Trace line iterator
-  TraceStream TraceIt(PerfTraceFile);
-  while (!TraceIt.isAtEoF())
-    parseEventOrSample(TraceIt);
+#if INTEL_CUSTOMIZATION
+  SmallVector<StringRef, 1> TraceFiles;
+  PerfTraceFile.split(TraceFiles, ",");
+  for (auto &TraceFile : TraceFiles) {
+    // Trace line iterator
+    TraceStream TS(TraceFile);
+    while (!TS.isAtEoF())
+      parseEventOrSample(TS);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 // A LBR sample is like:
