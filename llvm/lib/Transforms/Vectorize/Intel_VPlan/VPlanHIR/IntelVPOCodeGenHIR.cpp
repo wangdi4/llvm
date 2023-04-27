@@ -5274,20 +5274,9 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::CompressExpandIndexInit: {
-    // Generate a vector of zeros, but put instruction's operand into the first
-    // position of the vector.
-    Type *ElType = VPInst->getType();
-    VectorType *VecType = getWidenedType(ElType, getVF());
-
-    RegDDRef *Zeros =
-        DDRefUtilities.createConstDDRef(Constant::getNullValue(VecType));
-    RegDDRef *InitRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
-
-    HLInst *InsertElementInst =
-        HLNodeUtilities.createInsertElementInst(Zeros, InitRef, 0);
-    addInstUnmasked(InsertElementInst);
-
-    addVPValueWideRefMapping(VPInst, InsertElementInst->getLvalDDRef());
+    // CompressExpandIndexInit returns its operand.
+    RegDDRef *ScalRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+    addVPValueScalRefMapping(VPInst, ScalRef, 0);
     return;
   }
 
@@ -5472,24 +5461,45 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 
   case VPInstruction::CompressExpandIndexInc: {
-    // Sum elements of resulting indices vector and put the resulting value into
-    // the the first vector element. All the rest elements become zeros.
-    VectorType *VecType = getWidenedType(VPInst->getType(), getVF());
-    Function *VecReduceFunc = Intrinsic::getDeclaration(
-        &HLNodeUtilities.getModule(), Intrinsic::vector_reduce_add, {VecType});
+    // First, calculate the number of mask bits. All calculations are scalar.
+    //
+    // compress-expand-index-inc %orig.index, %stride
+    // =>
+    // %mask.i = bitcast <VF x i1> %mask to i8 (iVF)
+    // %mask.i.popcnt = call i8 @llvm.ctpop.i8(i8 %mask.i)
+    Type *IntTy = IntegerType::get(Context, getVF());
+    RegDDRef *Mask = widenRef(VPInst->getOperand(1), getVF());
+    HLInst *BitCastInst = createBitCast(IntTy, Mask);
 
-    RegDDRef *OrigIndex = widenRef(VPInst->getOperand(0), getVF());
-    HLInst *VecReduceCall =
-        HLNodeUtilities.createCall(VecReduceFunc, {OrigIndex}, "vec.reduce");
-    addInstUnmasked(VecReduceCall);
+    Function *CtpopFunc = Intrinsic::getDeclaration(
+        &HLNodeUtilities.getModule(), Intrinsic::ctpop, {IntTy});
+    HLInst *CtpopCall = HLNodeUtilities.createCall(
+        CtpopFunc, {BitCastInst->getLvalDDRef()->clone()}, "popcnt");
+    addInstUnmasked(CtpopCall);
 
-    RegDDRef *Zeros =
-        DDRefUtilities.createConstDDRef(Constant::getNullValue(VecType));
-    HLInst *InsertElementInst = HLNodeUtilities.createInsertElementInst(
-        Zeros, VecReduceCall->getLvalDDRef()->clone(), 0);
-    addInstUnmasked(InsertElementInst);
+    // Next, increment index: j += pop_cnt(mask) * stride
+    //
+    // %mask.i64 = zext i8 %mask.i.popcnt to i64
+    // %mul = mul i64 %mask.i64, %stride
+    // %new.index = add i64 %orig.index, %mul
+    HLInst *ZExt = CtpopCall;
+    if (VPInst->getType()->getIntegerBitWidth() > getVF()) {
+      ZExt = HLNodeUtilities.createZExt(VPInst->getType(),
+                                        CtpopCall->getLvalDDRef()->clone());
+      addInstUnmasked(ZExt);
+    }
 
-    addVPValueWideRefMapping(VPInst, InsertElementInst->getLvalDDRef());
+    RegDDRef *Stride = getOrCreateScalarRef(VPInst->getOperand(2), 0);
+    HLInst *Mul =
+        HLNodeUtilities.createMul(ZExt->getLvalDDRef()->clone(), Stride);
+    addInstUnmasked(Mul);
+
+    RegDDRef *OrigIndex = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+    HLInst *Add =
+        HLNodeUtilities.createAdd(OrigIndex, Mul->getLvalDDRef()->clone());
+    addInstUnmasked(Add);
+
+    addVPValueScalRefMapping(VPInst, Add->getLvalDDRef(), 0);
     return;
   }
 

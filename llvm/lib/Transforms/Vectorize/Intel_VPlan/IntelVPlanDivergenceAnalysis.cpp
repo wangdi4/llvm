@@ -1720,7 +1720,7 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::CompressExpandIndex)
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::CompressExpandIndexInc)
-    NewShape = getRandomVectorShape();
+    NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::CompressExpandMask)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::InvSCEVWrapper) {

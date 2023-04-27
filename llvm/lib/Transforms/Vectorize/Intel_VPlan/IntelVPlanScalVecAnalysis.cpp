@@ -802,7 +802,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
   case VPInstruction::CompressExpandIndexInit: {
-    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
     setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
     return true;
   }
@@ -818,9 +818,10 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
   case VPInstruction::CompressExpandIndexInc: {
-    setSVAKindForInst(Inst, SVAKind::Vector);
-    setSVAKindForReturnValue(Inst, SVAKind::Vector);
-    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
+    setSVAKindForOperand(Inst, 1, SVAKind::Vector);
     return true;
   }
   case VPInstruction::CompressExpandMask: {
